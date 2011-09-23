@@ -1,7 +1,13 @@
 elf: Add support for loading files
 
 This patch add ability to run checkpoint files by enhancing
-Elf file format.
+Elf file format, which includes
+
+ - new Elf file type ET_CKPT
+ - three additional program header types PT_CKPT_VMA, PT_CKPT_CORE
+   and PT_CKPT_PAGES. PT_CKPT_VMA holds 'vma_entry' structure,
+   PT_CKPT_CORE -- 'core_entry' structure and PT_CKPT_PAGES --
+   a set of all pages which are to be read into process memory.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
