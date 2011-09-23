@@ -13,9 +13,9 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  arch/x86/include/asm/elf.h |    3 
  arch/x86/vdso/vma.c        |   22 ++
- fs/binfmt_elf.c            |  404 ++++++++++++++++++++++++++++++++++++++++++++-
+ fs/binfmt_elf.c            |  405 ++++++++++++++++++++++++++++++++++++++++++++-
  include/linux/elf_ckpt.h   |  135 +++++++++++++++
- 4 files changed, 562 insertions(+), 2 deletions(-)
+ 4 files changed, 563 insertions(+), 2 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -80,7 +80,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
  static int load_elf_library(struct file *);
  static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
-@@ -556,6 +561,395 @@ static unsigned long randomize_stack_top
+@@ -556,6 +561,396 @@ static unsigned long randomize_stack_top
  #endif
  }
  
@@ -444,6 +444,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +	if (core_entry.gpregs.fs_base)
 +		wrmsrl(MSR_FS_BASE, core_entry.gpregs.fs_base);
 +
++	load_gs_index(thread->gsindex);
 +	if (core_entry.gpregs.gs_base)
 +		wrmsrl(MSR_GS_BASE, core_entry.gpregs.gs_base);
 +
@@ -476,7 +477,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
  {
  	struct file *interpreter = NULL; /* to shut gcc up */
-@@ -592,7 +986,9 @@ static int load_elf_binary(struct linux_
+@@ -592,7 +987,9 @@ static int load_elf_binary(struct linux_
  	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
  		goto out;
  
@@ -487,7 +488,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  		goto out;
  	if (!elf_check_arch(&loc->elf_ex))
  		goto out;
-@@ -619,6 +1015,12 @@ static int load_elf_binary(struct linux_
+@@ -619,6 +1016,12 @@ static int load_elf_binary(struct linux_
  		goto out_free_ph;
  	}
  
