@@ -1,4 +1,4 @@
-elf: Add support for loading files
+elf: Add support for loading ET_CKPT files
 
 This patch add ability to run checkpoint files by enhancing
 Elf file format, which includes
