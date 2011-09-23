@@ -1,0 +1,191 @@
+#ifndef CR_IMAGE_H
+#define CR_IMAGE_H
+
+#include "types.h"
+#include "compiler.h"
+
+#define FDINFO_MAGIC	0x01010101
+#define PAGES_MAGIC	0x20202020
+#define CORE_MAGIC	0xa75b8d43
+#define SHMEM_MAGIC	0x03300330
+#define PIPEFS_MAGIC	0x50495045
+#define PSTREE_MAGIC	0x40044004
+#define PIPES_MAGIC	0x05055050
+
+#define FDINFO_FD	1
+#define FDINFO_MAP	2
+
+#define PAGE_IMAGE_SIZE	4096
+#define PAGE_RSS	1
+
+struct fdinfo_entry {
+	u8	type;
+	u8	len;
+	u16	flags;
+	u32	pos;
+	u64	addr;
+	u8	name[0];
+} __packed;
+
+struct shmem_entry {
+	u64	start;
+	u64	end;
+	u64	shmid;
+} __packed;
+
+struct pstree_entry {
+	u32	pid;
+	u32	nr_children;
+	u32	children[0];
+} __packed;
+
+struct pipe_entry {
+	u32	fd;
+	u32	pipeid;
+	u32	flags;
+	u32	bytes;
+	u8	data[0];
+} __packed;
+
+#define VMA_AREA_REGULAR	(1 << 0)
+#define VMA_AREA_STACK		(1 << 1)
+#define VMA_AREA_VSYSCALL	(1 << 2)
+#define VMA_AREA_VDSO		(1 << 3)
+#define VMA_FORCE_READ		(1 << 4)
+#define VMA_AREA_HEAP		(1 << 5)
+#define VMA_FILE_PRIVATE	(1 << 6)
+#define VMA_FILE_SHARED		(1 << 7)
+#define VMA_ANON_SHARED		(1 << 8)
+#define VMA_ANON_PRIVATE	(1 << 9)
+#define VMA_FORCE_WRITE		(1 << 10)
+#define VMA_DUMP_ALL		(1 << 11)
+
+#define vma_entry_has(vma, s)	(((vma)->status & (s)) == (s))
+
+struct vma_entry {
+	u64	start;
+	u64	end;
+	u64	pgoff;
+	u32	prot;
+	u32	flags;
+	u32	status;
+	u32	pid;
+	s64	fd;
+	u64	ino;
+	u32	dev_maj;
+	u32	dev_min;
+} __packed;
+
+struct page_entry {
+	u64	va;
+	u8	data[PAGE_IMAGE_SIZE];
+} __packed;
+
+#define HEADER_VERSION		1
+#define HEADER_ARCH_X86_64	1
+
+struct image_header {
+	u16	version;
+	u16	arch;
+	u32	flags;
+} __packed;
+
+/*
+ * PTRACE_GETREGS
+ * PTRACE_GETFPREGS
+ * PTRACE_GETFPXREGS		dep CONFIG_X86_32
+ * PTRACE_GET_THREAD_AREA	dep CONFIG_X86_32 || CONFIG_IA32_EMULATION
+ * PTRACE_GETFDPIC		dep CONFIG_BINFMT_ELF_FDPIC
+ *
+ * PTRACE_ARCH_PRCTL		dep CONFIG_X86_64
+ *  ARCH_SET_GS/ARCH_GET_FS
+ *  ARCH_SET_FS/ARCH_GET_GS
+ */
+
+#ifdef CONFIG_X86_64
+
+struct user_regs_entry {
+	u64	r15;
+	u64	r14;
+	u64	r13;
+	u64	r12;
+	u64	bp;
+	u64	bx;
+	u64	r11;
+	u64	r10;
+	u64	r9;
+	u64	r8;
+	u64	ax;
+	u64	cx;
+	u64	dx;
+	u64	si;
+	u64	di;
+	u64	orig_ax;
+	u64	ip;
+	u64	cs;
+	u64	flags;
+	u64	sp;
+	u64	ss;
+	u64	fs_base;
+	u64	gs_base;
+	u64	ds;
+	u64	es;
+	u64	fs;
+	u64	gs;
+} __packed;
+
+struct desc_struct {
+ union {
+	struct {
+		u32 a;
+		u32 b;
+	};
+	struct {
+		u16 limit0;
+		u16 base0;
+		unsigned base1: 8, type: 4, s: 1, dpl: 2, p: 1;
+		unsigned limit: 4, avl: 1, l: 1, d: 1, g: 1, base2: 8;
+	};
+ };
+} __packed;
+
+struct user_fpregs_entry {
+	u16	cwd;
+	u16	swd;
+	u16	twd;	/* Note this is not the same as
+			   the 32bit/x87/FSAVE twd */
+	u16	fop;
+	u64	rip;
+	u64	rdp;
+	u32	mxcsr;
+	u32	mxcsr_mask;
+	u32	st_space[32];	/* 8*16 bytes for each FP-reg = 128 bytes */
+	u32	xmm_space[64];	/* 16*16 bytes for each XMM-reg = 256 bytes */
+	u32	padding[24];
+} __packed;
+
+#define GDT_ENTRY_TLS_ENTRIES 3
+
+struct core_entry {
+	struct image_header		hdr;
+	struct user_regs_entry		gpregs;
+	struct user_fpregs_entry	fpregs;
+	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
+	u32				personality;
+} __packed;
+
+#endif /* CONFIG_X86_64 */
+
+#ifndef offsetof
+# define offsetof(TYPE, MEMBER) ((long) &((TYPE *)0)->MEMBER)
+#endif
+
+/*
+ * There are always 4 magic bytes at the
+ * beginning of the every file.
+ */
+#define MAGIC_OFFSET		(sizeof(u32))
+#define GET_FILE_OFF(s, m)	(offsetof(s,m) + MAGIC_OFFSET)
+#define GET_FILE_OFF_AFTER(s)	(sizeof(s) + MAGIC_OFFSET)
+
+#endif /* CR_IMAGE_H */

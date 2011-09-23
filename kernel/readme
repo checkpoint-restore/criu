@@ -1,0 +1,5 @@
+The kernel patches series. See "series" file to obtain
+order of appliance. Not all patches do address C/R directly
+but some of them are needed due to dependencies.
+
+Has been tested on Linux 3.1-rc3.

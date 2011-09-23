@@ -1,0 +1,105 @@
+#ifndef CRTOOLS_H_
+#define CRTOOLS_H_
+
+#include <sys/types.h>
+
+#include "types.h"
+#include "list.h"
+
+#include "image.h"
+
+extern struct page_entry zero_page_entry;
+
+int cr_dump_tasks(pid_t pid, bool leader_only, int leave_stopped);
+int cr_restore_tasks(pid_t pid, bool leader_only, int leave_stopped);
+int cr_show(unsigned long pid, bool leader_only);
+int convert_to_elf(char *elf_path, int fd_core);
+
+#define CR_FD_PERM		0600
+
+enum {
+	CR_FD_FDINFO,
+	CR_FD_PAGES,
+	CR_FD_PAGES_SHMEM,
+	CR_FD_CORE,
+	CR_FD_PIPES,
+	CR_FD_PSTREE,
+	CR_FD_SHMEM,
+
+	CR_FD_MAX
+};
+
+/* file descriptors template */
+struct cr_fd_desc_tmpl {
+	const char	*fmt;			/* format for the name */
+	u32		magic;			/* magic in the header */
+};
+
+/* file descriptors */
+struct cr_fd_desc {
+	struct cr_fd_desc_tmpl	*tmpl;		/* template we refer to */
+	char			name[64];	/* the name, based on pid */
+	int			fd;		/* descriptor for open/close */
+};
+
+struct cr_fdset {
+	struct cr_fd_desc	desc[CR_FD_MAX];
+	u32			use_mask;	/*
+						 * if descriptor get used,set
+						 * bit here
+						 */
+};
+
+#define CR_FD_DESC_USE(type)		((1 << (type)))
+#define CR_FD_DESC_ALL			((1 << CR_FD_MAX) - 1)
+#define CR_FD_DESC_NOPSTREE		(CR_FD_DESC_ALL & ~(CR_FD_DESC_USE(CR_FD_PSTREE)))
+#define CR_FD_DESC_NONE			(0)
+
+
+struct cr_fdset *alloc_cr_fdset(pid_t pid);
+int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
+			   unsigned long use_mask);
+int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
+			      unsigned long use_mask);
+void close_cr_fdset(struct cr_fdset *cr_fdset);
+void free_cr_fdset(struct cr_fdset **cr_fdset);
+
+struct vma_area {
+	struct list_head	list;
+	struct vma_entry	vma;
+	unsigned long		shmid;
+	int			vm_file_fd;
+};
+
+#define vma_area_has(vma_area, s) vma_entry_has(&vma_area->vma, s)
+#define vma_entry_len(vma) ((vma)->end - (vma)->start)
+
+struct pstree_item {
+	struct list_head	list;
+	pid_t			pid;		/* leader pid */
+	u32			nr_children;	/* number of children */
+	u32			*children;	/* array of children */
+};
+
+struct pstree_item_info {
+	struct list_head	list;
+
+	pid_t			pid;		/* leader pid */
+	u32			nr_children;	/* number of children */
+	u32			*children;	/* array of children */
+
+	bool			launched;	/* set if launched */
+};
+
+static inline unsigned long vma_area_size(struct vma_area *vma)
+{
+	return vma->vma.end - vma->vma.start;
+}
+
+static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
+{
+	return addr >= (unsigned long)vma->vma.start &&
+		addr < (unsigned long)vma->vma.end;
+}
+
+#endif /* CRTOOLS_H_ */

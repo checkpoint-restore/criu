@@ -1,0 +1,636 @@
+elf: Add support for loading files
+
+This patch add ability to run checkpoint files by enhancing
+Elf file format.
+
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
+ arch/x86/include/asm/elf.h |    3 
+ arch/x86/vdso/vma.c        |   22 ++
+ fs/binfmt_elf.c            |  404 ++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/elf_ckpt.h   |  135 +++++++++++++++
+ 4 files changed, 562 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.git/arch/x86/include/asm/elf.h
+===================================================================
+--- linux-2.6.git.orig/arch/x86/include/asm/elf.h
++++ linux-2.6.git/arch/x86/include/asm/elf.h
+@@ -314,7 +314,8 @@ struct linux_binprm;
+ #define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
+ extern int arch_setup_additional_pages(struct linux_binprm *bprm,
+ 				       int uses_interp);
+-
++extern int arch_setup_additional_pages_at(struct linux_binprm *bprm,
++					  void *addr, int uses_interp);
+ extern int syscall32_setup_pages(struct linux_binprm *, int exstack);
+ #define compat_arch_setup_additional_pages	syscall32_setup_pages
+ 
+Index: linux-2.6.git/arch/x86/vdso/vma.c
+===================================================================
+--- linux-2.6.git.orig/arch/x86/vdso/vma.c
++++ linux-2.6.git/arch/x86/vdso/vma.c
+@@ -137,6 +137,28 @@ up_fail:
+ 	return ret;
+ }
+ 
++int arch_setup_additional_pages_at(struct linux_binprm *bprm, void *addr, int uses_interp)
++{
++	struct mm_struct *mm = current->mm;
++	int ret;
++
++	if (!vdso_enabled)
++		return 0;
++
++	down_write(&mm->mmap_sem);
++	current->mm->context.vdso = addr;
++	ret = install_special_mapping(mm, (unsigned long)addr, vdso_size,
++				      VM_READ | VM_EXEC |
++				      VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
++				      VM_ALWAYSDUMP,
++				      vdso_pages);
++	if (ret)
++		current->mm->context.vdso = NULL;
++
++	up_write(&mm->mmap_sem);
++	return ret;
++}
++
+ static __init int vdso_setup(char *s)
+ {
+ 	vdso_enabled = simple_strtoul(s, NULL, 0);
+Index: linux-2.6.git/fs/binfmt_elf.c
+===================================================================
+--- linux-2.6.git.orig/fs/binfmt_elf.c
++++ linux-2.6.git/fs/binfmt_elf.c
+@@ -36,6 +36,11 @@
+ #include <asm/param.h>
+ #include <asm/page.h>
+ 
++#include <linux/elf_ckpt.h>
++#include <linux/flex_array.h>
++#include <asm/tlbflush.h>
++#include <asm/desc.h>
++
+ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
+ static int load_elf_library(struct file *);
+ static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
+@@ -556,6 +561,395 @@ static unsigned long randomize_stack_top
+ #endif
+ }
+ 
++#ifdef CONFIG_X86_64
++
++static int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
++			 struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
++{
++	struct thread_struct *thread = &current->thread;
++	struct elf_phdr *elf_phdr_pages;
++	struct elf_phdr *elf_phdr_core;
++	struct flex_array *fa = NULL;
++	struct vma_entry *vma_entry_ptr;
++	int nr_vma_found, nr_vma_mapped;
++	struct vma_entry vma_entry;
++	struct file *file = NULL;
++	unsigned long elf_entry;
++	unsigned long map_addr;
++
++	unsigned long start_code, end_code, start_data, end_data;
++	unsigned long start_brk, brk, start_stack;
++	unsigned long elf_bss, elf_brk;
++	unsigned long vdso;
++
++	struct core_entry core_entry;
++	int i, ret = -ENOEXEC;
++	loff_t off;
++
++	int cpu, seg;
++
++	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
++	BUILD_BUG_ON(CKPT_PAGE_SIZE != PAGE_SIZE);
++
++	elf_phdr_core	= NULL;
++	elf_phdr_pages	= NULL;
++	nr_vma_found	= 0;
++	nr_vma_mapped	= 0;
++
++	elf_bss		= 0;
++	elf_brk		= 0;
++
++	start_code	= -1UL;
++	end_code	= 0;
++
++	start_data	= -1UL;
++	end_data	= 0;
++
++	start_stack	= -1UL;
++	start_brk	= -1UL;
++	brk		= -1UL;
++
++	vdso		= -1UL;
++
++	fa = flex_array_alloc(sizeof(vma_entry), elf_ex->e_phnum, GFP_KERNEL);
++	if (!fa || flex_array_prealloc(fa, 0, elf_ex->e_phnum, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		if (fa) {
++			flex_array_free(fa);
++			fa = NULL;
++			goto out;
++		}
++	}
++
++	/* Flush all traces of the currently running executable */
++	ret = flush_old_exec(bprm);
++	if (ret)
++		goto out;
++
++	/* No return point */
++	current->flags &= ~PF_FORKNOEXEC;
++	current->mm->def_flags = 0;
++
++	/*
++	 * We don't care about parameters passed (such as argc, argv, env)
++	 * when execute checkpoint file because we're to substitute
++	 * all the things anyway -- so drop any previous memory mappings.
++	 */
++	do_munmap(current->mm, 0, TASK_SIZE);
++
++	SET_PERSONALITY(loc->elf_ex);
++
++	for (i = 0; i < elf_ex->e_phnum; i++) {
++
++		switch (elf_phdr[i].p_type) {
++		case PT_CKPT_VMA:
++			ret = kernel_read(bprm->file, elf_phdr[i].p_offset,
++					  (char *)&vma_entry, sizeof(vma_entry));
++			if (ret != sizeof(vma_entry)) {
++				pr_err("elf-ckpt: Can't read vma_entry\n");
++				ret = -EIO;
++				goto out;
++			}
++			if (flex_array_put(fa, i, &vma_entry, GFP_KERNEL))
++				BUG();
++
++			/* We need to know if there is executable stack */
++			if (vma_entry.status & VMA_AREA_STACK) {
++				if (vma_entry.flags & PROT_EXEC)
++					current->personality |= READ_IMPLIES_EXEC;
++			}
++
++			nr_vma_found++;
++			continue;
++		case PT_CKPT_CORE:
++			elf_phdr_core = &elf_phdr[i];
++			continue;
++		case PT_CKPT_PAGES:
++			elf_phdr_pages = &elf_phdr[i];
++			continue;
++		default:
++			continue;
++		}
++	}
++
++	/* Be sure it has the file structure we expect to see. */
++	if (!elf_phdr_pages || !elf_phdr_core || !nr_vma_found) {
++		send_sig(SIGKILL, current, 0);
++		ret = -ENOEXEC;
++		goto out;
++	}
++
++	/*
++	 * VMA randomization still needs to be set (just in case if
++	 * the program we restore will exec something else later).
++	 */
++	if (!(current->personality & ADDR_NO_RANDOMIZE) && randomize_va_space)
++		current->flags |= PF_RANDOMIZE;
++
++	setup_new_exec(bprm);
++
++	current->mm->free_area_cache = current->mm->mmap_base;
++	current->mm->cached_hole_size = 0;
++
++	for (i = 0; i < nr_vma_found; i++) {
++		vma_entry_ptr = flex_array_get(fa, i);
++
++		if (vma_entry_ptr->status & VMA_AREA_HEAP) {
++			start_brk = vma_entry_ptr->start;
++		}
++
++		if (vma_entry_ptr->status & VMA_AREA_VDSO) {
++			vdso = vma_entry_ptr->start;
++		}
++
++		if (!(vma_entry_ptr->status & VMA_AREA_REGULAR))
++			continue;
++
++		if (vma_entry_ptr->fd != -1) {
++			file = fget((unsigned int)vma_entry_ptr->fd);
++			if (!file) {
++				send_sig(SIGKILL, current, 0);
++				ret = -EBADF;
++				goto out_unmap;
++			}
++
++			/* Reuse this field to handle error cases */
++			vma_entry_ptr->fd = (__u64)file;
++		} else
++			file = NULL;
++
++		down_write(&current->mm->mmap_sem);
++		map_addr = do_mmap(file,
++				   vma_entry_ptr->start,
++				   vma_entry_ptr->end - vma_entry_ptr->start,
++				   vma_entry_ptr->prot,
++				   vma_entry_ptr->flags | MAP_FIXED,
++				   vma_entry_ptr->pgoff);
++		up_write(&current->mm->mmap_sem);
++
++		if (file) {
++			fput(file);
++			do_close((unsigned int)vma_entry_ptr->fd);
++		}
++
++		if (BAD_ADDR(map_addr)) {
++			send_sig(SIGKILL, current, 0);
++			ret = IS_ERR((void *)map_addr) ? PTR_ERR((void*)map_addr) : -EINVAL;
++			goto out_unmap;
++		}
++
++		/*
++		 * FIXME
++		 * Some heuristics to guess previously loaded real
++		 * elf file structure. Probably this things should
++		 * be exported via /proc somewhere instead.
++		 */
++
++		if (vma_entry_ptr->status & VMA_AREA_STACK) {
++			/* Note if stack is VM_GROWSUP -- it should be reversed */
++			start_stack = vma_entry_ptr->start;
++		}
++
++		if (vma_entry_ptr->prot & PROT_EXEC) {
++			if (start_code > vma_entry_ptr->start)
++				start_code = vma_entry_ptr->start;
++			if (end_code < vma_entry_ptr->end)
++				end_code = vma_entry_ptr->end;
++		} else {
++			/*
++			 * Neither .bss nor .data was being file mapped.
++			 * FIXME: .rodata are loaded by interp.
++			 */
++			if (!file) {
++				if (vma_entry_ptr->prot & (PROT_WRITE)) {
++					if (start_data > vma_entry_ptr->start)
++						start_data = vma_entry_ptr->start;
++					if (end_data < vma_entry_ptr->end)
++						end_data = vma_entry_ptr->end;
++				}
++			}
++		}
++
++		nr_vma_mapped++;
++	}
++
++#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
++	if (vdso == -1UL) {
++		pr_err("elf-ckpt: Can't find VDSO address\n");
++		ret = -ENOEXEC;
++		goto out_unmap;
++	}
++#endif
++
++	/* Restore core data */
++	ret = kernel_read(bprm->file, elf_phdr_core->p_offset,
++			  (char *)&core_entry, sizeof(core_entry));
++	if (ret != sizeof(core_entry)) {
++		pr_err("elf-ckpt: Can't read core_entry\n");
++		ret = -EIO;
++		goto out_unmap;
++	}
++
++	elf_entry	= core_entry.gpregs.ip;
++	bprm->p		= start_stack;
++
++	current->mm->start_code		= start_code;
++	current->mm->end_code		= end_code;
++	current->mm->start_data		= start_data;
++	current->mm->end_data		= end_data;
++	current->mm->start_stack	= start_stack;
++	current->mm->start_brk		= start_brk;
++	current->mm->brk		= brk;
++
++#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
++	ret = arch_setup_additional_pages_at(bprm, (void *)vdso, 0);
++	if (ret) {
++		pr_err("elf-ckpt: Can't setup additional pages at %lx with %d\n",
++			vdso, ret);
++		goto out_unmap;
++	}
++#endif
++
++	/*
++	 * Restore pages
++	 */
++	off = elf_phdr_pages->p_offset;
++	while (1) {
++		struct vm_area_struct *vma;
++		struct page *page;
++		void *page_data;
++		__u64 va;
++
++		ret = kernel_read(bprm->file, off, (char *)&va, sizeof(va));
++		if (ret != sizeof(va)) {
++			pr_err("elf-ckpt: Can't read page virtual address: "
++			       "ret = %d off = %lx\n", ret, (unsigned long)off);
++			ret = -EIO;
++			goto out_unmap;
++		}
++
++		/* End of pages reached */
++		if (!va)
++			break;
++
++		vma = find_vma(current->mm, (unsigned long)va);
++		if (!vma) {
++			pr_err("elf-ckpt: No VMA for page: %16lx\n", (unsigned long)va);
++			ret = -ESRCH;
++			goto out_unmap;
++		}
++
++		ret = get_user_pages(current, current->mm, (unsigned long)va,
++				     1, 1, 1, &page, NULL);
++		if (ret != 1) {
++			pr_err("elf-ckpt: Can't get user page: %16lx\n", (unsigned long)va);
++			ret = -EFAULT;
++			goto out_unmap;
++		}
++
++		page_data = kmap(page);
++		ret = kernel_read(bprm->file, off + sizeof(va), page_data, PAGE_SIZE);
++		kunmap(page);
++		put_page(page);
++
++		if (ret != PAGE_SIZE) {
++			pr_err("elf-ckpt: Can't read data on page: %16lx\n", (unsigned long)va);
++			ret = -EFAULT;
++			goto out_unmap;
++		}
++
++		off += sizeof(va) + PAGE_SIZE;
++	}
++
++	set_binfmt(&elf_format);
++
++	/*
++	 * Registers setup.
++	 *
++	 * Since we might be modifying MSRs we're
++	 * to be sure the task wont be preempted
++	 * until modification is complete.
++	 */
++	cpu = get_cpu();
++
++	regs->ip	= core_entry.gpregs.ip;
++	regs->sp	= core_entry.gpregs.sp;
++	regs->cs	= core_entry.gpregs.cs;
++	regs->ss	= core_entry.gpregs.ss;
++	regs->flags	= core_entry.gpregs.flags;
++	regs->r15	= core_entry.gpregs.r15;
++	regs->r14	= core_entry.gpregs.r14;
++	regs->r13	= core_entry.gpregs.r13;
++	regs->r12	= core_entry.gpregs.r12;
++	regs->bp	= core_entry.gpregs.bp;
++	regs->bx	= core_entry.gpregs.bx;
++	regs->r11	= core_entry.gpregs.r11;
++	regs->r10	= core_entry.gpregs.r10;
++	regs->r8	= core_entry.gpregs.r8;
++	regs->ax	= core_entry.gpregs.ax;
++	regs->cx	= core_entry.gpregs.cx;
++	regs->dx	= core_entry.gpregs.dx;
++	regs->si	= core_entry.gpregs.si;
++	regs->di	= core_entry.gpregs.di;
++	regs->orig_ax	= core_entry.gpregs.orig_ax;
++
++	thread->usersp	= core_entry.gpregs.sp;
++	thread->ds	= core_entry.gpregs.ds;
++	thread->es	= core_entry.gpregs.es;
++	thread->fs	= core_entry.gpregs.fs;
++	thread->gs	= core_entry.gpregs.gs;
++
++	thread->fsindex	= thread->fs;
++	thread->gsindex = thread->gs;
++
++	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
++		thread->tls_array[i].a = core_entry.tls_array[i].a;
++		thread->tls_array[i].b = core_entry.tls_array[i].b;
++	}
++
++	load_TLS(thread, cpu);
++
++	seg = thread->fsindex;
++	loadsegment(fs, seg);
++	savesegment(fs, seg);
++
++	if (seg != thread->fsindex) {
++		pr_err("Fixup on FS loading exception: %i %i\n",
++			thread->fsindex, seg);
++	}
++
++	if (core_entry.gpregs.fs_base)
++		wrmsrl(MSR_FS_BASE, core_entry.gpregs.fs_base);
++
++	if (core_entry.gpregs.gs_base)
++		wrmsrl(MSR_GS_BASE, core_entry.gpregs.gs_base);
++
++	put_cpu();
++
++	ret = 0;
++out:
++	if (fa)
++		flex_array_free(fa);
++	return ret;
++
++out_unmap:
++	for (i = 0; i < nr_vma_mapped; i++) {
++		vma_entry_ptr = flex_array_get(fa, i);
++		down_write(&current->mm->mmap_sem);
++		do_munmap(current->mm, vma_entry_ptr->start,
++			  vma_entry_ptr->end - vma_entry_ptr->start);
++		up_write(&current->mm->mmap_sem);
++	}
++	goto out;
++}
++#else
++static int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
++			 struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
++{
++	return -ENOEXEC;
++}
++#endif
++
+ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
+ {
+ 	struct file *interpreter = NULL; /* to shut gcc up */
+@@ -592,7 +986,9 @@ static int load_elf_binary(struct linux_
+ 	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
+ 		goto out;
+ 
+-	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
++	if (loc->elf_ex.e_type != ET_EXEC &&
++	    loc->elf_ex.e_type != ET_DYN  &&
++	    loc->elf_ex.e_type != ET_CKPT)
+ 		goto out;
+ 	if (!elf_check_arch(&loc->elf_ex))
+ 		goto out;
+@@ -619,6 +1015,12 @@ static int load_elf_binary(struct linux_
+ 		goto out_free_ph;
+ 	}
+ 
++	if (loc->elf_ex.e_type == ET_CKPT) {
++		retval = load_elf_ckpt(bprm, regs, &loc->elf_ex,
++				       (struct elf_phdr *)elf_phdata);
++		goto out_free_ph;
++	}
++
+ 	elf_ppnt = elf_phdata;
+ 	elf_bss = 0;
+ 	elf_brk = 0;
+Index: linux-2.6.git/include/linux/elf_ckpt.h
+===================================================================
+--- /dev/null
++++ linux-2.6.git/include/linux/elf_ckpt.h
+@@ -0,0 +1,135 @@
++#ifndef _LINUX_ELF_CHECKPOINT_H
++#define _LINUX_ELF_CHECKPOINT_H
++
++#include <linux/types.h>
++#include <linux/elf-em.h>
++
++#ifdef __KERNEL__
++
++#include <asm/elf.h>
++
++/*
++ * Elf extension includes new Elf file type
++ * and program header types as well.
++ */
++#define ET_CKPT				5
++
++#define PT_CKPT_OFFSET			0x01010101
++
++#define PT_CKPT_VMA			(PT_LOOS + PT_CKPT_OFFSET + 1)
++#define PT_CKPT_CORE			(PT_LOOS + PT_CKPT_OFFSET + 2)
++#define PT_CKPT_PAGES			(PT_LOOS + PT_CKPT_OFFSET + 3)
++
++#define CKPT_PAGE_SIZE			4096
++#define CKPT_GDT_ENTRY_TLS_ENTRIES	3
++
++#define HEADER_VERSION			1
++#define HEADER_ARCH_X86_64		1
++
++#define VMA_AREA_REGULAR		(1 <<  0)
++#define VMA_AREA_STACK			(1 <<  1)
++#define VMA_AREA_VSYSCALL		(1 <<  2)
++#define VMA_AREA_VDSO			(1 <<  3)
++#define VMA_FORCE_READ			(1 <<  4)
++#define VMA_AREA_HEAP			(1 <<  5)
++#define VMA_FILE_PRIVATE		(1 <<  6)
++#define VMA_FILE_SHARED			(1 <<  7)
++#define VMA_ANON_SHARED			(1 <<  8)
++#define VMA_ANON_PRIVATE		(1 <<  9)
++#define VMA_FORCE_WRITE			(1 << 10)
++
++struct vma_entry {
++	__u64	start;
++	__u64	end;
++	__u64	pgoff;
++	__u32	prot;
++	__u32	flags;
++	__u32	status;
++	__u32	pid;
++	__s64	fd;
++	__u64	ino;
++	__u32	dev_maj;
++	__u32	dev_min;
++} __packed;
++
++struct page_entry {
++	__u64	va;
++	__u8	data[CKPT_PAGE_SIZE];
++} __packed;
++
++struct image_header {
++	__u16	version;
++	__u16	arch;
++	__u32	flags;
++} __packed;
++
++struct user_regs_entry {
++	__u64	r15;
++	__u64	r14;
++	__u64	r13;
++	__u64	r12;
++	__u64	bp;
++	__u64	bx;
++	__u64	r11;
++	__u64	r10;
++	__u64	r9;
++	__u64	r8;
++	__u64	ax;
++	__u64	cx;
++	__u64	dx;
++	__u64	si;
++	__u64	di;
++	__u64	orig_ax;
++	__u64	ip;
++	__u64	cs;
++	__u64	flags;
++	__u64	sp;
++	__u64	ss;
++	__u64	fs_base;
++	__u64	gs_base;
++	__u64	ds;
++	__u64	es;
++	__u64	fs;
++	__u64	gs;
++} __packed;
++
++struct desc_struct_entry {
++ union {
++	struct {
++		__u32 a;
++		__u32 b;
++	};
++	struct {
++		__u16 limit0;
++		__u16 base0;
++		unsigned base1: 8, type: 4, s: 1, dpl: 2, p: 1;
++		unsigned limit: 4, avl: 1, l: 1, d: 1, g: 1, base2: 8;
++	};
++ };
++} __packed;
++
++struct user_fpregs_entry {
++	__u16	cwd;
++	__u16	swd;
++	__u16	twd;
++	__u16	fop;
++	__u64	rip;
++	__u64	rdp;
++	__u32	mxcsr;
++	__u32	mxcsr_mask;
++	__u32	st_space[32];
++	__u32	xmm_space[64];
++	__u32	padding[24];
++} __packed;
++
++struct core_entry {
++	struct image_header		header;
++	struct user_regs_entry		gpregs;
++	struct user_fpregs_entry	fpregs;
++	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
++	__u32				personality;
++} __packed;
++
++#endif /* __KERNEL__ */
++
++#endif /* _LINUX_ELF_CHECKPOINT_H */

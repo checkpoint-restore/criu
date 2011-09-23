@@ -1,0 +1,1115 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <dirent.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <linux/kdev_t.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/sendfile.h>
+
+#define PAGE_SIZE	4096
+
+#include <linux/types.h>
+#include "img_structs.h"
+#include "binfmt_img.h"
+
+struct fmap_fd {
+	unsigned long start;
+	int fd;
+	struct fmap_fd *next;
+};
+
+static struct fmap_fd *fmap_fds;
+
+struct shmem_info {
+	unsigned long start;
+	unsigned long end;
+	unsigned long id;
+	int pid;
+	int real_pid;
+};
+
+static struct shmem_info *shmems;
+static int nr_shmems;
+
+struct pipes_info {
+	unsigned int id;
+	int pid;
+	int real_pid;
+	int read_fd;
+	int write_fd;
+	int users;
+};
+
+static struct pipes_info *pipes;
+static int nr_pipes;
+
+static int restore_task_with_children(int my_pid, char *pstree_path);
+
+#define CLONE_CHILD_USEPID      0x02000000
+
+static void show_saved_shmems(void)
+{
+	int i;
+
+	printf("\tSaved shmems:\n");
+	for (i = 0; i < nr_shmems; i++)
+		printf("\t\t%016lx %lx %d\n", shmems[i].start, shmems[i].id, shmems[i].pid);
+}
+
+static void show_saved_pipes(void)
+{
+	int i;
+
+	printf("\tSaved pipes:\n");
+	for (i = 0; i < nr_pipes; i++)
+		printf("\t\t%x -> %d\n", pipes[i].id, pipes[i].pid);
+}
+
+static struct shmem_info *search_shmem(unsigned long addr, unsigned long id)
+{
+	int i;
+
+	for (i = 0; i < nr_shmems; i++) {
+		struct shmem_info *si;
+
+		si = shmems + i;
+		if (si->start <= addr && si->end >= addr && si->id == id)
+			return si;
+	}
+
+	return NULL;
+}
+
+static struct pipes_info *search_pipes(unsigned int pipeid)
+{
+	int i;
+
+	for (i = 0; i < nr_pipes; i++) {
+		struct pipes_info *pi;
+
+		pi = pipes + i;
+		if (pi->id == pipeid)
+			return pi;
+	}
+
+	return NULL;
+}
+
+static void shmem_update_real_pid(int vpid, int rpid)
+{
+	int i;
+
+	for (i = 0; i < nr_shmems; i++)
+		if (shmems[i].pid == vpid)
+			shmems[i].real_pid = rpid;
+}
+
+static int shmem_wait_and_open(struct shmem_info *si)
+{
+	/* FIXME - not good */
+	char path[128];
+	unsigned long time = 1000;
+
+	sleep(1);
+
+	while (si->real_pid == 0)
+		usleep(time);
+
+	sprintf(path, "/proc/%d/mfd/0x%lx", si->real_pid, si->start);
+	while (1) {
+		int ret;
+
+		ret = open(path, O_RDWR);
+		if (ret > 0)
+			return ret;
+
+		if (ret < 0 && errno != ENOENT) {
+			perror("     Can't stat shmem");
+			return -1;
+		}
+
+		printf("Waiting for [%s] to appear\n", path);
+		if (time < 20000000)
+			time <<= 1;
+		usleep(time);
+	}
+}
+
+static int try_to_add_shmem(int pid, struct shmem_entry *e)
+{
+	int i;
+
+	for (i = 0; i < nr_shmems; i++) {
+		if (shmems[i].start != e->start || shmems[i].id != e->shmid)
+			continue;
+
+		if (shmems[i].end != e->end) {
+			printf("Bogus shmem\n");
+			return 1;
+		}
+
+		if (shmems[i].pid > pid)
+			shmems[i].pid = pid;
+
+		return 0;
+	}
+
+	if ((nr_shmems + 1) * sizeof(struct shmem_info) >= 4096) {
+		printf("OOM storing shmems\n");
+		return 1;
+	}
+
+	shmems[nr_shmems].start = e->start;
+	shmems[nr_shmems].end = e->end;
+	shmems[nr_shmems].id = e->shmid;
+	shmems[nr_shmems].pid = pid;
+	shmems[nr_shmems].real_pid = 0;
+	nr_shmems++;
+
+	return 0;
+}
+
+static int try_to_add_pipe(int pid, struct pipes_entry *e, int p_fd)
+{
+	int i;
+
+	for (i = 0; i < nr_pipes; i++) {
+		if (pipes[i].id != e->pipeid)
+			continue;
+
+		if (pipes[i].pid > pid)
+			pipes[i].pid = pid;
+		pipes[i].users++;
+
+		return 0;
+	}
+
+	if ((nr_pipes + 1) * sizeof(struct pipes_info) >= 4096) {
+		printf("OOM storing pipes\n");
+		return 1;
+	}
+
+	pipes[nr_pipes].id = e->pipeid;
+	pipes[nr_pipes].pid = pid;
+	pipes[nr_pipes].real_pid = 0;
+	pipes[nr_pipes].read_fd = 0;
+	pipes[nr_pipes].write_fd = 0;
+	pipes[nr_pipes].users = 1;
+	nr_pipes++;
+
+	return 0;
+}
+
+static int prepare_shmem_pid(int pid)
+{
+	char path[64];
+	int sh_fd;
+	__u32 type = 0;
+
+	sprintf(path, "shmem-%d.img", pid);
+	sh_fd = open(path, O_RDONLY);
+	if (sh_fd < 0) {
+		perror("Can't open shmem info");
+		return 1;
+	}
+
+	read(sh_fd, &type, sizeof(type));
+	if (type != SHMEM_MAGIC) {
+		perror("Bad shmem magic");
+		return 1;
+	}
+
+	while (1) {
+		struct shmem_entry e;
+		int ret;
+
+		ret = read(sh_fd, &e, sizeof(e));
+		if (ret == 0)
+			break;
+		if (ret != sizeof(e)) {
+			perror("Can't read shmem entry");
+			return 1;
+		}
+
+		if (try_to_add_shmem(pid, &e))
+			return 1;
+	}
+
+	close(sh_fd);
+	return 0;
+}
+
+static int prepare_pipes_pid(int pid)
+{
+	char path[64];
+	int p_fd;
+	__u32 type = 0;
+
+	sprintf(path, "pipes-%d.img", pid);
+	p_fd = open(path, O_RDONLY);
+	if (p_fd < 0) {
+		perror("Can't open pipes image");
+		return 1;
+	}
+
+	read(p_fd, &type, sizeof(type));
+	if (type != PIPES_MAGIC) {
+		perror("Bad pipes magin");
+		return 1;
+	}
+
+	while (1) {
+		struct pipes_entry e;
+		int ret;
+
+		ret = read(p_fd, &e, sizeof(e));
+		if (ret == 0)
+			break;
+		if (ret != sizeof(e)) {
+			fprintf(stderr, "Read pipes for %s failed %d of %d read\n",
+					path, ret, sizeof(e));
+			perror("Can't read pipes entry");
+			return 1;
+		}
+
+		if (try_to_add_pipe(pid, &e, p_fd))
+			return 1;
+
+		lseek(p_fd, e.bytes, SEEK_CUR);
+	}
+
+	close(p_fd);
+	return 0;
+}
+
+static int prepare_shared(int ps_fd)
+{
+	printf("Preparing info about shared resources\n");
+
+	nr_shmems = 0;
+	shmems = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (shmems == MAP_FAILED) {
+		perror("Can't map shmems");
+		return 1;
+	}
+
+	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (pipes == MAP_FAILED) {
+		perror("Can't map pipes");
+		return 1;
+	}
+
+	while (1) {
+		struct pstree_entry e;
+		int ret;
+
+		ret = read(ps_fd, &e, sizeof(e));
+		if (ret == 0)
+			break;
+
+		if (ret != sizeof(e)) {
+			perror("Can't read ps");
+			return 1;
+		}
+
+		if (prepare_shmem_pid(e.pid))
+			return 1;
+
+		if (prepare_pipes_pid(e.pid))
+			return 1;
+
+		lseek(ps_fd, e.nr_children * sizeof(__u32), SEEK_CUR);
+	}
+
+	lseek(ps_fd, sizeof(__u32), SEEK_SET);
+
+	show_saved_shmems();
+	show_saved_pipes();
+
+	return 0;
+}
+
+static struct fmap_fd *pop_fmap_fd(unsigned long start)
+{
+	struct fmap_fd **p, *r;
+
+	printf("Looking for %lx : ", start);
+
+	for (p = &fmap_fds; *p != NULL; p = &(*p)->next) {
+		if ((*p)->start != start)
+			continue;
+
+		r = *p;
+		*p = r->next;
+		printf("found\n");
+		return r;
+	}
+
+	printf("not found\n");
+	return NULL;
+}
+
+static int open_fe_fd(struct fdinfo_entry *fe, int fd)
+{
+	char path[PATH_MAX];
+	int tmp;
+
+	if (read(fd, path, fe->len) != fe->len) {
+		fprintf(stderr, "Error reading path");
+		return -1;
+	}
+
+	path[fe->len] = '\0';
+
+	tmp = open(path, fe->flags);
+	if (tmp < 0) {
+		perror("Can't open file");
+		return -1;
+	}
+
+	lseek(tmp, fe->pos, SEEK_SET);
+
+	return tmp;
+}
+
+static int reopen_fd(int old_fd, int new_fd)
+{
+	int tmp;
+
+	if (old_fd != new_fd) {
+		tmp = dup2(old_fd, new_fd);
+		if (tmp < 0)
+			return tmp;
+
+		close(old_fd);
+	}
+
+	return new_fd;
+}
+
+static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
+{
+	int fd, tmp;
+
+	if (*cfd == (int)fe->addr) {
+		tmp = dup(*cfd);
+		if (tmp < 0) {
+			perror("Can't dup file");
+			return 1;
+		}
+
+		printf("%s: Dup for %d\n", __func__, tmp);
+
+		*cfd = tmp;
+	}
+
+	tmp = open_fe_fd(fe, *cfd);
+	if (tmp < 0)
+		return 1;
+
+	fd = reopen_fd(tmp, (int)fe->addr);
+	if (fd < 0) {
+		perror("Can't dup");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
+{
+	int tmp;
+	struct fmap_fd *new;
+
+	tmp = open_fe_fd(fe, fd);
+	if (tmp < 0)
+		return 1;
+
+	printf("%d:\t\tWill map %lx to %d\n", pid, (unsigned long)fe->addr, tmp);
+	new = malloc(sizeof(*new));
+	new->start = fe->addr;
+	new->fd = tmp;
+	new->next = fmap_fds;
+	fmap_fds = new;
+
+	return 0;
+}
+
+static int prepare_fds(int pid)
+{
+	__u32 mag;
+	char path[64];
+	int fdinfo_fd;
+
+	printf("%d: Opening files\n", pid);
+
+	sprintf(path, "fdinfo-%d.img", pid);
+	fdinfo_fd = open(path, O_RDONLY);
+	if (fdinfo_fd < 0) {
+		perror("Can't open fdinfo");
+		return 1;
+	}
+
+	read(fdinfo_fd, &mag, 4);
+	if (mag != FDINFO_MAGIC) {
+		fprintf(stderr, "Bad file\n");
+		return 1;
+	}
+
+	while (1) {
+		int ret;
+		struct fdinfo_entry fe;
+
+		ret = read(fdinfo_fd, &fe, sizeof(fe));
+		if (ret == 0) {
+			close(fdinfo_fd);
+			return 0;
+		}
+
+		if (ret < 0) {
+			perror("Can't read file");
+			return 1;
+		}
+		if (ret != sizeof(fe)) {
+			fprintf(stderr, "Error reading\n");
+			return 1;
+		}
+
+		printf("\t%d: Got fd for %lx type %d namelen %d\n", pid,
+				(unsigned long)fe.addr, fe.type, fe.len);
+		switch (fe.type) {
+		case FDINFO_FD:
+			if (open_fd(pid, &fe, &fdinfo_fd))
+				return 1;
+
+			break;
+		case FDINFO_MAP:
+			if (open_fmap(pid, &fe, fdinfo_fd))
+				return 1;
+
+			break;
+		default:
+			fprintf(stderr, "Some bullshit in a file\n");
+			return 1;
+		}
+	}
+}
+
+struct shmem_to_id {
+	unsigned long addr;
+	unsigned long end;
+	unsigned long id;
+	struct shmem_to_id *next;
+};
+
+static struct shmem_to_id *my_shmem_ids;
+
+static unsigned long find_shmem_id(unsigned long addr)
+{
+	struct shmem_to_id *si;
+
+	for (si = my_shmem_ids; si != NULL; si = si->next)
+		if (si->addr <= addr && si->end >= addr)
+			return si->id;
+
+	return 0;
+}
+
+static void save_shmem_id(struct shmem_entry *e)
+{
+	struct shmem_to_id *si;
+
+	si = malloc(sizeof(*si));
+	si->addr = e->start;
+	si->end = e->end;
+	si->id = e->shmid;
+	si->next = my_shmem_ids;
+	my_shmem_ids = si;
+}
+
+static int prepare_shmem(int pid)
+{
+	char path[64];
+	int sh_fd;
+	__u32 type = 0;
+
+	sprintf(path, "shmem-%d.img", pid);
+	sh_fd = open(path, O_RDONLY);
+	if (sh_fd < 0) {
+		perror("Can't open shmem info");
+		return 1;
+	}
+
+	read(sh_fd, &type, sizeof(type));
+	if (type != SHMEM_MAGIC) {
+		perror("Bad shmem magic");
+		return 1;
+	}
+
+	while (1) {
+		struct shmem_entry e;
+		int ret;
+
+		ret = read(sh_fd, &e, sizeof(e));
+		if (ret == 0)
+			break;
+		if (ret != sizeof(e)) {
+			perror("Can't read shmem entry");
+			return 1;
+		}
+
+		save_shmem_id(&e);
+	}
+
+	close(sh_fd);
+	return 0;
+}
+
+static int try_fixup_file_map(int pid, struct binfmt_vma_image *vi, int fd)
+{
+	struct fmap_fd *fmfd;
+
+	fmfd = pop_fmap_fd(vi->start);
+	if (fmfd != NULL) {
+		printf("%d: Fixing %lx vma to %d fd\n", pid, vi->start, fmfd->fd);
+		lseek(fd, -sizeof(*vi), SEEK_CUR);
+		printf("%d:   Wrote %d\n", fmfd->fd);
+		vi->fd = fmfd->fd;
+		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
+			perror("Can't write img");
+			return 1;
+		}
+		free(fmfd);
+	}
+
+	return 0;
+}
+
+static int try_fixup_shared_map(int pid, struct binfmt_vma_image *vi, int fd)
+{
+	struct shmem_info *si;
+	unsigned long id;
+
+	id = find_shmem_id(vi->start);
+	if (id == 0)
+		return 0;
+
+	si = search_shmem(vi->start, id);
+	printf("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
+
+	if (si == NULL) {
+		fprintf(stderr, "Can't find my shmem %016lx\n", vi->start);
+		return 1;
+	}
+
+	if (si->pid != pid) {
+		int sh_fd;
+
+		sh_fd = shmem_wait_and_open(si);
+		printf("%d: Fixing %lx vma to %x/%d shmem -> %d\n", pid, vi->start, si->id, si->pid, sh_fd);
+		if (fd < 0) {
+			perror("Can't open shmem");
+			return 1;
+		}
+
+		lseek(fd, -sizeof(*vi), SEEK_CUR);
+		vi->fd = sh_fd;
+		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
+			perror("Can't write img");
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int fixup_vma_fds(int pid, int fd)
+{
+	int offset =
+		sizeof(struct binfmt_img_header) +
+		sizeof(struct binfmt_regs_image) +
+		sizeof(struct binfmt_mm_image);
+
+	printf("Seek for: %li bytes\n", offset);
+	lseek(fd, offset, SEEK_SET);
+
+	while (1) {
+		struct binfmt_vma_image vi;
+
+		if (read(fd, &vi, sizeof(vi)) != sizeof(vi)) {
+			perror("Can't read");
+			return 1;
+		}
+
+		if (vi.start == 0 && vi.end == 0)
+			return 0;
+
+		printf("%d: Fixing %016lx-%016lx %016lx vma\n", pid, vi.start, vi.end, vi.pgoff);
+		if (try_fixup_file_map(pid, &vi, fd))
+			return 1;
+
+		if (try_fixup_shared_map(pid, &vi, fd))
+			return 1;
+	}
+}
+
+static inline int should_restore_page(int pid, unsigned long vaddr)
+{
+	struct shmem_info *si;
+	unsigned long id;
+
+	id = find_shmem_id(vaddr);
+	if (id == 0)
+		return 1;
+
+	si = search_shmem(vaddr, id);
+	return si->pid == pid;
+}
+
+static int fixup_pages_data(int pid, int fd)
+{
+	char path[128];
+	int shfd;
+	__u32 mag;
+	__u64 vaddr;
+
+	sprintf(path, "pages-%d.img", pid);
+	shfd = open(path, O_RDONLY);
+	if (shfd < 0) {
+		perror("Can't open shmem image");
+		return 1;
+	}
+
+	read(shfd, &mag, sizeof(mag));
+	if (mag != PAGES_MAGIC) {
+		fprintf(stderr, "Bad shmem image\n");
+		return 1;
+	}
+
+	lseek(fd, -sizeof(struct binfmt_page_image), SEEK_END);
+	read(fd, &vaddr, sizeof(vaddr));
+	if (vaddr != 0) {
+		printf("SHIT %lx\n", (unsigned long)vaddr);
+		return 1;
+	}
+	lseek(fd, -sizeof(struct binfmt_page_image), SEEK_END);
+
+	while (1) {
+		int ret;
+
+		ret = read(shfd, &vaddr, sizeof(vaddr));
+		if (ret == 0)
+			break;
+
+		if (ret < 0 || ret != sizeof(vaddr)) {
+			perror("Can't read vaddr");
+			return 1;
+		}
+
+		if (vaddr == 0)
+			break;
+
+		if (!should_restore_page(pid, vaddr)) {
+			lseek(shfd, PAGE_SIZE, SEEK_CUR);
+			continue;
+		}
+
+//		printf("Copy page %lx to image\n", (unsigned long)vaddr);
+		write(fd, &vaddr, sizeof(vaddr));
+		sendfile(fd, shfd, NULL, PAGE_SIZE);
+	}
+
+	close(shfd);
+	vaddr = 0;
+	write(fd, &vaddr, sizeof(vaddr));
+	return 0;
+}
+
+static int prepare_image_maps(int fd, int pid)
+{
+	printf("%d: Fixing maps before executing image\n", pid);
+
+	if (fixup_vma_fds(pid, fd))
+		return 1;
+
+	if (fixup_pages_data(pid, fd))
+		return 1;
+
+	close(fd);
+	return 0;
+}
+
+static int execute_image(int pid)
+{
+	char path[128];
+	int fd, fd_new;
+	struct stat buf;
+
+	sprintf(path, "core-%d.img", pid);
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		perror("Can't open exec image");
+		return 1;
+	}
+
+	if (fstat(fd, &buf)) {
+		perror("Can't stat");
+		return 1;
+	}
+
+	sprintf(path, "core-%d.img.out", pid);
+	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, 0700);
+	if (fd_new < 0) {
+		perror("Can't open new image");
+		return 1;
+	}
+
+	printf("%d: Preparing execution image (%li bytes)\n", pid, buf.st_size);
+	sendfile(fd_new, fd, NULL, buf.st_size);
+	close(fd);
+
+	if (fchmod(fd_new, 0700)) {
+		perror("Can't prepare exec image");
+		return 1;
+	}
+
+	if (prepare_image_maps(fd_new, pid))
+		return 1;
+
+	sync();
+
+	printf("%d/%d EXEC IMAGE\n", pid, getpid());
+	return execl(path, path, NULL);
+}
+
+static int create_pipe(int pid, struct pipes_entry *e, struct pipes_info *pi, int pipes_fd)
+{
+	int pfd[2], tmp;
+	unsigned long time = 1000;
+
+	printf("\t%d: Creating pipe %x\n", pid, e->pipeid);
+
+	if (pipe(pfd) < 0) {
+		perror("Can't create pipe");
+		return 1;
+	}
+
+	if (e->bytes) {
+		printf("\t%d: Splicing data to %d\n", pid, pfd[1]);
+
+		tmp = splice(pipes_fd, NULL, pfd[1], NULL, e->bytes, 0);
+		if (tmp != e->bytes) {
+			fprintf(stderr, "Wanted to restore %ld bytes, but got %ld\n",
+					e->bytes, tmp);
+			if (tmp < 0)
+				perror("Error splicing data");
+			return 1;
+		}
+	}
+
+	pi->read_fd = pfd[0];
+	pi->write_fd = pfd[1];
+	pi->real_pid = getpid();
+
+	printf("\t%d: Done, waiting for others on %d pid with r:%d w:%d\n",
+			pid, pi->real_pid, pfd[0], pfd[1]);
+
+	while (1) {
+		if (pi->users == 1) /* only I left */
+			break;
+
+		printf("\t%d: Waiting for %x pipe to attach (%d users left)\n",
+				pid, e->pipeid, pi->users - 1);
+		if (time < 20000000)
+			time <<= 1;
+		usleep(time);
+	}
+
+	printf("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
+	if (e->flags & O_WRONLY) {
+		close(pfd[0]);
+		tmp = reopen_fd(pfd[1], e->fd);
+	} else {
+		close(pfd[1]);
+		tmp = reopen_fd(pfd[0], e->fd);
+	}
+
+	if (tmp < 0) {
+		perror("Can't dup pipe fd");
+		return 1;
+	}
+
+	return 0;
+}
+
+static int attach_pipe(int pid, struct pipes_entry *e, struct pipes_info *pi)
+{
+	char path[128];
+	int tmp, fd;
+
+	printf("\t%d: Wating for pipe %x to appear\n", pid, e->pipeid);
+
+	while (pi->real_pid == 0)
+		usleep(1000);
+
+	if (e->flags & O_WRONLY)
+		tmp = pi->write_fd;
+	else
+		tmp = pi->read_fd;
+
+	sprintf(path, "/proc/%d/fd/%d", pi->real_pid, tmp);
+	printf("\t%d: Attaching pipe %s\n", pid, path);
+
+	fd = open(path, e->flags);
+	if (fd < 0) {
+		perror("Can't attach pipe");
+		return 1;
+	}
+
+	printf("\t%d: Done, reopening for %d\n", pid, e->fd);
+	pi->users--;
+	tmp = reopen_fd(fd, e->fd);
+	if (tmp < 0) {
+		perror("Can't dup to attach pipe");
+		return 1;
+	}
+
+	return 0;
+
+}
+
+static int open_pipe(int pid, struct pipes_entry *e, int *pipes_fd)
+{
+	struct pipes_info *pi;
+
+	printf("\t%d: Opening pipe %x on fd %d\n", pid, e->pipeid, e->fd);
+	if (e->fd == *pipes_fd) {
+		int tmp;
+
+		tmp = dup(*pipes_fd);
+		if (tmp < 0) {
+			perror("Can't dup file");
+			return 1;
+		}
+
+		*pipes_fd = tmp;
+	}
+
+	pi = search_pipes(e->pipeid);
+	if (pi == NULL) {
+		fprintf(stderr, "BUG: can't find my pipe %x\n", e->pipeid);
+		return 1;
+	}
+
+	if (pi->pid == pid)
+		return create_pipe(pid, e, pi, *pipes_fd);
+	else
+		return attach_pipe(pid, e, pi);
+}
+
+static int prepare_pipes(int pid)
+{
+	char path[64];
+	int pipes_fd;
+	__u32 type = 0;
+
+	printf("%d: Opening pipes\n", pid);
+
+	sprintf(path, "pipes-%d.img", pid);
+	pipes_fd = open(path, O_RDONLY);
+	if (pipes_fd < 0) {
+		perror("Can't open pipes img");
+		return 1;
+	}
+
+	read(pipes_fd, &type, sizeof(type));
+	if (type != PIPES_MAGIC) {
+		perror("Bad pipes file");
+		return 1;
+	}
+
+	while (1) {
+		struct pipes_entry e;
+		int ret;
+
+		ret = read(pipes_fd, &e, sizeof(e));
+		if (ret == 0) {
+			close(pipes_fd);
+			return 0;
+		}
+		if (ret != sizeof(e)) {
+			perror("Bad pipes entry");
+			return 1;
+		}
+
+		if (open_pipe(pid, &e, &pipes_fd))
+			return 1;
+	}
+}
+
+static int restore_one_task(int pid)
+{
+	printf("%d: Restoring resources\n", pid);
+
+	if (prepare_pipes(pid))
+		return 1;
+
+	if (prepare_fds(pid))
+		return 1;
+
+	if (prepare_shmem(pid))
+		return 1;
+
+	return execute_image(pid);
+}
+
+static int do_child(void *arg)
+{
+	return restore_task_with_children(getpid(), arg);
+}
+
+static inline int fork_with_pid(int pid, char *pstree_path)
+{
+	int ret = 0;
+	void *stack;
+
+	stack = mmap(0, 4 * 4096, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN, 0, 0);
+	if (stack == MAP_FAILED)
+		return -1;
+
+	stack += 4 * 4096;
+	ret = clone(do_child, stack, SIGCHLD | CLONE_CHILD_USEPID, pstree_path, NULL, NULL, &pid);
+
+	return ret;
+}
+
+static int restore_task_with_children(int my_pid, char *pstree_path)
+{
+	int *pids;
+	int fd, ret, i;
+	struct pstree_entry e;
+
+	printf("%d: Starting restore\n", my_pid);
+
+	fd = open(pstree_path, O_RDONLY);
+	if (fd < 0) {
+		perror("Can't reopen pstree image");
+		exit(1);
+	}
+
+	lseek(fd, sizeof(__u32), SEEK_SET);
+	while (1) {
+		ret = read(fd, &e, sizeof(e));
+		if (ret != sizeof(e)) {
+			fprintf(stderr, "%d: Read returned %d\n", my_pid, ret);
+			if (ret < 0)
+				perror("Can't read pstree");
+			exit(1);
+		}
+
+		if (e.pid != my_pid) {
+			lseek(fd, e.nr_children * sizeof(__u32), SEEK_CUR);
+			continue;
+		}
+
+		break;
+	}
+
+	if (e.nr_children > 0) {
+		i = e.nr_children * sizeof(int);
+		pids = malloc(i);
+		ret = read(fd, pids, i);
+		if (ret != i) {
+			perror("Can't read children pids");
+			exit(1);
+		}
+
+		close(fd);
+
+		printf("%d: Restoring %d children:\n", my_pid, e.nr_children);
+		for (i = 0; i < e.nr_children; i++) {
+			printf("\tFork %d from %d\n", pids[i], my_pid);
+			ret = fork_with_pid(pids[i], pstree_path);
+			if (ret < 0) {
+				perror("Can't fork kid");
+				exit(1);
+			}
+		}
+	} else
+		close(fd);
+
+	shmem_update_real_pid(my_pid, getpid());
+
+	return restore_one_task(my_pid);
+}
+
+static int restore_root_task(char *pstree_path, int fd)
+{
+	struct pstree_entry e;
+	int ret;
+
+	ret = read(fd, &e, sizeof(e));
+	if (ret != sizeof(e)) {
+		perror("Can't read root pstree entry");
+		return 1;
+	}
+
+	close(fd);
+
+	printf("Forking root with %d pid\n", e.pid);
+	ret = fork_with_pid(e.pid, pstree_path);
+	if (ret < 0) {
+		perror("Can't fork root");
+		return 1;
+	}
+
+	wait(NULL);
+	return 0;
+}
+
+static int restore_all_tasks(char *pid)
+{
+	char path[128];
+	int pstree_fd;
+	__u32 type = 0;
+
+	sprintf(path, "pstree-%s.img", pid);
+	pstree_fd = open(path, O_RDONLY);
+	if (pstree_fd < 0) {
+		perror("Can't open pstree image");
+		return 1;
+	}
+
+	read(pstree_fd, &type, sizeof(type));
+	if (type != PSTREE_MAGIC) {
+		perror("Bad pstree magic");
+		return 1;
+	}
+
+	if (prepare_shared(pstree_fd))
+		return 1;
+
+	return restore_root_task(path, pstree_fd);
+}
+
+int main(int argc, char **argv)
+{
+	if (argc != 3)
+		goto usage;
+	if (argv[1][0] != '-')
+		goto usage;
+	if (argv[1][1] == 'p')
+		return restore_one_task(atoi(argv[2]));
+	if (argv[1][1] == 't')
+		return restore_all_tasks(argv[2]);
+
+usage:
+	printf("Usage: %s (-t|-p) <pid>\n", argv[0]);
+	return 1;
+}

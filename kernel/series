@@ -1,0 +1,12 @@
+cr-proc-add-children
+procfs-report-eisdir-when-reading-sysctl-dirs-in-proc.patch
+proc-fix-races-against-execve-of-proc-pid-fd.patch
+proc-fix-races-against-execve-of-proc-pid-fd-fix.patch
+proc-force-dcache-drop-on-unauthorized-access.patch
+cr-statfs-callback-for-pipefs
+cr-clone-with-pid-support
+fs-proc-switch-to-dentry
+cr-proc-map-files-21
+fs-proc-add-tls
+fs-add-do-close
+binfmt-elf-for-cr-4
