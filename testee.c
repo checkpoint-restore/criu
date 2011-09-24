@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
 	int fd_shared, fd_private;
 	const char data_mark[] = "This is a data_mark marker";
 	void *mmap_shared, *mmap_private, *mmap_anon, *map_unreadable;
+	void *mmap_anon_sh;
 	const char sep[] = "----------";
 	pid_t pid, child;
 	char suided_path[128];
@@ -123,10 +124,12 @@ int main(int argc, char *argv[])
 	mmap_private	= mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_FILE | MAP_PRIVATE, fd_private, 0);
 	mmap_anon	= mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	map_unreadable	= mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	mmap_anon_sh	= mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 
 	if (mmap_shared		== MAP_FAILED ||
 	    mmap_private	== MAP_FAILED ||
 	    mmap_anon		== MAP_FAILED ||
+	    mmap_anon_sh	== MAP_FAILED ||
 	    map_unreadable	== MAP_FAILED) {
 
 		perror("mmap failed");
@@ -140,13 +143,15 @@ int main(int argc, char *argv[])
 
 	strcpy((char *)mmap_shared,	sep);
 	strcpy((char *)mmap_private,	sep);
-	strcpy((char *)mmap_anon, 	sep);
-	strcpy((char *)map_unreadable, 	sep);
+	strcpy((char *)mmap_anon,	sep);
+	strcpy((char *)map_unreadable,	sep);
+	strcpy((char *)mmap_anon_sh,	sep);
 
 	for (i = 64; i < 128; i++) {
 		((char *)mmap_shared)[i]	=   0 + i;
 		((char *)mmap_private)[i]	=  64 + i;
 		((char *)mmap_anon)[i]		= 128 + i;
+		((char *)mmap_anon_sh)[i]	= 128 + i;
 		((char *)map_unreadable)[i]	= 190 + i;
 	}
 
@@ -204,11 +209,13 @@ int main(int argc, char *argv[])
 			printf("first child pid: %d\n", getpid());
 //			while (read(pipefd[0], &buf, sizeof(buf)) > 0)
 //				sleep(3);
+			*(unsigned long *)mmap_anon_sh = 0x11111111;
 			while (1) {
 				printf("ping: %d\n", getpid());
 				sleep(8);
 			}
 		} else {
+			*(unsigned long *)mmap_anon_sh = 0x22222222;
 			printf("first parent pid: %d\n", getpid());
 //			run_clone();
 			while (1) {
@@ -219,12 +226,13 @@ int main(int argc, char *argv[])
 	} else {
 		long buf = 0xdeadbeef;
 		while (1) {
+			*(unsigned long *)mmap_anon_sh = 0x33333333;
 			printf("ping: %d\n", getpid());
 //			write(pipefd[1], &buf, sizeof(buf));
 			sleep(10);
 		}
 	}
-	
+
 err:
 	/* resources are released by kernel */
 	return 0;
