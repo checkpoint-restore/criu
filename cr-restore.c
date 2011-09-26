@@ -637,7 +637,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 
 static int fixup_vma_fds(int pid, int fd)
 {
-	int offset = sizeof(struct core_entry) + sizeof(u32);
+	int offset = GET_FILE_OFF_AFTER(struct core_entry);
 
 	pr_info("Seek for: %d bytes\n", offset);
 	lseek(fd, offset, SEEK_SET);
@@ -656,15 +656,13 @@ static int fixup_vma_fds(int pid, int fd)
 		if (!(vi.status & VMA_AREA_REGULAR))
 			continue;
 
-		if ((vi.status & VMA_FILE_SHARED) ||
-		    (vi.status & VMA_FILE_PRIVATE)) {
+		if ((vi.status & VMA_FILE_PRIVATE) ||
+		    (vi.status & VMA_ANON_SHARED)) {
 
 			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n", pid, vi.start, vi.end, vi.pgoff);
 			if (try_fixup_file_map(pid, &vi, fd))
 				return 1;
-		}
 
-		if (vi.status & VMA_ANON_SHARED) {
 			if (try_fixup_shared_map(pid, &vi, fd))
 				return 1;
 		}
