@@ -488,17 +488,15 @@ static int prepare_fds(int pid)
 		}
 
 		pr_info("\t%d: Got fd for %lx type %d namelen %d\n", pid,
-				(unsigned long)fe.addr, fe.type, fe.len);
+			(unsigned long)fe.addr, fe.type, fe.len);
 		switch (fe.type) {
 		case FDINFO_FD:
 			if (open_fd(pid, &fe, &fdinfo_fd))
 				return 1;
-
 			break;
 		case FDINFO_MAP:
 			if (open_fmap(pid, &fe, fdinfo_fd))
 				return 1;
-
 			break;
 		default:
 			fprintf(stderr, "Some bullshit in a file\n");
@@ -618,7 +616,8 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		int sh_fd;
 
 		sh_fd = shmem_wait_and_open(si);
-		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n", pid, vi->start, si->id, si->pid, sh_fd);
+		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
+			pid, vi->start, si->id, si->pid, sh_fd);
 		if (fd < 0) {
 			perror("Can't open shmem");
 			return 1;
@@ -656,10 +655,12 @@ static int fixup_vma_fds(int pid, int fd)
 		if (!(vi.status & VMA_AREA_REGULAR))
 			continue;
 
-		if ((vi.status & VMA_FILE_PRIVATE) ||
+		if ((vi.status & VMA_FILE_PRIVATE)	||
+		    (vi.status & VMA_FILE_SHARED)	||
 		    (vi.status & VMA_ANON_SHARED)) {
 
-			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n", pid, vi.start, vi.end, vi.pgoff);
+			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
+				pid, vi.start, vi.end, vi.pgoff);
 			if (try_fixup_file_map(pid, &vi, fd))
 				return 1;
 
@@ -755,7 +756,6 @@ static int prepare_image_maps(int fd, int pid)
 	if (fixup_pages_data(pid, fd))
 		return 1;
 
-	//close(fd);
 	return 0;
 }
 
