@@ -409,8 +409,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 			return 1;
 		}
 
-		pr_info("%s: Dup for %d\n", __func__, tmp);
-
 		*cfd = tmp;
 	}
 
@@ -419,10 +417,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 		return 1;
 
 	fd = reopen_fd_as((int)fe->addr, tmp);
-	if (fd < 0) {
-		perror("Can't dup");
+	if (fd < 0)
 		return 1;
-	}
 
 	return 0;
 }
@@ -875,10 +871,8 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		tmp = reopen_fd_as(e->fd, pfd[0]);
 	}
 
-	if (tmp < 0) {
-		perror("Can't dup pipe fd");
+	if (tmp < 0)
 		return 1;
-	}
 
 	return 0;
 }
@@ -910,10 +904,8 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 	pr_info("\t%d: Done, reopening for %d\n", pid, e->fd);
 	pi->users--;
 	tmp = reopen_fd_as(e->fd, fd);
-	if (tmp < 0) {
-		perror("Can't dup to attach pipe");
+	if (tmp < 0)
 		return 1;
-	}
 
 	return 0;
 
