@@ -864,11 +864,11 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
 	if (e->flags & O_WRONLY) {
-		close(pfd[0]);
-		tmp = reopen_fd_as(e->fd, pfd[1]);
+		close_safe(&pi->read_fd);
+		tmp = reopen_fd_as(e->fd, pi->write_fd);
 	} else {
-		close(pfd[1]);
-		tmp = reopen_fd_as(e->fd, pfd[0]);
+		close_safe(&pi->write_fd);
+		tmp = reopen_fd_as(e->fd, pi->read_fd);
 	}
 
 	if (tmp < 0)
