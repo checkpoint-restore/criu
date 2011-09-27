@@ -82,9 +82,10 @@ static void show_saved_pipes(void)
 
 	pr_info("\tSaved pipes:\n");
 	for (i = 0; i < nr_pipes; i++)
-		pr_info("\t\tid: %x -> pid: %d\n",
+		pr_info("\t\tid: %x -> pid: %d -> users: %d\n",
 			pipes[i].id,
-			pipes[i].pid);
+			pipes[i].pid,
+			pipes[i].users);
 }
 
 static struct shmem_info *search_shmem(unsigned long addr, unsigned long id)
@@ -155,7 +156,7 @@ static int shmem_wait_and_open(struct shmem_info *si)
 	}
 }
 
-static int try_to_add_shmem(int pid, struct shmem_entry *e)
+static int collect_shmem(int pid, struct shmem_entry *e)
 {
 	int i;
 
@@ -191,10 +192,17 @@ static int try_to_add_shmem(int pid, struct shmem_entry *e)
 	return 0;
 }
 
-static int try_to_add_pipe(int pid, struct pipe_entry *e, int p_fd)
+static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 {
 	int i;
 
+	/*
+	 * All pipes get collected into the one array,
+	 * note the highest PID is the sign of which
+	 * process pipe should be really created, all other
+	 * processes (if they have pipes with pipeid matched)
+	 * will be attached.
+	 */
 	for (i = 0; i < nr_pipes; i++) {
 		if (pipes[i].id != e->pipeid)
 			continue;
@@ -208,15 +216,15 @@ static int try_to_add_pipe(int pid, struct pipe_entry *e, int p_fd)
 	}
 
 	if ((nr_pipes + 1) * sizeof(struct pipe_info) >= 4096) {
-		pr_info("OOM storing pipes\n");
+		pr_panic("OOM storing pipes\n");
 		return 1;
 	}
 
 	memset(&pipes[nr_pipes], 0, sizeof(pipes[nr_pipes]));
 
-	pipes[nr_pipes].id		= e->pipeid;
-	pipes[nr_pipes].pid		= pid;
-	pipes[nr_pipes].users		= 1;
+	pipes[nr_pipes].id	= e->pipeid;
+	pipes[nr_pipes].pid	= pid;
+	pipes[nr_pipes].users	= 1;
 
 	nr_pipes++;
 
@@ -255,7 +263,7 @@ static int prepare_shmem_pid(int pid)
 			return 1;
 		}
 
-		if (try_to_add_shmem(pid, &e))
+		if (collect_shmem(pid, &e))
 			return 1;
 	}
 
@@ -296,7 +304,7 @@ static int prepare_pipes_pid(int pid)
 			return 1;
 		}
 
-		if (try_to_add_pipe(pid, &e, p_fd))
+		if (collect_pipe(pid, &e, p_fd))
 			return 1;
 
 		if (e.bytes)
@@ -848,11 +856,11 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pi->write_fd	= pfd[1];
 	pi->real_pid	= getpid();
 
-	pr_info("\t%d: Done, waiting for others on %d pid with r:%d w:%d\n",
-		pid, pi->real_pid, pi->read_fd, pi->write_fd);
+	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
+		pid, pi->users - 1, pi->real_pid, pi->read_fd, pi->write_fd);
 
 	while (1) {
-		if (pi->users == 1) /* only I left */
+		if (pi->users <= 1) /* only I left here, no need to wait */
 			break;
 
 		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
@@ -888,7 +896,8 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 	char path[128];
 	int tmp, fd;
 
-	pr_info("\t%d: Wating for pipe %x to appear\n", pid, e->pipeid);
+	pr_info("\t%d: Wating for pipe %x to appear\n",
+		pid, e->pipeid);
 
 	while (pi->real_pid == 0)
 		usleep(1000);
@@ -904,7 +913,8 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 	}
 
 	sprintf(path, "/proc/%d/fd/%d", pi->real_pid, tmp);
-	pr_info("\t%d: Attaching pipe %s\n", pid, path);
+	pr_info("\t%d: Attaching pipe %s (%d users left)\n",
+		pid, path, pi->users - 1);
 
 	fd = open(path, e->flags);
 	if (fd < 0) {
@@ -913,10 +923,10 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 	}
 
 	pr_info("\t%d: Done, reopening for %d\n", pid, e->fd);
-	pi->users--;
 	tmp = reopen_fd_as(e->fd, fd);
 	if (tmp < 0)
 		return 1;
+	pi->users--;
 
 	return 0;
 
@@ -940,11 +950,14 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	}
 
 	pi = search_pipe(e->pipeid);
-	if (pi == NULL) {
+	if (!pi) {
 		fprintf(stderr, "BUG: can't find my pipe %x\n", e->pipeid);
 		return 1;
 	}
 
+	/*
+	 * Pipe get created once, other processes do attach to it.
+	 */
 	if (pi->pid == pid)
 		return create_pipe(pid, e, pi, *pipes_fd);
 	else
