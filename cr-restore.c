@@ -821,8 +821,8 @@ static int execute_image(int pid)
 
 static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
 {
-	int pfd[2], tmp;
 	unsigned long time = 1000;
+	int pfd[2], tmp;
 
 	pr_info("\t%d: Creating pipe %x\n", pid, e->pipeid);
 
@@ -849,7 +849,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pi->real_pid	= getpid();
 
 	pr_info("\t%d: Done, waiting for others on %d pid with r:%d w:%d\n",
-			pid, pi->real_pid, pfd[0], pfd[1]);
+		pid, pi->real_pid, pi->read_fd, pi->write_fd);
 
 	while (1) {
 		if (pi->users == 1) /* only I left */
@@ -861,6 +861,12 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 			time <<= 1;
 		usleep(time);
 	}
+
+	/*
+	 * At this point everyone who needed our pipe descriptors
+	 * should have them attched so we're safe to close pipe
+	 * descriptors here.
+	 */
 
 	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
 	if (e->flags & O_WRONLY) {
@@ -891,6 +897,11 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 		tmp = pi->write_fd;
 	else
 		tmp = pi->read_fd;
+
+	if (tmp == -1) {
+		pr_panic("Attaching closed pipe\n");
+		return 1;
+	}
 
 	sprintf(path, "/proc/%d/fd/%d", pi->real_pid, tmp);
 	pr_info("\t%d: Attaching pipe %s\n", pid, path);
