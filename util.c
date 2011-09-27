@@ -244,9 +244,13 @@ int reopen_fd_as(int new_fd, int old_fd)
 {
 	if (old_fd != new_fd) {
 		int tmp = dup2(old_fd, new_fd);
-		if (tmp < 0)
+		if (tmp < 0) {
+			pr_perror("Dup on %d -> %d failed\n", old_fd, new_fd);
 			return tmp;
-		close(old_fd);
+		}
+
+		/* Just to have error message if failed */
+		close_safe(&old_fd);
 	}
 
 	return new_fd;
