@@ -226,6 +226,20 @@ err_cont:
 	goto err;
 }
 
+int close_safe(int *fd)
+{
+	int ret = 0;
+	if (*fd > -1) {
+		ret = close(*fd);
+		if (!ret)
+			*fd = -1;
+		else
+			pr_perror("Unable to close fd: %d\n", *fd);
+	}
+
+	return ret;
+}
+
 int reopen_fd_as(int new_fd, int old_fd)
 {
 	if (old_fd != new_fd) {

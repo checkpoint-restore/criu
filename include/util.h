@@ -148,6 +148,7 @@ void printk_vma(struct vma_area *vma_area);
 
 int reopen_fd_as(int new_fd, int old_fd);
 int parse_maps(pid_t pid, struct list_head *vma_list);
+int close_safe(int *fd);
 
 #define __xalloc(op, size, ...)						\
 	({								\
