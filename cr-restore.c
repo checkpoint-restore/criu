@@ -199,10 +199,10 @@ static int try_to_add_pipe(int pid, struct pipe_entry *e, int p_fd)
 		if (pipes[i].id != e->pipeid)
 			continue;
 
-		if (pipes[i].pid > pid) {
+		if (pipes[i].pid > pid)
 			pipes[i].pid = pid;
-			pipes[i].users++;
-		}
+
+		pipes[i].users++;
 
 		return 0;
 	}
