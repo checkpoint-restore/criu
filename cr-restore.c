@@ -45,7 +45,7 @@ struct shmem_info {
 };
 
 struct pipe_info {
-	unsigned int	id;
+	unsigned int	pipeid;
 	int		pid;
 	int		real_pid;
 	int		read_fd;
@@ -91,8 +91,8 @@ static void show_saved_pipes(void)
 
 	pr_info("\tSaved pipes:\n");
 	for (i = 0; i < nr_pipes; i++)
-		pr_info("\t\tid: %x -> pid: %d -> users: %d\n",
-			pipes[i].id,
+		pr_info("\t\tpipeid: %x -> pid: %d -> users: %d\n",
+			pipes[i].pipeid,
 			pipes[i].pid,
 			pipes[i].users);
 }
@@ -118,7 +118,7 @@ static struct pipe_info *find_pipe(unsigned int pipeid)
 
 	for (i = 0; i < nr_pipes; i++) {
 		pi = pipes + i;
-		if (pi->id == pipeid)
+		if (pi->pipeid == pipeid)
 			return pi;
 	}
 
@@ -219,7 +219,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	 * will be attached.
 	 */
 	for (i = 0; i < nr_pipes; i++) {
-		if (pipes[i].id != e->pipeid)
+		if (pipes[i].pipeid != e->pipeid)
 			continue;
 
 		if (pipes[i].pid > pid)
@@ -237,7 +237,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 	memset(&pipes[nr_pipes], 0, sizeof(pipes[nr_pipes]));
 
-	pipes[nr_pipes].id	= e->pipeid;
+	pipes[nr_pipes].pipeid	= e->pipeid;
 	pipes[nr_pipes].pid	= pid;
 	pipes[nr_pipes].users	= 1;
 
