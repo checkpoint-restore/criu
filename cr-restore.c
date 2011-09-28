@@ -313,9 +313,8 @@ static int prepare_pipes_pid(int pid)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(e)) {
-			fprintf(stderr, "Read pipes for %s failed %d of %li read\n",
-					path, ret, sizeof(e));
-			perror("Can't read pipes entry");
+			pr_perror("Read pipes for %s failed %d of %li read\n",
+				  path, ret, sizeof(e));
 			return 1;
 		}
 
@@ -404,7 +403,7 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 	int tmp;
 
 	if (read(fd, path, fe->len) != fe->len) {
-		fprintf(stderr, "Error reading path");
+		pr_error("Error reading path");
 		return -1;
 	}
 
@@ -474,18 +473,18 @@ static int prepare_fds(int pid)
 	char path[64];
 	int fdinfo_fd;
 
-	pr_info("%d: Opening files\n", pid);
-
 	sprintf(path, "fdinfo-%d.img", pid);
+	pr_info("%d: Opening files in %s\n", pid, path);
+
 	fdinfo_fd = open(path, O_RDONLY);
 	if (fdinfo_fd < 0) {
-		perror("Can't open fdinfo");
+		pr_perror("Can't open %s", path);
 		return 1;
 	}
 
 	read(fdinfo_fd, &mag, 4);
 	if (mag != FDINFO_MAGIC) {
-		fprintf(stderr, "Bad file\n");
+		pr_error("Bad file magic number in %s\n", path);
 		return 1;
 	}
 
@@ -500,11 +499,12 @@ static int prepare_fds(int pid)
 		}
 
 		if (ret < 0) {
-			perror("Can't read file");
+			pr_perror("Error reading %s\n", path);
 			return 1;
 		}
+
 		if (ret != sizeof(fe)) {
-			fprintf(stderr, "Error reading\n");
+			pr_error("Corrupted file %s\n", path);
 			return 1;
 		}
 
@@ -520,7 +520,7 @@ static int prepare_fds(int pid)
 				return 1;
 			break;
 		default:
-			fprintf(stderr, "Some bullshit in a file\n");
+			pr_error("Unknown type in %s\n", path);
 			return 1;
 		}
 	}
@@ -623,7 +623,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
 	if (!si) {
-		fprintf(stderr, "Can't find my shmem %016lx\n", vi->start);
+		pr_error("Can't find my shmem %016lx\n", vi->start);
 		return 1;
 	}
 
@@ -711,15 +711,17 @@ static int fixup_pages_data(int pid, int fd)
 	u64 va;
 
 	sprintf(path, "pages-shmem-%d.img", pid);
+	pr_info("%d: Reading shmem pages from %s\n", pid, path);
+
 	shfd = open(path, O_RDONLY);
 	if (shfd < 0) {
-		perror("Can't open shmem image");
+		pr_perror("Can't open shmem image %s", path);
 		return 1;
 	}
 
 	read(shfd, &magic, sizeof(magic));
 	if (magic != PAGES_MAGIC) {
-		fprintf(stderr, "Bad shmem image\n");
+		pr_error("Bad shmem file magic number %s\n", path);
 		return 1;
 	}
 
@@ -747,7 +749,7 @@ static int fixup_pages_data(int pid, int fd)
 			break;
 
 		if (ret < 0 || ret != sizeof(va)) {
-			perror("Can't read virtual address");
+			pr_perror("Can't read virtual address");
 			return 1;
 		}
 
@@ -868,8 +870,8 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 		tmp = splice(pipes_fd, NULL, pfd[1], NULL, e->bytes, 0);
 		if (tmp != e->bytes) {
-			fprintf(stderr, "Wanted to restore %d bytes, but got %d\n",
-					e->bytes, tmp);
+			pr_error("Wanted to restore %d bytes, but got %d\n",
+				 e->bytes, tmp);
 			if (tmp < 0)
 				perror("Error splicing data");
 			return 1;
@@ -975,7 +977,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 	pi = find_pipe(e->pipeid);
 	if (!pi) {
-		fprintf(stderr, "BUG: can't find my pipe %x\n", e->pipeid);
+		pr_error("BUG: can't find my pipe %x\n", e->pipeid);
 		return 1;
 	}
 
@@ -1087,7 +1089,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 	while (1) {
 		ret = read(fd, &e, sizeof(e));
 		if (ret != sizeof(e)) {
-			fprintf(stderr, "%d: Read returned %d\n", my_pid, ret);
+			pr_error("%d: Read returned %d\n", my_pid, ret);
 			if (ret < 0)
 				perror("Can't read pstree");
 			exit(1);
