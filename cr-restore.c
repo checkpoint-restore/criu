@@ -653,7 +653,6 @@ static int fixup_vma_fds(int pid, int fd)
 {
 	int offset = GET_FILE_OFF_AFTER(struct core_entry);
 
-	pr_info("Seek for: %d bytes\n", offset);
 	lseek(fd, offset, SEEK_SET);
 
 	while (1) {
@@ -708,8 +707,8 @@ static int fixup_pages_data(int pid, int fd)
 {
 	char path[128];
 	int shfd;
-	u32 mag;
-	u64 vaddr;
+	u32 magic;
+	u64 va;
 
 	sprintf(path, "pages-shmem-%d.img", pid);
 	shfd = open(path, O_RDONLY);
@@ -718,48 +717,58 @@ static int fixup_pages_data(int pid, int fd)
 		return 1;
 	}
 
-	read(shfd, &mag, sizeof(mag));
-	if (mag != PAGES_MAGIC) {
+	read(shfd, &magic, sizeof(magic));
+	if (magic != PAGES_MAGIC) {
 		fprintf(stderr, "Bad shmem image\n");
 		return 1;
 	}
 
-	/* Find out the last page, which is zero one */
+	/*
+	 * Find out the last page, which must be a zero page.
+	 */
 	lseek(fd, -sizeof(struct page_entry), SEEK_END);
-	read(fd, &vaddr, sizeof(vaddr));
-	if (vaddr != 0) {
-		pr_info("SHIT %lx\n", (unsigned long)vaddr);
+	read(fd, &va, sizeof(va));
+	if (va) {
+		pr_panic("Zero-page expected but got %lx\n", (unsigned long)va);
 		return 1;
 	}
+
+	/*
+	 * Since we're to update pages we suppress old zero-page
+	 * and will write new one at the end.
+	 */
 	lseek(fd, -sizeof(struct page_entry), SEEK_END);
 
 	while (1) {
 		int ret;
 
-		ret = read(shfd, &vaddr, sizeof(vaddr));
+		ret = read(shfd, &va, sizeof(va));
 		if (ret == 0)
 			break;
 
-		if (ret < 0 || ret != sizeof(vaddr)) {
-			perror("Can't read vaddr");
+		if (ret < 0 || ret != sizeof(va)) {
+			perror("Can't read virtual address");
 			return 1;
 		}
 
-		if (vaddr == 0)
+		if (va == 0)
 			break;
 
-		if (!should_restore_page(pid, vaddr)) {
+		if (!should_restore_page(pid, va)) {
 			lseek(shfd, PAGE_SIZE, SEEK_CUR);
 			continue;
 		}
 
-		write(fd, &vaddr, sizeof(vaddr));
+		pr_info("%d: Restoring shared page: %16lx\n",
+			pid, va);
+
+		write(fd, &va, sizeof(va));
 		sendfile(fd, shfd, NULL, PAGE_SIZE);
 	}
 
 	close(shfd);
-	vaddr = 0;
-	write(fd, &vaddr, sizeof(vaddr));
+	va = 0;
+	write(fd, &va, sizeof(va));
 	write(fd, zpage, sizeof(zpage));
 
 	return 0;
