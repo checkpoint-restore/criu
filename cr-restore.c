@@ -685,16 +685,20 @@ static int fixup_vma_fds(int pid, int fd)
 	}
 }
 
-static inline int should_restore_page(int pid, unsigned long vaddr)
+static inline bool should_restore_page(int pid, unsigned long va)
 {
 	struct shmem_info *si;
-	unsigned long id;
+	unsigned long shmid;
 
-	id = find_shmem_id(vaddr);
-	if (id == 0)
-		return 1;
+	/*
+	 * If this is not a shmem virtual address
+	 * we should restore such page.
+	 */
+	shmid = find_shmem_id(va);
+	if (!shmid)
+		return true;
 
-	si = find_shmem(vaddr, id);
+	si = find_shmem(va, shmid);
 	return si->pid == pid;
 }
 
