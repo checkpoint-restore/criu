@@ -53,6 +53,14 @@ struct pipe_info {
 	int		users;
 };
 
+struct shmem_id {
+	struct shmem_id *next;
+	unsigned long	addr;
+	unsigned long	end;
+	unsigned long	id;
+};
+
+static struct shmem_id *shmem_ids;
 
 static struct fmap_fd *fmap_fds;
 
@@ -89,7 +97,7 @@ static void show_saved_pipes(void)
 			pipes[i].users);
 }
 
-static struct shmem_info *search_shmem(unsigned long addr, unsigned long id)
+static struct shmem_info *find_shmem(unsigned long addr, unsigned long id)
 {
 	struct shmem_info *si;
 	int i;
@@ -103,7 +111,7 @@ static struct shmem_info *search_shmem(unsigned long addr, unsigned long id)
 	return NULL;
 }
 
-static struct pipe_info *search_pipe(unsigned int pipeid)
+static struct pipe_info *find_pipe(unsigned int pipeid)
 {
 	struct pipe_info *pi;
 	int i;
@@ -512,20 +520,11 @@ static int prepare_fds(int pid)
 	}
 }
 
-struct shmem_to_id {
-	unsigned long addr;
-	unsigned long end;
-	unsigned long id;
-	struct shmem_to_id *next;
-};
-
-static struct shmem_to_id *my_shmem_ids;
-
 static unsigned long find_shmem_id(unsigned long addr)
 {
-	struct shmem_to_id *si;
+	struct shmem_id *si;
 
-	for (si = my_shmem_ids; si != NULL; si = si->next)
+	for (si = shmem_ids; si; si = si->next)
 		if (si->addr <= addr && si->end >= addr)
 			return si->id;
 
@@ -534,15 +533,15 @@ static unsigned long find_shmem_id(unsigned long addr)
 
 static void save_shmem_id(struct shmem_entry *e)
 {
-	struct shmem_to_id *si;
+	struct shmem_id *si;
 
 	si		= malloc(sizeof(*si));
 	si->addr	= e->start;
 	si->end		= e->end;
 	si->id		= e->shmid;
-	si->next	= my_shmem_ids;
+	si->next	= shmem_ids;
 
-	my_shmem_ids	= si;
+	shmem_ids	= si;
 }
 
 static int prepare_shmem(int pid)
@@ -608,10 +607,10 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	unsigned long id;
 
 	id = find_shmem_id(vi->start);
-	if (id == 0)
+	if (!id)
 		return 0;
 
-	si = search_shmem(vi->start, id);
+	si = find_shmem(vi->start, id);
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
 	if (si == NULL) {
@@ -686,7 +685,7 @@ static inline int should_restore_page(int pid, unsigned long vaddr)
 	if (id == 0)
 		return 1;
 
-	si = search_shmem(vaddr, id);
+	si = find_shmem(vaddr, id);
 	return si->pid == pid;
 }
 
@@ -952,7 +951,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 		*pipes_fd = tmp;
 	}
 
-	pi = search_pipe(e->pipeid);
+	pi = find_pipe(e->pipeid);
 	if (!pi) {
 		fprintf(stderr, "BUG: can't find my pipe %x\n", e->pipeid);
 		return 1;
