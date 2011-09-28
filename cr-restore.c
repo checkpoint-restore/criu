@@ -32,6 +32,7 @@
 struct fmap_fd {
 	struct fmap_fd	*next;
 	unsigned long	start;
+	int		pid;
 	int		fd;
 };
 
@@ -362,14 +363,14 @@ static int prepare_shared(int ps_fd)
 	return 0;
 }
 
-static struct fmap_fd *pop_fmap_fd(unsigned long start)
+static struct fmap_fd *pop_fmap_fd(int pid, unsigned long start)
 {
 	struct fmap_fd **p, *r;
 
-	pr_info("Looking for %lx : ", start);
+	pr_info("%d: Looking for %lx : ", pid, start);
 
 	for (p = &fmap_fds; *p != NULL; p = &(*p)->next) {
-		if ((*p)->start != start)
+		if ((*p)->start != start || (*p)->pid != pid)
 			continue;
 
 		r = *p;
@@ -446,6 +447,8 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 	new->start	= fe->addr;
 	new->fd		= tmp;
 	new->next	= fmap_fds;
+	new->pid	= pid;
+
 	fmap_fds	= new;
 
 	return 0;
@@ -584,7 +587,7 @@ static int try_fixup_file_map(int pid, struct vma_entry *vi, int fd)
 {
 	struct fmap_fd *fmfd;
 
-	fmfd = pop_fmap_fd(vi->start);
+	fmfd = pop_fmap_fd(pid, vi->start);
 	if (fmfd != NULL) {
 		pr_info("%d: Fixing %lx vma to %d fd\n", pid, vi->start, fmfd->fd);
 		lseek(fd, -sizeof(*vi), SEEK_CUR);
