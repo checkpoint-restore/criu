@@ -39,7 +39,7 @@ struct fmap_fd {
 struct shmem_info {
 	unsigned long	start;
 	unsigned long	end;
-	unsigned long	id;
+	unsigned long	shmid;
 	int		pid;
 	int		real_pid;
 };
@@ -57,7 +57,7 @@ struct shmem_id {
 	struct shmem_id *next;
 	unsigned long	addr;
 	unsigned long	end;
-	unsigned long	id;
+	unsigned long	shmid;
 };
 
 static struct shmem_id *shmem_ids;
@@ -79,9 +79,9 @@ static void show_saved_shmems(void)
 	pr_info("\tSaved shmems:\n");
 
 	for (i = 0; i < nr_shmems; i++)
-		pr_info("\t\tstart: %016lx id: %lx pid: %d\n",
+		pr_info("\t\tstart: %016lx shmid: %lx pid: %d\n",
 			shmems[i].start,
-			shmems[i].id,
+			shmems[i].shmid,
 			shmems[i].pid);
 }
 
@@ -97,14 +97,14 @@ static void show_saved_pipes(void)
 			pipes[i].users);
 }
 
-static struct shmem_info *find_shmem(unsigned long addr, unsigned long id)
+static struct shmem_info *find_shmem(unsigned long addr, unsigned long shmid)
 {
 	struct shmem_info *si;
 	int i;
 
 	for (i = 0; i < nr_shmems; i++) {
 		si = shmems + i;
-		if (si->start <= addr && si->end >= addr && si->id == id)
+		if (si->start <= addr && si->end >= addr && si->shmid == shmid)
 			return si;
 	}
 
@@ -171,14 +171,20 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 
 	for (i = 0; i < nr_shmems; i++) {
 		if (shmems[i].start != e->start ||
-		    shmems[i].id != e->shmid)
+		    shmems[i].shmid != e->shmid)
 			continue;
 
 		if (shmems[i].end != e->end) {
-			pr_info("Bogus shmem\n");
+			pr_error("Bogus shmem\n");
 			return 1;
 		}
 
+		/*
+		 * Only the shared mapping with highest
+		 * pid will be created in real, other processes
+		 * will wait until the kernel propagate this mapping
+		 * into /proc
+		 */
 		if (shmems[i].pid > pid)
 			shmems[i].pid = pid;
 
@@ -192,7 +198,7 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 
 	shmems[nr_shmems].start		= e->start;
 	shmems[nr_shmems].end		= e->end;
-	shmems[nr_shmems].id		= e->shmid;
+	shmems[nr_shmems].shmid		= e->shmid;
 	shmems[nr_shmems].pid		= pid;
 	shmems[nr_shmems].real_pid	= 0;
 
@@ -526,7 +532,7 @@ static unsigned long find_shmem_id(unsigned long addr)
 
 	for (si = shmem_ids; si; si = si->next)
 		if (si->addr <= addr && si->end >= addr)
-			return si->id;
+			return si->shmid;
 
 	return 0;
 }
@@ -538,7 +544,7 @@ static void save_shmem_id(struct shmem_entry *e)
 	si		= malloc(sizeof(*si));
 	si->addr	= e->start;
 	si->end		= e->end;
-	si->id		= e->shmid;
+	si->shmid	= e->shmid;
 	si->next	= shmem_ids;
 
 	shmem_ids	= si;
@@ -604,16 +610,16 @@ static int try_fixup_file_map(int pid, struct vma_entry *vi, int fd)
 static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 {
 	struct shmem_info *si;
-	unsigned long id;
+	unsigned long shmid;
 
-	id = find_shmem_id(vi->start);
-	if (!id)
+	shmid = find_shmem_id(vi->start);
+	if (!shmid)
 		return 0;
 
-	si = find_shmem(vi->start, id);
+	si = find_shmem(vi->start, shmid);
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
-	if (si == NULL) {
+	if (!si) {
 		fprintf(stderr, "Can't find my shmem %016lx\n", vi->start);
 		return 1;
 	}
@@ -623,7 +629,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 
 		sh_fd = shmem_wait_and_open(si);
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
-			pid, vi->start, si->id, si->pid, sh_fd);
+			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (fd < 0) {
 			perror("Can't open shmem");
 			return 1;
