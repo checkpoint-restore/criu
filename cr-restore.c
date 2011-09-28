@@ -599,7 +599,7 @@ static int try_fixup_file_map(int pid, struct vma_entry *vma_entry, int fd)
 		lseek(fd, -sizeof(*vma_entry), SEEK_CUR);
 		vma_entry->fd = fmap_fd->fd;
 
-		write_ptr_safe(fd, &vma_entry, err);
+		write_ptr_safe(fd, vma_entry, err);
 
 		free(fmap_fd);
 	}
