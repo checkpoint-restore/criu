@@ -18,7 +18,7 @@
 
 int main(int argc, char *argv[])
 {
-//	int pipefd[2];
+	int pipefd[2];
 	int fd_shared, fd_private;
 	const char data_mark[] = "This is a data_mark marker";
 	void *mmap_shared, *mmap_private, *mmap_anon, *map_unreadable;
@@ -31,10 +31,10 @@ int main(int argc, char *argv[])
 
 	printf("%s pid %d\n", argv[0], getpid());
 
-//	if (pipe(pipefd)) {
-//		perror("Can't create pipe");
-//		goto err;
-//	}
+	if (pipe(pipefd)) {
+		perror("Can't create pipe");
+		goto err;
+	}
 
 	fd_shared = open("testee-shared.img", O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd_shared < 0) {
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		printf("ping: %d\n", getpid());
-//		write(pipefd[1], &buf, sizeof(buf));
+		write(pipefd[1], &buf, sizeof(buf));
 		sleep(6);
 	}
 
