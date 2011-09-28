@@ -588,23 +588,26 @@ static int prepare_shmem(int pid)
 	return 0;
 }
 
-static int try_fixup_file_map(int pid, struct vma_entry *vi, int fd)
+static int try_fixup_file_map(int pid, struct vma_entry *vma_entry, int fd)
 {
-	struct fmap_fd *fmfd;
+	struct fmap_fd *fmap_fd = pop_fmap_fd(pid, vma_entry->start);
 
-	fmfd = pop_fmap_fd(pid, vi->start);
-	if (fmfd != NULL) {
-		pr_info("%d: Fixing %lx vma to %d fd\n", pid, vi->start, fmfd->fd);
-		lseek(fd, -sizeof(*vi), SEEK_CUR);
-		vi->fd = fmfd->fd;
-		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
-			perror("Can't write img");
-			return 1;
-		}
-		free(fmfd);
+	if (fmap_fd) {
+		pr_info("%d: Fixing %lx vma to %d fd\n",
+			pid, vma_entry->start, fmap_fd->fd);
+
+		lseek(fd, -sizeof(*vma_entry), SEEK_CUR);
+		vma_entry->fd = fmap_fd->fd;
+
+		write_ptr_safe(fd, &vma_entry, err);
+
+		free(fmap_fd);
 	}
 
 	return 0;
+err:
+	pr_perror("%d: Can't fixup vma\n", pid);
+	return 1;
 }
 
 static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
