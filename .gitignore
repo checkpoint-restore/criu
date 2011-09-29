@@ -5,6 +5,7 @@
 *.elf
 *.out
 *.swp
+crtools
 parasite-blob.h
 cscope*
 tags
