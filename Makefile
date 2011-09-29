@@ -111,7 +111,7 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS):
+$(DEPS): $(HEAD-BLOB)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
