@@ -18,6 +18,7 @@ ECHO		:= echo
 NM		:= nm
 AWK		:= awk
 SH		:= sh
+MAKE		:= make
 
 CFLAGS		+= -I./include
 CFLAGS		+= -O0 -ggdb3
@@ -52,11 +53,10 @@ WARNINGS	+= -Wall -Wno-unused
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 
 PROGRAM		:= crtools
-TESTEE		:= testee
-TESTEE-TH	:= testee-threads
-TESTEE-STATIC	:= testee-static
 
-all: $(PROGRAM) $(TESTEE) $(TESTEE-TH) $(TESTEE-STATIC)
+export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
+
+all: $(PROGRAM)
 
 OBJS		+= crtools.o
 OBJS		+= parasite-syscall.o
@@ -67,17 +67,10 @@ OBJS		+= util.o
 OBJS		+= rbtree.o
 OBJS		+= elf.o
 
-OBJS-TESTEE	+= testee.o
-
-OBJS-TESTEE-TH	+= testee-threads.o
+DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 OBJS-BLOB	+= parasite.o
-
-DEPS		:= $(patsubst %.o,%.d,$(OBJS))
-DEPS-TESTEE	:= $(patsubst %.o,%.d,$(OBJS-TESTEE))
-DEPS-TESTEE-TH	:= $(patsubst %.o,%.d,$(OBJS-TESTEE-TH))
-DEPS-BLOB	:= $(patsubst %.o,%.d,$(OBJS-BLOB))
-
+DEPS-BLOB	+= $(patsubst %.o,%.d,$(OBJS-BLOB))
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
 HEAD-BLOB	:= $(patsubst %.o,%.h,$(OBJS-BLOB))
@@ -87,7 +80,7 @@ HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
 HEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(HEAD-BLOB)))
 
-$(OBJS-BLOB): $(SRCS-BLOB) $(DEPS-BLOB)
+$(OBJS-BLOB): $(SRCS-BLOB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
 
@@ -97,8 +90,8 @@ $(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
 	$(Q) $(LD) -T $(patsubst %.bin,%-elf.lds.S,$@) $< -o $@.o
 
+$(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
 $(HEAD-BLOB): $(DEPS-BLOB) $(HEAD-BIN)
-%-blob.h: %.bin
 %.h: %.bin
 	$(E) "  GEN     " $@
 	$(Q) $(SH) gen-offsets.sh					\
@@ -107,55 +100,42 @@ $(HEAD-BLOB): $(DEPS-BLOB) $(HEAD-BIN)
 		$(subst -,_,$(patsubst %.h,%,$@))_blob			\
 		$(patsubst %.h,%.o,$@)					\
 		$(patsubst %.h,%.bin,$@) > $(patsubst %.h,%-blob.h,$@)
+	$(Q) sync
 
-$(OBJS): $(HEAD-BLOB) $(DEPS)
-$(OBJS-TESTEE): $(DEPS-TESTEE)
-$(OBJS-TESTEE-TH): $(DEPS-TESTEE-TH)
+$(OBJS): $(HEAD-BLOB) $(DEPS) $(HEAD-BLOB-GEN)
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(OBJS) $(LIBS) -o $@
-
-$(TESTEE): $(OBJS-TESTEE)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) $(OBJS-TESTEE) -o $@
-
-$(TESTEE-TH): $(OBJS-TESTEE-TH)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) $(OBJS-TESTEE-TH) -lpthread -o $@
-
-$(TESTEE-STATIC).o: testee-static.c
-	$(Q) gcc -c -static -I./.include -o testee-static.o testee-static.c
-
-$(TESTEE-STATIC): $(TESTEE-STATIC).o
-	$(Q) gcc -o testee-static -static testee-static.o
+	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 $(DEPS):
-$(DEPS-TESTEE):
-$(DEPS-TESTEE-TH):
-$(DEPS-BLOB):
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
+$(DEPS-BLOB): $(SRCS-BLOB)
+	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
+
+test:
+	$(Q) $(MAKE) -C test all
+.PHONY: test
+
 clean:
 	$(E) "  CLEAN"
-	$(Q) rm -f ./*.o
-	$(Q) rm -f ./*.d
-	$(Q) rm -f ./*.img
-	$(Q) rm -f ./*.elf
-	$(Q) rm -f ./*.out
-	$(Q) rm -f ./*.bin
-	$(Q) rm -f ./tags
-	$(Q) rm -f ./cscope*
-	$(Q) rm -f ./$(PROGRAM)
-	$(Q) rm -f ./$(TESTEE)
-	$(Q) rm -f ./$(TESTEE-STATIC)
-	$(Q) rm -f ./$(TESTEE-TH)
-	$(Q) rm -f ./$(HEAD-BLOB)
-	$(Q) rm -f ./$(HEAD-BLOB-GEN)
+	$(Q) $(RM) -f ./*.o
+	$(Q) $(RM) -f ./*.d
+	$(Q) $(RM) -f ./*.img
+	$(Q) $(RM) -f ./*.elf
+	$(Q) $(RM) -f ./*.out
+	$(Q) $(RM) -f ./*.bin
+	$(Q) $(RM) -f ./tags
+	$(Q) $(RM) -f ./cscope*
+	$(Q) $(RM) -f ./$(PROGRAM)
+	$(Q) $(RM) -f ./$(HEAD-BLOB)
+	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
+	$(Q) $(MAKE) -C test clean
 .PHONY: clean
 
 tags:
