@@ -4,6 +4,7 @@
 *.bin
 *.elf
 *.out
+parasite-blob.h
 cscope*
 tags
 TAGS
