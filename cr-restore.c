@@ -196,6 +196,8 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 		return 1;
 	}
 
+	memset(&shmems[nr_shmems], 0, sizeof(shmems[nr_shmems]));
+
 	shmems[nr_shmems].start		= e->start;
 	shmems[nr_shmems].end		= e->end;
 	shmems[nr_shmems].shmid		= e->shmid;
