@@ -318,13 +318,13 @@ static int collect_pstree(pid_t pid, struct cr_fdset *cr_fdset)
 		item->children		= xmalloc(size);
 
 		if (!item->children) {
-			pr_error("No memory for children pids\n");
+			pr_err("No memory for children pids\n");
 			goto err;
 		}
 
 		ret = read(fd, item->children, size);
 		if (ret != size) {
-			pr_error("An error in reading children pids\n");
+			pr_err("An error in reading children pids\n");
 			xfree(item->children);
 			goto err;
 		}

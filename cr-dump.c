@@ -91,9 +91,9 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_error("Bogus mapping %lx-%lx\n",
-		 vma_area->vma.start,
-		 vma_area->vma.end);
+	pr_err("Bogus mapping %lx-%lx\n",
+	       vma_area->vma.start,
+	       vma_area->vma.end);
 	goto err;
 }
 
@@ -156,7 +156,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 
 	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
 	if (pipe_size < 0) {
-		pr_error("Can't obtain piped data size\n");
+		pr_err("Can't obtain piped data size\n");
 		goto err;
 	}
 
@@ -215,7 +215,7 @@ err:
 		pr_info("Dumped pipe: fd: %8lx pipeid: %8lx flags: %8lx bytes: %8lx\n",
 			e.fd, e.pipeid, e.flags, e.bytes);
 	else
-		pr_error("Dumping pipe %d/%x flags %x\n", fd, id, flags);
+		pr_err("Dumping pipe %d/%x flags %x\n", fd, id, flags);
 
 	return ret;
 }
@@ -273,7 +273,7 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 		return 0;
 	}
 
-	pr_error("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
+	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
 	return 1;
 }
 
@@ -436,7 +436,7 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 	int ret = -1;
 
 	if (size != GDT_ENTRY_TLS_ENTRIES) {
-		pr_error("Wrong TLS storage size: %d\n", size);
+		pr_err("Wrong TLS storage size: %d\n", size);
 		goto err;
 	}
 
@@ -451,12 +451,12 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 	while (fgets(loc_buf, sizeof(loc_buf), file)) {
 		u32 a, b;
 		if (sscanf(loc_buf, "%x %x", &a, &b) != 2) {
-			pr_error("Can't parse tls entry: %s\n");
+			pr_err("Can't parse tls entry: %s\n");
 			ret = -1;
 			goto err;
 		}
 		if (ret >= GDT_ENTRY_TLS_ENTRIES) {
-			pr_error("Too many entries in tls\n");
+			pr_err("Too many entries in tls\n");
 			ret = -1;
 			goto err;
 		}
@@ -467,7 +467,7 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 	}
 
 	if (ret != GDT_ENTRY_TLS_ENTRIES) {
-		pr_error("tls returened %i entries instead of %i\n",
+		pr_err("tls returened %i entries instead of %i\n",
 			 ret, GDT_ENTRY_TLS_ENTRIES);
 		ret = -1;
 		goto err;
@@ -606,7 +606,7 @@ static struct pstree_item *find_children(pid_t pid)
 
 	fclose(file), file = NULL;
 	if (!found) {
-		pr_error("Children marker is not found\n");
+		pr_err("Children marker is not found\n");
 		goto err;
 	}
 
@@ -842,63 +842,63 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 
 	ret = collect_mappings(pid);
 	if (ret) {
-		pr_error("Collect mappings (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	ret = seize_task(pid);
 	if (ret) {
-		pr_error("Failed to seize task (pid: %d) with %d\n",
-			 pid, ret);
+		pr_err("Failed to seize task (pid: %d) with %d\n",
+		       pid, ret);
 		goto err;
 	}
 
 	ret = dump_task_core_seized(pid, cr_fdset);
 	if (ret) {
-		pr_error("Dump core (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	parasite_ctl = parasite_infect_seized(pid, NULL, &vma_area_list);
 	if (!parasite_ctl) {
-		pr_error("Can't infect (pid: %d) with parasite\n", pid);
+		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
 	}
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list,
 					 cr_fdset, CR_FD_PAGES);
 	if (ret) {
-		pr_error("Can't dump pages (pid: %d) with parasite\n", pid);
+		pr_err("Can't dump pages (pid: %d) with parasite\n", pid);
 		goto err;
 	}
 
 	ret = parasite_cure_seized(&parasite_ctl, &vma_area_list);
 	if (ret) {
-		pr_error("Can't cure (pid: %d) from parasite\n", pid);
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
 	}
 
 	ret = unseize_task(pid);
 	if (ret) {
-		pr_error("Can't unsieze (pid: %d) task\n", pid);
+		pr_err("Can't unsieze (pid: %d) task\n", pid);
 		goto err;
 	}
 
 	ret = dump_task_files(pid, cr_fdset);
 	if (ret) {
-		pr_error("Dump files (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	ret = dump_task_mappings(pid, cr_fdset);
 	if (ret) {
-		pr_error("Dump mappings (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	ret = finalize_core(pid, cr_fdset);
 	if (ret) {
-		pr_error("Finalizing core (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Finalizing core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 

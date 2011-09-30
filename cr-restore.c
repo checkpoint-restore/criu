@@ -184,7 +184,7 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 			continue;
 
 		if (shmems[i].end != e->end) {
-			pr_error("Bogus shmem\n");
+			pr_err("Bogus shmem\n");
 			return 1;
 		}
 
@@ -270,8 +270,8 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 		pipes[nr_pipes].status = PIPE_WRONLY;
 		break;
 	default:
-		pr_error("%d: Unknown pipe status pipeid %d\n",
-			 pid, e->pipeid);
+		pr_err("%d: Unknown pipe status pipeid %d\n",
+		       pid, e->pipeid);
 		break;
 	}
 
@@ -437,7 +437,7 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 	int tmp;
 
 	if (read(fd, path, fe->len) != fe->len) {
-		pr_error("Error reading path");
+		pr_err("Error reading path");
 		return -1;
 	}
 
@@ -518,7 +518,7 @@ static int prepare_fds(int pid)
 
 	read(fdinfo_fd, &mag, 4);
 	if (mag != FDINFO_MAGIC) {
-		pr_error("Bad file magic number in %s\n", path);
+		pr_err("Bad file magic number in %s\n", path);
 		return 1;
 	}
 
@@ -538,7 +538,7 @@ static int prepare_fds(int pid)
 		}
 
 		if (ret != sizeof(fe)) {
-			pr_error("Corrupted file %s\n", path);
+			pr_err("Corrupted file %s\n", path);
 			return 1;
 		}
 
@@ -554,7 +554,7 @@ static int prepare_fds(int pid)
 				return 1;
 			break;
 		default:
-			pr_error("Unknown type in %s\n", path);
+			pr_err("Unknown type in %s\n", path);
 			return 1;
 		}
 	}
@@ -657,7 +657,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
 	if (!si) {
-		pr_error("Can't find my shmem %016lx\n", vi->start);
+		pr_err("Can't find my shmem %016lx\n", vi->start);
 		return 1;
 	}
 
@@ -755,7 +755,7 @@ static int fixup_pages_data(int pid, int fd)
 
 	read(shfd, &magic, sizeof(magic));
 	if (magic != PAGES_MAGIC) {
-		pr_error("Bad shmem file magic number %s\n", path);
+		pr_err("Bad shmem file magic number %s\n", path);
 		return 1;
 	}
 
@@ -905,8 +905,8 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 		tmp = splice(pipes_fd, NULL, pfd[1], NULL, e->bytes, 0);
 		if (tmp != e->bytes) {
-			pr_error("Wanted to restore %d bytes, but got %d\n",
-				 e->bytes, tmp);
+			pr_err("Wanted to restore %d bytes, but got %d\n",
+			       e->bytes, tmp);
 			if (tmp < 0)
 				perror("Error splicing data");
 			return 1;
@@ -1014,7 +1014,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 	pi = find_pipe(e->pipeid);
 	if (!pi) {
-		pr_error("BUG: can't find my pipe %x\n", e->pipeid);
+		pr_err("BUG: can't find my pipe %x\n", e->pipeid);
 		return 1;
 	}
 
@@ -1132,7 +1132,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 	while (1) {
 		ret = read(fd, &e, sizeof(e));
 		if (ret != sizeof(e)) {
-			pr_error("%d: Read returned %d\n", my_pid, ret);
+			pr_err("%d: Read returned %d\n", my_pid, ret);
 			if (ret < 0)
 				perror("Can't read pstree");
 			exit(1);

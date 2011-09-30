@@ -284,7 +284,7 @@ again:
 
 		if (ptrace_poke_area((long)ctl->pid, (void *)parasite_arg.args,
 				 (void *)ctl->addr_args, parasite_arg.args_size)) {
-			pr_error("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
+			pr_err("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
 			goto err_restore;
 		}
 
@@ -324,7 +324,7 @@ retry_signal:
 					     (void *)(ctl->addr_args +
 						      offsetof(parasite_args_cmd_dumppages_t, fd)),
 					     sizeof(parasite_dumppages.fd))) {
-				pr_error("Can't get file descriptor back (pid: %d)\n", ctl->pid);
+				pr_err("Can't get file descriptor back (pid: %d)\n", ctl->pid);
 				goto err_restore;
 			}
 		}
@@ -337,7 +337,7 @@ retry_signal:
 				     (void *)(ctl->addr_args +
 					      offsetof(parasite_args_cmd_dumppages_t, nrpages_dumped)),
 				     sizeof(parasite_dumppages.fd))) {
-			pr_error("Can't get statistics (pid: %d)\n", ctl->pid);
+			pr_err("Can't get statistics (pid: %d)\n", ctl->pid);
 			goto err_restore;
 		}
 		pr_info("  (dumped: %16li pages)\n", parasite_dumppages.nrpages_dumped);
@@ -409,7 +409,7 @@ int parasite_cure_seized(struct parasite_ctl **p_ctl,
 
 	vma_area = get_vma_by_ip(vma_area_list, regs.ip);
 	if (!vma_area) {
-		pr_error("No suitable VMA found to run cure (pid: %d)\n", ctl->pid);
+		pr_err("No suitable VMA found to run cure (pid: %d)\n", ctl->pid);
 		goto err;
 	}
 
@@ -419,7 +419,7 @@ int parasite_cure_seized(struct parasite_ctl **p_ctl,
 			    (void *)ctl->vma_area->vma.start,
 			    (size_t)vma_entry_len(&ctl->vma_area->vma));
 	if (ret)
-		pr_error("munmap_seized failed (pid: %d)\n", ctl->pid);
+		pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
 
 	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs_orig)) {
 		ret = -1;
@@ -440,7 +440,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 
 	ctl = xzalloc(sizeof(*ctl) + sizeof(*vma_area));
 	if (!ctl) {
-		pr_error("Parasite control block allocation failed (pid: %d)\n", pid);
+		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
 
@@ -449,11 +449,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 	ctl->vma_area	= (struct vma_area *)(char *)&ctl[sizeof(*ctl)];
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs))
-		pr_error_jmp(err_free);
+		pr_err_jmp(err_free);
 
 	vma_area = get_vma_by_ip(vma_area_list, regs.ip);
 	if (!vma_area) {
-		pr_error("No suitable VMA found to run parasite "
+		pr_err("No suitable VMA found to run parasite "
 			 "bootstrap code (pid: %d)\n", pid);
 		goto err_free;
 	}
@@ -474,7 +474,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 			     (int)-1, (off_t)0);
 
 	if (!mmaped || (long)mmaped < 0) {
-		pr_error("Can't allocate memory for parasite blob (pid: %d)\n", pid);
+		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", pid);
 		goto err_restore_regs;
 	}
 
@@ -487,7 +487,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 	ctl->vma_area->vma.end	= (u64)(mmaped + parasite_size);
 
 	if (ptrace_poke_area(pid, parasite_blob, mmaped, parasite_size)) {
-		pr_error("Can't inject parasite blob (pid: %d)\n", pid);
+		pr_err("Can't inject parasite blob (pid: %d)\n", pid);
 		goto err_munmap_restore;
 	}
 

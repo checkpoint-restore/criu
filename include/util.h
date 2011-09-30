@@ -16,11 +16,11 @@
 extern void printk(const char *format, ...);
 
 #define pr_info(fmt, ...)	printk(fmt, ##__VA_ARGS__)
-#define pr_error(fmt, ...)	printk("Error (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#define pr_err(fmt, ...)	printk("Error (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_panic(fmt, ...)	printk("PANIC (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_warning(fmt, ...)	printk("Warning: " fmt, ##__VA_ARGS__)
 
-#define pr_error_jmp(label)					\
+#define pr_err_jmp(label)					\
 	do {							\
 		printk("EJMP: %s:%d\n", __FILE__, __LINE__);	\
 		goto label;					\
@@ -29,20 +29,20 @@ extern void printk(const char *format, ...);
 #define jerr(code, label)					\
 	do {							\
 		if ((code))					\
-			pr_error_jmp(label);			\
+			pr_err_jmp(label);			\
 	} while (0)
 
 #define jerr_cond(code, cond, label)				\
 	do {							\
 		if ((code) cond)				\
-			pr_error_jmp(label);			\
+			pr_err_jmp(label);			\
 	} while (0)
 
 #define jerr_rc(code, rc, label)				\
 	do {							\
 		rc = (code);					\
 		if (rc)						\
-			pr_error_jmp(label);			\
+			pr_err_jmp(label);			\
 	} while (0)
 
 #if 0
@@ -65,14 +65,14 @@ extern void printk(const char *format, ...);
 
 #define pr_perror(fmt, ...)					\
 	do {							\
-		pr_error("%s: " fmt,  strerror(errno),		\
-			 ##__VA_ARGS__);			\
+		pr_err("%s: " fmt,  strerror(errno),		\
+			##__VA_ARGS__);				\
 	} while (0)
 
 #define stop_task(pid)		kill(pid, SIGSTOP)
 #define continue_task(pid)	kill(pid, SIGCONT)
 
-#define write_ptr(fd, ptr) 			\
+#define write_ptr(fd, ptr)			\
 	write(fd, (ptr), sizeof(*(ptr)))
 
 #define write_ptr_safe(fd, ptr, err)		\
@@ -154,8 +154,8 @@ int close_safe(int *fd);
 	({								\
 		void *___p = op( __VA_ARGS__ );				\
 		if (!___p)						\
-			pr_error("%s: Can't allocate %li bytes\n",	\
-				 __func__, (long)(size));		\
+			pr_err("%s: Can't allocate %li bytes\n",	\
+			       __func__, (long)(size));			\
 		___p;							\
 	})
 

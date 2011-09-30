@@ -107,12 +107,12 @@ int convert_to_elf(char *elf_path, int fd_core)
 
 	/* Figure out if we're overflowed */
 	if (e_phnum > ELF_MAX_PHDR) {
-		pr_error("Too many VMA areas (%li of %li allowed)\n",
-			 e_phnum, ELF_MAX_PHDR);
+		pr_err("Too many VMA areas (%li of %li allowed)\n",
+		       e_phnum, ELF_MAX_PHDR);
 		goto err_close;
 	} else if (nrpages > ELF_MAX_PAGES) {
-		pr_error("Too many pages to restore (%li of %li allowed)\n",
-			 nrpages, ELF_MAX_PAGES);
+		pr_err("Too many pages to restore (%li of %li allowed)\n",
+		       nrpages, ELF_MAX_PAGES);
 		goto err_close;
 	}
 

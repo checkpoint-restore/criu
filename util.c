@@ -297,7 +297,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list)
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino);
 		if (ret != 10) {
-			pr_error("Can't parse: %s", big_buffer);
+			pr_err("Can't parse: %s", big_buffer);
 			return -1;
 		}
 
@@ -375,10 +375,10 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list)
 				goto err;
 			}
 			if (!S_ISREG(st_buf.st_mode)) {
-				pr_error("Can't handle non-regular "
-					 "mapping on %s%s\n",
-					  map_files_path,
-					  vma_file_path);
+				pr_err("Can't handle non-regular "
+				       "mapping on %s%s\n",
+				       map_files_path,
+				       vma_file_path);
 				goto err;
 			}
 
@@ -424,8 +424,8 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_error("Bogus mapping %lx-%lx\n",
-		 vma_area->vma.start,
-		 vma_area->vma.end);
+	pr_err("Bogus mapping %lx-%lx\n",
+	       vma_area->vma.start,
+	       vma_area->vma.end);
 	goto err;
 }

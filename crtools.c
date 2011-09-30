@@ -162,8 +162,8 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 
 		read_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
 		if (magic != cr_fdset->desc[i].tmpl->magic) {
-			pr_error("Magic doesn't match for %s\n",
-				 cr_fdset->desc[i].name);
+			pr_err("Magic doesn't match for %s\n",
+			       cr_fdset->desc[i].name);
 			goto err;
 		}
 
