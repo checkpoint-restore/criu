@@ -2,10 +2,17 @@ OBJS	+= testee.o
 OBJS	+= testee-static.o
 OBJS	+= testee-threads.o
 OBJS	+= testee-unlinked.o
+OBJS	+= asmem.o
 
 PROGS	:= $(patsubst %.o,%,$(OBJS))
 
 all: $(PROGS)
+
+asmem: asmem.c
+	$(E) "  CC      " $(patsubst %.c,%.o,$<)
+	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
+	$(E) "  LINK    " $@
+	$(Q) $(CC) -o $@ $(patsubst %.c,%.o,$<)
 
 testee: testee.c
 	$(E) "  CC      " $(patsubst %.c,%.o,$<)
