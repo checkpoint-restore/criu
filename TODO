@@ -12,3 +12,4 @@ Some things which are to be done
 - cr-restore.c should be significantly refactored
 - 'crtools show' should support showing only a subset of resources dumped such as
   pipes/vma/ and etc...
+- add bash completion file
