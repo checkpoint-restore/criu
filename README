@@ -1,15 +1,15 @@
 crtools
 =======
 
-An utility to to checkpoint/restore tasks. 
+An utility to to checkpoint/restore tasks.
 
-Some code is borrowed from
+Some code snippets are borrowed from
 
  - Linux kernel (http://kernel.org/)
  - git (http://git-scm.com/)
- - kvm-tools (https://github.com/penberg/linux-kvm.git)
+ - kvm-tools (https://github.com/penberg/linux-kvm)
  - ptrace-parasite (https://code.google.com/p/ptrace-parasite/)
 
 Many thanks to these projects.
 
-Licensed under GPLv2
+Licensed under GPLv2 (http://www.gnu.org/licenses/gpl-2.0.txt)
