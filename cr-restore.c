@@ -44,12 +44,22 @@ struct shmem_info {
 	int		real_pid;
 };
 
+#define PIPE_NONE	(0 << 0)
+#define PIPE_RDONLY	(1 << 1)
+#define PIPE_WRONLY	(1 << 2)
+#define PIPE_RDWR	(PIPE_RDONLY | PIPE_WRONLY)
+#define PIPE_MODE_MASK	(0x7)
+#define PIPE_CREATED	(1 << 3)
+
+#define pipe_is_rw(p)	(((p)->status & PIPE_MODE_MASK) == PIPE_RDWR)
+
 struct pipe_info {
 	unsigned int	pipeid;
 	int		pid;
 	int		real_pid;
 	int		read_fd;
 	int		write_fd;
+	int		status;
 	int		users;
 };
 
@@ -91,10 +101,9 @@ static void show_saved_pipes(void)
 
 	pr_info("\tSaved pipes:\n");
 	for (i = 0; i < nr_pipes; i++)
-		pr_info("\t\tpipeid: %x -> pid: %d -> users: %d\n",
-			pipes[i].pipeid,
-			pipes[i].pid,
-			pipes[i].users);
+		pr_info("\t\tpipeid %x pid %d users %d status %d\n",
+			pipes[i].pipeid, pipes[i].pid,
+			pipes[i].users, pipes[i].status);
 }
 
 static struct shmem_info *find_shmem(unsigned long addr, unsigned long shmid)
@@ -224,8 +233,18 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 		if (pipes[i].pipeid != e->pipeid)
 			continue;
 
-		if (pipes[i].pid > pid)
+		if (pipes[i].pid > pid && !pipe_is_rw(&pipes[i])) {
 			pipes[i].pid = pid;
+		} else if (pipes[i].pid == pid) {
+			switch (e->flags) {
+			case O_RDONLY:
+				pipes[i].status |= PIPE_RDONLY;
+				break;
+			case O_WRONLY:
+				pipes[i].status |= PIPE_WRONLY;
+				break;
+			}
+		}
 
 		pipes[i].users++;
 
@@ -242,6 +261,19 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	pipes[nr_pipes].pipeid	= e->pipeid;
 	pipes[nr_pipes].pid	= pid;
 	pipes[nr_pipes].users	= 1;
+
+	switch (e->flags) {
+	case O_RDONLY:
+		pipes[nr_pipes].status = PIPE_RDONLY;
+		break;
+	case O_WRONLY:
+		pipes[nr_pipes].status = PIPE_WRONLY;
+		break;
+	default:
+		pr_error("%d: Unknown pipe status pipeid %d\n",
+			 pid, e->pipeid);
+		break;
+	}
 
 	nr_pipes++;
 
@@ -859,6 +891,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 {
 	unsigned long time = 1000;
 	int pfd[2], tmp;
+	int minusers = 1;
 
 	pr_info("\t%d: Creating pipe %x\n", pid, e->pipeid);
 
@@ -884,32 +917,34 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pi->write_fd	= pfd[1];
 	pi->real_pid	= getpid();
 
+	/* The process used both pipe ends */
+	if (pipe_is_rw(pi))
+		minusers = 2;
+
+	pi->status |= PIPE_CREATED;
+
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
-		pid, pi->users - 1, pi->real_pid, pi->read_fd, pi->write_fd);
+		pid, pi->users - minusers, pi->real_pid, pi->read_fd, pi->write_fd);
 
 	while (1) {
-		if (pi->users <= 1) /* only I left here, no need to wait */
+		if (pi->users <= minusers) /* only I left here, no need to wait */
 			break;
 
 		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
-				pid, e->pipeid, pi->users - 1);
+				pid, e->pipeid, pi->users - minusers);
 		if (time < 20000000)
 			time <<= 1;
 		usleep(time);
 	}
 
-	/*
-	 * At this point everyone who needed our pipe descriptors
-	 * should have them attched so we're safe to close pipe
-	 * descriptors here.
-	 */
-
 	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
 	if (e->flags & O_WRONLY) {
-		close_safe(&pi->read_fd);
+		if (!pipe_is_rw(pi))
+			close_safe(&pi->read_fd);
 		tmp = reopen_fd_as(e->fd, pi->write_fd);
 	} else {
-		close_safe(&pi->write_fd);
+		if (!pipe_is_rw(pi))
+			close_safe(&pi->write_fd);
 		tmp = reopen_fd_as(e->fd, pi->read_fd);
 	}
 
@@ -984,9 +1019,12 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	}
 
 	/*
-	 * Pipe get created once, other processes do attach to it.
+	 * This is somewhat tricky -- in case if a process uses
+	 * both pipe ends the pipe should be created but only one
+	 * pipe end get connected immediately in create_pipe the
+	 * other pipe end should be connected via pipe attaching.
 	 */
-	if (pi->pid == pid)
+	if (pi->pid == pid && !(pi->status & PIPE_CREATED))
 		return create_pipe(pid, e, pi, *pipes_fd);
 	else
 		return attach_pipe(pid, e, pi);
@@ -1020,8 +1058,9 @@ static int prepare_pipes(int pid)
 		ret = read(pipes_fd, &e, sizeof(e));
 		if (ret == 0) {
 			close(pipes_fd);
-			return 0;
+			break;
 		}
+
 		if (ret != sizeof(e)) {
 			perror("Bad pipes entry");
 			return 1;
@@ -1030,6 +1069,8 @@ static int prepare_pipes(int pid)
 		if (open_pipe(pid, &e, &pipes_fd))
 			return 1;
 	}
+
+	return 0;
 }
 
 static int restore_one_task(int pid)
