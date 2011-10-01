@@ -137,18 +137,8 @@ struct user_regs_entry {
 } __packed;
 
 struct desc_struct {
- union {
-	struct {
-		u32 a;
-		u32 b;
-	};
-	struct {
-		u16 limit0;
-		u16 base0;
-		unsigned base1: 8, type: 4, s: 1, dpl: 2, p: 1;
-		unsigned limit: 4, avl: 1, l: 1, d: 1, g: 1, base2: 8;
-	};
- };
+	u32 a;
+	u32 b;
 } __packed;
 
 struct user_fpregs_entry {
@@ -167,6 +157,7 @@ struct user_fpregs_entry {
 } __packed;
 
 #define GDT_ENTRY_TLS_ENTRIES 3
+#define TASK_COMM_LEN 16
 
 struct core_entry {
 	struct image_header		hdr;
@@ -174,6 +165,7 @@ struct core_entry {
 	struct user_fpregs_entry	fpregs;
 	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
 	u32				personality;
+	u8				comm[TASK_COMM_LEN];
 } __packed;
 
 #endif /* CONFIG_X86_64 */

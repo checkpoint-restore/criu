@@ -18,9 +18,9 @@ Signed-off-by: Andrew Vagin <avagin@openvz.org>
 ---
  arch/x86/include/asm/elf.h |    3 
  arch/x86/vdso/vma.c        |   22 ++
- fs/binfmt_elf.c            |  402 ++++++++++++++++++++++++++++++++++++++++++++-
- include/linux/elf_ckpt.h   |  135 +++++++++++++++
- 4 files changed, 560 insertions(+), 2 deletions(-)
+ fs/binfmt_elf.c            |  405 ++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/elf_ckpt.h   |  127 ++++++++++++++
+ 4 files changed, 555 insertions(+), 2 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -88,7 +88,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  
  static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
  static int load_elf_library(struct file *);
-@@ -556,6 +564,390 @@ static unsigned long randomize_stack_top
+@@ -556,6 +564,393 @@ static unsigned long randomize_stack_top
  #endif
  }
  
@@ -120,6 +120,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +	int cpu;
 +
 +	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
++	BUILD_BUG_ON(CKPT_TASK_COMM_LEN != TASK_COMM_LEN);
 +	BUILD_BUG_ON(CKPT_PAGE_SIZE != PAGE_SIZE);
 +
 +	elf_phdr_core	= NULL;
@@ -321,6 +322,8 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +		goto out_unmap;
 +	}
 +
++	set_task_comm(current, core_entry.comm);
++
 +	elf_entry	= core_entry.gpregs.ip;
 +	bprm->p		= start_stack;
 +
@@ -479,7 +482,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
  {
  	struct file *interpreter = NULL; /* to shut gcc up */
-@@ -592,7 +984,9 @@ static int load_elf_binary(struct linux_
+@@ -592,7 +987,9 @@ static int load_elf_binary(struct linux_
  	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
  		goto out;
  
@@ -490,7 +493,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
  		goto out;
  	if (!elf_check_arch(&loc->elf_ex))
  		goto out;
-@@ -619,6 +1013,12 @@ static int load_elf_binary(struct linux_
+@@ -619,6 +1016,12 @@ static int load_elf_binary(struct linux_
  		goto out_free_ph;
  	}
  
@@ -507,7 +510,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/include/linux/elf_ckpt.h
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,127 @@
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
@@ -531,6 +534,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +#define PT_CKPT_PAGES			(PT_LOOS + PT_CKPT_OFFSET + 3)
 +
 +#define CKPT_PAGE_SIZE			4096
++#define CKPT_TASK_COMM_LEN		16
 +#define CKPT_GDT_ENTRY_TLS_ENTRIES	3
 +
 +#define HEADER_VERSION			1
@@ -604,18 +608,8 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +} __packed;
 +
 +struct desc_struct_entry {
-+ union {
-+	struct {
-+		__u32 a;
-+		__u32 b;
-+	};
-+	struct {
-+		__u16 limit0;
-+		__u16 base0;
-+		unsigned base1: 8, type: 4, s: 1, dpl: 2, p: 1;
-+		unsigned limit: 4, avl: 1, l: 1, d: 1, g: 1, base2: 8;
-+	};
-+ };
++	__u32	a;
++	__u32	b;
 +} __packed;
 +
 +struct user_fpregs_entry {
@@ -638,6 +632,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	struct user_fpregs_entry	fpregs;
 +	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
 +	__u32				personality;
++	__u8				comm[CKPT_TASK_COMM_LEN];
 +} __packed;
 +
 +#endif /* __KERNEL__ */
