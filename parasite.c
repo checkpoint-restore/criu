@@ -174,7 +174,7 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 
 	if (args->fd == -1UL) {
 		args->fd = sys_open(args->open_path, args->open_flags, args->open_mode);
-		if (args->fd < 0) {
+		if ((long)args->fd < 0) {
 			sys_write_msg("sys_open failed\n");
 			ret = PARASITE_ERR_OPEN;
 			goto err;
