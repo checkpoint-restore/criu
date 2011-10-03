@@ -242,6 +242,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		goto err;
 	}
 
+	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM_DUMP), err);
+
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
 
 	parasite_arg.command		= PARASITE_CMD_DUMPPAGES;
@@ -251,7 +253,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	strncpy(parasite_dumppages.open_path, cr_fdset->desc[fd_type].name,
 		sizeof(parasite_dumppages.open_path));
 	parasite_dumppages.open_flags	= O_WRONLY;
-	parasite_dumppages.open_mode	= CR_FD_PERM;
+	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
 	parasite_dumppages.fd		= -1UL;
 
 	/*
@@ -384,6 +386,7 @@ err_restore:
 	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig))
 		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
 
+	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), err);
 err:
 	pr_info("----------------------------------------\n");
 

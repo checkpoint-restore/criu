@@ -15,7 +15,8 @@ int cr_restore_tasks(pid_t pid, bool leader_only, int leave_stopped);
 int cr_show(unsigned long pid, bool leader_only);
 int convert_to_elf(char *elf_path, int fd_core);
 
-#define CR_FD_PERM		0600
+#define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
+#define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 enum {
 	CR_FD_FDINFO,
