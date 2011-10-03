@@ -363,7 +363,7 @@ err:
 	return ret;
 }
 
-int cr_show(unsigned long pid, bool leader_only)
+int cr_show(unsigned long pid, struct cr_options *opts)
 {
 	struct cr_fdset *cr_fdset;
 	struct pstree_item *item;
@@ -400,7 +400,7 @@ int cr_show(unsigned long pid, bool leader_only)
 		show_pipes(cr_fdset);
 		show_files(cr_fdset);
 
-		if (leader_only)
+		if (opts->leader_only)
 			break;
 	}
 

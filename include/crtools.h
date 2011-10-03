@@ -10,11 +10,6 @@
 
 extern struct page_entry zero_page_entry;
 
-int cr_dump_tasks(pid_t pid, bool leader_only, int leave_stopped);
-int cr_restore_tasks(pid_t pid, bool leader_only, int leave_stopped);
-int cr_show(unsigned long pid, bool leader_only);
-int convert_to_elf(char *elf_path, int fd_core);
-
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
@@ -28,6 +23,17 @@ enum {
 	CR_FD_SHMEM,
 
 	CR_FD_MAX
+};
+
+enum cr_task_final_state {
+	CR_TASK_LEAVE_STOPPED,		/* leave tasks stopped after dump/restore */
+	CR_TASK_LEAVE_RUNNING,		/* leave tasks running after dump/restore */
+	CR_TASK_KILL,			/* kill tasks after dump */
+};
+
+struct cr_options {
+	bool				leader_only;
+	enum cr_task_final_state	final_state;
 };
 
 /* file descriptors template */
@@ -56,6 +62,10 @@ struct cr_fdset {
 #define CR_FD_DESC_NOPSTREE		(CR_FD_DESC_ALL & ~(CR_FD_DESC_USE(CR_FD_PSTREE)))
 #define CR_FD_DESC_NONE			(0)
 
+int cr_dump_tasks(pid_t pid, struct cr_options *opts);
+int cr_restore_tasks(pid_t pid, struct cr_options *opts);
+int cr_show(unsigned long pid, struct cr_options *opts);
+int convert_to_elf(char *elf_path, int fd_core);
 
 struct cr_fdset *alloc_cr_fdset(pid_t pid);
 int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,

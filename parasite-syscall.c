@@ -239,10 +239,13 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	if (path_len > sizeof(parasite_dumppages.open_path)) {
 		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
 			 path_len, sizeof(parasite_dumppages.open_path));
-		goto err;
+		goto chmod_err;
 	}
 
-	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM_DUMP), chmod_err);
+	if (fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM_DUMP)) {
+		pr_perror("Can't change permissions on pages file\n");
+		goto chmod_err;
+	}
 
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
 

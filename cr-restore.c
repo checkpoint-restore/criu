@@ -1219,9 +1219,9 @@ static int restore_all_tasks(pid_t pid)
 	return restore_root_task(path, pstree_fd);
 }
 
-int cr_restore_tasks(pid_t pid, bool leader_only, int leave_stopped)
+int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
-	if (leader_only)
+	if (opts->leader_only)
 		return restore_one_task(pid);
 	return restore_all_tasks(pid);
 }

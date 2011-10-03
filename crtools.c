@@ -24,6 +24,7 @@
 #include "crtools.h"
 #include "util.h"
 
+static struct cr_options opts;
 struct page_entry zero_page_entry;
 
 static struct cr_fd_desc_tmpl template[CR_FD_MAX] = {
@@ -214,60 +215,25 @@ int main(int argc, char *argv[])
 
 	memset(&zero_page_entry, 0, sizeof(zero_page_entry));
 
+	switch (argv[2][1]) {
+	case 'p':
+		pid = atol(argv[3]);
+		opts.leader_only = true;
+		break;
+	case 't':
+		pid = atol(argv[3]);
+		opts.leader_only = false;
+		break;
+	default:
+		goto usage;
+	}
+
 	if (!strcmp(argv[1], "dump")) {
-		bool leader_only;
-
-		switch (argv[2][1]) {
-		case 'p':
-			pid = atol(argv[3]);
-			leader_only = true;
-			break;
-		case 't':
-			pid = atol(argv[3]);
-			leader_only = false;
-			break;
-		default:
-			goto usage;
-		}
-
-		ret = cr_dump_tasks(pid, leader_only, 1);
-
+		ret = cr_dump_tasks(pid, &opts);
 	} else if (!strcmp(argv[1], "restore")) {
-		bool leader_only;
-
-		switch (argv[2][1]) {
-		case 'p':
-			pid = atol(argv[3]);
-			leader_only = true;
-			break;
-		case 't':
-			pid = atol(argv[3]);
-			leader_only = false;
-			break;
-		default:
-			goto usage;
-		}
-
-		ret = cr_restore_tasks(pid, leader_only, 1);
-
+		ret = cr_restore_tasks(pid, &opts);
 	} else if (!strcmp(argv[1], "show")) {
-		bool leader_only = true;
-
-		switch (argv[2][1]) {
-		case 'p':
-			leader_only = true;
-			pid = atol(argv[3]);
-			break;
-		case 't':
-			leader_only = false;
-			pid = atol(argv[3]);
-			break;
-		default:
-			goto usage;
-		}
-
-		ret = cr_show(pid, leader_only);
-
+		ret = cr_show(pid, &opts);
 	} else
 		goto usage;
 

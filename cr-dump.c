@@ -948,13 +948,13 @@ err:
 	return ret;
 }
 
-int cr_dump_tasks(pid_t pid, bool leader_only, int leave_stopped)
+int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 {
 	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item;
 	int ret = -1;
 
-	if (!leader_only) {
+	if (!opts->leader_only) {
 		pr_info("========================================\n");
 		pr_info("Dumping process group (pid: %d)\n", pid);
 		pr_info("========================================\n");
@@ -965,7 +965,7 @@ int cr_dump_tasks(pid_t pid, bool leader_only, int leave_stopped)
 
 	list_for_each_entry(item, &pstree_list, list) {
 		stop_task(item->pid);
-		if (leader_only)
+		if (opts->leader_only)
 			break;
 	}
 
@@ -997,16 +997,16 @@ int cr_dump_tasks(pid_t pid, bool leader_only, int leave_stopped)
 		close_cr_fdset(cr_fdset);
 		free_cr_fdset(&cr_fdset);
 
-		if (leader_only)
+		if (opts->leader_only)
 			break;
 	}
 	ret = 0;
 
 err:
-	if (!leave_stopped) {
+	if (!opts->final_state != CR_TASK_LEAVE_STOPPED) {
 		list_for_each_entry(item, &pstree_list, list) {
 			continue_task(item->pid);
-			if (leader_only)
+			if (opts->leader_only)
 				break;
 		}
 	}
