@@ -221,12 +221,43 @@ err:
 	return ret;
 }
 
+static bool should_ignore_fd(char *pid_fd_dir, int dir, char *fd_name)
+{
+	if (!strcmp(fd_name, "0")) {
+		pr_info("... Skipping stdin ...\n");
+		return true;
+	} else if (!strcmp(fd_name, "1")) {
+		pr_info("... Skipping stdout ...\n");
+		return true;
+	} else if (!strcmp(fd_name, "2")) {
+		pr_info("... Skipping stderr ...\n");
+		return true;
+	} else {
+		char ttybuf[32];
+
+		if (readlinkat(dir, fd_name, ttybuf, sizeof(ttybuf)) > 0) {
+			if (!strncmp(ttybuf, "/dev/tty", 8)) {
+				pr_info("... Skipping tty ...\n");
+				return true;
+			}
+		} else {
+			pr_perror("Failed to readlink %s/%d %s\n", pid_fd_dir, dir, fd_name);
+			return false;
+		}
+	}
+
+	return false;
+}
+
 static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long pos,
 		       unsigned int flags, struct cr_fdset *cr_fdset)
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
 	int fd;
+
+	if (should_ignore_fd(pid_fd_dir, dir, fd_name))
+		return 0;
 
 	fd = openat(dir, fd_name, O_RDONLY);
 	if (fd < 0) {
@@ -252,26 +283,6 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 		if (stfs_buf.f_type == PIPEFS_MAGIC)
 			return dump_one_pipe(atol(fd_name), fd,
 					     st_buf.st_ino, flags, cr_fdset);
-	}
-
-	if (!strcmp(fd_name, "0")) {
-		pr_info("... Skipping stdin ...\n");
-		return 0;
-	}
-
-	if (!strcmp(fd_name, "1")) {
-		pr_info("... Skipping stdout ...\n");
-		return 0;
-	}
-
-	if (!strcmp(fd_name, "2")) {
-		pr_info("... Skipping stderr ...\n");
-		return 0;
-	}
-
-	if (!strcmp(fd_name, "3")) {
-		pr_info("... Skipping tty ...\n");
-		return 0;
 	}
 
 	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
