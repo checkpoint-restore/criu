@@ -31,7 +31,7 @@
 #include "elf.h"
 
 #define ELF_MAX_PHDR	((65536U / sizeof(Elf64_Phdr)) - 1)
-#define ELF_MAX_PAGES	(1 << 10)
+#define ELF_MAX_PAGES	((1 << 30) / PAGE_IMAGE_SIZE)
 
 /*
  * Convert the c/r core file into elf
