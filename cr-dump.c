@@ -965,11 +965,12 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	struct pstree_item *item;
 	int ret = -1;
 
-	if (!opts->leader_only) {
-		pr_info("========================================\n");
+	pr_info("========================================\n");
+	if (!opts->leader_only)
 		pr_info("Dumping process group (pid: %d)\n", pid);
-		pr_info("========================================\n");
-	}
+	else
+		pr_info("Dumping process (pid: %d)\n", pid);
+	pr_info("========================================\n");
 
 	if (collect_pstree(pid))
 		goto err;
