@@ -20,11 +20,11 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/Kconfig.binfmt          |    8 
  fs/Makefile                |    1 
  fs/binfmt_elf.c            |   13 +
- fs/binfmt_elf_ckpt.c       |  411 +++++++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c       |  418 +++++++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                  |   27 +-
  include/linux/binfmts.h    |    1 
- include/linux/elf_ckpt.h   |  138 +++++++++++++++
- 9 files changed, 612 insertions(+), 12 deletions(-)
+ include/linux/elf_ckpt.h   |  138 ++++++++++++++
+ 9 files changed, 619 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -146,7 +146,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,411 @@
+@@ -0,0 +1,418 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -291,7 +291,22 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +	/* Be sure it has the file structure we expected to see. */
 +	if (!elf_phdr_pages || !elf_phdr_core || !nr_vma_found) {
-+		send_sig(SIGKILL, current, 0);
++		ret = -ENOEXEC;
++		goto out;
++	}
++
++	/* Core data first to check the header */
++	ret = kernel_read(bprm->file, elf_phdr_core->p_offset,
++			  (char *)&core_entry, sizeof(core_entry));
++	if (ret != sizeof(core_entry)) {
++		pr_err("elf-ckpt: Can't read core_entry\n");
++		ret = -EIO;
++		goto out;
++	}
++
++	if (core_entry.header.version != CKPT_HEADER_VERSION ||
++	    core_entry.header.arch != CKPT_HEADER_ARCH_X86_64) {
++		pr_err("elf-ckpt: Unsupported or corrupted header\n");
 +		ret = -ENOEXEC;
 +		goto out;
 +	}
@@ -328,7 +343,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		if (vma_entry_ptr->fd != -1) {
 +			file = fget((unsigned int)vma_entry_ptr->fd);
 +			if (!file) {
-+				send_sig(SIGKILL, current, 0);
 +				ret = -EBADF;
 +				goto out_unmap;
 +			}
@@ -353,7 +367,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		}
 +
 +		if ((unsigned long)(map_addr) >= TASK_SIZE) {
-+			send_sig(SIGKILL, current, 0);
 +			ret = IS_ERR((void *)map_addr) ? PTR_ERR((void*)map_addr) : -EINVAL;
 +			goto out_unmap;
 +		}
@@ -401,14 +414,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	}
 +#endif
 +
-+	/* Restore core data */
-+	ret = kernel_read(bprm->file, elf_phdr_core->p_offset,
-+			  (char *)&core_entry, sizeof(core_entry));
-+	if (ret != sizeof(core_entry)) {
-+		pr_err("elf-ckpt: Can't read core_entry\n");
-+		ret = -EIO;
-+		goto out_unmap;
-+	}
 +
 +	/* The name it has before */
 +	set_task_comm(current, core_entry.comm);
@@ -556,6 +561,8 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +			  vma_entry_ptr->end - vma_entry_ptr->start);
 +		up_write(&current->mm->mmap_sem);
 +	}
++
++	send_sig(SIGKILL, current, 0);
 +	goto out;
 +}
 Index: linux-2.6.git/fs/exec.c
