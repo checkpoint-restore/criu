@@ -14,34 +14,18 @@ v2: (from Andrew Vagin)
  - don't load tls and segments, it will be done in __switch_to
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-Signed-off-by: Andrew Vagin <avagin@openvz.org>
 ---
- arch/x86/ia32/ia32_aout.c  |    2 
  arch/x86/include/asm/elf.h |    3 
  arch/x86/vdso/vma.c        |   22 ++
- fs/binfmt_aout.c           |    2 
- fs/binfmt_elf.c            |  407 ++++++++++++++++++++++++++++++++++++++++++++-
- fs/binfmt_elf_fdpic.c      |    2 
- fs/binfmt_flat.c           |    2 
- fs/binfmt_som.c            |    2 
- fs/exec.c                  |   10 -
- include/linux/binfmts.h    |    2 
- include/linux/elf_ckpt.h   |  127 ++++++++++++++
- 11 files changed, 568 insertions(+), 13 deletions(-)
+ fs/Kconfig.binfmt          |    8 
+ fs/Makefile                |    1 
+ fs/binfmt_elf.c            |   13 +
+ fs/binfmt_elf_ckpt.c       |  411 +++++++++++++++++++++++++++++++++++++++++++++
+ fs/exec.c                  |   27 +-
+ include/linux/binfmts.h    |    1 
+ include/linux/elf_ckpt.h   |  138 +++++++++++++++
+ 9 files changed, 612 insertions(+), 12 deletions(-)
 
-Index: linux-2.6.git/arch/x86/ia32/ia32_aout.c
-===================================================================
---- linux-2.6.git.orig/arch/x86/ia32/ia32_aout.c
-+++ linux-2.6.git/arch/x86/ia32/ia32_aout.c
-@@ -291,7 +291,7 @@ static int load_aout_binary(struct linux
- 		return -ENOMEM;
- 
- 	/* Flush all traces of the currently running executable */
--	retval = flush_old_exec(bprm);
-+	retval = flush_old_exec(bprm, true);
- 	if (retval)
- 		return retval;
- 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
 --- linux-2.6.git.orig/arch/x86/include/asm/elf.h
@@ -89,46 +73,116 @@ Index: linux-2.6.git/arch/x86/vdso/vma.c
  static __init int vdso_setup(char *s)
  {
  	vdso_enabled = simple_strtoul(s, NULL, 0);
-Index: linux-2.6.git/fs/binfmt_aout.c
+Index: linux-2.6.git/fs/Kconfig.binfmt
 ===================================================================
---- linux-2.6.git.orig/fs/binfmt_aout.c
-+++ linux-2.6.git/fs/binfmt_aout.c
-@@ -238,7 +238,7 @@ static int load_aout_binary(struct linux
- 		return -ENOMEM;
+--- linux-2.6.git.orig/fs/Kconfig.binfmt
++++ linux-2.6.git/fs/Kconfig.binfmt
+@@ -23,6 +23,14 @@ config BINFMT_ELF
+ 	  ld.so (check the file <file:Documentation/Changes> for location and
+ 	  latest version).
  
- 	/* Flush all traces of the currently running executable */
--	retval = flush_old_exec(bprm);
-+	retval = flush_old_exec(bprm, true);
- 	if (retval)
- 		return retval;
++config BINFMT_ELF_CKPT
++	tristate "Kernel support for CKPT ELF binaries"
++	default y
++	depends on X86_64
++	help
++	  ELF CKPT (checkpoint) is an extension to ELF format to restore
++	  dumped processes.
++
+ config COMPAT_BINFMT_ELF
+ 	bool
+ 	depends on COMPAT && BINFMT_ELF
+Index: linux-2.6.git/fs/Makefile
+===================================================================
+--- linux-2.6.git.orig/fs/Makefile
++++ linux-2.6.git/fs/Makefile
+@@ -37,6 +37,7 @@ obj-$(CONFIG_BINFMT_MISC)	+= binfmt_misc
+ obj-y				+= binfmt_script.o
  
+ obj-$(CONFIG_BINFMT_ELF)	+= binfmt_elf.o
++obj-$(CONFIG_BINFMT_ELF_CKPT)	+= binfmt_elf_ckpt.o
+ obj-$(CONFIG_COMPAT_BINFMT_ELF)	+= compat_binfmt_elf.o
+ obj-$(CONFIG_BINFMT_ELF_FDPIC)	+= binfmt_elf_fdpic.o
+ obj-$(CONFIG_BINFMT_SOM)	+= binfmt_som.o
 Index: linux-2.6.git/fs/binfmt_elf.c
 ===================================================================
 --- linux-2.6.git.orig/fs/binfmt_elf.c
 +++ linux-2.6.git/fs/binfmt_elf.c
-@@ -35,6 +35,14 @@
+@@ -30,6 +30,7 @@
+ #include <linux/security.h>
+ #include <linux/random.h>
+ #include <linux/elf.h>
++#include <linux/elf_ckpt.h>
+ #include <linux/utsname.h>
+ #include <linux/coredump.h>
  #include <asm/uaccess.h>
- #include <asm/param.h>
- #include <asm/page.h>
+@@ -592,7 +593,9 @@ static int load_elf_binary(struct linux_
+ 	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
+ 		goto out;
+ 
+-	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
++	if (loc->elf_ex.e_type != ET_EXEC &&
++	    loc->elf_ex.e_type != ET_DYN  &&
++	    loc->elf_ex.e_type != ET_CKPT)
+ 		goto out;
+ 	if (!elf_check_arch(&loc->elf_ex))
+ 		goto out;
+@@ -619,6 +622,14 @@ static int load_elf_binary(struct linux_
+ 		goto out_free_ph;
+ 	}
+ 
++	if (loc->elf_ex.e_type == ET_CKPT) {
++		retval = load_elf_ckpt(bprm, regs, &loc->elf_ex,
++				       (struct elf_phdr *)elf_phdata);
++		if (!retval)
++			set_binfmt(&elf_format);
++		goto out_free_ph;
++	}
++
+ 	elf_ppnt = elf_phdata;
+ 	elf_bss = 0;
+ 	elf_brk = 0;
+Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
+===================================================================
+--- /dev/null
++++ linux-2.6.git/fs/binfmt_elf_ckpt.c
+@@ -0,0 +1,411 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/mm.h>
++#include <linux/mman.h>
++#include <linux/errno.h>
++#include <linux/signal.h>
++#include <linux/binfmts.h>
++#include <linux/string.h>
++#include <linux/file.h>
++#include <linux/slab.h>
++#include <linux/personality.h>
++#include <linux/elfcore.h>
++#include <linux/init.h>
++#include <linux/highuid.h>
++#include <linux/compiler.h>
++#include <linux/highmem.h>
++#include <linux/pagemap.h>
++#include <linux/security.h>
++#include <linux/random.h>
++#include <linux/elf.h>
++#include <linux/utsname.h>
++#include <linux/coredump.h>
++#include <asm/uaccess.h>
++#include <asm/param.h>
++#include <asm/page.h>
 +#include <asm/prctl.h>
 +#include <asm/proto.h>
-+
 +
 +#include <linux/elf_ckpt.h>
 +#include <linux/flex_array.h>
 +#include <asm/tlbflush.h>
 +#include <asm/desc.h>
- 
- static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
- static int load_elf_library(struct file *);
-@@ -556,6 +564,393 @@ static unsigned long randomize_stack_top
- #endif
- }
- 
-+#ifdef CONFIG_X86_64
 +
-+static int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
-+			 struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
++int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
++		  struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
 +{
 +	struct thread_struct *thread = &current->thread;
 +	struct elf_phdr *elf_phdr_pages;
@@ -186,19 +240,17 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +		}
 +	}
 +
-+	/* Flush all traces of the currently running executable */
-+	ret = flush_old_exec(bprm, false);
++	ret = flush_exec_keep_thread(bprm);
 +	if (ret)
 +		goto out;
 +
-+	/* No return point */
 +	current->flags &= ~PF_FORKNOEXEC;
 +	current->mm->def_flags = 0;
 +
 +	/*
 +	 * We don't care about parameters passed (such as argc, argv, env)
 +	 * when execute checkpoint file because we're to substitute
-+	 * all the things anyway -- so drop any previous memory mappings.
++	 * all things anyway.
 +	 */
 +	do_munmap(current->mm, 0, TASK_SIZE);
 +
@@ -237,7 +289,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +		}
 +	}
 +
-+	/* Be sure it has the file structure we expect to see. */
++	/* Be sure it has the file structure we expected to see. */
 +	if (!elf_phdr_pages || !elf_phdr_core || !nr_vma_found) {
 +		send_sig(SIGKILL, current, 0);
 +		ret = -ENOEXEC;
@@ -246,11 +298,14 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +
 +	/*
 +	 * VMA randomization still needs to be set (just in case if
-+	 * the program we restore will exec something else later).
++	 * the program we restore will exec() something else later).
 +	 */
 +	if (!(current->personality & ADDR_NO_RANDOMIZE) && randomize_va_space)
 +		current->flags |= PF_RANDOMIZE;
 +
++	/*
++	 * FIXME: Note it flushes signal handlers as well.
++	 */
 +	setup_new_exec(bprm);
 +
 +	current->mm->free_area_cache = current->mm->mmap_base;
@@ -259,17 +314,17 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +	for (i = 0; i < nr_vma_found; i++) {
 +		vma_entry_ptr = flex_array_get(fa, i);
 +
-+		if (vma_entry_ptr->status & VMA_AREA_HEAP) {
++		if (vma_entry_ptr->status & VMA_AREA_HEAP)
 +			start_brk = vma_entry_ptr->start;
-+		}
 +
-+		if (vma_entry_ptr->status & VMA_AREA_VDSO) {
++		if (vma_entry_ptr->status & VMA_AREA_VDSO)
 +			vdso = vma_entry_ptr->start;
-+		}
 +
++		/* Anything special should be ignored */
 +		if (!(vma_entry_ptr->status & VMA_AREA_REGULAR))
 +			continue;
 +
++		/* It's a file mmap'ed */
 +		if (vma_entry_ptr->fd != -1) {
 +			file = fget((unsigned int)vma_entry_ptr->fd);
 +			if (!file) {
@@ -297,7 +352,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +			do_close((unsigned int)vma_entry_ptr->fd);
 +		}
 +
-+		if (BAD_ADDR(map_addr)) {
++		if ((unsigned long)(map_addr) >= TASK_SIZE) {
 +			send_sig(SIGKILL, current, 0);
 +			ret = IS_ERR((void *)map_addr) ? PTR_ERR((void*)map_addr) : -EINVAL;
 +			goto out_unmap;
@@ -355,6 +410,7 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +		goto out_unmap;
 +	}
 +
++	/* The name it has before */
 +	set_task_comm(current, core_entry.comm);
 +
 +	elf_entry	= core_entry.gpregs.ip;
@@ -427,8 +483,6 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +
 +		off += sizeof(va) + PAGE_SIZE;
 +	}
-+
-+	set_binfmt(&elf_format);
 +
 +	/*
 +	 * Registers setup.
@@ -504,127 +558,66 @@ Index: linux-2.6.git/fs/binfmt_elf.c
 +	}
 +	goto out;
 +}
-+#else
-+static int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
-+			 struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
-+{
-+	return -ENOEXEC;
-+}
-+#endif
-+
- static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
- {
- 	struct file *interpreter = NULL; /* to shut gcc up */
-@@ -592,7 +987,9 @@ static int load_elf_binary(struct linux_
- 	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
- 		goto out;
- 
--	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
-+	if (loc->elf_ex.e_type != ET_EXEC &&
-+	    loc->elf_ex.e_type != ET_DYN  &&
-+	    loc->elf_ex.e_type != ET_CKPT)
- 		goto out;
- 	if (!elf_check_arch(&loc->elf_ex))
- 		goto out;
-@@ -619,6 +1016,12 @@ static int load_elf_binary(struct linux_
- 		goto out_free_ph;
- 	}
- 
-+	if (loc->elf_ex.e_type == ET_CKPT) {
-+		retval = load_elf_ckpt(bprm, regs, &loc->elf_ex,
-+				       (struct elf_phdr *)elf_phdata);
-+		goto out_free_ph;
-+	}
-+
- 	elf_ppnt = elf_phdata;
- 	elf_bss = 0;
- 	elf_brk = 0;
-@@ -707,7 +1110,7 @@ static int load_elf_binary(struct linux_
- 	}
- 
- 	/* Flush all traces of the currently running executable */
--	retval = flush_old_exec(bprm);
-+	retval = flush_old_exec(bprm, true);
- 	if (retval)
- 		goto out_free_dentry;
- 
-Index: linux-2.6.git/fs/binfmt_elf_fdpic.c
-===================================================================
---- linux-2.6.git.orig/fs/binfmt_elf_fdpic.c
-+++ linux-2.6.git/fs/binfmt_elf_fdpic.c
-@@ -311,7 +311,7 @@ static int load_elf_fdpic_binary(struct 
- 		interp_params.flags |= ELF_FDPIC_FLAG_CONSTDISP;
- 
- 	/* flush all traces of the currently running executable */
--	retval = flush_old_exec(bprm);
-+	retval = flush_old_exec(bprm, true);
- 	if (retval)
- 		goto error;
- 
-Index: linux-2.6.git/fs/binfmt_flat.c
-===================================================================
---- linux-2.6.git.orig/fs/binfmt_flat.c
-+++ linux-2.6.git/fs/binfmt_flat.c
-@@ -514,7 +514,7 @@ static int load_flat_file(struct linux_b
- 
- 	/* Flush all traces of the currently running executable */
- 	if (id == 0) {
--		result = flush_old_exec(bprm);
-+		result = flush_old_exec(bprm, true);
- 		if (result) {
- 			ret = result;
- 			goto err;
-Index: linux-2.6.git/fs/binfmt_som.c
-===================================================================
---- linux-2.6.git.orig/fs/binfmt_som.c
-+++ linux-2.6.git/fs/binfmt_som.c
-@@ -220,7 +220,7 @@ load_som_binary(struct linux_binprm * bp
- 	}
- 
- 	/* Flush all traces of the currently running executable */
--	retval = flush_old_exec(bprm);
-+	retval = flush_old_exec(bprm, true);
- 	if (retval)
- 		goto out_free;
- 
 Index: linux-2.6.git/fs/exec.c
 ===================================================================
 --- linux-2.6.git.orig/fs/exec.c
 +++ linux-2.6.git/fs/exec.c
-@@ -1071,7 +1071,7 @@ void set_task_comm(struct task_struct *t
+@@ -1071,18 +1071,10 @@ void set_task_comm(struct task_struct *t
  	perf_event_comm(tsk);
  }
  
 -int flush_old_exec(struct linux_binprm * bprm)
-+int flush_old_exec(struct linux_binprm *bprm, bool unlink_thread)
++int flush_exec_keep_thread(struct linux_binprm * bprm)
  {
  	int retval;
  
-@@ -1079,9 +1079,11 @@ int flush_old_exec(struct linux_binprm *
- 	 * Make sure we have a private signal table and that
- 	 * we are unassociated from the previous thread group.
- 	 */
+-	/*
+-	 * Make sure we have a private signal table and that
+-	 * we are unassociated from the previous thread group.
+-	 */
 -	retval = de_thread(current);
 -	if (retval)
 -		goto out;
-+	if (unlink_thread) {
-+		retval = de_thread(current);
-+		if (retval)
-+			goto out;
-+	}
- 
+-
  	set_mm_exe_file(bprm->mm, bprm->file);
  
+ 	/*
+@@ -1101,10 +1093,25 @@ int flush_old_exec(struct linux_binprm *
+ 	current->personality &= ~bprm->per_clear;
+ 
+ 	return 0;
+-
+ out:
+ 	return retval;
+ }
++EXPORT_SYMBOL(flush_exec_keep_thread);
++
++int flush_old_exec(struct linux_binprm * bprm)
++{
++	int retval;
++
++	/*
++	 * Make sure we have a private signal table and that
++	 * we are unassociated from the previous thread group.
++	 */
++	retval = de_thread(current);
++	if (retval)
++		return retval;
++
++	return flush_exec_keep_thread(bprm);
++}
+ EXPORT_SYMBOL(flush_old_exec);
+ 
+ void would_dump(struct linux_binprm *bprm, struct file *file)
 Index: linux-2.6.git/include/linux/binfmts.h
 ===================================================================
 --- linux-2.6.git.orig/include/linux/binfmts.h
 +++ linux-2.6.git/include/linux/binfmts.h
-@@ -109,7 +109,7 @@ extern void unregister_binfmt(struct lin
- extern int prepare_binprm(struct linux_binprm *);
+@@ -110,6 +110,7 @@ extern int prepare_binprm(struct linux_b
  extern int __must_check remove_arg_zero(struct linux_binprm *);
  extern int search_binary_handler(struct linux_binprm *, struct pt_regs *);
--extern int flush_old_exec(struct linux_binprm * bprm);
-+extern int flush_old_exec(struct linux_binprm *bprm, bool unlink_thread);
+ extern int flush_old_exec(struct linux_binprm * bprm);
++extern int flush_exec_keep_thread(struct linux_binprm * bprm);
  extern void setup_new_exec(struct linux_binprm * bprm);
  extern void would_dump(struct linux_binprm *, struct file *);
  
@@ -632,7 +625,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/include/linux/elf_ckpt.h
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,138 @@
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
@@ -659,8 +652,8 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +#define CKPT_TASK_COMM_LEN		16
 +#define CKPT_GDT_ENTRY_TLS_ENTRIES	3
 +
-+#define HEADER_VERSION			1
-+#define HEADER_ARCH_X86_64		1
++#define CKPT_HEADER_VERSION		1
++#define CKPT_HEADER_ARCH_X86_64		1
 +
 +#define VMA_AREA_REGULAR		(1 <<  0)
 +#define VMA_AREA_STACK			(1 <<  1)
@@ -756,6 +749,17 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	__u32				personality;
 +	__u8				comm[CKPT_TASK_COMM_LEN];
 +} __packed;
++
++#ifdef CONFIG_BINFMT_ELF_CKPT
++extern int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
++			 struct elfhdr *elf_ex, struct elf_phdr *elf_phdr);
++#else
++static inline int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
++				struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
++{
++	return -ENOEXEC;
++}
++#endif
 +
 +#endif /* __KERNEL__ */
 +
