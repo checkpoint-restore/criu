@@ -774,7 +774,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
 +	__u32				personality;
 +	__u8				comm[CKPT_TASK_COMM_LEN];
-+	u32				flags;
++	__u32				flags;
 +} __packed;
 +
 +#ifdef CONFIG_BINFMT_ELF_CKPT
