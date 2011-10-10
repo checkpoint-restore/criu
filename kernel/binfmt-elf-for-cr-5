@@ -29,11 +29,11 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/Kconfig.binfmt          |    8 
  fs/Makefile                |    1 
  fs/binfmt_elf.c            |   13 +
- fs/binfmt_elf_ckpt.c       |  418 +++++++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c       |  428 +++++++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                  |   27 +-
  include/linux/binfmts.h    |    1 
- include/linux/elf_ckpt.h   |  138 ++++++++++++++
- 9 files changed, 619 insertions(+), 12 deletions(-)
+ include/linux/elf_ckpt.h   |  139 ++++++++++++++
+ 9 files changed, 630 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -155,7 +155,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,418 @@
+@@ -0,0 +1,428 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -179,11 +179,14 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +#include <linux/elf.h>
 +#include <linux/utsname.h>
 +#include <linux/coredump.h>
++#include <linux/regset.h>
++
 +#include <asm/uaccess.h>
 +#include <asm/param.h>
 +#include <asm/page.h>
 +#include <asm/prctl.h>
 +#include <asm/proto.h>
++#include <asm/i387.h>
 +
 +#include <linux/elf_ckpt.h>
 +#include <linux/flex_array.h>
@@ -556,6 +559,13 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +	put_cpu();
 +
++	/* Restoring FPU */
++	if (core_entry.flags & PF_USED_MATH) {
++		ret = arch_ptrace(current, PTRACE_SETFPREGS, 0, &core_entry.fpregs);
++		if (ret)
++			goto out_unmap;
++	}
++
 +	ret = 0;
 +out:
 +	if (fa)
@@ -641,7 +651,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/include/linux/elf_ckpt.h
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,139 @@
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
@@ -764,6 +774,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
 +	__u32				personality;
 +	__u8				comm[CKPT_TASK_COMM_LEN];
++	u32				flags;
 +} __packed;
 +
 +#ifdef CONFIG_BINFMT_ELF_CKPT
