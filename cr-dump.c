@@ -562,71 +562,71 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 
 	pr_info("Dumping GP/FPU registers ... ");
 
-	assign_reg(core->gpregs, regs,		r15);
-	assign_reg(core->gpregs, regs,		r14);
-	assign_reg(core->gpregs, regs,		r13);
-	assign_reg(core->gpregs, regs,		r12);
-	assign_reg(core->gpregs, regs,		bp);
-	assign_reg(core->gpregs, regs,		bx);
-	assign_reg(core->gpregs, regs,		r11);
-	assign_reg(core->gpregs, regs,		r10);
-	assign_reg(core->gpregs, regs,		r9);
-	assign_reg(core->gpregs, regs,		r8);
-	assign_reg(core->gpregs, regs,		ax);
-	assign_reg(core->gpregs, regs,		cx);
-	assign_reg(core->gpregs, regs,		dx);
-	assign_reg(core->gpregs, regs,		si);
-	assign_reg(core->gpregs, regs,		di);
-	assign_reg(core->gpregs, regs,		orig_ax);
-	assign_reg(core->gpregs, regs,		ip);
-	assign_reg(core->gpregs, regs,		cs);
-	assign_reg(core->gpregs, regs,		flags);
-	assign_reg(core->gpregs, regs,		sp);
-	assign_reg(core->gpregs, regs,		ss);
-	assign_reg(core->gpregs, regs,		fs_base);
-	assign_reg(core->gpregs, regs,		gs_base);
-	assign_reg(core->gpregs, regs,		ds);
-	assign_reg(core->gpregs, regs,		es);
-	assign_reg(core->gpregs, regs,		fs);
-	assign_reg(core->gpregs, regs,		gs);
+	assign_reg(core->u.arch.gpregs, regs,		r15);
+	assign_reg(core->u.arch.gpregs, regs,		r14);
+	assign_reg(core->u.arch.gpregs, regs,		r13);
+	assign_reg(core->u.arch.gpregs, regs,		r12);
+	assign_reg(core->u.arch.gpregs, regs,		bp);
+	assign_reg(core->u.arch.gpregs, regs,		bx);
+	assign_reg(core->u.arch.gpregs, regs,		r11);
+	assign_reg(core->u.arch.gpregs, regs,		r10);
+	assign_reg(core->u.arch.gpregs, regs,		r9);
+	assign_reg(core->u.arch.gpregs, regs,		r8);
+	assign_reg(core->u.arch.gpregs, regs,		ax);
+	assign_reg(core->u.arch.gpregs, regs,		cx);
+	assign_reg(core->u.arch.gpregs, regs,		dx);
+	assign_reg(core->u.arch.gpregs, regs,		si);
+	assign_reg(core->u.arch.gpregs, regs,		di);
+	assign_reg(core->u.arch.gpregs, regs,		orig_ax);
+	assign_reg(core->u.arch.gpregs, regs,		ip);
+	assign_reg(core->u.arch.gpregs, regs,		cs);
+	assign_reg(core->u.arch.gpregs, regs,		flags);
+	assign_reg(core->u.arch.gpregs, regs,		sp);
+	assign_reg(core->u.arch.gpregs, regs,		ss);
+	assign_reg(core->u.arch.gpregs, regs,		fs_base);
+	assign_reg(core->u.arch.gpregs, regs,		gs_base);
+	assign_reg(core->u.arch.gpregs, regs,		ds);
+	assign_reg(core->u.arch.gpregs, regs,		es);
+	assign_reg(core->u.arch.gpregs, regs,		fs);
+	assign_reg(core->u.arch.gpregs, regs,		gs);
 
-	assign_reg(core->fpregs, fpregs,	cwd);
-	assign_reg(core->fpregs, fpregs,	swd);
-	assign_reg(core->fpregs, fpregs,	twd);
-	assign_reg(core->fpregs, fpregs,	fop);
-	assign_reg(core->fpregs, fpregs,	rip);
-	assign_reg(core->fpregs, fpregs,	rdp);
-	assign_reg(core->fpregs, fpregs,	mxcsr);
-	assign_reg(core->fpregs, fpregs,	mxcsr_mask);
+	assign_reg(core->u.arch.fpregs, fpregs,	cwd);
+	assign_reg(core->u.arch.fpregs, fpregs,	swd);
+	assign_reg(core->u.arch.fpregs, fpregs,	twd);
+	assign_reg(core->u.arch.fpregs, fpregs,	fop);
+	assign_reg(core->u.arch.fpregs, fpregs,	rip);
+	assign_reg(core->u.arch.fpregs, fpregs,	rdp);
+	assign_reg(core->u.arch.fpregs, fpregs,	mxcsr);
+	assign_reg(core->u.arch.fpregs, fpregs,	mxcsr_mask);
 
-	assign_array(core->fpregs, fpregs,	st_space);
-	assign_array(core->fpregs, fpregs,	xmm_space);
-	assign_array(core->fpregs, fpregs,	padding);
+	assign_array(core->u.arch.fpregs, fpregs,	st_space);
+	assign_array(core->u.arch.fpregs, fpregs,	xmm_space);
+	assign_array(core->u.arch.fpregs, fpregs,	padding);
 
 	pr_info("OK\n");
 
 	pr_info("Obtainting TLS ... ");
-	ret = dump_task_tls(pid, core->tls_array, ARRAY_SIZE(core->tls_array));
+	ret = dump_task_tls(pid, core->u.arch.tls_array, ARRAY_SIZE(core->u.arch.tls_array));
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Obtainting personality ... ");
-	ret = get_task_personality(pid, &core->personality);
+	ret = get_task_personality(pid, &core->task_personality);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Obtainting task stat ... ");
-	ret = get_task_stat(pid, core->comm, &core->flags);
+	ret = get_task_stat(pid, core->task_comm, &core->task_flags);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Dumping header ... ");
-	core->hdr.version	= HEADER_VERSION;
-	core->hdr.arch		= HEADER_ARCH_X86_64;
-	core->hdr.flags		= 0;
+	core->header.version	= HEADER_VERSION;
+	core->header.arch	= HEADER_ARCH_X86_64;
+	core->header.flags	= 0;
 
 	write_ptr_safe(fd_core, core, err_free);
 

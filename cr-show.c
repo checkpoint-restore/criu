@@ -77,7 +77,7 @@ static void show_core_regs(struct cr_fdset *cr_fdset)
 
 	pr_info("\n\t---[GP registers set]---\n");
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, gpregs), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, u.arch.gpregs), SEEK_SET);
 
 	read_ptr_safe(fd_core, &regs, err);
 
@@ -91,7 +91,7 @@ static void show_core_regs(struct cr_fdset *cr_fdset)
 
 	pr_info("\n\t---[TLS area]---\n");
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tls_array), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, u.arch.tls_array), SEEK_SET);
 
 	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
 		read_ptr_safe(fd_core, &tls, err);
@@ -112,10 +112,10 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	if (fd_core < 0)
 		goto err;
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, personality), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, task_personality), SEEK_SET);
 	read_ptr_safe(fd_core, &personality, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, comm), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, task_comm), SEEK_SET);
 	read_safe(fd_core, comm, TASK_COMM_LEN, err);
 
 	pr_info("Personality: %x\n", personality);

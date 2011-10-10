@@ -161,14 +161,21 @@ struct user_fpregs_entry {
 
 #define TASK_PF_USED_MATH		0x00002000
 
-struct core_entry {
-	struct image_header		hdr;
+struct ckpt_arch_entry {
 	struct user_regs_entry		gpregs;
 	struct user_fpregs_entry	fpregs;
 	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
-	u32				personality;
-	u8				comm[TASK_COMM_LEN];
-	u32				flags;
+};
+
+struct core_entry {
+	struct image_header		header;
+	union {
+		struct ckpt_arch_entry	arch;		/* per-arch specific */
+		u8			__pad[2048];	/* should be enough for all */
+	} u;
+	u32				task_personality;
+	u8				task_comm[TASK_COMM_LEN];
+	u32				task_flags;
 } __packed;
 
 #endif /* CONFIG_X86_64 */

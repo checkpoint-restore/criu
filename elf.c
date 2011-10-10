@@ -121,7 +121,7 @@ int convert_to_elf(char *elf_path, int fd_core)
 	 */
 	lseek(fd_elf, 0, SEEK_SET);
 	elf_ehdr.e_phnum	= e_phnum + 2;
-	elf_ehdr.e_entry	= core.gpregs.ip;
+	elf_ehdr.e_entry	= core.u.arch.gpregs.ip;
 	write_ptr_safe(fd_elf, &elf_ehdr, err_close);
 
 	/* Offset in file (after all headers) */
