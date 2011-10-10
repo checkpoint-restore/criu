@@ -226,8 +226,9 @@ int main(int argc, char *argv[])
 	} else {
 		long buf = 0xdeadbeef;
 		while (1) {
+			float res = 0.9;
 			*(unsigned long *)mmap_anon_sh = 0x33333333;
-			printf("ping: %d\n", getpid());
+			printf("ping: %d %f\n", getpid(), res + (float)(unsigned long)mmap_anon_sh);
 			write(pipefd[1], &buf, sizeof(buf));
 			sleep(10);
 		}
