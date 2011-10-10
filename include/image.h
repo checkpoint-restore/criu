@@ -159,6 +159,8 @@ struct user_fpregs_entry {
 #define GDT_ENTRY_TLS_ENTRIES 3
 #define TASK_COMM_LEN 16
 
+#define TASK_PF_USED_MATH		0x00002000
+
 struct core_entry {
 	struct image_header		hdr;
 	struct user_regs_entry		gpregs;
@@ -166,6 +168,7 @@ struct core_entry {
 	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
 	u32				personality;
 	u8				comm[TASK_COMM_LEN];
+	u32				flags;
 } __packed;
 
 #endif /* CONFIG_X86_64 */

@@ -416,11 +416,11 @@ err:
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_comm(pid_t pid, u8 *comm)
+static int get_task_stat(pid_t pid, u8 *comm, u32 *flags)
 {
 	FILE *file = NULL;
 	char *tok1, *tok2;
-	int ret = -1;
+	int i, ret = -1;
 
 	snprintf(loc_buf, sizeof(loc_buf), "/proc/%d/stat", pid);
 	file = fopen(loc_buf, "r");
@@ -442,6 +442,19 @@ static int get_task_comm(pid_t pid, u8 *comm)
 	} else {
 		printf("Unable to parse task stat\n");
 		ret = -1;
+	}
+
+	if (!ret) {
+		ret = -1;
+		for (i = 0; i < 8; i++) {
+			tok1 =  strtok(NULL, " ");
+			if (!tok1) {
+				pr_err("/proc/%d/stat is corrupted", pid);
+				goto err;
+			}
+		}
+		*flags = atoi(tok1);
+		ret = 0;
 	}
 
 err:
@@ -604,8 +617,8 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err_free;
 	pr_info("OK\n");
 
-	pr_info("Obtainting task command ... ");
-	ret = get_task_comm(pid, core->comm);
+	pr_info("Obtainting task stat ... ");
+	ret = get_task_stat(pid, core->comm, &core->flags);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
