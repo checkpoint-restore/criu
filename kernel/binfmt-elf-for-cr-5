@@ -24,16 +24,19 @@ v2: (from Andrew Vagin)
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
- arch/x86/include/asm/elf.h |    3 
- arch/x86/vdso/vma.c        |   22 ++
- fs/Kconfig.binfmt          |    8 
- fs/Makefile                |    1 
- fs/binfmt_elf.c            |   13 +
- fs/binfmt_elf_ckpt.c       |  428 +++++++++++++++++++++++++++++++++++++++++++++
- fs/exec.c                  |   27 +-
- include/linux/binfmts.h    |    1 
- include/linux/elf_ckpt.h   |  139 ++++++++++++++
- 9 files changed, 630 insertions(+), 12 deletions(-)
+ arch/x86/include/asm/elf.h      |    3 
+ arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
+ arch/x86/kernel/Makefile        |    2 
+ arch/x86/kernel/elf_ckpt.c      |  123 ++++++++++++
+ arch/x86/vdso/vma.c             |   22 ++
+ fs/Kconfig.binfmt               |   11 +
+ fs/Makefile                     |    1 
+ fs/binfmt_elf.c                 |   17 +
+ fs/binfmt_elf_ckpt.c            |  379 ++++++++++++++++++++++++++++++++++++++++
+ fs/exec.c                       |   27 +-
+ include/linux/binfmts.h         |    1 
+ include/linux/elf_ckpt.h        |   90 +++++++++
+ 12 files changed, 744 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -49,113 +52,109 @@ Index: linux-2.6.git/arch/x86/include/asm/elf.h
  extern int syscall32_setup_pages(struct linux_binprm *, int exstack);
  #define compat_arch_setup_additional_pages	syscall32_setup_pages
  
-Index: linux-2.6.git/arch/x86/vdso/vma.c
-===================================================================
---- linux-2.6.git.orig/arch/x86/vdso/vma.c
-+++ linux-2.6.git/arch/x86/vdso/vma.c
-@@ -137,6 +137,28 @@ up_fail:
- 	return ret;
- }
- 
-+int arch_setup_additional_pages_at(struct linux_binprm *bprm, void *addr, int uses_interp)
-+{
-+	struct mm_struct *mm = current->mm;
-+	int ret;
-+
-+	if (!vdso_enabled)
-+		return 0;
-+
-+	down_write(&mm->mmap_sem);
-+	current->mm->context.vdso = addr;
-+	ret = install_special_mapping(mm, (unsigned long)addr, vdso_size,
-+				      VM_READ | VM_EXEC |
-+				      VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
-+				      VM_ALWAYSDUMP,
-+				      vdso_pages);
-+	if (ret)
-+		current->mm->context.vdso = NULL;
-+
-+	up_write(&mm->mmap_sem);
-+	return ret;
-+}
-+
- static __init int vdso_setup(char *s)
- {
- 	vdso_enabled = simple_strtoul(s, NULL, 0);
-Index: linux-2.6.git/fs/Kconfig.binfmt
-===================================================================
---- linux-2.6.git.orig/fs/Kconfig.binfmt
-+++ linux-2.6.git/fs/Kconfig.binfmt
-@@ -23,6 +23,14 @@ config BINFMT_ELF
- 	  ld.so (check the file <file:Documentation/Changes> for location and
- 	  latest version).
- 
-+config BINFMT_ELF_CKPT
-+	tristate "Kernel support for CKPT ELF binaries"
-+	default y
-+	depends on X86_64
-+	help
-+	  ELF CKPT (checkpoint) is an extension to ELF format to restore
-+	  dumped processes.
-+
- config COMPAT_BINFMT_ELF
- 	bool
- 	depends on COMPAT && BINFMT_ELF
-Index: linux-2.6.git/fs/Makefile
-===================================================================
---- linux-2.6.git.orig/fs/Makefile
-+++ linux-2.6.git/fs/Makefile
-@@ -37,6 +37,7 @@ obj-$(CONFIG_BINFMT_MISC)	+= binfmt_misc
- obj-y				+= binfmt_script.o
- 
- obj-$(CONFIG_BINFMT_ELF)	+= binfmt_elf.o
-+obj-$(CONFIG_BINFMT_ELF_CKPT)	+= binfmt_elf_ckpt.o
- obj-$(CONFIG_COMPAT_BINFMT_ELF)	+= compat_binfmt_elf.o
- obj-$(CONFIG_BINFMT_ELF_FDPIC)	+= binfmt_elf_fdpic.o
- obj-$(CONFIG_BINFMT_SOM)	+= binfmt_som.o
-Index: linux-2.6.git/fs/binfmt_elf.c
-===================================================================
---- linux-2.6.git.orig/fs/binfmt_elf.c
-+++ linux-2.6.git/fs/binfmt_elf.c
-@@ -30,6 +30,7 @@
- #include <linux/security.h>
- #include <linux/random.h>
- #include <linux/elf.h>
-+#include <linux/elf_ckpt.h>
- #include <linux/utsname.h>
- #include <linux/coredump.h>
- #include <asm/uaccess.h>
-@@ -592,7 +593,9 @@ static int load_elf_binary(struct linux_
- 	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
- 		goto out;
- 
--	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
-+	if (loc->elf_ex.e_type != ET_EXEC &&
-+	    loc->elf_ex.e_type != ET_DYN  &&
-+	    loc->elf_ex.e_type != ET_CKPT)
- 		goto out;
- 	if (!elf_check_arch(&loc->elf_ex))
- 		goto out;
-@@ -619,6 +622,14 @@ static int load_elf_binary(struct linux_
- 		goto out_free_ph;
- 	}
- 
-+	if (loc->elf_ex.e_type == ET_CKPT) {
-+		retval = load_elf_ckpt(bprm, regs, &loc->elf_ex,
-+				       (struct elf_phdr *)elf_phdata);
-+		if (!retval)
-+			set_binfmt(&elf_format);
-+		goto out_free_ph;
-+	}
-+
- 	elf_ppnt = elf_phdata;
- 	elf_bss = 0;
- 	elf_brk = 0;
-Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
+Index: linux-2.6.git/arch/x86/include/asm/elf_ckpt.h
 ===================================================================
 --- /dev/null
-+++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,428 @@
++++ linux-2.6.git/arch/x86/include/asm/elf_ckpt.h
+@@ -0,0 +1,80 @@
++#ifndef _LINUX_ELF_X86_CHECKPOINT_H
++#define _LINUX_ELF_X86_CHECKPOINT_H
++
++#include <linux/errno.h>
++
++#include <asm/types.h>
++#include <asm/ptrace.h>
++
++#define CKPT_GDT_ENTRY_TLS_ENTRIES	3
++
++struct user_regs_entry {
++	__u64	r15;
++	__u64	r14;
++	__u64	r13;
++	__u64	r12;
++	__u64	bp;
++	__u64	bx;
++	__u64	r11;
++	__u64	r10;
++	__u64	r9;
++	__u64	r8;
++	__u64	ax;
++	__u64	cx;
++	__u64	dx;
++	__u64	si;
++	__u64	di;
++	__u64	orig_ax;
++	__u64	ip;
++	__u64	cs;
++	__u64	flags;
++	__u64	sp;
++	__u64	ss;
++	__u64	fs_base;
++	__u64	gs_base;
++	__u64	ds;
++	__u64	es;
++	__u64	fs;
++	__u64	gs;
++} __packed;
++
++struct desc_struct_entry {
++	__u32	a;
++	__u32	b;
++} __packed;
++
++struct user_fpregs_entry {
++	__u16	cwd;
++	__u16	swd;
++	__u16	twd;
++	__u16	fop;
++	__u64	rip;
++	__u64	rdp;
++	__u32	mxcsr;
++	__u32	mxcsr_mask;
++	__u32	st_space[32];
++	__u32	xmm_space[64];
++	__u32	padding[24];
++} __packed;
++
++struct ckpt_arch_entry {
++	struct user_regs_entry		gpregs;
++	struct user_fpregs_entry	fpregs;
++	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
++};
++
++struct core_entry;
++
++#ifdef CONFIG_X86_64
++extern int load_elf_ckpt_arch(struct task_struct *tsk, struct pt_regs *regs,
++			      struct core_entry *core_entry);
++#else
++static inline int
++load_elf_ckpt_arch(struct task_struct *tsk, struct pt_regs *regs,
++		   struct core_entry *core_entry)
++{
++	return -ENOEXEC;
++}
++#endif
++
++#endif /* _LINUX_ELF_X86_CHECKPOINT_H */
+Index: linux-2.6.git/arch/x86/kernel/Makefile
+===================================================================
+--- linux-2.6.git.orig/arch/x86/kernel/Makefile
++++ linux-2.6.git/arch/x86/kernel/Makefile
+@@ -99,6 +99,8 @@ obj-$(CONFIG_X86_CHECK_BIOS_CORRUPTION) 
+ obj-$(CONFIG_SWIOTLB)			+= pci-swiotlb.o
+ obj-$(CONFIG_OF)			+= devicetree.o
+ 
++obj-$(CONFIG_BINFMT_ELF_CKPT)		+= elf_ckpt.o
++
+ ###
+ # 64 bit specific files
+ ifeq ($(CONFIG_X86_64),y)
+Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
+===================================================================
+--- /dev/null
++++ linux-2.6.git/arch/x86/kernel/elf_ckpt.c
+@@ -0,0 +1,123 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -193,10 +192,248 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +#include <asm/tlbflush.h>
 +#include <asm/desc.h>
 +
++#ifdef CONFIG_X86_64
++
++int load_elf_ckpt_arch(struct task_struct *tsk, struct pt_regs *regs,
++		       struct core_entry *core_entry)
++{
++	struct thread_struct *thread = &current->thread;
++	struct ckpt_arch_entry *arch = (struct ckpt_arch_entry *)core_entry->arch;
++	int i, cpu, ret;
++
++	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
++	BUILD_BUG_ON(sizeof(struct ckpt_arch_entry) > CKPT_ARCH_SIZE);
++
++	/*
++	 * Registers setup.
++	 *
++	 * Since we might be modifying MSRs we're
++	 * to be sure the task wont be preempted
++	 * until modification is complete.
++	 */
++	cpu = get_cpu();
++
++	regs->ip	= arch->gpregs.ip;
++	regs->sp	= arch->gpregs.sp;
++	regs->cs	= arch->gpregs.cs;
++	regs->ss	= arch->gpregs.ss;
++	regs->flags	= arch->gpregs.flags;
++	regs->r15	= arch->gpregs.r15;
++	regs->r14	= arch->gpregs.r14;
++	regs->r13	= arch->gpregs.r13;
++	regs->r12	= arch->gpregs.r12;
++	regs->bp	= arch->gpregs.bp;
++	regs->bx	= arch->gpregs.bx;
++	regs->r11	= arch->gpregs.r11;
++	regs->r10	= arch->gpregs.r10;
++	regs->r8	= arch->gpregs.r8;
++	regs->ax	= arch->gpregs.ax;
++	regs->cx	= arch->gpregs.cx;
++	regs->dx	= arch->gpregs.dx;
++	regs->si	= arch->gpregs.si;
++	regs->di	= arch->gpregs.di;
++	regs->orig_ax	= arch->gpregs.orig_ax;
++
++	thread->usersp	= arch->gpregs.sp;
++	thread->ds	= arch->gpregs.ds;
++	thread->es	= arch->gpregs.es;
++	thread->fs	= arch->gpregs.fs;
++	thread->gs	= arch->gpregs.gs;
++
++	thread->fsindex	= thread->fs;
++	thread->gsindex = thread->gs;
++
++	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
++		thread->tls_array[i].a = arch->tls_array[i].a;
++		thread->tls_array[i].b = arch->tls_array[i].b;
++	}
++
++	if (arch->gpregs.fs_base) {
++		ret = do_arch_prctl(current, ARCH_SET_FS, arch->gpregs.fs_base);
++		if (ret)
++			goto out_put;
++	}
++
++	if (arch->gpregs.gs_base) {
++		ret = do_arch_prctl(current, ARCH_SET_GS, arch->gpregs.gs_base);
++		if (ret)
++			goto out_put;
++	}
++
++	put_cpu();
++
++	/* Restoring FPU */
++	if (core_entry->task_flags & PF_USED_MATH) {
++		ret = arch_ptrace(current, PTRACE_SETFPREGS, 0, (unsigned long)&arch->fpregs);
++		if (ret)
++			goto out;
++	}
++
++out:
++	return ret;
++
++out_put:
++	put_cpu();
++	goto out;
++}
++
++#endif /* CONFIG_X86_64 */
+Index: linux-2.6.git/arch/x86/vdso/vma.c
+===================================================================
+--- linux-2.6.git.orig/arch/x86/vdso/vma.c
++++ linux-2.6.git/arch/x86/vdso/vma.c
+@@ -137,6 +137,28 @@ up_fail:
+ 	return ret;
+ }
+ 
++int arch_setup_additional_pages_at(struct linux_binprm *bprm, void *addr, int uses_interp)
++{
++	struct mm_struct *mm = current->mm;
++	int ret;
++
++	if (!vdso_enabled)
++		return 0;
++
++	down_write(&mm->mmap_sem);
++	current->mm->context.vdso = addr;
++	ret = install_special_mapping(mm, (unsigned long)addr, vdso_size,
++				      VM_READ | VM_EXEC |
++				      VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC |
++				      VM_ALWAYSDUMP,
++				      vdso_pages);
++	if (ret)
++		current->mm->context.vdso = NULL;
++
++	up_write(&mm->mmap_sem);
++	return ret;
++}
++
+ static __init int vdso_setup(char *s)
+ {
+ 	vdso_enabled = simple_strtoul(s, NULL, 0);
+Index: linux-2.6.git/fs/Kconfig.binfmt
+===================================================================
+--- linux-2.6.git.orig/fs/Kconfig.binfmt
++++ linux-2.6.git/fs/Kconfig.binfmt
+@@ -23,6 +23,17 @@ config BINFMT_ELF
+ 	  ld.so (check the file <file:Documentation/Changes> for location and
+ 	  latest version).
+ 
++config BINFMT_ELF_CKPT
++	tristate "Kernel support for CKPT ELF binaries"
++	default n
++	depends on BINFMT_ELF && X86_64
++	help
++	  ELF CKPT (checkpoint) is an extension to ELF format to restore
++	  checkpointed processes. It's not confirmed yet and highly
++	  experimental.
++
++	  If unsure, say N.
++
+ config COMPAT_BINFMT_ELF
+ 	bool
+ 	depends on COMPAT && BINFMT_ELF
+Index: linux-2.6.git/fs/Makefile
+===================================================================
+--- linux-2.6.git.orig/fs/Makefile
++++ linux-2.6.git/fs/Makefile
+@@ -37,6 +37,7 @@ obj-$(CONFIG_BINFMT_MISC)	+= binfmt_misc
+ obj-y				+= binfmt_script.o
+ 
+ obj-$(CONFIG_BINFMT_ELF)	+= binfmt_elf.o
++obj-$(CONFIG_BINFMT_ELF_CKPT)	+= binfmt_elf_ckpt.o
+ obj-$(CONFIG_COMPAT_BINFMT_ELF)	+= compat_binfmt_elf.o
+ obj-$(CONFIG_BINFMT_ELF_FDPIC)	+= binfmt_elf_fdpic.o
+ obj-$(CONFIG_BINFMT_SOM)	+= binfmt_som.o
+Index: linux-2.6.git/fs/binfmt_elf.c
+===================================================================
+--- linux-2.6.git.orig/fs/binfmt_elf.c
++++ linux-2.6.git/fs/binfmt_elf.c
+@@ -30,6 +30,7 @@
+ #include <linux/security.h>
+ #include <linux/random.h>
+ #include <linux/elf.h>
++#include <linux/elf_ckpt.h>
+ #include <linux/utsname.h>
+ #include <linux/coredump.h>
+ #include <asm/uaccess.h>
+@@ -592,7 +593,11 @@ static int load_elf_binary(struct linux_
+ 	if (memcmp(loc->elf_ex.e_ident, ELFMAG, SELFMAG) != 0)
+ 		goto out;
+ 
+-	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
++	if (loc->elf_ex.e_type != ET_EXEC &&
++#ifdef CONFIG_BINFMT_ELF_CKPT
++	    loc->elf_ex.e_type != ET_CKPT  &&
++#endif
++	    loc->elf_ex.e_type != ET_DYN)
+ 		goto out;
+ 	if (!elf_check_arch(&loc->elf_ex))
+ 		goto out;
+@@ -619,6 +624,16 @@ static int load_elf_binary(struct linux_
+ 		goto out_free_ph;
+ 	}
+ 
++#ifdef CONFIG_BINFMT_ELF_CKPT
++	if (loc->elf_ex.e_type == ET_CKPT) {
++		retval = load_elf_ckpt(bprm, regs, &loc->elf_ex,
++				       (struct elf_phdr *)elf_phdata);
++		if (!retval)
++			set_binfmt(&elf_format);
++		goto out_free_ph;
++	}
++#endif
++
+ 	elf_ppnt = elf_phdata;
+ 	elf_bss = 0;
+ 	elf_brk = 0;
+Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
+===================================================================
+--- /dev/null
++++ linux-2.6.git/fs/binfmt_elf_ckpt.c
+@@ -0,0 +1,379 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/mm.h>
++#include <linux/mman.h>
++#include <linux/errno.h>
++#include <linux/signal.h>
++#include <linux/binfmts.h>
++#include <linux/string.h>
++#include <linux/file.h>
++#include <linux/slab.h>
++#include <linux/personality.h>
++#include <linux/elfcore.h>
++#include <linux/init.h>
++#include <linux/highuid.h>
++#include <linux/compiler.h>
++#include <linux/highmem.h>
++#include <linux/pagemap.h>
++#include <linux/security.h>
++#include <linux/random.h>
++#include <linux/elf.h>
++#include <linux/utsname.h>
++#include <linux/coredump.h>
++#include <linux/regset.h>
++
++#include <asm/uaccess.h>
++#include <asm/param.h>
++#include <asm/page.h>
++#include <asm/prctl.h>
++#include <asm/proto.h>
++#include <asm/i387.h>
++
++#include <linux/elf_ckpt.h>
++#include <asm/elf_ckpt.h>
++
++#include <linux/flex_array.h>
++#include <asm/tlbflush.h>
++#include <asm/desc.h>
++
 +int load_elf_ckpt(struct linux_binprm *bprm, struct pt_regs *regs,
 +		  struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
 +{
-+	struct thread_struct *thread = &current->thread;
 +	struct elf_phdr *elf_phdr_pages;
 +	struct elf_phdr *elf_phdr_core;
 +	struct flex_array *fa = NULL;
@@ -204,7 +441,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	int nr_vma_found, nr_vma_mapped;
 +	struct vma_entry vma_entry;
 +	struct file *file = NULL;
-+	unsigned long elf_entry;
 +	unsigned long map_addr;
 +
 +	unsigned long start_code, end_code, start_data, end_data;
@@ -212,13 +448,10 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	unsigned long elf_bss, elf_brk;
 +	unsigned long vdso;
 +
-+	struct core_entry core_entry;
++	struct core_entry *core_entry = NULL;
 +	int i, ret = -ENOEXEC;
 +	loff_t off;
 +
-+	int cpu;
-+
-+	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
 +	BUILD_BUG_ON(CKPT_TASK_COMM_LEN != TASK_COMM_LEN);
 +	BUILD_BUG_ON(CKPT_PAGE_SIZE != PAGE_SIZE);
 +
@@ -307,17 +540,23 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		goto out;
 +	}
 +
++	core_entry = vmalloc(sizeof(*core_entry));
++	if (!core_entry) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
 +	/* Core data first to check the header */
 +	ret = kernel_read(bprm->file, elf_phdr_core->p_offset,
-+			  (char *)&core_entry, sizeof(core_entry));
-+	if (ret != sizeof(core_entry)) {
++			  (char *)core_entry, sizeof(*core_entry));
++	if (ret != sizeof(*core_entry)) {
 +		pr_err("elf-ckpt: Can't read core_entry\n");
 +		ret = -EIO;
 +		goto out;
 +	}
 +
-+	if (core_entry.header.version != CKPT_HEADER_VERSION ||
-+	    core_entry.header.arch != CKPT_HEADER_ARCH_X86_64) {
++	if (core_entry->header.version != CKPT_HEADER_VERSION ||
++	    core_entry->header.arch != CKPT_HEADER_ARCH_X86_64) {
 +		pr_err("elf-ckpt: Unsupported or corrupted header\n");
 +		ret = -ENOEXEC;
 +		goto out;
@@ -428,9 +667,8 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +
 +	/* The name it has before */
-+	set_task_comm(current, core_entry.comm);
++	set_task_comm(current, core_entry->task_comm);
 +
-+	elf_entry	= core_entry.gpregs.ip;
 +	bprm->p		= start_stack;
 +
 +	current->mm->start_code		= start_code;
@@ -502,72 +740,21 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	}
 +
 +	/*
-+	 * Registers setup.
-+	 *
-+	 * Since we might be modifying MSRs we're
-+	 * to be sure the task wont be preempted
-+	 * until modification is complete.
-+	 */
-+	cpu = get_cpu();
++	 * Architecture specific setup for registers
++	 * and friends, it's done lately since if
++	 * an error happened before there is no much
++	 * point to setup this kind of things at all.
++	*/
++	ret = load_elf_ckpt_arch(current, regs, core_entry);
++	if (ret)
++		goto out_unmap;
 +
-+	regs->ip	= core_entry.gpregs.ip;
-+	regs->sp	= core_entry.gpregs.sp;
-+	regs->cs	= core_entry.gpregs.cs;
-+	regs->ss	= core_entry.gpregs.ss;
-+	regs->flags	= core_entry.gpregs.flags;
-+	regs->r15	= core_entry.gpregs.r15;
-+	regs->r14	= core_entry.gpregs.r14;
-+	regs->r13	= core_entry.gpregs.r13;
-+	regs->r12	= core_entry.gpregs.r12;
-+	regs->bp	= core_entry.gpregs.bp;
-+	regs->bx	= core_entry.gpregs.bx;
-+	regs->r11	= core_entry.gpregs.r11;
-+	regs->r10	= core_entry.gpregs.r10;
-+	regs->r8	= core_entry.gpregs.r8;
-+	regs->ax	= core_entry.gpregs.ax;
-+	regs->cx	= core_entry.gpregs.cx;
-+	regs->dx	= core_entry.gpregs.dx;
-+	regs->si	= core_entry.gpregs.si;
-+	regs->di	= core_entry.gpregs.di;
-+	regs->orig_ax	= core_entry.gpregs.orig_ax;
-+
-+	thread->usersp	= core_entry.gpregs.sp;
-+	thread->ds	= core_entry.gpregs.ds;
-+	thread->es	= core_entry.gpregs.es;
-+	thread->fs	= core_entry.gpregs.fs;
-+	thread->gs	= core_entry.gpregs.gs;
-+
-+	thread->fsindex	= thread->fs;
-+	thread->gsindex = thread->gs;
-+
-+	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
-+		thread->tls_array[i].a = core_entry.tls_array[i].a;
-+		thread->tls_array[i].b = core_entry.tls_array[i].b;
-+	}
-+
-+	if (core_entry.gpregs.fs_base) {
-+		ret = do_arch_prctl(current, ARCH_SET_FS, core_entry.gpregs.fs_base);
-+		if (ret)
-+			goto out_unmap;
-+	}
-+
-+	if (core_entry.gpregs.gs_base) {
-+		ret = do_arch_prctl(current, ARCH_SET_GS, core_entry.gpregs.gs_base);
-+		if (ret)
-+			goto out_unmap;
-+	}
-+
-+	put_cpu();
-+
-+	/* Restoring FPU */
-+	if (core_entry.flags & PF_USED_MATH) {
-+		ret = arch_ptrace(current, PTRACE_SETFPREGS, 0, &core_entry.fpregs);
-+		if (ret)
-+			goto out_unmap;
-+	}
-+
++	/* We're done */
 +	ret = 0;
 +out:
++	if (core_entry)
++		vfree(core_entry);
++
 +	if (fa)
 +		flex_array_free(fa);
 +	return ret;
@@ -651,7 +838,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/include/linux/elf_ckpt.h
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,90 @@
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
@@ -661,6 +848,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +#ifdef __KERNEL__
 +
 +#include <asm/elf.h>
++#include <asm/elf_ckpt.h>
 +
 +/*
 + * Elf extension includes new Elf file type
@@ -676,7 +864,6 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +
 +#define CKPT_PAGE_SIZE			4096
 +#define CKPT_TASK_COMM_LEN		16
-+#define CKPT_GDT_ENTRY_TLS_ENTRIES	3
 +
 +#define CKPT_HEADER_VERSION		1
 +#define CKPT_HEADER_ARCH_X86_64		1
@@ -699,8 +886,8 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	__u64	pgoff;
 +	__u32	prot;
 +	__u32	flags;
-+	__u32	status;
-+	__u32	pid;
++	__u32	status;			/* from VMA_x above */
++	__u32	pid;			/* pid VMA belongs to */
 +	__s64	fd;
 +	__u64	ino;
 +	__u32	dev_maj;
@@ -708,8 +895,8 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +} __packed;
 +
 +struct page_entry {
-+	__u64	va;
-+	__u8	data[CKPT_PAGE_SIZE];
++	__u64	va;			/* page virtual address */
++	__u8	data[CKPT_PAGE_SIZE];	/* page contents */
 +} __packed;
 +
 +struct image_header {
@@ -718,63 +905,14 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	__u32	flags;
 +} __packed;
 +
-+struct user_regs_entry {
-+	__u64	r15;
-+	__u64	r14;
-+	__u64	r13;
-+	__u64	r12;
-+	__u64	bp;
-+	__u64	bx;
-+	__u64	r11;
-+	__u64	r10;
-+	__u64	r9;
-+	__u64	r8;
-+	__u64	ax;
-+	__u64	cx;
-+	__u64	dx;
-+	__u64	si;
-+	__u64	di;
-+	__u64	orig_ax;
-+	__u64	ip;
-+	__u64	cs;
-+	__u64	flags;
-+	__u64	sp;
-+	__u64	ss;
-+	__u64	fs_base;
-+	__u64	gs_base;
-+	__u64	ds;
-+	__u64	es;
-+	__u64	fs;
-+	__u64	gs;
-+} __packed;
-+
-+struct desc_struct_entry {
-+	__u32	a;
-+	__u32	b;
-+} __packed;
-+
-+struct user_fpregs_entry {
-+	__u16	cwd;
-+	__u16	swd;
-+	__u16	twd;
-+	__u16	fop;
-+	__u64	rip;
-+	__u64	rdp;
-+	__u32	mxcsr;
-+	__u32	mxcsr_mask;
-+	__u32	st_space[32];
-+	__u32	xmm_space[64];
-+	__u32	padding[24];
-+} __packed;
++#define CKPT_ARCH_SIZE 2048
 +
 +struct core_entry {
 +	struct image_header		header;
-+	struct user_regs_entry		gpregs;
-+	struct user_fpregs_entry	fpregs;
-+	struct desc_struct		tls_array[CKPT_GDT_ENTRY_TLS_ENTRIES];
-+	__u32				personality;
-+	__u8				comm[CKPT_TASK_COMM_LEN];
-+	__u32				flags;
++	__u8				arch[CKPT_ARCH_SIZE];	/* should be enough for all */
++	__u32				task_personality;
++	__u8				task_comm[CKPT_TASK_COMM_LEN];
++	__u32				task_flags;
 +} __packed;
 +
 +#ifdef CONFIG_BINFMT_ELF_CKPT
