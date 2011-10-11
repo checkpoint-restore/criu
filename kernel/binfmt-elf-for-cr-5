@@ -27,7 +27,7 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  123 ++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  120 ++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
@@ -36,7 +36,7 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/exec.c                       |   27 +-
  include/linux/binfmts.h         |    1 
  include/linux/elf_ckpt.h        |   90 +++++++++
- 12 files changed, 744 insertions(+), 12 deletions(-)
+ 12 files changed, 741 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -154,7 +154,7 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/arch/x86/kernel/elf_ckpt.c
-@@ -0,0 +1,123 @@
+@@ -0,0 +1,120 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -199,19 +199,15 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +{
 +	struct thread_struct *thread = &current->thread;
 +	struct ckpt_arch_entry *arch = (struct ckpt_arch_entry *)core_entry->arch;
-+	int i, cpu, ret;
++	mm_segment_t old_fs;
++	int i, ret;
 +
 +	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
 +	BUILD_BUG_ON(sizeof(struct ckpt_arch_entry) > CKPT_ARCH_SIZE);
 +
 +	/*
 +	 * Registers setup.
-+	 *
-+	 * Since we might be modifying MSRs we're
-+	 * to be sure the task wont be preempted
-+	 * until modification is complete.
 +	 */
-+	cpu = get_cpu();
 +
 +	regs->ip	= arch->gpregs.ip;
 +	regs->sp	= arch->gpregs.sp;
@@ -260,11 +256,12 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +			goto out_put;
 +	}
 +
-+	put_cpu();
-+
 +	/* Restoring FPU */
 +	if (core_entry->task_flags & PF_USED_MATH) {
++		old_fs = get_fs();
++		set_fs(KERNEL_DS);
 +		ret = arch_ptrace(current, PTRACE_SETFPREGS, 0, (unsigned long)&arch->fpregs);
++		set_fs(old_fs);
 +		if (ret)
 +			goto out;
 +	}
