@@ -27,16 +27,16 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  120 ++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  109 +++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
  fs/binfmt_elf.c                 |   17 +
- fs/binfmt_elf_ckpt.c            |  379 ++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c            |  381 ++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                       |   27 +-
  include/linux/binfmts.h         |    1 
  include/linux/elf_ckpt.h        |   90 +++++++++
- 12 files changed, 741 insertions(+), 12 deletions(-)
+ 12 files changed, 732 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -154,7 +154,7 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/arch/x86/kernel/elf_ckpt.c
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,109 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -197,8 +197,9 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +int load_elf_ckpt_arch(struct task_struct *tsk, struct pt_regs *regs,
 +		       struct core_entry *core_entry)
 +{
-+	struct thread_struct *thread = &current->thread;
 +	struct ckpt_arch_entry *arch = (struct ckpt_arch_entry *)core_entry->arch;
++	struct thread_struct *thread = &current->thread;
++	struct pt_regs *pt_regs_me = task_pt_regs(current);
 +	mm_segment_t old_fs;
 +	int i, ret;
 +
@@ -209,26 +210,14 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +	 * Registers setup.
 +	 */
 +
-+	regs->ip	= arch->gpregs.ip;
-+	regs->sp	= arch->gpregs.sp;
-+	regs->cs	= arch->gpregs.cs;
-+	regs->ss	= arch->gpregs.ss;
-+	regs->flags	= arch->gpregs.flags;
-+	regs->r15	= arch->gpregs.r15;
-+	regs->r14	= arch->gpregs.r14;
-+	regs->r13	= arch->gpregs.r13;
-+	regs->r12	= arch->gpregs.r12;
-+	regs->bp	= arch->gpregs.bp;
-+	regs->bx	= arch->gpregs.bx;
-+	regs->r11	= arch->gpregs.r11;
-+	regs->r10	= arch->gpregs.r10;
-+	regs->r8	= arch->gpregs.r8;
-+	regs->ax	= arch->gpregs.ax;
-+	regs->cx	= arch->gpregs.cx;
-+	regs->dx	= arch->gpregs.dx;
-+	regs->si	= arch->gpregs.si;
-+	regs->di	= arch->gpregs.di;
-+	regs->orig_ax	= arch->gpregs.orig_ax;
++	old_fs = get_fs();
++	set_fs(KERNEL_DS);
++	ret = arch_ptrace(current, PTRACE_SETREGS, 0, (unsigned long)&arch->gpregs);
++	set_fs(old_fs);
++	if (ret)
++		goto out;
++
++	*regs = *pt_regs_me;
 +
 +	thread->usersp	= arch->gpregs.sp;
 +	thread->ds	= arch->gpregs.ds;
@@ -388,7 +377,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,379 @@
+@@ -0,0 +1,381 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -443,7 +432,10 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	unsigned long start_code, end_code, start_data, end_data;
 +	unsigned long start_brk, brk, start_stack;
 +	unsigned long elf_bss, elf_brk;
-+	unsigned long vdso;
++
++#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
++	unsigned long vdso = -1UL;
++#endif
 +
 +	struct core_entry *core_entry = NULL;
 +	int i, ret = -ENOEXEC;
@@ -469,8 +461,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	start_stack	= -1UL;
 +	start_brk	= -1UL;
 +	brk		= -1UL;
-+
-+	vdso		= -1UL;
 +
 +	fa = flex_array_alloc(sizeof(vma_entry), elf_ex->e_phnum, GFP_KERNEL);
 +	if (!fa || flex_array_prealloc(fa, 0, elf_ex->e_phnum, GFP_KERNEL)) {
@@ -580,8 +570,10 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		if (vma_entry_ptr->status & VMA_AREA_HEAP)
 +			start_brk = vma_entry_ptr->start;
 +
++#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
 +		if (vma_entry_ptr->status & VMA_AREA_VDSO)
 +			vdso = vma_entry_ptr->start;
++#endif
 +
 +		/* Anything special should be ignored */
 +		if (!(vma_entry_ptr->status & VMA_AREA_REGULAR))
@@ -620,7 +612,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		}
 +
 +		/*
-+		 * FIXME
 +		 * Some heuristics to guess previously loaded real
 +		 * elf file structure. Probably this things should
 +		 * be exported via /proc somewhere instead.
@@ -666,7 +657,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	/* The name it has before */
 +	set_task_comm(current, core_entry->task_comm);
 +
-+	bprm->p		= start_stack;
++	bprm->p = start_stack;
 +
 +	current->mm->start_code		= start_code;
 +	current->mm->end_code		= end_code;
@@ -740,7 +731,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	 * Architecture specific setup for registers
 +	 * and friends, it's done lately since if
 +	 * an error happened before there is no much
-+	 * point to setup this kind of things at all.
++	 * point to setup arch-specific things at all.
 +	*/
 +	ret = load_elf_ckpt_arch(current, regs, core_entry);
 +	if (ret)
@@ -839,10 +830,10 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
++#ifdef __KERNEL__
++
 +#include <linux/types.h>
 +#include <linux/elf-em.h>
-+
-+#ifdef __KERNEL__
 +
 +#include <asm/elf.h>
 +#include <asm/elf_ckpt.h>
@@ -906,7 +897,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +
 +struct core_entry {
 +	struct image_header		header;
-+	__u8				arch[CKPT_ARCH_SIZE];	/* should be enough for all */
++	__u8				arch[CKPT_ARCH_SIZE];	/* should be enough for all archs */
 +	__u32				task_personality;
 +	__u8				task_comm[CKPT_TASK_COMM_LEN];
 +	__u32				task_flags;
