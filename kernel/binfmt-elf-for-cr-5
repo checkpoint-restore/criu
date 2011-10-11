@@ -27,7 +27,7 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  145 +++++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  156 ++++++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
@@ -36,7 +36,7 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/exec.c                       |   27 +-
  include/linux/binfmts.h         |    1 
  include/linux/elf_ckpt.h        |   90 +++++++++
- 12 files changed, 768 insertions(+), 12 deletions(-)
+ 12 files changed, 779 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -154,7 +154,7 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/arch/x86/kernel/elf_ckpt.c
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,156 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -194,7 +194,7 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +
 +#ifdef CONFIG_X86_64
 +
-+#define cp_reg(s, d, r) s.r = d.r
++#define cp_reg(d, s, r) d.r = s.r
 +
 +int load_elf_ckpt_arch(struct task_struct *tsk, struct pt_regs *regs,
 +		       struct core_entry *core_entry)
@@ -215,36 +215,35 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +	memset(&fpregs, 0, sizeof(fpregs));
 +
 +	/*
-+	 * Registers setup.
++	 * General purpose registers
 +	 */
-+
-+	cp_reg(arch->gpregs, gpregs, r15);
-+	cp_reg(arch->gpregs, gpregs, r14);
-+	cp_reg(arch->gpregs, gpregs, r13);
-+	cp_reg(arch->gpregs, gpregs, r12);
-+	cp_reg(arch->gpregs, gpregs, bp);
-+	cp_reg(arch->gpregs, gpregs, bx);
-+	cp_reg(arch->gpregs, gpregs, r11);
-+	cp_reg(arch->gpregs, gpregs, r10);
-+	cp_reg(arch->gpregs, gpregs, r9);
-+	cp_reg(arch->gpregs, gpregs, r8);
-+	cp_reg(arch->gpregs, gpregs, ax);
-+	cp_reg(arch->gpregs, gpregs, cx);
-+	cp_reg(arch->gpregs, gpregs, dx);
-+	cp_reg(arch->gpregs, gpregs, si);
-+	cp_reg(arch->gpregs, gpregs, di);
-+	cp_reg(arch->gpregs, gpregs, orig_ax);
-+	cp_reg(arch->gpregs, gpregs, ip);
-+	cp_reg(arch->gpregs, gpregs, cs);
-+	cp_reg(arch->gpregs, gpregs, flags);
-+	cp_reg(arch->gpregs, gpregs, sp);
-+	cp_reg(arch->gpregs, gpregs, ss);
-+	cp_reg(arch->gpregs, gpregs, fs_base);
-+	cp_reg(arch->gpregs, gpregs, gs_base);
-+	cp_reg(arch->gpregs, gpregs, ds);
-+	cp_reg(arch->gpregs, gpregs, es);
-+	cp_reg(arch->gpregs, gpregs, fs);
-+	cp_reg(arch->gpregs, gpregs, gs);
++	cp_reg(gpregs, arch->gpregs, r15);
++	cp_reg(gpregs, arch->gpregs, r14);
++	cp_reg(gpregs, arch->gpregs, r13);
++	cp_reg(gpregs, arch->gpregs, r12);
++	cp_reg(gpregs, arch->gpregs, bp);
++	cp_reg(gpregs, arch->gpregs, bx);
++	cp_reg(gpregs, arch->gpregs, r11);
++	cp_reg(gpregs, arch->gpregs, r10);
++	cp_reg(gpregs, arch->gpregs, r9);
++	cp_reg(gpregs, arch->gpregs, r8);
++	cp_reg(gpregs, arch->gpregs, ax);
++	cp_reg(gpregs, arch->gpregs, cx);
++	cp_reg(gpregs, arch->gpregs, dx);
++	cp_reg(gpregs, arch->gpregs, si);
++	cp_reg(gpregs, arch->gpregs, di);
++	cp_reg(gpregs, arch->gpregs, orig_ax);
++	cp_reg(gpregs, arch->gpregs, ip);
++	cp_reg(gpregs, arch->gpregs, cs);
++	cp_reg(gpregs, arch->gpregs, flags);
++	cp_reg(gpregs, arch->gpregs, sp);
++	cp_reg(gpregs, arch->gpregs, ss);
++	cp_reg(gpregs, arch->gpregs, fs_base);
++	cp_reg(gpregs, arch->gpregs, gs_base);
++	cp_reg(gpregs, arch->gpregs, ds);
++	cp_reg(gpregs, arch->gpregs, es);
++	cp_reg(gpregs, arch->gpregs, fs);
++	cp_reg(gpregs, arch->gpregs, gs);
 +
 +	old_fs = get_fs();
 +	set_fs(KERNEL_DS);
@@ -269,23 +268,35 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +		thread->tls_array[i].b = arch->tls_array[i].b;
 +	}
 +
++	if (arch->gpregs.fs_base) {
++		ret = do_arch_prctl(current, ARCH_SET_FS, arch->gpregs.fs_base);
++		if (ret)
++			goto out;
++	}
++
++	if (arch->gpregs.gs_base) {
++		ret = do_arch_prctl(current, ARCH_SET_GS, arch->gpregs.gs_base);
++		if (ret)
++			goto out;
++	}
++
 +	/* Restoring FPU */
 +	if (core_entry->task_flags & PF_USED_MATH) {
 +
-+		cp_reg(arch->fpregs, fpregs, cwd);
-+		cp_reg(arch->fpregs, fpregs, swd);
-+		cp_reg(arch->fpregs, fpregs, twd);
-+		cp_reg(arch->fpregs, fpregs, fop);
-+		cp_reg(arch->fpregs, fpregs, rip);
-+		cp_reg(arch->fpregs, fpregs, rdp);
-+		cp_reg(arch->fpregs, fpregs, mxcsr);
-+		cp_reg(arch->fpregs, fpregs, mxcsr_mask);
++		cp_reg(fpregs, arch->fpregs, cwd);
++		cp_reg(fpregs, arch->fpregs, swd);
++		cp_reg(fpregs, arch->fpregs, twd);
++		cp_reg(fpregs, arch->fpregs, fop);
++		cp_reg(fpregs, arch->fpregs, rip);
++		cp_reg(fpregs, arch->fpregs, rdp);
++		cp_reg(fpregs, arch->fpregs, mxcsr);
++		cp_reg(fpregs, arch->fpregs, mxcsr_mask);
 +
 +		for (i = 0; i < ARRAY_SIZE(arch->fpregs.st_space); i++)
-+			cp_reg(arch->fpregs, fpregs, st_space[i]);
++			cp_reg(fpregs, arch->fpregs, st_space[i]);
 +
 +		for (i = 0; i < ARRAY_SIZE(arch->fpregs.xmm_space); i++)
-+			cp_reg(arch->fpregs, fpregs, xmm_space[i]);
++			cp_reg(fpregs, arch->fpregs, xmm_space[i]);
 +
 +		old_fs = get_fs();
 +		set_fs(KERNEL_DS);
