@@ -416,7 +416,8 @@ err:
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_stat(pid_t pid, u8 *comm, u32 *flags)
+static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
+			 u64 *start_code, u64 *end_code)
 {
 	FILE *file = NULL;
 	char *tok1, *tok2;
@@ -446,14 +447,32 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags)
 
 	if (!ret) {
 		ret = -1;
-		for (i = 0; i < 8; i++) {
+		for (i = 0; i < 7; i++) {
 			tok1 =  strtok(NULL, " ");
-			if (!tok1) {
-				pr_err("/proc/%d/stat is corrupted", pid);
-				goto err;
-			}
+			if (!tok1)
+				goto err_corrupted;
 		}
 		*flags = atoi(tok1);
+		ret = 0;
+	}
+
+	if (!ret) {
+		ret = -1;
+		for (i = 0; i < 15; i++) {
+			tok1 =  strtok(NULL, " ");
+			if (!tok1)
+				goto err_corrupted;
+		}
+
+		tok1 =  strtok(NULL, " ");
+		if (!tok1)
+			goto err_corrupted;
+		*start_code = atol(tok1);
+
+		tok1 =  strtok(NULL, " ");
+		if (!tok1)
+			goto err_corrupted;
+		*end_code = atol(tok1);
 		ret = 0;
 	}
 
@@ -461,6 +480,10 @@ err:
 	if (file)
 		fclose(file);
 	return ret;
+
+err_corrupted:
+	pr_err("/proc/%d/stat is corrupted", pid);
+	goto err;
 }
 
 static int get_task_personality(pid_t pid, u32 *personality)
@@ -619,7 +642,10 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	pr_info("OK\n");
 
 	pr_info("Obtainting task stat ... ");
-	ret = get_task_stat(pid, core->task_comm, &core->task_flags);
+	ret = get_task_stat(pid, core->task_comm,
+			    &core->task_flags,
+			    &core->mm_start_code,
+			    &core->mm_end_code);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");

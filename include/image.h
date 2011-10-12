@@ -182,6 +182,8 @@ struct core_entry {
 	u8				task_comm[TASK_COMM_LEN];
 	u32				task_flags;
 	u64				mm_brk;
+	u64				mm_start_code;
+	u64				mm_end_code;
     };
     u8					__core_pad[CKPT_CORE_SIZE];
   };

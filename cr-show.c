@@ -107,7 +107,7 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	int fd_core, i;
 	u32 personality;
 	char comm[TASK_COMM_LEN];
-	u64 mm_brk;
+	u64 mm_brk, mm_start_code, mm_end_code;
 
 	fd_core = cr_fdset->desc[CR_FD_CORE].fd;
 	if (fd_core < 0)
@@ -122,9 +122,17 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_brk), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_brk, err);
 
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_code), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_start_code, err);
+
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_end_code), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_end_code, err);
+
 	pr_info("Personality: %x\n", personality);
 	pr_info("Command: %s\n", comm);
 	pr_info("Brk: %lx\n", mm_brk);
+	pr_info("Start code: %lx\n", mm_start_code);
+	pr_info("End code: %lx\n", mm_end_code);
 err:
 	return;
 }
