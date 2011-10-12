@@ -146,10 +146,10 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	pr_info("Brk:          %lx\n", mm_brk);
 	pr_info("Start code:   %lx\n", mm_start_code);
 	pr_info("End code:     %lx\n", mm_end_code);
-	pr_info("Start stack:  %lx\n", mm_end_code);
-	pr_info("Start data:   %lx\n", mm_end_code);
-	pr_info("End data:     %lx\n", mm_end_code);
-	pr_info("Start brk:    %lx\n", mm_end_code);
+	pr_info("Start stack:  %lx\n", mm_start_stack);
+	pr_info("Start data:   %lx\n", mm_start_data);
+	pr_info("End data:     %lx\n", mm_end_data);
+	pr_info("Start brk:    %lx\n", mm_start_brk);
 
 err:
 	return;
