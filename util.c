@@ -182,8 +182,9 @@ void printk_vma(struct vma_area *vma_area)
 		  ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
 	       !vma_area->vma.status ? "--" :
 	       ((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
-		((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
-		 ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n"))));
+		((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
+		 ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
+		  ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))));
 }
 
 int unseize_task(pid_t pid)
