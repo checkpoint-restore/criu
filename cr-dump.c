@@ -34,9 +34,24 @@
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 
+#include <stdarg.h>
+
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
 #endif
+
+static FILE *fopen_proc(char *fmt, char *mode, ...)
+{
+	va_list args;
+	char fname[128];
+
+	sprintf(fname, "/proc/");
+	va_start(args, mode);
+	vsnprintf(fname + 6, sizeof(fname) - 6, fmt, args);
+	va_end(args);
+
+	return fopen(fname, mode);
+}
 
 static LIST_HEAD(vma_area_list);
 static LIST_HEAD(pstree_list);
@@ -291,21 +306,18 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 
 static int read_fd_params(pid_t pid, char *fd, unsigned long *pos, unsigned int *flags)
 {
-	char fd_str[128];
 	FILE *file;
 
-	snprintf(fd_str, sizeof(fd_str), "/proc/%d/fdinfo/%s", pid, fd);
-
-	file = fopen(fd_str, "r");
+	file = fopen_proc("%d/fdinfo/%s", "r", pid, fd);
 	if (!file) {
-		pr_perror("Can't open %s\n", fd_str);
+		pr_perror("Can't open %d's %s fdinfo\n", pid, fd);
 		return -1;
 	}
 
 	fscanf(file, "pos:\t%li\nflags:\t%o\n", pos, flags);
 	fclose(file);
 
-	pr_info("%s: pos: %16lx flags: %16lx\n", fd_str, *pos, *flags);
+	pr_info("%d fdinfo %s: pos: %16lx flags: %16lx\n", pid, fd, *pos, *flags);
 
 	return 0;
 }
@@ -428,10 +440,9 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 	 * '0' symbol at argument 20 in format string.
 	 */
 
-	snprintf(loc_buf, sizeof(loc_buf), "/proc/%d/stat", pid);
-	file = fopen(loc_buf, "r");
+	file = fopen_proc("%d/stat", "r", pid);
 	if (!file) {
-		pr_perror("Can't open %s", loc_buf);
+		pr_perror("Can't open %d stat", pid);
 		goto err;
 	}
 
@@ -527,10 +538,9 @@ static int get_task_personality(pid_t pid, u32 *personality)
 	FILE *file = NULL;
 	int ret = -1;
 
-	snprintf(loc_buf, sizeof(loc_buf), "/proc/%d/personality", pid);
-	file = fopen(loc_buf, "r");
+	file = fopen_proc("%d/personality", "r", pid);
 	if (!file) {
-		perror("Can't open task personality");
+		pr_perror("Can't open %d personality", pid);
 		goto err;
 	}
 
@@ -558,10 +568,9 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 		goto err;
 	}
 
-	snprintf(loc_buf, sizeof(loc_buf), "/proc/%d/tls", pid);
-	file = fopen(loc_buf, "r");
+	file = fopen_proc("%d/tls", "r", pid);
 	if (!file) {
-		perror("Can't open task tls");
+		pr_perror("Can't open %d tls", pid);
 		goto err;
 	}
 
@@ -727,10 +736,9 @@ static struct pstree_item *find_children(pid_t pid)
 
 	pr_debug("pid: %d\n", pid);
 
-	snprintf(loc_buf, sizeof(loc_buf), "/proc/%d/status", pid);
-	file = fopen(loc_buf, "r");
+	file = fopen_proc("%d/status", "r", pid);
 	if (!file) {
-		perror("Can't open task status");
+		pr_perror("Can't open %d status", pid);
 		goto err;
 	}
 

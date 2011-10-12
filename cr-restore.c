@@ -82,6 +82,14 @@ static int nr_pipes;
 
 static int restore_task_with_children(int my_pid, char *pstree_path);
 
+static int open_fmt(char *fmt, int pid, int mode)
+{
+	char fname[64];
+
+	snprintf(fname, sizeof(fname), fmt, pid);
+	return open(fname, mode);
+}
+
 static void show_saved_shmems(void)
 {
 	int i;
@@ -282,12 +290,10 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 static int prepare_shmem_pid(int pid)
 {
-	char path[64];
 	int sh_fd;
 	u32 type = 0;
 
-	sprintf(path, "shmem-%d.img", pid);
-	sh_fd = open(path, O_RDONLY);
+	sh_fd = open_fmt("shmem-%d.img", pid, O_RDONLY);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -322,12 +328,10 @@ static int prepare_shmem_pid(int pid)
 
 static int prepare_pipes_pid(int pid)
 {
-	char path[64];
 	int p_fd;
 	u32 type = 0;
 
-	sprintf(path, "pipes-%d.img", pid);
-	p_fd = open(path, O_RDONLY);
+	p_fd = open_fmt("pipes-%d.img", pid, O_RDONLY);
 	if (p_fd < 0) {
 		perror("Can't open pipes image");
 		return 1;
@@ -347,8 +351,8 @@ static int prepare_pipes_pid(int pid)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(e)) {
-			pr_perror("Read pipes for %s failed %d of %li read\n",
-				  path, ret, sizeof(e));
+			pr_perror("Read pipes for %d failed %d of %li read\n",
+					pid, ret, sizeof(e));
 			return 1;
 		}
 
@@ -504,21 +508,19 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 static int prepare_fds(int pid)
 {
 	u32 mag;
-	char path[64];
 	int fdinfo_fd;
 
-	sprintf(path, "fdinfo-%d.img", pid);
-	pr_info("%d: Opening files in %s\n", pid, path);
+	pr_info("%d: Opening files img\n", pid);
 
-	fdinfo_fd = open(path, O_RDONLY);
+	fdinfo_fd = open_fmt("fdinfo-%d.img", pid, O_RDONLY);
 	if (fdinfo_fd < 0) {
-		pr_perror("Can't open %s", path);
+		pr_perror("Can't open %d fdinfo", pid);
 		return 1;
 	}
 
 	read(fdinfo_fd, &mag, 4);
 	if (mag != FDINFO_MAGIC) {
-		pr_err("Bad file magic number in %s\n", path);
+		pr_err("Bad %d fdinfo magic number\n", pid);
 		return 1;
 	}
 
@@ -533,12 +535,12 @@ static int prepare_fds(int pid)
 		}
 
 		if (ret < 0) {
-			pr_perror("Error reading %s\n", path);
+			pr_perror("Error reading %d fdinfo\n", pid);
 			return 1;
 		}
 
 		if (ret != sizeof(fe)) {
-			pr_err("Corrupted file %s\n", path);
+			pr_err("Corrupted %d fdinfo\n", pid);
 			return 1;
 		}
 
@@ -554,7 +556,7 @@ static int prepare_fds(int pid)
 				return 1;
 			break;
 		default:
-			pr_err("Unknown type in %s\n", path);
+			pr_err("Unknown %d fdinfo file type\n", pid);
 			return 1;
 		}
 	}
@@ -586,12 +588,10 @@ static void save_shmem_id(struct shmem_entry *e)
 
 static int prepare_shmem(int pid)
 {
-	char path[64];
 	int sh_fd;
 	u32 type = 0;
 
-	sprintf(path, "shmem-%d.img", pid);
-	sh_fd = open(path, O_RDONLY);
+	sh_fd = open_fmt("shmem-%d.img", pid, O_RDONLY);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -739,23 +739,21 @@ static char zpage[PAGE_SIZE];
 
 static int fixup_pages_data(int pid, int fd)
 {
-	char path[128];
 	int shfd;
 	u32 magic;
 	u64 va;
 
-	sprintf(path, "pages-shmem-%d.img", pid);
-	pr_info("%d: Reading shmem pages from %s\n", pid, path);
+	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open(path, O_RDONLY);
+	shfd = open_fmt("pages-shmem-%d.img", pid, O_RDONLY);
 	if (shfd < 0) {
-		pr_perror("Can't open shmem image %s", path);
+		pr_perror("Can't open %d shmem image %s", pid);
 		return 1;
 	}
 
 	read(shfd, &magic, sizeof(magic));
 	if (magic != PAGES_MAGIC) {
-		pr_err("Bad shmem file magic number %s\n", path);
+		pr_err("Bad %d shmem file magic number\n", pid);
 		return 1;
 	}
 
@@ -829,8 +827,7 @@ static int execute_image(int pid)
 	int fd, fd_new;
 	struct stat buf;
 
-	sprintf(path, "core-%d.img", pid);
-	fd = open(path, O_RDONLY);
+	fd = open_fmt("core-%d.img", pid, O_RDONLY);
 	if (fd < 0) {
 		perror("Can't open exec image");
 		return 1;
@@ -1032,14 +1029,12 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 static int prepare_pipes(int pid)
 {
-	char path[64];
 	int pipes_fd;
 	u32 type = 0;
 
 	pr_info("%d: Opening pipes\n", pid);
 
-	sprintf(path, "pipes-%d.img", pid);
-	pipes_fd = open(path, O_RDONLY);
+	pipes_fd = open_fmt("pipes-%d.img", pid, O_RDONLY);
 	if (pipes_fd < 0) {
 		perror("Can't open pipes img");
 		return 1;
