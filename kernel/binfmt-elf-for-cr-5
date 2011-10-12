@@ -27,16 +27,16 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  161 +++++++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  161 ++++++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
  fs/binfmt_elf.c                 |   17 +
- fs/binfmt_elf_ckpt.c            |  378 ++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c            |  389 ++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                       |   27 +-
  include/linux/binfmts.h         |    1 
- include/linux/elf_ckpt.h        |   97 ++++++++++
- 12 files changed, 788 insertions(+), 12 deletions(-)
+ include/linux/elf_ckpt.h        |   97 +++++++++
+ 12 files changed, 799 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -429,7 +429,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,378 @@
+@@ -0,0 +1,389 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -616,6 +616,11 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	for (i = 0; i < nr_vma_found; i++) {
 +		vma_entry_ptr = flex_array_get(fa, i);
 +
++		/*
++		 * This [heap] area is not explicitly existing on old kernels
++		 * so if it's not found we need to setup brk area from saved
++		 * brk value.
++		 */
 +		if (vma_entry_ptr->status & VMA_AREA_HEAP)
 +			start_brk = vma_entry_ptr->start;
 +
@@ -707,6 +712,12 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	set_task_comm(current, core_entry->task_comm);
 +
 +	bprm->p = start_stack;
++
++	if (start_brk == -1UL) {
++		pr_err("elf-ckpt: Can't find brk area\n");
++		ret = -ENOEXEC;
++		goto out_unmap;
++	}
 +
 +	current->mm->start_code		= start_code;
 +	current->mm->end_code		= end_code;
