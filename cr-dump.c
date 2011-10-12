@@ -547,6 +547,7 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	user_regs_struct_t regs		= {-1};
 	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
 	int ret				= -1;
+	unsigned long brk;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
@@ -590,14 +591,14 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	assign_reg(core->u.arch.gpregs, regs,		fs);
 	assign_reg(core->u.arch.gpregs, regs,		gs);
 
-	assign_reg(core->u.arch.fpregs, fpregs,	cwd);
-	assign_reg(core->u.arch.fpregs, fpregs,	swd);
-	assign_reg(core->u.arch.fpregs, fpregs,	twd);
-	assign_reg(core->u.arch.fpregs, fpregs,	fop);
-	assign_reg(core->u.arch.fpregs, fpregs,	rip);
-	assign_reg(core->u.arch.fpregs, fpregs,	rdp);
-	assign_reg(core->u.arch.fpregs, fpregs,	mxcsr);
-	assign_reg(core->u.arch.fpregs, fpregs,	mxcsr_mask);
+	assign_reg(core->u.arch.fpregs, fpregs,		cwd);
+	assign_reg(core->u.arch.fpregs, fpregs,		swd);
+	assign_reg(core->u.arch.fpregs, fpregs,		twd);
+	assign_reg(core->u.arch.fpregs, fpregs,		fop);
+	assign_reg(core->u.arch.fpregs, fpregs,		rip);
+	assign_reg(core->u.arch.fpregs, fpregs,		rdp);
+	assign_reg(core->u.arch.fpregs, fpregs,		mxcsr);
+	assign_reg(core->u.arch.fpregs, fpregs,		mxcsr_mask);
 
 	assign_array(core->u.arch.fpregs, fpregs,	st_space);
 	assign_array(core->u.arch.fpregs, fpregs,	xmm_space);
@@ -621,6 +622,13 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	ret = get_task_stat(pid, core->task_comm, &core->task_flags);
 	if (ret)
 		goto err_free;
+	pr_info("OK\n");
+
+	pr_info("Obtainting task brk ... ");
+	brk = brk_seized(pid, 0);
+	if ((long)brk < 0)
+		goto err_free;
+	core->mm_brk = brk;
 	pr_info("OK\n");
 
 	pr_info("Dumping header ... ");

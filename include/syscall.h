@@ -109,6 +109,7 @@ static long syscall6(int nr, unsigned long arg0, unsigned long arg1,
 #define __NR_mmap		9
 #define __NR_mprotect		10
 #define __NR_munmap		11
+#define __NR_brk		12
 #define __NR_mincore		27
 #define __NR_dup		32
 #define __NR_dup2		33

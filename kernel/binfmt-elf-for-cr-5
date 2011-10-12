@@ -27,16 +27,16 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  156 ++++++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  161 +++++++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
  fs/binfmt_elf.c                 |   17 +
- fs/binfmt_elf_ckpt.c            |  381 ++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c            |  378 ++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                       |   27 +-
  include/linux/binfmts.h         |    1 
- include/linux/elf_ckpt.h        |   90 +++++++++
- 12 files changed, 779 insertions(+), 12 deletions(-)
+ include/linux/elf_ckpt.h        |   97 ++++++++++
+ 12 files changed, 788 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -154,7 +154,7 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/arch/x86/kernel/elf_ckpt.c
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,161 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -207,6 +207,11 @@ Index: linux-2.6.git/arch/x86/kernel/elf_ckpt.c
 +
 +	mm_segment_t old_fs;
 +	int i, ret;
++
++	if (core_entry->header.arch != CKPT_HEADER_ARCH_X86_64) {
++		pr_err("elf-ckpt-x86: Unsupported or corrupted header\n");
++		return -ENOEXEC;
++	}
 +
 +	BUILD_BUG_ON(CKPT_GDT_ENTRY_TLS_ENTRIES != GDT_ENTRY_TLS_ENTRIES);
 +	BUILD_BUG_ON(sizeof(struct ckpt_arch_entry) > CKPT_ARCH_SIZE);
@@ -424,7 +429,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,381 @@
+@@ -0,0 +1,378 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -477,8 +482,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	unsigned long map_addr;
 +
 +	unsigned long start_code, end_code, start_data, end_data;
-+	unsigned long start_brk, brk, start_stack;
-+	unsigned long elf_bss, elf_brk;
++	unsigned long start_brk, start_stack;
 +
 +#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
 +	unsigned long vdso = -1UL;
@@ -490,14 +494,12 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +	BUILD_BUG_ON(CKPT_TASK_COMM_LEN != TASK_COMM_LEN);
 +	BUILD_BUG_ON(CKPT_PAGE_SIZE != PAGE_SIZE);
++	BUILD_BUG_ON(CKPT_CORE_SIZE != sizeof(*core_entry));
 +
 +	elf_phdr_core	= NULL;
 +	elf_phdr_pages	= NULL;
 +	nr_vma_found	= 0;
 +	nr_vma_mapped	= 0;
-+
-+	elf_bss		= 0;
-+	elf_brk		= 0;
 +
 +	start_code	= -1UL;
 +	end_code	= 0;
@@ -507,7 +509,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +	start_stack	= -1UL;
 +	start_brk	= -1UL;
-+	brk		= -1UL;
 +
 +	fa = flex_array_alloc(sizeof(vma_entry), elf_ex->e_phnum, GFP_KERNEL);
 +	if (!fa || flex_array_prealloc(fa, 0, elf_ex->e_phnum, GFP_KERNEL)) {
@@ -589,8 +590,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		goto out;
 +	}
 +
-+	if (core_entry->header.version != CKPT_HEADER_VERSION ||
-+	    core_entry->header.arch != CKPT_HEADER_ARCH_X86_64) {
++	if (core_entry->header.version != CKPT_HEADER_VERSION) {
 +		pr_err("elf-ckpt: Unsupported or corrupted header\n");
 +		ret = -ENOEXEC;
 +		goto out;
@@ -604,7 +604,9 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		current->flags |= PF_RANDOMIZE;
 +
 +	/*
-+	 * FIXME: Note it flushes signal handlers as well.
++	 * FIXME: Note it flushes signal handlers as well,
++	 * so we need to dump queued signals and restore
++	 * them here.
 +	 */
 +	setup_new_exec(bprm);
 +
@@ -712,7 +714,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	current->mm->end_data		= end_data;
 +	current->mm->start_stack	= start_stack;
 +	current->mm->start_brk		= start_brk;
-+	current->mm->brk		= brk;
++	current->mm->brk		= core_entry->mm_brk;
 +
 +#ifdef ARCH_HAS_SETUP_ADDITIONAL_PAGES
 +	ret = arch_setup_additional_pages_at(bprm, (void *)vdso, 0);
@@ -873,7 +875,7 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/include/linux/elf_ckpt.h
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,97 @@
 +#ifndef _LINUX_ELF_CHECKPOINT_H
 +#define _LINUX_ELF_CHECKPOINT_H
 +
@@ -940,14 +942,21 @@ Index: linux-2.6.git/include/linux/elf_ckpt.h
 +	__u32	flags;
 +} __packed;
 +
-+#define CKPT_ARCH_SIZE 2048
++#define CKPT_ARCH_SIZE		2048
++#define CKPT_CORE_SIZE		8192
 +
 +struct core_entry {
++  union {
++    struct {
 +	struct image_header		header;
 +	__u8				arch[CKPT_ARCH_SIZE];	/* should be enough for all archs */
 +	__u32				task_personality;
 +	__u8				task_comm[CKPT_TASK_COMM_LEN];
 +	__u32				task_flags;
++	__u64				mm_brk;
++    };
++    __u8				__core_pad[CKPT_CORE_SIZE];
++  };
 +} __packed;
 +
 +#ifdef CONFIG_BINFMT_ELF_CKPT

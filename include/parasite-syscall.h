@@ -30,7 +30,7 @@ void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
 int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 		  void *addr, size_t length);
 int kill_seized(pid_t pid, user_regs_struct_t *where);
-
+unsigned long brk_seized(pid_t pid, unsigned long addr);
 
 int syscall_seized(pid_t pid,
 		   user_regs_struct_t *where,
