@@ -292,20 +292,18 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 static int read_fd_params(pid_t pid, char *fd, unsigned long *pos, unsigned int *flags)
 {
 	char fd_str[128];
-	int ifd;
+	FILE *file;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/%d/fdinfo/%s", pid, fd);
 
-	ifd = open(fd_str, O_RDONLY);
-	if (ifd < 0) {
+	file = fopen(fd_str, "r");
+	if (!file) {
 		pr_perror("Can't open %s\n", fd_str);
 		return -1;
 	}
 
-	read(ifd, big_buffer, sizeof(big_buffer));
-	close(ifd);
-
-	sscanf(big_buffer, "pos:\t%li\nflags:\t%o\n", pos, flags);
+	fscanf(file, "pos:\t%li\nflags:\t%o\n", pos, flags);
+	fclose(file);
 
 	pr_info("%s: pos: %16lx flags: %16lx\n", fd_str, *pos, *flags);
 
