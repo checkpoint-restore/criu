@@ -34,10 +34,9 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/binfmt_elf.c                 |   17 +-
  fs/binfmt_elf_ckpt.c            |  332 ++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                       |   27 ++-
- fs/proc/array.c                 |    7 
  include/linux/binfmts.h         |    1 
  include/linux/elf_ckpt.h        |  103 ++++++++++++
- 13 files changed, 753 insertions(+), 14 deletions(-)
+ 12 files changed, 748 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -814,31 +813,6 @@ Index: linux-2.6.git/fs/exec.c
  EXPORT_SYMBOL(flush_old_exec);
  
  void would_dump(struct linux_binprm *bprm, struct file *file)
-Index: linux-2.6.git/fs/proc/array.c
-===================================================================
---- linux-2.6.git.orig/fs/proc/array.c
-+++ linux-2.6.git/fs/proc/array.c
-@@ -478,7 +478,7 @@ static int do_task_stat(struct seq_file 
- 
- 	seq_printf(m, "%d (%s) %c %d %d %d %d %d %u %lu \
- %lu %lu %lu %lu %lu %ld %ld %ld %ld %d 0 %llu %lu %ld %lu %lu %lu %lu %lu \
--%lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld\n",
-+%lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu\n",
- 		pid_nr_ns(pid, ns),
- 		tcomm,
- 		state,
-@@ -525,7 +525,10 @@ static int do_task_stat(struct seq_file 
- 		task->policy,
- 		(unsigned long long)delayacct_blkio_ticks(task),
- 		cputime_to_clock_t(gtime),
--		cputime_to_clock_t(cgtime));
-+		cputime_to_clock_t(cgtime),
-+		mm ? (permitted ? mm->start_data : 1) : 0,
-+		mm ? (permitted ? mm->end_data : 1) : 0,
-+		mm ? (permitted ? mm->start_brk : 1) : 0);
- 	if (mm)
- 		mmput(mm);
- 	return 0;
 Index: linux-2.6.git/include/linux/binfmts.h
 ===================================================================
 --- linux-2.6.git.orig/include/linux/binfmts.h

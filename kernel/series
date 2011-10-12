@@ -9,4 +9,5 @@ fs-proc-switch-to-dentry
 cr-proc-map-files-21
 fs-proc-add-tls
 fs-add-do-close
-binfmt-elf-for-cr-4
+fs-proc-add-mm-task-stat
+binfmt-elf-for-cr-5
