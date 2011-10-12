@@ -108,6 +108,7 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	u32 personality;
 	char comm[TASK_COMM_LEN];
 	u64 mm_brk, mm_start_code, mm_end_code;
+	u64 mm_start_data, mm_end_data, mm_start_stack, mm_start_brk;
 
 	fd_core = cr_fdset->desc[CR_FD_CORE].fd;
 	if (fd_core < 0)
@@ -128,11 +129,28 @@ static void show_core_rest(struct cr_fdset *cr_fdset)
 	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_end_code), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_end_code, err);
 
-	pr_info("Personality: %x\n", personality);
-	pr_info("Command: %s\n", comm);
-	pr_info("Brk: %lx\n", mm_brk);
-	pr_info("Start code: %lx\n", mm_start_code);
-	pr_info("End code: %lx\n", mm_end_code);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_stack), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_start_stack, err);
+
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_data), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_start_data, err);
+
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_end_data), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_end_data, err);
+
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_brk), SEEK_SET);
+	read_ptr_safe(fd_core, &mm_start_brk, err);
+
+	pr_info("Personality:  %x\n", personality);
+	pr_info("Command:      %s\n", comm);
+	pr_info("Brk:          %lx\n", mm_brk);
+	pr_info("Start code:   %lx\n", mm_start_code);
+	pr_info("End code:     %lx\n", mm_end_code);
+	pr_info("Start stack:  %lx\n", mm_end_code);
+	pr_info("Start data:   %lx\n", mm_end_code);
+	pr_info("End data:     %lx\n", mm_end_code);
+	pr_info("Start brk:    %lx\n", mm_end_code);
+
 err:
 	return;
 }

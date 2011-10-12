@@ -167,8 +167,8 @@ struct ckpt_arch_entry {
 	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
 };
 
-#define CKPT_ARCH_SIZE		2048
-#define CKPT_CORE_SIZE		8192
+#define CKPT_ARCH_SIZE		(2 * 4096)
+#define CKPT_CORE_SIZE		(4 * 4096)
 
 struct core_entry {
   union {
@@ -181,9 +181,13 @@ struct core_entry {
 	u32				task_personality;
 	u8				task_comm[TASK_COMM_LEN];
 	u32				task_flags;
-	u64				mm_brk;
 	u64				mm_start_code;
 	u64				mm_end_code;
+	u64				mm_start_data;
+	u64				mm_end_data;
+	u64				mm_start_stack;
+	u64				mm_start_brk;
+	u64				mm_brk;
     };
     u8					__core_pad[CKPT_CORE_SIZE];
   };
