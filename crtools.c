@@ -147,12 +147,6 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 
 		magic = cr_fdset->desc[i].tmpl->magic;
 		write_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
-
-		/*
-		 * Make sure it's on disk since we might
-		 * need to re-open files in parasite.
-		 */
-		fsync(cr_fdset->desc[i].fd);
 	}
 	ret = 0;
 err:

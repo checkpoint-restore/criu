@@ -270,6 +270,12 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		goto chmod_err;
 	}
 
+	/*
+	 * Make sure the data is on disk since we will re-open
+	 * it in another process.
+	 */
+	fsync(cr_fdset->desc[fd_type].fd);
+
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
 
 	parasite_arg.command		= PARASITE_CMD_DUMPPAGES;
