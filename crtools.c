@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <dirent.h>
+#include <getopt.h>
+#include <string.h>
 
 #include <fcntl.h>
 
@@ -228,6 +230,16 @@ int main(int argc, char *argv[])
 {
 	pid_t pid;
 	int ret = -1;
+	int opt, idx;
+	int action = -1;
+
+	static const char short_opts[] = "drsp:t:h";
+	static const struct option long_opts[] = {
+		{ "dump",	no_argument, NULL, 'd' },
+		{ "restore",	no_argument, NULL, 'r' },
+		{ "show",	no_argument, NULL, 's' },
+		{ NULL,		no_argument, NULL, 0 }
+	};
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -236,32 +248,51 @@ int main(int argc, char *argv[])
 
 	memset(&zero_page_entry, 0, sizeof(zero_page_entry));
 
-	switch (argv[2][1]) {
-	case 'p':
-		pid = atol(argv[3]);
-		opts.leader_only = true;
+	for (opt = getopt_long(argc, argv, short_opts, long_opts, &idx); opt != -1;
+	     opt = getopt_long(argc, argv, short_opts, long_opts, &idx)) {
+		switch (opt) {
+		case 'p':
+			pid = atoi(optarg);
+			opts.leader_only = true;
+			break;
+		case 't':
+			pid = atoi(optarg);
+			opts.leader_only = false;
+			break;
+		case 'd':
+			action = opt;
+			break;
+		case 'r':
+			action = opt;
+			break;
+		case 's':
+			action = opt;
+			break;
+		case 'h':
+		default:
+			goto usage;
+		}
+	}
+
+	switch (action) {
+	case 'd':
+		ret = cr_dump_tasks(pid, &opts);
 		break;
-	case 't':
-		pid = atol(argv[3]);
-		opts.leader_only = false;
+	case 'r':
+		ret = cr_restore_tasks(pid, &opts);
+		break;
+	case 's':
+		ret = cr_show(pid, &opts);
 		break;
 	default:
 		goto usage;
+		break;
 	}
-
-	if (!strcmp(argv[1], "dump")) {
-		ret = cr_dump_tasks(pid, &opts);
-	} else if (!strcmp(argv[1], "restore")) {
-		ret = cr_restore_tasks(pid, &opts);
-	} else if (!strcmp(argv[1], "show")) {
-		ret = cr_show(pid, &opts);
-	} else
-		goto usage;
 
 	return ret;
 
 usage:
 	printk("\nUsage:\n");
-	printk("\tcrtools (dump|show|restore) (-p|-t) pid\n\n");
+	printk("\tcrtools ([--dump|-d]|[--show|-s]|[--restore|-r]) (-p|-t) pid\n\n");
 	return -1;
 }
