@@ -13,5 +13,3 @@ Some things which are to be done
   pipes/vma/ and etc...
 - add bash completion file
 - switch to getopt()
-- comments for seize_task
-- anything related to seizing should be in seize.c file instead of util.c
