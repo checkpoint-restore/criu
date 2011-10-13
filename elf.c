@@ -47,7 +47,7 @@ int convert_to_elf(char *elf_path, int fd_core)
 
 	struct page_entry page_entry;
 	unsigned long nrpages = 0;
-	struct core_entry core;
+	struct core_entry *core = NULL;
 	struct vma_area area;
 	struct vma_entry vma;
 	u64 va;
@@ -57,6 +57,10 @@ int convert_to_elf(char *elf_path, int fd_core)
 
 	int fd_elf;
 	int ret = -1;
+
+	core = xzalloc(sizeof(*core));
+	if (!core)
+		goto err;
 
 	fd_elf = open(elf_path, O_RDWR | O_CREAT | O_EXCL, 0700);
 	if (fd_elf < 0) {
@@ -81,7 +85,7 @@ int convert_to_elf(char *elf_path, int fd_core)
 
 	/* Get EP */
 	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
-	read_ptr_safe(fd_core, &core, err_close);
+	read_ptr_safe(fd_core, core, err_close);
 
 	/*
 	 * Count the numbers of segments. Each segment
@@ -121,7 +125,7 @@ int convert_to_elf(char *elf_path, int fd_core)
 	 */
 	lseek(fd_elf, 0, SEEK_SET);
 	elf_ehdr.e_phnum	= e_phnum + 2;
-	elf_ehdr.e_entry	= core.u.arch.gpregs.ip;
+	elf_ehdr.e_entry	= core->u.arch.gpregs.ip;
 	write_ptr_safe(fd_elf, &elf_ehdr, err_close);
 
 	/* Offset in file (after all headers) */
@@ -164,13 +168,13 @@ int convert_to_elf(char *elf_path, int fd_core)
 	elf_phdr.p_flags	= PF_R;
 	elf_phdr.p_offset	= phoff;
 	elf_phdr.p_vaddr	= 0;
-	elf_phdr.p_filesz	= sizeof(core);
-	elf_phdr.p_memsz	= sizeof(core);
+	elf_phdr.p_filesz	= sizeof(*core);
+	elf_phdr.p_memsz	= sizeof(*core);
 	elf_phdr.p_align	= 0x1000;
 
 	write_ptr_safe(fd_elf, &elf_phdr, err_close);
 
-	phoff += sizeof(core);
+	phoff += sizeof(*core);
 
 	/* The pages and binfmt header */
 	memset(&elf_phdr, 0, sizeof(elf_phdr));
@@ -195,7 +199,7 @@ int convert_to_elf(char *elf_path, int fd_core)
 		write_ptr_safe(fd_elf, &vma, err_close);
 	}
 
-	write_ptr_safe(fd_elf, &core, err_close);
+	write_ptr_safe(fd_elf, core, err_close);
 
 	if (sendfile(fd_elf, fd_core, NULL, nrpages * (sizeof(page_entry))) !=
 	    nrpages * (sizeof(page_entry))) {
@@ -209,5 +213,6 @@ int convert_to_elf(char *elf_path, int fd_core)
 err_close:
 	close(fd_elf);
 err:
+	xfree(core);
 	return ret;
 }
