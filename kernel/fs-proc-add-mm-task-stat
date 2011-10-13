@@ -1,3 +1,8 @@
+fs, proc: Add start_data, end_data, start_brk members to /proc/$pid/stat
+
+It helps to dump and restore this members at chekpoint/restore time.
+
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  fs/proc/array.c |    7 +++++--
  1 file changed, 5 insertions(+), 2 deletions(-)
