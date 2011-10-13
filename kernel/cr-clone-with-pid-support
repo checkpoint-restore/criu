@@ -1,7 +1,17 @@
-Allow processes to be created with specified pid
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Allow processes to be created with specified pid
 
-We will need it to restore processes so they would not
-even notice that they were being checkpointed.
+When restoring a task (or a set of tasks) we need to recreate them with
+exactly the same pid as they had before. Thus we need the ability to create
+a task with specified pid.
+
+The proposal is to reuse the already free CLONE_STOPPED clone flag.
+
+About the security implication - this can create some problems with pids
+wraparound and similar, so this approach can be restricted with the "don't
+allow for CLONE_CHILD_USEPID when the current pid namespace has ever done
+real pid allocation". This will work perfectly for checkpoint-restore and
+will not give anyone chances for screwing pids up on a living system.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 ---
