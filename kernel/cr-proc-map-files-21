@@ -108,9 +108,8 @@ v14: (by Vasiliy Kulikov)
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 Reviewed-by: Vasiliy Kulikov <segoon@openwall.com>
+Reviewed-by: "Kirill A. Shutemov" <kirill@shutemov.name>
 CC: Tejun Heo <tj@kernel.org>
-CC: Vasiliy Kulikov <segoon@openwall.com>
-CC: "Kirill A. Shutemov" <kirill@shutemov.name>
 CC: Alexey Dobriyan <adobriyan@gmail.com>
 CC: Al Viro <viro@ZenIV.linux.org.uk>
 CC: Andrew Morton <akpm@linux-foundation.org>
