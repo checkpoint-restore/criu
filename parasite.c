@@ -160,6 +160,10 @@ err_open:
 	return ret;
 }
 
+/*
+ * This is the main page dumping routine, it's executed
+ * inside a victim process space.
+ */
 static int dump_pages(parasite_args_cmd_dumppages_t *args)
 {
 	int ret = PARASITE_ERR_FAIL;

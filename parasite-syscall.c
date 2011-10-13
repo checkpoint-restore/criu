@@ -241,6 +241,10 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
+/*
+ * This routine drives parasite code (been previously injected into a victim
+ * process) and tells it to dump pages into the file.
+ */
 int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset, int fd_type)
 {
