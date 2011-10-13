@@ -1076,27 +1076,21 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 			break;
 	}
 
-	/* Dump the process tree first */
-	cr_fdset = alloc_cr_fdset(pid);
-	if (!cr_fdset)
-		goto err;
-
-	if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_USE(CR_FD_PSTREE)))
-		goto err;
-	if (dump_pstree(pid, cr_fdset))
-		goto err;
-
-	close_cr_fdset(cr_fdset);
-	free_cr_fdset(&cr_fdset);
-
-	/* Now all other data */
 	list_for_each_entry(item, &pstree_list, list) {
 
 		cr_fdset = alloc_cr_fdset(item->pid);
 		if (!cr_fdset)
 			goto err;
-		if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_NOPSTREE))
-			goto err;
+
+		if (item->pid == pid) {
+			if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_ALL))
+				goto err;
+			if (dump_pstree(pid, cr_fdset))
+				goto err;
+		} else {
+			if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_NOPSTREE))
+				goto err;
+		}
 
 		if (dump_one_task(item->pid, cr_fdset))
 			goto err;
