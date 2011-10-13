@@ -286,25 +286,28 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list)
 	 * I'm debugging it on old kernel ;)
 	 */
 	map_files_dir = opendir(map_files_path);
-	if (!map_files_dir)
-		pr_warning("Crap, can't open %s, old kernel?\n",
-			   map_files_path);
+	if (!map_files_dir) {
+		pr_err("Can't open %s, old kernel?\n",
+		       map_files_path);
+		goto err;
+	}
 
 	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
 		char vma_file_path[16+16+2];
 		struct stat st_buf;
+		int num;
 
-		ret = sscanf(big_buffer, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu",
+		num = sscanf(big_buffer, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu",
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino);
-		if (ret != 10) {
+		if (num != 10) {
 			pr_err("Can't parse: %s", big_buffer);
-			return -1;
+			goto err;
 		}
 
 		vma_area = alloc_vma_area();
 		if (!vma_area)
-			return -1;
+			goto err;
 
 		/* Figure out if it's file mapping */
 		snprintf(vma_file_path, sizeof(vma_file_path), "%lx-%lx", start, end);
