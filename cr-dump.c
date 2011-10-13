@@ -1070,6 +1070,12 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	if (collect_pstree(pid))
 		goto err;
 
+	/*
+	 * Since ptrace-seize doesn't work on frozen tasks
+	 * we stick with explicit tasks stopping via stop
+	 * signal, but in future it's aimed to switch to
+	 * kernel freezer.
+	 */
 	list_for_each_entry(item, &pstree_list, list) {
 		stop_task(item->pid);
 		if (opts->leader_only)

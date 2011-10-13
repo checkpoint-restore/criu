@@ -192,6 +192,13 @@ int unseize_task(pid_t pid)
 	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
 
+/*
+ * This routine seizes task putting it into a special
+ * state where we can manipulate the task via ptrace
+ * inteface, and finally we can detach ptrace out of
+ * of it so the task would not know if it was saddled
+ * up with someone else.
+ */
 int seize_task(pid_t pid)
 {
 	siginfo_t si;
