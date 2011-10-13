@@ -27,31 +27,58 @@
 static struct cr_options opts;
 struct page_entry zero_page_entry;
 
+/*
+ * The cr fd set is the set of files where the information
+ * about dumped processes is stored. Each file carries some
+ * small portion of info about the whole picture, see below
+ * for more details.
+ */
+
 static struct cr_fd_desc_tmpl template[CR_FD_MAX] = {
+
+	 /* info about file descriptiors */
 	[CR_FD_FDINFO] = {
 		.fmt	= "fdinfo-%li.img",
 		.magic	= FDINFO_MAGIC,
 	},
+
+	/* private memory pages data */
 	[CR_FD_PAGES] = {
 		.fmt	= "pages-%li.img",
 		.magic	= PAGES_MAGIC,
 	},
+
+	/* shared memory pages data */
 	[CR_FD_PAGES_SHMEM] = {
 		.fmt	= "pages-shmem-%li.img",
 		.magic	= PAGES_MAGIC,
 	},
+
+	/*
+	 * The main part of restoring a single process is calling
+	 * execve syscall on an ELF image which contains memory
+	 * and arch-specific (regs, fpu) data about a process.
+	 *
+	 * Thus this file contains the almost-ready for execve image.
+	 */
 	[CR_FD_CORE] = {
 		.fmt	= "core-%li.img",
 		.magic	= CORE_MAGIC,
 	},
+
+	/* info about pipes - fds, pipe id and pipe data */
 	[CR_FD_PIPES] = {
 		.fmt	= "pipes-%li.img",
 		.magic	= PIPES_MAGIC,
 	},
+
+	 /* info about process linkage */
 	[CR_FD_PSTREE] = {
 		.fmt	= "pstree-%li.img",
 		.magic	= PSTREE_MAGIC,
 	},
+
+	/* info about which memory areas are shared */
 	[CR_FD_SHMEM] = {
 		.fmt	= "shmem-%li.img",
 		.magic	= SHMEM_MAGIC,
