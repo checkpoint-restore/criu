@@ -12,4 +12,3 @@ Some things which are to be done
 - 'crtools show' should support showing only a subset of resources dumped such as
   pipes/vma/ and etc...
 - add bash completion file
-- switch to getopt()
