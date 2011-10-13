@@ -1,5 +1,5 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Allow processes to be created with specified pid
+Subject: [PATCH] clone: Introduce the CLONE_CHILD_USEPID functionality
 
 When restoring a task (or a set of tasks) we need to recreate them with
 exactly the same pid as they had before. Thus we need the ability to create
