@@ -25,18 +25,18 @@ v2: (from Andrew Vagin)
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  arch/x86/include/asm/elf.h      |    3 
- arch/x86/include/asm/elf_ckpt.h |   80 +++++++++
+ arch/x86/include/asm/elf_ckpt.h |   80 ++++++++
  arch/x86/kernel/Makefile        |    2 
  arch/x86/kernel/elf_ckpt.c      |  161 ++++++++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
  fs/binfmt_elf.c                 |   17 +
- fs/binfmt_elf_ckpt.c            |  344 ++++++++++++++++++++++++++++++++++++++++
+ fs/binfmt_elf_ckpt.c            |  356 ++++++++++++++++++++++++++++++++++++++++
  fs/exec.c                       |   27 +--
  include/linux/binfmts.h         |    1 
  include/linux/elf_ckpt.h        |  103 +++++++++++
- 12 files changed, 760 insertions(+), 12 deletions(-)
+ 12 files changed, 772 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -429,7 +429,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,344 @@
+@@ -0,0 +1,356 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -473,7 +473,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +		  struct elfhdr *elf_ex, struct elf_phdr *elf_phdr)
 +{
 +	struct elf_phdr *elf_phdr_pages;
-+	struct elf_phdr *elf_phdr_core;
 +	struct flex_array *fa = NULL;
 +	struct vma_entry *vma_entry_ptr;
 +	int nr_vma_found, nr_vma_mapped;
@@ -495,10 +494,47 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	BUILD_BUG_ON(CKPT_PAGE_SIZE != PAGE_SIZE);
 +	BUILD_BUG_ON(CKPT_CORE_SIZE != sizeof(*core_entry));
 +
-+	elf_phdr_core	= NULL;
 +	elf_phdr_pages	= NULL;
 +	nr_vma_found	= 0;
 +	nr_vma_mapped	= 0;
++
++	/*
++	 * An early check for header version so if we fail here
++	 * we would not need to use flex array at all.
++	 */
++	for (i = 0; i < elf_ex->e_phnum; i++) {
++		if (elf_phdr[i].p_type != PT_CKPT_CORE)
++			continue;
++
++		core_entry = vmalloc(sizeof(*core_entry));
++		if (!core_entry) {
++			ret = -ENOMEM;
++			goto out;
++		}
++
++		ret = kernel_read(bprm->file, elf_phdr[i].p_offset,
++				  (char *)core_entry, sizeof(*core_entry));
++		if (ret != sizeof(*core_entry)) {
++			pr_err("elf-ckpt: Can't read core_entry\n");
++			ret = -EIO;
++			goto out;
++		}
++
++		if (core_entry->header.version != CKPT_HEADER_VERSION) {
++			pr_err("elf-ckpt: Unsupported or corrupted header\n");
++			ret = -ENOEXEC;
++			goto out;
++		}
++
++		break;
++	}
++
++	if (i == elf_ex->e_phnum) {
++		pr_err("elf-ckpt: No header found\n");
++		ret = -ENOEXEC;
++		goto out;
++	}
++
 +
 +	fa = flex_array_alloc(sizeof(vma_entry), elf_ex->e_phnum, GFP_KERNEL);
 +	if (!fa || flex_array_prealloc(fa, 0, elf_ex->e_phnum, GFP_KERNEL)) {
@@ -548,9 +584,6 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +
 +			nr_vma_found++;
 +			continue;
-+		case PT_CKPT_CORE:
-+			elf_phdr_core = &elf_phdr[i];
-+			continue;
 +		case PT_CKPT_PAGES:
 +			elf_phdr_pages = &elf_phdr[i];
 +			continue;
@@ -560,28 +593,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	}
 +
 +	/* Be sure it has the file structure we expected to see. */
-+	if (!elf_phdr_pages || !elf_phdr_core || !nr_vma_found) {
-+		ret = -ENOEXEC;
-+		goto out;
-+	}
-+
-+	core_entry = vmalloc(sizeof(*core_entry));
-+	if (!core_entry) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	/* Core data first to check the header */
-+	ret = kernel_read(bprm->file, elf_phdr_core->p_offset,
-+			  (char *)core_entry, sizeof(*core_entry));
-+	if (ret != sizeof(*core_entry)) {
-+		pr_err("elf-ckpt: Can't read core_entry\n");
-+		ret = -EIO;
-+		goto out;
-+	}
-+
-+	if (core_entry->header.version != CKPT_HEADER_VERSION) {
-+		pr_err("elf-ckpt: Unsupported or corrupted header\n");
++	if (!elf_phdr_pages || !nr_vma_found) {
 +		ret = -ENOEXEC;
 +		goto out;
 +	}
