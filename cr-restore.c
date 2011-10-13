@@ -821,7 +821,7 @@ static int prepare_image_maps(int fd, int pid)
 	return 0;
 }
 
-static int execute_image(int pid)
+static int prepare_and_execute_image(int pid)
 {
 	char path[128], elf_path[128];
 	int fd, fd_new;
@@ -1081,7 +1081,7 @@ static int restore_one_task(int pid)
 	if (prepare_shmem(pid))
 		return 1;
 
-	return execute_image(pid);
+	return prepare_and_execute_image(pid);
 }
 
 static int do_child(void *arg)
