@@ -66,6 +66,7 @@ OBJS		+= cr-show.o
 OBJS		+= util.o
 OBJS		+= rbtree.o
 OBJS		+= elf.o
+OBJS		+= seize.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
