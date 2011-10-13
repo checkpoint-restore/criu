@@ -37,11 +37,10 @@ struct fmap_fd {
 };
 
 /*
- * Some shared memory entries and pipe entries are created
- * only in one process and got shared by others. Because of
- * this the real_pid member is used. It serves like a synchronization
- * point -- the process which creates a particular entity does set
- * real_pid member and all other users do wait until this member is set.
+ * real_pid member formerly served cases when
+ * no fork-with-pid functionality were in kernel,
+ * so now it is being kept here just in case if
+ * we need it again.
  */
 
 struct shmem_info {
