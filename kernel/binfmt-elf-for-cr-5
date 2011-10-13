@@ -27,16 +27,16 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 +++++++++
  arch/x86/kernel/Makefile        |    2 
- arch/x86/kernel/elf_ckpt.c      |  161 +++++++++++++++++++
+ arch/x86/kernel/elf_ckpt.c      |  161 ++++++++++++++++++
  arch/x86/vdso/vma.c             |   22 ++
  fs/Kconfig.binfmt               |   11 +
  fs/Makefile                     |    1 
- fs/binfmt_elf.c                 |   17 +-
- fs/binfmt_elf_ckpt.c            |  332 ++++++++++++++++++++++++++++++++++++++++
- fs/exec.c                       |   27 ++-
+ fs/binfmt_elf.c                 |   17 +
+ fs/binfmt_elf_ckpt.c            |  344 ++++++++++++++++++++++++++++++++++++++++
+ fs/exec.c                       |   27 +--
  include/linux/binfmts.h         |    1 
- include/linux/elf_ckpt.h        |  103 ++++++++++++
- 12 files changed, 748 insertions(+), 12 deletions(-)
+ include/linux/elf_ckpt.h        |  103 +++++++++++
+ 12 files changed, 760 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.git/arch/x86/include/asm/elf.h
 ===================================================================
@@ -429,7 +429,7 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 ===================================================================
 --- /dev/null
 +++ linux-2.6.git/fs/binfmt_elf_ckpt.c
-@@ -0,0 +1,332 @@
+@@ -0,0 +1,344 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
 +#include <linux/fs.h>
@@ -486,6 +486,8 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +#endif
 +
 +	struct core_entry *core_entry = NULL;
++	unsigned long start_stack = -1UL;
++
 +	int i, ret = -ENOEXEC;
 +	loff_t off;
 +
@@ -609,6 +611,11 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +			vdso = vma_entry_ptr->start;
 +#endif
 +
++		if (vma_entry_ptr->status & VMA_AREA_STACK) {
++			/* Note if stack is VM_GROWSUP -- it should be reversed */
++			start_stack = vma_entry_ptr->start;
++		}
++
 +		/* Anything special should be ignored */
 +		if (!(vma_entry_ptr->status & VMA_AREA_REGULAR))
 +			continue;
@@ -656,6 +663,11 @@ Index: linux-2.6.git/fs/binfmt_elf_ckpt.c
 +	}
 +#endif
 +
++	if (start_stack == -1UL) {
++		pr_err("elf-ckpt: Can't find stack VMA\n");
++		ret = -ENOEXEC;
++		goto out_unmap;
++	}
 +
 +	/* The name it has before */
 +	set_task_comm(current, core_entry->task_comm);
