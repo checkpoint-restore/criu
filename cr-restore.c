@@ -36,6 +36,14 @@ struct fmap_fd {
 	int		fd;
 };
 
+/*
+ * Some shared memory entries and pipe entries are created
+ * only in one process and got shared by others. Because of
+ * this the real_pid member is used. It serves like a synchronization
+ * point -- the process which creates a particular entity does set
+ * real_pid member and all other users do wait until this member is set.
+ */
+
 struct shmem_info {
 	unsigned long	start;
 	unsigned long	end;
@@ -914,7 +922,11 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pi->write_fd	= pfd[1];
 	pi->real_pid	= getpid();
 
-	/* The process used both pipe ends */
+	/*
+	 * FIXME: xemul@ reported that this actually
+	 * would not work if a task keeps pipe many times
+	 * not just two. Need to review and fix propery.
+	 */
 	if (pipe_is_rw(pi))
 		minusers = 2;
 
