@@ -26,7 +26,7 @@ The later doesn't call for de_thread() allowing to keep threads
 relationship. Also arch_setup_additional_pages_at() helper added
 to setup vdso at predefined address.
 
-At moment only x86-64 architecture is supported.
+At moment only pure x86-64 architecture is supported.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 CC: Andrew Vagin <avagin@parallels.com>
@@ -35,8 +35,11 @@ CC: James Bottomley <jbottomley@parallels.com>
 CC: Glauber Costa <glommer@parallels.com>
 CC: H. Peter Anvin <hpa@zytor.com>
 CC: Ingo Molnar <mingo@elte.hu>
-CC: Al Viro <viro@ZenIV.linux.org.uk>
 CC: Tejun Heo <tj@kernel.org>
+CC: Dave Hansen <dave@linux.vnet.ibm.com>
+CC: Eric W. Biederman ebiederm@xmission.com
+CC: Daniel Lezcano <dlezcano@fr.ibm.com>
+CC: Alexey Dobriyan <adobriyan@gmail.com>
 ---
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++

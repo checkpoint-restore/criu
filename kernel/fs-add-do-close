@@ -75,7 +75,7 @@ Index: linux-2.6.git/include/linux/fs.h
 ===================================================================
 --- linux-2.6.git.orig/include/linux/fs.h
 +++ linux-2.6.git/include/linux/fs.h
-@@ -2027,6 +2027,7 @@ extern struct file *file_open_root(struc
+@@ -2025,6 +2025,7 @@ extern struct file *file_open_root(struc
  extern struct file * dentry_open(struct dentry *, struct vfsmount *, int,
  				 const struct cred *);
  extern int filp_close(struct file *, fl_owner_t id);

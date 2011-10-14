@@ -1,5 +1,6 @@
+clone: Introduce the CLONE_CHILD_USEPID functionality
+
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] clone: Introduce the CLONE_CHILD_USEPID functionality
 
 When restoring a task (or a set of tasks) we need to recreate them with
 exactly the same pid as they had before. Thus we need the ability to create
@@ -50,7 +51,7 @@ Index: linux-2.6.git/kernel/fork.c
 ===================================================================
 --- linux-2.6.git.orig/kernel/fork.c
 +++ linux-2.6.git/kernel/fork.c
-@@ -1239,8 +1239,16 @@ static struct task_struct *copy_process(
+@@ -1253,8 +1253,16 @@ static struct task_struct *copy_process(
  		goto bad_fork_cleanup_io;
  
  	if (pid != &init_struct_pid) {

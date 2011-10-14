@@ -12,10 +12,11 @@ Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
  fs/proc/proc_sysctl.c |    1 +
  1 file changed, 1 insertion(+)
 
-diff -puN fs/proc/proc_sysctl.c~procfs-report-eisdir-when-reading-sysctl-dirs-in-proc fs/proc/proc_sysctl.c
---- a/fs/proc/proc_sysctl.c~procfs-report-eisdir-when-reading-sysctl-dirs-in-proc
-+++ a/fs/proc/proc_sysctl.c
-@@ -360,6 +360,7 @@ static const struct file_operations proc
+Index: linux-2.6.git/fs/proc/proc_sysctl.c
+===================================================================
+--- linux-2.6.git.orig/fs/proc/proc_sysctl.c
++++ linux-2.6.git/fs/proc/proc_sysctl.c
+@@ -370,6 +370,7 @@ static const struct file_operations proc
  };
  
  static const struct file_operations proc_sys_dir_file_operations = {
@@ -23,4 +24,3 @@ diff -puN fs/proc/proc_sysctl.c~procfs-report-eisdir-when-reading-sysctl-dirs-in
  	.readdir	= proc_sys_readdir,
  	.llseek		= generic_file_llseek,
  };
-_
