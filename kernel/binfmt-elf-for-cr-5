@@ -1,28 +1,42 @@
 elf: Add support for loading ET_CKPT files
 
-This patch add ability to run checkpoint files by enhancing
-Elf file format, which includes
+This patch add ability to run that named "checkpoint" files by
+enhancing Elf file format, which includes
 
  - new Elf file type ET_CKPT
+
  - three additional program header types PT_CKPT_VMA, PT_CKPT_CORE
    and PT_CKPT_PAGES.
 
      PT_CKPT_VMA -- holds 'vma_entry' structure, which describes the
-     memory area kernel should map. It also might contain file descriptor
-     number so kernel will be mapping file povided. Usually such file get
-     opened by user-space helper which prepares 'vma_entry' structure
-     for kernel.
+     memory area the kernel should map. It also might contain a file descriptor
+     so the kernel will be mapping a file povided. Usually such file get
+     opened by user-space helper tool which prepares 'vma_entry' structure
+     for the kernel.
 
-     PT_CKPT_CORE -- 'core_entry' structure (registers, tls, etc)
+     PT_CKPT_CORE -- 'core_entry' structure (registers, tls, tasks specific
+     settings). The structure is defined as a 16K container which should be
+     enough for most cases. 8K of it is reserved for arch specific settings.
 
-     PT_CKPT_PAGES -- a set of all pages which are to be read into
-     process memory.
+     PT_CKPT_PAGES -- a set of all pages which contents we should restored.
 
-v2: (from Andrew Vagin)
- - load fs_base and gs_base via do_arch_prctl
- - don't load tls and segments, it will be done in __switch_to
+Apart from Elf extension flush_old_exec() has been splitted to two
+functions -- the former flush_old_exec() and flush_exec_keep_thread().
+The later doesn't call for de_thread() allowing to keep threads
+relationship. Also arch_setup_additional_pages_at() helper added
+to setup vdso at predefined address.
+
+At moment only x86-64 architecture is supported.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+CC: Andrew Vagin <avagin@parallels.com>
+CC: Pavel Emelyanov <xemul@parallels.com>
+CC: James Bottomley <jbottomley@parallels.com>
+CC: Glauber Costa <glommer@parallels.com>
+CC: H. Peter Anvin <hpa@zytor.com>
+CC: Ingo Molnar <mingo@elte.hu>
+CC: Al Viro <viro@ZenIV.linux.org.uk>
+CC: Tejun Heo <tj@kernel.org>
 ---
  arch/x86/include/asm/elf.h      |    3 
  arch/x86/include/asm/elf_ckpt.h |   80 ++++++++

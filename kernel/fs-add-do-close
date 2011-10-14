@@ -1,8 +1,7 @@
 fs: Add do_close helper
 
 To be able to close file descriptors right from inside
-kernel space do_close() helper is added. We need it at
-checkpoint restore time.
+kernel space do_close() helper is added.
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
