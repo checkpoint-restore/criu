@@ -2,4 +2,12 @@ The kernel patches series. See "series" file to obtain
 order of appliance. Not all patches do address C/R directly
 but some of them are needed due to dependencies.
 
+The following patches are known to be in -mm tree already
+
+procfs-report-eisdir-when-reading-sysctl-dirs-in-proc.patch
+proc-fix-races-against-execve-of-proc-pid-fd.patch
+proc-fix-races-against-execve-of-proc-pid-fd-fix.patch
+proc-force-dcache-drop-on-unauthorized-access.patch
+cr-statfs-callback-for-pipefs
+
 Has been tested on Linux 3.1-rc3.
