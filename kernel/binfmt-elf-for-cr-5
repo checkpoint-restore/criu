@@ -37,7 +37,7 @@ CC: H. Peter Anvin <hpa@zytor.com>
 CC: Ingo Molnar <mingo@elte.hu>
 CC: Tejun Heo <tj@kernel.org>
 CC: Dave Hansen <dave@linux.vnet.ibm.com>
-CC: Eric W. Biederman ebiederm@xmission.com
+CC: Eric W. Biederman <ebiederm@xmission.com>
 CC: Daniel Lezcano <dlezcano@fr.ibm.com>
 CC: Alexey Dobriyan <adobriyan@gmail.com>
 ---
