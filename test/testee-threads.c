@@ -27,7 +27,7 @@ static void *f1(void *arg)
 		pthread_mutex_lock(&mtx);
 
 		counter++;
-		/* printf("Counter value: %d\n", counter); */
+		printf("%d: Counter value: %d\n", getpid(), counter);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(2);
@@ -44,8 +44,8 @@ static void *f2(void *arg)
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
-		counter++;
-		/* printf("Counter value: %d\n", counter); */
+		counter--;
+		printf("%d: Counter value: %d\n", getpid(), counter);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(3);
