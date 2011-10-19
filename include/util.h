@@ -159,6 +159,7 @@ int close_safe(int *fd);
 		___p;							\
 	})
 
+#define xstrdup(str)		__xalloc(strdup, strlen(str) + 1, str)
 #define xmalloc(size)		__xalloc(malloc, size, size)
 #define xzalloc(size)		__xalloc(calloc, size, 1, size)
 #define xrealloc(p, size)	__xalloc(realloc, size, p, size)
