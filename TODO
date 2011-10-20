@@ -12,3 +12,10 @@ Some things which are to be done
 - 'crtools show' should support showing only a subset of resources dumped such as
   pipes/vma/ and etc...
 - add bash completion file
+
+Some notes on code
+------------------
+
+- need to handle out cr_fdset(s), they are getting used more frequently
+  than I initially thought, including the usage only of a few file descriptors
+  while the whole set is always allocated

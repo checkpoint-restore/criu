@@ -36,7 +36,10 @@ struct shmem_entry {
 struct pstree_entry {
 	u32	pid;
 	u32	nr_children;
+	u32	nr_threads;
+
 	u32	children[0];
+	u32	threads[0];
 } __packed;
 
 struct pipe_entry {

@@ -58,7 +58,8 @@ struct cr_fdset {
 };
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
-#define CR_FD_DESC_ALL			((1 << CR_FD_MAX) - 1)
+#define CR_FD_DESC_ALL			(CR_FD_DESC_USE(CR_FD_MAX) - 1)
+#define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)
 #define CR_FD_DESC_NOPSTREE		(CR_FD_DESC_ALL & ~(CR_FD_DESC_USE(CR_FD_PSTREE)))
 #define CR_FD_DESC_NONE			(0)
 

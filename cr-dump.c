@@ -67,7 +67,6 @@ static FILE *fopen_proc(char *fmt, char *mode, ...)
 }
 
 static char big_buffer[PATH_MAX];
-static struct parasite_ctl *parasite_ctl;
 
 static char loc_buf[PAGE_SIZE];
 
@@ -619,28 +618,14 @@ err:
 	return ret;
 }
 
-static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
+static int get_task_regs(pid_t pid, struct core_entry *core)
 {
-	struct core_entry *core		= xzalloc(sizeof(*core));
 	user_fpregs_struct_t fpregs	= {-1};
 	user_regs_struct_t regs		= {-1};
-	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
-	int ret				= -1;
-	unsigned long brk;
+	int ret = -1;
 
-	pr_info("\n");
-	pr_info("Dumping core (pid: %d)\n", pid);
-	pr_info("----------------------------------------\n");
-
-	if (!core)
-		goto err;
-
-	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
-
-	jerr(ptrace(PTRACE_GETREGS,	pid, NULL, &regs), err_free);
-	jerr(ptrace(PTRACE_GETFPREGS,	pid, NULL, &fpregs), err_free);
-
-	pr_info("Dumping GP/FPU registers ... ");
+	jerr(ptrace(PTRACE_GETREGS,	pid, NULL, &regs), err);
+	jerr(ptrace(PTRACE_GETFPREGS,	pid, NULL, &fpregs), err);
 
 	assign_reg(core->u.arch.gpregs, regs,		r15);
 	assign_reg(core->u.arch.gpregs, regs,		r14);
@@ -683,6 +668,33 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	assign_array(core->u.arch.fpregs, fpregs,	xmm_space);
 	assign_array(core->u.arch.fpregs, fpregs,	padding);
 
+	pr_info("OK\n");
+	ret = 0;
+
+err:
+	return ret;
+}
+
+static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
+{
+	struct core_entry *core		= xzalloc(sizeof(*core));
+	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
+	int ret				= -1;
+	unsigned long brk;
+
+	pr_info("\n");
+	pr_info("Dumping core (pid: %d)\n", pid);
+	pr_info("----------------------------------------\n");
+
+	if (!core)
+		goto err;
+
+	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
+
+	pr_info("Dumping GP/FPU registers ... ");
+	ret = get_task_regs(pid, core);
+	if (ret)
+		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Obtainting TLS ... ");
@@ -907,6 +919,7 @@ static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset
 
 		e.pid		= item->pid;
 		e.nr_children	= item->nr_children;
+		e.nr_threads	= item->nr_threads;
 
 		write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd, &e, err);
 
@@ -915,6 +928,14 @@ static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset
 			pr_info(" %d", item->children[i]);
 			write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd,
 				       &item->children[i], err);
+		}
+		pr_info("\n");
+
+		pr_info("Threads:\n");
+		for (i = 0; i < item->nr_threads; i++) {
+			pr_info(" %d", item->threads[i]);
+			write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd,
+				       &item->threads[i], err);
 		}
 		pr_info("\n");
 	}
@@ -1056,6 +1077,58 @@ err_strno:
 	goto err;
 }
 
+static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
+{
+	struct core_entry *core		= xzalloc(sizeof(*core));
+	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
+	int ret				= -1;
+
+	pr_info("\n");
+	pr_info("Dumping core for thread (pid: %d)\n", pid);
+	pr_info("----------------------------------------\n");
+
+	if (!core)
+		goto err;
+
+	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
+
+	ret = seize_task(pid);
+	if (ret) {
+		pr_err("Failed to seize thread (pid: %d) with %d\n",
+		       pid, ret);
+		goto err_free;
+	}
+
+	pr_info("Dumping GP/FPU registers ... ");
+	ret = get_task_regs(pid, core);
+	if (ret)
+		goto err_free;
+	pr_info("OK\n");
+
+	ret = unseize_task(pid);
+	if (ret) {
+		pr_err("Can't unsieze thread (pid: %d)\n", pid);
+		goto err_free;
+	}
+
+	pr_info("Dumping header ... ");
+	core->header.version	= HEADER_VERSION;
+	core->header.arch	= HEADER_ARCH_X86_64;
+	core->header.flags	= 0;
+
+	write_ptr_safe(fd_core, core, err_free);
+
+	pr_info("OK\n");
+	ret = 0;
+
+err_free:
+	free(core);
+err:
+	pr_info("----------------------------------------\n");
+
+	return ret;
+}
+
 static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	LIST_HEAD(vma_area_list);
@@ -1138,7 +1211,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	LIST_HEAD(pstree_list);
 	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item;
-	int ret = -1;
+	int i, ret = -1;
 
 	pr_info("========================================\n");
 	if (!opts->leader_only)
@@ -1183,6 +1256,21 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 
 		close_cr_fdset(cr_fdset);
 		free_cr_fdset(&cr_fdset);
+
+		if (item->nr_threads > 1) {
+			for (i = 0; i < item->nr_threads; i++) {
+				/* Leader is already dumped */
+				if (item->pid == item->threads[i])
+					continue;
+				cr_fdset = alloc_cr_fdset(item->threads[i]);
+				if (!cr_fdset)
+					goto err;
+				if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_CORE))
+					goto err;
+				if (dump_task_thread(item->threads[i], cr_fdset))
+					goto err;
+			}
+		}
 
 		if (opts->leader_only)
 			break;
