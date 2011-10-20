@@ -72,8 +72,11 @@ static void show_core_regs(struct cr_fdset *cr_fdset)
 	int fd_core, i;
 
 	fd_core = cr_fdset->desc[CR_FD_CORE].fd;
-	if (fd_core < 0)
+	if (fd_core < 0) {
+		pr_err("Negative fd passed %s\n",
+		       cr_fdset->desc[CR_FD_CORE].name);
 		goto err;
+	}
 
 	pr_info("\n\t---[GP registers set]---\n");
 
@@ -350,7 +353,7 @@ static int collect_pstree(pid_t pid, struct cr_fdset *cr_fdset)
 	int ret = -1;
 
 	for (;;) {
-		size_t size;
+		size_t size_children, size_threads;
 
 		ret = read(fd, &e, sizeof(e));
 		if (ret && ret != sizeof(e)) {
@@ -361,25 +364,33 @@ static int collect_pstree(pid_t pid, struct cr_fdset *cr_fdset)
 		if (!ret)
 			break;
 
-		item = xmalloc(sizeof(*item));
+		item = xzalloc(sizeof(*item));
 		if (!item)
 			goto err;
 
-		size = sizeof(u32) * e.nr_children;
+		size_children	= sizeof(u32) * e.nr_children;
+		size_threads	= sizeof(u32) * e.nr_threads;
 
 		item->pid		= e.pid;
 		item->nr_children	= e.nr_children;
-		item->children		= xmalloc(size);
+		item->nr_threads	= e.nr_threads;
+		item->children		= xmalloc(size_children);
+		item->threads		= xmalloc(size_threads);
 
-		if (!item->children) {
-			pr_err("No memory for children pids\n");
+		if (!item->children || !item->threads) {
+			pr_err("No memory for children/thread pids\n");
 			goto err;
 		}
 
-		ret = read(fd, item->children, size);
-		if (ret != size) {
+		ret = read(fd, item->children, size_children);
+		if (ret != size_children) {
 			pr_err("An error in reading children pids\n");
-			xfree(item->children);
+			goto err;
+		}
+
+		ret = read(fd, item->threads, size_threads);
+		if (ret != size_threads) {
+			pr_err("An error in reading threads pids\n");
 			goto err;
 		}
 
@@ -390,7 +401,12 @@ static int collect_pstree(pid_t pid, struct cr_fdset *cr_fdset)
 	ret = 0;
 
 err:
+	if (item) {
+		xfree(item->children);
+		xfree(item->threads);
+	}
 	xfree(item);
+
 	return ret;
 }
 
@@ -428,6 +444,36 @@ int cr_show(unsigned long pid, struct cr_options *opts)
 			goto out;
 
 		show_core(cr_fdset);
+
+		if (item->nr_threads > 1) {
+			struct cr_fdset *cr_fdset_th;
+			int i;
+
+			for (i = 0; i < item->nr_threads; i++) {
+
+				if (item->threads[i] == item->pid)
+					continue;
+
+				cr_fdset_th = alloc_cr_fdset(item->threads[i]);
+				if (!cr_fdset)
+					goto out;
+				ret = prep_cr_fdset_for_restore(cr_fdset_th, CR_FD_DESC_CORE);
+				if (ret)
+					goto out;
+
+				pr_info("\n");
+				pr_info("Thread: %d\n", item->threads[i]);
+				pr_info("----------------------------------------\n");
+
+				show_core_regs(cr_fdset_th);
+
+				pr_info("----------------------------------------\n");
+
+				close_cr_fdset(cr_fdset_th);
+				free_cr_fdset(&cr_fdset_th);
+			}
+		}
+
 		show_pipes(cr_fdset);
 		show_files(cr_fdset);
 
