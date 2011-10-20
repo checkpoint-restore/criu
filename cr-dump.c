@@ -668,7 +668,6 @@ static int get_task_regs(pid_t pid, struct core_entry *core)
 	assign_array(core->u.arch.fpregs, fpregs,	xmm_space);
 	assign_array(core->u.arch.fpregs, fpregs,	padding);
 
-	pr_info("OK\n");
 	ret = 0;
 
 err:
@@ -1269,6 +1268,8 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 					goto err;
 				if (dump_task_thread(item->threads[i], cr_fdset))
 					goto err;
+				close_cr_fdset(cr_fdset);
+				free_cr_fdset(&cr_fdset);
 			}
 		}
 
