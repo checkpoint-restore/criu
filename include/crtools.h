@@ -89,6 +89,8 @@ struct pstree_item {
 	struct list_head	list;
 	pid_t			pid;		/* leader pid */
 	u32			nr_children;	/* number of children */
+	u32			nr_threads;	/* number of threads */
+	u32			*threads;	/* array of threads */
 	u32			*children;	/* array of children */
 };
 

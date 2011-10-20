@@ -40,6 +40,19 @@
 # error No x86-32 support yet
 #endif
 
+static DIR *opendir_proc(char *fmt, ...)
+{
+	va_list args;
+	char path[128];
+
+	sprintf(path, "/proc/");
+	va_start(args, fmt);
+	vsnprintf(path + 6, sizeof(path) - 6, fmt, args);
+	va_end(args);
+
+	return opendir(path);
+}
+
 static FILE *fopen_proc(char *fmt, char *mode, ...)
 {
 	va_list args;
@@ -64,6 +77,7 @@ static void free_pstree(struct list_head *pstree_list)
 
 	list_for_each_entry_safe(item, p, pstree_list, list) {
 		xfree(item->children);
+		xfree(item->threads);
 		xfree(item);
 	}
 
@@ -721,13 +735,58 @@ err:
 	return ret;
 }
 
-static struct pstree_item *find_children(pid_t pid)
+static int parse_threads(pid_t pid, int nr_threads, u32 **threads)
+{
+	struct dirent *de;
+	DIR *dir;
+
+	u32 *t = NULL;
+	int ret = -1, i = 0;
+
+	ret = -1;
+
+	dir = opendir_proc("%d/task", pid);
+	if (!dir) {
+		pr_perror("Can't open %d/task", pid);
+		goto err;
+	}
+
+	t = xmalloc(nr_threads);
+	if (!t)
+		goto err;
+
+	while ((de = readdir(dir))) {
+		/* We expect numbers only here */
+		if (de->d_name[0] == '.')
+			continue;
+
+		if (i >= nr_threads) {
+			pr_err("Threads inconsistency, kernel bug?\n");
+			goto err;
+		}
+
+		t[i++] = atoi(de->d_name);
+	}
+
+	closedir(dir);
+
+	*threads = t, t = NULL;
+	ret = 0;
+
+err:
+	xfree(t);
+	return ret;
+}
+
+static struct pstree_item *find_pstree_entry(pid_t pid)
 {
 	struct pstree_item *item = NULL;
 	u32 *children = NULL;
+	u32 *threads = NULL;
 	u32 nr_allocated = 0;
 	u32 nr_children = 0;
-	bool found = false;
+	u32 nr_threads = 0;
+	char *children_str = NULL;
 	FILE *file;
 	char *tok;
 
@@ -740,16 +799,28 @@ static struct pstree_item *find_children(pid_t pid)
 	}
 
 	while ((fgets(loc_buf, sizeof(loc_buf), file))) {
-		if (strncmp(loc_buf, "Children:", 9)) {
+		if (!strncmp(loc_buf, "Children:", 9)) {
+			children_str = xstrdup(&loc_buf[10]);
+			if (!children_str)
+				goto err;
+			if (nr_threads)
+				break;
+		} else if (!strncmp(loc_buf, "Threads:", 8)) {
+			nr_threads = atoi(&loc_buf[9]);
+			if (children_str)
+				break;
+		} else
 			continue;
-		} else {
-			found = true;
-			break;
-		}
 	}
 
 	fclose(file), file = NULL;
-	if (!found) {
+
+	if (nr_threads < 1) {
+		pr_err("Unable to find out how many threads are used\n");
+		goto err;
+	}
+
+	if (!children_str) {
 		pr_err("Children marker is not found\n");
 		goto err;
 	}
@@ -758,7 +829,10 @@ static struct pstree_item *find_children(pid_t pid)
 	if (!item)
 		goto err;
 
-	tok = strtok(&loc_buf[10], " \n");
+	if (parse_threads(pid, nr_threads, &threads))
+		goto err_free;
+
+	tok = strtok(children_str, " \n");
 	while (tok) {
 		u32 child_pid = atoi(tok);
 
@@ -766,12 +840,8 @@ static struct pstree_item *find_children(pid_t pid)
 
 		if (nr_allocated <= nr_children) {
 			nr_allocated += 64;
-			if (xrealloc_safe((void **)&children, nr_allocated)) {
-				xfree(children);
-				xfree(item);
-				item = NULL;
-				goto err;
-			}
+			if (xrealloc_safe((void **)&children, nr_allocated))
+				goto err_free;
 		}
 
 		children[nr_children++] = child_pid;
@@ -780,10 +850,20 @@ static struct pstree_item *find_children(pid_t pid)
 
 	item->pid		= pid;
 	item->nr_children	= nr_children;
+	item->nr_threads	= nr_threads;
 	item->children		= children;
+	item->threads		= threads;
 
 err:
+	xfree(children_str);
 	return item;
+
+err_free:
+	xfree(threads);
+	xfree(children);
+	xfree(item);
+	item = NULL;
+	goto err;
 }
 
 static int collect_pstree(pid_t pid, struct list_head *pstree_list)
@@ -792,7 +872,7 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 	unsigned long i;
 	int ret = -1;
 
-	item = find_children(pid);
+	item = find_pstree_entry(pid);
 	if (!item)
 		goto err;
 
