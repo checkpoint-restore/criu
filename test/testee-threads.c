@@ -18,10 +18,39 @@
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static int counter;
 
-static void *f1(void *arg)
+static void *ff1(void *arg)
 {
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	(void)map_unreadable;
+
+	while (1) {
+		pthread_mutex_lock(&mtx);
+
+		counter++;
+		printf("%d: Counter value: %d\n", getpid(), counter);
+
+		pthread_mutex_unlock(&mtx);
+		sleep(5);
+	}
+
+	return NULL;
+}
+
+static void *f1(void *arg)
+{
+	const char name[] = "f1-file";
+	pthread_t th;
+	int fd;
+	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	(void)map_unreadable;
+
+	unlink(name);
+	fd = open(name, O_CREAT, 0644);
+	if (fd >= 0)
+		write(fd, name, sizeof(name));
+
+	if (pthread_create(&th, NULL, &ff1, NULL))
+		perror("Cant create thread");
 
 	while (1) {
 		pthread_mutex_lock(&mtx);
