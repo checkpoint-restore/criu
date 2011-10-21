@@ -53,8 +53,6 @@ static FILE *fopen_proc(char *fmt, char *mode, ...)
 	return fopen(fname, mode);
 }
 
-static LIST_HEAD(vma_area_list);
-
 static char big_buffer[PATH_MAX];
 static struct parasite_ctl *parasite_ctl;
 
@@ -72,20 +70,20 @@ static void free_pstree(struct list_head *pstree_list)
 	INIT_LIST_HEAD(pstree_list);
 }
 
-static void free_mappings(void)
+static void free_mappings(struct list_head *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
 
-	list_for_each_entry_safe(vma_area, p, &vma_area_list, list) {
+	list_for_each_entry_safe(vma_area, p, vma_area_list, list) {
 		if (vma_area->vm_file_fd > 0)
 			close(vma_area->vm_file_fd);
 		free(vma_area);
 	}
 
-	INIT_LIST_HEAD(&vma_area_list);
+	INIT_LIST_HEAD(vma_area_list);
 }
 
-static int collect_mappings(pid_t pid)
+static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 {
 	struct vma_area *vma_area;
 	int ret = -1;
@@ -94,11 +92,11 @@ static int collect_mappings(pid_t pid)
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_maps(pid, &vma_area_list);
+	ret = parse_maps(pid, vma_area_list);
 	if (ret)
 		goto err;
 
-	pr_info_vma_list(&vma_area_list);
+	pr_info_vma_list(vma_area_list);
 
 	pr_info("----------------------------------------\n");
 
@@ -355,7 +353,7 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	return 0;
 }
 
-static int dump_task_mappings(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	struct vma_area *vma_area;
 	int ret = -1;
@@ -364,7 +362,7 @@ static int dump_task_mappings(pid_t pid, struct cr_fdset *cr_fdset)
 	pr_info("Dumping mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	list_for_each_entry(vma_area, &vma_area_list, list) {
+	list_for_each_entry(vma_area, vma_area_list, list) {
 
 		struct vma_entry *vma = &vma_area->vma;
 
@@ -847,11 +845,11 @@ err:
 	return ret;
 }
 
-static struct vma_area *find_vma_by_addr(unsigned long addr)
+static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsigned long addr)
 {
 	struct vma_area *vma_area;
 
-	list_for_each_entry(vma_area, &vma_area_list, list) {
+	list_for_each_entry(vma_area, vma_area_list, list) {
 		if (in_vma_area(vma_area, addr))
 			return vma_area;
 	}
@@ -860,7 +858,7 @@ static struct vma_area *find_vma_by_addr(unsigned long addr)
 }
 
 /* kernel expects a special format in core file */
-static int finalize_core(pid_t pid, struct cr_fdset *cr_fdset)
+static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	int fd_pages, fd_pages_shmem, fd_core;
 	unsigned long num, num_anon;
@@ -889,7 +887,7 @@ static int finalize_core(pid_t pid, struct cr_fdset *cr_fdset)
 
 	/* All VMAs first */
 
-	list_for_each_entry(vma_area, &vma_area_list, list) {
+	list_for_each_entry(vma_area, vma_area_list, list) {
 		ret = write(fd_core, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
 			pr_perror("\nUnable to write vma entry (%li written)\n", num);
@@ -924,7 +922,7 @@ static int finalize_core(pid_t pid, struct cr_fdset *cr_fdset)
 			break;
 		}
 
-		vma_area = find_vma_by_addr((unsigned long)va);
+		vma_area = find_vma_by_addr(vma_area_list, (unsigned long)va);
 		if (!vma_area) {
 			pr_panic("\nA page with address %lx is unknown\n", va);
 			goto err;
@@ -980,13 +978,15 @@ err_strno:
 
 static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 {
+	LIST_HEAD(vma_area_list);
+	struct parasite_ctl *parasite_ctl;
 	int ret = 0;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	ret = collect_mappings(pid);
+	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1036,20 +1036,20 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_mappings(pid, cr_fdset);
+	ret = dump_task_mappings(pid, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
-	ret = finalize_core(pid, cr_fdset);
+	ret = finalize_core(pid, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Finalizing core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 err:
-	free_mappings();
+	free_mappings(&vma_area_list);
 	return ret;
 }
 
