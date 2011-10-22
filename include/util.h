@@ -93,17 +93,19 @@ extern void printk(const char *format, ...);
 #define read_ptr_safe(fd, ptr, err)		\
 	jerr(read(fd, ptr, sizeof(*(ptr))) != sizeof(*(ptr)), err)
 
-#define read_safe_eof(fd, ptr, size, rc, err, eof)	\
-	do {						\
-		rc = read(fd, ptr, (size));		\
-		if (!rc)				\
-			goto eof;			\
-		if (rc != (size))			\
-			goto err;			\
-	} while (0)
+#define read_safe_eof(fd, ptr, size, err)			\
+	({							\
+		size_t rc__ = read(fd, ptr, (size));		\
+		if (rc__ && rc__ != (size))			\
+			goto err;				\
+		rc__;						\
+	})
 
-#define read_ptr_safe_eof(fd, ptr, rc, err, eof)	\
-	read_safe_eof(fd, ptr, sizeof(*(ptr)), rc, err, eof)
+#define read_ptr_safe_eof(fd, ptr, err)				\
+	read_safe_eof(fd, ptr, sizeof(*(ptr)), err)
+
+#define objzero(obj_ptr) memset(obj_ptr, 0, sizeof(*(obj_ptr)))
+#define memzero(p, size) memset(p, 0, size)
 
 int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
 int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
