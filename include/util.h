@@ -104,8 +104,8 @@ extern void printk(const char *format, ...);
 #define read_ptr_safe_eof(fd, ptr, err)				\
 	read_safe_eof(fd, ptr, sizeof(*(ptr)), err)
 
-#define objzero(obj_ptr) memset(obj_ptr, 0, sizeof(*(obj_ptr)))
-#define memzero(p, size) memset(p, 0, size)
+#define memzero_p(p)		memset(p, 0, sizeof(*p))
+#define memzero(p, size)	memset(p, 0, size)
 
 int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
 int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
