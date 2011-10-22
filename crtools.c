@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 	if (argc < 3)
 		goto usage;
 
-	memset(&zero_page_entry, 0, sizeof(zero_page_entry));
+	memzero_p(&zero_page_entry);
 
 	for (opt = getopt_long(argc, argv, short_opts, long_opts, &idx); opt != -1;
 	     opt = getopt_long(argc, argv, short_opts, long_opts, &idx)) {
