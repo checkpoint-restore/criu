@@ -8,7 +8,7 @@
 
 #ifdef CONFIG_X86_64
 
-static __always_inline long syscall0(int nr)
+static always_inline long syscall0(int nr)
 {
 	long ret;
 	asm volatile("syscall"
@@ -18,7 +18,7 @@ static __always_inline long syscall0(int nr)
 	return ret;
 }
 
-static __always_inline long syscall1(int nr, unsigned long arg0)
+static always_inline long syscall1(int nr, unsigned long arg0)
 {
 	long ret;
 	asm volatile("syscall"
@@ -28,7 +28,7 @@ static __always_inline long syscall1(int nr, unsigned long arg0)
 	return ret;
 }
 
-static __always_inline long syscall2(int nr, unsigned long arg0, unsigned long arg1)
+static always_inline long syscall2(int nr, unsigned long arg0, unsigned long arg1)
 {
 	long ret;
 	asm volatile("syscall"
@@ -38,7 +38,7 @@ static __always_inline long syscall2(int nr, unsigned long arg0, unsigned long a
 	return ret;
 }
 
-static __always_inline long syscall3(int nr, unsigned long arg0, unsigned long arg1,
+static always_inline long syscall3(int nr, unsigned long arg0, unsigned long arg1,
 				     unsigned long arg2)
 {
 	long ret;
@@ -49,7 +49,7 @@ static __always_inline long syscall3(int nr, unsigned long arg0, unsigned long a
 	return ret;
 }
 
-static __always_inline long syscall4(int nr, unsigned long arg0, unsigned long arg1,
+static always_inline long syscall4(int nr, unsigned long arg0, unsigned long arg1,
 				     unsigned long arg2, unsigned long arg3)
 {
 	register unsigned long r10 asm("r10") = r10;
@@ -63,7 +63,7 @@ static __always_inline long syscall4(int nr, unsigned long arg0, unsigned long a
 	return ret;
 }
 
-static long __always_inline syscall5(int nr, unsigned long arg0, unsigned long arg1,
+static long always_inline syscall5(int nr, unsigned long arg0, unsigned long arg1,
 				     unsigned long arg2, unsigned long arg3,
 				     unsigned long arg4)
 {
@@ -80,7 +80,7 @@ static long __always_inline syscall5(int nr, unsigned long arg0, unsigned long a
 	return ret;
 }
 
-static long __always_inline syscall6(int nr, unsigned long arg0, unsigned long arg1,
+static long always_inline syscall6(int nr, unsigned long arg0, unsigned long arg1,
 				     unsigned long arg2, unsigned long arg3,
 				     unsigned long arg4, unsigned long arg5)
 {
@@ -99,59 +99,59 @@ static long __always_inline syscall6(int nr, unsigned long arg0, unsigned long a
 	return ret;
 }
 
-static __always_inline unsigned long sys_pause(void)
+static always_inline unsigned long sys_pause(void)
 {
 	return syscall0(__NR_pause);
 }
 
-static __always_inline unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot,
+static always_inline unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot,
 					      unsigned long flags, unsigned long fd, unsigned long offset)
 {
 	return syscall6(__NR_mmap, (unsigned long)addr,
 			len, prot, flags, fd, offset);
 }
 
-static __always_inline unsigned long sys_munmap(void *addr,unsigned long len)
+static always_inline unsigned long sys_munmap(void *addr,unsigned long len)
 {
 	return syscall2(__NR_munmap, (unsigned long)addr, len);
 }
 
-static __always_inline long sys_open(const char *filename, unsigned long flags, unsigned long mode)
+static always_inline long sys_open(const char *filename, unsigned long flags, unsigned long mode)
 {
 	return syscall3(__NR_open, (unsigned long)filename, flags, mode);
 }
 
-static __always_inline long sys_close(int fd)
+static always_inline long sys_close(int fd)
 {
 	return syscall1(__NR_close, fd);
 }
 
-static __always_inline long sys_write(unsigned long fd, const void *buf, unsigned long count)
+static always_inline long sys_write(unsigned long fd, const void *buf, unsigned long count)
 {
 	return syscall3(__NR_write, fd, (unsigned long)buf, count);
 }
 
-static __always_inline long sys_mincore(unsigned long addr, unsigned long size, void *vec)
+static always_inline long sys_mincore(unsigned long addr, unsigned long size, void *vec)
 {
 	return syscall3(__NR_mincore, addr, size, (unsigned long)vec);
 }
 
-static __always_inline long sys_lseek(unsigned long fd, unsigned long offset, unsigned long origin)
+static always_inline long sys_lseek(unsigned long fd, unsigned long offset, unsigned long origin)
 {
 	return syscall3(__NR_lseek, fd, offset, origin);
 }
 
-static __always_inline long sys_mprotect(unsigned long start, unsigned long len, unsigned long prot)
+static always_inline long sys_mprotect(unsigned long start, unsigned long len, unsigned long prot)
 {
 	return syscall3(__NR_mprotect, start, len, prot);
 }
 
-static __always_inline long sys_nanosleep(struct timespec *req, struct timespec *rem)
+static always_inline long sys_nanosleep(struct timespec *req, struct timespec *rem)
 {
 	return syscall2(__NR_nanosleep, (unsigned long)req, (unsigned long)rem);
 }
 
-static __always_inline long sys_read(unsigned long fd, void *buf, unsigned long count)
+static always_inline long sys_read(unsigned long fd, void *buf, unsigned long count)
 {
 	return syscall3(__NR_read, fd, (unsigned long)buf, count);
 }
@@ -160,7 +160,7 @@ static __always_inline long sys_read(unsigned long fd, void *buf, unsigned long 
  * Note this call expects a signal frame on stack
  * (regs->sp) so be very carefull here!
  */
-static __always_inline long sys_rt_sigreturn(void)
+static always_inline long sys_rt_sigreturn(void)
 {
 	return syscall0(__NR_rt_sigreturn);
 }
