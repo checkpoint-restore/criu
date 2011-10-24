@@ -89,14 +89,6 @@ static int nr_pipes;
 
 static int restore_task_with_children(int my_pid, char *pstree_path);
 
-static int open_fmt(char *fmt, int pid, int mode)
-{
-	char fname[64];
-
-	snprintf(fname, sizeof(fname), fmt, pid);
-	return open(fname, mode);
-}
-
 static void show_saved_shmems(void)
 {
 	int i;

@@ -40,34 +40,7 @@
 # error No x86-32 support yet
 #endif
 
-static DIR *opendir_proc(char *fmt, ...)
-{
-	va_list args;
-	char path[128];
-
-	sprintf(path, "/proc/");
-	va_start(args, fmt);
-	vsnprintf(path + 6, sizeof(path) - 6, fmt, args);
-	va_end(args);
-
-	return opendir(path);
-}
-
-static FILE *fopen_proc(char *fmt, char *mode, ...)
-{
-	va_list args;
-	char fname[128];
-
-	sprintf(fname, "/proc/");
-	va_start(args, mode);
-	vsnprintf(fname + 6, sizeof(fname) - 6, fmt, args);
-	va_end(args);
-
-	return fopen(fname, mode);
-}
-
 static char big_buffer[PATH_MAX];
-
 static char loc_buf[PAGE_SIZE];
 
 static void free_pstree(struct list_head *pstree_list)

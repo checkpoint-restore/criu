@@ -7,8 +7,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <stdio.h>
 
 #include <sys/types.h>
+#include <dirent.h>
 
 #include "compiler.h"
 #include "types.h"
@@ -151,6 +153,10 @@ void printk_vma(struct vma_area *vma_area);
 int reopen_fd_as(int new_fd, int old_fd);
 int parse_maps(pid_t pid, struct list_head *vma_list);
 int close_safe(int *fd);
+
+DIR *opendir_proc(char *fmt, ...);
+FILE *fopen_proc(char *fmt, char *mode, ...);
+int open_fmt(char *fmt, int pid, int mode);
 
 #define __xalloc(op, size, ...)						\
 	({								\

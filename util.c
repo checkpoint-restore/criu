@@ -393,3 +393,37 @@ err_bogus_mapping:
 	       vma_area->vma.end);
 	goto err;
 }
+
+DIR *opendir_proc(char *fmt, ...)
+{
+	char path[128];
+	va_list args;
+
+	sprintf(path, "/proc/");
+	va_start(args, fmt);
+	vsnprintf(path + 6, sizeof(path) - 6, fmt, args);
+	va_end(args);
+
+	return opendir(path);
+}
+
+FILE *fopen_proc(char *fmt, char *mode, ...)
+{
+	char fname[128];
+	va_list args;
+
+	sprintf(fname, "/proc/");
+	va_start(args, mode);
+	vsnprintf(fname + 6, sizeof(fname) - 6, fmt, args);
+	va_end(args);
+
+	return fopen(fname, mode);
+}
+
+int open_fmt(char *fmt, int pid, int mode)
+{
+	char fname[128];
+
+	snprintf(fname, sizeof(fname), fmt, pid);
+	return open(fname, mode);
+}
