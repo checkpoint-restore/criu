@@ -15,6 +15,16 @@
 
 #include "restorer.h"
 
+#define lea_args_off(p)							\
+	do {								\
+		asm volatile(						\
+			"leaq restore_args__(%%rip), %%rax	\n\t"	\
+			"movq %%rax, %0				\n\t"	\
+			: "=m"(p)					\
+			:						\
+			: "memory");					\
+	} while (0)
+
 long restorer(long cmd)
 {
 	long ret;
@@ -34,26 +44,16 @@ long restorer(long cmd)
 		char *str = NULL;
 		int size = 0;
 
-		asm volatile(
-			"leaq restore_args__(%%rip), %%rax	\n\t"
-			"movq %%rax, %0				\n\t"
-			: "=m"(str)
-			:
-			: "memory");
-
+		lea_args_off(str);
 		while (str[size])
 			size++;
+
 		sys_write(1, str, size);
 	}
 		break;
 
 	case RESTORER_CMD__GET_ARG_OFFSET:
-		asm volatile(
-			"leaq restore_args__(%%rip), %%rax	\n\t"
-			"movq %%rax, %0				\n\t"
-			: "=m"(ret)
-			:
-			: "memory");
+		lea_args_off(ret);
 		break;
 
 	/*
