@@ -158,6 +158,8 @@ DIR *opendir_proc(char *fmt, ...);
 FILE *fopen_proc(char *fmt, char *mode, ...);
 int open_fmt(char *fmt, int mode, ...);
 
+#define open_fmt_ro(fmt, ...)		open_fmt(fmt, O_RDONLY, __VA_ARGS__)
+
 #define __xalloc(op, size, ...)						\
 	({								\
 		void *___p = op( __VA_ARGS__ );				\
