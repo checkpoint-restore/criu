@@ -56,6 +56,41 @@ long restorer(long cmd)
 			: "memory");
 		break;
 
+	/*
+	 * This one is very special, we never return there
+	 * but use sigreturn facility to restore core registers
+	 * and jump execution to some predefined ip read from
+	 * core file.
+	 */
+	case RESTORER_CMD__RESTORE_CORE:
+	{
+		/*
+		 * Unmap all but self, note that we reply on
+		 * caller that it has placed this execution
+		 * code at the VMA which we can keep mapped.
+		 */
+
+		/*
+		 * Map VMAs we will need.
+		 */
+
+		/*
+		 * Threads here with registers and pids
+		 * we need.
+		 */
+
+		/*
+		 * Setup a sigreturn frame.
+		 */
+
+		/* Finally call for sigreturn */
+		sys_rt_sigreturn();
+	}
+		break;
+
+	default:
+		ret = -1;
+		break;
 	}
 
 	asm volatile(".align "__stringify(RESTORER_SIZE));
