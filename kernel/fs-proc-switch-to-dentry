@@ -3,9 +3,6 @@ fs, proc: Make proc_get_link to use dentry instead of inode
 This patch prepares the ground for the next "map_files"
 patch which needs a name of a link file to analyse.
 
-So instead of squashing this change into one big
-patch the separate one is done.
-
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 CC: Pavel Emelyanov <xemul@parallels.com>
 CC: Tejun Heo <tj@kernel.org>
