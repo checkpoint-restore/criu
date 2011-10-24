@@ -26,6 +26,7 @@
 
 #include "image.h"
 #include "util.h"
+#include "restorer.h"
 
 #include "crtools.h"
 
@@ -1217,8 +1218,35 @@ static int restore_all_tasks(pid_t pid)
 	return restore_root_task(path, pstree_fd);
 }
 
+static void restorer_test(void)
+{
+	restorer_fcall_t restorer_fcall;
+	void *args_rip;
+	void *exec_mem;
+
+	exec_mem = mmap(0, RESTORER_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, 0, 0);
+	if (exec_mem == MAP_FAILED) {
+		pr_err("Can't mmap exec\n");
+		return;
+	}
+
+	memcpy(exec_mem, &restorer, RESTORER_SIZE);
+	restorer_fcall = exec_mem;
+	restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
+
+	args_rip = (void *)restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
+
+	strcpy(args_rip, "Hello from restorer!\n");
+	restorer_fcall(RESTORER_CMD__PR_ARG_STRING);
+
+	exit(0);
+
+}
+
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
+	restorer_test();
+
 	if (opts->leader_only)
 		return restore_one_task(pid);
 	return restore_all_tasks(pid);

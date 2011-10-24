@@ -67,6 +67,7 @@ OBJS		+= util.o
 OBJS		+= rbtree.o
 OBJS		+= elf.o
 OBJS		+= seize.o
+OBJS		+= restorer.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
