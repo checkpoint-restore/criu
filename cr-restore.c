@@ -292,7 +292,7 @@ static int prepare_shmem_pid(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt("shmem-%d.img", pid, O_RDONLY);
+	sh_fd = open_fmt("shmem-%d.img", O_RDONLY, pid);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -330,7 +330,7 @@ static int prepare_pipes_pid(int pid)
 	int p_fd;
 	u32 type = 0;
 
-	p_fd = open_fmt("pipes-%d.img", pid, O_RDONLY);
+	p_fd = open_fmt("pipes-%d.img", O_RDONLY, pid);
 	if (p_fd < 0) {
 		perror("Can't open pipes image");
 		return 1;
@@ -511,7 +511,7 @@ static int prepare_fds(int pid)
 
 	pr_info("%d: Opening files img\n", pid);
 
-	fdinfo_fd = open_fmt("fdinfo-%d.img", pid, O_RDONLY);
+	fdinfo_fd = open_fmt("fdinfo-%d.img", O_RDONLY, pid);
 	if (fdinfo_fd < 0) {
 		pr_perror("Can't open %d fdinfo", pid);
 		return 1;
@@ -590,7 +590,7 @@ static int prepare_shmem(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt("shmem-%d.img", pid, O_RDONLY);
+	sh_fd = open_fmt("shmem-%d.img", O_RDONLY, pid);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -744,7 +744,7 @@ static int fixup_pages_data(int pid, int fd)
 
 	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open_fmt("pages-shmem-%d.img", pid, O_RDONLY);
+	shfd = open_fmt("pages-shmem-%d.img", O_RDONLY, pid);
 	if (shfd < 0) {
 		pr_perror("Can't open %d shmem image %s", pid);
 		return 1;
@@ -826,7 +826,7 @@ static int prepare_and_execute_image(int pid)
 	int fd, fd_new;
 	struct stat buf;
 
-	fd = open_fmt("core-%d.img", pid, O_RDONLY);
+	fd = open_fmt("core-%d.img", O_RDONLY, pid);
 	if (fd < 0) {
 		perror("Can't open exec image");
 		return 1;
@@ -1037,7 +1037,7 @@ static int prepare_pipes(int pid)
 
 	pr_info("%d: Opening pipes\n", pid);
 
-	pipes_fd = open_fmt("pipes-%d.img", pid, O_RDONLY);
+	pipes_fd = open_fmt("pipes-%d.img", O_RDONLY, pid);
 	if (pipes_fd < 0) {
 		perror("Can't open pipes img");
 		return 1;

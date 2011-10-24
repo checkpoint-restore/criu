@@ -420,10 +420,14 @@ FILE *fopen_proc(char *fmt, char *mode, ...)
 	return fopen(fname, mode);
 }
 
-int open_fmt(char *fmt, int pid, int mode)
+int open_fmt(char *fmt, int mode, ...)
 {
 	char fname[128];
+	va_list args;
 
-	snprintf(fname, sizeof(fname), fmt, pid);
+	va_start(args, mode);
+	vsnprintf(fname, sizeof(fname), fmt, args);
+	va_end(args);
+
 	return open(fname, mode);
 }
