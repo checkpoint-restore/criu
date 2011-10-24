@@ -156,6 +156,15 @@ static long sys_read(unsigned long fd, void *buf, unsigned long count)
 	return syscall3(__NR_read, fd, (unsigned long)buf, count);
 }
 
+/*
+ * Note this call expects a signal frame on stack
+ * (regs->sp) so be very carefull here!
+ */
+static long sys_rt_sigreturn(void)
+{
+	return syscall0(__NR_rt_sigreturn);
+}
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */

@@ -12,6 +12,7 @@
 #define __NR_mprotect		10
 #define __NR_munmap		11
 #define __NR_brk		12
+#define __NR_rt_sigreturn	15
 #define __NR_mincore		27
 #define __NR_dup		32
 #define __NR_dup2		33
