@@ -997,7 +997,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	}
 
 	/* Ending marker */
-	memset(&ve, 0, sizeof(ve));
+	memzero_p(&ve);
 	write_ptr_safe(fd_core, &ve, err);
 
 	pr_info("OK (%li written)\n", num);
