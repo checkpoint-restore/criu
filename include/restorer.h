@@ -1,6 +1,8 @@
 #ifndef CR_RESTORER_H__
 #define CR_RESTORER_H__
 
+#include <signal.h>
+
 #include "image.h"
 
 #define RESTORER_ARGS_SIZE	512
@@ -16,6 +18,14 @@ enum {
 	RESTORER_CMD__PR_ARG_STRING,
 	RESTORER_CMD__RESTORE_CORE,
 	RESTORER_CMD__MAX,
+};
+
+struct rt_sigframe {
+	char			*pretcode;
+	struct ucontext		uc;
+	struct siginfo		info;
+
+	/* fp state follows here */
 };
 
 #endif /* CR_RESTORER_H__ */
