@@ -41,7 +41,7 @@ static void always_inline write_string(char *str)
 
 long restorer(long cmd)
 {
-	long ret;
+	long ret = -1;
 
 	asm volatile(
 		"jmp 1f						\n\t"
@@ -56,13 +56,11 @@ long restorer(long cmd)
 	case RESTORER_CMD__PR_ARG_STRING:
 	{
 		char *str = NULL;
-		int size = 0;
 
 		lea_args_off(str);
-		while (str[size])
-			size++;
+		write_string(str);
 
-		sys_write(1, str, size);
+		ret = 0;
 	}
 		break;
 
@@ -90,7 +88,17 @@ long restorer(long cmd)
 		write_string("\n");
 
 		fd_core = sys_open(core_path, O_RDONLY, CR_FD_PERM);
-		return fd_core;
+		if (fd_core < 0)
+			return fd_core;
+
+		sys_lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
+		ret = sys_read(fd_core, &core_entry, sizeof(core_entry));
+
+		sys_close(fd_core);
+		if (ret != sizeof(core_entry))
+			return -ret;
+
+		return ret;
 
 		/*
 		 * Unmap all but self, note that we reply on
