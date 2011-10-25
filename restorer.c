@@ -13,7 +13,11 @@
 #include "util.h"
 #include "image.h"
 
+#include "crtools.h"
 #include "restorer.h"
+
+#define get_rt_sigframe_addr(stack)					\
+	(struct rt_sigframe *)(stack - sizeof(long))
 
 #define lea_args_off(p)							\
 	do {								\
@@ -24,6 +28,16 @@
 			:						\
 			: "memory");					\
 	} while (0)
+
+static void always_inline write_string(char *str)
+{
+	int len = 0;
+
+	while (str[len])
+		len++;
+
+	sys_write(1, str, len);
+}
 
 long restorer(long cmd)
 {
@@ -64,6 +78,20 @@ long restorer(long cmd)
 	 */
 	case RESTORER_CMD__RESTORE_CORE:
 	{
+		char *core_path;
+		int fd_core;
+
+		struct core_entry core_entry;
+		struct rt_sigframe *frame;
+
+		lea_args_off(core_path);
+
+		write_string(core_path);
+		write_string("\n");
+
+		fd_core = sys_open(core_path, O_RDONLY, CR_FD_PERM);
+		return fd_core;
+
 		/*
 		 * Unmap all but self, note that we reply on
 		 * caller that it has placed this execution

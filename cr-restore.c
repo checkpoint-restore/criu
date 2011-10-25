@@ -1218,11 +1218,13 @@ static int restore_all_tasks(pid_t pid)
 	return restore_root_task(path, pstree_fd);
 }
 
-static void restorer_test(void)
+static void restorer_test(pid_t pid)
 {
 	restorer_fcall_t restorer_fcall;
+	char path[64];
 	void *args_rip;
 	void *exec_mem;
+	long ret;
 
 	exec_mem = mmap(0, RESTORER_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
@@ -1236,8 +1238,11 @@ static void restorer_test(void)
 
 	args_rip = (void *)restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
 
-	strcpy(args_rip, "Hello from restorer!\n");
-	restorer_fcall(RESTORER_CMD__PR_ARG_STRING);
+	snprintf(path, sizeof(path), "core-%d.img", pid);
+	strcpy(args_rip, path);
+
+	ret = restorer_fcall(RESTORER_CMD__RESTORE_CORE);
+	pr_info("RESTORER_CMD__RESTORE_CORE: %lx\n", ret);
 
 	exit(0);
 
@@ -1245,7 +1250,7 @@ static void restorer_test(void)
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
-	restorer_test();
+	restorer_test(pid);
 
 	if (opts->leader_only)
 		return restore_one_task(pid);
