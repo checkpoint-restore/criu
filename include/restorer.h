@@ -20,6 +20,12 @@ enum {
 	RESTORER_CMD__MAX,
 };
 
+struct restore_core_args {
+	void	*self_entry;	/* restorer placed at */
+	long	self_size;	/* size for restorer granted */
+	char	core_path[0];	/* path to a core file */
+};
+
 struct rt_sigframe {
 	char			*pretcode;
 	struct ucontext		uc;

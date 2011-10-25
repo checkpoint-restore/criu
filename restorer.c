@@ -76,18 +76,21 @@ long restorer(long cmd)
 	 */
 	case RESTORER_CMD__RESTORE_CORE:
 	{
-		char *core_path;
+		struct restore_core_args *args;
 		int fd_core;
 
 		struct core_entry core_entry;
+		struct vma_entry vma_entry;
+		u64 va;
+
 		struct rt_sigframe *frame;
 
-		lea_args_off(core_path);
+		lea_args_off(args);
 
-		write_string(core_path);
+		write_string(args->core_path);
 		write_string("\n");
 
-		fd_core = sys_open(core_path, O_RDONLY, CR_FD_PERM);
+		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
 		if (fd_core < 0)
 			return fd_core;
 

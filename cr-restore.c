@@ -1221,25 +1221,31 @@ static int restore_all_tasks(pid_t pid)
 static void restorer_test(pid_t pid)
 {
 	restorer_fcall_t restorer_fcall;
+	struct restore_core_args *args;
 	char path[64];
 	void *args_rip;
 	void *exec_mem;
 	long ret;
 
+	/* VMA we need to run restorer code */
 	exec_mem = mmap(0, RESTORER_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
 		pr_err("Can't mmap exec\n");
 		return;
 	}
 
+	/* Restorer content at the new location */
 	memcpy(exec_mem, &restorer, RESTORER_SIZE);
 	restorer_fcall = exec_mem;
-	restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
 
-	args_rip = (void *)restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
-
+	/*
+	 * Pass arguments and run a command.
+	 */
 	snprintf(path, sizeof(path), "core-%d.img", pid);
-	strcpy(args_rip, path);
+	args			= (struct restore_core_args *)restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
+	args->self_entry	= exec_mem;
+	args->self_size		= RESTORER_SIZE;
+	strcpy(args->core_path, path);
 
 	ret = restorer_fcall(RESTORER_CMD__RESTORE_CORE);
 	pr_info("RESTORER_CMD__RESTORE_CORE: %lx\n", ret);
