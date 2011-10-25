@@ -170,8 +170,8 @@ struct ckpt_arch_entry {
 	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
 };
 
-#define CKPT_ARCH_SIZE		(2 * 4096)
-#define CKPT_CORE_SIZE		(4 * 4096)
+#define CKPT_ARCH_SIZE			(1 * 4096)
+#define CKPT_CORE_SIZE			(2 * 4096)
 
 struct core_entry {
   union {
