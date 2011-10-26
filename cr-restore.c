@@ -26,6 +26,7 @@
 
 #include "image.h"
 #include "util.h"
+#include "syscall.h"
 #include "restorer.h"
 
 #include "crtools.h"
@@ -1231,7 +1232,7 @@ static void restorer_test(pid_t pid)
 	restorer_fcall	= restorer;
 	exec_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
 	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
-	exec_len	= (exec_len + 8) & ~7;
+	exec_len	= round_up(exec_len, 16);
 
 	/* VMA we need to run restorer code */
 	exec_mem = mmap(0, exec_len + RESTORER_STACK_SIZE,
@@ -1255,8 +1256,10 @@ static void restorer_test(pid_t pid)
 	memcpy(exec_start, &restorer, exec_len);
 	restorer_fcall = exec_start;
 
-	pr_info("exec_mem: %lx exec_start: %lx exec_len: %lx args_offset: %lx\n",
-		exec_mem, exec_start, exec_len, args_offset);
+	/*
+	 * Stack pointer in a middle of allocated stack zone.
+	 */
+	new_sp = (long)exec_mem + RESTORER_STACK_MIDDLE;
 
 	/*
 	 * Pass arguments and run a command.
@@ -1267,31 +1270,22 @@ static void restorer_test(pid_t pid)
 	args->self_size		= exec_len;
 	strcpy(args->core_path, path);
 
+	/*
+	 * An indirect call to restorer, note it never resturns
+	 * and restoreing core is extremely destructive.
+	 */
 	asm volatile(
-		"movq %%rsp, %0					\t\n"
-		"movq %4, %%rax					\t\n"
-		"movq %3, %%rbx					\t\n"
-		"movl $3, %%edi					\t\n"
-		"movq %%rbx, %%rsp				\t\n"
-		"pushq $0					\t\n"
-//		"callq *%%rax					\t\n"
-		"movq %%rbx, %1					\t\n"
-		"movq %%rax, %2					\t\n"
-		: "=g"(old_sp), "=g"(new_sp), "=g"(new_ip)
-		: "g"(exec_mem), "g"(exec_start)
+		"movq %0, %%rbx						\t\n"
+		"movq %1, %%rax						\t\n"
+		"movl $"__stringify(RESTORER_CMD__RESTORE_CORE)", %%edi	\t\n"
+		"movq %%rbx, %%rsp					\t\n"
+		"callq *%%rax						\t\n"
+		:
+		: "g"(new_sp), "g"(exec_start)
 		: "rsp", "rdi", "rbx", "rax", "memory");
 
-	pr_info("old_sp: %lx new_sp: %lx new_ip: %lx\n",
-		old_sp, new_sp, new_ip);
-
-	pr_info("exec_mem: %lx exec_start: %lx\n",
-		exec_mem, exec_start);
-
-	ret = restorer_fcall(RESTORER_CMD__RESTORE_CORE);
-	pr_info("RESTORER_CMD__RESTORE_CORE: %lx\n", ret);
-
-	exit(0);
-
+	/* Just to be sure */
+	sys_exit(0);
 }
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
