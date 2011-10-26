@@ -1220,32 +1220,72 @@ static int restore_all_tasks(pid_t pid)
 
 static void restorer_test(pid_t pid)
 {
-	restorer_fcall_t restorer_fcall;
+	long exec_len, args_offset, old_sp, new_sp, new_ip;
+	void *args_rip, *exec_mem, *exec_start;
 	struct restore_core_args *args;
-	char path[64];
-	void *args_rip;
-	void *exec_mem;
 	long ret;
 
+	restorer_fcall_t restorer_fcall;
+	char path[64];
+
+	restorer_fcall	= restorer;
+	exec_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
+	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
+	exec_len	= (exec_len + 8) & ~7;
+
 	/* VMA we need to run restorer code */
-	exec_mem = mmap(0, RESTORER_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, 0, 0);
+	exec_mem = mmap(0, exec_len + RESTORER_STACK_SIZE,
+			PROT_READ | PROT_WRITE | PROT_EXEC,
+			MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
-		pr_err("Can't mmap exec\n");
+		pr_err("Can't mmap section for restore code\n");
 		return;
 	}
 
+	/*
+	 * Prepare a stack for the restorer. It's a bit
+	 * tricky -- since compiler generates function
+	 * prologue we need to manually tune up stack
+	 * value.
+	 */
+	exec_start = exec_mem + RESTORER_STACK_SIZE;
+	memzero(exec_mem, RESTORER_STACK_SIZE);
+
 	/* Restorer content at the new location */
-	memcpy(exec_mem, &restorer, RESTORER_SIZE);
-	restorer_fcall = exec_mem;
+	memcpy(exec_start, &restorer, exec_len);
+	restorer_fcall = exec_start;
+
+	pr_info("exec_mem: %lx exec_start: %lx exec_len: %lx args_offset: %lx\n",
+		exec_mem, exec_start, exec_len, args_offset);
 
 	/*
 	 * Pass arguments and run a command.
 	 */
 	snprintf(path, sizeof(path), "core-%d.img", pid);
-	args			= (struct restore_core_args *)restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET);
+	args			= (struct restore_core_args *)(exec_start + args_offset);
 	args->self_entry	= exec_mem;
-	args->self_size		= RESTORER_SIZE;
+	args->self_size		= exec_len;
 	strcpy(args->core_path, path);
+
+	asm volatile(
+		"movq %%rsp, %0					\t\n"
+		"movq %4, %%rax					\t\n"
+		"movq %3, %%rbx					\t\n"
+		"movl $3, %%edi					\t\n"
+		"movq %%rbx, %%rsp				\t\n"
+		"pushq $0					\t\n"
+//		"callq *%%rax					\t\n"
+		"movq %%rbx, %1					\t\n"
+		"movq %%rax, %2					\t\n"
+		: "=g"(old_sp), "=g"(new_sp), "=g"(new_ip)
+		: "g"(exec_mem), "g"(exec_start)
+		: "rsp", "rdi", "rbx", "rax", "memory");
+
+	pr_info("old_sp: %lx new_sp: %lx new_ip: %lx\n",
+		old_sp, new_sp, new_ip);
+
+	pr_info("exec_mem: %lx exec_start: %lx\n",
+		exec_mem, exec_start);
 
 	ret = restorer_fcall(RESTORER_CMD__RESTORE_CORE);
 	pr_info("RESTORER_CMD__RESTORE_CORE: %lx\n", ret);

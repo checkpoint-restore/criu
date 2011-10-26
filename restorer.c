@@ -68,6 +68,11 @@ long restorer(long cmd)
 		lea_args_off(ret);
 		break;
 
+	case RESTORER_CMD__GET_SELF_LEN:
+		goto self_len_start;
+self_len_end:
+		break;
+
 	/*
 	 * This one is very special, we never return there
 	 * but use sigreturn facility to restore core registers
@@ -84,6 +89,8 @@ long restorer(long cmd)
 		u64 va;
 
 		struct rt_sigframe *frame;
+
+		sys_exit(0);
 
 		lea_args_off(args);
 
@@ -132,7 +139,16 @@ long restorer(long cmd)
 		break;
 	}
 
-	asm volatile(".align "__stringify(RESTORER_SIZE));
-
 	return ret;
+
+self_len_start:
+	asm volatile(
+		".align 16				\t\n"
+		"self:					\t\n"
+		"leaq self(%%rip), %%rax		\t\n"
+		"movq %%rax, %0				\t\n"
+		: "=r"(ret)
+		:
+		: "memory");
+	goto self_len_end;
 }
