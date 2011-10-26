@@ -1229,6 +1229,7 @@ static void restorer_test(pid_t pid)
 	restorer_fcall_t restorer_fcall;
 	char path[64];
 
+	long prev_vma_end, cur_vma_start;
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
 	int fd_vmas, num;
@@ -1253,7 +1254,6 @@ static void restorer_test(pid_t pid)
 		num++;
 	}
 
-	free_mappings(&self_vma_list);
 	close(fd_vmas);
 
 	restorer_fcall	= restorer;
@@ -1261,6 +1261,13 @@ static void restorer_test(pid_t pid)
 	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
 	code_len	= round_up(code_len, 16);
 	vma_len		= round_up(code_len + RESTORER_STACK_SIZE, PAGE_SIZE);
+
+	/*
+	 * Here we need some heuristics -- the VMA which restorer will
+	 * belong to should not be unmapped, so we need to gueess out
+	 * where to put it in.
+	 */
+	prev_vma_end = cur_vma_start = 0;
 
 	/* VMA we need to run restorer code */
 	exec_mem = mmap(0, vma_len,
