@@ -12,6 +12,7 @@
 #include "syscall.h"
 #include "parasite.h"
 #include "image.h"
+#include "util.h"
 #include "crtools.h"
 
 #ifdef CONFIG_X86_64
@@ -20,20 +21,6 @@ static void *brk_start, *brk_end, *brk_tail;
 
 static struct page_entry page;
 static struct vma_entry vma;
-
-void *memcpy(void *dest, const void *src, size_t n)
-{
-	long d0, d1, d2;
-	asm volatile(
-		"rep ; movsq\n\t"
-		"movq %4,%%rcx\n\t"
-		"rep ; movsb\n\t"
-		: "=&c" (d0), "=&D" (d1), "=&S" (d2)
-		: "0" (n >> 3), "g" (n & 7), "1" (dest), "2" (src)
-		: "memory");
-
-	return dest;
-}
 
 static void brk_init(void *brk)
 {
@@ -148,7 +135,7 @@ static int restore_core(char *corefile)
 			goto err;
 		}
 
-		memcpy((void *)page.va, page.data, sizeof(page.data));
+		inline_memcpy((void *)page.va, page.data, sizeof(page.data));
 	}
 
 	ret = 0;
