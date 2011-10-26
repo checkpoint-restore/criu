@@ -1221,7 +1221,7 @@ static int restore_all_tasks(pid_t pid)
 
 static void restorer_test(pid_t pid)
 {
-	long exec_len, args_offset, old_sp, new_sp, new_ip;
+	long exec_len, args_offset, new_sp;
 	void *args_rip, *exec_mem, *exec_start;
 	struct restore_core_args *args;
 	long ret;
@@ -1267,7 +1267,7 @@ static void restorer_test(pid_t pid)
 	snprintf(path, sizeof(path), "core-%d.img", pid);
 	args			= (struct restore_core_args *)(exec_start + args_offset);
 	args->self_entry	= exec_mem;
-	args->self_size		= exec_len;
+	args->self_size		= exec_len + RESTORER_STACK_SIZE;
 	strcpy(args->core_path, path);
 
 	/*
