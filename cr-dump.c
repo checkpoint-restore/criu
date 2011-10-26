@@ -56,7 +56,7 @@ static void free_pstree(struct list_head *pstree_list)
 	INIT_LIST_HEAD(pstree_list);
 }
 
-static void free_mappings(struct list_head *vma_area_list)
+void free_mappings(struct list_head *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
 
@@ -78,7 +78,7 @@ static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_maps(pid, vma_area_list);
+	ret = parse_maps(pid, vma_area_list, true);
 	if (ret)
 		goto err;
 

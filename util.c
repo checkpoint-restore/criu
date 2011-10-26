@@ -231,7 +231,7 @@ int reopen_fd_as(int new_fd, int old_fd)
 	return new_fd;
 }
 
-int parse_maps(pid_t pid, struct list_head *vma_area_list)
+int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
@@ -260,7 +260,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list)
 	 * I'm debugging it on old kernel ;)
 	 */
 	map_files_dir = opendir(map_files_path);
-	if (!map_files_dir) {
+	if (use_map_files && !map_files_dir) {
 		pr_err("Can't open %s, old kernel?\n",
 		       map_files_path);
 		goto err;

@@ -76,6 +76,8 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 void close_cr_fdset(struct cr_fdset *cr_fdset);
 void free_cr_fdset(struct cr_fdset **cr_fdset);
 
+void free_mappings(struct list_head *vma_area_list);
+
 struct vma_area {
 	struct list_head	list;
 	struct vma_entry	vma;

@@ -151,7 +151,7 @@ void printk_vma(struct vma_area *vma_area);
 #define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
 int reopen_fd_as(int new_fd, int old_fd);
-int parse_maps(pid_t pid, struct list_head *vma_list);
+int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
 int close_safe(int *fd);
 
 void hex_dump(void *addr, unsigned long len);
