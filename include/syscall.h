@@ -156,6 +156,11 @@ static always_inline long sys_read(unsigned long fd, void *buf, unsigned long co
 	return syscall3(__NR_read, fd, (unsigned long)buf, count);
 }
 
+static always_inline long sys_exit(unsigned long error_code)
+{
+	return syscall1(__NR_exit, error_code);
+}
+
 /*
  * Note this call expects a signal frame on stack
  * (regs->sp) so be very carefull here!
