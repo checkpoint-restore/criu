@@ -1229,6 +1229,33 @@ static void restorer_test(pid_t pid)
 	restorer_fcall_t restorer_fcall;
 	char path[64];
 
+	LIST_HEAD(self_vma_list);
+	struct vma_area *vma_area;
+	int fd_vmas, num;
+
+	if (parse_maps(getpid(), &self_vma_list, false))
+		goto err;
+
+	snprintf(path, sizeof(path), "vmas-%d.img", getpid());
+	unlink(path);
+	fd_vmas = open(path, O_CREAT | O_WRONLY, CR_FD_PERM);
+	if (fd_vmas < 0) {
+		pr_perror("Can't open %s\n", path);
+	}
+
+	num = 0;
+	list_for_each_entry(vma_area, &self_vma_list, list) {
+		ret = write(fd_vmas, &vma_area->vma, sizeof(vma_area->vma));
+		if (ret != sizeof(vma_area->vma)) {
+			pr_perror("\nUnable to write vma entry (%li written)\n", num);
+			goto err;
+		}
+		num++;
+	}
+
+	free_mappings(&self_vma_list);
+	close(fd_vmas);
+
 	restorer_fcall	= restorer;
 	code_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
 	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
@@ -1265,10 +1292,12 @@ static void restorer_test(pid_t pid)
 	/*
 	 * Pass arguments and run a command.
 	 */
-	snprintf(path, sizeof(path), "core-%d.img", pid);
 	args			= (struct restore_core_args *)(exec_start + args_offset);
 	args->self_entry	= exec_mem;
 	args->self_size		= vma_len;
+
+	strcpy(args->self_vmas_path, path);
+	snprintf(path, sizeof(path), "core-%d.img", pid);
 	strcpy(args->core_path, path);
 
 	/*
@@ -1285,6 +1314,7 @@ static void restorer_test(pid_t pid)
 		: "g"(new_sp), "g"(exec_start)
 		: "rsp", "rdi", "rbx", "rax", "memory");
 
+err:
 	/* Just to be sure */
 	sys_exit(0);
 }

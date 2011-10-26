@@ -20,9 +20,10 @@ typedef long (*restorer_fcall_t) (long cmd);
 #define RESTORER_CMD__RESTORE_CORE	4
 
 struct restore_core_args {
-	void	*self_entry;	/* restorer placed at */
-	long	self_size;	/* size for restorer granted */
-	char	core_path[0];	/* path to a core file */
+	void	*self_entry;		/* restorer placed at */
+	long	self_size;		/* size for restorer granted */
+	char	core_path[64];		/* path to a core file */
+	char	self_vmas_path[64];	/* path to a self-vmas file */
 };
 
 struct rt_sigframe {

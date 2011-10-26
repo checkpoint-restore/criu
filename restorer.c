@@ -95,6 +95,9 @@ self_len_end:
 		write_string(args->core_path);
 		write_string("\n");
 
+		write_string(args->self_vmas_path);
+		write_string("\n");
+
 		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
 		if (fd_core < 0)
 			return fd_core;
