@@ -130,6 +130,20 @@ err:
 	return -2;
 }
 
+void hex_dump(void *addr, unsigned long len)
+{
+	unsigned char *p = addr;
+	unsigned long i;
+
+	len = (len + 8) & ~7;
+
+	for (i = 0; i < len; i += 8) {
+		printk("%08lx: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		       p, p[i+0], p[i+1], p[i+2], p[i+3],
+		       p[i+4], p[i+5], p[i+6], p[i+7]);
+	}
+}
+
 void printk_registers(user_regs_struct_t *regs)
 {
 	printk("ip     : %16lx cs     : %16lx ds     : %16lx\n"

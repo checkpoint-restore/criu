@@ -154,6 +154,8 @@ int reopen_fd_as(int new_fd, int old_fd);
 int parse_maps(pid_t pid, struct list_head *vma_list);
 int close_safe(int *fd);
 
+void hex_dump(void *addr, unsigned long len);
+
 DIR *opendir_proc(char *fmt, ...);
 FILE *fopen_proc(char *fmt, char *mode, ...);
 int open_fmt(char *fmt, int mode, ...);
