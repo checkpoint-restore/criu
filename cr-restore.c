@@ -1221,21 +1221,22 @@ static int restore_all_tasks(pid_t pid)
 
 static void restorer_test(pid_t pid)
 {
-	long exec_len, args_offset, new_sp;
+	long code_len, vma_len, args_offset, new_sp;
 	void *args_rip, *exec_mem, *exec_start;
-	struct restore_core_args *args;
 	long ret;
 
+	struct restore_core_args *args;
 	restorer_fcall_t restorer_fcall;
 	char path[64];
 
 	restorer_fcall	= restorer;
-	exec_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
+	code_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
 	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
-	exec_len	= round_up(exec_len, 16);
+	code_len	= round_up(code_len, 16);
+	vma_len		= round_up(code_len + RESTORER_STACK_SIZE, PAGE_SIZE);
 
 	/* VMA we need to run restorer code */
-	exec_mem = mmap(0, exec_len + RESTORER_STACK_SIZE,
+	exec_mem = mmap(0, vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
@@ -1253,7 +1254,7 @@ static void restorer_test(pid_t pid)
 	memzero(exec_mem, RESTORER_STACK_SIZE);
 
 	/* Restorer content at the new location */
-	memcpy(exec_start, &restorer, exec_len);
+	memcpy(exec_start, &restorer, code_len);
 	restorer_fcall = exec_start;
 
 	/*
@@ -1267,7 +1268,7 @@ static void restorer_test(pid_t pid)
 	snprintf(path, sizeof(path), "core-%d.img", pid);
 	args			= (struct restore_core_args *)(exec_start + args_offset);
 	args->self_entry	= exec_mem;
-	args->self_size		= exec_len + RESTORER_STACK_SIZE;
+	args->self_size		= vma_len;
 	strcpy(args->core_path, path);
 
 	/*

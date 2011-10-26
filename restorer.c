@@ -89,10 +89,6 @@ self_len_end:
 		u64 va;
 
 		struct rt_sigframe *frame;
-		char msg[] = {'I', '\'', 'm', '!', '\n', 0};
-
-		write_string(msg);
-		sys_exit(0);
 
 		lea_args_off(args);
 
@@ -110,6 +106,7 @@ self_len_end:
 		if (ret != sizeof(core_entry))
 			return -ret;
 
+		sys_exit(0);
 		return ret;
 
 		/*
