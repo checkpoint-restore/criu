@@ -171,30 +171,72 @@ self_len_end:
 		}
 
 		sys_close(fd_self_vmas);
+
+		/*
+		 * OK, lets try to map new one.
+		 */
+		sys_lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+		while (1) {
+			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
+			if (!ret)
+				break;
+			if (ret != sizeof(vma_entry))
+				goto core_restore_end;
+
+			if (!vma_entry.start)
+				break;
+
+			write_hex_n(__LINE__);
+
+			if (!(vma_entry.status & VMA_AREA_REGULAR))
+				continue;
+
+			write_hex_n(vma_entry.start);
+
+			vma_entry.fd = 0; /* for a while */
+
+			/* Should map memory here */
+			va = sys_mmap((void *)vma_entry.start,
+				      vma_entry.end - vma_entry.start,
+				      vma_entry.prot,
+				      vma_entry.flags | MAP_FIXED,
+				      vma_entry.fd,
+				      vma_entry.pgoff);
+			if (va != vma_entry.start) {
+				write_hex_n(va);
+				goto core_restore_end;
+			}
+
+			write_hex_n(__LINE__);
+		}
+
+		/*
+		 * Read page contents.
+		 */
+		while (1) {
+			ret = sys_read(fd_core, &va, sizeof(va));
+			if (!ret)
+				break;
+			if (ret != sizeof(va))
+				goto core_restore_end;
+
+			write_hex_n(__LINE__);
+			if (!va)
+				break;
+
+			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
+			if (ret != PAGE_SIZE)
+				goto core_restore_end;
+
+			write_hex_n(__LINE__);
+		}
+
 		sys_close(fd_core);
 
 		for (;;)
 			asm volatile("pause");
 
 		goto core_restore_end;
-		/*
-		 * Unmap all but self, note that we reply on
-		 * caller that it has placed this execution
-		 * code at the VMA which we can keep mapped.
-		 */
-
-		/*
-		 * Map VMAs we will need.
-		 */
-
-		/*
-		 * Threads here with registers and pids
-		 * we need.
-		 */
-
-		/*
-		 * Setup a sigreturn frame.
-		 */
 
 		/* Finally call for sigreturn */
 		sys_rt_sigreturn();
