@@ -1237,6 +1237,8 @@ static void restorer_test(pid_t pid)
 	if (parse_maps(getpid(), &self_vma_list, false))
 		goto err;
 
+	pr_info_vma_list(&self_vma_list);
+
 	snprintf(path, sizeof(path), "vmas-%d.img", getpid());
 	unlink(path);
 	fd_vmas = open(path, O_CREAT | O_WRONLY, CR_FD_PERM);
@@ -1304,6 +1306,7 @@ static void restorer_test(pid_t pid)
 	args->self_size		= vma_len;
 
 	strcpy(args->self_vmas_path, path);
+
 	snprintf(path, sizeof(path), "core-%d.img", pid);
 	strcpy(args->core_path, path);
 

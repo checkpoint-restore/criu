@@ -29,6 +29,14 @@
 			: "memory");					\
 	} while (0)
 
+#define add_ord(c)			\
+	do {				\
+		if (c < 10)		\
+			c += '0';	\
+		else			\
+			c += 'a' - 10;	\
+	} while (0)
+
 static void always_inline write_string(char *str)
 {
 	int len = 0;
@@ -37,6 +45,35 @@ static void always_inline write_string(char *str)
 		len++;
 
 	sys_write(1, str, len);
+}
+
+static void always_inline write_string_n(char *str)
+{
+	char new_line = '\n';
+
+	write_string(str);
+	sys_write(1, &new_line, 1);
+}
+
+static void always_inline write_hex_n(unsigned long num)
+{
+	bool tailing = false;
+	unsigned char *s = (unsigned char *)&num;
+	unsigned char c;
+	int i;
+
+	for (i = sizeof(long)/sizeof(char) - 1; i >= 0; i--) {
+		c = (s[i] & 0xf0) >> 4;
+		add_ord(c);
+		sys_write(1, &c, 1);
+
+		c = (s[i] & 0x0f);
+		add_ord(c);
+		sys_write(1, &c, 1);
+	}
+
+	c = '\n';
+	sys_write(1, &c, 1);
 }
 
 long restorer(long cmd)
@@ -82,6 +119,7 @@ self_len_end:
 	case RESTORER_CMD__RESTORE_CORE:
 	{
 		struct restore_core_args *args;
+		int fd_self_vmas;
 		int fd_core;
 
 		struct core_entry core_entry;
@@ -92,11 +130,8 @@ self_len_end:
 
 		lea_args_off(args);
 
-		write_string(args->core_path);
-		write_string("\n");
-
-		write_string(args->self_vmas_path);
-		write_string("\n");
+		write_string_n(args->core_path);
+		write_string_n(args->self_vmas_path);
 
 		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
 		if (fd_core < 0)
@@ -107,6 +142,32 @@ self_len_end:
 		if (ret != sizeof(core_entry))
 			goto core_restore_end;
 
+		fd_self_vmas = sys_open(args->self_vmas_path, O_RDONLY, CR_FD_PERM);
+		if (fd_self_vmas < 0)
+			goto core_restore_end;
+
+		write_hex_n(__LINE__);
+
+		/* Note no magic constant on fd_self_vmas */
+		sys_lseek(fd_self_vmas, 0, SEEK_SET);
+		while (1) {
+			ret = sys_read(fd_self_vmas, &vma_entry, sizeof(vma_entry));
+			if (!ret)
+				break;
+			if (ret != sizeof(vma_entry))
+				goto core_restore_end;
+
+			write_hex_n(__LINE__);
+
+			write_hex_n(vma_entry.start);
+			if (sys_munmap((void *)vma_entry.start,
+				       vma_entry.end - vma_entry.start))
+				goto core_restore_end;
+
+			write_hex_n(__LINE__);
+		}
+
+		sys_close(fd_self_vmas);
 		sys_close(fd_core);
 
 		goto core_restore_end;
