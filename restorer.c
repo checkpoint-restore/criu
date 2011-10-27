@@ -283,9 +283,6 @@ self_len_end:
 			write_hex_n(__LINE__);
 			write_hex_n(vma_entry.start);
 
-			vma_entry.fd	= -1UL; /* for a while */
-			vma_entry.pgoff	= 0;
-
 			sys_mprotect(vma_entry.start,
 				     vma_entry.end - vma_entry.start,
 				     vma_entry.prot);
@@ -302,6 +299,7 @@ self_len_end:
 		sys_rt_sigreturn();
 
 core_restore_end:
+		write_hex_n(sys_getpid());
 		for (;;)
 			local_sleep(5);
 		sys_exit(0);
