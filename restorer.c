@@ -81,6 +81,18 @@ static void always_inline write_hex_n(unsigned long num)
 	sys_write(1, &c, 1);
 }
 
+static void always_inline local_sleep(long seconds)
+{
+	struct timespec req, rem;
+
+	req = (struct timespec){
+		.tv_sec		= seconds,
+		.tv_nsec	= 0,
+	};
+
+	sys_nanosleep(&req, &rem);
+}
+
 long restorer(long cmd)
 {
 	long ret = -1;
@@ -228,9 +240,11 @@ self_len_end:
 				goto core_restore_end;
 
 			write_hex_n(__LINE__);
+			write_hex_n(va);
 			if (!va)
 				break;
 
+			write_hex_n(__LINE__);
 			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
 			if (ret != PAGE_SIZE)
 				goto core_restore_end;
@@ -248,7 +262,7 @@ self_len_end:
 
 core_restore_end:
 		for (;;)
-			asm volatile("pause");
+			local_sleep(5);
 		sys_exit(0);
 	}
 		break;
