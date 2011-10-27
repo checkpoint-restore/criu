@@ -197,15 +197,17 @@ self_len_end:
 			write_hex_n(__LINE__);
 			write_hex_n(vma_entry.start);
 
-			vma_entry.fd = 0; /* for a while */
+			vma_entry.fd	= -1UL; /* for a while */
+			vma_entry.pgoff	= 0;
 
 			/* Should map memory here */
 			va = sys_mmap((void *)vma_entry.start,
 				      vma_entry.end - vma_entry.start,
 				      vma_entry.prot,
-				      vma_entry.flags | MAP_FIXED,
+				      vma_entry.flags | MAP_ANONYMOUS | MAP_FIXED,
 				      vma_entry.fd,
 				      vma_entry.pgoff);
+
 			if (va != vma_entry.start) {
 				write_hex_n(va);
 				goto core_restore_end;
