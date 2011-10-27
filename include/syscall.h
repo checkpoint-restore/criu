@@ -161,6 +161,11 @@ static always_inline long sys_exit(unsigned long error_code)
 	return syscall1(__NR_exit, error_code);
 }
 
+static always_inline unsigned long sys_getpid(void)
+{
+	return syscall0(__NR_getpid);
+}
+
 /*
  * Note this call expects a signal frame on stack
  * (regs->sp) so be very carefull here!
