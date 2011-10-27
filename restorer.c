@@ -100,18 +100,16 @@ self_len_end:
 
 		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
 		if (fd_core < 0)
-			return fd_core;
+			goto core_restore_end;
 
 		sys_lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
 		ret = sys_read(fd_core, &core_entry, sizeof(core_entry));
+		if (ret != sizeof(core_entry))
+			goto core_restore_end;
 
 		sys_close(fd_core);
-		if (ret != sizeof(core_entry))
-			return -ret;
 
-		sys_exit(0);
-		return ret;
-
+		goto core_restore_end;
 		/*
 		 * Unmap all but self, note that we reply on
 		 * caller that it has placed this execution
@@ -133,6 +131,9 @@ self_len_end:
 
 		/* Finally call for sigreturn */
 		sys_rt_sigreturn();
+
+core_restore_end:
+		sys_exit(0);
 	}
 		break;
 
