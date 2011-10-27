@@ -37,6 +37,11 @@
 			c += 'a' - 10;	\
 	} while (0)
 
+static void always_inline write_char(char c)
+{
+	sys_write(1, &c, 1);
+}
+
 static void always_inline write_string(char *str)
 {
 	int len = 0;
@@ -157,17 +162,17 @@ self_len_end:
 			if (ret != sizeof(vma_entry))
 				goto core_restore_end;
 
-			write_hex_n(__LINE__);
-
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
+			write_hex_n(__LINE__);
 			write_hex_n(vma_entry.start);
 			if (sys_munmap((void *)vma_entry.start,
 				       vma_entry.end - vma_entry.start))
 				goto core_restore_end;
 
 			write_hex_n(__LINE__);
+			write_char('\n');
 		}
 
 		sys_close(fd_self_vmas);
@@ -186,11 +191,10 @@ self_len_end:
 			if (!vma_entry.start)
 				break;
 
-			write_hex_n(__LINE__);
-
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
+			write_hex_n(__LINE__);
 			write_hex_n(vma_entry.start);
 
 			vma_entry.fd = 0; /* for a while */
@@ -208,6 +212,7 @@ self_len_end:
 			}
 
 			write_hex_n(__LINE__);
+			write_char('\n');
 		}
 
 		/*
@@ -229,12 +234,10 @@ self_len_end:
 				goto core_restore_end;
 
 			write_hex_n(__LINE__);
+			write_char('\n');
 		}
 
 		sys_close(fd_core);
-
-		for (;;)
-			asm volatile("pause");
 
 		goto core_restore_end;
 
@@ -242,6 +245,8 @@ self_len_end:
 		sys_rt_sigreturn();
 
 core_restore_end:
+		for (;;)
+			asm volatile("pause");
 		sys_exit(0);
 	}
 		break;
