@@ -159,6 +159,9 @@ self_len_end:
 
 			write_hex_n(__LINE__);
 
+			if (!(vma_entry.status & VMA_AREA_REGULAR))
+				continue;
+
 			write_hex_n(vma_entry.start);
 			if (sys_munmap((void *)vma_entry.start,
 				       vma_entry.end - vma_entry.start))
@@ -169,6 +172,9 @@ self_len_end:
 
 		sys_close(fd_self_vmas);
 		sys_close(fd_core);
+
+		for (;;)
+			asm volatile("pause");
 
 		goto core_restore_end;
 		/*
