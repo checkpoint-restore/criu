@@ -212,10 +212,14 @@ self_len_end:
 			vma_entry.fd	= -1UL; /* for a while */
 			vma_entry.pgoff	= 0;
 
-			/* Should map memory here */
+			/*
+			 * Should map memory here. Note we map them as
+			 * writable since we're going to restore page
+			 * contents.
+			 */
 			va = sys_mmap((void *)vma_entry.start,
 				      vma_entry.end - vma_entry.start,
-				      vma_entry.prot,
+				      vma_entry.prot | PROT_WRITE,
 				      vma_entry.flags | MAP_ANONYMOUS | MAP_FIXED,
 				      vma_entry.fd,
 				      vma_entry.pgoff);
@@ -246,8 +250,45 @@ self_len_end:
 
 			write_hex_n(__LINE__);
 			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
-			if (ret != PAGE_SIZE)
+			if (ret != PAGE_SIZE) {
+				write_hex_n(ret);
 				goto core_restore_end;
+			}
+
+			write_hex_n(__LINE__);
+			write_char('\n');
+		}
+
+		/*
+		 * Walk though all VMAs again to drop PROT_WRITE
+		 * if it was not there.
+		 */
+		sys_lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+		while (1) {
+			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
+			if (!ret)
+				break;
+			if (ret != sizeof(vma_entry))
+				goto core_restore_end;
+
+			if (!vma_entry.start)
+				break;
+
+			if (!(vma_entry.status & VMA_AREA_REGULAR))
+				continue;
+
+			if (vma_entry.prot & PROT_WRITE)
+				continue;
+
+			write_hex_n(__LINE__);
+			write_hex_n(vma_entry.start);
+
+			vma_entry.fd	= -1UL; /* for a while */
+			vma_entry.pgoff	= 0;
+
+			sys_mprotect(vma_entry.start,
+				     vma_entry.end - vma_entry.start,
+				     vma_entry.prot);
 
 			write_hex_n(__LINE__);
 			write_char('\n');
