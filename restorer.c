@@ -318,6 +318,8 @@ self_len_start:
 		".align 16				\t\n"
 		"self:					\t\n"
 		"leaq self(%%rip), %%rax		\t\n"
+		"addq $16, %%rax			\t\n"
+		"andq $~15, %%rax			\t\n"
 		"movq %%rax, %0				\t\n"
 		: "=r"(ret)
 		:
