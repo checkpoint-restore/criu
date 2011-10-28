@@ -166,6 +166,11 @@ static always_inline unsigned long sys_getpid(void)
 	return syscall0(__NR_getpid);
 }
 
+static always_inline long sys_unlink(char *pathname)
+{
+	return syscall1(__NR_unlink, (unsigned long)pathname);
+}
+
 /*
  * Note this call expects a signal frame on stack
  * (regs->sp) so be very carefull here!

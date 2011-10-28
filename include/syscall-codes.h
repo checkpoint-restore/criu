@@ -20,6 +20,7 @@
 #define __NR_nanosleep		35
 #define __NR_getpid		39
 #define __NR_exit		60
+#define __NR_unlink		87
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
