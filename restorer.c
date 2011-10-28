@@ -37,6 +37,13 @@
 			c += 'a' - 10;	\
 	} while (0)
 
+#define inline_memcpy(d,s,l)	__builtin_memcpy(d,s,l)
+#define inline_memset(d,c,l)	__builtin_memset(d,c,l)
+#define inline_memzero(d,l)	__builtin_memset(d,0,l)
+#define inline_memzero_p(d)	__builtin_memset(d,0,sizeof(*(d)))
+
+#define cp_reg(d,s,r)		d->r = s->r
+
 static void always_inline write_char(char c)
 {
 	sys_write(1, &c, 1);
@@ -143,7 +150,9 @@ self_len_end:
 		struct vma_entry vma_entry;
 		u64 va;
 
-		struct rt_sigframe *frame;
+		struct user_fpregs_entry *fpregs;
+		struct user_regs_entry *gpregs;
+		struct rt_sigframe *rt_sigframe;
 
 		lea_args_off(args);
 
@@ -188,6 +197,7 @@ self_len_end:
 		}
 
 		sys_close(fd_self_vmas);
+		sys_unlink(args->self_vmas_path);
 
 		/*
 		 * OK, lets try to map new one.
@@ -294,6 +304,33 @@ self_len_end:
 		sys_close(fd_core);
 
 		goto core_restore_end;
+
+		/*
+		 * We need to prepare a valid sigframe here, so
+		 * after sigreturn the kernel will pick up the
+		 * registers from the frame, set them up and
+		 * finally pass execution to the new IP.
+		 */
+
+		/*
+		 * The sigframe should be on the stack, also
+		 * note the kernel uses this stack not only
+		 * for restoring registers and such but it
+		 * save pt_regs there after sigframe, so make
+		 * sure the stack is big enough to keep all
+		 * this, otherwise the application get killed
+		 * by the kernel with stack overflow error.
+		 */
+
+		/*
+		 * Reuse arguments space for own needs,
+		 * no more arguments needed so lets try
+		 * to be thrifty with memory usage.
+		*/
+		lea_args_off(rt_sigframe);
+		inline_memzero_p(rt_sigframe);
+
+		
 
 		/* Finally call for sigreturn */
 		sys_rt_sigreturn();
