@@ -42,8 +42,6 @@
 #define inline_memzero(d,l)	__builtin_memset(d,0,l)
 #define inline_memzero_p(d)	__builtin_memset(d,0,sizeof(*(d)))
 
-#define cp_reg(d,s,r)		d->r = s->r
-
 static void always_inline write_char(char c)
 {
 	sys_write(1, &c, 1);
@@ -330,7 +328,32 @@ self_len_end:
 		lea_args_off(rt_sigframe);
 		inline_memzero_p(rt_sigframe);
 
-		
+#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.d
+#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.s
+
+		CPREG1(r8);
+		CPREG1(r9);
+		CPREG1(r10);
+		CPREG1(r11);
+		CPREG1(r12);
+		CPREG1(r13);
+		CPREG1(r14);
+		CPREG1(r15);
+		CPREG2(rdi, di);
+		CPREG2(rsi, si);
+		CPREG2(rbp, bp);
+		CPREG2(rbx, bx);
+		CPREG2(rdx, dx);
+		CPREG2(rax, ax);
+		CPREG2(rcx, cx);
+		CPREG2(rsp, sp);
+		CPREG2(rip, ip);
+		CPREG2(eflags, flags);
+		CPREG1(cs);
+		CPREG1(gs);
+		CPREG1(fs);
+
+		/* FIXME: What with cr2 and friends which are rest there? */
 
 		/* Finally call for sigreturn */
 		sys_rt_sigreturn();
