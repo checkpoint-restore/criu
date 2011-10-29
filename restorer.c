@@ -301,8 +301,6 @@ self_len_end:
 
 		sys_close(fd_core);
 
-		goto core_restore_end;
-
 		/*
 		 * We need to prepare a valid sigframe here, so
 		 * after sigreturn the kernel will pick up the
@@ -355,8 +353,22 @@ self_len_end:
 
 		/* FIXME: What with cr2 and friends which are rest there? */
 
-		/* Finally call for sigreturn */
-		sys_rt_sigreturn();
+		write_hex_n(__LINE__);
+
+		/*
+		 * Prepare the stack and call for sigreturn,
+		 * pure assembly since we don't need any additional
+		 * code insns from gcc.
+		 */
+		asm volatile(
+			"movq %0, %%rax					\t\n"
+			"movq %%rax, %%rsp				\t\n"
+			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\t\n"
+			"syscall					\t\n"
+			:
+			: "r"((long)rt_sigframe + sizeof(*rt_sigframe))
+			: "rax","rsp","memory");
+
 
 core_restore_end:
 		write_hex_n(sys_getpid());
