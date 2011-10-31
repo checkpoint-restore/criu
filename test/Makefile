@@ -1,5 +1,6 @@
 OBJS	+= testee.o
 OBJS	+= testee-static.o
+OBJS	+= testee-static-syssleep.o
 OBJS	+= testee-threads.o
 OBJS	+= testee-unlinked.o
 OBJS	+= asmem.o
@@ -19,6 +20,12 @@ testee: testee.c
 	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) -o $@ $(patsubst %.c,%.o,$<)
+
+testee-static-syssleep: testee-static-syssleep.c
+	$(E) "  CC      " $(patsubst %.c,%.o,$<)
+	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
+	$(E) "  LINK    " $@
+	$(Q) $(CC) -static -o $@ $(patsubst %.c,%.o,$<)
 
 testee-static: testee-static.c
 	$(E) "  CC      " $(patsubst %.c,%.o,$<)
