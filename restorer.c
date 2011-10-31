@@ -170,8 +170,6 @@ self_len_end:
 		if (fd_self_vmas < 0)
 			goto core_restore_end;
 
-		write_hex_n(__LINE__);
-
 		/* Note no magic constant on fd_self_vmas */
 		sys_lseek(fd_self_vmas, 0, SEEK_SET);
 		while (1) {
@@ -184,14 +182,10 @@ self_len_end:
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
-			write_hex_n(__LINE__);
 			write_hex_n(vma_entry.start);
 			if (sys_munmap((void *)vma_entry.start,
 				       vma_entry.end - vma_entry.start))
 				goto core_restore_end;
-
-			write_hex_n(__LINE__);
-			write_char('\n');
 		}
 
 		sys_close(fd_self_vmas);
@@ -214,11 +208,10 @@ self_len_end:
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
-			write_hex_n(__LINE__);
-			write_hex_n(vma_entry.start);
-
 			vma_entry.fd	= -1UL; /* for a while */
 			vma_entry.pgoff	= 0;
+
+			write_hex_n(vma_entry.end - vma_entry.start);
 
 			/*
 			 * Should map memory here. Note we map them as
@@ -228,17 +221,18 @@ self_len_end:
 			va = sys_mmap((void *)vma_entry.start,
 				      vma_entry.end - vma_entry.start,
 				      vma_entry.prot | PROT_WRITE,
-				      vma_entry.flags | MAP_ANONYMOUS | MAP_FIXED,
+				      (vma_entry.flags		|
+						MAP_ANONYMOUS	|
+						MAP_FIXED	|
+						MAP_PRIVATE) & ~MAP_SHARED,
 				      vma_entry.fd,
 				      vma_entry.pgoff);
 
-			if (va != vma_entry.start) {
-				write_hex_n(va);
-				goto core_restore_end;
-			}
-
-			write_hex_n(__LINE__);
-			write_char('\n');
+                        if (va != vma_entry.start) {
+                                write_hex_n(vma_entry.start);
+                                write_hex_n(va);
+                                goto core_restore_end;
+                        }
 		}
 
 		/*
@@ -250,21 +244,14 @@ self_len_end:
 				break;
 			if (ret != sizeof(va))
 				goto core_restore_end;
-
-			write_hex_n(__LINE__);
-			write_hex_n(va);
 			if (!va)
 				break;
 
-			write_hex_n(__LINE__);
 			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
-
-			write_hex_n(__LINE__);
-			write_char('\n');
 		}
 
 		/*
@@ -288,15 +275,9 @@ self_len_end:
 			if (vma_entry.prot & PROT_WRITE)
 				continue;
 
-			write_hex_n(__LINE__);
-			write_hex_n(vma_entry.start);
-
 			sys_mprotect(vma_entry.start,
 				     vma_entry.end - vma_entry.start,
 				     vma_entry.prot);
-
-			write_hex_n(__LINE__);
-			write_char('\n');
 		}
 
 		sys_close(fd_core);
@@ -368,7 +349,6 @@ self_len_end:
 			:
 			: "r"((long)rt_sigframe + sizeof(*rt_sigframe))
 			: "rax","rsp","memory");
-
 
 core_restore_end:
 		write_hex_n(sys_getpid());
