@@ -39,7 +39,7 @@ static always_inline long syscall2(int nr, unsigned long arg0, unsigned long arg
 }
 
 static always_inline long syscall3(int nr, unsigned long arg0, unsigned long arg1,
-				     unsigned long arg2)
+				   unsigned long arg2)
 {
 	long ret;
 	asm volatile("syscall"
@@ -50,52 +50,64 @@ static always_inline long syscall3(int nr, unsigned long arg0, unsigned long arg
 }
 
 static always_inline long syscall4(int nr, unsigned long arg0, unsigned long arg1,
-				     unsigned long arg2, unsigned long arg3)
+				   unsigned long arg2, unsigned long arg3)
 {
-	register unsigned long r10 asm("r10") = r10;
 	long ret;
-
-	r10 = arg3;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0), "S" (arg1), "d" (arg2)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"movq %4, %%rdx		\t\n"
+		"movq %5, %%r10		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1), "g" (arg2),
+			"g" (arg3)
+		: "rax", "rdi", "rsi", "rdx", "r10", "memory");
 	return ret;
 }
 
 static long always_inline syscall5(int nr, unsigned long arg0, unsigned long arg1,
-				     unsigned long arg2, unsigned long arg3,
-				     unsigned long arg4)
+				   unsigned long arg2, unsigned long arg3,
+				   unsigned long arg4)
 {
-	register unsigned long r10 asm("r10") = r10;
-	register unsigned long r8 asm("r8") = r8;
 	long ret;
-
-	r10 = arg3;
-	r8 = arg4;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0), "S" (arg1), "d" (arg2)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"movq %4, %%rdx		\t\n"
+		"movq %5, %%r10		\t\n"
+		"movq %6, %%r8		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1), "g" (arg2),
+			"g" (arg3), "g" (arg4)
+		: "rax", "rdi", "rsi", "rdx", "r10", "r8", "memory");
 	return ret;
 }
 
 static long always_inline syscall6(int nr, unsigned long arg0, unsigned long arg1,
-				     unsigned long arg2, unsigned long arg3,
-				     unsigned long arg4, unsigned long arg5)
+				   unsigned long arg2, unsigned long arg3,
+				   unsigned long arg4, unsigned long arg5)
 {
-	register unsigned long r10 asm("r10") = r10;
-	register unsigned long r8 asm("r8") = r8;
-	register unsigned long r9 asm("r9") = r9;
 	long ret;
-
-	r10 = arg3;
-	r8 = arg4;
-	r9 = arg5;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0), "S" (arg1), "d" (arg2)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"movq %4, %%rdx		\t\n"
+		"movq %5, %%r10		\t\n"
+		"movq %6, %%r8		\t\n"
+		"movq %7, %%r9		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1), "g" (arg2),
+			"g" (arg3), "g" (arg4), "g" (arg5)
+		: "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "memory");
 	return ret;
 }
 
@@ -105,7 +117,7 @@ static always_inline unsigned long sys_pause(void)
 }
 
 static always_inline unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot,
-					      unsigned long flags, unsigned long fd, unsigned long offset)
+					    unsigned long flags, unsigned long fd, unsigned long offset)
 {
 	return syscall6(__NR_mmap, (unsigned long)addr,
 			len, prot, flags, fd, offset);
