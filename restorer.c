@@ -182,7 +182,6 @@ self_len_end:
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
-			write_hex_n(vma_entry.start);
 			if (sys_munmap((void *)vma_entry.start,
 				       vma_entry.end - vma_entry.start))
 				goto core_restore_end;
@@ -210,8 +209,6 @@ self_len_end:
 
 			vma_entry.fd	= -1UL; /* for a while */
 			vma_entry.pgoff	= 0;
-
-			write_hex_n(vma_entry.end - vma_entry.start);
 
 			/*
 			 * Should map memory here. Note we map them as
