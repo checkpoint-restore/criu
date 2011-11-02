@@ -11,30 +11,42 @@
 static always_inline long syscall0(int nr)
 {
 	long ret;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr)
+		: "rax", "memory");
 	return ret;
 }
 
 static always_inline long syscall1(int nr, unsigned long arg0)
 {
 	long ret;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0)
+		: "rax", "rdi", "memory");
 	return ret;
 }
 
 static always_inline long syscall2(int nr, unsigned long arg0, unsigned long arg1)
 {
 	long ret;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0), "S" (arg1)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1)
+		: "rax", "rdi", "rsi", "memory");
 	return ret;
 }
 
@@ -42,10 +54,16 @@ static always_inline long syscall3(int nr, unsigned long arg0, unsigned long arg
 				   unsigned long arg2)
 {
 	long ret;
-	asm volatile("syscall"
-		     : "=a" (ret)
-		     : "a" (nr), "D" (arg0), "S" (arg1), "d" (arg2)
-		     : "memory");
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"movq %4, %%rdx		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1), "g" (arg2)
+		: "rax", "rdi", "rsi", "rdx", "memory");
 	return ret;
 }
 
