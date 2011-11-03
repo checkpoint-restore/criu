@@ -1257,6 +1257,7 @@ static void restorer_test(pid_t pid)
 	}
 
 	close(fd_vmas);
+	free_mappings(&self_vma_list);
 
 	restorer_fcall	= restorer;
 	code_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
