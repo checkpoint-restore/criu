@@ -37,11 +37,6 @@
 			c += 'a' - 10;	\
 	} while (0)
 
-#define inline_memcpy(d,s,l)	__builtin_memcpy(d,s,l)
-#define inline_memset(d,c,l)	__builtin_memset(d,c,l)
-#define inline_memzero(d,l)	__builtin_memset(d,0,l)
-#define inline_memzero_p(d)	__builtin_memset(d,0,sizeof(*(d)))
-
 #define sigframe_addr(p)	((long)p)
 
 static void always_inline write_char(char c)
@@ -299,9 +294,7 @@ self_len_end:
 		 * by the kernel with stack overflow error.
 		 */
 
-		rt_sigframe = args->rt_sigframe;
-		write_hex_n((long)rt_sigframe);
-		write_hex_n((long)&rt_sigframe->uc);
+		rt_sigframe = args->rt_sigframe - sizeof(*rt_sigframe);
 
 #define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.d
 #define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.s
@@ -330,10 +323,9 @@ self_len_end:
 
 		/* FIXME: What with cr2 and friends which are rest there? */
 
-		new_sp = core_entry.u.arch.gpregs.sp - 8;
-		write_hex_n(new_sp);
-		stack = (void *)new_sp;
-		*stack = (long)rt_sigframe;
+		write_hex_n(0x111);
+		write_hex_n((long)rt_sigframe);
+		new_sp = (long)rt_sigframe + 8;
 
 		/*
 		 * Prepare the stack and call for sigreturn,

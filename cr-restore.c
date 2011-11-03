@@ -1303,7 +1303,7 @@ static void restorer_test(pid_t pid)
 	 * Pass arguments and run a command.
 	 */
 	args			= (struct restore_core_args *)(exec_start + args_offset);
-	args->rt_sigframe	= (void *)((long)exec_mem + RESTORER_STACK_SIZE + RESTORER_STACK_REDZONE);
+	args->rt_sigframe	= (void *)((long)exec_mem + RESTORER_STACK_SIZE + RESTORER_STACK_FRAME - RESTORER_STACK_REDZONE);
 	args->self_entry	= exec_mem;
 	args->self_size		= vma_len;
 
