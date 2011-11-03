@@ -37,8 +37,6 @@
 			c += 'a' - 10;	\
 	} while (0)
 
-#define sigframe_addr(p)	((long)p)
-
 static void always_inline write_char(char c)
 {
 	sys_write(1, &c, 1);
@@ -283,17 +281,6 @@ self_len_end:
 		 * registers from the frame, set them up and
 		 * finally pass execution to the new IP.
 		 */
-
-		/*
-		 * The sigframe should be on the stack, also
-		 * note the kernel uses this stack not only
-		 * for restoring registers and such but it
-		 * save pt_regs there after sigframe, so make
-		 * sure the stack is big enough to keep all
-		 * this, otherwise the application get killed
-		 * by the kernel with stack overflow error.
-		 */
-
 		rt_sigframe = args->rt_sigframe - sizeof(*rt_sigframe);
 
 #define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.d
@@ -321,10 +308,9 @@ self_len_end:
 		CPREG1(gs);
 		CPREG1(fs);
 
-		/* FIXME: What with cr2 and friends which are rest there? */
-
-		write_hex_n(0x111);
-		write_hex_n((long)rt_sigframe);
+		/*
+		 * sigframe is on stack.
+		 */
 		new_sp = (long)rt_sigframe + 8;
 
 		/*
