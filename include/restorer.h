@@ -12,10 +12,11 @@
 #endif
 
 #define RESTORER_ARGS_SIZE	512
-#define RESTORER_STACK_MIDDLE	(16 << 10)
-#define RESTORER_STACK_SIZE	(RESTORER_STACK_MIDDLE * 2)
+#define RESTORER_STACK_REDZONE	(128)
+#define RESTORER_STACK_FRAME	(16 << 10)
+#define RESTORER_STACK_SIZE	(32 << 10)
 
-long restorer(long cmd);
+extern long restorer(long cmd);
 
 typedef long (*restorer_fcall_t) (long cmd);
 
@@ -27,16 +28,59 @@ typedef long (*restorer_fcall_t) (long cmd);
 
 #define ABI_RED_ZONE 128
 
-#define align_sigframe(sp)			\
-	do {					\
-		sp = round_down(sp, 16) - 8;	\
-	} while (0)
+#define align_sigframe(sp)		round_down(sp, 16) - 8
 
 struct restore_core_args {
 	void	*self_entry;		/* restorer placed at */
+	void	*rt_sigframe;		/* sigframe placed at */
 	long	self_size;		/* size for restorer granted */
 	char	core_path[64];		/* path to a core file */
 	char	self_vmas_path[64];	/* path to a self-vmas file */
+};
+
+struct pt_regs {
+	unsigned long	r15;
+	unsigned long	r14;
+	unsigned long	r13;
+	unsigned long	r12;
+	unsigned long	bp;
+	unsigned long	bx;
+
+	unsigned long	r11;
+	unsigned long	r10;
+	unsigned long	r9;
+	unsigned long	r8;
+	unsigned long	ax;
+	unsigned long	cx;
+	unsigned long	dx;
+	unsigned long	si;
+	unsigned long	di;
+	unsigned long	orig_ax;
+
+	unsigned long	ip;
+	unsigned long	cs;
+	unsigned long	flags;
+	unsigned long	sp;
+	unsigned long	ss;
+};
+
+struct partial_pt_regs {
+	unsigned long	r11;
+	unsigned long	r10;
+	unsigned long	r9;
+	unsigned long	r8;
+	unsigned long	ax;
+	unsigned long	cx;
+	unsigned long	dx;
+	unsigned long	si;
+	unsigned long	di;
+	unsigned long	orig_ax;
+
+	unsigned long	ip;
+	unsigned long	cs;
+	unsigned long	flags;
+	unsigned long	sp;
+	unsigned long	ss;
 };
 
 struct rt_sigcontext {

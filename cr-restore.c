@@ -1262,7 +1262,7 @@ static void restorer_test(pid_t pid)
 	code_len	= restorer_fcall(RESTORER_CMD__GET_SELF_LEN) - (long)restorer;
 	args_offset	= restorer_fcall(RESTORER_CMD__GET_ARG_OFFSET) - (long)restorer;
 	code_len	= round_up(code_len, 16);
-	vma_len		= round_up(code_len + RESTORER_STACK_SIZE, PAGE_SIZE);
+	vma_len		= round_up(code_len + RESTORER_STACK_SIZE + RESTORER_STACK_FRAME, PAGE_SIZE);
 
 	/*
 	 * Here we need some heuristics -- the VMA which restorer will
@@ -1280,28 +1280,30 @@ static void restorer_test(pid_t pid)
 		return;
 	}
 
+
 	/*
 	 * Prepare a stack for the restorer. It's a bit
 	 * tricky -- since compiler generates function
 	 * prologue we need to manually tune up stack
 	 * value.
 	 */
-	exec_start = exec_mem + RESTORER_STACK_SIZE;
-	memzero(exec_mem, RESTORER_STACK_SIZE);
+	memzero(exec_mem, RESTORER_STACK_SIZE + RESTORER_STACK_FRAME);
+	exec_start = exec_mem + RESTORER_STACK_SIZE + RESTORER_STACK_FRAME;
 
 	/* Restorer content at the new location */
 	memcpy(exec_start, &restorer, code_len);
 	restorer_fcall = exec_start;
 
 	/*
-	 * Stack pointer in a middle of allocated stack zone.
+	 * Adjust stack with red-zone area.
 	 */
-	new_sp = (long)exec_mem + RESTORER_STACK_MIDDLE;
+	new_sp = (long)exec_mem + RESTORER_STACK_SIZE - RESTORER_STACK_REDZONE;
 
 	/*
 	 * Pass arguments and run a command.
 	 */
 	args			= (struct restore_core_args *)(exec_start + args_offset);
+	args->rt_sigframe	= (void *)((long)exec_mem + RESTORER_STACK_SIZE + RESTORER_STACK_REDZONE);
 	args->self_entry	= exec_mem;
 	args->self_size		= vma_len;
 
@@ -1309,6 +1311,14 @@ static void restorer_test(pid_t pid)
 
 	snprintf(path, sizeof(path), "core-%d.img", pid);
 	strcpy(args->core_path, path);
+
+	pr_info("vma_len: %li code_len: %li exec_mem: %p exec_start: %p new_sp: %p args: %p\n",
+		vma_len, code_len, exec_mem, exec_start, new_sp, args);
+
+	pr_info("args: %p args->rt_sigframe: %p args->self_entry: %p \nargs->self_size: %p "
+		"args->self_vmas_path: %p args->core_path: %p\n",
+		args, args->rt_sigframe, args->self_entry, args->self_size,
+		args->self_vmas_path, args->core_path);
 
 	/*
 	 * An indirect call to restorer, note it never resturns

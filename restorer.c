@@ -42,6 +42,8 @@
 #define inline_memzero(d,l)	__builtin_memset(d,0,l)
 #define inline_memzero_p(d)	__builtin_memset(d,0,sizeof(*(d)))
 
+#define sigframe_addr(p)	((long)p)
+
 static void always_inline write_char(char c)
 {
 	sys_write(1, &c, 1);
@@ -67,7 +69,6 @@ static void always_inline write_string_n(char *str)
 
 static void always_inline write_hex_n(unsigned long num)
 {
-	bool tailing = false;
 	unsigned char *s = (unsigned char *)&num;
 	unsigned char c;
 	int i;
@@ -151,6 +152,8 @@ self_len_end:
 		struct user_fpregs_entry *fpregs;
 		struct user_regs_entry *gpregs;
 		struct rt_sigframe *rt_sigframe;
+
+		unsigned long new_sp, *stack;
 
 		lea_args_off(args);
 
@@ -296,13 +299,9 @@ self_len_end:
 		 * by the kernel with stack overflow error.
 		 */
 
-		/*
-		 * Reuse arguments space for own needs,
-		 * no more arguments needed so lets try
-		 * to be thrifty with memory usage.
-		*/
-		lea_args_off(rt_sigframe);
-		inline_memzero_p(rt_sigframe);
+		rt_sigframe = args->rt_sigframe;
+		write_hex_n((long)rt_sigframe);
+		write_hex_n((long)&rt_sigframe->uc);
 
 #define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.d
 #define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.s
@@ -331,7 +330,10 @@ self_len_end:
 
 		/* FIXME: What with cr2 and friends which are rest there? */
 
-		write_hex_n(__LINE__);
+		new_sp = core_entry.u.arch.gpregs.sp - 8;
+		write_hex_n(new_sp);
+		stack = (void *)new_sp;
+		*stack = (long)rt_sigframe;
 
 		/*
 		 * Prepare the stack and call for sigreturn,
@@ -344,7 +346,7 @@ self_len_end:
 			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\t\n"
 			"syscall					\t\n"
 			:
-			: "r"((long)rt_sigframe + sizeof(*rt_sigframe))
+			: "r"(new_sp)
 			: "rax","rsp","memory");
 
 core_restore_end:
@@ -364,11 +366,11 @@ core_restore_end:
 
 self_len_start:
 	asm volatile(
-		".align 16				\t\n"
+		".align 64				\t\n"
 		"self:					\t\n"
 		"leaq self(%%rip), %%rax		\t\n"
-		"addq $16, %%rax			\t\n"
-		"andq $~15, %%rax			\t\n"
+		"addq $64, %%rax			\t\n"
+		"andq $~63, %%rax			\t\n"
 		"movq %%rax, %0				\t\n"
 		: "=r"(ret)
 		:

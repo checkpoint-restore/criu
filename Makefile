@@ -23,7 +23,7 @@ MAKE		:= make
 CFLAGS		+= -I./include
 CFLAGS		+= -O0 -ggdb3
 
-LIBS		+= -lrt
+LIBS		+= -lrt -lpthread
 
 # Additional ARCH settings for x86
 ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
@@ -109,7 +109,7 @@ $(OBJS): $(HEAD-BLOB) $(DEPS) $(HEAD-BLOB-GEN)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS)
+$(PROGRAM): $(OBJS) restorer.o
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
@@ -123,6 +123,13 @@ $(DEPS-BLOB): $(SRCS-BLOB)
 test:
 	$(Q) $(MAKE) -C test all
 .PHONY: test
+
+rebuild:
+	$(E) "  FORCE-REBUILD"
+	$(Q) $(RM) -f ./*.o
+	$(Q) $(RM) -f ./*.d
+	$(Q) $(MAKE)
+.PHONY: rebuild
 
 clean:
 	$(E) "  CLEAN"
