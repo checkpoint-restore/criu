@@ -1244,6 +1244,7 @@ static void restorer_test(pid_t pid)
 	fd_vmas = open(path, O_CREAT | O_WRONLY, CR_FD_PERM);
 	if (fd_vmas < 0) {
 		pr_perror("Can't open %s\n", path);
+		goto err;
 	}
 
 	num = 0;
