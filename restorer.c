@@ -154,17 +154,23 @@ self_len_end:
 		write_string_n(args->self_vmas_path);
 
 		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
-		if (fd_core < 0)
+		if (fd_core < 0) {
+			write_hex_n(__LINE__);
 			goto core_restore_end;
+		}
 
 		sys_lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
 		ret = sys_read(fd_core, &core_entry, sizeof(core_entry));
-		if (ret != sizeof(core_entry))
+		if (ret != sizeof(core_entry)) {
+			write_hex_n(__LINE__);
 			goto core_restore_end;
+		}
 
 		fd_self_vmas = sys_open(args->self_vmas_path, O_RDONLY, CR_FD_PERM);
-		if (fd_self_vmas < 0)
+		if (fd_self_vmas < 0) {
+			write_hex_n(__LINE__);
 			goto core_restore_end;
+		}
 
 		/* Note no magic constant on fd_self_vmas */
 		sys_lseek(fd_self_vmas, 0, SEEK_SET);
@@ -172,15 +178,20 @@ self_len_end:
 			ret = sys_read(fd_self_vmas, &vma_entry, sizeof(vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry))
+			if (ret != sizeof(vma_entry)) {
+				write_hex_n(__LINE__);
+				write_hex_n(ret);
 				goto core_restore_end;
+			}
 
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
 			if (sys_munmap((void *)vma_entry.start,
-				       vma_entry.end - vma_entry.start))
+				       vma_entry.end - vma_entry.start)) {
+				write_hex_n(__LINE__);
 				goto core_restore_end;
+			}
 		}
 
 		sys_close(fd_self_vmas);
@@ -194,8 +205,11 @@ self_len_end:
 			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry))
+			if (ret != sizeof(vma_entry)) {
+				write_hex_n(__LINE__);
+				write_hex_n(ret);
 				goto core_restore_end;
+			}
 
 			if (!vma_entry.start)
 				break;
@@ -222,6 +236,7 @@ self_len_end:
 				      vma_entry.pgoff);
 
                         if (va != vma_entry.start) {
+				write_hex_n(__LINE__);
                                 write_hex_n(vma_entry.start);
                                 write_hex_n(va);
                                 goto core_restore_end;
@@ -235,13 +250,17 @@ self_len_end:
 			ret = sys_read(fd_core, &va, sizeof(va));
 			if (!ret)
 				break;
-			if (ret != sizeof(va))
+			if (ret != sizeof(va)) {
+				write_hex_n(__LINE__);
+				write_hex_n(ret);
 				goto core_restore_end;
+			}
 			if (!va)
 				break;
 
 			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
+				write_hex_n(__LINE__);
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
@@ -256,8 +275,11 @@ self_len_end:
 			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry))
+			if (ret != sizeof(vma_entry)) {
+				write_hex_n(__LINE__);
+				write_hex_n(ret);
 				goto core_restore_end;
+			}
 
 			if (!vma_entry.start)
 				break;
@@ -328,6 +350,7 @@ self_len_end:
 			: "rax","rsp","memory");
 
 core_restore_end:
+		write_hex_n(__LINE__);
 		write_hex_n(sys_getpid());
 		for (;;)
 			local_sleep(5);
