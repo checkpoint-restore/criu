@@ -1219,9 +1219,70 @@ static int restore_all_tasks(pid_t pid)
 	return restore_root_task(path, pstree_fd);
 }
 
+static long restorer_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
+{
+	struct vma_area *vma_area;
+	long prev_vma_end, hint;
+	struct vma_entry vma;
+	char path[64];
+	int fd = -1, ret;
+
+	hint = -1;
+
+	/*
+	 * Here we need some heuristics -- the VMA which restorer will
+	 * belong to should not be unmapped, so we need to gueess out
+	 * where to put it in.
+	 *
+	 * Yes, I know it's an O(n^2) algorithm, but usually there are
+	 * not that many VMAs presented so instead of consuming memory
+	 * better to stick with it.
+	 */
+
+	snprintf(path, sizeof(path), "core-%d.img", pid);
+	fd = open(path, O_RDONLY, CR_FD_PERM);
+	if (fd < 0) {
+		pr_perror("Can't open %s\n", path);
+		goto err_or_found;
+	}
+
+	prev_vma_end = 0;
+
+	sys_lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+
+	while (1) {
+		ret = sys_read(fd, &vma, sizeof(vma));
+		if (ret && ret != sizeof(vma)) {
+			pr_perror("Can't read vma entry from %s\n", path);
+			goto err_or_found;
+		}
+
+		if (!prev_vma_end) {
+			prev_vma_end = vma.end;
+			continue;
+		}
+
+		if ((vma.start - prev_vma_end) > vma_len) {
+			list_for_each_entry(vma_area, self_vma_list, list) {
+				if (vma_area->vma.start <= prev_vma_end &&
+				    vma_area->vma.end >= prev_vma_end)
+					goto err_or_found;
+			}
+			hint = prev_vma_end;
+			goto err_or_found;
+		} else
+			prev_vma_end = vma.end;
+	}
+
+err_or_found:
+	if (fd >= 0)
+		close(fd);
+	return hint;
+}
+
 static void restorer_test(pid_t pid)
 {
-	long code_len, vma_len, args_offset, new_sp;
+	long code_len, vma_len, args_offset, new_sp, hint;
 	void *args_rip, *exec_mem, *exec_start;
 	long ret;
 
@@ -1229,7 +1290,6 @@ static void restorer_test(pid_t pid)
 	restorer_fcall_t restorer_fcall;
 	char path[64];
 
-	long prev_vma_end, cur_vma_start;
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
 	int fd_vmas, num;
@@ -1251,6 +1311,7 @@ static void restorer_test(pid_t pid)
 	list_for_each_entry(vma_area, &self_vma_list, list) {
 		ret = write(fd_vmas, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
+			close(fd_vmas);
 			pr_perror("\nUnable to write vma entry (%li written)\n", num);
 			goto err;
 		}
@@ -1258,6 +1319,7 @@ static void restorer_test(pid_t pid)
 	}
 
 	close(fd_vmas);
+
 	free_mappings(&self_vma_list);
 
 	restorer_fcall	= restorer;
@@ -1266,20 +1328,20 @@ static void restorer_test(pid_t pid)
 	code_len	= round_up(code_len, 16);
 	vma_len		= round_up(code_len + RESTORER_STACK_SIZE + RESTORER_STACK_FRAME, PAGE_SIZE);
 
-	/*
-	 * Here we need some heuristics -- the VMA which restorer will
-	 * belong to should not be unmapped, so we need to gueess out
-	 * where to put it in.
-	 */
-	prev_vma_end = cur_vma_start = 0;
+	hint = restorer_vma_hint(pid, &self_vma_list, vma_len);
+	if (hint == -1) {
+		pr_err("No suitable area for restorer bootstrap\n");
+		goto err;
+	} else
+		pr_info("Found bootstrap VMA hint at: %lx\n", hint);
 
 	/* VMA we need to run restorer code */
-	exec_mem = mmap(0, vma_len,
+	exec_mem = mmap((void *)hint, vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
 		pr_err("Can't mmap section for restore code\n");
-		return;
+		goto err;
 	}
 
 
@@ -1337,6 +1399,8 @@ static void restorer_test(pid_t pid)
 		: "rsp", "rdi", "rbx", "rax", "memory");
 
 err:
+	free_mappings(&self_vma_list);
+
 	/* Just to be sure */
 	sys_exit(0);
 }
