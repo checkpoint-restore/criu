@@ -90,6 +90,7 @@ static struct pipe_info *pipes;
 static int nr_pipes;
 
 static int restore_task_with_children(int my_pid, char *pstree_path);
+static void sigreturn_restore(pid_t pid);
 
 static void show_saved_shmems(void)
 {
@@ -394,7 +395,7 @@ static int prepare_shared(int ps_fd)
 			break;
 
 		if (ret != sizeof(e)) {
-			perror("Can't read ps");
+			perror("Can't read pstree_entry");
 			return 1;
 		}
 
@@ -873,7 +874,7 @@ static int prepare_and_execute_image(int pid)
 	if (prepare_image_maps(fd_new, pid))
 		return 1;
 
-	sync();
+	sigreturn_restore(pid);
 
 	if (convert_to_elf(elf_path, fd_new))
 		return 1;
@@ -1280,7 +1281,7 @@ err_or_found:
 	return hint;
 }
 
-static void restorer_test(pid_t pid)
+static void sigreturn_restore(pid_t pid)
 {
 	long code_len, vma_len, args_offset, new_sp, hint;
 	void *args_rip, *exec_mem, *exec_start;
@@ -1373,7 +1374,7 @@ static void restorer_test(pid_t pid)
 
 	strcpy(args->self_vmas_path, path);
 
-	snprintf(path, sizeof(path), "core-%d.img", pid);
+	snprintf(path, sizeof(path), "core-%d.img.out", pid);
 	strcpy(args->core_path, path);
 
 	pr_info("vma_len: %li code_len: %li exec_mem: %p exec_start: %p new_sp: %p args: %p\n",
@@ -1407,7 +1408,9 @@ err:
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
-	restorer_test(pid);
+#if 0
+	sigreturn_restore(pid);
+#endif
 
 	if (opts->leader_only)
 		return restore_one_task(pid);

@@ -217,8 +217,10 @@ self_len_end:
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
+#if 0
 			vma_entry.fd	= -1UL; /* for a while */
 			vma_entry.pgoff	= 0;
+#endif
 
 			/*
 			 * Should map memory here. Note we map them as
@@ -228,19 +230,21 @@ self_len_end:
 			va = sys_mmap((void *)vma_entry.start,
 				      vma_entry.end - vma_entry.start,
 				      vma_entry.prot | PROT_WRITE,
-				      (vma_entry.flags		|
-						MAP_ANONYMOUS	|
-						MAP_FIXED	|
-						MAP_PRIVATE) & ~MAP_SHARED,
+				      vma_entry.flags | MAP_FIXED,
 				      vma_entry.fd,
 				      vma_entry.pgoff);
 
-                        if (va != vma_entry.start) {
+			if (va != vma_entry.start) {
 				write_hex_n(__LINE__);
-                                write_hex_n(vma_entry.start);
-                                write_hex_n(va);
-                                goto core_restore_end;
-                        }
+				write_hex_n(vma_entry.start);
+				write_hex_n(vma_entry.end);
+				write_hex_n(vma_entry.prot);
+				write_hex_n(vma_entry.flags);
+				write_hex_n(vma_entry.fd);
+				write_hex_n(vma_entry.pgoff);
+				write_hex_n(va);
+				goto core_restore_end;
+			}
 		}
 
 		/*
