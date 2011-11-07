@@ -405,7 +405,7 @@ static int prepare_shared(int ps_fd)
 		if (prepare_pipes_pid(e.pid))
 			return 1;
 
-		lseek(ps_fd, e.nr_children * sizeof(u32), SEEK_CUR);
+		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
 
 	lseek(ps_fd, sizeof(u32), SEEK_SET);
@@ -1132,6 +1132,9 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 	lseek(fd, sizeof(u32), SEEK_SET);
 	while (1) {
 		ret = read(fd, &e, sizeof(e));
+		if (ret == 0)
+			break;
+
 		if (ret != sizeof(e)) {
 			pr_err("%d: Read returned %d\n", my_pid, ret);
 			if (ret < 0)
@@ -1140,7 +1143,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 		}
 
 		if (e.pid != my_pid) {
-			lseek(fd, e.nr_children * sizeof(u32), SEEK_CUR);
+			lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 			continue;
 		}
 
