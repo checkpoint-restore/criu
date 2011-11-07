@@ -6,6 +6,12 @@
 
 #include "bitops.h"
 
+/* prctl */
+#define ARCH_SET_GS 0x1001
+#define ARCH_SET_FS 0x1002
+#define ARCH_GET_FS 0x1003
+#define ARCH_GET_GS 0x1004
+
 /* some constants for ptrace */
 #define PTRACE_SEIZE		0x4206
 #define PTRACE_INTERRUPT	0x4207

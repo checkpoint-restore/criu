@@ -140,8 +140,13 @@ struct user_regs_entry {
 } __packed;
 
 struct desc_struct {
-	u32 a;
-	u32 b;
+ union {
+	struct {
+		u32 a;
+		u32 b;
+	} x86_32;
+	u64	base_addr;
+ };
 } __packed;
 
 struct user_fpregs_entry {

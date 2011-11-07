@@ -543,7 +543,6 @@ err:
 
 static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 {
-	FILE *file = NULL;
 	int ret = -1;
 
 	if (size != GDT_ENTRY_TLS_ENTRIES) {
@@ -551,43 +550,14 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 		goto err;
 	}
 
-	file = fopen_proc("%d/tls", "r", pid);
-	if (!file) {
-		pr_perror("Can't open %d tls", pid);
-		goto err;
-	}
+	memzero(tls_array, sizeof(*tls_array) * size);
 
-	ret = 0;
-	while (fgets(loc_buf, sizeof(loc_buf), file)) {
-		u32 a, b;
-		if (sscanf(loc_buf, "%x %x", &a, &b) != 2) {
-			pr_err("Can't parse tls entry: %s\n");
-			ret = -1;
-			goto err;
-		}
-		if (ret >= GDT_ENTRY_TLS_ENTRIES) {
-			pr_err("Too many entries in tls\n");
-			ret = -1;
-			goto err;
-		}
-		tls_array[ret].a = a;
-		tls_array[ret].b = b;
-
-		ret++;
-	}
-
-	if (ret != GDT_ENTRY_TLS_ENTRIES) {
-		pr_err("tls returened %i entries instead of %i\n",
-			 ret, GDT_ENTRY_TLS_ENTRIES);
-		ret = -1;
-		goto err;
-	}
-
-	ret = 0;
+	/* pure x86-64 has a base address only */
+	ret = sys_arch_prctl(ARCH_GET_FS, &tls_array[0].base_addr);
+	if (ret)
+		pr_err("Failed to obtain TLS entry: %d\n", ret);
 
 err:
-	if (file)
-		fclose(file);
 	return ret;
 }
 

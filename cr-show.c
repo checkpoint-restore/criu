@@ -98,7 +98,7 @@ static void show_core_regs(struct cr_fdset *cr_fdset)
 
 	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
 		read_ptr_safe(fd_core, &tls, err);
-		pr_info("tls[%2i] = %x %x\n", i, tls.a, tls.b);
+		pr_info("tls[%2i] = %x\n", i, tls.base_addr);
 	}
 
 err:
