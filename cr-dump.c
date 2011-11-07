@@ -552,10 +552,14 @@ static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
 
 	memzero(tls_array, sizeof(*tls_array) * size);
 
-	/* pure x86-64 has a base address only */
-	ret = sys_arch_prctl(ARCH_GET_FS, &tls_array[0].base_addr);
+	/* Pure x86-64 has a base addresses only */
+	ret = sys_arch_prctl(ARCH_GET_FS, &tls_array[FS_TLS].base_addr);
 	if (ret)
-		pr_err("Failed to obtain TLS entry: %d\n", ret);
+		pr_err("Failed to obtain FS_TLS entry: %d\n", ret);
+
+	ret = sys_arch_prctl(ARCH_GET_GS, &tls_array[GS_TLS].base_addr);
+	if (ret)
+		pr_err("Failed to obtain GS_TLS entry: %d\n", ret);
 
 err:
 	return ret;

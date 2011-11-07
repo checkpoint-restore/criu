@@ -12,6 +12,9 @@
 #define ARCH_GET_FS 0x1003
 #define ARCH_GET_GS 0x1004
 
+#define FS_TLS 0
+#define GS_TLS 1
+
 /* some constants for ptrace */
 #define PTRACE_SEIZE		0x4206
 #define PTRACE_INTERRUPT	0x4207
