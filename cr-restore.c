@@ -1097,17 +1097,18 @@ static int do_child(void *arg)
 
 static inline int fork_with_pid(int pid, char *pstree_path)
 {
+	const int stack_size = 128 << 10;
 	int ret = 0;
 	void *stack;
 
-	stack = mmap(0, 4 * 4096, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN, 0, 0);
+	stack = mmap(0, stack_size, PROT_READ | PROT_WRITE,
+		     MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN, 0, 0);
 	if (stack == MAP_FAILED) {
 		pr_perror("mmap failed");
 		return -1;
 	}
 
-	stack += 4 * 4096;
+	stack += stack_size;
 	ret = clone(do_child, stack, SIGCHLD | CLONE_CHILD_USEPID, pstree_path, NULL, NULL, &pid);
 	if (ret < 0)
 		pr_perror("clone failed\n");
