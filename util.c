@@ -381,8 +381,9 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			 */
 			if (vma_area->vma.flags & MAP_SHARED)
 				goto err_bogus_mapping;
-			else
-				vma_area->vma.status |= VMA_ANON_PRIVATE;
+
+			vma_area->vma.flags  |= MAP_ANONYMOUS;
+			vma_area->vma.status |= VMA_ANON_PRIVATE;
 		}
 
 		list_add_tail(&vma_area->list, vma_area_list);
