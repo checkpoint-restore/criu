@@ -336,7 +336,14 @@ self_len_end:
 		 *  once program restored).
 		 */
 		ret = sys_arch_prctl(ARCH_SET_FS,
-				     &core_entry.u.arch.tls_array[0].base_addr);
+				     &core_entry.u.arch.tls_array[FS_TLS].base_addr);
+		if (ret) {
+			write_hex_n(__LINE__);
+			write_hex_n(ret);
+			goto core_restore_end;
+		}
+		ret = sys_arch_prctl(ARCH_SET_GS,
+				     &core_entry.u.arch.tls_array[GS_TLS].base_addr);
 		if (ret) {
 			write_hex_n(__LINE__);
 			write_hex_n(ret);
