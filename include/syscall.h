@@ -221,6 +221,10 @@ static always_inline long sys_get_thread_area(user_desc_t *info)
 	return syscall1(__NR_get_thread_area, (long)info);
 }
 
+static always_inline long sys_arch_prctl(int code, void *addr)
+{
+	return syscall2(__NR_arch_prctl, code, (unsigned long)addr);
+}
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
