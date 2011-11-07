@@ -22,6 +22,9 @@
 #define __NR_exit		60
 #define __NR_unlink		87
 
+#define __NR_set_thread_area	205
+#define __NR_get_thread_area	211
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */

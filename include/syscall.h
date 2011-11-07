@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+#include "types.h"
 #include "compiler.h"
 #include "syscall-codes.h"
 
@@ -209,6 +210,17 @@ static always_inline long sys_rt_sigreturn(void)
 {
 	return syscall0(__NR_rt_sigreturn);
 }
+
+static always_inline long sys_set_thread_area(user_desc_t *info)
+{
+	return syscall1(__NR_set_thread_area, (long)info);
+}
+
+static always_inline long sys_get_thread_area(user_desc_t *info)
+{
+	return syscall1(__NR_get_thread_area, (long)info);
+}
+
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
