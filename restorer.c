@@ -331,6 +331,19 @@ self_len_end:
 		CPREG1(fs);
 
 		/*
+		 * To update fsindex reload TLS segment
+		 * (otherwise TLS area might not be updated
+		 *  once program restored).
+		 */
+		ret = sys_arch_prctl(ARCH_SET_FS,
+				     &core_entry.u.arch.tls_array[0].base_addr);
+		if (ret) {
+			write_hex_n(__LINE__);
+			write_hex_n(ret);
+			goto core_restore_end;
+		}
+
+		/*
 		 * sigframe is on stack.
 		 */
 		new_sp = (long)rt_sigframe + 8;
