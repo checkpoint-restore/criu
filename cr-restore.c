@@ -1097,7 +1097,7 @@ static int do_child(void *arg)
 
 static inline int fork_with_pid(int pid, char *pstree_path)
 {
-	const int stack_size = 128 << 10;
+	const int stack_size = 32 << 10;
 	int ret = 0;
 	void *stack;
 
