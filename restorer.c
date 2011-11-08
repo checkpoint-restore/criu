@@ -316,6 +316,18 @@ self_len_end:
 		sys_close(fd_core);
 
 		/*
+		 * Tune up the task fields.
+		 */
+		sys_prctl(PR_SET_NAME, (long)core_entry.task_comm, 0, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_CODE,	(long)core_entry.mm_start_code, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_CODE,	(long)core_entry.mm_end_code, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_DATA,	(long)core_entry.mm_start_data, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_DATA,	(long)core_entry.mm_end_data, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_STACK,	(long)core_entry.mm_start_stack, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_BRK,	(long)core_entry.mm_start_brk, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_BRK,		(long)core_entry.mm_brk, 0, 0);
+
+		/*
 		 * We need to prepare a valid sigframe here, so
 		 * after sigreturn the kernel will pick up the
 		 * registers from the frame, set them up and
