@@ -357,9 +357,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 
 		pr_info_vma(vma_area);
 
-		switch (vma->flags) {
-		case MAP_SHARED:
-		case MAP_PRIVATE:
+		if (vma->flags & (MAP_SHARED | MAP_PRIVATE)) {
 
 			if ((vma->status & VMA_ANON_SHARED)) {
 				struct shmem_entry e;
@@ -390,11 +388,9 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				if (ret)
 					goto err;
 			}
-			break;
-		default:
+		} else {
 			pr_panic("Unknown VMA (pid: %d)\n", pid);
 			goto err;
-			break;
 		}
 	}
 
