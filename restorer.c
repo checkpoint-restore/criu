@@ -214,6 +214,17 @@ self_len_end:
 			if (!vma_entry.start)
 				break;
 
+			if (vma_entry.status & VMA_AREA_VDSO) {
+				ret = sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SETUP_VDSO_AT,
+						vma_entry.start, 0, 0);
+				if (ret) {
+					write_hex_n(__LINE__);
+					write_hex_n(ret);
+					goto core_restore_end;
+				}
+				continue;
+			}
+
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
