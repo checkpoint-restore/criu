@@ -408,7 +408,8 @@ err:
 static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 			 u64 *start_code, u64 *end_code,
 			 u64 *start_data, u64 *end_data,
-			 u64 *start_stack, u64 *start_brk)
+			 u64 *start_stack, u64 *start_brk,
+			 u64 *task_sigset)
 {
 	FILE *file = NULL;
 	char *tok1, *tok2;
@@ -500,6 +501,24 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 			goto err_corrupted;
 		*start_brk = atol(tok1);
 		ret = 0;
+	}
+
+	/*
+	 * Now signals.
+	 */
+	fclose(file);
+	file = fopen_proc("%d/status", "r", pid);
+	if (!file) {
+		pr_perror("Can't open %d status", pid);
+		goto err;
+	}
+
+	while (fgets(loc_buf, sizeof(loc_buf), file)) {
+		if (!strncmp(loc_buf, "SigCgt:", 7)) {
+			char *end;
+			*task_sigset = strtol(&loc_buf[8], &end, 16);
+			break;
+		}
 	}
 
 err:
@@ -659,7 +678,8 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 			    &core->mm_start_data,
 			    &core->mm_end_data,
 			    &core->mm_start_stack,
-			    &core->mm_start_brk);
+			    &core->mm_start_brk,
+			    &core->task_sigset);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");

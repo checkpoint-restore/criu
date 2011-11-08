@@ -381,6 +381,11 @@ self_len_end:
 		}
 
 		/*
+		 * Blocked signals.
+		 */
+		rt_sigframe->uc.uc_sigmask.sig[0] = core_entry.task_sigset;
+
+		/*
 		 * sigframe is on stack.
 		 */
 		new_sp = (long)rt_sigframe + 8;

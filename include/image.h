@@ -196,6 +196,7 @@ struct core_entry {
 	u64				mm_start_stack;
 	u64				mm_start_brk;
 	u64				mm_brk;
+	u64				task_sigset;
     };
     u8					__core_pad[CKPT_CORE_SIZE];
   };
