@@ -329,16 +329,18 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 
 		vma_area->vma.status = 0;
 
-		if (strstr(big_buffer, "[stack]"))
+		if (strstr(big_buffer, "[stack]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;
-		else if (strstr(big_buffer, "[vsyscall]"))
+			vma_area->vma.prot   |= PROT_GROWSDOWN;
+		} else if (strstr(big_buffer, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
-		else if (strstr(big_buffer, "[vdso]"))
+		} else if (strstr(big_buffer, "[vdso]")) {
 			vma_area->vma.status |= VMA_AREA_VDSO;
-		else if (strstr(big_buffer, "[heap]"))
+		} else if (strstr(big_buffer, "[heap]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
-		else
+		} else {
 			vma_area->vma.status = VMA_AREA_REGULAR;
+		}
 
 		/*
 		 * Some mapping hints for restore, we save this on
