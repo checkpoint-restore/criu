@@ -245,6 +245,9 @@ self_len_end:
 				write_hex_n(va);
 				goto core_restore_end;
 			}
+
+			if (vma_entry.fd != -1UL)
+				sys_close(vma_entry.fd);
 		}
 
 		/*
