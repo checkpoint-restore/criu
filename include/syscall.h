@@ -226,6 +226,12 @@ static always_inline long sys_arch_prctl(int code, void *addr)
 	return syscall2(__NR_arch_prctl, code, (unsigned long)addr);
 }
 
+static always_inline long sys_prctl(int code, unsigned long arg2, unsigned long arg3,
+				    unsigned long arg4, unsigned long arg5)
+{
+	return syscall5(__NR_prctl, code, arg2, arg3, arg4, arg5);
+}
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
