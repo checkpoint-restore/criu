@@ -217,6 +217,9 @@ self_len_end:
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
 
+			if (vma_entry.status & VMA_AREA_STACK)
+				vma_entry.prot |= PROT_GROWSDOWN;
+
 #if 0
 			vma_entry.fd	= -1UL; /* for a while */
 			vma_entry.pgoff	= 0;
