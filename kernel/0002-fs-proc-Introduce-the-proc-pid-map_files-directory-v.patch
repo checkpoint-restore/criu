@@ -1,6 +1,8 @@
-fs, proc: Introduce the /proc/<pid>/map_files/ directory v14
-
+From d23bde31590a7679aa2be7960848b0fedd0ce032 Mon Sep 17 00:00:00 2001
 From: Pavel Emelyanov <xemul@parallels.com>
+Date: Tue, 8 Nov 2011 14:58:01 +0400
+Subject: [PATCH 2/4] fs, proc: Introduce the /proc/<pid>/map_files/ directory
+ v14
 
 This one behaves similarly to the /proc/<pid>/fd/ one - it contains symlinks
 one for each mapping with file, the name of a symlink is "vma->vm_start-vma->vm_end",
@@ -115,14 +117,14 @@ CC: Al Viro <viro@ZenIV.linux.org.uk>
 CC: Andrew Morton <akpm@linux-foundation.org>
 CC: Pavel Machek <pavel@ucw.cz>
 ---
- fs/proc/base.c     |  345 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/mm.h |   12 +
- 2 files changed, 357 insertions(+)
+ fs/proc/base.c     |  345 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mm.h |   12 ++
+ 2 files changed, 357 insertions(+), 0 deletions(-)
 
-Index: linux-2.6.git/fs/proc/base.c
-===================================================================
---- linux-2.6.git.orig/fs/proc/base.c
-+++ linux-2.6.git/fs/proc/base.c
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index 93c81aa..9b7a9cd 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
 @@ -83,6 +83,7 @@
  #include <linux/pid_namespace.h>
  #include <linux/fs_struct.h>
@@ -140,7 +142,7 @@ Index: linux-2.6.git/fs/proc/base.c
  /*
   * Count the number of hardlinks for the pid_entry table, excluding the .
   * and .. links.
-@@ -2201,6 +2204,347 @@ static const struct file_operations proc
+@@ -2217,6 +2220,347 @@ static const struct file_operations proc_fd_operations = {
  };
  
  /*
@@ -488,7 +490,7 @@ Index: linux-2.6.git/fs/proc/base.c
   * /proc/pid/fd needs a special permission handler so that a process can still
   * access /proc/self/fd after it has executed a setuid().
   */
-@@ -2815,6 +3159,7 @@ static const struct inode_operations pro
+@@ -2832,6 +3176,7 @@ static const struct inode_operations proc_task_inode_operations;
  static const struct pid_entry tgid_base_stuff[] = {
  	DIR("task",       S_IRUGO|S_IXUGO, proc_task_inode_operations, proc_task_operations),
  	DIR("fd",         S_IRUSR|S_IXUSR, proc_fd_inode_operations, proc_fd_operations),
@@ -496,11 +498,11 @@ Index: linux-2.6.git/fs/proc/base.c
  	DIR("fdinfo",     S_IRUSR|S_IXUSR, proc_fdinfo_inode_operations, proc_fdinfo_operations),
  	DIR("ns",	  S_IRUSR|S_IXUGO, proc_ns_dir_inode_operations, proc_ns_dir_operations),
  #ifdef CONFIG_NET
-Index: linux-2.6.git/include/linux/mm.h
-===================================================================
---- linux-2.6.git.orig/include/linux/mm.h
-+++ linux-2.6.git/include/linux/mm.h
-@@ -1491,6 +1491,18 @@ static inline unsigned long vma_pages(st
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 3dc3a8c..14159d3 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1491,6 +1491,18 @@ static inline unsigned long vma_pages(struct vm_area_struct *vma)
  	return (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
  }
  
@@ -519,3 +521,6 @@ Index: linux-2.6.git/include/linux/mm.h
  #ifdef CONFIG_MMU
  pgprot_t vm_get_page_prot(unsigned long vm_flags);
  #else
+-- 
+1.7.6.4
+

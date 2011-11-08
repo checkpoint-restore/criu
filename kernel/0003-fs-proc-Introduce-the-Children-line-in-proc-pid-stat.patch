@@ -1,8 +1,10 @@
-proc: Introduce the Children: line in /proc/<pid>/status
-
+From 9e489dbc4f796b76adb4440ccf4888d934ede61d Mon Sep 17 00:00:00 2001
 From: Pavel Emelyanov <xemul@parallels.com>
+Date: Tue, 8 Nov 2011 14:59:40 +0400
+Subject: [PATCH 3/4] fs, proc: Introduce the Children: line in
+ /proc/<pid>/status
 
-Although we can get the pids of some task's issue, this is just 
+Although we can get the pids of some task's issue, this is just
 more convenient to have them this way.
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
@@ -10,13 +12,13 @@ Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  fs/proc/array.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-Index: linux-2.6.git/fs/proc/array.c
-===================================================================
---- linux-2.6.git.orig/fs/proc/array.c
-+++ linux-2.6.git/fs/proc/array.c
-@@ -158,6 +158,18 @@ static inline const char *get_task_state
+diff --git a/fs/proc/array.c b/fs/proc/array.c
+index 3a1dafd..8f33329 100644
+--- a/fs/proc/array.c
++++ b/fs/proc/array.c
+@@ -158,6 +158,18 @@ static inline const char *get_task_state(struct task_struct *tsk)
  	return *p;
  }
  
@@ -35,7 +37,7 @@ Index: linux-2.6.git/fs/proc/array.c
  static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
  				struct pid *pid, struct task_struct *p)
  {
-@@ -192,6 +204,8 @@ static inline void task_state(struct seq
+@@ -192,6 +204,8 @@ static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
  		cred->uid, cred->euid, cred->suid, cred->fsuid,
  		cred->gid, cred->egid, cred->sgid, cred->fsgid);
  
@@ -44,3 +46,6 @@ Index: linux-2.6.git/fs/proc/array.c
  	task_lock(p);
  	if (p->files)
  		fdt = files_fdtable(p->files);
+-- 
+1.7.6.4
+
