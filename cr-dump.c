@@ -527,7 +527,7 @@ err:
 	return ret;
 
 err_corrupted:
-	pr_err("/proc/%d/stat is corrupted", pid);
+	pr_err("/proc/%d/stat is corrupted\n", pid);
 	goto err;
 }
 
