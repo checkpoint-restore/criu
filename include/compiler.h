@@ -27,6 +27,8 @@
 # define always_inline		__always_inline
 #endif
 
+#define __aligned(x)		__attribute__((aligned(x)))
+
 #ifndef offsetof
 # define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif

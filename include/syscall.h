@@ -232,6 +232,36 @@ static always_inline long sys_prctl(int code, unsigned long arg2, unsigned long 
 	return syscall5(__NR_prctl, code, arg2, arg3, arg4, arg5);
 }
 
+static always_inline long sys_clone(unsigned long flags, void *child_stack,
+				    void *parent_tid, void *child_tid)
+{
+	return syscall4(__NR_clone, flags, (unsigned long)child_stack,
+			(unsigned long)parent_tid, (unsigned long)child_tid);
+}
+
+static always_inline long sys_futex(u32 *uaddr, int op, u32 val,
+				    struct timespec *utime,
+				    u32 *uaddr2, u32 val3)
+{
+	return syscall6(__NR_futex, (unsigned long)uaddr,
+			(unsigned long)op, (unsigned long)val,
+			(unsigned long)utime,
+			(unsigned long)uaddr2,
+			(unsigned long)val3);
+}
+
+static void always_inline local_sleep(long seconds)
+{
+	struct timespec req, rem;
+
+	req = (struct timespec){
+		.tv_sec		= seconds,
+		.tv_nsec	= 0,
+	};
+
+	sys_nanosleep(&req, &rem);
+}
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */

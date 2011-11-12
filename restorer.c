@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sched.h>
 
 #include "compiler.h"
 #include "types.h"
@@ -16,112 +17,165 @@
 #include "crtools.h"
 #include "restorer.h"
 
-#define get_rt_sigframe_addr(stack)					\
-	(struct rt_sigframe *)(stack - sizeof(long))
-
-#define lea_args_off(p)							\
+#define lea_args_off(to, label)						\
 	do {								\
 		asm volatile(						\
-			"leaq restore_args__(%%rip), %%rax	\n\t"	\
-			"movq %%rax, %0				\n\t"	\
-			: "=m"(p)					\
+			"leaq " #label "(%%rip), %%rax		\n"	\
+			"movq %%rax, %0				\n"	\
+			: "=m"(to)					\
 			:						\
 			: "memory");					\
 	} while (0)
 
-#define add_ord(c)			\
-	do {				\
-		if (c < 10)		\
-			c += '0';	\
-		else			\
-			c += 'a' - 10;	\
-	} while (0)
 
-static void always_inline write_char(char c)
+long restore_thread(long cmd, struct thread_restore_args *args)
 {
-	sys_write(1, &c, 1);
-}
+	long ret = -1;
 
-static void always_inline write_string(char *str)
-{
-	int len = 0;
+	switch (cmd) {
+	case RESTORE_CMD__RESTORE_THREAD:
+	{
+		struct core_entry *core_entry;
 
-	while (str[len])
-		len++;
+		struct user_fpregs_entry *fpregs;
+		struct user_regs_entry *gpregs;
+		struct rt_sigframe *rt_sigframe;
 
-	sys_write(1, str, len);
-}
+		unsigned long new_sp, fsgs_base;
 
-static void always_inline write_string_n(char *str)
-{
-	char new_line = '\n';
+		core_entry = &args->core_entry;
 
-	write_string(str);
-	sys_write(1, &new_line, 1);
-}
+		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
+		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
+		if (ret != sizeof(*core_entry)) {
+			write_hex_n(__LINE__);
+			goto core_restore_end;
+		}
 
-static void always_inline write_hex_n(unsigned long num)
-{
-	unsigned char *s = (unsigned char *)&num;
-	unsigned char c;
-	int i;
+		sys_close(args->fd_core);
 
-	for (i = sizeof(long)/sizeof(char) - 1; i >= 0; i--) {
-		c = (s[i] & 0xf0) >> 4;
-		add_ord(c);
-		sys_write(1, &c, 1);
+		rt_sigframe = (void *)args->rt_sigframe + 8;
 
-		c = (s[i] & 0x0f);
-		add_ord(c);
-		sys_write(1, &c, 1);
+#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.d
+#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.s
+
+		CPREGT1(r8);
+		CPREGT1(r9);
+		CPREGT1(r10);
+		CPREGT1(r11);
+		CPREGT1(r12);
+		CPREGT1(r13);
+		CPREGT1(r14);
+		CPREGT1(r15);
+		CPREGT2(rdi, di);
+		CPREGT2(rsi, si);
+		CPREGT2(rbp, bp);
+		CPREGT2(rbx, bx);
+		CPREGT2(rdx, dx);
+		CPREGT2(rax, ax);
+		CPREGT2(rcx, cx);
+		CPREGT2(rsp, sp);
+		CPREGT2(rip, ip);
+		CPREGT2(eflags, flags);
+		CPREGT1(cs);
+		CPREGT1(gs);
+		CPREGT1(fs);
+
+		fsgs_base = core_entry->u.arch.gpregs.fs_base;
+		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
+		if (ret) {
+			write_hex_n(__LINE__);
+			write_hex_n(ret);
+			goto core_restore_end;
+		}
+
+		fsgs_base = core_entry->u.arch.gpregs.gs_base;
+		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
+		if (ret) {
+			write_hex_n(__LINE__);
+			write_hex_n(ret);
+			goto core_restore_end;
+		}
+
+		//r_unlock(args->lock);
+
+		new_sp = (long)rt_sigframe + 8;
+		asm volatile(
+			"movq %0, %%rax					\n"
+			"movq %%rax, %%rsp				\n"
+			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
+			"syscall					\n"
+			:
+			: "r"(new_sp)
+			: "rax","rsp","memory");
+core_restore_end:
+		write_hex_n(__LINE__);
+		write_hex_n(sys_getpid());
+		for (;;)
+			local_sleep(5);
+		sys_exit(0);
+	}
+		break;
+
+	case RESTORE_CMD__GET_SELF_LEN:
+		goto self_len_start;
+self_len_end:
+		break;
+
+	default:
+		goto core_restore_end;
+		break;
 	}
 
-	c = '\n';
-	sys_write(1, &c, 1);
+	return ret;
+
+self_len_start:
+	asm volatile(
+		".align 64				\n"
+		"self_thread:				\n"
+		"leaq self_thread(%%rip), %%rax		\n"
+		"addq $64, %%rax			\n"
+		"andq $~63, %%rax			\n"
+		"movq %%rax, %0				\n"
+		: "=r"(ret)
+		:
+		: "memory");
+	goto self_len_end;
 }
 
-static void always_inline local_sleep(long seconds)
-{
-	struct timespec req, rem;
-
-	req = (struct timespec){
-		.tv_sec		= seconds,
-		.tv_nsec	= 0,
-	};
-
-	sys_nanosleep(&req, &rem);
-}
-
-long restorer(long cmd)
+long restore_task(long cmd)
 {
 	long ret = -1;
 
 	asm volatile(
-		"jmp 1f						\n\t"
-		"restore_args__:				\n\t"
-		".skip "__stringify(RESTORER_ARGS_SIZE)",0	\n\t"
-		"1:						\n\t"
+		"jmp 1f						\n"
+		"restore_args__:				\n"
+		".skip "__stringify(RESTORE_ARGS_SIZE)",0	\n"
+		"1:						\n"
 		:
 		:
 		: "memory");
 
+#define restore_lea_args_off(to)	\
+	lea_args_off(to, restore_args__)
+
 	switch (cmd) {
-	case RESTORER_CMD__PR_ARG_STRING:
+	case RESTORE_CMD__PR_ARG_STRING:
 	{
 		char *str = NULL;
 
-		lea_args_off(str);
+		restore_lea_args_off(str);
 		write_string(str);
 
 		ret = 0;
 	}
 		break;
 
-	case RESTORER_CMD__GET_ARG_OFFSET:
-		lea_args_off(ret);
+	case RESTORE_CMD__GET_ARG_OFFSET:
+		restore_lea_args_off(ret);
 		break;
 
-	case RESTORER_CMD__GET_SELF_LEN:
+	case RESTORE_CMD__GET_SELF_LEN:
 		goto self_len_start;
 self_len_end:
 		break;
@@ -132,11 +186,11 @@ self_len_end:
 	 * and jump execution to some predefined ip read from
 	 * core file.
 	 */
-	case RESTORER_CMD__RESTORE_CORE:
+	case RESTORE_CMD__RESTORE_CORE:
 	{
-		struct restore_core_args *args;
+		struct task_restore_core_args *args;
+		int fd_core, fd_thread;
 		int fd_self_vmas;
-		int fd_core;
 
 		struct core_entry core_entry;
 		struct vma_entry vma_entry;
@@ -146,9 +200,9 @@ self_len_end:
 		struct user_regs_entry *gpregs;
 		struct rt_sigframe *rt_sigframe;
 
-		unsigned long new_sp, *stack;
+		unsigned long new_sp, fsgs_base;
 
-		lea_args_off(args);
+		restore_lea_args_off(args);
 
 		write_string_n(args->core_path);
 		write_string_n(args->self_vmas_path);
@@ -227,11 +281,6 @@ self_len_end:
 
 			if (!(vma_entry.status & VMA_AREA_REGULAR))
 				continue;
-
-#if 0
-			vma_entry.fd	= -1UL; /* for a while */
-			vma_entry.pgoff	= 0;
-#endif
 
 			/*
 			 * Should map memory here. Note we map them as
@@ -360,20 +409,16 @@ self_len_end:
 		CPREG1(gs);
 		CPREG1(fs);
 
-		/*
-		 * To update fsindex reload TLS segment
-		 * (otherwise TLS area might not be updated
-		 *  once program restored).
-		 */
-		ret = sys_arch_prctl(ARCH_SET_FS,
-				     &core_entry.u.arch.tls_array[FS_TLS].base_addr);
+		fsgs_base = core_entry.u.arch.gpregs.fs_base;
+		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 		if (ret) {
 			write_hex_n(__LINE__);
 			write_hex_n(ret);
 			goto core_restore_end;
 		}
-		ret = sys_arch_prctl(ARCH_SET_GS,
-				     &core_entry.u.arch.tls_array[GS_TLS].base_addr);
+
+		fsgs_base = core_entry.u.arch.gpregs.gs_base;
+		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 		if (ret) {
 			write_hex_n(__LINE__);
 			write_hex_n(ret);
@@ -386,6 +431,103 @@ self_len_end:
 		rt_sigframe->uc.uc_sigmask.sig[0] = core_entry.task_sigset;
 
 		/*
+		 * Threads restoration. This requires some more comments. This
+		 * restorer routine and thread restorer routine has the following
+		 * memory map, prepared by a caller code.
+		 *
+		 * | <-- low addresses                                   high addresses --> |
+		 * +------------------------------------------------+-----------------------+
+		 * | own stack | rt_sigframe space | this proc body | thread restore zone   |
+		 * +------------------------------------------------+-----------------------+
+		 *        %sp->|       call %rip ->|
+		 *   params->|
+		 *
+		 * where each thread restore zone is the following
+		 *
+		 * | <-- low addresses                                     high addresses --> |
+		 * +--------------------------------------------------------------------------+
+		 * | thread restore proc | thread1 stack | thread1 heap | thread1 rt_sigframe |
+		 * +--------------------------------------------------------------------------+
+		 * |<- call %rip                   %sp ->|              |
+		 *                             params->| |              |
+		 *                                       |<-heap        |
+		 *                                                      |<-frame
+		 */
+
+		if (args->nr_threads) {
+			struct thread_restore_args *thread_args = args->thread_args;
+			long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND	|
+					   CLONE_THREAD | CLONE_SYSVSEM			|
+					   CLONE_CHILD_USEPID;
+			long parent_tid;
+			int i;
+
+			for (i = 0; i < args->nr_threads; i++) {
+
+				/* skip self */
+				if (thread_args[i].pid == args->pid)
+					continue;
+
+				new_sp = (long)thread_args[i].stack +
+						sizeof(thread_args[i].stack) -
+						ABI_RED_ZONE;
+
+				/* Threads will unlock it */
+				//r_lock(args->lock);
+
+				/*
+				 * To achieve functionality like libc's clone()
+				 * we need a pure assembly here, because clone()'ed
+				 * thread will run with own stack and we must not
+				 * have any additional instructions... oh, dear...
+				 */
+				asm volatile(
+					"clone_emul:				\n"
+					"movq %2, %%rsi				\n"
+					"subq $24, %%rsi			\n"
+					"movq %7, %%rdi				\n"
+					"movq %%rdi,16(%%rsi)			\n"
+					"movq %6, %%rdi				\n"
+					"movq %%rdi, 8(%%rsi)			\n"
+					"movq %5, %%rdi				\n"
+					"movq %%rdi, 0(%%rsi)			\n"
+					"movq %1, %%rdi				\n"
+					"movq %3, %%rdx				\n"
+					"movq %4, %%r10				\n"
+					"movl $"__stringify(__NR_clone)", %%eax	\n"
+					"syscall				\n"
+
+					"testq %%rax,%%rax			\n"
+					"jz thread_run				\n"
+
+					"movq %%rax, %0				\n"
+					"jmp clone_end				\n"
+
+					"thread_run:				\n"	/* new stack here */
+					"xorq %%rbp, %%rbp			\n"	/* clear ABI frame pointer */
+					"popq %%rax				\n"	/* clone_restore_fn  -- restore_thread */
+					"popq %%rdi				\n"	/* arguments */
+					"popq %%rsi				\n"
+					"callq *%%rax				\n"
+
+					"clone_end:				\n"
+					: "=r"(ret)
+					:	"g"(clone_flags),
+						"g"(new_sp),
+						"g"(&parent_tid),
+						"g"(&thread_args[i].pid),
+						"g"(args->clone_restore_fn),
+						"g"(RESTORE_CMD__RESTORE_THREAD),
+						"g"(&thread_args[i])
+					: "rax", "rdi", "rsi", "rdx", "r10", "memory");
+
+				//r_wait_unlock(args->lock);
+			}
+		}
+
+		//r_lock(args->lock);
+
+		/*
 		 * sigframe is on stack.
 		 */
 		new_sp = (long)rt_sigframe + 8;
@@ -396,10 +538,10 @@ self_len_end:
 		 * code insns from gcc.
 		 */
 		asm volatile(
-			"movq %0, %%rax					\t\n"
-			"movq %%rax, %%rsp				\t\n"
-			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\t\n"
-			"syscall					\t\n"
+			"movq %0, %%rax					\n"
+			"movq %%rax, %%rsp				\n"
+			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
+			"syscall					\n"
 			:
 			: "r"(new_sp)
 			: "rax","rsp","memory");
@@ -414,7 +556,7 @@ core_restore_end:
 		break;
 
 	default:
-		ret = -1;
+		goto core_restore_end;
 		break;
 	}
 
@@ -422,12 +564,12 @@ core_restore_end:
 
 self_len_start:
 	asm volatile(
-		".align 64				\t\n"
-		"self:					\t\n"
-		"leaq self(%%rip), %%rax		\t\n"
-		"addq $64, %%rax			\t\n"
-		"andq $~63, %%rax			\t\n"
-		"movq %%rax, %0				\t\n"
+		".align 64				\n"
+		"self:					\n"
+		"leaq self(%%rip), %%rax		\n"
+		"addq $64, %%rax			\n"
+		"andq $~63, %%rax			\n"
+		"movq %%rax, %0				\n"
 		: "=r"(ret)
 		:
 		: "memory");

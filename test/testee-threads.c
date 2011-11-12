@@ -14,20 +14,70 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+#define __NR_arch_prctl		158
+
+#define ARCH_SET_GS 0x1001
+#define ARCH_SET_FS 0x1002
+#define ARCH_GET_FS 0x1003
+#define ARCH_GET_GS 0x1004
+
+static long syscall2(int nr, unsigned long arg0, unsigned long arg1)
+{
+	long ret;
+	asm volatile(
+		"movl %1, %%eax		\t\n"
+		"movq %2, %%rdi		\t\n"
+		"movq %3, %%rsi		\t\n"
+		"syscall		\t\n"
+		"movq %%rax, %0		\t\n"
+		: "=r"(ret)
+		: "g" ((int)nr), "g" (arg0), "g" (arg1)
+		: "rax", "rdi", "rsi", "memory");
+	return ret;
+}
+
+static long sys_arch_prctl(int code, void *addr)
+{
+	return syscall2(__NR_arch_prctl, code, (unsigned long)addr);
+}
 
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static int counter;
+static int thread_counter = 1;
+
+static __thread int tls_data;
+
+static void pr_fsgs_base(char *name)
+{
+	unsigned long fsgs_base = -1ul;
+	int ret;
+
+	ret = sys_arch_prctl(ARCH_GET_FS, &fsgs_base);
+
+	printf("%8d (%4s): (%2d) fsgs_base %8lx\n",
+	       getpid(), name, ret, fsgs_base);
+
+	ret = sys_arch_prctl(ARCH_GET_GS, &fsgs_base);
+
+	printf("%8d (%4s): (%2d) fsgs_base %8lx\n",
+	       getpid(), name, ret, fsgs_base);
+}
 
 static void *ff1(void *arg)
 {
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	(void)map_unreadable;
 
+	tls_data = thread_counter++;
+
+	pr_fsgs_base("thr3");
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter++;
-		printf("%d: Counter value: %d\n", getpid(), counter);
+		printf("%8d (thr3): Counter value: %4d tls_data = %4d\n",
+		       getpid(), counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(5);
@@ -52,11 +102,16 @@ static void *f1(void *arg)
 	if (pthread_create(&th, NULL, &ff1, NULL))
 		perror("Cant create thread");
 
+	tls_data = thread_counter++;
+
+	pr_fsgs_base("thr1");
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter++;
-		printf("%d: Counter value: %d\n", getpid(), counter);
+		printf("%8d (thr1): Counter value: %4d tls_data = %4d\n",
+		       getpid(), counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(2);
@@ -70,11 +125,16 @@ static void *f2(void *arg)
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	(void)map_unreadable;
 
+	tls_data = thread_counter++;
+
+	pr_fsgs_base("thr2");
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter--;
-		printf("%d: Counter value: %d\n", getpid(), counter);
+		printf("%8d (thr2): Counter value: %4d tls_data = %4d\n",
+		       getpid(), counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(3);
@@ -90,11 +150,24 @@ int main(int argc, char *argv[])
 
 	printf("%s pid %d\n", argv[0], getpid());
 
+	tls_data = thread_counter++;
+
+	pr_fsgs_base("main");
+
+	printf("%8d (main): Counter value: %4d tls_data = %4d\n",
+	       getpid(), counter, tls_data);
+
 	rc1 = pthread_create(&th1, NULL, &f1, NULL);
 	rc2 = pthread_create(&th2, NULL, &f2, NULL);
 
 	if (rc1 | rc2)
 		exit(1);
+
+	while (1) {
+		printf("%8d (main): Counter value: %4d tls_data = %4d\n",
+		       getpid(), counter, tls_data);
+		sleep(2);
+	}
 
 	pthread_join(th1, NULL);
 	pthread_join(th2, NULL);

@@ -334,8 +334,8 @@ static void show_pstree(struct list_head *head, char *name)
 	pr_info("----------------------------------------\n");
 
 	list_for_each_entry(item, head, list) {
-		pr_info("Process %d number of children: %d\n",
-			item->pid, item->nr_children);
+		pr_info("Process %d number of children: %d threads: %d\n",
+			item->pid, item->nr_children, item->nr_threads);
 		for (i = 0; i < item->nr_children; i++)
 			pr_info(" %d", item->children[i]);
 		if (item->nr_children)
