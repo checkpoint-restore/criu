@@ -89,8 +89,10 @@ static int nr_shmems;
 static struct pipe_info *pipes;
 static int nr_pipes;
 
+static pid_t pstree_pid;
+
 static int restore_task_with_children(int my_pid, char *pstree_path);
-static void sigreturn_restore(pid_t pid);
+static void sigreturn_restore(pid_t pstree_pid, pid_t pid);
 
 static void show_saved_shmems(void)
 {
@@ -874,7 +876,7 @@ static int prepare_and_execute_image(int pid)
 	if (prepare_image_maps(fd_new, pid))
 		return 1;
 
-	sigreturn_restore(pid);
+	sigreturn_restore(pstree_pid, pid);
 
 	if (convert_to_elf(elf_path, fd_new))
 		return 1;
@@ -1285,7 +1287,7 @@ err_or_found:
 	return hint;
 }
 
-static void sigreturn_restore(pid_t pid)
+static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_task_code_len, restore_task_vma_len;
 	long restore_thread_code_len, restore_thread_vma_len;
@@ -1324,7 +1326,7 @@ static void sigreturn_restore(pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	snprintf(path, sizeof(path), "pstree-%d.img", pid);
+	snprintf(path, sizeof(path), "pstree-%d.img", pstree_pid);
 	fd_pstree = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_pstree < 0) {
 		pr_perror("Can't open %s\n", path);
@@ -1372,8 +1374,13 @@ static void sigreturn_restore(pid_t pid)
 			goto err;
 		}
 
-		if (pstree_entry.pid != pid)
+		if (pstree_entry.pid != pid) {
+			lseek(fd_pstree,
+			      (pstree_entry.nr_children +
+			       pstree_entry.nr_threads) *
+			      sizeof(u32), SEEK_CUR);
 			continue;
+		}
 
 		if (!pstree_entry.nr_threads)
 			break;
@@ -1543,8 +1550,10 @@ err:
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
 #if 0
-	sigreturn_restore(pid);
+	sigreturn_restore(pid, pid);
 #endif
+
+	pstree_pid = pid;
 
 	if (opts->leader_only)
 		return restore_one_task(pid);
