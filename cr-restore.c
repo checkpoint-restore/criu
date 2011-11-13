@@ -827,7 +827,7 @@ static int prepare_image_maps(int fd, int pid)
 
 static int prepare_and_execute_image(int pid)
 {
-	char path[128], elf_path[128];
+	char path[128];
 	int fd, fd_new;
 	struct stat buf;
 
@@ -851,10 +851,7 @@ static int prepare_and_execute_image(int pid)
 		return 1;
 	}
 
-	sprintf(elf_path, "core-%d.elf", pid);
-	unlink(elf_path);
-
-	pr_info("%d: Preparing execution image %s (%li bytes)\n", pid, path, buf.st_size);
+	pr_info("%d: Preparing restore image %s (%li bytes)\n", pid, path, buf.st_size);
 	if (sendfile(fd_new, fd, NULL, buf.st_size) != buf.st_size) {
 		pr_perror("sendfile failed\n");
 		return 1;
@@ -876,16 +873,10 @@ static int prepare_and_execute_image(int pid)
 	if (prepare_image_maps(fd_new, pid))
 		return 1;
 
+	close(fd_new);
 	sigreturn_restore(pstree_pid, pid);
 
-	if (convert_to_elf(elf_path, fd_new))
-		return 1;
-
-	sync();
-	close(fd_new);
-
-	pr_info("%d/%d EXEC ELF-IMAGE\n", pid, getpid());
-	return execl(elf_path, elf_path, NULL);
+	return 0;
 }
 
 static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)

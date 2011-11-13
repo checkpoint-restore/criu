@@ -64,7 +64,6 @@ OBJS		+= cr-dump.o
 OBJS		+= cr-restore.o
 OBJS		+= cr-show.o
 OBJS		+= util.o
-OBJS		+= elf.o
 OBJS		+= seize.o
 OBJS		+= restorer.o
 
@@ -89,7 +88,6 @@ $(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
 %.bin: %.o
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
-	$(Q) $(LD) -T $(patsubst %.bin,%-elf.lds.S,$@) $< -o $@.o
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
 $(HEAD-BLOB): $(DEPS-BLOB) $(HEAD-BIN)
@@ -135,7 +133,6 @@ clean:
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
 	$(Q) $(RM) -f ./*.img
-	$(Q) $(RM) -f ./*.elf
 	$(Q) $(RM) -f ./*.out
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./tags
