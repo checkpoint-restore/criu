@@ -1042,7 +1042,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 			}
 			num_anon++;
 		} else {
-			/* skip the page */
+			/* skip the file shared page */
 			lseek(fd_pages, PAGE_SIZE, SEEK_CUR);
 		}
 	}
