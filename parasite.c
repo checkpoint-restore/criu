@@ -76,77 +76,6 @@ static void sys_write_msg(const char *msg)
 	sys_write(1, msg, size);
 }
 
-static int restore_core(char *corefile)
-{
-	int ret = PARASITE_ERR_FAIL;
-	int fd_core;
-
-	fd_core = (int)sys_open(corefile, O_RDONLY, 0600);
-	if (fd_core < 0) {
-		ret = PARASITE_ERR_OPEN;
-		goto err_open;
-	}
-
-	/* Skip the header */
-	sys_lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
-
-	/* First VMA areas */
-	while (1) {
-		unsigned long addr;
-
-		ret = sys_read(fd_core, &vma, sizeof(vma));
-		if (ret && ret != sizeof(vma)) {
-			ret = PARASITE_ERR_CORE_VMA;
-			goto err;
-		}
-
-		if (vma.start == 0 && vma.end == 0)
-			break;
-
-		/* Make sure it's mapped into proper place */
-		addr = sys_mmap((void *)vma.start,
-				vma.end - vma.start,
-				vma.prot,
-				vma.flags | MAP_FIXED,
-				vma.fd,
-				vma.pgoff);
-		if (addr != vma.start) {
-			ret = PARASITE_ERR_MMAP;
-			goto err;
-		}
-	}
-
-	/* Now pages */
-	while (1) {
-		unsigned long count;
-
-		ret = sys_read(fd_core, &page.va, sizeof(page.va));
-		if (ret && ret != sizeof(page.va)) {
-			ret = PARASITE_ERR_CORE_PAGE;
-			goto err;
-		}
-
-		if (page.va == 0)
-			break;
-
-		ret = sys_read(fd_core, page.data, sizeof(page.data));
-		if (ret && ret != sizeof(page.data)) {
-			ret = PARASITE_ERR_CORE_PAGE;
-			goto err;
-		}
-
-		inline_memcpy((void *)page.va, page.data, sizeof(page.data));
-	}
-
-	ret = 0;
-
-err:
-	sys_close(fd_core);
-
-err_open:
-	return ret;
-}
-
 /*
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
@@ -284,9 +213,6 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		break;
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((parasite_args_cmd_dumppages_t *)args);
-		break;
-	case PARASITE_CMD_RESTORECORE:
-		return restore_core((char *)args);
 		break;
 	default:
 		sys_write_msg("Unknown command to parasite\n");
