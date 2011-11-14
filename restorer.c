@@ -283,6 +283,17 @@ self_len_end:
 				continue;
 
 			/*
+			 * Restore or shared mappings are tricky, since
+			 * we open anonymous mapping via map_files/
+			 * MAP_ANONYMOUS should be eliminated so fd would
+			 * be taken into account by a kernel.
+			 */
+			if (vma_entry.status & VMA_ANON_SHARED) {
+				if (vma_entry.fd != -1UL)
+					vma_entry.flags &= ~MAP_ANONYMOUS;
+			}
+
+			/*
 			 * Should map memory here. Note we map them as
 			 * writable since we're going to restore page
 			 * contents.

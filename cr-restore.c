@@ -171,7 +171,7 @@ static int shmem_wait_and_open(struct shmem_info *si)
 
 	while (1) {
 		int ret = open(path, O_RDWR);
-		if (ret > 0)
+		if (ret >= 0)
 			return ret;
 
 		if (ret < 0 && errno != ENOENT) {
@@ -201,7 +201,7 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 		}
 
 		/*
-		 * Only the shared mapping with highest
+		 * Only the shared mapping with a lowest
 		 * pid will be created in real, other processes
 		 * will wait until the kernel propagate this mapping
 		 * into /proc
@@ -671,13 +671,15 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		sh_fd = shmem_wait_and_open(si);
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
-		if (fd < 0) {
+		if (sh_fd < 0) {
 			perror("Can't open shmem");
 			return 1;
 		}
 
 		lseek(fd, -sizeof(*vi), SEEK_CUR);
 		vi->fd = sh_fd;
+		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",
+			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
 			perror("Can't write img");
 			return 1;
@@ -825,7 +827,7 @@ static int prepare_image_maps(int fd, int pid)
 	return 0;
 }
 
-static int prepare_and_execute_image(int pid)
+static int prepare_and_sigreturn(int pid)
 {
 	char path[128];
 	int fd, fd_new;
@@ -1080,7 +1082,7 @@ static int restore_one_task(int pid)
 	if (prepare_shmem(pid))
 		return 1;
 
-	return prepare_and_execute_image(pid);
+	return prepare_and_sigreturn(pid);
 }
 
 static int do_child(void *arg)
