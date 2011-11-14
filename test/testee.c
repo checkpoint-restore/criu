@@ -207,8 +207,10 @@ int main(int argc, char *argv[])
 			goto err;
 		if (child == 0) {
 			printf("first child pid: %d\n", getpid());
-			while (read(pipefd[0], &buf, sizeof(buf)) > 0)
+			while (read(pipefd[0], &buf, sizeof(buf)) > 0) {
+				printf("pipe-r: %8lx\n", buf);
 				sleep(3);
+			}
 			*(unsigned long *)mmap_anon_sh = 0x11111111;
 			while (1) {
 				printf("ping: %d\n", getpid());
@@ -219,6 +221,7 @@ int main(int argc, char *argv[])
 			printf("first parent pid: %d\n", getpid());
 //			run_clone();
 			while (1) {
+				printf("pipe-r: %8lx\n", buf);
 				printf("ping: %d\n", getpid());
 				sleep(9);
 			}
@@ -229,6 +232,7 @@ int main(int argc, char *argv[])
 			float res = 0.9;
 			*(unsigned long *)mmap_anon_sh = 0x33333333;
 			printf("ping: %d %f\n", getpid(), res + (float)(unsigned long)mmap_anon_sh);
+			printf("pipe-w: %8lx\n", buf);
 			write(pipefd[1], &buf, sizeof(buf));
 			sleep(10);
 		}
