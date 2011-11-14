@@ -38,14 +38,16 @@ int main(int argc, char *argv[])
 	}
 
 	if (pid == 0) {
+		int cnt = 0;
 		while(1) {
 			printf("%d: shmem '%s'\n", getpid(), (char *)map);
+			sprintf(map, "shared-mem-%d", cnt++);
 			sleep(5);
 		}
 	} else {
 		while(1) {
 			printf("%d: shmem '%s'\n", getpid(), (char *)map);
-			sleep(5);
+			sleep(3);
 		}
 	}
 
