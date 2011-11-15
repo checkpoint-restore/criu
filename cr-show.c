@@ -92,15 +92,6 @@ static void show_core_regs(struct cr_fdset *cr_fdset)
 	pr_regs3(regs, r15, bp, bx);
 	pr_regs4(regs, orig_ax, flags, fs_base, gs_base);
 
-	pr_info("\n\t---[TLS area]---\n");
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, u.arch.tls_array), SEEK_SET);
-
-	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++) {
-		read_ptr_safe(fd_core, &tls, err);
-		pr_info("tls[%2i] = %x\n", i, tls.base_addr);
-	}
-
 err:
 	return;
 }

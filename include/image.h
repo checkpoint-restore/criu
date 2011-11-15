@@ -171,7 +171,6 @@ struct user_fpregs_entry {
 struct ckpt_arch_entry {
 	struct user_regs_entry		gpregs;
 	struct user_fpregs_entry	fpregs;
-	struct desc_struct		tls_array[GDT_ENTRY_TLS_ENTRIES];
 };
 
 #define CKPT_ARCH_SIZE			(1 * 4096)

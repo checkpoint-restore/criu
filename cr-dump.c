@@ -556,30 +556,6 @@ err:
 	return ret;
 }
 
-static int dump_task_tls(pid_t pid, struct desc_struct *tls_array, int size)
-{
-	int ret = -1;
-
-	if (size != GDT_ENTRY_TLS_ENTRIES) {
-		pr_err("Wrong TLS storage size: %d\n", size);
-		goto err;
-	}
-
-	memzero(tls_array, sizeof(*tls_array) * size);
-
-	/* Pure x86-64 has a base addresses only */
-	ret = sys_arch_prctl(ARCH_GET_FS, &tls_array[FS_TLS].base_addr);
-	if (ret)
-		pr_err("Failed to obtain FS_TLS entry: %d\n", ret);
-
-	ret = sys_arch_prctl(ARCH_GET_GS, &tls_array[GS_TLS].base_addr);
-	if (ret)
-		pr_err("Failed to obtain GS_TLS entry: %d\n", ret);
-
-err:
-	return ret;
-}
-
 static int get_task_regs(pid_t pid, struct core_entry *core)
 {
 	user_fpregs_struct_t fpregs	= {-1};
@@ -654,12 +630,6 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 
 	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core);
-	if (ret)
-		goto err_free;
-	pr_info("OK\n");
-
-	pr_info("Obtainting TLS ... ");
-	ret = dump_task_tls(pid, core->u.arch.tls_array, ARRAY_SIZE(core->u.arch.tls_array));
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
