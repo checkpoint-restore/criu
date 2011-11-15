@@ -50,20 +50,18 @@ struct pipe_entry {
 	u8	data[0];
 } __packed;
 
-#define VMA_AREA_REGULAR	(1 << 0)	/* Dumpable area */
-#define VMA_AREA_STACK		(1 << 1)
-#define VMA_AREA_VSYSCALL	(1 << 2)
-#define VMA_AREA_VDSO		(1 << 3)
-#define VMA_FORCE_READ		(1 << 4)	/* VMA changed to be readable */
-#define VMA_AREA_HEAP		(1 << 5)
+#define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
+#define VMA_AREA_STACK		(1 <<  1)
+#define VMA_AREA_VSYSCALL	(1 <<  2)
+#define VMA_AREA_VDSO		(1 <<  3)
+#define VMA_FORCE_READ		(1 <<  4)	/* VMA changed to be readable */
+#define VMA_AREA_HEAP		(1 <<  5)
 
-#define VMA_FILE_PRIVATE	(1 << 6)
-#define VMA_FILE_SHARED		(1 << 7)
-#define VMA_ANON_SHARED		(1 << 8)
-#define VMA_ANON_PRIVATE	(1 << 9)
-#define VMA_FORCE_WRITE		(1 << 10)	/* VMA changed to be writable */
-
-#define VMA_DUMP_ALL		(1 << 11)	/* Dump the whole VMA area pages */
+#define VMA_FILE_PRIVATE	(1 <<  6)
+#define VMA_FILE_SHARED		(1 <<  7)
+#define VMA_ANON_SHARED		(1 <<  8)
+#define VMA_ANON_PRIVATE	(1 <<  9)
+#define VMA_DUMP_ALL		(1 << 10)	/* Dump the whole VMA area pages */
 
 #define vma_entry_has(vma, s)	(((vma)->status & (s)) == (s))
 
