@@ -39,8 +39,6 @@
 
 #include "crtools.h"
 
-static char big_buffer[PATH_MAX];
-
 void printk(const char *format, ...)
 {
 	va_list params;
@@ -236,6 +234,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
 	char map_files_path[64];
+	char big_buffer[1024];
 	char maps_path[64];
 	unsigned long ino;
 	char r,w,x,s;
