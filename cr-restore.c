@@ -297,7 +297,7 @@ static int prepare_shmem_pid(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt_ro("shmem-%d.img", pid);
+	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -335,7 +335,7 @@ static int prepare_pipes_pid(int pid)
 	int p_fd;
 	u32 type = 0;
 
-	p_fd = open_fmt_ro("pipes-%d.img", pid);
+	p_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
 	if (p_fd < 0) {
 		perror("Can't open pipes image");
 		return 1;
@@ -516,7 +516,7 @@ static int prepare_fds(int pid)
 
 	pr_info("%d: Opening files img\n", pid);
 
-	fdinfo_fd = open_fmt_ro("fdinfo-%d.img", pid);
+	fdinfo_fd = open_fmt_ro(FMT_FNAME_FDINFO, pid);
 	if (fdinfo_fd < 0) {
 		pr_perror("Can't open %d fdinfo", pid);
 		return 1;
@@ -595,7 +595,7 @@ static int prepare_shmem(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt_ro("shmem-%d.img", pid);
+	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
 		perror("Can't open shmem info");
 		return 1;
@@ -751,7 +751,7 @@ static int fixup_pages_data(int pid, int fd)
 
 	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open_fmt_ro("pages-shmem-%d.img", pid);
+	shfd = open_fmt_ro(FMT_FNAME_PAGES_SHMEM, pid);
 	if (shfd < 0) {
 		pr_perror("Can't open %d shmem image %s", pid);
 		return 1;
@@ -833,7 +833,7 @@ static int prepare_and_sigreturn(int pid)
 	int fd, fd_new;
 	struct stat buf;
 
-	fd = open_fmt_ro("core-%d.img", pid);
+	fd = open_fmt_ro(FMT_FNAME_CORE, pid);
 	if (fd < 0) {
 		perror("Can't open exec image");
 		return 1;
@@ -844,7 +844,7 @@ static int prepare_and_sigreturn(int pid)
 		return 1;
 	}
 
-	sprintf(path, "core-%d.img.out", pid);
+	sprintf(path, FMT_FNAME_CORE_OUT, pid);
 	unlink(path);
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, 0700);
@@ -1035,7 +1035,7 @@ static int prepare_pipes(int pid)
 
 	pr_info("%d: Opening pipes\n", pid);
 
-	pipes_fd = open_fmt_ro("pipes-%d.img", pid);
+	pipes_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
 	if (pipes_fd < 0) {
 		perror("Can't open pipes img");
 		return 1;
@@ -1200,7 +1200,7 @@ static int restore_all_tasks(pid_t pid)
 	int pstree_fd;
 	u32 type = 0;
 
-	sprintf(path, "pstree-%d.img", pid);
+	sprintf(path, FMT_FNAME_PSTREE, pid);
 	pstree_fd = open(path, O_RDONLY);
 	if (pstree_fd < 0) {
 		perror("Can't open pstree image");
@@ -1239,7 +1239,7 @@ static long restorer_vma_hint(pid_t pid, struct list_head *self_vma_list, long v
 	 * better to stick with it.
 	 */
 
-	snprintf(path, sizeof(path), "core-%d.img", pid);
+	snprintf(path, sizeof(path), FMT_FNAME_CORE, pid);
 	fd = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd < 0) {
 		pr_perror("Can't open %s\n", path);
@@ -1319,14 +1319,14 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	snprintf(path, sizeof(path), "pstree-%d.img", pstree_pid);
+	snprintf(path, sizeof(path), FMT_FNAME_PSTREE, pstree_pid);
 	fd_pstree = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_pstree < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
-	snprintf(path, sizeof(path), "vmas-%d.img", getpid());
+	snprintf(path, sizeof(path), FMT_FNAME_VMAS, getpid());
 	unlink(path);
 	fd_vmas = open(path, O_CREAT | O_WRONLY, CR_FD_PERM);
 	if (fd_vmas < 0) {
@@ -1450,7 +1450,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	strcpy(args->self_vmas_path, path);
 
-	snprintf(path, sizeof(path), "core-%d.img.out", pid);
+	snprintf(path, sizeof(path), FMT_FNAME_CORE_OUT, pid);
 	strcpy(args->core_path, path);
 
 	pr_info("restore_task_vma_len: %li restore_task_code_len: %li\n"
@@ -1496,7 +1496,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 			thread_args[i].lock = args->lock;
 
-			snprintf(path, sizeof(path), "core-%d.img", thread_args[i].pid);
+			snprintf(path, sizeof(path), FMT_FNAME_CORE, thread_args[i].pid);
 			thread_args[i].fd_core = open(path, O_RDONLY, CR_FD_PERM);
 			if (thread_args[i].fd_core < 0) {
 				pr_perror("Can't open %s\n", path);

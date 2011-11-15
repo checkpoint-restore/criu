@@ -42,6 +42,16 @@ struct cr_fd_desc_tmpl {
 	u32		magic;			/* magic in the header */
 };
 
+#define FMT_FNAME_FDINFO	"fdinfo-%d.img"
+#define FMT_FNAME_PAGES		"pages-%d.img"
+#define FMT_FNAME_PAGES_SHMEM	"pages-shmem-%d.img"
+#define FMT_FNAME_CORE		"core-%d.img"
+#define FMT_FNAME_CORE_OUT	"core-%d.img.out"
+#define FMT_FNAME_PIPES		"pipes-%d.img"
+#define FMT_FNAME_PSTREE	"pstree-%d.img"
+#define FMT_FNAME_SHMEM		"shmem-%d.img"
+#define FMT_FNAME_VMAS		"vmas-%d.img"
+
 /* file descriptors */
 struct cr_fd_desc {
 	struct cr_fd_desc_tmpl	*tmpl;		/* template we refer to */

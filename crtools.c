@@ -36,53 +36,47 @@ struct page_entry zero_page_entry;
  * for more details.
  */
 
-static struct cr_fd_desc_tmpl template[CR_FD_MAX] = {
+struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 
 	 /* info about file descriptiors */
 	[CR_FD_FDINFO] = {
-		.fmt	= "fdinfo-%d.img",
+		.fmt	= FMT_FNAME_FDINFO,
 		.magic	= FDINFO_MAGIC,
 	},
 
 	/* private memory pages data */
 	[CR_FD_PAGES] = {
-		.fmt	= "pages-%d.img",
+		.fmt	= FMT_FNAME_PAGES,
 		.magic	= PAGES_MAGIC,
 	},
 
 	/* shared memory pages data */
 	[CR_FD_PAGES_SHMEM] = {
-		.fmt	= "pages-shmem-%d.img",
+		.fmt	= FMT_FNAME_PAGES_SHMEM,
 		.magic	= PAGES_MAGIC,
 	},
 
-	/*
-	 * The main part of restoring a single process is calling
-	 * execve syscall on an ELF image which contains memory
-	 * and arch-specific (regs, fpu) data about a process.
-	 *
-	 * Thus this file contains the almost-ready for execve image.
-	 */
+	/* core data, such as regs and vmas and such */
 	[CR_FD_CORE] = {
-		.fmt	= "core-%d.img",
+		.fmt	= FMT_FNAME_CORE,
 		.magic	= CORE_MAGIC,
 	},
 
 	/* info about pipes - fds, pipe id and pipe data */
 	[CR_FD_PIPES] = {
-		.fmt	= "pipes-%d.img",
+		.fmt	= FMT_FNAME_PIPES,
 		.magic	= PIPES_MAGIC,
 	},
 
 	 /* info about process linkage */
 	[CR_FD_PSTREE] = {
-		.fmt	= "pstree-%d.img",
+		.fmt	= FMT_FNAME_PSTREE,
 		.magic	= PSTREE_MAGIC,
 	},
 
 	/* info about which memory areas are shared */
 	[CR_FD_SHMEM] = {
-		.fmt	= "shmem-%d.img",
+		.fmt	= FMT_FNAME_SHMEM,
 		.magic	= SHMEM_MAGIC,
 	},
 };
@@ -97,7 +91,7 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 		goto err;
 
 	for (i = 0; i < CR_FD_MAX; i++) {
-		cr_fdset->desc[i].tmpl = &template[i];
+		cr_fdset->desc[i].tmpl = &fdset_template[i];
 		snprintf(cr_fdset->desc[i].name,
 			 sizeof(cr_fdset->desc[i].name),
 			 cr_fdset->desc[i].tmpl->fmt,
