@@ -414,6 +414,7 @@ err_bogus_mapping:
 
 DIR *opendir_proc(char *fmt, ...)
 {
+	DIR *dir;
 	char path[128];
 	va_list args;
 
@@ -422,11 +423,15 @@ DIR *opendir_proc(char *fmt, ...)
 	vsnprintf(path + 6, sizeof(path) - 6, fmt, args);
 	va_end(args);
 
-	return opendir(path);
+	dir = opendir(path);
+	if (!dir)
+		pr_perror("Can't open %s\n", path);
+	return dir;
 }
 
 FILE *fopen_proc(char *fmt, char *mode, ...)
 {
+	FILE *file;
 	char fname[128];
 	va_list args;
 
@@ -435,11 +440,15 @@ FILE *fopen_proc(char *fmt, char *mode, ...)
 	vsnprintf(fname + 6, sizeof(fname) - 6, fmt, args);
 	va_end(args);
 
-	return fopen(fname, mode);
+	file = fopen(fname, mode);
+	if (!file)
+		pr_perror("Can't open %s\n", fname);
+	return file;
 }
 
 int open_fmt(char *fmt, int mode, ...)
 {
+	int fd;
 	char fname[128];
 	va_list args;
 
@@ -447,5 +456,8 @@ int open_fmt(char *fmt, int mode, ...)
 	vsnprintf(fname, sizeof(fname), fmt, args);
 	va_end(args);
 
-	return open(fname, mode);
+	fd = open(fname, mode);
+	if (fd < 0)
+		pr_perror("Can't open %s\n", fname);
+	return fd;
 }
