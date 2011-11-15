@@ -125,9 +125,6 @@ struct list_head;
 
 void printk_vma(struct vma_area *vma_area);
 
-/* A special marker */
-#define is_ending_vma(vma)	((vma)->start == 0 && (vma)->end == 0)
-
 #define pr_info_vma_list(head)						\
 	do {								\
 		struct vma_area *vma;					\

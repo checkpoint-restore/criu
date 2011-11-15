@@ -126,7 +126,7 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		}
 	}
 
-	dump_all = !!(args->vma_entry.status & VMA_DUMP_ALL);
+	dump_all = vma_entry_is(&args->vma_entry, VMA_DUMP_ALL);
 
 	/*
 	 * Try to change page protection if needed so we would

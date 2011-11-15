@@ -703,15 +703,15 @@ static int fixup_vma_fds(int pid, int fd)
 			return 1;
 		}
 
-		if (vi.start == 0 && vi.end == 0)
+		if (final_vma_entry(&vi))
 			return 0;
 
-		if (!(vi.status & VMA_AREA_REGULAR))
+		if (!(vma_entry_is(&vi, VMA_AREA_REGULAR)))
 			continue;
 
-		if ((vi.status & VMA_FILE_PRIVATE)	||
-		    (vi.status & VMA_FILE_SHARED)	||
-		    (vi.status & VMA_ANON_SHARED)) {
+		if (vma_entry_is(&vi, VMA_FILE_PRIVATE)	||
+		    vma_entry_is(&vi, VMA_FILE_SHARED)	||
+		    vma_entry_is(&vi, VMA_ANON_SHARED)) {
 
 			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
 				pid, vi.start, vi.end, vi.pgoff);

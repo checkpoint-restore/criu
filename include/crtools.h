@@ -85,8 +85,8 @@ struct vma_area {
 	int			vm_file_fd;
 };
 
-#define vma_area_has(vma_area, s) vma_entry_has(&vma_area->vma, s)
-#define vma_entry_len(vma) ((vma)->end - (vma)->start)
+#define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
+#define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
 
 struct pstree_item {
 	struct list_head	list;
@@ -96,11 +96,6 @@ struct pstree_item {
 	u32			*threads;	/* array of threads */
 	u32			*children;	/* array of children */
 };
-
-static inline unsigned long vma_area_size(struct vma_area *vma)
-{
-	return vma->vma.end - vma->vma.start;
-}
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {

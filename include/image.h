@@ -50,22 +50,6 @@ struct pipe_entry {
 	u8	data[0];
 } __packed;
 
-#define VMA_AREA_NONE		(0 <<  0)
-#define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
-#define VMA_AREA_STACK		(1 <<  1)
-#define VMA_AREA_VSYSCALL	(1 <<  2)
-#define VMA_AREA_VDSO		(1 <<  3)
-#define VMA_FORCE_READ		(1 <<  4)	/* VMA changed to be readable */
-#define VMA_AREA_HEAP		(1 <<  5)
-
-#define VMA_FILE_PRIVATE	(1 <<  6)
-#define VMA_FILE_SHARED		(1 <<  7)
-#define VMA_ANON_SHARED		(1 <<  8)
-#define VMA_ANON_PRIVATE	(1 <<  9)
-#define VMA_DUMP_ALL		(1 << 10)	/* Dump the whole VMA area pages */
-
-#define vma_entry_has(vma, s)	(((vma)->status & (s)) == (s))
-
 struct vma_entry {
 	u64	start;
 	u64	end;
@@ -80,10 +64,31 @@ struct vma_entry {
 	u32	dev_min;
 } __packed;
 
+#define VMA_AREA_NONE		(0 <<  0)
+#define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
+#define VMA_AREA_STACK		(1 <<  1)
+#define VMA_AREA_VSYSCALL	(1 <<  2)
+#define VMA_AREA_VDSO		(1 <<  3)
+#define VMA_FORCE_READ		(1 <<  4)	/* VMA changed to be readable */
+#define VMA_AREA_HEAP		(1 <<  5)
+
+#define VMA_FILE_PRIVATE	(1 <<  6)
+#define VMA_FILE_SHARED		(1 <<  7)
+#define VMA_ANON_SHARED		(1 <<  8)
+#define VMA_ANON_PRIVATE	(1 <<  9)
+#define VMA_DUMP_ALL		(1 << 10)	/* Dump the whole VMA area pages */
+
+#define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
+#define vma_entry_len(vma)	((vma)->end - (vma)->start)
+#define final_vma_entry(vma)	((vma)->start == 0 && (vma)->end == 0)
+
 struct page_entry {
 	u64	va;
 	u8	data[PAGE_IMAGE_SIZE];
 } __packed;
+
+#define final_page_va(va)		((va) == 0)
+#define final_page_entry(page_entry)	(final_page_va((page_entry)->va))
 
 #define HEADER_VERSION		1
 #define HEADER_ARCH_X86_64	1

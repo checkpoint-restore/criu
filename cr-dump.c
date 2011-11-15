@@ -352,14 +352,14 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 
 		struct vma_entry *vma = &vma_area->vma;
 
-		if (!(vma->status & VMA_AREA_REGULAR))
+		if (!vma_entry_is(vma, VMA_AREA_REGULAR))
 			continue;
 
 		pr_info_vma(vma_area);
 
 		if (vma->flags & (MAP_SHARED | MAP_PRIVATE)) {
 
-			if ((vma->status & VMA_ANON_SHARED)) {
+			if (vma_entry_is(vma, VMA_ANON_SHARED)) {
 				struct shmem_entry e;
 
 				e.start	= vma->start;
@@ -370,12 +370,13 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 					e.start, e.end, e.shmid);
 
 				write_ptr_safe(cr_fdset->desc[CR_FD_SHMEM].fd, &e, err);
-			} else if ((vma->status & VMA_FILE_PRIVATE) ||
-				   (vma->status & VMA_FILE_SHARED)) {
+			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
+				   vma_entry_is(vma, VMA_FILE_SHARED)) {
 
 				unsigned int flags;
 
-				if (vma->prot & PROT_WRITE && (vma->status & VMA_FILE_SHARED))
+				if (vma->prot & PROT_WRITE &&
+				    vma_entry_is(vma, VMA_FILE_SHARED))
 					flags = O_RDWR;
 				else
 					flags = O_RDONLY;
@@ -985,13 +986,13 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 		 * Just in case if someone broke parasite page
 		 * dumper code.
 		 */
-		if (!vma_area_has(vma_area, VMA_AREA_REGULAR)) {
+		if (!vma_area_is(vma_area, VMA_AREA_REGULAR)) {
 			pr_panic("\nA page with address %lx has a wrong status\n", va);
 			goto err;
 		}
 
-		if (vma_area_has(vma_area, VMA_ANON_PRIVATE) ||
-		    vma_area_has(vma_area, VMA_FILE_PRIVATE)) {
+		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
+		    vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
 			ret  = write(fd_core, &va, sizeof(va));
 			ret += sendfile(fd_core, fd_pages, NULL, PAGE_SIZE);
 			if (ret != sizeof(va) + PAGE_SIZE) {
@@ -1001,7 +1002,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 				goto err;
 			}
 			num++;
-		} else if (vma_area_has(vma_area, VMA_ANON_SHARED)) {
+		} else if (vma_area_is(vma_area, VMA_ANON_SHARED)) {
 			ret  = write(fd_pages_shmem, &va, sizeof(va));
 			ret += sendfile(fd_pages_shmem, fd_pages, NULL, PAGE_SIZE);
 			if (ret != sizeof(va) + PAGE_SIZE) {

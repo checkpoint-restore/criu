@@ -253,7 +253,7 @@ static void show_core(struct cr_fdset *cr_fdset)
 			goto out;
 		}
 
-		if (is_ending_vma(&ve)) {
+		if (final_vma_entry(&ve)) {
 			pr_info("\n\t---[Pages]---\n");
 			while (1) {
 				ret = read(fd_core, &va, sizeof(va));

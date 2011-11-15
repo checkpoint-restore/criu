@@ -238,11 +238,10 @@ self_len_end:
 				goto core_restore_end;
 			}
 
-			if (!(vma_entry.status & VMA_AREA_REGULAR))
+			if (!vma_entry_is(&vma_entry, VMA_AREA_REGULAR))
 				continue;
 
-			if (sys_munmap((void *)vma_entry.start,
-				       vma_entry.end - vma_entry.start)) {
+			if (sys_munmap((void *)vma_entry.start, vma_entry_len(&vma_entry))) {
 				write_hex_n(__LINE__);
 				goto core_restore_end;
 			}
@@ -265,10 +264,10 @@ self_len_end:
 				goto core_restore_end;
 			}
 
-			if (!vma_entry.start)
+			if (final_vma_entry(&vma_entry))
 				break;
 
-			if (vma_entry.status & VMA_AREA_VDSO) {
+			if (vma_entry_is(&vma_entry, VMA_AREA_VDSO)) {
 				ret = sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SETUP_VDSO_AT,
 						vma_entry.start, 0, 0);
 				if (ret) {
@@ -279,7 +278,7 @@ self_len_end:
 				continue;
 			}
 
-			if (!(vma_entry.status & VMA_AREA_REGULAR))
+			if (!vma_entry_is(&vma_entry, VMA_AREA_REGULAR))
 				continue;
 
 			/*
@@ -288,7 +287,7 @@ self_len_end:
 			 * MAP_ANONYMOUS should be eliminated so fd would
 			 * be taken into account by a kernel.
 			 */
-			if (vma_entry.status & VMA_ANON_SHARED) {
+			if (vma_entry_is(&vma_entry, VMA_ANON_SHARED)) {
 				if (vma_entry.fd != -1UL)
 					vma_entry.flags &= ~MAP_ANONYMOUS;
 			}
@@ -299,7 +298,7 @@ self_len_end:
 			 * contents.
 			 */
 			va = sys_mmap((void *)vma_entry.start,
-				      vma_entry.end - vma_entry.start,
+				      vma_entry_len(&vma_entry),
 				      vma_entry.prot | PROT_WRITE,
 				      vma_entry.flags | MAP_FIXED,
 				      vma_entry.fd,
@@ -333,7 +332,7 @@ self_len_end:
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
-			if (!va)
+			if (final_page_va(va))
 				break;
 
 			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
@@ -359,17 +358,17 @@ self_len_end:
 				goto core_restore_end;
 			}
 
-			if (!vma_entry.start)
+			if (final_vma_entry(&vma_entry))
 				break;
 
-			if (!(vma_entry.status & VMA_AREA_REGULAR))
+			if (!(vma_entry_is(&vma_entry, VMA_AREA_REGULAR)))
 				continue;
 
 			if (vma_entry.prot & PROT_WRITE)
 				continue;
 
 			sys_mprotect(vma_entry.start,
-				     vma_entry.end - vma_entry.start,
+				     vma_entry_len(&vma_entry),
 				     vma_entry.prot);
 		}
 
