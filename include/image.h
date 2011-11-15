@@ -204,10 +204,6 @@ struct core_entry {
 
 #endif /* CONFIG_X86_64 */
 
-#ifndef offsetof
-# define offsetof(TYPE, MEMBER) ((long) &((TYPE *)0)->MEMBER)
-#endif
-
 /*
  * There are always 4 magic bytes at the
  * beginning of the every file.
