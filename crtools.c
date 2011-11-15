@@ -40,19 +40,19 @@ static struct cr_fd_desc_tmpl template[CR_FD_MAX] = {
 
 	 /* info about file descriptiors */
 	[CR_FD_FDINFO] = {
-		.fmt	= "fdinfo-%li.img",
+		.fmt	= "fdinfo-%d.img",
 		.magic	= FDINFO_MAGIC,
 	},
 
 	/* private memory pages data */
 	[CR_FD_PAGES] = {
-		.fmt	= "pages-%li.img",
+		.fmt	= "pages-%d.img",
 		.magic	= PAGES_MAGIC,
 	},
 
 	/* shared memory pages data */
 	[CR_FD_PAGES_SHMEM] = {
-		.fmt	= "pages-shmem-%li.img",
+		.fmt	= "pages-shmem-%d.img",
 		.magic	= PAGES_MAGIC,
 	},
 
@@ -64,25 +64,25 @@ static struct cr_fd_desc_tmpl template[CR_FD_MAX] = {
 	 * Thus this file contains the almost-ready for execve image.
 	 */
 	[CR_FD_CORE] = {
-		.fmt	= "core-%li.img",
+		.fmt	= "core-%d.img",
 		.magic	= CORE_MAGIC,
 	},
 
 	/* info about pipes - fds, pipe id and pipe data */
 	[CR_FD_PIPES] = {
-		.fmt	= "pipes-%li.img",
+		.fmt	= "pipes-%d.img",
 		.magic	= PIPES_MAGIC,
 	},
 
 	 /* info about process linkage */
 	[CR_FD_PSTREE] = {
-		.fmt	= "pstree-%li.img",
+		.fmt	= "pstree-%d.img",
 		.magic	= PSTREE_MAGIC,
 	},
 
 	/* info about which memory areas are shared */
 	[CR_FD_SHMEM] = {
-		.fmt	= "shmem-%li.img",
+		.fmt	= "shmem-%d.img",
 		.magic	= SHMEM_MAGIC,
 	},
 };
@@ -101,7 +101,7 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 		snprintf(cr_fdset->desc[i].name,
 			 sizeof(cr_fdset->desc[i].name),
 			 cr_fdset->desc[i].tmpl->fmt,
-			 (long)pid);
+			 pid);
 		cr_fdset->desc[i].fd = -1;
 	}
 
