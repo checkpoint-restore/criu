@@ -135,6 +135,7 @@ void printk_vma(struct vma_area *vma_area);
 			pr_info_vma(vma);				\
 	} while (0)
 
+/* Note while VMA_AREA_NONE we rely on xzalloc */
 #define alloc_vma_area()					\
 	({							\
 		struct vma_area *p__ = xzalloc(sizeof(*p__));	\

@@ -50,6 +50,7 @@ struct pipe_entry {
 	u8	data[0];
 } __packed;
 
+#define VMA_AREA_NONE		(0 <<  0)
 #define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
 #define VMA_AREA_STACK		(1 <<  1)
 #define VMA_AREA_VSYSCALL	(1 <<  2)
