@@ -16,7 +16,6 @@ struct parasite_ctl {
 	pid_t			pid;			/* process pid where we live in */
 	struct vma_area		*vma_area;		/* our space we host */
 	unsigned long		parasite_ip;		/* service routine start ip */
-	unsigned long		parasite_complete_ip;	/* where we end execution */
 	unsigned long		addr_cmd;		/* addr for command */
 	unsigned long		addr_args;		/* address for arguments */
 };

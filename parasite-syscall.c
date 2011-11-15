@@ -520,7 +520,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 	}
 
 	ctl->parasite_ip		= PARASITE_HEAD_ADDR((unsigned long)mmaped);
-	ctl->parasite_complete_ip	= PARASITE_COMPLETE_ADDR((unsigned long)mmaped);
 	ctl->addr_cmd			= PARASITE_CMD_ADDR((unsigned long)mmaped);
 	ctl->addr_args			= PARASITE_ARGS_ADDR((unsigned long)mmaped);
 
