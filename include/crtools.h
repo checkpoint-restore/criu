@@ -97,16 +97,6 @@ struct pstree_item {
 	u32			*children;	/* array of children */
 };
 
-struct pstree_item_info {
-	struct list_head	list;
-
-	pid_t			pid;		/* leader pid */
-	u32			nr_children;	/* number of children */
-	u32			*children;	/* array of children */
-
-	bool			launched;	/* set if launched */
-};
-
 static inline unsigned long vma_area_size(struct vma_area *vma)
 {
 	return vma->vma.end - vma->vma.start;
