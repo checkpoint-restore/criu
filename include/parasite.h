@@ -6,8 +6,6 @@
 #include "image.h"
 
 #define __parasite_head		__used __section(.parasite.head.text)
-#define __parasite_text		__used __section(.parasite.text)
-#define __parasite_stack	__used __section(.parasite.stack)
 
 #define PARASITE_STACK_SIZE	2048
 #define PARASITE_ARG_SIZE	256
