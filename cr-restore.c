@@ -1219,7 +1219,7 @@ static int restore_all_tasks(pid_t pid)
 	return restore_root_task(path, pstree_fd);
 }
 
-static long restorer_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
+static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
 {
 	struct vma_area *vma_area;
 	long prev_vma_end, hint;
@@ -1284,26 +1284,28 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_task_code_len, restore_task_vma_len;
 	long restore_thread_code_len, restore_thread_vma_len;
+
 	void *exec_mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
-	long args_offset, new_sp, hint;
+
+	long new_sp, exec_mem_hint;
 	long ret;
 
-	struct task_restore_core_args *args;
+	struct task_restore_core_args *task_args;
+	struct thread_restore_args *thread_args;
+
 	char path[64];
 
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
-	int fd_vmas = -1;
+	int fd_self_vmas = -1;
+	int fd_core = -1;
 	int num;
 
-	struct thread_restore_args *thread_args;
 	struct pstree_entry pstree_entry;
 	int *fd_core_threads;
 	int fd_pstree = -1;
-
-	RLOCK_T(rlock);
 
 	restore_task_code_len	= 0;
 	restore_task_vma_len	= 0;
@@ -1313,9 +1315,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	if (parse_maps(getpid(), &self_vma_list, false))
 		goto err;
 
-	pr_info_vma_list(&self_vma_list);
+	/* pr_info_vma_list(&self_vma_list); */
 
-	BUILD_BUG_ON(sizeof(struct task_restore_core_args) > RESTORE_ARGS_SIZE);
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
@@ -1326,17 +1327,24 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		goto err;
 	}
 
+	snprintf(path, sizeof(path), FMT_FNAME_CORE_OUT, pid);
+	fd_core = open(path, O_RDONLY, CR_FD_PERM);
+	if (fd_core < 0) {
+		pr_perror("Can't open %s\n", path);
+		goto err;
+	}
+
 	snprintf(path, sizeof(path), FMT_FNAME_VMAS, getpid());
 	unlink(path);
-	fd_vmas = open(path, O_CREAT | O_WRONLY, CR_FD_PERM);
-	if (fd_vmas < 0) {
+	fd_self_vmas = open(path, O_CREAT | O_RDWR, CR_FD_PERM);
+	if (fd_self_vmas < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
 	num = 0;
 	list_for_each_entry(vma_area, &self_vma_list, list) {
-		ret = write(fd_vmas, &vma_area->vma, sizeof(vma_area->vma));
+		ret = write(fd_self_vmas, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
 			pr_perror("\nUnable to write vma entry (%li written)\n", num);
 			goto err;
@@ -1344,17 +1352,12 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		num++;
 	}
 
-	close_safe(&fd_vmas);
 	free_mappings(&self_vma_list);
 
-	restore_task_code_len	= restore_task(RESTORE_CMD__GET_SELF_LEN) - (long)restore_task;
+	restore_task_code_len	= restore_task(RESTORE_CMD__GET_SELF_LEN, NULL) - (long)restore_task;
 	restore_task_code_len	= round_up(restore_task_code_len, 16);
 
-	args_offset		= restore_task(RESTORE_CMD__GET_ARG_OFFSET) - (long)restore_task;
-	restore_task_vma_len	= round_up(restore_task_code_len + RESTORE_STACK_SIZE + RESTORE_STACK_FRAME, PAGE_SIZE);
-
-	restore_thread_code_len = restore_thread(RESTORE_CMD__GET_SELF_LEN, NULL) - (long)restore_thread;
-	restore_thread_code_len	= round_up(restore_thread_code_len, 16);
+	restore_task_vma_len	= round_up(restore_task_code_len + sizeof(*task_args), PAGE_SIZE);
 
 	/*
 	 * Thread statistics
@@ -1381,11 +1384,12 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		/*
 		 * Compute how many memory we will need
 		 * to restore all threads, every thread
-		 * requires own stack and heap, it's about
-		 * 40K per thread.
+		 * requires own stack and heap, it's ~40K
+		 * per thread.
 		 */
 
-		BUILD_BUG_ON(sizeof(*thread_args) & 1);
+		restore_thread_code_len = restore_thread(RESTORE_CMD__GET_SELF_LEN, NULL) - (long)restore_thread;
+		restore_thread_code_len	= round_up(restore_thread_code_len, 16);
 
 		restore_thread_vma_len = sizeof(*thread_args) * pstree_entry.nr_threads;
 		restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
@@ -1397,17 +1401,22 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		break;
 	}
 
-	hint = restorer_vma_hint(pid, &self_vma_list,
-				 restore_task_vma_len + restore_thread_vma_len);
-	if (hint == -1) {
+	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
+					      restore_task_vma_len +
+					      restore_thread_vma_len);
+	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%dK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
 		goto err;
-	} else
-		pr_info("Found bootstrap VMA hint at: %lx\n", hint);
+	} else {
+		pr_info("Found bootstrap VMA hint at: %lx (needs ~%dK)\n",
+			exec_mem_hint,
+			(restore_task_vma_len + restore_thread_vma_len) >> 10);
+	}
 
 	/* VMA we need to run task_restore code */
-	exec_mem = mmap((void *)hint, restore_task_vma_len + restore_thread_vma_len,
+	exec_mem = mmap((void *)exec_mem_hint,
+			restore_task_vma_len + restore_thread_vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (exec_mem == MAP_FAILED) {
@@ -1416,76 +1425,44 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	}
 
 	/*
-	 * Prepare a stack for the task_restore. It's a bit
-	 * tricky -- since compiler generates function
-	 * prologue we need to manually tune up stack
-	 * value.
+	 * Prepare a memory map for restorer. Note a thread space
+	 * might be completely unused so it's here just for convenience.
 	 */
-	memzero(exec_mem, RESTORE_STACK_SIZE + RESTORE_STACK_FRAME);
-	restore_task_exec_start = exec_mem + RESTORE_STACK_SIZE + RESTORE_STACK_FRAME;
+	restore_task_exec_start		= exec_mem;
+	restore_thread_exec_start	= restore_task_exec_start + restore_task_vma_len;
+	task_args			= restore_task_exec_start + restore_task_code_len;
+	thread_args			= restore_thread_exec_start + restore_thread_code_len;
 
-	/* Restorer content at the new location */
+	memzero_p(task_args);
+	memzero_p(thread_args);
+
+	/*
+	 * Code at a new place.
+	 */
 	memcpy(restore_task_exec_start, &restore_task, restore_task_code_len);
-
-	/*
-	 * Adjust stack with red-zone area.
-	 */
-	new_sp = (long)exec_mem + RESTORE_STACK_SIZE - RESTORE_STACK_REDZONE;
-
-	/*
-	 * Thread restorer will be there.
-	 */
-	restore_thread_exec_start = (void *)((long)exec_mem + restore_task_vma_len);
 	memcpy(restore_thread_exec_start, &restore_thread, restore_thread_code_len);
 
 	/*
-	 * Pass arguments and run a command.
+	 * Adjust stack.
 	 */
-	args			= (struct task_restore_core_args *)(restore_task_exec_start + args_offset);
-	args->rt_sigframe	= (void *)((long)exec_mem + RESTORE_STACK_SIZE + RESTORE_STACK_FRAME - RESTORE_STACK_REDZONE);
-	args->self_entry	= exec_mem;
-	args->self_size		= restore_task_vma_len;
-	args->lock		= &rlock;
-	args->pid		= pid;
+	new_sp = RESTORE_ALIGN_STACK((long)task_args->mem_zone.stack, sizeof(task_args->mem_zone.stack));
 
-	strcpy(args->self_vmas_path, path);
-
-	snprintf(path, sizeof(path), FMT_FNAME_CORE_OUT, pid);
-	strcpy(args->core_path, path);
-
-	pr_info("restore_task_vma_len: %li restore_task_code_len: %li\n"
-		"exec_mem: %p restore_task_exec_start: %p new_sp: %p\n"
-		"args: %p args->rt_sigframe: %p\n"
-		"args->self_entry: %p args->self_size: %p\n"
-		"args->self_vmas_path: %p args->core_path: %p\n"
-		"args_offset: %li\n",
-		restore_task_vma_len, restore_task_code_len,
-		exec_mem, restore_task_exec_start, new_sp, args,
-		args->rt_sigframe, args->self_entry, args->self_size,
-		args->self_vmas_path, args->core_path,
-		args_offset);
+	/*
+	 * Arguments for task restoration.
+	 */
+	task_args->pid		= pid;
+	task_args->fd_core	= fd_core;
+	task_args->fd_self_vmas	= fd_self_vmas;
 
 	if (pstree_entry.nr_threads) {
-
 		int i;
 
 		/*
 		 * Now prepare run-time data for threads restore.
 		 */
-		thread_args = (struct thread_restore_args *)
-				((long)restore_thread_exec_start +
-				 (long)restore_thread_code_len);
-
-		args->nr_threads	= (long)pstree_entry.nr_threads;
-		args->clone_restore_fn	= (void *)restore_thread_exec_start;
-		args->thread_args	= thread_args;
-
-		pr_info("args->nr_threads: %li\n"
-			"args->clone_restore_fn: %p\n"
-			"args->thread_args: %p\n",
-			args->nr_threads,
-			args->clone_restore_fn,
-			args->thread_args);
+		task_args->nr_threads		= pstree_entry.nr_threads;
+		task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
+		task_args->thread_args		= thread_args;
 
 		/*
 		 * Fill up per-thread data.
@@ -1494,8 +1471,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		for (i = 0; i < pstree_entry.nr_threads; i++) {
 			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
 
-			thread_args[i].lock = args->lock;
-
+			/* Core files are to be opened */
 			snprintf(path, sizeof(path), FMT_FNAME_CORE, thread_args[i].pid);
 			thread_args[i].fd_core = open(path, O_RDONLY, CR_FD_PERM);
 			if (thread_args[i].fd_core < 0) {
@@ -1503,14 +1479,25 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 				goto err;
 			}
 
-			pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p lock %8p\n",
-				i, (long)thread_args[i].stack,
-				thread_args[i].heap,
-				thread_args[i].rt_sigframe,
-				thread_args[i].lock);
+			pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
+				i, (long)thread_args[i].mem_zone.stack,
+				thread_args[i].mem_zone.heap,
+				thread_args[i].mem_zone.rt_sigframe);
 
 		}
 	}
+
+	pr_info("task_args: %p\n"
+		"task_args->pid: %d\n"
+		"task_args->fd_core: %d\n"
+		"task_args->fd_self_vmas: %d\n"
+		"task_args->nr_threads: %d\n"
+		"task_args->clone_restore_fn: %p\n"
+		"task_args->thread_args: %p\n",
+		task_args, task_args->pid,
+		task_args->fd_core, task_args->fd_self_vmas,
+		task_args->nr_threads, task_args->clone_restore_fn,
+		task_args->thread_args);
 
 	close_safe(&fd_pstree);
 
@@ -1521,17 +1508,21 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	asm volatile(
 		"movq %0, %%rbx						\n"
 		"movq %1, %%rax						\n"
+		"movq %2, %%rsi						\n"
 		"movl $"__stringify(RESTORE_CMD__RESTORE_CORE)", %%edi	\n"
 		"movq %%rbx, %%rsp					\n"
 		"callq *%%rax						\n"
 		:
-		: "g"(new_sp), "g"(restore_task_exec_start)
-		: "rsp", "rdi", "rbx", "rax", "memory");
+		: "g"(new_sp),
+		  "g"(restore_task_exec_start),
+		  "g"(task_args)
+		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
 
 err:
 	free_mappings(&self_vma_list);
 	close_safe(&fd_pstree);
-	close_safe(&fd_vmas);
+	close_safe(&fd_core);
+	close_safe(&fd_self_vmas);
 
 	if (exec_mem != MAP_FAILED)
 		munmap(exec_mem, restore_task_vma_len + restore_thread_vma_len);

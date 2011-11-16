@@ -17,17 +17,9 @@
 #include "crtools.h"
 #include "restorer.h"
 
-#define lea_args_off(to, label)						\
-	do {								\
-		asm volatile(						\
-			"leaq " #label "(%%rip), %%rax		\n"	\
-			"movq %%rax, %0				\n"	\
-			: "=m"(to)					\
-			:						\
-			: "memory");					\
-	} while (0)
-
-
+/*
+ * Threads restoration via sigreturn.
+ */
 long restore_thread(long cmd, struct thread_restore_args *args)
 {
 	long ret = -1;
@@ -36,14 +28,10 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 	case RESTORE_CMD__RESTORE_THREAD:
 	{
 		struct core_entry *core_entry;
-
-		struct user_fpregs_entry *fpregs;
-		struct user_regs_entry *gpregs;
 		struct rt_sigframe *rt_sigframe;
-
 		unsigned long new_sp, fsgs_base;
 
-		core_entry = &args->core_entry;
+		core_entry = (struct core_entry *)&args->mem_zone.heap;
 
 		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
 		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
@@ -52,9 +40,10 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 			goto core_restore_end;
 		}
 
+		/* We're to close it! */
 		sys_close(args->fd_core);
 
-		rt_sigframe = (void *)args->rt_sigframe + 8;
+		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.d
 #define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.s
@@ -96,8 +85,6 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 			write_hex_n(ret);
 			goto core_restore_end;
 		}
-
-		//r_unlock(args->lock);
 
 		new_sp = (long)rt_sigframe + 8;
 		asm volatile(
@@ -143,37 +130,14 @@ self_len_start:
 	goto self_len_end;
 }
 
-long restore_task(long cmd)
+/*
+ * The main routine to restore task via sigreturn.
+ */
+long restore_task(long cmd, struct task_restore_core_args *args)
 {
 	long ret = -1;
 
-	asm volatile(
-		"jmp 1f						\n"
-		"restore_args__:				\n"
-		".skip "__stringify(RESTORE_ARGS_SIZE)",0	\n"
-		"1:						\n"
-		:
-		:
-		: "memory");
-
-#define restore_lea_args_off(to)	\
-	lea_args_off(to, restore_args__)
-
 	switch (cmd) {
-	case RESTORE_CMD__PR_ARG_STRING:
-	{
-		char *str = NULL;
-
-		restore_lea_args_off(str);
-		write_string(str);
-
-		ret = 0;
-	}
-		break;
-
-	case RESTORE_CMD__GET_ARG_OFFSET:
-		restore_lea_args_off(ret);
-		break;
 
 	case RESTORE_CMD__GET_SELF_LEN:
 		goto self_len_start;
@@ -188,88 +152,73 @@ self_len_end:
 	 */
 	case RESTORE_CMD__RESTORE_CORE:
 	{
-		struct task_restore_core_args *args;
-		int fd_core, fd_thread;
-		int fd_self_vmas;
-
-		struct core_entry core_entry;
-		struct vma_entry vma_entry;
+		struct core_entry *core_entry;
+		struct vma_entry *vma_entry;
 		u64 va;
 
-		struct user_fpregs_entry *fpregs;
-		struct user_regs_entry *gpregs;
 		struct rt_sigframe *rt_sigframe;
-
 		unsigned long new_sp, fsgs_base;
 
-		restore_lea_args_off(args);
+		core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
+		vma_entry	= next_on_heap(vma_entry, core_entry);
 
-		write_string_n(args->core_path);
-		write_string_n(args->self_vmas_path);
+#if 0
+		write_hex_n((long)args);
+		write_hex_n((long)args->mem_zone.heap);
+		write_hex_n((long)core_entry);
+		write_hex_n((long)vma_entry);
+#endif
 
-		fd_core = sys_open(args->core_path, O_RDONLY, CR_FD_PERM);
-		if (fd_core < 0) {
-			write_hex_n(__LINE__);
-			goto core_restore_end;
-		}
-
-		sys_lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
-		ret = sys_read(fd_core, &core_entry, sizeof(core_entry));
-		if (ret != sizeof(core_entry)) {
-			write_hex_n(__LINE__);
-			goto core_restore_end;
-		}
-
-		fd_self_vmas = sys_open(args->self_vmas_path, O_RDONLY, CR_FD_PERM);
-		if (fd_self_vmas < 0) {
+		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
+		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
+		if (ret != sizeof(*core_entry)) {
 			write_hex_n(__LINE__);
 			goto core_restore_end;
 		}
 
 		/* Note no magic constant on fd_self_vmas */
-		sys_lseek(fd_self_vmas, 0, SEEK_SET);
+		ret = sys_lseek(args->fd_self_vmas, 0, SEEK_SET);
 		while (1) {
-			ret = sys_read(fd_self_vmas, &vma_entry, sizeof(vma_entry));
+			ret = sys_read(args->fd_self_vmas, vma_entry, sizeof(*vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry)) {
+			if (ret != sizeof(*vma_entry)) {
 				write_hex_n(__LINE__);
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
 
-			if (!vma_entry_is(&vma_entry, VMA_AREA_REGULAR))
+			if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 				continue;
 
-			if (sys_munmap((void *)vma_entry.start, vma_entry_len(&vma_entry))) {
+			if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
 				write_hex_n(__LINE__);
 				goto core_restore_end;
 			}
 		}
 
-		sys_close(fd_self_vmas);
-		sys_unlink(args->self_vmas_path);
+		sys_close(args->fd_self_vmas);
 
 		/*
 		 * OK, lets try to map new one.
 		 */
-		sys_lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+		sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 		while (1) {
-			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
+			ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry)) {
+			if (ret != sizeof(*vma_entry)) {
 				write_hex_n(__LINE__);
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
 
-			if (final_vma_entry(&vma_entry))
+			if (final_vma_entry(vma_entry))
 				break;
 
-			if (vma_entry_is(&vma_entry, VMA_AREA_VDSO)) {
+			if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
 				ret = sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SETUP_VDSO_AT,
-						vma_entry.start, 0, 0);
+						vma_entry->start, 0, 0);
 				if (ret) {
 					write_hex_n(__LINE__);
 					write_hex_n(ret);
@@ -278,7 +227,7 @@ self_len_end:
 				continue;
 			}
 
-			if (!vma_entry_is(&vma_entry, VMA_AREA_REGULAR))
+			if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 				continue;
 
 			/*
@@ -287,9 +236,9 @@ self_len_end:
 			 * MAP_ANONYMOUS should be eliminated so fd would
 			 * be taken into account by a kernel.
 			 */
-			if (vma_entry_is(&vma_entry, VMA_ANON_SHARED)) {
-				if (vma_entry.fd != -1UL)
-					vma_entry.flags &= ~MAP_ANONYMOUS;
+			if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
+				if (vma_entry->fd != -1UL)
+					vma_entry->flags &= ~MAP_ANONYMOUS;
 			}
 
 			/*
@@ -297,34 +246,34 @@ self_len_end:
 			 * writable since we're going to restore page
 			 * contents.
 			 */
-			va = sys_mmap((void *)vma_entry.start,
-				      vma_entry_len(&vma_entry),
-				      vma_entry.prot | PROT_WRITE,
-				      vma_entry.flags | MAP_FIXED,
-				      vma_entry.fd,
-				      vma_entry.pgoff);
+			va = sys_mmap((void *)vma_entry->start,
+				      vma_entry_len(vma_entry),
+				      vma_entry->prot | PROT_WRITE,
+				      vma_entry->flags | MAP_FIXED,
+				      vma_entry->fd,
+				      vma_entry->pgoff);
 
-			if (va != vma_entry.start) {
+			if (va != vma_entry->start) {
 				write_hex_n(__LINE__);
-				write_hex_n(vma_entry.start);
-				write_hex_n(vma_entry.end);
-				write_hex_n(vma_entry.prot);
-				write_hex_n(vma_entry.flags);
-				write_hex_n(vma_entry.fd);
-				write_hex_n(vma_entry.pgoff);
+				write_hex_n(vma_entry->start);
+				write_hex_n(vma_entry->end);
+				write_hex_n(vma_entry->prot);
+				write_hex_n(vma_entry->flags);
+				write_hex_n(vma_entry->fd);
+				write_hex_n(vma_entry->pgoff);
 				write_hex_n(va);
 				goto core_restore_end;
 			}
 
-			if (vma_entry.fd != -1UL)
-				sys_close(vma_entry.fd);
+			if (vma_entry->fd != -1UL)
+				sys_close(vma_entry->fd);
 		}
 
 		/*
 		 * Read page contents.
 		 */
 		while (1) {
-			ret = sys_read(fd_core, &va, sizeof(va));
+			ret = sys_read(args->fd_core, &va, sizeof(va));
 			if (!ret)
 				break;
 			if (ret != sizeof(va)) {
@@ -335,7 +284,7 @@ self_len_end:
 			if (final_page_va(va))
 				break;
 
-			ret = sys_read(fd_core, (void *)va, PAGE_SIZE);
+			ret = sys_read(args->fd_core, (void *)va, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
 				write_hex_n(__LINE__);
 				write_hex_n(ret);
@@ -347,44 +296,51 @@ self_len_end:
 		 * Walk though all VMAs again to drop PROT_WRITE
 		 * if it was not there.
 		 */
-		sys_lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+		sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 		while (1) {
-			ret = sys_read(fd_core, &vma_entry, sizeof(vma_entry));
+			ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
 			if (!ret)
 				break;
-			if (ret != sizeof(vma_entry)) {
+			if (ret != sizeof(*vma_entry)) {
 				write_hex_n(__LINE__);
 				write_hex_n(ret);
 				goto core_restore_end;
 			}
 
-			if (final_vma_entry(&vma_entry))
+			if (final_vma_entry(vma_entry))
 				break;
 
-			if (!(vma_entry_is(&vma_entry, VMA_AREA_REGULAR)))
+			if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 				continue;
 
-			if (vma_entry.prot & PROT_WRITE)
+			if (vma_entry->prot & PROT_WRITE)
 				continue;
 
-			sys_mprotect(vma_entry.start,
-				     vma_entry_len(&vma_entry),
-				     vma_entry.prot);
+			sys_mprotect(vma_entry->start,
+				     vma_entry_len(vma_entry),
+				     vma_entry->prot);
 		}
 
-		sys_close(fd_core);
+		sys_close(args->fd_core);
 
 		/*
 		 * Tune up the task fields.
 		 */
-		sys_prctl(PR_SET_NAME, (long)core_entry.task_comm, 0, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_CODE,	(long)core_entry.mm_start_code, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_CODE,	(long)core_entry.mm_end_code, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_DATA,	(long)core_entry.mm_start_data, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_DATA,	(long)core_entry.mm_end_data, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_STACK,	(long)core_entry.mm_start_stack, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_BRK,	(long)core_entry.mm_start_brk, 0, 0);
-		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_BRK,		(long)core_entry.mm_brk, 0, 0);
+		sys_prctl(PR_SET_NAME, (long)core_entry->task_comm, 0, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_CODE,
+			  (long)core_entry->mm_start_code, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_CODE,
+			  (long)core_entry->mm_end_code, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_DATA,
+			  (long)core_entry->mm_start_data, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_END_DATA,
+			  (long)core_entry->mm_end_data, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_STACK,
+			  (long)core_entry->mm_start_stack, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_START_BRK,
+			  (long)core_entry->mm_start_brk, 0, 0);
+		sys_prctl(PR_CKPT_CTL, PR_CKPT_CTL_SET_MM_BRK,
+			  (long)core_entry->mm_brk, 0, 0);
 
 		/*
 		 * We need to prepare a valid sigframe here, so
@@ -392,10 +348,10 @@ self_len_end:
 		 * registers from the frame, set them up and
 		 * finally pass execution to the new IP.
 		 */
-		rt_sigframe = args->rt_sigframe - sizeof(*rt_sigframe);
+		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.d
-#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry.u.arch.gpregs.s
+#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.d
+#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.s
 
 		CPREG1(r8);
 		CPREG1(r9);
@@ -419,7 +375,7 @@ self_len_end:
 		CPREG1(gs);
 		CPREG1(fs);
 
-		fsgs_base = core_entry.u.arch.gpregs.fs_base;
+		fsgs_base = core_entry->u.arch.gpregs.fs_base;
 		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 		if (ret) {
 			write_hex_n(__LINE__);
@@ -427,7 +383,7 @@ self_len_end:
 			goto core_restore_end;
 		}
 
-		fsgs_base = core_entry.u.arch.gpregs.gs_base;
+		fsgs_base = core_entry->u.arch.gpregs.gs_base;
 		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 		if (ret) {
 			write_hex_n(__LINE__);
@@ -438,19 +394,17 @@ self_len_end:
 		/*
 		 * Blocked signals.
 		 */
-		rt_sigframe->uc.uc_sigmask.sig[0] = core_entry.task_sigset;
+		rt_sigframe->uc.uc_sigmask.sig[0] = core_entry->task_sigset;
 
 		/*
 		 * Threads restoration. This requires some more comments. This
 		 * restorer routine and thread restorer routine has the following
 		 * memory map, prepared by a caller code.
 		 *
-		 * | <-- low addresses                                   high addresses --> |
-		 * +------------------------------------------------+-----------------------+
-		 * | own stack | rt_sigframe space | this proc body | thread restore zone   |
-		 * +------------------------------------------------+-----------------------+
-		 *        %sp->|       call %rip ->|
-		 *   params->|
+		 * | <-- low addresses                                          high addresses --> |
+		 * +-------------------------------------------------------+-----------------------+
+		 * | this proc body | own stack | heap | rt_sigframe space | thread restore zone   |
+		 * +-------------------------------------------------------+-----------------------+
 		 *
 		 * where each thread restore zone is the following
 		 *
@@ -458,10 +412,6 @@ self_len_end:
 		 * +--------------------------------------------------------------------------+
 		 * | thread restore proc | thread1 stack | thread1 heap | thread1 rt_sigframe |
 		 * +--------------------------------------------------------------------------+
-		 * |<- call %rip                   %sp ->|              |
-		 *                             params->| |              |
-		 *                                       |<-heap        |
-		 *                                                      |<-frame
 		 */
 
 		if (args->nr_threads) {
@@ -478,12 +428,9 @@ self_len_end:
 				if (thread_args[i].pid == args->pid)
 					continue;
 
-				new_sp = (long)thread_args[i].stack +
-						sizeof(thread_args[i].stack) -
-						ABI_RED_ZONE;
-
-				/* Threads will unlock it */
-				//r_lock(args->lock);
+				new_sp =
+					RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
+							    sizeof(thread_args[i].mem_zone.stack));
 
 				/*
 				 * To achieve functionality like libc's clone()
@@ -535,10 +482,8 @@ self_len_end:
 			}
 		}
 
-		//r_lock(args->lock);
-
 		/*
-		 * sigframe is on stack.
+		 * Sigframe stack.
 		 */
 		new_sp = (long)rt_sigframe + 8;
 
