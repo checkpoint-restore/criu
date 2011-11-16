@@ -1,6 +1,9 @@
 Some things which are to be done
 --------------------------------
 
+- to restore anonymous shared pages safetly we need a global
+  mutex so there will be no activity on another thread until
+  mmap+page_read pair finish its job
 - cgroups should be used instead of explicit task stops by signals
 - dump/restore of network connections
 - dump/restore of IPC
