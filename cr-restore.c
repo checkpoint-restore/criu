@@ -1453,6 +1453,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
+	task_args->rst_lock	= 0;
 
 	if (pstree_entry.nr_threads) {
 		int i;
@@ -1478,6 +1479,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 				pr_perror("Can't open %s\n", path);
 				goto err;
 			}
+
+			thread_args[i].rst_lock = &task_args->rst_lock;
 
 			pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
 				i, (long)thread_args[i].mem_zone.stack,

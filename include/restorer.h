@@ -54,6 +54,7 @@ struct thread_restore_args {
 
 	int				pid;
 	int				fd_core;
+	long				*rst_lock;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -63,6 +64,7 @@ struct task_restore_core_args {
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	bool				restore_threads;	/* if to restore threads */
+	long				rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
@@ -220,6 +222,31 @@ static void always_inline write_hex_n(unsigned long num)
 
 	c = '\n';
 	sys_write(1, &c, 1);
+}
+
+static always_inline void rst_lock(long *v)
+{
+	while (*v) {
+		asm volatile("lfence");
+		asm volatile("pause");
+	}
+	(*v)++;
+
+	asm volatile("sfence");
+}
+
+static always_inline void rst_unlock(long *v)
+{
+	(*v)--;
+	asm volatile("sfence");
+}
+
+static always_inline void rst_wait_unlock(long *v)
+{
+	while (*v) {
+		asm volatile("lfence");
+		asm volatile("pause");
+	}
 }
 
 #endif /* CR_RESTORER_H__ */
