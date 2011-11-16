@@ -41,6 +41,7 @@
 #define round_up(x, y)		((((x) - 1) | __round_mask(x, y)) + 1)
 #define round_down(x, y)	((x) & ~__round_mask(x, y))
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
+#define ALIGN(x, a)		(((x) + (a) - 1) & ~((a) - 1))
 
 #define min(x, y) ({				\
 	typeof(x) _min1 = (x);			\
