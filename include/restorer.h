@@ -48,13 +48,15 @@ struct restore_mem_zone {
 #define first_on_heap(ptr, heap)	((typeof(ptr))heap)
 #define next_on_heap(ptr, prev)		((typeof(ptr))((long)(prev) + sizeof(*(prev))))
 
+typedef u32 rst_mutex_t;
+
 /* Make sure it's pow2 in size */
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;
 	int				fd_core;
-	long				*rst_lock;
+	rst_mutex_t			*rst_lock;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -64,7 +66,7 @@ struct task_restore_core_args {
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	bool				restore_threads;	/* if to restore threads */
-	long				rst_lock;
+	rst_mutex_t			rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
@@ -224,29 +226,27 @@ static void always_inline write_hex_n(unsigned long num)
 	sys_write(1, &c, 1);
 }
 
-static always_inline void rst_lock(long *v)
-{
-	while (*v) {
-		asm volatile("lfence");
-		asm volatile("pause");
-	}
-	(*v)++;
+#define FUTEX_WAIT		0
+#define FUTEX_WAKE		1
 
-	asm volatile("sfence");
+static void always_inline rst_mutex_init(rst_mutex_t *mutex)
+{
+	u32 c = 0;
+	atomic_set(mutex, c);
 }
 
-static always_inline void rst_unlock(long *v)
+static void always_inline rst_mutex_lock(rst_mutex_t *mutex)
 {
-	(*v)--;
-	asm volatile("sfence");
+	u32 c;
+	while ((c = atomic_inc(mutex)))
+		sys_futex(mutex, FUTEX_WAIT, c + 1, NULL, NULL, 0);
 }
 
-static always_inline void rst_wait_unlock(long *v)
+static void always_inline rst_mutex_unlock(rst_mutex_t *mutex)
 {
-	while (*v) {
-		asm volatile("lfence");
-		asm volatile("pause");
-	}
+	u32 c = 0;
+	atomic_set(mutex, c);
+	sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
 #endif /* CR_RESTORER_H__ */

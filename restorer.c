@@ -18,7 +18,8 @@
 #include "restorer.h"
 
 /*
- * Threads restoration via sigreturn.
+ * Threads restoration via sigreturn. Note it's locked
+ * routine and calls for unlock at the end.
  */
 long restore_thread(long cmd, struct thread_restore_args *args)
 {
@@ -86,7 +87,7 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 			goto core_restore_end;
 		}
 
-		rst_unlock(args->rst_lock);
+		rst_mutex_unlock(args->rst_lock);
 
 		new_sp = (long)rt_sigframe + 8;
 		asm volatile(
@@ -430,7 +431,7 @@ self_len_end:
 				if (thread_args[i].pid == args->pid)
 					continue;
 
-				rst_lock(&args->rst_lock);
+				rst_mutex_lock(&args->rst_lock);
 
 				new_sp =
 					RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
@@ -482,7 +483,7 @@ self_len_end:
 						"g"(&thread_args[i])
 					: "rax", "rdi", "rsi", "rdx", "r10", "memory");
 
-				rst_wait_unlock(&args->rst_lock);
+				rst_mutex_lock(&args->rst_lock);
 			}
 		}
 

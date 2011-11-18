@@ -46,7 +46,6 @@ static void clear_bit(int nr, volatile unsigned long *addr)
 	asm volatile("btr %1,%0" : ADDR : "Ir" (nr));
 }
 
-
 #else /* CONFIG_X86_64 */
 # error x86-32 is not implemented yet
 #endif /* CONFIG_X86_64 */

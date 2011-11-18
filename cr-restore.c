@@ -1453,7 +1453,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
-	task_args->rst_lock	= 0;
+
+	rst_mutex_init(&task_args->rst_lock);
 
 	if (pstree_entry.nr_threads) {
 		int i;
