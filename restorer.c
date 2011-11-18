@@ -201,6 +201,7 @@ self_len_end:
 		}
 
 		sys_close(args->fd_self_vmas);
+		sys_unlink(args->self_vmas_path);
 
 		/*
 		 * OK, lets try to map new one.
