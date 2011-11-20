@@ -17,8 +17,14 @@
 #define GS_TLS 1
 
 /* some constants for ptrace */
-#define PTRACE_SEIZE		0x4206
-#define PTRACE_INTERRUPT	0x4207
+#ifndef PTRACE_SEIZE
+# define PTRACE_SEIZE		0x4206
+#endif
+
+#ifndef PTRACE_INTERRUPT
+# define PTRACE_INTERRUPT	0x4207
+#endif
+
 #define PTRACE_LISTEN		0x4208
 
 #define PTRACE_SEIZE_DEVEL	0x80000000
