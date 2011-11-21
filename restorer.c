@@ -221,7 +221,7 @@ self_len_end:
 				break;
 
 			if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
-				ret = sys_prctl(SETUP_VDSO_AT, vma_entry->start,
+				ret = sys_prctl(PR_SETUP_VDSO_AT, vma_entry->start,
 						0, 0, 0);
 				if (ret) {
 					write_hex_n(__LINE__);
