@@ -816,7 +816,7 @@ static int fixup_pages_data(int pid, int fd)
 
 static int prepare_image_maps(int fd, int pid)
 {
-	pr_info("%d: Fixing maps before executing image\n", pid);
+	pr_info("%d: Fixing maps\n", pid);
 
 	if (fixup_vma_fds(pid, fd))
 		return 1;
