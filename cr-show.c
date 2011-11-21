@@ -27,6 +27,8 @@
 
 #include "image.h"
 
+#define DEF_PAGES_PER_LINE	6
+
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
 #endif
@@ -283,6 +285,8 @@ static void show_core(struct cr_fdset *cr_fdset)
 		}
 
 		if (final_vma_entry(&ve)) {
+			int ppl = 0;
+
 			pr_info("\n\t---[Pages]---\n");
 			while (1) {
 				ret = read(fd_core, &va, sizeof(va));
@@ -294,7 +298,17 @@ static void show_core(struct cr_fdset *cr_fdset)
 				}
 				if (va == 0)
 					goto out;
-				pr_info("page va: %16lx\n", va);
+
+				if (ppl == 0)
+					pr_info("\t");
+
+				pr_info("%16lx ", va);
+				ppl++;
+				if (ppl == DEF_PAGES_PER_LINE) {
+					pr_info("\n");
+					ppl = 0;
+				}
+
 				lseek(fd_core, PAGE_SIZE, SEEK_CUR);
 			}
 		}
@@ -305,7 +319,7 @@ static void show_core(struct cr_fdset *cr_fdset)
 	}
 
 out:
-	pr_info("----------------------------------------\n");
+	pr_info("\n----------------------------------------\n");
 }
 
 static void show_pstree_from_file(int fd, char *name)
