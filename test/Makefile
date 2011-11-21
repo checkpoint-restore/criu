@@ -1,6 +1,7 @@
 SRCS	+= test-counter.c
 SRCS	+= test-rnd-from-file.c
 SRCS	+= test-shmem-async.c
+SRCS	+= test-shmem-three-async.c
 
 OBJS	:= $(patsubst %.c,%.o,$(SRCS))
 PROGS	:= $(patsubst %.c,%,$(SRCS))
