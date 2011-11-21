@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 		while(1) {
 			printf("%6d: Observed shmem pattern '%s'\n", getpid(), (char *)map);
 			sprintf(map, "shared-mem-%010d", cnt++);
-			sleep(5);
+			sleep(1);
 		}
 	} else {
 		while(1) {
