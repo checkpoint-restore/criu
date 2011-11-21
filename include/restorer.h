@@ -205,6 +205,35 @@ static void always_inline write_string_n(char *str)
 	sys_write(1, &new_line, 1);
 }
 
+static void always_inline write_num_n(long num)
+{
+	unsigned long d = 1000000000000000000;
+	unsigned int started = 0;
+	unsigned int minus = 0;
+	unsigned int c;
+
+	if (num < 0) {
+		num = -num;
+		c = '-';
+		sys_write(1, &c, 1);
+	}
+
+	while (d) {
+		c = num / d;
+		num -= d * c;
+		d /= 10;
+		if (!c && !started)
+			continue;
+		if (!started)
+			started = 1;
+		add_ord(c);
+		sys_write(1, &c, 1);
+
+	}
+	c = '\n';
+	sys_write(1, &c, 1);
+}
+
 static void always_inline write_hex_n(unsigned long num)
 {
 	unsigned char *s = (unsigned char *)&num;
