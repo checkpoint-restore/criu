@@ -225,6 +225,7 @@ self_len_end:
 						0, 0, 0);
 				if (ret) {
 					write_hex_n(__LINE__);
+					write_hex_n(vma_entry->start);
 					write_hex_n(ret);
 					goto core_restore_end;
 				}
