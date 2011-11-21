@@ -1,49 +1,21 @@
-OBJS	+= testee.o
-OBJS	+= testee-static.o
-OBJS	+= testee-static-syssleep.o
-OBJS	+= testee-threads.o
-OBJS	+= testee-unlinked.o
-OBJS	+= asmem.o
+SRCS	+= test-counter.c
+SRCS	+= test-rnd-from-file.c
+SRCS	+= test-shmem-async.c
+SRCS	+= test-shmem-three-async.c
+SRCS	+= test-pipe-async.c
 
-PROGS	:= $(patsubst %.o,%,$(OBJS))
+OBJS	:= $(patsubst %.c,%.o,$(SRCS))
+PROGS	:= $(patsubst %.c,%,$(SRCS))
 
 all: $(PROGS)
 
-asmem: asmem.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
+$(PROGS): $(OBJS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) -o $@ $(patsubst %.c,%.o,$<)
+	$(Q) $(CC) $@.o -o $@
 
-testee: testee.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) -o $@ $(patsubst %.c,%.o,$<)
-
-testee-static-syssleep: testee-static-syssleep.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) -static -o $@ $(patsubst %.c,%.o,$<)
-
-testee-static: testee-static.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) -static -o $@ $(patsubst %.c,%.o,$<)
-
-testee-threads: testee-threads.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) -lpthread -o $@ $(patsubst %.c,%.o,$<)
-
-testee-unlinked: testee-unlinked.c
-	$(E) "  CC      " $(patsubst %.c,%.o,$<)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $(patsubst %.c,%.o,$<)
-	$(E) "  LINK    " $@
-	$(Q) $(CC) -o $@ $(patsubst %.c,%.o,$<)
+%.o: %.c
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 clean:
 	$(Q) $(RM) -f ./*.o
