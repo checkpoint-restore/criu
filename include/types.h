@@ -49,16 +49,16 @@
 #define PR_SET_NAME	15
 #define PR_GET_NAME	16
 
-#define PR_CKPT_CTL	35
-# define PR_CKPT_CTL_SETUP_VDSO_AT		1
-# define PR_CKPT_CTL_SET_TASK_FLAGS		2
-# define PR_CKPT_CTL_SET_MM_START_CODE		3
-# define PR_CKPT_CTL_SET_MM_END_CODE		4
-# define PR_CKPT_CTL_SET_MM_START_DATA		5
-# define PR_CKPT_CTL_SET_MM_END_DATA		6
-# define PR_CKPT_CTL_SET_MM_START_STACK		7
-# define PR_CKPT_CTL_SET_MM_START_BRK		8
-# define PR_CKPT_CTL_SET_MM_BRK			9
+#define PR_SET_MM	35
+# define PR_SET_MM_START_CODE		1
+# define PR_SET_MM_END_CODE		2
+# define PR_SET_MM_START_DATA		3
+# define PR_SET_MM_END_DATA		4
+# define PR_SET_MM_START_STACK		5
+# define PR_SET_MM_START_BRK		6
+# define PR_SET_MM_BRK			7
+
+#define SETUP_VDSO_AT	36
 
 /* fcntl */
 #ifndef F_LINUX_SPECIFIC_BASE
