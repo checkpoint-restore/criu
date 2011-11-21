@@ -1,4 +1,5 @@
 SRCS	+= test-counter.c
+SRCS	+= test-rnd-from-file.c
 
 OBJS	:= $(patsubst %.c,%.o,$(SRCS))
 PROGS	:= $(patsubst %.c,%,$(SRCS))
@@ -7,7 +8,7 @@ all: $(PROGS)
 
 $(PROGS): $(OBJS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $< -o $@
+	$(Q) $(CC) $@.o -o $@
 
 %.o: %.c
 	$(E) "  CC      " $@
