@@ -149,6 +149,35 @@ err:
 	return;
 }
 
+static void show_shmem(struct cr_fdset *cr_fdset)
+{
+	struct shmem_entry e;
+	int fd_shmem, ret;
+
+	pr_info("\n");
+	pr_info("CR_FD_SHMEM: %s\n", cr_fdset->desc[CR_FD_SHMEM].name);
+	pr_info("----------------------------------------\n");
+
+	fd_shmem = cr_fdset->desc[CR_FD_SHMEM].fd;
+
+	lseek(fd_shmem, MAGIC_OFFSET, SEEK_SET);
+
+	while (1) {
+		ret = read(fd_shmem, &e, sizeof(e));
+		if (!ret)
+			goto err;
+		if (ret != sizeof(e)) {
+			pr_perror("Can't read fdinfo entry");
+			goto err;
+		}
+
+		pr_info("0x%lx-0x%lx id %lu\n", e.start, e.end, e.shmid);
+	}
+
+err:
+	pr_info("----------------------------------------\n");
+}
+
 static void show_files(struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
@@ -467,6 +496,7 @@ int cr_show(unsigned long pid, struct cr_options *opts)
 
 		show_pipes(cr_fdset);
 		show_files(cr_fdset);
+		show_shmem(cr_fdset);
 
 		if (opts->leader_only)
 			break;
