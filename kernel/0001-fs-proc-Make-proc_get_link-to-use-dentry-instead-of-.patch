@@ -1,7 +1,7 @@
 From fc4504ee8f471ac1ac8162ec68e98f2c09d53411 Mon Sep 17 00:00:00 2001
 From: Cyrill Gorcunov <gorcunov@openvz.org>
 Date: Tue, 8 Nov 2011 14:57:10 +0400
-Subject: [PATCH 1/4] fs, proc: Make proc_get_link to use dentry instead of
+Subject: [PATCH 1/7] fs, proc: Make proc_get_link to use dentry instead of
  inode
 
 This patch prepares the ground for the next "map_files"
@@ -108,5 +108,5 @@ index 643b96c..c3d11ff 100644
  	int (*proc_show)(struct seq_file *m,
  		struct pid_namespace *ns, struct pid *pid,
 -- 
-1.7.6.4
+1.7.7.3
 

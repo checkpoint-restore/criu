@@ -1,7 +1,7 @@
-From 9e489dbc4f796b76adb4440ccf4888d934ede61d Mon Sep 17 00:00:00 2001
+From 4d12bad4d48564003c7fe9f82990123271c2bfb5 Mon Sep 17 00:00:00 2001
 From: Pavel Emelyanov <xemul@parallels.com>
 Date: Tue, 8 Nov 2011 14:59:40 +0400
-Subject: [PATCH 3/4] fs, proc: Introduce the Children: line in
+Subject: [PATCH 5/7] fs, proc: Introduce the Children: line in
  /proc/<pid>/status
 
 Although we can get the pids of some task's issue, this is just
@@ -15,7 +15,7 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  1 files changed, 14 insertions(+), 0 deletions(-)
 
 diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 3a1dafd..8f33329 100644
+index d851166..8248682 100644
 --- a/fs/proc/array.c
 +++ b/fs/proc/array.c
 @@ -158,6 +158,18 @@ static inline const char *get_task_state(struct task_struct *tsk)
@@ -47,5 +47,5 @@ index 3a1dafd..8f33329 100644
  	if (p->files)
  		fdt = files_fdtable(p->files);
 -- 
-1.7.6.4
+1.7.7.3
 

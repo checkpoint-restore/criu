@@ -1,7 +1,7 @@
-From e46fc1fa01faea36ad4c5608436f5900e66c9529 Mon Sep 17 00:00:00 2001
+From 467ebfc7760890deefa3b0d738620b40c1d58991 Mon Sep 17 00:00:00 2001
 From: Cyrill Gorcunov <gorcunov@openvz.org>
 Date: Tue, 8 Nov 2011 15:00:56 +0400
-Subject: [PATCH 4/4] fs, proc: Add start_data, end_data, start_brk members to
+Subject: [PATCH 4/7] fs, proc: Add start_data, end_data, start_brk members to
  /proc/$pid/stat
 
 It helps to dump and restore this mm_struct members at chekpoint/restore time.
@@ -12,10 +12,10 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 8f33329..8248682 100644
+index 3a1dafd..d851166 100644
 --- a/fs/proc/array.c
 +++ b/fs/proc/array.c
-@@ -478,7 +478,7 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
+@@ -464,7 +464,7 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
  
  	seq_printf(m, "%d (%s) %c %d %d %d %d %d %u %lu \
  %lu %lu %lu %lu %lu %ld %ld %ld %ld %d 0 %llu %lu %ld %lu %lu %lu %lu %lu \
@@ -24,7 +24,7 @@ index 8f33329..8248682 100644
  		pid_nr_ns(pid, ns),
  		tcomm,
  		state,
-@@ -525,7 +525,10 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
+@@ -511,7 +511,10 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
  		task->policy,
  		(unsigned long long)delayacct_blkio_ticks(task),
  		cputime_to_clock_t(gtime),
@@ -37,5 +37,5 @@ index 8f33329..8248682 100644
  		mmput(mm);
  	return 0;
 -- 
-1.7.6.4
+1.7.7.3
 

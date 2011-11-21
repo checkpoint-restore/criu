@@ -1,7 +1,7 @@
 From d23bde31590a7679aa2be7960848b0fedd0ce032 Mon Sep 17 00:00:00 2001
 From: Pavel Emelyanov <xemul@parallels.com>
 Date: Tue, 8 Nov 2011 14:58:01 +0400
-Subject: [PATCH 2/4] fs, proc: Introduce the /proc/<pid>/map_files/ directory
+Subject: [PATCH 2/7] fs, proc: Introduce the /proc/<pid>/map_files/ directory
  v14
 
 This one behaves similarly to the /proc/<pid>/fd/ one - it contains symlinks
@@ -522,5 +522,5 @@ index 3dc3a8c..14159d3 100644
  pgprot_t vm_get_page_prot(unsigned long vm_flags);
  #else
 -- 
-1.7.6.4
+1.7.7.3
 

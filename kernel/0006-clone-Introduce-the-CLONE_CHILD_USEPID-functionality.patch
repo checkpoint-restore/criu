@@ -1,7 +1,7 @@
-From 110e1f59ca03d4f0aca9c42eb466870920e3d0c5 Mon Sep 17 00:00:00 2001
+From 7348faeab3ba943ea5c2d955b0dcb53477a94629 Mon Sep 17 00:00:00 2001
 From: Pavel Emelyanov <xemul@openvz.org>
 Date: Tue, 8 Nov 2011 17:07:58 +0400
-Subject: [PATCH 5/6] clone: Introduce the CLONE_CHILD_USEPID functionality
+Subject: [PATCH 6/7] clone: Introduce the CLONE_CHILD_USEPID functionality
 
 When restoring a task (or a set of tasks) we need to recreate them with
 exactly the same pid as they had before. Thus we need the ability to create
@@ -183,5 +183,5 @@ index fa5f722..b69f6a3 100644
  
  	get_pid_ns(ns);
 -- 
-1.7.6.4
+1.7.7.3
 
