@@ -37,7 +37,7 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
 		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
 		if (ret != sizeof(*core_entry)) {
-			write_hex_n(__LINE__);
+			write_num_n(__LINE__);
 			goto core_restore_end;
 		}
 
@@ -74,16 +74,16 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 		fsgs_base = core_entry->u.arch.gpregs.fs_base;
 		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 		if (ret) {
-			write_hex_n(__LINE__);
-			write_hex_n(ret);
+			write_num_n(__LINE__);
+			write_num_n(ret);
 			goto core_restore_end;
 		}
 
 		fsgs_base = core_entry->u.arch.gpregs.gs_base;
 		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 		if (ret) {
-			write_hex_n(__LINE__);
-			write_hex_n(ret);
+			write_num_n(__LINE__);
+			write_num_n(ret);
 			goto core_restore_end;
 		}
 
@@ -99,8 +99,8 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 			: "r"(new_sp)
 			: "rax","rsp","memory");
 core_restore_end:
-		write_hex_n(__LINE__);
-		write_hex_n(sys_getpid());
+		write_num_n(__LINE__);
+		write_num_n(sys_getpid());
 		for (;;)
 			local_sleep(5);
 		sys_exit(0);
@@ -175,7 +175,7 @@ self_len_end:
 		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
 		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
 		if (ret != sizeof(*core_entry)) {
-			write_hex_n(__LINE__);
+			write_num_n(__LINE__);
 			goto core_restore_end;
 		}
 
@@ -186,8 +186,8 @@ self_len_end:
 			if (!ret)
 				break;
 			if (ret != sizeof(*vma_entry)) {
-				write_hex_n(__LINE__);
-				write_hex_n(ret);
+				write_num_n(__LINE__);
+				write_num_n(ret);
 				goto core_restore_end;
 			}
 
@@ -195,7 +195,7 @@ self_len_end:
 				continue;
 
 			if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
-				write_hex_n(__LINE__);
+				write_num_n(__LINE__);
 				goto core_restore_end;
 			}
 		}
@@ -212,8 +212,8 @@ self_len_end:
 			if (!ret)
 				break;
 			if (ret != sizeof(*vma_entry)) {
-				write_hex_n(__LINE__);
-				write_hex_n(ret);
+				write_num_n(__LINE__);
+				write_num_n(ret);
 				goto core_restore_end;
 			}
 
@@ -224,9 +224,9 @@ self_len_end:
 				ret = sys_prctl(PR_SETUP_VDSO_AT, vma_entry->start,
 						0, 0, 0);
 				if (ret) {
-					write_hex_n(__LINE__);
+					write_num_n(__LINE__);
 					write_hex_n(vma_entry->start);
-					write_hex_n(ret);
+					write_num_n(ret);
 					goto core_restore_end;
 				}
 				continue;
@@ -259,7 +259,7 @@ self_len_end:
 				      vma_entry->pgoff);
 
 			if (va != vma_entry->start) {
-				write_hex_n(__LINE__);
+				write_num_n(__LINE__);
 				write_hex_n(vma_entry->start);
 				write_hex_n(vma_entry->end);
 				write_hex_n(vma_entry->prot);
@@ -282,8 +282,8 @@ self_len_end:
 			if (!ret)
 				break;
 			if (ret != sizeof(va)) {
-				write_hex_n(__LINE__);
-				write_hex_n(ret);
+				write_num_n(__LINE__);
+				write_num_n(ret);
 				goto core_restore_end;
 			}
 			if (final_page_va(va))
@@ -291,8 +291,8 @@ self_len_end:
 
 			ret = sys_read(args->fd_core, (void *)va, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
-				write_hex_n(__LINE__);
-				write_hex_n(ret);
+				write_num_n(__LINE__);
+				write_num_n(ret);
 				goto core_restore_end;
 			}
 		}
@@ -307,8 +307,8 @@ self_len_end:
 			if (!ret)
 				break;
 			if (ret != sizeof(*vma_entry)) {
-				write_hex_n(__LINE__);
-				write_hex_n(ret);
+				write_num_n(__LINE__);
+				write_num_n(ret);
 				goto core_restore_end;
 			}
 
@@ -383,16 +383,16 @@ self_len_end:
 		fsgs_base = core_entry->u.arch.gpregs.fs_base;
 		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 		if (ret) {
-			write_hex_n(__LINE__);
-			write_hex_n(ret);
+			write_num_n(__LINE__);
+			write_num_n(ret);
 			goto core_restore_end;
 		}
 
 		fsgs_base = core_entry->u.arch.gpregs.gs_base;
 		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 		if (ret) {
-			write_hex_n(__LINE__);
-			write_hex_n(ret);
+			write_num_n(__LINE__);
+			write_num_n(ret);
 			goto core_restore_end;
 		}
 
@@ -509,8 +509,8 @@ self_len_end:
 			: "rax","rsp","memory");
 
 core_restore_end:
-		write_hex_n(__LINE__);
-		write_hex_n(sys_getpid());
+		write_num_n(__LINE__);
+		write_num_n(sys_getpid());
 		for (;;)
 			local_sleep(5);
 		sys_exit(0);
