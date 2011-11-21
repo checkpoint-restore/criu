@@ -13,6 +13,8 @@ int main(int argc, char *argv[])
 	const int limit = 10;
 	int counter, fd, rnd;
 
+	printf("%s pid %d\n", argv[0], getpid());
+
 	unlink((char *)fname_rnd);
 
 	fd = open(fname_rnd, O_RDWR | O_CREAT | O_EXCL, 0644);
