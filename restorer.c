@@ -331,21 +331,25 @@ self_len_end:
 		/*
 		 * Tune up the task fields.
 		 */
-		sys_prctl(PR_SET_NAME, (long)core_entry->task_comm, 0, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_START_CODE,
-			  (long)core_entry->mm_start_code, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_END_CODE,
-			  (long)core_entry->mm_end_code, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_START_DATA,
-			  (long)core_entry->mm_start_data, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_END_DATA,
-			  (long)core_entry->mm_end_data, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_START_STACK,
-			  (long)core_entry->mm_start_stack, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_START_BRK,
-			  (long)core_entry->mm_start_brk, 0, 0);
-		sys_prctl(PR_SET_MM, PR_SET_MM_BRK,
-			  (long)core_entry->mm_brk, 0, 0);
+
+#define sys_prctl_safe(opcode, val1, val2)			\
+	do {							\
+		ret = sys_prctl(opcode, val1, val2, 0, 0);	\
+		if (ret) {					\
+			write_num_n(__LINE__);			\
+			write_num_n(ret);			\
+			goto core_restore_end;			\
+		}						\
+	} while (0)
+
+		sys_prctl_safe(PR_SET_NAME, (long)core_entry->task_comm, 0);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)core_entry->mm_start_code);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->mm_end_code);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->mm_start_data);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->mm_end_data);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->mm_start_stack);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->mm_start_brk);
+		sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->mm_brk);
 
 		/*
 		 * We need to prepare a valid sigframe here, so
