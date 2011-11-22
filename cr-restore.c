@@ -952,7 +952,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	return 0;
 }
 
-static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
+static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
 {
 	char path[128];
 	int tmp, fd;
@@ -988,6 +988,8 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi)
 	if (tmp < 0)
 		return 1;
 	pi->users--;
+
+	lseek(pipes_fd, e->bytes, SEEK_CUR);
 
 	return 0;
 
@@ -1025,7 +1027,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	if (pi->pid == pid && !(pi->status & PIPE_CREATED))
 		return create_pipe(pid, e, pi, *pipes_fd);
 	else
-		return attach_pipe(pid, e, pi);
+		return attach_pipe(pid, e, pi, *pipes_fd);
 }
 
 static int prepare_pipes(int pid)
