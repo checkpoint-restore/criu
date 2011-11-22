@@ -28,4 +28,6 @@ $(PROGS): $(OBJS)
 clean:
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./$(PROGS)
+	$(Q) $(RM) -f ./$(PROGS-TH)
+	$(Q) $(RM) -f ./f1-file
 .PHONY: clean
