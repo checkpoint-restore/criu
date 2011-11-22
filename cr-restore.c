@@ -175,7 +175,8 @@ static int shmem_wait_and_open(struct shmem_info *si)
 			return ret;
 
 		if (ret < 0 && errno != ENOENT) {
-			pr_perror("     Can't stat shmem");
+			pr_perror("     %d: Can't stat shmem at %s\n",
+				  si->real_pid, path);
 			return -1;
 		}
 
@@ -299,13 +300,13 @@ static int prepare_shmem_pid(int pid)
 
 	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
-		pr_perror("Can't open shmem info");
+		pr_perror("%d: Can't open shmem info\n", pid);
 		return 1;
 	}
 
 	read(sh_fd, &type, sizeof(type));
 	if (type != SHMEM_MAGIC) {
-		pr_perror("Bad shmem magic");
+		pr_perror("%d: Bad shmem magic\n", pid);
 		return 1;
 	}
 
@@ -318,7 +319,7 @@ static int prepare_shmem_pid(int pid)
 			break;
 
 		if (ret != sizeof(e)) {
-			pr_perror("Can't read shmem entry");
+			pr_perror("%d: Can't read shmem entry\n", pid);
 			return 1;
 		}
 
@@ -337,13 +338,13 @@ static int prepare_pipes_pid(int pid)
 
 	p_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
 	if (p_fd < 0) {
-		pr_perror("Can't open pipes image");
+		pr_perror("%d: Can't open pipes image\n", pid);
 		return 1;
 	}
 
 	read(p_fd, &type, sizeof(type));
 	if (type != PIPES_MAGIC) {
-		pr_perror("Bad pipes magin");
+		pr_perror("%d: Bad pipes magic\n", pid);
 		return 1;
 	}
 
@@ -355,8 +356,8 @@ static int prepare_pipes_pid(int pid)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(e)) {
-			pr_perror("Read pipes for %d failed %d of %li read\n",
-					pid, ret, sizeof(e));
+			pr_perror("%d: Read pipes failed %d (expected %li)\n",
+				  pid, ret, sizeof(e));
 			return 1;
 		}
 
@@ -378,13 +379,13 @@ static int prepare_shared(int ps_fd)
 	nr_shmems = 0;
 	shmems = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (shmems == MAP_FAILED) {
-		pr_perror("Can't map shmems");
+		pr_perror("Can't map shmem\n");
 		return 1;
 	}
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
-		pr_perror("Can't map pipes");
+		pr_perror("Can't map pipes\n");
 		return 1;
 	}
 
@@ -397,7 +398,7 @@ static int prepare_shared(int ps_fd)
 			break;
 
 		if (ret != sizeof(e)) {
-			pr_perror("Can't read pstree_entry");
+			pr_perror("Can't read pstree_entry\n");
 			return 1;
 		}
 
@@ -453,7 +454,7 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 
 	tmp = open(path, fe->flags);
 	if (tmp < 0) {
-		pr_perror("Can't open file %s", path);
+		pr_perror("Can't open file %s\n", path);
 		return -1;
 	}
 
@@ -469,7 +470,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 	if (*cfd == (int)fe->addr) {
 		tmp = dup(*cfd);
 		if (tmp < 0) {
-			pr_perror("Can't dup file");
+			pr_perror("Can't dup file\n");
 			return 1;
 		}
 
@@ -597,13 +598,13 @@ static int prepare_shmem(int pid)
 
 	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
-		pr_perror("Can't open shmem info");
+		pr_perror("%d: Can't open shmem info\n", pid);
 		return 1;
 	}
 
 	read(sh_fd, &type, sizeof(type));
 	if (type != SHMEM_MAGIC) {
-		pr_perror("Bad shmem magic");
+		pr_perror("%d: Bad shmem magic\n", pid);
 		return 1;
 	}
 
@@ -615,7 +616,7 @@ static int prepare_shmem(int pid)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(e)) {
-			pr_perror("Can't read shmem entry");
+			pr_perror("%d: Can't read shmem entry\n", pid);
 			return 1;
 		}
 
@@ -672,7 +673,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (sh_fd < 0) {
-			pr_perror("Can't open shmem");
+			pr_perror("%d: Can't open shmem\n", pid);
 			return 1;
 		}
 
@@ -681,7 +682,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
-			pr_perror("Can't write img");
+			pr_perror("%d: Can't write img\n", pid);
 			return 1;
 		}
 	}
@@ -699,7 +700,7 @@ static int fixup_vma_fds(int pid, int fd)
 		struct vma_entry vi;
 
 		if (read(fd, &vi, sizeof(vi)) != sizeof(vi)) {
-			pr_perror("Can't read");
+			pr_perror("%d: Can't read vma_entry\n", pid);
 			return 1;
 		}
 
@@ -753,7 +754,7 @@ static int fixup_pages_data(int pid, int fd)
 
 	shfd = open_fmt_ro(FMT_FNAME_PAGES_SHMEM, pid);
 	if (shfd < 0) {
-		pr_perror("Can't open %d shmem image %s", pid);
+		pr_perror("Can't open %d shmem image %s\n", pid);
 		return 1;
 	}
 
@@ -787,7 +788,7 @@ static int fixup_pages_data(int pid, int fd)
 			break;
 
 		if (ret < 0 || ret != sizeof(va)) {
-			pr_perror("Can't read virtual address");
+			pr_perror("%d: Can't read virtual address\n", pid);
 			return 1;
 		}
 
@@ -835,11 +836,11 @@ static int prepare_and_sigreturn(int pid)
 
 	fd = open_fmt_ro(FMT_FNAME_CORE, pid);
 	if (fd < 0) {
-		pr_perror("Can't open exec image");
+		pr_perror("%d: Can't open exec image\n", pid);
 		return 1;
 	}
 	if (fstat(fd, &buf)) {
-		pr_perror("Can't stat");
+		pr_perror("%d: Can't stat\n", pid);
 		return 1;
 	}
 
@@ -848,24 +849,19 @@ static int prepare_and_sigreturn(int pid)
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, 0700);
 	if (fd_new < 0) {
-		pr_perror("Can't open new image");
+		pr_perror("%d: Can't open new image\n", pid);
 		return 1;
 	}
 
 	pr_info("%d: Preparing restore image %s (%li bytes)\n", pid, path, buf.st_size);
 	if (sendfile(fd_new, fd, NULL, buf.st_size) != buf.st_size) {
-		pr_perror("sendfile failed\n");
+		pr_perror("%d: sendfile failed\n", pid);
 		return 1;
 	}
 	close(fd);
 
-	if (fchmod(fd_new, 0700)) {
-		pr_perror("Can't prepare exec image");
-		return 1;
-	}
-
 	if (fstat(fd_new, &buf)) {
-		pr_perror("Can't stat");
+		pr_perror("%d: Can't stat\n", pid);
 		return 1;
 	}
 
@@ -889,7 +885,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pr_info("\t%d: Creating pipe %x\n", pid, e->pipeid);
 
 	if (pipe(pfd) < 0) {
-		pr_perror("Can't create pipe");
+		pr_perror("%d: Can't create pipe\n", pid);
 		return 1;
 	}
 
@@ -901,7 +897,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 			pr_err("Wanted to restore %d bytes, but got %d\n",
 			       e->bytes, tmp);
 			if (tmp < 0)
-				pr_perror("Error splicing data");
+				pr_perror("%d: Error splicing data\n", pid);
 			return 1;
 		}
 	}
@@ -978,7 +974,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 	fd = open(path, e->flags);
 	if (fd < 0) {
-		pr_perror("Can't attach pipe");
+		pr_perror("%d: Can't attach pipe\n", pid);
 		return 1;
 	}
 
@@ -1004,7 +1000,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 		tmp = dup(*pipes_fd);
 		if (tmp < 0) {
-			pr_perror("Can't dup file");
+			pr_perror("%d: Can't dup file\n", pid);
 			return 1;
 		}
 
@@ -1038,13 +1034,13 @@ static int prepare_pipes(int pid)
 
 	pipes_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
 	if (pipes_fd < 0) {
-		pr_perror("Can't open pipes img");
+		pr_perror("%d: Can't open pipes img\n", pid);
 		return 1;
 	}
 
 	read(pipes_fd, &type, sizeof(type));
 	if (type != PIPES_MAGIC) {
-		pr_perror("Bad pipes file");
+		pr_perror("%d: Bad pipes file\n", pid);
 		return 1;
 	}
 
@@ -1059,7 +1055,7 @@ static int prepare_pipes(int pid)
 		}
 
 		if (ret != sizeof(e)) {
-			pr_perror("Bad pipes entry");
+			pr_perror("%d: Bad pipes entry\n", pid);
 			return 1;
 		}
 
@@ -1100,14 +1096,14 @@ static inline int fork_with_pid(int pid, char *pstree_path)
 	stack = mmap(0, stack_size, PROT_READ | PROT_WRITE,
 		     MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN, 0, 0);
 	if (stack == MAP_FAILED) {
-		pr_perror("mmap failed");
+		pr_perror("%d: mmap failed\n", pid);
 		return -1;
 	}
 
 	stack += stack_size;
 	ret = clone(do_child, stack, SIGCHLD | CLONE_CHILD_USEPID, pstree_path, NULL, NULL, &pid);
 	if (ret < 0)
-		pr_perror("clone failed\n");
+		pr_perror("%d: clone failed\n", pid);
 
 	return ret;
 }
@@ -1122,7 +1118,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 
 	fd = open(pstree_path, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't reopen pstree image");
+		pr_perror("%d: Can't reopen pstree image\n", my_pid);
 		exit(1);
 	}
 
@@ -1135,7 +1131,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 		if (ret != sizeof(e)) {
 			pr_err("%d: Read returned %d\n", my_pid, ret);
 			if (ret < 0)
-				pr_perror("Can't read pstree");
+				pr_perror("%d: Can't read pstree\n", my_pid);
 			exit(1);
 		}
 
@@ -1152,7 +1148,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 		pids = malloc(i);
 		ret = read(fd, pids, i);
 		if (ret != i) {
-			pr_perror("Can't read children pids");
+			pr_perror("%d: Can't read children pids\n", my_pid);
 			exit(1);
 		}
 
@@ -1180,7 +1176,7 @@ static int restore_root_task(char *pstree_path, int fd)
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
-		pr_perror("Can't read root pstree entry");
+		pr_perror("Can't read root pstree entry\n");
 		return 1;
 	}
 
@@ -1204,13 +1200,13 @@ static int restore_all_tasks(pid_t pid)
 	sprintf(path, FMT_FNAME_PSTREE, pid);
 	pstree_fd = open(path, O_RDONLY);
 	if (pstree_fd < 0) {
-		pr_perror("Can't open pstree image");
+		pr_perror("%d: Can't open pstree image\n", pid);
 		return 1;
 	}
 
 	read(pstree_fd, &type, sizeof(type));
 	if (type != PSTREE_MAGIC) {
-		pr_perror("Bad pstree magic");
+		pr_perror("%d: Bad pstree magic\n", pid);
 		return 1;
 	}
 
