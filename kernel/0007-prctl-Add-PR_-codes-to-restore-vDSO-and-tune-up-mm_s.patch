@@ -1,8 +1,8 @@
-From ce70ea1a87d978c96f96d61d59c1779df51a4c57 Mon Sep 17 00:00:00 2001
+From 4aca2c63c7df7b19864939d543b478b100d568f6 Mon Sep 17 00:00:00 2001
 From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Mon, 21 Nov 2011 16:27:49 +0400
-Subject: [PATCH 7/7] prctl: Add PR_ codes to restore vDSO and tune up
- mm_struct entires
+Date: Tue, 22 Nov 2011 21:08:43 +0400
+Subject: [PATCH] prctl: Add PR_ codes to restore vDSO and tune up mm_struct
+ entires
 
 To be able to use vDSO facility at process restore time we need it
 being mapped at predefined address (at the address it had at checkpoint
@@ -19,8 +19,8 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  arch/x86/vdso/vma.c   |   39 +++++++++++++++++++++++++++
  include/linux/prctl.h |   18 ++++++++++++
- kernel/sys.c          |   70 +++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 127 insertions(+), 0 deletions(-)
+ kernel/sys.c          |   71 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 128 insertions(+), 0 deletions(-)
 
 diff --git a/arch/x86/vdso/vma.c b/arch/x86/vdso/vma.c
 index 153407c..e0f03da 100644
@@ -100,7 +100,7 @@ index a3baeb2..dddacb0 100644
 +
  #endif /* _LINUX_PRCTL_H */
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 481611f..76a8173 100644
+index 481611f..96ee568 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -123,6 +123,12 @@ EXPORT_SYMBOL(cad_pid);
@@ -116,7 +116,7 @@ index 481611f..76a8173 100644
  /*
   * Returns true if current's euid is same as p's uid or euid,
   * or has CAP_SYS_NICE to p's user_ns.
-@@ -1841,6 +1847,70 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+@@ -1841,6 +1847,71 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
  			else
  				error = PR_MCE_KILL_DEFAULT;
  			break;
@@ -153,6 +153,7 @@ index 481611f..76a8173 100644
 +			if (!vma)
 +				goto out;
 +
++			error = 0;
 +			switch (arg2) {
 +			case PR_SET_MM_START_CODE:
 +				current->mm->start_code = arg3;
