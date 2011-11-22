@@ -12,8 +12,6 @@
 
 #include <sched.h>
 
-static void *map;
-
 int main(int argc, char *argv[])
 {
 	int pipefd1[2];
