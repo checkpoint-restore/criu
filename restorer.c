@@ -488,8 +488,6 @@ self_len_end:
 						"g"(RESTORE_CMD__RESTORE_THREAD),
 						"g"(&thread_args[i])
 					: "rax", "rdi", "rsi", "rdx", "r10", "memory");
-
-				rst_mutex_lock(&args->rst_lock);
 			}
 		}
 
