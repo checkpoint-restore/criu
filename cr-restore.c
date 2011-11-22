@@ -852,7 +852,7 @@ static int prepare_and_sigreturn(int pid)
 	sprintf(path, FMT_FNAME_CORE_OUT, pid);
 	unlink(path);
 
-	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, 0700);
+	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
 	if (fd_new < 0) {
 		pr_perror("%d: Can't open new image\n", pid);
 		return 1;
