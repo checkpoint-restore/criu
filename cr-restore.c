@@ -698,9 +698,14 @@ static int fixup_vma_fds(int pid, int fd)
 
 	while (1) {
 		struct vma_entry vi;
+		int ret = 0;
 
-		if (read(fd, &vi, sizeof(vi)) != sizeof(vi)) {
+		ret = read(fd, &vi, sizeof(vi));
+		if (ret < 0) {
 			pr_perror("%d: Can't read vma_entry\n", pid);
+		} else if (ret != sizeof(vi)) {
+			pr_err("%d: Incomplete vma_entry (%d != %d)\n",
+			       pid, ret, sizeof(vi));
 			return 1;
 		}
 
