@@ -7,10 +7,8 @@ Some things which are to be done
 - cgroups should be used instead of explicit task stops by signals
 - dump/restore of network connections
 - dump/restore of IPC
-- consider dropping VMA data from Elf contents but to use program header instead
 - (by Pekka Enberg) add a 'make check' or tools/test script that people can run to
   do a full fork/dump/restore/kill cycle
-- (by Pekka Enberg) convert kernel patches into a proper kernel git tree people can pull
 - cr-restore.c should be significantly refactored
 - 'crtools show' should support showing only a subset of resources dumped such as
   pipes/vma/ and etc...
