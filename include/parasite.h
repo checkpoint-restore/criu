@@ -42,6 +42,9 @@ typedef struct {
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		fd;
+	long			ret;
+	long			sys_ret;
+	long			line;
 	unsigned long		open_mode;
 	unsigned long		open_flags;
 	char			open_path[64];

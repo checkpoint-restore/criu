@@ -378,6 +378,45 @@ retry_signal:
 			pr_err("Can't get statistics (pid: %d)\n", ctl->pid);
 			goto err_restore;
 		}
+
+		/*
+		 * Check if error happened during dumping.
+		 */
+		if (ptrace_peek_area((long)ctl->pid,
+				     (void *)&parasite_dumppages.ret,
+				     (void *)(ctl->addr_args +
+					      offsetof(parasite_args_cmd_dumppages_t, ret)),
+				     sizeof(parasite_dumppages.ret))) {
+			pr_err("Can't get dumper ret code (pid: %d)\n", ctl->pid);
+			goto err_restore;
+		}
+		if (parasite_dumppages.ret) {
+			if (ptrace_peek_area((long)ctl->pid,
+					     (void *)&parasite_dumppages.sys_ret,
+					     (void *)(ctl->addr_args +
+						      offsetof(parasite_args_cmd_dumppages_t, sys_ret)),
+					     sizeof(parasite_dumppages.sys_ret))) {
+				pr_err("Can't get dumper sys_ret code (pid: %d)\n", ctl->pid);
+				goto err_restore;
+			}
+
+			if (ptrace_peek_area((long)ctl->pid,
+					     (void *)&parasite_dumppages.line,
+					     (void *)(ctl->addr_args +
+						      offsetof(parasite_args_cmd_dumppages_t, line)),
+					     sizeof(parasite_dumppages.line))) {
+				pr_err("Can't get dumper ret line (pid: %d)\n", ctl->pid);
+				goto err_restore;
+			}
+
+			pr_panic("Dumping pages failed with %li (%li) at %li\n",
+				 parasite_dumppages.ret,
+				 parasite_dumppages.sys_ret,
+				 parasite_dumppages.line);
+
+			goto err_restore;
+		}
+
 		pr_info("  (dumped: %16li pages)\n", parasite_dumppages.nrpages_dumped);
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
 	}
