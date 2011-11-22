@@ -1244,12 +1244,24 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	ret = 0;
 
 err:
-	if (!opts->final_state != CR_TASK_LEAVE_STOPPED) {
+	switch (opts->final_state) {
+	case CR_TASK_LEAVE_RUNNING:
 		list_for_each_entry(item, &pstree_list, list) {
 			continue_task(item->pid);
 			if (opts->leader_only)
 				break;
 		}
+		break;
+	case CR_TASK_KILL:
+		list_for_each_entry(item, &pstree_list, list) {
+			kill_task(item->pid);
+			if (opts->leader_only)
+				break;
+		}
+		break;
+	case CR_TASK_LEAVE_STOPPED:
+	default:
+		break;
 	}
 
 	free_pstree(&pstree_list);

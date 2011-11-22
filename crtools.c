@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 	int opt, idx;
 	int action = -1;
 
-	static const char short_opts[] = "drsp:t:h";
+	static const char short_opts[] = "drskp:t:h";
 	static const struct option long_opts[] = {
 		{ "dump",	no_argument, NULL, 'd' },
 		{ "restore",	no_argument, NULL, 'r' },
@@ -241,6 +241,9 @@ int main(int argc, char *argv[])
 		goto usage;
 
 	memzero_p(&zero_page_entry);
+
+	/* Default options */
+	opts.final_state = CR_TASK_LEAVE_RUNNING;
 
 	for (opt = getopt_long(argc, argv, short_opts, long_opts, &idx); opt != -1;
 	     opt = getopt_long(argc, argv, short_opts, long_opts, &idx)) {
@@ -261,6 +264,9 @@ int main(int argc, char *argv[])
 			break;
 		case 's':
 			action = opt;
+			break;
+		case 'k':
+			opts.final_state = CR_TASK_KILL;
 			break;
 		case 'h':
 		default:
@@ -287,6 +293,6 @@ int main(int argc, char *argv[])
 
 usage:
 	printk("\nUsage:\n");
-	printk("\tcrtools ([--dump|-d]|[--show|-s]|[--restore|-r]) (-p|-t) pid\n\n");
+	printk("\tcrtools ([--dump|-d]|[--show|-s]|[--restore|-r]) [-k] (-p|-t) pid\n\n");
 	return -1;
 }

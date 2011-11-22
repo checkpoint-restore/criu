@@ -72,6 +72,7 @@ extern void printk(const char *format, ...);
 	} while (0)
 
 #define stop_task(pid)		kill(pid, SIGSTOP)
+#define kill_task(pid)		kill(pid, SIGKILL)
 #define continue_task(pid)	kill(pid, SIGCONT)
 
 #define write_ptr(fd, ptr)			\
