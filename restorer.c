@@ -338,7 +338,6 @@ self_len_end:
 		if (ret) {					\
 			write_num_n(__LINE__);			\
 			write_num_n(ret);			\
-			goto core_restore_end;			\
 		}						\
 	} while (0)
 
