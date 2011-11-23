@@ -57,7 +57,6 @@ struct vma_entry {
 	u32	prot;
 	u32	flags;
 	u32	status;
-	u32	pid;
 	s64	fd;
 	u64	ino;
 	u32	dev_maj;
