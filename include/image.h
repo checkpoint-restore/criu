@@ -58,9 +58,6 @@ struct vma_entry {
 	u32	flags;
 	u32	status;
 	s64	fd;
-	u64	ino;
-	u32	dev_maj;
-	u32	dev_min;
 } __packed;
 
 #define VMA_AREA_NONE		(0 <<  0)

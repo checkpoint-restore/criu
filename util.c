@@ -176,15 +176,12 @@ void printk_vma(struct vma_area *vma_area)
 		return;
 
 	printk("s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
-	       "dev:%02x:%02x:%08lx vf: %s st: %s spc: %s\n",
+	       "vf: %s st: %s spc: %s\n",
 	       vma_area->vma.start, vma_area->vma.end,
 	       vma_area_len(vma_area) >> 10,
 	       vma_area->vma.prot,
 	       vma_area->vma.flags,
 	       vma_area->vma.pgoff,
-	       vma_area->vma.dev_maj,
-	       vma_area->vma.dev_min,
-	       vma_area->vma.ino,
 	       vma_area->vm_file_fd < 0 ? "n" : "y",
 	       !vma_area->vma.status ? "--" :
 	       ((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
@@ -305,11 +302,6 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		vma_area->vma.start	= start;
 		vma_area->vma.end	= end;
 		vma_area->vma.pgoff	= pgoff;
-
-		vma_area->vma.ino	= ino;
-		vma_area->vma.dev_maj	= dev_maj;
-		vma_area->vma.dev_min	= dev_min;
-
 		vma_area->vma.prot	= PROT_NONE;
 
 		if (r == 'r')
