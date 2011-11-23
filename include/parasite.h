@@ -47,7 +47,7 @@ typedef struct {
 	long			line;
 	unsigned long		open_mode;
 	unsigned long		open_flags;
-	char			open_path[64];
+	char			open_path[256];
 } parasite_args_cmd_dumppages_t;
 
 /*

@@ -256,22 +256,30 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	struct vma_area *vma_area;
 	siginfo_t siginfo;
 	int status, path_len, ret = -1;
+	char *cwd = NULL;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", fd_type, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[fd_type].name) + 1;
+	cwd = get_current_dir_name();
+	if (!cwd) {
+		pr_err("No memory to obtain cwd\n");
+		goto out;
+	}
+
+	path_len = strlen(cr_fdset->desc[fd_type].name) +
+			strlen(cwd) + 2;
 
 	if (path_len > sizeof(parasite_dumppages.open_path)) {
 		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
 			 path_len, sizeof(parasite_dumppages.open_path));
-		goto chmod_err;
+		goto out;
 	}
 
 	if (fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM_DUMP)) {
 		pr_perror("Can't change permissions on pages file\n");
-		goto chmod_err;
+		goto out;
 	}
 
 	/*
@@ -286,8 +294,12 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	parasite_arg.args_size		= sizeof(parasite_dumppages);
 	parasite_arg.args		= &parasite_dumppages;
 
-	strncpy(parasite_dumppages.open_path, cr_fdset->desc[fd_type].name,
-		sizeof(parasite_dumppages.open_path));
+	snprintf(parasite_dumppages.open_path,
+		 sizeof(parasite_dumppages.open_path),
+		"%s/%s", cwd, cr_fdset->desc[fd_type].name);
+
+	free(cwd);
+
 	parasite_dumppages.open_flags	= O_WRONLY;
 	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
 	parasite_dumppages.fd		= -1UL;
@@ -462,9 +474,9 @@ err_restore:
 		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
 
 err:
-	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), chmod_err);
+	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), out);
 
-chmod_err:
+out:
 	pr_info("----------------------------------------\n");
 
 	return ret;
