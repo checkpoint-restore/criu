@@ -1400,7 +1400,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		restore_thread_vma_len+= restore_thread_code_len;
 
 		pr_info("%d: %d threads require %dK of memory\n",
-			pid, pstree_entry.nr_threads, restore_thread_vma_len >> 10);
+			pid, pstree_entry.nr_threads,
+			KBYTES(restore_thread_vma_len));
 		break;
 	}
 
@@ -1414,7 +1415,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	} else {
 		pr_info("Found bootstrap VMA hint at: %lx (needs ~%dK)\n",
 			exec_mem_hint,
-			(restore_task_vma_len + restore_thread_vma_len) >> 10);
+			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 	}
 
 	/* VMA we need to run task_restore code */

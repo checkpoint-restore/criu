@@ -178,7 +178,7 @@ void printk_vma(struct vma_area *vma_area)
 	printk("s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
 	       "vf: %s st: %s spc: %s\n",
 	       vma_area->vma.start, vma_area->vma.end,
-	       vma_area_len(vma_area) >> 10,
+	       KBYTES(vma_area_len(vma_area)),
 	       vma_area->vma.prot,
 	       vma_area->vma.flags,
 	       vma_area->vma.pgoff,

@@ -7,6 +7,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "image.h"
+#include "util.h"
 
 #ifndef CONFIG_X86_64
 # error Only x86-64 is supported
@@ -31,9 +32,9 @@ typedef long (*thread_restore_fcall_t) (long cmd, struct thread_restore_args *ar
  */
 #define RESTORE_ARGS_SIZE		(512)
 #define RESTORE_STACK_REDZONE		(128)
-#define RESTORE_STACK_SIGFRAME		(16 << 10)
-#define RESTORE_STACK_SIZE		(32 << 10)
-#define RESTORE_HEAP_SIZE		(16 << 10)
+#define RESTORE_STACK_SIGFRAME		(KILO(16))
+#define RESTORE_STACK_SIZE		(KILO(32))
+#define RESTORE_HEAP_SIZE		(KILO(16))
 
 #define RESTORE_ALIGN_STACK(start, size)	\
 	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))

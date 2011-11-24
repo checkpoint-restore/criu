@@ -17,6 +17,19 @@
 
 extern void printk(const char *format, ...);
 
+#define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
+#define KBYTES_SHIFT	10
+#define MBYTES_SHIFT	20
+#define GBYTES_SHIFT	30
+
+#define KBYTES(size)	PREF_SHIFT_OP(K, >>, size)
+#define MBYTES(size)	PREF_SHIFT_OP(M, >>, size)
+#define GBYTES(size)	PREF_SHIFT_OP(G, >>, size)
+
+#define KILO(size)	PREF_SHIFT_OP(K, <<, size)
+#define MEGA(size)	PREF_SHIFT_OP(K, <<, size)
+#define GIGA(size)	PREF_SHIFT_OP(K, <<, size)
+
 #define pr_info(fmt, ...)	printk(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)	printk("Error (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_panic(fmt, ...)	printk("PANIC (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
