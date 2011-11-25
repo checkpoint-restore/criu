@@ -76,6 +76,11 @@ static void sys_write_msg(const char *msg)
 	sys_write(1, msg, size);
 }
 
+static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore_flags)
+{
+	return (mincore_flags & PAGE_RSS) || vma_entry_is(vmae, VMA_DUMP_ALL);
+}
+
 /*
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
@@ -87,7 +92,6 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
 	unsigned char *map;
-	bool dump_all = false;
 
 	args->nrpages_dumped = 0;
 	prot_old = prot_new = 0;
@@ -130,8 +134,6 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		}
 	}
 
-	dump_all = vma_entry_is(&args->vma_entry, VMA_DUMP_ALL);
-
 	/*
 	 * Try to change page protection if needed so we would
 	 * be able to dump contents.
@@ -169,7 +171,7 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	for (pfn = 0; pfn < nrpages; pfn++) {
 		unsigned long vaddr, written;
 
-		if ((map[pfn] & PAGE_RSS) || dump_all) {
+		if (should_dump_page(&args->vma_entry, map[pfn])) {
 			/*
 			 * That's the optimized write of
 			 * page_entry structure, see image.h
