@@ -1,0 +1,90 @@
+From 181ab3a738d454c0aa6f983e25ca076638d43179 Mon Sep 17 00:00:00 2001
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Fri, 25 Nov 2011 17:58:28 +0400
+Subject: [PATCH 1/2] mincore: Add named constant for reported present bit
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Cyrill Gorcunov <gorcunov@gmail.com>
+---
+ include/linux/mman.h |    2 ++
+ mm/huge_memory.c     |    2 +-
+ mm/mincore.c         |   10 +++++-----
+ 3 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/mman.h b/include/linux/mman.h
+index 8b74e9b..e4fda1e 100644
+--- a/include/linux/mman.h
++++ b/include/linux/mman.h
+@@ -10,6 +10,8 @@
+ #define OVERCOMMIT_ALWAYS		1
+ #define OVERCOMMIT_NEVER		2
+ 
++#define MINCORE_RESIDENT	0x1
++
+ #ifdef __KERNEL__
+ #include <linux/mm.h>
+ #include <linux/percpu_counter.h>
+diff --git a/mm/huge_memory.c b/mm/huge_memory.c
+index 4298aba..a0acb3e 100644
+--- a/mm/huge_memory.c
++++ b/mm/huge_memory.c
+@@ -1045,7 +1045,7 @@ int mincore_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
+ 			 * All logical pages in the range are present
+ 			 * if backed by a huge page.
+ 			 */
+-			memset(vec, 1, (end - addr) >> PAGE_SHIFT);
++			memset(vec, MINCORE_RESIDENT, (end - addr) >> PAGE_SHIFT);
+ 		}
+ 	} else
+ 		spin_unlock(&vma->vm_mm->page_table_lock);
+diff --git a/mm/mincore.c b/mm/mincore.c
+index 636a8687..b719cdd 100644
+--- a/mm/mincore.c
++++ b/mm/mincore.c
+@@ -38,7 +38,7 @@ static void mincore_hugetlb_page_range(struct vm_area_struct *vma,
+ 				       addr & huge_page_mask(h));
+ 		present = ptep && !huge_pte_none(huge_ptep_get(ptep));
+ 		while (1) {
+-			*vec = present;
++			*vec = (present ? MINCORE_RESIDENT : 0);
+ 			vec++;
+ 			addr += PAGE_SIZE;
+ 			if (addr == end)
+@@ -83,7 +83,7 @@ static unsigned char mincore_page(struct address_space *mapping, pgoff_t pgoff)
+ 		page_cache_release(page);
+ 	}
+ 
+-	return present;
++	return present ? MINCORE_RESIDENT : 0;
+ }
+ 
+ static void mincore_unmapped_range(struct vm_area_struct *vma,
+@@ -122,7 +122,7 @@ static void mincore_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
+ 		if (pte_none(pte))
+ 			mincore_unmapped_range(vma, addr, next, vec);
+ 		else if (pte_present(pte))
+-			*vec = 1;
++			*vec = MINCORE_RESIDENT;
+ 		else if (pte_file(pte)) {
+ 			pgoff = pte_to_pgoff(pte);
+ 			*vec = mincore_page(vma->vm_file->f_mapping, pgoff);
+@@ -131,14 +131,14 @@ static void mincore_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
+ 
+ 			if (is_migration_entry(entry)) {
+ 				/* migration entries are always uptodate */
+-				*vec = 1;
++				*vec = MINCORE_RESIDENT;
+ 			} else {
+ #ifdef CONFIG_SWAP
+ 				pgoff = entry.val;
+ 				*vec = mincore_page(&swapper_space, pgoff);
+ #else
+ 				WARN_ON(1);
+-				*vec = 1;
++				*vec = MINCORE_RESIDENT;
+ #endif
+ 			}
+ 		}
+-- 
+1.7.7.3
+

@@ -1,0 +1,9 @@
+0001-fs-proc-Make-proc_get_link-to-use-dentry-instead-of-.patch
+0002-fs-proc-Introduce-the-proc-pid-map_files-directory-v.patch
+0003-procfs-introduce-the-proc-pid-map_files-directory-ch.patch
+0004-fs-proc-Add-start_data-end_data-start_brk-members-to.patch
+0005-fs-proc-Introduce-the-Children-line-in-proc-pid-stat.patch
+0006-clone-Introduce-the-CLONE_CHILD_USEPID-functionality.patch
+0007-prctl-Add-PR_-codes-to-restore-vDSO-and-tune-up-mm_s.patch
+0008-mincore-Add-named-constant-for-reported-present-bit.patch
+0009-mincore-Report-whether-page-is-anon-or-not.patch
