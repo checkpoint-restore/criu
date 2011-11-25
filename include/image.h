@@ -73,7 +73,6 @@ struct vma_entry {
 #define VMA_FILE_SHARED		(1 <<  7)
 #define VMA_ANON_SHARED		(1 <<  8)
 #define VMA_ANON_PRIVATE	(1 <<  9)
-#define VMA_DUMP_ALL		(1 << 10)	/* Dump the whole VMA area pages */
 
 #define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)	((vma)->end - (vma)->start)
