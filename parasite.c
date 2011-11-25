@@ -78,7 +78,17 @@ static void sys_write_msg(const char *msg)
 
 static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore_flags)
 {
+#ifdef PAGE_ANON
+	if (vma_entry_is(vmae, VMA_DUMP_ALL))
+		return 1;
+
+	if (vma_entry_is(vmae, VMA_FILE_PRIVATE))
+		return mincore_flags & PAGE_ANON;
+	else
+		return mincore_flags & PAGE_RSS;
+#else
 	return (mincore_flags & PAGE_RSS) || vma_entry_is(vmae, VMA_DUMP_ALL);
+#endif
 }
 
 /*
