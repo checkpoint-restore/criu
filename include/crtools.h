@@ -21,6 +21,7 @@ enum {
 	CR_FD_PIPES,
 	CR_FD_PSTREE,
 	CR_FD_SHMEM,
+	CR_FD_SIGACT,
 
 	CR_FD_MAX
 };
@@ -51,6 +52,7 @@ struct cr_fd_desc_tmpl {
 #define FMT_FNAME_PSTREE	"pstree-%d.img"
 #define FMT_FNAME_SHMEM		"shmem-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
+#define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 
 /* file descriptors */
 struct cr_fd_desc {

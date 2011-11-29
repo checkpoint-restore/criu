@@ -229,6 +229,47 @@ err:
 	return ret;
 }
 
+static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
+{
+	int fd;
+	int ret = PARASITE_ERR_FAIL;
+	int sig;
+	struct sigaction act;
+	parasite_status_t *st = &args->status;
+
+	fd = sys_open(args->open_path, args->open_flags, args->open_mode);
+	if (fd < 0) {
+		sys_write_msg("sys_open failed\n");
+		st->ret = PARASITE_ERR_OPEN, st->line = __LINE__;
+		return 1;
+	}
+
+        for (sig = 1; sig < SIGMAX; sig++) {
+		if (sig == SIGKILL || sig == SIGSTOP)
+			continue;
+
+		ret = sys_sigaction(sig, NULL, &act);
+		if (ret < 0) {
+			sys_write_msg("sys_sigaction failed\n");
+			st->ret = PARASITE_ERR_SIGACTION, st->line = __LINE__;
+			goto err_close;
+		}
+
+		ret = sys_write(fd, &act, sizeof(act));
+		if (ret != sizeof(act)) {
+			sys_write_msg("sys_write failed\n");
+			st->sys_ret = ret;
+			st->ret = PARASITE_ERR_WRITE, st->line = __LINE__;
+			ret = -1;
+			goto err_close;
+		}
+	}
+	st->ret = ret = 0, st->line = __LINE__;
+err_close:
+	sys_close(fd);
+	return ret;
+}
+
 static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
@@ -241,6 +282,9 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		break;
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((parasite_args_cmd_dumppages_t *)args);
+		break;
+	case PARASITE_CMD_DUMP_SIGACTS:
+		return dump_sigact((parasite_args_cmd_dumpsigacts_t *)args);
 		break;
 	default:
 		sys_write_msg("Unknown command to parasite\n");

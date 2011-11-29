@@ -149,10 +149,6 @@ typedef struct rt_siginfo {
 	int	_pad[SI_PAD_SIZE];
 } rt_siginfo_t;
 
-typedef struct {
-	unsigned long sig[1];
-} rt_sigset_t;
-
 typedef struct rt_sigaltstack {
 	void	*ss_sp;
 	int	ss_flags;

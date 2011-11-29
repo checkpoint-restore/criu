@@ -340,6 +340,58 @@ err:
 	return ret;
 }
 
+int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+{
+	parasite_args_cmd_dumpsigacts_t parasite_sigacts	= { };
+
+	int status, path_len, ret = -1;
+	char *cwd = NULL;
+
+	pr_info("\n");
+	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
+	pr_info("----------------------------------------\n");
+
+	cwd = get_current_dir_name();
+	if (!cwd) {
+		pr_err("No memory to obtain cwd\n");
+		goto out;
+	}
+
+	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].name) +
+			strlen(cwd) + 2;
+
+	if (path_len > sizeof(parasite_sigacts.open_path)) {
+		pr_panic("Dumping sigactions path is too long (%d while %d allowed)\n",
+			 path_len, sizeof(parasite_sigacts.open_path));
+		goto out;
+	}
+
+	if (fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM_DUMP)) {
+		pr_perror("Can't change permissions on sigactions file\n");
+		goto out;
+	}
+
+	snprintf(parasite_sigacts.open_path,
+		 sizeof(parasite_sigacts.open_path),
+		"%s/%s", cwd, cr_fdset->desc[CR_FD_SIGACT].name);
+
+	free(cwd);
+
+	parasite_sigacts.open_flags	= O_WRONLY;
+	parasite_sigacts.open_mode	= CR_FD_PERM_DUMP;
+
+	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl,
+				(parasite_status_t *) &parasite_sigacts,
+				sizeof(parasite_sigacts));
+
+err:
+	jerr(fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM), out);
+out:
+	pr_info("----------------------------------------\n");
+
+	return ret;
+}
+
 /*
  * This routine drives parasite code (been previously injected into a victim
  * process) and tells it to dump pages into the file.

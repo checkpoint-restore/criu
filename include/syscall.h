@@ -9,6 +9,10 @@
 
 #ifdef CONFIG_X86_64
 
+typedef struct {
+	unsigned long sig[1];
+} rt_sigset_t;
+
 static always_inline long syscall0(int nr)
 {
 	long ret;
@@ -150,6 +154,13 @@ static always_inline unsigned long sys_munmap(void *addr,unsigned long len)
 static always_inline long sys_open(const char *filename, unsigned long flags, unsigned long mode)
 {
 	return syscall3(__NR_open, (unsigned long)filename, flags, mode);
+}
+
+struct sigaction;
+
+static always_inline long sys_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
+{
+	return syscall4(__NR_rt_sigaction, signum, (unsigned long) act, (unsigned long) oldact, sizeof(rt_sigset_t));
 }
 
 static always_inline long sys_close(int fd)

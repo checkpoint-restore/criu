@@ -1106,6 +1106,12 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
+	ret = parasite_dump_sigacts_seized(parasite_ctl, cr_fdset);
+	if (ret) {
+		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
+		goto err;
+	}
+
 	ret = parasite_cure_seized(&parasite_ctl, &vma_area_list);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);

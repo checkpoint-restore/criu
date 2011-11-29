@@ -79,6 +79,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_SHMEM,
 		.magic	= SHMEM_MAGIC,
 	},
+
+	/* info about which memory areas are shared */
+	[CR_FD_SIGACT] = {
+		.fmt	= FMT_FNAME_SIGACTS,
+		.magic	= SIGACT_MAGIC,
+	},
 };
 
 struct cr_fdset *alloc_cr_fdset(pid_t pid)

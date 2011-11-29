@@ -74,6 +74,8 @@
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 
+#define SIGMAX			32
+
 typedef uint64_t		u64;
 typedef int64_t			s64;
 typedef unsigned int		u32;

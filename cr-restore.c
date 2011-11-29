@@ -1030,6 +1030,44 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 		return attach_pipe(pid, e, pi, *pipes_fd);
 }
 
+static int prepare_sigactions(int pid)
+{
+	int fd_sigact, ret;
+	int sig, i;
+	struct sigaction act, oact;
+
+	fd_sigact = open_fmt_ro(FMT_FNAME_SIGACTS, pid);
+	if (fd_sigact < 0) {
+		pr_perror("%d: Can't open sigactions img\n", pid);
+		return 1;
+	}
+
+	for (sig = 1; sig < SIGMAX; sig++) {
+		if (sig == SIGKILL || sig == SIGSTOP)
+			continue;
+
+		ret = read(fd_sigact, &act, sizeof(act));
+		if (ret != sizeof(act)) {
+			pr_err("%d: Bad sigaction entry: %d (%m)\n", pid, ret);
+			ret = -1;
+			goto err;
+		}
+
+		/* A pure syscall is used, because a glibc
+		 * sigaction overwrite se_restorer */
+		ret = sys_sigaction(sig, &act, &oact);
+		if (ret == -1) {
+			pr_err("%d: Can't restore sigaction: %m\n", pid);
+			goto err;
+		}
+	}
+
+err:
+	close(fd_sigact);
+	return ret;
+}
+
+
 static int prepare_pipes(int pid)
 {
 	int pipes_fd;
@@ -1082,6 +1120,9 @@ static int restore_one_task(int pid)
 		return 1;
 
 	if (prepare_shmem(pid))
+		return 1;
+
+	if (prepare_sigactions(pid))
 		return 1;
 
 	return prepare_and_sigreturn(pid);

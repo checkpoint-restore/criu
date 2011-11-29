@@ -38,6 +38,7 @@ int syscall_seized(pid_t pid,
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset, int fd_type);
+int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct list_head *vma_area_list);
 int parasite_cure_seized(struct parasite_ctl **p_ctrl, struct list_head *vma_area_list);
