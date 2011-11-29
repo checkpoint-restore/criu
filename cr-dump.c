@@ -496,7 +496,7 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 	}
 
 	while (fgets(loc_buf, sizeof(loc_buf), file)) {
-		if (!strncmp(loc_buf, "SigCgt:", 7)) {
+		if (!strncmp(loc_buf, "SigBlk:", 7)) {
 			char *end;
 			*task_sigset = strtol(&loc_buf[8], &end, 16);
 			break;
