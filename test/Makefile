@@ -3,6 +3,7 @@ SRCS	+= test-rnd-from-file.c
 SRCS	+= test-shmem-async.c
 SRCS	+= test-shmem-three-async.c
 SRCS	+= test-pipe-async.c
+SRCS	+= test-vdso.c
 
 SRCS-TH	+= test-pthreads.c
 OBJS-TH += $(patsubst %.c,%.o,$(SRCS-TH))
