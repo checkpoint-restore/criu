@@ -3,6 +3,8 @@ fs, proc: Add start_data, end_data, start_brk members to /proc/$pid/stat
 It helps to dump and restore this mm_struct members.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Reviewed-by: Kees Cook <keescook@chromium.org>
 ---
  fs/proc/array.c |    7 +++++--
  1 file changed, 5 insertions(+), 2 deletions(-)
