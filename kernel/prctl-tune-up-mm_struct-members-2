@@ -1,4 +1,4 @@
-prctl: Add PR_SET_MM codes to tune up mm_struct entires
+prctl: Add PR_SET_MM codes to tune up mm_struct entires v2
 
 A few members of mm_struct such as start_code, end_code,
 start_data, end_data, start_stack, start_brk, brk provided
@@ -11,15 +11,16 @@ back and for this sake PR_SET_MM prctl code is introduced.
 Note at moment this inteface is allowed for CAP_SYS_ADMIN
 only.
 
+v2:
+ - Add a check for vma start address, testing for vma ending
+   address is not enough. From Kees Cook.
+
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+CC: Kees Cook <keescook@chromium.org>
 ---
-
-Actually I'm not sure if CAP_SYS_ADMIN restriction is
-really needed here. Opinions?
-
- include/linux/prctl.h |   12 +++++++++++
- kernel/sys.c          |   52 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 64 insertions(+)
+ include/linux/prctl.h |   12 ++++++++++
+ kernel/sys.c          |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
 
 Index: linux-2.6.git/include/linux/prctl.h
 ===================================================================
@@ -46,7 +47,7 @@ Index: linux-2.6.git/kernel/sys.c
 ===================================================================
 --- linux-2.6.git.orig/kernel/sys.c
 +++ linux-2.6.git/kernel/sys.c
-@@ -1841,6 +1841,58 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
+@@ -1841,6 +1841,61 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
  			else
  				error = PR_MCE_KILL_DEFAULT;
  			break;
@@ -65,12 +66,14 @@ Index: linux-2.6.git/kernel/sys.c
 +			if (!mm)
 +				return error;
 +
++			/* Make sure the address is inside VMA */
 +			down_read(&mm->mmap_sem);
 +			vma = find_vma(mm, arg3);
 +			if (!vma)
 +				goto out;
++			else if (vma->vm_start > addr)
++				goto out;
 +
-+			error = 0;
 +			switch (arg2) {
 +			case PR_SET_MM_START_CODE:
 +				current->mm->start_code = arg3;
@@ -95,8 +98,9 @@ Index: linux-2.6.git/kernel/sys.c
 +				break;
 +			default:
 +				error = -EINVAL;
-+				break;
++				goto out;
 +			}
++			error = 0;
 +out:
 +			up_read(&mm->mmap_sem);
 +			mmput(mm);

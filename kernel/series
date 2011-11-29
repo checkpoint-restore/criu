@@ -4,6 +4,6 @@ procfs-introduce-the-proc-pid-map_files-directory-checkpatch
 clone-Introduce-the-CLONE_CHILD_USEPID-functionality
 fs-proc-Add-start_data-end_data-start_brk-members
 fs-proc-Introduce-the-Children-line-in-proc-pid-stat
-prctl-tune-up-mm_struct-members
+prctl-tune-up-mm_struct-members-2
 mincore-Add-named-constant-for-reported-present-bit
 mincore-Report-whether-page-is-anon-or-not
