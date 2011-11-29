@@ -99,6 +99,7 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
 	unsigned char *map;
+	parasite_status_t *st = &args->status;
 
 	args->nrpages_dumped = 0;
 	prot_old = prot_new = 0;
@@ -108,8 +109,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		if ((long)args->fd < 0) {
 			sys_write_msg("sys_open failed\n");
 			ret = PARASITE_ERR_OPEN;
-			args->sys_ret = args->fd;
-			args->ret = ret, args->line = __LINE__;
+			st->sys_ret = args->fd;
+			st->ret = ret, st->line = __LINE__;
 			goto err;
 		}
 	}
@@ -135,8 +136,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		if ((long)map < 0) {
 			sys_write_msg("sys_mmap failed\n");
 			ret = PARASITE_ERR_MMAP;
-			args->sys_ret = (long)map;
-			args->ret = ret, args->line = __LINE__;
+			st->sys_ret = (long)map;
+			st->ret = ret, st->line = __LINE__;
 			goto err;
 		}
 	}
@@ -154,8 +155,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		if (ret) {
 			sys_write_msg("sys_mprotect failed\n");
 			ret = PARASITE_ERR_MPROTECT;
-			args->sys_ret = ret;
-			args->ret = ret, args->line = __LINE__;
+			st->sys_ret = ret;
+			st->ret = ret, st->line = __LINE__;
 			goto err_free;
 		}
 	}
@@ -168,9 +169,9 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	ret = sys_mincore((unsigned long)args->vma_entry.start, length, map);
 	if (ret) {
 		sys_write_msg("sys_mincore failed\n");
-		args->sys_ret = ret;
+		st->sys_ret = ret;
 		ret = PARASITE_ERR_MINCORE;
-		args->ret = ret, args->line = __LINE__;
+		st->ret = ret, st->line = __LINE__;
 		goto err_free;
 	}
 
@@ -189,10 +190,10 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 			written += sys_write(args->fd, &vaddr, sizeof(vaddr));
 			written += sys_write(args->fd, (void *)vaddr, PAGE_SIZE);
 			if (written != sizeof(vaddr) + PAGE_SIZE) {
-				args->sys_ret = written; /* The caller are to decode value */
+				st->sys_ret = written; /* The caller are to decode value */
 				ret = PARASITE_ERR_WRITE;
 				sys_write_msg("sys_write on page failed\n");
-				args->ret = ret, args->line = __LINE__;
+				st->ret = ret, st->line = __LINE__;
 				goto err_free;
 			}
 
@@ -209,15 +210,15 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 				   prot_old);
 		if (ret) {
 			sys_write_msg("PANIC: Ouch! sys_mprotect failed on resore\n");
-			args->sys_ret = ret;
+			st->sys_ret = ret;
 			ret = PARASITE_ERR_MPROTECT;
-			args->ret = ret, args->line = __LINE__;
+			st->ret = ret, st->line = __LINE__;
 			goto err_free;
 		}
 	}
 
 	/* on success ret = 0 */
-	args->ret = ret, args->line = __LINE__;
+	st->ret = ret, st->line = __LINE__;
 
 err_free:
 	if (map_brk)

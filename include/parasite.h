@@ -38,13 +38,17 @@ typedef struct {
 	void			*args;
 } parasite_args_t;
 
-typedef struct {
-	struct vma_entry	vma_entry;
-	unsigned long		nrpages_dumped;	/* how many pages are dumped */
-	unsigned long		fd;
+typedef struct  {
 	long			ret;
 	long			sys_ret;
 	long			line;
+} parasite_status_t;
+
+typedef struct {
+	parasite_status_t	status;
+	struct vma_entry	vma_entry;
+	unsigned long		nrpages_dumped;	/* how many pages are dumped */
+	unsigned long		fd;
 	unsigned long		open_mode;
 	unsigned long		open_flags;
 	char			open_path[256];

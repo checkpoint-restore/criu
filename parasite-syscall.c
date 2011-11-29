@@ -241,6 +241,105 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
+int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+			parasite_status_t *args, int args_size)
+{
+	parasite_args_t parasite_arg				= { };
+	user_regs_struct_t regs, regs_orig;
+	int status, ret = -1;
+	siginfo_t siginfo;
+
+	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
+
+	parasite_arg.command		= cmd;
+	parasite_arg.args_size		= args_size;
+	parasite_arg.args		= args;
+
+	/*
+	 * Pass the command first, it's immutable.
+	 */
+	jerr(ptrace_poke_area((long)ctl->pid, (void *)&parasite_arg.command,
+			     (void *)ctl->addr_cmd, sizeof(parasite_arg.command)),
+			     err_restore);
+
+again:
+		jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err_restore);
+		regs.ip	= ctl->parasite_ip;
+		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
+
+		if (ptrace_poke_area((long)ctl->pid, (void *)parasite_arg.args,
+				 (void *)ctl->addr_args, parasite_arg.args_size)) {
+			pr_err("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
+			goto err_restore;
+		}
+
+		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
+		jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
+		jerr(!WIFSTOPPED(status), err_restore);
+		jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+
+		if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
+retry_signal:
+			/* pr_debug("** delivering signal %d si_code=%d\n",
+				 siginfo.si_signo, siginfo.si_code); */
+			/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
+			jerr(ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, (void *)&regs_orig), err_restore);
+			jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
+			jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
+
+			jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
+			jerr(!WIFSTOPPED(status), err_restore);
+			jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+
+			if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
+				goto retry_signal;
+
+			goto again;
+		}
+
+		/*
+		 * Check if error happened during dumping.
+		 */
+		if (ptrace_peek_area((long)ctl->pid,
+				     (void *)args,
+				     (void *)(ctl->addr_args),
+				     args_size)) {
+			pr_err("Can't get dumper ret code (pid: %d)\n", ctl->pid);
+			goto err_restore;
+		}
+		if (args->ret) {
+			pr_panic("Dumping sigactions failed with %li (%li) at %li\n",
+				 args->ret,
+				 args->sys_ret,
+				 args->line);
+
+			goto err_restore;
+		}
+
+
+	/*
+	 * Our code is done.
+	 */
+	jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
+	jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
+
+	jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
+	jerr(!WIFSTOPPED(status), err_restore);
+	jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+
+	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore);
+
+	ret = 0;
+
+err_restore:
+	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig)) {
+		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
+		ret = -1;
+	}
+err:
+	return ret;
+}
+
 /*
  * This routine drives parasite code (been previously injected into a victim
  * process) and tells it to dump pages into the file.
@@ -288,12 +387,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 */
 	fsync(cr_fdset->desc[fd_type].fd);
 
-	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
-
-	parasite_arg.command		= PARASITE_CMD_DUMPPAGES;
-	parasite_arg.args_size		= sizeof(parasite_dumppages);
-	parasite_arg.args		= &parasite_dumppages;
-
 	snprintf(parasite_dumppages.open_path,
 		 sizeof(parasite_dumppages.open_path),
 		"%s/%s", cwd, cr_fdset->desc[fd_type].name);
@@ -304,12 +397,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
 	parasite_dumppages.fd		= -1UL;
 
-	/*
-	 * Pass the command first, it's immutable.
-	 */
-	jerr(ptrace_poke_area((long)ctl->pid, (void *)&parasite_arg.command,
-			     (void *)ctl->addr_cmd, sizeof(parasite_arg.command)),
-			     err_restore);
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
 
@@ -324,107 +411,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			continue;
 
 		pr_info_vma(vma_area);
-
-again:
-		jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err_restore);
-		regs.ip	= ctl->parasite_ip;
-		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
-
 		parasite_dumppages.vma_entry = vma_area->vma;
 
-		if (ptrace_poke_area((long)ctl->pid, (void *)parasite_arg.args,
-				 (void *)ctl->addr_args, parasite_arg.args_size)) {
-			pr_err("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
-			goto err_restore;
-		}
-
-		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
-		jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-		jerr(!WIFSTOPPED(status), err_restore);
-		jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
-
-		if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
-retry_signal:
-			/* pr_debug("** delivering signal %d si_code=%d\n",
-				 siginfo.si_signo, siginfo.si_code); */
-			/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
-			jerr(ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, (void *)&regs_orig), err_restore);
-			jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
-			jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
-
-			jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-			jerr(!WIFSTOPPED(status), err_restore);
-			jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
-
-			if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
-				goto retry_signal;
-
-			goto again;
-		}
-
-		/*
-		 * It's a bit tricky, the file get opened inside
-		 * parasite but close via explicit syscall. Better would
-		 * be to add some 'status' and close inside parasite on
-		 * last call.
-		 */
-		if (parasite_dumppages.fd == -1UL) {
-			if (ptrace_peek_area((long)ctl->pid,
-					     (void *)&parasite_dumppages.fd,
-					     (void *)(ctl->addr_args +
-						      offsetof(parasite_args_cmd_dumppages_t, fd)),
-					     sizeof(parasite_dumppages.fd))) {
-				pr_err("Can't get file descriptor back (pid: %d)\n", ctl->pid);
-				goto err_restore;
-			}
-		}
-
-		/*
-		 * Get some statistics.
-		 */
-		if (ptrace_peek_area((long)ctl->pid,
-				     (void *)&parasite_dumppages.nrpages_dumped,
-				     (void *)(ctl->addr_args +
-					      offsetof(parasite_args_cmd_dumppages_t, nrpages_dumped)),
-				     sizeof(parasite_dumppages.fd))) {
-			pr_err("Can't get statistics (pid: %d)\n", ctl->pid);
-			goto err_restore;
-		}
-
-		/*
-		 * Check if error happened during dumping.
-		 */
-		if (ptrace_peek_area((long)ctl->pid,
-				     (void *)&parasite_dumppages.ret,
-				     (void *)(ctl->addr_args +
-					      offsetof(parasite_args_cmd_dumppages_t, ret)),
-				     sizeof(parasite_dumppages.ret))) {
-			pr_err("Can't get dumper ret code (pid: %d)\n", ctl->pid);
-			goto err_restore;
-		}
-		if (parasite_dumppages.ret) {
-			if (ptrace_peek_area((long)ctl->pid,
-					     (void *)&parasite_dumppages.sys_ret,
-					     (void *)(ctl->addr_args +
-						      offsetof(parasite_args_cmd_dumppages_t, sys_ret)),
-					     sizeof(parasite_dumppages.sys_ret))) {
-				pr_err("Can't get dumper sys_ret code (pid: %d)\n", ctl->pid);
-				goto err_restore;
-			}
-
-			if (ptrace_peek_area((long)ctl->pid,
-					     (void *)&parasite_dumppages.line,
-					     (void *)(ctl->addr_args +
-						      offsetof(parasite_args_cmd_dumppages_t, line)),
-					     sizeof(parasite_dumppages.line))) {
-				pr_err("Can't get dumper ret line (pid: %d)\n", ctl->pid);
-				goto err_restore;
-			}
-
+		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl,
+					(parasite_status_t *) &parasite_dumppages,
+					sizeof(parasite_dumppages));
+		if (ret) {
 			pr_panic("Dumping pages failed with %li (%li) at %li\n",
-				 parasite_dumppages.ret,
-				 parasite_dumppages.sys_ret,
-				 parasite_dumppages.line);
+				 parasite_dumppages.status.ret,
+				 parasite_dumppages.status.sys_ret,
+				 parasite_dumppages.status.line);
 
 			goto err_restore;
 		}
@@ -433,21 +429,9 @@ retry_signal:
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
 	}
 
-	/*
-	 * Our code is done.
-	 */
-	jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
-	jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
-
-	jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-	jerr(!WIFSTOPPED(status), err_restore);
-	jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
-
-	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore);
-
-	jerr(ptrace(PTRACE_GETREGS, (long)ctl->pid, NULL, &regs), err_restore);
-
 	ret = 0;
+
+	jerr(ptrace(PTRACE_GETREGS, (long)ctl->pid, NULL, &regs_orig), err_restore);
 
 	/* Finally close the descriptor the parasite has opened */
 	if (parasite_dumppages.fd != -1UL) {
@@ -455,6 +439,11 @@ retry_signal:
 		regs.ax	= __NR_close;			/* close	*/
 		regs.di	= parasite_dumppages.fd;	/* @fd		*/
 		ret	= syscall_seized(ctl->pid, &regs_orig, &regs, &regs);
+	}
+
+	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig)) {
+		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
+		ret = -1;
 	}
 
 	/*
@@ -470,10 +459,6 @@ retry_signal:
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 
 err_restore:
-	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig))
-		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
-
-err:
 	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), out);
 
 out:
