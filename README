@@ -21,7 +21,11 @@ To have crtools up and running either
 
 1) use patches from kernel/ directory
 2) or clone git://github.com/cyrillos/linux-2.6.git
-   and switch to branch "crtools".
+   and switch to branch "crtools". Note these patches
+   are guaranteed to be up to date only with major
+   release of crtool. If you're testing development
+   version -- make sure you're applying series from
+   kernel/ directory.
 
 It's based on Linux
 
