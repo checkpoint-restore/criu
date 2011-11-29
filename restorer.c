@@ -220,18 +220,6 @@ self_len_end:
 			if (final_vma_entry(vma_entry))
 				break;
 
-			if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
-				ret = sys_prctl(PR_SETUP_VDSO_AT, vma_entry->start,
-						0, 0, 0);
-				if (ret) {
-					write_num_n(__LINE__);
-					write_hex_n(vma_entry->start);
-					write_num_n(ret);
-					goto core_restore_end;
-				}
-				continue;
-			}
-
 			if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 				continue;
 
