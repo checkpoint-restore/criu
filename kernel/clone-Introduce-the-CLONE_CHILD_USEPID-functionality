@@ -1,7 +1,6 @@
-From 7348faeab3ba943ea5c2d955b0dcb53477a94629 Mon Sep 17 00:00:00 2001
+clone: Introduce the CLONE_CHILD_USEPID functionality
+
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Tue, 8 Nov 2011 17:07:58 +0400
-Subject: [PATCH 6/7] clone: Introduce the CLONE_CHILD_USEPID functionality
 
 When restoring a task (or a set of tasks) we need to recreate them with
 exactly the same pid as they had before. Thus we need the ability to create
@@ -17,16 +16,16 @@ will not give anyone chances for screwing pids up on a living system.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 ---
- include/linux/pid.h   |    2 +-
- include/linux/sched.h |    1 +
+ include/linux/pid.h   |    2 -
+ include/linux/sched.h |    1 
  kernel/fork.c         |   10 ++++++-
- kernel/pid.c          |   70 +++++++++++++++++++++++++++++++++++-------------
+ kernel/pid.c          |   70 ++++++++++++++++++++++++++++++++++++--------------
  4 files changed, 62 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/pid.h b/include/linux/pid.h
-index b152d44..6bfe317 100644
---- a/include/linux/pid.h
-+++ b/include/linux/pid.h
+Index: linux-2.6.git/include/linux/pid.h
+===================================================================
+--- linux-2.6.git.orig/include/linux/pid.h
++++ linux-2.6.git/include/linux/pid.h
 @@ -119,7 +119,7 @@ extern struct pid *find_get_pid(int nr);
  extern struct pid *find_ge_pid(int nr, struct pid_namespace *);
  int next_pidmap(struct pid_namespace *pid_ns, unsigned int last);
@@ -36,10 +35,10 @@ index b152d44..6bfe317 100644
  extern void free_pid(struct pid *pid);
  
  /*
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 68daf4f..389068d 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
+Index: linux-2.6.git/include/linux/sched.h
+===================================================================
+--- linux-2.6.git.orig/include/linux/sched.h
++++ linux-2.6.git/include/linux/sched.h
 @@ -23,6 +23,7 @@
  #define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
  /* 0x02000000 was previously the unused CLONE_STOPPED (Start in stopped state)
@@ -48,11 +47,11 @@ index 68daf4f..389068d 100644
  #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
  #define CLONE_NEWIPC		0x08000000	/* New ipcs */
  #define CLONE_NEWUSER		0x10000000	/* New user namespace */
-diff --git a/kernel/fork.c b/kernel/fork.c
-index ba0d172..0c67c63 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -1250,8 +1250,16 @@ static struct task_struct *copy_process(unsigned long clone_flags,
+Index: linux-2.6.git/kernel/fork.c
+===================================================================
+--- linux-2.6.git.orig/kernel/fork.c
++++ linux-2.6.git/kernel/fork.c
+@@ -1250,8 +1250,16 @@ static struct task_struct *copy_process(
  		goto bad_fork_cleanup_io;
  
  	if (pid != &init_struct_pid) {
@@ -70,11 +69,11 @@ index ba0d172..0c67c63 100644
  		if (!pid)
  			goto bad_fork_cleanup_io;
  	}
-diff --git a/kernel/pid.c b/kernel/pid.c
-index fa5f722..b69f6a3 100644
---- a/kernel/pid.c
-+++ b/kernel/pid.c
-@@ -159,11 +159,55 @@ static void set_last_pid(struct pid_namespace *pid_ns, int base, int pid)
+Index: linux-2.6.git/kernel/pid.c
+===================================================================
+--- linux-2.6.git.orig/kernel/pid.c
++++ linux-2.6.git/kernel/pid.c
+@@ -159,11 +159,55 @@ static void set_last_pid(struct pid_name
  	} while ((prev != last_write) && (pid_before(base, last_write, pid)));
  }
  
@@ -131,7 +130,7 @@ index fa5f722..b69f6a3 100644
  	pid = last + 1;
  	if (pid >= pid_max)
  		pid = RESERVED_PIDS;
-@@ -176,22 +220,9 @@ static int alloc_pidmap(struct pid_namespace *pid_ns)
+@@ -176,22 +220,9 @@ static int alloc_pidmap(struct pid_names
  	 */
  	max_scan = DIV_ROUND_UP(pid_max, BITS_PER_PAGE) - !offset;
  	for (i = 0; i <= max_scan; ++i) {
@@ -166,7 +165,7 @@ index fa5f722..b69f6a3 100644
  {
  	struct pid *pid;
  	enum pid_type type;
-@@ -291,13 +322,14 @@ struct pid *alloc_pid(struct pid_namespace *ns)
+@@ -291,13 +322,14 @@ struct pid *alloc_pid(struct pid_namespa
  
  	tmp = ns;
  	for (i = ns->level; i >= 0; i--) {
@@ -182,6 +181,3 @@ index fa5f722..b69f6a3 100644
  	}
  
  	get_pid_ns(ns);
--- 
-1.7.7.3
-

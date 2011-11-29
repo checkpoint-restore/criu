@@ -1,20 +1,19 @@
-From 181ab3a738d454c0aa6f983e25ca076638d43179 Mon Sep 17 00:00:00 2001
+mincore: Add named constant for reported present bit
+
 From: Pavel Emelyanov <xemul@parallels.com>
-Date: Fri, 25 Nov 2011 17:58:28 +0400
-Subject: [PATCH 1/2] mincore: Add named constant for reported present bit
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-Signed-off-by: Cyrill Gorcunov <gorcunov@gmail.com>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 ---
  include/linux/mman.h |    2 ++
  mm/huge_memory.c     |    2 +-
  mm/mincore.c         |   10 +++++-----
  3 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/mman.h b/include/linux/mman.h
-index 8b74e9b..e4fda1e 100644
---- a/include/linux/mman.h
-+++ b/include/linux/mman.h
+Index: linux-2.6.git/include/linux/mman.h
+===================================================================
+--- linux-2.6.git.orig/include/linux/mman.h
++++ linux-2.6.git/include/linux/mman.h
 @@ -10,6 +10,8 @@
  #define OVERCOMMIT_ALWAYS		1
  #define OVERCOMMIT_NEVER		2
@@ -24,11 +23,11 @@ index 8b74e9b..e4fda1e 100644
  #ifdef __KERNEL__
  #include <linux/mm.h>
  #include <linux/percpu_counter.h>
-diff --git a/mm/huge_memory.c b/mm/huge_memory.c
-index 4298aba..a0acb3e 100644
---- a/mm/huge_memory.c
-+++ b/mm/huge_memory.c
-@@ -1045,7 +1045,7 @@ int mincore_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
+Index: linux-2.6.git/mm/huge_memory.c
+===================================================================
+--- linux-2.6.git.orig/mm/huge_memory.c
++++ linux-2.6.git/mm/huge_memory.c
+@@ -1045,7 +1045,7 @@ int mincore_huge_pmd(struct vm_area_stru
  			 * All logical pages in the range are present
  			 * if backed by a huge page.
  			 */
@@ -37,11 +36,11 @@ index 4298aba..a0acb3e 100644
  		}
  	} else
  		spin_unlock(&vma->vm_mm->page_table_lock);
-diff --git a/mm/mincore.c b/mm/mincore.c
-index 636a8687..b719cdd 100644
---- a/mm/mincore.c
-+++ b/mm/mincore.c
-@@ -38,7 +38,7 @@ static void mincore_hugetlb_page_range(struct vm_area_struct *vma,
+Index: linux-2.6.git/mm/mincore.c
+===================================================================
+--- linux-2.6.git.orig/mm/mincore.c
++++ linux-2.6.git/mm/mincore.c
+@@ -38,7 +38,7 @@ static void mincore_hugetlb_page_range(s
  				       addr & huge_page_mask(h));
  		present = ptep && !huge_pte_none(huge_ptep_get(ptep));
  		while (1) {
@@ -50,7 +49,7 @@ index 636a8687..b719cdd 100644
  			vec++;
  			addr += PAGE_SIZE;
  			if (addr == end)
-@@ -83,7 +83,7 @@ static unsigned char mincore_page(struct address_space *mapping, pgoff_t pgoff)
+@@ -83,7 +83,7 @@ static unsigned char mincore_page(struct
  		page_cache_release(page);
  	}
  
@@ -59,7 +58,7 @@ index 636a8687..b719cdd 100644
  }
  
  static void mincore_unmapped_range(struct vm_area_struct *vma,
-@@ -122,7 +122,7 @@ static void mincore_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
+@@ -122,7 +122,7 @@ static void mincore_pte_range(struct vm_
  		if (pte_none(pte))
  			mincore_unmapped_range(vma, addr, next, vec);
  		else if (pte_present(pte))
@@ -68,7 +67,7 @@ index 636a8687..b719cdd 100644
  		else if (pte_file(pte)) {
  			pgoff = pte_to_pgoff(pte);
  			*vec = mincore_page(vma->vm_file->f_mapping, pgoff);
-@@ -131,14 +131,14 @@ static void mincore_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
+@@ -131,14 +131,14 @@ static void mincore_pte_range(struct vm_
  
  			if (is_migration_entry(entry)) {
  				/* migration entries are always uptodate */
@@ -85,6 +84,3 @@ index 636a8687..b719cdd 100644
  #endif
  			}
  		}
--- 
-1.7.7.3
-

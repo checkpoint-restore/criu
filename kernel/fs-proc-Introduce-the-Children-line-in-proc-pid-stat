@@ -1,11 +1,15 @@
-From 4d12bad4d48564003c7fe9f82990123271c2bfb5 Mon Sep 17 00:00:00 2001
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Tue, 8 Nov 2011 14:59:40 +0400
-Subject: [PATCH 5/7] fs, proc: Introduce the Children: line in
- /proc/<pid>/status
+fs, proc: Introduce the Children: line in /proc/<pid>/status
 
-Although we can get the pids of some task's issue, this is just
-more convenient to have them this way.
+From: Pavel Emelyanov <xemul@parallels.com>
+
+There is no easy way to make a reverse parent->children chain
+from the task status, in turn children->parent provided with "PPid"
+field.
+
+So instead of walking over all pids in system to figure out what
+children the task have -- we add explicit "Children" member to
+/proc/<pid>/status since kernel already knows this kind of information
+but it was not yet exported.
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
@@ -14,8 +18,6 @@ Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
  fs/proc/array.c |   14 ++++++++++++++
  1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/fs/proc/array.c b/fs/proc/array.c
-index d851166..8248682 100644
 --- a/fs/proc/array.c
 +++ b/fs/proc/array.c
 @@ -158,6 +158,18 @@ static inline const char *get_task_state(struct task_struct *tsk)

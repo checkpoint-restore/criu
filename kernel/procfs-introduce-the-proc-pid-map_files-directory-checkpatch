@@ -1,7 +1,6 @@
-From 3142489577d30077c5389dce0832f7859a438401 Mon Sep 17 00:00:00 2001
+procfs-introduce-the-proc-pid-map_files-directory-checkpatch-fixes
+
 From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 9 Nov 2011 14:18:34 -0800
-Subject: [PATCH 3/7] procfs-introduce-the-proc-pid-map_files-directory-checkpatch-fixes
 
 Cc: "Kirill A. Shutemov" <kirill@shutemov.name>
 
@@ -49,8 +48,6 @@ Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
  include/linux/mm.h |    4 ++--
  2 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 9b7a9cd..4532044 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -2430,7 +2430,8 @@ static const struct inode_operations proc_map_files_inode_operations = {
@@ -99,8 +96,6 @@ index 9b7a9cd..4532044 100644
  				if (flex_array_put(fa, i++, &info, GFP_KERNEL))
  					BUG();
  			}
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 14159d3..5e27665 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -1492,8 +1492,8 @@ static inline unsigned long vma_pages(struct vm_area_struct *vma)
