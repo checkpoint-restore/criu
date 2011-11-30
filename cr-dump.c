@@ -226,7 +226,8 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
-	int fd;
+	int err = -1;
+	int fd = -1;
 
 	fd = openat(dir, fd_name, O_RDONLY);
 	if (fd < 0) {
@@ -236,16 +237,17 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 
 	if (fstat(fd, &st_buf) < 0) {
 		pr_perror("Can't get stat on %s\n", fd_name);
-		return -1;
+		goto out_close;
 	}
 
 	if (S_ISCHR(st_buf.st_mode) &&
-		( major(st_buf.st_rdev) == TTY_MAJOR ||
-		  major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
+	    (major(st_buf.st_rdev) == TTY_MAJOR ||
+	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
 		/* skip only standard destriptors */
 		if (atoi(fd_name) < 3) {
+			err = 0;
 			pr_info("... Skipping tty ... %s/%s\n", pid_fd_dir, fd_name);
-			return 0;
+			goto out_close;
 		}
 		goto err;
 	}
@@ -269,7 +271,10 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 
 err:
 	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
-	return 1;
+
+out_close:
+	close_safe(&fd);
+	return err;
 }
 
 static int read_fd_params(pid_t pid, char *fd, unsigned long *pos, unsigned int *flags)
