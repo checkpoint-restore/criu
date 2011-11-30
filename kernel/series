@@ -7,3 +7,4 @@ fs-proc-Introduce-the-Children-line-in-proc-pid-stat
 prctl-tune-up-mm_struct-members-2
 mincore-Add-named-constant-for-reported-present-bit
 mincore-Report-whether-page-is-anon-or-not
+sysfs-add-kernel.ns_last_pid

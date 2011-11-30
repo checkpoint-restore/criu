@@ -8,19 +8,21 @@ time.
 At restore time we need a mechanism to restore those values
 back and for this sake PR_SET_MM prctl code is introduced.
 
-Note at moment this inteface is allowed for CAP_SYS_ADMIN
-only.
+Note because of being a dangerous operation this inteface
+is allowed for CAP_SYS_ADMIN only.
 
 v2:
  - Add a check for vma start address, testing for vma ending
    address is not enough. From Kees Cook.
 
+ - Add some sanity tests for assigned addresses.
+
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
 CC: Kees Cook <keescook@chromium.org>
 ---
- include/linux/prctl.h |   12 ++++++++++
- kernel/sys.c          |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
+ include/linux/prctl.h |   12 +++++
+ kernel/sys.c          |  118 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 130 insertions(+)
 
 Index: linux-2.6.git/include/linux/prctl.h
 ===================================================================
@@ -47,63 +49,133 @@ Index: linux-2.6.git/kernel/sys.c
 ===================================================================
 --- linux-2.6.git.orig/kernel/sys.c
 +++ linux-2.6.git/kernel/sys.c
-@@ -1841,6 +1841,61 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
+@@ -1692,6 +1692,118 @@ SYSCALL_DEFINE1(umask, int, mask)
+ 	return mask;
+ }
+ 
++static int prctl_set_mm(int opt, unsigned long addr)
++{
++	unsigned long rlim = rlimit(RLIMIT_DATA);
++	unsigned long vm_req_flags;
++	unsigned long vm_bad_flags;
++	struct vm_area_struct *vma;
++	struct mm_struct *mm;
++	int error = 0;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++
++	if (addr >= TASK_SIZE)
++		return -EINVAL;
++
++	mm = get_task_mm(current);
++	if (!mm)
++		return -ENOENT;
++
++	down_read(&mm->mmap_sem);
++	vma = find_vma(mm, addr);
++
++	if (opt != PR_SET_MM_START_BRK &&
++	    opt != PR_SET_MM_BRK) {
++		/* It must be existing VMA */
++		if (!vma || vma->vm_start > addr)
++			goto out;
++	}
++
++	error = -EINVAL;
++	switch (opt) {
++	case PR_SET_MM_START_CODE:
++	case PR_SET_MM_END_CODE:
++
++		vm_req_flags = VM_READ | VM_EXEC;
++		vm_bad_flags = VM_WRITE | VM_MAYSHARE;
++
++		if ((vma->vm_flags & vm_req_flags) != vm_req_flags ||
++		    (vma->vm_flags & vm_bad_flags))
++			goto out;
++
++		if (opt == PR_SET_MM_START_CODE)
++			current->mm->start_code = addr;
++		else
++			current->mm->end_code = addr;
++		break;
++
++	case PR_SET_MM_START_DATA:
++	case PR_SET_MM_END_DATA:
++
++		vm_req_flags = VM_READ | VM_WRITE;
++		vm_bad_flags = VM_EXEC | VM_MAYSHARE;
++
++		if ((vma->vm_flags & vm_req_flags) != vm_req_flags ||
++		    (vma->vm_flags & vm_bad_flags))
++			goto out;
++
++		if (opt == PR_SET_MM_START_DATA)
++			current->mm->start_data = addr;
++		else
++			current->mm->end_data = addr;
++		break;
++
++	case PR_SET_MM_START_STACK:
++
++#ifdef CONFIG_STACK_GROWSUP
++		vm_req_flags = VM_READ | VM_WRITE | VM_GROWSUP;
++#else
++		vm_req_flags = VM_READ | VM_WRITE | VM_GROWSDOWN;
++#endif
++		if ((vma->vm_flags & vm_req_flags) != vm_req_flags)
++			goto out;
++
++		current->mm->start_stack = addr;
++		break;
++
++	case PR_SET_MM_START_BRK:
++		if (addr <= mm->end_data)
++			goto out;
++
++		if (rlim < RLIM_INFINITY &&
++		    (mm->brk - addr) + (mm->end_data - mm->start_data) > rlim)
++			goto out;
++
++		current->mm->start_brk = addr;
++		break;
++
++	case PR_SET_MM_BRK:
++		if (addr <= mm->end_data)
++			goto out;
++
++		if (rlim < RLIM_INFINITY &&
++		    (addr - mm->start_brk) + (mm->end_data - mm->start_data) > rlim)
++			goto out;
++
++		current->mm->brk = addr;
++		break;
++
++	default:
++		error = -EINVAL;
++		goto out;
++	}
++
++	error = 0;
++
++out:
++	up_read(&mm->mmap_sem);
++	mmput(mm);
++
++	return error;
++}
++
+ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
+ 		unsigned long, arg4, unsigned long, arg5)
+ {
+@@ -1841,6 +1953,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
  			else
  				error = PR_MCE_KILL_DEFAULT;
  			break;
 +		case PR_SET_MM: {
-+			struct mm_struct *mm;
-+			struct vm_area_struct *vma;
-+
 +			if (arg4 | arg5)
 +				return -EINVAL;
-+
-+			if (!capable(CAP_SYS_ADMIN))
-+				return -EPERM;
-+
-+			error = -ENOENT;
-+			mm = get_task_mm(current);
-+			if (!mm)
-+				return error;
-+
-+			/* Make sure the address is inside VMA */
-+			down_read(&mm->mmap_sem);
-+			vma = find_vma(mm, arg3);
-+			if (!vma)
-+				goto out;
-+			else if (vma->vm_start > addr)
-+				goto out;
-+
-+			switch (arg2) {
-+			case PR_SET_MM_START_CODE:
-+				current->mm->start_code = arg3;
-+				break;
-+			case PR_SET_MM_END_CODE:
-+				current->mm->end_code = arg3;
-+				break;
-+			case PR_SET_MM_START_DATA:
-+				current->mm->start_data = arg3;
-+				break;
-+			case PR_SET_MM_END_DATA:
-+				current->mm->end_data = arg3;
-+				break;
-+			case PR_SET_MM_START_STACK:
-+				current->mm->start_stack = arg3;
-+				break;
-+			case PR_SET_MM_START_BRK:
-+				current->mm->start_brk = arg3;
-+				break;
-+			case PR_SET_MM_BRK:
-+				current->mm->brk = arg3;
-+				break;
-+			default:
-+				error = -EINVAL;
-+				goto out;
-+			}
-+			error = 0;
-+out:
-+			up_read(&mm->mmap_sem);
-+			mmput(mm);
++			error = prctl_set_mm(arg2, arg3);
 +			break;
 +		}
  		default:

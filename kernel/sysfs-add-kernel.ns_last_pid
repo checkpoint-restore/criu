@@ -1,0 +1,103 @@
+sysctl: Add the kernel.ns_last_pid control
+
+From: Pavel Emelyanov <xemul@parallels.com>
+
+The sysctl works on the current task's pid namespace, getting and setting its
+last_pid field.
+
+Writing is allowed for CAP_SYS_ADMIN-capable tasks thus making it possible to
+create a task with desired pid value. This ability is required badly for the
+checkpoint/restore in userspace.
+
+This approach suits all the parties for now.
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Acked-by: Tejun Heo <tj@kernel.org>
+CC: Oleg Nesterov <oleg@redhat.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
+ Documentation/sysctl/kernel.txt |    8 ++++++++
+ kernel/pid.c                    |    4 +++-
+ kernel/pid_namespace.c          |   31 +++++++++++++++++++++++++++++++
+ 3 files changed, 42 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.git/Documentation/sysctl/kernel.txt
+===================================================================
+--- linux-2.6.git.orig/Documentation/sysctl/kernel.txt
++++ linux-2.6.git/Documentation/sysctl/kernel.txt
+@@ -401,6 +401,14 @@ PIDs of value pid_max or larger are not
+ 
+ ==============================================================
+ 
++ns_last_pid:
++
++The last pid allocated in the current (the one task using this sysctl
++lives in) pid namespace. When selecting a pid for a next task on fork
++kernel tries to allocate a number starting from this one.
++
++==============================================================
++
+ powersave-nap: (PPC only)
+ 
+ If set, Linux-PPC will use the 'nap' mode of powersaving,
+Index: linux-2.6.git/kernel/pid.c
+===================================================================
+--- linux-2.6.git.orig/kernel/pid.c
++++ linux-2.6.git/kernel/pid.c
+@@ -137,7 +137,9 @@ static int pid_before(int base, int a, i
+ }
+ 
+ /*
+- * We might be racing with someone else trying to set pid_ns->last_pid.
++ * We might be racing with someone else trying to set pid_ns->last_pid
++ * at the pid allocation time (there's also a sysctl for this, but racing
++ * with this one is OK, see comment in kernel/pid_namespace.c about it).
+  * We want the winner to have the "later" value, because if the
+  * "earlier" value prevails, then a pid may get reused immediately.
+  *
+Index: linux-2.6.git/kernel/pid_namespace.c
+===================================================================
+--- linux-2.6.git.orig/kernel/pid_namespace.c
++++ linux-2.6.git/kernel/pid_namespace.c
+@@ -191,9 +191,40 @@ void zap_pid_ns_processes(struct pid_nam
+ 	return;
+ }
+ 
++static int pid_ns_ctl_handler(struct ctl_table *table, int write,
++		void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct ctl_table tmp = *table;
++
++	if (write && !capable(CAP_SYS_ADMIN))
++		return -EPERM;
++
++	/*
++	 * Writing directly to ns' last_pid field is OK, since this field
++	 * is volatile in a living namespace anyway and a code writing to
++	 * it should synchronize its usage with external means.
++	 */
++
++	tmp.data = &current->nsproxy->pid_ns->last_pid;
++	return proc_dointvec(&tmp, write, buffer, lenp, ppos);
++}
++
++static struct ctl_table pid_ns_ctl_table[] = {
++	{
++		.procname = "ns_last_pid",
++		.maxlen = sizeof(int),
++		.mode = 0666, /* permissions are checked in the handler */
++		.proc_handler = pid_ns_ctl_handler,
++	},
++	{ }
++};
++
++static struct ctl_path kern_path[] = { { .procname = "kernel", }, { } };
++
+ static __init int pid_namespaces_init(void)
+ {
+ 	pid_ns_cachep = KMEM_CACHE(pid_namespace, SLAB_PANIC);
++	register_sysctl_paths(kern_path, pid_ns_ctl_table);
+ 	return 0;
+ }
+ 
