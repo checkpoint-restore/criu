@@ -443,8 +443,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		 sizeof(parasite_dumppages.open_path),
 		"%s/%s", cwd, cr_fdset->desc[fd_type].name);
 
-	free(cwd);
-
 	parasite_dumppages.open_flags	= O_WRONLY;
 	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
 	parasite_dumppages.fd		= -1UL;
@@ -514,6 +512,7 @@ err_restore:
 	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), out);
 
 out:
+	xfree(cwd);
 	pr_info("----------------------------------------\n");
 
 	return ret;
