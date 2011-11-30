@@ -375,8 +375,6 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 		 sizeof(parasite_sigacts.open_path),
 		"%s/%s", cwd, cr_fdset->desc[CR_FD_SIGACT].name);
 
-	free(cwd);
-
 	parasite_sigacts.open_flags	= O_WRONLY;
 	parasite_sigacts.open_mode	= CR_FD_PERM_DUMP;
 
@@ -387,6 +385,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 err:
 	jerr(fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM), out);
 out:
+	xfree(cwd);
 	pr_info("----------------------------------------\n");
 
 	return ret;
