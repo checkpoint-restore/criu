@@ -249,7 +249,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 		if (pipes[i].pid > pid && !pipe_is_rw(&pipes[i])) {
 			pipes[i].pid = pid;
 		} else if (pipes[i].pid == pid) {
-			switch (e->flags) {
+			switch (e->flags & O_ACCMODE) {
 			case O_RDONLY:
 				pipes[i].status |= PIPE_RDONLY;
 				break;
@@ -275,16 +275,12 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	pipes[nr_pipes].pid	= pid;
 	pipes[nr_pipes].users	= 1;
 
-	switch (e->flags) {
+	switch (e->flags & O_ACCMODE) {
 	case O_RDONLY:
 		pipes[nr_pipes].status = PIPE_RDONLY;
 		break;
 	case O_WRONLY:
 		pipes[nr_pipes].status = PIPE_WRONLY;
-		break;
-	default:
-		pr_err("%d: Unknown pipe status pipeid %d\n",
-		       pid, e->pipeid);
 		break;
 	}
 
@@ -881,6 +877,21 @@ static int prepare_and_sigreturn(int pid)
 	return 0;
 }
 
+#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
+
+static int set_fd_flags(int fd, int flags)
+{
+	int old;
+
+	old = fcntl(fd, F_GETFL, 0);
+	if (old < 0)
+		return old;
+
+	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
+
+	return fcntl(fd, F_SETFL, flags);
+}
+
 static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
 {
 	unsigned long time = 1000;
@@ -949,6 +960,10 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (tmp < 0)
 		return 1;
 
+	tmp = set_fd_flags(e->fd, e->flags);
+	if (tmp < 0)
+		return 1;
+
 	return 0;
 }
 
@@ -990,6 +1005,10 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pi->users--;
 
 	lseek(pipes_fd, e->bytes, SEEK_CUR);
+
+	tmp = set_fd_flags(e->fd, e->flags);
+	if (tmp < 0)
+		return 1;
 
 	return 0;
 
