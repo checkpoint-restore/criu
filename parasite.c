@@ -94,12 +94,13 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
  */
 static int dump_pages(parasite_args_cmd_dumppages_t *args)
 {
-	int ret = PARASITE_ERR_FAIL;
+	parasite_status_t *st = &args->status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
 	unsigned char *map;
-	parasite_status_t *st = &args->status;
+
+	int ret = PARASITE_ERR_FAIL;
 
 	args->nrpages_dumped = 0;
 	prot_old = prot_new = 0;
@@ -108,9 +109,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 		args->fd = sys_open(args->open_path, args->open_flags, args->open_mode);
 		if ((long)args->fd < 0) {
 			sys_write_msg("sys_open failed\n");
-			ret = PARASITE_ERR_OPEN;
-			st->sys_ret = args->fd;
-			st->ret = ret, st->line = __LINE__;
+			SET_PARASITE_STATUS(st, PARASITE_ERR_OPEN, args->fd);
+			ret = st->ret;
 			goto err;
 		}
 	}
@@ -135,9 +135,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 				       -1, 0);
 		if ((long)map < 0) {
 			sys_write_msg("sys_mmap failed\n");
-			ret = PARASITE_ERR_MMAP;
-			st->sys_ret = (long)map;
-			st->ret = ret, st->line = __LINE__;
+			SET_PARASITE_STATUS(st, PARASITE_ERR_MMAP, (long)map);
+			ret = st->ret;
 			goto err;
 		}
 	}
@@ -154,9 +153,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 				   prot_new);
 		if (ret) {
 			sys_write_msg("sys_mprotect failed\n");
-			ret = PARASITE_ERR_MPROTECT;
-			st->sys_ret = ret;
-			st->ret = ret, st->line = __LINE__;
+			SET_PARASITE_STATUS(st, PARASITE_ERR_MPROTECT, ret);
+			ret = st->ret;
 			goto err_free;
 		}
 	}
@@ -169,9 +167,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	ret = sys_mincore((unsigned long)args->vma_entry.start, length, map);
 	if (ret) {
 		sys_write_msg("sys_mincore failed\n");
-		st->sys_ret = ret;
-		ret = PARASITE_ERR_MINCORE;
-		st->ret = ret, st->line = __LINE__;
+		SET_PARASITE_STATUS(st, PARASITE_ERR_MINCORE, ret);
+		ret = st->ret;
 		goto err_free;
 	}
 
@@ -190,10 +187,8 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 			written += sys_write(args->fd, &vaddr, sizeof(vaddr));
 			written += sys_write(args->fd, (void *)vaddr, PAGE_SIZE);
 			if (written != sizeof(vaddr) + PAGE_SIZE) {
-				st->sys_ret = written; /* The caller are to decode value */
-				ret = PARASITE_ERR_WRITE;
-				sys_write_msg("sys_write on page failed\n");
-				st->ret = ret, st->line = __LINE__;
+				SET_PARASITE_STATUS(st, PARASITE_ERR_WRITE, written);
+				ret = st->ret;
 				goto err_free;
 			}
 
@@ -209,16 +204,15 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_old);
 		if (ret) {
-			sys_write_msg("PANIC: Ouch! sys_mprotect failed on resore\n");
-			st->sys_ret = ret;
-			ret = PARASITE_ERR_MPROTECT;
-			st->ret = ret, st->line = __LINE__;
+			sys_write_msg("PANIC: Ouch! sys_mprotect failed on restore\n");
+			SET_PARASITE_STATUS(st, PARASITE_ERR_MPROTECT, ret);
+			ret = st->ret;
 			goto err_free;
 		}
 	}
 
 	/* on success ret = 0 */
-	st->ret = ret, st->line = __LINE__;
+	SET_PARASITE_STATUS(st, ret, ret);
 
 err_free:
 	if (map_brk)
@@ -231,17 +225,18 @@ err:
 
 static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 {
-	int fd;
-	int ret = PARASITE_ERR_FAIL;
-	int sig;
-	struct sigaction act;
 	parasite_status_t *st = &args->status;
+	struct sigaction act;
+	int fd, sig;
+
+	int ret = PARASITE_ERR_FAIL;
 
 	fd = sys_open(args->open_path, args->open_flags, args->open_mode);
 	if (fd < 0) {
 		sys_write_msg("sys_open failed\n");
-		st->ret = PARASITE_ERR_OPEN, st->line = __LINE__;
-		return 1;
+		SET_PARASITE_STATUS(st, PARASITE_ERR_OPEN, fd);
+		ret = st->ret;
+		return ret;
 	}
 
         for (sig = 1; sig < SIGMAX; sig++) {
@@ -251,20 +246,23 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 		ret = sys_sigaction(sig, NULL, &act);
 		if (ret < 0) {
 			sys_write_msg("sys_sigaction failed\n");
-			st->ret = PARASITE_ERR_SIGACTION, st->line = __LINE__;
+			SET_PARASITE_STATUS(st, PARASITE_ERR_SIGACTION, ret);
+			ret = st->ret;
 			goto err_close;
 		}
 
 		ret = sys_write(fd, &act, sizeof(act));
 		if (ret != sizeof(act)) {
 			sys_write_msg("sys_write failed\n");
-			st->sys_ret = ret;
-			st->ret = PARASITE_ERR_WRITE, st->line = __LINE__;
-			ret = -1;
+			SET_PARASITE_STATUS(st, PARASITE_ERR_WRITE, ret);
+			ret = st->ret;
 			goto err_close;
 		}
 	}
-	st->ret = ret = 0, st->line = __LINE__;
+
+	ret = 0;
+	SET_PARASITE_STATUS(st, 0, ret);
+
 err_close:
 	sys_close(fd);
 	return ret;

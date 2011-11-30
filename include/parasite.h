@@ -41,10 +41,17 @@ typedef struct {
 } parasite_args_t;
 
 typedef struct  {
-	long			ret;
-	long			sys_ret;
-	long			line;
+	long			ret;		/* custom ret code */
+	long			sys_ret;	/* syscall ret code */
+	long			line;		/* where we're failed */
 } parasite_status_t;
+
+#define SET_PARASITE_STATUS(st, ret_code, sys_ret_code)	\
+	do {						\
+		st->ret		= ret_code,		\
+		st->sys_ret	= sys_ret_code,		\
+		st->line	= __LINE__;		\
+	} while (0)
 
 typedef struct {
 	parasite_status_t	status;
