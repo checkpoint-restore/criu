@@ -80,7 +80,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= SHMEM_MAGIC,
 	},
 
-	/* info about which memory areas are shared */
+	/* info about signal handlers */
 	[CR_FD_SIGACT] = {
 		.fmt	= FMT_FNAME_SIGACTS,
 		.magic	= SIGACT_MAGIC,
