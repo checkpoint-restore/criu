@@ -251,6 +251,7 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	}
 
 	if (S_ISREG(st_buf.st_mode) ||
+	    S_ISDIR(st_buf.st_mode) ||
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
 		return dump_one_reg_file(FDINFO_FD, atol(fd_name),
 					 fd, 1, pos, flags, cr_fdset);
