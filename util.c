@@ -318,7 +318,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 
 		if (strstr(big_buffer, "[stack]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;
-			vma_area->vma.prot   |= PROT_GROWSDOWN;
+			vma_area->vma.flags  |= MAP_GROWSDOWN;
 		} else if (strstr(big_buffer, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(big_buffer, "[vdso]")) {
