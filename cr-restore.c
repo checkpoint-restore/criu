@@ -16,6 +16,7 @@
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/wait.h>
+#include <sys/file.h>
 
 #include <sched.h>
 
@@ -1154,29 +1155,50 @@ static int restore_one_task(int pid)
 	return prepare_and_sigreturn(pid);
 }
 
-static int do_child(void *arg)
-{
-	return restore_task_with_children(getpid(), arg);
-}
-
 static inline int fork_with_pid(int pid, char *pstree_path)
 {
-	const int stack_size = 32 << 10;
-	int ret = 0;
-	void *stack;
+	int ret = -1, fd = -1;
+	char buf[32];
 
-	stack = mmap(0, stack_size, PROT_READ | PROT_WRITE,
-		     MAP_PRIVATE | MAP_ANON | MAP_GROWSDOWN, 0, 0);
-	if (stack == MAP_FAILED) {
-		pr_perror("%d: mmap failed\n", pid);
-		return -1;
+	snprintf(buf, sizeof(buf), "%d", pid - 1);
+
+	fd = open(LAST_PID_PATH, O_RDWR);
+	if (fd < 0) {
+		pr_perror("%d: Can't open %s\n", pid, LAST_PID_PATH);
+		goto err;
 	}
 
-	stack += stack_size;
-	ret = clone(do_child, stack, SIGCHLD | CLONE_CHILD_USEPID, pstree_path, NULL, NULL, &pid);
-	if (ret < 0)
-		pr_perror("%d: clone failed\n", pid);
+	if (flock(fd, LOCK_EX)) {
+		pr_perror("%d: Can't lock %s\n", pid, LAST_PID_PATH);
+		goto err;
+	}
 
+	write_safe(fd, buf, strlen(buf), err_unlock);
+
+	ret = fork();
+	if (ret < 0) {
+		pr_perror("Can't fork for %d\n", pid);
+		goto err_unlock;
+	} else if (!ret) {
+		int my_pid = getpid();
+
+		close_safe(&fd);
+
+		if (my_pid != pid) {
+			pr_err("%d: Pids do not match got %d but expected %d\n",
+			       my_pid, my_pid, pid);
+			return -1;
+		}
+
+		return restore_task_with_children(my_pid, pstree_path);
+	}
+
+err_unlock:
+	if (flock(fd, LOCK_UN))
+		pr_perror("%d: Can't unlock %s\n", pid, LAST_PID_PATH);
+
+err:
+	close_safe(&fd);
 	return ret;
 }
 

@@ -54,6 +54,8 @@ struct cr_fd_desc_tmpl {
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 
+#define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
+
 /* file descriptors */
 struct cr_fd_desc {
 	struct cr_fd_desc_tmpl	*tmpl;		/* template we refer to */
