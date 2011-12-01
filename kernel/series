@@ -1,7 +1,6 @@
 fs-proc-Make-proc_get_link-to-use-dentry
 fs-proc-Introduce-the-proc-pid-map_files-directory
 procfs-introduce-the-proc-pid-map_files-directory-checkpatch
-clone-Introduce-the-CLONE_CHILD_USEPID-functionality
 fs-proc-Add-start_data-end_data-start_brk-members
 fs-proc-add-children-entry
 prctl-tune-up-mm_struct-members-2
