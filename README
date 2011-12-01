@@ -34,3 +34,11 @@ It's based on Linux
  | Date:   Mon Nov 7 16:16:02 2011 -0800
  |
  |   Linux 3.2-rc1
+
+The following patches are already in -mm tree
+
+fs-proc-Make-proc_get_link-to-use-dentry
+fs-proc-Introduce-the-proc-pid-map_files-directory
+procfs-introduce-the-proc-pid-map_files-directory-checkpatch
+sysfs-add-kernel.ns_last_pid
+
