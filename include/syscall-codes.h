@@ -22,6 +22,7 @@
 #define __NR_getpid		39
 #define __NR_clone		56
 #define __NR_exit		60
+#define __NR_flock		73
 #define __NR_unlink		87
 #define __NR__sysctl		156
 #define __NR_prctl		157

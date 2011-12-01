@@ -261,6 +261,11 @@ static always_inline long sys_futex(u32 *uaddr, int op, u32 val,
 			(unsigned long)val3);
 }
 
+static always_inline long sys_flock(unsigned long fd, unsigned long cmd)
+{
+	return syscall2(__NR_flock, fd, cmd);
+}
+
 static void always_inline local_sleep(long seconds)
 {
 	struct timespec req, rem;
