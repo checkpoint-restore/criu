@@ -1051,6 +1051,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 static int prepare_sigactions(int pid)
 {
+	u32 type = 0;
 	int fd_sigact, ret;
 	int sig, i;
 	struct sigaction act, oact;
@@ -1058,6 +1059,12 @@ static int prepare_sigactions(int pid)
 	fd_sigact = open_fmt_ro(FMT_FNAME_SIGACTS, pid);
 	if (fd_sigact < 0) {
 		pr_perror("%d: Can't open sigactions img\n", pid);
+		return 1;
+	}
+
+	ret = read(fd_sigact, &type, sizeof(type));
+	if (ret !=  sizeof(type) || type != SIGACT_MAGIC) {
+		pr_perror("%d: Bad sigactions file\n", pid);
 		return 1;
 	}
 

@@ -239,6 +239,8 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 		return ret;
 	}
 
+	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
+
         for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
