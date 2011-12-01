@@ -208,6 +208,11 @@ static always_inline unsigned long sys_getpid(void)
 	return syscall0(__NR_getpid);
 }
 
+static always_inline unsigned long sys_gettid(void)
+{
+	return syscall0(__NR_gettid);
+}
+
 static always_inline long sys_unlink(char *pathname)
 {
 	return syscall1(__NR_unlink, (unsigned long)pathname);
