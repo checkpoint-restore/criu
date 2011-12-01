@@ -1,0 +1,69 @@
+fs, proc: Introduce the /proc/<pid>/children entry
+
+There is no easy way to make a reverse parent->children chain
+from the task status, in turn children->parent provided with "PPid"
+field.
+
+So instead of walking over all pids in system to figure out what
+children the task have -- we add explicit /proc/<pid>/children entry,
+since kernel already knows this kind of information but it was not
+yet exported.
+
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Serge Hallyn <serge.hallyn@canonical.com>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+---
+ fs/proc/array.c    |   14 ++++++++++++++
+ fs/proc/base.c     |    1 +
+ fs/proc/internal.h |    3 +++
+ 3 files changed, 18 insertions(+)
+
+Index: linux-2.6.git/fs/proc/array.c
+===================================================================
+--- linux-2.6.git.orig/fs/proc/array.c
++++ linux-2.6.git/fs/proc/array.c
+@@ -547,3 +547,17 @@ int proc_pid_statm(struct seq_file *m, s
+ 
+ 	return 0;
+ }
++
++int proc_pid_children(struct seq_file *m, struct pid_namespace *ns,
++		      struct pid *pid, struct task_struct *task)
++{
++	struct task_struct *c;
++
++	read_lock(&tasklist_lock);
++	list_for_each_entry(c, &task->children, sibling)
++		seq_printf(m, " %d", pid_nr_ns(task_pid(c), ns));
++	read_unlock(&tasklist_lock);
++	seq_putc(m, '\n');
++
++	return 0;
++}
+Index: linux-2.6.git/fs/proc/base.c
+===================================================================
+--- linux-2.6.git.orig/fs/proc/base.c
++++ linux-2.6.git/fs/proc/base.c
+@@ -3204,6 +3204,7 @@ static const struct pid_entry tgid_base_
+ 	INF("cmdline",    S_IRUGO, proc_pid_cmdline),
+ 	ONE("stat",       S_IRUGO, proc_tgid_stat),
+ 	ONE("statm",      S_IRUGO, proc_pid_statm),
++	ONE("children",   S_IRUGO, proc_pid_children),
+ 	REG("maps",       S_IRUGO, proc_maps_operations),
+ #ifdef CONFIG_NUMA
+ 	REG("numa_maps",  S_IRUGO, proc_numa_maps_operations),
+Index: linux-2.6.git/fs/proc/internal.h
+===================================================================
+--- linux-2.6.git.orig/fs/proc/internal.h
++++ linux-2.6.git/fs/proc/internal.h
+@@ -51,6 +51,9 @@ extern int proc_pid_status(struct seq_fi
+ 				struct pid *pid, struct task_struct *task);
+ extern int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
+ 				struct pid *pid, struct task_struct *task);
++extern int proc_pid_children(struct seq_file *m, struct pid_namespace *ns,
++			     struct pid *pid, struct task_struct *task);
++
+ extern loff_t mem_lseek(struct file *file, loff_t offset, int orig);
+ 
+ extern const struct file_operations proc_maps_operations;

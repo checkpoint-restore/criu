@@ -727,6 +727,23 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 
 	pr_debug("pid: %d\n", pid);
 
+	file = fopen_proc("%d/children", "r", pid);
+	if (!file) {
+		pr_perror("Can't open %d children", pid);
+		goto err;
+	}
+
+	if (!(fgets(loc_buf, sizeof(loc_buf), file))) {
+		pr_perror("Can't read %d children content", pid);
+		goto err;
+	}
+
+	children_str = xstrdup(loc_buf);
+	if (!children_str)
+		goto err;
+
+	fclose(file), file = NULL;
+
 	file = fopen_proc("%d/status", "r", pid);
 	if (!file) {
 		pr_perror("Can't open %d status", pid);
@@ -734,13 +751,7 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 	}
 
 	while ((fgets(loc_buf, sizeof(loc_buf), file))) {
-		if (!strncmp(loc_buf, "Children:", 9)) {
-			children_str = xstrdup(&loc_buf[10]);
-			if (!children_str)
-				goto err;
-			if (nr_threads)
-				break;
-		} else if (!strncmp(loc_buf, "Threads:", 8)) {
+		if (!strncmp(loc_buf, "Threads:", 8)) {
 			nr_threads = atoi(&loc_buf[9]);
 			if (children_str)
 				break;
@@ -790,6 +801,8 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 	item->threads		= threads;
 
 err:
+	if (file)
+		fclose(file);
 	xfree(children_str);
 	return item;
 
