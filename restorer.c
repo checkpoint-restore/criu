@@ -216,6 +216,8 @@ self_len_end:
 		 */
 		sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 		while (1) {
+			int prot;
+
 			ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
 			if (!ret)
 				break;
@@ -242,6 +244,12 @@ self_len_end:
 					vma_entry->flags &= ~MAP_ANONYMOUS;
 			}
 
+			prot = vma_entry->prot;
+
+			/* A mapping of file with MAP_SHARED is up to date */
+			if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
+				prot |= PROT_WRITE;
+
 			/*
 			 * Should map memory here. Note we map them as
 			 * writable since we're going to restore page
@@ -249,7 +257,7 @@ self_len_end:
 			 */
 			va = sys_mmap((void *)vma_entry->start,
 				      vma_entry_len(vma_entry),
-				      vma_entry->prot | PROT_WRITE,
+				      prot,
 				      vma_entry->flags | MAP_FIXED,
 				      vma_entry->fd,
 				      vma_entry->pgoff);
