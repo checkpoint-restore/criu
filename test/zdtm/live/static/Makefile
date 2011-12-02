@@ -1,0 +1,149 @@
+LIBDIR	= ../../lib
+LIB	= $(LIBDIR)/libzdtmtst.a
+override CPPFLAGS += -I$(LIBDIR)
+CFLAGS	= -g -O2 -Wall
+
+TST_NOFILE	=	\
+		busyloop00	\
+		sleeping00	\
+		pid00		\
+		wait00		\
+		zombie00	\
+		fpu00		\
+		futex		\
+		mmx00		\
+		sse00		\
+		sse20		\
+		mprotect00	\
+		timers		\
+		unbound_sock	\
+		socket_aio      \
+		msgque		\
+		inotify_system	\
+		inotify_system_nodel \
+		shm \
+		ptrace_sig \
+#		jobctl00	\
+
+TST_FILE	=	\
+		write_read00	\
+		write_read01	\
+		write_read02	\
+		write_read10	\
+		maps00		\
+		link10		\
+		file_attr	\
+		deleted_unix_sock	\
+		deleted_dev	\
+		unlink_fstat00	\
+		unlink_fstat01	\
+		unlink_largefile	\
+		mtime_mmap	\
+		fifo	\
+		fifo_wronly	\
+		unlink_fifo	\
+		unlink_fifo_wronly	\
+
+TST_DIR		=	\
+		cwd00		\
+		overmount_dev	\
+		overmount_file	\
+		overmount_fifo	\
+		overmount_sock	\
+
+TST		= 	\
+		$(TST_NOFILE)	\
+		$(TST_FILE)	\
+		$(TST_DIR)	\
+		env00		\
+		umask00		\
+
+TST_STATE	=	\
+		conntracks	\
+		route_rules	\
+
+
+SRC	= $(TST:%=%.c)
+OBJ	= $(SRC:%.c=%.o)
+DEP	= $(SRC:%.c=%.d)
+PID	= $(TST:%=%.pid)
+OUT	= $(TST:%=%.out)
+STATE	= $(TST_STATE:%=%.state)
+STATE_OUT	= $(TST_STATE:%=%.out)
+
+DEPEND.c = $(COMPILE.c) -MM -MP
+%.d:	%.c
+	$(DEPEND.c) $(OUTPUT_OPTION) $<
+
+all:	$(TST)
+install: all
+
+inotify_system_nodel.c: inotify_system.c
+	ln -s inotify_system.c inotify_system_nodel.c
+
+$(TST_NOFILE:%=%.pid):	%.pid:	%
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+
+$(TST_FILE:%=%.pid):	%.pid:	%
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --filename=$<.test
+
+$(TST_DIR:%=%.pid):	%.pid:	%
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.test
+
+env00.pid:	env00
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
+umask00.pid:	umask00
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
+
+%.out:	%.pid %
+	-kill -TERM `< $<`
+
+$(TST_STATE:%=%.state):	%.state: %
+	$(<D)/$(<F) --statefile=$@ --outfile=$<.out start
+
+$(TST_STATE:%=%.out): %.out: % %.state
+	-$(<D)/$(<F) --statefile=$<.state --outfile=$@ stop
+
+start:	$(PID) $(STATE)
+
+%.is_running:	%.pid
+	kill -0 `< $<`
+
+check_start:	$(PID:%.pid=%.is_running)
+
+stop:	$(STATE_OUT)
+	-kill -TERM `cat *.pid`
+
+WAIT_TIME=10
+wait_stop:
+	-for ((i = 0; i < $(WAIT_TIME); i++)); do \
+		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
+		sleep 1; \
+	done
+
+$(TST):	$(LIB)
+
+futex.o:	override CFLAGS += -pthread
+futex:		override LDFLAGS += -pthread
+jobctl00:	override LDLIBS += -lutil
+socket_aio:	override LDLIBS += -lrt
+unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
+inotify_system_nodel:	override CFLAGS += -DNODEL
+
+$(LIB):	force
+	$(MAKE) -C $(LIBDIR)
+
+clean:
+	$(RM) $(OBJ) $(TST) *~
+
+cleandep:	clean
+	$(RM) $(DEP)
+
+cleanout:
+	$(RM) -r *.pid *.out* *.test* *.state
+
+realclean:	cleandep cleanout
+
+.PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
+
+-include $(DEP)

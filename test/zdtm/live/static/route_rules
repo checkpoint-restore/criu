@@ -1,0 +1,74 @@
+#!/bin/bash
+# $Id: route_rules,v 1.1 2007/06/04 12:11:30 agladkov Exp $
+#
+# Copyright (c) 2007 by SWsoft.
+# All rights reserved.
+#
+# Description:
+#	check that routes saved after migration
+
+export PATH=$PATH:${0%/*}/../../lib
+
+die()
+{
+	echo "$0:${BASH_LINENO[0]}: $*" >&2
+	exit 1
+}
+
+fail()
+{
+	echo "FAIL: $0:${BASH_LINENO[0]}: $*" > "$outfile"
+	exit 1
+}
+
+do_or_fail()
+{
+	local failmsg="$1" output
+	shift
+	output="$(eval $@ 2>&1)" ||
+		fail "$failmsg: $output"
+}
+
+do_start()
+{
+	[ -f "$statefile" ] && die "state file $statefile aleady exists"
+
+	# Get default route
+	dev_name=`ip route list match 0.0.0.0/0 | sed 's/.*dev \([^ ]*\).*/\1/'`
+	[ -n "$dev_name" ] || fail "dev_name is zero: " \
+		"\$dev_name=\`ip route list match 0.0.0.0/0 | " \
+		"sed 's/.*dev \([^ ]*\).*/\1/'"
+	do_or_fail "can't add routes" \
+		ip r a 1.2.3.4/32 dev $dev_name && ip r a 1.2.0.0/16 via 1.2.3.4
+
+	do_or_fail "can't list created routes" \
+		ip r \| grep "1.2.3.4" \> "$statefile"
+}
+
+do_stop()
+{
+	do_or_fail "can't compare the routes" \
+		ip r \| grep "1.2.3.4" \| diff -u "$statefile" -
+
+	rm -f "$statefile"
+	IFS="
+	";
+	for line in `ip r | grep "1.2.3.4"`; do
+		eval ip r del $line
+	done
+
+	echo "PASS" > $outfile
+}
+
+
+tmpargs="$(parseargs.sh --name=$0 \
+		--flags-req=statefile,outfile \
+		-- "$@")" ||
+	die "can't parse command line"
+eval "$tmpargs"
+
+[ -f "$outfile" ] && die "out file $outfile aleady exists"
+
+# expect "start" or "stop"
+action=${1:?Specify action$(die 'Specify action')}
+do_$action
