@@ -1552,6 +1552,10 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	rst_mutex_init(&task_args->rst_lock);
 
+	strncpy(task_args->ns_last_pid_path,
+		LAST_PID_PATH,
+		sizeof(task_args->ns_last_pid_path));
+
 	if (pstree_entry.nr_threads) {
 		int i;
 

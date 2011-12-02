@@ -66,7 +66,11 @@ struct task_restore_core_args {
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
-	char				self_vmas_path[64];	/* path to it, to unlink it once we're done */
+	union {
+		char			self_vmas_path[64];	/* path to it, to unlink it once we're done */
+		char			last_pid_buf[64];	/* internal buffer to save stack space  */
+	};
+	char				ns_last_pid_path[64];
 	bool				restore_threads;	/* if to restore threads */
 	rst_mutex_t			rst_lock;
 
@@ -229,6 +233,37 @@ static void always_inline write_num_n(long num)
 	}
 	c = '\n';
 	sys_write(1, &c, 1);
+}
+
+static long always_inline vprint_num(char *buf, long num)
+{
+	unsigned long d = 1000000000000000000;
+	unsigned int started = 0;
+	unsigned int minus = 0;
+	unsigned int i = 0;
+	unsigned int c;
+
+	if (num < 0) {
+		num = -num;
+		buf[i++] = '-';
+	}
+
+	while (d) {
+		c = num / d;
+		num -= d * c;
+		d /= 10;
+		if (!c && !started)
+			continue;
+		if (!started)
+			started = 1;
+		add_ord(c);
+		buf[i++] = c;
+
+	}
+
+	buf[i++] = 0;
+
+	return i;
 }
 
 static void always_inline write_hex_n(unsigned long num)

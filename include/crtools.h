@@ -55,6 +55,7 @@ struct cr_fd_desc_tmpl {
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
+#define LAST_PID_PERM		0666
 
 /* file descriptors */
 struct cr_fd_desc {

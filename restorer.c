@@ -31,6 +31,14 @@ long restore_thread(long cmd, struct thread_restore_args *args)
 		struct core_entry *core_entry;
 		struct rt_sigframe *rt_sigframe;
 		unsigned long new_sp, fsgs_base;
+		int my_pid = sys_gettid();
+
+		if (my_pid != args->pid) {
+			write_num_n(__LINE__);
+			write_num_n(my_pid);
+			write_num_n(args->pid);
+			goto core_restore_end;
+		}
 
 		core_entry = (struct core_entry *)&args->mem_zone.heap;
 
@@ -413,10 +421,24 @@ self_len_end:
 		if (args->nr_threads) {
 			struct thread_restore_args *thread_args = args->thread_args;
 			long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND	|
-					   CLONE_THREAD | CLONE_SYSVSEM			|
-					   CLONE_CHILD_USEPID;
+					   CLONE_THREAD | CLONE_SYSVSEM;
+			long last_pid_len;
 			long parent_tid;
-			int i;
+			int i, fd;
+
+			fd = sys_open(args->ns_last_pid_path, O_RDWR, LAST_PID_PERM);
+			if (fd < 0) {
+				write_num_n(__LINE__);
+				write_num_n(fd);
+				goto core_restore_end;
+			}
+
+			ret = sys_flock(fd, LOCK_EX);
+			if (ret) {
+				write_num_n(__LINE__);
+				write_num_n(ret);
+				goto core_restore_end;
+			}
 
 			for (i = 0; i < args->nr_threads; i++) {
 
@@ -429,6 +451,9 @@ self_len_end:
 				new_sp =
 					RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
 							    sizeof(thread_args[i].mem_zone.stack));
+
+				last_pid_len = vprint_num(args->last_pid_buf, thread_args[i].pid - 1);
+				sys_write(fd, args->last_pid_buf, last_pid_len);
 
 				/*
 				 * To achieve functionality like libc's clone()
@@ -475,6 +500,13 @@ self_len_end:
 						"g"(RESTORE_CMD__RESTORE_THREAD),
 						"g"(&thread_args[i])
 					: "rax", "rdi", "rsi", "rdx", "r10", "memory");
+			}
+
+			ret = sys_flock(fd, LOCK_UN);
+			if (ret) {
+				write_num_n(__LINE__);
+				write_num_n(ret);
+				goto core_restore_end;
 			}
 		}
 
