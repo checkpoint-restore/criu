@@ -31,6 +31,7 @@
 #define __NR_futex		202
 #define __NR_set_thread_area	205
 #define __NR_get_thread_area	211
+#define __NR_restart_syscall	219
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented

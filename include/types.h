@@ -76,6 +76,11 @@
 
 #define SIGMAX			32
 
+#define ERESTARTSYS		512
+#define ERESTARTNOINTR		513
+#define ERESTARTNOHAND		514
+#define ERESTART_RESTARTBLOCK	516
+
 typedef uint64_t		u64;
 typedef int64_t			s64;
 typedef unsigned int		u32;
