@@ -87,6 +87,13 @@ struct page_entry {
 #define final_page_va(va)		((va) == 0)
 #define final_page_entry(page_entry)	(final_page_va((page_entry)->va))
 
+struct sa_entry {
+	u64		sigaction;
+	u8		mask[128];
+	u32		flags;
+	u64		restorer;
+} __packed;
+
 #define HEADER_VERSION		1
 #define HEADER_ARCH_X86_64	1
 
