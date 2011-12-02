@@ -95,6 +95,10 @@ typedef signed char		s8;
 #ifdef CONFIG_X86_64
 
 typedef struct {
+	unsigned long sig[1];
+} rt_sigset_t;
+
+typedef struct {
 	unsigned int	entry_number;
 	unsigned int	base_addr;
 	unsigned int	limit;

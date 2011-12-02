@@ -9,10 +9,6 @@
 
 #ifdef CONFIG_X86_64
 
-typedef struct {
-	unsigned long sig[1];
-} rt_sigset_t;
-
 static always_inline long syscall0(int nr)
 {
 	long ret;
