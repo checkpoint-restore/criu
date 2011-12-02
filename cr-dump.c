@@ -717,19 +717,12 @@ static int parse_threads(pid_t pid, int *nr_threads, u32 **threads)
 	return 0;
 }
 
-static struct pstree_item *find_pstree_entry(pid_t pid)
+static int parse_children(pid_t pid, int *nr_children, u32 **children)
 {
-	struct pstree_item *item = NULL;
-	u32 *children = NULL;
-	u32 *threads = NULL;
-	u32 nr_allocated = 0;
-	u32 nr_children = 0;
-	int nr_threads = 0;
-	char *children_str = NULL;
 	FILE *file;
 	char *tok;
-
-	pr_debug("pid: %d\n", pid);
+	u32 *ch = NULL;
+	int nr = 1;
 
 	file = fopen_proc("%d/children", "r", pid);
 	if (!file) {
@@ -739,50 +732,56 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 
 	if (!(fgets(loc_buf, sizeof(loc_buf), file))) {
 		pr_perror("Can't read %d children content", pid);
-		goto err;
+		goto err_close;
 	}
 
-	children_str = xstrdup(loc_buf);
-	fclose(file), file = NULL;
+	fclose(file);
 
-	if (!children_str) {
-		pr_err("Children marker is not found\n");
-		goto err;
+	tok = strtok(loc_buf, " \n");
+	while (tok) {
+		ch = xrealloc(ch, nr * sizeof(u32));
+		ch[nr - 1] = atoi(tok);
+		nr++;
+		tok = strtok(NULL, " \n");
 	}
+
+	*children = ch;
+	*nr_children = nr - 1;
+	return 0;
+
+err_close:
+	fclose(file);
+err:
+	return -1;
+}
+
+static struct pstree_item *find_pstree_entry(pid_t pid)
+{
+	struct pstree_item *item = NULL;
+	u32 *children = NULL;
+	u32 *threads = NULL;
+	u32 nr_allocated = 0;
+	int nr_children = 0;
+	int nr_threads = 0;
+
+	pr_debug("pid: %d\n", pid);
 
 	item = xzalloc(sizeof(*item));
 	if (!item)
-		goto err;
+		goto out;
 
 	if (parse_threads(pid, &nr_threads, &threads))
 		goto err_free;
 
-	tok = strtok(children_str, " \n");
-	while (tok) {
-		u32 child_pid = atoi(tok);
-
-		pr_debug("child_pid: %d\n", child_pid);
-
-		if (nr_allocated <= nr_children) {
-			nr_allocated += 64;
-			if (xrealloc_safe((void **)&children, nr_allocated))
-				goto err_free;
-		}
-
-		children[nr_children++] = child_pid;
-		tok = strtok(NULL, " \n");
-	}
+	if (parse_children(pid, &nr_children, &children))
+		goto err_free;
 
 	item->pid		= pid;
 	item->nr_children	= nr_children;
 	item->nr_threads	= nr_threads;
 	item->children		= children;
 	item->threads		= threads;
-
-err:
-	if (file)
-		fclose(file);
-	xfree(children_str);
+out:
 	return item;
 
 err_free:
@@ -790,7 +789,7 @@ err_free:
 	xfree(children);
 	xfree(item);
 	item = NULL;
-	goto err;
+	goto out;
 }
 
 static int collect_pstree(pid_t pid, struct list_head *pstree_list)
