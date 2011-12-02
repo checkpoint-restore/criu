@@ -1056,6 +1056,7 @@ static int prepare_sigactions(int pid)
 	int fd_sigact, ret;
 	int sig, i;
 	struct sigaction act, oact;
+	struct sa_entry e;
 
 	fd_sigact = open_fmt_ro(FMT_FNAME_SIGACTS, pid);
 	if (fd_sigact < 0) {
@@ -1073,15 +1074,25 @@ static int prepare_sigactions(int pid)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = read(fd_sigact, &act, sizeof(act));
-		if (ret != sizeof(act)) {
+		ret = read(fd_sigact, &e, sizeof(e));
+		if (ret != sizeof(e)) {
 			pr_err("%d: Bad sigaction entry: %d (%m)\n", pid, ret);
 			ret = -1;
 			goto err;
 		}
 
-		/* A pure syscall is used, because a glibc
-		 * sigaction overwrite se_restorer */
+		BUILD_BUG_ON(sizeof(e.mask) != sizeof(act.sa_mask));
+
+		act.sa_sigaction	= (void *)(long)e.sigaction;
+		act.sa_flags		= (int)e.flags;
+		act.sa_restorer		= (void *)(long)e.restorer;
+
+		memcpy(&act.sa_mask, &e.mask, sizeof(act.sa_mask));
+
+		/*
+		 * A pure syscall is used, because glibc
+		 * sigaction overwrites se_restorer.
+		 */
 		ret = sys_sigaction(sig, &act, &oact);
 		if (ret == -1) {
 			pr_err("%d: Can't restore sigaction: %m\n", pid);

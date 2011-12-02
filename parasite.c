@@ -227,6 +227,7 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 {
 	parasite_status_t *st = &args->status;
 	struct sigaction act;
+	struct sa_entry e;
 	int fd, sig;
 
 	int ret = PARASITE_ERR_FAIL;
@@ -253,8 +254,16 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 			goto err_close;
 		}
 
-		ret = sys_write(fd, &act, sizeof(act));
-		if (ret != sizeof(act)) {
+		BUILD_BUG_ON(sizeof(e.mask) != sizeof(act.sa_mask));
+
+		e.sigaction	= (u64)act.sa_sigaction;
+		e.flags		= (u32)act.sa_flags;
+		e.restorer	= (u64)act.sa_restorer;
+
+		inline_memcpy(&e.mask, &act.sa_mask, sizeof(e.mask));
+
+		ret = sys_write(fd, &e, sizeof(e));
+		if (ret != sizeof(e)) {
 			sys_write_msg("sys_write failed\n");
 			SET_PARASITE_STATUS(st, PARASITE_ERR_WRITE, ret);
 			ret = st->ret;
