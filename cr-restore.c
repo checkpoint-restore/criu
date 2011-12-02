@@ -1207,6 +1207,16 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 	int *pids;
 	int fd, ret, i;
 	struct pstree_entry e;
+	sigset_t blockmask;
+
+	/* The block mask will be restored in sigresturn
+	 * This code should be removed, when a freezer will be added */
+	sigfillset(&blockmask);
+	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
+	if (ret) {
+		pr_perror("%d: Can't block signals\n", my_pid);
+		exit(1);
+	}
 
 	pr_info("%d: Starting restore\n", my_pid);
 
