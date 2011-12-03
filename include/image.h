@@ -90,7 +90,7 @@ struct page_entry {
 struct sa_entry {
 	u64		sigaction;
 	u8		mask[128];
-	u32		flags;
+	u64		flags;
 	u64		restorer;
 } __packed;
 

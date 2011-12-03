@@ -226,7 +226,7 @@ err:
 static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 {
 	parasite_status_t *st = &args->status;
-	struct sigaction act;
+	rt_sigaction_t act;
 	struct sa_entry e;
 	int fd, sig;
 
@@ -254,13 +254,11 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 			goto err_close;
 		}
 
-		BUILD_BUG_ON(sizeof(e.mask) != sizeof(act.sa_mask));
+		ASSIGN_TYPED(e.sigaction, act.rt_sa_handler);
+		ASSIGN_TYPED(e.flags, act.rt_sa_flags);
+		ASSIGN_TYPED(e.restorer, act.rt_sa_restorer);
 
-		e.sigaction	= (u64)act.sa_sigaction;
-		e.flags		= (u32)act.sa_flags;
-		e.restorer	= (u64)act.sa_restorer;
-
-		inline_memcpy(&e.mask, &act.sa_mask, sizeof(e.mask));
+		inline_memcpy(&e.mask, &act.rt_sa_mask, sizeof(e.mask));
 
 		ret = sys_write(fd, &e, sizeof(e));
 		if (ret != sizeof(e)) {

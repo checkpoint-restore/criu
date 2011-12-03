@@ -98,6 +98,19 @@ typedef struct {
 	unsigned long sig[1];
 } rt_sigset_t;
 
+typedef void rt_signalfn_t(int);
+typedef rt_signalfn_t *rt_sighandler_t;
+
+typedef void rt_restorefn_t(void);
+typedef rt_restorefn_t *rt_sigrestore_t;
+
+typedef struct {
+	rt_sighandler_t	rt_sa_handler;
+	unsigned long	rt_sa_flags;
+	rt_sigrestore_t	rt_sa_restorer;
+	rt_sigset_t	rt_sa_mask;
+} rt_sigaction_t;
+
 typedef struct {
 	unsigned int	entry_number;
 	unsigned int	base_addr;
@@ -179,6 +192,8 @@ typedef struct {
 } user_regs_struct_t;
 
 #endif /* CONFIG_X86_64 */
+
+#define ASSIGN_TYPED(a,b) a = (typeof(a))b
 
 #ifndef PAGE_SIZE
 # define PAGE_SIZE	4096

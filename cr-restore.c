@@ -1052,11 +1052,11 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 
 static int prepare_sigactions(int pid)
 {
-	u32 type = 0;
+	rt_sigaction_t act, oact;
 	int fd_sigact, ret;
-	int sig, i;
-	struct sigaction act, oact;
 	struct sa_entry e;
+	u32 type = 0;
+	int sig, i;
 
 	fd_sigact = open_fmt_ro(FMT_FNAME_SIGACTS, pid);
 	if (fd_sigact < 0) {
@@ -1081,13 +1081,11 @@ static int prepare_sigactions(int pid)
 			goto err;
 		}
 
-		BUILD_BUG_ON(sizeof(e.mask) != sizeof(act.sa_mask));
+		ASSIGN_TYPED(act.rt_sa_handler, e.sigaction);
+		ASSIGN_TYPED(act.rt_sa_flags, e.flags);
+		ASSIGN_TYPED(act.rt_sa_restorer, e.restorer);
 
-		act.sa_sigaction	= (void *)(long)e.sigaction;
-		act.sa_flags		= (int)e.flags;
-		act.sa_restorer		= (void *)(long)e.restorer;
-
-		memcpy(&act.sa_mask, &e.mask, sizeof(act.sa_mask));
+		memcpy(&act.rt_sa_mask, &e.mask, sizeof(act.rt_sa_mask));
 
 		/*
 		 * A pure syscall is used, because glibc
