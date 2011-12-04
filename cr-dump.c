@@ -701,11 +701,18 @@ static int parse_threads(pid_t pid, u32 *nr_threads, u32 **threads)
 	}
 
 	while ((de = readdir(dir))) {
+		u32 *tmp;
+
 		/* We expect numbers only here */
 		if (de->d_name[0] == '.')
 			continue;
 
-		t = xrealloc(t, nr * sizeof(u32));
+		tmp = xrealloc(t, nr * sizeof(u32));
+		if (!tmp) {
+			xfree(t);
+			return -1;
+		}
+		t = tmp;
 		t[nr - 1] = atoi(de->d_name);
 		nr++;
 	}
@@ -739,7 +746,12 @@ static int parse_children(pid_t pid, u32 *nr_children, u32 **children)
 
 	tok = strtok(loc_buf, " \n");
 	while (tok) {
-		ch = xrealloc(ch, nr * sizeof(u32));
+		u32 *tmp = xrealloc(ch, nr * sizeof(u32));
+		if (!tmp) {
+			xfree(ch);
+			goto err;
+		}
+		ch = tmp;
 		ch[nr - 1] = atoi(tok);
 		nr++;
 		tok = strtok(NULL, " \n");
