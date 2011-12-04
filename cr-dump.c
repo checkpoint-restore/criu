@@ -759,7 +759,6 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 {
 	struct pstree_item *item;
 
-	pr_debug("pid: %d\n", pid);
 	item = xzalloc(sizeof(*item));
 	if (!item)
 		goto err;
@@ -898,9 +897,6 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	fd_core		= cr_fdset->desc[CR_FD_CORE].fd;
 	fd_pages	= cr_fdset->desc[CR_FD_PAGES].fd;
 	fd_pages_shmem	= cr_fdset->desc[CR_FD_PAGES_SHMEM].fd;
-
-	pr_debug("dsc: fd_core %d fd_pages %d fd_pages_shmem %d\n",
-		 fd_core, fd_pages, fd_pages_shmem);
 
 	lseek(fd_core,		GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 	lseek(fd_pages,		MAGIC_OFFSET, SEEK_SET);
