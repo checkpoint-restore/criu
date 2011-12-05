@@ -9,6 +9,7 @@
 #include "image.h"
 
 extern struct page_entry zero_page_entry;
+extern void free_pstree(struct list_head *pstree_list);
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -35,6 +36,9 @@ enum cr_task_final_state {
 struct cr_options {
 	bool				leader_only;
 	enum cr_task_final_state	final_state;
+	bool				show_single_file;
+	bool				show_pages_content;
+	char				*show_dump_file;
 };
 
 /* file descriptors template */

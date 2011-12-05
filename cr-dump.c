@@ -45,7 +45,7 @@
 static char big_buffer[PATH_MAX];
 static char loc_buf[PAGE_SIZE];
 
-static void free_pstree(struct list_head *pstree_list)
+void free_pstree(struct list_head *pstree_list)
 {
 	struct pstree_item *item, *p;
 

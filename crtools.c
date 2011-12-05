@@ -233,7 +233,7 @@ int main(int argc, char *argv[])
 	int opt, idx;
 	int action = -1;
 
-	static const char short_opts[] = "drskp:t:h";
+	static const char short_opts[] = "drskf:p:t:hc";
 	static const struct option long_opts[] = {
 		{ "dump",	no_argument, NULL, 'd' },
 		{ "restore",	no_argument, NULL, 'r' },
@@ -274,6 +274,13 @@ int main(int argc, char *argv[])
 		case 's':
 			action = opt;
 			break;
+		case 'c':
+			opts.show_pages_content	= true;
+			break;
+		case 'f':
+			opts.show_single_file = true;
+			opts.show_dump_file = optarg;
+			break;
 		case 'k':
 			opts.final_state = CR_TASK_KILL;
 			break;
@@ -302,6 +309,10 @@ int main(int argc, char *argv[])
 
 usage:
 	printk("\nUsage:\n");
-	printk("\tcrtools ([--dump|-d]|[--show|-s]|[--restore|-r]) [-k] (-p|-t) pid\n\n");
+	printk("\t%s --dump|-d [-k] -p|-t pid\n", argv[0]);
+	printk("\t%s --restore|-r -p|-t pid\n", argv[0]);
+	printk("\t%s --show|-s [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+	printk("\n");
+
 	return -1;
 }
