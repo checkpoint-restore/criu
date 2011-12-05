@@ -106,7 +106,7 @@ $(OBJS): $(HEAD-BLOB) $(DEPS) $(HEAD-BLOB-GEN)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) restorer.o
+$(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
