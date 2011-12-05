@@ -241,6 +241,9 @@ int main(int argc, char *argv[])
 		{ NULL,		no_argument, NULL, 0 }
 	};
 
+	if (init_logging())
+		return 1;
+
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
 	if (argc < 3)

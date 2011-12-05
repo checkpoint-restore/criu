@@ -31,6 +31,7 @@
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 
 #include "compiler.h"
 #include "types.h"
@@ -39,12 +40,38 @@
 
 #include "crtools.h"
 
+static int logfd = STDERR_FILENO;
+
+int init_logging(void)
+{
+	struct rlimit rlimit;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
+		pr_err("can't get rlimit: %m\n");
+		return 1;
+	}
+
+	logfd = rlimit.rlim_cur - 1;
+	if (dup2(2, logfd) < 0) {
+		pr_err("can't duplicate descriptor 2->%d: %m\n", logfd);
+		return 1;
+	}
+
+	return 0;
+}
+
+void deinit_logging(void)
+{
+	close(logfd);
+	logfd = -1;
+}
+
 void printk(const char *format, ...)
 {
 	va_list params;
 
 	va_start(params, format);
-	vfprintf(stdout, format, params);
+	vdprintf(logfd, format, params);
 	va_end(params);
 }
 

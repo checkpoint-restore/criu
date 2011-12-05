@@ -1623,6 +1623,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		task_args->thread_args);
 
 	close_safe(&fd_pstree);
+	deinit_logging();
 
 	/*
 	 * An indirect call to task_restore, note it never resturns
