@@ -185,7 +185,7 @@ struct rt_sigframe {
 
 static void always_inline write_char(char c)
 {
-	sys_write(1, &c, 1);
+	sys_write(STDERR_FILENO, &c, 1);
 }
 
 static void always_inline write_string(char *str)
@@ -195,7 +195,7 @@ static void always_inline write_string(char *str)
 	while (str[len])
 		len++;
 
-	sys_write(1, str, len);
+	sys_write(STDERR_FILENO, str, len);
 }
 
 static void always_inline write_string_n(char *str)
@@ -203,7 +203,7 @@ static void always_inline write_string_n(char *str)
 	char new_line = '\n';
 
 	write_string(str);
-	sys_write(1, &new_line, 1);
+	sys_write(STDERR_FILENO, &new_line, 1);
 }
 
 static void always_inline write_num_n(long num)
@@ -216,7 +216,7 @@ static void always_inline write_num_n(long num)
 	if (num < 0) {
 		num = -num;
 		c = '-';
-		sys_write(1, &c, 1);
+		sys_write(STDERR_FILENO, &c, 1);
 	}
 
 	while (d) {
@@ -228,11 +228,11 @@ static void always_inline write_num_n(long num)
 		if (!started)
 			started = 1;
 		add_ord(c);
-		sys_write(1, &c, 1);
+		sys_write(STDERR_FILENO, &c, 1);
 
 	}
 	c = '\n';
-	sys_write(1, &c, 1);
+	sys_write(STDERR_FILENO, &c, 1);
 }
 
 static long always_inline vprint_num(char *buf, long num)
@@ -273,19 +273,19 @@ static void always_inline write_hex_n(unsigned long num)
 	int i;
 
 	c = 'x';
-	sys_write(1, &c, 1);
+	sys_write(STDERR_FILENO, &c, 1);
 	for (i = sizeof(long)/sizeof(char) - 1; i >= 0; i--) {
 		c = (s[i] & 0xf0) >> 4;
 		add_ord(c);
-		sys_write(1, &c, 1);
+		sys_write(STDERR_FILENO, &c, 1);
 
 		c = (s[i] & 0x0f);
 		add_ord(c);
-		sys_write(1, &c, 1);
+		sys_write(STDERR_FILENO, &c, 1);
 	}
 
 	c = '\n';
-	sys_write(1, &c, 1);
+	sys_write(STDERR_FILENO, &c, 1);
 }
 
 #define FUTEX_WAIT		0

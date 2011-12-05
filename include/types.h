@@ -7,6 +7,10 @@
 #include "bitops.h"
 #include "atomic.h"
 
+#define STDIN_FILENO	0
+#define STDOUT_FILENO	1
+#define STDERR_FILENO	2
+
 /* prctl */
 #define ARCH_SET_GS 0x1001
 #define ARCH_SET_FS 0x1002
