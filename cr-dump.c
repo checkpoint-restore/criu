@@ -32,7 +32,6 @@
 
 #include "image.h"
 
-#include "parasite.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 

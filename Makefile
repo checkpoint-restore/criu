@@ -73,7 +73,6 @@ OBJS-BLOB	+= parasite.o
 DEPS-BLOB	+= $(patsubst %.o,%.d,$(OBJS-BLOB))
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
-HEAD-BLOB	:= $(patsubst %.o,%.h,$(OBJS-BLOB))
 HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
 HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
@@ -85,23 +84,20 @@ $(OBJS-BLOB): $(SRCS-BLOB)
 	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
 
 $(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
-%.bin: %.o
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
-$(HEAD-BLOB): $(DEPS-BLOB) $(HEAD-BIN)
-%.h: %.bin
 	$(E) "  GEN     " $@
-	$(Q) $(SH) gen-offsets.sh					\
-		$(subst -,_,$(patsubst %.h,%,$@))_h__			\
-		$(subst -,_,$(patsubst %.h,%,$@))_blob_offset__		\
-		$(subst -,_,$(patsubst %.h,%,$@))_blob			\
-		$(patsubst %.h,%.o,$@)					\
-		$(patsubst %.h,%.bin,$@) > $(patsubst %.h,%-blob.h,$@)
+	$(Q) $(SH) gen-offsets.sh			\
+		parasite_h__				\
+		parasite_blob_offset__			\
+		parasite_blob				\
+		$(OBJS-BLOB)				\
+		$(HEAD-BIN) > parasite-blob.h
 	$(Q) sync
 
-$(OBJS): $(HEAD-BLOB) $(DEPS) $(HEAD-BLOB-GEN)
+$(OBJS): $(DEPS) $(HEAD-BLOB-GEN)
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
@@ -110,7 +106,7 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS): $(HEAD-BLOB)
+$(DEPS): $(HEAD-BLOB-GEN)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
@@ -138,7 +134,6 @@ clean:
 	$(Q) $(RM) -f ./tags
 	$(Q) $(RM) -f ./cscope*
 	$(Q) $(RM) -f ./$(PROGRAM)
-	$(Q) $(RM) -f ./$(HEAD-BLOB)
 	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
 	$(Q) $(MAKE) -C test clean
 .PHONY: clean
