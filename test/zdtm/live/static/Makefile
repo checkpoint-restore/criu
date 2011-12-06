@@ -23,6 +23,7 @@ TST_NOFILE	=	\
 		inotify_system_nodel \
 		shm \
 		ptrace_sig \
+		pipe00 \
 #		jobctl00	\
 
 TST_FILE	=	\
