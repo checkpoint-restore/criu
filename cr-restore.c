@@ -295,7 +295,7 @@ static int prepare_shmem_pid(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
+	sh_fd = open_image_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
 		pr_perror("%d: Can't open shmem info\n", pid);
 		return 1;
@@ -333,7 +333,7 @@ static int prepare_pipes_pid(int pid)
 	int p_fd;
 	u32 type = 0;
 
-	p_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
+	p_fd = open_image_ro(FMT_FNAME_PIPES, pid);
 	if (p_fd < 0) {
 		pr_perror("%d: Can't open pipes image\n", pid);
 		return 1;
@@ -514,7 +514,7 @@ static int prepare_fds(int pid)
 
 	pr_info("%d: Opening files img\n", pid);
 
-	fdinfo_fd = open_fmt_ro(FMT_FNAME_FDINFO, pid);
+	fdinfo_fd = open_image_ro(FMT_FNAME_FDINFO, pid);
 	if (fdinfo_fd < 0) {
 		pr_perror("Can't open %d fdinfo", pid);
 		return 1;
@@ -593,7 +593,7 @@ static int prepare_shmem(int pid)
 	int sh_fd;
 	u32 type = 0;
 
-	sh_fd = open_fmt_ro(FMT_FNAME_SHMEM, pid);
+	sh_fd = open_image_ro(FMT_FNAME_SHMEM, pid);
 	if (sh_fd < 0) {
 		pr_perror("%d: Can't open shmem info\n", pid);
 		return 1;
@@ -754,7 +754,7 @@ static int fixup_pages_data(int pid, int fd)
 
 	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open_fmt_ro(FMT_FNAME_PAGES_SHMEM, pid);
+	shfd = open_image_ro(FMT_FNAME_PAGES_SHMEM, pid);
 	if (shfd < 0) {
 		pr_perror("Can't open %d shmem image %s\n", pid);
 		return 1;
@@ -836,7 +836,7 @@ static int prepare_and_sigreturn(int pid)
 	int fd, fd_new;
 	struct stat buf;
 
-	fd = open_fmt_ro(FMT_FNAME_CORE, pid);
+	fd = open_image_ro(FMT_FNAME_CORE, pid);
 	if (fd < 0) {
 		pr_perror("%d: Can't open exec image\n", pid);
 		return 1;
@@ -846,7 +846,7 @@ static int prepare_and_sigreturn(int pid)
 		return 1;
 	}
 
-	sprintf(path, FMT_FNAME_CORE_OUT, pid);
+	IMAGE_PATH(path, FMT_FNAME_CORE_OUT, pid);
 	unlink(path);
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
@@ -1058,7 +1058,7 @@ static int prepare_sigactions(int pid)
 	u32 type = 0;
 	int sig, i;
 
-	fd_sigact = open_fmt_ro(FMT_FNAME_SIGACTS, pid);
+	fd_sigact = open_image_ro(FMT_FNAME_SIGACTS, pid);
 	if (fd_sigact < 0) {
 		pr_perror("%d: Can't open sigactions img\n", pid);
 		return 1;
@@ -1111,7 +1111,7 @@ static int prepare_pipes(int pid)
 
 	pr_info("%d: Opening pipes\n", pid);
 
-	pipes_fd = open_fmt_ro(FMT_FNAME_PIPES, pid);
+	pipes_fd = open_image_ro(FMT_FNAME_PIPES, pid);
 	if (pipes_fd < 0) {
 		pr_perror("%d: Can't open pipes img\n", pid);
 		return 1;
@@ -1310,7 +1310,7 @@ static int restore_all_tasks(pid_t pid)
 	int pstree_fd;
 	u32 type = 0;
 
-	sprintf(path, FMT_FNAME_PSTREE, pid);
+	IMAGE_PATH(path, FMT_FNAME_PSTREE, pid);
 	pstree_fd = open(path, O_RDONLY);
 	if (pstree_fd < 0) {
 		pr_perror("%d: Can't open pstree image\n", pid);
@@ -1349,7 +1349,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	 * better to stick with it.
 	 */
 
-	snprintf(path, sizeof(path), FMT_FNAME_CORE, pid);
+	IMAGE_PATH(path, FMT_FNAME_CORE, pid);
 	fd = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd < 0) {
 		pr_perror("Can't open %s\n", path);
@@ -1431,21 +1431,21 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	snprintf(path, sizeof(path), FMT_FNAME_PSTREE, pstree_pid);
+	IMAGE_PATH(path, FMT_FNAME_PSTREE, pstree_pid);
 	fd_pstree = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_pstree < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
-	snprintf(path, sizeof(path), FMT_FNAME_CORE_OUT, pid);
+	IMAGE_PATH(path, FMT_FNAME_CORE_OUT, pid);
 	fd_core = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_core < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
-	snprintf(self_vmas_path, sizeof(self_vmas_path), FMT_FNAME_VMAS, getpid());
+	IMAGE_PATH(self_vmas_path, FMT_FNAME_VMAS, getpid());
 	unlink(self_vmas_path);
 	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR, CR_FD_PERM);
 	if (fd_self_vmas < 0) {
@@ -1593,7 +1593,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
 
 			/* Core files are to be opened */
-			snprintf(path, sizeof(path), FMT_FNAME_CORE, thread_args[i].pid);
+			IMAGE_PATH(path, FMT_FNAME_CORE, thread_args[i].pid);
 			thread_args[i].fd_core = open(path, O_RDONLY, CR_FD_PERM);
 			if (thread_args[i].fd_core < 0) {
 				pr_perror("Can't open %s\n", path);

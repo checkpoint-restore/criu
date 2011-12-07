@@ -345,20 +345,12 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	parasite_args_cmd_dumpsigacts_t parasite_sigacts	= { };
 
 	int status, path_len, ret = -1;
-	char *cwd = NULL;
 
 	pr_info("\n");
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	cwd = get_current_dir_name();
-	if (!cwd) {
-		pr_err("No memory to obtain cwd\n");
-		goto out;
-	}
-
-	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].name) +
-			strlen(cwd) + 2;
+	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].name);
 
 	if (path_len > sizeof(parasite_sigacts.open_path)) {
 		pr_panic("Dumping sigactions path is too long (%d while %d allowed)\n",
@@ -371,9 +363,9 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 		goto out;
 	}
 
-	snprintf(parasite_sigacts.open_path,
-		 sizeof(parasite_sigacts.open_path),
-		"%s/%s", cwd, cr_fdset->desc[CR_FD_SIGACT].name);
+	strncpy(parasite_sigacts.open_path,
+		 cr_fdset->desc[CR_FD_SIGACT].name,
+		 sizeof(parasite_sigacts.open_path));
 
 	parasite_sigacts.open_flags	= O_WRONLY;
 	parasite_sigacts.open_mode	= CR_FD_PERM_DUMP;
@@ -385,7 +377,6 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 err:
 	jerr(fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM), out);
 out:
-	xfree(cwd);
 	pr_info("----------------------------------------\n");
 
 	return ret;
@@ -406,20 +397,13 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	struct vma_area *vma_area;
 	siginfo_t siginfo;
 	int status, path_len, ret = -1;
-	char *cwd = NULL;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", fd_type, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	cwd = get_current_dir_name();
-	if (!cwd) {
-		pr_err("No memory to obtain cwd\n");
-		goto out;
-	}
-
-	path_len = strlen(cr_fdset->desc[fd_type].name) +
-			strlen(cwd) + 2;
+	path_len = strlen(cr_fdset->desc[fd_type].name);
+	pr_info("Dumping pages %s\n", cr_fdset->desc[fd_type].name);
 
 	if (path_len > sizeof(parasite_dumppages.open_path)) {
 		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
@@ -438,9 +422,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 */
 	fsync(cr_fdset->desc[fd_type].fd);
 
-	snprintf(parasite_dumppages.open_path,
-		 sizeof(parasite_dumppages.open_path),
-		"%s/%s", cwd, cr_fdset->desc[fd_type].name);
+	strncpy(parasite_dumppages.open_path,
+		 cr_fdset->desc[fd_type].name,
+		 sizeof(parasite_dumppages.open_path));
 
 	parasite_dumppages.open_flags	= O_WRONLY;
 	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
@@ -511,7 +495,6 @@ err_restore:
 	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), out);
 
 out:
-	xfree(cwd);
 	pr_info("----------------------------------------\n");
 
 	return ret;

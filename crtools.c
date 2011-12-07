@@ -91,6 +91,7 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 {
 	struct cr_fdset *cr_fdset;
 	unsigned int i;
+	int ret;
 
 	cr_fdset = xzalloc(sizeof(*cr_fdset));
 	if (!cr_fdset)
@@ -98,10 +99,14 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 
 	for (i = 0; i < CR_FD_MAX; i++) {
 		cr_fdset->desc[i].tmpl = &fdset_template[i];
-		snprintf(cr_fdset->desc[i].name,
-			 sizeof(cr_fdset->desc[i].name),
-			 cr_fdset->desc[i].tmpl->fmt,
-			 pid);
+		ret = get_image_path(cr_fdset->desc[i].name,
+				sizeof(cr_fdset->desc[i].name),
+				cr_fdset->desc[i].tmpl->fmt,
+				pid);
+		if (ret) {
+			xfree(cr_fdset);
+			return NULL;
+		}
 		cr_fdset->desc[i].fd = -1;
 	}
 
@@ -226,6 +231,22 @@ void free_cr_fdset(struct cr_fdset **cr_fdset)
 	}
 }
 
+char image_dir[PATH_MAX];
+int get_image_path(char *path, int size, const char *fmt, int pid)
+{
+	int image_dir_size = strlen(image_dir);
+	int ret;
+
+	strcpy(path, image_dir);
+	path[image_dir_size] = '/';
+	ret = snprintf(path + image_dir_size + 1, size, fmt, pid);
+	if (ret == -1 || ret > size) {
+		pr_err("can't get image path");
+		return -1;
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	pid_t pid;
@@ -233,7 +254,7 @@ int main(int argc, char *argv[])
 	int opt, idx;
 	int action = -1;
 
-	static const char short_opts[] = "drskf:p:t:hc";
+	static const char short_opts[] = "drskf:p:t:hcD:";
 	static const struct option long_opts[] = {
 		{ "dump",	no_argument, NULL, 'd' },
 		{ "restore",	no_argument, NULL, 'r' },
@@ -284,10 +305,21 @@ int main(int argc, char *argv[])
 		case 'k':
 			opts.final_state = CR_TASK_KILL;
 			break;
+		case 'D':
+			if (chdir(optarg)) {
+				pr_perror("can't change working directory");
+				return 1;
+			}
+			break;
 		case 'h':
 		default:
 			goto usage;
 		}
+	}
+
+	if (getcwd(image_dir, sizeof(image_dir)) < 0) {
+		pr_perror("can't get currect directory\n");
+		return 1;
 	}
 
 	switch (action) {

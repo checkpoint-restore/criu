@@ -58,6 +58,12 @@ struct cr_fd_desc_tmpl {
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 
+extern int get_image_path(char *path, int size, const char *fmt, int pid);
+#define IMAGE_PATH(path, fmt, pid) get_image_path(path, sizeof(path), fmt, pid);
+
+extern char image_dir[];
+#define open_image_ro(fmt, ...)	open_fmt("%s/" fmt, O_RDONLY, image_dir, __VA_ARGS__)
+
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666
 
