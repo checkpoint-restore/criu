@@ -437,17 +437,25 @@ static struct fmap_fd *pop_fmap_fd(int pid, unsigned long start)
 	return NULL;
 }
 
-static int open_fe_fd(struct fdinfo_entry *fe, int fd)
+static int get_file_path(char *path, struct fdinfo_entry *fe, int fd)
 {
-	char path[PATH_MAX];
-	int tmp;
-
 	if (read(fd, path, fe->len) != fe->len) {
 		pr_err("Error reading path");
 		return -1;
 	}
 
 	path[fe->len] = '\0';
+
+	return 0;
+}
+
+static int open_fe_fd(struct fdinfo_entry *fe, int fd)
+{
+	char path[PATH_MAX];
+	int tmp;
+
+	if (get_file_path(path, fe, fd))
+		return -1;
 
 	tmp = open(path, fe->flags);
 	if (tmp < 0) {
@@ -458,6 +466,24 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 	lseek(tmp, fe->pos, SEEK_SET);
 
 	return tmp;
+}
+
+static int restore_cwd(struct fdinfo_entry *fe, int fd)
+{
+	char path[PATH_MAX];
+	int ret;
+
+	if (get_file_path(path, fe, fd))
+		return -1;
+
+	pr_info("Restore CWD %s\n", path);
+	ret = chdir(path);
+	if (ret < 0) {
+		pr_perror("Can't change dir %s\n", path);
+		return -1;
+	}
+
+	return 0;
 }
 
 static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
@@ -473,6 +499,9 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 
 		*cfd = tmp;
 	}
+
+	if (fe->addr == ~0L)
+		return restore_cwd(fe, *cfd);
 
 	tmp = open_fe_fd(fe, *cfd);
 	if (tmp < 0)

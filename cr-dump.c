@@ -137,6 +137,21 @@ err:
 	return ret;
 }
 
+static int dump_cwd(char *path, struct cr_fdset *cr_fdset)
+{
+	int ret = -1;
+	int fd;
+
+	fd = open(path, O_RDONLY | O_DIRECTORY);
+	if (fd < 0) {
+		pr_perror("Failed to openat %s\n", path);
+		return -1;
+	}
+
+	return dump_one_reg_file(FDINFO_FD, ~0L, fd, 1, 0, 0, cr_fdset);
+}
+
+
 static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 			      struct cr_fdset *cr_fdset)
 {
@@ -305,6 +320,12 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	pr_info("\n");
 	pr_info("Dumping opened files (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
+
+	snprintf(pid_fd_dir, sizeof(pid_fd_dir), "/proc/%d/cwd", pid);
+	if (dump_cwd(pid_fd_dir, cr_fdset)) {
+		pr_perror("Can't dump cwd %s\n", pid_fd_dir);
+		return -1;
+	}
 
 	snprintf(pid_fd_dir, sizeof(pid_fd_dir), "/proc/%d/fd", pid);
 	fd_dir = opendir(pid_fd_dir);
