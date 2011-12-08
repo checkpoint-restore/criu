@@ -257,8 +257,7 @@ static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
 		ASSIGN_TYPED(e.sigaction, act.rt_sa_handler);
 		ASSIGN_TYPED(e.flags, act.rt_sa_flags);
 		ASSIGN_TYPED(e.restorer, act.rt_sa_restorer);
-
-		inline_memcpy(&e.mask, &act.rt_sa_mask, sizeof(e.mask));
+		ASSIGN_TYPED(e.mask, act.rt_sa_mask.sig[0]);
 
 		ret = sys_write(fd, &e, sizeof(e));
 		if (ret != sizeof(e)) {

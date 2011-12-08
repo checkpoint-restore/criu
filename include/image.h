@@ -89,9 +89,9 @@ struct page_entry {
 
 struct sa_entry {
 	u64		sigaction;
-	u8		mask[128];
 	u64		flags;
 	u64		restorer;
+	u64		mask;
 } __packed;
 
 #define HEADER_VERSION		1

@@ -1139,8 +1139,7 @@ static int prepare_sigactions(int pid)
 		ASSIGN_TYPED(act.rt_sa_handler, e.sigaction);
 		ASSIGN_TYPED(act.rt_sa_flags, e.flags);
 		ASSIGN_TYPED(act.rt_sa_restorer, e.restorer);
-
-		memcpy(&act.rt_sa_mask, &e.mask, sizeof(act.rt_sa_mask));
+		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e.mask);
 
 		/*
 		 * A pure syscall is used, because glibc
