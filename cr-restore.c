@@ -249,18 +249,24 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 		if (pipes[i].pid > pid && !pipe_is_rw(&pipes[i])) {
 			pipes[i].pid = pid;
-		} else if (pipes[i].pid == pid) {
+			pipes[i].status = 0;
+			pipes[i].read_fd = -1;
+			pipes[i].write_fd = -1;
+		}
+
+		if (pipes[i].pid == pid) {
 			switch (e->flags & O_ACCMODE) {
 			case O_RDONLY:
 				pipes[i].status |= PIPE_RDONLY;
+				pipes[i].read_fd = e->fd;
 				break;
 			case O_WRONLY:
 				pipes[i].status |= PIPE_WRONLY;
+				pipes[i].write_fd = e->fd;
 				break;
 			}
-		}
-
-		pipes[i].users++;
+		} else
+			pipes[i].users++;
 
 		return 0;
 	}
@@ -274,14 +280,16 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 	pipes[nr_pipes].pipeid	= e->pipeid;
 	pipes[nr_pipes].pid	= pid;
-	pipes[nr_pipes].users	= 1;
+	pipes[nr_pipes].users	= 0;
 
 	switch (e->flags & O_ACCMODE) {
 	case O_RDONLY:
 		pipes[nr_pipes].status = PIPE_RDONLY;
+		pipes[i].read_fd = e->fd;
 		break;
 	case O_WRONLY:
 		pipes[nr_pipes].status = PIPE_WRONLY;
+		pipes[i].write_fd = e->fd;
 		break;
 	}
 
@@ -926,9 +934,8 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 {
 	unsigned long time = 1000;
 	int pfd[2], tmp;
-	int minusers = 1;
 
-	pr_info("\t%d: Creating pipe %x\n", pid, e->pipeid);
+	pr_info("\t%d: Creating pipe %x%s\n", pid, e->pipeid, pipe_is_rw(pi) ? "(rw)" : "");
 
 	if (pipe(pfd) < 0) {
 		pr_perror("%d: Can't create pipe\n", pid);
@@ -948,51 +955,63 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		}
 	}
 
-	pi->read_fd	= pfd[0];
-	pi->write_fd	= pfd[1];
-	pi->real_pid	= getpid();
+	if (pi->read_fd != -1)
+		tmp = reopen_fd_as(pi->read_fd, pfd[0]);
+	else
+		pi->read_fd = pfd[0];
+	if (tmp < 0)
+		return 1;
 
-	/*
-	 * FIXME: xemul@ reported that this actually
-	 * would not work if a task keeps pipe many times
-	 * not just two. Need to review and fix propery.
-	 */
-	if (pipe_is_rw(pi))
-		minusers = 2;
+	if (pi->write_fd != -1)
+		tmp = reopen_fd_as(pi->write_fd, pfd[1]);
+	else
+		pi->write_fd = pfd[1];
+	if (tmp < 0)
+		return 1;
+
+	pi->real_pid = getpid();
 
 	pi->status |= PIPE_CREATED;
 
+	if (pi->write_fd != e->fd && pi->read_fd != e->fd) {
+		switch (e->flags & O_ACCMODE) {
+		case O_WRONLY:
+			tmp = dup2(pi->write_fd, e->fd);
+			break;
+		case O_RDONLY:
+			tmp = dup2(pi->read_fd, e->fd);
+			break;
+		}
+	}
+	if (tmp < 0)
+		return 1;
+
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
-		pid, pi->users - minusers, pi->real_pid, pi->read_fd, pi->write_fd);
+		pid, pi->users, pi->real_pid, pi->read_fd, pi->write_fd);
 
 	while (1) {
-		if (pi->users <= minusers) /* only I left here, no need to wait */
+		if (pipe_is_rw(pi) || !pi->users)
 			break;
 
 		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
-				pid, e->pipeid, pi->users - minusers);
+				pid, e->pipeid, pi->users);
 		if (time < 20000000)
 			time <<= 1;
 		usleep(time);
 	}
 
-	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
-	if (e->flags & O_WRONLY) {
-		if (!pipe_is_rw(pi))
+	if (!pipe_is_rw(pi)) {
+		if ((e->flags & O_ACCMODE) == O_WRONLY)
 			close_safe(&pi->read_fd);
-		tmp = reopen_fd_as(e->fd, pi->write_fd);
-	} else {
-		if (!pipe_is_rw(pi))
+		else
 			close_safe(&pi->write_fd);
-		tmp = reopen_fd_as(e->fd, pi->read_fd);
 	}
-
-	if (tmp < 0)
-		return 1;
 
 	tmp = set_fd_flags(e->fd, e->flags);
 	if (tmp < 0)
 		return 1;
+
+	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
 
 	return 0;
 }
@@ -1008,14 +1027,22 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	while (pi->real_pid == 0)
 		usleep(1000);
 
-	if (e->flags & O_WRONLY)
+	if ((e->flags & O_ACCMODE) == O_WRONLY)
 		tmp = pi->write_fd;
 	else
 		tmp = pi->read_fd;
 
-	if (tmp == -1) {
-		pr_panic("Attaching closed pipe\n");
-		return 1;
+	if (pid == pi->pid) {
+		if (tmp != e->fd)
+			tmp = dup2(tmp, e->fd);
+
+		if (tmp < 0) {
+			pr_perror("%d: Can't duplicate %d->%d\n",
+					pid, tmp, e->fd);
+			return 1;
+		}
+
+		goto out;
 	}
 
 	sprintf(path, "/proc/%d/fd/%d", pi->real_pid, tmp);
@@ -1032,10 +1059,10 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	tmp = reopen_fd_as(e->fd, fd);
 	if (tmp < 0)
 		return 1;
-	pi->users--;
-
 	lseek(pipes_fd, e->bytes, SEEK_CUR);
 
+	pi->users--;
+out:
 	tmp = set_fd_flags(e->fd, e->flags);
 	if (tmp < 0)
 		return 1;
