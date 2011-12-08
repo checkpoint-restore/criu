@@ -253,17 +253,15 @@ int main(int argc, char *argv[])
 	int ret = -1;
 	int opt, idx;
 	int action = -1;
+	int log_inited = 0;
 
-	static const char short_opts[] = "drskf:p:t:hcD:";
+	static const char short_opts[] = "drskf:p:t:hcD:o:";
 	static const struct option long_opts[] = {
 		{ "dump",	no_argument, NULL, 'd' },
 		{ "restore",	no_argument, NULL, 'r' },
 		{ "show",	no_argument, NULL, 's' },
 		{ NULL,		no_argument, NULL, 0 }
 	};
-
-	if (init_logging())
-		return 1;
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -311,11 +309,19 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			break;
+		case 'o':
+			if (init_logging(optarg))
+				return 1;
+			log_inited = 1;
+			break;
 		case 'h':
 		default:
 			goto usage;
 		}
 	}
+
+	if (!log_inited && init_logging(NULL))
+		return 1;
 
 	if (getcwd(image_dir, sizeof(image_dir)) < 0) {
 		pr_perror("can't get currect directory\n");

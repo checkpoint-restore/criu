@@ -15,7 +15,7 @@
 #include "compiler.h"
 #include "types.h"
 
-extern int init_logging(void);
+extern int init_logging(const char *file_name);
 extern void deinit_logging(void);
 extern void printk(const char *format, ...);
 

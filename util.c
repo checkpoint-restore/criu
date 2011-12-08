@@ -42,9 +42,18 @@
 
 static int logfd = STDERR_FILENO;
 
-int init_logging(void)
+int init_logging(const char *name)
 {
 	struct rlimit rlimit;
+	int fd = STDERR_FILENO;
+
+	if (name) {
+		fd = open(name, O_CREAT | O_WRONLY);
+		if (fd == -1) {
+			pr_perror("Can't create log file %s\n", name);
+			return 1;
+		}
+	}
 
 	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
 		pr_err("can't get rlimit: %m\n");
@@ -52,7 +61,7 @@ int init_logging(void)
 	}
 
 	logfd = rlimit.rlim_cur - 1;
-	if (dup2(2, logfd) < 0) {
+	if (dup2(fd, logfd) < 0) {
 		pr_err("can't duplicate descriptor 2->%d: %m\n", logfd);
 		return 1;
 	}
