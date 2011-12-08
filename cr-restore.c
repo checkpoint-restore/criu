@@ -1059,7 +1059,6 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	tmp = reopen_fd_as(e->fd, fd);
 	if (tmp < 0)
 		return 1;
-	lseek(pipes_fd, e->bytes, SEEK_CUR);
 
 	pi->users--;
 out:
@@ -1160,10 +1159,22 @@ err:
 }
 
 
+struct pipe_list_entry {
+	struct pipe_entry e;
+	struct list_head list;
+	off_t offset;
+};
+
 static int prepare_pipes(int pid)
 {
+	u32 type = 0, ret = 1;
 	int pipes_fd;
-	u32 type = 0;
+
+	struct pipe_list_entry *le, *buf;
+	int buf_size = PAGE_SIZE;
+	int nr = 0;
+
+	LIST_HEAD(head);
 
 	pr_info("%d: Opening pipes\n", pid);
 
@@ -1179,26 +1190,58 @@ static int prepare_pipes(int pid)
 		return 1;
 	}
 
-	while (1) {
-		struct pipe_entry e;
-		int ret;
-
-		ret = read(pipes_fd, &e, sizeof(e));
-		if (ret == 0) {
-			close(pipes_fd);
-			break;
-		}
-
-		if (ret != sizeof(e)) {
-			pr_perror("%d: Bad pipes entry\n", pid);
-			return 1;
-		}
-
-		if (open_pipe(pid, &e, &pipes_fd))
-			return 1;
+	buf = malloc(buf_size);
+	if (!buf) {
+		pr_perror("Can't allocate memory\n");
+		close(pipes_fd);
+		return 1;
 	}
 
-	return 0;
+	while (1) {
+		int ret;
+		struct list_head *cur;
+		struct pipe_list_entry *cur_entry;
+
+		le = &buf[nr];
+
+		ret = read(pipes_fd, &le->e, sizeof(le->e));
+		if (ret == 0)
+			break;
+
+		if (ret != sizeof(le->e)) {
+			pr_perror("%d: Bad pipes entry\n", pid);
+			goto err_free;
+		}
+
+		list_for_each(cur, &head) {
+			cur_entry = list_entry(cur, struct pipe_list_entry, list);
+			if (cur_entry->e.pipeid > le->e.pipeid)
+				break;
+		}
+
+		list_add_tail(&le->list, cur);
+
+		le->offset = lseek(pipes_fd, 0, SEEK_CUR);
+		lseek(pipes_fd, le->e.bytes, SEEK_CUR);
+
+		nr++;
+		if (nr > buf_size / sizeof(*le)) {
+			pr_err("OOM storing pipes");
+			goto err_free;
+		}
+	}
+
+	list_for_each_entry(le, &head, list) {
+		lseek(pipes_fd, le->offset, SEEK_SET);
+		if (open_pipe(pid, &le->e, &pipes_fd))
+			goto err_free;
+	}
+
+	ret = 0;
+err_free:
+	free(buf);
+	close(pipes_fd);
+	return ret;
 }
 
 static int restore_one_task(int pid)
