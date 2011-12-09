@@ -757,10 +757,14 @@ static int parse_children(pid_t pid, u32 *nr_children, u32 **children)
 		goto err;
 	}
 
-	if (!(fgets(loc_buf, sizeof(loc_buf), file))) {
-		pr_perror("Can't read %d children content", pid);
-		goto err_close;
-	}
+	/*
+	 * FIXME: The format of "children" output is not
+	 * yet stable enough so be ready to get nothing.
+	 * Moreover, at moment number of children limited
+	 * by the size of a buffer. We need while() here.
+	 */
+	if (!(fgets(loc_buf, sizeof(loc_buf), file)))
+		loc_buf[0] = 0;
 
 	fclose(file);
 
