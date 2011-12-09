@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
 	int action = -1;
 	int log_inited = 0;
 
-	static const char short_opts[] = "drskf:p:t:hcD:o:";
+	static const char short_opts[] = "drsf:p:t:hcD:o:";
 	static const struct option long_opts[] = {
 		{ "dump",	no_argument, NULL, 'd' },
 		{ "restore",	no_argument, NULL, 'r' },
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 	memzero_p(&zero_page_entry);
 
 	/* Default options */
-	opts.final_state = CR_TASK_LEAVE_RUNNING;
+	opts.final_state = CR_TASK_KILL;
 
 	for (opt = getopt_long(argc, argv, short_opts, long_opts, &idx); opt != -1;
 	     opt = getopt_long(argc, argv, short_opts, long_opts, &idx)) {
@@ -295,13 +295,11 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			opts.show_pages_content	= true;
+			opts.final_state = CR_TASK_LEAVE_RUNNING;
 			break;
 		case 'f':
 			opts.show_single_file = true;
 			opts.show_dump_file = optarg;
-			break;
-		case 'k':
-			opts.final_state = CR_TASK_KILL;
 			break;
 		case 'D':
 			if (chdir(optarg)) {
@@ -347,7 +345,7 @@ int main(int argc, char *argv[])
 
 usage:
 	printk("\nUsage:\n");
-	printk("\t%s --dump|-d [-k] -p|-t pid\n", argv[0]);
+	printk("\t%s --dump|-d [-c] -p|-t pid\n", argv[0]);
 	printk("\t%s --restore|-r -p|-t pid\n", argv[0]);
 	printk("\t%s --show|-s [-c] (-p|-t pid)|(-f file)\n", argv[0]);
 	printk("\n");
