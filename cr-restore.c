@@ -1324,7 +1324,9 @@ static inline int fork_with_pid(int pid, char *pstree_path)
 			return -1;
 		}
 
-		return restore_task_with_children(my_pid, pstree_path);
+		ret = restore_task_with_children(my_pid, pstree_path);
+		pr_err("%d: Something failed with code %d\n", ret);
+		exit(1);
 	}
 
 err_unlock:
