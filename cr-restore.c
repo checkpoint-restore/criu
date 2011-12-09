@@ -935,6 +935,30 @@ static int set_fd_flags(int fd, int flags)
 	return fcntl(fd, F_SETFL, flags);
 }
 
+static int reopen_pipe(int src, int *dst, int *other)
+{
+	int tmp;
+
+	if (*dst != -1) {
+		if (*other == *dst) {
+			tmp = dup(*other);
+			if (tmp < 0) {
+				pr_perror("dup failed\n");
+				return -1;
+			}
+			close_safe(other);
+			*other = tmp;
+		}
+
+		tmp = reopen_fd_as(*dst, src);
+		if (tmp < 0)
+			return -1;
+	} else
+		*dst = src;
+
+	return 0;
+}
+
 static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
 {
 	unsigned long time = 1000;
@@ -960,36 +984,14 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		}
 	}
 
-	if (pi->read_fd != -1)
-		tmp = reopen_fd_as(pi->read_fd, pfd[0]);
-	else
-		pi->read_fd = pfd[0];
-	if (tmp < 0)
-		return 1;
-
-	if (pi->write_fd != -1)
-		tmp = reopen_fd_as(pi->write_fd, pfd[1]);
-	else
-		pi->write_fd = pfd[1];
-	if (tmp < 0)
-		return 1;
+	if (reopen_pipe(pfd[0], &pi->read_fd, &pfd[1]))
+		return -1;
+	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd))
+		return -1;
 
 	pi->real_pid = getpid();
 
 	pi->status |= PIPE_CREATED;
-
-	if (pi->write_fd != e->fd && pi->read_fd != e->fd) {
-		switch (e->flags & O_ACCMODE) {
-		case O_WRONLY:
-			tmp = dup2(pi->write_fd, e->fd);
-			break;
-		case O_RDONLY:
-			tmp = dup2(pi->read_fd, e->fd);
-			break;
-		}
-	}
-	if (tmp < 0)
-		return 1;
 
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
 		pid, pi->users, pi->real_pid, pi->read_fd, pi->write_fd);
@@ -1011,6 +1013,20 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		else
 			close_safe(&pi->write_fd);
 	}
+
+	tmp = 0;
+	if (pi->write_fd != e->fd && pi->read_fd != e->fd) {
+		switch (e->flags & O_ACCMODE) {
+		case O_WRONLY:
+			tmp = dup2(pi->write_fd, e->fd);
+			break;
+		case O_RDONLY:
+			tmp = dup2(pi->read_fd, e->fd);
+			break;
+		}
+	}
+	if (tmp < 0)
+		return 1;
 
 	tmp = set_fd_flags(e->fd, e->flags);
 	if (tmp < 0)
