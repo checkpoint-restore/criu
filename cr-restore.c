@@ -80,6 +80,12 @@ struct shmem_id {
 	unsigned long	shmid;
 };
 
+struct pipe_list_entry {
+	struct list_head	list;
+	struct pipe_entry	e;
+	off_t			offset;
+};
+
 static struct shmem_id *shmem_ids;
 
 static struct fmap_fd *fmap_fds;
@@ -1155,13 +1161,6 @@ err:
 	close(fd_sigact);
 	return ret;
 }
-
-
-struct pipe_list_entry {
-	struct pipe_entry e;
-	struct list_head list;
-	off_t offset;
-};
 
 static int prepare_pipes(int pid)
 {
