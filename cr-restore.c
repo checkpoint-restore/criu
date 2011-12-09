@@ -959,6 +959,30 @@ static int reopen_pipe(int src, int *dst, int *other)
 	return 0;
 }
 
+static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
+{
+	int ret, size = 0;
+
+	pr_info("%x: Splicing data to %d\n", e->pipeid, wfd);
+
+	while (size != e->bytes) {
+		ret = splice(pipes_fd, NULL, wfd, NULL, e->bytes, 0);
+		if (ret < 0) {
+			pr_perror("%x: Error splicing data\n", e->pipeid);
+			return 1;
+		}
+		if (ret == 0) {
+			pr_err("%x: Wanted to restore %d bytes, but got %d\n",
+			       e->pipeid, e->bytes, size);
+			return 1;
+		}
+
+		size =+ ret;
+	}
+
+	return 0;
+}
+
 static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
 {
 	unsigned long time = 1000;
@@ -971,18 +995,8 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		return 1;
 	}
 
-	if (e->bytes) {
-		pr_info("\t%d: Splicing data to %d\n", pid, pfd[1]);
-
-		tmp = splice(pipes_fd, NULL, pfd[1], NULL, e->bytes, 0);
-		if (tmp != e->bytes) {
-			pr_err("Wanted to restore %d bytes, but got %d\n",
-			       e->bytes, tmp);
-			if (tmp < 0)
-				pr_perror("%d: Error splicing data\n", pid);
-			return 1;
-		}
-	}
+	if (restore_pipe_data(e, pfd[1], pipes_fd))
+		return 1;
 
 	if (reopen_pipe(pfd[0], &pi->read_fd, &pfd[1]))
 		return -1;
