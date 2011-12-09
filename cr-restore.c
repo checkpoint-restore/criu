@@ -1194,7 +1194,7 @@ err:
 
 static int prepare_pipes(int pid)
 {
-	u32 type = 0, ret = 1;
+	u32 type = 0, err = 1, ret;
 	int pipes_fd;
 
 	struct pipe_list_entry *le, *buf;
@@ -1225,7 +1225,6 @@ static int prepare_pipes(int pid)
 	}
 
 	while (1) {
-		int ret;
 		struct list_head *cur;
 		struct pipe_list_entry *cur_entry;
 
@@ -1264,11 +1263,11 @@ static int prepare_pipes(int pid)
 			goto err_free;
 	}
 
-	ret = 0;
+	err = 0;
 err_free:
 	free(buf);
 	close(pipes_fd);
-	return ret;
+	return err;
 }
 
 static int restore_one_task(int pid)
