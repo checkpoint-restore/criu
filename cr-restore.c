@@ -158,9 +158,8 @@ static void shmem_update_real_pid(int vpid, int rpid)
 
 static int shmem_wait_and_open(struct shmem_info *si)
 {
-	/* FIXME - not good */
-	char path[128];
 	unsigned long time = 1000;
+	char path[128];
 
 	sleep(1);
 
