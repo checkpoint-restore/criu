@@ -433,7 +433,7 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 
 	file = fopen_proc("%d/stat", "r", pid);
 	if (!file) {
-		pr_perror("Can't open %d stat", pid);
+		pr_perror("Can't open %d stat\n", pid);
 		goto err;
 	}
 
@@ -520,7 +520,7 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 	fclose(file);
 	file = fopen_proc("%d/status", "r", pid);
 	if (!file) {
-		pr_perror("Can't open %d status", pid);
+		pr_perror("Can't open %d status\n", pid);
 		goto err;
 	}
 
@@ -549,7 +549,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 
 	file = fopen_proc("%d/personality", "r", pid);
 	if (!file) {
-		pr_perror("Can't open %d personality", pid);
+		pr_perror("Can't open %d personality\n", pid);
 		goto err;
 	}
 
@@ -716,7 +716,7 @@ static int parse_threads(pid_t pid, u32 *nr_threads, u32 **threads)
 
 	dir = opendir_proc("%d/task", pid);
 	if (!dir) {
-		pr_perror("Can't open %d/task", pid);
+		pr_perror("Can't open %d/task\n", pid);
 		return -1;
 	}
 
@@ -753,7 +753,7 @@ static int parse_children(pid_t pid, u32 *nr_children, u32 **children)
 
 	file = fopen_proc("%d/children", "r", pid);
 	if (!file) {
-		pr_perror("Can't open %d children", pid);
+		pr_perror("Can't open %d children\n", pid);
 		goto err;
 	}
 
