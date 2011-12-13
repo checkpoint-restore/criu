@@ -1,4 +1,5 @@
-fs, proc: Introduce the /proc/<pid>/map_files/ directory v14
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] fs, proc: Introduce the /proc/<pid>/map_files/ directory v14
 
 From: Pavel Emelyanov <xemul@parallels.com>
 

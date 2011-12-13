@@ -1,0 +1,31 @@
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: c-r-procfs-add-start_data-end_data-start_brk-members-to-proc-pid-stat-v4-fix
+
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: Andrew Vagin <avagin@openvz.org>
+Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Serge Hallyn <serge.hallyn@canonical.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Vasiliy Kulikov <segoon@openwall.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ Documentation/filesystems/proc.txt |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.git/Documentation/filesystems/proc.txt
+===================================================================
+--- linux-2.6.git.orig/Documentation/filesystems/proc.txt
++++ linux-2.6.git/Documentation/filesystems/proc.txt
+@@ -307,7 +307,7 @@ Table 1-4: Contents of the stat files (a
+   cgtime        guest time of the task children in jiffies
+   start_data    address above which program data+bss is placed
+   end_data      address below which program data+bss is placed
+-  start_brk     address above which program heap can be expaned with brk() call
++  start_brk     address above which program heap can be expanded with brk()
+ ..............................................................................
+ 
+ The /proc/PID/maps file containing the currently mapped memory regions and

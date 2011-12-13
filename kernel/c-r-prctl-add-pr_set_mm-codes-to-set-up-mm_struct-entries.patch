@@ -1,28 +1,48 @@
-prctl: Add PR_SET_MM codes to tune up mm_struct entires v2
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: c/r: prctl: add PR_SET_MM codes to set up mm_struct entries
 
-A few members of mm_struct such as start_code, end_code,
-start_data, end_data, start_stack, start_brk, brk provided
-by the kernel via /proc/$pid/stat and we use it at checkpoint
-time.
+When we restore a task we need to set up text, data and data heap sizes
+from userspace to the values a task had at checkpoint time.  This patch
+adds auxilary prctl codes for that.
 
-At restore time we need a mechanism to restore those values
-back and for this sake PR_SET_MM prctl code is introduced.
+While most of them have a statistical nature (their values are involved
+into calculation of /proc/<pid>/statm output) the start_brk and brk values
+are used to compute an allowed size of program data segment expansion. 
+Which means an arbitrary changes of this values might be dangerous
+operation.  So to restrict access the following requirements applied to
+prctl calls:
 
-Note because of being a dangerous operation this inteface
-is allowed for CAP_SYS_ADMIN only.
+ - The process has to have CAP_SYS_ADMIN capability granted.
+ - For all opcodes except start_brk/brk members an appropriate
+   VMA area must exist and should fit certain VMA flags,
+   such as:
+   - code segment must be executable but not writable;
+   - data segment must not be executable.
 
-v2:
- - Add a check for vma start address, testing for vma ending
-   address is not enough. From Kees Cook.
+start_brk/brk values must not intersect with data segment and must not
+exceed RLIMIT_DATA resource limit.
 
- - Add some sanity tests for assigned addresses.
+Still the main guard is CAP_SYS_ADMIN capability check.
+
+Note the kernel should be compiled with CONFIG_CHECKPOINT_RESTORE support
+otherwise these prctl calls will return -EINVAL.
 
 Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-CC: Kees Cook <keescook@chromium.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Andrew Vagin <avagin@openvz.org>
+Cc: Serge Hallyn <serge.hallyn@canonical.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Vasiliy Kulikov <segoon@openwall.com>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: Michael Kerrisk <mtk.manpages@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
+
  include/linux/prctl.h |   12 +++++
- kernel/sys.c          |  118 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 130 insertions(+)
+ kernel/sys.c          |  120 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 132 insertions(+)
 
 Index: linux-2.6.git/include/linux/prctl.h
 ===================================================================
@@ -49,18 +69,22 @@ Index: linux-2.6.git/kernel/sys.c
 ===================================================================
 --- linux-2.6.git.orig/kernel/sys.c
 +++ linux-2.6.git/kernel/sys.c
-@@ -1692,6 +1692,118 @@ SYSCALL_DEFINE1(umask, int, mask)
+@@ -1692,6 +1692,123 @@ SYSCALL_DEFINE1(umask, int, mask)
  	return mask;
  }
  
-+static int prctl_set_mm(int opt, unsigned long addr)
++#ifdef CONFIG_CHECKPOINT_RESTORE
++static int prctl_set_mm(int opt, unsigned long addr,
++			unsigned long arg4, unsigned long arg5)
 +{
 +	unsigned long rlim = rlimit(RLIMIT_DATA);
 +	unsigned long vm_req_flags;
 +	unsigned long vm_bad_flags;
 +	struct vm_area_struct *vma;
-+	struct mm_struct *mm;
 +	int error = 0;
++
++	if (arg4 | arg5)
++		return -EINVAL;
 +
 +	if (!capable(CAP_SYS_ADMIN))
 +		return -EPERM;
@@ -68,15 +92,10 @@ Index: linux-2.6.git/kernel/sys.c
 +	if (addr >= TASK_SIZE)
 +		return -EINVAL;
 +
-+	mm = get_task_mm(current);
-+	if (!mm)
-+		return -ENOENT;
++	down_read(&current->mm->mmap_sem);
++	vma = find_vma(current->mm, addr);
 +
-+	down_read(&mm->mmap_sem);
-+	vma = find_vma(mm, addr);
-+
-+	if (opt != PR_SET_MM_START_BRK &&
-+	    opt != PR_SET_MM_BRK) {
++	if (opt != PR_SET_MM_START_BRK && opt != PR_SET_MM_BRK) {
 +		/* It must be existing VMA */
 +		if (!vma || vma->vm_start > addr)
 +			goto out;
@@ -86,7 +105,6 @@ Index: linux-2.6.git/kernel/sys.c
 +	switch (opt) {
 +	case PR_SET_MM_START_CODE:
 +	case PR_SET_MM_END_CODE:
-+
 +		vm_req_flags = VM_READ | VM_EXEC;
 +		vm_bad_flags = VM_WRITE | VM_MAYSHARE;
 +
@@ -102,7 +120,6 @@ Index: linux-2.6.git/kernel/sys.c
 +
 +	case PR_SET_MM_START_DATA:
 +	case PR_SET_MM_END_DATA:
-+
 +		vm_req_flags = VM_READ | VM_WRITE;
 +		vm_bad_flags = VM_EXEC | VM_MAYSHARE;
 +
@@ -130,22 +147,24 @@ Index: linux-2.6.git/kernel/sys.c
 +		break;
 +
 +	case PR_SET_MM_START_BRK:
-+		if (addr <= mm->end_data)
++		if (addr <= current->mm->end_data)
 +			goto out;
 +
 +		if (rlim < RLIM_INFINITY &&
-+		    (mm->brk - addr) + (mm->end_data - mm->start_data) > rlim)
++		    (current->mm->brk - addr) +
++		    (current->mm->end_data - current->mm->start_data) > rlim)
 +			goto out;
 +
 +		current->mm->start_brk = addr;
 +		break;
 +
 +	case PR_SET_MM_BRK:
-+		if (addr <= mm->end_data)
++		if (addr <= current->mm->end_data)
 +			goto out;
 +
 +		if (rlim < RLIM_INFINITY &&
-+		    (addr - mm->start_brk) + (mm->end_data - mm->start_data) > rlim)
++		    (addr - current->mm->start_brk) +
++		    (current->mm->end_data - current->mm->start_data) > rlim)
 +			goto out;
 +
 +		current->mm->brk = addr;
@@ -159,25 +178,28 @@ Index: linux-2.6.git/kernel/sys.c
 +	error = 0;
 +
 +out:
-+	up_read(&mm->mmap_sem);
-+	mmput(mm);
++	up_read(&current->mm->mmap_sem);
 +
 +	return error;
 +}
++#else /* CONFIG_CHECKPOINT_RESTORE */
++static int prctl_set_mm(int opt, unsigned long addr,
++			unsigned long arg4, unsigned long arg5)
++{
++	return -EINVAL;
++}
++#endif
 +
  SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
  		unsigned long, arg4, unsigned long, arg5)
  {
-@@ -1841,6 +1953,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
+@@ -1841,6 +1958,9 @@ SYSCALL_DEFINE5(prctl, int, option, unsi
  			else
  				error = PR_MCE_KILL_DEFAULT;
  			break;
-+		case PR_SET_MM: {
-+			if (arg4 | arg5)
-+				return -EINVAL;
-+			error = prctl_set_mm(arg2, arg3);
++		case PR_SET_MM:
++			error = prctl_set_mm(arg2, arg3, arg4, arg5);
 +			break;
-+		}
  		default:
  			error = -EINVAL;
  			break;

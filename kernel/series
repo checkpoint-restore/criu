@@ -1,9 +1,12 @@
 fs-proc-Make-proc_get_link-to-use-dentry
 fs-proc-Introduce-the-proc-pid-map_files-directory
 procfs-introduce-the-proc-pid-map_files-directory-checkpatch
-fs-proc-Add-start_data-end_data-start_brk-members
-fs-proc-add-children-entry
-prctl-tune-up-mm_struct-members-2
+sysfs-add-kernel.ns_last_pid
+c-r-introduce-checkpoint_restore-symbol.patch
+c-r-procfs-add-start_data-end_data-start_brk-members-to-proc-pid-stat-v4.patch
+c-r-procfs-add-start_data-end_data-start_brk-members-to-proc-pid-stat-v4-fix.patch
+c-r-prctl-add-pr_set_mm-codes-to-set-up-mm_struct-entries.patch
+c-r-prctl-add-pr_set_mm-codes-to-set-up-mm_struct-entries-fix.patch
 mincore-Add-named-constant-for-reported-present-bit
 mincore-Report-whether-page-is-anon-or-not
-sysfs-add-kernel.ns_last_pid
+fs-proc-add-children-entry-11

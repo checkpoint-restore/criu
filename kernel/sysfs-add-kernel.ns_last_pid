@@ -1,4 +1,5 @@
-sysctl: Add the kernel.ns_last_pid control
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] sysctl: Add the kernel.ns_last_pid control
 
 From: Pavel Emelyanov <xemul@parallels.com>
 

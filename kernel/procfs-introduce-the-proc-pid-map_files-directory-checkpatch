@@ -1,4 +1,5 @@
-procfs-introduce-the-proc-pid-map_files-directory-checkpatch-fixes
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] procfs-introduce-the-proc-pid-map_files-directory-checkpatch-fixes
 
 From: Andrew Morton <akpm@linux-foundation.org>
 

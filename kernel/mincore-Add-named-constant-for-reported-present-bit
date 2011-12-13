@@ -1,4 +1,5 @@
-mincore: Add named constant for reported present bit
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] mincore: Add named constant for reported present bit
 
 From: Pavel Emelyanov <xemul@parallels.com>
 

@@ -1,4 +1,5 @@
-fs, proc: Make proc_get_link to use dentry instead of inode
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] fs, proc: Make proc_get_link to use dentry instead of inode
 
 From: Cyrill Gorcunov <gorcunov@openvz.org>
 

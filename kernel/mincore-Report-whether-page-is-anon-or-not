@@ -1,4 +1,5 @@
-mincore: Report whether page is anon or not
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [PATCH] mincore: Report whether page is anon or not
 
 From: Pavel Emelyanov <xemul@parallels.com>
 
