@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
 			return ret;
 	}
 
-	if (getcwd(image_dir, sizeof(image_dir)) < 0) {
+	if (!getcwd(image_dir, sizeof(image_dir))) {
 		pr_perror("can't get currect directory\n");
 		return -1;
 	}
