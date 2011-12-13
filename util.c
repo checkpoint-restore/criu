@@ -51,19 +51,19 @@ int init_logging(const char *name)
 		fd = open(name, O_CREAT | O_WRONLY);
 		if (fd == -1) {
 			pr_perror("Can't create log file %s\n", name);
-			return 1;
+			return -1;
 		}
 	}
 
 	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
 		pr_err("can't get rlimit: %m\n");
-		return 1;
+		return -1;
 	}
 
 	logfd = rlimit.rlim_cur - 1;
 	if (dup2(fd, logfd) < 0) {
 		pr_err("can't duplicate descriptor 2->%d: %m\n", logfd);
-		return 1;
+		return -1;
 	}
 
 	return 0;

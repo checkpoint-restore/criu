@@ -318,12 +318,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!log_inited && init_logging(NULL))
-		return 1;
+	if (!log_inited) {
+		ret = init_logging(NULL);
+		if (ret)
+			return ret;
+	}
 
 	if (getcwd(image_dir, sizeof(image_dir)) < 0) {
 		pr_perror("can't get currect directory\n");
-		return 1;
+		return -1;
 	}
 
 	switch (action) {
