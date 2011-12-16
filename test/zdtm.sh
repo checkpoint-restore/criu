@@ -7,8 +7,16 @@ zdtm/live/static/cwd00
 zdtm/live/static/env00
 zdtm/live/static/shm
 zdtm/live/static/maps00
+zdtm/live/static/mprotect00
+zdtm/live/static/mtime_mmap
+zdtm/live/static/sleeping00
 zdtm/live/static/write_read00
-zdtm/live/static/wait00"
+zdtm/live/static/write_read01
+zdtm/live/static/write_read02
+zdtm/live/static/wait00
+zdtm/live/streaming/pipe_loop00
+zdtm/live/streaming/pipe_shared00
+zdtm/live/transition/file_read"
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 
