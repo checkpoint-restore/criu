@@ -28,6 +28,7 @@
 
 static struct cr_options opts;
 struct page_entry zero_page_entry;
+char image_dir[PATH_MAX];
 
 /*
  * The cr fd set is the set of files where the information
@@ -231,7 +232,6 @@ void free_cr_fdset(struct cr_fdset **cr_fdset)
 	}
 }
 
-char image_dir[PATH_MAX];
 int get_image_path(char *path, int size, const char *fmt, int pid)
 {
 	int image_dir_size = strlen(image_dir);
