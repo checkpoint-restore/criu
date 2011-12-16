@@ -286,6 +286,8 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	pipes[nr_pipes].pipeid	= e->pipeid;
 	pipes[nr_pipes].pid	= pid;
 	pipes[nr_pipes].users	= 0;
+	pipes[nr_pipes].read_fd = -1;
+	pipes[nr_pipes].write_fd = -1;
 
 	switch (e->flags & O_ACCMODE) {
 	case O_RDONLY:
