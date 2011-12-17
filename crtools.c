@@ -100,8 +100,8 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 
 	for (i = 0; i < CR_FD_MAX; i++) {
 		cr_fdset->desc[i].tmpl = &fdset_template[i];
-		ret = get_image_path(cr_fdset->desc[i].name,
-				sizeof(cr_fdset->desc[i].name),
+		ret = get_image_path(cr_fdset->desc[i].path,
+				sizeof(cr_fdset->desc[i].path),
 				cr_fdset->desc[i].tmpl->fmt,
 				pid);
 		if (ret) {
@@ -131,26 +131,26 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
-		ret = unlink(cr_fdset->desc[i].name);
+		ret = unlink(cr_fdset->desc[i].path);
 		if (ret && errno != ENOENT) {
 			pr_perror("Unable to unlink %s (%s)\n",
-				 cr_fdset->desc[i].name,
+				 cr_fdset->desc[i].path,
 				 strerror(errno));
 			goto err;
 		} else
 			ret = -1;
-		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].name,
+		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].path,
 					    O_RDWR | O_CREAT | O_EXCL,
 					    CR_FD_PERM);
 		if (cr_fdset->desc[i].fd < 0) {
 			pr_perror("Unable to open %s (%s)\n",
-				 cr_fdset->desc[i].name,
+				 cr_fdset->desc[i].path,
 				 strerror(errno));
 			goto err;
 		}
 
 		pr_debug("Opened %s with %d\n",
-			 cr_fdset->desc[i].name,
+			 cr_fdset->desc[i].path,
 			 cr_fdset->desc[i].fd);
 
 		magic = cr_fdset->desc[i].tmpl->magic;
@@ -177,23 +177,23 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
-		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].name,
+		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].path,
 					    O_RDWR, CR_FD_PERM);
 		if (cr_fdset->desc[i].fd < 0) {
 			pr_perror("Unable to open %s (%s)\n",
-				 cr_fdset->desc[i].name,
+				 cr_fdset->desc[i].path,
 				 strerror(errno));
 			goto err;
 		}
 
 		pr_debug("Opened %s with %d\n",
-			 cr_fdset->desc[i].name,
+			 cr_fdset->desc[i].path,
 			 cr_fdset->desc[i].fd);
 
 		read_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
 		if (magic != cr_fdset->desc[i].tmpl->magic) {
 			pr_err("Magic doesn't match for %s\n",
-			       cr_fdset->desc[i].name);
+			       cr_fdset->desc[i].path);
 			goto err;
 		}
 
@@ -216,7 +216,7 @@ void close_cr_fdset(struct cr_fdset *cr_fdset)
 
 		if (cr_fdset->desc[i].fd >= 0) {
 			pr_debug("Closed %s with %d\n",
-				cr_fdset->desc[i].name,
+				cr_fdset->desc[i].path,
 				cr_fdset->desc[i].fd);
 			close(cr_fdset->desc[i].fd);
 			cr_fdset->desc[i].fd = -1;

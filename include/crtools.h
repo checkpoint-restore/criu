@@ -70,7 +70,7 @@ extern char image_dir[];
 /* file descriptors */
 struct cr_fd_desc {
 	struct cr_fd_desc_tmpl	*tmpl;		/* template we refer to */
-	char			name[64];	/* the name, based on pid */
+	char			path[PATH_MAX];	/* the path, based on pid */
 	int			fd;		/* descriptor for open/close */
 };
 

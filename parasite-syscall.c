@@ -350,7 +350,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].name);
+	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].path);
 
 	if (path_len > sizeof(parasite_sigacts.open_path)) {
 		pr_panic("Dumping sigactions path is too long (%d while %d allowed)\n",
@@ -364,7 +364,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	}
 
 	strncpy(parasite_sigacts.open_path,
-		 cr_fdset->desc[CR_FD_SIGACT].name,
+		 cr_fdset->desc[CR_FD_SIGACT].path,
 		 sizeof(parasite_sigacts.open_path));
 
 	parasite_sigacts.open_flags	= O_WRONLY;
@@ -402,8 +402,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", fd_type, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[fd_type].name);
-	pr_info("Dumping pages %s\n", cr_fdset->desc[fd_type].name);
+	path_len = strlen(cr_fdset->desc[fd_type].path);
+	pr_info("Dumping pages %s\n", cr_fdset->desc[fd_type].path);
 
 	if (path_len > sizeof(parasite_dumppages.open_path)) {
 		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
@@ -423,7 +423,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	fsync(cr_fdset->desc[fd_type].fd);
 
 	strncpy(parasite_dumppages.open_path,
-		 cr_fdset->desc[fd_type].name,
+		 cr_fdset->desc[fd_type].path,
 		 sizeof(parasite_dumppages.open_path));
 
 	parasite_dumppages.open_flags	= O_WRONLY;

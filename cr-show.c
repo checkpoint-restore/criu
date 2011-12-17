@@ -557,7 +557,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	 * time here, but this saves us from code duplication.
 	 */
 	lseek(cr_fdset->desc[CR_FD_PSTREE].fd, MAGIC_OFFSET, SEEK_SET);
-	show_pstree(cr_fdset->desc[CR_FD_PSTREE].name,
+	show_pstree(cr_fdset->desc[CR_FD_PSTREE].path,
 		    cr_fdset->desc[CR_FD_PSTREE].fd,
 		    true);
 
@@ -575,7 +575,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			goto out;
 
 		lseek(cr_fdset->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-		show_core(cr_fdset->desc[CR_FD_CORE].name,
+		show_core(cr_fdset->desc[CR_FD_CORE].path,
 			  cr_fdset->desc[CR_FD_CORE].fd,
 			  true, opts->show_pages_content);
 
@@ -601,7 +601,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				pr_info("----------------------------------------\n");
 
 				lseek(cr_fdset_th->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-				show_core(cr_fdset_th->desc[CR_FD_CORE].name,
+				show_core(cr_fdset_th->desc[CR_FD_CORE].path,
 					  cr_fdset_th->desc[CR_FD_CORE].fd,
 					  false, opts->show_pages_content);
 
@@ -612,16 +612,16 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			}
 		}
 
-		show_pipes(cr_fdset->desc[CR_FD_PIPES].name,
+		show_pipes(cr_fdset->desc[CR_FD_PIPES].path,
 			   cr_fdset->desc[CR_FD_PIPES].fd, true);
 
-		show_files(cr_fdset->desc[CR_FD_FDINFO].name,
+		show_files(cr_fdset->desc[CR_FD_FDINFO].path,
 			   cr_fdset->desc[CR_FD_FDINFO].fd, true);
 
-		show_shmem(cr_fdset->desc[CR_FD_SHMEM].name,
+		show_shmem(cr_fdset->desc[CR_FD_SHMEM].path,
 			   cr_fdset->desc[CR_FD_SHMEM].fd, true);
 
-		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].name,
+		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].path,
 			     cr_fdset->desc[CR_FD_SIGACT].fd, true);
 
 		close_cr_fdset(cr_fdset);
