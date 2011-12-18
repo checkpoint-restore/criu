@@ -350,9 +350,23 @@ int main(int argc, char *argv[])
 
 usage:
 	printk("\nUsage:\n");
-	printk("\t%s --dump|-d [-c] -p|-t pid\n", argv[0]);
-	printk("\t%s --restore|-r -p|-t pid\n", argv[0]);
-	printk("\t%s --show|-s [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+	printk("  %s --dump|-d [-c] -p|-t pid\n", argv[0]);
+	printk("  %s --restore|-r -p|-t pid\n", argv[0]);
+	printk("  %s --show|-s [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+
+	printk("\nGeneral parameters:\n");
+	printk("  --dump,-d      checkpoint a process identified by pid\n");
+	printk("  --restore,-r   restore a process identified by pid\n");
+	printk("  --show,-s      show dump contents of a process identified by pid\n");
+	printk("  -p             checkpoint/restore only a single process identified by pid\n");
+	printk("  -t             checkpoint/restore the whole process tree identified by pid\n");
+	printk("  -f             show contents of a checkpoint file\n");
+	printk("  -c             in case of checkpoint -- continue running the process after\n"
+	       "                 checkpoint complete, in case of showing file contents --\n"
+	       "                 show contents of pages dumped in hexdump format\n");
+
+	printk("\nAdditional common parameters:\n");
+	printk("  -D dir         save checkpoint files in specified directory\n");
 	printk("\n");
 
 	return -1;
