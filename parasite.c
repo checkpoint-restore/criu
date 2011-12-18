@@ -280,6 +280,9 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
 
+	BUILD_BUG_ON(sizeof(parasite_args_cmd_dumppages_t) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(parasite_args_cmd_dumpsigacts_t) > PARASITE_ARG_SIZE);
+
 	switch (cmd) {
 	case PARASITE_CMD_KILLME:
 		sys_close(0);

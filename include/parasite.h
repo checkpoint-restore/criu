@@ -1,6 +1,9 @@
 #ifndef CR_PARASITE_H_
 #define CR_PARASITE_H_
 
+#include <sys/types.h>
+#include <limits.h>
+
 #include "compiler.h"
 #include "syscall.h"
 #include "image.h"
@@ -8,7 +11,7 @@
 #define __parasite_head		__used __section(.parasite.head.text)
 
 #define PARASITE_STACK_SIZE	2048
-#define PARASITE_ARG_SIZE	256
+#define PARASITE_ARG_SIZE	8196
 #define PARASITE_BRK_SIZE	32768
 
 #define PARASITE_MAX_SIZE	(64 << 10)
@@ -60,14 +63,14 @@ typedef struct {
 	unsigned long		fd;
 	unsigned long		open_mode;
 	unsigned long		open_flags;
-	char			open_path[256];
+	char			open_path[PATH_MAX];
 } parasite_args_cmd_dumppages_t;
 
 typedef struct {
 	parasite_status_t	status;
 	unsigned long		open_mode;
 	unsigned long		open_flags;
-	char			open_path[256];
+	char			open_path[PATH_MAX];
 } parasite_args_cmd_dumpsigacts_t;
 
 /*
