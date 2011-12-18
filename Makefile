@@ -69,6 +69,8 @@ OBJS		+= restorer.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
+HEADERS		:= $(shell find ./include/* -name '*.h' -print)
+
 OBJS-BLOB	+= parasite.o
 DEPS-BLOB	+= $(patsubst %.o,%.d,$(OBJS-BLOB))
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
@@ -106,7 +108,7 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS): $(HEAD-BLOB-GEN)
+$(DEPS): $(HEAD-BLOB-GEN) $(HEADERS)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
