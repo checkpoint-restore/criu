@@ -876,7 +876,7 @@ static int prepare_image_maps(int fd, int pid)
 
 static int prepare_and_sigreturn(int pid)
 {
-	char path[128];
+	char path[PATH_MAX];
 	int fd, fd_new;
 	struct stat buf;
 
@@ -890,7 +890,8 @@ static int prepare_and_sigreturn(int pid)
 		return -1;
 	}
 
-	IMAGE_PATH(path, FMT_FNAME_CORE_OUT, pid);
+	if (get_image_path(path, sizeof(path), FMT_FNAME_CORE_OUT, pid))
+		return -1;
 	unlink(path);
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
@@ -1435,11 +1436,12 @@ static int restore_root_task(char *pstree_path, int fd)
 
 static int restore_all_tasks(pid_t pid)
 {
-	char path[128];
+	char path[PATH_MAX];
 	int pstree_fd;
 	u32 type = 0;
 
-	IMAGE_PATH(path, FMT_FNAME_PSTREE, pid);
+	if (get_image_path(path, sizeof(path), FMT_FNAME_PSTREE, pid))
+		return -1;
 	pstree_fd = open(path, O_RDONLY);
 	if (pstree_fd < 0) {
 		pr_perror("%d: Can't open pstree image\n", pid);
@@ -1463,7 +1465,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	struct vma_area *vma_area;
 	long prev_vma_end, hint;
 	struct vma_entry vma;
-	char path[64];
+	char path[PATH_MAX];
 	int fd = -1, ret;
 
 	hint = -1;
@@ -1478,7 +1480,8 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	 * better to stick with it.
 	 */
 
-	IMAGE_PATH(path, FMT_FNAME_CORE, pid);
+	if (get_image_path(path, sizeof(path), FMT_FNAME_CORE, pid))
+		goto err_or_found;
 	fd = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd < 0) {
 		pr_perror("Can't open %s\n", path);
@@ -1534,8 +1537,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
 
-	char self_vmas_path[64];
-	char path[64];
+	char self_vmas_path[PATH_MAX];
+	char path[PATH_MAX];
 
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
@@ -1560,21 +1563,24 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	IMAGE_PATH(path, FMT_FNAME_PSTREE, pstree_pid);
+	if (get_image_path(path, sizeof(path), FMT_FNAME_PSTREE, pstree_pid))
+		goto err;
 	fd_pstree = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_pstree < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
-	IMAGE_PATH(path, FMT_FNAME_CORE_OUT, pid);
+	if (get_image_path(path, sizeof(path), FMT_FNAME_CORE_OUT, pid))
+		goto err;
 	fd_core = open(path, O_RDONLY, CR_FD_PERM);
 	if (fd_core < 0) {
 		pr_perror("Can't open %s\n", path);
 		goto err;
 	}
 
-	IMAGE_PATH(self_vmas_path, FMT_FNAME_VMAS, getpid());
+	if (get_image_path(self_vmas_path, sizeof(self_vmas_path), FMT_FNAME_VMAS, getpid()))
+		goto err;
 	unlink(self_vmas_path);
 	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR, CR_FD_PERM);
 	if (fd_self_vmas < 0) {
@@ -1722,7 +1728,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
 
 			/* Core files are to be opened */
-			IMAGE_PATH(path, FMT_FNAME_CORE, thread_args[i].pid);
+			if (get_image_path(path, sizeof(path), FMT_FNAME_CORE, thread_args[i].pid))
+				goto err;
 			thread_args[i].fd_core = open(path, O_RDONLY, CR_FD_PERM);
 			if (thread_args[i].fd_core < 0) {
 				pr_perror("Can't open %s\n", path);
