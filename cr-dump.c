@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <signal.h>
 #include <limits.h>
 #include <unistd.h>
@@ -34,8 +35,6 @@
 
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
-
-#include <stdarg.h>
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet

@@ -6,6 +6,12 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <signal.h>
+#include <limits.h>
+#include <unistd.h>
+#include <dirent.h>
+
+#include <fcntl.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -14,23 +20,10 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <limits.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <dirent.h>
-
-#include <fcntl.h>
-
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/vfs.h>
-#include <sys/ptrace.h>
 #include <sys/user.h>
-#include <sys/wait.h>
 
 #include "compiler.h"
 #include "types.h"
