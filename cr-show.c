@@ -5,24 +5,17 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <dirent.h>
 
 #include <fcntl.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/vfs.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/wait.h>
 
 #include "types.h"
 #include "list.h"
 
 #include "compiler.h"
 #include "crtools.h"
-#include "syscall.h"
 #include "util.h"
 
 #include "image.h"
