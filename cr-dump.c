@@ -29,6 +29,7 @@
 #include "compiler.h"
 #include "crtools.h"
 #include "syscall.h"
+#include "seize.h"
 #include "util.h"
 
 #include "image.h"

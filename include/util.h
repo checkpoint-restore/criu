@@ -128,9 +128,6 @@ int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
 int ptrace_show_area(pid_t pid, void *addr, long bytes);
 int ptrace_show_area_r(pid_t pid, void *addr, long bytes);
 
-int seize_task(pid_t pid);
-int unseize_task(pid_t pid);
-
 void printk_registers(user_regs_struct_t *regs);
 void printk_siginfo(siginfo_t *siginfo);
 

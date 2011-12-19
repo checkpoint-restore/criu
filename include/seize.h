@@ -3,7 +3,7 @@
 
 #include <sys/ptrace.h>
 
-int seize_task(pid_t pid);
-int unseize_task(pid_t pid);
+extern int seize_task(pid_t pid);
+extern int unseize_task(pid_t pid);
 
 #endif /* SEIZE_H_ */
