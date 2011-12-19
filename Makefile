@@ -64,7 +64,7 @@ OBJS		+= cr-dump.o
 OBJS		+= cr-restore.o
 OBJS		+= cr-show.o
 OBJS		+= util.o
-OBJS		+= seize.o
+OBJS		+= ptrace.o
 OBJS		+= restorer.o
 OBJS		+= log.o
 

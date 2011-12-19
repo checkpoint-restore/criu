@@ -123,11 +123,6 @@ extern void printk(const char *format, ...);
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
-extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
-extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
-extern int ptrace_show_area(pid_t pid, void *addr, long bytes);
-extern int ptrace_show_area_r(pid_t pid, void *addr, long bytes);
-
 extern void printk_registers(user_regs_struct_t *regs);
 extern void printk_siginfo(siginfo_t *siginfo);
 

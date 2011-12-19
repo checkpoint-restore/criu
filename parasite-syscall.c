@@ -17,6 +17,7 @@
 #include "compiler.h"
 #include "syscall.h"
 #include "types.h"
+#include "ptrace.h"
 #include "util.h"
 
 #include "parasite-syscall.h"
