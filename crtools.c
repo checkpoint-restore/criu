@@ -306,12 +306,12 @@ int main(int argc, char *argv[])
 		case 'D':
 			if (chdir(optarg)) {
 				pr_perror("can't change working directory");
-				return 1;
+				return -1;
 			}
 			break;
 		case 'o':
 			if (init_logging(optarg))
-				return 1;
+				return -1;
 			log_inited = 1;
 			break;
 		case 'h':
