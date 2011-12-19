@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
 #include <getopt.h>
 #include <string.h>
 
@@ -12,15 +10,8 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/vfs.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/wait.h>
-#include <sys/sendfile.h>
 
 #include "types.h"
-#include "list.h"
 
 #include "compiler.h"
 #include "crtools.h"
