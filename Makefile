@@ -66,6 +66,7 @@ OBJS		+= cr-show.o
 OBJS		+= util.o
 OBJS		+= seize.o
 OBJS		+= restorer.o
+OBJS		+= log.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

@@ -25,6 +25,7 @@
 #include "compiler.h"
 #include "crtools.h"
 #include "util.h"
+#include "log.h"
 
 static struct cr_options opts;
 struct page_entry zero_page_entry;
@@ -310,7 +311,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'o':
-			if (init_logging(optarg))
+			if (init_log(optarg))
 				return -1;
 			log_inited = 1;
 			break;
@@ -321,7 +322,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!log_inited) {
-		ret = init_logging(NULL);
+		ret = init_log(NULL);
 		if (ret)
 			return ret;
 	}

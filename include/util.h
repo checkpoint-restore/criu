@@ -15,8 +15,6 @@
 #include "compiler.h"
 #include "types.h"
 
-extern int init_logging(const char *file_name);
-extern void deinit_logging(void);
 extern void printk(const char *format, ...);
 
 #define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
