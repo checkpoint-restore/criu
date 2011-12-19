@@ -123,18 +123,18 @@ extern void printk(const char *format, ...);
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
-int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
-int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
-int ptrace_show_area(pid_t pid, void *addr, long bytes);
-int ptrace_show_area_r(pid_t pid, void *addr, long bytes);
+extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
+extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
+extern int ptrace_show_area(pid_t pid, void *addr, long bytes);
+extern int ptrace_show_area_r(pid_t pid, void *addr, long bytes);
 
-void printk_registers(user_regs_struct_t *regs);
-void printk_siginfo(siginfo_t *siginfo);
+extern void printk_registers(user_regs_struct_t *regs);
+extern void printk_siginfo(siginfo_t *siginfo);
 
 struct vma_area;
 struct list_head;
 
-void printk_vma(struct vma_area *vma_area);
+extern void printk_vma(struct vma_area *vma_area);
 
 #define pr_info_vma_list(head)						\
 	do {								\
@@ -159,15 +159,15 @@ void printk_vma(struct vma_area *vma_area);
 #define pr_info_registers(regs)		printk_registers(regs)
 #define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
-int reopen_fd_as(int new_fd, int old_fd);
-int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
-int close_safe(int *fd);
+extern int reopen_fd_as(int new_fd, int old_fd);
+extern int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
+extern int close_safe(int *fd);
 
-void hex_dump(void *addr, unsigned long len);
+extern void hex_dump(void *addr, unsigned long len);
 
-DIR *opendir_proc(char *fmt, ...);
-FILE *fopen_proc(char *fmt, char *mode, ...);
-int open_fmt(char *fmt, int mode, ...);
+extern DIR *opendir_proc(char *fmt, ...);
+extern FILE *fopen_proc(char *fmt, char *mode, ...);
+extern int open_fmt(char *fmt, int mode, ...);
 
 #define __xalloc(op, size, ...)						\
 	({								\

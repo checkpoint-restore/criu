@@ -20,27 +20,27 @@ struct parasite_ctl {
 	unsigned long		addr_args;		/* address for arguments */
 };
 
-int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end);
+extern int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end);
 
-void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset);
+extern void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
+			 void *addr, size_t length, int prot,
+			 int flags, int fd, off_t offset);
 
-int munmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length);
-int kill_seized(pid_t pid, user_regs_struct_t *where);
-unsigned long brk_seized(pid_t pid, unsigned long addr);
+extern int munmap_seized(pid_t pid, user_regs_struct_t *regs,
+			 void *addr, size_t length);
+extern int kill_seized(pid_t pid, user_regs_struct_t *where);
+extern unsigned long brk_seized(pid_t pid, unsigned long addr);
 
-int syscall_seized(pid_t pid,
-		   user_regs_struct_t *where,
-		   user_regs_struct_t *params,
-		   user_regs_struct_t *result);
+extern int syscall_seized(pid_t pid,
+			  user_regs_struct_t *where,
+			  user_regs_struct_t *params,
+			  user_regs_struct_t *result);
 
-int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
+extern int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset, int fd_type);
-int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
+extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct list_head *vma_area_list);
-int parasite_cure_seized(struct parasite_ctl **p_ctrl, struct list_head *vma_area_list);
+extern struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct list_head *vma_area_list);
+extern int parasite_cure_seized(struct parasite_ctl **p_ctrl, struct list_head *vma_area_list);
 
 #endif /* PARASITE_SYSCALL_H_ */
