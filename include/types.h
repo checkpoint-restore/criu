@@ -174,27 +174,7 @@ typedef struct {
 } user_fpregs_struct_t;
 
 #else /* CONFIG_X86_64 */
-
-typedef struct {
-	unsigned long	bx;
-	unsigned long	cx;
-	unsigned long	dx;
-	unsigned long	si;
-	unsigned long	di;
-	unsigned long	bp;
-	unsigned long	ax;
-	unsigned long	ds;
-	unsigned long	es;
-	unsigned long	fs;
-	unsigned long	gs;
-	unsigned long	orig_ax;
-	unsigned long	ip;
-	unsigned long	cs;
-	unsigned long	flags;
-	unsigned long	sp;
-	unsigned long	ss;
-} user_regs_struct_t;
-
+# error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
 
 #define ASSIGN_TYPED(a,b) a = (typeof(a))b
