@@ -237,7 +237,7 @@ int get_image_path(char *path, int size, const char *fmt, int pid)
 	int image_dir_size = strlen(image_dir);
 	int ret;
 
-	strcpy(path, image_dir);
+	strncpy(path, image_dir, size);
 	path[image_dir_size] = '/';
 	size -= image_dir_size + 1;
 
