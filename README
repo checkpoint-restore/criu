@@ -17,28 +17,16 @@ Licensed under GPLv2 (http://www.gnu.org/licenses/gpl-2.0.txt)
 Kernel patching
 ===============
 
-To have crtools up and running either 
+To have crtools up and running clone
 
-1) use patches from kernel/ directory
-2) or clone git://github.com/cyrillos/linux-2.6.git
-   and switch to branch "crtools". Note these patches
-   are guaranteed to be up to date only with major
-   release of crtool. If you're testing development
-   version -- make sure you're applying series from
-   kernel/ directory.
+	git://github.com/cyrillos/linux-2.6.git
+
+and switch to branch "crtools".
 
 It's based on Linux
 
- | commit 1ea6b8f48918282bdca0b32a34095504ee65bab5
- | Author: Linus Torvalds <torvalds@linux-foundation.org>
- | Date:   Mon Nov 7 16:16:02 2011 -0800
- |
- |   Linux 3.2-rc1
+commit 384703b8e6cd4c8ef08512e596024e028c91c339
+Author: Linus Torvalds <torvalds@linux-foundation.org>
+Date:   Fri Dec 16 18:36:26 2011 -0800
 
-The following patches are already in -mm tree
-
-fs-proc-Make-proc_get_link-to-use-dentry
-fs-proc-Introduce-the-proc-pid-map_files-directory
-procfs-introduce-the-proc-pid-map_files-directory-checkpatch
-sysfs-add-kernel.ns_last_pid
-
+    Linux 3.2-rc6
