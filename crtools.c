@@ -248,6 +248,7 @@ int main(int argc, char *argv[])
 	int opt, idx;
 	int action = -1;
 	int log_inited = 0;
+	bool has_pid = false;
 
 	static const char short_opts[] = "drsf:p:t:hcD:o:";
 	static const struct option long_opts[] = {
@@ -273,10 +274,13 @@ int main(int argc, char *argv[])
 		case 'p':
 			pid = atoi(optarg);
 			opts.leader_only = true;
+			has_pid = true;
 			break;
 		case 't':
 			pid = atoi(optarg);
 			opts.leader_only = false;
+			has_pid = true;
+			break;
 			break;
 		case 'd':
 			action = opt;
@@ -320,6 +324,11 @@ int main(int argc, char *argv[])
 
 	if (!getcwd(image_dir, sizeof(image_dir))) {
 		pr_perror("can't get currect directory\n");
+		return -1;
+	}
+
+	if (!has_pid) {
+		pr_err("No pid specified, -t or -p option missed?\n");
 		return -1;
 	}
 
