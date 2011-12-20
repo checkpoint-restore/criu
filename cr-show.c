@@ -230,7 +230,7 @@ static void show_sigacts(char *name, int fd_sigacts, bool show_header)
 		pr_info("sigaction: %016lx mask: %08lx "
 			"flags: %016lx restorer: %016lx\n",
 			(long)e.sigaction,
-			*(long *)e.mask,
+			(long)e.mask,
 			(long)e.flags,
 			(long)e.restorer);
 	}
