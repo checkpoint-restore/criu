@@ -328,8 +328,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (!has_pid) {
-		pr_err("No pid specified, -t or -p option missed?\n");
-		return -1;
+		if (action != 's' || !opts.show_single_file)
+			goto opt_pid_missing;
 	}
 
 	switch (action) {
@@ -370,5 +370,9 @@ usage:
 	printk("  -D dir         save checkpoint files in specified directory\n");
 	printk("\n");
 
+	return -1;
+
+opt_pid_missing:
+	printk("No pid specified, -t or -p option missed?\n");
 	return -1;
 }
