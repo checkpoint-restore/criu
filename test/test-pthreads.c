@@ -54,30 +54,47 @@ static void pr_fsgs_base(char *name)
 
 	ret = sys_arch_prctl(ARCH_GET_FS, &fsgs_base);
 
-	printf("%8d (%4s): (%2d) fsgs_base %8lx\n",
+	printf("%8d (%15s): (%2d) fsgs_base %8lx\n",
 	       getpid(), name, ret, fsgs_base);
 
 	ret = sys_arch_prctl(ARCH_GET_GS, &fsgs_base);
 
-	printf("%8d (%4s): (%2d) fsgs_base %8lx\n",
+	printf("%8d (%15s): (%2d) fsgs_base %8lx\n",
 	       getpid(), name, ret, fsgs_base);
 }
 
 static void *ff1(void *arg)
 {
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	pid_t pid;
 	(void)map_unreadable;
 
 	tls_data = thread_counter++;
 
 	pr_fsgs_base("thr3");
 
+	pid = fork();
+	if (pid < 0)
+		exit(1);
+	else if (pid == 0) {
+		while (1) {
+			pthread_mutex_lock(&mtx);
+
+			counter++;
+			printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+			       getpid(), "thr3-ch", counter, tls_data);
+
+			pthread_mutex_unlock(&mtx);
+			sleep(5);
+		}
+	}
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter++;
-		printf("%8d (thr3): Counter value: %4d tls_data = %4d\n",
-		       getpid(), counter, tls_data);
+		printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+		       getpid(), "thr3", counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(5);
@@ -90,6 +107,7 @@ static void *f1(void *arg)
 {
 	const char name[] = "f1-file";
 	pthread_t th;
+	pid_t pid;
 	int fd;
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	(void)map_unreadable;
@@ -106,12 +124,28 @@ static void *f1(void *arg)
 
 	pr_fsgs_base("thr1");
 
+	pid = fork();
+	if (pid < 0)
+		exit(1);
+	else if (pid == 0) {
+		while (1) {
+			pthread_mutex_lock(&mtx);
+
+			counter++;
+			printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+				getpid(), "thr1-ch", counter, tls_data);
+
+			pthread_mutex_unlock(&mtx);
+			sleep(2);
+		}
+	}
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter++;
-		printf("%8d (thr1): Counter value: %4d tls_data = %4d\n",
-		       getpid(), counter, tls_data);
+		printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+		       getpid(), "thr1", counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(2);
@@ -123,18 +157,35 @@ static void *f1(void *arg)
 static void *f2(void *arg)
 {
 	void *map_unreadable = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	pid_t pid;
 	(void)map_unreadable;
 
 	tls_data = thread_counter++;
 
 	pr_fsgs_base("thr2");
 
+	pid = fork();
+	if (pid < 0)
+		exit(1);
+	else if (pid == 0) {
+		while (1) {
+			pthread_mutex_lock(&mtx);
+
+			counter--;
+			printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+			       getpid(), "thr2-ch", counter, tls_data);
+
+			pthread_mutex_unlock(&mtx);
+			sleep(3);
+		}
+	}
+
 	while (1) {
 		pthread_mutex_lock(&mtx);
 
 		counter--;
-		printf("%8d (thr2): Counter value: %4d tls_data = %4d\n",
-		       getpid(), counter, tls_data);
+		printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+		       getpid(), "thr2", counter, tls_data);
 
 		pthread_mutex_unlock(&mtx);
 		sleep(3);
@@ -147,6 +198,7 @@ int main(int argc, char *argv[])
 {
 	pthread_t th1, th2;
 	int rc1, rc2;
+	pid_t pid;
 
 	printf("%s pid %d\n", argv[0], getpid());
 
@@ -154,8 +206,8 @@ int main(int argc, char *argv[])
 
 	pr_fsgs_base("main");
 
-	printf("%8d (main): Counter value: %4d tls_data = %4d\n",
-	       getpid(), counter, tls_data);
+	printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+	       getpid(), "main", counter, tls_data);
 
 	rc1 = pthread_create(&th1, NULL, &f1, NULL);
 	rc2 = pthread_create(&th2, NULL, &f2, NULL);
@@ -163,9 +215,20 @@ int main(int argc, char *argv[])
 	if (rc1 | rc2)
 		exit(1);
 
+	pid = fork();
+	if (pid < 0)
+		exit(1);
+	else if (pid == 0) {
+		while (1) {
+			printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+			       getpid(), "main-child", counter, tls_data);
+			sleep(2);
+		}
+	}
+
 	while (1) {
-		printf("%8d (main): Counter value: %4d tls_data = %4d\n",
-		       getpid(), counter, tls_data);
+		printf("%8d (%15s): Counter value: %4d tls_data = %4d\n",
+		       getpid(), "main", counter, tls_data);
 		sleep(2);
 	}
 
