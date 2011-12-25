@@ -739,50 +739,48 @@ static int parse_threads(pid_t pid, struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(pid_t pid, u32 *nr_children, u32 **children)
+static int parse_children(pid_t pid, struct pstree_item *item)
 {
 	FILE *file;
 	char *tok;
 	u32 *ch = NULL;
-	int nr = 1;
+	int nr = 1, i;
 
-	file = fopen_proc("%d/children", "r", pid);
-	if (!file) {
-		pr_perror("Can't open %d children\n", pid);
-		goto err;
-	}
+	for (i = 0; i < item->nr_threads; i++) {
 
-	/*
-	 * FIXME: The format of "children" output is not
-	 * yet stable enough so be ready to get nothing.
-	 * Moreover, at moment number of children limited
-	 * by the size of a buffer. We need while() here.
-	 */
-	if (!(fgets(loc_buf, sizeof(loc_buf), file)))
-		loc_buf[0] = 0;
-
-	fclose(file);
-
-	tok = strtok(loc_buf, " \n");
-	while (tok) {
-		u32 *tmp = xrealloc(ch, nr * sizeof(u32));
-		if (!tmp) {
-			xfree(ch);
+		file = fopen_fmt("/proc/%d/task/%d/children", "r",
+				 pid, item->threads[i]);
+		if (!file) {
+			pr_perror("Can't open %d children %d\n",
+				  pid, item->threads[i]);
 			goto err;
 		}
-		ch = tmp;
-		ch[nr - 1] = atoi(tok);
-		nr++;
-		tok = strtok(NULL, " \n");
+
+		if (!(fgets(loc_buf, sizeof(loc_buf), file)))
+			loc_buf[0] = 0;
+
+		fclose(file);
+
+		tok = strtok(loc_buf, " \n");
+		while (tok) {
+			u32 *tmp = xrealloc(ch, nr * sizeof(u32));
+			if (!tmp)
+				goto err;
+			ch = tmp;
+			ch[nr - 1] = atoi(tok);
+			nr++;
+			tok = strtok(NULL, " \n");
+		}
+
 	}
 
-	*children = ch;
-	*nr_children = nr - 1;
+	item->children = ch;
+	item->nr_children = nr - 1;
+
 	return 0;
 
-err_close:
-	fclose(file);
 err:
+	xfree(ch);
 	return -1;
 }
 
@@ -797,10 +795,10 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 	if (parse_threads(pid, item))
 		goto err_free;
 
-	if (parse_children(pid, &item->nr_children, &item->children))
+	if (parse_children(pid, item))
 		goto err_free;
 
-	item->pid		= pid;
+	item->pid = pid;
 	return item;
 
 err_free:
