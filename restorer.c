@@ -461,7 +461,12 @@ self_len_end:
 							    sizeof(thread_args[i].mem_zone.stack));
 
 				last_pid_len = vprint_num(args->last_pid_buf, thread_args[i].pid - 1);
-				sys_write(fd, args->last_pid_buf, last_pid_len);
+				ret = sys_write(fd, args->last_pid_buf, last_pid_len);
+				if (ret < 0) {
+					write_num_n(__LINE__);
+					write_num_n(ret);
+					goto core_restore_end;
+				}
 
 				/*
 				 * To achieve functionality like libc's clone()
