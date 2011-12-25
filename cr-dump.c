@@ -701,7 +701,7 @@ err:
 	return ret;
 }
 
-static int parse_threads(pid_t pid, u32 *nr_threads, u32 **threads)
+static int parse_threads(pid_t pid, struct pstree_item *item)
 {
 	struct dirent *de;
 	DIR *dir;
@@ -733,8 +733,9 @@ static int parse_threads(pid_t pid, u32 *nr_threads, u32 **threads)
 
 	closedir(dir);
 
-	*threads = t;
-	*nr_threads = nr - 1;
+	item->threads = t;
+	item->nr_threads = nr - 1;
+
 	return 0;
 }
 
@@ -793,7 +794,7 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 	if (!item)
 		goto err;
 
-	if (parse_threads(pid, &item->nr_threads, &item->threads))
+	if (parse_threads(pid, item))
 		goto err_free;
 
 	if (parse_children(pid, &item->nr_children, &item->children))
