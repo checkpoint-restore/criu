@@ -465,6 +465,7 @@ self_len_end:
 				if (ret < 0) {
 					write_num_n(__LINE__);
 					write_num_n(ret);
+					write_string_n(args->last_pid_buf);
 					goto core_restore_end;
 				}
 
