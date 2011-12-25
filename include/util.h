@@ -162,6 +162,7 @@ extern void hex_dump(void *addr, unsigned long len);
 
 extern DIR *opendir_proc(char *fmt, ...);
 extern FILE *fopen_proc(char *fmt, char *mode, ...);
+extern FILE *fopen_fmt(char *fmt, char *mode, ...);
 extern int open_fmt(char *fmt, int mode, ...);
 
 #define __xalloc(op, size, ...)						\

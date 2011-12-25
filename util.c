@@ -352,6 +352,22 @@ FILE *fopen_proc(char *fmt, char *mode, ...)
 	return file;
 }
 
+FILE *fopen_fmt(char *fmt, char *mode, ...)
+{
+	FILE *file;
+	char fname[128];
+	va_list args;
+
+	va_start(args, mode);
+	vsnprintf(fname, sizeof(fname), fmt, args);
+	va_end(args);
+
+	file = fopen(fname, mode);
+	if (!file)
+		pr_perror("Can't open %s\n", fname);
+	return file;
+}
+
 int open_fmt(char *fmt, int mode, ...)
 {
 	int fd;
