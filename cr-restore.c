@@ -523,11 +523,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 	if (tmp < 0)
 		return -1;
 
-	fd = reopen_fd_as((int)fe->addr, tmp);
-	if (fd < 0)
-		return -1;
-
-	return 0;
+	return reopen_fd_as((int)fe->addr, tmp);
 }
 
 static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
@@ -954,12 +950,10 @@ static int reopen_pipe(int src, int *dst, int *other)
 			*other = tmp;
 		}
 
-		tmp = reopen_fd_as(*dst, src);
-		if (tmp < 0)
-			return -1;
-	} else
-		*dst = src;
+		return reopen_fd_as(*dst, src);
+	}
 
+	*dst = src;
 	return 0;
 }
 
@@ -1095,8 +1089,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	}
 
 	pr_info("\t%d: Done, reopening for %d\n", pid, e->fd);
-	tmp = reopen_fd_as(e->fd, fd);
-	if (tmp < 0)
+	if (reopen_fd_as(e->fd, fd))
 		return -1;
 
 	pi->users--;

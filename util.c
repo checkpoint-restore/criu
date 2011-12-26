@@ -141,7 +141,7 @@ int reopen_fd_as(int new_fd, int old_fd)
 		close_safe(&old_fd);
 	}
 
-	return new_fd;
+	return 0;
 }
 
 int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
