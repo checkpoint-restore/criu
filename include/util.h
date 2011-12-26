@@ -84,6 +84,18 @@ extern void printk(const char *format, ...);
 			##__VA_ARGS__);				\
 	} while (0)
 
+#ifndef BUG_ON_HANDLER
+# define BUG_ON_HANDLER(condition)					\
+	do {								\
+		if ((condition)) {					\
+			pr_err("BUG at %s:%d", __FILE__, __LINE__);	\
+			raise(SIGABRT);					\
+		}							\
+	} while (0)
+#endif
+
+#define BUG_ON(condition)	BUG_ON_HANDLER((condition))
+
 #define stop_task(pid)		kill(pid, SIGSTOP)
 #define kill_task(pid)		kill(pid, SIGKILL)
 #define continue_task(pid)	kill(pid, SIGCONT)
