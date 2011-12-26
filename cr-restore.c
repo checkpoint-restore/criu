@@ -69,11 +69,11 @@ struct shmem_info {
 struct pipe_info {
 	unsigned int	pipeid;
 	int		pid;
-	int		real_pid;
+	u32		real_pid;	/* futex */
 	int		read_fd;
 	int		write_fd;
 	int		status;
-	int		users;
+	u32		users;		/* futex */
 };
 
 struct shmem_id {
@@ -973,6 +973,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 {
 	unsigned long time = 1000;
 	int pfd[2], tmp;
+	u32 real_pid;
 
 	pr_info("\t%d: Creating pipe %x%s\n", pid, e->pipeid, pipe_is_rw(pi) ? "(rw)" : "");
 
@@ -989,23 +990,17 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd))
 		return -1;
 
-	pi->real_pid = getpid();
+	cr_wait_set(&pi->real_pid, getpid());
 
 	pi->status |= PIPE_CREATED;
 
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
 		pid, pi->users, pi->real_pid, pi->read_fd, pi->write_fd);
 
-	while (1) {
-		if (pipe_is_rw(pi) || !pi->users)
-			break;
-
-		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
+	pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
 				pid, e->pipeid, pi->users);
-		if (time < 20000000)
-			time <<= 1;
-		usleep(time);
-	}
+	if (!pipe_is_rw(pi))
+		cr_wait_until(&pi->users, 0);
 
 	if (!pipe_is_rw(pi)) {
 		if ((e->flags & O_ACCMODE) == O_WRONLY)
@@ -1045,8 +1040,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pr_info("\t%d: Wating for pipe %x to appear\n",
 		pid, e->pipeid);
 
-	while (pi->real_pid == 0)
-		usleep(1000);
+	cr_wait_while(&pi->real_pid, 0);
 
 	if ((e->flags & O_ACCMODE) == O_WRONLY)
 		tmp = pi->write_fd;
@@ -1080,7 +1074,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (reopen_fd_as(e->fd, fd))
 		return -1;
 
-	pi->users--;
+	cr_wait_dec(&pi->users);
 out:
 	tmp = set_fd_flags(e->fd, e->flags);
 	if (tmp < 0)
