@@ -33,7 +33,7 @@ extern void printk(const char *format, ...);
 #define pr_info(fmt, ...)	printk(fmt, ##__VA_ARGS__)
 #define pr_err(fmt, ...)	printk("Error (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_panic(fmt, ...)	printk("PANIC (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#define pr_warning(fmt, ...)	printk("Warning: " fmt, ##__VA_ARGS__)
+#define pr_warning(fmt, ...)	printk("Warning (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_err_jmp(label)					\
 	do {							\
