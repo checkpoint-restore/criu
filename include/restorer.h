@@ -311,4 +311,20 @@ static void always_inline rst_mutex_unlock(rst_mutex_t *mutex)
 	sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
+/* We need own handler */
+
+#ifdef BUG_ON_HANDLER
+# undef BUG_ON_HANDLER
+#endif
+
+#define BUG_ON_HANDLER(condition)					\
+	do {								\
+		if ((condition)) {					\
+			long tgid = sys_gettid();			\
+			write_hex_n(0x5a5a5a5a);			\
+			write_num_n(__LINE__);				\
+			sys_tgkill(tgid, tgid, SIGABRT);		\
+		}							\
+	} while (0)
+
 #endif /* CR_RESTORER_H__ */

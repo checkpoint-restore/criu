@@ -279,6 +279,11 @@ static void always_inline local_sleep(long seconds)
 	sys_nanosleep(&req, &rem);
 }
 
+static long always_inline sys_tgkill(long tgid, long pid, int sig)
+{
+	return syscall3(__NR_tgkill, tgid, pid, (long)sig);
+}
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
