@@ -12,6 +12,7 @@
 #define PSTREE_MAGIC	0x40044004
 #define PIPES_MAGIC	0x05055050
 #define SIGACT_MAGIC	0x60606060
+#define UNIXSK_MAGIC	0x07070707
 
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
@@ -50,6 +51,18 @@ struct pipe_entry {
 	u32	flags;
 	u32	bytes;
 	u8	data[0];
+} __packed;
+
+struct unix_sk_entry {
+	u32	fd;
+	u32	id;
+	u8	type;
+	u8	state;
+	u8	namelen; /* fits UNIX_PATH_MAX */
+	u8	pad;
+	u32	backlog;
+	u32	peer;
+	u8	name[0];
 } __packed;
 
 struct vma_entry {

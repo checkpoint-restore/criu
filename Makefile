@@ -67,6 +67,8 @@ OBJS		+= util.o
 OBJS		+= ptrace.o
 OBJS		+= restorer.o
 OBJS		+= log.o
+OBJS		+= libnetlink.o
+OBJS		+= sockets.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

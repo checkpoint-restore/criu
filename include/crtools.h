@@ -23,6 +23,7 @@ enum {
 	CR_FD_PSTREE,
 	CR_FD_SHMEM,
 	CR_FD_SIGACT,
+	CR_FD_UNIXSK,
 
 	CR_FD_MAX
 };
@@ -57,6 +58,7 @@ struct cr_fd_desc_tmpl {
 #define FMT_FNAME_SHMEM		"shmem-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
+#define FMT_FNAME_UNIXSK	"unixsk-%d.img"
 
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 

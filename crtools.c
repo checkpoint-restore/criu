@@ -17,6 +17,7 @@
 #include "crtools.h"
 #include "util.h"
 #include "log.h"
+#include "sockets.h"
 
 static struct cr_options opts;
 struct page_entry zero_page_entry;
@@ -77,6 +78,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	[CR_FD_SIGACT] = {
 		.fmt	= FMT_FNAME_SIGACTS,
 		.magic	= SIGACT_MAGIC,
+	},
+
+	/* info about unix sockets */
+	[CR_FD_UNIXSK] = {
+		.fmt	= FMT_FNAME_UNIXSK,
+		.magic	= UNIXSK_MAGIC,
 	},
 };
 

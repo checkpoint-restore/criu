@@ -17,7 +17,7 @@
 #include "compiler.h"
 #include "crtools.h"
 #include "util.h"
-
+#include "sockets.h"
 #include "image.h"
 
 #define DEF_PAGES_PER_LINE	6
@@ -449,6 +449,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case SIGACT_MAGIC:
 		show_sigacts(opts->show_dump_file, fd, true);
 		break;
+	case UNIXSK_MAGIC:
+		show_unixsk(opts->show_dump_file, fd, true);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", opts->show_dump_file);
 		goto err;
@@ -616,6 +619,9 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 
 		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].path,
 			     cr_fdset->desc[CR_FD_SIGACT].fd, true);
+
+		show_unixsk(cr_fdset->desc[CR_FD_UNIXSK].path,
+				cr_fdset->desc[CR_FD_UNIXSK].fd, true);
 
 		close_cr_fdset(cr_fdset);
 		free_cr_fdset(&cr_fdset);

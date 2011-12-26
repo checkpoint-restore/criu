@@ -25,6 +25,7 @@
 #include "syscall.h"
 #include "ptrace.h"
 #include "util.h"
+#include "sockets.h"
 
 #include "image.h"
 
@@ -239,6 +240,10 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 
 	fd = openat(dir, fd_name, O_RDONLY);
 	if (fd < 0) {
+		err = __try_dump_socket(pid_fd_dir, fd_name, cr_fdset);
+		if (err != 1)
+			return err;
+
 		pr_perror("Failed to openat %s/%d %s\n", pid_fd_dir, dir, fd_name);
 		return -1;
 	}
@@ -1177,6 +1182,9 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	pr_info("========================================\n");
 
 	if (collect_pstree(pid, &pstree_list))
+		goto err;
+
+	if (collect_sockets())
 		goto err;
 
 	/*

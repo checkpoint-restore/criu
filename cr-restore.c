@@ -30,6 +30,7 @@
 #include "log.h"
 #include "syscall.h"
 #include "restorer.h"
+#include "sockets.h"
 
 #include "crtools.h"
 
@@ -1249,6 +1250,9 @@ static int restore_one_task(int pid)
 	pr_info("%d: Restoring resources\n", pid);
 
 	if (prepare_pipes(pid))
+		return -1;
+
+	if (prepare_sockets(pid))
 		return -1;
 
 	if (prepare_fds(pid))
