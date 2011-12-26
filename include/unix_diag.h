@@ -1,14 +1,16 @@
 #ifndef __UNIX_DIAG_H__
 #define __UNIX_DIAG_H__
 
+#include "types.h"
+
 struct unix_diag_req {
-	__u8	sdiag_family;
-	__u8	sdiag_protocol;
-	__u16	pad;
-	__u32	udiag_states;
-	__u32	udiag_ino;
-	__u32	udiag_show;
-	__u32	udiag_cookie[2];
+	u8	sdiag_family;
+	u8	sdiag_protocol;
+	u16	pad;
+	u32	udiag_states;
+	u32	udiag_ino;
+	u32	udiag_show;
+	u32	udiag_cookie[2];
 };
 
 #define UDIAG_SHOW_NAME		0x00000001	/* show name (not path) */
@@ -18,13 +20,13 @@ struct unix_diag_req {
 #define UDIAG_SHOW_RQLEN	0x00000010	/* show skb receive queue len */
 
 struct unix_diag_msg {
-	__u8	udiag_family;
-	__u8	udiag_type;
-	__u8	udiag_state;
-	__u8	pad;
+	u8	udiag_family;
+	u8	udiag_type;
+	u8	udiag_state;
+	u8	pad;
 
-	__u32	udiag_ino;
-	__u32	udiag_cookie[2];
+	u32	udiag_ino;
+	u32	udiag_cookie[2];
 };
 
 enum {
@@ -38,8 +40,8 @@ enum {
 };
 
 struct unix_diag_vfs {
-	__u32	udiag_vfs_ino;
-	__u32	udiag_vfs_dev;
+	u32	udiag_vfs_ino;
+	u32	udiag_vfs_dev;
 };
 
 #endif
