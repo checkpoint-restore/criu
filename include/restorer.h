@@ -296,6 +296,7 @@ struct shmem_info {
 	unsigned long	shmid;
 	int		pid;
 	int		real_pid;
+	u32		lock;		/* futex */
 };
 
 struct shmems {

@@ -144,33 +144,27 @@ static void shmem_update_real_pid(int vpid, int rpid)
 
 static int shmem_wait_and_open(struct shmem_info *si)
 {
-	unsigned long time = 1000;
+	unsigned long time = 1;
 	char path[128];
+	int ret;
 
-	sleep(1);
-
-	while (si->real_pid == 0)
-		usleep(time);
+	cr_wait_until(&si->lock, 1);
 
 	sprintf(path, "/proc/%d/map_files/%lx-%lx",
 		si->real_pid, si->start, si->end);
 
-	while (1) {
-		int ret = open(path, O_RDWR);
-		if (ret >= 0)
-			return ret;
+	pr_info("Waiting for [%s] to appear\n", path);
 
-		if (ret < 0 && errno != ENOENT) {
-			pr_perror("     %d: Can't stat shmem at %s\n",
-				  si->real_pid, path);
-			return -1;
-		}
+	ret = open(path, O_RDWR);
+	if (ret >= 0)
+		return ret;
 
-		pr_info("Waiting for [%s] to appear\n", path);
-		if (time < 20000000)
-			time <<= 1;
-		usleep(time);
+	if (ret < 0) {
+		pr_perror("     %d: Can't stat shmem at %s\n",
+			  si->real_pid, path);
+		return -1;
 	}
+	return 0;
 }
 
 static int collect_shmem(int pid, struct shmem_entry *e)
