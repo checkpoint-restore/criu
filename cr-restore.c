@@ -506,15 +506,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe, int *cfd)
 {
 	int fd, tmp;
 
-	if (*cfd == (int)fe->addr) {
-		tmp = dup(*cfd);
-		if (tmp < 0) {
-			pr_perror("Can't dup file\n");
-			return -1;
-		}
-
-		*cfd = tmp;
-	}
+	if (move_img_fd(cfd, (int)fe->addr))
+		return -1;
 
 	if (fe->addr == ~0L)
 		return restore_cwd(fe, *cfd);
@@ -940,15 +933,8 @@ static int reopen_pipe(int src, int *dst, int *other)
 	int tmp;
 
 	if (*dst != -1) {
-		if (*other == *dst) {
-			tmp = dup(*other);
-			if (tmp < 0) {
-				pr_perror("dup failed\n");
-				return -1;
-			}
-			close_safe(other);
-			*other = tmp;
-		}
+		if (move_img_fd(other, *dst))
+			return -1;
 
 		return reopen_fd_as(*dst, src);
 	}
@@ -1107,17 +1093,8 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	struct pipe_info *pi;
 
 	pr_info("\t%d: Opening pipe %x on fd %d\n", pid, e->pipeid, e->fd);
-	if (e->fd == *pipes_fd) {
-		int tmp;
-
-		tmp = dup(*pipes_fd);
-		if (tmp < 0) {
-			pr_perror("%d: Can't dup file\n", pid);
-			return -1;
-		}
-
-		*pipes_fd = tmp;
-	}
+	if (move_img_fd(pipes_fd, e->fd))
+		return -1;
 
 	pi = find_pipe(e->pipeid);
 	if (!pi) {

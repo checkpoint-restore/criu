@@ -144,6 +144,23 @@ int reopen_fd_as(int new_fd, int old_fd)
 	return 0;
 }
 
+int move_img_fd(int *img_fd, int want_fd)
+{
+	if (*img_fd == want_fd) {
+		int tmp;
+
+		tmp = dup(*img_fd);
+		if (tmp < 0) {
+			pr_perror("Can't dup file\n");
+			return -1;
+		}
+
+		*img_fd = tmp;
+	}
+
+	return 0;
+}
+
 int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
