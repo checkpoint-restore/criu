@@ -49,14 +49,6 @@ struct fmap_fd {
  * we need it again.
  */
 
-struct shmem_info {
-	unsigned long	start;
-	unsigned long	end;
-	unsigned long	shmid;
-	int		pid;
-	int		real_pid;
-};
-
 #define PIPE_NONE	(0 << 0)
 #define PIPE_RDONLY	(1 << 1)
 #define PIPE_WRONLY	(1 << 2)
@@ -93,8 +85,7 @@ static struct shmem_id *shmem_ids;
 
 static struct fmap_fd *fmap_fds;
 
-static struct shmem_info *shmems;
-static int nr_shmems;
+static struct shmems *shmems;
 
 static struct pipe_info *pipes;
 static int nr_pipes;
@@ -110,11 +101,11 @@ static void show_saved_shmems(void)
 
 	pr_info("\tSaved shmems:\n");
 
-	for (i = 0; i < nr_shmems; i++)
+	for (i = 0; i < shmems->nr_shmems; i++)
 		pr_info("\t\tstart: %016lx shmid: %lx pid: %d\n",
-			shmems[i].start,
-			shmems[i].shmid,
-			shmems[i].pid);
+			shmems->entries[i].start,
+			shmems->entries[i].shmid,
+			shmems->entries[i].pid);
 }
 
 static void show_saved_pipes(void)
@@ -126,20 +117,6 @@ static void show_saved_pipes(void)
 		pr_info("\t\tpipeid %x pid %d users %d status %d\n",
 			pipes[i].pipeid, pipes[i].pid,
 			pipes[i].users, pipes[i].status);
-}
-
-static struct shmem_info *find_shmem(unsigned long addr, unsigned long shmid)
-{
-	struct shmem_info *si;
-	int i;
-
-	for (i = 0; i < nr_shmems; i++) {
-		si = shmems + i;
-		if (si->start <= addr && si->end >= addr && si->shmid == shmid)
-			return si;
-	}
-
-	return NULL;
 }
 
 static struct pipe_info *find_pipe(unsigned int pipeid)
@@ -160,9 +137,9 @@ static void shmem_update_real_pid(int vpid, int rpid)
 {
 	int i;
 
-	for (i = 0; i < nr_shmems; i++)
-		if (shmems[i].pid == vpid)
-			shmems[i].real_pid = rpid;
+	for (i = 0; i < shmems->nr_shmems; i++)
+		if (shmems->entries[i].pid == vpid)
+			shmems->entries[i].real_pid = rpid;
 }
 
 static int shmem_wait_and_open(struct shmem_info *si)
@@ -199,13 +176,15 @@ static int shmem_wait_and_open(struct shmem_info *si)
 static int collect_shmem(int pid, struct shmem_entry *e)
 {
 	int i;
+	struct shmem_info *entries = shmems->entries;
+	int nr_shmems = shmems->nr_shmems;
 
 	for (i = 0; i < nr_shmems; i++) {
-		if (shmems[i].start != e->start ||
-		    shmems[i].shmid != e->shmid)
+		if (entries[i].start != e->start ||
+		    entries[i].shmid != e->shmid)
 			continue;
 
-		if (shmems[i].end != e->end) {
+		if (entries[i].end != e->end) {
 			pr_err("Bogus shmem\n");
 			return -1;
 		}
@@ -216,26 +195,27 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 		 * will wait until the kernel propagate this mapping
 		 * into /proc
 		 */
-		if (shmems[i].pid > pid)
-			shmems[i].pid = pid;
+		if (entries[i].pid > pid)
+			entries[i].pid = pid;
 
 		return 0;
 	}
 
-	if ((nr_shmems + 1) * sizeof(struct shmem_info) >= 4096) {
+	if ((nr_shmems + 1) * sizeof(struct shmem_info) +
+					sizeof (struct shmems) >= SHMEMS_SIZE) {
 		pr_panic("OOM storing shmems\n");
 		return -1;
 	}
 
-	memset(&shmems[nr_shmems], 0, sizeof(shmems[nr_shmems]));
+	memset(&shmems->entries[nr_shmems], 0, sizeof(shmems->entries[0]));
 
-	shmems[nr_shmems].start		= e->start;
-	shmems[nr_shmems].end		= e->end;
-	shmems[nr_shmems].shmid		= e->shmid;
-	shmems[nr_shmems].pid		= pid;
-	shmems[nr_shmems].real_pid	= 0;
+	entries[nr_shmems].start	= e->start;
+	entries[nr_shmems].end		= e->end;
+	entries[nr_shmems].shmid	= e->shmid;
+	entries[nr_shmems].pid		= pid;
+	entries[nr_shmems].real_pid	= 0;
 
-	nr_shmems++;
+	shmems->nr_shmems++;
 
 	return 0;
 }
@@ -391,12 +371,13 @@ static int prepare_shared(int ps_fd)
 {
 	pr_info("Preparing info about shared resources\n");
 
-	nr_shmems = 0;
-	shmems = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (shmems == MAP_FAILED) {
 		pr_perror("Can't map shmem\n");
 		return -1;
 	}
+
+	shmems->nr_shmems = 0;
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
@@ -691,7 +672,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	if (!shmid)
 		return 0;
 
-	si = find_shmem(vi->start, shmid);
+	si = find_shmem(shmems, vi->start, shmid);
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
 	if (!si) {
@@ -776,7 +757,7 @@ static inline bool should_restore_page(int pid, unsigned long va)
 	if (!shmid)
 		return true;
 
-	si = find_shmem(va, shmid);
+	si = find_shmem(shmems, va, shmid);
 	return si->pid == pid;
 }
 

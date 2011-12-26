@@ -287,6 +287,52 @@ static void always_inline write_hex_n(unsigned long num)
 	sys_write(STDERR_FILENO, &c, 1);
 }
 
+#define SHMEMS_SIZE	4096
+
+struct shmem_info {
+	unsigned long	start;
+	unsigned long	end;
+	unsigned long	shmid;
+	int		pid;
+	int		real_pid;
+};
+
+struct shmems {
+	int			nr_shmems;
+	struct shmem_info	entries[0];
+};
+
+static struct shmem_info *
+find_shmem(struct shmems *shms, unsigned long addr, unsigned long shmid)
+{
+	struct shmem_info *si;
+	int i;
+
+	for (i = 0; i < shms->nr_shmems; i++) {
+		si = shms->entries + i;
+		if (si->start <= addr && si->end >= addr && si->shmid == shmid)
+			return si;
+	}
+
+	return NULL;
+}
+
+static always_inline struct shmem_info *
+find_shmem_by_pid(struct shmems *shms, unsigned long addr, int pid)
+{
+	struct shmem_info *si;
+	int i;
+
+	for (i = 0; i < shms->nr_shmems; i++) {
+		si = shms->entries + i;
+		if (si->start <= addr && si->end >= addr && si->real_pid == pid)
+			return si;
+	}
+
+	return NULL;
+}
+
+
 /* We need own handler */
 
 #ifdef BUG_ON_HANDLER
