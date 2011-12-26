@@ -49,6 +49,10 @@ ifneq ($(WERROR),0)
 	WARNINGS += -Werror
 endif
 
+ifeq ($(DEBUG),1)
+	DEFINES += -DCR_DEBUG
+endif
+
 WARNINGS	+= -Wall -Wno-unused
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 

@@ -60,15 +60,17 @@ extern void printk(const char *format, ...);
 			pr_err_jmp(label);			\
 	} while (0)
 
-#if 0
+#ifdef CR_DEBUG
 #define pr_debug(fmt, ...)					\
 	do {							\
-		printk("%s (%s:%d): " fmt,			\
-		       __func__, __FILE__, __LINE__,		\
+		printk("%s:%d:%s: " fmt,			\
+		       __FILE__, __LINE__,__func__,		\
 		       ##__VA_ARGS__);				\
 	} while (0)
+#define dprintk(fmt, ...)	printk(fmt, ##__VA_ARGS__)
 #else
 #define pr_debug(fmt, ...)
+#define dprintk(fmt, ...)
 #endif
 
 #define die(fmt, ...)						\
