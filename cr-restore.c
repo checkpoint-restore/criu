@@ -367,6 +367,35 @@ static int prepare_pipes_pid(int pid)
 	return 0;
 }
 
+static int shmem_remap(struct shmems *old_addr,
+			struct shmems *new_addr)
+{
+	char path[PATH_MAX];
+	int fd;
+	void *ret;
+
+	sprintf(path, "/proc/%d/map_files/%p-%p",
+		getpid(), old_addr, (void *)old_addr + 4096);
+
+	fd = open(path, O_RDWR);
+	if (fd < 0) {
+		pr_perror("open(%s) failed\n", path);
+		return -1;
+	}
+
+	ret = mmap(new_addr, SHMEMS_SIZE,
+			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+	if (ret != new_addr) {
+		pr_perror("mmap failed\n");
+		return -1;
+	}
+
+	if (new_addr->nr_shmems != old_addr->nr_shmems)
+		pr_err("shmem_remap failed\n");
+
+	return 0;
+}
+
 static int prepare_shared(int ps_fd)
 {
 	pr_info("Preparing info about shared resources\n");
@@ -1477,6 +1506,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_task_code_len, restore_task_vma_len;
 	long restore_thread_code_len, restore_thread_vma_len;
+	long restore_shmem_vma_len;
 
 	void *exec_mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -1504,7 +1534,9 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	restore_task_code_len	= 0;
 	restore_task_vma_len	= 0;
 	restore_thread_code_len	= 0;
-	restore_thread_vma_len	= 0;
+	restore_shmem_vma_len	= 0;
+	restore_thread_vma_len	= 4096;
+
 
 	if (parse_maps(getpid(), &self_vma_list, false))
 		goto err;
@@ -1599,9 +1631,12 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		break;
 	}
 
+	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
+
 	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
 					      restore_task_vma_len +
-					      restore_thread_vma_len);
+					      restore_thread_vma_len +
+					      restore_shmem_vma_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%dK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
@@ -1648,6 +1683,13 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	/*
 	 * Arguments for task restoration.
 	 */
+	task_args->shmems = (struct shmems *)(exec_mem_hint +
+						restore_task_vma_len +
+						restore_thread_vma_len);
+	ret = shmem_remap(shmems, task_args->shmems);
+	if (ret)
+		goto err;
+
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;

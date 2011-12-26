@@ -333,6 +333,13 @@ self_len_end:
 
 		sys_close(args->fd_core);
 
+		ret = sys_munmap(args->shmems, SHMEMS_SIZE);
+		if (ret < 0) {
+			write_num_n(__LINE__);
+			write_num_n(ret);
+			goto core_restore_end;
+		}
+
 		/*
 		 * Tune up the task fields.
 		 */
