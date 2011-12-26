@@ -182,7 +182,7 @@ int __try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
 	struct stat st;
 	struct socket_desc *sk;
 
-	sprintf(buf,"%s/%s", dir, fd);
+	snprintf(buf, sizeof(buf), "%s/%s", dir, fd);
 	if (statfs(buf, &fst)) {
 		pr_err("Can't statfs %s\n", buf);
 		return -1;
@@ -482,7 +482,7 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 {
 	addr->sun_family = AF_UNIX;
 	addr->sun_path[0] = '\0';
-	sprintf(addr->sun_path + 1, "crtools-sk-%10d", id);
+	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
 	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
 }
 
