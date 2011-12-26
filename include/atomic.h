@@ -1,6 +1,8 @@
 #ifndef ATOMIC_H__
 #define ATOMIC_H__
 
+#include "types.h"
+
 #define atomic_set(mem, v)					\
 	({							\
 		asm volatile ("lock xchg %0, %1\n"		\

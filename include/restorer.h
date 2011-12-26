@@ -7,6 +7,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "image.h"
+#include "lock.h"
 #include "util.h"
 
 #ifndef CONFIG_X86_64
@@ -49,15 +50,13 @@ struct restore_mem_zone {
 #define first_on_heap(ptr, heap)	((typeof(ptr))heap)
 #define next_on_heap(ptr, prev)		((typeof(ptr))((long)(prev) + sizeof(*(prev))))
 
-typedef u32 rst_mutex_t;
-
 /* Make sure it's pow2 in size */
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;
 	int				fd_core;
-	rst_mutex_t			*rst_lock;
+	u32				*rst_lock;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -72,7 +71,7 @@ struct task_restore_core_args {
 	};
 	char				ns_last_pid_path[PATH_MAX];
 	bool				restore_threads;	/* if to restore threads */
-	rst_mutex_t			rst_lock;
+	u32				rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
@@ -286,29 +285,6 @@ static void always_inline write_hex_n(unsigned long num)
 
 	c = '\n';
 	sys_write(STDERR_FILENO, &c, 1);
-}
-
-#define FUTEX_WAIT		0
-#define FUTEX_WAKE		1
-
-static void always_inline rst_mutex_init(rst_mutex_t *mutex)
-{
-	u32 c = 0;
-	atomic_set(mutex, c);
-}
-
-static void always_inline rst_mutex_lock(rst_mutex_t *mutex)
-{
-	u32 c;
-	while ((c = atomic_inc(mutex)))
-		sys_futex(mutex, FUTEX_WAIT, c + 1, NULL, NULL, 0);
-}
-
-static void always_inline rst_mutex_unlock(rst_mutex_t *mutex)
-{
-	u32 c = 0;
-	atomic_set(mutex, c);
-	sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
 /* We need own handler */

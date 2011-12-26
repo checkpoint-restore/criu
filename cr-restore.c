@@ -31,6 +31,7 @@
 #include "syscall.h"
 #include "restorer.h"
 #include "sockets.h"
+#include "lock.h"
 
 #include "crtools.h"
 
@@ -1679,7 +1680,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		self_vmas_path,
 		sizeof(task_args->self_vmas_path));
 
-	rst_mutex_init(&task_args->rst_lock);
+	cr_mutex_init(&task_args->rst_lock);
 
 	strncpy(task_args->ns_last_pid_path,
 		LAST_PID_PATH,
