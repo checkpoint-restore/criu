@@ -59,9 +59,10 @@ static struct socket_desc *lookup_socket(int ino)
 {
 	struct socket_desc *d;
 
-	for (d = sockets[ino % SK_HASH_SIZE]; d != NULL; d = d->next)
+	for (d = sockets[ino % SK_HASH_SIZE]; d; d = d->next) {
 		if (d->ino == ino)
 			break;
+	}
 
 	return d;
 }
