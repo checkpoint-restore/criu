@@ -5,6 +5,7 @@ SRCS	+= test-shmem-three-async.c
 SRCS	+= test-pipe-async.c
 SRCS	+= test-vdso.c
 SRCS	+= test-sigaction.c
+SRCS	+= test-unixsocket.c
 
 SRCS-TH	+= test-pthreads.c
 OBJS-TH += $(patsubst %.c,%.o,$(SRCS-TH))
