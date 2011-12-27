@@ -18,8 +18,6 @@
 #include "image.h"
 #include "crtools.h"
 
-#define USK_DEBUG
-
 static char buf[4096];
 
 #ifndef NETLINK_SOCK_DIAG
@@ -77,18 +75,14 @@ static int sk_collect_one(int ino, int family, struct socket_desc *d)
 
 static void show_one_unix(char *act, struct unix_sk_desc *sk)
 {
-#ifdef USK_DEBUG
-	pr_info("\t%s: ino %d type %d state %d name %s\n", act,
-			sk->sd.ino, sk->type, sk->state, sk->name);
-#endif
+	dprintk("\t%s: ino %d type %d state %d name %s\n",
+		act, sk->sd.ino, sk->type, sk->state, sk->name);
 }
 
 static void show_one_unix_img(char *act, struct unix_sk_entry *e)
 {
-#ifdef USK_DEBUG
-	pr_info("\t%s: fd %d type %d state %d name %d bytes\n", act,
-			e->fd, e->type, e->state, e->namelen);
-#endif
+	dprintk("\t%s: fd %d type %d state %d name %d bytes\n",
+		act, e->fd, e->type, e->state, e->namelen);
 }
 
 static int can_dump_unix_sk(struct unix_sk_desc *sk)
@@ -409,9 +403,7 @@ struct unix_conn_job {
 
 static void unix_show_job(char *type, int fd, int id)
 {
-#ifdef USK_DEBUG
-	pr_info("%s job fd %d id %d\n", type, fd, id);
-#endif
+	dprintk("%s job fd %d id %d\n", type, fd, id);
 }
 
 static struct unix_conn_job *conn_jobs;
