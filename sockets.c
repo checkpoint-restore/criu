@@ -588,7 +588,7 @@ err:
 
 static int prepare_unix_sockets(int pid)
 {
-	int usk_fd, ret;
+	int usk_fd, ret = -1;
 	u32 type;
 
 	usk_fd = open_image_ro(FMT_FNAME_UNIXSK, pid);
@@ -597,9 +597,9 @@ static int prepare_unix_sockets(int pid)
 		return -1;
 	}
 
-	read(usk_fd, &type, sizeof(type));
+	read_ptr_safe(usk_fd, &type, err);
 	if (type != UNIXSK_MAGIC) {
-		pr_perror("%d: Bad unix sk file\n", pid);
+		pr_err("%d: Bad unix sk file\n", pid);
 		return -1;
 	}
 
@@ -628,6 +628,7 @@ static int prepare_unix_sockets(int pid)
 	if (!ret)
 		ret = run_accept_jobs();
 
+err:
 	return ret;
 }
 
