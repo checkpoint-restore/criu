@@ -496,7 +496,7 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 		struct sockaddr_un addr;
 		int ret;
 
-		if (!ue->namelen || ue->namelen > UNIX_PATH_MAX) {
+		if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
 			pr_err("Bad unix name len %d\n", ue->namelen);
 			goto err;
 		}
