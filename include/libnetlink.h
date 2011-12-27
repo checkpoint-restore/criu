@@ -59,6 +59,8 @@ struct rtattr {
 
 #define NLMSG_MIN_TYPE          0x10    /* < 0x10: reserved control messages */
 
+#define CR_NLMSG_SEQ		24680	/* arbitrary chosen */
+
 extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
 extern int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *));
 

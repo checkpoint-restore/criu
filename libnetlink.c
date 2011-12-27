@@ -23,7 +23,7 @@ int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 	struct nlmsghdr *hdr;
 
 	for (hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
-		if (hdr->nlmsg_seq != 24680)
+		if (hdr->nlmsg_seq != CR_NLMSG_SEQ)
 			continue;
 		if (hdr->nlmsg_type == NLMSG_DONE)
 			return 0;

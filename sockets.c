@@ -333,7 +333,7 @@ static int collect_unix_sockets(int nl)
 	req.hdr.nlmsg_len = sizeof(req);
 	req.hdr.nlmsg_type = SOCK_DIAG_BY_FAMILY;
 	req.hdr.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
-	req.hdr.nlmsg_seq = 24680;
+	req.hdr.nlmsg_seq = CR_NLMSG_SEQ;
 	req.r.sdiag_family = AF_UNIX;
 	req.r.udiag_states = -1; /* All */
 	req.r.udiag_show = UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS | UDIAG_SHOW_RQLEN;
