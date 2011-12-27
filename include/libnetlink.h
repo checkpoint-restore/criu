@@ -1,5 +1,5 @@
-#ifndef __LINUX_RTNETLINK_H
-#define __LINUX_RTNETLINK_H
+#ifndef LIBNETLINK_H__
+#define LIBNETLINK_H__
 
 struct rtattr {
 	unsigned short  rta_len;
@@ -59,7 +59,7 @@ struct rtattr {
 
 #define NLMSG_MIN_TYPE          0x10    /* < 0x10: reserved control messages */
 
-int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
-int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *));
+extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
+extern int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *));
 
-#endif
+#endif /* LIBNETLINK_H__ */

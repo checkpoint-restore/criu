@@ -1,8 +1,13 @@
-#ifndef __CRTOOLS_SOCKETS_H__
-#define __CRTOOLS_SOCKETS_H__
-int collect_sockets(void);
+#ifndef CR_SOCKETS_H__
+#define CR_SOCKETS_H__
+
+#include <stdbool.h>
+
 struct cr_fdset;
-int __try_dump_socket(char *dir_name, char *fd_name, struct cr_fdset *cr_fdset);
-int prepare_sockets(int pid);
-void show_unixsk(char *name, int fd, bool show_header);
-#endif
+extern int try_dump_socket(char *dir_name, char *fd_name, struct cr_fdset *cr_fdset);
+
+extern int collect_sockets(void);
+extern int prepare_sockets(int pid);
+extern void show_unixsk(char *name, int fd, bool show_header);
+
+#endif /* CR_SOCKETS_H__ */

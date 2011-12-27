@@ -1,5 +1,5 @@
-#ifndef __UNIX_DIAG_H__
-#define __UNIX_DIAG_H__
+#ifndef UNIX_DIAG_H__
+#define UNIX_DIAG_H__
 
 #include "types.h"
 
@@ -44,4 +44,4 @@ struct unix_diag_vfs {
 	u32	udiag_vfs_dev;
 };
 
-#endif
+#endif /* UNIX_DIAG_H__ */

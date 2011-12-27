@@ -10,13 +10,15 @@
 #include <netinet/tcp.h>
 #include <errno.h>
 #include <unistd.h>
+#include <limits.h>
+
 #include "types.h"
 #include "libnetlink.h"
 #include "sockets.h"
 #include "unix_diag.h"
-#include "util.h"
 #include "image.h"
 #include "crtools.h"
+#include "util.h"
 
 static char buf[4096];
 
@@ -170,7 +172,7 @@ err:
 	return -1;
 }
 
-int __try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
+int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
 {
 	struct statfs fst;
 	struct stat st;
