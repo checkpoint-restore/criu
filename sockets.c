@@ -35,21 +35,20 @@ static char buf[4096];
 #endif
 
 struct socket_desc {
-	unsigned int family;
-	unsigned int ino;
-	struct socket_desc *next;
+	unsigned int		family;
+	unsigned int		ino;
+	struct socket_desc	*next;
 };
 
 struct unix_sk_desc {
-	struct socket_desc sd;
-
-	unsigned int type;
-	unsigned int state;
-	unsigned int peer_ino;
-	unsigned int rqlen;
-	unsigned int namelen;
-	char *name;
-	unsigned int *icons;
+	struct socket_desc	sd;
+	unsigned int		type;
+	unsigned int		state;
+	unsigned int		peer_ino;
+	unsigned int		rqlen;
+	unsigned int		namelen;
+	char			*name;
+	unsigned int		*icons;
 };
 
 #define SK_HASH_SIZE	32
@@ -69,10 +68,12 @@ static struct socket_desc *lookup_socket(int ino)
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
-	d->ino = ino;
-	d->family = family;
-	d->next = sockets[ino % SK_HASH_SIZE];
+	d->ino		= ino;
+	d->family	= family;
+	d->next		= sockets[ino % SK_HASH_SIZE];
+
 	sockets[ino % SK_HASH_SIZE] = d;
+
 	return 0;
 }
 
@@ -150,15 +151,15 @@ static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	ue.fd = atoi(fd);
-	ue.id = sk->sd.ino;
-	ue.type = sk->type;
-	ue.state = sk->state;
-	ue.namelen = sk->namelen;
-	ue.backlog = USK_DEF_BACKLOG; /* FIXME */
+	ue.fd		= atoi(fd);
+	ue.id		= sk->sd.ino;
+	ue.type		= sk->type;
+	ue.state	= sk->state;
+	ue.namelen	= sk->namelen;
+	ue.backlog	= USK_DEF_BACKLOG; /* FIXME */
 
-	ue.pad = 0;
-	ue.peer = sk->peer_ino;
+	ue.pad		= 0;
+	ue.peer		= sk->peer_ino;
 
 	write_ptr_safe(cr_fdset->desc[CR_FD_UNIXSK].fd, &ue, err);
 	write_safe(cr_fdset->desc[CR_FD_UNIXSK].fd, sk->name, ue.namelen, err);
@@ -175,9 +176,9 @@ err:
 
 int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
 {
+	struct socket_desc *sk;
 	struct statfs fst;
 	struct stat st;
-	struct socket_desc *sk;
 
 	snprintf(buf, sizeof(buf), "%s/%s", dir, fd);
 	if (statfs(buf, &fst)) {
@@ -194,7 +195,7 @@ int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
 		return 1; /* not a socket, proceed with caller error */
 
 	sk = lookup_socket(st.st_ino);
-	if (sk == NULL) {
+	if (!sk) {
 		pr_err("Uncollected socket %d\n", st.st_ino);
 		return -1;
 	}
@@ -213,20 +214,19 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 	struct unix_sk_desc *d, **h;
 
 	d = xzalloc(sizeof(*d));
-	if (d == NULL)
+	if (!d)
 		return -1;
 
-	d->type = m->udiag_type;
-	d->state = m->udiag_state;
+	d->type	= m->udiag_type;
+	d->state= m->udiag_state;
 
 	if (tb[UNIX_DIAG_PEER])
 		d->peer_ino = *(int *)RTA_DATA(tb[UNIX_DIAG_PEER]);
 
 	if (tb[UNIX_DIAG_NAME]) {
-		int len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
-		char *name;
+		int len		= RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
+		char *name	= xmalloc(len + 1);
 
-		name = xmalloc(len + 1);
 		if (!name)
 			goto err;
 
@@ -256,7 +256,7 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 			}
 
 			if ((st.st_ino != uv->udiag_vfs_ino) ||
-					(st.st_dev == uv->udiag_vfs_dev)) {
+			    (st.st_dev == uv->udiag_vfs_dev)) {
 				/*
 				 * When a listen socket is bound to
 				 * unlinked file, we just drop his name,
@@ -303,7 +303,7 @@ static int unix_receive_one(struct nlmsghdr *h)
 	struct rtattr *tb[UNIX_DIAG_MAX+1];
 
 	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr *)(m + 1),
-			h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
 
 	return unix_collect_one(m, tb);
 }
@@ -319,65 +319,65 @@ static int collect_unix_sockets(int nl)
 	} req;
 
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = &nladdr;
-	msg.msg_namelen = sizeof(nladdr);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
+	msg.msg_name	= &nladdr;
+	msg.msg_namelen	= sizeof(nladdr);
+	msg.msg_iov	= &iov;
+	msg.msg_iovlen	= 1;
 
 	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family = AF_NETLINK;
+	nladdr.nl_family= AF_NETLINK;
 
-	iov.iov_base = &req;
-	iov.iov_len = sizeof(req);
+	iov.iov_base	= &req;
+	iov.iov_len	= sizeof(req);
 
 	memset(&req, 0, sizeof(req));
-	req.hdr.nlmsg_len = sizeof(req);
-	req.hdr.nlmsg_type = SOCK_DIAG_BY_FAMILY;
-	req.hdr.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
-	req.hdr.nlmsg_seq = CR_NLMSG_SEQ;
-	req.r.sdiag_family = AF_UNIX;
-	req.r.udiag_states = -1; /* All */
-	req.r.udiag_show = UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS | UDIAG_SHOW_RQLEN;
+	req.hdr.nlmsg_len	= sizeof(req);
+	req.hdr.nlmsg_type	= SOCK_DIAG_BY_FAMILY;
+	req.hdr.nlmsg_flags	= NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.hdr.nlmsg_seq	= CR_NLMSG_SEQ;
+	req.r.sdiag_family	= AF_UNIX;
+	req.r.udiag_states	= -1; /* All */
+	req.r.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER |
+				  UDIAG_SHOW_ICONS | UDIAG_SHOW_RQLEN;
 
 	if (sendmsg(nl, &msg, 0) < 0) {
 		pr_perror("Can't send request message\n");
-		goto out_err;
+		goto err;
 	}
 
-	iov.iov_base = buf;
-	iov.iov_len = sizeof(buf);
+	iov.iov_base	= buf;
+	iov.iov_len	= sizeof(buf);
 
 	while (1) {
 		int err;
 
 		memset(&msg, 0, sizeof(msg));
-		msg.msg_name = &nladdr;
-		msg.msg_namelen = sizeof(nladdr);
-		msg.msg_iov = &iov;
-		msg.msg_iovlen = 1;
+		msg.msg_name	= &nladdr;
+		msg.msg_namelen	= sizeof(nladdr);
+		msg.msg_iov	= &iov;
+		msg.msg_iovlen	= 1;
 
 		err = recvmsg(nl, &msg, 0);
 		if (err < 0) {
 			if (errno == EINTR)
 				continue;
-
-			goto out_err;
+			else
+				goto err;
 		}
 		if (err == 0)
 			break;
 
 		err = nlmsg_receive(buf, err, unix_receive_one);
 		if (err < 0)
-			goto out_err;
+			goto err;
 		if (err == 0)
 			break;
 	}
 
 	return 0;
 
-out_err:
+err:
 	return -1;
-
 }
 
 int collect_sockets(void)
@@ -392,16 +392,16 @@ int collect_sockets(void)
 	}
 
 	err = collect_unix_sockets(nl);
-
 	close(nl);
+
 	return err;
 }
 
 struct unix_conn_job {
-	struct sockaddr_un addr;
-	int addrlen;
-	int fd;
-	struct unix_conn_job *next;
+	struct sockaddr_un	addr;
+	int			addrlen;
+	int			fd;
+	struct unix_conn_job	*next;
 };
 
 static void unix_show_job(char *type, int fd, int id)
@@ -416,7 +416,7 @@ static int run_connect_jobs(void)
 	struct unix_conn_job *cj, *next;
 
 	cj = conn_jobs;
-	while (cj != NULL) {
+	while (cj) {
 		int attempts = 8;
 
 		unix_show_job("Run conn", cj->fd, -1);
@@ -441,8 +441,8 @@ try_again:
 }
 
 struct unix_accept_job {
-	int fd;
-	struct unix_accept_job *next;
+	int			fd;
+	struct unix_accept_job	*next;
 };
 
 static struct unix_accept_job *accept_jobs;
@@ -452,7 +452,7 @@ static int run_accept_jobs(void)
 	struct unix_accept_job *aj, *next;
 
 	aj = accept_jobs;
-	while (aj != NULL) {
+	while (aj) {
 		int fd;
 
 		unix_show_job("Run acc", aj->fd, -1);
@@ -477,7 +477,9 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 {
 	addr->sun_family = AF_UNIX;
 	addr->sun_path[0] = '\0';
+
 	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
+
 	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
 }
 
@@ -514,7 +516,7 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 		if (addr.sun_path[0] != '\0')
 			unlink(addr.sun_path);
 		if (bind(sk, (struct sockaddr *)&addr,
-					sizeof(addr.sun_family) + ue->namelen) < 0) {
+			 sizeof(addr.sun_family) + ue->namelen) < 0) {
 			pr_perror("Can't bind socket\n");
 			goto err;
 		}
@@ -560,7 +562,7 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 			 */
 
 			cj = xmalloc(sizeof(*cj));
-			if (cj == NULL)
+			if (!cj)
 				goto err;
 
 			prep_conn_addr(ue->peer, &cj->addr, &cj->addrlen);
