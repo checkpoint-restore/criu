@@ -283,7 +283,7 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 			goto err;
 
 		memcpy(d->icons, RTA_DATA(tb[UNIX_DIAG_ICONS]), len);
-		d->icons[len / sizeof(__u32)] = 0;
+		d->icons[len / sizeof(u32)] = 0;
 	}
 
 	if (tb[UNIX_DIAG_RQLEN])
