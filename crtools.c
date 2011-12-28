@@ -250,12 +250,11 @@ int get_image_path(char *path, int size, const char *fmt, int pid)
 
 int main(int argc, char *argv[])
 {
-	pid_t pid;
+	pid_t pid = 0;
 	int ret = -1;
 	int opt, idx;
 	int action = -1;
 	int log_inited = 0;
-	bool has_pid = false;
 
 	static const char short_opts[] = "drsf:p:t:hcD:o:";
 	static const struct option long_opts[] = {
@@ -281,13 +280,10 @@ int main(int argc, char *argv[])
 		case 'p':
 			pid = atoi(optarg);
 			opts.leader_only = true;
-			has_pid = true;
 			break;
 		case 't':
 			pid = atoi(optarg);
 			opts.leader_only = false;
-			has_pid = true;
-			break;
 			break;
 		case 'd':
 			action = opt;
@@ -333,10 +329,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (!has_pid) {
-		if (action != 's' || !opts.show_dump_file)
-			goto opt_pid_missing;
-	}
+	if (!pid && (action != 's' || !opts.show_dump_file))
+		goto opt_pid_missing;
 
 	switch (action) {
 	case 'd':
