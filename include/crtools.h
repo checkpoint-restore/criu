@@ -37,7 +37,6 @@ enum cr_task_final_state {
 struct cr_options {
 	bool				leader_only;
 	enum cr_task_final_state	final_state;
-	bool				show_single_file;
 	bool				show_pages_content;
 	char				*show_dump_file;
 };

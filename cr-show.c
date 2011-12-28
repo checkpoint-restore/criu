@@ -639,7 +639,7 @@ out:
 
 int cr_show(unsigned long pid, struct cr_options *opts)
 {
-	if (opts->show_single_file)
+	if (opts->show_dump_file)
 		return cr_parse_file(opts);
 
 	return cr_show_all(pid, opts);

@@ -303,7 +303,6 @@ int main(int argc, char *argv[])
 			opts.final_state = CR_TASK_LEAVE_RUNNING;
 			break;
 		case 'f':
-			opts.show_single_file = true;
 			opts.show_dump_file = optarg;
 			break;
 		case 'D':
@@ -335,7 +334,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!has_pid) {
-		if (action != 's' || !opts.show_single_file)
+		if (action != 's' || !opts.show_dump_file)
 			goto opt_pid_missing;
 	}
 
