@@ -385,18 +385,36 @@ FILE *fopen_fmt(char *fmt, char *mode, ...)
 	return file;
 }
 
-int open_fmt(char *fmt, int mode, ...)
+int open_image_ro_nocheck(const char *fmt, int pid)
+{
+	char path[PATH_MAX];
+	int tmp;
+
+	tmp = snprintf(path, sizeof(path), "%s/", image_dir);
+	snprintf(path + tmp, sizeof(path) - tmp, fmt, pid);
+
+	tmp = open(path, O_RDONLY);
+	if (tmp < 0)
+		pr_perror("Can't open image %s for %d\n", fmt, pid);
+
+	return tmp;
+}
+
+int open_image_ro(int type, int pid)
 {
 	int fd;
-	char fname[128];
-	va_list args;
+	u32 magic = 0;
 
-	va_start(args, mode);
-	vsnprintf(fname, sizeof(fname), fmt, args);
-	va_end(args);
-
-	fd = open(fname, mode);
+	fd = open_image_ro_nocheck(fdset_template[type].fmt, pid);
 	if (fd < 0)
-		pr_perror("Can't open %s\n", fname);
+		return fd;
+
+	read(fd, &magic, sizeof(magic));
+	if (magic != fdset_template[type].magic) {
+		pr_err("Magic mismatch for %d of %d\n", type, pid);
+		close(fd);
+		return -1;
+	}
+
 	return fd;
 }

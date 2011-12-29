@@ -47,6 +47,8 @@ struct cr_fd_desc_tmpl {
 	u32		magic;			/* magic in the header */
 };
 
+extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
+
 #define FMT_FNAME_FDINFO	"fdinfo-%d.img"
 #define FMT_FNAME_PAGES		"pages-%d.img"
 #define FMT_FNAME_PAGES_SHMEM	"pages-shmem-%d.img"
@@ -62,8 +64,8 @@ struct cr_fd_desc_tmpl {
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 
 extern char image_dir[];
-#define open_image_ro(fmt, ...)		\
-	open_fmt("%s/" fmt, O_RDONLY, image_dir, __VA_ARGS__)
+extern int open_image_ro(int type, int pid);
+extern int open_image_ro_nocheck(const char *fmt, int pid);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666

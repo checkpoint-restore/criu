@@ -285,19 +285,10 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 static int prepare_shmem_pid(int pid)
 {
 	int sh_fd;
-	u32 type = 0;
 
-	sh_fd = open_image_ro(FMT_FNAME_SHMEM, pid);
-	if (sh_fd < 0) {
-		pr_perror("%d: Can't open shmem info\n", pid);
+	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
+	if (sh_fd < 0)
 		return -1;
-	}
-
-	read(sh_fd, &type, sizeof(type));
-	if (type != SHMEM_MAGIC) {
-		pr_perror("%d: Bad shmem magic\n", pid);
-		return -1;
-	}
 
 	while (1) {
 		struct shmem_entry e;
@@ -323,19 +314,10 @@ static int prepare_shmem_pid(int pid)
 static int prepare_pipes_pid(int pid)
 {
 	int p_fd;
-	u32 type = 0;
 
-	p_fd = open_image_ro(FMT_FNAME_PIPES, pid);
-	if (p_fd < 0) {
-		pr_perror("%d: Can't open pipes image\n", pid);
+	p_fd = open_image_ro(CR_FD_PIPES, pid);
+	if (p_fd < 0)
 		return -1;
-	}
-
-	read(p_fd, &type, sizeof(type));
-	if (type != PIPES_MAGIC) {
-		pr_perror("%d: Bad pipes magic\n", pid);
-		return -1;
-	}
 
 	while (1) {
 		struct pipe_entry e;
@@ -549,22 +531,13 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 
 static int prepare_fds(int pid)
 {
-	u32 mag;
 	int fdinfo_fd;
 
 	pr_info("%d: Opening files img\n", pid);
 
-	fdinfo_fd = open_image_ro(FMT_FNAME_FDINFO, pid);
-	if (fdinfo_fd < 0) {
-		pr_perror("Can't open %d fdinfo", pid);
+	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
+	if (fdinfo_fd < 0)
 		return -1;
-	}
-
-	read(fdinfo_fd, &mag, 4);
-	if (mag != FDINFO_MAGIC) {
-		pr_err("Bad %d fdinfo magic number\n", pid);
-		return -1;
-	}
 
 	while (1) {
 		int ret;
@@ -631,19 +604,10 @@ static void save_shmem_id(struct shmem_entry *e)
 static int prepare_shmem(int pid)
 {
 	int sh_fd;
-	u32 type = 0;
 
-	sh_fd = open_image_ro(FMT_FNAME_SHMEM, pid);
-	if (sh_fd < 0) {
-		pr_perror("%d: Can't open shmem info\n", pid);
+	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
+	if (sh_fd < 0)
 		return -1;
-	}
-
-	read(sh_fd, &type, sizeof(type));
-	if (type != SHMEM_MAGIC) {
-		pr_perror("%d: Bad shmem magic\n", pid);
-		return -1;
-	}
 
 	while (1) {
 		struct shmem_entry e;
@@ -789,22 +753,13 @@ static char zpage[PAGE_SIZE];
 static int fixup_pages_data(int pid, int fd)
 {
 	int shfd;
-	u32 magic;
 	u64 va;
 
 	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open_image_ro(FMT_FNAME_PAGES_SHMEM, pid);
-	if (shfd < 0) {
-		pr_perror("Can't open %d shmem image %s\n", pid);
+	shfd = open_image_ro(CR_FD_PAGES_SHMEM, pid);
+	if (shfd < 0)
 		return -1;
-	}
-
-	read(shfd, &magic, sizeof(magic));
-	if (magic != PAGES_MAGIC) {
-		pr_err("Bad %d shmem file magic number\n", pid);
-		return -1;
-	}
 
 	/*
 	 * Find out the last page, which must be a zero page.
@@ -876,11 +831,10 @@ static int prepare_and_sigreturn(int pid)
 	int fd, fd_new;
 	struct stat buf;
 
-	fd = open_image_ro(FMT_FNAME_CORE, pid);
-	if (fd < 0) {
-		pr_perror("%d: Can't open exec image\n", pid);
+	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
+	if (fd < 0)
 		return -1;
-	}
+
 	if (fstat(fd, &buf)) {
 		pr_perror("%d: Can't stat\n", pid);
 		return -1;
@@ -1119,20 +1073,11 @@ static int prepare_sigactions(int pid)
 	rt_sigaction_t act, oact;
 	int fd_sigact, ret;
 	struct sa_entry e;
-	u32 type = 0;
 	int sig, i;
 
-	fd_sigact = open_image_ro(FMT_FNAME_SIGACTS, pid);
-	if (fd_sigact < 0) {
-		pr_perror("%d: Can't open sigactions img\n", pid);
+	fd_sigact = open_image_ro(CR_FD_SIGACT, pid);
+	if (fd_sigact < 0)
 		return -1;
-	}
-
-	ret = read(fd_sigact, &type, sizeof(type));
-	if (ret !=  sizeof(type) || type != SIGACT_MAGIC) {
-		pr_perror("%d: Bad sigactions file\n", pid);
-		return -1;
-	}
 
 	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
@@ -1168,7 +1113,7 @@ err:
 
 static int prepare_pipes(int pid)
 {
-	u32 type = 0, err = 1, ret;
+	u32 err = 1, ret;
 	int pipes_fd;
 
 	struct pipe_list_entry *le, *buf;
@@ -1179,17 +1124,9 @@ static int prepare_pipes(int pid)
 
 	pr_info("%d: Opening pipes\n", pid);
 
-	pipes_fd = open_image_ro(FMT_FNAME_PIPES, pid);
-	if (pipes_fd < 0) {
-		pr_perror("%d: Can't open pipes img\n", pid);
+	pipes_fd = open_image_ro(CR_FD_PIPES, pid);
+	if (pipes_fd < 0)
 		return -1;
-	}
-
-	read(pipes_fd, &type, sizeof(type));
-	if (type != PIPES_MAGIC) {
-		pr_perror("%d: Bad pipes file\n", pid);
-		return -1;
-	}
 
 	buf = malloc(buf_size);
 	if (!buf) {
@@ -1453,11 +1390,9 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	 * better to stick with it.
 	 */
 
-	fd = open_image_ro(FMT_FNAME_CORE, pid);
-	if (fd < 0) {
-		pr_perror("Can't open core-%d\n", pid);
+	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
+	if (fd < 0)
 		goto err_or_found;
-	}
 
 	prev_vma_end = 0;
 
@@ -1536,17 +1471,13 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	fd_pstree = open_image_ro(FMT_FNAME_PSTREE, pstree_pid);
-	if (fd_pstree < 0) {
-		pr_perror("Can't open pstree-%d\n", pstree_pid);
+	fd_pstree = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
+	if (fd_pstree < 0)
 		goto err;
-	}
 
-	fd_core = open_image_ro(FMT_FNAME_CORE_OUT, pid);
-	if (fd_core < 0) {
+	fd_core = open_image_ro_nocheck(FMT_FNAME_CORE_OUT, pid);
+	if (fd_core < 0)
 		pr_perror("Can't open core-out-%d\n", pid);
-		goto err;
-	}
 
 	if (get_image_path(self_vmas_path, sizeof(self_vmas_path), FMT_FNAME_VMAS, getpid()))
 		goto err;
@@ -1707,11 +1638,9 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
 
 			/* Core files are to be opened */
-			thread_args[i].fd_core = open_image_ro(FMT_FNAME_CORE, thread_args[i].pid);
-			if (thread_args[i].fd_core < 0) {
-				pr_perror("Can't open thread core-%d\n", thread_args[i].pid);
+			thread_args[i].fd_core = open_image_ro_nocheck(FMT_FNAME_CORE, thread_args[i].pid);
+			if (thread_args[i].fd_core < 0)
 				goto err;
-			}
 
 			thread_args[i].rst_lock = &task_args->rst_lock;
 

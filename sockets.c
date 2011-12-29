@@ -589,19 +589,10 @@ err:
 static int prepare_unix_sockets(int pid)
 {
 	int usk_fd, ret = -1;
-	u32 type;
 
-	usk_fd = open_image_ro(FMT_FNAME_UNIXSK, pid);
-	if (usk_fd < 0) {
-		pr_perror("%d: Can't open unix sk image\n", pid);
+	usk_fd = open_image_ro(CR_FD_UNIXSK, pid);
+	if (usk_fd < 0)
 		return -1;
-	}
-
-	read_ptr_safe(usk_fd, &type, err);
-	if (type != UNIXSK_MAGIC) {
-		pr_err("%d: Bad unix sk file\n", pid);
-		return -1;
-	}
 
 	while (1) {
 		struct unix_sk_entry ue;
