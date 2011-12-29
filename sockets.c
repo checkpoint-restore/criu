@@ -462,8 +462,9 @@ static int run_accept_jobs(void)
 			return -1;
 		}
 
-		dup2(fd, aj->fd);
-		close(fd);
+		if (reopen_fd_as(aj->fd, fd))
+			return -1;
+
 		unix_show_job("Fin acc", aj->fd, -1);
 		next = aj->next;
 		xfree(aj);
