@@ -165,9 +165,8 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
-	char map_files_path[64];
 	char big_buffer[1024];
-	char maps_path[64];
+	char path[64];
 	unsigned long ino;
 	char r,w,x,s;
 	int dev_maj, dev_min;
@@ -176,29 +175,23 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	DIR *map_files_dir = NULL;
 	FILE *maps = NULL;
 
-	snprintf(maps_path, sizeof(maps_path), "/proc/%d/maps", pid);
-	maps = fopen(maps_path, "r");
+	snprintf(path, sizeof(path), "/proc/%d/maps", pid);
+	maps = fopen(path, "r");
 	if (!maps) {
-		pr_perror("Can't open: %s\n", maps_path);
+		pr_perror("Can't open: %s\n", path);
 		goto err;
 	}
 
-	snprintf(map_files_path, sizeof(map_files_path),
-		 "/proc/%d/map_files", pid);
-
-	/*
-	 * It might be a problem in kernel, either
-	 * I'm debugging it on old kernel ;)
-	 */
-	map_files_dir = opendir(map_files_path);
-	if (use_map_files && !map_files_dir) {
-		pr_err("Can't open %s, old kernel?\n",
-		       map_files_path);
-		goto err;
+	if (use_map_files) {
+		snprintf(path, sizeof(path), "/proc/%d/map_files", pid);
+		map_files_dir = opendir(path);
+		if (!map_files_dir) {
+			pr_err("Can't open %s, old kernel?\n", path);
+			goto err;
+		}
 	}
 
 	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
-		char vma_file_path[16+16+2];
 		struct stat st_buf;
 		int num;
 
@@ -214,22 +207,19 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		if (!vma_area)
 			goto err;
 
-		/* Figure out if it's file mapping */
-		snprintf(vma_file_path, sizeof(vma_file_path), "%lx-%lx", start, end);
-
 		if (map_files_dir) {
+			/* Figure out if it's file mapping */
+			snprintf(path, sizeof(path), "%lx-%lx", start, end);
+
 			/*
 			 * Note that we "open" it in dumper process space
 			 * so later we might refer to it via /proc/self/fd/vm_file_fd
 			 * if needed.
 			 */
-			vma_area->vm_file_fd = openat(dirfd(map_files_dir),
-						      vma_file_path, O_RDONLY);
+			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
 				if (errno != ENOENT) {
-					pr_perror("Failed opening %s/%s\n",
-						  map_files_path,
-						  vma_file_path);
+					pr_perror("Failed opening %d's map %Lu\n", pid, start);
 					goto err;
 				}
 			}
@@ -272,16 +262,11 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		if (vma_area->vm_file_fd >= 0) {
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
-				pr_perror("Failed fstat on %s%s\n",
-					  map_files_path,
-					  vma_file_path);
+				pr_perror("Failed fstat on %d's map %Lu\n", pid, start);
 				goto err;
 			}
 			if (!S_ISREG(st_buf.st_mode)) {
-				pr_err("Can't handle non-regular "
-				       "mapping on %s%s\n",
-				       map_files_path,
-				       vma_file_path);
+				pr_err("Can't handle non-regular mapping on %d's map %Lu\n", pid, start);
 				goto err;
 			}
 
