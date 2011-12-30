@@ -632,6 +632,7 @@ int prepare_sockets(int pid)
 void show_unixsk(char *name, int fd, bool show_header)
 {
 	struct unix_sk_entry ue;
+	int ret = 0;
 
 	if (show_header) {
 		pr_info("\n");
@@ -640,25 +641,27 @@ void show_unixsk(char *name, int fd, bool show_header)
 	}
 
 	while (1) {
-		int ret = read_ptr_safe_eof(fd, &ue, out);
+		ret = read_ptr_safe_eof(fd, &ue, out);
 		if (!ret)
 			goto out;
 
-		pr_info("fd %d type %d state %d namelen %d peer %d\n",
-				ue.fd, ue.type, ue.state, ue.namelen, ue.peer);
-		if (!ue.namelen)
-			continue;
+		pr_info("fd %4d type %2d state %2d namelen %4d id %6d peer %6d",
+			ue.fd, ue.type, ue.state, ue.namelen, ue.id, ue.peer);
 
-		ret = read_safe_eof(fd, buf, ue.namelen, out);
-		if (!ret)
-			goto out;
-
-		if (!buf[0])
-			buf[0] = '@';
-		pr_info("\tname [%s]\n", buf);
+		if (ue.namelen) {
+			ret = read_safe_eof(fd, buf, ue.namelen, out);
+			if (!ret)
+				goto out;
+			if (!buf[0])
+				buf[0] = '@';
+			pr_info("\t---> [%s]\n", buf);
+		} else
+			pr_info("\n");
 	}
 
 out:
+	if (ret)
+		pr_info("\n");
 	if (show_header)
 		pr_info("----------------------------------------\n");
 }
