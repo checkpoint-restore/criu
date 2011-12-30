@@ -91,12 +91,9 @@ static void show_one_unix_img(char *act, struct unix_sk_entry *e)
 
 static int can_dump_unix_sk(struct unix_sk_desc *sk)
 {
-	if (sk->type != SOCK_STREAM) {
-		/*
-		 * Dgram sockets connect and accept jobs at
-		 * restore time should be fixed
-		 */
-		pr_err("Only stream sockets for now\n");
+	if (sk->type != SOCK_STREAM &&
+	    sk->type != SOCK_DGRAM) {
+		pr_err("Only stream/dgram sockets for now\n");
 		return 0;
 	}
 
