@@ -131,6 +131,10 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 		}
 
 		break;
+	case TCP_CLOSE:
+		if (sk->type != SOCK_DGRAM)
+			return 0;
+		break;
 	default:
 		pr_err("Unknown state %d\n", sk->state);
 		return 0;
