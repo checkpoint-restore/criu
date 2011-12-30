@@ -484,22 +484,23 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
 }
 
-static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
+static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int *img_fd)
 {
-	int sk;
+	return -1;
+}
 
-	show_one_unix_img("Restore", ue);
-
-	sk = socket(PF_UNIX, ue->type, 0);
-	if (sk < 0) {
-		pr_perror("Can't create unix socket\n");
-		return -1;
-	}
+static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int *img_fd)
+{
+	int ret = -1;
 
 	if (ue->state == TCP_LISTEN) {
 		struct sockaddr_un addr;
 		int ret;
 
+		/*
+		 * Listen sockets are easiest ones -- simply
+		 * bind() and listen(), and that's all.
+		 */
 		if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
 			pr_err("Bad unix name len %d\n", ue->namelen);
 			goto err;
@@ -527,6 +528,16 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 			goto err;
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
+
+		/*
+		 * If a connection is established we need
+		 * two separate steps -- one peer become
+		 * a server and do bind()/listen(), then
+		 * it deferred to accept() later, while
+		 * another peer become a client and
+		 * deferred to connect() later.
+		 */
+
 		if (ue->peer < ue->id) {
 			struct sockaddr_un addr;
 			int len;
@@ -574,6 +585,37 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 		}
 	} else {
 		pr_err("Unknown state %d\n", ue->state);
+		goto err;
+	}
+
+	ret = 0;
+err:
+	return ret;
+}
+
+static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
+{
+	int sk;
+
+	show_one_unix_img("Restore", ue);
+
+	sk = socket(PF_UNIX, ue->type, 0);
+	if (sk < 0) {
+		pr_perror("Can't create unix socket\n");
+		return -1;
+	}
+
+	switch (ue->type) {
+	case SOCK_STREAM:
+		if (open_unix_sk_stream(sk, ue, img_fd))
+			goto err;
+		break;
+	case SOCK_DGRAM:
+		if (open_unix_sk_dgram(sk, ue, img_fd))
+			goto err;
+		break;
+	default:
+		pr_err("Unsupported socket type: %d\n", ue->type);
 		goto err;
 	}
 
