@@ -351,7 +351,7 @@ static int shmem_remap(struct shmems *old_addr,
 	void *ret;
 
 	sprintf(path, "/proc/%d/map_files/%p-%p",
-		getpid(), old_addr, (void *)old_addr + 4096);
+		getpid(), old_addr, (void *)old_addr + SHMEMS_SIZE);
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
@@ -1459,9 +1459,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	restore_task_code_len	= 0;
 	restore_task_vma_len	= 0;
 	restore_thread_code_len	= 0;
-	restore_shmem_vma_len	= 0;
-	restore_thread_vma_len	= 4096;
-
+	restore_thread_vma_len	= 0;
+	restore_shmem_vma_len	= SHMEMS_SIZE;
 
 	if (parse_maps(getpid(), &self_vma_list, false))
 		goto err;
