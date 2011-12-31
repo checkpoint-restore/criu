@@ -290,11 +290,13 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			/*
 			 * No file but mapping -- anonymous one.
 			 */
-			if (vma_area->vma.flags & MAP_SHARED)
-				goto err_bogus_mapping;
-
+			if (vma_area->vma.flags & MAP_SHARED) {
+				vma_area->vma.status |= VMA_ANON_SHARED;
+				vma_area->shmid = ino;
+			} else {
+				vma_area->vma.status |= VMA_ANON_PRIVATE;
+			}
 			vma_area->vma.flags  |= MAP_ANONYMOUS;
-			vma_area->vma.status |= VMA_ANON_PRIVATE;
 		}
 
 		list_add_tail(&vma_area->list, vma_area_list);
@@ -314,9 +316,9 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_err("Bogus mapping %lx-%lx\n",
-	       vma_area->vma.start,
-	       vma_area->vma.end);
+	pr_err("Bogus mapping %lx-%lx (flags: %x vm_file_fd: %d)\n",
+	       vma_area->vma.start, vma_area->vma.end,
+	       vma_area->vma.flags, vma_area->vm_file_fd);
 	goto err;
 }
 
