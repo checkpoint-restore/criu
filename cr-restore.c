@@ -1437,6 +1437,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	void *exec_mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
+	void *shmems_ref;
 
 	long new_sp, exec_mem_hint;
 	long ret;
@@ -1597,16 +1598,27 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	new_sp = RESTORE_ALIGN_STACK((long)task_args->mem_zone.stack, sizeof(task_args->mem_zone.stack));
 
 	/*
-	 * Arguments for task restoration.
+	 * Get a reference to shared memory area which is
+	 * used to signal if shmem restoration complete
+	 * from low-level restore code.
+	 *
+	 * This shmem area is mapped right after the whole area of
+	 * sigreturn rt code. Note we didn't allocated it before
+	 * but this area is taken into account for 'hint' memory
+	 * address.
 	 */
-	task_args->shmems = (struct shmems *)(exec_mem_hint +
-						restore_task_vma_len +
-						restore_thread_vma_len);
-	ret = shmem_remap(shmems, task_args->shmems);
+	shmems_ref = (struct shmems *)(exec_mem_hint +
+				       restore_task_vma_len +
+				       restore_thread_vma_len);
+	ret = shmem_remap(shmems, shmems_ref);
 	if (ret)
 		goto err;
 
+	/*
+	 * Arguments for task restoration.
+	 */
 	task_args->pid		= pid;
+	task_args->shmems	= shmems_ref;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
 	strncpy(task_args->self_vmas_path,
