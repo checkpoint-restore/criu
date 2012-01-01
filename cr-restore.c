@@ -148,13 +148,13 @@ static int shmem_wait_and_open(struct shmem_info *si)
 	char path[128];
 	int ret;
 
-	cr_wait_until(&si->lock, 1);
-
 	sprintf(path, "/proc/%d/map_files/%lx-%lx",
 		si->real_pid, si->start, si->end);
 
-	pr_info("Waiting for [%s] to appear\n", path);
+	pr_info("%d: Waiting for [%s] to appear\n", getpid(), path);
+	cr_wait_until(&si->lock, 1);
 
+	pr_info("%d: Opening shmem [%s] \n", si->real_pid, path);
 	ret = open(path, O_RDWR);
 	if (ret >= 0)
 		return ret;
