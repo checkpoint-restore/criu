@@ -1457,6 +1457,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	int *fd_core_threads;
 	int fd_pstree = -1;
 
+	pr_info("%d: Restore via sigreturn\n", pid);
+
 	restore_task_code_len	= 0;
 	restore_task_vma_len	= 0;
 	restore_thread_code_len	= 0;
