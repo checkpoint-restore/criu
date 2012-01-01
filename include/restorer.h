@@ -300,6 +300,7 @@ struct shmem_info {
 };
 
 struct shmems {
+	int			pid;
 	int			nr_shmems;
 	struct shmem_info	entries[0];
 };
