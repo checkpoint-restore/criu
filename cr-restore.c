@@ -154,7 +154,7 @@ static int shmem_wait_and_open(struct shmem_info *si)
 	pr_info("%d: Waiting for [%s] to appear\n", getpid(), path);
 	cr_wait_until(&si->lock, 1);
 
-	pr_info("%d: Opening shmem [%s] \n", si->real_pid, path);
+	pr_info("%d: Opening shmem [%s] \n", getpid(), path);
 	ret = open(path, O_RDWR);
 	if (ret >= 0)
 		return ret;
