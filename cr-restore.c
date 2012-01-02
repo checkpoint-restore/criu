@@ -359,8 +359,8 @@ static int shmem_remap(pid_t pid, struct shmems *old_addr,
 		return -1;
 	}
 
-	ret = mmap(new_addr, SHMEMS_SIZE,
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+	ret = mmap(new_addr, SHMEMS_SIZE, PROT_READ | PROT_WRITE,
+		   MAP_SHARED | MAP_FIXED, fd, 0);
 	if (ret != new_addr) {
 		pr_perror("mmap failed\n");
 		return -1;
