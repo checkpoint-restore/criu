@@ -209,6 +209,8 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 	entries[nr_shmems].pid		= pid;
 	entries[nr_shmems].real_pid	= 0;
 
+	cr_wait_init(&entries[nr_shmems].lock);
+
 	shmems->nr_shmems++;
 
 	return 0;
