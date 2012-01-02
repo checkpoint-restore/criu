@@ -278,22 +278,6 @@ self_len_end:
 			if (vma_entry->fd != -1UL)
 				sys_close(vma_entry->fd);
 
-			if (vma_entry_is(vma_entry, VMA_ANON_SHARED) &&
-			    vma_entry->fd == -1UL) {
-				struct shmem_info *entry;
-
-				entry = find_shmem_by_pid(args->shmems,
-							  vma_entry->start,
-							  sys_getpid());
-				if (!entry) {
-					write_num_n(__LINE__);
-					write_hex_n(vma_entry->start);
-					goto core_restore_end;
-				}
-
-				cr_wait_set(&entry->lock, 1);
-			}
-
 		}
 
 		/*
@@ -339,6 +323,22 @@ self_len_end:
 
 			if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 				continue;
+
+			if (vma_entry_is(vma_entry, VMA_ANON_SHARED) &&
+			    vma_entry->fd == -1UL) {
+				struct shmem_info *entry;
+
+				entry = find_shmem_by_pid(args->shmems,
+							  vma_entry->start,
+							  sys_getpid());
+				if (!entry) {
+					write_num_n(__LINE__);
+					write_hex_n(vma_entry->start);
+					goto core_restore_end;
+				}
+
+				cr_wait_set(&entry->lock, 1);
+			}
 
 			if (vma_entry->prot & PROT_WRITE)
 				continue;
