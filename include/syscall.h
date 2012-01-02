@@ -284,6 +284,11 @@ static long always_inline sys_tgkill(long tgid, long pid, int sig)
 	return syscall3(__NR_tgkill, tgid, pid, (long)sig);
 }
 
+static long always_inline sys_msync(void *addr, unsigned long length, int flags)
+{
+	return syscall3(__NR_msync, (long)addr, length, (long)flags);
+}
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
