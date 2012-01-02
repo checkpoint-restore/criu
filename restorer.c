@@ -324,8 +324,7 @@ self_len_end:
 			if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 				continue;
 
-			if (vma_entry_is(vma_entry, VMA_ANON_SHARED) &&
-			    vma_entry->fd == -1UL) {
+			if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
 				struct shmem_info *entry;
 
 				entry = find_shmem_by_pid(args->shmems,
