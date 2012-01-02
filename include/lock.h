@@ -12,6 +12,15 @@
 #include "util.h"
 
 /*
+ * Init futex @v value
+ */
+static always_inline void cr_wait_init(u32 *v)
+{
+	u32 val = 0;
+	atomic_set(v, val);
+}
+
+/*
  * Set futex @v value to @val and wake up all waiters
  */
 static always_inline void cr_wait_set(u32 *v, u32 val)
