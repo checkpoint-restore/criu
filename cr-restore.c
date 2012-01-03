@@ -371,7 +371,7 @@ static int shmem_remap(pid_t pid, struct shmems *old_addr,
 	if (new_addr->nr_shmems != old_addr->nr_shmems)
 		pr_err("shmem_remap failed\n");
 
-	return 0;
+	return fd;
 }
 
 static int prepare_shared(int ps_fd)
@@ -1616,7 +1616,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 				       restore_task_vma_len +
 				       restore_thread_vma_len);
 	ret = shmem_remap(shmems->pid, shmems, shmems_ref);
-	if (ret)
+	if (ret < 0)
 		goto err;
 
 	/*
@@ -1626,6 +1626,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->shmems	= shmems_ref;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
+	task_args->shmems_fd	= ret;
 	strncpy(task_args->self_vmas_path,
 		self_vmas_path,
 		sizeof(task_args->self_vmas_path));

@@ -78,6 +78,7 @@ struct task_restore_core_args {
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
+	int				shmems_fd;
 } __aligned(sizeof(long));
 
 struct pt_regs {
