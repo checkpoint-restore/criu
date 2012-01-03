@@ -158,13 +158,10 @@ static int shmem_wait_and_open(struct shmem_info *si)
 	ret = open(path, O_RDWR);
 	if (ret >= 0)
 		return ret;
-
-	if (ret < 0) {
+	else if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s\n",
 			  si->real_pid, path);
-		return -1;
-	}
-	return 0;
+	return ret;
 }
 
 static int collect_shmem(int pid, struct shmem_entry *e)
