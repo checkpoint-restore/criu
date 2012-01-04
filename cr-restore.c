@@ -650,6 +650,40 @@ err:
 	return -1;
 }
 
+static struct shmem_info *
+find_shmem(struct shmems *shms, unsigned long start, unsigned long shmid)
+{
+	struct shmem_info *si;
+	int i;
+
+	for (i = 0; i < shms->nr_shmems; i++) {
+		si = &shms->entries[i];
+		if (si->start == start	&&
+		    si->end > start	&&
+		    si->shmid == shmid)
+			return si;
+	}
+
+	return NULL;
+}
+
+static struct shmem_info *
+find_shmem_page(struct shmems *shms, unsigned long addr, unsigned long shmid)
+{
+	struct shmem_info *si;
+	int i;
+
+	for (i = 0; i < shms->nr_shmems; i++) {
+		si = &shms->entries[i];
+		if (si->start <= addr	&&
+		    si->end > addr	&&
+		    si->shmid == shmid)
+			return si;
+	}
+
+	return NULL;
+}
+
 static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 {
 	struct shmem_info *si;
@@ -744,7 +778,7 @@ static inline bool should_restore_page(int pid, unsigned long va)
 	if (!shmid)
 		return true;
 
-	si = find_shmem(shmems, va, shmid);
+	si = find_shmem_page(shmems, va, shmid);
 	return si->pid == pid;
 }
 

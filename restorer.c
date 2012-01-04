@@ -170,6 +170,7 @@ self_len_end:
 
 		struct rt_sigframe *rt_sigframe;
 		unsigned long new_sp, fsgs_base;
+		pid_t my_pid = sys_getpid();
 
 		core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
 		vma_entry	= next_on_heap(vma_entry, core_entry);
@@ -329,14 +330,9 @@ self_len_end:
 
 				entry = find_shmem_by_pid(args->shmems,
 							  vma_entry->start,
-							  sys_getpid());
-				if (!entry) {
-					write_num_n(__LINE__);
-					write_hex_n(vma_entry->start);
-					goto core_restore_end;
-				}
-
-				cr_wait_set(&entry->lock, 1);
+							  my_pid);
+				if (entry)
+					cr_wait_set(&entry->lock, 1);
 			}
 
 			if (vma_entry->prot & PROT_WRITE)

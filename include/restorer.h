@@ -306,30 +306,17 @@ struct shmems {
 	struct shmem_info	entries[0];
 };
 
-static struct shmem_info *
-find_shmem(struct shmems *shms, unsigned long addr, unsigned long shmid)
-{
-	struct shmem_info *si;
-	int i;
-
-	for (i = 0; i < shms->nr_shmems; i++) {
-		si = shms->entries + i;
-		if (si->start <= addr && si->end >= addr && si->shmid == shmid)
-			return si;
-	}
-
-	return NULL;
-}
-
 static always_inline struct shmem_info *
-find_shmem_by_pid(struct shmems *shms, unsigned long addr, int pid)
+find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
 {
 	struct shmem_info *si;
 	int i;
 
-	for (i = 0; i < shms->nr_shmems; i++) {
-		si = shms->entries + i;
-		if (si->start <= addr && si->end >= addr && si->real_pid == pid)
+	for (i = 0; i < shmems->nr_shmems; i++) {
+		si = &shmems->entries[i];
+		if (si->start == start	&&
+		    si->end > start	&&
+		    si->real_pid == pid)
 			return si;
 	}
 
