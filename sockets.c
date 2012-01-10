@@ -702,7 +702,7 @@ void show_unixsk(char *name, int fd, bool show_header)
 				goto out;
 			if (!buf[0])
 				buf[0] = '@';
-			pr_info("\t---> [%s]\n", buf);
+			pr_info(" --> %s\n", buf);
 		} else
 			pr_info("\n");
 	}
