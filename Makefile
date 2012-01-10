@@ -73,6 +73,7 @@ OBJS		+= restorer.o
 OBJS		+= log.o
 OBJS		+= libnetlink.o
 OBJS		+= sockets.o
+OBJS		+= files.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
