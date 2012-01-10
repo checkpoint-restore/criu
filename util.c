@@ -131,7 +131,19 @@ int close_safe(int *fd)
 int reopen_fd_as(int new_fd, int old_fd)
 {
 	if (old_fd != new_fd) {
-		int tmp = dup2(old_fd, new_fd);
+		int tmp;
+		tmp = fcntl(new_fd, F_GETFD);
+		if (tmp != -1 || errno != EBADF) {
+			/* Standard descriptors may be reused */
+			if (new_fd < 3)
+				pr_warning("fd=%d is already used\n", new_fd);
+			else {
+				pr_perror("fd=%d is already used\n", new_fd);
+				return -1;
+			}
+		}
+
+		tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
 			pr_perror("Dup on %d -> %d failed\n", old_fd, new_fd);
 			return tmp;
@@ -154,6 +166,8 @@ int move_img_fd(int *img_fd, int want_fd)
 			pr_perror("Can't dup file\n");
 			return -1;
 		}
+
+		close(*img_fd);
 
 		*img_fd = tmp;
 	}
