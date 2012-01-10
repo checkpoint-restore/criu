@@ -491,22 +491,26 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 
 int prepare_fds(int pid)
 {
-	u32 type = 0, err = -11, ret;
+	u32 type = 0, err = -1, ret;
 	int fdinfo_fd;
 	int state;
-	off_t offset;
+	off_t offset, magic_offset;
 
 	struct fdinfo_entry fe;
 	int nr = 0;
 
 	pr_info("%d: Opening fdinfo-s\n", pid);
 
+	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
+	if (fdinfo_fd < 0) {
+		pr_perror("%d: Can't open pipes img\n", pid);
+		return -1;
+	}
+
+	magic_offset = lseek(fdinfo_fd, 0, SEEK_CUR);
+
 	for (state = 0; state < FD_STATE_MAX; state++) {
-		fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
-		if (fdinfo_fd < 0) {
-			pr_perror("%d: Can't open pipes img\n", pid);
-			return -1;
-		}
+		lseek(fdinfo_fd, magic_offset, SEEK_SET);
 
 		while (1) {
 			ret = read(fdinfo_fd, &fe, sizeof(fe));
@@ -540,10 +544,8 @@ int prepare_fds(int pid)
 
 			lseek(fdinfo_fd, offset + fe.len, SEEK_SET);
 		}
-		close(fdinfo_fd);
 	}
-
-	return 0;
+	err = 0;
 err:
 	close(fdinfo_fd);
 	return err;
