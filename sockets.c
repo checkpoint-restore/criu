@@ -693,8 +693,8 @@ void show_unixsk(char *name, int fd, bool show_header)
 		if (!ret)
 			goto out;
 
-		pr_info("fd %4d type %2d state %2d namelen %4d id %6d peer %6d",
-			ue.fd, ue.type, ue.state, ue.namelen, ue.id, ue.peer);
+		pr_info("fd %4d type %2d state %2d namelen %4d backlog %4d id %6d peer %6d",
+			ue.fd, ue.type, ue.state, ue.namelen, ue.namelen, ue.id, ue.peer);
 
 		if (ue.namelen) {
 			ret = read_safe_eof(fd, buf, ue.namelen, out);
