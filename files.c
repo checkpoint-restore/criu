@@ -118,7 +118,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		desc = &fdinfo_descs[i];
-		if (strncmp(desc->id, e->id, FD_ID_SIZE))
+		if (strncmp(desc->id, (char *) e->id, FD_ID_SIZE))
 			continue;
 
 		fdinfo_descs[i].users++;
@@ -465,7 +465,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	u32 mag;
 	int ret;
 
-	struct fdinfo_desc *fi = find_fd(fe->id);
+	struct fdinfo_desc *fi = find_fd((char *)fe->id);
 
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;
