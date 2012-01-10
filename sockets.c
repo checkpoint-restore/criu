@@ -46,6 +46,7 @@ struct unix_sk_desc {
 	unsigned int		state;
 	unsigned int		peer_ino;
 	unsigned int		rqlen;
+	unsigned int		wqlen;
 	unsigned int		namelen;
 	char			*name;
 	unsigned int		*icons;
@@ -143,7 +144,6 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 	return 1;
 }
 
-#define USK_DEF_BACKLOG	16
 static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_fdset)
 {
 	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
@@ -157,7 +157,7 @@ static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_
 	ue.type		= sk->type;
 	ue.state	= sk->state;
 	ue.namelen	= sk->namelen;
-	ue.backlog	= USK_DEF_BACKLOG; /* FIXME */
+	ue.backlog	= sk->wqlen;
 
 	ue.pad		= 0;
 	ue.peer		= sk->peer_ino;
@@ -284,8 +284,13 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 		d->icons[len / sizeof(u32)] = 0;
 	}
 
-	if (tb[UNIX_DIAG_RQLEN])
-		d->rqlen = *(int *)RTA_DATA(tb[UNIX_DIAG_RQLEN]);
+	if (tb[UNIX_DIAG_RQLEN]) {
+		struct unix_diag_rqlen *rq;
+
+		rq = (struct unix_diag_rqlen *)RTA_DATA(tb[UNIX_DIAG_RQLEN]);
+		d->rqlen = rq->udiag_rqueue;
+		d->wqlen = rq->udiag_wqueue;
+	}
 
 	show_one_unix("Collected", d);
 
