@@ -32,6 +32,11 @@ int init_log(const char *name)
 	struct rlimit rlimit;
 	int fd = STDERR_FILENO;
 
+	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
+		pr_err("can't get rlimit: %m\n");
+		return -1;
+	}
+
 	if (name) {
 		fd = open(name, O_CREAT | O_WRONLY);
 		if (fd == -1) {
@@ -40,20 +45,19 @@ int init_log(const char *name)
 		}
 	}
 
-	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
-		pr_err("can't get rlimit: %m\n");
-		return -1;
-	}
-
 	logfd = rlimit.rlim_cur - 1;
-	if (dup2(fd, logfd) < 0) {
+	if (reopen_fd_as(logfd, fd) < 0) {
 		pr_err("can't duplicate descriptor %d->%d: %m\n",
 			fd, logfd);
 		logfd = STDERR_FILENO;
-		return -1;
+		goto err;
 	}
 
 	return 0;
+err:
+	if (name)
+		close(fd);
+	return -1;
 }
 
 void fini_log(void)
