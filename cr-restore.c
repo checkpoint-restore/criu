@@ -966,7 +966,7 @@ err:
 
 static int prepare_pipes(int pid)
 {
-	u32 err = 1, ret;
+	u32 err = -1, ret;
 	int pipes_fd;
 
 	struct pipe_list_entry *le, *buf;
@@ -1092,7 +1092,7 @@ static inline int fork_with_pid(int pid, char *pstree_path)
 		}
 
 		ret = restore_task_with_children(my_pid, pstree_path);
-		pr_err("%d: Something failed with code %d\n", ret);
+		pr_err("%d: Something failed with code %d\n", pid, ret);
 		exit(1);
 	}
 
