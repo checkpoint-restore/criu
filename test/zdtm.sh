@@ -14,6 +14,7 @@ zdtm/live/static/write_read00
 zdtm/live/static/write_read01
 zdtm/live/static/write_read02
 zdtm/live/static/wait00
+zdtm/live/static/file_shared
 zdtm/live/streaming/pipe_loop00
 zdtm/live/streaming/pipe_shared00
 zdtm/live/transition/file_read"

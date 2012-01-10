@@ -44,6 +44,7 @@ TST_FILE	=	\
 		fifo_wronly	\
 		unlink_fifo	\
 		unlink_fifo_wronly	\
+		file_shared	\
 
 TST_DIR		=	\
 		cwd00		\
