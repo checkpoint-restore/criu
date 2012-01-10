@@ -55,17 +55,17 @@ struct unix_sk_desc {
 #define SK_HASH_SIZE	32
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
-static struct socket_desc *lookup_socket(int ino)
-{
-	struct socket_desc *d;
-
-	for (d = sockets[ino % SK_HASH_SIZE]; d; d = d->next) {
-		if (d->ino == ino)
-			break;
+#define __gen_static_lookup_func(ret, name, head, _member, _type, _name)\
+	static ret *name(_type _name) {					\
+		ret *d;							\
+		for (d = head[_name % SK_HASH_SIZE]; d; d = d->next) {	\
+			if (d->_member == _name)			\
+				break;					\
+		}							\
+		return d;						\
 	}
 
-	return d;
-}
+__gen_static_lookup_func(struct socket_desc, lookup_socket, sockets, ino, int, ino);
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
@@ -490,8 +490,132 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
 }
 
+struct unix_dgram_bound {
+	struct unix_dgram_bound	*next;
+	struct sockaddr_un	addr;
+	int			id;
+};
+
+struct unix_dgram_peer {
+	struct unix_dgram_peer	*next;
+	int			fd;
+	int			peer;
+};
+
+static struct unix_dgram_bound	*dgram_bound[SK_HASH_SIZE];
+static struct unix_dgram_peer	*dgram_peer;
+
+__gen_static_lookup_func(struct unix_dgram_bound, lookup_dgram_bound, dgram_bound, id, int, id);
+
+static int run_connect_jobs_dgram(void)
+{
+	struct unix_dgram_bound	*b;
+	struct unix_dgram_peer	*d;
+	int i;
+
+	for (d = dgram_peer; d; d = d->next) {
+		b = lookup_dgram_bound(d->peer);
+		if (!b) {
+			pr_err("Unconnected socket for peer %d\n", d->peer);
+			goto err;
+		}
+
+		if (connect(d->fd, (struct sockaddr *)&b->addr, sizeof(b->addr)) < 0) {
+			pr_perror("Can't connect peer %d on fd %d\n",
+				  d->peer, d->fd);
+			goto err;
+		}
+	}
+
+	/*
+	 * Free data we don't need anymore.
+	 */
+	for (d = dgram_peer; d;) {
+		d = d->next;
+		xfree(d);
+	}
+
+	for (i = 0; i < SK_HASH_SIZE; i++) {
+		if (!dgram_bound[i])
+			continue;
+		for (b = dgram_bound[i]; b;) {
+			b = b->next;
+			xfree(b);
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
 static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int *img_fd)
 {
+	if (ue->namelen) {
+
+		/*
+		 * This is trivial socket bind() case,
+		 * we don't have to wait for connect().
+		 */
+
+		struct unix_dgram_bound *d;
+		struct sockaddr_un addr;
+		int ret;
+
+		memset(&addr, 0, sizeof(addr));
+		addr.sun_family = AF_UNIX;
+
+		ret = read(*img_fd, &addr.sun_path, ue->namelen);
+		if (ret != ue->namelen) {
+			pr_err("Error reading socket name from image (%d)", ret);
+			goto err;
+		}
+
+		if (addr.sun_path[0] != '\0')
+			unlink(addr.sun_path);
+		if (bind(sk, (struct sockaddr *)&addr,
+			 sizeof(addr.sun_family) + ue->namelen) < 0) {
+			pr_perror("Can't bind socket\n");
+			goto err;
+		}
+
+		/*
+		 * Just remember it and connect() if needed.
+		 */
+		d = xmalloc(sizeof(*d));
+		if (!d)
+			goto err;
+
+		memcpy(&d->addr, &addr, sizeof(d->addr));
+		d->id	= ue->id;
+
+		d->next = dgram_bound[d->id % SK_HASH_SIZE];
+		dgram_bound[d->id % SK_HASH_SIZE] = d;
+	}
+
+	if (ue->peer) {
+
+		/*
+		 * Connected sockets are a bit compound,
+		 * we might need to defer connect() call
+		 * until peer is alive.
+		 */
+
+		struct unix_dgram_peer *d;
+
+		d = xmalloc(sizeof(*d));
+		if (!d)
+			goto err;
+
+		d->peer	= ue->peer;
+		d->fd	= ue->fd;
+		d->next = dgram_peer;
+
+		dgram_peer = d;
+	}
+
+	return 0;
+err:
 	return -1;
 }
 
@@ -663,6 +787,8 @@ static int prepare_unix_sockets(int pid)
 
 	close(usk_fd);
 
+	if (!ret)
+		ret = run_connect_jobs_dgram();
 	if (!ret)
 		ret = run_connect_jobs();
 	if (!ret)
