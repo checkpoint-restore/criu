@@ -501,18 +501,11 @@ out:
 	return ret;
 }
 
-int parasite_cure_seized(struct parasite_ctl **p_ctl,
-			 struct list_head *vma_area_list)
+int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list)
 {
 	user_regs_struct_t regs, regs_orig;
-	struct parasite_ctl *ctl;
 	struct vma_area *vma_area;
 	int ret = -1;
-
-	if (!p_ctl || !*p_ctl)
-		return 0;
-
-	ctl = *p_ctl;
 
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err);
 
@@ -537,7 +530,7 @@ int parasite_cure_seized(struct parasite_ctl **p_ctl,
 		pr_panic("PTRACE_SETREGS failed (pid: %d)\n", ctl->pid);
 	}
 
-	free(*p_ctl), *p_ctl = NULL;
+	free(ctl);
 err:
 	return ret;
 }
