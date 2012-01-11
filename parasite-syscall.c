@@ -542,7 +542,7 @@ err:
 	return ret;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list)
 {
 	user_regs_struct_t regs, regs_orig;
 	struct parasite_ctl *ctl = NULL;
@@ -579,7 +579,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct l
 
 	regs.ip = vma_area->vma.start;
 
-	mmaped = mmap_seized(pid, &regs, addr_hint, (size_t)parasite_size,
+	mmaped = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
 			     (int)ctl->vma_area->vma.prot,
 			     (int)ctl->vma_area->vma.flags,
 			     (int)-1, (off_t)0);

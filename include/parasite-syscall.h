@@ -40,7 +40,7 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head
 			       struct cr_fdset *cr_fdset);
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
-extern struct parasite_ctl *parasite_infect_seized(pid_t pid, void *addr_hint, struct list_head *vma_area_list);
+extern struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list);
 extern int parasite_cure_seized(struct parasite_ctl **p_ctrl, struct list_head *vma_area_list);
 
 #endif /* PARASITE_SYSCALL_H_ */
