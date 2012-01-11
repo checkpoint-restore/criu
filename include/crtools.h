@@ -28,15 +28,15 @@ enum {
 	CR_FD_MAX
 };
 
-enum cr_task_final_state {
-	CR_TASK_LEAVE_STOPPED,		/* leave tasks stopped after dump/restore */
-	CR_TASK_LEAVE_RUNNING,		/* leave tasks running after dump/restore */
-	CR_TASK_KILL,			/* kill tasks after dump */
+enum cr_task_state {
+	CR_TASK_RUN,
+	CR_TASK_STOP,
+	CR_TASK_KILL,
 };
 
 struct cr_options {
 	bool				leader_only;
-	enum cr_task_final_state	final_state;
+	enum cr_task_state		final_state;
 	bool				show_pages_content;
 	char				*show_dump_file;
 };

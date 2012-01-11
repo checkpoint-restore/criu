@@ -1166,6 +1166,31 @@ err:
 	return ret;
 }
 
+static void pstree_switch_state(struct list_head *list,
+		enum cr_task_state state, int leader_only)
+{
+	static const int state_sigs[] = {
+		[CR_TASK_STOP] = SIGSTOP,
+		[CR_TASK_RUN] = SIGCONT,
+		[CR_TASK_KILL] = SIGKILL,
+	};
+
+	struct pstree_item *item;
+
+	/*
+	 * Since ptrace-seize doesn't work on frozen tasks
+	 * we stick with explicit tasks stopping via stop
+	 * signal, but in future it's aimed to switch to
+	 * kernel freezer.
+	 */
+
+	list_for_each_entry(item, list, list) {
+		kill(item->pid, state_sigs[state]);
+		if (leader_only)
+			break;
+	}
+}
+
 int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
@@ -1187,17 +1212,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	if (collect_sockets())
 		goto err;
 
-	/*
-	 * Since ptrace-seize doesn't work on frozen tasks
-	 * we stick with explicit tasks stopping via stop
-	 * signal, but in future it's aimed to switch to
-	 * kernel freezer.
-	 */
-	list_for_each_entry(item, &pstree_list, list) {
-		stop_task(item->pid);
-		if (opts->leader_only)
-			break;
-	}
+	pstree_switch_state(&pstree_list, CR_TASK_STOP, opts->leader_only);
 
 	list_for_each_entry(item, &pstree_list, list) {
 
@@ -1254,22 +1269,11 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 
 err:
 	switch (opts->final_state) {
-	case CR_TASK_LEAVE_RUNNING:
-		list_for_each_entry(item, &pstree_list, list) {
-			continue_task(item->pid);
-			if (opts->leader_only)
-				break;
-		}
-		break;
+	case CR_TASK_RUN:
 	case CR_TASK_KILL:
-		list_for_each_entry(item, &pstree_list, list) {
-			kill_task(item->pid);
-			if (opts->leader_only)
-				break;
-		}
-		break;
-	case CR_TASK_LEAVE_STOPPED:
-	default:
+		pstree_switch_state(&pstree_list,
+				opts->final_state, opts->leader_only);
+	case CR_TASK_STOP: /* they are already stopped */
 		break;
 	}
 

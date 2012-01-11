@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			opts.show_pages_content	= true;
-			opts.final_state = CR_TASK_LEAVE_RUNNING;
+			opts.final_state = CR_TASK_RUN;
 			break;
 		case 'f':
 			opts.show_dump_file = optarg;

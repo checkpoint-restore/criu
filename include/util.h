@@ -98,10 +98,6 @@ extern void printk(const char *format, ...);
 
 #define BUG_ON(condition)	BUG_ON_HANDLER((condition))
 
-#define stop_task(pid)		kill(pid, SIGSTOP)
-#define kill_task(pid)		kill(pid, SIGKILL)
-#define continue_task(pid)	kill(pid, SIGCONT)
-
 #define write_ptr(fd, ptr)			\
 	write(fd, (ptr), sizeof(*(ptr)))
 

@@ -61,7 +61,7 @@ err:
 	return ret;
 
 err_cont:
-	continue_task(pid);
+	kill(pid, SIGCONT);
 	goto err;
 }
 
