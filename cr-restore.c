@@ -382,6 +382,9 @@ static int prepare_shared(int ps_fd)
 		return -1;
 	}
 
+	if (prepare_fdinfo_global())
+		return -1;
+
 	while (1) {
 		struct pstree_entry e;
 		int ret;
@@ -399,6 +402,9 @@ static int prepare_shared(int ps_fd)
 			return -1;
 
 		if (prepare_pipes_pid(e.pid))
+			return -1;
+
+		if (prepare_fd_pid(e.pid))
 			return -1;
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);

@@ -94,7 +94,7 @@ err_bogus_mapping:
 
 static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 			     bool do_close, unsigned long pos, unsigned int flags,
-			     struct cr_fdset *cr_fdset)
+			     char *id, struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
 	char fd_str[128];
@@ -120,6 +120,8 @@ static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 	e.flags = flags;
 	e.pos	= pos;
 	e.addr	= fd_name;
+	if (id)
+		memcpy(e.id, id, FD_ID_SIZE);
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
 		type, len, flags, pos, fd_name);
@@ -143,7 +145,7 @@ static int dump_cwd(char *path, struct cr_fdset *cr_fdset)
 		return -1;
 	}
 
-	return dump_one_reg_file(FDINFO_FD, ~0L, fd, 1, 0, 0, cr_fdset);
+	return dump_one_reg_file(FDINFO_FD, ~0L, fd, 1, 0, 0, NULL, cr_fdset);
 }
 
 
@@ -231,7 +233,7 @@ err:
 }
 
 static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long pos,
-		       unsigned int flags, struct cr_fdset *cr_fdset)
+		       unsigned int flags, char *id, struct cr_fdset *cr_fdset)
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
@@ -269,7 +271,7 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	    S_ISDIR(st_buf.st_mode) ||
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
 		return dump_one_reg_file(FDINFO_FD, atol(fd_name),
-					 fd, 1, pos, flags, cr_fdset);
+					 fd, 1, pos, flags, id, cr_fdset);
 
 	if (S_ISFIFO(st_buf.st_mode)) {
 		if (fstatfs(fd, &stfs_buf) < 0) {
@@ -290,9 +292,11 @@ out_close:
 	return err;
 }
 
-static int read_fd_params(pid_t pid, char *fd, unsigned long *pos, unsigned int *flags)
+static int read_fd_params(pid_t pid, char *fd, unsigned long *pos,
+					unsigned int *flags, char *id)
 {
 	FILE *file;
+	unsigned int f;
 
 	file = fopen_proc("%d/fdinfo/%s", "r", pid, fd);
 	if (!file) {
@@ -300,10 +304,11 @@ static int read_fd_params(pid_t pid, char *fd, unsigned long *pos, unsigned int 
 		return -1;
 	}
 
-	fscanf(file, "pos:\t%li\nflags:\t%o\n", pos, flags);
+	fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", pos, flags, id);
 	fclose(file);
 
-	pr_info("%d fdinfo %s: pos: %16lx flags: %16lx\n", pid, fd, *pos, *flags);
+	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %s\n",
+					pid, fd, *pos, *flags, id);
 
 	return 0;
 }
@@ -314,6 +319,7 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	struct dirent *de;
 	unsigned long pos;
 	unsigned int flags;
+	char id[FD_ID_SIZE];
 	DIR *fd_dir;
 
 	pr_info("\n");
@@ -336,9 +342,10 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	while ((de = readdir(fd_dir))) {
 		if (de->d_name[0] == '.')
 			continue;
-		if (read_fd_params(pid, de->d_name, &pos, &flags))
+		if (read_fd_params(pid, de->d_name, &pos, &flags, id))
 			return -1;
-		if (dump_one_fd(pid_fd_dir, dirfd(fd_dir), de->d_name, pos, flags, cr_fdset))
+		if (dump_one_fd(pid_fd_dir, dirfd(fd_dir), de->d_name,
+						pos, flags, id, cr_fdset))
 			return -1;
 	}
 
@@ -393,7 +400,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				ret = dump_one_reg_file(FDINFO_MAP,
 							vma->start,
 							vma_area->vm_file_fd,
-							0, 0, flags,
+							0, 0, flags, NULL,
 							cr_fdset);
 				if (ret)
 					goto err;
