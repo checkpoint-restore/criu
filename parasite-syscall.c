@@ -388,7 +388,7 @@ out:
  * process) and tells it to dump pages into the file.
  */
 int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
-			       struct cr_fdset *cr_fdset, int fd_type)
+			       struct cr_fdset *cr_fdset)
 {
 	parasite_args_cmd_dumppages_t parasite_dumppages	= { };
 	parasite_args_t parasite_arg				= { };
@@ -400,11 +400,11 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	int status, path_len, ret = -1;
 
 	pr_info("\n");
-	pr_info("Dumping pages (type: %d pid: %d)\n", fd_type, ctl->pid);
+	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[fd_type].path);
-	pr_info("Dumping pages %s\n", cr_fdset->desc[fd_type].path);
+	path_len = strlen(cr_fdset->desc[CR_FD_PAGES].path);
+	pr_info("Dumping pages %s\n", cr_fdset->desc[CR_FD_PAGES].path);
 
 	if (path_len > sizeof(parasite_dumppages.open_path)) {
 		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
@@ -412,7 +412,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		goto out;
 	}
 
-	if (fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM_DUMP)) {
+	if (fchmod(cr_fdset->desc[CR_FD_PAGES].fd, CR_FD_PERM_DUMP)) {
 		pr_perror("Can't change permissions on pages file\n");
 		goto out;
 	}
@@ -421,10 +421,10 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 * Make sure the data is on disk since we will re-open
 	 * it in another process.
 	 */
-	fsync(cr_fdset->desc[fd_type].fd);
+	fsync(cr_fdset->desc[CR_FD_PAGES].fd);
 
 	strncpy(parasite_dumppages.open_path,
-		 cr_fdset->desc[fd_type].path,
+		 cr_fdset->desc[CR_FD_PAGES].path,
 		 sizeof(parasite_dumppages.open_path));
 
 	parasite_dumppages.open_flags	= O_WRONLY;
@@ -493,7 +493,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 
 err_restore:
-	jerr(fchmod(cr_fdset->desc[fd_type].fd, CR_FD_PERM), out);
+	jerr(fchmod(cr_fdset->desc[CR_FD_PAGES].fd, CR_FD_PERM), out);
 
 out:
 	pr_info("----------------------------------------\n");

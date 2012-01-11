@@ -1118,8 +1118,7 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list,
-					 cr_fdset, CR_FD_PAGES);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump pages (pid: %d) with parasite\n", pid);
 		goto err;
