@@ -240,10 +240,10 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	struct statfs stfs_buf;
 	struct stat st_buf;
 	int err = -1;
-	int fd = -1;
+	int lfd = -1;
 
-	fd = openat(dir, fd_name, O_RDONLY);
-	if (fd < 0) {
+	lfd = openat(dir, fd_name, O_RDONLY);
+	if (lfd < 0) {
 		err = try_dump_socket(pid_fd_dir, fd_name, cr_fdset);
 		if (err != 1)
 			return err;
@@ -252,7 +252,7 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 		return -1;
 	}
 
-	if (fstat(fd, &st_buf) < 0) {
+	if (fstat(lfd, &st_buf) < 0) {
 		pr_perror("Can't get stat on %s\n", fd_name);
 		goto out_close;
 	}
@@ -273,16 +273,16 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	    S_ISDIR(st_buf.st_mode) ||
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
 		return dump_one_reg_file(FDINFO_FD, atol(fd_name),
-					 fd, 1, pos, flags, id, cr_fdset);
+					 lfd, 1, pos, flags, id, cr_fdset);
 
 	if (S_ISFIFO(st_buf.st_mode)) {
-		if (fstatfs(fd, &stfs_buf) < 0) {
+		if (fstatfs(lfd, &stfs_buf) < 0) {
 			pr_perror("Can't fstatfs on %s\n", fd_name);
 			return -1;
 		}
 
 		if (stfs_buf.f_type == PIPEFS_MAGIC)
-			return dump_one_pipe(atol(fd_name), fd,
+			return dump_one_pipe(atol(fd_name), lfd,
 					     st_buf.st_ino, flags, cr_fdset);
 	}
 
@@ -290,7 +290,7 @@ err:
 	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
 
 out_close:
-	close_safe(&fd);
+	close_safe(&lfd);
 	return err;
 }
 
