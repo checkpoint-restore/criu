@@ -440,8 +440,8 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi, 
 
 static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 {
-	int tmp;
 	struct fmap_fd *new;
+	int tmp;
 
 	tmp = open_fe_fd(fe, fd);
 	if (tmp < 0)
@@ -449,7 +449,12 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 
 	pr_info("%d:\t\tWill map %lx to %d\n", pid, (unsigned long)fe->addr, tmp);
 
-	new		= malloc(sizeof(*new));
+	new = xmalloc(sizeof(*new));
+	if (!new) {
+		close_safe(&tmp);
+		return -1;
+	}
+
 	new->start	= fe->addr;
 	new->fd		= tmp;
 	new->next	= fmap_fds;
