@@ -65,7 +65,7 @@ void free_mappings(struct list_head *vma_area_list)
 	INIT_LIST_HEAD(vma_area_list);
 }
 
-static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
+static int collect_mappings(pid_t pid, int pid_dir, struct list_head *vma_area_list)
 {
 	struct vma_area *vma_area;
 	int ret = -1;
@@ -74,7 +74,7 @@ static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_maps(pid, vma_area_list, true);
+	ret = parse_maps(pid, pid_dir, vma_area_list, true);
 	if (ret)
 		goto err;
 
@@ -93,8 +93,9 @@ err_bogus_mapping:
 }
 
 static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
-			     bool do_close, unsigned long pos, unsigned int flags,
-			     char *id, struct cr_fdset *cr_fdset)
+			     bool do_close_lfd, unsigned long pos,
+			     unsigned int flags, char *id,
+			     struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
 	char fd_str[128];
@@ -112,7 +113,7 @@ static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 	pr_info("Dumping path for %lx fd via self %d [%s]\n",
 		fd_name, lfd, big_buffer);
 
-	if (do_close)
+	if (do_close_lfd)
 		close(lfd);
 
 	e.type	= type;
@@ -136,14 +137,14 @@ err:
 	return ret;
 }
 
-static int dump_cwd(char *path, struct cr_fdset *cr_fdset)
+static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 {
 	int ret = -1;
 	int fd;
 
-	fd = open(path, O_RDONLY | O_DIRECTORY);
+	fd = open_proc(pid_dir, "cwd");
 	if (fd < 0) {
-		pr_perror("Failed to openat %s\n", path);
+		pr_perror("Failed to openat cwd\n");
 		return -1;
 	}
 
@@ -234,7 +235,7 @@ err:
 	return ret;
 }
 
-static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long pos,
+static int dump_one_fd(pid_t pid, int pid_dir, char *fd_name, unsigned long pos,
 		       unsigned int flags, char *id, struct cr_fdset *cr_fdset)
 {
 	struct statfs stfs_buf;
@@ -242,18 +243,18 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	int err = -1;
 	int fd = -1;
 
-	fd = openat(dir, fd_name, O_RDONLY);
+	fd = open_proc(pid_dir, "fd/%s", fd_name);
 	if (fd < 0) {
-		err = try_dump_socket(pid_fd_dir, fd_name, cr_fdset);
+		err = try_dump_socket(pid, fd_name, cr_fdset);
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to openat %s/%d %s\n", pid_fd_dir, dir, fd_name);
+		pr_perror("Failed to openat %d/fd/%s\n", pid, fd_name);
 		return -1;
 	}
 
 	if (fstat(fd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %s\n", fd_name);
+		pr_perror("Can't get stat on %d/fd/%s\n", pid, fd_name);
 		goto out_close;
 	}
 
@@ -263,7 +264,7 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 		/* skip only standard destriptors */
 		if (atoi(fd_name) < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %s/%s\n", pid_fd_dir, fd_name);
+			pr_info("... Skipping tty ... %d/fd/%s\n", pid, fd_name);
 			goto out_close;
 		}
 		goto err;
@@ -294,13 +295,14 @@ out_close:
 	return err;
 }
 
-static int read_fd_params(pid_t pid, char *fd, unsigned long *pos,
-					unsigned int *flags, char *id)
+static int read_fd_params(pid_t pid, int pid_dir, char *fd,
+			  unsigned long *pos, unsigned int *flags,
+			  char *id)
 {
 	FILE *file;
 	unsigned int f;
 
-	file = fopen_proc("%d/fdinfo/%s", "r", pid, fd);
+	file = fopen_proc(pid_dir, "fdinfo/%s", fd);
 	if (!file) {
 		pr_perror("Can't open %d's %s fdinfo\n", pid, fd);
 		return -1;
@@ -309,15 +311,14 @@ static int read_fd_params(pid_t pid, char *fd, unsigned long *pos,
 	fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", pos, flags, id);
 	fclose(file);
 
-	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %s\n",
-					pid, fd, *pos, *flags, id);
+	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %20s\n",
+		pid, fd, *pos, *flags, id);
 
 	return 0;
 }
 
-static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 {
-	char pid_fd_dir[64];
 	struct dirent *de;
 	unsigned long pos;
 	unsigned int flags;
@@ -328,26 +329,23 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	pr_info("Dumping opened files (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	snprintf(pid_fd_dir, sizeof(pid_fd_dir), "/proc/%d/cwd", pid);
-	if (dump_cwd(pid_fd_dir, cr_fdset)) {
-		pr_perror("Can't dump cwd %s\n", pid_fd_dir);
+	if (dump_cwd(pid_dir, cr_fdset)) {
+		pr_perror("Can't dump %d's cwd %s\n", pid);
 		return -1;
 	}
 
-	snprintf(pid_fd_dir, sizeof(pid_fd_dir), "/proc/%d/fd", pid);
-	fd_dir = opendir(pid_fd_dir);
+	fd_dir = opendir_proc(pid_dir, "fd");
 	if (!fd_dir) {
-		pr_perror("Can't open %s\n", pid_fd_dir);
+		pr_perror("Can't open %d's fd\n", pid);
 		return -1;
 	}
 
 	while ((de = readdir(fd_dir))) {
 		if (de->d_name[0] == '.')
 			continue;
-		if (read_fd_params(pid, de->d_name, &pos, &flags, id))
+		if (read_fd_params(pid, pid_dir, de->d_name, &pos, &flags, id))
 			return -1;
-		if (dump_one_fd(pid_fd_dir, dirfd(fd_dir), de->d_name,
-						pos, flags, id, cr_fdset))
+		if (dump_one_fd(pid, pid_dir, de->d_name, pos, flags, id, cr_fdset))
 			return -1;
 	}
 
@@ -424,7 +422,7 @@ err:
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
+static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 			 u64 *start_code, u64 *end_code,
 			 u64 *start_data, u64 *end_data,
 			 u64 *start_stack, u64 *start_brk,
@@ -439,7 +437,7 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 	 * '0' symbol at argument 20 in format string.
 	 */
 
-	file = fopen_proc("%d/stat", "r", pid);
+	file = fopen_proc(pid_dir, "stat");
 	if (!file) {
 		pr_perror("Can't open %d stat\n", pid);
 		goto err;
@@ -526,7 +524,7 @@ static int get_task_stat(pid_t pid, u8 *comm, u32 *flags,
 	 * Now signals.
 	 */
 	fclose(file);
-	file = fopen_proc("%d/status", "r", pid);
+	file = fopen_proc(pid_dir, "status");
 	if (!file) {
 		pr_perror("Can't open %d status\n", pid);
 		goto err;
@@ -550,12 +548,12 @@ err_corrupted:
 	goto err;
 }
 
-static int get_task_personality(pid_t pid, u32 *personality)
+static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
 {
 	FILE *file = NULL;
 	int ret = -1;
 
-	file = fopen_proc("%d/personality", "r", pid);
+	file = fopen_proc(pid_dir, "personality");
 	if (!file) {
 		pr_perror("Can't open %d personality\n", pid);
 		goto err;
@@ -648,7 +646,7 @@ err:
 	return ret;
 }
 
-static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_core_seized(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int fd_core			= cr_fdset->fds[CR_FD_CORE];
@@ -671,13 +669,13 @@ static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 	pr_info("OK\n");
 
 	pr_info("Obtainting personality ... ");
-	ret = get_task_personality(pid, &core->task_personality);
+	ret = get_task_personality(pid, pid_dir, &core->task_personality);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Obtainting task stat ... ");
-	ret = get_task_stat(pid, core->task_comm,
+	ret = get_task_stat(pid, pid_dir, core->task_comm,
 			    &core->task_flags,
 			    &core->mm_start_code,
 			    &core->mm_end_code,
@@ -715,14 +713,14 @@ err:
 	return ret;
 }
 
-static int parse_threads(pid_t pid, struct pstree_item *item)
+static int parse_threads(pid_t pid, int pid_dir, struct pstree_item *item)
 {
 	struct dirent *de;
 	DIR *dir;
 	u32 *t = NULL;
 	int nr = 1;
 
-	dir = opendir_proc("%d/task", pid);
+	dir = opendir_proc(pid_dir, "task");
 	if (!dir) {
 		pr_perror("Can't open %d/task\n", pid);
 		return -1;
@@ -753,7 +751,7 @@ static int parse_threads(pid_t pid, struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(pid_t pid, struct pstree_item *item)
+static int parse_children(pid_t pid, int pid_dir, struct pstree_item *item)
 {
 	FILE *file;
 	char *tok;
@@ -762,8 +760,7 @@ static int parse_children(pid_t pid, struct pstree_item *item)
 
 	for (i = 0; i < item->nr_threads; i++) {
 
-		file = fopen_fmt("/proc/%d/task/%d/children", "r",
-				 pid, item->threads[i]);
+		file = fopen_proc(pid_dir, "task/%d/children", item->threads[i]);
 		if (!file) {
 			pr_perror("Can't open %d children %d\n",
 				  pid, item->threads[i]);
@@ -798,7 +795,7 @@ err:
 	return -1;
 }
 
-static struct pstree_item *find_pstree_entry(pid_t pid)
+static struct pstree_item *find_pstree_entry(pid_t pid, int pid_dir)
 {
 	struct pstree_item *item;
 
@@ -806,10 +803,10 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 	if (!item)
 		goto err;
 
-	if (parse_threads(pid, item))
+	if (parse_threads(pid, pid_dir, item))
 		goto err_free;
 
-	if (parse_children(pid, item))
+	if (parse_children(pid, pid_dir, item))
 		goto err_free;
 
 	item->pid = pid;
@@ -827,9 +824,14 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 {
 	struct pstree_item *item;
 	unsigned long i;
+	int pid_dir;
 	int ret = -1;
 
-	item = find_pstree_entry(pid);
+	pid_dir = open_pid_proc(pid);
+	if (pid_dir < 0)
+		goto err;
+
+	item = find_pstree_entry(pid, pid_dir);
 	if (!item)
 		goto err;
 
@@ -838,10 +840,12 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 	for (i = 0; i < item->nr_children; i++) {
 		ret = collect_pstree(item->children[i], pstree_list);
 		if (ret)
-			goto err;
+			goto err_close;
 	}
 	ret = 0;
 
+err_close:
+	close(pid_dir);
 err:
 	return ret;
 }
@@ -1076,13 +1080,20 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	LIST_HEAD(vma_area_list);
 	struct parasite_ctl *parasite_ctl;
-	int ret = 0;
+	int ret = -1;
+	int pid_dir;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	ret = collect_mappings(pid, &vma_area_list);
+	pid_dir = open_pid_proc(pid);
+	if (pid_dir < 0) {
+		pr_perror("Can't open %d proc dir\n", pid);
+		goto err;
+	}
+
+	ret = collect_mappings(pid, pid_dir, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1095,7 +1106,7 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_core_seized(pid, cr_fdset);
+	ret = dump_task_core_seized(pid, pid_dir, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1131,7 +1142,7 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_files(pid, cr_fdset);
+	ret = dump_task_files(pid, pid_dir, cr_fdset);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1185,7 +1196,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	struct cr_fdset *cr_fdset = NULL;
 	struct cr_fdset *cr_fdset_thread = NULL;
 	struct pstree_item *item;
-	int i, ret = -1;
+	int i, ret = -1, pid_dir;
 
 	pr_info("========================================\n");
 	if (!opts->leader_only)

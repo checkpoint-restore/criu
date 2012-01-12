@@ -180,12 +180,11 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
-int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
+int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
 	char big_buffer[1024];
-	char path[64];
 	unsigned long ino;
 	char r,w,x,s;
 	int dev_maj, dev_min;
@@ -194,18 +193,16 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	DIR *map_files_dir = NULL;
 	FILE *maps = NULL;
 
-	snprintf(path, sizeof(path), "/proc/%d/maps", pid);
-	maps = fopen(path, "r");
+	maps = fopen_proc(pid_dir, "maps");
 	if (!maps) {
-		pr_perror("Can't open: %s\n", path);
+		pr_perror("Can't open %d's maps\n", pid);
 		goto err;
 	}
 
 	if (use_map_files) {
-		snprintf(path, sizeof(path), "/proc/%d/map_files", pid);
-		map_files_dir = opendir(path);
+		map_files_dir = opendir_proc(pid_dir, "map_files");
 		if (!map_files_dir) {
-			pr_err("Can't open %s, old kernel?\n", path);
+			pr_err("Can't open %d's, old kernel?\n", pid);
 			goto err;
 		}
 	}
@@ -227,6 +224,8 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 
 		if (map_files_dir) {
+			char path[32];
+
 			/* Figure out if it's file mapping */
 			snprintf(path, sizeof(path), "%lx-%lx", start, end);
 
@@ -341,56 +340,6 @@ err_bogus_mapping:
 	goto err;
 }
 
-DIR *opendir_proc(char *fmt, ...)
-{
-	DIR *dir;
-	char path[128];
-	va_list args;
-
-	sprintf(path, "/proc/");
-	va_start(args, fmt);
-	vsnprintf(path + 6, sizeof(path) - 6, fmt, args);
-	va_end(args);
-
-	dir = opendir(path);
-	if (!dir)
-		pr_perror("Can't open %s\n", path);
-	return dir;
-}
-
-FILE *fopen_proc(char *fmt, char *mode, ...)
-{
-	FILE *file;
-	char fname[128];
-	va_list args;
-
-	sprintf(fname, "/proc/");
-	va_start(args, mode);
-	vsnprintf(fname + 6, sizeof(fname) - 6, fmt, args);
-	va_end(args);
-
-	file = fopen(fname, mode);
-	if (!file)
-		pr_perror("Can't open %s\n", fname);
-	return file;
-}
-
-FILE *fopen_fmt(char *fmt, char *mode, ...)
-{
-	FILE *file;
-	char fname[128];
-	va_list args;
-
-	va_start(args, mode);
-	vsnprintf(fname, sizeof(fname), fmt, args);
-	va_end(args);
-
-	file = fopen(fname, mode);
-	if (!file)
-		pr_perror("Can't open %s\n", fname);
-	return file;
-}
-
 int open_image_ro_nocheck(const char *fmt, int pid)
 {
 	char path[PATH_MAX];
@@ -423,4 +372,55 @@ int open_image_ro(int type, int pid)
 	}
 
 	return fd;
+}
+
+int open_pid_proc(pid_t pid)
+{
+	char path[18];
+	int fd;
+
+	sprintf(path, "/proc/%d", pid);
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		pr_perror("Can't open %s\n", path);
+	return fd;
+}
+
+#define do_open_proc(pid_dir_fd, fmt)				\
+	({							\
+		char fname[64];					\
+		va_list args;					\
+								\
+		va_start(args, fmt);				\
+		vsnprintf(fname, sizeof(fname), fmt, args);	\
+		va_end(args);					\
+								\
+		openat(pid_dir_fd, fname, O_RDONLY);		\
+	})
+
+int open_proc(int pid_dir_fd, char *fmt, ...)
+{
+	return do_open_proc(pid_dir_fd, fmt);
+}
+
+DIR *opendir_proc(int pid_dir_fd, char *fmt, ...)
+{
+	int dirfd;
+
+	dirfd = do_open_proc(pid_dir_fd, fmt);
+	if (dirfd >= 0)
+		return fdopendir(dirfd);
+
+	return NULL;
+}
+
+FILE *fopen_proc(int pid_dir_fd, char *fmt, ...)
+{
+	int fd;
+
+	fd = do_open_proc(pid_dir_fd, fmt);
+	if (fd >= 0)
+		return fdopen(fd, "r");
+
+	return NULL;
 }

@@ -165,7 +165,7 @@ extern void printk_vma(struct vma_area *vma_area);
 #define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
 extern int move_img_fd(int *img_fd, int want_fd);
-extern int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
+extern int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files);
 extern int close_safe(int *fd);
 
 extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
@@ -174,10 +174,10 @@ extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
 
 extern void hex_dump(void *addr, unsigned long len);
 
-extern DIR *opendir_proc(char *fmt, ...);
-extern FILE *fopen_proc(char *fmt, char *mode, ...);
-extern FILE *fopen_fmt(char *fmt, char *mode, ...);
-extern int open_fmt(char *fmt, int mode, ...);
+int open_pid_proc(pid_t pid);
+int open_proc(int pid_dir_fd, char *fmt, ...);
+DIR *opendir_proc(int pid_dir_fd, char *fmt, ...);
+FILE *fopen_proc(int pid_dir_fd, char *fmt, ...);
 
 #define __xalloc(op, size, ...)						\
 	({								\

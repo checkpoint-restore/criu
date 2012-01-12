@@ -1307,6 +1307,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	struct pstree_entry pstree_entry;
 	int *fd_core_threads;
 	int fd_pstree = -1;
+	int pid_dir;
 
 	pr_info("%d: Restore via sigreturn\n", pid);
 
@@ -1316,7 +1317,13 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	restore_thread_vma_len	= 0;
 	restore_shmem_vma_len	= SHMEMS_SIZE;
 
-	if (parse_maps(getpid(), &self_vma_list, false))
+	pid_dir = open_pid_proc(pid);
+	if (pid_dir < 0)
+		goto err;
+
+	ret = parse_maps(getpid(), pid_dir, &self_vma_list, false);
+	close(pid_dir);
+	if (ret)
 		goto err;
 
 	/* pr_info_vma_list(&self_vma_list); */

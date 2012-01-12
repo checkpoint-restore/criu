@@ -175,13 +175,18 @@ err:
 	return -1;
 }
 
-int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
+int try_dump_socket(pid_t pid, char *fd, struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
 	struct statfs fst;
 	struct stat st;
+	char path[64];
 
-	snprintf(buf, sizeof(buf), "%s/%s", dir, fd);
+	/*
+	 * Sockets are tricky, we can't open it but can
+	 * do stats over and check for sokets magic.
+	 */
+	snprintf(buf, sizeof(buf), "/proc/%d/fd/%s", pid, fd);
 	if (statfs(buf, &fst)) {
 		pr_err("Can't statfs %s\n", buf);
 		return -1;
@@ -206,8 +211,10 @@ int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
 		return dump_one_unix(sk, fd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
-		return -1;
+		break;
 	}
+
+	return -1;
 }
 
 static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)

@@ -1,10 +1,12 @@
 #ifndef CR_SOCKETS_H__
 #define CR_SOCKETS_H__
 
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdbool.h>
 
 struct cr_fdset;
-extern int try_dump_socket(char *dir_name, char *fd_name, struct cr_fdset *cr_fdset);
+extern int try_dump_socket(pid_t pid, char *fd_name, struct cr_fdset *cr_fdset);
 
 extern int collect_sockets(void);
 extern int prepare_sockets(int pid);
