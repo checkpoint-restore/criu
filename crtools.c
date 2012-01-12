@@ -121,8 +121,6 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 	if (!cr_fdset)
 		goto err;
 
-	cr_fdset->use_mask = use_mask;
-
 	for (i = 0; i < CR_FD_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
@@ -166,8 +164,6 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 	if (!cr_fdset)
 		goto err;
 
-	cr_fdset->use_mask = use_mask;
-
 	for (i = 0; i < CR_FD_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
@@ -206,16 +202,14 @@ void close_cr_fdset(struct cr_fdset *cr_fdset)
 		return;
 
 	for (i = 0; i < CR_FD_MAX; i++) {
-		if (!(cr_fdset->use_mask & CR_FD_DESC_USE(i)))
+		if (cr_fdset->desc[i].fd == -1)
 			continue;
 
-		if (cr_fdset->desc[i].fd >= 0) {
-			pr_debug("Closed %s with %d\n",
+		pr_debug("Closed %s with %d\n",
 				cr_fdset->desc[i].path,
 				cr_fdset->desc[i].fd);
-			close(cr_fdset->desc[i].fd);
-			cr_fdset->desc[i].fd = -1;
-		}
+		close(cr_fdset->desc[i].fd);
+		cr_fdset->desc[i].fd = -1;
 	}
 }
 

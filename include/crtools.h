@@ -78,10 +78,6 @@ struct cr_fd_desc {
 
 struct cr_fdset {
 	struct cr_fd_desc	desc[CR_FD_MAX];
-	u32			use_mask;	/*
-						 * if descriptor get used,set
-						 * bit here
-						 */
 };
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
