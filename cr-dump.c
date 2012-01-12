@@ -798,7 +798,7 @@ err:
 	return -1;
 }
 
-static struct pstree_item *find_pstree_entry(pid_t pid)
+static struct pstree_item *add_pstree_entry(pid_t pid, struct list_head *list)
 {
 	struct pstree_item *item;
 
@@ -813,6 +813,7 @@ static struct pstree_item *find_pstree_entry(pid_t pid)
 		goto err_free;
 
 	item->pid = pid;
+	list_add_tail(&item->list, list);
 	return item;
 
 err_free:
@@ -829,11 +830,9 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 	unsigned long i;
 	int ret = -1;
 
-	item = find_pstree_entry(pid);
+	item = add_pstree_entry(pid, pstree_list);
 	if (!item)
 		goto err;
-
-	list_add_tail(&item->list, pstree_list);
 
 	for (i = 0; i < item->nr_children; i++) {
 		ret = collect_pstree(item->children[i], pstree_list);
