@@ -203,4 +203,7 @@ extern int open_fmt(char *fmt, int mode, ...);
 		__ret;							\
 	 })
 
+#define pr_img_head(type, ...)	pr_info("\n"#type __VA_ARGS__ "\n----------------\n")
+#define pr_img_tail(type)	pr_info("\n----------------\n")
+
 #endif /* UTIL_H_ */

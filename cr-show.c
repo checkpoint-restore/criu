@@ -51,15 +51,11 @@
 static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
 
-static void show_shmem(char *name, int fd_shmem, bool show_header)
+static void show_shmem(int fd_shmem)
 {
 	struct shmem_entry e;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_SHMEM: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_SHMEM);
 
 	while (1) {
 		int ret = read_ptr_safe_eof(fd_shmem, &e, out);
@@ -69,19 +65,14 @@ static void show_shmem(char *name, int fd_shmem, bool show_header)
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_SHMEM);
 }
 
-static void show_files(char *name, int fd_files, bool show_header)
+static void show_files(int fd_files)
 {
 	struct fdinfo_entry e;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_FDINFO: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_FDINFO);
 
 	while (1) {
 		int ret = read_ptr_safe_eof(fd_files, &e, out);
@@ -102,20 +93,15 @@ static void show_files(char *name, int fd_files, bool show_header)
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_FDINFO);
 }
 
-static void show_pipes(char *name, int fd_pipes, bool show_header)
+static void show_pipes(int fd_pipes)
 {
 	struct pipe_entry e;
 	int ret;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_PIPES: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_PIPES);
 
 	while (1) {
 		int ret = read_ptr_safe_eof(fd_pipes, &e, out);
@@ -128,8 +114,7 @@ static void show_pipes(char *name, int fd_pipes, bool show_header)
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_PIPES);
 }
 
 static void show_vma(int fd_vma)
@@ -152,13 +137,9 @@ out:
 	; /* to placate gcc */
 }
 
-static void show_pages(char *name, int fd_pages, bool show_header, bool show_content)
+static void show_pages(int fd_pages, bool show_content)
 {
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_PAGES: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_PAGES);
 
 	if (show_content) {
 		while (1) {
@@ -209,19 +190,14 @@ static void show_pages(char *name, int fd_pages, bool show_header, bool show_con
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_PAGES);
 }
 
-static void show_sigacts(char *name, int fd_sigacts, bool show_header)
+static void show_sigacts(int fd_sigacts)
 {
 	struct sa_entry e;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_SIGACT: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_SIGACT);
 
 	while (1) {
 		int ret = read_ptr_safe_eof(fd_sigacts, &e, out);
@@ -236,25 +212,20 @@ static void show_sigacts(char *name, int fd_sigacts, bool show_header)
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_SIGACT);
 }
 
-static void show_pstree(char *name, int fd_sigacts, bool show_header)
+static void show_pstree(int fd_pstree)
 {
 	struct pstree_entry e;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_PSTREE: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_PSTREE);
 
 	while (1) {
 		u32 pid;
 		int ret;
 
-		ret = read_ptr_safe_eof(fd_sigacts, &e, out);
+		ret = read_ptr_safe_eof(fd_pstree, &e, out);
 		if (!ret)
 			goto out;
 		pr_info("pid: %8d nr_children: %8d nr_threads: %8d\n",
@@ -264,7 +235,7 @@ static void show_pstree(char *name, int fd_sigacts, bool show_header)
 			pr_info("\\\n");
 			pr_info(" +--- children: ");
 			while (e.nr_children--) {
-				ret = read_ptr_safe_eof(fd_sigacts, &pid, out);
+				ret = read_ptr_safe_eof(fd_pstree, &pid, out);
 				if (!ret)
 					goto out;
 				pr_info(" %6d", pid);
@@ -276,7 +247,7 @@ static void show_pstree(char *name, int fd_sigacts, bool show_header)
 			pr_info("  \\\n");
 			pr_info("   --- threads: ");
 			while (e.nr_threads--) {
-				ret = read_ptr_safe_eof(fd_sigacts, &pid, out);
+				ret = read_ptr_safe_eof(fd_pstree, &pid, out);
 				if (!ret)
 					goto out;
 				pr_info(" %6d", pid);
@@ -287,8 +258,7 @@ static void show_pstree(char *name, int fd_sigacts, bool show_header)
 	}
 
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_PSTREE);
 }
 
 static void show_core_regs(int fd_core)
@@ -367,27 +337,22 @@ err:
 	return;
 }
 
-static void show_core(char *name, int fd_core, bool show_header, bool show_content)
+static void show_core(int fd_core, bool show_content)
 {
 	struct stat stat;
 	bool is_thread;
 
 	if (fstat(fd_core, &stat)) {
-		pr_perror("Can't get stat on %s\n", name);
+		pr_perror("Can't get stat on core file\n");
 		goto out;
 	}
 
 	is_thread = (stat.st_size == GET_FILE_OFF_AFTER(struct core_entry));
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_CORE: %s", name);
-		if (is_thread)
-			pr_info(" (thread)\n");
-		else
-			pr_info("\n");
-		pr_info("----------------------------------------\n");
-	}
+	if (is_thread)
+		pr_img_head(CR_FD_CORE, " (thread)");
+	else
+		pr_img_head(CR_FD_CORE);
 
 	show_core_regs(fd_core);
 	show_core_rest(fd_core);
@@ -405,10 +370,9 @@ static void show_core(char *name, int fd_core, bool show_header, bool show_conte
 	show_vma(fd_core);
 
 	pr_info("\n\t---[Memory pages]---\n");
-	show_pages(name, fd_core, false, show_content);
+	show_pages(fd_core, show_content);
 out:
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_CORE);
 }
 
 static int cr_parse_file(struct cr_options *opts)
@@ -427,30 +391,28 @@ static int cr_parse_file(struct cr_options *opts)
 
 	switch (magic) {
 	case FDINFO_MAGIC:
-		show_files(opts->show_dump_file, fd, true);
+		show_files(fd);
 		break;
 	case PAGES_MAGIC:
-		show_pages(opts->show_dump_file, fd, true,
-			   opts->show_pages_content);
+		show_pages(fd, opts->show_pages_content);
 		break;
 	case CORE_MAGIC:
-		show_core(opts->show_dump_file, fd, true,
-			  opts->show_pages_content);
+		show_core(fd, opts->show_pages_content);
 		break;
 	case SHMEM_MAGIC:
-		show_shmem(opts->show_dump_file, fd, true);
+		show_shmem(fd);
 		break;
 	case PSTREE_MAGIC:
-		show_pstree(opts->show_dump_file, fd, true);
+		show_pstree(fd);
 		break;
 	case PIPES_MAGIC:
-		show_pipes(opts->show_dump_file, fd, true);
+		show_pipes(fd);
 		break;
 	case SIGACT_MAGIC:
-		show_sigacts(opts->show_dump_file, fd, true);
+		show_sigacts(fd);
 		break;
 	case UNIXSK_MAGIC:
-		show_unixsk(opts->show_dump_file, fd, true);
+		show_unixsk(fd);
 		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
@@ -553,9 +515,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	 * time here, but this saves us from code duplication.
 	 */
 	lseek(cr_fdset->desc[CR_FD_PSTREE].fd, MAGIC_OFFSET, SEEK_SET);
-	show_pstree(cr_fdset->desc[CR_FD_PSTREE].path,
-		    cr_fdset->desc[CR_FD_PSTREE].fd,
-		    true);
+	show_pstree(cr_fdset->desc[CR_FD_PSTREE].fd);
 
 	close_cr_fdset(cr_fdset);
 	free_cr_fdset(&cr_fdset);
@@ -571,9 +531,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			goto out;
 
 		lseek(cr_fdset->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-		show_core(cr_fdset->desc[CR_FD_CORE].path,
-			  cr_fdset->desc[CR_FD_CORE].fd,
-			  true, opts->show_pages_content);
+		show_core(cr_fdset->desc[CR_FD_CORE].fd, opts->show_pages_content);
 
 		if (item->nr_threads > 1) {
 			struct cr_fdset *cr_fdset_th;
@@ -597,9 +555,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				pr_info("----------------------------------------\n");
 
 				lseek(cr_fdset_th->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-				show_core(cr_fdset_th->desc[CR_FD_CORE].path,
-					  cr_fdset_th->desc[CR_FD_CORE].fd,
-					  false, opts->show_pages_content);
+				show_core(cr_fdset_th->desc[CR_FD_CORE].fd, opts->show_pages_content);
 
 				pr_info("----------------------------------------\n");
 
@@ -608,20 +564,15 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			}
 		}
 
-		show_pipes(cr_fdset->desc[CR_FD_PIPES].path,
-			   cr_fdset->desc[CR_FD_PIPES].fd, true);
+		show_pipes(cr_fdset->desc[CR_FD_PIPES].fd);
 
-		show_files(cr_fdset->desc[CR_FD_FDINFO].path,
-			   cr_fdset->desc[CR_FD_FDINFO].fd, true);
+		show_files(cr_fdset->desc[CR_FD_FDINFO].fd);
 
-		show_shmem(cr_fdset->desc[CR_FD_SHMEM].path,
-			   cr_fdset->desc[CR_FD_SHMEM].fd, true);
+		show_shmem(cr_fdset->desc[CR_FD_SHMEM].fd);
 
-		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].path,
-			     cr_fdset->desc[CR_FD_SIGACT].fd, true);
+		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].fd);
 
-		show_unixsk(cr_fdset->desc[CR_FD_UNIXSK].path,
-				cr_fdset->desc[CR_FD_UNIXSK].fd, true);
+		show_unixsk(cr_fdset->desc[CR_FD_UNIXSK].fd);
 
 		close_cr_fdset(cr_fdset);
 		free_cr_fdset(&cr_fdset);

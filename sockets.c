@@ -803,16 +803,12 @@ int prepare_sockets(int pid)
 	return prepare_unix_sockets(pid);
 }
 
-void show_unixsk(char *name, int fd, bool show_header)
+void show_unixsk(int fd)
 {
 	struct unix_sk_entry ue;
 	int ret = 0;
 
-	if (show_header) {
-		pr_info("\n");
-		pr_info("CR_FD_UNIXSK: %s\n", name);
-		pr_info("----------------------------------------\n");
-	}
+	pr_img_head(CR_FD_UNIXSK);
 
 	while (1) {
 		ret = read_ptr_safe_eof(fd, &ue, out);
@@ -836,7 +832,6 @@ void show_unixsk(char *name, int fd, bool show_header)
 out:
 	if (ret)
 		pr_info("\n");
-	if (show_header)
-		pr_info("----------------------------------------\n");
+	pr_img_tail(CR_FD_UNIXSK);
 }
 
