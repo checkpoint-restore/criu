@@ -122,6 +122,8 @@ static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 	e.addr	= fd_name;
 	if (id)
 		memcpy(e.id, id, FD_ID_SIZE);
+	else
+		memzero(e.id, FD_ID_SIZE);
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
 		type, len, flags, pos, fd_name);
