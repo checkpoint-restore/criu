@@ -245,7 +245,7 @@ struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct fdinfo_
 }
 
 static int open_transport_fd(int pid, struct fdinfo_entry *fe,
-				struct fdinfo_desc *fi, int *fdinfo_fd)
+				struct fdinfo_desc *fi)
 {
 	struct fdinfo_list_entry *fle;
 	struct sockaddr_un saddr;
@@ -289,14 +289,14 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 }
 
 static int open_fd(int pid, struct fdinfo_entry *fe,
-				struct fdinfo_desc *fi, int *fdinfo_fd)
+				struct fdinfo_desc *fi, int fdinfo_fd)
 {
 	int tmp;
 	int serv, sock;
 	struct sockaddr_un saddr;
 	struct fdinfo_list_entry *fle;
 
-	tmp = open_fe_fd(fe, *fdinfo_fd);
+	tmp = open_fe_fd(fe, fdinfo_fd);
 	if (tmp < 0)
 		return -1;
 
@@ -406,7 +406,7 @@ static int recv_fd(int sock)
 	return *(int*)CMSG_DATA(cmsg);
 }
 
-static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi, int *fdinfo_fd)
+static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 {
 	int tmp, fd;
 	int sock;
@@ -480,12 +480,12 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 
 	if (pid == fi->pid && fe->addr == fi->addr) {
 		if (state == FD_STATE_CREATE)
-			ret = open_fd(pid, fe, fi, fdinfo_fd);
+			ret = open_fd(pid, fe, fi, *fdinfo_fd);
 	} else {
 		if (state == FD_STATE_PREP)
-			ret = open_transport_fd(pid, fe, fi, fdinfo_fd);
+			ret = open_transport_fd(pid, fe, fi);
 		else if (state == FD_STATE_RECV)
-			ret = receive_fd(pid, fe, fi, fdinfo_fd);
+			ret = receive_fd(pid, fe, fi);
 	}
 
 	return ret;
