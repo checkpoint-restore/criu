@@ -513,7 +513,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	show_pstree(cr_fdset->fds[CR_FD_PSTREE]);
 
 	close_cr_fdset(cr_fdset);
-	free_cr_fdset(&cr_fdset);
 
 	list_for_each_entry(item, &pstree_list, list) {
 
@@ -547,7 +546,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				pr_info("----------------------------------------\n");
 
 				close_cr_fdset(cr_fdset_th);
-				free_cr_fdset(&cr_fdset_th);
 			}
 		}
 
@@ -562,7 +560,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_unixsk(cr_fdset->fds[CR_FD_UNIXSK]);
 
 		close_cr_fdset(cr_fdset);
-		free_cr_fdset(&cr_fdset);
 
 		if (opts->leader_only)
 			break;
@@ -571,7 +568,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 out:
 	free_pstree(&pstree_list);
 	close_cr_fdset(cr_fdset);
-	free_cr_fdset(&cr_fdset);
 	return ret;
 }
 

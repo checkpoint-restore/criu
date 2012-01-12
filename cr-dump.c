@@ -1257,12 +1257,10 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 					goto err;
 
 				close_cr_fdset(cr_fdset_thread);
-				free_cr_fdset(&cr_fdset_thread);
 			}
 		}
 
 		close_cr_fdset(cr_fdset);
-		free_cr_fdset(&cr_fdset);
 
 		if (opts->leader_only)
 			break;
@@ -1282,10 +1280,7 @@ err:
 	free_pstree(&pstree_list);
 
 	close_cr_fdset(cr_fdset);
-	free_cr_fdset(&cr_fdset);
-
 	close_cr_fdset(cr_fdset_thread);
-	free_cr_fdset(&cr_fdset_thread);
 
 	return ret;
 }

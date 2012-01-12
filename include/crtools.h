@@ -88,7 +88,6 @@ int convert_to_elf(char *elf_path, int fd_core);
 struct cr_fdset *prep_cr_fdset_for_dump(int pid, unsigned long use_mask);
 struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask);
 void close_cr_fdset(struct cr_fdset *cr_fdset);
-void free_cr_fdset(struct cr_fdset **cr_fdset);
 
 void free_mappings(struct list_head *vma_area_list);
 

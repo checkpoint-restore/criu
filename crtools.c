@@ -195,14 +195,8 @@ void close_cr_fdset(struct cr_fdset *cr_fdset)
 		close(cr_fdset->fds[i]);
 		cr_fdset->fds[i] = -1;
 	}
-}
 
-void free_cr_fdset(struct cr_fdset **cr_fdset)
-{
-	if (cr_fdset && *cr_fdset) {
-		free(*cr_fdset);
-		*cr_fdset = NULL;
-	}
+	free(cr_fdset);
 }
 
 int get_image_path(char *path, int size, const char *fmt, int pid)
