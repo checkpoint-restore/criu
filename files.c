@@ -465,7 +465,7 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)
 {
 	u32 mag;
-	int ret;
+	int ret = 0;
 
 	struct fdinfo_desc *fi = find_fd((char *)fe->id);
 
