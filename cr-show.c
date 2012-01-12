@@ -215,7 +215,7 @@ out:
 	pr_img_tail(CR_FD_SIGACT);
 }
 
-static void show_pstree(int fd_pstree)
+static int show_pstree(int fd_pstree, struct list_head *collect)
 {
 	struct pstree_entry e;
 
@@ -224,12 +224,29 @@ static void show_pstree(int fd_pstree)
 	while (1) {
 		u32 pid;
 		int ret;
+		struct pstree_item *item = NULL;
 
 		ret = read_ptr_safe_eof(fd_pstree, &e, out);
 		if (!ret)
 			goto out;
 		pr_info("pid: %8d nr_children: %8d nr_threads: %8d\n",
 			e.pid, e.nr_children, e.nr_threads);
+
+		if (collect) {
+			item = xzalloc(sizeof(struct pstree_item));
+			if (!item)
+				return -1;
+
+			item->pid = e.pid;
+			item->nr_threads = e.nr_threads;
+			item->threads = xzalloc(sizeof(u32) * e.nr_threads);
+			if (!item->threads) {
+				xfree(item);
+				return -1;
+			}
+
+			list_add_tail(&item->list, collect);
+		}
 
 		if (e.nr_children) {
 			pr_info("\\\n");
@@ -251,6 +268,8 @@ static void show_pstree(int fd_pstree)
 				if (!ret)
 					goto out;
 				pr_info(" %6d", pid);
+				if (item)
+					item->threads[e.nr_threads] = pid;
 			}
 			pr_info("\n");
 		}
@@ -259,6 +278,7 @@ static void show_pstree(int fd_pstree)
 
 out:
 	pr_img_tail(CR_FD_PSTREE);
+	return 0;
 }
 
 static void show_core_regs(int fd_core)
@@ -403,7 +423,7 @@ static int cr_parse_file(struct cr_options *opts)
 		show_shmem(fd);
 		break;
 	case PSTREE_MAGIC:
-		show_pstree(fd);
+		show_pstree(fd, NULL);
 		break;
 	case PIPES_MAGIC:
 		show_pipes(fd);
@@ -425,71 +445,6 @@ err:
 	return ret;
 }
 
-static int read_pstree(struct list_head *head, struct cr_fdset *cr_fdset)
-{
-	int fd = cr_fdset->fds[CR_FD_PSTREE];
-	struct pstree_item *item = NULL;
-	struct pstree_entry e;
-	int ret = -1;
-
-	for (;;) {
-		size_t size_children, size_threads;
-
-		ret = read(fd, &e, sizeof(e));
-		if (ret && ret != sizeof(e)) {
-			pr_perror("Wrong pstree entry\n");
-			goto err;
-		}
-
-		if (!ret)
-			break;
-
-		item = xzalloc(sizeof(*item));
-		if (!item)
-			goto err;
-
-		size_children	= sizeof(u32) * e.nr_children;
-		size_threads	= sizeof(u32) * e.nr_threads;
-
-		item->pid		= e.pid;
-		item->nr_children	= e.nr_children;
-		item->nr_threads	= e.nr_threads;
-		item->children		= xmalloc(size_children);
-		item->threads		= xmalloc(size_threads);
-
-		if (!item->children || !item->threads) {
-			pr_err("No memory for children/thread pids\n");
-			goto err;
-		}
-
-		ret = read(fd, item->children, size_children);
-		if (ret != size_children) {
-			pr_err("An error in reading children pids\n");
-			goto err;
-		}
-
-		ret = read(fd, item->threads, size_threads);
-		if (ret != size_threads) {
-			pr_err("An error in reading threads pids\n");
-			goto err;
-		}
-
-		list_add_tail(&item->list, head);
-	}
-
-	item = NULL;
-	ret = 0;
-
-err:
-	if (item) {
-		xfree(item->children);
-		xfree(item->threads);
-	}
-	xfree(item);
-
-	return ret;
-}
-
 static int cr_show_all(unsigned long pid, struct cr_options *opts)
 {
 	struct cr_fdset *cr_fdset = NULL;
@@ -501,16 +456,9 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	if (!cr_fdset)
 		goto out;
 
-	ret = read_pstree(&pstree_list, cr_fdset);
+	ret = show_pstree(cr_fdset->fds[CR_FD_PSTREE], &pstree_list);
 	if (ret)
 		goto out;
-
-	/*
-	 * Yeah, I know we read the same file for second
-	 * time here, but this saves us from code duplication.
-	 */
-	lseek(cr_fdset->fds[CR_FD_PSTREE], MAGIC_OFFSET, SEEK_SET);
-	show_pstree(cr_fdset->fds[CR_FD_PSTREE]);
 
 	close_cr_fdset(cr_fdset);
 
