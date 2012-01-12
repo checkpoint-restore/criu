@@ -240,6 +240,8 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 
 			if (name[0] != '/') {
 				pr_warning("Relative bind path unsupported\n");
+				xfree(name);
+				xfree(d);
 				return 0;
 			}
 
