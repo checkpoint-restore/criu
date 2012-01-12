@@ -180,23 +180,27 @@ err:
 	return cr_fdset;
 }
 
-void close_cr_fdset(struct cr_fdset *cr_fdset)
+void close_cr_fdset(struct cr_fdset **cr_fdset)
 {
+	struct cr_fdset *fdset;
 	unsigned int i;
 
-	if (!cr_fdset)
+	if (!cr_fdset || !*cr_fdset)
 		return;
 
+	fdset = *cr_fdset;
+
 	for (i = 0; i < CR_FD_MAX; i++) {
-		if (cr_fdset->fds[i] == -1)
+		if (fdset->fds[i] == -1)
 			continue;
 
-		pr_debug("Closed %d/%d\n", i, cr_fdset->fds[i]);
-		close(cr_fdset->fds[i]);
-		cr_fdset->fds[i] = -1;
+		pr_debug("Closed %d/%d\n", i, fdset->fds[i]);
+		close(fdset->fds[i]);
+		fdset->fds[i] = -1;
 	}
 
-	free(cr_fdset);
+	xfree(fdset);
+	*cr_fdset = NULL;
 }
 
 int get_image_path(char *path, int size, const char *fmt, int pid)
