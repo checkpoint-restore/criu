@@ -78,6 +78,10 @@ static void show_files(int fd_files)
 		int ret = read_ptr_safe_eof(fd_files, &e, out);
 		if (!ret)
 			goto out;
+
+		pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx",
+				e.type, e.len, e.flags, e.pos, e.addr);
+
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
 			if (ret != e.len) {
@@ -85,11 +89,10 @@ static void show_files(int fd_files)
 				goto out;
 			}
 			local_buf[e.len] = 0;
-			pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx --> %s\n",
-				e.type, e.len, e.flags, e.pos, e.addr, local_buf);
-		} else
-			pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx\n",
-				e.type, e.len, e.flags, e.pos, e.addr);
+			pr_info(" --> %s", local_buf);
+		}
+
+		pr_info("\n");
 	}
 
 out:
