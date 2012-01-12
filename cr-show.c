@@ -427,7 +427,7 @@ err:
 
 static int collect_pstree(struct list_head *head, pid_t pid, struct cr_fdset *cr_fdset)
 {
-	int fd = cr_fdset->desc[CR_FD_PSTREE].fd;
+	int fd = cr_fdset->fds[CR_FD_PSTREE];
 	struct pstree_item *item = NULL;
 	struct pstree_entry e;
 	int ret = -1;
@@ -497,11 +497,11 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	LIST_HEAD(pstree_list);
 	int i, ret = -1;
 
-	cr_fdset = alloc_cr_fdset(pid);
+	cr_fdset = alloc_cr_fdset();
 	if (!cr_fdset)
 		goto out;
 
-	ret = prep_cr_fdset_for_restore(cr_fdset,
+	ret = prep_cr_fdset_for_restore(cr_fdset, pid,
 					CR_FD_DESC_USE(CR_FD_PSTREE));
 	if (ret)
 		goto out;
@@ -514,24 +514,24 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	 * Yeah, I know we read the same file for second
 	 * time here, but this saves us from code duplication.
 	 */
-	lseek(cr_fdset->desc[CR_FD_PSTREE].fd, MAGIC_OFFSET, SEEK_SET);
-	show_pstree(cr_fdset->desc[CR_FD_PSTREE].fd);
+	lseek(cr_fdset->fds[CR_FD_PSTREE], MAGIC_OFFSET, SEEK_SET);
+	show_pstree(cr_fdset->fds[CR_FD_PSTREE]);
 
 	close_cr_fdset(cr_fdset);
 	free_cr_fdset(&cr_fdset);
 
 	list_for_each_entry(item, &pstree_list, list) {
 
-		cr_fdset = alloc_cr_fdset(item->pid);
+		cr_fdset = alloc_cr_fdset();
 		if (!cr_fdset)
 			goto out;
 
-		ret = prep_cr_fdset_for_restore(cr_fdset, CR_FD_DESC_NOPSTREE);
+		ret = prep_cr_fdset_for_restore(cr_fdset, item->pid, CR_FD_DESC_NOPSTREE);
 		if (ret)
 			goto out;
 
-		lseek(cr_fdset->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-		show_core(cr_fdset->desc[CR_FD_CORE].fd, opts->show_pages_content);
+		lseek(cr_fdset->fds[CR_FD_CORE], MAGIC_OFFSET, SEEK_SET);
+		show_core(cr_fdset->fds[CR_FD_CORE], opts->show_pages_content);
 
 		if (item->nr_threads > 1) {
 			struct cr_fdset *cr_fdset_th;
@@ -542,11 +542,12 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				if (item->threads[i] == item->pid)
 					continue;
 
-				cr_fdset_th = alloc_cr_fdset(item->threads[i]);
+				cr_fdset_th = alloc_cr_fdset();
 				if (!cr_fdset)
 					goto out;
 
-				ret = prep_cr_fdset_for_restore(cr_fdset_th, CR_FD_DESC_CORE);
+				ret = prep_cr_fdset_for_restore(cr_fdset_th,
+						item->threads[i], CR_FD_DESC_CORE);
 				if (ret)
 					goto out;
 
@@ -554,8 +555,8 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				pr_info("Thread: %d\n", item->threads[i]);
 				pr_info("----------------------------------------\n");
 
-				lseek(cr_fdset_th->desc[CR_FD_CORE].fd, MAGIC_OFFSET, SEEK_SET);
-				show_core(cr_fdset_th->desc[CR_FD_CORE].fd, opts->show_pages_content);
+				lseek(cr_fdset_th->fds[CR_FD_CORE], MAGIC_OFFSET, SEEK_SET);
+				show_core(cr_fdset_th->fds[CR_FD_CORE], opts->show_pages_content);
 
 				pr_info("----------------------------------------\n");
 
@@ -564,15 +565,15 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			}
 		}
 
-		show_pipes(cr_fdset->desc[CR_FD_PIPES].fd);
+		show_pipes(cr_fdset->fds[CR_FD_PIPES]);
 
-		show_files(cr_fdset->desc[CR_FD_FDINFO].fd);
+		show_files(cr_fdset->fds[CR_FD_FDINFO]);
 
-		show_shmem(cr_fdset->desc[CR_FD_SHMEM].fd);
+		show_shmem(cr_fdset->fds[CR_FD_SHMEM]);
 
-		show_sigacts(cr_fdset->desc[CR_FD_SIGACT].fd);
+		show_sigacts(cr_fdset->fds[CR_FD_SIGACT]);
 
-		show_unixsk(cr_fdset->desc[CR_FD_UNIXSK].fd);
+		show_unixsk(cr_fdset->fds[CR_FD_UNIXSK]);
 
 		close_cr_fdset(cr_fdset);
 		free_cr_fdset(&cr_fdset);

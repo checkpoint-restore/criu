@@ -162,8 +162,8 @@ static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_
 	ue.pad		= 0;
 	ue.peer		= sk->peer_ino;
 
-	write_ptr_safe(cr_fdset->desc[CR_FD_UNIXSK].fd, &ue, err);
-	write_safe(cr_fdset->desc[CR_FD_UNIXSK].fd, sk->name, ue.namelen, err);
+	write_ptr_safe(cr_fdset->fds[CR_FD_UNIXSK], &ue, err);
+	write_safe(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen, err);
 
 	pr_info("Dumping unix socket at %s\n", fd);
 	show_one_unix("Dumping", sk);

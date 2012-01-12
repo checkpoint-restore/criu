@@ -345,28 +345,21 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 {
 	parasite_args_cmd_dumpsigacts_t parasite_sigacts	= { };
 
-	int status, path_len, ret = -1;
+	int status, ret = -1;
 
 	pr_info("\n");
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[CR_FD_SIGACT].path);
-
-	if (path_len > sizeof(parasite_sigacts.open_path)) {
-		pr_panic("Dumping sigactions path is too long (%d while %d allowed)\n",
-			 path_len, sizeof(parasite_sigacts.open_path));
+	if (get_image_path(parasite_sigacts.open_path,
+				sizeof(parasite_sigacts.open_path),
+				fdset_template[CR_FD_SIGACT].fmt, ctl->pid))
 		goto out;
-	}
 
-	if (fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM_DUMP)) {
+	if (fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM_DUMP)) {
 		pr_perror("Can't change permissions on sigactions file\n");
 		goto out;
 	}
-
-	strncpy(parasite_sigacts.open_path,
-		 cr_fdset->desc[CR_FD_SIGACT].path,
-		 sizeof(parasite_sigacts.open_path));
 
 	parasite_sigacts.open_flags	= O_WRONLY;
 	parasite_sigacts.open_mode	= CR_FD_PERM_DUMP;
@@ -376,7 +369,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 				sizeof(parasite_sigacts));
 
 err:
-	jerr(fchmod(cr_fdset->desc[CR_FD_SIGACT].fd, CR_FD_PERM), out);
+	jerr(fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM), out);
 out:
 	pr_info("----------------------------------------\n");
 
@@ -397,22 +390,18 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	unsigned long nrpages_dumped = 0;
 	struct vma_area *vma_area;
 	siginfo_t siginfo;
-	int status, path_len, ret = -1;
+	int status, ret = -1;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	path_len = strlen(cr_fdset->desc[CR_FD_PAGES].path);
-	pr_info("Dumping pages %s\n", cr_fdset->desc[CR_FD_PAGES].path);
-
-	if (path_len > sizeof(parasite_dumppages.open_path)) {
-		pr_panic("Dumping pages path is too long (%d while %d allowed)\n",
-			 path_len, sizeof(parasite_dumppages.open_path));
+	if (get_image_path(parasite_dumppages.open_path,
+				sizeof(parasite_dumppages.open_path),
+				fdset_template[CR_FD_PAGES].fmt, ctl->pid))
 		goto out;
-	}
 
-	if (fchmod(cr_fdset->desc[CR_FD_PAGES].fd, CR_FD_PERM_DUMP)) {
+	if (fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM_DUMP)) {
 		pr_perror("Can't change permissions on pages file\n");
 		goto out;
 	}
@@ -421,11 +410,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 * Make sure the data is on disk since we will re-open
 	 * it in another process.
 	 */
-	fsync(cr_fdset->desc[CR_FD_PAGES].fd);
-
-	strncpy(parasite_dumppages.open_path,
-		 cr_fdset->desc[CR_FD_PAGES].path,
-		 sizeof(parasite_dumppages.open_path));
+	fsync(cr_fdset->fds[CR_FD_PAGES]);
 
 	parasite_dumppages.open_flags	= O_WRONLY;
 	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
@@ -484,16 +469,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 * We don't know the position in file since it's updated
 	 * outside of our process.
 	 */
-	lseek(cr_fdset->desc[CR_FD_PAGES].fd, 0, SEEK_END);
+	lseek(cr_fdset->fds[CR_FD_PAGES], 0, SEEK_END);
 
 	/* Ending page */
-	write_ptr_safe(cr_fdset->desc[CR_FD_PAGES].fd, &zero_page_entry, err_restore);
+	write_ptr_safe(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry, err_restore);
 
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 
 err_restore:
-	jerr(fchmod(cr_fdset->desc[CR_FD_PAGES].fd, CR_FD_PERM), out);
+	jerr(fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM), out);
 
 out:
 	pr_info("----------------------------------------\n");

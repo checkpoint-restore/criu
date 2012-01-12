@@ -70,14 +70,8 @@ extern int open_image_ro_nocheck(const char *fmt, int pid);
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666
 
-/* file descriptors */
-struct cr_fd_desc {
-	char			path[PATH_MAX];	/* the path, based on pid */
-	int			fd;		/* descriptor for open/close */
-};
-
 struct cr_fdset {
-	struct cr_fd_desc	desc[CR_FD_MAX];
+	int fds[CR_FD_MAX];
 };
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
@@ -91,10 +85,10 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts);
 int cr_show(unsigned long pid, struct cr_options *opts);
 int convert_to_elf(char *elf_path, int fd_core);
 
-struct cr_fdset *alloc_cr_fdset(pid_t pid);
-int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
+struct cr_fdset *alloc_cr_fdset(void);
+int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset, int pid,
 			   unsigned long use_mask);
-int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
+int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset, int pid,
 			      unsigned long use_mask);
 void close_cr_fdset(struct cr_fdset *cr_fdset);
 void free_cr_fdset(struct cr_fdset **cr_fdset);

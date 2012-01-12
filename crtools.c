@@ -87,36 +87,24 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	},
 };
 
-struct cr_fdset *alloc_cr_fdset(pid_t pid)
+struct cr_fdset *alloc_cr_fdset(void)
 {
 	struct cr_fdset *cr_fdset;
 	unsigned int i;
-	int ret;
 
-	cr_fdset = xzalloc(sizeof(*cr_fdset));
-	if (!cr_fdset)
-		goto err;
-
-	for (i = 0; i < CR_FD_MAX; i++) {
-		ret = get_image_path(cr_fdset->desc[i].path,
-				sizeof(cr_fdset->desc[i].path),
-				fdset_template[i].fmt, pid);
-		if (ret) {
-			xfree(cr_fdset);
-			return NULL;
-		}
-		cr_fdset->desc[i].fd = -1;
-	}
-
-err:
+	cr_fdset = xmalloc(sizeof(*cr_fdset));
+	if (cr_fdset)
+		for (i = 0; i < CR_FD_MAX; i++)
+			cr_fdset->fds[i] = -1;
 	return cr_fdset;
 }
 
-int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
+int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset, int pid,
 			    unsigned long use_mask)
 {
 	unsigned int i;
 	int ret = -1;
+	char path[PATH_MAX];
 
 	if (!cr_fdset)
 		goto err;
@@ -125,40 +113,39 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
-		ret = unlink(cr_fdset->desc[i].path);
-		if (ret && errno != ENOENT) {
-			pr_perror("Unable to unlink %s (%s)\n",
-				 cr_fdset->desc[i].path,
-				 strerror(errno));
+		ret = get_image_path(path, sizeof(path),
+				fdset_template[i].fmt, pid);
+		if (ret)
 			goto err;
-		} else
-			ret = -1;
-		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].path,
-					    O_RDWR | O_CREAT | O_EXCL,
-					    CR_FD_PERM);
-		if (cr_fdset->desc[i].fd < 0) {
-			pr_perror("Unable to open %s (%s)\n",
-				 cr_fdset->desc[i].path,
-				 strerror(errno));
+
+		ret = unlink(path);
+		if (ret && errno != ENOENT) {
+			pr_perror("Unable to unlink %s (%s)\n", path, strerror(errno));
+			goto err;
+		} 
+
+		ret = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
+		if (ret < 0) {
+			pr_perror("Unable to open %s (%s)\n", path, strerror(errno));
 			goto err;
 		}
 
-		pr_debug("Opened %s with %d\n",
-			 cr_fdset->desc[i].path,
-			 cr_fdset->desc[i].fd);
-
-		write_ptr_safe(cr_fdset->desc[i].fd, &fdset_template[i].magic, err);
+		pr_debug("Opened %s with %d\n", path, ret);
+		write_ptr_safe(ret, &fdset_template[i].magic, err);
+		cr_fdset->fds[i] = ret;
 	}
+
 	ret = 0;
 err:
 	return ret;
 }
 
-int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
+int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset, int pid,
 			       unsigned long use_mask)
 {
 	unsigned int i;
 	int ret = -1;
+	char path[PATH_MAX];
 	u32 magic;
 
 	if (!cr_fdset)
@@ -168,27 +155,28 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
-		cr_fdset->desc[i].fd = open(cr_fdset->desc[i].path,
-					    O_RDWR, CR_FD_PERM);
-		if (cr_fdset->desc[i].fd < 0) {
-			pr_perror("Unable to open %s (%s)\n",
-				 cr_fdset->desc[i].path,
-				 strerror(errno));
+		ret = get_image_path(path, sizeof(path),
+				fdset_template[i].fmt, pid);
+		if (ret)
+			goto err;
+
+		ret = open(path, O_RDWR, CR_FD_PERM);
+		if (ret < 0) {
+			pr_perror("Unable to open %s (%s)\n", path, strerror(errno));
 			goto err;
 		}
 
-		pr_debug("Opened %s with %d\n",
-			 cr_fdset->desc[i].path,
-			 cr_fdset->desc[i].fd);
-
-		read_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
+		pr_debug("Opened %s with %d\n", path, ret);
+		read_ptr_safe(ret, &magic, err);
 		if (magic != fdset_template[i].magic) {
-			pr_err("Magic doesn't match for %s\n",
-			       cr_fdset->desc[i].path);
+			close(ret);
+			pr_err("Magic doesn't match for %s\n", path);
 			goto err;
 		}
 
+		cr_fdset->fds[i] = ret;
 	}
+
 	ret = 0;
 err:
 	return ret;
@@ -202,14 +190,12 @@ void close_cr_fdset(struct cr_fdset *cr_fdset)
 		return;
 
 	for (i = 0; i < CR_FD_MAX; i++) {
-		if (cr_fdset->desc[i].fd == -1)
+		if (cr_fdset->fds[i] == -1)
 			continue;
 
-		pr_debug("Closed %s with %d\n",
-				cr_fdset->desc[i].path,
-				cr_fdset->desc[i].fd);
-		close(cr_fdset->desc[i].fd);
-		cr_fdset->desc[i].fd = -1;
+		pr_debug("Closed %d/%d\n", i, cr_fdset->fds[i]);
+		close(cr_fdset->fds[i]);
+		cr_fdset->fds[i] = -1;
 	}
 }
 

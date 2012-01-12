@@ -128,8 +128,8 @@ static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
 		type, len, flags, pos, fd_name);
 
-	write_ptr_safe(cr_fdset->desc[CR_FD_FDINFO].fd, &e, err);
-	write_safe(cr_fdset->desc[CR_FD_FDINFO].fd, big_buffer, e.len, err);
+	write_ptr_safe(cr_fdset->fds[CR_FD_FDINFO], &e, err);
+	write_safe(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.len, err);
 
 	ret = 0;
 err:
@@ -160,7 +160,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 	int has_bytes;
 	int ret = -1;
 
-	fd_pipes = cr_fdset->desc[CR_FD_PIPES].fd;
+	fd_pipes = cr_fdset->fds[CR_FD_PIPES];
 
 	pr_info("Dumping data from pipe %x\n", e->pipeid);
 	if (pipe(steal_pipe) < 0) {
@@ -219,7 +219,7 @@ static int dump_one_pipe(int fd, int lfd, unsigned int id, unsigned int flags,
 
 	if (flags & O_WRONLY) {
 		e.bytes = 0;
-		write_ptr_safe(cr_fdset->desc[CR_FD_PIPES].fd, &e, err);
+		write_ptr_safe(cr_fdset->fds[CR_FD_PIPES], &e, err);
 		ret = 0;
 	} else
 		ret = dump_pipe_and_data(lfd, &e, cr_fdset);
@@ -387,7 +387,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
 					e.start, e.end, e.shmid);
 
-				write_ptr_safe(cr_fdset->desc[CR_FD_SHMEM].fd, &e, err);
+				write_ptr_safe(cr_fdset->fds[CR_FD_SHMEM], &e, err);
 			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				   vma_entry_is(vma, VMA_FILE_SHARED)) {
 
@@ -651,7 +651,7 @@ err:
 static int dump_task_core_seized(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
-	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
+	int fd_core			= cr_fdset->fds[CR_FD_CORE];
 	int ret				= -1;
 	unsigned long brk;
 
@@ -866,12 +866,12 @@ static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset
 		e.nr_children	= item->nr_children;
 		e.nr_threads	= item->nr_threads;
 
-		write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd, &e, err);
+		write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE], &e, err);
 
 		pr_info("Children:");
 		for (i = 0; i < item->nr_children; i++) {
 			pr_info(" %d", item->children[i]);
-			write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd,
+			write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE],
 				       &item->children[i], err);
 		}
 		pr_info("\n");
@@ -879,7 +879,7 @@ static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset
 		pr_info("Threads:\n");
 		for (i = 0; i < item->nr_threads; i++) {
 			pr_info(" %d", item->threads[i]);
-			write_ptr_safe(cr_fdset->desc[CR_FD_PSTREE].fd,
+			write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE],
 				       &item->threads[i], err);
 		}
 		pr_info("\n");
@@ -906,8 +906,8 @@ static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsign
 static int append_thread_core(struct cr_fdset *dst, struct cr_fdset *src)
 {
 	const int size = sizeof(struct core_entry);
-	int fd_core_dst = dst->desc[CR_FD_CORE].fd;
-	int fd_code_src = src->desc[CR_FD_CORE].fd;
+	int fd_core_dst = dst->fds[CR_FD_CORE];
+	int fd_code_src = src->fds[CR_FD_CORE];
 	int ret = -1;
 
 	lseek(fd_core_dst, 0, SEEK_END);
@@ -937,9 +937,9 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	pr_info("Finalizing core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	fd_core		= cr_fdset->desc[CR_FD_CORE].fd;
-	fd_pages	= cr_fdset->desc[CR_FD_PAGES].fd;
-	fd_pages_shmem	= cr_fdset->desc[CR_FD_PAGES_SHMEM].fd;
+	fd_core		= cr_fdset->fds[CR_FD_CORE];
+	fd_pages	= cr_fdset->fds[CR_FD_PAGES];
+	fd_pages_shmem	= cr_fdset->fds[CR_FD_PAGES_SHMEM];
 
 	lseek(fd_core,		GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 	lseek(fd_pages,		MAGIC_OFFSET, SEEK_SET);
@@ -1043,7 +1043,7 @@ err_strno:
 static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
-	int fd_core			= cr_fdset->desc[CR_FD_CORE].fd;
+	int fd_core			= cr_fdset->fds[CR_FD_CORE];
 	int ret				= -1;
 
 	pr_info("\n");
@@ -1224,17 +1224,17 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 
 	list_for_each_entry(item, &pstree_list, list) {
 
-		cr_fdset = alloc_cr_fdset(item->pid);
+		cr_fdset = alloc_cr_fdset();
 		if (!cr_fdset)
 			goto err;
 
 		if (item->pid == pid) {
-			if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_ALL))
+			if (prep_cr_fdset_for_dump(cr_fdset, item->pid, CR_FD_DESC_ALL))
 				goto err;
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
 				goto err;
 		} else {
-			if (prep_cr_fdset_for_dump(cr_fdset, CR_FD_DESC_NOPSTREE))
+			if (prep_cr_fdset_for_dump(cr_fdset, item->pid, CR_FD_DESC_NOPSTREE))
 				goto err;
 		}
 
@@ -1249,11 +1249,12 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 				if (item->pid == item->threads[i])
 					continue;
 
-				cr_fdset_thread = alloc_cr_fdset(item->threads[i]);
+				cr_fdset_thread = alloc_cr_fdset();
 				if (!cr_fdset_thread)
 					goto err;
 
-				if (prep_cr_fdset_for_dump(cr_fdset_thread, CR_FD_DESC_CORE))
+				if (prep_cr_fdset_for_dump(cr_fdset_thread,
+							item->threads[i], CR_FD_DESC_CORE))
 					goto err;
 
 				if (dump_task_thread(item->threads[i], cr_fdset_thread))
