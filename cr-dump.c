@@ -234,26 +234,24 @@ err:
 	return ret;
 }
 
-static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long pos,
+static int dump_one_fd(char *pid_fd_dir, int lfd, int fd, unsigned long pos,
 		       unsigned int flags, char *id, struct cr_fdset *cr_fdset)
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
 	int err = -1;
-	int lfd = -1;
 
-	lfd = openat(dir, fd_name, O_RDONLY);
 	if (lfd < 0) {
-		err = try_dump_socket(pid_fd_dir, fd_name, cr_fdset);
+		err = try_dump_socket(pid_fd_dir, fd, cr_fdset);
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to openat %s/%d %s\n", pid_fd_dir, dir, fd_name);
+		pr_perror("Failed to openat %s/%d\n", pid_fd_dir, fd);
 		return -1;
 	}
 
 	if (fstat(lfd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %s\n", fd_name);
+		pr_perror("Can't get stat on %d\n", fd);
 		goto out_close;
 	}
 
@@ -261,9 +259,9 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	    (major(st_buf.st_rdev) == TTY_MAJOR ||
 	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
 		/* skip only standard destriptors */
-		if (atoi(fd_name) < 3) {
+		if (fd < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %s/%s\n", pid_fd_dir, fd_name);
+			pr_info("... Skipping tty ... %s/%d\n", pid_fd_dir, fd);
 			goto out_close;
 		}
 		goto err;
@@ -272,22 +270,22 @@ static int dump_one_fd(char *pid_fd_dir, int dir, char *fd_name, unsigned long p
 	if (S_ISREG(st_buf.st_mode) ||
 	    S_ISDIR(st_buf.st_mode) ||
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
-		return dump_one_reg_file(FDINFO_FD, atol(fd_name),
+		return dump_one_reg_file(FDINFO_FD, fd,
 					 lfd, 1, pos, flags, id, cr_fdset);
 
 	if (S_ISFIFO(st_buf.st_mode)) {
 		if (fstatfs(lfd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %s\n", fd_name);
+			pr_perror("Can't fstatfs on %d\n", fd);
 			return -1;
 		}
 
 		if (stfs_buf.f_type == PIPEFS_MAGIC)
-			return dump_one_pipe(atol(fd_name), lfd,
+			return dump_one_pipe(fd, lfd,
 					     st_buf.st_ino, flags, cr_fdset);
 	}
 
 err:
-	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
+	pr_err("Can't dump file %d of that type [%x]\n", fd, st_buf.st_mode);
 
 out_close:
 	close_safe(&lfd);
@@ -342,11 +340,15 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 	}
 
 	while ((de = readdir(fd_dir))) {
+		int lfd;
+
 		if (de->d_name[0] == '.')
 			continue;
 		if (read_fd_params(pid, de->d_name, &pos, &flags, id))
 			return -1;
-		if (dump_one_fd(pid_fd_dir, dirfd(fd_dir), de->d_name,
+
+		lfd = openat(dirfd(fd_dir), de->d_name, O_RDONLY);
+		if (dump_one_fd(pid_fd_dir, lfd, atoi(de->d_name),
 						pos, flags, id, cr_fdset))
 			return -1;
 	}
