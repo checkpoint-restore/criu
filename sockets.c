@@ -144,7 +144,7 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_fdset)
+static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fdset)
 {
 	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
@@ -152,7 +152,7 @@ static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	ue.fd		= atoi(fd);
+	ue.fd		= fd;
 	ue.id		= sk->sd.ino;
 	ue.type		= sk->type;
 	ue.state	= sk->state;
@@ -175,13 +175,13 @@ err:
 	return -1;
 }
 
-int try_dump_socket(char *dir, char *fd, struct cr_fdset *cr_fdset)
+int try_dump_socket(char *dir, int fd, struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
 	struct statfs fst;
 	struct stat st;
 
-	snprintf(buf, sizeof(buf), "%s/%s", dir, fd);
+	snprintf(buf, sizeof(buf), "%s/%d", dir, fd);
 	if (statfs(buf, &fst)) {
 		pr_err("Can't statfs %s\n", buf);
 		return -1;

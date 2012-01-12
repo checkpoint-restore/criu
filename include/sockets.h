@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 struct cr_fdset;
-extern int try_dump_socket(char *dir_name, char *fd_name, struct cr_fdset *cr_fdset);
+extern int try_dump_socket(char *dir_name, int fd, struct cr_fdset *cr_fdset);
 
 extern int collect_sockets(void);
 extern int prepare_sockets(int pid);
