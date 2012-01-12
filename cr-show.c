@@ -425,7 +425,7 @@ err:
 	return ret;
 }
 
-static int collect_pstree(struct list_head *head, pid_t pid, struct cr_fdset *cr_fdset)
+static int read_pstree(struct list_head *head, struct cr_fdset *cr_fdset)
 {
 	int fd = cr_fdset->fds[CR_FD_PSTREE];
 	struct pstree_item *item = NULL;
@@ -501,7 +501,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	if (!cr_fdset)
 		goto out;
 
-	ret = collect_pstree(&pstree_list, pid, cr_fdset);
+	ret = read_pstree(&pstree_list, cr_fdset);
 	if (ret)
 		goto out;
 
