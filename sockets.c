@@ -239,8 +239,8 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 			struct stat st;
 
 			if (name[0] != '/') {
-				pr_err("Relative bind path unsupported\n");
-				goto err;
+				pr_warning("Relative bind path unsupported\n");
+				return 0;
 			}
 
 			if (!tb[UNIX_DIAG_VFS]) {
