@@ -903,26 +903,6 @@ static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsign
 	return NULL;
 }
 
-static int append_thread_core(struct cr_fdset *dst, struct cr_fdset *src)
-{
-	const int size = sizeof(struct core_entry);
-	int fd_core_dst = dst->fds[CR_FD_CORE];
-	int fd_code_src = src->fds[CR_FD_CORE];
-	int ret = -1;
-
-	lseek(fd_core_dst, 0, SEEK_END);
-	lseek(fd_code_src, MAGIC_OFFSET, SEEK_SET);
-
-	if (sendfile(fd_core_dst, fd_code_src, NULL, size) != size) {
-		pr_perror("Appending thread code failed\n");
-		goto err;
-	}
-
-	ret = 0;
-err:
-	return ret;
-}
-
 /* kernel expects a special format in core file */
 static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
 {
@@ -1251,9 +1231,6 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 					goto err;
 
 				if (dump_task_thread(item->threads[i], cr_fdset_thread))
-					goto err;
-
-				if (append_thread_core(cr_fdset, cr_fdset_thread))
 					goto err;
 
 				close_cr_fdset(cr_fdset_thread);
