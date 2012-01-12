@@ -1,4 +1,5 @@
 #include <linux/types.h>
+#include <sys/socket.h>
 #include <linux/netlink.h>
 #include <string.h>
 
