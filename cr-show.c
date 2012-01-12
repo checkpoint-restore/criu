@@ -520,7 +520,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		if (!cr_fdset)
 			goto out;
 
-		lseek(cr_fdset->fds[CR_FD_CORE], MAGIC_OFFSET, SEEK_SET);
 		show_core(cr_fdset->fds[CR_FD_CORE], opts->show_pages_content);
 
 		if (item->nr_threads > 1) {
@@ -540,7 +539,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				pr_info("Thread: %d\n", item->threads[i]);
 				pr_info("----------------------------------------\n");
 
-				lseek(cr_fdset_th->fds[CR_FD_CORE], MAGIC_OFFSET, SEEK_SET);
 				show_core(cr_fdset_th->fds[CR_FD_CORE], opts->show_pages_content);
 
 				pr_info("----------------------------------------\n");
