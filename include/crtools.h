@@ -72,7 +72,6 @@ extern int open_image_ro_nocheck(const char *fmt, int pid);
 
 /* file descriptors */
 struct cr_fd_desc {
-	struct cr_fd_desc_tmpl	*tmpl;		/* template we refer to */
 	char			path[PATH_MAX];	/* the path, based on pid */
 	int			fd;		/* descriptor for open/close */
 };

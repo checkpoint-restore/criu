@@ -98,11 +98,9 @@ struct cr_fdset *alloc_cr_fdset(pid_t pid)
 		goto err;
 
 	for (i = 0; i < CR_FD_MAX; i++) {
-		cr_fdset->desc[i].tmpl = &fdset_template[i];
 		ret = get_image_path(cr_fdset->desc[i].path,
 				sizeof(cr_fdset->desc[i].path),
-				cr_fdset->desc[i].tmpl->fmt,
-				pid);
+				fdset_template[i].fmt, pid);
 		if (ret) {
 			xfree(cr_fdset);
 			return NULL;
@@ -118,7 +116,6 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 			    unsigned long use_mask)
 {
 	unsigned int i;
-	u32 magic;
 	int ret = -1;
 
 	if (!cr_fdset)
@@ -152,8 +149,7 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset,
 			 cr_fdset->desc[i].path,
 			 cr_fdset->desc[i].fd);
 
-		magic = cr_fdset->desc[i].tmpl->magic;
-		write_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
+		write_ptr_safe(cr_fdset->desc[i].fd, &fdset_template[i].magic, err);
 	}
 	ret = 0;
 err:
@@ -190,7 +186,7 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset,
 			 cr_fdset->desc[i].fd);
 
 		read_ptr_safe(cr_fdset->desc[i].fd, &magic, err);
-		if (magic != cr_fdset->desc[i].tmpl->magic) {
+		if (magic != fdset_template[i].magic) {
 			pr_err("Magic doesn't match for %s\n",
 			       cr_fdset->desc[i].path);
 			goto err;
