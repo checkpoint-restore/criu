@@ -1223,18 +1223,15 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	pstree_switch_state(&pstree_list, CR_TASK_STOP, opts->leader_only);
 
 	list_for_each_entry(item, &pstree_list, list) {
-
-		cr_fdset = alloc_cr_fdset();
-		if (!cr_fdset)
-			goto err;
-
 		if (item->pid == pid) {
-			if (prep_cr_fdset_for_dump(cr_fdset, item->pid, CR_FD_DESC_ALL))
+			cr_fdset = prep_cr_fdset_for_dump(item->pid, CR_FD_DESC_ALL);
+			if (!cr_fdset)
 				goto err;
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
 				goto err;
 		} else {
-			if (prep_cr_fdset_for_dump(cr_fdset, item->pid, CR_FD_DESC_NOPSTREE))
+			cr_fdset = prep_cr_fdset_for_dump(item->pid, CR_FD_DESC_NOPSTREE);
+			if (!cr_fdset)
 				goto err;
 		}
 
@@ -1249,12 +1246,8 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 				if (item->pid == item->threads[i])
 					continue;
 
-				cr_fdset_thread = alloc_cr_fdset();
+				cr_fdset_thread = prep_cr_fdset_for_dump(item->threads[i], CR_FD_DESC_CORE);
 				if (!cr_fdset_thread)
-					goto err;
-
-				if (prep_cr_fdset_for_dump(cr_fdset_thread,
-							item->threads[i], CR_FD_DESC_CORE))
 					goto err;
 
 				if (dump_task_thread(item->threads[i], cr_fdset_thread))

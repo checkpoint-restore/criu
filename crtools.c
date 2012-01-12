@@ -87,7 +87,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	},
 };
 
-struct cr_fdset *alloc_cr_fdset(void)
+static struct cr_fdset *alloc_cr_fdset(void)
 {
 	struct cr_fdset *cr_fdset;
 	unsigned int i;
@@ -99,13 +99,14 @@ struct cr_fdset *alloc_cr_fdset(void)
 	return cr_fdset;
 }
 
-int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset, int pid,
-			    unsigned long use_mask)
+struct cr_fdset *prep_cr_fdset_for_dump(int pid, unsigned long use_mask)
 {
 	unsigned int i;
 	int ret = -1;
 	char path[PATH_MAX];
+	struct cr_fdset *cr_fdset;
 
+	cr_fdset = alloc_cr_fdset();
 	if (!cr_fdset)
 		goto err;
 
@@ -134,20 +135,19 @@ int prep_cr_fdset_for_dump(struct cr_fdset *cr_fdset, int pid,
 		write_ptr_safe(ret, &fdset_template[i].magic, err);
 		cr_fdset->fds[i] = ret;
 	}
-
-	ret = 0;
 err:
-	return ret;
+	return cr_fdset;
 }
 
-int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset, int pid,
-			       unsigned long use_mask)
+struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
 {
 	unsigned int i;
 	int ret = -1;
 	char path[PATH_MAX];
 	u32 magic;
+	struct cr_fdset *cr_fdset;
 
+	cr_fdset = alloc_cr_fdset();
 	if (!cr_fdset)
 		goto err;
 
@@ -176,10 +176,8 @@ int prep_cr_fdset_for_restore(struct cr_fdset *cr_fdset, int pid,
 
 		cr_fdset->fds[i] = ret;
 	}
-
-	ret = 0;
 err:
-	return ret;
+	return cr_fdset;
 }
 
 void close_cr_fdset(struct cr_fdset *cr_fdset)
