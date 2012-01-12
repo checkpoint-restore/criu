@@ -259,7 +259,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 	sun_len = SUN_LEN(&saddr);
 	*saddr.sun_path = '\0';
 
-	pr_info("\t%d: Got fd for %lx type %d namelen %d users %d\n", pid,
+	pr_info("\t%d: Create transport fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
 
 	if (fi->pid == pid)
@@ -314,7 +314,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	cr_wait_set(&fi->real_pid, getpid());
 
-	pr_info("\t%d: Got fd for %lx type %d namelen %d users %d\n", pid,
+	pr_info("\t%d: Create fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
 
 	list_for_each_entry(fle, &fi->list, list) {
@@ -425,7 +425,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi, 
 	}
 	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
-	pr_info("\t%d: Got fd for %lx type %d namelen %d users %d\n", pid,
+	pr_info("\t%d: Receive fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
 
 	tmp = recv_fd(fe->addr);
