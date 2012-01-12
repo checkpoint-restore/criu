@@ -413,8 +413,6 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi, 
 	struct sockaddr_un saddr;
 	socklen_t address_length;
 
-	struct fdinfo_list_entry *fle;
-
 	if (fi->pid == pid) {
 		tmp = dup2(fi->addr, fe->addr);
 		if (tmp < 0) {
@@ -423,7 +421,6 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi, 
 		}
 		return 0;
 	}
-	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
 	pr_info("\t%d: Receive fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
