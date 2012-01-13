@@ -6,10 +6,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include "crtools.h"
+
 #include "types.h"
 #include "list.h"
 #include "util.h"
+#include "crtools.h"
+
 #include "proc_parse.h"
 
 int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files)
@@ -183,7 +185,10 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 	}
 
 	memset(s, 0, sizeof(*s));
-	fscanf(f, "%d (%s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %d %d %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu",
+	fscanf(f,
+	       "%d (%s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld "
+	       "%ld %d %d %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu "
+	       "%lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu",
 		&s->pid,
 		s->comm,
 		&s->state,
@@ -234,5 +239,6 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 
 	s->comm[strlen(s->comm) - 1] = '\0'; /* trim the ending ) */
 	fclose(f);
+
 	return 0;
 }
