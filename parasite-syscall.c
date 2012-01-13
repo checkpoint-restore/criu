@@ -505,8 +505,8 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_li
 	regs.ip = vma_area->vma.start;
 
 	ret = munmap_seized(ctl->pid, &regs,
-			    (void *)ctl->vma_area->vma.start,
-			    (size_t)vma_entry_len(&ctl->vma_area->vma));
+			    (void *)ctl->vma_area.vma.start,
+			    (size_t)vma_entry_len(&ctl->vma_area.vma));
 	if (ret)
 		pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
 
@@ -527,15 +527,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	struct vma_area *vma_area;
 	void *mmaped;
 
-	ctl = xzalloc(sizeof(*ctl) + sizeof(*vma_area));
+	ctl = xzalloc(sizeof(*ctl));
 	if (!ctl) {
 		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
 
 	/* Setup control block */
-	ctl->pid	= pid;
-	ctl->vma_area	= (struct vma_area *)(char *)&ctl[sizeof(*ctl)];
+	ctl->pid = pid;
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs))
 		pr_err_jmp(err_free);
@@ -552,14 +551,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	/*
 	 * Prepare for in-process syscall.
 	 */
-	ctl->vma_area->vma.prot		= PROT_READ | PROT_WRITE | PROT_EXEC;
-	ctl->vma_area->vma.flags	= MAP_PRIVATE | MAP_ANONYMOUS;
+	ctl->vma_area.vma.prot	= PROT_READ | PROT_WRITE | PROT_EXEC;
+	ctl->vma_area.vma.flags	= MAP_PRIVATE | MAP_ANONYMOUS;
 
 	regs.ip = vma_area->vma.start;
 
 	mmaped = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
-			     (int)ctl->vma_area->vma.prot,
-			     (int)ctl->vma_area->vma.flags,
+			     (int)ctl->vma_area.vma.prot,
+			     (int)ctl->vma_area.vma.flags,
 			     (int)-1, (off_t)0);
 
 	if (!mmaped || (long)mmaped < 0) {
@@ -571,8 +570,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	ctl->addr_cmd			= PARASITE_CMD_ADDR((unsigned long)mmaped);
 	ctl->addr_args			= PARASITE_ARGS_ADDR((unsigned long)mmaped);
 
-	ctl->vma_area->vma.start= (u64)mmaped;
-	ctl->vma_area->vma.end	= (u64)(mmaped + parasite_size);
+	ctl->vma_area.vma.start	= (u64)mmaped;
+	ctl->vma_area.vma.end	= (u64)(mmaped + parasite_size);
 
 	if (ptrace_poke_area(pid, parasite_blob, mmaped, parasite_size)) {
 		pr_err("Can't inject parasite blob (pid: %d)\n", pid);
