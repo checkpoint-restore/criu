@@ -341,7 +341,7 @@ static int collect_unix_sockets(int nl)
 	memset(&req, 0, sizeof(req));
 	req.hdr.nlmsg_len	= sizeof(req);
 	req.hdr.nlmsg_type	= SOCK_DIAG_BY_FAMILY;
-	req.hdr.nlmsg_flags	= NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.hdr.nlmsg_flags	= NLM_F_DUMP | NLM_F_REQUEST;
 	req.hdr.nlmsg_seq	= CR_NLMSG_SEQ;
 	req.r.sdiag_family	= AF_UNIX;
 	req.r.udiag_states	= -1; /* All */
