@@ -434,6 +434,8 @@ err:
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
+static struct proc_pid_stat pps_buf;
+
 static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 			 u64 *start_code, u64 *end_code,
 			 u64 *start_data, u64 *end_data,
@@ -441,101 +443,29 @@ static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 			 u64 *task_sigset)
 {
 	FILE *file = NULL;
-	char *tok1, *tok2;
-	int i, ret = -1;
+	int ret;
 
-	/*
-	 * NOTE: Be careful, /proc/$pid/stat has a parasite
-	 * '0' symbol at argument 20 in format string.
-	 */
-
-	file = fopen_proc(pid_dir, "stat");
-	if (!file) {
-		pr_perror("Can't open %d stat\n", pid);
+	ret = parse_pid_stat(pid, pid_dir, &pps_buf);
+	if (ret < 0)
 		goto err;
-	}
 
-	if (!fgets(loc_buf, sizeof(loc_buf), file)) {
-		perror("Can't read task stat");
-		goto err;
-	}
+	strcpy((char *)comm, pps_buf.comm);
+	*flags = pps_buf.flags;
+	*start_code = pps_buf.start_code;
+	*end_code = pps_buf.end_code;
+	*start_data = pps_buf.start_data;
+	*end_data = pps_buf.end_data;
+	*start_stack = pps_buf.start_stack;
+	*start_brk = pps_buf.start_brk;
 
-	tok1 = strtok(loc_buf, "(");
-	tok2 = strtok(NULL, ")");
-	if ((long)tok1 & (long)tok2) {
-		strncpy((char *)comm, tok2, TASK_COMM_LEN);
-		ret = 0;
-	} else {
-		printf("Unable to parse task stat\n");
-		ret = -1;
-	}
-
-	if (!ret) {
-		ret = -1;
-		for (i = 0; i < 7; i++) {
-			tok1 = strtok(NULL, " \n\t");
-			if (!tok1)
-				goto err_corrupted;
-		}
-		*flags = atoi(tok1);
-		ret = 0;
-	}
-
-	if (!ret) {
-		ret = -1;
-		for (i = 0; i < 16; i++) {
-			tok1 = strtok(NULL, " \n\t");
-			if (!tok1)
-				goto err_corrupted;
-		}
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*start_code = atol(tok1);
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*end_code = atol(tok1);
-		ret = 0;
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*start_stack = atol(tok1);
-		ret = 0;
-	}
-
-	if (!ret) {
-		ret = -1;
-		for (i = 0; i < 16; i++) {
-			tok1 = strtok(NULL, " \n\t");
-			if (!tok1)
-				goto err_corrupted;
-		}
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*start_data = atol(tok1);
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*end_data = atol(tok1);
-
-		tok1 = strtok(NULL, " \n\t");
-		if (!tok1)
-			goto err_corrupted;
-		*start_brk = atol(tok1);
-		ret = 0;
+	if (*start_data == 0 || *end_data == 0 || *start_brk == 0) {
+		pr_err("%d's stat is corrupted/not complete\n", pid);
+		goto err_corrupted;
 	}
 
 	/*
 	 * Now signals.
 	 */
-	fclose(file);
 	file = fopen_proc(pid_dir, "status");
 	if (!file) {
 		pr_perror("Can't open %d status\n", pid);

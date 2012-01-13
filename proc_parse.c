@@ -172,3 +172,67 @@ err_bogus_mapping:
 	goto err;
 }
 
+int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
+{
+	FILE *f;
+
+	f = fopen_proc(pid_dir, "stat");
+	if (f == NULL) {
+		pr_perror("Can't open %d's stat", pid);
+		return -1;
+	}
+
+	memset(s, 0, sizeof(*s));
+	fscanf(f, "%d (%s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %d %d %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu",
+		&s->pid,
+		s->comm,
+		&s->state,
+		&s->ppid,
+		&s->pgid,
+		&s->sid,
+		&s->tty_nr,
+		&s->tty_pgrp,
+		&s->flags,
+		&s->min_flt,
+		&s->cmin_flt,
+		&s->maj_flt,
+		&s->cmaj_flt,
+		&s->utime,
+		&s->stime,
+		&s->cutime,
+		&s->cstime,
+		&s->priority,
+		&s->nice,
+		&s->num_threads,
+		&s->zero0,
+		&s->start_time,
+		&s->vsize,
+		&s->mm_rss,
+		&s->rsslim,
+		&s->start_code,
+		&s->end_code,
+		&s->start_stack,
+		&s->esp,
+		&s->eip,
+		&s->sig_pending,
+		&s->sig_blocked,
+		&s->sig_ignored,
+		&s->sig_handled,
+		&s->wchan,
+		&s->zero1,
+		&s->zero2,
+		&s->exit_signal,
+		&s->task_cpu,
+		&s->rt_priority,
+		&s->policy,
+		&s->delayacct_blkio_ticks,
+		&s->gtime,
+		&s->cgtime,
+		&s->start_data,
+		&s->end_data,
+		&s->start_brk);
+
+	s->comm[strlen(s->comm) - 1] = '\0'; /* trim the ending ) */
+	fclose(f);
+	return 0;
+}
