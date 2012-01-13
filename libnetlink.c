@@ -29,7 +29,7 @@ int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 		if (hdr->nlmsg_type == NLMSG_DONE)
 			return 0;
 		if (hdr->nlmsg_type == NLMSG_ERROR) {
-			pr_err("Error getting scokets list\n");
+			pr_err("Error getting sockets list\n");
 			return -1;
 		}
 		if (cb(hdr))
