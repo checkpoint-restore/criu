@@ -470,7 +470,7 @@ static int run_accept_jobs(void)
 			return -1;
 		}
 
-		if (reopen_fd_as(aj->fd, fd))
+		if (reopen_fd_as_nocheck(aj->fd, fd))
 			return -1;
 
 		unix_show_job("Fin acc", aj->fd, -1);
@@ -802,6 +802,7 @@ err:
 
 int prepare_sockets(int pid)
 {
+	pr_info("%d: Opening sockets\n", pid);
 	return prepare_unix_sockets(pid);
 }
 
