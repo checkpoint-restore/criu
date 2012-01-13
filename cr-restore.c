@@ -334,15 +334,14 @@ static int prepare_pipes_pid(int pid)
 	return 0;
 }
 
-static int shmem_remap(pid_t pid, struct shmems *old_addr,
-		       struct shmems *new_addr)
+static int shmem_remap(struct shmems *old_addr, struct shmems *new_addr)
 {
 	char path[PATH_MAX];
 	int fd;
 	void *ret;
 
-	sprintf(path, "/proc/%d/map_files/%p-%p",
-		pid, old_addr, (void *)old_addr + SHMEMS_SIZE);
+	sprintf(path, "/proc/self/map_files/%p-%p",
+		old_addr, (void *)old_addr + SHMEMS_SIZE);
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
@@ -373,7 +372,6 @@ static int prepare_shared(int ps_fd)
 		return -1;
 	}
 
-	shmems->pid = getpid();
 	shmems->nr_shmems = 0;
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
@@ -1465,7 +1463,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	shmems_ref = (struct shmems *)(exec_mem_hint +
 				       restore_task_vma_len +
 				       restore_thread_vma_len);
-	ret = shmem_remap(shmems->pid, shmems, shmems_ref);
+	ret = shmem_remap(shmems, shmems_ref);
 	if (ret < 0)
 		goto err;
 
