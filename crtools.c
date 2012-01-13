@@ -209,15 +209,22 @@ int get_image_path(char *path, int size, const char *fmt, int pid)
 	int ret;
 
 	strncpy(path, image_dir, size);
+
+	if (size <= image_dir_size)
+		goto err;
+
 	path[image_dir_size] = '/';
 	size -= image_dir_size + 1;
 
 	ret = snprintf(path + image_dir_size + 1, size, fmt, pid);
-	if (ret == -1 || ret >= size) {
-		pr_err("can't get image path\n");
-		return -1;
-	}
+	if (ret == -1 || ret >= size)
+		goto err;
+
 	return 0;
+
+err:
+	pr_err("can't get image path\n");
+	return -1;
 }
 
 int main(int argc, char *argv[])
