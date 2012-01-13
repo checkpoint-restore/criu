@@ -63,6 +63,7 @@ export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 all: $(PROGRAM)
 
 OBJS		+= crtools.o
+OBJS		+= proc_parse.o
 OBJS		+= parasite-syscall.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-restore.o

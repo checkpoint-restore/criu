@@ -28,7 +28,7 @@
 #include "sockets.h"
 
 #include "image.h"
-
+#include "proc_parse.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 

@@ -163,7 +163,6 @@ extern void printk_vma(struct vma_area *vma_area);
 #define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
 extern int move_img_fd(int *img_fd, int want_fd);
-extern int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files);
 extern int close_safe(int *fd);
 
 extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);

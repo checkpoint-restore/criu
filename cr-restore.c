@@ -33,7 +33,7 @@
 #include "sockets.h"
 #include "lock.h"
 #include "files.h"
-
+#include "proc_parse.h"
 #include "crtools.h"
 
 /*
