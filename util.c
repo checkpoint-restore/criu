@@ -128,24 +128,29 @@ int close_safe(int *fd)
 	return ret;
 }
 
-int reopen_fd_as(int new_fd, int old_fd)
+int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 {
+	int tmp;
+
 	if (old_fd != new_fd) {
-		int tmp;
-		tmp = fcntl(new_fd, F_GETFD);
-		if (tmp != -1 || errno != EBADF) {
-			/* Standard descriptors may be reused */
-			if (new_fd < 3)
-				pr_warning("fd=%d is already used\n", new_fd);
-			else {
-				pr_perror("fd=%d is already used\n", new_fd);
-				return -1;
+
+		if (!allow_reuse_fd) {
+			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {
+				if (new_fd < 3) {
+					/*
+					 * Standart descriptors.
+					 */
+					pr_warning("fd = %d is already used\n", new_fd);
+				} else {
+					pr_err("fd = %d is already used\n", new_fd);
+					return -1;
+				}
 			}
 		}
 
 		tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
-			pr_perror("Dup on %d -> %d failed\n", old_fd, new_fd);
+			pr_perror("Dup %d -> %d failed\n", old_fd, new_fd);
 			return tmp;
 		}
 
