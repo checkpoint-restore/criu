@@ -10,7 +10,7 @@
 #define OFFSET 1000
 
 const char *test_doc	= "Check shared struct file-s";
-const char *test_author	= "Andrey Vagin <xemul@parallels.com>";
+const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
