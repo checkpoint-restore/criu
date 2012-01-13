@@ -255,11 +255,11 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 	int err = -1;
 
 	if (lfd < 0) {
-		err = try_dump_socket(pid_fd_dir, p->fd_name, cr_fdset);
+		err = try_dump_socket(pid, p->fd_name, cr_fdset);
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to open %s/%d\n", pid_fd_dir, p->fd_name);
+		pr_perror("Failed to open %d/%d\n", pid_fd_dir, p->fd_name);
 		return -1;
 	}
 

@@ -165,7 +165,7 @@ static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fd
 	write_ptr_safe(cr_fdset->fds[CR_FD_UNIXSK], &ue, err);
 	write_safe(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen, err);
 
-	pr_info("Dumping unix socket at %s\n", fd);
+	pr_info("Dumping unix socket at %d\n", fd);
 	show_one_unix("Dumping", sk);
 	show_one_unix_img("Dumped", &ue);
 
