@@ -133,7 +133,6 @@ extern void printk(const char *format, ...);
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
-extern void printk_registers(user_regs_struct_t *regs);
 extern void printk_siginfo(siginfo_t *siginfo);
 
 struct vma_area;
@@ -161,7 +160,6 @@ extern void printk_vma(struct vma_area *vma_area);
 	})
 
 #define pr_info_vma(vma_area)		printk_vma(vma_area)
-#define pr_info_registers(regs)		printk_registers(regs)
 #define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
 extern int move_img_fd(int *img_fd, int want_fd);

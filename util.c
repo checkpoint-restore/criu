@@ -61,28 +61,6 @@ void hex_dump(void *addr, unsigned long len)
 	}
 }
 
-void printk_registers(user_regs_struct_t *regs)
-{
-	printk("ip     : %16lx cs     : %16lx ds     : %16lx\n"
-	       "es     : %16lx fs     : %16lx gs     : %16lx\n"
-	       "sp     : %16lx ss     : %16lx flags  : %16lx\n"
-	       "ax     : %16lx cx     : %16lx dx     : %16lx\n"
-	       "si     : %16lx di     : %16lx bp     : %16lx\n"
-	       "bx     : %16lx r8     : %16lx r9     : %16lx\n"
-	       "r10    : %16lx r11    : %16lx r12    : %16lx\n"
-	       "r13    : %16lx r14    : %16lx r15    : %16lx\n"
-	       "orig_ax: %16lx fs_base: %16lx gs_base: %16lx\n\n",
-	       regs->ip, regs->cs, regs->ds,
-	       regs->es, regs->fs, regs->gs,
-	       regs->sp, regs->ss, regs->flags,
-	       regs->ax, regs->cx, regs->dx,
-	       regs->si, regs->di, regs->bp,
-	       regs->bx, regs->r8, regs->r9,
-	       regs->r10, regs->r11, regs->r12,
-	       regs->r13, regs->r14, regs->r15,
-	       regs->orig_ax, regs->fs_base, regs->gs_base);
-}
-
 void printk_siginfo(siginfo_t *siginfo)
 {
 	printk("si_signo %d si_errno %d si_code %d\n",

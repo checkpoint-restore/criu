@@ -144,7 +144,7 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_fdset)
+static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fdset)
 {
 	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
@@ -152,7 +152,7 @@ static int dump_one_unix(struct socket_desc *_sk, char *fd, struct cr_fdset *cr_
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	ue.fd		= atoi(fd);
+	ue.fd		= fd;
 	ue.id		= sk->sd.ino;
 	ue.type		= sk->type;
 	ue.state	= sk->state;
@@ -175,7 +175,7 @@ err:
 	return -1;
 }
 
-int try_dump_socket(pid_t pid, char *fd, struct cr_fdset *cr_fdset)
+int try_dump_socket(pid_t pid, int fd, struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
 	struct statfs fst;
@@ -186,7 +186,7 @@ int try_dump_socket(pid_t pid, char *fd, struct cr_fdset *cr_fdset)
 	 * Sockets are tricky, we can't open it but can
 	 * do stats over and check for sokets magic.
 	 */
-	snprintf(buf, sizeof(buf), "/proc/%d/fd/%s", pid, fd);
+	snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid, fd);
 	if (statfs(buf, &fst)) {
 		pr_err("Can't statfs %s\n", buf);
 		return -1;

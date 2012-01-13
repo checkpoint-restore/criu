@@ -92,10 +92,16 @@ err_bogus_mapping:
 	goto err;
 }
 
-static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
-			     bool do_close_lfd, unsigned long pos,
-			     unsigned int flags, char *id,
-			     struct cr_fdset *cr_fdset)
+struct fd_parms {
+	unsigned long	fd_name;
+	unsigned long	pos;
+	unsigned int	flags;
+	char		*id;
+};
+
+static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
+			     struct cr_fdset *cr_fdset,
+			     bool do_close_lfd)
 {
 	struct fdinfo_entry e;
 	char fd_str[128];
@@ -111,23 +117,23 @@ static int dump_one_reg_file(int type, unsigned long fd_name, int lfd,
 
 	big_buffer[len] = '\0';
 	pr_info("Dumping path for %lx fd via self %d [%s]\n",
-		fd_name, lfd, big_buffer);
+		p->fd_name, lfd, big_buffer);
 
 	if (do_close_lfd)
 		close(lfd);
 
 	e.type	= type;
 	e.len	= len;
-	e.flags = flags;
-	e.pos	= pos;
-	e.addr	= fd_name;
-	if (id)
-		memcpy(e.id, id, FD_ID_SIZE);
+	e.flags = p->flags;
+	e.pos	= p->pos;
+	e.addr	= p->fd_name;
+	if (p->id)
+		memcpy(e.id, p->id, FD_ID_SIZE);
 	else
 		memzero(e.id, FD_ID_SIZE);
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
-		type, len, flags, pos, fd_name);
+		type, len, p->flags, p->pos, p->fd_name);
 
 	write_ptr_safe(cr_fdset->fds[CR_FD_FDINFO], &e, err);
 	write_safe(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.len, err);
@@ -141,6 +147,12 @@ static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 {
 	int ret = -1;
 	int fd;
+	struct fd_parms p = {
+		.fd_name = ~0L,
+		.pos = 0,
+		.flags = 0,
+		.id = NULL,
+	};
 
 	fd = open_proc(pid_dir, "cwd");
 	if (fd < 0) {
@@ -148,7 +160,7 @@ static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 		return -1;
 	}
 
-	return dump_one_reg_file(FDINFO_FD, ~0L, fd, 1, 0, 0, NULL, cr_fdset);
+	return dump_one_reg_file(FDINFO_FD, &p, fd, cr_fdset, 1);
 }
 
 
@@ -206,19 +218,19 @@ err:
 	return ret;
 }
 
-static int dump_one_pipe(int fd, int lfd, unsigned int id, unsigned int flags,
-			 struct cr_fdset *cr_fdset)
+static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
+		struct cr_fdset *cr_fdset)
 {
 	struct pipe_entry e;
 	int ret = -1;
 
-	pr_info("Dumping pipe %d/%x flags %x\n", fd, id, flags);
+	pr_info("Dumping pipe %d/%x flags %x\n", p->fd_name, id, p->flags);
 
-	e.fd		= fd;
+	e.fd		= p->fd_name;
 	e.pipeid	= id;
-	e.flags		= flags;
+	e.flags		= p->flags;
 
-	if (flags & O_WRONLY) {
+	if (p->flags & O_WRONLY) {
 		e.bytes = 0;
 		write_ptr_safe(cr_fdset->fds[CR_FD_PIPES], &e, err);
 		ret = 0;
@@ -230,31 +242,29 @@ err:
 		pr_info("Dumped pipe: fd: %8lx pipeid: %8lx flags: %8lx bytes: %8lx\n",
 			e.fd, e.pipeid, e.flags, e.bytes);
 	else
-		pr_err("Dumping pipe %d/%x flags %x\n", fd, id, flags);
+		pr_err("Dumping pipe %d/%x flags %x\n", p->fd_name, id, p->flags);
 
 	return ret;
 }
 
-static int dump_one_fd(pid_t pid, int pid_dir, char *fd_name, unsigned long pos,
-		       unsigned int flags, char *id, struct cr_fdset *cr_fdset)
+static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
+		       struct fd_parms *p, struct cr_fdset *cr_fdset)
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
 	int err = -1;
-	int fd = -1;
 
-	fd = open_proc(pid_dir, "fd/%s", fd_name);
-	if (fd < 0) {
-		err = try_dump_socket(pid, fd_name, cr_fdset);
+	if (lfd < 0) {
+		err = try_dump_socket(pid_fd_dir, p->fd_name, cr_fdset);
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to openat %d/fd/%s\n", pid, fd_name);
+		pr_perror("Failed to open %s/%d\n", pid_fd_dir, p->fd_name);
 		return -1;
 	}
 
-	if (fstat(fd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %d/fd/%s\n", pid, fd_name);
+	if (fstat(lfd, &st_buf) < 0) {
+		pr_perror("Can't get stat on %d\n", p->fd_name);
 		goto out_close;
 	}
 
@@ -262,9 +272,10 @@ static int dump_one_fd(pid_t pid, int pid_dir, char *fd_name, unsigned long pos,
 	    (major(st_buf.st_rdev) == TTY_MAJOR ||
 	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
 		/* skip only standard destriptors */
-		if (atoi(fd_name) < 3) {
+		if (p->fd_name < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %d/fd/%s\n", pid, fd_name);
+			pr_info("... Skipping tty ... %s/%d\n",
+				pid_fd_dir, p->fd_name);
 			goto out_close;
 		}
 		goto err;
@@ -273,31 +284,27 @@ static int dump_one_fd(pid_t pid, int pid_dir, char *fd_name, unsigned long pos,
 	if (S_ISREG(st_buf.st_mode) ||
 	    S_ISDIR(st_buf.st_mode) ||
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
-		return dump_one_reg_file(FDINFO_FD, atol(fd_name),
-					 fd, 1, pos, flags, id, cr_fdset);
+		return dump_one_reg_file(FDINFO_FD, p, lfd, cr_fdset, 1);
 
 	if (S_ISFIFO(st_buf.st_mode)) {
-		if (fstatfs(fd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %s\n", fd_name);
+		if (fstatfs(lfd, &stfs_buf) < 0) {
+			pr_perror("Can't fstatfs on %d\n", p->fd_name);
 			return -1;
 		}
 
 		if (stfs_buf.f_type == PIPEFS_MAGIC)
-			return dump_one_pipe(atol(fd_name), fd,
-					     st_buf.st_ino, flags, cr_fdset);
+			return dump_one_pipe(p, st_buf.st_ino, lfd, cr_fdset);
 	}
 
 err:
-	pr_err("Can't dump file %s of that type [%x]\n", fd_name, st_buf.st_mode);
+	pr_err("Can't dump file %d of that type [%x]\n", p->fd_name, st_buf.st_mode);
 
 out_close:
-	close_safe(&fd);
+	close_safe(&lfd);
 	return err;
 }
 
-static int read_fd_params(pid_t pid, int pid_dir, char *fd,
-			  unsigned long *pos, unsigned int *flags,
-			  char *id)
+static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 {
 	FILE *file;
 	unsigned int f;
@@ -308,11 +315,12 @@ static int read_fd_params(pid_t pid, int pid_dir, char *fd,
 		return -1;
 	}
 
-	fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", pos, flags, id);
+	p->fd_name = atoi(fd);
+	fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", &p->pos, &p->flags, p->id);
 	fclose(file);
 
-	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %20s\n",
-		pid, fd, *pos, *flags, id);
+	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %s\n",
+		pid, fd, p->pos, p->flags, p->id);
 
 	return 0;
 }
@@ -322,7 +330,6 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	struct dirent *de;
 	unsigned long pos;
 	unsigned int flags;
-	char id[FD_ID_SIZE];
 	DIR *fd_dir;
 
 	pr_info("\n");
@@ -341,11 +348,17 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	}
 
 	while ((de = readdir(fd_dir))) {
+		char id[FD_ID_SIZE];
+		struct fd_parms p = { .id = id };
+		int lfd;
+
 		if (de->d_name[0] == '.')
 			continue;
-		if (read_fd_params(pid, pid_dir, de->d_name, &pos, &flags, id))
+		if (read_fd_params(pid, pid_dir, de->d_name, &p))
 			return -1;
-		if (dump_one_fd(pid, pid_dir, de->d_name, pos, flags, id, cr_fdset))
+
+		lfd = openat(dirfd(fd_dir), de->d_name, O_RDONLY);
+		if (dump_one_fd(pid, dirfd(fd_dir), lfd, &p, cr_fdset))
 			return -1;
 	}
 
@@ -388,20 +401,19 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				write_ptr_safe(cr_fdset->fds[CR_FD_SHMEM], &e, err);
 			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				   vma_entry_is(vma, VMA_FILE_SHARED)) {
-
-				unsigned int flags;
+				struct fd_parms p = {
+					.fd_name = vma->start,
+					.pos = 0,
+					.id = NULL,
+				};
 
 				if (vma->prot & PROT_WRITE &&
 				    vma_entry_is(vma, VMA_FILE_SHARED))
-					flags = O_RDWR;
+					p.flags = O_RDWR;
 				else
-					flags = O_RDONLY;
+					p.flags = O_RDONLY;
 
-				ret = dump_one_reg_file(FDINFO_MAP,
-							vma->start,
-							vma_area->vm_file_fd,
-							0, 0, flags, NULL,
-							cr_fdset);
+				ret = dump_one_reg_file(FDINFO_MAP, &p, vma_area->vm_file_fd, cr_fdset, 0);
 				if (ret)
 					goto err;
 			}
@@ -795,7 +807,7 @@ err:
 	return -1;
 }
 
-static struct pstree_item *find_pstree_entry(pid_t pid, int pid_dir)
+static struct pstree_item *add_pstree_entry(pid_t pid, int pid_dir, struct list_head *list)
 {
 	struct pstree_item *item;
 
@@ -810,6 +822,7 @@ static struct pstree_item *find_pstree_entry(pid_t pid, int pid_dir)
 		goto err_free;
 
 	item->pid = pid;
+	list_add_tail(&item->list, list);
 	return item;
 
 err_free:
@@ -831,11 +844,9 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 	if (pid_dir < 0)
 		goto err;
 
-	item = find_pstree_entry(pid, pid_dir);
+	item = add_pstree_entry(pid, pid_dir, pstree_list);
 	if (!item)
 		goto err;
-
-	list_add_tail(&item->list, pstree_list);
 
 	for (i = 0; i < item->nr_children; i++) {
 		ret = collect_pstree(item->children[i], pstree_list);
