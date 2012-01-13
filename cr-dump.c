@@ -274,7 +274,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 		/* skip only standard destriptors */
 		if (p->fd_name < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %s/%d\n",
+			pr_info("... Skipping tty ... %d/%d\n",
 				pid_fd_dir, p->fd_name);
 			goto out_close;
 		}
