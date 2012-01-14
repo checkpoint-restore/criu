@@ -65,9 +65,6 @@ struct task_restore_core_args {
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
-	union {
-		char			last_pid_buf[PATH_MAX];	/* internal buffer to save stack space  */
-	};
 	char				ns_last_pid_path[PATH_MAX];
 	bool				restore_threads;	/* if to restore threads */
 	u32				rst_lock;

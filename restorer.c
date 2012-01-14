@@ -468,6 +468,7 @@ self_len_end:
 			}
 
 			for (i = 0; i < args->nr_threads; i++) {
+				char last_pid_buf[16];
 
 				/* skip self */
 				if (thread_args[i].pid == args->pid)
@@ -479,12 +480,12 @@ self_len_end:
 					RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
 							    sizeof(thread_args[i].mem_zone.stack));
 
-				last_pid_len = vprint_num(args->last_pid_buf, thread_args[i].pid - 1);
-				ret = sys_write(fd, args->last_pid_buf, last_pid_len - 1);
+				last_pid_len = vprint_num(last_pid_buf, thread_args[i].pid - 1);
+				ret = sys_write(fd, last_pid_buf, last_pid_len - 1);
 				if (ret < 0) {
 					write_num_n(__LINE__);
 					write_num_n(ret);
-					write_string_n(args->last_pid_buf);
+					write_string_n(last_pid_buf);
 					goto core_restore_end;
 				}
 
