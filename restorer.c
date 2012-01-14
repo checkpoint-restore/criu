@@ -23,13 +23,9 @@
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
  */
-long restore_thread(long cmd, struct thread_restore_args *args)
+long restore_thread(struct thread_restore_args *args)
 {
 	long ret = -1;
-
-	switch (cmd) {
-	case RESTORE_CMD__RESTORE_THREAD:
-	{
 		struct core_entry *core_entry;
 		struct rt_sigframe *rt_sigframe;
 		unsigned long new_sp, fsgs_base;
@@ -114,58 +110,19 @@ core_restore_end:
 		for (;;)
 			local_sleep(5);
 		sys_exit(0);
-	}
-		break;
-
-	case RESTORE_CMD__GET_SELF_LEN:
-		goto self_len_start;
-self_len_end:
-		break;
-
-	default:
-		goto core_restore_end;
-		break;
-	}
-
-	return ret;
-
-self_len_start:
-	asm volatile(
-		".align 64				\n"
-		"self_thread:				\n"
-		"leaq self_thread(%%rip), %%rax		\n"
-		"addq $64, %%rax			\n"
-		"andq $~63, %%rax			\n"
-		"movq %%rax, %0				\n"
-		: "=r"(ret)
-		:
-		: "memory");
-	goto self_len_end;
 }
 
 /*
  * The main routine to restore task via sigreturn.
+ * This one is very special, we never return there
+ * but use sigreturn facility to restore core registers
+ * and jump execution to some predefined ip read from
+ * core file.
  */
-long restore_task(long cmd, struct task_restore_core_args *args)
+long restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
 	struct task_entry *task_entry;
-
-	switch (cmd) {
-
-	case RESTORE_CMD__GET_SELF_LEN:
-		goto self_len_start;
-self_len_end:
-		break;
-
-	/*
-	 * This one is very special, we never return there
-	 * but use sigreturn facility to restore core registers
-	 * and jump execution to some predefined ip read from
-	 * core file.
-	 */
-	case RESTORE_CMD__RESTORE_CORE:
-	{
 		struct core_entry *core_entry;
 		struct vma_entry *vma_entry;
 		u64 va;
@@ -500,9 +457,7 @@ self_len_end:
 				asm volatile(
 					"clone_emul:				\n"
 					"movq %2, %%rsi				\n"
-					"subq $24, %%rsi			\n"
-					"movq %7, %%rdi				\n"
-					"movq %%rdi,16(%%rsi)			\n"
+					"subq $16, %%rsi			\n"
 					"movq %6, %%rdi				\n"
 					"movq %%rdi, 8(%%rsi)			\n"
 					"movq %5, %%rdi				\n"
@@ -523,7 +478,6 @@ self_len_end:
 					"xorq %%rbp, %%rbp			\n"	/* clear ABI frame pointer */
 					"popq %%rax				\n"	/* clone_restore_fn  -- restore_thread */
 					"popq %%rdi				\n"	/* arguments */
-					"popq %%rsi				\n"
 					"callq *%%rax				\n"
 
 					"clone_end:				\n"
@@ -533,7 +487,6 @@ self_len_end:
 						"g"(&parent_tid),
 						"g"(&thread_args[i].pid),
 						"g"(args->clone_restore_fn),
-						"g"(RESTORE_CMD__RESTORE_THREAD),
 						"g"(&thread_args[i])
 					: "rax", "rdi", "rsi", "rdx", "r10", "memory");
 			}
@@ -586,26 +539,4 @@ core_restore_end:
 		for (;;)
 			local_sleep(5);
 		sys_exit(0);
-	}
-		break;
-
-	default:
-		goto core_restore_end;
-		break;
-	}
-
-	return ret;
-
-self_len_start:
-	asm volatile(
-		".align 64				\n"
-		"self:					\n"
-		"leaq self(%%rip), %%rax		\n"
-		"addq $64, %%rax			\n"
-		"andq $~63, %%rax			\n"
-		"movq %%rax, %0				\n"
-		: "=r"(ret)
-		:
-		: "memory");
-	goto self_len_end;
 }

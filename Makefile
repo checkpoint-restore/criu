@@ -70,7 +70,6 @@ OBJS		+= cr-restore.o
 OBJS		+= cr-show.o
 OBJS		+= util.o
 OBJS		+= ptrace.o
-OBJS		+= restorer.o
 OBJS		+= log.o
 OBJS		+= libnetlink.o
 OBJS		+= sockets.o
@@ -108,7 +107,35 @@ $(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
 		$(HEAD-BIN) > parasite-blob.h
 	$(Q) sync
 
-$(OBJS): $(DEPS) $(HEAD-BLOB-GEN)
+ROBJS-BLOB	= restorer.o
+RDEPS-BLOB	+= $(patsubst %.o,%.d,$(ROBJS-BLOB))
+RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
+
+RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
+RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
+RHEAD-LDS	:= $(patsubst %.o,%.lds.S,$(ROBJS-BLOB))
+
+RHEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(RHEAD-BLOB)))
+
+$(ROBJS-BLOB): $(RSRCS-BLOB)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+
+$(RHEAD-BIN): $(ROBJS-BLOB) $(RHEAD-LDS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
+
+$(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) gen-offsets.sh			\
+		restorer_h__				\
+		restorer_blob_offset__			\
+		restorer_blob				\
+		$(ROBJS-BLOB)				\
+		$(RHEAD-BIN) > restorer-blob.h
+	$(Q) sync
+
+$(OBJS): $(DEPS) $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
@@ -117,11 +144,11 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS): $(HEAD-BLOB-GEN) $(HEADERS)
+$(DEPS): $(HEAD-BLOB-GEN) $(HEADERS) $(RHEAD-BLOB-GEN) $(RHEADERS)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(DEPS-BLOB): $(SRCS-BLOB)
+$(DEPS-BLOB) $(RDEPS-BLOB): $(SRCS-BLOB) $(RSRCS-BLOB)
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test:
@@ -145,7 +172,7 @@ clean:
 	$(Q) $(RM) -f ./tags
 	$(Q) $(RM) -f ./cscope*
 	$(Q) $(RM) -f ./$(PROGRAM)
-	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
+	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN) ./$(RHEAD-BLOB-GEN)
 	$(Q) $(MAKE) -C test clean
 .PHONY: clean
 

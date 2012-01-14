@@ -18,11 +18,11 @@
 struct task_restore_core_args;
 struct thread_restore_args;
 
-extern long restore_task(long cmd, struct task_restore_core_args *args);
-extern long restore_thread(long cmd, struct thread_restore_args *args);
+extern long restore_task(struct task_restore_core_args *args);
+extern long restore_thread(struct thread_restore_args *args);
 
-typedef long (*task_restore_fcall_t) (long cmd, struct task_restore_core_args *args);
-typedef long (*thread_restore_fcall_t) (long cmd, struct thread_restore_args *args);
+typedef long (*task_restore_fcall_t) (struct task_restore_core_args *args);
+typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
 
 #define RESTORE_CMD__NONE		0
 #define RESTORE_CMD__GET_SELF_LEN	1

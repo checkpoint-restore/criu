@@ -34,6 +34,7 @@
 #include "lock.h"
 #include "files.h"
 #include "proc_parse.h"
+#include "restorer-blob.h"
 #include "crtools.h"
 
 /*
@@ -1317,12 +1318,13 @@ err_or_found:
 
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
-	long restore_task_code_len, restore_task_vma_len;
-	long restore_thread_code_len, restore_thread_vma_len;
+	long restore_code_len, restore_task_vma_len;
+	long restore_thread_vma_len;
 
 	void *exec_mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
+	void *restore_code_start;
 	void *shmems_ref;
 
 	long new_sp, exec_mem_hint;
@@ -1346,9 +1348,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	pr_info("%d: Restore via sigreturn\n", pid);
 
-	restore_task_code_len	= 0;
+	restore_code_len	= 0;
 	restore_task_vma_len	= 0;
-	restore_thread_code_len	= 0;
 	restore_thread_vma_len	= 0;
 
 	pid_dir = open_pid_proc(pid);
@@ -1404,10 +1405,10 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	free_mappings(&self_vma_list);
 
-	restore_task_code_len	= restore_task(RESTORE_CMD__GET_SELF_LEN, NULL) - (long)restore_task;
-	restore_task_code_len	= round_up(restore_task_code_len, 16);
+	restore_code_len	= sizeof(restorer_blob);
+	restore_code_len	= round_up(restore_code_len, 16);
 
-	restore_task_vma_len	= round_up(restore_task_code_len + sizeof(*task_args), PAGE_SIZE);
+	restore_task_vma_len	= round_up(restore_code_len + sizeof(*task_args), PAGE_SIZE);
 
 	/*
 	 * Thread statistics
@@ -1438,13 +1439,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		 * per thread.
 		 */
 
-		restore_thread_code_len = restore_thread(RESTORE_CMD__GET_SELF_LEN, NULL) - (long)restore_thread;
-		restore_thread_code_len	= round_up(restore_thread_code_len, 16);
-
 		restore_thread_vma_len = sizeof(*thread_args) * pstree_entry.nr_threads;
 		restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
-
-		restore_thread_vma_len+= restore_thread_code_len;
 
 		pr_info("%d: %d threads require %dK of memory\n",
 			pid, pstree_entry.nr_threads,
@@ -1482,10 +1478,11 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_task_exec_start		= exec_mem;
-	restore_thread_exec_start	= restore_task_exec_start + restore_task_vma_len;
-	task_args			= restore_task_exec_start + restore_task_code_len;
-	thread_args			= restore_thread_exec_start + restore_thread_code_len;
+	restore_code_start		= exec_mem;
+	restore_thread_exec_start	= restore_code_start + restorer_blob_offset__restore_thread;
+	restore_task_exec_start		= restore_code_start + restorer_blob_offset__restore_task;
+	task_args			= restore_code_start + restore_code_len;
+	thread_args			= restore_thread_exec_start;
 
 	memzero_p(task_args);
 	memzero_p(thread_args);
@@ -1493,8 +1490,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	/*
 	 * Code at a new place.
 	 */
-	memcpy(restore_task_exec_start, &restore_task, restore_task_code_len);
-	memcpy(restore_thread_exec_start, &restore_thread, restore_thread_code_len);
+	memcpy(restore_code_start, &restorer_blob, sizeof(restorer_blob));
 
 	/*
 	 * Adjust stack.
@@ -1599,8 +1595,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	asm volatile(
 		"movq %0, %%rbx						\n"
 		"movq %1, %%rax						\n"
-		"movq %2, %%rsi						\n"
-		"movl $"__stringify(RESTORE_CMD__RESTORE_CORE)", %%edi	\n"
+		"movq %2, %%rdi						\n"
 		"movq %%rbx, %%rsp					\n"
 		"callq *%%rax						\n"
 		:
