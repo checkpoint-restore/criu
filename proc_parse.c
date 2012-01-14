@@ -177,6 +177,7 @@ err_bogus_mapping:
 int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 {
 	FILE *f;
+	char *tok;
 
 	f = fopen_proc(pid_dir, "stat");
 	if (f == NULL) {
@@ -239,6 +240,9 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 		&s->start_brk);
 
 	s->comm[TASK_COMM_LEN-1] = '\0';
+	tok = strchr(s->comm, ')');
+	if (tok)
+		*tok = '\0';
 	fclose(f);
 
 	return 0;
