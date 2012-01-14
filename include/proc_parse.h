@@ -2,7 +2,7 @@
 #define PROC_PARSE_H__
 
 #define TASK_COMM_LEN		16
-#define TASK_COMM_LEN_FMT	"(%15s)"
+#define TASK_COMM_LEN_FMT	"(%15s"
 
 struct proc_pid_stat {
 	int			pid;
