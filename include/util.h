@@ -204,6 +204,6 @@ FILE *fopen_proc(int pid_dir_fd, char *fmt, ...);
 	 })
 
 #define pr_img_head(type, ...)	pr_info("\n"#type __VA_ARGS__ "\n----------------\n")
-#define pr_img_tail(type)	pr_info("\n----------------\n")
+#define pr_img_tail(type)	pr_info("----------------\n")
 
 #endif /* UTIL_H_ */
