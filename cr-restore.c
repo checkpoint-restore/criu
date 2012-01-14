@@ -1341,8 +1341,16 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	if (get_image_path(self_vmas_path, sizeof(self_vmas_path), FMT_FNAME_VMAS, getpid()))
 		goto err;
+
+	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR | O_TRUNC, CR_FD_PERM);
+
+	/*
+	 * This is a temporary file used to pass vma info to
+	 * restorer code, thus unlink it early to make it disappear
+	 * as soon as we close it
+	 */
 	unlink(self_vmas_path);
-	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR, CR_FD_PERM);
+
 	if (fd_self_vmas < 0) {
 		pr_perror("Can't open %s\n", self_vmas_path);
 		goto err;
@@ -1482,9 +1490,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
 	task_args->shmems_fd	= ret;
-	strncpy(task_args->self_vmas_path,
-		self_vmas_path,
-		sizeof(task_args->self_vmas_path));
 
 	cr_mutex_init(&task_args->rst_lock);
 

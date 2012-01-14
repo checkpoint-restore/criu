@@ -66,7 +66,6 @@ struct task_restore_core_args {
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	union {
-		char			self_vmas_path[PATH_MAX];/* path to it, to unlink it once we're done */
 		char			last_pid_buf[PATH_MAX];	/* internal buffer to save stack space  */
 	};
 	char				ns_last_pid_path[PATH_MAX];
