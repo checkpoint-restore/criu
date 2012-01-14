@@ -463,13 +463,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	if (ret)
 		goto out;
 
-	/*
-	 * Yeah, I know we read the same file for second
-	 * time here, but this saves us from code duplication.
-	 */
-	lseek(cr_fdset->fds[CR_FD_PSTREE], MAGIC_OFFSET, SEEK_SET);
-	show_pstree(cr_fdset->fds[CR_FD_PSTREE], NULL);
-
 	close_cr_fdset(&cr_fdset);
 
 	list_for_each_entry(item, &pstree_list, list) {
