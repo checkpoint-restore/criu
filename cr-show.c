@@ -79,8 +79,8 @@ static void show_files(int fd_files)
 		if (!ret)
 			goto out;
 
-		pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx",
-				e.type, e.len, e.flags, e.pos, e.addr);
+		pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx id: %s",
+				e.type, e.len, e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
