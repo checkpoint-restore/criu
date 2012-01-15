@@ -84,7 +84,7 @@ static int nr_pipes;
 
 static pid_t pstree_pid;
 
-static int restore_task_with_children(int my_pid, char *pstree_path);
+static int restore_task_with_children(int my_pid);
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid);
 
 static void show_saved_shmems(void)
@@ -1054,7 +1054,7 @@ static int restore_one_task(int pid)
 	return prepare_and_sigreturn(pid);
 }
 
-static inline int fork_with_pid(int pid, char *pstree_path)
+static inline int fork_with_pid(int pid)
 {
 	int ret = -1, fd = -1;
 	char buf[32];
@@ -1089,7 +1089,7 @@ static inline int fork_with_pid(int pid, char *pstree_path)
 			return -1;
 		}
 
-		ret = restore_task_with_children(my_pid, pstree_path);
+		ret = restore_task_with_children(my_pid);
 		pr_err("%d: Something failed with code %d\n", pid, ret);
 		exit(1);
 	}
@@ -1103,7 +1103,7 @@ err:
 	return ret;
 }
 
-static int restore_task_with_children(int my_pid, char *pstree_path)
+static int restore_task_with_children(int my_pid)
 {
 	int *pids;
 	int fd, ret, i;
@@ -1121,7 +1121,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 
 	pr_info("%d: Starting restore\n", my_pid);
 
-	fd = open(pstree_path, O_RDONLY);
+	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd < 0) {
 		pr_perror("%d: Can't reopen pstree image\n", my_pid);
 		exit(1);
@@ -1162,7 +1162,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 		pr_info("%d: Restoring %d children:\n", my_pid, e.nr_children);
 		for (i = 0; i < e.nr_children; i++) {
 			pr_info("\tFork %d from %d\n", pids[i], my_pid);
-			ret = fork_with_pid(pids[i], pstree_path);
+			ret = fork_with_pid(pids[i]);
 			if (ret < 0)
 				exit(1);
 		}
@@ -1174,7 +1174,7 @@ static int restore_task_with_children(int my_pid, char *pstree_path)
 	return restore_one_task(my_pid);
 }
 
-static int restore_root_task(char *pstree_path, int fd)
+static int restore_root_task(int fd)
 {
 	struct pstree_entry e;
 	int ret;
@@ -1188,7 +1188,7 @@ static int restore_root_task(char *pstree_path, int fd)
 	close(fd);
 
 	pr_info("Forking root with %d pid\n", e.pid);
-	ret = fork_with_pid(e.pid, pstree_path);
+	ret = fork_with_pid(e.pid);
 	if (ret < 0)
 		return -1;
 
@@ -1198,28 +1198,17 @@ static int restore_root_task(char *pstree_path, int fd)
 
 static int restore_all_tasks(pid_t pid)
 {
-	char path[PATH_MAX];
 	int pstree_fd;
 	u32 type = 0;
 
-	if (get_image_path(path, sizeof(path), FMT_FNAME_PSTREE, pid))
+	pstree_fd = open_image_ro(CR_FD_PSTREE, pstree_pid);
+	if (pstree_fd < 0)
 		return -1;
-	pstree_fd = open(path, O_RDONLY);
-	if (pstree_fd < 0) {
-		pr_perror("%d: Can't open pstree image\n", pid);
-		return -1;
-	}
-
-	read(pstree_fd, &type, sizeof(type));
-	if (type != PSTREE_MAGIC) {
-		pr_perror("%d: Bad pstree magic\n", pid);
-		return -1;
-	}
 
 	if (prepare_shared(pstree_fd))
 		return -1;
 
-	return restore_root_task(path, pstree_fd);
+	return restore_root_task(pstree_fd);
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
