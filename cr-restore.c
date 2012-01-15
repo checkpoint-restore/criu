@@ -747,7 +747,7 @@ static int reopen_pipe(int src, int *dst, int *other)
 		if (move_img_fd(other, *dst))
 			return -1;
 
-		return reopen_fd_as(*dst, src);
+		return reopen_fd_as_nocheck(*dst, src);
 	}
 
 	*dst = src;
@@ -880,7 +880,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	}
 
 	pr_info("\t%d: Done, reopening for %d\n", pid, e->fd);
-	if (reopen_fd_as(e->fd, fd))
+	if (reopen_fd_as_nocheck(e->fd, fd))
 		return -1;
 
 	cr_wait_dec(&pi->users);
