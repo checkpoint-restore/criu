@@ -1344,7 +1344,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	 * restorer code, thus unlink it early to make it disappear
 	 * as soon as we close it
 	 */
-	unlink(self_vmas_path);
+	// unlink(self_vmas_path);
 
 	if (fd_self_vmas < 0) {
 		pr_perror("Can't open %s\n", self_vmas_path);

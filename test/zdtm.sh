@@ -35,6 +35,7 @@ run_test()
 	pid=`cat $test.pid`
 	ddump="dump/$tname/$pid"
 	mkdir -p $ddump
+	ls -l /proc/$pid/fd/
 	setsid $CRTOOLS -D $ddump -o dump.log -d -t $pid || return 1
 	while :; do
 		killall -9 $tname &> /dev/null || break;
@@ -43,6 +44,7 @@ run_test()
 	done
 	setsid $CRTOOLS -D $ddump -o restore.log -r -t $pid &
 	sleep 1
+	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
 	wait || return 1
 	for i in `seq 5`; do

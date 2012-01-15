@@ -542,6 +542,8 @@ self_len_end:
 				write_num_n(ret);
 				goto core_restore_end;
 			}
+
+			sys_close(fd);
 		}
 
 		/*
