@@ -160,26 +160,16 @@ int move_img_fd(int *img_fd, int want_fd)
 
 int get_image_path(char *path, int size, const char *fmt, int pid)
 {
-	int image_dir_size = strlen(image_dir);
-	int ret;
+	int len;
 
-	strncpy(path, image_dir, size);
-
-	if (size <= image_dir_size)
-		goto err;
-
-	path[image_dir_size] = '/';
-	size -= image_dir_size + 1;
-
-	ret = snprintf(path + image_dir_size + 1, size, fmt, pid);
-	if (ret == -1 || ret >= size)
-		goto err;
+	len = snprintf(path, size, "%s/", image_dir);
+	len += snprintf(path + len, size - len, fmt, pid);
+	if (len > size) {
+		pr_err("Image path buffer overflow %d/%d\n", size, len);
+		return -1;
+	}
 
 	return 0;
-
-err:
-	pr_err("can't get image path\n");
-	return -1;
 }
 
 int open_image_ro_nocheck(const char *fmt, int pid)
@@ -187,10 +177,9 @@ int open_image_ro_nocheck(const char *fmt, int pid)
 	char path[PATH_MAX];
 	int tmp;
 
-	tmp = snprintf(path, sizeof(path), "%s/", image_dir);
-	snprintf(path + tmp, sizeof(path) - tmp, fmt, pid);
-
-	tmp = open(path, O_RDONLY);
+	tmp = get_image_path(path, sizeof(path), fmt, pid);
+	if (tmp == 0)
+		tmp = open(path, O_RDONLY);
 	if (tmp < 0)
 		pr_perror("Can't open image %s for %d\n", fmt, pid);
 
