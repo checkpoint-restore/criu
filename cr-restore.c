@@ -356,10 +356,13 @@ static int shmem_remap(struct shmems *old_addr, struct shmems *new_addr)
 		return -1;
 	}
 
-	if (new_addr->nr_shmems != old_addr->nr_shmems)
+	if (new_addr->nr_shmems != old_addr->nr_shmems) {
 		pr_err("shmem_remap failed\n");
+		return -1;
+	}
 
-	return fd;
+	close(fd);
+	return 0;
 }
 
 static int prepare_shared(int ps_fd)
@@ -1484,7 +1487,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->shmems	= shmems_ref;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
-	task_args->shmems_fd	= ret;
 
 	cr_mutex_init(&task_args->rst_lock);
 
