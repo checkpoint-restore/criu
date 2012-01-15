@@ -1509,6 +1509,10 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		for (i = 0; i < pstree_entry.nr_threads; i++) {
 			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
 
+			/* skip self */
+			if (thread_args[i].pid == pid)
+				continue;
+
 			/* Core files are to be opened */
 			thread_args[i].fd_core = open_image_ro_nocheck(FMT_FNAME_CORE, thread_args[i].pid);
 			if (thread_args[i].fd_core < 0)
