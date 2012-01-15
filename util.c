@@ -158,6 +158,30 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
+int get_image_path(char *path, int size, const char *fmt, int pid)
+{
+	int image_dir_size = strlen(image_dir);
+	int ret;
+
+	strncpy(path, image_dir, size);
+
+	if (size <= image_dir_size)
+		goto err;
+
+	path[image_dir_size] = '/';
+	size -= image_dir_size + 1;
+
+	ret = snprintf(path + image_dir_size + 1, size, fmt, pid);
+	if (ret == -1 || ret >= size)
+		goto err;
+
+	return 0;
+
+err:
+	pr_err("can't get image path\n");
+	return -1;
+}
+
 int open_image_ro_nocheck(const char *fmt, int pid)
 {
 	char path[PATH_MAX];
