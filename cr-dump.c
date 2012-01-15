@@ -307,7 +307,7 @@ out_close:
 static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 {
 	FILE *file;
-	unsigned int f;
+	int ret;
 
 	file = fopen_proc(pid_dir, "fdinfo/%s", fd);
 	if (!file) {
@@ -316,8 +316,13 @@ static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 	}
 
 	p->fd_name = atoi(fd);
-	fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", &p->pos, &p->flags, p->id);
+	ret = fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", &p->pos, &p->flags, p->id);
 	fclose(file);
+
+	if (ret != 3) {
+		pr_err("Bad format of fdinfo file (%d items, want 3)\n", ret);
+		return -1;
+	}
 
 	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %s\n",
 		pid, fd, p->pos, p->flags, p->id);
