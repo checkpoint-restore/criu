@@ -1,23 +1,25 @@
 #!/bin/bash
 
+ZP="zdtm/live/"
+
 TEST_LIST="\
-zdtm/live/static/pipe00
-zdtm/live/static/busyloop00
-zdtm/live/static/cwd00
-zdtm/live/static/env00
-zdtm/live/static/shm
-zdtm/live/static/maps00
-zdtm/live/static/mprotect00
-zdtm/live/static/mtime_mmap
-zdtm/live/static/sleeping00
-zdtm/live/static/write_read00
-zdtm/live/static/write_read01
-zdtm/live/static/write_read02
-zdtm/live/static/wait00
-zdtm/live/static/file_shared
-zdtm/live/streaming/pipe_loop00
-zdtm/live/streaming/pipe_shared00
-zdtm/live/transition/file_read"
+$ZP/static/pipe00
+$ZP/static/busyloop00
+$ZP/static/cwd00
+$ZP/static/env00
+$ZP/static/shm
+$ZP/static/maps00
+$ZP/static/mprotect00
+$ZP/static/mtime_mmap
+$ZP/static/sleeping00
+$ZP/static/write_read00
+$ZP/static/write_read01
+$ZP/static/write_read02
+$ZP/static/wait00
+$ZP/static/file_shared
+$ZP/streaming/pipe_loop00
+$ZP/streaming/pipe_shared00
+$ZP/transition/file_read"
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 
@@ -51,11 +53,14 @@ run_test()
 	cat $test.out | grep PASS || return 1
 }
 
+cd `dirname $0` || exit 1
+
 if [ $# -eq 0 ]; then
-	cd `dirname $0` || exit 1
 	for t in $TEST_LIST; do
 		run_test $t || exit 1
 	done
+elif [ "$1" == "-l" ]; then
+	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
-	run_test $@
+	run_test $ZP/$1
 fi
