@@ -188,7 +188,7 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 
 	memset(s, 0, sizeof(*s));
 	n = fscanf(f,
-	       "%d " TASK_COMM_LEN_FMT " %c %d %d %d %d %d %u %lu %lu %lu %lu "
+	       "%d " PROC_TASK_COMM_LEN_FMT " %c %d %d %d %d %d %u %lu %lu %lu %lu "
 	       "%lu %lu %ld %ld %ld %ld %d %d %llu %lu %ld %lu %lu %lu %lu "
 	       "%lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld "
 	       "%lu %lu %lu",
@@ -245,7 +245,7 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 		return -1;
 	}
 
-	s->comm[TASK_COMM_LEN-1] = '\0';
+	s->comm[PROC_TASK_COMM_LEN-1] = '\0';
 	tok = strchr(s->comm, ')');
 	if (tok)
 		*tok = '\0';

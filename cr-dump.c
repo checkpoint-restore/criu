@@ -449,7 +449,7 @@ static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 	if (ret < 0)
 		goto err;
 
-	strcpy((char *)comm, pps_buf.comm);
+	strncpy((char *)comm, pps_buf.comm, TASK_COMM_LEN);
 	*flags = pps_buf.flags;
 	*start_code = pps_buf.start_code;
 	*end_code = pps_buf.end_code;
