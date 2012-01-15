@@ -758,16 +758,16 @@ static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
 {
 	int ret, size = 0;
 
-	pr_info("%x: Splicing data to %d\n", e->pipeid, wfd);
+	pr_info("\t%x: Splicing data to %d\n", e->pipeid, wfd);
 
 	while (size != e->bytes) {
 		ret = splice(pipes_fd, NULL, wfd, NULL, e->bytes, 0);
 		if (ret < 0) {
-			pr_perror("%x: Error splicing data\n", e->pipeid);
+			pr_perror("\t%x: Error splicing data\n", e->pipeid);
 			return -1;
 		}
 		if (ret == 0) {
-			pr_err("%x: Wanted to restore %d bytes, but got %d\n",
+			pr_err("\t%x: Wanted to restore %d bytes, but got %d\n",
 			       e->pipeid, e->bytes, size);
 			return -1;
 		}
