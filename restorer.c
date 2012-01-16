@@ -16,6 +16,7 @@
 #include "image.h"
 
 #include "crtools.h"
+#include "restorer-log.h"
 #include "lock.h"
 #include "restorer.h"
 
@@ -130,6 +131,8 @@ long restore_task(struct task_restore_core_args *args)
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp, fsgs_base;
 	pid_t my_pid = sys_getpid();
+
+	set_logfd(args->logfd);
 
 	core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
 	vma_entry	= next_on_heap(vma_entry, core_entry);
@@ -514,6 +517,8 @@ long restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
+	sys_close(args->logfd);
+
 	/*
 	 * Sigframe stack.
 	 */
@@ -540,3 +545,6 @@ core_restore_end:
 		local_sleep(5);
 	sys_exit(0);
 }
+
+/* FIXME Need link this .o with ld */
+#include "restorer-log.c"

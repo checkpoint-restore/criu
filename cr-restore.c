@@ -1530,6 +1530,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
+	task_args->logfd	= get_logfd();
 
 	cr_mutex_init(&task_args->rst_lock);
 
@@ -1586,7 +1587,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		task_args->thread_args);
 
 	close_safe(&fd_pstree);
-	fini_log();
 
 	/*
 	 * An indirect call to task_restore, note it never resturns

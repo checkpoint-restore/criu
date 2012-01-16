@@ -67,6 +67,7 @@ struct task_restore_core_args {
 	int				fd_core;		/* opened core file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	char				ns_last_pid_path[sizeof(LAST_PID_PATH) + 1];
+	int				logfd;
 	bool				restore_threads;	/* if to restore threads */
 	u32				rst_lock;
 
@@ -173,118 +174,6 @@ struct rt_sigframe {
 	/* fp state follows here */
 };
 
-#define add_ord(c)			\
-	do {				\
-		if (c < 10)		\
-			c += '0';	\
-		else			\
-			c += 'a' - 10;	\
-	} while (0)
-
-static void always_inline write_char(char c)
-{
-	sys_write(STDERR_FILENO, &c, 1);
-}
-
-static void always_inline write_string(char *str)
-{
-	int len = 0;
-
-	while (str[len])
-		len++;
-
-	sys_write(STDERR_FILENO, str, len);
-}
-
-static void always_inline write_string_n(char *str)
-{
-	char new_line = '\n';
-
-	write_string(str);
-	sys_write(STDERR_FILENO, &new_line, 1);
-}
-
-static void always_inline write_num_n(long num)
-{
-	unsigned long d = 1000000000000000000;
-	unsigned int started = 0;
-	unsigned int minus = 0;
-	unsigned int c;
-
-	if (num < 0) {
-		num = -num;
-		c = '-';
-		sys_write(STDERR_FILENO, &c, 1);
-	}
-
-	while (d) {
-		c = num / d;
-		num -= d * c;
-		d /= 10;
-		if (!c && !started)
-			continue;
-		if (!started)
-			started = 1;
-		add_ord(c);
-		sys_write(STDERR_FILENO, &c, 1);
-
-	}
-	c = '\n';
-	sys_write(STDERR_FILENO, &c, 1);
-}
-
-static long always_inline vprint_num(char *buf, long num)
-{
-	unsigned long d = 1000000000000000000;
-	unsigned int started = 0;
-	unsigned int minus = 0;
-	unsigned int i = 0;
-	unsigned int c;
-
-	if (num < 0) {
-		num = -num;
-		buf[i++] = '-';
-	}
-
-	while (d) {
-		c = num / d;
-		num -= d * c;
-		d /= 10;
-		if (!c && !started)
-			continue;
-		if (!started)
-			started = 1;
-		add_ord(c);
-		buf[i++] = c;
-
-	}
-
-	buf[i++] = 0;
-
-	return i;
-}
-
-static void always_inline write_hex_n(unsigned long num)
-{
-	unsigned char *s = (unsigned char *)&num;
-	unsigned char c;
-	int i;
-
-	c = 'x';
-	sys_write(STDERR_FILENO, &c, 1);
-	for (i = sizeof(long)/sizeof(char) - 1; i >= 0; i--) {
-		c = (s[i] & 0xf0) >> 4;
-		add_ord(c);
-		sys_write(STDERR_FILENO, &c, 1);
-
-		c = (s[i] & 0x0f);
-		add_ord(c);
-		sys_write(STDERR_FILENO, &c, 1);
-	}
-
-	c = '\n';
-	sys_write(STDERR_FILENO, &c, 1);
-}
 
 #define SHMEMS_SIZE	4096
 
