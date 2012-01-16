@@ -3,66 +3,67 @@ LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall
 
-TST_NOFILE	=	\
-		busyloop00	\
-		sleeping00	\
-		pid00		\
-		wait00		\
-		zombie00	\
-		fpu00		\
-		futex		\
-		mmx00		\
-		sse00		\
-		sse20		\
-		mprotect00	\
-		timers		\
-		unbound_sock	\
-		socket_aio      \
-		msgque		\
-		inotify_system	\
-		inotify_system_nodel \
-		shm \
-		ptrace_sig \
-		pipe00 \
-#		jobctl00	\
+TST_NOFILE	=				\
+		busyloop00			\
+		sleeping00			\
+		pid00				\
+		wait00				\
+		zombie00			\
+		fpu00				\
+		futex				\
+		mmx00				\
+		sse00				\
+		sse20				\
+		mprotect00			\
+		timers				\
+		unbound_sock			\
+		socket_aio			\
+		msgque				\
+		inotify_system			\
+		inotify_system_nodel		\
+		shm				\
+		ptrace_sig			\
+		pipe00				\
+		pthread00			\
+#		jobctl00			\
 
-TST_FILE	=	\
-		write_read00	\
-		write_read01	\
-		write_read02	\
-		write_read10	\
-		maps00		\
-		link10		\
-		file_attr	\
-		deleted_unix_sock	\
-		deleted_dev	\
-		unlink_fstat00	\
-		unlink_fstat01	\
-		unlink_largefile	\
-		mtime_mmap	\
-		fifo	\
-		fifo_wronly	\
-		unlink_fifo	\
-		unlink_fifo_wronly	\
-		file_shared	\
+TST_FILE	=				\
+		write_read00			\
+		write_read01			\
+		write_read02			\
+		write_read10			\
+		maps00				\
+		link10				\
+		file_attr			\
+		deleted_unix_sock		\
+		deleted_dev			\
+		unlink_fstat00			\
+		unlink_fstat01			\
+		unlink_largefile		\
+		mtime_mmap			\
+		fifo				\
+		fifo_wronly			\
+		unlink_fifo			\
+		unlink_fifo_wronly		\
+		file_shared			\
 
-TST_DIR		=	\
-		cwd00		\
-		overmount_dev	\
-		overmount_file	\
-		overmount_fifo	\
-		overmount_sock	\
+TST_DIR		=				\
+		cwd00				\
+		overmount_dev			\
+		overmount_file			\
+		overmount_fifo			\
+		overmount_sock			\
 
-TST		= 	\
-		$(TST_NOFILE)	\
-		$(TST_FILE)	\
-		$(TST_DIR)	\
-		env00		\
-		umask00		\
+TST		=				\
+		$(TST_NOFILE)			\
+		$(TST_FILE)			\
+		$(TST_DIR)			\
+		env00				\
+		umask00				\
 
-TST_STATE	=	\
-		conntracks	\
-		route_rules	\
+TST_STATE	=				\
+		conntracks			\
+		route_rules			\
 
 
 SRC	= $(TST:%=%.c)
@@ -125,12 +126,13 @@ wait_stop:
 
 $(TST):	$(LIB)
 
-futex.o:	override CFLAGS += -pthread
-futex:		override LDFLAGS += -pthread
-jobctl00:	override LDLIBS += -lutil
-socket_aio:	override LDLIBS += -lrt
+futex.o:		override CFLAGS += -pthread
+futex:			override LDFLAGS += -pthread
+jobctl00:		override LDLIBS += -lutil
+socket_aio:		override LDLIBS += -lrt
 unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	override CFLAGS += -DNODEL
+pthread00:		override LDLIBS += -pthread
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)
