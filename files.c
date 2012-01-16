@@ -111,6 +111,11 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	pr_info("Collect fdinfo pid=%d fd=%d id=%s\n", pid, e->addr, e->id);
 
 	nr_fdinfo_list++;
+	if ((nr_fdinfo_descs) * sizeof(struct fdinfo_list_entry) >= 4096) {
+		pr_panic("OOM storing fdinfo_list_entries\n");
+		return -1;
+	}
+
 	le->pid = pid;
 	le->fd = e->addr;
 	le->real_pid = 0;
