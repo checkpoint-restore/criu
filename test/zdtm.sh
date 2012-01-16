@@ -17,6 +17,7 @@ $ZP/static/write_read01
 $ZP/static/write_read02
 $ZP/static/wait00
 $ZP/static/pthread00
+$ZP/static/vdso00
 $ZP/static/file_shared
 $ZP/streaming/pipe_loop00
 $ZP/streaming/pipe_shared00

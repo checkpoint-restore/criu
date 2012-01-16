@@ -25,6 +25,7 @@ TST_NOFILE	=				\
 		ptrace_sig			\
 		pipe00				\
 		pthread00			\
+		vdso00				\
 #		jobctl00			\
 
 TST_FILE	=				\
