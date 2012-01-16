@@ -430,17 +430,22 @@ static unsigned long find_shmem_id(unsigned long addr)
 	return 0;
 }
 
-static void save_shmem_id(struct shmem_entry *e)
+static int save_shmem_id(struct shmem_entry *e)
 {
 	struct shmem_id *si;
 
-	si		= malloc(sizeof(*si));
+	si = xmalloc(sizeof(*si));
+	if (!si)
+		return -1;
+
 	si->addr	= e->start;
 	si->end		= e->end;
 	si->shmid	= e->shmid;
 	si->next	= shmem_ids;
 
 	shmem_ids	= si;
+
+	return 0;
 }
 
 static int prepare_shmem(int pid)
@@ -463,7 +468,8 @@ static int prepare_shmem(int pid)
 			return -1;
 		}
 
-		save_shmem_id(&e);
+		if (save_shmem_id(&e))
+			return -1;
 	}
 
 	close(sh_fd);
@@ -988,9 +994,8 @@ static int prepare_pipes(int pid)
 	if (pipes_fd < 0)
 		return -1;
 
-	buf = malloc(buf_size);
+	buf = xmalloc(buf_size);
 	if (!buf) {
-		pr_perror("Can't allocate memory\n");
 		close(pipes_fd);
 		return -1;
 	}
@@ -1159,7 +1164,10 @@ static int restore_task_with_children(int my_pid)
 
 	if (e.nr_children > 0) {
 		i = e.nr_children * sizeof(int);
-		pids = malloc(i);
+		pids = xmalloc(i);
+		if (!pids)
+			exit(1);
+
 		ret = read(fd, pids, i);
 		if (ret != i) {
 			pr_perror("%d: Can't read children pids\n", my_pid);
