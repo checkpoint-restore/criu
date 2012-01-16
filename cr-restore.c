@@ -739,12 +739,15 @@ static int set_fd_flags(int fd, int flags)
 	return fcntl(fd, F_SETFL, flags);
 }
 
-static int reopen_pipe(int src, int *dst, int *other)
+static int reopen_pipe(int src, int *dst, int *other, int *pipes_fd)
 {
 	int tmp;
 
 	if (*dst != -1) {
 		if (move_img_fd(other, *dst))
+			return -1;
+
+		if (move_img_fd(pipes_fd, *dst))
 			return -1;
 
 		return reopen_fd_as(*dst, src);
@@ -778,7 +781,7 @@ static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
 	return 0;
 }
 
-static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
+static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int *pipes_fd)
 {
 	unsigned long time = 1000;
 	int pfd[2], tmp;
@@ -791,12 +794,12 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		return -1;
 	}
 
-	if (restore_pipe_data(e, pfd[1], pipes_fd))
+	if (restore_pipe_data(e, pfd[1], *pipes_fd))
 		return -1;
 
-	if (reopen_pipe(pfd[0], &pi->read_fd, &pfd[1]))
+	if (reopen_pipe(pfd[0], &pi->read_fd, &pfd[1], pipes_fd))
 		return -1;
-	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd))
+	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd, pipes_fd))
 		return -1;
 
 	cr_wait_set(&pi->real_pid, getpid());
@@ -806,12 +809,12 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
 		pid, pi->users, pi->real_pid, pi->read_fd, pi->write_fd);
 
-	pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
+	if (!pipe_is_rw(pi)) {
+		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
 				pid, e->pipeid, pi->users);
-	if (!pipe_is_rw(pi))
+
 		cr_wait_until(&pi->users, 0);
 
-	if (!pipe_is_rw(pi)) {
 		if ((e->flags & O_ACCMODE) == O_WRONLY)
 			close_safe(&pi->read_fd);
 		else
@@ -820,6 +823,9 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 	tmp = 0;
 	if (pi->write_fd != e->fd && pi->read_fd != e->fd) {
+		if (move_img_fd(pipes_fd, e->fd))
+			return -1;
+
 		switch (e->flags & O_ACCMODE) {
 		case O_WRONLY:
 			tmp = dup2(pi->write_fd, e->fd);
@@ -841,7 +847,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	return 0;
 }
 
-static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int pipes_fd)
+static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int *pipes_fd)
 {
 	char path[128];
 	int tmp, fd;
@@ -850,6 +856,9 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		pid, e->pipeid);
 
 	cr_wait_while(&pi->real_pid, 0);
+
+	if (move_img_fd(pipes_fd, e->fd))
+			return -1;
 
 	if ((e->flags & O_ACCMODE) == O_WRONLY)
 		tmp = pi->write_fd;
@@ -898,8 +907,6 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	struct pipe_info *pi;
 
 	pr_info("\t%d: Opening pipe %x on fd %d\n", pid, e->pipeid, e->fd);
-	if (move_img_fd(pipes_fd, e->fd))
-		return -1;
 
 	pi = find_pipe(e->pipeid);
 	if (!pi) {
@@ -914,9 +921,9 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 	 * other pipe end should be connected via pipe attaching.
 	 */
 	if (pi->pid == pid && !(pi->status & PIPE_CREATED))
-		return create_pipe(pid, e, pi, *pipes_fd);
+		return create_pipe(pid, e, pi, pipes_fd);
 	else
-		return attach_pipe(pid, e, pi, *pipes_fd);
+		return attach_pipe(pid, e, pi, pipes_fd);
 }
 
 static int prepare_sigactions(int pid)
