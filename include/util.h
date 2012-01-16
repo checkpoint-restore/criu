@@ -87,6 +87,13 @@ extern void printk(const char *format, ...);
 	} while (0)
 
 #ifndef BUG_ON_HANDLER
+#ifdef CR_NOGLIBC
+#define BUG_ON_HANDLER(condition)					\
+	do {								\
+		if ((condition))					\
+			*(unsigned long *)NULL = 0xdead0000 + __LINE__;	\
+	} while (0)
+#else
 # define BUG_ON_HANDLER(condition)					\
 	do {								\
 		if ((condition)) {					\
@@ -94,6 +101,7 @@ extern void printk(const char *format, ...);
 			raise(SIGABRT);					\
 		}							\
 	} while (0)
+#endif
 #endif
 
 #define BUG_ON(condition)	BUG_ON_HANDLER((condition))
