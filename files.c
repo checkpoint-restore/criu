@@ -490,6 +490,23 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	return ret;
 }
 
+static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
+		int fdinfo_fd, int state)
+{
+	if (state != FD_STATE_RECV) {
+		lseek(fdinfo_fd, fe->len, SEEK_CUR);
+		return 0;
+	}
+
+	if (fe->type == FDINFO_MAP)
+		return open_fmap(pid, fe, fdinfo_fd);
+	if (fe->addr == FDINFO_CWD)
+		return restore_cwd(fe, fdinfo_fd);
+
+	BUG_ON(1);
+	return -1;
+}
+
 int prepare_fds(int pid)
 {
 	u32 type = 0, err = -1, ret;
@@ -523,18 +540,10 @@ int prepare_fds(int pid)
 				goto err;
 			}
 
-			if (state == FD_STATE_RECV) {
-				if (fe.type == FDINFO_MAP) {
-					if (open_fmap(pid, &fe, fdinfo_fd))
-						goto err;
-					continue;
-				} else if (fe.addr == FDINFO_CWD) {
-					if (restore_cwd(&fe, fdinfo_fd))
-						goto err;
-					continue;
-				}
-			} else if (fd_is_special(&fe)) {
-				lseek(fdinfo_fd, fe.len, SEEK_CUR);
+			if (fd_is_special(&fe)) {
+				if (open_special_fdinfo(pid, &fe, fdinfo_fd, state))
+					goto err;
+
 				continue;
 			}
 
