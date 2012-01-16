@@ -178,10 +178,9 @@ int prepare_fd_pid(int pid)
 		if (e.len)
 			lseek(fdinfo_fd, e.len, SEEK_CUR);
 
-		if (e.type == FDINFO_MAP)
+		if (fd_is_special(&e))
 			continue;
-		if (e.addr == FDINFO_CWD)
-			continue;
+
 		if (collect_fd(pid, &e))
 			return -1;
 	}
@@ -534,7 +533,7 @@ int prepare_fds(int pid)
 						goto err;
 					continue;
 				}
-			} else if (fe.type == FDINFO_MAP || fe.addr == FDINFO_CWD) {
+			} else if (fd_is_special(&fe)) {
 				lseek(fdinfo_fd, fe.len, SEEK_CUR);
 				continue;
 			}

@@ -35,6 +35,8 @@ struct fdinfo_entry {
 	u8	name[0];
 } __packed;
 
+#define fd_is_special(fe)	(((fe)->type != FDINFO_FD) || ((fe)->addr == FDINFO_CWD))
+
 struct shmem_entry {
 	u64	start;
 	u64	end;
