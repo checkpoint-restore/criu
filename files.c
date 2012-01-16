@@ -305,7 +305,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if (reopen_fd_as((int)fe->addr, tmp))
 		return -1;
 
-	if (!fi->users == 1)
+	if (fi->users == 1)
 		goto out;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
