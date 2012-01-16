@@ -91,7 +91,6 @@ int prepare_fdinfo_global()
 	fdinfo_descs = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_descs == MAP_FAILED) {
 		pr_perror("Can't map fdinfo_descs\n");
-	if (prepare_fdinfo_global())
 		return -1;
 	}
 
