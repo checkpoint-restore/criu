@@ -138,7 +138,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	}
 
 	if ((nr_fdinfo_descs + 1) * sizeof(struct fdinfo_desc) >= 4096) {
-		pr_panic("OOM storing pipes\n");
+		pr_panic("OOM storing fdinfo descriptions\n");
 		return -1;
 	}
 
