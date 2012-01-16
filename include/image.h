@@ -17,6 +17,8 @@
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
 
+#define FDINFO_CWD	(~0ULL)
+
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
 #define PAGE_ANON	2

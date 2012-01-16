@@ -180,7 +180,7 @@ int prepare_fd_pid(int pid)
 
 		if (e.type == FDINFO_MAP)
 			continue;
-		if (e.addr == -1)
+		if (e.addr == FDINFO_CWD)
 			continue;
 		if (collect_fd(pid, &e))
 			return -1;
@@ -529,12 +529,12 @@ int prepare_fds(int pid)
 					if (open_fmap(pid, &fe, fdinfo_fd))
 						goto err;
 					continue;
-				} else if (fe.addr == ~0L) {
+				} else if (fe.addr == FDINFO_CWD) {
 					if (restore_cwd(&fe, fdinfo_fd))
 						goto err;
 					continue;
 				}
-			} else if (fe.type == FDINFO_MAP || fe.addr == ~0L) {
+			} else if (fe.type == FDINFO_MAP || fe.addr == FDINFO_CWD) {
 				lseek(fdinfo_fd, fe.len, SEEK_CUR);
 				continue;
 			}

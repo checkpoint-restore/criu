@@ -148,7 +148,7 @@ static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 	int ret = -1;
 	int fd;
 	struct fd_parms p = {
-		.fd_name = ~0L,
+		.fd_name = FDINFO_CWD,
 		.pos = 0,
 		.flags = 0,
 		.id = NULL,
