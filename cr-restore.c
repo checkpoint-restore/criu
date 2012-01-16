@@ -75,6 +75,22 @@ struct pipe_list_entry {
 	off_t			offset;
 };
 
+static struct task_entries *task_entries;
+
+static void task_add_entry(int pid)
+{
+	int *nr = &task_entries->nr;
+	struct task_entry *e = &task_entries->entries[*nr];
+
+	(*nr)++;
+
+	BUG_ON((*nr) * sizeof(struct task_entry) +
+		sizeof(struct task_entries) > TASK_ENTRIES_SIZE);
+
+	e->pid = pid;
+	e->done = 0;
+}
+
 static struct shmem_id *shmem_ids;
 
 static struct shmems *shmems;
@@ -372,6 +388,14 @@ static int prepare_shared(int ps_fd)
 
 	shmems->nr_shmems = 0;
 
+	task_entries = mmap(NULL, TASK_ENTRIES_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (task_entries == MAP_FAILED) {
+		pr_perror("Can't map shmem\n");
+		return -1;
+	}
+	task_entries->nr = 0;
+	task_entries->start  = 0;
+
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
 		pr_perror("Can't map pipes\n");
@@ -402,6 +426,8 @@ static int prepare_shared(int ps_fd)
 
 		if (prepare_fd_pid(e.pid))
 			return -1;
+
+		task_add_entry(e.pid);
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
@@ -1189,7 +1215,7 @@ static int restore_task_with_children(int my_pid)
 static int restore_root_task(int fd)
 {
 	struct pstree_entry e;
-	int ret;
+	int ret, i;
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
@@ -1203,6 +1229,15 @@ static int restore_root_task(int fd)
 	ret = fork_with_pid(e.pid);
 	if (ret < 0)
 		return -1;
+
+	for (i = 0; i < task_entries->nr; i++) {
+		pr_info("Wait while the task %d restored\n",
+				task_entries->entries[i].pid);
+		cr_wait_while(&task_entries->entries[i].done, 0);
+	}
+
+	pr_info("Go on!!!\n");
+	cr_wait_set(&task_entries->start, 1);
 
 	wait(NULL);
 	return 0;
@@ -1330,6 +1365,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
+	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 
 	fd_pstree = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd_pstree < 0)
@@ -1421,7 +1457,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
-					      SHMEMS_SIZE);
+					      SHMEMS_SIZE + TASK_ENTRIES_SIZE);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%dK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
@@ -1482,6 +1518,15 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	if (ret < 0)
 		goto err;
 	task_args->shmems	= shmems_ref;
+
+	shmems_ref = (struct shmems *)(exec_mem_hint +
+				       restore_task_vma_len +
+				       restore_thread_vma_len +
+				       SHMEMS_SIZE);
+	ret = shmem_remap(task_entries, shmems_ref, TASK_ENTRIES_SIZE);
+	if (ret < 0)
+		goto err;
+	task_args->task_entries = shmems_ref;
 
 	/*
 	 * Arguments for task restoration.

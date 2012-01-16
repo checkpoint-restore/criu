@@ -75,6 +75,7 @@ struct task_restore_core_args {
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
+	struct task_entries		*task_entries;
 } __aligned(sizeof(long));
 
 struct pt_regs {
@@ -301,6 +302,20 @@ struct shmems {
 	struct shmem_info	entries[0];
 };
 
+#define TASK_ENTRIES_SIZE 4096
+
+struct task_entry {
+	int pid;
+	u32 done; // futex
+};
+
+struct task_entries {
+	int nr;
+	u32 start; //futex
+	struct task_entry entries[0];
+};
+
+
 static always_inline struct shmem_info *
 find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
 {
@@ -318,6 +333,17 @@ find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
 	return NULL;
 }
 
+static always_inline struct task_entry *
+task_get_entry(struct task_entries *base, int pid)
+{
+	int i;
+
+	for (i = 0; i < base->nr; i++)
+		if (base->entries[i].pid == pid)
+			return &base->entries[i];
+
+	return NULL;
+}
 
 /* We need own handler */
 

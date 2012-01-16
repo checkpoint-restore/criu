@@ -148,6 +148,7 @@ self_len_start:
 long restore_task(long cmd, struct task_restore_core_args *args)
 {
 	long ret = -1;
+	struct task_entry *task_entry;
 
 	switch (cmd) {
 
@@ -544,6 +545,19 @@ self_len_end:
 			}
 
 			sys_close(fd);
+		}
+
+		write_num_n(__LINE__);
+		task_entry = task_get_entry(args->task_entries, my_pid);
+		cr_wait_set(&task_entry->done, 1);
+		cr_wait_while(&args->task_entries->start, 0);
+		write_num_n(__LINE__);
+
+		ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
+		if (ret < 0) {
+			write_num_n(__LINE__);
+			write_num_n(ret);
+			goto core_restore_end;
 		}
 
 		/*
