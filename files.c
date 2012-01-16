@@ -251,6 +251,9 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 	int sock;
 	int ret, sun_len;
 
+	if (fi->pid == pid)
+		return 0;
+
 	saddr.sun_family = AF_UNIX;
 	snprintf(saddr.sun_path, UNIX_PATH_MAX,
 			"X/crtools-fd-%d-%ld", getpid(), fe->addr);
@@ -260,9 +263,6 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 
 	pr_info("\t%d: Create transport fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
-
-	if (fi->pid == pid)
-		return 0;
 
 	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
@@ -294,6 +294,9 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	int serv, sock;
 	struct sockaddr_un saddr;
 	struct fdinfo_list_entry *fle;
+
+	if ((fi->pid != pid) || (fe->addr != fi->addr))
+		return 0;
 
 	tmp = open_fe_fd(fe, fdinfo_fd);
 	if (tmp < 0)
@@ -410,11 +413,15 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 	int tmp;
 
 	if (fi->pid == pid) {
-		tmp = dup2(fi->addr, fe->addr);
-		if (tmp < 0) {
-			pr_perror("Can't duplicate fd %d %d\n", fi->addr, fe->addr);
-			return -1;
+		if (fi->addr != fe->addr) {
+			tmp = dup2(fi->addr, fe->addr);
+			if (tmp < 0) {
+				pr_perror("Can't duplicate fd %d %d\n",
+						fi->addr, fe->addr);
+				return -1;
+			}
 		}
+
 		return 0;
 	}
 
@@ -474,14 +481,16 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	BUG_ON(fe->type != FDINFO_FD);
 
 
-	if (pid == fi->pid && fe->addr == fi->addr) {
-		if (state == FD_STATE_CREATE)
-			ret = open_fd(pid, fe, fi, *fdinfo_fd);
-	} else {
-		if (state == FD_STATE_PREP)
-			ret = open_transport_fd(pid, fe, fi);
-		else if (state == FD_STATE_RECV)
-			ret = receive_fd(pid, fe, fi);
+	switch (state) {
+	case FD_STATE_PREP:
+		ret = open_transport_fd(pid, fe, fi);
+		break;
+	case FD_STATE_CREATE:
+		ret = open_fd(pid, fe, fi, *fdinfo_fd);
+		break;
+	case FD_STATE_RECV:
+		ret = receive_fd(pid, fe, fi);
+		break;
 	}
 
 	return ret;
