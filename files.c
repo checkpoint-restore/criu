@@ -407,10 +407,7 @@ static int recv_fd(int sock)
 
 static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 {
-	int tmp, fd;
-	int sock;
-	struct sockaddr_un saddr;
-	socklen_t address_length;
+	int tmp;
 
 	if (fi->pid == pid) {
 		tmp = dup2(fi->addr, fe->addr);
