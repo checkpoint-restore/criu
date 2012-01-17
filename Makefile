@@ -60,13 +60,14 @@ PROGRAM		:= crtools
 
 export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 
-all: $(PROGRAM)
+OBJS_GEN_DEP	+= parasite-syscall.o
+OBJS_GEN_DEP	+= cr-restore.o
+DEPS_GEN	:= $(patsubst %.o,%.d,$(OBJS_GEN_DEP))
 
+OBJS		+= $(OBJS_GEN_DEP)
 OBJS		+= crtools.o
 OBJS		+= proc_parse.o
-OBJS		+= parasite-syscall.o
 OBJS		+= cr-dump.o
-OBJS		+= cr-restore.o
 OBJS		+= cr-show.o
 OBJS		+= util.o
 OBJS		+= ptrace.o
@@ -75,12 +76,9 @@ OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= files.o
 
-DEPS		:= $(patsubst %.o,%.d,$(OBJS))
-
 HEADERS		:= $(shell find ./include/* -name '*.h' -print)
 
 OBJS-BLOB	+= parasite.o
-DEPS-BLOB	+= $(patsubst %.o,%.d,$(OBJS-BLOB))
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
 HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
@@ -88,24 +86,6 @@ HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
 HEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(HEAD-BLOB)))
-
-$(OBJS-BLOB): $(SRCS-BLOB)
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
-
-$(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
-	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
-
-$(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
-	$(E) "  GEN     " $@
-	$(Q) $(SH) gen-offsets.sh			\
-		parasite_h__				\
-		parasite_blob_offset__			\
-		parasite_blob				\
-		$(OBJS-BLOB)				\
-		$(HEAD-BIN) > parasite-blob.h
-	$(Q) sync
 
 ROBJS-BLOB	= restorer.o
 RDEPS-BLOB	+= $(patsubst %.o,%.d,$(ROBJS-BLOB))
@@ -116,6 +96,28 @@ RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
 RHEAD-LDS	:= $(patsubst %.o,%.lds.S,$(ROBJS-BLOB))
 
 RHEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(RHEAD-BLOB)))
+
+DEPS		:= $(patsubst %.o,%.d,$(OBJS)) $(patsubst %.o,%.d,$(OBJS-BLOB))
+
+all: $(PROGRAM)
+
+$(OBJS-BLOB): $(SRCS-BLOB)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+
+$(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
+
+$(HEAD-BLOB-GEN): $(HEAD-BIN)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) gen-offsets.sh			\
+		parasite_h__				\
+		parasite_blob_offset__			\
+		parasite_blob				\
+		$(OBJS-BLOB)				\
+		$(HEAD-BIN) > parasite-blob.h
+	$(Q) sync
 
 $(ROBJS-BLOB): $(RSRCS-BLOB)
 	$(E) "  CC      " $@
@@ -135,7 +137,6 @@ $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
 		$(RHEAD-BIN) > restorer-blob.h
 	$(Q) sync
 
-$(OBJS): $(DEPS) $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
@@ -144,11 +145,8 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS): $(HEAD-BLOB-GEN) $(HEADERS) $(RHEAD-BLOB-GEN) $(RHEADERS)
+$(DEPS_GEN): $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
 %.d: %.c
-	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
-
-$(DEPS-BLOB) $(RDEPS-BLOB): $(SRCS-BLOB) $(RSRCS-BLOB)
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test:
@@ -172,7 +170,8 @@ clean:
 	$(Q) $(RM) -f ./tags
 	$(Q) $(RM) -f ./cscope*
 	$(Q) $(RM) -f ./$(PROGRAM)
-	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN) ./$(RHEAD-BLOB-GEN)
+	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
+	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
 	$(Q) $(MAKE) -C test clean
 .PHONY: clean
 
@@ -187,3 +186,5 @@ cscope:
 	$(Q) $(FIND) . -name '*.[hcS]' -print > cscope.files
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
+
+-include $(DEPS)
