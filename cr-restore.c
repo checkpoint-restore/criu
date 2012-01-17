@@ -1253,10 +1253,10 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 
 	prev_vma_end = 0;
 
-	sys_lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+	lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 
 	while (1) {
-		ret = sys_read(fd, &vma, sizeof(vma));
+		ret = read(fd, &vma, sizeof(vma));
 		if (ret && ret != sizeof(vma)) {
 			pr_perror("Can't read vma entry from core-%d\n", pid);
 			goto err_or_found;
@@ -1580,7 +1580,7 @@ err:
 		munmap(exec_mem, restore_task_vma_len + restore_thread_vma_len);
 
 	/* Just to be sure */
-	sys_exit(0);
+	exit(1);
 }
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
