@@ -118,7 +118,7 @@ static void show_one_inet_img(char *act, struct inet_sk_entry *e)
 	}
 
 	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
-		"state %d src_addr %d bytes\n",
+		"state %d src_addr %d\n",
 		act, e->fd, e->family, e->type, e->proto, e->src_port, e->state,
 		src_addr);
 }
@@ -969,6 +969,36 @@ int prepare_sockets(int pid)
 {
 	pr_info("%d: Opening sockets\n", pid);
 	return prepare_unix_sockets(pid);
+}
+
+void show_inetsk(int fd)
+{
+	struct inet_sk_entry ie;
+	int ret = 0;
+
+	pr_img_head(CR_FD_INETSK);
+
+	while (1) {
+		char src_addr[INET_ADDR_LEN] = "<unknown>";
+
+		ret = read_ptr_safe_eof(fd, &ie, out);
+		if (!ret)
+			goto out;
+
+		if (inet_ntop(AF_INET, (void *)ie.src_addr, src_addr,
+			      INET_ADDR_LEN) == NULL) {
+			pr_err("Failed to translate address: %d\n", errno);
+		}
+
+		pr_info("fd %d family %d type %d proto %d port %d state %d "
+			"--> %s\n", ie.fd, ie.family, ie.type, ie.proto,
+			ie.src_port, ie.state, src_addr);
+	}
+
+out:
+	if (ret)
+		pr_info("\n");
+	pr_img_tail(CR_FD_INETSK);
 }
 
 void show_unixsk(int fd)

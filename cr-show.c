@@ -437,6 +437,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case UNIXSK_MAGIC:
 		show_unixsk(fd);
 		break;
+	case INETSK_MAGIC:
+		show_inetsk(fd);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
 		goto err;
@@ -507,6 +510,8 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_sigacts(cr_fdset->fds[CR_FD_SIGACT]);
 
 		show_unixsk(cr_fdset->fds[CR_FD_UNIXSK]);
+
+		show_inetsk(cr_fdset->fds[CR_FD_INETSK]);
 
 		close_cr_fdset(&cr_fdset);
 
