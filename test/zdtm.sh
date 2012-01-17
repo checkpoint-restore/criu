@@ -21,7 +21,8 @@ $ZP/static/vdso00
 $ZP/static/file_shared
 $ZP/streaming/pipe_loop00
 $ZP/streaming/pipe_shared00
-$ZP/transition/file_read"
+$ZP/transition/file_read
+$ZP/static/socket_listen"
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 

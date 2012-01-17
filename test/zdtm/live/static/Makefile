@@ -17,6 +17,7 @@ TST_NOFILE	=				\
 		mprotect00			\
 		timers				\
 		unbound_sock			\
+		socket_listen			\
 		socket_aio			\
 		msgque				\
 		inotify_system			\
@@ -130,6 +131,7 @@ $(TST):	$(LIB)
 futex.o:		override CFLAGS += -pthread
 futex:			override LDFLAGS += -pthread
 jobctl00:		override LDLIBS += -lutil
+socket_listen:		override LDLIBS += -lrt
 socket_aio:		override LDLIBS += -lrt
 unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	override CFLAGS += -DNODEL
