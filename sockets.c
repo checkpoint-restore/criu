@@ -323,15 +323,12 @@ static int unix_receive_one(struct nlmsghdr *h)
 	return unix_collect_one(m, tb);
 }
 
-static int collect_unix_sockets(int nl)
+static int collect_sockets_nl(int nl, void *req, int size,
+			      int (*receive_callback)(struct nlmsghdr *h))
 {
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
-	struct {
-		struct nlmsghdr hdr;
-		struct unix_diag_req r;
-	} req;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name	= &nladdr;
@@ -342,18 +339,8 @@ static int collect_unix_sockets(int nl)
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family= AF_NETLINK;
 
-	iov.iov_base	= &req;
-	iov.iov_len	= sizeof(req);
-
-	memset(&req, 0, sizeof(req));
-	req.hdr.nlmsg_len	= sizeof(req);
-	req.hdr.nlmsg_type	= SOCK_DIAG_BY_FAMILY;
-	req.hdr.nlmsg_flags	= NLM_F_DUMP | NLM_F_REQUEST;
-	req.hdr.nlmsg_seq	= CR_NLMSG_SEQ;
-	req.r.sdiag_family	= AF_UNIX;
-	req.r.udiag_states	= -1; /* All */
-	req.r.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER |
-				  UDIAG_SHOW_ICONS | UDIAG_SHOW_RQLEN;
+	iov.iov_base	= req;
+	iov.iov_len	= size;
 
 	if (sendmsg(nl, &msg, 0) < 0) {
 		pr_perror("Can't send request message\n");
@@ -382,7 +369,7 @@ static int collect_unix_sockets(int nl)
 		if (err == 0)
 			break;
 
-		err = nlmsg_receive(buf, err, unix_receive_one);
+		err = nlmsg_receive(buf, err, receive_callback);
 		if (err < 0)
 			goto err;
 		if (err == 0)
@@ -399,6 +386,13 @@ int collect_sockets(void)
 {
 	int err;
 	int nl;
+	int supp_type = 0;
+	struct {
+		struct nlmsghdr hdr;
+		union {
+			struct unix_diag_req u;
+		} r;
+	} req;
 
 	nl = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
 	if (nl < 0) {
@@ -406,9 +400,24 @@ int collect_sockets(void)
 		return -1;
 	}
 
-	err = collect_unix_sockets(nl);
-	close(nl);
+	memset(&req, 0, sizeof(req));
+	req.hdr.nlmsg_len	= sizeof(req);
+	req.hdr.nlmsg_type	= SOCK_DIAG_BY_FAMILY;
+	req.hdr.nlmsg_flags	= NLM_F_DUMP | NLM_F_REQUEST;
+	req.hdr.nlmsg_seq	= CR_NLMSG_SEQ;
 
+	/* Collect UNIX sockets */
+	req.r.u.sdiag_family	= AF_UNIX;
+	req.r.u.udiag_states	= -1; /* All */
+	req.r.u.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS |
+				  UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS |
+				  UDIAG_SHOW_RQLEN;
+	err = collect_sockets_nl(nl, &req, sizeof(req), unix_receive_one);
+	if (err)
+		goto out;
+
+out:
+	close(nl);
 	return err;
 }
 
