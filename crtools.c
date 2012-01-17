@@ -85,6 +85,13 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_UNIXSK,
 		.magic	= UNIXSK_MAGIC,
 	},
+
+	/* info about inet sockets */
+	[CR_FD_INETSK] = {
+		.fmt	= FMT_FNAME_INETSK,
+		.magic	= INETSK_MAGIC,
+	},
+
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)

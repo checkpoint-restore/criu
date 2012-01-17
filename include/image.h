@@ -13,6 +13,7 @@
 #define PIPES_MAGIC	0x05055050
 #define SIGACT_MAGIC	0x60606060
 #define UNIXSK_MAGIC	0x07070707
+#define INETSK_MAGIC	0x08080808
 
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
@@ -67,6 +68,19 @@ struct unix_sk_entry {
 	u32	backlog;
 	u32	peer;
 	u8	name[0];
+} __packed;
+
+struct inet_sk_entry {
+	u32	fd;
+	u32	id;
+	u8	family;
+	u8	type;
+	u8	proto;
+	u8	state;
+	u16	src_port;
+	u8	pad[2];
+	u32	backlog;
+	u32	src_addr[4];
 } __packed;
 
 struct vma_entry {

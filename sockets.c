@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <arpa/inet.h>
 
 #include "types.h"
 #include "libnetlink.h"
@@ -19,6 +20,7 @@
 #include "image.h"
 #include "crtools.h"
 #include "util.h"
+#include "inet_diag.h"
 
 static char buf[4096];
 
@@ -52,6 +54,19 @@ struct unix_sk_desc {
 	unsigned int		*icons;
 };
 
+#define INET_ADDR_LEN		40
+
+struct inet_sk_desc {
+	struct socket_desc	sd;
+	unsigned int		type;
+	unsigned int		proto;
+	unsigned int		src_port;
+	unsigned int		state;
+	unsigned int		rqlen;
+	unsigned int		wqlen;
+	unsigned int		src_addr[4];
+};
+
 #define SK_HASH_SIZE	32
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
@@ -78,6 +93,36 @@ static int sk_collect_one(int ino, int family, struct socket_desc *d)
 	return 0;
 }
 
+static void show_one_inet(char *act, struct inet_sk_desc *sk)
+{
+	char src_addr[INET_ADDR_LEN] = "<unknown>";
+
+	if (inet_ntop(AF_INET, (void *)sk->src_addr, src_addr,
+		      INET_ADDR_LEN) == NULL) {
+		pr_err("Failed to translate address: %d\n", errno);
+	}
+
+	dprintk("\t%s: ino %d family %d type %d port %d "
+		"state %d src_addr %s\n",
+		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
+		sk->state, src_addr);
+}
+
+static void show_one_inet_img(char *act, struct inet_sk_entry *e)
+{
+	char src_addr[INET_ADDR_LEN] = "<unknown>";
+
+	if (inet_ntop(AF_INET, (void *)e->src_addr, src_addr,
+		      INET_ADDR_LEN) == NULL) {
+		pr_err("Failed to translate address: %d\n", errno);
+	}
+
+	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
+		"state %d src_addr %d bytes\n",
+		act, e->fd, e->family, e->type, e->proto, e->src_port, e->state,
+		src_addr);
+}
+
 static void show_one_unix(char *act, struct unix_sk_desc *sk)
 {
 	dprintk("\t%s: ino %d type %d state %d name %s\n",
@@ -88,6 +133,69 @@ static void show_one_unix_img(char *act, struct unix_sk_entry *e)
 {
 	dprintk("\t%s: fd %d type %d state %d name %d bytes\n",
 		act, e->fd, e->type, e->state, e->namelen);
+}
+
+static int can_dump_inet_sk(struct inet_sk_desc *sk)
+{
+	if (sk->sd.family != AF_INET) {
+		pr_err("Only IPv4 sockets for now\n");
+		return 0;
+	}
+
+	if (sk->type != SOCK_STREAM) {
+		pr_err("Only stream inet sockets for now\n");
+		return 0;
+	}
+
+	switch (sk->state) {
+	case TCP_LISTEN:
+		if (sk->rqlen != 0) {
+			/*
+			 * Currently the ICONS nla reports the conn
+			 * requests for listen sockets. Need to pick
+			 * those up and fix the connect job respectively
+			 */
+			pr_err("In-flight connection (l)\n");
+			return 0;
+		}
+		break;
+	default:
+		pr_err("Unknown state %d\n", sk->state);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int dump_one_inet(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fdset)
+{
+	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
+	struct inet_sk_entry ie;
+
+	if (!can_dump_inet_sk(sk))
+		goto err;
+
+	memset(&ie, 0, sizeof(ie));
+
+	ie.fd		= fd;
+	ie.id		= sk->sd.ino;
+	ie.family	= sk->sd.family;
+	ie.type		= sk->type;
+	ie.proto	= sk->proto;
+	ie.state	= sk->state;
+	ie.src_port	= sk->src_port;
+	ie.backlog	= sk->wqlen;
+	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
+
+	write_ptr_safe(cr_fdset->fds[CR_FD_INETSK], &ie, err);
+
+	pr_info("Dumping inet socket at %d\n", fd);
+	show_one_inet("Dumping", sk);
+	show_one_inet_img("Dumped", &ie);
+	return 0;
+
+err:
+	return -1;
 }
 
 static int can_dump_unix_sk(struct unix_sk_desc *sk)
@@ -209,12 +317,44 @@ int try_dump_socket(pid_t pid, int fd, struct cr_fdset *cr_fdset)
 	switch (sk->family) {
 	case AF_UNIX:
 		return dump_one_unix(sk, fd, cr_fdset);
+	case AF_INET:
+		return dump_one_inet(sk, fd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;
 	}
 
 	return -1;
+}
+
+static int inet_tcp_collect_one(struct inet_diag_msg *m, struct rtattr **tb)
+{
+	struct inet_sk_desc *d;
+
+	d = xzalloc(sizeof(*d));
+	if (!d)
+		return -1;
+
+	d->type = SOCK_STREAM;
+	d->proto = IPPROTO_TCP;
+	d->src_port = ntohs(m->id.idiag_sport);
+	d->state = m->idiag_state;
+	d->rqlen = m->idiag_rqueue;
+	d->wqlen = m->idiag_wqueue;
+	memcpy(d->src_addr, m->id.idiag_src, sizeof(u32) * 4);
+
+	return sk_collect_one(m->idiag_inode, AF_INET, &d->sd);
+}
+
+static int inet_tcp_receive_one(struct nlmsghdr *h)
+{
+	struct inet_diag_msg *m = NLMSG_DATA(h);
+	struct rtattr *tb[INET_DIAG_MAX+1];
+
+	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
+		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+
+	return inet_tcp_collect_one(m, tb);
 }
 
 static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
@@ -391,6 +531,7 @@ int collect_sockets(void)
 		struct nlmsghdr hdr;
 		union {
 			struct unix_diag_req u;
+			struct inet_diag_req i;
 		} r;
 	} req;
 
@@ -415,6 +556,14 @@ int collect_sockets(void)
 	err = collect_sockets_nl(nl, &req, sizeof(req), unix_receive_one);
 	if (err)
 		goto out;
+
+	/* Collect IPv4 TCP sockets */
+	req.r.i.sdiag_family	= AF_INET;
+	req.r.i.sdiag_protocol	= IPPROTO_TCP;
+	req.r.i.idiag_ext	= 1 << (INET_DIAG_INFO - 1);
+	/* Only listening sockets supported yet */
+	req.r.i.idiag_states	= 1 << TCP_LISTEN;
+	err = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
 
 out:
 	close(nl);
