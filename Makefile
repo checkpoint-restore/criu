@@ -60,8 +60,6 @@ PROGRAM		:= crtools
 
 export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 
-all: $(PROGRAM)
-
 OBJS		+= crtools.o
 OBJS		+= proc_parse.o
 OBJS		+= parasite-syscall.o
@@ -89,6 +87,8 @@ HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
 HEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(HEAD-BLOB)))
+
+all: $(PROGRAM)
 
 $(OBJS-BLOB): $(SRCS-BLOB)
 	$(E) "  CC      " $@
