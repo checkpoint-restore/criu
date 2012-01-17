@@ -77,12 +77,10 @@ OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= files.o
 
-DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 HEADERS		:= $(shell find ./include/* -name '*.h' -print)
 
 OBJS-BLOB	+= parasite.o
-DEPS-BLOB	+= $(patsubst %.o,%.d,$(OBJS-BLOB))
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
 HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
@@ -90,6 +88,8 @@ HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
 HEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(HEAD-BLOB)))
+
+DEPS		:= $(patsubst %.o,%.d,$(OBJS)) $(patsubst %.o,%.d,$(OBJS-BLOB))
 
 all: $(PROGRAM)
 
@@ -101,7 +101,7 @@ $(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
 
-$(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
+$(HEAD-BLOB-GEN): $(HEAD-BIN)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) gen-offsets.sh			\
 		parasite_h__				\
@@ -121,9 +121,6 @@ $(PROGRAM): $(OBJS)
 
 $(DEPS_PARA): $(HEAD-BLOB-GEN)
 %.d: %.c
-	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
-
-$(DEPS-BLOB): $(SRCS-BLOB)
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test:
