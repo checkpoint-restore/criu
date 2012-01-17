@@ -965,10 +965,98 @@ err:
 	return ret;
 }
 
+static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
+{
+	int sk;
+	struct sockaddr_in addr;
+
+	show_one_inet_img("Restore", ie);
+
+	if (ie->family != AF_INET) {
+		pr_err("Unsupported socket family: %d\n", ie->family);
+		goto err;
+	}
+
+	if (ie->type != SOCK_STREAM) {
+		pr_err("Unsupported socket type: %d\n", ie->type);
+		goto err;
+	}
+
+	sk = socket(ie->family, ie->type, ie->proto);
+	if (sk < 0) {
+		pr_perror("Can't create unix socket\n");
+		return -1;
+	}
+
+	/*
+	 * Listen sockets are easiest ones -- simply
+	 * bind() and listen(), and that's all.
+	 */
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = ie->family;
+	addr.sin_port = htons(ie->src_port);
+	memcpy(&addr.sin_addr.s_addr, ie->src_addr, sizeof(unsigned int) * 4);
+
+	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+		pr_err("Inet socket bind failed");
+		goto err;
+	}
+
+	if (listen(sk, ie->backlog) == -1) {
+		pr_err ("listen() failed %m");
+		goto err;
+	}
+
+	if (move_img_fd(img_fd, ie->fd))
+		return -1;
+
+	return reopen_fd_as(ie->fd, sk);
+
+err:
+	close(sk);
+	return -1;
+}
+
+static int prepare_inet_sockets(int pid)
+{
+	int isk_fd, ret = -1;
+
+	isk_fd = open_image_ro(CR_FD_INETSK, pid);
+	if (isk_fd < 0)
+		return -1;
+
+	while (1) {
+		struct inet_sk_entry ie;
+
+		ret = read(isk_fd, &ie, sizeof(ie));
+		if (ret == 0)
+			break;
+
+		if (ret != sizeof(ie)) {
+			pr_perror("%d: Bad inet sk entry (ret %d)\n", pid, ret);
+			ret = -1;
+			break;
+		}
+
+		ret = open_inet_sk(&ie, &isk_fd);
+		if (ret)
+			break;
+	}
+
+	close(isk_fd);
+
+	return ret;
+}
+
 int prepare_sockets(int pid)
 {
+	int err;
+
 	pr_info("%d: Opening sockets\n", pid);
-	return prepare_unix_sockets(pid);
+	err = prepare_unix_sockets(pid);
+	if (err)
+		return err;
+	return prepare_inet_sockets(pid);
 }
 
 void show_inetsk(int fd)
