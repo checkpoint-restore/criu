@@ -504,11 +504,11 @@ long restore_task(struct task_restore_core_args *args)
 		sys_close(fd);
 	}
 
-	write_num_n(__LINE__);
 	task_entry = task_get_entry(args->task_entries, my_pid);
 	cr_wait_set(&task_entry->done, 1);
+	write_num(sys_getpid());
+	write_string_n(": Restored");
 	cr_wait_while(&args->task_entries->start, 0);
-	write_num_n(__LINE__);
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {
