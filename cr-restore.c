@@ -1585,10 +1585,6 @@ err:
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
-#if 0
-	sigreturn_restore(pid, pid);
-#endif
-
 	pstree_pid = pid;
 
 	if (opts->leader_only)
