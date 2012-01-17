@@ -334,14 +334,14 @@ static int prepare_pipes_pid(int pid)
 	return 0;
 }
 
-static int shmem_remap(struct shmems *old_addr, struct shmems *new_addr)
+static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
 	char path[PATH_MAX];
 	int fd;
 	void *ret;
 
 	sprintf(path, "/proc/self/map_files/%p-%p",
-		old_addr, (void *)old_addr + SHMEMS_SIZE);
+		old_addr, (void *)old_addr + size);
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
@@ -349,15 +349,10 @@ static int shmem_remap(struct shmems *old_addr, struct shmems *new_addr)
 		return -1;
 	}
 
-	ret = mmap(new_addr, SHMEMS_SIZE, PROT_READ | PROT_WRITE,
+	ret = mmap(new_addr, size, PROT_READ | PROT_WRITE,
 		   MAP_SHARED | MAP_FIXED, fd, 0);
 	if (ret != new_addr) {
 		pr_perror("mmap failed\n");
-		return -1;
-	}
-
-	if (new_addr->nr_shmems != old_addr->nr_shmems) {
-		pr_err("shmem_remap failed\n");
 		return -1;
 	}
 
@@ -1289,7 +1284,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_task_code_len, restore_task_vma_len;
 	long restore_thread_code_len, restore_thread_vma_len;
-	long restore_shmem_vma_len;
 
 	void *exec_mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -1321,7 +1315,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	restore_task_vma_len	= 0;
 	restore_thread_code_len	= 0;
 	restore_thread_vma_len	= 0;
-	restore_shmem_vma_len	= SHMEMS_SIZE;
 
 	pid_dir = open_pid_proc(pid);
 	if (pid_dir < 0)
@@ -1336,6 +1329,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
+	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 
 	fd_pstree = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd_pstree < 0)
@@ -1427,7 +1421,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
-					      restore_shmem_vma_len);
+					      SHMEMS_SIZE);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%dK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
@@ -1484,15 +1478,15 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	shmems_ref = (struct shmems *)(exec_mem_hint +
 				       restore_task_vma_len +
 				       restore_thread_vma_len);
-	ret = shmem_remap(shmems, shmems_ref);
+	ret = shmem_remap(shmems, shmems_ref, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
+	task_args->shmems	= shmems_ref;
 
 	/*
 	 * Arguments for task restoration.
 	 */
 	task_args->pid		= pid;
-	task_args->shmems	= shmems_ref;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
 
