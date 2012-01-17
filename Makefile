@@ -60,9 +60,12 @@ PROGRAM		:= crtools
 
 export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 
+OBJS_PARA	:= parasite-syscall.o
+DEPS_PARA	:= $(patsubst %.o,%.d,$(OBJS_PARA))
+
+OBJS		:= $(OBJS_PARA)
 OBJS		+= crtools.o
 OBJS		+= proc_parse.o
-OBJS		+= parasite-syscall.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-restore.o
 OBJS		+= cr-show.o
@@ -117,7 +120,7 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS): $(HEAD-BLOB-GEN) $(HEADERS)
+$(DEPS_PARA): $(HEAD-BLOB-GEN)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
