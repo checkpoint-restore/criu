@@ -30,7 +30,6 @@
 #include "image.h"
 #include "proc_parse.h"
 #include "parasite-syscall.h"
-#include "parasite-blob.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
