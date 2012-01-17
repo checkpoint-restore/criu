@@ -12,11 +12,11 @@
 #include "compiler.h"
 #include "types.h"
 #include "syscall.h"
+#include "restorer-log.h"
 #include "util.h"
 #include "image.h"
 
 #include "crtools.h"
-#include "restorer-log.h"
 #include "lock.h"
 #include "restorer.h"
 

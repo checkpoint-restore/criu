@@ -90,8 +90,12 @@ extern void printk(const char *format, ...);
 #ifdef CR_NOGLIBC
 #define BUG_ON_HANDLER(condition)					\
 	do {								\
-		if ((condition))					\
+		if ((condition)) {					\
+			write_string("BUG at " __FILE__ ": ");          \
+			write_num(__LINE__);				\
+			write_string("\n");                              \
 			*(unsigned long *)NULL = 0xdead0000 + __LINE__;	\
+		}							\
 	} while (0)
 #else
 # define BUG_ON_HANDLER(condition)					\
