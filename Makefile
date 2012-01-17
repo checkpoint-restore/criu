@@ -111,7 +111,6 @@ $(HEAD-BLOB-GEN): $(HEAD-BIN) $(DEPS-BLOB)
 		$(HEAD-BIN) > parasite-blob.h
 	$(Q) sync
 
-$(OBJS): $(DEPS) $(HEAD-BLOB-GEN)
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
@@ -163,3 +162,5 @@ cscope:
 	$(Q) $(FIND) . -name '*.[hcS]' -print > cscope.files
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
+
+-include $(DEPS)
