@@ -958,6 +958,7 @@ static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
 		return attach_pipe(pid, e, pi, pipes_fd);
 }
 
+static rt_sigaction_t sigchld_act;
 static int prepare_sigactions(int pid)
 {
 	rt_sigaction_t act, oact;
@@ -985,6 +986,10 @@ static int prepare_sigactions(int pid)
 		ASSIGN_TYPED(act.rt_sa_restorer, e.restorer);
 		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e.mask);
 
+		if (sig == SIGCHLD) {
+			sigchld_act = act;
+			continue;
+		}
 		/*
 		 * A pure syscall is used, because glibc
 		 * sigaction overwrites se_restorer.
@@ -1141,6 +1146,20 @@ err:
 	return ret;
 }
 
+static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
+{
+	int status, pid;
+
+	if (siginfo->si_code & CLD_EXITED)
+		pr_err("%d exited, status=%d\n",
+			siginfo->si_pid, siginfo->si_status);
+	else if (siginfo->si_code & CLD_KILLED)
+		pr_err("%d killed by signal %d\n",
+			siginfo->si_pid, siginfo->si_status);
+
+	cr_wait_set(&task_entries->nr_in_progress, -1);
+}
+
 static int restore_task_with_children(int my_pid)
 {
 	int *pids;
@@ -1151,6 +1170,7 @@ static int restore_task_with_children(int my_pid)
 	/* The block mask will be restored in sigresturn
 	 * This code should be removed, when a freezer will be added */
 	sigfillset(&blockmask);
+	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
 		pr_perror("%d: Can't block signals\n", my_pid);
@@ -1219,6 +1239,7 @@ static int restore_root_task(int fd, bool detach)
 {
 	struct pstree_entry e;
 	int ret, i;
+	struct sigaction act;
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
@@ -1228,13 +1249,33 @@ static int restore_root_task(int fd, bool detach)
 
 	close(fd);
 
+	ret = sigaction(SIGCHLD, NULL, &act);
+	if (ret < 0) {
+		perror("sigaction() failed\n");
+		return -1;
+	}
+
+	act.sa_flags |= SA_NOCLDWAIT | SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
+	act.sa_sigaction = sigchld_handler;
+	ret = sigaction(SIGCHLD, &act, NULL);
+	if (ret < 0) {
+		perror("sigaction() failed\n");
+		return -1;
+	}
+
 	pr_info("Forking root with %d pid\n", e.pid);
 	ret = fork_with_pid(e.pid);
 	if (ret < 0)
 		return -1;
 
 	pr_info("Wait until all tasks are restored");
-	cr_wait_until(&task_entries->nr_in_progress, 0);
+	ret = cr_wait_until_greater(&task_entries->nr_in_progress, 0);
+	if (ret < 0) {
+		pr_err("Someone can't be restored\n");
+		for (i = 0; i < task_entries->nr; i++)
+			kill(task_entries->entries[i].pid, SIGKILL);
+		return 1;
+	}
 
 	for (i = 0; i < task_entries->nr; i++) {
 		pr_info("Wait while the task %d restored\n",
@@ -1242,6 +1283,9 @@ static int restore_root_task(int fd, bool detach)
 		cr_wait_while(&task_entries->entries[i].done, 0);
 	}
 
+	cr_wait_set(&task_entries->nr_in_progress, task_entries->nr);
+	cr_wait_set(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	cr_wait_until(&task_entries->nr_in_progress, 0);
 	pr_info("Go on!!!\n");
 	cr_wait_set(&task_entries->start, CR_STATE_COMPLETE);
 
@@ -1537,6 +1581,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
 	task_args->logfd	= get_logfd();
+	task_args->sigchld_act	= sigchld_act;
 
 	cr_mutex_init(&task_args->rst_lock);
 

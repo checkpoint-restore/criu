@@ -77,6 +77,7 @@ struct task_restore_core_args {
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
+	rt_sigaction_t			sigchld_act;
 } __aligned(sizeof(long));
 
 struct pt_regs {
@@ -195,6 +196,7 @@ struct shmems {
 
 enum {
 	CR_STATE_RESTORE,
+	CR_STATE_RESTORE_SIGCHLD,
 	CR_STATE_COMPLETE
 };
 

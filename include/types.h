@@ -73,7 +73,8 @@ typedef struct {
 	unsigned long sig[1];
 } rt_sigset_t;
 
-typedef void rt_signalfn_t(int);
+struct siginfo;
+typedef void rt_signalfn_t(int, struct siginfo *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 
 typedef void rt_restorefn_t(void);

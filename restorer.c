@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
@@ -19,6 +20,25 @@
 #include "crtools.h"
 #include "lock.h"
 #include "restorer.h"
+
+static struct task_entries *task_entries;
+
+static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
+{
+	int status, pid;
+
+	write_num(siginfo->si_pid);
+	if (siginfo->si_code & CLD_EXITED)
+		write_string(" exited, status=");
+	else if (siginfo->si_code & CLD_KILLED)
+		write_string(" killed by signal ");
+	write_num_n(siginfo->si_status);
+
+	cr_wait_set(&task_entries->nr_in_progress, -1);
+	/* sa_restorer may be unmaped, so we can't go back to userspace*/
+	sys_kill(sys_getpid(), SIGSTOP);
+	sys_exit(1);
+}
 
 /*
  * Threads restoration via sigreturn. Note it's locked
@@ -131,6 +151,12 @@ long restore_task(struct task_restore_core_args *args)
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp, fsgs_base;
 	pid_t my_pid = sys_getpid();
+	rt_sigaction_t act;
+
+	task_entries = args->task_entries;
+	sys_sigaction(SIGCHLD, NULL, &act);
+	act.rt_sa_handler = sigchld_handler;
+	sys_sigaction(SIGCHLD, &act, NULL);
 
 	set_logfd(args->logfd);
 
@@ -505,11 +531,19 @@ long restore_task(struct task_restore_core_args *args)
 	}
 
 	task_entry = task_get_entry(args->task_entries, my_pid);
+
 	cr_wait_dec(&args->task_entries->nr_in_progress);
 	cr_wait_set(&task_entry->done, 1);
+
 	write_num(sys_getpid());
 	write_string_n(": Restored");
+
 	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
+
+	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL);
+
+	cr_wait_dec(&args->task_entries->nr_in_progress);
+	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {

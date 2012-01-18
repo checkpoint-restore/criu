@@ -152,8 +152,6 @@ static always_inline long sys_open(const char *filename, unsigned long flags, un
 	return syscall3(__NR_open, (unsigned long)filename, flags, mode);
 }
 
-struct sigaction;
-
 static always_inline long sys_sigaction(int signum, const rt_sigaction_t *act, rt_sigaction_t *oldact)
 {
 	return syscall4(__NR_rt_sigaction, signum, (unsigned long)act, (unsigned long)oldact, sizeof(rt_sigset_t));
