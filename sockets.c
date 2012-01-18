@@ -716,7 +716,7 @@ err:
 	return -1;
 }
 
-static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int *img_fd)
+static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 {
 	if (ue->namelen) {
 
@@ -732,7 +732,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int *img_fd)
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
 
-		ret = read(*img_fd, &addr.sun_path, ue->namelen);
+		ret = read(img_fd, &addr.sun_path, ue->namelen);
 		if (ret != ue->namelen) {
 			pr_err("Error reading socket name from image (%d)", ret);
 			goto err;
@@ -786,7 +786,7 @@ err:
 	return -1;
 }
 
-static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int *img_fd)
+static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 {
 	int ret = -1;
 
@@ -806,7 +806,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int *img_fd)
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
 
-		ret = read(*img_fd, &addr.sun_path, ue->namelen);
+		ret = read(img_fd, &addr.sun_path, ue->namelen);
 		if (ret != ue->namelen) {
 			pr_err("Error reading socket name from image (%d)", ret);
 			goto err;
@@ -904,11 +904,11 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 
 	switch (ue->type) {
 	case SOCK_STREAM:
-		if (open_unix_sk_stream(sk, ue, img_fd))
+		if (open_unix_sk_stream(sk, ue, *img_fd))
 			goto err;
 		break;
 	case SOCK_DGRAM:
-		if (open_unix_sk_dgram(sk, ue, img_fd))
+		if (open_unix_sk_dgram(sk, ue, *img_fd))
 			goto err;
 		break;
 	default:
