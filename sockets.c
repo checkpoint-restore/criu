@@ -937,21 +937,15 @@ static int prepare_unix_sockets(int pid)
 	while (1) {
 		struct unix_sk_entry ue;
 
-		ret = read(usk_fd, &ue, sizeof(ue));
+		ret = read_ptr_safe_eof(usk_fd, &ue, err);
 		if (ret == 0)
 			break;
-
-		if (ret != sizeof(ue)) {
-			pr_perror("%d: Bad unix sk entry (ret %d)\n", pid, ret);
-			ret = -1;
-			break;
-		}
 
 		ret = open_unix_sk(&ue, &usk_fd);
 		if (ret)
 			break;
 	}
-
+err:
 	close(usk_fd);
 
 	if (!ret)
@@ -961,7 +955,6 @@ static int prepare_unix_sockets(int pid)
 	if (!ret)
 		ret = run_accept_jobs();
 
-err:
 	return ret;
 }
 
@@ -1028,23 +1021,16 @@ static int prepare_inet_sockets(int pid)
 	while (1) {
 		struct inet_sk_entry ie;
 
-		ret = read(isk_fd, &ie, sizeof(ie));
+		ret = read_ptr_safe_eof(isk_fd, &ie, err);
 		if (ret == 0)
 			break;
-
-		if (ret != sizeof(ie)) {
-			pr_perror("%d: Bad inet sk entry (ret %d)\n", pid, ret);
-			ret = -1;
-			break;
-		}
 
 		ret = open_inet_sk(&ie, &isk_fd);
 		if (ret)
 			break;
 	}
-
+err:
 	close(isk_fd);
-
 	return ret;
 }
 
