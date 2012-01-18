@@ -64,6 +64,25 @@ static always_inline void cr_wait_until(u32 *v, u32 val)
 }
 
 /*
+ * Wait until futex @v value greater than @val
+ */
+static always_inline s32 cr_wait_until_greater(u32 *v, s32 val)
+{
+	int ret;
+	s32 tmp;
+
+	while (1) {
+		tmp = *v;
+		if (tmp <= val)
+			break;
+		ret = sys_futex(v, FUTEX_WAIT, tmp, NULL, NULL, 0);
+		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
+	}
+
+	return tmp;
+}
+
+/*
  * Wait while futex @v value is @val
  */
 static always_inline void cr_wait_while(u32 *v, u32 val)
