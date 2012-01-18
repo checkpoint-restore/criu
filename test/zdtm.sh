@@ -38,13 +38,13 @@ run_test()
 	ddump="dump/$tname/$pid"
 	mkdir -p $ddump
 	ls -l /proc/$pid/fd/
-	setsid $CRTOOLS -D $ddump -o dump.log -d -t $pid || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid || return 1
 	while :; do
 		killall -9 $tname &> /dev/null || break;
 		echo Waiting...
 		sleep 1
 	done
-	setsid $CRTOOLS -D $ddump -o restore.log -r -t $pid &
+	setsid $CRTOOLS restore -D $ddump -o restore.log -t $pid &
 	sleep 1
 	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
