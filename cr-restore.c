@@ -395,7 +395,7 @@ static int prepare_shared(int ps_fd)
 		return -1;
 	}
 	task_entries->nr = 0;
-	task_entries->start  = 0;
+	task_entries->start = CR_STATE_RESTORE;
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
@@ -432,6 +432,8 @@ static int prepare_shared(int ps_fd)
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
+
+	task_entries->nr_in_progress = task_entries->nr;
 
 	lseek(ps_fd, sizeof(u32), SEEK_SET);
 
@@ -1231,6 +1233,9 @@ static int restore_root_task(int fd, bool detach)
 	if (ret < 0)
 		return -1;
 
+	pr_info("Wait until all tasks are restored");
+	cr_wait_until(&task_entries->nr_in_progress, 0);
+
 	for (i = 0; i < task_entries->nr; i++) {
 		pr_info("Wait while the task %d restored\n",
 				task_entries->entries[i].pid);
@@ -1238,7 +1243,7 @@ static int restore_root_task(int fd, bool detach)
 	}
 
 	pr_info("Go on!!!\n");
-	cr_wait_set(&task_entries->start, 1);
+	cr_wait_set(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (!detach)
 		wait(NULL);

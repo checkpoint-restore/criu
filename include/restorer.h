@@ -193,6 +193,11 @@ struct shmems {
 
 #define TASK_ENTRIES_SIZE 4096
 
+enum {
+	CR_STATE_RESTORE,
+	CR_STATE_COMPLETE
+};
+
 struct task_entry {
 	int pid;
 	u32 done; // futex
@@ -200,6 +205,7 @@ struct task_entry {
 
 struct task_entries {
 	int nr;
+	u32 nr_in_progress;
 	u32 start; //futex
 	struct task_entry entries[0];
 };
