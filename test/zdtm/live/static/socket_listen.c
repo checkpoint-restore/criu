@@ -1,7 +1,7 @@
 #include "zdtmtst.h"
 
-const char *test_doc = "static test for AIO\n";
-const char *test_author = "Andrew Vagin <avagin@sw.ru>";
+const char *test_doc = "static test for listening socket\n";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@opernvz.org>";
 
 /* Description:
  * Create two tcp socket, server send asynchronous request on
@@ -16,7 +16,6 @@ const char *test_author = "Andrew Vagin <avagin@sw.ru>";
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <aio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 #include <wait.h>
@@ -30,13 +29,12 @@ int init_server(int port);
 
 int main(int argc, char **argv)
 {
-	char buf[BUF_SIZE];
+	unsigned char buf[BUF_SIZE];
 	int fd, fd_s;
-	struct aiocb aiocb;
 	int status;
 	pid_t pid;
 	int ret, res;
-	const struct aiocb   *aioary[1];
+	uint32_t crc;
 
 	test_init(argc, argv);
 
@@ -63,48 +61,15 @@ int main(int argc, char **argv)
 		if (fd < 0)
 			return 1;
 
-		memset(&aiocb, 0, sizeof(struct aiocb));
-		aiocb.aio_fildes = fd;
-		aiocb.aio_buf = buf;
-		aiocb.aio_nbytes = BUF_SIZE;
-		ret = aio_read(&aiocb);
-		if (ret < 0) {
-			err("aio_read failed %m");
-			return 1;
-		}
-
-		/* Wait for request completion */
-		aioary[0] = &aiocb;
-		ret = aio_error(&aiocb);
-#ifdef DEBUG
-		test_msg(".");
-#endif
-		res = 0;
-again:
-		if (aio_suspend(aioary, 1, NULL) < 0 && errno != EINTR) {
-			err("aio_suspend failed %m");
-			res = 1;
-		}
-
-		ret = aio_error(&aiocb);
-		if (!res && ret == EINPROGRESS) {
-#ifdef DEBUG
-			test_msg("restart aio_suspend\n");
-#endif
-			goto again;
-		}
-		if (ret != 0) {
-			err("Error at aio_error() %s", strerror(ret));
-			res = 1;
-		}
-
-		if (aio_return(&aiocb) != BUF_SIZE) {
-			err("Error at aio_return() %m");
-			res = 1;
-		}
-
+		res = read(fd, buf, BUF_SIZE);
 		close(fd);
-		return res;
+		if (res != BUF_SIZE) {
+			err("read less then have to: %d instead of %d", res, BUF_SIZE);
+			return -1;
+		}
+		if (datachk(buf, BUF_SIZE, &crc))
+			return -2;
+		return 0;
 	}
 
 	/*
@@ -117,6 +82,7 @@ again:
 		goto error;
 	}
 
+	datagen(buf, BUF_SIZE, &crc);
 	if (write(fd, buf, BUF_SIZE) < BUF_SIZE) {
 		err("can't write");
 		goto error;
