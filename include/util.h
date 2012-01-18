@@ -134,8 +134,10 @@ extern void printk(const char *format, ...);
 #define read_safe_eof(fd, ptr, size, err)			\
 	({							\
 		size_t rc__ = read(fd, ptr, (size));		\
-		if (rc__ && rc__ != (size))			\
+		if (rc__ && rc__ != (size)) {			\
+	 		pr_err("img corruption %d/%d\n", rc__, (size));\
 			goto err;				\
+	 	}						\
 		rc__;						\
 	})
 
