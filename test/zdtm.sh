@@ -40,6 +40,7 @@ run_test()
 	make -C $tdir cleanout $tname.pid
 	pid=`cat $test.pid`
 	ddump="dump/$tname/$pid"
+	dump_path=`pwd`"/"$ddump
 	mkdir -p $ddump
 	ls -l /proc/$pid/fd/
 	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid || return 1
@@ -48,7 +49,7 @@ run_test()
 		echo Waiting...
 		sleep 1
 	done
-	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid || return 1
+	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid || return 2
 	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
 	for i in `seq 50`; do
@@ -57,7 +58,7 @@ run_test()
 		sleep 1
 	done
 	cat $test.out
-	cat $test.out | grep PASS || return 1
+	cat $test.out | grep PASS || return 2
 }
 
 cd `dirname $0` || exit 1
@@ -69,5 +70,12 @@ if [ $# -eq 0 ]; then
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
-	run_test $ZP/$1
+	run_test $ZP/$1 && exit 0
+	result=$?
+	echo "====================== ERROR ======================"
+	if [ $result == 1 ]; then
+		echo "Dump log: "$dump_path"/dump.log"
+	else
+		echo "Restore log: "$dump_path"/restore.log"
+	fi
 fi
