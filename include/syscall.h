@@ -284,6 +284,11 @@ static void always_inline local_sleep(long seconds)
 	sys_nanosleep(&req, &rem);
 }
 
+static long always_inline sys_kill(long pid, int sig)
+{
+	return syscall2(__NR_kill, pid, (long)sig);
+}
+
 static long always_inline sys_tgkill(long tgid, long pid, int sig)
 {
 	return syscall3(__NR_tgkill, tgid, pid, (long)sig);
