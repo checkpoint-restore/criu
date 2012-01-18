@@ -87,17 +87,21 @@ extern void printk(const char *format, ...);
 	} while (0)
 
 #ifndef BUG_ON_HANDLER
+
 #ifdef CR_NOGLIBC
+
 #define BUG_ON_HANDLER(condition)					\
 	do {								\
 		if ((condition)) {					\
-			write_string("BUG at " __FILE__ ": ");          \
+			write_string("BUG at " __FILE__ ": ");		\
 			write_num(__LINE__);				\
-			write_string("\n");                              \
+			write_string("\n");				\
 			*(unsigned long *)NULL = 0xdead0000 + __LINE__;	\
 		}							\
 	} while (0)
-#else
+
+#else /* CR_NOGLIBC */
+
 # define BUG_ON_HANDLER(condition)					\
 	do {								\
 		if ((condition)) {					\
@@ -105,8 +109,10 @@ extern void printk(const char *format, ...);
 			raise(SIGABRT);					\
 		}							\
 	} while (0)
-#endif
-#endif
+
+#endif /* CR_NOGLIBC */
+
+#endif /* BUG_ON_HANDLER */
 
 #define BUG_ON(condition)	BUG_ON_HANDLER((condition))
 
@@ -135,9 +141,10 @@ extern void printk(const char *format, ...);
 	({							\
 		size_t rc__ = read(fd, ptr, (size));		\
 		if (rc__ && rc__ != (size)) {			\
-	 		pr_err("img corruption %d/%d\n", rc__, (size));\
+			pr_err("img corruption %d/%d\n",	\
+				rc__, (size));			\
 			goto err;				\
-	 	}						\
+		}						\
 		rc__;						\
 	})
 
@@ -154,14 +161,17 @@ struct list_head;
 
 extern void printk_vma(struct vma_area *vma_area);
 
-#define pr_info_vma_list(head)						\
-	do {								\
-		struct vma_area *vma;					\
-		list_for_each_entry(vma, head, list)			\
-			pr_info_vma(vma);				\
+#define pr_info_vma_list(head)					\
+	do {							\
+		struct vma_area *vma;				\
+		list_for_each_entry(vma, head, list)		\
+			pr_info_vma(vma);			\
 	} while (0)
 
-/* Note while VMA_AREA_NONE we rely on xzalloc */
+/*
+ * Note since VMA_AREA_NONE = 0 we can skip assignment
+ * here and simply rely on xzalloc
+ */
 #define alloc_vma_area()					\
 	({							\
 		struct vma_area *p__ = xzalloc(sizeof(*p__));	\
