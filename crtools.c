@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 	int action = -1;
 	int log_inited = 0;
 
-	static const char short_opts[] = "f:p:t:hcD:o:";
+	static const char short_opts[] = "df:p:t:hcD:o:";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -249,6 +249,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			opts.show_dump_file = optarg;
+			break;
+		case 'd':
+			opts.restore_detach = true;
 			break;
 		case 'D':
 			if (chdir(optarg)) {
@@ -322,6 +325,7 @@ usage:
 	printk("  -c             in case of checkpoint -- continue running the process after\n"
 	       "                 checkpoint complete, in case of showing file contents --\n"
 	       "                 show contents of pages dumped in hexdump format\n");
+	printk("  -d             detach after restore\n");
 
 	printk("\nAdditional common parameters:\n");
 	printk("  -D dir         save checkpoint files in specified directory\n");

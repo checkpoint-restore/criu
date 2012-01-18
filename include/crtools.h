@@ -40,6 +40,7 @@ struct cr_options {
 	enum cr_task_state		final_state;
 	bool				show_pages_content;
 	char				*show_dump_file;
+	bool				restore_detach;
 };
 
 /* file descriptors template */

@@ -1213,7 +1213,7 @@ static int restore_task_with_children(int my_pid)
 	return restore_one_task(my_pid);
 }
 
-static int restore_root_task(int fd)
+static int restore_root_task(int fd, bool detach)
 {
 	struct pstree_entry e;
 	int ret, i;
@@ -1240,11 +1240,12 @@ static int restore_root_task(int fd)
 	pr_info("Go on!!!\n");
 	cr_wait_set(&task_entries->start, 1);
 
-	wait(NULL);
+	if (!detach)
+		wait(NULL);
 	return 0;
 }
 
-static int restore_all_tasks(pid_t pid)
+static int restore_all_tasks(pid_t pid, bool detach)
 {
 	int pstree_fd;
 	u32 type = 0;
@@ -1256,7 +1257,7 @@ static int restore_all_tasks(pid_t pid)
 	if (prepare_shared(pstree_fd))
 		return -1;
 
-	return restore_root_task(pstree_fd);
+	return restore_root_task(pstree_fd, detach);
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
@@ -1623,5 +1624,5 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 
 	if (opts->leader_only)
 		return restore_one_task(pid);
-	return restore_all_tasks(pid);
+	return restore_all_tasks(pid, opts->restore_detach);
 }

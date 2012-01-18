@@ -44,11 +44,9 @@ run_test()
 		echo Waiting...
 		sleep 1
 	done
-	setsid $CRTOOLS restore -D $ddump -o restore.log -t $pid &
-	sleep 1
+	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid || return 1
 	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
-	wait || return 1
 	for i in `seq 5`; do
 		test -f $test.out && break;
 		echo Waiting...
