@@ -1,7 +1,7 @@
 #include "zdtmtst.h"
 
-const char *test_doc = "static test for AIO\n";
-const char *test_author = "Andrew Vagin <avagin@sw.ru>";
+const char *test_doc = "Check TCP listen sockets\n";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 /* Description:
  * Create two tcp socket, server send asynchronous request on
@@ -56,73 +56,28 @@ int main(int argc, char **argv)
 
 	if (pid == 0) {
 		/*
-		 * Chiled is client of TCP connection
+		 * Client of TCP connection
 		 */
 		close(fd_s);
 		fd = init_client("127.0.0.1", PORT);
 		if (fd < 0)
 			return 1;
 
-		memset(&aiocb, 0, sizeof(struct aiocb));
-		aiocb.aio_fildes = fd;
-		aiocb.aio_buf = buf;
-		aiocb.aio_nbytes = BUF_SIZE;
-		ret = aio_read(&aiocb);
-		if (ret < 0) {
-			err("aio_read failed %m");
-			return 1;
-		}
-
-		/* Wait for request completion */
-		aioary[0] = &aiocb;
-		ret = aio_error(&aiocb);
-#ifdef DEBUG
-		test_msg(".");
-#endif
-		res = 0;
-again:
-		if (aio_suspend(aioary, 1, NULL) < 0 && errno != EINTR) {
-			err("aio_suspend failed %m");
-			res = 1;
-		}
-
-		ret = aio_error(&aiocb);
-		if (!res && ret == EINPROGRESS) {
-#ifdef DEBUG
-			test_msg("restart aio_suspend\n");
-#endif
-			goto again;
-		}
-		if (ret != 0) {
-			err("Error at aio_error() %s", strerror(ret));
-			res = 1;
-		}
-
-		if (aio_return(&aiocb) != BUF_SIZE) {
-			err("Error at aio_return() %m");
-			res = 1;
-		}
-
 		close(fd);
-		return res;
+		return 0;
 	}
 
 	/*
-	 * parent is server of TCP connection
+	 * Server of TCP connection
 	 */
 	fd = accept_server(fd_s);
-	close(fd_s);
 	if (fd < 0) {
-		err("can't accept client connection %m");
+		fail("can't accept client connection");
 		goto error;
 	}
 
-	if (write(fd, buf, BUF_SIZE) < BUF_SIZE) {
-		err("can't write");
-		goto error;
-	}
+	close(fd_s);
 	close(fd);
-
 
 	if (wait(&status) < 0) {
 		err("wait failed %m");
@@ -130,7 +85,10 @@ again:
 	}
 
 	if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-		err("chiled failed. Return %d", WEXITSTATUS(status));
+		err("The child failed. Return %d", WEXITSTATUS(status));
+		return 1;
+	} else if (WIFSIGNALED(status)) {
+		err("The child was killed by %d", WTERMSIG(status));
 		return 1;
 	}
 
@@ -139,7 +97,7 @@ again:
 error:
 	kill(pid, SIGKILL);
 	wait(&status);
-	return -1;
+	return 1;
 }
 
 int init_server(int port)
@@ -150,7 +108,7 @@ int init_server(int port)
 
 	memset(&addr,0,sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	addr.sin_addr.s_addr = inet_addr("0.0.0.0");
 	addr.sin_port = htons(port);
 	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
