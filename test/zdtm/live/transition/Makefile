@@ -8,6 +8,7 @@ TST_NOFILE	=	\
 		ipc	 	\
 		ptrace		\
 		epoll		\
+		fork		\
 
 TST_FILE	=	\
 
