@@ -5,8 +5,9 @@
 *.elf
 *.out
 *.swp
+*-blob.h
+.git-ignore
 crtools
-parasite-blob.h
 cscope*
 tags
 TAGS
