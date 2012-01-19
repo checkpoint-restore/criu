@@ -101,7 +101,7 @@ static int nr_pipes;
 
 static pid_t pstree_pid;
 
-static int restore_task_with_children(int my_pid);
+static int restore_task_with_children(int pid);
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid);
 
 static void show_saved_shmems(void)
@@ -142,34 +142,25 @@ static struct pipe_info *find_pipe(unsigned int pipeid)
 	return NULL;
 }
 
-static void shmem_update_real_pid(int vpid, int rpid)
-{
-	int i;
-
-	for (i = 0; i < shmems->nr_shmems; i++)
-		if (shmems->entries[i].pid == vpid)
-			shmems->entries[i].real_pid = rpid;
-}
-
-static int shmem_wait_and_open(struct shmem_info *si)
+static int shmem_wait_and_open(int pid, struct shmem_info *si)
 {
 	unsigned long time = 1;
 	char path[128];
 	int ret;
 
 	sprintf(path, "/proc/%d/map_files/%lx-%lx",
-		si->real_pid, si->start, si->end);
+		si->pid, si->start, si->end);
 
-	pr_info("%d: Waiting for [%s] to appear\n", getpid(), path);
+	pr_info("%d: Waiting for [%s] to appear\n", pid, path);
 	cr_wait_until(&si->lock, 1);
 
-	pr_info("%d: Opening shmem [%s] \n", getpid(), path);
+	pr_info("%d: Opening shmem [%s] \n", pid, path);
 	ret = open(path, O_RDWR);
 	if (ret >= 0)
 		return ret;
 	else if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s\n",
-			  si->real_pid, path);
+			  si->pid, path);
 	return ret;
 }
 
@@ -213,7 +204,6 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 	entries[nr_shmems].end		= e->end;
 	entries[nr_shmems].shmid	= e->shmid;
 	entries[nr_shmems].pid		= pid;
-	entries[nr_shmems].real_pid	= 0;
 
 	cr_wait_init(&entries[nr_shmems].lock);
 
@@ -554,7 +544,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	if (si->pid != pid) {
 		int sh_fd;
 
-		sh_fd = shmem_wait_and_open(si);
+		sh_fd = shmem_wait_and_open(pid, si);
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (sh_fd < 0) {
@@ -817,7 +807,6 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 {
 	unsigned long time = 1000;
 	int pfd[2], tmp;
-	u32 real_pid;
 
 	pr_info("\t%d: Creating pipe %x%s\n", pid, e->pipeid, pipe_is_rw(pi) ? "(rw)" : "");
 
@@ -834,7 +823,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd, pipes_fd))
 		return -1;
 
-	cr_wait_set(&pi->real_pid, getpid());
+	cr_wait_set(&pi->real_pid, pid);
 
 	pi->status |= PIPE_CREATED;
 
@@ -1132,7 +1121,11 @@ static inline int fork_with_pid(int pid)
 			return -1;
 		}
 
-		ret = restore_task_with_children(my_pid);
+		/*
+		 * We should never return here.
+		 */
+		ret = restore_task_with_children(pid);
+
 		pr_err("%d: Something failed with code %d\n", pid, ret);
 		exit(1);
 	}
@@ -1160,28 +1153,31 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	cr_wait_set(&task_entries->nr_in_progress, -1);
 }
 
-static int restore_task_with_children(int my_pid)
+static int restore_task_with_children(int pid)
 {
 	int *pids;
 	int fd, ret, i;
 	struct pstree_entry e;
 	sigset_t blockmask;
 
-	/* The block mask will be restored in sigresturn
-	 * This code should be removed, when a freezer will be added */
+	/*
+	 * The block mask will be restored in sigresturn.
+	 *
+	 * TODO: This code should be removed, when a freezer will be added.
+	 */
 	sigfillset(&blockmask);
 	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
-		pr_perror("%d: Can't block signals\n", my_pid);
+		pr_perror("%d: Can't block signals\n", pid);
 		exit(1);
 	}
 
-	pr_info("%d: Starting restore\n", my_pid);
+	pr_info("%d: Starting restore\n", pid);
 
 	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd < 0) {
-		pr_perror("%d: Can't reopen pstree image\n", my_pid);
+		pr_perror("%d: Can't reopen pstree image\n", pid);
 		exit(1);
 	}
 
@@ -1192,13 +1188,13 @@ static int restore_task_with_children(int my_pid)
 			break;
 
 		if (ret != sizeof(e)) {
-			pr_err("%d: Read returned %d\n", my_pid, ret);
+			pr_err("%d: Read returned %d\n", pid, ret);
 			if (ret < 0)
-				pr_perror("%d: Can't read pstree\n", my_pid);
+				pr_perror("%d: Can't read pstree\n", pid);
 			exit(1);
 		}
 
-		if (e.pid != my_pid) {
+		if (e.pid != pid) {
 			lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 			continue;
 		}
@@ -1214,15 +1210,15 @@ static int restore_task_with_children(int my_pid)
 
 		ret = read(fd, pids, i);
 		if (ret != i) {
-			pr_perror("%d: Can't read children pids\n", my_pid);
+			pr_perror("%d: Can't read children pids\n", pid);
 			exit(1);
 		}
 
 		close(fd);
 
-		pr_info("%d: Restoring %d children:\n", my_pid, e.nr_children);
+		pr_info("%d: Restoring %d children:\n", pid, e.nr_children);
 		for (i = 0; i < e.nr_children; i++) {
-			pr_info("\tFork %d from %d\n", pids[i], my_pid);
+			pr_info("\tFork %d from %d\n", pids[i], pid);
 			ret = fork_with_pid(pids[i]);
 			if (ret < 0)
 				exit(1);
@@ -1230,9 +1226,7 @@ static int restore_task_with_children(int my_pid)
 	} else
 		close(fd);
 
-	shmem_update_real_pid(my_pid, getpid());
-
-	return restore_one_task(my_pid);
+	return restore_one_task(pid);
 }
 
 static int restore_root_task(int fd, bool detach)
@@ -1406,7 +1400,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	if (pid_dir < 0)
 		goto err;
 
-	ret = parse_maps(getpid(), pid_dir, &self_vma_list, false);
+	ret = parse_maps(pid, pid_dir, &self_vma_list, false);
 	close(pid_dir);
 	if (ret)
 		goto err;
@@ -1426,7 +1420,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	if (fd_core < 0)
 		pr_perror("Can't open core-out-%d\n", pid);
 
-	if (get_image_path(self_vmas_path, sizeof(self_vmas_path), FMT_FNAME_VMAS, getpid()))
+	if (get_image_path(self_vmas_path, sizeof(self_vmas_path),
+			   FMT_FNAME_VMAS, pid))
 		goto err;
 
 	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR | O_TRUNC, CR_FD_PERM);

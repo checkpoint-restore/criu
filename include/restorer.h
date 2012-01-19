@@ -182,7 +182,6 @@ struct shmem_info {
 	unsigned long	end;
 	unsigned long	shmid;
 	int		pid;
-	int		real_pid;
 	u32		lock;		/* futex */
 };
 
@@ -222,7 +221,7 @@ find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
 		si = &shmems->entries[i];
 		if (si->start == start	&&
 		    si->end > start	&&
-		    si->real_pid == pid)
+		    si->pid == pid)
 			return si;
 	}
 
