@@ -441,7 +441,7 @@ long restore_task(struct task_restore_core_args *args)
 		long parent_tid;
 		int i, fd;
 
-		fd = sys_open(args->ns_last_pid_path, O_RDWR, LAST_PID_PERM);
+		fd = sys_open(LAST_PID_PATH, O_RDWR, LAST_PID_PERM);
 		if (fd < 0) {
 			write_num_n(__LINE__);
 			write_num_n(fd);
