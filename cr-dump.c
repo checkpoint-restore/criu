@@ -760,6 +760,36 @@ err:
 	return NULL;
 }
 
+static const int state_sigs[] = {
+	[CR_TASK_STOP] = SIGSTOP,
+	[CR_TASK_RUN] = SIGCONT,
+	[CR_TASK_KILL] = SIGKILL,
+};
+
+static int ps_switch_state(int pid, enum cr_task_state state)
+{
+	return kill(pid, state_sigs[state]);
+}
+
+static void pstree_switch_state(struct list_head *list,
+		enum cr_task_state state, int leader_only)
+{
+	struct pstree_item *item;
+
+	/*
+	 * Since ptrace-seize doesn't work on frozen tasks
+	 * we stick with explicit tasks stopping via stop
+	 * signal, but in future it's aimed to switch to
+	 * kernel freezer.
+	 */
+
+	list_for_each_entry(item, list, list) {
+		kill(item->pid, state_sigs[state]);
+		if (leader_only)
+			break;
+	}
+}
+
 static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 {
 	struct pstree_item *item;
@@ -769,6 +799,9 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list)
 
 	pid_dir = open_pid_proc(pid);
 	if (pid_dir < 0)
+		goto err;
+
+	if (ps_switch_state(pid, CR_TASK_STOP))
 		goto err;
 
 	item = add_pstree_entry(pid, pid_dir, pstree_list);
@@ -1103,31 +1136,6 @@ err:
 	return ret;
 }
 
-static void pstree_switch_state(struct list_head *list,
-		enum cr_task_state state, int leader_only)
-{
-	static const int state_sigs[] = {
-		[CR_TASK_STOP] = SIGSTOP,
-		[CR_TASK_RUN] = SIGCONT,
-		[CR_TASK_KILL] = SIGKILL,
-	};
-
-	struct pstree_item *item;
-
-	/*
-	 * Since ptrace-seize doesn't work on frozen tasks
-	 * we stick with explicit tasks stopping via stop
-	 * signal, but in future it's aimed to switch to
-	 * kernel freezer.
-	 */
-
-	list_for_each_entry(item, list, list) {
-		kill(item->pid, state_sigs[state]);
-		if (leader_only)
-			break;
-	}
-}
-
 int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
@@ -1154,8 +1162,6 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	 */
 
 	collect_sockets();
-
-	pstree_switch_state(&pstree_list, CR_TASK_STOP, opts->leader_only);
 
 	list_for_each_entry(item, &pstree_list, list) {
 		if (item->pid == pid) {
