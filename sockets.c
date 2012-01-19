@@ -562,7 +562,7 @@ int collect_sockets(void)
 	/* Collect IPv4 TCP sockets */
 	req.r.i.sdiag_family	= AF_INET;
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
-	req.r.i.idiag_ext	= 1 << (INET_DIAG_INFO - 1);
+	req.r.i.idiag_ext	= 0;
 	/* Only listening sockets supported yet */
 	req.r.i.idiag_states	= 1 << TCP_LISTEN;
 	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
