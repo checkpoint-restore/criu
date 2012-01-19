@@ -503,8 +503,10 @@ static int collect_sockets_nl(int nl, void *req, int size,
 		if (err < 0) {
 			if (errno == EINTR)
 				continue;
-			else
+			else {
+				pr_perror("Error receiving nl report\n");
 				goto err;
+			}
 		}
 		if (err == 0)
 			break;
@@ -524,7 +526,7 @@ err:
 
 int collect_sockets(void)
 {
-	int err;
+	int err = 0, tmp;
 	int nl;
 	int supp_type = 0;
 	struct {
@@ -553,9 +555,9 @@ int collect_sockets(void)
 	req.r.u.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS |
 				  UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS |
 				  UDIAG_SHOW_RQLEN;
-	err = collect_sockets_nl(nl, &req, sizeof(req), unix_receive_one);
-	if (err)
-		goto out;
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), unix_receive_one);
+	if (tmp)
+		err = tmp;
 
 	/* Collect IPv4 TCP sockets */
 	req.r.i.sdiag_family	= AF_INET;
@@ -563,7 +565,9 @@ int collect_sockets(void)
 	req.r.i.idiag_ext	= 1 << (INET_DIAG_INFO - 1);
 	/* Only listening sockets supported yet */
 	req.r.i.idiag_states	= 1 << TCP_LISTEN;
-	err = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
+	if (tmp)
+		err = tmp;
 
 out:
 	close(nl);

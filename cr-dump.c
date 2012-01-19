@@ -1153,8 +1153,14 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	if (collect_pstree(pid, &pstree_list))
 		goto err;
 
-	if (collect_sockets())
-		goto err;
+	/*
+	 * Ignore collection errors by now since we may not want
+	 * to dump the missed sockets. But later, when we will start
+	 * dumping containers, we'll better fail here, rather than
+	 * in the dump stage
+	 */
+
+	collect_sockets();
 
 	pstree_switch_state(&pstree_list, CR_TASK_STOP, opts->leader_only);
 
