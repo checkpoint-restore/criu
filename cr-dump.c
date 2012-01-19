@@ -66,7 +66,6 @@ void free_mappings(struct list_head *vma_area_list)
 
 static int collect_mappings(pid_t pid, int pid_dir, struct list_head *vma_area_list)
 {
-	struct vma_area *vma_area;
 	int ret = -1;
 
 	pr_info("\n");
@@ -83,12 +82,6 @@ static int collect_mappings(pid_t pid, int pid_dir, struct list_head *vma_area_l
 
 err:
 	return ret;
-
-err_bogus_mapping:
-	pr_err("Bogus mapping %lx-%lx\n",
-	       vma_area->vma.start,
-	       vma_area->vma.end);
-	goto err;
 }
 
 struct fd_parms {
