@@ -36,9 +36,18 @@ int seize_task(pid_t pid)
 	int status;
 	int ret = 0;
 
-	jerr_rc(ptrace(PTRACE_SEIZE, pid, NULL,
-		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL), ret, err);
-	jerr_rc(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), ret, err);
+	ret = ptrace(PTRACE_SEIZE, pid, NULL,
+		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
+	if (ret < 0) {
+		pr_perror("Can't seize task\n");
+		goto err;
+	}
+
+	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+	if (ret < 0) {
+		pr_perror("Can't interrupt task\n");
+		goto err;
+	}
 
 	ret = -10;
 	if (wait4(pid, &status, __WALL, NULL) != pid)
