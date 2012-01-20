@@ -76,8 +76,6 @@ OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= files.o
 
-HEADERS		:= $(shell find ./include/* -name '*.h' -print)
-
 OBJS-BLOB	+= parasite.o
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
@@ -85,17 +83,12 @@ HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
 HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
-HEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(HEAD-BLOB)))
-
 ROBJS-BLOB	= restorer.o
-RDEPS-BLOB	+= $(patsubst %.o,%.d,$(ROBJS-BLOB))
 RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
 
 RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
 RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
 RHEAD-LDS	:= $(patsubst %.o,%.lds.S,$(ROBJS-BLOB))
-
-RHEAD-IDS	:= $(patsubst %.h,%_h__,$(subst -,_,$(RHEAD-BLOB)))
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS)) $(patsubst %.o,%.d,$(OBJS-BLOB))
 
