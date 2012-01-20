@@ -182,4 +182,9 @@ cscope:
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
 
+no-blob-targets := tags clean cscope
+
+ifeq ($(filter-out no-blob-targets, $(MAKECMDGOALS)),)
 -include $(DEPS)
+endif
+
