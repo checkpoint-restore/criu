@@ -90,7 +90,9 @@ RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
 RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
 RHEAD-LDS	:= $(patsubst %.o,%.lds.S,$(ROBJS-BLOB))
 
-DEPS		:= $(patsubst %.o,%.d,$(OBJS)) $(patsubst %.o,%.d,$(OBJS-BLOB))
+DEPS		:= $(patsubst %.o,%.d,$(OBJS))		\
+       		   $(patsubst %.o,%.d,$(OBJS-BLOB))	\
+		   $(patsubst %.o,%.d,$(ROBJS-BLOB))
 
 all: $(PROGRAM)
 
