@@ -34,7 +34,7 @@ struct inet_diag_req_compat {
 	__u32	idiag_dbs;		/* Tables to dump (NI) */
 };
 
-struct inet_diag_req {
+struct inet_diag_req_v2 {
 	__u8	sdiag_family;
 	__u8	sdiag_protocol;
 	__u8	idiag_ext;

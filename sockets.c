@@ -532,8 +532,8 @@ int collect_sockets(void)
 	struct {
 		struct nlmsghdr hdr;
 		union {
-			struct unix_diag_req u;
-			struct inet_diag_req i;
+			struct unix_diag_req	u;
+			struct inet_diag_req_v2	i;
 		} r;
 	} req;
 
