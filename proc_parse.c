@@ -191,7 +191,7 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 	       "%d " PROC_TASK_COMM_LEN_FMT " %c %d %d %d %d %d %u %lu %lu %lu %lu "
 	       "%lu %lu %ld %ld %ld %ld %d %d %llu %lu %ld %lu %lu %lu %lu "
 	       "%lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld "
-	       "%lu %lu %lu",
+	       "%lu %lu %lu %d",
 		&s->pid,
 		s->comm,
 		&s->state,
@@ -238,9 +238,10 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 		&s->cgtime,
 		&s->start_data,
 		&s->end_data,
-		&s->start_brk);
+		&s->start_brk,
+		&s->exit_code);
 
-	if (n != 47) {
+	if (n < 48) {
 		pr_perror("Parsing %d's stat failed (#fields do not match)", pid);
 		return -1;
 	}

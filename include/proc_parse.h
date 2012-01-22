@@ -52,6 +52,7 @@ struct proc_pid_stat {
 	unsigned long		start_data;
 	unsigned long		end_data;
 	unsigned long		start_brk;
+	int			exit_code;
 };
 
 extern int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s);
