@@ -1104,7 +1104,8 @@ static inline int fork_with_pid(int pid)
 		goto err;
 	}
 
-	write_safe(fd, buf, strlen(buf), err_unlock);
+	if (write_img_buf(fd, buf, strlen(buf)))
+		goto err_unlock;
 
 	ret = fork();
 	if (ret < 0) {
@@ -1460,8 +1461,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	 */
 	lseek(fd_pstree, MAGIC_OFFSET, SEEK_SET);
 	while (1) {
-		ret = read_ptr_safe_eof(fd_pstree, &pstree_entry, err);
-		if (!ret) {
+		ret = read_img_eof(fd_pstree, &pstree_entry);
+		if (ret <= 0) {
 			pr_perror("Pid %d not found in process tree\n", pid);
 			goto err;
 		}
@@ -1595,7 +1596,8 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		 */
 		lseek(fd_pstree, sizeof(u32) * pstree_entry.nr_children, SEEK_CUR);
 		for (i = 0; i < pstree_entry.nr_threads; i++) {
-			read_ptr_safe(fd_pstree, &thread_args[i].pid, err);
+			if (read_img(fd_pstree, &thread_args[i].pid) < 0)
+				goto err;
 
 			/* skip self */
 			if (thread_args[i].pid == pid)

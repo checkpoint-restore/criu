@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -116,40 +117,73 @@ extern void printk(const char *format, ...);
 
 #define BUG_ON(condition)	BUG_ON_HANDLER((condition))
 
-#define write_ptr(fd, ptr)			\
-	write(fd, (ptr), sizeof(*(ptr)))
+/*
+ * Write buffer @ptr of @size bytes into @fd file
+ * Returns
+ *	0  on success
+ *	-1 on error (error message is printed)
+ */
+static inline int write_img_buf(int fd, void *ptr, int size)
+{
+	int ret;
+	ret = write(fd, ptr, size);
+	if (ret == size)
+		return 0;
 
-#define write_ptr_safe(fd, ptr, err)		\
-	jerr(write_ptr(fd, ptr) != sizeof(*(ptr)), err)
+	if (ret < 0)
+		pr_perror("Can't write img file\n");
+	else
+		pr_err("Img trimmed %d/%d\n", ret, size);
+	return -1;
+}
 
-#define write_safe(fd, ptr, size, err)		\
-	jerr(write(fd, (ptr), (size)) != (size), err)
+#define write_img(fd, ptr)	write_img_buf((fd), (ptr), sizeof(*(ptr)))
 
-#define write_safe_imm(fd, imm, err)		\
-	do {					\
-		typeof(imm) x__ = imm;		\
-		write_ptr_safe(fd, &x__, err);	\
-	} while (0)
+/*
+ * Read buffer @ptr of @size bytes from @fd file
+ * Returns
+ *	1  on success
+ *	0  on EOF (silently)
+ *	-1 on error (error message is printed)
+ */
+static inline int read_img_buf_eof(int fd, void *ptr, int size)
+{
+	int ret;
+	ret = read(fd, ptr, size);
+	if (ret == size)
+		return 1;
+	if (ret == 0)
+		return 0;
 
-#define read_safe(fd, ptr, size, err)		\
-	jerr(read(fd, ptr, (size)) != (size), err)
+	if (ret < 0)
+		pr_perror("Can't read img file\n");
+	else
+		pr_err("Img trimmed %d/%d\n", ret, size);
+	return -1;
+}
 
-#define read_ptr_safe(fd, ptr, err)		\
-	jerr(read(fd, ptr, sizeof(*(ptr))) != sizeof(*(ptr)), err)
+#define read_img_eof(fd, ptr)	read_img_buf_eof((fd), (ptr), sizeof(*(ptr)))
 
-#define read_safe_eof(fd, ptr, size, err)			\
-	({							\
-		size_t rc__ = read(fd, ptr, (size));		\
-		if (rc__ && rc__ != (size)) {			\
-			pr_err("img corruption %d/%d\n",	\
-				rc__, (size));			\
-			goto err;				\
-		}						\
-		rc__;						\
-	})
+/*
+ * Read buffer @ptr of @size bytes from @fd file
+ * Returns
+ *	1  on success
+ *	-1 on error or EOF (error message is printed)
+ */
+static inline int read_img_buf(int fd, void *ptr, int size)
+{
+	int ret;
 
-#define read_ptr_safe_eof(fd, ptr, err)				\
-	read_safe_eof(fd, ptr, sizeof(*(ptr)), err)
+	ret = read_img_buf_eof(fd, ptr, size);
+	if (ret == 0) {
+		pr_err("Unexpected EOF\n");
+		ret = -1;
+	}
+
+	return ret;
+}
+
+#define read_img(fd, ptr)	read_img_buf((fd), (ptr), sizeof(*(ptr)))
 
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)

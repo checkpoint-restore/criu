@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "libnetlink.h"
 #include "util.h"

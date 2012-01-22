@@ -187,7 +187,8 @@ static int dump_one_inet(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fd
 	ie.backlog	= sk->wqlen;
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 
-	write_ptr_safe(cr_fdset->fds[CR_FD_INETSK], &ie, err);
+	if (write_img(cr_fdset->fds[CR_FD_INETSK], &ie))
+		goto err;
 
 	pr_info("Dumping inet socket at %d\n", fd);
 	show_one_inet("Dumping", sk);
@@ -270,8 +271,10 @@ static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fd
 	ue.pad		= 0;
 	ue.peer		= sk->peer_ino;
 
-	write_ptr_safe(cr_fdset->fds[CR_FD_UNIXSK], &ue, err);
-	write_safe(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen, err);
+	if (write_img(cr_fdset->fds[CR_FD_UNIXSK], &ue))
+		goto err;
+	if (write_img_buf(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen))
+		goto err;
 
 	pr_info("Dumping unix socket at %d\n", fd);
 	show_one_unix("Dumping", sk);
@@ -941,8 +944,8 @@ static int prepare_unix_sockets(int pid)
 	while (1) {
 		struct unix_sk_entry ue;
 
-		ret = read_ptr_safe_eof(usk_fd, &ue, err);
-		if (ret == 0)
+		ret = read_img_eof(usk_fd, &ue);
+		if (ret <= 0)
 			break;
 
 		ret = open_unix_sk(&ue, &usk_fd);
@@ -1025,8 +1028,8 @@ static int prepare_inet_sockets(int pid)
 	while (1) {
 		struct inet_sk_entry ie;
 
-		ret = read_ptr_safe_eof(isk_fd, &ie, err);
-		if (ret == 0)
+		ret = read_img_eof(isk_fd, &ie);
+		if (ret <= 0)
 			break;
 
 		ret = open_inet_sk(&ie, &isk_fd);
@@ -1059,8 +1062,8 @@ void show_inetsk(int fd)
 	while (1) {
 		char src_addr[INET_ADDR_LEN] = "<unknown>";
 
-		ret = read_ptr_safe_eof(fd, &ie, out);
-		if (!ret)
+		ret = read_img_eof(fd, &ie);
+		if (ret <= 0)
 			goto out;
 
 		if (inet_ntop(AF_INET, (void *)ie.src_addr, src_addr,
@@ -1087,27 +1090,26 @@ void show_unixsk(int fd)
 	pr_img_head(CR_FD_UNIXSK);
 
 	while (1) {
-		ret = read_ptr_safe_eof(fd, &ue, out);
-		if (!ret)
+		ret = read_img_eof(fd, &ue);
+		if (ret <= 0)
 			goto out;
 
 		pr_info("fd %4d type %2d state %2d namelen %4d backlog %4d id %6d peer %6d",
 			ue.fd, ue.type, ue.state, ue.namelen, ue.namelen, ue.id, ue.peer);
 
 		if (ue.namelen) {
-			ret = read_safe_eof(fd, buf, ue.namelen, out);
-			if (!ret)
+			ret = read_img_buf(fd, buf, ue.namelen);
+			if (ret < 0) {
+				pr_info("\n");
 				goto out;
+			}
 			if (!buf[0])
 				buf[0] = '@';
 			pr_info(" --> %s\n", buf);
 		} else
 			pr_info("\n");
 	}
-
 out:
-	if (ret)
-		pr_info("\n");
 	pr_img_tail(CR_FD_UNIXSK);
 }
 

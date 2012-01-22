@@ -127,8 +127,10 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
 		type, len, p->flags, p->pos, p->fd_name);
 
-	write_ptr_safe(cr_fdset->fds[CR_FD_FDINFO], &e, err);
-	write_safe(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.len, err);
+	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
+		goto err;
+	if (write_img_buf(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.len))
+		goto err;
 
 	ret = 0;
 err:
@@ -189,7 +191,8 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 	}
 
 	e->bytes = has_bytes;
-	write_ptr_safe(fd_pipes, e, err_close);
+	if (write_img(fd_pipes, e))
+		goto err_close;
 
 	if (has_bytes) {
 		ret = splice(steal_pipe[0], NULL, fd_pipes,
@@ -224,8 +227,7 @@ static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
 
 	if (p->flags & O_WRONLY) {
 		e.bytes = 0;
-		write_ptr_safe(cr_fdset->fds[CR_FD_PIPES], &e, err);
-		ret = 0;
+		ret = write_img(cr_fdset->fds[CR_FD_PIPES], &e);
 	} else
 		ret = dump_pipe_and_data(lfd, &e, cr_fdset);
 
@@ -395,7 +397,8 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
 					e.start, e.end, e.shmid);
 
-				write_ptr_safe(cr_fdset->fds[CR_FD_SHMEM], &e, err);
+				if (write_img(cr_fdset->fds[CR_FD_SHMEM], &e))
+					goto err;
 			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				   vma_entry_is(vma, VMA_FILE_SHARED)) {
 				struct fd_parms p = {
@@ -612,7 +615,8 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	core->header.arch	= HEADER_ARCH_X86_64;
 	core->header.flags	= 0;
 
-	write_ptr_safe(fd_core, core, err_free);
+	if (write_img(fd_core, core))
+		goto err_free;
 
 	pr_info("OK\n");
 	ret = 0;
@@ -814,21 +818,24 @@ static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset
 		e.nr_children	= item->nr_children;
 		e.nr_threads	= item->nr_threads;
 
-		write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE], &e, err);
+		if (write_img(cr_fdset->fds[CR_FD_PSTREE], &e))
+			goto err;
 
 		pr_info("Children:");
 		for (i = 0; i < item->nr_children; i++) {
 			pr_info(" %d", item->children[i]);
-			write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE],
-				       &item->children[i], err);
+			if (write_img(cr_fdset->fds[CR_FD_PSTREE],
+						&item->children[i]))
+				goto err;
 		}
 		pr_info("\n");
 
 		pr_info("Threads:\n");
 		for (i = 0; i < item->nr_threads; i++) {
 			pr_info(" %d", item->threads[i]);
-			write_ptr_safe(cr_fdset->fds[CR_FD_PSTREE],
-				       &item->threads[i], err);
+			if (write_img(cr_fdset->fds[CR_FD_PSTREE],
+						&item->threads[i]))
+				goto err;
 		}
 		pr_info("\n");
 	}
@@ -889,7 +896,8 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 
 	/* Ending marker */
 	memzero_p(&ve);
-	write_ptr_safe(fd_core, &ve, err);
+	if (write_img(fd_core, &ve))
+		goto err;
 
 	pr_info("OK (%li written)\n", num);
 
@@ -908,8 +916,10 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 
 		/* Ending marker */
 		if (va == 0) {
-			write_ptr_safe(fd_core,		&zero_page_entry, err);
-			write_ptr_safe(fd_pages_shmem,	&zero_page_entry, err);
+			if (write_img(fd_core, &zero_page_entry))
+				goto err;
+			if (write_img(fd_pages_shmem, &zero_page_entry))
+				goto err;
 			break;
 		}
 
@@ -1007,7 +1017,8 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 	core->header.arch	= HEADER_ARCH_X86_64;
 	core->header.flags	= 0;
 
-	write_ptr_safe(fd_core, core, err_free);
+	if (write_img(fd_core, core))
+		goto err_free;
 
 	pr_info("OK\n");
 	ret = 0;

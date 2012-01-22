@@ -472,7 +472,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	lseek(cr_fdset->fds[CR_FD_PAGES], 0, SEEK_END);
 
 	/* Ending page */
-	write_ptr_safe(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry, err_restore);
+	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
+		goto err_restore;
 
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);

@@ -58,8 +58,10 @@ static void show_shmem(int fd_shmem)
 	pr_img_head(CR_FD_SHMEM);
 
 	while (1) {
-		int ret = read_ptr_safe_eof(fd_shmem, &e, out);
-		if (!ret)
+		int ret;
+		
+		ret = read_img_eof(fd_shmem, &e);
+		if (ret <= 0)
 			goto out;
 		pr_info("0x%lx-0x%lx id %lu\n", e.start, e.end, e.shmid);
 	}
@@ -75,8 +77,10 @@ static void show_files(int fd_files)
 	pr_img_head(CR_FD_FDINFO);
 
 	while (1) {
-		int ret = read_ptr_safe_eof(fd_files, &e, out);
-		if (!ret)
+		int ret;
+		
+		ret = read_img_eof(fd_files, &e);
+		if (ret <= 0)
 			goto out;
 
 		pr_info("type: %02x len: %02x flags: %4x pos: %8x addr: %16lx id: %s",
@@ -107,8 +111,10 @@ static void show_pipes(int fd_pipes)
 	pr_img_head(CR_FD_PIPES);
 
 	while (1) {
-		int ret = read_ptr_safe_eof(fd_pipes, &e, out);
-		if (!ret)
+		int ret;
+		
+		ret = read_img_eof(fd_pipes, &e);
+		if (ret <= 0)
 			goto out;
 		pr_info("fd: %8lx pipeid: %8lx flags: %8lx bytes: %8lx\n",
 			e.fd, e.pipeid, e.flags, e.bytes);
@@ -127,7 +133,8 @@ static void show_vma(int fd_vma)
 
 	pr_info("\n\t---[VMA areas]---\n");
 	while (1) {
-		read_ptr_safe(fd_vma, &ve, out);
+		if (read_img(fd_vma, &ve) < 0)
+			break;
 
 		if (final_vma_entry(&ve))
 			break;
@@ -136,8 +143,6 @@ static void show_vma(int fd_vma)
 		vma_area.vma = ve;
 		pr_info_vma(&vma_area);
 	}
-out:
-	; /* to placate gcc */
 }
 
 static void show_pages(int fd_pages, bool show_content)
@@ -150,7 +155,8 @@ static void show_pages(int fd_pages, bool show_content)
 			unsigned long addr;
 			int i, j;
 
-			read_ptr_safe(fd_pages, &e, out);
+			if (read_img(fd_pages, &e) < 0)
+				break;
 			if (final_page_entry(&e))
 				break;
 
@@ -181,7 +187,8 @@ static void show_pages(int fd_pages, bool show_content)
 
 			pr_info("\t");
 			for (i = 0; i < DEF_PAGES_PER_LINE; i++) {
-				read_ptr_safe(fd_pages, &e, out);
+				if (read_img(fd_pages, &e) < 0)
+					goto out;
 				if (final_page_entry(&e)) {
 					pr_info("\n");
 					goto out;
@@ -203,8 +210,10 @@ static void show_sigacts(int fd_sigacts)
 	pr_img_head(CR_FD_SIGACT);
 
 	while (1) {
-		int ret = read_ptr_safe_eof(fd_sigacts, &e, out);
-		if (!ret)
+		int ret;
+		
+		ret = read_img_eof(fd_sigacts, &e);
+		if (ret <= 0)
 			goto out;
 		pr_info("sigaction: %016lx mask: %08lx "
 			"flags: %016lx restorer: %016lx\n",
@@ -229,8 +238,8 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 		int ret;
 		struct pstree_item *item = NULL;
 
-		ret = read_ptr_safe_eof(fd_pstree, &e, out);
-		if (!ret)
+		ret = read_img_eof(fd_pstree, &e);
+		if (ret <= 0)
 			goto out;
 		pr_info("pid: %8d nr_children: %8d nr_threads: %8d\n",
 			e.pid, e.nr_children, e.nr_threads);
@@ -255,8 +264,8 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 			pr_info("\\\n");
 			pr_info(" +--- children: ");
 			while (e.nr_children--) {
-				ret = read_ptr_safe_eof(fd_pstree, &pid, out);
-				if (!ret)
+				ret = read_img_eof(fd_pstree, &pid);
+				if (ret <= 0)
 					goto out;
 				pr_info(" %6d", pid);
 			}
@@ -267,8 +276,8 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 			pr_info("  \\\n");
 			pr_info("   --- threads: ");
 			while (e.nr_threads--) {
-				ret = read_ptr_safe_eof(fd_pstree, &pid, out);
-				if (!ret)
+				ret = read_img_eof(fd_pstree, &pid);
+				if (ret <= 0)
 					goto out;
 				pr_info(" %6d", pid);
 				if (item)
@@ -294,7 +303,8 @@ static void show_core_regs(int fd_core)
 
 	lseek(fd_core, GET_FILE_OFF(struct core_entry, arch.gpregs), SEEK_SET);
 
-	read_ptr_safe(fd_core, &regs, err);
+	if (read_img(fd_core, &regs) < 0)
+		goto err;
 
 	pr_regs4(regs, cs, ip, ds, es);
 	pr_regs4(regs, ss, sp, fs, gs);
@@ -311,49 +321,23 @@ err:
 
 static void show_core_rest(int fd_core)
 {
-	u64 mm_start_data, mm_end_data, mm_start_stack, mm_start_brk;
-	u64 mm_brk, mm_start_code, mm_end_code;
-	char comm[TASK_COMM_LEN];
-	u32 personality;
+	struct task_core_entry tc;
 	int i;
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.personality), SEEK_SET);
-	read_ptr_safe(fd_core, &personality, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.comm), SEEK_SET);
-	read_safe(fd_core, comm, TASK_COMM_LEN, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_brk), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_brk, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_code), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_start_code, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_end_code), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_end_code, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_stack), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_start_stack, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_data), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_start_data, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_end_data), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_end_data, err);
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_brk), SEEK_SET);
-	read_ptr_safe(fd_core, &mm_start_brk, err);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc), SEEK_SET);
+	if (read_img(fd_core, &tc) < 0)
+		goto err;
 
 	pr_info("\n\t---[Task parameters]---\n");
-	pr_info("\tPersonality:  %x\n", personality);
-	pr_info("\tCommand:      %s\n", comm);
-	pr_info("\tBrk:          %lx\n", mm_brk);
-	pr_info("\tStart code:   %lx\n", mm_start_code);
-	pr_info("\tEnd code:     %lx\n", mm_end_code);
-	pr_info("\tStart stack:  %lx\n", mm_start_stack);
-	pr_info("\tStart data:   %lx\n", mm_start_data);
-	pr_info("\tEnd data:     %lx\n", mm_end_data);
-	pr_info("\tStart brk:    %lx\n", mm_start_brk);
+	pr_info("\tPersonality:  %x\n", tc.personality);
+	pr_info("\tCommand:      %s\n", tc.comm);
+	pr_info("\tBrk:          %lx\n", tc.mm_brk);
+	pr_info("\tStart code:   %lx\n", tc.mm_start_code);
+	pr_info("\tEnd code:     %lx\n", tc.mm_end_code);
+	pr_info("\tStart stack:  %lx\n", tc.mm_start_stack);
+	pr_info("\tStart data:   %lx\n", tc.mm_start_data);
+	pr_info("\tEnd data:     %lx\n", tc.mm_end_data);
+	pr_info("\tStart brk:    %lx\n", tc.mm_start_brk);
 	pr_info("\n");
 
 err:
@@ -410,7 +394,8 @@ static int cr_parse_file(struct cr_options *opts)
 		goto err;
 	}
 
-	read_ptr_safe(fd, &magic, err);
+	if (read_img(fd, &magic) < 0)
+		goto err;
 
 	switch (magic) {
 	case FDINFO_MAGIC:

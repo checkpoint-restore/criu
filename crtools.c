@@ -142,7 +142,9 @@ struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset 
 		}
 
 		pr_debug("Opened %s with %d\n", path, ret);
-		write_ptr_safe(ret, &fdset_template[i].magic, err);
+		if (write_img(ret, &fdset_template[i].magic))
+			goto err;
+
 		cr_fdset->fds[i] = ret;
 	}
 err:
@@ -177,7 +179,8 @@ struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
 		}
 
 		pr_debug("Opened %s with %d\n", path, ret);
-		read_ptr_safe(ret, &magic, err);
+		if (read_img(ret, &magic) < 0)
+			goto err;
 		if (magic != fdset_template[i].magic) {
 			close(ret);
 			pr_err("Magic doesn't match for %s\n", path);
