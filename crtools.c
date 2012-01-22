@@ -106,19 +106,22 @@ static struct cr_fdset *alloc_cr_fdset(void)
 	return cr_fdset;
 }
 
-struct cr_fdset *prep_cr_fdset_for_dump(int pid, unsigned long use_mask)
+struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset *cr_fdset)
 {
 	unsigned int i;
 	int ret = -1;
 	char path[PATH_MAX];
-	struct cr_fdset *cr_fdset;
 
-	cr_fdset = alloc_cr_fdset();
-	if (!cr_fdset)
-		goto err;
+	if (cr_fdset == NULL) {
+		cr_fdset = alloc_cr_fdset();
+		if (!cr_fdset)
+			goto err;
+	}
 
 	for (i = 0; i < CR_FD_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
+			continue;
+		if (cr_fdset->fds[i] != -1)
 			continue;
 
 		ret = get_image_path(path, sizeof(path),

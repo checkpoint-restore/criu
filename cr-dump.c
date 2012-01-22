@@ -1035,7 +1035,7 @@ static int dump_task_threads(struct pstree_item *item)
 		if (item->pid == item->threads[i])
 			continue;
 
-		cr_fdset_thread = prep_cr_fdset_for_dump(item->threads[i], CR_FD_DESC_CORE);
+		cr_fdset_thread = cr_fdset_open(item->threads[i], CR_FD_DESC_CORE, NULL);
 		if (!cr_fdset_thread)
 			goto err;
 
@@ -1073,6 +1073,10 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	pr_info("Obtainting task stat ... ");
 	ret = parse_pid_stat(pid, pid_dir, &pps_buf);
 	if (ret < 0)
+		goto err;
+
+	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_NOPSTREE, cr_fdset);
+	if (!cr_fdset)
 		goto err;
 
 	ret = collect_mappings(pid, pid_dir, &vma_area_list);
@@ -1178,15 +1182,16 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	collect_sockets();
 
 	list_for_each_entry(item, &pstree_list, list) {
+		cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
+		if (!cr_fdset)
+			goto err;
+
 		if (item->pid == pid) {
-			cr_fdset = prep_cr_fdset_for_dump(item->pid, CR_FD_DESC_ALL);
+			cr_fdset = cr_fdset_open(item->pid,
+					CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset);
 			if (!cr_fdset)
 				goto err;
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
-				goto err;
-		} else {
-			cr_fdset = prep_cr_fdset_for_dump(item->pid, CR_FD_DESC_NOPSTREE);
-			if (!cr_fdset)
 				goto err;
 		}
 
