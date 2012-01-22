@@ -1032,6 +1032,35 @@ err:
 	return ret;
 }
 
+static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
+		struct cr_fdset *cr_fdset)
+{
+	struct core_entry *core;
+
+	if (item->nr_children) {
+		pr_err("Zombie %d with kids?\n", item->pid);
+		return -1;
+	}
+
+	if (item->nr_threads > 1) {
+		pr_err("Zombie %d with threads.\n", item->pid);
+		return -1;
+	}
+
+	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
+	if (cr_fdset == NULL)
+		return -1;
+
+	core = xzalloc(sizeof(*core));
+	if (core == NULL)
+		return -1;
+
+	core->tc.task_state = TASK_DEAD;
+	core->tc.exit_code = pps->exit_code;
+
+	return dump_task_core(core, cr_fdset);
+}
+
 static struct proc_pid_stat pps_buf;
 
 static int dump_task_threads(struct pstree_item *item)
@@ -1088,6 +1117,8 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 
 	switch (pps_buf.state) {
+	case 'Z':
+		return dump_one_zombie(item, &pps_buf, cr_fdset);
 	case 'T':
 		/* Stopped -- can dump one */
 		break;

@@ -1072,7 +1072,7 @@ err_free:
 	return err;
 }
 
-static int restore_one_task(int pid)
+static int restore_one_alive_task(int pid)
 {
 	pr_info("%d: Restoring resources\n", pid);
 
@@ -1092,6 +1092,147 @@ static int restore_one_task(int pid)
 		return -1;
 
 	return prepare_and_sigreturn(pid);
+}
+
+static void zombie_prepare_signals(void)
+{
+	sigset_t blockmask;
+	int sig;
+	struct sigaction act;
+
+	sigfillset(&blockmask);
+	sigprocmask(SIG_UNBLOCK, &blockmask, NULL);
+
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = SIG_DFL;
+
+	for (sig = 1; sig < SIGMAX; sig++)
+		sigaction(sig, &act, NULL);
+}
+
+#define SIG_FATAL_MASK	(	\
+		(1 << SIGHUP)	|\
+		(1 << SIGINT)	|\
+		(1 << SIGQUIT)	|\
+		(1 << SIGILL)	|\
+		(1 << SIGTRAP)	|\
+		(1 << SIGABRT)	|\
+		(1 << SIGIOT)	|\
+		(1 << SIGBUS)	|\
+		(1 << SIGFPE)	|\
+		(1 << SIGKILL)	|\
+		(1 << SIGUSR1)	|\
+		(1 << SIGSEGV)	|\
+		(1 << SIGUSR2)	|\
+		(1 << SIGPIPE)	|\
+		(1 << SIGALRM)	|\
+		(1 << SIGTERM)	|\
+		(1 << SIGXCPU)	|\
+		(1 << SIGXFSZ)	|\
+		(1 << SIGVTALRM)|\
+		(1 << SIGPROF)	|\
+		(1 << SIGPOLL)	|\
+		(1 << SIGIO)	|\
+		(1 << SIGSYS)	|\
+		(1 << SIGUNUSED)|\
+		(1 << SIGSTKFLT)|\
+		(1 << SIGPWR)	 \
+	)
+
+static inline int sig_fatal(int sig)
+{
+	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1 << sig));
+}
+
+static int restore_one_zobie(int pid, int exit_code)
+{
+	pr_info("Restoring zombie with %d code\n", exit_code);
+
+	if (task_entries != NULL) {
+		struct task_entry *task_entry;
+
+		task_entry = task_get_entry(task_entries, pid);
+
+		cr_wait_dec(&task_entries->nr_in_progress);
+		cr_wait_set(&task_entry->done, 1);
+		cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
+
+		zombie_prepare_signals();
+
+		cr_wait_dec(&task_entries->nr_in_progress);
+		cr_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	}
+
+	if (exit_code & 0x7f) {
+		int signr;
+
+		signr = exit_code & 0x7F;
+		if (!sig_fatal(signr)) {
+			pr_warning("Exit with non fatal signal ignored\n");
+			signr = SIGABRT;
+		}
+
+		if (kill(pid, signr) < 0)
+			pr_perror("Can't kill myself, will just exit\n");
+
+		exit_code = 0;
+	}
+
+	exit(exit_code >> 8);
+
+	/* never reached */
+	BUG_ON(1);
+	return -1;
+}
+
+static int check_core_header(int pid, struct task_core_entry *tc)
+{
+	int fd, ret;
+	struct image_header hdr;
+
+	fd = open_image_ro(CR_FD_CORE, pid);
+	if (fd < 0)
+		return -1;
+
+	if (read_img(fd, &hdr) < 0) {
+		close(fd);
+		return -1;
+	}
+
+	if (hdr.version != HEADER_VERSION) {
+		pr_err("Core version mismatch %d\n", (int)hdr.version);
+		close(fd);
+		return -1;
+	}
+
+	if (hdr.arch != HEADER_ARCH_X86_64) {
+		pr_err("Core arch mismatch %d\n", (int)hdr.arch);
+		close(fd);
+		return -1;
+	}
+
+	ret = read_img(fd, tc);
+	close(fd);
+
+	return ret < 0 ? ret : 0;
+}
+
+static int restore_one_task(int pid)
+{
+	struct task_core_entry tc;
+
+	if (check_core_header(pid, &tc))
+		return -1;
+
+	switch ((int)tc.task_state) {
+	case TASK_ALIVE:
+		return restore_one_alive_task(pid);
+	case TASK_DEAD:
+		return restore_one_zobie(pid, tc.exit_code);
+	default:
+		pr_err("Unknown state in code %d\n", (int)tc.task_state);
+		return -1;
+	}
 }
 
 static inline int fork_with_pid(int pid)
