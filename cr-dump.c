@@ -431,29 +431,10 @@ err:
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static struct proc_pid_stat pps_buf;
-
-static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
-			 u64 *start_code, u64 *end_code,
-			 u64 *start_data, u64 *end_data,
-			 u64 *start_stack, u64 *start_brk,
-			 u64 *task_sigset)
+static int get_task_sigmask(pid_t pid, int pid_dir, u64 *task_sigset)
 {
-	FILE *file = NULL;
-	int ret;
-
-	ret = parse_pid_stat(pid, pid_dir, &pps_buf);
-	if (ret < 0)
-		goto err;
-
-	strncpy((char *)comm, pps_buf.comm, TASK_COMM_LEN);
-	*flags = pps_buf.flags;
-	*start_code = pps_buf.start_code;
-	*end_code = pps_buf.end_code;
-	*start_data = pps_buf.start_data;
-	*end_data = pps_buf.end_data;
-	*start_stack = pps_buf.start_stack;
-	*start_brk = pps_buf.start_brk;
+	FILE *file;
+	int ret = -1;
 
 	/*
 	 * Now signals.
@@ -468,13 +449,13 @@ static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 		if (!strncmp(loc_buf, "SigBlk:", 7)) {
 			char *end;
 			*task_sigset = strtol(&loc_buf[8], &end, 16);
+			ret = 0;
 			break;
 		}
 	}
 
+	fclose(file);
 err:
-	if (file)
-		fclose(file);
 	return ret;
 }
 
@@ -576,7 +557,8 @@ err:
 	return ret;
 }
 
-static int dump_task_core_seized(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
+static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
+		struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int fd_core			= cr_fdset->fds[CR_FD_CORE];
@@ -604,16 +586,16 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct cr_fdset *cr_fds
 		goto err_free;
 	pr_info("OK\n");
 
-	pr_info("Obtainting task stat ... ");
-	ret = get_task_stat(pid, pid_dir, core->task_comm,
-			    &core->task_flags,
-			    &core->mm_start_code,
-			    &core->mm_end_code,
-			    &core->mm_start_data,
-			    &core->mm_end_data,
-			    &core->mm_start_stack,
-			    &core->mm_start_brk,
-			    &core->task_sigset);
+	strncpy((char *)core->task_comm, stat->comm, TASK_COMM_LEN);
+	core->task_flags = stat->flags;
+	core->mm_start_code = stat->start_code;
+	core->mm_end_code = stat->end_code;
+	core->mm_start_data = stat->start_data;
+	core->mm_end_data = stat->end_data;
+	core->mm_start_stack = stat->start_stack;
+	core->mm_start_brk = stat->start_brk;
+
+	ret = get_task_sigmask(pid, pid_dir, &core->task_sigset);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
@@ -1038,6 +1020,8 @@ err:
 	return ret;
 }
 
+static struct proc_pid_stat pps_buf;
+
 static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	LIST_HEAD(vma_area_list);
@@ -1055,6 +1039,11 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
+	pr_info("Obtainting task stat ... ");
+	ret = parse_pid_stat(pid, pid_dir, &pps_buf);
+	if (ret < 0)
+		goto err;
+
 	ret = collect_mappings(pid, pid_dir, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
@@ -1068,7 +1057,7 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_core_seized(pid, pid_dir, cr_fdset);
+	ret = dump_task_core_seized(pid, pid_dir, &pps_buf, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
