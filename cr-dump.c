@@ -560,11 +560,29 @@ err:
 	return ret;
 }
 
+static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
+{
+	int fd_core = fdset->fds[CR_FD_CORE];
+	int ret;
+
+	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
+
+	pr_info("Dumping header ... ");
+
+	core->header.version	= HEADER_VERSION;
+	core->header.arch	= HEADER_ARCH_X86_64;
+	core->header.flags	= 0;
+
+	ret = write_img(fd_core, core);
+
+	free(core);
+	return ret;
+}
+
 static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
 		struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
-	int fd_core			= cr_fdset->fds[CR_FD_CORE];
 	int ret				= -1;
 	unsigned long brk;
 
@@ -574,8 +592,6 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 
 	if (!core)
 		goto err;
-
-	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
 
 	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core);
@@ -610,16 +626,7 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	core->tc.mm_brk = brk;
 	pr_info("OK\n");
 
-	pr_info("Dumping header ... ");
-	core->header.version	= HEADER_VERSION;
-	core->header.arch	= HEADER_ARCH_X86_64;
-	core->header.flags	= 0;
-
-	if (write_img(fd_core, core))
-		goto err_free;
-
-	pr_info("OK\n");
-	ret = 0;
+	return dump_task_core(core, cr_fdset);
 
 err_free:
 	free(core);
@@ -981,7 +988,6 @@ err_strno:
 static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
-	int fd_core			= cr_fdset->fds[CR_FD_CORE];
 	int ret				= -1;
 
 	pr_info("\n");
@@ -990,8 +996,6 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 
 	if (!core)
 		goto err;
-
-	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
 
 	ret = seize_task(pid);
 	if (ret) {
@@ -1012,16 +1016,7 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err_free;
 	}
 
-	pr_info("Dumping header ... ");
-	core->header.version	= HEADER_VERSION;
-	core->header.arch	= HEADER_ARCH_X86_64;
-	core->header.flags	= 0;
-
-	if (write_img(fd_core, core))
-		goto err_free;
-
-	pr_info("OK\n");
-	ret = 0;
+	return dump_task_core(core, cr_fdset);
 
 err_free:
 	free(core);
