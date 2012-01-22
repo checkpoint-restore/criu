@@ -1087,6 +1087,16 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	if (ret < 0)
 		goto err;
 
+	switch (pps_buf.state) {
+	case 'T':
+		/* Stopped -- can dump one */
+		break;
+	default:
+		ret = -1;
+		pr_err("Task in bad state: %c\n", pps_buf.state);
+		goto err;
+	};
+
 	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_NOPSTREE, cr_fdset);
 	if (!cr_fdset)
 		goto err;
