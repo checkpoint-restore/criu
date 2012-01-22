@@ -11,40 +11,85 @@
 const char *test_doc	= "See if we can wait() for a zombified child after migration";
 const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
 
+struct zombie {
+	int pid;
+	int exited;
+	int exitcode;
+};
+
+#define NR_ZOMBIES	4
+
 int main(int argc, char ** argv)
 {
-	int ret;
-	pid_t pid;
+	int i, status;
+	struct zombie zombie[NR_ZOMBIES];
+
+	zombie[0].exited = 1;
+	zombie[0].exitcode = 0;
+
+	zombie[1].exited = 1;
+	zombie[1].exitcode = 3;
+
+	zombie[2].exited = 0;
+	zombie[2].exitcode = SIGKILL;
+
+	zombie[3].exited = 0;
+	zombie[3].exitcode = SIGSEGV;
 
 	test_init(argc, argv);
 
-	pid = fork();
-	if (pid < 0) {
-		err("fork failed: %m\n");
-		exit(1);
-	}
+	for (i = 0; i < NR_ZOMBIES; i++) {
+		zombie[i].pid = fork();
+		if (zombie[i].pid < 0) {
+			err("Fork failed %m\n");
+			exit(1);
+		}
 
-	if (pid == 0)
-		_exit(0);
+		if (zombie[i].pid == 0) {
+			if (zombie[i].exited)
+				_exit(zombie[i].exitcode);
+			else if (zombie[i].exitcode == SIGSEGV)
+				*(int *)NULL = 0;
+			else
+				kill(getpid(), zombie[i].exitcode);
+
+			_exit(13); /* just in case */
+		}
+
+		test_msg("kid %d will %d/%d\n", zombie[i].pid,
+				zombie[i].exited, zombie[i].exitcode);
+	}
 
 	test_daemon();
 	test_waitsig();
 
-	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid: %m\n");
-		exit(1);
-	}
-
-	if (WIFEXITED(ret)) {
-		ret = WEXITSTATUS(ret);
-		if (ret) {
-			fail("child exited with nonzero code %d (%s)\n", ret, strerror(ret));
+	for (i = 0; i < NR_ZOMBIES; i++) {
+		if (waitpid(zombie[i].pid, &status, 0) != zombie[i].pid) {
+			fail("Exit with wrong pid\n");
 			exit(1);
 		}
-	}
-	if (WIFSIGNALED(ret)) {
-		fail("child exited on unexpected signal %d\n", WTERMSIG(ret));
-		exit(1);
+
+		if (zombie[i].exited) {
+			if (!WIFEXITED(status)) {
+				fail("Not exited, but should (%d)\n", zombie[i].pid);
+				exit(1);
+			}
+
+			if (WEXITSTATUS(status) != zombie[i].exitcode) {
+				fail("Exit with wrong status (%d)\n", zombie[i].pid);
+				exit(1);
+			}
+		} else {
+			if (!WIFSIGNALED(status)) {
+				fail("Not killed, but should (%d)\n", zombie[i].pid);
+				exit(1);
+			}
+
+			if (WTERMSIG(status) != zombie[i].exitcode) {
+				fail("Killed with wrong signal (%d)\n", zombie[i].pid);
+				exit(1);
+			}
+		}
 	}
 
 	pass();
