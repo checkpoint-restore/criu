@@ -1022,8 +1022,39 @@ err:
 
 static struct proc_pid_stat pps_buf;
 
-static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_threads(struct pstree_item *item)
 {
+	int i;
+	struct cr_fdset *cr_fdset_thread = NULL;
+
+	if (item->nr_threads == 1)
+		return 0;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		/* Leader is already dumped */
+		if (item->pid == item->threads[i])
+			continue;
+
+		cr_fdset_thread = prep_cr_fdset_for_dump(item->threads[i], CR_FD_DESC_CORE);
+		if (!cr_fdset_thread)
+			goto err;
+
+		if (dump_task_thread(item->threads[i], cr_fdset_thread))
+			goto err;
+
+		close_cr_fdset(&cr_fdset_thread);
+	}
+
+	return 0;
+
+err:
+	close_cr_fdset(&cr_fdset_thread);
+	return -1;
+}
+
+static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
+{
+	pid_t pid = item->pid;
 	LIST_HEAD(vma_area_list);
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
@@ -1111,6 +1142,10 @@ static int dump_one_task(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
+	free_mappings(&vma_area_list);
+
+	return dump_task_threads(item);
+
 err:
 	free_mappings(&vma_area_list);
 	return ret;
@@ -1120,7 +1155,6 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
 	struct cr_fdset *cr_fdset = NULL;
-	struct cr_fdset *cr_fdset_thread = NULL;
 	struct pstree_item *item;
 	int i, ret = -1, pid_dir;
 
@@ -1156,27 +1190,8 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 				goto err;
 		}
 
-		if (dump_one_task(item->pid, cr_fdset))
+		if (dump_one_task(item, cr_fdset))
 			goto err;
-
-		if (item->nr_threads > 1) {
-			for (i = 0; i < item->nr_threads; i++) {
-
-
-				/* Leader is already dumped */
-				if (item->pid == item->threads[i])
-					continue;
-
-				cr_fdset_thread = prep_cr_fdset_for_dump(item->threads[i], CR_FD_DESC_CORE);
-				if (!cr_fdset_thread)
-					goto err;
-
-				if (dump_task_thread(item->threads[i], cr_fdset_thread))
-					goto err;
-
-				close_cr_fdset(&cr_fdset_thread);
-			}
-		}
 
 		close_cr_fdset(&cr_fdset);
 
@@ -1198,7 +1213,6 @@ err:
 	free_pstree(&pstree_list);
 
 	close_cr_fdset(&cr_fdset);
-	close_cr_fdset(&cr_fdset_thread);
 
 	return ret;
 }
