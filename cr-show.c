@@ -319,6 +319,18 @@ err:
 	return;
 }
 
+static inline char *task_state_str(int state)
+{
+	switch (state) {
+	case TASK_ALIVE:
+		return "running/sleeping";
+	case TASK_DEAD:
+		return "zombie";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static void show_core_rest(int fd_core)
 {
 	struct task_core_entry tc;
@@ -331,6 +343,10 @@ static void show_core_rest(int fd_core)
 	pr_info("\n\t---[Task parameters]---\n");
 	pr_info("\tPersonality:  %x\n", tc.personality);
 	pr_info("\tCommand:      %s\n", tc.comm);
+	pr_info("\tState:        %d (%s)\n", (int)tc.task_state,
+			task_state_str((int)tc.task_state));
+	if (tc.task_state == TASK_DEAD)
+		pr_info("\t   Exit code: %u\n", (unsigned int)tc.exit_code);
 	pr_info("\tBrk:          %lx\n", tc.mm_brk);
 	pr_info("\tStart code:   %lx\n", tc.mm_start_code);
 	pr_info("\tEnd code:     %lx\n", tc.mm_end_code);

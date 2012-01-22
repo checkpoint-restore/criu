@@ -223,6 +223,9 @@ struct ckpt_arch_entry {
 #define CKPT_CORE_SIZE			(2 * 4096)
 
 struct task_core_entry {
+	u8				task_state;
+	u8				pad[3];
+	u32				exit_code;
 
 	u32				personality;
 	u8				comm[TASK_COMM_LEN];
@@ -247,6 +250,10 @@ struct core_entry {
 		u8 __core_pad[CKPT_CORE_SIZE];
 	};
 } __packed;
+
+#define TASK_ALIVE	0x1
+#define TASK_DEAD	0x2
+#define TASK_STOPPED	0x3 /* FIXME - implement */
 
 #endif /* CONFIG_X86_64 */
 

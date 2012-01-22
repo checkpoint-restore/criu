@@ -626,6 +626,9 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	core->tc.mm_brk = brk;
 	pr_info("OK\n");
 
+	core->tc.task_state = TASK_ALIVE;
+	core->tc.exit_code = 0;
+
 	return dump_task_core(core, cr_fdset);
 
 err_free:
@@ -1015,6 +1018,9 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 		pr_err("Can't unsieze thread (pid: %d)\n", pid);
 		goto err_free;
 	}
+
+	core->tc.task_state = TASK_ALIVE;
+	core->tc.exit_code = 0;
 
 	return dump_task_core(core, cr_fdset);
 
