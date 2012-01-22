@@ -285,8 +285,12 @@ static int prepare_shmem_pid(int pid)
 	int sh_fd;
 
 	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
-	if (sh_fd < 0)
-		return -1;
+	if (sh_fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
 
 	while (1) {
 		struct shmem_entry e;
@@ -314,8 +318,12 @@ static int prepare_pipes_pid(int pid)
 	int p_fd;
 
 	p_fd = open_image_ro(CR_FD_PIPES, pid);
-	if (p_fd < 0)
-		return -1;
+	if (p_fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
 
 	while (1) {
 		struct pipe_entry e;

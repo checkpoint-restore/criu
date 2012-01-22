@@ -163,8 +163,10 @@ int prepare_fd_pid(int pid)
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
 	if (fdinfo_fd < 0) {
-		pr_perror("%d: Can't open fdinfo image\n", pid);
-		return -1;
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
 	}
 
 	while (1) {
