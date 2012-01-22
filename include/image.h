@@ -208,25 +208,25 @@ struct user_fpregs_entry {
 
 #define TASK_PF_USED_MATH		0x00002000
 
+#define CKPT_ARCH_SIZE			(1 * 4096)
+
 struct ckpt_arch_entry {
-	struct user_regs_entry		gpregs;
-	struct user_fpregs_entry	fpregs;
+	union {
+		struct {
+			struct user_regs_entry		gpregs;
+			struct user_fpregs_entry	fpregs;
+		};
+		u8 __arch_pad[CKPT_ARCH_SIZE];	/* should be enough for all */
+	};
 };
 
-#define CKPT_ARCH_SIZE			(1 * 4096)
 #define CKPT_CORE_SIZE			(2 * 4096)
 
-struct core_entry {
-  union {
-    struct {
-	struct image_header		header;
-	union {
-		struct ckpt_arch_entry	arch;				/* per-arch specific */
-		u8			__arch_pad[CKPT_ARCH_SIZE];	/* should be enough for all */
-	} u;
-	u32				task_personality;
-	u8				task_comm[TASK_COMM_LEN];
-	u32				task_flags;
+struct task_core_entry {
+
+	u32				personality;
+	u8				comm[TASK_COMM_LEN];
+	u32				flags;
 	u64				mm_start_code;
 	u64				mm_end_code;
 	u64				mm_start_data;
@@ -234,10 +234,18 @@ struct core_entry {
 	u64				mm_start_stack;
 	u64				mm_start_brk;
 	u64				mm_brk;
-	u64				task_sigset;
-    };
-    u8					__core_pad[CKPT_CORE_SIZE];
-  };
+	u64				blk_sigset;
+};
+
+struct core_entry {
+	union {
+		struct {
+			struct image_header	header;
+			struct task_core_entry	tc;
+			struct ckpt_arch_entry	arch;
+		};
+		u8 __core_pad[CKPT_CORE_SIZE];
+	};
 } __packed;
 
 #endif /* CONFIG_X86_64 */

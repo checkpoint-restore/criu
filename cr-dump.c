@@ -510,46 +510,46 @@ static int get_task_regs(pid_t pid, struct core_entry *core)
 			break;
 		}
 
-	assign_reg(core->u.arch.gpregs, regs,		r15);
-	assign_reg(core->u.arch.gpregs, regs,		r14);
-	assign_reg(core->u.arch.gpregs, regs,		r13);
-	assign_reg(core->u.arch.gpregs, regs,		r12);
-	assign_reg(core->u.arch.gpregs, regs,		bp);
-	assign_reg(core->u.arch.gpregs, regs,		bx);
-	assign_reg(core->u.arch.gpregs, regs,		r11);
-	assign_reg(core->u.arch.gpregs, regs,		r10);
-	assign_reg(core->u.arch.gpregs, regs,		r9);
-	assign_reg(core->u.arch.gpregs, regs,		r8);
-	assign_reg(core->u.arch.gpregs, regs,		ax);
-	assign_reg(core->u.arch.gpregs, regs,		cx);
-	assign_reg(core->u.arch.gpregs, regs,		dx);
-	assign_reg(core->u.arch.gpregs, regs,		si);
-	assign_reg(core->u.arch.gpregs, regs,		di);
-	assign_reg(core->u.arch.gpregs, regs,		orig_ax);
-	assign_reg(core->u.arch.gpregs, regs,		ip);
-	assign_reg(core->u.arch.gpregs, regs,		cs);
-	assign_reg(core->u.arch.gpregs, regs,		flags);
-	assign_reg(core->u.arch.gpregs, regs,		sp);
-	assign_reg(core->u.arch.gpregs, regs,		ss);
-	assign_reg(core->u.arch.gpregs, regs,		fs_base);
-	assign_reg(core->u.arch.gpregs, regs,		gs_base);
-	assign_reg(core->u.arch.gpregs, regs,		ds);
-	assign_reg(core->u.arch.gpregs, regs,		es);
-	assign_reg(core->u.arch.gpregs, regs,		fs);
-	assign_reg(core->u.arch.gpregs, regs,		gs);
+	assign_reg(core->arch.gpregs, regs,		r15);
+	assign_reg(core->arch.gpregs, regs,		r14);
+	assign_reg(core->arch.gpregs, regs,		r13);
+	assign_reg(core->arch.gpregs, regs,		r12);
+	assign_reg(core->arch.gpregs, regs,		bp);
+	assign_reg(core->arch.gpregs, regs,		bx);
+	assign_reg(core->arch.gpregs, regs,		r11);
+	assign_reg(core->arch.gpregs, regs,		r10);
+	assign_reg(core->arch.gpregs, regs,		r9);
+	assign_reg(core->arch.gpregs, regs,		r8);
+	assign_reg(core->arch.gpregs, regs,		ax);
+	assign_reg(core->arch.gpregs, regs,		cx);
+	assign_reg(core->arch.gpregs, regs,		dx);
+	assign_reg(core->arch.gpregs, regs,		si);
+	assign_reg(core->arch.gpregs, regs,		di);
+	assign_reg(core->arch.gpregs, regs,		orig_ax);
+	assign_reg(core->arch.gpregs, regs,		ip);
+	assign_reg(core->arch.gpregs, regs,		cs);
+	assign_reg(core->arch.gpregs, regs,		flags);
+	assign_reg(core->arch.gpregs, regs,		sp);
+	assign_reg(core->arch.gpregs, regs,		ss);
+	assign_reg(core->arch.gpregs, regs,		fs_base);
+	assign_reg(core->arch.gpregs, regs,		gs_base);
+	assign_reg(core->arch.gpregs, regs,		ds);
+	assign_reg(core->arch.gpregs, regs,		es);
+	assign_reg(core->arch.gpregs, regs,		fs);
+	assign_reg(core->arch.gpregs, regs,		gs);
 
-	assign_reg(core->u.arch.fpregs, fpregs,		cwd);
-	assign_reg(core->u.arch.fpregs, fpregs,		swd);
-	assign_reg(core->u.arch.fpregs, fpregs,		twd);
-	assign_reg(core->u.arch.fpregs, fpregs,		fop);
-	assign_reg(core->u.arch.fpregs, fpregs,		rip);
-	assign_reg(core->u.arch.fpregs, fpregs,		rdp);
-	assign_reg(core->u.arch.fpregs, fpregs,		mxcsr);
-	assign_reg(core->u.arch.fpregs, fpregs,		mxcsr_mask);
+	assign_reg(core->arch.fpregs, fpregs,		cwd);
+	assign_reg(core->arch.fpregs, fpregs,		swd);
+	assign_reg(core->arch.fpregs, fpregs,		twd);
+	assign_reg(core->arch.fpregs, fpregs,		fop);
+	assign_reg(core->arch.fpregs, fpregs,		rip);
+	assign_reg(core->arch.fpregs, fpregs,		rdp);
+	assign_reg(core->arch.fpregs, fpregs,		mxcsr);
+	assign_reg(core->arch.fpregs, fpregs,		mxcsr_mask);
 
-	assign_array(core->u.arch.fpregs, fpregs,	st_space);
-	assign_array(core->u.arch.fpregs, fpregs,	xmm_space);
-	assign_array(core->u.arch.fpregs, fpregs,	padding);
+	assign_array(core->arch.fpregs, fpregs,	st_space);
+	assign_array(core->arch.fpregs, fpregs,	xmm_space);
+	assign_array(core->arch.fpregs, fpregs,	padding);
 
 	ret = 0;
 
@@ -581,21 +581,21 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	pr_info("OK\n");
 
 	pr_info("Obtainting personality ... ");
-	ret = get_task_personality(pid, pid_dir, &core->task_personality);
+	ret = get_task_personality(pid, pid_dir, &core->tc.personality);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
-	strncpy((char *)core->task_comm, stat->comm, TASK_COMM_LEN);
-	core->task_flags = stat->flags;
-	core->mm_start_code = stat->start_code;
-	core->mm_end_code = stat->end_code;
-	core->mm_start_data = stat->start_data;
-	core->mm_end_data = stat->end_data;
-	core->mm_start_stack = stat->start_stack;
-	core->mm_start_brk = stat->start_brk;
+	strncpy((char *)core->tc.comm, stat->comm, TASK_COMM_LEN);
+	core->tc.flags = stat->flags;
+	core->tc.mm_start_code = stat->start_code;
+	core->tc.mm_end_code = stat->end_code;
+	core->tc.mm_start_data = stat->start_data;
+	core->tc.mm_end_data = stat->end_data;
+	core->tc.mm_start_stack = stat->start_stack;
+	core->tc.mm_start_brk = stat->start_brk;
 
-	ret = get_task_sigmask(pid, pid_dir, &core->task_sigset);
+	ret = get_task_sigmask(pid, pid_dir, &core->tc.blk_sigset);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
@@ -604,7 +604,7 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	brk = brk_seized(pid, 0);
 	if ((long)brk < 0)
 		goto err_free;
-	core->mm_brk = brk;
+	core->tc.mm_brk = brk;
 	pr_info("OK\n");
 
 	pr_info("Dumping header ... ");

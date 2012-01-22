@@ -292,7 +292,7 @@ static void show_core_regs(int fd_core)
 
 	pr_info("\n\t---[GP registers set]---\n");
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, u.arch.gpregs), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, arch.gpregs), SEEK_SET);
 
 	read_ptr_safe(fd_core, &regs, err);
 
@@ -317,31 +317,31 @@ static void show_core_rest(int fd_core)
 	u32 personality;
 	int i;
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, task_personality), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.personality), SEEK_SET);
 	read_ptr_safe(fd_core, &personality, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, task_comm), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.comm), SEEK_SET);
 	read_safe(fd_core, comm, TASK_COMM_LEN, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_brk), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_brk), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_brk, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_code), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_code), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_start_code, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_end_code), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_end_code), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_end_code, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_stack), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_stack), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_start_stack, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_data), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_data), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_start_data, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_end_data), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_end_data), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_end_data, err);
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, mm_start_brk), SEEK_SET);
+	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc.mm_start_brk), SEEK_SET);
 	read_ptr_safe(fd_core, &mm_start_brk, err);
 
 	pr_info("\n\t---[Task parameters]---\n");

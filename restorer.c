@@ -73,8 +73,8 @@ long restore_thread(struct thread_restore_args *args)
 
 		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-	#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.d
-	#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.s
+	#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
+	#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
 
 		CPREGT1(r8);
 		CPREGT1(r9);
@@ -98,7 +98,7 @@ long restore_thread(struct thread_restore_args *args)
 		CPREGT1(gs);
 		CPREGT1(fs);
 
-		fsgs_base = core_entry->u.arch.gpregs.fs_base;
+		fsgs_base = core_entry->arch.gpregs.fs_base;
 		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 		if (ret) {
 			write_num_n(__LINE__);
@@ -106,7 +106,7 @@ long restore_thread(struct thread_restore_args *args)
 			goto core_restore_end;
 		}
 
-		fsgs_base = core_entry->u.arch.gpregs.gs_base;
+		fsgs_base = core_entry->arch.gpregs.gs_base;
 		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 		if (ret) {
 			write_num_n(__LINE__);
@@ -352,14 +352,14 @@ long restore_task(struct task_restore_core_args *args)
 		}						\
 	} while (0)
 
-	sys_prctl_safe(PR_SET_NAME, (long)core_entry->task_comm, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)core_entry->mm_start_code);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->mm_end_code);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->mm_start_data);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->mm_end_data);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->mm_start_stack);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->mm_start_brk);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->mm_brk);
+	sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)core_entry->tc.mm_start_code);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->tc.mm_end_code);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->tc.mm_start_data);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->tc.mm_end_data);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->tc.mm_start_stack);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->tc.mm_start_brk);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->tc.mm_brk);
 
 	/*
 	 * We need to prepare a valid sigframe here, so
@@ -369,8 +369,8 @@ long restore_task(struct task_restore_core_args *args)
 	 */
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.d
-#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->u.arch.gpregs.s
+#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
+#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
 
 	CPREG1(r8);
 	CPREG1(r9);
@@ -394,7 +394,7 @@ long restore_task(struct task_restore_core_args *args)
 	CPREG1(gs);
 	CPREG1(fs);
 
-	fsgs_base = core_entry->u.arch.gpregs.fs_base;
+	fsgs_base = core_entry->arch.gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -402,7 +402,7 @@ long restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	fsgs_base = core_entry->u.arch.gpregs.gs_base;
+	fsgs_base = core_entry->arch.gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -413,7 +413,7 @@ long restore_task(struct task_restore_core_args *args)
 	/*
 	 * Blocked signals.
 	 */
-	rt_sigframe->uc.uc_sigmask.sig[0] = core_entry->task_sigset;
+	rt_sigframe->uc.uc_sigmask.sig[0] = core_entry->tc.blk_sigset;
 
 	/*
 	 * Threads restoration. This requires some more comments. This
