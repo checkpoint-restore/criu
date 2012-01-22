@@ -455,11 +455,6 @@ static int get_task_stat(pid_t pid, int pid_dir, u8 *comm, u32 *flags,
 	*start_stack = pps_buf.start_stack;
 	*start_brk = pps_buf.start_brk;
 
-	if (*start_data == 0 || *end_data == 0 || *start_brk == 0) {
-		pr_err("%d's stat is corrupted/not complete\n", pid);
-		goto err_corrupted;
-	}
-
 	/*
 	 * Now signals.
 	 */
@@ -481,10 +476,6 @@ err:
 	if (file)
 		fclose(file);
 	return ret;
-
-err_corrupted:
-	pr_err("/proc/%d/stat is corrupted\n", pid);
-	goto err;
 }
 
 static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
