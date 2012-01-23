@@ -52,6 +52,10 @@ struct proc_pid_stat {
 	unsigned long		start_data;
 	unsigned long		end_data;
 	unsigned long		start_brk;
+	unsigned long		arg_start;
+	unsigned long		arg_end;
+	unsigned long		env_start;
+	unsigned long		env_end;
 	int			exit_code;
 };
 

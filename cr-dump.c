@@ -614,6 +614,11 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	core->tc.mm_start_stack = stat->start_stack;
 	core->tc.mm_start_brk = stat->start_brk;
 
+	core->tc.mm_arg_start = stat->arg_start;
+	core->tc.mm_arg_end = stat->arg_end;
+	core->tc.mm_env_start = stat->env_start;
+	core->tc.mm_env_end = stat->env_end;
+
 	ret = get_task_sigmask(pid, pid_dir, &core->tc.blk_sigset);
 	if (ret)
 		goto err_free;

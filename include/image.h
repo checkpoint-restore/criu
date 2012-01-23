@@ -237,6 +237,10 @@ struct task_core_entry {
 	u64				mm_start_stack;
 	u64				mm_start_brk;
 	u64				mm_brk;
+	u64				mm_arg_start;
+	u64				mm_arg_end;
+	u64				mm_env_start;
+	u64				mm_env_end;
 	u64				blk_sigset;
 };
 
