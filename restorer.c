@@ -360,6 +360,12 @@ long restore_task(struct task_restore_core_args *args)
 	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->tc.mm_start_stack);
 	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->tc.mm_start_brk);
 	sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->tc.mm_brk);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)core_entry->tc.mm_arg_start);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)core_entry->tc.mm_arg_end);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)core_entry->tc.mm_env_start);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)core_entry->tc.mm_env_end);
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)core_entry->tc.mm_saved_auxv);
+
 
 	/*
 	 * We need to prepare a valid sigframe here, so
