@@ -343,10 +343,14 @@ static void show_core_rest(int fd_core)
 	pr_info("\n\t---[Task parameters]---\n");
 	pr_info("\tPersonality:  %x\n", tc.personality);
 	pr_info("\tCommand:      %s\n", tc.comm);
-	pr_info("\tState:        %d (%s)\n", (int)tc.task_state,
-			task_state_str((int)tc.task_state));
+	pr_info("\tState:        %d (%s)\n",
+		(int)tc.task_state,
+		task_state_str((int)tc.task_state));
+
 	if (tc.task_state == TASK_DEAD)
-		pr_info("\t   Exit code: %u\n", (unsigned int)tc.exit_code);
+		pr_info("\t   Exit code: %u\n",
+			(unsigned int)tc.exit_code);
+
 	pr_info("\tBrk:          %lx\n", tc.mm_brk);
 	pr_info("\tStart code:   %lx\n", tc.mm_start_code);
 	pr_info("\tEnd code:     %lx\n", tc.mm_end_code);
@@ -354,6 +358,10 @@ static void show_core_rest(int fd_core)
 	pr_info("\tStart data:   %lx\n", tc.mm_start_data);
 	pr_info("\tEnd data:     %lx\n", tc.mm_end_data);
 	pr_info("\tStart brk:    %lx\n", tc.mm_start_brk);
+	pr_info("\tArg start:    %lx\n", tc.mm_arg_start);
+	pr_info("\tArg end:      %lx\n", tc.mm_arg_end);
+	pr_info("\tEnv start:    %lx\n", tc.mm_env_start);
+	pr_info("\tEnv end:      %lx\n", tc.mm_env_end);
 	pr_info("\n");
 
 err:
