@@ -27,6 +27,7 @@ TST_NOFILE	=				\
 		pipe00				\
 		pthread00			\
 		vdso00				\
+		cmdlinenv00			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -94,6 +95,9 @@ $(TST_FILE:%=%.pid):	%.pid:	%
 
 $(TST_DIR:%=%.pid):	%.pid:	%
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.test
+
+cmdlinenv00.pid: cmdlinenv00
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
 
 env00.pid:	env00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
