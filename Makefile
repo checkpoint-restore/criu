@@ -83,7 +83,16 @@ HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
 HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
 HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
-ROBJS-BLOB	= restorer.o
+ROBJS-BLOB	:= restorer.o
+#
+# Everything embedded into restorer as a separate
+# object file should go here.
+ROBJS		:= $(ROBJS-BLOB)
+ROBJS		+= restorer-log.o
+
+RDEPS-BLOB	+= $(patsubst %.o,%.d,$(ROBJS))
+RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS))
+
 RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
 
 RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
@@ -114,13 +123,13 @@ $(HEAD-BLOB-GEN): $(HEAD-BIN)
 		$(HEAD-BIN) > parasite-blob.h
 	$(Q) sync
 
-$(ROBJS-BLOB): $(RSRCS-BLOB)
+$(ROBJS): $(RSRCS-BLOB)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+	$(Q) $(CC) -c $(CFLAGS) -fpic $(patsubst %.o,%.c,$@) -o $@
 
-$(RHEAD-BIN): $(ROBJS-BLOB) $(RHEAD-LDS)
+$(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
+	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) -o $@ $(ROBJS)
 
 $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
 	$(E) "  GEN     " $@

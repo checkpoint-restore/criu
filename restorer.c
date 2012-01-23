@@ -580,6 +580,3 @@ core_restore_end:
 		local_sleep(5);
 	sys_exit(0);
 }
-
-/* FIXME Need link this .o with ld */
-#include "restorer-log.c"
