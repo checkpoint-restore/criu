@@ -222,6 +222,12 @@ struct ckpt_arch_entry {
 
 #define CKPT_CORE_SIZE			(2 * 4096)
 
+#ifdef CONFIG_X86_64
+# define AT_VECTOR_SIZE 44
+#else
+# define AT_VECTOR_SIZE 22		/* Not needed at moment */
+#endif
+
 struct task_core_entry {
 	u8				task_state;
 	u8				pad[3];
@@ -242,6 +248,7 @@ struct task_core_entry {
 	u64				mm_env_start;
 	u64				mm_env_end;
 	u64				blk_sigset;
+	u64				mm_saved_auxv[AT_VECTOR_SIZE];
 };
 
 struct core_entry {
