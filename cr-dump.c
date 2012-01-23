@@ -462,6 +462,36 @@ err:
 	return ret;
 }
 
+static int get_task_auxv(pid_t pid, int pid_dir, struct core_entry *core)
+{
+	int fd = open_proc(pid_dir, "auxv");
+	int ret, i;
+
+	if (fd < 0) {
+		pr_perror("Can't open %d's auxv\n", pid);
+		return -1;
+	}
+
+	for (i = 0; i < AT_VECTOR_SIZE; i++) {
+		ret = read(fd, &core->tc.mm_saved_auxv[i],
+			   sizeof(core->tc.mm_saved_auxv[0]));
+		if (ret == 0)
+			break;
+		else if (ret != sizeof(core->tc.mm_saved_auxv[0])) {
+			ret = -1;
+			pr_perror("Error readind %d's auxv[%d]\n",
+				  pid, i);
+			goto err;
+		}
+	}
+
+	ret = 0;
+
+err:
+	close_safe(&fd);
+	return ret;
+}
+
 static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
 {
 	FILE *file = NULL;
@@ -620,6 +650,12 @@ static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *s
 	core->tc.mm_env_end = stat->env_end;
 
 	ret = get_task_sigmask(pid, pid_dir, &core->tc.blk_sigset);
+	if (ret)
+		goto err_free;
+	pr_info("OK\n");
+
+	pr_info("Obtainting task auvx ... ");
+	ret = get_task_auxv(pid, pid_dir, core);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
