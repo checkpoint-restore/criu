@@ -88,6 +88,20 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
 #endif
 }
 
+static int parasite_open_file(struct parasite_dump_file_args *fa)
+{
+	int fd;
+
+	fd = sys_open(fa->open_path, fa->open_flags, fa->open_mode);
+	if (fd < 0) {
+		sys_write_msg("sys_open failed\n");
+		SET_PARASITE_STATUS(&fa->status, PARASITE_ERR_OPEN, fd);
+		fd = fa->status.ret;
+	}
+
+	return fd;
+}
+
 /*
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
@@ -106,13 +120,11 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	prot_old = prot_new = 0;
 
 	if (args->fd == -1UL) {
-		args->fd = sys_open(args->fa.open_path, args->fa.open_flags, args->fa.open_mode);
-		if ((long)args->fd < 0) {
-			sys_write_msg("sys_open failed\n");
-			SET_PARASITE_STATUS(st, PARASITE_ERR_OPEN, args->fd);
-			ret = st->ret;
+		ret = parasite_open_file(&args->fa);
+		if (ret < 0)
 			goto err;
-		}
+
+		args->fd = ret;
 	}
 
 	/* Start from the end of file */
@@ -232,13 +244,9 @@ static int dump_sigact(struct parasite_dump_file_args *args)
 
 	int ret = PARASITE_ERR_FAIL;
 
-	fd = sys_open(args->open_path, args->open_flags, args->open_mode);
-	if (fd < 0) {
-		sys_write_msg("sys_open failed\n");
-		SET_PARASITE_STATUS(st, PARASITE_ERR_OPEN, fd);
-		ret = st->ret;
-		return ret;
-	}
+	fd = parasite_open_file(args);
+	if (fd < 0)
+		return fd;
 
 	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
 
