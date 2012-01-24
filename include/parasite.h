@@ -56,22 +56,20 @@ typedef struct  {
 		st->line	= __LINE__;		\
 	} while (0)
 
-typedef struct {
+struct parasite_dump_file_args {
 	parasite_status_t	status;
+	unsigned long		open_mode;
+	unsigned long		open_flags;
+	char			open_path[PATH_MAX];
+};
+
+struct parasite_dump_pages_args {
+	struct parasite_dump_file_args fa;
+
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		fd;
-	unsigned long		open_mode;
-	unsigned long		open_flags;
-	char			open_path[PATH_MAX];
-} parasite_args_cmd_dumppages_t;
-
-typedef struct {
-	parasite_status_t	status;
-	unsigned long		open_mode;
-	unsigned long		open_flags;
-	char			open_path[PATH_MAX];
-} parasite_args_cmd_dumpsigacts_t;
+};
 
 /*
  * Some useful offsets

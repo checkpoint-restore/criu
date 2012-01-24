@@ -343,8 +343,7 @@ err:
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	parasite_args_cmd_dumpsigacts_t parasite_sigacts	= { };
-
+	struct parasite_dump_file_args parasite_sigacts = { };
 	int status, ret = -1;
 
 	pr_info("\n");
@@ -383,9 +382,7 @@ out:
 int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset)
 {
-	parasite_args_cmd_dumppages_t parasite_dumppages	= { };
-	parasite_args_t parasite_arg				= { };
-
+	struct parasite_dump_pages_args parasite_dumppages = { };
 	user_regs_struct_t regs, regs_orig;
 	unsigned long nrpages_dumped = 0;
 	struct vma_area *vma_area;
@@ -396,8 +393,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	if (get_image_path(parasite_dumppages.open_path,
-				sizeof(parasite_dumppages.open_path),
+	if (get_image_path(parasite_dumppages.fa.open_path,
+				sizeof(parasite_dumppages.fa.open_path),
 				fdset_template[CR_FD_PAGES].fmt, ctl->pid))
 		goto out;
 
@@ -412,9 +409,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	 */
 	fsync(cr_fdset->fds[CR_FD_PAGES]);
 
-	parasite_dumppages.open_flags	= O_WRONLY;
-	parasite_dumppages.open_mode	= CR_FD_PERM_DUMP;
-	parasite_dumppages.fd		= -1UL;
+	parasite_dumppages.fa.open_flags = O_WRONLY;
+	parasite_dumppages.fa.open_mode = CR_FD_PERM_DUMP;
+	parasite_dumppages.fd = -1UL;
 
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
@@ -437,9 +434,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 					sizeof(parasite_dumppages));
 		if (ret) {
 			pr_panic("Dumping pages failed with %li (%li) at %li\n",
-				 parasite_dumppages.status.ret,
-				 parasite_dumppages.status.sys_ret,
-				 parasite_dumppages.status.line);
+				 parasite_dumppages.fa.status.ret,
+				 parasite_dumppages.fa.status.sys_ret,
+				 parasite_dumppages.fa.status.line);
 
 			goto err_restore;
 		}

@@ -92,9 +92,9 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
  */
-static int dump_pages(parasite_args_cmd_dumppages_t *args)
+static int dump_pages(struct parasite_dump_pages_args *args)
 {
-	parasite_status_t *st = &args->status;
+	parasite_status_t *st = &args->fa.status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
@@ -106,7 +106,7 @@ static int dump_pages(parasite_args_cmd_dumppages_t *args)
 	prot_old = prot_new = 0;
 
 	if (args->fd == -1UL) {
-		args->fd = sys_open(args->open_path, args->open_flags, args->open_mode);
+		args->fd = sys_open(args->fa.open_path, args->fa.open_flags, args->fa.open_mode);
 		if ((long)args->fd < 0) {
 			sys_write_msg("sys_open failed\n");
 			SET_PARASITE_STATUS(st, PARASITE_ERR_OPEN, args->fd);
@@ -223,7 +223,7 @@ err:
 	return ret;
 }
 
-static int dump_sigact(parasite_args_cmd_dumpsigacts_t *args)
+static int dump_sigact(struct parasite_dump_file_args *args)
 {
 	parasite_status_t *st = &args->status;
 	rt_sigaction_t act;
@@ -280,8 +280,8 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
 
-	BUILD_BUG_ON(sizeof(parasite_args_cmd_dumppages_t) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(parasite_args_cmd_dumpsigacts_t) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_dump_file_args) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
 	case PARASITE_CMD_KILLME:
@@ -290,10 +290,10 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	case PARASITE_CMD_PINGME:
 		break;
 	case PARASITE_CMD_DUMPPAGES:
-		return dump_pages((parasite_args_cmd_dumppages_t *)args);
+		return dump_pages((struct parasite_dump_pages_args *)args);
 		break;
 	case PARASITE_CMD_DUMP_SIGACTS:
-		return dump_sigact((parasite_args_cmd_dumpsigacts_t *)args);
+		return dump_sigact((struct parasite_dump_file_args *)args);
 		break;
 	default:
 		sys_write_msg("Unknown command to parasite\n");
