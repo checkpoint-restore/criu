@@ -19,6 +19,7 @@ $ZP/static/wait00
 $ZP/static/pthread00
 $ZP/static/vdso00
 $ZP/static/file_shared
+$ZP/static/timers
 $ZP/streaming/pipe_loop00
 $ZP/streaming/pipe_shared00
 $ZP/transition/file_read
@@ -50,7 +51,7 @@ run_test()
 	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid || return 1
 	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
-	for i in `seq 5`; do
+	for i in `seq 50`; do
 		test -f $test.out && break;
 		echo Waiting...
 		sleep 1
