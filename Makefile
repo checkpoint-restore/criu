@@ -153,8 +153,16 @@ $(DEPS_GEN): $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-test:
-	$(Q) $(MAKE) -C test all
+test-legacy:
+	$(Q) $(MAKE) -C test/legacy all
+.PHONY: test-legacy
+
+zdtm:
+	$(Q) $(MAKE) -C test/zdtm all
+.PHONY: zdtm
+
+test: zdtm
+	$(Q) $(sh) test/zdtm.sh
 .PHONY: test
 
 rebuild:
@@ -176,7 +184,8 @@ clean:
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
 	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
-	$(Q) $(MAKE) -C test clean
+	$(Q) $(MAKE) -C test/legacy clean
+	$(Q) $(MAKE) -C test/zdtm clean
 .PHONY: clean
 
 tags:
