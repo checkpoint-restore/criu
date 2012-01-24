@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
@@ -550,6 +551,22 @@ long restore_task(struct task_restore_core_args *args)
 
 	cr_wait_dec(&args->task_entries->nr_in_progress);
 	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+
+	/*
+	 * The code that prepared the itimers makes shure the
+	 * code below doesn't fail due to bad timing values.
+	 */
+
+#define itimer_armed(args, i)				\
+		(args->itimers[i].it_interval.tv_sec ||	\
+		 args->itimers[i].it_interval.tv_usec)
+
+	if (itimer_armed(args, 0))
+		sys_setitimer(ITIMER_REAL, &args->itimers[0], NULL);
+	if (itimer_armed(args, 1))
+		sys_setitimer(ITIMER_VIRTUAL, &args->itimers[1], NULL);
+	if (itimer_armed(args, 2))
+		sys_setitimer(ITIMER_PROF, &args->itimers[2], NULL);
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {

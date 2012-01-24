@@ -92,6 +92,11 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= INETSK_MAGIC,
 	},
 
+	/* interval timers (itimers) */
+	[CR_FD_ITIMERS] = {
+		.fmt	= FMT_FNAME_ITIMERS,
+		.magic	= ITIMERS_MAGIC,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)

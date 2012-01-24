@@ -39,6 +39,7 @@ extern int syscall_seized(pid_t pid,
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset);
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
+extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list);
 extern int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list);

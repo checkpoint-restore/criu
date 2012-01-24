@@ -227,6 +227,28 @@ out:
 	pr_img_tail(CR_FD_SIGACT);
 }
 
+static void show_itimer(char *n, struct itimer_entry *ie)
+{
+	pr_info("%s: int %lu.%lu val %lu.%lu\n", n,
+			(unsigned long)ie->isec, (unsigned long)ie->iusec,
+			(unsigned long)ie->vsec, (unsigned long)ie->vusec);
+}
+
+static void show_itimers(int fd)
+{
+	struct itimer_entry ie[3];
+
+	pr_img_head(CR_FD_ITIMERS);
+	if (read_img_buf(fd, ie, sizeof(ie)) < 0)
+		goto out;
+
+	show_itimer("real", &ie[0]);
+	show_itimer("real", &ie[1]);
+	show_itimer("real", &ie[2]);
+out:
+	pr_img_tail(CR_FD_ITIMERS);
+}
+
 static int show_pstree(int fd_pstree, struct list_head *collect)
 {
 	struct pstree_entry e;
@@ -449,6 +471,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case INETSK_MAGIC:
 		show_inetsk(fd);
 		break;
+	case ITIMERS_MAGIC:
+		show_itimers(fd);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
 		goto err;
@@ -521,6 +546,8 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_unixsk(cr_fdset->fds[CR_FD_UNIXSK]);
 
 		show_inetsk(cr_fdset->fds[CR_FD_INETSK]);
+
+		show_itimers(cr_fdset->fds[CR_FD_ITIMERS]);
 
 		close_cr_fdset(&cr_fdset);
 

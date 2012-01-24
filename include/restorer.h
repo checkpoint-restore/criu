@@ -77,6 +77,8 @@ struct task_restore_core_args {
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
 	rt_sigaction_t			sigchld_act;
+
+	struct itimerval		itimers[3];
 } __aligned(sizeof(long));
 
 struct pt_regs {

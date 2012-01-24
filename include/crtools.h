@@ -25,6 +25,7 @@ enum {
 	CR_FD_SIGACT,
 	CR_FD_UNIXSK,
 	CR_FD_INETSK,
+	CR_FD_ITIMERS,
 
 	CR_FD_MAX
 };
@@ -63,6 +64,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"
 #define FMT_FNAME_INETSK	"inetsk-%d.img"
+#define FMT_FNAME_ITIMERS	"itimers-%d.img"
 
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 

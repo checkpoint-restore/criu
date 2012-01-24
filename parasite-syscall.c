@@ -358,29 +358,39 @@ static int parasite_prep_file(int type, struct parasite_dump_file_args *fa,
 	return 0;
 }
 
-int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+static int parasite_file_cmd(int cmd, int type,
+		struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	struct parasite_dump_file_args parasite_sigacts = { };
+	struct parasite_dump_file_args args = { };
 	int status, ret = -1;
 
 	pr_info("\n");
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_prep_file(CR_FD_SIGACT, &parasite_sigacts, ctl, cr_fdset);
+	ret = parasite_prep_file(type, &args, ctl, cr_fdset);
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl,
-				(parasite_status_t *) &parasite_sigacts,
-				sizeof(parasite_sigacts));
+	ret = parasite_execute(cmd, ctl,
+			(parasite_status_t *)&args, sizeof(args));
 
 err:
-	fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM);
+	fchmod(cr_fdset->fds[type], CR_FD_PERM);
 out:
 	pr_info("----------------------------------------\n");
 
 	return ret;
+}
+
+int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+{
+	return parasite_file_cmd(PARASITE_CMD_DUMP_SIGACTS, CR_FD_SIGACT, ctl, cr_fdset);
+}
+
+int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+{
+	return parasite_file_cmd(PARASITE_CMD_DUMP_ITIMERS, CR_FD_ITIMERS, ctl, cr_fdset);
 }
 
 /*

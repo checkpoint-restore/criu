@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -284,6 +285,69 @@ err_close:
 	return ret;
 }
 
+static int dump_itimer(int which, int fd, parasite_status_t *st)
+{
+	struct itimerval val;
+	int ret;
+	struct itimer_entry ie;
+
+	ret = sys_getitimer(which, &val);
+	if (ret < 0) {
+		sys_write_msg("getitimer failed\n");
+		SET_PARASITE_STATUS(st, PARASITE_ERR_GETITIMER, ret);
+		return st->ret;
+	}
+
+	ie.isec = val.it_interval.tv_sec;
+	ie.iusec = val.it_interval.tv_usec;
+	ie.vsec = val.it_value.tv_sec;
+	ie.vusec = val.it_value.tv_sec;
+
+	ret = sys_write(fd, &ie, sizeof(ie));
+	if (ret != sizeof(ie)) {
+		sys_write_msg("sys_write failed\n");
+		SET_PARASITE_STATUS(st, PARASITE_ERR_WRITE, ret);
+		return st->ret;
+	}
+
+	return 0;
+}
+
+static int dump_itimers(struct parasite_dump_file_args *args)
+{
+	parasite_status_t *st = &args->status;
+	rt_sigaction_t act;
+	struct sa_entry e;
+	int fd, sig;
+
+	int ret = PARASITE_ERR_FAIL;
+
+	fd = parasite_open_file(args);
+	if (fd < 0)
+		return fd;
+
+	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
+
+	ret = dump_itimer(ITIMER_REAL, fd, st);
+	if (ret < 0)
+		goto err_close;
+
+	ret = dump_itimer(ITIMER_VIRTUAL, fd, st);
+	if (ret < 0)
+		goto err_close;
+
+	ret = dump_itimer(ITIMER_PROF, fd, st);
+	if (ret < 0)
+		goto err_close;
+
+	ret = 0;
+	SET_PARASITE_STATUS(st, 0, ret);
+
+err_close:
+	sys_close(fd);
+	return ret;
+}
+
 static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
@@ -299,10 +363,10 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		break;
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
-		break;
 	case PARASITE_CMD_DUMP_SIGACTS:
 		return dump_sigact((struct parasite_dump_file_args *)args);
-		break;
+	case PARASITE_CMD_DUMP_ITIMERS:
+		return dump_itimers((struct parasite_dump_file_args *)args);
 	default:
 		sys_write_msg("Unknown command to parasite\n");
 		break;

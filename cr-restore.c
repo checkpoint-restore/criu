@@ -1510,6 +1510,77 @@ err_or_found:
 	return hint;
 }
 
+#define USEC_PER_SEC	1000000L
+
+static inline int timeval_valid(struct timeval *tv)
+{
+	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
+}
+
+static inline int itimer_restore_and_fix(char *n, struct itimer_entry *ie,
+		struct itimerval *val)
+{
+	if (ie->isec == 0 && ie->iusec == 0) {
+		memzero_p(val);
+		return 0;
+	}
+
+	val->it_interval.tv_sec = ie->isec;
+	val->it_interval.tv_usec = ie->iusec;
+
+	if (!timeval_valid(&val->it_interval)) {
+		pr_err("Invalid timer interval\n");
+		return -1;
+	}
+
+	if (ie->vsec == 0 && ie->vusec == 0) {
+		/*
+		 * Remaining time was too short. Set it to
+		 * interval to make the timer armed and work.
+		 */
+		val->it_value.tv_sec = ie->isec;
+		val->it_value.tv_usec = ie->iusec;
+	} else {
+		val->it_value.tv_sec = ie->vsec;
+		val->it_value.tv_usec = ie->vusec;
+	}
+
+	if (!timeval_valid(&val->it_value)) {
+		pr_err("Invalid timer value\n");
+		return -1;
+	}
+
+	pr_info("Restored %s timer to %ld.%ld -> %ld.%ld\n", n,
+			val->it_value.tv_sec, val->it_value.tv_usec,
+			val->it_interval.tv_sec, val->it_interval.tv_usec);
+
+	return 0;
+}
+
+static int prepare_itimers(int pid, struct task_restore_core_args *args)
+{
+	int fd, ret = -1;
+	struct itimer_entry ie[3];
+
+	fd = open_image_ro(CR_FD_ITIMERS, pid);
+	if (fd < 0)
+		return fd;
+
+	if (read_img_buf(fd, ie, sizeof(ie)) > 0) {
+		ret = itimer_restore_and_fix("real",
+				&ie[0], &args->itimers[0]);
+		if (!ret)
+			ret = itimer_restore_and_fix("virt",
+					&ie[1], &args->itimers[1]);
+		if (!ret)
+			ret = itimer_restore_and_fix("prof",
+					&ie[2], &args->itimers[2]);
+	}
+
+	close(fd);
+	return ret;
+}
+
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
@@ -1727,6 +1798,10 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->fd_self_vmas	= fd_self_vmas;
 	task_args->logfd	= get_logfd();
 	task_args->sigchld_act	= sigchld_act;
+
+	ret = prepare_itimers(pid, task_args);
+	if (ret < 0)
+		goto err;
 
 	cr_mutex_init(&task_args->rst_lock);
 

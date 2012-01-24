@@ -14,6 +14,7 @@
 #define SIGACT_MAGIC	0x60606060
 #define UNIXSK_MAGIC	0x07070707
 #define INETSK_MAGIC	0x08080808
+#define ITIMERS_MAGIC	0x99009900
 
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
@@ -123,6 +124,13 @@ struct sa_entry {
 	u64		flags;
 	u64		restorer;
 	u64		mask;
+} __packed;
+
+struct itimer_entry {
+	u64		isec;
+	u64		iusec;
+	u64		vsec;
+	u64		vusec;
 } __packed;
 
 #define HEADER_VERSION		1
