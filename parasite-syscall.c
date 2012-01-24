@@ -341,6 +341,23 @@ err:
 	return ret;
 }
 
+static int parasite_prep_file(int type, struct parasite_dump_file_args *fa,
+		struct parasite_ctl *ctl, struct cr_fdset *fdset)
+{
+	if (get_image_path(fa->open_path, sizeof(fa->open_path),
+				fdset_template[type].fmt, ctl->pid))
+		return -1;
+
+	if (fchmod(fdset->fds[type], CR_FD_PERM_DUMP)) {
+		pr_perror("Can't change permissions on %d file\n", type);
+		return -1;
+	}
+
+	fa->open_flags	= O_WRONLY;
+	fa->open_mode	= CR_FD_PERM_DUMP;
+	return 0;
+}
+
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_file_args parasite_sigacts = { };
@@ -350,25 +367,16 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	if (get_image_path(parasite_sigacts.open_path,
-				sizeof(parasite_sigacts.open_path),
-				fdset_template[CR_FD_SIGACT].fmt, ctl->pid))
+	ret = parasite_prep_file(CR_FD_SIGACT, &parasite_sigacts, ctl, cr_fdset);
+	if (ret < 0)
 		goto out;
-
-	if (fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM_DUMP)) {
-		pr_perror("Can't change permissions on sigactions file\n");
-		goto out;
-	}
-
-	parasite_sigacts.open_flags	= O_WRONLY;
-	parasite_sigacts.open_mode	= CR_FD_PERM_DUMP;
 
 	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl,
 				(parasite_status_t *) &parasite_sigacts,
 				sizeof(parasite_sigacts));
 
 err:
-	jerr(fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM), out);
+	fchmod(cr_fdset->fds[CR_FD_SIGACT], CR_FD_PERM);
 out:
 	pr_info("----------------------------------------\n");
 
@@ -393,26 +401,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	if (get_image_path(parasite_dumppages.fa.open_path,
-				sizeof(parasite_dumppages.fa.open_path),
-				fdset_template[CR_FD_PAGES].fmt, ctl->pid))
+	ret = parasite_prep_file(CR_FD_PAGES, &parasite_dumppages.fa, ctl, cr_fdset);
+	if (ret < 0)
 		goto out;
-
-	if (fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM_DUMP)) {
-		pr_perror("Can't change permissions on pages file\n");
-		goto out;
-	}
 
 	/*
 	 * Make sure the data is on disk since we will re-open
 	 * it in another process.
 	 */
 	fsync(cr_fdset->fds[CR_FD_PAGES]);
-
-	parasite_dumppages.fa.open_flags = O_WRONLY;
-	parasite_dumppages.fa.open_mode = CR_FD_PERM_DUMP;
 	parasite_dumppages.fd = -1UL;
-
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
 
@@ -476,8 +474,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 
 err_restore:
-	jerr(fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM), out);
-
+	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
 out:
 	pr_info("----------------------------------------\n");
 
