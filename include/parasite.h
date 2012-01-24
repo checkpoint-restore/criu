@@ -51,9 +51,9 @@ typedef struct  {
 
 #define SET_PARASITE_STATUS(st, ret_code, sys_ret_code)	\
 	do {						\
-		st->ret		= ret_code,		\
-		st->sys_ret	= sys_ret_code,		\
-		st->line	= __LINE__;		\
+		(st)->ret	= ret_code,		\
+		(st)->sys_ret	= sys_ret_code,		\
+		(st)->line	= __LINE__;		\
 	} while (0)
 
 struct parasite_dump_file_args {
