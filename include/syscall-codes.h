@@ -19,6 +19,8 @@
 #define __NR_dup2		33
 #define __NR_pause		34
 #define __NR_nanosleep		35
+#define __NR_getitimer		36
+#define __NR_setitimer		38
 #define __NR_getpid		39
 #define __NR_clone		56
 #define __NR_exit		60
