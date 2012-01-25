@@ -25,4 +25,6 @@ realclean:	clean cleandep
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
 
+ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
 -include $(LIBDEP)
+endif

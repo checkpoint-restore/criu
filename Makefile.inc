@@ -36,3 +36,5 @@ ifeq ($(uname_M),x86_64)
 	ARCH         := x86
 	DEFINES      += -DCONFIG_X86_64
 endif
+
+no-deps-targets := tags cscope clean cleanout cleandep realclean

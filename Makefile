@@ -150,6 +150,7 @@ clean:
 	$(Q) $(MAKE) -C test/legacy clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
+	$(Q) $(MAKE) -C test/zdtm cleanout
 .PHONY: clean
 
 tags:
@@ -164,9 +165,6 @@ cscope:
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
 
-no-blob-targets := tags clean cscope
-
-ifeq ($(filter-out no-blob-targets, $(MAKECMDGOALS)),)
+ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
 -include $(DEPS)
 endif
-
