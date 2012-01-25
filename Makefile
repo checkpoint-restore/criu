@@ -162,7 +162,7 @@ zdtm:
 .PHONY: zdtm
 
 test: zdtm
-	$(Q) $(sh) test/zdtm.sh
+	$(Q) $(SH) test/zdtm.sh
 .PHONY: test
 
 rebuild:
