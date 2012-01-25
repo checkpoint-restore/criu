@@ -128,6 +128,13 @@ static void show_one_unix(char *act, struct unix_sk_desc *sk)
 {
 	dprintk("\t%s: ino %d type %d state %d name %s\n",
 		act, sk->sd.ino, sk->type, sk->state, sk->name);
+
+	if (sk->nr_icons) {
+		int i;
+
+		for (i = 0; i < sk->nr_icons; i++)
+			dprintk("\t\ticon: %4d\n", sk->icons[i]);
+	}
 }
 
 static void show_one_unix_img(char *act, struct unix_sk_entry *e)
