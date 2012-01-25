@@ -148,6 +148,7 @@ clean:
 	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
 	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
 	$(Q) $(MAKE) -C test/legacy clean
+	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 .PHONY: clean
 
