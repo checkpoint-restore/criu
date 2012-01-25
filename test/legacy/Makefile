@@ -1,3 +1,5 @@
+-include ../../Makefile.inc
+
 SRCS	+= test-counter.c
 SRCS	+= test-rnd-from-file.c
 SRCS	+= test-shmem-async.c
