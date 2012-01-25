@@ -1000,12 +1000,12 @@ static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
 	memcpy(&addr.sin_addr.s_addr, ie->src_addr, sizeof(unsigned int) * 4);
 
 	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-		pr_err("Inet socket bind failed");
+		pr_perror("Inet socket bind failed\n");
 		goto err;
 	}
 
 	if (listen(sk, ie->backlog) == -1) {
-		pr_err ("listen() failed %m");
+		pr_perror("listen() failed on %d\n", sk);
 		goto err;
 	}
 
