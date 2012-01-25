@@ -51,6 +51,7 @@ struct unix_sk_desc {
 	unsigned int		wqlen;
 	unsigned int		namelen;
 	char			*name;
+	unsigned int		nr_icons;
 	unsigned int		*icons;
 };
 
@@ -428,12 +429,12 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 	if (tb[UNIX_DIAG_ICONS]) {
 		int len = RTA_PAYLOAD(tb[UNIX_DIAG_ICONS]);
 
-		d->icons = xmalloc(len + sizeof(u32));
+		d->icons = xmalloc(len);
 		if (!d->icons)
 			goto err;
 
 		memcpy(d->icons, RTA_DATA(tb[UNIX_DIAG_ICONS]), len);
-		d->icons[len / sizeof(u32)] = 0;
+		d->nr_icons = len / sizeof(u32);
 	}
 
 	if (tb[UNIX_DIAG_RQLEN]) {
