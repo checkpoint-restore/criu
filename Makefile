@@ -109,6 +109,10 @@ $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
+%.i: %.c
+	$(E) "  CC      " $@
+	$(Q) $(CC) -E $(CFLAGS) $< -o $@
+
 $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
@@ -140,6 +144,7 @@ clean:
 	$(E) "  CLEAN"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
+	$(Q) $(RM) -f ./*.i
 	$(Q) $(RM) -f ./*.img
 	$(Q) $(RM) -f ./*.out
 	$(Q) $(RM) -f ./*.bin
