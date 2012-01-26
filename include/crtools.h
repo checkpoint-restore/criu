@@ -15,17 +15,26 @@ extern void free_pstree(struct list_head *pstree_list);
 #define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 enum {
+	/*
+	 * Task entries
+	 */
+
 	CR_FD_FDINFO,
 	CR_FD_PAGES,
 	CR_FD_PAGES_SHMEM,
 	CR_FD_CORE,
 	CR_FD_PIPES,
-	CR_FD_PSTREE,
 	CR_FD_SHMEM,
 	CR_FD_SIGACT,
 	CR_FD_UNIXSK,
 	CR_FD_INETSK,
 	CR_FD_ITIMERS,
+
+	/*
+	 * Global entries
+	 */
+
+	CR_FD_PSTREE,
 
 	CR_FD_MAX
 };
@@ -80,9 +89,19 @@ struct cr_fdset {
 };
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
-#define CR_FD_DESC_ALL			(CR_FD_DESC_USE(CR_FD_MAX) - 1)
 #define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)
-#define CR_FD_DESC_NOPSTREE		(CR_FD_DESC_ALL & ~(CR_FD_DESC_USE(CR_FD_PSTREE)))
+#define CR_FD_DESC_PSTREE		CR_FD_DESC_USE(CR_FD_PSTREE)
+#define CR_FD_DESC_TASK				(\
+	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
+	CR_FD_DESC_USE(CR_FD_PAGES)		|\
+	CR_FD_DESC_USE(CR_FD_PAGES_SHMEM)	|\
+	CR_FD_DESC_USE(CR_FD_CORE)		|\
+	CR_FD_DESC_USE(CR_FD_PIPES)		|\
+	CR_FD_DESC_USE(CR_FD_SHMEM)		|\
+	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
+	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
+	CR_FD_DESC_USE(CR_FD_INETSK)		|\
+	CR_FD_DESC_USE(CR_FD_ITIMERS)		)
 #define CR_FD_DESC_NONE			(0)
 
 int cr_dump_tasks(pid_t pid, struct cr_options *opts);

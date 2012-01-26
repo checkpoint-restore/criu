@@ -1170,7 +1170,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	};
 
-	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_NOPSTREE, cr_fdset);
+	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset);
 	if (!cr_fdset)
 		goto err;
 
