@@ -217,26 +217,8 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 
 	switch (sk->state) {
 	case TCP_LISTEN:
-		if (sk->rqlen != 0) {
-			/*
-			 * Currently the ICONS nla reports the conn
-			 * requests for listen sockets. Need to pick
-			 * those up and fix the connect job respectively
-			 */
-			pr_err("In-flight connection (l)\n");
-			return 0;
-		}
-
 		break;
 	case TCP_ESTABLISHED:
-		if (!sk->peer_ino) {
-			/*
-			 * Read above
-			 */
-			pr_err("In-flight connection\n");
-			return 0;
-		}
-
 		if (sk->rqlen) {
 			/*
 			 * The hard case :( Currentl there's no way to
