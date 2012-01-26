@@ -7,6 +7,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "zdtmtst.h"
 
@@ -151,6 +152,113 @@ void test_init(int argc, char **argv)
 	}
 
 	srand48(time(NULL));	/* just in case we need it */
+}
+
+#define STACK_SIZE	(8 * 4096)
+
+struct zdtm_clone_arg {
+	int pidf;
+	void (*fn)(void);
+};
+
+static int do_test_fn(void *_arg)
+{
+	struct zdtm_clone_arg *ca = _arg;
+	struct sigaction sa;
+
+	/* record the test pid to remember the ownership of the pidfile */
+	master_pid = getpid();
+
+	fclose(ca->pidf);
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_handler = SIG_DFL;
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		err("Can't reset SIGCHLD handler: %m\n");
+		exit(1);
+	}
+
+	if (setsid() < 0) {
+		err("Can't become session group leader: %m\n");
+		exit(1);
+	}
+
+	srand48(time(NULL));	/* just in case we need it */
+
+	ca->fn();
+	exit(0);
+}
+
+void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(void))
+{
+	extern void parseargs(int, char **);
+
+	pid_t pid;
+	static FILE *pidf;
+	struct sigaction sa = {
+		.sa_handler	= sig_hand,
+	};
+	struct zdtm_clone_arg ca;
+	void *stack;
+
+	sigemptyset(&sa.sa_mask);
+
+	if (sigaction(SIGTERM, &sa, NULL)) {
+		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
+		exit(1);
+	}
+
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
+		exit(1);
+	}
+
+	parseargs(argc, argv);
+
+	setup_outfile();
+	redir_stdfds();
+
+	pidf = fopen(pidfile, "wx");
+	if (!pidf) {
+		err("Can't create pid file %s: %m\n", pidfile);
+		exit(1);
+	}
+
+	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
+			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
+	if (stack == MAP_FAILED) {
+		err("Can't map stack\n");
+		exit(1);
+	}
+
+	ca.pidf = pidf;
+	ca.fn = fn;
+	pid = clone(do_test_fn, stack + STACK_SIZE, clone_flags | SIGCHLD, &ca);
+	if (pid < 0) {
+		err("Daemonizing failed: %m\n");
+		exit(1);
+	}
+
+	/* parent will exit when the child is ready */
+	test_waitsig();
+
+	if (sig_received == SIGCHLD) {
+		int ret;
+		waitpid(pid, &ret, 0);
+
+		if (WIFEXITED(ret)) {
+			err("Test exited with unexpectedly with code %d\n", WEXITSTATUS(ret));
+			exit(0);
+		}
+		if (WIFSIGNALED(ret)) {
+			err("Test exited on unexpected signal %d\n", WTERMSIG(ret));
+			exit(0);
+		}
+	}
+
+	fprintf(pidf, "%d\n", pid);
+	fclose(pidf);
+	_exit(0);
 }
 
 void test_daemon()

@@ -28,6 +28,9 @@ $ZP/static/zombie00
 $ZP/static/cmdlinenv00
 $ZP/static/socket_listen"
 
+NS_TEST_LIST="\
+$ZP/static/utsname"
+
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 
 run_test()
@@ -43,13 +46,13 @@ run_test()
 	dump_path=`pwd`"/"$ddump
 	mkdir -p $ddump
 	ls -l /proc/$pid/fd/
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $2 || return 1
 	while :; do
 		killall -9 $tname &> /dev/null || break;
 		echo Waiting...
 		sleep 1
 	done
-	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid || return 2
+	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $2 || return 2
 	ls -l /proc/$pid/fd/
 	make -C $tdir $tname.out
 	for i in `seq 50`; do
@@ -65,12 +68,20 @@ cd `dirname $0` || exit 1
 
 if [ $# -eq 0 ]; then
 	for t in $TEST_LIST; do
-		run_test $t || exit 1
+		run_test $t "" || exit 1
+	done
+	for t in $NS_TEST_LIST; do
+		run_test $t "-n" || exit 1
 	done
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
+	echo $NS_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
-	run_test $ZP/$1 && exit 0
+	if echo "$NS_TEST_LIST" | fgrep -q "$1" ; then
+		run_test "$ZP/$1" "-n" && exit 0
+	else
+		run_test "$ZP/$1" && exit 0
+	fi
 	result=$?
 	echo "====================== ERROR ======================"
 	if [ $result == 1 ]; then

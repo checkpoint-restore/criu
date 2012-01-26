@@ -5,6 +5,12 @@
 
 /* set up test */
 extern void test_init(int argc, char **argv);
+extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(void));
+
+#ifndef CLONE_NEWUTS
+#define CLONE_NEWUTS 0x04000000
+#endif
+
 /*wrapper for fork: init log offset*/
 extern int test_fork();
 /* finish setting up the test, write out pid file, and go to background */
