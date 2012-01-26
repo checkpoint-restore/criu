@@ -4,18 +4,23 @@
 #include "types.h"
 #include "compiler.h"
 
-#define FDINFO_MAGIC	0x01010101
-#define PAGES_MAGIC	0x20202020
-#define CORE_MAGIC	0xa75b8d43
-#define SHMEM_MAGIC	0x03300330
-#define PIPEFS_MAGIC	0x50495045
-#define PSTREE_MAGIC	0x40044004
-#define PIPES_MAGIC	0x05055050
-#define SIGACT_MAGIC	0x60606060
-#define UNIXSK_MAGIC	0x07070707
-#define INETSK_MAGIC	0x08080808
-#define ITIMERS_MAGIC	0x99009900
-#define UTSNS_MAGIC	0xA00A0AA0
+/*
+ * The magic-s below correspond to coordinates
+ * of various Russian towns in the NNNNEEEE form.
+ */
+
+#define PSTREE_MAGIC	0x50273030 /* Kyiv */
+#define FDINFO_MAGIC	0x56213732 /* Dmitrov */
+#define PAGES_MAGIC	0x56084025 /* Vladimir */
+#define CORE_MAGIC	0x55053847 /* Kolomna */
+#define SHMEM_MAGIC	0x54123737 /* Tula */
+#define PIPEFS_MAGIC	0x54023547 /* Kozelsk */
+#define PIPES_MAGIC	0x56513555 /* Tver */
+#define SIGACT_MAGIC	0x55344201 /* Murom */
+#define UNIXSK_MAGIC	0x54373943 /* Ryazan */
+#define INETSK_MAGIC	0x56443851 /* Pereslavl */
+#define ITIMERS_MAGIC	0x57464056 /* Kostroma */
+#define UTSNS_MAGIC	0x54473203 /* Smolensk */
 
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
