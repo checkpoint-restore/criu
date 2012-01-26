@@ -14,13 +14,14 @@
 #define PAGES_MAGIC	0x56084025 /* Vladimir */
 #define CORE_MAGIC	0x55053847 /* Kolomna */
 #define SHMEM_MAGIC	0x54123737 /* Tula */
-#define PIPEFS_MAGIC	0x54023547 /* Kozelsk */
 #define PIPES_MAGIC	0x56513555 /* Tver */
 #define SIGACT_MAGIC	0x55344201 /* Murom */
 #define UNIXSK_MAGIC	0x54373943 /* Ryazan */
 #define INETSK_MAGIC	0x56443851 /* Pereslavl */
 #define ITIMERS_MAGIC	0x57464056 /* Kostroma */
 #define UTSNS_MAGIC	0x54473203 /* Smolensk */
+
+#define PIPEFS_MAGIC	0x50495045
 
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
