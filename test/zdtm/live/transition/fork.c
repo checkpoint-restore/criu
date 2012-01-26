@@ -33,9 +33,12 @@ int main(int argc, char **argv)
 		if (pid == 0)
 			exit(0);
 
-		wpid = wait(&status);
+		while ((wpid = wait(&status)) == -1 && errno == EINTR);
+
 		if (wpid != pid) {
-			fail("Pids do not match");
+			fail("Pids do not match: expected %d "
+				"instead of %d (errno=%d status=%x)",
+				pid, wpid, errno, status);
 			goto out;
 		}
 
