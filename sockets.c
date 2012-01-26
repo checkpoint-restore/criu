@@ -444,9 +444,10 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 		d->wqlen = rq->udiag_wqueue;
 	}
 
+	sk_collect_one(m->udiag_ino, AF_UNIX, &d->sd);
 	show_one_unix("Collected", d);
 
-	return sk_collect_one(m->udiag_ino, AF_UNIX, &d->sd);
+	return 0;
 
 err:
 	xfree(d->icons);
