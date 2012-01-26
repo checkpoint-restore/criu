@@ -101,7 +101,7 @@ static int nr_pipes;
 
 static pid_t pstree_pid;
 
-static int restore_task_with_children(int pid);
+static int restore_task_with_children(void *);
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid);
 
 static void show_saved_shmems(void)
@@ -1235,57 +1235,57 @@ static int restore_one_task(int pid)
 	}
 }
 
+#define STACK_SIZE	(8 * 4096)
+struct cr_clone_arg {
+	int pid, fd;
+};
+
 static inline int fork_with_pid(int pid)
 {
-	int ret = -1, fd = -1;
+	int ret = -1;
 	char buf[32];
+	struct cr_clone_arg ca;
+	void *stack;
+
+
+	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
+			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
+	if (stack == MAP_FAILED) {
+		pr_perror("Failed to map stack for kid\n");
+		goto err;
+	}
 
 	snprintf(buf, sizeof(buf), "%d", pid - 1);
-
-	fd = open(LAST_PID_PATH, O_RDWR);
-	if (fd < 0) {
+	ca.pid = pid;
+	ca.fd = open(LAST_PID_PATH, O_RDWR);
+	if (ca.fd < 0) {
 		pr_perror("%d: Can't open %s\n", pid, LAST_PID_PATH);
 		goto err;
 	}
 
-	if (flock(fd, LOCK_EX)) {
+	if (flock(ca.fd, LOCK_EX)) {
 		pr_perror("%d: Can't lock %s\n", pid, LAST_PID_PATH);
 		goto err;
 	}
 
-	if (write_img_buf(fd, buf, strlen(buf)))
+	if (write_img_buf(ca.fd, buf, strlen(buf)))
 		goto err_unlock;
 
-	ret = fork();
-	if (ret < 0) {
+	ret = clone(restore_task_with_children, stack + STACK_SIZE,
+			SIGCHLD, &ca);
+
+	if (ret < 0)
 		pr_perror("Can't fork for %d\n", pid);
-		goto err_unlock;
-	} else if (!ret) {
-		int my_pid = getpid();
-
-		close_safe(&fd);
-
-		if (my_pid != pid) {
-			pr_err("%d: Pids do not match got %d but expected %d\n",
-			       my_pid, my_pid, pid);
-			return -1;
-		}
-
-		/*
-		 * We should never return here.
-		 */
-		ret = restore_task_with_children(pid);
-
-		pr_err("%d: Something failed with code %d\n", pid, ret);
-		exit(1);
-	}
 
 err_unlock:
-	if (flock(fd, LOCK_UN))
+	if (flock(ca.fd, LOCK_UN))
 		pr_perror("%d: Can't unlock %s\n", pid, LAST_PID_PATH);
 
 err:
-	close_safe(&fd);
+	if (stack != MAP_FAILED)
+		munmap(stack, STACK_SIZE);
+
+	close_safe(&ca.fd);
 	return ret;
 }
 
@@ -1303,12 +1303,22 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	cr_wait_set(&task_entries->nr_in_progress, -1);
 }
 
-static int restore_task_with_children(int pid)
+static int restore_task_with_children(void *_arg)
 {
+	struct cr_clone_arg *ca = _arg;
 	int *pids;
 	int fd, ret, i;
 	struct pstree_entry e;
 	sigset_t blockmask;
+	int pid;
+
+	close_safe(&ca->fd);
+	pid = getpid();
+
+	if (ca->pid != pid) {
+		pr_err("%d: Pid do not match expected %d\n", pid, ca->pid);
+		exit(-1);
+	}
 
 	/*
 	 * The block mask will be restored in sigresturn.
@@ -1368,7 +1378,6 @@ static int restore_task_with_children(int pid)
 
 		pr_info("%d: Restoring %d children:\n", pid, e.nr_children);
 		for (i = 0; i < e.nr_children; i++) {
-			pr_info("\tFork %d from %d\n", pids[i], pid);
 			ret = fork_with_pid(pids[i]);
 			if (ret < 0)
 				exit(1);
@@ -1407,7 +1416,6 @@ static int restore_root_task(int fd, struct cr_options *opts)
 		return -1;
 	}
 
-	pr_info("Forking root with %d pid\n", e.pid);
 	ret = fork_with_pid(e.pid);
 	if (ret < 0)
 		return -1;
