@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 	int action = -1;
 	int log_inited = 0;
 
-	static const char short_opts[] = "df:p:t:hcD:o:";
+	static const char short_opts[] = "df:p:t:hcD:o:n";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -274,6 +274,9 @@ int main(int argc, char *argv[])
 			if (init_log(optarg))
 				return -1;
 			log_inited = 1;
+			break;
+		case 'n':
+			opts.with_namespaces = true;
 			break;
 		case 'h':
 		default:

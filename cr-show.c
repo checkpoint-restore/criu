@@ -13,7 +13,7 @@
 
 #include "types.h"
 #include "list.h"
-
+#include "namespaces.h"
 #include "compiler.h"
 #include "crtools.h"
 #include "util.h"
@@ -501,6 +501,10 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		goto out;
 
 	close_cr_fdset(&cr_fdset);
+
+	ret = try_show_namespaces(pid);
+	if (ret)
+		goto out;
 
 	list_for_each_entry(item, &pstree_list, list) {
 

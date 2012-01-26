@@ -46,11 +46,12 @@ enum cr_task_state {
 };
 
 struct cr_options {
-	bool				leader_only;
-	enum cr_task_state		final_state;
-	bool				show_pages_content;
-	char				*show_dump_file;
-	bool				restore_detach;
+	enum cr_task_state	final_state;
+	char			*show_dump_file;
+	bool			leader_only;
+	bool			show_pages_content;
+	bool			restore_detach;
+	bool			with_namespaces;
 };
 
 /* file descriptors template */

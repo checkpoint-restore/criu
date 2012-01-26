@@ -308,6 +308,13 @@ static long always_inline sys_msync(void *addr, unsigned long length, int flags)
 	return syscall3(__NR_msync, (long)addr, length, (long)flags);
 }
 
+static long always_inline sys_setns(int fd, int nstype)
+{
+	return syscall2(__NR_setns, (long)fd, (long)nstype);
+}
+
+#define setns	sys_setns
+
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */

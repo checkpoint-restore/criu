@@ -36,6 +36,7 @@
 #include "proc_parse.h"
 #include "restorer-blob.h"
 #include "crtools.h"
+#include "namespaces.h"
 
 /*
  * real_pid member formerly served cases when
@@ -1238,15 +1239,17 @@ static int restore_one_task(int pid)
 #define STACK_SIZE	(8 * 4096)
 struct cr_clone_arg {
 	int pid, fd;
+	unsigned long clone_flags;
 };
 
-static inline int fork_with_pid(int pid)
+static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 {
 	int ret = -1;
 	char buf[32];
 	struct cr_clone_arg ca;
 	void *stack;
 
+	pr_info("Forking task with %d pid (flags %lx)\n", pid, ns_clone_flags);
 
 	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
 			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
@@ -1257,6 +1260,7 @@ static inline int fork_with_pid(int pid)
 
 	snprintf(buf, sizeof(buf), "%d", pid - 1);
 	ca.pid = pid;
+	ca.clone_flags = ns_clone_flags;
 	ca.fd = open(LAST_PID_PATH, O_RDWR);
 	if (ca.fd < 0) {
 		pr_perror("%d: Can't open %s\n", pid, LAST_PID_PATH);
@@ -1272,7 +1276,7 @@ static inline int fork_with_pid(int pid)
 		goto err_unlock;
 
 	ret = clone(restore_task_with_children, stack + STACK_SIZE,
-			SIGCHLD, &ca);
+			ns_clone_flags | SIGCHLD, &ca);
 
 	if (ret < 0)
 		pr_perror("Can't fork for %d\n", pid);
@@ -1318,6 +1322,12 @@ static int restore_task_with_children(void *_arg)
 	if (ca->pid != pid) {
 		pr_err("%d: Pid do not match expected %d\n", pid, ca->pid);
 		exit(-1);
+	}
+
+	if (ca->clone_flags) {
+		ret = prepare_namespace(pid, ca->clone_flags);
+		if (ret)
+			exit(-1);
 	}
 
 	/*
@@ -1378,7 +1388,7 @@ static int restore_task_with_children(void *_arg)
 
 		pr_info("%d: Restoring %d children:\n", pid, e.nr_children);
 		for (i = 0; i < e.nr_children; i++) {
-			ret = fork_with_pid(pids[i]);
+			ret = fork_with_pid(pids[i], 0);
 			if (ret < 0)
 				exit(1);
 		}
@@ -1393,6 +1403,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	struct pstree_entry e;
 	int ret, i;
 	struct sigaction act;
+	unsigned long ns_clone_flags;
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
@@ -1416,7 +1427,19 @@ static int restore_root_task(int fd, struct cr_options *opts)
 		return -1;
 	}
 
-	ret = fork_with_pid(e.pid);
+	/*
+	 * FIXME -- currently we assume that all the tasks live
+	 * in the same set of namespaces. This is done to debug
+	 * the ns contents dumping/restoring. Need to revisit
+	 * this later.
+	 */
+
+	if (opts->with_namespaces)
+		ns_clone_flags = 0;
+	else
+		ns_clone_flags = 0;
+
+	ret = fork_with_pid(e.pid, ns_clone_flags);
 	if (ret < 0)
 		return -1;
 

@@ -26,7 +26,7 @@
 #include "ptrace.h"
 #include "util.h"
 #include "sockets.h"
-
+#include "namespaces.h"
 #include "image.h"
 #include "proc_parse.h"
 #include "parasite-syscall.h"
@@ -1272,6 +1272,12 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 
 	if (collect_pstree(pid, &pstree_list))
 		goto err;
+
+	if (opts->with_namespaces) {
+		ret = dump_namespaces(pid);
+		if (ret < 0)
+			goto err;
+	}
 
 	/*
 	 * Ignore collection errors by now since we may not want
