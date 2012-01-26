@@ -313,6 +313,10 @@ static long always_inline sys_setns(int fd, int nstype)
 	return syscall2(__NR_setns, (long)fd, (long)nstype);
 }
 
+#ifndef CLONE_NEWUTS
+#define CLONE_NEWUTS	0x04000000
+#endif
+
 #define setns	sys_setns
 
 #else /* CONFIG_X86_64 */

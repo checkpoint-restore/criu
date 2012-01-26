@@ -474,6 +474,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case ITIMERS_MAGIC:
 		show_itimers(fd);
 		break;
+	case UTSNS_MAGIC:
+		show_utsns(fd);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
 		goto err;

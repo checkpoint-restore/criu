@@ -97,6 +97,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_ITIMERS,
 		.magic	= ITIMERS_MAGIC,
 	},
+
+	/* UTS namespace */
+	[CR_FD_UTSNS] = {
+		.fmt	= FMT_FNAME_UTSNS,
+		.magic	= UTSNS_MAGIC,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)

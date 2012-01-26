@@ -1435,7 +1435,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	 */
 
 	if (opts->with_namespaces)
-		ns_clone_flags = 0;
+		ns_clone_flags = CLONE_NEWUTS;
 	else
 		ns_clone_flags = 0;
 

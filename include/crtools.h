@@ -35,6 +35,7 @@ enum {
 	 */
 
 	CR_FD_PSTREE,
+	CR_FD_UTSNS,
 
 	CR_FD_MAX
 };
@@ -75,6 +76,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"
 #define FMT_FNAME_INETSK	"inetsk-%d.img"
 #define FMT_FNAME_ITIMERS	"itimers-%d.img"
+#define FMT_FNAME_UTSNS		"utsns-%d.img"
 
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 
@@ -103,6 +105,8 @@ struct cr_fdset {
 	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
 	CR_FD_DESC_USE(CR_FD_INETSK)		|\
 	CR_FD_DESC_USE(CR_FD_ITIMERS)		)
+#define CR_FD_DESC_NS				(\
+	CR_FD_DESC_USE(CR_FD_UTSNS)		)
 #define CR_FD_DESC_NONE			(0)
 
 int cr_dump_tasks(pid_t pid, struct cr_options *opts);
