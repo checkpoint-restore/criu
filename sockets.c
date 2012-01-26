@@ -705,16 +705,18 @@ static int run_connect_jobs_dgram(void)
 	 * Free data we don't need anymore.
 	 */
 	for (d = dgram_peer; d;) {
+		struct unix_dgram_peer *h = d;
 		d = d->next;
-		xfree(d);
+		xfree(h);
 	}
 
 	for (i = 0; i < SK_HASH_SIZE; i++) {
 		if (!dgram_bound[i])
 			continue;
 		for (b = dgram_bound[i]; b;) {
+			struct unix_dgram_bound	*h = b;
 			b = b->next;
-			xfree(b);
+			xfree(h);
 		}
 	}
 
