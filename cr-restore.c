@@ -283,7 +283,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 static int prepare_shmem_pid(int pid)
 {
-	int sh_fd;
+	int sh_fd, ret = 0;
 
 	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
 	if (sh_fd < 0) {
@@ -295,28 +295,23 @@ static int prepare_shmem_pid(int pid)
 
 	while (1) {
 		struct shmem_entry e;
-		int ret;
 
-		ret = read(sh_fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img_eof(sh_fd, &e);
+		if (ret <= 0)
 			break;
 
-		if (ret != sizeof(e)) {
-			pr_perror("%d: Can't read shmem entry\n", pid);
-			return -1;
-		}
-
-		if (collect_shmem(pid, &e))
-			return -1;
+		ret = collect_shmem(pid, &e);
+		if (ret)
+			break;
 	}
 
 	close(sh_fd);
-	return 0;
+	return ret;
 }
 
 static int prepare_pipes_pid(int pid)
 {
-	int p_fd;
+	int p_fd, ret = 0;
 
 	p_fd = open_image_ro(CR_FD_PIPES, pid);
 	if (p_fd < 0) {
@@ -328,26 +323,21 @@ static int prepare_pipes_pid(int pid)
 
 	while (1) {
 		struct pipe_entry e;
-		int ret;
 
-		ret = read(p_fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img_eof(p_fd, &e);
+		if (ret <= 0)
 			break;
-		if (ret != sizeof(e)) {
-			pr_perror("%d: Read pipes failed %d (expected %li)\n",
-				  pid, ret, sizeof(e));
-			return -1;
-		}
 
-		if (collect_pipe(pid, &e, p_fd))
-			return -1;
+		ret = collect_pipe(pid, &e, p_fd);
+		if (ret < 0)
+			break;
 
 		if (e.bytes)
 			lseek(p_fd, e.bytes, SEEK_CUR);
 	}
 
 	close(p_fd);
-	return 0;
+	return ret;
 }
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
@@ -378,6 +368,8 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 
 static int prepare_shared(int ps_fd)
 {
+	int ret = 0;
+
 	pr_info("Preparing info about shared resources\n");
 
 	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
@@ -409,37 +401,37 @@ static int prepare_shared(int ps_fd)
 		struct pstree_entry e;
 		int ret;
 
-		ret = read(ps_fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img_eof(ps_fd, &e);
+		if (ret <= 0)
 			break;
 
-		if (ret != sizeof(e)) {
-			pr_perror("Can't read pstree_entry\n");
-			return -1;
-		}
+		ret = prepare_shmem_pid(e.pid);
+		if (ret < 0)
+			break;
 
-		if (prepare_shmem_pid(e.pid))
-			return -1;
+		ret = prepare_pipes_pid(e.pid);
+		if (ret < 0)
+			break;
 
-		if (prepare_pipes_pid(e.pid))
-			return -1;
-
-		if (prepare_fd_pid(e.pid))
-			return -1;
+		ret = prepare_fd_pid(e.pid);
+		if (ret < 0)
+			break;
 
 		task_add_entry(e.pid);
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
 
-	task_entries->nr_in_progress = task_entries->nr;
+	if (!ret) {
+		task_entries->nr_in_progress = task_entries->nr;
 
-	lseek(ps_fd, sizeof(u32), SEEK_SET);
+		lseek(ps_fd, sizeof(u32), SEEK_SET);
 
-	show_saved_shmems();
-	show_saved_pipes();
+		show_saved_shmems();
+		show_saved_pipes();
+	}
 
-	return 0;
+	return ret;
 }
 
 static unsigned long find_shmem_id(unsigned long addr)
@@ -473,7 +465,7 @@ static int save_shmem_id(struct shmem_entry *e)
 
 static int prepare_shmem(int pid)
 {
-	int sh_fd;
+	int sh_fd, ret = 0;
 
 	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
 	if (sh_fd < 0)
@@ -481,22 +473,17 @@ static int prepare_shmem(int pid)
 
 	while (1) {
 		struct shmem_entry e;
-		int ret;
 
-		ret = read(sh_fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img_eof(sh_fd, &e);
+		if (ret <= 0)
 			break;
-		if (ret != sizeof(e)) {
-			pr_perror("%d: Can't read shmem entry\n", pid);
-			return -1;
-		}
 
-		if (save_shmem_id(&e))
-			return -1;
+		if ((ret = save_shmem_id(&e)) < 0)
+			break;
 	}
 
 	close(sh_fd);
-	return 0;
+	return ret;
 }
 
 static struct shmem_info *
@@ -972,12 +959,9 @@ static int prepare_sigactions(int pid)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = read(fd_sigact, &e, sizeof(e));
-		if (ret != sizeof(e)) {
-			pr_err("%d: Bad sigaction entry: %d (%m)\n", pid, ret);
-			ret = -1;
-			goto err;
-		}
+		ret = read_img(fd_sigact, &e);
+		if (ret < 0)
+			break;
 
 		ASSIGN_TYPED(act.rt_sa_handler, e.sigaction);
 		ASSIGN_TYPED(act.rt_sa_flags, e.flags);
@@ -1006,7 +990,7 @@ err:
 
 static int prepare_pipes(int pid)
 {
-	u32 err = -1, ret;
+	int ret = 0;
 	int pipes_fd;
 
 	struct pipe_list_entry *le, *buf;
@@ -1033,14 +1017,9 @@ static int prepare_pipes(int pid)
 
 		le = &buf[nr];
 
-		ret = read(pipes_fd, &le->e, sizeof(le->e));
-		if (ret == 0)
+		ret = read_img_eof(pipes_fd, &le->e);
+		if (ret <= 0)
 			break;
-
-		if (ret != sizeof(le->e)) {
-			pr_perror("%d: Bad pipes entry\n", pid);
-			goto err_free;
-		}
 
 		list_for_each(cur, &head) {
 			cur_entry = list_entry(cur, struct pipe_list_entry, list);
@@ -1055,22 +1034,24 @@ static int prepare_pipes(int pid)
 
 		nr++;
 		if (nr > buf_size / sizeof(*le)) {
+			ret = -1;
 			pr_err("OOM storing pipes");
-			goto err_free;
+			break;
 		}
 	}
 
-	list_for_each_entry(le, &head, list) {
-		lseek(pipes_fd, le->offset, SEEK_SET);
-		if (open_pipe(pid, &le->e, &pipes_fd))
-			goto err_free;
-	}
+	if (!ret)
+		list_for_each_entry(le, &head, list) {
+			lseek(pipes_fd, le->offset, SEEK_SET);
+			if (open_pipe(pid, &le->e, &pipes_fd)) {
+				ret = -1;
+				break;
+			}
+		}
 
-	err = 0;
-err_free:
 	free(buf);
 	close(pipes_fd);
-	return err;
+	return ret;
 }
 
 static int restore_one_alive_task(int pid)
@@ -1353,23 +1334,14 @@ static int restore_task_with_children(void *_arg)
 
 	lseek(fd, sizeof(u32), SEEK_SET);
 	while (1) {
-		ret = read(fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img(fd, &e);
+		if (ret < 0)
+			exit(1);
+
+		if (e.pid == pid)
 			break;
 
-		if (ret != sizeof(e)) {
-			pr_err("%d: Read returned %d\n", pid, ret);
-			if (ret < 0)
-				pr_perror("%d: Can't read pstree\n", pid);
-			exit(1);
-		}
-
-		if (e.pid != pid) {
-			lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
-			continue;
-		}
-
-		break;
+		lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
 
 	if (e.nr_children > 0) {
