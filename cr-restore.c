@@ -1402,7 +1402,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 {
 	struct pstree_entry e;
 	int ret, i;
-	struct sigaction act;
+	struct sigaction act, old_act;
 	unsigned long ns_clone_flags;
 
 	ret = read(fd, &e, sizeof(e));
@@ -1421,7 +1421,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 
 	act.sa_flags |= SA_NOCLDWAIT | SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
 	act.sa_sigaction = sigchld_handler;
-	ret = sigaction(SIGCHLD, &act, NULL);
+	ret = sigaction(SIGCHLD, &act, &old_act);
 	if (ret < 0) {
 		perror("sigaction() failed\n");
 		return -1;
@@ -1461,6 +1461,13 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	cr_wait_set(&task_entries->nr_in_progress, task_entries->nr);
 	cr_wait_set(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	cr_wait_until(&task_entries->nr_in_progress, 0);
+
+	ret = sigaction(SIGCHLD, &old_act, NULL);
+	if (ret < 0) {
+		perror("sigaction() failed\n");
+		return -1;
+	}
+
 	pr_info("Go on!!!\n");
 	cr_wait_set(&task_entries->start, CR_STATE_COMPLETE);
 
