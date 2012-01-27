@@ -28,6 +28,7 @@ TST_NOFILE	=				\
 		pthread00			\
 		vdso00				\
 		utsname				\
+		sockets00			\
 #		jobctl00			\
 
 TST_FILE	=				\
