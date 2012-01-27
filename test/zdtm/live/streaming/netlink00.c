@@ -94,25 +94,19 @@ int main(int argc, char *argv[])
 	test_daemon();
 
 	while (test_go()){
-		for (i=0;i<CMD_NUM;i++){
+		for (i=0; i < CMD_NUM; i++){
 			cmd[i]();
-			if (send_request()<0){
-				if ((errno == EINTR) && !test_go())
-					goto pass;
+			if (send_request() < 0){
 				fail("send_request failed");
 				goto out;
 			};
-			if (recv_reply()<0){
-				if ((errno == EINTR) && !test_go())
-					goto pass;
+			if (recv_reply() < 0){
 				fail("RTNETLINK answers: %m");
 				goto out;
 			};
 
 #ifdef DEBUG
-			if (read_reply()<0){
-				if ((errno == EINTR) && !test_go())
-					goto pass;
+			if (read_reply() < 0){
 				fail("read_reply failed");
 				goto out;
 			}
@@ -120,8 +114,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	test_waitsig();
-pass:
 	pass();
 
 out:
@@ -165,7 +157,7 @@ int recv_reply()
 	// or if it was a monitoring socket
 	while(1) {
 		rtn = recv(fd, p, sizeof(buf) - nll, 0);
-		if (rtn<0) {
+		if (rtn < 0) {
 			err("recv failed: %m");
 			return -1;
 		}
@@ -208,7 +200,7 @@ int read_reply()
 	// headers that also include the route entry
 	// header
 	nlp = (struct nlmsghdr *) buf;
-	for(;NLMSG_OK(nlp, nll);nlp=NLMSG_NEXT(nlp, nll))
+	for(; NLMSG_OK(nlp, nll); nlp = NLMSG_NEXT(nlp, nll))
 	{
 		// get route entry header
 		rtp = (struct rtmsg *) NLMSG_DATA(nlp);
@@ -225,7 +217,7 @@ int read_reply()
 		// one route entry
 		rtap = (struct rtattr *) RTM_RTA(rtp);
 		rtl = RTM_PAYLOAD(nlp);
-		for(;RTA_OK(rtap, rtl);rtap=RTA_NEXT(rtap,rtl))
+		for( ; RTA_OK(rtap, rtl); rtap = RTA_NEXT(rtap,rtl))
 		{
 			switch(rtap->rta_type)
 			{
@@ -255,75 +247,59 @@ int read_reply()
 	return 0;
 }
 
-int form_request_add()
+#define NLMSG_TAIL(nmsg) \
+        ((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+int form_request_del()
 {
-	// attributes of the route entry
-	int ifcn = 1; //interface number
-	// initialize RTNETLINK request buffer
 	bzero(&req, sizeof(req));
-	// compute the initial length of the
-	// service request
-	rtl = sizeof(struct rtmsg);
-	// add first attrib:
-	// set destination IP addr and increment the
-	// RTNETLINK buffer size
-	rtap = (struct rtattr *) req.buf;
+	req.nl.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+
+	rtap = NLMSG_TAIL(&req.nl);
 	rtap->rta_type = RTA_DST;
-	rtap->rta_len = sizeof(struct rtattr) + 4;
+	rtap->rta_len = RTA_LENGTH(4);
 	inet_pton(AF_INET, dsts,
 			((char *)rtap) + sizeof(struct rtattr));
-	rtl += rtap->rta_len;
-	// add second attrib:
-	// set ifc index and increment the size
-	rtap = (struct rtattr *) (((char *)rtap)
-			+ rtap->rta_len);
-	rtap->rta_type = RTA_OIF;//Output interface index
-	rtap->rta_len = sizeof(struct rtattr) + 4;
-	memcpy(((char *)rtap) + sizeof(struct rtattr),
-			&ifcn, sizeof(int));
-	rtl += rtap->rta_len;
-	// setup the NETLINK header
-	req.nl.nlmsg_len = NLMSG_LENGTH(rtl);
-	req.nl.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
-	req.nl.nlmsg_type = RTM_NEWROUTE;
-	// setup the service header (struct rtmsg)
+	req.nl.nlmsg_len = NLMSG_ALIGN(req.nl.nlmsg_len) + RTA_ALIGN(rtap->rta_len);
+	req.nl.nlmsg_flags = NLM_F_CREATE | NLM_F_ACK | NLM_F_REQUEST;
+	req.nl.nlmsg_type = RTM_DELROUTE;
 	req.rt.rtm_family = AF_INET;
 	req.rt.rtm_table = RT_TABLE_MAIN;
 	req.rt.rtm_protocol = RTPROT_STATIC;
 	req.rt.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.rt.rtm_type = RTN_UNICAST;
-	// set the network prefix size
 	req.rt.rtm_dst_len = pn;
 	return 0;
 }
-int form_request_del()
+
+int form_request_add()
 {
-	// attributes of the route entry
-	// initialize RTNETLINK request buffer
+	int ifcn = 1; //interface number
+
 	bzero(&req, sizeof(req));
-	// compute the initial length of the
-	// service request
-	rtl = sizeof(struct rtmsg);
-	// add first attrib:
-	// set destination IP addr and increment the
-	// RTNETLINK buffer size
-	rtap = (struct rtattr *) req.buf;
+	req.nl.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+	rtap = NLMSG_TAIL(&req.nl);
 	rtap->rta_type = RTA_DST;
-	rtap->rta_len = sizeof(struct rtattr) + 4;
+	rtap->rta_len = RTA_LENGTH(4);
 	inet_pton(AF_INET, dsts,
 			((char *)rtap) + sizeof(struct rtattr));
-	rtl += rtap->rta_len;
-	// setup the NETLINK header
-	req.nl.nlmsg_len = NLMSG_LENGTH(rtl);
+	req.nl.nlmsg_len = NLMSG_ALIGN(req.nl.nlmsg_len) + RTA_ALIGN(rtap->rta_len);
+
+	rtap = NLMSG_TAIL(&req.nl);;
+	rtap->rta_type = RTA_OIF;//Output interface index
+	rtap->rta_len = RTA_LENGTH(sizeof(int));
+	memcpy(((char *)rtap) + sizeof(struct rtattr),
+			&ifcn, sizeof(int));
+
+	req.nl.nlmsg_len = NLMSG_ALIGN(req.nl.nlmsg_len) + RTA_ALIGN(rtap->rta_len);
 	req.nl.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
-	req.nl.nlmsg_type = RTM_DELROUTE;
-	// setup the service header (struct rtmsg)
+	req.nl.nlmsg_type = RTM_NEWROUTE;
+
 	req.rt.rtm_family = AF_INET;
 	req.rt.rtm_table = RT_TABLE_MAIN;
 	req.rt.rtm_protocol = RTPROT_STATIC;
 	req.rt.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.rt.rtm_type = RTN_UNICAST;
-	// set the network prefix size
 	req.rt.rtm_dst_len = pn;
 	return 0;
 }
