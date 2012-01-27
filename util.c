@@ -181,7 +181,7 @@ int open_image_ro_nocheck(const char *fmt, int pid)
 	if (tmp == 0)
 		tmp = open(path, O_RDONLY);
 	if (tmp < 0)
-		pr_perror("Can't open image %s for %d\n", fmt, pid);
+		pr_warning("Can't open image %s for %d: %m\n", fmt, pid);
 
 	return tmp;
 }
