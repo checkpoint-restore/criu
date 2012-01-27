@@ -72,7 +72,6 @@ int main(int argc, char *argv[])
 	int i;
 
 	test_init(argc, argv);
-	test_daemon();
 
 	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (fd<0){
@@ -93,6 +92,8 @@ int main(int argc, char *argv[])
 	form_request_del();
 	send_request();
 	recv_reply();
+
+	test_daemon();
 
 	while (test_go()){
 		for (i=0;i<CMD_NUM;i++){
