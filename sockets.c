@@ -55,6 +55,19 @@ struct unix_sk_desc {
 	unsigned int		*icons;
 };
 
+struct unix_sk_listen_icon {
+	unsigned int			peer_ino;
+	struct unix_sk_desc		*sk_desc;
+	struct unix_sk_listen_icon	*next;
+};
+
+struct unix_sk_listen {
+	unsigned int			ino;
+	struct sockaddr_un		addr;
+	unsigned int			addrlen;
+	struct unix_sk_listen		*next;
+};
+
 #define INET_ADDR_LEN		40
 
 struct inet_sk_desc {
@@ -75,6 +88,7 @@ struct inet_sk_desc {
 		(elem)->next = (head)[(key) % SK_HASH_SIZE];		\
 		(head)[(key) % SK_HASH_SIZE] = (elem);			\
 	} while (0)
+
 #define __gen_static_lookup_func(ret, name, head, _member, _type, _name)\
 	static ret *name(_type _name) {					\
 		ret *d;							\
@@ -87,6 +101,18 @@ struct inet_sk_desc {
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
 __gen_static_lookup_func(struct socket_desc, lookup_socket, sockets, ino, int, ino);
+
+static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
+__gen_static_lookup_func(struct unix_sk_listen_icon,			\
+			 lookup_unix_listen_icons,			\
+			 unix_listen_icons,				\
+			 peer_ino, unsigned int, ino);
+
+static struct unix_sk_listen *unix_listen[SK_HASH_SIZE];
+__gen_static_lookup_func(struct unix_sk_listen,				\
+			 lookup_unix_listen,				\
+			 unix_listen,					\
+			 ino, unsigned int, ino);
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
@@ -262,8 +288,38 @@ static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fd
 	ue.namelen	= sk->namelen;
 	ue.backlog	= sk->wqlen;
 
-	ue.pad		= 0;
+	ue.flags	= 0;
 	ue.peer		= sk->peer_ino;
+
+	/*
+	 * If this is in-flight connection we need to figure
+	 * out where to connect it on restore. Thus, tune up peer
+	 * id by searching an existing listening socket.
+	 *
+	 * Note the socket name will be found at restore stage,
+	 * not now, just to reduce size of dump files.
+	 */
+	if (!ue.peer && ue.state == TCP_ESTABLISHED) {
+		struct unix_sk_listen_icon *e;
+
+		e = lookup_unix_listen_icons(ue.id);
+		if (!e) {
+			pr_err("Dangling in-flight connection %d\n", ue.id);
+			goto err;
+		}
+
+		/* e->sk_desc is _never_ NULL */
+		if (e->sk_desc->state != TCP_LISTEN) {
+			pr_err("In-flight connection on "
+				"non-listening socket %d\n", ue.id);
+			goto err;
+		}
+
+		ue.flags	|= USK_INFLIGHT;
+		ue.peer		= e->sk_desc->sd.ino;
+
+		dprintk("\t\tFixed inflight socket %d peer %d)\n", ue.id, ue.peer);
+	}
 
 	if (write_img(cr_fdset->fds[CR_FD_UNIXSK], &ue))
 		goto err;
@@ -421,6 +477,7 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 
 	if (tb[UNIX_DIAG_ICONS]) {
 		int len = RTA_PAYLOAD(tb[UNIX_DIAG_ICONS]);
+		int i;
 
 		d->icons = xmalloc(len);
 		if (!d->icons)
@@ -428,6 +485,28 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 
 		memcpy(d->icons, RTA_DATA(tb[UNIX_DIAG_ICONS]), len);
 		d->nr_icons = len / sizeof(u32);
+
+		/*
+		 * Remember these sockets, we will need them
+		 * to fix up in-flight sockets peers.
+		 */
+		for (i = 0; i < d->nr_icons; i++) {
+			struct unix_sk_listen_icon *e;
+			int n;
+
+			e = xzalloc(sizeof(*e));
+			if (!e)
+				goto err;
+
+			SK_HASH_LINK(unix_listen_icons, d->icons[i], e);
+
+			dprintk("\t\tCollected icon %d\n", d->icons[i]);
+
+			e->peer_ino	= d->icons[i];
+			e->sk_desc	= d;
+		}
+
+
 	}
 
 	if (tb[UNIX_DIAG_RQLEN]) {
@@ -589,6 +668,7 @@ static struct unix_conn_job *conn_jobs;
 static int run_connect_jobs(void)
 {
 	struct unix_conn_job *cj, *next;
+	int i;
 
 	cj = conn_jobs;
 	while (cj) {
@@ -610,6 +690,20 @@ try_again:
 		next = cj->next;
 		xfree(cj);
 		cj = next;
+	}
+
+	/*
+	 * Free collected listening sockets,
+	 * we don't need them anymore.
+	 */
+	for (i = 0; i < SK_HASH_SIZE; i++) {
+		struct unix_sk_listen *h = unix_listen[i];
+		struct unix_sk_listen *e;
+		while (h) {
+			e = h->next;
+			xfree(h);
+			h = e;
+		}
 	}
 
 	return 0;
@@ -795,6 +889,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 
 	if (ue->state == TCP_LISTEN) {
 		struct sockaddr_un addr;
+		struct unix_sk_listen *e;
 		int ret;
 
 		/*
@@ -827,6 +922,24 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			pr_perror("Can't listen socket\n");
 			goto err;
 		}
+
+		/*
+		 * Collect listening sockets here, we will
+		 * need them to resolve in-flight connections
+		 * names.
+		 */
+		e = xzalloc(sizeof(*e));
+		if (!e)
+			goto err;
+
+		SK_HASH_LINK(unix_listen, ue->id, e);
+
+		memcpy(&e->addr, &addr, sizeof(e->addr));
+		e->addrlen	= sizeof(e->addr.sun_family) + ue->namelen;
+		e->ino		= ue->id;
+
+		dprintk("\t\Collected listening socket %d\n", ue->id);
+
 	} else if (ue->state == TCP_ESTABLISHED) {
 
 		/*
@@ -838,7 +951,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 		 * deferred to connect() later.
 		 */
 
-		if (ue->peer < ue->id) {
+		if (ue->peer < ue->id && !(ue->flags & USK_INFLIGHT)) {
 			struct sockaddr_un addr;
 			int len;
 			struct unix_accept_job *aj;
@@ -877,7 +990,27 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			if (!cj)
 				goto err;
 
-			prep_conn_addr(ue->peer, &cj->addr, &cj->addrlen);
+			/*
+			 * Might need to resolve in-flight connection name.
+			 */
+			if (ue->flags & USK_INFLIGHT) {
+				struct unix_sk_listen *e;
+
+				/*
+				 * Find out listening sockets name.
+				 */
+				e = lookup_unix_listen(ue->peer);
+				if (!e) {
+					pr_err("Bad in-flight socket peer %d\n",
+						ue->peer);
+					goto err;
+				}
+
+				memcpy(&cj->addr, &e->addr, sizeof(cj->addr));
+				cj->addrlen = e->addrlen;
+			} else
+				prep_conn_addr(ue->peer, &cj->addr, &cj->addrlen);
+
 			cj->fd = ue->fd;
 			cj->next = conn_jobs;
 			conn_jobs = cj;

@@ -66,13 +66,15 @@ struct pipe_entry {
 	u8	data[0];
 } __packed;
 
+#define USK_INFLIGHT		1
+
 struct unix_sk_entry {
 	u32	fd;
 	u32	id;
 	u8	type;
 	u8	state;
 	u8	namelen; /* fits UNIX_PATH_MAX */
-	u8	pad;
+	u8	flags;
 	u32	backlog;
 	u32	peer;
 	u8	name[0];
