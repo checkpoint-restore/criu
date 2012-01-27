@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall
+CFLAGS	= -g -O2 -Wall -Werror
 
 TST_NOFILE	=				\
 		busyloop00			\

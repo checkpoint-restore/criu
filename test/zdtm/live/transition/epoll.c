@@ -59,7 +59,7 @@ static void run_child(int num)
 	int fd = fds[num][1];
 	uint32_t crc = ~0;
 	size_t buf_size=512;
-	char buf[buf_size];
+	uint8_t buf[buf_size];
 	struct timeval tv;
 	struct timespec ts;
 	int rv;

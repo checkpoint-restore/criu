@@ -68,7 +68,6 @@ cmd_t cmd[CMD_NUM]={form_request_add, form_request_del};
 
 int main(int argc, char *argv[])
 {
-	int ret=0;
 	int i;
 
 	test_init(argc, argv);
@@ -85,7 +84,6 @@ int main(int argc, char *argv[])
 	la.nl_pid = getpid();
 	if (bind(fd, (struct sockaddr*) &la, sizeof(la))){
 		err("bind failed: %m ");
-		ret=-1;
 		goto out;
 	}
 	//Preperation:

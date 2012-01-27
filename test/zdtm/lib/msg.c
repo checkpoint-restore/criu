@@ -27,7 +27,7 @@ void test_msg(const char *format, ...)
 	va_end(arg);
 
 	if (len >= msg_buf.left) {	/* indicate message buffer overflow */
-		const static char overflow_mark[] = "\n.@.\n";
+		const char overflow_mark[] = "\n.@.\n";
 		msg_buf.left = 0;
 		msg_buf.ptr = msg_buf.buffer + sizeof(msg_buf.buffer);
 		strcpy(msg_buf.ptr - sizeof(overflow_mark), overflow_mark);
@@ -56,7 +56,6 @@ void dump_msg(const char *fname)
 			return;
 		/* ignore errors as there's no way to report them */
 		write(fd, msg_buf.buffer, msg_buf.ptr - msg_buf.buffer);
-	out:
 		close(fd);
 	}
 }
