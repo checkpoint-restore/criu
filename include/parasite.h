@@ -35,6 +35,7 @@ enum {
 	PARASITE_CMD_DUMPPAGES,
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
+	PARASITE_CMD_DUMP_MISC,
 
 	PARASITE_CMD_MAX,
 };
@@ -71,6 +72,15 @@ struct parasite_dump_pages_args {
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		fd;
+};
+
+/*
+ * Misc sfuff, that is too small for separate file, but cannot
+ * be read w/o using parasite
+ */
+
+struct parasite_dump_misc {
+	parasite_status_t	status;
 };
 
 /*

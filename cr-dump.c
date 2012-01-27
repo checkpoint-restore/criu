@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <parasite.h>
 
 #include <fcntl.h>
 
@@ -1142,6 +1143,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	int pid_dir;
+	struct parasite_dump_misc misc;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1214,6 +1216,12 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = parasite_dump_itimers_seized(parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
+		goto err;
+	}
+
+	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
+	if (ret) {
+		pr_err("Can't dump misc (pid: %d)\n", pid);
 		goto err;
 	}
 

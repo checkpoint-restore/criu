@@ -348,6 +348,14 @@ err_close:
 	return ret;
 }
 
+static int dump_misc(struct parasite_dump_misc *args)
+{
+	parasite_status_t *st = &args->status;
+
+	SET_PARASITE_STATUS(st, 0, 0);
+	return 0;
+}
+
 static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
@@ -367,6 +375,8 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		return dump_sigact((struct parasite_dump_file_args *)args);
 	case PARASITE_CMD_DUMP_ITIMERS:
 		return dump_itimers((struct parasite_dump_file_args *)args);
+	case PARASITE_CMD_DUMP_MISC:
+		return dump_misc((struct parasite_dump_misc *)args);
 	default:
 		sys_write_msg("Unknown command to parasite\n");
 		break;

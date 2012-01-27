@@ -393,6 +393,12 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	return parasite_file_cmd(PARASITE_CMD_DUMP_ITIMERS, CR_FD_ITIMERS, ctl, cr_fdset);
 }
 
+int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)
+{
+	return parasite_execute(PARASITE_CMD_DUMP_MISC, ctl,
+			(parasite_status_t *)misc, sizeof(struct parasite_dump_misc));
+}
+
 /*
  * This routine drives parasite code (been previously injected into a victim
  * process) and tells it to dump pages into the file.
