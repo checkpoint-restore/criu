@@ -19,7 +19,7 @@ void start(uint8_t *bytes, uint16_t *words)
 			  "psubw %%mm2, %%mm3\n"
 			  :
 			  : "m" (bytes[0]), "m" (bytes[8]),
-			    "m" (words[0]), "m" (words[8])
+			    "m" (words[0]), "m" (words[4])
 			 );
 }
 
