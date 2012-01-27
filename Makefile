@@ -171,6 +171,18 @@ cscope:
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
 
+help:
+	$(E) '    Targets:'
+	$(E) '      all             - Build all [*] targets'
+	$(E) '    * crtools         - Build crtools'
+	$(E) '      zdtm            - Build zdtm test-suite'
+	$(E) '      clean           - Clean everything'
+	$(E) '      tags            - Generate tags file (ctags)'
+	$(E) '      cscope          - Generate cscope database'
+	$(E) '      rebuild         - Force-rebuild of [*] targets'
+	$(E) '      test            - Run zdtm test-suite'
+.PHONY: help
+
 ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
 -include $(DEPS)
 endif
