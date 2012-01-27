@@ -24,6 +24,12 @@
 #define PR_SET_NAME		15
 #define PR_GET_NAME		16
 
+#define PR_CAPBSET_DROP		24
+#define PR_GET_SECUREBITS	27
+#define PR_SET_SECUREBITS	28
+
+#define SECURE_NO_SETUID_FIXUP	2
+
 #define PR_SET_MM		35
 # define PR_SET_MM_START_CODE		1
 # define PR_SET_MM_END_CODE		2
@@ -71,6 +77,9 @@ typedef unsigned char		u8;
 typedef signed char		s8;
 
 #define MAJOR(dev)		((dev)>>8)
+
+#define _LINUX_CAPABILITY_VERSION_3	0x20080522
+#define _LINUX_CAPABILITY_U32S_3	2
 
 #ifdef CONFIG_X86_64
 

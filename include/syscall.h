@@ -313,6 +313,42 @@ static long always_inline sys_setns(int fd, int nstype)
 	return syscall2(__NR_setns, (long)fd, (long)nstype);
 }
 
+static long sys_setresuid(int uid, int euid, int suid)
+{
+	return syscall3(__NR_setresuid, (long)uid, (long)euid, (long)suid);
+}
+
+static long sys_setresgid(int gid, int egid, int sgid)
+{
+	return syscall3(__NR_setresgid, (long)gid, (long)egid, (long)sgid);
+}
+
+static long sys_setfsuid(int fsuid)
+{
+	return syscall1(__NR_setfsuid, (long)fsuid);
+}
+
+static long sys_setfsgid(int fsgid)
+{
+	return syscall1(__NR_setfsgid, (long)fsgid);
+}
+
+struct cap_header {
+	u32 version;
+	int pid;
+};
+
+struct cap_data {
+	u32 eff;
+	u32 prm;
+	u32 inh;
+};
+
+static long sys_capset(struct cap_header *h, struct cap_data *d)
+{
+	return syscall2(__NR_capset, (long)h, (long)d);
+}
+
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS	0x04000000
 #endif

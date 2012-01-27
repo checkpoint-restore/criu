@@ -28,6 +28,11 @@
 #define __NR_kill		62
 #define __NR_flock		73
 #define __NR_unlink		87
+#define __NR_setresuid		117
+#define __NR_setresgid		119
+#define __NR_setfsuid		122
+#define __NR_setfsgid		123
+#define __NR_capset		126
 #define __NR_tgkill		131
 #define __NR__sysctl		156
 #define __NR_prctl		157
