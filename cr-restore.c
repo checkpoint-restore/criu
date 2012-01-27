@@ -1443,7 +1443,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	if (ret < 0)
 		return -1;
 
-	pr_info("Wait until all tasks are restored");
+	pr_info("Wait until all tasks are restored\n");
 	ret = cr_wait_until_greater(&task_entries->nr_in_progress, 0);
 	if (ret < 0) {
 		pr_err("Someone can't be restored\n");
