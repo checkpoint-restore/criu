@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #include "types.h"
 #include "list.h"
@@ -256,5 +257,100 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 		*tok = '\0';
 	fclose(f);
 
+	return 0;
+}
+
+static int ids_parse(char *str, unsigned int *arr)
+{
+	char *end;
+
+	arr[0] = strtol(str, &end, 10);
+	arr[1] = strtol(end + 1, &end, 10);
+	arr[2] = strtol(end + 1, &end, 10);
+	arr[3] = strtol(end + 1, &end, 10);
+	if (*end != '\n')
+		return -1;
+	else
+		return 0;
+}
+
+static int cap_parse(char *str, unsigned int *res)
+{
+	int i, ret;
+
+	for (i = 0; i < PROC_CAP_SIZE; i++) {
+		ret = sscanf(str, "%08x", &res[PROC_CAP_SIZE - 1 - i]);
+		if (ret != 1)
+			return -1;
+		str += 8;
+	}
+
+	return 0;
+}
+
+int parse_pid_status(int pid_dir, struct proc_status_creds *cr)
+{
+	int done = 0;
+	FILE *f;
+	char str[64];
+
+	f = fopen_proc(pid_dir, "status");
+	if (f == NULL) {
+		pr_perror("Can't open proc status\n");
+		return -1;
+	}
+
+	while (done < 6 && fgets(str, sizeof(str), f)) {
+		if (!strncmp(str, "Uid:", 4)) {
+			if (ids_parse(str + 5, cr->uids))
+				goto err_parse;
+
+			done++;
+		}
+
+		if (!strncmp(str, "Gid:", 4)) {
+			if (ids_parse(str + 5, cr->gids))
+				goto err_parse;
+
+			done++;
+		}
+
+		if (!strncmp(str, "CapInh:", 7)) {
+			if (cap_parse(str + 8, cr->cap_inh))
+				goto err_parse;
+
+			done++;
+		}
+
+		if (!strncmp(str, "CapEff:", 7)) {
+			if (cap_parse(str + 8, cr->cap_eff))
+				goto err_parse;
+
+			done++;
+		}
+
+		if (!strncmp(str, "CapPrm:", 7)) {
+			if (cap_parse(str + 8, cr->cap_prm))
+				goto err_parse;
+
+			done++;
+		}
+
+		if (!strncmp(str, "CapBnd:", 7)) {
+			if (cap_parse(str + 8, cr->cap_bnd))
+				goto err_parse;
+
+			done++;
+		}
+	}
+
+	if (done != 6) {
+err_parse:
+		pr_err("Error parsing proc status file\n");
+		fclose(f);
+		return -1;
+	}
+
+	fclose(f);
 	return 0;
 }

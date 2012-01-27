@@ -59,7 +59,20 @@ struct proc_pid_stat {
 	int			exit_code;
 };
 
+#define PROC_CAP_SIZE	2
+
+struct proc_status_creds {
+	unsigned int uids[4];
+	unsigned int gids[4];
+
+	unsigned int cap_inh[PROC_CAP_SIZE];
+	unsigned int cap_prm[PROC_CAP_SIZE];
+	unsigned int cap_eff[PROC_CAP_SIZE];
+	unsigned int cap_bnd[PROC_CAP_SIZE];
+};
+
 extern int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s);
 extern int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files);
+extern int parse_pid_status(int pid_dir, struct proc_status_creds *);
 
 #endif /* PROC_PARSE_H__ */
