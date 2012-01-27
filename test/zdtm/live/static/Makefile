@@ -7,6 +7,7 @@ TST_NOFILE	=				\
 		busyloop00			\
 		sleeping00			\
 		pid00				\
+		caps00				\
 		wait00				\
 		zombie00			\
 		fpu00				\
