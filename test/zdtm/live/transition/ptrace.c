@@ -25,6 +25,7 @@ static void *thread(void *arg)
 	*(int *)arg = syscall(SYS_gettid);
 	while (1)
 		sleep(1);
+	return NULL;
 }
 
 int main(int argc, char **argv)
