@@ -27,7 +27,6 @@ TST_NOFILE	=				\
 		pipe00				\
 		pthread00			\
 		vdso00				\
-		cmdlinenv00			\
 		utsname				\
 #		jobctl00			\
 
@@ -64,6 +63,7 @@ TST		=				\
 		$(TST_DIR)			\
 		env00				\
 		umask00				\
+		cmdlinenv00			\
 
 TST_STATE	=				\
 		conntracks			\
