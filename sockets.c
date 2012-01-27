@@ -68,9 +68,13 @@ struct inet_sk_desc {
 	unsigned int		src_addr[4];
 };
 
-#define SK_HASH_SIZE	32
-static struct socket_desc *sockets[SK_HASH_SIZE];
 
+#define SK_HASH_SIZE		32
+#define SK_HASH_LINK(head, key, elem)					\
+	do {								\
+		(elem)->next = (head)[(key) % SK_HASH_SIZE];		\
+		(head)[(key) % SK_HASH_SIZE] = (elem);			\
+	} while (0)
 #define __gen_static_lookup_func(ret, name, head, _member, _type, _name)\
 	static ret *name(_type _name) {					\
 		ret *d;							\
@@ -81,15 +85,15 @@ static struct socket_desc *sockets[SK_HASH_SIZE];
 		return d;						\
 	}
 
+static struct socket_desc *sockets[SK_HASH_SIZE];
 __gen_static_lookup_func(struct socket_desc, lookup_socket, sockets, ino, int, ino);
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
 	d->ino		= ino;
 	d->family	= family;
-	d->next		= sockets[ino % SK_HASH_SIZE];
 
-	sockets[ino % SK_HASH_SIZE] = d;
+	SK_HASH_LINK(sockets, ino, d);
 
 	return 0;
 }
@@ -756,8 +760,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		memcpy(&d->addr, &addr, sizeof(d->addr));
 		d->id	= ue->id;
 
-		d->next = dgram_bound[d->id % SK_HASH_SIZE];
-		dgram_bound[d->id % SK_HASH_SIZE] = d;
+		SK_HASH_LINK(dgram_bound, d->id, d);
 	}
 
 	if (ue->peer) {
