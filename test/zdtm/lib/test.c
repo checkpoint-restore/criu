@@ -83,6 +83,7 @@ void test_init(int argc, char **argv)
 	static FILE *pidf;
 	struct sigaction sa = {
 		.sa_handler	= sig_hand,
+		.sa_flags	= SA_RESTART,
 	};
 	sigemptyset(&sa.sa_mask);
 
