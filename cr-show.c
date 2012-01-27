@@ -249,6 +249,39 @@ out:
 	pr_img_tail(CR_FD_ITIMERS);
 }
 
+static void show_cap(char *name, u32 *v)
+{
+	int i;
+
+	pr_info("%s: ", name);
+	for (i = CR_CAP_SIZE - 1; i >= 0; i--)
+		pr_info("%08x", v[i]);
+	pr_info("\n");
+}
+
+static void show_creds(int fd)
+{
+	struct creds_entry ce;
+
+	pr_img_head(CR_FD_CREDS);
+	if (read_img(fd, &ce) < 0)
+		goto out;
+
+	pr_info("uid %u  euid %u  suid %u  fsuid %u\n",
+			ce.uid, ce.euid, ce.suid, ce.fsuid);
+	pr_info("gid %u  egid %u  sgid %u  fsgid %u\n",
+			ce.gid, ce.egid, ce.sgid, ce.fsgid);
+
+	show_cap("Inh", ce.cap_inh);
+	show_cap("Eff", ce.cap_eff);
+	show_cap("Prm", ce.cap_prm);
+	show_cap("Bnd", ce.cap_bnd);
+
+	pr_info("secbits: %x\n", ce.secbits);
+out:
+	pr_img_tail(CR_FD_CREDS);
+}
+
 static int show_pstree(int fd_pstree, struct list_head *collect)
 {
 	struct pstree_entry e;
@@ -477,6 +510,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case UTSNS_MAGIC:
 		show_utsns(fd);
 		break;
+	case CREDS_MAGIC:
+		show_creds(fd);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
 		goto err;
@@ -555,6 +591,8 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_inetsk(cr_fdset->fds[CR_FD_INETSK]);
 
 		show_itimers(cr_fdset->fds[CR_FD_ITIMERS]);
+
+		show_creds(cr_fdset->fds[CR_FD_CREDS]);
 
 		close_cr_fdset(&cr_fdset);
 

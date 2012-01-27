@@ -1591,6 +1591,23 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	return ret;
 }
 
+static int prepare_creds(int pid, struct task_restore_core_args *args)
+{
+	int fd, ret;
+
+	fd = open_image_ro(CR_FD_CREDS, pid);
+	if (fd < 0)
+		return fd;
+
+	ret = read_img(fd, &args->creds);
+
+	close(fd);
+
+	/* XXX -- validate creds here? */
+
+	return ret > 0 ? 0 : -1;
+}
+
 static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
@@ -1810,6 +1827,10 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->sigchld_act	= sigchld_act;
 
 	ret = prepare_itimers(pid, task_args);
+	if (ret < 0)
+		goto err;
+
+	ret = prepare_creds(pid, task_args);
 	if (ret < 0)
 		goto err;
 

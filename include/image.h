@@ -20,6 +20,7 @@
 #define INETSK_MAGIC	0x56443851 /* Pereslavl */
 #define ITIMERS_MAGIC	0x57464056 /* Kostroma */
 #define UTSNS_MAGIC	0x54473203 /* Smolensk */
+#define CREDS_MAGIC	0x54023547 /* Kozelsk */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -140,6 +141,26 @@ struct itimer_entry {
 	u64		iusec;
 	u64		vsec;
 	u64		vusec;
+} __packed;
+
+#define CR_CAP_SIZE	2
+
+struct creds_entry {
+	u32	uid;
+	u32	gid;
+	u32	euid;
+	u32	egid;
+	u32	suid;
+	u32	sgid;
+	u32	fsuid;
+	u32	fsgid;
+
+	u32	cap_inh[CR_CAP_SIZE];
+	u32	cap_prm[CR_CAP_SIZE];
+	u32	cap_eff[CR_CAP_SIZE];
+	u32	cap_bnd[CR_CAP_SIZE];
+
+	u32	secbits;
 } __packed;
 
 #define HEADER_VERSION		1

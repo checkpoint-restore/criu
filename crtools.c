@@ -98,6 +98,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= ITIMERS_MAGIC,
 	},
 
+	/* creds */
+	[CR_FD_CREDS] = {
+		.fmt	= FMT_FNAME_CREDS,
+		.magic	= CREDS_MAGIC,
+	},
+
 	/* UTS namespace */
 	[CR_FD_UTSNS] = {
 		.fmt	= FMT_FNAME_UTSNS,

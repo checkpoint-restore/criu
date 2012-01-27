@@ -432,6 +432,48 @@ err:
 	return ret;
 }
 
+static int dump_task_creds(pid_t pid, int pid_dir,
+		struct parasite_dump_misc *misc, struct cr_fdset *fds)
+{
+	int ret, i;
+	struct proc_status_creds cr;
+	struct creds_entry ce;
+
+	pr_info("\n");
+	pr_info("Dumping creds for %d)\n", pid);
+	pr_info("----------------------------------------\n");
+
+	ret = parse_pid_status(pid_dir, &cr);
+	if (ret < 0)
+		return ret;
+
+	ce.uid   = cr.uids[0];
+	ce.gid   = cr.gids[0];
+	ce.euid  = cr.uids[1];
+	ce.egid  = cr.gids[1];
+	ce.suid  = cr.uids[2];
+	ce.sgid  = cr.gids[2];
+	ce.fsuid = cr.uids[3];
+	ce.fsgid = cr.gids[3];
+
+	BUILD_BUG_ON(CR_CAP_SIZE != PROC_CAP_SIZE);
+
+	for (i = 0; i < CR_CAP_SIZE; i++) {
+		ce.cap_inh[i] = cr.cap_inh[i];
+		ce.cap_prm[i] = cr.cap_prm[i];
+		ce.cap_eff[i] = cr.cap_eff[i];
+		ce.cap_bnd[i] = cr.cap_bnd[i];
+	}
+
+	ce.secbits = misc->secbits;
+
+	ret = write_img(fds->fds[CR_FD_CREDS], &ce);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
@@ -1246,6 +1288,12 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = dump_task_mappings(pid, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = dump_task_creds(pid, pid_dir, &misc, cr_fdset);
+	if (ret) {
+		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 

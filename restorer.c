@@ -41,6 +41,78 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	sys_exit(1);
 }
 
+static void restore_creds(struct creds_entry *ce)
+{
+	int b, i;
+	struct cap_header hdr;
+	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
+
+	/*
+	 * We're still root here and thus can do it without failures.
+	 */
+
+	if (ce == NULL)
+		return;
+
+	/*
+	 * First -- set the SECURE_NO_SETUID_FIXUP bit not to
+	 * lose caps bits when changing xids.
+	 */
+
+	sys_prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP, 0, 0, 0);
+
+	/*
+	 * Second -- restore xids. Since we still have the CAP_SETUID
+	 * capability nothing should fail. But call the setfsXid last
+	 * to override the setresXid settings.
+	 */
+
+	sys_setresuid(ce->uid, ce->euid, ce->suid);
+	sys_setfsuid(ce->fsuid);
+	sys_setresgid(ce->gid, ce->egid, ce->sgid);
+	sys_setfsgid(ce->fsgid);
+
+	/*
+	 * Third -- restore securebits. We don't need them in any
+	 * special state any longer.
+	 */
+
+	sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
+
+	/*
+	 * Fourth -- trim bset. This can only be done while
+	 * having the CAP_SETPCAP capablity.
+	 */
+
+	for (b = 0; b < CR_CAP_SIZE; b++) {
+		for (i = 0; i < 32; i++) {
+			if (ce->cap_bnd[b] & (1 << i))
+				/* already set */
+				continue;
+
+			sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
+		}
+	}
+
+	/*
+	 * Fifth -- restore caps. Nothing but cap bits are changed
+	 * at this stage, so just do it.
+	 */
+
+	hdr.version = _LINUX_CAPABILITY_VERSION_3;
+	hdr.pid = 0;
+
+	BUILD_BUG_ON(_LINUX_CAPABILITY_U32S_3 != CR_CAP_SIZE);
+
+	for (i = 0; i < CR_CAP_SIZE; i++) {
+		data[i].eff = ce->cap_eff[i];
+		data[i].prm = ce->cap_prm[i];
+		data[i].inh = ce->cap_inh[i];
+	}
+
+	sys_capset(&hdr, data);
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
@@ -116,6 +188,14 @@ long restore_thread(struct thread_restore_args *args)
 		}
 
 		cr_mutex_unlock(args->rst_lock);
+
+		/*
+		 * FIXME -- threads do not share creds, but it looks like
+		 * nobody tries to mess with this crap. That said we should
+		 * pass the master thread creds here
+		 */
+
+		restore_creds(NULL);
 
 		new_sp = (long)rt_sigframe + 8;
 		asm volatile(
@@ -536,6 +616,13 @@ long restore_task(struct task_restore_core_args *args)
 
 		sys_close(fd);
 	}
+
+	/*
+	 * Restore creds late to avoid potential problems with
+	 * insufficient caps for restoring this or that before
+	 */
+
+	restore_creds(&args->creds);
 
 	task_entry = task_get_entry(args->task_entries, my_pid);
 

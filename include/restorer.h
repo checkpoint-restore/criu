@@ -79,6 +79,8 @@ struct task_restore_core_args {
 	rt_sigaction_t			sigchld_act;
 
 	struct itimerval		itimers[3];
+
+	struct creds_entry		creds;
 } __aligned(sizeof(long));
 
 struct pt_regs {

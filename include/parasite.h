@@ -81,6 +81,7 @@ struct parasite_dump_pages_args {
 
 struct parasite_dump_misc {
 	parasite_status_t	status;
+	unsigned int		secbits;
 };
 
 /*

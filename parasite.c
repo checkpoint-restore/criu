@@ -352,6 +352,8 @@ static int dump_misc(struct parasite_dump_misc *args)
 {
 	parasite_status_t *st = &args->status;
 
+	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
+
 	SET_PARASITE_STATUS(st, 0, 0);
 	return 0;
 }
