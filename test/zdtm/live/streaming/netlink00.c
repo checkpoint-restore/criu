@@ -68,11 +68,9 @@ cmd_t cmd[CMD_NUM]={form_request_add, form_request_del};
 
 int main(int argc, char *argv[])
 {
-	int ret=0;
 	int i;
 
 	test_init(argc, argv);
-	test_daemon();
 
 	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (fd<0){
@@ -86,13 +84,14 @@ int main(int argc, char *argv[])
 	la.nl_pid = getpid();
 	if (bind(fd, (struct sockaddr*) &la, sizeof(la))){
 		err("bind failed: %m ");
-		ret=-1;
 		goto out;
 	}
 	//Preperation:
 	form_request_del();
 	send_request();
 	recv_reply();
+
+	test_daemon();
 
 	while (test_go()){
 		for (i=0;i<CMD_NUM;i++){

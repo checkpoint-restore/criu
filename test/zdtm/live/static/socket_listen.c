@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	int fd, fd_s;
 	int status;
 	pid_t pid;
-	int ret, res;
+	int res;
 	uint32_t crc;
 
 	test_init(argc, argv);
