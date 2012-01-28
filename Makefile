@@ -171,11 +171,16 @@ cscope:
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
 
+docs:
+	$(Q) $(MAKE) -s -C Documentation all
+.PHONY: docs
+
 help:
 	$(E) '    Targets:'
 	$(E) '      all             - Build all [*] targets'
 	$(E) '    * crtools         - Build crtools'
 	$(E) '      zdtm            - Build zdtm test-suite'
+	$(E) '      docs            - Build documentation'
 	$(E) '      clean           - Clean everything'
 	$(E) '      tags            - Generate tags file (ctags)'
 	$(E) '      cscope          - Generate cscope database'

@@ -1,0 +1,54 @@
+crtools(1)
+==========
+:doctype:       manpage
+:man source:    CRtools
+:man version:   0.0.1
+:man manual:    CRtools Manual
+
+NAME
+----
+crtools - checkpoint/restore in userspace
+
+SYNOPSIS
+--------
+'crtools' [-c] [-f <file>] [-D <path>] [--help] <command> (-p|-t) <pid>
+
+DESCRIPTION
+-----------
+'crtools' is command line utility to steer checkpoint and restore procedure.
+
+OPTIONS
+-------
+<command>::
+    One of the follwong commands 'dump' -- to initiate checkpoint procedure,
+    'restore' -- to restore previously checkpointed processes or 'show' -- to
+    decode binary dump files and show their contents in human readable format.
+
+-c::
+    In case of 'show' command the dumped pages content will be shown in hex format.
+    In case of 'dump' command processes being checkpointed wont be killed once
+    checkpoint complete but rather continue execution.
+
+-D <path>::
+    Use path 'path' as a base directory where to look for dump files set. This
+    commands allpies to any <command>.
+
+-f <file>::
+    This option is valid for 'show' command only and allows to see content of
+    the <file> specified.
+
+-p <pid>::
+    Checkpoint only one process specified by 'pid' instead of the whole process
+    tree.
+
+-t <pid>::
+    Checkpoint the whole process tree starting from 'pid'.
+
+
+AUTHOR
+------
+OpenVZ team.
+
+COPYING
+-------
+Copyright \(C) 2011-2012, Parallels Inc.
