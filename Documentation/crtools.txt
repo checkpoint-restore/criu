@@ -11,7 +11,7 @@ crtools - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-'crtools' [-c] [-f <file>] [-D <path>] [--help] <command> (-p|-t) <pid>
+'crtools' [-c] [-f <file>] [-d] [-n] [-o <path>] [-D <path>] [--help] <command> (-p|-t) <pid>
 
 DESCRIPTION
 -----------
@@ -44,6 +44,14 @@ OPTIONS
 -t <pid>::
     Checkpoint the whole process tree starting from 'pid'.
 
+-d::
+    Detach 'crtools' itself once restore is complete.
+
+-n::
+    Checkpoint namespaces.
+
+-o <file>::
+    Write logging messages to 'file'.
 
 AUTHOR
 ------
