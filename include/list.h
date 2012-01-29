@@ -206,70 +206,70 @@ static inline void list_splice_tail_init(struct list_head *list,
 	}
 }
 
-#define list_entry(ptr, type, member) \
+#define list_entry(ptr, type, member)				\
 	container_of(ptr, type, member)
 
-#define list_first_entry(ptr, type, member) \
+#define list_first_entry(ptr, type, member)			\
 	list_entry((ptr)->next, type, member)
 
-#define list_for_each(pos, head) \
+#define list_for_each(pos, head)				\
 	for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define __list_for_each(pos, head) \
+#define __list_for_each(pos, head)				\
 	for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define list_for_each_prev(pos, head) \
+#define list_for_each_prev(pos, head)				\
 	for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
+#define list_for_each_safe(pos, n, head)			\
+	for (pos = (head)->next, n = pos->next; pos != (head);	\
 		pos = n, n = pos->next)
 
-#define list_for_each_prev_safe(pos, n, head) \
-	for (pos = (head)->prev, n = pos->prev; \
-	     pos != (head); \
+#define list_for_each_prev_safe(pos, n, head)			\
+	for (pos = (head)->prev, n = pos->prev;			\
+	     pos != (head);					\
 	     pos = n, n = pos->prev)
 
 #define list_for_each_entry(pos, head, member)				\
 	for (pos = list_entry((head)->next, typeof(*pos), member);	\
-	     &pos->member != (head); 	\
+	     &pos->member != (head);					\
 	     pos = list_entry(pos->member.next, typeof(*pos), member))
 
 #define list_for_each_entry_reverse(pos, head, member)			\
 	for (pos = list_entry((head)->prev, typeof(*pos), member);	\
-	     &pos->member != (head); 	\
+	     &pos->member != (head);					\
 	     pos = list_entry(pos->member.prev, typeof(*pos), member))
 
-#define list_prepare_entry(pos, head, member) \
+#define list_prepare_entry(pos, head, member)				\
 	((pos) ? : list_entry(head, typeof(*pos), member))
 
-#define list_for_each_entry_continue(pos, head, member) 		\
+#define list_for_each_entry_continue(pos, head, member)			\
 	for (pos = list_entry(pos->member.next, typeof(*pos), member);	\
-	     &pos->member != (head);	\
+	     &pos->member != (head);					\
 	     pos = list_entry(pos->member.next, typeof(*pos), member))
 
 #define list_for_each_entry_continue_reverse(pos, head, member)		\
 	for (pos = list_entry(pos->member.prev, typeof(*pos), member);	\
-	     &pos->member != (head);	\
+	     &pos->member != (head);					\
 	     pos = list_entry(pos->member.prev, typeof(*pos), member))
 
-#define list_for_each_entry_from(pos, head, member) 			\
-	for (; &pos->member != (head);	\
+#define list_for_each_entry_from(pos, head, member)			\
+	for (; &pos->member != (head);					\
 	     pos = list_entry(pos->member.next, typeof(*pos), member))
 
 #define list_for_each_entry_safe(pos, n, head, member)			\
 	for (pos = list_entry((head)->next, typeof(*pos), member),	\
 		n = list_entry(pos->member.next, typeof(*pos), member);	\
-	     &pos->member != (head); 					\
+	     &pos->member != (head);					\
 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
-#define list_for_each_entry_safe_continue(pos, n, head, member) 		\
-	for (pos = list_entry(pos->member.next, typeof(*pos), member), 		\
+#define list_for_each_entry_safe_continue(pos, n, head, member)			\
+	for (pos = list_entry(pos->member.next, typeof(*pos), member),		\
 		n = list_entry(pos->member.next, typeof(*pos), member);		\
 	     &pos->member != (head);						\
 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
-#define list_for_each_entry_safe_from(pos, n, head, member) 			\
+#define list_for_each_entry_safe_from(pos, n, head, member)			\
 	for (n = list_entry(pos->member.next, typeof(*pos), member);		\
 	     &pos->member != (head);						\
 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
@@ -277,7 +277,7 @@ static inline void list_splice_tail_init(struct list_head *list,
 #define list_for_each_entry_safe_reverse(pos, n, head, member)		\
 	for (pos = list_entry((head)->prev, typeof(*pos), member),	\
 		n = list_entry(pos->member.prev, typeof(*pos), member);	\
-	     &pos->member != (head); 					\
+	     &pos->member != (head);					\
 	     pos = n, n = list_entry(n->member.prev, typeof(*n), member))
 
 #define list_safe_reset_next(pos, n, member)				\
