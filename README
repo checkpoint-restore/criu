@@ -13,20 +13,3 @@ Some code snippets are borrowed from
 Many thanks to these projects.
 
 Licensed under GPLv2 (http://www.gnu.org/licenses/gpl-2.0.txt)
-
-Kernel patching
-===============
-
-To have crtools up and running clone
-
-	git://github.com/cyrillos/linux-2.6.git
-
-and switch to branch "crtools".
-
-It's based on Linux
-
-commit 384703b8e6cd4c8ef08512e596024e028c91c339
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Fri Dec 16 18:36:26 2011 -0800
-
-    Linux 3.2-rc6
