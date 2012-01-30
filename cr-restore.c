@@ -1160,7 +1160,7 @@ static int restore_one_zobie(int pid, int exit_code)
 		exit_code = 0;
 	}
 
-	exit(exit_code >> 8);
+	exit((exit_code >> 8) & 0x7f);
 
 	/* never reached */
 	BUG_ON(1);
