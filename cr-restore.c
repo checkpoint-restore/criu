@@ -618,8 +618,6 @@ static inline bool should_restore_page(int pid, unsigned long va)
 	return si->pid == pid;
 }
 
-static char zpage[PAGE_SIZE];
-
 static int fixup_pages_data(int pid, int fd)
 {
 	int shfd;
@@ -675,9 +673,7 @@ static int fixup_pages_data(int pid, int fd)
 	}
 
 	close(shfd);
-	va = 0;
-	write(fd, &va, sizeof(va));
-	write(fd, zpage, sizeof(zpage));
+	write_img(fd, &zero_page_entry);
 
 	return 0;
 }
