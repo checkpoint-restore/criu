@@ -26,6 +26,8 @@ $ZP/transition/file_read
 $ZP/transition/fork
 $ZP/static/zombie00
 $ZP/static/sockets00
+$ZP/static/pid00
+$ZP/static/caps00
 $ZP/static/cmdlinenv00
 $ZP/static/socket_listen"
 
