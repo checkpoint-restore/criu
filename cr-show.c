@@ -59,7 +59,7 @@ static void show_shmem(int fd_shmem)
 
 	while (1) {
 		int ret;
-		
+
 		ret = read_img_eof(fd_shmem, &e);
 		if (ret <= 0)
 			goto out;
@@ -78,7 +78,7 @@ static void show_files(int fd_files)
 
 	while (1) {
 		int ret;
-		
+
 		ret = read_img_eof(fd_files, &e);
 		if (ret <= 0)
 			goto out;
@@ -112,7 +112,7 @@ static void show_pipes(int fd_pipes)
 
 	while (1) {
 		int ret;
-		
+
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
@@ -211,7 +211,7 @@ static void show_sigacts(int fd_sigacts)
 
 	while (1) {
 		int ret;
-		
+
 		ret = read_img_eof(fd_sigacts, &e);
 		if (ret <= 0)
 			goto out;
