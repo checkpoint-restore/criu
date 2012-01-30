@@ -150,7 +150,7 @@ struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset 
 		if (ret && errno != ENOENT) {
 			pr_perror("Unable to unlink %s (%s)\n", path, strerror(errno));
 			goto err;
-		} 
+		}
 
 		ret = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
 		if (ret < 0) {

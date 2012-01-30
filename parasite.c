@@ -251,7 +251,7 @@ static int dump_sigact(struct parasite_dump_file_args *args)
 
 	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
 
-        for (sig = 1; sig < SIGMAX; sig++) {
+	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 

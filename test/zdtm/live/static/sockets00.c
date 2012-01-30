@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	ssk_icon[1] = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (ssk_icon[0] < 0 || ssk_icon[1] < 0) {
 		fail("socket\n");
-		exit(1);		
+		exit(1);
 	}
 
 	ret = bind(ssk_icon[0], &addr, addrlen);
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 	ret = accept(ssk_icon[0], NULL, NULL);
 	if (ret < 0) {
 		fail("accept\n");
-		exit(1);		
+		exit(1);
 	} else
 		ssk_icon[0] = ret;
 

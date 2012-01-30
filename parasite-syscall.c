@@ -199,7 +199,7 @@ retry_signal:
 	ret = 0;
 
 	/*
-	 * Our code is done. 
+	 * Our code is done.
 	 */
 	jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore_full);
 	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore_full);
