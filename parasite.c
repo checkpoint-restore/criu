@@ -367,7 +367,7 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 
 	switch (cmd) {
 	case PARASITE_CMD_PINGME:
-		break;
+		return 0;
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
@@ -381,7 +381,7 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		break;
 	}
 
-	return 0;
+	return -1;
 }
 
 static void __parasite_head __used parasite_head(void)
