@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ZP="zdtm/live/"
+ZP="zdtm/live"
 
 TEST_LIST="\
 $ZP/static/pipe00
@@ -47,7 +47,7 @@ run_test()
 	make -C $tdir cleanout $tname.pid
 	pid=`cat $test.pid`
 	ddump="dump/$tname/$pid"
-	dump_path=`pwd`"/"$ddump
+	DUMP_PATH=`pwd`"/"$ddump
 	mkdir -p $ddump
 	ls -l /proc/$pid/fd/
 	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $2 || return 1
@@ -68,34 +68,42 @@ run_test()
 	cat $test.out | grep PASS || return 2
 }
 
+case_error()
+{
+	test=$1
+	test_log="`pwd`/$test.out"
+
+	echo "Test: $test"
+	echo "====================== ERROR ======================"
+
+	[ -e "$DUMP_PATH/dump.log" ] && echo "Dump log   : $DUMP_PATH/dump.log"
+	[ -e "$DUMP_PATH/restore.log" ] && echo "Restore log: $DUMP_PATH/restore.log"
+	[ -e "$test_log" ] && echo "Output file: $test_log"
+	exit 1
+}
+
 cd `dirname $0` || exit 1
 
 if [ $# -eq 0 ]; then
 	for t in $TEST_LIST; do
-		run_test $t "" || exit 1
+		run_test $t "" || case_error $t
 	done
 	for t in $UTS_TEST_LIST; do
-		run_test $t "-n uts" || exit 1
+		run_test $t "-n uts" || case_error $t
 	done
 	for t in $IPC_TEST_LIST; do
-		run_test $t "-n ipc" || exit 1
+		run_test $t "-n ipc" || case_error $t
 	done
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 	echo $UTS_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
+	echo $IPC_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
 	if echo "$UTS_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$ZP/$1" "-n uts" && exit 0
+		run_test "$ZP/$1" "-n uts" || case_error "$ZP/$1"
 	elif echo "$IPC_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$ZP/$1" "-n ipc" && exit 0
+		run_test "$ZP/$1" "-n ipc" || case_error "$ZP/$1"
 	else
-		run_test "$ZP/$1" && exit 0
-	fi
-	result=$?
-	echo "====================== ERROR ======================"
-	if [ $result == 1 ]; then
-		echo "Dump log: "$dump_path"/dump.log"
-	else
-		echo "Restore log: "$dump_path"/restore.log"
+		run_test "$ZP/$1" || case_error "$ZP/$1"
 	fi
 fi
