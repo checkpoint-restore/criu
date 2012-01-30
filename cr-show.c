@@ -402,9 +402,8 @@ static void show_core_rest(int fd_core)
 		(int)tc.task_state,
 		task_state_str((int)tc.task_state));
 
-	if (tc.task_state == TASK_DEAD)
-		pr_info("\t   Exit code: %u\n",
-			(unsigned int)tc.exit_code);
+	pr_info("\t   Exit code: %u\n",
+		(unsigned int)tc.exit_code);
 
 	pr_info("\tBrk:          %lx\n", tc.mm_brk);
 	pr_info("\tStart code:   %lx\n", tc.mm_start_code);
