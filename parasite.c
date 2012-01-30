@@ -366,9 +366,6 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_file_args) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
-	case PARASITE_CMD_KILLME:
-		sys_close(0);
-		break;
 	case PARASITE_CMD_PINGME:
 		break;
 	case PARASITE_CMD_DUMPPAGES:
