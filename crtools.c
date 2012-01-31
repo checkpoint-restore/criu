@@ -18,6 +18,7 @@
 #include "util.h"
 #include "log.h"
 #include "sockets.h"
+#include "syscall.h"
 
 static struct cr_options opts;
 struct page_entry zero_page_entry;
@@ -252,6 +253,26 @@ err:
 	return NULL;
 }
 
+static int parse_ns_string(const char *ptr, unsigned int *flags)
+{
+	const char *end = ptr + strlen(ptr);
+
+	do {
+		if (ptr[3] != ',' && ptr[3] != '\0')
+			goto bad_ns;
+		if (!strncmp(ptr, "uts", 3))
+			opts.namespaces_flags |= CLONE_NEWUTS;
+		else
+			goto bad_ns;
+		ptr += 4;
+	} while (ptr < end);
+	return 0;
+
+bad_ns:
+	pr_err("Unknown namespace '%s'\n", ptr);
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
 	pid_t pid = 0;
@@ -260,7 +281,7 @@ int main(int argc, char *argv[])
 	int action = -1;
 	int log_inited = 0;
 
-	static const char short_opts[] = "df:p:t:hcD:o:n";
+	static const char short_opts[] = "df:p:t:hcD:o:n:";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -307,7 +328,8 @@ int main(int argc, char *argv[])
 			log_inited = 1;
 			break;
 		case 'n':
-			opts.with_namespaces = true;
+			if (parse_ns_string(optarg, &opts.namespaces_flags))
+				return -1;
 			break;
 		case 'h':
 		default:

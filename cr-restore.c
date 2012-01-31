@@ -1371,7 +1371,6 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	struct pstree_entry e;
 	int ret, i;
 	struct sigaction act, old_act;
-	unsigned long ns_clone_flags;
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
@@ -1402,12 +1401,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	 * this later.
 	 */
 
-	if (opts->with_namespaces)
-		ns_clone_flags = CLONE_NEWUTS;
-	else
-		ns_clone_flags = 0;
-
-	ret = fork_with_pid(e.pid, ns_clone_flags);
+	ret = fork_with_pid(e.pid, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
 

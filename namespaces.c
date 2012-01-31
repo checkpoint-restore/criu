@@ -26,7 +26,7 @@ out:
 	return ret;
 }
 
-static int do_dump_namespaces(int ns_pid)
+static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 {
 	struct cr_fdset *fdset;
 	int ret;
@@ -42,7 +42,7 @@ static int do_dump_namespaces(int ns_pid)
 
 }
 
-int dump_namespaces(int ns_pid)
+int dump_namespaces(int ns_pid, unsigned int ns_flags)
 {
 	int pid, ret, status;
 
@@ -66,7 +66,7 @@ int dump_namespaces(int ns_pid)
 	}
 
 	if (pid == 0) {
-		ret = do_dump_namespaces(ns_pid);
+		ret = do_dump_namespaces(ns_pid, ns_flags);
 		exit(ret);
 	}
 

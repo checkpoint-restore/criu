@@ -1329,8 +1329,8 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	if (collect_pstree(pid, &pstree_list))
 		goto err;
 
-	if (opts->with_namespaces) {
-		ret = dump_namespaces(pid);
+	if (opts->namespaces_flags) {
+		ret = dump_namespaces(pid, opts->namespaces_flags);
 		if (ret < 0)
 			goto err;
 	}

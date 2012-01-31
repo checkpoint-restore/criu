@@ -53,7 +53,7 @@ struct cr_options {
 	bool			leader_only;
 	bool			show_pages_content;
 	bool			restore_detach;
-	bool			with_namespaces;
+	unsigned int		namespaces_flags;
 };
 
 /* file descriptors template */
