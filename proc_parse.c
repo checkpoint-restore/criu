@@ -247,7 +247,7 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 		&s->exit_code);
 
 	if (n < 52) {
-		pr_perror("Parsing %d's stat failed (#fields do not match)", pid);
+		pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
 		return -1;
 	}
 
