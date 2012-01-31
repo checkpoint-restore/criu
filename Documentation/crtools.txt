@@ -47,8 +47,9 @@ OPTIONS
 -d::
     Detach 'crtools' itself once restore is complete.
 
--n::
-    Checkpoint namespaces.
+-n <ns>::
+    Checkpoint namespaces. Namespaces must be separated by comma.
+    Currently supported namespaces: uts.
 
 -o <file>::
     Write logging messages to 'file'.

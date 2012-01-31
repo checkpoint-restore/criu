@@ -377,8 +377,8 @@ int main(int argc, char *argv[])
 
 usage:
 	printk("\nUsage:\n");
-	printk("  %s dump [-c] -p|-t pid\n", argv[0]);
-	printk("  %s restore -p|-t pid\n", argv[0]);
+	printk("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
+	printk("  %s restore -p|-t pid [-n ns]\n", argv[0]);
 	printk("  %s show [-c] (-p|-t pid)|(-f file)\n", argv[0]);
 
 	printk("\nCommands:\n");
@@ -393,6 +393,8 @@ usage:
 	       "                 checkpoint complete, in case of showing file contents --\n"
 	       "                 show contents of pages dumped in hexdump format\n");
 	printk("  -d             detach after restore\n");
+	printk("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
+	printk("                 supported: uts\n");
 
 	printk("\nAdditional common parameters:\n");
 	printk("  -D dir         save checkpoint files in specified directory\n");
