@@ -575,7 +575,7 @@ static int fixup_vma_fds(int pid, int fd)
 		if (ret < 0) {
 			pr_perror("%d: Can't read vma_entry", pid);
 		} else if (ret != sizeof(vi)) {
-			pr_err("%d: Incomplete vma_entry (%d != %d)\n",
+			pr_err("%d: Incomplete vma_entry (%d != %ld)\n",
 			       pid, ret, sizeof(vi));
 			return -1;
 		}
@@ -1686,7 +1686,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	list_for_each_entry(vma_area, &self_vma_list, list) {
 		ret = write(fd_self_vmas, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
-			pr_perror("\nUnable to write vma entry (%li written)", num);
+			pr_perror("\nUnable to write vma entry (%d written)", num);
 			goto err;
 		}
 		num++;
@@ -1731,7 +1731,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		restore_thread_vma_len = sizeof(*thread_args) * pstree_entry.nr_threads;
 		restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
 
-		pr_info("%d: %d threads require %dK of memory\n",
+		pr_info("%d: %d threads require %ldK of memory\n",
 			pid, pstree_entry.nr_threads,
 			KBYTES(restore_thread_vma_len));
 		break;
@@ -1744,11 +1744,11 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 					      restore_thread_vma_len +
 					      SHMEMS_SIZE + TASK_ENTRIES_SIZE);
 	if (exec_mem_hint == -1) {
-		pr_err("No suitable area for task_restore bootstrap (%dK)\n",
+		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
 		goto err;
 	} else {
-		pr_info("Found bootstrap VMA hint at: %lx (needs ~%dK)\n",
+		pr_info("Found bootstrap VMA hint at: %lx (needs ~%ldK)\n",
 			exec_mem_hint,
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 	}
@@ -1862,7 +1862,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 			thread_args[i].rst_lock = &task_args->rst_lock;
 
 			pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
-				i, (long)thread_args[i].mem_zone.stack,
+				i, thread_args[i].mem_zone.stack,
 				thread_args[i].mem_zone.heap,
 				thread_args[i].mem_zone.rt_sigframe);
 
