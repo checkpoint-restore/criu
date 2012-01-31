@@ -108,7 +108,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	struct fdinfo_list_entry *le = &fdinfo_list[nr_fdinfo_list];
 	struct fdinfo_desc	*desc;
 
-	pr_info("Collect fdinfo pid=%d fd=%d id=%s\n", pid, e->addr, e->id);
+	pr_info("Collect fdinfo pid=%d fd=%ld id=%s\n", pid, e->addr, e->id);
 
 	nr_fdinfo_list++;
 	if ((nr_fdinfo_descs) * sizeof(struct fdinfo_list_entry) >= 4096) {
@@ -345,7 +345,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		snprintf(saddr.sun_path, UNIX_PATH_MAX,
 				"X/crtools-fd-%d-%d", fle->real_pid, fle->fd);
 
-		pr_info("Send fd %d to %s\n", fe->addr, saddr.sun_path + 1);
+		pr_info("Send fd %ld to %s\n", fe->addr, saddr.sun_path + 1);
 
 		data.iov_base = &dummy;
 		data.iov_len = sizeof(dummy);
@@ -422,7 +422,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 		if (fi->addr != fe->addr) {
 			tmp = dup2(fi->addr, fe->addr);
 			if (tmp < 0) {
-				pr_perror("Can't duplicate fd %d %d",
+				pr_perror("Can't duplicate fd %ld %ld",
 						fi->addr, fe->addr);
 				return -1;
 			}
