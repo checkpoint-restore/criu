@@ -56,7 +56,7 @@ void hex_dump(void *addr, unsigned long len)
 
 	for (i = 0; i < len; i += 8) {
 		printk("%08lx: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-		       p, p[i+0], p[i+1], p[i+2], p[i+3],
+		       (long)p, p[i+0], p[i+1], p[i+2], p[i+3],
 		       p[i+4], p[i+5], p[i+6], p[i+7]);
 	}
 }
