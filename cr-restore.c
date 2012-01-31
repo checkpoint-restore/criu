@@ -789,7 +789,7 @@ static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
 			return -1;
 		}
 
-		size =+ ret;
+		size += ret;
 	}
 
 	return 0;
