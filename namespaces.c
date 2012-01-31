@@ -4,6 +4,7 @@
 #include "util.h"
 #include "syscall.h"
 #include "uts_ns.h"
+#include "ipc_ns.h"
 
 int switch_ns(int pid, int type, char *ns)
 {
@@ -35,8 +36,17 @@ static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 	if (fdset == NULL)
 		return -1;
 
-	ret = dump_uts_ns(ns_pid, fdset);
-
+	if (ns_flags & CLONE_NEWUTS) {
+		ret = dump_uts_ns(ns_pid, fdset);
+		if (ret < 0)
+			goto err;
+	}
+	if (ns_flags & CLONE_NEWIPC) {
+		ret = dump_ipc_ns(ns_pid, fdset);
+		if (ret < 0)
+			goto err;
+	}
+err:
 	close_cr_fdset(&fdset);
 	return ret;
 

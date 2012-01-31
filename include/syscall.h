@@ -353,6 +353,10 @@ static long sys_capset(struct cap_header *h, struct cap_data *d)
 #define CLONE_NEWUTS	0x04000000
 #endif
 
+#ifndef CLONE_NEWIPC
+#define CLONE_NEWIPC	0x08000000
+#endif
+
 #define setns	sys_setns
 
 #else /* CONFIG_X86_64 */

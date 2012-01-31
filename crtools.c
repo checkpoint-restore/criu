@@ -110,6 +110,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_UTSNS,
 		.magic	= UTSNS_MAGIC,
 	},
+
+	/* IPC namespace */
+	[CR_FD_IPCNS] = {
+		.fmt	= FMT_FNAME_IPCNS,
+		.magic	= IPCNS_MAGIC,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)
@@ -262,6 +268,8 @@ static int parse_ns_string(const char *ptr, unsigned int *flags)
 			goto bad_ns;
 		if (!strncmp(ptr, "uts", 3))
 			opts.namespaces_flags |= CLONE_NEWUTS;
+		else if (!strncmp(ptr, "ipc", 3))
+			opts.namespaces_flags |= CLONE_NEWIPC;
 		else
 			goto bad_ns;
 		ptr += 4;
