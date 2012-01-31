@@ -274,3 +274,39 @@ int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset)
 	}
 	return 0;
 }
+
+static void show_ipc_entry(struct ipc_ns_entry *entry)
+{
+	pr_info("/proc/sys/kernel/sem             : %d\t%d\t%d\t%d\n",
+				entry->sem_ctls[0], entry->sem_ctls[1],
+				entry->sem_ctls[2], entry->sem_ctls[3]);
+	pr_info("/proc/sys/kernel/msgmax          : %d\n", entry->msg_ctlmax);
+	pr_info("/proc/sys/kernel/msgmnb          : %d\n", entry->msg_ctlmnb);
+	pr_info("/proc/sys/kernel/msgmni          : %d\n", entry->msg_ctlmni);
+	pr_info("/proc/sys/kernel/auto_msgmni     : %d\n", entry->auto_msgmni);
+	pr_info("/proc/sys/kernel/shmmax          : %ld\n", *(u64 *)entry->shm_ctlmax);
+	pr_info("/proc/sys/kernel/shmall          : %ld\n", *(u64 *)entry->shm_ctlall);
+	pr_info("/proc/sys/kernel/shmmni          : %d\n", entry->shm_ctlmni);
+	pr_info("/proc/sys/kernel/shm_rmid_forced : %d\n", entry->shm_rmid_forced);
+	pr_info("/proc/sys/fs/mqueue/queues_max   : %d\n", entry->mq_queues_max);
+	pr_info("/proc/sys/fs/mqueue/msg_max      : %d\n", entry->mq_msg_max);
+	pr_info("/proc/sys/fs/mqueue/msgsize_max  : %d\n", entry->mq_msgsize_max);
+}
+
+static void show_ipc_data(int fd)
+{
+	int ret;
+	struct ipc_ns_data ipc;
+
+	ret = read_img(fd, &ipc);
+	if (ret <= 0)
+		return;
+	show_ipc_entry(&ipc.entry);
+}
+
+void show_ipc_ns(int fd)
+{
+	pr_img_head(CR_FD_IPCNS);
+	show_ipc_data(fd);
+	pr_img_tail(CR_FD_IPCNS);
+}

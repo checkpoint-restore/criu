@@ -20,6 +20,7 @@
 #include "sockets.h"
 #include "image.h"
 #include "uts_ns.h"
+#include "ipc_ns.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -512,6 +513,9 @@ static int cr_parse_file(struct cr_options *opts)
 		break;
 	case CREDS_MAGIC:
 		show_creds(fd);
+		break;
+	case IPCNS_MAGIC:
+		show_ipc_ns(fd);
 		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
