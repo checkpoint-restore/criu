@@ -45,19 +45,24 @@ run_test()
 
 	killall -9 $tname
 	make -C $tdir cleanout $tname.pid
+
 	pid=`cat $test.pid`
 	ddump="dump/$tname/$pid"
 	DUMP_PATH=`pwd`"/"$ddump
+
+	echo Dump $pid
 	mkdir -p $ddump
-	ls -l /proc/$pid/fd/
 	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $2 || return 1
 	while :; do
 		killall -9 $tname &> /dev/null || break;
 		echo Waiting...
 		sleep 1
 	done
+
+	echo Restore $pid
 	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $2 || return 2
-	ls -l /proc/$pid/fd/
+
+	echo Check results $pid
 	make -C $tdir $tname.out
 	for i in `seq 50`; do
 		test -f $test.out && break;
