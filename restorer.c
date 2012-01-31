@@ -146,8 +146,8 @@ long restore_thread(struct thread_restore_args *args)
 
 		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-	#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
-	#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
+#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
+#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
 
 		CPREGT1(r8);
 		CPREGT1(r9);
