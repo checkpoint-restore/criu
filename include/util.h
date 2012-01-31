@@ -96,7 +96,7 @@ extern void printk(const char *format, ...);
 			write_string("BUG at " __FILE__ ": ");		\
 			write_num(__LINE__);				\
 			write_string("\n");				\
-			*(unsigned long *)NULL = 0xdead0000 + __LINE__;	\
+			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;	\
 		}							\
 	} while (0)
 
