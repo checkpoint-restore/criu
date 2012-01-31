@@ -37,7 +37,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 	if (use_map_files) {
 		map_files_dir = opendir_proc(pid_dir, "map_files");
 		if (!map_files_dir) {
-			pr_err("Can't open %d's, old kernel?\n", pid);
+			pr_perror("Can't open %d's map_files (old kernel?)\n", pid);
 			goto err;
 		}
 	}
@@ -72,7 +72,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
 				if (errno != ENOENT) {
-					pr_perror("Failed opening %d's map %lu", pid, start);
+					pr_perror("Can't open %d's map %lu", pid, start);
 					goto err;
 				}
 			}

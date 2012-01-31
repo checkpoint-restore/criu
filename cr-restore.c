@@ -865,7 +865,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	char path[128];
 	int tmp, fd;
 
-	pr_info("\t%d: Wating for pipe %x to appear\n",
+	pr_info("\t%d: Waiting for pipe %x to appear\n",
 		pid, e->pipeid);
 
 	cr_wait_while(&pi->real_pid, 0);
@@ -1231,7 +1231,7 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
 			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
 	if (stack == MAP_FAILED) {
-		pr_perror("Failed to map stack for kid");
+		pr_perror("Failed to map stack for the child");
 		goto err;
 	}
 

@@ -100,7 +100,7 @@ int close_safe(int *fd)
 		if (!ret)
 			*fd = -1;
 		else
-			pr_perror("Unable to close fd: %d", *fd);
+			pr_perror("Unable to close fd %d", *fd);
 	}
 
 	return ret;
@@ -116,11 +116,11 @@ int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {
 				if (new_fd < 3) {
 					/*
-					 * Standart descriptors.
+					 * Standard descriptors.
 					 */
-					pr_warning("fd = %d is already used\n", new_fd);
+					pr_warning("fd %d already in use\n", new_fd);
 				} else {
-					pr_err("fd = %d is already used\n", new_fd);
+					pr_err("fd %d already in use\n", new_fd);
 					return -1;
 				}
 			}

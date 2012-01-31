@@ -326,7 +326,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			if (chdir(optarg)) {
-				pr_perror("can't change working directory");
+				pr_perror("Can't change directory to %s",
+						optarg);
 				return -1;
 			}
 			break;
@@ -411,6 +412,6 @@ usage:
 	return -1;
 
 opt_pid_missing:
-	printk("No pid specified, -t or -p option missed?\n");
+	printk("No pid specified (-t or -p option missing)\n");
 	return -1;
 }

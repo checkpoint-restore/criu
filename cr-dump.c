@@ -1123,7 +1123,7 @@ static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
 	struct core_entry *core;
 
 	if (item->nr_children) {
-		pr_err("Zombie %d with kids?\n", item->pid);
+		pr_err("Zombie %d with children.\n", item->pid);
 		return -1;
 	}
 

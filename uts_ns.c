@@ -71,7 +71,7 @@ static int prepare_uts_str(int fd, char *n)
 			return -1;
 		}
 
-		pr_info("Restoging %s to [%s]\n", n, str);
+		pr_info("Restoring %s to [%s]\n", n, str);
 
 		ret = write(fd, str, len);
 		close(fd);
