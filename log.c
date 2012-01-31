@@ -40,7 +40,7 @@ int init_log(const char *name)
 	if (name) {
 		fd = open(name, O_CREAT | O_WRONLY);
 		if (fd == -1) {
-			pr_perror("Can't create log file %s\n", name);
+			pr_perror("Can't create log file %s", name);
 			return -1;
 		}
 	}

@@ -30,7 +30,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 
 	maps = fopen_proc(pid_dir, "maps");
 	if (!maps) {
-		pr_perror("Can't open %d's maps\n", pid);
+		pr_perror("Can't open %d's maps", pid);
 		goto err;
 	}
 
@@ -72,7 +72,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
 				if (errno != ENOENT) {
-					pr_perror("Failed opening %d's map %Lu\n", pid, start);
+					pr_perror("Failed opening %d's map %Lu", pid, start);
 					goto err;
 				}
 			}
@@ -115,7 +115,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 		if (vma_area->vm_file_fd >= 0) {
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
-				pr_perror("Failed fstat on %d's map %Lu\n", pid, start);
+				pr_perror("Failed fstat on %d's map %Lu", pid, start);
 				goto err;
 			}
 			if (!S_ISREG(st_buf.st_mode)) {
@@ -296,7 +296,7 @@ int parse_pid_status(int pid_dir, struct proc_status_creds *cr)
 
 	f = fopen_proc(pid_dir, "status");
 	if (f == NULL) {
-		pr_perror("Can't open proc status\n");
+		pr_perror("Can't open proc status");
 		return -1;
 	}
 

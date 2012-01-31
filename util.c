@@ -100,7 +100,7 @@ int close_safe(int *fd)
 		if (!ret)
 			*fd = -1;
 		else
-			pr_perror("Unable to close fd: %d\n", *fd);
+			pr_perror("Unable to close fd: %d", *fd);
 	}
 
 	return ret;
@@ -128,7 +128,7 @@ int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 
 		tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
-			pr_perror("Dup %d -> %d failed\n", old_fd, new_fd);
+			pr_perror("Dup %d -> %d failed", old_fd, new_fd);
 			return tmp;
 		}
 
@@ -146,7 +146,7 @@ int move_img_fd(int *img_fd, int want_fd)
 
 		tmp = dup(*img_fd);
 		if (tmp < 0) {
-			pr_perror("Can't dup file\n");
+			pr_perror("Can't dup file");
 			return -1;
 		}
 
@@ -213,7 +213,7 @@ int open_pid_proc(pid_t pid)
 	sprintf(path, "/proc/%d", pid);
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
-		pr_perror("Can't open %s\n", path);
+		pr_perror("Can't open %s", path);
 	return fd;
 }
 

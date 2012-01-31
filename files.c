@@ -90,13 +90,13 @@ int prepare_fdinfo_global()
 {
 	fdinfo_descs = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_descs == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_descs\n");
+		pr_perror("Can't map fdinfo_descs");
 		return -1;
 	}
 
 	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_list == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_list\n");
+		pr_perror("Can't map fdinfo_list");
 		return -1;
 	}
 	return 0;
@@ -177,7 +177,7 @@ int prepare_fd_pid(int pid)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(e)) {
-			pr_perror("%d: Read fdinfo failed %d (expected %li)\n",
+			pr_perror("%d: Read fdinfo failed %d (expected %li)",
 				  pid, ret, sizeof(e));
 			return -1;
 		}
@@ -205,7 +205,7 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 
 	tmp = open(path, fe->flags);
 	if (tmp < 0) {
-		pr_perror("Can't open file %s\n", path);
+		pr_perror("Can't open file %s", path);
 		return -1;
 	}
 
@@ -225,7 +225,7 @@ static int restore_cwd(struct fdinfo_entry *fe, int fd)
 	pr_info("Restore CWD %s\n", path);
 	ret = chdir(path);
 	if (ret < 0) {
-		pr_perror("Can't change dir %s\n", path);
+		pr_perror("Can't change dir %s", path);
 		return -1;
 	}
 
@@ -279,7 +279,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 	}
 	ret = bind(sock, &saddr, sun_len);
 	if (ret < 0) {
-		pr_perror("Can't bind unix socket %s\n", saddr.sun_path + 1);
+		pr_perror("Can't bind unix socket %s", saddr.sun_path + 1);
 		return -1;
 	}
 
@@ -406,7 +406,7 @@ static int recv_fd(int sock)
 
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if (!cmsg->cmsg_type == SCM_RIGHTS) {
-		pr_perror("got control message of unknown type %d\n",
+		pr_perror("got control message of unknown type %d",
 							  cmsg->cmsg_type);
 		return -1;
 	}
@@ -422,7 +422,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 		if (fi->addr != fe->addr) {
 			tmp = dup2(fi->addr, fe->addr);
 			if (tmp < 0) {
-				pr_perror("Can't duplicate fd %d %d\n",
+				pr_perror("Can't duplicate fd %d %d",
 						fi->addr, fe->addr);
 				return -1;
 			}
@@ -533,7 +533,7 @@ int prepare_fds(int pid)
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
 	if (fdinfo_fd < 0) {
-		pr_perror("%d: Can't open pipes img\n", pid);
+		pr_perror("%d: Can't open pipes img", pid);
 		return -1;
 	}
 
@@ -548,7 +548,7 @@ int prepare_fds(int pid)
 				break;
 
 			if (ret != sizeof(fe)) {
-				pr_perror("%d: Bad fdinfo entry\n", pid);
+				pr_perror("%d: Bad fdinfo entry", pid);
 				goto err;
 			}
 
@@ -613,6 +613,6 @@ int try_fixup_file_map(int pid, struct vma_entry *vma_entry, int fd)
 
 	return 0;
 err:
-	pr_perror("%d: Can't fixup vma\n", pid);
+	pr_perror("%d: Can't fixup vma", pid);
 	return -1;
 }

@@ -104,7 +104,7 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
 	len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
 	if (len < 0) {
-		pr_perror("Can't readlink %s\n", fd_str);
+		pr_perror("Can't readlink %s", fd_str);
 		goto err;
 	}
 
@@ -151,7 +151,7 @@ static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 
 	fd = open_proc(pid_dir, "cwd");
 	if (fd < 0) {
-		pr_perror("Failed to openat cwd\n");
+		pr_perror("Failed to openat cwd");
 		return -1;
 	}
 
@@ -172,7 +172,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 
 	pr_info("Dumping data from pipe %x\n", e->pipeid);
 	if (pipe(steal_pipe) < 0) {
-		pr_perror("Can't create pipe for stealing data\n");
+		pr_perror("Can't create pipe for stealing data");
 		goto err;
 	}
 
@@ -185,7 +185,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 	has_bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
 	if (has_bytes < 0) {
 		if (errno != EAGAIN) {
-			pr_perror("Can't pick pipe data\n");
+			pr_perror("Can't pick pipe data");
 			goto err_close;
 		} else
 			has_bytes = 0;
@@ -199,7 +199,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 		ret = splice(steal_pipe[0], NULL, fd_pipes,
 			     NULL, has_bytes, 0);
 		if (ret < 0) {
-			pr_perror("Can't push pipe data\n");
+			pr_perror("Can't push pipe data");
 			goto err_close;
 		}
 	}
@@ -254,12 +254,12 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to open %d/%d\n", pid_fd_dir, p->fd_name);
+		pr_perror("Failed to open %d/%d", pid_fd_dir, p->fd_name);
 		return -1;
 	}
 
 	if (fstat(lfd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %d\n", p->fd_name);
+		pr_perror("Can't get stat on %d", p->fd_name);
 		goto out_close;
 	}
 
@@ -283,7 +283,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 
 	if (S_ISFIFO(st_buf.st_mode)) {
 		if (fstatfs(lfd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %d\n", p->fd_name);
+			pr_perror("Can't fstatfs on %d", p->fd_name);
 			return -1;
 		}
 
@@ -306,7 +306,7 @@ static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 
 	file = fopen_proc(pid_dir, "fdinfo/%s", fd);
 	if (!file) {
-		pr_perror("Can't open %d's %s fdinfo\n", pid, fd);
+		pr_perror("Can't open %d's %s fdinfo", pid, fd);
 		return -1;
 	}
 
@@ -337,13 +337,13 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	pr_info("----------------------------------------\n");
 
 	if (dump_cwd(pid_dir, cr_fdset)) {
-		pr_perror("Can't dump %d's cwd %s\n", pid);
+		pr_perror("Can't dump %d's cwd %s", pid);
 		return -1;
 	}
 
 	fd_dir = opendir_proc(pid_dir, "fd");
 	if (!fd_dir) {
-		pr_perror("Can't open %d's fd\n", pid);
+		pr_perror("Can't open %d's fd", pid);
 		return -1;
 	}
 
@@ -487,7 +487,7 @@ static int get_task_sigmask(pid_t pid, int pid_dir, u64 *task_sigset)
 	 */
 	file = fopen_proc(pid_dir, "status");
 	if (!file) {
-		pr_perror("Can't open %d status\n", pid);
+		pr_perror("Can't open %d status", pid);
 		goto err;
 	}
 
@@ -511,7 +511,7 @@ static int get_task_auxv(pid_t pid, int pid_dir, struct core_entry *core)
 	int ret, i;
 
 	if (fd < 0) {
-		pr_perror("Can't open %d's auxv\n", pid);
+		pr_perror("Can't open %d's auxv", pid);
 		return -1;
 	}
 
@@ -522,7 +522,7 @@ static int get_task_auxv(pid_t pid, int pid_dir, struct core_entry *core)
 			break;
 		else if (ret != sizeof(core->tc.mm_saved_auxv[0])) {
 			ret = -1;
-			pr_perror("Error readind %d's auxv[%d]\n",
+			pr_perror("Error readind %d's auxv[%d]",
 				  pid, i);
 			goto err;
 		}
@@ -542,7 +542,7 @@ static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
 
 	file = fopen_proc(pid_dir, "personality");
 	if (!file) {
-		pr_perror("Can't open %d personality\n", pid);
+		pr_perror("Can't open %d personality", pid);
 		goto err;
 	}
 
@@ -733,7 +733,7 @@ static int parse_threads(pid_t pid, int pid_dir, struct pstree_item *item)
 
 	dir = opendir_proc(pid_dir, "task");
 	if (!dir) {
-		pr_perror("Can't open %d/task\n", pid);
+		pr_perror("Can't open %d/task", pid);
 		return -1;
 	}
 
@@ -773,7 +773,7 @@ static int parse_children(pid_t pid, int pid_dir, struct pstree_item *item)
 
 		file = fopen_proc(pid_dir, "task/%d/children", item->threads[i]);
 		if (!file) {
-			pr_perror("Can't open %d children %d\n",
+			pr_perror("Can't open %d children %d",
 				  pid, item->threads[i]);
 			goto err;
 		}
@@ -983,7 +983,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	list_for_each_entry(vma_area, vma_area_list, list) {
 		ret = write(fd_core, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
-			pr_perror("\nUnable to write vma entry (%li written)\n", num);
+			pr_perror("\nUnable to write vma entry (%li written)", num);
 			goto err;
 		}
 		num++;
@@ -1005,7 +1005,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 		if (!ret)
 			break;
 		if (ret != sizeof(va)) {
-			pr_perror("\nUnable to read VA of page (%li written)\n", num);
+			pr_perror("\nUnable to read VA of page (%li written)", num);
 			goto err;
 		}
 
@@ -1039,7 +1039,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 			ret += sendfile(fd_core, fd_pages, NULL, PAGE_SIZE);
 			if (ret != sizeof(va) + PAGE_SIZE) {
 				pr_perror("\nUnable to write VMA_FILE_PRIVATE|VMA_ANON_PRIVATE "
-					  "page (%li, %li written)\n",
+					  "page (%li, %li written)",
 					  num, num_anon);
 				goto err;
 			}
@@ -1049,7 +1049,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 			ret += sendfile(fd_pages_shmem, fd_pages, NULL, PAGE_SIZE);
 			if (ret != sizeof(va) + PAGE_SIZE) {
 				pr_perror("\nUnable to write VMA_ANON_SHARED "
-					  "page (%li, %li written)\n",
+					  "page (%li, %li written)",
 					  num, num_anon);
 				goto err;
 			}
@@ -1069,7 +1069,7 @@ err:
 	return ret;
 
 err_strno:
-	pr_perror("Error catched\n");
+	pr_perror("Error catched");
 	goto err;
 }
 
@@ -1193,7 +1193,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 
 	pid_dir = open_pid_proc(pid);
 	if (pid_dir < 0) {
-		pr_perror("Can't open %d proc dir\n", pid);
+		pr_perror("Can't open %d proc dir", pid);
 		goto err;
 	}
 

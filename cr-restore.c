@@ -160,7 +160,7 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	if (ret >= 0)
 		return ret;
 	else if (ret < 0)
-		pr_perror("     %d: Can't stat shmem at %s\n",
+		pr_perror("     %d: Can't stat shmem at %s",
 			  si->pid, path);
 	return ret;
 }
@@ -351,14 +351,14 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
-		pr_perror("open(%s) failed\n", path);
+		pr_perror("open(%s) failed", path);
 		return -1;
 	}
 
 	ret = mmap(new_addr, size, PROT_READ | PROT_WRITE,
 		   MAP_SHARED | MAP_FIXED, fd, 0);
 	if (ret != new_addr) {
-		pr_perror("mmap failed\n");
+		pr_perror("mmap failed");
 		return -1;
 	}
 
@@ -374,7 +374,7 @@ static int prepare_shared(int ps_fd)
 
 	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (shmems == MAP_FAILED) {
-		pr_perror("Can't map shmem\n");
+		pr_perror("Can't map shmem");
 		return -1;
 	}
 
@@ -382,7 +382,7 @@ static int prepare_shared(int ps_fd)
 
 	task_entries = mmap(NULL, TASK_ENTRIES_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (task_entries == MAP_FAILED) {
-		pr_perror("Can't map shmem\n");
+		pr_perror("Can't map shmem");
 		return -1;
 	}
 	task_entries->nr = 0;
@@ -390,7 +390,7 @@ static int prepare_shared(int ps_fd)
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
-		pr_perror("Can't map pipes\n");
+		pr_perror("Can't map pipes");
 		return -1;
 	}
 
@@ -544,7 +544,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (sh_fd < 0) {
-			pr_perror("%d: Can't open shmem\n", pid);
+			pr_perror("%d: Can't open shmem", pid);
 			return -1;
 		}
 
@@ -553,7 +553,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
 		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
-			pr_perror("%d: Can't write img\n", pid);
+			pr_perror("%d: Can't write img", pid);
 			return -1;
 		}
 	}
@@ -573,7 +573,7 @@ static int fixup_vma_fds(int pid, int fd)
 
 		ret = read(fd, &vi, sizeof(vi));
 		if (ret < 0) {
-			pr_perror("%d: Can't read vma_entry\n", pid);
+			pr_perror("%d: Can't read vma_entry", pid);
 		} else if (ret != sizeof(vi)) {
 			pr_err("%d: Incomplete vma_entry (%d != %d)\n",
 			       pid, ret, sizeof(vi));
@@ -653,7 +653,7 @@ static int fixup_pages_data(int pid, int fd)
 			break;
 
 		if (ret < 0 || ret != sizeof(va)) {
-			pr_perror("%d: Can't read virtual address\n", pid);
+			pr_perror("%d: Can't read virtual address", pid);
 			return -1;
 		}
 
@@ -702,7 +702,7 @@ static int prepare_and_sigreturn(int pid)
 		return -1;
 
 	if (fstat(fd, &buf)) {
-		pr_perror("%d: Can't stat\n", pid);
+		pr_perror("%d: Can't stat", pid);
 		return -1;
 	}
 
@@ -711,19 +711,19 @@ static int prepare_and_sigreturn(int pid)
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_TRUNC, CR_FD_PERM);
 	if (fd_new < 0) {
-		pr_perror("%d: Can't open new image\n", pid);
+		pr_perror("%d: Can't open new image", pid);
 		return -1;
 	}
 
 	pr_info("%d: Preparing restore image %s (%li bytes)\n", pid, path, buf.st_size);
 	if (sendfile(fd_new, fd, NULL, buf.st_size) != buf.st_size) {
-		pr_perror("%d: sendfile failed\n", pid);
+		pr_perror("%d: sendfile failed", pid);
 		return -1;
 	}
 	close(fd);
 
 	if (fstat(fd_new, &buf)) {
-		pr_perror("%d: Can't stat\n", pid);
+		pr_perror("%d: Can't stat", pid);
 		return -1;
 	}
 
@@ -780,7 +780,7 @@ static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
 	while (size != e->bytes) {
 		ret = splice(pipes_fd, NULL, wfd, NULL, e->bytes, 0);
 		if (ret < 0) {
-			pr_perror("\t%x: Error splicing data\n", e->pipeid);
+			pr_perror("\t%x: Error splicing data", e->pipeid);
 			return -1;
 		}
 		if (ret == 0) {
@@ -803,7 +803,7 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pr_info("\t%d: Creating pipe %x%s\n", pid, e->pipeid, pipe_is_rw(pi) ? "(rw)" : "");
 
 	if (pipe(pfd) < 0) {
-		pr_perror("%d: Can't create pipe\n", pid);
+		pr_perror("%d: Can't create pipe", pid);
 		return -1;
 	}
 
@@ -883,7 +883,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 			tmp = dup2(tmp, e->fd);
 
 		if (tmp < 0) {
-			pr_perror("%d: Can't duplicate %d->%d\n",
+			pr_perror("%d: Can't duplicate %d->%d",
 					pid, tmp, e->fd);
 			return -1;
 		}
@@ -897,7 +897,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 
 	fd = open(path, e->flags);
 	if (fd < 0) {
-		pr_perror("%d: Can't attach pipe\n", pid);
+		pr_perror("%d: Can't attach pipe", pid);
 		return -1;
 	}
 
@@ -1151,7 +1151,7 @@ static int restore_one_zobie(int pid, int exit_code)
 		}
 
 		if (kill(pid, signr) < 0)
-			pr_perror("Can't kill myself, will just exit\n");
+			pr_perror("Can't kill myself, will just exit");
 
 		exit_code = 0;
 	}
@@ -1231,7 +1231,7 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
 			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
 	if (stack == MAP_FAILED) {
-		pr_perror("Failed to map stack for kid\n");
+		pr_perror("Failed to map stack for kid");
 		goto err;
 	}
 
@@ -1240,12 +1240,12 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 	ca.clone_flags = ns_clone_flags;
 	ca.fd = open(LAST_PID_PATH, O_RDWR);
 	if (ca.fd < 0) {
-		pr_perror("%d: Can't open %s\n", pid, LAST_PID_PATH);
+		pr_perror("%d: Can't open %s", pid, LAST_PID_PATH);
 		goto err;
 	}
 
 	if (flock(ca.fd, LOCK_EX)) {
-		pr_perror("%d: Can't lock %s\n", pid, LAST_PID_PATH);
+		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
 		goto err;
 	}
 
@@ -1256,11 +1256,11 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 			ns_clone_flags | SIGCHLD, &ca);
 
 	if (ret < 0)
-		pr_perror("Can't fork for %d\n", pid);
+		pr_perror("Can't fork for %d", pid);
 
 err_unlock:
 	if (flock(ca.fd, LOCK_UN))
-		pr_perror("%d: Can't unlock %s\n", pid, LAST_PID_PATH);
+		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
 
 err:
 	if (stack != MAP_FAILED)
@@ -1316,7 +1316,7 @@ static int restore_task_with_children(void *_arg)
 	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
-		pr_perror("%d: Can't block signals\n", pid);
+		pr_perror("%d: Can't block signals", pid);
 		exit(1);
 	}
 
@@ -1324,7 +1324,7 @@ static int restore_task_with_children(void *_arg)
 
 	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd < 0) {
-		pr_perror("%d: Can't reopen pstree image\n", pid);
+		pr_perror("%d: Can't reopen pstree image", pid);
 		exit(1);
 	}
 
@@ -1348,7 +1348,7 @@ static int restore_task_with_children(void *_arg)
 
 		ret = read(fd, pids, i);
 		if (ret != i) {
-			pr_perror("%d: Can't read children pids\n", pid);
+			pr_perror("%d: Can't read children pids", pid);
 			exit(1);
 		}
 
@@ -1375,7 +1375,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 
 	ret = read(fd, &e, sizeof(e));
 	if (ret != sizeof(e)) {
-		pr_perror("Can't read root pstree entry\n");
+		pr_perror("Can't read root pstree entry");
 		return -1;
 	}
 
@@ -1489,7 +1489,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	while (1) {
 		ret = read(fd, &vma, sizeof(vma));
 		if (ret && ret != sizeof(vma)) {
-			pr_perror("Can't read vma entry from core-%d\n", pid);
+			pr_perror("Can't read vma entry from core-%d", pid);
 			goto err_or_found;
 		}
 
@@ -1662,7 +1662,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	fd_core = open_image_ro_nocheck(FMT_FNAME_CORE_OUT, pid);
 	if (fd_core < 0)
-		pr_perror("Can't open core-out-%d\n", pid);
+		pr_perror("Can't open core-out-%d", pid);
 
 	if (get_image_path(self_vmas_path, sizeof(self_vmas_path),
 			   FMT_FNAME_VMAS, pid))
@@ -1678,7 +1678,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	// unlink(self_vmas_path);
 
 	if (fd_self_vmas < 0) {
-		pr_perror("Can't open %s\n", self_vmas_path);
+		pr_perror("Can't open %s", self_vmas_path);
 		goto err;
 	}
 
@@ -1686,7 +1686,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	list_for_each_entry(vma_area, &self_vma_list, list) {
 		ret = write(fd_self_vmas, &vma_area->vma, sizeof(vma_area->vma));
 		if (ret != sizeof(vma_area->vma)) {
-			pr_perror("\nUnable to write vma entry (%li written)\n", num);
+			pr_perror("\nUnable to write vma entry (%li written)", num);
 			goto err;
 		}
 		num++;
@@ -1706,7 +1706,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	while (1) {
 		ret = read_img_eof(fd_pstree, &pstree_entry);
 		if (ret <= 0) {
-			pr_perror("Pid %d not found in process tree\n", pid);
+			pr_perror("Pid %d not found in process tree", pid);
 			goto err;
 		}
 

@@ -90,7 +90,7 @@ static void show_files(int fd_files)
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
 			if (ret != e.len) {
-				pr_perror("Can't read %d bytes\n", e.len);
+				pr_perror("Can't read %d bytes", e.len);
 				goto out;
 			}
 			local_buf[e.len] = 0;
@@ -429,7 +429,7 @@ static void show_core(int fd_core, bool show_content)
 	bool is_thread;
 
 	if (fstat(fd_core, &stat)) {
-		pr_perror("Can't get stat on core file\n");
+		pr_perror("Can't get stat on core file");
 		goto out;
 	}
 
@@ -469,7 +469,7 @@ static int cr_parse_file(struct cr_options *opts)
 
 	fd = open(opts->show_dump_file, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open %s\n", opts->show_dump_file);
+		pr_perror("Can't open %s", opts->show_dump_file);
 		goto err;
 	}
 

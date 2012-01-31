@@ -349,7 +349,7 @@ static int parasite_prep_file(int type, struct parasite_dump_file_args *fa,
 		return -1;
 
 	if (fchmod(fdset->fds[type], CR_FD_PERM_DUMP)) {
-		pr_perror("Can't change permissions on %d file\n", type);
+		pr_perror("Can't change permissions on %d file", type);
 		return -1;
 	}
 

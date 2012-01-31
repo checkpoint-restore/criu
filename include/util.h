@@ -83,8 +83,7 @@ extern void printk(const char *format, ...);
 
 #define pr_perror(fmt, ...)					\
 	do {							\
-		pr_err("%s: " fmt,  strerror(errno),		\
-			##__VA_ARGS__);				\
+		pr_err(fmt ": %m\n", ##__VA_ARGS__);		\
 	} while (0)
 
 #ifndef BUG_ON_HANDLER
@@ -131,7 +130,7 @@ static inline int write_img_buf(int fd, void *ptr, int size)
 		return 0;
 
 	if (ret < 0)
-		pr_perror("Can't write img file\n");
+		pr_perror("Can't write img file");
 	else
 		pr_err("Img trimmed %d/%d\n", ret, size);
 	return -1;
@@ -156,7 +155,7 @@ static inline int read_img_buf_eof(int fd, void *ptr, int size)
 		return 0;
 
 	if (ret < 0)
-		pr_perror("Can't read img file\n");
+		pr_perror("Can't read img file");
 	else
 		pr_err("Img trimmed %d/%d\n", ret, size);
 	return -1;

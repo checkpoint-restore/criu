@@ -39,13 +39,13 @@ int seize_task(pid_t pid)
 	ret = ptrace(PTRACE_SEIZE, pid, NULL,
 		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
 	if (ret < 0) {
-		pr_perror("Can't seize task\n");
+		pr_perror("Can't seize task");
 		goto err;
 	}
 
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
-		pr_perror("Can't interrupt task\n");
+		pr_perror("Can't interrupt task");
 		goto err;
 	}
 

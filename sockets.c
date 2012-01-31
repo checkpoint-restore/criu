@@ -453,7 +453,7 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			if (stat(name, &st)) {
-				pr_perror("Can't stat socket %d(%s)\n",
+				pr_perror("Can't stat socket %d(%s)",
 						m->udiag_ino, name);
 				goto err;
 			}
@@ -560,7 +560,7 @@ static int collect_sockets_nl(int nl, void *req, int size,
 	iov.iov_len	= size;
 
 	if (sendmsg(nl, &msg, 0) < 0) {
-		pr_perror("Can't send request message\n");
+		pr_perror("Can't send request message");
 		goto err;
 	}
 
@@ -581,7 +581,7 @@ static int collect_sockets_nl(int nl, void *req, int size,
 			if (errno == EINTR)
 				continue;
 			else {
-				pr_perror("Error receiving nl report\n");
+				pr_perror("Error receiving nl report");
 				goto err;
 			}
 		}
@@ -682,7 +682,7 @@ try_again:
 				attempts--;
 				goto try_again; /* FIXME - use avagin@'s waiters */
 			}
-			pr_perror("Can't restore connection (c)\n");
+			pr_perror("Can't restore connection (c)");
 			return -1;
 		}
 
@@ -727,7 +727,7 @@ static int run_accept_jobs(void)
 		unix_show_job("Run acc", aj->fd, -1);
 		fd = accept(aj->fd, NULL, NULL);
 		if (fd < 0) {
-			pr_perror("Can't restore connection (s)\n");
+			pr_perror("Can't restore connection (s)");
 			return -1;
 		}
 
@@ -784,7 +784,7 @@ static int run_connect_jobs_dgram(void)
 		}
 
 		if (connect(d->fd, (struct sockaddr *)&b->addr, sizeof(b->addr)) < 0) {
-			pr_perror("Can't connect peer %d on fd %d\n",
+			pr_perror("Can't connect peer %d on fd %d",
 				  d->peer, d->fd);
 			goto err;
 		}
@@ -840,7 +840,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 			unlink(addr.sun_path);
 		if (bind(sk, (struct sockaddr *)&addr,
 			 sizeof(addr.sun_family) + ue->namelen) < 0) {
-			pr_perror("Can't bind socket\n");
+			pr_perror("Can't bind socket");
 			goto err;
 		}
 
@@ -914,12 +914,12 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			unlink(addr.sun_path);
 		if (bind(sk, (struct sockaddr *)&addr,
 			 sizeof(addr.sun_family) + ue->namelen) < 0) {
-			pr_perror("Can't bind socket\n");
+			pr_perror("Can't bind socket");
 			goto err;
 		}
 
 		if (listen(sk, ue->backlog) < 0) {
-			pr_perror("Can't listen socket\n");
+			pr_perror("Can't listen socket");
 			goto err;
 		}
 
@@ -962,12 +962,12 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 
 			prep_conn_addr(ue->id, &addr, &len);
 			if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
-				pr_perror("Can't bind socket\n");
+				pr_perror("Can't bind socket");
 				goto err;
 			}
 
 			if (listen(sk, 1) < 0) {
-				pr_perror("Can't listen socket\n");
+				pr_perror("Can't listen socket");
 				goto err;
 			}
 
@@ -1034,7 +1034,7 @@ static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
 
 	sk = socket(PF_UNIX, ue->type, 0);
 	if (sk < 0) {
-		pr_perror("Can't create unix socket\n");
+		pr_perror("Can't create unix socket");
 		return -1;
 	}
 
@@ -1113,7 +1113,7 @@ static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
 
 	sk = socket(ie->family, ie->type, ie->proto);
 	if (sk < 0) {
-		pr_perror("Can't create unix socket\n");
+		pr_perror("Can't create unix socket");
 		return -1;
 	}
 
@@ -1127,12 +1127,12 @@ static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
 	memcpy(&addr.sin_addr.s_addr, ie->src_addr, sizeof(unsigned int) * 4);
 
 	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-		pr_perror("Inet socket bind failed\n");
+		pr_perror("Inet socket bind failed");
 		goto err;
 	}
 
 	if (listen(sk, ie->backlog) == -1) {
-		pr_perror("listen() failed on %d\n", sk);
+		pr_perror("listen() failed on %d", sk);
 		goto err;
 	}
 

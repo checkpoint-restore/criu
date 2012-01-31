@@ -148,13 +148,13 @@ struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset 
 
 		ret = unlink(path);
 		if (ret && errno != ENOENT) {
-			pr_perror("Unable to unlink %s\n", path);
+			pr_perror("Unable to unlink %s", path);
 			goto err;
 		}
 
 		ret = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
 		if (ret < 0) {
-			pr_perror("Unable to open %s\n", path);
+			pr_perror("Unable to open %s", path);
 			goto err;
 		}
 
@@ -191,7 +191,7 @@ struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
 
 		ret = open(path, O_RDWR, CR_FD_PERM);
 		if (ret < 0) {
-			pr_perror("Unable to open %s\n", path);
+			pr_perror("Unable to open %s", path);
 			goto err;
 		}
 
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!getcwd(image_dir, sizeof(image_dir))) {
-		pr_perror("can't get currect directory\n");
+		pr_perror("can't get currect directory");
 		return -1;
 	}
 

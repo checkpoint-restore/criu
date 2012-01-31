@@ -13,13 +13,13 @@ int switch_ns(int pid, int type, char *ns)
 	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, ns);
 	nsfd = open(buf, O_RDONLY);
 	if (nsfd < 0) {
-		pr_perror("Can't open ipcns file\n");
+		pr_perror("Can't open ipcns file");
 		goto out;
 	}
 
 	ret = setns(nsfd, type);
 	if (ret < 0)
-		pr_perror("Can't setns %d/%s\n", pid, ns);
+		pr_perror("Can't setns %d/%s", pid, ns);
 
 	close(nsfd);
 out:
@@ -61,7 +61,7 @@ int dump_namespaces(int ns_pid)
 
 	pid = fork();
 	if (pid < 0) {
-		pr_perror("Can't fork ns dumper\n");
+		pr_perror("Can't fork ns dumper");
 		return -1;
 	}
 
@@ -72,7 +72,7 @@ int dump_namespaces(int ns_pid)
 
 	ret = waitpid(pid, &status, 0);
 	if (ret != pid) {
-		pr_perror("Can't wait ns dumper\n");
+		pr_perror("Can't wait ns dumper");
 		return -1;
 	}
 

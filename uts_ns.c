@@ -30,7 +30,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 
 	ret = uname(&ubuf);
 	if (ret < 0) {
-		pr_perror("Error calling uname\n");
+		pr_perror("Error calling uname");
 		return ret;
 	}
 
@@ -66,7 +66,7 @@ static int prepare_uts_str(int fd, char *n)
 				"/proc/sys/kernel/%s", n);
 		fd = open(path, O_WRONLY);
 		if (fd < 0) {
-			pr_perror("Can't open %s\n", path);
+			pr_perror("Can't open %s", path);
 			return -1;
 		}
 
@@ -75,7 +75,7 @@ static int prepare_uts_str(int fd, char *n)
 		ret = write(fd, str, len);
 		close(fd);
 		if (ret != len) {
-			pr_perror("Can't write %s to %s\n",
+			pr_perror("Can't write %s to %s",
 					str, path);
 			return -1;
 		}
