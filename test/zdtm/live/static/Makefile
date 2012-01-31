@@ -30,6 +30,7 @@ TST_NOFILE	=				\
 		vdso00				\
 		utsname				\
 		sockets00			\
+		ipc_namespace			\
 #		jobctl00			\
 
 TST_FILE	=				\

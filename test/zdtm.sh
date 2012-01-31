@@ -32,6 +32,8 @@ $ZP/static/socket_listen"
 
 UTS_TEST_LIST="\
 $ZP/static/utsname"
+IPC_TEST_LIST="\
+$ZP/static/ipc_namespace"
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 
@@ -75,12 +77,17 @@ if [ $# -eq 0 ]; then
 	for t in $UTS_TEST_LIST; do
 		run_test $t "-n uts" || exit 1
 	done
+	for t in $IPC_TEST_LIST; do
+		run_test $t "-n ipc" || exit 1
+	done
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 	echo $UTS_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
 	if echo "$UTS_TEST_LIST" | fgrep -q "$1" ; then
 		run_test "$ZP/$1" "-n uts" && exit 0
+	elif echo "$IPC_TEST_LIST" | fgrep -q "$1" ; then
+		run_test "$ZP/$1" "-n ipc" && exit 0
 	else
 		run_test "$ZP/$1" && exit 0
 	fi
