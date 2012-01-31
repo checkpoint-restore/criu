@@ -125,7 +125,7 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	else
 		memzero(e.id, FD_ID_SIZE);
 
-	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8x addr: %16lx\n",
+	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		type, len, p->flags, p->pos, p->fd_name);
 
 	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
@@ -220,7 +220,7 @@ static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
 	struct pipe_entry e;
 	int ret = -1;
 
-	pr_info("Dumping pipe %d/%x flags %x\n", p->fd_name, id, p->flags);
+	pr_info("Dumping pipe %ld/%x flags %x\n", p->fd_name, id, p->flags);
 
 	e.fd		= p->fd_name;
 	e.pipeid	= id;
@@ -234,10 +234,10 @@ static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
 
 err:
 	if (!ret)
-		pr_info("Dumped pipe: fd: %8lx pipeid: %8lx flags: %8lx bytes: %8lx\n",
+		pr_info("Dumped pipe: fd: %8x pipeid: %8x flags: %8x bytes: %8x\n",
 			e.fd, e.pipeid, e.flags, e.bytes);
 	else
-		pr_err("Dumping pipe %d/%x flags %x\n", p->fd_name, id, p->flags);
+		pr_err("Dumping pipe %ld/%x flags %x\n", p->fd_name, id, p->flags);
 
 	return ret;
 }
@@ -254,12 +254,12 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 		if (err != 1)
 			return err;
 
-		pr_perror("Failed to open %d/%d", pid_fd_dir, p->fd_name);
+		pr_perror("Failed to open %d/%ld", pid_fd_dir, p->fd_name);
 		return -1;
 	}
 
 	if (fstat(lfd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %d", p->fd_name);
+		pr_perror("Can't get stat on %ld", p->fd_name);
 		goto out_close;
 	}
 
@@ -269,7 +269,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 		/* skip only standard destriptors */
 		if (p->fd_name < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %d/%d\n",
+			pr_info("... Skipping tty ... %d/%ld\n",
 				pid_fd_dir, p->fd_name);
 			goto out_close;
 		}
@@ -283,7 +283,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 
 	if (S_ISFIFO(st_buf.st_mode)) {
 		if (fstatfs(lfd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %d", p->fd_name);
+			pr_perror("Can't fstatfs on %ld", p->fd_name);
 			return -1;
 		}
 
@@ -292,7 +292,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 	}
 
 err:
-	pr_err("Can't dump file %d of that type [%x]\n", p->fd_name, st_buf.st_mode);
+	pr_err("Can't dump file %ld of that type [%x]\n", p->fd_name, st_buf.st_mode);
 
 out_close:
 	close_safe(&lfd);
@@ -337,7 +337,7 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	pr_info("----------------------------------------\n");
 
 	if (dump_cwd(pid_dir, cr_fdset)) {
-		pr_perror("Can't dump %d's cwd %s", pid);
+		pr_perror("Can't dump %d's cwd", pid);
 		return -1;
 	}
 
