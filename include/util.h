@@ -16,7 +16,8 @@
 #include "compiler.h"
 #include "types.h"
 
-extern void printk(const char *format, ...);
+extern void printk(const char *format, ...)
+	__attribute__ ((__format__ (__printf__, 1, 2)));
 
 #define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
 #define KBYTES_SHIFT	10
