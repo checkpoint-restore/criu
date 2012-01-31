@@ -86,7 +86,7 @@ static int read_ipc_sysctl_long(char *name, u64 *data, size_t size)
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	ret = read(fd, buf, 32);
+	ret = read(fd, buf, sizeof(buf));
 	if (ret < 0) {
 		pr_perror("Can't read %s", name);
 		ret = -errno;
@@ -110,7 +110,7 @@ static int read_ipc_sysctl(char *name, u32 *data, size_t size)
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	ret = read(fd, buf, 32);
+	ret = read(fd, buf, sizeof(buf));
 	if (ret < 0) {
 		pr_perror("Can't read %s", name);
 		ret = -errno;
@@ -135,7 +135,7 @@ static int read_ipc_sem(u32 sem[])
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	ret = read(fd, buf, 128);
+	ret = read(fd, buf, sizeof(buf));
 	if (ret < 0) {
 		pr_perror("Can't read %s", name);
 		ret = -errno;
