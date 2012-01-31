@@ -402,7 +402,7 @@ usage:
 	       "                 show contents of pages dumped in hexdump format\n");
 	printk("  -d             detach after restore\n");
 	printk("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
-	printk("                 supported: uts\n");
+	printk("                 supported: uts, ipc\n");
 
 	printk("\nAdditional common parameters:\n");
 	printk("  -D dir         save checkpoint files in specified directory\n");

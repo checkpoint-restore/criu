@@ -49,7 +49,7 @@ OPTIONS
 
 -n <ns>::
     Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: uts.
+    Currently supported namespaces: uts, ipc.
 
 -o <file>::
     Write logging messages to 'file'.

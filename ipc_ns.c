@@ -310,3 +310,154 @@ void show_ipc_ns(int fd)
 	show_ipc_data(fd);
 	pr_img_tail(CR_FD_IPCNS);
 }
+
+#ifdef CONFIG_X86_64
+static int write_ipc_sysctl_long(char *name, u64 *data)
+{
+	int fd;
+	int ret;
+	char buf[32];
+
+	fd = open(name, O_WRONLY);
+	if (fd < 0) {
+		pr_err("Can't open %s\n", name);
+		return fd;
+	}
+	sprintf(buf, "%ld\n", *(long *)data);
+	ret = write(fd, buf, 32);
+	if (ret < 0) {
+		pr_err("Can't write %s\n", name);
+		ret = -errno;
+	}
+	close(fd);
+	return ret;
+}
+#endif
+
+static int write_ipc_sysctl(char *name, u32 *data)
+{
+	int fd;
+	int ret;
+	char buf[32];
+
+	fd = open(name, O_WRONLY);
+	if (fd < 0) {
+		pr_err("Can't open %s\n", name);
+		return fd;
+	}
+	sprintf(buf, "%d\n", *(int *)data);
+	ret = write(fd, buf, 32);
+	if (ret < 0) {
+		pr_err("Can't write %s\n", name);
+		ret = -errno;
+	}
+	close(fd);
+	return ret;
+}
+
+static int write_ipc_sem(u32 sem[])
+{
+	int fd;
+	int ret;
+	char buf[128];
+	char *name = "/proc/sys/kernel/sem";
+
+	fd = open(name, O_WRONLY);
+	if (fd < 0) {
+		pr_err("Can't open %s\n", name);
+		return fd;
+	}
+	sprintf(buf, "%d %d %d %d\n", sem[0], sem[1], sem[2], sem[3]);
+	ret = write(fd, buf, 128);
+	if (ret < 0) {
+		pr_err("Can't write %s: %d\n", name, errno);
+		ret = -errno;
+	}
+	close(fd);
+	return ret;
+}
+
+static int prepare_ipc_tun(struct ipc_ns_entry *entry)
+{
+	int ret;
+
+	ret = write_ipc_sem(entry->sem_ctls);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmax", &entry->msg_ctlmax);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmnb", &entry->msg_ctlmnb);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmni", &entry->msg_ctlmni);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/auto_msgmni", &entry->auto_msgmni);
+	if (ret < 0)
+		goto err;
+#ifdef CONFIG_X86_64
+	ret = write_ipc_sysctl_long("/proc/sys/kernel/shmmax", (u64 *)entry->shm_ctlmax);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl_long("/proc/sys/kernel/shmall", (u64 *)entry->shm_ctlall);
+#else
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmmax", entry->shm_ctlmax);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmall", entry->shm_ctlall);
+#endif
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmmni", &entry->shm_ctlmni);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/kernel/shm_rmid_forced", &entry->shm_rmid_forced);
+	if (ret < 0)
+		goto err;
+
+
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", &entry->mq_queues_max);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", &entry->mq_msg_max);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", &entry->mq_msgsize_max);
+	if (ret < 0)
+		goto err;
+
+	return 0;
+err:
+	pr_err("Failed to restore ipc namespace tunables\n");
+	return ret;
+}
+
+static int prepare_ipc_data(int fd)
+{
+	int ret;
+	struct ipc_ns_data ipc;
+
+	ret = read_img(fd, &ipc);
+	if (ret <= 0)
+		return -EFAULT;
+	ret = prepare_ipc_tun(&ipc.entry);
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+
+int prepare_ipc_ns(int pid)
+{
+	int fd, ret;
+
+	fd = open_image_ro(CR_FD_IPCNS, pid);
+	if (fd < 0)
+		return -1;
+
+	ret = prepare_ipc_data(fd);
+
+	close(fd);
+	return ret;
+}
+
