@@ -123,22 +123,55 @@ static struct cr_fdset *alloc_cr_fdset(void)
 	return cr_fdset;
 }
 
+void __close_cr_fdset(struct cr_fdset *cr_fdset)
+{
+	unsigned int i;
+
+	if (!cr_fdset)
+		return;
+
+	for (i = 0; i < CR_FD_MAX; i++) {
+		if (cr_fdset->fds[i] == -1)
+			continue;
+		pr_debug("Closed %d/%d\n", i, cr_fdset->fds[i]);
+		close_safe(&cr_fdset->fds[i]);
+		cr_fdset->fds[i] = -1;
+	}
+}
+
+void close_cr_fdset(struct cr_fdset **cr_fdset)
+{
+	if (!cr_fdset || !*cr_fdset)
+		return;
+
+	__close_cr_fdset(*cr_fdset);
+
+	xfree(*cr_fdset);
+	*cr_fdset = NULL;
+}
+
 struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset *cr_fdset)
 {
+	struct cr_fdset *fdset;
 	unsigned int i;
 	int ret = -1;
 	char path[PATH_MAX];
 
-	if (cr_fdset == NULL) {
-		cr_fdset = alloc_cr_fdset();
-		if (!cr_fdset)
+	/*
+	 * We either reuse existing fdset or create new one.
+	 */
+	if (!cr_fdset) {
+		fdset = alloc_cr_fdset();
+		if (!fdset)
 			goto err;
-	}
+	} else
+		fdset = cr_fdset;
 
 	for (i = 0; i < CR_FD_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
-		if (cr_fdset->fds[i] != -1)
+
+		if (fdset->fds[i] != -1)
 			continue;
 
 		ret = get_image_path(path, sizeof(path),
@@ -157,15 +190,21 @@ struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset 
 			pr_perror("Unable to open %s", path);
 			goto err;
 		}
+		fdset->fds[i] = ret;
 
 		pr_debug("Opened %s with %d\n", path, ret);
 		if (write_img(ret, &fdset_template[i].magic))
 			goto err;
-
-		cr_fdset->fds[i] = ret;
 	}
+
+	return fdset;
+
 err:
-	return cr_fdset;
+	if (fdset != cr_fdset)
+		__close_cr_fdset(fdset);
+	else
+		close_cr_fdset(&fdset);
+	return NULL;
 }
 
 struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
@@ -194,43 +233,23 @@ struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
 			pr_perror("Unable to open %s", path);
 			goto err;
 		}
+		cr_fdset->fds[i] = ret;
 
 		pr_debug("Opened %s with %d\n", path, ret);
 		if (read_img(ret, &magic) < 0)
 			goto err;
 		if (magic != fdset_template[i].magic) {
-			close(ret);
 			pr_err("Magic doesn't match for %s\n", path);
 			goto err;
 		}
 
-		cr_fdset->fds[i] = ret;
 	}
-err:
+
 	return cr_fdset;
-}
 
-void close_cr_fdset(struct cr_fdset **cr_fdset)
-{
-	struct cr_fdset *fdset;
-	unsigned int i;
-
-	if (!cr_fdset || !*cr_fdset)
-		return;
-
-	fdset = *cr_fdset;
-
-	for (i = 0; i < CR_FD_MAX; i++) {
-		if (fdset->fds[i] == -1)
-			continue;
-
-		pr_debug("Closed %d/%d\n", i, fdset->fds[i]);
-		close(fdset->fds[i]);
-		fdset->fds[i] = -1;
-	}
-
-	xfree(fdset);
-	*cr_fdset = NULL;
+err:
+	close_cr_fdset(&cr_fdset);
+	return NULL;
 }
 
 int main(int argc, char *argv[])

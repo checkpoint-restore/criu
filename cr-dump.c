@@ -1214,8 +1214,8 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	};
 
-	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset);
-	if (!cr_fdset)
+	ret = -1;
+	if (!cr_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
 		goto err;
 
 	ret = collect_mappings(pid, pid_dir, &vma_area_list);
@@ -1350,9 +1350,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 			goto err;
 
 		if (item->pid == pid) {
-			cr_fdset = cr_fdset_open(item->pid,
-					CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset);
-			if (!cr_fdset)
+			if (!cr_fdset_open(item->pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset))
 				goto err;
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
 				goto err;
