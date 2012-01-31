@@ -3,5 +3,5 @@
 int dump_namespaces(int pid);
 int prepare_namespace(int pid, unsigned long clone_flags);
 int try_show_namespaces(int pid);
-void show_utsns(int fd);
+int switch_ns(int pid, int type, char *ns);
 #endif

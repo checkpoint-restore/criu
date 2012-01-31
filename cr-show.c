@@ -19,6 +19,7 @@
 #include "util.h"
 #include "sockets.h"
 #include "image.h"
+#include "uts_ns.h"
 
 #define DEF_PAGES_PER_LINE	6
 

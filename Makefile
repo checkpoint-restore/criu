@@ -39,6 +39,7 @@ OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= files.o
 OBJS		+= namespaces.o
+OBJS		+= uts_ns.o
 
 OBJS-BLOB	+= parasite.o
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
