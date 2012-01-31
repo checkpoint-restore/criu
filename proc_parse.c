@@ -72,7 +72,7 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
 				if (errno != ENOENT) {
-					pr_perror("Failed opening %d's map %Lu", pid, start);
+					pr_perror("Failed opening %d's map %lu", pid, start);
 					goto err;
 				}
 			}
@@ -115,11 +115,11 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 		if (vma_area->vm_file_fd >= 0) {
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
-				pr_perror("Failed fstat on %d's map %Lu", pid, start);
+				pr_perror("Failed fstat on %d's map %lu", pid, start);
 				goto err;
 			}
 			if (!S_ISREG(st_buf.st_mode)) {
-				pr_err("Can't handle non-regular mapping on %d's map %Lu\n", pid, start);
+				pr_err("Can't handle non-regular mapping on %d's map %lu\n", pid, start);
 				goto err;
 			}
 
