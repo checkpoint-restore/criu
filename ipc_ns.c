@@ -27,7 +27,7 @@ static int collect_ipc_msg(void *data)
 
 	ret = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
 	if (ret < 0) {
-		pr_err("msgctl failed with %d\n", errno);
+		pr_perror("msgctl failed");
 		return ret;
 	}
 
@@ -46,7 +46,7 @@ static int collect_ipc_sem(void *data)
 
 	ret = semctl(0, 0, SEM_INFO, &info);
 	if (ret < 0)
-		pr_err("semctl failed with %d\n", errno);
+		pr_perror("semctl failed");
 
 	if (ret) {
 		pr_err("IPC semaphores migration is not supported yet\n");
@@ -64,7 +64,7 @@ static int collect_ipc_shm(void *data)
 
 	ret = shmctl(0, IPC_INFO, &shmid);
 	if (ret < 0)
-		pr_err("semctl failed with %d\n", errno);
+		pr_perror("semctl failed");
 
 	if (ret) {
 		pr_err("IPC shared memory migration is not supported yet\n");
@@ -83,12 +83,12 @@ static int read_ipc_sysctl_long(char *name, u64 *data, size_t size)
 
 	fd = open(name, O_RDONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	ret = read(fd, buf, 32);
 	if (ret < 0) {
-		pr_err("Can't read %s\n", name);
+		pr_perror("Can't read %s", name);
 		ret = -errno;
 		goto err;
 	}
@@ -107,12 +107,12 @@ static int read_ipc_sysctl(char *name, u32 *data, size_t size)
 
 	fd = open(name, O_RDONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	ret = read(fd, buf, 32);
 	if (ret < 0) {
-		pr_err("Can't read %s\n", name);
+		pr_perror("Can't read %s", name);
 		ret = -errno;
 		goto err;
 	}
@@ -132,12 +132,12 @@ static int read_ipc_sem(u32 sem[])
 
 	fd = open(name, O_RDONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	ret = read(fd, buf, 128);
 	if (ret < 0) {
-		pr_err("Can't read %s\n", name);
+		pr_perror("Can't read %s", name);
 		ret = -errno;
 		goto err;
 	}
@@ -320,13 +320,13 @@ static int write_ipc_sysctl_long(char *name, u64 *data)
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	sprintf(buf, "%ld\n", *(long *)data);
 	ret = write(fd, buf, 32);
 	if (ret < 0) {
-		pr_err("Can't write %s\n", name);
+		pr_perror("Can't write %s", name);
 		ret = -errno;
 	}
 	close(fd);
@@ -342,13 +342,13 @@ static int write_ipc_sysctl(char *name, u32 *data)
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	sprintf(buf, "%d\n", *(int *)data);
 	ret = write(fd, buf, 32);
 	if (ret < 0) {
-		pr_err("Can't write %s\n", name);
+		pr_perror("Can't write %s", name);
 		ret = -errno;
 	}
 	close(fd);
@@ -364,13 +364,13 @@ static int write_ipc_sem(u32 sem[])
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		pr_err("Can't open %s\n", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	sprintf(buf, "%d %d %d %d\n", sem[0], sem[1], sem[2], sem[3]);
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
-		pr_err("Can't write %s: %d\n", name, errno);
+		pr_perror("Can't write %s", name);
 		ret = -errno;
 	}
 	close(fd);
