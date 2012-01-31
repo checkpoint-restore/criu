@@ -14,7 +14,7 @@ static int dump_uts_string(int fd, char *str)
 
 	len = strlen(str);
 	ret = write_img(fd, &len);
-	if (ret == 0)
+	if (!ret)
 		ret = write_img_buf(fd, str, len);
 
 	return ret;
@@ -52,7 +52,7 @@ static int prepare_uts_str(int fd, char *n)
 
 	ret = read_img(fd, &len);
 	if (ret > 0) {
-		if (len >= 65) {
+		if (len >= sizeof(str)) {
 			pr_err("Corrupted %s\n", n);
 			return -1;
 		}
@@ -91,7 +91,6 @@ int prepare_utsns(int pid)
 {
 	int fd, ret;
 	u32 len;
-	char str[65];
 
 	fd = open_image_ro(CR_FD_UTSNS, pid);
 	if (fd < 0)
@@ -113,7 +112,7 @@ static void show_uts_string(int fd, char *n)
 
 	ret = read_img(fd, &len);
 	if (ret > 0) {
-		if (len >= 65) {
+		if (len >= sizeof(str)) {
 			pr_err("Corrupted hostname\n");
 			return;
 		}
