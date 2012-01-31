@@ -363,7 +363,7 @@ int try_dump_socket(pid_t pid, int fd, struct cr_fdset *cr_fdset)
 
 	sk = lookup_socket(st.st_ino);
 	if (!sk) {
-		pr_err("Uncollected socket %d\n", st.st_ino);
+		pr_err("Uncollected socket %ld\n", st.st_ino);
 		return -1;
 	}
 
