@@ -149,7 +149,7 @@ static void show_one_inet_img(char *act, struct inet_sk_entry *e)
 	}
 
 	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
-		"state %d src_addr %d\n",
+		"state %d src_addr %s\n",
 		act, e->fd, e->family, e->type, e->proto, e->src_port, e->state,
 		src_addr);
 }
@@ -938,7 +938,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 		e->addrlen	= sizeof(e->addr.sun_family) + ue->namelen;
 		e->ino		= ue->id;
 
-		dprintk("\t\Collected listening socket %d\n", ue->id);
+		dprintk("\tCollected listening socket %d\n", ue->id);
 
 	} else if (ue->state == TCP_ESTABLISHED) {
 
