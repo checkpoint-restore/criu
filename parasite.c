@@ -94,27 +94,13 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
 #endif
 }
 
-static int parasite_open_file(struct parasite_dump_file_args *fa)
-{
-	int fd;
-
-	fd = sys_open(fa->open_path, fa->open_flags, fa->open_mode);
-	if (fd < 0) {
-		sys_write_msg("sys_open failed\n");
-		SET_PARASITE_STATUS(&fa->status, PARASITE_ERR_OPEN, fd);
-		fd = fa->status.ret;
-	}
-
-	return fd;
-}
-
 /*
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
  */
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
-	parasite_status_t *st = &args->fa.status;
+	parasite_status_t *st = &args->status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
@@ -126,7 +112,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	prot_old = prot_new = 0;
 
 	if (args->fd == -1UL) {
-		ret = parasite_open_file(&args->fa);
+		ret = recv_fd(tsock);
 		if (ret < 0)
 			goto err;
 
@@ -241,16 +227,15 @@ err:
 	return ret;
 }
 
-static int dump_sigact(struct parasite_dump_file_args *args)
+static int dump_sigact(parasite_status_t *st)
 {
-	parasite_status_t *st = &args->status;
 	rt_sigaction_t act;
 	struct sa_entry e;
 	int fd, sig;
 
 	int ret = PARASITE_ERR_FAIL;
 
-	fd = parasite_open_file(args);
+	fd = recv_fd(tsock);
 	if (fd < 0)
 		return fd;
 
@@ -318,16 +303,15 @@ static int dump_itimer(int which, int fd, parasite_status_t *st)
 	return 0;
 }
 
-static int dump_itimers(struct parasite_dump_file_args *args)
+static int dump_itimers(parasite_status_t *st)
 {
-	parasite_status_t *st = &args->status;
 	rt_sigaction_t act;
 	struct sa_entry e;
 	int fd, sig;
 
 	int ret = PARASITE_ERR_FAIL;
 
-	fd = parasite_open_file(args);
+	fd = recv_fd(tsock);
 	if (fd < 0)
 		return fd;
 
@@ -398,7 +382,6 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	brk_init(brk);
 
 	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_dump_file_args) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
 	case PARASITE_CMD_PINGME:
@@ -412,9 +395,9 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
-		return dump_sigact((struct parasite_dump_file_args *)args);
+		return dump_sigact((parasite_status_t *)args);
 	case PARASITE_CMD_DUMP_ITIMERS:
-		return dump_itimers((struct parasite_dump_file_args *)args);
+		return dump_itimers((parasite_status_t *)args);
 	case PARASITE_CMD_DUMP_MISC:
 		return dump_misc((struct parasite_dump_misc *)args);
 	default:

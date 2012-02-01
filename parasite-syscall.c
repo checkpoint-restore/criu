@@ -383,34 +383,34 @@ out:
 	return ret;
 }
 
-static int parasite_prep_file(int type, struct parasite_dump_file_args *fa,
+static int parasite_prep_file(int type,
 		struct parasite_ctl *ctl, struct cr_fdset *fdset)
 {
-	if (get_image_path(fa->open_path, sizeof(fa->open_path),
-				fdset_template[type].fmt, ctl->pid))
-		return -1;
+	int ret;
 
 	if (fchmod(fdset->fds[type], CR_FD_PERM_DUMP)) {
 		pr_perror("Can't change permissions on %d file", type);
 		return -1;
 	}
 
-	fa->open_flags	= O_WRONLY;
-	fa->open_mode	= CR_FD_PERM_DUMP;
+	ret = parasite_send_fd(ctl, fdset->fds[type]);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
 static int parasite_file_cmd(int cmd, int type,
 		struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	struct parasite_dump_file_args args = { };
+	parasite_status_t args = { };
 	int status, ret = -1;
 
 	pr_info("\n");
 	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_prep_file(type, &args, ctl, cr_fdset);
+	ret = parasite_prep_file(type, ctl, cr_fdset);
 	if (ret < 0)
 		goto out;
 
@@ -488,7 +488,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_prep_file(CR_FD_PAGES, &parasite_dumppages.fa, ctl, cr_fdset);
+	ret = parasite_prep_file(CR_FD_PAGES, ctl, cr_fdset);
 	if (ret < 0)
 		goto out;
 
@@ -519,9 +519,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 					sizeof(parasite_dumppages));
 		if (ret) {
 			pr_panic("Dumping pages failed with %li (%li) at %li\n",
-				 parasite_dumppages.fa.status.ret,
-				 parasite_dumppages.fa.status.sys_ret,
-				 parasite_dumppages.fa.status.line);
+				 parasite_dumppages.status.ret,
+				 parasite_dumppages.status.sys_ret,
+				 parasite_dumppages.status.line);
 
 			goto err_restore;
 		}

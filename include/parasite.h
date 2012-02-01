@@ -68,16 +68,8 @@ struct parasite_init_args {
 	struct sockaddr_un saddr;
 };
 
-struct parasite_dump_file_args {
-	parasite_status_t	status;
-	unsigned long		open_mode;
-	unsigned long		open_flags;
-	char			open_path[PATH_MAX];
-};
-
 struct parasite_dump_pages_args {
-	struct parasite_dump_file_args fa;
-
+	parasite_status_t       status;
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		fd;
