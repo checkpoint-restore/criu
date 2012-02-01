@@ -329,7 +329,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		struct msghdr hdr;
 		struct iovec data;
 		char cmsgbuf[CMSG_SPACE(sizeof(int))];
-		struct cmsghdr* cmsg;
+		struct cmsghdr *cmsg;
+		int *cmsg_data;
 
 		char dummy = '*';
 
@@ -365,7 +366,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type  = SCM_RIGHTS;
 
-		*(int*)CMSG_DATA(cmsg) = fe->addr;
+		cmsg_data = (int *)CMSG_DATA(cmsg);
+		*cmsg_data = fe->addr;
 
 		tmp = sendmsg(sock, &hdr, 0);
 		if (tmp < 0) {
@@ -387,6 +389,7 @@ static int recv_fd(int sock)
 	char buf[1];
 	char ccmsg[CMSG_SPACE(sizeof(int))];
 	struct cmsghdr *cmsg;
+	int *cmsg_data;
 	iov.iov_base = buf;
 	iov.iov_len = 1;
 	int ret;
@@ -411,7 +414,8 @@ static int recv_fd(int sock)
 		return -1;
 	}
 
-	return *(int*)CMSG_DATA(cmsg);
+	cmsg_data = (int *)CMSG_DATA(cmsg);
+	return *cmsg_data;
 }
 
 static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
