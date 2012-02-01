@@ -724,7 +724,7 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item, int pid_dir)
+static int parse_threads(pid_t pid, int pid_dir, struct pstree_item *item)
 {
 	struct dirent *de;
 	DIR *dir;
@@ -733,7 +733,7 @@ static int parse_threads(struct pstree_item *item, int pid_dir)
 
 	dir = opendir_proc(pid_dir, "task");
 	if (!dir) {
-		pr_perror("Can't open %d/task", item->pid);
+		pr_perror("Can't open %d/task", pid);
 		return -1;
 	}
 
@@ -762,7 +762,7 @@ static int parse_threads(struct pstree_item *item, int pid_dir)
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item, int pid_dir)
+static int parse_children(pid_t pid, int pid_dir, struct pstree_item *item)
 {
 	FILE *file;
 	char *tok;
@@ -774,7 +774,7 @@ static int parse_children(struct pstree_item *item, int pid_dir)
 		file = fopen_proc(pid_dir, "task/%d/children", item->threads[i]);
 		if (!file) {
 			pr_perror("Can't open %d children %d",
-					item->pid, item->threads[i]);
+				  pid, item->threads[i]);
 			goto err;
 		}
 
@@ -806,154 +806,91 @@ err:
 	return -1;
 }
 
-static void unseize_task_and_threads(struct pstree_item *item, enum cr_task_state st)
+static struct pstree_item *add_pstree_entry(pid_t pid, int pid_dir, struct list_head *list)
 {
-	int i;
-
-	for (i = 0; i < item->nr_threads; i++)
-		unseize_task(item->threads[i], st); /* item->pid will be here */
-}
-
-static void pstree_switch_state(struct list_head *list, struct cr_options *opts)
-{
-	struct pstree_item *item;
-
-	list_for_each_entry(item, list, list) {
-		unseize_task_and_threads(item, opts->final_state);
-		if (opts->leader_only)
-			break;
-	}
-}
-
-static int seize_threads(struct pstree_item *item)
-{
-	int i = 0, ret;
-
-	if ((item->state == TASK_DEAD) && (item->nr_threads > 1)) {
-		pr_err("Zombies with threads are not supported\n");
-		goto err;
-	}
-
-	for (i = 0; i < item->nr_threads; i++) {
-		if (item->pid == item->threads[i])
-			continue;
-
-		pr_info("\tSeizing %d's %d thread\n", item->pid, item->threads[i]);
-		ret = seize_task(item->threads[i]);
-		if (ret < 0)
-			goto err;
-
-		if (ret == TASK_SHOULD_BE_DEAD) {
-			pr_err("Potentially zombie thread not supported\n");
-			goto err;
-		}
-
-		if (ret == TASK_STOPPED) {
-			pr_err("Stopped threads not supported\n");
-			goto err;
-		}
-	}
-
-	return 0;
-
-err:
-	for (i--; i >= 0; i--) {
-		if (item->pid == item->threads[i])
-			continue;
-
-		unseize_task(item->threads[i], CR_TASK_STOP /* FIXME */);
-	}
-
-	return -1;
-}
-
-static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
-{
-	int ret, pid_dir;
 	struct pstree_item *item;
 
 	item = xzalloc(sizeof(*item));
 	if (!item)
 		goto err;
 
-	ret = seize_task(pid);
-	if (ret < 0)
+	if (parse_threads(pid, pid_dir, item))
 		goto err_free;
 
-	pr_info("Seized task %d, state %d\n", pid, ret);
+	if (parse_children(pid, pid_dir, item))
+		goto err_free;
+
 	item->pid = pid;
-	item->state = ret;
-
-	pid_dir = open_pid_proc(pid);
-	if (pid_dir < 0)
-		goto err_free;
-
-	if (item->state == TASK_SHOULD_BE_DEAD) {
-		struct proc_pid_stat_small ps;
-
-		ret = parse_pid_stat_small(pid, pid_dir, &ps);
-		if (ret < 0)
-			goto err_close;
-
-		if (ps.state != 'Z') {
-			pr_err("Unseizeable non-zombie %d found, state %c\n",
-					item->pid, ps.state);
-			goto err_close;
-		}
-
-		item->state = TASK_DEAD;
-	}
-
-	ret = parse_threads(item, pid_dir);
-	if (ret < 0)
-		goto err_close;
-
-	ret = seize_threads(item);
-	if (ret < 0)
-		goto err_close;
-
-	ret = parse_children(item, pid_dir);
-	if (ret < 0)
-		goto err_close;
-
-	if ((item->state == TASK_DEAD) && (item->nr_children > 0)) {
-		pr_err("Zombie with children?! O_o Run, run, run!\n");
-		goto err_close;
-	}
-
-	close(pid_dir);
 	list_add_tail(&item->list, list);
-	pr_info("Collected %d in %d state\n", item->pid, item->state);
 	return item;
 
-err_close:
-	close(pid_dir);
 err_free:
-	xfree(item->children);
 	xfree(item->threads);
+	xfree(item->children);
 	xfree(item);
 err:
 	return NULL;
 }
 
-static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_only)
+static const int state_sigs[] = {
+	[CR_TASK_STOP] = SIGSTOP,
+	[CR_TASK_RUN] = SIGCONT,
+	[CR_TASK_KILL] = SIGKILL,
+};
+
+static int ps_switch_state(int pid, enum cr_task_state state)
+{
+	return kill(pid, state_sigs[state]);
+}
+
+static void pstree_switch_state(struct list_head *list,
+		enum cr_task_state state, int leader_only)
 {
 	struct pstree_item *item;
-	int i;
 
-	pr_info("Collecting tasks starting from %d\n", pid);
-	item = collect_task(pid, pstree_list);
-	if (item == NULL)
-		return -1;
+	/*
+	 * Since ptrace-seize doesn't work on frozen tasks
+	 * we stick with explicit tasks stopping via stop
+	 * signal, but in future it's aimed to switch to
+	 * kernel freezer.
+	 */
 
-	if (leader_only)
-		return 0;
+	list_for_each_entry(item, list, list) {
+		kill(item->pid, state_sigs[state]);
+		if (leader_only)
+			break;
+	}
+}
 
-	for (i = 0; i < item->nr_children; i++)
-		if (collect_pstree(item->children[i], pstree_list, 0) < 0)
-			return -1;
+static int collect_pstree(pid_t pid, struct list_head *pstree_list)
+{
+	struct pstree_item *item;
+	unsigned long i;
+	int pid_dir;
+	int ret = -1;
 
-	return 0;
+	pid_dir = open_pid_proc(pid);
+	if (pid_dir < 0)
+		goto err;
+
+	if (ps_switch_state(pid, CR_TASK_STOP))
+		goto err;
+
+	item = add_pstree_entry(pid, pid_dir, pstree_list);
+	if (!item)
+		goto err;
+
+	for (i = 0; i < item->nr_children; i++) {
+		ret = collect_pstree(item->children[i], pstree_list);
+		if (ret)
+			goto err_close;
+	}
+	ret = 0;
+
+err_close:
+	close(pid_dir);
+err:
+	return ret;
 }
 
 static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset *cr_fdset)
@@ -1148,11 +1085,24 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 	if (!core)
 		goto err;
 
+	ret = seize_task(pid);
+	if (ret) {
+		pr_err("Failed to seize thread (pid: %d) with %d\n",
+		       pid, ret);
+		goto err_free;
+	}
+
 	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
+
+	ret = unseize_task(pid);
+	if (ret) {
+		pr_err("Can't unsieze thread (pid: %d)\n", pid);
+		goto err_free;
+	}
 
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
@@ -1171,6 +1121,16 @@ static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
 		struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core;
+
+	if (item->nr_children) {
+		pr_err("Zombie %d with children.\n", item->pid);
+		return -1;
+	}
+
+	if (item->nr_threads > 1) {
+		pr_err("Zombie %d with threads.\n", item->pid);
+		return -1;
+	}
 
 	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
 	if (cr_fdset == NULL)
@@ -1231,11 +1191,6 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (item->state == TASK_STOPPED) {
-		pr_err("Stopped tasks are not supported\n");
-		goto err;
-	}
-
 	pid_dir = open_pid_proc(pid);
 	if (pid_dir < 0) {
 		pr_perror("Can't open %d proc dir", pid);
@@ -1247,8 +1202,17 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	if (ret < 0)
 		goto err;
 
-	if (item->state == TASK_DEAD)
+	switch (pps_buf.state) {
+	case 'Z':
 		return dump_one_zombie(item, &pps_buf, cr_fdset);
+	case 'T':
+		/* Stopped -- can dump one */
+		break;
+	default:
+		ret = -1;
+		pr_err("Task in bad state: %c\n", pps_buf.state);
+		goto err;
+	};
 
 	ret = -1;
 	if (!cr_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
@@ -1257,6 +1221,13 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = collect_mappings(pid, pid_dir, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = seize_task(pid);
+	if (ret) {
+		pr_err("Failed to seize task (pid: %d) with %d\n",
+		       pid, ret);
 		goto err;
 	}
 
@@ -1299,6 +1270,12 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = parasite_cure_seized(parasite_ctl, &vma_area_list);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
+		goto err;
+	}
+
+	ret = unseize_task(pid);
+	if (ret) {
+		pr_err("Can't unsieze (pid: %d) task\n", pid);
 		goto err;
 	}
 
@@ -1349,7 +1326,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 		pr_info("Dumping process (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (collect_pstree(pid, &pstree_list, opts->leader_only))
+	if (collect_pstree(pid, &pstree_list))
 		goto err;
 
 	if (opts->namespaces_flags) {
@@ -1390,8 +1367,17 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	ret = 0;
 
 err:
-	pstree_switch_state(&pstree_list, opts);
+	switch (opts->final_state) {
+	case CR_TASK_RUN:
+	case CR_TASK_KILL:
+		pstree_switch_state(&pstree_list,
+				opts->final_state, opts->leader_only);
+	case CR_TASK_STOP: /* they are already stopped */
+		break;
+	}
+
 	free_pstree(&pstree_list);
+
 	close_cr_fdset(&cr_fdset);
 
 	return ret;

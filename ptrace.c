@@ -13,22 +13,14 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include "crtools.h"
 #include "compiler.h"
 #include "types.h"
 #include "util.h"
 #include "ptrace.h"
 
-int unseize_task(pid_t pid, enum cr_task_state st)
+int unseize_task(pid_t pid)
 {
-	if (st == CR_TASK_STOP)
-		return ptrace(PTRACE_DETACH, pid, NULL, NULL);
-	else if (st == CR_TASK_KILL)
-		return ptrace(PTRACE_KILL, pid, NULL, NULL);
-	else {
-		BUG_ON(1);
-		return -1;
-	}
+	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
 
 /*
@@ -38,61 +30,48 @@ int unseize_task(pid_t pid, enum cr_task_state st)
  * of it so the task would not know if it was saddled
  * up with someone else.
  */
-
 int seize_task(pid_t pid)
 {
 	siginfo_t si;
 	int status;
-	int ret;
+	int ret = 0;
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL,
 		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
-	if (ret < 0)
-		return TASK_SHOULD_BE_DEAD; /* Caller should verify it's really dead */
+	if (ret < 0) {
+		pr_perror("Can't seize task");
+		goto err;
+	}
 
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
-		pr_perror("SEIZE %d: can't interrupt task", pid);
+		pr_perror("Can't interrupt task");
 		goto err;
 	}
 
-	ret = wait4(pid, &status, __WALL, NULL);
-	if (ret < 0) {
-		pr_perror("SEIZE %d: can't wait task", pid);
+	ret = -10;
+	if (wait4(pid, &status, __WALL, NULL) != pid)
 		goto err;
-	}
 
-	if (ret != pid) {
-		pr_err("SEIZE %d: wrong task attached (%d)\n", pid, ret);
+	ret = -20;
+	if (!WIFSTOPPED(status))
 		goto err;
-	}
 
-	if (!WIFSTOPPED(status)) {
-		pr_err("SEIZE %d: task not stopped after seize\n", pid);
-		goto err;
-	}
+	jerr_rc(ptrace(PTRACE_GETSIGINFO, pid, NULL, &si), ret, err_cont);
 
-	ret = ptrace(PTRACE_GETSIGINFO, pid, NULL, &si);
-	if (ret < 0) {
-		pr_perror("SEIZE %d: can't read signfo", pid);
-		goto err;
-	}
+	ret = -30;
+	if ((si.si_code >> 8) != PTRACE_EVENT_STOP)
+		goto err_cont;
 
-	if ((si.si_code >> 8) != PTRACE_EVENT_STOP) {
-		pr_err("SEIZE %d: wrong stop event received 0x%x\n", pid,
-				(unsigned int)si.si_code);
-		goto err;
-	}
+	jerr_rc(ptrace(PTRACE_SETOPTIONS, pid, NULL,
+		       (void *)(unsigned long)PTRACE_O_TRACEEXIT), ret, err_cont);
 
-	if (si.si_signo == SIGTRAP)
-		return TASK_ALIVE;
-	else if (si.si_signo == SIGSTOP)
-		return TASK_STOPPED;
-
-	pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
 err:
-	unseize_task(pid, CR_TASK_STOP);
-	return -1;
+	return ret;
+
+err_cont:
+	kill(pid, SIGCONT);
+	goto err;
 }
 
 int ptrace_show_area_r(pid_t pid, void *addr, long bytes)

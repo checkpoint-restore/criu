@@ -175,36 +175,6 @@ err_bogus_mapping:
 	goto err;
 }
 
-int parse_pid_stat_small(pid_t pid, int pid_dir, struct proc_pid_stat_small *s)
-{
-	FILE *f;
-	char *tok;
-	int n;
-
-	f = fopen_proc(pid_dir, "stat");
-	if (f == NULL) {
-		pr_perror("Can't open %d's stat", pid);
-		return -1;
-	}
-
-	memset(s, 0, sizeof(*s));
-	n = fscanf(f, "%d " PROC_TASK_COMM_LEN_FMT " %c",
-			&s->pid, s->comm, &s->state);
-
-	if (n < 3) {
-		pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
-		return -1;
-	}
-
-	s->comm[PROC_TASK_COMM_LEN-1] = '\0';
-	tok = strchr(s->comm, ')');
-	if (tok)
-		*tok = '\0';
-	fclose(f);
-
-	return 0;
-}
-
 int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 {
 	FILE *f;

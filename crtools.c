@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 	int action = -1;
 	int log_inited = 0;
 
-	static const char short_opts[] = "dsf:p:t:hcD:o:n:";
+	static const char short_opts[] = "df:p:t:hcD:o:n:";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -306,9 +306,6 @@ int main(int argc, char *argv[])
 	for (opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx); opt != -1;
 	     opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx)) {
 		switch (opt) {
-		case 's':
-			opts.final_state = CR_TASK_STOP;
-			break;
 		case 'p':
 			pid = atoi(optarg);
 			opts.leader_only = true;
@@ -319,6 +316,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			opts.show_pages_content	= true;
+			opts.final_state = CR_TASK_RUN;
 			break;
 		case 'f':
 			opts.show_dump_file = optarg;
@@ -400,9 +398,10 @@ usage:
 	printk("  -p             checkpoint/restore only a single process identified by pid\n");
 	printk("  -t             checkpoint/restore the whole process tree identified by pid\n");
 	printk("  -f             show contents of a checkpoint file\n");
-	printk("  -c             show contents of pages dumped in hexdump format\n");
+	printk("  -c             in case of checkpoint -- continue running the process after\n"
+	       "                 checkpoint complete, in case of showing file contents --\n"
+	       "                 show contents of pages dumped in hexdump format\n");
 	printk("  -d             detach after restore\n");
-	printk("  -s             leave tasks in stopped state after checkpoint instead of killing them\n");
 	printk("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
 	printk("                 supported: uts, ipc\n");
 

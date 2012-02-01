@@ -15,7 +15,6 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 
-#include "crtools.h"
 #include "compiler.h"
 #include "syscall.h"
 #include "types.h"
