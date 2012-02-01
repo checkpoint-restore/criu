@@ -111,8 +111,8 @@ struct ipc_ns_entry {
 	u32	msg_ctlmnb;
 	u32	msg_ctlmni;
 	u32	auto_msgmni;
-	u64	shm_ctlmax;
-	u64	shm_ctlall;
+	u32	shm_ctlmax[2];
+	u64	shm_ctlall[2];
 	u32	shm_ctlmni;
 	u32	shm_rmid_forced;
 	u32	mq_queues_max;

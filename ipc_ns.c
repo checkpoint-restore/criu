@@ -284,8 +284,8 @@ static void show_ipc_entry(struct ipc_ns_entry *entry)
 	pr_info("/proc/sys/kernel/msgmnb          : %d\n", entry->msg_ctlmnb);
 	pr_info("/proc/sys/kernel/msgmni          : %d\n", entry->msg_ctlmni);
 	pr_info("/proc/sys/kernel/auto_msgmni     : %d\n", entry->auto_msgmni);
-	pr_info("/proc/sys/kernel/shmmax          : %ld\n",(long)entry->shm_ctlmax);
-	pr_info("/proc/sys/kernel/shmall          : %ld\n",(long)entry->shm_ctlall);
+	pr_info("/proc/sys/kernel/shmmax          : %ld\n", *(u64 *)entry->shm_ctlmax);
+	pr_info("/proc/sys/kernel/shmall          : %ld\n", *(u64 *)entry->shm_ctlall);
 	pr_info("/proc/sys/kernel/shmmni          : %d\n", entry->shm_ctlmni);
 	pr_info("/proc/sys/kernel/shm_rmid_forced : %d\n", entry->shm_rmid_forced);
 	pr_info("/proc/sys/fs/mqueue/queues_max   : %d\n", entry->mq_queues_max);
@@ -311,7 +311,8 @@ void show_ipc_ns(int fd)
 	pr_img_tail(CR_FD_IPCNS);
 }
 
-static int write_ipc_sysctl(char *name, long data)
+#ifdef CONFIG_X86_64
+static int write_ipc_sysctl_long(char *name, u64 *data)
 {
 	int fd;
 	int ret;
@@ -322,8 +323,30 @@ static int write_ipc_sysctl(char *name, long data)
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	sprintf(buf, "%ld\n", data);
-	ret = write(fd, buf, sizeof(buf));
+	sprintf(buf, "%ld\n", *(long *)data);
+	ret = write(fd, buf, 32);
+	if (ret < 0) {
+		pr_perror("Can't write %s", name);
+		ret = -errno;
+	}
+	close(fd);
+	return ret;
+}
+#endif
+
+static int write_ipc_sysctl(char *name, u32 *data)
+{
+	int fd;
+	int ret;
+	char buf[32];
+
+	fd = open(name, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s", name);
+		return fd;
+	}
+	sprintf(buf, "%d\n", *(int *)data);
+	ret = write(fd, buf, 32);
 	if (ret < 0) {
 		pr_perror("Can't write %s", name);
 		ret = -errno;
@@ -361,37 +384,46 @@ static int prepare_ipc_tun(struct ipc_ns_entry *entry)
 	ret = write_ipc_sem(entry->sem_ctls);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/msgmax", (long)entry->msg_ctlmax);
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmax", &entry->msg_ctlmax);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/msgmnb", (long)entry->msg_ctlmnb);
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmnb", &entry->msg_ctlmnb);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/msgmni", (long)entry->msg_ctlmni);
+	ret = write_ipc_sysctl("/proc/sys/kernel/msgmni", &entry->msg_ctlmni);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/auto_msgmni", (long)entry->auto_msgmni);
+	ret = write_ipc_sysctl("/proc/sys/kernel/auto_msgmni", &entry->auto_msgmni);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/shmmax", (long)entry->shm_ctlmax);
+#ifdef CONFIG_X86_64
+	ret = write_ipc_sysctl_long("/proc/sys/kernel/shmmax", (u64 *)entry->shm_ctlmax);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/shmall", (long)entry->shm_ctlall);
+	ret = write_ipc_sysctl_long("/proc/sys/kernel/shmall", (u64 *)entry->shm_ctlall);
+#else
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmmax", entry->shm_ctlmax);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/shmmni", (long)entry->shm_ctlmni);
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmall", entry->shm_ctlall);
+#endif
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/kernel/shm_rmid_forced", (long)entry->shm_rmid_forced);
+	ret = write_ipc_sysctl("/proc/sys/kernel/shmmni", &entry->shm_ctlmni);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", (long)entry->mq_queues_max);
+	ret = write_ipc_sysctl("/proc/sys/kernel/shm_rmid_forced", &entry->shm_rmid_forced);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", (long)entry->mq_msg_max);
+
+
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", &entry->mq_queues_max);
 	if (ret < 0)
 		goto err;
-	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", (long)entry->mq_msgsize_max);
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", &entry->mq_msg_max);
+	if (ret < 0)
+		goto err;
+	ret = write_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", &entry->mq_msgsize_max);
 	if (ret < 0)
 		goto err;
 
