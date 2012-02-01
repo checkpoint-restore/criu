@@ -159,6 +159,7 @@ clean:
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout
+	$(Q) $(MAKE) -C Documentation clean
 .PHONY: clean
 
 tags:
