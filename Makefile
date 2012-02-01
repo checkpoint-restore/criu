@@ -1,7 +1,7 @@
 -include Makefile.inc
 
 CFLAGS		+= -I./include
-CFLAGS		+= -O2
+CFLAGS		+= -O0 -ggdb3
 
 LIBS		+= -lrt -lpthread
 
@@ -14,7 +14,6 @@ endif
 
 ifeq ($(DEBUG),1)
 	DEFINES += -DCR_DEBUG
-	CFLAGS	+= -O0 -ggdb3
 endif
 
 WARNINGS	+= -Wall -Wno-unused
