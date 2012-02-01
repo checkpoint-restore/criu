@@ -11,14 +11,15 @@ ASCIIDOC	:= asciidoc
 A2X		:= a2x
 XMLTO		:= xmlto
 
-MAN		:= crtools.txt
+SRC		:= crtools.txt
+MANS		:= $(patsubst %.txt,%.1,$(SRC))
 
-all: man
+all: $(MANS)
 
-man: $(MAN)
+%.1: %.txt
 	$(E) "  GEN     " $@
-	$(Q) $(ASCIIDOC) -b docbook -d manpage -o crtools.xml crtools.txt
-	$(Q) $(XMLTO) man --skip-validation crtools.xml 2>/dev/null
+	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.1,%.xml,$@) $<
+	$(Q) $(XMLTO) man --skip-validation $(patsubst %.1,%.xml,$@) 2>/dev/null
 
 clean:
 	$(E) "  CLEAN   "
