@@ -943,9 +943,10 @@ static rt_sigaction_t sigchld_act;
 static int prepare_sigactions(int pid)
 {
 	rt_sigaction_t act, oact;
-	int fd_sigact, ret;
+	int fd_sigact;
 	struct sa_entry e;
 	int sig, i;
+	int ret = -1;
 
 	fd_sigact = open_image_ro(CR_FD_SIGACT, pid);
 	if (fd_sigact < 0)

@@ -1103,12 +1103,12 @@ static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
 
 	if (ie->family != AF_INET) {
 		pr_err("Unsupported socket family: %d\n", ie->family);
-		goto err;
+		return -1;
 	}
 
 	if (ie->type != SOCK_STREAM) {
 		pr_err("Unsupported socket type: %d\n", ie->type);
-		goto err;
+		return -1;
 	}
 
 	sk = socket(ie->family, ie->type, ie->proto);
