@@ -14,6 +14,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 
+#include "crtools.h"
 #include "compiler.h"
 #include "syscall.h"
 #include "types.h"
