@@ -9,7 +9,8 @@
 int switch_ns(int pid, int type, char *ns)
 {
 	char buf[32];
-	int nsfd, ret;
+	int nsfd;
+	int ret = -1;
 
 	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, ns);
 	nsfd = open(buf, O_RDONLY);
@@ -30,7 +31,7 @@ out:
 static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 {
 	struct cr_fdset *fdset;
-	int ret;
+	int ret = 0;
 
 	fdset = cr_fdset_open(ns_pid, CR_FD_DESC_NS, NULL);
 	if (fdset == NULL)
@@ -54,7 +55,8 @@ err:
 
 int dump_namespaces(int ns_pid, unsigned int ns_flags)
 {
-	int pid, ret, status;
+	int pid, status;
+	int ret = 0;
 
 	/*
 	 * The setns syscall is cool, we can switch to the other
