@@ -77,9 +77,13 @@ $(OBJS-BLOB): $(SRCS-BLOB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
 
-$(HEAD-BIN): $(OBJS-BLOB) $(HEAD-LDS)
+parasite-util-net.o: util-net.c
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+
+$(HEAD-BIN): $(HEAD-LDS) $(OBJS-BLOB) parasite-util-net.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) $< -o $@
+	$(Q) $(LD) -T $^ -o $@
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN)
 	$(E) "  GEN     " $@

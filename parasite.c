@@ -437,8 +437,6 @@ static void __parasite_head __used parasite_head(void)
 		     ".long 0									\n\t");
 }
 
-#include "util-net.c"
-
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
