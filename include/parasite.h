@@ -2,6 +2,7 @@
 #define CR_PARASITE_H_
 
 #include <sys/types.h>
+#include <sys/un.h>
 #include <limits.h>
 
 #include "compiler.h"
@@ -30,6 +31,10 @@
 
 enum {
 	PARASITE_CMD_PINGME,
+	PARASITE_CMD_INIT,
+	PARASITE_CMD_SET_LOGFD,
+	PARASITE_CMD_FINI,
+
 	PARASITE_CMD_DUMPPAGES,
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
@@ -56,6 +61,12 @@ typedef struct  {
 		(st)->sys_ret	= sys_ret_code,		\
 		(st)->line	= __LINE__;		\
 	} while (0)
+
+struct parasite_init_args {
+	parasite_status_t args;
+	int sun_len;
+	struct sockaddr_un saddr;
+};
 
 struct parasite_dump_file_args {
 	parasite_status_t	status;

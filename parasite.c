@@ -5,6 +5,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -14,6 +16,7 @@
 #include "parasite.h"
 #include "image.h"
 #include "util.h"
+#include "util-net.h"
 #include "crtools.h"
 
 #ifdef CONFIG_X86_64
@@ -22,6 +25,8 @@ static void *brk_start, *brk_end, *brk_tail;
 
 static struct page_entry page;
 static struct vma_entry vma;
+static int logfd = -1;
+static int tsock = -1;
 
 static void brk_init(void *brk)
 {
@@ -74,7 +79,7 @@ static void sys_write_msg(const char *msg)
 	int size = 0;
 	while (msg[size])
 		size++;
-	sys_write(1, msg, size);
+	sys_write(logfd, msg, size);
 }
 
 static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore_flags)
@@ -358,6 +363,36 @@ static int dump_misc(struct parasite_dump_misc *args)
 	return 0;
 }
 
+static int init(struct parasite_init_args *args)
+{
+	int ret;
+
+	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (tsock < 0) {
+		return -1;
+	}
+
+	ret = sys_bind(tsock, (struct sockaddr *) &args->saddr, args->sun_len);
+	if (ret < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+static int set_logfd()
+{
+	logfd = recv_fd(tsock);
+	return logfd;
+}
+
+static int fini()
+{
+	sys_close(logfd);
+	sys_close(tsock);
+	return 0;
+}
+
 static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 {
 	brk_init(brk);
@@ -368,6 +403,12 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	switch (cmd) {
 	case PARASITE_CMD_PINGME:
 		return 0;
+	case PARASITE_CMD_INIT:
+		return init((struct parasite_init_args *) args);
+	case PARASITE_CMD_FINI:
+		return fini();
+	case PARASITE_CMD_SET_LOGFD:
+		return set_logfd();
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
@@ -412,6 +453,8 @@ static void __parasite_head __used parasite_head(void)
 		     ".skip "__stringify(PARASITE_BRK_SIZE)", 0					\n\t"
 		     ".long 0									\n\t");
 }
+
+#include "util-net.c"
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented

@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <sys/user.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 
 #include "crtools.h"
 #include "compiler.h"
@@ -20,6 +21,8 @@
 #include "types.h"
 #include "ptrace.h"
 #include "util.h"
+#include "util-net.h"
+#include "log.h"
 
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
@@ -342,6 +345,44 @@ err:
 	return ret;
 }
 
+static int get_socket_name(struct sockaddr_un *saddr, pid_t pid)
+{
+	int sun_len;
+
+	saddr->sun_family = AF_UNIX;
+	snprintf(saddr->sun_path, UNIX_PATH_MAX,
+			"X/crtools-pr-%d", pid);
+
+	sun_len = SUN_LEN(saddr);
+	*saddr->sun_path = '\0';
+
+	return sun_len;
+}
+
+static int parasite_send_fd(struct parasite_ctl *ctl, int fd)
+{
+	struct sockaddr_un saddr;
+	int sun_len, ret = -1;
+	int sock;
+
+	sun_len = get_socket_name(&saddr, ctl->pid);
+
+	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		return -1;
+	}
+
+	if (send_fd(sock, &saddr, sun_len, fd) < 0) {
+		pr_perror("Can't send file descriptor");
+		goto out;
+	}
+	ret = 0;
+out:
+	close(sock);
+	return ret;
+}
+
 static int parasite_prep_file(int type, struct parasite_dump_file_args *fa,
 		struct parasite_ctl *ctl, struct cr_fdset *fdset)
 {
@@ -382,6 +423,35 @@ out:
 	pr_info("----------------------------------------\n");
 
 	return ret;
+}
+
+static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
+{
+	struct parasite_init_args args = { };
+	int ret;
+
+	args.sun_len = get_socket_name(&args.saddr, pid);
+
+	ret = parasite_execute(PARASITE_CMD_INIT, ctl,
+			(parasite_status_t *)&args, sizeof(args));
+	return ret;
+}
+
+static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
+{
+	parasite_status_t args = { };
+	int ret;
+
+	ret = parasite_send_fd(ctl, get_logfd());
+	if (ret)
+		return ret;
+
+	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl,
+			&args, sizeof(args));
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
@@ -503,6 +573,14 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_li
 	user_regs_struct_t regs, regs_orig;
 	struct vma_area *vma_area;
 	int ret = -1;
+	parasite_status_t args = { };
+
+	ret = parasite_execute(PARASITE_CMD_FINI, ctl,
+			&args, sizeof(args));
+	if (ret) {
+		pr_err("Can't finalize parasite (pid: %d) task\n", ctl->pid);
+		goto err;
+	}
 
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err);
 
@@ -534,10 +612,12 @@ err:
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list)
 {
+	parasite_status_t args = { };
 	user_regs_struct_t regs, regs_orig;
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
 	void *mmaped;
+	int ret;
 
 	ctl = xzalloc(sizeof(*ctl));
 	if (!ctl) {
@@ -592,8 +672,25 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
 
+	ret = parasite_init(ctl, pid);
+	if (ret) {
+		pr_err("%d: Can't create a transport socket\n", pid);
+		goto err_munmap_restore;
+	}
+
+	ret = parasite_set_logfd(ctl, pid);
+	if (ret) {
+		pr_err("%d: Can't set a logging descriptor\n", pid);
+		goto err_munmap_restore;
+	}
+
 	return ctl;
 
+err_fini:
+	ret = parasite_execute(PARASITE_CMD_FINI, ctl,
+				&args, sizeof(args));
+	if (ret)
+		pr_panic("Can't finalize parasite (pid: %d) task\n", ctl->pid);
 err_munmap_restore:
 	regs = regs_orig, regs.ip = vma_area->vma.start;
 	if (munmap_seized(pid, &regs, mmaped, parasite_size))
