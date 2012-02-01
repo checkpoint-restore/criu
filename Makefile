@@ -34,6 +34,7 @@ OBJS		+= proc_parse.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-show.o
 OBJS		+= util.o
+OBJS		+= util-net.o
 OBJS		+= ptrace.o
 OBJS		+= log.o
 OBJS		+= libnetlink.o

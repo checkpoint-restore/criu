@@ -16,10 +16,8 @@
 #include "image.h"
 #include "list.h"
 #include "util.h"
+#include "util-net.h"
 #include "lock.h"
-
-#define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
-			(size_t)((struct sockaddr_un *) 0)->sun_path)
 
 enum fdinfo_states {
 	FD_STATE_PREP,		/* Create unix sockets */
@@ -326,13 +324,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
 
 	list_for_each_entry(fle, &fi->list, list) {
-		struct msghdr hdr;
-		struct iovec data;
-		char cmsgbuf[CMSG_SPACE(sizeof(int))];
-		struct cmsghdr *cmsg;
-		int *cmsg_data;
-
-		char dummy = '*';
+		int len;
 
 		fi->users--;
 
@@ -342,35 +334,15 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
 		cr_wait_while(&fle->real_pid, 0);
 
+		pr_info("Send fd %d to %s\n", (int)fe->addr, saddr.sun_path + 1);
+
 		saddr.sun_family = AF_UNIX;
 		snprintf(saddr.sun_path, UNIX_PATH_MAX,
 				"X/crtools-fd-%d-%d", fle->real_pid, fle->fd);
-
-		pr_info("Send fd %ld to %s\n", fe->addr, saddr.sun_path + 1);
-
-		data.iov_base = &dummy;
-		data.iov_len = sizeof(dummy);
-
-		hdr.msg_name = (struct sockaddr *)&saddr;
-		hdr.msg_namelen = SUN_LEN(&saddr);
+		len = SUN_LEN(&saddr);
 		*saddr.sun_path = '\0';
-		hdr.msg_iov = &data;
-		hdr.msg_iovlen = 1;
-		hdr.msg_flags = 0;
 
-		hdr.msg_control = &cmsgbuf;
-		hdr.msg_controllen = CMSG_LEN(sizeof(int));
-
-		cmsg = CMSG_FIRSTHDR(&hdr);
-		cmsg->cmsg_len   = hdr.msg_controllen;
-		cmsg->cmsg_level = SOL_SOCKET;
-		cmsg->cmsg_type  = SCM_RIGHTS;
-
-		cmsg_data = (int *)CMSG_DATA(cmsg);
-		*cmsg_data = fe->addr;
-
-		tmp = sendmsg(sock, &hdr, 0);
-		if (tmp < 0) {
+		if (send_fd(sock, &saddr, len, fe->addr) < 0) {
 			pr_perror("Can't send file descriptor");
 			return -1;
 		}
@@ -380,42 +352,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	close(sock);
 out:
 	return 0;
-}
-
-static int recv_fd(int sock)
-{
-	struct msghdr msg;
-	struct iovec iov;
-	char buf[1];
-	char ccmsg[CMSG_SPACE(sizeof(int))];
-	struct cmsghdr *cmsg;
-	int *cmsg_data;
-	iov.iov_base = buf;
-	iov.iov_len = 1;
-	int ret;
-
-	msg.msg_name = 0;
-	msg.msg_namelen = 0;
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = ccmsg;
-	msg.msg_controllen = sizeof(ccmsg);
-
-	ret = recvmsg(sock, &msg, 0);
-	if (ret == -1) {
-		pr_perror("recvmsg");
-		return -1;
-	}
-
-	cmsg = CMSG_FIRSTHDR(&msg);
-	if (!cmsg->cmsg_type == SCM_RIGHTS) {
-		pr_perror("got control message of unknown type %d",
-							  cmsg->cmsg_type);
-		return -1;
-	}
-
-	cmsg_data = (int *)CMSG_DATA(cmsg);
-	return *cmsg_data;
 }
 
 static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
@@ -440,7 +376,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 
 	tmp = recv_fd(fe->addr);
 	if (tmp < 0) {
-		pr_err("Can't get fd");
+		pr_err("Can't get fd %d\n", tmp);
 		return -1;
 	}
 	close(fe->addr);
