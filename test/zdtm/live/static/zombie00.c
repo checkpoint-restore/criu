@@ -60,6 +60,13 @@ int main(int argc, char ** argv)
 				zombie[i].exited, zombie[i].exitcode);
 	}
 
+	/*
+	 * We must wait for zombies to appear, but we cannot use
+	 * wait4 here :( Use sleep.
+	 */
+
+	sleep(1);
+
 	test_daemon();
 	test_waitsig();
 
