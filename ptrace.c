@@ -23,9 +23,10 @@ int unseize_task(pid_t pid, enum cr_task_state st)
 {
 	if (st == CR_TASK_STOP)
 		return ptrace(PTRACE_DETACH, pid, NULL, NULL);
-	else if (st == CR_TASK_KILL)
+	else if (st == CR_TASK_KILL) {
+		kill(pid, SIGKILL);
 		return ptrace(PTRACE_KILL, pid, NULL, NULL);
-	else {
+	} else {
 		BUG_ON(1);
 		return -1;
 	}
