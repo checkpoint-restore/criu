@@ -1,11 +1,4 @@
-ifeq ($(strip $(V)),)
-	E = @echo
-	Q = @
-else
-	E = @\#
-	Q =
-endif
-export E Q
+-include ../Makefile.inc
 
 ASCIIDOC	:= asciidoc
 A2X		:= a2x
