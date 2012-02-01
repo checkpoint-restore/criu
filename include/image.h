@@ -317,9 +317,10 @@ struct core_entry {
 	};
 } __packed;
 
-#define TASK_ALIVE	0x1
-#define TASK_DEAD	0x2
-#define TASK_STOPPED	0x3 /* FIXME - implement */
+#define TASK_SHOULD_BE_DEAD	0x0
+#define TASK_ALIVE		0x1
+#define TASK_DEAD		0x2
+#define TASK_STOPPED		0x3 /* FIXME - implement */
 
 #endif /* CONFIG_X86_64 */
 
