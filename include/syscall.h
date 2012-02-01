@@ -349,6 +349,28 @@ static long sys_capset(struct cap_header *h, struct cap_data *d)
 	return syscall2(__NR_capset, (long)h, (long)d);
 }
 
+static int sys_socket(int domain, int type, int protocol)
+{
+	return syscall3(__NR_socket, (long) domain, (long) type, (long) protocol);
+}
+
+struct sockaddr *addr;
+static int sys_bind(int sockfd, const struct sockaddr *addr, int addrlen)
+{
+	return syscall3(__NR_bind, (long)sockfd, (long)addr, (long) addrlen);
+}
+
+struct msghdr;
+static long sys_sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+	return syscall3(__NR_sendmsg, (long)sockfd, (long)msg, (long) flags);
+}
+
+static long sys_recvmsg(int sockfd, struct msghdr *msg, int flags)
+{
+	return syscall3(__NR_recvmsg, (long)sockfd, (long)msg, (long) flags);
+}
+
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS	0x04000000
 #endif

@@ -22,6 +22,10 @@
 #define __NR_getitimer		36
 #define __NR_setitimer		38
 #define __NR_getpid		39
+#define __NR_socket		41
+#define __NR_sendmsg		46
+#define __NR_recvmsg		47
+#define __NR_bind		49
 #define __NR_clone		56
 #define __NR_exit		60
 #define __NR_wait4		61
