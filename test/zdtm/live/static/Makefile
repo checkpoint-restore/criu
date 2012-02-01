@@ -29,6 +29,7 @@ TST_NOFILE	=				\
 		pthread00			\
 		vdso00				\
 		utsname				\
+		pstree				\
 		sockets00			\
 		ipc_namespace			\
 #		jobctl00			\
