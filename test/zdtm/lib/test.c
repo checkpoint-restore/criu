@@ -167,7 +167,10 @@ struct zdtm_clone_arg {
 static int do_test_fn(void *_arg)
 {
 	struct zdtm_clone_arg *ca = _arg;
-	struct sigaction sa;
+	struct sigaction sa = {
+		.sa_handler	= SIG_DFL,
+		.sa_flags	= SA_RESTART,
+	};
 
 	/* record the test pid to remember the ownership of the pidfile */
 	master_pid = getpid();
@@ -175,7 +178,6 @@ static int do_test_fn(void *_arg)
 	fclose(ca->pidf);
 
 	sigemptyset(&sa.sa_mask);
-	sa.sa_handler = SIG_DFL;
 	if (sigaction(SIGCHLD, &sa, NULL)) {
 		err("Can't reset SIGCHLD handler: %m\n");
 		exit(1);
@@ -200,6 +202,7 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(v
 	static FILE *pidf;
 	struct sigaction sa = {
 		.sa_handler	= sig_hand,
+		.sa_flags	= SA_RESTART,
 	};
 	struct zdtm_clone_arg ca;
 	void *stack;
