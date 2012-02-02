@@ -371,6 +371,10 @@ static long sys_recvmsg(int sockfd, struct msghdr *msg, int flags)
 	return syscall3(__NR_recvmsg, (long)sockfd, (long)msg, (long) flags);
 }
 
+static void sys_set_tid_address(int *tid_addr) {
+	syscall1(__NR_set_tid_address, (long) tid_addr);
+}
+
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS	0x04000000
 #endif
