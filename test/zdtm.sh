@@ -47,7 +47,7 @@ run_test()
 	killall -9 $tname
 	make -C $tdir cleanout $tname.pid
 
-	pid=`cat $test.pid`
+	pid=`cat $test.pid` || return 1
 	ddump="dump/$tname/$pid"
 	DUMP_PATH=`pwd`"/"$ddump
 
