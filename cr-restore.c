@@ -422,7 +422,7 @@ static int prepare_shared(int ps_fd)
 
 		task_add_pid(e.pid);
 
-		task_entries->nr++;
+		task_entries->nr += e.nr_threads;
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}

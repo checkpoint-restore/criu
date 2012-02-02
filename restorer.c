@@ -196,6 +196,13 @@ long restore_thread(struct thread_restore_args *args)
 		 */
 
 		restore_creds(NULL);
+		cr_wait_dec(&task_entries->nr_in_progress);
+
+		write_num(sys_gettid());
+		write_string_n(": Restored");
+
+		cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
+		cr_wait_dec(&task_entries->nr_in_progress);
 
 		new_sp = (long)rt_sigframe + 8;
 		asm volatile(
