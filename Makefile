@@ -160,6 +160,7 @@ clean:
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
 	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
+	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(MAKE) -C test/legacy clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
