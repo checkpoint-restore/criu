@@ -144,6 +144,8 @@ long restore_thread(struct thread_restore_args *args)
 		/* We're to close it! */
 		sys_close(args->fd_core);
 
+		sys_set_tid_address((int *) core_entry->clear_tid_address);
+
 		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
@@ -426,6 +428,8 @@ long restore_task(struct task_restore_core_args *args)
 		write_num_n(ret);
 		goto core_restore_end;
 	}
+
+	sys_set_tid_address((int *) core_entry->clear_tid_address);
 
 	/*
 	 * Tune up the task fields.

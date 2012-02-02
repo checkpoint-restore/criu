@@ -1152,6 +1152,8 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 	ret = get_task_regs(pid, core);
 	if (ret)
 		goto err_free;
+	jerr(ptrace(PTRACE_GET_TID_ADDRESS, pid, NULL,
+			&core->clear_tid_address), err_free);
 	pr_info("OK\n");
 
 	core->tc.task_state = TASK_ALIVE;

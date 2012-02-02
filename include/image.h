@@ -312,6 +312,7 @@ struct core_entry {
 			struct image_header	header;
 			struct task_core_entry	tc;
 			struct ckpt_arch_entry	arch;
+			u64 clear_tid_address;
 		};
 		u8 __core_pad[CKPT_CORE_SIZE];
 	};
