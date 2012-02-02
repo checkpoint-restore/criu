@@ -624,10 +624,7 @@ long restore_task(struct task_restore_core_args *args)
 
 	restore_creds(&args->creds);
 
-	task_entry = task_get_entry(args->task_entries, my_pid);
-
 	cr_wait_dec(&args->task_entries->nr_in_progress);
-	cr_wait_set(&task_entry->done, 1);
 
 	write_num(sys_getpid());
 	write_string_n(": Restored");

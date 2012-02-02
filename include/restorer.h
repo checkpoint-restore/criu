@@ -202,16 +202,10 @@ enum {
 	CR_STATE_COMPLETE
 };
 
-struct task_entry {
-	int pid;
-	u32 done; // futex
-};
-
 struct task_entries {
 	int nr;
 	u32 nr_in_progress;
 	u32 start; //futex
-	struct task_entry entries[0];
 };
 
 
@@ -228,18 +222,6 @@ find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
 		    si->pid == pid)
 			return si;
 	}
-
-	return NULL;
-}
-
-static always_inline struct task_entry *
-task_get_entry(struct task_entries *base, int pid)
-{
-	int i;
-
-	for (i = 0; i < base->nr; i++)
-		if (base->entries[i].pid == pid)
-			return &base->entries[i];
 
 	return NULL;
 }

@@ -79,18 +79,16 @@ struct pipe_list_entry {
 
 static struct task_entries *task_entries;
 
-static void task_add_entry(int pid)
+static struct task_pids {
+	int nr;
+	int arr[];
+} *task_pids;
+
+static void task_add_pid(int pid)
 {
-	int *nr = &task_entries->nr;
-	struct task_entry *e = &task_entries->entries[*nr];
-
-	(*nr)++;
-
-	BUG_ON((*nr) * sizeof(struct task_entry) +
-		sizeof(struct task_entries) > TASK_ENTRIES_SIZE);
-
-	e->pid = pid;
-	e->done = 0;
+	BUG_ON(sizeof(struct task_pids) + task_pids->nr * sizeof(int) > PAGE_SIZE);
+	task_pids->arr[task_pids->nr] = pid;
+	task_pids->nr++;
 }
 
 static struct shmem_id *shmem_ids;
@@ -372,6 +370,11 @@ static int prepare_shared(int ps_fd)
 
 	pr_info("Preparing info about shared resources\n");
 
+	task_pids = xmalloc(PAGE_SIZE);
+	if (task_pids == NULL)
+		return -1;
+	task_pids->nr = 0;
+
 	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (shmems == MAP_FAILED) {
 		pr_perror("Can't map shmem");
@@ -417,7 +420,9 @@ static int prepare_shared(int ps_fd)
 		if (ret < 0)
 			break;
 
-		task_add_entry(e.pid);
+		task_add_pid(e.pid);
+
+		task_entries->nr++;
 
 		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
 	}
@@ -1128,12 +1133,7 @@ static int restore_one_zobie(int pid, int exit_code)
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
 	if (task_entries != NULL) {
-		struct task_entry *task_entry;
-
-		task_entry = task_get_entry(task_entries, pid);
-
 		cr_wait_dec(&task_entries->nr_in_progress);
-		cr_wait_set(&task_entry->done, 1);
 		cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
 
 		zombie_prepare_signals();
@@ -1410,15 +1410,9 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	ret = cr_wait_until_greater(&task_entries->nr_in_progress, 0);
 	if (ret < 0) {
 		pr_err("Someone can't be restored\n");
-		for (i = 0; i < task_entries->nr; i++)
-			kill(task_entries->entries[i].pid, SIGKILL);
+		for (i = 0; i < task_pids->nr; i++)
+			kill(task_pids->arr[i], SIGKILL);
 		return 1;
-	}
-
-	for (i = 0; i < task_entries->nr; i++) {
-		pr_info("Wait while the task %d restored\n",
-				task_entries->entries[i].pid);
-		cr_wait_while(&task_entries->entries[i].done, 0);
 	}
 
 	cr_wait_set(&task_entries->nr_in_progress, task_entries->nr);
