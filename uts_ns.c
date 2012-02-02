@@ -104,7 +104,7 @@ static void show_uts_string(int fd, char *n)
 	u32 len;
 	char str[65];
 
-	ret = read_img(fd, &len);
+	ret = read_img_eof(fd, &len);
 	if (ret > 0) {
 		if (len >= sizeof(str)) {
 			pr_err("Corrupted hostname\n");
