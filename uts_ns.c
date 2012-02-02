@@ -6,6 +6,7 @@
 #include "crtools.h"
 #include "syscall.h"
 #include "namespaces.h"
+#include "sysctl.h"
 
 static int dump_uts_string(int fd, char *str)
 {
@@ -44,62 +45,55 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 	return ret;
 }
 
-static int prepare_uts_str(int fd, char *n)
+static int read_uts_str(int fd, char *n, int size)
 {
 	int ret;
 	u32 len;
-	char str[65], path[128];
 
 	ret = read_img(fd, &len);
-	if (ret > 0) {
-		if (len >= sizeof(str)) {
-			pr_err("Corrupted %s\n", n);
-			return -1;
-		}
+	if (ret < 0)
+		return -1;
 
-		ret = read_img_buf(fd, str, len);
-		if (ret < 0)
-			return -1;
-
-		str[len] = '\0';
-
-		snprintf(path, sizeof(path),
-				"/proc/sys/kernel/%s", n);
-		fd = open(path, O_WRONLY);
-		if (fd < 0) {
-			pr_perror("Can't open %s", path);
-			return -1;
-		}
-
-		pr_info("Restoring %s to [%s]\n", n, str);
-
-		ret = write(fd, str, len);
-		close(fd);
-		if (ret != len) {
-			pr_perror("Can't write %s to %s",
-					str, path);
-			return -1;
-		}
-
-		ret = 0;
+	if (len >= size) {
+		pr_err("Corrupted %s\n", n);
+		return -1;
 	}
 
-	return ret;
+	ret = read_img_buf(fd, n, len);
+	if (ret < 0)
+		return -1;
+
+	n[len] = '\0';
+	return 0;
 }
 
 int prepare_utsns(int pid)
 {
 	int fd, ret;
 	u32 len;
+	char hostname[65];
+	char domainname[65];
+
+	struct sysctl_req req[] = {
+		{ "kernel/hostname",	hostname,	CTL_STR(sizeof(hostname)) },
+		{ "kernel/domainname",	domainname,	CTL_STR(sizeof(hostname)) },
+		{ },
+	};
 
 	fd = open_image_ro(CR_FD_UTSNS, pid);
 	if (fd < 0)
 		return -1;
 
-	ret = prepare_uts_str(fd, "hostname");
-	if (!ret)
-		ret = prepare_uts_str(fd, "domainname");
+	ret = read_uts_str(fd, hostname, sizeof(hostname));
+	if (ret < 0)
+		goto out;
 
+	ret = read_uts_str(fd, domainname, sizeof(domainname));
+	if (ret < 0)
+		goto out;
+
+	ret = sysctl_op(req, CTL_WRITE);
+out:
 	close(fd);
 	return ret;
 }
