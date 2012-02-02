@@ -168,7 +168,7 @@ static void show_ipc_data(int fd)
 	int ret;
 	struct ipc_ns_data ipc;
 
-	ret = read_img(fd, &ipc);
+	ret = read_img_eof(fd, &ipc);
 	if (ret <= 0)
 		return;
 	show_ipc_entry(&ipc.entry);
