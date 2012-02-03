@@ -38,11 +38,13 @@ static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 		return -1;
 
 	if (ns_flags & CLONE_NEWUTS) {
+		pr_info("Dump UTS namespace\n");
 		ret = dump_uts_ns(ns_pid, fdset);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWIPC) {
+		pr_info("Dump IPC namespace\n");
 		ret = dump_ipc_ns(ns_pid, fdset);
 		if (ret < 0)
 			goto err;
