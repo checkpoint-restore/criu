@@ -102,14 +102,10 @@ static int collect_ipc_tun(struct ipc_ns_entry *e)
 	return ipc_sysctl_req(e, CTL_READ);
 }
 
-static int collect_ipc_data(int ns_pid, struct ipc_ns_data *ipc)
+static int collect_ipc_data(struct ipc_ns_data *ipc)
 {
 	int fd, ret;
 	struct ipc_ns_entry *entry = &ipc->entry;
-
-	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc");
-	if (ret < 0)
-		return ret;
 
 	entry->in_use[IPC_MSG_IDS] = ret = collect_ipc_msg(NULL);
 	if (ret < 0)
@@ -144,7 +140,11 @@ int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset)
 	int fd, ret;
 	struct ipc_ns_data ipc;
 
-	ret = collect_ipc_data(ns_pid, &ipc);
+	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc");
+	if (ret < 0)
+		return ret;
+
+	ret = collect_ipc_data(&ipc);
 	if (ret < 0) {
 		pr_err("Failed to collect IPC namespace data\n");
 		return ret;
