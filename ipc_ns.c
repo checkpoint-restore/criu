@@ -131,7 +131,7 @@ static int dump_ipc_data(int fd, struct ipc_ns_data *ipc)
 {
 	int err;
 
-	err = write_img_buf(fd, &ipc->entry, sizeof(ipc->entry));
+	err = write_img(fd, &ipc->entry);
 	if (err < 0) {
 		pr_err("Failed to write IPC namespace entry\n");
 		return err;
