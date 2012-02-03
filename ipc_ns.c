@@ -166,12 +166,12 @@ static void show_ipc_entry(struct ipc_ns_entry *entry)
 static void show_ipc_data(int fd)
 {
 	int ret;
-	struct ipc_ns_data ipc;
+	struct ipc_ns_entry entry;
 
-	ret = read_img_eof(fd, &ipc);
+	ret = read_img_eof(fd, &entry);
 	if (ret <= 0)
 		return;
-	show_ipc_entry(&ipc.entry);
+	show_ipc_entry(&entry);
 }
 
 void show_ipc_ns(int fd)
