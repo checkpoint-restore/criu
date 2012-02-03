@@ -21,15 +21,14 @@
 
 int unseize_task(pid_t pid, enum cr_task_state st)
 {
-	if (st == CR_TASK_STOP)
-		return ptrace(PTRACE_DETACH, pid, NULL, NULL);
-	else if (st == CR_TASK_KILL) {
+	if (st == CR_TASK_KILL)
 		kill(pid, SIGKILL);
-		return ptrace(PTRACE_KILL, pid, NULL, NULL);
-	} else {
-		BUG_ON(1);
-		return -1;
-	}
+	else if (st == CR_TASK_STOP)
+		kill(pid, SIGSTOP);
+	else
+		pr_err("Unknown final state %d\n", st);
+
+	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
 
 /*
