@@ -42,6 +42,7 @@ static/shm
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
+test -x $CRTOOLS || exit 1
 
 run_test()
 {
