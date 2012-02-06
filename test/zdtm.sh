@@ -51,6 +51,7 @@ run_test()
 	local args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
+	local ret
 
 	killall -9 $tname
 	make -C $tdir cleanout $tname.pid
@@ -62,12 +63,14 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args
+	ret=$?
 	while :; do
 		killall -9 $tname &> /dev/null || break
 		echo Waiting...
 		sleep 1
 	done
+	[ "$ret" -eq 0 ] || return 1
 
 	echo Restore $pid
 	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
