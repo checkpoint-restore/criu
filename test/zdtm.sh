@@ -45,6 +45,8 @@ CRTOOLS=`pwd`/`dirname $0`/../crtools
 run_test()
 {
 	local test=$ZP/$1
+	shift
+	local args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
 
@@ -57,7 +59,7 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $2 || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args || return 1
 	while :; do
 		killall -9 $tname &> /dev/null || break;
 		echo Waiting...
@@ -65,7 +67,7 @@ run_test()
 	done
 
 	echo Restore $pid
-	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $2 || return 2
+	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
 
 	echo Check results $pid
 	make -C $tdir $tname.out
@@ -96,13 +98,13 @@ cd `dirname $0` || exit 1
 
 if [ $# -eq 0 ]; then
 	for t in $TEST_LIST; do
-		run_test $t "" || case_error $t
+		run_test $t || case_error $t
 	done
 	for t in $UTS_TEST_LIST; do
-		run_test $t "-n uts" || case_error $t
+		run_test $t -n uts || case_error $t
 	done
 	for t in $IPC_TEST_LIST; do
-		run_test $t "-n ipc" || case_error $t
+		run_test $t -n ipc || case_error $t
 	done
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
@@ -110,10 +112,10 @@ elif [ "$1" == "-l" ]; then
 	echo $IPC_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
 	if echo "$UTS_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$1" "-n uts" || case_error "$1"
+		run_test $1 -n uts || case_error $1
 	elif echo "$IPC_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$1" "-n ipc" || case_error "$1"
+		run_test $1 -n ipc || case_error $1
 	else
-		run_test "$1" || case_error "$1"
+		run_test $1 || case_error $1
 	fi
 fi
