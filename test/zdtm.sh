@@ -107,9 +107,7 @@ if [ $# -eq 0 ]; then
 		run_test $t -n ipc || case_error $t
 	done
 elif [ "$1" == "-l" ]; then
-	echo $TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
-	echo $UTS_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
-	echo $IPC_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
+	echo $TEST_LIST $UTS_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n uts || case_error $1
