@@ -44,15 +44,15 @@ CRTOOLS=`pwd`/`dirname $0`/../crtools
 
 run_test()
 {
-	test=$ZP/$1
-	tname=`basename $test`
-	tdir=`dirname $test`
+	local test=$ZP/$1
+	local tname=`basename $test`
+	local tdir=`dirname $test`
 
 	killall -9 $tname
 	make -C $tdir cleanout $tname.pid
 
-	pid=`cat $test.pid` || return 1
-	ddump="dump/$tname/$pid"
+	local pid=`cat $test.pid` || return 1
+	local ddump="dump/$tname/$pid"
 	DUMP_PATH=`pwd`"/"$ddump
 
 	echo Dump $pid
@@ -80,8 +80,8 @@ run_test()
 
 case_error()
 {
-	test=$ZP/$1
-	test_log="`pwd`/$test.out"
+	local test=$ZP/$1
+	local test_log="`pwd`/$test.out"
 
 	echo "Test: $test"
 	echo "====================== ERROR ======================"
