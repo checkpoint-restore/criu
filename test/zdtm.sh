@@ -2,45 +2,49 @@
 
 ZP="zdtm/live"
 
-TEST_LIST="\
-$ZP/static/pipe00
-$ZP/static/busyloop00
-$ZP/static/cwd00
-$ZP/static/env00
-$ZP/static/shm
-$ZP/static/maps00
-$ZP/static/mprotect00
-$ZP/static/mtime_mmap
-$ZP/static/sleeping00
-$ZP/static/write_read00
-$ZP/static/write_read01
-$ZP/static/write_read02
-$ZP/static/wait00
-$ZP/static/vdso00
-$ZP/static/file_shared
-$ZP/static/timers
-$ZP/streaming/pipe_loop00
-$ZP/streaming/pipe_shared00
-$ZP/transition/file_read
-$ZP/transition/fork
-$ZP/static/zombie00
-$ZP/static/sockets00
-$ZP/static/pid00
-$ZP/static/pstree
-$ZP/static/caps00
-$ZP/static/cmdlinenv00
-$ZP/static/socket_listen"
+TEST_LIST="
+static/pipe00
+static/busyloop00
+static/cwd00
+static/env00
+static/shm
+static/maps00
+static/mprotect00
+static/mtime_mmap
+static/sleeping00
+static/write_read00
+static/write_read01
+static/write_read02
+static/wait00
+static/vdso00
+static/file_shared
+static/timers
+streaming/pipe_loop00
+streaming/pipe_shared00
+transition/file_read
+transition/fork
+static/zombie00
+static/sockets00
+static/pid00
+static/pstree
+static/caps00
+static/cmdlinenv00
+static/socket_listen
+"
 
-UTS_TEST_LIST="\
-$ZP/static/utsname"
-IPC_TEST_LIST="\
-$ZP/static/ipc_namespace"
+UTS_TEST_LIST="
+static/utsname
+"
+
+IPC_TEST_LIST="
+static/ipc_namespace
+"
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 
 run_test()
 {
-	test=$1
+	test=$ZP/$1
 	tname=`basename $test`
 	tdir=`dirname $test`
 
@@ -76,7 +80,7 @@ run_test()
 
 case_error()
 {
-	test=$1
+	test=$ZP/$1
 	test_log="`pwd`/$test.out"
 
 	echo "Test: $test"
@@ -106,10 +110,10 @@ elif [ "$1" == "-l" ]; then
 	echo $IPC_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
 	if echo "$UTS_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$ZP/$1" "-n uts" || case_error "$ZP/$1"
+		run_test "$1" "-n uts" || case_error "$1"
 	elif echo "$IPC_TEST_LIST" | fgrep -q "$1" ; then
-		run_test "$ZP/$1" "-n ipc" || case_error "$ZP/$1"
+		run_test "$1" "-n ipc" || case_error "$1"
 	else
-		run_test "$ZP/$1" || case_error "$ZP/$1"
+		run_test "$1" || case_error "$1"
 	fi
 fi
