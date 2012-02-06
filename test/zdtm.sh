@@ -7,7 +7,6 @@ static/pipe00
 static/busyloop00
 static/cwd00
 static/env00
-static/shm
 static/maps00
 static/mprotect00
 static/mtime_mmap
@@ -39,6 +38,7 @@ static/utsname
 
 IPC_TEST_LIST="
 static/ipc_namespace
+static/shm
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
