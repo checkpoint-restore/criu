@@ -19,6 +19,7 @@ static/wait00
 static/vdso00
 static/file_shared
 static/timers
+static/futex
 streaming/pipe_loop00
 streaming/pipe_shared00
 transition/file_read
