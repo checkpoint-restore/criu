@@ -88,9 +88,12 @@ case_error()
 	echo "Test: $test"
 	echo "====================== ERROR ======================"
 
-	[ -e "$DUMP_PATH/dump.log" ] && echo "Dump log   : $DUMP_PATH/dump.log"
-	[ -e "$DUMP_PATH/restore.log" ] && echo "Restore log: $DUMP_PATH/restore.log"
-	[ -e "$test_log" ] && echo "Output file: $test_log"
+	[ -e "$DUMP_PATH/dump.log" ] &&
+		echo "Dump log   : $DUMP_PATH/dump.log"
+	[ -e "$DUMP_PATH/restore.log" ] &&
+		echo "Restore log: $DUMP_PATH/restore.log"
+	[ -e "$test_log" ] &&
+		echo "Output file: $test_log"
 	exit 1
 }
 
