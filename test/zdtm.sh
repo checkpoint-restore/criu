@@ -54,14 +54,14 @@ run_test()
 	make -C $tdir cleanout $tname.pid
 
 	local pid=`cat $test.pid` || return 1
-	local ddump="dump/$tname/$pid"
-	DUMP_PATH=`pwd`"/"$ddump
+	local ddump=dump/$tname/$pid
+	DUMP_PATH=`pwd`/$ddump
 
 	echo Dump $pid
 	mkdir -p $ddump
 	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args || return 1
 	while :; do
-		killall -9 $tname &> /dev/null || break;
+		killall -9 $tname &> /dev/null || break
 		echo Waiting...
 		sleep 1
 	done
@@ -72,7 +72,7 @@ run_test()
 	echo Check results $pid
 	make -C $tdir $tname.out
 	for i in `seq 50`; do
-		test -f $test.out && break;
+		test -f $test.out && break
 		echo Waiting...
 		sleep 1
 	done
@@ -83,7 +83,7 @@ run_test()
 case_error()
 {
 	local test=$ZP/$1
-	local test_log="`pwd`/$test.out"
+	local test_log=`pwd`/$test.out
 
 	echo "Test: $test"
 	echo "====================== ERROR ======================"
