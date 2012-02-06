@@ -111,9 +111,9 @@ elif [ "$1" == "-l" ]; then
 	echo $UTS_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 	echo $IPC_TEST_LIST | sed -e "s#$ZP/##g" -e 's/ /\n/g'
 else
-	if echo "$UTS_TEST_LIST" | fgrep -q "$1" ; then
+	if echo $UTS_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n uts || case_error $1
-	elif echo "$IPC_TEST_LIST" | fgrep -q "$1" ; then
+	elif echo $IPC_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n ipc || case_error $1
 	else
 		run_test $1 || case_error $1
