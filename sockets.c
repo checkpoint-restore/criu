@@ -651,10 +651,20 @@ out:
 	return err;
 }
 
+static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
+{
+	addr->sun_family = AF_UNIX;
+	addr->sun_path[0] = '\0';
+
+	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
+
+	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
+}
+
 struct unix_conn_job {
-	struct sockaddr_un	addr;
-	int			addrlen;
 	int			fd;
+	unsigned int		peer;
+	int			flags;
 	struct unix_conn_job	*next;
 };
 
@@ -673,10 +683,29 @@ static int run_connect_jobs(void)
 	cj = conn_jobs;
 	while (cj) {
 		int attempts = 8;
+		struct sockaddr_un addr;
+		int addrlen;
+
+		/*
+		 * Might need to resolve in-flight connection name.
+		 */
+		if (cj->flags & USK_INFLIGHT) {
+			struct unix_sk_listen *e;
+
+			e = lookup_unix_listen(cj->peer);
+			if (!e) {
+				pr_err("Bad in-flight socket peer %d\n", cj->peer);
+				return -1;
+			}
+
+			memcpy(&addr, &e->addr, sizeof(addr));
+			addrlen = e->addrlen;
+		} else
+			prep_conn_addr(cj->peer, &addr, &addrlen);
 
 		unix_show_job("Run conn", cj->fd, -1);
 try_again:
-		if (connect(cj->fd, (struct sockaddr *)&cj->addr, cj->addrlen) < 0) {
+		if (connect(cj->fd, (struct sockaddr *)&addr, addrlen) < 0) {
 			if (attempts) {
 				usleep(1000);
 				attempts--;
@@ -741,16 +770,6 @@ static int run_accept_jobs(void)
 	}
 
 	return 0;
-}
-
-static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
-{
-	addr->sun_family = AF_UNIX;
-	addr->sun_path[0] = '\0';
-
-	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
-
-	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
 }
 
 struct unix_dgram_bound {
@@ -992,27 +1011,9 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			if (!cj)
 				goto err;
 
-			/*
-			 * Might need to resolve in-flight connection name.
-			 */
-			if (ue->flags & USK_INFLIGHT) {
-				struct unix_sk_listen *e;
 
-				/*
-				 * Find out listening sockets name.
-				 */
-				e = lookup_unix_listen(ue->peer);
-				if (!e) {
-					pr_err("Bad in-flight socket peer %d\n",
-						ue->peer);
-					goto err;
-				}
-
-				memcpy(&cj->addr, &e->addr, sizeof(cj->addr));
-				cj->addrlen = e->addrlen;
-			} else
-				prep_conn_addr(ue->peer, &cj->addr, &cj->addrlen);
-
+			cj->peer = ue->peer;
+			cj->flags = ue->flags;
 			cj->fd = ue->fd;
 			cj->next = conn_jobs;
 			conn_jobs = cj;
