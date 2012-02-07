@@ -30,6 +30,7 @@ static/pstree
 static/caps00
 static/cmdlinenv00
 static/socket_listen
+static/selfexe00
 "
 
 UTS_TEST_LIST="

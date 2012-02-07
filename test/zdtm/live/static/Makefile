@@ -32,6 +32,7 @@ TST_NOFILE	=				\
 		pstree				\
 		sockets00			\
 		ipc_namespace			\
+		selfexe00			\
 #		jobctl00			\
 
 TST_FILE	=				\
