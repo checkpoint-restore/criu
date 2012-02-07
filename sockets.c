@@ -784,6 +784,36 @@ struct unix_accept_job {
 
 static struct unix_accept_job *accept_jobs;
 
+static int schedule_acc_job(int sk, struct unix_sk_entry *ue)
+{
+	struct sockaddr_un addr;
+	int len;
+	struct unix_accept_job *aj;
+
+	prep_conn_addr(ue->id, &addr, &len);
+	if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
+		pr_perror("Can't bind socket");
+		goto err;
+	}
+
+	if (listen(sk, 1) < 0) {
+		pr_perror("Can't listen socket");
+		goto err;
+	}
+
+	aj = xmalloc(sizeof(*aj));
+	if (aj == NULL)
+		goto err;
+
+	aj->fd = ue->fd;
+	aj->next = accept_jobs;
+	accept_jobs = aj;
+	unix_show_job("Sched acc", ue->fd, ue->id);
+	return 0;
+err:
+	return -1;
+}
+
 static int run_accept_jobs(void)
 {
 	struct unix_accept_job *aj, *next;
@@ -892,37 +922,9 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 		 * deferred to connect() later.
 		 */
 
-		if (ue->peer < ue->id && !(ue->flags & USK_INFLIGHT)) {
-			struct sockaddr_un addr;
-			int len;
-			struct unix_accept_job *aj;
-
-			/*
-			 * Will become a server
-			 */
-
-			ret = -1;
-			prep_conn_addr(ue->id, &addr, &len);
-			if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
-				pr_perror("Can't bind socket");
-				goto out;
-			}
-
-			if (listen(sk, 1) < 0) {
-				pr_perror("Can't listen socket");
-				goto out;
-			}
-
-			aj = xmalloc(sizeof(*aj));
-			if (aj == NULL)
-				goto out;
-
-			aj->fd = ue->fd;
-			aj->next = accept_jobs;
-			accept_jobs = aj;
-			unix_show_job("Sched acc", ue->fd, ue->id);
-			ret = 0;
-		} else
+		if (ue->peer < ue->id && !(ue->flags & USK_INFLIGHT))
+			ret = schedule_acc_job(sk, ue);
+		else
 			ret = schedule_conn_job((ue->flags & USK_INFLIGHT) ?
 					CJ_STREAM_INFLIGHT : CJ_STREAM, ue);
 	} else {
