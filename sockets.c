@@ -114,6 +114,10 @@ __gen_static_lookup_func(struct unix_sk_listen,				\
 			 unix_listen,					\
 			 ino, unsigned int, ino);
 
+static struct unix_sk_listen	*dgram_bound[SK_HASH_SIZE];
+__gen_static_lookup_func(struct unix_sk_listen, lookup_dgram_bound, dgram_bound, ino, int, ino);
+
+
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
 	d->ino		= ino;
@@ -706,6 +710,17 @@ static int run_connect_jobs(void)
 
 			memcpy(&addr, &e->addr, sizeof(addr));
 			addrlen = e->addrlen;
+		} else if (cj->type == CJ_DGRAM) {
+			struct unix_sk_listen *e;
+
+			e = lookup_dgram_bound(cj->peer);
+			if (!e) {
+				pr_err("Bad in-flight socket peer %d\n", cj->peer);
+				return -1;
+			}
+
+			memcpy(&addr, &e->addr, sizeof(addr));
+			addrlen = e->addrlen;
 		} else
 			prep_conn_addr(cj->peer, &addr, &addrlen);
 
@@ -733,6 +748,16 @@ try_again:
 	 */
 	for (i = 0; i < SK_HASH_SIZE; i++) {
 		struct unix_sk_listen *h = unix_listen[i];
+		struct unix_sk_listen *e;
+		while (h) {
+			e = h->next;
+			xfree(h);
+			h = e;
+		}
+	}
+
+	for (i = 0; i < SK_HASH_SIZE; i++) {
+		struct unix_sk_listen *h = dgram_bound[i];
 		struct unix_sk_listen *e;
 		while (h) {
 			e = h->next;
@@ -776,55 +801,6 @@ static int run_accept_jobs(void)
 	}
 
 	return 0;
-}
-
-static struct unix_sk_listen	*dgram_bound[SK_HASH_SIZE];
-static struct unix_conn_job	*dgram_peer;
-
-__gen_static_lookup_func(struct unix_sk_listen, lookup_dgram_bound, dgram_bound, ino, int, ino);
-
-static int run_connect_jobs_dgram(void)
-{
-	struct unix_sk_listen	*b;
-	struct unix_conn_job	*d;
-	int i;
-
-	for (d = dgram_peer; d; d = d->next) {
-		b = lookup_dgram_bound(d->peer);
-		if (!b) {
-			pr_err("Unconnected socket for peer %d\n", d->peer);
-			goto err;
-		}
-
-		if (connect(d->fd, (struct sockaddr *)&b->addr, b->addrlen) < 0) {
-			pr_perror("Can't connect peer %d on fd %d",
-				  d->peer, d->fd);
-			goto err;
-		}
-	}
-
-	/*
-	 * Free data we don't need anymore.
-	 */
-	for (d = dgram_peer; d;) {
-		struct unix_conn_job *h = d;
-		d = d->next;
-		xfree(h);
-	}
-
-	for (i = 0; i < SK_HASH_SIZE; i++) {
-		if (!dgram_bound[i])
-			continue;
-		for (b = dgram_bound[i]; b;) {
-			struct unix_sk_listen	*h = b;
-			b = b->next;
-			xfree(h);
-		}
-	}
-
-	return 0;
-err:
-	return -1;
 }
 
 static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
@@ -888,9 +864,8 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		d->type = CJ_DGRAM;
 		d->peer	= ue->peer;
 		d->fd	= ue->fd;
-		d->next = dgram_peer;
-
-		dgram_peer = d;
+		d->next = conn_jobs;
+		conn_jobs = d;
 	}
 
 	return 0;
@@ -1084,8 +1059,6 @@ static int prepare_unix_sockets(int pid)
 err:
 	close(usk_fd);
 
-	if (!ret)
-		ret = run_connect_jobs_dgram();
 	if (!ret)
 		ret = run_connect_jobs();
 	if (!ret)
