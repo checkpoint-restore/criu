@@ -56,9 +56,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	memset(path, 0, sizeof(path));
-	strncat(path, cwd, sizeof(path));
-	strncat(path, "/test-socket", sizeof(path));
+	snprintf(path, sizeof(path), "%s/test-socket", cwd);
 	unlink(path);
 
 	addr.sun_family = AF_UNIX;
@@ -110,25 +108,19 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	memset(path, 0, sizeof(path));
-	strncat(path, cwd, sizeof(path));
-	strncat(path, "/test-socket-bound", sizeof(path));
+	snprintf(path, sizeof(path), "%s/test-socket-bound", cwd);
 	unlink(path);
 
 	name_bound.sun_family = AF_UNIX;
 	strncpy(name_bound.sun_path, path, sizeof(name_bound.sun_path));
 
-	memset(path, 0, sizeof(path));
-	strncat(path, cwd, sizeof(path));
-	strncat(path, "/test-socket-conn", sizeof(path));
+	snprintf(path, sizeof(path), "%s/test-socket-conn", cwd);
 	unlink(path);
 
 	name_conn.sun_family = AF_UNIX;
 	strncpy(name_conn.sun_path, path, sizeof(name_conn.sun_path));
 
-	memset(path, 0, sizeof(path));
-	strncat(path, cwd, sizeof(path));
-	strncat(path, "/test-socket-bound-conn", sizeof(path));
+	snprintf(path, sizeof(path), "%s/test-socket-bound-conn", cwd);
 	unlink(path);
 
 	name_bound_conn.sun_family = AF_UNIX;
