@@ -156,7 +156,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 int prepare_fd_pid(int pid)
 {
-	int fdinfo_fd;
+	int fdinfo_fd, ret = 0;
 	u32 type = 0;
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
@@ -168,29 +168,25 @@ int prepare_fd_pid(int pid)
 	}
 
 	while (1) {
-		int ret;
 		struct fdinfo_entry e;
 
-		ret = read(fdinfo_fd, &e, sizeof(e));
-		if (ret == 0)
+		ret = read_img_eof(fdinfo_fd, &e);
+		if (ret <= 0)
 			break;
-		if (ret != sizeof(e)) {
-			pr_perror("%d: Read fdinfo failed %d (expected %li)",
-				  pid, ret, sizeof(e));
-			return -1;
-		}
+
 		if (e.len)
 			lseek(fdinfo_fd, e.len, SEEK_CUR);
 
 		if (fd_is_special(&e))
 			continue;
 
-		if (collect_fd(pid, &e))
-			return -1;
+		ret = collect_fd(pid, &e);
+		if (ret < 0)
+			break;
 	}
 
 	close(fdinfo_fd);
-	return 0;
+	return ret;
 }
 
 static int open_fe_fd(struct fdinfo_entry *fe, int fd)
