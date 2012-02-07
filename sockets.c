@@ -772,27 +772,20 @@ static int run_accept_jobs(void)
 	return 0;
 }
 
-struct unix_dgram_bound {
-	struct unix_dgram_bound	*next;
-	struct sockaddr_un	addr;
-	int			addr_len;
-	int			id;
-};
-
 struct unix_dgram_peer {
 	struct unix_dgram_peer	*next;
 	int			fd;
 	int			peer;
 };
 
-static struct unix_dgram_bound	*dgram_bound[SK_HASH_SIZE];
+static struct unix_sk_listen	*dgram_bound[SK_HASH_SIZE];
 static struct unix_dgram_peer	*dgram_peer;
 
-__gen_static_lookup_func(struct unix_dgram_bound, lookup_dgram_bound, dgram_bound, id, int, id);
+__gen_static_lookup_func(struct unix_sk_listen, lookup_dgram_bound, dgram_bound, ino, int, ino);
 
 static int run_connect_jobs_dgram(void)
 {
-	struct unix_dgram_bound	*b;
+	struct unix_sk_listen	*b;
 	struct unix_dgram_peer	*d;
 	int i;
 
@@ -803,7 +796,7 @@ static int run_connect_jobs_dgram(void)
 			goto err;
 		}
 
-		if (connect(d->fd, (struct sockaddr *)&b->addr, b->addr_len) < 0) {
+		if (connect(d->fd, (struct sockaddr *)&b->addr, b->addrlen) < 0) {
 			pr_perror("Can't connect peer %d on fd %d",
 				  d->peer, d->fd);
 			goto err;
@@ -823,7 +816,7 @@ static int run_connect_jobs_dgram(void)
 		if (!dgram_bound[i])
 			continue;
 		for (b = dgram_bound[i]; b;) {
-			struct unix_dgram_bound	*h = b;
+			struct unix_sk_listen	*h = b;
 			b = b->next;
 			xfree(h);
 		}
@@ -843,7 +836,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		 * we don't have to wait for connect().
 		 */
 
-		struct unix_dgram_bound *d;
+		struct unix_sk_listen *d;
 		struct sockaddr_un addr;
 		int ret;
 
@@ -872,10 +865,10 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 			goto err;
 
 		memcpy(&d->addr, &addr, sizeof(d->addr));
-		d->addr_len = sizeof(addr.sun_family) + ue->namelen;
-		d->id	= ue->id;
+		d->addrlen = sizeof(addr.sun_family) + ue->namelen;
+		d->ino	= ue->id;
 
-		SK_HASH_LINK(dgram_bound, d->id, d);
+		SK_HASH_LINK(dgram_bound, d->ino, d);
 	}
 
 	if (ue->peer) {
