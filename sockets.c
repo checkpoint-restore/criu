@@ -65,6 +65,7 @@ struct unix_sk_listen {
 	unsigned int			ino;
 	struct sockaddr_un		addr;
 	unsigned int			addrlen;
+	int				type;
 	struct unix_sk_listen		*next;
 };
 
@@ -109,14 +110,16 @@ __gen_static_lookup_func(struct unix_sk_listen_icon,			\
 			 peer_ino, unsigned int, ino);
 
 static struct unix_sk_listen *unix_listen[SK_HASH_SIZE];
-__gen_static_lookup_func(struct unix_sk_listen,				\
-			 lookup_unix_listen,				\
-			 unix_listen,					\
-			 ino, unsigned int, ino);
+static struct unix_sk_listen *lookup_unix_listen(unsigned int ino, int type)
+{
+	struct unix_sk_listen *l;
 
-static struct unix_sk_listen	*dgram_bound[SK_HASH_SIZE];
-__gen_static_lookup_func(struct unix_sk_listen, lookup_dgram_bound, dgram_bound, ino, int, ino);
+	for (l = unix_listen[ino % SK_HASH_SIZE]; l != NULL; l = l->next)
+		if ((l->ino == ino) && (l->type == type))
+			return l;
 
+	return NULL;
+}
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
@@ -720,30 +723,24 @@ static int run_connect_jobs(void)
 		/*
 		 * Might need to resolve in-flight connection name.
 		 */
-		if (cj->type == CJ_STREAM_INFLIGHT) {
-			struct unix_sk_listen *e;
-
-			e = lookup_unix_listen(cj->peer);
-			if (!e) {
-				pr_err("Bad in-flight socket peer %d\n", cj->peer);
-				return -1;
-			}
-
-			memcpy(&addr, &e->addr, sizeof(addr));
-			addrlen = e->addrlen;
-		} else if (cj->type == CJ_DGRAM) {
-			struct unix_sk_listen *e;
-
-			e = lookup_dgram_bound(cj->peer);
-			if (!e) {
-				pr_err("Bad in-flight socket peer %d\n", cj->peer);
-				return -1;
-			}
-
-			memcpy(&addr, &e->addr, sizeof(addr));
-			addrlen = e->addrlen;
-		} else
+		if (cj->type == CJ_STREAM)
 			prep_conn_addr(cj->peer, &addr, &addrlen);
+		else {
+			struct unix_sk_listen *e;
+
+			if (cj->type == CJ_STREAM_INFLIGHT)
+				e = lookup_unix_listen(cj->peer, SOCK_STREAM);
+			else /* if (cj->type == CJ_DGRAM) */
+				e = lookup_unix_listen(cj->peer, SOCK_DGRAM);
+
+			if (!e) {
+				pr_err("Bad in-flight socket peer %d\n", cj->peer);
+				return -1;
+			}
+
+			memcpy(&addr, &e->addr, sizeof(addr));
+			addrlen = e->addrlen;
+		}
 
 		unix_show_job("Run conn", cj->fd, -1);
 try_again:
@@ -769,16 +766,6 @@ try_again:
 	 */
 	for (i = 0; i < SK_HASH_SIZE; i++) {
 		struct unix_sk_listen *h = unix_listen[i];
-		struct unix_sk_listen *e;
-		while (h) {
-			e = h->next;
-			xfree(h);
-			h = e;
-		}
-	}
-
-	for (i = 0; i < SK_HASH_SIZE; i++) {
-		struct unix_sk_listen *h = dgram_bound[i];
 		struct unix_sk_listen *e;
 		while (h) {
 			e = h->next;
@@ -864,8 +851,9 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		memcpy(&d->addr, &addr, sizeof(d->addr));
 		d->addrlen = sizeof(addr.sun_family) + ue->namelen;
 		d->ino	= ue->id;
+		d->type = SOCK_DGRAM;
 
-		SK_HASH_LINK(dgram_bound, d->ino, d);
+		SK_HASH_LINK(unix_listen, d->ino, d);
 	}
 
 	if (ue->peer)
@@ -931,6 +919,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 		memcpy(&e->addr, &addr, sizeof(e->addr));
 		e->addrlen	= sizeof(e->addr.sun_family) + ue->namelen;
 		e->ino		= ue->id;
+		e->type		= SOCK_STREAM;
 
 		dprintk("\tCollected listening socket %d\n", ue->id);
 
