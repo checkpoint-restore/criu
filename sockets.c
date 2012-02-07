@@ -664,8 +664,14 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 struct unix_conn_job {
 	int			fd;
 	unsigned int		peer;
-	int			flags;
+	int			type;
 	struct unix_conn_job	*next;
+};
+
+enum {
+	CJ_DGRAM,
+	CJ_STREAM,
+	CJ_STREAM_INFLIGHT,
 };
 
 static void unix_show_job(char *type, int fd, int id)
@@ -689,7 +695,7 @@ static int run_connect_jobs(void)
 		/*
 		 * Might need to resolve in-flight connection name.
 		 */
-		if (cj->flags & USK_INFLIGHT) {
+		if (cj->type == CJ_STREAM_INFLIGHT) {
 			struct unix_sk_listen *e;
 
 			e = lookup_unix_listen(cj->peer);
@@ -879,7 +885,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		if (!d)
 			goto err;
 
-		d->flags = 0;
+		d->type = CJ_DGRAM;
 		d->peer	= ue->peer;
 		d->fd	= ue->fd;
 		d->next = dgram_peer;
@@ -1001,7 +1007,10 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 
 
 			cj->peer = ue->peer;
-			cj->flags = ue->flags;
+			if (ue->flags & USK_INFLIGHT)
+				cj->type = CJ_STREAM_INFLIGHT;
+			else
+				cj->type = CJ_STREAM;
 			cj->fd = ue->fd;
 			cj->next = conn_jobs;
 			conn_jobs = cj;
