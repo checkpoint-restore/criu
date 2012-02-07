@@ -22,6 +22,16 @@
 #include "lock.h"
 #include "restorer.h"
 
+#define sys_prctl_safe(opcode, val1, val2, val3)			\
+	({								\
+		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
+		if (__ret) {						\
+			write_num_n(__LINE__);				\
+			write_num_n(ret);				\
+		}							\
+		__ret;							\
+	})
+
 static struct task_entries *task_entries;
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
@@ -434,30 +444,22 @@ long restore_task(struct task_restore_core_args *args)
 	/*
 	 * Tune up the task fields.
 	 */
-
-#define sys_prctl_safe(opcode, val1, val2, val3)		\
-	do {							\
-		ret = sys_prctl(opcode, val1, val2, val3, 0);	\
-		if (ret) {					\
-			write_num_n(__LINE__);			\
-			write_num_n(ret);			\
-		}						\
-	} while (0)
-
-	sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)core_entry->tc.mm_start_code, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->tc.mm_end_code, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->tc.mm_start_data, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->tc.mm_end_data, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->tc.mm_start_stack, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->tc.mm_start_brk, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->tc.mm_brk, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)core_entry->tc.mm_arg_start, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)core_entry->tc.mm_arg_end, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)core_entry->tc.mm_env_start, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)core_entry->tc.mm_env_end, 0);
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)core_entry->tc.mm_saved_auxv,
-							sizeof(core_entry->tc.mm_saved_auxv));
+	ret |= sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)core_entry->tc.mm_start_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->tc.mm_end_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->tc.mm_start_data, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->tc.mm_end_data, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->tc.mm_start_stack, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->tc.mm_start_brk, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->tc.mm_brk, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)core_entry->tc.mm_arg_start, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)core_entry->tc.mm_arg_end, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)core_entry->tc.mm_env_start, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)core_entry->tc.mm_env_end, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)core_entry->tc.mm_saved_auxv,
+								sizeof(core_entry->tc.mm_saved_auxv));
+	if (ret)
+		goto core_restore_end;
 
 	/*
 	 * We need to prepare a valid sigframe here, so
