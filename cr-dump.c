@@ -138,44 +138,32 @@ err:
 	return ret;
 }
 
-static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
+static int dump_task_special_files(int pid_dir, struct cr_fdset *cr_fdset)
 {
-	int ret = -1;
-	int fd;
-	struct fd_parms p = {
-		.fd_name = FDINFO_CWD,
-		.pos = 0,
-		.flags = 0,
-		.id = NULL,
-	};
+	struct fd_parms params;
+	int fd, ret;
 
+	/* Dump /proc/pid/cwd */
+	params = (struct fd_parms){ .fd_name = FDINFO_CWD, };
 	fd = open_proc(pid_dir, "cwd");
 	if (fd < 0) {
 		pr_perror("Failed to openat cwd");
 		return -1;
 	}
+	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
+	if (ret)
+		return ret;
 
-	return dump_one_reg_file(FDINFO_FD, &p, fd, cr_fdset, 1);
-}
-
-static int dump_exe(int pid_dir, struct cr_fdset *cr_fdset)
-{
-	int ret = -1;
-	int fd;
-	struct fd_parms p = {
-		.fd_name = FDINFO_EXE,
-		.pos = 0,
-		.flags = 0,
-		.id = NULL,
-	};
-
+	/* Dump /proc/pid/exe */
+	params = (struct fd_parms){ .fd_name = FDINFO_EXE, };
 	fd = open_proc(pid_dir, "exe");
 	if (fd < 0) {
 		pr_perror("Failed to openat exe");
 		return -1;
 	}
+	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
 
-	return dump_one_reg_file(FDINFO_FD, &p, fd, cr_fdset, 1);
+	return ret;
 }
 
 static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
@@ -360,13 +348,8 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	 * to re-read them in restorer, so better to make it
 	 * fast.
 	 */
-	if (dump_cwd(pid_dir, cr_fdset)) {
-		pr_perror("Can't dump %d's cwd", pid);
-		return -1;
-	}
-
-	if (dump_exe(pid_dir, cr_fdset)) {
-		pr_perror("Can't dump %d's exe", pid);
+	if (dump_task_special_files(pid_dir, cr_fdset)) {
+		pr_err("Can't dump special files\n");
 		return -1;
 	}
 
