@@ -15,11 +15,12 @@ else
 	subject=`exec git log --stat -n1 $id | sed -e '5! D' | sed -e 's/^\s*//g'`
 	author=`exec git log --stat -n1 $id | grep "Author" | sed -e 's/Author\: //g'`
 fi
+	name=`exec echo $author | sed -e 's/<.*>//g'`
 
 	echo "From: Cyrill Gorcunov <gorcunov@openvz.org>"			>  /tmp/crtools.bot
 	echo "To: $author"							>> /tmp/crtools.bot
 	echo "Cc: CriuML <criu@openvz.org>"					>> /tmp/crtools.bot
-	echo "Subject: [crtools-bot] $subject"					>> /tmp/crtools.bot
+	echo "Subject: [crtools-bot for $name] $subject"			>> /tmp/crtools.bot
 	echo ""									>> /tmp/crtools.bot
 	echo "The commit is pushed to \"$branch\" and will appear on $remote"	>> /tmp/crtools.bot
 	echo "------>"								>> /tmp/crtools.bot
