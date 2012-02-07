@@ -756,6 +756,7 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 struct unix_dgram_bound {
 	struct unix_dgram_bound	*next;
 	struct sockaddr_un	addr;
+	int			addr_len;
 	int			id;
 };
 
@@ -783,7 +784,7 @@ static int run_connect_jobs_dgram(void)
 			goto err;
 		}
 
-		if (connect(d->fd, (struct sockaddr *)&b->addr, sizeof(b->addr)) < 0) {
+		if (connect(d->fd, (struct sockaddr *)&b->addr, b->addr_len) < 0) {
 			pr_perror("Can't connect peer %d on fd %d",
 				  d->peer, d->fd);
 			goto err;
@@ -852,6 +853,7 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 			goto err;
 
 		memcpy(&d->addr, &addr, sizeof(d->addr));
+		d->addr_len = sizeof(addr.sun_family) + ue->namelen;
 		d->id	= ue->id;
 
 		SK_HASH_LINK(dgram_bound, d->id, d);
