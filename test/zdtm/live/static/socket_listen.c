@@ -1,7 +1,7 @@
 #include "zdtmtst.h"
 
 const char *test_doc = "static test for listening socket\n";
-const char *test_author = "Stanislav Kinsbursky <skinsbursky@opernvz.org>";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 
 /* Description:
  * Create two tcp socket, server send asynchronous request on
