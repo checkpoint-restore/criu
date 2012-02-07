@@ -772,21 +772,15 @@ static int run_accept_jobs(void)
 	return 0;
 }
 
-struct unix_dgram_peer {
-	struct unix_dgram_peer	*next;
-	int			fd;
-	int			peer;
-};
-
 static struct unix_sk_listen	*dgram_bound[SK_HASH_SIZE];
-static struct unix_dgram_peer	*dgram_peer;
+static struct unix_conn_job	*dgram_peer;
 
 __gen_static_lookup_func(struct unix_sk_listen, lookup_dgram_bound, dgram_bound, ino, int, ino);
 
 static int run_connect_jobs_dgram(void)
 {
 	struct unix_sk_listen	*b;
-	struct unix_dgram_peer	*d;
+	struct unix_conn_job	*d;
 	int i;
 
 	for (d = dgram_peer; d; d = d->next) {
@@ -807,7 +801,7 @@ static int run_connect_jobs_dgram(void)
 	 * Free data we don't need anymore.
 	 */
 	for (d = dgram_peer; d;) {
-		struct unix_dgram_peer *h = d;
+		struct unix_conn_job *h = d;
 		d = d->next;
 		xfree(h);
 	}
@@ -879,12 +873,13 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		 * until peer is alive.
 		 */
 
-		struct unix_dgram_peer *d;
+		struct unix_conn_job *d;
 
 		d = xmalloc(sizeof(*d));
 		if (!d)
 			goto err;
 
+		d->flags = 0;
 		d->peer	= ue->peer;
 		d->fd	= ue->fd;
 		d->next = dgram_peer;
