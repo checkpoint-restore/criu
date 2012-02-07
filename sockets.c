@@ -685,6 +685,27 @@ static void unix_show_job(char *type, int fd, int id)
 
 static struct unix_conn_job *conn_jobs;
 
+static int schedule_conn_job(int type, struct unix_sk_entry *ue)
+{
+	struct unix_conn_job *cj;
+
+	cj = xmalloc(sizeof(*cj));
+	if (!cj)
+		return -1;
+
+
+	cj->type = type;
+	cj->peer = ue->peer;
+	cj->fd = ue->fd;
+
+	cj->next = conn_jobs;
+	conn_jobs = cj;
+
+	unix_show_job("Sched conn", ue->fd, ue->peer);
+
+	return 0;
+}
+
 static int run_connect_jobs(void)
 {
 	struct unix_conn_job *cj, *next;
@@ -847,26 +868,9 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		SK_HASH_LINK(dgram_bound, d->ino, d);
 	}
 
-	if (ue->peer) {
-
-		/*
-		 * Connected sockets are a bit compound,
-		 * we might need to defer connect() call
-		 * until peer is alive.
-		 */
-
-		struct unix_conn_job *d;
-
-		d = xmalloc(sizeof(*d));
-		if (!d)
+	if (ue->peer)
+		if (schedule_conn_job(CJ_DGRAM, ue))
 			goto err;
-
-		d->type = CJ_DGRAM;
-		d->peer	= ue->peer;
-		d->fd	= ue->fd;
-		d->next = conn_jobs;
-		conn_jobs = d;
-	}
 
 	return 0;
 err:
@@ -970,26 +974,9 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			accept_jobs = aj;
 			unix_show_job("Sched acc", ue->fd, ue->id);
 		} else {
-			struct unix_conn_job *cj;
-
-			/*
-			 * Will do the connect
-			 */
-
-			cj = xmalloc(sizeof(*cj));
-			if (!cj)
+			if (schedule_conn_job((ue->flags & USK_INFLIGHT) ?
+						CJ_STREAM_INFLIGHT : CJ_STREAM, ue))
 				goto err;
-
-
-			cj->peer = ue->peer;
-			if (ue->flags & USK_INFLIGHT)
-				cj->type = CJ_STREAM_INFLIGHT;
-			else
-				cj->type = CJ_STREAM;
-			cj->fd = ue->fd;
-			cj->next = conn_jobs;
-			conn_jobs = cj;
-			unix_show_job("Sched conn", ue->fd, ue->peer);
 		}
 	} else {
 		pr_err("Unknown state %d\n", ue->state);
