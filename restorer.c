@@ -233,6 +233,60 @@ long restore_thread(struct thread_restore_args *args)
 		sys_exit(0);
 }
 
+static long restore_self_exe_late(struct task_restore_core_args *args)
+{
+	struct fdinfo_entry fe;
+	long ret = -1;
+	char *path;
+
+	/*
+	 * Path to exe file and its len is in image.
+	 */
+	for (;;) {
+		if (sys_read(args->fd_fdinfo, &fe, sizeof(fe)) != sizeof(fe)) {
+			write_string("sys_read lookup failed\n");
+			goto err;
+		}
+
+		if (fe.type == FDINFO_FD && fe.addr == FDINFO_EXE)
+			break;
+
+		if (fe.len)
+			sys_lseek(args->fd_fdinfo, fe.len, SEEK_CUR);
+	}
+
+	path = (char *)sys_mmap(NULL, fe.len + 1,
+				PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if ((long)path < 0) {
+		write_string("sys_mmap failed\n");
+		write_num_n(fe.len);
+		goto err;
+	}
+
+	if (sys_read(args->fd_fdinfo, path, fe.len) != fe.len) {
+		sys_munmap(path, fe.len);
+		write_string("sys_read for exe-path failed\n");
+		goto err;
+	}
+	path[fe.len] = '\0';
+
+	write_string("Restoring EXE (");
+	write_string(path);
+	write_string(")\n");
+
+	ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, (long)path, fe.len + 1);
+
+	sys_munmap(path, fe.len + 1);
+
+	return ret;
+
+err:
+	write_num_n(__LINE__);
+	write_num_n(sys_getpid());
+	return ret;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -458,6 +512,20 @@ long restore_task(struct task_restore_core_args *args)
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)core_entry->tc.mm_env_end, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)core_entry->tc.mm_saved_auxv,
 								sizeof(core_entry->tc.mm_saved_auxv));
+	if (ret)
+		goto core_restore_end;
+
+	/*
+	 * Restoring own /proc/pid/exe symlink is a bit
+	 * tricky -- we are to be sure no mmaps are
+	 * done over exec we're going to change, that's
+	 * why it's don that lately. Moreover, we are
+	 * to pass a path to new exec which means the
+	 * code should allocate memory enough for (maybe!)
+	 * pretty long file name.
+	 */
+	ret = restore_self_exe_late(args);
+	sys_close(args->fd_fdinfo);
 	if (ret)
 		goto core_restore_end;
 

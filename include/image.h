@@ -28,7 +28,9 @@
 #define FDINFO_FD	1
 #define FDINFO_MAP	2
 
-#define FDINFO_CWD	(~0ULL)
+/* Specials */
+#define FDINFO_CWD	(-1ULL)
+#define FDINFO_EXE	(-2ULL)
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
@@ -46,7 +48,10 @@ struct fdinfo_entry {
 	u8	name[0];
 } __packed;
 
-#define fd_is_special(fe)	(((fe)->type != FDINFO_FD) || ((fe)->addr == FDINFO_CWD))
+#define fd_is_special(fe)		\
+	(((fe)->type != FDINFO_FD)  ||	\
+	 ((fe)->addr == FDINFO_CWD) ||	\
+	 ((fe)->addr == FDINFO_EXE))
 
 struct shmem_entry {
 	u64	start;

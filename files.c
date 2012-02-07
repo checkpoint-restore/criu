@@ -5,6 +5,7 @@
 #include <linux/limits.h>
 
 #include <sys/types.h>
+#include <sys/prctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -226,6 +227,16 @@ static int restore_cwd(struct fdinfo_entry *fe, int fd)
 	return 0;
 }
 
+static int restore_exe_early(struct fdinfo_entry *fe, int fd)
+{
+	/*
+	 * We restore the EXE symlink at very late stage
+	 * because of restrictions applied from kernel side,
+	 * so simply skip it for a while.
+	 */
+	lseek(fd, fe->len, SEEK_CUR);
+	return 0;
+}
 
 struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct fdinfo_desc *fi)
 {
@@ -450,6 +461,8 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 		return open_fmap(pid, fe, fdinfo_fd);
 	if (fe->addr == FDINFO_CWD)
 		return restore_cwd(fe, fdinfo_fd);
+	if (fe->addr == FDINFO_EXE)
+		return restore_exe_early(fe, fdinfo_fd);
 
 	BUG_ON(1);
 	return -1;

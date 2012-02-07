@@ -65,6 +65,7 @@ struct task_restore_core_args {
 
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
+	int				fd_fdinfo;		/* opened files dump file */
 	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	int				logfd;
 	bool				restore_threads;	/* if to restore threads */

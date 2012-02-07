@@ -1615,6 +1615,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
 	int fd_self_vmas = -1;
+	int fd_fdinfo = -1;
 	int fd_core = -1;
 	int num;
 
@@ -1650,8 +1651,16 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		goto err;
 
 	fd_core = open_image_ro_nocheck(FMT_FNAME_CORE_OUT, pid);
-	if (fd_core < 0)
+	if (fd_core < 0) {
 		pr_perror("Can't open core-out-%d", pid);
+		goto err;
+	}
+
+	fd_fdinfo = open_image_ro(CR_FD_FDINFO, pid);
+	if (fd_fdinfo < 0) {
+		pr_perror("Can't open fdinfo-%d", pid);
+		goto err;
+	}
 
 	if (get_image_path(self_vmas_path, sizeof(self_vmas_path),
 			   FMT_FNAME_VMAS, pid))
@@ -1810,6 +1819,7 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	task_args->fd_self_vmas	= fd_self_vmas;
 	task_args->logfd	= get_logfd();
 	task_args->sigchld_act	= sigchld_act;
+	task_args->fd_fdinfo	= fd_fdinfo;
 
 	ret = prepare_itimers(pid, task_args);
 	if (ret < 0)

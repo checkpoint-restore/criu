@@ -158,6 +158,25 @@ static int dump_cwd(int pid_dir, struct cr_fdset *cr_fdset)
 	return dump_one_reg_file(FDINFO_FD, &p, fd, cr_fdset, 1);
 }
 
+static int dump_exe(int pid_dir, struct cr_fdset *cr_fdset)
+{
+	int ret = -1;
+	int fd;
+	struct fd_parms p = {
+		.fd_name = FDINFO_EXE,
+		.pos = 0,
+		.flags = 0,
+		.id = NULL,
+	};
+
+	fd = open_proc(pid_dir, "exe");
+	if (fd < 0) {
+		pr_perror("Failed to openat exe");
+		return -1;
+	}
+
+	return dump_one_reg_file(FDINFO_FD, &p, fd, cr_fdset, 1);
+}
 
 static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 			      struct cr_fdset *cr_fdset)
@@ -336,8 +355,18 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	pr_info("Dumping opened files (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
+	/*
+	 * Dump special files at the beginning. We might need
+	 * to re-read them in restorer, so better to make it
+	 * fast.
+	 */
 	if (dump_cwd(pid_dir, cr_fdset)) {
 		pr_perror("Can't dump %d's cwd", pid);
+		return -1;
+	}
+
+	if (dump_exe(pid_dir, cr_fdset)) {
+		pr_perror("Can't dump %d's exe", pid);
 		return -1;
 	}
 
