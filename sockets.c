@@ -811,118 +811,79 @@ static int run_accept_jobs(void)
 	return 0;
 }
 
-static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
+static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
 {
-	if (ue->namelen) {
+	struct sockaddr_un addr;
+	struct unix_sk_listen *e;
+	int ret;
 
-		/*
-		 * This is trivial socket bind() case,
-		 * we don't have to wait for connect().
-		 */
-
-		struct unix_sk_listen *d;
-		struct sockaddr_un addr;
-		int ret;
-
-		memset(&addr, 0, sizeof(addr));
-		addr.sun_family = AF_UNIX;
-
-		ret = read(img_fd, &addr.sun_path, ue->namelen);
-		if (ret != ue->namelen) {
-			pr_err("Error reading socket name from image (%d)", ret);
-			goto err;
-		}
-
-		if (addr.sun_path[0] != '\0')
-			unlink(addr.sun_path);
-		if (bind(sk, (struct sockaddr *)&addr,
-			 sizeof(addr.sun_family) + ue->namelen) < 0) {
-			pr_perror("Can't bind socket");
-			goto err;
-		}
-
-		/*
-		 * Just remember it and connect() if needed.
-		 */
-		d = xmalloc(sizeof(*d));
-		if (!d)
-			goto err;
-
-		memcpy(&d->addr, &addr, sizeof(d->addr));
-		d->addrlen = sizeof(addr.sun_family) + ue->namelen;
-		d->ino	= ue->id;
-		d->type = SOCK_DGRAM;
-
-		SK_HASH_LINK(unix_listen, d->ino, d);
+	if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
+		pr_err("Bad unix name len %d\n", ue->namelen);
+		goto err;
 	}
 
-	if (ue->peer)
-		if (schedule_conn_job(CJ_DGRAM, ue))
-			goto err;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
 
+	ret = read(img_fd, &addr.sun_path, ue->namelen);
+	if (ret != ue->namelen) {
+		pr_err("Error reading socket name from image (%d)", ret);
+		goto err;
+	}
+
+	if (addr.sun_path[0] != '\0')
+		unlink(addr.sun_path);
+	if (bind(sk, (struct sockaddr *)&addr,
+				sizeof(addr.sun_family) + ue->namelen) < 0) {
+		pr_perror("Can't bind socket");
+		goto err;
+	}
+
+	/*
+	 * Just remember it and connect() if needed.
+	 */
+	e = xmalloc(sizeof(*e));
+	if (!e)
+		goto err;
+
+	memcpy(&e->addr, &addr, sizeof(e->addr));
+	e->addrlen = sizeof(addr.sun_family) + ue->namelen;
+	e->ino	= ue->id;
+	e->type = ue->type;
+
+	SK_HASH_LINK(unix_listen, e->ino, e);
 	return 0;
 err:
 	return -1;
 }
 
+static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
+{
+	int ret = 0;
+
+	if (ue->namelen)
+		ret = bind_unix_sk(sk, ue, img_fd);
+
+	if (!ret && ue->peer)
+		ret = schedule_conn_job(CJ_DGRAM, ue);
+
+	return ret;
+}
+
 static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 {
-	int ret = -1;
+	int ret;
 
 	if (ue->state == TCP_LISTEN) {
-		struct sockaddr_un addr;
-		struct unix_sk_listen *e;
-		int ret;
+		ret = bind_unix_sk(sk, ue, img_fd);
+		if (ret < 0)
+			goto out;
 
-		/*
-		 * Listen sockets are easiest ones -- simply
-		 * bind() and listen(), and that's all.
-		 */
-		if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
-			pr_err("Bad unix name len %d\n", ue->namelen);
-			goto err;
-		}
-
-		memset(&addr, 0, sizeof(addr));
-		addr.sun_family = AF_UNIX;
-
-		ret = read(img_fd, &addr.sun_path, ue->namelen);
-		if (ret != ue->namelen) {
-			pr_err("Error reading socket name from image (%d)", ret);
-			goto err;
-		}
-
-		if (addr.sun_path[0] != '\0')
-			unlink(addr.sun_path);
-		if (bind(sk, (struct sockaddr *)&addr,
-			 sizeof(addr.sun_family) + ue->namelen) < 0) {
-			pr_perror("Can't bind socket");
-			goto err;
-		}
-
-		if (listen(sk, ue->backlog) < 0) {
+		ret = listen(sk, ue->backlog);
+		if (ret < 0) {
 			pr_perror("Can't listen socket");
-			goto err;
+			goto out;
 		}
-
-		/*
-		 * Collect listening sockets here, we will
-		 * need them to resolve in-flight connections
-		 * names.
-		 */
-		e = xzalloc(sizeof(*e));
-		if (!e)
-			goto err;
-
-		SK_HASH_LINK(unix_listen, ue->id, e);
-
-		memcpy(&e->addr, &addr, sizeof(e->addr));
-		e->addrlen	= sizeof(e->addr.sun_family) + ue->namelen;
-		e->ino		= ue->id;
-		e->type		= SOCK_STREAM;
-
-		dprintk("\tCollected listening socket %d\n", ue->id);
-
 	} else if (ue->state == TCP_ESTABLISHED) {
 
 		/*
@@ -943,37 +904,35 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 			 * Will become a server
 			 */
 
+			ret = -1;
 			prep_conn_addr(ue->id, &addr, &len);
 			if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
 				pr_perror("Can't bind socket");
-				goto err;
+				goto out;
 			}
 
 			if (listen(sk, 1) < 0) {
 				pr_perror("Can't listen socket");
-				goto err;
+				goto out;
 			}
 
 			aj = xmalloc(sizeof(*aj));
 			if (aj == NULL)
-				goto err;
+				goto out;
 
 			aj->fd = ue->fd;
 			aj->next = accept_jobs;
 			accept_jobs = aj;
 			unix_show_job("Sched acc", ue->fd, ue->id);
-		} else {
-			if (schedule_conn_job((ue->flags & USK_INFLIGHT) ?
-						CJ_STREAM_INFLIGHT : CJ_STREAM, ue))
-				goto err;
-		}
+			ret = 0;
+		} else
+			ret = schedule_conn_job((ue->flags & USK_INFLIGHT) ?
+					CJ_STREAM_INFLIGHT : CJ_STREAM, ue);
 	} else {
 		pr_err("Unknown state %d\n", ue->state);
-		goto err;
+		ret = -1;
 	}
-
-	ret = 0;
-err:
+out:
 	return ret;
 }
 
