@@ -166,7 +166,6 @@ out_shm:
 	if (ret < 0) {
 		fail("Failed (2) to destroy segment: %d\n", -errno);
 		fail_count++;
-		goto out_shm;
 	}
 	if (fail_count == 0)
 		pass();
