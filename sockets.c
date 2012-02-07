@@ -815,7 +815,6 @@ static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
 {
 	struct sockaddr_un addr;
 	struct unix_sk_listen *e;
-	int ret;
 
 	if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
 		pr_err("Bad unix name len %d\n", ue->namelen);
@@ -825,14 +824,12 @@ static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 
-	ret = read(img_fd, &addr.sun_path, ue->namelen);
-	if (ret != ue->namelen) {
-		pr_err("Error reading socket name from image (%d)", ret);
+	if (read_img_buf(img_fd, &addr.sun_path, ue->namelen) < 0)
 		goto err;
-	}
 
 	if (addr.sun_path[0] != '\0')
 		unlink(addr.sun_path);
+
 	if (bind(sk, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) + ue->namelen) < 0) {
 		pr_perror("Can't bind socket");
