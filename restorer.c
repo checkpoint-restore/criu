@@ -130,106 +130,106 @@ static void restore_creds(struct creds_entry *ce)
 long restore_thread(struct thread_restore_args *args)
 {
 	long ret = -1;
-		struct core_entry *core_entry;
-		struct rt_sigframe *rt_sigframe;
-		unsigned long new_sp, fsgs_base;
-		int my_pid = sys_gettid();
+	struct core_entry *core_entry;
+	struct rt_sigframe *rt_sigframe;
+	unsigned long new_sp, fsgs_base;
+	int my_pid = sys_gettid();
 
-		if (my_pid != args->pid) {
-			write_num_n(__LINE__);
-			write_num_n(my_pid);
-			write_num_n(args->pid);
-			goto core_restore_end;
-		}
+	if (my_pid != args->pid) {
+		write_num_n(__LINE__);
+		write_num_n(my_pid);
+		write_num_n(args->pid);
+		goto core_restore_end;
+	}
 
-		core_entry = (struct core_entry *)&args->mem_zone.heap;
+	core_entry = (struct core_entry *)&args->mem_zone.heap;
 
-		sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
-		ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
-		if (ret != sizeof(*core_entry)) {
-			write_num_n(__LINE__);
-			goto core_restore_end;
-		}
+	sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
+	ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
+	if (ret != sizeof(*core_entry)) {
+		write_num_n(__LINE__);
+		goto core_restore_end;
+	}
 
-		/* We're to close it! */
-		sys_close(args->fd_core);
+	/* We're to close it! */
+	sys_close(args->fd_core);
 
-		sys_set_tid_address((int *) core_entry->clear_tid_address);
+	sys_set_tid_address((int *) core_entry->clear_tid_address);
 
-		rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
+	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
 #define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
 
-		CPREGT1(r8);
-		CPREGT1(r9);
-		CPREGT1(r10);
-		CPREGT1(r11);
-		CPREGT1(r12);
-		CPREGT1(r13);
-		CPREGT1(r14);
-		CPREGT1(r15);
-		CPREGT2(rdi, di);
-		CPREGT2(rsi, si);
-		CPREGT2(rbp, bp);
-		CPREGT2(rbx, bx);
-		CPREGT2(rdx, dx);
-		CPREGT2(rax, ax);
-		CPREGT2(rcx, cx);
-		CPREGT2(rsp, sp);
-		CPREGT2(rip, ip);
-		CPREGT2(eflags, flags);
-		CPREGT1(cs);
-		CPREGT1(gs);
-		CPREGT1(fs);
+	CPREGT1(r8);
+	CPREGT1(r9);
+	CPREGT1(r10);
+	CPREGT1(r11);
+	CPREGT1(r12);
+	CPREGT1(r13);
+	CPREGT1(r14);
+	CPREGT1(r15);
+	CPREGT2(rdi, di);
+	CPREGT2(rsi, si);
+	CPREGT2(rbp, bp);
+	CPREGT2(rbx, bx);
+	CPREGT2(rdx, dx);
+	CPREGT2(rax, ax);
+	CPREGT2(rcx, cx);
+	CPREGT2(rsp, sp);
+	CPREGT2(rip, ip);
+	CPREGT2(eflags, flags);
+	CPREGT1(cs);
+	CPREGT1(gs);
+	CPREGT1(fs);
 
-		fsgs_base = core_entry->arch.gpregs.fs_base;
-		ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
-		if (ret) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
-			goto core_restore_end;
-		}
-
-		fsgs_base = core_entry->arch.gpregs.gs_base;
-		ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
-		if (ret) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
-			goto core_restore_end;
-		}
-
-		cr_mutex_unlock(args->rst_lock);
-
-		/*
-		 * FIXME -- threads do not share creds, but it looks like
-		 * nobody tries to mess with this crap. That said we should
-		 * pass the master thread creds here
-		 */
-
-		restore_creds(NULL);
-		cr_wait_dec(&task_entries->nr_in_progress);
-
-		write_num(sys_gettid());
-		write_string_n(": Restored");
-
-		cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
-		cr_wait_dec(&task_entries->nr_in_progress);
-
-		new_sp = (long)rt_sigframe + 8;
-		asm volatile(
-			"movq %0, %%rax					\n"
-			"movq %%rax, %%rsp				\n"
-			"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-			"syscall					\n"
-			:
-			: "r"(new_sp)
-			: "rax","rsp","memory");
-	core_restore_end:
+	fsgs_base = core_entry->arch.gpregs.fs_base;
+	ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
+	if (ret) {
 		write_num_n(__LINE__);
-		write_num_n(sys_getpid());
-		sys_exit(-1);
-		return -1;
+		write_num_n(ret);
+		goto core_restore_end;
+	}
+
+	fsgs_base = core_entry->arch.gpregs.gs_base;
+	ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
+	if (ret) {
+		write_num_n(__LINE__);
+		write_num_n(ret);
+		goto core_restore_end;
+	}
+
+	cr_mutex_unlock(args->rst_lock);
+
+	/*
+	 * FIXME -- threads do not share creds, but it looks like
+	 * nobody tries to mess with this crap. That said we should
+	 * pass the master thread creds here
+	 */
+
+	restore_creds(NULL);
+	cr_wait_dec(&task_entries->nr_in_progress);
+
+	write_num(sys_gettid());
+	write_string_n(": Restored");
+
+	cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
+	cr_wait_dec(&task_entries->nr_in_progress);
+
+	new_sp = (long)rt_sigframe + 8;
+	asm volatile(
+		"movq %0, %%rax					\n"
+		"movq %%rax, %%rsp				\n"
+		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
+		"syscall					\n"
+		:
+		: "r"(new_sp)
+		: "rax","rsp","memory");
+core_restore_end:
+	write_num_n(__LINE__);
+	write_num_n(sys_getpid());
+	sys_exit(-1);
+	return -1;
 }
 
 static long restore_self_exe_late(struct task_restore_core_args *args)
