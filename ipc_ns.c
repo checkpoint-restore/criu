@@ -13,15 +13,7 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
-struct ipc_ns_data {
-	struct ipc_ns_entry entry;
-};
-
-#define IPC_SEM_IDS		0
-#define IPC_MSG_IDS		1
-#define IPC_SHM_IDS		2
-
-static int ipc_sysctl_req(struct ipc_ns_entry *e, int op)
+static int ipc_sysctl_req(struct ipc_var_entry *e, int op)
 {
 	struct sysctl_req req[] = {
 		{ "kernel/sem",			e->sem_ctls,		CTL_U32A(4) },
@@ -42,7 +34,7 @@ static int ipc_sysctl_req(struct ipc_ns_entry *e, int op)
 	return sysctl_op(req, op);
 }
 
-static int collect_ipc_msg(void *data)
+static int dump_ipc_msg(void *data)
 {
 	struct msginfo info;
 	int ret;
@@ -62,7 +54,7 @@ static int collect_ipc_msg(void *data)
 	return 0;
 }
 
-static int collect_ipc_sem(void *data)
+static int dump_ipc_sem(void *data)
 {
 	int ret;
 	struct seminfo info;
@@ -79,7 +71,7 @@ static int collect_ipc_sem(void *data)
 	return 0;
 }
 
-static int collect_ipc_shm(void *data)
+static int dump_ipc_shm(void *data)
 {
 	int fd;
 	int ret;
@@ -97,60 +89,53 @@ static int collect_ipc_shm(void *data)
 	return 0;
 }
 
-static int collect_ipc_tun(struct ipc_ns_entry *e)
+static int dump_ipc_var(int fd)
 {
-	return ipc_sysctl_req(e, CTL_READ);
-}
+	int ret;
+	struct ipc_var_entry var;
 
-static int collect_ipc_data(struct ipc_ns_data *ipc)
-{
-	int fd, ret;
-	struct ipc_ns_entry *entry = &ipc->entry;
+	ret = ipc_sysctl_req(&var, CTL_READ);
+	if (ret < 0) {
+		pr_err("Failed to read IPC variables\n");
+		return ret;
+	}
 
-	entry->in_use[IPC_MSG_IDS] = ret = collect_ipc_msg(NULL);
-	if (ret < 0)
+	ret = write_img(fd, &var);
+	if (ret < 0) {
+		pr_err("Failed to write IPC variables\n");
 		return ret;
-	entry->in_use[IPC_SEM_IDS] = ret = collect_ipc_sem(NULL);
-	if (ret < 0)
-		return ret;
-	entry->in_use[IPC_SHM_IDS] = ret = collect_ipc_shm(NULL);
-	if (ret < 0)
-		return ret;
-	ret = collect_ipc_tun(entry);
-	if (ret < 0)
-		return ret;
-
+	}
 	return 0;
 }
 
-static int dump_ipc_data(int fd, struct ipc_ns_data *ipc)
+static int dump_ipc_data(struct cr_fdset *fdset)
 {
-	int err;
+	int ret;
 
-	err = write_img(fd, &ipc->entry);
-	if (err < 0) {
-		pr_err("Failed to write IPC namespace entry\n");
-		return err;
-	}
+	ret = dump_ipc_var(fdset->fds[CR_FD_IPCNS_VAR]);
+	if (ret < 0)
+		return ret;
+	ret = dump_ipc_shm(0);
+	if (ret < 0)
+		return ret;
+	ret = dump_ipc_msg(0);
+	if (ret < 0)
+		return ret;
+	ret = dump_ipc_sem(0);
+	if (ret < 0)
+		return ret;
 	return 0;
 }
 
 int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset)
 {
 	int fd, ret;
-	struct ipc_ns_data ipc;
 
 	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc");
 	if (ret < 0)
 		return ret;
 
-	ret = collect_ipc_data(&ipc);
-	if (ret < 0) {
-		pr_err("Failed to collect IPC namespace data\n");
-		return ret;
-	}
-
-	ret = dump_ipc_data(fdset->fds[CR_FD_IPCNS], &ipc);
+	ret = dump_ipc_data(fdset);
 	if (ret < 0) {
 		pr_err("Failed to write IPC namespace data\n");
 		return ret;
@@ -158,59 +143,55 @@ int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset)
 	return 0;
 }
 
-static void show_ipc_entry(struct ipc_ns_entry *entry)
+static void show_var_entry(struct ipc_var_entry *entry)
 {
 	ipc_sysctl_req(entry, CTL_PRINT);
 }
 
-static void show_ipc_data(int fd)
+static void show_ipc_var_entry(int fd)
 {
 	int ret;
-	struct ipc_ns_entry entry;
+	struct ipc_var_entry var;
 
-	ret = read_img_eof(fd, &entry);
+	ret = read_img_eof(fd, &var);
 	if (ret <= 0)
 		return;
-	show_ipc_entry(&entry);
+	show_var_entry(&var);
 }
 
-void show_ipc_ns(int fd)
+void show_ipc_var(int fd)
 {
 	pr_img_head(CR_FD_IPCNS);
-	show_ipc_data(fd);
+	show_ipc_var_entry(fd);
 	pr_img_tail(CR_FD_IPCNS);
 }
 
-static int prepare_ipc_tun(struct ipc_ns_entry *e)
+static int prepare_ipc_var(int pid)
 {
-	return ipc_sysctl_req(e, CTL_WRITE);
-}
+	int fd, ret;
+	struct ipc_var_entry var;
 
-static int prepare_ipc_data(int fd)
-{
-	int ret;
-	struct ipc_ns_data ipc;
+	pr_info("Restoring IPC variables\n");
+	fd = open_image_ro(CR_FD_IPCNS_VAR, pid);
+	if (fd < 0)
+		return -1;
 
-	ret = read_img(fd, &ipc);
+	ret = read_img(fd, &var);
 	if (ret <= 0)
 		return -EFAULT;
-	ret = prepare_ipc_tun(&ipc.entry);
-	if (ret < 0)
-		return ret;
-	return 0;
+
+	show_var_entry(&var);
+
+	return ipc_sysctl_req(&var, CTL_WRITE);
 }
 
 int prepare_ipc_ns(int pid)
 {
-	int fd, ret;
+	int ret;
 
-	fd = open_image_ro(CR_FD_IPCNS, pid);
-	if (fd < 0)
-		return -1;
-
-	ret = prepare_ipc_data(fd);
-
-	close(fd);
-	return ret;
+	pr_info("Restoring IPC namespace\n");
+	ret = prepare_ipc_var(pid);
+	if (ret < 0)
+		return ret;
+	return 0;
 }
-

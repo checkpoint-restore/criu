@@ -21,7 +21,7 @@
 #define ITIMERS_MAGIC	0x57464056 /* Kostroma */
 #define UTSNS_MAGIC	0x54473203 /* Smolensk */
 #define CREDS_MAGIC	0x54023547 /* Kozelsk */
-#define IPCNS_MAGIC	0x53115007 /* Samara */
+#define IPCNS_VAR_MAGIC	0x53115007 /* Samara */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -110,7 +110,7 @@ struct vma_entry {
 	s64	fd;
 } __packed;
 
-struct ipc_ns_entry {
+struct ipc_var_entry {
 	u32	sem_ctls[4];
 	u32	msg_ctlmax;
 	u32	msg_ctlmnb;
@@ -123,7 +123,6 @@ struct ipc_ns_entry {
 	u32	mq_queues_max;
 	u32	mq_msg_max;
 	u32	mq_msgsize_max;
-	u32	in_use[3];
 } __packed;
 
 #define VMA_AREA_NONE		(0 <<  0)

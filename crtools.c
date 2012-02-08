@@ -111,10 +111,10 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= UTSNS_MAGIC,
 	},
 
-	/* IPC namespace */
-	[CR_FD_IPCNS] = {
-		.fmt	= FMT_FNAME_IPCNS,
-		.magic	= IPCNS_MAGIC,
+	/* IPC namespace variables */
+	[CR_FD_IPCNS_VAR] = {
+		.fmt	= FMT_FNAME_IPCNS_VAR,
+		.magic	= IPCNS_VAR_MAGIC,
 	},
 };
 
