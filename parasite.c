@@ -404,6 +404,8 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	brk_init(brk);
 
 	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_init_args) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
 	case PARASITE_CMD_PINGME:
