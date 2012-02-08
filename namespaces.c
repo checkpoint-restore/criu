@@ -122,7 +122,8 @@ int try_show_namespaces(int ns_pid)
 	if (!fdset)
 		return -1;
 
-	show_utsns(fdset->fds[CR_FD_UTSNS]);
+	if (fdset->fds[CR_FD_UTSNS] != -1)
+		show_utsns(fdset->fds[CR_FD_UTSNS]);
 
 	close_cr_fdset(&fdset);
 	return 0;
