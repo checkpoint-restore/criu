@@ -1187,7 +1187,7 @@ static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
 {
 	struct core_entry *core;
 
-	cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
+	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
 	if (cr_fdset == NULL)
 		return -1;
 
@@ -1216,7 +1216,7 @@ static int dump_task_threads(struct pstree_item *item)
 		if (item->pid == item->threads[i])
 			continue;
 
-		cr_fdset_thread = cr_fdset_open(item->threads[i], CR_FD_DESC_CORE, NULL);
+		cr_fdset_thread = cr_dump_fdset_open(item->threads[i], CR_FD_DESC_CORE, NULL);
 		if (!cr_fdset_thread)
 			goto err;
 
@@ -1266,7 +1266,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		return dump_one_zombie(item, &pps_buf, cr_fdset);
 
 	ret = -1;
-	if (!cr_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
+	if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
 		goto err;
 
 	ret = collect_mappings(pid, pid_dir, &vma_area_list);
@@ -1383,12 +1383,12 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	collect_sockets();
 
 	list_for_each_entry(item, &pstree_list, list) {
-		cr_fdset = cr_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
+		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
 		if (!cr_fdset)
 			goto err;
 
 		if (item->pid == pid) {
-			if (!cr_fdset_open(item->pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset))
+			if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset))
 				goto err;
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
 				goto err;

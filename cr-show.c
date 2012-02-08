@@ -535,7 +535,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	LIST_HEAD(pstree_list);
 	int i, ret = -1;
 
-	cr_fdset = prep_cr_fdset_for_restore(pid, CR_FD_DESC_PSTREE);
+	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_PSTREE);
 	if (!cr_fdset)
 		goto out;
 
@@ -551,7 +551,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 
 	list_for_each_entry(item, &pstree_list, list) {
 
-		cr_fdset = prep_cr_fdset_for_restore(item->pid, CR_FD_DESC_TASK);
+		cr_fdset = cr_show_fdset_open(item->pid, CR_FD_DESC_TASK);
 		if (!cr_fdset)
 			goto out;
 
@@ -566,7 +566,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				if (item->threads[i] == item->pid)
 					continue;
 
-				cr_fdset_th = prep_cr_fdset_for_restore(item->threads[i], CR_FD_DESC_CORE);
+				cr_fdset_th = cr_show_fdset_open(item->threads[i], CR_FD_DESC_CORE);
 				if (!cr_fdset_th)
 					goto out;
 

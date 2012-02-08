@@ -157,7 +157,8 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 	*cr_fdset = NULL;
 }
 
-struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset *cr_fdset)
+static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
+			       unsigned long flags, struct cr_fdset *cr_fdset)
 {
 	struct cr_fdset *fdset;
 	unsigned int i;
@@ -186,22 +187,38 @@ struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask, struct cr_fdset 
 		if (ret)
 			goto err;
 
-		ret = unlink(path);
-		if (ret && errno != ENOENT) {
-			pr_perror("Unable to unlink %s", path);
-			goto err;
+		if (flags & O_EXCL) {
+			ret = unlink(path);
+			if (ret && errno != ENOENT) {
+				pr_perror("Unable to unlink %s", path);
+				goto err;
+			}
 		}
 
-		ret = open(path, O_RDWR | O_CREAT | O_EXCL, CR_FD_PERM);
+		ret = open(path, flags, CR_FD_PERM);
 		if (ret < 0) {
+			if (!(flags & O_CREAT))
+				/* caller should check himself */
+				continue;
 			pr_perror("Unable to open %s", path);
 			goto err;
 		}
 		fdset->fds[i] = ret;
 
 		pr_debug("Opened %s with %d\n", path, ret);
-		if (write_img(ret, &fdset_template[i].magic))
-			goto err;
+		if (flags == O_RDONLY) {
+			u32 magic;
+
+			if (read_img(ret, &magic) < 0)
+				goto err;
+			if (magic != fdset_template[i].magic) {
+				pr_err("Magic doesn't match for %s\n", path);
+				goto err;
+			}
+		} else {
+			if (write_img(ret, &fdset_template[i].magic))
+				goto err;
+		}
 	}
 
 	return fdset;
@@ -214,49 +231,16 @@ err:
 	return NULL;
 }
 
-struct cr_fdset *prep_cr_fdset_for_restore(int pid, unsigned long use_mask)
+struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask,
+				     struct cr_fdset *cr_fdset)
 {
-	unsigned int i;
-	int ret = -1;
-	char path[PATH_MAX];
-	u32 magic;
-	struct cr_fdset *cr_fdset;
+	return cr_fdset_open(pid, use_mask, O_RDWR | O_CREAT | O_EXCL,
+			     cr_fdset);
+}
 
-	cr_fdset = alloc_cr_fdset();
-	if (!cr_fdset)
-		goto err;
-
-	for (i = 0; i < CR_FD_MAX; i++) {
-		if (!(use_mask & CR_FD_DESC_USE(i)))
-			continue;
-
-		ret = get_image_path(path, sizeof(path),
-				fdset_template[i].fmt, pid);
-		if (ret)
-			goto err;
-
-		ret = open(path, O_RDWR, CR_FD_PERM);
-		if (ret < 0) {
-			pr_perror("Unable to open %s", path);
-			goto err;
-		}
-		cr_fdset->fds[i] = ret;
-
-		pr_debug("Opened %s with %d\n", path, ret);
-		if (read_img(ret, &magic) < 0)
-			goto err;
-		if (magic != fdset_template[i].magic) {
-			pr_err("Magic doesn't match for %s\n", path);
-			goto err;
-		}
-
-	}
-
-	return cr_fdset;
-
-err:
-	close_cr_fdset(&cr_fdset);
-	return NULL;
+struct cr_fdset *cr_show_fdset_open(int pid, unsigned long use_mask)
+{
+	return cr_fdset_open(pid, use_mask, O_RDONLY, NULL);
 }
 
 static int parse_ns_string(const char *ptr, unsigned int *flags)
