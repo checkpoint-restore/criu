@@ -108,7 +108,7 @@ static int dump_ipc_var(int fd)
 	return 0;
 }
 
-static int dump_ipc_data(struct cr_fdset *fdset)
+static int dump_ipc_data(const struct cr_fdset *fdset)
 {
 	int ret;
 
@@ -127,7 +127,7 @@ static int dump_ipc_data(struct cr_fdset *fdset)
 	return 0;
 }
 
-int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset)
+int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 {
 	int fd, ret;
 
