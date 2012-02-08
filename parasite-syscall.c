@@ -176,12 +176,12 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	struct vma_area *vma_area;
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-		if (in_vma_area(vma_area, ip)) {
-			if (vma_area->vma.prot & PROT_EXEC) {
-				if (syscall_fits_vma_area(vma_area))
-					return vma_area;
-			}
-		}
+		if (!in_vma_area(vma_area, ip))
+			continue;
+		if (!(vma_area->vma.prot & PROT_EXEC))
+			continue;
+		if (syscall_fits_vma_area(vma_area))
+			return vma_area;
 	}
 
 	return NULL;
