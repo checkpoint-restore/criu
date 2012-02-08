@@ -466,7 +466,10 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 			}
 
 			if ((st.st_ino != uv->udiag_vfs_ino) ||
-			    (st.st_dev != uv->udiag_vfs_dev)) {
+			    (st.st_dev != kdev_to_odev(uv->udiag_vfs_dev))) {
+				pr_info("unix: Dropping path for unlinked bound sk %x.%x real %x.%x\n",
+						(int)st.st_dev, (int)st.st_ino,
+						(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
 				/*
 				 * When a listen socket is bound to
 				 * unlinked file, we just drop his name,

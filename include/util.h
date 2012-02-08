@@ -264,4 +264,25 @@ FILE *fopen_proc(int pid_dir_fd, char *fmt, ...);
 #define pr_img_head(type, ...)	pr_info("\n"#type __VA_ARGS__ "\n----------------\n")
 #define pr_img_tail(type)	pr_info("----------------\n")
 
+#define KDEV_MINORBITS	20
+#define KDEV_MINORMASK	((1UL << KDEV_MINORBITS) - 1)
+
+static inline u32 kdev_major(u32 kdev)
+{
+	return kdev >> KDEV_MINORBITS;
+}
+
+static inline u32 kdev_minor(u32 kdev)
+{
+	return kdev & KDEV_MINORMASK;
+}
+
+static inline dev_t kdev_to_odev(u32 kdev)
+{
+	/*
+	 * New kernels envcode devices in a new form
+	 */
+	return (kdev_major(kdev) << 8) | kdev_minor(kdev);
+}
+
 #endif /* UTIL_H_ */
