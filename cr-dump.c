@@ -1035,6 +1035,7 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	unsigned long num, num_anon;
 	struct vma_area *vma_area;
 	struct vma_entry ve;
+	ssize_t bytes;
 	int ret = -1;
 	u64 va;
 
@@ -1056,8 +1057,8 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 	/* All VMAs first */
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-		ret = write(fd_core, &vma_area->vma, sizeof(vma_area->vma));
-		if (ret != sizeof(vma_area->vma)) {
+		bytes = write(fd_core, &vma_area->vma, sizeof(vma_area->vma));
+		if (bytes != sizeof(vma_area->vma)) {
 			pr_perror("\nUnable to write vma entry (%li written)", num);
 			goto err;
 		}
@@ -1076,10 +1077,10 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 
 	pr_info("Appending pages ... ");
 	while (1) {
-		ret = read(fd_pages, &va, sizeof(va));
-		if (!ret)
+		bytes = read(fd_pages, &va, sizeof(va));
+		if (!bytes)
 			break;
-		if (ret != sizeof(va)) {
+		if (bytes != sizeof(va)) {
 			pr_perror("\nUnable to read VA of page (%li written)", num);
 			goto err;
 		}
@@ -1110,9 +1111,9 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 
 		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
 		    vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
-			ret  = write(fd_core, &va, sizeof(va));
-			ret += sendfile(fd_core, fd_pages, NULL, PAGE_SIZE);
-			if (ret != sizeof(va) + PAGE_SIZE) {
+			bytes  = write(fd_core, &va, sizeof(va));
+			bytes += sendfile(fd_core, fd_pages, NULL, PAGE_SIZE);
+			if (bytes != sizeof(va) + PAGE_SIZE) {
 				pr_perror("\nUnable to write VMA_FILE_PRIVATE|VMA_ANON_PRIVATE "
 					  "page (%li, %li written)",
 					  num, num_anon);
@@ -1120,9 +1121,9 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 			}
 			num++;
 		} else if (vma_area_is(vma_area, VMA_ANON_SHARED)) {
-			ret  = write(fd_pages_shmem, &va, sizeof(va));
-			ret += sendfile(fd_pages_shmem, fd_pages, NULL, PAGE_SIZE);
-			if (ret != sizeof(va) + PAGE_SIZE) {
+			bytes  = write(fd_pages_shmem, &va, sizeof(va));
+			bytes += sendfile(fd_pages_shmem, fd_pages, NULL, PAGE_SIZE);
+			if (bytes != sizeof(va) + PAGE_SIZE) {
 				pr_perror("\nUnable to write VMA_ANON_SHARED "
 					  "page (%li, %li written)",
 					  num, num_anon);

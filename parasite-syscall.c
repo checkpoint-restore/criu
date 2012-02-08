@@ -122,8 +122,10 @@ unsigned long brk_seized(pid_t pid, unsigned long addr)
 	else
 		ret = -1UL;
 
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig))
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
 		pr_panic("Can't restore registers (pid: %d)\n", pid);
+		ret = -1UL;
+	}
 err:
 	return ret;
 }
@@ -220,12 +222,16 @@ retry_signal:
 	*result = regs;
 
 err_restore_full:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig))
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
 		pr_panic("Can't restore registers (pid: %d)\n", pid);
+		ret = -1;
+	}
 
 err_restore:
-	if (ptrace_poke_area(pid, (void *)saved, (void *)start_ip, code_syscall_size))
+	if (ptrace_poke_area(pid, (void *)saved, (void *)start_ip, code_syscall_size)) {
 		pr_panic("Crap... Can't restore data (pid: %d)\n", pid);
+		ret = -1;
+	}
 err:
 	return ret;
 }
@@ -530,9 +536,10 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
 	}
 
-	ret = 0;
-
-	jerr(ptrace(PTRACE_GETREGS, (long)ctl->pid, NULL, &regs_orig), err_restore);
+	if (ptrace(PTRACE_GETREGS, (long)ctl->pid, NULL, &regs_orig)) {
+		pr_err("Can't get registers (pid: %d)\n", ctl->pid);
+		goto err_restore;
+	}
 
 	/* Finally close the descriptor the parasite has opened */
 	if (parasite_dumppages.fd != -1UL) {
@@ -544,7 +551,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig)) {
 		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
-		ret = -1;
+		goto err_restore;
 	}
 
 	/*
@@ -559,6 +566,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
+	ret = 0;
 
 err_restore:
 	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
@@ -601,8 +609,8 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_li
 		pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
 
 	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs_orig)) {
-		ret = -1;
 		pr_panic("PTRACE_SETREGS failed (pid: %d)\n", ctl->pid);
+		ret = -1;
 	}
 
 	free(ctl);
