@@ -43,6 +43,7 @@ static/ipc_namespace
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 test -x $CRTOOLS || exit 1
+ARGS=""
 
 run_test()
 {
@@ -72,8 +73,18 @@ run_test()
 	done
 	[ "$ret" -eq 0 ] || return 1
 
-	echo Restore $pid
-	setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
+	if expr "$args" : ' -s'; then
+		killall -CONT $tname
+	else
+		while :; do
+			killall -9 $tname &> /dev/null || break
+			echo Waiting...
+			sleep 1
+		done
+	
+		echo Restore $pid
+		setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
+	fi
 
 	echo Check results $pid
 	make -C $tdir $tname.out
@@ -105,7 +116,13 @@ case_error()
 
 cd `dirname $0` || exit 1
 
+if [ "$1" == "-d" ]; then
+	ARGS="-s"
+	shift
+fi
+
 if [ $# -eq 0 ]; then
+	ARGS=$1
 	for t in $TEST_LIST; do
 		run_test $t || case_error $t
 	done
@@ -117,6 +134,16 @@ if [ $# -eq 0 ]; then
 	done
 elif [ "$1" == "-l" ]; then
 	echo $TEST_LIST $UTS_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
+elif [ "$1" == "-h" ]; then
+	cat >&2 <<EOF
+This script is used for executing unit tests.
+Usage:
+zdtm.sh [OPTIONS]
+zdtm.sh [OPTIONS] [TEST NAME]
+Options:
+	-l : Show list of tests.
+	-d : Dump a test process and check that this process can continue working.
+EOF
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n uts || case_error $1
