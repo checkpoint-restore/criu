@@ -60,13 +60,15 @@ typedef struct  {
 	} while (0)
 
 struct parasite_init_args {
-	parasite_status_t args;
-	int sun_len;
-	struct sockaddr_un saddr;
+	parasite_status_t	status;
+
+	int			sun_len;
+	struct sockaddr_un	saddr;
 };
 
 struct parasite_dump_pages_args {
 	parasite_status_t       status;
+
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	int			fd_type;
@@ -82,6 +84,7 @@ struct parasite_dump_pages_args {
 
 struct parasite_dump_misc {
 	parasite_status_t	status;
+
 	unsigned int		secbits;
 	unsigned long		brk;
 };
