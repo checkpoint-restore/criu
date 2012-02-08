@@ -228,9 +228,8 @@ long restore_thread(struct thread_restore_args *args)
 	core_restore_end:
 		write_num_n(__LINE__);
 		write_num_n(sys_getpid());
-		for (;;)
-			local_sleep(5);
-		sys_exit(0);
+		sys_exit(-1);
+		return -1;
 }
 
 static long restore_self_exe_late(struct task_restore_core_args *args)
@@ -764,7 +763,6 @@ long restore_task(struct task_restore_core_args *args)
 core_restore_end:
 	write_num_n(__LINE__);
 	write_num_n(sys_getpid());
-	for (;;)
-		local_sleep(5);
-	sys_exit(0);
+	sys_exit(-1);
+	return -1;
 }
