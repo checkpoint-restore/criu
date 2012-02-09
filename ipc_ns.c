@@ -13,6 +13,36 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
+static void print_ipc_seg(const struct ipc_seg *seg)
+{
+	pr_info("id: %-10d key: 0x%08x ", seg->id, seg->key);
+	pr_info("uid: %-10d gid: %-10d ", seg->uid, seg->gid);
+	pr_info("cuid: %-10d cgid: %-10d ", seg->cuid, seg->cgid);
+	pr_info("mode: %-10o ", seg->mode);
+}
+
+static void fill_ipc_seg(int id, struct ipc_seg *seg, const struct ipc_perm *ipcp)
+{
+#if defined (__GLIBC__) && __GLIBC__ >= 2
+#define KEY __key
+#else
+#define KEY key
+#endif
+	seg->id = id;
+	seg->key = ipcp->KEY;
+	seg->uid = ipcp->uid;
+	seg->gid = ipcp->gid;
+	seg->cuid = ipcp->cuid;
+	seg->cgid = ipcp->cgid;
+	seg->mode = ipcp->mode;
+}
+
+static void print_ipc_shm(const struct ipc_shm_entry *shm)
+{
+	print_ipc_seg(&shm->seg);
+	pr_info("size: %-10lu\n", shm->size);
+}
+
 static int ipc_sysctl_req(struct ipc_var_entry *e, int op)
 {
 	struct sysctl_req req[] = {
@@ -71,21 +101,89 @@ static int dump_ipc_sem(void *data)
 	return 0;
 }
 
-static int dump_ipc_shm(void *data)
+/*
+ * TODO: Function below should be later improved to locate and dump only dirty
+ * pages via updated sys_mincore().
+ */
+static int dump_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
 {
-	int fd;
+	void *data;
 	int ret;
-	struct shmid_ds shmid;
 
-	ret = shmctl(0, IPC_INFO, &shmid);
-	if (ret < 0)
-		pr_perror("semctl failed");
+	data = shmat(shm->seg.id, NULL, SHM_RDONLY);
+	if (data == (void *)-1) {
+		pr_perror("Failed to attach IPC shared memory");
+		return -errno;
+	}
+	ret = write_img_buf(fd, data, round_up(shm->size, sizeof(u32)));
+	if (ret < 0) {
+		pr_err("Failed to write IPC shared memory data\n");
+		return ret;
+	}
+	if (shmdt(data)) {
+		pr_perror("Failed to detach IPC shared memory");
+		return -errno;
+	}
+	return 0;
+}
 
-	if (ret) {
-		pr_err("IPC shared memory migration is not supported yet\n");
-		return -EINVAL;
+static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
+{
+	struct ipc_shm_entry shm;
+	int ret;
+
+	fill_ipc_seg(id, &shm.seg, &ds->shm_perm);
+	shm.size = ds->shm_segsz;
+	print_ipc_shm(&shm);
+
+	ret = write_img(fd, &shm);
+	if (ret < 0) {
+		pr_err("Failed to write IPC shared memory segment\n");
+		return ret;
+	}
+	return dump_ipc_shm_pages(fd, &shm);
+}
+
+static int dump_ipc_shm(int fd)
+{
+	int i, maxid, slot;
+	struct shm_info info;
+
+	maxid = shmctl(0, SHM_INFO, (void *)&info);
+	if (maxid < 0) {
+		pr_perror("shmctl(SHM_INFO) failed");
+		return -errno;
 	}
 
+	pr_info("IPC shared memory segments: %d\n", info.used_ids);
+	for (i = 0, slot = 0; i <= maxid; i++) {
+		struct shmid_ds ds;
+		int id, ret;
+
+		id = shmctl(i, SHM_STAT, &ds);
+		if (id < 0) {
+			if (errno == EINVAL)
+				continue;
+			pr_perror("Failed to get stats for IPC shared memory");
+			break;
+		}
+
+		if (ds.shm_nattch != 0) {
+			pr_err("Migration of attached IPC shared memory "
+			       "segments is not supported yet\n");
+			return -EFAULT;
+		}
+
+		ret = dump_ipc_shm_seg(fd, id, &ds);
+		if (ret < 0)
+			return ret;
+		slot++;
+	}
+	if (slot != info.used_ids) {
+		pr_err("Failed to collect %d (only %d succeeded)\n",
+				info.used_ids, slot);
+		return -EFAULT;
+	}
 	return 0;
 }
 
@@ -115,7 +213,7 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 	ret = dump_ipc_var(fdset->fds[CR_FD_IPCNS_VAR]);
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_shm(0);
+	ret = dump_ipc_shm(fdset->fds[CR_FD_IPCNS_SHM]);
 	if (ret < 0)
 		return ret;
 	ret = dump_ipc_msg(0);

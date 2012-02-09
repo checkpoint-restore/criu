@@ -22,6 +22,7 @@
 #define UTSNS_MAGIC	0x54473203 /* Smolensk */
 #define CREDS_MAGIC	0x54023547 /* Kozelsk */
 #define IPCNS_VAR_MAGIC	0x53115007 /* Samara */
+#define IPCNS_SHM_MAGIC	0x46283044 /* Odessa */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -123,6 +124,22 @@ struct ipc_var_entry {
 	u32	mq_queues_max;
 	u32	mq_msg_max;
 	u32	mq_msgsize_max;
+} __packed;
+
+struct ipc_seg {
+	u32	key;
+	u32	uid;
+	u32	gid;
+	u32	cuid;
+	u32	cgid;
+	u32	mode;
+	u32	id;
+	u8	pad[4];
+} __packed;
+
+struct ipc_shm_entry {
+	struct ipc_seg seg;
+	u64	size;
 } __packed;
 
 #define VMA_AREA_NONE		(0 <<  0)

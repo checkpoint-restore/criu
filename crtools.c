@@ -116,6 +116,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_IPCNS_VAR,
 		.magic	= IPCNS_VAR_MAGIC,
 	},
+
+	/* IPC namespace shared memory */
+	[CR_FD_IPCNS_SHM] = {
+		.fmt	= FMT_FNAME_IPCNS_SHM,
+		.magic	= IPCNS_SHM_MAGIC,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)
