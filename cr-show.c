@@ -517,6 +517,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case IPCNS_VAR_MAGIC:
 		show_ipc_var(fd);
 		break;
+	case IPCNS_SHM_MAGIC:
+		show_ipc_shm(fd);
+		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
 		goto err;

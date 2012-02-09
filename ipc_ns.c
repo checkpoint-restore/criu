@@ -246,6 +246,31 @@ static void show_var_entry(struct ipc_var_entry *entry)
 	ipc_sysctl_req(entry, CTL_PRINT);
 }
 
+static void show_ipc_shm_entries(int fd)
+{
+	pr_info("\nShared memory segments:\n");
+	while (1) {
+		int ret;
+		struct ipc_shm_entry shm;
+
+		ret = read_img_eof(fd, &shm);
+		if (ret <= 0)
+			return;
+
+		print_ipc_shm(&shm);
+
+		if (lseek(fd, round_up(shm.size, sizeof(u32)), SEEK_CUR) == (off_t) -1)
+			return;
+	}
+}
+
+void show_ipc_shm(int fd)
+{
+	pr_img_head(CR_FD_IPCNS);
+	show_ipc_shm_entries(fd);
+	pr_img_tail(CR_FD_IPCNS);
+}
+
 static void show_ipc_var_entry(int fd)
 {
 	int ret;
