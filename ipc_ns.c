@@ -13,6 +13,14 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
+#ifndef IPC_PRESET
+#define IPC_PRESET		00040000
+#endif
+
+#ifndef SHM_SET
+#define SHM_SET			15
+#endif
+
 static void print_ipc_seg(const struct ipc_seg *seg)
 {
 	pr_info("id: %-10d key: 0x%08x ", seg->id, seg->key);
@@ -289,6 +297,96 @@ void show_ipc_var(int fd)
 	pr_img_tail(CR_FD_IPCNS);
 }
 
+static int prepare_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
+{
+	int ret;
+	void *data;
+
+	data = shmat(shm->seg.id, NULL, 0);
+	if (data == (void *)-1) {
+		pr_perror("Failed to attach IPC shared memory");
+		return -errno;
+	}
+	ret = read_img_buf(fd, data, round_up(shm->size, sizeof(u32)));
+	if (ret < 0) {
+		pr_err("Failed to read IPC shared memory data\n");
+		return ret;
+	}
+	if (shmdt(data)) {
+		pr_perror("Failed to detach IPC shared memory");
+		return -errno;
+	}
+	return 0;
+}
+
+static int prepare_ipc_shm_seg(int fd, const struct ipc_shm_entry *shm)
+{
+	int ret, id;
+	struct shmid_ds ds;
+
+	id = shmget(shm->seg.id, shm->size,
+		     shm->seg.mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	if (id == -1) {
+		pr_perror("Failed to create shm segment");
+		return -errno;
+	}
+
+	if (id != shm->seg.id) {
+		pr_err("Failed to preset id (%d instead of %d)\n",
+							id, shm->seg.id);
+		return -EFAULT;
+	}
+
+	ret = shmctl(id, SHM_STAT, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to stat shm segment");
+		return -errno;
+	}
+
+	ds.shm_perm.KEY = shm->seg.key;
+	ret = shmctl(id, SHM_SET, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to update shm key");
+		return -errno;
+	}
+	ret = prepare_ipc_shm_pages(fd, shm);
+	if (ret < 0) {
+		pr_err("Failed to update shm pages\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int prepare_ipc_shm(int pid)
+{
+	int fd;
+
+	pr_info("Restoring IPC shared memory\n");
+	fd = open_image_ro(CR_FD_IPCNS_SHM, pid);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		int ret, id;
+		struct ipc_shm_entry shm;
+
+		ret = read_img_eof(fd, &shm);
+		if (ret < 0)
+			return -EIO;
+		if (ret == 0)
+			break;
+
+		print_ipc_shm(&shm);
+
+		ret = prepare_ipc_shm_seg(fd, &shm);
+		if (ret < 0) {
+			pr_err("Failed to prepare shm segment\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int prepare_ipc_var(int pid)
 {
 	int fd, ret;
@@ -314,6 +412,9 @@ int prepare_ipc_ns(int pid)
 
 	pr_info("Restoring IPC namespace\n");
 	ret = prepare_ipc_var(pid);
+	if (ret < 0)
+		return ret;
+	ret = prepare_ipc_shm(pid);
 	if (ret < 0)
 		return ret;
 	return 0;
