@@ -13,6 +13,12 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
+#if defined (__GLIBC__) && __GLIBC__ >= 2
+#define KEY __key
+#else
+#define KEY key
+#endif
+
 #ifndef IPC_PRESET
 #define IPC_PRESET		00040000
 #endif
@@ -31,11 +37,6 @@ static void print_ipc_seg(const struct ipc_seg *seg)
 
 static void fill_ipc_seg(int id, struct ipc_seg *seg, const struct ipc_perm *ipcp)
 {
-#if defined (__GLIBC__) && __GLIBC__ >= 2
-#define KEY __key
-#else
-#define KEY key
-#endif
 	seg->id = id;
 	seg->key = ipcp->KEY;
 	seg->uid = ipcp->uid;
