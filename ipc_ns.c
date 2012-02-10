@@ -401,8 +401,10 @@ static int prepare_ipc_var(int pid)
 		return -1;
 
 	ret = read_img(fd, &var);
-	if (ret <= 0)
+	if (ret <= 0) {
+		pr_err("Failed to read IPC namespace variables\n");
 		return -EFAULT;
+	}
 
 	show_var_entry(&var);
 
