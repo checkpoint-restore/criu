@@ -327,33 +327,39 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 			old->mq_msgsize_max, new->mq_msgsize_max);
 }
 
-static void test_fn(void)
+static int test_fn(int argc, char **argv)
 {
-	if (rand_ipc_ns()) {
+	int ret;
+
+	ret = rand_ipc_ns();
+	if (ret) {
 		err("Failed to randomize ipc ns before migration\n");
-		return;
+		return -1;
 	}
 
-	if (fill_ipc_ns(&ipc_before)) {
+	ret = fill_ipc_ns(&ipc_before);
+	if (ret) {
 		err("Failed to collect ipc ns before migration\n");
-		return;
+		return ret;
 	}
 
 	test_daemon();
 	test_waitsig();
 
-	if (fill_ipc_ns(&ipc_after)) {
+	ret = fill_ipc_ns(&ipc_after);
+	if (ret) {
 		err("Failed to collect ipc ns after migration\n");
-		return;
+		return ret;
 	}
 
 	if (memcmp(&ipc_before, &ipc_after, sizeof(ipc_after))) {
 		err("IPC's differ\n");
 		show_ipc_entry(&ipc_before, &ipc_after);
-		return;
+		return -EINVAL;
 	}
 
 	pass();
+	return 0;
 }
 
 int main(int argc, char **argv)
