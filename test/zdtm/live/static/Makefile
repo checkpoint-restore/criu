@@ -33,6 +33,7 @@ TST_NOFILE	=				\
 		sockets00			\
 		ipc_namespace			\
 		selfexe00			\
+		sem				\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -148,6 +149,7 @@ inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
+sem:			override CFLAGS += -DNEW_IPC_NS
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)
