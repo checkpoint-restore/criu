@@ -147,6 +147,7 @@ unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURC
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
+msgque:			override CFLAGS += -DNEW_IPC_NS
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

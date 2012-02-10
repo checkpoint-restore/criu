@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+#include <sched.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,22 +16,24 @@
 #include "zdtmtst.h"
 
 const char *test_doc="Tests sysv5 msg queues supporting by checkpointing";
-const char *test_author="Pavel Emelianov <xemul@parallels.com>";
+const char *test_author="Stanislav Kinsbursky <skinsbursky@openvz.org>";
 
 struct msg1 {
 	long mtype;
 	char mtext[20];
 };
 #define TEST_STRING "Test sysv5 msg"
+#define MSG_TYPE 1
 
-int main(int argc, char **argv)
+#define ANOTHER_TEST_STRING "Yet another test sysv5 msg"
+#define ANOTHER_MSG_TYPE 26538
+
+static int test_fn(int argc, char **argv)
 {
 	key_t key;
 	int msg, pid;
 	struct msg1 msgbuf;
 	int chret;
-
-	test_init(argc, argv);
 
 	key = ftok(argv[0], 822155650);
 	if (key == -1) {
@@ -47,53 +52,89 @@ int main(int argc, char **argv)
 		msg = msgget(key, 0666);
 		if (msg == -1) {
 			err("Can't get queue");
-			if (pid) {
-				kill(pid, SIGKILL);
-				wait(NULL);
-			}
-			exit(1);
+			goto err_kill;
 		}
 	}
 
 	if (pid == 0) {
-		if (msgrcv(msg, &msgbuf, sizeof(TEST_STRING), 1, 0) == -1) {
-			chret = errno;
-			fail("msgrcv failed %d(%m)", errno);
-			return chret;
+		test_waitsig();
+
+		if (msgrcv(msg, &msgbuf, sizeof(TEST_STRING), MSG_TYPE, 0) == -1) {
+			fail("Child: msgrcv failed (%m)");
+			return -errno;
 		}
+
 		if (strncmp(TEST_STRING, msgbuf.mtext, sizeof(TEST_STRING))) {
-			fail("The source and received strings aren't equal");
-			return 1;
+			fail("Child: the source and received strings aren't equal");
+			return -errno;
 		}
-		test_msg("Recived %s\n", msgbuf.mtext);
+		test_msg("Child: received %s\n", msgbuf.mtext);
+
+		msgbuf.mtype = ANOTHER_MSG_TYPE;
+		memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
+		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), 0) != 0) {
+			fail("Child: msgsnd failed (%m)");
+			return -errno;
+		};
 		pass();
-		goto out;
+		return 0;
 	} else {
+		msgbuf.mtype = MSG_TYPE;
+		memcpy(msgbuf.mtext, TEST_STRING, sizeof(TEST_STRING));
+		if (msgsnd(msg, &msgbuf, sizeof(TEST_STRING), 0) != 0) {
+			fail("Parent: msgsnd failed (%m)");
+			goto err_kill;
+		};
 
 		test_daemon();
 		test_waitsig();
 
-		msgbuf.mtype = 1;
-		memcpy(msgbuf.mtext, TEST_STRING, sizeof(TEST_STRING));
-		if (msgsnd(msg, &msgbuf, sizeof(TEST_STRING), 0) != 0) {
-			fail("msgsnd failed %d(%m)", errno);
-			kill(pid, SIGKILL);
-			wait(NULL);
-			return 1;
-		};
+		kill(pid, SIGTERM);
 
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child exited with non-zero code %d (%s)\n",
+			fail("Parent: child exited with non-zero code %d (%s)\n",
 			     chret, strerror(chret));
-			return 1;
+			goto out;
 		}
+
+		if (msgrcv(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), ANOTHER_MSG_TYPE, 0) == -1) {
+			fail("Parent: msgrcv failed (%m)");
+			goto err;
+		}
+
+		if (strncmp(ANOTHER_TEST_STRING, msgbuf.mtext, sizeof(ANOTHER_TEST_STRING))) {
+			fail("Parent: the source and received strings aren't equal");
+			goto err;
+		}
+		test_msg("Parent: received %s\n", msgbuf.mtext);
+
 		pass();
 	}
 
-	msgctl(msg, IPC_RMID, 0);
-
 out:
+	if (msgctl(msg, IPC_RMID, 0)) {
+		fail("Failed to destroy message queue: %d\n", -errno);
+		return -errno;
+	}
+	return chret;
+
+err_kill:
+	kill(pid, SIGKILL);
+	wait(NULL);
+err:
+	chret = -errno;
+	goto out;
+}
+
+int main(int argc, char **argv)
+{
+#ifdef NEW_IPC_NS
+	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
+#else
+	test_init(argc, argv);
+	test_fn();
+#endif
 	return 0;
 }
