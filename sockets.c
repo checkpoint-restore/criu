@@ -844,27 +844,12 @@ static int run_accept_jobs(void)
 	return 0;
 }
 
-static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
+static int bind_unix_sk_to_addr(int sk, struct sockaddr_un *addr, int addrlen,
+		int id, int type)
 {
-	struct sockaddr_un addr;
 	struct unix_sk_listen *e;
 
-	if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
-		pr_err("Bad unix name len %d\n", ue->namelen);
-		goto err;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-
-	if (read_img_buf(img_fd, &addr.sun_path, ue->namelen) < 0)
-		goto err;
-
-	if (addr.sun_path[0] != '\0')
-		unlink(addr.sun_path);
-
-	if (bind(sk, (struct sockaddr *)&addr,
-				sizeof(addr.sun_family) + ue->namelen) < 0) {
+	if (bind(sk, (struct sockaddr *)addr, addrlen) < 0) {
 		pr_perror("Can't bind socket");
 		goto err;
 	}
@@ -876,15 +861,38 @@ static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
 	if (!e)
 		goto err;
 
-	memcpy(&e->addr, &addr, sizeof(e->addr));
-	e->addrlen = sizeof(addr.sun_family) + ue->namelen;
-	e->ino	= ue->id;
-	e->type = ue->type;
+	memcpy(&e->addr, addr, sizeof(e->addr));
+	e->addrlen = addrlen;
+	e->ino	= id;
+	e->type = type;
 
 	SK_HASH_LINK(unix_listen, e->ino, e);
 	return 0;
 err:
 	return -1;
+}
+
+static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
+{
+	struct sockaddr_un addr;
+
+	if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
+		pr_err("Bad unix name len %d\n", ue->namelen);
+		return -1;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+
+	if (read_img_buf(img_fd, &addr.sun_path, ue->namelen) < 0)
+		return -1;
+
+	if (addr.sun_path[0] != '\0')
+		unlink(addr.sun_path);
+
+	return bind_unix_sk_to_addr(sk, &addr,
+			sizeof(addr.sun_family) + ue->namelen,
+			ue->id, ue->type);
 }
 
 static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
@@ -893,6 +901,19 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 
 	if (ue->namelen)
 		ret = bind_unix_sk(sk, ue, img_fd);
+	else if (ue->peer) {
+		struct sockaddr_un addr;
+		int addrlen;
+
+		/*
+		 * dgram socket without name, but with peer
+		 * this is only possible for those created
+		 * by socketpair call
+		 */
+
+		prep_conn_addr(ue->id, &addr, &addrlen);
+		ret = bind_unix_sk_to_addr(sk, &addr, addrlen, ue->id, SOCK_DGRAM);
+	}
 
 	if (!ret && ue->peer)
 		ret = schedule_conn_job(CJ_DGRAM, ue);
