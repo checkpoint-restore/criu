@@ -190,7 +190,8 @@ static int do_test_fn(void *_arg)
 
 	srand48(time(NULL));	/* just in case we need it */
 
-	ca->fn();
+	if (ca->fn())
+		exit(1);
 	exit(0);
 }
 
