@@ -354,7 +354,7 @@ static int sys_socket(int domain, int type, int protocol)
 	return syscall3(__NR_socket, (long) domain, (long) type, (long) protocol);
 }
 
-struct sockaddr *addr;
+struct sockaddr;
 static int sys_bind(int sockfd, const struct sockaddr *addr, int addrlen)
 {
 	return syscall3(__NR_bind, (long)sockfd, (long)addr, (long) addrlen);
