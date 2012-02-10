@@ -668,7 +668,7 @@ static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
 
 	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
 
-	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") - 1 + 10;
+	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") + 10;
 }
 
 struct unix_conn_job {
