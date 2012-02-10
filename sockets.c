@@ -805,12 +805,12 @@ static int schedule_acc_job(int sk, struct unix_sk_entry *ue)
 
 	prep_conn_addr(ue->id, &addr, &len);
 	if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
-		pr_perror("Can't bind socket");
+		pr_perror("Can't bind to a socket");
 		goto err;
 	}
 
 	if (listen(sk, 1) < 0) {
-		pr_perror("Can't listen socket");
+		pr_perror("Can't listen on a socket");
 		goto err;
 	}
 
@@ -860,7 +860,7 @@ static int bind_unix_sk_to_addr(int sk, struct sockaddr_un *addr, int addrlen,
 	struct unix_sk_listen *e;
 
 	if (bind(sk, (struct sockaddr *)addr, addrlen) < 0) {
-		pr_perror("Can't bind socket");
+		pr_perror("Can't bind to a socket");
 		goto err;
 	}
 
@@ -943,7 +943,7 @@ static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
 
 		ret = listen(sk, ue->backlog);
 		if (ret < 0) {
-			pr_perror("Can't listen socket");
+			pr_perror("Can't listen on a socket");
 			goto out;
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
@@ -1069,12 +1069,12 @@ static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
 	memcpy(&addr.sin_addr.s_addr, ie->src_addr, sizeof(unsigned int) * 4);
 
 	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-		pr_perror("Inet socket bind failed");
+		pr_perror("Can't bind to a socket");
 		goto err;
 	}
 
 	if (listen(sk, ie->backlog) == -1) {
-		pr_perror("listen() failed on %d", sk);
+		pr_perror("Can't listen on a socket");
 		goto err;
 	}
 
