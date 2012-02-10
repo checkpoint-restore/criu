@@ -158,8 +158,8 @@ static void show_one_inet_img(char *act, struct inet_sk_entry *e)
 
 	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
 		"state %d src_addr %s\n",
-		act, e->fd, e->family, e->type, e->proto, e->src_port, e->state,
-		src_addr);
+		act, e->fd, e->family, e->type, e->proto, e->src_port,
+		e->state, src_addr);
 }
 
 static void show_one_unix(char *act, struct unix_sk_desc *sk)
@@ -213,7 +213,8 @@ static int can_dump_inet_sk(struct inet_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_inet(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fdset)
+static int dump_one_inet(struct socket_desc *_sk, int fd,
+		struct cr_fdset *cr_fdset)
 {
 	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
@@ -281,7 +282,8 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fdset)
+static int dump_one_unix(struct socket_desc *_sk, int fd,
+		struct cr_fdset *cr_fdset)
 {
 	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
@@ -326,7 +328,8 @@ static int dump_one_unix(struct socket_desc *_sk, int fd, struct cr_fdset *cr_fd
 		ue.flags	|= USK_INFLIGHT;
 		ue.peer		= e->sk_desc->sd.ino;
 
-		dprintk("\t\tFixed inflight socket %d peer %d)\n", ue.id, ue.peer);
+		dprintk("\t\tFixed inflight socket %d peer %d)\n",
+				ue.id, ue.peer);
 	}
 
 	if (write_img(cr_fdset->fds[CR_FD_UNIXSK], &ue))
@@ -447,7 +450,8 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 			struct stat st;
 
 			if (name[0] != '/') {
-				pr_warning("Relative bind path '%s' unsupported\n", name);
+				pr_warning("Relative bind path '%s' "
+						"unsupported\n", name);
 				xfree(name);
 				xfree(d);
 				return 0;
@@ -468,9 +472,13 @@ static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
 
 			if ((st.st_ino != uv->udiag_vfs_ino) ||
 			    (st.st_dev != kdev_to_odev(uv->udiag_vfs_dev))) {
-				pr_info("unix: Dropping path for unlinked bound sk %x.%x real %x.%x\n",
-						(int)st.st_dev, (int)st.st_ino,
-						(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
+				pr_info("unix: Dropping path for "
+						"unlinked bound "
+						"sk %x.%x real %x.%x\n",
+						(int)st.st_dev,
+						(int)st.st_ino,
+						(int)uv->udiag_vfs_dev,
+						(int)uv->udiag_vfs_ino);
 				/*
 				 * When a listen socket is bound to
 				 * unlinked file, we just drop his name,
@@ -738,7 +746,8 @@ static int run_connect_jobs(void)
 				e = lookup_unix_listen(cj->peer, SOCK_DGRAM);
 
 			if (!e) {
-				pr_err("Bad in-flight socket peer %d\n", cj->peer);
+				pr_err("Bad in-flight socket peer %d\n",
+						cj->peer);
 				return -1;
 			}
 
@@ -752,7 +761,7 @@ try_again:
 			if (attempts) {
 				usleep(1000);
 				attempts--;
-				goto try_again; /* FIXME - use avagin@'s waiters */
+				goto try_again; /* FIXME use avagin@ waiters */
 			}
 			pr_perror("Can't restore connection (c)");
 			return -1;
@@ -913,7 +922,8 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 		 */
 
 		prep_conn_addr(ue->id, &addr, &addrlen);
-		ret = bind_unix_sk_to_addr(sk, &addr, addrlen, ue->id, SOCK_DGRAM);
+		ret = bind_unix_sk_to_addr(sk, &addr, addrlen, ue->id,
+				SOCK_DGRAM);
 	}
 
 	if (!ret && ue->peer)
@@ -1155,8 +1165,10 @@ void show_unixsk(int fd)
 		if (ret <= 0)
 			goto out;
 
-		pr_info("fd %4d type %2d state %2d namelen %4d backlog %4d id %6d peer %6d",
-			ue.fd, ue.type, ue.state, ue.namelen, ue.namelen, ue.id, ue.peer);
+		pr_info("fd %4d type %2d state %2d namelen %4d backlog %4d "
+			"id %6d peer %6d",
+			ue.fd, ue.type, ue.state, ue.namelen, ue.namelen,
+			ue.id, ue.peer);
 
 		if (ue.namelen) {
 			ret = read_img_buf(fd, buf, ue.namelen);
