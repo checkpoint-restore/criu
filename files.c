@@ -76,7 +76,7 @@ static struct fdinfo_desc *find_fd(char *id)
 static int get_file_path(char *path, struct fdinfo_entry *fe, int fd)
 {
 	if (read(fd, path, fe->len) != fe->len) {
-		pr_err("Error reading path");
+		pr_perror("Error reading path");
 		return -1;
 	}
 
