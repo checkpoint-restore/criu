@@ -1175,6 +1175,7 @@ void show_unixsk(int fd)
 			ue.id, ue.peer);
 
 		if (ue.namelen) {
+			BUG_ON(ue.namelen > sizeof(buf));
 			ret = read_img_buf(fd, buf, ue.namelen);
 			if (ret < 0) {
 				pr_info("\n");
