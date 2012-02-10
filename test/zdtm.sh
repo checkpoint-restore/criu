@@ -39,7 +39,6 @@ static/utsname
 
 IPC_TEST_LIST="
 static/ipc_namespace
-static/shm
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools

@@ -23,8 +23,6 @@ TEST_OPTION(shmem_size, uint, "Size of shared memory segment", 0);
 
 #define INIT_CRC	(~0)
 
-char *filename;
-
 static int fill_shm_seg(int id, size_t size)
 {
 	uint8_t *mem;
@@ -102,14 +100,14 @@ static int check_shm_key(int key, size_t size)
 	return check_shm_id(id, size);
 }
 
-static void test_fn(void)
+static int test_fn(int argc, char **argv)
 {
 	key_t key;
 	int shm;
 	int fail_count = 0;
-	int ret;
+	int ret = -1;
 
-	key = ftok(filename, 822155666);
+	key = ftok(argv[0], 822155666);
 	if (key == -1) {
 		err("Can't make key");
 		goto out;
@@ -117,7 +115,7 @@ static void test_fn(void)
 
 	shm = prepare_shm(key, shmem_size);
 	if (shm == -1) {
-		fail_count++;
+		err("Can't prepare shm (1)");
 		goto out;
 	}
 
@@ -150,6 +148,7 @@ static void test_fn(void)
 	 */
 	shm = prepare_shm(key, shmem_size);
 	if (shm == -1) {
+		fail("Can't prepare shm (2)");
 		fail_count++;
 		goto out;
 	}
@@ -170,18 +169,17 @@ out_shm:
 	if (fail_count == 0)
 		pass();
 out:
-	return;
+	return ret;
 }
 
 
 int main(int argc, char **argv)
 {
-	filename = argv[0];
 #ifdef NEW_IPC_NS
 	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
 #else
 	test_init(argc, argv);
-	test_fn();
+	test_fn(argc, argv);
 #endif
 	return 0;
 }
