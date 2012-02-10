@@ -5,7 +5,7 @@
 
 /* set up test */
 extern void test_init(int argc, char **argv);
-extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(void));
+extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, int (*fn)(int , char **));
 
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS 0x04000000

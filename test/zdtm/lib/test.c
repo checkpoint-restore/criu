@@ -161,7 +161,9 @@ void test_init(int argc, char **argv)
 
 struct zdtm_clone_arg {
 	FILE *pidf;
-	void (*fn)(void);
+	int argc;
+	char **argv;
+	int (*fn)(int argc, char **argv);
 };
 
 static int do_test_fn(void *_arg)
@@ -190,12 +192,13 @@ static int do_test_fn(void *_arg)
 
 	srand48(time(NULL));	/* just in case we need it */
 
-	if (ca->fn())
+	if (ca->fn(ca->argc, ca->argv))
 		exit(1);
 	exit(0);
 }
 
-void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(void))
+void test_init_ns(int argc, char **argv, unsigned long clone_flags,
+		  int (*fn)(int , char **))
 {
 	extern void parseargs(int, char **);
 
@@ -240,6 +243,8 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags, void (*fn)(v
 
 	ca.pidf = pidf;
 	ca.fn = fn;
+	ca.argc = argc;
+	ca.argv = argv;
 	pid = clone(do_test_fn, stack + STACK_SIZE, clone_flags | SIGCHLD, &ca);
 	if (pid < 0) {
 		err("Daemonizing failed: %m\n");
