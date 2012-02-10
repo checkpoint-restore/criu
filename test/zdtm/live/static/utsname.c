@@ -13,7 +13,7 @@ static struct utsname after;
 #define ZDTM_NODE "zdtm.nodename.ru"
 #define ZDTM_DOMAIN "zdtm.nodename.ru"
 
-static void test_fn(void)
+static int test_fn(int argc, char **argv)
 {
 	int ret;
 	int fd;
@@ -21,13 +21,13 @@ static void test_fn(void)
 	fd = open("/proc/sys/kernel/hostname", O_WRONLY);
 	if (fd < 0) {
 		err("Can't open hostname\n");
-		return;
+		return 1;
 	}
 
 	ret = write(fd, ZDTM_NODE, sizeof(ZDTM_NODE));
 	if (ret != sizeof(ZDTM_NODE)) {
 		err("Can't write nodename\n");
-		return;
+		return 1;
 	}
 
 	close(fd);
@@ -35,13 +35,13 @@ static void test_fn(void)
 	fd = open("/proc/sys/kernel/domainname", O_WRONLY);
 	if (fd < 0) {
 		err("Can't open domainname\n");
-		return;
+		return -errno;
 	}
 
 	ret = write(fd, ZDTM_DOMAIN, sizeof(ZDTM_DOMAIN));
 	if (ret != sizeof(ZDTM_DOMAIN)) {
 		err("Can't write domainname\n");
-		return;
+		return 1;
 	}
 
 	close(fd);
@@ -51,23 +51,21 @@ static void test_fn(void)
 
 	uname(&after);
 
-	ret = 1;
-
 	if (strcmp(ZDTM_NODE, after.nodename)) {
-		ret = 0;
 		fail("Nodename doesn't match");
+		return 1;
 	}
 	if (strcmp(ZDTM_DOMAIN, after.__domainname)) {
-		ret = 0;
 		fail("Domainname doesn't match");
+		return 1;
 	}
 
-	if (ret)
-		pass();
+	pass();
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	test_init_ns(argc, argv, CLONE_NEWUTS, test_fn);
-	return -1;
+	return 0;
 }
