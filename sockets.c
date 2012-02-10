@@ -132,7 +132,7 @@ static int sk_collect_one(int ino, int family, struct socket_desc *d)
 	return 0;
 }
 
-static void show_one_inet(char *act, struct inet_sk_desc *sk)
+static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
@@ -147,7 +147,7 @@ static void show_one_inet(char *act, struct inet_sk_desc *sk)
 		sk->state, src_addr);
 }
 
-static void show_one_inet_img(char *act, struct inet_sk_entry *e)
+static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
@@ -162,7 +162,7 @@ static void show_one_inet_img(char *act, struct inet_sk_entry *e)
 		e->state, src_addr);
 }
 
-static void show_one_unix(char *act, struct unix_sk_desc *sk)
+static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
 	dprintk("\t%s: ino %d type %d state %d name %s\n",
 		act, sk->sd.ino, sk->type, sk->state, sk->name);
@@ -175,13 +175,13 @@ static void show_one_unix(char *act, struct unix_sk_desc *sk)
 	}
 }
 
-static void show_one_unix_img(char *act, struct unix_sk_entry *e)
+static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
 	dprintk("\t%s: fd %d type %d state %d name %d bytes\n",
 		act, e->fd, e->type, e->state, e->namelen);
 }
 
-static int can_dump_inet_sk(struct inet_sk_desc *sk)
+static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 {
 	if (sk->sd.family != AF_INET) {
 		pr_err("Only IPv4 sockets for now\n");
@@ -213,10 +213,10 @@ static int can_dump_inet_sk(struct inet_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_inet(struct socket_desc *_sk, int fd,
-		struct cr_fdset *cr_fdset)
+static int dump_one_inet(const struct socket_desc *_sk, int fd,
+		const struct cr_fdset *cr_fdset)
 {
-	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
+	const struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
 
 	if (!can_dump_inet_sk(sk))
@@ -246,7 +246,7 @@ err:
 	return -1;
 }
 
-static int can_dump_unix_sk(struct unix_sk_desc *sk)
+static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 {
 	if (sk->type != SOCK_STREAM &&
 	    sk->type != SOCK_DGRAM) {
@@ -282,10 +282,10 @@ static int can_dump_unix_sk(struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(struct socket_desc *_sk, int fd,
-		struct cr_fdset *cr_fdset)
+static int dump_one_unix(const struct socket_desc *_sk, int fd,
+		const struct cr_fdset *cr_fdset)
 {
-	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
+	const struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
 
 	if (!can_dump_unix_sk(sk))
@@ -310,7 +310,7 @@ static int dump_one_unix(struct socket_desc *_sk, int fd,
 	 * not now, just to reduce size of dump files.
 	 */
 	if (!ue.peer && ue.state == TCP_ESTABLISHED) {
-		struct unix_sk_listen_icon *e;
+		const struct unix_sk_listen_icon *e;
 
 		e = lookup_unix_listen_icons(ue.id);
 		if (!e) {
@@ -347,9 +347,9 @@ err:
 	return -1;
 }
 
-int try_dump_socket(pid_t pid, int fd, struct cr_fdset *cr_fdset)
+int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset)
 {
-	struct socket_desc *sk;
+	const struct socket_desc *sk;
 	struct statfs fst;
 	struct stat st;
 	char path[64];
@@ -391,7 +391,8 @@ int try_dump_socket(pid_t pid, int fd, struct cr_fdset *cr_fdset)
 	return -1;
 }
 
-static int inet_tcp_collect_one(struct inet_diag_msg *m, struct rtattr **tb)
+static int inet_tcp_collect_one(const struct inet_diag_msg *m,
+		struct rtattr **tb)
 {
 	struct inet_sk_desc *d;
 
@@ -421,7 +422,8 @@ static int inet_tcp_receive_one(struct nlmsghdr *h)
 	return inet_tcp_collect_one(m, tb);
 }
 
-static int unix_collect_one(struct unix_diag_msg *m, struct rtattr **tb)
+static int unix_collect_one(const struct unix_diag_msg *m,
+		struct rtattr **tb)
 {
 	struct unix_sk_desc *d, **h;
 
@@ -693,14 +695,14 @@ enum {
 	CJ_STREAM_INFLIGHT,
 };
 
-static void unix_show_job(char *type, int fd, int id)
+static void unix_show_job(const char *type, int fd, int id)
 {
 	dprintk("%s job fd %d id %d\n", type, fd, id);
 }
 
 static struct unix_conn_job *conn_jobs;
 
-static int schedule_conn_job(int type, struct unix_sk_entry *ue)
+static int schedule_conn_job(int type, const struct unix_sk_entry *ue)
 {
 	struct unix_conn_job *cj;
 
@@ -797,7 +799,7 @@ struct unix_accept_job {
 
 static struct unix_accept_job *accept_jobs;
 
-static int schedule_acc_job(int sk, struct unix_sk_entry *ue)
+static int schedule_acc_job(int sk, const struct unix_sk_entry *ue)
 {
 	struct sockaddr_un addr;
 	int len;
@@ -854,8 +856,8 @@ static int run_accept_jobs(void)
 	return 0;
 }
 
-static int bind_unix_sk_to_addr(int sk, struct sockaddr_un *addr, int addrlen,
-		int id, int type)
+static int bind_unix_sk_to_addr(int sk, const struct sockaddr_un *addr,
+		int addrlen, int id, int type)
 {
 	struct unix_sk_listen *e;
 
@@ -882,7 +884,7 @@ err:
 	return -1;
 }
 
-static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
+static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, int img_fd)
 {
 	struct sockaddr_un addr;
 
@@ -905,7 +907,8 @@ static int bind_unix_sk(int sk, struct unix_sk_entry *ue, int img_fd)
 			ue->id, ue->type);
 }
 
-static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
+static int open_unix_sk_dgram(int sk, const struct unix_sk_entry *ue,
+		int img_fd)
 {
 	int ret = 0;
 
@@ -932,7 +935,8 @@ static int open_unix_sk_dgram(int sk, struct unix_sk_entry *ue, int img_fd)
 	return ret;
 }
 
-static int open_unix_sk_stream(int sk, struct unix_sk_entry *ue, int img_fd)
+static int open_unix_sk_stream(int sk, const struct unix_sk_entry *ue,
+		int img_fd)
 {
 	int ret;
 
@@ -970,7 +974,7 @@ out:
 	return ret;
 }
 
-static int open_unix_sk(struct unix_sk_entry *ue, int *img_fd)
+static int open_unix_sk(const struct unix_sk_entry *ue, int *img_fd)
 {
 	int sk;
 
@@ -1036,7 +1040,7 @@ err:
 	return ret;
 }
 
-static int open_inet_sk(struct inet_sk_entry *ie, int *img_fd)
+static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
 {
 	int sk;
 	struct sockaddr_in addr;
