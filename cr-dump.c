@@ -582,21 +582,21 @@ static int get_task_regs(pid_t pid, struct core_entry *core)
 	jerr(ptrace(PTRACE_GETFPREGS,	pid, NULL, &fpregs), err);
 
 	/* Did we come from a system call? */
-	if (regs.orig_ax >= 0)
+	if ((int)regs.orig_ax >= 0) {
 		/* Restart the system call */
-		switch (regs.ax) {
+		switch ((long)(int)regs.ax) {
 		case -ERESTARTNOHAND:
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
 			regs.ax = regs.orig_ax;
 			regs.ip -= 2;
 			break;
-
 		case -ERESTART_RESTARTBLOCK:
 			regs.ax = __NR_restart_syscall;
 			regs.ip -= 2;
 			break;
 		}
+	}
 
 	assign_reg(core->arch.gpregs, regs,		r15);
 	assign_reg(core->arch.gpregs, regs,		r14);
