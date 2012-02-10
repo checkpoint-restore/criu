@@ -101,12 +101,13 @@ struct inet_sk_desc {
 	}
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
-__gen_static_lookup_func(struct socket_desc, lookup_socket, sockets, ino, int, ino);
+__gen_static_lookup_func(struct socket_desc, lookup_socket, sockets,
+			ino, int, ino);
 
 static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
-__gen_static_lookup_func(struct unix_sk_listen_icon,			\
-			 lookup_unix_listen_icons,			\
-			 unix_listen_icons,				\
+__gen_static_lookup_func(struct unix_sk_listen_icon,
+			 lookup_unix_listen_icons,
+			 unix_listen_icons,
 			 peer_ino, unsigned int, ino);
 
 static struct unix_sk_listen *unix_listen[SK_HASH_SIZE];
