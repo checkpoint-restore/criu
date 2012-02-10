@@ -99,9 +99,10 @@ static struct pipe_info *pipes;
 static int nr_pipes;
 
 static pid_t pstree_pid;
+struct pstree_item *me;
 
 static int restore_task_with_children(void *);
-static void sigreturn_restore(pid_t pstree_pid, pid_t pid);
+static void sigreturn_restore(pid_t pid);
 
 static void show_saved_shmems(void)
 {
@@ -738,7 +739,7 @@ static int prepare_and_sigreturn(int pid)
 		return -1;
 
 	close(fd_new);
-	sigreturn_restore(pstree_pid, pid);
+	sigreturn_restore(pid);
 
 	return 0;
 }
@@ -1288,22 +1289,24 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
-	int *pids;
 	int fd, ret, i;
 	struct pstree_entry e;
 	sigset_t blockmask;
-	int pid;
 
 	close_safe(&ca->fd);
-	pid = getpid();
 
-	if (ca->pid != pid) {
-		pr_err("%d: Pid do not match expected %d\n", pid, ca->pid);
+	me = xzalloc(sizeof(*me));
+	if (me == NULL)
+		exit(-1);
+
+	me->pid = getpid();
+	if (ca->pid != me->pid) {
+		pr_err("%d: Pid do not match expected %d\n", me->pid, ca->pid);
 		exit(-1);
 	}
 
 	if (ca->clone_flags) {
-		ret = prepare_namespace(pid, ca->clone_flags);
+		ret = prepare_namespace(me->pid, ca->clone_flags);
 		if (ret)
 			exit(-1);
 	}
@@ -1317,15 +1320,15 @@ static int restore_task_with_children(void *_arg)
 	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
-		pr_perror("%d: Can't block signals", pid);
+		pr_perror("%d: Can't block signals", me->pid);
 		exit(1);
 	}
 
-	pr_info("%d: Starting restore\n", pid);
+	pr_info("%d: Starting restore\n", me->pid);
 
 	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
 	if (fd < 0) {
-		pr_perror("%d: Can't reopen pstree image", pid);
+		pr_perror("%d: Can't reopen pstree image", me->pid);
 		exit(1);
 	}
 
@@ -1335,36 +1338,44 @@ static int restore_task_with_children(void *_arg)
 		if (ret < 0)
 			exit(1);
 
-		if (e.pid == pid)
-			break;
+		if (e.pid != me->pid) {
+			lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
+			continue;
+		}
 
-		lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
+		i = e.nr_children * sizeof(int);
+		me->nr_children = e.nr_children;
+		me->children = xmalloc(i);
+		if (!me->children)
+			exit(1);
+
+		ret = read_img_buf(fd, me->children, i);
+		if (ret < 0)
+			exit(1);
+
+		i = e.nr_threads * sizeof(int);
+		me->nr_threads = e.nr_threads;
+		me->threads = xmalloc(i);
+		if (!me->threads)
+			exit(1);
+
+		ret = read_img_buf(fd, me->threads, i);
+		if (ret < 0)
+			exit(1);
+
+		break;
 	}
 
-	if (e.nr_children > 0) {
-		i = e.nr_children * sizeof(int);
-		pids = xmalloc(i);
-		if (!pids)
+	close(fd);
+
+	pr_info("%d: Restoring %d children:\n", me->pid, e.nr_children);
+	for (i = 0; i < me->nr_children; i++) {
+		ret = fork_with_pid(me->children[i], 0);
+		if (ret < 0)
 			exit(1);
+	}
 
-		ret = read(fd, pids, i);
-		if (ret != i) {
-			pr_perror("%d: Can't read children pids", pid);
-			exit(1);
-		}
-
-		close(fd);
-
-		pr_info("%d: Restoring %d children:\n", pid, e.nr_children);
-		for (i = 0; i < e.nr_children; i++) {
-			ret = fork_with_pid(pids[i], 0);
-			if (ret < 0)
-				exit(1);
-		}
-	} else
-		close(fd);
-
-	return restore_one_task(pid);
+	return restore_one_task(me->pid);
 }
 
 static int restore_root_task(int fd, struct cr_options *opts)
@@ -1593,7 +1604,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return ret > 0 ? 0 : -1;
 }
 
-static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
+static void sigreturn_restore(pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
 	long restore_thread_vma_len;
@@ -1617,11 +1628,9 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	int fd_self_vmas = -1;
 	int fd_fdinfo = -1;
 	int fd_core = -1;
-	int num;
+	int num, i;
 
-	struct pstree_entry pstree_entry;
 	int *fd_core_threads;
-	int fd_pstree = -1;
 	int pid_dir;
 
 	pr_info("%d: Restore via sigreturn\n", pid);
@@ -1645,10 +1654,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
-
-	fd_pstree = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
-	if (fd_pstree < 0)
-		goto err;
 
 	fd_core = open_image_ro_nocheck(FMT_FNAME_CORE_OUT, pid);
 	if (fd_core < 0) {
@@ -1700,40 +1705,20 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 	/*
 	 * Thread statistics
 	 */
-	lseek(fd_pstree, MAGIC_OFFSET, SEEK_SET);
-	while (1) {
-		ret = read_img_eof(fd_pstree, &pstree_entry);
-		if (ret <= 0) {
-			pr_perror("Pid %d not found in process tree", pid);
-			goto err;
-		}
 
-		if (pstree_entry.pid != pid) {
-			lseek(fd_pstree,
-			      (pstree_entry.nr_children +
-			       pstree_entry.nr_threads) *
-			      sizeof(u32), SEEK_CUR);
-			continue;
-		}
+	/*
+	 * Compute how many memory we will need
+	 * to restore all threads, every thread
+	 * requires own stack and heap, it's ~40K
+	 * per thread.
+	 */
 
-		if (!pstree_entry.nr_threads)
-			break;
+	restore_thread_vma_len = sizeof(*thread_args) * me->nr_threads;
+	restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
 
-		/*
-		 * Compute how many memory we will need
-		 * to restore all threads, every thread
-		 * requires own stack and heap, it's ~40K
-		 * per thread.
-		 */
-
-		restore_thread_vma_len = sizeof(*thread_args) * pstree_entry.nr_threads;
-		restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
-
-		pr_info("%d: %d threads require %ldK of memory\n",
-			pid, pstree_entry.nr_threads,
+	pr_info("%d: %d threads require %ldK of memory\n",
+			pid, me->nr_threads,
 			KBYTES(restore_thread_vma_len));
-		break;
-	}
 
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
 
@@ -1831,41 +1816,35 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 	cr_mutex_init(&task_args->rst_lock);
 
-	if (pstree_entry.nr_threads) {
-		int i;
+	/*
+	 * Now prepare run-time data for threads restore.
+	 */
+	task_args->nr_threads		= me->nr_threads;
+	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
+	task_args->thread_args		= thread_args;
 
-		/*
-		 * Now prepare run-time data for threads restore.
-		 */
-		task_args->nr_threads		= pstree_entry.nr_threads;
-		task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
-		task_args->thread_args		= thread_args;
+	/*
+	 * Fill up per-thread data.
+	 */
+	for (i = 0; i < me->nr_threads; i++) {
+		thread_args[i].pid = me->threads[i];
 
-		/*
-		 * Fill up per-thread data.
-		 */
-		lseek(fd_pstree, sizeof(u32) * pstree_entry.nr_children, SEEK_CUR);
-		for (i = 0; i < pstree_entry.nr_threads; i++) {
-			if (read_img(fd_pstree, &thread_args[i].pid) < 0)
-				goto err;
+		/* skip self */
+		if (thread_args[i].pid == pid)
+			continue;
 
-			/* skip self */
-			if (thread_args[i].pid == pid)
-				continue;
+		/* Core files are to be opened */
+		thread_args[i].fd_core = open_image_ro_nocheck(FMT_FNAME_CORE, thread_args[i].pid);
+		if (thread_args[i].fd_core < 0)
+			goto err;
 
-			/* Core files are to be opened */
-			thread_args[i].fd_core = open_image_ro_nocheck(FMT_FNAME_CORE, thread_args[i].pid);
-			if (thread_args[i].fd_core < 0)
-				goto err;
+		thread_args[i].rst_lock = &task_args->rst_lock;
 
-			thread_args[i].rst_lock = &task_args->rst_lock;
-
-			pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
+		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
 				i, thread_args[i].mem_zone.stack,
 				thread_args[i].mem_zone.heap,
 				thread_args[i].mem_zone.rt_sigframe);
 
-		}
 	}
 
 	pr_info("task_args: %p\n"
@@ -1879,8 +1858,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 		task_args->fd_core, task_args->fd_self_vmas,
 		task_args->nr_threads, task_args->clone_restore_fn,
 		task_args->thread_args);
-
-	close_safe(&fd_pstree);
 
 	/*
 	 * An indirect call to task_restore, note it never resturns
@@ -1900,7 +1877,6 @@ static void sigreturn_restore(pid_t pstree_pid, pid_t pid)
 
 err:
 	free_mappings(&self_vma_list);
-	close_safe(&fd_pstree);
 	close_safe(&fd_core);
 	close_safe(&fd_self_vmas);
 
