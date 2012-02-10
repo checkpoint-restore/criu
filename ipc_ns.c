@@ -372,8 +372,10 @@ static int prepare_ipc_shm(int pid)
 		struct ipc_shm_entry shm;
 
 		ret = read_img_eof(fd, &shm);
-		if (ret < 0)
+		if (ret < 0) {
+			pr_err("Failed to read IPC shared memory object\n");
 			return -EIO;
+		}
 		if (ret == 0)
 			break;
 
