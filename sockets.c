@@ -138,7 +138,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 
 	if (inet_ntop(AF_INET, (void *)sk->src_addr, src_addr,
 		      INET_ADDR_LEN) == NULL) {
-		pr_err("Failed to translate address: %d\n", errno);
+		pr_perror("Failed to translate address");
 	}
 
 	dprintk("\t%s: ino %d family %d type %d port %d "
@@ -153,7 +153,7 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 
 	if (inet_ntop(AF_INET, (void *)e->src_addr, src_addr,
 		      INET_ADDR_LEN) == NULL) {
-		pr_err("Failed to translate address: %d\n", errno);
+		pr_perror("Failed to translate address");
 	}
 
 	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
@@ -360,12 +360,12 @@ int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset)
 	 */
 	snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid, fd);
 	if (statfs(buf, &fst)) {
-		pr_err("Can't statfs %s\n", buf);
+		pr_perror("Can't statfs %s", buf);
 		return -1;
 	}
 
 	if (stat(buf, &st)) {
-		pr_err("Can't stat %s\n", buf);
+		pr_perror("Can't stat %s", buf);
 		return -1;
 	}
 
@@ -637,7 +637,7 @@ int collect_sockets(void)
 
 	nl = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
 	if (nl < 0) {
-		pr_err("Can't create sock diag socket\n");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 
@@ -1143,7 +1143,7 @@ void show_inetsk(int fd)
 
 		if (inet_ntop(AF_INET, (void *)ie.src_addr, src_addr,
 			      INET_ADDR_LEN) == NULL) {
-			pr_err("Failed to translate address: %d\n", errno);
+			pr_perror("Failed to translate address");
 		}
 
 		pr_info("fd %d family %d type %d proto %d port %d state %d "
