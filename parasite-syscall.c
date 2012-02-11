@@ -147,7 +147,7 @@ err:
 	return ret;
 }
 
-void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
+static void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
 		  void *addr, size_t length, int prot,
 		  int flags, int fd, off_t offset)
 {
@@ -175,7 +175,7 @@ err:
 	return mmaped;
 }
 
-int munmap_seized(pid_t pid, user_regs_struct_t *regs,
+static int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 		  void *addr, size_t length)
 {
 	user_regs_struct_t params = *regs;
