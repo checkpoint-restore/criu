@@ -143,8 +143,6 @@ again:
 	jerr(!WIFSTOPPED(status), err_restore_full);
 	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo),err_restore_full);
 
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, &regs), err_restore_full);
-
 	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
 retry_signal:
 		/* pr_debug("** delivering signal %d si_code=%d\n",
