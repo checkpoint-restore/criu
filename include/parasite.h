@@ -35,7 +35,10 @@ enum {
 	PARASITE_CMD_SET_LOGFD,
 	PARASITE_CMD_FINI,
 
+	PARASITE_CMD_DUMPPAGES_INIT,
 	PARASITE_CMD_DUMPPAGES,
+	PARASITE_CMD_DUMPPAGES_FINI,
+
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
@@ -72,8 +75,11 @@ struct parasite_dump_pages_args {
 	parasite_status_t       status;
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
-	unsigned long		fd;
+	int			fd_type;
 };
+
+#define PG_PRIV		0
+#define PG_SHARED	1
 
 /*
  * Misc sfuff, that is too small for separate file, but cannot

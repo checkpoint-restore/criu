@@ -624,61 +624,59 @@ static inline bool should_restore_page(int pid, unsigned long va)
 	return si->pid == pid;
 }
 
+/*
+ * FIXME avoid this pages copying
+ */
+
 static int fixup_pages_data(int pid, int fd)
 {
-	int shfd;
+	int pgfd, ret;
 	u64 va;
 
 	pr_info("%d: Reading shmem pages img\n", pid);
 
-	shfd = open_image_ro(CR_FD_PAGES_SHMEM, pid);
-	if (shfd < 0)
+	pgfd = open_image_ro(CR_FD_PAGES, pid);
+	if (pgfd < 0)
 		return -1;
-
-	/*
-	 * Find out the last page, which must be a zero page.
-	 */
-	lseek(fd, -sizeof(struct page_entry), SEEK_END);
-	read(fd, &va, sizeof(va));
-	if (va) {
-		pr_panic("Zero-page expected but got %lx\n", (unsigned long)va);
-		return -1;
-	}
-
-	/*
-	 * Since we're to update pages we suppress old zero-page
-	 * and will write new one at the end.
-	 */
-	lseek(fd, -sizeof(struct page_entry), SEEK_END);
 
 	while (1) {
-		int ret;
+		ret = read_img(pgfd, &va);
+		if (ret < 0)
+			return -1;
 
-		ret = read(shfd, &va, sizeof(va));
-		if (ret == 0)
+		if (va == 0)
 			break;
 
-		if (ret < 0 || ret != sizeof(va)) {
-			pr_perror("%d: Can't read virtual address", pid);
+		write(fd, &va, sizeof(va));
+		sendfile(fd, pgfd, NULL, PAGE_SIZE);
+	}
+
+	close(pgfd);
+
+	pgfd = open_image_ro(CR_FD_PAGES_SHMEM, pid);
+	if (pgfd < 0)
+		return -1;
+
+	while (1) {
+		ret = read_img(pgfd, &va);
+		if (ret < 0)
 			return -1;
-		}
 
 		if (va == 0)
 			break;
 
 		if (!should_restore_page(pid, va)) {
-			lseek(shfd, PAGE_SIZE, SEEK_CUR);
+			lseek(pgfd, PAGE_SIZE, SEEK_CUR);
 			continue;
 		}
 
-		pr_info("%d: Restoring shared page: %16lx\n",
-			pid, va);
-
+		pr_info("%d: Restoring shared page: %16lx\n", pid, va);
 		write(fd, &va, sizeof(va));
-		sendfile(fd, shfd, NULL, PAGE_SIZE);
+		sendfile(fd, pgfd, NULL, PAGE_SIZE);
 	}
 
-	close(shfd);
+	close(pgfd);
+
 	write_img(fd, &zero_page_entry);
 
 	return 0;

@@ -455,9 +455,6 @@ static void show_core(int fd_core, bool show_content)
 		goto out;
 
 	show_vma(fd_core);
-
-	pr_info("\n\t---[Memory pages]---\n");
-	show_pages(fd_core, show_content);
 out:
 	pr_img_tail(CR_FD_CORE);
 }

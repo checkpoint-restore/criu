@@ -1031,25 +1031,19 @@ static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsign
 /* kernel expects a special format in core file */
 static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
 {
-	int fd_pages, fd_pages_shmem, fd_core;
-	unsigned long num, num_anon;
+	int fd_core;
+	unsigned long num;
 	struct vma_area *vma_area;
 	struct vma_entry ve;
 	ssize_t bytes;
-	int ret = -1;
-	u64 va;
 
 	pr_info("\n");
 	pr_info("Finalizing core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
 	fd_core		= cr_fdset->fds[CR_FD_CORE];
-	fd_pages	= cr_fdset->fds[CR_FD_PAGES];
-	fd_pages_shmem	= cr_fdset->fds[CR_FD_PAGES_SHMEM];
 
 	lseek(fd_core,		GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
-	lseek(fd_pages,		MAGIC_OFFSET, SEEK_SET);
-	lseek(fd_pages_shmem,	MAGIC_OFFSET, SEEK_SET);
 
 	num = 0;
 	pr_info("Appending VMAs ... ");
@@ -1072,81 +1066,12 @@ static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_f
 
 	pr_info("OK (%li written)\n", num);
 
-	num = 0;
-	num_anon = 0;
-
-	pr_info("Appending pages ... ");
-	while (1) {
-		bytes = read(fd_pages, &va, sizeof(va));
-		if (!bytes)
-			break;
-		if (bytes != sizeof(va)) {
-			pr_perror("\nUnable to read VA of page (%li written)", num);
-			goto err;
-		}
-
-		/* Ending marker */
-		if (va == 0) {
-			if (write_img(fd_core, &zero_page_entry))
-				goto err;
-			if (write_img(fd_pages_shmem, &zero_page_entry))
-				goto err;
-			break;
-		}
-
-		vma_area = find_vma_by_addr(vma_area_list, (unsigned long)va);
-		if (!vma_area) {
-			pr_panic("\nA page with address %lx is unknown\n", va);
-			goto err;
-		}
-
-		/*
-		 * Just in case if someone broke parasite page
-		 * dumper code.
-		 */
-		if (!vma_area_is(vma_area, VMA_AREA_REGULAR)) {
-			pr_panic("\nA page with address %lx has a wrong status\n", va);
-			goto err;
-		}
-
-		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
-		    vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
-			bytes  = write(fd_core, &va, sizeof(va));
-			bytes += sendfile(fd_core, fd_pages, NULL, PAGE_SIZE);
-			if (bytes != sizeof(va) + PAGE_SIZE) {
-				pr_perror("\nUnable to write VMA_FILE_PRIVATE|VMA_ANON_PRIVATE "
-					  "page (%li, %li written)",
-					  num, num_anon);
-				goto err;
-			}
-			num++;
-		} else if (vma_area_is(vma_area, VMA_ANON_SHARED)) {
-			bytes  = write(fd_pages_shmem, &va, sizeof(va));
-			bytes += sendfile(fd_pages_shmem, fd_pages, NULL, PAGE_SIZE);
-			if (bytes != sizeof(va) + PAGE_SIZE) {
-				pr_perror("\nUnable to write VMA_ANON_SHARED "
-					  "page (%li, %li written)",
-					  num, num_anon);
-				goto err;
-			}
-			num_anon++;
-		} else {
-			pr_warning("Unexpected VMA area found\n");
-			pr_info_vma(vma_area);
-			lseek(fd_pages, PAGE_SIZE, SEEK_CUR);
-		}
-	}
-	ret = 0;
-
-	pr_info("OK (%li written)\n", num + num_anon);
+	pr_info("----------------------------------------\n");
+	return 0;
 
 err:
-	pr_info("----------------------------------------\n");
-	return ret;
-
-err_strno:
 	pr_perror("Error catched");
-	goto err;
+	return -1;
 }
 
 static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)

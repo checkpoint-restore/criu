@@ -94,6 +94,27 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
 #endif
 }
 
+static int fd_pages[2] = { -1, -1 };
+
+static int dump_pages_init(parasite_status_t *st)
+{
+	fd_pages[PG_PRIV] = recv_fd(tsock);
+	if (fd_pages[PG_PRIV] < 0)
+		goto err;
+
+	fd_pages[PG_SHARED] = recv_fd(tsock);
+	if (fd_pages[PG_SHARED] < 0)
+		goto err_s;
+
+	return 0;
+
+err_s:
+	sys_close(fd_pages[PG_PRIV]);
+err:
+	SET_PARASITE_STATUS(st, PARASITE_ERR_FAIL, -1);
+	return -1;
+}
+
 /*
  * This is the main page dumping routine, it's executed
  * inside a victim process space.
@@ -105,22 +126,15 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	unsigned long prot_old, prot_new;
 	unsigned char *map_brk = NULL;
 	unsigned char *map;
-
-	int ret = PARASITE_ERR_FAIL;
+	int ret = PARASITE_ERR_FAIL, fd;
 
 	args->nrpages_dumped = 0;
 	prot_old = prot_new = 0;
 
-	if (args->fd == -1UL) {
-		ret = recv_fd(tsock);
-		if (ret < 0)
-			goto err;
-
-		args->fd = ret;
-	}
+	fd = fd_pages[args->fd_type];
 
 	/* Start from the end of file */
-	sys_lseek(args->fd, 0, SEEK_END);
+	sys_lseek(fd, 0, SEEK_END);
 
 	length	= args->vma_entry.end - args->vma_entry.start;
 	nrpages	= length / PAGE_SIZE;
@@ -188,8 +202,8 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
 			written = 0;
 
-			written += sys_write(args->fd, &vaddr, sizeof(vaddr));
-			written += sys_write(args->fd, (void *)vaddr, PAGE_SIZE);
+			written += sys_write(fd, &vaddr, sizeof(vaddr));
+			written += sys_write(fd, (void *)vaddr, PAGE_SIZE);
 			if (written != sizeof(vaddr) + PAGE_SIZE) {
 				SET_PARASITE_STATUS(st, PARASITE_ERR_WRITE, written);
 				ret = st->ret;
@@ -225,6 +239,13 @@ err_free:
 		sys_munmap(map, nrpages);
 err:
 	return ret;
+}
+
+static int dump_pages_fini(parasite_status_t *st)
+{
+	sys_close(fd_pages[PG_PRIV]);
+	sys_close(fd_pages[PG_SHARED]);
+	return 0;
 }
 
 static int dump_sigact(parasite_status_t *st)
@@ -392,6 +413,10 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		return fini();
 	case PARASITE_CMD_SET_LOGFD:
 		return set_logfd();
+	case PARASITE_CMD_DUMPPAGES_INIT:
+		return dump_pages_init((parasite_status_t *) args);
+	case PARASITE_CMD_DUMPPAGES_FINI:
+		return dump_pages_fini((parasite_status_t *) args);
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:

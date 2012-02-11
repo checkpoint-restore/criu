@@ -484,6 +484,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			       struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args parasite_dumppages = { };
+	parasite_status_t *st = &parasite_dumppages.status;
 	user_regs_struct_t regs, regs_orig;
 	unsigned long nrpages_dumped = 0;
 	struct vma_area *vma_area;
@@ -498,12 +499,18 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	if (ret < 0)
 		goto out;
 
-	/*
-	 * Make sure the data is on disk since we will re-open
-	 * it in another process.
-	 */
-	fsync(cr_fdset->fds[CR_FD_PAGES]);
-	parasite_dumppages.fd = -1UL;
+	ret = parasite_prep_file(CR_FD_PAGES_SHMEM, ctl, cr_fdset);
+	if (ret < 0)
+		goto out;
+
+	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, st, sizeof(*st));
+	if (ret < 0) {
+		pr_panic("Dumping pages failed with %li (%li) at %li\n",
+				parasite_dumppages.status.ret,
+				parasite_dumppages.status.sys_ret,
+				parasite_dumppages.status.line);
+		goto out;
+	}
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
 
@@ -520,6 +527,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		pr_info_vma(vma_area);
 		parasite_dumppages.vma_entry = vma_area->vma;
 
+		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
+		    vma_area_is(vma_area, VMA_FILE_PRIVATE))
+			parasite_dumppages.fd_type = PG_PRIV;
+		else if (vma_area_is(vma_area, VMA_ANON_SHARED))
+			parasite_dumppages.fd_type = PG_SHARED;
+		else {
+			pr_warning("Unexpected VMA area found\n");
+			continue;
+		}
+
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl,
 					(parasite_status_t *) &parasite_dumppages,
 					sizeof(parasite_dumppages));
@@ -529,48 +546,27 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 				 parasite_dumppages.status.sys_ret,
 				 parasite_dumppages.status.line);
 
-			goto err_restore;
+			goto out;
 		}
 
 		pr_info("  (dumped: %16li pages)\n", parasite_dumppages.nrpages_dumped);
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
 	}
 
-	if (ptrace(PTRACE_GETREGS, (long)ctl->pid, NULL, &regs_orig)) {
-		pr_err("Can't get registers (pid: %d)\n", ctl->pid);
-		goto err_restore;
-	}
+	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, st, sizeof(*st));
 
-	/* Finally close the descriptor the parasite has opened */
-	if (parasite_dumppages.fd != -1UL) {
-		regs	= regs_orig;
-		regs.ax	= __NR_close;			/* close	*/
-		regs.di	= parasite_dumppages.fd;	/* @fd		*/
-		ret	= syscall_seized(ctl->pid, &regs_orig, &regs, &regs);
-	}
-
-	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig)) {
-		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
-		goto err_restore;
-	}
-
-	/*
-	 * We don't know the position in file since it's updated
-	 * outside of our process.
-	 */
-	lseek(cr_fdset->fds[CR_FD_PAGES], 0, SEEK_END);
-
-	/* Ending page */
 	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
-		goto err_restore;
+		goto out;
+	if (write_img(cr_fdset->fds[CR_FD_PAGES_SHMEM], &zero_page_entry))
+		goto out;
 
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 	ret = 0;
 
-err_restore:
-	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
 out:
+	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
+	fchmod(cr_fdset->fds[CR_FD_PAGES_SHMEM], CR_FD_PERM);
 	pr_info("----------------------------------------\n");
 
 	return ret;
