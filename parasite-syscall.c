@@ -230,7 +230,7 @@ int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 			     err_restore);
 
 again:
-		jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err_restore);
+		regs = regs_orig;
 		regs.ip	= ctl->parasite_ip;
 		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
