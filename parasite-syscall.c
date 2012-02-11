@@ -92,31 +92,6 @@ int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 	return ret;
 }
 
-unsigned long brk_seized(pid_t pid, unsigned long addr)
-{
-	user_regs_struct_t params, regs_orig;
-	unsigned long ret = -1UL;
-
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig), err);
-	params = regs_orig;
-
-	params.ax	= (unsigned long)__NR_brk;	/* brk		*/
-	params.di	= (unsigned long)addr;		/* @addr	*/
-
-	ret = syscall_seized(pid, &regs_orig, &params, &params);
-	if (!ret)
-		ret = (unsigned long)params.ax;
-	else
-		ret = -1UL;
-
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
-		pr_panic("Can't restore registers (pid: %d)\n", pid);
-		ret = -1UL;
-	}
-err:
-	return ret;
-}
-
 int syscall_seized(pid_t pid,
 		   user_regs_struct_t *where,
 		   user_regs_struct_t *params,

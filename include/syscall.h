@@ -258,6 +258,11 @@ static always_inline long sys_prctl(int code, unsigned long arg2, unsigned long 
 	return syscall5(__NR_prctl, code, arg2, arg3, arg4, arg5);
 }
 
+static always_inline long sys_brk(unsigned long arg)
+{
+	return syscall1(__NR_brk, arg);
+}
+
 static always_inline long sys_clone(unsigned long flags, void *child_stack,
 				    void *parent_tid, void *child_tid)
 {

@@ -665,7 +665,7 @@ static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
 }
 
 static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
-		struct cr_fdset *cr_fdset)
+		struct parasite_dump_misc *misc, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int ret				= -1;
@@ -704,6 +704,8 @@ static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat
 	core->tc.mm_env_start = stat->env_start;
 	core->tc.mm_env_end = stat->env_end;
 
+	core->tc.mm_brk = misc->brk;
+
 	pr_info("Obtainting sigmask ... ");
 	ret = get_task_sigmask(pid, pid_dir, &core->tc.blk_sigset);
 	if (ret)
@@ -714,13 +716,6 @@ static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat
 	ret = get_task_auxv(pid, pid_dir, core);
 	if (ret)
 		goto err_free;
-	pr_info("OK\n");
-
-	pr_info("Obtainting task brk ... ");
-	brk = brk_seized(pid, 0);
-	if ((long)brk < 0)
-		goto err_free;
-	core->tc.mm_brk = brk;
 	pr_info("OK\n");
 
 	core->tc.task_state = TASK_ALIVE;
@@ -1254,7 +1249,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_core_all(pid, pid_dir, &pps_buf, cr_fdset);
+	ret = dump_task_core_all(pid, pid_dir, &pps_buf, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
