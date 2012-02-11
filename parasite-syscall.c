@@ -47,9 +47,8 @@ int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 	return ip >= start && ip < (end - code_syscall_size);
 }
 
-static int syscall_seized(pid_t pid, user_regs_struct_t *params)
+static int syscall_seized(pid_t pid, user_regs_struct_t *regs)
 {
-	user_regs_struct_t regs_orig, regs;
 	unsigned long start_ip;
 	char saved[sizeof(code_syscall)];
 	siginfo_t siginfo;
@@ -59,26 +58,14 @@ static int syscall_seized(pid_t pid, user_regs_struct_t *params)
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 
-	start_ip	= (unsigned long)params->ip;
+	start_ip	= (unsigned long)regs->ip;
 
 	jerr(ptrace_peek_area(pid, (void *)saved, (void *)start_ip, code_syscall_size), err);
 	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err);
 
+	regs->orig_ax	= -1; /* avoid end-of-syscall processing */
 again:
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, &regs), err);
-	regs_orig	= regs;
-
-	regs.ip		= start_ip;
-	regs.ax		= params->ax;
-	regs.di		= params->di;
-	regs.si		= params->si;
-	regs.dx		= params->dx;
-	regs.r10	= params->r10;
-	regs.r8		= params->r8;
-	regs.r9		= params->r9;
-	regs.orig_ax	= -1; /* avoid end-of-syscall processing */
-
-	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs), err_restore);
+	jerr(ptrace(PTRACE_SETREGS, pid, NULL, regs), err_restore);
 
 	/*
 	 * Most ideas are taken from Tejun Heo's parasite thread
@@ -100,7 +87,6 @@ retry_signal:
 		/* pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code); */
 		/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
-		jerr(ptrace(PTRACE_SETREGS, pid, NULL, (void *)&regs_orig), err_restore_full);
 		jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore_full);
 		jerr(ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore_full);
 
@@ -128,16 +114,11 @@ retry_signal:
 
 	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore_full);
 
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, params), err_restore_full);
+	jerr(ptrace(PTRACE_GETREGS, pid, NULL, regs), err_restore_full);
 
 	ret = 0;
 
 err_restore_full:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
-		pr_panic("Can't restore registers (pid: %d)\n", pid);
-		ret = -1;
-	}
-
 err_restore:
 	if (ptrace_poke_area(pid, (void *)saved, (void *)start_ip, code_syscall_size)) {
 		pr_panic("Crap... Can't restore data (pid: %d)\n", pid);
@@ -151,22 +132,21 @@ static void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
 		  void *addr, size_t length, int prot,
 		  int flags, int fd, off_t offset)
 {
-	user_regs_struct_t params = *regs;
 	void *mmaped = NULL;
 	int ret;
 
-	params.ax	= (unsigned long)__NR_mmap;	/* mmap		*/
-	params.di	= (unsigned long)addr;		/* @addr	*/
-	params.si	= (unsigned long)length;	/* @length	*/
-	params.dx	= (unsigned long)prot;		/* @prot	*/
-	params.r10	= (unsigned long)flags;		/* @flags	*/
-	params.r8	= (unsigned long)fd;		/* @fd		*/
-	params.r9	= (unsigned long)offset;	/* @offset	*/
+	regs->ax	= (unsigned long)__NR_mmap;	/* mmap		*/
+	regs->di	= (unsigned long)addr;		/* @addr	*/
+	regs->si	= (unsigned long)length;	/* @length	*/
+	regs->dx	= (unsigned long)prot;		/* @prot	*/
+	regs->r10	= (unsigned long)flags;		/* @flags	*/
+	regs->r8	= (unsigned long)fd;		/* @fd		*/
+	regs->r9	= (unsigned long)offset;	/* @offset	*/
 
-	ret = syscall_seized(pid, &params);
+	ret = syscall_seized(pid, regs);
 	if (ret)
 		goto err;
-	mmaped = (void *)params.ax;
+	mmaped = (void *)regs->ax;
 
 	/* error code from the kernel space */
 	if ((long)mmaped < 0)
@@ -178,16 +158,15 @@ err:
 static int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 		  void *addr, size_t length)
 {
-	user_regs_struct_t params = *regs;
 	int ret;
 
-	params.ax	= (unsigned long)__NR_munmap;	/* mmap		*/
-	params.di	= (unsigned long)addr;		/* @addr	*/
-	params.si	= (unsigned long)length;	/* @length	*/
+	regs->ax	= (unsigned long)__NR_munmap;	/* mmap		*/
+	regs->di	= (unsigned long)addr;		/* @addr	*/
+	regs->si	= (unsigned long)length;	/* @length	*/
 
-	ret = syscall_seized(pid, &params);
+	ret = syscall_seized(pid, regs);
 	if (!ret)
-		ret = (int)params.ax;
+		ret = (int)regs->ax;
 
 	return ret;
 }
