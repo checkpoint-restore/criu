@@ -29,11 +29,6 @@ extern void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
 extern int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 			 void *addr, size_t length);
 
-extern int syscall_seized(pid_t pid,
-			  user_regs_struct_t *where,
-			  user_regs_struct_t *params,
-			  user_regs_struct_t *result);
-
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
 			       struct cr_fdset *cr_fdset);
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);

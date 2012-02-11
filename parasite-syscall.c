@@ -47,55 +47,7 @@ int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 	return ip >= start && ip < (end - code_syscall_size);
 }
 
-void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
-{
-	user_regs_struct_t params = *regs;
-	void *mmaped = NULL;
-	int ret;
-
-	params.ax	= (unsigned long)__NR_mmap;	/* mmap		*/
-	params.di	= (unsigned long)addr;		/* @addr	*/
-	params.si	= (unsigned long)length;	/* @length	*/
-	params.dx	= (unsigned long)prot;		/* @prot	*/
-	params.r10	= (unsigned long)flags;		/* @flags	*/
-	params.r8	= (unsigned long)fd;		/* @fd		*/
-	params.r9	= (unsigned long)offset;	/* @offset	*/
-
-	ret = syscall_seized(pid, regs, &params, &params);
-	if (ret)
-		goto err;
-	mmaped = (void *)params.ax;
-
-	/* error code from the kernel space */
-	if ((long)mmaped < 0)
-		mmaped = NULL;
-err:
-	return mmaped;
-}
-
-int munmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length)
-{
-	user_regs_struct_t params = *regs;
-	int ret;
-
-	params.ax	= (unsigned long)__NR_munmap;	/* mmap		*/
-	params.di	= (unsigned long)addr;		/* @addr	*/
-	params.si	= (unsigned long)length;	/* @length	*/
-
-	ret = syscall_seized(pid, regs, &params, &params);
-	if (!ret)
-		ret = (int)params.ax;
-
-	return ret;
-}
-
-int syscall_seized(pid_t pid,
-		   user_regs_struct_t *where,
-		   user_regs_struct_t *params,
-		   user_regs_struct_t *result)
+static int syscall_seized(pid_t pid, user_regs_struct_t *params)
 {
 	user_regs_struct_t regs_orig, regs;
 	unsigned long start_ip;
@@ -107,7 +59,7 @@ int syscall_seized(pid_t pid,
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 
-	start_ip	= (unsigned long)where->ip;
+	start_ip	= (unsigned long)params->ip;
 
 	jerr(ptrace_peek_area(pid, (void *)saved, (void *)start_ip, code_syscall_size), err);
 	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err);
@@ -176,10 +128,9 @@ retry_signal:
 
 	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore_full);
 
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, &regs), err_restore_full);
+	jerr(ptrace(PTRACE_GETREGS, pid, NULL, params), err_restore_full);
 
 	ret = 0;
-	*result = regs;
 
 err_restore_full:
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
@@ -193,6 +144,51 @@ err_restore:
 		ret = -1;
 	}
 err:
+	return ret;
+}
+
+void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
+		  void *addr, size_t length, int prot,
+		  int flags, int fd, off_t offset)
+{
+	user_regs_struct_t params = *regs;
+	void *mmaped = NULL;
+	int ret;
+
+	params.ax	= (unsigned long)__NR_mmap;	/* mmap		*/
+	params.di	= (unsigned long)addr;		/* @addr	*/
+	params.si	= (unsigned long)length;	/* @length	*/
+	params.dx	= (unsigned long)prot;		/* @prot	*/
+	params.r10	= (unsigned long)flags;		/* @flags	*/
+	params.r8	= (unsigned long)fd;		/* @fd		*/
+	params.r9	= (unsigned long)offset;	/* @offset	*/
+
+	ret = syscall_seized(pid, &params);
+	if (ret)
+		goto err;
+	mmaped = (void *)params.ax;
+
+	/* error code from the kernel space */
+	if ((long)mmaped < 0)
+		mmaped = NULL;
+err:
+	return mmaped;
+}
+
+int munmap_seized(pid_t pid, user_regs_struct_t *regs,
+		  void *addr, size_t length)
+{
+	user_regs_struct_t params = *regs;
+	int ret;
+
+	params.ax	= (unsigned long)__NR_munmap;	/* mmap		*/
+	params.di	= (unsigned long)addr;		/* @addr	*/
+	params.si	= (unsigned long)length;	/* @length	*/
+
+	ret = syscall_seized(pid, &params);
+	if (!ret)
+		ret = (int)params.ax;
+
 	return ret;
 }
 
