@@ -664,7 +664,7 @@ static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
 	return ret;
 }
 
-static int dump_task_core_seized(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
+static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
 		struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
@@ -1200,12 +1200,6 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_core_seized(pid, pid_dir, &pps_buf, cr_fdset);
-	if (ret) {
-		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
 	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
@@ -1257,6 +1251,12 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = dump_task_creds(pid, pid_dir, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = dump_task_core_all(pid, pid_dir, &pps_buf, cr_fdset);
+	if (ret) {
+		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
