@@ -92,19 +92,6 @@ int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 	return ret;
 }
 
-int kill_seized(pid_t pid, user_regs_struct_t *where)
-{
-	user_regs_struct_t params = *where;
-	int ret;
-
-	params.ax	= (unsigned long)__NR_exit;	/* exit		*/
-	params.di	= (unsigned long)-1;		/* @error-code	*/
-
-	ret = syscall_seized(pid, where, &params, &params);
-
-	return ret;
-}
-
 unsigned long brk_seized(pid_t pid, unsigned long addr)
 {
 	user_regs_struct_t params, regs_orig;

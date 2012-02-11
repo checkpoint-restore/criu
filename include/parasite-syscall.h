@@ -28,7 +28,6 @@ extern void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
 
 extern int munmap_seized(pid_t pid, user_regs_struct_t *regs,
 			 void *addr, size_t length);
-extern int kill_seized(pid_t pid, user_regs_struct_t *where);
 extern unsigned long brk_seized(pid_t pid, unsigned long addr);
 
 extern int syscall_seized(pid_t pid,
