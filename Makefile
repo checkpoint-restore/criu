@@ -121,6 +121,10 @@ $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -E $(CFLAGS) $< -o $@
 
+%.s: %.c
+	$(E) "  CC      " $@
+	$(Q) $(CC) -S $(CFLAGS) -fverbose-asm $< -o $@
+
 $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
