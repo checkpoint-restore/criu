@@ -18,8 +18,8 @@ struct parasite_ctl {
 	void *			local_map;
 	unsigned long		map_length;
 	unsigned long		parasite_ip;		/* service routine start ip */
-	unsigned long		addr_cmd;		/* addr for command */
-	unsigned long		addr_args;		/* address for arguments */
+	void *			addr_cmd;		/* addr for command */
+	void *			addr_args;		/* address for arguments */
 };
 
 extern int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end);

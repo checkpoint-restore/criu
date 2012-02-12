@@ -199,19 +199,13 @@ int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 	/*
 	 * Pass the command first, it's immutable.
 	 */
-	jerr(ptrace_poke_area((long)ctl->pid, (void *)&cmd, (void *)ctl->addr_cmd,
-				sizeof(cmd)), err_restore);
-
+	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
 again:
 		regs = regs_orig;
 		regs.ip	= ctl->parasite_ip;
 		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
-		if (ptrace_poke_area((long)ctl->pid, (void *)args,
-				 (void *)ctl->addr_args, args_size)) {
-			pr_err("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
-			goto err_restore;
-		}
+		memcpy(ctl->addr_args, args, args_size);
 
 		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
 		jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
@@ -240,13 +234,8 @@ retry_signal:
 		/*
 		 * Check if error happened during dumping.
 		 */
-		if (ptrace_peek_area((long)ctl->pid,
-				     (void *)args,
-				     (void *)(ctl->addr_args),
-				     args_size)) {
-			pr_err("Can't get dumper ret code (pid: %d)\n", ctl->pid);
-			goto err_restore;
-		}
+
+		memcpy(args, ctl->addr_args, args_size);
 		if (args->ret) {
 			pr_panic("Dumping sigactions failed with %li (%li) at %li\n",
 				 args->ret,
@@ -584,8 +573,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
 	ctl->parasite_ip		= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
-	ctl->addr_cmd			= PARASITE_CMD_ADDR((unsigned long)ctl->remote_map);
-	ctl->addr_args			= PARASITE_ARGS_ADDR((unsigned long)ctl->remote_map);
 
 	snprintf(fname, sizeof(fname), "map_files/%p-%p",
 			ctl->remote_map, ctl->remote_map + ctl->map_length);
@@ -608,6 +595,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	memcpy(ctl->local_map, parasite_blob, parasite_size);
 
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
+
+	ctl->addr_cmd			= (void *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
+	ctl->addr_args			= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
 
 	ret = parasite_init(ctl, pid);
 	if (ret) {
