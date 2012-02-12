@@ -46,12 +46,6 @@ enum {
 	PARASITE_CMD_MAX,
 };
 
-typedef struct {
-	unsigned long		command;
-	unsigned long		args_size;
-	void			*args;
-} parasite_args_t;
-
 typedef struct  {
 	long			ret;		/* custom ret code */
 	long			sys_ret;	/* syscall ret code */

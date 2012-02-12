@@ -190,31 +190,25 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 			parasite_status_t *args, int args_size)
 {
-	parasite_args_t parasite_arg				= { };
 	user_regs_struct_t regs, regs_orig;
 	int status, ret = -1;
 	siginfo_t siginfo;
 
 	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
 
-	parasite_arg.command		= cmd;
-	parasite_arg.args_size		= args_size;
-	parasite_arg.args		= args;
-
 	/*
 	 * Pass the command first, it's immutable.
 	 */
-	jerr(ptrace_poke_area((long)ctl->pid, (void *)&parasite_arg.command,
-			     (void *)ctl->addr_cmd, sizeof(parasite_arg.command)),
-			     err_restore);
+	jerr(ptrace_poke_area((long)ctl->pid, (void *)&cmd, (void *)ctl->addr_cmd,
+				sizeof(cmd)), err_restore);
 
 again:
 		regs = regs_orig;
 		regs.ip	= ctl->parasite_ip;
 		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
-		if (ptrace_poke_area((long)ctl->pid, (void *)parasite_arg.args,
-				 (void *)ctl->addr_args, parasite_arg.args_size)) {
+		if (ptrace_poke_area((long)ctl->pid, (void *)args,
+				 (void *)ctl->addr_args, args_size)) {
 			pr_err("Can't setup parasite arguments (pid: %d)\n", ctl->pid);
 			goto err_restore;
 		}
