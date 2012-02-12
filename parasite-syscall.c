@@ -187,7 +187,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
-int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 			parasite_status_t *args, int args_size)
 {
 	user_regs_struct_t regs, regs_orig;
