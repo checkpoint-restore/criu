@@ -527,9 +527,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_li
 
 	regs.ip = vma_area->vma.start;
 
-	ret = munmap_seized(ctl->pid, &regs,
-			    (void *)ctl->vma_area.vma.start,
-			    (size_t)vma_entry_len(&ctl->vma_area.vma));
+	ret = munmap_seized(ctl->pid, &regs, ctl->remote_map, ctl->map_length);
 	if (ret)
 		pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
 
@@ -543,14 +541,14 @@ err:
 	return ret;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_head *vma_area_list)
 {
 	parasite_status_t args = { };
 	user_regs_struct_t regs, regs_orig;
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
-	void *mmaped;
-	int ret;
+	char fname[128];
+	int ret, fd;
 
 	ctl = xzalloc(sizeof(*ctl));
 	if (!ctl) {
@@ -572,36 +570,42 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	}
 
 	regs_orig = regs;
-
-	/*
-	 * Prepare for in-process syscall.
-	 */
-	ctl->vma_area.vma.prot	= PROT_READ | PROT_WRITE | PROT_EXEC;
-	ctl->vma_area.vma.flags	= MAP_PRIVATE | MAP_ANONYMOUS;
-
 	regs.ip = vma_area->vma.start;
 
-	mmaped = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
-			     (int)ctl->vma_area.vma.prot,
-			     (int)ctl->vma_area.vma.flags,
-			     (int)-1, (off_t)0);
+	ctl->remote_map = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
+			PROT_READ | PROT_WRITE | PROT_EXEC,
+			MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 
-	if (!mmaped || (long)mmaped < 0) {
+	if (!ctl->remote_map || (long)ctl->remote_map < 0) {
 		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", pid);
 		goto err_restore_regs;
 	}
 
-	ctl->parasite_ip		= PARASITE_HEAD_ADDR((unsigned long)mmaped);
-	ctl->addr_cmd			= PARASITE_CMD_ADDR((unsigned long)mmaped);
-	ctl->addr_args			= PARASITE_ARGS_ADDR((unsigned long)mmaped);
+	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
-	ctl->vma_area.vma.start	= (u64)mmaped;
-	ctl->vma_area.vma.end	= (u64)(mmaped + parasite_size);
+	ctl->parasite_ip		= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
+	ctl->addr_cmd			= PARASITE_CMD_ADDR((unsigned long)ctl->remote_map);
+	ctl->addr_args			= PARASITE_ARGS_ADDR((unsigned long)ctl->remote_map);
 
-	if (ptrace_poke_area(pid, parasite_blob, mmaped, parasite_size)) {
-		pr_err("Can't inject parasite blob (pid: %d)\n", pid);
+	snprintf(fname, sizeof(fname), "map_files/%p-%p",
+			ctl->remote_map, ctl->remote_map + ctl->map_length);
+	fd = openat(pid_dir, fname, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Can't open remote parasite map");
 		goto err_munmap_restore;
 	}
+
+	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_FILE, fd, 0);
+	close(fd);
+
+	if (ctl->local_map == MAP_FAILED) {
+		pr_perror("Can't map remote parasite map");
+		goto err_munmap_restore;
+	}
+
+	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
+	memcpy(ctl->local_map, parasite_blob, parasite_size);
 
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
 
@@ -626,7 +630,7 @@ err_fini:
 		pr_panic("Can't finalize parasite (pid: %d) task\n", ctl->pid);
 err_munmap_restore:
 	regs = regs_orig, regs.ip = vma_area->vma.start;
-	if (munmap_seized(pid, &regs, mmaped, parasite_size))
+	if (munmap_seized(pid, &regs, ctl->remote_map, ctl->map_length))
 		pr_panic("mmap_seized failed (pid: %d)\n", pid);
 err_restore_regs:
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig))
