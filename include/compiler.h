@@ -27,11 +27,17 @@
 # define always_inline		__always_inline
 #endif
 
+#ifndef noinline
+# define noinline		__attribute__((noinline))
+#endif
+
 #define __aligned(x)		__attribute__((aligned(x)))
 
 #ifndef offsetof
 # define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
+
+#define barrier()		asm volatile("" ::: "memory")
 
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
