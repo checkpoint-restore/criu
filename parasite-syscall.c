@@ -201,50 +201,45 @@ static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 	 */
 	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
 again:
-		regs = regs_orig;
-		regs.ip	= ctl->parasite_ip;
-		jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
+	regs = regs_orig;
+	regs.ip	= ctl->parasite_ip;
+	jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
-		memcpy(ctl->addr_args, args, args_size);
+	memcpy(ctl->addr_args, args, args_size);
 
-		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
+	jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
+	jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
+	jerr(!WIFSTOPPED(status), err_restore);
+	jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+
+	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
+retry_signal:
+		/* pr_debug("** delivering signal %d si_code=%d\n",
+			 siginfo.si_signo, siginfo.si_code); */
+		/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
+		jerr(ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, (void *)&regs_orig), err_restore);
+		jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
+		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
+
 		jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
 		jerr(!WIFSTOPPED(status), err_restore);
 		jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
 
-		if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
-retry_signal:
-			/* pr_debug("** delivering signal %d si_code=%d\n",
-				 siginfo.si_signo, siginfo.si_code); */
-			/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
-			jerr(ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, (void *)&regs_orig), err_restore);
-			jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
-			jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
+		if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
+			goto retry_signal;
 
-			jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-			jerr(!WIFSTOPPED(status), err_restore);
-			jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+		goto again;
+	}
 
-			if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
-				goto retry_signal;
-
-			goto again;
-		}
-
-		/*
-		 * Check if error happened during dumping.
-		 */
-
-		memcpy(args, ctl->addr_args, args_size);
-		if (args->ret) {
-			pr_panic("Dumping sigactions failed with %li (%li) at %li\n",
-				 args->ret,
-				 args->sys_ret,
-				 args->line);
-
-			goto err_restore;
-		}
-
+	/*
+	 * Check if error happened during dumping.
+	 */
+	memcpy(args, ctl->addr_args, args_size);
+	if (args->ret) {
+		pr_panic("Dumping sigactions failed with %li (%li) at %li\n",
+			 args->ret, args->sys_ret, args->line);
+		goto err_restore;
+	}
 
 	/*
 	 * Our code is done.
