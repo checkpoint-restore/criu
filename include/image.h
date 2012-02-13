@@ -23,6 +23,7 @@
 #define CREDS_MAGIC	0x54023547 /* Kozelsk */
 #define IPCNS_VAR_MAGIC	0x53115007 /* Samara */
 #define IPCNS_SHM_MAGIC	0x46283044 /* Odessa */
+#define IPCNS_MSG_MAGIC	0x55453737 /* Moscow */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -140,6 +141,19 @@ struct ipc_desc_entry {
 struct ipc_shm_entry {
 	struct ipc_desc_entry desc;
 	u64	size;
+} __packed;
+
+struct ipc_msg {
+	u64	mtype;
+	u32	msize;
+	u8	pad[4];
+} __packed;
+
+struct ipc_msg_entry {
+	struct ipc_desc_entry desc;
+	u16	qbytes;
+	u16	qnum;
+	u8	pad[4];
 } __packed;
 
 #define VMA_AREA_NONE		(0 <<  0)

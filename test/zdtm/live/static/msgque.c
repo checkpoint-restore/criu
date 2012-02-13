@@ -86,6 +86,13 @@ static int test_fn(int argc, char **argv)
 			goto err_kill;
 		};
 
+		msgbuf.mtype = ANOTHER_MSG_TYPE;
+		memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
+		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), IPC_NOWAIT) != 0) {
+			fail("child: msgsnd (2) failed (%m)");
+			return -errno;
+		};
+
 		test_daemon();
 		test_waitsig();
 

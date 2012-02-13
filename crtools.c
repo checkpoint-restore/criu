@@ -122,6 +122,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_IPCNS_SHM,
 		.magic	= IPCNS_SHM_MAGIC,
 	},
+
+	/* IPC namespace message queues */
+	[CR_FD_IPCNS_MSG] = {
+		.fmt	= FMT_FNAME_IPCNS_MSG,
+		.magic	= IPCNS_MSG_MAGIC,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(void)

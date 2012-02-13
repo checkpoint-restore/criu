@@ -39,6 +39,7 @@ enum {
 	CR_FD_UTSNS,
 	CR_FD_IPCNS_VAR,
 	CR_FD_IPCNS_SHM,
+	CR_FD_IPCNS_MSG,
 
 	CR_FD_MAX
 };
@@ -82,6 +83,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_UTSNS		"utsns-%d.img"
 #define FMT_FNAME_IPCNS_VAR	"ipcns-var-%d.img"
 #define FMT_FNAME_IPCNS_SHM	"ipcns-shm-%d.img"
+#define FMT_FNAME_IPCNS_MSG	"ipcns-msg-%d.img"
 
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 
@@ -114,6 +116,7 @@ struct cr_fdset {
 #define CR_FD_DESC_NS				(\
 	CR_FD_DESC_USE(CR_FD_UTSNS)		|\
 	CR_FD_DESC_USE(CR_FD_IPCNS_VAR)		|\
+	CR_FD_DESC_USE(CR_FD_IPCNS_MSG)		|\
 	CR_FD_DESC_USE(CR_FD_IPCNS_SHM)		)
 #define CR_FD_DESC_NONE			(0)
 

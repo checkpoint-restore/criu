@@ -27,6 +27,23 @@
 #define SHM_SET			15
 #endif
 
+#ifndef MSGMAX
+#define MSGMAX			8192
+#endif
+
+#ifndef MSG_STEAL
+
+#define MSG_STEAL		040000
+
+/* message buffer for msgrcv in case of array calls */
+struct msgbuf_a {
+	long mtype;         /* type of message */
+	size_t msize;       /* size of message */
+	char mtext[0];      /* message text */
+};
+
+#endif
+
 static void print_ipc_desc_entry(const struct ipc_desc_entry *desc)
 {
 	pr_info("id: %-10d key: 0x%08x ", desc->id, desc->key);
@@ -45,6 +62,118 @@ static void fill_ipc_desc(int id, struct ipc_desc_entry *desc,
 	desc->cuid = ipcp->cuid;
 	desc->cgid = ipcp->cgid;
 	desc->mode = ipcp->mode;
+}
+
+static void print_ipc_msg(int nr, const struct ipc_msg *msg)
+{
+	pr_info("  %-5d: type: %-20ld size: %-10d\n",
+		nr++, msg->mtype, msg->msize);
+}
+
+static void print_ipc_msg_entry(const struct ipc_msg_entry *msg)
+{
+	print_ipc_desc_entry(&msg->desc);
+	pr_info ("qbytes: %-10d qnum: %-10d\n", msg->qbytes, msg->qnum);
+}
+
+static int dump_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry, size_t cbytes)
+{
+	void *msg_array, *ptr;
+	size_t array_size;
+	int ret, msg_nr = 0;
+
+	array_size = entry->qnum * sizeof(struct msgbuf_a) + cbytes;
+	msg_array = ptr = xmalloc(array_size);
+	if (msg_array == NULL) {
+		pr_err("Failed to allocate memory for IPC messages\n");
+		return -ENOMEM;
+	}
+
+	ret = msgrcv(entry->desc.id, msg_array, array_size, 0, IPC_NOWAIT | MSG_STEAL);
+	if (ret < 0) {
+		pr_perror("Failed to receive IPC messages array");
+		goto err;
+	}
+
+	while (msg_nr < entry->qnum) {
+		struct msgbuf_a *data = ptr;
+		struct ipc_msg msg;
+
+		msg.msize = data->msize;
+		msg.mtype = data->mtype;
+
+		print_ipc_msg(msg_nr, &msg);
+
+		ret = write_img(fd, &msg);
+		if (ret < 0) {
+			pr_err("Failed to write IPC message header\n");
+			break;
+		}
+		ret = write_img_buf(fd, data->mtext, round_up(msg.msize, sizeof(u64)));
+		if (ret < 0) {
+			pr_err("Failed to write IPC message data\n");
+			break;
+		}
+		msg_nr++;
+		ptr += sizeof(struct msgbuf_a) + data->msize;
+	}
+	ret = 0;
+err:
+	xfree(msg_array);
+	return ret;
+}
+
+static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
+{
+	struct ipc_msg_entry msg;
+	int ret;
+
+	fill_ipc_desc(id, &msg.desc, &ds->msg_perm);
+	msg.qbytes = ds->msg_qbytes;
+	msg.qnum = ds->msg_qnum;
+	print_ipc_msg_entry(&msg);
+
+	ret = write_img(fd, &msg);
+	if (ret < 0) {
+		pr_err("Failed to write IPC message queue\n");
+		return ret;
+	}
+	return dump_ipc_msg_queue_messages(fd, &msg, ds->msg_cbytes);
+}
+
+static int dump_ipc_msg(int fd)
+{
+	int i, maxid;
+	struct msginfo info;
+	int err, slot;
+
+	maxid = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
+	if (maxid < 0) {
+		pr_perror("msgctl failed");
+		return -errno;
+	}
+
+	pr_info("IPC message queues: %d\n", info.msgpool);
+	for (i = 0, slot = 0; i <= maxid; i++) {
+		struct msqid_ds ds;
+		int id, ret;
+
+		id = msgctl(i, MSG_STAT, &ds);
+		if (id < 0) {
+			if (errno == EINVAL)
+				continue;
+			pr_perror("Failed to get stats for IPC message queue");
+			break;
+		}
+		ret = dump_ipc_msg_queue(fd, id, &ds);
+		if (!ret)
+			slot++;
+	}
+	if (slot != info.msgpool) {
+		pr_err("Failed to collect %d (only %d succeeded)\n", info.msgpool, slot);
+		return -EFAULT;
+	}
+	return info.msgpool;
 }
 
 static void print_ipc_shm(const struct ipc_shm_entry *shm)
@@ -72,26 +201,6 @@ static int ipc_sysctl_req(struct ipc_var_entry *e, int op)
 	};
 
 	return sysctl_op(req, op);
-}
-
-static int dump_ipc_msg(void *data)
-{
-	struct msginfo info;
-	int ret;
-	int fd;
-
-	ret = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
-	if (ret < 0) {
-		pr_perror("msgctl failed");
-		return ret;
-	}
-
-	if (ret) {
-		pr_err("IPC messages migration is not supported yet\n");
-		return -EINVAL;
-	}
-
-	return 0;
 }
 
 static int dump_ipc_sem(void *data)
@@ -226,7 +335,7 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 	ret = dump_ipc_shm(fdset->fds[CR_FD_IPCNS_SHM]);
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_msg(0);
+	ret = dump_ipc_msg(fdset->fds[CR_FD_IPCNS_MSG]);
 	if (ret < 0)
 		return ret;
 	ret = dump_ipc_sem(0);
