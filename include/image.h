@@ -126,7 +126,7 @@ struct ipc_var_entry {
 	u32	mq_msgsize_max;
 } __packed;
 
-struct ipc_seg {
+struct ipc_desc_entry {
 	u32	key;
 	u32	uid;
 	u32	gid;
@@ -138,7 +138,7 @@ struct ipc_seg {
 } __packed;
 
 struct ipc_shm_entry {
-	struct ipc_seg seg;
+	struct ipc_desc_entry desc;
 	u64	size;
 } __packed;
 

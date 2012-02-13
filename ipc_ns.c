@@ -27,28 +27,29 @@
 #define SHM_SET			15
 #endif
 
-static void print_ipc_seg(const struct ipc_seg *seg)
+static void print_ipc_desc_entry(const struct ipc_desc_entry *desc)
 {
-	pr_info("id: %-10d key: 0x%08x ", seg->id, seg->key);
-	pr_info("uid: %-10d gid: %-10d ", seg->uid, seg->gid);
-	pr_info("cuid: %-10d cgid: %-10d ", seg->cuid, seg->cgid);
-	pr_info("mode: %-10o ", seg->mode);
+	pr_info("id: %-10d key: 0x%08x ", desc->id, desc->key);
+	pr_info("uid: %-10d gid: %-10d ", desc->uid, desc->gid);
+	pr_info("cuid: %-10d cgid: %-10d ", desc->cuid, desc->cgid);
+	pr_info("mode: %-10o ", desc->mode);
 }
 
-static void fill_ipc_seg(int id, struct ipc_seg *seg, const struct ipc_perm *ipcp)
+static void fill_ipc_desc(int id, struct ipc_desc_entry *desc,
+				const struct ipc_perm *ipcp)
 {
-	seg->id = id;
-	seg->key = ipcp->KEY;
-	seg->uid = ipcp->uid;
-	seg->gid = ipcp->gid;
-	seg->cuid = ipcp->cuid;
-	seg->cgid = ipcp->cgid;
-	seg->mode = ipcp->mode;
+	desc->id = id;
+	desc->key = ipcp->KEY;
+	desc->uid = ipcp->uid;
+	desc->gid = ipcp->gid;
+	desc->cuid = ipcp->cuid;
+	desc->cgid = ipcp->cgid;
+	desc->mode = ipcp->mode;
 }
 
 static void print_ipc_shm(const struct ipc_shm_entry *shm)
 {
-	print_ipc_seg(&shm->seg);
+	print_ipc_desc_entry(&shm->desc);
 	pr_info("size: %-10lu\n", shm->size);
 }
 
@@ -119,7 +120,7 @@ static int dump_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
 	void *data;
 	int ret;
 
-	data = shmat(shm->seg.id, NULL, SHM_RDONLY);
+	data = shmat(shm->desc.id, NULL, SHM_RDONLY);
 	if (data == (void *)-1) {
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
@@ -141,7 +142,7 @@ static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
 	struct ipc_shm_entry shm;
 	int ret;
 
-	fill_ipc_seg(id, &shm.seg, &ds->shm_perm);
+	fill_ipc_desc(id, &shm.desc, &ds->shm_perm);
 	shm.size = ds->shm_segsz;
 	print_ipc_shm(&shm);
 
@@ -303,7 +304,7 @@ static int prepare_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
 	int ret;
 	void *data;
 
-	data = shmat(shm->seg.id, NULL, 0);
+	data = shmat(shm->desc.id, NULL, 0);
 	if (data == (void *)-1) {
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
@@ -325,16 +326,16 @@ static int prepare_ipc_shm_seg(int fd, const struct ipc_shm_entry *shm)
 	int ret, id;
 	struct shmid_ds ds;
 
-	id = shmget(shm->seg.id, shm->size,
-		     shm->seg.mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	id = shmget(shm->desc.id, shm->size,
+		     shm->desc.mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
 	if (id == -1) {
 		pr_perror("Failed to create shm segment");
 		return -errno;
 	}
 
-	if (id != shm->seg.id) {
+	if (id != shm->desc.id) {
 		pr_err("Failed to preset id (%d instead of %d)\n",
-							id, shm->seg.id);
+							id, shm->desc.id);
 		return -EFAULT;
 	}
 
@@ -344,7 +345,7 @@ static int prepare_ipc_shm_seg(int fd, const struct ipc_shm_entry *shm)
 		return -errno;
 	}
 
-	ds.shm_perm.KEY = shm->seg.key;
+	ds.shm_perm.KEY = shm->desc.key;
 	ret = shmctl(id, SHM_SET, &ds);
 	if (ret < 0) {
 		pr_perror("Failed to update shm key");
@@ -373,7 +374,7 @@ static int prepare_ipc_shm(int pid)
 
 		ret = read_img_eof(fd, &shm);
 		if (ret < 0) {
-			pr_err("Failed to read IPC shared memory object\n");
+			pr_err("Failed to read IPC shared memory segment\n");
 			return -EIO;
 		}
 		if (ret == 0)
