@@ -592,7 +592,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	}
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
-	memcpy(ctl->local_map, parasite_blob, parasite_size);
+	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
 
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
 
