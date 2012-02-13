@@ -41,7 +41,10 @@ struct msgbuf_a {
 	size_t msize;       /* size of message */
 	char mtext[0];      /* message text */
 };
+#endif
 
+#ifndef MSG_SET
+#define MSG_SET			13
 #endif
 
 static void print_ipc_desc_entry(const struct ipc_desc_entry *desc)
@@ -446,6 +449,119 @@ void show_ipc_var(int fd)
 	pr_img_tail(CR_FD_IPCNS);
 }
 
+static int prepare_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry)
+{
+	int msg_nr = 0;
+
+	while (msg_nr < entry->qnum) {
+		struct msgbuf {
+			long mtype;
+			char mtext[MSGMAX];
+		} data;
+		struct ipc_msg msg;
+		int ret;
+
+		ret = read_img(fd, &msg);
+		if (ret <= 0)
+			return -EIO;
+
+		print_ipc_msg(msg_nr, &msg);
+
+		if (msg.msize > MSGMAX) {
+			pr_err("Unsupported message size: %d (MAX: %d)\n",
+						msg.msize, MSGMAX);
+			return ret;
+		}
+
+		ret = read_img_buf(fd, data.mtext, round_up(msg.msize, sizeof(u64)));
+		if (ret < 0) {
+			pr_err("Failed to read IPC message data\n");
+			return ret;
+		}
+
+		data.mtype = msg.mtype;
+		ret = msgsnd(entry->desc.id, &data, msg.msize, IPC_NOWAIT);
+		if (ret < 0) {
+			pr_perror("Failed to send IPC message");
+			return -errno;
+		}
+		msg_nr++;
+	}
+	return 0;
+}
+
+static int prepare_ipc_msg_queue(int fd, const struct ipc_msg_entry *entry)
+{
+	int ret, id;
+	struct msqid_ds ds;
+
+	id = msgget(entry->desc.id,
+		     entry->desc.mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	if (id == -1) {
+		pr_perror("Failed to create message queue");
+		return -errno;
+	}
+
+	if (id != entry->desc.id) {
+		pr_err("Failed to preset id (%d instead of %d)\n",
+							id, entry->desc.id);
+		return -EFAULT;
+	}
+
+	ret = msgctl(id, MSG_STAT, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to stat message queue");
+		return -errno;
+	}
+
+	ds.msg_perm.KEY = entry->desc.key;
+	ds.msg_qbytes = entry->qbytes;
+	ret = msgctl(id, MSG_SET, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to update message key");
+		return -errno;
+	}
+	ret = prepare_ipc_msg_queue_messages(fd, entry);
+	if (ret < 0) {
+		pr_err("Failed to update message queue messages\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int prepare_ipc_msg(int pid)
+{
+	int fd;
+
+	pr_info("Restoring IPC message queues\n");
+	fd = open_image_ro(CR_FD_IPCNS_MSG, pid);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		int ret, id;
+		struct ipc_msg_entry entry;
+		struct msqid_ds ds;
+
+		ret = read_img_eof(fd, &entry);
+		if (ret < 0) {
+			pr_err("Failed to read IPC messages queue\n");
+			return -EIO;
+		}
+		if (ret == 0)
+			break;
+
+		print_ipc_msg_entry(&entry);
+
+		ret = prepare_ipc_msg_queue(fd, &entry);
+		if (ret < 0) {
+			pr_err("Failed to prepare messages queue\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int prepare_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
 {
 	int ret;
@@ -568,6 +684,9 @@ int prepare_ipc_ns(int pid)
 	if (ret < 0)
 		return ret;
 	ret = prepare_ipc_shm(pid);
+	if (ret < 0)
+		return ret;
+	ret = prepare_ipc_msg(pid);
 	if (ret < 0)
 		return ret;
 	return 0;
