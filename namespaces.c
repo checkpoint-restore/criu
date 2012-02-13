@@ -131,6 +131,9 @@ int try_show_namespaces(int ns_pid)
 	if (fdset->fds[CR_FD_IPCNS_SHM] != -1)
 		show_ipc_shm(fdset->fds[CR_FD_IPCNS_SHM]);
 
+	if (fdset->fds[CR_FD_IPCNS_MSG] != -1)
+		show_ipc_msg(fdset->fds[CR_FD_IPCNS_MSG]);
+
 	close_cr_fdset(&fdset);
 	return 0;
 }

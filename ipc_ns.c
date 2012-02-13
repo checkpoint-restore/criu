@@ -365,6 +365,44 @@ static void show_var_entry(struct ipc_var_entry *entry)
 	ipc_sysctl_req(entry, CTL_PRINT);
 }
 
+static void show_ipc_msg_entries(int fd)
+{
+	pr_info("\nMessage queues:\n");
+	while (1) {
+		int ret;
+		struct ipc_msg_entry entry;
+		int msg_nr = 0;
+
+		ret = read_img_eof(fd, &entry);
+		if (ret <= 0)
+			return;
+
+		print_ipc_msg_entry(&entry);
+
+		while (msg_nr < entry.qnum) {
+			struct ipc_msg msg;
+
+			ret = read_img(fd, &msg);
+			if (ret <= 0)
+				return;
+
+			print_ipc_msg(msg_nr, &msg);
+
+			if (lseek(fd, round_up(msg.msize, sizeof(u64)),
+						SEEK_CUR) == (off_t) -1)
+				return;
+			msg_nr++;
+		}
+	}
+}
+
+void show_ipc_msg(int fd)
+{
+	pr_img_head(CR_FD_IPCNS);
+	show_ipc_msg_entries(fd);
+	pr_img_tail(CR_FD_IPCNS);
+}
+
 static void show_ipc_shm_entries(int fd)
 {
 	pr_info("\nShared memory segments:\n");
