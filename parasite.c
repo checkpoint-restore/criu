@@ -454,12 +454,12 @@ static void __parasite_head __used parasite_head(void)
 		     ".long 0									\n\t"
 		     "parasite_args:								\n\t"
 		     ".long 0									\n\t"
-		     ".skip "__stringify(PARASITE_ARG_SIZE)",0					\n\t"
-		     ".skip "__stringify(PARASITE_STACK_SIZE)", 0				\n\t"
+		     ".space "__stringify(PARASITE_ARG_SIZE)",0					\n\t"
+		     ".space "__stringify(PARASITE_STACK_SIZE)", 0				\n\t"
 		     "parasite_stack:								\n\t"
 		     ".long 0									\n\t"
 		     "parasite_brk:								\n\t"
-		     ".skip "__stringify(PARASITE_BRK_SIZE)", 0					\n\t"
+		     ".space "__stringify(PARASITE_BRK_SIZE)", 0				\n\t"
 		     ".long 0									\n\t");
 }
 
