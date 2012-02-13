@@ -551,34 +551,28 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 		goto err;
 	}
 
-	/* Setup control block */
-	ctl->pid = pid;
-
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs))
-		pr_err_jmp(err_free);
+		pr_err_jmp(err);
 
 	vma_area = get_vma_by_ip(vma_area_list, regs.ip);
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 			 "bootstrap code (pid: %d)\n", pid);
-		goto err_free;
+		goto err;
 	}
 
 	regs_orig = regs;
 	parasite_setup_regs(vma_area->vma.start, &regs);
 
 	ctl->remote_map = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
-			PROT_READ | PROT_WRITE | PROT_EXEC,
-			MAP_ANONYMOUS | MAP_SHARED, -1, 0);
-
-	if (!ctl->remote_map || (long)ctl->remote_map < 0) {
+				      PROT_READ | PROT_WRITE | PROT_EXEC,
+				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
+	if (!ctl->remote_map) {
 		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", pid);
 		goto err_restore_regs;
 	}
 
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
-
-	ctl->parasite_ip		= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
 
 	snprintf(fname, sizeof(fname), "map_files/%p-%p",
 			ctl->remote_map, ctl->remote_map + ctl->map_length);
@@ -589,7 +583,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	}
 
 	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_FILE, fd, 0);
+			      MAP_SHARED | MAP_FILE, fd, 0);
 	close(fd);
 
 	if (ctl->local_map == MAP_FAILED) {
@@ -602,8 +596,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
 
-	ctl->addr_cmd			= (void *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
-	ctl->addr_args			= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
+	/* Setup control block */
+	ctl->pid		= pid;
+	ctl->parasite_ip	= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
+	ctl->addr_cmd		= (void *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
+	ctl->addr_args		= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
 
 	ret = parasite_init(ctl, pid);
 	if (ret) {
@@ -614,7 +611,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {
 		pr_err("%d: Can't set a logging descriptor\n", pid);
-		goto err_munmap_restore;
+		goto err_fini;
 	}
 
 	return ctl;
@@ -624,17 +621,19 @@ err_fini:
 				&args, sizeof(args));
 	if (ret)
 		pr_panic("Can't finalize parasite (pid: %d) task\n", ctl->pid);
+
 err_munmap_restore:
-	regs = regs_orig, regs.ip = vma_area->vma.start;
+	regs = regs_orig;
+	parasite_setup_regs(vma_area->vma.start, &regs);
 	if (munmap_seized(pid, &regs, ctl->remote_map, ctl->map_length))
 		pr_panic("mmap_seized failed (pid: %d)\n", pid);
+
 err_restore_regs:
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig))
 		pr_panic("PTRACE_SETREGS failed (pid: %d)\n", pid);
-err_free:
-	if (ctl)
-		free(ctl);
+
 err:
+	xfree(ctl);
 	return NULL;
 }
 
