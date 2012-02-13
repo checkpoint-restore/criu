@@ -74,7 +74,7 @@ static int syscall_seized(pid_t pid, user_regs_struct_t *regs)
 
 	start_ip = (unsigned long)regs->ip;
 	jerr(ptrace_peek_area(pid, (void *)saved, (void *)start_ip, code_syscall_size), err);
-	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err);
+	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err_restore);
 
 again:
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, regs), err_restore);
@@ -89,22 +89,22 @@ again:
 	 * int3 and inform us that all is done.
 	 */
 
-	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore_full);
-	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore_full);
-	jerr(!WIFSTOPPED(status), err_restore_full);
-	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo),err_restore_full);
+	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore);
+	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
+	jerr(!WIFSTOPPED(status), err_restore);
+	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo),err_restore);
 
 	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
 retry_signal:
 		/* pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code); */
-		/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
-		jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore_full);
-		jerr(ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore_full);
+		/* FIXME: jerr(siginfo.si_code > 0, err_restore); */
+		jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore);
+		jerr(ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
 
-		jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore_full);
-		jerr(!WIFSTOPPED(status), err_restore_full);
-		jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore_full);
+		jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
+		jerr(!WIFSTOPPED(status), err_restore);
+		jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore);
 
 		if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
 			goto retry_signal;
@@ -117,20 +117,19 @@ retry_signal:
 	/*
 	 * Our code is done.
 	 */
-	jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore_full);
-	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore_full);
+	jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore);
+	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore);
 
-	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore_full);
-	jerr(!WIFSTOPPED(status), err_restore_full);
-	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore_full);
+	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
+	jerr(!WIFSTOPPED(status), err_restore);
+	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore);
 
-	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore_full);
+	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore);
 
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, regs), err_restore_full);
+	jerr(ptrace(PTRACE_GETREGS, pid, NULL, regs), err_restore);
 
 	ret = 0;
 
-err_restore_full:
 err_restore:
 	if (ptrace_poke_area(pid, (void *)saved, (void *)start_ip, code_syscall_size)) {
 		pr_panic("Crap... Can't restore data (pid: %d)\n", pid);
