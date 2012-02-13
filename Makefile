@@ -156,8 +156,6 @@ clean:
 	$(Q) $(RM) -f ./*.img
 	$(Q) $(RM) -f ./*.out
 	$(Q) $(RM) -f ./*.bin
-	$(Q) $(RM) -f ./tags
-	$(Q) $(RM) -f ./cscope*
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
 	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
@@ -168,6 +166,12 @@ clean:
 	$(Q) $(MAKE) -C test/zdtm cleanout
 	$(Q) $(MAKE) -C Documentation clean
 .PHONY: clean
+
+distclean: clean
+	$(E) "  DISTCLEAN"
+	$(Q) $(RM) -f ./tags
+	$(Q) $(RM) -f ./cscope*
+.PHONY: distclean
 
 tags:
 	$(E) "  GEN" $@
