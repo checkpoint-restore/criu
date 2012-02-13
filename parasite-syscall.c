@@ -24,6 +24,7 @@
 #include "util-net.h"
 #include "log.h"
 
+#include "processor-flags.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 #include "parasite.h"
@@ -47,6 +48,19 @@ int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 	return ip >= start && ip < (end - code_syscall_size);
 }
 
+/* Note it's destructive on @regs */
+static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
+{
+	regs->ip = new_ip;
+
+	/* Avoid end of syscall processing */
+	regs->orig_ax = -1;
+
+	/* Make sure flags are in known state */
+	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
+}
+
+/* @regs must already have been tuned up for parasite execution */
 static int syscall_seized(pid_t pid, user_regs_struct_t *regs)
 {
 	unsigned long start_ip;
@@ -58,12 +72,10 @@ static int syscall_seized(pid_t pid, user_regs_struct_t *regs)
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 
-	start_ip	= (unsigned long)regs->ip;
-
+	start_ip = (unsigned long)regs->ip;
 	jerr(ptrace_peek_area(pid, (void *)saved, (void *)start_ip, code_syscall_size), err);
 	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err);
 
-	regs->orig_ax	= -1; /* avoid end-of-syscall processing */
 again:
 	jerr(ptrace(PTRACE_SETREGS, pid, NULL, regs), err_restore);
 
@@ -202,7 +214,7 @@ static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
 again:
 	regs = regs_orig;
-	regs.ip	= ctl->parasite_ip;
+	parasite_setup_regs(ctl->parasite_ip, &regs);
 	jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
 	memcpy(ctl->addr_args, args, args_size);
@@ -509,7 +521,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_li
 		goto err;
 	}
 
-	regs.ip = vma_area->vma.start;
+	parasite_setup_regs(vma_area->vma.start, &regs);
 
 	ret = munmap_seized(ctl->pid, &regs, ctl->remote_map, ctl->map_length);
 	if (ret)
@@ -554,7 +566,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	}
 
 	regs_orig = regs;
-	regs.ip = vma_area->vma.start;
+	parasite_setup_regs(vma_area->vma.start, &regs);
 
 	ctl->remote_map = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
