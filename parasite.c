@@ -443,6 +443,8 @@ static void __parasite_head __used parasite_head(void)
 	 */
 	asm volatile("parasite_head_start:				\n"
 		     "leaq parasite_stack(%rip), %rsp			\n"
+		     "subq $16, %rsp					\n"
+		     "andq $~15, %rsp					\n"
 		     "pushq $0						\n"
 		     "movq %rsp, %rbp					\n"
 		     "movl parasite_cmd(%rip), %edi			\n"
