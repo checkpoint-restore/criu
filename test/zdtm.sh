@@ -39,6 +39,7 @@ static/utsname
 
 IPC_TEST_LIST="
 static/ipc_namespace
+static/shm
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
@@ -64,16 +65,9 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args
-	ret=$?
-	while :; do
-		killall -9 $tname &> /dev/null || break
-		echo Waiting...
-		sleep 1
-	done
-	[ "$ret" -eq 0 ] || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args $ARGS || return 1;
 
-	if expr "$args" : ' -s'; then
+	if expr " $ARGS" : ' -s'; then
 		killall -CONT $tname
 	else
 		while :; do
@@ -122,7 +116,6 @@ if [ "$1" == "-d" ]; then
 fi
 
 if [ $# -eq 0 ]; then
-	ARGS=$1
 	for t in $TEST_LIST; do
 		run_test $t || case_error $t
 	done

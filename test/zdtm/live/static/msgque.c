@@ -59,7 +59,7 @@ static int test_fn(int argc, char **argv)
 	if (pid == 0) {
 		test_waitsig();
 
-		if (msgrcv(msg, &msgbuf, sizeof(TEST_STRING), MSG_TYPE, 0) == -1) {
+		if (msgrcv(msg, &msgbuf, sizeof(TEST_STRING), MSG_TYPE, IPC_NOWAIT) == -1) {
 			fail("Child: msgrcv failed (%m)");
 			return -errno;
 		}
@@ -72,7 +72,7 @@ static int test_fn(int argc, char **argv)
 
 		msgbuf.mtype = ANOTHER_MSG_TYPE;
 		memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
-		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), 0) != 0) {
+		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), IPC_NOWAIT) != 0) {
 			fail("Child: msgsnd failed (%m)");
 			return -errno;
 		};
@@ -81,7 +81,7 @@ static int test_fn(int argc, char **argv)
 	} else {
 		msgbuf.mtype = MSG_TYPE;
 		memcpy(msgbuf.mtext, TEST_STRING, sizeof(TEST_STRING));
-		if (msgsnd(msg, &msgbuf, sizeof(TEST_STRING), 0) != 0) {
+		if (msgsnd(msg, &msgbuf, sizeof(TEST_STRING), IPC_NOWAIT) != 0) {
 			fail("Parent: msgsnd failed (%m)");
 			goto err_kill;
 		};
@@ -99,7 +99,7 @@ static int test_fn(int argc, char **argv)
 			goto out;
 		}
 
-		if (msgrcv(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), ANOTHER_MSG_TYPE, 0) == -1) {
+		if (msgrcv(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), ANOTHER_MSG_TYPE, IPC_NOWAIT) == -1) {
 			fail("Parent: msgrcv failed (%m)");
 			goto err;
 		}
