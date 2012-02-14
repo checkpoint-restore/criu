@@ -440,6 +440,34 @@ static void show_var_entry(struct ipc_var_entry *entry)
 	ipc_sysctl_req(entry, CTL_PRINT);
 }
 
+static void show_ipc_sem_entries(int fd)
+{
+	pr_info("\nSemaphores sets:\n");
+	while (1) {
+		int size;
+		struct ipc_sem_entry entry;
+		u16 *values;
+
+		if (read_img_eof(fd, &entry) <= 0)
+			return;
+		print_ipc_sem_entry(&entry);
+		size = sizeof(u16) * entry.nsems;
+		values = xmalloc(size);
+		if (values == NULL)
+			return;
+		if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0)
+			return;
+		print_ipc_sem_array(entry.nsems, values);
+	}
+}
+
+void show_ipc_sem(int fd)
+{
+	pr_img_head(CR_FD_IPCNS);
+	show_ipc_sem_entries(fd);
+	pr_img_tail(CR_FD_IPCNS);
+}
+
 static void show_ipc_msg_entries(int fd)
 {
 	pr_info("\nMessage queues:\n");
