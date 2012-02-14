@@ -24,6 +24,7 @@
 #define IPCNS_VAR_MAGIC	0x53115007 /* Samara */
 #define IPCNS_SHM_MAGIC	0x46283044 /* Odessa */
 #define IPCNS_MSG_MAGIC	0x55453737 /* Moscow */
+#define IPCNS_SEM_MAGIC	0x59573019 /* St. Petersburg */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -154,6 +155,12 @@ struct ipc_msg_entry {
 	u16	qbytes;
 	u16	qnum;
 	u8	pad[4];
+} __packed;
+
+struct ipc_sem_entry {
+	struct ipc_desc_entry desc;
+	u16	nsems;
+	u8	pad[6];
 } __packed;
 
 #define VMA_AREA_NONE		(0 <<  0)

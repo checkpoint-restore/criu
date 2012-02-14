@@ -67,6 +67,101 @@ static void fill_ipc_desc(int id, struct ipc_desc_entry *desc,
 	desc->mode = ipcp->mode;
 }
 
+static void print_ipc_sem_array(int nr, u16 *values)
+{
+	while(nr--)
+		pr_info("  %-5d", values[nr]);
+	pr_info("\n");
+}
+
+static void print_ipc_sem_entry(const struct ipc_sem_entry *sem)
+{
+	print_ipc_desc_entry(&sem->desc);
+	pr_info ("nsems: %-10d\n", sem->nsems);
+}
+
+static int dump_ipc_sem_set(int fd, const struct ipc_sem_entry *entry)
+{
+	int ret, size;
+	u16 *values;
+
+	size = sizeof(u16) * entry->nsems;
+	values = xmalloc(size);
+	if (values == NULL) {
+		pr_err("Failed to allocate memory for semaphore set values\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	ret = semctl(entry->desc.id, 0, GETALL, values);
+	if (ret < 0) {
+		pr_perror("Failed to get semaphore set values");
+		ret = -errno;
+		goto out;
+	}
+	print_ipc_sem_array(entry->nsems, values);
+
+	ret = write_img_buf(fd, values, round_up(size, sizeof(u64)));
+	if (ret < 0) {
+		pr_err("Failed to write IPC message data\n");
+		goto out;
+	}
+out:
+	xfree(values);
+	return ret;
+}
+
+static int dump_ipc_sem_desc(int fd, int id, const struct semid_ds *ds)
+{
+	struct ipc_sem_entry sem;
+	int ret;
+
+	fill_ipc_desc(id, &sem.desc, &ds->sem_perm);
+	sem.nsems = ds->sem_nsems;
+	print_ipc_sem_entry(&sem);
+
+	ret = write_img(fd, &sem);
+	if (ret < 0) {
+		pr_err("Failed to write IPC semaphores set\n");
+		return ret;
+	}
+	return dump_ipc_sem_set(fd, &sem);
+}
+
+static int dump_ipc_sem(int fd)
+{
+	int i, maxid;
+	struct seminfo info;
+	int err, slot;
+
+	maxid = semctl(0, 0, SEM_INFO, &info);
+	if (maxid < 0) {
+		pr_perror("semctl failed");
+		return -errno;
+	}
+
+	pr_info("IPC semaphore sets: %d\n", info.semusz);
+	for (i = 0, slot = 0; i <= maxid; i++) {
+		struct semid_ds ds;
+		int id, ret;
+
+		id = semctl(i, 0, SEM_STAT, &ds);
+		if (id < 0) {
+			if (errno == EINVAL)
+				continue;
+			pr_perror("Failed to get stats for IPC semaphore set");
+			break;
+		}
+		ret = dump_ipc_sem_desc(fd, id, &ds);
+		if (!ret)
+			slot++;
+	}
+	if (slot != info.semusz) {
+		pr_err("Failed to collect %d (only %d succeeded)\n", info.semusz, slot);
+		return -EFAULT;
+	}
+	return info.semusz;
+}
+
 static void print_ipc_msg(int nr, const struct ipc_msg *msg)
 {
 	pr_info("  %-5d: type: %-20ld size: %-10d\n",
@@ -206,23 +301,6 @@ static int ipc_sysctl_req(struct ipc_var_entry *e, int op)
 	return sysctl_op(req, op);
 }
 
-static int dump_ipc_sem(void *data)
-{
-	int ret;
-	struct seminfo info;
-
-	ret = semctl(0, 0, SEM_INFO, &info);
-	if (ret < 0)
-		pr_perror("semctl failed");
-
-	if (ret) {
-		pr_err("IPC semaphores migration is not supported yet\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 /*
  * TODO: Function below should be later improved to locate and dump only dirty
  * pages via updated sys_mincore().
@@ -335,7 +413,7 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 	ret = dump_ipc_msg(fdset->fds[CR_FD_IPCNS_MSG]);
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_sem(0);
+	ret = dump_ipc_sem(fdset->fds[CR_FD_IPCNS_SEM]);
 	if (ret < 0)
 		return ret;
 	return 0;
