@@ -290,12 +290,6 @@ static int dump_ipc_shm(int fd)
 			break;
 		}
 
-		if (ds.shm_nattch != 0) {
-			pr_err("Migration of attached IPC shared memory "
-			       "segments is not supported yet\n");
-			return -EFAULT;
-		}
-
 		ret = dump_ipc_shm_seg(fd, id, &ds);
 		if (ret < 0)
 			return ret;
