@@ -17,6 +17,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/file.h>
+#include <sys/shm.h>
 
 #include <sched.h>
 
@@ -530,6 +531,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 {
 	struct shmem_info *si;
 	struct shmem_id *shmid;
+	int sh_fd;
 
 	shmid = find_shmem_id(vi->start);
 	if (!shmid)
@@ -543,9 +545,17 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		return -1;
 	}
 
-	if (si->pid != pid) {
-		int sh_fd;
+	if (vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
+		/*
+		 * SYSV IPC shared memory region was created already. We don't
+		 * need to wait. But we have to pass shmid to restorer. Let's
+		 * use vma_entry->fd for it.
+		 */
+		sh_fd = si->shmid;
+		goto write_fd;
+	}
 
+	if (si->pid != pid) {
 		sh_fd = shmem_wait_and_open(pid, si);
 		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
@@ -553,7 +563,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 			pr_perror("%d: Can't open shmem", pid);
 			return -1;
 		}
-
+write_fd:
 		lseek(fd, -sizeof(*vi), SEEK_CUR);
 		vi->fd = sh_fd;
 		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",

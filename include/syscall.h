@@ -136,6 +136,10 @@ static always_inline unsigned long sys_pause(void)
 	return syscall0(__NR_pause);
 }
 
+static always_inline unsigned long sys_shmat(int shmid, void *shmaddr, int shmflag)
+{
+	return syscall3(__NR_shmat, shmid, (unsigned long)shmaddr, shmflag);
+}
 static always_inline unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot,
 					    unsigned long flags, unsigned long fd, unsigned long offset)
 {

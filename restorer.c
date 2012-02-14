@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/shm.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
@@ -289,6 +290,10 @@ err:
 static u64 restore_mapping(const struct vma_entry *vma_entry)
 {
 	int prot;
+
+	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
+		return sys_shmat(vma_entry->fd, (void *)vma_entry->start,
+				 (vma_entry->prot & PROT_WRITE) ? 0 : SHM_RDONLY);
 
 	prot = vma_entry->prot;
 
