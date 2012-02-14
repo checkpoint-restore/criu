@@ -47,6 +47,10 @@ struct msgbuf_a {
 #define MSG_SET			13
 #endif
 
+#ifndef SEM_SET
+#define SEM_SET			20
+#endif
+
 static void print_ipc_desc_entry(const struct ipc_desc_entry *desc)
 {
 	pr_info("id: %-10d key: 0x%08x ", desc->id, desc->key);
@@ -549,6 +553,107 @@ void show_ipc_var(int fd)
 	pr_img_tail(CR_FD_IPCNS);
 }
 
+static int prepare_ipc_sem_values(int fd, const struct ipc_sem_entry *entry)
+{
+	int ret, size;
+	u16 *values;
+
+	size = sizeof(u16) * entry->nsems;
+	values = xmalloc(size);
+	if (values == NULL) {
+		pr_err("Failed to allocate memory for semaphores set values\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = read_img_buf(fd, values, round_up(size, sizeof(u64)));
+	if (ret < 0) {
+		pr_err("Failed to allocate memory for semaphores set values\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	print_ipc_sem_array(entry->nsems, values);
+
+	ret = semctl(entry->desc.id, 0, SETALL, values);
+	if (ret < 0) {
+		pr_perror("Failed to set semaphores set values");
+		ret = -errno;
+	}
+out:
+	xfree(values);
+	return ret;
+}
+
+static int prepare_ipc_sem_desc(int fd, const struct ipc_sem_entry *entry)
+{
+	int ret, id;
+	struct semid_ds ds;
+
+	id = semget(entry->desc.id, entry->nsems,
+		     entry->desc.mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	if (id == -1) {
+		pr_perror("Failed to create sem set");
+		return -errno;
+	}
+
+	if (id != entry->desc.id) {
+		pr_err("Failed to preset id (%d instead of %d)\n",
+							id, entry->desc.id);
+		return -EFAULT;
+	}
+
+	ret = semctl(id, 0, SEM_STAT, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to stat sem set");
+		return -errno;
+	}
+
+	ds.sem_perm.KEY = entry->desc.key;
+	ret = semctl(id, 0, SEM_SET, &ds);
+	if (ret < 0) {
+		pr_perror("Failed to update sem key");
+		return -errno;
+	}
+	ret = prepare_ipc_sem_values(fd, entry);
+	if (ret < 0) {
+		pr_err("Failed to update sem pages\n");
+		return ret;
+	}
+	return 0;
+}
+
+static int prepare_ipc_sem(int pid)
+{
+	int fd;
+
+	pr_info("Restoring IPC semaphores sets\n");
+	fd = open_image_ro(CR_FD_IPCNS_SEM, pid);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		int ret, id;
+		struct ipc_sem_entry entry;
+		struct semid_ds ds;
+
+		ret = read_img_eof(fd, &entry);
+		if (ret < 0)
+			return -EIO;
+		if (ret == 0)
+			break;
+
+		print_ipc_sem_entry(&entry);
+
+		ret = prepare_ipc_sem_desc(fd, &entry);
+		if (ret < 0) {
+			pr_err("Failed to prepare semaphores set\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int prepare_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry)
 {
 	int msg_nr = 0;
@@ -787,6 +892,9 @@ int prepare_ipc_ns(int pid)
 	if (ret < 0)
 		return ret;
 	ret = prepare_ipc_msg(pid);
+	if (ret < 0)
+		return ret;
+	ret = prepare_ipc_sem(pid);
 	if (ret < 0)
 		return ret;
 	return 0;
