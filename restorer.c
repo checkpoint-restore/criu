@@ -286,6 +286,29 @@ err:
 	return ret;
 }
 
+static u64 restore_mapping(const struct vma_entry *vma_entry)
+{
+	int prot;
+
+	prot = vma_entry->prot;
+
+	/* A mapping of file with MAP_SHARED is up to date */
+	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
+		prot |= PROT_WRITE;
+
+	/*
+	 * Should map memory here. Note we map them as
+	 * writable since we're going to restore page
+	 * contents.
+	 */
+	return sys_mmap((void *)vma_entry->start,
+			vma_entry_len(vma_entry),
+			prot,
+			vma_entry->flags | MAP_FIXED,
+			vma_entry->fd,
+			vma_entry->pgoff);
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -358,8 +381,6 @@ long restore_task(struct task_restore_core_args *args)
 	 */
 	sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 	while (1) {
-		int prot;
-
 		ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
 		if (!ret)
 			break;
@@ -386,23 +407,7 @@ long restore_task(struct task_restore_core_args *args)
 				vma_entry->flags &= ~MAP_ANONYMOUS;
 		}
 
-		prot = vma_entry->prot;
-
-		/* A mapping of file with MAP_SHARED is up to date */
-		if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
-			prot |= PROT_WRITE;
-
-		/*
-		 * Should map memory here. Note we map them as
-		 * writable since we're going to restore page
-		 * contents.
-		 */
-		va = sys_mmap((void *)vma_entry->start,
-			      vma_entry_len(vma_entry),
-			      prot,
-			      vma_entry->flags | MAP_FIXED,
-			      vma_entry->fd,
-			      vma_entry->pgoff);
+		va = restore_mapping(vma_entry);
 
 		if (va != vma_entry->start) {
 			write_num_n(__LINE__);
