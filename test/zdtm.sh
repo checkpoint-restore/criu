@@ -65,14 +65,7 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args
-	ret=$?
-	while :; do
-		killall -9 $tname &> /dev/null || break
-		echo Waiting...
-		sleep 1
-	done
-	[ "$ret" -eq 0 ] || return 1
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args || return 1;
 
 	if expr "$args" : ' -s'; then
 		killall -CONT $tname
