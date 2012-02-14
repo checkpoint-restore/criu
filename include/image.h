@@ -169,6 +169,8 @@ struct ipc_msg_entry {
 #define VMA_ANON_SHARED		(1 <<  8)
 #define VMA_ANON_PRIVATE	(1 <<  9)
 
+#define VMA_AREA_SYSVIPC	(1 <<  10)
+
 #define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)	((vma)->end - (vma)->start)
 #define final_vma_entry(vma)	((vma)->start == 0 && (vma)->end == 0)

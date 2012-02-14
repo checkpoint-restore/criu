@@ -45,11 +45,14 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
 		struct stat st_buf;
 		int num;
+		char file_path[6];
 
-		num = sscanf(big_buffer, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu",
+
+		memset(file_path, 0, 6);
+		num = sscanf(big_buffer, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
-			     &dev_min, &ino);
-		if (num != 10) {
+			     &dev_min, &ino, file_path);
+		if (num < 10) {
 			pr_err("Can't parse: %s", big_buffer);
 			goto err;
 		}
@@ -133,6 +136,11 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 				vma_area->vma.flags  |= MAP_ANONYMOUS;
 				vma_area->vma.status |= VMA_ANON_SHARED;
 				vma_area->shmid = st_buf.st_ino;
+
+				if (!strcmp(file_path, "/SYSV")) {
+					pr_perror("path: %s\n", file_path);
+					vma_area->vma.status |= VMA_AREA_SYSVIPC;
+				}
 			} else {
 				if (vma_area->vma.flags & MAP_PRIVATE)
 					vma_area->vma.status |= VMA_FILE_PRIVATE;

@@ -448,6 +448,10 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		if (vma_area->vma.status & VMA_FILE_SHARED)
 			continue;
 
+		/* No dumps for SYSV IPC mappings */
+		if (vma_area->vma.status & VMA_AREA_SYSVIPC)
+			continue;
+
 		pr_info_vma(vma_area);
 		parasite_dumppages.vma_entry = vma_area->vma;
 
