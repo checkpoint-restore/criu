@@ -1127,7 +1127,7 @@ static inline int sig_fatal(int sig)
 	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1 << sig));
 }
 
-static int restore_one_zobie(int pid, int exit_code)
+static int restore_one_zombie(int pid, int exit_code)
 {
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
@@ -1206,7 +1206,7 @@ static int restore_one_task(int pid)
 	case TASK_ALIVE:
 		return restore_one_alive_task(pid);
 	case TASK_DEAD:
-		return restore_one_zobie(pid, tc.exit_code);
+		return restore_one_zombie(pid, tc.exit_code);
 	default:
 		pr_err("Unknown state in code %d\n", (int)tc.task_state);
 		return -1;
