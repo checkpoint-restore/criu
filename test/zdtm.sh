@@ -41,6 +41,7 @@ IPC_TEST_LIST="
 static/ipc_namespace
 static/shm
 static/msgque
+static/sem
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
