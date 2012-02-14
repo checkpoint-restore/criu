@@ -440,15 +440,15 @@ static int prepare_shared(int ps_fd)
 	return ret;
 }
 
-static unsigned long find_shmem_id(unsigned long addr)
+static struct shmem_id *find_shmem_id(unsigned long addr)
 {
 	struct shmem_id *si;
 
 	for (si = shmem_ids; si; si = si->next)
 		if (si->addr <= addr && si->end >= addr)
-			return si->shmid;
+			return si;
 
-	return 0;
+	return NULL;
 }
 
 static int save_shmem_id(struct shmem_entry *e)
@@ -529,13 +529,13 @@ find_shmem_page(struct shmems *shms, unsigned long addr, unsigned long shmid)
 static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 {
 	struct shmem_info *si;
-	unsigned long shmid;
+	struct shmem_id *shmid;
 
 	shmid = find_shmem_id(vi->start);
 	if (!shmid)
 		return 0;
 
-	si = find_shmem(shmems, vi->start, shmid);
+	si = find_shmem(shmems, vi->start, shmid->shmid);
 	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
 
 	if (!si) {
@@ -610,7 +610,7 @@ static int fixup_vma_fds(int pid, int fd)
 static inline bool should_restore_page(int pid, unsigned long va)
 {
 	struct shmem_info *si;
-	unsigned long shmid;
+	struct shmem_id *shmid;
 
 	/*
 	 * If this is not a shmem virtual address
@@ -620,7 +620,7 @@ static inline bool should_restore_page(int pid, unsigned long va)
 	if (!shmid)
 		return true;
 
-	si = find_shmem_page(shmems, va, shmid);
+	si = find_shmem_page(shmems, va, shmid->shmid);
 	return si->pid == pid;
 }
 
