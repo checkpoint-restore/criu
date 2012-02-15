@@ -56,6 +56,7 @@ $(TST):	$(LIB)
 
 ptrace.o:	override CFLAGS += -pthread
 ptrace:		override LDFLAGS += -pthread
+ipc:		override CFLAGS += -DNEW_IPC_NS
 
 %: %.sh
 	cp $< $@
