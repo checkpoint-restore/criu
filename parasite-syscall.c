@@ -36,150 +36,16 @@ static const char code_syscall[] = {0x0f, 0x05, 0xcc, 0xcc,
 #define code_syscall_size	(round_up(sizeof(code_syscall), sizeof(long)))
 #define parasite_size		(round_up(sizeof(parasite_blob), sizeof(long)))
 
+static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
+{
+	return ip >= start && ip < (end - code_syscall_size);
+}
+
 static int syscall_fits_vma_area(struct vma_area *vma_area)
 {
 	return can_run_syscall((unsigned long)vma_area->vma.start,
 			       (unsigned long)vma_area->vma.start,
 			       (unsigned long)vma_area->vma.end);
-}
-
-int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
-{
-	return ip >= start && ip < (end - code_syscall_size);
-}
-
-/* Note it's destructive on @regs */
-static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
-{
-	regs->ip = new_ip;
-
-	/* Avoid end of syscall processing */
-	regs->orig_ax = -1;
-
-	/* Make sure flags are in known state */
-	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
-}
-
-/* @regs must already have been tuned up for parasite execution */
-static int syscall_seized(pid_t pid, user_regs_struct_t *regs)
-{
-	unsigned long start_ip;
-	char saved[sizeof(code_syscall)];
-	siginfo_t siginfo;
-	int status;
-	int ret = -1;
-
-	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-
-	start_ip = (unsigned long)regs->ip;
-	jerr(ptrace_peek_area(pid, (void *)saved, (void *)start_ip, code_syscall_size), err);
-	jerr(ptrace_poke_area(pid, (void *)code_syscall, (void *)start_ip, code_syscall_size), err_restore);
-
-again:
-	jerr(ptrace(PTRACE_SETREGS, pid, NULL, regs), err_restore);
-
-	/*
-	 * Most ideas are taken from Tejun Heo's parasite thread
-	 * https://code.google.com/p/ptrace-parasite/
-	 */
-
-	/*
-	 * Run the parasite code, at the completion it'll trigger
-	 * int3 and inform us that all is done.
-	 */
-
-	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore);
-	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
-	jerr(!WIFSTOPPED(status), err_restore);
-	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo),err_restore);
-
-	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
-retry_signal:
-		/* pr_debug("** delivering signal %d si_code=%d\n",
-			 siginfo.si_signo, siginfo.si_code); */
-		/* FIXME: jerr(siginfo.si_code > 0, err_restore); */
-		jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore);
-		jerr(ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
-
-		jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
-		jerr(!WIFSTOPPED(status), err_restore);
-		jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore);
-
-		if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
-			goto retry_signal;
-
-		goto again;
-	}
-
-	ret = 0;
-
-	/*
-	 * Our code is done.
-	 */
-	jerr(ptrace(PTRACE_INTERRUPT, pid, NULL, NULL), err_restore);
-	jerr(ptrace(PTRACE_CONT, pid, NULL, NULL), err_restore);
-
-	jerr(wait4(pid, &status, __WALL, NULL) != pid, err_restore);
-	jerr(!WIFSTOPPED(status), err_restore);
-	jerr(ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo), err_restore);
-
-	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore);
-
-	jerr(ptrace(PTRACE_GETREGS, pid, NULL, regs), err_restore);
-
-	ret = 0;
-
-err_restore:
-	if (ptrace_poke_area(pid, (void *)saved, (void *)start_ip, code_syscall_size)) {
-		pr_panic("Crap... Can't restore data (pid: %d)\n", pid);
-		ret = -1;
-	}
-err:
-	return ret;
-}
-
-static void *mmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
-{
-	void *mmaped = NULL;
-	int ret;
-
-	regs->ax	= (unsigned long)__NR_mmap;	/* mmap		*/
-	regs->di	= (unsigned long)addr;		/* @addr	*/
-	regs->si	= (unsigned long)length;	/* @length	*/
-	regs->dx	= (unsigned long)prot;		/* @prot	*/
-	regs->r10	= (unsigned long)flags;		/* @flags	*/
-	regs->r8	= (unsigned long)fd;		/* @fd		*/
-	regs->r9	= (unsigned long)offset;	/* @offset	*/
-
-	ret = syscall_seized(pid, regs);
-	if (ret)
-		goto err;
-	mmaped = (void *)regs->ax;
-
-	/* error code from the kernel space */
-	if ((long)mmaped < 0)
-		mmaped = NULL;
-err:
-	return mmaped;
-}
-
-static int munmap_seized(pid_t pid, user_regs_struct_t *regs,
-		  void *addr, size_t length)
-{
-	int ret;
-
-	regs->ax	= (unsigned long)__NR_munmap;	/* mmap		*/
-	regs->di	= (unsigned long)addr;		/* @addr	*/
-	regs->si	= (unsigned long)length;	/* @length	*/
-
-	ret = syscall_seized(pid, regs);
-	if (!ret)
-		ret = (int)regs->ax;
-
-	return ret;
 }
 
 static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned long ip)
@@ -198,80 +64,232 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
-static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
-			parasite_status_t *args, int args_size)
+/* Note it's destructive on @regs */
+static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 {
-	user_regs_struct_t regs, regs_orig;
-	int status, ret = -1;
-	siginfo_t siginfo;
+	regs->ip = new_ip;
 
-	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs_orig), err);
+	/* Avoid end of syscall processing */
+	regs->orig_ax = -1;
+
+	/* Make sure flags are in known state */
+	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
+}
+
+/* we run at @regs->ip */
+static int __parasite_execute(struct parasite_ctl *ctl, user_regs_struct_t *regs)
+{
+	pid_t pid = ctl->pid;
+	siginfo_t siginfo;
+	int status;
+	int ret = -1;
+
+again:
+	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
+		pr_err("Can't set registers (pid: %d)\n", pid);
+		goto err;
+	}
 
 	/*
-	 * Pass the command first, it's immutable.
+	 * Most ideas are taken from Tejun Heo's parasite thread
+	 * https://code.google.com/p/ptrace-parasite/
 	 */
-	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
-again:
-	regs = regs_orig;
-	parasite_setup_regs(ctl->parasite_ip, &regs);
-	jerr(ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs), err_restore);
 
-	memcpy(ctl->addr_args, args, args_size);
+	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
+		pr_err("Can't continue (pid: %d)\n", pid);
+		goto err;
+	}
 
-	jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
-	jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-	jerr(!WIFSTOPPED(status), err_restore);
-	jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_err("Waited pid mismatch (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (!WIFSTOPPED(status)) {
+		pr_err("Task is still running (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
+		pr_err("Can't get siginfo (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_GETREGS, pid, NULL, regs)) {
+		pr_err("Can't obtain registers (pid: %d)\n", pid);
+			goto err;
+	}
 
 	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
 retry_signal:
-		/* pr_debug("** delivering signal %d si_code=%d\n",
-			 siginfo.si_signo, siginfo.si_code); */
-		/* FIXME: jerr(siginfo.si_code > 0, err_restore_full); */
-		jerr(ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, (void *)&regs_orig), err_restore);
-		jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
-		jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, (void *)(unsigned long)siginfo.si_signo), err_restore);
+		pr_debug("** delivering signal %d si_code=%d\n",
+			 siginfo.si_signo, siginfo.si_code);
 
-		jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-		jerr(!WIFSTOPPED(status), err_restore);
-		jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+		/* FIXME: jerr(siginfo.si_code > 0, err_restore); */
+
+		/*
+		 * This requires some explanation. If a signal from original
+		 * program delivered while we're trying to execute our
+		 * injected blob -- we need to setup original registers back
+		 * so the kernel would make sigframe for us and update the
+		 * former registers.
+		 *
+		 * Then we should swap registers back to our modified copy
+		 * and retry.
+		 */
+
+		if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
+			pr_panic("Can't set registers (pid: %d)\n", pid);
+			goto err;
+		}
+
+		if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
+			pr_panic("Can't interrupt (pid: %d)\n", pid);
+			goto err;
+		}
+
+		if (ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo)) {
+			pr_err("Can't continue (pid: %d)\n", pid);
+			goto err;
+		}
+
+		if (wait4(pid, &status, __WALL, NULL) != pid) {
+			pr_err("Waited pid mismatch (pid: %d)\n", pid);
+			goto err;
+		}
+
+		if (!WIFSTOPPED(status)) {
+			pr_err("Task is still running (pid: %d)\n", pid);
+			goto err;
+		}
+
+		if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
+			pr_err("Can't get siginfo (pid: %d)\n", pid);
+			goto err;
+		}
 
 		if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP)
 			goto retry_signal;
+
+		/*
+		 * Signal is delivered, so we should update
+		 * original registers.
+		 */
+		{
+			user_regs_struct_t r;
+			if (ptrace(PTRACE_GETREGS, pid, NULL, &r)) {
+				pr_err("Can't obtain registers (pid: %d)\n", pid);
+				goto err;
+			}
+			ctl->regs_orig = r;
+		}
 
 		goto again;
 	}
 
 	/*
-	 * Check if error happened during dumping.
-	 */
-	memcpy(args, ctl->addr_args, args_size);
-	if (args->ret) {
-		pr_panic("Dumping sigactions failed with %li (%li) at %li\n",
-			 args->ret, args->sys_ret, args->line);
-		goto err_restore;
-	}
-
-	/*
 	 * Our code is done.
 	 */
-	jerr(ptrace(PTRACE_INTERRUPT, (long)ctl->pid, NULL, NULL), err_restore);
-	jerr(ptrace(PTRACE_CONT, (long)ctl->pid, NULL, NULL), err_restore);
+	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
+		pr_panic("Can't interrupt (pid: %d)\n", pid);
+		goto err;
+	}
 
-	jerr(wait4((long)ctl->pid, &status, __WALL, NULL) != (long)ctl->pid, err_restore);
-	jerr(!WIFSTOPPED(status), err_restore);
-	jerr(ptrace(PTRACE_GETSIGINFO, (long)ctl->pid, NULL, &siginfo), err_restore);
+	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
+		pr_err("Can't continue (pid: %d)\n", pid);
+		goto err;
+	}
 
-	jerr((siginfo.si_code >> 8 != PTRACE_EVENT_STOP), err_restore);
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_err("Waited pid mismatch (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (!WIFSTOPPED(status)) {
+		pr_err("Task is still running (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
+		pr_err("Can't get siginfo (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (siginfo.si_code >> 8 != PTRACE_EVENT_STOP) {
+		pr_err("si_code doesn't match (pid: %d si_code: %d)\n",
+			pid, siginfo.si_code);
+		goto err;
+	}
 
 	ret = 0;
-
-err_restore:
-	if (ptrace(PTRACE_SETREGS, (long)ctl->pid, NULL, &regs_orig)) {
-		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
-		ret = -1;
-	}
 err:
+	return ret;
+}
+
+static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+			    parasite_status_t *args, int args_size)
+{
+	int ret;
+
+	user_regs_struct_t regs = ctl->regs_orig;
+
+	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
+	memcpy(ctl->addr_args, args, args_size);
+
+	parasite_setup_regs(ctl->parasite_ip, &regs);
+
+	ret = __parasite_execute(ctl, &regs);
+
+	memcpy(args, ctl->addr_args, args_size);
+	if (!ret)
+		ret = args->ret;
+
+	return ret;
+}
+
+static void *mmap_seized(struct parasite_ctl *ctl,
+			 void *addr, size_t length, int prot,
+			 int flags, int fd, off_t offset)
+{
+	user_regs_struct_t regs = ctl->regs_orig;
+	void *map = NULL;
+	int ret;
+
+	regs.ax = (unsigned long)__NR_mmap;	/* mmap		*/
+	regs.di = (unsigned long)addr;		/* @addr	*/
+	regs.si = (unsigned long)length;	/* @length	*/
+	regs.dx = (unsigned long)prot;		/* @prot	*/
+	regs.r10= (unsigned long)flags;		/* @flags	*/
+	regs.r8 = (unsigned long)fd;		/* @fd		*/
+	regs.r9 = (unsigned long)offset;	/* @offset	*/
+
+	parasite_setup_regs(ctl->syscall_ip, &regs);
+
+	ret = __parasite_execute(ctl, &regs);
+	if (ret)
+		goto err;
+
+	if ((long)regs.ax > 0)
+		map = (void *)regs.ax;
+err:
+	return map;
+}
+
+static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
+{
+	user_regs_struct_t regs = ctl->regs_orig;
+	int ret;
+
+	regs.ax = (unsigned long)__NR_munmap;	/* mmap		*/
+	regs.di = (unsigned long)addr;		/* @addr	*/
+	regs.si = (unsigned long)length;	/* @length	*/
+
+	parasite_setup_regs(ctl->syscall_ip, &regs);
+
+	ret = __parasite_execute(ctl, &regs);
+	if (!ret)
+		ret = (int)regs.ax;
+
 	return ret;
 }
 
@@ -313,8 +331,8 @@ out:
 	return ret;
 }
 
-static int parasite_prep_file(int type,
-		struct parasite_ctl *ctl, struct cr_fdset *fdset)
+static int parasite_prep_file(int type, struct parasite_ctl *ctl,
+			      struct cr_fdset *fdset)
 {
 	int ret;
 
@@ -330,24 +348,23 @@ static int parasite_prep_file(int type,
 	return 0;
 }
 
-static int parasite_file_cmd(int cmd, int type,
-		struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+static int parasite_file_cmd(char *what, int cmd, int type,
+			     struct parasite_ctl *ctl,
+			     struct cr_fdset *cr_fdset)
 {
 	parasite_status_t args = { };
-	int status, ret = -1;
+	int ret = -1;
 
 	pr_info("\n");
-	pr_info("Dumping sigactions (pid: %d)\n", ctl->pid);
+	pr_info("Dumping %s (pid: %d)\n", what, ctl->pid);
 	pr_info("----------------------------------------\n");
 
 	ret = parasite_prep_file(type, ctl, cr_fdset);
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_execute(cmd, ctl,
-			(parasite_status_t *)&args, sizeof(args));
+	ret = parasite_execute(cmd, ctl, (parasite_status_t *)&args, sizeof(args));
 
-err:
 	fchmod(cr_fdset->fds[type], CR_FD_PERM);
 out:
 	pr_info("----------------------------------------\n");
@@ -358,13 +375,11 @@ out:
 static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 {
 	struct parasite_init_args args = { };
-	int ret;
 
 	args.sun_len = get_socket_name(&args.saddr, pid);
 
-	ret = parasite_execute(PARASITE_CMD_INIT, ctl,
-			(parasite_status_t *)&args, sizeof(args));
-	return ret;
+	return parasite_execute(PARASITE_CMD_INIT, ctl,
+				(parasite_status_t *)&args, sizeof(args));
 }
 
 static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
@@ -376,8 +391,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	if (ret)
 		return ret;
 
-	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl,
-			&args, sizeof(args));
+	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl, &args, sizeof(args));
 	if (ret < 0)
 		return ret;
 
@@ -386,18 +400,21 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	return parasite_file_cmd(PARASITE_CMD_DUMP_SIGACTS, CR_FD_SIGACT, ctl, cr_fdset);
+	return parasite_file_cmd("sigactions", PARASITE_CMD_DUMP_SIGACTS,
+				 CR_FD_SIGACT, ctl, cr_fdset);
 }
 
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	return parasite_file_cmd(PARASITE_CMD_DUMP_ITIMERS, CR_FD_ITIMERS, ctl, cr_fdset);
+	return parasite_file_cmd("timers", PARASITE_CMD_DUMP_ITIMERS,
+				 CR_FD_ITIMERS, ctl, cr_fdset);
 }
 
 int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)
 {
 	return parasite_execute(PARASITE_CMD_DUMP_MISC, ctl,
-			(parasite_status_t *)misc, sizeof(struct parasite_dump_misc));
+				(parasite_status_t *)misc,
+				sizeof(struct parasite_dump_misc));
 }
 
 /*
@@ -409,11 +426,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 {
 	struct parasite_dump_pages_args parasite_dumppages = { };
 	parasite_status_t *st = &parasite_dumppages.status;
-	user_regs_struct_t regs, regs_orig;
 	unsigned long nrpages_dumped = 0;
 	struct vma_area *vma_area;
-	siginfo_t siginfo;
-	int status, ret = -1;
+	int ret = -1;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
@@ -466,8 +481,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		}
 
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl,
-					(parasite_status_t *) &parasite_dumppages,
-					sizeof(parasite_dumppages));
+				       (parasite_status_t *) &parasite_dumppages,
+				       sizeof(parasite_dumppages));
 		if (ret) {
 			pr_panic("Dumping pages failed with %li (%li) at %li\n",
 				 parasite_dumppages.status.ret,
@@ -500,90 +515,114 @@ out:
 	return ret;
 }
 
-int parasite_cure_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list)
+int parasite_cure_seized(struct parasite_ctl *ctl)
 {
-	user_regs_struct_t regs, regs_orig;
-	struct vma_area *vma_area;
-	int ret = -1;
 	parasite_status_t args = { };
+	int ret = 0;
 
-	ret = parasite_execute(PARASITE_CMD_FINI, ctl,
-			&args, sizeof(args));
-	if (ret) {
-		pr_err("Can't finalize parasite (pid: %d) task\n", ctl->pid);
-		goto err;
+	if (ctl->parasite_ip) {
+		if (parasite_execute(PARASITE_CMD_FINI, ctl, &args, sizeof(args))) {
+			pr_err("Can't finalize parasite (pid: %d) task\n", ctl->pid);
+			ret = -1;
+		}
 	}
 
-	jerr(ptrace(PTRACE_GETREGS, ctl->pid, NULL, &regs), err);
-
-	regs_orig = regs;
-
-	vma_area = get_vma_by_ip(vma_area_list, regs.ip);
-	if (!vma_area) {
-		pr_err("No suitable VMA found to run cure (pid: %d)\n", ctl->pid);
-		goto err;
+	if (ctl->remote_map) {
+		if (munmap_seized(ctl, (void *)ctl->remote_map, ctl->map_length)) {
+			pr_panic("munmap_seized failed (pid: %d)\n", ctl->pid);
+			ret = -1;
+		}
 	}
 
-	parasite_setup_regs(vma_area->vma.start, &regs);
+	if (ctl->local_map) {
+		if (munmap(ctl->local_map, parasite_size)) {
+			pr_panic("munmap failed (pid: %d)\n", ctl->pid);
+			ret = -1;
+		}
+	}
 
-	ret = munmap_seized(ctl->pid, &regs, ctl->remote_map, ctl->map_length);
-	if (ret)
-		pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
+	if (ptrace_poke_area(ctl->pid, (void *)ctl->code_orig,
+			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
+		pr_panic("Can't restore syscall blob (pid: %d)\n", ctl->pid);
+		ret = -1;
+	}
 
-	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &regs_orig)) {
-		pr_panic("PTRACE_SETREGS failed (pid: %d)\n", ctl->pid);
+	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &ctl->regs_orig)) {
+		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
 		ret = -1;
 	}
 
 	free(ctl);
-err:
 	return ret;
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_head *vma_area_list)
 {
-	parasite_status_t args = { };
-	user_regs_struct_t regs, regs_orig;
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
 	char fname[128];
 	int ret, fd;
 
+	/*
+	 * Control block early setup.
+	 */
 	ctl = xzalloc(sizeof(*ctl));
 	if (!ctl) {
 		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs))
-		pr_err_jmp(err);
-
-	vma_area = get_vma_by_ip(vma_area_list, regs.ip);
-	if (!vma_area) {
-		pr_err("No suitable VMA found to run parasite "
-			 "bootstrap code (pid: %d)\n", pid);
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
+		pr_err("Can't obtain registers (pid: %d)\n", pid);
 		goto err;
 	}
 
-	regs_orig = regs;
-	parasite_setup_regs(vma_area->vma.start, &regs);
+	vma_area = get_vma_by_ip(vma_area_list, ctl->regs_orig.ip);
+	if (!vma_area) {
+		pr_err("No suitable VMA found to run parasite "
+		       "bootstrap code (pid: %d)\n", pid);
+		goto err;
+	}
 
-	ctl->remote_map = mmap_seized(pid, &regs, NULL, (size_t)parasite_size,
+	ctl->pid	= pid;
+	ctl->syscall_ip	= vma_area->vma.start;
+
+	/*
+	 * Inject syscall instruction and remember original code,
+	 * we will need it to restore original program content.
+	 */
+	BUILD_BUG_ON(sizeof(code_syscall) != sizeof(ctl->code_orig));
+	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
+
+	memcpy(ctl->code_orig, code_syscall, sizeof(ctl->code_orig));
+	if (ptrace_swap_area(ctl->pid, (void *)ctl->syscall_ip,
+			     (void *)ctl->code_orig, sizeof(ctl->code_orig))) {
+		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
+		goto err;
+	}
+
+	/*
+	 * Inject a parasite engine. Ie allocate memory inside alien
+	 * space and copy engine code there. Then re-map the engine
+	 * locally, so we will get an easy way to access engine memory
+	 * without using ptrace at all.
+	 */
+	ctl->remote_map = mmap_seized(ctl, NULL, (size_t)parasite_size,
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", pid);
-		goto err_restore_regs;
+		goto err_restore;
 	}
 
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
 	snprintf(fname, sizeof(fname), "map_files/%p-%p",
-			ctl->remote_map, ctl->remote_map + ctl->map_length);
+		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	fd = openat(pid_dir, fname, O_RDWR);
 	if (fd < 0) {
 		pr_perror("Can't open remote parasite map");
-		goto err_munmap_restore;
+		goto err_restore;
 	}
 
 	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
@@ -591,17 +630,15 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	close(fd);
 
 	if (ctl->local_map == MAP_FAILED) {
+		ctl->local_map = NULL;
 		pr_perror("Can't map remote parasite map");
-		goto err_munmap_restore;
+		goto err_restore;
 	}
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
 
-	jerr(ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig), err_munmap_restore);
-
-	/* Setup control block */
-	ctl->pid		= pid;
+	/* Setup the rest of a control block */
 	ctl->parasite_ip	= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
 	ctl->addr_cmd		= (void *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
 	ctl->addr_args		= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
@@ -609,32 +646,19 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 	ret = parasite_init(ctl, pid);
 	if (ret) {
 		pr_err("%d: Can't create a transport socket\n", pid);
-		goto err_munmap_restore;
+		goto err_restore;
 	}
 
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {
 		pr_err("%d: Can't set a logging descriptor\n", pid);
-		goto err_fini;
+		goto err_restore;
 	}
 
 	return ctl;
 
-err_fini:
-	ret = parasite_execute(PARASITE_CMD_FINI, ctl,
-				&args, sizeof(args));
-	if (ret)
-		pr_panic("Can't finalize parasite (pid: %d) task\n", ctl->pid);
-
-err_munmap_restore:
-	regs = regs_orig;
-	parasite_setup_regs(vma_area->vma.start, &regs);
-	if (munmap_seized(pid, &regs, ctl->remote_map, ctl->map_length))
-		pr_panic("mmap_seized failed (pid: %d)\n", pid);
-
-err_restore_regs:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig))
-		pr_panic("PTRACE_SETREGS failed (pid: %d)\n", pid);
+err_restore:
+	parasite_cure_seized(ctl);
 
 err:
 	xfree(ctl);

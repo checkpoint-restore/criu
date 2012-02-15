@@ -175,3 +175,21 @@ err:
 	return -2;
 }
 
+/* don't swap big space, it might overflow the stack */
+int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes)
+{
+	void *t = alloca(bytes);
+
+	if (ptrace_peek_area(pid, t, dst, bytes))
+		return -1;
+
+	if (ptrace_poke_area(pid, src, dst, bytes)) {
+		if (ptrace_poke_area(pid, t, dst, bytes))
+			return -2;
+		return -1;
+	}
+
+	memcpy(src, t, bytes);
+
+	return 0;
+}

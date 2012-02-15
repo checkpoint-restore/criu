@@ -1225,7 +1225,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = parasite_cure_seized(parasite_ctl, &vma_area_list);
+	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
