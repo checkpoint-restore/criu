@@ -75,7 +75,7 @@ run_test()
 			echo Waiting...
 			sleep 1
 		done
-	
+
 		echo Restore $pid
 		setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
 	fi
