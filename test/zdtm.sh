@@ -42,6 +42,7 @@ static/ipc_namespace
 static/shm
 static/msgque
 static/sem
+transition/ipc
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
