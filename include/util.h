@@ -37,31 +37,6 @@ extern void printk(const char *format, ...)
 #define pr_panic(fmt, ...)	printk("PANIC (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_warning(fmt, ...)	printk("Warning (%s:%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define pr_err_jmp(label)					\
-	do {							\
-		printk("EJMP: %s:%d\n", __FILE__, __LINE__);	\
-		goto label;					\
-	} while (0)
-
-#define jerr(code, label)					\
-	do {							\
-		if ((code))					\
-			pr_err_jmp(label);			\
-	} while (0)
-
-#define jerr_cond(code, cond, label)				\
-	do {							\
-		if ((code) cond)				\
-			pr_err_jmp(label);			\
-	} while (0)
-
-#define jerr_rc(code, rc, label)				\
-	do {							\
-		rc = (code);					\
-		if (rc)						\
-			pr_err_jmp(label);			\
-	} while (0)
-
 #ifdef CR_DEBUG
 #define pr_debug(fmt, ...)					\
 	do {							\

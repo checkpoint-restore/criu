@@ -578,8 +578,15 @@ static int get_task_regs(pid_t pid, struct core_entry *core)
 	user_regs_struct_t regs		= {-1};
 	int ret = -1;
 
-	jerr(ptrace(PTRACE_GETREGS,	pid, NULL, &regs), err);
-	jerr(ptrace(PTRACE_GETFPREGS,	pid, NULL, &fpregs), err);
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
+		pr_err("Can't obtain GP registers for %d\n", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &fpregs)) {
+		pr_err("Can't obtain FPU registers for %d\n", pid);
+		goto err;
+	}
 
 	/* Did we come from a system call? */
 	if ((int)regs.orig_ax >= 0) {
@@ -1085,8 +1092,10 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 	ret = get_task_regs(pid, core);
 	if (ret)
 		goto err_free;
-	jerr(ptrace(PTRACE_GET_TID_ADDRESS, pid, NULL,
-			&core->clear_tid_address), err_free);
+	if (ptrace(PTRACE_GET_TID_ADDRESS, pid, NULL, &core->clear_tid_address)) {
+		pr_err("Can't get TID address for %d\n", pid);
+		goto err_free;
+	}
 	pr_info("OK\n");
 
 	core->tc.task_state = TASK_ALIVE;
