@@ -55,7 +55,6 @@ run_test()
 	local args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
-	local ret
 
 	killall -9 $tname
 	make -C $tdir cleanout $tname.pid
@@ -67,7 +66,10 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args $ARGS || return 1;
+	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args $ARGS || {
+		echo WARNING: process $tname is left running for your debugging needs
+		return 1
+	}
 
 	if expr " $ARGS" : ' -s'; then
 		killall -CONT $tname
