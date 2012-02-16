@@ -244,6 +244,10 @@ static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 	if (!ret)
 		ret = args->ret;
 
+	if (ret)
+		pr_err("Parasite exited with %d ret (%li at %li)\n",
+		       ret, args->sys_ret, args->line);
+
 	return ret;
 }
 
