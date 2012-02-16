@@ -217,7 +217,7 @@ int open_pid_proc(pid_t pid)
 	return fd;
 }
 
-#define do_open_proc(pid_dir_fd, fmt)				\
+#define do_open_proc(pid_dir_fd, fmt, flags)			\
 	({							\
 		char fname[64];					\
 		va_list args;					\
@@ -226,12 +226,17 @@ int open_pid_proc(pid_t pid)
 		vsnprintf(fname, sizeof(fname), fmt, args);	\
 		va_end(args);					\
 								\
-		openat(pid_dir_fd, fname, O_RDONLY);		\
+		openat(pid_dir_fd, fname, flags);		\
 	})
 
 int open_proc(int pid_dir_fd, char *fmt, ...)
 {
-	return do_open_proc(pid_dir_fd, fmt);
+	return do_open_proc(pid_dir_fd, fmt, O_RDONLY);
+}
+
+int open_proc_rw(int pid_dir_fd, char *fmt, ...)
+{
+	return do_open_proc(pid_dir_fd, fmt, O_RDWR);
 }
 
 DIR *opendir_proc(int pid_dir_fd, char *fmt, ...)

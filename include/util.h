@@ -206,6 +206,7 @@ extern void hex_dump(void *addr, unsigned long len);
 
 int open_pid_proc(pid_t pid);
 int open_proc(int pid_dir_fd, char *fmt, ...);
+int open_proc_rw(int pid_dir_fd, char *fmt, ...)
 DIR *opendir_proc(int pid_dir_fd, char *fmt, ...);
 FILE *fopen_proc(int pid_dir_fd, char *fmt, ...);
 
