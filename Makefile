@@ -133,11 +133,11 @@ $(DEPS_GEN): $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
 %.d: %.c
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-test-legacy:
+test-legacy: $(PROGRAM)
 	$(Q) $(MAKE) -C test/legacy all
 .PHONY: test-legacy
 
-zdtm:
+zdtm: $(PROGRAM)
 	$(Q) $(MAKE) -C test/zdtm all
 .PHONY: zdtm
 
