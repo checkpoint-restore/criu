@@ -1177,13 +1177,13 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 
 	if (item->state == TASK_STOPPED) {
 		pr_err("Stopped tasks are not supported\n");
-		goto err;
+		goto err_free;
 	}
 
 	pid_dir = open_pid_proc(pid);
 	if (pid_dir < 0) {
 		pr_perror("Can't open %d proc dir", pid);
-		goto err;
+		goto err_free;
 	}
 
 	pr_info("Obtainting task stat ... ");
@@ -1272,9 +1272,11 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 
 	free_mappings(&vma_area_list);
 
-	return dump_task_threads(item);
+	ret = dump_task_threads(item);
 
 err:
+	close(pid_dir);
+err_free:
 	free_mappings(&vma_area_list);
 	return ret;
 }
