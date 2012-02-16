@@ -620,7 +620,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
-	fd = open_proc_rw(pid_dir, "map_files/%p-%p",
+	fd = open_proc_rw(pid, pid_dir, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0) {
 		pr_perror("Can't open remote parasite map");

@@ -138,29 +138,25 @@ err:
 	return ret;
 }
 
-static int dump_task_special_files(int pid_dir, struct cr_fdset *cr_fdset)
+static int dump_task_special_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 {
 	struct fd_parms params;
 	int fd, ret;
 
 	/* Dump /proc/pid/cwd */
 	params = (struct fd_parms){ .fd_name = FDINFO_CWD, };
-	fd = open_proc(pid_dir, "cwd");
-	if (fd < 0) {
-		pr_perror("Failed to openat cwd");
+	fd = open_proc(pid, pid_dir, "cwd");
+	if (fd < 0)
 		return -1;
-	}
 	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
 	if (ret)
 		return ret;
 
 	/* Dump /proc/pid/exe */
 	params = (struct fd_parms){ .fd_name = FDINFO_EXE, };
-	fd = open_proc(pid_dir, "exe");
-	if (fd < 0) {
-		pr_perror("Failed to openat exe");
+	fd = open_proc(pid, pid_dir, "exe");
+	if (fd < 0)
 		return -1;
-	}
 	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
 
 	return ret;
@@ -311,11 +307,9 @@ static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 	FILE *file;
 	int ret;
 
-	file = fopen_proc(pid_dir, "fdinfo/%s", fd);
-	if (!file) {
-		pr_perror("Can't open %d's %s fdinfo", pid, fd);
+	file = fopen_proc(pid, pid_dir, "fdinfo/%s", fd);
+	if (!file)
 		return -1;
-	}
 
 	p->fd_name = atoi(fd);
 	ret = fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", &p->pos, &p->flags, p->id);
@@ -348,16 +342,14 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	 * to re-read them in restorer, so better to make it
 	 * fast.
 	 */
-	if (dump_task_special_files(pid_dir, cr_fdset)) {
+	if (dump_task_special_files(pid, pid_dir, cr_fdset)) {
 		pr_err("Can't dump special files\n");
 		return -1;
 	}
 
-	fd_dir = opendir_proc(pid_dir, "fd");
-	if (!fd_dir) {
-		pr_perror("Can't open %d's fd", pid);
+	fd_dir = opendir_proc(pid, pid_dir, "fd");
+	if (!fd_dir)
 		return -1;
-	}
 
 	while ((de = readdir(fd_dir))) {
 		char id[FD_ID_SIZE];
@@ -455,7 +447,7 @@ static int dump_task_creds(pid_t pid, int pid_dir,
 	pr_info("Dumping creds for %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_pid_status(pid_dir, &cr);
+	ret = parse_pid_status(pid, pid_dir, &cr);
 	if (ret < 0)
 		return ret;
 
@@ -497,11 +489,9 @@ static int get_task_sigmask(pid_t pid, int pid_dir, u64 *task_sigset)
 	/*
 	 * Now signals.
 	 */
-	file = fopen_proc(pid_dir, "status");
-	if (!file) {
-		pr_perror("Can't open %d status", pid);
+	file = fopen_proc(pid, pid_dir, "status");
+	if (!file)
 		goto err;
-	}
 
 	while (fgets(loc_buf, sizeof(loc_buf), file)) {
 		if (!strncmp(loc_buf, "SigBlk:", 7)) {
@@ -519,13 +509,11 @@ err:
 
 static int get_task_auxv(pid_t pid, int pid_dir, struct core_entry *core)
 {
-	int fd = open_proc(pid_dir, "auxv");
+	int fd = open_proc(pid, pid_dir, "auxv");
 	int ret, i;
 
-	if (fd < 0) {
-		pr_perror("Can't open %d's auxv", pid);
+	if (fd < 0)
 		return -1;
-	}
 
 	for (i = 0; i < AT_VECTOR_SIZE; i++) {
 		ret = read(fd, &core->tc.mm_saved_auxv[i],
@@ -552,11 +540,9 @@ static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
 	FILE *file = NULL;
 	int ret = -1;
 
-	file = fopen_proc(pid_dir, "personality");
-	if (!file) {
-		pr_perror("Can't open %d personality", pid);
+	file = fopen_proc(pid, pid_dir, "personality");
+	if (!file)
 		goto err;
-	}
 
 	if (!fgets(loc_buf, sizeof(loc_buf), file)) {
 		perror("Can't read task personality");
@@ -738,18 +724,16 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item, int pid_dir)
+static int parse_threads(struct pstree_item *item, pid_t pid, int pid_dir)
 {
 	struct dirent *de;
 	DIR *dir;
 	u32 *t = NULL;
 	int nr = 1;
 
-	dir = opendir_proc(pid_dir, "task");
-	if (!dir) {
-		pr_perror("Can't open %d/task", item->pid);
+	dir = opendir_proc(pid, pid_dir, "task");
+	if (!dir)
 		return -1;
-	}
 
 	while ((de = readdir(dir))) {
 		u32 *tmp;
@@ -776,7 +760,7 @@ static int parse_threads(struct pstree_item *item, int pid_dir)
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item, int pid_dir)
+static int parse_children(struct pstree_item *item, pid_t pid, int pid_dir)
 {
 	FILE *file;
 	char *tok;
@@ -785,12 +769,9 @@ static int parse_children(struct pstree_item *item, int pid_dir)
 
 	for (i = 0; i < item->nr_threads; i++) {
 
-		file = fopen_proc(pid_dir, "task/%d/children", item->threads[i]);
-		if (!file) {
-			pr_perror("Can't open %d children %d",
-					item->pid, item->threads[i]);
+		file = fopen_proc(pid, pid_dir, "task/%d/children", item->threads[i]);
+		if (!file)
 			goto err;
-		}
 
 		if (!(fgets(loc_buf, sizeof(loc_buf), file)))
 			loc_buf[0] = 0;
@@ -918,7 +899,7 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 		item->state = TASK_DEAD;
 	}
 
-	ret = parse_threads(item, pid_dir);
+	ret = parse_threads(item, pid, pid_dir);
 	if (ret < 0)
 		goto err_close;
 
@@ -926,7 +907,7 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 	if (ret < 0)
 		goto err_close;
 
-	ret = parse_children(item, pid_dir);
+	ret = parse_children(item, pid, pid_dir);
 	if (ret < 0)
 		goto err_close;
 
@@ -1286,7 +1267,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 	LIST_HEAD(pstree_list);
 	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item;
-	int i, ret = -1, pid_dir;
+	int i, ret = -1;
 
 	pr_info("========================================\n");
 	if (!opts->leader_only)

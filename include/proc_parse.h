@@ -80,6 +80,6 @@ struct proc_status_creds {
 extern int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s);
 extern int parse_pid_stat_small(pid_t pid, int pid_dir, struct proc_pid_stat_small *s);
 extern int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files);
-extern int parse_pid_status(int pid_dir, struct proc_status_creds *);
+extern int parse_pid_status(pid_t pid, int pid_dir, struct proc_status_creds *);
 
 #endif /* PROC_PARSE_H__ */

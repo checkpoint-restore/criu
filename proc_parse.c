@@ -28,18 +28,14 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 	DIR *map_files_dir = NULL;
 	FILE *maps = NULL;
 
-	maps = fopen_proc(pid_dir, "maps");
-	if (!maps) {
-		pr_perror("Can't open %d's maps", pid);
+	maps = fopen_proc(pid, pid_dir, "maps");
+	if (!maps)
 		goto err;
-	}
 
 	if (use_map_files) {
-		map_files_dir = opendir_proc(pid_dir, "map_files");
-		if (!map_files_dir) {
-			pr_perror("Can't open %d's map_files (old kernel?)\n", pid);
+		map_files_dir = opendir_proc(pid, pid_dir, "map_files");
+		if (!map_files_dir) /* old kernel? */
 			goto err;
-		}
 	}
 
 	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
@@ -189,11 +185,9 @@ int parse_pid_stat_small(pid_t pid, int pid_dir, struct proc_pid_stat_small *s)
 	char *tok;
 	int n;
 
-	f = fopen_proc(pid_dir, "stat");
-	if (f == NULL) {
-		pr_perror("Can't open %d's stat", pid);
+	f = fopen_proc(pid, pid_dir, "stat");
+	if (f == NULL)
 		return -1;
-	}
 
 	memset(s, 0, sizeof(*s));
 	n = fscanf(f, "%d " PROC_TASK_COMM_LEN_FMT " %c",
@@ -219,11 +213,9 @@ int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
 	char *tok;
 	int n;
 
-	f = fopen_proc(pid_dir, "stat");
-	if (f == NULL) {
-		pr_perror("Can't open %d's stat", pid);
+	f = fopen_proc(pid, pid_dir, "stat");
+	if (f == NULL)
 		return -1;
-	}
 
 	memset(s, 0, sizeof(*s));
 	n = fscanf(f,
@@ -326,13 +318,13 @@ static int cap_parse(char *str, unsigned int *res)
 	return 0;
 }
 
-int parse_pid_status(int pid_dir, struct proc_status_creds *cr)
+int parse_pid_status(pid_t pid, int pid_dir, struct proc_status_creds *cr)
 {
 	int done = 0;
 	FILE *f;
 	char str[64];
 
-	f = fopen_proc(pid_dir, "status");
+	f = fopen_proc(pid, pid_dir, "status");
 	if (f == NULL) {
 		pr_perror("Can't open proc status");
 		return -1;

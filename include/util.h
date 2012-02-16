@@ -205,10 +205,58 @@ extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
 extern void hex_dump(void *addr, unsigned long len);
 
 int open_pid_proc(pid_t pid);
-int open_proc(int pid_dir_fd, char *fmt, ...);
-int open_proc_rw(int pid_dir_fd, char *fmt, ...)
-DIR *opendir_proc(int pid_dir_fd, char *fmt, ...);
-FILE *fopen_proc(int pid_dir_fd, char *fmt, ...);
+int do_open_proc(int pid_dir, int flags, const char *fmt, ...);
+
+#define __open_proc(pid, pid_dir, flags, fmt, ...)		\
+	({							\
+		int __fd = do_open_proc(pid_dir, flags,		\
+					fmt, ##__VA_ARGS__);	\
+		if (__fd < 0)					\
+			pr_perror("Can't open /proc/%d/" fmt,	\
+					pid, ##__VA_ARGS__);	\
+								\
+		__fd;						\
+	})
+
+/* int open_proc(pid_t pid, int pid_dir, const char *fmt, ...); */
+#define open_proc(pid, pid_dir, fmt, ...)			\
+	__open_proc(pid, pid_dir, O_RDONLY, fmt, ##__VA_ARGS__)
+
+/* int open_proc_rw(pid_t pid, int pid_dir, const char *fmt, ...); */
+#define open_proc_rw(pid, pid_dir, fmt, ...)			\
+	__open_proc(pid, pid_dir, O_RDWR, fmt, ##__VA_ARGS__)
+
+/* DIR *opendir_proc(pid_t pid, int pid_dir,  const char *fmt, ...); */
+#define opendir_proc(pid, pid_dir, fmt, ...)				\
+	({								\
+		int __fd = open_proc(pid, pid_dir, fmt, ##__VA_ARGS__);	\
+		DIR *__d = NULL;					\
+									\
+		if (__fd >= 0)						\
+			__d = fdopendir(__fd);				\
+			if (__d == NULL)				\
+				pr_perror("Can't fdopendir %d "		\
+					"(/proc/%d/" fmt ")",		\
+					__fd, pid, ##__VA_ARGS__);	\
+									\
+		__d;							\
+	 })
+
+/* FILE *fopen_proc(pid_t pid, int pid_dir, const char *fmt, ...); */
+#define fopen_proc(pid, pid_dir, fmt, ...)				\
+	({								\
+		int __fd = open_proc(pid, pid_dir, fmt, ##__VA_ARGS__);	\
+		FILE *__f = NULL;					\
+									\
+		if (__fd >= 0)						\
+			__f = fdopen(__fd, "r");			\
+			if (__f == NULL)				\
+				pr_perror("Can't fdopen %d "		\
+					"(/proc/%d/" fmt ")",		\
+					__fd, pid, ##__VA_ARGS__);	\
+									\
+		__f;							\
+	 })
 
 #define __xalloc(op, size, ...)						\
 	({								\

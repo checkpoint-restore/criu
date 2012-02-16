@@ -217,46 +217,14 @@ int open_pid_proc(pid_t pid)
 	return fd;
 }
 
-#define do_open_proc(pid_dir_fd, fmt, flags)			\
-	({							\
-		char fname[64];					\
-		va_list args;					\
-								\
-		va_start(args, fmt);				\
-		vsnprintf(fname, sizeof(fname), fmt, args);	\
-		va_end(args);					\
-								\
-		openat(pid_dir_fd, fname, flags);		\
-	})
-
-int open_proc(int pid_dir_fd, char *fmt, ...)
+int do_open_proc(int dirfd, int flags, const char *fmt, ...)
 {
-	return do_open_proc(pid_dir_fd, fmt, O_RDONLY);
-}
+	char path[128];
+	va_list args;
 
-int open_proc_rw(int pid_dir_fd, char *fmt, ...)
-{
-	return do_open_proc(pid_dir_fd, fmt, O_RDWR);
-}
+	va_start(args, fmt);
+	vsnprintf(path, sizeof(path), fmt, args);
+	va_end(args);
 
-DIR *opendir_proc(int pid_dir_fd, char *fmt, ...)
-{
-	int dirfd;
-
-	dirfd = do_open_proc(pid_dir_fd, fmt);
-	if (dirfd >= 0)
-		return fdopendir(dirfd);
-
-	return NULL;
-}
-
-FILE *fopen_proc(int pid_dir_fd, char *fmt, ...)
-{
-	int fd;
-
-	fd = do_open_proc(pid_dir_fd, fmt);
-	if (fd >= 0)
-		return fdopen(fd, "r");
-
-	return NULL;
+	return openat(dirfd, path, flags);
 }
