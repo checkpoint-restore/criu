@@ -205,22 +205,51 @@ int open_image_ro(int type, int pid)
 	return fd;
 }
 
-int open_pid_proc(pid_t pid)
+static pid_t open_proc_pid = 0;
+static int open_proc_fd = -1;
+
+int close_pid_proc(void)
+{
+	int ret = 0;
+
+	if (open_proc_fd >= 0)
+		ret = close(open_proc_fd);
+
+	open_proc_fd = -1;
+	open_proc_pid = 0;
+
+	return ret;
+}
+
+inline int open_pid_proc(pid_t pid)
 {
 	char path[18];
 	int fd;
 
+	if (pid == open_proc_pid)
+		return open_proc_fd;
+
+	close_pid_proc();
 	sprintf(path, "/proc/%d", pid);
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
 		pr_perror("Can't open %s", path);
+	else {
+		open_proc_fd = fd;
+		open_proc_pid = pid;
+	}
+
 	return fd;
 }
 
-int do_open_proc(int dirfd, int flags, const char *fmt, ...)
+int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 {
 	char path[128];
 	va_list args;
+	int dirfd = open_pid_proc(pid);
+
+	if (dirfd < 0)
+		return -1;
 
 	va_start(args, fmt);
 	vsnprintf(path, sizeof(path), fmt, args);

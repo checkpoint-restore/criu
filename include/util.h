@@ -205,11 +205,13 @@ extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
 extern void hex_dump(void *addr, unsigned long len);
 
 int open_pid_proc(pid_t pid);
-int do_open_proc(int pid_dir, int flags, const char *fmt, ...);
+int close_pid_proc(void);
 
-#define __open_proc(pid, pid_dir, flags, fmt, ...)		\
+int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
+
+#define __open_proc(pid, flags, fmt, ...)			\
 	({							\
-		int __fd = do_open_proc(pid_dir, flags,		\
+		int __fd = do_open_proc(pid, flags,		\
 					fmt, ##__VA_ARGS__);	\
 		if (__fd < 0)					\
 			pr_perror("Can't open /proc/%d/" fmt,	\
@@ -218,18 +220,18 @@ int do_open_proc(int pid_dir, int flags, const char *fmt, ...);
 		__fd;						\
 	})
 
-/* int open_proc(pid_t pid, int pid_dir, const char *fmt, ...); */
-#define open_proc(pid, pid_dir, fmt, ...)			\
-	__open_proc(pid, pid_dir, O_RDONLY, fmt, ##__VA_ARGS__)
+/* int open_proc(pid_t pid, const char *fmt, ...); */
+#define open_proc(pid, fmt, ...)				\
+	__open_proc(pid, O_RDONLY, fmt, ##__VA_ARGS__)
 
-/* int open_proc_rw(pid_t pid, int pid_dir, const char *fmt, ...); */
-#define open_proc_rw(pid, pid_dir, fmt, ...)			\
-	__open_proc(pid, pid_dir, O_RDWR, fmt, ##__VA_ARGS__)
+/* int open_proc_rw(pid_t pid, const char *fmt, ...); */
+#define open_proc_rw(pid, fmt, ...)				\
+	__open_proc(pid, O_RDWR, fmt, ##__VA_ARGS__)
 
-/* DIR *opendir_proc(pid_t pid, int pid_dir,  const char *fmt, ...); */
-#define opendir_proc(pid, pid_dir, fmt, ...)				\
+/* DIR *opendir_proc(pid_t pid, const char *fmt, ...); */
+#define opendir_proc(pid, fmt, ...)					\
 	({								\
-		int __fd = open_proc(pid, pid_dir, fmt, ##__VA_ARGS__);	\
+		int __fd = open_proc(pid, fmt, ##__VA_ARGS__);		\
 		DIR *__d = NULL;					\
 									\
 		if (__fd >= 0)						\
@@ -242,10 +244,10 @@ int do_open_proc(int pid_dir, int flags, const char *fmt, ...);
 		__d;							\
 	 })
 
-/* FILE *fopen_proc(pid_t pid, int pid_dir, const char *fmt, ...); */
-#define fopen_proc(pid, pid_dir, fmt, ...)				\
+/* FILE *fopen_proc(pid_t pid, const char *fmt, ...); */
+#define fopen_proc(pid, fmt, ...)					\
 	({								\
-		int __fd = open_proc(pid, pid_dir, fmt, ##__VA_ARGS__);	\
+		int __fd = open_proc(pid,  fmt, ##__VA_ARGS__);		\
 		FILE *__f = NULL;					\
 									\
 		if (__fd >= 0)						\

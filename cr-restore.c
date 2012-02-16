@@ -1639,7 +1639,6 @@ static void sigreturn_restore(pid_t pid)
 	int num, i;
 
 	int *fd_core_threads;
-	int pid_dir;
 
 	pr_info("%d: Restore via sigreturn\n", pid);
 
@@ -1647,12 +1646,8 @@ static void sigreturn_restore(pid_t pid)
 	restore_task_vma_len	= 0;
 	restore_thread_vma_len	= 0;
 
-	pid_dir = open_pid_proc(pid);
-	if (pid_dir < 0)
-		goto err;
-
-	ret = parse_maps(pid, pid_dir, &self_vma_list, false);
-	close(pid_dir);
+	ret = parse_maps(pid, &self_vma_list, false);
+	close_pid_proc();
 	if (ret)
 		goto err;
 

@@ -560,7 +560,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 	return ret;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
@@ -620,12 +620,10 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, int pid_dir, struct list_
 
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
-	fd = open_proc_rw(pid, pid_dir, "map_files/%p-%p",
+	fd = open_proc_rw(pid, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
-	if (fd < 0) {
-		pr_perror("Can't open remote parasite map");
+	if (fd < 0)
 		goto err_restore;
-	}
 
 	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
 			      MAP_SHARED | MAP_FILE, fd, 0);

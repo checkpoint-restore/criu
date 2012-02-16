@@ -15,7 +15,7 @@
 
 #include "proc_parse.h"
 
-int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use_map_files)
+int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
@@ -28,12 +28,12 @@ int parse_maps(pid_t pid, int pid_dir, struct list_head *vma_area_list, bool use
 	DIR *map_files_dir = NULL;
 	FILE *maps = NULL;
 
-	maps = fopen_proc(pid, pid_dir, "maps");
+	maps = fopen_proc(pid, "maps");
 	if (!maps)
 		goto err;
 
 	if (use_map_files) {
-		map_files_dir = opendir_proc(pid, pid_dir, "map_files");
+		map_files_dir = opendir_proc(pid, "map_files");
 		if (!map_files_dir) /* old kernel? */
 			goto err;
 	}
@@ -179,13 +179,13 @@ err_bogus_mapping:
 	goto err;
 }
 
-int parse_pid_stat_small(pid_t pid, int pid_dir, struct proc_pid_stat_small *s)
+int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
 {
 	FILE *f;
 	char *tok;
 	int n;
 
-	f = fopen_proc(pid, pid_dir, "stat");
+	f = fopen_proc(pid, "stat");
 	if (f == NULL)
 		return -1;
 
@@ -207,13 +207,13 @@ int parse_pid_stat_small(pid_t pid, int pid_dir, struct proc_pid_stat_small *s)
 	return 0;
 }
 
-int parse_pid_stat(pid_t pid, int pid_dir, struct proc_pid_stat *s)
+int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 {
 	FILE *f;
 	char *tok;
 	int n;
 
-	f = fopen_proc(pid, pid_dir, "stat");
+	f = fopen_proc(pid, "stat");
 	if (f == NULL)
 		return -1;
 
@@ -318,13 +318,13 @@ static int cap_parse(char *str, unsigned int *res)
 	return 0;
 }
 
-int parse_pid_status(pid_t pid, int pid_dir, struct proc_status_creds *cr)
+int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 {
 	int done = 0;
 	FILE *f;
 	char str[64];
 
-	f = fopen_proc(pid, pid_dir, "status");
+	f = fopen_proc(pid, "status");
 	if (f == NULL) {
 		pr_perror("Can't open proc status");
 		return -1;

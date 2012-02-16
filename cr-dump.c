@@ -65,7 +65,7 @@ void free_mappings(struct list_head *vma_area_list)
 	INIT_LIST_HEAD(vma_area_list);
 }
 
-static int collect_mappings(pid_t pid, int pid_dir, struct list_head *vma_area_list)
+static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 {
 	int ret = -1;
 
@@ -73,7 +73,7 @@ static int collect_mappings(pid_t pid, int pid_dir, struct list_head *vma_area_l
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_maps(pid, pid_dir, vma_area_list, true);
+	ret = parse_maps(pid, vma_area_list, true);
 	if (ret)
 		goto err;
 
@@ -138,14 +138,14 @@ err:
 	return ret;
 }
 
-static int dump_task_special_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
+static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct fd_parms params;
 	int fd, ret;
 
 	/* Dump /proc/pid/cwd */
 	params = (struct fd_parms){ .fd_name = FDINFO_CWD, };
-	fd = open_proc(pid, pid_dir, "cwd");
+	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
 	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
@@ -154,7 +154,7 @@ static int dump_task_special_files(pid_t pid, int pid_dir, struct cr_fdset *cr_f
 
 	/* Dump /proc/pid/exe */
 	params = (struct fd_parms){ .fd_name = FDINFO_EXE, };
-	fd = open_proc(pid, pid_dir, "exe");
+	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
 	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
@@ -302,12 +302,12 @@ out_close:
 	return err;
 }
 
-static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
+static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 {
 	FILE *file;
 	int ret;
 
-	file = fopen_proc(pid, pid_dir, "fdinfo/%s", fd);
+	file = fopen_proc(pid, "fdinfo/%s", fd);
 	if (!file)
 		return -1;
 
@@ -326,7 +326,7 @@ static int read_fd_params(pid_t pid, int pid_dir, char *fd, struct fd_parms *p)
 	return 0;
 }
 
-static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
+static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct dirent *de;
 	unsigned long pos;
@@ -342,12 +342,12 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 	 * to re-read them in restorer, so better to make it
 	 * fast.
 	 */
-	if (dump_task_special_files(pid, pid_dir, cr_fdset)) {
+	if (dump_task_special_files(pid, cr_fdset)) {
 		pr_err("Can't dump special files\n");
 		return -1;
 	}
 
-	fd_dir = opendir_proc(pid, pid_dir, "fd");
+	fd_dir = opendir_proc(pid, "fd");
 	if (!fd_dir)
 		return -1;
 
@@ -358,7 +358,7 @@ static int dump_task_files(pid_t pid, int pid_dir, struct cr_fdset *cr_fdset)
 
 		if (de->d_name[0] == '.')
 			continue;
-		if (read_fd_params(pid, pid_dir, de->d_name, &p))
+		if (read_fd_params(pid, de->d_name, &p))
 			return -1;
 
 		lfd = openat(dirfd(fd_dir), de->d_name, O_RDONLY);
@@ -436,7 +436,7 @@ err:
 	return ret;
 }
 
-static int dump_task_creds(pid_t pid, int pid_dir,
+static int dump_task_creds(pid_t pid,
 		struct parasite_dump_misc *misc, struct cr_fdset *fds)
 {
 	int ret, i;
@@ -447,7 +447,7 @@ static int dump_task_creds(pid_t pid, int pid_dir,
 	pr_info("Dumping creds for %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_pid_status(pid, pid_dir, &cr);
+	ret = parse_pid_status(pid, &cr);
 	if (ret < 0)
 		return ret;
 
@@ -481,7 +481,7 @@ static int dump_task_creds(pid_t pid, int pid_dir,
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_sigmask(pid_t pid, int pid_dir, u64 *task_sigset)
+static int get_task_sigmask(pid_t pid, u64 *task_sigset)
 {
 	FILE *file;
 	int ret = -1;
@@ -489,7 +489,7 @@ static int get_task_sigmask(pid_t pid, int pid_dir, u64 *task_sigset)
 	/*
 	 * Now signals.
 	 */
-	file = fopen_proc(pid, pid_dir, "status");
+	file = fopen_proc(pid, "status");
 	if (!file)
 		goto err;
 
@@ -507,9 +507,9 @@ err:
 	return ret;
 }
 
-static int get_task_auxv(pid_t pid, int pid_dir, struct core_entry *core)
+static int get_task_auxv(pid_t pid, struct core_entry *core)
 {
-	int fd = open_proc(pid, pid_dir, "auxv");
+	int fd = open_proc(pid, "auxv");
 	int ret, i;
 
 	if (fd < 0)
@@ -535,12 +535,12 @@ err:
 	return ret;
 }
 
-static int get_task_personality(pid_t pid, int pid_dir, u32 *personality)
+static int get_task_personality(pid_t pid, u32 *personality)
 {
 	FILE *file = NULL;
 	int ret = -1;
 
-	file = fopen_proc(pid, pid_dir, "personality");
+	file = fopen_proc(pid, "personality");
 	if (!file)
 		goto err;
 
@@ -657,7 +657,7 @@ static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
 	return ret;
 }
 
-static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat,
+static int dump_task_core_all(pid_t pid, struct proc_pid_stat *stat,
 		struct parasite_dump_misc *misc, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
@@ -678,7 +678,7 @@ static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat
 	pr_info("OK\n");
 
 	pr_info("Obtainting personality ... ");
-	ret = get_task_personality(pid, pid_dir, &core->tc.personality);
+	ret = get_task_personality(pid, &core->tc.personality);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
@@ -700,13 +700,13 @@ static int dump_task_core_all(pid_t pid, int pid_dir, struct proc_pid_stat *stat
 	core->tc.mm_brk = misc->brk;
 
 	pr_info("Obtainting sigmask ... ");
-	ret = get_task_sigmask(pid, pid_dir, &core->tc.blk_sigset);
+	ret = get_task_sigmask(pid, &core->tc.blk_sigset);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
 
 	pr_info("Obtainting task auvx ... ");
-	ret = get_task_auxv(pid, pid_dir, core);
+	ret = get_task_auxv(pid, core);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
@@ -724,14 +724,14 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item, pid_t pid, int pid_dir)
+static int parse_threads(struct pstree_item *item, pid_t pid)
 {
 	struct dirent *de;
 	DIR *dir;
 	u32 *t = NULL;
 	int nr = 1;
 
-	dir = opendir_proc(pid, pid_dir, "task");
+	dir = opendir_proc(pid, "task");
 	if (!dir)
 		return -1;
 
@@ -760,7 +760,7 @@ static int parse_threads(struct pstree_item *item, pid_t pid, int pid_dir)
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item, pid_t pid, int pid_dir)
+static int parse_children(struct pstree_item *item, pid_t pid)
 {
 	FILE *file;
 	char *tok;
@@ -769,7 +769,7 @@ static int parse_children(struct pstree_item *item, pid_t pid, int pid_dir)
 
 	for (i = 0; i < item->nr_threads; i++) {
 
-		file = fopen_proc(pid, pid_dir, "task/%d/children", item->threads[i]);
+		file = fopen_proc(pid, "task/%d/children", item->threads[i]);
 		if (!file)
 			goto err;
 
@@ -864,7 +864,7 @@ err:
 
 static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 {
-	int ret, pid_dir;
+	int ret;
 	struct pstree_item *item;
 
 	item = xzalloc(sizeof(*item));
@@ -879,14 +879,10 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 	item->pid = pid;
 	item->state = ret;
 
-	pid_dir = open_pid_proc(pid);
-	if (pid_dir < 0)
-		goto err_free;
-
 	if (item->state == TASK_SHOULD_BE_DEAD) {
 		struct proc_pid_stat_small ps;
 
-		ret = parse_pid_stat_small(pid, pid_dir, &ps);
+		ret = parse_pid_stat_small(pid, &ps);
 		if (ret < 0)
 			goto err_close;
 
@@ -899,7 +895,7 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 		item->state = TASK_DEAD;
 	}
 
-	ret = parse_threads(item, pid, pid_dir);
+	ret = parse_threads(item, pid);
 	if (ret < 0)
 		goto err_close;
 
@@ -907,7 +903,7 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 	if (ret < 0)
 		goto err_close;
 
-	ret = parse_children(item, pid, pid_dir);
+	ret = parse_children(item, pid);
 	if (ret < 0)
 		goto err_close;
 
@@ -916,13 +912,13 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 		goto err_close;
 	}
 
-	close(pid_dir);
+	close_pid_proc();
 	list_add_tail(&item->list, list);
 	pr_info("Collected %d in %d state\n", item->pid, item->state);
 	return item;
 
 err_close:
-	close(pid_dir);
+	close_pid_proc();
 err_free:
 	xfree(item->children);
 	xfree(item->threads);
@@ -1149,7 +1145,6 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	LIST_HEAD(vma_area_list);
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
-	int pid_dir;
 	struct parasite_dump_misc misc;
 
 	pr_info("========================================\n");
@@ -1161,14 +1156,8 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err_free;
 	}
 
-	pid_dir = open_pid_proc(pid);
-	if (pid_dir < 0) {
-		pr_perror("Can't open %d proc dir", pid);
-		goto err_free;
-	}
-
 	pr_info("Obtainting task stat ... ");
-	ret = parse_pid_stat(pid, pid_dir, &pps_buf);
+	ret = parse_pid_stat(pid, &pps_buf);
 	if (ret < 0)
 		goto err;
 
@@ -1179,13 +1168,13 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
 		goto err;
 
-	ret = collect_mappings(pid, pid_dir, &vma_area_list);
+	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
-	parasite_ctl = parasite_infect_seized(pid, pid_dir, &vma_area_list);
+	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
@@ -1221,7 +1210,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_files(pid, pid_dir, cr_fdset);
+	ret = dump_task_files(pid, cr_fdset);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1233,13 +1222,13 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_creds(pid, pid_dir, &misc, cr_fdset);
+	ret = dump_task_creds(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
-	ret = dump_task_core_all(pid, pid_dir, &pps_buf, &misc, cr_fdset);
+	ret = dump_task_core_all(pid, &pps_buf, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1256,7 +1245,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = dump_task_threads(item);
 
 err:
-	close(pid_dir);
+	close_pid_proc();
 err_free:
 	free_mappings(&vma_area_list);
 	return ret;
