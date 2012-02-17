@@ -241,6 +241,13 @@ static always_inline long sys_rt_sigreturn(void)
 	return syscall0(__NR_rt_sigreturn);
 }
 
+static always_inline long sys_sigprocmask(int how, k_rtsigset_t *set,
+		k_rtsigset_t *old)
+{
+	return syscall4(__NR_rt_sigprocmask, how, (unsigned long)set,
+			(unsigned long)old, (unsigned long)sizeof(k_rtsigset_t));
+}
+
 static always_inline long sys_set_thread_area(user_desc_t *info)
 {
 	return syscall1(__NR_set_thread_area, (long)info);

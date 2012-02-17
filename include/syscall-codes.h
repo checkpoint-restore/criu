@@ -13,6 +13,7 @@
 #define __NR_munmap		11
 #define __NR_brk		12
 #define __NR_rt_sigaction	13
+#define __NR_rt_sigprocmask	14
 #define __NR_rt_sigreturn	15
 #define __NR_mincore		27
 #define __NR_shmat		30

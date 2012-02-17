@@ -98,6 +98,22 @@ typedef struct {
 	rt_sigset_t	rt_sa_mask;
 } rt_sigaction_t;
 
+#define _KNSIG           64
+# define _NSIG_BPW      64
+
+#define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW) 
+
+typedef struct {
+	unsigned long sig[_KNSIG_WORDS];
+} k_rtsigset_t;
+
+static inline void ksigfillset(k_rtsigset_t *set)
+{
+	int i;
+	for (i = 0; i < _KNSIG_WORDS; i++)
+		set->sig[i] = (unsigned long)-1;
+}
+
 typedef struct {
 	unsigned int	entry_number;
 	unsigned int	base_addr;

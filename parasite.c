@@ -358,12 +358,16 @@ err_close:
 	return ret;
 }
 
+static k_rtsigset_t old_blocked;
+static int reset_blocked = 0;
+
 static int dump_misc(struct parasite_dump_misc *args)
 {
 	parasite_status_t *st = &args->status;
 
 	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 	args->brk = sys_brk(0);
+	args->blocked = old_blocked;
 
 	SET_PARASITE_STATUS(st, 0, 0);
 	return 0;
@@ -372,6 +376,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 static int init(struct parasite_init_args *args)
 {
 	int ret;
+	k_rtsigset_t to_block;
 
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (tsock < 0) {
@@ -383,7 +388,14 @@ static int init(struct parasite_init_args *args)
 		return -1;
 	}
 
-	return 0;
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block, &old_blocked);
+	if (ret < 0)
+		reset_blocked = ret;
+	else
+		reset_blocked = 1;
+
+	return ret;
 }
 
 static int set_logfd()
@@ -394,6 +406,8 @@ static int set_logfd()
 
 static int fini()
 {
+	if (reset_blocked == 1)
+		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL);
 	sys_close(logfd);
 	sys_close(tsock);
 	return 0;

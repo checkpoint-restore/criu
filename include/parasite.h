@@ -87,6 +87,7 @@ struct parasite_dump_misc {
 
 	unsigned int		secbits;
 	unsigned long		brk;
+	k_rtsigset_t		blocked;
 };
 
 /*

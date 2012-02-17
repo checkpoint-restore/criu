@@ -481,32 +481,6 @@ static int dump_task_creds(pid_t pid,
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_sigmask(pid_t pid, u64 *task_sigset)
-{
-	FILE *file;
-	int ret = -1;
-
-	/*
-	 * Now signals.
-	 */
-	file = fopen_proc(pid, "status");
-	if (!file)
-		goto err;
-
-	while (fgets(loc_buf, sizeof(loc_buf), file)) {
-		if (!strncmp(loc_buf, "SigBlk:", 7)) {
-			char *end;
-			*task_sigset = strtol(&loc_buf[8], &end, 16);
-			ret = 0;
-			break;
-		}
-	}
-
-	fclose(file);
-err:
-	return ret;
-}
-
 static int get_task_auxv(pid_t pid, struct core_entry *core)
 {
 	int fd = open_proc(pid, "auxv");
@@ -558,15 +532,19 @@ err:
 	return ret;
 }
 
-static int get_task_regs(pid_t pid, struct core_entry *core)
+static int get_task_regs(pid_t pid, struct core_entry *core, struct parasite_ctl *ctl)
 {
 	user_fpregs_struct_t fpregs	= {-1};
 	user_regs_struct_t regs		= {-1};
 	int ret = -1;
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-		pr_err("Can't obtain GP registers for %d\n", pid);
-		goto err;
+	if (ctl)
+		regs = ctl->regs_orig;
+	else {
+		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
+			pr_err("Can't obtain GP registers for %d\n", pid);
+			goto err;
+		}
 	}
 
 	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &fpregs)) {
@@ -658,7 +636,8 @@ static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
 }
 
 static int dump_task_core_all(pid_t pid, struct proc_pid_stat *stat,
-		struct parasite_dump_misc *misc, struct cr_fdset *cr_fdset)
+		struct parasite_dump_misc *misc, struct parasite_ctl *ctl,
+		struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int ret				= -1;
@@ -672,7 +651,7 @@ static int dump_task_core_all(pid_t pid, struct proc_pid_stat *stat,
 		goto err;
 
 	pr_info("Dumping GP/FPU registers ... ");
-	ret = get_task_regs(pid, core);
+	ret = get_task_regs(pid, core, ctl);
 	if (ret)
 		goto err_free;
 	pr_info("OK\n");
@@ -699,11 +678,8 @@ static int dump_task_core_all(pid_t pid, struct proc_pid_stat *stat,
 
 	core->tc.mm_brk = misc->brk;
 
-	pr_info("Obtainting sigmask ... ");
-	ret = get_task_sigmask(pid, &core->tc.blk_sigset);
-	if (ret)
-		goto err_free;
-	pr_info("OK\n");
+	BUILD_BUG_ON(sizeof(core->tc.blk_sigset) != sizeof(k_rtsigset_t));
+	memcpy(&core->tc.blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
 
 	pr_info("Obtainting task auvx ... ");
 	ret = get_task_auxv(pid, core);
@@ -1066,7 +1042,7 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 		goto err;
 
 	pr_info("Dumping GP/FPU registers ... ");
-	ret = get_task_regs(pid, core);
+	ret = get_task_regs(pid, core, NULL);
 	if (ret)
 		goto err_free;
 	if (ptrace(PTRACE_GET_TID_ADDRESS, pid, NULL, &core->clear_tid_address)) {
@@ -1204,6 +1180,18 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
+	ret = dump_task_core_all(pid, &pps_buf, &misc, parasite_ctl, cr_fdset);
+	if (ret) {
+		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = dump_task_threads(item);
+	if (ret) {
+		pr_err("Can't dump threads\n");
+		goto err;
+	}
+
 	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
@@ -1228,12 +1216,6 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_core_all(pid, &pps_buf, &misc, cr_fdset);
-	if (ret) {
-		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
 	ret = finalize_core(pid, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Finalizing core (pid: %d) failed with %d\n", pid, ret);
@@ -1241,8 +1223,6 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	}
 
 	free_mappings(&vma_area_list);
-
-	ret = dump_task_threads(item);
 
 err:
 	close_pid_proc();
