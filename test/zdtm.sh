@@ -49,6 +49,21 @@ CRTOOLS=`pwd`/`dirname $0`/../crtools
 test -x $CRTOOLS || exit 1
 ARGS=""
 
+save_fds()
+{
+	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' > $2
+}
+
+diff_fds()
+{
+	if ! diff -up $1 $2; then
+		echo ERROR: Sets of descriptors are differ:
+		echo $1
+		echo $2
+		return 1
+	fi
+}
+
 run_test()
 {
 	local test=$ZP/$1
@@ -67,12 +82,14 @@ run_test()
 
 	echo Dump $pid
 	mkdir -p $ddump
+	save_fds $pid  $ddump/dump.fd
 	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
-
 	if expr " $ARGS" : ' -s'; then
+		save_fds $pid  $ddump/dump.fd.after
+		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 		killall -CONT $tname
 	else
 		while :; do
@@ -83,6 +100,9 @@ run_test()
 
 		echo Restore $pid
 		setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
+
+		save_fds $pid  $ddump/restore.fd
+		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
 	fi
 
 	echo Check results $pid
