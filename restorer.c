@@ -291,6 +291,7 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
 {
 	int prot	= vma_entry->prot;
 	int flags	= vma_entry->flags | MAP_FIXED;
+	u64 addr;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
 		return sys_shmat(vma_entry->fd, (void *)vma_entry->start,
@@ -316,11 +317,16 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
 	 * writable since we're going to restore page
 	 * contents.
 	 */
-	return sys_mmap((void *)vma_entry->start,
+	addr = sys_mmap((void *)vma_entry->start,
 			vma_entry_len(vma_entry),
 			prot, flags,
 			vma_entry->fd,
 			vma_entry->pgoff);
+
+	if (vma_entry->fd != -1)
+		sys_close(vma_entry->fd);
+
+	return addr;
 }
 
 /*
