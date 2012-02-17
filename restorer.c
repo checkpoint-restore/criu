@@ -289,13 +289,23 @@ err:
 
 static u64 restore_mapping(const struct vma_entry *vma_entry)
 {
-	int prot;
+	int prot	= vma_entry->prot;
+	int flags	= vma_entry->flags | MAP_FIXED;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
 		return sys_shmat(vma_entry->fd, (void *)vma_entry->start,
 				 (vma_entry->prot & PROT_WRITE) ? 0 : SHM_RDONLY);
 
-	prot = vma_entry->prot;
+	/*
+	 * Restore or shared mappings are tricky, since
+	 * we open anonymous mapping via map_files/
+	 * MAP_ANONYMOUS should be eliminated so fd would
+	 * be taken into account by a kernel.
+	 */
+	if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
+		if (vma_entry->fd != -1UL)
+			flags &= ~MAP_ANONYMOUS;
+	}
 
 	/* A mapping of file with MAP_SHARED is up to date */
 	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
@@ -308,8 +318,7 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
 	 */
 	return sys_mmap((void *)vma_entry->start,
 			vma_entry_len(vma_entry),
-			prot,
-			vma_entry->flags | MAP_FIXED,
+			prot, flags,
 			vma_entry->fd,
 			vma_entry->pgoff);
 }
@@ -400,17 +409,6 @@ long restore_task(struct task_restore_core_args *args)
 
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
-
-		/*
-		 * Restore or shared mappings are tricky, since
-		 * we open anonymous mapping via map_files/
-		 * MAP_ANONYMOUS should be eliminated so fd would
-		 * be taken into account by a kernel.
-		 */
-		if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
-			if (vma_entry->fd != -1UL)
-				vma_entry->flags &= ~MAP_ANONYMOUS;
-		}
 
 		va = restore_mapping(vma_entry);
 
