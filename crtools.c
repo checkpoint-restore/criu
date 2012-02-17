@@ -159,7 +159,6 @@ void __close_cr_fdset(struct cr_fdset *cr_fdset)
 	for (i = 0; i < CR_FD_MAX; i++) {
 		if (cr_fdset->fds[i] == -1)
 			continue;
-		pr_debug("Closed %d/%d\n", i, cr_fdset->fds[i]);
 		close_safe(&cr_fdset->fds[i]);
 		cr_fdset->fds[i] = -1;
 	}
@@ -224,7 +223,6 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 		}
 		fdset->fds[i] = ret;
 
-		pr_debug("Opened %s with %d\n", path, ret);
 		if (flags == O_RDONLY) {
 			u32 magic;
 
