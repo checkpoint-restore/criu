@@ -346,8 +346,8 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	int fd;
 	void *ret;
 
-	sprintf(path, "/proc/self/map_files/%p-%p",
-		old_addr, (void *)old_addr + size);
+	sprintf(path, "/proc/self/map_files/%lx-%lx",
+		(long)old_addr, (long)old_addr + size);
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
