@@ -72,7 +72,9 @@ run_test()
 	local tname=`basename $test`
 	local tdir=`dirname $test`
 
-	killall -9 $tname
+	echo "Execute $test"
+
+	killall -9 $tname &> /dev/null
 	make -C $tdir cleanout $tname.pid
 
 	local pid ddump
@@ -87,7 +89,7 @@ run_test()
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
-	if expr " $ARGS" : ' -s'; then
+	if expr " $ARGS" : ' -s' > /dev/null; then
 		save_fds $pid  $ddump/dump.fd.after
 		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 		killall -CONT $tname
