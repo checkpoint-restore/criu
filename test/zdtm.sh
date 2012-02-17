@@ -85,7 +85,7 @@ run_test()
 	echo Dump $pid
 	mkdir -p $ddump
 	save_fds $pid  $ddump/dump.fd
-	setsid $CRTOOLS dump -D $ddump -o dump.log -t $pid $args $ARGS || {
+	setsid $CRTOOLS dump -D $ddump -o dump.log -v 2 -t $pid $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -101,7 +101,7 @@ run_test()
 		done
 
 		echo Restore $pid
-		setsid $CRTOOLS restore -D $ddump -o restore.log -d -t $pid $args || return 2
+		setsid $CRTOOLS restore -D $ddump -o restore.log -v 2 -d -t $pid $args || return 2
 
 		save_fds $pid  $ddump/restore.fd
 		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
