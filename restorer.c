@@ -303,10 +303,8 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
 	 * MAP_ANONYMOUS should be eliminated so fd would
 	 * be taken into account by a kernel.
 	 */
-	if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
-		if (vma_entry->fd != -1UL)
-			flags &= ~MAP_ANONYMOUS;
-	}
+	if (vma_entry_is(vma_entry, VMA_ANON_SHARED) && (vma_entry->fd != -1UL))
+		flags &= ~MAP_ANONYMOUS;
 
 	/* A mapping of file with MAP_SHARED is up to date */
 	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
