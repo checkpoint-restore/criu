@@ -651,7 +651,7 @@ static int prepare_ipc_sem(int pid)
 			return ret;
 		}
 	}
-	return 0;
+	return close_safe(&fd);
 }
 
 static int prepare_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry)
@@ -764,7 +764,7 @@ static int prepare_ipc_msg(int pid)
 			return ret;
 		}
 	}
-	return 0;
+	return close_safe(&fd);
 }
 
 static int prepare_ipc_shm_pages(int fd, const struct ipc_shm_entry *shm)
@@ -856,7 +856,7 @@ static int prepare_ipc_shm(int pid)
 			return ret;
 		}
 	}
-	return 0;
+	return close_safe(&fd);
 }
 
 static int prepare_ipc_var(int pid)
@@ -877,7 +877,12 @@ static int prepare_ipc_var(int pid)
 
 	show_var_entry(&var);
 
-	return ipc_sysctl_req(&var, CTL_WRITE);
+	ret = ipc_sysctl_req(&var, CTL_WRITE);
+	if (ret < 0) {
+		pr_err("Failed to prepare IPC namespace variables\n");
+		return -EFAULT;
+	}
+	return close_safe(&fd);
 }
 
 int prepare_ipc_ns(int pid)
