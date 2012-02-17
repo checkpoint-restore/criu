@@ -16,10 +16,7 @@
 #include "types.h"
 #include "util.h"
 
-/*
- * Note pr_ helpers rely on this
- * descriptor!
- */
+/* Note pr_ helpers rely on this descriptor! */
 static int logfd = STDERR_FILENO;
 
 int get_logfd(void)
@@ -68,4 +65,13 @@ void fini_log(void)
 		close(logfd);
 
 	logfd = STDERR_FILENO;
+}
+
+void printk(const char *format, ...)
+{
+	va_list params;
+
+	va_start(params, format);
+	vdprintf(get_logfd(), format, params);
+	va_end(params);
 }
