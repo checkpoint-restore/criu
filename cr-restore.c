@@ -343,8 +343,7 @@ static int prepare_pipes_pid(int pid)
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
 	char path[PATH_MAX];
-	int fd;
-	void *ret;
+	int fd, ret = -1;
 
 	sprintf(path, "/proc/self/map_files/%lx-%lx",
 		(long)old_addr, (long)old_addr + size);
@@ -355,15 +354,17 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 		return -1;
 	}
 
-	ret = mmap(new_addr, size, PROT_READ | PROT_WRITE,
-		   MAP_SHARED | MAP_FIXED, fd, 0);
-	if (ret != new_addr) {
+	/* reuse old_addr variable */
+	old_addr = mmap(new_addr, size, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_FIXED, fd, 0);
+	if (new_addr == old_addr)
+		ret = 0;
+	else
 		pr_perror("mmap failed");
-		return -1;
-	}
 
 	close(fd);
-	return 0;
+
+	return ret;
 }
 
 static int prepare_shared(int ps_fd)
