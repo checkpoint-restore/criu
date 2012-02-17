@@ -141,7 +141,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	dprintk("\t%s: ino %d family %d type %d port %d "
+	pr_debug("\t%s: ino %d family %d type %d port %d "
 		"state %d src_addr %s\n",
 		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
 		sk->state, src_addr);
@@ -156,7 +156,7 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 		pr_perror("Failed to translate address");
 	}
 
-	dprintk("\t%s: fd %d family %d type %d proto %d port %d "
+	pr_debug("\t%s: fd %d family %d type %d proto %d port %d "
 		"state %d src_addr %s\n",
 		act, e->fd, e->family, e->type, e->proto, e->src_port,
 		e->state, src_addr);
@@ -164,20 +164,20 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	dprintk("\t%s: ino %d type %d state %d name %s\n",
+	pr_debug("\t%s: ino %d type %d state %d name %s\n",
 		act, sk->sd.ino, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
 		int i;
 
 		for (i = 0; i < sk->nr_icons; i++)
-			dprintk("\t\ticon: %4d\n", sk->icons[i]);
+			pr_debug("\t\ticon: %4d\n", sk->icons[i]);
 	}
 }
 
 static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
-	dprintk("\t%s: fd %d type %d state %d name %d bytes\n",
+	pr_debug("\t%s: fd %d type %d state %d name %d bytes\n",
 		act, e->fd, e->type, e->state, e->namelen);
 }
 
@@ -328,7 +328,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd,
 		ue.flags	|= USK_INFLIGHT;
 		ue.peer		= e->sk_desc->sd.ino;
 
-		dprintk("\t\tFixed inflight socket %d peer %d)\n",
+		pr_debug("\t\tFixed inflight socket %d peer %d)\n",
 				ue.id, ue.peer);
 	}
 
@@ -521,7 +521,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 
 			SK_HASH_LINK(unix_listen_icons, d->icons[i], e);
 
-			dprintk("\t\tCollected icon %d\n", d->icons[i]);
+			pr_debug("\t\tCollected icon %d\n", d->icons[i]);
 
 			e->peer_ino	= d->icons[i];
 			e->sk_desc	= d;
@@ -697,7 +697,7 @@ enum {
 
 static void unix_show_job(const char *type, int fd, int id)
 {
-	dprintk("%s job fd %d id %d\n", type, fd, id);
+	pr_debug("%s job fd %d id %d\n", type, fd, id);
 }
 
 static struct unix_conn_job *conn_jobs;

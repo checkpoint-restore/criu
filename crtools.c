@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fcntl.h>
 
@@ -290,8 +291,9 @@ int main(int argc, char *argv[])
 	int opt, idx;
 	int action = -1;
 	int log_inited = 0;
+	int log_level = 0;
 
-	static const char short_opts[] = "dsf:p:t:hcD:o:n:";
+	static const char short_opts[] = "dsf:p:t:hcD:o:n:v";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -344,11 +346,31 @@ int main(int argc, char *argv[])
 			if (parse_ns_string(optarg, &opts.namespaces_flags))
 				return -1;
 			break;
+		case 'v':
+			if (optind < argc - 1) {
+				char *opt = argv[optind + 1];
+
+				if (isdigit(*opt)) {
+					log_level = -atoi(opt);
+					optind++;
+				} else {
+					if (log_level >= 0)
+						log_level++;
+				}
+			} else {
+				if (log_level >= 0)
+					log_level++;
+			}
+			break;
 		case 'h':
 		default:
 			goto usage;
 		}
 	}
+
+	if (log_level < 0)
+		log_level = -log_level;
+	set_loglevel(log_level);
 
 	if (!log_inited) {
 		ret = init_log(NULL);
@@ -410,6 +432,12 @@ usage:
 
 	printk("\nAdditional common parameters:\n");
 	printk("  -D dir         save checkpoint files in specified directory\n");
+	printk("  -v [num]       set logging level\n");
+	printk("                 0 - silent (only error messages)\n");
+	printk("                 1 - informative (default)\n");
+	printk("                 2 - debug\n");
+	printk("  -vv            same as -v 1\n");
+	printk("  -vvv           same as -v 2\n");
 	printk("\n");
 
 	return -1;

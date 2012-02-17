@@ -67,11 +67,23 @@ void fini_log(void)
 	logfd = STDERR_FILENO;
 }
 
-void printk(const char *format, ...)
+static unsigned int loglevel = LOG_WARN;
+
+void set_loglevel(unsigned int level)
+{
+	if (!level)
+		loglevel = LOG_ERROR;
+	else
+		loglevel = level;
+}
+
+void printk_level(unsigned int level, const char *format, ...)
 {
 	va_list params;
 
-	va_start(params, format);
-	vdprintf(get_logfd(), format, params);
-	va_end(params);
+	if (level <= loglevel) {
+		va_start(params, format);
+		vdprintf(get_logfd(), format, params);
+		va_end(params);
+	}
 }
