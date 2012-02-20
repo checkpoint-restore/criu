@@ -427,10 +427,6 @@ long restore_task(struct task_restore_core_args *args)
 			write_hex_n(va);
 			goto core_restore_end;
 		}
-
-		if (vma_entry->fd != -1UL)
-			sys_close(vma_entry->fd);
-
 	}
 
 	/*
