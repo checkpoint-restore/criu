@@ -51,7 +51,7 @@ ARGS=""
 
 save_fds()
 {
-	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' > $2
+	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | awk '{ print $9,$10,$11; }' > $2
 }
 
 diff_fds()
