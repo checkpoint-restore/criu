@@ -418,6 +418,7 @@ static void show_core_rest(int fd_core)
 	pr_info("\tArg end:      %lx\n", tc.mm_arg_end);
 	pr_info("\tEnv start:    %lx\n", tc.mm_env_start);
 	pr_info("\tEnv end:      %lx\n", tc.mm_env_end);
+	pr_info("\n\tBlkSig: %lx\n", tc.blk_sigset);
 	pr_info("\n");
 
 err:
