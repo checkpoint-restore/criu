@@ -411,13 +411,13 @@ static int init(struct parasite_init_args *args)
 	return ret;
 }
 
-static int set_logfd()
+static int set_logfd(void)
 {
 	logfd = recv_fd(tsock);
 	return logfd;
 }
 
-static int fini()
+static int fini(void)
 {
 	if (reset_blocked == 1)
 		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL);
