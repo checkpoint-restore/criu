@@ -77,9 +77,8 @@ static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 }
 
 /* we run at @regs->ip */
-static int __parasite_execute(struct parasite_ctl *ctl, user_regs_struct_t *regs)
+static int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs)
 {
-	pid_t pid = ctl->pid;
 	siginfo_t siginfo;
 	int status;
 	int ret = -1;
@@ -226,19 +225,29 @@ err:
 	return ret;
 }
 
-static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
+			    pid_t pid,
 			    parasite_status_t *args, int args_size)
 {
 	int ret;
+	user_regs_struct_t regs_orig, regs;
 
-	user_regs_struct_t regs = ctl->regs_orig;
+	if (ctl->pid == pid)
+		regs = ctl->regs_orig;
+	else {
+		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig)) {
+			pr_err("Can't obtain registers (pid: %d)\n", pid);
+			return -1;
+		}
+		regs = regs_orig;
+	}
 
 	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
 	memcpy(ctl->addr_args, args, args_size);
 
 	parasite_setup_regs(ctl->parasite_ip, &regs);
 
-	ret = __parasite_execute(ctl, &regs);
+	ret = __parasite_execute(ctl, pid, &regs);
 
 	memcpy(args, ctl->addr_args, args_size);
 	if (!ret)
@@ -248,7 +257,19 @@ static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
 		pr_err("Parasite exited with %d ret (%li at %li)\n",
 		       ret, args->sys_ret, args->line);
 
+	if (ctl->pid != pid)
+		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
+			pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
+			return -1;
+		}
+
 	return ret;
+}
+
+static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+			    parasite_status_t *args, int args_size)
+{
+	return parasite_execute_by_pid(cmd, ctl, ctl->pid, args, args_size);
 }
 
 static void *mmap_seized(struct parasite_ctl *ctl,
@@ -269,7 +290,7 @@ static void *mmap_seized(struct parasite_ctl *ctl,
 
 	parasite_setup_regs(ctl->syscall_ip, &regs);
 
-	ret = __parasite_execute(ctl, &regs);
+	ret = __parasite_execute(ctl, ctl->pid, &regs);
 	if (ret)
 		goto err;
 
@@ -290,7 +311,7 @@ static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 
 	parasite_setup_regs(ctl->syscall_ip, &regs);
 
-	ret = __parasite_execute(ctl, &regs);
+	ret = __parasite_execute(ctl, ctl->pid, &regs);
 	if (!ret)
 		ret = (int)regs.ax;
 
