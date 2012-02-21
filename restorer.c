@@ -722,6 +722,9 @@ long restore_task(struct task_restore_core_args *args)
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL);
 
 	cr_wait_dec(&args->task_entries->nr_in_progress);
+
+	sys_close(args->logfd);
+
 	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 
 	/*
@@ -742,12 +745,9 @@ long restore_task(struct task_restore_core_args *args)
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
-		goto core_restore_end;
+		ret = ((long)__LINE__ << 32) | -ret;
+		goto core_restore_failed;
 	}
-
-	sys_close(args->logfd);
 
 	/*
 	 * Sigframe stack.
@@ -773,4 +773,14 @@ core_restore_end:
 	write_num_n(sys_getpid());
 	sys_exit(-1);
 	return -1;
+
+core_restore_failed:
+	asm volatile(
+		"movq %0, %%rsp				\n"
+		"movq 0, %%rax				\n"
+		"jmp *%%rax				\n"
+		:
+		: "r"(ret)
+		: );
+	return ret;
 }
