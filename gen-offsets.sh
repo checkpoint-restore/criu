@@ -1,5 +1,8 @@
 #!/bin/sh
 
+set -e
+set -u
+
 NAME=$1
 INC_GUARD=__${NAME}_h__
 PREFIX=${NAME}_blob_offset__

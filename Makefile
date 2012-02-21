@@ -91,7 +91,7 @@ $(HEAD-BIN): $(HEAD-LDS) $(OBJS-BLOB) parasite-util-net.o
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS) parasite > $@
+	$(Q) $(SH) $(GEN-OFFSETS) parasite > $@ || rm -f $@
 	$(Q) sync
 
 $(ROBJS): $(RSRCS-BLOB)
@@ -104,7 +104,7 @@ $(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
 
 $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS) restorer > $@
+	$(Q) $(SH) $(GEN-OFFSETS) restorer > $@ || rm -f $@
 	$(Q) sync
 
 %.o: %.c
