@@ -318,7 +318,7 @@ static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 	return ret;
 }
 
-static int get_socket_name(struct sockaddr_un *saddr, pid_t pid)
+static int gen_parasite_saddr(struct sockaddr_un *saddr, pid_t pid)
 {
 	int sun_len;
 
@@ -338,7 +338,7 @@ static int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 	int sun_len, ret = -1;
 	int sock;
 
-	sun_len = get_socket_name(&saddr, ctl->pid);
+	sun_len = gen_parasite_saddr(&saddr, ctl->pid);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -401,7 +401,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 {
 	struct parasite_init_args args = { };
 
-	args.sun_len = get_socket_name(&args.saddr, pid);
+	args.sun_len = gen_parasite_saddr(&args.saddr, pid);
 
 	return parasite_execute(PARASITE_CMD_INIT, ctl,
 				(parasite_status_t *)&args, sizeof(args));
