@@ -73,6 +73,8 @@ DEPS		:= $(patsubst %.o,%.d,$(OBJS))		\
        		   $(patsubst %.o,%.d,$(OBJS-BLOB))	\
 		   $(patsubst %.o,%.d,$(ROBJS-BLOB))
 
+GEN-OFFSETS	:= gen-offsets.sh
+
 all: $(PROGRAM)
 
 $(OBJS-BLOB): $(SRCS-BLOB)
@@ -87,9 +89,9 @@ $(HEAD-BIN): $(HEAD-LDS) $(OBJS-BLOB) parasite-util-net.o
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $^ -o $@
 
-$(HEAD-BLOB-GEN): $(HEAD-BIN)
+$(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) gen-offsets.sh			\
+	$(Q) $(SH) $(GEN-OFFSETS)			\
 		parasite_h__				\
 		parasite_blob_offset__			\
 		parasite_blob				\
@@ -105,9 +107,9 @@ $(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) -o $@ $(ROBJS)
 
-$(RHEAD-BLOB-GEN): $(RHEAD-BIN)
+$(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) gen-offsets.sh			\
+	$(Q) $(SH) $(GEN-OFFSETS)			\
 		restorer_h__				\
 		restorer_blob_offset__			\
 		restorer_blob				\
