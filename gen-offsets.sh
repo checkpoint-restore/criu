@@ -1,10 +1,11 @@
 #!/bin/sh
 
-INC_GUARD=$1
-PREFIX=$2
-BLOB=$3
-OBJNAME=$4
-BINARY=$5
+NAME=$1
+INC_GUARD=__${NAME}_h__
+PREFIX=${NAME}_blob_offset__
+BLOB=${NAME}_blob
+OBJNAME=${NAME}.o
+BINARY=${NAME}.bin
 
 AWK_CMD='$2 ~ /^[tT]$/ { print "#define '$PREFIX'" $3 " 0x" $1; }'
 

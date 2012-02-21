@@ -91,12 +91,8 @@ $(HEAD-BIN): $(HEAD-LDS) $(OBJS-BLOB) parasite-util-net.o
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS)			\
-		parasite_h__				\
-		parasite_blob_offset__			\
-		parasite_blob				\
-		$(OBJS-BLOB)				\
-		$(HEAD-BIN) > parasite-blob.h
+	$(Q) $(SH) $(GEN-OFFSETS) parasite	\
+		> parasite-blob.h
 	$(Q) sync
 
 $(ROBJS): $(RSRCS-BLOB)
@@ -109,12 +105,8 @@ $(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
 
 $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS)			\
-		restorer_h__				\
-		restorer_blob_offset__			\
-		restorer_blob				\
-		$(ROBJS-BLOB)				\
-		$(RHEAD-BIN) > restorer-blob.h
+	$(Q) $(SH) $(GEN-OFFSETS) restorer	\
+		> restorer-blob.h
 	$(Q) sync
 
 %.o: %.c
