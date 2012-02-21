@@ -42,6 +42,7 @@ enum {
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
+	PARASITE_CMD_DUMP_TID_ADDR,
 
 	PARASITE_CMD_MAX,
 };
@@ -88,6 +89,12 @@ struct parasite_dump_misc {
 	unsigned int		secbits;
 	unsigned long		brk;
 	k_rtsigset_t		blocked;
+};
+
+struct parasite_dump_tid_addr {
+	parasite_status_t	status;
+
+	unsigned int *tid_addr;
 };
 
 /*

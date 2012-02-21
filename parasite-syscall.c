@@ -423,6 +423,19 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
+int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl, pid_t pid, unsigned int **tid_addr)
+{
+	struct parasite_dump_tid_addr args = { };
+	int ret;
+
+	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_TID_ADDR, ctl, pid,
+			(parasite_status_t *)&args, sizeof(args));
+
+	*tid_addr = args.tid_addr;
+
+	return ret;
+}
+
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
 	return parasite_file_cmd("sigactions", PARASITE_CMD_DUMP_SIGACTS,

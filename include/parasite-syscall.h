@@ -36,6 +36,10 @@ extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_d
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				      struct list_head *vma_area_list,
 				      struct cr_fdset *cr_fdset);
+struct parasite_dump_tid_addr;
+extern int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl,
+					 pid_t pid, unsigned int **tid_add);
+
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct list_head *vma_area_list);

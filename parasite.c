@@ -374,6 +374,17 @@ static int dump_misc(struct parasite_dump_misc *args)
 	return 0;
 }
 
+static int dump_tid_addr(struct parasite_dump_tid_addr *args)
+{
+	parasite_status_t *st = &args->status;
+	int ret;
+
+	ret = sys_prctl(PR_GET_TID_ADDR, (unsigned long) &args->tid_addr, 0, 0, 0);
+
+	SET_PARASITE_STATUS(st, 0, ret);
+	return 0;
+}
+
 static int init(struct parasite_init_args *args)
 {
 	int ret;
@@ -444,6 +455,8 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 		return dump_itimers((parasite_status_t *)args);
 	case PARASITE_CMD_DUMP_MISC:
 		return dump_misc((struct parasite_dump_misc *)args);
+	case PARASITE_CMD_DUMP_TID_ADDR:
+		return dump_tid_addr((struct parasite_dump_tid_addr *)args);
 	default:
 		sys_write_msg("Unknown command to parasite\n");
 		break;

@@ -41,7 +41,7 @@
 # define PR_SET_MM_AUXV			12
 # define PR_SET_MM_EXE_FILE		13
 
-#define PR_SETUP_VDSO_AT	36
+#define PR_GET_TID_ADDR		36
 
 /* fcntl */
 #ifndef F_LINUX_SPECIFIC_BASE

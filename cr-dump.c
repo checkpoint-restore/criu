@@ -1029,10 +1029,12 @@ err:
 	return -1;
 }
 
-static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_thread(struct parasite_ctl *parasite_ctl,
+				pid_t pid, struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int ret				= -1;
+	unsigned int *taddr;
 
 	pr_info("\n");
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
@@ -1045,10 +1047,16 @@ static int dump_task_thread(pid_t pid, struct cr_fdset *cr_fdset)
 	ret = get_task_regs(pid, core, NULL);
 	if (ret)
 		goto err_free;
-	if (ptrace(PTRACE_GET_TID_ADDRESS, pid, NULL, &core->clear_tid_address)) {
-		pr_err("Can't get TID address for %d\n", pid);
-		goto err_free;
+
+	ret = parasite_dump_tid_addr_seized(parasite_ctl, pid, &taddr);
+	if (ret) {
+		pr_err("Can't dump tid address for pid %d", pid);
+		goto err;
 	}
+
+	pr_info("%d: tid_address=%p\n", pid, taddr);
+	core->clear_tid_address = (u64) taddr;
+
 	pr_info("OK\n");
 
 	core->tc.task_state = TASK_ALIVE;
@@ -1085,7 +1093,8 @@ static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
 
 static struct proc_pid_stat pps_buf;
 
-static int dump_task_threads(struct pstree_item *item)
+static int dump_task_threads(struct parasite_ctl *parasite_ctl,
+					struct pstree_item *item)
 {
 	int i;
 	struct cr_fdset *cr_fdset_thread = NULL;
@@ -1102,7 +1111,8 @@ static int dump_task_threads(struct pstree_item *item)
 		if (!cr_fdset_thread)
 			goto err;
 
-		if (dump_task_thread(item->threads[i], cr_fdset_thread))
+		if (dump_task_thread(parasite_ctl,
+					item->threads[i], cr_fdset_thread))
 			goto err;
 
 		close_cr_fdset(&cr_fdset_thread);
@@ -1186,7 +1196,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-	ret = dump_task_threads(item);
+	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
 		goto err;
