@@ -105,7 +105,7 @@ $(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
 	$(E) "  GEN     " $@
 	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) -o $@ $(ROBJS)
 
-$(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(RDEPS-BLOB)
+$(RHEAD-BLOB-GEN): $(RHEAD-BIN)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) gen-offsets.sh			\
 		restorer_h__				\
