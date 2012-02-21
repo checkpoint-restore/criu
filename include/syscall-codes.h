@@ -51,6 +51,7 @@
 #define __NR_restart_syscall	219
 #define __NR_msync		227
 #define __NR_setns		308
+#define __NR_kcmp		312
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented

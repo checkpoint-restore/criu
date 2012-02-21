@@ -391,6 +391,12 @@ static void sys_set_tid_address(int *tid_addr) {
 	syscall1(__NR_set_tid_address, (long) tid_addr);
 }
 
+static long always_inline
+sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)
+{
+	return syscall5(__NR_kcmp, (long)pid1, (long)pid2, (long)type, idx1, idx2);
+}
+
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS	0x04000000
 #endif

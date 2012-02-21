@@ -182,4 +182,17 @@ typedef struct {
 # define PAGE_SIZE	4096
 #endif
 
+/* For sys_kcmp */
+enum kcmp_type {
+	KCMP_FILE,
+	KCMP_VM,
+	KCMP_FILES,
+	KCMP_FS,
+	KCMP_SIGHAND,
+	KCMP_IO,
+	KCMP_SYSVSEM,
+
+	KCMP_TYPES,
+};
+
 #endif /* CR_TYPES_H_ */
