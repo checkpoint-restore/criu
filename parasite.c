@@ -106,6 +106,7 @@ static int dump_pages_init(parasite_status_t *st)
 	if (fd_pages[PG_SHARED] < 0)
 		goto err_s;
 
+	SET_PARASITE_STATUS(st, 0, 0);
 	return 0;
 
 err_s:
@@ -241,7 +242,7 @@ err:
 	return ret;
 }
 
-static int dump_pages_fini(parasite_status_t *st)
+static int dump_pages_fini(void)
 {
 	sys_close(fd_pages[PG_PRIV]);
 	sys_close(fd_pages[PG_SHARED]);
@@ -395,6 +396,7 @@ static int init(struct parasite_init_args *args)
 	else
 		reset_blocked = 1;
 
+	SET_PARASITE_STATUS(&args->status, ret, ret);
 	return ret;
 }
 
@@ -433,7 +435,7 @@ static int __used parasite_service(unsigned long cmd, void *args, void *brk)
 	case PARASITE_CMD_DUMPPAGES_INIT:
 		return dump_pages_init((parasite_status_t *) args);
 	case PARASITE_CMD_DUMPPAGES_FINI:
-		return dump_pages_fini((parasite_status_t *) args);
+		return dump_pages_fini();
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
