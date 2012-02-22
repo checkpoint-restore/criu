@@ -38,7 +38,7 @@
 /* message buffer for msgrcv in case of array calls */
 struct msgbuf_a {
 	long mtype;         /* type of message */
-	size_t msize;       /* size of message */
+	int msize;       /* size of message */
 	char mtext[0];      /* message text */
 };
 #endif
@@ -184,7 +184,11 @@ static int dump_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry
 	size_t array_size;
 	int ret, msg_nr = 0;
 
-	array_size = entry->qnum * sizeof(struct msgbuf_a) + cbytes;
+	/*
+	 * Here we allocate memory for struct msgbuf_a twice becase messages in
+	 * array will be aligned by struct msgbuf_a.
+	 */
+	array_size = entry->qnum * sizeof(struct msgbuf_a) * 2 + cbytes;
 	msg_array = ptr = xmalloc(array_size);
 	if (msg_array == NULL) {
 		pr_err("Failed to allocate memory for IPC messages\n");
@@ -217,7 +221,7 @@ static int dump_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry
 			break;
 		}
 		msg_nr++;
-		ptr += sizeof(struct msgbuf_a) + data->msize;
+		ptr += round_up(data->msize + sizeof(struct msgbuf_a), sizeof(struct msgbuf_a));
 	}
 	ret = 0;
 err:
