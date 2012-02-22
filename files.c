@@ -491,7 +491,7 @@ err:
 	return err;
 }
 
-static struct fmap_fd *pop_fmap_fd(int pid, unsigned long start)
+static struct fmap_fd *pull_fmap_fd(int pid, unsigned long start)
 {
 	struct fmap_fd **p, *r;
 
@@ -514,7 +514,7 @@ static struct fmap_fd *pop_fmap_fd(int pid, unsigned long start)
 
 int try_fixup_file_map(int pid, struct vma_entry *vma_entry, int fd)
 {
-	struct fmap_fd *fmap_fd = pop_fmap_fd(pid, vma_entry->start);
+	struct fmap_fd *fmap_fd = pull_fmap_fd(pid, vma_entry->start);
 
 	if (fmap_fd) {
 		pr_info("%d: Fixing %lx vma to %d fd\n",
