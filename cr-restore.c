@@ -1224,6 +1224,12 @@ static int restore_one_task(int pid)
 	}
 }
 
+/*
+ * This stack size is important for the restorer
+ * itself only. At the final phase, we will switch
+ * to the original stack the program had at checkpoint
+ * time.
+ */
 #define STACK_SIZE	(8 * 4096)
 struct cr_clone_arg {
 	int pid, fd;
