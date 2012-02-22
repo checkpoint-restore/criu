@@ -20,37 +20,6 @@
 #include "util-net.h"
 #include "lock.h"
 
-enum fdinfo_states {
-	FD_STATE_PREP,		/* Create unix sockets */
-	FD_STATE_CREATE,	/* Create and send fd */
-	FD_STATE_RECV,		/* Receive fd */
-
-	FD_STATE_MAX
-};
-
-struct fmap_fd {
-	struct fmap_fd	*next;
-	unsigned long	start;
-	int		pid;
-	int		fd;
-};
-
-struct fdinfo_desc {
-	char		id[FD_ID_SIZE];
-	u64		addr;
-	int		pid;
-	u32		real_pid;	/* futex */
-	u32		users;		/* futex */
-	struct list_head list;
-};
-
-struct fdinfo_list_entry {
-	struct list_head	list;
-	int			fd;
-	int			pid;
-	u32			real_pid;
-};
-
 static struct fdinfo_desc *fdinfo_descs;
 static int nr_fdinfo_descs;
 
