@@ -400,7 +400,7 @@ static int prepare_shared(int ps_fd)
 		return -1;
 	}
 
-	if (prepare_fdinfo_global())
+	if (prepare_shared_fdinfo())
 		return -1;
 
 	while (1) {

@@ -28,6 +28,22 @@ static int nr_fdinfo_list;
 
 static struct fmap_fd *fmap_fds;
 
+int prepare_shared_fdinfo(void)
+{
+	fdinfo_descs = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (fdinfo_descs == MAP_FAILED) {
+		pr_perror("Can't map fdinfo_descs");
+		return -1;
+	}
+
+	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (fdinfo_list == MAP_FAILED) {
+		pr_perror("Can't map fdinfo_list");
+		return -1;
+	}
+	return 0;
+}
+
 static struct fdinfo_desc *find_fd(char *id)
 {
 	struct fdinfo_desc *fi;
@@ -51,22 +67,6 @@ static int get_file_path(char *path, struct fdinfo_entry *fe, int fd)
 
 	path[fe->len] = '\0';
 
-	return 0;
-}
-
-int prepare_fdinfo_global()
-{
-	fdinfo_descs = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (fdinfo_descs == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_descs");
-		return -1;
-	}
-
-	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (fdinfo_list == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_list");
-		return -1;
-	}
 	return 0;
 }
 
