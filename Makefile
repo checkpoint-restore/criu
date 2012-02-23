@@ -180,12 +180,12 @@ distclean: clean
 tags:
 	$(E) "  GEN" $@
 	$(Q) $(RM) -f tags
-	$(Q) $(FIND) . -name '*.[hcS]' -print | xargs ctags -a
+	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' -print | xargs ctags -a
 .PHONY: tags
 
 cscope:
 	$(E) "  GEN" $@
-	$(Q) $(FIND) . -name '*.[hcS]' -print > cscope.files
+	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' -print > cscope.files
 	$(Q) $(CSCOPE) -bkqu
 .PHONY: cscope
 
