@@ -23,6 +23,9 @@
 # define __always_inline	inline __attribute__((always_inline))
 #endif
 
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+
 #ifndef always_inline
 # define always_inline		__always_inline
 #endif
