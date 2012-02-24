@@ -49,7 +49,7 @@
 # define BUG_ON_HANDLER(condition)					\
 	do {								\
 		if ((condition)) {					\
-			pr_err("BUG at %s:%d", __FILE__, __LINE__);	\
+			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);	\
 			raise(SIGABRT);					\
 		}							\
 	} while (0)
