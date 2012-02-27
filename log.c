@@ -61,7 +61,7 @@ void fini_log(void)
 {
 	if (logfd != STDERR_FILENO &&
 	    logfd != STDIN_FILENO &&
-	    logfd != STDERR_FILENO)
+	    logfd != STDOUT_FILENO)
 		close(logfd);
 
 	logfd = STDERR_FILENO;
