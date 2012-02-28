@@ -16,6 +16,8 @@
 #define NORETURN 		__attribute__((__noreturn__))
 #define __packed		__attribute__((__packed__))
 #define __used			__attribute__((__used__))
+#define __maybe_unused		__attribute__((unused))
+#define __always_unused		__attribute__((unused))
 
 #define __section(S)		__attribute__ ((__section__(#S)))
 

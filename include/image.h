@@ -39,15 +39,13 @@
 #define PAGE_RSS	1
 #define PAGE_ANON	2
 
-#define FD_ID_SIZE	50
-
 struct fdinfo_entry {
 	u8	type;
 	u8	len;
 	u16	flags;
 	u32	pos;
 	u64	addr;
-	u8	id[FD_ID_SIZE];
+	u64	id;
 	u8	name[0];
 } __packed;
 

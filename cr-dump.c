@@ -20,6 +20,7 @@
 
 #include "types.h"
 #include "list.h"
+#include "file-ids.h"
 
 #include "compiler.h"
 #include "crtools.h"
@@ -31,6 +32,7 @@
 #include "image.h"
 #include "proc_parse.h"
 #include "parasite-syscall.h"
+#include "file-ids.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -89,7 +91,9 @@ struct fd_parms {
 	unsigned long	fd_name;
 	unsigned long	pos;
 	unsigned int	flags;
-	char		*id;
+
+	u64		id;
+	pid_t		pid;
 };
 
 static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
@@ -120,10 +124,24 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	e.flags = p->flags;
 	e.pos	= p->pos;
 	e.addr	= p->fd_name;
-	if (p->id)
-		memcpy(e.id, p->id, FD_ID_SIZE);
-	else
-		memzero(e.id, FD_ID_SIZE);
+
+	if (likely(!fd_is_special(&e))) {
+		struct fd_id_entry *fd_id_entry;
+
+		/*
+		 * Make sure the union is still correlate with structure
+		 * we write to disk.
+		 */
+		BUILD_BUG_ON(sizeof(fd_id_entry->u.key) != sizeof(e.id));
+
+		fd_id_entry = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
+		if (!fd_id_entry)
+			goto err;
+
+		/* Now it might have completely new ID here */
+		e.id	= fd_id_entry->u.id;
+	} else
+		e.id	= FD_ID_INVALID;
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		type, len, p->flags, p->pos, p->fd_name);
@@ -144,7 +162,12 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 	int fd, ret;
 
 	/* Dump /proc/pid/cwd */
-	params = (struct fd_parms){ .fd_name = FDINFO_CWD, };
+	params = (struct fd_parms) {
+		.fd_name	= FDINFO_CWD,
+		.id		= FD_ID_INVALID,
+		.pid		= FD_PID_INVALID,
+	};
+
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
@@ -153,7 +176,12 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 		return ret;
 
 	/* Dump /proc/pid/exe */
-	params = (struct fd_parms){ .fd_name = FDINFO_EXE, };
+	params = (struct fd_parms) {
+		.fd_name	= FDINFO_EXE,
+		.id		= FD_ID_INVALID,
+		.pid		= FD_PID_INVALID,
+	};
+
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
@@ -281,8 +309,12 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
 
 	if (S_ISREG(st_buf.st_mode) ||
 	    S_ISDIR(st_buf.st_mode) ||
-	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR))
+	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR)) {
+
+		p->id = MAKE_FD_GENID(st_buf.st_dev, st_buf.st_ino, p->pos);
+
 		return dump_one_reg_file(FDINFO_FD, p, lfd, cr_fdset, 1);
+	}
 
 	if (S_ISFIFO(st_buf.st_mode)) {
 		if (fstatfs(lfd, &stfs_buf) < 0) {
@@ -312,16 +344,19 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 		return -1;
 
 	p->fd_name = atoi(fd);
-	ret = fscanf(file, "pos:\t%li\nflags:\t%o\nid:\t%s\n", &p->pos, &p->flags, p->id);
+	ret = fscanf(file, "pos:\t%li\nflags:\t%o\n", &p->pos, &p->flags);
 	fclose(file);
 
-	if (ret != 3) {
-		pr_err("Bad format of fdinfo file (%d items, want 3)\n", ret);
+	if (ret != 2) {
+		pr_err("Bad format of fdinfo file (%d items, want 2)\n", ret);
 		return -1;
 	}
 
-	pr_info("%d fdinfo %s: pos: %16lx flags: %16o id %s\n",
-		pid, fd, p->pos, p->flags, p->id);
+	pr_info("%d fdinfo %s: pos: %16lx flags: %16o\n",
+		pid, fd, p->pos, p->flags);
+
+	p->pid	= pid;
+	p->id	= FD_ID_INVALID;
 
 	return 0;
 }
@@ -352,8 +387,7 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 		return -1;
 
 	while ((de = readdir(fd_dir))) {
-		char id[FD_ID_SIZE];
-		struct fd_parms p = { .id = id };
+		struct fd_parms p;
 		int lfd;
 
 		if (de->d_name[0] == '.')
@@ -407,9 +441,9 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				   vma_entry_is(vma, VMA_FILE_SHARED)) {
 				struct fd_parms p = {
-					.fd_name = vma->start,
-					.pos = 0,
-					.id = NULL,
+					.fd_name	= vma->start,
+					.id		= FD_ID_INVALID,
+					.pid		= pid,
 				};
 
 				if (vma->prot & PROT_WRITE &&

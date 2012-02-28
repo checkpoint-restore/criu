@@ -22,7 +22,7 @@ struct fmap_fd {
 };
 
 struct fdinfo_desc {
-	char			id[FD_ID_SIZE];
+	u64			id;
 	u64			addr;
 	int			pid;
 	u32			real_pid;	/* futex */

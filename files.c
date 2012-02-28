@@ -44,14 +44,14 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-static struct fdinfo_desc *find_fd(char *id)
+static struct fdinfo_desc *find_fd(u64 id)
 {
 	struct fdinfo_desc *fi;
 	int i;
 
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		fi = fdinfo_descs + i;
-		if (!strncmp(fi->id, id, FD_ID_SIZE))
+		if (fi->id == id)
 			return fi;
 	}
 
@@ -74,9 +74,10 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
 	struct fdinfo_list_entry *le = &fdinfo_list[nr_fdinfo_list];
-	struct fdinfo_desc	*desc;
+	struct fdinfo_desc *desc;
 
-	pr_info("Collect fdinfo pid=%d fd=%ld id=%s\n", pid, e->addr, e->id);
+	pr_info("Collect fdinfo pid=%d fd=%ld id=%16lx\n",
+		pid, e->addr, e->id);
 
 	nr_fdinfo_list++;
 	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= 4096) {
@@ -90,7 +91,8 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		desc = &fdinfo_descs[i];
-		if (strncmp(desc->id, (char *) e->id, FD_ID_SIZE))
+
+		if (desc->id != e->id)
 			continue;
 
 		fdinfo_descs[i].users++;
@@ -111,13 +113,14 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	}
 
 	desc = &fdinfo_descs[nr_fdinfo_descs];
-	memset(desc, 0, sizeof(fdinfo_descs[nr_fdinfo_descs]));
+	memzero(desc, sizeof(*desc));
 
-	memcpy(desc->id, e->id, FD_ID_SIZE);
-	desc->addr= e->addr;
-	desc->pid = pid;
-	desc->users = 1;
+	desc->id	= e->id;
+	desc->addr	= e->addr;
+	desc->pid	= pid;
+	desc->users	= 1;
 	INIT_LIST_HEAD(&desc->list);
+
 	list_add(&le->list, &desc->list);
 	nr_fdinfo_descs++;
 
@@ -392,7 +395,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	u32 mag;
 	int ret = 0;
 
-	struct fdinfo_desc *fi = find_fd((char *)fe->id);
+	struct fdinfo_desc *fi = find_fd(fe->id);
 
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;

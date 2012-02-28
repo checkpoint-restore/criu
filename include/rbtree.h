@@ -82,4 +82,13 @@ static void rb_link_node(struct rb_node *node, struct rb_node *parent,
 	*rb_link = node;
 }
 
+static void rb_link_and_balance(struct rb_root *root,
+				struct rb_node *node,
+				struct rb_node *parent,
+				struct rb_node **rb_link)
+{
+	rb_link_node(node, parent, rb_link);
+	rb_insert_color(node, root);
+}
+
 #endif /* RBTREE_H__ */
