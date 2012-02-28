@@ -28,10 +28,27 @@ static struct vma_entry vma;
 static int logfd = -1;
 static int tsock = -1;
 
-static void brk_init(void *brk)
+static int brk_init(void)
 {
-	brk_start = brk_tail = brk;
-	brk_end = brk_start + PARASITE_BRK_SIZE;
+	unsigned long heap_size = 10 * 1024 * 1024;
+	unsigned long ret;
+	/*
+	 *  Map 10 MB. Hope this will be enough for unix skb's...
+	 */
+       ret = sys_mmap(0, heap_size,
+			    PROT_READ | PROT_WRITE,
+			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (ret < 0)
+               return -ENOMEM;
+
+	brk_start = brk_tail = (void *)ret;
+	brk_end = brk_start + heap_size;
+	return 0;
+}
+
+static void brk_fini(void)
+{
+	sys_munmap(brk_start, brk_end - brk_start);
 }
 
 static void *brk_alloc(unsigned long bytes)
@@ -390,6 +407,9 @@ static int init(struct parasite_init_args *args)
 	int ret;
 	k_rtsigset_t to_block;
 
+	if (brk_init() < 0)
+		return -1;
+
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (tsock < 0) {
 		return -1;
@@ -423,13 +443,12 @@ static int fini(void)
 		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL);
 	sys_close(logfd);
 	sys_close(tsock);
+	brk_fini();
 	return 0;
 }
 
-static int __used parasite_service(unsigned long cmd, void *args, void *brk)
+static int __used parasite_service(unsigned long cmd, void *args)
 {
-	brk_init(brk);
-
 	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_init_args) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
@@ -478,7 +497,6 @@ static void __parasite_head __used parasite_head(void)
 		     "movq %rsp, %rbp					\n"
 		     "movl parasite_cmd(%rip), %edi			\n"
 		     "leaq parasite_args(%rip), %rsi			\n"
-		     "leaq parasite_brk(%rip), %rdx			\n"
 		     "call parasite_service				\n"
 		     "parasite_service_complete:			\n"
 		     "int $0x03						\n"
@@ -490,9 +508,6 @@ static void __parasite_head __used parasite_head(void)
 		     ".space "__stringify(PARASITE_ARG_SIZE)",0		\n"
 		     ".space "__stringify(PARASITE_STACK_SIZE)", 0	\n"
 		     "parasite_stack:					\n"
-		     ".long 0						\n"
-		     "parasite_brk:					\n"
-		     ".space "__stringify(PARASITE_BRK_SIZE)", 0	\n"
 		     ".long 0						\n");
 }
 
