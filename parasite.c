@@ -142,7 +142,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	parasite_status_t *st = &args->status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
-	unsigned char *map_brk = NULL;
 	unsigned char *map;
 	int ret = PARASITE_ERR_FAIL, fd;
 
@@ -162,19 +161,10 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 * otherwise call for mmap.
 	 */
 	map = brk_alloc(nrpages);
-	if (map) {
-		map_brk = map;
-	} else {
-		map = (void *)sys_mmap(NULL, nrpages,
-				       PROT_READ   | PROT_WRITE,
-				       MAP_PRIVATE | MAP_ANONYMOUS,
-				       -1, 0);
-		if ((long)map < 0) {
-			sys_write_msg("sys_mmap failed\n");
-			SET_PARASITE_STATUS(st, PARASITE_ERR_MMAP, (long)map);
-			ret = st->ret;
-			goto err;
-		}
+	if (!map) {
+		SET_PARASITE_STATUS(st, PARASITE_ERR_MMAP, (long)map);
+		ret = st->ret;
+		goto err;
 	}
 
 	/*
@@ -251,10 +241,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	SET_PARASITE_STATUS(st, ret, ret);
 
 err_free:
-	if (map_brk)
-		brk_free(nrpages);
-	else
-		sys_munmap(map, nrpages);
+	brk_free(nrpages);
 err:
 	return ret;
 }
