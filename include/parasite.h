@@ -6,7 +6,6 @@
 #include <limits.h>
 
 #include "compiler.h"
-#include "syscall.h"
 #include "image.h"
 
 #define __parasite_head		__used __section(.parasite.head.text)

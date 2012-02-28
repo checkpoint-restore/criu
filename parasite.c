@@ -1,23 +1,13 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/socket.h>
-#include <sys/un.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "compiler.h"
 #include "types.h"
 #include "syscall.h"
 #include "parasite.h"
-#include "image.h"
 #include "util.h"
 #include "util-net.h"
-#include "crtools.h"
 
 #ifdef CONFIG_X86_64
 
