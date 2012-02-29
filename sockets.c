@@ -83,6 +83,24 @@ struct inet_sk_desc {
 	unsigned int		src_addr[4];
 };
 
+static int unix_sk_queue_add(int fd, const struct unix_sk_desc *sd,
+			     struct sk_queue *queue)
+{
+	struct sk_queue_entry *next, *new;
+
+	new = xmalloc(sizeof(struct sk_queue_entry));
+	if (!new)
+		return -1;
+
+	new->item.fd = fd;
+	new->item.type = sd->type;
+	new->item.sk_id = sd->sd.ino;
+	new->next = queue->list;
+
+	queue->list = new;
+	queue->entries++;
+	return 0;
+}
 
 #define SK_HASH_SIZE		32
 #define SK_HASH_LINK(head, key, elem)					\
@@ -260,17 +278,6 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	case TCP_LISTEN:
 		break;
 	case TCP_ESTABLISHED:
-		if (sk->rqlen) {
-			/*
-			 * The hard case :( Currentl there's no way to
-			 * clone the sk queue. Even the MSG_PEEK doesn't
-			 * help, since it picks up the head of the queue
-			 * always. Some more patches should go
-			 */
-			pr_err("Non empty queue\n");
-			return 0;
-		}
-
 		break;
 	case TCP_CLOSE:
 		if (sk->type != SOCK_DGRAM)
@@ -339,6 +346,11 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd,
 		goto err;
 	if (write_img_buf(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen))
 		goto err;
+
+	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
+				sk->state == TCP_LISTEN))
+		if (unix_sk_queue_add(fd, sk, queue))
+			goto err;
 
 	pr_info("Dumping unix socket at %d\n", fd);
 	show_one_unix("Dumping", sk);
