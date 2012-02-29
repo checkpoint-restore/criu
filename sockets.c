@@ -214,7 +214,8 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 }
 
 static int dump_one_inet(const struct socket_desc *_sk, int fd,
-		const struct cr_fdset *cr_fdset)
+			 const struct cr_fdset *cr_fdset,
+			 struct sk_queue *queue)
 {
 	const struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
@@ -283,7 +284,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 }
 
 static int dump_one_unix(const struct socket_desc *_sk, int fd,
-		const struct cr_fdset *cr_fdset)
+			 const struct cr_fdset *cr_fdset,
+			 struct sk_queue *queue)
 {
 	const struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
@@ -347,7 +349,8 @@ err:
 	return -1;
 }
 
-int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset)
+int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
+		    struct sk_queue *queue)
 {
 	const struct socket_desc *sk;
 	struct statfs fst;
@@ -380,9 +383,9 @@ int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset)
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, fd, cr_fdset);
+		return dump_one_unix(sk, fd, cr_fdset, queue);
 	case AF_INET:
-		return dump_one_inet(sk, fd, cr_fdset);
+		return dump_one_inet(sk, fd, cr_fdset, queue);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

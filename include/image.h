@@ -19,6 +19,7 @@
 #define UNIXSK_MAGIC	0x54373943 /* Ryazan */
 #define INETSK_MAGIC	0x56443851 /* Pereslavl */
 #define ITIMERS_MAGIC	0x57464056 /* Kostroma */
+#define SK_QUEUES_MAGIC	0x56264026 /* Suzdal */
 #define UTSNS_MAGIC	0x54473203 /* Smolensk */
 #define CREDS_MAGIC	0x54023547 /* Kozelsk */
 #define IPCNS_VAR_MAGIC	0x53115007 /* Samara */

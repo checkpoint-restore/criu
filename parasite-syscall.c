@@ -23,7 +23,7 @@
 #include "util.h"
 #include "util-net.h"
 #include "log.h"
-
+#include "sockets.h"
 #include "processor-flags.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
@@ -453,6 +453,61 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	return parasite_execute(PARASITE_CMD_DUMP_MISC, ctl,
 				(parasite_status_t *)misc,
 				sizeof(struct parasite_dump_misc));
+}
+
+int parasite_dump_socket_info(struct parasite_ctl *ctl, struct cr_fdset *fdset,
+			      struct sk_queue *queue)
+{
+	int ret, i;
+	struct cr_fdset *fds;
+	unsigned arg_size;
+	struct parasite_dump_sk_queues *arg;
+	struct sk_queue_entry *sk_entry;
+
+	if (queue->entries == 0)
+		return 0;
+
+	pr_info("Dumping socket queues\n");
+
+	arg_size = sizeof(struct parasite_dump_sk_queues) +
+		queue->entries * sizeof(struct sk_queue_item);
+
+	/* FIXME arg size is only enough for ~1k of sockets */
+	if (arg_size > PARASITE_ARG_SIZE) {
+		pr_err("Too many sockets to drain queue from\n");
+		return -1;
+	}
+
+	ret = -1;
+	arg = xzalloc(arg_size);
+	if (arg == NULL)
+		goto err_alloc;
+
+	sk_entry = queue->list;
+	for (i = 0; i < queue->entries; i++, arg->nr_items++) {
+		struct sk_queue_entry *tmp = sk_entry;
+
+		memcpy(&arg->items[i], &sk_entry->item, sizeof(struct sk_queue_item));
+		sk_entry = tmp->next;
+		xfree(tmp);
+	}
+
+	ret = parasite_prep_file(CR_FD_SK_QUEUES, ctl, fdset);
+	if (ret < 0)
+		goto err_prepf;
+
+	ret = parasite_execute(PARASITE_CMD_DUMP_SK_QUEUES, ctl,
+			(parasite_status_t *)arg, arg_size);
+	if (ret < 0)
+		goto err_exec;
+
+	return 0;
+
+err_exec:
+err_prepf:
+	xfree(arg);
+err_alloc:
+	return -1;
 }
 
 /*

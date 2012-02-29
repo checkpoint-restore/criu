@@ -274,14 +274,15 @@ err:
 }
 
 static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
-		       struct fd_parms *p, struct cr_fdset *cr_fdset)
+		       struct fd_parms *p, struct cr_fdset *cr_fdset,
+		       struct sk_queue *sk_queue)
 {
 	struct statfs stfs_buf;
 	struct stat st_buf;
 	int err = -1;
 
 	if (lfd < 0) {
-		err = try_dump_socket(pid, p->fd_name, cr_fdset);
+		err = try_dump_socket(pid, p->fd_name, cr_fdset, sk_queue);
 		if (err != 1)
 			return err;
 
@@ -361,7 +362,8 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 	return 0;
 }
 
-static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
+			   struct sk_queue *sk_queue)
 {
 	struct dirent *de;
 	unsigned long pos;
@@ -396,7 +398,8 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset)
 			return -1;
 
 		lfd = openat(dirfd(fd_dir), de->d_name, O_RDONLY);
-		if (dump_one_fd(pid, dirfd(fd_dir), lfd, &p, cr_fdset))
+		if (dump_one_fd(pid, dirfd(fd_dir), lfd, &p, cr_fdset,
+				sk_queue))
 			return -1;
 	}
 
@@ -1166,6 +1169,7 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	struct parasite_dump_misc misc;
+	struct sk_queue sk_queue = { };
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1191,6 +1195,12 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = dump_task_files(pid, cr_fdset, &sk_queue);
+	if (ret) {
+		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
@@ -1236,15 +1246,15 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
+       ret = parasite_dump_socket_info(parasite_ctl, cr_fdset, &sk_queue);
+       if (ret) {
+               pr_err("Can't dump socket info (pid: %d)\n", pid);
+               goto err;
+       }
+
 	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
-		goto err;
-	}
-
-	ret = dump_task_files(pid, cr_fdset);
-	if (ret) {
-		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
@@ -1318,6 +1328,16 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 			if (dump_pstree(pid, &pstree_list, cr_fdset))
 				goto err;
 		}
+
+		/*
+		 * Prepare for socket queues in advance. They are not per-task,
+		 * but per-someother-task which makes restore tricky. Thus save
+		 * them in "global" image.
+		 * That's why we open the file with tree leader's pid for any
+		 * of it's children.
+		 */
+		if (!cr_dump_fdset_open(pid, CR_FD_DESC_USE(CR_FD_SK_QUEUES), cr_fdset))
+			goto err;
 
 		if (dump_one_task(item, cr_fdset))
 			goto err;

@@ -94,6 +94,11 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= INETSK_MAGIC,
 	},
 
+	[CR_FD_SK_QUEUES] = {
+		.fmt	= FMT_FNAME_SK_QUEUES,
+		.magic	= SK_QUEUES_MAGIC,
+	},
+
 	/* interval timers (itimers) */
 	[CR_FD_ITIMERS] = {
 		.fmt	= FMT_FNAME_ITIMERS,

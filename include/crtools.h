@@ -42,6 +42,8 @@ enum {
 	CR_FD_IPCNS_MSG,
 	CR_FD_IPCNS_SEM,
 
+	CR_FD_SK_QUEUES,
+
 	CR_FD_MAX
 };
 
@@ -86,6 +88,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_IPCNS_SHM	"ipcns-shm-%d.img"
 #define FMT_FNAME_IPCNS_MSG	"ipcns-msg-%d.img"
 #define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
+#define FMT_FNAME_SK_QUEUES	"sk-queues-%d.img"
 
 extern int get_image_path(char *path, int size, const char *fmt, int pid);
 
