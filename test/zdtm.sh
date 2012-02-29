@@ -32,6 +32,7 @@ static/caps00
 static/cmdlinenv00
 static/socket_listen
 static/selfexe00
+streaming/socket_loop00
 "
 
 UTS_TEST_LIST="
