@@ -445,17 +445,12 @@ static int dump_socket_queue(int img_fd, struct sk_queue_item *item, int *err)
 
 	while (1) {
 		struct iovec iov = {
-			.iov_base = pe->data,
-			.iov_len = size,
+			.iov_base	= pe->data,
+			.iov_len	= size,
 		};
 		struct msghdr msg = {
-			.msg_name = NULL,
-			.msg_namelen = 0,
-			.msg_iov = &iov,
-			.msg_iovlen = 1,
-			.msg_control = NULL,
-			.msg_controllen = 0,
-			.msg_flags = 0,
+			.msg_iov	= &iov,
+			.msg_iovlen	= 1,
 		};
 
 		*err = pe->length = sys_recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
