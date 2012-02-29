@@ -31,6 +31,7 @@ TST_NOFILE	=				\
 		utsname				\
 		pstree				\
 		sockets00			\
+		socket_queues			\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
