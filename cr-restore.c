@@ -99,7 +99,7 @@ static struct shmems *shmems;
 static struct pipe_info *pipes;
 static int nr_pipes;
 
-static pid_t pstree_pid;
+pid_t pstree_pid;
 struct pstree_item *me;
 
 static int restore_task_with_children(void *);

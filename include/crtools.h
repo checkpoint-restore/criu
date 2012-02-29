@@ -157,6 +157,8 @@ struct pstree_item {
 	u32			*children;	/* array of children */
 };
 
+extern pid_t pstree_pid;
+
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
 	return addr >= (unsigned long)vma->vma.start &&

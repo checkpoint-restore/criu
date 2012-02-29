@@ -788,7 +788,7 @@ enum {
 
 static void unix_show_job(const char *type, int fd, int id)
 {
-	pr_debug("%s job fd %d id %d\n", type, fd, id);
+	pr_info("%s job fd %d id %d\n", type, fd, id);
 }
 
 static struct unix_conn_job *conn_jobs;
@@ -814,7 +814,7 @@ static int schedule_conn_job(int type, const struct unix_sk_entry *ue)
 	return 0;
 }
 
-static int run_connect_jobs(void)
+static int run_connect_jobs(struct sk_packets_pool *pool)
 {
 	struct unix_conn_job *cj, *next;
 	int i;
@@ -823,7 +823,7 @@ static int run_connect_jobs(void)
 	while (cj) {
 		int attempts = 8;
 		struct sockaddr_un addr;
-		int addrlen;
+		int addrlen, ret;
 
 		/*
 		 * Might need to resolve in-flight connection name.
@@ -848,7 +848,7 @@ static int run_connect_jobs(void)
 			addrlen = e->addrlen;
 		}
 
-		unix_show_job("Run conn", cj->fd, -1);
+		unix_show_job("Run conn", cj->fd, cj->peer);
 try_again:
 		if (connect(cj->fd, (struct sockaddr *)&addr, addrlen) < 0) {
 			if (attempts) {
@@ -860,7 +860,12 @@ try_again:
 			return -1;
 		}
 
-		unix_show_job("Fin conn", cj->fd, -1);
+		unix_show_job("Fin conn", cj->fd, cj->peer);
+
+		ret = restore_socket_queue(pool, cj->fd, cj->peer);
+		if (ret < 0)
+			return -1;
+
 		next = cj->next;
 		xfree(cj);
 		cj = next;
@@ -885,6 +890,7 @@ try_again:
 
 struct unix_accept_job {
 	int			fd;
+	int			peer;
 	struct unix_accept_job	*next;
 };
 
@@ -912,6 +918,7 @@ static int schedule_acc_job(int sk, const struct unix_sk_entry *ue)
 		goto err;
 
 	aj->fd = ue->fd;
+	aj->peer = ue->peer;
 	aj->next = accept_jobs;
 	accept_jobs = aj;
 	unix_show_job("Sched acc", ue->fd, ue->id);
@@ -920,13 +927,13 @@ err:
 	return -1;
 }
 
-static int run_accept_jobs(void)
+static int run_accept_jobs(struct sk_packets_pool *pool)
 {
 	struct unix_accept_job *aj, *next;
 
 	aj = accept_jobs;
 	while (aj) {
-		int fd;
+		int fd, ret;
 
 		unix_show_job("Run acc", aj->fd, -1);
 		fd = accept(aj->fd, NULL, NULL);
@@ -936,6 +943,10 @@ static int run_accept_jobs(void)
 		}
 
 		if (reopen_fd_as_nocheck(aj->fd, fd))
+			return -1;
+
+		ret = restore_socket_queue(pool, aj->fd, aj->peer);
+		if (ret < 0)
 			return -1;
 
 		unix_show_job("Fin acc", aj->fd, -1);
@@ -1104,6 +1115,9 @@ err:
 static int prepare_unix_sockets(int pid)
 {
 	int usk_fd, ret = -1;
+	struct sk_packets_pool unix_pool = {
+		.packets_list = LIST_HEAD_INIT(unix_pool.packets_list),
+	};
 
 	usk_fd = open_image_ro(CR_FD_UNIXSK, pid);
 	if (usk_fd < 0)
@@ -1123,11 +1137,21 @@ static int prepare_unix_sockets(int pid)
 err:
 	close(usk_fd);
 
-	if (!ret)
-		ret = run_connect_jobs();
-	if (!ret)
-		ret = run_accept_jobs();
+	if (ret)
+		return ret;
 
+	unix_pool.img_fd = open_image_ro(CR_FD_SK_QUEUES, pstree_pid);
+	if (unix_pool.img_fd < 0)
+		return -1;
+	ret = read_sockets_queues(&unix_pool);
+	if (ret < 0)
+		return ret;
+
+	ret = run_connect_jobs(&unix_pool);
+	if (!ret)
+		ret = run_accept_jobs(&unix_pool);
+
+	close(unix_pool.img_fd);
 	return ret;
 }
 
