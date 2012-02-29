@@ -29,5 +29,6 @@ extern int collect_sockets(void);
 extern int prepare_sockets(int pid);
 extern void show_unixsk(int fd);
 extern void show_inetsk(int fd);
+extern int show_sk_queues(int fd);
 
 #endif /* CR_SOCKETS_H__ */

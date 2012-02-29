@@ -196,8 +196,8 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
-	pr_debug("\t%s: fd %d type %d state %d name %d bytes\n",
-		act, e->fd, e->type, e->state, e->namelen);
+	pr_info("\t%s: id %u fd %d type %d state %d name %d bytes\n",
+		act, e->id, e->fd, e->type, e->state, e->namelen);
 }
 
 static int can_dump_inet_sk(const struct inet_sk_desc *sk)
@@ -1282,3 +1282,28 @@ out:
 	pr_img_tail(CR_FD_UNIXSK);
 }
 
+extern void print_data(unsigned long addr, unsigned char *data, size_t size);
+
+int show_sk_queues(int fd)
+{
+	struct sk_packet_entry pe;
+	int ret;
+
+	pr_img_head(CR_FD_SK_QUEUES);
+	while (1) {
+		ret = read_img_eof(fd, &pe);
+		if (ret <= 0)
+			break;
+
+		pr_info("pkt for %u length %u bytes\n",
+				pe.id_for, pe.length);
+
+		ret = read_img_buf(fd, (unsigned char *)buf, pe.length);
+		if (ret < 0)
+			return ret;
+
+		print_data(0, (unsigned char *)buf, pe.length);
+	}
+	pr_img_tail(CR_FD_SK_QUEUES);
+	return ret;
+}

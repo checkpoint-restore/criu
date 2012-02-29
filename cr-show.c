@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fcntl.h>
 
@@ -30,7 +31,7 @@
 
 
 #define PR_SYMBOL(sym)				\
-	((sym < 32 || sym > 126) ? '.' : sym)
+	(isprint(sym) ? sym : '.')
 
 #define pr_regs4(s, n1, n2, n3, n4)	\
 	pr_info("%8s: %16lx "		\
@@ -148,6 +149,29 @@ static void show_vma(int fd_vma)
 	}
 }
 
+void print_data(unsigned long addr, unsigned char *data, size_t size)
+{
+	int i, j;
+
+	for (i = 0; i < size; i+= 16) {
+		pr_info("%16lx: ", addr + i);
+		for (j = 0; j < 8; j++)
+			pr_info("%02x ", data[i +  j]);
+		pr_info(" ");
+		for (j = 8; j < 16; j++)
+			pr_info("%02x ", data[i +  j]);
+
+		pr_info(" |");
+		for (j = 0; j < 8; j++)
+			pr_info("%c ", PR_SYMBOL(data[i + j]));
+		pr_info(" ");
+		for (j = 8; j < 16; j++)
+			pr_info("%c ", PR_SYMBOL(data[i + j]));
+
+		pr_info("|\n");
+	}
+}
+
 static void show_pages(int fd_pages, bool show_content)
 {
 	pr_img_head(CR_FD_PAGES);
@@ -155,32 +179,13 @@ static void show_pages(int fd_pages, bool show_content)
 	if (show_content) {
 		while (1) {
 			struct page_entry e;
-			unsigned long addr;
-			int i, j;
 
 			if (read_img(fd_pages, &e) < 0)
 				break;
 			if (final_page_entry(&e))
 				break;
 
-			addr = e.va;
-			for (i = 0; i < PAGE_IMAGE_SIZE; i+= 16) {
-				pr_info("%16lx: ", addr + i);
-				for (j = 0; j < 8; j++)
-					pr_info("%02x ", e.data[i +  j]);
-				pr_info(" ");
-				for (j = 8; j < 16; j++)
-					pr_info("%02x ", e.data[i +  j]);
-
-				pr_info(" |");
-				for (j = 0; j < 8; j++)
-					pr_info("%c ", PR_SYMBOL(e.data[i + j]));
-				pr_info(" ");
-				for (j = 8; j < 16; j++)
-					pr_info("%c ", PR_SYMBOL(e.data[i + j]));
-
-				pr_info("|\n");
-			}
+			print_data(e.va, e.data, PAGE_IMAGE_SIZE);
 			pr_info("\n                  --- End of page ---\n\n");
 		}
 	} else {
@@ -504,6 +509,9 @@ static int cr_parse_file(struct cr_options *opts)
 	case INETSK_MAGIC:
 		show_inetsk(fd);
 		break;
+	case SK_QUEUES_MAGIC:
+		show_sk_queues(fd);
+		break;
 	case ITIMERS_MAGIC:
 		show_itimers(fd);
 		break;
@@ -548,6 +556,10 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		goto out;
 
 	ret = show_pstree(cr_fdset->fds[CR_FD_PSTREE], &pstree_list);
+	if (ret)
+		goto out;
+
+	ret = show_sk_queues(cr_fdset->fds[CR_FD_SK_QUEUES]);
 	if (ret)
 		goto out;
 
