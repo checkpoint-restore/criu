@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <arpa/inet.h>
+#include <sys/sendfile.h>
 
 #include "types.h"
 #include "libnetlink.h"
@@ -673,6 +674,81 @@ int collect_sockets(void)
 out:
 	close(nl);
 	return err;
+}
+
+struct sk_packet {
+	struct list_head list;
+	struct sk_packet_entry entry;
+	off_t img_off;
+};
+
+struct sk_packets_pool {
+	struct list_head packets_list;
+	int img_fd;
+};
+
+static int read_sockets_queues(struct sk_packets_pool *pool)
+{
+	struct sk_packet *pkt;
+	int ret;
+
+	pr_info("Trying to read socket queues image\n");
+
+	lseek(pool->img_fd, MAGIC_OFFSET, SEEK_SET);
+	while (1) {
+		struct sk_packet_entry tmp;
+
+		pkt = xmalloc(sizeof(*pkt));
+		if (!pkt) {
+			pr_err("Failed to allocate packet header\n");
+			return -ENOMEM;
+		}
+		ret = read_img_eof(pool->img_fd, &pkt->entry);
+		if (ret <= 0)
+			break;
+		pkt->img_off = lseek(pool->img_fd, 0, SEEK_CUR);
+		/*
+		 * NOTE: packet must be added to the tail. Otherwise sequence
+		 * will be broken.
+		 */
+		list_add_tail(&pkt->list, &pool->packets_list);
+		lseek(pool->img_fd, pkt->entry.length, SEEK_CUR);
+	}
+	xfree(pkt);
+	return ret;
+}
+
+static int restore_socket_queue(struct sk_packets_pool *pool, int fd,
+				unsigned int peer_id)
+{
+	struct sk_packet *pkt, *tmp;
+	int ret;
+
+	pr_info("Trying to restore recv queue for %u\n", peer_id);
+
+	list_for_each_entry_safe(pkt, tmp, &pool->packets_list, list) {
+		struct sk_packet_entry *entry = &pkt->entry;
+
+		if (entry->id_for != peer_id)
+			continue;
+
+		pr_info("\tRestoring %d-bytes skb for %u\n",
+				entry->length, peer_id);
+
+		ret = sendfile(fd, pool->img_fd, &pkt->img_off, entry->length);
+		if (ret < 0) {
+			pr_perror("Failed to sendfile packet");
+			return -1;
+		}
+		if (ret != entry->length) {
+			pr_err("Restored skb trimmed to %d/%d\n",
+					ret, entry->length);
+			return -1;
+		}
+		list_del(&pkt->list);
+		xfree(pkt);
+	}
+	return 0;
 }
 
 static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
