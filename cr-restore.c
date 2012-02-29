@@ -641,7 +641,7 @@ static inline bool should_restore_page(int pid, unsigned long va)
 
 static int fixup_pages_data(int pid, int fd)
 {
-	int pgfd, ret;
+	int pgfd, ret = -1;
 	u64 va;
 
 	pr_info("%d: Reading shmem pages img\n", pid);
@@ -651,9 +651,8 @@ static int fixup_pages_data(int pid, int fd)
 		return -1;
 
 	while (1) {
-		ret = read_img(pgfd, &va);
-		if (ret < 0)
-			return -1;
+		if (read_img(pgfd, &va) < 0)
+			goto out;
 
 		if (va == 0)
 			break;
@@ -661,17 +660,15 @@ static int fixup_pages_data(int pid, int fd)
 		write(fd, &va, sizeof(va));
 		sendfile(fd, pgfd, NULL, PAGE_SIZE);
 	}
-
-	close(pgfd);
+	close_safe(&pgfd);
 
 	pgfd = open_image_ro(CR_FD_PAGES_SHMEM, pid);
 	if (pgfd < 0)
 		return -1;
 
 	while (1) {
-		ret = read_img(pgfd, &va);
-		if (ret < 0)
-			return -1;
+		if (read_img(pgfd, &va) < 0)
+			goto out;
 
 		if (va == 0)
 			break;
@@ -686,11 +683,10 @@ static int fixup_pages_data(int pid, int fd)
 		sendfile(fd, pgfd, NULL, PAGE_SIZE);
 	}
 
-	close(pgfd);
-
-	write_img(fd, &zero_page_entry);
-
-	return 0;
+	ret = write_img(fd, &zero_page_entry);
+out:
+	close_safe(&pgfd);
+	return ret;
 }
 
 static int prepare_image_maps(int fd, int pid)
@@ -709,7 +705,7 @@ static int prepare_image_maps(int fd, int pid)
 static int prepare_and_sigreturn(int pid)
 {
 	char path[PATH_MAX];
-	int fd, fd_new;
+	int fd = -1, fd_new = -1, err = -1;
 	struct stat buf;
 
 	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
@@ -718,38 +714,41 @@ static int prepare_and_sigreturn(int pid)
 
 	if (fstat(fd, &buf)) {
 		pr_perror("%d: Can't stat", pid);
-		return -1;
+		goto out;
 	}
 
 	if (get_image_path(path, sizeof(path), FMT_FNAME_CORE_OUT, pid))
-		return -1;
+		goto out;
 
 	fd_new = open(path, O_RDWR | O_CREAT | O_TRUNC, CR_FD_PERM);
 	if (fd_new < 0) {
 		pr_perror("%d: Can't open new image", pid);
-		return -1;
+		goto out;
 	}
 
 	pr_info("%d: Preparing restore image %s (%li bytes)\n", pid, path, buf.st_size);
 	if (sendfile(fd_new, fd, NULL, buf.st_size) != buf.st_size) {
 		pr_perror("%d: sendfile failed", pid);
-		return -1;
+		goto out;
 	}
-	close(fd);
 
 	if (fstat(fd_new, &buf)) {
 		pr_perror("%d: Can't stat", pid);
-		return -1;
+		goto out;
 	}
 
 	pr_info("fd_new: %li bytes\n", buf.st_size);
 
 	if (prepare_image_maps(fd_new, pid))
-		return -1;
+		goto out;
 
-	close(fd_new);
+	err = 0;
+out:
+	close_safe(&fd);
+	close_safe(&fd_new);
+	if (err)
+		return err;
 	sigreturn_restore(pid);
-
 	return 0;
 }
 
@@ -996,13 +995,13 @@ static int prepare_sigactions(int pid)
 	}
 
 err:
-	close(fd_sigact);
+	close_safe(&fd_sigact);
 	return ret;
 }
 
 static int prepare_pipes(int pid)
 {
-	int ret = 0;
+	int ret = -1;
 	int pipes_fd;
 
 	struct pipe_list_entry *le, *buf;
@@ -1018,10 +1017,8 @@ static int prepare_pipes(int pid)
 		return -1;
 
 	buf = xmalloc(buf_size);
-	if (!buf) {
-		close(pipes_fd);
-		return -1;
-	}
+	if (!buf)
+		goto out;
 
 	while (1) {
 		struct list_head *cur;
@@ -1062,7 +1059,8 @@ static int prepare_pipes(int pid)
 		}
 
 	free(buf);
-	close(pipes_fd);
+out:
+	close_safe(&pipes_fd);
 	return ret;
 }
 
@@ -1176,33 +1174,29 @@ static int restore_one_zombie(int pid, int exit_code)
 
 static int check_core_header(int pid, struct task_core_entry *tc)
 {
-	int fd, ret;
+	int fd = -1, ret = -1;
 	struct image_header hdr;
 
 	fd = open_image_ro(CR_FD_CORE, pid);
 	if (fd < 0)
 		return -1;
 
-	if (read_img(fd, &hdr) < 0) {
-		close(fd);
-		return -1;
-	}
+	if (read_img(fd, &hdr) < 0)
+		goto out;
 
 	if (hdr.version != HEADER_VERSION) {
 		pr_err("Core version mismatch %d\n", (int)hdr.version);
-		close(fd);
-		return -1;
+		goto out;
 	}
 
 	if (hdr.arch != HEADER_ARCH_X86_64) {
 		pr_err("Core arch mismatch %d\n", (int)hdr.arch);
-		close(fd);
-		return -1;
+		goto out;
 	}
 
 	ret = read_img(fd, tc);
-	close(fd);
-
+out:
+	close_safe(&fd);
 	return ret < 0 ? ret : 0;
 }
 
@@ -1461,17 +1455,21 @@ static int restore_root_task(int fd, struct cr_options *opts)
 
 static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 {
-	int pstree_fd;
+	int pstree_fd = -1;
 	u32 type = 0;
+	int ret = -1;
 
 	pstree_fd = open_image_ro(CR_FD_PSTREE, pstree_pid);
 	if (pstree_fd < 0)
 		return -1;
 
 	if (prepare_shared(pstree_fd))
-		return -1;
+		goto out;
 
-	return restore_root_task(pstree_fd, opts);
+	ret = restore_root_task(pstree_fd, opts);
+out:
+	close_safe(&pstree_fd);
+	return ret;
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
@@ -1495,7 +1493,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 
 	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
 	if (fd < 0)
-		goto err_or_found;
+		return -1;
 
 	prev_vma_end = 0;
 
@@ -1505,7 +1503,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 		ret = read(fd, &vma, sizeof(vma));
 		if (ret && ret != sizeof(vma)) {
 			pr_perror("Can't read vma entry from core-%d", pid);
-			goto err_or_found;
+			break;
 		}
 
 		if (!prev_vma_end) {
@@ -1517,17 +1515,14 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 			list_for_each_entry(vma_area, self_vma_list, list) {
 				if (vma_area->vma.start <= prev_vma_end &&
 				    vma_area->vma.end >= prev_vma_end)
-					goto err_or_found;
+					break;
 			}
 			hint = prev_vma_end;
-			goto err_or_found;
+			break;
 		} else
 			prev_vma_end = vma.end;
 	}
-
-err_or_found:
-	if (fd >= 0)
-		close(fd);
+	close_safe(&fd);
 	return hint;
 }
 
@@ -1598,7 +1593,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 					&ie[2], &args->itimers[2]);
 	}
 
-	close(fd);
+	close_safe(&fd);
 	return ret;
 }
 
@@ -1612,7 +1607,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 
 	ret = read_img(fd, &args->creds);
 
-	close(fd);
+	close_safe(&fd);
 
 	/* XXX -- validate creds here? */
 
@@ -1888,6 +1883,7 @@ static void sigreturn_restore(pid_t pid)
 err:
 	free_mappings(&self_vma_list);
 	close_safe(&fd_core);
+	close_safe(&fd_fdinfo);
 	close_safe(&fd_self_vmas);
 
 	if (exec_mem != MAP_FAILED)
