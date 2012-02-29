@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/time.h>
+#include <arpa/inet.h>
 
 #include "types.h"
 #include "compiler.h"
@@ -385,6 +386,22 @@ static long sys_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 static long sys_recvmsg(int sockfd, struct msghdr *msg, int flags)
 {
 	return syscall3(__NR_recvmsg, (long)sockfd, (long)msg, (long) flags);
+}
+
+static long always_inline sys_getsockopt(int sockfd, int level, int optname,
+					 const void *optval, socklen_t *optlen)
+{
+	return syscall5(__NR_getsockopt, (unsigned long)sockfd,
+			(unsigned long)level, (unsigned long)optname,
+			(unsigned long)optval, (unsigned long)optlen);
+}
+
+static long always_inline sys_setsockopt(int sockfd, int level, int optname,
+					 const void *optval, socklen_t optlen)
+{
+	return syscall5(__NR_setsockopt, (unsigned long)sockfd,
+			(unsigned long)level, (unsigned long)optname,
+			(unsigned long)optval, (unsigned long)optlen);
 }
 
 static void sys_set_tid_address(int *tid_addr) {

@@ -7,6 +7,7 @@
 
 #include "compiler.h"
 #include "image.h"
+#include "sockets.h"
 
 #define __parasite_head		__used __section(.parasite.head.text)
 
@@ -26,6 +27,7 @@
 #define PARASITE_ERR_MPROTECT	-1031
 #define PARASITE_ERR_SIGACTION  -1032
 #define PARASITE_ERR_GETITIMER  -1033
+#define PARASITE_ERR_IOCTL	-1034
 
 enum {
 	PARASITE_CMD_PINGME,
@@ -41,6 +43,7 @@ enum {
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
 	PARASITE_CMD_DUMP_TID_ADDR,
+	PARASITE_CMD_DUMP_SK_QUEUES,
 
 	PARASITE_CMD_MAX,
 };
@@ -93,6 +96,12 @@ struct parasite_dump_tid_addr {
 	parasite_status_t	status;
 
 	unsigned int *tid_addr;
+};
+
+struct parasite_dump_sk_queues {
+	parasite_status_t	status;
+	unsigned		nr_items;
+	struct sk_queue_item	items[0];
 };
 
 /*

@@ -28,6 +28,8 @@
 #define __NR_sendmsg		46
 #define __NR_recvmsg		47
 #define __NR_bind		49
+#define __NR_setsockopt		54
+#define __NR_getsockopt		55
 #define __NR_clone		56
 #define __NR_exit		60
 #define __NR_wait4		61

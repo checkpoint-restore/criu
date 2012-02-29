@@ -5,6 +5,12 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+struct sk_queue_item {
+	int		fd;
+	int		type;
+	unsigned int	sk_id;
+};
+
 struct cr_fdset;
 extern int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset);
 

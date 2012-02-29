@@ -11,6 +11,10 @@
 
 #ifdef CONFIG_X86_64
 
+#ifndef SO_PEEK_OFF
+#define SO_PEEK_OFF            42
+#endif
+
 static void *brk_start, *brk_end, *brk_tail;
 
 static struct page_entry page;
@@ -42,6 +46,11 @@ static void brk_fini(void)
 {
 	sys_munmap(brk_start, brk_end - brk_start);
 }
+
+struct mem_array {
+	unsigned long size;
+	char data[0];
+};
 
 static void *brk_alloc(unsigned long bytes)
 {
@@ -381,6 +390,136 @@ static int dump_tid_addr(struct parasite_dump_tid_addr *args)
 	return 0;
 }
 
+static int dump_socket_queue(int img_fd, struct sk_queue_item *item, int *err)
+{
+	struct sk_packet_entry *pe;
+	unsigned long size;
+	socklen_t tmp;
+	int ret, orig_peek_off;
+	int sock_fd = item->fd;
+
+	/*
+	 * Save original peek offset. 
+	 */
+	ret = sys_getsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, &tmp);
+	if (ret < 0) {
+		sys_write_msg("getsockopt failed\n");
+		*err = ret;
+		return PARASITE_ERR_FAIL;
+	}
+	/*
+	 * Discover max DGRAM size
+	 */
+	ret = sys_getsockopt(sock_fd, SOL_SOCKET, SO_SNDBUF, &ret, &tmp);
+	if (ret < 0) {
+		sys_write_msg("getsockopt failed\n");
+		*err = ret;
+		return PARASITE_ERR_FAIL;
+	}
+	/*
+	 * Note: 32 bytes will be used by kernel for protocol header.
+	 */
+	size = ret - 32;
+	/*
+	 * Try to alloc buffer for max supported DGRAM + our header.
+	 * Note: STREAM queue will be written by chunks of this size.
+	 */
+	pe = brk_alloc(size + sizeof(struct sk_packet_entry));
+	if (!pe) {
+		sys_write_msg("not enough mem for skb\n");
+		*err = -ENOMEM;
+		return PARASITE_ERR_MMAP;
+	}
+	/*
+	 * Enable peek offset incrementation.
+	 */
+	ret = 0;
+	*err = sys_setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &ret, sizeof(int));
+	if (*err < 0) {
+		sys_write_msg("setsockopt fail\n");
+		ret = PARASITE_ERR_FAIL;
+		goto err_brk;
+	}
+
+	pe->id_for = item->sk_id;
+
+	while (1) {
+		struct iovec iov = {
+			.iov_base = pe->data,
+			.iov_len = size,
+		};
+		struct msghdr msg = {
+			.msg_name = NULL,
+			.msg_namelen = 0,
+			.msg_iov = &iov,
+			.msg_iovlen = 1,
+			.msg_control = NULL,
+			.msg_controllen = 0,
+			.msg_flags = 0,
+		};
+
+		*err = pe->length = sys_recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
+		if (*err < 0) {
+			if (*err == -EAGAIN)
+				break; /* we're done */
+			sys_write_msg("sys_recvmsg fail: error\n");
+			ret = PARASITE_ERR_FAIL;
+			goto err_set_sock;
+		}
+		if (msg.msg_flags & MSG_TRUNC) {
+			/*
+			 * DGRAM thuncated. This should not happen. But we have
+			 * to check...
+			 */
+			sys_write_msg("sys_recvmsg failed: truncated\n");
+			ret = PARASITE_ERR_FAIL;
+			*err = -E2BIG;
+			goto err_set_sock;
+		}
+		*err = sys_write(img_fd, pe, sizeof(pe) + pe->length);
+		if (*err != sizeof(pe) + pe->length) {
+			sys_write_msg("sys_write failed\n");
+			ret = PARASITE_ERR_WRITE;
+			goto err_set_sock;
+		}
+	}
+	ret = 0;
+err_set_sock:
+	/*
+	 * Restore original peek offset. 
+	 */
+	sys_setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, sizeof(int));
+err_brk:
+	brk_free(size + sizeof(struct sk_packet_entry));
+	return ret;
+}
+
+static int dump_skqueues(struct parasite_dump_sk_queues *args)
+{
+	parasite_status_t *st = &args->status;
+	int img_fd, i, ret = -1;
+
+	img_fd = recv_fd(tsock);
+	if (img_fd < 0)
+		return img_fd;
+
+	for (i = 0; i < args->nr_items; i++) {
+		int err;
+
+		ret = dump_socket_queue(img_fd, &args->items[i], &err);
+		if (ret < 0) {
+			SET_PARASITE_STATUS(st, ret, err);
+			goto err_dmp;
+		}
+	}
+
+	ret = 0;
+	SET_PARASITE_STATUS(st, 0, 0);
+err_dmp:
+	sys_close(img_fd);
+	return ret;
+}
+
 static int init(struct parasite_init_args *args)
 {
 	int ret;
@@ -455,6 +594,8 @@ static int __used parasite_service(unsigned long cmd, void *args)
 		return dump_misc((struct parasite_dump_misc *)args);
 	case PARASITE_CMD_DUMP_TID_ADDR:
 		return dump_tid_addr((struct parasite_dump_tid_addr *)args);
+	case PARASITE_CMD_DUMP_SK_QUEUES:
+		return dump_skqueues((struct parasite_dump_sk_queues *)args);
 	default:
 		sys_write_msg("Unknown command to parasite\n");
 		break;
