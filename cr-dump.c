@@ -32,7 +32,6 @@
 #include "image.h"
 #include "proc_parse.h"
 #include "parasite-syscall.h"
-#include "file-ids.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -126,20 +125,20 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	e.addr	= p->fd_name;
 
 	if (likely(!fd_is_special(&e))) {
-		struct fd_id_entry *fd_id_entry;
+		struct fd_id_entry *entry;
 
 		/*
 		 * Make sure the union is still correlate with structure
 		 * we write to disk.
 		 */
-		BUILD_BUG_ON(sizeof(fd_id_entry->u.key) != sizeof(e.id));
+		BUILD_BUG_ON(sizeof(entry->u.key) != sizeof(e.id));
 
-		fd_id_entry = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
-		if (!fd_id_entry)
+		entry = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
+		if (!entry)
 			goto err;
 
 		/* Now it might have completely new ID here */
-		e.id	= fd_id_entry->u.id;
+		e.id	= entry->u.id;
 	} else
 		e.id	= FD_ID_INVALID;
 
