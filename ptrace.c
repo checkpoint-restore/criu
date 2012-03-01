@@ -70,7 +70,7 @@ int seize_task(pid_t pid, pid_t ppid)
 				pid, ppid, ps.ppid);
 		goto err;
 	}
-
+try_again:
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
 		pr_perror("SEIZE %d: can't interrupt task", pid);
@@ -100,9 +100,19 @@ int seize_task(pid_t pid, pid_t ppid)
 	}
 
 	if ((si.si_code >> 8) != PTRACE_EVENT_STOP) {
-		pr_err("SEIZE %d: wrong stop event received 0x%x\n", pid,
-				(unsigned int)si.si_code);
-		goto err;
+		/*
+		 * Kernel notifies us about the task being seized received some
+		 * event other than the STOP, i.e. -- a signal. Let the task
+		 * handle one and repeat.
+		 */
+
+		if (ptrace(PTRACE_CONT, pid, NULL,
+					(void *)(unsigned long)si.si_signo)) {
+			pr_perror("Can't continue signal handling. Aborting.");
+			goto err;
+		}
+
+		goto try_again;
 	}
 
 	if (si.si_signo == SIGTRAP)
