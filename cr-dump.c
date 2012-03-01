@@ -252,6 +252,17 @@ static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
 {
 	struct pipe_entry e;
 	int ret = -1;
+	struct statfs stfs_buf;
+
+	if (fstatfs(lfd, &stfs_buf) < 0) {
+		pr_perror("Can't fstatfs on %ld", p->fd_name);
+		return -1;
+	}
+
+	if (stfs_buf.f_type != PIPEFS_MAGIC) {
+		pr_err("Dumping of FIFO's is not supported: %ld\n", p->fd_name);
+		return -1;
+	}
 
 	pr_info("Dumping pipe %ld/%x flags %x\n", p->fd_name, id, p->flags);
 
@@ -305,7 +316,6 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
-	struct statfs stfs_buf;
 	struct stat st_buf;
 	int err = -1;
 	struct fd_parms p;
@@ -352,15 +362,8 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset 
 		return dump_one_reg_file(&p, lfd, cr_fdset, 1);
 	}
 
-	if (S_ISFIFO(st_buf.st_mode)) {
-		if (fstatfs(lfd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %ld", p.fd_name);
-			return -1;
-		}
-
-		if (stfs_buf.f_type == PIPEFS_MAGIC)
-			return dump_one_pipe(&p, st_buf.st_ino, lfd, cr_fdset);
-	}
+	if (S_ISFIFO(st_buf.st_mode))
+		return dump_one_pipe(&p, st_buf.st_ino, lfd, cr_fdset);
 
 err:
 	pr_err("Can't dump file %ld of that type [%x]\n", p.fd_name, st_buf.st_mode);
