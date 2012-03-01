@@ -90,12 +90,13 @@ struct fd_parms {
 	unsigned long	fd_name;
 	unsigned long	pos;
 	unsigned int	flags;
+	unsigned int	type;
 
 	u64		id;
 	pid_t		pid;
 };
 
-static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
+static int dump_one_reg_file(struct fd_parms *p, int lfd,
 			     struct cr_fdset *cr_fdset,
 			     bool do_close_lfd)
 {
@@ -118,7 +119,7 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 	if (do_close_lfd)
 		close(lfd);
 
-	e.type	= type;
+	e.type	= p->type;
 	e.len	= len;
 	e.flags = p->flags;
 	e.pos	= p->pos;
@@ -143,7 +144,7 @@ static int dump_one_reg_file(int type, struct fd_parms *p, int lfd,
 		e.id	= FD_ID_INVALID;
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
-		type, len, p->flags, p->pos, p->fd_name);
+		p->type, len, p->flags, p->pos, p->fd_name);
 
 	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
 		goto err;
@@ -165,12 +166,13 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 		.fd_name	= FDINFO_CWD,
 		.id		= FD_ID_INVALID,
 		.pid		= FD_PID_INVALID,
+		.type		= FDINFO_FD,
 	};
 
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
+	ret = dump_one_reg_file(&params, fd, cr_fdset, 1);
 	if (ret)
 		return ret;
 
@@ -179,12 +181,13 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 		.fd_name	= FDINFO_EXE,
 		.id		= FD_ID_INVALID,
 		.pid		= FD_PID_INVALID,
+		.type		= FDINFO_FD,
 	};
 
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_reg_file(FDINFO_FD, &params, fd, cr_fdset, 1);
+	ret = dump_one_reg_file(&params, fd, cr_fdset, 1);
 
 	return ret;
 }
@@ -344,8 +347,9 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset 
 	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR)) {
 
 		p.id = MAKE_FD_GENID(st_buf.st_dev, st_buf.st_ino, p.pos);
+		p.type = FDINFO_FD;
 
-		return dump_one_reg_file(FDINFO_FD, &p, lfd, cr_fdset, 1);
+		return dump_one_reg_file(&p, lfd, cr_fdset, 1);
 	}
 
 	if (S_ISFIFO(st_buf.st_mode)) {
@@ -446,6 +450,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 					.fd_name	= vma->start,
 					.id		= FD_ID_INVALID,
 					.pid		= pid,
+					.type		= FDINFO_MAP,
 				};
 
 				if (vma->prot & PROT_WRITE &&
@@ -454,7 +459,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 				else
 					p.flags = O_RDONLY;
 
-				ret = dump_one_reg_file(FDINFO_MAP, &p, vma_area->vm_file_fd, cr_fdset, 0);
+				ret = dump_one_reg_file(&p, vma_area->vm_file_fd, cr_fdset, 0);
 				if (ret)
 					goto err;
 			}
