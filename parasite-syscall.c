@@ -124,6 +124,11 @@ retry_signal:
 		pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code);
 
+		if (ctl->signals_blocked) {
+			pr_err("Unexpected %d task interruption, aborting\n", pid);
+			goto err;
+		}
+
 		/* FIXME: jerr(siginfo.si_code > 0, err_restore); */
 
 		/*
@@ -614,6 +619,8 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 	int ret = 0;
 
 	if (ctl->parasite_ip) {
+		ctl->signals_blocked = 0;
+
 		if (parasite_execute(PARASITE_CMD_FINI, ctl, &args, sizeof(args))) {
 			pr_err("Can't finalize parasite (pid: %d) task\n", ctl->pid);
 			ret = -1;
@@ -737,6 +744,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 		pr_err("%d: Can't create a transport socket\n", pid);
 		goto err_restore;
 	}
+
+	ctl->signals_blocked = 1;
 
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {

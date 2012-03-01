@@ -22,7 +22,8 @@ struct parasite_ctl {
 	user_regs_struct_t	regs_orig;				/* original registers */
 	unsigned long		syscall_ip;				/* entry point of infection */
 	u8			code_orig[BUILTIN_SYSCALL_SIZE];
-	unsigned long		status;
+
+	int			signals_blocked;
 
 	void *			addr_cmd;				/* addr for command */
 	void *			addr_args;				/* address for arguments */
