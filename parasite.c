@@ -544,7 +544,7 @@ static int init(struct parasite_init_args *args)
 	return ret;
 }
 
-static int set_logfd(void)
+static int parasite_set_logfd(void)
 {
 	logfd = recv_fd(tsock);
 	return logfd;
@@ -574,7 +574,7 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	case PARASITE_CMD_FINI:
 		return fini();
 	case PARASITE_CMD_SET_LOGFD:
-		return set_logfd();
+		return parasite_set_logfd();
 	case PARASITE_CMD_DUMPPAGES_INIT:
 		return dump_pages_init((parasite_status_t *) args);
 	case PARASITE_CMD_DUMPPAGES_FINI:

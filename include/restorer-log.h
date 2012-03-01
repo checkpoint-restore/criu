@@ -7,5 +7,5 @@ extern void write_num_n(long num);
 extern void write_num(long num);
 extern void write_string_n(char *str);
 extern void write_string(char *str);
-extern void set_logfd(int fd);
+extern void restorer_set_logfd(int fd);
 #endif

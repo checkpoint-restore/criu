@@ -352,7 +352,7 @@ long restore_task(struct task_restore_core_args *args)
 	act.rt_sa_handler = sigchld_handler;
 	sys_sigaction(SIGCHLD, &act, NULL);
 
-	set_logfd(args->logfd);
+	restorer_set_logfd(args->logfd);
 
 	core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
 	vma_entry	= next_on_heap(vma_entry, core_entry);

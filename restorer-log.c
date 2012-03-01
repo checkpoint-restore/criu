@@ -3,7 +3,7 @@
 
 static int logfd;
 
-void set_logfd(int fd)
+void restorer_set_logfd(int fd)
 {
 	logfd = fd;
 }
