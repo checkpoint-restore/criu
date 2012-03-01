@@ -1010,14 +1010,31 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 	return 0;
 }
 
-static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_only)
+static int collect_pstree(pid_t pid, struct list_head *pstree_list,
+		struct cr_options *opts)
 {
 	int ret, attempts = 5;
 
 	while (1) {
-		ret = collect_subtree(pid, -1, pstree_list, leader_only);
-		if (ret == 0)
+		struct pstree_item *item;
+
+		ret = collect_subtree(pid, -1, pstree_list, opts->leader_only);
+		if (ret == 0) {
+			/*
+			 * Some tasks could have been reparented to
+			 * namespaces' reaper. Check this.
+			 */
+			if (opts->namespaces_flags & CLONE_NEWPID) {
+				item = list_first_entry(pstree_list,
+						struct pstree_item, list);
+				BUG_ON(item->pid != 1);
+
+				if (check_subtree(item))
+					goto try_again;
+			}
+
 			break;
+		}
 
 		/*
 		 * Old tasks can die and new ones can appear while we
@@ -1025,7 +1042,7 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_o
 		 * just to restart the collection from the beginning
 		 * rather than trying to chase them.
 		 */
-
+try_again:
 		if (attempts == 0)
 			break;
 
@@ -1033,8 +1050,6 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_o
 		pr_info("Trying to suspend tasks again\n");
 
 		while (!list_empty(pstree_list)) {
-			struct pstree_item *item;
-
 			item = list_first_entry(pstree_list,
 					struct pstree_item, list);
 			list_del(&item->list);
@@ -1389,7 +1404,7 @@ int cr_dump_tasks(pid_t pid, struct cr_options *opts)
 		pr_info("Dumping process (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (collect_pstree(pid, &pstree_list, opts->leader_only))
+	if (collect_pstree(pid, &pstree_list, opts))
 		goto err;
 
 	if (opts->namespaces_flags) {

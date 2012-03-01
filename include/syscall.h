@@ -414,6 +414,10 @@ sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx
 	return syscall5(__NR_kcmp, (long)pid1, (long)pid2, (long)type, idx1, idx2);
 }
 
+#ifndef CLONE_NEWPID
+#define CLONE_NEWPID	0x20000000
+#endif
+
 #ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS	0x04000000
 #endif
