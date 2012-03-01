@@ -8,6 +8,7 @@ struct proc_pid_stat_small {
 	int			pid;
 	char			comm[PROC_TASK_COMM_LEN];
 	char			state;
+	int			ppid;
 };
 
 struct proc_pid_stat {

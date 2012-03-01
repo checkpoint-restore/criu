@@ -848,7 +848,7 @@ static int seize_threads(struct pstree_item *item)
 			continue;
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid, item->threads[i]);
-		ret = seize_task(item->threads[i]);
+		ret = seize_task(item->threads[i], item->ppid);
 		if (ret < 0)
 			goto err;
 
@@ -887,7 +887,7 @@ static int collect_threads(struct pstree_item *item)
 	return ret;
 }
 
-static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
+static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head *list)
 {
 	int ret;
 	struct pstree_item *item;
@@ -896,12 +896,13 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 	if (!item)
 		goto err;
 
-	ret = seize_task(pid);
+	ret = seize_task(pid, ppid);
 	if (ret < 0)
 		goto err_free;
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
 	item->pid = pid;
+	item->ppid = ppid;
 	item->state = ret;
 
 	ret = collect_threads(item);
@@ -932,13 +933,14 @@ err:
 	return NULL;
 }
 
-static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_only)
+static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
+		int leader_only)
 {
 	struct pstree_item *item;
 	int i;
 
 	pr_info("Collecting tasks starting from %d\n", pid);
-	item = collect_task(pid, pstree_list);
+	item = collect_task(pid, ppid, pstree_list);
 	if (item == NULL)
 		return -1;
 
@@ -946,10 +948,15 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_o
 		return 0;
 
 	for (i = 0; i < item->nr_children; i++)
-		if (collect_pstree(item->children[i], pstree_list, 0) < 0)
+		if (collect_subtree(item->children[i], item->pid, pstree_list, 0) < 0)
 			return -1;
 
 	return 0;
+}
+
+static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_only)
+{
+	return collect_subtree(pid, -1, pstree_list, leader_only);
 }
 
 static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset *cr_fdset)

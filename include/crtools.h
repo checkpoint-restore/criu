@@ -150,6 +150,7 @@ struct vma_area {
 struct pstree_item {
 	struct list_head	list;
 	pid_t			pid;		/* leader pid */
+	pid_t			ppid;
 	int			state;		/* TASK_XXX constants */
 	u32			nr_children;	/* number of children */
 	u32			nr_threads;	/* number of threads */

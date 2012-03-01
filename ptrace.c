@@ -40,21 +40,20 @@ int unseize_task(pid_t pid, enum cr_task_state st)
  * up with someone else.
  */
 
-int seize_task(pid_t pid)
+int seize_task(pid_t pid, pid_t ppid)
 {
 	siginfo_t si;
 	int status;
-	int ret;
+	int ret, ret2;
+	struct proc_pid_stat_small ps;
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL,
 		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
+	ret2 = parse_pid_stat_small(pid, &ps);
+	if (ret2 < 0)
+		return -1;
+
 	if (ret < 0) {
-		struct proc_pid_stat_small ps;
-
-		ret = parse_pid_stat_small(pid, &ps);
-		if (ret < 0)
-			return -1;
-
 		if (ps.state != 'Z') {
 			pr_err("Unseizeable non-zombie %d found, state %c\n",
 					pid, ps.state);
@@ -62,6 +61,12 @@ int seize_task(pid_t pid)
 		}
 
 		return TASK_DEAD;
+	}
+
+	if ((ppid != -1) && (ps.ppid != ppid)) {
+		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
+				pid, ppid, ps.ppid);
+		goto err;
 	}
 
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
