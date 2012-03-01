@@ -774,7 +774,7 @@ static int parse_threads(struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item, pid_t pid)
+static int parse_children(struct pstree_item *item)
 {
 	FILE *file;
 	char *tok;
@@ -783,7 +783,7 @@ static int parse_children(struct pstree_item *item, pid_t pid)
 
 	for (i = 0; i < item->nr_threads; i++) {
 
-		file = fopen_proc(pid, "task/%d/children", item->threads[i]);
+		file = fopen_proc(item->pid, "task/%d/children", item->threads[i]);
 		if (!file)
 			goto err;
 
@@ -909,7 +909,7 @@ static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head 
 	if (ret < 0)
 		goto err_close;
 
-	ret = parse_children(item, pid);
+	ret = parse_children(item);
 	if (ret < 0)
 		goto err_close;
 
