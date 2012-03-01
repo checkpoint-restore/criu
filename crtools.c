@@ -308,13 +308,13 @@ int main(int argc, char *argv[])
 	memzero_p(&zero_page_entry);
 
 	/* Default options */
-	opts.final_state = CR_TASK_KILL;
+	opts.final_state = TASK_DEAD;
 
 	for (opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx); opt != -1;
 	     opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx)) {
 		switch (opt) {
 		case 's':
-			opts.final_state = CR_TASK_STOP;
+			opts.final_state = TASK_STOPPED;
 			break;
 		case 'p':
 			pid = atoi(optarg);

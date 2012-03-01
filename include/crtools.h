@@ -47,13 +47,8 @@ enum {
 	CR_FD_MAX
 };
 
-enum cr_task_state {
-	CR_TASK_STOP,
-	CR_TASK_KILL,
-};
-
 struct cr_options {
-	enum cr_task_state	final_state;
+	int			final_state;
 	char			*show_dump_file;
 	bool			leader_only;
 	bool			show_pages_content;

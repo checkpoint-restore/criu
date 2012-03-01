@@ -20,12 +20,14 @@
 #include "ptrace.h"
 #include "proc_parse.h"
 
-int unseize_task(pid_t pid, enum cr_task_state st)
+int unseize_task(pid_t pid, int st)
 {
-	if (st == CR_TASK_KILL)
+	if (st == TASK_DEAD)
 		kill(pid, SIGKILL);
-	else if (st == CR_TASK_STOP)
+	else if (st == TASK_STOPPED)
 		kill(pid, SIGSTOP);
+	else if (st == TASK_ALIVE)
+		/* do nothing */ ;
 	else
 		pr_err("Unknown final state %d\n", st);
 
@@ -110,7 +112,7 @@ int seize_task(pid_t pid, pid_t ppid)
 
 	pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
 err:
-	unseize_task(pid, CR_TASK_STOP);
+	unseize_task(pid, TASK_STOPPED);
 	return -1;
 }
 

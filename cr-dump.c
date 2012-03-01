@@ -845,7 +845,7 @@ static int get_children(struct pstree_item *item)
 	return parse_children(item, &item->children, &item->nr_children);
 }
 
-static void unseize_task_and_threads(struct pstree_item *item, enum cr_task_state st)
+static void unseize_task_and_threads(struct pstree_item *item, int st)
 {
 	int i;
 
@@ -900,7 +900,7 @@ err:
 		if (item->pid == item->threads[i])
 			continue;
 
-		unseize_task(item->threads[i], CR_TASK_STOP /* FIXME */);
+		unseize_task(item->threads[i], TASK_ALIVE);
 	}
 
 	return -1;
@@ -957,6 +957,7 @@ static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head 
 
 err_close:
 	close_pid_proc();
+	unseize_task(pid, item->state);
 err_free:
 	xfree(item->children);
 	xfree(item->threads);
