@@ -272,68 +272,6 @@ err:
 	return ret;
 }
 
-static int dump_one_fd(pid_t pid, int pid_fd_dir, int lfd,
-		       struct fd_parms *p, struct cr_fdset *cr_fdset,
-		       struct sk_queue *sk_queue)
-{
-	struct statfs stfs_buf;
-	struct stat st_buf;
-	int err = -1;
-
-	if (lfd < 0) {
-		err = try_dump_socket(pid, p->fd_name, cr_fdset, sk_queue);
-		if (err != 1)
-			return err;
-
-		pr_perror("Failed to open %d/%ld", pid_fd_dir, p->fd_name);
-		return -1;
-	}
-
-	if (fstat(lfd, &st_buf) < 0) {
-		pr_perror("Can't get stat on %ld", p->fd_name);
-		goto out_close;
-	}
-
-	if (S_ISCHR(st_buf.st_mode) &&
-	    (major(st_buf.st_rdev) == TTY_MAJOR ||
-	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
-		/* skip only standard destriptors */
-		if (p->fd_name < 3) {
-			err = 0;
-			pr_info("... Skipping tty ... %d/%ld\n",
-				pid_fd_dir, p->fd_name);
-			goto out_close;
-		}
-		goto err;
-	}
-
-	if (S_ISREG(st_buf.st_mode) ||
-	    S_ISDIR(st_buf.st_mode) ||
-	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR)) {
-
-		p->id = MAKE_FD_GENID(st_buf.st_dev, st_buf.st_ino, p->pos);
-
-		return dump_one_reg_file(FDINFO_FD, p, lfd, cr_fdset, 1);
-	}
-
-	if (S_ISFIFO(st_buf.st_mode)) {
-		if (fstatfs(lfd, &stfs_buf) < 0) {
-			pr_perror("Can't fstatfs on %ld", p->fd_name);
-			return -1;
-		}
-
-		if (stfs_buf.f_type == PIPEFS_MAGIC)
-			return dump_one_pipe(p, st_buf.st_ino, lfd, cr_fdset);
-	}
-
-err:
-	pr_err("Can't dump file %ld of that type [%x]\n", p->fd_name, st_buf.st_mode);
-
-out_close:
-	close_safe(&lfd);
-	return err;
-}
-
 static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 {
 	FILE *file;
@@ -359,6 +297,73 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 	p->id	= FD_ID_INVALID;
 
 	return 0;
+}
+
+static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset *cr_fdset,
+		       struct sk_queue *sk_queue)
+{
+	struct statfs stfs_buf;
+	struct stat st_buf;
+	int err = -1;
+	struct fd_parms p;
+	int lfd;
+
+	if (read_fd_params(pid, d_name, &p))
+		return -1;
+
+	lfd = openat(pid_fd_dir, d_name, O_RDONLY);
+	if (lfd < 0) {
+		err = try_dump_socket(pid, p.fd_name, cr_fdset, sk_queue);
+		if (err != 1)
+			return err;
+
+		pr_perror("Failed to open %d/%ld", pid_fd_dir, p.fd_name);
+		return -1;
+	}
+
+	if (fstat(lfd, &st_buf) < 0) {
+		pr_perror("Can't get stat on %ld", p.fd_name);
+		goto out_close;
+	}
+
+	if (S_ISCHR(st_buf.st_mode) &&
+	    (major(st_buf.st_rdev) == TTY_MAJOR ||
+	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
+		/* skip only standard destriptors */
+		if (p.fd_name < 3) {
+			err = 0;
+			pr_info("... Skipping tty ... %d/%ld\n",
+				pid_fd_dir, p.fd_name);
+			goto out_close;
+		}
+		goto err;
+	}
+
+	if (S_ISREG(st_buf.st_mode) ||
+	    S_ISDIR(st_buf.st_mode) ||
+	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR)) {
+
+		p.id = MAKE_FD_GENID(st_buf.st_dev, st_buf.st_ino, p.pos);
+
+		return dump_one_reg_file(FDINFO_FD, &p, lfd, cr_fdset, 1);
+	}
+
+	if (S_ISFIFO(st_buf.st_mode)) {
+		if (fstatfs(lfd, &stfs_buf) < 0) {
+			pr_perror("Can't fstatfs on %ld", p.fd_name);
+			return -1;
+		}
+
+		if (stfs_buf.f_type == PIPEFS_MAGIC)
+			return dump_one_pipe(&p, st_buf.st_ino, lfd, cr_fdset);
+	}
+
+err:
+	pr_err("Can't dump file %ld of that type [%x]\n", p.fd_name, st_buf.st_mode);
+
+out_close:
+	close_safe(&lfd);
+	return err;
 }
 
 static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
@@ -388,18 +393,11 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
 		return -1;
 
 	while ((de = readdir(fd_dir))) {
-		struct fd_parms p;
-		int lfd;
-
 		if (!strcmp(de->d_name, "."))
 			continue;
 		if (!strcmp(de->d_name, ".."))
 			continue;
-		if (read_fd_params(pid, de->d_name, &p))
-			return -1;
-
-		lfd = openat(dirfd(fd_dir), de->d_name, O_RDONLY);
-		if (dump_one_fd(pid, dirfd(fd_dir), lfd, &p, cr_fdset,
+		if (dump_one_fd(pid, dirfd(fd_dir), de->d_name, cr_fdset,
 				sk_queue))
 			return -1;
 	}
