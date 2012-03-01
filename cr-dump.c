@@ -738,14 +738,14 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item, pid_t pid)
+static int parse_threads(struct pstree_item *item)
 {
 	struct dirent *de;
 	DIR *dir;
 	u32 *t = NULL;
 	int nr = 1;
 
-	dir = opendir_proc(pid, "task");
+	dir = opendir_proc(item->pid, "task");
 	if (!dir)
 		return -1;
 
@@ -876,6 +876,17 @@ err:
 	return -1;
 }
 
+static int collect_threads(struct pstree_item *item)
+{
+	int ret;
+
+	ret = parse_threads(item);
+	if (!ret)
+		ret = seize_threads(item);
+
+	return ret;
+}
+
 static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 {
 	int ret;
@@ -909,11 +920,7 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 		item->state = TASK_DEAD;
 	}
 
-	ret = parse_threads(item, pid);
-	if (ret < 0)
-		goto err_close;
-
-	ret = seize_threads(item);
+	ret = collect_threads(item);
 	if (ret < 0)
 		goto err_close;
 
