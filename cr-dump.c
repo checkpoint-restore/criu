@@ -852,8 +852,8 @@ static int seize_threads(struct pstree_item *item)
 		if (ret < 0)
 			goto err;
 
-		if (ret == TASK_SHOULD_BE_DEAD) {
-			pr_err("Potentially zombie thread not supported\n");
+		if (ret == TASK_DEAD) {
+			pr_err("Zombie thread not supported\n");
 			goto err;
 		}
 
@@ -903,22 +903,6 @@ static struct pstree_item *collect_task(pid_t pid, struct list_head *list)
 	pr_info("Seized task %d, state %d\n", pid, ret);
 	item->pid = pid;
 	item->state = ret;
-
-	if (item->state == TASK_SHOULD_BE_DEAD) {
-		struct proc_pid_stat_small ps;
-
-		ret = parse_pid_stat_small(pid, &ps);
-		if (ret < 0)
-			goto err_close;
-
-		if (ps.state != 'Z') {
-			pr_err("Unseizeable non-zombie %d found, state %c\n",
-					item->pid, ps.state);
-			goto err_close;
-		}
-
-		item->state = TASK_DEAD;
-	}
 
 	ret = collect_threads(item);
 	if (ret < 0)

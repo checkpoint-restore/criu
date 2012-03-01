@@ -18,6 +18,7 @@
 #include "types.h"
 #include "util.h"
 #include "ptrace.h"
+#include "proc_parse.h"
 
 int unseize_task(pid_t pid, enum cr_task_state st)
 {
@@ -47,8 +48,21 @@ int seize_task(pid_t pid)
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL,
 		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
-	if (ret < 0)
-		return TASK_SHOULD_BE_DEAD; /* Caller should verify it's really dead */
+	if (ret < 0) {
+		struct proc_pid_stat_small ps;
+
+		ret = parse_pid_stat_small(pid, &ps);
+		if (ret < 0)
+			return -1;
+
+		if (ps.state != 'Z') {
+			pr_err("Unseizeable non-zombie %d found, state %c\n",
+					pid, ps.state);
+			return -1;
+		}
+
+		return TASK_DEAD;
+	}
 
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
