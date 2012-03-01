@@ -57,29 +57,29 @@ void pr_info_siginfo(siginfo_t *siginfo)
 		siginfo->si_signo, siginfo->si_errno, siginfo->si_code);
 }
 
-void pr_info_vma(struct vma_area *vma_area)
+void pr_vma(unsigned int loglevel, struct vma_area *vma_area)
 {
 	if (!vma_area)
 		return;
 
-	pr_info("s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
-		"vf: %s st: %s spc: %s\n",
-		vma_area->vma.start, vma_area->vma.end,
-		KBYTES(vma_area_len(vma_area)),
-		vma_area->vma.prot,
-		vma_area->vma.flags,
-		vma_area->vma.pgoff,
-		vma_area->vm_file_fd < 0 ? "n" : "y",
-		!vma_area->vma.status ? "--" :
-		((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
-		 ((vma_area->vma.status & VMA_FILE_SHARED) ? "FS" :
-		  ((vma_area->vma.status & VMA_ANON_SHARED) ? "AS" :
-		   ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
-		!vma_area->vma.status ? "--" :
-		((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
-		 ((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
-		  ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
-		   ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))));
+	print_on_level(loglevel, "s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
+		       "vf: %s st: %s spc: %s\n",
+		       vma_area->vma.start, vma_area->vma.end,
+		       KBYTES(vma_area_len(vma_area)),
+		       vma_area->vma.prot,
+		       vma_area->vma.flags,
+		       vma_area->vma.pgoff,
+		       vma_area->vm_file_fd < 0 ? "n" : "y",
+		       !vma_area->vma.status ? "--" :
+		       ((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
+			((vma_area->vma.status & VMA_FILE_SHARED) ? "FS" :
+			 ((vma_area->vma.status & VMA_ANON_SHARED) ? "AS" :
+			  ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
+		       !vma_area->vma.status ? "--" :
+		       ((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
+			((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
+			 ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
+			  ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))));
 }
 
 int close_safe(int *fd)

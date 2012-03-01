@@ -404,7 +404,6 @@ int main(int argc, char *argv[])
 		ret = cr_restore_tasks(pid, &opts);
 		break;
 	case 's':
-		log_set_loglevel(LOG_INFO);
 		ret = cr_show(pid, &opts);
 		break;
 	default:

@@ -51,12 +51,12 @@ struct msgbuf_a {
 #define SEM_SET			20
 #endif
 
-static void print_ipc_desc_entry(const struct ipc_desc_entry *desc)
+static void pr_ipc_desc_entry(unsigned int loglevel, const struct ipc_desc_entry *desc)
 {
-	pr_info("id: %-10d key: 0x%08x ", desc->id, desc->key);
-	pr_info("uid: %-10d gid: %-10d ", desc->uid, desc->gid);
-	pr_info("cuid: %-10d cgid: %-10d ", desc->cuid, desc->cgid);
-	pr_info("mode: %-10o ", desc->mode);
+	print_on_level(loglevel, "id: %-10d key: 0x%08x ", desc->id, desc->key);
+	print_on_level(loglevel, "uid: %-10d gid: %-10d ", desc->uid, desc->gid);
+	print_on_level(loglevel, "cuid: %-10d cgid: %-10d ", desc->cuid, desc->cgid);
+	print_on_level(loglevel, "mode: %-10o ", desc->mode);
 }
 
 static void fill_ipc_desc(int id, struct ipc_desc_entry *desc,
@@ -71,18 +71,24 @@ static void fill_ipc_desc(int id, struct ipc_desc_entry *desc,
 	desc->mode = ipcp->mode;
 }
 
-static void print_ipc_sem_array(int nr, u16 *values)
+static void pr_ipc_sem_array(unsigned int loglevel, int nr, u16 *values)
 {
 	while(nr--)
-		pr_info("  %-5d", values[nr]);
-	pr_info("\n");
+		print_on_level(loglevel, "  %-5d", values[nr]);
+	print_on_level(loglevel, "\n");
 }
 
-static void print_ipc_sem_entry(const struct ipc_sem_entry *sem)
+#define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_INFO, nr, values)
+#define pr_msg_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_MSG, nr, values)
+
+static void pr_ipc_sem_entry(unsigned int loglevel, const struct ipc_sem_entry *sem)
 {
-	print_ipc_desc_entry(&sem->desc);
-	pr_info ("nsems: %-10d\n", sem->nsems);
+	pr_ipc_desc_entry(loglevel, &sem->desc);
+	print_on_level(loglevel, "nsems: %-10d\n", sem->nsems);
 }
+
+#define pr_info_ipc_sem_entry(sem)		pr_ipc_sem_entry(LOG_INFO, sem)
+#define pr_msg_ipc_sem_entry(sem)		pr_ipc_sem_entry(LOG_MSG, sem)
 
 static int dump_ipc_sem_set(int fd, const struct ipc_sem_entry *entry)
 {
@@ -102,7 +108,7 @@ static int dump_ipc_sem_set(int fd, const struct ipc_sem_entry *entry)
 		ret = -errno;
 		goto out;
 	}
-	print_ipc_sem_array(entry->nsems, values);
+	pr_info_ipc_sem_array(entry->nsems, values);
 
 	ret = write_img_buf(fd, values, round_up(size, sizeof(u64)));
 	if (ret < 0) {
@@ -121,7 +127,7 @@ static int dump_ipc_sem_desc(int fd, int id, const struct semid_ds *ds)
 
 	fill_ipc_desc(id, &sem.desc, &ds->sem_perm);
 	sem.nsems = ds->sem_nsems;
-	print_ipc_sem_entry(&sem);
+	pr_info_ipc_sem_entry(&sem);
 
 	ret = write_img(fd, &sem);
 	if (ret < 0) {
@@ -166,17 +172,24 @@ static int dump_ipc_sem(int fd)
 	return info.semusz;
 }
 
-static void print_ipc_msg(int nr, const struct ipc_msg *msg)
+static void pr_ipc_msg(unsigned int loglevel, int nr, const struct ipc_msg *msg)
 {
-	pr_info("  %-5d: type: %-20ld size: %-10d\n",
-		nr++, msg->mtype, msg->msize);
+	print_on_level(loglevel, "  %-5d: type: %-20ld size: %-10d\n",
+		       nr++, msg->mtype, msg->msize);
 }
 
-static void print_ipc_msg_entry(const struct ipc_msg_entry *msg)
+#define pr_info_ipc_msg(nr, msg)	pr_ipc_msg(LOG_INFO, nr, msg)
+#define pr_msg_ipc_msg(nr, msg)		pr_ipc_msg(LOG_MSG, nr, msg)
+
+static void pr_ipc_msg_entry(unsigned int loglevel, const struct ipc_msg_entry *msg)
 {
-	print_ipc_desc_entry(&msg->desc);
-	pr_info ("qbytes: %-10d qnum: %-10d\n", msg->qbytes, msg->qnum);
+	pr_ipc_desc_entry(loglevel, &msg->desc);
+	print_on_level(loglevel, "qbytes: %-10d qnum: %-10d\n",
+		       msg->qbytes, msg->qnum);
 }
+
+#define pr_info_ipc_msg_entry(msg)	pr_ipc_msg_entry(LOG_INFO, msg)
+#define pr_msg_ipc_msg_entry(msg)	pr_ipc_msg_entry(LOG_MSG, msg)
 
 static int dump_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry, size_t cbytes)
 {
@@ -208,7 +221,7 @@ static int dump_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *entry
 		msg.msize = data->msize;
 		msg.mtype = data->mtype;
 
-		print_ipc_msg(msg_nr, &msg);
+		pr_info_ipc_msg(msg_nr, &msg);
 
 		ret = write_img(fd, &msg);
 		if (ret < 0) {
@@ -237,7 +250,7 @@ static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
 	fill_ipc_desc(id, &msg.desc, &ds->msg_perm);
 	msg.qbytes = ds->msg_qbytes;
 	msg.qnum = ds->msg_qnum;
-	print_ipc_msg_entry(&msg);
+	pr_info_ipc_msg_entry(&msg);
 
 	ret = write_img(fd, &msg);
 	if (ret < 0) {
@@ -282,11 +295,14 @@ static int dump_ipc_msg(int fd)
 	return info.msgpool;
 }
 
-static void print_ipc_shm(const struct ipc_shm_entry *shm)
+static void pr_ipc_shm(unsigned int loglevel, const struct ipc_shm_entry *shm)
 {
-	print_ipc_desc_entry(&shm->desc);
-	pr_info("size: %-10lu\n", shm->size);
+	pr_ipc_desc_entry(loglevel, &shm->desc);
+	print_on_level(loglevel, "size: %-10lu\n", shm->size);
 }
+
+#define pr_info_ipc_shm(shm)	pr_ipc_shm(LOG_INFO, shm)
+#define pr_msg_ipc_shm(shm)	pr_ipc_shm(LOG_MSG, shm)
 
 static int ipc_sysctl_req(struct ipc_var_entry *e, int op)
 {
@@ -342,7 +358,7 @@ static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
 
 	fill_ipc_desc(id, &shm.desc, &ds->shm_perm);
 	shm.size = ds->shm_segsz;
-	print_ipc_shm(&shm);
+	pr_info_ipc_shm(&shm);
 
 	ret = write_img(fd, &shm);
 	if (ret < 0) {
@@ -443,14 +459,9 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 	return 0;
 }
 
-static void show_var_entry(struct ipc_var_entry *entry)
-{
-	ipc_sysctl_req(entry, CTL_PRINT);
-}
-
 static void show_ipc_sem_entries(int fd)
 {
-	pr_info("\nSemaphores sets:\n");
+	pr_msg("\nSemaphores sets:\n");
 	while (1) {
 		int size;
 		struct ipc_sem_entry entry;
@@ -458,14 +469,14 @@ static void show_ipc_sem_entries(int fd)
 
 		if (read_img_eof(fd, &entry) <= 0)
 			return;
-		print_ipc_sem_entry(&entry);
+		pr_msg_ipc_sem_entry(&entry);
 		size = sizeof(u16) * entry.nsems;
 		values = xmalloc(size);
 		if (values == NULL)
 			return;
 		if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0)
 			return;
-		print_ipc_sem_array(entry.nsems, values);
+		pr_msg_ipc_sem_array(entry.nsems, values);
 	}
 }
 
@@ -478,7 +489,7 @@ void show_ipc_sem(int fd)
 
 static void show_ipc_msg_entries(int fd)
 {
-	pr_info("\nMessage queues:\n");
+	pr_msg("\nMessage queues:\n");
 	while (1) {
 		int ret;
 		struct ipc_msg_entry entry;
@@ -488,7 +499,7 @@ static void show_ipc_msg_entries(int fd)
 		if (ret <= 0)
 			return;
 
-		print_ipc_msg_entry(&entry);
+		pr_msg_ipc_msg_entry(&entry);
 
 		while (msg_nr < entry.qnum) {
 			struct ipc_msg msg;
@@ -497,7 +508,7 @@ static void show_ipc_msg_entries(int fd)
 			if (ret <= 0)
 				return;
 
-			print_ipc_msg(msg_nr, &msg);
+			pr_msg_ipc_msg(msg_nr, &msg);
 
 			if (lseek(fd, round_up(msg.msize, sizeof(u64)),
 						SEEK_CUR) == (off_t) -1)
@@ -516,7 +527,7 @@ void show_ipc_msg(int fd)
 
 static void show_ipc_shm_entries(int fd)
 {
-	pr_info("\nShared memory segments:\n");
+	pr_msg("\nShared memory segments:\n");
 	while (1) {
 		int ret;
 		struct ipc_shm_entry shm;
@@ -525,7 +536,7 @@ static void show_ipc_shm_entries(int fd)
 		if (ret <= 0)
 			return;
 
-		print_ipc_shm(&shm);
+		pr_msg_ipc_shm(&shm);
 
 		if (lseek(fd, round_up(shm.size, sizeof(u32)), SEEK_CUR) == (off_t) -1)
 			return;
@@ -547,7 +558,7 @@ static void show_ipc_var_entry(int fd)
 	ret = read_img_eof(fd, &var);
 	if (ret <= 0)
 		return;
-	show_var_entry(&var);
+	ipc_sysctl_req(&var, CTL_SHOW);
 }
 
 void show_ipc_var(int fd)
@@ -577,7 +588,7 @@ static int prepare_ipc_sem_values(int fd, const struct ipc_sem_entry *entry)
 		goto out;
 	}
 
-	print_ipc_sem_array(entry->nsems, values);
+	pr_info_ipc_sem_array(entry->nsems, values);
 
 	ret = semctl(entry->desc.id, 0, SETALL, values);
 	if (ret < 0) {
@@ -647,7 +658,7 @@ static int prepare_ipc_sem(int pid)
 		if (ret == 0)
 			break;
 
-		print_ipc_sem_entry(&entry);
+		pr_info_ipc_sem_entry(&entry);
 
 		ret = prepare_ipc_sem_desc(fd, &entry);
 		if (ret < 0) {
@@ -674,7 +685,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const struct ipc_msg_entry *en
 		if (ret <= 0)
 			return -EIO;
 
-		print_ipc_msg(msg_nr, &msg);
+		pr_info_ipc_msg(msg_nr, &msg);
 
 		if (msg.msize > MSGMAX) {
 			pr_err("Unsupported message size: %d (MAX: %d)\n",
@@ -760,7 +771,7 @@ static int prepare_ipc_msg(int pid)
 		if (ret == 0)
 			break;
 
-		print_ipc_msg_entry(&entry);
+		pr_info_ipc_msg_entry(&entry);
 
 		ret = prepare_ipc_msg_queue(fd, &entry);
 		if (ret < 0) {
@@ -852,7 +863,7 @@ static int prepare_ipc_shm(int pid)
 		if (ret == 0)
 			break;
 
-		print_ipc_shm(&shm);
+		pr_info_ipc_shm(&shm);
 
 		ret = prepare_ipc_shm_seg(fd, &shm);
 		if (ret < 0) {
@@ -879,7 +890,7 @@ static int prepare_ipc_var(int pid)
 		return -EFAULT;
 	}
 
-	show_var_entry(&var);
+	ipc_sysctl_req(&var, CTL_PRINT);
 
 	ret = ipc_sysctl_req(&var, CTL_WRITE);
 	if (ret < 0) {

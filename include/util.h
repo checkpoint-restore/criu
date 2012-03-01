@@ -136,14 +136,18 @@ extern void pr_info_siginfo(siginfo_t *siginfo);
 struct vma_area;
 struct list_head;
 
-extern void pr_info_vma(struct vma_area *vma_area);
+extern void pr_vma(unsigned int loglevel, struct vma_area *vma_area);
 
-#define pr_info_vma_list(head)					\
+#define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
+#define pr_msg_vma(vma_area)	pr_vma(LOG_MSG, vma_area)
+
+#define pr_vma_list(level, head)				\
 	do {							\
 		struct vma_area *vma;				\
 		list_for_each_entry(vma, head, list)		\
-			pr_info_vma(vma);			\
+			pr_vma(level, vma);			\
 	} while (0)
+#define pr_info_vma_list(head)	pr_vma_list(LOG_INFO, head)
 
 /*
  * Note since VMA_AREA_NONE = 0 we can skip assignment
@@ -252,8 +256,8 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 		__ret;							\
 	 })
 
-#define pr_img_head(type, ...)	pr_info("\n"#type __VA_ARGS__ "\n----------------\n")
-#define pr_img_tail(type)	pr_info("----------------\n")
+#define pr_img_head(type, ...)	pr_msg("\n"#type __VA_ARGS__ "\n----------------\n")
+#define pr_img_tail(type)	pr_msg("----------------\n")
 
 #define KDEV_MINORBITS	20
 #define KDEV_MINORMASK	((1UL << KDEV_MINORBITS) - 1)

@@ -30,26 +30,26 @@
 #endif
 
 
-#define PR_SYMBOL(sym)				\
+#define PR_SYMBOL(sym)			\
 	(isprint(sym) ? sym : '.')
 
 #define pr_regs4(s, n1, n2, n3, n4)	\
-	pr_info("%8s: %16lx "		\
-		"%8s: %16lx "		\
-		"%8s: %16lx "		\
-		"%8s: %16lx\n",		\
-		#n1, s.n1,		\
-		#n2, s.n2,		\
-		#n3, s.n3,		\
-		#n4, s.n4)
+	pr_msg("%8s: %16lx "		\
+	       "%8s: %16lx "		\
+	       "%8s: %16lx "		\
+	       "%8s: %16lx\n",		\
+	       #n1, s.n1,		\
+	       #n2, s.n2,		\
+	       #n3, s.n3,		\
+	       #n4, s.n4)
 
 #define pr_regs3(s, n1, n2, n3)		\
-	pr_info("%8s: %16lx "		\
-		"%8s: %16lx "		\
-		"%8s: %16lx\n",		\
-		#n1, s.n1,		\
-		#n2, s.n2,		\
-		#n3, s.n3)
+	pr_msg("%8s: %16lx "		\
+	       "%8s: %16lx "		\
+	       "%8s: %16lx\n",		\
+	       #n1, s.n1,		\
+	       #n2, s.n2,		\
+	       #n3, s.n3)
 
 static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
@@ -66,7 +66,7 @@ static void show_shmem(int fd_shmem)
 		ret = read_img_eof(fd_shmem, &e);
 		if (ret <= 0)
 			goto out;
-		pr_info("0x%lx-0x%lx id %lu\n", e.start, e.end, e.shmid);
+		pr_msg("0x%lx-0x%lx id %lu\n", e.start, e.end, e.shmid);
 	}
 
 out:
@@ -86,9 +86,9 @@ static void show_files(int fd_files)
 		if (ret <= 0)
 			goto out;
 
-		pr_info("type: %02x len: %02x flags: %4x pos: %8x "
-			"addr: %16lx id: %16lx",
-			e.type, e.len, e.flags, e.pos, e.addr, e.id);
+		pr_msg("type: %02x len: %02x flags: %4x pos: %8x "
+		       "addr: %16lx id: %16lx",
+		       e.type, e.len, e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
@@ -97,10 +97,10 @@ static void show_files(int fd_files)
 				goto out;
 			}
 			local_buf[e.len] = 0;
-			pr_info(" --> %s", local_buf);
+			pr_msg(" --> %s", local_buf);
 		}
 
-		pr_info("\n");
+		pr_msg("\n");
 	}
 
 out:
@@ -120,8 +120,8 @@ static void show_pipes(int fd_pipes)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_info("fd: %8x pipeid: %8x flags: %8x bytes: %8x\n",
-			e.fd, e.pipeid, e.flags, e.bytes);
+		pr_msg("fd: %8x pipeid: %8x flags: %8x bytes: %8x\n",
+		       e.fd, e.pipeid, e.flags, e.bytes);
 		if (e.bytes)
 			lseek(fd_pipes, e.bytes, SEEK_CUR);
 	}
@@ -135,7 +135,7 @@ static void show_vma(int fd_vma)
 	struct vma_area vma_area = {};
 	struct vma_entry ve;
 
-	pr_info("\n\t---[VMA areas]---\n");
+	pr_msg("\n\t---[VMA areas]---\n");
 	while (1) {
 		if (read_img(fd_vma, &ve) < 0)
 			break;
@@ -145,7 +145,7 @@ static void show_vma(int fd_vma)
 
 		/* Simply in a sake of fancy printing */
 		vma_area.vma = ve;
-		pr_info_vma(&vma_area);
+		pr_msg_vma(&vma_area);
 	}
 }
 
@@ -154,21 +154,21 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	int i, j;
 
 	for (i = 0; i < size; i+= 16) {
-		pr_info("%16lx: ", addr + i);
+		pr_msg("%16lx: ", addr + i);
 		for (j = 0; j < 8; j++)
-			pr_info("%02x ", data[i +  j]);
-		pr_info(" ");
+			pr_msg("%02x ", data[i +  j]);
+		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_info("%02x ", data[i +  j]);
+			pr_msg("%02x ", data[i +  j]);
 
-		pr_info(" |");
+		pr_msg(" |");
 		for (j = 0; j < 8; j++)
-			pr_info("%c ", PR_SYMBOL(data[i + j]));
-		pr_info(" ");
+			pr_msg("%c ", PR_SYMBOL(data[i + j]));
+		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_info("%c ", PR_SYMBOL(data[i + j]));
+			pr_msg("%c ", PR_SYMBOL(data[i + j]));
 
-		pr_info("|\n");
+		pr_msg("|\n");
 	}
 }
 
@@ -186,24 +186,24 @@ static void show_pages(int fd_pages, bool show_content)
 				break;
 
 			print_data(e.va, e.data, PAGE_IMAGE_SIZE);
-			pr_info("\n                  --- End of page ---\n\n");
+			pr_msg("\n                  --- End of page ---\n\n");
 		}
 	} else {
 		while (1) {
 			struct page_entry e;
 			int i, j;
 
-			pr_info("\t");
+			pr_msg("\t");
 			for (i = 0; i < DEF_PAGES_PER_LINE; i++) {
 				if (read_img(fd_pages, &e) < 0)
 					goto out;
 				if (final_page_entry(&e)) {
-					pr_info("\n");
+					pr_msg("\n");
 					goto out;
 				}
-				pr_info("%16lx ", e.va);
+				pr_msg("%16lx ", e.va);
 			}
-			pr_info("\n");
+			pr_msg("\n");
 		}
 	}
 
@@ -223,12 +223,12 @@ static void show_sigacts(int fd_sigacts)
 		ret = read_img_eof(fd_sigacts, &e);
 		if (ret <= 0)
 			goto out;
-		pr_info("sigaction: %016lx mask: %08lx "
-			"flags: %016lx restorer: %016lx\n",
-			(long)e.sigaction,
-			(long)e.mask,
-			(long)e.flags,
-			(long)e.restorer);
+		pr_msg("sigaction: %016lx mask: %08lx "
+		       "flags: %016lx restorer: %016lx\n",
+		       (long)e.sigaction,
+		       (long)e.mask,
+		       (long)e.flags,
+		       (long)e.restorer);
 	}
 
 out:
@@ -237,9 +237,9 @@ out:
 
 static void show_itimer(char *n, struct itimer_entry *ie)
 {
-	pr_info("%s: int %lu.%lu val %lu.%lu\n", n,
-			(unsigned long)ie->isec, (unsigned long)ie->iusec,
-			(unsigned long)ie->vsec, (unsigned long)ie->vusec);
+	pr_msg("%s: int %lu.%lu val %lu.%lu\n", n,
+	       (unsigned long)ie->isec, (unsigned long)ie->iusec,
+	       (unsigned long)ie->vsec, (unsigned long)ie->vusec);
 }
 
 static void show_itimers(int fd)
@@ -261,10 +261,10 @@ static void show_cap(char *name, u32 *v)
 {
 	int i;
 
-	pr_info("%s: ", name);
+	pr_msg("%s: ", name);
 	for (i = CR_CAP_SIZE - 1; i >= 0; i--)
-		pr_info("%08x", v[i]);
-	pr_info("\n");
+		pr_msg("%08x", v[i]);
+	pr_msg("\n");
 }
 
 static void show_creds(int fd)
@@ -275,17 +275,17 @@ static void show_creds(int fd)
 	if (read_img(fd, &ce) < 0)
 		goto out;
 
-	pr_info("uid %u  euid %u  suid %u  fsuid %u\n",
-			ce.uid, ce.euid, ce.suid, ce.fsuid);
-	pr_info("gid %u  egid %u  sgid %u  fsgid %u\n",
-			ce.gid, ce.egid, ce.sgid, ce.fsgid);
+	pr_msg("uid %u  euid %u  suid %u  fsuid %u\n",
+	       ce.uid, ce.euid, ce.suid, ce.fsuid);
+	pr_msg("gid %u  egid %u  sgid %u  fsgid %u\n",
+	       ce.gid, ce.egid, ce.sgid, ce.fsgid);
 
 	show_cap("Inh", ce.cap_inh);
 	show_cap("Eff", ce.cap_eff);
 	show_cap("Prm", ce.cap_prm);
 	show_cap("Bnd", ce.cap_bnd);
 
-	pr_info("secbits: %x\n", ce.secbits);
+	pr_msg("secbits: %x\n", ce.secbits);
 out:
 	pr_img_tail(CR_FD_CREDS);
 }
@@ -304,8 +304,8 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 		ret = read_img_eof(fd_pstree, &e);
 		if (ret <= 0)
 			goto out;
-		pr_info("pid: %8d nr_children: %8d nr_threads: %8d\n",
-			e.pid, e.nr_children, e.nr_threads);
+		pr_msg("pid: %8d nr_children: %8d nr_threads: %8d\n",
+		       e.pid, e.nr_children, e.nr_threads);
 
 		if (collect) {
 			item = xzalloc(sizeof(struct pstree_item));
@@ -324,29 +324,29 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 		}
 
 		if (e.nr_children) {
-			pr_info("\\\n");
-			pr_info(" +--- children: ");
+			pr_msg("\\\n");
+			pr_msg(" +--- children: ");
 			while (e.nr_children--) {
 				ret = read_img_eof(fd_pstree, &pid);
 				if (ret <= 0)
 					goto out;
-				pr_info(" %6d", pid);
+				pr_msg(" %6d", pid);
 			}
-			pr_info("\n");
+			pr_msg("\n");
 		}
 
 		if (e.nr_threads) {
-			pr_info("  \\\n");
-			pr_info("   --- threads: ");
+			pr_msg("  \\\n");
+			pr_msg("   --- threads: ");
 			while (e.nr_threads--) {
 				ret = read_img_eof(fd_pstree, &pid);
 				if (ret <= 0)
 					goto out;
-				pr_info(" %6d", pid);
+				pr_msg(" %6d", pid);
 				if (item)
 					item->threads[e.nr_threads] = pid;
 			}
-			pr_info("\n");
+			pr_msg("\n");
 		}
 
 	}
@@ -362,7 +362,7 @@ static void show_core_regs(int fd_core)
 	struct desc_struct tls;
 	int i;
 
-	pr_info("\n\t---[GP registers set]---\n");
+	pr_msg("\n\t---[GP registers set]---\n");
 
 	lseek(fd_core, GET_FILE_OFF(struct core_entry, arch.gpregs), SEEK_SET);
 
@@ -376,7 +376,7 @@ static void show_core_regs(int fd_core)
 	pr_regs4(regs, r11, r12, r13, r14);
 	pr_regs3(regs, r15, bp, bx);
 	pr_regs4(regs, orig_ax, flags, fs_base, gs_base);
-	pr_info("\n");
+	pr_msg("\n");
 
 err:
 	return;
@@ -403,29 +403,29 @@ static void show_core_rest(int fd_core)
 	if (read_img(fd_core, &tc) < 0)
 		goto err;
 
-	pr_info("\n\t---[Task parameters]---\n");
-	pr_info("\tPersonality:  %x\n", tc.personality);
-	pr_info("\tCommand:      %s\n", tc.comm);
-	pr_info("\tState:        %d (%s)\n",
-		(int)tc.task_state,
-		task_state_str((int)tc.task_state));
+	pr_msg("\n\t---[Task parameters]---\n");
+	pr_msg("\tPersonality:  %x\n", tc.personality);
+	pr_msg("\tCommand:      %s\n", tc.comm);
+	pr_msg("\tState:        %d (%s)\n",
+	       (int)tc.task_state,
+	       task_state_str((int)tc.task_state));
 
-	pr_info("\t   Exit code: %u\n",
-		(unsigned int)tc.exit_code);
+	pr_msg("\t   Exit code: %u\n",
+	       (unsigned int)tc.exit_code);
 
-	pr_info("\tBrk:          %lx\n", tc.mm_brk);
-	pr_info("\tStart code:   %lx\n", tc.mm_start_code);
-	pr_info("\tEnd code:     %lx\n", tc.mm_end_code);
-	pr_info("\tStart stack:  %lx\n", tc.mm_start_stack);
-	pr_info("\tStart data:   %lx\n", tc.mm_start_data);
-	pr_info("\tEnd data:     %lx\n", tc.mm_end_data);
-	pr_info("\tStart brk:    %lx\n", tc.mm_start_brk);
-	pr_info("\tArg start:    %lx\n", tc.mm_arg_start);
-	pr_info("\tArg end:      %lx\n", tc.mm_arg_end);
-	pr_info("\tEnv start:    %lx\n", tc.mm_env_start);
-	pr_info("\tEnv end:      %lx\n", tc.mm_env_end);
-	pr_info("\n\tBlkSig: %lx\n", tc.blk_sigset);
-	pr_info("\n");
+	pr_msg("\tBrk:          %lx\n", tc.mm_brk);
+	pr_msg("\tStart code:   %lx\n", tc.mm_start_code);
+	pr_msg("\tEnd code:     %lx\n", tc.mm_end_code);
+	pr_msg("\tStart stack:  %lx\n", tc.mm_start_stack);
+	pr_msg("\tStart data:   %lx\n", tc.mm_start_data);
+	pr_msg("\tEnd data:     %lx\n", tc.mm_end_data);
+	pr_msg("\tStart brk:    %lx\n", tc.mm_start_brk);
+	pr_msg("\tArg start:    %lx\n", tc.mm_arg_start);
+	pr_msg("\tArg end:      %lx\n", tc.mm_arg_end);
+	pr_msg("\tEnv start:    %lx\n", tc.mm_env_start);
+	pr_msg("\tEnv end:      %lx\n", tc.mm_env_end);
+	pr_msg("\n\tBlkSig: %lx\n", tc.blk_sigset);
+	pr_msg("\n");
 
 err:
 	return;
@@ -590,13 +590,13 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				if (!cr_fdset_th)
 					goto out;
 
-				pr_info("\n");
-				pr_info("Thread: %d\n", item->threads[i]);
-				pr_info("----------------------------------------\n");
+				pr_msg("\n");
+				pr_msg("Thread: %d\n", item->threads[i]);
+				pr_msg("----------------------------------------\n");
 
 				show_core(cr_fdset_th->fds[CR_FD_CORE], opts->show_pages_content);
 
-				pr_info("----------------------------------------\n");
+				pr_msg("----------------------------------------\n");
 
 				close_cr_fdset(&cr_fdset_th);
 			}

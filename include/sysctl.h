@@ -13,6 +13,7 @@ enum {
 	CTL_READ,
 	CTL_WRITE,
 	CTL_PRINT,
+	CTL_SHOW,
 };
 
 #define CTL_SHIFT	4	/* Up to 16 types */
