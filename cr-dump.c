@@ -391,7 +391,9 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
 		struct fd_parms p;
 		int lfd;
 
-		if (de->d_name[0] == '.')
+		if (!strcmp(de->d_name, "."))
+			continue;
+		if (!strcmp(de->d_name, ".."))
 			continue;
 		if (read_fd_params(pid, de->d_name, &p))
 			return -1;
