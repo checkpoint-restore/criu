@@ -143,12 +143,12 @@ retry_signal:
 		 */
 
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
-			pr_panic("Can't set registers (pid: %d)\n", pid);
+			pr_err("Can't set registers (pid: %d)\n", pid);
 			goto err;
 		}
 
 		if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-			pr_panic("Can't interrupt (pid: %d)\n", pid);
+			pr_err("Can't interrupt (pid: %d)\n", pid);
 			goto err;
 		}
 
@@ -195,7 +195,7 @@ retry_signal:
 	 * Our code is done.
 	 */
 	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-		pr_panic("Can't interrupt (pid: %d)\n", pid);
+		pr_err("Can't interrupt (pid: %d)\n", pid);
 		goto err;
 	}
 
@@ -264,7 +264,7 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 
 	if (ctl->pid != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
-			pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
+			pr_err("Can't restore registers (pid: %d)\n", ctl->pid);
 			return -1;
 		}
 
@@ -417,7 +417,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	parasite_status_t args = { };
 	int ret;
 
-	ret = parasite_send_fd(ctl, get_logfd());
+	ret = parasite_send_fd(ctl, log_get_fd());
 	if (ret)
 		return ret;
 
@@ -542,7 +542,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, st, sizeof(*st));
 	if (ret < 0) {
-		pr_panic("Dumping pages failed with %li (%li) at %li\n",
+		pr_err("Dumping pages failed with %li (%li) at %li\n",
 				parasite_dumppages.status.ret,
 				parasite_dumppages.status.sys_ret,
 				parasite_dumppages.status.line);
@@ -574,7 +574,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		else if (vma_area_is(vma_area, VMA_ANON_SHARED))
 			parasite_dumppages.fd_type = PG_SHARED;
 		else {
-			pr_warning("Unexpected VMA area found\n");
+			pr_warn("Unexpected VMA area found\n");
 			continue;
 		}
 
@@ -582,7 +582,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 				       (parasite_status_t *) &parasite_dumppages,
 				       sizeof(parasite_dumppages));
 		if (ret) {
-			pr_panic("Dumping pages failed with %li (%li) at %li\n",
+			pr_err("Dumping pages failed with %li (%li) at %li\n",
 				 parasite_dumppages.status.ret,
 				 parasite_dumppages.status.sys_ret,
 				 parasite_dumppages.status.line);
@@ -629,26 +629,26 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 
 	if (ctl->remote_map) {
 		if (munmap_seized(ctl, (void *)ctl->remote_map, ctl->map_length)) {
-			pr_panic("munmap_seized failed (pid: %d)\n", ctl->pid);
+			pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
 			ret = -1;
 		}
 	}
 
 	if (ctl->local_map) {
 		if (munmap(ctl->local_map, parasite_size)) {
-			pr_panic("munmap failed (pid: %d)\n", ctl->pid);
+			pr_err("munmap failed (pid: %d)\n", ctl->pid);
 			ret = -1;
 		}
 	}
 
 	if (ptrace_poke_area(ctl->pid, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
-		pr_panic("Can't restore syscall blob (pid: %d)\n", ctl->pid);
+		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid);
 		ret = -1;
 	}
 
 	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &ctl->regs_orig)) {
-		pr_panic("Can't restore registers (pid: %d)\n", ctl->pid);
+		pr_err("Can't restore registers (pid: %d)\n", ctl->pid);
 		ret = -1;
 	}
 

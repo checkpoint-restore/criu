@@ -131,12 +131,12 @@ static inline int read_img_buf(int fd, void *ptr, int size)
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
-extern void printk_siginfo(siginfo_t *siginfo);
+extern void pr_info_siginfo(siginfo_t *siginfo);
 
 struct vma_area;
 struct list_head;
 
-extern void printk_vma(struct vma_area *vma_area);
+extern void pr_info_vma(struct vma_area *vma_area);
 
 #define pr_info_vma_list(head)					\
 	do {							\
@@ -159,9 +159,6 @@ extern void printk_vma(struct vma_area *vma_area);
 		}						\
 		p__;						\
 	})
-
-#define pr_info_vma(vma_area)		printk_vma(vma_area)
-#define pr_info_siginfo(siginfo)	printk_siginfo(siginfo)
 
 extern int move_img_fd(int *img_fd, int want_fd);
 extern int close_safe(int *fd);

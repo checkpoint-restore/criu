@@ -16,7 +16,7 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 		rta = RTA_NEXT(rta,len);
 	}
 	if (len)
-		pr_warning("Trimmed RTA: len %d, rta_len %d\n", len, rta->rta_len);
+		pr_warn("Trimmed RTA: len %d, rta_len %d\n", len, rta->rta_len);
 	return 0;
 }
 

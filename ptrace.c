@@ -140,11 +140,11 @@ int ptrace_show_area_r(pid_t pid, void *addr, long bytes)
 		else {
 			unsigned char *c = (unsigned char *)&v;
 			for (i = sizeof(v)/sizeof(*c); i > 0; i--)
-				printk("%02x ", c[i - 1]);
-			printk("  ");
+				pr_msg("%02x ", c[i - 1]);
+			pr_msg("  ");
 		}
 	}
-	printk("\n");
+	pr_msg("\n");
 	return 0;
 err:
 	return -2;
@@ -155,7 +155,7 @@ int ptrace_show_area(pid_t pid, void *addr, long bytes)
 	unsigned long w, i;
 	if (bytes & (sizeof(long) - 1))
 		return -1;
-	printk("%016lx: ", (unsigned long)addr);
+	pr_msg("%016lx: ", (unsigned long)addr);
 	for (w = 0; w < bytes / sizeof(long); w++) {
 		unsigned long *a = addr;
 		unsigned long v;
@@ -165,11 +165,11 @@ int ptrace_show_area(pid_t pid, void *addr, long bytes)
 		else {
 			unsigned char *c = (unsigned char *)&v;
 			for (i = 0; i < sizeof(v)/sizeof(*c); i++)
-				printk("%02x ", c[i]);
-			printk("  ");
+				pr_msg("%02x ", c[i]);
+			pr_msg("  ");
 		}
 	}
-	printk("\n");
+	pr_msg("\n");
 	return 0;
 err:
 	return -2;

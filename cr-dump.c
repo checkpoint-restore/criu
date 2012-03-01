@@ -461,7 +461,7 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 					goto err;
 			}
 		} else {
-			pr_panic("Unknown VMA (pid: %d)\n", pid);
+			pr_err("Unknown VMA (pid: %d)\n", pid);
 			goto err;
 		}
 	}

@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'o':
-			if (init_log(optarg))
+			if (log_init(optarg))
 				return -1;
 			log_inited = 1;
 			break;
@@ -373,10 +373,10 @@ int main(int argc, char *argv[])
 
 	if (log_level < 0)
 		log_level = -log_level;
-	set_loglevel(log_level);
+	log_set_loglevel(log_level);
 
 	if (!log_inited) {
-		ret = init_log(NULL);
+		ret = log_init(NULL);
 		if (ret)
 			return ret;
 	}
@@ -404,6 +404,7 @@ int main(int argc, char *argv[])
 		ret = cr_restore_tasks(pid, &opts);
 		break;
 	case 's':
+		log_set_loglevel(LOG_INFO);
 		ret = cr_show(pid, &opts);
 		break;
 	default:
@@ -414,38 +415,38 @@ int main(int argc, char *argv[])
 	return ret;
 
 usage:
-	printk("\nUsage:\n");
-	printk("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
-	printk("  %s restore -p|-t pid [-n ns]\n", argv[0]);
-	printk("  %s show [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+	pr_msg("\nUsage:\n");
+	pr_msg("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
+	pr_msg("  %s restore -p|-t pid [-n ns]\n", argv[0]);
+	pr_msg("  %s show [-c] (-p|-t pid)|(-f file)\n", argv[0]);
 
-	printk("\nCommands:\n");
-	printk("  dump           checkpoint a process identified by pid\n");
-	printk("  restore        restore a process identified by pid\n");
-	printk("  show           show dump contents of a process identified by pid\n");
-	printk("\nGeneral parameters:\n");
-	printk("  -p             checkpoint/restore only a single process identified by pid\n");
-	printk("  -t             checkpoint/restore the whole process tree identified by pid\n");
-	printk("  -f             show contents of a checkpoint file\n");
-	printk("  -c             show contents of pages dumped in hexdump format\n");
-	printk("  -d             detach after restore\n");
-	printk("  -s             leave tasks in stopped state after checkpoint instead of killing them\n");
-	printk("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
-	printk("                 supported: uts, ipc\n");
+	pr_msg("\nCommands:\n");
+	pr_msg("  dump           checkpoint a process identified by pid\n");
+	pr_msg("  restore        restore a process identified by pid\n");
+	pr_msg("  show           show dump contents of a process identified by pid\n");
+	pr_msg("\nGeneral parameters:\n");
+	pr_msg("  -p             checkpoint/restore only a single process identified by pid\n");
+	pr_msg("  -t             checkpoint/restore the whole process tree identified by pid\n");
+	pr_msg("  -f             show contents of a checkpoint file\n");
+	pr_msg("  -c             show contents of pages dumped in hexdump format\n");
+	pr_msg("  -d             detach after restore\n");
+	pr_msg("  -s             leave tasks in stopped state after checkpoint instead of killing them\n");
+	pr_msg("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
+	pr_msg("                 supported: uts, ipc\n");
 
-	printk("\nAdditional common parameters:\n");
-	printk("  -D dir         save checkpoint files in specified directory\n");
-	printk("  -v [num]       set logging level\n");
-	printk("                 0 - silent (only error messages)\n");
-	printk("                 1 - informative (default)\n");
-	printk("                 2 - debug\n");
-	printk("  -vv            same as -v 1\n");
-	printk("  -vvv           same as -v 2\n");
-	printk("\n");
+	pr_msg("\nAdditional common parameters:\n");
+	pr_msg("  -D dir         save checkpoint files in specified directory\n");
+	pr_msg("  -v [num]       set logging level\n");
+	pr_msg("                 0 - silent (only error messages)\n");
+	pr_msg("                 1 - informative (default)\n");
+	pr_msg("                 2 - debug\n");
+	pr_msg("  -vv            same as -v 1\n");
+	pr_msg("  -vvv           same as -v 2\n");
+	pr_msg("\n");
 
 	return -1;
 
 opt_pid_missing:
-	printk("No pid specified (-t or -p option missing)\n");
+	pr_msg("No pid specified (-t or -p option missing)\n");
 	return -1;
 }

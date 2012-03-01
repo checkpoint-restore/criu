@@ -468,8 +468,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			struct stat st;
 
 			if (name[0] != '/') {
-				pr_warning("Relative bind path '%s' "
-						"unsupported\n", name);
+				pr_warn("Relative bind path '%s' "
+					"unsupported\n", name);
 				xfree(name);
 				xfree(d);
 				return 0;

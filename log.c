@@ -16,74 +16,90 @@
 #include "types.h"
 #include "util.h"
 
-/* Note pr_ helpers rely on this descriptor! */
-static int logfd = STDERR_FILENO;
+#define DEFAULT_LOGLEVEL	LOG_WARN
+#define DEFAULT_LOGFD		STDERR_FILENO
 
-int get_logfd(void)
+static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
+static int current_logfd = DEFAULT_LOGFD;
+
+int log_get_fd(void)
 {
-	return logfd;
+	return current_logfd;
 }
 
-int init_log(const char *name)
+int log_init(const char *output)
 {
 	struct rlimit rlimit;
-	int fd = STDERR_FILENO;
+	int new_logfd;
 
 	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
-		pr_err("can't get rlimit: %m\n");
+		pr_perror("Can't get rlimit");
 		return -1;
 	}
 
-	if (name) {
-		fd = open(name, O_CREAT | O_WRONLY);
-		if (fd == -1) {
-			pr_perror("Can't create log file %s", name);
+	/*
+	 * We might need to transfer this descriptors
+	 * to another process' address space (and file
+	 * descriptors space) so we try to minimize
+	 * potential conflict between descriptors and
+	 * try to reopen them somewhere near a limit.
+	 *
+	 * Still an explicit output file might be
+	 * requested.
+	 */
+
+	new_logfd = rlimit.rlim_cur - 1;
+
+	if (output) {
+		new_logfd = open(output, O_CREAT | O_WRONLY);
+		if (new_logfd < 0) {
+			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
-	}
-
-	logfd = rlimit.rlim_cur - 1;
-	if (reopen_fd_as(logfd, fd) < 0) {
-		pr_err("can't duplicate descriptor %d->%d: %m\n",
-			fd, logfd);
-		logfd = STDERR_FILENO;
-		goto err;
+		current_logfd = new_logfd;
+	} else {
+		if (reopen_fd_as(new_logfd, current_logfd) < 0)
+			goto err;
+		current_logfd = new_logfd;
 	}
 
 	return 0;
+
 err:
-	if (name)
-		close(fd);
+	pr_perror("Log engine failure, can't duplicate descriptor");
 	return -1;
 }
 
-void fini_log(void)
+void log_fini(void)
 {
-	if (logfd != STDERR_FILENO &&
-	    logfd != STDIN_FILENO &&
-	    logfd != STDOUT_FILENO)
-		close(logfd);
+	if (current_logfd > 2)
+		close_safe(&current_logfd);
 
-	logfd = STDERR_FILENO;
+	current_logfd = DEFAULT_LOGFD;
 }
 
-static unsigned int loglevel = LOG_WARN;
-
-void set_loglevel(unsigned int level)
+void log_set_loglevel(unsigned int level)
 {
 	if (!level)
-		loglevel = LOG_ERROR;
+		current_loglevel = DEFAULT_LOGLEVEL;
 	else
-		loglevel = level;
+		current_loglevel = level;
 }
 
-void printk_level(unsigned int level, const char *format, ...)
+void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list params;
+	int fd;
 
-	if (level <= loglevel) {
-		va_start(params, format);
-		vdprintf(get_logfd(), format, params);
-		va_end(params);
+	if (unlikely(loglevel == LOG_MSG)) {
+		fd = STDOUT_FILENO;
+	} else {
+		if (loglevel > current_loglevel)
+			return;
+		fd = current_logfd;
 	}
+
+	va_start(params, format);
+	vdprintf(fd, format, params);
+	va_end(params);
 }

@@ -45,41 +45,41 @@ void hex_dump(void *addr, unsigned long len)
 	len = (len + 8) & ~7;
 
 	for (i = 0; i < len; i += 8) {
-		printk("%p: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		pr_msg("%p: %02x %02x %02x %02x %02x %02x %02x %02x\n",
 		       &p[i], p[i+0], p[i+1], p[i+2], p[i+3],
 		       p[i+4], p[i+5], p[i+6], p[i+7]);
 	}
 }
 
-void printk_siginfo(siginfo_t *siginfo)
+void pr_info_siginfo(siginfo_t *siginfo)
 {
-	printk("si_signo %d si_errno %d si_code %d\n",
-	       siginfo->si_signo, siginfo->si_errno, siginfo->si_code);
+	pr_info("si_signo %d si_errno %d si_code %d\n",
+		siginfo->si_signo, siginfo->si_errno, siginfo->si_code);
 }
 
-void printk_vma(struct vma_area *vma_area)
+void pr_info_vma(struct vma_area *vma_area)
 {
 	if (!vma_area)
 		return;
 
-	printk("s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
-	       "vf: %s st: %s spc: %s\n",
-	       vma_area->vma.start, vma_area->vma.end,
-	       KBYTES(vma_area_len(vma_area)),
-	       vma_area->vma.prot,
-	       vma_area->vma.flags,
-	       vma_area->vma.pgoff,
-	       vma_area->vm_file_fd < 0 ? "n" : "y",
-	       !vma_area->vma.status ? "--" :
-	       ((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
-		((vma_area->vma.status & VMA_FILE_SHARED) ? "FS" :
-		 ((vma_area->vma.status & VMA_ANON_SHARED) ? "AS" :
-		  ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
-	       !vma_area->vma.status ? "--" :
-	       ((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
-		((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
-		 ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
-		  ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))));
+	pr_info("s: %16lx e: %16lx l: %4liK p: %8x f: %8x pg: %8lx "
+		"vf: %s st: %s spc: %s\n",
+		vma_area->vma.start, vma_area->vma.end,
+		KBYTES(vma_area_len(vma_area)),
+		vma_area->vma.prot,
+		vma_area->vma.flags,
+		vma_area->vma.pgoff,
+		vma_area->vm_file_fd < 0 ? "n" : "y",
+		!vma_area->vma.status ? "--" :
+		((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
+		 ((vma_area->vma.status & VMA_FILE_SHARED) ? "FS" :
+		  ((vma_area->vma.status & VMA_ANON_SHARED) ? "AS" :
+		   ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
+		!vma_area->vma.status ? "--" :
+		((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
+		 ((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
+		  ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
+		   ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))));
 }
 
 int close_safe(int *fd)
@@ -108,7 +108,7 @@ int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 					/*
 					 * Standard descriptors.
 					 */
-					pr_warning("fd %d already in use\n", new_fd);
+					pr_warn("fd %d already in use\n", new_fd);
 				} else {
 					pr_err("fd %d already in use\n", new_fd);
 					return -1;
@@ -171,7 +171,7 @@ int open_image_ro_nocheck(const char *fmt, int pid)
 	if (tmp == 0)
 		tmp = open(path, O_RDONLY);
 	if (tmp < 0)
-		pr_warning("Can't open image %s for %d: %m\n", fmt, pid);
+		pr_warn("Can't open image %s for %d: %m\n", fmt, pid);
 
 	return tmp;
 }

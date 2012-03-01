@@ -195,7 +195,7 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 
 	if ((nr_shmems + 1) * sizeof(struct shmem_info) +
 					sizeof (struct shmems) >= SHMEMS_SIZE) {
-		pr_panic("OOM storing shmems\n");
+		pr_err("OOM storing shmems\n");
 		return -1;
 	}
 
@@ -253,7 +253,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	}
 
 	if ((nr_pipes + 1) * sizeof(struct pipe_info) >= 4096) {
-		pr_panic("OOM storing pipes\n");
+		pr_err("OOM storing pipes\n");
 		return -1;
 	}
 
@@ -1155,7 +1155,7 @@ static int restore_one_zombie(int pid, int exit_code)
 
 		signr = exit_code & 0x7F;
 		if (!sig_fatal(signr)) {
-			pr_warning("Exit with non fatal signal ignored\n");
+			pr_warn("Exit with non fatal signal ignored\n");
 			signr = SIGABRT;
 		}
 
@@ -1807,7 +1807,7 @@ static void sigreturn_restore(pid_t pid)
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
 	task_args->fd_self_vmas	= fd_self_vmas;
-	task_args->logfd	= get_logfd();
+	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_fdinfo	= fd_fdinfo;
 

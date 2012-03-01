@@ -81,7 +81,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	nr_fdinfo_list++;
 	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= 4096) {
-		pr_panic("OOM storing fdinfo_list_entries\n");
+		pr_err("OOM storing fdinfo_list_entries\n");
 		return -1;
 	}
 
@@ -108,7 +108,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	}
 
 	if ((nr_fdinfo_descs + 1) * sizeof(struct fdinfo_desc) >= 4096) {
-		pr_panic("OOM storing fdinfo descriptions\n");
+		pr_err("OOM storing fdinfo descriptions\n");
 		return -1;
 	}
 
