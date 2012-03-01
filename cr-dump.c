@@ -738,7 +738,7 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item)
+static int parse_threads(struct pstree_item *item, u32 **_t, int *_n)
 {
 	struct dirent *de;
 	DIR *dir;
@@ -768,13 +768,38 @@ static int parse_threads(struct pstree_item *item)
 
 	closedir(dir);
 
-	item->threads = t;
-	item->nr_threads = nr - 1;
+	*_t = t;
+	*_n = nr - 1;
 
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item)
+static int get_threads(struct pstree_item *item)
+{
+	return parse_threads(item, &item->threads, &item->nr_threads);
+}
+
+static int check_threads(struct pstree_item *item)
+{
+	u32 *t;
+	int nr, ret;
+
+	ret = parse_threads(item, &t, &nr);
+	if (ret)
+		return ret;
+
+	ret = ((nr == item->nr_threads) && !memcmp(t, item->threads, nr));
+	xfree(t);
+
+	if (!ret) {
+		pr_info("Threads set has changed while suspending\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int parse_children(struct pstree_item *item, u32 **_c, int *_n)
 {
 	FILE *file;
 	char *tok;
@@ -805,14 +830,19 @@ static int parse_children(struct pstree_item *item)
 
 	}
 
-	item->children = ch;
-	item->nr_children = nr - 1;
+	*_c = ch;
+	*_n = nr - 1;
 
 	return 0;
 
 err:
 	xfree(ch);
 	return -1;
+}
+
+static int get_children(struct pstree_item *item)
+{
+	return parse_children(item, &item->children, &item->nr_children);
 }
 
 static void unseize_task_and_threads(struct pstree_item *item, enum cr_task_state st)
@@ -880,9 +910,11 @@ static int collect_threads(struct pstree_item *item)
 {
 	int ret;
 
-	ret = parse_threads(item);
+	ret = get_threads(item);
 	if (!ret)
 		ret = seize_threads(item);
+	if (!ret)
+		ret = check_threads(item);
 
 	return ret;
 }
@@ -909,7 +941,7 @@ static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head 
 	if (ret < 0)
 		goto err_close;
 
-	ret = parse_children(item);
+	ret = get_children(item);
 	if (ret < 0)
 		goto err_close;
 
@@ -933,6 +965,26 @@ err:
 	return NULL;
 }
 
+static int check_subtree(struct pstree_item *item)
+{
+	u32 *ch;
+	int nr, ret;
+
+	ret = parse_children(item, &ch, &nr);
+	if (ret < 0)
+		return ret;
+
+	ret = ((nr == item->nr_children) && !memcmp(ch, item->children, nr));
+	xfree(ch);
+
+	if (!ret) {
+		pr_info("Children set has changed while suspending\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 		int leader_only)
 {
@@ -950,6 +1002,9 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 	for (i = 0; i < item->nr_children; i++)
 		if (collect_subtree(item->children[i], item->pid, pstree_list, 0) < 0)
 			return -1;
+
+	if (check_subtree(item))
+		return -1;
 
 	return 0;
 }

@@ -152,8 +152,8 @@ struct pstree_item {
 	pid_t			pid;		/* leader pid */
 	pid_t			ppid;
 	int			state;		/* TASK_XXX constants */
-	u32			nr_children;	/* number of children */
-	u32			nr_threads;	/* number of threads */
+	int			nr_children;	/* number of children */
+	int			nr_threads;	/* number of threads */
 	u32			*threads;	/* array of threads */
 	u32			*children;	/* array of children */
 };
