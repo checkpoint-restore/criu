@@ -1012,7 +1012,42 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 
 static int collect_pstree(pid_t pid, struct list_head *pstree_list, int leader_only)
 {
-	return collect_subtree(pid, -1, pstree_list, leader_only);
+	int ret, attempts = 5;
+
+	while (1) {
+		ret = collect_subtree(pid, -1, pstree_list, leader_only);
+		if (ret == 0)
+			break;
+
+		/*
+		 * Old tasks can die and new ones can appear while we
+		 * try to seize the swarm. It's much simpler (and reliable)
+		 * just to restart the collection from the beginning
+		 * rather than trying to chase them.
+		 */
+
+		if (attempts == 0)
+			break;
+
+		attempts--;
+		pr_info("Trying to suspend tasks again\n");
+
+		while (!list_empty(pstree_list)) {
+			struct pstree_item *item;
+
+			item = list_first_entry(pstree_list,
+					struct pstree_item, list);
+			list_del(&item->list);
+
+			unseize_task_and_threads(item, TASK_ALIVE);
+
+			xfree(item->children);
+			xfree(item->threads);
+			xfree(item);
+		}
+	}
+
+	return ret;
 }
 
 static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset *cr_fdset)
