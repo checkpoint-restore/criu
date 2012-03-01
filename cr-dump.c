@@ -1036,6 +1036,12 @@ static int collect_pstree(pid_t pid, struct list_head *pstree_list,
 			break;
 		}
 
+		if (list_empty(pstree_list))
+			/*
+			 * No items at all -- no need in re-scanning it again
+			 */
+			break;
+
 		/*
 		 * Old tasks can die and new ones can appear while we
 		 * try to seize the swarm. It's much simpler (and reliable)
