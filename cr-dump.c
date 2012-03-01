@@ -316,7 +316,7 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
-	struct stat st_buf;
+	struct stat fd_stat;
 	int err = -1;
 	struct fd_parms p;
 	int lfd;
@@ -334,14 +334,14 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset 
 		return -1;
 	}
 
-	if (fstat(lfd, &st_buf) < 0) {
+	if (fstat(lfd, &fd_stat) < 0) {
 		pr_perror("Can't get stat on %ld", p.fd_name);
 		goto out_close;
 	}
 
-	if (S_ISCHR(st_buf.st_mode) &&
-	    (major(st_buf.st_rdev) == TTY_MAJOR ||
-	     major(st_buf.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
+	if (S_ISCHR(fd_stat.st_mode) &&
+	    (major(fd_stat.st_rdev) == TTY_MAJOR ||
+	     major(fd_stat.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
 		/* skip only standard destriptors */
 		if (p.fd_name < 3) {
 			err = 0;
@@ -352,21 +352,21 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset 
 		goto err;
 	}
 
-	if (S_ISREG(st_buf.st_mode) ||
-	    S_ISDIR(st_buf.st_mode) ||
-	    (S_ISCHR(st_buf.st_mode) && major(st_buf.st_rdev) == MEM_MAJOR)) {
+	if (S_ISREG(fd_stat.st_mode) ||
+	    S_ISDIR(fd_stat.st_mode) ||
+	    (S_ISCHR(fd_stat.st_mode) && major(fd_stat.st_rdev) == MEM_MAJOR)) {
 
-		p.id = MAKE_FD_GENID(st_buf.st_dev, st_buf.st_ino, p.pos);
+		p.id = MAKE_FD_GENID(fd_stat.st_dev, fd_stat.st_ino, p.pos);
 		p.type = FDINFO_FD;
 
 		return dump_one_reg_file(&p, lfd, cr_fdset, 1);
 	}
 
-	if (S_ISFIFO(st_buf.st_mode))
-		return dump_one_pipe(&p, st_buf.st_ino, lfd, cr_fdset);
+	if (S_ISFIFO(fd_stat.st_mode))
+		return dump_one_pipe(&p, fd_stat.st_ino, lfd, cr_fdset);
 
 err:
-	pr_err("Can't dump file %ld of that type [%x]\n", p.fd_name, st_buf.st_mode);
+	pr_err("Can't dump file %ld of that type [%x]\n", p.fd_name, fd_stat.st_mode);
 
 out_close:
 	close_safe(&lfd);
