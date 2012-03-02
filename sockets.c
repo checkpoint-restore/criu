@@ -1276,7 +1276,7 @@ void show_inetsk(int fd)
 			pr_perror("Failed to translate address");
 		}
 
-		pr_info("fd %d family %d type %d proto %d port %d state %d "
+		pr_msg("fd %d family %d type %d proto %d port %d state %d "
 			"--> %s\n", ie.fd, ie.family, ie.type, ie.proto,
 			ie.src_port, ie.state, src_addr);
 	}
