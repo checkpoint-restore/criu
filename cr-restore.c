@@ -1628,12 +1628,13 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 static void sigreturn_restore(pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
-	long restore_thread_vma_len;
+	long restore_thread_vma_len, self_vmas_len;
 
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
 	void *restore_code_start;
+	struct vma_entry *self_vma;
 
 	long new_sp, exec_mem_hint;
 	long ret;
@@ -1641,14 +1642,11 @@ static void sigreturn_restore(pid_t pid)
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
 
-	char self_vmas_path[PATH_MAX];
-
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
-	int fd_self_vmas = -1;
 	int fd_fdinfo = -1;
 	int fd_core = -1;
-	int num, i;
+	int i;
 
 	int *fd_core_threads;
 
@@ -1662,6 +1660,8 @@ static void sigreturn_restore(pid_t pid)
 	close_pid_proc();
 	if (ret < 0)
 		goto err;
+
+	self_vmas_len = (ret + 1) * sizeof(*self_vma);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -1682,33 +1682,6 @@ static void sigreturn_restore(pid_t pid)
 		goto err;
 	}
 
-	if (get_image_path(self_vmas_path, sizeof(self_vmas_path),
-			   FMT_FNAME_VMAS, pid))
-		goto err;
-
-	fd_self_vmas = open(self_vmas_path, O_CREAT | O_RDWR | O_TRUNC, CR_FD_PERM);
-
-	/*
-	 * This is a temporary file used to pass vma info to
-	 * restorer code, thus unlink it early to make it disappear
-	 * as soon as we close it
-	 */
-	// unlink(self_vmas_path);
-
-	if (fd_self_vmas < 0) {
-		pr_perror("Can't open %s", self_vmas_path);
-		goto err;
-	}
-
-	num = 0;
-	list_for_each_entry(vma_area, &self_vma_list, list) {
-		ret = write(fd_self_vmas, &vma_area->vma, sizeof(vma_area->vma));
-		if (ret != sizeof(vma_area->vma)) {
-			pr_perror("\nUnable to write vma entry (%d written)", num);
-			goto err;
-		}
-		num++;
-	}
 
 	restore_code_len	= sizeof(restorer_blob);
 	restore_code_len	= round_up(restore_code_len, 16);
@@ -1738,6 +1711,7 @@ static void sigreturn_restore(pid_t pid)
 	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
+					      self_vmas_len +
 					      SHMEMS_SIZE + TASK_ENTRIES_SIZE);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
@@ -1747,8 +1721,6 @@ static void sigreturn_restore(pid_t pid)
 
 	pr_info("Found bootstrap VMA hint at: %lx (needs ~%ldK)\n", exec_mem_hint,
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
-
-	free_mappings(&self_vma_list);
 
 	/* VMA we need to run task_restore code */
 	mem = mmap((void *)exec_mem_hint,
@@ -1806,12 +1778,28 @@ static void sigreturn_restore(pid_t pid)
 		goto err;
 	task_args->task_entries = mem;
 
+	mem += TASK_ENTRIES_SIZE;
+	self_vma = mmap(mem, self_vmas_len, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
+	if (self_vma != mem) {
+		pr_perror("Can't map self vmas");
+		goto err;
+	}
+	task_args->self_vmas = self_vma;
+
+	list_for_each_entry(vma_area, &self_vma_list, list) {
+		*self_vma = vma_area->vma;
+		self_vma++;
+	}
+
+	self_vma->start = 0;
+	free_mappings(&self_vma_list);
+
 	/*
 	 * Arguments for task restoration.
 	 */
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
-	task_args->fd_self_vmas	= fd_self_vmas;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_fdinfo	= fd_fdinfo;
@@ -1860,13 +1848,13 @@ static void sigreturn_restore(pid_t pid)
 	pr_info("task_args: %p\n"
 		"task_args->pid: %d\n"
 		"task_args->fd_core: %d\n"
-		"task_args->fd_self_vmas: %d\n"
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
 		task_args, task_args->pid,
-		task_args->fd_core, task_args->fd_self_vmas,
-		task_args->nr_threads, task_args->clone_restore_fn,
+		task_args->fd_core,
+		task_args->nr_threads,
+		task_args->clone_restore_fn,
 		task_args->thread_args);
 
 	/*
@@ -1889,7 +1877,6 @@ err:
 	free_mappings(&self_vma_list);
 	close_safe(&fd_core);
 	close_safe(&fd_fdinfo);
-	close_safe(&fd_self_vmas);
 
 	/* Just to be sure */
 	exit(1);

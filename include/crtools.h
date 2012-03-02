@@ -72,7 +72,6 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_PIPES		"pipes-%d.img"
 #define FMT_FNAME_PSTREE	"pstree-%d.img"
 #define FMT_FNAME_SHMEM		"shmem-%d.img"
-#define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"
 #define FMT_FNAME_INETSK	"inetsk-%d.img"

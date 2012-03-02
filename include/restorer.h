@@ -66,7 +66,6 @@ struct task_restore_core_args {
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
 	int				fd_fdinfo;		/* opened files dump file */
-	int				fd_self_vmas;		/* opened file with running VMAs to unmap */
 	int				logfd;
 	bool				restore_threads;	/* if to restore threads */
 	u32				rst_lock;
@@ -77,6 +76,7 @@ struct task_restore_core_args {
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
+	struct vma_entry		*self_vmas;
 	rt_sigaction_t			sigchld_act;
 
 	struct itimerval		itimers[3];

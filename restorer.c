@@ -355,7 +355,6 @@ long restore_task(struct task_restore_core_args *args)
 	restorer_set_logfd(args->logfd);
 
 	core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
-	vma_entry	= next_on_heap(vma_entry, core_entry);
 
 #if 0
 	write_hex_n((long)args);
@@ -371,18 +370,7 @@ long restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	/* Note no magic constant on fd_self_vmas */
-	ret = sys_lseek(args->fd_self_vmas, 0, SEEK_SET);
-	while (1) {
-		ret = sys_read(args->fd_self_vmas, vma_entry, sizeof(*vma_entry));
-		if (!ret)
-			break;
-		if (ret != sizeof(*vma_entry)) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
-			goto core_restore_end;
-		}
-
+	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
@@ -392,11 +380,13 @@ long restore_task(struct task_restore_core_args *args)
 		}
 	}
 
-	sys_close(args->fd_self_vmas);
+	sys_munmap(args->self_vmas,
+			((void *)(vma_entry + 1) - ((void *)args->self_vmas)));
 
 	/*
 	 * OK, lets try to map new one.
 	 */
+	vma_entry = next_on_heap(vma_entry, core_entry);
 	sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 	while (1) {
 		ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
