@@ -11,10 +11,6 @@
 
 #ifdef CONFIG_X86_64
 
-#ifndef SO_PEEK_OFF
-#define SO_PEEK_OFF            42
-#endif
-
 static void *brk_start, *brk_end, *brk_tail;
 
 static struct page_entry page;
