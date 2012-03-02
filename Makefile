@@ -32,6 +32,7 @@ OBJS		+= crtools.o
 OBJS		+= proc_parse.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-show.o
+OBJS		+= cr-check.o
 OBJS		+= util.o
 OBJS		+= util-net.o
 OBJS		+= sysctl.o

@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
-	if (argc < 3)
+	if (argc < 2)
 		goto usage;
 
 	action = argv[1][0];
@@ -386,12 +386,13 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (!pid && (action != 's' || !opts.show_dump_file))
+	if (!pid && (action != 'c') && (action != 's' || !opts.show_dump_file))
 		goto opt_pid_missing;
 
 	if (strcmp(argv[1], "dump") &&
 	    strcmp(argv[1], "restore") &&
-	    strcmp(argv[1], "show")) {
+	    strcmp(argv[1], "show") &&
+	    strcmp(argv[1], "check")) {
 		pr_err("Unknown command");
 		goto usage;
 	}
@@ -406,6 +407,9 @@ int main(int argc, char *argv[])
 	case 's':
 		ret = cr_show(pid, &opts);
 		break;
+	case 'c':
+		ret = cr_check();
+		break;
 	default:
 		goto usage;
 		break;
@@ -418,11 +422,13 @@ usage:
 	pr_msg("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
 	pr_msg("  %s restore -p|-t pid [-n ns]\n", argv[0]);
 	pr_msg("  %s show [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+	pr_msg("  %s check\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process identified by pid\n");
 	pr_msg("  restore        restore a process identified by pid\n");
 	pr_msg("  show           show dump contents of a process identified by pid\n");
+	pr_msg("  check          checks whether the kernel support is up-to-date\n");
 	pr_msg("\nGeneral parameters:\n");
 	pr_msg("  -p             checkpoint/restore only a single process identified by pid\n");
 	pr_msg("  -t             checkpoint/restore the whole process tree identified by pid\n");
