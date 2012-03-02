@@ -407,17 +407,21 @@ int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 	return -1;
 }
 
-static int inet_tcp_collect_one(const struct inet_diag_msg *m,
-		struct rtattr **tb)
+static int inet_collect_one(struct nlmsghdr *h, int type, int proto)
 {
 	struct inet_sk_desc *d;
+	struct inet_diag_msg *m = NLMSG_DATA(h);
+	struct rtattr *tb[INET_DIAG_MAX+1];
+
+	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
+		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
 		return -1;
 
-	d->type = SOCK_STREAM;
-	d->proto = IPPROTO_TCP;
+	d->type = type;
+	d->proto = proto;
 	d->src_port = ntohs(m->id.idiag_sport);
 	d->state = m->idiag_state;
 	d->rqlen = m->idiag_rqueue;
@@ -429,13 +433,12 @@ static int inet_tcp_collect_one(const struct inet_diag_msg *m,
 
 static int inet_tcp_receive_one(struct nlmsghdr *h)
 {
-	struct inet_diag_msg *m = NLMSG_DATA(h);
-	struct rtattr *tb[INET_DIAG_MAX+1];
+	return inet_collect_one(h, SOCK_STREAM, IPPROTO_TCP);
+}
 
-	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
-		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
-
-	return inet_tcp_collect_one(m, tb);
+static int inet_udp_receive_one(struct nlmsghdr *h)
+{
+	return inet_collect_one(h, SOCK_DGRAM, IPPROTO_UDP);
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
@@ -680,6 +683,15 @@ int collect_sockets(void)
 	/* Only listening sockets supported yet */
 	req.r.i.idiag_states	= 1 << TCP_LISTEN;
 	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
+	if (tmp)
+		err = tmp;
+
+	/* Collect IPv4 UDP sockets */
+	req.r.i.sdiag_family	= AF_INET;
+	req.r.i.sdiag_protocol	= IPPROTO_UDP;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_udp_receive_one);
 	if (tmp)
 		err = tmp;
 
