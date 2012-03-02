@@ -1661,7 +1661,7 @@ static void sigreturn_restore(pid_t pid)
 
 	ret = parse_maps(pid, &self_vma_list, false);
 	close_pid_proc();
-	if (ret)
+	if (ret < 0)
 		goto err;
 
 	/* pr_info_vma_list(&self_vma_list); */

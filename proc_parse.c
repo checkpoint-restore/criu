@@ -23,7 +23,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	unsigned long ino;
 	char r,w,x,s;
 	int dev_maj, dev_min;
-	int ret = -1;
+	int ret = -1, nr = 0;
 
 	DIR *map_files_dir = NULL;
 	FILE *maps = NULL;
@@ -157,10 +157,11 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		}
 
 		list_add_tail(&vma_area->list, vma_area_list);
+		nr++;
 	}
 
 	vma_area = NULL;
-	ret = 0;
+	ret = nr;
 
 err:
 	if (maps)
