@@ -48,8 +48,6 @@ int log_init(const char *output)
 	 * requested.
 	 */
 
-	new_logfd = rlimit.rlim_cur - 1;
-
 	if (output) {
 		new_logfd = open(output, O_CREAT | O_WRONLY);
 		if (new_logfd < 0) {
@@ -57,11 +55,12 @@ int log_init(const char *output)
 			return -1;
 		}
 		current_logfd = new_logfd;
-	} else {
-		if (reopen_fd_as(new_logfd, current_logfd) < 0)
-			goto err;
-		current_logfd = new_logfd;
-	}
+	} else
+		new_logfd = DEFAULT_LOGFD;
+
+	current_logfd = rlimit.rlim_cur - 1;
+	if (reopen_fd_as(current_logfd, new_logfd) < 0)
+		goto err;
 
 	return 0;
 
