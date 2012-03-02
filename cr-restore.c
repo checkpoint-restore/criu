@@ -1520,8 +1520,8 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 					continue;
 				}
 
-				if ((prev_vma_end2 >= prev_vma_end2) &&
-						(vma_area->vma.start - prev_vma_end2) > vma_len) {
+				if ((prev_vma_end2 >= prev_vma_end) &&
+				    (vma_area->vma.start - prev_vma_end2) > vma_len) {
 					hint = prev_vma_end2;
 					goto found;
 				}
