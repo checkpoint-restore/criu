@@ -207,8 +207,11 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 		return 0;
 	}
 
+	if (sk->type == SOCK_DGRAM)
+		return 1;
+
 	if (sk->type != SOCK_STREAM) {
-		pr_err("Only stream inet sockets for now\n");
+		pr_err("Only stream and dgram inet sockets for now\n");
 		return 0;
 	}
 
