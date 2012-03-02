@@ -1512,16 +1512,27 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 		}
 
 		if ((vma.start - prev_vma_end) > vma_len) {
+			unsigned long prev_vma_end2 = 0;
+
 			list_for_each_entry(vma_area, self_vma_list, list) {
-				if (vma_area->vma.start <= prev_vma_end &&
-				    vma_area->vma.end >= prev_vma_end)
-					break;
+				if (!prev_vma_end2) {
+					prev_vma_end2 = vma_area->vma.end;
+					continue;
+				}
+
+				if ((prev_vma_end2 >= prev_vma_end2) &&
+						(vma_area->vma.start - prev_vma_end2) > vma_len) {
+					hint = prev_vma_end2;
+					goto found;
+				}
+
+				prev_vma_end2 = vma_area->vma.end;
 			}
-			hint = prev_vma_end;
-			break;
-		} else
-			prev_vma_end = vma.end;
+		}
+
+		prev_vma_end = vma.end;
 	}
+found:
 	close_safe(&fd);
 	return hint;
 }
@@ -1700,8 +1711,6 @@ static void sigreturn_restore(pid_t pid)
 		num++;
 	}
 
-	free_mappings(&self_vma_list);
-
 	restore_code_len	= sizeof(restorer_blob);
 	restore_code_len	= round_up(restore_code_len, 16);
 
@@ -1735,18 +1744,19 @@ static void sigreturn_restore(pid_t pid)
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
 		goto err;
-	} else {
-		pr_info("Found bootstrap VMA hint at: %lx (needs ~%ldK)\n",
-			exec_mem_hint,
-			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 	}
+
+	pr_info("Found bootstrap VMA hint at: %lx (needs ~%ldK)\n", exec_mem_hint,
+			KBYTES(restore_task_vma_len + restore_thread_vma_len));
+
+	free_mappings(&self_vma_list);
 
 	/* VMA we need to run task_restore code */
 	exec_mem = mmap((void *)exec_mem_hint,
 			restore_task_vma_len + restore_thread_vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
-			MAP_PRIVATE | MAP_ANON, 0, 0);
-	if (exec_mem == MAP_FAILED) {
+			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
+	if (exec_mem != (void *)exec_mem_hint) {
 		pr_err("Can't mmap section for restore code\n");
 		goto err;
 	}
@@ -1784,7 +1794,7 @@ static void sigreturn_restore(pid_t pid)
 	 * but this area is taken into account for 'hint' memory
 	 * address.
 	 */
-	shmems_ref = (struct shmems *)(exec_mem_hint +
+	shmems_ref = (struct shmems *)(exec_mem +
 				       restore_task_vma_len +
 				       restore_thread_vma_len);
 	ret = shmem_remap(shmems, shmems_ref, SHMEMS_SIZE);
@@ -1792,7 +1802,7 @@ static void sigreturn_restore(pid_t pid)
 		goto err;
 	task_args->shmems	= shmems_ref;
 
-	shmems_ref = (struct shmems *)(exec_mem_hint +
+	shmems_ref = (struct shmems *)(exec_mem +
 				       restore_task_vma_len +
 				       restore_thread_vma_len +
 				       SHMEMS_SIZE);
