@@ -61,7 +61,6 @@ ROBJS-BLOB	:= restorer.o
 ROBJS		:= $(ROBJS-BLOB)
 ROBJS		+= restorer-log.o
 
-RDEPS-BLOB	+= $(patsubst %.o,%.d,$(ROBJS))
 RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS))
 
 RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
