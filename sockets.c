@@ -77,10 +77,12 @@ struct inet_sk_desc {
 	unsigned int		type;
 	unsigned int		proto;
 	unsigned int		src_port;
+	unsigned int		dst_port;
 	unsigned int		state;
 	unsigned int		rqlen;
 	unsigned int		wqlen;
 	unsigned int		src_addr[4];
+	unsigned int		dst_addr[4];
 };
 
 static int unix_sk_queue_add(int fd, const struct unix_sk_desc *sd,
@@ -254,8 +256,10 @@ static int dump_one_inet(const struct socket_desc *_sk, int fd,
 	ie.proto	= sk->proto;
 	ie.state	= sk->state;
 	ie.src_port	= sk->src_port;
+	ie.dst_port	= sk->dst_port;
 	ie.backlog	= sk->wqlen;
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
+	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
 	if (write_img(cr_fdset->fds[CR_FD_INETSK], &ie))
 		goto err;
@@ -426,10 +430,12 @@ static int inet_collect_one(struct nlmsghdr *h, int type, int proto)
 	d->type = type;
 	d->proto = proto;
 	d->src_port = ntohs(m->id.idiag_sport);
+	d->dst_port = ntohs(m->id.idiag_dport);
 	d->state = m->idiag_state;
 	d->rqlen = m->idiag_rqueue;
 	d->wqlen = m->idiag_wqueue;
 	memcpy(d->src_addr, m->id.idiag_src, sizeof(u32) * 4);
+	memcpy(d->dst_addr, m->id.idiag_dst, sizeof(u32) * 4);
 
 	return sk_collect_one(m->idiag_inode, AF_INET, &d->sd);
 }
@@ -1266,6 +1272,7 @@ void show_inetsk(int fd)
 
 	while (1) {
 		char src_addr[INET_ADDR_LEN] = "<unknown>";
+		char dst_addr[INET_ADDR_LEN] = "<unknown>";
 
 		ret = read_img_eof(fd, &ie);
 		if (ret <= 0)
@@ -1273,12 +1280,19 @@ void show_inetsk(int fd)
 
 		if (inet_ntop(AF_INET, (void *)ie.src_addr, src_addr,
 			      INET_ADDR_LEN) == NULL) {
-			pr_perror("Failed to translate address");
+			pr_perror("Failed to translate src address");
 		}
 
-		pr_msg("fd %d family %d type %d proto %d port %d state %d "
-			"--> %s\n", ie.fd, ie.family, ie.type, ie.proto,
-			ie.src_port, ie.state, src_addr);
+		if (ie.state == TCP_ESTABLISHED) {
+			if (inet_ntop(AF_INET, (void *)ie.dst_addr, dst_addr,
+				      INET_ADDR_LEN) == NULL) {
+				pr_perror("Failed to translate dst address");
+			}
+		}
+
+		pr_msg("fd %d family %d type %d proto %d state %d %s:%d <-> %s:%d\n",
+			ie.fd, ie.family, ie.type, ie.proto, ie.state, 
+			src_addr, ie.src_port, dst_addr, ie.dst_port);
 	}
 
 out:

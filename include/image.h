@@ -97,9 +97,10 @@ struct inet_sk_entry {
 	u8	proto;
 	u8	state;
 	u16	src_port;
-	u8	pad[2];
+	u16	dst_port;
 	u32	backlog;
 	u32	src_addr[4];
+	u32	dst_addr[4];
 } __packed;
 
 struct sk_packet_entry {
