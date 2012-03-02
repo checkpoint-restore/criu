@@ -1630,11 +1630,10 @@ static void sigreturn_restore(pid_t pid)
 	long restore_code_len, restore_task_vma_len;
 	long restore_thread_vma_len;
 
-	void *exec_mem = MAP_FAILED;
+	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
 	void *restore_code_start;
-	void *shmems_ref;
 
 	long new_sp, exec_mem_hint;
 	long ret;
@@ -1752,11 +1751,11 @@ static void sigreturn_restore(pid_t pid)
 	free_mappings(&self_vma_list);
 
 	/* VMA we need to run task_restore code */
-	exec_mem = mmap((void *)exec_mem_hint,
+	mem = mmap((void *)exec_mem_hint,
 			restore_task_vma_len + restore_thread_vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-	if (exec_mem != (void *)exec_mem_hint) {
+	if (mem != (void *)exec_mem_hint) {
 		pr_err("Can't mmap section for restore code\n");
 		goto err;
 	}
@@ -1765,7 +1764,7 @@ static void sigreturn_restore(pid_t pid)
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_code_start		= exec_mem;
+	restore_code_start		= mem;
 	restore_thread_exec_start	= restore_code_start + restorer_blob_offset__restore_thread;
 	restore_task_exec_start		= restore_code_start + restorer_blob_offset__restore_task;
 	task_args			= restore_code_start + restore_code_len;
@@ -1794,22 +1793,18 @@ static void sigreturn_restore(pid_t pid)
 	 * but this area is taken into account for 'hint' memory
 	 * address.
 	 */
-	shmems_ref = (struct shmems *)(exec_mem +
-				       restore_task_vma_len +
-				       restore_thread_vma_len);
-	ret = shmem_remap(shmems, shmems_ref, SHMEMS_SIZE);
-	if (ret < 0)
-		goto err;
-	task_args->shmems	= shmems_ref;
 
-	shmems_ref = (struct shmems *)(exec_mem +
-				       restore_task_vma_len +
-				       restore_thread_vma_len +
-				       SHMEMS_SIZE);
-	ret = shmem_remap(task_entries, shmems_ref, TASK_ENTRIES_SIZE);
+	mem += restore_task_vma_len + restore_thread_vma_len;
+	ret = shmem_remap(shmems, mem, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
-	task_args->task_entries = shmems_ref;
+	task_args->shmems = mem;
+
+	mem += SHMEMS_SIZE;
+	ret = shmem_remap(task_entries, mem, TASK_ENTRIES_SIZE);
+	if (ret < 0)
+		goto err;
+	task_args->task_entries = mem;
 
 	/*
 	 * Arguments for task restoration.
@@ -1895,9 +1890,6 @@ err:
 	close_safe(&fd_core);
 	close_safe(&fd_fdinfo);
 	close_safe(&fd_self_vmas);
-
-	if (exec_mem != MAP_FAILED)
-		munmap(exec_mem, restore_task_vma_len + restore_thread_vma_len);
 
 	/* Just to be sure */
 	exit(1);
