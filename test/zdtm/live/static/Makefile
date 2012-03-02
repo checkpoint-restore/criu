@@ -19,6 +19,7 @@ TST_NOFILE	=				\
 		timers				\
 		unbound_sock			\
 		socket_listen			\
+		socket_udp			\
 		socket_aio			\
 		msgque				\
 		inotify_system			\

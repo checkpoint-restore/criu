@@ -31,6 +31,7 @@ static/pstree
 static/caps00
 static/cmdlinenv00
 static/socket_listen
+static/socket_udp
 static/selfexe00
 streaming/socket_loop00
 "
