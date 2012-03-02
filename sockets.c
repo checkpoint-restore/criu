@@ -1188,7 +1188,7 @@ static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
 		return -1;
 	}
 
-	if (ie->type != SOCK_STREAM) {
+	if ((ie->type != SOCK_STREAM) && (ie->type != SOCK_DGRAM)) {
 		pr_err("Unsupported socket type: %d\n", ie->type);
 		return -1;
 	}
@@ -1213,9 +1213,33 @@ static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
 		goto err;
 	}
 
-	if (listen(sk, ie->backlog) == -1) {
-		pr_perror("Can't listen on a socket");
-		goto err;
+	if (ie->state == TCP_LISTEN) {
+		if (ie->proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ie->proto);
+			goto err;
+		}
+
+		if (listen(sk, ie->backlog) == -1) {
+			pr_perror("Can't listen on a socket");
+			goto err;
+		}
+	}
+
+	if (ie->state == TCP_ESTABLISHED) {
+		if (ie->proto != IPPROTO_UDP) {
+			pr_err("Connected TCP socket in image\n");
+			goto err;
+		}
+
+		memset(&addr, 0, sizeof(addr));
+		addr.sin_family = ie->family;
+		addr.sin_port = htons(ie->dst_port);
+		memcpy(&addr.sin_addr.s_addr, ie->dst_addr, sizeof(ie->dst_addr));
+
+		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+			pr_perror("Can't connect UDP socket back");
+			goto err;
+		}
 	}
 
 	if (move_img_fd(img_fd, ie->fd))
