@@ -33,7 +33,6 @@ static/cmdlinenv00
 static/socket_listen
 static/socket_udp
 static/selfexe00
-streaming/socket_loop00
 "
 
 UTS_TEST_LIST="
