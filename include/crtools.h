@@ -101,6 +101,7 @@ struct cr_fdset {
 #define CR_FD_DESC_USE(type)		((1 << (type)))
 #define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)
 #define CR_FD_DESC_PSTREE		CR_FD_DESC_USE(CR_FD_PSTREE)
+#define CR_FD_DESC_SK_QUEUES		CR_FD_DESC_USE(CR_FD_SK_QUEUES)
 #define CR_FD_DESC_TASK				(\
 	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
 	CR_FD_DESC_USE(CR_FD_PAGES)		|\

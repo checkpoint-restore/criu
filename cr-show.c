@@ -551,7 +551,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	LIST_HEAD(pstree_list);
 	int i, ret = -1;
 
-	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_PSTREE);
+	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_PSTREE | CR_FD_DESC_SK_QUEUES);
 	if (!cr_fdset)
 		goto out;
 
