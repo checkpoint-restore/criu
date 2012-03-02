@@ -20,9 +20,16 @@ DESCRIPTION
 OPTIONS
 -------
 <command>::
-    One of the follwong commands 'dump' -- to initiate checkpoint procedure,
-    'restore' -- to restore previously checkpointed processes or 'show' -- to
-    decode binary dump files and show their contents in human readable format.
+    One of the follwong commands
+        * 'dump'
+                to initiate checkpoint procedure
+        * 'restore'
+                to restore previously checkpointed processes
+        * 'show'
+                to decode binary dump files and show their contents in human
+                readable format
+        * 'check'
+                to test whether the kernel support is up-to-date
 
 -c::
     In case of 'show' command the dumped pages content will be shown in hex format.
