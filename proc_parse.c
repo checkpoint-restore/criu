@@ -93,6 +93,10 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			vma_area->vma.flags = MAP_SHARED;
 		else if (s == 'p')
 			vma_area->vma.flags = MAP_PRIVATE;
+		else {
+			pr_err("Unexpected VMA met (%c)\n", s);
+			goto err;
+		}
 
 		if (strstr(big_buffer, "[stack]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;

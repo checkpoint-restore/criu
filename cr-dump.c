@@ -434,42 +434,36 @@ static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct
 
 		pr_info_vma(vma_area);
 
-		if (vma->flags & (MAP_SHARED | MAP_PRIVATE)) {
+		if (vma_entry_is(vma, VMA_ANON_SHARED)) {
+			struct shmem_entry e;
 
-			if (vma_entry_is(vma, VMA_ANON_SHARED)) {
-				struct shmem_entry e;
+			e.start	= vma->start;
+			e.end	= vma->end;
+			e.shmid	= vma_area->shmid;
 
-				e.start	= vma->start;
-				e.end	= vma->end;
-				e.shmid	= vma_area->shmid;
-
-				pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
+			pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
 					e.start, e.end, e.shmid);
 
-				if (write_img(cr_fdset->fds[CR_FD_SHMEM], &e))
-					goto err;
-			} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
-				   vma_entry_is(vma, VMA_FILE_SHARED)) {
-				struct fd_parms p = {
-					.fd_name	= vma->start,
-					.id		= FD_ID_INVALID,
-					.pid		= pid,
-					.type		= FDINFO_MAP,
-				};
+			if (write_img(cr_fdset->fds[CR_FD_SHMEM], &e))
+				goto err;
+		} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
+				vma_entry_is(vma, VMA_FILE_SHARED)) {
+			struct fd_parms p = {
+				.fd_name	= vma->start,
+				.id		= FD_ID_INVALID,
+				.pid		= pid,
+				.type		= FDINFO_MAP,
+			};
 
-				if (vma->prot & PROT_WRITE &&
-				    vma_entry_is(vma, VMA_FILE_SHARED))
-					p.flags = O_RDWR;
-				else
-					p.flags = O_RDONLY;
+			if (vma->prot & PROT_WRITE &&
+					vma_entry_is(vma, VMA_FILE_SHARED))
+				p.flags = O_RDWR;
+			else
+				p.flags = O_RDONLY;
 
-				ret = dump_one_reg_file(&p, vma_area->vm_file_fd, cr_fdset, 0);
-				if (ret)
-					goto err;
-			}
-		} else {
-			pr_err("Unknown VMA (pid: %d)\n", pid);
-			goto err;
+			ret = dump_one_reg_file(&p, vma_area->vm_file_fd, cr_fdset, 0);
+			if (ret)
+				goto err;
 		}
 	}
 
