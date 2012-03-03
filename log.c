@@ -30,7 +30,7 @@ int log_get_fd(void)
 int log_init(const char *output)
 {
 	struct rlimit rlimit;
-	int new_logfd;
+	int new_logfd = DEFAULT_LOGFD;
 
 	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
 		pr_perror("Can't get rlimit");
@@ -54,9 +54,7 @@ int log_init(const char *output)
 			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
-		current_logfd = new_logfd;
-	} else
-		new_logfd = DEFAULT_LOGFD;
+	}
 
 	current_logfd = rlimit.rlim_cur - 1;
 	if (reopen_fd_as(current_logfd, new_logfd) < 0)
