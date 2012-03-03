@@ -1358,11 +1358,11 @@ static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
 		goto err;
 	}
 
-       ret = parasite_dump_socket_info(parasite_ctl, cr_fdset, &sk_queue);
-       if (ret) {
-               pr_err("Can't dump socket info (pid: %d)\n", pid);
-               goto err;
-       }
+	ret = parasite_dump_socket_info(parasite_ctl, cr_fdset, &sk_queue);
+	if (ret) {
+		pr_err("Can't dump socket info (pid: %d)\n", pid);
+		goto err;
+	}
 
 	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
