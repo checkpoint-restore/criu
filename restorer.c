@@ -598,7 +598,7 @@ long restore_task(struct task_restore_core_args *args)
 	 * +--------------------------------------------------------------------------+
 	 */
 
-	if (args->nr_threads) {
+	if (args->nr_threads > 1) {
 		struct thread_restore_args *thread_args = args->thread_args;
 		long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND	|
 				   CLONE_THREAD | CLONE_SYSVSEM;
