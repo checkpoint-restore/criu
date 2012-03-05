@@ -1257,7 +1257,7 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 
 	if (flock(ca.fd, LOCK_EX)) {
 		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-		goto err;
+		goto err_close;
 	}
 
 	if (write_img_buf(ca.fd, buf, strlen(buf)))
@@ -1273,11 +1273,11 @@ err_unlock:
 	if (flock(ca.fd, LOCK_UN))
 		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
 
+err_close:
+	close_safe(&ca.fd);
 err:
 	if (stack != MAP_FAILED)
 		munmap(stack, STACK_SIZE);
-
-	close_safe(&ca.fd);
 	return ret;
 }
 
