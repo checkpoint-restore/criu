@@ -1394,12 +1394,12 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	struct sigaction act, old_act;
 
 	ret = read(fd, &e, sizeof(e));
+	close(fd);
+
 	if (ret != sizeof(e)) {
 		pr_perror("Can't read root pstree entry");
 		return -1;
 	}
-
-	close(fd);
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
@@ -1457,19 +1457,17 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 {
 	int pstree_fd = -1;
 	u32 type = 0;
-	int ret = -1;
 
 	pstree_fd = open_image_ro(CR_FD_PSTREE, pstree_pid);
 	if (pstree_fd < 0)
 		return -1;
 
-	if (prepare_shared(pstree_fd))
-		goto out;
+	if (prepare_shared(pstree_fd)) {
+		close(pstree_fd);
+		return -1;
+	}
 
-	ret = restore_root_task(pstree_fd, opts);
-out:
-	close_safe(&pstree_fd);
-	return ret;
+	return restore_root_task(pstree_fd, opts);
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
