@@ -121,7 +121,7 @@ struct cr_fdset {
 	CR_FD_DESC_USE(CR_FD_IPCNS_SHM)		)
 #define CR_FD_DESC_NONE			(0)
 
-int cr_dump_tasks(pid_t pid, struct cr_options *opts);
+int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
 int cr_restore_tasks(pid_t pid, struct cr_options *opts);
 int cr_show(unsigned long pid, struct cr_options *opts);
 int convert_to_elf(char *elf_path, int fd_core);

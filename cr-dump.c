@@ -97,8 +97,8 @@ struct fd_parms {
 	pid_t		pid;
 };
 
-static int dump_one_reg_file(struct fd_parms *p, int lfd,
-			     struct cr_fdset *cr_fdset,
+static int dump_one_reg_file(const struct fd_parms *p, int lfd,
+			     const struct cr_fdset *cr_fdset,
 			     bool do_close_lfd)
 {
 	struct fdinfo_entry e;
@@ -157,7 +157,7 @@ err:
 	return ret;
 }
 
-static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
+static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms params;
 	int fd, ret;
@@ -192,7 +192,7 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 }
 
 static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
-			      struct cr_fdset *cr_fdset)
+			      const struct cr_fdset *cr_fdset)
 {
 	int fd_pipes;
 	int steal_pipe[2];
@@ -246,8 +246,8 @@ err:
 	return ret;
 }
 
-static int dump_one_pipe(struct fd_parms *p, unsigned int id, int lfd,
-		struct cr_fdset *cr_fdset)
+static int dump_one_pipe(const struct fd_parms *p, unsigned int id, int lfd,
+			 const struct cr_fdset *cr_fdset)
 {
 	struct pipe_entry e;
 	int ret = -1;
@@ -285,7 +285,7 @@ err:
 	return ret;
 }
 
-static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
+static int read_fd_params(pid_t pid, const char *fd, struct fd_parms *p)
 {
 	FILE *file;
 	int ret;
@@ -312,7 +312,8 @@ static int read_fd_params(pid_t pid, char *fd, struct fd_parms *p)
 	return 0;
 }
 
-static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset *cr_fdset,
+static int dump_one_fd(pid_t pid, int pid_fd_dir, const char *d_name,
+		       const struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
 	struct stat fd_stat;
@@ -372,7 +373,7 @@ out_close:
 	return err;
 }
 
-static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
+static int dump_task_files(pid_t pid, const struct cr_fdset *cr_fdset,
 			   struct sk_queue *sk_queue)
 {
 	struct dirent *de;
@@ -414,7 +415,8 @@ static int dump_task_files(pid_t pid, struct cr_fdset *cr_fdset,
 	return 0;
 }
 
-static int dump_task_mappings(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
+static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
+			      const struct cr_fdset *cr_fdset)
 {
 	struct vma_area *vma_area;
 	int ret = -1;
@@ -473,8 +475,8 @@ err:
 	return ret;
 }
 
-static int dump_task_creds(pid_t pid,
-		struct parasite_dump_misc *misc, struct cr_fdset *fds)
+static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
+			   const struct cr_fdset *fds)
 {
 	int ret, i;
 	struct proc_status_creds cr;
@@ -569,7 +571,7 @@ err:
 	return ret;
 }
 
-static int get_task_regs(pid_t pid, struct core_entry *core, struct parasite_ctl *ctl)
+static int get_task_regs(pid_t pid, struct core_entry *core, const struct parasite_ctl *ctl)
 {
 	user_fpregs_struct_t fpregs	= {-1};
 	user_regs_struct_t regs		= {-1};
@@ -653,7 +655,7 @@ err:
 	return ret;
 }
 
-static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
+static int dump_task_core(struct core_entry *core, const struct cr_fdset *fdset)
 {
 	int fd_core = fdset->fds[CR_FD_CORE];
 	int ret;
@@ -672,9 +674,9 @@ static int dump_task_core(struct core_entry *core, struct cr_fdset *fdset)
 	return ret;
 }
 
-static int dump_task_core_all(pid_t pid, struct proc_pid_stat *stat,
-		struct parasite_dump_misc *misc, struct parasite_ctl *ctl,
-		struct cr_fdset *cr_fdset)
+static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
+		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
+		const struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int ret				= -1;
@@ -737,7 +739,7 @@ err:
 	return ret;
 }
 
-static int parse_threads(struct pstree_item *item, u32 **_t, int *_n)
+static int parse_threads(const struct pstree_item *item, u32 **_t, int *_n)
 {
 	struct dirent *de;
 	DIR *dir;
@@ -778,7 +780,7 @@ static int get_threads(struct pstree_item *item)
 	return parse_threads(item, &item->threads, &item->nr_threads);
 }
 
-static int check_threads(struct pstree_item *item)
+static int check_threads(const struct pstree_item *item)
 {
 	u32 *t;
 	int nr, ret;
@@ -798,7 +800,7 @@ static int check_threads(struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(struct pstree_item *item, u32 **_c, int *_n)
+static int parse_children(const struct pstree_item *item, u32 **_c, int *_n)
 {
 	FILE *file;
 	char *tok;
@@ -844,7 +846,7 @@ static int get_children(struct pstree_item *item)
 	return parse_children(item, &item->children, &item->nr_children);
 }
 
-static void unseize_task_and_threads(struct pstree_item *item, int st)
+static void unseize_task_and_threads(const struct pstree_item *item, int st)
 {
 	int i;
 
@@ -852,7 +854,8 @@ static void unseize_task_and_threads(struct pstree_item *item, int st)
 		unseize_task(item->threads[i], st); /* item->pid will be here */
 }
 
-static void pstree_switch_state(struct list_head *list, struct cr_options *opts)
+static void pstree_switch_state(const struct list_head *list,
+				const struct cr_options *opts)
 {
 	struct pstree_item *item;
 
@@ -863,7 +866,7 @@ static void pstree_switch_state(struct list_head *list, struct cr_options *opts)
 	}
 }
 
-static int seize_threads(struct pstree_item *item)
+static int seize_threads(const struct pstree_item *item)
 {
 	int i = 0, ret;
 
@@ -965,7 +968,7 @@ err:
 	return NULL;
 }
 
-static int check_subtree(struct pstree_item *item)
+static int check_subtree(const struct pstree_item *item)
 {
 	u32 *ch;
 	int nr, ret;
@@ -1010,7 +1013,7 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 }
 
 static int collect_pstree(pid_t pid, struct list_head *pstree_list,
-		struct cr_options *opts)
+			  const struct cr_options *opts)
 {
 	int ret, attempts = 5;
 
@@ -1070,9 +1073,10 @@ try_again:
 	return ret;
 }
 
-static int dump_pstree(pid_t pid, struct list_head *pstree_list, struct cr_fdset *cr_fdset)
+static int dump_pstree(pid_t pid, const struct list_head *pstree_list,
+		       const struct cr_fdset *cr_fdset)
 {
-	struct pstree_item *item;
+	const struct pstree_item *item;
 	struct pstree_entry e;
 	unsigned long i;
 	int ret = -1;
@@ -1118,7 +1122,8 @@ err:
 	return ret;
 }
 
-static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsigned long addr)
+static struct vma_area *find_vma_by_addr(const struct list_head *vma_area_list,
+					 unsigned long addr)
 {
 	struct vma_area *vma_area;
 
@@ -1131,7 +1136,8 @@ static struct vma_area *find_vma_by_addr(struct list_head *vma_area_list, unsign
 }
 
 /* kernel expects a special format in core file */
-static int finalize_core(pid_t pid, struct list_head *vma_area_list, struct cr_fdset *cr_fdset)
+static int finalize_core(pid_t pid, const struct list_head *vma_area_list,
+			 const struct cr_fdset *cr_fdset)
 {
 	int fd_core;
 	unsigned long num;
@@ -1177,7 +1183,7 @@ err:
 }
 
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
-				pid_t pid, struct cr_fdset *cr_fdset)
+			    pid_t pid, const struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core		= xzalloc(sizeof(*core));
 	int ret				= -1;
@@ -1219,8 +1225,9 @@ err:
 	return ret;
 }
 
-static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
-		struct cr_fdset *cr_fdset)
+static int dump_one_zombie(const struct pstree_item *item,
+			   const struct proc_pid_stat *pps,
+			   struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core;
 
@@ -1241,7 +1248,7 @@ static int dump_one_zombie(struct pstree_item *item, struct proc_pid_stat *pps,
 static struct proc_pid_stat pps_buf;
 
 static int dump_task_threads(struct parasite_ctl *parasite_ctl,
-					struct pstree_item *item)
+			     const struct pstree_item *item)
 {
 	int i;
 	struct cr_fdset *cr_fdset_thread = NULL;
@@ -1272,7 +1279,7 @@ err:
 	return -1;
 }
 
-static int dump_one_task(struct pstree_item *item, struct cr_fdset *cr_fdset)
+static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fdset)
 {
 	pid_t pid = item->pid;
 	LIST_HEAD(vma_area_list);
@@ -1395,7 +1402,7 @@ err_free:
 	return ret;
 }
 
-int cr_dump_tasks(pid_t pid, struct cr_options *opts)
+int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
 	struct cr_fdset *cr_fdset = NULL;

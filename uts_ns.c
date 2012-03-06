@@ -8,7 +8,7 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
-static int dump_uts_string(int fd, char *str)
+static int dump_uts_string(int fd, const char *str)
 {
 	int ret;
 	u32 len;
