@@ -164,10 +164,9 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 
 	/* Dump /proc/pid/cwd */
 	params = (struct fd_parms) {
-		.fd_name	= FDINFO_CWD,
 		.id		= FD_ID_INVALID,
 		.pid		= FD_PID_INVALID,
-		.type		= FDINFO_FD,
+		.type		= FDINFO_CWD,
 	};
 
 	fd = open_proc(pid, "cwd");
@@ -179,10 +178,9 @@ static int dump_task_special_files(pid_t pid, struct cr_fdset *cr_fdset)
 
 	/* Dump /proc/pid/exe */
 	params = (struct fd_parms) {
-		.fd_name	= FDINFO_EXE,
 		.id		= FD_ID_INVALID,
 		.pid		= FD_PID_INVALID,
-		.type		= FDINFO_FD,
+		.type		= FDINFO_EXE,
 	};
 
 	fd = open_proc(pid, "exe");
@@ -358,7 +356,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, char *d_name, struct cr_fdset 
 	    (S_ISCHR(fd_stat.st_mode) && major(fd_stat.st_rdev) == MEM_MAJOR)) {
 
 		p.id = MAKE_FD_GENID(fd_stat.st_dev, fd_stat.st_ino, p.pos);
-		p.type = FDINFO_FD;
+		p.type = FDINFO_REG;
 
 		return dump_one_reg_file(&p, lfd, cr_fdset, 1);
 	}

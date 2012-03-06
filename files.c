@@ -403,7 +403,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	pr_info("\t%d: Got fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
 
-	BUG_ON(fe->type != FDINFO_FD);
+	BUG_ON(fe->type != FDINFO_REG);
 
 
 	switch (state) {
@@ -431,11 +431,12 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 
 	if (fe->type == FDINFO_MAP)
 		return open_fmap(pid, fe, fdinfo_fd);
-	if (fe->addr == FDINFO_CWD)
+	if (fe->type == FDINFO_CWD)
 		return restore_cwd(fe, fdinfo_fd);
-	if (fe->addr == FDINFO_EXE)
+	if (fe->type == FDINFO_EXE)
 		return restore_exe_early(fe, fdinfo_fd);
 
+	pr_info("%d: fe->type: %d\n", pid,  fe->type);
 	BUG_ON(1);
 	return -1;
 }

@@ -248,7 +248,7 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 			goto err;
 		}
 
-		if (fe.type == FDINFO_FD && fe.addr == FDINFO_EXE)
+		if (fe.type == FDINFO_EXE)
 			break;
 
 		if (fe.len)

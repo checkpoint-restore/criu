@@ -29,12 +29,12 @@
 
 #define PIPEFS_MAGIC	0x50495045
 
-#define FDINFO_FD	1
+#define FDINFO_REG	1
 #define FDINFO_MAP	2
 
 /* Specials */
-#define FDINFO_CWD	(-1ULL)
-#define FDINFO_EXE	(-2ULL)
+#define FDINFO_CWD	3
+#define FDINFO_EXE	4
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
@@ -51,9 +51,9 @@ struct fdinfo_entry {
 } __packed;
 
 #define fd_is_special(fe)		\
-	(((fe)->type != FDINFO_FD)  ||	\
-	 ((fe)->addr == FDINFO_CWD) ||	\
-	 ((fe)->addr == FDINFO_EXE))
+	(((fe)->type == FDINFO_MAP) ||	\
+	 ((fe)->type == FDINFO_CWD) ||	\
+	 ((fe)->type == FDINFO_EXE))
 
 struct shmem_entry {
 	u64	start;
