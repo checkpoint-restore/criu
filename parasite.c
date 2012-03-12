@@ -557,8 +557,6 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
-	case PARASITE_CMD_PINGME:
-		return 0;
 	case PARASITE_CMD_INIT:
 		return init((struct parasite_init_args *) args);
 	case PARASITE_CMD_FINI:
