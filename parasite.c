@@ -42,11 +42,6 @@ static void brk_fini(void)
 	sys_munmap(brk_start, brk_end - brk_start);
 }
 
-struct mem_array {
-	unsigned long size;
-	char data[0];
-};
-
 static void *brk_alloc(unsigned long bytes)
 {
 	void *addr = NULL;
