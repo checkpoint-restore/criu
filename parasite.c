@@ -18,23 +18,22 @@ static struct vma_entry vma;
 static int logfd = -1;
 static int tsock = -1;
 
-#define MAX_BUF_SIZE	(10 << 20)	/* Hope 10MB will be enough...  */
+#define MAX_HEAP_SIZE	(10 << 20)	/* Hope 10MB will be enough...  */
 
 static int brk_init(void)
 {
-	unsigned long heap_size = MAX_BUF_SIZE;
 	unsigned long ret;
 	/*
 	 *  Map 10 MB. Hope this will be enough for unix skb's...
 	 */
-       ret = sys_mmap(0, heap_size,
+       ret = sys_mmap(0, MAX_HEAP_SIZE,
 			    PROT_READ | PROT_WRITE,
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (ret < 0)
                return -ENOMEM;
 
 	brk_start = brk_tail = (void *)ret;
-	brk_end = brk_start + heap_size;
+	brk_end = brk_start + MAX_HEAP_SIZE;
 	return 0;
 }
 
