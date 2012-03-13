@@ -1420,8 +1420,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		goto err;
 
 	if (opts->namespaces_flags) {
-		ret = dump_namespaces(pid, opts->namespaces_flags);
-		if (ret < 0)
+		if (dump_namespaces(pid, opts->namespaces_flags) < 0)
 			goto err;
 	}
 
