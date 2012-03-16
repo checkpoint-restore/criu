@@ -148,28 +148,13 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
-int get_image_path(char *path, int size, const char *fmt, int pid)
-{
-	int len;
-
-	len = snprintf(path, size, "%s/", image_dir);
-	len += snprintf(path + len, size - len, fmt, pid);
-	if (len > size) {
-		pr_err("Image path buffer overflow %d/%d\n", size, len);
-		return -1;
-	}
-
-	return 0;
-}
-
 int open_image_ro_nocheck(const char *fmt, int pid)
 {
 	char path[PATH_MAX];
 	int tmp;
 
-	tmp = get_image_path(path, sizeof(path), fmt, pid);
-	if (tmp == 0)
-		tmp = open(path, O_RDONLY);
+	sprintf(path, fmt, pid);
+	tmp = openat(image_dir_fd, path, O_RDONLY);
 	if (tmp < 0)
 		pr_warn("Can't open image %s for %d: %m\n", fmt, pid);
 
@@ -193,6 +178,35 @@ int open_image_ro(int type, int pid)
 	}
 
 	return fd;
+}
+
+int image_dir_fd = -1;
+
+int open_image_dir(void)
+{
+	int fd;
+
+	image_dir_fd = get_service_fd(IMG_FD_OFF);
+	if (image_dir_fd < 0) {
+		pr_perror("Can't get image fd");
+		return -1;
+	}
+
+	fd = open(".", O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open cwd");
+		return -1;
+	}
+
+	pr_info("Image dir fd is %d\n", image_dir_fd);
+
+	return reopen_fd_as(image_dir_fd, fd);
+}
+
+void close_image_dir(void)
+{
+	close(image_dir_fd);
+	image_dir_fd = -1;
 }
 
 static pid_t open_proc_pid = 0;

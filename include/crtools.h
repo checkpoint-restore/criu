@@ -91,9 +91,13 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
 #define FMT_FNAME_SK_QUEUES	"sk-queues-%d.img"
 
-extern int get_image_path(char *path, int size, const char *fmt, int pid);
-
-extern char image_dir[];
+/*
+ * FIXME -- this is required for legacy image copy only.
+ * Don't use it for other reason and remove the former one.
+ */
+extern int image_dir_fd;
+extern int open_image_dir(void);
+extern void close_image_dir(void);
 extern int open_image_ro(int type, int pid);
 extern int open_image_ro_nocheck(const char *fmt, int pid);
 

@@ -716,10 +716,9 @@ static int prepare_and_sigreturn(int pid)
 		goto out;
 	}
 
-	if (get_image_path(path, sizeof(path), FMT_FNAME_CORE_OUT, pid))
-		goto out;
-
-	fd_new = open(path, O_RDWR | O_CREAT | O_TRUNC, CR_FD_PERM);
+	sprintf(path, FMT_FNAME_CORE_OUT, pid);
+	fd_new = openat(image_dir_fd, path,
+			O_RDWR | O_CREAT | O_TRUNC, CR_FD_PERM);
 	if (fd_new < 0) {
 		pr_perror("%d: Can't open new image", pid);
 		goto out;
@@ -1841,6 +1840,8 @@ static void sigreturn_restore(pid_t pid)
 				thread_args[i].mem_zone.rt_sigframe);
 
 	}
+
+	close_image_dir();
 
 	pr_info("task_args: %p\n"
 		"task_args->pid: %d\n"

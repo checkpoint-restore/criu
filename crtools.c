@@ -23,7 +23,6 @@
 
 static struct cr_options opts;
 struct page_entry zero_page_entry;
-char image_dir[PATH_MAX];
 
 /*
  * The cr fd set is the set of files where the information
@@ -205,20 +204,17 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 		if (fdset->fds[i] != -1)
 			continue;
 
-		ret = get_image_path(path, sizeof(path),
-				fdset_template[i].fmt, pid);
-		if (ret)
-			goto err;
+		sprintf(path, fdset_template[i].fmt, pid);
 
 		if (flags & O_EXCL) {
-			ret = unlink(path);
+			ret = unlinkat(image_dir_fd, path, 0);
 			if (ret && errno != ENOENT) {
 				pr_perror("Unable to unlink %s", path);
 				goto err;
 			}
 		}
 
-		ret = open(path, flags, CR_FD_PERM);
+		ret = openat(image_dir_fd, path, flags, CR_FD_PERM);
 		if (ret < 0) {
 			if (!(flags & O_CREAT))
 				/* caller should check himself */
@@ -381,8 +377,9 @@ int main(int argc, char *argv[])
 			return ret;
 	}
 
-	if (!getcwd(image_dir, sizeof(image_dir))) {
-		pr_perror("can't get currect directory");
+	ret = open_image_dir();
+	if (ret < 0) {
+		pr_perror("can't open currect directory");
 		return -1;
 	}
 
