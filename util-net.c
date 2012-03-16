@@ -57,7 +57,7 @@ int recv_fd(int sock)
 		return ret;
 
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (!cmsg || !cmsg->cmsg_type == SCM_RIGHTS)
+	if (!cmsg || (cmsg->cmsg_type != SCM_RIGHTS))
 		return -2;
 
 	cmsg_data = (int *)CMSG_DATA(cmsg);
