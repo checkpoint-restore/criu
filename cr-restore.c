@@ -405,7 +405,6 @@ static int prepare_shared(int ps_fd)
 
 	while (1) {
 		struct pstree_entry e;
-		int ret;
 
 		ret = read_img_eof(ps_fd, &e);
 		if (ret <= 0)
