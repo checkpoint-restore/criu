@@ -39,7 +39,6 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	}
 
 	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
-		struct stat st_buf;
 		int num;
 		char file_path[6];
 
@@ -116,6 +115,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		 * disk and restore might need to analyze it.
 		 */
 		if (vma_area->vm_file_fd >= 0) {
+			struct stat st_buf;
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
 				pr_perror("Failed fstat on %d's map %lu", pid, start);
@@ -138,7 +138,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 				vma_area->shmid = st_buf.st_ino;
 
 				if (!strcmp(file_path, "/SYSV")) {
-					pr_perror("path: %s\n", file_path);
+					pr_info("path: %s\n", file_path);
 					vma_area->vma.status |= VMA_AREA_SYSVIPC;
 				}
 			} else {
