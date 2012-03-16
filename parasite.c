@@ -58,14 +58,6 @@ static void brk_free(unsigned long bytes)
 		brk_tail -= bytes;
 }
 
-static unsigned long builtin_strlen(char *str)
-{
-	unsigned long len = 0;
-	while (*str++)
-		len++;
-	return len;
-}
-
 static const unsigned char hex[] = "0123456789abcdef";
 static char *long2hex(unsigned long v)
 {
