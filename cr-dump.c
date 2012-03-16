@@ -1433,17 +1433,17 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	collect_sockets();
 
+	cr_fdset = cr_dump_fdset_open(pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset);
+	if (!cr_fdset)
+		goto err;
+	if (dump_pstree(pid, &pstree_list, cr_fdset))
+		goto err;
+	close_cr_fdset(&cr_fdset);
+
 	list_for_each_entry(item, &pstree_list, list) {
 		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
 		if (!cr_fdset)
 			goto err;
-
-		if (item->pid == pid) {
-			if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset))
-				goto err;
-			if (dump_pstree(pid, &pstree_list, cr_fdset))
-				goto err;
-		}
 
 		/*
 		 * Prepare for socket queues in advance. They are not per-task,
