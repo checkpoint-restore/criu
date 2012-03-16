@@ -39,7 +39,7 @@ static int brk_init(void)
 
 static void brk_fini(void)
 {
-	sys_munmap(brk_start, brk_end - brk_start);
+	sys_munmap(brk_start, MAX_HEAP_SIZE);
 }
 
 static void *brk_alloc(unsigned long bytes)
