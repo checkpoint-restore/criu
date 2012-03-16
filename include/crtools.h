@@ -56,6 +56,13 @@ struct cr_options {
 	unsigned int		namespaces_flags;
 };
 
+enum {
+	LOG_FD_OFF = 1,
+	IMG_FD_OFF,
+};
+
+int get_service_fd(int type);
+
 /* file descriptors template */
 struct cr_fd_desc_tmpl {
 	const char	*fmt;			/* format for the name */

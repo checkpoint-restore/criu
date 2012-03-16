@@ -247,3 +247,20 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 
 	return openat(dirfd, path, flags);
 }
+
+int get_service_fd(int type)
+{
+	struct rlimit rlimit;
+
+	/*
+	 * Service FDs are thouse that most likely won't
+	 * conflict with any 'real-life' ones
+	 */
+
+	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
+		pr_perror("Can't get rlimit");
+		return -1;
+	}
+
+	return rlimit.rlim_cur - type;
+}

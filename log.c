@@ -15,6 +15,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "util.h"
+#include "crtools.h"
 
 #define DEFAULT_LOGLEVEL	LOG_WARN
 #define DEFAULT_LOGFD		STDERR_FILENO
@@ -29,24 +30,13 @@ int log_get_fd(void)
 
 int log_init(const char *output)
 {
-	struct rlimit rlimit;
 	int new_logfd = DEFAULT_LOGFD;
 
-	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
-		pr_perror("Can't get rlimit");
-		return -1;
+	current_logfd = get_service_fd(LOG_FD_OFF);
+	if (current_logfd < 0) {
+		pr_msg("Can't obtain logfd");
+		goto err;
 	}
-
-	/*
-	 * We might need to transfer this descriptors
-	 * to another process' address space (and file
-	 * descriptors space) so we try to minimize
-	 * potential conflict between descriptors and
-	 * try to reopen them somewhere near a limit.
-	 *
-	 * Still an explicit output file might be
-	 * requested.
-	 */
 
 	if (output) {
 		new_logfd = open(output, O_CREAT | O_WRONLY);
@@ -56,7 +46,6 @@ int log_init(const char *output)
 		}
 	}
 
-	current_logfd = rlimit.rlim_cur - 1;
 	if (reopen_fd_as(current_logfd, new_logfd) < 0)
 		goto err;
 
