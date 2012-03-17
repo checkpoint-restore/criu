@@ -342,29 +342,16 @@ static int prepare_pipes_pid(int pid)
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
-	char path[PATH_MAX];
-	int fd, ret = -1;
+	void *ret;
 
-	sprintf(path, "/proc/self/map_files/%lx-%lx",
-		(long)old_addr, (long)old_addr + size);
-
-	fd = open(path, O_RDWR);
-	if (fd < 0) {
-		pr_perror("open(%s) failed", path);
+	ret = mremap(old_addr, size, size,
+			MREMAP_FIXED | MREMAP_MAYMOVE, new_addr);
+	if (new_addr != ret) {
+		pr_perror("mremap failed");
 		return -1;
 	}
 
-	/* reuse old_addr variable */
-	old_addr = mmap(new_addr, size, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_FIXED, fd, 0);
-	if (new_addr == old_addr)
-		ret = 0;
-	else
-		pr_perror("mmap failed");
-
-	close(fd);
-
-	return ret;
+	return 0;
 }
 
 static int prepare_shared(int ps_fd)
