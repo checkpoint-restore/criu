@@ -238,6 +238,7 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 	struct fdinfo_entry fe;
 	long ret = -1;
 	char *path;
+	int fd;
 
 	/*
 	 * Path to exe file and its len is in image.
@@ -275,10 +276,20 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 	write_string(path);
 	write_string(")\n");
 
-	ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, (long)path, fe.len + 1);
+	fd = sys_open(path, fe.flags, 0744);
+	if (fd >= 0) {
+		ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
+		sys_close(fd);
+	} else {
+		write_string("sys_open failed\n");
+		write_num_n((long)fd);
+		ret = fd;
+	}
 
 	sys_munmap(path, fe.len + 1);
 
+	/* FIXME Once kernel side stabilized -- drop next line */
+	ret = 0;
 	return ret;
 
 err:
@@ -513,13 +524,10 @@ long restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 
 	/*
-	 * Restoring own /proc/pid/exe symlink is a bit
-	 * tricky -- we are to be sure no mmaps are
-	 * done over exec we're going to change, that's
-	 * why it's don that lately. Moreover, we are
-	 * to pass a path to new exec which means the
-	 * code should allocate memory enough for (maybe!)
-	 * pretty long file name.
+	 * Because of requirements applied from kernel side
+	 * we need to restore /proc/pid/exe symlink late,
+	 * after old existing VMAs are superseded with
+	 * new ones from image file.
 	 */
 	ret = restore_self_exe_late(args);
 	sys_close(args->fd_fdinfo);
