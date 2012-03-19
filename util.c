@@ -161,23 +161,47 @@ int open_image_ro_nocheck(const char *fmt, int pid)
 	return tmp;
 }
 
-int open_image_ro(int type, int pid)
+int open_image(int type, unsigned long flags, ...)
 {
-	int fd;
-	u32 magic = 0;
+	char path[PATH_MAX];
+	va_list args;
+	int ret;
 
-	fd = open_image_ro_nocheck(fdset_template[type].fmt, pid);
-	if (fd < 0)
-		return fd;
+	va_start(args, flags);
+	vsnprintf(path, PATH_MAX, fdset_template[type].fmt, args);
+	va_end(args);
 
-	read(fd, &magic, sizeof(magic));
-	if (magic != fdset_template[type].magic) {
-		pr_err("Magic mismatch for %d of %d\n", type, pid);
-		close(fd);
-		return -1;
+	if (flags & O_EXCL) {
+		ret = unlinkat(image_dir_fd, path, 0);
+		if (ret && errno != ENOENT) {
+			pr_perror("Unable to unlink %s", path);
+			goto err;
+		}
 	}
 
-	return fd;
+	ret = openat(image_dir_fd, path, flags, CR_FD_PERM);
+	if (ret < 0) {
+		pr_perror("Unable to open %s", path);
+		goto err;
+	}
+
+	if (flags == O_RDONLY) {
+		u32 magic;
+
+		if (read_img(ret, &magic) < 0)
+			goto err;
+		if (magic != fdset_template[type].magic) {
+			pr_err("Magic doesn't match for %s\n", path);
+			goto err;
+		}
+	} else {
+		if (write_img(ret, &fdset_template[type].magic))
+			goto err;
+	}
+
+	return ret;
+err:
+	return -1;
 }
 
 int image_dir_fd = -1;

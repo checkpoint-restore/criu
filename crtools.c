@@ -148,7 +148,7 @@ static struct cr_fdset *alloc_cr_fdset(void)
 
 	cr_fdset = xmalloc(sizeof(*cr_fdset));
 	if (cr_fdset)
-		for (i = 0; i < CR_FD_MAX; i++)
+		for (i = 0; i < CR_FD_PID_MAX; i++)
 			cr_fdset->fds[i] = -1;
 	return cr_fdset;
 }
@@ -160,7 +160,7 @@ void __close_cr_fdset(struct cr_fdset *cr_fdset)
 	if (!cr_fdset)
 		return;
 
-	for (i = 0; i < CR_FD_MAX; i++) {
+	for (i = 0; i < CR_FD_PID_MAX; i++) {
 		if (cr_fdset->fds[i] == -1)
 			continue;
 		close_safe(&cr_fdset->fds[i]);
@@ -185,7 +185,6 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 	struct cr_fdset *fdset;
 	unsigned int i;
 	int ret = -1;
-	char path[PATH_MAX];
 
 	/*
 	 * We either reuse existing fdset or create new one.
@@ -197,46 +196,22 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 	} else
 		fdset = cr_fdset;
 
-	for (i = 0; i < CR_FD_MAX; i++) {
+	for (i = 0; i < CR_FD_PID_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
 		if (fdset->fds[i] != -1)
 			continue;
 
-		sprintf(path, fdset_template[i].fmt, pid);
-
-		if (flags & O_EXCL) {
-			ret = unlinkat(image_dir_fd, path, 0);
-			if (ret && errno != ENOENT) {
-				pr_perror("Unable to unlink %s", path);
-				goto err;
-			}
-		}
-
-		ret = openat(image_dir_fd, path, flags, CR_FD_PERM);
+		ret = open_image(i, flags, pid);
 		if (ret < 0) {
 			if (!(flags & O_CREAT))
 				/* caller should check himself */
 				continue;
-			pr_perror("Unable to open %s", path);
 			goto err;
 		}
+
 		fdset->fds[i] = ret;
-
-		if (flags == O_RDONLY) {
-			u32 magic;
-
-			if (read_img(ret, &magic) < 0)
-				goto err;
-			if (magic != fdset_template[i].magic) {
-				pr_err("Magic doesn't match for %s\n", path);
-				goto err;
-			}
-		} else {
-			if (write_img(ret, &fdset_template[i].magic))
-				goto err;
-		}
 	}
 
 	return fdset;

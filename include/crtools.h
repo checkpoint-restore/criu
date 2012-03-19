@@ -44,6 +44,8 @@ enum {
 
 	CR_FD_SK_QUEUES,
 
+	CR_FD_PID_MAX, /* fmt, pid */
+
 	CR_FD_MAX
 };
 
@@ -98,14 +100,16 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 extern int image_dir_fd;
 extern int open_image_dir(void);
 extern void close_image_dir(void);
-extern int open_image_ro(int type, int pid);
+
+int open_image(int type, unsigned long flags, ...);
+#define open_image_ro(type, ...) open_image(type, O_RDONLY, __VA_ARGS__);
 extern int open_image_ro_nocheck(const char *fmt, int pid);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666
 
 struct cr_fdset {
-	int fds[CR_FD_MAX];
+	int fds[CR_FD_PID_MAX];
 };
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
