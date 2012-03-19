@@ -16,19 +16,6 @@
 
 #define PARASITE_MAX_SIZE	(64 << 10)
 
-/* we need own error code for diagnostics */
-#define PARASITE_ERR_FAIL	-1024
-#define PARASITE_ERR_OPEN	-1025
-#define PARASITE_ERR_MMAP	-1026
-#define PARASITE_ERR_MINCORE	-1027
-#define PARASITE_ERR_MUNMAP	-1028
-#define PARASITE_ERR_CLOSE	-1029
-#define PARASITE_ERR_WRITE	-1030
-#define PARASITE_ERR_MPROTECT	-1031
-#define PARASITE_ERR_SIGACTION  -1032
-#define PARASITE_ERR_GETITIMER  -1033
-#define PARASITE_ERR_IOCTL	-1034
-
 enum {
 	PARASITE_CMD_INIT,
 	PARASITE_CMD_SET_LOGFD,
@@ -48,16 +35,14 @@ enum {
 };
 
 typedef struct  {
-	long			ret;		/* custom ret code */
-	long			sys_ret;	/* syscall ret code */
+	long			ret;		/* ret code */
 	long			line;		/* where we're failed */
 } parasite_status_t;
 
-#define SET_PARASITE_STATUS(st, ret_code, sys_ret_code)	\
-	do {						\
-		(st)->ret	= ret_code,		\
-		(st)->sys_ret	= sys_ret_code,		\
-		(st)->line	= __LINE__;		\
+#define SET_PARASITE_RET(st, err)		\
+	do {					\
+		(st)->ret	= err,		\
+		(st)->line	= __LINE__;	\
 	} while (0)
 
 struct parasite_init_args {

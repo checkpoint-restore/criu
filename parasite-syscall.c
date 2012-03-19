@@ -248,19 +248,21 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	}
 
 	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
-	memcpy(ctl->addr_args, args, args_size);
+	if (args)
+		memcpy(ctl->addr_args, args, args_size);
 
 	parasite_setup_regs(ctl->parasite_ip, &regs);
 
 	ret = __parasite_execute(ctl, pid, &regs);
 
-	memcpy(args, ctl->addr_args, args_size);
-	if (!ret)
-		ret = args->ret;
+	if (args)
+		memcpy(args, ctl->addr_args, args_size);
+
+	BUG_ON(ret && !args);
 
 	if (ret)
 		pr_err("Parasite exited with %d ret (%li at %li)\n",
-		       ret, args->sys_ret, args->line);
+		       ret, args->ret, args->line);
 
 	if (ctl->pid != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
@@ -542,9 +544,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, st, sizeof(*st));
 	if (ret < 0) {
-		pr_err("Dumping pages failed with %li (%li) at %li\n",
+		pr_err("Dumping pages failed with %li at %li\n",
 				parasite_dumppages.status.ret,
-				parasite_dumppages.status.sys_ret,
 				parasite_dumppages.status.line);
 		goto out;
 	}
@@ -582,9 +583,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 				       (parasite_status_t *) &parasite_dumppages,
 				       sizeof(parasite_dumppages));
 		if (ret) {
-			pr_err("Dumping pages failed with %li (%li) at %li\n",
+			pr_err("Dumping pages failed with %li at %li\n",
 				 parasite_dumppages.status.ret,
-				 parasite_dumppages.status.sys_ret,
 				 parasite_dumppages.status.line);
 
 			goto out;
@@ -594,7 +594,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
 	}
 
-	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, st, sizeof(*st));
+	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
 
 	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
 		goto out;
@@ -620,11 +620,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 
 	if (ctl->parasite_ip) {
 		ctl->signals_blocked = 0;
-
-		if (parasite_execute(PARASITE_CMD_FINI, ctl, &args, sizeof(args))) {
-			pr_err("Can't finalize parasite (pid: %d) task\n", ctl->pid);
-			ret = -1;
-		}
+		parasite_execute(PARASITE_CMD_FINI, ctl, NULL, 0);
 	}
 
 	if (ctl->remote_map) {
