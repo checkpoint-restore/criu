@@ -57,11 +57,7 @@ struct parasite_dump_pages_args {
 
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
-	int			fd_type;
 };
-
-#define PG_PRIV		0
-#define PG_SHARED	1
 
 /*
  * Misc sfuff, that is too small for separate file, but cannot

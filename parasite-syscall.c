@@ -568,10 +568,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		pr_info_vma(vma_area);
 		parasite_dumppages.vma_entry = vma_area->vma;
 
-		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
-		    vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
-			parasite_dumppages.fd_type = PG_PRIV;
-		} else {
+		if (!vma_area_is(vma_area, VMA_ANON_PRIVATE) &&
+		    !vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
 			pr_warn("Unexpected VMA area found\n");
 			continue;
 		}

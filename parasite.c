@@ -113,20 +113,18 @@ static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore
 #endif
 }
 
-static int fd_pages[2] = { -1, -1 };
+static int fd_pages = -1;
 
 static int dump_pages_init(parasite_status_t *st)
 {
-	int ret;
-
-	ret = fd_pages[PG_PRIV] = recv_fd(tsock);
-	if (ret < 0)
+	fd_pages = recv_fd(tsock);
+	if (fd_pages < 0)
 		goto err;
 
 	return 0;
 
 err:
-	SET_PARASITE_RET(st, ret);
+	SET_PARASITE_RET(st, fd_pages);
 	return -1;
 }
 
@@ -145,7 +143,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	args->nrpages_dumped = 0;
 	prot_old = prot_new = 0;
 
-	fd = fd_pages[args->fd_type];
+	fd = fd_pages;
 
 	/* Start from the end of file */
 	sys_lseek(fd, 0, SEEK_END);
@@ -239,8 +237,7 @@ err:
 
 static int dump_pages_fini(void)
 {
-	sys_close(fd_pages[PG_PRIV]);
-
+	sys_close(fd_pages);
 	return 0;
 }
 
