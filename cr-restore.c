@@ -552,12 +552,7 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 
 write_fd:
 	lseek(fd, -sizeof(*vi), SEEK_CUR);
-	if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
-		pr_perror("%d: Can't write img", pid);
-		return -1;
-	}
-
-	return 0;
+	return write_img(fd, vi);
 }
 
 static int fixup_vma_fds(int pid, int fd)
@@ -566,20 +561,9 @@ static int fixup_vma_fds(int pid, int fd)
 		struct vma_entry vi;
 		int ret = 0;
 
-		ret = read(fd, &vi, sizeof(vi));
-		if (ret == 0)
-			return 0;
-
-		if (ret < 0) {
-			pr_perror("%d: Can't read vma_entry", pid);
-			return -1;
-		}
-
-		if (ret != sizeof(vi)) {
-			pr_err("%d: Incomplete vma_entry (%d != %ld)\n",
-			       pid, ret, sizeof(vi));
-			return -1;
-		}
+		ret = read_img_eof(fd, &vi);
+		if (ret <= 0)
+			return ret;
 
 		if (!(vma_entry_is(&vi, VMA_AREA_REGULAR)))
 			continue;
@@ -600,8 +584,6 @@ static int fixup_vma_fds(int pid, int fd)
 				return -1;
 		}
 	}
-
-	return 0;
 }
 
 static int prepare_image_maps(int fd, int pid)
