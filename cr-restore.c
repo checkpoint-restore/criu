@@ -103,7 +103,7 @@ pid_t pstree_pid;
 struct pstree_item *me;
 
 static int restore_task_with_children(void *);
-static void sigreturn_restore(pid_t pid);
+static int sigreturn_restore(pid_t pid);
 
 static void show_saved_shmems(void)
 {
@@ -586,38 +586,21 @@ static int fixup_vma_fds(int pid, int fd)
 	}
 }
 
-static int prepare_image_maps(int fd, int pid)
-{
-	pr_info("%d: Fixing maps\n", pid);
-
-	if (fixup_vma_fds(pid, fd))
-		return -1;
-
-	pr_info("%d: Fixing maps\n", pid);
-
-	return 0;
-}
-
 static int prepare_and_sigreturn(int pid)
 {
-	char path[PATH_MAX];
-	int fd = -1, err = -1;
-	struct stat buf;
+	int fd, err;
 
 	fd = open_image(CR_FD_VMAS, O_RDWR, pid);
 	if (fd < 0)
 		return -1;
 
-	if (prepare_image_maps(fd, pid))
-		goto out;
-
-	err = 0;
-out:
+	err = fixup_vma_fds(pid, fd);
 	close_safe(&fd);
+
 	if (err)
 		return err;
-	sigreturn_restore(pid);
-	return 0;
+
+	return sigreturn_restore(pid);
 }
 
 #define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
@@ -1488,7 +1471,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return ret > 0 ? 0 : -1;
 }
 
-static void sigreturn_restore(pid_t pid)
+static int sigreturn_restore(pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
 	long restore_thread_vma_len, self_vmas_len;
@@ -1760,6 +1743,7 @@ err:
 
 	/* Just to be sure */
 	exit(1);
+	return -1;
 }
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
