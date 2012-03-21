@@ -434,7 +434,7 @@ long restore_task(struct task_restore_core_args *args)
 	 * Read page contents.
 	 */
 	while (1) {
-		ret = sys_read(args->fd_core, &va, sizeof(va));
+		ret = sys_read(args->fd_pages, &va, sizeof(va));
 		if (!ret)
 			break;
 		if (ret != sizeof(va)) {
@@ -445,13 +445,15 @@ long restore_task(struct task_restore_core_args *args)
 		if (final_page_va(va))
 			break;
 
-		ret = sys_read(args->fd_core, (void *)va, PAGE_SIZE);
+		ret = sys_read(args->fd_pages, (void *)va, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
 			write_num_n(__LINE__);
 			write_num_n(ret);
 			goto core_restore_end;
 		}
 	}
+
+	sys_close(args->fd_pages);
 
 	/*
 	 * Walk though all VMAs again to drop PROT_WRITE

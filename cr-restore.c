@@ -608,46 +608,11 @@ static int fixup_vma_fds(int pid, int fd)
 	return 0;
 }
 
-/*
- * FIXME avoid this pages copying
- */
-
-static int fixup_pages_data(int pid, int fd)
-{
-	int pgfd, ret = -1;
-	u64 va;
-
-	pr_info("%d: Reading shmem pages img\n", pid);
-
-	pgfd = open_image_ro(CR_FD_PAGES, pid);
-	if (pgfd < 0)
-		return -1;
-
-	while (1) {
-		if (read_img(pgfd, &va) < 0)
-			goto out;
-
-		if (final_page_va(va))
-			break;
-
-		write(fd, &va, sizeof(va));
-		sendfile(fd, pgfd, NULL, PAGE_SIZE);
-	}
-
-	ret = 0;
-out:
-	close_safe(&pgfd);
-	return ret;
-}
-
 static int prepare_image_maps(int fd, int pid)
 {
 	pr_info("%d: Fixing maps\n", pid);
 
 	if (fixup_vma_fds(pid, fd))
-		return -1;
-
-	if (fixup_pages_data(pid, fd))
 		return -1;
 
 	pr_info("%d: Fixing maps\n", pid);
@@ -658,46 +623,19 @@ static int prepare_image_maps(int fd, int pid)
 static int prepare_and_sigreturn(int pid)
 {
 	char path[PATH_MAX];
-	int fd = -1, fd_new = -1, err = -1;
+	int fd = -1, err = -1;
 	struct stat buf;
 
-	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
+	fd = open_image(CR_FD_CORE, O_RDWR, pid);
 	if (fd < 0)
 		return -1;
 
-	if (fstat(fd, &buf)) {
-		pr_perror("%d: Can't stat", pid);
-		goto out;
-	}
-
-	sprintf(path, FMT_FNAME_CORE_OUT, pid);
-	fd_new = openat(image_dir_fd, path,
-			O_RDWR | O_CREAT | O_TRUNC, CR_FD_PERM);
-	if (fd_new < 0) {
-		pr_perror("%d: Can't open new image", pid);
-		goto out;
-	}
-
-	pr_info("%d: Preparing restore image %s (%li bytes)\n", pid, path, buf.st_size);
-	if (sendfile(fd_new, fd, NULL, buf.st_size) != buf.st_size) {
-		pr_perror("%d: sendfile failed", pid);
-		goto out;
-	}
-
-	if (fstat(fd_new, &buf)) {
-		pr_perror("%d: Can't stat", pid);
-		goto out;
-	}
-
-	pr_info("fd_new: %li bytes\n", buf.st_size);
-
-	if (prepare_image_maps(fd_new, pid))
+	if (prepare_image_maps(fd, pid))
 		goto out;
 
 	err = 0;
 out:
 	close_safe(&fd);
-	close_safe(&fd_new);
 	if (err)
 		return err;
 	sigreturn_restore(pid);
@@ -1594,6 +1532,7 @@ static void sigreturn_restore(pid_t pid)
 	struct vma_area *vma_area;
 	int fd_fdinfo = -1;
 	int fd_core = -1;
+	int fd_pages = -1;
 	int i;
 
 	int *fd_core_threads;
@@ -1618,7 +1557,7 @@ static void sigreturn_restore(pid_t pid)
 	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 
-	fd_core = open_image_ro_nocheck(FMT_FNAME_CORE_OUT, pid);
+	fd_core = open_image_ro(CR_FD_CORE, pid);
 	if (fd_core < 0) {
 		pr_perror("Can't open core-out-%d", pid);
 		goto err;
@@ -1630,6 +1569,11 @@ static void sigreturn_restore(pid_t pid)
 		goto err;
 	}
 
+	fd_pages = open_image_ro(CR_FD_PAGES, pid);
+	if (fd_pages < 0) {
+		pr_perror("Can't open pages-%d", pid);
+		goto err;
+	}
 
 	restore_code_len	= sizeof(restorer_blob);
 	restore_code_len	= round_up(restore_code_len, 16);
@@ -1751,6 +1695,7 @@ static void sigreturn_restore(pid_t pid)
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_fdinfo	= fd_fdinfo;
+	task_args->fd_pages	= fd_pages;
 
 	ret = prepare_itimers(pid, task_args);
 	if (ret < 0)

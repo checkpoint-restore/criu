@@ -77,7 +77,6 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_PAGES		"pages-%d.img"
 #define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
 #define FMT_FNAME_CORE		"core-%d.img"
-#define FMT_FNAME_CORE_OUT	"core-%d.img.out"
 #define FMT_FNAME_PIPES		"pipes-%d.img"
 #define FMT_FNAME_PSTREE	"pstree-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
