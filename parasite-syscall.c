@@ -325,13 +325,13 @@ static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 	return ret;
 }
 
-static int gen_parasite_saddr(struct sockaddr_un *saddr, pid_t pid)
+static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 {
 	int sun_len;
 
 	saddr->sun_family = AF_UNIX;
 	snprintf(saddr->sun_path, UNIX_PATH_MAX,
-			"X/crtools-pr-%d", pid);
+			"X/crtools-pr-%d", key);
 
 	sun_len = SUN_LEN(saddr);
 	*saddr->sun_path = '\0';
