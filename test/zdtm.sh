@@ -8,6 +8,7 @@ static/busyloop00
 static/cwd00
 static/env00
 static/maps00
+static/maps01
 static/mprotect00
 static/mtime_mmap
 static/sleeping00
