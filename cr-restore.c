@@ -157,11 +157,9 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 
 	pr_info("%d: Opening shmem [%s] \n", pid, path);
 	ret = open(path, O_RDWR);
-	if (ret >= 0)
-		return ret;
-	else if (ret < 0)
+	if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s",
-			  si->pid, path);
+				si->pid, path);
 	return ret;
 }
 
