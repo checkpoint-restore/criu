@@ -1065,7 +1065,9 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 	return 0;
 }
 
-static int collect_pstree(pid_t pid, struct list_head *pstree_list,
+static int dump_pstree(pid_t pid, const struct list_head *pstree_list);
+
+static int collect_dump_pstree(pid_t pid, struct list_head *pstree_list,
 			  const struct cr_options *opts)
 {
 	int ret, attempts = 5;
@@ -1123,20 +1125,27 @@ try_again:
 		}
 	}
 
-	return ret;
+	if (ret)
+		return ret;
+
+	return dump_pstree(pid, pstree_list);
 }
 
-static int dump_pstree(pid_t pid, const struct list_head *pstree_list,
-		       const struct cr_fdset *cr_fdset)
+static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 {
 	const struct pstree_item *item;
 	struct pstree_entry e;
 	unsigned long i;
 	int ret = -1;
+	int pstree_fd;
 
 	pr_info("\n");
 	pr_info("Dumping pstree (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
+
+	pstree_fd = open_image(CR_FD_PSTREE, O_RDWR | O_CREAT | O_EXCL, pid);
+	if (pstree_fd < 0)
+		return -1;
 
 	list_for_each_entry(item, pstree_list, list) {
 
@@ -1147,14 +1156,13 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list,
 		e.nr_children	= item->nr_children;
 		e.nr_threads	= item->nr_threads;
 
-		if (write_img(cr_fdset->fds[CR_FD_PSTREE], &e))
+		if (write_img(pstree_fd, &e))
 			goto err;
 
 		pr_info("Children:");
 		for (i = 0; i < item->nr_children; i++) {
 			pr_info(" %d", item->children[i]);
-			if (write_img(cr_fdset->fds[CR_FD_PSTREE],
-						&item->children[i]))
+			if (write_img(pstree_fd, &item->children[i]))
 				goto err;
 		}
 		pr_info("\n");
@@ -1162,8 +1170,7 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list,
 		pr_info("Threads:\n");
 		for (i = 0; i < item->nr_threads; i++) {
 			pr_info(" %d", item->threads[i]);
-			if (write_img(cr_fdset->fds[CR_FD_PSTREE],
-						&item->threads[i]))
+			if (write_img(pstree_fd, &item->threads[i]))
 				goto err;
 		}
 		pr_info("\n");
@@ -1172,6 +1179,7 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list,
 
 err:
 	pr_info("----------------------------------------\n");
+	close(pstree_fd);
 	return ret;
 }
 
@@ -1478,7 +1486,6 @@ err:
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
-	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item;
 	int i, ret = -1;
 
@@ -1489,7 +1496,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		pr_info("Dumping process (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (collect_pstree(pid, &pstree_list, opts))
+	if (collect_dump_pstree(pid, &pstree_list, opts))
 		goto err;
 
 	if (opts->namespaces_flags) {
@@ -1506,19 +1513,14 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	collect_sockets();
 
-	cr_fdset = cr_dump_fdset_open(pid, CR_FD_DESC_USE(CR_FD_PSTREE), cr_fdset);
-	if (!cr_fdset)
-		goto err;
-	if (dump_pstree(pid, &pstree_list, cr_fdset))
-		goto err;
-	close_cr_fdset(&cr_fdset);
-
 	nr_shmems = 0;
 	shmems = xmalloc(SHMEMS_SIZE);
 	if (!shmems)
 		goto err;
 
 	list_for_each_entry(item, &pstree_list, list) {
+		struct cr_fdset *cr_fdset = NULL;
+
 		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
 		if (!cr_fdset)
 			goto err;
@@ -1547,7 +1549,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 err:
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);
-	close_cr_fdset(&cr_fdset);
 
 	return ret;
 }
