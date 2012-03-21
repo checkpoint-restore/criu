@@ -36,6 +36,7 @@ TST_NOFILE	=				\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
+		maps01				\
 #		jobctl00			\
 
 TST_FILE	=				\
