@@ -22,7 +22,7 @@
 #include "syscall.h"
 
 static struct cr_options opts;
-struct page_entry zero_page_entry;
+struct page_entry zero_page_entry = {.va = ~0LL};
 
 /*
  * The cr fd set is the set of files where the information
@@ -275,8 +275,6 @@ int main(int argc, char *argv[])
 		goto usage;
 
 	action = argv[1][0];
-
-	memzero_p(&zero_page_entry);
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;

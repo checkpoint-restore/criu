@@ -640,7 +640,7 @@ static int fixup_pages_data(int pid, int fd)
 		if (read_img(pgfd, &va) < 0)
 			goto out;
 
-		if (va == 0)
+		if (final_page_va(va))
 			break;
 
 		write(fd, &va, sizeof(va));
@@ -656,7 +656,7 @@ static int fixup_pages_data(int pid, int fd)
 		if (read_img(pgfd, &va) < 0)
 			goto out;
 
-		if (va == 0)
+		if (final_page_va(va))
 			break;
 
 		if (!should_restore_page(pid, va)) {
