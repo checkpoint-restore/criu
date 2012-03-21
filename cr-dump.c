@@ -440,6 +440,52 @@ static struct shmem_info* shmem_find(unsigned long shmid)
 	return NULL;
 }
 
+static int add_shmem_area(pid_t pid, struct vma_entry *vma)
+{
+	struct shmem_info *si;
+	unsigned long size = vma->pgoff + (vma->end - vma->start);
+
+	si = shmem_find(vma->shmid);
+	if (si) {
+		if (si->size < size)
+			si->size = size;
+		return 0;
+	}
+
+	nr_shmems++;
+	if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
+		pr_err("OOM storing shmems\n");
+		return -1;
+	}
+
+	si = &shmems[nr_shmems - 1];
+	si->size = size;
+	si->pid = pid;
+	si->start = vma->start;
+	si->end = vma->end;
+	si->shmid = vma->shmid;
+
+	return 0;
+}
+
+static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
+		const struct cr_fdset *fdset)
+{
+	struct fd_parms p = {
+		.fd_name	= vma->start,
+		.id		= FD_ID_INVALID,
+		.pid		= pid,
+		.type		= FDINFO_MAP,
+	};
+
+	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
+		p.flags = O_RDWR;
+	else
+		p.flags = O_RDONLY;
+
+	return dump_one_reg_file(&p, file_fd, fdset, 0);
+}
+
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
@@ -461,49 +507,14 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 
 		pr_info_vma(vma_area);
 
-		if (vma_entry_is(vma, VMA_ANON_SHARED)) {
-			struct shmem_info *si;
-			unsigned long size = vma->pgoff + (vma->end - vma->start);
+		if (vma_entry_is(vma, VMA_ANON_SHARED))
+			ret = add_shmem_area(pid, vma);
+		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
+				vma_entry_is(vma, VMA_FILE_SHARED))
+			ret = dump_filemap(pid, vma, vma_area->vm_file_fd, cr_fdset);
 
-			si = shmem_find(vma_area->vma.shmid);
-			if (si) {
-				if (si->size < size)
-					si->size = size;
-				continue;
-			}
-
-			nr_shmems++;
-			if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
-				pr_err("OOM storing shmems\n");
-				return -1;
-			}
-
-			si = &shmems[nr_shmems - 1];
-			si->size = size;
-			si->pid = pid;
-			si->start = vma->start;
-			si->end = vma->end;
-			si->shmid = vma_area->vma.shmid;
-
-		} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
-				vma_entry_is(vma, VMA_FILE_SHARED)) {
-			struct fd_parms p = {
-				.fd_name	= vma->start,
-				.id		= FD_ID_INVALID,
-				.pid		= pid,
-				.type		= FDINFO_MAP,
-			};
-
-			if (vma->prot & PROT_WRITE &&
-					vma_entry_is(vma, VMA_FILE_SHARED))
-				p.flags = O_RDWR;
-			else
-				p.flags = O_RDONLY;
-
-			ret = dump_one_reg_file(&p, vma_area->vm_file_fd, cr_fdset, 0);
-			if (ret)
-				goto err;
-		}
+		if (ret)
+			goto err;
 	}
 
 	ret = 0;
