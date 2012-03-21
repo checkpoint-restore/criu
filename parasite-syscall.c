@@ -538,10 +538,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_prep_file(CR_FD_SHMEM_PAGES, ctl, cr_fdset);
-	if (ret < 0)
-		goto out;
-
 	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, st, sizeof(*st));
 	if (ret < 0) {
 		pr_err("Dumping pages failed with %li at %li\n",
@@ -566,15 +562,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		if (vma_area->vma.status & VMA_AREA_SYSVIPC)
 			continue;
 
+		if (vma_area_is(vma_area, VMA_ANON_SHARED))
+			continue;
+
 		pr_info_vma(vma_area);
 		parasite_dumppages.vma_entry = vma_area->vma;
 
 		if (vma_area_is(vma_area, VMA_ANON_PRIVATE) ||
-		    vma_area_is(vma_area, VMA_FILE_PRIVATE))
+		    vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
 			parasite_dumppages.fd_type = PG_PRIV;
-		else if (vma_area_is(vma_area, VMA_ANON_SHARED))
-			parasite_dumppages.fd_type = PG_SHARED;
-		else {
+		} else {
 			pr_warn("Unexpected VMA area found\n");
 			continue;
 		}
@@ -598,8 +595,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
 		goto out;
-	if (write_img(cr_fdset->fds[CR_FD_SHMEM_PAGES], &zero_page_entry))
-		goto out;
 
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
@@ -607,7 +602,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 out:
 	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
-	fchmod(cr_fdset->fds[CR_FD_SHMEM_PAGES], CR_FD_PERM);
 	pr_info("----------------------------------------\n");
 
 	return ret;

@@ -54,25 +54,6 @@
 static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
 
-static void show_shmem(int fd_shmem)
-{
-	struct shmem_entry e;
-
-	pr_img_head(CR_FD_SHMEM);
-
-	while (1) {
-		int ret;
-
-		ret = read_img_eof(fd_shmem, &e);
-		if (ret <= 0)
-			goto out;
-		pr_msg("0x%lx-0x%lx id %lu\n", e.start, e.end, e.shmid);
-	}
-
-out:
-	pr_img_tail(CR_FD_SHMEM);
-}
-
 static void show_files(int fd_files)
 {
 	struct fdinfo_entry e;
@@ -491,9 +472,6 @@ static int cr_parse_file(struct cr_options *opts)
 	case CORE_MAGIC:
 		show_core(fd, opts->show_pages_content);
 		break;
-	case SHMEM_MAGIC:
-		show_shmem(fd);
-		break;
 	case PSTREE_MAGIC:
 		show_pstree(fd, NULL);
 		break;
@@ -605,8 +583,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_pipes(cr_fdset->fds[CR_FD_PIPES]);
 
 		show_files(cr_fdset->fds[CR_FD_FDINFO]);
-
-		show_shmem(cr_fdset->fds[CR_FD_SHMEM]);
 
 		show_sigacts(cr_fdset->fds[CR_FD_SIGACT]);
 

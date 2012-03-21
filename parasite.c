@@ -123,14 +123,8 @@ static int dump_pages_init(parasite_status_t *st)
 	if (ret < 0)
 		goto err;
 
-	ret = fd_pages[PG_SHARED] = recv_fd(tsock);
-	if (ret < 0)
-		goto err_s;
-
 	return 0;
 
-err_s:
-	sys_close(fd_pages[PG_PRIV]);
 err:
 	SET_PARASITE_RET(st, ret);
 	return -1;
@@ -246,7 +240,6 @@ err:
 static int dump_pages_fini(void)
 {
 	sys_close(fd_pages[PG_PRIV]);
-	sys_close(fd_pages[PG_SHARED]);
 
 	return 0;
 }

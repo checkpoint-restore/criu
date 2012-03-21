@@ -13,7 +13,6 @@
 #define FDINFO_MAGIC	0x56213732 /* Dmitrov */
 #define PAGES_MAGIC	0x56084025 /* Vladimir */
 #define CORE_MAGIC	0x55053847 /* Kolomna */
-#define SHMEM_MAGIC	0x54123737 /* Tula */
 #define PIPES_MAGIC	0x56513555 /* Tver */
 #define SIGACT_MAGIC	0x55344201 /* Murom */
 #define UNIXSK_MAGIC	0x54373943 /* Ryazan */
@@ -54,12 +53,6 @@ struct fdinfo_entry {
 	(((fe)->type == FDINFO_MAP) ||	\
 	 ((fe)->type == FDINFO_CWD) ||	\
 	 ((fe)->type == FDINFO_EXE))
-
-struct shmem_entry {
-	u64	start;
-	u64	end;
-	u64	shmid;
-} __packed;
 
 struct pstree_entry {
 	u32	pid;

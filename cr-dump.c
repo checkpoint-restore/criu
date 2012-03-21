@@ -415,6 +415,31 @@ static int dump_task_files(pid_t pid, const struct cr_fdset *cr_fdset,
 	return 0;
 }
 
+struct shmem_info
+{
+	unsigned long	size;
+	unsigned long	shmid;
+	unsigned long	start;
+	unsigned long	end;
+	int		pid;
+};
+
+static int nr_shmems;
+static struct shmem_info *shmems;
+
+#define SHMEMS_SIZE	4096
+
+static struct shmem_info* shmem_find(unsigned long shmid)
+{
+	int i;
+
+	for (i = 0; i < nr_shmems; i++)
+		if (shmems[i].shmid == shmid)
+			return &shmems[i];
+
+	return NULL;
+}
+
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
@@ -431,21 +456,35 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 
 		if (!vma_entry_is(vma, VMA_AREA_REGULAR))
 			continue;
+		if (vma_entry_is(vma, VMA_AREA_SYSVIPC))
+			continue;
 
 		pr_info_vma(vma_area);
 
 		if (vma_entry_is(vma, VMA_ANON_SHARED)) {
-			struct shmem_entry e;
+			struct shmem_info *si;
+			unsigned long size = vma->pgoff + (vma->end - vma->start);
 
-			e.start	= vma->start;
-			e.end	= vma->end;
-			e.shmid	= vma_area->vma.shmid;
+			si = shmem_find(vma_area->vma.shmid);
+			if (si) {
+				if (si->size < size)
+					si->size = size;
+				continue;
+			}
 
-			pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
-					e.start, e.end, e.shmid);
+			nr_shmems++;
+			if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
+				pr_err("OOM storing shmems\n");
+				return -1;
+			}
 
-			if (write_img(cr_fdset->fds[CR_FD_SHMEM], &e))
-				goto err;
+			si = &shmems[nr_shmems - 1];
+			si->size = size;
+			si->pid = pid;
+			si->start = vma->start;
+			si->end = vma->end;
+			si->shmid = vma_area->vma.shmid;
+
 		} else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED)) {
 			struct fd_parms p = {
@@ -1230,6 +1269,8 @@ static int dump_one_zombie(const struct pstree_item *item,
 			   struct cr_fdset *cr_fdset)
 {
 	struct core_entry *core;
+	int ret;
+	LIST_HEAD(vma_area_list);
 
 	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
 	if (cr_fdset == NULL)
@@ -1242,7 +1283,10 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc.task_state = TASK_DEAD;
 	core->tc.exit_code = pps->exit_code;
 
-	return dump_task_core(core, cr_fdset);
+	if (dump_task_core(core, cr_fdset) < 0)
+		return -1;
+
+	return finalize_core(item->pid, &vma_area_list, cr_fdset);
 }
 
 static struct proc_pid_stat pps_buf;
@@ -1402,6 +1446,78 @@ err_free:
 	return ret;
 }
 
+static int cr_dump_shmem(void)
+{
+	int err, fd;
+	struct cr_fdset *cr_fdset = NULL;
+	unsigned char *map = NULL;
+	void *addr = NULL;
+	struct shmem_info *si;
+	unsigned long pfn, nrpages;
+
+	for (si = shmems; si < &shmems[nr_shmems]; si++) {
+		pr_info("Dumping shared memory %lx\n", si->shmid);
+
+		nrpages = (si->size + PAGE_SIZE -1) / PAGE_SIZE;
+		map = xmalloc(nrpages * sizeof(*map));
+		if (!map)
+			goto err;
+
+		fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
+		if (fd < 0)
+			goto err;
+
+		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
+		close(fd);
+		if (addr == MAP_FAILED) {
+			pr_err("Can't map shmem %lx (%lx-%lx)\n",
+					si->shmid, si->start, si->end);
+			goto err;
+		}
+
+		err = mincore(addr, si->size, map);
+		if (err)
+			goto err_unmap;
+
+		fd = open_image(CR_FD_SHMEM_PAGES, O_WRONLY | O_CREAT, si->shmid);
+		if (fd < 0)
+			goto err_unmap;
+
+		for (pfn = 0; pfn < nrpages; pfn++) {
+			u64 offset = pfn * PAGE_SIZE;
+
+			if (!(map[pfn] & PAGE_RSS))
+				continue;
+
+			if (write_img_buf(fd, &offset, sizeof(offset)))
+				break;
+			if (write_img_buf(fd, addr + offset, PAGE_SIZE))
+				break;
+		}
+
+		if (pfn != nrpages)
+			goto err_close;
+
+		err = write_img(fd, &zero_page_entry);
+		if (err < 0)
+			goto err_close;
+
+		close(fd);
+		munmap(addr,  si->size);
+		xfree(map);
+	}
+
+	return 0;
+
+err_close:
+	close(fd);
+err_unmap:
+	munmap(addr,  si->size);
+err:
+	xfree(map);
+	return -1;
+}
+
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
@@ -1440,6 +1556,11 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		goto err;
 	close_cr_fdset(&cr_fdset);
 
+	nr_shmems = 0;
+	shmems = xmalloc(SHMEMS_SIZE);
+	if (!shmems)
+		goto err;
+
 	list_for_each_entry(item, &pstree_list, list) {
 		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
 		if (!cr_fdset)
@@ -1463,8 +1584,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		if (opts->leader_only)
 			break;
 	}
-	ret = 0;
 
+	ret = cr_dump_shmem();
+	xfree(shmems);
 err:
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);

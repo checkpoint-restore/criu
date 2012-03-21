@@ -21,10 +21,8 @@ enum {
 
 	CR_FD_FDINFO,
 	CR_FD_PAGES,
-	CR_FD_SHMEM_PAGES,
 	CR_FD_CORE,
 	CR_FD_PIPES,
-	CR_FD_SHMEM,
 	CR_FD_SIGACT,
 	CR_FD_UNIXSK,
 	CR_FD_INETSK,
@@ -45,6 +43,8 @@ enum {
 	CR_FD_SK_QUEUES,
 
 	CR_FD_PID_MAX, /* fmt, pid */
+
+	CR_FD_SHMEM_PAGES,
 
 	CR_FD_MAX
 };
@@ -75,12 +75,11 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
 #define FMT_FNAME_FDINFO	"fdinfo-%d.img"
 #define FMT_FNAME_PAGES		"pages-%d.img"
-#define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%d.img"
+#define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
 #define FMT_FNAME_CORE		"core-%d.img"
 #define FMT_FNAME_CORE_OUT	"core-%d.img.out"
 #define FMT_FNAME_PIPES		"pipes-%d.img"
 #define FMT_FNAME_PSTREE	"pstree-%d.img"
-#define FMT_FNAME_SHMEM		"shmem-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"
 #define FMT_FNAME_INETSK	"inetsk-%d.img"
@@ -119,10 +118,8 @@ struct cr_fdset {
 #define CR_FD_DESC_TASK				(\
 	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
 	CR_FD_DESC_USE(CR_FD_PAGES)		|\
-	CR_FD_DESC_USE(CR_FD_SHMEM_PAGES)	|\
 	CR_FD_DESC_USE(CR_FD_CORE)		|\
 	CR_FD_DESC_USE(CR_FD_PIPES)		|\
-	CR_FD_DESC_USE(CR_FD_SHMEM)		|\
 	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
 	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
 	CR_FD_DESC_USE(CR_FD_INETSK)		|\

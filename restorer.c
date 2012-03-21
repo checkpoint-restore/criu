@@ -477,10 +477,10 @@ long restore_task(struct task_restore_core_args *args)
 		if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
 			struct shmem_info *entry;
 
-			entry = find_shmem_by_pid(args->shmems,
-						  vma_entry->start,
-						  my_pid);
-			if (entry)
+			entry = find_shmem(args->shmems,
+						  vma_entry->shmid);
+			if (entry && entry->pid == my_pid &&
+			    entry->start == vma_entry->start)
 				cr_wait_set(&entry->lock, 1);
 		}
 

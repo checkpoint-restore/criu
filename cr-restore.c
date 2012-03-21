@@ -165,21 +165,19 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	return ret;
 }
 
-static int collect_shmem(int pid, struct shmem_entry *e)
+static int collect_shmem(int pid, struct vma_entry *vi)
 {
 	int i;
 	struct shmem_info *entries = shmems->entries;
 	int nr_shmems = shmems->nr_shmems;
+	unsigned long size = vi->pgoff + vi->end - vi->start;
+	struct shmem_info *si;
 
-	for (i = 0; i < nr_shmems; i++) {
-		if (entries[i].start != e->start ||
-		    entries[i].shmid != e->shmid)
-			continue;
+	si = find_shmem(shmems, vi->shmid);
+	if (si) {
 
-		if (entries[i].end != e->end) {
-			pr_err("Bogus shmem\n");
-			return -1;
-		}
+		if (si->size < size)
+			si->size = size;
 
 		/*
 		 * Only the shared mapping with a lowest
@@ -187,8 +185,12 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 		 * will wait until the kernel propagate this mapping
 		 * into /proc
 		 */
-		if (entries[i].pid > pid)
-			entries[i].pid = pid;
+		if (si->pid <= pid)
+			return 0;
+
+		si->pid	 = pid;
+		si->start = vi->start;
+		si->end	 = vi->end;
 
 		return 0;
 	}
@@ -199,19 +201,65 @@ static int collect_shmem(int pid, struct shmem_entry *e)
 		return -1;
 	}
 
-	memset(&shmems->entries[nr_shmems], 0, sizeof(shmems->entries[0]));
+	pr_info("Add new shmem %lx (0x016%lx-0x016%lx)",
+				vi->shmid, vi->start, vi->end);
 
-	entries[nr_shmems].start	= e->start;
-	entries[nr_shmems].end		= e->end;
-	entries[nr_shmems].shmid	= e->shmid;
-	entries[nr_shmems].pid		= pid;
-
-	cr_wait_init(&entries[nr_shmems].lock);
-
+	si = &shmems->entries[nr_shmems];
 	shmems->nr_shmems++;
+
+	si->start = vi->start;
+	si->end	  = vi->end;
+	si->shmid = vi->shmid;
+	si->pid	  = pid;
+	si->size  = size;
+	si->fd    = -1;
+
+	cr_wait_init(&si->lock);
 
 	return 0;
 }
+
+static int prepare_shmem_pid(int pid)
+{
+	int fd, ret = -1;
+	struct vma_entry vi;
+	struct task_core_entry tc;
+	struct image_header hdr;
+
+	fd = open_image_ro(CR_FD_CORE, pid);
+	if (fd < 0)
+		return -1;
+
+	lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+
+	while (1) {
+		ret = read_img(fd, &vi);
+		if (ret < 0) {
+			pr_perror("%d: Can't read vma_entry", pid);
+			goto out;
+		}
+
+		pr_info("%d: vma %lx %lx\n", pid, vi.start, vi.end);
+
+		if (final_vma_entry(&vi))
+			break;
+
+		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
+			continue;
+
+		if (vma_entry_is(&vi, VMA_AREA_SYSVIPC))
+			continue;
+
+		ret = collect_shmem(pid, &vi);
+		if (ret)
+			break;
+	}
+
+out:
+	close(fd);
+	return ret;
+}
+
 
 static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 {
@@ -279,34 +327,6 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 	nr_pipes++;
 
 	return 0;
-}
-
-static int prepare_shmem_pid(int pid)
-{
-	int sh_fd, ret = 0;
-
-	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
-	if (sh_fd < 0) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
-
-	while (1) {
-		struct shmem_entry e;
-
-		ret = read_img_eof(sh_fd, &e);
-		if (ret <= 0)
-			break;
-
-		ret = collect_shmem(pid, &e);
-		if (ret)
-			break;
-	}
-
-	close(sh_fd);
-	return ret;
 }
 
 static int prepare_pipes_pid(int pid)
@@ -428,90 +448,35 @@ static int prepare_shared(int ps_fd)
 	return ret;
 }
 
-static struct shmem_id *find_shmem_id(unsigned long addr)
+static int restore_shmem_content(void *addr, struct shmem_info *si)
 {
-	struct shmem_id *si;
+	u64 offset;
+	int fd, ret = 0;
 
-	for (si = shmem_ids; si; si = si->next)
-		if (si->addr <= addr && si->end >= addr)
-			return si;
-
-	return NULL;
-}
-
-static int save_shmem_id(struct shmem_entry *e)
-{
-	struct shmem_id *si;
-
-	si = xmalloc(sizeof(*si));
-	if (!si)
+	fd = open_image_ro(CR_FD_SHMEM_PAGES, si->shmid);
+	if (fd < 0) {
+		munmap(addr,  si->size);
 		return -1;
-
-	si->addr	= e->start;
-	si->end		= e->end;
-	si->shmid	= e->shmid;
-	si->next	= shmem_ids;
-
-	shmem_ids	= si;
-
-	return 0;
-}
-
-static int prepare_shmem(int pid)
-{
-	int sh_fd, ret = 0;
-
-	sh_fd = open_image_ro(CR_FD_SHMEM, pid);
-	if (sh_fd < 0)
-		return -1;
+	}
 
 	while (1) {
-		struct shmem_entry e;
-
-		ret = read_img_eof(sh_fd, &e);
-		if (ret <= 0)
+		ret = read_img_buf(fd, &offset, sizeof(offset));
+		if (ret < 0)
 			break;
 
-		if ((ret = save_shmem_id(&e)) < 0)
+		if (final_page_va(offset))
+			break;
+
+		if (offset + PAGE_SIZE > si->size)
+			break;
+
+		ret = read_img_buf(fd, addr + offset, PAGE_SIZE);
+		if (ret < 0)
 			break;
 	}
 
-	close(sh_fd);
+	close(fd);
 	return ret;
-}
-
-static struct shmem_info *
-find_shmem(struct shmems *shms, unsigned long start, unsigned long shmid)
-{
-	struct shmem_info *si;
-	int i;
-
-	for (i = 0; i < shms->nr_shmems; i++) {
-		si = &shms->entries[i];
-		if (si->start == start	&&
-		    si->end > start	&&
-		    si->shmid == shmid)
-			return si;
-	}
-
-	return NULL;
-}
-
-static struct shmem_info *
-find_shmem_page(struct shmems *shms, unsigned long addr, unsigned long shmid)
-{
-	struct shmem_info *si;
-	int i;
-
-	for (i = 0; i < shms->nr_shmems; i++) {
-		si = &shms->entries[i];
-		if (si->start <= addr	&&
-		    si->end > addr	&&
-		    si->shmid == shmid)
-			return si;
-	}
-
-	return NULL;
 }
 
 static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
@@ -520,26 +485,21 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 	struct shmem_id *shmid;
 	int sh_fd;
 
-	shmid = find_shmem_id(vi->start);
-	if (!shmid)
-		return 0;
-
-	si = find_shmem(shmems, vi->start, shmid->shmid);
-	pr_info("%d: Search for %016lx shmem %p/%d\n", pid, vi->start, si, si ? si->pid : -1);
-
-	if (!si) {
-		pr_err("Can't find my shmem %016lx\n", vi->start);
-		return -1;
-	}
-
 	if (vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
 		/*
 		 * SYSV IPC shared memory region was created already. We don't
 		 * need to wait. But we have to pass shmid to restorer. Let's
 		 * use vma_entry->fd for it.
 		 */
-		sh_fd = si->shmid;
+		vi->fd = vi->shmid;
 		goto write_fd;
+	}
+
+	si = find_shmem(shmems, vi->shmid);
+	pr_info("%d: Search for %016lx shmem %lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
+	if (!si) {
+		pr_err("Can't find my shmem %016lx\n", vi->start);
+		return -1;
 	}
 
 	if (si->pid != pid) {
@@ -550,15 +510,54 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 			pr_perror("%d: Can't open shmem", pid);
 			return -1;
 		}
-write_fd:
-		lseek(fd, -sizeof(*vi), SEEK_CUR);
-		vi->fd = sh_fd;
 		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",
 			pid, vi->start, si->shmid, si->pid, sh_fd);
-		if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
-			pr_perror("%d: Can't write img", pid);
-			return -1;
-		}
+		vi->fd = sh_fd;
+	} else {
+		void *addr;
+		int f;
+		char path[128];
+
+		if (si->start == vi->start) {
+			/* The following hack solves problems:
+			 * vi->pgoff may be not zero in a target process.
+			 * This mapping may be mapped more then once.
+			 * The restorer doesn't have snprintf.
+			 * Here is a good place to restore content
+			 */
+			addr = mmap(NULL, si->size,
+					PROT_WRITE | PROT_READ,
+					MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+			if (addr == MAP_FAILED) {
+				pr_err("Can't mmap shmid=0x%lx size=%ld\n",
+							vi->shmid, si->size);
+				return -1;
+			}
+
+			if (restore_shmem_content(addr, si) < 0) {
+				pr_err("Can't restore shmem content\n");
+				return -1;
+			}
+
+			f = open_proc_rw(getpid(), "map_files/%lx-%lx",
+						(unsigned long) addr,
+						(unsigned long) addr + si->size);
+			munmap(addr, si->size);
+
+			if (f < 0)
+				return -1;
+
+			vi->fd = si->fd = f;
+		} else
+			vi->fd = dup(si->fd);
+
+	}
+
+write_fd:
+	lseek(fd, -sizeof(*vi), SEEK_CUR);
+	if (write(fd, vi, sizeof(*vi)) != sizeof(*vi)) {
+		pr_perror("%d: Can't write img", pid);
+		return -1;
 	}
 
 	return 0;
@@ -590,35 +589,23 @@ static int fixup_vma_fds(int pid, int fd)
 			continue;
 
 		if (vma_entry_is(&vi, VMA_FILE_PRIVATE)	||
-		    vma_entry_is(&vi, VMA_FILE_SHARED)	||
-		    vma_entry_is(&vi, VMA_ANON_SHARED)) {
+		    vma_entry_is(&vi, VMA_FILE_SHARED)) {
 
 			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
 				pid, vi.start, vi.end, vi.pgoff);
 			if (try_fixup_file_map(pid, &vi, fd))
 				return -1;
+		}
 
+		if (vma_entry_is(&vi, VMA_ANON_SHARED)) {
+			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
+				pid, vi.start, vi.end, vi.pgoff);
 			if (try_fixup_shared_map(pid, &vi, fd))
 				return -1;
 		}
 	}
-}
 
-static inline bool should_restore_page(int pid, unsigned long va)
-{
-	struct shmem_info *si;
-	struct shmem_id *shmid;
-
-	/*
-	 * If this is not a shmem virtual address
-	 * we should restore such page.
-	 */
-	shmid = find_shmem_id(va);
-	if (!shmid)
-		return true;
-
-	si = find_shmem_page(shmems, va, shmid->shmid);
-	return si->pid == pid;
+	return 0;
 }
 
 /*
@@ -646,30 +633,8 @@ static int fixup_pages_data(int pid, int fd)
 		write(fd, &va, sizeof(va));
 		sendfile(fd, pgfd, NULL, PAGE_SIZE);
 	}
-	close_safe(&pgfd);
 
-	pgfd = open_image_ro(CR_FD_SHMEM_PAGES, pid);
-	if (pgfd < 0)
-		return -1;
-
-	while (1) {
-		if (read_img(pgfd, &va) < 0)
-			goto out;
-
-		if (final_page_va(va))
-			break;
-
-		if (!should_restore_page(pid, va)) {
-			lseek(pgfd, PAGE_SIZE, SEEK_CUR);
-			continue;
-		}
-
-		pr_info("%d: Restoring shared page: %16lx\n", pid, va);
-		write(fd, &va, sizeof(va));
-		sendfile(fd, pgfd, NULL, PAGE_SIZE);
-	}
-
-	ret = write_img(fd, &zero_page_entry);
+	ret = 0;
 out:
 	close_safe(&pgfd);
 	return ret;
@@ -684,6 +649,8 @@ static int prepare_image_maps(int fd, int pid)
 
 	if (fixup_pages_data(pid, fd))
 		return -1;
+
+	pr_info("%d: Fixing maps\n", pid);
 
 	return 0;
 }
@@ -1062,9 +1029,6 @@ static int restore_one_alive_task(int pid)
 	if (prepare_fds(pid))
 		return -1;
 
-	if (prepare_shmem(pid))
-		return -1;
-
 	if (prepare_sigactions(pid))
 		return -1;
 
@@ -1413,6 +1377,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 
 	pr_info("Wait until all tasks are restored\n");
 	ret = cr_wait_until_greater(&task_entries->nr_in_progress, 0);
+out:
 	if (ret < 0) {
 		pr_err("Someone can't be restored\n");
 		for (i = 0; i < task_pids->nr; i++)

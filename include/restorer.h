@@ -182,11 +182,20 @@ struct rt_sigframe {
 
 #define SHMEMS_SIZE	4096
 
+/*
+ * pid is a pid of a creater
+ * start, end are used for open mapping
+ * fd is a file discriptor, which is valid for creater,
+ * it's opened in cr-restor, because pgoff may be non zero
+ */
+
 struct shmem_info {
+	unsigned long	shmid;
 	unsigned long	start;
 	unsigned long	end;
-	unsigned long	shmid;
+	unsigned long	size;
 	int		pid;
+	int		fd;
 	u32		lock;		/* futex */
 };
 
@@ -209,18 +218,15 @@ struct task_entries {
 	u32 start; //futex
 };
 
-
 static always_inline struct shmem_info *
-find_shmem_by_pid(struct shmems *shmems, unsigned long start, int pid)
+find_shmem(struct shmems *shmems, unsigned long shmid)
 {
 	struct shmem_info *si;
 	int i;
 
 	for (i = 0; i < shmems->nr_shmems; i++) {
 		si = &shmems->entries[i];
-		if (si->start == start	&&
-		    si->end > start	&&
-		    si->pid == pid)
+		if (si->shmid == shmid)
 			return si;
 	}
 
