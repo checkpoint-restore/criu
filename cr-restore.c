@@ -492,7 +492,7 @@ static int get_shmem_fd(int pid, struct vma_entry *vi)
 	if (si->pid != pid)
 		return shmem_wait_and_open(pid, si);
 
-	if (si->start != vi->start)
+	if (si->fd != -1)
 		return dup(si->fd);
 
 	/* The following hack solves problems:
