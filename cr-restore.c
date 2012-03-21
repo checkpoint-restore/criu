@@ -476,21 +476,13 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	return ret;
 }
 
-static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
+static int get_shmem_fd(int pid, struct vma_entry *vi)
 {
 	struct shmem_info *si;
 	struct shmem_id *shmid;
 	int sh_fd;
-
-	if (vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
-		/*
-		 * SYSV IPC shared memory region was created already. We don't
-		 * need to wait. But we have to pass shmid to restorer. Let's
-		 * use vma_entry->fd for it.
-		 */
-		vi->fd = vi->shmid;
-		goto write_fd;
-	}
+	void *addr;
+	int f;
 
 	si = find_shmem(shmems, vi->shmid);
 	pr_info("%d: Search for %016lx shmem %lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
@@ -499,60 +491,41 @@ static int try_fixup_shared_map(int pid, struct vma_entry *vi, int fd)
 		return -1;
 	}
 
-	if (si->pid != pid) {
-		sh_fd = shmem_wait_and_open(pid, si);
-		pr_info("%d: Fixing %lx vma to %lx/%d shmem -> %d\n",
-			pid, vi->start, si->shmid, si->pid, sh_fd);
-		if (sh_fd < 0) {
-			pr_perror("%d: Can't open shmem", pid);
-			return -1;
-		}
-		pr_info("%d: Fixed %lx vma %lx/%d shmem -> %d\n",
-			pid, vi->start, si->shmid, si->pid, sh_fd);
-		vi->fd = sh_fd;
-	} else {
-		void *addr;
-		int f;
-		char path[128];
+	if (si->pid != pid)
+		return shmem_wait_and_open(pid, si);
 
-		if (si->start == vi->start) {
-			/* The following hack solves problems:
-			 * vi->pgoff may be not zero in a target process.
-			 * This mapping may be mapped more then once.
-			 * The restorer doesn't have snprintf.
-			 * Here is a good place to restore content
-			 */
-			addr = mmap(NULL, si->size,
-					PROT_WRITE | PROT_READ,
-					MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-			if (addr == MAP_FAILED) {
-				pr_err("Can't mmap shmid=0x%lx size=%ld\n",
-							vi->shmid, si->size);
-				return -1;
-			}
+	if (si->start != vi->start)
+		return dup(si->fd);
 
-			if (restore_shmem_content(addr, si) < 0) {
-				pr_err("Can't restore shmem content\n");
-				return -1;
-			}
-
-			f = open_proc_rw(getpid(), "map_files/%lx-%lx",
-						(unsigned long) addr,
-						(unsigned long) addr + si->size);
-			munmap(addr, si->size);
-
-			if (f < 0)
-				return -1;
-
-			vi->fd = si->fd = f;
-		} else
-			vi->fd = dup(si->fd);
-
+	/* The following hack solves problems:
+	 * vi->pgoff may be not zero in a target process.
+	 * This mapping may be mapped more then once.
+	 * The restorer doesn't have snprintf.
+	 * Here is a good place to restore content
+	 */
+	addr = mmap(NULL, si->size,
+			PROT_WRITE | PROT_READ,
+			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (addr == MAP_FAILED) {
+		pr_err("Can't mmap shmid=0x%lx size=%ld\n",
+				vi->shmid, si->size);
+		return -1;
 	}
 
-write_fd:
-	lseek(fd, -sizeof(*vi), SEEK_CUR);
-	return write_img(fd, vi);
+	if (restore_shmem_content(addr, si) < 0) {
+		pr_err("Can't restore shmem content\n");
+		return -1;
+	}
+
+	f = open_proc_rw(getpid(), "map_files/%lx-%lx",
+			(unsigned long) addr,
+			(unsigned long) addr + si->size);
+	munmap(addr, si->size);
+	if (f < 0)
+		return -1;
+
+	si->fd = f;
+	return f;
 }
 
 static int fixup_vma_fds(int pid, int fd)
@@ -568,21 +541,29 @@ static int fixup_vma_fds(int pid, int fd)
 		if (!(vma_entry_is(&vi, VMA_AREA_REGULAR)))
 			continue;
 
-		if (vma_entry_is(&vi, VMA_FILE_PRIVATE)	||
-		    vma_entry_is(&vi, VMA_FILE_SHARED)) {
-
-			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
+		pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
 				pid, vi.start, vi.end, vi.pgoff);
-			if (try_fixup_file_map(pid, &vi, fd))
-				return -1;
+
+		if (vma_entry_is(&vi, VMA_AREA_SYSVIPC))
+			ret = vi.shmid;
+		else if (vma_entry_is(&vi, VMA_ANON_SHARED))
+			ret = get_shmem_fd(pid, &vi);
+		else if (vma_entry_is(&vi, VMA_FILE_PRIVATE) ||
+				vma_entry_is(&vi, VMA_FILE_SHARED))
+			ret = get_filemap_fd(pid, &vi);
+		else
+			continue;
+
+		if (ret < 0) {
+			pr_err("Can't fixup fd\n");
+			return ret;
 		}
 
-		if (vma_entry_is(&vi, VMA_ANON_SHARED)) {
-			pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
-				pid, vi.start, vi.end, vi.pgoff);
-			if (try_fixup_shared_map(pid, &vi, fd))
-				return -1;
-		}
+		lseek(fd, -sizeof(vi), SEEK_CUR);
+		vi.fd = ret;
+		ret = write_img(fd, &vi);
+		if (ret < 0)
+			return ret;
 	}
 }
 

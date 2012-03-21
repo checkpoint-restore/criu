@@ -516,25 +516,10 @@ static struct fmap_fd *pull_fmap_fd(int pid, unsigned long start)
 	return NULL;
 }
 
-int try_fixup_file_map(int pid, struct vma_entry *vma_entry, int fd)
+int get_filemap_fd(int pid, struct vma_entry *vma_entry)
 {
-	struct fmap_fd *fmap_fd = pull_fmap_fd(pid, vma_entry->start);
-
-	if (fmap_fd) {
-		pr_info("%d: Fixing %lx vma to %d fd\n",
-			pid, vma_entry->start, fmap_fd->fd);
-
-		lseek(fd, -sizeof(*vma_entry), SEEK_CUR);
-		vma_entry->fd = fmap_fd->fd;
-
-		if (write_img(fd, vma_entry))
-			goto err;
-
-		free(fmap_fd);
-	}
-
-	return 0;
-err:
-	pr_perror("%d: Can't fixup vma", pid);
-	return -1;
+	struct fmap_fd *fmap_fd;
+	
+	fmap_fd = pull_fmap_fd(pid, vma_entry->start);
+	return fmap_fd ? fmap_fd->fd : -1;
 }
