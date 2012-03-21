@@ -57,6 +57,11 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= CORE_MAGIC,
 	},
 
+	[CR_FD_VMAS] = {
+		.fmt	= FMT_FNAME_VMAS,
+		.magic	= VMAS_MAGIC,
+	},
+
 	/* info about pipes - fds, pipe id and pipe data */
 	[CR_FD_PIPES] = {
 		.fmt	= FMT_FNAME_PIPES,

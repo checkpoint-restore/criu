@@ -22,6 +22,7 @@ enum {
 	CR_FD_FDINFO,
 	CR_FD_PAGES,
 	CR_FD_CORE,
+	CR_FD_VMAS,
 	CR_FD_PIPES,
 	CR_FD_SIGACT,
 	CR_FD_UNIXSK,
@@ -77,6 +78,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_PAGES		"pages-%d.img"
 #define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
 #define FMT_FNAME_CORE		"core-%d.img"
+#define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_PIPES		"pipes-%d.img"
 #define FMT_FNAME_PSTREE	"pstree-%d.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
@@ -118,6 +120,7 @@ struct cr_fdset {
 	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
 	CR_FD_DESC_USE(CR_FD_PAGES)		|\
 	CR_FD_DESC_USE(CR_FD_CORE)		|\
+	CR_FD_DESC_USE(CR_FD_VMAS)		|\
 	CR_FD_DESC_USE(CR_FD_PIPES)		|\
 	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
 	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\

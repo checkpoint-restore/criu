@@ -13,6 +13,7 @@
 #define FDINFO_MAGIC	0x56213732 /* Dmitrov */
 #define PAGES_MAGIC	0x56084025 /* Vladimir */
 #define CORE_MAGIC	0x55053847 /* Kolomna */
+#define VMAS_MAGIC	0x54123737 /* Tula */
 #define PIPES_MAGIC	0x56513555 /* Tver */
 #define SIGACT_MAGIC	0x55344201 /* Murom */
 #define UNIXSK_MAGIC	0x54373943 /* Ryazan */
@@ -180,7 +181,6 @@ struct ipc_sem_entry {
 
 #define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)	((vma)->end - (vma)->start)
-#define final_vma_entry(vma)	((vma)->start == 0 && (vma)->end == 0)
 
 struct page_entry {
 	u64	va;

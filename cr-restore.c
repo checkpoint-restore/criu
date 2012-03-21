@@ -226,23 +226,20 @@ static int prepare_shmem_pid(int pid)
 	struct task_core_entry tc;
 	struct image_header hdr;
 
-	fd = open_image_ro(CR_FD_CORE, pid);
-	if (fd < 0)
-		return -1;
-
-	lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+	fd = open_image_ro(CR_FD_VMAS, pid);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
 
 	while (1) {
-		ret = read_img(fd, &vi);
-		if (ret < 0) {
-			pr_perror("%d: Can't read vma_entry", pid);
-			goto out;
-		}
+		ret = read_img_eof(fd, &vi);
+		if (ret <= 0)
+			break;
 
 		pr_info("%d: vma %lx %lx\n", pid, vi.start, vi.end);
-
-		if (final_vma_entry(&vi))
-			break;
 
 		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
 			continue;
@@ -565,25 +562,24 @@ write_fd:
 
 static int fixup_vma_fds(int pid, int fd)
 {
-	int offset = GET_FILE_OFF_AFTER(struct core_entry);
-
-	lseek(fd, offset, SEEK_SET);
-
 	while (1) {
 		struct vma_entry vi;
 		int ret = 0;
 
 		ret = read(fd, &vi, sizeof(vi));
+		if (ret == 0)
+			return 0;
+
 		if (ret < 0) {
 			pr_perror("%d: Can't read vma_entry", pid);
-		} else if (ret != sizeof(vi)) {
+			return -1;
+		}
+
+		if (ret != sizeof(vi)) {
 			pr_err("%d: Incomplete vma_entry (%d != %ld)\n",
 			       pid, ret, sizeof(vi));
 			return -1;
 		}
-
-		if (final_vma_entry(&vi))
-			return 0;
 
 		if (!(vma_entry_is(&vi, VMA_AREA_REGULAR)))
 			continue;
@@ -626,7 +622,7 @@ static int prepare_and_sigreturn(int pid)
 	int fd = -1, err = -1;
 	struct stat buf;
 
-	fd = open_image(CR_FD_CORE, O_RDWR, pid);
+	fd = open_image(CR_FD_VMAS, O_RDWR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -1377,13 +1373,12 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	 * better to stick with it.
 	 */
 
-	fd = open_image_ro_nocheck(FMT_FNAME_CORE, pid);
+	fd = open_image_ro_nocheck(FMT_FNAME_VMAS, pid);
 	if (fd < 0)
 		return -1;
 
 	prev_vma_end = 0;
-
-	lseek(fd, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+	lseek(fd, MAGIC_OFFSET, SEEK_SET);
 
 	while (1) {
 		ret = read(fd, &vma, sizeof(vma));
@@ -1533,6 +1528,7 @@ static void sigreturn_restore(pid_t pid)
 	int fd_fdinfo = -1;
 	int fd_core = -1;
 	int fd_pages = -1;
+	int fd_vmas = -1;
 	int i;
 
 	int *fd_core_threads;
@@ -1572,6 +1568,12 @@ static void sigreturn_restore(pid_t pid)
 	fd_pages = open_image_ro(CR_FD_PAGES, pid);
 	if (fd_pages < 0) {
 		pr_perror("Can't open pages-%d", pid);
+		goto err;
+	}
+
+	fd_vmas = open_image_ro(CR_FD_VMAS, pid);
+	if (fd_vmas < 0) {
+		pr_perror("Can't open vmas-%d", pid);
 		goto err;
 	}
 
@@ -1692,6 +1694,7 @@ static void sigreturn_restore(pid_t pid)
 	 */
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
+	task_args->fd_vmas	= fd_vmas;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_fdinfo	= fd_fdinfo;

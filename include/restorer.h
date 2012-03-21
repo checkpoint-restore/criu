@@ -65,6 +65,7 @@ struct task_restore_core_args {
 
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
+	int				fd_vmas;		/* opened vmas file */
 	int				fd_fdinfo;		/* opened files dump file */
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;

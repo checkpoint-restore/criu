@@ -490,15 +490,18 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
 	struct vma_area *vma_area;
-	int ret = -1;
+	int ret = -1, fd = cr_fdset->fds[CR_FD_VMAS];
 
 	pr_info("\n");
 	pr_info("Dumping mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-
 		struct vma_entry *vma = &vma_area->vma;
+
+		ret = write_img(fd, vma);
+		if (ret < 0)
+			goto err;
 
 		if (!vma_entry_is(vma, VMA_AREA_REGULAR))
 			continue;
@@ -512,15 +515,15 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED))
 			ret = dump_filemap(pid, vma, vma_area->vm_file_fd, cr_fdset);
+		else
+			ret = 0;
 
 		if (ret)
 			goto err;
 	}
 
 	ret = 0;
-
 	pr_info("----------------------------------------\n");
-
 err:
 	return ret;
 }
@@ -1185,53 +1188,6 @@ static struct vma_area *find_vma_by_addr(const struct list_head *vma_area_list,
 	return NULL;
 }
 
-/* kernel expects a special format in core file */
-static int finalize_core(pid_t pid, const struct list_head *vma_area_list,
-			 const struct cr_fdset *cr_fdset)
-{
-	int fd_core;
-	unsigned long num;
-	struct vma_area *vma_area;
-	struct vma_entry ve;
-	ssize_t bytes;
-
-	pr_info("\n");
-	pr_info("Finalizing core (pid: %d)\n", pid);
-	pr_info("----------------------------------------\n");
-
-	fd_core		= cr_fdset->fds[CR_FD_CORE];
-
-	lseek(fd_core,		GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
-
-	num = 0;
-	pr_info("Appending VMAs ... ");
-
-	/* All VMAs first */
-
-	list_for_each_entry(vma_area, vma_area_list, list) {
-		bytes = write(fd_core, &vma_area->vma, sizeof(vma_area->vma));
-		if (bytes != sizeof(vma_area->vma)) {
-			pr_perror("\nUnable to write vma entry (%li written)", num);
-			goto err;
-		}
-		num++;
-	}
-
-	/* Ending marker */
-	memzero_p(&ve);
-	if (write_img(fd_core, &ve))
-		goto err;
-
-	pr_info("OK (%li written)\n", num);
-
-	pr_info("----------------------------------------\n");
-	return 0;
-
-err:
-	pr_perror("Error catched");
-	return -1;
-}
-
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 			    pid_t pid, const struct cr_fdset *cr_fdset)
 {
@@ -1281,7 +1237,6 @@ static int dump_one_zombie(const struct pstree_item *item,
 {
 	struct core_entry *core;
 	int ret;
-	LIST_HEAD(vma_area_list);
 
 	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
 	if (cr_fdset == NULL)
@@ -1294,10 +1249,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc.task_state = TASK_DEAD;
 	core->tc.exit_code = pps->exit_code;
 
-	if (dump_task_core(core, cr_fdset) < 0)
-		return -1;
-
-	return finalize_core(item->pid, &vma_area_list, cr_fdset);
+	return dump_task_core(core, cr_fdset);
 }
 
 static struct proc_pid_stat pps_buf;
@@ -1439,12 +1391,6 @@ static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fds
 	ret = dump_task_creds(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
-	ret = finalize_core(pid, &vma_area_list, cr_fdset);
-	if (ret) {
-		pr_err("Finalizing core (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 

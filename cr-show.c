@@ -111,23 +111,26 @@ out:
 	pr_img_tail(CR_FD_PIPES);
 }
 
-static void show_vma(int fd_vma)
+static void show_vmas(int fd_vma)
 {
 	struct vma_area vma_area = {};
 	struct vma_entry ve;
 
-	pr_msg("\n\t---[VMA areas]---\n");
-	while (1) {
-		if (read_img(fd_vma, &ve) < 0)
-			break;
+	pr_img_head(CR_FD_VMAS);
 
-		if (final_vma_entry(&ve))
+	while (1) {
+		int ret;
+
+		ret = read_img_eof(fd_vma, &ve);
+		if (ret <= 0)
 			break;
 
 		/* Simply in a sake of fancy printing */
 		vma_area.vma = ve;
 		pr_msg_vma(&vma_area);
 	}
+
+	pr_img_tail(CR_FD_VMAS);
 }
 
 void print_data(unsigned long addr, unsigned char *data, size_t size)
@@ -431,18 +434,6 @@ static void show_core(int fd_core, bool show_content)
 
 	show_core_regs(fd_core);
 	show_core_rest(fd_core);
-	if (is_thread)
-		goto out;
-
-	lseek(fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
-	/*
-	 * If this is thread code -- we should jump out once
-	 * we reach EOF.
-	 */
-	if (is_thread)
-		goto out;
-
-	show_vma(fd_core);
 out:
 	pr_img_tail(CR_FD_CORE);
 }
@@ -471,6 +462,9 @@ static int cr_parse_file(struct cr_options *opts)
 		break;
 	case CORE_MAGIC:
 		show_core(fd, opts->show_pages_content);
+		break;
+	case VMAS_MAGIC:
+		show_vmas(fd);
 		break;
 	case PSTREE_MAGIC:
 		show_pstree(fd, NULL);
@@ -579,6 +573,8 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 				close_cr_fdset(&cr_fdset_th);
 			}
 		}
+
+		show_vmas(cr_fdset->fds[CR_FD_VMAS]);
 
 		show_pipes(cr_fdset->fds[CR_FD_PIPES]);
 

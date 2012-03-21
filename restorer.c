@@ -398,9 +398,8 @@ long restore_task(struct task_restore_core_args *args)
 	 * OK, lets try to map new one.
 	 */
 	vma_entry = next_on_heap(vma_entry, core_entry);
-	sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
 	while (1) {
-		ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
+		ret = sys_read(args->fd_vmas, vma_entry, sizeof(*vma_entry));
 		if (!ret)
 			break;
 		if (ret != sizeof(*vma_entry)) {
@@ -408,9 +407,6 @@ long restore_task(struct task_restore_core_args *args)
 			write_num_n(ret);
 			goto core_restore_end;
 		}
-
-		if (final_vma_entry(vma_entry))
-			break;
 
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
@@ -459,9 +455,9 @@ long restore_task(struct task_restore_core_args *args)
 	 * Walk though all VMAs again to drop PROT_WRITE
 	 * if it was not there.
 	 */
-	sys_lseek(args->fd_core, GET_FILE_OFF_AFTER(struct core_entry), SEEK_SET);
+	sys_lseek(args->fd_vmas, MAGIC_OFFSET, SEEK_SET);
 	while (1) {
-		ret = sys_read(args->fd_core, vma_entry, sizeof(*vma_entry));
+		ret = sys_read(args->fd_vmas, vma_entry, sizeof(*vma_entry));
 		if (!ret)
 			break;
 		if (ret != sizeof(*vma_entry)) {
@@ -469,9 +465,6 @@ long restore_task(struct task_restore_core_args *args)
 			write_num_n(ret);
 			goto core_restore_end;
 		}
-
-		if (final_vma_entry(vma_entry))
-			break;
 
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
@@ -494,6 +487,7 @@ long restore_task(struct task_restore_core_args *args)
 			     vma_entry->prot);
 	}
 
+	sys_close(args->fd_vmas);
 	sys_close(args->fd_core);
 
 	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
