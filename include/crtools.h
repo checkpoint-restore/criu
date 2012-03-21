@@ -151,7 +151,6 @@ void free_mappings(struct list_head *vma_area_list);
 struct vma_area {
 	struct list_head	list;
 	struct vma_entry	vma;
-	unsigned long		shmid;
 	int			vm_file_fd;
 };
 

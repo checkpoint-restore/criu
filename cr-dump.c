@@ -439,7 +439,7 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 
 			e.start	= vma->start;
 			e.end	= vma->end;
-			e.shmid	= vma_area->shmid;
+			e.shmid	= vma_area->vma.shmid;
 
 			pr_info("shmem: s: %16lx e: %16lx shmid: %16lx\n",
 					e.start, e.end, e.shmid);

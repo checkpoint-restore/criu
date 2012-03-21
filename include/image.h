@@ -113,6 +113,7 @@ struct vma_entry {
 	u64	start;
 	u64	end;
 	u64	pgoff;
+	u64	shmid;
 	u32	prot;
 	u32	flags;
 	u32	status;

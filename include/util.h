@@ -157,7 +157,6 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 	({							\
 		struct vma_area *p__ = xzalloc(sizeof(*p__));	\
 		if (p__) {					\
-			p__->shmid	= -1;			\
 			p__->vm_file_fd = -1;			\
 			p__->vma.fd	= -1;			\
 		}						\

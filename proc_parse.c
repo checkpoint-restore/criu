@@ -135,7 +135,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 					goto err_bogus_mapping;
 				vma_area->vma.flags  |= MAP_ANONYMOUS;
 				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->shmid = st_buf.st_ino;
+				vma_area->vma.shmid = st_buf.st_ino;
 
 				if (!strcmp(file_path, "/SYSV")) {
 					pr_info("path: %s\n", file_path);
@@ -153,7 +153,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			 */
 			if (vma_area->vma.flags & MAP_SHARED) {
 				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->shmid = ino;
+				vma_area->vma.shmid = ino;
 			} else {
 				vma_area->vma.status |= VMA_ANON_PRIVATE;
 			}
