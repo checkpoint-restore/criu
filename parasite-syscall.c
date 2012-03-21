@@ -538,7 +538,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_prep_file(CR_FD_PAGES_SHMEM, ctl, cr_fdset);
+	ret = parasite_prep_file(CR_FD_SHMEM_PAGES, ctl, cr_fdset);
 	if (ret < 0)
 		goto out;
 
@@ -598,7 +598,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
 		goto out;
-	if (write_img(cr_fdset->fds[CR_FD_PAGES_SHMEM], &zero_page_entry))
+	if (write_img(cr_fdset->fds[CR_FD_SHMEM_PAGES], &zero_page_entry))
 		goto out;
 
 	pr_info("\n");
@@ -607,7 +607,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 out:
 	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
-	fchmod(cr_fdset->fds[CR_FD_PAGES_SHMEM], CR_FD_PERM);
+	fchmod(cr_fdset->fds[CR_FD_SHMEM_PAGES], CR_FD_PERM);
 	pr_info("----------------------------------------\n");
 
 	return ret;

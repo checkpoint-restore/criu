@@ -46,8 +46,8 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	},
 
 	/* shared memory pages data */
-	[CR_FD_PAGES_SHMEM] = {
-		.fmt	= FMT_FNAME_PAGES_SHMEM,
+	[CR_FD_SHMEM_PAGES] = {
+		.fmt	= FMT_FNAME_SHMEM_PAGES,
 		.magic	= PAGES_MAGIC,
 	},
 

@@ -648,7 +648,7 @@ static int fixup_pages_data(int pid, int fd)
 	}
 	close_safe(&pgfd);
 
-	pgfd = open_image_ro(CR_FD_PAGES_SHMEM, pid);
+	pgfd = open_image_ro(CR_FD_SHMEM_PAGES, pid);
 	if (pgfd < 0)
 		return -1;
 
