@@ -131,8 +131,6 @@ static inline int read_img_buf(int fd, void *ptr, int size)
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
-extern void pr_info_siginfo(const siginfo_t *siginfo);
-
 struct vma_area;
 struct list_head;
 
@@ -169,8 +167,6 @@ extern int close_safe(int *fd);
 extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
 #define reopen_fd_as(new_fd, old_fd)		reopen_fd_as_safe(new_fd, old_fd, false)
 #define reopen_fd_as_nocheck(new_fd, old_fd)	reopen_fd_as_safe(new_fd, old_fd, true)
-
-extern void hex_dump(const void *addr, unsigned long len);
 
 int open_pid_proc(pid_t pid);
 int close_pid_proc(void);

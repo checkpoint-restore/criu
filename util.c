@@ -37,26 +37,6 @@
 
 #include "crtools.h"
 
-void hex_dump(const void *addr, unsigned long len)
-{
-	const unsigned char *p = addr;
-	unsigned long i;
-
-	len = (len + 8) & ~7;
-
-	for (i = 0; i < len; i += 8) {
-		pr_msg("%p: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-		       &p[i], p[i+0], p[i+1], p[i+2], p[i+3],
-		       p[i+4], p[i+5], p[i+6], p[i+7]);
-	}
-}
-
-void pr_info_siginfo(const siginfo_t *siginfo)
-{
-	pr_info("si_signo %d si_errno %d si_code %d\n",
-		siginfo->si_signo, siginfo->si_errno, siginfo->si_code);
-}
-
 void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 {
 	if (!vma_area)
