@@ -369,6 +369,11 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
+static inline void pstree_skip(int fd, struct pstree_entry *e)
+{
+	lseek(fd, e->nr_children * sizeof(u32) + e->nr_threads * sizeof(u32), SEEK_CUR);
+}
+
 static int prepare_shared(int ps_fd)
 {
 	int ret = 0;
@@ -428,7 +433,7 @@ static int prepare_shared(int ps_fd)
 
 		task_entries->nr += e.nr_threads;
 
-		lseek(ps_fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
+		pstree_skip(ps_fd, &e);
 	}
 
 	if (!ret) {
@@ -1175,7 +1180,7 @@ static int restore_task_with_children(void *_arg)
 			exit(1);
 
 		if (e.pid != me->pid) {
-			lseek(fd, e.nr_children * sizeof(u32) + e.nr_threads * sizeof(u32), SEEK_CUR);
+			pstree_skip(fd, &e);
 			continue;
 		}
 
