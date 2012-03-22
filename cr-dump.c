@@ -1159,21 +1159,13 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 		if (write_img(pstree_fd, &e))
 			goto err;
 
-		pr_info("Children:");
-		for (i = 0; i < item->nr_children; i++) {
-			pr_info(" %d", item->children[i]);
-			if (write_img(pstree_fd, &item->children[i]))
-				goto err;
-		}
-		pr_info("\n");
+		if (write_img_buf(pstree_fd, item->children,
+					item->nr_children * sizeof(u32)))
+			goto err;
 
-		pr_info("Threads:\n");
-		for (i = 0; i < item->nr_threads; i++) {
-			pr_info(" %d", item->threads[i]);
-			if (write_img(pstree_fd, &item->threads[i]))
-				goto err;
-		}
-		pr_info("\n");
+		if (write_img_buf(pstree_fd, item->threads,
+					item->nr_threads * sizeof(u32)))
+			goto err;
 	}
 	ret = 0;
 
