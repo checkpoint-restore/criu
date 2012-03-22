@@ -235,8 +235,8 @@ static void show_itimers(int fd)
 		goto out;
 
 	show_itimer("real", &ie[0]);
-	show_itimer("real", &ie[1]);
-	show_itimer("real", &ie[2]);
+	show_itimer("virt", &ie[1]);
+	show_itimer("prof", &ie[2]);
 out:
 	pr_img_tail(CR_FD_ITIMERS);
 }
