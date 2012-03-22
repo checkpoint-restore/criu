@@ -1175,19 +1175,6 @@ err:
 	return ret;
 }
 
-static struct vma_area *find_vma_by_addr(const struct list_head *vma_area_list,
-					 unsigned long addr)
-{
-	struct vma_area *vma_area;
-
-	list_for_each_entry(vma_area, vma_area_list, list) {
-		if (in_vma_area(vma_area, addr))
-			return vma_area;
-	}
-
-	return NULL;
-}
-
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 			    pid_t pid, const struct cr_fdset *cr_fdset)
 {
