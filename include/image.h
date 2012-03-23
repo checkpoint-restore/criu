@@ -29,12 +29,16 @@
 
 #define PIPEFS_MAGIC	0x50495045
 
-#define FDINFO_REG	1
-#define FDINFO_MAP	2
+enum fd_types {
+	FDINFO_UND,
+	FDINFO_REG,
+	FDINFO_MAP,
 
-/* Specials */
-#define FDINFO_CWD	3
-#define FDINFO_EXE	4
+	FDINFO_CWD,
+	FDINFO_EXE,
+
+	FD_INFO_MAX
+};
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
