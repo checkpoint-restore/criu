@@ -58,6 +58,25 @@
  * in one pass.
  */
 
+struct fd_id_entry {
+	struct rb_node	node;
+
+	struct rb_root	subtree_root;
+	struct rb_node	subtree_node;
+
+	union {
+		struct {
+			u32		genid;	/* generic id, may have duplicates */
+			u32		subid;	/* subid is always unique */
+		} key;
+		u64			id;
+	} u;
+
+	pid_t		pid;
+	int		fd;
+} __aligned(sizeof(long));
+
+
 struct rb_root fd_id_root = RB_ROOT;
 static unsigned long fd_id_entries_subid = 1;
 
@@ -115,7 +134,7 @@ err:
 	return sub;
 }
 
-struct fd_id_entry *fd_id_entry_collect(u32 genid, pid_t pid, int fd)
+static struct fd_id_entry *lookup_alloc_node(u64 genid, pid_t pid, int fd)
 {
 	struct rb_node *node = fd_id_root.rb_node;
 	struct fd_id_entry *e = NULL;
@@ -142,4 +161,16 @@ struct fd_id_entry *fd_id_entry_collect(u32 genid, pid_t pid, int fd)
 	rb_link_and_balance(&fd_id_root, &e->node, parent, new);
 err:
 	return e;
+
+}
+
+long fd_id_entry_collect(u64 genid, pid_t pid, int fd)
+{
+	struct fd_id_entry *e = NULL;
+
+	e = lookup_alloc_node(genid, pid, fd);
+	if (e == NULL)
+		return -ENOMEM;
+
+	return e->u.id;
 }

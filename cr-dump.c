@@ -128,20 +128,14 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	e.id	= FD_ID_INVALID;
 
 	if (likely(!fd_is_special(&e))) {
-		struct fd_id_entry *entry;
+		u64 id;
 
-		/*
-		 * Make sure the union is still correlate with structure
-		 * we write to disk.
-		 */
-		BUILD_BUG_ON(sizeof(entry->u.key) != sizeof(e.id));
-
-		entry = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
-		if (!entry)
+		id = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
+		if (id < 0)
 			goto err;
 
 		/* Now it might have completely new ID here */
-		e.id	= entry->u.id;
+		e.id = id;
 	}
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
