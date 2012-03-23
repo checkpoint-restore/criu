@@ -106,7 +106,7 @@ extern void close_image_dir(void);
 
 int open_image(int type, unsigned long flags, ...);
 #define open_image_ro(type, ...) open_image(type, O_RDONLY, ##__VA_ARGS__)
-extern int open_image_ro_nocheck(const char *fmt, int pid);
+extern int open_image_ro_nocheck(const char *fmt, ...);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666
