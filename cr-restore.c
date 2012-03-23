@@ -1167,7 +1167,7 @@ static int restore_task_with_children(void *_arg)
 
 	pr_info("%d: Starting restore\n", me->pid);
 
-	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE, pstree_pid);
+	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE);
 	if (fd < 0) {
 		pr_perror("%d: Can't reopen pstree image", me->pid);
 		exit(1);
@@ -1291,7 +1291,7 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 	int pstree_fd = -1;
 	u32 type = 0;
 
-	pstree_fd = open_image_ro(CR_FD_PSTREE, pstree_pid);
+	pstree_fd = open_image_ro(CR_FD_PSTREE);
 	if (pstree_fd < 0)
 		return -1;
 

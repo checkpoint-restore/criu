@@ -561,14 +561,18 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item = NULL;
 	LIST_HEAD(pstree_list);
-	int i, ret = -1;
+	int i, ret = -1, pstree_fd;
 
-	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_PSTREE | CR_FD_DESC_SK_QUEUES);
-	if (!cr_fdset)
+	pstree_fd = open_image_ro(CR_FD_PSTREE);
+	if (pstree_fd)
 		goto out;
 
-	ret = show_pstree(cr_fdset->fds[CR_FD_PSTREE], &pstree_list);
+	ret = show_pstree(pstree_fd, &pstree_list);
 	if (ret)
+		goto out;
+
+	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_SK_QUEUES);
+	if (!cr_fdset)
 		goto out;
 
 	ret = show_sk_queues(cr_fdset->fds[CR_FD_SK_QUEUES]);

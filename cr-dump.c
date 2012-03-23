@@ -1151,7 +1151,7 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 	pr_info("Dumping pstree (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	pstree_fd = open_image(CR_FD_PSTREE, O_RDWR | O_CREAT | O_EXCL, pid);
+	pstree_fd = open_image(CR_FD_PSTREE, O_RDWR | O_CREAT | O_EXCL);
 	if (pstree_fd < 0)
 		return -1;
 
