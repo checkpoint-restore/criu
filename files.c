@@ -226,6 +226,15 @@ struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct fdinfo_
 	return fle;
 }
 
+static inline void transport_name_gen(struct sockaddr_un *addr, int *len,
+		int pid, long fd)
+{
+	addr->sun_family = AF_UNIX;
+	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%ld", pid, fd);
+	*len = SUN_LEN(addr);
+	*addr->sun_path = '\0';
+}
+
 static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 				struct fdinfo_desc *fi)
 {
@@ -237,12 +246,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 	if (fi->pid == pid)
 		return 0;
 
-	saddr.sun_family = AF_UNIX;
-	snprintf(saddr.sun_path, UNIX_PATH_MAX,
-			"X/crtools-fd-%d-%ld", getpid(), fe->addr);
-
-	sun_len = SUN_LEN(&saddr);
-	*saddr.sun_path = '\0';
+	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
 	pr_info("\t%d: Create transport fd for %lx type %d namelen %d users %d\n", pid,
 			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
@@ -314,12 +318,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		cr_wait_while(&fle->real_pid, 0);
 
 		pr_info("Send fd %d to %s\n", (int)fe->addr, saddr.sun_path + 1);
-
-		saddr.sun_family = AF_UNIX;
-		snprintf(saddr.sun_path, UNIX_PATH_MAX,
-				"X/crtools-fd-%d-%d", fle->real_pid, fle->fd);
-		len = SUN_LEN(&saddr);
-		*saddr.sun_path = '\0';
+		transport_name_gen(&saddr, &len, fle->real_pid, fle->fd);
 
 		if (send_fd(sock, &saddr, len, fe->addr) < 0) {
 			pr_perror("Can't send file descriptor");
