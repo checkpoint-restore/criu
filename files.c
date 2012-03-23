@@ -442,7 +442,7 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 
 int prepare_fds(int pid)
 {
-	u32 type = 0, err = -1, ret;
+	u32 type = 0, ret;
 	int fdinfo_fd;
 	int state;
 	off_t offset, magic_offset;
@@ -464,34 +464,29 @@ int prepare_fds(int pid)
 		lseek(fdinfo_fd, magic_offset, SEEK_SET);
 
 		while (1) {
-			ret = read(fdinfo_fd, &fe, sizeof(fe));
-			if (ret == 0)
+			ret = read_img_eof(fdinfo_fd, &fe);
+			if (ret <= 0)
 				break;
 
-			if (ret != sizeof(fe)) {
-				pr_perror("%d: Bad fdinfo entry", pid);
-				goto err;
+			if (fd_is_special(&fe))
+				ret = open_special_fdinfo(pid, &fe,
+						fdinfo_fd, state);
+			else {
+				offset = lseek(fdinfo_fd, 0, SEEK_CUR);
+				ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
+				lseek(fdinfo_fd, offset + fe.len, SEEK_SET);
 			}
 
-			if (fd_is_special(&fe)) {
-				if (open_special_fdinfo(pid, &fe, fdinfo_fd, state))
-					goto err;
-
-				continue;
-			}
-
-			offset = lseek(fdinfo_fd, 0, SEEK_CUR);
-
-			if (open_fdinfo(pid, &fe, &fdinfo_fd, state))
-				goto err;
-
-			lseek(fdinfo_fd, offset + fe.len, SEEK_SET);
+			if (ret)
+				break;
 		}
+
+		if (ret)
+			break;
 	}
-	err = 0;
-err:
+
 	close(fdinfo_fd);
-	return err;
+	return ret;
 }
 
 static struct fmap_fd *pull_fmap_fd(int pid, unsigned long start)
