@@ -28,7 +28,7 @@
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
 		if (__ret) {						\
 			write_num_n(__LINE__);				\
-			write_num_n(ret);				\
+			write_num_n(__ret);				\
 		}							\
 		__ret;							\
 	})
