@@ -83,9 +83,9 @@ static void show_files(int fd_files)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %s len: %02x flags: %4x pos: %8x "
+		pr_msg("type: %s flags: %4x pos: %8x "
 		       "addr: %16lx id: %16lx",
-		       fdtype2s(e.type), e.len, e.flags, e.pos, e.addr, e.id);
+		       fdtype2s(e.type), e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
