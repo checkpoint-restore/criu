@@ -191,7 +191,7 @@ err:
 	return sub;
 }
 
-static struct fd_id_entry *lookup_alloc_node(u64 genid, pid_t pid, int fd)
+static struct fd_id_entry *lookup_alloc_node(u32 genid, pid_t pid, int fd)
 {
 	struct rb_node *node = fd_id_root.rb_node;
 	struct fd_id_entry *e = NULL;
@@ -221,7 +221,7 @@ err:
 
 }
 
-long fd_id_entry_collect(u64 genid, pid_t pid, int fd)
+long fd_id_entry_collect(u32 genid, pid_t pid, int fd)
 {
 	struct fd_id_entry *e = NULL;
 

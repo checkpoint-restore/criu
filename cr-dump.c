@@ -130,7 +130,7 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	if (likely(!fd_is_special(&e))) {
 		u64 id;
 
-		id = fd_id_entry_collect((u32)p->id, p->pid, p->fd_name);
+		id = fd_id_entry_collect(p->id, p->pid, p->fd_name);
 		if (id < 0)
 			goto err;
 
