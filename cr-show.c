@@ -54,6 +54,22 @@
 static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
 
+static char *fdtype2s(u8 type)
+{
+	static char und[4];
+	static char *fdtypes[] = {
+		[FDINFO_REG] = "reg",
+		[FDINFO_MAP] = "map",
+		[FDINFO_CWD] = "cwd",
+		[FDINFO_EXE] = "exe",
+	};
+
+	if (type > FDINFO_UND && type < FD_INFO_MAX)
+		return fdtypes[type];
+	snprintf(und, sizeof(und), "x%02d\n", (int)type);
+	return und;
+}
+
 static void show_files(int fd_files)
 {
 	struct fdinfo_entry e;
@@ -67,9 +83,9 @@ static void show_files(int fd_files)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %02x len: %02x flags: %4x pos: %8x "
+		pr_msg("type: %s len: %02x flags: %4x pos: %8x "
 		       "addr: %16lx id: %16lx",
-		       e.type, e.len, e.flags, e.pos, e.addr, e.id);
+		       fdtype2s(e.type), e.len, e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {
 			int ret = read(fd_files, local_buf, e.len);
