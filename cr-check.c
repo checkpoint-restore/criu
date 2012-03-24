@@ -52,6 +52,7 @@ static int check_sock_peek_off(void)
 		return -1;
 	}
 
+	sz = sizeof(off);
 	ret = getsockopt(sk, SOL_SOCKET, SO_PEEK_OFF, &off, (socklen_t *)&sz);
 	close(sk);
 
