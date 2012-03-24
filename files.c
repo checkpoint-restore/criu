@@ -199,15 +199,27 @@ static int restore_cwd(struct fdinfo_entry *fe, int fd)
 	return 0;
 }
 
+int self_exe_fd;
+
 static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 {
+	int tmp;
+
 	/*
 	 * We restore the EXE symlink at very late stage
 	 * because of restrictions applied from kernel side,
-	 * so simply skip it for a while.
+	 * so keep this fd open till then.
 	 */
-	lseek(fd, fe->len, SEEK_CUR);
-	return 0;
+
+	self_exe_fd = get_service_fd(SELF_EXE_FD_OFF);
+	if (self_exe_fd < 0)
+		return self_exe_fd;
+
+	tmp = open_fe_fd(fe, fd);
+	if (tmp < 0)
+		return tmp;
+
+	return reopen_fd_as(self_exe_fd, tmp);
 }
 
 struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct fdinfo_desc *fi)

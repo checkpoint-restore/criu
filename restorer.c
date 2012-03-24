@@ -235,67 +235,14 @@ core_restore_end:
 
 static long restore_self_exe_late(struct task_restore_core_args *args)
 {
-	struct fdinfo_entry fe;
-	long ret = -1;
-	char *path;
-	int fd;
+	int fd = args->fd_exe_link;
 
-	/*
-	 * Path to exe file and its len is in image.
-	 */
-	for (;;) {
-		if (sys_read(args->fd_fdinfo, &fe, sizeof(fe)) != sizeof(fe)) {
-			write_string("sys_read lookup failed\n");
-			goto err;
-		}
+	write_string("Restoring EXE\n");
+	sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
+	sys_close(fd);
 
-		if (fe.type == FDINFO_EXE)
-			break;
-
-		if (fe.len)
-			sys_lseek(args->fd_fdinfo, fe.len, SEEK_CUR);
-	}
-
-	path = (char *)sys_mmap(NULL, fe.len + 1,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if ((long)path < 0) {
-		write_string("sys_mmap failed\n");
-		write_num_n(fe.len);
-		goto err;
-	}
-
-	if (sys_read(args->fd_fdinfo, path, fe.len) != fe.len) {
-		sys_munmap(path, fe.len);
-		write_string("sys_read for exe-path failed\n");
-		goto err;
-	}
-	path[fe.len] = '\0';
-
-	write_string("Restoring EXE (");
-	write_string(path);
-	write_string(")\n");
-
-	fd = sys_open(path, fe.flags, 0744);
-	if (fd >= 0) {
-		ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
-		sys_close(fd);
-	} else {
-		write_string("sys_open failed\n");
-		write_num_n((long)fd);
-		ret = fd;
-	}
-
-	sys_munmap(path, fe.len + 1);
-
-	/* FIXME Once kernel side stabilized -- drop next line */
-	ret = 0;
-	return ret;
-
-err:
-	write_num_n(__LINE__);
-	write_num_n(sys_getpid());
-	return ret;
+	/* FIXME Once kernel side stabilized -- fix error reporting */
+	return 0;
 }
 
 static u64 restore_mapping(const struct vma_entry *vma_entry)
@@ -526,7 +473,6 @@ long restore_task(struct task_restore_core_args *args)
 	 * new ones from image file.
 	 */
 	ret = restore_self_exe_late(args);
-	sys_close(args->fd_fdinfo);
 	if (ret)
 		goto core_restore_end;
 

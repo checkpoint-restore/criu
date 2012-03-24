@@ -1474,7 +1474,6 @@ static int sigreturn_restore(pid_t pid)
 
 	LIST_HEAD(self_vma_list);
 	struct vma_area *vma_area;
-	int fd_fdinfo = -1;
 	int fd_core = -1;
 	int fd_pages = -1;
 	int fd_vmas = -1;
@@ -1505,12 +1504,6 @@ static int sigreturn_restore(pid_t pid)
 	fd_core = open_image_ro(CR_FD_CORE, pid);
 	if (fd_core < 0) {
 		pr_perror("Can't open core-out-%d", pid);
-		goto err;
-	}
-
-	fd_fdinfo = open_image_ro(CR_FD_FDINFO, pid);
-	if (fd_fdinfo < 0) {
-		pr_perror("Can't open fdinfo-%d", pid);
 		goto err;
 	}
 
@@ -1646,7 +1639,7 @@ static int sigreturn_restore(pid_t pid)
 	task_args->fd_vmas	= fd_vmas;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
-	task_args->fd_fdinfo	= fd_fdinfo;
+	task_args->fd_exe_link	= self_exe_fd;
 	task_args->fd_pages	= fd_pages;
 
 	ret = prepare_itimers(pid, task_args);
@@ -1723,7 +1716,6 @@ static int sigreturn_restore(pid_t pid)
 err:
 	free_mappings(&self_vma_list);
 	close_safe(&fd_core);
-	close_safe(&fd_fdinfo);
 
 	/* Just to be sure */
 	exit(1);
