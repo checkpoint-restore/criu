@@ -1374,9 +1374,6 @@ static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fds
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
-
-	free_mappings(&vma_area_list);
-
 err:
 	close_pid_proc();
 err_free:
