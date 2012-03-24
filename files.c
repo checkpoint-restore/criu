@@ -183,19 +183,18 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 
 static int restore_cwd(struct fdinfo_entry *fe, int fd)
 {
-	char path[PATH_MAX];
-	int ret;
+	int cfd;
 
-	if (get_file_path(path, fe, fd))
-		return -1;
+	cfd = open_fe_fd(fe, fd);
+	if (cfd < 0)
+		return cfd;
 
-	pr_info("Restore CWD %s\n", path);
-	ret = chdir(path);
-	if (ret < 0) {
-		pr_perror("Can't change dir %s", path);
+	if (fchdir(cfd)) {
+		pr_perror("Can't chdir");
 		return -1;
 	}
 
+	close(cfd);
 	return 0;
 }
 
