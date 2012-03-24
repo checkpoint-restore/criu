@@ -84,7 +84,7 @@ static void show_files(int fd_files)
 			goto out;
 
 		pr_msg("type: %s flags: %4x pos: %8x "
-		       "addr: %16lx id: %16lx",
+		       "addr: %16lx id: %8lx",
 		       fdtype2s(e.type), e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {

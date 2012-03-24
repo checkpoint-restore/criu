@@ -5,13 +5,14 @@
 #include "types.h"
 #include "rbtree.h"
 
-#define FD_ID_INVALID		(-1UL)
-#define FD_PID_INVALID		((int)-2UL)
+#define FD_ID_INVALID		(-1U)
+#define FD_PID_INVALID		(-2U)
 
 #define MAKE_FD_GENID(dev, ino, pos) \
 	(((u32)(dev) ^ (u32)(ino) ^ (u32)(pos)))
 
-extern long fd_id_entry_collect(u32 genid, pid_t pid, int fd);
+struct fdinfo_entry;
+extern int fd_id_generate(pid_t pid, struct fdinfo_entry *fe);
 extern void fd_id_show_tree(void);
 
 #endif /* FILE_IDS_H__ */

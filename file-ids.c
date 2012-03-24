@@ -64,13 +64,8 @@ struct fd_id_entry {
 	struct rb_root	subtree_root;
 	struct rb_node	subtree_node;
 
-	union {
-		struct {
-			u32		genid;	/* generic id, may have duplicates */
-			u32		subid;	/* subid is always unique */
-		} key;
-		u64			id;
-	} u;
+	u32		genid;	/* generic id, may have duplicates */
+	u32		subid;	/* subid is always unique */
 
 	pid_t		pid;
 	int		fd;
@@ -80,7 +75,7 @@ static void show_subnode(struct rb_node *node, int self)
 {
 	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
 
-	pr_info("\t\t| %x.%x %s\n", this->u.key.genid, this->u.key.subid,
+	pr_info("\t\t| %x.%x %s\n", this->genid, this->subid,
 			self ? "(self)" : "");
 	if (node->rb_left) {
 		pr_info("\t\t| left:\n");
@@ -104,7 +99,7 @@ static void show_node(struct rb_node *node)
 {
 	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, node);
 
-	pr_info("\t%x.%x\n", this->u.key.genid, this->u.key.subid);
+	pr_info("\t%x.%x\n", this->genid, this->subid);
 	if (node->rb_left) {
 		pr_info("\tleft:\n");
 		show_node(node->rb_left);
@@ -133,7 +128,7 @@ void fd_id_show_tree(void)
 
 static unsigned long fd_id_entries_subid = 1;
 
-static struct fd_id_entry *alloc_fd_id_entry(u32 genid, pid_t pid, int fd)
+static struct fd_id_entry *alloc_fd_id_entry(pid_t pid, struct fdinfo_entry *fe)
 {
 	struct fd_id_entry *e;
 
@@ -141,13 +136,13 @@ static struct fd_id_entry *alloc_fd_id_entry(u32 genid, pid_t pid, int fd)
 	if (!e)
 		goto err;
 
-	e->u.key.subid	= fd_id_entries_subid++;
-	e->u.key.genid	= genid;
+	e->subid	= fd_id_entries_subid++;
+	e->genid	= fe->id;
 	e->pid		= pid;
-	e->fd		= fd;
+	e->fd		= (int)fe->addr;
 
 	/* Make sure no overflow here */
-	BUG_ON(!e->u.key.subid);
+	BUG_ON(!e->subid);
 
 	rb_init_node(&e->node);
 	rb_init_node(&e->subtree_node);
@@ -158,8 +153,8 @@ err:
 	return e;
 }
 
-static struct fd_id_entry *
-lookup_alloc_subtree(struct fd_id_entry *e, u32 genid, pid_t pid, int fd)
+static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
+		pid_t pid, struct fdinfo_entry *fe)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
 	struct fd_id_entry *sub = NULL;
@@ -171,7 +166,7 @@ lookup_alloc_subtree(struct fd_id_entry *e, u32 genid, pid_t pid, int fd)
 
 	while (node) {
 		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
-		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, fd);
+		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, (int)fe->addr);
 
 		parent = *new;
 		if (ret < 0)
@@ -182,16 +177,15 @@ lookup_alloc_subtree(struct fd_id_entry *e, u32 genid, pid_t pid, int fd)
 			return this;
 	}
 
-	sub = alloc_fd_id_entry(genid, pid, fd);
+	sub = alloc_fd_id_entry(pid, fe);
 	if (!sub)
-		goto err;
+		return NULL;
 
 	rb_link_and_balance(&e->subtree_root, &sub->subtree_node, parent, new);
-err:
 	return sub;
 }
 
-static struct fd_id_entry *lookup_alloc_node(u32 genid, pid_t pid, int fd)
+static struct fd_id_entry *fd_id_generate_gen(pid_t pid, struct fdinfo_entry *fe)
 {
 	struct rb_node *node = fd_id_root.rb_node;
 	struct fd_id_entry *e = NULL;
@@ -203,31 +197,36 @@ static struct fd_id_entry *lookup_alloc_node(u32 genid, pid_t pid, int fd)
 		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, node);
 
 		parent = *new;
-		if (genid < this->u.key.genid)
+		if (fe->id < this->genid)
 			node = node->rb_left, new = &((*new)->rb_left);
-		else if (genid > this->u.key.genid)
+		else if (fe->id > this->genid)
 			node = node->rb_right, new = &((*new)->rb_right);
 		else
-			return lookup_alloc_subtree(this, genid, pid, fd);
+			return fd_id_generate_sub(this, pid, fe);
 	}
 
-	e = alloc_fd_id_entry(genid, pid, fd);
+	e = alloc_fd_id_entry(pid, fe);
 	if (!e)
-		goto err;
+		return NULL;
 
 	rb_link_and_balance(&fd_id_root, &e->node, parent, new);
-err:
 	return e;
 
 }
 
-long fd_id_entry_collect(u32 genid, pid_t pid, int fd)
+int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 {
-	struct fd_id_entry *e = NULL;
+	struct fd_id_entry *fid;
 
-	e = lookup_alloc_node(genid, pid, fd);
-	if (e == NULL)
+	if (fd_is_special(fe)) {
+		fe->id = fd_id_entries_subid++;
+		return 0;
+	}
+
+	fid = fd_id_generate_gen(pid, fe);
+	if (!fid)
 		return -ENOMEM;
 
-	return e->u.id;
+	fe->id = fid->subid;
+	return 0;
 }

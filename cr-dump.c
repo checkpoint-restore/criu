@@ -93,7 +93,7 @@ struct fd_parms {
 	unsigned int	flags;
 	unsigned int	type;
 
-	u64		id;
+	u32		id;
 	pid_t		pid;
 };
 
@@ -125,18 +125,11 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	e.flags = p->flags;
 	e.pos	= p->pos;
 	e.addr	= p->fd_name;
-	e.id	= FD_ID_INVALID;
+	e.id	= p->id;
 
-	if (likely(!fd_is_special(&e))) {
-		u64 id;
-
-		id = fd_id_entry_collect(p->id, p->pid, p->fd_name);
-		if (id < 0)
-			goto err;
-
-		/* Now it might have completely new ID here */
-		e.id = id;
-	}
+	ret = fd_id_generate(p->pid, &e);
+	if (ret < 0)
+		goto err;
 
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		p->type, len, p->flags, p->pos, p->fd_name);
