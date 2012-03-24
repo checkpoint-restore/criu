@@ -76,8 +76,61 @@ struct fd_id_entry {
 	int		fd;
 } __aligned(sizeof(long));
 
+static void show_subnode(struct rb_node *node, int self)
+{
+	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
+
+	pr_info("\t\t| %x.%x %s\n", this->u.key.genid, this->u.key.subid,
+			self ? "(self)" : "");
+	if (node->rb_left) {
+		pr_info("\t\t| left:\n");
+		show_subnode(node->rb_left, 0);
+		pr_info("\t\t| --l\n");
+	}
+	if (node->rb_right) {
+		pr_info("\t\t| right:\n");
+		show_subnode(node->rb_right, 0);
+		pr_info("\t\t| --r\n");
+	}
+}
+
+static void show_subtree(struct rb_root *root)
+{
+	pr_info("\t\t| SubTree\n");
+	show_subnode(root->rb_node, 1);
+}
+
+static void show_node(struct rb_node *node)
+{
+	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, node);
+
+	pr_info("\t%x.%x\n", this->u.key.genid, this->u.key.subid);
+	if (node->rb_left) {
+		pr_info("\tleft:\n");
+		show_node(node->rb_left);
+		pr_info("\t--l\n");
+	}
+	if (node->rb_right) {
+		pr_info("\tright:\n");
+		show_node(node->rb_right);
+		pr_info("\t--r\n");
+	}
+
+	show_subtree(&this->subtree_root);
+	pr_info("\t--s\n");
+}
 
 static struct rb_root fd_id_root = RB_ROOT;
+
+void fd_id_show_tree(void)
+{
+	struct rb_root *root = &fd_id_root;
+
+	pr_info("\tTree of file IDs\n");
+	if (root->rb_node)
+		show_node(root->rb_node);
+}
+
 static unsigned long fd_id_entries_subid = 1;
 
 static struct fd_id_entry *alloc_fd_id_entry(u32 genid, pid_t pid, int fd)

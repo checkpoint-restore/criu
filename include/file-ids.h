@@ -12,5 +12,6 @@
 	(((u32)(dev) ^ (u32)(ino) ^ (u32)(pos)))
 
 extern long fd_id_entry_collect(u64 genid, pid_t pid, int fd);
+extern void fd_id_show_tree(void);
 
 #endif /* FILE_IDS_H__ */
