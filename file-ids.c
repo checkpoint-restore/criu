@@ -77,7 +77,7 @@ struct fd_id_entry {
 } __aligned(sizeof(long));
 
 
-struct rb_root fd_id_root = RB_ROOT;
+static struct rb_root fd_id_root = RB_ROOT;
 static unsigned long fd_id_entries_subid = 1;
 
 static struct fd_id_entry *alloc_fd_id_entry(u32 genid, pid_t pid, int fd)
@@ -98,7 +98,9 @@ static struct fd_id_entry *alloc_fd_id_entry(u32 genid, pid_t pid, int fd)
 
 	rb_init_node(&e->node);
 	rb_init_node(&e->subtree_node);
-	rb_attach_node(&e->subtree_root, &e->subtree_node);
+	e->subtree_root = RB_ROOT;
+	rb_link_and_balance(&e->subtree_root, &e->subtree_node,
+			NULL, &e->subtree_root.rb_node);
 err:
 	return e;
 }
@@ -111,6 +113,8 @@ lookup_alloc_subtree(struct fd_id_entry *e, u32 genid, pid_t pid, int fd)
 
 	struct rb_node **new = &e->subtree_root.rb_node;
 	struct rb_node *parent = NULL;
+
+	BUG_ON(!node);
 
 	while (node) {
 		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
