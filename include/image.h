@@ -26,6 +26,7 @@
 #define IPCNS_SHM_MAGIC	0x46283044 /* Odessa */
 #define IPCNS_MSG_MAGIC	0x55453737 /* Moscow */
 #define IPCNS_SEM_MAGIC	0x59573019 /* St. Petersburg */
+#define REG_FILES_MAGIC	0x50363636 /* Belgorod */
 
 #define PIPEFS_MAGIC	0x50495045
 

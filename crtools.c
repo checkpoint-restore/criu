@@ -51,6 +51,11 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= PAGES_MAGIC,
 	},
 
+	[CR_FD_REG_FILES] = {
+		.fmt	= FMT_FNAME_REG_FILES,
+		.magic	= REG_FILES_MAGIC,
+	},
+
 	/* core data, such as regs and vmas and such */
 	[CR_FD_CORE] = {
 		.fmt	= FMT_FNAME_CORE,

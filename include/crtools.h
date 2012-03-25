@@ -46,6 +46,7 @@ enum {
 	CR_FD_PID_MAX, /* fmt, pid */
 
 	CR_FD_SHMEM_PAGES,
+	CR_FD_REG_FILES,
 
 	CR_FD_MAX
 };
@@ -78,6 +79,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_FDINFO	"fdinfo-%d.img"
 #define FMT_FNAME_PAGES		"pages-%d.img"
 #define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
+#define FMT_FNAME_REG_FILES	"reg-files.img"
 #define FMT_FNAME_CORE		"core-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_PIPES		"pipes-%d.img"
