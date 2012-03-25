@@ -76,7 +76,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	struct fdinfo_list_entry *le = &fdinfo_list[nr_fdinfo_list];
 	struct fdinfo_desc *desc;
 
-	pr_info("Collect fdinfo pid=%d fd=%ld id=%16lx\n",
+	pr_info("Collect fdinfo pid=%d fd=%ld id=%16x\n",
 		pid, e->addr, e->id);
 
 	nr_fdinfo_list++;

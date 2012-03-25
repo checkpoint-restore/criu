@@ -83,8 +83,8 @@ static void show_files(int fd_files)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %s flags: %4x pos: %8x "
-		       "addr: %16lx id: %8lx",
+		pr_msg("type: %s flags: %4x pos: %lx "
+		       "addr: %16lx id: %8x",
 		       fdtype2s(e.type), e.flags, e.pos, e.addr, e.id);
 
 		if (e.len) {

@@ -46,11 +46,11 @@ enum fd_types {
 
 struct fdinfo_entry {
 	u8	type;
-	u8	len;
+	u16	len;
 	u16	flags;
-	u32	pos;
+	u64	pos;
 	u64	addr;
-	u64	id;
+	u32	id;
 	u8	name[0];
 } __packed;
 
