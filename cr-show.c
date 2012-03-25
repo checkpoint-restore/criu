@@ -83,17 +83,38 @@ static void show_files(int fd_files)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %s flags: %4x pos: %lx "
-		       "addr: %16lx id: %8x",
-		       fdtype2s(e.type), e.rfe.flags, e.rfe.pos, e.addr, e.id);
+		pr_msg("type: %s addr: %16lx id: %8x",
+		       fdtype2s(e.type), e.addr, e.id);
 
-		if (e.rfe.len) {
-			int ret = read(fd_files, local_buf, e.rfe.len);
-			if (ret != e.rfe.len) {
-				pr_perror("Can't read %d bytes", e.rfe.len);
+		pr_msg("\n");
+	}
+
+out:
+	pr_img_tail(CR_FD_FDINFO);
+}
+
+static void show_reg_files(int fd_reg_files)
+{
+	struct reg_file_entry rfe;
+
+	pr_img_head(CR_FD_REG_FILES);
+
+	while (1) {
+		int ret;
+
+		ret = read_img_eof(fd_reg_files, &rfe);
+		if (ret <= 0)
+			goto out;
+
+		pr_msg("id: %8x flags: %4x pos: %lx", rfe.id, rfe.flags, rfe.pos);
+
+		if (rfe.len) {
+			int ret = read(fd_reg_files, local_buf, rfe.len);
+			if (ret != rfe.len) {
+				pr_perror("Can't read %d bytes", rfe.len);
 				goto out;
 			}
-			local_buf[e.rfe.len] = 0;
+			local_buf[rfe.len] = 0;
 			pr_msg(" --> %s", local_buf);
 		}
 
@@ -101,7 +122,7 @@ static void show_files(int fd_files)
 	}
 
 out:
-	pr_img_tail(CR_FD_FDINFO);
+	pr_img_tail(CR_FD_REG_FILES);
 }
 
 static void show_pipes(int fd_pipes)
@@ -520,6 +541,9 @@ static int cr_parse_file(struct cr_options *opts)
 		break;
 	case IPCNS_SEM_MAGIC:
 		show_ipc_sem(fd);
+		break;
+	case REG_FILES_MAGIC:
+		show_reg_files(fd);
 		break;
 	default:
 		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);

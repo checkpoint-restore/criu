@@ -57,7 +57,6 @@ struct fdinfo_entry {
 	u64	addr;
 	u8	type;
 	u32	id;
-	struct reg_file_entry rfe;
 } __packed;
 
 #define fd_is_special(fe)		\

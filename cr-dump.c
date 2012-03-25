@@ -87,6 +87,8 @@ err:
 	return ret;
 }
 
+static int reg_files_fd = -1;
+
 struct fd_parms {
 	unsigned long	fd_name;
 	unsigned long	pos;
@@ -102,23 +104,7 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 			     bool do_close_lfd)
 {
 	struct fdinfo_entry e;
-	char fd_str[128];
-	int len;
 	int ret = -1;
-
-	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
-	len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
-	if (len < 0) {
-		pr_perror("Can't readlink %s", fd_str);
-		goto err;
-	}
-
-	big_buffer[len] = '\0';
-	pr_info("Dumping path for %lx fd via self %d [%s]\n",
-		p->fd_name, lfd, big_buffer);
-
-	if (do_close_lfd)
-		close(lfd);
 
 	e.type	= p->type;
 	e.addr	= p->fd_name;
@@ -128,17 +114,40 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	if (ret < 0)
 		goto err;
 
-	e.rfe.len = len;
-	e.rfe.flags = p->flags;
-	e.rfe.pos = p->pos;
-	e.rfe.id = e.id;
+	if (ret) { /* new ID generated */
+		char fd_str[128];
+		int len;
+		struct reg_file_entry rfe;
 
-	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
-		p->type, len, p->flags, p->pos, p->fd_name);
+		snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
+		len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
+		if (len < 0) {
+			pr_perror("Can't readlink %s", fd_str);
+			goto err;
+		}
+
+		big_buffer[len] = '\0';
+		pr_info("Dumping path for %lx fd via self %d [%s]\n",
+				p->fd_name, lfd, big_buffer);
+
+		rfe.len = len;
+		rfe.flags = p->flags;
+		rfe.pos = p->pos;
+		rfe.id = e.id;
+
+		if (write_img(reg_files_fd, &rfe))
+			goto err;
+		if (write_img_buf(reg_files_fd, big_buffer, len))
+			goto err;
+	}
+
+	if (do_close_lfd)
+		close(lfd);
+
+	pr_info("fdinfo: type: %2x flags: %4x pos: %8lx addr: %16lx\n",
+		p->type, p->flags, p->pos, p->fd_name);
 
 	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
-		goto err;
-	if (write_img_buf(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.rfe.len))
 		goto err;
 
 	ret = 0;
@@ -1478,6 +1487,10 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	collect_sockets();
 
+	reg_files_fd = open_image(CR_FD_REG_FILES, O_RDWR | O_CREAT | O_EXCL);
+	if (reg_files_fd < 0)
+		goto err;
+
 	nr_shmems = 0;
 	shmems = xmalloc(SHMEMS_SIZE);
 	if (!shmems)
@@ -1514,6 +1527,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	fd_id_show_tree();
 err:
+	close(reg_files_fd);
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);
 

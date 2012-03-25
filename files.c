@@ -58,18 +58,6 @@ static struct fdinfo_desc *find_fd(u64 id)
 	return NULL;
 }
 
-static int get_file_path(char *path, struct fdinfo_entry *fe, int fd)
-{
-	if (read(fd, path, fe->rfe.len) != fe->rfe.len) {
-		pr_perror("Error reading path");
-		return -1;
-	}
-
-	path[fe->rfe.len] = '\0';
-
-	return 0;
-}
-
 static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
@@ -147,9 +135,6 @@ int prepare_fd_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		if (e.rfe.len)
-			lseek(fdinfo_fd, e.rfe.len, SEEK_CUR);
-
 		if (fd_is_special(&e))
 			continue;
 
@@ -164,19 +149,49 @@ int prepare_fd_pid(int pid)
 
 static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 {
+	struct reg_file_entry rfe;
 	char path[PATH_MAX];
 	int tmp;
 
-	if (get_file_path(path, fe, fd))
+	/* FIXME This should be made in more optimal way */
+
+	tmp = open_image_ro(CR_FD_REG_FILES);
+	if (tmp < 0)
 		return -1;
 
-	tmp = open(path, fe->rfe.flags);
+	while (1) {
+		int ret;
+
+		ret = read_img_eof(tmp, &rfe);
+		if (ret < 0)
+			return -1;
+
+		if (!ret) {
+			pr_err("Can't find file id %x\n", fe->id);
+			return -1;
+		}
+
+		if (rfe.id == fe->id)
+			break;
+
+		lseek(tmp, rfe.len, SEEK_CUR);
+	}
+
+	if (read(tmp, path, rfe.len) != rfe.len) {
+		pr_perror("Error reading path");
+		return -1;
+	}
+
+	close(tmp);
+	path[rfe.len] = '\0';
+
+	tmp = open(path, rfe.flags);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", path);
 		return -1;
 	}
 
-	lseek(tmp, fe->rfe.pos, SEEK_SET);
+	lseek(tmp, rfe.pos, SEEK_SET);
 
 	return tmp;
 }
@@ -434,10 +449,8 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 		int fdinfo_fd, int state)
 {
-	if (state != FD_STATE_RECV) {
-		lseek(fdinfo_fd, fe->rfe.len, SEEK_CUR);
+	if (state != FD_STATE_RECV)
 		return 0;
-	}
 
 	if (fe->type == FDINFO_MAP)
 		return open_fmap(pid, fe, fdinfo_fd);
@@ -482,11 +495,8 @@ int prepare_fds(int pid)
 			if (fd_is_special(&fe))
 				ret = open_special_fdinfo(pid, &fe,
 						fdinfo_fd, state);
-			else {
-				offset = lseek(fdinfo_fd, 0, SEEK_CUR);
+			else
 				ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
-				lseek(fdinfo_fd, offset + fe.rfe.len, SEEK_SET);
-			}
 
 			if (ret)
 				break;
