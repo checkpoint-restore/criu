@@ -154,7 +154,7 @@ err:
 }
 
 static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
-		pid_t pid, struct fdinfo_entry *fe)
+		pid_t pid, struct fdinfo_entry *fe, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
 	struct fd_id_entry *sub = NULL;
@@ -182,10 +182,12 @@ static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
 		return NULL;
 
 	rb_link_and_balance(&e->subtree_root, &sub->subtree_node, parent, new);
+	*new_id = 1;
 	return sub;
 }
 
-static struct fd_id_entry *fd_id_generate_gen(pid_t pid, struct fdinfo_entry *fe)
+static struct fd_id_entry *fd_id_generate_gen(pid_t pid,
+		struct fdinfo_entry *fe, int *new_id)
 {
 	struct rb_node *node = fd_id_root.rb_node;
 	struct fd_id_entry *e = NULL;
@@ -202,7 +204,7 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid, struct fdinfo_entry *fe
 		else if (fe->id > this->genid)
 			node = node->rb_right, new = &((*new)->rb_right);
 		else
-			return fd_id_generate_sub(this, pid, fe);
+			return fd_id_generate_sub(this, pid, fe, new_id);
 	}
 
 	e = alloc_fd_id_entry(pid, fe);
@@ -210,6 +212,7 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid, struct fdinfo_entry *fe
 		return NULL;
 
 	rb_link_and_balance(&fd_id_root, &e->node, parent, new);
+	*new_id = 1;
 	return e;
 
 }
@@ -217,16 +220,17 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid, struct fdinfo_entry *fe
 int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 {
 	struct fd_id_entry *fid;
+	int new_id = 0;
 
 	if (fd_is_special(fe)) {
 		fe->id = fd_id_entries_subid++;
-		return 0;
+		return 1;
 	}
 
-	fid = fd_id_generate_gen(pid, fe);
+	fid = fd_id_generate_gen(pid, fe, &new_id);
 	if (!fid)
 		return -ENOMEM;
 
 	fe->id = fid->subid;
-	return 0;
+	return new_id;
 }
