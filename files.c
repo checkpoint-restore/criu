@@ -259,8 +259,8 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
-	pr_info("\t%d: Create transport fd for %lx type %d namelen %d users %d\n", pid,
-			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
+	pr_info("\t%d: Create transport fd for %lx users %d\n", pid,
+			fe->addr, fi->users);
 
 	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
@@ -314,8 +314,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	cr_wait_set(&fi->real_pid, getpid());
 
-	pr_info("\t%d: Create fd for %lx type %d namelen %d users %d\n", pid,
-			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
+	pr_info("\t%d: Create fd for %lx users %d\n", pid,
+			fe->addr, fi->users);
 
 	list_for_each_entry(fle, &fi->list, list) {
 		int len;
@@ -360,8 +360,8 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 		return 0;
 	}
 
-	pr_info("\t%d: Receive fd for %lx type %d namelen %d users %d\n", pid,
-			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
+	pr_info("\t%d: Receive fd for %lx users %d\n", pid,
+			fe->addr, fi->users);
 
 	tmp = recv_fd(fe->addr);
 	if (tmp < 0) {
@@ -410,8 +410,8 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;
 
-	pr_info("\t%d: Got fd for %lx type %d namelen %d users %d\n", pid,
-			(unsigned long)fe->addr, fe->type, fe->len, fi->users);
+	pr_info("\t%d: Got fd for %lx users %d\n", pid,
+			fe->addr, fi->users);
 
 	BUG_ON(fe->type != FDINFO_REG);
 
