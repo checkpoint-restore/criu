@@ -99,7 +99,37 @@ struct fd_parms {
 	pid_t		pid;
 };
 
-static int dump_one_reg_file(const struct fd_parms *p, int lfd,
+static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
+{
+	char fd_str[128];
+	int len;
+	struct reg_file_entry rfe;
+
+	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
+	len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
+	if (len < 0) {
+		pr_perror("Can't readlink %s", fd_str);
+		return len;
+	}
+
+	big_buffer[len] = '\0';
+	pr_info("Dumping path for %lx fd via self %d [%s]\n",
+			p->fd_name, lfd, big_buffer);
+
+	rfe.len = len;
+	rfe.flags = p->flags;
+	rfe.pos = p->pos;
+	rfe.id = id;
+
+	if (write_img(reg_files_fd, &rfe))
+		return -1;
+	if (write_img_buf(reg_files_fd, big_buffer, len))
+		return -1;
+
+	return 0;
+}
+
+static int dump_one_fdinfo(const struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset,
 			     bool do_close_lfd)
 {
@@ -111,35 +141,11 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	e.id	= p->id;
 
 	ret = fd_id_generate(p->pid, &e);
+	if (ret == 1) /* new ID generated */
+		ret = dump_one_reg_file(lfd, e.id, p);
+
 	if (ret < 0)
 		goto err;
-
-	if (ret) { /* new ID generated */
-		char fd_str[128];
-		int len;
-		struct reg_file_entry rfe;
-
-		snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
-		len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
-		if (len < 0) {
-			pr_perror("Can't readlink %s", fd_str);
-			goto err;
-		}
-
-		big_buffer[len] = '\0';
-		pr_info("Dumping path for %lx fd via self %d [%s]\n",
-				p->fd_name, lfd, big_buffer);
-
-		rfe.len = len;
-		rfe.flags = p->flags;
-		rfe.pos = p->pos;
-		rfe.id = e.id;
-
-		if (write_img(reg_files_fd, &rfe))
-			goto err;
-		if (write_img_buf(reg_files_fd, big_buffer, len))
-			goto err;
-	}
 
 	if (do_close_lfd)
 		close(lfd);
@@ -170,7 +176,7 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_reg_file(&params, fd, cr_fdset, 1);
+	ret = dump_one_fdinfo(&params, fd, cr_fdset, 1);
 	if (ret)
 		return ret;
 
@@ -184,7 +190,7 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_reg_file(&params, fd, cr_fdset, 1);
+	ret = dump_one_fdinfo(&params, fd, cr_fdset, 1);
 
 	return ret;
 }
@@ -357,7 +363,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, const char *d_name,
 		p.id = MAKE_FD_GENID(fd_stat.st_dev, fd_stat.st_ino, p.pos);
 		p.type = FDINFO_REG;
 
-		return dump_one_reg_file(&p, lfd, cr_fdset, 1);
+		return dump_one_fdinfo(&p, lfd, cr_fdset, 1);
 	}
 
 	if (S_ISFIFO(fd_stat.st_mode))
@@ -481,7 +487,11 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 	else
 		p.flags = O_RDONLY;
 
-	return dump_one_reg_file(&p, file_fd, fdset, 0);
+	/*
+	 * XXX Strictly speaking, no need in full fdinfo here.
+	 * This can be relaxed down to calling dump_one_reg_file.
+	 */
+	return dump_one_fdinfo(&p, file_fd, fdset, 0);
 }
 
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
