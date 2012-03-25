@@ -44,14 +44,19 @@ enum fd_types {
 #define PAGE_RSS	1
 #define PAGE_ANON	2
 
-struct fdinfo_entry {
-	u8	type;
-	u16	len;
-	u16	flags;
-	u64	pos;
-	u64	addr;
+struct reg_file_entry {
 	u32	id;
+	u16	flags;
+	u16	len;
+	u64	pos;
 	u8	name[0];
+} __packed;
+
+struct fdinfo_entry {
+	u64	addr;
+	u8	type;
+	u32	id;
+	struct reg_file_entry rfe;
 } __packed;
 
 #define fd_is_special(fe)		\

@@ -121,9 +121,6 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 		close(lfd);
 
 	e.type	= p->type;
-	e.len	= len;
-	e.flags = p->flags;
-	e.pos	= p->pos;
 	e.addr	= p->fd_name;
 	e.id	= p->id;
 
@@ -131,12 +128,17 @@ static int dump_one_reg_file(const struct fd_parms *p, int lfd,
 	if (ret < 0)
 		goto err;
 
+	e.rfe.len = len;
+	e.rfe.flags = p->flags;
+	e.rfe.pos = p->pos;
+	e.rfe.id = e.id;
+
 	pr_info("fdinfo: type: %2x len: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		p->type, len, p->flags, p->pos, p->fd_name);
 
 	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
 		goto err;
-	if (write_img_buf(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.len))
+	if (write_img_buf(cr_fdset->fds[CR_FD_FDINFO], big_buffer, e.rfe.len))
 		goto err;
 
 	ret = 0;

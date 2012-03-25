@@ -85,15 +85,15 @@ static void show_files(int fd_files)
 
 		pr_msg("type: %s flags: %4x pos: %lx "
 		       "addr: %16lx id: %8x",
-		       fdtype2s(e.type), e.flags, e.pos, e.addr, e.id);
+		       fdtype2s(e.type), e.rfe.flags, e.rfe.pos, e.addr, e.id);
 
-		if (e.len) {
-			int ret = read(fd_files, local_buf, e.len);
-			if (ret != e.len) {
-				pr_perror("Can't read %d bytes", e.len);
+		if (e.rfe.len) {
+			int ret = read(fd_files, local_buf, e.rfe.len);
+			if (ret != e.rfe.len) {
+				pr_perror("Can't read %d bytes", e.rfe.len);
 				goto out;
 			}
-			local_buf[e.len] = 0;
+			local_buf[e.rfe.len] = 0;
 			pr_msg(" --> %s", local_buf);
 		}
 

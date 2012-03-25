@@ -60,12 +60,12 @@ static struct fdinfo_desc *find_fd(u64 id)
 
 static int get_file_path(char *path, struct fdinfo_entry *fe, int fd)
 {
-	if (read(fd, path, fe->len) != fe->len) {
+	if (read(fd, path, fe->rfe.len) != fe->rfe.len) {
 		pr_perror("Error reading path");
 		return -1;
 	}
 
-	path[fe->len] = '\0';
+	path[fe->rfe.len] = '\0';
 
 	return 0;
 }
@@ -147,8 +147,8 @@ int prepare_fd_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		if (e.len)
-			lseek(fdinfo_fd, e.len, SEEK_CUR);
+		if (e.rfe.len)
+			lseek(fdinfo_fd, e.rfe.len, SEEK_CUR);
 
 		if (fd_is_special(&e))
 			continue;
@@ -170,13 +170,13 @@ static int open_fe_fd(struct fdinfo_entry *fe, int fd)
 	if (get_file_path(path, fe, fd))
 		return -1;
 
-	tmp = open(path, fe->flags);
+	tmp = open(path, fe->rfe.flags);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", path);
 		return -1;
 	}
 
-	lseek(tmp, fe->pos, SEEK_SET);
+	lseek(tmp, fe->rfe.pos, SEEK_SET);
 
 	return tmp;
 }
@@ -435,7 +435,7 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 		int fdinfo_fd, int state)
 {
 	if (state != FD_STATE_RECV) {
-		lseek(fdinfo_fd, fe->len, SEEK_CUR);
+		lseek(fdinfo_fd, fe->rfe.len, SEEK_CUR);
 		return 0;
 	}
 
@@ -485,7 +485,7 @@ int prepare_fds(int pid)
 			else {
 				offset = lseek(fdinfo_fd, 0, SEEK_CUR);
 				ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
-				lseek(fdinfo_fd, offset + fe.len, SEEK_SET);
+				lseek(fdinfo_fd, offset + fe.rfe.len, SEEK_SET);
 			}
 
 			if (ret)
