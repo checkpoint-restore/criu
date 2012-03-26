@@ -47,8 +47,10 @@ enum {
 	CR_FD_PSTREE,
 	CR_FD_SHMEM_PAGES,
 
+	_CR_FD_GLOB_FROM,
 	CR_FD_SK_QUEUES,
 	CR_FD_REG_FILES,
+	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
 };
@@ -129,6 +131,8 @@ static inline int fdset_fd(const struct cr_fdset *fdset, int type)
 	return fdset->_fds[idx];
 }
 
+extern struct cr_fdset *glob_fdset;
+
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
 int cr_restore_tasks(pid_t pid, struct cr_options *opts);
 int cr_show(unsigned long pid, struct cr_options *opts);
@@ -140,6 +144,8 @@ int cr_check(void);
 
 struct cr_fdset *cr_task_fdset_open(int pid, int mode);
 struct cr_fdset *cr_ns_fdset_open(int pid, int mode);
+struct cr_fdset *cr_glob_fdset_open(int mode);
+
 void close_cr_fdset(struct cr_fdset **cr_fdset);
 
 void free_mappings(struct list_head *vma_area_list);

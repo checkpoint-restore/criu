@@ -87,8 +87,7 @@ err:
 	return ret;
 }
 
-static int reg_files_fd = -1;
-int sk_queues_fd = -1;
+struct cr_fdset *glob_fdset;
 
 struct fd_parms {
 	unsigned long	fd_name;
@@ -103,7 +102,7 @@ struct fd_parms {
 static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
-	int len;
+	int len, rfd;
 	struct reg_file_entry rfe;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
@@ -122,9 +121,11 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	rfe.pos = p->pos;
 	rfe.id = id;
 
-	if (write_img(reg_files_fd, &rfe))
+	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
+
+	if (write_img(rfd, &rfe))
 		return -1;
-	if (write_img_buf(reg_files_fd, big_buffer, len))
+	if (write_img_buf(rfd, big_buffer, len))
 		return -1;
 
 	return 0;
@@ -1494,12 +1495,8 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	collect_sockets();
 
-	reg_files_fd = open_image(CR_FD_REG_FILES, O_RDWR | O_CREAT | O_EXCL);
-	if (reg_files_fd < 0)
-		goto err;
-
-	sk_queues_fd = open_image(CR_FD_SK_QUEUES, O_RDWR | O_CREAT | O_EXCL);
-	if (sk_queues_fd < 0)
+	glob_fdset = cr_glob_fdset_open(O_DUMP);
+	if (!glob_fdset)
 		goto err;
 
 	nr_shmems = 0;
@@ -1520,8 +1517,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	fd_id_show_tree();
 err:
-	close(sk_queues_fd);
-	close(reg_files_fd);
+	close_cr_fdset(&glob_fdset);
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);
 
