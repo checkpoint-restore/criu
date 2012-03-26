@@ -34,18 +34,18 @@ enum {
 	 * Global entries
 	 */
 
-	CR_FD_PSTREE,
 	CR_FD_UTSNS,
 	CR_FD_IPCNS_VAR,
 	CR_FD_IPCNS_SHM,
 	CR_FD_IPCNS_MSG,
 	CR_FD_IPCNS_SEM,
 
-	CR_FD_SK_QUEUES,
-
 	CR_FD_PID_MAX, /* fmt, pid */
 
+	CR_FD_PSTREE,
 	CR_FD_SHMEM_PAGES,
+
+	CR_FD_SK_QUEUES,
 	CR_FD_REG_FILES,
 
 	CR_FD_MAX
