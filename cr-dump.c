@@ -716,9 +716,8 @@ err:
 	return ret;
 }
 
-static int dump_task_core(struct core_entry *core, const struct cr_fdset *fdset)
+static int dump_task_core(struct core_entry *core, int fd_core)
 {
-	int fd_core = fdset->fds[CR_FD_CORE];
 	int ret;
 
 	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
@@ -729,10 +728,7 @@ static int dump_task_core(struct core_entry *core, const struct cr_fdset *fdset)
 	core->header.arch	= HEADER_ARCH_X86_64;
 	core->header.flags	= 0;
 
-	ret = write_img(fd_core, core);
-
-	free(core);
-	return ret;
+	return write_img(fd_core, core);
 }
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
@@ -790,7 +786,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
 
-	return dump_task_core(core, cr_fdset);
+	ret = dump_task_core(core, cr_fdset->fds[CR_FD_CORE]);
 
 err_free:
 	free(core);
@@ -1183,17 +1179,17 @@ err:
 	return ret;
 }
 
-static int dump_task_thread(struct parasite_ctl *parasite_ctl,
-			    pid_t pid, const struct cr_fdset *cr_fdset)
+static int dump_task_thread(struct parasite_ctl *parasite_ctl, pid_t pid)
 {
-	struct core_entry *core		= xzalloc(sizeof(*core));
-	int ret				= -1;
+	struct core_entry *core;
+	int ret = -1, fd_core;
 	unsigned int *taddr;
 
 	pr_info("\n");
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
+	core = xzalloc(sizeof(*core));
 	if (!core)
 		goto err;
 
@@ -1205,7 +1201,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	ret = parasite_dump_tid_addr_seized(parasite_ctl, pid, &taddr);
 	if (ret) {
 		pr_err("Can't dump tid address for pid %d", pid);
-		goto err;
+		goto err_free;
 	}
 
 	pr_info("%d: tid_address=%p\n", pid, taddr);
@@ -1216,35 +1212,43 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
 
-	return dump_task_core(core, cr_fdset);
+	fd_core = open_image(CR_FD_CORE, O_RDWR | O_CREAT | O_EXCL, pid);
+	if (fd_core < 0)
+		goto err_free;
 
+	ret = dump_task_core(core, fd_core);
+
+	close(fd_core);
 err_free:
 	free(core);
 err:
 	pr_info("----------------------------------------\n");
-
 	return ret;
 }
 
 static int dump_one_zombie(const struct pstree_item *item,
-			   const struct proc_pid_stat *pps,
-			   struct cr_fdset *cr_fdset)
+			   const struct proc_pid_stat *pps)
 {
 	struct core_entry *core;
-	int ret;
-
-	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_CORE, cr_fdset);
-	if (cr_fdset == NULL)
-		return -1;
+	int ret = -1, fd_core;
 
 	core = xzalloc(sizeof(*core));
 	if (core == NULL)
-		return -1;
+		goto err;
 
 	core->tc.task_state = TASK_DEAD;
 	core->tc.exit_code = pps->exit_code;
 
-	return dump_task_core(core, cr_fdset);
+	fd_core = open_image(CR_FD_CORE, O_RDWR | O_CREAT | O_EXCL, item->pid);
+	if (fd_core < 0)
+		goto err_free;
+
+	ret = dump_task_core(core, fd_core);
+	close(fd_core);
+err_free:
+	xfree(core);
+err:
+	return ret;
 }
 
 static struct proc_pid_stat pps_buf;
@@ -1253,7 +1257,6 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 			     const struct pstree_item *item)
 {
 	int i;
-	struct cr_fdset *cr_fdset_thread = NULL;
 
 	if (item->nr_threads == 1)
 		return 0;
@@ -1263,22 +1266,11 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 		if (item->pid == item->threads[i])
 			continue;
 
-		cr_fdset_thread = cr_dump_fdset_open(item->threads[i], CR_FD_DESC_CORE, NULL);
-		if (!cr_fdset_thread)
-			goto err;
-
-		if (dump_task_thread(parasite_ctl,
-					item->threads[i], cr_fdset_thread))
-			goto err;
-
-		close_cr_fdset(&cr_fdset_thread);
+		if (dump_task_thread(parasite_ctl, item->threads[i]))
+			return -1;
 	}
 
 	return 0;
-
-err:
-	close_cr_fdset(&cr_fdset_thread);
-	return -1;
 }
 
 static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fdset)
@@ -1305,7 +1297,7 @@ static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fds
 		goto err;
 
 	if (item->state == TASK_DEAD)
-		return dump_one_zombie(item, &pps_buf, cr_fdset);
+		return dump_one_zombie(item, &pps_buf);
 
 	ret = -1;
 	if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
