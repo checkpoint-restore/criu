@@ -46,7 +46,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		write_string(" killed by signal ");
 	write_num_n(siginfo->si_status);
 
-	cr_wait_set(&task_entries->nr_in_progress, -1);
+	futex_set_and_wake(&task_entries->nr_in_progress, -1);
 	/* sa_restorer may be unmaped, so we can't go back to userspace*/
 	sys_kill(sys_getpid(), SIGSTOP);
 	sys_exit(1);
@@ -209,13 +209,13 @@ long restore_thread(struct thread_restore_args *args)
 	 */
 
 	restore_creds(NULL);
-	cr_wait_dec(&task_entries->nr_in_progress);
+	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	write_num(sys_gettid());
 	write_string_n(": Restored");
 
-	cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
-	cr_wait_dec(&task_entries->nr_in_progress);
+	futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
+	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	new_sp = (long)rt_sigframe + 8;
 	asm volatile(
@@ -423,7 +423,7 @@ long restore_task(struct task_restore_core_args *args)
 						  vma_entry->shmid);
 			if (entry && entry->pid == my_pid &&
 			    entry->start == vma_entry->start)
-				cr_wait_set(&entry->lock, 1);
+				futex_set_and_wake(&entry->lock, 1);
 		}
 
 		if (vma_entry->prot & PROT_WRITE)
@@ -652,20 +652,20 @@ long restore_task(struct task_restore_core_args *args)
 
 	restore_creds(&args->creds);
 
-	cr_wait_dec(&args->task_entries->nr_in_progress);
+	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
 	write_num(sys_getpid());
 	write_string_n(": Restored");
 
-	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
+	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL);
 
-	cr_wait_dec(&args->task_entries->nr_in_progress);
+	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
 	sys_close(args->logfd);
 
-	cr_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 
 	/*
 	 * The code that prepared the itimers makes shure the

@@ -3,6 +3,7 @@
 
 #include "compiler.h"
 #include "types.h"
+#include "lock.h"
 #include "list.h"
 #include "image.h"
 
@@ -25,8 +26,8 @@ struct fdinfo_desc {
 	u64			id;
 	u64			addr;
 	int			pid;
-	u32			real_pid;	/* futex */
-	u32			users;		/* futex */
+	futex_t			real_pid;
+	futex_t			users;
 	struct list_head	list;
 };
 
@@ -34,7 +35,7 @@ struct fdinfo_list_entry {
 	struct list_head	list;
 	int			fd;
 	int			pid;
-	u32			real_pid;
+	futex_t			real_pid;
 };
 
 extern int prepare_fds(int pid);

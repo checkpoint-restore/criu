@@ -75,7 +75,8 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	le->pid = pid;
 	le->fd = e->addr;
-	le->real_pid = 0;
+
+	futex_init(&le->real_pid);
 
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		desc = &fdinfo_descs[i];
@@ -83,7 +84,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 		if (desc->id != e->id)
 			continue;
 
-		fdinfo_descs[i].users++;
+		futex_inc(&fdinfo_descs[i].users);
 		list_add(&le->list, &desc->list);
 
 		if (fdinfo_descs[i].pid < pid)
@@ -106,8 +107,8 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	desc->id	= e->id;
 	desc->addr	= e->addr;
 	desc->pid	= pid;
-	desc->users	= 1;
 	INIT_LIST_HEAD(&desc->list);
+	futex_set(&desc->users, 1);
 
 	list_add(&le->list, &desc->list);
 	nr_fdinfo_descs++;
@@ -275,7 +276,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
 	pr_info("\t%d: Create transport fd for %lx users %d\n", pid,
-			fe->addr, fi->users);
+			fe->addr, futex_get(&fi->users));
 
 	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
@@ -295,7 +296,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 		return -1;
 
 	pr_info("Wake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
-	cr_wait_set(&fle->real_pid, getpid());
+	futex_set_and_wake(&fle->real_pid, getpid());
 
 	return 0;
 }
@@ -318,7 +319,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if (reopen_fd_as((int)fe->addr, tmp))
 		return -1;
 
-	if (fi->users == 1)
+	if (futex_get(&fi->users) == 1)
 		goto out;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -327,24 +328,24 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		return -1;
 	}
 
-	cr_wait_set(&fi->real_pid, getpid());
+	futex_set_and_wake(&fi->real_pid, getpid());
 
 	pr_info("\t%d: Create fd for %lx users %d\n", pid,
-			fe->addr, fi->users);
+			fe->addr, futex_get(&fi->users));
 
 	list_for_each_entry(fle, &fi->list, list) {
 		int len;
 
-		fi->users--;
+		futex_dec(&fi->users);
 
 		if (pid == fle->pid)
 			continue;
 
 		pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
-		cr_wait_while(&fle->real_pid, 0);
+		futex_wait_while(&fle->real_pid, 0);
 
 		pr_info("Send fd %d to %s\n", (int)fe->addr, saddr.sun_path + 1);
-		transport_name_gen(&saddr, &len, fle->real_pid, fle->fd);
+		transport_name_gen(&saddr, &len, futex_get(&fle->real_pid), fle->fd);
 
 		if (send_fd(sock, &saddr, len, fe->addr) < 0) {
 			pr_perror("Can't send file descriptor");
@@ -352,7 +353,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		}
 	}
 
-	BUG_ON(fi->users);
+	BUG_ON(futex_get(&fi->users));
 	close(sock);
 out:
 	return 0;
@@ -376,7 +377,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 	}
 
 	pr_info("\t%d: Receive fd for %lx users %d\n", pid,
-			fe->addr, fi->users);
+			fe->addr, futex_get(&fi->users));
 
 	tmp = recv_fd(fe->addr);
 	if (tmp < 0) {
@@ -426,7 +427,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 		return -1;
 
 	pr_info("\t%d: Got fd for %lx users %d\n", pid,
-			fe->addr, fi->users);
+			fe->addr, futex_get(&fi->users));
 
 	BUG_ON(fe->type != FDINFO_REG);
 

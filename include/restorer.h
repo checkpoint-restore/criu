@@ -198,7 +198,7 @@ struct shmem_info {
 	unsigned long	size;
 	int		pid;
 	int		fd;
-	u32		lock;		/* futex */
+	futex_t		lock;
 };
 
 struct shmems {
@@ -216,8 +216,8 @@ enum {
 
 struct task_entries {
 	int nr;
-	u32 nr_in_progress;
-	u32 start; //futex
+	futex_t nr_in_progress;
+	futex_t start;
 };
 
 static always_inline struct shmem_info *

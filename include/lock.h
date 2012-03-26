@@ -11,86 +11,73 @@
 #include "syscall.h"
 #include "util.h"
 
-/*
- * Init futex @v value
- */
-static always_inline void cr_wait_init(u32 *v)
+typedef struct {
+	u32	raw;
+} futex_t;
+
+/* Get current futex @f value */
+static inline u32 futex_get(futex_t *f)
 {
-	u32 val = 0;
-	atomic_set(v, val);
+	return atomic_get(&f->raw);
 }
 
-/*
- * Set futex @v value to @val and wake up all waiters
- */
-static always_inline void cr_wait_set(u32 *v, u32 val)
+/* Set futex @f value to @v */
+static inline void futex_set(futex_t *f, u32 v)
 {
-	int ret;
-
-	atomic_set(v, val);
-
-	ret = sys_futex(v, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
-	BUG_ON(ret < 0);
+	atomic_set(&f->raw, v);
 }
 
-/*
- * Decrement futex @v value to @val and wake up all waiters
- */
-static always_inline void cr_wait_dec(u32 *v)
+#define futex_init(f)	futex_set(f, 0)
+
+/* Wait on futex @__f value @__v become in condition @__c */
+#define futex_wait_if_cond(__f, __v, __cond)			\
+	do {							\
+		int ret;					\
+		u32 tmp;					\
+								\
+		while (1) {					\
+			tmp = (__f)->raw;			\
+			if (tmp __cond (__v))			\
+				break;				\
+			ret = sys_futex(&(__f)->raw, FUTEX_WAIT,\
+					tmp, NULL, NULL, 0);	\
+			BUG_ON(ret < 0 && ret != -EWOULDBLOCK);	\
+		}						\
+	} while (0)
+
+/* Set futex @f to @v and wake up all waiters */
+static inline void futex_set_and_wake(futex_t *f, u32 v)
 {
-	int ret;
-
-	atomic_dec(v);
-
-	ret = sys_futex(v, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
-	BUG_ON(ret < 0);
+	atomic_set(&f->raw, v);
+	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
-/*
- * Wait until futex @v value become @val
- */
-static always_inline void cr_wait_until(u32 *v, u32 val)
+/* Decrement futex @f value and wake up all waiters */
+static inline void futex_dec_and_wake(futex_t *f)
 {
-	int ret;
-	u32 tmp;
-
-	while (1) {
-		tmp = *v;
-		if (tmp == val)
-			break;
-		ret = sys_futex(v, FUTEX_WAIT, tmp, NULL, NULL, 0);
-		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
-	}
+	atomic_dec(&f->raw);
+	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
-/*
- * Wait until futex @v value greater than @val
- */
-static always_inline s32 cr_wait_until_greater(u32 *v, s32 val)
+/* Plain increment futex @f value */
+static inline void futex_inc(futex_t *f) { f->raw++; }
+
+/* Plain decrement futex @f value */
+static inline void futex_dec(futex_t *f) { f->raw--; }
+
+/* Wait until futex @f value become @v */
+static inline void futex_wait_until(futex_t *f, u32 v)
+{ futex_wait_if_cond(f, v, ==); }
+
+/* Wait while futex @f value is greater than @v */
+static inline void futex_wait_while_gt(futex_t *f, u32 v)
+{ futex_wait_if_cond(f, v, <=); }
+
+/* Wait while futex @f value is @v */
+static inline void futex_wait_while(futex_t *f, u32 v)
 {
-	int ret;
-	s32 tmp;
-
-	while (1) {
-		tmp = *v;
-		if (tmp <= val)
-			break;
-		ret = sys_futex(v, FUTEX_WAIT, tmp, NULL, NULL, 0);
-		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
-	}
-
-	return tmp;
-}
-
-/*
- * Wait while futex @v value is @val
- */
-static always_inline void cr_wait_while(u32 *v, u32 val)
-{
-	int ret;
-
-	while (*v == val) {
-		ret = sys_futex(v, FUTEX_WAIT, val, NULL, NULL, 0);
+	while (f->raw == v) {
+		int ret = sys_futex(&f->raw, FUTEX_WAIT, v, NULL, NULL, 0);
 		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }

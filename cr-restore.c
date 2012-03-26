@@ -58,11 +58,11 @@
 struct pipe_info {
 	unsigned int	pipeid;
 	int		pid;
-	u32		real_pid;	/* futex */
 	int		read_fd;
 	int		write_fd;
 	int		status;
-	u32		users;		/* futex */
+	futex_t		real_pid;
+	futex_t		users;
 };
 
 struct shmem_id {
@@ -126,7 +126,7 @@ static void show_saved_pipes(void)
 	for (i = 0; i < nr_pipes; i++)
 		pr_info("\t\tpipeid %x pid %d users %d status %d\n",
 			pipes[i].pipeid, pipes[i].pid,
-			pipes[i].users, pipes[i].status);
+			futex_get(&pipes[i].users), pipes[i].status);
 }
 
 static struct pipe_info *find_pipe(unsigned int pipeid)
@@ -153,7 +153,7 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 		si->pid, si->start, si->end);
 
 	pr_info("%d: Waiting for [%s] to appear\n", pid, path);
-	cr_wait_until(&si->lock, 1);
+	futex_wait_until(&si->lock, 1);
 
 	pr_info("%d: Opening shmem [%s] \n", pid, path);
 	ret = open(path, O_RDWR);
@@ -212,7 +212,7 @@ static int collect_shmem(int pid, struct vma_entry *vi)
 	si->size  = size;
 	si->fd    = -1;
 
-	cr_wait_init(&si->lock);
+	futex_init(&si->lock);
 
 	return 0;
 }
@@ -290,7 +290,7 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 				break;
 			}
 		} else
-			pipes[i].users++;
+			futex_inc(&pipes[i].users);
 
 		return 0;
 	}
@@ -304,9 +304,10 @@ static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
 
 	pipes[nr_pipes].pipeid	= e->pipeid;
 	pipes[nr_pipes].pid	= pid;
-	pipes[nr_pipes].users	= 0;
 	pipes[nr_pipes].read_fd = -1;
 	pipes[nr_pipes].write_fd = -1;
+
+	futex_init(&pipes[nr_pipes].users);
 
 	switch (e->flags & O_ACCMODE) {
 	case O_RDONLY:
@@ -399,7 +400,7 @@ static int prepare_shared(int ps_fd)
 		return -1;
 	}
 	task_entries->nr = 0;
-	task_entries->start = CR_STATE_RESTORE;
+	futex_set(&task_entries->start, CR_STATE_RESTORE);
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
@@ -437,7 +438,7 @@ static int prepare_shared(int ps_fd)
 	}
 
 	if (!ret) {
-		task_entries->nr_in_progress = task_entries->nr;
+		futex_set(&task_entries->nr_in_progress, task_entries->nr);
 
 		lseek(ps_fd, sizeof(u32), SEEK_SET);
 
@@ -664,18 +665,18 @@ static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd, pipes_fd))
 		return -1;
 
-	cr_wait_set(&pi->real_pid, pid);
+	futex_set_and_wake(&pi->real_pid, pid);
 
 	pi->status |= PIPE_CREATED;
 
 	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
-		pid, pi->users, pi->real_pid, pi->read_fd, pi->write_fd);
+		pid, futex_get(&pi->users), futex_get(&pi->real_pid), pi->read_fd, pi->write_fd);
 
 	if (!pipe_is_rw(pi)) {
 		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
-				pid, e->pipeid, pi->users);
+				pid, e->pipeid, futex_get(&pi->users));
 
-		cr_wait_until(&pi->users, 0);
+		futex_wait_until(&pi->users, 0);
 
 		if ((e->flags & O_ACCMODE) == O_WRONLY)
 			close_safe(&pi->read_fd);
@@ -717,7 +718,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	pr_info("\t%d: Waiting for pipe %x to appear\n",
 		pid, e->pipeid);
 
-	cr_wait_while(&pi->real_pid, 0);
+	futex_wait_while(&pi->real_pid, 0);
 
 	if (move_img_fd(pipes_fd, e->fd))
 			return -1;
@@ -740,9 +741,9 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 		goto out;
 	}
 
-	sprintf(path, "/proc/%d/fd/%d", pi->real_pid, tmp);
+	sprintf(path, "/proc/%d/fd/%d", futex_get(&pi->real_pid), tmp);
 	pr_info("\t%d: Attaching pipe %s (%d users left)\n",
-		pid, path, pi->users - 1);
+		pid, path, futex_get(&pi->users) - 1);
 
 	fd = open(path, e->flags);
 	if (fd < 0) {
@@ -754,7 +755,7 @@ static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int 
 	if (reopen_fd_as(e->fd, fd))
 		return -1;
 
-	cr_wait_dec(&pi->users);
+	futex_dec_and_wake(&pi->users);
 out:
 	tmp = set_fd_flags(e->fd, e->flags);
 	if (tmp < 0)
@@ -973,13 +974,13 @@ static int restore_one_zombie(int pid, int exit_code)
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
 	if (task_entries != NULL) {
-		cr_wait_dec(&task_entries->nr_in_progress);
-		cr_wait_while(&task_entries->start, CR_STATE_RESTORE);
+		futex_dec_and_wake(&task_entries->nr_in_progress);
+		futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
 
 		zombie_prepare_signals();
 
-		cr_wait_dec(&task_entries->nr_in_progress);
-		cr_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+		futex_dec_and_wake(&task_entries->nr_in_progress);
+		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	}
 
 	if (exit_code & 0x7f) {
@@ -1124,7 +1125,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		pr_err("%d killed by signal %d\n",
 			siginfo->si_pid, siginfo->si_status);
 
-	cr_wait_set(&task_entries->nr_in_progress, -1);
+	futex_set_and_wake(&task_entries->nr_in_progress, -1);
 }
 
 static int restore_task_with_children(void *_arg)
@@ -1259,7 +1260,9 @@ static int restore_root_task(int fd, struct cr_options *opts)
 		return -1;
 
 	pr_info("Wait until all tasks are restored\n");
-	ret = cr_wait_until_greater(&task_entries->nr_in_progress, 0);
+	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
+	ret = (int)futex_get(&task_entries->nr_in_progress);
+
 out:
 	if (ret < 0) {
 		pr_err("Someone can't be restored\n");
@@ -1268,9 +1271,9 @@ out:
 		return 1;
 	}
 
-	cr_wait_set(&task_entries->nr_in_progress, task_entries->nr);
-	cr_wait_set(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
-	cr_wait_until(&task_entries->nr_in_progress, 0);
+	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
+	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	futex_wait_until(&task_entries->nr_in_progress, 0);
 
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
@@ -1279,7 +1282,7 @@ out:
 	}
 
 	pr_info("Go on!!!\n");
-	cr_wait_set(&task_entries->start, CR_STATE_COMPLETE);
+	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (!opts->restore_detach)
 		wait(NULL);
