@@ -1274,7 +1274,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	return 0;
 }
 
-static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fdset)
+static int dump_one_task(const struct pstree_item *item)
 {
 	pid_t pid = item->pid;
 	LIST_HEAD(vma_area_list);
@@ -1282,6 +1282,7 @@ static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fds
 	int ret = -1;
 	struct parasite_dump_misc misc;
 	struct sk_queue sk_queue = { };
+	struct cr_fdset *cr_fdset;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1301,7 +1302,8 @@ static int dump_one_task(const struct pstree_item *item, struct cr_fdset *cr_fds
 		return dump_one_zombie(item, &pps_buf);
 
 	ret = -1;
-	if (!cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK, cr_fdset))
+	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK, NULL);
+	if (!cr_fdset)
 		goto err;
 
 	ret = collect_mappings(pid, &vma_area_list);
@@ -1504,16 +1506,8 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		goto err;
 
 	list_for_each_entry(item, &pstree_list, list) {
-		struct cr_fdset *cr_fdset = NULL;
-
-		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
-		if (!cr_fdset)
+		if (dump_one_task(item))
 			goto err;
-
-		if (dump_one_task(item, cr_fdset))
-			goto err;
-
-		close_cr_fdset(&cr_fdset);
 
 		if (opts->leader_only)
 			break;
