@@ -1285,7 +1285,7 @@ static int dump_one_task(const struct pstree_item *item)
 	int ret = -1;
 	struct parasite_dump_misc misc;
 	struct sk_queue sk_queue = { };
-	struct cr_fdset *cr_fdset;
+	struct cr_fdset *cr_fdset = NULL;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1387,6 +1387,7 @@ static int dump_one_task(const struct pstree_item *item)
 		goto err;
 	}
 err:
+	close_cr_fdset(&cr_fdset);
 	close_pid_proc();
 err_free:
 	free_mappings(&vma_area_list);
