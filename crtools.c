@@ -145,15 +145,22 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	},
 };
 
-static struct cr_fdset *alloc_cr_fdset(void)
+static struct cr_fdset *alloc_cr_fdset(int nr)
 {
 	struct cr_fdset *cr_fdset;
 	unsigned int i;
 
 	cr_fdset = xmalloc(sizeof(*cr_fdset));
-	if (cr_fdset)
-		for (i = 0; i < CR_FD_PID_MAX; i++)
-			cr_fdset->_fds[i] = -1;
+	if (cr_fdset == NULL)
+		return NULL;
+
+	cr_fdset->_fds = xmalloc(nr * sizeof(int));
+	if (cr_fdset->_fds == NULL) {
+		xfree(cr_fdset);
+		return NULL;
+	}
+
+	cr_fdset->fd_nr = nr;
 	return cr_fdset;
 }
 
@@ -164,7 +171,7 @@ static void __close_cr_fdset(struct cr_fdset *cr_fdset)
 	if (!cr_fdset)
 		return;
 
-	for (i = 0; i < CR_FD_PID_MAX; i++) {
+	for (i = 0; i < cr_fdset->fd_nr; i++) {
 		if (cr_fdset->_fds[i] == -1)
 			continue;
 		close_safe(&cr_fdset->_fds[i]);
@@ -179,30 +186,25 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 
 	__close_cr_fdset(*cr_fdset);
 
+	xfree((*cr_fdset)->_fds);
 	xfree(*cr_fdset);
 	*cr_fdset = NULL;
 }
 
-#define CR_FD_DESC_USE(type)		((1 << (type)))
-
-static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
+static struct cr_fdset *cr_fdset_open(int pid, int from, int to,
 			       unsigned long flags)
 {
 	struct cr_fdset *fdset;
 	unsigned int i;
 	int ret = -1;
 
-	fdset = alloc_cr_fdset();
+	fdset = alloc_cr_fdset(to - from);
 	if (!fdset)
 		goto err;
 
-	for (i = 0; i < CR_FD_PID_MAX; i++) {
-		if (!(use_mask & CR_FD_DESC_USE(i)))
-			continue;
-
-		if (fdset->_fds[i] != -1)
-			continue;
-
+	from++;
+	fdset->fd_off = from;
+	for (i = from; i < to; i++) {
 		ret = open_image(i, flags, pid);
 		if (ret < 0) {
 			if (!(flags & O_CREAT))
@@ -211,7 +213,7 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 			goto err;
 		}
 
-		fdset->_fds[i] = ret;
+		fdset->_fds[i - from] = ret;
 	}
 
 	return fdset;
@@ -221,33 +223,14 @@ err:
 	return NULL;
 }
 
-#define CR_FD_DESC_TASK				(\
-	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
-	CR_FD_DESC_USE(CR_FD_PAGES)		|\
-	CR_FD_DESC_USE(CR_FD_CORE)		|\
-	CR_FD_DESC_USE(CR_FD_VMAS)		|\
-	CR_FD_DESC_USE(CR_FD_PIPES)		|\
-	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
-	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
-	CR_FD_DESC_USE(CR_FD_INETSK)		|\
-	CR_FD_DESC_USE(CR_FD_ITIMERS)		|\
-	CR_FD_DESC_USE(CR_FD_CREDS)		)
-
 struct cr_fdset *cr_task_fdset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, CR_FD_DESC_TASK, mode);
+	return cr_fdset_open(pid, _CR_FD_TASK_FROM, _CR_FD_TASK_TO, mode);
 }
-
-#define CR_FD_DESC_NS				(\
-	CR_FD_DESC_USE(CR_FD_UTSNS)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_VAR)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_MSG)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_SEM)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_SHM)		)
 
 struct cr_fdset *cr_ns_fdset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, CR_FD_DESC_NS, mode);
+	return cr_fdset_open(pid, _CR_FD_NS_FROM, _CR_FD_NS_TO, mode);
 }
 
 static int parse_ns_string(const char *ptr, unsigned int *flags)

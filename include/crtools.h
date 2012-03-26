@@ -5,7 +5,7 @@
 
 #include "types.h"
 #include "list.h"
-
+#include "util.h"
 #include "image.h"
 
 extern struct page_entry zero_page_entry;
@@ -19,6 +19,7 @@ enum {
 	 * Task entries
 	 */
 
+	_CR_FD_TASK_FROM,
 	CR_FD_FDINFO,
 	CR_FD_PAGES,
 	CR_FD_CORE,
@@ -29,18 +30,19 @@ enum {
 	CR_FD_INETSK,
 	CR_FD_ITIMERS,
 	CR_FD_CREDS,
+	_CR_FD_TASK_TO,
 
 	/*
-	 * Global entries
+	 * NS entries
 	 */
 
+	_CR_FD_NS_FROM,
 	CR_FD_UTSNS,
 	CR_FD_IPCNS_VAR,
 	CR_FD_IPCNS_SHM,
 	CR_FD_IPCNS_MSG,
 	CR_FD_IPCNS_SEM,
-
-	CR_FD_PID_MAX, /* fmt, pid */
+	_CR_FD_NS_TO,
 
 	CR_FD_PSTREE,
 	CR_FD_SHMEM_PAGES,
@@ -112,12 +114,19 @@ extern int open_image_ro_nocheck(const char *fmt, ...);
 #define LAST_PID_PERM		0666
 
 struct cr_fdset {
-	int _fds[CR_FD_PID_MAX];
+	int fd_off;
+	int fd_nr;
+	int *_fds;
 };
 
 static inline int fdset_fd(const struct cr_fdset *fdset, int type)
 {
-	return fdset->_fds[type];
+	int idx;
+
+	idx = type - fdset->fd_off;
+	BUG_ON(idx > fdset->fd_nr);
+
+	return fdset->_fds[idx];
 }
 
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
