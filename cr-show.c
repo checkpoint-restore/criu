@@ -589,7 +589,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 	list_for_each_entry(item, &pstree_list, list) {
 		struct cr_fdset *cr_fdset = NULL;
 
-		cr_fdset = cr_show_fdset_open(item->pid, CR_FD_DESC_TASK);
+		cr_fdset = cr_task_fdset_open(item->pid, O_SHOW);
 		if (!cr_fdset)
 			goto out;
 

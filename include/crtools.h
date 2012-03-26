@@ -120,36 +120,17 @@ static inline int fdset_fd(const struct cr_fdset *fdset, int type)
 	return fdset->_fds[type];
 }
 
-#define CR_FD_DESC_USE(type)		((1 << (type)))
-#define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)
-#define CR_FD_DESC_PSTREE		CR_FD_DESC_USE(CR_FD_PSTREE)
-#define CR_FD_DESC_TASK				(\
-	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
-	CR_FD_DESC_USE(CR_FD_PAGES)		|\
-	CR_FD_DESC_USE(CR_FD_CORE)		|\
-	CR_FD_DESC_USE(CR_FD_VMAS)		|\
-	CR_FD_DESC_USE(CR_FD_PIPES)		|\
-	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
-	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
-	CR_FD_DESC_USE(CR_FD_INETSK)		|\
-	CR_FD_DESC_USE(CR_FD_ITIMERS)		|\
-	CR_FD_DESC_USE(CR_FD_CREDS)		)
-#define CR_FD_DESC_NS				(\
-	CR_FD_DESC_USE(CR_FD_UTSNS)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_VAR)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_MSG)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_SEM)		|\
-	CR_FD_DESC_USE(CR_FD_IPCNS_SHM)		)
-#define CR_FD_DESC_NONE			(0)
-
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
 int cr_restore_tasks(pid_t pid, struct cr_options *opts);
 int cr_show(unsigned long pid, struct cr_options *opts);
 int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
 
-struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask);
-struct cr_fdset *cr_show_fdset_open(int pid, unsigned long use_mask);
+#define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
+#define O_SHOW	(O_RDONLY)
+
+struct cr_fdset *cr_task_fdset_open(int pid, int mode);
+struct cr_fdset *cr_ns_fdset_open(int pid, int mode);
 void close_cr_fdset(struct cr_fdset **cr_fdset);
 
 void free_mappings(struct list_head *vma_area_list);

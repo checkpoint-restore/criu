@@ -183,6 +183,8 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 	*cr_fdset = NULL;
 }
 
+#define CR_FD_DESC_USE(type)		((1 << (type)))
+
 static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 			       unsigned long flags)
 {
@@ -219,14 +221,33 @@ err:
 	return NULL;
 }
 
-struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask)
+#define CR_FD_DESC_TASK				(\
+	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
+	CR_FD_DESC_USE(CR_FD_PAGES)		|\
+	CR_FD_DESC_USE(CR_FD_CORE)		|\
+	CR_FD_DESC_USE(CR_FD_VMAS)		|\
+	CR_FD_DESC_USE(CR_FD_PIPES)		|\
+	CR_FD_DESC_USE(CR_FD_SIGACT)		|\
+	CR_FD_DESC_USE(CR_FD_UNIXSK)		|\
+	CR_FD_DESC_USE(CR_FD_INETSK)		|\
+	CR_FD_DESC_USE(CR_FD_ITIMERS)		|\
+	CR_FD_DESC_USE(CR_FD_CREDS)		)
+
+struct cr_fdset *cr_task_fdset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, use_mask, O_RDWR | O_CREAT | O_EXCL);
+	return cr_fdset_open(pid, CR_FD_DESC_TASK, mode);
 }
 
-struct cr_fdset *cr_show_fdset_open(int pid, unsigned long use_mask)
+#define CR_FD_DESC_NS				(\
+	CR_FD_DESC_USE(CR_FD_UTSNS)		|\
+	CR_FD_DESC_USE(CR_FD_IPCNS_VAR)		|\
+	CR_FD_DESC_USE(CR_FD_IPCNS_MSG)		|\
+	CR_FD_DESC_USE(CR_FD_IPCNS_SEM)		|\
+	CR_FD_DESC_USE(CR_FD_IPCNS_SHM)		)
+
+struct cr_fdset *cr_ns_fdset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, use_mask, O_RDONLY);
+	return cr_fdset_open(pid, CR_FD_DESC_NS, mode);
 }
 
 static int parse_ns_string(const char *ptr, unsigned int *flags)

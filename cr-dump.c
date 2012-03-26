@@ -1304,7 +1304,7 @@ static int dump_one_task(const struct pstree_item *item)
 		return dump_one_zombie(item, &pps_buf);
 
 	ret = -1;
-	cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_TASK);
+	cr_fdset = cr_task_fdset_open(item->pid, O_DUMP);
 	if (!cr_fdset)
 		goto err;
 
