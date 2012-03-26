@@ -153,7 +153,7 @@ static struct cr_fdset *alloc_cr_fdset(void)
 	cr_fdset = xmalloc(sizeof(*cr_fdset));
 	if (cr_fdset)
 		for (i = 0; i < CR_FD_PID_MAX; i++)
-			cr_fdset->fds[i] = -1;
+			cr_fdset->_fds[i] = -1;
 	return cr_fdset;
 }
 
@@ -165,10 +165,10 @@ static void __close_cr_fdset(struct cr_fdset *cr_fdset)
 		return;
 
 	for (i = 0; i < CR_FD_PID_MAX; i++) {
-		if (cr_fdset->fds[i] == -1)
+		if (cr_fdset->_fds[i] == -1)
 			continue;
-		close_safe(&cr_fdset->fds[i]);
-		cr_fdset->fds[i] = -1;
+		close_safe(&cr_fdset->_fds[i]);
+		cr_fdset->_fds[i] = -1;
 	}
 }
 
@@ -198,7 +198,7 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 		if (!(use_mask & CR_FD_DESC_USE(i)))
 			continue;
 
-		if (fdset->fds[i] != -1)
+		if (fdset->_fds[i] != -1)
 			continue;
 
 		ret = open_image(i, flags, pid);
@@ -209,7 +209,7 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 			goto err;
 		}
 
-		fdset->fds[i] = ret;
+		fdset->_fds[i] = ret;
 	}
 
 	return fdset;

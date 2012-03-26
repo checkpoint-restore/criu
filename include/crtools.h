@@ -112,8 +112,13 @@ extern int open_image_ro_nocheck(const char *fmt, ...);
 #define LAST_PID_PERM		0666
 
 struct cr_fdset {
-	int fds[CR_FD_PID_MAX];
+	int _fds[CR_FD_PID_MAX];
 };
+
+static inline int fdset_fd(const struct cr_fdset *fdset, int type)
+{
+	return fdset->_fds[type];
+}
 
 #define CR_FD_DESC_USE(type)		((1 << (type)))
 #define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)

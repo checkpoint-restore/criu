@@ -36,7 +36,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 		return ret;
 	}
 
-	fd = fdset->fds[CR_FD_UTSNS];
+	fd = fdset_fd(fdset, CR_FD_UTSNS);
 
 	ret = dump_uts_string(fd, ubuf.nodename);
 	if (!ret)

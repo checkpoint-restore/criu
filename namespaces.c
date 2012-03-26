@@ -122,20 +122,20 @@ int try_show_namespaces(int ns_pid)
 	if (!fdset)
 		return -1;
 
-	if (fdset->fds[CR_FD_UTSNS] != -1)
-		show_utsns(fdset->fds[CR_FD_UTSNS]);
+	if (fdset_fd(fdset, CR_FD_UTSNS) != -1)
+		show_utsns(fdset_fd(fdset, CR_FD_UTSNS));
 
-	if (fdset->fds[CR_FD_IPCNS_VAR] != -1)
-		show_ipc_var(fdset->fds[CR_FD_IPCNS_VAR]);
+	if (fdset_fd(fdset, CR_FD_IPCNS_VAR) != -1)
+		show_ipc_var(fdset_fd(fdset, CR_FD_IPCNS_VAR));
 
-	if (fdset->fds[CR_FD_IPCNS_SHM] != -1)
-		show_ipc_shm(fdset->fds[CR_FD_IPCNS_SHM]);
+	if (fdset_fd(fdset, CR_FD_IPCNS_SHM) != -1)
+		show_ipc_shm(fdset_fd(fdset, CR_FD_IPCNS_SHM));
 
-	if (fdset->fds[CR_FD_IPCNS_MSG] != -1)
-		show_ipc_msg(fdset->fds[CR_FD_IPCNS_MSG]);
+	if (fdset_fd(fdset, CR_FD_IPCNS_MSG) != -1)
+		show_ipc_msg(fdset_fd(fdset, CR_FD_IPCNS_MSG));
 
-	if (fdset->fds[CR_FD_IPCNS_SEM] != -1)
-		show_ipc_sem(fdset->fds[CR_FD_IPCNS_SEM]);
+	if (fdset_fd(fdset, CR_FD_IPCNS_SEM) != -1)
+		show_ipc_sem(fdset_fd(fdset, CR_FD_IPCNS_SEM));
 
 	close_cr_fdset(&fdset);
 	return 0;

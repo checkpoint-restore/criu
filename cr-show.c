@@ -593,7 +593,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		if (!cr_fdset)
 			goto out;
 
-		show_core(cr_fdset->fds[CR_FD_CORE], opts->show_pages_content);
+		show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts->show_pages_content);
 
 		if (item->nr_threads > 1) {
 			int i, fd_th;
@@ -618,21 +618,21 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 			}
 		}
 
-		show_vmas(cr_fdset->fds[CR_FD_VMAS]);
+		show_vmas(fdset_fd(cr_fdset, CR_FD_VMAS));
 
-		show_pipes(cr_fdset->fds[CR_FD_PIPES]);
+		show_pipes(fdset_fd(cr_fdset, CR_FD_PIPES));
 
-		show_files(cr_fdset->fds[CR_FD_FDINFO]);
+		show_files(fdset_fd(cr_fdset, CR_FD_FDINFO));
 
-		show_sigacts(cr_fdset->fds[CR_FD_SIGACT]);
+		show_sigacts(fdset_fd(cr_fdset, CR_FD_SIGACT));
 
-		show_unixsk(cr_fdset->fds[CR_FD_UNIXSK]);
+		show_unixsk(fdset_fd(cr_fdset, CR_FD_UNIXSK));
 
-		show_inetsk(cr_fdset->fds[CR_FD_INETSK]);
+		show_inetsk(fdset_fd(cr_fdset, CR_FD_INETSK));
 
-		show_itimers(cr_fdset->fds[CR_FD_ITIMERS]);
+		show_itimers(fdset_fd(cr_fdset, CR_FD_ITIMERS));
 
-		show_creds(cr_fdset->fds[CR_FD_CREDS]);
+		show_creds(fdset_fd(cr_fdset, CR_FD_CREDS));
 
 		close_cr_fdset(&cr_fdset);
 

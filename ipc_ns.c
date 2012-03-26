@@ -428,16 +428,16 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 {
 	int ret;
 
-	ret = dump_ipc_var(fdset->fds[CR_FD_IPCNS_VAR]);
+	ret = dump_ipc_var(fdset_fd(fdset, CR_FD_IPCNS_VAR));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_shm(fdset->fds[CR_FD_IPCNS_SHM]);
+	ret = dump_ipc_shm(fdset_fd(fdset, CR_FD_IPCNS_SHM));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_msg(fdset->fds[CR_FD_IPCNS_MSG]);
+	ret = dump_ipc_msg(fdset_fd(fdset, CR_FD_IPCNS_MSG));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_sem(fdset->fds[CR_FD_IPCNS_SEM]);
+	ret = dump_ipc_sem(fdset_fd(fdset, CR_FD_IPCNS_SEM));
 	if (ret < 0)
 		return ret;
 	return 0;

@@ -390,7 +390,7 @@ static int parasite_file_cmd(char *what, int cmd, int type,
 	pr_info("Dumping %s (pid: %d)\n", what, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	fd = cr_fdset->fds[type];
+	fd = fdset_fd(cr_fdset, type);
 	ret = parasite_prep_file(fd, ctl);
 	if (ret < 0)
 		goto out;
@@ -534,7 +534,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_prep_file(cr_fdset->fds[CR_FD_PAGES], ctl);
+	ret = parasite_prep_file(fdset_fd(cr_fdset, CR_FD_PAGES), ctl);
 	if (ret < 0)
 		goto out;
 
@@ -591,7 +591,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
 
-	if (write_img(cr_fdset->fds[CR_FD_PAGES], &zero_page_entry))
+	if (write_img(fdset_fd(cr_fdset, CR_FD_PAGES), &zero_page_entry))
 		goto out;
 
 	pr_info("\n");
@@ -599,7 +599,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	ret = 0;
 
 out:
-	fchmod(cr_fdset->fds[CR_FD_PAGES], CR_FD_PERM);
+	fchmod(fdset_fd(cr_fdset, CR_FD_PAGES), CR_FD_PERM);
 	pr_info("----------------------------------------\n");
 
 	return ret;

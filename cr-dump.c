@@ -154,7 +154,7 @@ static int dump_one_fdinfo(const struct fd_parms *p, int lfd,
 	pr_info("fdinfo: type: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		p->type, p->flags, p->pos, p->fd_name);
 
-	if (write_img(cr_fdset->fds[CR_FD_FDINFO], &e))
+	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &e))
 		goto err;
 
 	ret = 0;
@@ -205,7 +205,7 @@ static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
 	int has_bytes;
 	int ret = -1;
 
-	fd_pipes = cr_fdset->fds[CR_FD_PIPES];
+	fd_pipes = fdset_fd(cr_fdset, CR_FD_PIPES);
 
 	pr_info("Dumping data from pipe %x\n", e->pipeid);
 	if (pipe(steal_pipe) < 0) {
@@ -276,7 +276,7 @@ static int dump_one_pipe(const struct fd_parms *p, unsigned int id, int lfd,
 
 	if (p->flags & O_WRONLY) {
 		e.bytes = 0;
-		ret = write_img(cr_fdset->fds[CR_FD_PIPES], &e);
+		ret = write_img(fdset_fd(cr_fdset, CR_FD_PIPES), &e);
 	} else
 		ret = dump_pipe_and_data(lfd, &e, cr_fdset);
 
@@ -499,11 +499,13 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
 	struct vma_area *vma_area;
-	int ret = -1, fd = cr_fdset->fds[CR_FD_VMAS];
+	int ret = -1, fd;
 
 	pr_info("\n");
 	pr_info("Dumping mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
+
+	fd = fdset_fd(cr_fdset, CR_FD_VMAS);
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
 		struct vma_entry *vma = &vma_area->vma;
@@ -572,7 +574,7 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 
 	ce.secbits = misc->secbits;
 
-	ret = write_img(fds->fds[CR_FD_CREDS], &ce);
+	ret = write_img(fdset_fd(fds, CR_FD_CREDS), &ce);
 	if (ret < 0)
 		return ret;
 
@@ -787,7 +789,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
 
-	ret = dump_task_core(core, cr_fdset->fds[CR_FD_CORE]);
+	ret = dump_task_core(core, fdset_fd(cr_fdset, CR_FD_CORE));
 
 err_free:
 	free(core);

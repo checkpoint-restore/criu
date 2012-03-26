@@ -261,7 +261,7 @@ static int dump_one_inet(const struct socket_desc *_sk, int fd,
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
-	if (write_img(cr_fdset->fds[CR_FD_INETSK], &ie))
+	if (write_img(fdset_fd(cr_fdset, CR_FD_INETSK), &ie))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", fd);
@@ -349,9 +349,9 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd,
 				ue.id, ue.peer);
 	}
 
-	if (write_img(cr_fdset->fds[CR_FD_UNIXSK], &ue))
+	if (write_img(fdset_fd(cr_fdset, CR_FD_UNIXSK), &ue))
 		goto err;
-	if (write_img_buf(cr_fdset->fds[CR_FD_UNIXSK], sk->name, ue.namelen))
+	if (write_img_buf(fdset_fd(cr_fdset, CR_FD_UNIXSK), sk->name, ue.namelen))
 		goto err;
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
