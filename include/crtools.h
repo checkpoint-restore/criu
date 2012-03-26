@@ -143,7 +143,7 @@ int cr_show(unsigned long pid, struct cr_options *opts);
 int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
 
-struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask, struct cr_fdset *);
+struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask);
 struct cr_fdset *cr_show_fdset_open(int pid, unsigned long use_mask);
 void close_cr_fdset(struct cr_fdset **cr_fdset);
 

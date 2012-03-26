@@ -33,7 +33,7 @@ static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 	struct cr_fdset *fdset;
 	int ret = 0;
 
-	fdset = cr_dump_fdset_open(ns_pid, CR_FD_DESC_NS, NULL);
+	fdset = cr_dump_fdset_open(ns_pid, CR_FD_DESC_NS);
 	if (fdset == NULL)
 		return -1;
 

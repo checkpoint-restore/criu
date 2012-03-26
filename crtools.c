@@ -157,7 +157,7 @@ static struct cr_fdset *alloc_cr_fdset(void)
 	return cr_fdset;
 }
 
-void __close_cr_fdset(struct cr_fdset *cr_fdset)
+static void __close_cr_fdset(struct cr_fdset *cr_fdset)
 {
 	unsigned int i;
 
@@ -184,21 +184,15 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 }
 
 static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
-			       unsigned long flags, struct cr_fdset *cr_fdset)
+			       unsigned long flags)
 {
 	struct cr_fdset *fdset;
 	unsigned int i;
 	int ret = -1;
 
-	/*
-	 * We either reuse existing fdset or create new one.
-	 */
-	if (!cr_fdset) {
-		fdset = alloc_cr_fdset();
-		if (!fdset)
-			goto err;
-	} else
-		fdset = cr_fdset;
+	fdset = alloc_cr_fdset();
+	if (!fdset)
+		goto err;
 
 	for (i = 0; i < CR_FD_PID_MAX; i++) {
 		if (!(use_mask & CR_FD_DESC_USE(i)))
@@ -221,23 +215,18 @@ static struct cr_fdset *cr_fdset_open(int pid, unsigned long use_mask,
 	return fdset;
 
 err:
-	if (fdset != cr_fdset)
-		__close_cr_fdset(fdset);
-	else
-		close_cr_fdset(&fdset);
+	close_cr_fdset(&fdset);
 	return NULL;
 }
 
-struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask,
-				     struct cr_fdset *cr_fdset)
+struct cr_fdset *cr_dump_fdset_open(int pid, unsigned long use_mask)
 {
-	return cr_fdset_open(pid, use_mask, O_RDWR | O_CREAT | O_EXCL,
-			     cr_fdset);
+	return cr_fdset_open(pid, use_mask, O_RDWR | O_CREAT | O_EXCL);
 }
 
 struct cr_fdset *cr_show_fdset_open(int pid, unsigned long use_mask)
 {
-	return cr_fdset_open(pid, use_mask, O_RDONLY, NULL);
+	return cr_fdset_open(pid, use_mask, O_RDONLY);
 }
 
 static int parse_ns_string(const char *ptr, unsigned int *flags)
