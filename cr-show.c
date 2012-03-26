@@ -596,27 +596,25 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 		show_core(cr_fdset->fds[CR_FD_CORE], opts->show_pages_content);
 
 		if (item->nr_threads > 1) {
-			struct cr_fdset *cr_fdset_th;
-			int i;
+			int i, fd_th;
 
 			for (i = 0; i < item->nr_threads; i++) {
 
 				if (item->threads[i] == item->pid)
 					continue;
 
-				cr_fdset_th = cr_show_fdset_open(item->threads[i], CR_FD_DESC_CORE);
-				if (!cr_fdset_th)
+				fd_th = open_image_ro(CR_FD_CORE, item->threads[i]);
+				if (fd_th < 0)
 					goto out;
 
 				pr_msg("\n");
 				pr_msg("Thread: %d\n", item->threads[i]);
 				pr_msg("----------------------------------------\n");
 
-				show_core(cr_fdset_th->fds[CR_FD_CORE], opts->show_pages_content);
+				show_core(fd_th, opts->show_pages_content);
 
 				pr_msg("----------------------------------------\n");
 
-				close_cr_fdset(&cr_fdset_th);
 			}
 		}
 
