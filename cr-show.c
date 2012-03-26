@@ -558,34 +558,36 @@ err:
 
 static int cr_show_all(unsigned long pid, struct cr_options *opts)
 {
-	struct cr_fdset *cr_fdset = NULL;
 	struct pstree_item *item = NULL;
 	LIST_HEAD(pstree_list);
-	int i, ret = -1, pstree_fd;
+	int i, ret = -1, fd;
 
-	pstree_fd = open_image_ro(CR_FD_PSTREE);
-	if (pstree_fd)
+	fd = open_image_ro(CR_FD_PSTREE);
+	if (fd < 0)
 		goto out;
 
-	ret = show_pstree(pstree_fd, &pstree_list);
+	ret = show_pstree(fd, &pstree_list);
 	if (ret)
 		goto out;
 
-	cr_fdset = cr_show_fdset_open(pid, CR_FD_DESC_SK_QUEUES);
-	if (!cr_fdset)
+	close(fd);
+
+	fd = open_image_ro(CR_FD_DESC_SK_QUEUES, pid);
+	if (fd < 0)
 		goto out;
 
-	ret = show_sk_queues(cr_fdset->fds[CR_FD_SK_QUEUES]);
+	ret = show_sk_queues(fd);
 	if (ret)
 		goto out;
 
-	close_cr_fdset(&cr_fdset);
+	close(fd);
 
 	ret = try_show_namespaces(pid);
 	if (ret)
 		goto out;
 
 	list_for_each_entry(item, &pstree_list, list) {
+		struct cr_fdset *cr_fdset = NULL;
 
 		cr_fdset = cr_show_fdset_open(item->pid, CR_FD_DESC_TASK);
 		if (!cr_fdset)
@@ -642,7 +644,6 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 
 out:
 	free_pstree(&pstree_list);
-	close_cr_fdset(&cr_fdset);
 	return ret;
 }
 
