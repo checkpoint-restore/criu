@@ -88,6 +88,7 @@ err:
 }
 
 static int reg_files_fd = -1;
+int sk_queues_fd = -1;
 
 struct fd_parms {
 	unsigned long	fd_name;
@@ -1493,6 +1494,10 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (reg_files_fd < 0)
 		goto err;
 
+	sk_queues_fd = open_image(CR_FD_SK_QUEUES, O_RDWR | O_CREAT | O_EXCL);
+	if (sk_queues_fd < 0)
+		goto err;
+
 	nr_shmems = 0;
 	shmems = xmalloc(SHMEMS_SIZE);
 	if (!shmems)
@@ -1503,16 +1508,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 		cr_fdset = cr_dump_fdset_open(item->pid, CR_FD_DESC_NONE, NULL);
 		if (!cr_fdset)
-			goto err;
-
-		/*
-		 * Prepare for socket queues in advance. They are not per-task,
-		 * but per-someother-task which makes restore tricky. Thus save
-		 * them in "global" image.
-		 * That's why we open the file with tree leader's pid for any
-		 * of it's children.
-		 */
-		if (!cr_dump_fdset_open(pid, CR_FD_DESC_USE(CR_FD_SK_QUEUES), cr_fdset))
 			goto err;
 
 		if (dump_one_task(item, cr_fdset))
@@ -1529,6 +1524,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	fd_id_show_tree();
 err:
+	close(sk_queues_fd);
 	close(reg_files_fd);
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);

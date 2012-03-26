@@ -1161,7 +1161,7 @@ err:
 	if (ret)
 		return ret;
 
-	unix_pool.img_fd = open_image_ro(CR_FD_SK_QUEUES, pstree_pid);
+	unix_pool.img_fd = open_image_ro(CR_FD_SK_QUEUES);
 	if (unix_pool.img_fd < 0)
 		return -1;
 	ret = read_sockets_queues(&unix_pool);

@@ -572,7 +572,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 
 	close(fd);
 
-	fd = open_image_ro(CR_FD_DESC_SK_QUEUES, pid);
+	fd = open_image_ro(CR_FD_SK_QUEUES);
 	if (fd < 0)
 		goto out;
 

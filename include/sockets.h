@@ -30,5 +30,6 @@ extern int prepare_sockets(int pid);
 extern void show_unixsk(int fd);
 extern void show_inetsk(int fd);
 extern int show_sk_queues(int fd);
+extern int sk_queues_fd;
 
 #endif /* CR_SOCKETS_H__ */

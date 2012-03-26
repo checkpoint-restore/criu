@@ -499,7 +499,7 @@ int parasite_dump_socket_info(struct parasite_ctl *ctl, struct cr_fdset *fdset,
 		xfree(tmp);
 	}
 
-	ret = parasite_prep_file(fdset->fds[CR_FD_SK_QUEUES], ctl);
+	ret = parasite_prep_file(sk_queues_fd, ctl);
 	if (ret < 0)
 		goto err_prepf;
 

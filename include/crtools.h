@@ -94,7 +94,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_IPCNS_SHM	"ipcns-shm-%d.img"
 #define FMT_FNAME_IPCNS_MSG	"ipcns-msg-%d.img"
 #define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
-#define FMT_FNAME_SK_QUEUES	"sk-queues-%d.img"
+#define FMT_FNAME_SK_QUEUES	"sk-queues.img"
 
 /*
  * FIXME -- this is required for legacy image copy only.
@@ -118,7 +118,6 @@ struct cr_fdset {
 #define CR_FD_DESC_USE(type)		((1 << (type)))
 #define CR_FD_DESC_CORE			CR_FD_DESC_USE(CR_FD_CORE)
 #define CR_FD_DESC_PSTREE		CR_FD_DESC_USE(CR_FD_PSTREE)
-#define CR_FD_DESC_SK_QUEUES		CR_FD_DESC_USE(CR_FD_SK_QUEUES)
 #define CR_FD_DESC_TASK				(\
 	CR_FD_DESC_USE(CR_FD_FDINFO)		|\
 	CR_FD_DESC_USE(CR_FD_PAGES)		|\
