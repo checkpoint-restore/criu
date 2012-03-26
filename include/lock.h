@@ -82,41 +82,32 @@ static inline void futex_wait_while(futex_t *f, u32 v)
 	}
 }
 
-/*
- * Init @mutex value
- */
-static void always_inline cr_mutex_init(u32 *mutex)
+typedef struct {
+	u32	raw;
+} mutex_t;
+
+static void inline mutex_init(mutex_t *m)
 {
 	u32 c = 0;
-	atomic_set(mutex, c);
+	atomic_set(&m->raw, c);
 }
 
-/*
- * Lock @mutex
- */
-static void always_inline cr_mutex_lock(u32 *mutex)
+static void inline mutex_lock(mutex_t *m)
 {
 	u32 c;
 	int ret;
 
-	while ((c = atomic_inc(mutex))) {
-		ret = sys_futex(mutex, FUTEX_WAIT, c + 1, NULL, NULL, 0);
+	while ((c = atomic_inc(&m->raw))) {
+		ret = sys_futex(&m->raw, FUTEX_WAIT, c + 1, NULL, NULL, 0);
 		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }
 
-/*
- * Unlock @mutex
- */
-static void always_inline cr_mutex_unlock(u32 *mutex)
+static void inline mutex_unlock(mutex_t *m)
 {
 	u32 c = 0;
-	int ret;
-
-	atomic_set(mutex, c);
-
-	ret = sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
-	BUG_ON(ret < 0);
+	atomic_set(&m->raw, c);
+	BUG_ON(sys_futex(&m->raw, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
 #endif /* CR_LOCK_H_ */

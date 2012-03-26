@@ -57,7 +57,7 @@ struct thread_restore_args {
 
 	int				pid;
 	int				fd_core;
-	u32				*rst_lock;
+	mutex_t				*rst_lock;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -70,7 +70,7 @@ struct task_restore_core_args {
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
 	bool				restore_threads;	/* if to restore threads */
-	u32				rst_lock;
+	mutex_t				rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */

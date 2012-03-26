@@ -200,7 +200,7 @@ long restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	cr_mutex_unlock(args->rst_lock);
+	mutex_unlock(args->rst_lock);
 
 	/*
 	 * FIXME -- threads do not share creds, but it looks like
@@ -577,7 +577,7 @@ long restore_task(struct task_restore_core_args *args)
 			if (thread_args[i].pid == args->pid)
 				continue;
 
-			cr_mutex_lock(&args->rst_lock);
+			mutex_lock(&args->rst_lock);
 
 			new_sp =
 				RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
