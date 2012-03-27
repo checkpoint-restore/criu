@@ -44,14 +44,14 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-static struct fdinfo_desc *find_fd(u64 id)
+static struct fdinfo_desc *find_fd(struct fdinfo_entry *fe)
 {
 	struct fdinfo_desc *fi;
 	int i;
 
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		fi = fdinfo_descs + i;
-		if (fi->id == id)
+		if ((fi->id == fe->id) && (fi->type == fe->type))
 			return fi;
 	}
 
@@ -81,7 +81,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	for (i = 0; i < nr_fdinfo_descs; i++) {
 		desc = &fdinfo_descs[i];
 
-		if (desc->id != e->id)
+		if ((desc->id != e->id) || (desc->type != e->type))
 			continue;
 
 		futex_inc(&fdinfo_descs[i].users);
@@ -105,6 +105,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	memzero(desc, sizeof(*desc));
 
 	desc->id	= e->id;
+	desc->type	= e->type;
 	desc->addr	= e->addr;
 	desc->pid	= pid;
 	INIT_LIST_HEAD(&desc->list);
@@ -420,8 +421,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 {
 	u32 mag;
 	int ret = 0;
-
-	struct fdinfo_desc *fi = find_fd(fe->id);
+	struct fdinfo_desc *fi = find_fd(fe);
 
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;

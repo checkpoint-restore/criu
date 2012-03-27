@@ -23,7 +23,8 @@ struct fmap_fd {
 };
 
 struct fdinfo_desc {
-	u64			id;
+	u32			id;
+	u32			type;
 	u64			addr;
 	int			pid;
 	futex_t			real_pid;
