@@ -1495,7 +1495,7 @@ static int sigreturn_restore(pid_t pid)
 	if (ret < 0)
 		goto err;
 
-	self_vmas_len = (ret + 1) * sizeof(*self_vma);
+	self_vmas_len = round_up((ret + 1) * sizeof(*self_vma), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
