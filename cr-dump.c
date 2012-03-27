@@ -1149,7 +1149,7 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 	pr_info("Dumping pstree (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	pstree_fd = open_image(CR_FD_PSTREE, O_RDWR | O_CREAT | O_EXCL);
+	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
 	if (pstree_fd < 0)
 		return -1;
 
@@ -1214,7 +1214,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, pid_t pid)
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
 
-	fd_core = open_image(CR_FD_CORE, O_RDWR | O_CREAT | O_EXCL, pid);
+	fd_core = open_image(CR_FD_CORE, O_DUMP, pid);
 	if (fd_core < 0)
 		goto err_free;
 
@@ -1241,7 +1241,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc.task_state = TASK_DEAD;
 	core->tc.exit_code = pps->exit_code;
 
-	fd_core = open_image(CR_FD_CORE, O_RDWR | O_CREAT | O_EXCL, item->pid);
+	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid);
 	if (fd_core < 0)
 		goto err_free;
 
@@ -1425,7 +1425,7 @@ static int cr_dump_shmem(void)
 		if (err)
 			goto err_unmap;
 
-		fd = open_image(CR_FD_SHMEM_PAGES, O_WRONLY | O_CREAT, si->shmid);
+		fd = open_image(CR_FD_SHMEM_PAGES, O_DUMP, si->shmid);
 		if (fd < 0)
 			goto err_unmap;
 
