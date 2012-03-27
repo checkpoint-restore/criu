@@ -556,11 +556,11 @@ err:
 	return ret;
 }
 
-static int cr_show_all(unsigned long pid, struct cr_options *opts)
+static int cr_show_all(struct cr_options *opts)
 {
 	struct pstree_item *item = NULL;
 	LIST_HEAD(pstree_list);
-	int i, ret = -1, fd;
+	int i, ret = -1, fd, pid;
 
 	fd = open_image_ro(CR_FD_PSTREE);
 	if (fd < 0)
@@ -582,6 +582,7 @@ static int cr_show_all(unsigned long pid, struct cr_options *opts)
 
 	close(fd);
 
+	pid = list_first_entry(&pstree_list, struct pstree_item, list)->pid;
 	ret = try_show_namespaces(pid);
 	if (ret)
 		goto out;
@@ -645,10 +646,10 @@ out:
 	return ret;
 }
 
-int cr_show(unsigned long pid, struct cr_options *opts)
+int cr_show(struct cr_options *opts)
 {
 	if (opts->show_dump_file)
 		return cr_parse_file(opts);
 
-	return cr_show_all(pid, opts);
+	return cr_show_all(opts);
 }

@@ -160,6 +160,8 @@ static struct cr_fdset *alloc_cr_fdset(int nr)
 		return NULL;
 	}
 
+	for (i = 0; i < nr; i++)
+		cr_fdset->_fds[i] = -1;
 	cr_fdset->fd_nr = nr;
 	return cr_fdset;
 }
@@ -358,9 +360,6 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (!pid && (action != 'c') && (action != 's' || !opts.show_dump_file))
-		goto opt_pid_missing;
-
 	if (strcmp(argv[1], "dump") &&
 	    strcmp(argv[1], "restore") &&
 	    strcmp(argv[1], "show") &&
@@ -371,13 +370,17 @@ int main(int argc, char *argv[])
 
 	switch (action) {
 	case 'd':
+		if (!pid)
+			goto opt_pid_missing;
 		ret = cr_dump_tasks(pid, &opts);
 		break;
 	case 'r':
+		if (!pid)
+			goto opt_pid_missing;
 		ret = cr_restore_tasks(pid, &opts);
 		break;
 	case 's':
-		ret = cr_show(pid, &opts);
+		ret = cr_show(&opts);
 		break;
 	case 'c':
 		ret = cr_check();
@@ -393,13 +396,13 @@ usage:
 	pr_msg("\nUsage:\n");
 	pr_msg("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
 	pr_msg("  %s restore -p|-t pid [-n ns]\n", argv[0]);
-	pr_msg("  %s show [-c] (-p|-t pid)|(-f file)\n", argv[0]);
+	pr_msg("  %s show [-c] (-D dir)|(-f file)\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process identified by pid\n");
 	pr_msg("  restore        restore a process identified by pid\n");
-	pr_msg("  show           show dump contents of a process identified by pid\n");
+	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
 	pr_msg("\nGeneral parameters:\n");
 	pr_msg("  -p             checkpoint/restore only a single process identified by pid\n");
@@ -412,7 +415,7 @@ usage:
 	pr_msg("                 supported: uts, ipc\n");
 
 	pr_msg("\nAdditional common parameters:\n");
-	pr_msg("  -D dir         save checkpoint files in specified directory\n");
+	pr_msg("  -D dir         specifis directory where checkpoint files are/to be located\n");
 	pr_msg("  -v [num]       set logging level\n");
 	pr_msg("                 0 - silent (only error messages)\n");
 	pr_msg("                 1 - informative (default)\n");
