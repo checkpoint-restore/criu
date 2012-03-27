@@ -39,7 +39,7 @@ int log_init(const char *output)
 	}
 
 	if (output) {
-		new_logfd = open(output, O_CREAT | O_WRONLY);
+		new_logfd = open(output, O_CREAT | O_WRONLY, 0600);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
 			return -1;
