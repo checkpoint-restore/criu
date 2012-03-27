@@ -440,7 +440,7 @@ static int prepare_shared(int ps_fd)
 	if (!ret) {
 		futex_set(&task_entries->nr_in_progress, task_entries->nr);
 
-		lseek(ps_fd, sizeof(u32), SEEK_SET);
+		lseek(ps_fd, MAGIC_OFFSET, SEEK_SET);
 
 		show_saved_shmems();
 		show_saved_pipes();
@@ -1174,7 +1174,7 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 	}
 
-	lseek(fd, sizeof(u32), SEEK_SET);
+	lseek(fd, MAGIC_OFFSET, SEEK_SET);
 	while (1) {
 		ret = read_img(fd, &e);
 		if (ret < 0)

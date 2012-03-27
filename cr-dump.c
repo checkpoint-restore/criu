@@ -724,8 +724,6 @@ static int dump_task_core(struct core_entry *core, int fd_core)
 {
 	int ret;
 
-	lseek(fd_core, MAGIC_OFFSET, SEEK_SET);
-
 	pr_info("Dumping header ... ");
 
 	core->header.version	= HEADER_VERSION;
