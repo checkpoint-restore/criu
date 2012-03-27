@@ -1301,6 +1301,53 @@ int prepare_sockets(int pid)
 	return prepare_unix_sockets(pid);
 }
 
+static inline char *unknown(u32 val)
+{
+	static char unk[12];
+	snprintf(unk, sizeof(unk), "x%d", val);
+	return unk;
+}
+
+static inline char *skfamily2s(u32 f)
+{
+	if (f == AF_INET)
+		return " inet";
+	else
+		return unknown(f);
+}
+
+static inline char *sktype2s(u32 t)
+{
+	if (t == SOCK_STREAM)
+		return "stream";
+	else if (t == SOCK_DGRAM)
+		return " dgram";
+	else
+		return unknown(t);
+}
+
+static inline char *skproto2s(u32 p)
+{
+	if (p == IPPROTO_UDP)
+		return "udp";
+	else if (p == IPPROTO_TCP)
+		return "tcp";
+	else
+		return unknown(p);
+}
+
+static inline char *skstate2s(u32 state)
+{
+	if (state == TCP_ESTABLISHED)
+		return " estab";
+	else if (state == TCP_CLOSE)
+		return "closed";
+	else if (state == TCP_LISTEN)
+		return "listen";
+	else
+		return unknown(state);
+}
+
 void show_inetsk(int fd, struct cr_options *o)
 {
 	struct inet_sk_entry ie;
@@ -1328,9 +1375,9 @@ void show_inetsk(int fd, struct cr_options *o)
 			}
 		}
 
-		pr_msg("id %x family %d type %d proto %d state %d %s:%d <-> %s:%d\n",
-			ie.id, ie.family, ie.type, ie.proto, ie.state, 
-			src_addr, ie.src_port, dst_addr, ie.dst_port);
+		pr_msg("id %x family %s type %s proto %s state %s %s:%d <-> %s:%d\n",
+			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
+			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port);
 	}
 
 out:
@@ -1351,10 +1398,10 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_info("fd %4d type %2d state %2d namelen %4d backlog %4d "
+		pr_msg("fd %4d type %s state %s namelen %4d backlog %4d "
 			"id %6d peer %6d",
-			ue.fd, ue.type, ue.state, ue.namelen, ue.backlog,
-			ue.id, ue.peer);
+			ue.fd, sktype2s(ue.type), skstate2s(ue.state),
+			ue.namelen, ue.backlog, ue.id, ue.peer);
 
 		if (ue.namelen) {
 			BUG_ON(ue.namelen > sizeof(buf));
@@ -1365,9 +1412,9 @@ void show_unixsk(int fd, struct cr_options *o)
 			}
 			if (!buf[0])
 				buf[0] = '@';
-			pr_info(" --> %s\n", buf);
+			pr_msg(" --> %s\n", buf);
 		} else
-			pr_info("\n");
+			pr_msg("\n");
 	}
 out:
 	pr_img_tail(CR_FD_UNIXSK);
