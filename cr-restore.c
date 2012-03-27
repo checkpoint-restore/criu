@@ -1458,6 +1458,29 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return ret > 0 ? 0 : -1;
 }
 
+static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct list_head *vmas)
+{
+	struct vma_entry *vma, *ret;
+	struct vma_area *vma_area;
+
+	ret = vma = mmap(addr, len, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
+	if (vma != addr) {
+		pr_perror("Can't remap vma area");
+		return NULL;
+	}
+
+	list_for_each_entry(vma_area, vmas, list) {
+		*vma = vma_area->vma;
+		vma++;
+	}
+
+	vma->start = 0;
+	free_mappings(vmas);
+
+	return ret;
+}
+
 static int sigreturn_restore(pid_t pid)
 {
 	long restore_code_len, restore_task_vma_len;
@@ -1467,7 +1490,6 @@ static int sigreturn_restore(pid_t pid)
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
 	void *restore_code_start;
-	struct vma_entry *self_vma;
 
 	long new_sp, exec_mem_hint;
 	long ret;
@@ -1476,7 +1498,6 @@ static int sigreturn_restore(pid_t pid)
 	struct thread_restore_args *thread_args;
 
 	LIST_HEAD(self_vma_list);
-	struct vma_area *vma_area;
 	int fd_core = -1;
 	int fd_pages = -1;
 	int fd_vmas = -1;
@@ -1495,7 +1516,7 @@ static int sigreturn_restore(pid_t pid)
 	if (ret < 0)
 		goto err;
 
-	self_vmas_len = round_up((ret + 1) * sizeof(*self_vma), PAGE_SIZE);
+	self_vmas_len = round_up((ret + 1) * sizeof(struct vma_entry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -1618,21 +1639,9 @@ static int sigreturn_restore(pid_t pid)
 	task_args->task_entries = mem;
 
 	mem += TASK_ENTRIES_SIZE;
-	self_vma = mmap(mem, self_vmas_len, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-	if (self_vma != mem) {
-		pr_perror("Can't map self vmas");
+	task_args->self_vmas = vma_list_remap(mem, self_vmas_len, &self_vma_list);
+	if (!task_args->self_vmas)
 		goto err;
-	}
-	task_args->self_vmas = self_vma;
-
-	list_for_each_entry(vma_area, &self_vma_list, list) {
-		*self_vma = vma_area->vma;
-		self_vma++;
-	}
-
-	self_vma->start = 0;
-	free_mappings(&self_vma_list);
 
 	/*
 	 * Arguments for task restoration.
