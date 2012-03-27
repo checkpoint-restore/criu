@@ -148,7 +148,7 @@ int prepare_fd_pid(int pid)
 	return ret;
 }
 
-static int open_fe_fd(struct fdinfo_entry *fe, int fd)
+static int open_fe_fd(struct fdinfo_entry *fe)
 {
 	struct reg_file_entry rfe;
 	char path[PATH_MAX];
@@ -201,7 +201,7 @@ static int restore_cwd(struct fdinfo_entry *fe, int fd)
 {
 	int cfd;
 
-	cfd = open_fe_fd(fe, fd);
+	cfd = open_fe_fd(fe);
 	if (cfd < 0)
 		return cfd;
 
@@ -230,7 +230,7 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	if (self_exe_fd < 0)
 		return self_exe_fd;
 
-	tmp = open_fe_fd(fe, fd);
+	tmp = open_fe_fd(fe);
 	if (tmp < 0)
 		return tmp;
 
@@ -312,7 +312,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if ((fi->pid != pid) || (fe->addr != fi->addr))
 		return 0;
 
-	tmp = open_fe_fd(fe, fdinfo_fd);
+	tmp = open_fe_fd(fe);
 	if (tmp < 0)
 		return -1;
 
@@ -394,7 +394,7 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 	struct fmap_fd *new;
 	int tmp;
 
-	tmp = open_fe_fd(fe, fd);
+	tmp = open_fe_fd(fe);
 	if (tmp < 0)
 		return -1;
 
