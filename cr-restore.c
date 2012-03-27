@@ -103,7 +103,7 @@ pid_t pstree_pid;
 struct pstree_item *me;
 
 static int restore_task_with_children(void *);
-static int sigreturn_restore(pid_t pid);
+static int sigreturn_restore(pid_t pid, struct list_head *vmas, int nr_vmas);
 
 static void show_saved_shmems(void)
 {
@@ -532,60 +532,67 @@ static int get_shmem_fd(int pid, struct vma_entry *vi)
 	return f;
 }
 
-static int fixup_vma_fds(int pid, int fd)
+static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 {
+	int fd, ret = -1;
+
+	fd = open_image_ro(CR_FD_VMAS, pid);
+	if (fd < 0)
+		return fd;
+
+	*nr_vmas = 0;
 	while (1) {
-		struct vma_entry vi;
-		int ret = 0;
+		struct vma_area *vma;
 
-		ret = read_img_eof(fd, &vi);
+		ret = -1;
+		vma = alloc_vma_area();
+		if (!vma)
+			break;
+
+		(*nr_vmas)++;
+		list_add_tail(&vma->list, vmas);
+		ret = read_img_eof(fd, &vma->vma);
 		if (ret <= 0)
-			return ret;
+			break;
 
-		if (!(vma_entry_is(&vi, VMA_AREA_REGULAR)))
+		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("%d: Fixing %016lx-%016lx %016lx vma\n",
-				pid, vi.start, vi.end, vi.pgoff);
+		pr_info("%d: Opening %016lx-%016lx %016lx vma\n",
+				pid, vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
-		if (vma_entry_is(&vi, VMA_AREA_SYSVIPC))
-			ret = vi.shmid;
-		else if (vma_entry_is(&vi, VMA_ANON_SHARED))
-			ret = get_shmem_fd(pid, &vi);
-		else if (vma_entry_is(&vi, VMA_FILE_PRIVATE) ||
-				vma_entry_is(&vi, VMA_FILE_SHARED))
-			ret = get_filemap_fd(pid, &vi);
+		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
+			ret = vma->vma.shmid;
+		else if (vma_entry_is(&vma->vma, VMA_ANON_SHARED))
+			ret = get_shmem_fd(pid, &vma->vma);
+		else if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE) ||
+				vma_entry_is(&vma->vma, VMA_FILE_SHARED))
+			ret = get_filemap_fd(pid, &vma->vma);
 		else
 			continue;
 
 		if (ret < 0) {
 			pr_err("Can't fixup fd\n");
-			return ret;
+			break;
 		}
 
-		lseek(fd, -sizeof(vi), SEEK_CUR);
-		vi.fd = ret;
-		ret = write_img(fd, &vi);
-		if (ret < 0)
-			return ret;
+		vma->vma.fd = ret;
 	}
+
+	close(fd);
+	return ret;
 }
 
 static int prepare_and_sigreturn(int pid)
 {
-	int fd, err;
+	int err, nr_vmas;
+	LIST_HEAD(vma_list);
 
-	fd = open_image(CR_FD_VMAS, O_RDWR, pid);
-	if (fd < 0)
-		return -1;
-
-	err = fixup_vma_fds(pid, fd);
-	close_safe(&fd);
-
+	err = read_and_open_vmas(pid, &vma_list, &nr_vmas);
 	if (err)
 		return err;
 
-	return sigreturn_restore(pid);
+	return sigreturn_restore(pid, &vma_list, nr_vmas);
 }
 
 #define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
@@ -1481,10 +1488,10 @@ static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct li
 	return ret;
 }
 
-static int sigreturn_restore(pid_t pid)
+static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 {
 	long restore_code_len, restore_task_vma_len;
-	long restore_thread_vma_len, self_vmas_len;
+	long restore_thread_vma_len, self_vmas_len, vmas_len;
 
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -1500,7 +1507,6 @@ static int sigreturn_restore(pid_t pid)
 	LIST_HEAD(self_vma_list);
 	int fd_core = -1;
 	int fd_pages = -1;
-	int fd_vmas = -1;
 	int i;
 
 	int *fd_core_threads;
@@ -1517,6 +1523,7 @@ static int sigreturn_restore(pid_t pid)
 		goto err;
 
 	self_vmas_len = round_up((ret + 1) * sizeof(struct vma_entry), PAGE_SIZE);
+	vmas_len = round_up((nr_vmas + 1) * sizeof(struct vma_entry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -1534,12 +1541,6 @@ static int sigreturn_restore(pid_t pid)
 	fd_pages = open_image_ro(CR_FD_PAGES, pid);
 	if (fd_pages < 0) {
 		pr_perror("Can't open pages-%d", pid);
-		goto err;
-	}
-
-	fd_vmas = open_image_ro(CR_FD_VMAS, pid);
-	if (fd_vmas < 0) {
-		pr_perror("Can't open vmas-%d", pid);
 		goto err;
 	}
 
@@ -1643,12 +1644,16 @@ static int sigreturn_restore(pid_t pid)
 	if (!task_args->self_vmas)
 		goto err;
 
+	mem += self_vmas_len;
+	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, tgt_vmas);
+	if (!task_args->tgt_vmas)
+		goto err;
+
 	/*
 	 * Arguments for task restoration.
 	 */
 	task_args->pid		= pid;
 	task_args->fd_core	= fd_core;
-	task_args->fd_vmas	= fd_vmas;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_exe_link	= self_exe_fd;

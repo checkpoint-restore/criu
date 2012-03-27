@@ -65,7 +65,6 @@ struct task_restore_core_args {
 
 	int				pid;			/* task pid */
 	int				fd_core;		/* opened core file */
-	int				fd_vmas;		/* opened vmas file */
 	int				fd_exe_link;		/* opened self->exe file */
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
@@ -79,6 +78,7 @@ struct task_restore_core_args {
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
 	struct vma_entry		*self_vmas;
+	struct vma_entry		*tgt_vmas;
 	rt_sigaction_t			sigchld_act;
 
 	struct itimerval		itimers[3];
