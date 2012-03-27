@@ -34,7 +34,7 @@ enum fd_types {
 	FDINFO_UND,
 	FDINFO_REG,
 	FDINFO_MAP,
-
+	FDINFO_INETSK,
 	FDINFO_CWD,
 	FDINFO_EXE,
 
@@ -93,7 +93,6 @@ struct unix_sk_entry {
 } __packed;
 
 struct inet_sk_entry {
-	u32	fd;
 	u32	id;
 	u8	family;
 	u8	type;

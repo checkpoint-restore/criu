@@ -41,6 +41,7 @@ struct socket_desc {
 	unsigned int		family;
 	unsigned int		ino;
 	struct socket_desc	*next;
+	int			already_dumped;
 };
 
 struct unix_sk_desc {
@@ -177,9 +178,9 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: fd %d family %d type %d proto %d port %d "
+	pr_debug("\t%s: family %d type %d proto %d port %d "
 		"state %d src_addr %s\n",
-		act, e->fd, e->family, e->type, e->proto, e->src_port,
+		act, e->family, e->type, e->proto, e->src_port,
 		e->state, src_addr);
 }
 
@@ -237,19 +238,29 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_inet(const struct socket_desc *_sk, int fd,
+static int dump_one_inet(struct socket_desc *_sk, int fd,
 			 const struct cr_fdset *cr_fdset,
 			 struct sk_queue *queue)
 {
-	const struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
+	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
+	struct fdinfo_entry fe;
 
 	if (!can_dump_inet_sk(sk))
 		goto err;
 
+	fe.addr = fd;
+	fe.type = FDINFO_INETSK;
+	fe.id = sk->sd.ino;
+
+	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
+		goto err;
+
+	if (sk->sd.already_dumped)
+		return 0;
+
 	memset(&ie, 0, sizeof(ie));
 
-	ie.fd		= fd;
 	ie.id		= sk->sd.ino;
 	ie.family	= sk->sd.family;
 	ie.type		= sk->type;
@@ -261,12 +272,13 @@ static int dump_one_inet(const struct socket_desc *_sk, int fd,
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
-	if (write_img(fdset_fd(cr_fdset, CR_FD_INETSK), &ie))
+	if (write_img(fdset_fd(glob_fdset, CR_FD_INETSK), &ie))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", fd);
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
+	sk->sd.already_dumped = 1;
 	return 0;
 
 err:
@@ -372,7 +384,7 @@ err:
 int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 		    struct sk_queue *queue)
 {
-	const struct socket_desc *sk;
+	struct socket_desc *sk;
 	struct statfs fst;
 	struct stat st;
 	char path[64];
@@ -1176,24 +1188,56 @@ err:
 	return ret;
 }
 
-static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
+static int read_inetsk_image(u32 id, struct inet_sk_entry *ie)
+{
+	int ifd;
+
+	ifd = open_image_ro(CR_FD_INETSK);
+	if (ifd < 0)
+		return -1;
+
+	while (1) {
+		int ret;
+
+		ret = read_img_eof(ifd, ie);
+		if (ret < 0)
+			return ret;
+
+		if (ret == 0) {
+			pr_err("Can't find inet sk %u\n", id);
+			return -1;
+		}
+
+		if (ie->id == id)
+			break;
+	}
+
+	close(ifd);
+	return 0;
+}
+
+int open_inet_sk(struct fdinfo_entry *fe)
 {
 	int sk;
 	struct sockaddr_in addr;
+	struct inet_sk_entry ie;
 
-	show_one_inet_img("Restore", ie);
+	if (read_inetsk_image(fe->id, &ie))
+		return -1;
 
-	if (ie->family != AF_INET) {
-		pr_err("Unsupported socket family: %d\n", ie->family);
+	show_one_inet_img("Restore", &ie);
+
+	if (ie.family != AF_INET) {
+		pr_err("Unsupported socket family: %d\n", ie.family);
 		return -1;
 	}
 
-	if ((ie->type != SOCK_STREAM) && (ie->type != SOCK_DGRAM)) {
-		pr_err("Unsupported socket type: %d\n", ie->type);
+	if ((ie.type != SOCK_STREAM) && (ie.type != SOCK_DGRAM)) {
+		pr_err("Unsupported socket type: %d\n", ie.type);
 		return -1;
 	}
 
-	sk = socket(ie->family, ie->type, ie->proto);
+	sk = socket(ie.family, ie.type, ie.proto);
 	if (sk < 0) {
 		pr_perror("Can't create unix socket");
 		return -1;
@@ -1204,37 +1248,37 @@ static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
 	 * bind() and listen(), and that's all.
 	 */
 	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = ie->family;
-	addr.sin_port = htons(ie->src_port);
-	memcpy(&addr.sin_addr.s_addr, ie->src_addr, sizeof(unsigned int) * 4);
+	addr.sin_family = ie.family;
+	addr.sin_port = htons(ie.src_port);
+	memcpy(&addr.sin_addr.s_addr, ie.src_addr, sizeof(unsigned int) * 4);
 
 	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
 		pr_perror("Can't bind to a socket");
 		goto err;
 	}
 
-	if (ie->state == TCP_LISTEN) {
-		if (ie->proto != IPPROTO_TCP) {
-			pr_err("Wrong socket in listen state %d\n", ie->proto);
+	if (ie.state == TCP_LISTEN) {
+		if (ie.proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ie.proto);
 			goto err;
 		}
 
-		if (listen(sk, ie->backlog) == -1) {
+		if (listen(sk, ie.backlog) == -1) {
 			pr_perror("Can't listen on a socket");
 			goto err;
 		}
 	}
 
-	if (ie->state == TCP_ESTABLISHED) {
-		if (ie->proto != IPPROTO_UDP) {
+	if (ie.state == TCP_ESTABLISHED) {
+		if (ie.proto != IPPROTO_UDP) {
 			pr_err("Connected TCP socket in image\n");
 			goto err;
 		}
 
 		memset(&addr, 0, sizeof(addr));
-		addr.sin_family = ie->family;
-		addr.sin_port = htons(ie->dst_port);
-		memcpy(&addr.sin_addr.s_addr, ie->dst_addr, sizeof(ie->dst_addr));
+		addr.sin_family = ie.family;
+		addr.sin_port = htons(ie.dst_port);
+		memcpy(&addr.sin_addr.s_addr, ie.dst_addr, sizeof(ie.dst_addr));
 
 		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 			pr_perror("Can't connect UDP socket back");
@@ -1242,38 +1286,11 @@ static int open_inet_sk(const struct inet_sk_entry *ie, int *img_fd)
 		}
 	}
 
-	if (move_img_fd(img_fd, ie->fd))
-		return -1;
-
-	return reopen_fd_as(ie->fd, sk);
+	return sk;
 
 err:
 	close(sk);
 	return -1;
-}
-
-static int prepare_inet_sockets(int pid)
-{
-	int isk_fd, ret = -1;
-
-	isk_fd = open_image_ro(CR_FD_INETSK, pid);
-	if (isk_fd < 0)
-		return -1;
-
-	while (1) {
-		struct inet_sk_entry ie;
-
-		ret = read_img_eof(isk_fd, &ie);
-		if (ret <= 0)
-			break;
-
-		ret = open_inet_sk(&ie, &isk_fd);
-		if (ret)
-			break;
-	}
-err:
-	close(isk_fd);
-	return ret;
 }
 
 int prepare_sockets(int pid)
@@ -1281,10 +1298,7 @@ int prepare_sockets(int pid)
 	int err;
 
 	pr_info("%d: Opening sockets\n", pid);
-	err = prepare_unix_sockets(pid);
-	if (err)
-		return err;
-	return prepare_inet_sockets(pid);
+	return prepare_unix_sockets(pid);
 }
 
 void show_inetsk(int fd, struct cr_options *o)
@@ -1314,8 +1328,8 @@ void show_inetsk(int fd, struct cr_options *o)
 			}
 		}
 
-		pr_msg("fd %d family %d type %d proto %d state %d %s:%d <-> %s:%d\n",
-			ie.fd, ie.family, ie.type, ie.proto, ie.state, 
+		pr_msg("id %x family %d type %d proto %d state %d %s:%d <-> %s:%d\n",
+			ie.id, ie.family, ie.type, ie.proto, ie.state, 
 			src_addr, ie.src_port, dst_addr, ie.dst_port);
 	}
 

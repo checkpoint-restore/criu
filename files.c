@@ -19,6 +19,7 @@
 #include "util.h"
 #include "util-net.h"
 #include "lock.h"
+#include "sockets.h"
 
 static struct fdinfo_desc *fdinfo_descs;
 static int nr_fdinfo_descs;
@@ -313,7 +314,15 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if ((fi->pid != pid) || (fe->addr != fi->addr))
 		return 0;
 
-	tmp = open_fe_fd(fe);
+	switch (fe->type) {
+	case FDINFO_REG:
+		tmp = open_fe_fd(fe);
+		break;
+	case FDINFO_INETSK:
+		tmp = open_inet_sk(fe);
+		break;
+	}
+
 	if (tmp < 0)
 		return -1;
 
@@ -429,8 +438,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	pr_info("\t%d: Got fd for %lx users %d\n", pid,
 			fe->addr, futex_get(&fi->users));
 
-	BUG_ON(fe->type != FDINFO_REG);
-
+	BUG_ON(fd_is_special(fe));
 
 	switch (state) {
 	case FD_STATE_PREP:

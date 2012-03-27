@@ -62,6 +62,7 @@ static char *fdtype2s(u8 type)
 		[FDINFO_MAP] = "map",
 		[FDINFO_CWD] = "cwd",
 		[FDINFO_EXE] = "exe",
+		[FDINFO_INETSK] = "isk",
 	};
 
 	if (type > FDINFO_UND && type < FD_INFO_MAX)
