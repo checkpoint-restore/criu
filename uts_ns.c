@@ -120,7 +120,7 @@ static void show_uts_string(int fd, char *n)
 	}
 }
 
-void show_utsns(int fd)
+void show_utsns(int fd, struct cr_options *o)
 {
 	pr_img_head(CR_FD_UTSNS);
 	show_uts_string(fd, "hostname");

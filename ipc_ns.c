@@ -480,7 +480,7 @@ static void show_ipc_sem_entries(int fd)
 	}
 }
 
-void show_ipc_sem(int fd)
+void show_ipc_sem(int fd, struct cr_options *o)
 {
 	pr_img_head(CR_FD_IPCNS);
 	show_ipc_sem_entries(fd);
@@ -518,7 +518,7 @@ static void show_ipc_msg_entries(int fd)
 	}
 }
 
-void show_ipc_msg(int fd)
+void show_ipc_msg(int fd, struct cr_options *o)
 {
 	pr_img_head(CR_FD_IPCNS);
 	show_ipc_msg_entries(fd);
@@ -543,7 +543,7 @@ static void show_ipc_shm_entries(int fd)
 	}
 }
 
-void show_ipc_shm(int fd)
+void show_ipc_shm(int fd, struct cr_options *o)
 {
 	pr_img_head(CR_FD_IPCNS);
 	show_ipc_shm_entries(fd);
@@ -561,7 +561,7 @@ static void show_ipc_var_entry(int fd)
 	ipc_sysctl_req(&var, CTL_SHOW);
 }
 
-void show_ipc_var(int fd)
+void show_ipc_var(int fd, struct cr_options *o)
 {
 	pr_img_head(CR_FD_IPCNS);
 	show_ipc_var_entry(fd);

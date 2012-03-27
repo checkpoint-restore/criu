@@ -1287,7 +1287,7 @@ int prepare_sockets(int pid)
 	return prepare_inet_sockets(pid);
 }
 
-void show_inetsk(int fd)
+void show_inetsk(int fd, struct cr_options *o)
 {
 	struct inet_sk_entry ie;
 	int ret = 0;
@@ -1325,7 +1325,7 @@ out:
 	pr_img_tail(CR_FD_INETSK);
 }
 
-void show_unixsk(int fd)
+void show_unixsk(int fd, struct cr_options *o)
 {
 	struct unix_sk_entry ue;
 	int ret = 0;
@@ -1361,7 +1361,7 @@ out:
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 
-int show_sk_queues(int fd)
+void show_sk_queues(int fd, struct cr_options *o)
 {
 	struct sk_packet_entry pe;
 	int ret;
@@ -1377,10 +1377,9 @@ int show_sk_queues(int fd)
 
 		ret = read_img_buf(fd, (unsigned char *)buf, pe.length);
 		if (ret < 0)
-			return ret;
+			break;
 
 		print_data(0, (unsigned char *)buf, pe.length);
 	}
 	pr_img_tail(CR_FD_SK_QUEUES);
-	return ret;
 }

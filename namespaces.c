@@ -114,28 +114,27 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	return ret;
 }
 
-int try_show_namespaces(int ns_pid)
+int try_show_namespaces(int ns_pid, struct cr_options *o)
 {
 	struct cr_fdset *fdset;
+	int i;
 
 	fdset = cr_ns_fdset_open(ns_pid, O_SHOW);
 	if (!fdset)
 		return -1;
 
-	if (fdset_fd(fdset, CR_FD_UTSNS) != -1)
-		show_utsns(fdset_fd(fdset, CR_FD_UTSNS));
+	for (i = _CR_FD_NS_FROM + 1; i < _CR_FD_NS_TO; i++) {
+		int fd;
 
-	if (fdset_fd(fdset, CR_FD_IPCNS_VAR) != -1)
-		show_ipc_var(fdset_fd(fdset, CR_FD_IPCNS_VAR));
+		if (!fdset_template[i].show)
+			continue;
 
-	if (fdset_fd(fdset, CR_FD_IPCNS_SHM) != -1)
-		show_ipc_shm(fdset_fd(fdset, CR_FD_IPCNS_SHM));
+		fd = fdset_fd(fdset, i);
+		if (fd == -1)
+			continue;
 
-	if (fdset_fd(fdset, CR_FD_IPCNS_MSG) != -1)
-		show_ipc_msg(fdset_fd(fdset, CR_FD_IPCNS_MSG));
-
-	if (fdset_fd(fdset, CR_FD_IPCNS_SEM) != -1)
-		show_ipc_sem(fdset_fd(fdset, CR_FD_IPCNS_SEM));
+		fdset_template[i].show(fdset_fd(fdset, i), o);
+	}
 
 	close_cr_fdset(&fdset);
 	return 0;

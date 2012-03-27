@@ -76,7 +76,19 @@ int get_service_fd(int type);
 struct cr_fd_desc_tmpl {
 	const char	*fmt;			/* format for the name */
 	u32		magic;			/* magic in the header */
+	void		(*show)(int fd, struct cr_options *o);
 };
+
+void show_files(int fd_files, struct cr_options *o);
+void show_pages(int fd_pages, struct cr_options *o);
+void show_reg_files(int fd_reg_files, struct cr_options *o);
+void show_core(int fd_core, struct cr_options *o);
+void show_vmas(int fd_vma, struct cr_options *o);
+void show_pipes(int fd_pipes, struct cr_options *o);
+void show_pstree(int fd_pstree, struct cr_options *o);
+void show_sigacts(int fd_sigacts, struct cr_options *o);
+void show_itimers(int fd, struct cr_options *o);
+void show_creds(int fd, struct cr_options *o);
 
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 

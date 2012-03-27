@@ -27,8 +27,9 @@ extern int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 
 extern int collect_sockets(void);
 extern int prepare_sockets(int pid);
-extern void show_unixsk(int fd);
-extern void show_inetsk(int fd);
-extern int show_sk_queues(int fd);
+struct cr_options;
+extern void show_unixsk(int fd, struct cr_options *);
+extern void show_inetsk(int fd, struct cr_options *);
+extern void show_sk_queues(int fd, struct cr_options *);
 
 #endif /* CR_SOCKETS_H__ */

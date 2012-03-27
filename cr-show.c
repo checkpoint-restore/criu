@@ -70,7 +70,7 @@ static char *fdtype2s(u8 type)
 	return und;
 }
 
-static void show_files(int fd_files)
+void show_files(int fd_files, struct cr_options *o)
 {
 	struct fdinfo_entry e;
 
@@ -93,7 +93,7 @@ out:
 	pr_img_tail(CR_FD_FDINFO);
 }
 
-static void show_reg_files(int fd_reg_files)
+void show_reg_files(int fd_reg_files, struct cr_options *o)
 {
 	struct reg_file_entry rfe;
 
@@ -125,7 +125,7 @@ out:
 	pr_img_tail(CR_FD_REG_FILES);
 }
 
-static void show_pipes(int fd_pipes)
+void show_pipes(int fd_pipes, struct cr_options *o)
 {
 	struct pipe_entry e;
 	int ret;
@@ -148,7 +148,7 @@ out:
 	pr_img_tail(CR_FD_PIPES);
 }
 
-static void show_vmas(int fd_vma)
+void show_vmas(int fd_vma, struct cr_options *o)
 {
 	struct vma_area vma_area = {};
 	struct vma_entry ve;
@@ -193,11 +193,11 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-static void show_pages(int fd_pages, bool show_content)
+void show_pages(int fd_pages, struct cr_options *o)
 {
 	pr_img_head(CR_FD_PAGES);
 
-	if (show_content) {
+	if (o->show_pages_content) {
 		while (1) {
 			struct page_entry e;
 
@@ -232,7 +232,7 @@ out:
 	pr_img_tail(CR_FD_PAGES);
 }
 
-static void show_sigacts(int fd_sigacts)
+void show_sigacts(int fd_sigacts, struct cr_options *o)
 {
 	struct sa_entry e;
 
@@ -263,7 +263,7 @@ static void show_itimer(char *n, struct itimer_entry *ie)
 	       (unsigned long)ie->vsec, (unsigned long)ie->vusec);
 }
 
-static void show_itimers(int fd)
+void show_itimers(int fd, struct cr_options *o)
 {
 	struct itimer_entry ie[3];
 
@@ -288,7 +288,7 @@ static void show_cap(char *name, u32 *v)
 	pr_msg("\n");
 }
 
-static void show_creds(int fd)
+void show_creds(int fd, struct cr_options *o)
 {
 	struct creds_entry ce;
 
@@ -311,7 +311,7 @@ out:
 	pr_img_tail(CR_FD_CREDS);
 }
 
-static int show_pstree(int fd_pstree, struct list_head *collect)
+static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 {
 	struct pstree_entry e;
 
@@ -375,6 +375,11 @@ static int show_pstree(int fd_pstree, struct list_head *collect)
 out:
 	pr_img_tail(CR_FD_PSTREE);
 	return 0;
+}
+
+void show_pstree(int fd_pstree, struct cr_options *o)
+{
+	show_collect_pstree(fd_pstree, NULL);
 }
 
 static void show_core_regs(int fd_core)
@@ -452,7 +457,7 @@ err:
 	return;
 }
 
-static void show_core(int fd_core, bool show_content)
+void show_core(int fd_core, struct cr_options *o)
 {
 	struct stat stat;
 	bool is_thread;
@@ -478,8 +483,7 @@ out:
 static int cr_parse_file(struct cr_options *opts)
 {
 	u32 magic;
-	int fd = -1;
-	int ret = -1;
+	int fd = -1, ret = -1, i;
 
 	fd = open(opts->show_dump_file, O_RDONLY);
 	if (fd < 0) {
@@ -490,67 +494,24 @@ static int cr_parse_file(struct cr_options *opts)
 	if (read_img(fd, &magic) < 0)
 		goto err;
 
-	switch (magic) {
-	case FDINFO_MAGIC:
-		show_files(fd);
-		break;
-	case PAGES_MAGIC:
-		show_pages(fd, opts->show_pages_content);
-		break;
-	case CORE_MAGIC:
-		show_core(fd, opts->show_pages_content);
-		break;
-	case VMAS_MAGIC:
-		show_vmas(fd);
-		break;
-	case PSTREE_MAGIC:
-		show_pstree(fd, NULL);
-		break;
-	case PIPES_MAGIC:
-		show_pipes(fd);
-		break;
-	case SIGACT_MAGIC:
-		show_sigacts(fd);
-		break;
-	case UNIXSK_MAGIC:
-		show_unixsk(fd);
-		break;
-	case INETSK_MAGIC:
-		show_inetsk(fd);
-		break;
-	case SK_QUEUES_MAGIC:
-		show_sk_queues(fd);
-		break;
-	case ITIMERS_MAGIC:
-		show_itimers(fd);
-		break;
-	case UTSNS_MAGIC:
-		show_utsns(fd);
-		break;
-	case CREDS_MAGIC:
-		show_creds(fd);
-		break;
-	case IPCNS_VAR_MAGIC:
-		show_ipc_var(fd);
-		break;
-	case IPCNS_SHM_MAGIC:
-		show_ipc_shm(fd);
-		break;
-	case IPCNS_MSG_MAGIC:
-		show_ipc_msg(fd);
-		break;
-	case IPCNS_SEM_MAGIC:
-		show_ipc_sem(fd);
-		break;
-	case REG_FILES_MAGIC:
-		show_reg_files(fd);
-		break;
-	default:
-		pr_err("Unknown magic %x on %s\n", magic, opts->show_dump_file);
+	for (i = 0; i < CR_FD_MAX; i++)
+		if (fdset_template[i].magic == magic)
+			break;
+
+	if (i == CR_FD_MAX) {
+		pr_err("Unknown magic %x in %s\n",
+				magic, opts->show_dump_file);
 		goto err;
 	}
-	ret = 0;
 
+	if (!fdset_template[i].show) {
+		pr_err("No handler for %x/%s\n",
+				magic, opts->show_dump_file);
+		goto err;
+	}
+
+	fdset_template[i].show(fd, opts);
+	ret = 0;
 err:
 	close_safe(&fd);
 	return ret;
@@ -566,7 +527,7 @@ static int cr_show_all(struct cr_options *opts)
 	if (fd < 0)
 		goto out;
 
-	ret = show_pstree(fd, &pstree_list);
+	ret = show_collect_pstree(fd, &pstree_list);
 	if (ret)
 		goto out;
 
@@ -576,14 +537,11 @@ static int cr_show_all(struct cr_options *opts)
 	if (fd < 0)
 		goto out;
 
-	ret = show_sk_queues(fd);
-	if (ret)
-		goto out;
-
+	show_sk_queues(fd, opts);
 	close(fd);
 
 	pid = list_first_entry(&pstree_list, struct pstree_item, list)->pid;
-	ret = try_show_namespaces(pid);
+	ret = try_show_namespaces(pid, opts);
 	if (ret)
 		goto out;
 
@@ -594,10 +552,10 @@ static int cr_show_all(struct cr_options *opts)
 		if (!cr_fdset)
 			goto out;
 
-		show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts->show_pages_content);
+		show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts);
 
 		if (item->nr_threads > 1) {
-			int i, fd_th;
+			int fd_th;
 
 			for (i = 0; i < item->nr_threads; i++) {
 
@@ -612,28 +570,16 @@ static int cr_show_all(struct cr_options *opts)
 				pr_msg("Thread: %d\n", item->threads[i]);
 				pr_msg("----------------------------------------\n");
 
-				show_core(fd_th, opts->show_pages_content);
+				show_core(fd_th, opts);
 
 				pr_msg("----------------------------------------\n");
 
 			}
 		}
 
-		show_vmas(fdset_fd(cr_fdset, CR_FD_VMAS));
-
-		show_pipes(fdset_fd(cr_fdset, CR_FD_PIPES));
-
-		show_files(fdset_fd(cr_fdset, CR_FD_FDINFO));
-
-		show_sigacts(fdset_fd(cr_fdset, CR_FD_SIGACT));
-
-		show_unixsk(fdset_fd(cr_fdset, CR_FD_UNIXSK));
-
-		show_inetsk(fdset_fd(cr_fdset, CR_FD_INETSK));
-
-		show_itimers(fdset_fd(cr_fdset, CR_FD_ITIMERS));
-
-		show_creds(fdset_fd(cr_fdset, CR_FD_CREDS));
+		for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
+			if (i != CR_FD_CORE && fdset_template[i].show)
+				fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
 
 		close_cr_fdset(&cr_fdset);
 

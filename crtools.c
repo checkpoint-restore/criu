@@ -20,6 +20,8 @@
 #include "log.h"
 #include "sockets.h"
 #include "syscall.h"
+#include "uts_ns.h"
+#include "ipc_ns.h"
 
 static struct cr_options opts;
 struct page_entry zero_page_entry = {.va = ~0LL};
@@ -37,111 +39,130 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	[CR_FD_FDINFO] = {
 		.fmt	= FMT_FNAME_FDINFO,
 		.magic	= FDINFO_MAGIC,
+		.show	= show_files,
 	},
 
 	/* private memory pages data */
 	[CR_FD_PAGES] = {
 		.fmt	= FMT_FNAME_PAGES,
 		.magic	= PAGES_MAGIC,
+		.show	= show_pages,
 	},
 
 	/* shared memory pages data */
 	[CR_FD_SHMEM_PAGES] = {
 		.fmt	= FMT_FNAME_SHMEM_PAGES,
 		.magic	= PAGES_MAGIC,
+		.show	= show_pages,
 	},
 
 	[CR_FD_REG_FILES] = {
 		.fmt	= FMT_FNAME_REG_FILES,
 		.magic	= REG_FILES_MAGIC,
+		.show	= show_reg_files,
 	},
 
 	/* core data, such as regs and vmas and such */
 	[CR_FD_CORE] = {
 		.fmt	= FMT_FNAME_CORE,
 		.magic	= CORE_MAGIC,
+		.show	= show_core,
 	},
 
 	[CR_FD_VMAS] = {
 		.fmt	= FMT_FNAME_VMAS,
 		.magic	= VMAS_MAGIC,
+		.show	= show_vmas,
 	},
 
 	/* info about pipes - fds, pipe id and pipe data */
 	[CR_FD_PIPES] = {
 		.fmt	= FMT_FNAME_PIPES,
 		.magic	= PIPES_MAGIC,
+		.show	= show_pipes,
 	},
 
 	 /* info about process linkage */
 	[CR_FD_PSTREE] = {
 		.fmt	= FMT_FNAME_PSTREE,
 		.magic	= PSTREE_MAGIC,
+		.show	= show_pstree,
 	},
 
 	/* info about signal handlers */
 	[CR_FD_SIGACT] = {
 		.fmt	= FMT_FNAME_SIGACTS,
 		.magic	= SIGACT_MAGIC,
+		.show	= show_sigacts,
 	},
 
 	/* info about unix sockets */
 	[CR_FD_UNIXSK] = {
 		.fmt	= FMT_FNAME_UNIXSK,
 		.magic	= UNIXSK_MAGIC,
+		.show	= show_unixsk,
 	},
 
 	/* info about inet sockets */
 	[CR_FD_INETSK] = {
 		.fmt	= FMT_FNAME_INETSK,
 		.magic	= INETSK_MAGIC,
+		.show	= show_inetsk,
 	},
 
 	[CR_FD_SK_QUEUES] = {
 		.fmt	= FMT_FNAME_SK_QUEUES,
 		.magic	= SK_QUEUES_MAGIC,
+		.show	= show_sk_queues,
 	},
 
 	/* interval timers (itimers) */
 	[CR_FD_ITIMERS] = {
 		.fmt	= FMT_FNAME_ITIMERS,
 		.magic	= ITIMERS_MAGIC,
+		.show	= show_itimers,
 	},
 
 	/* creds */
 	[CR_FD_CREDS] = {
 		.fmt	= FMT_FNAME_CREDS,
 		.magic	= CREDS_MAGIC,
+		.show	= show_creds,
 	},
 
 	/* UTS namespace */
 	[CR_FD_UTSNS] = {
 		.fmt	= FMT_FNAME_UTSNS,
 		.magic	= UTSNS_MAGIC,
+		.show	= show_utsns,
 	},
 
 	/* IPC namespace variables */
 	[CR_FD_IPCNS_VAR] = {
 		.fmt	= FMT_FNAME_IPCNS_VAR,
 		.magic	= IPCNS_VAR_MAGIC,
+		.show	= show_ipc_var,
 	},
 
 	/* IPC namespace shared memory */
 	[CR_FD_IPCNS_SHM] = {
 		.fmt	= FMT_FNAME_IPCNS_SHM,
 		.magic	= IPCNS_SHM_MAGIC,
+		.show	= show_ipc_shm,
 	},
 
 	/* IPC namespace message queues */
 	[CR_FD_IPCNS_MSG] = {
 		.fmt	= FMT_FNAME_IPCNS_MSG,
 		.magic	= IPCNS_MSG_MAGIC,
+		.show	= show_ipc_msg,
 	},
 
 	/* IPC namespace semaphores sets */
 	[CR_FD_IPCNS_SEM] = {
 		.fmt	= FMT_FNAME_IPCNS_SEM,
 		.magic	= IPCNS_SEM_MAGIC,
+		.show	= show_ipc_sem,
 	},
 };
 
