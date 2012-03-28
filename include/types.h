@@ -195,4 +195,9 @@ enum kcmp_type {
 	KCMP_TYPES,
 };
 
+/* For UNIX sockets data */
+#ifndef SCM_MAX_FD
+# define SCM_MAX_FD	253
+#endif
+
 #endif /* CR_TYPES_H_ */
