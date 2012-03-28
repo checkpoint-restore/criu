@@ -9,6 +9,8 @@
 #include "image.h"
 #include "sockets.h"
 
+#include "util-net.h"
+
 #define __parasite_head		__used __section(.parasite.head.text)
 
 #define PARASITE_STACK_SIZE	2048
@@ -30,6 +32,7 @@ enum {
 	PARASITE_CMD_DUMP_MISC,
 	PARASITE_CMD_DUMP_TID_ADDR,
 	PARASITE_CMD_DUMP_SK_QUEUES,
+	PARASITE_CMD_DRAIN_FDS,
 
 	PARASITE_CMD_MAX,
 };
@@ -82,6 +85,17 @@ struct parasite_dump_sk_queues {
 	parasite_status_t	status;
 	unsigned		nr_items;
 	struct sk_queue_item	items[0];
+};
+
+#define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
+
+struct parasite_drain_fd {
+	parasite_status_t	status;
+
+	struct sockaddr_un	saddr;
+	int			sun_len;
+	int			fds[PARASITE_MAX_FDS];
+	int			nr_fds;
 };
 
 /*

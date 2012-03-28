@@ -605,6 +605,55 @@ out:
 	return ret;
 }
 
+int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds)
+{
+	struct parasite_drain_fd *args;
+	parasite_status_t *st;
+	int ret = -1;
+	int sock;
+
+	args = xmalloc(sizeof(*args));
+	if (!args)
+		return -ENOMEM;
+	st = &args->status;
+
+	args->sun_len = gen_parasite_saddr(&args->saddr, (int)-2u);
+	args->nr_fds = nr_fds;
+
+	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		ret = sock;
+		goto out;
+	}
+
+	ret = bind(sock, (struct sockaddr *)&args->saddr, args->sun_len);
+	if (ret < 0) {
+		pr_perror("Can't bind socket");
+		goto err;
+	}
+
+	memcpy(&args->fds, fds, sizeof(int) * nr_fds);
+
+	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl, st, sizeof(*args));
+	if (ret) {
+		pr_err("Parasite failed to drain descriptors\n");
+		goto err;
+	}
+
+	ret = recv_fds(sock, lfds, nr_fds);
+	if (ret) {
+		pr_err("Can't retrieve FDs from socket\n");
+		goto err;
+	}
+
+err:
+	close(sock);
+out:
+	xfree(args);
+	return ret;
+}
+
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	parasite_status_t args = { };

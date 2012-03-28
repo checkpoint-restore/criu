@@ -494,6 +494,23 @@ err_dmp:
 	return ret;
 }
 
+static int drain_fds(struct parasite_drain_fd *args)
+{
+	parasite_status_t *st = &args->status;
+	int ret;
+
+	ret = send_fds(tsock, &args->saddr, args->sun_len,
+		       args->fds, args->nr_fds);
+	if (ret) {
+		sys_write_msg("send_fds failed\n");
+		SET_PARASITE_RET(st, ret);
+		goto err;
+	}
+
+err:
+	return ret;
+}
+
 static int init(struct parasite_init_args *args)
 {
 	parasite_status_t *st = &args->status;
@@ -561,6 +578,7 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_tid_addr) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_sk_queues) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_drain_fd) > PARASITE_ARG_SIZE);
 
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
@@ -585,6 +603,8 @@ static int __used parasite_service(unsigned long cmd, void *args)
 		return dump_tid_addr((struct parasite_dump_tid_addr *)args);
 	case PARASITE_CMD_DUMP_SK_QUEUES:
 		return dump_skqueues((struct parasite_dump_sk_queues *)args);
+	case PARASITE_CMD_DRAIN_FDS:
+		return drain_fds((struct parasite_drain_fd *)args);
 	default:
 		{
 			parasite_status_t *st = (parasite_status_t *)args;

@@ -42,6 +42,8 @@ struct parasite_dump_tid_addr;
 extern int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl,
 					 pid_t pid, unsigned int **tid_add);
 
+extern int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds);
+
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct list_head *vma_area_list);
