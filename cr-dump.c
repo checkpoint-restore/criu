@@ -31,6 +31,7 @@
 #include "namespaces.h"
 #include "image.h"
 #include "proc_parse.h"
+#include "parasite.h"
 #include "parasite-syscall.h"
 
 #ifndef CONFIG_X86_64
@@ -88,6 +89,41 @@ err:
 }
 
 struct cr_fdset *glob_fdset;
+
+static int collect_fds(pid_t pid, int *fd, int *nr_fd)
+{
+	struct dirent *de;
+	DIR *fd_dir;
+	int n;
+
+	pr_info("\n");
+	pr_info("Collecting fds (pid: %d)\n", pid);
+	pr_info("----------------------------------------\n");
+
+	fd_dir = opendir_proc(pid, "fd");
+	if (!fd_dir)
+		return -1;
+
+	n = 0;
+	while ((de = readdir(fd_dir))) {
+		if (!strcmp(de->d_name, "."))
+			continue;
+		if (!strcmp(de->d_name, ".."))
+			continue;
+
+		if (n > *nr_fd - 1)
+			return -ENOMEM;
+		fd[n++] = atoi(de->d_name);
+	}
+
+	*nr_fd = n;
+	pr_info("Found %d file descriptors\n", n);
+	pr_info("----------------------------------------\n");
+
+	closedir(fd_dir);
+
+	return 0;
+}
 
 struct fd_parms {
 	unsigned long	fd_name;
@@ -291,59 +327,39 @@ err:
 	return ret;
 }
 
-static int read_fd_params(pid_t pid, const char *fd, struct fd_parms *p)
+static void fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 {
-	FILE *file;
-	int ret;
-
-	file = fopen_proc(pid, "fdinfo/%s", fd);
-	if (!file)
-		return -1;
-
-	p->fd_name = atoi(fd);
-	ret = fscanf(file, "pos:\t%li\nflags:\t%o\n", &p->pos, &p->flags);
-	fclose(file);
-
-	if (ret != 2) {
-		pr_err("Bad format of fdinfo file (%d items, want 2)\n", ret);
-		return -1;
-	}
-
-	pr_info("%d fdinfo %s: pos: %16lx flags: %16o\n",
-		pid, fd, p->pos, p->flags);
-
+	p->fd_name = fd;
+	p->pos	= lseek(lfd, 0, SEEK_CUR);
+	p->flags= fcntl(lfd, F_GETFL);
 	p->pid	= pid;
 	p->id	= FD_ID_INVALID;
 
-	return 0;
+	pr_info("%d fdinfo %d: pos: %16lx flags: %16o\n",
+		pid, fd, p->pos, p->flags);
 }
 
-static int dump_one_fd(pid_t pid, int pid_fd_dir, const char *d_name,
+static int dump_one_fd(pid_t pid, int fd, int lfd,
 		       const struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
 	struct stat fd_stat;
-	int err = -1;
 	struct fd_parms p;
-	int lfd;
-
-	if (read_fd_params(pid, d_name, &p))
-		return -1;
-
-	lfd = openat(pid_fd_dir, d_name, O_RDONLY);
-	if (lfd < 0) {
-		err = try_dump_socket(pid, p.fd_name, cr_fdset, sk_queue);
-		if (err != 1)
-			return err;
-
-		pr_perror("Failed to open %d/%ld", pid_fd_dir, p.fd_name);
-		return -1;
-	}
+	int err = -1;
 
 	if (fstat(lfd, &fd_stat) < 0) {
-		pr_perror("Can't get stat on %ld", p.fd_name);
+		pr_perror("Can't get stat on %d", fd);
 		goto out_close;
 	}
+
+	if (S_ISSOCK(fd_stat.st_mode)) {
+		err = try_dump_socket(pid, fd, cr_fdset, sk_queue);
+		if (err)
+			pr_perror("Failed to open %d", fd);
+		return err;
+	}
+
+	fill_fd_params(pid, fd, lfd, &p);
 
 	if (S_ISCHR(fd_stat.st_mode) &&
 	    (major(fd_stat.st_rdev) == TTY_MAJOR ||
@@ -351,8 +367,7 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, const char *d_name,
 		/* skip only standard destriptors */
 		if (p.fd_name < 3) {
 			err = 0;
-			pr_info("... Skipping tty ... %d/%ld\n",
-				pid_fd_dir, p.fd_name);
+			pr_info("... Skipping tty ... %d\n", fd);
 			goto out_close;
 		}
 		goto err;
@@ -372,53 +387,53 @@ static int dump_one_fd(pid_t pid, int pid_fd_dir, const char *d_name,
 		return dump_one_pipe(&p, fd_stat.st_ino, lfd, cr_fdset);
 
 err:
-	pr_err("Can't dump file %ld of that type [%x]\n", p.fd_name, fd_stat.st_mode);
+	pr_err("Can't dump file %d of that type [%x]\n", fd, fd_stat.st_mode);
 
 out_close:
 	close_safe(&lfd);
 	return err;
 }
 
-static int dump_task_files(pid_t pid, const struct cr_fdset *cr_fdset,
-			   struct sk_queue *sk_queue)
+static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdset *cr_fdset,
+				  int *fds, int nr_fds, struct sk_queue *sk_queue)
 {
-	struct dirent *de;
-	unsigned long pos;
-	unsigned int flags;
-	DIR *fd_dir;
+	int *lfds;
+	int i, ret = -1;
 
 	pr_info("\n");
-	pr_info("Dumping opened files (pid: %d)\n", pid);
+	pr_info("Dumping opened files (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
+
+	lfds = xmalloc(PARASITE_MAX_FDS * sizeof(int));
+	if (!lfds)
+		goto err;
+
+	ret = parasite_drain_fds_seized(ctl, fds, lfds, nr_fds);
+	if (ret)
+		goto err;
 
 	/*
 	 * Dump special files at the beginning. We might need
 	 * to re-read them in restorer, so better to make it
 	 * fast.
 	 */
-	if (dump_task_special_files(pid, cr_fdset)) {
+	ret = dump_task_special_files(ctl->pid, cr_fdset);
+	if (ret) {
 		pr_err("Can't dump special files\n");
-		return -1;
+		goto err;
 	}
 
-	fd_dir = opendir_proc(pid, "fd");
-	if (!fd_dir)
-		return -1;
-
-	while ((de = readdir(fd_dir))) {
-		if (!strcmp(de->d_name, "."))
-			continue;
-		if (!strcmp(de->d_name, ".."))
-			continue;
-		if (dump_one_fd(pid, dirfd(fd_dir), de->d_name, cr_fdset,
-				sk_queue))
-			return -1;
+	for (i = 0; i < nr_fds; i++) {
+		ret = dump_one_fd(ctl->pid, fds[i], lfds[i],
+				cr_fdset, sk_queue);
+		if (ret)
+			goto err;
 	}
 
 	pr_info("----------------------------------------\n");
-
-	closedir(fd_dir);
-	return 0;
+err:
+	xfree(lfds);
+	return ret;
 }
 
 struct shmem_info
@@ -1285,9 +1300,16 @@ static int dump_one_task(const struct pstree_item *item)
 	struct sk_queue sk_queue = { };
 	struct cr_fdset *cr_fdset = NULL;
 
+	int nr_fds = PARASITE_MAX_FDS;
+	int *fds = NULL;
+
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	fds = xmalloc(nr_fds * sizeof(int));
+	if (!fds)
+		goto err_free;
 
 	if (item->state == TASK_STOPPED) {
 		pr_err("Stopped tasks are not supported\n");
@@ -1313,15 +1335,21 @@ static int dump_one_task(const struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_task_files(pid, cr_fdset, &sk_queue);
+	ret = collect_fds(pid, fds, &nr_fds);
 	if (ret) {
-		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
+		pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
+		goto err;
+	}
+
+	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds, &sk_queue);
+	if (ret) {
+		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
@@ -1389,6 +1417,7 @@ err:
 	close_pid_proc();
 err_free:
 	free_mappings(&vma_area_list);
+	xfree(fds);
 	return ret;
 }
 
