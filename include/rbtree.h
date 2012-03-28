@@ -55,11 +55,6 @@ static void rb_init_node(struct rb_node *node)
 	RB_CLEAR_NODE(node);
 }
 
-static void rb_attach_node(struct rb_root *root, struct rb_node *node)
-{
-	root->rb_node = node;
-}
-
 extern void rb_insert_color(struct rb_node *node, struct rb_root *root);
 extern void rb_erase(struct rb_node *node, struct rb_root *root);
 
