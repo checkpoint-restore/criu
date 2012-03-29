@@ -345,12 +345,35 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 	return 0;
 }
 
+static int dump_unsupp_fd(const struct fd_parms *p)
+{
+	pr_err("Can't dump file %d of that type [%x]\n",
+			(int)p->fd_name, p->stat.st_mode);
+	return -1;
+}
+
+static int dump_one_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	int maj;
+
+	maj = major(p->stat.st_rdev);
+	if (maj == MEM_MAJOR)
+		return dump_one_fdinfo(p, lfd, set);
+
+	if (p->fd_name < 3 && (maj == TTY_MAJOR ||
+				maj == UNIX98_PTY_SLAVE_MAJOR)) {
+		pr_info("... Skipping tty ... %d\n", (int)p->fd_name);
+		return 0;
+	}
+
+	return dump_unsupp_fd(p);
+}
+
 static int dump_one_fd(pid_t pid, int fd, int lfd,
 		       const struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
 	struct fd_parms p;
-	int err = -1;
 
 	if (fill_fd_params(pid, fd, lfd, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
@@ -360,30 +383,16 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, cr_fdset, sk_queue);
 
-	if (S_ISCHR(p.stat.st_mode) &&
-	    (major(p.stat.st_rdev) == TTY_MAJOR ||
-	     major(p.stat.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
-		/* skip only standard destriptors */
-		if (p.fd_name < 3) {
-			err = 0;
-			pr_info("... Skipping tty ... %d\n", fd);
-			goto out;
-		}
-		goto err;
-	}
+	if (S_ISCHR(p.stat.st_mode))
+		return dump_one_chrdev(&p, lfd, cr_fdset);
 
-	if (S_ISREG(p.stat.st_mode) ||
-	    S_ISDIR(p.stat.st_mode) ||
-	    (S_ISCHR(p.stat.st_mode) && major(p.stat.st_rdev) == MEM_MAJOR))
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
 		return dump_one_fdinfo(&p, lfd, cr_fdset);
 
 	if (S_ISFIFO(p.stat.st_mode))
 		return dump_one_pipe(&p, lfd, cr_fdset);
 
-err:
-	pr_err("Can't dump file %d of that type [%x]\n", fd, p.stat.st_mode);
-out:
-	return err;
+	return dump_unsupp_fd(&p);
 }
 
 static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdset *cr_fdset,
