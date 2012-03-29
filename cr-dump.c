@@ -352,12 +352,8 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 		goto out_close;
 	}
 
-	if (S_ISSOCK(fd_stat.st_mode)) {
-		err = try_dump_socket(pid, fd, cr_fdset, sk_queue);
-		if (err)
-			pr_perror("Failed to open %d", fd);
-		return err;
-	}
+	if (S_ISSOCK(fd_stat.st_mode))
+		return dump_socket(pid, fd, cr_fdset, sk_queue);
 
 	fill_fd_params(pid, fd, lfd, &p);
 

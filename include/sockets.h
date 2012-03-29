@@ -22,7 +22,7 @@ struct sk_queue {
 };
 
 struct cr_fdset;
-extern int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
+extern int dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 			   struct sk_queue *queue);
 
 extern int collect_sockets(void);

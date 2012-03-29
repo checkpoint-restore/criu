@@ -381,7 +381,7 @@ err:
 	return -1;
 }
 
-int try_dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
+int dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 		    struct sk_queue *queue)
 {
 	struct socket_desc *sk;
