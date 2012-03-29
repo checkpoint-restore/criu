@@ -130,7 +130,7 @@ struct fd_parms {
 	unsigned long	pos;
 	unsigned int	flags;
 	unsigned int	type;
-
+	struct stat	stat;
 	u32		id;
 	pid_t		pid;
 };
@@ -327,39 +327,43 @@ err:
 	return ret;
 }
 
-static void fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
+static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 {
-	p->fd_name = fd;
-	p->pos	= lseek(lfd, 0, SEEK_CUR);
-	p->flags= fcntl(lfd, F_GETFL);
-	p->pid	= pid;
-	p->id	= FD_ID_INVALID;
+	if (fstat(lfd, &p->stat) < 0) {
+		pr_perror("Can't stat fd %d\n", lfd);
+		return -1;
+	}
+
+	p->fd_name	= fd;
+	p->pos		= lseek(lfd, 0, SEEK_CUR);
+	p->flags	= fcntl(lfd, F_GETFL);
+	p->pid		= pid;
+	p->id		= FD_ID_INVALID;
 
 	pr_info("%d fdinfo %d: pos: %16lx flags: %16o\n",
 		pid, fd, p->pos, p->flags);
+
+	return 0;
 }
 
 static int dump_one_fd(pid_t pid, int fd, int lfd,
 		       const struct cr_fdset *cr_fdset,
 		       struct sk_queue *sk_queue)
 {
-	struct stat fd_stat;
 	struct fd_parms p;
 	int err = -1;
 
-	if (fstat(lfd, &fd_stat) < 0) {
+	if (fill_fd_params(pid, fd, lfd, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
 		goto out_close;
 	}
 
-	if (S_ISSOCK(fd_stat.st_mode))
+	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(pid, fd, cr_fdset, sk_queue);
 
-	fill_fd_params(pid, fd, lfd, &p);
-
-	if (S_ISCHR(fd_stat.st_mode) &&
-	    (major(fd_stat.st_rdev) == TTY_MAJOR ||
-	     major(fd_stat.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
+	if (S_ISCHR(p.stat.st_mode) &&
+	    (major(p.stat.st_rdev) == TTY_MAJOR ||
+	     major(p.stat.st_rdev) == UNIX98_PTY_SLAVE_MAJOR)) {
 		/* skip only standard destriptors */
 		if (p.fd_name < 3) {
 			err = 0;
@@ -369,21 +373,21 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 		goto err;
 	}
 
-	if (S_ISREG(fd_stat.st_mode) ||
-	    S_ISDIR(fd_stat.st_mode) ||
-	    (S_ISCHR(fd_stat.st_mode) && major(fd_stat.st_rdev) == MEM_MAJOR)) {
+	if (S_ISREG(p.stat.st_mode) ||
+	    S_ISDIR(p.stat.st_mode) ||
+	    (S_ISCHR(p.stat.st_mode) && major(p.stat.st_rdev) == MEM_MAJOR)) {
 
-		p.id = MAKE_FD_GENID(fd_stat.st_dev, fd_stat.st_ino, p.pos);
+		p.id = MAKE_FD_GENID(p.stat.st_dev, p.stat.st_ino, p.pos);
 		p.type = FDINFO_REG;
 
 		return dump_one_fdinfo(&p, lfd, cr_fdset, 1);
 	}
 
-	if (S_ISFIFO(fd_stat.st_mode))
-		return dump_one_pipe(&p, fd_stat.st_ino, lfd, cr_fdset);
+	if (S_ISFIFO(p.stat.st_mode))
+		return dump_one_pipe(&p, p.stat.st_ino, lfd, cr_fdset);
 
 err:
-	pr_err("Can't dump file %d of that type [%x]\n", fd, fd_stat.st_mode);
+	pr_err("Can't dump file %d of that type [%x]\n", fd, p.stat.st_mode);
 
 out_close:
 	close_safe(&lfd);
