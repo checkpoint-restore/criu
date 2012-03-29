@@ -22,6 +22,7 @@
 #include "crtools.h"
 #include "util.h"
 #include "inet_diag.h"
+#include "files.h"
 
 static char buf[4096];
 
@@ -381,7 +382,7 @@ err:
 	return -1;
 }
 
-int dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
+int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset,
 		    struct sk_queue *queue)
 {
 	struct socket_desc *sk;
@@ -389,25 +390,7 @@ int dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 	struct stat st;
 	char path[64];
 
-	/*
-	 * Sockets are tricky, we can't open it but can
-	 * do stats over and check for sokets magic.
-	 */
-	snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid, fd);
-	if (statfs(buf, &fst)) {
-		pr_perror("Can't statfs %s", buf);
-		return -1;
-	}
-
-	if (stat(buf, &st)) {
-		pr_perror("Can't stat %s", buf);
-		return -1;
-	}
-
-	if (fst.f_type != SOCKFS_MAGIC)
-		return 1; /* not a socket, proceed with caller error */
-
-	sk = lookup_socket(st.st_ino);
+	sk = lookup_socket(p->stat.st_ino);
 	if (!sk) {
 		pr_err("Uncollected socket %ld\n", st.st_ino);
 		return -1;
@@ -415,9 +398,9 @@ int dump_socket(pid_t pid, int fd, const struct cr_fdset *cr_fdset,
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, fd, cr_fdset, queue);
+		return dump_one_unix(sk, p->fd_name, cr_fdset, queue);
 	case AF_INET:
-		return dump_one_inet(sk, fd, cr_fdset, queue);
+		return dump_one_inet(sk, p->fd_name, cr_fdset, queue);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

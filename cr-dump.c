@@ -33,6 +33,7 @@
 #include "proc_parse.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
+#include "files.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -124,16 +125,6 @@ static int collect_fds(pid_t pid, int *fd, int *nr_fd)
 
 	return 0;
 }
-
-struct fd_parms {
-	unsigned long	fd_name;
-	unsigned long	pos;
-	unsigned int	flags;
-	unsigned int	type;
-	struct stat	stat;
-	u32		id;
-	pid_t		pid;
-};
 
 static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
@@ -360,7 +351,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 	}
 
 	if (S_ISSOCK(p.stat.st_mode))
-		return dump_socket(pid, fd, cr_fdset, sk_queue);
+		return dump_socket(&p, lfd, cr_fdset, sk_queue);
 
 	if (S_ISCHR(p.stat.st_mode) &&
 	    (major(p.stat.st_rdev) == TTY_MAJOR ||

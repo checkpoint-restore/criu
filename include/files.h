@@ -7,6 +7,16 @@
 #include "list.h"
 #include "image.h"
 
+struct fd_parms {
+	unsigned long	fd_name;
+	unsigned long	pos;
+	unsigned int	flags;
+	unsigned int	type;
+	struct stat	stat;
+	u32		id;
+	pid_t		pid;
+};
+
 enum fdinfo_states {
 	FD_STATE_PREP,		/* Create unix sockets */
 	FD_STATE_CREATE,	/* Create and send fd */
