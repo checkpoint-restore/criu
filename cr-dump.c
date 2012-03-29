@@ -370,8 +370,7 @@ static int dump_one_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *s
 }
 
 static int dump_one_fd(pid_t pid, int fd, int lfd,
-		       const struct cr_fdset *cr_fdset,
-		       struct sk_queue *sk_queue)
+		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
 
@@ -381,7 +380,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 	}
 
 	if (S_ISSOCK(p.stat.st_mode))
-		return dump_socket(&p, lfd, cr_fdset, sk_queue);
+		return dump_socket(&p, lfd, cr_fdset);
 
 	if (S_ISCHR(p.stat.st_mode))
 		return dump_one_chrdev(&p, lfd, cr_fdset);
@@ -396,7 +395,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 }
 
 static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdset *cr_fdset,
-				  int *fds, int nr_fds, struct sk_queue *sk_queue)
+				  int *fds, int nr_fds)
 {
 	int *lfds;
 	int i, ret = -1;
@@ -425,8 +424,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	}
 
 	for (i = 0; i < nr_fds; i++) {
-		ret = dump_one_fd(ctl->pid, fds[i], lfds[i],
-				cr_fdset, sk_queue);
+		ret = dump_one_fd(ctl->pid, fds[i], lfds[i], cr_fdset);
 		close(lfds[i]);
 		if (ret)
 			goto err;
@@ -1299,7 +1297,6 @@ static int dump_one_task(const struct pstree_item *item)
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	struct parasite_dump_misc misc;
-	struct sk_queue sk_queue = { };
 	struct cr_fdset *cr_fdset = NULL;
 
 	int nr_fds = PARASITE_MAX_FDS;
@@ -1349,7 +1346,7 @@ static int dump_one_task(const struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds, &sk_queue);
+	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1388,12 +1385,6 @@ static int dump_one_task(const struct pstree_item *item)
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
-		goto err;
-	}
-
-	ret = parasite_dump_socket_info(parasite_ctl, cr_fdset, &sk_queue);
-	if (ret) {
-		pr_err("Can't dump socket info (pid: %d)\n", pid);
 		goto err;
 	}
 

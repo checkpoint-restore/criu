@@ -34,7 +34,6 @@ extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdse
 
 struct parasite_dump_misc;
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
-extern int parasite_dump_socket_info(struct parasite_ctl *ctl, struct cr_fdset *fdset, struct sk_queue *queue);
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				      struct list_head *vma_area_list,
 				      struct cr_fdset *cr_fdset);

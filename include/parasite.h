@@ -31,7 +31,6 @@ enum {
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
 	PARASITE_CMD_DUMP_TID_ADDR,
-	PARASITE_CMD_DUMP_SK_QUEUES,
 	PARASITE_CMD_DRAIN_FDS,
 
 	PARASITE_CMD_MAX,
@@ -79,12 +78,6 @@ struct parasite_dump_tid_addr {
 	parasite_status_t	status;
 
 	unsigned int *tid_addr;
-};
-
-struct parasite_dump_sk_queues {
-	parasite_status_t	status;
-	unsigned		nr_items;
-	struct sk_queue_item	items[0];
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))

@@ -1,8 +1,6 @@
-#include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/types.h>
 #include <linux/net.h>
-#include <linux/un.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
 #include <sys/stat.h>
@@ -23,6 +21,7 @@
 #include "util.h"
 #include "inet_diag.h"
 #include "files.h"
+#include "util-net.h"
 
 static char buf[4096];
 
@@ -87,23 +86,98 @@ struct inet_sk_desc {
 	unsigned int		dst_addr[4];
 };
 
-static int unix_sk_queue_add(int fd, const struct unix_sk_desc *sd,
-			     struct sk_queue *queue)
+static int dump_socket_queue(int sock_fd, int sock_id)
 {
-	struct sk_queue_entry *next, *new;
+	struct sk_packet_entry *pe;
+	unsigned long size;
+	socklen_t tmp;
+	int ret, orig_peek_off;
 
-	new = xmalloc(sizeof(struct sk_queue_entry));
-	if (!new)
-		return -1;
+	/*
+	 * Save original peek offset. 
+	 */
+	tmp = sizeof(orig_peek_off);
+	ret = getsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, &tmp);
+	if (ret < 0) {
+		pr_perror("getsockopt failed\n");
+		return ret;
+	}
+	/*
+	 * Discover max DGRAM size
+	 */
+	tmp = sizeof(size);
+	ret = getsockopt(sock_fd, SOL_SOCKET, SO_SNDBUF, &size, &tmp);
+	if (ret < 0) {
+		pr_perror("getsockopt failed\n");
+		return ret;
+	}
 
-	new->item.fd = fd;
-	new->item.type = sd->type;
-	new->item.sk_id = sd->sd.ino;
-	new->next = queue->list;
+	/* Note: 32 bytes will be used by kernel for protocol header. */
+	size -= 32;
+	/*
+	 * Try to alloc buffer for max supported DGRAM + our header.
+	 * Note: STREAM queue will be written by chunks of this size.
+	 */
+	pe = xmalloc(size + sizeof(struct sk_packet_entry));
+	if (!pe)
+		return -ENOMEM;
 
-	queue->list = new;
-	queue->entries++;
-	return 0;
+	/*
+	 * Enable peek offset incrementation.
+	 */
+	ret = setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &ret, sizeof(int));
+	if (ret < 0) {
+		pr_perror("setsockopt fail\n");
+		goto err_brk;
+	}
+
+	pe->id_for = sock_id;
+
+	while (1) {
+		struct iovec iov = {
+			.iov_base	= pe->data,
+			.iov_len	= size,
+		};
+		struct msghdr msg = {
+			.msg_iov	= &iov,
+			.msg_iovlen	= 1,
+		};
+
+		ret = pe->length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
+		if (ret < 0) {
+			if (ret == -EAGAIN)
+				break; /* we're done */
+			pr_perror("sys_recvmsg fail: error\n");
+			goto err_set_sock;
+		}
+		if (msg.msg_flags & MSG_TRUNC) {
+			/*
+			 * DGRAM thuncated. This should not happen. But we have
+			 * to check...
+			 */
+			pr_err("sys_recvmsg failed: truncated\n");
+			ret = -E2BIG;
+			goto err_set_sock;
+		}
+		ret = write_img_buf(fdset_fd(glob_fdset, CR_FD_SK_QUEUES),
+				pe, sizeof(pe) + pe->length);
+		if (ret < 0) {
+			ret = -EIO;
+			goto err_set_sock;
+		}
+	}
+	ret = 0;
+
+err_set_sock:
+	/*
+	 * Restore original peek offset. 
+	 */
+	ret = setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, sizeof(int));
+	if (ret < 0)
+		pr_perror("setsockopt failed on restore\n");
+err_brk:
+	xfree(pe);
+	return ret;
 }
 
 #define SK_HASH_SIZE		32
@@ -240,8 +314,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 }
 
 static int dump_one_inet(struct socket_desc *_sk, int fd,
-			 const struct cr_fdset *cr_fdset,
-			 struct sk_queue *queue)
+			 const struct cr_fdset *cr_fdset)
 {
 	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
@@ -311,9 +384,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(const struct socket_desc *_sk, int fd,
-			 const struct cr_fdset *cr_fdset,
-			 struct sk_queue *queue)
+static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
+			 const struct cr_fdset *cr_fdset)
 {
 	const struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct unix_sk_entry ue;
@@ -369,7 +441,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd,
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
 				sk->state == TCP_LISTEN))
-		if (unix_sk_queue_add(fd, sk, queue))
+		if (dump_socket_queue(lfd, ue.id))
 			goto err;
 
 	pr_info("Dumping unix socket at %d\n", fd);
@@ -382,8 +454,7 @@ err:
 	return -1;
 }
 
-int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset,
-		    struct sk_queue *queue)
+int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
 	struct statfs fst;
@@ -398,9 +469,9 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset,
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, p->fd_name, cr_fdset, queue);
+		return dump_one_unix(sk, p->fd_name, lfd, cr_fdset);
 	case AF_INET:
-		return dump_one_inet(sk, p->fd_name, cr_fdset, queue);
+		return dump_one_inet(sk, p->fd_name, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

@@ -5,26 +5,10 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-struct sk_queue_item {
-	int		fd;
-	int		type;
-	unsigned int	sk_id;
-};
-
-struct sk_queue_entry {
-	struct sk_queue_item item;
-	struct sk_queue_entry *next;
-};
-
-struct sk_queue {
-	unsigned int entries;
-	struct sk_queue_entry *list;
-};
-
 struct cr_fdset;
 struct fd_parms;
 extern int dump_socket(struct fd_parms *p, int lfd,
-		const struct cr_fdset *cr_fdset, struct sk_queue *queue);
+		const struct cr_fdset *cr_fdset);
 
 extern int collect_sockets(void);
 extern int prepare_sockets(int pid);
