@@ -159,8 +159,7 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 }
 
 static int dump_one_fdinfo(const struct fd_parms *p, int lfd,
-			     const struct cr_fdset *cr_fdset,
-			     bool do_close_lfd)
+			     const struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
 	int ret = -1;
@@ -175,9 +174,6 @@ static int dump_one_fdinfo(const struct fd_parms *p, int lfd,
 
 	if (ret < 0)
 		goto err;
-
-	if (do_close_lfd)
-		close(lfd);
 
 	pr_info("fdinfo: type: %2x flags: %4x pos: %8lx addr: %16lx\n",
 		p->type, p->flags, p->pos, p->fd_name);
@@ -205,7 +201,8 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_fdinfo(&params, fd, cr_fdset, 1);
+	ret = dump_one_fdinfo(&params, fd, cr_fdset);
+	close(fd);
 	if (ret)
 		return ret;
 
@@ -219,7 +216,8 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_fdinfo(&params, fd, cr_fdset, 1);
+	ret = dump_one_fdinfo(&params, fd, cr_fdset);
+	close(fd);
 
 	return ret;
 }
@@ -347,7 +345,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 
 	if (fill_fd_params(pid, fd, lfd, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
-		goto out_close;
+		return -1;
 	}
 
 	if (S_ISSOCK(p.stat.st_mode))
@@ -360,7 +358,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 		if (p.fd_name < 3) {
 			err = 0;
 			pr_info("... Skipping tty ... %d\n", fd);
-			goto out_close;
+			goto out;
 		}
 		goto err;
 	}
@@ -372,7 +370,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 		p.id = MAKE_FD_GENID(p.stat.st_dev, p.stat.st_ino, p.pos);
 		p.type = FDINFO_REG;
 
-		return dump_one_fdinfo(&p, lfd, cr_fdset, 1);
+		return dump_one_fdinfo(&p, lfd, cr_fdset);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode))
@@ -380,9 +378,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 
 err:
 	pr_err("Can't dump file %d of that type [%x]\n", fd, p.stat.st_mode);
-
-out_close:
-	close_safe(&lfd);
+out:
 	return err;
 }
 
@@ -418,6 +414,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	for (i = 0; i < nr_fds; i++) {
 		ret = dump_one_fd(ctl->pid, fds[i], lfds[i],
 				cr_fdset, sk_queue);
+		close(lfds[i]);
 		if (ret)
 			goto err;
 	}
@@ -500,7 +497,7 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 	 * XXX Strictly speaking, no need in full fdinfo here.
 	 * This can be relaxed down to calling dump_one_reg_file.
 	 */
-	return dump_one_fdinfo(&p, file_fd, fdset, 0);
+	return dump_one_fdinfo(&p, file_fd, fdset);
 }
 
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
