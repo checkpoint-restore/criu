@@ -288,12 +288,13 @@ err:
 	return ret;
 }
 
-static int dump_one_pipe(const struct fd_parms *p, unsigned int id, int lfd,
+static int dump_one_pipe(const struct fd_parms *p, int lfd,
 			 const struct cr_fdset *cr_fdset)
 {
 	struct pipe_entry e;
 	int ret = -1;
 	struct statfs stfs_buf;
+	int id = p->stat.st_ino;
 
 	if (fstatfs(lfd, &stfs_buf) < 0) {
 		pr_perror("Can't fstatfs on %ld", p->fd_name);
@@ -384,7 +385,7 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 	}
 
 	if (S_ISFIFO(p.stat.st_mode))
-		return dump_one_pipe(&p, p.stat.st_ino, lfd, cr_fdset);
+		return dump_one_pipe(&p, lfd, cr_fdset);
 
 err:
 	pr_err("Can't dump file %d of that type [%x]\n", fd, p.stat.st_mode);
