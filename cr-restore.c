@@ -1601,10 +1601,10 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	restore_thread_exec_start	= restore_code_start + restorer_blob_offset__restore_thread;
 	restore_task_exec_start		= restore_code_start + restorer_blob_offset__restore_task;
 	task_args			= restore_code_start + restore_code_len;
-	thread_args			= restore_thread_exec_start;
+	thread_args			= (void *)((long)task_args + sizeof(*task_args));
 
 	memzero_p(task_args);
-	memzero_p(thread_args);
+	memzero(thread_args, sizeof(*thread_args) * me->nr_threads);
 
 	/*
 	 * Code at a new place.
