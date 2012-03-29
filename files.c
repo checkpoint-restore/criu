@@ -318,6 +318,9 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	case FDINFO_INETSK:
 		tmp = open_inet_sk(fe);
 		break;
+	default:
+		tmp = -1;
+		break;
 	}
 
 	if (tmp < 0)
