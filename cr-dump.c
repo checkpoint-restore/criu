@@ -158,7 +158,7 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	return 0;
 }
 
-static int dump_one_fdinfo(const struct fd_parms *p, int lfd,
+static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
@@ -186,6 +186,15 @@ err:
 	return ret;
 }
 
+static int dump_one_fdinfo(struct fd_parms *p, int lfd,
+			     const struct cr_fdset *cr_fdset)
+{
+	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
+	p->type = FDINFO_REG;
+
+	return do_dump_one_fdinfo(p, lfd, cr_fdset);
+}
+
 static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms params;
@@ -201,7 +210,7 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_fdinfo(&params, fd, cr_fdset);
+	ret = do_dump_one_fdinfo(&params, fd, cr_fdset);
 	close(fd);
 	if (ret)
 		return ret;
@@ -216,7 +225,7 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
-	ret = dump_one_fdinfo(&params, fd, cr_fdset);
+	ret = do_dump_one_fdinfo(&params, fd, cr_fdset);
 	close(fd);
 
 	return ret;
@@ -365,13 +374,8 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 
 	if (S_ISREG(p.stat.st_mode) ||
 	    S_ISDIR(p.stat.st_mode) ||
-	    (S_ISCHR(p.stat.st_mode) && major(p.stat.st_rdev) == MEM_MAJOR)) {
-
-		p.id = MAKE_FD_GENID(p.stat.st_dev, p.stat.st_ino, p.pos);
-		p.type = FDINFO_REG;
-
+	    (S_ISCHR(p.stat.st_mode) && major(p.stat.st_rdev) == MEM_MAJOR))
 		return dump_one_fdinfo(&p, lfd, cr_fdset);
-	}
 
 	if (S_ISFIFO(p.stat.st_mode))
 		return dump_one_pipe(&p, lfd, cr_fdset);
@@ -497,7 +501,7 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 	 * XXX Strictly speaking, no need in full fdinfo here.
 	 * This can be relaxed down to calling dump_one_reg_file.
 	 */
-	return dump_one_fdinfo(&p, file_fd, fdset);
+	return do_dump_one_fdinfo(&p, file_fd, fdset);
 }
 
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
