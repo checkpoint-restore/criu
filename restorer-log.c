@@ -16,12 +16,12 @@ void restorer_set_logfd(int fd)
 			c += 'a' - 10;	\
 	} while (0)
 
-static void always_inline write_char(char c)
+static void write_char(char c)
 {
 	sys_write(logfd, &c, 1);
 }
 
-void always_inline write_string(char *str)
+void write_string(char *str)
 {
 	int len = 0;
 
@@ -31,7 +31,7 @@ void always_inline write_string(char *str)
 	sys_write(logfd, str, len);
 }
 
-void always_inline write_string_n(char *str)
+void write_string_n(char *str)
 {
 	char new_line = '\n';
 
@@ -39,7 +39,7 @@ void always_inline write_string_n(char *str)
 	sys_write(logfd, &new_line, 1);
 }
 
-void always_inline write_num(long num)
+void write_num(long num)
 {
 	unsigned long d = 1000000000000000000;
 	unsigned int started = 0;
@@ -66,7 +66,7 @@ void always_inline write_num(long num)
 	}
 }
 
-void always_inline write_num_n(long num)
+void write_num_n(long num)
 {
 	unsigned char c;
 	write_num(num);
@@ -74,7 +74,7 @@ void always_inline write_num_n(long num)
 	sys_write(logfd, &c, sizeof(c));
 }
 
-long always_inline vprint_num(char *buf, long num)
+long vprint_num(char *buf, long num)
 {
 	unsigned long d = 1000000000000000000;
 	unsigned int started = 0;
@@ -105,7 +105,7 @@ long always_inline vprint_num(char *buf, long num)
 	return i;
 }
 
-void always_inline write_hex_n(unsigned long num)
+void write_hex_n(unsigned long num)
 {
 	unsigned char *s = (unsigned char *)&num;
 	unsigned char c;
