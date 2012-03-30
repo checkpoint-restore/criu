@@ -101,7 +101,5 @@ struct parasite_drain_fd {
 	((start) + parasite_blob_offset__parasite_cmd)
 #define PARASITE_HEAD_ADDR(start)				\
 	((start) + parasite_blob_offset__parasite_head_start)
-#define PARASITE_COMPLETE_ADDR(start)				\
-	((start) + parasite_blob_offset__parasite_service_complete)
 
 #endif /* CR_PARASITE_H_ */
