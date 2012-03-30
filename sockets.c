@@ -458,13 +458,10 @@ err:
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
-	struct statfs fst;
-	struct stat st;
-	char path[64];
 
 	sk = lookup_socket(p->stat.st_ino);
 	if (!sk) {
-		pr_err("Uncollected socket %ld\n", st.st_ino);
+		pr_err("Uncollected socket %ld\n", p->stat.st_ino);
 		return -1;
 	}
 
