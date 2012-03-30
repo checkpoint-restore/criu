@@ -494,7 +494,7 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	return -1;
 }
 
-static void __parasite_head __used parasite_head(void)
+static void __head parasite_head(void)
 {
 	/*
 	 * The linker will handle the stack allocation.

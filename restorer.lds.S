@@ -5,7 +5,7 @@ SECTIONS
 {
 	. = 0;
 	.text : {
-		*(.restorer.head.text)
+		*(.head.text)
 		*(.text)
 		. = ALIGN(8);
 	}
@@ -13,7 +13,6 @@ SECTIONS
 		*(.data)
 		*(.rodata)
 		*(.bss)
-		*(.restorer.stack)
 		. = ALIGN(8);
 	}
 }

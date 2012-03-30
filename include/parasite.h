@@ -11,7 +11,7 @@
 
 #include "util-net.h"
 
-#define __parasite_head		__used __section(.parasite.head.text)
+#define __head __used __section(.head.text)
 
 #define PARASITE_STACK_SIZE	2048
 #define PARASITE_ARG_SIZE	8196
