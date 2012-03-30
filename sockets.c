@@ -1,3 +1,4 @@
+#include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/types.h>
 #include <linux/net.h>
