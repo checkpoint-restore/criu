@@ -1493,10 +1493,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	int i, ret = -1;
 
 	pr_info("========================================\n");
-	if (!opts->leader_only)
-		pr_info("Dumping process group (pid: %d)\n", pid);
-	else
-		pr_info("Dumping process (pid: %d)\n", pid);
+	pr_info("Dumping process %s(pid: %d)\n", !opts->leader_only ? "group " : "", pid);
 	pr_info("========================================\n");
 
 	if (collect_dump_pstree(pid, &pstree_list, opts))
