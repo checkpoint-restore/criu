@@ -200,6 +200,8 @@ help:
 	$(E) '      test            - Run zdtm test-suite'
 .PHONY: help
 
-ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
+deps-targets := %.o %.s %.i
+
+ifeq ($(filter deps-targets, $(MAKECMDGOALS)),)
 -include $(DEPS)
 endif
