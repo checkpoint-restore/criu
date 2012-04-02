@@ -12,6 +12,7 @@ extern int dump_socket(struct fd_parms *p, int lfd,
 
 extern int collect_sockets(void);
 extern int collect_inet_sockets(void);
+extern int collect_unix_sockets(int pid);
 extern int prepare_sockets(int pid);
 struct fdinfo_entry;
 extern int open_inet_sk(struct fdinfo_entry *fe);

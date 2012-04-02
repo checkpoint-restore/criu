@@ -424,6 +424,10 @@ static int prepare_shared(int ps_fd)
 		if (ret <= 0)
 			break;
 
+		ret = collect_unix_sockets(e.pid);
+		if (ret < 0)
+			return -1;
+
 		ret = prepare_shmem_pid(e.pid);
 		if (ret < 0)
 			break;

@@ -1071,7 +1071,7 @@ err:
 	return -1;
 }
 
-static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, int img_fd)
+static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, char *name)
 {
 	struct sockaddr_un addr;
 
@@ -1082,9 +1082,7 @@ static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, int img_fd)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-
-	if (read_img_buf(img_fd, &addr.sun_path, ue->namelen) < 0)
-		return -1;
+	memcpy(&addr.sun_path, name, ue->namelen);
 
 	if (addr.sun_path[0] != '\0')
 		unlink(addr.sun_path);
@@ -1094,13 +1092,12 @@ static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, int img_fd)
 			ue->id, ue->type);
 }
 
-static int open_unix_sk_dgram(int sk, const struct unix_sk_entry *ue,
-		int img_fd)
+static int open_unix_sk_dgram(int sk, const struct unix_sk_entry *ue, char *name)
 {
 	int ret = 0;
 
 	if (ue->namelen)
-		ret = bind_unix_sk(sk, ue, img_fd);
+		ret = bind_unix_sk(sk, ue, name);
 	else if (ue->peer) {
 		struct sockaddr_un addr;
 		int addrlen;
@@ -1122,13 +1119,12 @@ static int open_unix_sk_dgram(int sk, const struct unix_sk_entry *ue,
 	return ret;
 }
 
-static int open_unix_sk_stream(int sk, const struct unix_sk_entry *ue,
-		int img_fd)
+static int open_unix_sk_stream(int sk, const struct unix_sk_entry *ue, char *name)
 {
 	int ret;
 
 	if (ue->state == TCP_LISTEN) {
-		ret = bind_unix_sk(sk, ue, img_fd);
+		ret = bind_unix_sk(sk, ue, name);
 		if (ret < 0)
 			goto out;
 
@@ -1161,7 +1157,7 @@ out:
 	return ret;
 }
 
-static int open_unix_sk(const struct unix_sk_entry *ue, int *img_fd)
+static int open_unix_sk(const struct unix_sk_entry *ue, char *name)
 {
 	int sk;
 
@@ -1175,20 +1171,17 @@ static int open_unix_sk(const struct unix_sk_entry *ue, int *img_fd)
 
 	switch (ue->type) {
 	case SOCK_STREAM:
-		if (open_unix_sk_stream(sk, ue, *img_fd))
+		if (open_unix_sk_stream(sk, ue, name))
 			goto err;
 		break;
 	case SOCK_DGRAM:
-		if (open_unix_sk_dgram(sk, ue, *img_fd))
+		if (open_unix_sk_dgram(sk, ue, name))
 			goto err;
 		break;
 	default:
 		pr_err("Unsupported socket type: %d\n", ue->type);
 		goto err;
 	}
-
-	if (move_img_fd(img_fd, ue->fd))
-		return -1;
 
 	return reopen_fd_as(ue->fd, sk);
 
@@ -1197,30 +1190,35 @@ err:
 	return -1;
 }
 
+struct unix_sk_info {
+	struct unix_sk_entry ue;
+	struct list_head list;
+	char *name;
+	int pid;
+};
+
+static LIST_HEAD(unix_sockets);
+
 static int prepare_unix_sockets(int pid)
 {
-	int usk_fd, ret = -1;
+	int ret = 0;
 	struct sk_packets_pool unix_pool = {
 		.packets_list = LIST_HEAD_INIT(unix_pool.packets_list),
 	};
+	struct unix_sk_info *ui, *n;
 
-	usk_fd = open_image_ro(CR_FD_UNIXSK, pid);
-	if (usk_fd < 0)
-		return -1;
+	list_for_each_entry_safe(ui, n, &unix_sockets, list) {
+		if (ui->pid != pid)
+			continue;
 
-	while (1) {
-		struct unix_sk_entry ue;
-
-		ret = read_img_eof(usk_fd, &ue);
-		if (ret <= 0)
-			break;
-
-		ret = open_unix_sk(&ue, &usk_fd);
+		ret = open_unix_sk(&ui->ue, ui->name);
 		if (ret)
 			break;
+
+		list_del(&ui->list);
+		xfree(ui->name);
+		xfree(ui);
 	}
-err:
-	close(usk_fd);
 
 	if (ret)
 		return ret;
@@ -1523,4 +1521,53 @@ void show_sk_queues(int fd, struct cr_options *o)
 		print_data(0, (unsigned char *)buf, pe.length);
 	}
 	pr_img_tail(CR_FD_SK_QUEUES);
+}
+
+int collect_unix_sockets(int pid)
+{
+	int fd, ret;
+
+	pr_info("Reading unix sockets in\n");
+
+	fd = open_image_ro(CR_FD_UNIXSK, pid);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
+
+	while (1) {
+		struct unix_sk_info *ui;
+
+		ui = xmalloc(sizeof(*ui));
+		ret = -1;
+		if (ui == NULL)
+			break;
+
+		ret = read_img_eof(fd, &ui->ue);
+		if (ret <= 0) {
+			xfree(ui);
+			break;
+		}
+
+		if (ui->ue.namelen) {
+			ui->name = xmalloc(ui->ue.namelen);
+			ret = -1;
+			if (ui->name == NULL)
+				break;
+
+			ret = read_img_buf(fd, ui->name, ui->ue.namelen);
+			if (ret < 0)
+				break;
+		} else
+			ui->name = NULL;
+
+		ui->pid = pid;
+		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
+		list_add_tail(&ui->list, &unix_sockets);
+	}
+
+	close(fd);
+	return ret;
 }
