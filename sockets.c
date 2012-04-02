@@ -1240,31 +1240,56 @@ err:
 	return ret;
 }
 
-static int read_inetsk_image(u32 id, struct inet_sk_entry *ie)
-{
-	int ifd;
+struct inet_sk_info {
+	struct inet_sk_entry ie;
+	struct list_head list;
+};
 
-	ifd = open_image_ro(CR_FD_INETSK);
-	if (ifd < 0)
+#define INET_SK_HSIZE	32
+static struct list_head inet_sockets[INET_SK_HSIZE];
+
+static struct inet_sk_info *find_inet_sk(int id)
+{
+	int chain;
+	struct inet_sk_info *ii;
+
+	chain = id % INET_SK_HSIZE;
+	list_for_each_entry(ii, &inet_sockets[chain], list)
+		if (ii->ie.id == id)
+			return ii;
+	return NULL;
+}
+
+int collect_inet_sockets(void)
+{
+	struct inet_sk_info *ii = NULL;
+	int fd, ret = -1, chain;
+
+	for (chain = 0; chain < INET_SK_HSIZE; chain++)
+		INIT_LIST_HEAD(&inet_sockets[chain]);
+
+	fd = open_image_ro(CR_FD_INETSK);
+	if (fd < 0)
 		return -1;
 
 	while (1) {
-		int ret;
-
-		ret = read_img_eof(ifd, ie);
-		if (ret < 0)
-			return ret;
-
-		if (ret == 0) {
-			pr_err("Can't find inet sk %u\n", id);
-			return -1;
-		}
-
-		if (ie->id == id)
+		ii = xmalloc(sizeof(*ii));
+		ret = -1;
+		if (!ii)
 			break;
+
+		ret = read_img_eof(fd, &ii->ie);
+		if (ret <= 0)
+			break;
+
+		chain = ii->ie.id % INET_SK_HSIZE;
+		list_add_tail(&ii->list, &inet_sockets[chain]);
 	}
 
-	close(ifd);
+	if (ii)
+		xfree(ii);
+
+	close(fd);
 	return 0;
 }
 
@@ -1272,24 +1297,27 @@ int open_inet_sk(struct fdinfo_entry *fe)
 {
 	int sk;
 	struct sockaddr_in addr;
-	struct inet_sk_entry ie;
+	struct inet_sk_info *ii;
 
-	if (read_inetsk_image(fe->id, &ie))
-		return -1;
-
-	show_one_inet_img("Restore", &ie);
-
-	if (ie.family != AF_INET) {
-		pr_err("Unsupported socket family: %d\n", ie.family);
+	ii = find_inet_sk(fe->id);
+	if (ii == NULL) {
+		pr_err("Can't find inet sk %u\n", fe->id);
 		return -1;
 	}
 
-	if ((ie.type != SOCK_STREAM) && (ie.type != SOCK_DGRAM)) {
-		pr_err("Unsupported socket type: %d\n", ie.type);
+	show_one_inet_img("Restore", &ii->ie);
+
+	if (ii->ie.family != AF_INET) {
+		pr_err("Unsupported socket family: %d\n", ii->ie.family);
 		return -1;
 	}
 
-	sk = socket(ie.family, ie.type, ie.proto);
+	if ((ii->ie.type != SOCK_STREAM) && (ii->ie.type != SOCK_DGRAM)) {
+		pr_err("Unsupported socket type: %d\n", ii->ie.type);
+		return -1;
+	}
+
+	sk = socket(ii->ie.family, ii->ie.type, ii->ie.proto);
 	if (sk < 0) {
 		pr_perror("Can't create unix socket");
 		return -1;
@@ -1300,37 +1328,37 @@ int open_inet_sk(struct fdinfo_entry *fe)
 	 * bind() and listen(), and that's all.
 	 */
 	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = ie.family;
-	addr.sin_port = htons(ie.src_port);
-	memcpy(&addr.sin_addr.s_addr, ie.src_addr, sizeof(unsigned int) * 4);
+	addr.sin_family = ii->ie.family;
+	addr.sin_port = htons(ii->ie.src_port);
+	memcpy(&addr.sin_addr.s_addr, ii->ie.src_addr, sizeof(unsigned int) * 4);
 
 	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
 		pr_perror("Can't bind to a socket");
 		goto err;
 	}
 
-	if (ie.state == TCP_LISTEN) {
-		if (ie.proto != IPPROTO_TCP) {
-			pr_err("Wrong socket in listen state %d\n", ie.proto);
+	if (ii->ie.state == TCP_LISTEN) {
+		if (ii->ie.proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ii->ie.proto);
 			goto err;
 		}
 
-		if (listen(sk, ie.backlog) == -1) {
+		if (listen(sk, ii->ie.backlog) == -1) {
 			pr_perror("Can't listen on a socket");
 			goto err;
 		}
 	}
 
-	if (ie.state == TCP_ESTABLISHED) {
-		if (ie.proto != IPPROTO_UDP) {
+	if (ii->ie.state == TCP_ESTABLISHED) {
+		if (ii->ie.proto != IPPROTO_UDP) {
 			pr_err("Connected TCP socket in image\n");
 			goto err;
 		}
 
 		memset(&addr, 0, sizeof(addr));
-		addr.sin_family = ie.family;
-		addr.sin_port = htons(ie.dst_port);
-		memcpy(&addr.sin_addr.s_addr, ie.dst_addr, sizeof(ie.dst_addr));
+		addr.sin_family = ii->ie.family;
+		addr.sin_port = htons(ii->ie.dst_port);
+		memcpy(&addr.sin_addr.s_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
 
 		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 			pr_perror("Can't connect UDP socket back");

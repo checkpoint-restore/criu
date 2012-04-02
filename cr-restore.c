@@ -414,6 +414,9 @@ static int prepare_shared(int ps_fd)
 	if (collect_reg_files())
 		return -1;
 
+	if (collect_inet_sockets())
+		return -1;
+
 	while (1) {
 		struct pstree_entry e;
 
