@@ -338,8 +338,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		return -1;
 	}
 
-	futex_set_and_wake(&fi->real_pid, getpid());
-
 	pr_info("\t%d: Create fd for %lx users %d\n", pid,
 			fe->addr, futex_get(&fi->users));
 

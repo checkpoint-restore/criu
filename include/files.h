@@ -37,7 +37,6 @@ struct fdinfo_desc {
 	u32			type;
 	u64			addr;
 	int			pid;
-	futex_t			real_pid;
 	futex_t			users;
 	struct list_head	list;
 };
