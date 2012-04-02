@@ -85,7 +85,6 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 		if ((desc->id != e->id) || (desc->type != e->type))
 			continue;
 
-		futex_inc(&fdinfo_descs[i].users);
 		list_add(&le->list, &desc->list);
 
 		if (fdinfo_descs[i].pid < pid)
@@ -110,7 +109,6 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	desc->addr	= e->addr;
 	desc->pid	= pid;
 	INIT_LIST_HEAD(&desc->list);
-	futex_set(&desc->users, 1);
 
 	list_add(&le->list, &desc->list);
 	nr_fdinfo_descs++;
@@ -277,8 +275,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
-	pr_info("\t%d: Create transport fd for %lx users %d\n", pid,
-			fe->addr, futex_get(&fi->users));
+	pr_info("\t%d: Create transport fd for %lx\n", pid, fe->addr);
 
 	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
 
@@ -329,7 +326,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if (reopen_fd_as((int)fe->addr, tmp))
 		return -1;
 
-	if (futex_get(&fi->users) == 1)
+	if (list_empty(&fi->list))
 		goto out;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -338,13 +335,10 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		return -1;
 	}
 
-	pr_info("\t%d: Create fd for %lx users %d\n", pid,
-			fe->addr, futex_get(&fi->users));
+	pr_info("\t%d: Create fd for %lx\n", pid, fe->addr);
 
 	list_for_each_entry(fle, &fi->list, list) {
 		int len;
-
-		futex_dec(&fi->users);
 
 		if (pid == fle->pid)
 			continue;
@@ -361,7 +355,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		}
 	}
 
-	BUG_ON(futex_get(&fi->users));
 	close(sock);
 out:
 	return 0;
@@ -384,8 +377,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
 		return 0;
 	}
 
-	pr_info("\t%d: Receive fd for %lx users %d\n", pid,
-			fe->addr, futex_get(&fi->users));
+	pr_info("\t%d: Receive fd for %lx\n", pid, fe->addr);
 
 	tmp = recv_fd(fe->addr);
 	if (tmp < 0) {
@@ -433,8 +425,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;
 
-	pr_info("\t%d: Got fd for %lx users %d\n", pid,
-			fe->addr, futex_get(&fi->users));
+	pr_info("\t%d: Got fd for %lx\n", pid, fe->addr);
 
 	BUG_ON(fd_is_special(fe));
 
