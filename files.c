@@ -59,6 +59,78 @@ static struct fdinfo_desc *find_fd(struct fdinfo_entry *fe)
 	return NULL;
 }
 
+struct reg_file_info {
+	struct reg_file_entry rfe;
+	char *path;
+	struct list_head list;
+};
+
+#define REG_FILES_HSIZE	32
+static struct list_head reg_files[REG_FILES_HSIZE];
+
+static struct reg_file_info *find_reg_file(int id)
+{
+	int chain;
+	struct reg_file_info *rfi;
+
+	chain = id % REG_FILES_HSIZE;
+	list_for_each_entry(rfi, &reg_files[chain], list)
+		if (rfi->rfe.id == id)
+			return rfi;
+	return NULL;
+}
+
+int collect_reg_files(void)
+{
+	struct reg_file_info *rfi = NULL;
+	int fd, ret = -1, chain;
+
+	for (chain = 0; chain < REG_FILES_HSIZE; chain++)
+		INIT_LIST_HEAD(&reg_files[chain]);
+
+	fd = open_image_ro(CR_FD_REG_FILES);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		int len;
+
+		rfi = xmalloc(sizeof(*rfi));
+		ret = -1;
+		if (rfi == NULL)
+			break;
+
+		rfi->path = NULL;
+		ret = read_img_eof(fd, &rfi->rfe);
+		if (ret <= 0)
+			break;
+
+		len = rfi->rfe.len;
+		rfi->path = xmalloc(len + 1);
+		ret = -1;
+		if (rfi->path == NULL)
+			break;
+
+		ret = read_img_buf(fd, rfi->path, len);
+		if (ret < 0)
+			break;
+
+		rfi->path[len] = '\0';
+
+		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
+		chain = rfi->rfe.id % REG_FILES_HSIZE;
+		list_add_tail(&rfi->list, &reg_files[chain]);
+	}
+
+	if (rfi) {
+		xfree(rfi->path);
+		xfree(rfi);
+	}
+
+	close(fd);
+	return ret;
+}
+
 static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
@@ -150,49 +222,22 @@ int prepare_fd_pid(int pid)
 
 static int open_fe_fd(struct fdinfo_entry *fe)
 {
-	struct reg_file_entry rfe;
-	char path[PATH_MAX];
+	struct reg_file_info *rfi;
 	int tmp;
 
-	/* FIXME This should be made in more optimal way */
-
-	tmp = open_image_ro(CR_FD_REG_FILES);
-	if (tmp < 0)
-		return -1;
-
-	while (1) {
-		int ret;
-
-		ret = read_img_eof(tmp, &rfe);
-		if (ret < 0)
-			return -1;
-
-		if (!ret) {
-			pr_err("Can't find file id %x\n", fe->id);
-			return -1;
-		}
-
-		if (rfe.id == fe->id)
-			break;
-
-		lseek(tmp, rfe.len, SEEK_CUR);
-	}
-
-	if (read(tmp, path, rfe.len) != rfe.len) {
-		pr_perror("Error reading path");
+	rfi = find_reg_file(fe->id);
+	if (!rfi) {
+		pr_err("Can't find file id %x\n", fe->id);
 		return -1;
 	}
 
-	close(tmp);
-	path[rfe.len] = '\0';
-
-	tmp = open(path, rfe.flags);
+	tmp = open(rfi->path, rfi->rfe.flags);
 	if (tmp < 0) {
-		pr_perror("Can't open file %s", path);
+		pr_perror("Can't open file %s", rfi->path);
 		return -1;
 	}
 
-	lseek(tmp, rfe.pos, SEEK_SET);
+	lseek(tmp, rfi->rfe.pos, SEEK_SET);
 
 	return tmp;
 }
