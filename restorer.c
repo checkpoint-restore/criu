@@ -46,7 +46,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		write_string(" killed by signal ");
 	write_num_n(siginfo->si_status);
 
-	futex_set_and_wake(&task_entries->nr_in_progress, -1);
+	futex_abort_and_wake(&task_entries->nr_in_progress);
 	/* sa_restorer may be unmaped, so we can't go back to userspace*/
 	sys_kill(sys_getpid(), SIGSTOP);
 	sys_exit(1);

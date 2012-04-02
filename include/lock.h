@@ -15,6 +15,9 @@ typedef struct {
 	u32	raw;
 } futex_t;
 
+#define FUTEX_ABORT_FLAG	(0x80000000)
+#define FUTEX_ABORT_RAW		(-1U)
+
 /* Get current futex @f value */
 static inline u32 futex_get(futex_t *f)
 {
@@ -37,7 +40,8 @@ static inline void futex_set(futex_t *f, u32 v)
 								\
 		while (1) {					\
 			tmp = (__f)->raw;			\
-			if (tmp __cond (__v))			\
+			if ((tmp & FUTEX_ABORT_FLAG) ||		\
+			    (tmp __cond (__v)))			\
 				break;				\
 			ret = sys_futex(&(__f)->raw, FUTEX_WAIT,\
 					tmp, NULL, NULL, 0);	\
@@ -50,6 +54,13 @@ static inline void futex_set_and_wake(futex_t *f, u32 v)
 {
 	atomic_set(&f->raw, v);
 	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+}
+
+/* Mark futex @f as wait abort needed and wake up all waiters */
+static inline void futex_abort_and_wake(futex_t *f)
+{
+	BUILD_BUG_ON(!(FUTEX_ABORT_RAW & FUTEX_ABORT_FLAG));
+	futex_set_and_wake(f, FUTEX_ABORT_RAW);
 }
 
 /* Decrement futex @f value and wake up all waiters */

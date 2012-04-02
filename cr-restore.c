@@ -1140,7 +1140,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		pr_err("%d killed by signal %d\n",
 			siginfo->si_pid, siginfo->si_status);
 
-	futex_set_and_wake(&task_entries->nr_in_progress, -1);
+	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
 static int restore_task_with_children(void *_arg)
