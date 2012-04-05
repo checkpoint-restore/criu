@@ -129,23 +129,6 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
-int open_image_ro_nocheck(const char *fmt, ...)
-{
-	char path[PATH_MAX];
-	va_list args;
-	int tmp;
-
-	va_start(args, fmt);
-	vsprintf(path, fmt, args);
-	va_end(args);
-
-	tmp = openat(image_dir_fd, path, O_RDONLY);
-	if (tmp < 0)
-		pr_warn("Can't open image %s: %m\n", path);
-
-	return tmp;
-}
-
 int open_image(int type, unsigned long flags, ...)
 {
 	char path[PATH_MAX];
