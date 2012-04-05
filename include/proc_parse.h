@@ -1,6 +1,11 @@
 #ifndef PROC_PARSE_H__
 #define PROC_PARSE_H__
 
+#include <sys/types.h>
+#include "types.h"
+
+#include "list.h"
+
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
 
