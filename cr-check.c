@@ -75,6 +75,32 @@ static int check_kcmp(void)
 	return -1;
 }
 
+static int check_prctl(void)
+{
+	unsigned int *tid_addr;
+	int ret;
+
+	ret = sys_prctl(PR_GET_TID_ADDR, (unsigned long)&tid_addr, 0, 0, 0);
+	if (ret) {
+		pr_msg("prctl: PR_GET_TID_ADDR is not supported\n");
+		return -1;
+	}
+
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
+	if (ret) {
+		pr_msg("prctl: PR_SET_MM is not supported\n");
+		return -1;
+	}
+
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
+	if (ret != -EBUSY) {
+		pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -84,6 +110,7 @@ int cr_check(void)
 	ret |= check_ns_last_pid();
 	ret |= check_sock_peek_off();
 	ret |= check_kcmp();
+	ret |= check_prctl();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
