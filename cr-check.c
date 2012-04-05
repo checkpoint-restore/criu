@@ -4,6 +4,7 @@
 #include "crtools.h"
 #include "log.h"
 #include "util-net.h"
+#include "syscall.h"
 
 static int check_map_files(void)
 {
@@ -63,6 +64,17 @@ static int check_sock_peek_off(void)
 	return -1;
 }
 
+static int check_kcmp(void)
+{
+	int ret = sys_kcmp(getpid(), -1, -1, -1, -1);
+
+	if (ret != -ENOSYS)
+		return 0;
+
+	pr_msg("System call kcmp is not supported\n");
+	return -1;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -71,6 +83,7 @@ int cr_check(void)
 	ret |= check_sock_diag();
 	ret |= check_ns_last_pid();
 	ret |= check_sock_peek_off();
+	ret |= check_kcmp();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
