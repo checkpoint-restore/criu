@@ -58,6 +58,11 @@ int main(int argc, char ** argv)
 		while (test_go())
 			;
 
+		ret = read(12, buf, sizeof(TEST_STRING));
+		if (ret != sizeof(TEST_STRING)) {
+			err("read failed: %d", ret);
+			goto err;
+		}
 		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
 			err("write failed: %d", ret);
@@ -82,6 +87,11 @@ int main(int argc, char ** argv)
 
 		pass();
 	} else {
+		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
+		if (ret != sizeof(TEST_STRING)) {
+			err("write failed: %d", ret);
+			return 1;
+		}
 		ret = read(12, buf, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
 			err("read failed: %d", ret);
