@@ -292,6 +292,11 @@ void transport_name_gen(struct sockaddr_un *addr, int *len,
 	*addr->sun_path = '\0';
 }
 
+static int should_open_transport(struct fdinfo_entry *fe, struct list_head *fd_list)
+{
+	return 0;
+}
+
 static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
 {
 	struct fdinfo_list_entry *fle;
