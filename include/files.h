@@ -55,4 +55,8 @@ extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 
 extern int self_exe_fd;
 
+extern int collect_pipes(void);
+extern void mark_pipe_master(void);
+struct list_head *find_pipe_fd(int id);
+
 #endif /* FILES_H_ */

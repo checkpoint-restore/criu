@@ -88,6 +88,8 @@ static struct list_head *find_fi_list(struct fdinfo_entry *fe)
 		return find_reg_fd(fe->id);
 	if (fe->type == FDINFO_INETSK)
 		return find_inetsk_fd(fe->id);
+	if (fe->type == FDINFO_PIPE)
+		return find_pipe_fd(fe->id);
 
 	BUG_ON(1);
 	return NULL;

@@ -284,6 +284,9 @@ static int prepare_shared(void)
 	if (collect_reg_files())
 		return -1;
 
+	if (collect_pipes())
+		return -1;
+
 	if (collect_inet_sockets())
 		return -1;
 
@@ -300,6 +303,8 @@ static int prepare_shared(void)
 		if (ret < 0)
 			break;
 	}
+
+	mark_pipe_master();
 
 	if (!ret) {
 		show_saved_shmems();
