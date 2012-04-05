@@ -1644,7 +1644,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 			continue;
 
 		/* Core files are to be opened */
-		thread_args[i].fd_core = open_image_ro_nocheck(FMT_FNAME_CORE, thread_args[i].pid);
+		thread_args[i].fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
 		if (thread_args[i].fd_core < 0)
 			goto err;
 

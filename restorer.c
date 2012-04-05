@@ -145,7 +145,6 @@ long restore_thread(struct thread_restore_args *args)
 
 	core_entry = (struct core_entry *)&args->mem_zone.heap;
 
-	sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
 	ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
 	if (ret != sizeof(*core_entry)) {
 		write_num_n(__LINE__);
