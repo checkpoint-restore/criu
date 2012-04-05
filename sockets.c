@@ -1320,17 +1320,13 @@ int collect_inet_sockets(void)
 	return 0;
 }
 
-int open_inet_sk(struct fdinfo_entry *fe)
+int open_inet_sk(struct list_head *l)
 {
 	int sk;
 	struct sockaddr_in addr;
 	struct inet_sk_info *ii;
 
-	ii = find_inet_sk(fe->id);
-	if (ii == NULL) {
-		pr_err("Can't find inet sk %u\n", fe->id);
-		return -1;
-	}
+	ii = container_of(l, struct inet_sk_info, fd_head);
 
 	show_one_inet_img("Restore", &ii->ie);
 

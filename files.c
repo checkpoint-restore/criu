@@ -212,16 +212,12 @@ int prepare_fd_pid(int pid)
 	return ret;
 }
 
-static int open_fe_fd(struct fdinfo_entry *fe)
+static int open_fe_fd(struct list_head *l)
 {
 	struct reg_file_info *rfi;
 	int tmp;
 
-	rfi = find_reg_file(fe->id);
-	if (!rfi) {
-		pr_err("Can't find file id %x\n", fe->id);
-		return -1;
-	}
+	rfi = container_of(l, struct reg_file_info, fd_head);
 
 	tmp = open(rfi->path, rfi->rfe.flags);
 	if (tmp < 0) {
@@ -233,12 +229,25 @@ static int open_fe_fd(struct fdinfo_entry *fe)
 
 	return tmp;
 }
+static int find_open_fe_fd(struct fdinfo_entry *fe)
+{
+	struct reg_file_info *rfi;
+	int tmp;
+
+	rfi = find_reg_file(fe->id);
+	if (!rfi) {
+		pr_err("Can't find file id %x\n", fe->id);
+		return -1;
+	}
+
+	return open_fe_fd(&rfi->fd_head);
+}
 
 static int restore_cwd(struct fdinfo_entry *fe, int fd)
 {
 	int cfd;
 
-	cfd = open_fe_fd(fe);
+	cfd = find_open_fe_fd(fe);
 	if (cfd < 0)
 		return cfd;
 
@@ -267,7 +276,7 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	if (self_exe_fd < 0)
 		return self_exe_fd;
 
-	tmp = open_fe_fd(fe);
+	tmp = find_open_fe_fd(fe);
 	if (tmp < 0)
 		return tmp;
 
@@ -360,10 +369,10 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	switch (fe->type) {
 	case FDINFO_REG:
-		tmp = open_fe_fd(fe);
+		tmp = open_fe_fd(fd_list);
 		break;
 	case FDINFO_INETSK:
-		tmp = open_inet_sk(fe);
+		tmp = open_inet_sk(fd_list);
 		break;
 	default:
 		tmp = -1;
@@ -444,7 +453,7 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 	struct fmap_fd *new;
 	int tmp;
 
-	tmp = open_fe_fd(fe);
+	tmp = find_open_fe_fd(fe);
 	if (tmp < 0)
 		return -1;
 
