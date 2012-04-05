@@ -404,16 +404,36 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 	ue.flags	= 0;
 	ue.peer		= sk->peer_ino;
 
-	/*
-	 * If this is in-flight connection we need to figure
-	 * out where to connect it on restore. Thus, tune up peer
-	 * id by searching an existing listening socket.
-	 *
-	 * Note the socket name will be found at restore stage,
-	 * not now, just to reduce size of dump files.
-	 */
-	if (!ue.peer && ue.state == TCP_ESTABLISHED) {
+	if (ue.peer) {
+		struct unix_sk_desc *peer;
+
+		peer = (struct unix_sk_desc *)lookup_socket(ue.peer);
+		if (!peer) {
+			pr_err("Unix socket %x without peer %x\n",
+					ue.id, ue.peer);
+			goto err;
+		}
+
+		/*
+		 * Peer should have us as peer or have a name by which
+		 * we can access one.
+		 */
+		if (!peer->name && (peer->peer_ino != ue.id)) {
+			pr_err("Unix socket %x with unreachable peer %x (%x/%s)\n",
+					ue.id, ue.peer, peer->peer_ino, peer->name);
+			goto err;
+		}
+	} else if (ue.state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
+
+		/*
+		 * If this is in-flight connection we need to figure
+		 * out where to connect it on restore. Thus, tune up peer
+		 * id by searching an existing listening socket.
+		 *
+		 * Note the socket name will be found at restore stage,
+		 * not now, just to reduce size of dump files.
+		 */
 
 		e = lookup_unix_listen_icons(ue.id);
 		if (!e) {
