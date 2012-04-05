@@ -201,8 +201,16 @@ help:
 	$(E) '      test            - Run zdtm test-suite'
 .PHONY: help
 
-deps-targets := %.o %.s %.i
+deps-targets := %.o %.s %.i $(PROGRAM) zdtm test-legacy
 
-ifeq ($(filter deps-targets, $(MAKECMDGOALS)),)
+ifneq ($(filter $(deps-targets), $(MAKECMDGOALS)),)
+	INCDEPS := 1
+endif
+
+ifeq ($(MAKECMDGOALS),)
+	INCDEPS := 1
+endif
+
+ifeq ($(INCDEPS),1)
 -include $(DEPS)
 endif
