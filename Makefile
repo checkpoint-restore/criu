@@ -42,6 +42,7 @@ OBJS		+= log.o
 OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= files.o
+OBJS		+= pipes.o
 OBJS		+= file-ids.o
 OBJS		+= namespaces.o
 OBJS		+= uts_ns.o
