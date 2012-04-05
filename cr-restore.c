@@ -80,18 +80,6 @@ struct pipe_list_entry {
 
 static struct task_entries *task_entries;
 
-static struct task_pids {
-	int nr;
-	int arr[];
-} *task_pids;
-
-static void task_add_pid(int pid)
-{
-	BUG_ON(sizeof(struct task_pids) + task_pids->nr * sizeof(int) > PAGE_SIZE);
-	task_pids->arr[task_pids->nr] = pid;
-	task_pids->nr++;
-}
-
 static struct shmem_id *shmem_ids;
 
 static struct shmems *shmems;
@@ -99,7 +87,8 @@ static struct shmems *shmems;
 static struct pipe_info *pipes;
 static int nr_pipes;
 
-struct pstree_item *me;
+static struct pstree_item *me;
+static LIST_HEAD(tasks);
 
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, struct list_head *vmas, int nr_vmas);
@@ -369,29 +358,11 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
-static inline void pstree_skip(int fd, struct pstree_entry *e)
+static int prepare_pstree(void)
 {
-	lseek(fd, e->nr_children * sizeof(u32) + e->nr_threads * sizeof(u32), SEEK_CUR);
-}
+	int ret = 0, ps_fd;
 
-static int prepare_shared(int ps_fd)
-{
-	int ret = 0;
-
-	pr_info("Preparing info about shared resources\n");
-
-	task_pids = xmalloc(PAGE_SIZE);
-	if (task_pids == NULL)
-		return -1;
-	task_pids->nr = 0;
-
-	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (shmems == MAP_FAILED) {
-		pr_perror("Can't map shmem");
-		return -1;
-	}
-
-	shmems->nr_shmems = 0;
+	pr_info("Reading image tree\n");
 
 	task_entries = mmap(NULL, TASK_ENTRIES_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (task_entries == MAP_FAILED) {
@@ -400,6 +371,73 @@ static int prepare_shared(int ps_fd)
 	}
 	task_entries->nr = 0;
 	futex_set(&task_entries->start, CR_STATE_RESTORE);
+
+	ps_fd = open_image_ro(CR_FD_PSTREE);
+	if (ps_fd < 0)
+		return ps_fd;
+
+	while (1) {
+		struct pstree_entry e;
+		struct pstree_item *pi;
+
+		ret = read_img_eof(ps_fd, &e);
+		if (ret <= 0)
+			break;
+
+		ret = -1;
+		pi = xmalloc(sizeof(*pi));
+		if (pi == NULL)
+			break;
+
+		pi->pid = e.pid;
+
+		ret = -1;
+		pi->nr_children = e.nr_children;
+		pi->children = xmalloc(e.nr_children * sizeof(u32));
+		if (!pi->children)
+			break;
+
+		ret = read_img_buf(ps_fd, pi->children,
+				e.nr_children * sizeof(u32));
+		if (ret < 0)
+			break;
+
+		ret = -1;
+		pi->nr_threads = e.nr_threads;
+		pi->threads = xmalloc(e.nr_threads * sizeof(u32));
+		if (!pi->threads)
+			break;
+
+		ret = read_img_buf(ps_fd, pi->threads,
+				e.nr_threads * sizeof(u32));
+		if (ret < 0)
+			break;
+
+		list_add_tail(&pi->list, &tasks);
+		task_entries->nr += e.nr_threads;
+	}
+
+	if (!ret)
+		futex_set(&task_entries->nr_in_progress, task_entries->nr);
+
+	close(ps_fd);
+	return ret;
+}
+
+static int prepare_shared(void)
+{
+	int ret = 0;
+	struct pstree_item *pi;
+
+	pr_info("Preparing info about shared resources\n");
+
+	shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (shmems == MAP_FAILED) {
+		pr_perror("Can't map shmem");
+		return -1;
+	}
+
+	shmems->nr_shmems = 0;
 
 	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (pipes == MAP_FAILED) {
@@ -416,41 +454,25 @@ static int prepare_shared(int ps_fd)
 	if (collect_inet_sockets())
 		return -1;
 
-	while (1) {
-		struct pstree_entry e;
-
-		ret = read_img_eof(ps_fd, &e);
-		if (ret <= 0)
-			break;
-
-		ret = collect_unix_sockets(e.pid);
+	list_for_each_entry(pi, &tasks, list) {
+		ret = collect_unix_sockets(pi->pid);
 		if (ret < 0)
 			return -1;
 
-		ret = prepare_shmem_pid(e.pid);
+		ret = prepare_shmem_pid(pi->pid);
 		if (ret < 0)
 			break;
 
-		ret = prepare_pipes_pid(e.pid);
+		ret = prepare_pipes_pid(pi->pid);
 		if (ret < 0)
 			break;
 
-		ret = prepare_fd_pid(e.pid);
+		ret = prepare_fd_pid(pi->pid);
 		if (ret < 0)
 			break;
-
-		task_add_pid(e.pid);
-
-		task_entries->nr += e.nr_threads;
-
-		pstree_skip(ps_fd, &e);
 	}
 
 	if (!ret) {
-		futex_set(&task_entries->nr_in_progress, task_entries->nr);
-
-		lseek(ps_fd, MAGIC_OFFSET, SEEK_SET);
-
 		show_saved_shmems();
 		show_saved_pipes();
 		show_saved_files();
@@ -1145,20 +1167,25 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
-	int fd, ret, i;
-	struct pstree_entry e;
+	pid_t pid;
+	int ret, i;
 	sigset_t blockmask;
 
 	close_safe(&ca->fd);
 
-	me = xzalloc(sizeof(*me));
-	if (me == NULL)
-		exit(-1);
-
-	me->pid = getpid();
-	if (ca->pid != me->pid) {
+	pid = getpid();
+	if (ca->pid != pid) {
 		pr_err("%d: Pid do not match expected %d\n", me->pid, ca->pid);
 		exit(-1);
+	}
+
+	list_for_each_entry(me, &tasks, list)
+		if (me->pid == pid)
+			break;
+
+	if (me == list_entry(&tasks, struct pstree_item, list)) {
+		pr_err("Pid %d not found in pstree image\n", pid);
+		exit(1);
 	}
 
 	if (ca->clone_flags) {
@@ -1180,51 +1207,7 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 	}
 
-	pr_info("%d: Starting restore\n", me->pid);
-
-	fd = open_image_ro_nocheck(FMT_FNAME_PSTREE);
-	if (fd < 0) {
-		pr_perror("%d: Can't reopen pstree image", me->pid);
-		exit(1);
-	}
-
-	lseek(fd, MAGIC_OFFSET, SEEK_SET);
-	while (1) {
-		ret = read_img(fd, &e);
-		if (ret < 0)
-			exit(1);
-
-		if (e.pid != me->pid) {
-			pstree_skip(fd, &e);
-			continue;
-		}
-
-		i = e.nr_children * sizeof(int);
-		me->nr_children = e.nr_children;
-		me->children = xmalloc(i);
-		if (!me->children)
-			exit(1);
-
-		ret = read_img_buf(fd, me->children, i);
-		if (ret < 0)
-			exit(1);
-
-		i = e.nr_threads * sizeof(int);
-		me->nr_threads = e.nr_threads;
-		me->threads = xmalloc(i);
-		if (!me->threads)
-			exit(1);
-
-		ret = read_img_buf(fd, me->threads, i);
-		if (ret < 0)
-			exit(1);
-
-		break;
-	}
-
-	close(fd);
-
-	pr_info("%d: Restoring %d children:\n", me->pid, e.nr_children);
+	pr_info("%d: Restoring %d children:\n", me->pid, me->nr_children);
 	for (i = 0; i < me->nr_children; i++) {
 		ret = fork_with_pid(me->children[i], 0);
 		if (ret < 0)
@@ -1234,19 +1217,11 @@ static int restore_task_with_children(void *_arg)
 	return restore_one_task(me->pid);
 }
 
-static int restore_root_task(int fd, struct cr_options *opts)
+static int restore_root_task(pid_t pid, struct cr_options *opts)
 {
-	struct pstree_entry e;
 	int ret, i;
 	struct sigaction act, old_act;
-
-	ret = read(fd, &e, sizeof(e));
-	close(fd);
-
-	if (ret != sizeof(e)) {
-		pr_perror("Can't read root pstree entry");
-		return -1;
-	}
+	struct pstree_item *init;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
@@ -1262,6 +1237,13 @@ static int restore_root_task(int fd, struct cr_options *opts)
 		return -1;
 	}
 
+	init = list_first_entry(&tasks, struct pstree_item, list);
+	if (init->pid != pid) {
+		pr_err("Pids mismatch. Init has pid %d, requested %d\n",
+				init->pid, pid);
+		return -1;
+	}
+
 	/*
 	 * FIXME -- currently we assume that all the tasks live
 	 * in the same set of namespaces. This is done to debug
@@ -1269,7 +1251,7 @@ static int restore_root_task(int fd, struct cr_options *opts)
 	 * this later.
 	 */
 
-	ret = fork_with_pid(e.pid, opts->namespaces_flags);
+	ret = fork_with_pid(init->pid, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
 
@@ -1280,8 +1262,10 @@ static int restore_root_task(int fd, struct cr_options *opts)
 out:
 	if (ret < 0) {
 		pr_err("Someone can't be restored\n");
-		for (i = 0; i < task_pids->nr; i++)
-			kill(task_pids->arr[i], SIGKILL);
+		struct pstree_item *pi;
+
+		list_for_each_entry(pi, &tasks, list)
+			kill(pi->pid, SIGKILL);
 		return 1;
 	}
 
@@ -1305,19 +1289,13 @@ out:
 
 static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 {
-	int pstree_fd = -1;
-	u32 type = 0;
-
-	pstree_fd = open_image_ro(CR_FD_PSTREE);
-	if (pstree_fd < 0)
+	if (prepare_pstree() < 0)
 		return -1;
 
-	if (prepare_shared(pstree_fd)) {
-		close(pstree_fd);
+	if (prepare_shared() < 0)
 		return -1;
-	}
 
-	return restore_root_task(pstree_fd, opts);
+	return restore_root_task(pid, opts);
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
