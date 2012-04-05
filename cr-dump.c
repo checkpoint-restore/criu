@@ -215,13 +215,38 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 dump:
 	pe.id = id;
 	pe.pipe_id = p->id;
-	pe.bytes = has_bytes;
 	pe.flags = p->flags;
 
 	if (write_img(fd_pipes, &pe))
 		goto err_close;
 
 	if (has_bytes) {
+		off_t off;
+		struct pipe_data_entry pde;
+
+		fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES_DATA);
+
+		pde.pipe_id = p->id;
+		pde.bytes = has_bytes;
+		pde.off = 0;
+
+		if (has_bytes > PIPE_NONALIG_DATA) {
+			off = lseek(fd_pipes, 0, SEEK_CUR);
+			off += sizeof(pde);
+			off &= PAGE_SIZE -1;
+			if (off)
+				pde.off = PAGE_SIZE - off;
+			pr_info("off %lx %x\n", off, pde.off);
+		}
+
+		if (write_img(fd_pipes, &pde))
+			goto err_close;
+
+		if (pde.off) {
+			off = lseek(fd_pipes, pde.off, SEEK_CUR);
+			pr_info("off %lx\n", off);
+		}
+
 		ret = splice(steal_pipe[0], NULL, fd_pipes,
 			     NULL, has_bytes, 0);
 		if (ret < 0) {

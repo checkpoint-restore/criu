@@ -15,6 +15,7 @@
 #define CORE_MAGIC	0x55053847 /* Kolomna */
 #define VMAS_MAGIC	0x54123737 /* Tula */
 #define PIPES_MAGIC	0x56513555 /* Tver */
+#define PIPES_DATA_MAGIC 0x56453709 /* Dubna */
 #define SIGACT_MAGIC	0x55344201 /* Murom */
 #define UNIXSK_MAGIC	0x54373943 /* Ryazan */
 #define INETSK_MAGIC	0x56443851 /* Pereslavl */
@@ -75,9 +76,21 @@ struct pipe_entry {
 	u32	id;
 	u32	pipe_id;
 	u32	flags;
+} __packed;
+
+struct pipe_data_entry {
+	u32	pipe_id;
 	u32	bytes;
+	u32	off;
 	u8	data[0];
 } __packed;
+
+/*
+ * splice() connect cache pages to pipe buffer, so
+ * some part of pages may be loosed if data are not
+ * aligned in a file.
+ */
+#define PIPE_NONALIG_DATA (15 * PAGE_SIZE)
 
 #define USK_INFLIGHT		1
 

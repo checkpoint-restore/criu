@@ -49,6 +49,7 @@ enum {
 	CR_FD_REG_FILES,
 	CR_FD_INETSK,
 	CR_FD_PIPES,
+	CR_FD_PIPES_DATA,
 	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
@@ -84,6 +85,7 @@ void show_reg_files(int fd_reg_files, struct cr_options *o);
 void show_core(int fd_core, struct cr_options *o);
 void show_vmas(int fd_vma, struct cr_options *o);
 void show_pipes(int fd_pipes, struct cr_options *o);
+void show_pipes_data(int fd_pipes, struct cr_options *o);
 void show_pstree(int fd_pstree, struct cr_options *o);
 void show_sigacts(int fd_sigacts, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);
@@ -98,6 +100,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_CORE		"core-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_PIPES		"pipes.img"
+#define FMT_FNAME_PIPES_DATA	"pipes-data.img"
 #define FMT_FNAME_PSTREE	"pstree.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"

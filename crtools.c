@@ -81,6 +81,13 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.show	= show_pipes,
 	},
 
+	/* info about pipes - fds, pipe id and pipe data */
+	[CR_FD_PIPES_DATA] = {
+		.fmt	= FMT_FNAME_PIPES_DATA,
+		.magic	= PIPES_DATA_MAGIC,
+		.show	= show_pipes_data,
+	},
+
 	 /* info about process linkage */
 	[CR_FD_PSTREE] = {
 		.fmt	= FMT_FNAME_PSTREE,

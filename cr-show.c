@@ -126,6 +126,30 @@ out:
 	pr_img_tail(CR_FD_REG_FILES);
 }
 
+void show_pipes_data(int fd_pipes, struct cr_options *o)
+{
+	struct pipe_data_entry e;
+	int ret;
+
+	pr_img_head(CR_FD_PIPES_DATA);
+
+	while (1) {
+		int ret;
+		off_t off;
+
+		ret = read_img_eof(fd_pipes, &e);
+		if (ret <= 0)
+			goto out;
+		pr_msg("pipeid: %8x bytes: %8x off: %8x\n",
+		       e.pipe_id, e.bytes, e.off);
+
+		lseek(fd_pipes, e.off + e.bytes, SEEK_CUR);
+	}
+
+out:
+	pr_img_tail(CR_FD_PIPES);
+}
+
 void show_pipes(int fd_pipes, struct cr_options *o)
 {
 	struct pipe_entry e;
@@ -139,10 +163,8 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("id: %8x pipeid: %8x flags: %8x bytes: %8x\n",
-		       e.id, e.pipe_id, e.flags, e.bytes);
-		if (e.bytes)
-			lseek(fd_pipes, e.bytes, SEEK_CUR);
+		pr_msg("id: %8x pipeid: %8x flags: %8x\n",
+		       e.id, e.pipe_id, e.flags);
 	}
 
 out:
