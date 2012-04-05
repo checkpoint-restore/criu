@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include "sockets.h"
 #include "crtools.h"
 #include "log.h"
@@ -108,6 +109,16 @@ static int check_prctl(void)
 	return 0;
 }
 
+static int check_fcntl(void)
+{
+	/*
+	 * FIXME Add test for F_GETOWNER_UIDS once
+	 * it's merged into mainline and kernel part
+	 * settle down.
+	 */
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -118,6 +129,7 @@ int cr_check(void)
 	ret |= check_sock_peek_off();
 	ret |= check_kcmp();
 	ret |= check_prctl();
+	ret |= check_fcntl();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
