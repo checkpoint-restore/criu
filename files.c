@@ -294,6 +294,9 @@ void transport_name_gen(struct sockaddr_un *addr, int *len,
 
 static int should_open_transport(struct fdinfo_entry *fe, struct list_head *fd_list)
 {
+	if (fe->type == FDINFO_PIPE)
+		return pipe_should_open_transport(fe, fd_list);
+
 	return 0;
 }
 
@@ -305,8 +308,15 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head 
 	int ret, sun_len;
 
 	fle = file_master(fd_list);
-	if (fle->pid == pid)
-		return 0;
+
+	if (fle->pid == pid) {
+		if (fle->fd == fe->addr) {
+			/* file master */
+			if (!should_open_transport(fe, fd_list))
+				return 0;
+		} else
+			return 0;
+	}
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
@@ -357,6 +367,9 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		break;
 	case FDINFO_INETSK:
 		tmp = open_inet_sk(fd_list);
+		break;
+	case FDINFO_PIPE:
+		tmp = open_pipe(fd_list);
 		break;
 	default:
 		tmp = -1;

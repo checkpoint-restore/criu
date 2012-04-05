@@ -57,6 +57,9 @@ extern int self_exe_fd;
 
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
+extern int open_pipe(struct list_head *l);
 struct list_head *find_pipe_fd(int id);
+extern int pipe_should_open_transport(struct fdinfo_entry *fe,
+					struct list_head *fd_list);
 
 #endif /* FILES_H_ */

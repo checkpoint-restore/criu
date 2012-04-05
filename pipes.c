@@ -144,3 +144,114 @@ void mark_pipe_master()
 
 	list_splice(&head, &pipes);
 }
+
+int pipe_should_open_transport(struct fdinfo_entry *fe,
+				struct list_head *fd_list)
+{
+	struct pipe_info *pi = container_of(fd_list, struct pipe_info, fd_head);
+
+	return !pi->create;
+}
+
+static int recv_pipe_fd(struct pipe_info *pi)
+{
+	struct fdinfo_list_entry *fle;
+	char path[PATH_MAX];
+	int tmp, fd;
+
+	fle = list_first_entry(&pi->fd_head, struct fdinfo_list_entry, list);
+	fd = fle->fd;
+
+	pr_info("\tWaiting fd for %d\n", fd);
+
+	tmp = recv_fd(fd);
+	if (tmp < 0) {
+		pr_err("Can't get fd %d\n", tmp);
+		return -1;
+	}
+	close(fd);
+
+	snprintf(path, PATH_MAX, "/proc/self/fd/%d", tmp);
+	fd = open(path, pi->pe.flags);
+	close(tmp);
+
+	return fd;
+}
+
+#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
+static int set_fd_flags(int fd, int flags)
+{
+	int old;
+
+	old = fcntl(fd, F_GETFL, 0);
+	if (old < 0)
+		return old;
+
+	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
+
+	return fcntl(fd, F_SETFL, flags);
+}
+
+int open_pipe(struct list_head *l)
+{
+	unsigned long time = 1000;
+	struct pipe_info *pi, *pc, *p;
+	int ret, tmp;
+	int pfd[2];
+	int sock;
+	int create;
+
+	pi = container_of(l, struct pipe_info, fd_head);
+
+	pr_info("\tCreating pipe pipe_id=%x id=%x\n", pi->pe.pipe_id, pi->pe.id);
+
+	if (!pi->create)
+		return recv_pipe_fd(pi);
+
+	if (pipe(pfd) < 0) {
+		pr_perror("Can't create pipe");
+		return -1;
+	}
+
+	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		return -1;
+	}
+
+	list_for_each_entry(p, &pi->pipe_list, pipe_list) {
+		int len, fd;
+		struct sockaddr_un saddr;
+		struct fdinfo_list_entry *fle;
+
+		BUG_ON(list_empty(&p->fd_head));
+		fle = list_first_entry(&p->fd_head,
+				struct fdinfo_list_entry, list);
+
+		pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
+		futex_wait_while(&fle->real_pid, 0);
+
+		transport_name_gen(&saddr, &len,
+				futex_get(&fle->real_pid), fle->fd);
+
+		fd = pfd[p->pe.flags & O_WRONLY];
+
+		pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
+
+		if (send_fd(sock, &saddr, len, fd) < 0) {
+			pr_perror("Can't send file descriptor");
+			return -1;
+		}
+	}
+
+	close(sock);
+
+out:
+	close(pfd[!(pi->pe.flags & O_WRONLY)]);
+	tmp = pfd[pi->pe.flags & O_WRONLY];
+	ret = set_fd_flags(tmp, pi->pe.flags);
+	if (ret < 0)
+		return -1;
+
+	return tmp;
+}
