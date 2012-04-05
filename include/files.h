@@ -39,6 +39,13 @@ struct fdinfo_list_entry {
 	futex_t			real_pid;
 };
 
+extern void transport_name_gen(struct sockaddr_un *addr,
+				int *len, int pid, long fd);
+static inline struct fdinfo_list_entry *file_master(struct list_head *fd_list)
+{
+	return list_first_entry(fd_list, struct fdinfo_list_entry, list);
+}
+
 void show_saved_files(void);
 extern int collect_reg_files(void);
 extern int prepare_fds(int pid);

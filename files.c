@@ -281,18 +281,13 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	return reopen_fd_as(self_exe_fd, tmp);
 }
 
-static inline void transport_name_gen(struct sockaddr_un *addr, int *len,
+void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, long fd)
 {
 	addr->sun_family = AF_UNIX;
 	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%ld", pid, fd);
 	*len = SUN_LEN(addr);
 	*addr->sun_path = '\0';
-}
-
-static struct fdinfo_list_entry *file_master(struct list_head *fd_list)
-{
-	return list_first_entry(fd_list, struct fdinfo_list_entry, list);
 }
 
 static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
