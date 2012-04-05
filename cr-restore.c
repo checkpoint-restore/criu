@@ -1321,14 +1321,11 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 	return restore_root_task(pstree_fd, opts);
 }
 
-static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, long vma_len)
+static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
+		struct list_head *self_vma_list, long vma_len)
 {
-	struct vma_area *vma_area;
-	long prev_vma_end, hint;
-	struct vma_entry vma;
-	int fd = -1, ret;
-
-	hint = -1;
+	struct vma_area *t_vma;
+	long prev_vma_end = 0;
 
 	/*
 	 * Here we need some heuristics -- the VMA which restorer will
@@ -1340,49 +1337,24 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *self_vma_list, lo
 	 * better to stick with it.
 	 */
 
-	fd = open_image_ro_nocheck(FMT_FNAME_VMAS, pid);
-	if (fd < 0)
-		return -1;
-
-	prev_vma_end = 0;
-	lseek(fd, MAGIC_OFFSET, SEEK_SET);
-
-	while (1) {
-		ret = read(fd, &vma, sizeof(vma));
-		if (ret && ret != sizeof(vma)) {
-			pr_perror("Can't read vma entry from core-%d", pid);
-			break;
-		}
-
-		if (!prev_vma_end) {
-			prev_vma_end = vma.end;
-			continue;
-		}
-
-		if ((vma.start - prev_vma_end) > vma_len) {
+	list_for_each_entry(t_vma, tgt_vma_list, list) {
+		if (prev_vma_end && ((t_vma->vma.start - prev_vma_end) > vma_len)) {
+			struct vma_area *s_vma;
 			unsigned long prev_vma_end2 = 0;
 
-			list_for_each_entry(vma_area, self_vma_list, list) {
-				if (!prev_vma_end2) {
-					prev_vma_end2 = vma_area->vma.end;
-					continue;
-				}
+			list_for_each_entry(s_vma, self_vma_list, list) {
+				if (prev_vma_end2 && (prev_vma_end2 >= prev_vma_end) &&
+				    ((s_vma->vma.start - prev_vma_end2) > vma_len))
+					return prev_vma_end2;
 
-				if ((prev_vma_end2 >= prev_vma_end) &&
-				    (vma_area->vma.start - prev_vma_end2) > vma_len) {
-					hint = prev_vma_end2;
-					goto found;
-				}
-
-				prev_vma_end2 = vma_area->vma.end;
+				prev_vma_end2 = s_vma->vma.end;
 			}
 		}
 
-		prev_vma_end = vma.end;
+		prev_vma_end = t_vma->vma.end;
 	}
-found:
-	close_safe(&fd);
-	return hint;
+
+	return -1;
 }
 
 #define USEC_PER_SEC	1000000L
@@ -1577,7 +1549,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
 
-	exec_mem_hint = restorer_get_vma_hint(pid, &self_vma_list,
+	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
 					      self_vmas_len +
