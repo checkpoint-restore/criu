@@ -27,6 +27,7 @@ TST_NOFILE	=				\
 		shm				\
 		ptrace_sig			\
 		pipe00				\
+		pipe01				\
 		pthread00			\
 		vdso00				\
 		utsname				\

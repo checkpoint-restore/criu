@@ -4,6 +4,7 @@ ZP="zdtm/live"
 
 TEST_LIST="
 static/pipe00
+static/pipe01
 static/busyloop00
 static/cwd00
 static/env00
