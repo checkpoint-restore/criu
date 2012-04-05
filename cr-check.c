@@ -92,7 +92,10 @@ static int check_prctl(void)
 
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
 	if (ret) {
-		pr_msg("prctl: PR_SET_MM is not supported\n");
+		if (ret == -EPERM)
+			pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
+		else
+			pr_msg("prctl: PR_SET_MM is not supported\n");
 		return -1;
 	}
 
