@@ -21,6 +21,8 @@ struct pipe_info {
 	struct list_head list;		/* list head for fdinfo_list_entry-s */
 	struct list_head fd_head;
 	int create;
+	int bytes;
+	off_t off;
 };
 
 static LIST_HEAD(pipes);
@@ -64,8 +66,6 @@ int collect_pipes(void)
 		if (ret <= 0)
 			break;
 
-		lseek(fd, pi->pe.bytes, SEEK_CUR);
-
 		pr_info("Collected pipe entry ID %x PIPE ID %x\n",
 					pi->pe.id, pi->pe.pipe_id);
 		INIT_LIST_HEAD(&pi->fd_head);
@@ -95,6 +95,43 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 	pr_info("  `- ID %p %xpn", pi, pi->pe.id);
 	list_for_each_entry(fle, &pi->fd_head, list)
 		pr_info("   `- FD %d pid %d\n", fle->fd, fle->pid);
+}
+
+static int handle_pipes_data()
+{
+	int fd, ret;
+
+	fd = open_image_ro(CR_FD_PIPES_DATA);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		struct pipe_info *pi;
+		struct pipe_data_entry pde;
+
+		ret = read_img_eof(fd, &pde);
+		if (ret < 0)
+			goto err;
+
+		if (ret == 0)
+			break;
+
+		list_for_each_entry(pi, &pipes, list) {
+			if (pi->pe.pipe_id != pde.pipe_id)
+				continue;
+			if (!pi->create)
+				continue;
+
+			pi->off = lseek(fd, 0, SEEK_CUR) + pde.off;
+			pi->bytes = pde.bytes;
+
+			lseek(fd, pde.bytes + pde.off, SEEK_CUR);
+			break;
+		}
+	}
+err:
+	close(fd);
+	return ret;
 }
 
 /* Choose who will restore a pipe. */
@@ -143,6 +180,8 @@ void mark_pipe_master()
 	}
 
 	list_splice(&head, &pipes);
+
+	handle_pipes_data();
 }
 
 int pipe_should_open_transport(struct fdinfo_entry *fe,
@@ -192,6 +231,41 @@ static int set_fd_flags(int fd, int flags)
 	return fcntl(fd, F_SETFL, flags);
 }
 
+static int restore_pipe_data(int pfd, struct pipe_info *pi)
+{
+	int fd, size = 0, ret;
+
+	fd = open_image_ro(CR_FD_PIPES_DATA);
+	if (fd < 0)
+		return -1;
+
+	lseek(fd, pi->off, SEEK_SET);
+
+	pr_info("\t\tSplicing data size=%d off=%ld\n", pi->bytes, pi->off);
+
+	while (size != pi->bytes) {
+		ret = splice(fd, NULL, pfd, NULL, pi->bytes - size, 0);
+		if (ret < 0) {
+			pr_perror("%x: Error splicing data", pi->pe.id);
+			goto err;
+		}
+
+		if (ret == 0) {
+			pr_err("%x: Wanted to restore %d bytes, but got %d\n",
+				pi->pe.id, pi->bytes, size);
+			ret = -1;
+			goto err;
+		}
+
+		size += ret;
+	}
+
+	ret = 0;
+err:
+	close(fd);
+	return ret;
+}
+
 int open_pipe(struct list_head *l)
 {
 	unsigned long time = 1000;
@@ -212,6 +286,8 @@ int open_pipe(struct list_head *l)
 		pr_perror("Can't create pipe");
 		return -1;
 	}
+
+	ret = restore_pipe_data(pfd[1], pi);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
