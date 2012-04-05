@@ -539,7 +539,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		memcpy(name, RTA_DATA(tb[UNIX_DIAG_NAME]), len);
 		name[len] = '\0';
 
-		if (name[0] != '\0' && d->state == TCP_LISTEN) {
+		if (name[0] != '\0') {
 			struct unix_diag_vfs *uv;
 			struct stat st;
 
@@ -574,9 +574,9 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						(int)uv->udiag_vfs_dev,
 						(int)uv->udiag_vfs_ino);
 				/*
-				 * When a listen socket is bound to
-				 * unlinked file, we just drop his name,
-				 * since noone will access it via one.
+				 * When a socket is bound to unlinked file, we
+				 * just drop his name, since noone will access
+				 * it via one.
 				 */
 				xfree(name);
 				len = 0;
