@@ -356,7 +356,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head 
 }
 
 static int open_fd(int pid, struct fdinfo_entry *fe,
-		struct list_head *fd_list, int fdinfo_fd)
+		struct list_head *fd_list, int *fdinfo_fd)
 {
 	int tmp;
 	int serv, sock;
@@ -396,8 +396,25 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	list_for_each_entry(fle, fd_list, list) {
 		int len;
 
-		if (pid == fle->pid)
+		if (pid == fle->pid) {
+			pr_info("\t\tGoing to dup %d into %d\n",
+					(int)fe->addr, fle->fd);
+			if (fe->addr == fle->fd)
+				continue;
+
+			if (move_img_fd(&sock, fle->fd))
+				return -1;
+			if (move_img_fd(fdinfo_fd, fle->fd))
+				return -1;
+
+			if (dup2(fe->addr, fle->fd) != fle->fd) {
+				pr_perror("Can't dup local fd %d -> %d",
+						(int)fe->addr, fle->fd);
+				return -1;
+			}
+
 			continue;
+		}
 
 		pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
 		futex_wait_while(&fle->real_pid, 0);
@@ -423,18 +440,8 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_lis
 
 	fle = file_master(fd_list);
 
-	if (fle->pid == pid) {
-		if (fle->fd != fe->addr) {
-			tmp = dup2(fle->fd, fe->addr);
-			if (tmp < 0) {
-				pr_perror("Can't duplicate fd %d %ld",
-						fle->fd, fe->addr);
-				return -1;
-			}
-		}
-
+	if (fle->pid == pid)
 		return 0;
-	}
 
 	pr_info("\t%d: Receive fd for %lx\n", pid, fe->addr);
 
@@ -505,7 +512,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 		ret = open_transport_fd(pid, fe, fi_list);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fe, fi_list, *fdinfo_fd);
+		ret = open_fd(pid, fe, fi_list, fdinfo_fd);
 		break;
 	case FD_STATE_RECV:
 		ret = receive_fd(pid, fe, fi_list);
