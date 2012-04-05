@@ -320,7 +320,6 @@ long restore_task(struct task_restore_core_args *args)
 	write_hex_n((long)vma_entry);
 #endif
 
-	sys_lseek(args->fd_core, MAGIC_OFFSET, SEEK_SET);
 	ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
 	if (ret != sizeof(*core_entry)) {
 		write_num_n(__LINE__);
