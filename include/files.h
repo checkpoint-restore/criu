@@ -32,14 +32,6 @@ struct fmap_fd {
 	int			fd;
 };
 
-struct fdinfo_desc {
-	u32			id;
-	u32			type;
-	u64			addr;
-	int			pid;
-	struct list_head	list;
-};
-
 struct fdinfo_list_entry {
 	struct list_head	list;
 	int			fd;

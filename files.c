@@ -21,9 +21,6 @@
 #include "lock.h"
 #include "sockets.h"
 
-static struct fdinfo_desc *fdinfo_descs;
-static int nr_fdinfo_descs;
-
 static struct fdinfo_list_entry *fdinfo_list;
 static int nr_fdinfo_list;
 
@@ -31,12 +28,6 @@ static struct fmap_fd *fmap_fds;
 
 int prepare_shared_fdinfo(void)
 {
-	fdinfo_descs = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (fdinfo_descs == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_descs");
-		return -1;
-	}
-
 	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_list == MAP_FAILED) {
 		pr_perror("Can't map fdinfo_list");
@@ -45,24 +36,11 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-static struct fdinfo_desc *find_fd(struct fdinfo_entry *fe)
-{
-	struct fdinfo_desc *fi;
-	int i;
-
-	for (i = 0; i < nr_fdinfo_descs; i++) {
-		fi = fdinfo_descs + i;
-		if ((fi->id == fe->id) && (fi->type == fe->type))
-			return fi;
-	}
-
-	return NULL;
-}
-
 struct reg_file_info {
 	struct reg_file_entry rfe;
 	char *path;
 	struct list_head list;
+	struct list_head fd_head;
 };
 
 #define REG_FILES_HSIZE	32
@@ -78,6 +56,14 @@ static struct reg_file_info *find_reg_file(int id)
 		if (rfi->rfe.id == id)
 			return rfi;
 	return NULL;
+}
+
+static struct list_head *find_reg_fd(int id)
+{
+	struct reg_file_info *rfi;
+
+	rfi = find_reg_file(id);
+	return &rfi->fd_head;
 }
 
 int collect_reg_files(void)
@@ -118,6 +104,7 @@ int collect_reg_files(void)
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
+		INIT_LIST_HEAD(&rfi->fd_head);
 		chain = rfi->rfe.id % REG_FILES_HSIZE;
 		list_add_tail(&rfi->list, &reg_files[chain]);
 	}
@@ -131,11 +118,29 @@ int collect_reg_files(void)
 	return ret;
 }
 
+static int collect_fd_reg(int id, struct fdinfo_list_entry *le)
+{
+	struct reg_file_info *rfi;
+	struct fdinfo_list_entry *l;
+
+	rfi = find_reg_file(id);
+	if (rfi == NULL) {
+		pr_err("No file for fd %d, id %d\n", le->fd, id);
+		return -1;
+	}
+
+	list_for_each_entry(l, &rfi->fd_head, list)
+		if (l->pid > le->pid)
+			break;
+
+	list_add_tail(&le->list, &l->list);
+	return 0;
+}
+
 static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
 	struct fdinfo_list_entry *le = &fdinfo_list[nr_fdinfo_list];
-	struct fdinfo_desc *desc;
 
 	pr_info("Collect fdinfo pid=%d fd=%ld id=%16x\n",
 		pid, e->addr, e->id);
@@ -148,44 +153,15 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	le->pid = pid;
 	le->fd = e->addr;
-
 	futex_init(&le->real_pid);
 
-	for (i = 0; i < nr_fdinfo_descs; i++) {
-		desc = &fdinfo_descs[i];
+	if (e->type == FDINFO_REG)
+		return collect_fd_reg(e->id, le);
+	if (e->type == FDINFO_INETSK)
+		return collect_fd_inetsk(e->id, le);
 
-		if ((desc->id != e->id) || (desc->type != e->type))
-			continue;
-
-		list_add(&le->list, &desc->list);
-
-		if (fdinfo_descs[i].pid < pid)
-			return 0;
-
-		desc->pid = pid;
-		desc->addr = e->addr;
-
-		return 0;
-	}
-
-	if ((nr_fdinfo_descs + 1) * sizeof(struct fdinfo_desc) >= 4096) {
-		pr_err("OOM storing fdinfo descriptions\n");
-		return -1;
-	}
-
-	desc = &fdinfo_descs[nr_fdinfo_descs];
-	memzero(desc, sizeof(*desc));
-
-	desc->id	= e->id;
-	desc->type	= e->type;
-	desc->addr	= e->addr;
-	desc->pid	= pid;
-	INIT_LIST_HEAD(&desc->list);
-
-	list_add(&le->list, &desc->list);
-	nr_fdinfo_descs++;
-
-	return 0;
+	BUG_ON(1);
+	return -1;
 }
 
 int prepare_fd_pid(int pid)
@@ -282,12 +258,12 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	return reopen_fd_as(self_exe_fd, tmp);
 }
 
-struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct fdinfo_desc *fi)
+struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct list_head *fd_list)
 {
 	struct fdinfo_list_entry *fle;
 	int found = 0;
 
-	list_for_each_entry(fle, &fi->list, list) {
+	list_for_each_entry(fle, fd_list, list) {
 		if (fle->fd == fd && fle->pid == pid) {
 			found = 1;
 			break;
@@ -307,22 +283,31 @@ static inline void transport_name_gen(struct sockaddr_un *addr, int *len,
 	*addr->sun_path = '\0';
 }
 
-static int open_transport_fd(int pid, struct fdinfo_entry *fe,
-				struct fdinfo_desc *fi)
+static struct fdinfo_list_entry *file_master(struct list_head *fd_list)
+{
+	return list_first_entry(fd_list, struct fdinfo_list_entry, list);
+}
+
+static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
 {
 	struct fdinfo_list_entry *fle;
 	struct sockaddr_un saddr;
 	int sock;
 	int ret, sun_len;
 
-	if (fi->pid == pid)
+	fle = file_master(fd_list);
+	if (fle->pid == pid)
 		return 0;
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
 
 	pr_info("\t%d: Create transport fd for %lx\n", pid, fe->addr);
 
-	fle = find_fdinfo_list_entry(pid, fe->addr, fi);
+	list_for_each_entry(fle, fd_list, list)
+		if ((fle->pid == pid) && (fle->fd == fe->addr))
+			break;
+
+	BUG_ON(fd_list == &fle->list);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -346,14 +331,15 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe,
 }
 
 static int open_fd(int pid, struct fdinfo_entry *fe,
-				struct fdinfo_desc *fi, int fdinfo_fd)
+		struct list_head *fd_list, int fdinfo_fd)
 {
 	int tmp;
 	int serv, sock;
 	struct sockaddr_un saddr;
 	struct fdinfo_list_entry *fle;
 
-	if ((fi->pid != pid) || (fe->addr != fi->addr))
+	fle = file_master(fd_list);
+	if ((fle->pid != pid) || (fe->addr != fle->fd))
 		return 0;
 
 	switch (fe->type) {
@@ -374,9 +360,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if (reopen_fd_as((int)fe->addr, tmp))
 		return -1;
 
-	if (list_empty(&fi->list))
-		goto out;
-
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		pr_perror("Can't create socket");
@@ -385,7 +368,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	pr_info("\t%d: Create fd for %lx\n", pid, fe->addr);
 
-	list_for_each_entry(fle, &fi->list, list) {
+	list_for_each_entry(fle, fd_list, list) {
 		int len;
 
 		if (pid == fle->pid)
@@ -408,16 +391,19 @@ out:
 	return 0;
 }
 
-static int receive_fd(int pid, struct fdinfo_entry *fe, struct fdinfo_desc *fi)
+static int receive_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
 {
 	int tmp;
+	struct fdinfo_list_entry *fle;
 
-	if (fi->pid == pid) {
-		if (fi->addr != fe->addr) {
-			tmp = dup2(fi->addr, fe->addr);
+	fle = file_master(fd_list);
+
+	if (fle->pid == pid) {
+		if (fle->fd != fe->addr) {
+			tmp = dup2(fle->fd, fe->addr);
 			if (tmp < 0) {
-				pr_perror("Can't duplicate fd %ld %ld",
-						fi->addr, fe->addr);
+				pr_perror("Can't duplicate fd %d %ld",
+						fle->fd, fe->addr);
 				return -1;
 			}
 		}
@@ -464,12 +450,24 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 	return 0;
 }
 
+static struct list_head *find_fi_list(struct fdinfo_entry *fe)
+{
+	if (fe->type == FDINFO_REG)
+		return find_reg_fd(fe->id);
+	if (fe->type == FDINFO_INETSK)
+		return find_inetsk_fd(fe->id);
+
+	BUG_ON(1);
+	return NULL;
+}
+
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)
 {
 	u32 mag;
 	int ret = 0;
-	struct fdinfo_desc *fi = find_fd(fe);
+	struct list_head *fi_list;
 
+	fi_list = find_fi_list(fe);
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;
 
@@ -479,13 +477,13 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 
 	switch (state) {
 	case FD_STATE_PREP:
-		ret = open_transport_fd(pid, fe, fi);
+		ret = open_transport_fd(pid, fe, fi_list);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fe, fi, *fdinfo_fd);
+		ret = open_fd(pid, fe, fi_list, *fdinfo_fd);
 		break;
 	case FD_STATE_RECV:
-		ret = receive_fd(pid, fe, fi);
+		ret = receive_fd(pid, fe, fi_list);
 		break;
 	}
 
