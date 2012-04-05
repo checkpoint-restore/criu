@@ -99,7 +99,6 @@ static struct shmems *shmems;
 static struct pipe_info *pipes;
 static int nr_pipes;
 
-pid_t pstree_pid;
 struct pstree_item *me;
 
 static int restore_task_with_children(void *);
@@ -1721,8 +1720,6 @@ err:
 
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
-	pstree_pid = pid;
-
 	if (opts->leader_only)
 		return restore_one_task(pid);
 	return restore_all_tasks(pid, opts);
