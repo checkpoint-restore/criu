@@ -77,6 +77,7 @@ static int check_kcmp(void)
 
 static int check_prctl(void)
 {
+	unsigned long user_auxv = 0;
 	unsigned int *tid_addr;
 	int ret;
 
@@ -95,6 +96,12 @@ static int check_prctl(void)
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
 	if (ret != -EBUSY) {
 		pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported\n");
+		return -1;
+	}
+
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
+	if (ret) {
+		pr_msg("prctl: PR_SET_MM_AUXV is not supported\n");
 		return -1;
 	}
 
