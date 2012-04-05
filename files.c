@@ -46,6 +46,22 @@ struct reg_file_info {
 #define REG_FILES_HSIZE	32
 static struct list_head reg_files[REG_FILES_HSIZE];
 
+void show_saved_files(void)
+{
+	int i;
+	struct reg_file_info *rfi;
+
+	pr_info("Reg files:\n");
+	for (i = 0; i < REG_FILES_HSIZE; i++)
+		list_for_each_entry(rfi, &reg_files[i], list) {
+			struct fdinfo_list_entry *le;
+
+			pr_info(" `- ID %x\n", rfi->rfe.id);
+			list_for_each_entry(le, &rfi->fd_head, list)
+				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
+		}
+}
+
 static struct reg_file_info *find_reg_file(int id)
 {
 	int chain;

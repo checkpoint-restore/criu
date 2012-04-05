@@ -454,6 +454,7 @@ static int prepare_shared(int ps_fd)
 
 		show_saved_shmems();
 		show_saved_pipes();
+		show_saved_files();
 	}
 
 	return ret;

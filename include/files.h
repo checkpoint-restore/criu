@@ -39,6 +39,7 @@ struct fdinfo_list_entry {
 	futex_t			real_pid;
 };
 
+void show_saved_files(void);
 extern int collect_reg_files(void);
 extern int prepare_fds(int pid);
 extern int prepare_fd_pid(int pid);
