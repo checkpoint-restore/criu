@@ -39,32 +39,6 @@
 #include "crtools.h"
 #include "namespaces.h"
 
-/*
- * real_pid member formerly served cases when
- * no fork-with-pid functionality were in kernel,
- * so now it is being kept here just in case if
- * we need it again.
- */
-
-#define PIPE_NONE	(0 << 0)
-#define PIPE_RDONLY	(1 << 1)
-#define PIPE_WRONLY	(1 << 2)
-#define PIPE_RDWR	(PIPE_RDONLY | PIPE_WRONLY)
-#define PIPE_MODE_MASK	(0x7)
-#define PIPE_CREATED	(1 << 3)
-
-#define pipe_is_rw(p)	(((p)->status & PIPE_MODE_MASK) == PIPE_RDWR)
-
-struct pipe_info {
-	unsigned int	pipeid;
-	int		pid;
-	int		read_fd;
-	int		write_fd;
-	int		status;
-	futex_t		real_pid;
-	futex_t		users;
-};
-
 struct shmem_id {
 	struct shmem_id *next;
 	unsigned long	addr;
@@ -72,20 +46,11 @@ struct shmem_id {
 	unsigned long	shmid;
 };
 
-struct pipe_list_entry {
-	struct list_head	list;
-	struct pipe_entry	e;
-	off_t			offset;
-};
-
 static struct task_entries *task_entries;
 
 static struct shmem_id *shmem_ids;
 
 static struct shmems *shmems;
-
-static struct pipe_info *pipes;
-static int nr_pipes;
 
 static struct pstree_item *me;
 static LIST_HEAD(tasks);
@@ -104,31 +69,6 @@ static void show_saved_shmems(void)
 			shmems->entries[i].start,
 			shmems->entries[i].shmid,
 			shmems->entries[i].pid);
-}
-
-static void show_saved_pipes(void)
-{
-	int i;
-
-	pr_info("\tSaved pipes:\n");
-	for (i = 0; i < nr_pipes; i++)
-		pr_info("\t\tpipeid %x pid %d users %d status %d\n",
-			pipes[i].pipeid, pipes[i].pid,
-			futex_get(&pipes[i].users), pipes[i].status);
-}
-
-static struct pipe_info *find_pipe(unsigned int pipeid)
-{
-	struct pipe_info *pi;
-	int i;
-
-	for (i = 0; i < nr_pipes; i++) {
-		pi = pipes + i;
-		if (pi->pipeid == pipeid)
-			return pi;
-	}
-
-	return NULL;
 }
 
 static int shmem_wait_and_open(int pid, struct shmem_info *si)
@@ -243,107 +183,6 @@ out:
 	return ret;
 }
 
-
-static int collect_pipe(int pid, struct pipe_entry *e, int p_fd)
-{
-	int i;
-
-	/*
-	 * All pipes get collected into the one array,
-	 * note the highest PID is the sign of which
-	 * process pipe should be really created, all other
-	 * processes (if they have pipes with pipeid matched)
-	 * will be attached.
-	 */
-	for (i = 0; i < nr_pipes; i++) {
-		if (pipes[i].pipeid != e->pipeid)
-			continue;
-
-		if (pipes[i].pid > pid && !pipe_is_rw(&pipes[i])) {
-			pipes[i].pid = pid;
-			pipes[i].status = 0;
-			pipes[i].read_fd = -1;
-			pipes[i].write_fd = -1;
-		}
-
-		if (pipes[i].pid == pid) {
-			switch (e->flags & O_ACCMODE) {
-			case O_RDONLY:
-				pipes[i].status |= PIPE_RDONLY;
-				pipes[i].read_fd = e->fd;
-				break;
-			case O_WRONLY:
-				pipes[i].status |= PIPE_WRONLY;
-				pipes[i].write_fd = e->fd;
-				break;
-			}
-		} else
-			futex_inc(&pipes[i].users);
-
-		return 0;
-	}
-
-	if ((nr_pipes + 1) * sizeof(struct pipe_info) >= 4096) {
-		pr_err("OOM storing pipes\n");
-		return -1;
-	}
-
-	memset(&pipes[nr_pipes], 0, sizeof(pipes[nr_pipes]));
-
-	pipes[nr_pipes].pipeid	= e->pipeid;
-	pipes[nr_pipes].pid	= pid;
-	pipes[nr_pipes].read_fd = -1;
-	pipes[nr_pipes].write_fd = -1;
-
-	futex_init(&pipes[nr_pipes].users);
-
-	switch (e->flags & O_ACCMODE) {
-	case O_RDONLY:
-		pipes[nr_pipes].status = PIPE_RDONLY;
-		pipes[i].read_fd = e->fd;
-		break;
-	case O_WRONLY:
-		pipes[nr_pipes].status = PIPE_WRONLY;
-		pipes[i].write_fd = e->fd;
-		break;
-	}
-
-	nr_pipes++;
-
-	return 0;
-}
-
-static int prepare_pipes_pid(int pid)
-{
-	int p_fd, ret = 0;
-
-	p_fd = open_image_ro(CR_FD_PIPES, pid);
-	if (p_fd < 0) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
-
-	while (1) {
-		struct pipe_entry e;
-
-		ret = read_img_eof(p_fd, &e);
-		if (ret <= 0)
-			break;
-
-		ret = collect_pipe(pid, &e, p_fd);
-		if (ret < 0)
-			break;
-
-		if (e.bytes)
-			lseek(p_fd, e.bytes, SEEK_CUR);
-	}
-
-	close(p_fd);
-	return ret;
-}
-
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
 	void *ret;
@@ -439,12 +278,6 @@ static int prepare_shared(void)
 
 	shmems->nr_shmems = 0;
 
-	pipes = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (pipes == MAP_FAILED) {
-		pr_perror("Can't map pipes");
-		return -1;
-	}
-
 	if (prepare_shared_fdinfo())
 		return -1;
 
@@ -463,10 +296,6 @@ static int prepare_shared(void)
 		if (ret < 0)
 			break;
 
-		ret = prepare_pipes_pid(pi->pid);
-		if (ret < 0)
-			break;
-
 		ret = prepare_fd_pid(pi->pid);
 		if (ret < 0)
 			break;
@@ -474,7 +303,6 @@ static int prepare_shared(void)
 
 	if (!ret) {
 		show_saved_shmems();
-		show_saved_pipes();
 		show_saved_files();
 	}
 
@@ -624,207 +452,6 @@ static int prepare_and_sigreturn(int pid)
 	return sigreturn_restore(pid, &vma_list, nr_vmas);
 }
 
-#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
-
-static int set_fd_flags(int fd, int flags)
-{
-	int old;
-
-	old = fcntl(fd, F_GETFL, 0);
-	if (old < 0)
-		return old;
-
-	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
-
-	return fcntl(fd, F_SETFL, flags);
-}
-
-static int reopen_pipe(int src, int *dst, int *other, int *pipes_fd)
-{
-	int tmp;
-
-	if (*dst != -1) {
-		if (move_img_fd(other, *dst))
-			return -1;
-
-		if (move_img_fd(pipes_fd, *dst))
-			return -1;
-
-		return reopen_fd_as(*dst, src);
-	}
-
-	*dst = src;
-	return 0;
-}
-
-static int restore_pipe_data(struct pipe_entry *e, int wfd, int pipes_fd)
-{
-	int ret, size = 0;
-
-	pr_info("\t%x: Splicing data to %d\n", e->pipeid, wfd);
-
-	while (size != e->bytes) {
-		ret = splice(pipes_fd, NULL, wfd, NULL, e->bytes - size, 0);
-		if (ret < 0) {
-			pr_perror("\t%x: Error splicing data", e->pipeid);
-			return -1;
-		}
-		if (ret == 0) {
-			pr_err("\t%x: Wanted to restore %d bytes, but got %d\n",
-			       e->pipeid, e->bytes, size);
-			return -1;
-		}
-
-		size += ret;
-	}
-
-	return 0;
-}
-
-static int create_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int *pipes_fd)
-{
-	unsigned long time = 1000;
-	int pfd[2], tmp;
-
-	pr_info("\t%d: Creating pipe %x%s\n", pid, e->pipeid, pipe_is_rw(pi) ? "(rw)" : "");
-
-	if (pipe(pfd) < 0) {
-		pr_perror("%d: Can't create pipe", pid);
-		return -1;
-	}
-
-	if (restore_pipe_data(e, pfd[1], *pipes_fd))
-		return -1;
-
-	if (reopen_pipe(pfd[0], &pi->read_fd, &pfd[1], pipes_fd))
-		return -1;
-	if (reopen_pipe(pfd[1], &pi->write_fd, &pi->read_fd, pipes_fd))
-		return -1;
-
-	futex_set_and_wake(&pi->real_pid, pid);
-
-	pi->status |= PIPE_CREATED;
-
-	pr_info("\t%d: Done, waiting for others (users %d) on %d pid with r:%d w:%d\n",
-		pid, futex_get(&pi->users), futex_get(&pi->real_pid), pi->read_fd, pi->write_fd);
-
-	if (!pipe_is_rw(pi)) {
-		pr_info("\t%d: Waiting for %x pipe to attach (%d users left)\n",
-				pid, e->pipeid, futex_get(&pi->users));
-
-		futex_wait_until(&pi->users, 0);
-
-		if ((e->flags & O_ACCMODE) == O_WRONLY)
-			close_safe(&pi->read_fd);
-		else
-			close_safe(&pi->write_fd);
-	}
-
-	tmp = 0;
-	if (pi->write_fd != e->fd && pi->read_fd != e->fd) {
-		if (move_img_fd(pipes_fd, e->fd))
-			return -1;
-
-		switch (e->flags & O_ACCMODE) {
-		case O_WRONLY:
-			tmp = dup2(pi->write_fd, e->fd);
-			break;
-		case O_RDONLY:
-			tmp = dup2(pi->read_fd, e->fd);
-			break;
-		}
-	}
-	if (tmp < 0)
-		return -1;
-
-	tmp = set_fd_flags(e->fd, e->flags);
-	if (tmp < 0)
-		return -1;
-
-	pr_info("\t%d: All is ok - reopening pipe for %d\n", pid, e->fd);
-
-	return 0;
-}
-
-static int attach_pipe(int pid, struct pipe_entry *e, struct pipe_info *pi, int *pipes_fd)
-{
-	char path[128];
-	int tmp, fd;
-
-	pr_info("\t%d: Waiting for pipe %x to appear\n",
-		pid, e->pipeid);
-
-	futex_wait_while(&pi->real_pid, 0);
-
-	if (move_img_fd(pipes_fd, e->fd))
-			return -1;
-
-	if ((e->flags & O_ACCMODE) == O_WRONLY)
-		tmp = pi->write_fd;
-	else
-		tmp = pi->read_fd;
-
-	if (pid == pi->pid) {
-		if (tmp != e->fd)
-			tmp = dup2(tmp, e->fd);
-
-		if (tmp < 0) {
-			pr_perror("%d: Can't duplicate %d->%d",
-					pid, tmp, e->fd);
-			return -1;
-		}
-
-		goto out;
-	}
-
-	sprintf(path, "/proc/%d/fd/%d", futex_get(&pi->real_pid), tmp);
-	pr_info("\t%d: Attaching pipe %s (%d users left)\n",
-		pid, path, futex_get(&pi->users) - 1);
-
-	fd = open(path, e->flags);
-	if (fd < 0) {
-		pr_perror("%d: Can't attach pipe", pid);
-		return -1;
-	}
-
-	pr_info("\t%d: Done, reopening for %d\n", pid, e->fd);
-	if (reopen_fd_as(e->fd, fd))
-		return -1;
-
-	futex_dec_and_wake(&pi->users);
-out:
-	tmp = set_fd_flags(e->fd, e->flags);
-	if (tmp < 0)
-		return -1;
-
-	return 0;
-
-}
-
-static int open_pipe(int pid, struct pipe_entry *e, int *pipes_fd)
-{
-	struct pipe_info *pi;
-
-	pr_info("\t%d: Opening pipe %x on fd %d\n", pid, e->pipeid, e->fd);
-
-	pi = find_pipe(e->pipeid);
-	if (!pi) {
-		pr_err("BUG: can't find my pipe %x\n", e->pipeid);
-		return -1;
-	}
-
-	/*
-	 * This is somewhat tricky -- in case if a process uses
-	 * both pipe ends the pipe should be created but only one
-	 * pipe end get connected immediately in create_pipe the
-	 * other pipe end should be connected via pipe attaching.
-	 */
-	if (pi->pid == pid && !(pi->status & PIPE_CREATED))
-		return create_pipe(pid, e, pi, pipes_fd);
-	else
-		return attach_pipe(pid, e, pi, pipes_fd);
-}
-
 static rt_sigaction_t sigchld_act;
 static int prepare_sigactions(int pid)
 {
@@ -871,77 +498,9 @@ err:
 	return ret;
 }
 
-static int prepare_pipes(int pid)
-{
-	int ret = -1;
-	int pipes_fd;
-
-	struct pipe_list_entry *le, *buf;
-	int buf_size = PAGE_SIZE;
-	int nr = 0;
-
-	LIST_HEAD(head);
-
-	pr_info("%d: Opening pipes\n", pid);
-
-	pipes_fd = open_image_ro(CR_FD_PIPES, pid);
-	if (pipes_fd < 0)
-		return -1;
-
-	buf = xmalloc(buf_size);
-	if (!buf)
-		goto out;
-
-	while (1) {
-		struct list_head *cur;
-		struct pipe_list_entry *cur_entry;
-
-		le = &buf[nr];
-
-		ret = read_img_eof(pipes_fd, &le->e);
-		if (ret <= 0)
-			break;
-
-		list_for_each(cur, &head) {
-			cur_entry = list_entry(cur, struct pipe_list_entry, list);
-			if (cur_entry->e.pipeid > le->e.pipeid)
-				break;
-		}
-
-		list_add_tail(&le->list, cur);
-
-		le->offset = lseek(pipes_fd, 0, SEEK_CUR);
-		lseek(pipes_fd, le->e.bytes, SEEK_CUR);
-
-		nr++;
-		if (nr > buf_size / sizeof(*le)) {
-			ret = -1;
-			pr_err("OOM storing pipes");
-			break;
-		}
-	}
-
-	if (!ret)
-		list_for_each_entry(le, &head, list) {
-			lseek(pipes_fd, le->offset, SEEK_SET);
-			if (open_pipe(pid, &le->e, &pipes_fd)) {
-				ret = -1;
-				break;
-			}
-		}
-
-	free(buf);
-out:
-	close_safe(&pipes_fd);
-	return ret;
-}
-
 static int restore_one_alive_task(int pid)
 {
 	pr_info("%d: Restoring resources\n", pid);
-
-	if (prepare_pipes(pid))
-		return -1;
 
 	if (prepare_sockets(pid))
 		return -1;
