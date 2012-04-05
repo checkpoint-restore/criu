@@ -29,7 +29,7 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 
 int main(int argc, char *argv[])
 {
-	int ssk_icon[2];
+	int ssk_icon[4];
 	int ssk_pair[2];
 	struct sockaddr_un addr;
 	struct sockaddr_un name_bound;
@@ -65,7 +65,8 @@ int main(int argc, char *argv[])
 
 	ssk_icon[0] = socket(AF_UNIX, SOCK_STREAM, 0);
 	ssk_icon[1] = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (ssk_icon[0] < 0 || ssk_icon[1] < 0) {
+	ssk_icon[2] = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (ssk_icon[0] < 0 || ssk_icon[1] < 0 || ssk_icon[2] < 0) {
 		fail("socket\n");
 		exit(1);
 	}
@@ -79,6 +80,18 @@ int main(int argc, char *argv[])
 	ret = listen(ssk_icon[0], 16);
 	if (ret) {
 		fail("bind\n");
+		exit(1);
+	}
+
+	ret = connect(ssk_icon[2], &addr, addrlen);
+	if (ret) {
+		fail("connect\n");
+		exit(1);
+	}
+
+	ssk_icon[3] = accept(ssk_icon[0], NULL, NULL);
+	if (ssk_icon[3] < 0) {
+		fail("accept");
 		exit(1);
 	}
 
@@ -204,16 +217,23 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		fail("accept\n");
 		exit(1);
-	} else
-		ssk_icon[0] = ret;
+	}
 
 	write(ssk_icon[1], SK_DATA, sizeof(SK_DATA));
-	read(ssk_icon[0], &buf, sizeof(buf));
+	read(ret, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA)) {
 		fail("data corrupted\n");
 		exit(1);
 	}
 	test_msg("stream            : '%s'\n", buf);
+
+	write(ssk_icon[2], SK_DATA, sizeof(SK_DATA));
+	read(ssk_icon[3], &buf, sizeof(buf));
+	if (strcmp(buf, SK_DATA)) {
+		fail("data corrupted\n");
+		exit(1);
+	}
+	test_msg("stream2           : '%s'\n", buf);
 
 	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0,
 	       &name_bound, sizeof(name_bound));
