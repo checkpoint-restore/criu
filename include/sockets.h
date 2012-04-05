@@ -11,7 +11,6 @@ extern int dump_socket(struct fd_parms *p, int lfd,
 		const struct cr_fdset *cr_fdset);
 
 struct fdinfo_list_entry;
-int collect_fd_inetsk(int id, struct fdinfo_list_entry *le);
 struct list_head *find_inetsk_fd(int id);
 extern int collect_sockets(void);
 extern int collect_inet_sockets(void);

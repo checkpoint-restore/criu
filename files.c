@@ -82,6 +82,17 @@ static struct list_head *find_reg_fd(int id)
 	return &rfi->fd_head;
 }
 
+static struct list_head *find_fi_list(struct fdinfo_entry *fe)
+{
+	if (fe->type == FDINFO_REG)
+		return find_reg_fd(fe->id);
+	if (fe->type == FDINFO_INETSK)
+		return find_inetsk_fd(fe->id);
+
+	BUG_ON(1);
+	return NULL;
+}
+
 int collect_reg_files(void)
 {
 	struct reg_file_info *rfi = NULL;
@@ -134,29 +145,11 @@ int collect_reg_files(void)
 	return ret;
 }
 
-static int collect_fd_reg(int id, struct fdinfo_list_entry *le)
-{
-	struct reg_file_info *rfi;
-	struct fdinfo_list_entry *l;
-
-	rfi = find_reg_file(id);
-	if (rfi == NULL) {
-		pr_err("No file for fd %d, id %d\n", le->fd, id);
-		return -1;
-	}
-
-	list_for_each_entry(l, &rfi->fd_head, list)
-		if (l->pid > le->pid)
-			break;
-
-	list_add_tail(&le->list, &l->list);
-	return 0;
-}
-
 static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
-	struct fdinfo_list_entry *le = &fdinfo_list[nr_fdinfo_list];
+	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
+	struct list_head *fi_list;
 
 	pr_info("Collect fdinfo pid=%d fd=%ld id=%16x\n",
 		pid, e->addr, e->id);
@@ -171,13 +164,18 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	le->fd = e->addr;
 	futex_init(&le->real_pid);
 
-	if (e->type == FDINFO_REG)
-		return collect_fd_reg(e->id, le);
-	if (e->type == FDINFO_INETSK)
-		return collect_fd_inetsk(e->id, le);
+	fi_list = find_fi_list(e);
+	if (fi_list == NULL) {
+		pr_err("No file for fd %d id %d\n", (int)e->addr, e->id);
+		return -1;
+	}
 
-	BUG_ON(1);
-	return -1;
+	list_for_each_entry(l, fi_list, list)
+		if (l->pid > le->pid)
+			break;
+
+	list_add_tail(&le->list, &l->list);
+	return 0;
 }
 
 int prepare_fd_pid(int pid)
@@ -480,17 +478,6 @@ static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
 	fmap_fds	= new;
 
 	return 0;
-}
-
-static struct list_head *find_fi_list(struct fdinfo_entry *fe)
-{
-	if (fe->type == FDINFO_REG)
-		return find_reg_fd(fe->id);
-	if (fe->type == FDINFO_INETSK)
-		return find_inetsk_fd(fe->id);
-
-	BUG_ON(1);
-	return NULL;
 }
 
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)

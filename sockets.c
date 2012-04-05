@@ -1267,25 +1267,6 @@ struct list_head *find_inetsk_fd(int id)
 	return &ii->fd_head;
 }
 
-int collect_fd_inetsk(int id, struct fdinfo_list_entry *le)
-{
-	struct inet_sk_info *ii;
-	struct fdinfo_list_entry *l;
-
-	ii = find_inet_sk(id);
-	if (ii == NULL) {
-		pr_err("No inet socket for %d id %d\n", le->fd, id);
-		return -1;
-	}
-
-	list_for_each_entry(l, &ii->fd_head, list)
-		if (l->pid > le->pid)
-			break;
-
-	list_add_tail(&le->list, &l->list);
-	return 0;
-}
-
 int collect_inet_sockets(void)
 {
 	struct inet_sk_info *ii = NULL;
