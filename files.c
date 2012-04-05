@@ -281,22 +281,6 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	return reopen_fd_as(self_exe_fd, tmp);
 }
 
-struct fdinfo_list_entry *find_fdinfo_list_entry(int pid, int fd, struct list_head *fd_list)
-{
-	struct fdinfo_list_entry *fle;
-	int found = 0;
-
-	list_for_each_entry(fle, fd_list, list) {
-		if (fle->fd == fd && fle->pid == pid) {
-			found = 1;
-			break;
-		}
-	}
-
-	BUG_ON(found == 0);
-	return fle;
-}
-
 static inline void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, long fd)
 {
