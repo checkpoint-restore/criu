@@ -24,7 +24,6 @@
 #include "ipc_ns.h"
 
 static struct cr_options opts;
-struct page_entry zero_page_entry = {.va = ~0LL};
 
 /*
  * The cr fd set is the set of files where the information

@@ -1466,10 +1466,6 @@ static int cr_dump_shmem(void)
 		if (pfn != nrpages)
 			goto err_close;
 
-		err = write_img(fd, &zero_page_entry);
-		if (err < 0)
-			goto err_close;
-
 		close(fd);
 		munmap(addr,  si->size);
 		xfree(map);

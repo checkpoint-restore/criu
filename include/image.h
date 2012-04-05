@@ -195,9 +195,6 @@ struct page_entry {
 	u8	data[PAGE_IMAGE_SIZE];
 } __packed;
 
-#define final_page_va(va)		((va) == ~0LL)
-#define final_page_entry(page_entry)	(final_page_va((page_entry)->va))
-
 struct sa_entry {
 	u64		sigaction;
 	u64		flags;

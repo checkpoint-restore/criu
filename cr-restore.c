@@ -472,11 +472,8 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	}
 
 	while (1) {
-		ret = read_img_buf(fd, &offset, sizeof(offset));
-		if (ret < 0)
-			break;
-
-		if (final_page_va(offset))
+		ret = read_img_buf_eof(fd, &offset, sizeof(offset));
+		if (ret <= 0)
 			break;
 
 		if (offset + PAGE_SIZE > si->size)

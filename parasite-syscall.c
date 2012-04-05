@@ -536,9 +536,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
 
-	if (write_img(fdset_fd(cr_fdset, CR_FD_PAGES), &zero_page_entry))
-		goto out;
-
 	pr_info("\n");
 	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
 	ret = 0;

@@ -202,9 +202,7 @@ void show_pages(int fd_pages, struct cr_options *o)
 		while (1) {
 			struct page_entry e;
 
-			if (read_img(fd_pages, &e) < 0)
-				break;
-			if (final_page_entry(&e))
+			if (read_img_eof(fd_pages, &e) <= 0)
 				break;
 
 			print_data(e.va, e.data, PAGE_IMAGE_SIZE);
@@ -217,12 +215,11 @@ void show_pages(int fd_pages, struct cr_options *o)
 
 			pr_msg("\t");
 			for (i = 0; i < DEF_PAGES_PER_LINE; i++) {
-				if (read_img(fd_pages, &e) < 0)
-					goto out;
-				if (final_page_entry(&e)) {
+				if (read_img_eof(fd_pages, &e) <= 0) {
 					pr_msg("\n");
 					goto out;
 				}
+
 				pr_msg("%16lx ", e.va);
 			}
 			pr_msg("\n");

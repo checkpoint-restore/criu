@@ -370,13 +370,12 @@ long restore_task(struct task_restore_core_args *args)
 		ret = sys_read(args->fd_pages, &va, sizeof(va));
 		if (!ret)
 			break;
+
 		if (ret != sizeof(va)) {
 			write_num_n(__LINE__);
 			write_num_n(ret);
 			goto core_restore_end;
 		}
-		if (final_page_va(va))
-			break;
 
 		ret = sys_read(args->fd_pages, (void *)va, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {

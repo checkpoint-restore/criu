@@ -8,7 +8,6 @@
 #include "util.h"
 #include "image.h"
 
-extern struct page_entry zero_page_entry;
 extern void free_pstree(struct list_head *pstree_list);
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
