@@ -145,9 +145,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	fd = fd_pages;
 
-	/* Start from the end of file */
-	sys_lseek(fd, 0, SEEK_END);
-
 	length	= args->vma_entry.end - args->vma_entry.start;
 	nrpages	= length / PAGE_SIZE;
 
@@ -254,8 +251,6 @@ static int dump_sigact(parasite_status_t *st)
 		return fd;
 	}
 
-	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
-
 	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
@@ -326,8 +321,6 @@ static int dump_itimers(parasite_status_t *st)
 		SET_PARASITE_RET(st, fd);
 		return fd;
 	}
-
-	sys_lseek(fd, MAGIC_OFFSET, SEEK_SET);
 
 	ret = dump_itimer(ITIMER_REAL, fd, st);
 	if (ret < 0)
