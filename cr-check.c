@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <fcntl.h>
+#include "proc_parse.h"
 #include "sockets.h"
 #include "crtools.h"
 #include "log.h"
@@ -119,6 +121,20 @@ static int check_fcntl(void)
 	return 0;
 }
 
+static int check_proc_stat(void)
+{
+	struct proc_pid_stat stat;
+	int ret;
+
+	ret = parse_pid_stat(getpid(), &stat);
+	if (ret) {
+		pr_msg("procfs: stat extension is not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -130,6 +146,7 @@ int cr_check(void)
 	ret |= check_kcmp();
 	ret |= check_prctl();
 	ret |= check_fcntl();
+	ret |= check_proc_stat();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
