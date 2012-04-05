@@ -139,8 +139,8 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("fd: %8x pipeid: %8x flags: %8x bytes: %8x\n",
-		       e.fd, e.pipeid, e.flags, e.bytes);
+		pr_msg("id: %8x pipeid: %8x flags: %8x bytes: %8x\n",
+		       e.id, e.pipe_id, e.flags, e.bytes);
 		if (e.bytes)
 			lseek(fd_pipes, e.bytes, SEEK_CUR);
 	}

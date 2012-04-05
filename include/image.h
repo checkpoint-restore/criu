@@ -33,6 +33,7 @@
 enum fd_types {
 	FDINFO_UND,
 	FDINFO_REG,
+	FDINFO_PIPE,
 	FDINFO_MAP,
 	FDINFO_INETSK,
 	FDINFO_CWD,
@@ -71,8 +72,8 @@ struct pstree_entry {
 } __packed;
 
 struct pipe_entry {
-	u32	fd;
-	u32	pipeid;
+	u32	id;
+	u32	pipe_id;
 	u32	flags;
 	u32	bytes;
 	u8	data[0];

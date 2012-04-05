@@ -158,6 +158,89 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	return 0;
 }
 
+#define PIPES_SIZE 1024
+static u32 *pipes;	/* pipes for which data already dumped */
+static int nr_pipes = 0;
+
+static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
+{
+	struct pipe_entry pe;
+	int fd_pipes;
+	int steal_pipe[2];
+	int pipe_size;
+	int has_bytes = 0;
+	int ret = -1;
+	int i = 0;
+
+	pr_info("Dumping pipe %d with id %x pipe_id %x\n", lfd, id, p->id);
+
+	fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES);
+
+	if (p->flags & O_WRONLY)
+		goto dump;
+
+	pr_info("Dumping data from pipe %x fd %d\n", id, lfd);
+
+	for (i = 0; i < nr_pipes; i++)
+		if (pipes[i] == p->id)
+			goto dump; /* data was dumped already */
+
+	nr_pipes++;
+	if (nr_pipes > PIPES_SIZE) {
+		pr_err("OOM storing pipe\n");
+		return -1;
+	}
+
+	pipes[nr_pipes - 1] = p->id;
+
+	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
+	if (pipe_size < 0) {
+		pr_err("Can't obtain piped data size\n");
+		goto err;
+	}
+
+	if (pipe(steal_pipe) < 0) {
+		pr_perror("Can't create pipe for stealing data");
+		goto err;
+	}
+
+	has_bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
+	if (has_bytes < 0) {
+		if (errno != EAGAIN) {
+			pr_perror("Can't pick pipe data");
+			goto err_close;
+		} else
+			has_bytes = 0;
+	}
+dump:
+	pe.id = id;
+	pe.pipe_id = p->id;
+	pe.bytes = has_bytes;
+	pe.flags = p->flags;
+
+	if (write_img(fd_pipes, &pe))
+		goto err_close;
+
+	if (has_bytes) {
+		ret = splice(steal_pipe[0], NULL, fd_pipes,
+			     NULL, has_bytes, 0);
+		if (ret < 0) {
+			pr_perror("Can't push pipe data");
+			goto err_close;
+		}
+	}
+
+	ret = 0;
+
+err_close:
+	if (has_bytes) {
+		close(steal_pipe[0]);
+		close(steal_pipe[1]);
+	}
+err:
+	return ret;
+}
+
 static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
@@ -170,7 +253,14 @@ static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 
 	ret = fd_id_generate(p->pid, &e);
 	if (ret == 1) /* new ID generated */
-		ret = dump_one_reg_file(lfd, e.id, p);
+		switch (p->type) {
+		case FDINFO_PIPE:
+			ret = dump_one_pipe(lfd, e.id, p);
+			break;
+		default:
+			ret = dump_one_reg_file(lfd, e.id, p);
+			break;
+		}
 
 	if (ret < 0)
 		goto err;
@@ -190,7 +280,10 @@ static int dump_one_fdinfo(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
-	p->type = FDINFO_REG;
+	if (S_ISFIFO(p->stat.st_mode))
+		p->type = FDINFO_PIPE;
+	else
+		p->type = FDINFO_REG;
 
 	return do_dump_one_fdinfo(p, lfd, cr_fdset);
 }
@@ -227,101 +320,6 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 		return -1;
 	ret = do_dump_one_fdinfo(&params, fd, cr_fdset);
 	close(fd);
-
-	return ret;
-}
-
-static int dump_pipe_and_data(int lfd, struct pipe_entry *e,
-			      const struct cr_fdset *cr_fdset)
-{
-	int fd_pipes;
-	int steal_pipe[2];
-	int pipe_size;
-	int has_bytes;
-	int ret = -1;
-
-	fd_pipes = fdset_fd(cr_fdset, CR_FD_PIPES);
-
-	pr_info("Dumping data from pipe %x\n", e->pipeid);
-	if (pipe(steal_pipe) < 0) {
-		pr_perror("Can't create pipe for stealing data");
-		goto err;
-	}
-
-	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
-	if (pipe_size < 0) {
-		pr_err("Can't obtain piped data size\n");
-		goto err;
-	}
-
-	has_bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
-	if (has_bytes < 0) {
-		if (errno != EAGAIN) {
-			pr_perror("Can't pick pipe data");
-			goto err_close;
-		} else
-			has_bytes = 0;
-	}
-
-	e->bytes = has_bytes;
-	if (write_img(fd_pipes, e))
-		goto err_close;
-
-	if (has_bytes) {
-		ret = splice(steal_pipe[0], NULL, fd_pipes,
-			     NULL, has_bytes, 0);
-		if (ret < 0) {
-			pr_perror("Can't push pipe data");
-			goto err_close;
-		}
-	}
-
-	ret = 0;
-
-err_close:
-	close(steal_pipe[0]);
-	close(steal_pipe[1]);
-
-err:
-	return ret;
-}
-
-static int dump_one_pipe(const struct fd_parms *p, int lfd,
-			 const struct cr_fdset *cr_fdset)
-{
-	struct pipe_entry e;
-	int ret = -1;
-	struct statfs stfs_buf;
-	int id = p->stat.st_ino;
-
-	if (fstatfs(lfd, &stfs_buf) < 0) {
-		pr_perror("Can't fstatfs on %ld", p->fd_name);
-		return -1;
-	}
-
-	if (stfs_buf.f_type != PIPEFS_MAGIC) {
-		pr_err("Dumping of FIFO's is not supported: %ld\n", p->fd_name);
-		return -1;
-	}
-
-	pr_info("Dumping pipe %ld/%x flags %x\n", p->fd_name, id, p->flags);
-
-	e.fd		= p->fd_name;
-	e.pipeid	= id;
-	e.flags		= p->flags;
-
-	if (p->flags & O_WRONLY) {
-		e.bytes = 0;
-		ret = write_img(fdset_fd(cr_fdset, CR_FD_PIPES), &e);
-	} else
-		ret = dump_pipe_and_data(lfd, &e, cr_fdset);
-
-err:
-	if (!ret)
-		pr_info("Dumped pipe: fd: %8x pipeid: %8x flags: %8x bytes: %8x\n",
-			e.fd, e.pipeid, e.flags, e.bytes);
-	else
-		pr_err("Dumping pipe %ld/%x flags %x\n", p->fd_name, id, p->flags);
 
 	return ret;
 }
@@ -385,11 +383,10 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 	if (S_ISCHR(p.stat.st_mode))
 		return dump_one_chrdev(&p, lfd, cr_fdset);
 
-	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
+	if (S_ISREG(p.stat.st_mode) ||
+            S_ISDIR(p.stat.st_mode) ||
+            S_ISFIFO(p.stat.st_mode))
 		return dump_one_fdinfo(&p, lfd, cr_fdset);
-
-	if (S_ISFIFO(p.stat.st_mode))
-		return dump_one_pipe(&p, lfd, cr_fdset);
 
 	return dump_unsupp_fd(&p);
 }
@@ -1517,6 +1514,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	shmems = xmalloc(SHMEMS_SIZE);
 	if (!shmems)
 		goto err;
+	pipes = xmalloc(PIPES_SIZE * sizeof(*pipes));
+	if (!pipes)
+		goto err;
 
 	list_for_each_entry(item, &pstree_list, list) {
 		if (dump_one_task(item))
@@ -1527,10 +1527,11 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	}
 
 	ret = cr_dump_shmem();
-	xfree(shmems);
 
 	fd_id_show_tree();
 err:
+	xfree(shmems);
+	xfree(pipes);
 	close_cr_fdset(&glob_fdset);
 	pstree_switch_state(&pstree_list, opts);
 	free_pstree(&pstree_list);

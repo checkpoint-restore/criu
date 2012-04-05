@@ -23,7 +23,6 @@ enum {
 	CR_FD_PAGES,
 	CR_FD_CORE,
 	CR_FD_VMAS,
-	CR_FD_PIPES,
 	CR_FD_SIGACT,
 	CR_FD_UNIXSK,
 	CR_FD_ITIMERS,
@@ -49,6 +48,7 @@ enum {
 	CR_FD_SK_QUEUES,
 	CR_FD_REG_FILES,
 	CR_FD_INETSK,
+	CR_FD_PIPES,
 	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
@@ -97,7 +97,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_REG_FILES	"reg-files.img"
 #define FMT_FNAME_CORE		"core-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
-#define FMT_FNAME_PIPES		"pipes-%d.img"
+#define FMT_FNAME_PIPES		"pipes.img"
 #define FMT_FNAME_PSTREE	"pstree.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk-%d.img"
