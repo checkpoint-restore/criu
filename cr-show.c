@@ -63,11 +63,12 @@ static char *fdtype2s(u8 type)
 		[FDINFO_CWD] = "cwd",
 		[FDINFO_EXE] = "exe",
 		[FDINFO_INETSK] = "isk",
+		[FDINFO_PIPE] = "pipe",
 	};
 
 	if (type > FDINFO_UND && type < FD_INFO_MAX)
 		return fdtypes[type];
-	snprintf(und, sizeof(und), "x%02d\n", (int)type);
+	snprintf(und, sizeof(und), "x%03d\n", (int)type);
 	return und;
 }
 
@@ -84,7 +85,7 @@ void show_files(int fd_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %s addr: %16lx id: %8x",
+		pr_msg("type: %5s addr: %16lx id: %8x",
 		       fdtype2s(e.type), e.addr, e.id);
 
 		pr_msg("\n");
