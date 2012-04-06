@@ -129,6 +129,8 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
+static int image_dir_fd = -1;
+
 int open_image(int type, unsigned long flags, ...)
 {
 	char path[PATH_MAX];
@@ -171,8 +173,6 @@ int open_image(int type, unsigned long flags, ...)
 err:
 	return -1;
 }
-
-int image_dir_fd = -1;
 
 int open_image_dir(void)
 {
