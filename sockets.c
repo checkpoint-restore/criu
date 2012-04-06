@@ -275,8 +275,8 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
-	pr_info("\t%s: id %u fd %d type %d state %d name %d bytes\n",
-		act, e->id, e->fd, e->type, e->state, e->namelen);
+	pr_info("\t%s: id %u type %d state %d name %d bytes\n",
+		act, e->id, e->type, e->state, e->namelen);
 }
 
 static int can_dump_inet_sk(const struct inet_sk_desc *sk)
@@ -388,13 +388,23 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 			 const struct cr_fdset *cr_fdset)
 {
-	const struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
+	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
+	struct fdinfo_entry fe;
 	struct unix_sk_entry ue;
 
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	ue.fd		= fd;
+	fe.addr = fd;
+	fe.type = FDINFO_UNIXSK;
+	fe.id = sk->sd.ino;
+
+	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
+		goto err;
+
+	if (sk->sd.already_dumped)
+		return 0;
+
 	ue.id		= sk->sd.ino;
 	ue.type		= sk->type;
 	ue.state	= sk->state;
@@ -455,9 +465,9 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 				ue.id, ue.peer);
 	}
 
-	if (write_img(fdset_fd(cr_fdset, CR_FD_UNIXSK), &ue))
+	if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue))
 		goto err;
-	if (write_img_buf(fdset_fd(cr_fdset, CR_FD_UNIXSK), sk->name, ue.namelen))
+	if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK), sk->name, ue.namelen))
 		goto err;
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
@@ -469,6 +479,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 	show_one_unix("Dumping", sk);
 	show_one_unix_img("Dumped", &ue);
 
+	sk->sd.already_dumped = 1;
 	return 0;
 
 err:
@@ -793,25 +804,57 @@ out:
 	return err;
 }
 
+struct unix_sk_info {
+	struct unix_sk_entry ue;
+	struct list_head list;
+	char *name;
+	unsigned flags;
+	struct unix_sk_info *peer;
+	struct list_head fd_head;
+};
+
+#define USK_PAIR_MASTER		0x1
+#define USK_PAIR_SLAVE		0x2
+
+static LIST_HEAD(unix_sockets);
+
+static struct unix_sk_info *find_unix_sk(int id)
+{
+	struct unix_sk_info *ui;
+
+	list_for_each_entry(ui, &unix_sockets, list)
+		if (ui->ue.id == id)
+			return ui;
+	return NULL;
+}
+
+struct list_head *find_unixsk_fd(int id)
+{
+	struct unix_sk_info *ui;
+
+	ui = find_unix_sk(id);
+	return &ui->fd_head;
+}
+
 struct sk_packet {
 	struct list_head list;
 	struct sk_packet_entry entry;
 	off_t img_off;
 };
 
-struct sk_packets_pool {
-	struct list_head packets_list;
-	int img_fd;
-};
+static LIST_HEAD(packets_list);
 
-static int read_sockets_queues(struct sk_packets_pool *pool)
+static int read_sockets_queues(void)
 {
 	struct sk_packet *pkt;
-	int ret;
+	int ret, fd;
 
 	pr_info("Trying to read socket queues image\n");
 
-	lseek(pool->img_fd, MAGIC_OFFSET, SEEK_SET);
+	fd = open_image_ro(CR_FD_SK_QUEUES);
+	if (fd < 0)
+		return -1;
+
 	while (1) {
 		struct sk_packet_entry tmp;
 
@@ -820,30 +863,36 @@ static int read_sockets_queues(struct sk_packets_pool *pool)
 			pr_err("Failed to allocate packet header\n");
 			return -ENOMEM;
 		}
-		ret = read_img_eof(pool->img_fd, &pkt->entry);
+		ret = read_img_eof(fd, &pkt->entry);
 		if (ret <= 0)
 			break;
-		pkt->img_off = lseek(pool->img_fd, 0, SEEK_CUR);
+
+		pkt->img_off = lseek(fd, 0, SEEK_CUR);
 		/*
 		 * NOTE: packet must be added to the tail. Otherwise sequence
 		 * will be broken.
 		 */
-		list_add_tail(&pkt->list, &pool->packets_list);
-		lseek(pool->img_fd, pkt->entry.length, SEEK_CUR);
+		list_add_tail(&pkt->list, &packets_list);
+		lseek(fd, pkt->entry.length, SEEK_CUR);
 	}
+	close(fd);
 	xfree(pkt);
+
 	return ret;
 }
 
-static int restore_socket_queue(struct sk_packets_pool *pool, int fd,
-				unsigned int peer_id)
+static int restore_socket_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
-	int ret;
+	int ret, img_fd;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
-	list_for_each_entry_safe(pkt, tmp, &pool->packets_list, list) {
+	img_fd = open_image_ro(CR_FD_SK_QUEUES);
+	if (img_fd < 0)
+		return -1;
+
+	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
 		struct sk_packet_entry *entry = &pkt->entry;
 
 		if (entry->id_for != peer_id)
@@ -852,7 +901,7 @@ static int restore_socket_queue(struct sk_packets_pool *pool, int fd,
 		pr_info("\tRestoring %d-bytes skb for %u\n",
 				entry->length, peer_id);
 
-		ret = sendfile(fd, pool->img_fd, &pkt->img_off, entry->length);
+		ret = sendfile(fd, img_fd, &pkt->img_off, entry->length);
 		if (ret < 0) {
 			pr_perror("Failed to sendfile packet");
 			return -1;
@@ -865,397 +914,9 @@ static int restore_socket_queue(struct sk_packets_pool *pool, int fd,
 		list_del(&pkt->list);
 		xfree(pkt);
 	}
+
+	close(img_fd);
 	return 0;
-}
-
-static void prep_conn_addr(int id, struct sockaddr_un *addr, int *addrlen)
-{
-	addr->sun_family = AF_UNIX;
-	addr->sun_path[0] = '\0';
-
-	snprintf(addr->sun_path + 1, UNIX_PATH_MAX - 1, "crtools-sk-%10d", id);
-
-	*addrlen = sizeof(addr->sun_family) + sizeof("crtools-sk-") + 10;
-}
-
-struct unix_conn_job {
-	int			fd;
-	unsigned int		peer;
-	int			type;
-	struct unix_conn_job	*next;
-};
-
-enum {
-	CJ_DGRAM,
-	CJ_STREAM,
-	CJ_STREAM_INFLIGHT,
-};
-
-static void unix_show_job(const char *type, int fd, int id)
-{
-	pr_info("%s job fd %d id %d\n", type, fd, id);
-}
-
-static struct unix_conn_job *conn_jobs;
-
-static int schedule_conn_job(int type, const struct unix_sk_entry *ue)
-{
-	struct unix_conn_job *cj;
-
-	cj = xmalloc(sizeof(*cj));
-	if (!cj)
-		return -1;
-
-
-	cj->type = type;
-	cj->peer = ue->peer;
-	cj->fd = ue->fd;
-
-	cj->next = conn_jobs;
-	conn_jobs = cj;
-
-	unix_show_job("Sched conn", ue->fd, ue->peer);
-
-	return 0;
-}
-
-static int run_connect_jobs(struct sk_packets_pool *pool)
-{
-	struct unix_conn_job *cj, *next;
-	int i;
-
-	cj = conn_jobs;
-	while (cj) {
-		int attempts = 8;
-		struct sockaddr_un addr;
-		int addrlen, ret;
-
-		/*
-		 * Might need to resolve in-flight connection name.
-		 */
-		if (cj->type == CJ_STREAM)
-			prep_conn_addr(cj->peer, &addr, &addrlen);
-		else {
-			struct unix_sk_listen *e;
-
-			if (cj->type == CJ_STREAM_INFLIGHT)
-				e = lookup_unix_listen(cj->peer, SOCK_STREAM);
-			else /* if (cj->type == CJ_DGRAM) */
-				e = lookup_unix_listen(cj->peer, SOCK_DGRAM);
-
-			if (!e) {
-				pr_err("Bad in-flight socket peer %d\n",
-						cj->peer);
-				return -1;
-			}
-
-			memcpy(&addr, &e->addr, sizeof(addr));
-			addrlen = e->addrlen;
-		}
-
-		unix_show_job("Run conn", cj->fd, cj->peer);
-try_again:
-		if (connect(cj->fd, (struct sockaddr *)&addr, addrlen) < 0) {
-			if (attempts) {
-				usleep(1000);
-				attempts--;
-				goto try_again; /* FIXME use avagin@ waiters */
-			}
-			pr_perror("Can't restore connection (c)");
-			return -1;
-		}
-
-		unix_show_job("Fin conn", cj->fd, cj->peer);
-
-		ret = restore_socket_queue(pool, cj->fd, cj->peer);
-		if (ret < 0)
-			return -1;
-
-		next = cj->next;
-		xfree(cj);
-		cj = next;
-	}
-
-	/*
-	 * Free collected listening sockets,
-	 * we don't need them anymore.
-	 */
-	for (i = 0; i < SK_HASH_SIZE; i++) {
-		struct unix_sk_listen *h = unix_listen[i];
-		struct unix_sk_listen *e;
-		while (h) {
-			e = h->next;
-			xfree(h);
-			h = e;
-		}
-	}
-
-	return 0;
-}
-
-struct unix_accept_job {
-	int			fd;
-	int			peer;
-	struct unix_accept_job	*next;
-};
-
-static struct unix_accept_job *accept_jobs;
-
-static int schedule_acc_job(int sk, const struct unix_sk_entry *ue)
-{
-	struct sockaddr_un addr;
-	int len;
-	struct unix_accept_job *aj;
-
-	prep_conn_addr(ue->id, &addr, &len);
-	if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
-		pr_perror("Can't bind to a socket");
-		goto err;
-	}
-
-	if (listen(sk, 1) < 0) {
-		pr_perror("Can't listen on a socket");
-		goto err;
-	}
-
-	aj = xmalloc(sizeof(*aj));
-	if (aj == NULL)
-		goto err;
-
-	aj->fd = ue->fd;
-	aj->peer = ue->peer;
-	aj->next = accept_jobs;
-	accept_jobs = aj;
-	unix_show_job("Sched acc", ue->fd, ue->id);
-	return 0;
-err:
-	return -1;
-}
-
-static int run_accept_jobs(struct sk_packets_pool *pool)
-{
-	struct unix_accept_job *aj, *next;
-
-	aj = accept_jobs;
-	while (aj) {
-		int fd, ret;
-
-		unix_show_job("Run acc", aj->fd, -1);
-		fd = accept(aj->fd, NULL, NULL);
-		if (fd < 0) {
-			pr_perror("Can't restore connection (s)");
-			return -1;
-		}
-
-		if (reopen_fd_as_nocheck(aj->fd, fd))
-			return -1;
-
-		ret = restore_socket_queue(pool, aj->fd, aj->peer);
-		if (ret < 0)
-			return -1;
-
-		unix_show_job("Fin acc", aj->fd, -1);
-		next = aj->next;
-		xfree(aj);
-		aj = next;
-	}
-
-	return 0;
-}
-
-static int bind_unix_sk_to_addr(int sk, const struct sockaddr_un *addr,
-		int addrlen, int id, int type)
-{
-	struct unix_sk_listen *e;
-
-	if (bind(sk, (struct sockaddr *)addr, addrlen) < 0) {
-		pr_perror("Can't bind to a socket");
-		goto err;
-	}
-
-	/*
-	 * Just remember it and connect() if needed.
-	 */
-	e = xmalloc(sizeof(*e));
-	if (!e)
-		goto err;
-
-	memcpy(&e->addr, addr, sizeof(e->addr));
-	e->addrlen = addrlen;
-	e->ino	= id;
-	e->type = type;
-
-	SK_HASH_LINK(unix_listen, e->ino, e);
-	return 0;
-err:
-	return -1;
-}
-
-static int bind_unix_sk(int sk, const struct unix_sk_entry *ue, char *name)
-{
-	struct sockaddr_un addr;
-
-	if (!ue->namelen || ue->namelen >= UNIX_PATH_MAX) {
-		pr_err("Bad unix name len %d\n", ue->namelen);
-		return -1;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	memcpy(&addr.sun_path, name, ue->namelen);
-
-	if (addr.sun_path[0] != '\0')
-		unlink(addr.sun_path);
-
-	return bind_unix_sk_to_addr(sk, &addr,
-			sizeof(addr.sun_family) + ue->namelen,
-			ue->id, ue->type);
-}
-
-static int open_unix_sk_dgram(int sk, const struct unix_sk_entry *ue, char *name)
-{
-	int ret = 0;
-
-	if (ue->namelen)
-		ret = bind_unix_sk(sk, ue, name);
-	else if (ue->peer) {
-		struct sockaddr_un addr;
-		int addrlen;
-
-		/*
-		 * dgram socket without name, but with peer
-		 * this is only possible for those created
-		 * by socketpair call
-		 */
-
-		prep_conn_addr(ue->id, &addr, &addrlen);
-		ret = bind_unix_sk_to_addr(sk, &addr, addrlen, ue->id,
-				SOCK_DGRAM);
-	}
-
-	if (!ret && ue->peer)
-		ret = schedule_conn_job(CJ_DGRAM, ue);
-
-	return ret;
-}
-
-static int open_unix_sk_stream(int sk, const struct unix_sk_entry *ue, char *name)
-{
-	int ret;
-
-	if (ue->state == TCP_LISTEN) {
-		ret = bind_unix_sk(sk, ue, name);
-		if (ret < 0)
-			goto out;
-
-		ret = listen(sk, ue->backlog);
-		if (ret < 0) {
-			pr_perror("Can't listen on a socket");
-			goto out;
-		}
-	} else if (ue->state == TCP_ESTABLISHED) {
-
-		/*
-		 * If a connection is established we need
-		 * two separate steps -- one peer become
-		 * a server and do bind()/listen(), then
-		 * it deferred to accept() later, while
-		 * another peer become a client and
-		 * deferred to connect() later.
-		 */
-
-		if (ue->peer < ue->id && !(ue->flags & USK_INFLIGHT))
-			ret = schedule_acc_job(sk, ue);
-		else
-			ret = schedule_conn_job((ue->flags & USK_INFLIGHT) ?
-					CJ_STREAM_INFLIGHT : CJ_STREAM, ue);
-	} else {
-		pr_err("Unknown state %d\n", ue->state);
-		ret = -1;
-	}
-out:
-	return ret;
-}
-
-static int open_unix_sk(const struct unix_sk_entry *ue, char *name)
-{
-	int sk;
-
-	show_one_unix_img("Restore", ue);
-
-	sk = socket(PF_UNIX, ue->type, 0);
-	if (sk < 0) {
-		pr_perror("Can't create unix socket");
-		return -1;
-	}
-
-	switch (ue->type) {
-	case SOCK_STREAM:
-		if (open_unix_sk_stream(sk, ue, name))
-			goto err;
-		break;
-	case SOCK_DGRAM:
-		if (open_unix_sk_dgram(sk, ue, name))
-			goto err;
-		break;
-	default:
-		pr_err("Unsupported socket type: %d\n", ue->type);
-		goto err;
-	}
-
-	return reopen_fd_as(ue->fd, sk);
-
-err:
-	close(sk);
-	return -1;
-}
-
-struct unix_sk_info {
-	struct unix_sk_entry ue;
-	struct list_head list;
-	char *name;
-	int pid;
-};
-
-static LIST_HEAD(unix_sockets);
-
-static int prepare_unix_sockets(int pid)
-{
-	int ret = 0;
-	struct sk_packets_pool unix_pool = {
-		.packets_list = LIST_HEAD_INIT(unix_pool.packets_list),
-	};
-	struct unix_sk_info *ui, *n;
-
-	list_for_each_entry_safe(ui, n, &unix_sockets, list) {
-		if (ui->pid != pid)
-			continue;
-
-		ret = open_unix_sk(&ui->ue, ui->name);
-		if (ret)
-			break;
-
-		list_del(&ui->list);
-		xfree(ui->name);
-		xfree(ui);
-	}
-
-	if (ret)
-		return ret;
-
-	unix_pool.img_fd = open_image_ro(CR_FD_SK_QUEUES);
-	if (unix_pool.img_fd < 0)
-		return -1;
-	ret = read_sockets_queues(&unix_pool);
-	if (ret < 0)
-		return ret;
-
-	ret = run_connect_jobs(&unix_pool);
-	if (!ret)
-		ret = run_accept_jobs(&unix_pool);
-
-	close(unix_pool.img_fd);
-	return ret;
 }
 
 struct inet_sk_info {
@@ -1397,14 +1058,6 @@ err:
 	return -1;
 }
 
-int prepare_sockets(int pid)
-{
-	int err;
-
-	pr_info("%d: Opening sockets\n", pid);
-	return prepare_unix_sockets(pid);
-}
-
 static inline char *unknown(u32 val)
 {
 	static char unk[12];
@@ -1502,10 +1155,9 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("fd %4d type %s state %s namelen %4d backlog %4d "
-			"id %6d peer %6d",
-			ue.fd, sktype2s(ue.type), skstate2s(ue.state),
-			ue.namelen, ue.backlog, ue.id, ue.peer);
+		pr_msg("id %x type %s state %s namelen %4d backlog %4d peer %x",
+			ue.id, sktype2s(ue.type), skstate2s(ue.state),
+			ue.namelen, ue.backlog, ue.peer);
 
 		if (ue.namelen) {
 			BUG_ON(ue.namelen > sizeof(buf));
@@ -1549,13 +1201,231 @@ void show_sk_queues(int fd, struct cr_options *o)
 	pr_img_tail(CR_FD_SK_QUEUES);
 }
 
-int collect_unix_sockets(int pid)
+struct unix_conn_job {
+	struct unix_sk_info	*sk;
+	struct unix_conn_job	*next;
+};
+
+static struct unix_conn_job *conn_jobs;
+
+static int schedule_conn_job(struct unix_sk_info *ui)
+{
+	struct unix_conn_job *cj;
+
+	cj = xmalloc(sizeof(*cj));
+	if (!cj)
+		return -1;
+
+	cj->sk = ui;
+	cj->next = conn_jobs;
+	conn_jobs = cj;
+
+	return 0;
+}
+
+int run_unix_connections(void)
+{
+	struct unix_conn_job *cj;
+
+	pr_info("Running delayed unix connections\n");
+
+	cj = conn_jobs;
+	while (cj) {
+		int attempts = 8;
+		struct unix_sk_info *ui = cj->sk;
+		struct unix_sk_info *peer = ui->peer;
+		struct fdinfo_list_entry *fle;
+		struct sockaddr_un addr;
+
+		pr_info("\tConnect %x to %x\n", ui->ue.id, peer->ue.id);
+
+		fle = file_master(&ui->fd_head);
+
+		memset(&addr, 0, sizeof(addr));
+		addr.sun_family = AF_UNIX;
+		memcpy(&addr.sun_path, peer->name, peer->ue.namelen);
+try_again:
+		if (connect(fle->fd, (struct sockaddr *)&addr,
+					sizeof(addr.sun_family) +
+					peer->ue.namelen) < 0) {
+			if (attempts) {
+				usleep(1000);
+				attempts--;
+				goto try_again; /* FIXME use futex waiters */
+			}
+
+			pr_perror("Can't connect %x socket", ui->ue.id);
+			return -1;
+		}
+
+		if (restore_socket_queue(fle->fd, peer->ue.id))
+			return -1;
+
+		cj = cj->next;
+	}
+
+	return 0;
+}
+
+static int bind_unix_sk(int sk, struct unix_sk_info *ui)
+{
+	struct sockaddr_un addr;
+
+	if ((ui->ue.type == SOCK_STREAM) && (ui->ue.state != TCP_LISTEN))
+		/*
+		 * FIXME this can be done, but for doing this properly we
+		 * need to bind socket to its name, then rename one to
+		 * some temporary unique one and after all the sockets are
+		 * restored we should walk those temp names and rename
+		 * some of them back to real ones.
+		 */
+		goto done;
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	memcpy(&addr.sun_path, ui->name, ui->ue.namelen);
+
+	if (bind(sk, (struct sockaddr *)&addr,
+				sizeof(addr.sun_family) + ui->ue.namelen)) {
+		pr_perror("Can't bind socket");
+		return -1;
+	}
+done:
+	return 0;
+}
+
+int unixsk_should_open_transport(struct fdinfo_entry *fe,
+				struct list_head *fd_list)
+{
+	struct unix_sk_info *ui;
+
+	ui = container_of(fd_list, struct unix_sk_info, fd_head);
+	return ui->flags & USK_PAIR_SLAVE;
+}
+
+static int open_unixsk_pair_master(struct unix_sk_info *ui)
+{
+	int sk[2], tsk;
+	struct unix_sk_info *peer = ui->peer;
+	struct fdinfo_list_entry *fle;
+	struct sockaddr_un addr;
+	int addr_len;
+
+	pr_info("Opening pair master (id %x peer %x)\n",
+			ui->ue.id, ui->ue.peer);
+
+	if (socketpair(PF_UNIX, ui->ue.type, 0, sk) < 0) {
+		pr_perror("Can't make socketpair");
+		return -1;
+	}
+
+	if (restore_socket_queue(sk[0], peer->ue.id))
+		return -1;
+	if (restore_socket_queue(sk[1], ui->ue.id))
+		return -1;
+
+	if (bind_unix_sk(sk[0], ui))
+		return -1;
+
+	tsk = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (tsk < 0) {
+		pr_perror("Can't make transport socket");
+		return -1;
+	}
+
+	fle = file_master(&peer->fd_head);
+	futex_wait_while(&fle->real_pid, 0);
+
+	pr_info("\tSending pair to %d's %d\n",
+			futex_get(&fle->real_pid), fle->fd);
+	transport_name_gen(&addr, &addr_len,
+			futex_get(&fle->real_pid), fle->fd);
+
+	if (send_fd(tsk, &addr, addr_len, sk[1]) < 0) {
+		pr_err("Can't send pair slave\n");
+		return -1;
+	}
+
+	close(tsk);
+	close(sk[1]);
+
+	return sk[0];
+}
+
+static int open_unixsk_pair_slave(struct unix_sk_info *ui)
+{
+	struct fdinfo_list_entry *fle;
+	int sk;
+
+	fle = file_master(&ui->fd_head);
+
+	pr_info("Opening pair slave (id %x peer %x) on %d\n",
+			ui->ue.id, ui->ue.peer, fle->fd);
+
+	sk = recv_fd(fle->fd);
+	if (sk < 0) {
+		pr_err("Can't recv pair slave");
+		return -1;
+	}
+	close(fle->fd);
+
+	if (bind_unix_sk(sk, ui))
+		return -1;
+
+	return sk;
+}
+
+static int open_unixsk_standalone(struct unix_sk_info *ui)
+{
+	int sk;
+
+	pr_info("Opening standalone socket (id %x peer %x)\n",
+			ui->ue.id, ui->ue.peer);
+
+	sk = socket(PF_UNIX, ui->ue.type, 0);
+	if (sk < 0) {
+		pr_perror("Can't make unix socket");
+		return -1;
+	}
+
+	if (bind_unix_sk(sk, ui))
+		return -1;
+
+	if (ui->ue.state == TCP_LISTEN) {
+		pr_info("\tPutting %x into listen state\n", ui->ue.id);
+		if (listen(sk, ui->ue.backlog) < 0) {
+			pr_perror("Can't make usk listen");
+			return -1;
+		}
+	} else if (ui->peer) {
+		pr_info("\tWill connect %x to %x later\n", ui->ue.id, ui->ue.peer);
+		if (schedule_conn_job(ui))
+			return -1;
+	}
+
+	return sk;
+}
+
+int open_unix_sk(struct list_head *l)
+{
+	struct unix_sk_info *ui;
+
+	ui = container_of(l, struct unix_sk_info, fd_head);
+	if (ui->flags & USK_PAIR_MASTER)
+		return open_unixsk_pair_master(ui);
+	else if (ui->flags & USK_PAIR_SLAVE)
+		return open_unixsk_pair_slave(ui);
+	else
+		return open_unixsk_standalone(ui);
+}
+
+int collect_unix_sockets(void)
 {
 	int fd, ret;
 
 	pr_info("Reading unix sockets in\n");
 
-	fd = open_image_ro(CR_FD_UNIXSK, pid);
+	fd = open_image_ro(CR_FD_UNIXSK);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
@@ -1578,22 +1448,102 @@ int collect_unix_sockets(int pid)
 		}
 
 		if (ui->ue.namelen) {
-			ui->name = xmalloc(ui->ue.namelen);
 			ret = -1;
+
+			if (!ui->ue.namelen || ui->ue.namelen >= UNIX_PATH_MAX) {
+				pr_err("Bad unix name len %d\n", ui->ue.namelen);
+				break;
+			}
+
+			ui->name = xmalloc(ui->ue.namelen);
 			if (ui->name == NULL)
 				break;
 
 			ret = read_img_buf(fd, ui->name, ui->ue.namelen);
 			if (ret < 0)
 				break;
+
+			/*
+			 * Make FS clean from sockets we're about to
+			 * restore. See for how we bind them for details
+			 */
+			if (ui->name[0] != '\0')
+				unlink(ui->name);
 		} else
 			ui->name = NULL;
 
-		ui->pid = pid;
+		ui->peer = NULL;
+		ui->flags = 0;
+		INIT_LIST_HEAD(&ui->fd_head);
 		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
 
 	close(fd);
-	return ret;
+
+	return read_sockets_queues();
+}
+
+int resolve_unix_peers(void)
+{
+	struct unix_sk_info *ui, *peer;
+	struct fdinfo_list_entry *fle, *fle_peer;
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (ui->peer)
+			continue;
+		if (!ui->ue.peer)
+			continue;
+
+		peer = find_unix_sk(ui->ue.peer);
+		if (!peer) {
+			pr_err("FATAL: Peer %x unresolved for %x\n",
+					ui->ue.peer, ui->ue.id);
+			return -1;
+		}
+
+		ui->peer = peer;
+		if (ui == peer)
+			/* socket connected to self %) */
+			continue;
+		if (peer->ue.peer != ui->ue.id)
+			continue;
+
+		/* socketpair or interconnected sockets */
+		peer->peer = ui;
+
+		/*
+		 * Select who will restore the pair. Check is identical to
+		 * the one in pipes.c and makes sure tasks wait for each other
+		 * in pids sorting order (ascending).
+		 */
+		BUG_ON(list_empty(&ui->fd_head) || list_empty(&peer->fd_head));
+
+		fle = file_master(&ui->fd_head);
+		fle_peer = file_master(&peer->fd_head);
+
+		if ((fle->pid < fle_peer->pid) ||
+				(fle->pid == fle_peer->pid &&
+				 fle->fd < fle_peer->fd)) {
+			ui->flags |= USK_PAIR_MASTER;
+			peer->flags |= USK_PAIR_SLAVE;
+		} else {
+			peer->flags |= USK_PAIR_MASTER;
+			ui->flags |= USK_PAIR_SLAVE;
+		}
+	}
+
+	pr_info("Unix sockets:\n");
+	list_for_each_entry(ui, &unix_sockets, list) {
+		struct fdinfo_list_entry *fle;
+
+		pr_info("\t%x -> %x (%x) flags %x\n", ui->ue.id, ui->ue.peer,
+				ui->peer ? ui->peer->ue.id : 0, ui->flags);
+		list_for_each_entry(fle, &ui->fd_head, list)
+			pr_info("\t\tfd %d in pid %d\n",
+					fle->fd, fle->pid);
+
+	}
+
+	return 0;
 }

@@ -37,6 +37,7 @@ enum fd_types {
 	FDINFO_PIPE,
 	FDINFO_MAP,
 	FDINFO_INETSK,
+	FDINFO_UNIXSK,
 	FDINFO_CWD,
 	FDINFO_EXE,
 
@@ -95,7 +96,6 @@ struct pipe_data_entry {
 #define USK_INFLIGHT		1
 
 struct unix_sk_entry {
-	u32	fd;
 	u32	id;
 	u8	type;
 	u8	state;

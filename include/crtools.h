@@ -24,7 +24,6 @@ enum {
 	CR_FD_CORE,
 	CR_FD_VMAS,
 	CR_FD_SIGACT,
-	CR_FD_UNIXSK,
 	CR_FD_ITIMERS,
 	CR_FD_CREDS,
 	_CR_FD_TASK_TO,
@@ -48,6 +47,7 @@ enum {
 	CR_FD_SK_QUEUES,
 	CR_FD_REG_FILES,
 	CR_FD_INETSK,
+	CR_FD_UNIXSK,
 	CR_FD_PIPES,
 	CR_FD_PIPES_DATA,
 	_CR_FD_GLOB_TO,
@@ -103,7 +103,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_PIPES_DATA	"pipes-data.img"
 #define FMT_FNAME_PSTREE	"pstree.img"
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
-#define FMT_FNAME_UNIXSK	"unixsk-%d.img"
+#define FMT_FNAME_UNIXSK	"unixsk.img"
 #define FMT_FNAME_INETSK	"inetsk.img"
 #define FMT_FNAME_ITIMERS	"itimers-%d.img"
 #define FMT_FNAME_CREDS		"creds-%d.img"

@@ -290,11 +290,10 @@ static int prepare_shared(void)
 	if (collect_inet_sockets())
 		return -1;
 
-	list_for_each_entry(pi, &tasks, list) {
-		ret = collect_unix_sockets(pi->pid);
-		if (ret < 0)
-			return -1;
+	if (collect_unix_sockets())
+		return -1;
 
+	list_for_each_entry(pi, &tasks, list) {
 		ret = prepare_shmem_pid(pi->pid);
 		if (ret < 0)
 			break;
@@ -305,6 +304,7 @@ static int prepare_shared(void)
 	}
 
 	mark_pipe_master();
+	ret = resolve_unix_peers();
 
 	if (!ret) {
 		show_saved_shmems();
@@ -506,9 +506,6 @@ err:
 static int restore_one_alive_task(int pid)
 {
 	pr_info("%d: Restoring resources\n", pid);
-
-	if (prepare_sockets(pid))
-		return -1;
 
 	if (prepare_fds(pid))
 		return -1;

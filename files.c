@@ -90,6 +90,8 @@ static struct list_head *find_fi_list(struct fdinfo_entry *fe)
 		return find_inetsk_fd(fe->id);
 	if (fe->type == FDINFO_PIPE)
 		return find_pipe_fd(fe->id);
+	if (fe->type == FDINFO_UNIXSK)
+		return find_unixsk_fd(fe->id);
 
 	BUG_ON(1);
 	return NULL;
@@ -296,6 +298,8 @@ static int should_open_transport(struct fdinfo_entry *fe, struct list_head *fd_l
 {
 	if (fe->type == FDINFO_PIPE)
 		return pipe_should_open_transport(fe, fd_list);
+	if (fe->type == FDINFO_UNIXSK)
+		return unixsk_should_open_transport(fe, fd_list);
 
 	return 0;
 }
@@ -370,6 +374,9 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		break;
 	case FDINFO_PIPE:
 		tmp = open_pipe(fd_list);
+		break;
+	case FDINFO_UNIXSK:
+		tmp = open_unix_sk(fd_list);
 		break;
 	default:
 		tmp = -1;
@@ -569,7 +576,8 @@ int prepare_fds(int pid)
 	}
 
 	close(fdinfo_fd);
-	return ret;
+
+	return run_unix_connections();
 }
 
 static struct fmap_fd *pull_fmap_fd(int pid, unsigned long start)
