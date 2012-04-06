@@ -13,15 +13,11 @@ extern int dump_socket(struct fd_parms *p, int lfd,
 struct fdinfo_list_entry;
 struct file_desc;
 struct fdinfo_entry;
-extern int unixsk_should_open_transport(struct fdinfo_entry *,
-		struct file_desc *);
 extern int collect_sockets(void);
 extern int collect_inet_sockets(void);
 extern int collect_unix_sockets(void);
 extern int resolve_unix_peers(void);
 extern int run_unix_connections(void);
-extern int open_inet_sk(struct file_desc *);
-extern int open_unix_sk(struct file_desc *);
 struct cr_options;
 extern void show_unixsk(int fd, struct cr_options *);
 extern void show_inetsk(int fd, struct cr_options *);

@@ -45,10 +45,12 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-void file_desc_add(struct file_desc *d, int type, u32 id)
+void file_desc_add(struct file_desc *d, int type, u32 id,
+		struct file_desc_ops *ops)
 {
 	d->type = type;
 	d->id = id;
+	d->ops = ops;
 	INIT_LIST_HEAD(&d->fd_info_head);
 
 	list_add_tail(&d->hash, &file_descs[id % FDESC_HASH_SIZE]);
@@ -109,6 +111,12 @@ static struct reg_file_info *find_reg_file(int id)
 	return container_of(fd, struct reg_file_info, d);
 }
 
+static int open_fe_fd(struct file_desc *d);
+
+static struct file_desc_ops reg_desc_ops = {
+	.open = open_fe_fd,
+};
+
 int collect_reg_files(void)
 {
 	struct reg_file_info *rfi = NULL;
@@ -144,7 +152,8 @@ int collect_reg_files(void)
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
-		file_desc_add(&rfi->d, FDINFO_REG, rfi->rfe.id);
+		file_desc_add(&rfi->d, FDINFO_REG, rfi->rfe.id,
+				&reg_desc_ops);
 	}
 
 	if (rfi) {
@@ -303,12 +312,10 @@ void transport_name_gen(struct sockaddr_un *addr, int *len,
 
 static int should_open_transport(struct fdinfo_entry *fe, struct file_desc *fd)
 {
-	if (fe->type == FDINFO_PIPE)
-		return pipe_should_open_transport(fe, fd);
-	if (fe->type == FDINFO_UNIXSK)
-		return unixsk_should_open_transport(fe, fd);
-
-	return 0;
+	if (fd->ops->want_transport)
+		return fd->ops->want_transport(fe, fd);
+	else
+		return 0;
 }
 
 static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
@@ -372,24 +379,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if ((fle->pid != pid) || (fe->addr != fle->fd))
 		return 0;
 
-	switch (fe->type) {
-	case FDINFO_REG:
-		tmp = open_fe_fd(d);
-		break;
-	case FDINFO_INETSK:
-		tmp = open_inet_sk(d);
-		break;
-	case FDINFO_PIPE:
-		tmp = open_pipe(d);
-		break;
-	case FDINFO_UNIXSK:
-		tmp = open_unix_sk(d);
-		break;
-	default:
-		tmp = -1;
-		break;
-	}
-
+	tmp = d->ops->open(d);
 	if (tmp < 0)
 		return -1;
 

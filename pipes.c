@@ -35,6 +35,15 @@ static struct pipe_info *find_pipe(int id)
 	return container_of(fd, struct pipe_info, d);
 }
 
+static int open_pipe(struct file_desc *d);
+static int pipe_should_open_transport(struct fdinfo_entry *fe,
+		struct file_desc *d);
+
+static struct file_desc_ops pipe_desc_ops = {
+	.open = open_pipe,
+	.want_transport = pipe_should_open_transport,
+};
+
 int collect_pipes(void)
 {
 	struct pipe_info *pi = NULL, *tmp;
@@ -59,7 +68,8 @@ int collect_pipes(void)
 		pr_info("Collected pipe entry ID %x PIPE ID %x\n",
 					pi->pe.id, pi->pe.pipe_id);
 
-		file_desc_add(&pi->d, FDINFO_PIPE, pi->pe.id);
+		file_desc_add(&pi->d, FDINFO_PIPE, pi->pe.id,
+				&pipe_desc_ops);
 
 		list_for_each_entry(tmp, &pipes, list)
 			if (pi->pe.pipe_id == tmp->pe.pipe_id)
@@ -173,7 +183,7 @@ void mark_pipe_master()
 	handle_pipes_data();
 }
 
-int pipe_should_open_transport(struct fdinfo_entry *fe,
+static int pipe_should_open_transport(struct fdinfo_entry *fe,
 		struct file_desc *d)
 {
 	struct pipe_info *pi;
@@ -256,7 +266,7 @@ err:
 	return ret;
 }
 
-int open_pipe(struct file_desc *d)
+static int open_pipe(struct file_desc *d)
 {
 	unsigned long time = 1000;
 	struct pipe_info *pi, *pc, *p;

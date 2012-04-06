@@ -894,6 +894,12 @@ struct inet_sk_info {
 	struct file_desc d;
 };
 
+static int open_inet_sk(struct file_desc *d);
+
+static struct file_desc_ops inet_desc_ops = {
+	.open = open_inet_sk,
+};
+
 int collect_inet_sockets(void)
 {
 	struct inet_sk_info *ii = NULL;
@@ -913,7 +919,8 @@ int collect_inet_sockets(void)
 		if (ret <= 0)
 			break;
 
-		file_desc_add(&ii->d, FDINFO_INETSK, ii->ie.id);
+		file_desc_add(&ii->d, FDINFO_INETSK, ii->ie.id,
+				&inet_desc_ops);
 	}
 
 	if (ii)
@@ -923,7 +930,7 @@ int collect_inet_sockets(void)
 	return 0;
 }
 
-int open_inet_sk(struct file_desc *d)
+static int open_inet_sk(struct file_desc *d)
 {
 	int sk;
 	struct sockaddr_in addr;
@@ -1235,7 +1242,7 @@ done:
 	return 0;
 }
 
-int unixsk_should_open_transport(struct fdinfo_entry *fe,
+static int unixsk_should_open_transport(struct fdinfo_entry *fe,
 				struct file_desc *d)
 {
 	struct unix_sk_info *ui;
@@ -1360,6 +1367,11 @@ int open_unix_sk(struct file_desc *d)
 		return open_unixsk_standalone(ui);
 }
 
+static struct file_desc_ops unix_desc_ops = {
+	.open = open_unix_sk,
+	.want_transport = unixsk_should_open_transport,
+};
+
 int collect_unix_sockets(void)
 {
 	int fd, ret;
@@ -1416,7 +1428,8 @@ int collect_unix_sockets(void)
 		ui->peer = NULL;
 		ui->flags = 0;
 		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
-		file_desc_add(&ui->d, FDINFO_UNIXSK, ui->ue.id);
+		file_desc_add(&ui->d, FDINFO_UNIXSK, ui->ue.id,
+				&unix_desc_ops);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
 
