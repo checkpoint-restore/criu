@@ -390,8 +390,6 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 	ue.state	= sk->state;
 	ue.namelen	= sk->namelen;
 	ue.backlog	= sk->wqlen;
-
-	ue.flags	= 0;
 	ue.peer		= sk->peer_ino;
 
 	if (ue.peer) {
@@ -438,7 +436,6 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 			goto err;
 		}
 
-		ue.flags	|= USK_INFLIGHT;
 		ue.peer		= e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %d peer %d)\n",

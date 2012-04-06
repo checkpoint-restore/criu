@@ -93,14 +93,12 @@ struct pipe_data_entry {
  */
 #define PIPE_NONALIG_DATA (15 * PAGE_SIZE)
 
-#define USK_INFLIGHT		1
-
 struct unix_sk_entry {
 	u32	id;
 	u8	type;
 	u8	state;
 	u8	namelen; /* fits UNIX_PATH_MAX */
-	u8	flags;
+	u8	pad;
 	u32	backlog;
 	u32	peer;
 	u8	name[0];
