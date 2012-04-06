@@ -30,10 +30,10 @@ int log_get_fd(void)
 
 int log_init(const char *output)
 {
-	int new_logfd = DEFAULT_LOGFD;
+	int new_logfd = DEFAULT_LOGFD, sfd;
 
-	current_logfd = get_service_fd(LOG_FD_OFF);
-	if (current_logfd < 0) {
+	sfd = get_service_fd(LOG_FD_OFF);
+	if (sfd < 0) {
 		pr_msg("Can't obtain logfd");
 		goto err;
 	}
@@ -46,8 +46,9 @@ int log_init(const char *output)
 		}
 	}
 
-	if (reopen_fd_as(current_logfd, new_logfd) < 0)
-		goto err;
+	if (reopen_fd_as(sfd, new_logfd) < 0)
+
+	current_logfd = sfd;
 
 	return 0;
 
