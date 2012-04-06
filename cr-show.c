@@ -370,8 +370,8 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 			pr_msg("\\\n");
 			pr_msg(" +--- children: ");
 			while (e.nr_children--) {
-				ret = read_img_eof(fd_pstree, &pid);
-				if (ret <= 0)
+				ret = read_img(fd_pstree, &pid);
+				if (ret < 0)
 					goto out;
 				pr_msg(" %6d", pid);
 			}
@@ -382,8 +382,8 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 			pr_msg("  \\\n");
 			pr_msg("   --- threads: ");
 			while (e.nr_threads--) {
-				ret = read_img_eof(fd_pstree, &pid);
-				if (ret <= 0)
+				ret = read_img(fd_pstree, &pid);
+				if (ret < 0)
 					goto out;
 				pr_msg(" %6d", pid);
 				if (item)
