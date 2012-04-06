@@ -155,8 +155,7 @@ void mark_pipe_master()
 		pr_info(" `- PIPE ID %x\n", pi->pe.pipe_id);
 		show_saved_pipe_fds(pi);
 
-		fle = list_first_entry(&pi->fd_head,
-				struct fdinfo_list_entry, list);
+		fle = file_master(&pi->fd_head);
 		p = pi;
 		fd = fle->fd;
 		pid = fle->pid;
@@ -164,8 +163,7 @@ void mark_pipe_master()
 		list_for_each_entry(pic, &pi->pipe_list, pipe_list) {
 			list_move(&pic->list, &head);
 
-			fle = list_first_entry(&p->fd_head,
-					struct fdinfo_list_entry, list);
+			fle = file_master(&p->fd_head);
 			if (fle->pid < pid ||
 			    (pid == fle->pid && fle->fd < fd)) {
 				p = pic;
@@ -198,7 +196,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	char path[PATH_MAX];
 	int tmp, fd;
 
-	fle = list_first_entry(&pi->fd_head, struct fdinfo_list_entry, list);
+	fle = file_master(&pi->fd_head);
 	fd = fle->fd;
 
 	pr_info("\tWaiting fd for %d\n", fd);
@@ -301,8 +299,7 @@ int open_pipe(struct list_head *l)
 		struct fdinfo_list_entry *fle;
 
 		BUG_ON(list_empty(&p->fd_head));
-		fle = list_first_entry(&p->fd_head,
-				struct fdinfo_list_entry, list);
+		fle = file_master(&p->fd_head);
 
 		pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
 		futex_wait_while(&fle->real_pid, 0);
