@@ -11,7 +11,7 @@
 /* The sequence of objects which should be restored:
  * pipe -> files struct-s -> fd-s.
  * pipe_entry describes  pipe's file structs-s.
- * A pipe has not own properties, so it has not own object.
+ * A pipe doesn't have own properties, so it has no object.
  */
 
 struct pipe_info {
