@@ -17,7 +17,7 @@
 struct pipe_info {
 	struct pipe_entry pe;
 	struct list_head pipe_list;	/* all pipe_info with the same pipe_id
-					 * This is pure circular list whiout head */
+					 * This is pure circular list without head */
 	struct list_head list;		/* list head for fdinfo_list_entry-s */
 	struct file_desc d;
 	int create;
