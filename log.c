@@ -45,6 +45,9 @@ int log_init(const char *output)
 			return -1;
 		}
 
+		if (sfd == current_logfd)
+			close(sfd);
+
 		if (reopen_fd_as(sfd, new_logfd) < 0)
 			goto err;
 	} else {
