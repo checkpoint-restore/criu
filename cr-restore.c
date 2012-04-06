@@ -881,6 +881,8 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 			unsigned long prev_vma_end2 = 0;
 
 			list_for_each_entry(s_vma, self_vma_list, list) {
+				if (prev_vma_end2 + vma_len > t_vma->vma.start)
+					break;
 				if (prev_vma_end2 && (prev_vma_end2 >= prev_vma_end) &&
 				    ((s_vma->vma.start - prev_vma_end2) > vma_len))
 					return prev_vma_end2;
