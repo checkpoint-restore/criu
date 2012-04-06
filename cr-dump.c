@@ -1394,6 +1394,7 @@ static int dump_one_task(const struct pstree_item *item)
 
 	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
+		ret = -1;
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
 	}
