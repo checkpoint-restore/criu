@@ -30,7 +30,7 @@ int log_get_fd(void)
 
 int log_init(const char *output)
 {
-	int new_logfd = DEFAULT_LOGFD, sfd;
+	int new_logfd, sfd;
 
 	sfd = get_service_fd(LOG_FD_OFF);
 	if (sfd < 0) {
@@ -44,9 +44,16 @@ int log_init(const char *output)
 			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
-	}
 
-	if (reopen_fd_as(sfd, new_logfd) < 0)
+		if (reopen_fd_as(sfd, new_logfd) < 0)
+			goto err;
+	} else {
+		new_logfd = dup2(DEFAULT_LOGFD, sfd);
+		if (new_logfd < 0) {
+			pr_perror("Dup %d -> %d failed", DEFAULT_LOGFD, sfd);
+			goto err;
+		}
+	}
 
 	current_logfd = sfd;
 
