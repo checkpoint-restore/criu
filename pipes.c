@@ -268,12 +268,10 @@ err:
 
 static int open_pipe(struct file_desc *d)
 {
-	unsigned long time = 1000;
-	struct pipe_info *pi, *pc, *p;
+	struct pipe_info *pi, *p;
 	int ret, tmp;
 	int pfd[2];
 	int sock;
-	int create;
 
 	pi = container_of(d, struct pipe_info, d);
 
