@@ -736,6 +736,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 
 err_restore:
 	parasite_cure_seized(ctl);
+	return NULL;
 
 err:
 	xfree(ctl);
