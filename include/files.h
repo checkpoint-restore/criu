@@ -40,11 +40,15 @@ struct fdinfo_list_entry {
 };
 
 struct file_desc {
+	int type;
+	u32 id;
+	struct list_head hash;
 	struct list_head fd_info_head;
 };
 
-extern void file_desc_add(struct file_desc *d);
+extern void file_desc_add(struct file_desc *d, int type, u32 id);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
+extern struct file_desc *find_file_desc_raw(int type, u32 id);
 
 extern void transport_name_gen(struct sockaddr_un *addr,
 				int *len, int pid, long fd);
@@ -62,7 +66,6 @@ struct file_desc;
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
 extern int open_pipe(struct file_desc *);
-struct file_desc *find_pipe_desc(int id);
 extern int pipe_should_open_transport(struct fdinfo_entry *fe,
 		struct file_desc *d);
 

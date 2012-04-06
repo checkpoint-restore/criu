@@ -26,19 +26,50 @@ static int nr_fdinfo_list;
 
 static struct fmap_fd *fmap_fds;
 
+#define FDESC_HASH_SIZE	64
+static struct list_head file_descs[FDESC_HASH_SIZE];
+
 int prepare_shared_fdinfo(void)
 {
+	int i;
+
 	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_list == MAP_FAILED) {
 		pr_perror("Can't map fdinfo_list");
 		return -1;
 	}
+
+	for (i = 0; i < FDESC_HASH_SIZE; i++)
+		INIT_LIST_HEAD(&file_descs[i]);
+
 	return 0;
 }
 
-void file_desc_add(struct file_desc *d)
+void file_desc_add(struct file_desc *d, int type, u32 id)
 {
+	d->type = type;
+	d->id = id;
 	INIT_LIST_HEAD(&d->fd_info_head);
+
+	list_add_tail(&d->hash, &file_descs[id % FDESC_HASH_SIZE]);
+}
+
+struct file_desc *find_file_desc_raw(int type, u32 id)
+{
+	struct file_desc *d;
+	struct list_head *chain;
+
+	chain = &file_descs[id % FDESC_HASH_SIZE];
+	list_for_each_entry(d, chain, hash)
+		if (d->type == type && d->id == id)
+			return d;
+
+	return NULL;
+}
+
+static inline struct file_desc *find_file_desc(struct fdinfo_entry *fe)
+{
+	return find_file_desc_raw(fe->type, fe->id);
 }
 
 struct fdinfo_list_entry *file_master(struct file_desc *d)
@@ -51,71 +82,37 @@ struct fdinfo_list_entry *file_master(struct file_desc *d)
 struct reg_file_info {
 	struct reg_file_entry rfe;
 	char *path;
-	struct list_head list;
 	struct file_desc d;
 };
-
-#define REG_FILES_HSIZE	32
-static struct list_head reg_files[REG_FILES_HSIZE];
 
 void show_saved_files(void)
 {
 	int i;
-	struct reg_file_info *rfi;
+	struct file_desc *fd;
 
-	pr_info("Reg files:\n");
-	for (i = 0; i < REG_FILES_HSIZE; i++)
-		list_for_each_entry(rfi, &reg_files[i], list) {
+	pr_info("File descs:\n");
+	for (i = 0; i < FDESC_HASH_SIZE; i++)
+		list_for_each_entry(fd, &file_descs[i], hash) {
 			struct fdinfo_list_entry *le;
 
-			pr_info(" `- ID %x\n", rfi->rfe.id);
-			list_for_each_entry(le, &rfi->d.fd_info_head, list)
+			pr_info(" `- type %d ID %x\n", fd->type, fd->id);
+			list_for_each_entry(le, &fd->fd_info_head, list)
 				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
 		}
 }
 
 static struct reg_file_info *find_reg_file(int id)
 {
-	int chain;
-	struct reg_file_info *rfi;
+	struct file_desc *fd;
 
-	chain = id % REG_FILES_HSIZE;
-	list_for_each_entry(rfi, &reg_files[chain], list)
-		if (rfi->rfe.id == id)
-			return rfi;
-	return NULL;
-}
-
-static struct file_desc *find_reg_desc(int id)
-{
-	struct reg_file_info *rfi;
-
-	rfi = find_reg_file(id);
-	return &rfi->d;
-}
-
-static struct file_desc *find_file_desc(struct fdinfo_entry *fe)
-{
-	if (fe->type == FDINFO_REG)
-		return find_reg_desc(fe->id);
-	if (fe->type == FDINFO_INETSK)
-		return find_inetsk_desc(fe->id);
-	if (fe->type == FDINFO_PIPE)
-		return find_pipe_desc(fe->id);
-	if (fe->type == FDINFO_UNIXSK)
-		return find_unixsk_desc(fe->id);
-
-	BUG_ON(1);
-	return NULL;
+	fd = find_file_desc_raw(FDINFO_REG, id);
+	return container_of(fd, struct reg_file_info, d);
 }
 
 int collect_reg_files(void)
 {
 	struct reg_file_info *rfi = NULL;
-	int fd, ret = -1, chain;
-
-	for (chain = 0; chain < REG_FILES_HSIZE; chain++)
-		INIT_LIST_HEAD(&reg_files[chain]);
+	int fd, ret = -1;
 
 	fd = open_image_ro(CR_FD_REG_FILES);
 	if (fd < 0)
@@ -147,9 +144,7 @@ int collect_reg_files(void)
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
-		file_desc_add(&rfi->d);
-		chain = rfi->rfe.id % REG_FILES_HSIZE;
-		list_add_tail(&rfi->list, &reg_files[chain]);
+		file_desc_add(&rfi->d, FDINFO_REG, rfi->rfe.id);
 	}
 
 	if (rfi) {

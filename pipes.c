@@ -29,20 +29,10 @@ static LIST_HEAD(pipes);
 
 static struct pipe_info *find_pipe(int id)
 {
-	struct pipe_info *pi;
+	struct file_desc *fd;
 
-	list_for_each_entry(pi, &pipes, list)
-		if (pi->pe.id == id)
-			return pi;
-	return NULL;
-}
-
-struct file_desc *find_pipe_desc(int id)
-{
-	struct pipe_info *pi;
-
-	pi = find_pipe(id);
-	return &pi->d;
+	fd = find_file_desc_raw(FDINFO_PIPE, id);
+	return container_of(fd, struct pipe_info, d);
 }
 
 int collect_pipes(void)
@@ -68,7 +58,8 @@ int collect_pipes(void)
 
 		pr_info("Collected pipe entry ID %x PIPE ID %x\n",
 					pi->pe.id, pi->pe.pipe_id);
-		file_desc_add(&pi->d);
+
+		file_desc_add(&pi->d, FDINFO_PIPE, pi->pe.id);
 
 		list_for_each_entry(tmp, &pipes, list)
 			if (pi->pe.pipe_id == tmp->pe.pipe_id)

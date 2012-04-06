@@ -800,20 +800,10 @@ static LIST_HEAD(unix_sockets);
 
 static struct unix_sk_info *find_unix_sk(int id)
 {
-	struct unix_sk_info *ui;
+	struct file_desc *d;
 
-	list_for_each_entry(ui, &unix_sockets, list)
-		if (ui->ue.id == id)
-			return ui;
-	return NULL;
-}
-
-struct file_desc *find_unixsk_desc(int id)
-{
-	struct unix_sk_info *ui;
-
-	ui = find_unix_sk(id);
-	return &ui->d;
+	d = find_file_desc_raw(FDINFO_UNIXSK, id);
+	return container_of(d, struct unix_sk_info, d);
 }
 
 struct sk_packet {
@@ -901,40 +891,13 @@ static int restore_socket_queue(int fd, unsigned int peer_id)
 
 struct inet_sk_info {
 	struct inet_sk_entry ie;
-	struct list_head list;
 	struct file_desc d;
 };
-
-#define INET_SK_HSIZE	32
-static struct list_head inet_sockets[INET_SK_HSIZE];
-
-static struct inet_sk_info *find_inet_sk(int id)
-{
-	int chain;
-	struct inet_sk_info *ii;
-
-	chain = id % INET_SK_HSIZE;
-	list_for_each_entry(ii, &inet_sockets[chain], list)
-		if (ii->ie.id == id)
-			return ii;
-	return NULL;
-}
-
-struct file_desc *find_inetsk_desc(int id)
-{
-	struct inet_sk_info *ii;
-
-	ii = find_inet_sk(id);
-	return &ii->d;
-}
 
 int collect_inet_sockets(void)
 {
 	struct inet_sk_info *ii = NULL;
-	int fd, ret = -1, chain;
-
-	for (chain = 0; chain < INET_SK_HSIZE; chain++)
-		INIT_LIST_HEAD(&inet_sockets[chain]);
+	int fd, ret = -1;
 
 	fd = open_image_ro(CR_FD_INETSK);
 	if (fd < 0)
@@ -950,9 +913,7 @@ int collect_inet_sockets(void)
 		if (ret <= 0)
 			break;
 
-		file_desc_add(&ii->d);
-		chain = ii->ie.id % INET_SK_HSIZE;
-		list_add_tail(&ii->list, &inet_sockets[chain]);
+		file_desc_add(&ii->d, FDINFO_INETSK, ii->ie.id);
 	}
 
 	if (ii)
@@ -1454,8 +1415,8 @@ int collect_unix_sockets(void)
 
 		ui->peer = NULL;
 		ui->flags = 0;
-		file_desc_add(&ui->d);
 		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
+		file_desc_add(&ui->d, FDINFO_UNIXSK, ui->ue.id);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
 

@@ -12,8 +12,6 @@ extern int dump_socket(struct fd_parms *p, int lfd,
 
 struct fdinfo_list_entry;
 struct file_desc;
-struct file_desc *find_inetsk_desc(int id);
-struct file_desc *find_unixsk_desc(int id);
 struct fdinfo_entry;
 extern int unixsk_should_open_transport(struct fdinfo_entry *,
 		struct file_desc *);
