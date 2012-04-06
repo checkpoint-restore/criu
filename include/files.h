@@ -58,9 +58,7 @@ extern void file_desc_add(struct file_desc *d, int type, u32 id,
 		struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
-
-extern void transport_name_gen(struct sockaddr_un *addr,
-				int *len, int pid, long fd);
+extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *, int transport);
 
 void show_saved_files(void);
 extern int collect_reg_files(void);

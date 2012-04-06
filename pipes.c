@@ -296,23 +296,13 @@ static int open_pipe(struct file_desc *d)
 	}
 
 	list_for_each_entry(p, &pi->pipe_list, pipe_list) {
-		int len, fd;
-		struct sockaddr_un saddr;
 		struct fdinfo_list_entry *fle;
+		int fd;
 
 		fle = file_master(&p->d);
-
-		pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
-		futex_wait_while(&fle->real_pid, 0);
-
-		transport_name_gen(&saddr, &len,
-				futex_get(&fle->real_pid), fle->fd);
-
 		fd = pfd[p->pe.flags & O_WRONLY];
 
-		pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
-
-		if (send_fd(sock, &saddr, len, fd) < 0) {
+		if (send_fd_to_peer(fd, fle, sock)) {
 			pr_perror("Can't send file descriptor");
 			return -1;
 		}

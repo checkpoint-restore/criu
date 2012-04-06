@@ -1256,8 +1256,6 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	int sk[2], tsk;
 	struct unix_sk_info *peer = ui->peer;
 	struct fdinfo_list_entry *fle;
-	struct sockaddr_un addr;
-	int addr_len;
 
 	pr_info("Opening pair master (id %x peer %x)\n",
 			ui->ue.id, ui->ue.peer);
@@ -1282,14 +1280,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	}
 
 	fle = file_master(&peer->d);
-	futex_wait_while(&fle->real_pid, 0);
-
-	pr_info("\tSending pair to %d's %d\n",
-			futex_get(&fle->real_pid), fle->fd);
-	transport_name_gen(&addr, &addr_len,
-			futex_get(&fle->real_pid), fle->fd);
-
-	if (send_fd(tsk, &addr, addr_len, sk[1]) < 0) {
+	if (send_fd_to_peer(sk[1], fle, tsk)) {
 		pr_err("Can't send pair slave\n");
 		return -1;
 	}

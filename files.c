@@ -301,7 +301,7 @@ static int restore_exe_early(struct fdinfo_entry *fe, int fd)
 	return reopen_fd_as(self_exe_fd, tmp);
 }
 
-void transport_name_gen(struct sockaddr_un *addr, int *len,
+static void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, long fd)
 {
 	addr->sun_family = AF_UNIX;
@@ -367,12 +367,24 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	return 0;
 }
 
+int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
+{
+	struct sockaddr_un saddr;
+	int len;
+
+	pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
+	futex_wait_while(&fle->real_pid, 0);
+	transport_name_gen(&saddr, &len,
+			futex_get(&fle->real_pid), fle->fd);
+	pr_info("Send fd %d to %s\n", fd, saddr.sun_path + 1);
+	return send_fd(tsk, &saddr, len, fd);
+}
+
 static int open_fd(int pid, struct fdinfo_entry *fe,
 		struct file_desc *d, int *fdinfo_fd)
 {
 	int tmp;
 	int serv, sock;
-	struct sockaddr_un saddr;
 	struct fdinfo_list_entry *fle;
 
 	fle = file_master(d);
@@ -395,8 +407,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	pr_info("\t%d: Create fd for %lx\n", pid, fe->addr);
 
 	list_for_each_entry(fle, &d->fd_info_head, list) {
-		int len;
-
 		if (pid == fle->pid) {
 			pr_info("\t\tGoing to dup %d into %d\n",
 					(int)fe->addr, fle->fd);
@@ -417,13 +427,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 			continue;
 		}
 
-		pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
-		futex_wait_while(&fle->real_pid, 0);
-
-		pr_info("Send fd %d to %s\n", (int)fe->addr, saddr.sun_path + 1);
-		transport_name_gen(&saddr, &len, futex_get(&fle->real_pid), fle->fd);
-
-		if (send_fd(sock, &saddr, len, fe->addr) < 0) {
+		if (send_fd_to_peer(fe->addr, fle, sock)) {
 			pr_perror("Can't send file descriptor");
 			return -1;
 		}
