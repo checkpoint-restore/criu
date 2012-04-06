@@ -36,11 +36,23 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
+void file_desc_add(struct file_desc *d)
+{
+	INIT_LIST_HEAD(&d->fd_info_head);
+}
+
+struct fdinfo_list_entry *file_master(struct file_desc *d)
+{
+	BUG_ON(list_empty(&d->fd_info_head));
+	return list_first_entry(&d->fd_info_head,
+			struct fdinfo_list_entry, list);
+}
+
 struct reg_file_info {
 	struct reg_file_entry rfe;
 	char *path;
 	struct list_head list;
-	struct list_head fd_head;
+	struct file_desc d;
 };
 
 #define REG_FILES_HSIZE	32
@@ -57,7 +69,7 @@ void show_saved_files(void)
 			struct fdinfo_list_entry *le;
 
 			pr_info(" `- ID %x\n", rfi->rfe.id);
-			list_for_each_entry(le, &rfi->fd_head, list)
+			list_for_each_entry(le, &rfi->d.fd_info_head, list)
 				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
 		}
 }
@@ -74,24 +86,24 @@ static struct reg_file_info *find_reg_file(int id)
 	return NULL;
 }
 
-static struct list_head *find_reg_fd(int id)
+static struct file_desc *find_reg_desc(int id)
 {
 	struct reg_file_info *rfi;
 
 	rfi = find_reg_file(id);
-	return &rfi->fd_head;
+	return &rfi->d;
 }
 
-static struct list_head *find_fi_list(struct fdinfo_entry *fe)
+static struct file_desc *find_file_desc(struct fdinfo_entry *fe)
 {
 	if (fe->type == FDINFO_REG)
-		return find_reg_fd(fe->id);
+		return find_reg_desc(fe->id);
 	if (fe->type == FDINFO_INETSK)
-		return find_inetsk_fd(fe->id);
+		return find_inetsk_desc(fe->id);
 	if (fe->type == FDINFO_PIPE)
-		return find_pipe_fd(fe->id);
+		return find_pipe_desc(fe->id);
 	if (fe->type == FDINFO_UNIXSK)
-		return find_unixsk_fd(fe->id);
+		return find_unixsk_desc(fe->id);
 
 	BUG_ON(1);
 	return NULL;
@@ -135,7 +147,7 @@ int collect_reg_files(void)
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
-		INIT_LIST_HEAD(&rfi->fd_head);
+		file_desc_add(&rfi->d);
 		chain = rfi->rfe.id % REG_FILES_HSIZE;
 		list_add_tail(&rfi->list, &reg_files[chain]);
 	}
@@ -153,7 +165,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 {
 	int i;
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
-	struct list_head *fi_list;
+	struct file_desc *fdesc;
 
 	pr_info("Collect fdinfo pid=%d fd=%ld id=%16x\n",
 		pid, e->addr, e->id);
@@ -168,13 +180,13 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	le->fd = e->addr;
 	futex_init(&le->real_pid);
 
-	fi_list = find_fi_list(e);
-	if (fi_list == NULL) {
+	fdesc = find_file_desc(e);
+	if (fdesc == NULL) {
 		pr_err("No file for fd %d id %d\n", (int)e->addr, e->id);
 		return -1;
 	}
 
-	list_for_each_entry(l, fi_list, list)
+	list_for_each_entry(l, &fdesc->fd_info_head, list)
 		if (l->pid > le->pid)
 			break;
 
@@ -214,12 +226,12 @@ int prepare_fd_pid(int pid)
 	return ret;
 }
 
-static int open_fe_fd(struct list_head *l)
+static int open_fe_fd(struct file_desc *d)
 {
 	struct reg_file_info *rfi;
 	int tmp;
 
-	rfi = container_of(l, struct reg_file_info, fd_head);
+	rfi = container_of(d, struct reg_file_info, d);
 
 	tmp = open(rfi->path, rfi->rfe.flags);
 	if (tmp < 0) {
@@ -242,7 +254,7 @@ static int find_open_fe_fd(struct fdinfo_entry *fe)
 		return -1;
 	}
 
-	return open_fe_fd(&rfi->fd_head);
+	return open_fe_fd(&rfi->d);
 }
 
 static int restore_cwd(struct fdinfo_entry *fe, int fd)
@@ -294,29 +306,29 @@ void transport_name_gen(struct sockaddr_un *addr, int *len,
 	*addr->sun_path = '\0';
 }
 
-static int should_open_transport(struct fdinfo_entry *fe, struct list_head *fd_list)
+static int should_open_transport(struct fdinfo_entry *fe, struct file_desc *fd)
 {
 	if (fe->type == FDINFO_PIPE)
-		return pipe_should_open_transport(fe, fd_list);
+		return pipe_should_open_transport(fe, fd);
 	if (fe->type == FDINFO_UNIXSK)
-		return unixsk_should_open_transport(fe, fd_list);
+		return unixsk_should_open_transport(fe, fd);
 
 	return 0;
 }
 
-static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
+static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 {
 	struct fdinfo_list_entry *fle;
 	struct sockaddr_un saddr;
 	int sock;
 	int ret, sun_len;
 
-	fle = file_master(fd_list);
+	fle = file_master(d);
 
 	if (fle->pid == pid) {
 		if (fle->fd == fe->addr) {
 			/* file master */
-			if (!should_open_transport(fe, fd_list))
+			if (!should_open_transport(fe, d))
 				return 0;
 		} else
 			return 0;
@@ -326,11 +338,11 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head 
 
 	pr_info("\t%d: Create transport fd for %lx\n", pid, fe->addr);
 
-	list_for_each_entry(fle, fd_list, list)
+	list_for_each_entry(fle, &d->fd_info_head, list)
 		if ((fle->pid == pid) && (fle->fd == fe->addr))
 			break;
 
-	BUG_ON(fd_list == &fle->list);
+	BUG_ON(&d->fd_info_head == &fle->list);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -354,29 +366,29 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct list_head 
 }
 
 static int open_fd(int pid, struct fdinfo_entry *fe,
-		struct list_head *fd_list, int *fdinfo_fd)
+		struct file_desc *d, int *fdinfo_fd)
 {
 	int tmp;
 	int serv, sock;
 	struct sockaddr_un saddr;
 	struct fdinfo_list_entry *fle;
 
-	fle = file_master(fd_list);
+	fle = file_master(d);
 	if ((fle->pid != pid) || (fe->addr != fle->fd))
 		return 0;
 
 	switch (fe->type) {
 	case FDINFO_REG:
-		tmp = open_fe_fd(fd_list);
+		tmp = open_fe_fd(d);
 		break;
 	case FDINFO_INETSK:
-		tmp = open_inet_sk(fd_list);
+		tmp = open_inet_sk(d);
 		break;
 	case FDINFO_PIPE:
-		tmp = open_pipe(fd_list);
+		tmp = open_pipe(d);
 		break;
 	case FDINFO_UNIXSK:
-		tmp = open_unix_sk(fd_list);
+		tmp = open_unix_sk(d);
 		break;
 	default:
 		tmp = -1;
@@ -397,7 +409,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	pr_info("\t%d: Create fd for %lx\n", pid, fe->addr);
 
-	list_for_each_entry(fle, fd_list, list) {
+	list_for_each_entry(fle, &d->fd_info_head, list) {
 		int len;
 
 		if (pid == fle->pid) {
@@ -437,12 +449,12 @@ out:
 	return 0;
 }
 
-static int receive_fd(int pid, struct fdinfo_entry *fe, struct list_head *fd_list)
+static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 {
 	int tmp;
 	struct fdinfo_list_entry *fle;
 
-	fle = file_master(fd_list);
+	fle = file_master(d);
 
 	if (fle->pid == pid)
 		return 0;
@@ -490,9 +502,9 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 {
 	u32 mag;
 	int ret = 0;
-	struct list_head *fi_list;
+	struct file_desc *fdesc;
 
-	fi_list = find_fi_list(fe);
+	fdesc = find_file_desc(fe);
 	if (move_img_fd(fdinfo_fd, (int)fe->addr))
 		return -1;
 
@@ -502,13 +514,13 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 
 	switch (state) {
 	case FD_STATE_PREP:
-		ret = open_transport_fd(pid, fe, fi_list);
+		ret = open_transport_fd(pid, fe, fdesc);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fe, fi_list, fdinfo_fd);
+		ret = open_fd(pid, fe, fdesc, fdinfo_fd);
 		break;
 	case FD_STATE_RECV:
-		ret = receive_fd(pid, fe, fi_list);
+		ret = receive_fd(pid, fe, fdesc);
 		break;
 	}
 

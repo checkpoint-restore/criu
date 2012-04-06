@@ -790,7 +790,7 @@ struct unix_sk_info {
 	char *name;
 	unsigned flags;
 	struct unix_sk_info *peer;
-	struct list_head fd_head;
+	struct file_desc d;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -808,12 +808,12 @@ static struct unix_sk_info *find_unix_sk(int id)
 	return NULL;
 }
 
-struct list_head *find_unixsk_fd(int id)
+struct file_desc *find_unixsk_desc(int id)
 {
 	struct unix_sk_info *ui;
 
 	ui = find_unix_sk(id);
-	return &ui->fd_head;
+	return &ui->d;
 }
 
 struct sk_packet {
@@ -902,7 +902,7 @@ static int restore_socket_queue(int fd, unsigned int peer_id)
 struct inet_sk_info {
 	struct inet_sk_entry ie;
 	struct list_head list;
-	struct list_head fd_head;
+	struct file_desc d;
 };
 
 #define INET_SK_HSIZE	32
@@ -920,12 +920,12 @@ static struct inet_sk_info *find_inet_sk(int id)
 	return NULL;
 }
 
-struct list_head *find_inetsk_fd(int id)
+struct file_desc *find_inetsk_desc(int id)
 {
 	struct inet_sk_info *ii;
 
 	ii = find_inet_sk(id);
-	return &ii->fd_head;
+	return &ii->d;
 }
 
 int collect_inet_sockets(void)
@@ -950,7 +950,7 @@ int collect_inet_sockets(void)
 		if (ret <= 0)
 			break;
 
-		INIT_LIST_HEAD(&ii->fd_head);
+		file_desc_add(&ii->d);
 		chain = ii->ie.id % INET_SK_HSIZE;
 		list_add_tail(&ii->list, &inet_sockets[chain]);
 	}
@@ -962,13 +962,13 @@ int collect_inet_sockets(void)
 	return 0;
 }
 
-int open_inet_sk(struct list_head *l)
+int open_inet_sk(struct file_desc *d)
 {
 	int sk;
 	struct sockaddr_in addr;
 	struct inet_sk_info *ii;
 
-	ii = container_of(l, struct inet_sk_info, fd_head);
+	ii = container_of(d, struct inet_sk_info, d);
 
 	show_one_inet_img("Restore", &ii->ie);
 
@@ -1219,7 +1219,7 @@ int run_unix_connections(void)
 
 		pr_info("\tConnect %x to %x\n", ui->ue.id, peer->ue.id);
 
-		fle = file_master(&ui->fd_head);
+		fle = file_master(&ui->d);
 
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
@@ -1275,11 +1275,11 @@ done:
 }
 
 int unixsk_should_open_transport(struct fdinfo_entry *fe,
-				struct list_head *fd_list)
+				struct file_desc *d)
 {
 	struct unix_sk_info *ui;
 
-	ui = container_of(fd_list, struct unix_sk_info, fd_head);
+	ui = container_of(d, struct unix_sk_info, d);
 	return ui->flags & USK_PAIR_SLAVE;
 }
 
@@ -1313,7 +1313,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 		return -1;
 	}
 
-	fle = file_master(&peer->fd_head);
+	fle = file_master(&peer->d);
 	futex_wait_while(&fle->real_pid, 0);
 
 	pr_info("\tSending pair to %d's %d\n",
@@ -1337,7 +1337,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	struct fdinfo_list_entry *fle;
 	int sk;
 
-	fle = file_master(&ui->fd_head);
+	fle = file_master(&ui->d);
 
 	pr_info("Opening pair slave (id %x peer %x) on %d\n",
 			ui->ue.id, ui->ue.peer, fle->fd);
@@ -1386,11 +1386,11 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	return sk;
 }
 
-int open_unix_sk(struct list_head *l)
+int open_unix_sk(struct file_desc *d)
 {
 	struct unix_sk_info *ui;
 
-	ui = container_of(l, struct unix_sk_info, fd_head);
+	ui = container_of(d, struct unix_sk_info, d);
 	if (ui->flags & USK_PAIR_MASTER)
 		return open_unixsk_pair_master(ui);
 	else if (ui->flags & USK_PAIR_SLAVE)
@@ -1454,7 +1454,7 @@ int collect_unix_sockets(void)
 
 		ui->peer = NULL;
 		ui->flags = 0;
-		INIT_LIST_HEAD(&ui->fd_head);
+		file_desc_add(&ui->d);
 		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
@@ -1497,10 +1497,9 @@ int resolve_unix_peers(void)
 		 * the one in pipes.c and makes sure tasks wait for each other
 		 * in pids sorting order (ascending).
 		 */
-		BUG_ON(list_empty(&ui->fd_head) || list_empty(&peer->fd_head));
 
-		fle = file_master(&ui->fd_head);
-		fle_peer = file_master(&peer->fd_head);
+		fle = file_master(&ui->d);
+		fle_peer = file_master(&peer->d);
 
 		if ((fle->pid < fle_peer->pid) ||
 				(fle->pid == fle_peer->pid &&
@@ -1519,7 +1518,7 @@ int resolve_unix_peers(void)
 
 		pr_info("\t%x -> %x (%x) flags %x\n", ui->ue.id, ui->ue.peer,
 				ui->peer ? ui->peer->ue.id : 0, ui->flags);
-		list_for_each_entry(fle, &ui->fd_head, list)
+		list_for_each_entry(fle, &ui->d.fd_info_head, list)
 			pr_info("\t\tfd %d in pid %d\n",
 					fle->fd, fle->pid);
 

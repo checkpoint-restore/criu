@@ -19,7 +19,7 @@ struct pipe_info {
 	struct list_head pipe_list;	/* all pipe_info with the same pipe_id
 					 * This is pure circular list whiout head */
 	struct list_head list;		/* list head for fdinfo_list_entry-s */
-	struct list_head fd_head;
+	struct file_desc d;
 	int create;
 	int bytes;
 	off_t off;
@@ -37,12 +37,12 @@ static struct pipe_info *find_pipe(int id)
 	return NULL;
 }
 
-struct list_head *find_pipe_fd(int id)
+struct file_desc *find_pipe_desc(int id)
 {
 	struct pipe_info *pi;
 
 	pi = find_pipe(id);
-	return &pi->fd_head;
+	return &pi->d;
 }
 
 int collect_pipes(void)
@@ -68,7 +68,7 @@ int collect_pipes(void)
 
 		pr_info("Collected pipe entry ID %x PIPE ID %x\n",
 					pi->pe.id, pi->pe.pipe_id);
-		INIT_LIST_HEAD(&pi->fd_head);
+		file_desc_add(&pi->d);
 
 		list_for_each_entry(tmp, &pipes, list)
 			if (pi->pe.pipe_id == tmp->pe.pipe_id)
@@ -93,7 +93,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 	struct fdinfo_list_entry *fle;
 
 	pr_info("  `- ID %p %xpn", pi, pi->pe.id);
-	list_for_each_entry(fle, &pi->fd_head, list)
+	list_for_each_entry(fle, &pi->d.fd_info_head, list)
 		pr_info("   `- FD %d pid %d\n", fle->fd, fle->pid);
 }
 
@@ -155,7 +155,7 @@ void mark_pipe_master()
 		pr_info(" `- PIPE ID %x\n", pi->pe.pipe_id);
 		show_saved_pipe_fds(pi);
 
-		fle = file_master(&pi->fd_head);
+		fle = file_master(&pi->d);
 		p = pi;
 		fd = fle->fd;
 		pid = fle->pid;
@@ -163,7 +163,7 @@ void mark_pipe_master()
 		list_for_each_entry(pic, &pi->pipe_list, pipe_list) {
 			list_move(&pic->list, &head);
 
-			fle = file_master(&p->fd_head);
+			fle = file_master(&p->d);
 			if (fle->pid < pid ||
 			    (pid == fle->pid && fle->fd < fd)) {
 				p = pic;
@@ -183,10 +183,11 @@ void mark_pipe_master()
 }
 
 int pipe_should_open_transport(struct fdinfo_entry *fe,
-				struct list_head *fd_list)
+		struct file_desc *d)
 {
-	struct pipe_info *pi = container_of(fd_list, struct pipe_info, fd_head);
-
+	struct pipe_info *pi;
+	
+	pi = container_of(d, struct pipe_info, d);
 	return !pi->create;
 }
 
@@ -196,7 +197,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	char path[PATH_MAX];
 	int tmp, fd;
 
-	fle = file_master(&pi->fd_head);
+	fle = file_master(&pi->d);
 	fd = fle->fd;
 
 	pr_info("\tWaiting fd for %d\n", fd);
@@ -264,7 +265,7 @@ err:
 	return ret;
 }
 
-int open_pipe(struct list_head *l)
+int open_pipe(struct file_desc *d)
 {
 	unsigned long time = 1000;
 	struct pipe_info *pi, *pc, *p;
@@ -273,7 +274,7 @@ int open_pipe(struct list_head *l)
 	int sock;
 	int create;
 
-	pi = container_of(l, struct pipe_info, fd_head);
+	pi = container_of(d, struct pipe_info, d);
 
 	pr_info("\tCreating pipe pipe_id=%x id=%x\n", pi->pe.pipe_id, pi->pe.id);
 
@@ -298,8 +299,7 @@ int open_pipe(struct list_head *l)
 		struct sockaddr_un saddr;
 		struct fdinfo_list_entry *fle;
 
-		BUG_ON(list_empty(&p->fd_head));
-		fle = file_master(&p->fd_head);
+		fle = file_master(&p->d);
 
 		pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
 		futex_wait_while(&fle->real_pid, 0);

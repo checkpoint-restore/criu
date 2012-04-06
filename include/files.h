@@ -39,12 +39,15 @@ struct fdinfo_list_entry {
 	futex_t			real_pid;
 };
 
+struct file_desc {
+	struct list_head fd_info_head;
+};
+
+extern void file_desc_add(struct file_desc *d);
+extern struct fdinfo_list_entry *file_master(struct file_desc *d);
+
 extern void transport_name_gen(struct sockaddr_un *addr,
 				int *len, int pid, long fd);
-static inline struct fdinfo_list_entry *file_master(struct list_head *fd_list)
-{
-	return list_first_entry(fd_list, struct fdinfo_list_entry, list);
-}
 
 void show_saved_files(void);
 extern int collect_reg_files(void);
@@ -55,11 +58,12 @@ extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 
 extern int self_exe_fd;
 
+struct file_desc;
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
-extern int open_pipe(struct list_head *l);
-struct list_head *find_pipe_fd(int id);
+extern int open_pipe(struct file_desc *);
+struct file_desc *find_pipe_desc(int id);
 extern int pipe_should_open_transport(struct fdinfo_entry *fe,
-					struct list_head *fd_list);
+		struct file_desc *d);
 
 #endif /* FILES_H_ */
