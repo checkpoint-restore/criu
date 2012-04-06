@@ -64,14 +64,6 @@ struct unix_sk_listen_icon {
 	struct unix_sk_listen_icon	*next;
 };
 
-struct unix_sk_listen {
-	unsigned int			ino;
-	struct sockaddr_un		addr;
-	unsigned int			addrlen;
-	int				type;
-	struct unix_sk_listen		*next;
-};
-
 #define INET_ADDR_LEN		40
 
 struct inet_sk_desc {
@@ -207,18 +199,6 @@ __gen_static_lookup_func(struct unix_sk_listen_icon,
 			 lookup_unix_listen_icons,
 			 unix_listen_icons,
 			 peer_ino, unsigned int, ino);
-
-static struct unix_sk_listen *unix_listen[SK_HASH_SIZE];
-static struct unix_sk_listen *lookup_unix_listen(unsigned int ino, int type)
-{
-	struct unix_sk_listen *l;
-
-	for (l = unix_listen[ino % SK_HASH_SIZE]; l != NULL; l = l->next)
-		if ((l->ino == ino) && (l->type == type))
-			return l;
-
-	return NULL;
-}
 
 static int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
