@@ -126,6 +126,32 @@ static int collect_fds(pid_t pid, int *fd, int *nr_fd)
 	return 0;
 }
 
+static int path_accessible(char *path, const struct stat *ost)
+{
+	int ret;
+	struct stat pst;
+
+	if (ost->st_nlink == 0) {
+		pr_err("Unlinked file opened, can't dump\n");
+		return 0;
+	}
+
+	ret = stat(path, &pst);
+	if (ret < 0) {
+		pr_perror("Can't stat path");
+		return 0;
+	}
+
+	if ((pst.st_ino != ost->st_ino) || (pst.st_dev != ost->st_dev)) {
+		pr_err("Unaccessible path opened %u:%u, need %u:%u\n",
+				(int)pst.st_dev, (int)pst.st_ino,
+				(int)ost->st_dev, (int)ost->st_ino);
+		return 0;
+	}
+
+	return 1;
+}
+
 static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
@@ -142,6 +168,10 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	big_buffer[len] = '\0';
 	pr_info("Dumping path for %lx fd via self %d [%s]\n",
 			p->fd_name, lfd, big_buffer);
+
+	if (p->type == FDINFO_REG &&
+			!path_accessible(big_buffer, &p->stat))
+		return -1;
 
 	rfe.len = len;
 	rfe.flags = p->flags;
