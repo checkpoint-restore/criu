@@ -859,39 +859,54 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 	return restore_root_task(pid, opts);
 }
 
+#define TASK_SIZE_MAX   ((1UL << 47) - PAGE_SIZE)
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
-	struct vma_area *t_vma;
+	struct vma_area *t_vma, *s_vma;
 	long prev_vma_end = 0;
+	struct vma_area end_vma;
+
+	end_vma.vma.start = end_vma.vma.end = TASK_SIZE_MAX;
+	prev_vma_end = PAGE_SIZE;
 
 	/*
 	 * Here we need some heuristics -- the VMA which restorer will
 	 * belong to should not be unmapped, so we need to gueess out
 	 * where to put it in.
-	 *
-	 * Yes, I know it's an O(n^2) algorithm, but usually there are
-	 * not that many VMAs presented so instead of consuming memory
-	 * better to stick with it.
 	 */
 
-	list_for_each_entry(t_vma, tgt_vma_list, list) {
-		if (prev_vma_end && ((t_vma->vma.start - prev_vma_end) > vma_len)) {
-			struct vma_area *s_vma;
-			unsigned long prev_vma_end2 = 0;
+	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
+	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
 
-			list_for_each_entry(s_vma, self_vma_list, list) {
-				if (prev_vma_end2 + vma_len > t_vma->vma.start)
-					break;
-				if (prev_vma_end2 && (prev_vma_end2 >= prev_vma_end) &&
-				    ((s_vma->vma.start - prev_vma_end2) > vma_len))
-					return prev_vma_end2;
-
-				prev_vma_end2 = s_vma->vma.end;
+	while (1) {
+		if (prev_vma_end + vma_len > s_vma->vma.start) {
+			if (s_vma->list.next == self_vma_list) {
+				s_vma = &end_vma;
+				continue;
 			}
+			if (s_vma == &end_vma)
+				break;
+			if (prev_vma_end < s_vma->vma.end)
+				prev_vma_end = s_vma->vma.end;
+			s_vma = list_entry(s_vma->list.next, struct vma_area, list);
+			continue;
 		}
 
-		prev_vma_end = t_vma->vma.end;
+		if (prev_vma_end + vma_len > t_vma->vma.start) {
+			if (t_vma->list.next == tgt_vma_list) {
+				t_vma = &end_vma;
+				continue;
+			}
+			if (t_vma == &end_vma)
+				break;
+			if (prev_vma_end < t_vma->vma.end)
+				prev_vma_end = t_vma->vma.end;
+			t_vma = list_entry(t_vma->list.next, struct vma_area, list);
+			continue;
+		}
+
+		return prev_vma_end;
 	}
 
 	return -1;
