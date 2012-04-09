@@ -131,11 +131,11 @@ static void show_node(struct rb_node *node)
 	pr_info("\t--s\n");
 }
 
-void fd_id_show_tree(void)
+static void kid_show_tree(struct kid_tree *tree)
 {
-	struct rb_root *root = &fd_tree.root;
+	struct rb_root *root = &tree->root;
 
-	pr_info("\tTree of file IDs\n");
+	pr_info("\tTree of %d objects\n", tree->kcmp_type);
 	if (root->rb_node)
 		show_node(root->rb_node);
 }
@@ -226,6 +226,11 @@ static u32 kid_generate_gen(struct kid_tree *tree,
 	*new_id = 1;
 	return e->subid;
 
+}
+
+void fd_id_show_tree(void)
+{
+	kid_show_tree(&fd_tree);
 }
 
 u32 fd_id_generate_special(void)
