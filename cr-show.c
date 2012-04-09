@@ -83,8 +83,8 @@ void show_files(int fd_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %5s addr: %16lx id: %8x",
-		       fdtype2s(e.type), e.addr, e.id);
+		pr_msg("type: %5s fd: %5d id: %8x",
+		       fdtype2s(e.type), e.fd, e.id);
 
 		pr_msg("\n");
 	}

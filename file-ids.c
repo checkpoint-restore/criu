@@ -139,7 +139,7 @@ static struct fd_id_entry *alloc_fd_id_entry(pid_t pid, struct fdinfo_entry *fe)
 	e->subid	= fd_id_entries_subid++;
 	e->genid	= fe->id;
 	e->pid		= pid;
-	e->fd		= (int)fe->addr;
+	e->fd		= fe->fd;
 
 	/* Make sure no overflow here */
 	BUG_ON(!e->subid);
@@ -166,7 +166,7 @@ static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
 
 	while (node) {
 		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
-		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, (int)fe->addr);
+		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, fe->fd);
 
 		parent = *new;
 		if (ret < 0)

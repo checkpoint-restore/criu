@@ -161,8 +161,8 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
 	struct file_desc *fdesc;
 
-	pr_info("Collect fdinfo pid=%d fd=%ld id=%16x\n",
-		pid, e->addr, e->id);
+	pr_info("Collect fdinfo pid=%d fd=%d id=%16x\n",
+		pid, e->fd, e->id);
 
 	nr_fdinfo_list++;
 	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= 4096) {
@@ -171,12 +171,12 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	}
 
 	le->pid = pid;
-	le->fd = e->addr;
+	le->fd = e->fd;
 	futex_init(&le->real_pid);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
-		pr_err("No file for fd %d id %d\n", (int)e->addr, e->id);
+		pr_err("No file for fd %d id %d\n", e->fd, e->id);
 		return -1;
 	}
 
@@ -248,10 +248,10 @@ int open_reg_by_id(u32 id)
 }
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
-		int pid, long fd)
+		int pid, int fd)
 {
 	addr->sun_family = AF_UNIX;
-	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%ld", pid, fd);
+	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%d", pid, fd);
 	*len = SUN_LEN(addr);
 	*addr->sun_path = '\0';
 }
@@ -274,7 +274,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	fle = file_master(d);
 
 	if (fle->pid == pid) {
-		if (fle->fd == fe->addr) {
+		if (fle->fd == fe->fd) {
 			/* file master */
 			if (!should_open_transport(fe, d))
 				return 0;
@@ -282,12 +282,12 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 			return 0;
 	}
 
-	transport_name_gen(&saddr, &sun_len, getpid(), fe->addr);
+	transport_name_gen(&saddr, &sun_len, getpid(), fe->fd);
 
-	pr_info("\t%d: Create transport fd for %lx\n", pid, fe->addr);
+	pr_info("\t%d: Create transport fd for %d\n", pid, fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, list)
-		if ((fle->pid == pid) && (fle->fd == fe->addr))
+		if ((fle->pid == pid) && (fle->fd == fe->fd))
 			break;
 
 	BUG_ON(&d->fd_info_head == &fle->list);
@@ -303,7 +303,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 		return -1;
 	}
 
-	ret = reopen_fd_as((int)fe->addr, sock);
+	ret = reopen_fd_as(fe->fd, sock);
 	if (ret < 0)
 		return -1;
 
@@ -334,14 +334,14 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	struct fdinfo_list_entry *fle;
 
 	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->addr != fle->fd))
+	if ((fle->pid != pid) || (fe->fd != fle->fd))
 		return 0;
 
 	tmp = d->ops->open(d);
 	if (tmp < 0)
 		return -1;
 
-	if (reopen_fd_as((int)fe->addr, tmp))
+	if (reopen_fd_as(fe->fd, tmp))
 		return -1;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -350,13 +350,12 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 		return -1;
 	}
 
-	pr_info("\t%d: Create fd for %lx\n", pid, fe->addr);
+	pr_info("\t%d: Create fd for %d\n", pid, fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, list) {
 		if (pid == fle->pid) {
-			pr_info("\t\tGoing to dup %d into %d\n",
-					(int)fe->addr, fle->fd);
-			if (fe->addr == fle->fd)
+			pr_info("\t\tGoing to dup %d into %d\n", fe->fd, fle->fd);
+			if (fe->fd == fle->fd)
 				continue;
 
 			if (move_img_fd(&sock, fle->fd))
@@ -364,16 +363,16 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 			if (move_img_fd(fdinfo_fd, fle->fd))
 				return -1;
 
-			if (dup2(fe->addr, fle->fd) != fle->fd) {
+			if (dup2(fe->fd, fle->fd) != fle->fd) {
 				pr_perror("Can't dup local fd %d -> %d",
-						(int)fe->addr, fle->fd);
+						fe->fd, fle->fd);
 				return -1;
 			}
 
 			continue;
 		}
 
-		if (send_fd_to_peer(fe->addr, fle, sock)) {
+		if (send_fd_to_peer(fe->fd, fle, sock)) {
 			pr_perror("Can't send file descriptor");
 			return -1;
 		}
@@ -394,16 +393,16 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	if (fle->pid == pid)
 		return 0;
 
-	pr_info("\t%d: Receive fd for %lx\n", pid, fe->addr);
+	pr_info("\t%d: Receive fd for %d\n", pid, fe->fd);
 
-	tmp = recv_fd(fe->addr);
+	tmp = recv_fd(fe->fd);
 	if (tmp < 0) {
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;
 	}
-	close(fe->addr);
+	close(fe->fd);
 
-	return reopen_fd_as((int)fe->addr, tmp);
+	return reopen_fd_as(fe->fd, tmp);
 }
 
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)
@@ -413,10 +412,10 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	struct file_desc *fdesc;
 
 	fdesc = find_file_desc(fe);
-	if (move_img_fd(fdinfo_fd, (int)fe->addr))
+	if (move_img_fd(fdinfo_fd, fe->fd))
 		return -1;
 
-	pr_info("\t%d: Got fd for %lx\n", pid, fe->addr);
+	pr_info("\t%d: Got fd for %d\n", pid, fe->fd);
 
 	switch (state) {
 	case FD_STATE_PREP:

@@ -56,7 +56,7 @@ struct reg_file_entry {
 } __packed;
 
 struct fdinfo_entry {
-	u64	addr;
+	u32	fd;
 	u8	type;
 	u32	id;
 } __packed;

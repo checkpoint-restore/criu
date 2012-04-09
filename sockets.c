@@ -304,7 +304,7 @@ static int dump_one_inet(struct socket_desc *_sk, int fd,
 	if (!can_dump_inet_sk(sk))
 		goto err;
 
-	fe.addr = fd;
+	fe.fd = fd;
 	fe.type = FDINFO_INETSK;
 	fe.id = sk->sd.ino;
 
@@ -375,7 +375,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	fe.addr = fd;
+	fe.fd = fd;
 	fe.type = FDINFO_UNIXSK;
 	fe.id = sk->sd.ino;
 

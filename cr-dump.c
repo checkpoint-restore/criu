@@ -303,7 +303,7 @@ static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e.type	= p->type;
-	e.addr	= p->fd_name;
+	e.fd	= p->fd_name;
 	e.id	= p->id;
 
 	ret = fd_id_generate(p->pid, &e);
