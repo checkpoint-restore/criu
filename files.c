@@ -501,7 +501,6 @@ int prepare_fs(int pid)
 {
 	int ifd, cwd;
 	struct fs_entry fe;
-	struct file_desc *fd;
 
 	ifd = open_image_ro(CR_FD_FS, pid);
 	if (ifd < 0)
@@ -510,14 +509,7 @@ int prepare_fs(int pid)
 	if (read_img(ifd, &fe) < 0)
 		return -1;
 
-	fd = find_file_desc_raw(FDINFO_REG, fe.cwd_id);
-	if (fd == NULL) {
-		pr_err("Can't find file for %d's cwd (%x)\n",
-				pid, fe.cwd_id);
-		return -1;
-	}
-
-	cwd = open_fe_fd(fd);
+	cwd = open_reg_by_id(fe.cwd_id);
 	if (cwd < 0)
 		return -1;
 
@@ -543,14 +535,5 @@ int prepare_fs(int pid)
 
 int get_filemap_fd(int pid, struct vma_entry *vma_entry)
 {
-	struct file_desc *fd;
-
-	fd = find_file_desc_raw(FDINFO_REG, vma_entry->shmid);
-	if (fd == NULL) {
-		pr_err("Can't find file for mapping %lx-%lx\n",
-				vma_entry->start, vma_entry->end);
-		return -1;
-	}
-
-	return open_fe_fd(fd);
+	return open_reg_by_id(vma_entry->shmid);
 }
