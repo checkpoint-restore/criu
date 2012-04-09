@@ -21,7 +21,7 @@
 #include "types.h"
 #include "list.h"
 #include "file-ids.h"
-
+#include "kcmp-ids.h"
 #include "compiler.h"
 #include "crtools.h"
 #include "syscall.h"
@@ -853,6 +853,51 @@ static int dump_task_core(struct core_entry *core, int fd_core)
 	return write_img(fd_core, core);
 }
 
+static DECLARE_KCMP_TREE(vm_tree, KCMP_VM);
+static DECLARE_KCMP_TREE(fs_tree, KCMP_FS);
+static DECLARE_KCMP_TREE(files_tree, KCMP_FILES);
+static DECLARE_KCMP_TREE(sighand_tree, KCMP_SIGHAND);
+
+static int dump_task_kobj_ids(pid_t pid, struct core_entry *core)
+{
+	int new;
+	struct kid_elem elem;
+
+	elem.pid = pid;
+	elem.idx = 0; /* really 0 for all */
+	elem.genid = 0; /* FIXME optimize */
+
+	new = 0;
+	core->ids.vm_id = kid_generate_gen(&vm_tree, &elem, &new);
+	if (!core->ids.vm_id || !new) {
+		pr_err("Can't make VM id for %d\n", pid);
+		return -1;
+	}
+
+	new = 0;
+	core->ids.fs_id = kid_generate_gen(&fs_tree, &elem, &new);
+	if (!core->ids.fs_id || !new) {
+		pr_err("Can't make FS id for %d\n", pid);
+		return -1;
+	}
+
+	new = 0;
+	core->ids.files_id = kid_generate_gen(&files_tree, &elem, &new);
+	if (!core->ids.files_id || !new) {
+		pr_err("Can't make FILES id for %d\n", pid);
+		return -1;
+	}
+
+	new = 0;
+	core->ids.sighand_id = kid_generate_gen(&sighand_tree, &elem, &new);
+	if (!core->ids.sighand_id || !new) {
+		pr_err("Can't make IO id for %d\n", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
 		const struct cr_fdset *cr_fdset)
@@ -867,6 +912,10 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 
 	if (!core)
 		goto err;
+
+	ret = dump_task_kobj_ids(pid, core);
+	if (ret)
+		goto err_free;
 
 	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core, ctl);

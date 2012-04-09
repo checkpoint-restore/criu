@@ -479,6 +479,22 @@ err:
 	return;
 }
 
+static void show_core_ids(int fd)
+{
+	struct core_ids_entry cie;
+
+	lseek(fd, GET_FILE_OFF(struct core_entry, ids), SEEK_SET);
+	if (read_img(fd, &cie) < 0)
+		goto err;
+
+	pr_msg("\tVM:      %x\n", cie.vm_id);
+	pr_msg("\tFS:      %x\n", cie.fs_id);
+	pr_msg("\tFILES:   %x\n", cie.files_id);
+	pr_msg("\tSIGHAND: %x\n", cie.sighand_id);
+err:
+	return;
+}
+
 void show_core(int fd_core, struct cr_options *o)
 {
 	struct stat stat;
@@ -498,6 +514,7 @@ void show_core(int fd_core, struct cr_options *o)
 
 	show_core_regs(fd_core);
 	show_core_rest(fd_core);
+	show_core_ids(fd_core);
 out:
 	pr_img_tail(CR_FD_CORE);
 }

@@ -370,12 +370,20 @@ struct mm_entry {
 	u32	exe_file_id;
 } __packed;
 
+struct core_ids_entry {
+	u32	vm_id;
+	u32	files_id;
+	u32	fs_id;
+	u32	sighand_id;
+} __packed;
+
 struct core_entry {
 	union {
 		struct {
 			struct image_header	header;
 			struct task_core_entry	tc;
 			struct ckpt_arch_entry	arch;
+			struct core_ids_entry	ids;
 			u64 clear_tid_address;
 		};
 		u8 __core_pad[CKPT_CORE_SIZE];
