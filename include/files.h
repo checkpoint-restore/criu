@@ -25,13 +25,6 @@ enum fdinfo_states {
 	FD_STATE_MAX
 };
 
-struct fmap_fd {
-	struct fmap_fd		*next;
-	unsigned long		start;
-	int			pid;
-	int			fd;
-};
-
 struct fdinfo_list_entry {
 	struct list_head	list;
 	int			fd;
