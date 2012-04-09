@@ -37,6 +37,7 @@ OBJS		+= util.o
 OBJS		+= util-net.o
 OBJS		+= sysctl.o
 OBJS		+= ptrace.o
+OBJS		+= kcmp-ids.o
 OBJS		+= rbtree.o
 OBJS		+= log.o
 OBJS		+= libnetlink.o
