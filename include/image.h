@@ -35,7 +35,6 @@ enum fd_types {
 	FDINFO_UND,
 	FDINFO_REG,
 	FDINFO_PIPE,
-	FDINFO_MAP,
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
 	FDINFO_CWD,
@@ -62,8 +61,7 @@ struct fdinfo_entry {
 	u32	id;
 } __packed;
 
-#define fd_is_special(fe)		\
-	(((fe)->type == FDINFO_MAP) ||	\
+#define fd_is_special(fe) (		\
 	 ((fe)->type == FDINFO_CWD) ||	\
 	 ((fe)->type == FDINFO_EXE))
 

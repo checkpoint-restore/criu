@@ -13,6 +13,7 @@
 
 struct fdinfo_entry;
 extern int fd_id_generate(pid_t pid, struct fdinfo_entry *fe);
+extern u32 fd_id_generate_special(void);
 extern void fd_id_show_tree(void);
 
 #endif /* FILE_IDS_H__ */

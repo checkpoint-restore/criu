@@ -59,7 +59,6 @@ static char *fdtype2s(u8 type)
 	static char und[4];
 	static char *fdtypes[] = {
 		[FDINFO_REG] = "reg",
-		[FDINFO_MAP] = "map",
 		[FDINFO_CWD] = "cwd",
 		[FDINFO_EXE] = "exe",
 		[FDINFO_INETSK] = "isk",

@@ -24,8 +24,6 @@
 static struct fdinfo_list_entry *fdinfo_list;
 static int nr_fdinfo_list;
 
-static struct fmap_fd *fmap_fds;
-
 #define FDESC_HASH_SIZE	64
 static struct list_head file_descs[FDESC_HASH_SIZE];
 
@@ -460,33 +458,6 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	return reopen_fd_as((int)fe->addr, tmp);
 }
 
-static int open_fmap(int pid, struct fdinfo_entry *fe, int fd)
-{
-	struct fmap_fd *new;
-	int tmp;
-
-	tmp = find_open_fe_fd(fe);
-	if (tmp < 0)
-		return -1;
-
-	pr_info("%d:\t\tWill map %lx to %d\n", pid, (unsigned long)fe->addr, tmp);
-
-	new = xmalloc(sizeof(*new));
-	if (!new) {
-		close_safe(&tmp);
-		return -1;
-	}
-
-	new->start	= fe->addr;
-	new->fd		= tmp;
-	new->next	= fmap_fds;
-	new->pid	= pid;
-
-	fmap_fds	= new;
-
-	return 0;
-}
-
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)
 {
 	u32 mag;
@@ -522,8 +493,6 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 	if (state != FD_STATE_RECV)
 		return 0;
 
-	if (fe->type == FDINFO_MAP)
-		return open_fmap(pid, fe, fdinfo_fd);
 	if (fe->type == FDINFO_CWD)
 		return restore_cwd(fe, fdinfo_fd);
 	if (fe->type == FDINFO_EXE)
@@ -581,31 +550,16 @@ int prepare_fds(int pid)
 	return run_unix_connections();
 }
 
-static struct fmap_fd *pull_fmap_fd(int pid, unsigned long start)
-{
-	struct fmap_fd **p, *r;
-
-	pr_info("%d: Looking for %lx : ", pid, start);
-
-	for (p = &fmap_fds; *p != NULL; p = &(*p)->next) {
-		if ((*p)->start != start || (*p)->pid != pid)
-			continue;
-
-		r = *p;
-		*p = r->next;
-		pr_info("found\n");
-
-		return r;
-	}
-
-	pr_info("not found\n");
-	return NULL;
-}
-
 int get_filemap_fd(int pid, struct vma_entry *vma_entry)
 {
-	struct fmap_fd *fmap_fd;
-	
-	fmap_fd = pull_fmap_fd(pid, vma_entry->start);
-	return fmap_fd ? fmap_fd->fd : -1;
+	struct file_desc *fd;
+
+	fd = find_file_desc_raw(FDINFO_REG, vma_entry->shmid);
+	if (fd == NULL) {
+		pr_err("Can't find file for mapping %lx-%lx\n",
+				vma_entry->start, vma_entry->end);
+		return -1;
+	}
+
+	return open_fe_fd(fd);
 }

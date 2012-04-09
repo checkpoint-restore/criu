@@ -217,13 +217,18 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid,
 
 }
 
+u32 fd_id_generate_special(void)
+{
+	return fd_id_entries_subid++;
+}
+
 int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 {
 	struct fd_id_entry *fid;
 	int new_id = 0;
 
 	if (fd_is_special(fe)) {
-		fe->id = fd_id_entries_subid++;
+		fe->id = fd_id_generate_special();
 		return 1;
 	}
 

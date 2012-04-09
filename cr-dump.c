@@ -544,23 +544,21 @@ static int add_shmem_area(pid_t pid, struct vma_entry *vma)
 static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 		const struct cr_fdset *fdset)
 {
-	struct fd_parms p = {
-		.fd_name	= vma->start,
-		.id		= FD_ID_INVALID,
-		.pid		= pid,
-		.type		= FDINFO_MAP,
-	};
+	struct fd_parms p;
 
+	if (fstat(file_fd, &p.stat) < 0) {
+		pr_perror("Can't stat file for vma");
+		return -1;
+	}
+
+	p.type = FDINFO_REG;
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
 	else
 		p.flags = O_RDONLY;
+	vma->shmid = fd_id_generate_special();
 
-	/*
-	 * XXX Strictly speaking, no need in full fdinfo here.
-	 * This can be relaxed down to calling dump_one_reg_file.
-	 */
-	return do_dump_one_fdinfo(&p, file_fd, fdset);
+	return dump_one_reg_file(file_fd, vma->shmid, &p);
 }
 
 static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
@@ -578,18 +576,12 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 	list_for_each_entry(vma_area, vma_area_list, list) {
 		struct vma_entry *vma = &vma_area->vma;
 
-		ret = write_img(fd, vma);
-		if (ret < 0)
-			goto err;
-
-		if (!vma_entry_is(vma, VMA_AREA_REGULAR))
-			continue;
-		if (vma_entry_is(vma, VMA_AREA_SYSVIPC))
-			continue;
-
 		pr_info_vma(vma_area);
 
-		if (vma_entry_is(vma, VMA_ANON_SHARED))
+		if (!vma_entry_is(vma, VMA_AREA_REGULAR) ||
+				vma_entry_is(vma, VMA_AREA_SYSVIPC))
+			ret = 0;
+		else if (vma_entry_is(vma, VMA_ANON_SHARED))
 			ret = add_shmem_area(pid, vma);
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED))
@@ -597,6 +589,8 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 		else
 			ret = 0;
 
+		if (!ret)
+			ret = write_img(fd, vma);
 		if (ret)
 			goto err;
 	}
