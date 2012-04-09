@@ -18,6 +18,19 @@
 #include "image.h"
 #include "util.h"
 
+struct kid_tree {
+	struct rb_root root;
+	unsigned kcmp_type;
+	unsigned long subid;
+
+};
+
+static struct kid_tree fd_tree = {
+	.root = RB_ROOT,
+	.kcmp_type = KCMP_FILE,
+	.subid = 1,
+};
+
 /*
  * We track shared files by global rbtree, where each node might
  * be a root for subtree. The reason for that is the nature of data
@@ -115,20 +128,16 @@ static void show_node(struct rb_node *node)
 	pr_info("\t--s\n");
 }
 
-static struct rb_root kid_root = RB_ROOT;
-
 void fd_id_show_tree(void)
 {
-	struct rb_root *root = &kid_root;
+	struct rb_root *root = &fd_tree.root;
 
 	pr_info("\tTree of file IDs\n");
 	if (root->rb_node)
 		show_node(root->rb_node);
 }
 
-static unsigned long kid_entries_subid = 1;
-
-static struct kid_entry *alloc_kid_entry(pid_t pid, struct fdinfo_entry *fe)
+static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, pid_t pid, struct fdinfo_entry *fe)
 {
 	struct kid_entry *e;
 
@@ -136,7 +145,7 @@ static struct kid_entry *alloc_kid_entry(pid_t pid, struct fdinfo_entry *fe)
 	if (!e)
 		goto err;
 
-	e->subid	= kid_entries_subid++;
+	e->subid	= tree->subid++;
 	e->genid	= fe->id;
 	e->pid		= pid;
 	e->fd		= fe->fd;
@@ -153,7 +162,7 @@ err:
 	return e;
 }
 
-static struct kid_entry *kid_generate_sub(struct kid_entry *e,
+static struct kid_entry *kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 		pid_t pid, struct fdinfo_entry *fe, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
@@ -166,7 +175,7 @@ static struct kid_entry *kid_generate_sub(struct kid_entry *e,
 
 	while (node) {
 		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, fe->fd);
+		int ret = sys_kcmp(this->pid, pid, tree->kcmp_type, this->fd, fe->fd);
 
 		parent = *new;
 		if (ret < 0)
@@ -177,7 +186,7 @@ static struct kid_entry *kid_generate_sub(struct kid_entry *e,
 			return this;
 	}
 
-	sub = alloc_kid_entry(pid, fe);
+	sub = alloc_kid_entry(tree, pid, fe);
 	if (!sub)
 		return NULL;
 
@@ -186,13 +195,13 @@ static struct kid_entry *kid_generate_sub(struct kid_entry *e,
 	return sub;
 }
 
-static struct kid_entry *kid_generate_gen(pid_t pid,
-		struct fdinfo_entry *fe, int *new_id)
+static struct kid_entry *kid_generate_gen(struct kid_tree *tree,
+		pid_t pid, struct fdinfo_entry *fe, int *new_id)
 {
-	struct rb_node *node = kid_root.rb_node;
+	struct rb_node *node = tree->root.rb_node;
 	struct kid_entry *e = NULL;
 
-	struct rb_node **new = &kid_root.rb_node;
+	struct rb_node **new = &tree->root.rb_node;
 	struct rb_node *parent = NULL;
 
 	while (node) {
@@ -204,14 +213,14 @@ static struct kid_entry *kid_generate_gen(pid_t pid,
 		else if (fe->id > this->genid)
 			node = node->rb_right, new = &((*new)->rb_right);
 		else
-			return kid_generate_sub(this, pid, fe, new_id);
+			return kid_generate_sub(tree, this, pid, fe, new_id);
 	}
 
-	e = alloc_kid_entry(pid, fe);
+	e = alloc_kid_entry(tree, pid, fe);
 	if (!e)
 		return NULL;
 
-	rb_link_and_balance(&kid_root, &e->node, parent, new);
+	rb_link_and_balance(&tree->root, &e->node, parent, new);
 	*new_id = 1;
 	return e;
 
@@ -219,7 +228,7 @@ static struct kid_entry *kid_generate_gen(pid_t pid,
 
 u32 fd_id_generate_special(void)
 {
-	return kid_entries_subid++;
+	return fd_tree.subid++;
 }
 
 int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
@@ -227,7 +236,7 @@ int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 	struct kid_entry *fid;
 	int new_id = 0;
 
-	fid = kid_generate_gen(pid, fe, &new_id);
+	fid = kid_generate_gen(&fd_tree, pid, fe, &new_id);
 	if (!fid)
 		return -ENOMEM;
 
