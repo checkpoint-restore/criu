@@ -22,6 +22,7 @@ enum {
 	CR_FD_FDINFO,
 	CR_FD_PAGES,
 	CR_FD_CORE,
+	CR_FD_MM,
 	CR_FD_VMAS,
 	CR_FD_SIGACT,
 	CR_FD_ITIMERS,
@@ -84,6 +85,7 @@ void show_files(int fd_files, struct cr_options *o);
 void show_pages(int fd_pages, struct cr_options *o);
 void show_reg_files(int fd_reg_files, struct cr_options *o);
 void show_core(int fd_core, struct cr_options *o);
+void show_mm(int fd_mm, struct cr_options *o);
 void show_vmas(int fd_vma, struct cr_options *o);
 void show_pipes(int fd_pipes, struct cr_options *o);
 void show_pipes_data(int fd_pipes, struct cr_options *o);
@@ -100,6 +102,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
 #define FMT_FNAME_REG_FILES	"reg-files.img"
 #define FMT_FNAME_CORE		"core-%d.img"
+#define FMT_FNAME_MM		"mm-%d.img"
 #define FMT_FNAME_VMAS		"vmas-%d.img"
 #define FMT_FNAME_PIPES		"pipes.img"
 #define FMT_FNAME_PIPES_DATA	"pipes-data.img"

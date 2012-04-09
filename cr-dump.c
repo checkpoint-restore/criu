@@ -683,20 +683,22 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_auxv(pid_t pid, struct core_entry *core)
+static int get_task_auxv(pid_t pid, struct mm_entry *mm)
 {
-	int fd = open_proc(pid, "auxv");
-	int ret, i;
+	int fd, ret, i;
 
+	pr_info("Obtainting task auvx ... ");
+
+	fd = open_proc(pid, "auxv");
 	if (fd < 0)
 		return -1;
 
 	for (i = 0; i < AT_VECTOR_SIZE; i++) {
-		ret = read(fd, &core->tc.mm_saved_auxv[i],
-			   sizeof(core->tc.mm_saved_auxv[0]));
+		ret = read(fd, &mm->mm_saved_auxv[i],
+			   sizeof(mm->mm_saved_auxv[0]));
 		if (ret == 0)
 			break;
-		else if (ret != sizeof(core->tc.mm_saved_auxv[0])) {
+		else if (ret != sizeof(mm->mm_saved_auxv[0])) {
 			ret = -1;
 			pr_perror("Error readind %d's auxv[%d]",
 				  pid, i);
@@ -705,10 +707,34 @@ static int get_task_auxv(pid_t pid, struct core_entry *core)
 	}
 
 	ret = 0;
-
 err:
 	close_safe(&fd);
 	return ret;
+}
+
+static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
+		const struct parasite_dump_misc *misc, const struct cr_fdset *fdset)
+{
+	struct mm_entry mme;
+
+	mme.mm_start_code = stat->start_code;
+	mme.mm_end_code = stat->end_code;
+	mme.mm_start_data = stat->start_data;
+	mme.mm_end_data = stat->end_data;
+	mme.mm_start_stack = stat->start_stack;
+	mme.mm_start_brk = stat->start_brk;
+
+	mme.mm_arg_start = stat->arg_start;
+	mme.mm_arg_end = stat->arg_end;
+	mme.mm_env_start = stat->env_start;
+	mme.mm_env_end = stat->env_end;
+
+	mme.mm_brk = misc->brk;
+
+	if (get_task_auxv(pid, &mme))
+		return -1;
+
+	return write_img(fdset_fd(fdset, CR_FD_MM), &mme);
 }
 
 static int get_task_personality(pid_t pid, u32 *personality)
@@ -860,28 +886,13 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 
 	strncpy((char *)core->tc.comm, stat->comm, TASK_COMM_LEN);
 	core->tc.flags = stat->flags;
-	core->tc.mm_start_code = stat->start_code;
-	core->tc.mm_end_code = stat->end_code;
-	core->tc.mm_start_data = stat->start_data;
-	core->tc.mm_end_data = stat->end_data;
-	core->tc.mm_start_stack = stat->start_stack;
-	core->tc.mm_start_brk = stat->start_brk;
 
-	core->tc.mm_arg_start = stat->arg_start;
-	core->tc.mm_arg_end = stat->arg_end;
-	core->tc.mm_env_start = stat->env_start;
-	core->tc.mm_env_end = stat->env_end;
-
-	core->tc.mm_brk = misc->brk;
+	ret = dump_task_mm(pid, stat, misc, cr_fdset);
+	if (ret)
+		goto err_free;
 
 	BUILD_BUG_ON(sizeof(core->tc.blk_sigset) != sizeof(k_rtsigset_t));
 	memcpy(&core->tc.blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
-
-	pr_info("Obtainting task auvx ... ");
-	ret = get_task_auxv(pid, core);
-	if (ret)
-		goto err_free;
-	pr_info("OK\n");
 
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;

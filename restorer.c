@@ -428,19 +428,20 @@ long restore_task(struct task_restore_core_args *args)
 	 * Tune up the task fields.
 	 */
 	ret |= sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)core_entry->tc.mm_start_code, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)core_entry->tc.mm_end_code, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)core_entry->tc.mm_start_data, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)core_entry->tc.mm_end_data, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,(long)core_entry->tc.mm_start_stack, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)core_entry->tc.mm_start_brk, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,	(long)core_entry->tc.mm_brk, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)core_entry->tc.mm_arg_start, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)core_entry->tc.mm_arg_end, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)core_entry->tc.mm_env_start, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)core_entry->tc.mm_env_end, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)core_entry->tc.mm_saved_auxv,
-								sizeof(core_entry->tc.mm_saved_auxv));
+
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)args->mm.mm_start_data, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)args->mm.mm_end_data, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,	(long)args->mm.mm_start_stack, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)args->mm.mm_start_brk, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,		(long)args->mm.mm_brk, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)args->mm.mm_arg_start, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)args->mm.mm_arg_end, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)args->mm.mm_env_start, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)args->mm.mm_env_end, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm.mm_saved_auxv,
+								sizeof(args->mm.mm_saved_auxv));
 	if (ret)
 		goto core_restore_end;
 

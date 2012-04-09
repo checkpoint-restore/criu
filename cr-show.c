@@ -473,18 +473,7 @@ static void show_core_rest(int fd_core)
 	pr_msg("\t   Exit code: %u\n",
 	       (unsigned int)tc.exit_code);
 
-	pr_msg("\tBrk:          %lx\n", tc.mm_brk);
-	pr_msg("\tStart code:   %lx\n", tc.mm_start_code);
-	pr_msg("\tEnd code:     %lx\n", tc.mm_end_code);
-	pr_msg("\tStart stack:  %lx\n", tc.mm_start_stack);
-	pr_msg("\tStart data:   %lx\n", tc.mm_start_data);
-	pr_msg("\tEnd data:     %lx\n", tc.mm_end_data);
-	pr_msg("\tStart brk:    %lx\n", tc.mm_start_brk);
-	pr_msg("\tArg start:    %lx\n", tc.mm_arg_start);
-	pr_msg("\tArg end:      %lx\n", tc.mm_arg_end);
-	pr_msg("\tEnv start:    %lx\n", tc.mm_env_start);
-	pr_msg("\tEnv end:      %lx\n", tc.mm_env_end);
-	pr_msg("\n\tBlkSig: %lx\n", tc.blk_sigset);
+	pr_msg("\tBlkSig: %lx\n", tc.blk_sigset);
 	pr_msg("\n");
 
 err:
@@ -512,6 +501,30 @@ void show_core(int fd_core, struct cr_options *o)
 	show_core_rest(fd_core);
 out:
 	pr_img_tail(CR_FD_CORE);
+}
+
+void show_mm(int fd_mm, struct cr_options *o)
+{
+	struct mm_entry mme;
+
+	pr_img_head(CR_FD_MM);
+
+	if (read_img(fd_mm, &mme) < 0)
+		goto out;
+
+	pr_msg("\tBrk:          %lx\n", mme.mm_brk);
+	pr_msg("\tStart code:   %lx\n", mme.mm_start_code);
+	pr_msg("\tEnd code:     %lx\n", mme.mm_end_code);
+	pr_msg("\tStart stack:  %lx\n", mme.mm_start_stack);
+	pr_msg("\tStart data:   %lx\n", mme.mm_start_data);
+	pr_msg("\tEnd data:     %lx\n", mme.mm_end_data);
+	pr_msg("\tStart brk:    %lx\n", mme.mm_start_brk);
+	pr_msg("\tArg start:    %lx\n", mme.mm_arg_start);
+	pr_msg("\tArg end:      %lx\n", mme.mm_arg_end);
+	pr_msg("\tEnv start:    %lx\n", mme.mm_env_start);
+	pr_msg("\tEnv end:      %lx\n", mme.mm_env_end);
+out:
+	pr_img_tail(CR_FD_MM);
 }
 
 static int cr_parse_file(struct cr_options *opts)

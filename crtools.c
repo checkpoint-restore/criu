@@ -68,6 +68,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.show	= show_core,
 	},
 
+	[CR_FD_MM] = {
+		.fmt	= FMT_FNAME_MM,
+		.magic	= MM_MAGIC,
+		.show	= show_mm,
+	},
+
 	[CR_FD_VMAS] = {
 		.fmt	= FMT_FNAME_VMAS,
 		.magic	= VMAS_MAGIC,

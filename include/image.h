@@ -29,6 +29,7 @@
 #define IPCNS_SEM_MAGIC	0x59573019 /* St. Petersburg */
 #define REG_FILES_MAGIC	0x50363636 /* Belgorod */
 #define FS_MAGIC	0x51403912 /* Voronezh */
+#define MM_MAGIC	0x57492820 /* Pskov */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -353,20 +354,23 @@ struct task_core_entry {
 	u32				personality;
 	u8				comm[TASK_COMM_LEN];
 	u32				flags;
-	u64				mm_start_code;
-	u64				mm_end_code;
-	u64				mm_start_data;
-	u64				mm_end_data;
-	u64				mm_start_stack;
-	u64				mm_start_brk;
-	u64				mm_brk;
-	u64				mm_arg_start;
-	u64				mm_arg_end;
-	u64				mm_env_start;
-	u64				mm_env_end;
 	u64				blk_sigset;
-	u64				mm_saved_auxv[AT_VECTOR_SIZE];
 };
+
+struct mm_entry {
+	u64	mm_start_code;
+	u64	mm_end_code;
+	u64	mm_start_data;
+	u64	mm_end_data;
+	u64	mm_start_stack;
+	u64	mm_start_brk;
+	u64	mm_brk;
+	u64	mm_arg_start;
+	u64	mm_arg_end;
+	u64	mm_env_start;
+	u64	mm_env_end;
+	u64	mm_saved_auxv[AT_VECTOR_SIZE];
+} __packed;
 
 struct core_entry {
 	union {

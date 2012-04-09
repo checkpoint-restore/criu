@@ -1026,6 +1026,21 @@ static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct li
 	return ret;
 }
 
+static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
+{
+	int fd;
+
+	fd = open_image_ro(CR_FD_MM, pid);
+	if (fd < 0)
+		return -1;
+
+	if (read_img(fd, &args->mm) < 0)
+		return -1;
+
+	close(fd);
+	return 0;
+}
+
 static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 {
 	long restore_code_len, restore_task_vma_len;
@@ -1202,6 +1217,10 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 		goto err;
 
 	ret = prepare_creds(pid, task_args);
+	if (ret < 0)
+		goto err;
+
+	ret = prepare_mm(pid, task_args);
 	if (ret < 0)
 		goto err;
 
