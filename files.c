@@ -101,14 +101,6 @@ void show_saved_files(void)
 		}
 }
 
-static struct reg_file_info *find_reg_file(int id)
-{
-	struct file_desc *fd;
-
-	fd = find_file_desc_raw(FDINFO_REG, id);
-	return container_of(fd, struct reg_file_info, d);
-}
-
 static int open_fe_fd(struct file_desc *d);
 
 static struct file_desc_ops reg_desc_ops = {
@@ -253,20 +245,6 @@ int open_reg_by_id(u32 id)
 	}
 
 	return open_fe_fd(fd);
-}
-
-static int find_open_fe_fd(struct fdinfo_entry *fe)
-{
-	struct reg_file_info *rfi;
-	int tmp;
-
-	rfi = find_reg_file(fe->id);
-	if (!rfi) {
-		pr_err("Can't find file id %x\n", fe->id);
-		return -1;
-	}
-
-	return open_fe_fd(&rfi->d);
 }
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
