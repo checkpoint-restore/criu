@@ -25,6 +25,12 @@ struct kid_tree {
 
 };
 
+struct kid_elem {
+	int pid;
+	unsigned genid;
+	unsigned idx;
+};
+
 static struct kid_tree fd_tree = {
 	.root = RB_ROOT,
 	.kcmp_type = KCMP_FILE,
@@ -77,18 +83,15 @@ struct kid_entry {
 	struct rb_root	subtree_root;
 	struct rb_node	subtree_node;
 
-	u32		genid;	/* generic id, may have duplicates */
 	u32		subid;	/* subid is always unique */
-
-	pid_t		pid;
-	int		fd;
+	struct kid_elem	elem;
 } __aligned(sizeof(long));
 
 static void show_subnode(struct rb_node *node, int self)
 {
 	struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
 
-	pr_info("\t\t| %x.%x %s\n", this->genid, this->subid,
+	pr_info("\t\t| %x.%x %s\n", this->elem.genid, this->subid,
 			self ? "(self)" : "");
 	if (node->rb_left) {
 		pr_info("\t\t| left:\n");
@@ -112,7 +115,7 @@ static void show_node(struct rb_node *node)
 {
 	struct kid_entry *this = rb_entry(node, struct kid_entry, node);
 
-	pr_info("\t%x.%x\n", this->genid, this->subid);
+	pr_info("\t%x.%x\n", this->elem.genid, this->subid);
 	if (node->rb_left) {
 		pr_info("\tleft:\n");
 		show_node(node->rb_left);
@@ -137,7 +140,7 @@ void fd_id_show_tree(void)
 		show_node(root->rb_node);
 }
 
-static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, pid_t pid, struct fdinfo_entry *fe)
+static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, struct kid_elem *elem)
 {
 	struct kid_entry *e;
 
@@ -146,9 +149,7 @@ static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, pid_t pid, struc
 		goto err;
 
 	e->subid	= tree->subid++;
-	e->genid	= fe->id;
-	e->pid		= pid;
-	e->fd		= fe->fd;
+	e->elem		= *elem;
 
 	/* Make sure no overflow here */
 	BUG_ON(!e->subid);
@@ -163,7 +164,7 @@ err:
 }
 
 static struct kid_entry *kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
-		pid_t pid, struct fdinfo_entry *fe, int *new_id)
+		struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
 	struct kid_entry *sub = NULL;
@@ -175,7 +176,8 @@ static struct kid_entry *kid_generate_sub(struct kid_tree *tree, struct kid_entr
 
 	while (node) {
 		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-		int ret = sys_kcmp(this->pid, pid, tree->kcmp_type, this->fd, fe->fd);
+		int ret = sys_kcmp(this->elem.pid, elem->pid, tree->kcmp_type,
+				this->elem.idx, elem->idx);
 
 		parent = *new;
 		if (ret < 0)
@@ -186,7 +188,7 @@ static struct kid_entry *kid_generate_sub(struct kid_tree *tree, struct kid_entr
 			return this;
 	}
 
-	sub = alloc_kid_entry(tree, pid, fe);
+	sub = alloc_kid_entry(tree, elem);
 	if (!sub)
 		return NULL;
 
@@ -196,7 +198,7 @@ static struct kid_entry *kid_generate_sub(struct kid_tree *tree, struct kid_entr
 }
 
 static struct kid_entry *kid_generate_gen(struct kid_tree *tree,
-		pid_t pid, struct fdinfo_entry *fe, int *new_id)
+		struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = tree->root.rb_node;
 	struct kid_entry *e = NULL;
@@ -208,15 +210,15 @@ static struct kid_entry *kid_generate_gen(struct kid_tree *tree,
 		struct kid_entry *this = rb_entry(node, struct kid_entry, node);
 
 		parent = *new;
-		if (fe->id < this->genid)
+		if (elem->genid < this->elem.genid)
 			node = node->rb_left, new = &((*new)->rb_left);
-		else if (fe->id > this->genid)
+		else if (elem->genid > this->elem.genid)
 			node = node->rb_right, new = &((*new)->rb_right);
 		else
-			return kid_generate_sub(tree, this, pid, fe, new_id);
+			return kid_generate_sub(tree, this, elem, new_id);
 	}
 
-	e = alloc_kid_entry(tree, pid, fe);
+	e = alloc_kid_entry(tree, elem);
 	if (!e)
 		return NULL;
 
@@ -234,9 +236,14 @@ u32 fd_id_generate_special(void)
 int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 {
 	struct kid_entry *fid;
+	struct kid_elem e;
 	int new_id = 0;
 
-	fid = kid_generate_gen(&fd_tree, pid, fe, &new_id);
+	e.pid = pid;
+	e.genid = fe->id;
+	e.idx = fe->fd;
+
+	fid = kid_generate_gen(&fd_tree, &e, &new_id);
 	if (!fid)
 		return -ENOMEM;
 
