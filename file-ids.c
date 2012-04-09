@@ -58,7 +58,7 @@
  * in one pass.
  */
 
-struct fd_id_entry {
+struct kid_entry {
 	struct rb_node	node;
 
 	struct rb_root	subtree_root;
@@ -73,7 +73,7 @@ struct fd_id_entry {
 
 static void show_subnode(struct rb_node *node, int self)
 {
-	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
+	struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
 
 	pr_info("\t\t| %x.%x %s\n", this->genid, this->subid,
 			self ? "(self)" : "");
@@ -97,7 +97,7 @@ static void show_subtree(struct rb_root *root)
 
 static void show_node(struct rb_node *node)
 {
-	struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, node);
+	struct kid_entry *this = rb_entry(node, struct kid_entry, node);
 
 	pr_info("\t%x.%x\n", this->genid, this->subid);
 	if (node->rb_left) {
@@ -115,28 +115,28 @@ static void show_node(struct rb_node *node)
 	pr_info("\t--s\n");
 }
 
-static struct rb_root fd_id_root = RB_ROOT;
+static struct rb_root kid_root = RB_ROOT;
 
 void fd_id_show_tree(void)
 {
-	struct rb_root *root = &fd_id_root;
+	struct rb_root *root = &kid_root;
 
 	pr_info("\tTree of file IDs\n");
 	if (root->rb_node)
 		show_node(root->rb_node);
 }
 
-static unsigned long fd_id_entries_subid = 1;
+static unsigned long kid_entries_subid = 1;
 
-static struct fd_id_entry *alloc_fd_id_entry(pid_t pid, struct fdinfo_entry *fe)
+static struct kid_entry *alloc_kid_entry(pid_t pid, struct fdinfo_entry *fe)
 {
-	struct fd_id_entry *e;
+	struct kid_entry *e;
 
 	e = xmalloc(sizeof(*e));
 	if (!e)
 		goto err;
 
-	e->subid	= fd_id_entries_subid++;
+	e->subid	= kid_entries_subid++;
 	e->genid	= fe->id;
 	e->pid		= pid;
 	e->fd		= fe->fd;
@@ -153,11 +153,11 @@ err:
 	return e;
 }
 
-static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
+static struct kid_entry *kid_generate_sub(struct kid_entry *e,
 		pid_t pid, struct fdinfo_entry *fe, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
-	struct fd_id_entry *sub = NULL;
+	struct kid_entry *sub = NULL;
 
 	struct rb_node **new = &e->subtree_root.rb_node;
 	struct rb_node *parent = NULL;
@@ -165,7 +165,7 @@ static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
 	BUG_ON(!node);
 
 	while (node) {
-		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, subtree_node);
+		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
 		int ret = sys_kcmp(this->pid, pid, KCMP_FILE, this->fd, fe->fd);
 
 		parent = *new;
@@ -177,7 +177,7 @@ static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
 			return this;
 	}
 
-	sub = alloc_fd_id_entry(pid, fe);
+	sub = alloc_kid_entry(pid, fe);
 	if (!sub)
 		return NULL;
 
@@ -186,17 +186,17 @@ static struct fd_id_entry *fd_id_generate_sub(struct fd_id_entry *e,
 	return sub;
 }
 
-static struct fd_id_entry *fd_id_generate_gen(pid_t pid,
+static struct kid_entry *kid_generate_gen(pid_t pid,
 		struct fdinfo_entry *fe, int *new_id)
 {
-	struct rb_node *node = fd_id_root.rb_node;
-	struct fd_id_entry *e = NULL;
+	struct rb_node *node = kid_root.rb_node;
+	struct kid_entry *e = NULL;
 
-	struct rb_node **new = &fd_id_root.rb_node;
+	struct rb_node **new = &kid_root.rb_node;
 	struct rb_node *parent = NULL;
 
 	while (node) {
-		struct fd_id_entry *this = rb_entry(node, struct fd_id_entry, node);
+		struct kid_entry *this = rb_entry(node, struct kid_entry, node);
 
 		parent = *new;
 		if (fe->id < this->genid)
@@ -204,14 +204,14 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid,
 		else if (fe->id > this->genid)
 			node = node->rb_right, new = &((*new)->rb_right);
 		else
-			return fd_id_generate_sub(this, pid, fe, new_id);
+			return kid_generate_sub(this, pid, fe, new_id);
 	}
 
-	e = alloc_fd_id_entry(pid, fe);
+	e = alloc_kid_entry(pid, fe);
 	if (!e)
 		return NULL;
 
-	rb_link_and_balance(&fd_id_root, &e->node, parent, new);
+	rb_link_and_balance(&kid_root, &e->node, parent, new);
 	*new_id = 1;
 	return e;
 
@@ -219,15 +219,15 @@ static struct fd_id_entry *fd_id_generate_gen(pid_t pid,
 
 u32 fd_id_generate_special(void)
 {
-	return fd_id_entries_subid++;
+	return kid_entries_subid++;
 }
 
 int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 {
-	struct fd_id_entry *fid;
+	struct kid_entry *fid;
 	int new_id = 0;
 
-	fid = fd_id_generate_gen(pid, fe, &new_id);
+	fid = kid_generate_gen(pid, fe, &new_id);
 	if (!fid)
 		return -ENOMEM;
 
