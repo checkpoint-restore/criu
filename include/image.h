@@ -61,8 +61,6 @@ struct fdinfo_entry {
 	u32	id;
 } __packed;
 
-#define fd_is_special(fe) (0)
-
 struct fs_entry {
 	u32	cwd_id;
 	u32	root_id;

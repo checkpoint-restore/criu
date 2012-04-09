@@ -227,11 +227,6 @@ int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
 	struct fd_id_entry *fid;
 	int new_id = 0;
 
-	if (fd_is_special(fe)) {
-		fe->id = fd_id_generate_special();
-		return 1;
-	}
-
 	fid = fd_id_generate_gen(pid, fe, &new_id);
 	if (!fid)
 		return -ENOMEM;

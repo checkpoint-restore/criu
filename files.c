@@ -216,9 +216,6 @@ int prepare_fd_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		if (fd_is_special(&e))
-			continue;
-
 		ret = collect_fd(pid, &e);
 		if (ret < 0)
 			break;
@@ -443,8 +440,6 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 
 	pr_info("\t%d: Got fd for %lx\n", pid, fe->addr);
 
-	BUG_ON(fd_is_special(fe));
-
 	switch (state) {
 	case FD_STATE_PREP:
 		ret = open_transport_fd(pid, fe, fdesc);
@@ -458,17 +453,6 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	}
 
 	return ret;
-}
-
-static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
-		int fdinfo_fd, int state)
-{
-	if (state != FD_STATE_RECV)
-		return 0;
-
-	pr_info("%d: fe->type: %d\n", pid,  fe->type);
-	BUG_ON(1);
-	return -1;
 }
 
 int prepare_fds(int pid)
@@ -499,12 +483,7 @@ int prepare_fds(int pid)
 			if (ret <= 0)
 				break;
 
-			if (fd_is_special(&fe))
-				ret = open_special_fdinfo(pid, &fe,
-						fdinfo_fd, state);
-			else
-				ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
-
+			ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
 			if (ret)
 				break;
 		}
