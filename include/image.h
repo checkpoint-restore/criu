@@ -28,6 +28,7 @@
 #define IPCNS_MSG_MAGIC	0x55453737 /* Moscow */
 #define IPCNS_SEM_MAGIC	0x59573019 /* St. Petersburg */
 #define REG_FILES_MAGIC	0x50363636 /* Belgorod */
+#define FS_MAGIC	0x51403912 /* Voronezh */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -37,7 +38,6 @@ enum fd_types {
 	FDINFO_PIPE,
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
-	FDINFO_CWD,
 	FDINFO_EXE,
 
 	FD_INFO_MAX
@@ -61,9 +61,11 @@ struct fdinfo_entry {
 	u32	id;
 } __packed;
 
-#define fd_is_special(fe) (		\
-	 ((fe)->type == FDINFO_CWD) ||	\
-	 ((fe)->type == FDINFO_EXE))
+#define fd_is_special(fe) ((fe)->type == FDINFO_EXE)
+
+struct fs_entry {
+	u32	cwd_id;
+} __packed;
 
 struct pstree_entry {
 	u32	pid;

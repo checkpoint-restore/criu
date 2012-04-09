@@ -510,6 +510,9 @@ static int restore_one_alive_task(int pid)
 	if (prepare_fds(pid))
 		return -1;
 
+	if (prepare_fs(pid))
+		return -1;
+
 	if (prepare_sigactions(pid))
 		return -1;
 

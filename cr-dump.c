@@ -348,21 +348,6 @@ static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
 	struct fd_parms params;
 	int fd, ret;
 
-	/* Dump /proc/pid/cwd */
-	params = (struct fd_parms) {
-		.id		= FD_ID_INVALID,
-		.pid		= FD_PID_INVALID,
-		.type		= FDINFO_CWD,
-	};
-
-	fd = open_proc(pid, "cwd");
-	if (fd < 0)
-		return -1;
-	ret = do_dump_one_fdinfo(&params, fd, cr_fdset);
-	close(fd);
-	if (ret)
-		return ret;
-
 	/* Dump /proc/pid/exe */
 	params = (struct fd_parms) {
 		.id		= FD_ID_INVALID,
@@ -485,6 +470,36 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	pr_info("----------------------------------------\n");
 err:
 	xfree(lfds);
+	return ret;
+}
+
+static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
+{
+	struct fd_parms p;
+	struct fs_entry fe;
+	int fd, ret;
+
+	fd = open_proc(pid, "cwd");
+	if (fd < 0)
+		return -1;
+
+	if (fstat(fd, &p.stat) < 0) {
+		pr_perror("Can't stat cwd");
+		return -1;
+	}
+
+	p.type = FDINFO_REG;
+	p.flags = 0;
+	p.pos = 0;
+	fe.cwd_id = fd_id_generate_special();
+
+	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
+	if (!ret) {
+		pr_info("Dumping task cwd id %x\n", fe.cwd_id);
+		ret = write_img(fdset_fd(fdset, CR_FD_FS), &fe);
+	}
+
+	close(fd);
 	return ret;
 }
 
@@ -1452,6 +1467,13 @@ static int dump_one_task(const struct pstree_item *item)
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
+
+	ret = dump_task_fs(pid, cr_fdset);
+	if (ret) {
+		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
 err:
 	close_cr_fdset(&cr_fdset);
 	close_pid_proc();

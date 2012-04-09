@@ -259,23 +259,6 @@ static int find_open_fe_fd(struct fdinfo_entry *fe)
 	return open_fe_fd(&rfi->d);
 }
 
-static int restore_cwd(struct fdinfo_entry *fe, int fd)
-{
-	int cfd;
-
-	cfd = find_open_fe_fd(fe);
-	if (cfd < 0)
-		return cfd;
-
-	if (fchdir(cfd)) {
-		pr_perror("Can't chdir");
-		return -1;
-	}
-
-	close(cfd);
-	return 0;
-}
-
 int self_exe_fd;
 
 static int restore_exe_early(struct fdinfo_entry *fe, int fd)
@@ -493,8 +476,6 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 	if (state != FD_STATE_RECV)
 		return 0;
 
-	if (fe->type == FDINFO_CWD)
-		return restore_cwd(fe, fdinfo_fd);
 	if (fe->type == FDINFO_EXE)
 		return restore_exe_early(fe, fdinfo_fd);
 
@@ -548,6 +529,41 @@ int prepare_fds(int pid)
 	close(fdinfo_fd);
 
 	return run_unix_connections();
+}
+
+int prepare_fs(int pid)
+{
+	int ifd, cwd;
+	struct fs_entry fe;
+	struct file_desc *fd;
+
+	ifd = open_image_ro(CR_FD_FS, pid);
+	if (ifd < 0)
+		return -1;
+
+	if (read_img(ifd, &fe) < 0)
+		return -1;
+
+	fd = find_file_desc_raw(FDINFO_REG, fe.cwd_id);
+	if (fd == NULL) {
+		pr_err("Can't find file for %d's cwd (%x)\n",
+				pid, fe.cwd_id);
+		return -1;
+	}
+
+	cwd = open_fe_fd(fd);
+	if (cwd < 0)
+		return -1;
+
+	if (fchdir(cwd) < 0) {
+		pr_perror("Can't change root");
+		return -1;
+	}
+
+	close(cwd);
+	close(ifd);
+
+	return 0;
 }
 
 int get_filemap_fd(int pid, struct vma_entry *vma_entry)

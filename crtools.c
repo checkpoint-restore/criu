@@ -170,6 +170,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= IPCNS_SEM_MAGIC,
 		.show	= show_ipc_sem,
 	},
+
+	[CR_FD_FS] = {
+		.fmt	= FMT_FNAME_FS,
+		.magic	= FS_MAGIC,
+		.show	= show_fs,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

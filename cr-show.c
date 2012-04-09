@@ -59,7 +59,6 @@ static char *fdtype2s(u8 type)
 	static char und[4];
 	static char *fdtypes[] = {
 		[FDINFO_REG] = "reg",
-		[FDINFO_CWD] = "cwd",
 		[FDINFO_EXE] = "exe",
 		[FDINFO_INETSK] = "isk",
 		[FDINFO_PIPE] = "pipe",
@@ -170,6 +169,18 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 
 out:
 	pr_img_tail(CR_FD_PIPES);
+}
+
+void show_fs(int fd_fs, struct cr_options *o)
+{
+	struct fs_entry fe;
+
+	pr_img_head(CR_FD_FS);
+
+	if (read_img(fd_fs, &fe) > 0)
+		pr_msg("CWD: %x\n", fe.cwd_id);
+
+	pr_img_tail(CR_FD_FS);
 }
 
 void show_vmas(int fd_vma, struct cr_options *o)

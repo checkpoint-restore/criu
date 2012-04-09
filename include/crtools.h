@@ -26,6 +26,7 @@ enum {
 	CR_FD_SIGACT,
 	CR_FD_ITIMERS,
 	CR_FD_CREDS,
+	CR_FD_FS,
 	_CR_FD_TASK_TO,
 
 	/*
@@ -90,6 +91,7 @@ void show_pstree(int fd_pstree, struct cr_options *o);
 void show_sigacts(int fd_sigacts, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);
 void show_creds(int fd, struct cr_options *o);
+void show_fs(int fd, struct cr_options *o);
 
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
@@ -113,6 +115,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_IPCNS_MSG	"ipcns-msg-%d.img"
 #define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
 #define FMT_FNAME_SK_QUEUES	"sk-queues.img"
+#define FMT_FNAME_FS		"fs-%d.img"
 
 extern int open_image_dir(void);
 extern void close_image_dir(void);
