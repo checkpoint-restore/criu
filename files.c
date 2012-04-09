@@ -245,6 +245,19 @@ static int open_fe_fd(struct file_desc *d)
 
 	return tmp;
 }
+int open_reg_by_id(u32 id)
+{
+	struct file_desc *fd;
+
+	fd = find_file_desc_raw(FDINFO_REG, id);
+	if (fd == NULL) {
+		pr_perror("Can't find regfile for %x\n", id);
+		return -1;
+	}
+
+	return open_fe_fd(fd);
+}
+
 static int find_open_fe_fd(struct fdinfo_entry *fe)
 {
 	struct reg_file_info *rfi;
@@ -257,29 +270,6 @@ static int find_open_fe_fd(struct fdinfo_entry *fe)
 	}
 
 	return open_fe_fd(&rfi->d);
-}
-
-int self_exe_fd;
-
-static int restore_exe_early(struct fdinfo_entry *fe, int fd)
-{
-	int tmp;
-
-	/*
-	 * We restore the EXE symlink at very late stage
-	 * because of restrictions applied from kernel side,
-	 * so keep this fd open till then.
-	 */
-
-	self_exe_fd = get_service_fd(SELF_EXE_FD_OFF);
-	if (self_exe_fd < 0)
-		return self_exe_fd;
-
-	tmp = find_open_fe_fd(fe);
-	if (tmp < 0)
-		return tmp;
-
-	return reopen_fd_as(self_exe_fd, tmp);
 }
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
@@ -475,9 +465,6 @@ static int open_special_fdinfo(int pid, struct fdinfo_entry *fe,
 {
 	if (state != FD_STATE_RECV)
 		return 0;
-
-	if (fe->type == FDINFO_EXE)
-		return restore_exe_early(fe, fdinfo_fd);
 
 	pr_info("%d: fe->type: %d\n", pid,  fe->type);
 	BUG_ON(1);

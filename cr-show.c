@@ -59,7 +59,6 @@ static char *fdtype2s(u8 type)
 	static char und[4];
 	static char *fdtypes[] = {
 		[FDINFO_REG] = "reg",
-		[FDINFO_EXE] = "exe",
 		[FDINFO_INETSK] = "isk",
 		[FDINFO_PIPE] = "pipe",
 		[FDINFO_UNIXSK] = "usk",
@@ -523,6 +522,7 @@ void show_mm(int fd_mm, struct cr_options *o)
 	pr_msg("\tArg end:      %lx\n", mme.mm_arg_end);
 	pr_msg("\tEnv start:    %lx\n", mme.mm_env_start);
 	pr_msg("\tEnv end:      %lx\n", mme.mm_env_end);
+	pr_msg("\tExe file ID   %x\n", mme.exe_file_id);
 out:
 	pr_img_tail(CR_FD_MM);
 }

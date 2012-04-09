@@ -343,22 +343,26 @@ static int dump_one_fdinfo(struct fd_parms *p, int lfd,
 	return do_dump_one_fdinfo(p, lfd, cr_fdset);
 }
 
-static int dump_task_special_files(pid_t pid, const struct cr_fdset *cr_fdset)
+static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 {
 	struct fd_parms params;
 	int fd, ret;
 
-	/* Dump /proc/pid/exe */
-	params = (struct fd_parms) {
-		.id		= FD_ID_INVALID,
-		.pid		= FD_PID_INVALID,
-		.type		= FDINFO_EXE,
-	};
-
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
-	ret = do_dump_one_fdinfo(&params, fd, cr_fdset);
+
+	if (fstat(fd, &params.stat) < 0) {
+		pr_perror("Can't fstat exe link");
+		return -1;
+	}
+
+	params.type = FDINFO_REG;
+	params.flags = 0;
+	params.pos = 0;
+	mm->exe_file_id = fd_id_generate_special();
+
+	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
 	close(fd);
 
 	return ret;
@@ -448,17 +452,6 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	ret = parasite_drain_fds_seized(ctl, fds, lfds, nr_fds);
 	if (ret)
 		goto err;
-
-	/*
-	 * Dump special files at the beginning. We might need
-	 * to re-read them in restorer, so better to make it
-	 * fast.
-	 */
-	ret = dump_task_special_files(ctl->pid, cr_fdset);
-	if (ret) {
-		pr_err("Can't dump special files\n");
-		goto err;
-	}
 
 	for (i = 0; i < nr_fds; i++) {
 		ret = dump_one_fd(ctl->pid, fds[i], lfds[i], cr_fdset);
@@ -732,6 +725,9 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	mme.mm_brk = misc->brk;
 
 	if (get_task_auxv(pid, &mme))
+		return -1;
+
+	if (dump_task_exe_link(pid, &mme))
 		return -1;
 
 	return write_img(fdset_fd(fdset, CR_FD_MM), &mme);

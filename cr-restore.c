@@ -1028,7 +1028,7 @@ static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct li
 
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
-	int fd;
+	int fd, exe_fd;
 
 	fd = open_image_ro(CR_FD_MM, pid);
 	if (fd < 0)
@@ -1036,6 +1036,12 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 
 	if (read_img(fd, &args->mm) < 0)
 		return -1;
+
+	exe_fd = open_reg_by_id(args->mm.exe_file_id);
+	if (exe_fd < 0)
+		return -1;
+
+	args->fd_exe_link = exe_fd;
 
 	close(fd);
 	return 0;
@@ -1209,7 +1215,6 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	task_args->fd_core	= fd_core;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
-	task_args->fd_exe_link	= self_exe_fd;
 	task_args->fd_pages	= fd_pages;
 
 	ret = prepare_itimers(pid, task_args);

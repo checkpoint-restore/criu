@@ -39,7 +39,6 @@ enum fd_types {
 	FDINFO_PIPE,
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
-	FDINFO_EXE,
 
 	FD_INFO_MAX
 };
@@ -62,7 +61,7 @@ struct fdinfo_entry {
 	u32	id;
 } __packed;
 
-#define fd_is_special(fe) ((fe)->type == FDINFO_EXE)
+#define fd_is_special(fe) (0)
 
 struct fs_entry {
 	u32	cwd_id;
@@ -370,6 +369,7 @@ struct mm_entry {
 	u64	mm_env_start;
 	u64	mm_env_end;
 	u64	mm_saved_auxv[AT_VECTOR_SIZE];
+	u32	exe_file_id;
 } __packed;
 
 struct core_entry {
