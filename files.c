@@ -563,6 +563,15 @@ int prepare_fs(int pid)
 	close(cwd);
 	close(ifd);
 
+	/*
+	 * FIXME: restore task's root. Don't want to do it now, since
+	 * it's not yet clean how we're going to resolve tasks' paths
+	 * relative to the dumper/restorer and all this logic is likely
+	 * to be hidden in a couple of calls (open_fe_fd is one od them)
+	 * but for chroot there's no fchroot call, we have to chroot
+	 * by path thus exposing this (yet unclean) logic here.
+	 */
+
 	return 0;
 }
 

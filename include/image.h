@@ -65,6 +65,7 @@ struct fdinfo_entry {
 
 struct fs_entry {
 	u32	cwd_id;
+	u32	root_id;
 } __packed;
 
 struct pstree_entry {

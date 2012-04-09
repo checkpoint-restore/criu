@@ -494,13 +494,35 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 	fe.cwd_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
-	if (!ret) {
-		pr_info("Dumping task cwd id %x\n", fe.cwd_id);
-		ret = write_img(fdset_fd(fdset, CR_FD_FS), &fe);
-	}
+	if (ret < 0)
+		return ret;
 
 	close(fd);
-	return ret;
+
+	fd = open_proc(pid, "root");
+	if (fd < 0)
+		return -1;
+
+	if (fstat(fd, &p.stat) < 0) {
+		pr_perror("Can't stat root");
+		return -1;
+	}
+
+	p.type = FDINFO_REG;
+	p.flags = 0;
+	p.pos = 0;
+	fe.root_id = fd_id_generate_special();
+
+	ret = dump_one_reg_file(fd, fe.root_id, &p);
+	if (ret < 0)
+		return ret;
+
+	close(fd);
+
+	pr_info("Dumping task cwd id %x root id %x\n",
+			fe.cwd_id, fe.root_id);
+
+	return write_img(fdset_fd(fdset, CR_FD_FS), &fe);
 }
 
 struct shmem_info
