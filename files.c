@@ -101,6 +101,50 @@ void show_saved_files(void)
 		}
 }
 
+int restore_fown(int fd, fown_t *fown)
+{
+	struct f_owner_ex owner;
+	uid_t uids[3];
+	pid_t pid = getpid();
+
+	if (fown->signum) {
+		if (fcntl(fd, F_SETSIG, fown->signum)) {
+			pr_perror("%d: Can't set signal", pid);
+			return -1;
+		}
+	}
+
+	/* May be untouched */
+	if (!fown->pid)
+		return 0;
+
+	if (getresuid(&uids[0], &uids[1], &uids[2])) {
+		pr_perror("%d: Can't get current UIDs", pid);
+		return -1;
+	}
+
+	if (setresuid(fown->uid, fown->euid, uids[2])) {
+		pr_perror("%d: Can't set UIDs", pid);
+		return -1;
+	}
+
+	owner.type = fown->pid_type;
+	owner.pid = fown->pid;
+
+	if (fcntl(fd, F_SETOWN_EX, &owner)) {
+		pr_perror("%d: Can't setup %d file owner pid",
+			  pid, fd);
+		return -1;
+	}
+
+	if (setresuid(uids[0], uids[1], uids[2])) {
+		pr_perror("%d: Can't revert UIDs back", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int open_fe_fd(struct file_desc *d);
 
 static struct file_desc_ops reg_desc_ops = {
@@ -232,6 +276,9 @@ static int open_fe_fd(struct file_desc *d)
 	}
 
 	lseek(tmp, rfi->rfe.pos, SEEK_SET);
+
+	if (restore_fown(tmp, &rfi->rfe.fown))
+		return -1;
 
 	return tmp;
 }

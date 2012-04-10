@@ -301,5 +301,8 @@ out:
 	if (ret < 0)
 		return -1;
 
+	if (restore_fown(tmp, &pi->pe.fown))
+		return -1;
+
 	return tmp;
 }
