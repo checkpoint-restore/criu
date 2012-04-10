@@ -54,6 +54,10 @@
 # define F_GETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 8)
 #endif
 
+#ifndef F_GETOWNER_UIDS
+#define F_GETOWNER_UIDS	17
+#endif
+
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 
