@@ -738,6 +738,8 @@ static int get_task_personality(pid_t pid, u32 *personality)
 	FILE *file = NULL;
 	int ret = -1;
 
+	pr_info("Obtainting personality ... ");
+
 	file = fopen_proc(pid, "personality");
 	if (!file)
 		goto err;
@@ -923,11 +925,9 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	pr_info("Obtainting personality ... ");
 	ret = get_task_personality(pid, &core->tc.personality);
 	if (ret)
 		goto err_free;
-	pr_info("OK\n");
 
 	strncpy((char *)core->tc.comm, stat->comm, TASK_COMM_LEN);
 	core->tc.flags = stat->flags;
