@@ -908,7 +908,6 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 {
 	struct core_entry *core;
 	int ret = -1;
-	unsigned long brk;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
