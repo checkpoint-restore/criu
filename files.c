@@ -477,7 +477,10 @@ int prepare_fds(int pid)
 
 	close(fdinfo_fd);
 
-	return run_unix_connections();
+	if (!ret)
+		ret = run_unix_connections();
+
+	return ret;
 }
 
 int prepare_fs(int pid)
