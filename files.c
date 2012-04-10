@@ -446,7 +446,6 @@ int prepare_fds(int pid)
 	u32 type = 0, ret;
 	int fdinfo_fd;
 	int state;
-	off_t offset, magic_offset;
 
 	struct fdinfo_entry fe;
 	int nr = 0;
@@ -459,10 +458,8 @@ int prepare_fds(int pid)
 		return -1;
 	}
 
-	magic_offset = lseek(fdinfo_fd, 0, SEEK_CUR);
-
 	for (state = 0; state < FD_STATE_MAX; state++) {
-		lseek(fdinfo_fd, magic_offset, SEEK_SET);
+		lseek(fdinfo_fd, MAGIC_OFFSET, SEEK_SET);
 
 		while (1) {
 			ret = read_img_eof(fdinfo_fd, &fe);
