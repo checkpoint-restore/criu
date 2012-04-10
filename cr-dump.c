@@ -296,7 +296,7 @@ err:
 	return ret;
 }
 
-static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
+static int do_dump_gen_file(const struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
@@ -331,7 +331,7 @@ err:
 	return ret;
 }
 
-static int dump_one_fdinfo(struct fd_parms *p, int lfd,
+static int dump_gen_file(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
@@ -340,7 +340,7 @@ static int dump_one_fdinfo(struct fd_parms *p, int lfd,
 	else
 		p->type = FDINFO_REG;
 
-	return do_dump_one_fdinfo(p, lfd, cr_fdset);
+	return do_dump_gen_file(p, lfd, cr_fdset);
 }
 
 static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
@@ -394,13 +394,13 @@ static int dump_unsupp_fd(const struct fd_parms *p)
 	return -1;
 }
 
-static int dump_one_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 {
 	int maj;
 
 	maj = major(p->stat.st_rdev);
 	if (maj == MEM_MAJOR)
-		return dump_one_fdinfo(p, lfd, set);
+		return dump_gen_file(p, lfd, set);
 
 	if (p->fd < 3 && (maj == TTY_MAJOR ||
 				maj == UNIX98_PTY_SLAVE_MAJOR)) {
@@ -411,7 +411,7 @@ static int dump_one_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *s
 	return dump_unsupp_fd(p);
 }
 
-static int dump_one_fd(pid_t pid, int fd, int lfd,
+static int dump_one_file(pid_t pid, int fd, int lfd,
 		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
@@ -425,12 +425,12 @@ static int dump_one_fd(pid_t pid, int fd, int lfd,
 		return dump_socket(&p, lfd, cr_fdset);
 
 	if (S_ISCHR(p.stat.st_mode))
-		return dump_one_chrdev(&p, lfd, cr_fdset);
+		return dump_chrdev(&p, lfd, cr_fdset);
 
 	if (S_ISREG(p.stat.st_mode) ||
             S_ISDIR(p.stat.st_mode) ||
             S_ISFIFO(p.stat.st_mode))
-		return dump_one_fdinfo(&p, lfd, cr_fdset);
+		return dump_gen_file(&p, lfd, cr_fdset);
 
 	return dump_unsupp_fd(&p);
 }
@@ -454,7 +454,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 		goto err;
 
 	for (i = 0; i < nr_fds; i++) {
-		ret = dump_one_fd(ctl->pid, fds[i], lfds[i], cr_fdset);
+		ret = dump_one_file(ctl->pid, fds[i], lfds[i], cr_fdset);
 		close(lfds[i]);
 		if (ret)
 			goto err;
