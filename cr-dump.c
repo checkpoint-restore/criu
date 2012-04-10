@@ -762,6 +762,8 @@ static int get_task_regs(pid_t pid, struct core_entry *core, const struct parasi
 	user_regs_struct_t regs		= {-1};
 	int ret = -1;
 
+	pr_info("Dumping GP/FPU registers ... ");
+
 	if (ctl)
 		regs = ctl->regs_orig;
 	else {
@@ -917,11 +919,9 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core, ctl);
 	if (ret)
 		goto err_free;
-	pr_info("OK\n");
 
 	pr_info("Obtainting personality ... ");
 	ret = get_task_personality(pid, &core->tc.personality);
@@ -1349,7 +1349,6 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, pid_t pid)
 	if (!core)
 		goto err;
 
-	pr_info("Dumping GP/FPU registers ... ");
 	ret = get_task_regs(pid, core, NULL);
 	if (ret)
 		goto err_free;
