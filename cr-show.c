@@ -93,6 +93,12 @@ out:
 	pr_img_tail(CR_FD_FDINFO);
 }
 
+static void show_fown_cont(fown_t *fown)
+{
+	pr_msg("fown: uid: %x euid: %x signum: %x pid_type: %x pid: %u",
+	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
+}
+
 void show_reg_files(int fd_reg_files, struct cr_options *o)
 {
 	struct reg_file_entry rfe;
@@ -106,7 +112,8 @@ void show_reg_files(int fd_reg_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id: %8x flags: %4x pos: %lx", rfe.id, rfe.flags, rfe.pos);
+		pr_msg("id: %8x flags: %4x pos: %lx ", rfe.id, rfe.flags, rfe.pos);
+		show_fown_cont(&rfe.fown);
 
 		if (rfe.len) {
 			int ret = read(fd_reg_files, local_buf, rfe.len);
@@ -162,8 +169,10 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("id: %8x pipeid: %8x flags: %8x\n",
+		pr_msg("id: %8x pipeid: %8x flags: %8x ",
 		       e.id, e.pipe_id, e.flags);
+		show_fown_cont(&e.fown);
+		pr_msg("\n");
 	}
 
 out:

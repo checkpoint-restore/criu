@@ -47,11 +47,20 @@ enum fd_types {
 #define PAGE_RSS	1
 #define PAGE_ANON	2
 
+typedef struct {
+	u32	uid;
+	u32	euid;
+	u32	signum;
+	u32	pid_type;
+	u32	pid;
+} __packed fown_t;
+
 struct reg_file_entry {
 	u32	id;
 	u16	flags;
 	u16	len;
 	u64	pos;
+	fown_t	fown;
 	u8	name[0];
 } __packed;
 
@@ -79,6 +88,7 @@ struct pipe_entry {
 	u32	id;
 	u32	pipe_id;
 	u32	flags;
+	fown_t	fown;
 } __packed;
 
 struct pipe_data_entry {
