@@ -94,6 +94,7 @@ void show_sigacts(int fd_sigacts, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);
 void show_creds(int fd, struct cr_options *o);
 void show_fs(int fd, struct cr_options *o);
+void show_fown_cont(fown_t *fown);
 
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 

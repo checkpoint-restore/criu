@@ -114,6 +114,7 @@ struct unix_sk_entry {
 	u32	flags;
 	u32	backlog;
 	u32	peer;
+	fown_t	fown;
 	u8	name[0];
 } __packed;
 
@@ -127,6 +128,7 @@ struct inet_sk_entry {
 	u16	dst_port;
 	u32	flags;
 	u32	backlog;
+	fown_t	fown;
 	u32	src_addr[4];
 	u32	dst_addr[4];
 } __packed;

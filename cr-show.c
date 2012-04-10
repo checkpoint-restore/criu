@@ -93,7 +93,7 @@ out:
 	pr_img_tail(CR_FD_FDINFO);
 }
 
-static void show_fown_cont(fown_t *fown)
+void show_fown_cont(fown_t *fown)
 {
 	pr_msg("fown: uid: %x euid: %x signum: %x pid_type: %x pid: %u",
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);

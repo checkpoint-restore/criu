@@ -326,6 +326,7 @@ static int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	ie.dst_port	= sk->dst_port;
 	ie.backlog	= sk->wqlen;
 	ie.flags	= p->flags;
+	ie.fown		= p->fown;
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
@@ -395,6 +396,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 	ue.flags	= p->flags;
 	ue.backlog	= sk->wqlen;
 	ue.peer		= sk->peer_ino;
+	ue.fown		= p->fown;
 
 	if (ue.peer) {
 		struct unix_sk_desc *peer;
@@ -957,6 +959,9 @@ static int open_inet_sk(struct file_desc *d)
 		return -1;
 	}
 
+	if (restore_fown(sk, &ii->ie.fown))
+		goto err;
+
 	/*
 	 * Listen sockets are easiest ones -- simply
 	 * bind() and listen(), and that's all.
@@ -1087,6 +1092,7 @@ void show_inetsk(int fd, struct cr_options *o)
 		pr_msg("id %x family %s type %s proto %s state %s %s:%d <-> %s:%d flags %2x\n",
 			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
 			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
+		pr_msg("\t"), show_fown_cont(&ie.fown), pr_msg("\n");
 	}
 
 out:
@@ -1123,6 +1129,7 @@ void show_unixsk(int fd, struct cr_options *o)
 			pr_msg(" --> %s\n", buf);
 		} else
 			pr_msg("\n");
+		pr_msg("\t"), show_fown_cont(&ue.fown), pr_msg("\n");
 	}
 out:
 	pr_img_tail(CR_FD_UNIXSK);
@@ -1282,6 +1289,11 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (set_fd_flags(sk[1], peer->ue.flags))
 		return -1;
 
+	if (restore_fown(sk[0], &ui->ue.fown))
+		return -1;
+	if (restore_fown(sk[1], &peer->ue.fown))
+		return -1;
+
 	if (bind_unix_sk(sk[0], ui))
 		return -1;
 
@@ -1338,6 +1350,9 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		pr_perror("Can't make unix socket");
 		return -1;
 	}
+
+	if (restore_fown(sk, &ui->ue.fown))
+		return -1;
 
 	if (bind_unix_sk(sk, ui))
 		return -1;
