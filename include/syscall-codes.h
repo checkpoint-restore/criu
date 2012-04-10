@@ -34,6 +34,7 @@
 #define __NR_exit		60
 #define __NR_wait4		61
 #define __NR_kill		62
+#define __NR_fcntl		72
 #define __NR_flock		73
 #define __NR_unlink		87
 #define __NR_setresuid		117

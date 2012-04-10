@@ -414,6 +414,15 @@ sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx
 	return syscall5(__NR_kcmp, (long)pid1, (long)pid2, (long)type, idx1, idx2);
 }
 
+static long always_inline sys_fcntl(int fd, int type, long arg)
+{
+	return syscall3(__NR_fcntl, (long)fd, (long)type, (long)arg);
+}
+
+#ifndef F_GETFD
+#define F_GETFD 1
+#endif
+
 #ifndef CLONE_NEWPID
 #define CLONE_NEWPID	0x20000000
 #endif
