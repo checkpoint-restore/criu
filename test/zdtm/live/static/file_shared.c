@@ -43,6 +43,7 @@ int main(int argc, char **argv)
 	if (pid == -1)
 		return 1;
 	else if (pid) {
+		fcntl(fd2, F_SETFD, 1);
 		test_waitsig();
 		off = lseek(fd, OFFSET, SEEK_SET);
 		if (off == (off_t) -1)
@@ -77,6 +78,19 @@ int main(int argc, char **argv)
 			fail("offset2 fail\n");
 			return 1;
 		}
+
+		ret = fcntl(fd, F_GETFD, 0);
+		if (ret != 0) {
+			fail("fd cloexec broken\n");
+			return 1;
+		}
+
+		ret = fcntl(fd2, F_GETFD, 0);
+		if (ret != 1) {
+			fail("fd2 cloexec broken\n");
+			return 1;
+		}
+
 	} else {
 		test_waitsig();
 		off = lseek(fd, 0, SEEK_CUR);
