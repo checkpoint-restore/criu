@@ -58,6 +58,7 @@ struct reg_file_entry {
 struct fdinfo_entry {
 	u32	fd;
 	u8	type;
+	u8	flags;
 	u32	id;
 } __packed;
 

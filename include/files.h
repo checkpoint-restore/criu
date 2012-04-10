@@ -12,6 +12,7 @@ struct fd_parms {
 	unsigned long	pos;
 	unsigned int	flags;
 	unsigned int	type;
+	char		fd_flags;
 	struct stat	stat;
 	u32		id;
 	pid_t		pid;
@@ -29,6 +30,7 @@ struct fdinfo_list_entry {
 	struct list_head	list;
 	int			fd;
 	int			pid;
+	int			flags;
 	futex_t			real_pid;
 };
 

@@ -547,7 +547,7 @@ out:
 	return ret;
 }
 
-int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds)
+int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds, char *flags)
 {
 	struct parasite_drain_fd *args;
 	parasite_status_t *st;
@@ -583,7 +583,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int
 		goto err;
 	}
 
-	ret = recv_fds(sock, lfds, nr_fds, NULL);
+	ret = recv_fds(sock, lfds, nr_fds, flags);
 	if (ret) {
 		pr_err("Can't retrieve FDs from socket\n");
 		goto err;

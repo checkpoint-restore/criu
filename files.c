@@ -172,6 +172,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 
 	le->pid = pid;
 	le->fd = e->fd;
+	le->flags = e->flags;
 	futex_init(&le->real_pid);
 
 	fdesc = find_file_desc(e);
@@ -344,6 +345,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	if (reopen_fd_as(fe->fd, tmp))
 		return -1;
 
+	fcntl(tmp, F_SETFD, fe->flags);
+
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		pr_perror("Can't create socket");
@@ -368,6 +371,8 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 						fe->fd, fle->fd);
 				return -1;
 			}
+
+			fcntl(fle->fd, F_SETFD, fle->flags);
 
 			continue;
 		}
@@ -402,7 +407,11 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	}
 	close(fe->fd);
 
-	return reopen_fd_as(fe->fd, tmp);
+	if (reopen_fd_as(fe->fd, tmp) < 0)
+		return -1;
+
+	fcntl(tmp, F_SETFD, fe->flags);
+	return 0;
 }
 
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)

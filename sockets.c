@@ -307,6 +307,7 @@ static int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	fe.fd = p->fd;
 	fe.type = FDINFO_INETSK;
 	fe.id = sk->sd.ino;
+	fe.flags = p->fd_flags;
 
 	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
 		goto err;
@@ -378,6 +379,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 	fe.fd = p->fd;
 	fe.type = FDINFO_UNIXSK;
 	fe.id = sk->sd.ino;
+	fe.flags = p->fd_flags;
 
 	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
 		goto err;

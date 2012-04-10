@@ -305,6 +305,7 @@ static int do_dump_gen_file(const struct fd_parms *p, int lfd,
 	e.type	= p->type;
 	e.fd	= p->fd;
 	e.id	= p->id;
+	e.flags = p->fd_flags;
 
 	ret = fd_id_generate(p->pid, &e);
 	if (ret == 1) /* new ID generated */
@@ -368,7 +369,7 @@ static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 	return ret;
 }
 
-static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
+static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_parms *p)
 {
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d\n", lfd);
@@ -380,9 +381,10 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 	p->flags	= fcntl(lfd, F_GETFL);
 	p->pid		= pid;
 	p->id		= FD_ID_INVALID;
+	p->fd_flags	= fd_flags;
 
-	pr_info("%d fdinfo %d: pos: %16lx flags: %16o\n",
-		pid, fd, p->pos, p->flags);
+	pr_info("%d fdinfo %d: pos: %16lx flags: %16o/%x\n",
+		pid, fd, p->pos, p->flags, (int)fd_flags);
 
 	return 0;
 }
@@ -411,12 +413,12 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return dump_unsupp_fd(p);
 }
 
-static int dump_one_file(pid_t pid, int fd, int lfd,
+static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
 
-	if (fill_fd_params(pid, fd, lfd, &p) < 0) {
+	if (fill_fd_params(pid, fd, lfd, fd_flags, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
 		return -1;
 	}
@@ -439,6 +441,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 				  int *fds, int nr_fds)
 {
 	int *lfds;
+	char *flags;
 	int i, ret = -1;
 
 	pr_info("\n");
@@ -449,20 +452,27 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	if (!lfds)
 		goto err;
 
-	ret = parasite_drain_fds_seized(ctl, fds, lfds, nr_fds);
+	flags = xmalloc(PARASITE_MAX_FDS * sizeof(char));
+	if (!flags)
+		goto err1;
+
+	ret = parasite_drain_fds_seized(ctl, fds, lfds, nr_fds, flags);
 	if (ret)
-		goto err;
+		goto err2;
 
 	for (i = 0; i < nr_fds; i++) {
-		ret = dump_one_file(ctl->pid, fds[i], lfds[i], cr_fdset);
+		ret = dump_one_file(ctl->pid, fds[i], lfds[i], flags[i], cr_fdset);
 		close(lfds[i]);
 		if (ret)
-			goto err;
+			goto err2;
 	}
 
 	pr_info("----------------------------------------\n");
-err:
+err2:
+	xfree(flags);
+err1:
 	xfree(lfds);
+err:
 	return ret;
 }
 
