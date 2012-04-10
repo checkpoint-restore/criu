@@ -475,9 +475,9 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, p->fd_name, lfd, cr_fdset);
+		return dump_one_unix(sk, p->fd, lfd, cr_fdset);
 	case AF_INET:
-		return dump_one_inet(sk, p->fd_name, cr_fdset);
+		return dump_one_inet(sk, p->fd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

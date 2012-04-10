@@ -166,8 +166,8 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	big_buffer[len] = '\0';
-	pr_info("Dumping path for %lx fd via self %d [%s]\n",
-			p->fd_name, lfd, big_buffer);
+	pr_info("Dumping path for %d fd via self %d [%s]\n",
+			p->fd, lfd, big_buffer);
 
 	if (p->type == FDINFO_REG &&
 			!path_accessible(big_buffer, &p->stat))
@@ -303,7 +303,7 @@ static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e.type	= p->type;
-	e.fd	= p->fd_name;
+	e.fd	= p->fd;
 	e.id	= p->id;
 
 	ret = fd_id_generate(p->pid, &e);
@@ -320,8 +320,8 @@ static int do_dump_one_fdinfo(const struct fd_parms *p, int lfd,
 	if (ret < 0)
 		goto err;
 
-	pr_info("fdinfo: type: %2x flags: %4x pos: %8lx addr: %16lx\n",
-		p->type, p->flags, p->pos, p->fd_name);
+	pr_info("fdinfo: type: %2x flags: %4x pos: %8lx fd: %d\n",
+		p->type, p->flags, p->pos, p->fd);
 
 	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &e))
 		goto err;
@@ -375,7 +375,7 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 		return -1;
 	}
 
-	p->fd_name	= fd;
+	p->fd		= fd;
 	p->pos		= lseek(lfd, 0, SEEK_CUR);
 	p->flags	= fcntl(lfd, F_GETFL);
 	p->pid		= pid;
@@ -390,7 +390,7 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, struct fd_parms *p)
 static int dump_unsupp_fd(const struct fd_parms *p)
 {
 	pr_err("Can't dump file %d of that type [%x]\n",
-			(int)p->fd_name, p->stat.st_mode);
+			p->fd, p->stat.st_mode);
 	return -1;
 }
 
@@ -402,9 +402,9 @@ static int dump_one_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *s
 	if (maj == MEM_MAJOR)
 		return dump_one_fdinfo(p, lfd, set);
 
-	if (p->fd_name < 3 && (maj == TTY_MAJOR ||
+	if (p->fd < 3 && (maj == TTY_MAJOR ||
 				maj == UNIX98_PTY_SLAVE_MAJOR)) {
-		pr_info("... Skipping tty ... %d\n", (int)p->fd_name);
+		pr_info("... Skipping tty ... %d\n", p->fd);
 		return 0;
 	}
 

@@ -8,7 +8,7 @@
 #include "image.h"
 
 struct fd_parms {
-	unsigned long	fd_name;
+	int		fd;
 	unsigned long	pos;
 	unsigned int	flags;
 	unsigned int	type;
