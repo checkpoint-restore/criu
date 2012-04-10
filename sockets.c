@@ -294,7 +294,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_inet(struct socket_desc *_sk, int fd,
+static int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 			 const struct cr_fdset *cr_fdset)
 {
 	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
@@ -304,7 +304,7 @@ static int dump_one_inet(struct socket_desc *_sk, int fd,
 	if (!can_dump_inet_sk(sk))
 		goto err;
 
-	fe.fd = fd;
+	fe.fd = p->fd;
 	fe.type = FDINFO_INETSK;
 	fe.id = sk->sd.ino;
 
@@ -330,7 +330,7 @@ static int dump_one_inet(struct socket_desc *_sk, int fd,
 	if (write_img(fdset_fd(glob_fdset, CR_FD_INETSK), &ie))
 		goto err;
 
-	pr_info("Dumping inet socket at %d\n", fd);
+	pr_info("Dumping inet socket at %d\n", p->fd);
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
@@ -365,8 +365,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	return 1;
 }
 
-static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
-			 const struct cr_fdset *cr_fdset)
+static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
+		int lfd, const struct cr_fdset *cr_fdset)
 {
 	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
 	struct fdinfo_entry fe;
@@ -375,7 +375,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	fe.fd = fd;
+	fe.fd = p->fd;
 	fe.type = FDINFO_UNIXSK;
 	fe.id = sk->sd.ino;
 
@@ -452,7 +452,7 @@ static int dump_one_unix(const struct socket_desc *_sk, int fd, int lfd,
 		if (dump_socket_queue(lfd, ue.id))
 			goto err;
 
-	pr_info("Dumping unix socket at %d\n", fd);
+	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
 	show_one_unix_img("Dumped", &ue);
 
@@ -475,9 +475,9 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, p->fd, lfd, cr_fdset);
+		return dump_one_unix(sk, p, lfd, cr_fdset);
 	case AF_INET:
-		return dump_one_inet(sk, p->fd, cr_fdset);
+		return dump_one_inet(sk, p, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;
