@@ -39,6 +39,7 @@ TST_NOFILE	=				\
 		sem				\
 		maps01				\
 		xids00				\
+		file_fown			\
 #		jobctl00			\
 
 TST_FILE	=				\

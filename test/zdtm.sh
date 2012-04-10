@@ -36,6 +36,7 @@ static/cmdlinenv00
 static/socket_listen
 static/socket_udp
 static/selfexe00
+static/file_fown
 "
 
 UTS_TEST_LIST="
