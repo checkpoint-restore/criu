@@ -906,18 +906,23 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
 		const struct cr_fdset *cr_fdset)
 {
-	struct core_entry *core		= xzalloc(sizeof(*core));
-	int ret				= -1;
+	struct core_entry *core;
+	int ret = -1;
 	unsigned long brk;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
+	core = xzalloc(sizeof(*core));
 	if (!core)
 		goto err;
 
 	ret = dump_task_kobj_ids(pid, core);
+	if (ret)
+		goto err_free;
+
+	ret = dump_task_mm(pid, stat, misc, cr_fdset);
 	if (ret)
 		goto err_free;
 
@@ -931,11 +936,6 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 
 	strncpy((char *)core->tc.comm, stat->comm, TASK_COMM_LEN);
 	core->tc.flags = stat->flags;
-
-	ret = dump_task_mm(pid, stat, misc, cr_fdset);
-	if (ret)
-		goto err_free;
-
 	BUILD_BUG_ON(sizeof(core->tc.blk_sigset) != sizeof(k_rtsigset_t));
 	memcpy(&core->tc.blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
 
