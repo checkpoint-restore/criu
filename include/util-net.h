@@ -25,22 +25,23 @@ struct scm_fdset {
 	struct msghdr	hdr;
 	struct iovec	iov;
 	char		msg_buf[CR_SCM_MSG_SIZE];
-	int		msg;	/* We are to send at least one byte */
+	char		msg[CR_SCM_MAX_FD];
 };
 
-extern int send_fds(int sock, struct sockaddr_un *saddr, int saddr_len, int *fds, int nr_fds);
-extern int recv_fds(int sock, int *fds, int nr_fds);
+extern int send_fds(int sock, struct sockaddr_un *saddr, int saddr_len,
+		int *fds, int nr_fds, bool with_flags);
+extern int recv_fds(int sock, int *fds, int nr_fds, char *flags);
 
 static inline int send_fd(int sock, struct sockaddr_un *saddr, int saddr_len, int fd)
 {
-	return send_fds(sock, saddr, saddr_len, &fd, 1);
+	return send_fds(sock, saddr, saddr_len, &fd, 1, false);
 }
 
 static inline int recv_fd(int sock)
 {
 	int fd, ret;
 
-	ret = recv_fds(sock, &fd, 1);
+	ret = recv_fds(sock, &fd, 1, NULL);
 	if (ret)
 		return -1;
 

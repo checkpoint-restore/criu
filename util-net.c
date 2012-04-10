@@ -20,17 +20,16 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
 	cmsg->cmsg_len	= fdset->hdr.msg_controllen;
 }
 
-static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr, int saddr_len)
+static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
+		int saddr_len, bool with_flags)
 {
 	struct cmsghdr *cmsg;
 
 	BUILD_BUG_ON(CR_SCM_MAX_FD > SCM_MAX_FD);
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
-	fdset->msg			= '*';
-
 	fdset->iov.iov_base		= &fdset->msg;
-	fdset->iov.iov_len		= sizeof(fdset->msg);
+	fdset->iov.iov_len		= with_flags ? sizeof(fdset->msg) : 1;
 
 	fdset->hdr.msg_iov		= &fdset->iov;
 	fdset->hdr.msg_iovlen		= 1;
@@ -48,17 +47,32 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr, i
 	return (int *)CMSG_DATA(cmsg);
 }
 
-int send_fds(int sock, struct sockaddr_un *saddr, int len, int *fds, int nr_fds)
+int send_fds(int sock, struct sockaddr_un *saddr, int len,
+		int *fds, int nr_fds, bool with_flags)
 {
 	struct scm_fdset fdset;
 	int *cmsg_data;
 	int i, min_fd, ret;
 
-	cmsg_data = scm_fdset_init(&fdset, saddr, len);
+	cmsg_data = scm_fdset_init(&fdset, saddr, len, with_flags);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd);
 		builtin_memcpy(cmsg_data, &fds[i], sizeof(int) * min_fd);
+
+		if (with_flags) {
+			int j;
+
+			for (j = 0; j < min_fd; j++) {
+				int flags;
+
+				flags = sys_fcntl(fds[i + j], F_GETFD, 0);
+				if (flags < 0)
+					return -1;
+
+				fdset.msg[j] = (char)flags;
+			}
+		}
 
 		ret = sys_sendmsg(sock, &fdset.hdr, 0);
 		if (ret <= 0)
@@ -68,7 +82,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len, int *fds, int nr_fds)
 	return 0;
 }
 
-int recv_fds(int sock, int *fds, int nr_fds)
+int recv_fds(int sock, int *fds, int nr_fds, char *flags)
 {
 	struct scm_fdset fdset;
 	struct cmsghdr *cmsg;
@@ -76,7 +90,7 @@ int recv_fds(int sock, int *fds, int nr_fds)
 	int ret;
 	int i, min_fd;
 
-	cmsg_data = scm_fdset_init(&fdset, NULL, 0);
+	cmsg_data = scm_fdset_init(&fdset, NULL, 0, flags != NULL);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd);
@@ -104,6 +118,8 @@ int recv_fds(int sock, int *fds, int nr_fds)
 		if (unlikely(min_fd <= 0))
 			return -1;
 		builtin_memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
+		if (flags)
+			builtin_memcpy(flags, fdset.msg, sizeof(char) * min_fd);
 	}
 
 	return 0;

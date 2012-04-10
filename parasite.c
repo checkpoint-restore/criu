@@ -373,7 +373,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 	int ret;
 
 	ret = send_fds(tsock, &args->saddr, args->sun_len,
-		       args->fds, args->nr_fds);
+		       args->fds, args->nr_fds, false);
 	if (ret) {
 		sys_write_msg("send_fds failed\n");
 		SET_PARASITE_RET(st, ret);
