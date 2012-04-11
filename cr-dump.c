@@ -1076,16 +1076,13 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 		unseize_task(item->threads[i], st); /* item->pid will be here */
 }
 
-static void pstree_switch_state(const struct list_head *list,
-				const struct cr_options *opts)
+static void pstree_switch_state(const struct list_head *list, int st)
 {
 	struct pstree_item *item;
 
-	list_for_each_entry(item, list, list) {
-		unseize_task_and_threads(item, opts->final_state);
-		if (opts->leader_only)
-			break;
-	}
+	pr_info("Unfreezing tasks into %d\n", st);
+	list_for_each_entry(item, list, list)
+		unseize_task_and_threads(item, st);
 }
 
 static int seize_threads(const struct pstree_item *item)
@@ -1691,7 +1688,8 @@ err:
 	xfree(shmems);
 	xfree(pipes);
 	close_cr_fdset(&glob_fdset);
-	pstree_switch_state(&pstree_list, opts);
+	pstree_switch_state(&pstree_list, 
+			ret ? TASK_ALIVE : opts->final_state);
 	free_pstree(&pstree_list);
 
 	return ret;

@@ -22,6 +22,8 @@
 
 int unseize_task(pid_t pid, int st)
 {
+	pr_debug("\tUnseizeing %d into %d\n", pid, st);
+
 	if (st == TASK_DEAD)
 		kill(pid, SIGKILL);
 	else if (st == TASK_STOPPED)
