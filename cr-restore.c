@@ -209,7 +209,8 @@ static int prepare_pstree(void)
 		return -1;
 	}
 	task_entries->nr = 0;
-	futex_set(&task_entries->start, CR_STATE_RESTORE);
+	task_entries->nr_tasks = 0;
+	futex_set(&task_entries->start, CR_STATE_FORKING);
 
 	ps_fd = open_image_ro(CR_FD_PSTREE);
 	if (ps_fd < 0)
@@ -254,10 +255,11 @@ static int prepare_pstree(void)
 
 		list_add_tail(&pi->list, &tasks);
 		task_entries->nr += e.nr_threads;
+		task_entries->nr_tasks++;
 	}
 
 	if (!ret)
-		futex_set(&task_entries->nr_in_progress, task_entries->nr);
+		futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks);
 
 	close(ps_fd);
 	return ret;
@@ -778,6 +780,9 @@ static int restore_task_with_children(void *_arg)
 			exit(1);
 	}
 
+	futex_dec_and_wake(&task_entries->nr_in_progress);
+	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
+
 	return restore_one_task(me->pid);
 }
 
@@ -818,6 +823,15 @@ static int restore_root_task(pid_t pid, struct cr_options *opts)
 	ret = fork_with_pid(init->pid, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
+
+	pr_info("Wait until all tasks are forked\n");
+	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
+	ret = (int)futex_get(&task_entries->nr_in_progress);
+	if (ret < 0)
+		goto out;
+
+	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
+	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE);
 
 	pr_info("Wait until all tasks are restored\n");
 	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
