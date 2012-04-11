@@ -1146,6 +1146,59 @@ static int collect_threads(struct pstree_item *item)
 	return ret;
 }
 
+/*
+ * Few words about sid and pgid handling.
+ *
+ * An axiom: session can only be changed on self, group -- on self or
+ * on one of self children.
+ *
+ * Conclusions:
+ * 1. both should better be saved in pstree.img so we can restore sid
+ *    at the time we fork kids and pgid is just for harmony;
+ * 2. if we seized the parent these IDs* shouldn't change and it's safe
+ *    to read and check them right at the seizing time.
+ * 
+ * Easings:
+ * 1. with the existing setsid we can only reset sid to task's pid.
+ *    Thus, if task escaped from its ancestors with sid we will not be
+ *    able to easily restore this construction. Thus for now this is
+ *    treated as "unsupported" (FIXME);
+ *
+ * 2. when task whose pid is equal to pgid/sid (i.e. leader) exits we
+ *    lose the ability to restore the grp/session easily with the 
+ *    existing interfaces, thus we also treat this as temporarily
+ *    unsupported (FIXME #2).
+ */
+
+static int check_xids(struct list_head *list)
+{
+	struct pstree_item *p, *tmp;
+
+	list_for_each_entry(p, list, list) {
+		if (p->parent == NULL)
+			continue;
+
+		/* Easing #1 and #2 for sids */
+		if ((p->sid != p->pid) && (p->sid != p->parent->sid)) {
+			pr_err("SID mismatch on %d (%d/%d)\n",
+					p->pid, p->sid, p->parent->sid);
+			return -1;
+		}
+
+		/* Easing #2 for pgids */
+		list_for_each_entry(tmp, list, list)
+			if (tmp->pid == p->pgid)
+				break;
+
+		if (&tmp->list == list) {
+			pr_err("PGIG mismatch on %d (%d)\n",
+					p->pid, p->pgid);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static struct pstree_item *collect_task(pid_t pid, struct pstree_item *parent,
 		struct list_head *list)
 {
@@ -1298,6 +1351,9 @@ try_again:
 			xfree(item);
 		}
 	}
+
+	if (!ret)
+		ret = check_xids(pstree_list);
 
 	if (ret)
 		return ret;

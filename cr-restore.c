@@ -732,6 +732,53 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
+static void restore_sid(void)
+{
+	pid_t sid;
+
+	/*
+	 * SID can only be reset to pid or inherited from parent.
+	 * Thus we restore it right here to let our kids inherit
+	 * one in case they need it.
+	 *
+	 * PGIDs are restored late when all tasks are forked and
+	 * we can call setpgid() on custom values.
+	 */
+
+	pr_info("Restoring %d to %d sid\n", me->pid, me->sid);
+	if (me->pid == me->sid) {
+		sid = setsid();
+		if (sid != me->sid) {
+			pr_perror("Can't restore sid (%d)", sid);
+			exit(1);
+		}
+	} else {
+		sid = getsid(getppid());
+		if (sid != me->sid) {
+			pr_err("Requested sid %d doesn't match inherited %d\n",
+					me->sid, sid);
+			exit(1);
+		}
+	}
+}
+
+static void restore_pgid(void)
+{
+	pid_t pgid;
+
+	pr_info("Restoring %d to %d pgid\n", me->pid, me->pgid);
+
+	pgid = getpgrp();
+	if (me->pgid == pgid)
+		return;
+
+	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
+	if (setpgid(0, me->pgid) != 0) {
+		pr_perror("Can't restore pgid (%d/%d->%d)", me->pid, pgid, me->pgid);
+		exit(1);
+	}
+}
+
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
@@ -762,6 +809,8 @@ static int restore_task_with_children(void *_arg)
 			exit(-1);
 	}
 
+	restore_sid();
+
 	/*
 	 * The block mask will be restored in sigresturn.
 	 *
@@ -784,6 +833,8 @@ static int restore_task_with_children(void *_arg)
 
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
+
+	restore_pgid();
 
 	return restore_one_task(me->pid);
 }
