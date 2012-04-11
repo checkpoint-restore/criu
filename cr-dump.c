@@ -1105,7 +1105,7 @@ static int seize_threads(const struct pstree_item *item)
 			continue;
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid, item->threads[i]);
-		ret = seize_task(item->threads[i], item_ppid(item));
+		ret = seize_task(item->threads[i], item_ppid(item), NULL, NULL);
 		if (ret < 0)
 			goto err;
 
@@ -1159,7 +1159,7 @@ static struct pstree_item *collect_task(pid_t pid, struct pstree_item *parent,
 	item->pid = pid;
 	item->parent = parent;
 
-	ret = seize_task(pid, item_ppid(item));
+	ret = seize_task(pid, item_ppid(item), &item->pgid, &item->sid);
 	if (ret < 0)
 		goto err_free;
 
@@ -1327,6 +1327,8 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 			item->pid, item->nr_children);
 
 		e.pid		= item->pid;
+		e.pgid		= item->pgid;
+		e.sid		= item->sid;
 		e.nr_children	= item->nr_children;
 		e.nr_threads	= item->nr_threads;
 

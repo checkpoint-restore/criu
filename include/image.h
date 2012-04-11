@@ -69,6 +69,8 @@ struct fs_entry {
 
 struct pstree_entry {
 	u32	pid;
+	u32	pgid;
+	u32	sid;
 	u32	nr_children;
 	u32	nr_threads;
 } __packed;

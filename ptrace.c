@@ -44,7 +44,7 @@ int unseize_task(pid_t pid, int st)
  * up with someone else.
  */
 
-int seize_task(pid_t pid, pid_t ppid)
+int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 {
 	siginfo_t si;
 	int status;
@@ -53,9 +53,22 @@ int seize_task(pid_t pid, pid_t ppid)
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL,
 		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
+
+	/*
+	 * It's ugly, but the ptrace API doesn't allow to distinguish
+	 * attaching to zombie from other errors. Thus we have to parse
+	 * the target's /proc/pid/stat. Sad, but parse whatever else
+	 * we might nead at that early point.
+	 */
+
 	ret2 = parse_pid_stat_small(pid, &ps);
 	if (ret2 < 0)
 		return -1;
+
+	if (pgid)
+		*pgid = ps.pgid;
+	if (sid)
+		*sid = ps.sid;
 
 	if (ret < 0) {
 		if (ps.state != 'Z') {

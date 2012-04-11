@@ -230,6 +230,8 @@ static int prepare_pstree(void)
 			break;
 
 		pi->pid = e.pid;
+		pi->pgid = e.pgid;
+		pi->sid = e.sid;
 
 		ret = -1;
 		pi->nr_children = e.nr_children;

@@ -358,8 +358,8 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 		ret = read_img_eof(fd_pstree, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("pid: %8d nr_children: %8d nr_threads: %8d\n",
-		       e.pid, e.nr_children, e.nr_threads);
+		pr_msg("pid: %8d pgid: %8d sid %8d  nr_children: %8d nr_threads: %8d\n",
+		       e.pid, e.pgid, e.sid, e.nr_children, e.nr_threads);
 
 		if (collect) {
 			item = xzalloc(sizeof(struct pstree_item));
