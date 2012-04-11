@@ -1494,43 +1494,43 @@ static int dump_one_task(const struct pstree_item *item)
 	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump pages (pid: %d) with parasite\n", pid);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = parasite_dump_sigacts_seized(parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = parasite_dump_itimers_seized(parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
 	if (ret) {
 		pr_err("Can't dump misc (pid: %d)\n", pid);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = dump_task_core_all(pid, &pps_buf, &misc, parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
-		goto err;
+		goto err_cure;
 	}
 
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
-		goto err;
+		goto err_cure;
 	}
 
 	ret = parasite_cure_seized(parasite_ctl);
@@ -1564,6 +1564,10 @@ err_free:
 	free_mappings(&vma_area_list);
 	xfree(fds);
 	return ret;
+
+err_cure:
+	parasite_cure_seized(parasite_ctl);
+	goto err;
 }
 
 static int cr_dump_shmem(void)
