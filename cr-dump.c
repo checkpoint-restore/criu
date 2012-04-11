@@ -1085,6 +1085,12 @@ static void pstree_switch_state(const struct list_head *list, int st)
 		unseize_task_and_threads(item, st);
 }
 
+static pid_t item_ppid(const struct pstree_item *item)
+{
+	item = item->parent;
+	return item ? item->pid : -1;
+}
+
 static int seize_threads(const struct pstree_item *item)
 {
 	int i = 0, ret;
@@ -1099,7 +1105,7 @@ static int seize_threads(const struct pstree_item *item)
 			continue;
 
 		pr_info("\tSeizing %d's %d thread\n", item->pid, item->threads[i]);
-		ret = seize_task(item->threads[i], item->ppid);
+		ret = seize_task(item->threads[i], item_ppid(item));
 		if (ret < 0)
 			goto err;
 
@@ -1140,7 +1146,8 @@ static int collect_threads(struct pstree_item *item)
 	return ret;
 }
 
-static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head *list)
+static struct pstree_item *collect_task(pid_t pid, struct pstree_item *parent,
+		struct list_head *list)
 {
 	int ret;
 	struct pstree_item *item;
@@ -1149,13 +1156,14 @@ static struct pstree_item *collect_task(pid_t pid, pid_t ppid, struct list_head 
 	if (!item)
 		goto err;
 
-	ret = seize_task(pid, ppid);
+	item->pid = pid;
+	item->parent = parent;
+
+	ret = seize_task(pid, item_ppid(item));
 	if (ret < 0)
 		goto err_free;
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
-	item->pid = pid;
-	item->ppid = ppid;
 	item->state = ret;
 
 	ret = collect_threads(item);
@@ -1207,14 +1215,14 @@ static int check_subtree(const struct pstree_item *item)
 	return 0;
 }
 
-static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
-		int leader_only)
+static int collect_subtree(pid_t pid, struct pstree_item *parent,
+		struct list_head *pstree_list, int leader_only)
 {
 	struct pstree_item *item;
 	int i;
 
 	pr_info("Collecting tasks starting from %d\n", pid);
-	item = collect_task(pid, ppid, pstree_list);
+	item = collect_task(pid, parent, pstree_list);
 	if (item == NULL)
 		return -1;
 
@@ -1222,7 +1230,7 @@ static int collect_subtree(pid_t pid, pid_t ppid, struct list_head *pstree_list,
 		return 0;
 
 	for (i = 0; i < item->nr_children; i++)
-		if (collect_subtree(item->children[i], item->pid, pstree_list, 0) < 0)
+		if (collect_subtree(item->children[i], item, pstree_list, 0) < 0)
 			return -1;
 
 	if (check_subtree(item))
@@ -1241,7 +1249,7 @@ static int collect_dump_pstree(pid_t pid, struct list_head *pstree_list,
 	while (1) {
 		struct pstree_item *item;
 
-		ret = collect_subtree(pid, -1, pstree_list, opts->leader_only);
+		ret = collect_subtree(pid, NULL, pstree_list, opts->leader_only);
 		if (ret == 0) {
 			/*
 			 * Some tasks could have been reparented to
