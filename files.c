@@ -248,6 +248,20 @@ int open_reg_by_id(u32 id)
 	return open_fe_fd(fd);
 }
 
+#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
+int set_fd_flags(int fd, int flags)
+{
+	int old;
+
+	old = fcntl(fd, F_GETFL, 0);
+	if (old < 0)
+		return old;
+
+	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
+
+	return fcntl(fd, F_SETFL, flags);
+}
+
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, int fd)
 {

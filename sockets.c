@@ -325,6 +325,7 @@ static int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	ie.src_port	= sk->src_port;
 	ie.dst_port	= sk->dst_port;
 	ie.backlog	= sk->wqlen;
+	ie.flags	= p->flags;
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
@@ -391,6 +392,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 	ue.type		= sk->type;
 	ue.state	= sk->state;
 	ue.namelen	= sk->namelen;
+	ue.flags	= p->flags;
 	ue.backlog	= sk->wqlen;
 	ue.peer		= sk->peer_ino;
 
@@ -998,6 +1000,9 @@ static int open_inet_sk(struct file_desc *d)
 		}
 	}
 
+	if (set_fd_flags(sk, ii->ie.flags))
+		return -1;
+
 	return sk;
 
 err:
@@ -1079,9 +1084,9 @@ void show_inetsk(int fd, struct cr_options *o)
 			}
 		}
 
-		pr_msg("id %x family %s type %s proto %s state %s %s:%d <-> %s:%d\n",
+		pr_msg("id %x family %s type %s proto %s state %s %s:%d <-> %s:%d flags %2x\n",
 			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
-			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port);
+			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
 	}
 
 out:
@@ -1102,9 +1107,9 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id %x type %s state %s namelen %4d backlog %4d peer %x",
+		pr_msg("id %8x type %s state %s namelen %4d backlog %4d peer %8x flags %2x",
 			ue.id, sktype2s(ue.type), skstate2s(ue.state),
-			ue.namelen, ue.backlog, ue.peer);
+			ue.namelen, ue.backlog, ue.peer, ue.flags);
 
 		if (ue.namelen) {
 			BUG_ON(ue.namelen > sizeof(buf));
@@ -1208,6 +1213,9 @@ try_again:
 		if (restore_socket_queue(fle->fd, peer->ue.id))
 			return -1;
 
+		if (set_fd_flags(fle->fd, ui->ue.flags))
+			return -1;
+
 		cj = cj->next;
 	}
 
@@ -1267,6 +1275,11 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (restore_socket_queue(sk[0], peer->ue.id))
 		return -1;
 	if (restore_socket_queue(sk[1], ui->ue.id))
+		return -1;
+
+	if (set_fd_flags(sk[0], ui->ue.flags))
+		return -1;
+	if (set_fd_flags(sk[1], peer->ue.flags))
 		return -1;
 
 	if (bind_unix_sk(sk[0], ui))

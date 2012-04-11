@@ -63,6 +63,7 @@ extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 extern int prepare_fs(int pid);
 extern int open_reg_by_id(u32 id);
+int set_fd_flags(int fd, int flags);
 
 extern int self_exe_fd;
 

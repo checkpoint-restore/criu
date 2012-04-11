@@ -217,20 +217,6 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	return fd;
 }
 
-#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
-static int set_fd_flags(int fd, int flags)
-{
-	int old;
-
-	old = fcntl(fd, F_GETFL, 0);
-	if (old < 0)
-		return old;
-
-	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
-
-	return fcntl(fd, F_SETFL, flags);
-}
-
 static int restore_pipe_data(int pfd, struct pipe_info *pi)
 {
 	int fd, size = 0, ret;

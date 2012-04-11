@@ -99,6 +99,7 @@ struct unix_sk_entry {
 	u8	state;
 	u8	namelen; /* fits UNIX_PATH_MAX */
 	u8	pad;
+	u32	flags;
 	u32	backlog;
 	u32	peer;
 	u8	name[0];
@@ -112,6 +113,7 @@ struct inet_sk_entry {
 	u8	state;
 	u16	src_port;
 	u16	dst_port;
+	u32	flags;
 	u32	backlog;
 	u32	src_addr[4];
 	u32	dst_addr[4];
