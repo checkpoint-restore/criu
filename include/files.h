@@ -16,6 +16,7 @@ struct fd_parms {
 	struct stat	stat;
 	u32		id;
 	pid_t		pid;
+	fown_t		fown;
 };
 
 enum fdinfo_states {

@@ -177,6 +177,7 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	rfe.flags = p->flags;
 	rfe.pos = p->pos;
 	rfe.id = id;
+	rfe.fown = p->fown;
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 
@@ -246,6 +247,7 @@ dump:
 	pe.id = id;
 	pe.pipe_id = p->id;
 	pe.flags = p->flags;
+	pe.fown = p->fown;
 
 	if (write_img(fd_pipes, &pe))
 		goto err_close;
@@ -361,6 +363,7 @@ static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 	params.type = FDINFO_REG;
 	params.flags = 0;
 	params.pos = 0;
+	params.fown = (fown_t){ };
 	mm->exe_file_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
@@ -371,6 +374,9 @@ static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 
 static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_parms *p)
 {
+	struct f_owner_ex owner_ex;
+	u32 v[2];
+
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d\n", lfd);
 		return -1;
@@ -382,9 +388,37 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 	p->pid		= pid;
 	p->id		= FD_ID_INVALID;
 	p->fd_flags	= fd_flags;
+	p->fown		= (fown_t){ };
 
 	pr_info("%d fdinfo %d: pos: %16lx flags: %16o/%x\n",
 		pid, fd, p->pos, p->flags, (int)fd_flags);
+
+	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
+	if (p->fown.signum < 0) {
+		pr_perror("Can't get owner signum on %d\n", lfd);
+		return -1;
+	}
+
+	if (fcntl(lfd, F_GETOWN_EX, (long)&owner_ex)) {
+		pr_perror("Can't get owners on %d\n", lfd);
+		return -1;
+	}
+
+	/*
+	 * Simple case -- nothing is changed.
+	 */
+	if (owner_ex.pid == 0)
+		return 0;
+
+	if (fcntl(lfd, F_GETOWNER_UIDS, (long)&v)) {
+		pr_perror("Can't get owner uids on %d\n", lfd);
+		return -1;
+	}
+
+	p->fown.uid	= v[0];
+	p->fown.euid	= v[1];
+	p->fown.pid_type= owner_ex.type;
+	p->fown.pid	= owner_ex.pid;
 
 	return 0;
 }
@@ -494,6 +528,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 	p.type = FDINFO_REG;
 	p.flags = 0;
 	p.pos = 0;
+	p.fown = (fown_t){ };
 	fe.cwd_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
@@ -592,6 +627,7 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 	}
 
 	p.type = FDINFO_REG;
+	p.fown = (fown_t){ };
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
 	else
