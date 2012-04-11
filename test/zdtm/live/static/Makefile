@@ -38,6 +38,7 @@ TST_NOFILE	=				\
 		selfexe00			\
 		sem				\
 		maps01				\
+		xids00				\
 #		jobctl00			\
 
 TST_FILE	=				\
