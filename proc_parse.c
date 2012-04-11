@@ -195,10 +195,10 @@ int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
 		return -1;
 
 	memset(s, 0, sizeof(*s));
-	n = fscanf(f, "%d " PROC_TASK_COMM_LEN_FMT " %c %d",
-			&s->pid, s->comm, &s->state, &s->ppid);
+	n = fscanf(f, "%d " PROC_TASK_COMM_LEN_FMT " %c %d %d %d",
+			&s->pid, s->comm, &s->state, &s->ppid, &s->pgid, &s->sid);
 
-	if (n < 4) {
+	if (n < 6) {
 		pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
 		return -1;
 	}
