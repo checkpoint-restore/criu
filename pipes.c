@@ -27,14 +27,6 @@ struct pipe_info {
 
 static LIST_HEAD(pipes);
 
-static struct pipe_info *find_pipe(int id)
-{
-	struct file_desc *fd;
-
-	fd = find_file_desc_raw(FDINFO_PIPE, id);
-	return container_of(fd, struct pipe_info, d);
-}
-
 static int open_pipe(struct file_desc *d);
 static int pipe_should_open_transport(struct fdinfo_entry *fe,
 		struct file_desc *d);
