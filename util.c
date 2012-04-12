@@ -77,7 +77,7 @@ int close_safe(int *fd)
 	return ret;
 }
 
-int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
+int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_reuse_fd)
 {
 	int tmp;
 
@@ -89,9 +89,11 @@ int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 					/*
 					 * Standard descriptors.
 					 */
-					pr_warn("fd %d already in use\n", new_fd);
+					pr_warn("fd %d already in use (called at %s:%d)\n",
+						new_fd, file, line);
 				} else {
-					pr_err("fd %d already in use\n", new_fd);
+					pr_err("fd %d already in use (called at %s:%d)\n",
+						new_fd, file, line);
 					return -1;
 				}
 			}
@@ -99,7 +101,8 @@ int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd)
 
 		tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
-			pr_perror("Dup %d -> %d failed", old_fd, new_fd);
+			pr_perror("Dup %d -> %d failed (called at %s:%d)",
+				  old_fd, new_fd, file, line);
 			return tmp;
 		}
 

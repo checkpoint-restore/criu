@@ -164,9 +164,9 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 extern int move_img_fd(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
 
-extern int reopen_fd_as_safe(int new_fd, int old_fd, bool allow_reuse_fd);
-#define reopen_fd_as(new_fd, old_fd)		reopen_fd_as_safe(new_fd, old_fd, false)
-#define reopen_fd_as_nocheck(new_fd, old_fd)	reopen_fd_as_safe(new_fd, old_fd, true)
+extern int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_reuse_fd);
+#define reopen_fd_as(new_fd, old_fd)		reopen_fd_as_safe(__FILE__, __LINE__, new_fd, old_fd, false)
+#define reopen_fd_as_nocheck(new_fd, old_fd)	reopen_fd_as_safe(__FILE__, __LINE__, new_fd, old_fd, true)
 
 int open_pid_proc(pid_t pid);
 int close_pid_proc(void);
