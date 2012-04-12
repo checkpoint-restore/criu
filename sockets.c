@@ -1372,7 +1372,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	return sk;
 }
 
-int open_unix_sk(struct file_desc *d)
+static int open_unix_sk(struct file_desc *d)
 {
 	struct unix_sk_info *ui;
 
