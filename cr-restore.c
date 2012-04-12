@@ -39,16 +39,7 @@
 #include "crtools.h"
 #include "namespaces.h"
 
-struct shmem_id {
-	struct shmem_id *next;
-	unsigned long	addr;
-	unsigned long	end;
-	unsigned long	shmid;
-};
-
 static struct task_entries *task_entries;
-
-static struct shmem_id *shmem_ids;
 
 static struct shmems *shmems;
 
@@ -349,7 +340,6 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 static int get_shmem_fd(int pid, struct vma_entry *vi)
 {
 	struct shmem_info *si;
-	struct shmem_id *shmid;
 	int sh_fd;
 	void *addr;
 	int f;
