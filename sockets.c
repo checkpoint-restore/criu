@@ -806,7 +806,9 @@ static struct unix_sk_info *find_unix_sk(int id)
 	struct file_desc *d;
 
 	d = find_file_desc_raw(FDINFO_UNIXSK, id);
-	return container_of(d, struct unix_sk_info, d);
+	if (d)
+		return container_of(d, struct unix_sk_info, d);
+	return NULL;
 }
 
 struct sk_packet {
