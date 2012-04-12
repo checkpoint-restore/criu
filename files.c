@@ -620,7 +620,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	if (move_img_fd(fdinfo_fd, fe->fd))
 		return -1;
 
-	pr_info("\t%d: Got fd for %d (state -> %d)\n", pid, fe->fd, state);
+	pr_info("\t%d: Restoring fd %d (state -> %d)\n", pid, fe->fd, state);
 
 	switch (state) {
 	case FD_STATE_PREP:
