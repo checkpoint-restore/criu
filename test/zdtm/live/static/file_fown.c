@@ -27,8 +27,9 @@ static int received_io;
 
 #define MAP(map, i)		(((int *)map)[i])
 #define MAP_SYNC(map)		MAP(map, 0)
-#define MAP_PID_PIPE(map)	MAP(map, 1)
-#define MAP_PID_SOK(map)	MAP(map, 2)
+#define MAP_PID_PIPE0(map)	MAP(map, 1)
+#define MAP_PID_PIPE1(map)	MAP(map, 2)
+#define MAP_PID_SOK(map)	MAP(map, 3)
 
 #define SK_DATA "packet"
 
@@ -134,6 +135,8 @@ int main(int argc, char ** argv)
 		while (MAP_SYNC(map) != 3)
 			sleep(1);
 
+		fcntl(pipes[1], F_SETOWN, getpid());
+
 		write(pipes[1], &v, sizeof(v));
 		read(pipes[0], &v, sizeof(v));
 
@@ -145,7 +148,8 @@ int main(int argc, char ** argv)
 		}
 		test_msg("stream            : '%s'\n", buf);
 
-		MAP_PID_PIPE(map) = fcntl(pipes[0], F_GETOWN);
+		MAP_PID_PIPE0(map) = fcntl(pipes[0], F_GETOWN);
+		MAP_PID_PIPE1(map) = fcntl(pipes[1], F_GETOWN);
 		MAP_PID_SOK(map) = fcntl(ssk_pair[0], F_GETOWN);
 
 		exit(0);
@@ -161,9 +165,14 @@ int main(int argc, char ** argv)
 
 	waitpid(pid, &status, P_ALL);
 
-	if (received_io < 1 || MAP_PID_PIPE(map) != ppid || MAP_PID_SOK(map) != ppid) {
-		fail("received_io = %d ppid: %d  MAP_PID_PIPE(map): %d MAP_PID_SOK(map): %d\n",
-		     received_io, ppid, MAP_PID_PIPE(map), MAP_PID_SOK(map));
+	if (received_io < 1		||
+	    MAP_PID_PIPE0(map) != ppid	||
+	    MAP_PID_PIPE1(map) != pid	||
+	    MAP_PID_SOK(map)   != ppid) {
+		fail("received_io = %d ppid: %d  MAP_PID_PIPE0(map): %d "
+		     "MAP_PID_PIPE1(map): %d MAP_PID_SOK(map): %d\n",
+		     received_io, ppid, MAP_PID_PIPE0(map),
+		     MAP_PID_PIPE1(map), MAP_PID_SOK(map));
 		exit(1);
 	}
 
