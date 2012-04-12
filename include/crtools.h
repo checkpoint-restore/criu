@@ -96,6 +96,7 @@ void show_creds(int fd, struct cr_options *o);
 void show_fs(int fd, struct cr_options *o);
 void show_fown_cont(fown_t *fown);
 
+extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
 #define FMT_FNAME_FDINFO	"fdinfo-%d.img"

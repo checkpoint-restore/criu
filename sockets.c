@@ -1135,8 +1135,6 @@ out:
 	pr_img_tail(CR_FD_UNIXSK);
 }
 
-extern void print_data(unsigned long addr, unsigned char *data, size_t size);
-
 void show_sk_queues(int fd, struct cr_options *o)
 {
 	struct sk_packet_entry pe;
