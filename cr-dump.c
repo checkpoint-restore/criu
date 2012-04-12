@@ -772,6 +772,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 
 	if (get_task_auxv(pid, &mme))
 		return -1;
+	pr_info("OK\n");
 
 	if (dump_task_exe_link(pid, &mme))
 		return -1;
@@ -988,6 +989,9 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	core->tc.exit_code = 0;
 
 	ret = dump_task_core(core, fdset_fd(cr_fdset, CR_FD_CORE));
+	if (ret)
+		goto err_free;
+	pr_info("OK\n");
 
 err_free:
 	free(core);
