@@ -722,6 +722,16 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
+/* 
+ * FIXME Din't fail on xid restore failure. MySQL uses runaway
+ * pgid and sid and there's nothing we can do about it yet :(
+ */
+
+static void xid_fail(void)
+{
+	/* exit(1) */
+}
+
 static void restore_sid(void)
 {
 	pid_t sid;
@@ -740,14 +750,14 @@ static void restore_sid(void)
 		sid = setsid();
 		if (sid != me->sid) {
 			pr_perror("Can't restore sid (%d)", sid);
-			exit(1);
+			xid_fail();
 		}
 	} else {
 		sid = getsid(getppid());
 		if (sid != me->sid) {
 			pr_err("Requested sid %d doesn't match inherited %d\n",
 					me->sid, sid);
-			exit(1);
+			xid_fail();
 		}
 	}
 }
@@ -765,7 +775,7 @@ static void restore_pgid(void)
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
 	if (setpgid(0, me->pgid) != 0) {
 		pr_perror("Can't restore pgid (%d/%d->%d)", me->pid, pgid, me->pgid);
-		exit(1);
+		xid_fail();
 	}
 }
 
