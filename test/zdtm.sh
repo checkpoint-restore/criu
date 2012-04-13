@@ -35,6 +35,7 @@ static/caps00
 static/cmdlinenv00
 static/socket_listen
 static/socket_udp
+static/socket_udplite
 static/selfexe00
 static/file_fown
 "

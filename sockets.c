@@ -528,6 +528,11 @@ static int inet_udp_receive_one(struct nlmsghdr *h)
 	return inet_collect_one(h, SOCK_DGRAM, IPPROTO_UDP);
 }
 
+static int inet_udplite_receive_one(struct nlmsghdr *h)
+{
+	return inet_collect_one(h, SOCK_DGRAM, IPPROTO_UDPLITE);
+}
+
 static int unix_collect_one(const struct unix_diag_msg *m,
 		struct rtattr **tb)
 {
@@ -782,6 +787,15 @@ int collect_sockets(void)
 	if (tmp)
 		err = tmp;
 
+	/* Collect IPv4 UDP-lite sockets */
+	req.r.i.sdiag_family	= AF_INET;
+	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_udplite_receive_one);
+	if (tmp)
+		err = tmp;
+
 out:
 	close(nl);
 	return err;
@@ -991,7 +1005,7 @@ static int open_inet_sk(struct file_desc *d)
 	}
 
 	if (ii->ie.state == TCP_ESTABLISHED) {
-		if (ii->ie.proto != IPPROTO_UDP) {
+		if (ii->ie.proto == IPPROTO_TCP) {
 			pr_err("Connected TCP socket in image\n");
 			goto err;
 		}
@@ -1046,6 +1060,8 @@ static inline char *skproto2s(u32 p)
 {
 	if (p == IPPROTO_UDP)
 		return "udp";
+	else if (p == IPPROTO_UDPLITE)
+		return "udpl";
 	else if (p == IPPROTO_TCP)
 		return "tcp";
 	else
