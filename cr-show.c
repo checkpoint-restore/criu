@@ -35,9 +35,9 @@
 
 #define pr_regs4(s, n1, n2, n3, n4)	\
 	pr_msg("%8s: 0x%16lx "		\
-	       "%8s: %16lx "		\
-	       "%8s: %16lx "		\
-	       "%8s: %16lx\n",		\
+	       "%8s: 0x%16lx "		\
+	       "%8s: 0x%16lx "		\
+	       "%8s: 0x%16lx\n",	\
 	       #n1, s.n1,		\
 	       #n2, s.n2,		\
 	       #n3, s.n3,		\
@@ -45,8 +45,8 @@
 
 #define pr_regs3(s, n1, n2, n3)		\
 	pr_msg("%8s: 0x%16lx "		\
-	       "%8s: %16lx "		\
-	       "%8s: %16lx\n",		\
+	       "%8s: 0x%16lx "		\
+	       "%8s: 0x%16lx\n",	\
 	       #n1, s.n1,		\
 	       #n2, s.n2,		\
 	       #n3, s.n3)
@@ -326,7 +326,7 @@ void show_sigacts(int fd_sigacts, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 		pr_msg("sigaction: 0x%016lx mask: 0x%08lx "
-		       "flags: %016lx restorer: %016lx\n",
+		       "flags: 0x%016lx restorer: 0x%016lx\n",
 		       (long)e.sigaction,
 		       (long)e.mask,
 		       (long)e.flags,

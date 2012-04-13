@@ -42,8 +42,8 @@ void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 	if (!vma_area)
 		return;
 
-	print_on_level(loglevel, "s: %16lx e: %16lx l: %8liK p: %8x f: %8x pg: %8lx "
-		       "vf: %s st: %s spc: %-8s shmid: %8lx\n",
+	print_on_level(loglevel, "s: 0x%16lx e: 0x%16lx l: %8liK p: 0x%8x f: 0x%8x pg: 0x%8lx "
+		       "vf: %s st: %s spc: %-8s shmid: 0x%8lx\n",
 		       vma_area->vma.start, vma_area->vma.end,
 		       KBYTES(vma_area_len(vma_area)),
 		       vma_area->vma.prot,

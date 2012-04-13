@@ -587,7 +587,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			    (st.st_dev != kdev_to_odev(uv->udiag_vfs_dev))) {
 				pr_info("unix: Dropping path for "
 						"unlinked bound "
-						"sk %x.%x real %x.%x\n",
+						"sk 0x%x.0x%x real 0x%x.0x%x\n",
 						(int)st.st_dev,
 						(int)st.st_ino,
 						(int)uv->udiag_vfs_dev,
