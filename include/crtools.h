@@ -44,6 +44,7 @@ enum {
 
 	CR_FD_PSTREE,
 	CR_FD_SHMEM_PAGES,
+	CR_FD_GHOST_FILE,
 
 	_CR_FD_GLOB_FROM,
 	CR_FD_SK_QUEUES,
@@ -52,6 +53,7 @@ enum {
 	CR_FD_UNIXSK,
 	CR_FD_PIPES,
 	CR_FD_PIPES_DATA,
+	CR_FD_REMAP_FPATH,
 	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
@@ -94,6 +96,8 @@ void show_sigacts(int fd_sigacts, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);
 void show_creds(int fd, struct cr_options *o);
 void show_fs(int fd, struct cr_options *o);
+void show_remap_files(int fd, struct cr_options *o);
+void show_ghost_file(int fd, struct cr_options *o);
 void show_fown_cont(fown_t *fown);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
@@ -121,6 +125,8 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
 #define FMT_FNAME_SK_QUEUES	"sk-queues.img"
 #define FMT_FNAME_FS		"fs-%d.img"
+#define FMT_FNAME_REMAP_FPATH	"remap-fpath.img"
+#define FMT_FNAME_GHOST_FILE	"ghost-file-%x.img"
 
 extern int open_image_dir(void);
 extern void close_image_dir(void);

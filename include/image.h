@@ -30,6 +30,8 @@
 #define REG_FILES_MAGIC	0x50363636 /* Belgorod */
 #define FS_MAGIC	0x51403912 /* Voronezh */
 #define MM_MAGIC	0x57492820 /* Pskov */
+#define REMAP_FPATH_MAGIC 0x59133954 /* Vologda */
+#define GHOST_FILE_MAGIC 0x52583605 /* Oryol */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -62,6 +64,23 @@ struct reg_file_entry {
 	u64	pos;
 	fown_t	fown;
 	u8	name[0];
+} __packed;
+
+struct remap_file_path_entry {
+	u32	orig_id;
+	u32	remap_id;
+} __packed;
+
+/*
+ * Top bit set in the tgt id means we've remapped
+ * to a ghost file.
+ */
+#define REMAP_GHOST	(1 << 31)
+
+struct ghost_file_entry {
+	u32	uid;
+	u32	gid;
+	u32	mode;
 } __packed;
 
 struct fdinfo_entry {

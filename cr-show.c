@@ -132,6 +132,45 @@ out:
 	pr_img_tail(CR_FD_REG_FILES);
 }
 
+static inline char *remap_id_type(u32 id)
+{
+	if (id & REMAP_GHOST)
+		return "ghost";
+	else
+		return "real";
+}
+
+void show_remap_files(int fd, struct cr_options *o)
+{
+	struct remap_file_path_entry rfe;
+
+	pr_img_head(CR_FD_REMAP_FPATH);
+
+	while (1) {
+		int ret;
+
+		ret = read_img_eof(fd, &rfe);
+		if (ret <= 0)
+			break;
+
+		pr_msg("%x -> %x (%s)\n", rfe.orig_id,
+				(rfe.remap_id & ~REMAP_GHOST),
+				remap_id_type(rfe.remap_id));
+	}
+
+	pr_img_tail(CR_FD_REMAP_FPATH);
+}
+
+void show_ghost_file(int fd, struct cr_options *o)
+{
+	struct ghost_file_entry gfe;
+
+	pr_img_head(CR_FD_GHOST_FILE);
+	if (read_img(fd, &gfe) > 0)
+		pr_msg("uid %u god %u mode %x\n", gfe.uid, gfe.gid, gfe.mode);
+	pr_img_tail(CR_FD_GHOST_FILE);
+}
+
 void show_pipes_data(int fd_pipes, struct cr_options *o)
 {
 	struct pipe_data_entry e;

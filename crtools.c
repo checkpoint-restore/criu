@@ -182,6 +182,18 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.magic	= FS_MAGIC,
 		.show	= show_fs,
 	},
+
+	[CR_FD_REMAP_FPATH] = {
+		.fmt	= FMT_FNAME_REMAP_FPATH,
+		.magic	= REMAP_FPATH_MAGIC,
+		.show	= show_remap_files,
+	},
+
+	[CR_FD_GHOST_FILE] = {
+		.fmt	= FMT_FNAME_GHOST_FILE,
+		.magic	= GHOST_FILE_MAGIC,
+		.show	= show_ghost_file,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

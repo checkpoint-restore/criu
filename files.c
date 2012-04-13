@@ -81,6 +81,7 @@ struct fdinfo_list_entry *file_master(struct file_desc *d)
 
 struct reg_file_info {
 	struct reg_file_entry rfe;
+	char *remap_path;
 	char *path;
 	struct file_desc d;
 };
@@ -151,6 +152,128 @@ static struct file_desc_ops reg_desc_ops = {
 	.open = open_fe_fd,
 };
 
+struct ghost_file {
+	u32 id;
+	char *path;
+	struct list_head list;
+};
+
+static LIST_HEAD(ghost_files);
+
+void clear_ghost_files(void)
+{
+	struct ghost_file *gf;
+
+	pr_info("Unlinking ghosts\n");
+
+	list_for_each_entry(gf, &ghost_files, list) {
+		pr_info("\t`- %s\n", gf->path);
+		unlink(gf->path);
+	}
+}
+
+static int open_remap_ghost(struct reg_file_info *rfi,
+		struct remap_file_path_entry *rfe)
+{
+	struct ghost_file *gf;
+	struct ghost_file_entry gfe;
+	int gfd, ifd;
+
+	list_for_each_entry(gf, &ghost_files, list)
+		if (gf->id == rfe->remap_id)
+			goto gf_found;
+
+	/*
+	 * Ghost not found. We will create one in the same dir
+	 * as the very first client of it thus resolving any
+	 * issues with cross-device links.
+	 */
+
+	pr_info("Opening ghost file %x for %s\n", rfe->remap_id, rfi->path);
+
+	gf = xmalloc(sizeof(*gf));
+	if (!gf)
+		return -1;
+	gf->path = xmalloc(PATH_MAX);
+	if (!gf->path)
+		return -1;
+
+	ifd = open_image_ro(CR_FD_GHOST_FILE, rfe->remap_id);
+	if (ifd < 0)
+		return -1;
+
+	if (read_img(ifd, &gfe) < 0)
+		return -1;
+
+	sprintf(gf->path, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+	gfd = open(gf->path, O_WRONLY | O_CREAT | O_EXCL, gfe.mode);
+	if (gfd < 0) {
+		pr_perror("Can't open ghost file");
+		return -1;
+	}
+
+	if (fchown(gfd, gfe.uid, gfe.gid) < 0) {
+		pr_perror("Can't reset user/group on ghost %x\n", rfe->remap_id);
+		return -1;
+	}
+
+	if (copy_file(ifd, gfd, 0) < 0)
+		return -1;
+
+	close(ifd);
+	close(gfd);
+
+	gf->id = rfe->remap_id;
+	list_add_tail(&gf->list, &ghost_files);
+gf_found:
+	rfi->remap_path = gf->path;
+	return 0;
+}
+
+static int collect_remaps(void)
+{
+	int fd, ret = 0;
+
+	fd = open_image_ro(CR_FD_REMAP_FPATH);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		struct remap_file_path_entry rfe;
+		struct file_desc *fdesc;
+		struct reg_file_info *rfi;
+
+		ret = read_img_eof(fd, &rfe);
+		if (ret <= 0)
+			break;
+
+		ret = -1;
+
+		if (!(rfe.remap_id & REMAP_GHOST)) {
+			pr_err("Non ghost remap not supported @%x\n",
+					rfe.orig_id);
+			break;
+		}
+
+		fdesc = find_file_desc_raw(FDINFO_REG, rfe.orig_id);
+		if (fdesc == NULL) {
+			pr_err("Remap for non existing file %x\n",
+					rfe.orig_id);
+			break;
+		}
+
+		rfe.remap_id &= ~REMAP_GHOST;
+		rfi = container_of(fdesc, struct reg_file_info, d);
+		pr_info("Configuring remap %x -> %x\n", rfi->rfe.id, rfe.remap_id);
+		ret = open_remap_ghost(rfi, &rfe);
+		if (ret < 0)
+			break;
+	}
+
+	close(fd);
+	return ret;
+}
+
 int collect_reg_files(void)
 {
 	struct reg_file_info *rfi = NULL;
@@ -183,6 +306,7 @@ int collect_reg_files(void)
 		if (ret < 0)
 			break;
 
+		rfi->remap_path = NULL;
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
@@ -196,7 +320,8 @@ int collect_reg_files(void)
 	}
 
 	close(fd);
-	return ret;
+
+	return collect_remaps();
 }
 
 static int collect_fd(int pid, struct fdinfo_entry *e)
@@ -269,11 +394,21 @@ static int open_fe_fd(struct file_desc *d)
 
 	rfi = container_of(d, struct reg_file_info, d);
 
+	if (rfi->remap_path)
+		if (link(rfi->remap_path, rfi->path) < 0) {
+			pr_perror("Can't link %s -> %s\n",
+					rfi->remap_path, rfi->path);
+			return -1;
+		}
+
 	tmp = open(rfi->path, rfi->rfe.flags);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		return -1;
 	}
+
+	if (rfi->remap_path)
+		unlink(rfi->path);
 
 	lseek(tmp, rfi->rfe.pos, SEEK_SET);
 

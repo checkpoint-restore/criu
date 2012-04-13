@@ -73,4 +73,6 @@ struct file_desc;
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
 
+void clear_ghost_files(void);
+
 #endif /* FILES_H_ */

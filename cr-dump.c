@@ -126,30 +126,142 @@ static int collect_fds(pid_t pid, int *fd, int *nr_fd)
 	return 0;
 }
 
-static int path_accessible(char *path, const struct stat *ost)
+/*
+ * Ghost files are those not visible from the FS. Dumping them is
+ * nasty and the only way we have -- just carry its contents with
+ * us. Any brave soul to implement link unlinked file back?
+ */
+struct ghost_file {
+	u32	dev;
+	u32	ino;
+	u32	id;
+	struct list_head list;
+};
+
+static u32 ghost_file_ids = 1;
+static LIST_HEAD(ghost_files);
+/*
+ * This constant is selected without any calculations. Just do not
+ * want to pick up too big files with us in the image.
+ */
+#define MAX_GHOST_FILE_SIZE	(1 * 1024 * 1024)
+
+static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
+{
+	int img, fd;
+	struct ghost_file_entry gfe;
+	char lpath[32];
+
+	pr_info("Dumping ghost file contents (id %x)\n", id);
+
+	img = open_image(CR_FD_GHOST_FILE, O_DUMP, id);
+	if (img < 0)
+		return -1;
+
+	/*
+	 * Reopen file locally since it may have no read
+	 * permissions when drained
+	 */
+	snprintf(lpath, sizeof(lpath), "/proc/self/fd/%d", _fd);
+	fd = open(lpath, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open ghost original file");
+		return -1;
+	}
+
+	gfe.uid = st->st_uid;
+	gfe.gid = st->st_gid;
+	gfe.mode = st->st_mode;
+
+	if (write_img(img, &gfe))
+		return -1;
+
+	if (copy_file(fd, img, st->st_size))
+		return -1;
+
+	close(fd);
+	close(img);
+	return 0;
+}
+
+static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
+{
+	struct ghost_file *gf;
+	struct remap_file_path_entry rpe;
+
+	pr_info("Dumping ghost file for fd %d id %x\n", lfd, id);
+
+	if (st->st_size > MAX_GHOST_FILE_SIZE) {
+		pr_err("Can't dump ghost file %s of %lu size\n",
+				path, st->st_size);
+		return -1;
+	}
+
+	list_for_each_entry(gf, &ghost_files, list)
+		if ((gf->dev == st->st_dev) && (gf->ino == st->st_ino))
+			goto dump_entry;
+
+	gf = xmalloc(sizeof(*gf));
+	if (gf == NULL)
+		return -1;
+
+	gf->dev = st->st_dev;
+	gf->ino = st->st_ino;
+	gf->id = ghost_file_ids++;
+	list_add_tail(&gf->list, &ghost_files);
+
+	if (dump_ghost_file(lfd, gf->id, st))
+		return -1;
+
+dump_entry:
+	rpe.orig_id = id;
+	rpe.remap_id = gf->id | REMAP_GHOST;
+
+	return write_img(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH), &rpe);
+}
+
+static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
 {
 	int ret;
 	struct stat pst;
 
-	if (ost->st_nlink == 0) {
-		pr_err("Unlinked file opened, can't dump\n");
-		return 0;
-	}
+	if (ost->st_nlink == 0)
+		/*
+		 * Unpleasant, but easy case. File is completely invisible
+		 * from the FS. Just dump its contents and that's it. But
+		 * be careful whether anybody still has any of its hardlinks
+		 * also open.
+		 */
+		return dump_ghost_remap(path, ost, lfd, id);
 
 	ret = stat(path, &pst);
 	if (ret < 0) {
+		/*
+		 * FIXME linked file, but path is not accessible (unless any
+		 * other error occurred). We can create a temporary link to it
+		 * uning linkat with AT_EMPTY_PATH flag and remap it to this
+		 * name.
+		 */
 		pr_perror("Can't stat path");
-		return 0;
+		return -1;
 	}
 
 	if ((pst.st_ino != ost->st_ino) || (pst.st_dev != ost->st_dev)) {
+		/*
+		 * FIXME linked file, but the name we see it by is reused
+		 * by somebody else.
+		 */
 		pr_err("Unaccessible path opened %u:%u, need %u:%u\n",
 				(int)pst.st_dev, (int)pst.st_ino,
 				(int)ost->st_dev, (int)ost->st_ino);
-		return 0;
+		return -1;
 	}
 
-	return 1;
+	/*
+	 * File is linked and visible by the name it is opened by
+	 * this task. Go ahead and dump it.
+	 */
+	return 0;
 }
 
 static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
@@ -170,7 +282,7 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 			p->fd, lfd, big_buffer);
 
 	if (p->type == FDINFO_REG &&
-			!path_accessible(big_buffer, &p->stat))
+			check_path_remap(big_buffer, &p->stat, lfd, id))
 		return -1;
 
 	rfe.len = len;

@@ -900,6 +900,12 @@ out:
 		return -1;
 	}
 
+	/*
+	 * Maybe rework ghosts to be auto-unlinkable?
+	 */
+
+	clear_ghost_files();
+
 	pr_info("Go on!!!\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
