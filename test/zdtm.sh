@@ -38,6 +38,8 @@ static/socket_udp
 static/socket_udplite
 static/selfexe00
 static/file_fown
+static/unlink_fstat00
+static/unlink_fstat02
 "
 
 UTS_TEST_LIST="

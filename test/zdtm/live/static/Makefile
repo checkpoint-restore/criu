@@ -55,6 +55,7 @@ TST_FILE	=				\
 		deleted_dev			\
 		unlink_fstat00			\
 		unlink_fstat01			\
+		unlink_fstat02			\
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\
