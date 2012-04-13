@@ -219,7 +219,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: ino %d family %d type %d port %d "
+	pr_debug("\t%s: ino %x family %d type %d port %d "
 		"state %d src_addr %s\n",
 		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
 		sk->state, src_addr);
@@ -242,7 +242,7 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino %d type %d state %d name %s\n",
+	pr_debug("\t%s: ino %x type %d state %d name %s\n",
 		act, sk->sd.ino, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
@@ -444,7 +444,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 
 		ue.peer		= e->sk_desc->sd.ino;
 
-		pr_debug("\t\tFixed inflight socket %d peer %d)\n",
+		pr_debug("\t\tFixed inflight socket %x peer %x)\n",
 				ue.id, ue.peer);
 	}
 
