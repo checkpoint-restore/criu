@@ -56,7 +56,7 @@ static void show_saved_shmems(void)
 	pr_info("\tSaved shmems:\n");
 
 	for (i = 0; i < shmems->nr_shmems; i++)
-		pr_info("\t\tstart: %016lx shmid: %lx pid: %d\n",
+		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
 			shmems->entries[i].start,
 			shmems->entries[i].shmid,
 			shmems->entries[i].pid);
@@ -118,7 +118,7 @@ static int collect_shmem(int pid, struct vma_entry *vi)
 		return -1;
 	}
 
-	pr_info("Add new shmem %lx (0x016%lx-0x016%lx)",
+	pr_info("Add new shmem 0x%lx (0x0160x%lx-0x0160x%lx)",
 				vi->shmid, vi->start, vi->end);
 
 	si = &shmems->entries[nr_shmems];
@@ -156,7 +156,7 @@ static int prepare_shmem_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		pr_info("%d: vma %lx %lx\n", pid, vi.start, vi.end);
+		pr_info("%d: vma 0x%lx 0x%lx\n", pid, vi.start, vi.end);
 
 		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
 			continue;
@@ -345,9 +345,9 @@ static int get_shmem_fd(int pid, struct vma_entry *vi)
 	int f;
 
 	si = find_shmem(shmems, vi->shmid);
-	pr_info("%d: Search for %016lx shmem %lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
+	pr_info("%d: Search for 0x%016lx shmem 0x%lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
-		pr_err("Can't find my shmem %016lx\n", vi->start);
+		pr_err("Can't find my shmem 0x%016lx\n", vi->start);
 		return -1;
 	}
 
@@ -414,7 +414,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("%d: Opening %016lx-%016lx %016lx vma\n",
+		pr_info("%d: Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
 				pid, vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
 		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
@@ -664,7 +664,7 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 	struct cr_clone_arg ca;
 	void *stack;
 
-	pr_info("Forking task with %d pid (flags %lx)\n", pid, ns_clone_flags);
+	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ns_clone_flags);
 
 	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
 			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
@@ -1212,7 +1212,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 		goto err;
 	}
 
-	pr_info("Found bootstrap VMA hint at: %lx (needs ~%ldK)\n", exec_mem_hint,
+	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
 	/* VMA we need to run task_restore code */

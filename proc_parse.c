@@ -178,7 +178,7 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_err("Bogus mapping %lx-%lx (flags: %x vm_file_fd: %d)\n",
+	pr_err("Bogus mapping 0x%lx-0x%lx (flags: 0x%x vm_file_fd: %d)\n",
 	       vma_area->vma.start, vma_area->vma.end,
 	       vma_area->vma.flags, vma_area->vm_file_fd);
 	goto err;

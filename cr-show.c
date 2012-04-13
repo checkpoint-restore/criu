@@ -34,7 +34,7 @@
 	(isprint(sym) ? sym : '.')
 
 #define pr_regs4(s, n1, n2, n3, n4)	\
-	pr_msg("%8s: %16lx "		\
+	pr_msg("%8s: 0x%16lx "		\
 	       "%8s: %16lx "		\
 	       "%8s: %16lx "		\
 	       "%8s: %16lx\n",		\
@@ -44,7 +44,7 @@
 	       #n4, s.n4)
 
 #define pr_regs3(s, n1, n2, n3)		\
-	pr_msg("%8s: %16lx "		\
+	pr_msg("%8s: 0x%16lx "		\
 	       "%8s: %16lx "		\
 	       "%8s: %16lx\n",		\
 	       #n1, s.n1,		\
@@ -83,7 +83,7 @@ void show_files(int fd_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %5s fd: %5d id: %8x flags %x",
+		pr_msg("type: %5s fd: %5d id: 0x%8x flags 0x%x",
 		       fdtype2s(e.type), e.fd, e.id, e.flags);
 
 		pr_msg("\n");
@@ -95,7 +95,7 @@ out:
 
 void show_fown_cont(fown_t *fown)
 {
-	pr_msg("fown: uid: %x euid: %x signum: %x pid_type: %x pid: %u",
+	pr_msg("fown: uid: 0x%x euid: 0x%x signum: 0x%x pid_type: 0x%x pid: %u",
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
 }
 
@@ -112,7 +112,7 @@ void show_reg_files(int fd_reg_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id: %8x flags: %4x pos: %lx ", rfe.id, rfe.flags, rfe.pos);
+		pr_msg("id: 0x%8x flags: 0x%4x pos: 0x%lx ", rfe.id, rfe.flags, rfe.pos);
 		show_fown_cont(&rfe.fown);
 
 		if (rfe.len) {
@@ -153,7 +153,7 @@ void show_remap_files(int fd, struct cr_options *o)
 		if (ret <= 0)
 			break;
 
-		pr_msg("%x -> %x (%s)\n", rfe.orig_id,
+		pr_msg("0x%x -> 0x%x (%s)\n", rfe.orig_id,
 				(rfe.remap_id & ~REMAP_GHOST),
 				remap_id_type(rfe.remap_id));
 	}
@@ -167,7 +167,7 @@ void show_ghost_file(int fd, struct cr_options *o)
 
 	pr_img_head(CR_FD_GHOST_FILE);
 	if (read_img(fd, &gfe) > 0)
-		pr_msg("uid %u god %u mode %x\n", gfe.uid, gfe.gid, gfe.mode);
+		pr_msg("uid %u god %u mode 0x%x\n", gfe.uid, gfe.gid, gfe.mode);
 	pr_img_tail(CR_FD_GHOST_FILE);
 }
 
@@ -185,7 +185,7 @@ void show_pipes_data(int fd_pipes, struct cr_options *o)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("pipeid: %8x bytes: %8x off: %8x\n",
+		pr_msg("pipeid: 0x%8x bytes: 0x%8x off: 0x%8x\n",
 		       e.pipe_id, e.bytes, e.off);
 
 		lseek(fd_pipes, e.off + e.bytes, SEEK_CUR);
@@ -208,7 +208,7 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("id: %8x pipeid: %8x flags: %8x ",
+		pr_msg("id: 0x%8x pipeid: 0x%8x flags: 0x%8x ",
 		       e.id, e.pipe_id, e.flags);
 		show_fown_cont(&e.fown);
 		pr_msg("\n");
@@ -225,8 +225,8 @@ void show_fs(int fd_fs, struct cr_options *o)
 	pr_img_head(CR_FD_FS);
 
 	if (read_img(fd_fs, &fe) > 0) {
-		pr_msg("CWD : %x\n", fe.cwd_id);
-		pr_msg("ROOT: %x\n", fe.root_id);
+		pr_msg("CWD : 0x%x\n", fe.cwd_id);
+		pr_msg("ROOT: 0x%x\n", fe.root_id);
 	}
 
 	pr_img_tail(CR_FD_FS);
@@ -259,12 +259,12 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	int i, j;
 
 	for (i = 0; i < size; i+= 16) {
-		pr_msg("%16lx: ", addr + i);
+		pr_msg("0x%16lx: ", addr + i);
 		for (j = 0; j < 8; j++)
-			pr_msg("%02x ", data[i +  j]);
+			pr_msg("0x%02x ", data[i +  j]);
 		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_msg("%02x ", data[i +  j]);
+			pr_msg("0x%02x ", data[i +  j]);
 
 		pr_msg(" |");
 		for (j = 0; j < 8; j++)
@@ -303,7 +303,7 @@ void show_pages(int fd_pages, struct cr_options *o)
 					goto out;
 				}
 
-				pr_msg("%16lx ", e.va);
+				pr_msg("0x%16lx ", e.va);
 			}
 			pr_msg("\n");
 		}
@@ -325,7 +325,7 @@ void show_sigacts(int fd_sigacts, struct cr_options *o)
 		ret = read_img_eof(fd_sigacts, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("sigaction: %016lx mask: %08lx "
+		pr_msg("sigaction: 0x%016lx mask: 0x%08lx "
 		       "flags: %016lx restorer: %016lx\n",
 		       (long)e.sigaction,
 		       (long)e.mask,
@@ -365,7 +365,7 @@ static void show_cap(char *name, u32 *v)
 
 	pr_msg("%s: ", name);
 	for (i = CR_CAP_SIZE - 1; i >= 0; i--)
-		pr_msg("%08x", v[i]);
+		pr_msg("0x%08x", v[i]);
 	pr_msg("\n");
 }
 
@@ -387,7 +387,7 @@ void show_creds(int fd, struct cr_options *o)
 	show_cap("Prm", ce.cap_prm);
 	show_cap("Bnd", ce.cap_bnd);
 
-	pr_msg("secbits: %x\n", ce.secbits);
+	pr_msg("secbits: 0x%x\n", ce.secbits);
 out:
 	pr_img_tail(CR_FD_CREDS);
 }
@@ -511,7 +511,7 @@ static void show_core_rest(int fd_core)
 		goto err;
 
 	pr_msg("\n\t---[Task parameters]---\n");
-	pr_msg("\tPersonality:  %x\n", tc.personality);
+	pr_msg("\tPersonality:  0x%x\n", tc.personality);
 	pr_msg("\tCommand:      %s\n", tc.comm);
 	pr_msg("\tState:        %d (%s)\n",
 	       (int)tc.task_state,
@@ -520,7 +520,7 @@ static void show_core_rest(int fd_core)
 	pr_msg("\t   Exit code: %u\n",
 	       (unsigned int)tc.exit_code);
 
-	pr_msg("\tBlkSig: %lx\n", tc.blk_sigset);
+	pr_msg("\tBlkSig: 0x%lx\n", tc.blk_sigset);
 	pr_msg("\n");
 
 err:
@@ -535,10 +535,10 @@ static void show_core_ids(int fd)
 	if (read_img(fd, &cie) < 0)
 		goto err;
 
-	pr_msg("\tVM:      %x\n", cie.vm_id);
-	pr_msg("\tFS:      %x\n", cie.fs_id);
-	pr_msg("\tFILES:   %x\n", cie.files_id);
-	pr_msg("\tSIGHAND: %x\n", cie.sighand_id);
+	pr_msg("\tVM:      0x%x\n", cie.vm_id);
+	pr_msg("\tFS:      0x%x\n", cie.fs_id);
+	pr_msg("\tFILES:   0x%x\n", cie.files_id);
+	pr_msg("\tSIGHAND: 0x%x\n", cie.sighand_id);
 err:
 	return;
 }
@@ -576,18 +576,18 @@ void show_mm(int fd_mm, struct cr_options *o)
 	if (read_img(fd_mm, &mme) < 0)
 		goto out;
 
-	pr_msg("\tBrk:          %lx\n", mme.mm_brk);
-	pr_msg("\tStart code:   %lx\n", mme.mm_start_code);
-	pr_msg("\tEnd code:     %lx\n", mme.mm_end_code);
-	pr_msg("\tStart stack:  %lx\n", mme.mm_start_stack);
-	pr_msg("\tStart data:   %lx\n", mme.mm_start_data);
-	pr_msg("\tEnd data:     %lx\n", mme.mm_end_data);
-	pr_msg("\tStart brk:    %lx\n", mme.mm_start_brk);
-	pr_msg("\tArg start:    %lx\n", mme.mm_arg_start);
-	pr_msg("\tArg end:      %lx\n", mme.mm_arg_end);
-	pr_msg("\tEnv start:    %lx\n", mme.mm_env_start);
-	pr_msg("\tEnv end:      %lx\n", mme.mm_env_end);
-	pr_msg("\tExe file ID   %x\n", mme.exe_file_id);
+	pr_msg("\tBrk:          0x%lx\n", mme.mm_brk);
+	pr_msg("\tStart code:   0x%lx\n", mme.mm_start_code);
+	pr_msg("\tEnd code:     0x%lx\n", mme.mm_end_code);
+	pr_msg("\tStart stack:  0x%lx\n", mme.mm_start_stack);
+	pr_msg("\tStart data:   0x%lx\n", mme.mm_start_data);
+	pr_msg("\tEnd data:     0x%lx\n", mme.mm_end_data);
+	pr_msg("\tStart brk:    0x%lx\n", mme.mm_start_brk);
+	pr_msg("\tArg start:    0x%lx\n", mme.mm_arg_start);
+	pr_msg("\tArg end:      0x%lx\n", mme.mm_arg_end);
+	pr_msg("\tEnv start:    0x%lx\n", mme.mm_env_start);
+	pr_msg("\tEnv end:      0x%lx\n", mme.mm_env_end);
+	pr_msg("\tExe file ID   0x%x\n", mme.exe_file_id);
 out:
 	pr_img_tail(CR_FD_MM);
 }
@@ -611,13 +611,13 @@ static int cr_parse_file(struct cr_options *opts)
 			break;
 
 	if (i == CR_FD_MAX) {
-		pr_err("Unknown magic %x in %s\n",
+		pr_err("Unknown magic 0x%x in %s\n",
 				magic, opts->show_dump_file);
 		goto err;
 	}
 
 	if (!fdset_template[i].show) {
-		pr_err("No handler for %x/%s\n",
+		pr_err("No handler for 0x%x/%s\n",
 				magic, opts->show_dump_file);
 		goto err;
 	}

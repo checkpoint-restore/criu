@@ -96,7 +96,7 @@ void show_saved_files(void)
 		list_for_each_entry(fd, &file_descs[i], hash) {
 			struct fdinfo_list_entry *le;
 
-			pr_info(" `- type %d ID %x\n", fd->type, fd->id);
+			pr_info(" `- type %d ID 0x%x\n", fd->type, fd->id);
 			list_for_each_entry(le, &fd->fd_info_head, list)
 				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
 		}
@@ -189,7 +189,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	 * issues with cross-device links.
 	 */
 
-	pr_info("Opening ghost file %x for %s\n", rfe->remap_id, rfi->path);
+	pr_info("Opening ghost file 0x%x for %s\n", rfe->remap_id, rfi->path);
 
 	gf = xmalloc(sizeof(*gf));
 	if (!gf)
@@ -213,7 +213,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	}
 
 	if (fchown(gfd, gfe.uid, gfe.gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %x\n", rfe->remap_id);
+		pr_perror("Can't reset user/group on ghost 0x%x\n", rfe->remap_id);
 		return -1;
 	}
 
@@ -250,21 +250,21 @@ static int collect_remaps(void)
 		ret = -1;
 
 		if (!(rfe.remap_id & REMAP_GHOST)) {
-			pr_err("Non ghost remap not supported @%x\n",
+			pr_err("Non ghost remap not supported @0x%x\n",
 					rfe.orig_id);
 			break;
 		}
 
 		fdesc = find_file_desc_raw(FDINFO_REG, rfe.orig_id);
 		if (fdesc == NULL) {
-			pr_err("Remap for non existing file %x\n",
+			pr_err("Remap for non existing file 0x%x\n",
 					rfe.orig_id);
 			break;
 		}
 
 		rfe.remap_id &= ~REMAP_GHOST;
 		rfi = container_of(fdesc, struct reg_file_info, d);
-		pr_info("Configuring remap %x -> %x\n", rfi->rfe.id, rfe.remap_id);
+		pr_info("Configuring remap 0x%x -> 0x%x\n", rfi->rfe.id, rfe.remap_id);
 		ret = open_remap_ghost(rfi, &rfe);
 		if (ret < 0)
 			break;
@@ -309,7 +309,7 @@ int collect_reg_files(void)
 		rfi->remap_path = NULL;
 		rfi->path[len] = '\0';
 
-		pr_info("Collected [%s] ID %x\n", rfi->path, rfi->rfe.id);
+		pr_info("Collected [%s] ID 0x%x\n", rfi->path, rfi->rfe.id);
 		file_desc_add(&rfi->d, FDINFO_REG, rfi->rfe.id,
 				&reg_desc_ops);
 	}
@@ -330,7 +330,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
 	struct file_desc *fdesc;
 
-	pr_info("Collect fdinfo pid=%d fd=%d id=%16x\n",
+	pr_info("Collect fdinfo pid=%d fd=%d id=0x%16x\n",
 		pid, e->fd, e->id);
 
 	nr_fdinfo_list++;
@@ -423,7 +423,7 @@ int open_reg_by_id(u32 id)
 
 	fd = find_file_desc_raw(FDINFO_REG, id);
 	if (fd == NULL) {
-		pr_perror("Can't find regfile for %x\n", id);
+		pr_perror("Can't find regfile for 0x%x\n", id);
 		return -1;
 	}
 

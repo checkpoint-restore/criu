@@ -219,7 +219,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: ino %x family %d type %d port %d "
+	pr_debug("\t%s: ino 0x%x family %d type %d port %d "
 		"state %d src_addr %s\n",
 		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
 		sk->state, src_addr);
@@ -242,7 +242,7 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino %x type %d state %d name %s\n",
+	pr_debug("\t%s: ino 0x%x type %d state %d name %s\n",
 		act, sk->sd.ino, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
@@ -403,7 +403,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 
 		peer = (struct unix_sk_desc *)lookup_socket(ue.peer);
 		if (!peer) {
-			pr_err("Unix socket %x without peer %x\n",
+			pr_err("Unix socket 0x%x without peer 0x%x\n",
 					ue.id, ue.peer);
 			goto err;
 		}
@@ -413,7 +413,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 		 * we can access one.
 		 */
 		if (!peer->name && (peer->peer_ino != ue.id)) {
-			pr_err("Unix socket %x with unreachable peer %x (%x/%s)\n",
+			pr_err("Unix socket 0x%x with unreachable peer 0x%x (0x%x/%s)\n",
 					ue.id, ue.peer, peer->peer_ino, peer->name);
 			goto err;
 		}
@@ -444,7 +444,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 
 		ue.peer = e->sk_desc->sd.ino;
 
-		pr_debug("\t\tFixed inflight socket %x peer %x)\n",
+		pr_debug("\t\tFixed inflight socket 0x%x peer 0x%x)\n",
 				ue.id, ue.peer);
 	}
 
@@ -1107,7 +1107,7 @@ void show_inetsk(int fd, struct cr_options *o)
 			}
 		}
 
-		pr_msg("id %x family %s type %s proto %s state %s %s:%d <-> %s:%d flags %2x\n",
+		pr_msg("id 0x%x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
 			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
 			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
 		pr_msg("\t"), show_fown_cont(&ie.fown), pr_msg("\n");
@@ -1131,7 +1131,7 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id %8x type %s state %s namelen %4d backlog %4d peer %8x flags %2x",
+		pr_msg("id 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x",
 			ue.id, sktype2s(ue.type), skstate2s(ue.state),
 			ue.namelen, ue.backlog, ue.peer, ue.flags);
 
@@ -1212,7 +1212,7 @@ int run_unix_connections(void)
 		struct fdinfo_list_entry *fle;
 		struct sockaddr_un addr;
 
-		pr_info("\tConnect %x to %x\n", ui->ue.id, peer->ue.id);
+		pr_info("\tConnect 0x%x to 0x%x\n", ui->ue.id, peer->ue.id);
 
 		fle = file_master(&ui->d);
 
@@ -1229,7 +1229,7 @@ try_again:
 				goto try_again; /* FIXME use futex waiters */
 			}
 
-			pr_perror("Can't connect %x socket", ui->ue.id);
+			pr_perror("Can't connect 0x%x socket", ui->ue.id);
 			return -1;
 		}
 
@@ -1287,7 +1287,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	struct unix_sk_info *peer = ui->peer;
 	struct fdinfo_list_entry *fle;
 
-	pr_info("Opening pair master (id %x peer %x)\n",
+	pr_info("Opening pair master (id 0x%x peer 0x%x)\n",
 			ui->ue.id, ui->ue.peer);
 
 	if (socketpair(PF_UNIX, ui->ue.type, 0, sk) < 0) {
@@ -1338,7 +1338,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 
 	fle = file_master(&ui->d);
 
-	pr_info("Opening pair slave (id %x peer %x) on %d\n",
+	pr_info("Opening pair slave (id 0x%x peer 0x%x) on %d\n",
 			ui->ue.id, ui->ue.peer, fle->fd);
 
 	sk = recv_fd(fle->fd);
@@ -1358,7 +1358,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 {
 	int sk;
 
-	pr_info("Opening standalone socket (id %x peer %x)\n",
+	pr_info("Opening standalone socket (id 0x%x peer 0x%x)\n",
 			ui->ue.id, ui->ue.peer);
 
 	sk = socket(PF_UNIX, ui->ue.type, 0);
@@ -1374,13 +1374,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		return -1;
 
 	if (ui->ue.state == TCP_LISTEN) {
-		pr_info("\tPutting %x into listen state\n", ui->ue.id);
+		pr_info("\tPutting 0x%x into listen state\n", ui->ue.id);
 		if (listen(sk, ui->ue.backlog) < 0) {
 			pr_perror("Can't make usk listen");
 			return -1;
 		}
 	} else if (ui->peer) {
-		pr_info("\tWill connect %x to %x later\n", ui->ue.id, ui->ue.peer);
+		pr_info("\tWill connect 0x%x to 0x%x later\n", ui->ue.id, ui->ue.peer);
 		if (schedule_conn_job(ui))
 			return -1;
 	}
@@ -1485,7 +1485,7 @@ int resolve_unix_peers(void)
 
 		peer = find_unix_sk(ui->ue.peer);
 		if (!peer) {
-			pr_err("FATAL: Peer %x unresolved for %x\n",
+			pr_err("FATAL: Peer 0x%x unresolved for 0x%x\n",
 					ui->ue.peer, ui->ue.id);
 			return -1;
 		}
@@ -1524,7 +1524,7 @@ int resolve_unix_peers(void)
 	list_for_each_entry(ui, &unix_sockets, list) {
 		struct fdinfo_list_entry *fle;
 
-		pr_info("\t%x -> %x (%x) flags %x\n", ui->ue.id, ui->ue.peer,
+		pr_info("\t0x%x -> 0x%x (0x%x) flags 0x%x\n", ui->ue.id, ui->ue.peer,
 				ui->peer ? ui->peer->ue.id : 0, ui->flags);
 		list_for_each_entry(fle, &ui->d.fd_info_head, list)
 			pr_info("\t\tfd %d in pid %d\n",

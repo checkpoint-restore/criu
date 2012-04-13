@@ -103,7 +103,7 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 {
 	int ret = 0;
 
-	pr_info("Restoring namespaces %d flags %lx\n",
+	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			pid, clone_flags);
 
 	if (clone_flags & CLONE_NEWUTS)

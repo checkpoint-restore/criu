@@ -59,7 +59,7 @@ static void show_subnode(struct rb_node *node, int self)
 {
 	struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
 
-	pr_info("\t\t| %x.%x %s\n", this->elem.genid, this->subid,
+	pr_info("\t\t| 0x%x.0x%x %s\n", this->elem.genid, this->subid,
 			self ? "(self)" : "");
 	if (node->rb_left) {
 		pr_info("\t\t| left:\n");
@@ -83,7 +83,7 @@ static void show_node(struct rb_node *node)
 {
 	struct kid_entry *this = rb_entry(node, struct kid_entry, node);
 
-	pr_info("\t%x.%x\n", this->elem.genid, this->subid);
+	pr_info("\t0x%x.0x%x\n", this->elem.genid, this->subid);
 	if (node->rb_left) {
 		pr_info("\tleft:\n");
 		show_node(node->rb_left);
