@@ -9,29 +9,29 @@
  * of various Russian towns in the NNNNEEEE form.
  */
 
-#define PSTREE_MAGIC	0x50273030 /* Kyiv */
-#define FDINFO_MAGIC	0x56213732 /* Dmitrov */
-#define PAGES_MAGIC	0x56084025 /* Vladimir */
-#define CORE_MAGIC	0x55053847 /* Kolomna */
-#define VMAS_MAGIC	0x54123737 /* Tula */
-#define PIPES_MAGIC	0x56513555 /* Tver */
-#define PIPES_DATA_MAGIC 0x56453709 /* Dubna */
-#define SIGACT_MAGIC	0x55344201 /* Murom */
-#define UNIXSK_MAGIC	0x54373943 /* Ryazan */
-#define INETSK_MAGIC	0x56443851 /* Pereslavl */
-#define ITIMERS_MAGIC	0x57464056 /* Kostroma */
-#define SK_QUEUES_MAGIC	0x56264026 /* Suzdal */
-#define UTSNS_MAGIC	0x54473203 /* Smolensk */
-#define CREDS_MAGIC	0x54023547 /* Kozelsk */
-#define IPCNS_VAR_MAGIC	0x53115007 /* Samara */
-#define IPCNS_SHM_MAGIC	0x46283044 /* Odessa */
-#define IPCNS_MSG_MAGIC	0x55453737 /* Moscow */
-#define IPCNS_SEM_MAGIC	0x59573019 /* St. Petersburg */
-#define REG_FILES_MAGIC	0x50363636 /* Belgorod */
-#define FS_MAGIC	0x51403912 /* Voronezh */
-#define MM_MAGIC	0x57492820 /* Pskov */
-#define REMAP_FPATH_MAGIC 0x59133954 /* Vologda */
-#define GHOST_FILE_MAGIC 0x52583605 /* Oryol */
+#define PSTREE_MAGIC		0x50273030 /* Kyiv */
+#define FDINFO_MAGIC		0x56213732 /* Dmitrov */
+#define PAGES_MAGIC		0x56084025 /* Vladimir */
+#define CORE_MAGIC		0x55053847 /* Kolomna */
+#define VMAS_MAGIC		0x54123737 /* Tula */
+#define PIPES_MAGIC		0x56513555 /* Tver */
+#define PIPES_DATA_MAGIC	0x56453709 /* Dubna */
+#define SIGACT_MAGIC		0x55344201 /* Murom */
+#define UNIXSK_MAGIC		0x54373943 /* Ryazan */
+#define INETSK_MAGIC		0x56443851 /* Pereslavl */
+#define ITIMERS_MAGIC		0x57464056 /* Kostroma */
+#define SK_QUEUES_MAGIC		0x56264026 /* Suzdal */
+#define UTSNS_MAGIC		0x54473203 /* Smolensk */
+#define CREDS_MAGIC		0x54023547 /* Kozelsk */
+#define IPCNS_VAR_MAGIC		0x53115007 /* Samara */
+#define IPCNS_SHM_MAGIC		0x46283044 /* Odessa */
+#define IPCNS_MSG_MAGIC		0x55453737 /* Moscow */
+#define IPCNS_SEM_MAGIC		0x59573019 /* St. Petersburg */
+#define REG_FILES_MAGIC		0x50363636 /* Belgorod */
+#define FS_MAGIC		0x51403912 /* Voronezh */
+#define MM_MAGIC		0x57492820 /* Pskov */
+#define REMAP_FPATH_MAGIC	0x59133954 /* Vologda */
+#define GHOST_FILE_MAGIC	0x52583605 /* Oryol */
 
 #define PIPEFS_MAGIC	0x50495045
 
