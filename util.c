@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
-
+#include <sys/sendfile.h>
 #include <fcntl.h>
 
 #include <sys/param.h>
@@ -269,4 +269,33 @@ int get_service_fd(int type)
 	}
 
 	return rlimit.rlim_cur - type;
+}
+
+int copy_file(int fd_in, int fd_out, size_t bytes)
+{
+	ssize_t written = 0;
+	size_t chunk = bytes ? bytes : 4096;
+
+	while (1) {
+		ssize_t ret;
+
+		ret = sendfile(fd_out, fd_in, NULL, chunk);
+		if (ret < 0) {
+			pr_perror("Can't send data to ghost file");
+			return -1;
+		}
+
+		if (ret == 0) {
+			if (bytes && (written != bytes)) {
+				pr_err("Ghost file size mismatch %lu/%lu\n",
+						written, bytes);
+				return -1;
+			}
+			break;
+		}
+
+		written += ret;
+	}
+
+	return 0;
 }

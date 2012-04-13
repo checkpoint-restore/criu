@@ -275,4 +275,6 @@ static inline dev_t kdev_to_odev(u32 kdev)
 	return (kdev_major(kdev) << 8) | kdev_minor(kdev);
 }
 
+int copy_file(int fd_in, int fd_out, size_t bytes);
+
 #endif /* UTIL_H_ */
