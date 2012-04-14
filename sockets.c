@@ -442,7 +442,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 			goto err;
 		}
 
-		ue.peer		= e->sk_desc->sd.ino;
+		ue.peer = e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %x peer %x)\n",
 				ue.id, ue.peer);
