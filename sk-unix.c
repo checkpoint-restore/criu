@@ -739,7 +739,7 @@ int collect_unix_sockets(void)
 
 		ui->peer = NULL;
 		ui->flags = 0;
-		pr_info(" `- Got %u peer %u\n", ui->ue.id, ui->ue.peer);
+		pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue.id, ui->ue.peer);
 		file_desc_add(&ui->d, FDINFO_UNIXSK, ui->ue.id,
 				&unix_desc_ops);
 		list_add_tail(&ui->list, &unix_sockets);
