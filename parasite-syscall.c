@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 

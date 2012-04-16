@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
-#include <sys/user.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 

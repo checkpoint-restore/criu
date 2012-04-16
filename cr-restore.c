@@ -14,7 +14,6 @@
 #include <sys/mman.h>
 #include <sys/vfs.h>
 #include <sys/ptrace.h>
-#include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/shm.h>
