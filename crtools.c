@@ -335,7 +335,21 @@ int main(int argc, char *argv[])
 	opts.final_state = TASK_DEAD;
 
 	while (1) {
-		opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx);
+		static struct option long_opts[] = {
+			{ "pid", required_argument, 0, 'p' },
+			{ "tree", required_argument, 0, 't' },
+			{ "leave-stopped", no_argument, 0, 's' },
+			{ "restore-detached", no_argument, 0, 'd' },
+			{ "contents", no_argument, 0, 'c' },
+			{ "file", required_argument, 0, 'f' },
+			{ "images-dir", required_argument, 0, 'D' },
+			{ "log-file", required_argument, 0, 'o' },
+			{ "namespaces", required_argument, 0, 'n' },
+			{ "help", no_argument, 0, 'h' },
+			{ },
+		};
+
+		opt = getopt_long(argc - 1, argv + 1, short_opts, long_opts, &idx);
 		if (opt == -1)
 			break;
 
@@ -459,21 +473,21 @@ usage:
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
 	pr_msg("\nGeneral parameters:\n");
-	pr_msg("  -p             checkpoint/restore only a single process identified by pid\n");
-	pr_msg("  -t             checkpoint/restore the whole process tree identified by pid\n");
-	pr_msg("  -f             show contents of a checkpoint file\n");
-	pr_msg("  -c             show contents of pages dumped in hexdump format\n");
-	pr_msg("  -d             detach after restore\n");
-	pr_msg("  -s             leave tasks in stopped state after checkpoint instead of killing them\n");
-	pr_msg("  -n             checkpoint/restore namespaces - values must be separated by comma\n");
-	pr_msg("                 supported: uts, ipc\n");
+	pr_msg("  -p|--pid              checkpoint/restore only a single process identified by pid\n");
+	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
+	pr_msg("  -f|--file             show contents of a checkpoint file\n");
+	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
+	pr_msg("  -d|--restore-detached detach after restore\n");
+	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
+	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
+	pr_msg("                        supported: uts, ipc\n");
 
 	pr_msg("\nAdditional common parameters:\n");
-	pr_msg("  -D dir         specifis directory where checkpoint files are/to be located\n");
-	pr_msg("  -v [num]       set logging level\n");
-	pr_msg("                 0 - silent (only error messages)\n");
-	pr_msg("                 1 - informative (default)\n");
-	pr_msg("                 2 - debug\n");
+	pr_msg("  -D|--images-dir dir   specifis directory where checkpoint files are/to be located\n");
+	pr_msg("  -v [num]              set logging level\n");
+	pr_msg("                          0 - silent (only error messages)\n");
+	pr_msg("                          1 - informative (default)\n");
+	pr_msg("                          2 - debug\n");
 	pr_msg("  -vv            same as -v 1\n");
 	pr_msg("  -vvv           same as -v 2\n");
 	pr_msg("\n");
