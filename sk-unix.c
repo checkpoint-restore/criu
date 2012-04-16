@@ -59,8 +59,8 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino 0x%8x family %4d type %4d state %2d name %s\n",
-		act, sk->sd.ino, sk->sd.family, sk->type, sk->state, sk->name);
+	pr_debug("\t%s: ino 0x%x peer_ino 0x%x family %4d type %4d state %2d name %s\n",
+		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
 		int i;
@@ -72,8 +72,8 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
-	pr_info("\t%s: id %u type %d state %d name %d bytes\n",
-		act, e->id, e->type, e->state, e->namelen);
+	pr_info("\t%s: id 0x%x peer 0x%x type %d state %d name %d bytes\n",
+		act, e->id, e->peer, e->type, e->state, e->namelen);
 }
 
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
