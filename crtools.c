@@ -334,8 +334,11 @@ int main(int argc, char *argv[])
 	/* Default options */
 	opts.final_state = TASK_DEAD;
 
-	for (opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx); opt != -1;
-	     opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx)) {
+	while (1) {
+		opt = getopt_long(argc - 1, argv + 1, short_opts, NULL, &idx);
+		if (opt == -1)
+			break;
+
 		switch (opt) {
 		case 's':
 			opts.final_state = TASK_STOPPED;
