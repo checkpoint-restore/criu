@@ -184,9 +184,9 @@ static always_inline long sys_write(unsigned long fd, const void *buf, unsigned 
 	return syscall3(__NR_write, fd, (unsigned long)buf, count);
 }
 
-static always_inline long sys_mincore(unsigned long addr, unsigned long size, void *vec)
+static always_inline long sys_mincore(void *addr, unsigned long size, void *vec)
 {
-	return syscall3(__NR_mincore, addr, size, (unsigned long)vec);
+	return syscall3(__NR_mincore, (unsigned long)addr, size, (unsigned long)vec);
 }
 
 static always_inline long sys_lseek(unsigned long fd, unsigned long offset, unsigned long origin)
@@ -194,9 +194,9 @@ static always_inline long sys_lseek(unsigned long fd, unsigned long offset, unsi
 	return syscall3(__NR_lseek, fd, offset, origin);
 }
 
-static always_inline long sys_mprotect(unsigned long start, unsigned long len, unsigned long prot)
+static always_inline long sys_mprotect(void *start, unsigned long len, unsigned long prot)
 {
-	return syscall3(__NR_mprotect, start, len, prot);
+	return syscall3(__NR_mprotect, (unsigned long)start, len, prot);
 }
 
 static always_inline long sys_nanosleep(struct timespec *req, struct timespec *rem)
@@ -260,9 +260,9 @@ static always_inline long sys_get_thread_area(user_desc_t *info)
 	return syscall1(__NR_get_thread_area, (long)info);
 }
 
-static always_inline long sys_arch_prctl(int code, void *addr)
+static always_inline long sys_arch_prctl(int code, unsigned long addr)
 {
-	return syscall2(__NR_arch_prctl, code, (unsigned long)addr);
+	return syscall2(__NR_arch_prctl, code, addr);
 }
 
 static always_inline long sys_prctl(int code, unsigned long arg2, unsigned long arg3,

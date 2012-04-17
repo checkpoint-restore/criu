@@ -184,7 +184,7 @@ long restore_thread(struct thread_restore_args *args)
 	CPREGT1(fs);
 
 	fsgs_base = core_entry->arch.gpregs.fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
+	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
 		write_num_n(ret);
@@ -192,7 +192,7 @@ long restore_thread(struct thread_restore_args *args)
 	}
 
 	fsgs_base = core_entry->arch.gpregs.gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
+	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
 		write_num_n(ret);
@@ -460,7 +460,7 @@ long restore_task(struct task_restore_core_args *args)
 		if (vma_entry->prot & PROT_WRITE)
 			continue;
 
-		sys_mprotect(vma_entry->start,
+		sys_mprotect((void *)vma_entry->start,
 			     vma_entry_len(vma_entry),
 			     vma_entry->prot);
 	}
@@ -538,7 +538,7 @@ long restore_task(struct task_restore_core_args *args)
 	CPREG1(fs);
 
 	fsgs_base = core_entry->arch.gpregs.fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, (void *)fsgs_base);
+	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
 		write_num_n(ret);
@@ -546,7 +546,7 @@ long restore_task(struct task_restore_core_args *args)
 	}
 
 	fsgs_base = core_entry->arch.gpregs.gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, (void *)fsgs_base);
+	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
 		write_num_n(ret);

@@ -165,7 +165,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	if (!(args->vma_entry.prot & PROT_READ)) {
 		prot_old = (unsigned long)args->vma_entry.prot;
 		prot_new = prot_old | PROT_READ;
-		ret = sys_mprotect((unsigned long)args->vma_entry.start,
+		ret = sys_mprotect((void *)args->vma_entry.start,
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_new);
 		if (ret) {
@@ -180,7 +180,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 * so stick for mincore as a basis.
 	 */
 
-	ret = sys_mincore((unsigned long)args->vma_entry.start, length, map);
+	ret = sys_mincore((void *)args->vma_entry.start, length, map);
 	if (ret) {
 		sys_write_msg("sys_mincore failed\n");
 		SET_PARASITE_RET(st, ret);
@@ -215,7 +215,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 * Don't left pages readable if they were not.
 	 */
 	if (prot_old != prot_new) {
-		ret = sys_mprotect((unsigned long)args->vma_entry.start,
+		ret = sys_mprotect((void *)args->vma_entry.start,
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_old);
 		if (ret) {
