@@ -501,7 +501,6 @@ static void __head parasite_head(void)
 		     "movl parasite_cmd(%rip), %edi			\n"
 		     "leaq parasite_args(%rip), %rsi			\n"
 		     "call parasite_service				\n"
-		     "parasite_service_complete:			\n"
 		     "int $0x03						\n"
 		     ".align 8						\n"
 		     "parasite_cmd:					\n"
