@@ -186,50 +186,96 @@ err_bogus_mapping:
 
 int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
 {
-	FILE *f;
-	char *tok;
+	char buf[128];
+	char *tok, *p;
+	int fd;
 	int n;
 
-	f = fopen_proc(pid, "stat");
-	if (f == NULL)
+	fd = open_proc(pid, "stat");
+	if (fd < 0)
 		return -1;
 
-	memset(s, 0, sizeof(*s));
-	n = fscanf(f, "%d " PROC_TASK_COMM_LEN_FMT " %c %d %d %d",
-			&s->pid, s->comm, &s->state, &s->ppid, &s->pgid, &s->sid);
-
-	if (n < 6) {
-		pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
+	n = read(fd, buf, sizeof(buf));
+	if (n < 1) {
+		pr_err("stat for %d is corrupted\n", pid);
+		close(fd);
 		return -1;
 	}
+	close(fd);
 
-	s->comm[PROC_TASK_COMM_LEN-1] = '\0';
-	tok = strchr(s->comm, ')');
-	if (tok)
-		*tok = '\0';
-	fclose(f);
+	memset(s, 0, sizeof(*s));
+
+	tok = strchr(buf, ' ');
+	if (!tok)
+		goto err;
+	*tok++ = '\0';
+	if (*tok != '(')
+		goto err;
+
+	s->pid = atoi(buf);
+
+	p = strrchr(tok + 1, ')');
+	if (!p)
+		goto err;
+	*tok = '\0';
+	*p = '\0';
+
+	strncpy(s->comm, tok + 1, sizeof(s->comm));
+
+	n = sscanf(p + 1, " %c %d %d %d", &s->state, &s->ppid, &s->pgid, &s->sid);
+	if (n < 4)
+		goto err;
 
 	return 0;
+
+err:
+	pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
+	return -1;
 }
 
 int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 {
-	FILE *f;
-	char *tok;
+	char buf[1024];
+	char *tok, *p;
+	int fd;
 	int n;
 
-	f = fopen_proc(pid, "stat");
-	if (f == NULL)
+	fd = open_proc(pid, "stat");
+	if (fd < 0)
 		return -1;
 
+	n = read(fd, buf, sizeof(buf));
+	if (n < 1) {
+		pr_err("stat for %d is corrupted\n", pid);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
 	memset(s, 0, sizeof(*s));
-	n = fscanf(f,
-	       "%d " PROC_TASK_COMM_LEN_FMT " %c %d %d %d %d %d %u %lu %lu %lu %lu "
+
+	tok = strchr(buf, ' ');
+	if (!tok)
+		goto err;
+	*tok++ = '\0';
+	if (*tok != '(')
+		goto err;
+
+	s->pid = atoi(buf);
+
+	p = strrchr(tok + 1, ')');
+	if (!p)
+		goto err;
+	*tok = '\0';
+	*p = '\0';
+
+	strncpy(s->comm, tok + 1, sizeof(s->comm));
+
+	n = sscanf(p + 1,
+	       " %c %d %d %d %d %d %u %lu %lu %lu %lu "
 	       "%lu %lu %ld %ld %ld %ld %d %d %llu %lu %ld %lu %lu %lu %lu "
 	       "%lu %lu %lu %lu %lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld "
 	       "%lu %lu %lu %lu %lu %lu %lu %d",
-		&s->pid,
-		s->comm,
 		&s->state,
 		&s->ppid,
 		&s->pgid,
@@ -280,19 +326,14 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 		&s->env_start,
 		&s->env_end,
 		&s->exit_code);
-
-	if (n < 52) {
-		pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
-		return -1;
-	}
-
-	s->comm[PROC_TASK_COMM_LEN-1] = '\0';
-	tok = strchr(s->comm, ')');
-	if (tok)
-		*tok = '\0';
-	fclose(f);
+	if (n < 50)
+		goto err;
 
 	return 0;
+
+err:
+	pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
+	return -1;
 }
 
 static int ids_parse(char *str, unsigned int *arr)
