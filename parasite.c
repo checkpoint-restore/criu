@@ -45,7 +45,7 @@ static int brk_init(void)
 	/*
 	 *  Map 10 MB. Hope this will be enough for unix skb's...
 	 */
-       ret = sys_mmap(0, MAX_HEAP_SIZE,
+       ret = sys_mmap(NULL, MAX_HEAP_SIZE,
 			    PROT_READ | PROT_WRITE,
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (ret < 0)
