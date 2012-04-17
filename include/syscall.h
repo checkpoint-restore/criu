@@ -8,6 +8,7 @@
 #include "types.h"
 #include "compiler.h"
 #include "syscall-codes.h"
+#include "syscall-types.h"
 
 #ifdef CONFIG_X86_64
 
@@ -350,17 +351,6 @@ static long sys_setfsgid(int fsgid)
 	return syscall1(__NR_setfsgid, (long)fsgid);
 }
 
-struct cap_header {
-	u32 version;
-	int pid;
-};
-
-struct cap_data {
-	u32 eff;
-	u32 prm;
-	u32 inh;
-};
-
 static long sys_capset(struct cap_header *h, struct cap_data *d)
 {
 	return syscall2(__NR_capset, (long)h, (long)d);
@@ -371,13 +361,11 @@ static int sys_socket(int domain, int type, int protocol)
 	return syscall3(__NR_socket, (long) domain, (long) type, (long) protocol);
 }
 
-struct sockaddr;
 static int sys_bind(int sockfd, const struct sockaddr *addr, int addrlen)
 {
 	return syscall3(__NR_bind, (long)sockfd, (long)addr, (long) addrlen);
 }
 
-struct msghdr;
 static long sys_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
 	return syscall3(__NR_sendmsg, (long)sockfd, (long)msg, (long) flags);
@@ -418,24 +406,6 @@ static long always_inline sys_fcntl(int fd, int type, long arg)
 {
 	return syscall3(__NR_fcntl, (long)fd, (long)type, (long)arg);
 }
-
-#ifndef F_GETFD
-#define F_GETFD 1
-#endif
-
-#ifndef CLONE_NEWPID
-#define CLONE_NEWPID	0x20000000
-#endif
-
-#ifndef CLONE_NEWUTS
-#define CLONE_NEWUTS	0x04000000
-#endif
-
-#ifndef CLONE_NEWIPC
-#define CLONE_NEWIPC	0x08000000
-#endif
-
-#define setns	sys_setns
 
 #else /* CONFIG_X86_64 */
 # error x86-32 bit mode not yet implemented
