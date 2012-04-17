@@ -81,11 +81,11 @@ all: $(PROGRAM)
 
 $(OBJS-BLOB): $(SRCS-BLOB)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+	$(Q) $(CC) -c $(CFLAGS) -fpie $< -o $@
 
 parasite-util-net.o: util-net.c
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
+	$(Q) $(CC) -c $(CFLAGS) -fpie $< -o $@
 
 $(HEAD-BIN): $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o
 	$(E) "  GEN     " $@
@@ -98,7 +98,7 @@ $(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 
 $(ROBJS): $(RSRCS-BLOB)
 	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpic $(patsubst %.o,%.c,$@) -o $@
+	$(Q) $(CC) -c $(CFLAGS) -fpie $(patsubst %.o,%.c,$@) -o $@
 
 $(RHEAD-BIN): $(ROBJS) $(PIE-LDS)
 	$(E) "  GEN     " $@
