@@ -52,9 +52,10 @@ OBJS		+= ipc_ns.o
 OBJS-BLOB	+= parasite.o
 SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
 
+PIE-LDS		:= pie.lds.S
+
 HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
 HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
-HEAD-LDS	:= $(patsubst %.o,%.lds.S,$(OBJS-BLOB))
 
 ROBJS-BLOB	:= restorer.o
 #
@@ -69,7 +70,6 @@ RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
 
 RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
 RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
-RHEAD-LDS	:= $(patsubst %.o,%.lds.S,$(ROBJS-BLOB))
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))		\
        		   $(patsubst %.o,%.d,$(OBJS-BLOB))	\
@@ -87,9 +87,9 @@ parasite-util-net.o: util-net.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) -fpic $< -o $@
 
-$(HEAD-BIN): $(HEAD-LDS) $(OBJS-BLOB) parasite-util-net.o
+$(HEAD-BIN): $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $^ -o $@
+	$(Q) $(LD) -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
@@ -100,9 +100,9 @@ $(ROBJS): $(RSRCS-BLOB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) -fpic $(patsubst %.o,%.c,$@) -o $@
 
-$(RHEAD-BIN): $(ROBJS) $(RHEAD-LDS)
+$(RHEAD-BIN): $(ROBJS) $(PIE-LDS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(patsubst %.bin,%.lds.S,$@) -o $@ $(ROBJS)
+	$(Q) $(LD) -T $(PIE-LDS) $(ROBJS) -o $@
 
 $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
