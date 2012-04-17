@@ -159,9 +159,9 @@ static always_inline long sys_open(const char *filename, unsigned long flags, un
 	return syscall3(__NR_open, (unsigned long)filename, flags, mode);
 }
 
-static always_inline long sys_sigaction(int signum, const rt_sigaction_t *act, rt_sigaction_t *oldact)
+static always_inline long sys_sigaction(int signum, const rt_sigaction_t *act, rt_sigaction_t *oldact, size_t sigsetsize)
 {
-	return syscall4(__NR_rt_sigaction, signum, (unsigned long)act, (unsigned long)oldact, sizeof(rt_sigset_t));
+	return syscall4(__NR_rt_sigaction, signum, (unsigned long)act, (unsigned long)oldact, (unsigned long)sigsetsize);
 }
 
 static always_inline long sys_getitimer(int which, const struct itimerval *val)
@@ -244,10 +244,10 @@ static always_inline long sys_rt_sigreturn(void)
 }
 
 static always_inline long sys_sigprocmask(int how, k_rtsigset_t *set,
-		k_rtsigset_t *old)
+		k_rtsigset_t *old, size_t sigsetsize)
 {
 	return syscall4(__NR_rt_sigprocmask, how, (unsigned long)set,
-			(unsigned long)old, (unsigned long)sizeof(k_rtsigset_t));
+			(unsigned long)old, (unsigned long)sigsetsize);
 }
 
 static always_inline long sys_set_thread_area(user_desc_t *info)

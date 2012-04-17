@@ -349,9 +349,9 @@ long restore_task(struct task_restore_core_args *args)
 	rt_sigaction_t act;
 
 	task_entries = args->task_entries;
-	sys_sigaction(SIGCHLD, NULL, &act);
+	sys_sigaction(SIGCHLD, NULL, &act, sizeof(rt_sigset_t));
 	act.rt_sa_handler = sigchld_handler;
-	sys_sigaction(SIGCHLD, &act, NULL);
+	sys_sigaction(SIGCHLD, &act, NULL, sizeof(rt_sigset_t));
 
 	restorer_set_logfd(args->logfd);
 
@@ -687,7 +687,7 @@ long restore_task(struct task_restore_core_args *args)
 
 	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
 
-	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL);
+	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(rt_sigset_t));
 
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 

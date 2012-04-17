@@ -255,7 +255,7 @@ static int dump_sigact(parasite_status_t *st)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = sys_sigaction(sig, NULL, &act);
+		ret = sys_sigaction(sig, NULL, &act, sizeof(rt_sigset_t));
 		if (ret < 0) {
 			sys_write_msg("sys_sigaction failed\n");
 			SET_PARASITE_RET(st, ret);
@@ -409,7 +409,7 @@ static int init(struct parasite_init_args *args)
 	}
 
 	ksigfillset(&to_block);
-	ret = sys_sigprocmask(SIG_SETMASK, &to_block, &old_blocked);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block, &old_blocked, sizeof(k_rtsigset_t));
 	if (ret < 0)
 		reset_blocked = ret;
 	else
@@ -436,7 +436,7 @@ static int parasite_set_logfd(parasite_status_t *st)
 static int fini(void)
 {
 	if (reset_blocked == 1)
-		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL);
+		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL, sizeof(k_rtsigset_t));
 	sys_close(logfd);
 	sys_close(tsock);
 	brk_fini();

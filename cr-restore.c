@@ -484,7 +484,7 @@ static int prepare_sigactions(int pid)
 		 * A pure syscall is used, because glibc
 		 * sigaction overwrites se_restorer.
 		 */
-		ret = sys_sigaction(sig, &act, &oact);
+		ret = sys_sigaction(sig, &act, &oact, sizeof(rt_sigset_t));
 		if (ret == -1) {
 			pr_err("%d: Can't restore sigaction: %m\n", pid);
 			goto err;
