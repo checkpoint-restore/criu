@@ -28,7 +28,7 @@ enum fdinfo_states {
 };
 
 struct fdinfo_list_entry {
-	struct list_head	list;
+	struct list_head	desc_list;
 	int			fd;
 	int			pid;
 	int			flags;

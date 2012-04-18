@@ -1526,7 +1526,7 @@ int resolve_unix_peers(void)
 
 		pr_info("\t0x%x -> 0x%x (0x%x) flags 0x%x\n", ui->ue.id, ui->ue.peer,
 				ui->peer ? ui->peer->ue.id : 0, ui->flags);
-		list_for_each_entry(fle, &ui->d.fd_info_head, list)
+		list_for_each_entry(fle, &ui->d.fd_info_head, desc_list)
 			pr_info("\t\tfd %d in pid %d\n",
 					fle->fd, fle->pid);
 

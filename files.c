@@ -76,7 +76,7 @@ struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
 	BUG_ON(list_empty(&d->fd_info_head));
 	return list_first_entry(&d->fd_info_head,
-			struct fdinfo_list_entry, list);
+			struct fdinfo_list_entry, desc_list);
 }
 
 struct reg_file_info {
@@ -97,7 +97,7 @@ void show_saved_files(void)
 			struct fdinfo_list_entry *le;
 
 			pr_info(" `- type %d ID 0x%x\n", fd->type, fd->id);
-			list_for_each_entry(le, &fd->fd_info_head, list)
+			list_for_each_entry(le, &fd->fd_info_head, desc_list)
 				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
 		}
 }
@@ -350,11 +350,11 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 		return -1;
 	}
 
-	list_for_each_entry(l, &fdesc->fd_info_head, list)
+	list_for_each_entry(l, &fdesc->fd_info_head, desc_list)
 		if (l->pid > le->pid)
 			break;
 
-	list_add_tail(&le->list, &l->list);
+	list_add_tail(&le->desc_list, &l->desc_list);
 	return 0;
 }
 
@@ -483,11 +483,11 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 
 	pr_info("\t%d: Create transport fd for %d\n", pid, fe->fd);
 
-	list_for_each_entry(fle, &d->fd_info_head, list)
+	list_for_each_entry(fle, &d->fd_info_head, desc_list)
 		if ((fle->pid == pid) && (fle->fd == fe->fd))
 			break;
 
-	BUG_ON(&d->fd_info_head == &fle->list);
+	BUG_ON(&d->fd_info_head == &fle->desc_list);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -551,7 +551,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	pr_info("\t%d: Create fd for %d\n", pid, fe->fd);
 
-	list_for_each_entry(fle, &d->fd_info_head, list) {
+	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid) {
 			pr_info("\t\tGoing to dup %d into %d\n", fe->fd, fle->fd);
 			if (fe->fd == fle->fd)
