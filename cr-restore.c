@@ -296,7 +296,7 @@ static int prepare_shared(void)
 		if (ret < 0)
 			break;
 
-		ret = prepare_fd_pid(pi->pid);
+		ret = prepare_fd_pid(pi->pid, pi->rst);
 		if (ret < 0)
 			break;
 	}

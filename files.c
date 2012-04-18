@@ -327,7 +327,7 @@ int collect_reg_files(void)
 	return collect_remaps();
 }
 
-static int collect_fd(int pid, struct fdinfo_entry *e)
+static int collect_fd(int pid, struct fdinfo_entry *e, struct list_head *fds)
 {
 	int i;
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
@@ -357,13 +357,16 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 			break;
 
 	list_add_tail(&le->desc_list, &l->desc_list);
+	list_add_tail(&le->ps_list, fds);
 	return 0;
 }
 
-int prepare_fd_pid(int pid)
+int prepare_fd_pid(int pid, struct rst_info *rst_info)
 {
 	int fdinfo_fd, ret = 0;
 	u32 type = 0;
+
+	INIT_LIST_HEAD(&rst_info->fds);
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
 	if (fdinfo_fd < 0) {
@@ -380,7 +383,7 @@ int prepare_fd_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		ret = collect_fd(pid, &e);
+		ret = collect_fd(pid, &e, &rst_info->fds);
 		if (ret < 0)
 			break;
 	}

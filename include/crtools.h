@@ -182,6 +182,7 @@ struct vma_area {
 #define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
 
 struct rst_info {
+	struct list_head	fds;
 };
 
 struct pstree_item {

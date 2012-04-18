@@ -29,6 +29,7 @@ enum fdinfo_states {
 
 struct fdinfo_list_entry {
 	struct list_head	desc_list;
+	struct list_head	ps_list;
 	int			pid;
 	futex_t			real_pid;
 	struct fdinfo_entry	fe;
@@ -59,7 +60,8 @@ extern int restore_fown(int fd, fown_t *fown);
 void show_saved_files(void);
 extern int collect_reg_files(void);
 extern int prepare_fds(int pid);
-extern int prepare_fd_pid(int pid);
+struct rst_info;
+extern int prepare_fd_pid(int pid, struct rst_info *);
 extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 extern int prepare_fs(int pid);
