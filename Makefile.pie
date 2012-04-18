@@ -1,0 +1,65 @@
+GEN-OFFSETS	:= gen-offsets.sh
+
+POBJS		+= parasite.o
+PSRCS		+= $(patsubst %.o,%.c,$(POBJS))
+
+PBLOB-NAME	:= parasite
+PBLOB-HDR	:= parasite-blob.h
+PBLOB-BIN	:= parasite.bin
+PBLOB-LDS	:= pie.lds.S
+
+ROBJS		+= restorer.o
+ROBJS		+= restorer-log.o
+RSRCS		+= $(patsubst %.o,%.c,$(ROBJS))
+
+RBLOB-NAME	:= restorer
+RBLOB-HDR	:= restorer-blob.h
+RBLOB-BIN	:= restorer.bin
+RBLOB-LDS	:= pie.lds.S
+
+DEPS		+= $(patsubst %.o,%.d,$(POBJS))
+DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
+
+PIEFLAGS	:= -fpie
+
+$(POBJS): $(PSRCS) $(PASM-OBJS)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
+
+parasite-util-net.o: util-net.c
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
+
+POBJS		+= parasite-util-net.o
+
+$(PBLOB-BIN): $(PBLOB-LDS) $(POBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=binary -T $(PBLOB-LDS) -o $(PBLOB-BIN) $(POBJS)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PBLOB-LDS) -o $(PBLOB-BIN).o $(POBJS)
+
+$(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
+
+$(ROBJS): $(RSRCS)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
+
+$(RBLOB-BIN): $(RBLOB-LDS) $(ROBJS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) --oformat=binary -T $(RBLOB-LDS) -o $(RBLOB-BIN) $(ROBJS)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(RBLOB-LDS) -o $(RBLOB-BIN).o $(ROBJS)
+
+$(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
+	$(E) "  GEN     " $@
+	$(Q) $(SH) $(GEN-OFFSETS) $(RBLOB-NAME) > $@ || rm -f $@
+
+PIE-GEN	:= $(PBLOB-HDR) $(RBLOB-HDR)
+
+cleanpie:
+	$(E) "  CLEAN PIE"
+	$(Q) $(RM) -f ./$(PBLOB-HDR)
+	$(Q) $(RM) -f ./$(RBLOB-HDR)
+	$(Q) $(RM) -f ./*.bin
+	$(Q) $(RM) -f ./*.bin.o
+.PHONY: cleanpie

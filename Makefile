@@ -23,11 +23,8 @@ PROGRAM		:= crtools
 
 export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 
-OBJS_GEN_DEP	+= parasite-syscall.o
-OBJS_GEN_DEP	+= cr-restore.o
-DEPS_GEN	:= $(patsubst %.o,%.d,$(OBJS_GEN_DEP))
-
-OBJS		+= $(OBJS_GEN_DEP)
+OBJS		+= parasite-syscall.o
+OBJS		+= cr-restore.o
 OBJS		+= crtools.o
 OBJS		+= proc_parse.o
 OBJS		+= cr-dump.o
@@ -49,67 +46,11 @@ OBJS		+= namespaces.o
 OBJS		+= uts_ns.o
 OBJS		+= ipc_ns.o
 
-OBJS-BLOB	+= parasite.o
-SRCS-BLOB	+= $(patsubst %.o,%.c,$(OBJS-BLOB))
+DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
-PIE-LDS		:= pie.lds.S
-
-HEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(OBJS-BLOB))
-HEAD-BIN	:= $(patsubst %.o,%.bin,$(OBJS-BLOB))
-
-ROBJS-BLOB	:= restorer.o
-#
-# Everything embedded into restorer as a separate
-# object file should go here.
-ROBJS		:= $(ROBJS-BLOB)
-ROBJS		+= restorer-log.o
-
-RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS))
-
-RSRCS-BLOB	+= $(patsubst %.o,%.c,$(ROBJS-BLOB))
-
-RHEAD-BLOB-GEN	:= $(patsubst %.o,%-blob.h,$(ROBJS-BLOB))
-RHEAD-BIN	:= $(patsubst %.o,%.bin,$(ROBJS-BLOB))
-
-DEPS		:= $(patsubst %.o,%.d,$(OBJS))		\
-       		   $(patsubst %.o,%.d,$(OBJS-BLOB))	\
-		   $(patsubst %.o,%.d,$(ROBJS-BLOB))
-
-GEN-OFFSETS	:= gen-offsets.sh
+include Makefile.pie
 
 all: $(PROGRAM)
-
-$(OBJS-BLOB): $(SRCS-BLOB)
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpie $< -o $@
-
-parasite-util-net.o: util-net.c
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpie $< -o $@
-
-$(HEAD-BIN): $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o
-	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@.o
-
-$(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
-	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS) parasite > $@ || rm -f $@
-	$(Q) sync
-
-$(ROBJS): $(RSRCS-BLOB)
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) -fpie $(patsubst %.o,%.c,$@) -o $@
-
-$(RHEAD-BIN): $(ROBJS) $(PIE-LDS)
-	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIE-LDS) $(ROBJS) -o $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIE-LDS) $(ROBJS) -o $@.o
-
-$(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
-	$(E) "  GEN     " $@
-	$(Q) $(SH) $(GEN-OFFSETS) restorer > $@ || rm -f $@
-	$(Q) sync
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -123,12 +64,11 @@ $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -S $(CFLAGS) -fverbose-asm $< -o $@
 
-$(PROGRAM): $(OBJS)
+$(PROGRAM): $(OBJS) | $(PIE-GEN)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
-$(DEPS_GEN): $(HEAD-BLOB-GEN) $(RHEAD-BLOB-GEN)
-%.d: %.c
+%.d: %.c | $(PIE-GEN)
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test-legacy: $(PROGRAM)
@@ -150,7 +90,7 @@ rebuild:
 	$(Q) $(MAKE)
 .PHONY: rebuild
 
-clean:
+clean: cleanpie
 	$(E) "  CLEAN"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
@@ -159,8 +99,6 @@ clean:
 	$(Q) $(RM) -f ./*.out
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./$(PROGRAM)
-	$(Q) $(RM) -f ./$(HEAD-BLOB-GEN)
-	$(Q) $(RM) -f ./$(RHEAD-BLOB-GEN)
 	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(MAKE) -C test/legacy clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
@@ -205,6 +143,8 @@ help:
 .PHONY: help
 
 deps-targets := %.o %.s %.i $(PROGRAM) zdtm test-legacy
+
+.DEFAULT_GOAL	:= $(PROGRAM)
 
 ifneq ($(filter $(deps-targets), $(MAKECMDGOALS)),)
 	INCDEPS := 1
