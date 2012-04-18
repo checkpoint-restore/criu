@@ -9,7 +9,6 @@ PSRCS		+= $(patsubst %.o,%.c,$(POBJS))
 PBLOB-NAME	:= parasite
 PBLOB-HDR	:= parasite-blob.h
 PBLOB-BIN	:= parasite.bin
-PBLOB-LDS	:= pie.lds.S
 
 ROBJS		+= restorer.o
 ROBJS		+= restorer-log.o
@@ -18,11 +17,11 @@ RSRCS		+= $(patsubst %.o,%.c,$(ROBJS))
 RBLOB-NAME	:= restorer
 RBLOB-HDR	:= restorer-blob.h
 RBLOB-BIN	:= restorer.bin
-RBLOB-LDS	:= pie.lds.S
 
 DEPS		+= $(patsubst %.o,%.d,$(POBJS))
 DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
 
+PIELDS		:= pie.lds.S
 PIEFLAGS	:= -fpie
 ASMFLAGS	:= -D__ASSEMBLY__
 
@@ -40,10 +39,10 @@ parasite-util-net.o: util-net.c $(SYS-OBJ)
 
 POBJS		+= parasite-util-net.o
 
-$(PBLOB-BIN): $(PBLOB-LDS) $(POBJS) $(PASM-OBJS)
+$(PBLOB-BIN): $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PBLOB-LDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PBLOB-LDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
 
 $(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
@@ -53,10 +52,10 @@ $(ROBJS): $(RSRCS) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
-$(RBLOB-BIN): $(RBLOB-LDS) $(ROBJS)
+$(RBLOB-BIN): $(PIELDS) $(ROBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(RBLOB-LDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(RBLOB-LDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
 
 $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
