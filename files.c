@@ -528,8 +528,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	return send_fd(tsk, &saddr, len, fd);
 }
 
-static int open_fd(int pid, struct fdinfo_entry *fe,
-		struct file_desc *d, int *fdinfo_fd)
+static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 {
 	int tmp;
 	int serv, sock;
@@ -563,8 +562,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 				continue;
 
 			if (move_img_fd(&sock, fle->fe.fd))
-				return -1;
-			if (move_img_fd(fdinfo_fd, fle->fe.fd))
 				return -1;
 
 			if (dup2(fe->fd, fle->fe.fd) != fle->fe.fd) {
@@ -615,16 +612,13 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	return 0;
 }
 
-static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int state)
+static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
 {
 	u32 mag;
 	int ret = 0;
 	struct file_desc *fdesc;
 
 	fdesc = find_file_desc(fe);
-	if (move_img_fd(fdinfo_fd, fe->fd))
-		return -1;
-
 	pr_info("\t%d: Restoring fd %d (state -> %d)\n", pid, fe->fd, state);
 
 	switch (state) {
@@ -632,7 +626,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 		ret = open_transport_fd(pid, fe, fdesc);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fe, fdesc, fdinfo_fd);
+		ret = open_fd(pid, fe, fdesc);
 		break;
 	case FD_STATE_RECV:
 		ret = receive_fd(pid, fe, fdesc);
@@ -642,45 +636,24 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int *fdinfo_fd, int sta
 	return ret;
 }
 
-int prepare_fds(int pid)
+int prepare_fds(struct pstree_item *me)
 {
 	u32 type = 0, ret;
-	int fdinfo_fd;
 	int state;
-
-	struct fdinfo_entry fe;
+	struct fdinfo_list_entry *fle;
 	int nr = 0;
 
-	pr_info("%d: Opening fdinfo-s\n", pid);
+	pr_info("%d: Opening fdinfo-s\n", me->pid);
 
-	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
-	if (fdinfo_fd < 0) {
-		pr_perror("%d: Can't open pipes img", pid);
-		return -1;
-	}
-
-	for (state = 0; state < FD_STATE_MAX; state++) {
-		lseek(fdinfo_fd, MAGIC_OFFSET, SEEK_SET);
-
-		while (1) {
-			ret = read_img_eof(fdinfo_fd, &fe);
-			if (ret <= 0)
-				break;
-
-			ret = open_fdinfo(pid, &fe, &fdinfo_fd, state);
+	for (state = 0; state < FD_STATE_MAX; state++)
+		list_for_each_entry(fle, &me->rst->fds, ps_list) {
+			ret = open_fdinfo(me->pid, &fle->fe, state);
 			if (ret)
-				break;
+				goto done;
 		}
 
-		if (ret)
-			break;
-	}
-
-	close(fdinfo_fd);
-
-	if (!ret)
-		ret = run_unix_connections();
-
+	ret = run_unix_connections();
+done:
 	return ret;
 }
 

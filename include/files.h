@@ -59,7 +59,8 @@ extern int restore_fown(int fd, fown_t *fown);
 
 void show_saved_files(void);
 extern int collect_reg_files(void);
-extern int prepare_fds(int pid);
+struct pstree_item;
+extern int prepare_fds(struct pstree_item *);
 struct rst_info;
 extern int prepare_fd_pid(int pid, struct rst_info *);
 extern int prepare_shared_fdinfo(void);

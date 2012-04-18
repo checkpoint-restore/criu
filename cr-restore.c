@@ -504,7 +504,7 @@ static int restore_one_alive_task(int pid)
 {
 	pr_info("%d: Restoring resources\n", pid);
 
-	if (prepare_fds(pid))
+	if (prepare_fds(me))
 		return -1;
 
 	if (prepare_fs(pid))
