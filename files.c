@@ -27,11 +27,14 @@ static int nr_fdinfo_list;
 #define FDESC_HASH_SIZE	64
 static struct list_head file_descs[FDESC_HASH_SIZE];
 
+#define FDINFO_POOL_SIZE	(4 * 4096)
+
 int prepare_shared_fdinfo(void)
 {
 	int i;
 
-	fdinfo_list = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	fdinfo_list = mmap(NULL, FDINFO_POOL_SIZE,
+			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
 	if (fdinfo_list == MAP_FAILED) {
 		pr_perror("Can't map fdinfo_list");
 		return -1;
@@ -334,7 +337,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 		pid, e->fd, e->id);
 
 	nr_fdinfo_list++;
-	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= 4096) {
+	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= FDINFO_POOL_SIZE) {
 		pr_err("OOM storing fdinfo_list_entries\n");
 		return -1;
 	}
