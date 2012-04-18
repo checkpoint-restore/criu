@@ -48,6 +48,7 @@ OBJS		+= ipc_ns.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
+include Makefile.syscall
 include Makefile.pie
 
 all: $(PROGRAM)
@@ -64,11 +65,11 @@ all: $(PROGRAM)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -S $(CFLAGS) -fverbose-asm $< -o $@
 
-$(PROGRAM): $(OBJS) | $(PIE-GEN)
+$(PROGRAM): $(OBJS) | $(SYS-OBJ) $(PIE-GEN)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
+	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) $(SYS-OBJ) -o $@
 
-%.d: %.c | $(PIE-GEN)
+%.d: %.c | $(SYS-OBJ) $(PIE-GEN)
 	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test-legacy: $(PROGRAM)
@@ -90,7 +91,7 @@ rebuild:
 	$(Q) $(MAKE)
 .PHONY: rebuild
 
-clean: cleanpie
+clean: cleanpie cleansyscall
 	$(E) "  CLEAN"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d

@@ -26,15 +26,15 @@ DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
 PIEFLAGS	:= -fpie
 ASMFLAGS	:= -D__ASSEMBLY__
 
-$(PASM-OBJS): $(PASM-SRC)
+$(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
 
-$(POBJS): $(PSRCS) $(PASM-OBJS)
+$(POBJS): $(PSRCS) $(PASM-OBJS) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
-parasite-util-net.o: util-net.c
+parasite-util-net.o: util-net.c $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
 
@@ -42,21 +42,21 @@ POBJS		+= parasite-util-net.o
 
 $(PBLOB-BIN): $(PBLOB-LDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PBLOB-LDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS)
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PBLOB-LDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS)
+	$(Q) $(LD) --oformat=binary -T $(PBLOB-LDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PBLOB-LDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
 
 $(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
 
-$(ROBJS): $(RSRCS)
+$(ROBJS): $(RSRCS) $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
 $(RBLOB-BIN): $(RBLOB-LDS) $(ROBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(RBLOB-LDS) -o $(RBLOB-BIN) $(ROBJS)
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(RBLOB-LDS) -o $(RBLOB-BIN).o $(ROBJS)
+	$(Q) $(LD) --oformat=binary -T $(RBLOB-LDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(RBLOB-LDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
 
 $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
