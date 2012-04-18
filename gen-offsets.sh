@@ -7,7 +7,7 @@ NAME=$1
 INC_GUARD=__${NAME}_h__
 PREFIX=${NAME}_blob_offset__
 BLOB=${NAME}_blob
-OBJNAME=${NAME}.o
+OBJNAME=${NAME}.bin.o
 BINARY=${NAME}.bin
 
 AWK_CMD='$2 ~ /^[tT]$/ { print "#define '$PREFIX'" $3 " 0x" $1; }'
@@ -19,7 +19,7 @@ cat << EOF
 
 EOF
 
-nm $OBJNAME | tr . _ | awk "$AWK_CMD"
+nm $OBJNAME | grep "__export_" | tr . _ | awk "$AWK_CMD"
 
 cat << EOF
 

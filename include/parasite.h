@@ -96,10 +96,10 @@ struct parasite_drain_fd {
  */
 
 #define PARASITE_ARGS_ADDR(start)				\
-	((start) + parasite_blob_offset__parasite_args)
+	((start) + parasite_blob_offset____export_parasite_args)
 #define PARASITE_CMD_ADDR(start)				\
-	((start) + parasite_blob_offset__parasite_cmd)
+	((start) + parasite_blob_offset____export_parasite_cmd)
 #define PARASITE_HEAD_ADDR(start)				\
-	((start) + parasite_blob_offset__parasite_head_start)
+	((start) + parasite_blob_offset____export_parasite_head_start)
 
 #endif /* CR_PARASITE_H_ */

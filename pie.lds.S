@@ -1,4 +1,3 @@
-OUTPUT_FORMAT("binary")
 OUTPUT_ARCH(i386:x86-64)
 
 SECTIONS
@@ -12,8 +11,6 @@ SECTIONS
 		*(.rodata*)
 		. = ALIGN(32);
 		*(.bss*)
-		. = ALIGN(32);
-		*(.export)
 		. = ALIGN(32);
 	} =0x00000000
 

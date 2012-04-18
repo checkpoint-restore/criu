@@ -89,7 +89,8 @@ parasite-util-net.o: util-net.c
 
 $(HEAD-BIN): $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@
+	$(Q) $(LD) --oformat=binary -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIE-LDS) $(OBJS-BLOB) parasite-util-net.o -o $@.o
 
 $(HEAD-BLOB-GEN): $(HEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
@@ -102,7 +103,8 @@ $(ROBJS): $(RSRCS-BLOB)
 
 $(RHEAD-BIN): $(ROBJS) $(PIE-LDS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(PIE-LDS) $(ROBJS) -o $@
+	$(Q) $(LD) --oformat=binary -T $(PIE-LDS) $(ROBJS) -o $@
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIE-LDS) $(ROBJS) -o $@.o
 
 $(RHEAD-BLOB-GEN): $(RHEAD-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@

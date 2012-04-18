@@ -128,7 +128,7 @@ static void restore_creds(struct creds_entry *ce)
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
  */
-long restore_thread(struct thread_restore_args *args)
+long __export_restore_thread(struct thread_restore_args *args)
 {
 	long ret = -1;
 	struct core_entry *core_entry;
@@ -335,7 +335,7 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
  * and jump execution to some predefined ip read from
  * core file.
  */
-long restore_task(struct task_restore_core_args *args)
+long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
 	struct task_entry *task_entry;

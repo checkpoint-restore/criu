@@ -487,29 +487,29 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	return -1;
 }
 
-static void __head parasite_head(void)
+static void __head __export_parasite_head(void)
 {
 	/*
 	 * The linker will handle the stack allocation.
 	 */
-	asm volatile("parasite_head_start:				\n"
-		     "leaq parasite_stack(%rip), %rsp			\n"
+	asm volatile("__export_parasite_head_start:			\n"
+		     "leaq __export_parasite_stack(%rip), %rsp		\n"
 		     "subq $16, %rsp					\n"
 		     "andq $~15, %rsp					\n"
 		     "pushq $0						\n"
 		     "movq %rsp, %rbp					\n"
-		     "movl parasite_cmd(%rip), %edi			\n"
-		     "leaq parasite_args(%rip), %rsi			\n"
+		     "movl __export_parasite_cmd(%rip), %edi		\n"
+		     "leaq __export_parasite_args(%rip), %rsi		\n"
 		     "call parasite_service				\n"
 		     "int $0x03						\n"
 		     ".align 8						\n"
-		     "parasite_cmd:					\n"
+		     "__export_parasite_cmd:				\n"
 		     ".long 0						\n"
-		     "parasite_args:					\n"
+		     "__export_parasite_args:				\n"
 		     ".long 0						\n"
 		     ".space "__stringify(PARASITE_ARG_SIZE)",0		\n"
 		     ".space "__stringify(PARASITE_STACK_SIZE)", 0	\n"
-		     "parasite_stack:					\n"
+		     "__export_parasite_stack:				\n"
 		     ".long 0						\n");
 }
 
