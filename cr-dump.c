@@ -739,6 +739,7 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 	}
 
 	p.type = FDINFO_REG;
+	p.pos = 0;
 	p.fown = (fown_t){ };
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
