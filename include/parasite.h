@@ -1,6 +1,13 @@
 #ifndef CR_PARASITE_H_
 #define CR_PARASITE_H_
 
+#define PARASITE_STACK_SIZE	2048
+#define PARASITE_ARG_SIZE	8196
+
+#define PARASITE_MAX_SIZE	(64 << 10)
+
+#ifndef __ASSEMBLY__
+
 #include <sys/types.h>
 #include <sys/un.h>
 #include <limits.h>
@@ -12,11 +19,6 @@
 #include "util-net.h"
 
 #define __head __used __section(.head.text)
-
-#define PARASITE_STACK_SIZE	2048
-#define PARASITE_ARG_SIZE	8196
-
-#define PARASITE_MAX_SIZE	(64 << 10)
 
 enum {
 	PARASITE_CMD_INIT,
@@ -102,4 +104,5 @@ struct parasite_drain_fd {
 #define PARASITE_HEAD_ADDR(start)				\
 	((start) + parasite_blob_offset____export_parasite_head_start)
 
+#endif /* !__ASSEMBLY__ */
 #endif /* CR_PARASITE_H_ */

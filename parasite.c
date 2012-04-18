@@ -444,7 +444,7 @@ static int fini(void)
 	return 0;
 }
 
-static int __used parasite_service(unsigned long cmd, void *args)
+int __used parasite_service(unsigned long cmd, void *args)
 {
 	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_init_args) > PARASITE_ARG_SIZE);
@@ -485,32 +485,6 @@ static int __used parasite_service(unsigned long cmd, void *args)
 	}
 
 	return -1;
-}
-
-static void __head __export_parasite_head(void)
-{
-	/*
-	 * The linker will handle the stack allocation.
-	 */
-	asm volatile("__export_parasite_head_start:			\n"
-		     "leaq __export_parasite_stack(%rip), %rsp		\n"
-		     "subq $16, %rsp					\n"
-		     "andq $~15, %rsp					\n"
-		     "pushq $0						\n"
-		     "movq %rsp, %rbp					\n"
-		     "movl __export_parasite_cmd(%rip), %edi		\n"
-		     "leaq __export_parasite_args(%rip), %rsi		\n"
-		     "call parasite_service				\n"
-		     "int $0x03						\n"
-		     ".align 8						\n"
-		     "__export_parasite_cmd:				\n"
-		     ".long 0						\n"
-		     "__export_parasite_args:				\n"
-		     ".long 0						\n"
-		     ".space "__stringify(PARASITE_ARG_SIZE)",0		\n"
-		     ".space "__stringify(PARASITE_STACK_SIZE)", 0	\n"
-		     "__export_parasite_stack:				\n"
-		     ".long 0						\n");
 }
 
 #else /* CONFIG_X86_64 */
