@@ -29,10 +29,9 @@ enum fdinfo_states {
 
 struct fdinfo_list_entry {
 	struct list_head	desc_list;
-	int			fd;
 	int			pid;
-	int			flags;
 	futex_t			real_pid;
+	struct fdinfo_entry	fe;
 };
 
 struct file_desc;

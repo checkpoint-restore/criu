@@ -87,7 +87,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 
 	pr_info("  `- ID %p 0x%xpn", pi, pi->pe.id);
 	list_for_each_entry(fle, &pi->d.fd_info_head, desc_list)
-		pr_info("   `- FD %d pid %d\n", fle->fd, fle->pid);
+		pr_info("   `- FD %d pid %d\n", fle->fe.fd, fle->pid);
 }
 
 static int handle_pipes_data()
@@ -150,7 +150,7 @@ void mark_pipe_master()
 
 		fle = file_master(&pi->d);
 		p = pi;
-		fd = fle->fd;
+		fd = fle->fe.fd;
 		pid = fle->pid;
 
 		list_for_each_entry(pic, &pi->pipe_list, pipe_list) {
@@ -158,9 +158,9 @@ void mark_pipe_master()
 
 			fle = file_master(&p->d);
 			if (fle->pid < pid ||
-			    (pid == fle->pid && fle->fd < fd)) {
+			    (pid == fle->pid && fle->fe.fd < fd)) {
 				p = pic;
-				fd = fle->fd;
+				fd = fle->fe.fd;
 				pid = fle->pid;
 			}
 
@@ -191,7 +191,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	int tmp, fd;
 
 	fle = file_master(&pi->d);
-	fd = fle->fd;
+	fd = fle->fe.fd;
 
 	pr_info("\tWaiting fd for %d\n", fd);
 

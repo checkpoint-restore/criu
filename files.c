@@ -101,7 +101,7 @@ void show_saved_files(void)
 
 			pr_info(" `- type %d ID 0x%x\n", fd->type, fd->id);
 			list_for_each_entry(le, &fd->fd_info_head, desc_list)
-				pr_info("   `- FD %d pid %d\n", le->fd, le->pid);
+				pr_info("   `- FD %d pid %d\n", le->fe.fd, le->pid);
 		}
 }
 
@@ -343,9 +343,8 @@ static int collect_fd(int pid, struct fdinfo_entry *e)
 	}
 
 	le->pid = pid;
-	le->fd = e->fd;
-	le->flags = e->flags;
 	futex_init(&le->real_pid);
+	le->fe = *e;
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -474,7 +473,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	fle = file_master(d);
 
 	if (fle->pid == pid) {
-		if (fle->fd == fe->fd) {
+		if (fle->fe.fd == fe->fd) {
 			/* file master */
 			if (!should_open_transport(fe, d))
 				return 0;
@@ -487,7 +486,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	pr_info("\t%d: Create transport fd for %d\n", pid, fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list)
-		if ((fle->pid == pid) && (fle->fd == fe->fd))
+		if ((fle->pid == pid) && (fle->fe.fd == fe->fd))
 			break;
 
 	BUG_ON(&d->fd_info_head == &fle->desc_list);
@@ -507,7 +506,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	if (ret < 0)
 		return -1;
 
-	pr_info("Wake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
+	pr_info("Wake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
 	futex_set_and_wake(&fle->real_pid, getpid());
 
 	return 0;
@@ -518,10 +517,10 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	struct sockaddr_un saddr;
 	int len;
 
-	pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fd);
+	pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
 	futex_wait_while(&fle->real_pid, 0);
 	transport_name_gen(&saddr, &len,
-			futex_get(&fle->real_pid), fle->fd);
+			futex_get(&fle->real_pid), fle->fe.fd);
 	pr_info("Send fd %d to %s\n", fd, saddr.sun_path + 1);
 	return send_fd(tsk, &saddr, len, fd);
 }
@@ -534,7 +533,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 	struct fdinfo_list_entry *fle;
 
 	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->fd != fle->fd))
+	if ((fle->pid != pid) || (fe->fd != fle->fe.fd))
 		return 0;
 
 	tmp = d->ops->open(d);
@@ -556,22 +555,22 @@ static int open_fd(int pid, struct fdinfo_entry *fe,
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid) {
-			pr_info("\t\tGoing to dup %d into %d\n", fe->fd, fle->fd);
-			if (fe->fd == fle->fd)
+			pr_info("\t\tGoing to dup %d into %d\n", fe->fd, fle->fe.fd);
+			if (fe->fd == fle->fe.fd)
 				continue;
 
-			if (move_img_fd(&sock, fle->fd))
+			if (move_img_fd(&sock, fle->fe.fd))
 				return -1;
-			if (move_img_fd(fdinfo_fd, fle->fd))
+			if (move_img_fd(fdinfo_fd, fle->fe.fd))
 				return -1;
 
-			if (dup2(fe->fd, fle->fd) != fle->fd) {
+			if (dup2(fe->fd, fle->fe.fd) != fle->fe.fd) {
 				pr_perror("Can't dup local fd %d -> %d",
-						fe->fd, fle->fd);
+						fe->fd, fle->fe.fd);
 				return -1;
 			}
 
-			fcntl(fle->fd, F_SETFD, fle->flags);
+			fcntl(fle->fe.fd, F_SETFD, fle->fe.flags);
 
 			continue;
 		}
