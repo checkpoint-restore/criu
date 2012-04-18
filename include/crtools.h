@@ -181,6 +181,9 @@ struct vma_area {
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
 #define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
 
+struct rst_info {
+};
+
 struct pstree_item {
 	struct list_head	list;
 	pid_t			pid;		/* leader pid */
@@ -192,6 +195,7 @@ struct pstree_item {
 	int			nr_threads;	/* number of threads */
 	u32			*threads;	/* array of threads */
 	u32			*children;	/* array of children */
+	struct rst_info		*rst;
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)

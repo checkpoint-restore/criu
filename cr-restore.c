@@ -219,6 +219,10 @@ static int prepare_pstree(void)
 		if (pi == NULL)
 			break;
 
+		pi->rst = xzalloc(sizeof(*pi->rst));
+		if (pi->rst == NULL)
+			break;
+
 		pi->pid = e.pid;
 		pi->pgid = e.pgid;
 		pi->sid = e.sid;
