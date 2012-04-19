@@ -65,6 +65,7 @@ struct cr_options {
 	bool			leader_only;
 	bool			show_pages_content;
 	bool			restore_detach;
+	bool			ext_unix_sk;
 	unsigned int		namespaces_flags;
 };
 
@@ -154,6 +155,7 @@ static inline int fdset_fd(const struct cr_fdset *fdset, int type)
 }
 
 extern struct cr_fdset *glob_fdset;
+extern struct cr_options opts;
 
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
 int cr_restore_tasks(pid_t pid, struct cr_options *opts);

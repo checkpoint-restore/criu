@@ -43,6 +43,7 @@ struct socket_desc {
 	unsigned int		ino;
 	struct socket_desc	*next;
 	int			already_dumped;
+	bool			external;
 };
 
 struct unix_sk_desc {
@@ -397,6 +398,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 	ue.backlog	= sk->wqlen;
 	ue.peer		= sk->peer_ino;
 	ue.fown		= p->fown;
+	ue.uflags	= 0;
 
 	if (ue.peer) {
 		struct unix_sk_desc *peer;
@@ -412,10 +414,18 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 		 * Peer should have us as peer or have a name by which
 		 * we can access one.
 		 */
-		if (!peer->name && (peer->peer_ino != ue.id)) {
-			pr_err("Unix socket 0x%x with unreachable peer 0x%x (0x%x/%s)\n",
-					ue.id, ue.peer, peer->peer_ino, peer->name);
-			goto err;
+		if (peer->peer_ino != ue.id) {
+			if (!peer->name) {
+				pr_err("Unix socket 0x%x with unreachable peer 0x%x (0x%x/%s)\n",
+				       ue.id, ue.peer, peer->peer_ino, peer->name);
+				goto err;
+			}
+
+			/*
+			 * It can be external socket, so we defer dumping
+			 * until all sockets the program owns are processed.
+			 */
+			peer->sd.external = true;
 		}
 	} else if (ue.state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
@@ -729,6 +739,61 @@ static int collect_sockets_nl(int nl, void *req, int size,
 
 	return 0;
 
+err:
+	return -1;
+}
+
+int dump_external_sockets(void)
+{
+	struct socket_desc *head, *sd;
+	int i, ret = -1;
+
+	if (!opts.ext_unix_sk)
+		return 0;
+
+	pr_debug("Dumping external sockets\n");
+
+	for (i = 0; i < SK_HASH_SIZE; i++) {
+		head = sockets[i];
+		if (!head)
+			continue;
+
+		for (sd = head; sd; sd = sd->next) {
+			struct unix_sk_entry e = { };
+			struct unix_sk_desc *sk;
+
+			if (sd->already_dumped		||
+			    sd->external == false	||
+			    sd->family != AF_UNIX)
+				continue;
+
+			sk = container_of(sd, struct unix_sk_desc, sd);
+
+			if (sk->type != SOCK_DGRAM)
+				continue;
+
+			e.id		= sd->ino;
+			e.type		= SOCK_DGRAM;
+			e.state		= TCP_LISTEN;
+			e.namelen	= sk->namelen;
+			e.uflags	= USK_EXTERN;
+			e.peer		= 0;
+
+			show_one_unix("Dumping extern", sk);
+
+			if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e))
+				goto err;
+			if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK),
+					  sk->name, e.namelen))
+				goto err;
+
+			show_one_unix_img("Dumped extern", &e);
+
+			sd->already_dumped = 1;
+		}
+	}
+
+	return 0;
 err:
 	return -1;
 }
@@ -1131,9 +1196,9 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x",
+		pr_msg("id 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x uflags 0x%2x",
 			ue.id, sktype2s(ue.type), skstate2s(ue.state),
-			ue.namelen, ue.backlog, ue.peer, ue.flags);
+			ue.namelen, ue.backlog, ue.peer, ue.flags, ue.uflags);
 
 		if (ue.namelen) {
 			BUG_ON(ue.namelen > sizeof(buf));
@@ -1454,7 +1519,8 @@ int collect_unix_sockets(void)
 			 * Make FS clean from sockets we're about to
 			 * restore. See for how we bind them for details
 			 */
-			if (ui->name[0] != '\0')
+			if (ui->name[0] != '\0' &&
+			    !(ui->ue.uflags & USK_EXTERN))
 				unlink(ui->name);
 		} else
 			ui->name = NULL;
@@ -1484,6 +1550,16 @@ int resolve_unix_peers(void)
 			continue;
 
 		peer = find_unix_sk(ui->ue.peer);
+
+		/*
+		 * Connect to external sockets requires
+		 * special option to be passed.
+		 */
+		if (peer &&
+		    (peer->ue.uflags & USK_EXTERN) &&
+		    !(opts.ext_unix_sk))
+			peer = NULL;
+
 		if (!peer) {
 			pr_err("FATAL: Peer 0x%x unresolved for 0x%x\n",
 					ui->ue.peer, ui->ue.id);

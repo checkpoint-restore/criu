@@ -124,6 +124,8 @@ struct pipe_data_entry {
  */
 #define PIPE_NONALIG_DATA (15 * PAGE_SIZE)
 
+#define USK_EXTERN	(1 << 0)
+
 struct unix_sk_entry {
 	u32	id;
 	u8	type;
@@ -131,6 +133,7 @@ struct unix_sk_entry {
 	u8	namelen; /* fits UNIX_PATH_MAX */
 	u8	pad;
 	u32	flags;
+	u32	uflags;  /* own service flags */
 	u32	backlog;
 	u32	peer;
 	fown_t	fown;

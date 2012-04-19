@@ -1905,6 +1905,12 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	}
 
 	ret = cr_dump_shmem();
+	if (ret)
+		goto err;
+
+	ret = dump_external_sockets();
+	if (ret)
+		goto err;
 
 	fd_id_show_tree();
 err:

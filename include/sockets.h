@@ -14,6 +14,7 @@ struct fdinfo_list_entry;
 struct file_desc;
 struct fdinfo_entry;
 extern int collect_sockets(void);
+extern int dump_external_sockets(void);
 extern int collect_inet_sockets(void);
 extern int collect_unix_sockets(void);
 extern int resolve_unix_peers(void);

@@ -23,7 +23,7 @@
 #include "uts_ns.h"
 #include "ipc_ns.h"
 
-static struct cr_options opts;
+struct cr_options opts;
 
 /*
  * The cr fd set is the set of files where the information
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:p:t:hcD:o:n:v";
+	static const char short_opts[] = "dsf:p:t:hcD:o:n:vx";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -345,6 +345,7 @@ int main(int argc, char *argv[])
 			{ "images-dir", required_argument, 0, 'D' },
 			{ "log-file", required_argument, 0, 'o' },
 			{ "namespaces", required_argument, 0, 'n' },
+			{ "ext-unix-sk", no_argument, 0, 'x' },
 			{ "help", no_argument, 0, 'h' },
 			{ },
 		};
@@ -356,6 +357,9 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 's':
 			opts.final_state = TASK_STOPPED;
+			break;
+		case 'x':
+			opts.ext_unix_sk = true;
 			break;
 		case 'p':
 			pid = atoi(optarg);
@@ -481,6 +485,7 @@ usage:
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
 	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
 	pr_msg("                        supported: uts, ipc\n");
+	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
 
 	pr_msg("\nAdditional common parameters:\n");
 	pr_msg("  -D|--images-dir dir   specifis directory where checkpoint files are/to be located\n");
