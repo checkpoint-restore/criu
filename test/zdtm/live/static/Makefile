@@ -20,6 +20,7 @@ TST_NOFILE	=				\
 		unbound_sock			\
 		socket_listen			\
 		socket_udp			\
+		socket6_udp			\
 		socket_udplite			\
 		socket_aio			\
 		msgque				\
