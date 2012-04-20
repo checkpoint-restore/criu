@@ -485,7 +485,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 
 	sk = lookup_socket(p->stat.st_ino);
 	if (!sk) {
-		pr_err("Uncollected socket %ld\n", p->stat.st_ino);
+		pr_err("Uncollected socket 0x%8x\n", (int)p->stat.st_ino);
 		return -1;
 	}
 
