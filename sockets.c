@@ -220,8 +220,8 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: ino 0x%x family %d type %d port %d "
-		"state %d src_addr %s\n",
+	pr_debug("\t%s: ino 0x%8x family %4d type %4d port %8d "
+		"state %2d src_addr %s\n",
 		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
 		sk->state, src_addr);
 }
@@ -243,8 +243,8 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino 0x%x type %d state %d name %s\n",
-		act, sk->sd.ino, sk->type, sk->state, sk->name);
+	pr_debug("\t%s: ino 0x%8x family %4d type %4d state %2d name %s\n",
+		act, sk->sd.ino, sk->sd.family, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
 		int i;
