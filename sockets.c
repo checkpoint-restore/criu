@@ -1160,13 +1160,13 @@ void show_inetsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		if (inet_ntop(AF_INET, (void *)ie.src_addr, src_addr,
+		if (inet_ntop(ie.family, (void *)ie.src_addr, src_addr,
 			      INET_ADDR_LEN) == NULL) {
 			pr_perror("Failed to translate src address");
 		}
 
 		if (ie.state == TCP_ESTABLISHED) {
-			if (inet_ntop(AF_INET, (void *)ie.dst_addr, dst_addr,
+			if (inet_ntop(ie.family, (void *)ie.dst_addr, dst_addr,
 				      INET_ADDR_LEN) == NULL) {
 				pr_perror("Failed to translate dst address");
 			}
