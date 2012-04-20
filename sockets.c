@@ -262,8 +262,8 @@ static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 
 static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 {
-	if (sk->sd.family != AF_INET) {
-		pr_err("Only IPv4 sockets for now\n");
+	if (sk->sd.family != AF_INET && sk->sd.family != AF_INET6) {
+		pr_err("Only IPv4/6 sockets for now\n");
 		return 0;
 	}
 
@@ -493,6 +493,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 	case AF_UNIX:
 		return dump_one_unix(sk, p, lfd, cr_fdset);
 	case AF_INET:
+	case AF_INET6:
 		return dump_one_inet(sk, p, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
@@ -502,11 +503,12 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 	return -1;
 }
 
-static int inet_collect_one(struct nlmsghdr *h, int type, int proto)
+static int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 {
 	struct inet_sk_desc *d;
 	struct inet_diag_msg *m = NLMSG_DATA(h);
 	struct rtattr *tb[INET_DIAG_MAX+1];
+	int ret;
 
 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
 		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
@@ -525,22 +527,41 @@ static int inet_collect_one(struct nlmsghdr *h, int type, int proto)
 	memcpy(d->src_addr, m->id.idiag_src, sizeof(u32) * 4);
 	memcpy(d->dst_addr, m->id.idiag_dst, sizeof(u32) * 4);
 
-	return sk_collect_one(m->idiag_inode, AF_INET, &d->sd);
+	ret = sk_collect_one(m->idiag_inode, family, &d->sd);
+
+	show_one_inet("Collected", d);
+
+	return ret;
 }
 
 static int inet_tcp_receive_one(struct nlmsghdr *h)
 {
-	return inet_collect_one(h, SOCK_STREAM, IPPROTO_TCP);
+	return inet_collect_one(h, AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
 static int inet_udp_receive_one(struct nlmsghdr *h)
 {
-	return inet_collect_one(h, SOCK_DGRAM, IPPROTO_UDP);
+	return inet_collect_one(h, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 
 static int inet_udplite_receive_one(struct nlmsghdr *h)
 {
-	return inet_collect_one(h, SOCK_DGRAM, IPPROTO_UDPLITE);
+	return inet_collect_one(h, AF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
+}
+
+static int inet6_tcp_receive_one(struct nlmsghdr *h)
+{
+	return inet_collect_one(h, AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+}
+
+static int inet6_udp_receive_one(struct nlmsghdr *h)
+{
+	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+}
+
+static int inet6_udplite_receive_one(struct nlmsghdr *h)
+{
+	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDPLITE);
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
@@ -861,6 +882,33 @@ int collect_sockets(void)
 	if (tmp)
 		err = tmp;
 
+	/* Collect IPv6 TCP sockets */
+	req.r.i.sdiag_family	= AF_INET6;
+	req.r.i.sdiag_protocol	= IPPROTO_TCP;
+	req.r.i.idiag_ext	= 0;
+	/* Only listening sockets supported yet */
+	req.r.i.idiag_states	= 1 << TCP_LISTEN;
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_tcp_receive_one);
+	if (tmp)
+		err = tmp;
+
+	/* Collect IPv6 UDP sockets */
+	req.r.i.sdiag_family	= AF_INET6;
+	req.r.i.sdiag_protocol	= IPPROTO_UDP;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_udp_receive_one);
+	if (tmp)
+		err = tmp;
+
+	/* Collect IPv6 UDP-lite sockets */
+	req.r.i.sdiag_family	= AF_INET6;
+	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_udplite_receive_one);
+	if (tmp)
+		err = tmp;
 out:
 	close(nl);
 	return err;
@@ -1016,15 +1064,18 @@ int collect_inet_sockets(void)
 
 static int open_inet_sk(struct file_desc *d)
 {
-	int sk;
-	struct sockaddr_in addr;
+	union {
+		struct sockaddr_in	v4;
+		struct sockaddr_in6	v6;
+	} addr;
 	struct inet_sk_info *ii;
+	int sk, addr_size;
 
 	ii = container_of(d, struct inet_sk_info, d);
 
 	show_one_inet_img("Restore", &ii->ie);
 
-	if (ii->ie.family != AF_INET) {
+	if (ii->ie.family != AF_INET && ii->ie.family != AF_INET6) {
 		pr_err("Unsupported socket family: %d\n", ii->ie.family);
 		return -1;
 	}
@@ -1047,12 +1098,21 @@ static int open_inet_sk(struct file_desc *d)
 	 * Listen sockets are easiest ones -- simply
 	 * bind() and listen(), and that's all.
 	 */
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = ii->ie.family;
-	addr.sin_port = htons(ii->ie.src_port);
-	memcpy(&addr.sin_addr.s_addr, ii->ie.src_addr, sizeof(unsigned int) * 4);
+	memzero(&addr, sizeof(addr));
+	if (ii->ie.family == AF_INET) {
+		addr.v4.sin_family = ii->ie.family;
+		addr.v4.sin_port = htons(ii->ie.src_port);
+		memcpy(&addr.v4.sin_addr.s_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr));
+		addr_size = sizeof(addr.v4);
+	} else if (ii->ie.family == AF_INET6) {
+		addr.v6.sin6_family = ii->ie.family;
+		addr.v6.sin6_port = htons(ii->ie.src_port);
+		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr));
+		addr_size = sizeof(addr.v6);
+	} else
+		BUG_ON(1);
 
-	if (bind(sk, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+	if (bind(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't bind to a socket");
 		goto err;
 	}
@@ -1075,12 +1135,21 @@ static int open_inet_sk(struct file_desc *d)
 			goto err;
 		}
 
-		memset(&addr, 0, sizeof(addr));
-		addr.sin_family = ii->ie.family;
-		addr.sin_port = htons(ii->ie.dst_port);
-		memcpy(&addr.sin_addr.s_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+		memzero(&addr, sizeof(addr));
+		if (ii->ie.family == AF_INET) {
+			addr.v4.sin_family = ii->ie.family;
+			addr.v4.sin_port = htons(ii->ie.dst_port);
+			memcpy(&addr.v4.sin_addr.s_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+			addr_size = sizeof(addr.v4);
+		} else if (ii->ie.family == AF_INET6) {
+			addr.v6.sin6_family = ii->ie.family;
+			addr.v6.sin6_port = htons(ii->ie.dst_port);
+			memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+			addr_size = sizeof(addr.v6);
+		} else
+			BUG_ON(1);
 
-		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+		if (connect(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 			pr_perror("Can't connect UDP socket back");
 			goto err;
 		}
@@ -1107,6 +1176,8 @@ static inline char *skfamily2s(u32 f)
 {
 	if (f == AF_INET)
 		return " inet";
+	else if (f == AF_INET6)
+		return "inet6";
 	else
 		return unknown(f);
 }
