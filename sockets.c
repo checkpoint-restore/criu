@@ -215,7 +215,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
-	if (inet_ntop(AF_INET, (void *)sk->src_addr, src_addr,
+	if (inet_ntop(sk->sd.family, (void *)sk->src_addr, src_addr,
 		      INET_ADDR_LEN) == NULL) {
 		pr_perror("Failed to translate address");
 	}
@@ -230,7 +230,7 @@ static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
-	if (inet_ntop(AF_INET, (void *)e->src_addr, src_addr,
+	if (inet_ntop(e->family, (void *)e->src_addr, src_addr,
 		      INET_ADDR_LEN) == NULL) {
 		pr_perror("Failed to translate address");
 	}
