@@ -244,50 +244,6 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 	return 0;
 }
 
-/*
- * The kernel applies special requirements for code/data protection
- * when setting up mm::code/data start and end addresses, so just
- * setup fake areas which suits it and unmap them once prctl finished.
- */
-static int setup_mm_special(struct task_restore_core_args *args)
-{
-	const int flags = MAP_PRIVATE | MAP_FIXED;
-	int ret = 0;
-	int prot;
-
-	prot = PROT_EXEC | PROT_READ;
-	sys_mmap((void *)args->mm.mm_start_code, PAGE_SIZE, prot, flags, -1, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)args->mm.mm_start_code, 0);
-	sys_munmap((void *)args->mm.mm_start_code, PAGE_SIZE);
-
-	sys_mmap((void *)args->mm.mm_end_code, PAGE_SIZE, PROT_EXEC | PROT_READ, flags, -1, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE, (long)args->mm.mm_end_code, 0);
-	sys_munmap((void *)args->mm.mm_end_code, PAGE_SIZE);
-
-	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
-		return -1;
-	}
-
-	prot = PROT_READ | PROT_WRITE;
-	sys_mmap((void *)args->mm.mm_start_data, PAGE_SIZE, PROT_READ | PROT_WRITE, flags, -1, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA, (long)args->mm.mm_start_data, 0);
-	sys_munmap((void *)args->mm.mm_start_data, PAGE_SIZE);
-
-	sys_mmap((void *)args->mm.mm_end_data, PAGE_SIZE, PROT_READ | PROT_WRITE, flags, -1, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA, (long)args->mm.mm_end_data, 0);
-	sys_munmap((void *)args->mm.mm_end_data, PAGE_SIZE);
-
-	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
-		return -1;
-	}
-
-	return 0;
-}
-
 static u64 restore_mapping(const struct vma_entry *vma_entry)
 {
 	int prot	= vma_entry->prot;
@@ -384,16 +340,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 			((void *)(vma_entry + 1) - ((void *)args->self_vmas)));
 
 	/*
-	 * Some fields of mm descriptor need to
-	 * be prepared on bare memory map.
-	 */
-	if (setup_mm_special(args)) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
-		goto core_restore_end;
-	}
-
-	/*
 	 * OK, lets try to map new one.
 	 */
 	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
@@ -482,6 +428,11 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * Tune up the task fields.
 	 */
 	ret |= sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0, 0);
+
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)args->mm.mm_start_data, 0);
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)args->mm.mm_end_data, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,	(long)args->mm.mm_start_stack, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)args->mm.mm_start_brk, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,		(long)args->mm.mm_brk, 0);
