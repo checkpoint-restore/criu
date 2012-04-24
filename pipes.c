@@ -57,7 +57,7 @@ int collect_pipes(void)
 		if (ret <= 0)
 			break;
 
-		pr_info("Collected pipe entry ID 0x%x PIPE ID 0x%x\n",
+		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
 					pi->pe.id, pi->pe.pipe_id);
 
 		file_desc_add(&pi->d, FDINFO_PIPE, pi->pe.id,
@@ -85,7 +85,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 {
 	struct fdinfo_list_entry *fle;
 
-	pr_info("  `- ID %p 0x%xpn", pi, pi->pe.id);
+	pr_info("  `- ID %p %#xpn", pi, pi->pe.id);
 	list_for_each_entry(fle, &pi->d.fd_info_head, desc_list)
 		pr_info("   `- FD %d pid %d\n", fle->fe.fd, fle->pid);
 }
@@ -145,7 +145,7 @@ void mark_pipe_master()
 		pi = list_first_entry(&pipes, struct pipe_info, list);
 		list_move(&pi->list, &head);
 
-		pr_info(" `- PIPE ID 0x%x\n", pi->pe.pipe_id);
+		pr_info(" `- PIPE ID %#x\n", pi->pe.pipe_id);
 		show_saved_pipe_fds(pi);
 
 		fle = file_master(&pi->d);
@@ -167,7 +167,7 @@ void mark_pipe_master()
 			show_saved_pipe_fds(pic);
 		}
 		p->create = 1;
-		pr_info("    by 0x%x\n", p->pe.id);
+		pr_info("    by %#x\n", p->pe.id);
 	}
 
 	list_splice(&head, &pipes);
@@ -227,12 +227,12 @@ static int restore_pipe_data(int pfd, struct pipe_info *pi)
 	while (size != pi->bytes) {
 		ret = splice(fd, NULL, pfd, NULL, pi->bytes - size, 0);
 		if (ret < 0) {
-			pr_perror("0x%x: Error splicing data", pi->pe.id);
+			pr_perror("%#x: Error splicing data", pi->pe.id);
 			goto err;
 		}
 
 		if (ret == 0) {
-			pr_err("0x%x: Wanted to restore %d bytes, but got %d\n",
+			pr_err("%#x: Wanted to restore %d bytes, but got %d\n",
 				pi->pe.id, pi->bytes, size);
 			ret = -1;
 			goto err;
@@ -256,7 +256,7 @@ static int open_pipe(struct file_desc *d)
 
 	pi = container_of(d, struct pipe_info, d);
 
-	pr_info("\tCreating pipe pipe_id=0x%x id=0x%x\n", pi->pe.pipe_id, pi->pe.id);
+	pr_info("\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe.pipe_id, pi->pe.id);
 
 	if (!pi->create)
 		return recv_pipe_fd(pi);

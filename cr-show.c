@@ -83,7 +83,7 @@ void show_files(int fd_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %5s fd: %5d id: 0x%8x flags 0x%x",
+		pr_msg("type: %5s fd: %5d id: 0x%8x flags %#x",
 		       fdtype2s(e.type), e.fd, e.id, e.flags);
 
 		pr_msg("\n");
@@ -95,7 +95,7 @@ out:
 
 void show_fown_cont(fown_t *fown)
 {
-	pr_msg("fown: uid: 0x%x euid: 0x%x signum: 0x%x pid_type: 0x%x pid: %u",
+	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
 }
 
@@ -153,7 +153,7 @@ void show_remap_files(int fd, struct cr_options *o)
 		if (ret <= 0)
 			break;
 
-		pr_msg("0x%x -> 0x%x (%s)\n", rfe.orig_id,
+		pr_msg("%#x -> %#x (%s)\n", rfe.orig_id,
 				(rfe.remap_id & ~REMAP_GHOST),
 				remap_id_type(rfe.remap_id));
 	}
@@ -167,7 +167,7 @@ void show_ghost_file(int fd, struct cr_options *o)
 
 	pr_img_head(CR_FD_GHOST_FILE);
 	if (read_img(fd, &gfe) > 0)
-		pr_msg("uid %u god %u mode 0x%x\n", gfe.uid, gfe.gid, gfe.mode);
+		pr_msg("uid %u god %u mode %#x\n", gfe.uid, gfe.gid, gfe.mode);
 	pr_img_tail(CR_FD_GHOST_FILE);
 }
 
@@ -225,8 +225,8 @@ void show_fs(int fd_fs, struct cr_options *o)
 	pr_img_head(CR_FD_FS);
 
 	if (read_img(fd_fs, &fe) > 0) {
-		pr_msg("CWD : 0x%x\n", fe.cwd_id);
-		pr_msg("ROOT: 0x%x\n", fe.root_id);
+		pr_msg("CWD : %#x\n", fe.cwd_id);
+		pr_msg("ROOT: %#x\n", fe.root_id);
 	}
 
 	pr_img_tail(CR_FD_FS);
@@ -387,7 +387,7 @@ void show_creds(int fd, struct cr_options *o)
 	show_cap("Prm", ce.cap_prm);
 	show_cap("Bnd", ce.cap_bnd);
 
-	pr_msg("secbits: 0x%x\n", ce.secbits);
+	pr_msg("secbits: %#x\n", ce.secbits);
 out:
 	pr_img_tail(CR_FD_CREDS);
 }
@@ -511,7 +511,7 @@ static void show_core_rest(int fd_core)
 		goto err;
 
 	pr_msg("\n\t---[Task parameters]---\n");
-	pr_msg("\tPersonality:  0x%x\n", tc.personality);
+	pr_msg("\tPersonality:  %#x\n", tc.personality);
 	pr_msg("\tCommand:      %s\n", tc.comm);
 	pr_msg("\tState:        %d (%s)\n",
 	       (int)tc.task_state,
@@ -535,10 +535,10 @@ static void show_core_ids(int fd)
 	if (read_img(fd, &cie) < 0)
 		goto err;
 
-	pr_msg("\tVM:      0x%x\n", cie.vm_id);
-	pr_msg("\tFS:      0x%x\n", cie.fs_id);
-	pr_msg("\tFILES:   0x%x\n", cie.files_id);
-	pr_msg("\tSIGHAND: 0x%x\n", cie.sighand_id);
+	pr_msg("\tVM:      %#x\n", cie.vm_id);
+	pr_msg("\tFS:      %#x\n", cie.fs_id);
+	pr_msg("\tFILES:   %#x\n", cie.files_id);
+	pr_msg("\tSIGHAND: %#x\n", cie.sighand_id);
 err:
 	return;
 }
@@ -587,7 +587,7 @@ void show_mm(int fd_mm, struct cr_options *o)
 	pr_msg("\tArg end:      0x%lx\n", mme.mm_arg_end);
 	pr_msg("\tEnv start:    0x%lx\n", mme.mm_env_start);
 	pr_msg("\tEnv end:      0x%lx\n", mme.mm_env_end);
-	pr_msg("\tExe file ID   0x%x\n", mme.exe_file_id);
+	pr_msg("\tExe file ID   %#x\n", mme.exe_file_id);
 out:
 	pr_img_tail(CR_FD_MM);
 }
@@ -611,13 +611,13 @@ static int cr_parse_file(struct cr_options *opts)
 			break;
 
 	if (i == CR_FD_MAX) {
-		pr_err("Unknown magic 0x%x in %s\n",
+		pr_err("Unknown magic %#x in %s\n",
 				magic, opts->show_dump_file);
 		goto err;
 	}
 
 	if (!fdset_template[i].show) {
-		pr_err("No handler for 0x%x/%s\n",
+		pr_err("No handler for %#x/%s\n",
 				magic, opts->show_dump_file);
 		goto err;
 	}

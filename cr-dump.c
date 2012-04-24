@@ -152,7 +152,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	struct ghost_file_entry gfe;
 	char lpath[32];
 
-	pr_info("Dumping ghost file contents (id 0x%x)\n", id);
+	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
 	img = open_image(CR_FD_GHOST_FILE, O_DUMP, id);
 	if (img < 0)
@@ -189,7 +189,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 	struct ghost_file *gf;
 	struct remap_file_path_entry rpe;
 
-	pr_info("Dumping ghost file for fd %d id 0x%x\n", lfd, id);
+	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
 	if (st->st_size > MAX_GHOST_FILE_SIZE) {
 		pr_err("Can't dump ghost file %s of %lu size\n",
@@ -315,14 +315,14 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	int ret = -1;
 	int i = 0;
 
-	pr_info("Dumping pipe %d with id 0x%x pipe_id 0x%x\n", lfd, id, p->id);
+	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n", lfd, id, p->id);
 
 	fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES);
 
 	if (p->flags & O_WRONLY)
 		goto dump;
 
-	pr_info("Dumping data from pipe 0x%x fd %d\n", id, lfd);
+	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
 
 	for (i = 0; i < nr_pipes; i++)
 		if (pipes[i] == p->id)
@@ -380,7 +380,7 @@ dump:
 			off &= PAGE_SIZE -1;
 			if (off)
 				pde.off = PAGE_SIZE - off;
-			pr_info("off 0x%lx 0x%x\n", off, pde.off);
+			pr_info("off 0x%lx %#x\n", off, pde.off);
 		}
 
 		if (write_img(fd_pipes, &pde))
@@ -502,7 +502,7 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 	p->fd_flags	= fd_flags;
 	p->fown		= (fown_t){ };
 
-	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/0x%x\n",
+	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
 		pid, fd, p->pos, p->flags, (int)fd_flags);
 
 	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
@@ -537,7 +537,7 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 
 static int dump_unsupp_fd(const struct fd_parms *p)
 {
-	pr_err("Can't dump file %d of that type [0x%x]\n",
+	pr_err("Can't dump file %d of that type [%#x]\n",
 			p->fd, p->stat.st_mode);
 	return -1;
 }
@@ -669,7 +669,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 
 	close(fd);
 
-	pr_info("Dumping task cwd id 0x%x root id 0x%x\n",
+	pr_info("Dumping task cwd id %#x root id %#x\n",
 			fe.cwd_id, fe.root_id);
 
 	return write_img(fdset_fd(fdset, CR_FD_FS), &fe);
