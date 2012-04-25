@@ -113,7 +113,7 @@ try_again:
 		goto err;
 	}
 
-	if (((si.si_code & 0xffff)>> 8) != PTRACE_EVENT_STOP) {
+	if (SI_EVENT(si.si_code) != PTRACE_EVENT_STOP) {
 		/*
 		 * Kernel notifies us about the task being seized received some
 		 * event other than the STOP, i.e. -- a signal. Let the task

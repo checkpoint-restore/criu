@@ -32,6 +32,8 @@
 #define PTRACE_O_TRACEVFORKDONE	0x00000020
 #define PTRACE_O_TRACEEXIT	0x00000040
 
+#define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
+
 extern int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid);
 extern int unseize_task(pid_t pid, int state);
 extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);

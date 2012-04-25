@@ -171,7 +171,7 @@ retry_signal:
 			goto err;
 		}
 
-		if (((siginfo.si_code & 0xffff) >> 8) != PTRACE_EVENT_STOP)
+		if (SI_EVENT(siginfo.si_code) != PTRACE_EVENT_STOP)
 			goto retry_signal;
 
 		/*
@@ -218,7 +218,7 @@ retry_signal:
 		goto err;
 	}
 
-	if (((siginfo.si_code & 0xffff) >> 8) != PTRACE_EVENT_STOP) {
+	if (SI_EVENT(siginfo.si_code) != PTRACE_EVENT_STOP) {
 		pr_err("si_code doesn't match (pid: %d si_code: %d)\n",
 			pid, siginfo.si_code);
 		goto err;
