@@ -2,6 +2,7 @@
  * RBtree implementation adopted from the Linux kernel sources.
  */
 
+#include <sys/types.h>
 #include "rbtree.h"
 
 static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)

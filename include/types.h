@@ -204,4 +204,16 @@ enum kcmp_type {
 # define SCM_MAX_FD	253
 #endif
 
+#include <fcntl.h>
+
+#ifndef F_SETOWN_EX
+#define F_SETOWN_EX	15
+#define F_GETOWN_EX	16
+
+struct f_owner_ex {
+	int	type;
+	pid_t	pid;
+};
+#endif
+
 #endif /* CR_TYPES_H_ */
