@@ -51,8 +51,7 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 	int ret, ret2;
 	struct proc_pid_stat_small ps;
 
-	ret = ptrace(PTRACE_SEIZE, pid, NULL,
-		       (void *)(unsigned long)PTRACE_SEIZE_DEVEL);
+	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -114,7 +113,7 @@ try_again:
 		goto err;
 	}
 
-	if ((si.si_code >> 8) != PTRACE_EVENT_STOP) {
+	if (((si.si_code & 0xffff)>> 8) != PTRACE_EVENT_STOP) {
 		/*
 		 * Kernel notifies us about the task being seized received some
 		 * event other than the STOP, i.e. -- a signal. Let the task
