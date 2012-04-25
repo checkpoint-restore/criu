@@ -358,7 +358,7 @@ static int dump_tid_addr(struct parasite_dump_tid_addr *args)
 	parasite_status_t *st = &args->status;
 	int ret;
 
-	ret = sys_prctl(PR_GET_TID_ADDR, (unsigned long) &args->tid_addr, 0, 0, 0);
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
 	if (ret) {
 		SET_PARASITE_RET(st, ret);
 		return ret;

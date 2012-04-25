@@ -84,9 +84,9 @@ static int check_prctl(void)
 	unsigned int *tid_addr;
 	int ret;
 
-	ret = sys_prctl(PR_GET_TID_ADDR, (unsigned long)&tid_addr, 0, 0, 0);
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
 	if (ret) {
-		pr_msg("prctl: PR_GET_TID_ADDR is not supported\n");
+		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported\n");
 		return -1;
 	}
 
