@@ -97,7 +97,7 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 		}
 
-		if (strstr(big_buffer, "[stack]")) {
+		if (strstr(big_buffer, "[stack")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;
 			vma_area->vma.flags  |= MAP_GROWSDOWN;
 		} else if (strstr(big_buffer, "[vsyscall]")) {
