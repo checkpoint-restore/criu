@@ -62,25 +62,30 @@ struct unix_sk_listen_icon {
 
 #define SK_HASH_SIZE		32
 
-#define __gen_static_lookup_func(ret, name, head, _member, _type, _name)\
-	static ret *name(_type _name) {					\
-		ret *d;							\
-		for (d = head[_name % SK_HASH_SIZE]; d; d = d->next) {	\
-			if (d->_member == _name)			\
-				break;					\
-		}							\
-		return d;						\
-	}
-
 static struct socket_desc *sockets[SK_HASH_SIZE];
-__gen_static_lookup_func(struct socket_desc, lookup_socket, sockets,
-			ino, int, ino);
+
+static struct socket_desc *lookup_socket(int ino)
+{
+	struct socket_desc *sd;
+
+	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next)
+		if (sd->ino == ino)
+			return sd;
+	return NULL;
+}
 
 static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
-__gen_static_lookup_func(struct unix_sk_listen_icon,
-			 lookup_unix_listen_icons,
-			 unix_listen_icons,
-			 peer_ino, unsigned int, ino);
+
+static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
+{
+	struct unix_sk_listen_icon *ic;
+
+	for (ic = unix_listen_icons[peer_ino % SK_HASH_SIZE];
+			ic; ic = ic->next)
+		if (ic->peer_ino == peer_ino)
+			return ic;
+	return NULL;
+}
 
 int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
