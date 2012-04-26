@@ -44,7 +44,6 @@ struct socket_desc {
 	unsigned int		ino;
 	struct socket_desc	*next;
 	int			already_dumped;
-	bool			external;
 };
 
 struct unix_sk_desc {
@@ -58,7 +57,10 @@ struct unix_sk_desc {
 	char			*name;
 	unsigned int		nr_icons;
 	unsigned int		*icons;
+	struct list_head	list;
 };
+
+static LIST_HEAD(unix_sockets);
 
 struct unix_sk_listen_icon {
 	unsigned int			peer_ino;
@@ -332,7 +334,8 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 			 * It can be external socket, so we defer dumping
 			 * until all sockets the program owns are processed.
 			 */
-			peer->sd.external = true;
+			if (!peer->sd.already_dumped)
+				list_add_tail(&peer->list, &unix_sockets);
 		}
 	} else if (ue.state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
@@ -379,6 +382,7 @@ static int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 	show_one_unix("Dumping", sk);
 	show_one_unix_img("Dumped", &ue);
 
+	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
 	return 0;
 
@@ -482,6 +486,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 
 	d->type	= m->udiag_type;
 	d->state= m->udiag_state;
+	INIT_LIST_HEAD(&d->list);
 
 	if (tb[UNIX_DIAG_PEER])
 		d->peer_ino = *(int *)RTA_DATA(tb[UNIX_DIAG_PEER]);
@@ -673,34 +678,27 @@ err:
 
 int dump_external_sockets(void)
 {
-	struct socket_desc *head, *sd;
+	struct unix_sk_desc *sk;
 	int i, ret = -1;
-
-	if (!opts.ext_unix_sk)
-		return 0;
 
 	pr_debug("Dumping external sockets\n");
 
-	for (i = 0; i < SK_HASH_SIZE; i++) {
-		head = sockets[i];
-		if (!head)
-			continue;
-
-		for (sd = head; sd; sd = sd->next) {
+	list_for_each_entry(sk, &unix_sockets, list) {
 			struct unix_sk_entry e = { };
-			struct unix_sk_desc *sk;
 
-			if (sd->already_dumped		||
-			    sd->external == false	||
-			    sd->family != AF_UNIX)
-				continue;
+			BUG_ON(sk->sd.already_dumped);
 
-			sk = container_of(sd, struct unix_sk_desc, sd);
+			if (!opts.ext_unix_sk) {
+				show_one_unix("Runaway socket", sk);
+				goto err;
+			}
 
-			if (sk->type != SOCK_DGRAM)
-				continue;
+			if (sk->type != SOCK_DGRAM) {
+				show_one_unix("Ext stream not supported", sk);
+				goto err;
+			}
 
-			e.id		= sd->ino;
+			e.id		= sk->sd.ino;
 			e.type		= SOCK_DGRAM;
 			e.state		= TCP_LISTEN;
 			e.namelen	= sk->namelen;
@@ -716,9 +714,6 @@ int dump_external_sockets(void)
 				goto err;
 
 			show_one_unix_img("Dumped extern", &e);
-
-			sd->already_dumped = 1;
-		}
 	}
 
 	return 0;
@@ -832,8 +827,6 @@ struct unix_sk_info {
 
 #define USK_PAIR_MASTER		0x1
 #define USK_PAIR_SLAVE		0x2
-
-static LIST_HEAD(unix_sockets);
 
 static struct unix_sk_info *find_unix_sk(int id)
 {
