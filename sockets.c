@@ -61,11 +61,6 @@ struct unix_sk_listen_icon {
 };
 
 #define SK_HASH_SIZE		32
-#define SK_HASH_LINK(head, key, elem)					\
-	do {								\
-		(elem)->next = (head)[(key) % SK_HASH_SIZE];		\
-		(head)[(key) % SK_HASH_SIZE] = (elem);			\
-	} while (0)
 
 #define __gen_static_lookup_func(ret, name, head, _member, _type, _name)\
 	static ret *name(_type _name) {					\
@@ -89,10 +84,14 @@ __gen_static_lookup_func(struct unix_sk_listen_icon,
 
 int sk_collect_one(int ino, int family, struct socket_desc *d)
 {
+	struct socket_desc **chain;
+
 	d->ino		= ino;
 	d->family	= family;
 
-	SK_HASH_LINK(sockets, ino, d);
+	chain = &sockets[ino % SK_HASH_SIZE];
+	d->next = *chain;
+	*chain = d;
 
 	return 0;
 }
@@ -398,18 +397,21 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		 * to fix up in-flight sockets peers.
 		 */
 		for (i = 0; i < d->nr_icons; i++) {
-			struct unix_sk_listen_icon *e;
+			struct unix_sk_listen_icon *e, **chain;
 			int n;
 
 			e = xzalloc(sizeof(*e));
 			if (!e)
 				goto err;
 
-			SK_HASH_LINK(unix_listen_icons, d->icons[i], e);
+			n = d->icons[i];
+			chain = &unix_listen_icons[n % SK_HASH_SIZE];
+			e->next = *chain;
+			*chain = e;
 
 			pr_debug("\t\tCollected icon %d\n", d->icons[i]);
 
-			e->peer_ino	= d->icons[i];
+			e->peer_ino	= n;
 			e->sk_desc	= d;
 		}
 
