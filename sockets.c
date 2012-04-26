@@ -676,7 +676,7 @@ err:
 	return -1;
 }
 
-int dump_external_sockets(void)
+int fix_external_unix_sockets(void)
 {
 	struct unix_sk_desc *sk;
 	int i, ret = -1;
@@ -684,36 +684,36 @@ int dump_external_sockets(void)
 	pr_debug("Dumping external sockets\n");
 
 	list_for_each_entry(sk, &unix_sockets, list) {
-			struct unix_sk_entry e = { };
+		struct unix_sk_entry e = { };
 
-			BUG_ON(sk->sd.already_dumped);
+		BUG_ON(sk->sd.already_dumped);
 
-			if (!opts.ext_unix_sk) {
-				show_one_unix("Runaway socket", sk);
-				goto err;
-			}
+		if (!opts.ext_unix_sk) {
+			show_one_unix("Runaway socket", sk);
+			goto err;
+		}
 
-			if (sk->type != SOCK_DGRAM) {
-				show_one_unix("Ext stream not supported", sk);
-				goto err;
-			}
+		if (sk->type != SOCK_DGRAM) {
+			show_one_unix("Ext stream not supported", sk);
+			goto err;
+		}
 
-			e.id		= sk->sd.ino;
-			e.type		= SOCK_DGRAM;
-			e.state		= TCP_LISTEN;
-			e.namelen	= sk->namelen;
-			e.uflags	= USK_EXTERN;
-			e.peer		= 0;
+		e.id		= sk->sd.ino;
+		e.type		= SOCK_DGRAM;
+		e.state		= TCP_LISTEN;
+		e.namelen	= sk->namelen;
+		e.uflags	= USK_EXTERN;
+		e.peer		= 0;
 
-			show_one_unix("Dumping extern", sk);
+		show_one_unix("Dumping extern", sk);
 
-			if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e))
-				goto err;
-			if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK),
-					  sk->name, e.namelen))
-				goto err;
+		if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e))
+			goto err;
+		if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK),
+					sk->name, e.namelen))
+			goto err;
 
-			show_one_unix_img("Dumped extern", &e);
+		show_one_unix_img("Dumped extern", &e);
 	}
 
 	return 0;

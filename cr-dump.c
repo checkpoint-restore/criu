@@ -1908,7 +1908,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (ret)
 		goto err;
 
-	ret = dump_external_sockets();
+	ret = fix_external_unix_sockets();
 	if (ret)
 		goto err;
 
