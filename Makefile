@@ -39,6 +39,7 @@ OBJS		+= rbtree.o
 OBJS		+= log.o
 OBJS		+= libnetlink.o
 OBJS		+= sockets.o
+OBJS		+= sk-inet.o
 OBJS		+= sk-queue.o
 OBJS		+= files.o
 OBJS		+= pipes.o

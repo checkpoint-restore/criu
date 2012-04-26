@@ -24,4 +24,21 @@ extern void show_unixsk(int fd, struct cr_options *);
 extern void show_inetsk(int fd, struct cr_options *);
 extern void show_sk_queues(int fd, struct cr_options *);
 
+char *skfamily2s(u32 f);
+char *sktype2s(u32 t);
+char *skproto2s(u32 p);
+char *skstate2s(u32 state);
+
+struct socket_desc {
+	unsigned int		family;
+	unsigned int		ino;
+	struct socket_desc	*next;
+	int			already_dumped;
+};
+
+int sk_collect_one(int ino, int family, struct socket_desc *d);
+int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
+			 const struct cr_fdset *cr_fdset);
+struct nlmsghdr;
+int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto);
 #endif /* CR_SOCKETS_H__ */
