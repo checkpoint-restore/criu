@@ -292,11 +292,8 @@ static int open_pipe(struct file_desc *d)
 out:
 	close(pfd[!(pi->pe.flags & O_WRONLY)]);
 	tmp = pfd[pi->pe.flags & O_WRONLY];
-	ret = set_fd_flags(tmp, pi->pe.flags);
-	if (ret < 0)
-		return -1;
 
-	if (restore_fown(tmp, &pi->pe.fown))
+	if (rst_file_params(tmp, &pi->pe.fown, pi->pe.flags))
 		return -1;
 
 	return tmp;

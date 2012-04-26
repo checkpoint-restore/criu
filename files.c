@@ -149,6 +149,15 @@ int restore_fown(int fd, fown_t *fown)
 	return 0;
 }
 
+int rst_file_params(int fd, fown_t *fown, int flags)
+{
+	if (set_fd_flags(fd, flags) < 0)
+		return -1;
+	if (restore_fown(fd, fown) < 0)
+		return -1;
+	return 0;
+}
+
 static int open_fe_fd(struct file_desc *d);
 
 static struct file_desc_ops reg_desc_ops = {

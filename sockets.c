@@ -976,9 +976,7 @@ static int open_inet_sk(struct file_desc *d)
 		}
 	}
 
-	if (set_fd_flags(sk, ii->ie.flags))
-		return -1;
-	if (restore_fown(sk, &ii->ie.fown))
+	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
 		goto err;
 
 	return sk;
@@ -1172,9 +1170,7 @@ try_again:
 		if (restore_sk_queue(fle->fe.fd, peer->ue.id))
 			return -1;
 
-		if (set_fd_flags(fle->fe.fd, ui->ue.flags))
-			return -1;
-		if (restore_fown(fle->fe.fd, &ui->ue.fown))
+		if (rst_file_params(fle->fe.fd, &ui->ue.fown, ui->ue.flags))
 			return -1;
 
 		cj = cj->next;
@@ -1241,9 +1237,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk[0], ui))
 		return -1;
 
-	if (set_fd_flags(sk[0], ui->ue.flags))
-		return -1;
-	if (restore_fown(sk[0], &ui->ue.fown))
+	if (rst_file_params(sk[0], &ui->ue.fown, ui->ue.flags))
 		return -1;
 
 	tsk = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -1284,10 +1278,9 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk, ui))
 		return -1;
 
-	if (set_fd_flags(sk, ui->ue.flags))
+	if (rst_file_params(sk, &ui->ue.fown, ui->ue.flags))
 		return -1;
-	if (restore_fown(sk, &ui->ue.fown))
-		return -1;
+
 	return sk;
 }
 
@@ -1314,9 +1307,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
-		if (set_fd_flags(sk, ui->ue.flags))
-			return -1;
-		if (restore_fown(sk, &ui->ue.fown))
+		if (rst_file_params(sk, &ui->ue.fown, ui->ue.flags))
 			return -1;
 	} else if (ui->peer) {
 		pr_info("\tWill connect %#x to %#x later\n", ui->ue.id, ui->ue.peer);
