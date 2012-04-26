@@ -36,9 +36,13 @@ struct socket_desc {
 	int			already_dumped;
 };
 
+struct socket_desc *lookup_socket(int ino);
 int sk_collect_one(int ino, int family, struct socket_desc *d);
 int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 			 const struct cr_fdset *cr_fdset);
+int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
+		int lfd, const struct cr_fdset *cr_fdset);
 struct nlmsghdr;
 int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto);
+int unix_receive_one(struct nlmsghdr *h);
 #endif /* CR_SOCKETS_H__ */
