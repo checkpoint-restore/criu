@@ -470,7 +470,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 {
 	struct parasite_dump_pages_args parasite_dumppages = { };
 	parasite_status_t *st = &parasite_dumppages.status;
-	unsigned long nrpages_dumped = 0;
+	unsigned long nrpages_dumped = 0, nrpages_skipped = 0, nrpages_total = 0;
 	struct vma_area *vma_area;
 	int ret = -1;
 
@@ -509,7 +509,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		if (vma_area_is(vma_area, VMA_ANON_SHARED))
 			continue;
 
-		pr_info_vma(vma_area);
 		parasite_dumppages.vma_entry = vma_area->vma;
 
 		if (!vma_area_is(vma_area, VMA_ANON_PRIVATE) &&
@@ -529,14 +528,22 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			goto out;
 		}
 
-		pr_info("  (dumped: %16li pages)\n", parasite_dumppages.nrpages_dumped);
+		pr_info("vma %lx-%lx  dumped: %lu pages %lu skipped %lu total\n",
+				vma_area->vma.start, vma_area->vma.end,
+				parasite_dumppages.nrpages_dumped,
+				parasite_dumppages.nrpages_skipped,
+				parasite_dumppages.nrpages_total);
+
 		nrpages_dumped += parasite_dumppages.nrpages_dumped;
+		nrpages_skipped += parasite_dumppages.nrpages_skipped;
+		nrpages_total += parasite_dumppages.nrpages_total;
 	}
 
 	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
 
 	pr_info("\n");
-	pr_info("Summary: %16li pages dumped\n", nrpages_dumped);
+	pr_info("Summary: %lu dumped %lu skipped %lu total\n",
+			nrpages_dumped, nrpages_skipped, nrpages_total);
 	ret = 0;
 
 out:

@@ -141,12 +141,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	int ret = -1, fd;
 
 	args->nrpages_dumped = 0;
+	args->nrpages_skipped = 0;
 	prot_old = prot_new = 0;
 
 	fd = fd_pages;
 
 	length	= args->vma_entry.end - args->vma_entry.start;
 	nrpages	= length / PAGE_SIZE;
+	args->nrpages_total = nrpages;
 
 	/*
 	 * brk should allow us to handle up to 128M of memory,
@@ -208,7 +210,8 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			}
 
 			args->nrpages_dumped++;
-		}
+		} else if (map[pfn] & PAGE_RSS)
+			args->nrpages_skipped++;
 	}
 
 	/*

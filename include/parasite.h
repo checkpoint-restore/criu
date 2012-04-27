@@ -61,6 +61,8 @@ struct parasite_dump_pages_args {
 
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
+	unsigned long		nrpages_skipped;
+	unsigned long		nrpages_total;
 };
 
 /*
