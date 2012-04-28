@@ -554,7 +554,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	if (reopen_fd_as(fe->fd, tmp))
 		return -1;
 
-	fcntl(tmp, F_SETFD, fe->flags);
+	fcntl(fe->fd, F_SETFD, fe->flags);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
