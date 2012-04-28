@@ -81,7 +81,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 		return dump_one_unix(sk, p, lfd, cr_fdset);
 	case AF_INET:
 	case AF_INET6:
-		return dump_one_inet(sk, p, cr_fdset);
+		return dump_one_inet(sk, p, lfd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;
@@ -220,8 +220,8 @@ int collect_sockets(void)
 	req.r.i.sdiag_family	= AF_INET;
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
 	req.r.i.idiag_ext	= 0;
-	/* Only listening sockets supported yet */
-	req.r.i.idiag_states	= 1 << TCP_LISTEN;
+	/* Only listening and established sockets supported yet */
+	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
 	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
 	if (tmp)
 		err = tmp;

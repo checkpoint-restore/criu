@@ -22,6 +22,8 @@
 #include "syscall.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
+#include "files.h"
+#include "sk-inet.h"
 
 struct cr_options opts;
 
@@ -347,6 +349,7 @@ int main(int argc, char *argv[])
 			{ "namespaces", required_argument, 0, 'n' },
 			{ "ext-unix-sk", no_argument, 0, 'x' },
 			{ "help", no_argument, 0, 'h' },
+			{ SK_EST_PARAM, no_argument, 0, 42 },
 			{ },
 		};
 
@@ -409,6 +412,10 @@ int main(int argc, char *argv[])
 				if (log_level >= 0)
 					log_level++;
 			}
+			break;
+		case 42:
+			pr_info("Will dump TCP connections\n");
+			opts.tcp_established_ok = true;
 			break;
 		case 'h':
 		default:

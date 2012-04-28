@@ -23,4 +23,16 @@ struct inet_sk_info {
 
 int inet_bind(int sk, struct inet_sk_info *);
 int inet_connect(int sk, struct inet_sk_info *);
+
+static inline int dump_one_tcp(int sk, struct inet_sk_desc *sd)
+{
+	return -1;
+}
+
+static inline int restore_one_tcp(int sk, struct inet_sk_info *si)
+{
+	return -1;
+}
+
+#define SK_EST_PARAM	"tcp-established"
 #endif

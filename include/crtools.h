@@ -66,6 +66,7 @@ struct cr_options {
 	bool			show_pages_content;
 	bool			restore_detach;
 	bool			ext_unix_sk;
+	bool			tcp_established_ok;
 	unsigned int		namespaces_flags;
 };
 

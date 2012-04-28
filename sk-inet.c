@@ -72,6 +72,13 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 			return 0;
 		}
 		break;
+	case TCP_ESTABLISHED:
+		if (!opts.tcp_established_ok) {
+			pr_err("Connected TCP socket, consider using %s option.\n",
+					SK_EST_PARAM);
+			return 0;
+		}
+		break;
 	default:
 		pr_err("Unknown state %d\n", sk->state);
 		return 0;
@@ -80,8 +87,11 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
+#define tcp_connection(sk)	(((sk)->proto == IPPROTO_TCP) &&	\
+				 ((sk)->state == TCP_ESTABLISHED))
+
 int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
-			 const struct cr_fdset *cr_fdset)
+		int lfd, const struct cr_fdset *cr_fdset)
 {
 	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
 	struct inet_sk_entry ie;
@@ -123,6 +133,10 @@ int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
+
+	if (tcp_connection(sk))
+		return dump_one_tcp(lfd, sk);
+
 	return 0;
 
 err:
@@ -221,6 +235,18 @@ static int open_inet_sk(struct file_desc *d)
 		return -1;
 	}
 
+	if (tcp_connection(&ii->ie)) {
+		if (!opts.tcp_established_ok) {
+			pr_err("Connected TCP socket in image\n");
+			goto err;
+		}
+
+		if (restore_one_tcp(sk, ii))
+			goto err;
+
+		goto done;
+	}
+
 	/*
 	 * Listen sockets are easiest ones -- simply
 	 * bind() and listen(), and that's all.
@@ -244,7 +270,7 @@ static int open_inet_sk(struct file_desc *d)
 	if (ii->ie.state == TCP_ESTABLISHED &&
 			inet_connect(sk, ii))
 		goto err;
-
+done:
 	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
 		goto err;
 
