@@ -356,6 +356,7 @@ int main(int argc, char *argv[])
 			{ "ext-unix-sk", no_argument, 0, 'x' },
 			{ "help", no_argument, 0, 'h' },
 			{ SK_EST_PARAM, no_argument, 0, 42 },
+			{ "close", required_argument, 0, 43 },
 			{ },
 		};
 
@@ -423,6 +424,14 @@ int main(int argc, char *argv[])
 			pr_info("Will dump TCP connections\n");
 			opts.tcp_established_ok = true;
 			break;
+		case 43: {
+			int fd;
+
+			fd = atoi(optarg);
+			pr_info("Closing fd %d\n", fd);
+			close(fd);
+			break;
+		}
 		case 'h':
 		default:
 			goto usage;
