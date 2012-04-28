@@ -11,3 +11,6 @@ crtools
 cscope*
 tags
 TAGS
+syscall-x86-64.S
+include/syscall.h
+include/syscall-codes.h
