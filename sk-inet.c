@@ -15,21 +15,6 @@
 #include "sockets.h"
 #include "sk-inet.h"
 
-#define INET_ADDR_LEN		40
-
-struct inet_sk_desc {
-	struct socket_desc	sd;
-	unsigned int		type;
-	unsigned int		proto;
-	unsigned int		src_port;
-	unsigned int		dst_port;
-	unsigned int		state;
-	unsigned int		rqlen;
-	unsigned int		wqlen;
-	unsigned int		src_addr[4];
-	unsigned int		dst_addr[4];
-};
-
 static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
@@ -174,11 +159,6 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 
 	return ret;
 }
-
-struct inet_sk_info {
-	struct inet_sk_entry ie;
-	struct file_desc d;
-};
 
 static int open_inet_sk(struct file_desc *d);
 
