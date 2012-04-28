@@ -14,11 +14,15 @@ struct inet_sk_desc {
 	unsigned int		wqlen;
 	unsigned int		src_addr[4];
 	unsigned int		dst_addr[4];
+
+	int rfd;
+	struct list_head rlist;
 };
 
 struct inet_sk_info {
 	struct inet_sk_entry ie;
 	struct file_desc d;
+	struct list_head rlist;
 };
 
 int inet_bind(int sk, struct inet_sk_info *);
@@ -28,15 +32,8 @@ void tcp_unlock_all(void);
 void tcp_locked_conn_add(struct inet_sk_info *);
 void tcp_unlock_connections(void);
 
-static inline int dump_one_tcp(int sk, struct inet_sk_desc *sd)
-{
-	return -1;
-}
-
-static inline int restore_one_tcp(int sk, struct inet_sk_info *si)
-{
-	return -1;
-}
+int dump_one_tcp(int sk, struct inet_sk_desc *sd);
+int restore_one_tcp(int sk, struct inet_sk_info *si);
 
 #define SK_EST_PARAM	"tcp-established"
 
