@@ -32,6 +32,7 @@
 #define MM_MAGIC		0x57492820 /* Pskov */
 #define REMAP_FPATH_MAGIC	0x59133954 /* Vologda */
 #define GHOST_FILE_MAGIC	0x52583605 /* Oryol */
+#define TCP_STREAM_MAGIC	0x51465506 /* Orenburg */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -153,6 +154,17 @@ struct inet_sk_entry {
 	fown_t	fown;
 	u32	src_addr[4];
 	u32	dst_addr[4];
+} __packed;
+
+struct tcp_stream_entry {
+	u32	inq_len;
+	u32	inq_seq;
+	u32	outq_len;
+	u32	outq_seq;
+
+	u8	opt_mask;	/* TCPI_OPT_ bits */
+	u8	snd_wscale;
+	u16	mss_clamp;
 } __packed;
 
 struct sk_packet_entry {

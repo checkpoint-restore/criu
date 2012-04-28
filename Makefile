@@ -40,6 +40,7 @@ OBJS		+= log.o
 OBJS		+= libnetlink.o
 OBJS		+= sockets.o
 OBJS		+= sk-inet.o
+OBJS		+= sk-tcp.o
 OBJS		+= sk-unix.o
 OBJS		+= sk-queue.o
 OBJS		+= files.o

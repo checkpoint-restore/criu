@@ -45,6 +45,7 @@ enum {
 	CR_FD_PSTREE,
 	CR_FD_SHMEM_PAGES,
 	CR_FD_GHOST_FILE,
+	CR_FD_TCP_STREAM,
 
 	_CR_FD_GLOB_FROM,
 	CR_FD_SK_QUEUES,
@@ -129,6 +130,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_FS		"fs-%d.img"
 #define FMT_FNAME_REMAP_FPATH	"remap-fpath.img"
 #define FMT_FNAME_GHOST_FILE	"ghost-file-%x.img"
+#define FMT_FNAME_TCP_STREAM	"tcp-stream-%x.img"
 
 extern int open_image_dir(void);
 extern void close_image_dir(void);
