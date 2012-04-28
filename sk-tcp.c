@@ -4,6 +4,18 @@
 #include "files.h"
 #include "sk-inet.h"
 
+void tcp_unlock_all(void)
+{
+}
+
+void tcp_locked_conn_add(struct inet_sk_info *ii)
+{
+}
+
+void tcp_unlock_connections(void)
+{
+}
+
 void show_tcp_stream(int fd, struct cr_options *opt)
 {
 	struct tcp_stream_entry tse;

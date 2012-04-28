@@ -34,6 +34,7 @@
 #include "parasite.h"
 #include "parasite-syscall.h"
 #include "files.h"
+#include "sk-inet.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -1917,6 +1918,14 @@ err:
 	xfree(shmems);
 	xfree(pipes);
 	close_cr_fdset(&glob_fdset);
+
+	/*
+	 * If we've failed to do anything -- unlock all TCP sockets
+	 * so that the connections can go on. But if we succeeded --
+	 * don't, just close them silently.
+	 */
+	if (ret)
+		tcp_unlock_all();
 	pstree_switch_state(&pstree_list, 
 			ret ? TASK_ALIVE : opts->final_state);
 	free_pstree(&pstree_list);

@@ -201,6 +201,9 @@ int collect_inet_sockets(void)
 
 		file_desc_add(&ii->d, FDINFO_INETSK, ii->ie.id,
 				&inet_desc_ops);
+
+		if (tcp_connection(&ii->ie))
+			tcp_locked_conn_add(ii);
 	}
 
 	if (ii)

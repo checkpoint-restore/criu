@@ -33,6 +33,7 @@
 #include "sockets.h"
 #include "lock.h"
 #include "files.h"
+#include "sk-inet.h"
 #include "proc_parse.h"
 #include "restorer-blob.h"
 #include "crtools.h"
@@ -918,6 +919,7 @@ out:
 	 */
 
 	clear_ghost_files();
+	tcp_unlock_connections();
 
 	pr_info("Go on!!!\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
