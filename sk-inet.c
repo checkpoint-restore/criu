@@ -13,6 +13,7 @@
 #include "log.h"
 #include "util.h"
 #include "sockets.h"
+#include "sk-inet.h"
 
 #define INET_ADDR_LEN		40
 
@@ -217,12 +218,8 @@ int collect_inet_sockets(void)
 
 static int open_inet_sk(struct file_desc *d)
 {
-	union {
-		struct sockaddr_in	v4;
-		struct sockaddr_in6	v6;
-	} addr;
 	struct inet_sk_info *ii;
-	int sk, addr_size;
+	int sk;
 
 	ii = container_of(d, struct inet_sk_info, d);
 
@@ -248,6 +245,44 @@ static int open_inet_sk(struct file_desc *d)
 	 * Listen sockets are easiest ones -- simply
 	 * bind() and listen(), and that's all.
 	 */
+
+	if (inet_bind(sk, ii))
+		goto err;
+
+	if (ii->ie.state == TCP_LISTEN) {
+		if (ii->ie.proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ii->ie.proto);
+			goto err;
+		}
+
+		if (listen(sk, ii->ie.backlog) == -1) {
+			pr_perror("Can't listen on a socket");
+			goto err;
+		}
+	}
+
+	if (ii->ie.state == TCP_ESTABLISHED &&
+			inet_connect(sk, ii))
+		goto err;
+
+	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
+		goto err;
+
+	return sk;
+
+err:
+	close(sk);
+	return -1;
+}
+
+int inet_bind(int sk, struct inet_sk_info *ii)
+{
+	union {
+		struct sockaddr_in	v4;
+		struct sockaddr_in6	v6;
+	} addr;
+	int addr_size;
+
 	memzero(&addr, sizeof(addr));
 	if (ii->ie.family == AF_INET) {
 		addr.v4.sin_family = ii->ie.family;
@@ -263,56 +298,43 @@ static int open_inet_sk(struct file_desc *d)
 		BUG_ON(1);
 
 	if (bind(sk, (struct sockaddr *)&addr, addr_size) == -1) {
-		pr_perror("Can't bind to a socket");
-		goto err;
+		pr_perror("Can't bind inet socket");
+		return -1;
 	}
 
-	if (ii->ie.state == TCP_LISTEN) {
-		if (ii->ie.proto != IPPROTO_TCP) {
-			pr_err("Wrong socket in listen state %d\n", ii->ie.proto);
-			goto err;
-		}
+	return 0;
+}
 
-		if (listen(sk, ii->ie.backlog) == -1) {
-			pr_perror("Can't listen on a socket");
-			goto err;
-		}
+int inet_connect(int sk, struct inet_sk_info *ii)
+{
+	union {
+		struct sockaddr_in	v4;
+		struct sockaddr_in6	v6;
+	} addr;
+	int addr_size;
+
+	memzero(&addr, sizeof(addr));
+	if (ii->ie.family == AF_INET) {
+		addr.v4.sin_family = ii->ie.family;
+		addr.v4.sin_port = htons(ii->ie.dst_port);
+		memcpy(&addr.v4.sin_addr.s_addr,
+				ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+		addr_size = sizeof(addr.v4);
+	} else if (ii->ie.family == AF_INET6) {
+		addr.v6.sin6_family = ii->ie.family;
+		addr.v6.sin6_port = htons(ii->ie.dst_port);
+		memcpy(&addr.v6.sin6_addr.s6_addr,
+				ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+		addr_size = sizeof(addr.v6);
+	} else
+		BUG_ON(1);
+
+	if (connect(sk, (struct sockaddr *)&addr, addr_size) == -1) {
+		pr_perror("Can't connect inet socket back");
+		return -1;
 	}
 
-	if (ii->ie.state == TCP_ESTABLISHED) {
-		if (ii->ie.proto == IPPROTO_TCP) {
-			pr_err("Connected TCP socket in image\n");
-			goto err;
-		}
-
-		memzero(&addr, sizeof(addr));
-		if (ii->ie.family == AF_INET) {
-			addr.v4.sin_family = ii->ie.family;
-			addr.v4.sin_port = htons(ii->ie.dst_port);
-			memcpy(&addr.v4.sin_addr.s_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
-			addr_size = sizeof(addr.v4);
-		} else if (ii->ie.family == AF_INET6) {
-			addr.v6.sin6_family = ii->ie.family;
-			addr.v6.sin6_port = htons(ii->ie.dst_port);
-			memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
-			addr_size = sizeof(addr.v6);
-		} else
-			BUG_ON(1);
-
-		if (connect(sk, (struct sockaddr *)&addr, addr_size) == -1) {
-			pr_perror("Can't connect UDP socket back");
-			goto err;
-		}
-	}
-
-	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
-		goto err;
-
-	return sk;
-
-err:
-	close(sk);
-	return -1;
+	return 0;
 }
 
 void show_inetsk(int fd, struct cr_options *o)
