@@ -360,7 +360,7 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 	if (!buf)
 		return -1;
 
-	if (read_img_buf(sk, buf, len) < 0)
+	if (read_img_buf(imgfd, buf, len) < 0)
 		return -1;
 
 	ret = send(sk, buf, len, 0);
