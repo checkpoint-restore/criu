@@ -511,6 +511,28 @@ void show_tcp_stream(int fd, struct cr_options *opt)
 			pr_msg("\ttimestamps\n");
 		if (tse.opt_mask & TCPI_OPT_SACK)
 			pr_msg("\tsack\n");
+
+		if (opt->show_pages_content) {
+			unsigned char *buf;
+
+			buf = xmalloc(max(tse.inq_len, tse.outq_len));
+			if (!buf)
+				return;
+
+			if (tse.inq_len && read_img_buf(fd,
+						buf, tse.inq_len) > 0) {
+				pr_msg("IN queue:\n");
+				print_data(0, buf, tse.inq_len);
+			}
+
+			if (tse.outq_len && read_img_buf(fd,
+						buf, tse.outq_len) > 0) {
+				pr_msg("OUT queue:\n");
+				print_data(0, buf, tse.outq_len);
+			}
+
+			xfree(buf);
+		}
 	}
 
 	pr_img_tail(CR_FD_TCP_STREAM);
