@@ -254,12 +254,26 @@ void show_vmas(int fd_vma, struct cr_options *o)
 	pr_img_tail(CR_FD_VMAS);
 }
 
+static int nice_width_for(unsigned long addr)
+{
+	int ret = 3;
+
+	while (addr) {
+		addr >>= 4;
+		ret++;
+	}
+
+	return ret;
+}
+
 void print_data(unsigned long addr, unsigned char *data, size_t size)
 {
-	int i, j;
+	int i, j, addr_len;
+
+	addr_len = nice_width_for(addr + size);
 
 	for (i = 0; i < size; i+= 16) {
-		pr_msg("0x%16lx: ", addr + i);
+		pr_msg("%#0*lx: ", addr_len, addr + i);
 		for (j = 0; j < 8; j++)
 			pr_msg("0x%02x ", data[i +  j]);
 		pr_msg(" ");
