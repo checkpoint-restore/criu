@@ -488,36 +488,45 @@ int main(int argc, char *argv[])
 
 usage:
 	pr_msg("\nUsage:\n");
-	pr_msg("  %s dump [-c] -p|-t pid [-n ns]\n", argv[0]);
-	pr_msg("  %s restore -p|-t pid [-n ns]\n", argv[0]);
-	pr_msg("  %s show [-c] (-D dir)|(-f file)\n", argv[0]);
+	pr_msg("  %s dump -p|-t pid [<options>]\n", argv[0]);
+	pr_msg("  %s restore -p|-t pid [<options>]\n", argv[0]);
+	pr_msg("  %s show (-D dir)|(-f file) [<options>]\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
-	pr_msg("  dump           checkpoint a process identified by pid\n");
-	pr_msg("  restore        restore a process identified by pid\n");
+	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
+	pr_msg("  restore        restore a process/tree identified by pid\n");
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
-	pr_msg("\nGeneral parameters:\n");
+
+	pr_msg("\nDump/Restore options:\n");
+
+	pr_msg("\n* Generic:\n");
 	pr_msg("  -p|--pid              checkpoint/restore only a single process identified by pid\n");
 	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
-	pr_msg("  -f|--file             show contents of a checkpoint file\n");
-	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
 	pr_msg("  -d|--restore-detached detach after restore\n");
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
+	pr_msg("  -D|--images-dir       directory where to put images to\n");
+
+	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
 	pr_msg("                        supported: uts, ipc\n");
 	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
+	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 
-	pr_msg("\nAdditional common parameters:\n");
-	pr_msg("  -D|--images-dir dir   specifis directory where checkpoint files are/to be located\n");
+	pr_msg("\n* Logging:\n");
+	pr_msg("  -o|--log-file         log file name (relative path is relative to --images-dir)\n");
 	pr_msg("  -v [num]              set logging level\n");
 	pr_msg("                          0 - silent (only error messages)\n");
 	pr_msg("                          1 - informative (default)\n");
 	pr_msg("                          2 - debug\n");
 	pr_msg("  -vv            same as -v 1\n");
 	pr_msg("  -vvv           same as -v 2\n");
-	pr_msg("\n");
+
+	pr_msg("\nShow options:\n");
+	pr_msg("  -f|--file             show contents of a checkpoint file\n");
+	pr_msg("  -D|--images-dir       directory where to get images from\n");
+	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
 
 	return -1;
 
