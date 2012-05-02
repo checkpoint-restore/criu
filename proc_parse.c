@@ -15,11 +15,20 @@
 
 #include "proc_parse.h"
 
+struct buffer {
+	char buf[PAGE_SIZE];
+	char end; /* '\0' */
+};
+
+static struct buffer __buf;
+static char *buf = __buf.buf;
+
+#define BUF_SIZE sizeof(__buf.buf)
+
 int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
-	char big_buffer[1024];
 	unsigned long ino;
 	char r,w,x,s;
 	int dev_maj, dev_min;
@@ -38,17 +47,17 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 	}
 
-	while (fgets(big_buffer, sizeof(big_buffer), maps)) {
+	while (fgets(buf, BUF_SIZE, maps)) {
 		int num;
 		char file_path[6];
 
 
 		memset(file_path, 0, 6);
-		num = sscanf(big_buffer, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
+		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino, file_path);
 		if (num < 10) {
-			pr_err("Can't parse: %s", big_buffer);
+			pr_err("Can't parse: %s", buf);
 			goto err;
 		}
 
@@ -97,14 +106,14 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 		}
 
-		if (strstr(big_buffer, "[stack")) {
+		if (strstr(buf, "[stack")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;
 			vma_area->vma.flags  |= MAP_GROWSDOWN;
-		} else if (strstr(big_buffer, "[vsyscall]")) {
+		} else if (strstr(buf, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
-		} else if (strstr(big_buffer, "[vdso]")) {
+		} else if (strstr(buf, "[vdso]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
-		} else if (strstr(big_buffer, "[heap]")) {
+		} else if (strstr(buf, "[heap]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {
 			vma_area->vma.status = VMA_AREA_REGULAR;
@@ -186,7 +195,6 @@ err_bogus_mapping:
 
 int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
 {
-	char buf[128];
 	char *tok, *p;
 	int fd;
 	int n;
@@ -195,7 +203,7 @@ int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
 	if (fd < 0)
 		return -1;
 
-	n = read(fd, buf, sizeof(buf));
+	n = read(fd, buf, BUF_SIZE);
 	if (n < 1) {
 		pr_err("stat for %d is corrupted\n", pid);
 		close(fd);
@@ -235,7 +243,6 @@ err:
 
 int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 {
-	char buf[1024];
 	char *tok, *p;
 	int fd;
 	int n;
@@ -244,7 +251,7 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 	if (fd < 0)
 		return -1;
 
-	n = read(fd, buf, sizeof(buf));
+	n = read(fd, buf, BUF_SIZE);
 	if (n < 1) {
 		pr_err("stat for %d is corrupted\n", pid);
 		close(fd);
