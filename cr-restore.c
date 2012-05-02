@@ -605,6 +605,10 @@ static int restore_task_with_children(void *_arg)
 		exit(-1);
 	}
 
+	ret = log_init_by_pid();
+	if (ret < 0)
+		exit(1);
+
 	list_for_each_entry(me, &tasks, list)
 		if (me->pid == pid)
 			break;

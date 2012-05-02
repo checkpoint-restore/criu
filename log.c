@@ -23,6 +23,9 @@
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 static int current_logfd = DEFAULT_LOGFD;
 
+static char buffer[PAGE_SIZE];
+static char buf_off = 0;
+
 int log_get_fd(void)
 {
 	return current_logfd;
@@ -67,6 +70,23 @@ err:
 	return -1;
 }
 
+int log_init_by_pid(void)
+{
+	char path[PATH_MAX];
+
+	if (!opts.log_file_per_pid) {
+		buf_off = snprintf(buffer, PAGE_SIZE, "%6d: ", getpid());
+		return 0;
+	}
+
+	if (!opts.output)
+		return 0;
+
+	snprintf(path, PATH_MAX, "%s.%d", opts.output, getpid());
+
+	return log_init(path);
+}
+
 void log_fini(void)
 {
 	if (current_logfd > 2)
@@ -86,7 +106,7 @@ void log_set_loglevel(unsigned int level)
 void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list params;
-	int fd;
+	int fd, size, ret, off;
 
 	if (unlikely(loglevel == LOG_MSG)) {
 		fd = STDOUT_FILENO;
@@ -97,6 +117,16 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	}
 
 	va_start(params, format);
-	vdprintf(fd, format, params);
+	size = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
 	va_end(params);
+
+	size += buf_off;
+
+	off = 0;
+	while (off < size) {
+		ret = write(fd, buffer + off, size - off);
+		if (ret <= 0)
+			break;
+		off += ret;
+	}
 }

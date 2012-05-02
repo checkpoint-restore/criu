@@ -395,6 +395,7 @@ int main(int argc, char *argv[])
 			{ "help", no_argument, 0, 'h' },
 			{ SK_EST_PARAM, no_argument, 0, 42 },
 			{ "close", required_argument, 0, 43 },
+			{ "log-pid", no_argument, 0, 44},
 			{ },
 		};
 
@@ -434,6 +435,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'o':
+			opts.output = strdup(optarg);
 			if (log_init(optarg))
 				return -1;
 			log_inited = 1;
@@ -470,6 +472,9 @@ int main(int argc, char *argv[])
 			close(fd);
 			break;
 		}
+		case 44:
+			opts.log_file_per_pid = 1;
+			break;
 		case 'h':
 		default:
 			goto usage;
@@ -553,7 +558,9 @@ usage:
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 
 	pr_msg("\n* Logging:\n");
-	pr_msg("  -o|--log-file         log file name (relative path is relative to --images-dir)\n");
+	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
+	pr_msg("     --log-pid		if the -o option is in effect, each restored processes is\n");
+	pr_msg("			written to the [NAME].pid file\n");
 	pr_msg("  -v [num]              set logging level\n");
 	pr_msg("                          0 - silent (only error messages)\n");
 	pr_msg("                          1 - informative (default)\n");

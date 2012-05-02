@@ -113,7 +113,7 @@ run_test()
 		done
 
 		echo Restore $pid
-		setsid $CRTOOLS restore -D $ddump -o restore.log -v 4 -d -t $pid $args || return 2
+		setsid $CRTOOLS restore --log-pid -D $ddump -o restore.log -v 4 -d -t $pid $args || return 2
 
 		save_fds $pid  $ddump/restore.fd
 		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
