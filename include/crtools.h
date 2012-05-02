@@ -76,6 +76,8 @@ struct cr_options {
 	unsigned int		namespaces_flags;
 };
 
+extern struct cr_options opts;
+
 enum {
 	LOG_FD_OFF = 1,
 	IMG_FD_OFF,
