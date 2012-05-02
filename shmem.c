@@ -95,7 +95,7 @@ int prepare_shmem_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		pr_info("%d: vma 0x%lx 0x%lx\n", pid, vi.start, vi.end);
+		pr_info("vma 0x%lx 0x%lx\n", vi.start, vi.end);
 
 		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
 			continue;
@@ -122,10 +122,10 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	sprintf(path, "/proc/%d/map_files/%lx-%lx",
 		si->pid, si->start, si->end);
 
-	pr_info("%d: Waiting for [%s] to appear\n", pid, path);
+	pr_info("Waiting for [%s] to appear\n", path);
 	futex_wait_until(&si->lock, 1);
 
-	pr_info("%d: Opening shmem [%s] \n", pid, path);
+	pr_info("Opening shmem [%s] \n", path);
 	ret = open(path, O_RDWR);
 	if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s",
@@ -169,7 +169,7 @@ int get_shmem_fd(int pid, struct vma_entry *vi)
 	int f;
 
 	si = find_shmem(rst_shmems, vi->shmid);
-	pr_info("%d: Search for 0x%016lx shmem 0x%lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
+	pr_info("Search for 0x%016lx shmem 0x%lx %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
 		pr_err("Can't find my shmem 0x%016lx\n", vi->start);
 		return -1;

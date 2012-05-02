@@ -494,7 +494,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->fd);
 
-	pr_info("\t%d: Create transport fd for %d\n", pid, fe->fd);
+	pr_info("\tCreate transport fd for %d\n", fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list)
 		if ((fle->pid == pid) && (fle->fe.fd == fe->fd))
@@ -561,7 +561,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 		return -1;
 	}
 
-	pr_info("\t%d: Create fd for %d\n", pid, fe->fd);
+	pr_info("\tCreate fd for %d\n", fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid) {
@@ -604,7 +604,7 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	if (fle->pid == pid)
 		return 0;
 
-	pr_info("\t%d: Receive fd for %d\n", pid, fe->fd);
+	pr_info("\tReceive fd for %d\n", fe->fd);
 
 	tmp = recv_fd(fe->fd);
 	if (tmp < 0) {
@@ -627,7 +627,7 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
 	struct file_desc *fdesc;
 
 	fdesc = find_file_desc(fe);
-	pr_info("\t%d: Restoring fd %d (state -> %d)\n", pid, fe->fd, state);
+	pr_info("\tRestoring fd %d (state -> %d)\n", fe->fd, state);
 
 	switch (state) {
 	case FD_STATE_PREP:
@@ -651,7 +651,7 @@ int prepare_fds(struct pstree_item *me)
 	struct fdinfo_list_entry *fle;
 	int nr = 0;
 
-	pr_info("%d: Opening fdinfo-s\n", me->pid);
+	pr_info("Opening fdinfo-s\n");
 
 	for (state = 0; state < FD_STATE_MAX; state++)
 		list_for_each_entry(fle, &me->rst->fds, ps_list) {

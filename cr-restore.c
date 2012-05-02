@@ -225,8 +225,8 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("%d: Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
-				pid, vma->vma.start, vma->vma.end, vma->vma.pgoff);
+		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
+				vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
 		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
 			ret = vma->vma.shmid;
@@ -310,7 +310,7 @@ err:
 
 static int restore_one_alive_task(int pid)
 {
-	pr_info("%d: Restoring resources\n", pid);
+	pr_info("Restoring resources\n");
 
 	if (prepare_fds(me))
 		return -1;
@@ -639,7 +639,7 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 	}
 
-	pr_info("%d: Restoring %d children:\n", me->pid, me->nr_children);
+	pr_info("Restoring %d children:\n", me->nr_children);
 	for (i = 0; i < me->nr_children; i++) {
 		ret = fork_with_pid(me->children[i], 0);
 		if (ret < 0)
@@ -959,7 +959,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 
 	int *fd_core_threads;
 
-	pr_info("%d: Restore via sigreturn\n", pid);
+	pr_info("Restore via sigreturn\n");
 
 	restore_code_len	= 0;
 	restore_task_vma_len	= 0;
@@ -1011,8 +1011,8 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	restore_thread_vma_len = sizeof(*thread_args) * me->nr_threads;
 	restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
 
-	pr_info("%d: %d threads require %ldK of memory\n",
-			pid, me->nr_threads,
+	pr_info("%d threads require %ldK of memory\n",
+			me->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
