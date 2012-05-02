@@ -257,7 +257,7 @@ static int open_pipe(struct file_desc *d)
 
 	pi = container_of(d, struct pipe_info, d);
 
-	pr_info("\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe.pipe_id, pi->pe.id);
+	pr_info("\t\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe.pipe_id, pi->pe.id);
 
 	if (!pi->create)
 		return recv_pipe_fd(pi);

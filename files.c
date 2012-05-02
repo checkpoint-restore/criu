@@ -494,7 +494,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fe->fd);
 
-	pr_info("\tCreate transport fd for %d\n", fe->fd);
+	pr_info("\t\tCreate transport fd %s\n", saddr.sun_path + 1);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list)
 		if ((fle->pid == pid) && (fle->fe.fd == fe->fd))
@@ -517,7 +517,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 	if (ret < 0)
 		return -1;
 
-	pr_info("Wake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
+	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
 	futex_set_and_wake(&fle->real_pid, getpid());
 
 	return 0;
@@ -528,11 +528,11 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	struct sockaddr_un saddr;
 	int len;
 
-	pr_info("Wait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
+	pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
 	futex_wait_while(&fle->real_pid, 0);
 	transport_name_gen(&saddr, &len,
 			futex_get(&fle->real_pid), fle->fe.fd);
-	pr_info("Send fd %d to %s\n", fd, saddr.sun_path + 1);
+	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
 	return send_fd(tsk, &saddr, len, fd);
 }
 
@@ -561,11 +561,11 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 		return -1;
 	}
 
-	pr_info("\tCreate fd for %d\n", fe->fd);
+	pr_info("\t\tCreate fd for %d\n", fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid) {
-			pr_info("\t\tGoing to dup %d into %d\n", fe->fd, fle->fe.fd);
+			pr_info("\t\t\tGoing to dup %d into %d\n", fe->fd, fle->fe.fd);
 			if (fe->fd == fle->fe.fd)
 				continue;
 
