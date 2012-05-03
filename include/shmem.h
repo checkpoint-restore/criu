@@ -8,4 +8,9 @@ int get_shmem_fd(int pid, struct vma_entry *vi);
 
 struct shmems;
 extern struct shmems *rst_shmems;
+
+int cr_dump_shmem(void);
+int add_shmem_area(pid_t pid, struct vma_entry *vma);
+int init_shmem_dump(void);
+void fini_shmem_dump(void);
 #endif

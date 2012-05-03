@@ -223,3 +223,141 @@ int prepare_shmem_restore(void)
 	rst_shmems->nr_shmems = 0;
 	return 0;
 }
+
+struct shmem_info_dump
+{
+	unsigned long	size;
+	unsigned long	shmid;
+	unsigned long	start;
+	unsigned long	end;
+	int		pid;
+};
+
+static int nr_shmems;
+static struct shmem_info_dump *dump_shmems;
+
+static struct shmem_info_dump* shmem_find(unsigned long shmid)
+{
+	int i;
+
+	for (i = 0; i < nr_shmems; i++)
+		if (dump_shmems[i].shmid == shmid)
+			return &dump_shmems[i];
+
+	return NULL;
+}
+
+int add_shmem_area(pid_t pid, struct vma_entry *vma)
+{
+	struct shmem_info_dump *si;
+	unsigned long size = vma->pgoff + (vma->end - vma->start);
+
+	si = shmem_find(vma->shmid);
+	if (si) {
+		if (si->size < size)
+			si->size = size;
+		return 0;
+	}
+
+	nr_shmems++;
+	if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
+		pr_err("OOM storing shmems\n");
+		return -1;
+	}
+
+	si = &dump_shmems[nr_shmems - 1];
+	si->size = size;
+	si->pid = pid;
+	si->start = vma->start;
+	si->end = vma->end;
+	si->shmid = vma->shmid;
+
+	return 0;
+}
+
+int cr_dump_shmem(void)
+{
+	int err, fd;
+	struct cr_fdset *cr_fdset = NULL;
+	unsigned char *map = NULL;
+	void *addr = NULL;
+	struct shmem_info_dump *si;
+	unsigned long pfn, nrpages;
+
+	for (si = dump_shmems; si < &dump_shmems[nr_shmems]; si++) {
+		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
+
+		nrpages = (si->size + PAGE_SIZE -1) / PAGE_SIZE;
+		map = xmalloc(nrpages * sizeof(*map));
+		if (!map)
+			goto err;
+
+		fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
+		if (fd < 0)
+			goto err;
+
+		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
+		close(fd);
+		if (addr == MAP_FAILED) {
+			pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
+					si->shmid, si->start, si->end);
+			goto err;
+		}
+
+		/*
+		 * We can't use pagemap here, because this vma is
+		 * not mapped to us at all, but mincore reports the
+		 * pagecache status of a file, which is correct in
+		 * this case.
+		 */
+
+		err = mincore(addr, si->size, map);
+		if (err)
+			goto err_unmap;
+
+		fd = open_image(CR_FD_SHMEM_PAGES, O_DUMP, si->shmid);
+		if (fd < 0)
+			goto err_unmap;
+
+		for (pfn = 0; pfn < nrpages; pfn++) {
+			u64 offset = pfn * PAGE_SIZE;
+
+			if (!(map[pfn] & PAGE_RSS))
+				continue;
+
+			if (write_img_buf(fd, &offset, sizeof(offset)))
+				break;
+			if (write_img_buf(fd, addr + offset, PAGE_SIZE))
+				break;
+		}
+
+		if (pfn != nrpages)
+			goto err_close;
+
+		close(fd);
+		munmap(addr,  si->size);
+		xfree(map);
+	}
+
+	return 0;
+
+err_close:
+	close(fd);
+err_unmap:
+	munmap(addr,  si->size);
+err:
+	xfree(map);
+	return -1;
+}
+
+int init_shmem_dump(void)
+{
+	nr_shmems = 0;
+	dump_shmems = xmalloc(SHMEMS_SIZE);
+	return dump_shmems == NULL ? -1 : 0;
+}
+
+void fini_shmem_dump(void)
+{
+	xfree(dump_shmems);
+}

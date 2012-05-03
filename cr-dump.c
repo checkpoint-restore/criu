@@ -35,6 +35,7 @@
 #include "parasite-syscall.h"
 #include "files.h"
 #include "pipes.h"
+#include "shmem.h"
 #include "sk-inet.h"
 
 #ifndef CONFIG_X86_64
@@ -566,59 +567,6 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 			fe.cwd_id, fe.root_id);
 
 	return write_img(fdset_fd(fdset, CR_FD_FS), &fe);
-}
-
-struct shmem_info
-{
-	unsigned long	size;
-	unsigned long	shmid;
-	unsigned long	start;
-	unsigned long	end;
-	int		pid;
-};
-
-static int nr_shmems;
-static struct shmem_info *shmems;
-
-#define SHMEMS_SIZE	4096
-
-static struct shmem_info* shmem_find(unsigned long shmid)
-{
-	int i;
-
-	for (i = 0; i < nr_shmems; i++)
-		if (shmems[i].shmid == shmid)
-			return &shmems[i];
-
-	return NULL;
-}
-
-static int add_shmem_area(pid_t pid, struct vma_entry *vma)
-{
-	struct shmem_info *si;
-	unsigned long size = vma->pgoff + (vma->end - vma->start);
-
-	si = shmem_find(vma->shmid);
-	if (si) {
-		if (si->size < size)
-			si->size = size;
-		return 0;
-	}
-
-	nr_shmems++;
-	if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
-		pr_err("OOM storing shmems\n");
-		return -1;
-	}
-
-	si = &shmems[nr_shmems - 1];
-	si->size = size;
-	si->pid = pid;
-	si->start = vma->start;
-	si->end = vma->end;
-	si->shmid = vma->shmid;
-
-	return 0;
 }
 
 static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
@@ -1682,81 +1630,6 @@ err_cure:
 	goto err;
 }
 
-static int cr_dump_shmem(void)
-{
-	int err, fd;
-	struct cr_fdset *cr_fdset = NULL;
-	unsigned char *map = NULL;
-	void *addr = NULL;
-	struct shmem_info *si;
-	unsigned long pfn, nrpages;
-
-	for (si = shmems; si < &shmems[nr_shmems]; si++) {
-		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
-
-		nrpages = (si->size + PAGE_SIZE -1) / PAGE_SIZE;
-		map = xmalloc(nrpages * sizeof(*map));
-		if (!map)
-			goto err;
-
-		fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
-		if (fd < 0)
-			goto err;
-
-		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
-		close(fd);
-		if (addr == MAP_FAILED) {
-			pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
-					si->shmid, si->start, si->end);
-			goto err;
-		}
-
-		/*
-		 * We can't use pagemap here, because this vma is
-		 * not mapped to us at all, but mincore reports the
-		 * pagecache status of a file, which is correct in
-		 * this case.
-		 */
-
-		err = mincore(addr, si->size, map);
-		if (err)
-			goto err_unmap;
-
-		fd = open_image(CR_FD_SHMEM_PAGES, O_DUMP, si->shmid);
-		if (fd < 0)
-			goto err_unmap;
-
-		for (pfn = 0; pfn < nrpages; pfn++) {
-			u64 offset = pfn * PAGE_SIZE;
-
-			if (!(map[pfn] & PAGE_RSS))
-				continue;
-
-			if (write_img_buf(fd, &offset, sizeof(offset)))
-				break;
-			if (write_img_buf(fd, addr + offset, PAGE_SIZE))
-				break;
-		}
-
-		if (pfn != nrpages)
-			goto err_close;
-
-		close(fd);
-		munmap(addr,  si->size);
-		xfree(map);
-	}
-
-	return 0;
-
-err_close:
-	close(fd);
-err_unmap:
-	munmap(addr,  si->size);
-err:
-	xfree(map);
-	return -1;
-}
-
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
@@ -1788,9 +1661,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (!glob_fdset)
 		goto err;
 
-	nr_shmems = 0;
-	shmems = xmalloc(SHMEMS_SIZE);
-	if (!shmems)
+	if (init_shmem_dump())
 		goto err;
 
 	if (init_pipes_dump())
@@ -1814,7 +1685,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	fd_id_show_tree();
 err:
-	xfree(shmems);
+	fini_shmem_dump();
 	fini_pipes_dump();
 	close_cr_fdset(&glob_fdset);
 
