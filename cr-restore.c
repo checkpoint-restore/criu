@@ -33,6 +33,7 @@
 #include "sockets.h"
 #include "lock.h"
 #include "files.h"
+#include "pipes.h"
 #include "sk-inet.h"
 #include "proc_parse.h"
 #include "restorer-blob.h"

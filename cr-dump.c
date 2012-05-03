@@ -34,6 +34,7 @@
 #include "parasite.h"
 #include "parasite-syscall.h"
 #include "files.h"
+#include "pipes.h"
 #include "sk-inet.h"
 
 #ifndef CONFIG_X86_64
@@ -300,115 +301,6 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 
 	return 0;
-}
-
-#define PIPES_SIZE 1024
-static u32 *pipes;	/* pipes for which data already dumped */
-static int nr_pipes = 0;
-
-static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
-{
-	struct pipe_entry pe;
-	int fd_pipes;
-	int steal_pipe[2];
-	int pipe_size;
-	int has_bytes = 0;
-	int ret = -1;
-	int i = 0;
-
-	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n", lfd, id, p->id);
-
-	fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES);
-
-	if (p->flags & O_WRONLY)
-		goto dump;
-
-	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
-
-	for (i = 0; i < nr_pipes; i++)
-		if (pipes[i] == p->id)
-			goto dump; /* data was dumped already */
-
-	nr_pipes++;
-	if (nr_pipes > PIPES_SIZE) {
-		pr_err("OOM storing pipe\n");
-		return -1;
-	}
-
-	pipes[nr_pipes - 1] = p->id;
-
-	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
-	if (pipe_size < 0) {
-		pr_err("Can't obtain piped data size\n");
-		goto err;
-	}
-
-	if (pipe(steal_pipe) < 0) {
-		pr_perror("Can't create pipe for stealing data");
-		goto err;
-	}
-
-	has_bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
-	if (has_bytes < 0) {
-		if (errno != EAGAIN) {
-			pr_perror("Can't pick pipe data");
-			goto err_close;
-		} else
-			has_bytes = 0;
-	}
-dump:
-	pe.id = id;
-	pe.pipe_id = p->id;
-	pe.flags = p->flags;
-	pe.fown = p->fown;
-
-	if (write_img(fd_pipes, &pe))
-		goto err_close;
-
-	if (has_bytes) {
-		off_t off;
-		struct pipe_data_entry pde;
-
-		fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES_DATA);
-
-		pde.pipe_id = p->id;
-		pde.bytes = has_bytes;
-		pde.off = 0;
-
-		if (has_bytes > PIPE_NONALIG_DATA) {
-			off = lseek(fd_pipes, 0, SEEK_CUR);
-			off += sizeof(pde);
-			off &= PAGE_SIZE -1;
-			if (off)
-				pde.off = PAGE_SIZE - off;
-			pr_info("off 0x%lx %#x\n", off, pde.off);
-		}
-
-		if (write_img(fd_pipes, &pde))
-			goto err_close;
-
-		if (pde.off) {
-			off = lseek(fd_pipes, pde.off, SEEK_CUR);
-			pr_info("off 0x%lx\n", off);
-		}
-
-		ret = splice(steal_pipe[0], NULL, fd_pipes,
-			     NULL, has_bytes, 0);
-		if (ret < 0) {
-			pr_perror("Can't push pipe data");
-			goto err_close;
-		}
-	}
-
-	ret = 0;
-
-err_close:
-	if (has_bytes) {
-		close(steal_pipe[0]);
-		close(steal_pipe[1]);
-	}
-err:
-	return ret;
 }
 
 static int do_dump_gen_file(const struct fd_parms *p, int lfd,
@@ -1900,8 +1792,8 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	shmems = xmalloc(SHMEMS_SIZE);
 	if (!shmems)
 		goto err;
-	pipes = xmalloc(PIPES_SIZE * sizeof(*pipes));
-	if (!pipes)
+
+	if (init_pipes_dump())
 		goto err;
 
 	list_for_each_entry(item, &pstree_list, list) {
@@ -1923,7 +1815,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	fd_id_show_tree();
 err:
 	xfree(shmems);
-	xfree(pipes);
+	fini_pipes_dump();
 	close_cr_fdset(&glob_fdset);
 
 	/*

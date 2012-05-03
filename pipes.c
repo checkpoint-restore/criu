@@ -6,6 +6,7 @@
 #include "crtools.h"
 #include "image.h"
 #include "files.h"
+#include "pipes.h"
 #include "util-net.h"
 
 /* The sequence of objects which should be restored:
@@ -297,4 +298,124 @@ out:
 		return -1;
 
 	return tmp;
+}
+
+#define PIPES_SIZE 1024
+static u32 *pipes_with_data;	/* pipes for which data already dumped */
+static int nr_pipes = 0;
+
+int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
+{
+	struct pipe_entry pe;
+	int fd_pipes;
+	int steal_pipe[2];
+	int pipe_size;
+	int has_bytes = 0;
+	int ret = -1;
+	int i = 0;
+
+	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n", lfd, id, p->id);
+
+	fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES);
+
+	if (p->flags & O_WRONLY)
+		goto dump;
+
+	for (i = 0; i < nr_pipes; i++)
+		if (pipes_with_data[i] == p->id)
+			goto dump; /* data was dumped already */
+
+	nr_pipes++;
+	if (nr_pipes > PIPES_SIZE) {
+		pr_err("OOM storing pipe\n");
+		return -1;
+	}
+
+	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
+
+	pipes_with_data[nr_pipes - 1] = p->id;
+
+	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
+	if (pipe_size < 0) {
+		pr_err("Can't obtain piped data size\n");
+		goto err;
+	}
+
+	if (pipe(steal_pipe) < 0) {
+		pr_perror("Can't create pipe for stealing data");
+		goto err;
+	}
+
+	has_bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
+	if (has_bytes < 0) {
+		if (errno != EAGAIN) {
+			pr_perror("Can't pick pipe data");
+			goto err_close;
+		} else
+			has_bytes = 0;
+	}
+dump:
+	pe.id = id;
+	pe.pipe_id = p->id;
+	pe.flags = p->flags;
+	pe.fown = p->fown;
+
+	if (write_img(fd_pipes, &pe))
+		goto err_close;
+
+	if (has_bytes) {
+		off_t off;
+		struct pipe_data_entry pde;
+
+		fd_pipes = fdset_fd(glob_fdset, CR_FD_PIPES_DATA);
+
+		pde.pipe_id = p->id;
+		pde.bytes = has_bytes;
+		pde.off = 0;
+
+		if (has_bytes > PIPE_NONALIG_DATA) {
+			off = lseek(fd_pipes, 0, SEEK_CUR);
+			off += sizeof(pde);
+			off &= PAGE_SIZE -1;
+			if (off)
+				pde.off = PAGE_SIZE - off;
+			pr_info("off 0x%lx %#x\n", off, pde.off);
+		}
+
+		if (write_img(fd_pipes, &pde))
+			goto err_close;
+
+		if (pde.off) {
+			off = lseek(fd_pipes, pde.off, SEEK_CUR);
+			pr_info("off 0x%lx\n", off);
+		}
+
+		ret = splice(steal_pipe[0], NULL, fd_pipes,
+			     NULL, has_bytes, 0);
+		if (ret < 0) {
+			pr_perror("Can't push pipe data");
+			goto err_close;
+		}
+	}
+
+	ret = 0;
+
+err_close:
+	if (has_bytes) {
+		close(steal_pipe[0]);
+		close(steal_pipe[1]);
+	}
+err:
+	return ret;
+}
+
+int init_pipes_dump(void)
+{
+	pipes_with_data = xmalloc(PIPES_SIZE * sizeof(*pipes_with_data));
+	return pipes_with_data == NULL ? -1 : 0;
+}
+
+void fini_pipes_dump(void)
+{
+	xfree(pipes_with_data);
 }
