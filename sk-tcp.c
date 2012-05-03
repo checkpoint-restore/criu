@@ -46,7 +46,7 @@ static int tcp_repair_on(int fd)
 
 	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
-		pr_perror("Can't turn repair ON");
+		pr_perror("Can't turn TCP repair mode ON");
 
 	return ret;
 }
@@ -536,4 +536,20 @@ void show_tcp_stream(int fd, struct cr_options *opt)
 	}
 
 	pr_img_tail(CR_FD_TCP_STREAM);
+}
+
+int check_tcp_repair(void)
+{
+	int sk, ret;
+
+	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sk < 0) {
+		pr_perror("Can't create TCP socket :(\n");
+		return -1;
+	}
+
+	ret = tcp_repair_on(sk);
+	close(sk);
+
+	return ret;
 }

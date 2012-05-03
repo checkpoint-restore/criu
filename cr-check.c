@@ -8,6 +8,8 @@
 #include "log.h"
 #include "util-net.h"
 #include "syscall.h"
+#include "files.h"
+#include "sk-inet.h"
 
 static int check_map_files(void)
 {
@@ -150,6 +152,7 @@ int cr_check(void)
 	ret |= check_prctl();
 	ret |= check_fcntl();
 	ret |= check_proc_stat();
+	ret |= check_tcp_repair();
 
 	if (!ret)
 		pr_msg("Looks good.\n");

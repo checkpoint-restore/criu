@@ -39,4 +39,6 @@ int restore_one_tcp(int sk, struct inet_sk_info *si);
 
 struct cr_options;
 void show_tcp_stream(int fd, struct cr_options *);
+
+int check_tcp_repair(void);
 #endif
