@@ -101,16 +101,18 @@ static void sys_write_msg(const char *msg)
 	sys_write(logfd, msg, size);
 }
 
-static inline int should_dump_page(struct vma_entry *vmae, unsigned char mincore_flags)
+#define PME_PRESENT	(1ULL << 63)
+#define PME_SWAP	(1ULL << 62)
+#define PME_FILE	(1ULL << 61)
+
+static inline int should_dump_page(struct vma_entry *vmae, u64 pme)
 {
-#ifdef PAGE_ANON
-	if (vma_entry_is(vmae, VMA_FILE_PRIVATE))
-		return mincore_flags & PAGE_ANON;
-	else
-		return mincore_flags & PAGE_RSS;
-#else
-	return (mincore_flags & PAGE_RSS);
-#endif
+	return (pme & (PME_PRESENT | PME_SWAP)) &&
+		/*
+		 * Optimisation for private mapping pages, that haven't
+		 * yet being COW-ed
+		 */
+		!(vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE));
 }
 
 static int fd_pages = -1;
@@ -137,28 +139,51 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	parasite_status_t *st = &args->status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
-	unsigned char *map;
+	u64 *map, off;
 	int ret = -1, fd;
 
 	args->nrpages_dumped = 0;
 	args->nrpages_skipped = 0;
 	prot_old = prot_new = 0;
 
-	fd = fd_pages;
-
-	length	= args->vma_entry.end - args->vma_entry.start;
-	nrpages	= length / PAGE_SIZE;
+	pfn = args->vma_entry.start / PAGE_SIZE;
+	nrpages	= (args->vma_entry.end - args->vma_entry.start) / PAGE_SIZE;
 	args->nrpages_total = nrpages;
+	length = nrpages * sizeof(*map);
 
 	/*
-	 * brk should allow us to handle up to 128M of memory,
-	 * otherwise call for mmap.
+	 * Up to 10M of pagemap will handle 5G mapping.
 	 */
-	map = brk_alloc(nrpages);
+	map = brk_alloc(length);
 	if (!map) {
 		SET_PARASITE_RET(st, -ENOMEM);
 		goto err;
 	}
+
+	fd = sys_open("/proc/self/pagemap", O_RDONLY, 0);
+	if (fd < 0) {
+		sys_write_msg("Can't open self pagemap");
+		SET_PARASITE_RET(st, fd);
+		goto err_free;
+	}
+
+	off = pfn * sizeof(*map);
+	off = sys_lseek(fd, off, SEEK_SET);
+	if (off != pfn * sizeof(*map)) {
+		sys_write_msg("Can't seek pagemap");
+		SET_PARASITE_RET(st, off);
+		goto err_close;
+	}
+
+	ret = sys_read(fd, map, length);
+	if (ret != length) {
+		sys_write_msg("Can't read self pagemap");
+		SET_PARASITE_RET(st, ret);
+		goto err_free;
+	}
+
+	sys_close(fd);
+	fd = fd_pages;
 
 	/*
 	 * Try to change page protection if needed so we would
@@ -175,18 +200,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			SET_PARASITE_RET(st, ret);
 			goto err_free;
 		}
-	}
-
-	/*
-	 * Dumping the whole VMA range is not a common operation
-	 * so stick for mincore as a basis.
-	 */
-
-	ret = sys_mincore((void *)args->vma_entry.start, length, map);
-	if (ret) {
-		sys_write_msg("sys_mincore failed\n");
-		SET_PARASITE_RET(st, ret);
-		goto err_free;
 	}
 
 	ret = 0;
@@ -210,7 +223,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			}
 
 			args->nrpages_dumped++;
-		} else if (map[pfn] & PAGE_RSS)
+		} else if (map[pfn] & PME_PRESENT)
 			args->nrpages_skipped++;
 	}
 
@@ -230,9 +243,13 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	ret = 0;
 err_free:
-	brk_free(nrpages);
+	brk_free(length);
 err:
 	return ret;
+
+err_close:
+	sys_close(fd);
+	goto err_free;
 }
 
 static int dump_pages_fini(void)

@@ -1819,6 +1819,13 @@ static int cr_dump_shmem(void)
 			goto err;
 		}
 
+		/*
+		 * We can't use pagemap here, because this vma is
+		 * not mapped to us at all, but mincore reports the
+		 * pagecache status of a file, which is correct in
+		 * this case.
+		 */
+
 		err = mincore(addr, si->size, map);
 		if (err)
 			goto err_unmap;
