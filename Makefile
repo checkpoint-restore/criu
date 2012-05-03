@@ -50,6 +50,7 @@ OBJS		+= namespaces.o
 OBJS		+= uts_ns.o
 OBJS		+= ipc_ns.o
 OBJS		+= netfilter.o
+OBJS		+= shmem.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

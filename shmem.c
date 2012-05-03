@@ -1,0 +1,225 @@
+#include <unistd.h>
+#include <sys/mman.h>
+
+#include "shmem.h"
+#include "image.h"
+#include "crtools.h"
+#include "restorer.h"
+
+struct shmems *rst_shmems;
+
+void show_saved_shmems(void)
+{
+	int i;
+
+	pr_info("\tSaved shmems:\n");
+
+	for (i = 0; i < rst_shmems->nr_shmems; i++)
+		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
+			rst_shmems->entries[i].start,
+			rst_shmems->entries[i].shmid,
+			rst_shmems->entries[i].pid);
+}
+
+static int collect_shmem(int pid, struct vma_entry *vi)
+{
+	int i;
+	struct shmem_info *entries = rst_shmems->entries;
+	int nr_shmems = rst_shmems->nr_shmems;
+	unsigned long size = vi->pgoff + vi->end - vi->start;
+	struct shmem_info *si;
+
+	si = find_shmem(rst_shmems, vi->shmid);
+	if (si) {
+
+		if (si->size < size)
+			si->size = size;
+
+		/*
+		 * Only the shared mapping with a lowest
+		 * pid will be created in real, other processes
+		 * will wait until the kernel propagate this mapping
+		 * into /proc
+		 */
+		if (si->pid <= pid)
+			return 0;
+
+		si->pid	 = pid;
+		si->start = vi->start;
+		si->end	 = vi->end;
+
+		return 0;
+	}
+
+	if ((nr_shmems + 1) * sizeof(struct shmem_info) +
+					sizeof (struct shmems) >= SHMEMS_SIZE) {
+		pr_err("OOM storing shmems\n");
+		return -1;
+	}
+
+	pr_info("Add new shmem 0x%lx (0x0160x%lx-0x0160x%lx)",
+				vi->shmid, vi->start, vi->end);
+
+	si = &rst_shmems->entries[nr_shmems];
+	rst_shmems->nr_shmems++;
+
+	si->start = vi->start;
+	si->end	  = vi->end;
+	si->shmid = vi->shmid;
+	si->pid	  = pid;
+	si->size  = size;
+	si->fd    = -1;
+
+	futex_init(&si->lock);
+
+	return 0;
+}
+
+int prepare_shmem_pid(int pid)
+{
+	int fd, ret = -1;
+	struct vma_entry vi;
+	struct task_core_entry tc;
+	struct image_header hdr;
+
+	fd = open_image_ro(CR_FD_VMAS, pid);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
+
+	while (1) {
+		ret = read_img_eof(fd, &vi);
+		if (ret <= 0)
+			break;
+
+		pr_info("%d: vma 0x%lx 0x%lx\n", pid, vi.start, vi.end);
+
+		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
+			continue;
+
+		if (vma_entry_is(&vi, VMA_AREA_SYSVIPC))
+			continue;
+
+		ret = collect_shmem(pid, &vi);
+		if (ret)
+			break;
+	}
+
+out:
+	close(fd);
+	return ret;
+}
+
+static int shmem_wait_and_open(int pid, struct shmem_info *si)
+{
+	unsigned long time = 1;
+	char path[128];
+	int ret;
+
+	sprintf(path, "/proc/%d/map_files/%lx-%lx",
+		si->pid, si->start, si->end);
+
+	pr_info("%d: Waiting for [%s] to appear\n", pid, path);
+	futex_wait_until(&si->lock, 1);
+
+	pr_info("%d: Opening shmem [%s] \n", pid, path);
+	ret = open(path, O_RDWR);
+	if (ret < 0)
+		pr_perror("     %d: Can't stat shmem at %s",
+				si->pid, path);
+	return ret;
+}
+
+static int restore_shmem_content(void *addr, struct shmem_info *si)
+{
+	u64 offset;
+	int fd, ret = 0;
+
+	fd = open_image_ro(CR_FD_SHMEM_PAGES, si->shmid);
+	if (fd < 0) {
+		munmap(addr,  si->size);
+		return -1;
+	}
+
+	while (1) {
+		ret = read_img_buf_eof(fd, &offset, sizeof(offset));
+		if (ret <= 0)
+			break;
+
+		if (offset + PAGE_SIZE > si->size)
+			break;
+
+		ret = read_img_buf(fd, addr + offset, PAGE_SIZE);
+		if (ret < 0)
+			break;
+	}
+
+	close(fd);
+	return ret;
+}
+
+int get_shmem_fd(int pid, struct vma_entry *vi)
+{
+	struct shmem_info *si;
+	int sh_fd;
+	void *addr;
+	int f;
+
+	si = find_shmem(rst_shmems, vi->shmid);
+	pr_info("%d: Search for 0x%016lx shmem 0x%lx %p/%d\n", pid, vi->start, vi->shmid, si, si ? si->pid : -1);
+	if (!si) {
+		pr_err("Can't find my shmem 0x%016lx\n", vi->start);
+		return -1;
+	}
+
+	if (si->pid != pid)
+		return shmem_wait_and_open(pid, si);
+
+	if (si->fd != -1)
+		return dup(si->fd);
+
+	/* The following hack solves problems:
+	 * vi->pgoff may be not zero in a target process.
+	 * This mapping may be mapped more then once.
+	 * The restorer doesn't have snprintf.
+	 * Here is a good place to restore content
+	 */
+	addr = mmap(NULL, si->size,
+			PROT_WRITE | PROT_READ,
+			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (addr == MAP_FAILED) {
+		pr_err("Can't mmap shmid=0x%lx size=%ld\n",
+				vi->shmid, si->size);
+		return -1;
+	}
+
+	if (restore_shmem_content(addr, si) < 0) {
+		pr_err("Can't restore shmem content\n");
+		return -1;
+	}
+
+	f = open_proc_rw(getpid(), "map_files/%lx-%lx",
+			(unsigned long) addr,
+			(unsigned long) addr + si->size);
+	munmap(addr, si->size);
+	if (f < 0)
+		return -1;
+
+	si->fd = f;
+	return f;
+}
+
+int prepare_shmem_restore(void)
+{
+	rst_shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
+	if (rst_shmems == MAP_FAILED) {
+		pr_perror("Can't map shmem");
+		return -1;
+	}
+
+	rst_shmems->nr_shmems = 0;
+	return 0;
+}
