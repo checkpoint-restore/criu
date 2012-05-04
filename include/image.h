@@ -36,6 +36,8 @@
 #define EVENTFD_MAGIC		0x44523722 /* Anapa */
 #define EVENTPOLL_MAGIC		0x45023858 /* Krasnodar */
 #define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
+#define INOTIFY_MAGIC		0x48424431 /* Volgograd */
+#define INOTIFY_WMAGIC		0x54562009 /* Svetlogorsk (Rauschen) */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -47,6 +49,7 @@ enum fd_types {
 	FDINFO_UNIXSK,
 	FDINFO_EVENTFD,
 	FDINFO_EVENTPOLL,
+	FDINFO_INOTIFY,
 
 	FD_INFO_MAX
 };
@@ -106,6 +109,21 @@ struct eventpoll_tfd_entry {
 struct eventpoll_file_entry {
 	u32	id;
 	u32	flags;
+	fown_t	fown;
+} __packed;
+
+struct inotify_wd_entry {
+	u32	id;
+	u64	i_ino;
+	u32	mask;
+	u32	s_dev;
+	u32	wd;
+	fh_t	f_handle;
+} __packed;
+
+struct inotify_file_entry {
+	u32	id;
+	u16	flags;
 	fown_t	fown;
 } __packed;
 

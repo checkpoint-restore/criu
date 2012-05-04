@@ -10,17 +10,14 @@
 
 #include "types.h"
 #include "util.h"
+#include "log.h"
 #include "mount.h"
 #include "proc_parse.h"
 
-/*
- * Returns path for mount device @s_dev
- *
- * FIXME this is not sufficient in general
- * since mount points can be overmounted but
- * works for now.
- */
-int open_mnt_root(unsigned int s_dev, struct proc_mountinfo *mntinfo, int nr_mntinfo)
+static struct proc_mountinfo *mntinfo;
+static int nr_mntinfo;
+
+int open_mount(unsigned int s_dev)
 {
 	static int last = 0;
 	int i;
@@ -39,4 +36,20 @@ again:
 	}
 
 	return -ENOENT;
+}
+
+int collect_mount_info(void)
+{
+	nr_mntinfo = 64;
+	mntinfo = xmalloc(sizeof(*mntinfo) * nr_mntinfo);
+	if (!mntinfo)
+		return -1;
+
+	nr_mntinfo = parse_mountinfo(getpid(), mntinfo, nr_mntinfo);
+	if (nr_mntinfo < 1) {
+		pr_err("Parsing mountinfo %d failed\n", getpid());
+		return -1;
+	}
+
+	return 0;
 }

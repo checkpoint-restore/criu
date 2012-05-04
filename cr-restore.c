@@ -42,6 +42,8 @@
 #include "crtools.h"
 #include "namespaces.h"
 #include "shmem.h"
+#include "mount.h"
+#include "inotify.h"
 
 static struct task_entries *task_entries;
 
@@ -168,6 +170,12 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_eventpoll())
+		return -1;
+
+	if (collect_mount_info())
+		return -1;
+
+	if (collect_inotify())
 		return -1;
 
 	list_for_each_entry(pi, &tasks, list) {

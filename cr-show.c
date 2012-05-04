@@ -64,6 +64,7 @@ static char *fdtype2s(u8 type)
 		[FDINFO_UNIXSK] = "usk",
 		[FDINFO_EVENTFD] = "efd",
 		[FDINFO_EVENTPOLL] = "epl",
+		[FDINFO_INOTIFY] = "ify",
 	};
 
 	if (type > FDINFO_UND && type < FD_INFO_MAX)

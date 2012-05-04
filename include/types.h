@@ -216,4 +216,11 @@ struct f_owner_ex {
 };
 #endif
 
+/* File handle */
+typedef struct {
+	u32 bytes;
+	u32 type;
+	u64 __handle[16];
+} fh_t;
+
 #endif /* CR_TYPES_H_ */

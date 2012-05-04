@@ -26,6 +26,7 @@
 #include "sk-inet.h"
 #include "eventfd.h"
 #include "eventpoll.h"
+#include "inotify.h"
 
 struct cr_options opts;
 
@@ -84,6 +85,20 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_EVENTPOLL_TFD,
 		.magic	= EVENTPOLL_TFD_MAGIC,
 		.show	= show_eventpoll_tfd,
+	},
+
+	/* inotify descriptors */
+	[CR_FD_INOTIFY] = {
+		.fmt	= FMT_FNAME_INOTIFY,
+		.magic	= INOTIFY_MAGIC,
+		.show	= show_inotify,
+	},
+
+	/* inotify descriptors */
+	[CR_FD_INOTIFY_WD] = {
+		.fmt	= FMT_FNAME_INOTIFY_WD,
+		.magic	= INOTIFY_WMAGIC,
+		.show	= show_inotify_wd,
 	},
 
 	/* core data, such as regs and vmas and such */
