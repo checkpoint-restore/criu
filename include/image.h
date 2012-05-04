@@ -39,8 +39,6 @@
 #define INOTIFY_MAGIC		0x48424431 /* Volgograd */
 #define INOTIFY_WMAGIC		0x54562009 /* Svetlogorsk (Rauschen) */
 
-#define PIPEFS_MAGIC	0x50495045
-
 enum fd_types {
 	FDINFO_UND,
 	FDINFO_REG,

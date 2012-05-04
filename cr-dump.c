@@ -352,15 +352,19 @@ err:
 	return ret;
 }
 
-static int dump_gen_file(struct fd_parms *p, int lfd,
+static int dump_reg_file(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
-	if (S_ISFIFO(p->stat.st_mode))
-		p->type = FDINFO_PIPE;
-	else
-		p->type = FDINFO_REG;
+	p->type = FDINFO_REG;
+	return do_dump_gen_file(p, lfd, cr_fdset);
+}
 
+static int dump_pipe(struct fd_parms *p, int lfd,
+			     const struct cr_fdset *cr_fdset)
+{
+	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
+	p->type = FDINFO_PIPE;
 	return do_dump_gen_file(p, lfd, cr_fdset);
 }
 
@@ -454,7 +458,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 
 	maj = major(p->stat.st_rdev);
 	if (maj == MEM_MAJOR)
-		return dump_gen_file(p, lfd, set);
+		return dump_reg_file(p, lfd, set);
 
 	if (p->fd < 3 && (maj == TTY_MAJOR ||
 				maj == UNIX98_PTY_SLAVE_MAJOR)) {
@@ -485,6 +489,10 @@ static int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	p->type	= FDINFO_INOTIFY;
 	return do_dump_gen_file(p, lfd, set);
 }
+
+#ifndef PIPEFS_MAGIC
+#define PIPEFS_MAGIC	0x50495045
+#endif
 
 static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 		       const struct cr_fdset *cr_fdset)
@@ -518,9 +526,11 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 	}
 
 	if (S_ISREG(p.stat.st_mode) ||
-            S_ISDIR(p.stat.st_mode) ||
-            S_ISFIFO(p.stat.st_mode))
-		return dump_gen_file(&p, lfd, cr_fdset);
+            S_ISDIR(p.stat.st_mode))
+		return dump_reg_file(&p, lfd, cr_fdset);
+
+	if (S_ISFIFO(p.stat.st_mode) && (statfs.f_type == PIPEFS_MAGIC))
+		return dump_pipe(&p, lfd, cr_fdset);
 
 	return dump_unsupp_fd(&p);
 }
