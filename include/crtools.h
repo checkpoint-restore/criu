@@ -56,6 +56,8 @@ enum {
 	CR_FD_PIPES_DATA,
 	CR_FD_REMAP_FPATH,
 	CR_FD_EVENTFD,
+	CR_FD_EVENTPOLL,
+	CR_FD_EVENTPOLL_TFD,
 	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
@@ -122,6 +124,8 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_UNIXSK	"unixsk.img"
 #define FMT_FNAME_INETSK	"inetsk.img"
 #define FMT_FNAME_EVENTFD	"eventfd.img"
+#define FMT_FNAME_EVENTPOLL	"eventpoll.img"
+#define FMT_FNAME_EVENTPOLL_TFD	"eventpoll-tfd.img"
 #define FMT_FNAME_ITIMERS	"itimers-%d.img"
 #define FMT_FNAME_CREDS		"creds-%d.img"
 #define FMT_FNAME_UTSNS		"utsns-%d.img"

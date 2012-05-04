@@ -25,6 +25,7 @@
 #include "files.h"
 #include "sk-inet.h"
 #include "eventfd.h"
+#include "eventpoll.h"
 
 struct cr_options opts;
 
@@ -69,6 +70,20 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_EVENTFD,
 		.magic	= EVENTFD_MAGIC,
 		.show	= show_eventfds,
+	},
+
+	/* eventpoll */
+	[CR_FD_EVENTPOLL] = {
+		.fmt	= FMT_FNAME_EVENTPOLL,
+		.magic	= EVENTPOLL_MAGIC,
+		.show	= show_eventpoll,
+	},
+
+	/* eventpoll target file descriptors */
+	[CR_FD_EVENTPOLL_TFD] = {
+		.fmt	= FMT_FNAME_EVENTPOLL_TFD,
+		.magic	= EVENTPOLL_TFD_MAGIC,
+		.show	= show_eventpoll_tfd,
 	},
 
 	/* core data, such as regs and vmas and such */

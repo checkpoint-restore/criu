@@ -34,6 +34,8 @@
 #define GHOST_FILE_MAGIC	0x52583605 /* Oryol */
 #define TCP_STREAM_MAGIC	0x51465506 /* Orenburg */
 #define EVENTFD_MAGIC		0x44523722 /* Anapa */
+#define EVENTPOLL_MAGIC		0x45023858 /* Krasnodar */
+#define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -44,6 +46,7 @@ enum fd_types {
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
 	FDINFO_EVENTFD,
+	FDINFO_EVENTPOLL,
 
 	FD_INFO_MAX
 };
@@ -91,6 +94,19 @@ struct eventfd_file_entry {
 	u16	flags;
 	fown_t	fown;
 	u64	counter;
+} __packed;
+
+struct eventpoll_tfd_entry {
+	u32	id;
+	u32	tfd;
+	u32	events;
+	u64	data;
+} __packed;
+
+struct eventpoll_file_entry {
+	u32	id;
+	u32	flags;
+	fown_t	fown;
 } __packed;
 
 struct fdinfo_entry {

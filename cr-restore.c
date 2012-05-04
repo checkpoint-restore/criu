@@ -36,6 +36,7 @@
 #include "pipes.h"
 #include "sk-inet.h"
 #include "eventfd.h"
+#include "eventpoll.h"
 #include "proc_parse.h"
 #include "restorer-blob.h"
 #include "crtools.h"
@@ -164,6 +165,9 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_eventfd())
+		return -1;
+
+	if (collect_eventpoll())
 		return -1;
 
 	list_for_each_entry(pi, &tasks, list) {
