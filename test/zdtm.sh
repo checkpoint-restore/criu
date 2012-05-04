@@ -42,6 +42,7 @@ static/file_fown
 static/unlink_fstat00
 static/unlink_fstat02
 static/eventfs00
+static/inotify00
 "
 
 UTS_TEST_LIST="

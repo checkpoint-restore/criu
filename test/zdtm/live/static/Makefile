@@ -43,6 +43,7 @@ TST_NOFILE	=				\
 		xids00				\
 		file_fown			\
 		eventfs00			\
+		inotify00			\
 #		jobctl00			\
 
 TST_FILE	=				\
