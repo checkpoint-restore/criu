@@ -134,6 +134,9 @@ int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
 
+	if (dump_socket_opts(lfd, &ie.opts))
+		goto err;
+
 	if (tcp_connection(sk))
 		return dump_one_tcp(lfd, sk);
 
@@ -277,6 +280,9 @@ done:
 	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
 		goto err;
 
+	if (restore_socket_opts(sk, &ii->ie.opts))
+		return -1;
+
 	return sk;
 
 err:
@@ -377,6 +383,8 @@ void show_inetsk(int fd, struct cr_options *o)
 			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
 			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
 		pr_msg("\t"), show_fown_cont(&ie.fown), pr_msg("\n");
+
+		show_socket_opts(&ie.opts);
 	}
 
 out:

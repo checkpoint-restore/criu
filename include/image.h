@@ -168,6 +168,9 @@ struct pipe_data_entry {
 
 #define USK_EXTERN	(1 << 0)
 
+struct sk_opts_entry {
+};
+
 struct unix_sk_entry {
 	u32	id;
 	u8	type;
@@ -179,6 +182,7 @@ struct unix_sk_entry {
 	u32	backlog;
 	u32	peer;
 	fown_t	fown;
+	struct sk_opts_entry opts;
 	u8	name[0];
 } __packed;
 
@@ -195,6 +199,7 @@ struct inet_sk_entry {
 	fown_t	fown;
 	u32	src_addr[4];
 	u32	dst_addr[4];
+	struct sk_opts_entry opts;
 } __packed;
 
 struct tcp_stream_entry {

@@ -66,6 +66,16 @@ int sk_collect_one(int ino, int family, struct socket_desc *d)
 	return 0;
 }
 
+int restore_socket_opts(int sk, struct sk_opts_entry *soe)
+{
+	return 0;
+}
+
+int dump_socket_opts(int sk, struct sk_opts_entry *soe)
+{
+	return 0;
+}
+
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	struct socket_desc *sk;
@@ -327,3 +337,6 @@ char *skstate2s(u32 state)
 		return unknown(state);
 }
 
+void show_socket_opts(struct sk_opts_entry *soe)
+{
+}

@@ -9,6 +9,10 @@ struct cr_fdset;
 struct fd_parms;
 extern int dump_socket(struct fd_parms *p, int lfd,
 		const struct cr_fdset *cr_fdset);
+struct sk_opts_entry;
+extern int dump_socket_opts(int sk, struct sk_opts_entry *);
+extern int restore_socket_opts(int sk, struct sk_opts_entry *);
+extern void show_socket_opts(struct sk_opts_entry *);
 
 struct fdinfo_list_entry;
 struct file_desc;

@@ -191,6 +191,9 @@ int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 				ue.id, ue.peer);
 	}
 
+	if (dump_socket_opts(lfd, &ue.opts))
+		goto err;
+
 	if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue))
 		goto err;
 	if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK), sk->name, ue.namelen))
@@ -452,6 +455,8 @@ void show_unixsk(int fd, struct cr_options *o)
 		} else
 			pr_msg("\n");
 		pr_msg("\t"), show_fown_cont(&ue.fown), pr_msg("\n");
+
+		show_socket_opts(&ue.opts);
 	}
 out:
 	pr_img_tail(CR_FD_UNIXSK);
@@ -518,6 +523,9 @@ try_again:
 			return -1;
 
 		if (rst_file_params(fle->fe.fd, &ui->ue.fown, ui->ue.flags))
+			return -1;
+
+		if (restore_socket_opts(fle->fe.fd, &ui->ue.opts))
 			return -1;
 
 		cj = cj->next;
@@ -628,6 +636,9 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (rst_file_params(sk, &ui->ue.fown, ui->ue.flags))
 		return -1;
 
+	if (restore_socket_opts(sk, &ui->ue.opts))
+		return -1;
+
 	return sk;
 }
 
@@ -656,6 +667,10 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 
 		if (rst_file_params(sk, &ui->ue.fown, ui->ue.flags))
 			return -1;
+
+		if (restore_socket_opts(sk, &ui->ue.opts))
+			return -1;
+
 	} else if (ui->peer) {
 		pr_info("\tWill connect %#x to %#x later\n", ui->ue.id, ui->ue.peer);
 		if (schedule_conn_job(ui))
