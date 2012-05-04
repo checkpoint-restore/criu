@@ -304,7 +304,7 @@ out:
 static u32 *pipes_with_data;	/* pipes for which data already dumped */
 static int nr_pipes = 0;
 
-int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct pipe_entry pe;
 	int fd_pipes;
@@ -407,6 +407,18 @@ err_close:
 	}
 err:
 	return ret;
+}
+
+static const struct fdtype_ops pipe_ops = {
+	.type		= FDINFO_PIPE,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_pipe,
+};
+
+int dump_pipe(struct fd_parms *p, int lfd,
+			     const struct cr_fdset *cr_fdset)
+{
+	return do_dump_gen_file(p, lfd, &pipe_ops, cr_fdset);
 }
 
 int init_pipes_dump(void)

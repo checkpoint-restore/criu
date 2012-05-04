@@ -60,7 +60,7 @@ out:
 	pr_img_tail(CR_FD_EVENTFD);
 }
 
-int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	int image_fd = fdset_fd(glob_fdset, CR_FD_EVENTFD);
 	struct eventfd_file_entry efe;
@@ -98,6 +98,17 @@ int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 
 	return 0;
+}
+
+static const struct fdtype_ops eventfd_ops = {
+	.type		= FDINFO_EVENTFD,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_eventfd,
+};
+
+int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &eventfd_ops, set);
 }
 
 static int eventfd_open(struct file_desc *d)

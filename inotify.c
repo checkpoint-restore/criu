@@ -127,7 +127,7 @@ static void parse_fhandle_encoded(char *tok, fh_t *f)
 	}
 }
 
-int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct inotify_file_entry ie;
 	struct inotify_wd_entry we;
@@ -209,6 +209,17 @@ err:
 parse_error:
 	pr_err("Incorrect format in inotify fdinfo %d (%d)\n", p->fd, lfd);
 	goto err;
+}
+
+static const struct fdtype_ops inotify_ops = {
+	.type		= FDINFO_INOTIFY,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_inotify,
+};
+
+int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &inotify_ops, set);
 }
 
 static int restore_one_inotify(int inotify_fd, struct inotify_wd_entry *iwe)

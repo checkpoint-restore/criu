@@ -306,48 +306,12 @@ static int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	return 0;
 }
 
-struct fdtype_ops {
-	unsigned int	type;
-	u32		(*make_gen_id)(const struct fd_parms *p);
-	int		(*dump)(int lfd, u32 id, const struct fd_parms *p);
-};
-
-static u32 make_gen_id(const struct fd_parms *p)
+u32 make_gen_id(const struct fd_parms *p)
 {
 	return MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
 }
 
-static const struct fdtype_ops pipe_ops = {
-	.type		= FDINFO_PIPE,
-	.make_gen_id	= make_gen_id,
-	.dump		= dump_one_pipe,
-};
-
-static const struct fdtype_ops eventfd_ops = {
-	.type		= FDINFO_EVENTFD,
-	.make_gen_id	= make_gen_id,
-	.dump		= dump_one_eventfd,
-};
-
-static const struct fdtype_ops eventpoll_ops = {
-	.type		= FDINFO_EVENTPOLL,
-	.make_gen_id	= make_gen_id,
-	.dump		= dump_one_eventpoll,
-};
-
-static const struct fdtype_ops inotify_ops = {
-	.type		= FDINFO_INOTIFY,
-	.make_gen_id	= make_gen_id,
-	.dump		= dump_one_inotify,
-};
-
-static const struct fdtype_ops regfile_ops = {
-	.type		= FDINFO_REG,
-	.make_gen_id	= make_gen_id,
-	.dump		= dump_one_reg_file,
-};
-
-static int do_dump_gen_file(struct fd_parms *p, int lfd,
+int do_dump_gen_file(struct fd_parms *p, int lfd,
 		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset)
 {
 	struct fdinfo_entry e;
@@ -376,16 +340,16 @@ err:
 	return ret;
 }
 
+static const struct fdtype_ops regfile_ops = {
+	.type		= FDINFO_REG,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_reg_file,
+};
+
 static int dump_reg_file(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	return do_dump_gen_file(p, lfd, &regfile_ops, cr_fdset);
-}
-
-static int dump_pipe(struct fd_parms *p, int lfd,
-			     const struct cr_fdset *cr_fdset)
-{
-	return do_dump_gen_file(p, lfd, &pipe_ops, cr_fdset);
 }
 
 static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
@@ -486,21 +450,6 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	}
 
 	return dump_unsupp_fd(p);
-}
-
-static int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
-{
-	return do_dump_gen_file(p, lfd, &eventfd_ops, set);
-}
-
-static int dump_eventpoll(struct fd_parms *p, int lfd, const struct cr_fdset *set)
-{
-	return do_dump_gen_file(p, lfd, &eventpoll_ops, set);
-}
-
-static int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
-{
-	return do_dump_gen_file(p, lfd, &inotify_ops, set);
 }
 
 #ifndef PIPEFS_MAGIC

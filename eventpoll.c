@@ -92,7 +92,7 @@ out:
 	pr_img_tail(CR_FD_EVENTPOLL);
 }
 
-int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	int image_fd = fdset_fd(glob_fdset, CR_FD_EVENTPOLL);
 	int image_tfd = fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD);
@@ -145,6 +145,17 @@ int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 parsing_err:
 	pr_err("Parsing error %d (%d)", p->fd, lfd);
 	return -1;
+}
+
+static const struct fdtype_ops eventpoll_ops = {
+	.type		= FDINFO_EVENTPOLL,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_eventpoll,
+};
+
+int dump_eventpoll(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &eventpoll_ops, set);
 }
 
 static int eventpoll_open(struct file_desc *d)

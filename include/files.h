@@ -49,6 +49,17 @@ struct file_desc {
 	struct file_desc_ops *ops;
 };
 
+struct fdtype_ops {
+	unsigned int	type;
+	u32		(*make_gen_id)(const struct fd_parms *p);
+	int		(*dump)(int lfd, u32 id, const struct fd_parms *p);
+};
+
+extern u32 make_gen_id(const struct fd_parms *p);
+struct cr_fdset;
+extern int do_dump_gen_file(struct fd_parms *p, int lfd,
+		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset);
+
 extern void file_desc_add(struct file_desc *d, int type, u32 id,
 		struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
