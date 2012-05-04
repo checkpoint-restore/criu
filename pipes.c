@@ -33,6 +33,7 @@ static int pipe_should_open_transport(struct fdinfo_entry *fe,
 		struct file_desc *d);
 
 static struct file_desc_ops pipe_desc_ops = {
+	.type = FDINFO_PIPE,
 	.open = open_pipe,
 	.want_transport = pipe_should_open_transport,
 };
@@ -61,8 +62,7 @@ int collect_pipes(void)
 		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
 					pi->pe.id, pi->pe.pipe_id);
 
-		file_desc_add(&pi->d, FDINFO_PIPE, pi->pe.id,
-				&pipe_desc_ops);
+		file_desc_add(&pi->d, pi->pe.id, &pipe_desc_ops);
 
 		list_for_each_entry(tmp, &pipes, list)
 			if (pi->pe.pipe_id == tmp->pe.pipe_id)

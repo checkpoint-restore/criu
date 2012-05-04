@@ -177,6 +177,7 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 static int open_inet_sk(struct file_desc *d);
 
 static struct file_desc_ops inet_desc_ops = {
+	.type = FDINFO_INETSK,
 	.open = open_inet_sk,
 };
 
@@ -199,8 +200,7 @@ int collect_inet_sockets(void)
 		if (ret <= 0)
 			break;
 
-		file_desc_add(&ii->d, FDINFO_INETSK, ii->ie.id,
-				&inet_desc_ops);
+		file_desc_add(&ii->d, ii->ie.id, &inet_desc_ops);
 
 		if (tcp_connection(&ii->ie))
 			tcp_locked_conn_add(ii);

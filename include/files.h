@@ -37,12 +37,12 @@ struct fdinfo_list_entry {
 struct file_desc;
 
 struct file_desc_ops {
+	int type;
 	int (*open)(struct file_desc *);
 	int (*want_transport)(struct fdinfo_entry *, struct file_desc *);
 };
 
 struct file_desc {
-	int type;
 	u32 id;
 	struct list_head hash;
 	struct list_head fd_info_head;
@@ -60,8 +60,7 @@ struct cr_fdset;
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset);
 
-extern void file_desc_add(struct file_desc *d, int type, u32 id,
-		struct file_desc_ops *ops);
+extern void file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
 extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *, int transport);

@@ -303,6 +303,7 @@ static int open_inotify_fd(struct file_desc *d)
 }
 
 static struct file_desc_ops desc_ops = {
+	.type = FDINFO_INOTIFY,
 	.open = open_inotify_fd,
 };
 
@@ -375,7 +376,7 @@ int collect_inotify(void)
 
 	list_for_each_entry(info, &info_head, list) {
 		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife.id, info->ife.flags);
-		file_desc_add(&info->d, FDINFO_INOTIFY, info->ife.id, &desc_ops);
+		file_desc_add(&info->d, info->ife.id, &desc_ops);
 	}
 	ret = 0;
 err:

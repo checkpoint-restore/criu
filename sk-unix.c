@@ -679,6 +679,7 @@ static int open_unix_sk(struct file_desc *d)
 }
 
 static struct file_desc_ops unix_desc_ops = {
+	.type = FDINFO_UNIXSK,
 	.open = open_unix_sk,
 	.want_transport = unixsk_should_open_transport,
 };
@@ -740,8 +741,7 @@ int collect_unix_sockets(void)
 		ui->peer = NULL;
 		ui->flags = 0;
 		pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue.id, ui->ue.peer);
-		file_desc_add(&ui->d, FDINFO_UNIXSK, ui->ue.id,
-				&unix_desc_ops);
+		file_desc_add(&ui->d, ui->ue.id, &unix_desc_ops);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
 

@@ -46,10 +46,9 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-void file_desc_add(struct file_desc *d, int type, u32 id,
+void file_desc_add(struct file_desc *d, u32 id,
 		struct file_desc_ops *ops)
 {
-	d->type = type;
 	d->id = id;
 	d->ops = ops;
 	INIT_LIST_HEAD(&d->fd_info_head);
@@ -64,7 +63,7 @@ struct file_desc *find_file_desc_raw(int type, u32 id)
 
 	chain = &file_descs[id % FDESC_HASH_SIZE];
 	list_for_each_entry(d, chain, hash)
-		if (d->type == type && d->id == id)
+		if (d->ops->type == type && d->id == id)
 			return d;
 
 	return NULL;
@@ -99,7 +98,7 @@ void show_saved_files(void)
 		list_for_each_entry(fd, &file_descs[i], hash) {
 			struct fdinfo_list_entry *le;
 
-			pr_info(" `- type %d ID %#x\n", fd->type, fd->id);
+			pr_info(" `- type %d ID %#x\n", fd->ops->type, fd->id);
 			list_for_each_entry(le, &fd->fd_info_head, desc_list)
 				pr_info("   `- FD %d pid %d\n", le->fe.fd, le->pid);
 		}
@@ -161,6 +160,7 @@ int rst_file_params(int fd, fown_t *fown, int flags)
 static int open_fe_fd(struct file_desc *d);
 
 static struct file_desc_ops reg_desc_ops = {
+	.type = FDINFO_REG,
 	.open = open_fe_fd,
 };
 
@@ -322,8 +322,7 @@ int collect_reg_files(void)
 		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe.id);
-		file_desc_add(&rfi->d, FDINFO_REG, rfi->rfe.id,
-				&reg_desc_ops);
+		file_desc_add(&rfi->d, rfi->rfe.id, &reg_desc_ops);
 	}
 
 	if (rfi) {

@@ -202,6 +202,7 @@ err_close:
 }
 
 static struct file_desc_ops desc_ops = {
+	.type = FDINFO_EVENTPOLL,
 	.open = eventpoll_open,
 };
 
@@ -253,7 +254,7 @@ int collect_eventpoll(void)
 			break;
 
 		pr_info_eventpoll("Collected ", &info->efe);
-		file_desc_add(&info->d, FDINFO_EVENTPOLL, info->efe.id, &desc_ops);
+		file_desc_add(&info->d, info->efe.id, &desc_ops);
 	}
 
 err:

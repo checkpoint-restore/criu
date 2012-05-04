@@ -140,6 +140,7 @@ err_close:
 }
 
 static struct file_desc_ops eventfd_desc_ops = {
+	.type = FDINFO_EVENTFD,
 	.open = eventfd_open,
 };
 
@@ -165,7 +166,7 @@ int collect_eventfd(void)
 		else if (!ret)
 			break;
 		pr_info_eventfd("Collected ", &info->efe);
-		file_desc_add(&info->d, FDINFO_EVENTFD, info->efe.id, &eventfd_desc_ops);
+		file_desc_add(&info->d, info->efe.id, &eventfd_desc_ops);
 	}
 
 err:
