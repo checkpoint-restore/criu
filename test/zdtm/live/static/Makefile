@@ -42,6 +42,7 @@ TST_NOFILE	=				\
 		maps01				\
 		xids00				\
 		file_fown			\
+		eventfs00			\
 #		jobctl00			\
 
 TST_FILE	=				\
