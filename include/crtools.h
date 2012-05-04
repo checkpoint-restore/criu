@@ -203,6 +203,7 @@ struct vma_area {
 
 struct rst_info {
 	struct list_head	fds;
+	struct list_head	eventpoll;
 };
 
 struct pstree_item {

@@ -335,7 +335,7 @@ int collect_reg_files(void)
 	return collect_remaps();
 }
 
-static int collect_fd(int pid, struct fdinfo_entry *e, struct list_head *fds)
+static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info)
 {
 	int i;
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
@@ -365,7 +365,11 @@ static int collect_fd(int pid, struct fdinfo_entry *e, struct list_head *fds)
 			break;
 
 	list_add_tail(&le->desc_list, &l->desc_list);
-	list_add_tail(&le->ps_list, fds);
+
+	if (unlikely(le->fe.type == FDINFO_EVENTPOLL))
+		list_add_tail(&le->ps_list, &rst_info->eventpoll);
+	else
+		list_add_tail(&le->ps_list, &rst_info->fds);
 	return 0;
 }
 
@@ -375,6 +379,7 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 	u32 type = 0;
 
 	INIT_LIST_HEAD(&rst_info->fds);
+	INIT_LIST_HEAD(&rst_info->eventpoll);
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
 	if (fdinfo_fd < 0) {
@@ -391,7 +396,7 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 		if (ret <= 0)
 			break;
 
-		ret = collect_fd(pid, &e, &rst_info->fds);
+		ret = collect_fd(pid, &e, rst_info);
 		if (ret < 0)
 			break;
 	}
@@ -653,12 +658,24 @@ int prepare_fds(struct pstree_item *me)
 
 	pr_info("Opening fdinfo-s\n");
 
-	for (state = 0; state < FD_STATE_MAX; state++)
+	for (state = 0; state < FD_STATE_MAX; state++) {
 		list_for_each_entry(fle, &me->rst->fds, ps_list) {
 			ret = open_fdinfo(me->pid, &fle->fe, state);
 			if (ret)
 				goto done;
 		}
+
+		/*
+		 * The eventpoll descriptors require all the other ones
+		 * to be already restored, thus we store them in a separate
+		 * list and restore at the very end.
+		 */
+		list_for_each_entry(fle, &me->rst->eventpoll, ps_list) {
+			ret = open_fdinfo(me->pid, &fle->fe, state);
+			if (ret)
+				goto done;
+		}
+	}
 
 	ret = run_unix_connections();
 done:
