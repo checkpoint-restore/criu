@@ -52,20 +52,7 @@ static char fdinfo_buf[PAGE_SIZE];
 /* Checks if file desciptor @lfd is inotify */
 int is_inotify_link(int lfd)
 {
-	char link[PATH_MAX], path[32];
-	ssize_t ret;
-
-	snprintf(path, sizeof(path), "/proc/self/fd/%d", lfd);
-	ret = readlink(path, link, sizeof(link));
-	if (ret < 0) {
-		pr_perror("Can't read link of fd %d\n", lfd);
-		return 0;
-	}
-	link[ret] = 0;
-	if (!strcmp(link, "anon_inode:inotify"))
-		return 1;
-
-	return 0;
+	return is_anon_link_type(lfd, "inotify");
 }
 
 void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)

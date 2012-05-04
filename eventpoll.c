@@ -36,20 +36,7 @@ static LIST_HEAD(eventpoll_tfds);
 /* Checks if file desciptor @lfd is eventfd */
 int is_eventpoll_link(int lfd)
 {
-	char link[PATH_MAX], path[32];
-	ssize_t ret;
-
-	snprintf(path, sizeof(path), "/proc/self/fd/%d", lfd);
-	ret = readlink(path, link, sizeof(link));
-	if (ret < 0) {
-		pr_perror("Can't read link of fd %d\n", lfd);
-		return 0;
-	}
-	link[ret] = 0;
-	if (!strcmp(link, "anon_inode:[eventpoll]"))
-		return 1;
-
-	return 0;
+	return is_anon_link_type(lfd, "[eventpoll]");
 }
 
 static void pr_info_eventpoll_tfd(char *action, struct eventpoll_tfd_entry *e)
