@@ -301,3 +301,12 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 
 	return 0;
 }
+
+#ifndef ANON_INODE_FS_MAGIC
+# define ANON_INODE_FS_MAGIC 0x09041934
+#endif
+
+bool is_anon_inode(struct statfs *statfs)
+{
+	return statfs->f_type == ANON_INODE_FS_MAGIC;
+}

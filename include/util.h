@@ -11,6 +11,7 @@
 #include <errno.h>
 
 #include <sys/types.h>
+#include <sys/statfs.h>
 #include <dirent.h>
 
 #include "compiler.h"
@@ -276,5 +277,6 @@ static inline dev_t kdev_to_odev(u32 kdev)
 }
 
 int copy_file(int fd_in, int fd_out, size_t bytes);
+bool is_anon_inode(struct statfs *statfs);
 
 #endif /* UTIL_H_ */
