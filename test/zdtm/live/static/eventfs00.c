@@ -40,11 +40,6 @@ int main(int argc, char *argv[])
 
 	test_init(argc, argv);
 
-	if (pipe(pipefd)) {
-		fail("pipe");
-		exit(1);
-	}
-
 	epollfd = epoll_create(1);
 	if (epollfd < 0) {
 		fail("epoll_create");
@@ -59,6 +54,11 @@ int main(int argc, char *argv[])
 
 	memset(&ev, 0xff, sizeof(ev));
 	ev.events = EPOLLIN | EPOLLOUT;
+
+	if (pipe(pipefd)) {
+		fail("pipe");
+		exit(1);
+	}
 
 	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, pipefd[0], &ev)) {
 		fail("epoll_ctl");
