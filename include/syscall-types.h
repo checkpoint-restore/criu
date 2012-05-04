@@ -34,6 +34,7 @@ struct cap_data {
 struct sockaddr;
 struct msghdr;
 struct rusage;
+struct file_handle;
 
 #ifndef F_GETFD
 #define F_GETFD 1
