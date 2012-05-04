@@ -33,6 +33,7 @@
 #define REMAP_FPATH_MAGIC	0x59133954 /* Vologda */
 #define GHOST_FILE_MAGIC	0x52583605 /* Oryol */
 #define TCP_STREAM_MAGIC	0x51465506 /* Orenburg */
+#define EVENTFD_MAGIC		0x44523722 /* Anapa */
 
 #define PIPEFS_MAGIC	0x50495045
 
@@ -42,6 +43,7 @@ enum fd_types {
 	FDINFO_PIPE,
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
+	FDINFO_EVENTFD,
 
 	FD_INFO_MAX
 };
@@ -82,6 +84,13 @@ struct ghost_file_entry {
 	u32	uid;
 	u32	gid;
 	u32	mode;
+} __packed;
+
+struct eventfd_file_entry {
+	u32	id;
+	u16	flags;
+	fown_t	fown;
+	u64	counter;
 } __packed;
 
 struct fdinfo_entry {

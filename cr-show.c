@@ -62,6 +62,7 @@ static char *fdtype2s(u8 type)
 		[FDINFO_INETSK] = "isk",
 		[FDINFO_PIPE] = "pipe",
 		[FDINFO_UNIXSK] = "usk",
+		[FDINFO_EVENTFD] = "efd",
 	};
 
 	if (type > FDINFO_UND && type < FD_INFO_MAX)

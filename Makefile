@@ -51,6 +51,7 @@ OBJS		+= uts_ns.o
 OBJS		+= ipc_ns.o
 OBJS		+= netfilter.o
 OBJS		+= shmem.o
+OBJS		+= eventfd.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

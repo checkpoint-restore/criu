@@ -24,6 +24,7 @@
 #include "ipc_ns.h"
 #include "files.h"
 #include "sk-inet.h"
+#include "eventfd.h"
 
 struct cr_options opts;
 
@@ -61,6 +62,13 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= FMT_FNAME_REG_FILES,
 		.magic	= REG_FILES_MAGIC,
 		.show	= show_reg_files,
+	},
+
+	/* eventfd */
+	[CR_FD_EVENTFD] = {
+		.fmt	= FMT_FNAME_EVENTFD,
+		.magic	= EVENTFD_MAGIC,
+		.show	= show_eventfds,
 	},
 
 	/* core data, such as regs and vmas and such */

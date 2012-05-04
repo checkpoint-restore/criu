@@ -55,6 +55,7 @@ enum {
 	CR_FD_PIPES,
 	CR_FD_PIPES_DATA,
 	CR_FD_REMAP_FPATH,
+	CR_FD_EVENTFD,
 	_CR_FD_GLOB_TO,
 
 	CR_FD_MAX
@@ -102,6 +103,7 @@ void show_fs(int fd, struct cr_options *o);
 void show_remap_files(int fd, struct cr_options *o);
 void show_ghost_file(int fd, struct cr_options *o);
 void show_fown_cont(fown_t *fown);
+void show_eventfds(int fd, struct cr_options *o);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
@@ -119,6 +121,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_SIGACTS	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk.img"
 #define FMT_FNAME_INETSK	"inetsk.img"
+#define FMT_FNAME_EVENTFD	"eventfd.img"
 #define FMT_FNAME_ITIMERS	"itimers-%d.img"
 #define FMT_FNAME_CREDS		"creds-%d.img"
 #define FMT_FNAME_UTSNS		"utsns-%d.img"

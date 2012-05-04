@@ -37,6 +37,7 @@
 #include "pipes.h"
 #include "shmem.h"
 #include "sk-inet.h"
+#include "eventfd.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -321,6 +322,9 @@ static int do_dump_gen_file(const struct fd_parms *p, int lfd,
 		case FDINFO_PIPE:
 			ret = dump_one_pipe(lfd, e.id, p);
 			break;
+		case FDINFO_EVENTFD:
+			ret = dump_one_eventfd(lfd, e.id, p);
+			break;
 		default:
 			ret = dump_one_reg_file(lfd, e.id, p);
 			break;
@@ -453,10 +457,18 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return dump_unsupp_fd(p);
 }
 
+static int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	p->id = MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
+	p->type	= FDINFO_EVENTFD;
+	return do_dump_gen_file(p, lfd, set);
+}
+
 static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
+	struct statfs statfs;
 
 	if (fill_fd_params(pid, fd, lfd, fd_flags, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
@@ -468,6 +480,16 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 
 	if (S_ISCHR(p.stat.st_mode))
 		return dump_chrdev(&p, lfd, cr_fdset);
+
+	if (fstatfs(lfd, &statfs)) {
+		pr_perror("Can't obtain statfs on fd %d\n", fd);
+		return -1;
+	}
+
+	if (is_anon_inode(&statfs)) {
+		if (is_eventfd_link(lfd))
+			return dump_eventfd(&p, lfd, cr_fdset);
+	}
 
 	if (S_ISREG(p.stat.st_mode) ||
             S_ISDIR(p.stat.st_mode) ||
