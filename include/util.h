@@ -257,6 +257,7 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 
 #define KDEV_MINORBITS	20
 #define KDEV_MINORMASK	((1UL << KDEV_MINORBITS) - 1)
+#define MKKDEV(ma,mi)	(((ma) << KDEV_MINORBITS) | (mi))
 
 static inline u32 kdev_major(u32 kdev)
 {

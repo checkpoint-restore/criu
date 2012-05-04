@@ -437,3 +437,46 @@ err_parse:
 	fclose(f);
 	return 0;
 }
+
+int parse_mountinfo(pid_t pid, struct proc_mountinfo *mi, int nr_elems)
+{
+	FILE *f = NULL;
+	char str[256];
+	int i = 0;
+
+	snprintf(str, sizeof(str), "/proc/%d/mountinfo", pid);
+	f = fopen(str, "r");
+	if (!f) {
+		pr_perror("Can't open %d mountinfo", pid);
+		return -1;
+	}
+
+	while (fgets(str, sizeof(str), f)) {
+		unsigned int kmaj, kmin, parent_mnt_id;
+		char parent_mnt_root[63];
+		int ret;
+
+		if ((i + 1) >= nr_elems) {
+			i = -ENOMEM;
+			goto out_close;
+		}
+
+		ret = sscanf(str, "%i %i %u:%u %63s %63s",
+			     &mi[i].mnt_id, &parent_mnt_id,
+			     &kmaj, &kmin, parent_mnt_root,
+			     mi[i].mnt_root);
+		if (ret != 6) {
+			pr_err("Bad format in %d mountinfo\n", pid);
+			i = -1;
+			goto out_close;
+		}
+
+		mi[i].s_dev = MKKDEV(kmaj, kmin);
+		i++;
+	}
+
+out_close:
+	fclose(f);
+out:
+	return i;
+}
