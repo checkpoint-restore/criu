@@ -11,7 +11,6 @@ struct fd_parms {
 	int		fd;
 	unsigned long	pos;
 	unsigned int	flags;
-	unsigned int	type;
 	char		fd_flags;
 	struct stat	stat;
 	u32		id;

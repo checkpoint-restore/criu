@@ -366,7 +366,7 @@ static int do_dump_gen_file(struct fd_parms *p, int lfd,
 		goto err;
 
 	pr_info("fdinfo: type: 0x%2x flags: 0x%4x pos: 0x%8lx fd: %d\n",
-		p->type, p->flags, p->pos, p->fd);
+		ops->type, p->flags, p->pos, p->fd);
 
 	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &e))
 		goto err;
@@ -402,7 +402,6 @@ static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 		return -1;
 	}
 
-	params.type = FDINFO_REG;
 	params.flags = 0;
 	params.pos = 0;
 	params.fown = (fown_t){ };
@@ -603,7 +602,6 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
-	p.type = FDINFO_REG;
 	p.flags = 0;
 	p.pos = 0;
 	p.fown = (fown_t){ };
@@ -624,7 +622,6 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
-	p.type = FDINFO_REG;
 	p.flags = 0;
 	p.pos = 0;
 	fe.root_id = fd_id_generate_special();
@@ -651,7 +648,6 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 		return -1;
 	}
 
-	p.type = FDINFO_REG;
 	p.pos = 0;
 	p.fown = (fown_t){ };
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
