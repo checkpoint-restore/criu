@@ -485,6 +485,8 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 			return dump_eventpoll(&p, lfd, cr_fdset);
 		else if (is_inotify_link(lfd))
 			return dump_inotify(&p, lfd, cr_fdset);
+		else
+			return dump_unsupp_fd(&p);
 	}
 
 	if (S_ISREG(p.stat.st_mode) ||
