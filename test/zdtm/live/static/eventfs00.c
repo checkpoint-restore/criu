@@ -33,14 +33,35 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 int main(int argc, char *argv[])
 {
-	int efd, ret;
+	int efd, ret, epollfd;
+	int pipefd[2];
 	uint64_t v = EVENTFD_INITIAL;
+	struct epoll_event ev;
 
 	test_init(argc, argv);
+
+	if (pipe(pipefd)) {
+		fail("pipe");
+		exit(1);
+	}
+
+	epollfd = epoll_create(1);
+	if (epollfd < 0) {
+		fail("epoll_create");
+		exit(1);
+	}
 
 	efd = eventfd((unsigned int)v, EFD_NONBLOCK);
 	if (efd < 0) {
 		fail("eventfd");
+		exit(1);
+	}
+
+	memset(&ev, 0xff, sizeof(ev));
+	ev.events = EPOLLIN | EPOLLOUT;
+
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, pipefd[0], &ev)) {
+		fail("epoll_ctl");
 		exit(1);
 	}
 
