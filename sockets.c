@@ -66,14 +66,60 @@ int sk_collect_one(int ino, int family, struct socket_desc *d)
 	return 0;
 }
 
-int restore_socket_opts(int sk, struct sk_opts_entry *soe)
+static int do_restore_opt(int sk, int name, void *val, int len)
 {
+	if (setsockopt(sk, SOL_SOCKET, name, val, len) < 0) {
+		pr_perror("Can't set SOL_SOCKET:%d (len %d)", name, len);
+		return -1;
+	}
+
 	return 0;
 }
 
+#define restore_opt(s, n, f)	do_restore_opt(s, n, f, sizeof(*f))
+
+int restore_socket_opts(int sk, struct sk_opts_entry *soe)
+{
+	int ret = 0;
+
+	ret |= restore_opt(sk, SO_SNDBUFFORCE, &soe->so_sndbuf);
+	ret |= restore_opt(sk, SO_RCVBUFFORCE, &soe->so_rcvbuf);
+	ret |= restore_opt(sk, SO_SNDTIMEO, &soe->so_snd_tmo);
+	ret |= restore_opt(sk, SO_RCVTIMEO, &soe->so_rcv_tmo);
+
+	return ret;
+}
+
+static int do_dump_opt(int sk, int name, void *val, int len)
+{
+	socklen_t aux = len;
+
+	if (getsockopt(sk, SOL_SOCKET, name, val, &aux) < 0) {
+		pr_perror("Can't get SOL_SOCKET:%d opt", name);
+		return -1;
+	}
+
+	if (aux != len) {
+		pr_err("Len mismatch on SOL_SOCKET:%d : %d, want %d\n",
+				name, aux, len);
+		return -1;
+	}
+
+	return 0;
+}
+
+#define dump_opt(s, n, f)	do_dump_opt(s, n, f, sizeof(*f))
+
 int dump_socket_opts(int sk, struct sk_opts_entry *soe)
 {
-	return 0;
+	int ret = 0;
+
+	ret |= dump_opt(sk, SO_SNDBUF, &soe->so_sndbuf);
+	ret |= dump_opt(sk, SO_RCVBUF, &soe->so_rcvbuf);
+	ret |= dump_opt(sk, SO_SNDTIMEO, &soe->so_snd_tmo);
+	ret |= dump_opt(sk, SO_RCVTIMEO, &soe->so_rcv_tmo);
+
+	return ret;
 }
 
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
@@ -337,6 +383,26 @@ char *skstate2s(u32 state)
 		return unknown(state);
 }
 
+static void sk_show_timeval(char *name, u64 *tmo)
+{
+	struct timeval tv;
+
+	tv.tv_sec = tmo[0];
+	tv.tv_usec = tmo[1];
+
+	pr_msg("%s: %lu.%lu  ", name, tv.tv_sec, tv.tv_usec);
+}
+
 void show_socket_opts(struct sk_opts_entry *soe)
 {
+	struct sk_option *o;
+
+	pr_msg("\t");
+
+	pr_msg("sndbuf: %u  ", soe->so_sndbuf);
+	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
+	sk_show_timeval("sndtmo", soe->so_snd_tmo);
+	sk_show_timeval("rcvtmo", soe->so_rcv_tmo);
+
+	pr_msg("\n");
 }

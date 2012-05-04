@@ -126,6 +126,9 @@ int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
+	if (dump_socket_opts(lfd, &ie.opts))
+		goto err;
+
 	if (write_img(fdset_fd(glob_fdset, CR_FD_INETSK), &ie))
 		goto err;
 
@@ -133,9 +136,6 @@ int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
-
-	if (dump_socket_opts(lfd, &ie.opts))
-		goto err;
 
 	if (tcp_connection(sk))
 		return dump_one_tcp(lfd, sk);

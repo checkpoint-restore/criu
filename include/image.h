@@ -169,6 +169,10 @@ struct pipe_data_entry {
 #define USK_EXTERN	(1 << 0)
 
 struct sk_opts_entry {
+	u32	so_sndbuf;
+	u32	so_rcvbuf;
+	u64	so_snd_tmo[2];
+	u64	so_rcv_tmo[2];
 };
 
 struct unix_sk_entry {
