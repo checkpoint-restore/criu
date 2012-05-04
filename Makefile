@@ -53,6 +53,7 @@ OBJS		+= netfilter.o
 OBJS		+= shmem.o
 OBJS		+= eventfd.o
 OBJS		+= eventpoll.o
+OBJS		+= mount.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
