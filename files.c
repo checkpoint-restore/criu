@@ -451,15 +451,22 @@ int open_reg_by_id(u32 id)
 #define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
 int set_fd_flags(int fd, int flags)
 {
-	int old;
+	int ret;
 
-	old = fcntl(fd, F_GETFL, 0);
-	if (old < 0)
-		return old;
+	ret = fcntl(fd, F_GETFL, 0);
+	if (ret < 0)
+		goto err;
 
-	flags = (SETFL_MASK & flags) | (old & ~SETFL_MASK);
+	flags = (SETFL_MASK & flags) | (ret & ~SETFL_MASK);
 
-	return fcntl(fd, F_SETFL, flags);
+	ret = fcntl(fd, F_SETFL, flags);
+	if (ret < 0)
+		goto err;
+	return 0;
+
+err:
+	pr_perror("fcntl call on fd %d (flags %x) failed", fd, flags);
+	return -1;
 }
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
