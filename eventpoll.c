@@ -125,7 +125,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 
 	tok = strstr(buf, "tfd:");
 	if (!tok)
-		goto parsing_err;
+		return 0;
 
 	tok = strtok(tok, "\n");
 	while (tok) {

@@ -168,7 +168,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 	pos = strstr(fdinfo_buf, "wd:");
 	if (!pos)
-		goto parse_error;
+		return 0;
 
 	tok = strtok(pos, "\n");
 	while (tok) {
