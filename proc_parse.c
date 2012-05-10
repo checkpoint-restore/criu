@@ -25,7 +25,25 @@ static char *buf = __buf.buf;
 
 #define BUF_SIZE sizeof(__buf.buf)
 
-int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
+/* check the @line starts with "%lx-%lx" format */
+static bool is_vma_range_fmt(char *line)
+{
+	while (*line && is_hex_digit(*line))
+		line++;
+
+	if (*line++ != '-')
+		return false;
+
+	while (*line && is_hex_digit(*line))
+		line++;
+
+	if (*line++ != ' ')
+		return false;
+
+	return true;
+}
+
+int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	u64 start, end, pgoff;
@@ -35,10 +53,10 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	int ret = -1, nr = 0;
 
 	DIR *map_files_dir = NULL;
-	FILE *maps = NULL;
+	FILE *smaps = NULL;
 
-	maps = fopen_proc(pid, "maps");
-	if (!maps)
+	smaps = fopen_proc(pid, "smaps");
+	if (!smaps)
 		goto err;
 
 	if (use_map_files) {
@@ -47,10 +65,28 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 	}
 
-	while (fgets(buf, BUF_SIZE, maps)) {
+	while (fgets(buf, BUF_SIZE, smaps)) {
 		int num;
 		char file_path[6];
 
+		if (!is_vma_range_fmt(buf)) {
+			if (!strncmp(buf, "Nonlinear", 9)) {
+				BUG_ON(!vma_area);
+				pr_err("Nonlinear mapping found %016lx-%016lx\n",
+				       vma_area->vma.start, vma_area->vma.end);
+				/*
+				 * VMA is already on list and will be
+				 * freed later as list get destroyed.
+				 */
+				vma_area = NULL;
+				goto err;
+			} else
+				continue;
+		}
+
+		vma_area = alloc_vma_area();
+		if (!vma_area)
+			goto err;
 
 		memset(file_path, 0, 6);
 		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
@@ -60,10 +96,6 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			pr_err("Can't parse: %s", buf);
 			goto err;
 		}
-
-		vma_area = alloc_vma_area();
-		if (!vma_area)
-			goto err;
 
 		if (map_files_dir) {
 			char path[32];
@@ -177,8 +209,8 @@ int parse_maps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 	ret = nr;
 
 err:
-	if (maps)
-		fclose(maps);
+	if (smaps)
+		fclose(smaps);
 
 	if (map_files_dir)
 		closedir(map_files_dir);

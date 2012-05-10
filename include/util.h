@@ -281,4 +281,9 @@ int copy_file(int fd_in, int fd_out, size_t bytes);
 bool is_anon_inode(struct statfs *statfs);
 int is_anon_link_type(int lfd, char *type);
 
+#define is_hex_digit(c)				\
+	(((c) >= '0' && (c) <= '9')	||	\
+	 ((c) >= 'a' && (c) <= 'f')	||	\
+	 ((c) >= 'A' && (c) <= 'F'))
+
 #endif /* UTIL_H_ */

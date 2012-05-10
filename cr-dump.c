@@ -82,7 +82,7 @@ static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 	pr_info("Collecting mappings (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_maps(pid, vma_area_list, true);
+	ret = parse_smaps(pid, vma_area_list, true);
 	if (ret < 0)
 		goto err;
 
