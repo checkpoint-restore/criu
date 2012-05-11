@@ -92,6 +92,12 @@ run_test()
 
 	local pid ddump
 	pid=`cat $test.pid` || return 1
+
+	kill -s 0 "$pid" || {
+		echo "Get a wrong pid '$pid'"
+		return 1
+	}
+
 	ddump=dump/$tname/$pid
 	DUMP_PATH=`pwd`/$ddump
 
