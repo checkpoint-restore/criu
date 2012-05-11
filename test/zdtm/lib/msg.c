@@ -46,11 +46,11 @@ void dump_msg(const char *fname)
 	if (msg_buf.ptr != msg_buf.buffer) {
 		int fd;
 		if (proc_id == 0) {
-			fd = open(fname, O_WRONLY | O_CREAT | O_EXCL, 0644);
+			fd = open(fname, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0644);
 		} else {
 			char fname_child[1000];
 			snprintf(fname_child,1000,"%s.%d",fname,proc_id);
-			fd = open(fname_child, O_WRONLY | O_CREAT, 0644);
+			fd = open(fname_child, O_WRONLY | O_CREAT | O_APPEND, 0644);
 		}
 		if (fd < 0)
 			return;
