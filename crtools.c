@@ -27,6 +27,7 @@
 #include "eventfd.h"
 #include "eventpoll.h"
 #include "inotify.h"
+#include "mount.h"
 
 struct cr_options opts;
 
@@ -75,6 +76,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(REMAP_FPATH,	"remap-fpath",	 show_remap_files),
 	FD_ENTRY(GHOST_FILE,	"ghost-file-%x", show_ghost_file),
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x", show_tcp_stream),
+	FD_ENTRY(MOUNTPOINTS,	"mountpoints-%d", show_mountpoints),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)
@@ -183,6 +185,8 @@ static int parse_ns_string(const char *ptr)
 			opts.namespaces_flags |= CLONE_NEWUTS;
 		else if (!strncmp(ptr, "ipc", 3))
 			opts.namespaces_flags |= CLONE_NEWIPC;
+		else if (!strncmp(ptr, "mnt", 3))
+			opts.namespaces_flags |= CLONE_NEWNS;
 		else
 			goto bad_ns;
 		ptr += 4;

@@ -39,6 +39,7 @@
 #define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
 #define INOTIFY_MAGIC		0x48424431 /* Volgograd */
 #define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
+#define MOUNTPOINTS_MAGIC	0x55563928 /* Petushki */
 
 enum fd_types {
 	FDINFO_UND,

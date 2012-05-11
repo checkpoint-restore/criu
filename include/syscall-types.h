@@ -40,6 +40,10 @@ struct file_handle;
 #define F_GETFD 1
 #endif
 
+#ifndef CLONE_NEWNS
+#define CLONE_NEWNS	0x00020000
+#endif
+
 #ifndef CLONE_NEWPID
 #define CLONE_NEWPID	0x20000000
 #endif

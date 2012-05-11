@@ -53,3 +53,14 @@ int collect_mount_info(void)
 
 	return 0;
 }
+
+int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
+{
+	return -1;
+}
+
+void show_mountpoints(int fd, struct cr_options *o)
+{
+	pr_img_head(CR_FD_MOUNTPOINTS);
+	pr_img_tail(CR_FD_MOUNTPOINTS);
+}

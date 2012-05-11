@@ -5,6 +5,7 @@
 #include "syscall.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
+#include "mount.h"
 
 int switch_ns(int pid, int type, char *ns)
 {
@@ -46,6 +47,12 @@ static int do_dump_namespaces(int ns_pid, unsigned int ns_flags)
 	if (ns_flags & CLONE_NEWIPC) {
 		pr_info("Dump IPC namespace\n");
 		ret = dump_ipc_ns(ns_pid, fdset);
+		if (ret < 0)
+			goto err;
+	}
+	if (ns_flags & CLONE_NEWNS) {
+		pr_info("Dump MNT namespace (mountpoints)\n");
+		ret = dump_mnt_ns(ns_pid, fdset);
 		if (ret < 0)
 			goto err;
 	}
