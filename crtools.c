@@ -37,209 +37,44 @@ struct cr_options opts;
  * for more details.
  */
 
+#define FD_ENTRY(_name, _show)			\
+	[CR_FD_##_name] = {			\
+		.fmt	= FMT_FNAME_##_name,	\
+		.magic	= _name##_MAGIC,	\
+		.show	= _show,		\
+	}
+
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
-
-	 /* info about file descriptiors */
-	[CR_FD_FDINFO] = {
-		.fmt	= FMT_FNAME_FDINFO,
-		.magic	= FDINFO_MAGIC,
-		.show	= show_files,
-	},
-
-	/* private memory pages data */
-	[CR_FD_PAGES] = {
-		.fmt	= FMT_FNAME_PAGES,
-		.magic	= PAGES_MAGIC,
-		.show	= show_pages,
-	},
-
-	/* shared memory pages data */
-	[CR_FD_SHMEM_PAGES] = {
-		.fmt	= FMT_FNAME_SHMEM_PAGES,
-		.magic	= PAGES_MAGIC,
-		.show	= show_pages,
-	},
-
-	[CR_FD_REG_FILES] = {
-		.fmt	= FMT_FNAME_REG_FILES,
-		.magic	= REG_FILES_MAGIC,
-		.show	= show_reg_files,
-	},
-
-	/* eventfd */
-	[CR_FD_EVENTFD] = {
-		.fmt	= FMT_FNAME_EVENTFD,
-		.magic	= EVENTFD_MAGIC,
-		.show	= show_eventfds,
-	},
-
-	/* eventpoll */
-	[CR_FD_EVENTPOLL] = {
-		.fmt	= FMT_FNAME_EVENTPOLL,
-		.magic	= EVENTPOLL_MAGIC,
-		.show	= show_eventpoll,
-	},
-
-	/* eventpoll target file descriptors */
-	[CR_FD_EVENTPOLL_TFD] = {
-		.fmt	= FMT_FNAME_EVENTPOLL_TFD,
-		.magic	= EVENTPOLL_TFD_MAGIC,
-		.show	= show_eventpoll_tfd,
-	},
-
-	/* inotify descriptors */
-	[CR_FD_INOTIFY] = {
-		.fmt	= FMT_FNAME_INOTIFY,
-		.magic	= INOTIFY_MAGIC,
-		.show	= show_inotify,
-	},
-
-	/* inotify descriptors */
-	[CR_FD_INOTIFY_WD] = {
-		.fmt	= FMT_FNAME_INOTIFY_WD,
-		.magic	= INOTIFY_WMAGIC,
-		.show	= show_inotify_wd,
-	},
-
-	/* core data, such as regs and vmas and such */
-	[CR_FD_CORE] = {
-		.fmt	= FMT_FNAME_CORE,
-		.magic	= CORE_MAGIC,
-		.show	= show_core,
-	},
-
-	[CR_FD_MM] = {
-		.fmt	= FMT_FNAME_MM,
-		.magic	= MM_MAGIC,
-		.show	= show_mm,
-	},
-
-	[CR_FD_VMAS] = {
-		.fmt	= FMT_FNAME_VMAS,
-		.magic	= VMAS_MAGIC,
-		.show	= show_vmas,
-	},
-
-	/* info about pipes - fds, pipe id and pipe data */
-	[CR_FD_PIPES] = {
-		.fmt	= FMT_FNAME_PIPES,
-		.magic	= PIPES_MAGIC,
-		.show	= show_pipes,
-	},
-
-	/* info about pipes - fds, pipe id and pipe data */
-	[CR_FD_PIPES_DATA] = {
-		.fmt	= FMT_FNAME_PIPES_DATA,
-		.magic	= PIPES_DATA_MAGIC,
-		.show	= show_pipes_data,
-	},
-
-	 /* info about process linkage */
-	[CR_FD_PSTREE] = {
-		.fmt	= FMT_FNAME_PSTREE,
-		.magic	= PSTREE_MAGIC,
-		.show	= show_pstree,
-	},
-
-	/* info about signal handlers */
-	[CR_FD_SIGACT] = {
-		.fmt	= FMT_FNAME_SIGACTS,
-		.magic	= SIGACT_MAGIC,
-		.show	= show_sigacts,
-	},
-
-	/* info about unix sockets */
-	[CR_FD_UNIXSK] = {
-		.fmt	= FMT_FNAME_UNIXSK,
-		.magic	= UNIXSK_MAGIC,
-		.show	= show_unixsk,
-	},
-
-	/* info about inet sockets */
-	[CR_FD_INETSK] = {
-		.fmt	= FMT_FNAME_INETSK,
-		.magic	= INETSK_MAGIC,
-		.show	= show_inetsk,
-	},
-
-	[CR_FD_SK_QUEUES] = {
-		.fmt	= FMT_FNAME_SK_QUEUES,
-		.magic	= SK_QUEUES_MAGIC,
-		.show	= show_sk_queues,
-	},
-
-	/* interval timers (itimers) */
-	[CR_FD_ITIMERS] = {
-		.fmt	= FMT_FNAME_ITIMERS,
-		.magic	= ITIMERS_MAGIC,
-		.show	= show_itimers,
-	},
-
-	/* creds */
-	[CR_FD_CREDS] = {
-		.fmt	= FMT_FNAME_CREDS,
-		.magic	= CREDS_MAGIC,
-		.show	= show_creds,
-	},
-
-	/* UTS namespace */
-	[CR_FD_UTSNS] = {
-		.fmt	= FMT_FNAME_UTSNS,
-		.magic	= UTSNS_MAGIC,
-		.show	= show_utsns,
-	},
-
-	/* IPC namespace variables */
-	[CR_FD_IPCNS_VAR] = {
-		.fmt	= FMT_FNAME_IPCNS_VAR,
-		.magic	= IPCNS_VAR_MAGIC,
-		.show	= show_ipc_var,
-	},
-
-	/* IPC namespace shared memory */
-	[CR_FD_IPCNS_SHM] = {
-		.fmt	= FMT_FNAME_IPCNS_SHM,
-		.magic	= IPCNS_SHM_MAGIC,
-		.show	= show_ipc_shm,
-	},
-
-	/* IPC namespace message queues */
-	[CR_FD_IPCNS_MSG] = {
-		.fmt	= FMT_FNAME_IPCNS_MSG,
-		.magic	= IPCNS_MSG_MAGIC,
-		.show	= show_ipc_msg,
-	},
-
-	/* IPC namespace semaphores sets */
-	[CR_FD_IPCNS_SEM] = {
-		.fmt	= FMT_FNAME_IPCNS_SEM,
-		.magic	= IPCNS_SEM_MAGIC,
-		.show	= show_ipc_sem,
-	},
-
-	[CR_FD_FS] = {
-		.fmt	= FMT_FNAME_FS,
-		.magic	= FS_MAGIC,
-		.show	= show_fs,
-	},
-
-	[CR_FD_REMAP_FPATH] = {
-		.fmt	= FMT_FNAME_REMAP_FPATH,
-		.magic	= REMAP_FPATH_MAGIC,
-		.show	= show_remap_files,
-	},
-
-	[CR_FD_GHOST_FILE] = {
-		.fmt	= FMT_FNAME_GHOST_FILE,
-		.magic	= GHOST_FILE_MAGIC,
-		.show	= show_ghost_file,
-	},
-
-	[CR_FD_TCP_STREAM] = {
-		.fmt	= FMT_FNAME_TCP_STREAM,
-		.magic	= TCP_STREAM_MAGIC,
-		.show	= show_tcp_stream,
-	},
+	FD_ENTRY(FDINFO,	show_files),
+	FD_ENTRY(PAGES,		show_pages),
+	FD_ENTRY(SHMEM_PAGES,	show_pages),
+	FD_ENTRY(REG_FILES,	show_reg_files),
+	FD_ENTRY(EVENTFD,	show_eventfds),
+	FD_ENTRY(EVENTPOLL,	show_eventpoll),
+	FD_ENTRY(EVENTPOLL_TFD,	show_eventpoll_tfd),
+	FD_ENTRY(INOTIFY,	show_inotify),
+	FD_ENTRY(INOTIFY_WD,	show_inotify_wd),
+	FD_ENTRY(CORE,		show_core),
+	FD_ENTRY(MM,		show_mm),
+	FD_ENTRY(VMAS,		show_vmas),
+	FD_ENTRY(PIPES,		show_pipes),
+	FD_ENTRY(PIPES_DATA,	show_pipes_data),
+	FD_ENTRY(PSTREE,	show_pstree),
+	FD_ENTRY(SIGACT,	show_sigacts),
+	FD_ENTRY(UNIXSK,	show_unixsk),
+	FD_ENTRY(INETSK,	show_inetsk),
+	FD_ENTRY(SK_QUEUES,	show_sk_queues),
+	FD_ENTRY(ITIMERS,	show_itimers),
+	FD_ENTRY(CREDS,		show_creds),
+	FD_ENTRY(UTSNS,		show_utsns),
+	FD_ENTRY(IPCNS_VAR,	show_ipc_var),
+	FD_ENTRY(IPCNS_SHM,	show_ipc_shm),
+	FD_ENTRY(IPCNS_MSG,	show_ipc_msg),
+	FD_ENTRY(IPCNS_SEM,	show_ipc_sem),
+	FD_ENTRY(FS,		show_fs),
+	FD_ENTRY(REMAP_FPATH,	show_remap_files),
+	FD_ENTRY(GHOST_FILE,	show_ghost_file),
+	FD_ENTRY(TCP_STREAM,	show_tcp_stream),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

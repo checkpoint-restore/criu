@@ -12,6 +12,7 @@
 #define PSTREE_MAGIC		0x50273030 /* Kyiv */
 #define FDINFO_MAGIC		0x56213732 /* Dmitrov */
 #define PAGES_MAGIC		0x56084025 /* Vladimir */
+#define SHMEM_PAGES_MAGIC	PAGES_MAGIC
 #define CORE_MAGIC		0x55053847 /* Kolomna */
 #define VMAS_MAGIC		0x54123737 /* Tula */
 #define PIPES_MAGIC		0x56513555 /* Tver */
@@ -37,7 +38,7 @@
 #define EVENTPOLL_MAGIC		0x45023858 /* Krasnodar */
 #define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
 #define INOTIFY_MAGIC		0x48424431 /* Volgograd */
-#define INOTIFY_WMAGIC		0x54562009 /* Svetlogorsk (Rauschen) */
+#define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
 
 enum fd_types {
 	FDINFO_UND,

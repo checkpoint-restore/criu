@@ -126,7 +126,7 @@ extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 #define FMT_FNAME_PIPES		"pipes.img"
 #define FMT_FNAME_PIPES_DATA	"pipes-data.img"
 #define FMT_FNAME_PSTREE	"pstree.img"
-#define FMT_FNAME_SIGACTS	"sigacts-%d.img"
+#define FMT_FNAME_SIGACT	"sigacts-%d.img"
 #define FMT_FNAME_UNIXSK	"unixsk.img"
 #define FMT_FNAME_INETSK	"inetsk.img"
 #define FMT_FNAME_EVENTFD	"eventfd.img"
