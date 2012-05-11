@@ -89,6 +89,7 @@ struct proc_mountinfo {
 	int		mnt_id;
 	int		parent_mnt_id;
 	unsigned int	s_dev;
+	char		root[64];
 	char		mountpoint[64];
 };
 

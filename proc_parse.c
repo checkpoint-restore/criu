@@ -485,7 +485,6 @@ int parse_mountinfo(pid_t pid, struct proc_mountinfo *mi, int nr_elems)
 
 	while (fgets(str, sizeof(str), f)) {
 		unsigned int kmaj, kmin, parent_mnt_id;
-		char mnt_root[63];
 		int ret;
 
 		if ((i + 1) >= nr_elems) {
@@ -495,7 +494,7 @@ int parse_mountinfo(pid_t pid, struct proc_mountinfo *mi, int nr_elems)
 
 		ret = sscanf(str, "%i %i %u:%u %63s %63s",
 			     &mi[i].mnt_id, &parent_mnt_id,
-			     &kmaj, &kmin, mnt_root,
+			     &kmaj, &kmin, mi[i].root,
 			     mi[i].mountpoint);
 		if (ret != 6) {
 			pr_err("Bad format in %d mountinfo\n", pid);
