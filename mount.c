@@ -26,7 +26,7 @@ again:
 	for (i = last; i < nr_mntinfo; i++) {
 		if (s_dev == mntinfo[i].s_dev) {
 			last = i;
-			return open(mntinfo[i].mnt_root, O_RDONLY);
+			return open(mntinfo[i].mountpoint, O_RDONLY);
 		}
 	}
 
