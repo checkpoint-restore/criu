@@ -116,37 +116,6 @@ void show_eventfds(int fd, struct cr_options *o);
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
-#define FMT_FNAME_FDINFO	"fdinfo-%d.img"
-#define FMT_FNAME_PAGES		"pages-%d.img"
-#define FMT_FNAME_SHMEM_PAGES	"pages-shmem-%ld.img"
-#define FMT_FNAME_REG_FILES	"reg-files.img"
-#define FMT_FNAME_CORE		"core-%d.img"
-#define FMT_FNAME_MM		"mm-%d.img"
-#define FMT_FNAME_VMAS		"vmas-%d.img"
-#define FMT_FNAME_PIPES		"pipes.img"
-#define FMT_FNAME_PIPES_DATA	"pipes-data.img"
-#define FMT_FNAME_PSTREE	"pstree.img"
-#define FMT_FNAME_SIGACT	"sigacts-%d.img"
-#define FMT_FNAME_UNIXSK	"unixsk.img"
-#define FMT_FNAME_INETSK	"inetsk.img"
-#define FMT_FNAME_EVENTFD	"eventfd.img"
-#define FMT_FNAME_EVENTPOLL	"eventpoll.img"
-#define FMT_FNAME_EVENTPOLL_TFD	"eventpoll-tfd.img"
-#define FMT_FNAME_INOTIFY	"inotify.img"
-#define FMT_FNAME_INOTIFY_WD	"inotify-wd.img"
-#define FMT_FNAME_ITIMERS	"itimers-%d.img"
-#define FMT_FNAME_CREDS		"creds-%d.img"
-#define FMT_FNAME_UTSNS		"utsns-%d.img"
-#define FMT_FNAME_IPCNS_VAR	"ipcns-var-%d.img"
-#define FMT_FNAME_IPCNS_SHM	"ipcns-shm-%d.img"
-#define FMT_FNAME_IPCNS_MSG	"ipcns-msg-%d.img"
-#define FMT_FNAME_IPCNS_SEM	"ipcns-sem-%d.img"
-#define FMT_FNAME_SK_QUEUES	"sk-queues.img"
-#define FMT_FNAME_FS		"fs-%d.img"
-#define FMT_FNAME_REMAP_FPATH	"remap-fpath.img"
-#define FMT_FNAME_GHOST_FILE	"ghost-file-%x.img"
-#define FMT_FNAME_TCP_STREAM	"tcp-stream-%x.img"
-
 extern int open_image_dir(void);
 extern void close_image_dir(void);
 

@@ -37,44 +37,44 @@ struct cr_options opts;
  * for more details.
  */
 
-#define FD_ENTRY(_name, _show)			\
+#define FD_ENTRY(_name, _fmt, _show)		\
 	[CR_FD_##_name] = {			\
-		.fmt	= FMT_FNAME_##_name,	\
+		.fmt	= _fmt ".img",		\
 		.magic	= _name##_MAGIC,	\
 		.show	= _show,		\
 	}
 
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
-	FD_ENTRY(FDINFO,	show_files),
-	FD_ENTRY(PAGES,		show_pages),
-	FD_ENTRY(SHMEM_PAGES,	show_pages),
-	FD_ENTRY(REG_FILES,	show_reg_files),
-	FD_ENTRY(EVENTFD,	show_eventfds),
-	FD_ENTRY(EVENTPOLL,	show_eventpoll),
-	FD_ENTRY(EVENTPOLL_TFD,	show_eventpoll_tfd),
-	FD_ENTRY(INOTIFY,	show_inotify),
-	FD_ENTRY(INOTIFY_WD,	show_inotify_wd),
-	FD_ENTRY(CORE,		show_core),
-	FD_ENTRY(MM,		show_mm),
-	FD_ENTRY(VMAS,		show_vmas),
-	FD_ENTRY(PIPES,		show_pipes),
-	FD_ENTRY(PIPES_DATA,	show_pipes_data),
-	FD_ENTRY(PSTREE,	show_pstree),
-	FD_ENTRY(SIGACT,	show_sigacts),
-	FD_ENTRY(UNIXSK,	show_unixsk),
-	FD_ENTRY(INETSK,	show_inetsk),
-	FD_ENTRY(SK_QUEUES,	show_sk_queues),
-	FD_ENTRY(ITIMERS,	show_itimers),
-	FD_ENTRY(CREDS,		show_creds),
-	FD_ENTRY(UTSNS,		show_utsns),
-	FD_ENTRY(IPCNS_VAR,	show_ipc_var),
-	FD_ENTRY(IPCNS_SHM,	show_ipc_shm),
-	FD_ENTRY(IPCNS_MSG,	show_ipc_msg),
-	FD_ENTRY(IPCNS_SEM,	show_ipc_sem),
-	FD_ENTRY(FS,		show_fs),
-	FD_ENTRY(REMAP_FPATH,	show_remap_files),
-	FD_ENTRY(GHOST_FILE,	show_ghost_file),
-	FD_ENTRY(TCP_STREAM,	show_tcp_stream),
+	FD_ENTRY(FDINFO,	"fdinfo-%d",	 show_files),
+	FD_ENTRY(PAGES,		"pages-%d",	 show_pages),
+	FD_ENTRY(SHMEM_PAGES,	"pages-shmem-%ld", show_pages),
+	FD_ENTRY(REG_FILES,	"reg-files",	 show_reg_files),
+	FD_ENTRY(EVENTFD,	"eventfd",	 show_eventfds),
+	FD_ENTRY(EVENTPOLL,	"eventpoll",	 show_eventpoll),
+	FD_ENTRY(EVENTPOLL_TFD,	"eventpoll-tfd", show_eventpoll_tfd),
+	FD_ENTRY(INOTIFY,	"inotify",	 show_inotify),
+	FD_ENTRY(INOTIFY_WD,	"inotify-wd",	 show_inotify_wd),
+	FD_ENTRY(CORE,		"core-%d",	 show_core),
+	FD_ENTRY(MM,		"mm-%d",	 show_mm),
+	FD_ENTRY(VMAS,		"vmas-%d",	 show_vmas),
+	FD_ENTRY(PIPES,		"pipes",	 show_pipes),
+	FD_ENTRY(PIPES_DATA,	"pipes-data",	 show_pipes_data),
+	FD_ENTRY(PSTREE,	"pstree",	 show_pstree),
+	FD_ENTRY(SIGACT,	"sigacts-%d",	 show_sigacts),
+	FD_ENTRY(UNIXSK,	"unixsk",	 show_unixsk),
+	FD_ENTRY(INETSK,	"inetsk",	 show_inetsk),
+	FD_ENTRY(SK_QUEUES,	"sk-queues",	 show_sk_queues),
+	FD_ENTRY(ITIMERS,	"itimers-%d",	 show_itimers),
+	FD_ENTRY(CREDS,		"creds-%d",	 show_creds),
+	FD_ENTRY(UTSNS,		"utsns-%d",	 show_utsns),
+	FD_ENTRY(IPCNS_VAR,	"ipcns-var-%d",	 show_ipc_var),
+	FD_ENTRY(IPCNS_SHM,	"ipcns-shm-%d",	 show_ipc_shm),
+	FD_ENTRY(IPCNS_MSG,	"ipcns-msg-%d",	 show_ipc_msg),
+	FD_ENTRY(IPCNS_SEM,	"ipcns-sem-%d",	 show_ipc_sem),
+	FD_ENTRY(FS,		"fs-%d",	 show_fs),
+	FD_ENTRY(REMAP_FPATH,	"remap-fpath",	 show_remap_files),
+	FD_ENTRY(GHOST_FILE,	"ghost-file-%x", show_ghost_file),
+	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x", show_tcp_stream),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)
