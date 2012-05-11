@@ -337,7 +337,7 @@ struct cr_fdset *cr_glob_fdset_open(int mode)
 	return cr_fdset_open(-1 /* ignored */, _CR_FD_GLOB_FROM, _CR_FD_GLOB_TO, mode);
 }
 
-static int parse_ns_string(const char *ptr, unsigned int *flags)
+static int parse_ns_string(const char *ptr)
 {
 	const char *end = ptr + strlen(ptr);
 
@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
 			log_inited = 1;
 			break;
 		case 'n':
-			if (parse_ns_string(optarg, &opts.namespaces_flags))
+			if (parse_ns_string(optarg))
 				return -1;
 			break;
 		case 'v':
