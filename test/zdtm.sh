@@ -83,6 +83,7 @@ run_test()
 	local args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
+	DUMP_PATH=""
 
 	echo "Execute $test"
 
@@ -138,10 +139,12 @@ case_error()
 	echo "Test: $test"
 	echo "====================== ERROR ======================"
 
-	[ -e "$DUMP_PATH/dump.log" ] &&
-		echo "Dump log   : $DUMP_PATH/dump.log"
-	[ -e "$DUMP_PATH/restore.log" ] &&
-		echo "Restore log: $DUMP_PATH/restore.log"
+	if [ -n "$DUMP_PATH" ]; then
+		[ -e "$DUMP_PATH/dump.log" ] &&
+			echo "Dump log   : $DUMP_PATH/dump.log"
+		[ -e "$DUMP_PATH/restore.log" ] &&
+			echo "Restore log: $DUMP_PATH/restore.log"
+	fi
 	[ -e "$test_log" ] &&
 		echo "Output file: $test_log"
 	exit 1
