@@ -15,38 +15,22 @@
 #include "proc_parse.h"
 
 static struct proc_mountinfo *mntinfo;
-static int nr_mntinfo;
 
 int open_mount(unsigned int s_dev)
 {
-	static int last = 0;
-	int i;
+	struct proc_mountinfo *i;
 
-again:
-	for (i = last; i < nr_mntinfo; i++) {
-		if (s_dev == mntinfo[i].s_dev) {
-			last = i;
-			return open(mntinfo[i].mountpoint, O_RDONLY);
-		}
-	}
-
-	if (last) {
-		last = 0;
-		goto again;
-	}
+	for (i = mntinfo; i != NULL; i = i->next)
+		if (s_dev == i->s_dev)
+			return open(i->mountpoint, O_RDONLY);
 
 	return -ENOENT;
 }
 
 int collect_mount_info(void)
 {
-	nr_mntinfo = 64;
-	mntinfo = xmalloc(sizeof(*mntinfo) * nr_mntinfo);
-	if (!mntinfo)
-		return -1;
-
-	nr_mntinfo = parse_mountinfo(getpid(), mntinfo, nr_mntinfo);
-	if (nr_mntinfo < 1) {
+	mntinfo = parse_mountinfo(getpid());
+	if (!mntinfo) {
 		pr_err("Parsing mountinfo %d failed\n", getpid());
 		return -1;
 	}

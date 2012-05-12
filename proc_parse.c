@@ -470,44 +470,49 @@ err_parse:
 	return 0;
 }
 
-int parse_mountinfo(pid_t pid, struct proc_mountinfo *mi, int nr_elems)
+struct proc_mountinfo *parse_mountinfo(pid_t pid)
 {
-	FILE *f = NULL;
+	struct proc_mountinfo *list = NULL;
+	FILE *f;
 	char str[256];
-	int i = 0;
 
 	snprintf(str, sizeof(str), "/proc/%d/mountinfo", pid);
 	f = fopen(str, "r");
 	if (!f) {
 		pr_perror("Can't open %d mountinfo", pid);
-		return -1;
+		return NULL;
 	}
 
 	while (fgets(str, sizeof(str), f)) {
-		unsigned int kmaj, kmin, parent_mnt_id;
+		struct proc_mountinfo *new;
+		unsigned int kmaj, kmin;
 		int ret;
 
-		if ((i + 1) >= nr_elems) {
-			i = -ENOMEM;
-			goto out_close;
-		}
+		new = xmalloc(sizeof(*new));
+		if (!new)
+			goto err;
 
 		ret = sscanf(str, "%i %i %u:%u %63s %63s",
-			     &mi[i].mnt_id, &parent_mnt_id,
-			     &kmaj, &kmin, mi[i].root,
-			     mi[i].mountpoint);
+			     &new->mnt_id, &new->parent_mnt_id,
+			     &kmaj, &kmin, new->root, new->mountpoint);
 		if (ret != 6) {
 			pr_err("Bad format in %d mountinfo\n", pid);
-			i = -1;
-			goto out_close;
+			goto err;
 		}
 
-		mi[i].s_dev = MKKDEV(kmaj, kmin);
-		i++;
+		new->s_dev = MKKDEV(kmaj, kmin);
+		new->next = list;
+		list = new;
 	}
-
-out_close:
-	fclose(f);
 out:
-	return i;
+	fclose(f);
+	return list;
+
+err:
+	while (list) {
+		struct proc_mountinfo *next = list->next;
+		xfree(list);
+		list = next;
+	}
+	goto out;
 }
