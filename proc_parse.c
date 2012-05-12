@@ -470,6 +470,21 @@ err_parse:
 	return 0;
 }
 
+static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
+{
+	unsigned int kmaj, kmin;
+	int ret;
+
+	ret = sscanf(str, "%i %i %u:%u %63s %63s",
+			&new->mnt_id, &new->parent_mnt_id,
+			&kmaj, &kmin, new->root, new->mountpoint);
+	if (ret != 6)
+		return -1;
+
+	new->s_dev = MKKDEV(kmaj, kmin);
+	return 0;
+}
+
 struct proc_mountinfo *parse_mountinfo(pid_t pid)
 {
 	struct proc_mountinfo *list = NULL;
@@ -485,22 +500,18 @@ struct proc_mountinfo *parse_mountinfo(pid_t pid)
 
 	while (fgets(str, sizeof(str), f)) {
 		struct proc_mountinfo *new;
-		unsigned int kmaj, kmin;
 		int ret;
 
 		new = xmalloc(sizeof(*new));
 		if (!new)
 			goto err;
 
-		ret = sscanf(str, "%i %i %u:%u %63s %63s",
-			     &new->mnt_id, &new->parent_mnt_id,
-			     &kmaj, &kmin, new->root, new->mountpoint);
-		if (ret != 6) {
+		ret = parse_mountinfo_ent(str, new);
+		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
 			goto err;
 		}
 
-		new->s_dev = MKKDEV(kmaj, kmin);
 		new->next = list;
 		list = new;
 	}
