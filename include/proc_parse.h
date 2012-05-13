@@ -91,6 +91,12 @@ struct proc_mountinfo {
 	unsigned int	s_dev;
 	char		root[64];
 	char		mountpoint[64];
+	unsigned	flags;
+	int		master_id;
+	int		shared_id;
+	char		fstype[32];
+	char		source[64];
+	char		options[128];
 	struct proc_mountinfo *next;
 };
 

@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <linux/fs.h>
 
 #include "types.h"
 #include "list.h"
@@ -470,18 +471,148 @@ err_parse:
 	return 0;
 }
 
+struct opt2flag {
+	char *opt;
+	unsigned flag;
+};
+
+static int do_opt2flag(char *opt, unsigned *flags,
+		const struct opt2flag *opts, char *unknown)
+{
+	int i;
+	char *end;
+
+	while (1) {
+		end = strchr(opt, ',');
+		if (end)
+			*end = '\0';
+
+		for (i = 0; opts[i].opt != NULL; i++)
+			if (!strcmp(opts[i].opt, opt)) {
+				(*flags) |= opts[i].flag;
+				break;
+			}
+
+		if (opts[i].opt == NULL) {
+			if (!unknown) {
+				pr_err("Unknown option [%s]\n", opt);
+				return -1;
+			}
+
+			strcpy(unknown, opt);
+			unknown += strlen(opt);
+			*unknown = ',';
+			unknown++;
+		}
+
+		if (!end) {
+			if (unknown)
+				*unknown = '\0';
+			break;
+		} else
+			opt = end + 1;
+	}
+
+	return 0;
+}
+
+static int parse_mnt_flags(char *opt, unsigned *flags)
+{
+	const struct opt2flag mnt_opt2flag[] = {
+		{ "rw", 0, },
+		{ "ro", MS_RDONLY, },
+		{ "nosuid", MS_NOSUID, },
+		{ "nodev", MS_NODEV, } ,
+		{ "noexec", MS_NOEXEC, },
+		{ "noatime", MS_NOATIME, },
+		{ "nodiratime", MS_NODIRATIME, },
+		{ "relatime", MS_RELATIME, },
+		{ },
+	};
+
+	return do_opt2flag(opt, flags, mnt_opt2flag, NULL);
+}
+
+static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
+{
+	const struct opt2flag sb_opt2flag[] = {
+		{ "rw", 0, },
+		{ "ro", MS_RDONLY, },
+		{ "sync", MS_SYNC, },
+		{ "dirsync", MS_DIRSYNC, },
+		{ "mad", MS_MANDLOCK, },
+		{ },
+	};
+
+	return do_opt2flag(opt, flags, sb_opt2flag, uopt);
+}
+
+static int parse_mnt_opt(char *str, struct proc_mountinfo *mi, int *off)
+{
+	char *istr = str, *end;
+
+	while (1) {
+		end = strchr(str, ' ');
+		if (!end) {
+			pr_err("Error parsing mount options");
+			return -1;
+		}
+
+		*end = '\0';
+		if (!strncmp(str, "-", 1))
+			break;
+		else if (!strncmp(str, "shared:", 7)) {
+			mi->flags |= MS_SHARED;
+			mi->shared_id = atoi(str + 7);
+		} else if (!strncmp(str, "master:", 7)) {
+			mi->flags |= MS_SLAVE;
+			mi->master_id = atoi(str + 7);
+		} else if (!strncmp(str, "propagate_from:", 15)) {
+			/* skip */;
+		} else if (!strncmp(str, "unbindable", 11))
+			mi->flags |= MS_UNBINDABLE;
+		else {
+			pr_err("Unknown option [%s]\n", str);
+			return -1;
+		}
+
+		str = end + 1;
+	}
+
+	*off = end - istr + 1;
+	return 0;
+}
+
 static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
 {
 	unsigned int kmaj, kmin;
-	int ret;
+	int ret, n;
+	char opt[64];
 
-	ret = sscanf(str, "%i %i %u:%u %63s %63s",
+	ret = sscanf(str, "%i %i %u:%u %63s %63s %63s %n",
 			&new->mnt_id, &new->parent_mnt_id,
-			&kmaj, &kmin, new->root, new->mountpoint);
-	if (ret != 6)
+			&kmaj, &kmin, new->root, new->mountpoint,
+			opt, &n);
+	if (ret != 7)
 		return -1;
 
 	new->s_dev = MKKDEV(kmaj, kmin);
+	new->flags = 0;
+	if (parse_mnt_flags(opt, &new->flags))
+		return -1;
+
+	str += n;
+	if (parse_mnt_opt(str, new, &n))
+		return -1;
+
+	str += n;
+	ret = sscanf(str, "%31s %53s %63s", new->fstype, new->source, opt);
+	if (ret != 3)
+		return -1;
+
+	if (parse_sb_opt(opt, &new->flags, new->options))
+		return -1;
+
 	return 0;
 }
 
@@ -511,6 +642,11 @@ struct proc_mountinfo *parse_mountinfo(pid_t pid)
 			pr_err("Bad format in %d mountinfo\n", pid);
 			goto err;
 		}
+
+		pr_info("\ttype %s source %s %x %s @ %s flags %x options %s\n",
+				new->fstype, new->source,
+				new->s_dev, new->root, new->mountpoint,
+				new->flags, new->options);
 
 		new->next = list;
 		list = new;
