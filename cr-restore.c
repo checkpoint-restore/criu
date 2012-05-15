@@ -601,7 +601,7 @@ static int restore_task_with_children(void *_arg)
 
 	pid = getpid();
 	if (ca->pid != pid) {
-		pr_err("%d: Pid do not match expected %d\n", me->pid, ca->pid);
+		pr_err("Pid %d do not match expected %d\n", pid, ca->pid);
 		exit(-1);
 	}
 
