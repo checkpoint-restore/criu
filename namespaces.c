@@ -6,6 +6,7 @@
 #include "uts_ns.h"
 #include "ipc_ns.h"
 #include "mount.h"
+#include "namespaces.h"
 
 int switch_ns(int pid, int type, char *ns)
 {
