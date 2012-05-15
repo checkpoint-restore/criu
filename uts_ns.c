@@ -116,7 +116,7 @@ static void show_uts_string(int fd, char *n)
 			return;
 
 		str[len] = '\0';
-		pr_info("%s: [%s]\n", n, str);
+		pr_msg("%s: [%s]\n", n, str);
 	}
 }
 
