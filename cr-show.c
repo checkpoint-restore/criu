@@ -86,7 +86,7 @@ void show_files(int fd_files, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("type: %5s fd: %5d id: 0x%8x flags %#x",
+		pr_msg("type: %-5s fd: %-5d id: %#x flags %#x",
 		       fdtype2s(e.type), e.fd, e.id, e.flags);
 
 		pr_msg("\n");
