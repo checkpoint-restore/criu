@@ -450,7 +450,7 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id 0x%8x ino 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x uflags 0x%2x",
+		pr_msg("id %#x ino %#x type %s state %s namelen %4d backlog %4d peer %#x flags %#x uflags %#x",
 			ue.id, ue.ino, sktype2s(ue.type), skstate2s(ue.state),
 			ue.namelen, ue.backlog, ue.peer, ue.flags, ue.uflags);
 
