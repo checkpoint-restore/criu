@@ -19,17 +19,17 @@
 
 #define ADDR				BITOP_ADDR(addr)
 
-static void set_bit(int nr, volatile unsigned long *addr)
+static inline void set_bit(int nr, volatile unsigned long *addr)
 {
 	asm volatile("bts %1,%0" : ADDR : "Ir" (nr) : "memory");
 }
 
-static void change_bit(int nr, volatile unsigned long *addr)
+static inline void change_bit(int nr, volatile unsigned long *addr)
 {
 	asm volatile("btc %1,%0" : ADDR : "Ir" (nr));
 }
 
-static int test_bit(int nr, volatile const unsigned long *addr)
+static inline int test_bit(int nr, volatile const unsigned long *addr)
 {
 	int oldbit;
 
@@ -41,7 +41,7 @@ static int test_bit(int nr, volatile const unsigned long *addr)
 	return oldbit;
 }
 
-static void clear_bit(int nr, volatile unsigned long *addr)
+static inline void clear_bit(int nr, volatile unsigned long *addr)
 {
 	asm volatile("btr %1,%0" : ADDR : "Ir" (nr));
 }
