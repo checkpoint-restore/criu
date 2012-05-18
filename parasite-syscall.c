@@ -604,7 +604,6 @@ out:
 
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
-	parasite_status_t args = { };
 	int ret = 0;
 
 	if (ctl->parasite_ip) {

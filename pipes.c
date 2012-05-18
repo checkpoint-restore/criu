@@ -48,8 +48,6 @@ int collect_pipes(void)
 		return -1;
 
 	while (1) {
-		int len;
-
 		pi = xmalloc(sizeof(*pi));
 		ret = -1;
 		if (pi == NULL)
@@ -290,7 +288,6 @@ static int open_pipe(struct file_desc *d)
 
 	close(sock);
 
-out:
 	close(pfd[!(pi->pe.flags & O_WRONLY)]);
 	tmp = pfd[pi->pe.flags & O_WRONLY];
 

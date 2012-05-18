@@ -23,8 +23,6 @@ void show_saved_shmems(void)
 
 static int collect_shmem(int pid, struct vma_entry *vi)
 {
-	int i;
-	struct shmem_info *entries = rst_shmems->entries;
 	int nr_shmems = rst_shmems->nr_shmems;
 	unsigned long size = vi->pgoff + vi->end - vi->start;
 	struct shmem_info *si;
@@ -79,8 +77,6 @@ int prepare_shmem_pid(int pid)
 {
 	int fd, ret = -1;
 	struct vma_entry vi;
-	struct task_core_entry tc;
-	struct image_header hdr;
 
 	fd = open_image_ro(CR_FD_VMAS, pid);
 	if (fd < 0) {
@@ -108,14 +104,12 @@ int prepare_shmem_pid(int pid)
 			break;
 	}
 
-out:
 	close(fd);
 	return ret;
 }
 
 static int shmem_wait_and_open(int pid, struct shmem_info *si)
 {
-	unsigned long time = 1;
 	char path[128];
 	int ret;
 
@@ -164,7 +158,6 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 int get_shmem_fd(int pid, struct vma_entry *vi)
 {
 	struct shmem_info *si;
-	int sh_fd;
 	void *addr;
 	int f;
 
@@ -278,7 +271,6 @@ int add_shmem_area(pid_t pid, struct vma_entry *vma)
 int cr_dump_shmem(void)
 {
 	int err, fd;
-	struct cr_fdset *cr_fdset = NULL;
 	unsigned char *map = NULL;
 	void *addr = NULL;
 	struct shmem_info_dump *si;

@@ -268,7 +268,7 @@ static int prepare_sigactions(int pid)
 	rt_sigaction_t act, oact;
 	int fd_sigact;
 	struct sa_entry e;
-	int sig, i;
+	int sig;
 	int ret = -1;
 
 	fd_sigact = open_image_ro(CR_FD_SIGACT, pid);
@@ -521,8 +521,6 @@ err:
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	int status, pid;
-
 	if (siginfo->si_code & CLD_EXITED)
 		pr_err("%d exited, status=%d\n",
 			siginfo->si_pid, siginfo->si_status);
@@ -656,7 +654,7 @@ static int restore_task_with_children(void *_arg)
 
 static int restore_root_task(pid_t pid, struct cr_options *opts)
 {
-	int ret, i;
+	int ret;
 	struct sigaction act, old_act;
 	struct pstree_item *init;
 
@@ -956,8 +954,6 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	int fd_core = -1;
 	int fd_pages = -1;
 	int i;
-
-	int *fd_core_threads;
 
 	pr_info("Restore via sigreturn\n");
 

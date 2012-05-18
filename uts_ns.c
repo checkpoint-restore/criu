@@ -70,7 +70,6 @@ static int read_uts_str(int fd, char *n, int size)
 int prepare_utsns(int pid)
 {
 	int fd, ret;
-	u32 len;
 	char hostname[65];
 	char domainname[65];
 

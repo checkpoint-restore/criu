@@ -241,7 +241,6 @@ int collect_sockets(void)
 {
 	int err = 0, tmp;
 	int nl;
-	int supp_type = 0;
 	struct {
 		struct nlmsghdr hdr;
 		union {
@@ -327,7 +326,7 @@ int collect_sockets(void)
 	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_udplite_receive_one);
 	if (tmp)
 		err = tmp;
-out:
+
 	close(nl);
 	return err;
 }
@@ -395,8 +394,6 @@ static void sk_show_timeval(char *name, u64 *tmo)
 
 void show_socket_opts(struct sk_opts_entry *soe)
 {
-	struct sk_option *o;
-
 	pr_msg("\t");
 
 	pr_msg("sndbuf: %u  ", soe->so_sndbuf);

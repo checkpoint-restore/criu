@@ -141,7 +141,7 @@ static int dump_ipc_sem(int fd)
 {
 	int i, maxid;
 	struct seminfo info;
-	int err, slot;
+	int slot;
 
 	maxid = semctl(0, 0, SEM_INFO, &info);
 	if (maxid < 0) {
@@ -264,7 +264,7 @@ static int dump_ipc_msg(int fd)
 {
 	int i, maxid;
 	struct msginfo info;
-	int err, slot;
+	int slot;
 
 	maxid = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
 	if (maxid < 0) {
@@ -445,7 +445,7 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 
 int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 {
-	int fd, ret;
+	int ret;
 
 	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc");
 	if (ret < 0)
@@ -648,9 +648,8 @@ static int prepare_ipc_sem(int pid)
 		return -1;
 
 	while (1) {
-		int ret, id;
+		int ret;
 		struct ipc_sem_entry entry;
-		struct semid_ds ds;
 
 		ret = read_img_eof(fd, &entry);
 		if (ret < 0)
@@ -759,9 +758,8 @@ static int prepare_ipc_msg(int pid)
 		return -1;
 
 	while (1) {
-		int ret, id;
+		int ret;
 		struct ipc_msg_entry entry;
-		struct msqid_ds ds;
 
 		ret = read_img_eof(fd, &entry);
 		if (ret < 0) {
@@ -852,7 +850,7 @@ static int prepare_ipc_shm(int pid)
 		return -1;
 
 	while (1) {
-		int ret, id;
+		int ret;
 		struct ipc_shm_entry shm;
 
 		ret = read_img_eof(fd, &shm);

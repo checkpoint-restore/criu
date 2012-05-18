@@ -866,8 +866,6 @@ err:
 
 static int dump_task_core(struct core_entry *core, int fd_core)
 {
-	int ret;
-
 	pr_info("Dumping header ... ");
 
 	core->header.version	= HEADER_VERSION;
@@ -1378,7 +1376,6 @@ static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
 {
 	const struct pstree_item *item;
 	struct pstree_entry e;
-	unsigned long i;
 	int ret = -1;
 	int pstree_fd;
 
@@ -1653,7 +1650,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
 	LIST_HEAD(pstree_list);
 	struct pstree_item *item;
-	int i, ret = -1;
+	int ret = -1;
 
 	pr_info("========================================\n");
 	pr_info("Dumping process %s(pid: %d)\n", !opts->leader_only ? "group " : "", pid);

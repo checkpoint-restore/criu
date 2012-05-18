@@ -226,7 +226,7 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_entry *iwe)
 {
 	char path[32];
 	int mntfd, ret = -1;
-	int i, wd, target;
+	int wd, target;
 
 	mntfd = open_mount(iwe->s_dev);
 	if (mntfd < 0) {
@@ -277,7 +277,6 @@ static int open_inotify_fd(struct file_desc *d)
 {
 	struct inotify_file_info *info;
 	struct inotify_wd_info *wd_info;
-	struct file_desc *p;
 	int tmp;
 
 	info = container_of(d, struct inotify_file_info, d);
@@ -356,8 +355,6 @@ int collect_inotify(void)
 		goto err;
 
 	while (1) {
-		int idx;
-
 		mark = xmalloc(sizeof(*mark));
 		if (!mark)
 			goto err;

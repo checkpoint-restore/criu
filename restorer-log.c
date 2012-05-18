@@ -16,11 +16,6 @@ void restorer_set_logfd(int fd)
 			c += 'a' - 10;	\
 	} while (0)
 
-static void write_char(char c)
-{
-	sys_write(logfd, &c, 1);
-}
-
 void write_string(char *str)
 {
 	int len = 0;
@@ -43,7 +38,6 @@ void write_num(long num)
 {
 	unsigned long d = 1000000000000000000;
 	unsigned int started = 0;
-	unsigned int minus = 0;
 	unsigned int c;
 
 	if (num < 0) {
@@ -78,7 +72,6 @@ long vprint_num(char *buf, long num)
 {
 	unsigned long d = 1000000000000000000;
 	unsigned int started = 0;
-	unsigned int minus = 0;
 	unsigned int i = 0;
 	unsigned int c;
 

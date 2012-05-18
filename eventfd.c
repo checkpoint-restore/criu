@@ -114,7 +114,6 @@ int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 static int eventfd_open(struct file_desc *d)
 {
 	struct eventfd_file_info *info;
-	size_t size;
 	int tmp;
 
 	info = container_of(d, struct eventfd_file_info, d);

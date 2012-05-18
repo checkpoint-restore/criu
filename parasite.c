@@ -32,8 +32,6 @@
 
 static void *brk_start, *brk_end, *brk_tail;
 
-static struct page_entry page;
-static struct vma_entry vma;
 static int logfd = -1;
 static int tsock = -1;
 
@@ -77,6 +75,7 @@ static void brk_free(unsigned long bytes)
 		brk_tail -= bytes;
 }
 
+#if 0
 static const unsigned char hex[] = "0123456789abcdef";
 static char *long2hex(unsigned long v)
 {
@@ -92,6 +91,7 @@ static char *long2hex(unsigned long v)
 
 	return buf;
 }
+#endif
 
 static void sys_write_msg(const char *msg)
 {
@@ -331,9 +331,7 @@ static int dump_itimer(int which, int fd, parasite_status_t *st)
 
 static int dump_itimers(parasite_status_t *st)
 {
-	rt_sigaction_t act;
-	struct sa_entry e;
-	int fd, sig;
+	int fd;
 	int ret = -1;
 
 	fd = recv_fd(tsock);
@@ -364,8 +362,6 @@ static int reset_blocked = 0;
 
 static int dump_misc(struct parasite_dump_misc *args)
 {
-	parasite_status_t *st = &args->status;
-
 	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 	args->brk = sys_brk(0);
 	args->blocked = old_blocked;

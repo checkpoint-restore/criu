@@ -222,7 +222,7 @@ err:
 static int unix_collect_one(const struct unix_diag_msg *m,
 		struct rtattr **tb)
 {
-	struct unix_sk_desc *d, **h;
+	struct unix_sk_desc *d;
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
@@ -365,7 +365,6 @@ int unix_receive_one(struct nlmsghdr *h)
 int fix_external_unix_sockets(void)
 {
 	struct unix_sk_desc *sk;
-	int i, ret = -1;
 
 	pr_debug("Dumping external sockets\n");
 

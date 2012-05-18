@@ -96,7 +96,7 @@ err1:
 
 static void tcp_unlock_one(struct inet_sk_desc *sk)
 {
-	int ret, aux = 0;
+	int ret;
 
 	list_del(&sk->rlist);
 

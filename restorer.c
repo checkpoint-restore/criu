@@ -37,8 +37,6 @@ static struct task_entries *task_entries;
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	int status, pid;
-
 	write_num(siginfo->si_pid);
 	if (siginfo->si_code & CLD_EXITED)
 		write_string(" exited, status=");
@@ -294,7 +292,6 @@ static u64 restore_mapping(const struct vma_entry *vma_entry)
 long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
-	struct task_entry *task_entry;
 	struct core_entry *core_entry;
 	struct vma_entry *vma_entry;
 	u64 va;

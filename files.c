@@ -337,7 +337,6 @@ int collect_reg_files(void)
 
 static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info)
 {
-	int i;
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
 	struct file_desc *fdesc;
 
@@ -376,7 +375,6 @@ static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info
 int prepare_fd_pid(int pid, struct rst_info *rst_info)
 {
 	int fdinfo_fd, ret = 0;
-	u32 type = 0;
 
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
@@ -551,7 +549,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 {
 	int tmp;
-	int serv, sock;
+	int sock;
 	struct fdinfo_list_entry *fle;
 
 	fle = file_master(d);
@@ -602,7 +600,6 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	}
 
 	close(sock);
-out:
 	return 0;
 }
 
@@ -634,7 +631,6 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
 {
-	u32 mag;
 	int ret = 0;
 	struct file_desc *fdesc;
 
@@ -658,10 +654,9 @@ static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
 
 int prepare_fds(struct pstree_item *me)
 {
-	u32 type = 0, ret;
+	u32 ret;
 	int state;
 	struct fdinfo_list_entry *fle;
-	int nr = 0;
 
 	pr_info("Opening fdinfo-s\n");
 

@@ -182,9 +182,6 @@ void show_pipes_data(int fd_pipes, struct cr_options *o)
 	pr_img_head(CR_FD_PIPES_DATA);
 
 	while (1) {
-		int ret;
-		off_t off;
-
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
@@ -206,8 +203,6 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 	pr_img_head(CR_FD_PIPES);
 
 	while (1) {
-		int ret;
-
 		ret = read_img_eof(fd_pipes, &e);
 		if (ret <= 0)
 			goto out;
@@ -311,7 +306,7 @@ void show_pages(int fd_pages, struct cr_options *o)
 	} else {
 		while (1) {
 			struct page_entry e;
-			int i, j;
+			int i;
 
 			pr_msg("\t");
 			for (i = 0; i < DEF_PAGES_PER_LINE; i++) {
@@ -483,8 +478,6 @@ void show_pstree(int fd_pstree, struct cr_options *o)
 static void show_core_regs(int fd_core)
 {
 	struct user_regs_entry regs;
-	struct desc_struct tls;
-	int i;
 
 	pr_msg("\n\t---[GP registers set]---\n");
 
@@ -521,7 +514,6 @@ static inline char *task_state_str(int state)
 static void show_core_rest(int fd_core)
 {
 	struct task_core_entry tc;
-	int i;
 
 	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc), SEEK_SET);
 	if (read_img(fd_core, &tc) < 0)

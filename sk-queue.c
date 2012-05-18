@@ -33,8 +33,6 @@ int read_sk_queues(void)
 		return -1;
 
 	while (1) {
-		struct sk_packet_entry tmp;
-
 		pkt = xmalloc(sizeof(*pkt));
 		if (!pkt) {
 			pr_err("Failed to allocate packet header\n");
