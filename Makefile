@@ -16,7 +16,7 @@ ifeq ($(DEBUG),1)
 	DEFINES += -DCR_DEBUG
 endif
 
-WARNINGS	+= -Wall -Wno-unused
+WARNINGS	+= -Wall
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 
 PROGRAM		:= crtools
