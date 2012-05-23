@@ -266,6 +266,8 @@ static int open_pipe(struct file_desc *d)
 	}
 
 	ret = restore_pipe_data(pfd[1], pi);
+	if (ret)
+		return -1;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
