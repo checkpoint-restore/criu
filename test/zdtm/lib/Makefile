@@ -1,4 +1,4 @@
-CFLAGS	= -g -O2 -Wall -Werror
+CFLAGS	= -g -O2 -Wall -Werror -Wno-unused-result
 
 LIB	= libzdtmtst.a
 
