@@ -179,6 +179,7 @@ struct sk_opts_entry {
 
 struct unix_sk_entry {
 	u32	id;
+	u32	ino;
 	u8	type;
 	u8	state;
 	u8	namelen; /* fits UNIX_PATH_MAX */

@@ -12,6 +12,7 @@
 #include "crtools.h"
 #include "unix_diag.h"
 #include "files.h"
+#include "file-ids.h"
 #include "image.h"
 #include "log.h"
 #include "util.h"
@@ -73,8 +74,8 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
 {
-	pr_info("\t%s: id 0x%x peer 0x%x type %d state %d name %d bytes\n",
-		act, e->id, e->peer, e->type, e->state, e->namelen);
+	pr_info("\t%s: id 0x%x ino 0x%x peer 0x%x type %d state %d name %d bytes\n",
+		act, e->id, e->ino, e->peer, e->type, e->state, e->namelen);
 }
 
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
@@ -105,28 +106,22 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	return 1;
 }
 
-int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
-		int lfd, const struct cr_fdset *cr_fdset)
+static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct unix_sk_desc *sk = (struct unix_sk_desc *)_sk;
-	struct fdinfo_entry fe;
+	struct unix_sk_desc *sk;
 	struct unix_sk_entry ue;
+
+	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino);
+	if (!sk)
+		goto err;
 
 	if (!can_dump_unix_sk(sk))
 		goto err;
 
-	fe.fd = p->fd;
-	fe.type = FDINFO_UNIXSK;
-	fe.id = sk->sd.ino;
-	fe.flags = p->fd_flags;
+	BUG_ON(sk->sd.already_dumped);
 
-	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
-		goto err;
-
-	if (sk->sd.already_dumped)
-		return 0;
-
-	ue.id		= sk->sd.ino;
+	ue.id		= id;
+	ue.ino		= sk->sd.ino;
 	ue.type		= sk->type;
 	ue.state	= sk->state;
 	ue.namelen	= sk->namelen;
@@ -142,7 +137,7 @@ int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 		peer = (struct unix_sk_desc *)lookup_socket(ue.peer);
 		if (!peer) {
 			pr_err("Unix socket %#x without peer %#x\n",
-					ue.id, ue.peer);
+					ue.ino, ue.peer);
 			goto err;
 		}
 
@@ -150,10 +145,10 @@ int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 		 * Peer should have us as peer or have a name by which
 		 * we can access one.
 		 */
-		if (peer->peer_ino != ue.id) {
+		if (peer->peer_ino != ue.ino) {
 			if (!peer->name) {
 				pr_err("Unix socket %#x with unreachable peer %#x (%#x/%s)\n",
-				       ue.id, ue.peer, peer->peer_ino, peer->name);
+				       ue.ino, ue.peer, peer->peer_ino, peer->name);
 				goto err;
 			}
 
@@ -176,23 +171,23 @@ int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 		 * not now, just to reduce size of dump files.
 		 */
 
-		e = lookup_unix_listen_icons(ue.id);
+		e = lookup_unix_listen_icons(ue.ino);
 		if (!e) {
-			pr_err("Dangling in-flight connection %d\n", ue.id);
+			pr_err("Dangling in-flight connection %d\n", ue.ino);
 			goto err;
 		}
 
 		/* e->sk_desc is _never_ NULL */
 		if (e->sk_desc->state != TCP_LISTEN) {
 			pr_err("In-flight connection on "
-				"non-listening socket %d\n", ue.id);
+				"non-listening socket %d\n", ue.ino);
 			goto err;
 		}
 
 		ue.peer = e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %#x peer %#x)\n",
-				ue.id, ue.peer);
+				ue.ino, ue.peer);
 	}
 
 	if (dump_socket_opts(lfd, &ue.opts))
@@ -218,6 +213,17 @@ int dump_one_unix(const struct socket_desc *_sk, struct fd_parms *p,
 
 err:
 	return -1;
+}
+
+static const struct fdtype_ops unix_dump_ops = {
+	.type		= FDINFO_UNIXSK,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_unix_fd,
+};
+
+int dump_one_unix(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &unix_dump_ops, set);
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
@@ -384,7 +390,8 @@ int fix_external_unix_sockets(void)
 			goto err;
 		}
 
-		e.id		= sk->sd.ino;
+		e.id		= fd_id_generate_special();
+		e.ino		= sk->sd.ino;
 		e.type		= SOCK_DGRAM;
 		e.state		= TCP_LISTEN;
 		e.namelen	= sk->namelen;
@@ -419,13 +426,15 @@ struct unix_sk_info {
 #define USK_PAIR_MASTER		0x1
 #define USK_PAIR_SLAVE		0x2
 
-static struct unix_sk_info *find_unix_sk(int id)
+static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
-	struct file_desc *d;
+	struct unix_sk_info *ui;
 
-	d = find_file_desc_raw(FDINFO_UNIXSK, id);
-	if (d)
-		return container_of(d, struct unix_sk_info, d);
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (ui->ue.ino == ino)
+			return ui;
+	}
+
 	return NULL;
 }
 
@@ -441,8 +450,8 @@ void show_unixsk(int fd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("id 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x uflags 0x%2x",
-			ue.id, sktype2s(ue.type), skstate2s(ue.state),
+		pr_msg("id 0x%8x ino 0x%8x type %s state %s namelen %4d backlog %4d peer 0x%8x flags 0x%2x uflags 0x%2x",
+			ue.id, ue.ino, sktype2s(ue.type), skstate2s(ue.state),
 			ue.namelen, ue.backlog, ue.peer, ue.flags, ue.uflags);
 
 		if (ue.namelen) {
@@ -501,7 +510,7 @@ int run_unix_connections(void)
 		struct fdinfo_list_entry *fle;
 		struct sockaddr_un addr;
 
-		pr_info("\tConnect %#x to %#x\n", ui->ue.id, peer->ue.id);
+		pr_info("\tConnect %#x to %#x\n", ui->ue.ino, peer->ue.ino);
 
 		fle = file_master(&ui->d);
 
@@ -518,7 +527,7 @@ try_again:
 				goto try_again; /* FIXME use futex waiters */
 			}
 
-			pr_perror("Can't connect %#x socket", ui->ue.id);
+			pr_perror("Can't connect %#x socket", ui->ue.ino);
 			return -1;
 		}
 
@@ -579,8 +588,8 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	struct unix_sk_info *peer = ui->peer;
 	struct fdinfo_list_entry *fle;
 
-	pr_info("Opening pair master (id %#x peer %#x)\n",
-			ui->ue.id, ui->ue.peer);
+	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
+			ui->ue.id, ui->ue.ino, ui->ue.peer);
 
 	if (socketpair(PF_UNIX, ui->ue.type, 0, sk) < 0) {
 		pr_perror("Can't make socketpair");
@@ -623,8 +632,8 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 
 	fle = file_master(&ui->d);
 
-	pr_info("Opening pair slave (id %#x peer %#x) on %d\n",
-			ui->ue.id, ui->ue.peer, fle->fe.fd);
+	pr_info("Opening pair slave (id %#x ino %#x peer %#x) on %d\n",
+			ui->ue.id, ui->ue.ino, ui->ue.peer, fle->fe.fd);
 
 	sk = recv_fd(fle->fe.fd);
 	if (sk < 0) {
@@ -649,8 +658,8 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 {
 	int sk;
 
-	pr_info("Opening standalone socket (id %#x peer %#x)\n",
-			ui->ue.id, ui->ue.peer);
+	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
+			ui->ue.id, ui->ue.ino, ui->ue.peer);
 
 	sk = socket(PF_UNIX, ui->ue.type, 0);
 	if (sk < 0) {
@@ -662,7 +671,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		return -1;
 
 	if (ui->ue.state == TCP_LISTEN) {
-		pr_info("\tPutting %#x into listen state\n", ui->ue.id);
+		pr_info("\tPutting %#x into listen state\n", ui->ue.ino);
 		if (listen(sk, ui->ue.backlog) < 0) {
 			pr_perror("Can't make usk listen");
 			return -1;
@@ -675,7 +684,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 
 	} else if (ui->peer) {
-		pr_info("\tWill connect %#x to %#x later\n", ui->ue.id, ui->ue.peer);
+		pr_info("\tWill connect %#x to %#x later\n", ui->ue.ino, ui->ue.peer);
 		if (schedule_conn_job(ui))
 			return -1;
 	}
@@ -758,7 +767,7 @@ int collect_unix_sockets(void)
 
 		ui->peer = NULL;
 		ui->flags = 0;
-		pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue.id, ui->ue.peer);
+		pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue.ino, ui->ue.peer);
 		file_desc_add(&ui->d, ui->ue.id, &unix_desc_ops);
 		list_add_tail(&ui->list, &unix_sockets);
 	}
@@ -779,7 +788,7 @@ int resolve_unix_peers(void)
 		if (!ui->ue.peer)
 			continue;
 
-		peer = find_unix_sk(ui->ue.peer);
+		peer = find_unix_sk_by_ino(ui->ue.peer);
 
 		/*
 		 * Connect to external sockets requires
@@ -792,7 +801,7 @@ int resolve_unix_peers(void)
 
 		if (!peer) {
 			pr_err("FATAL: Peer %#x unresolved for %#x\n",
-					ui->ue.peer, ui->ue.id);
+					ui->ue.peer, ui->ue.ino);
 			return -1;
 		}
 
@@ -800,7 +809,7 @@ int resolve_unix_peers(void)
 		if (ui == peer)
 			/* socket connected to self %) */
 			continue;
-		if (peer->ue.peer != ui->ue.id)
+		if (peer->ue.peer != ui->ue.ino)
 			continue;
 
 		/* socketpair or interconnected sockets */
@@ -830,8 +839,8 @@ int resolve_unix_peers(void)
 	list_for_each_entry(ui, &unix_sockets, list) {
 		struct fdinfo_list_entry *fle;
 
-		pr_info("\t%#x -> %#x (%#x) flags %#x\n", ui->ue.id, ui->ue.peer,
-				ui->peer ? ui->peer->ue.id : 0, ui->flags);
+		pr_info("\t%#x -> %#x (%#x) flags %#x\n", ui->ue.ino, ui->ue.peer,
+				ui->peer ? ui->peer->ue.ino : 0, ui->flags);
 		list_for_each_entry(fle, &ui->d.fd_info_head, desc_list)
 			pr_info("\t\tfd %d in pid %d\n",
 					fle->fe.fd, fle->pid);

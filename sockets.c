@@ -119,7 +119,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 
 	switch (sk->family) {
 	case AF_UNIX:
-		return dump_one_unix(sk, p, lfd, cr_fdset);
+		return dump_one_unix(p, lfd, cr_fdset);
 	case AF_INET:
 	case AF_INET6:
 		return dump_one_inet(sk, p, lfd, cr_fdset);
