@@ -437,16 +437,17 @@ static int dump_unsupp_fd(const struct fd_parms *p)
 
 static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 {
-	int maj;
+	int maj = major(p->stat.st_rdev);
 
-	maj = major(p->stat.st_rdev);
-	if (maj == MEM_MAJOR)
+	switch (maj) {
+	case MEM_MAJOR:
 		return dump_reg_file(p, lfd, set);
-
-	if (p->fd < 3 && (maj == TTY_MAJOR ||
-				maj == UNIX98_PTY_SLAVE_MAJOR)) {
-		pr_info("... Skipping tty ... %d\n", p->fd);
-		return 0;
+	case TTY_MAJOR:
+	case UNIX98_PTY_SLAVE_MAJOR:
+		if (p->fd < 3) {
+			pr_info("... Skipping tty ... %d\n", p->fd);
+			return 0;
+		}
 	}
 
 	return dump_unsupp_fd(p);
