@@ -195,6 +195,7 @@ struct unix_sk_entry {
 
 struct inet_sk_entry {
 	u32	id;
+	u32	ino;
 	u8	family;
 	u8	type;
 	u8	proto;

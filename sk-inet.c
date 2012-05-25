@@ -92,30 +92,24 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 #define tcp_connection(sk)	(((sk)->proto == IPPROTO_TCP) &&	\
 				 ((sk)->state == TCP_ESTABLISHED))
 
-int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
-		int lfd, const struct cr_fdset *cr_fdset)
+static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct inet_sk_desc *sk = (struct inet_sk_desc *)_sk;
+	struct inet_sk_desc *sk;
 	struct inet_sk_entry ie;
-	struct fdinfo_entry fe;
+
+	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino);
+	if (!sk)
+		goto err;
 
 	if (!can_dump_inet_sk(sk))
 		goto err;
 
-	fe.fd = p->fd;
-	fe.type = FDINFO_INETSK;
-	fe.id = sk->sd.ino;
-	fe.flags = p->fd_flags;
-
-	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &fe))
-		goto err;
-
-	if (sk->sd.already_dumped)
-		return 0;
+	BUG_ON(sk->sd.already_dumped);
 
 	memset(&ie, 0, sizeof(ie));
 
-	ie.id		= sk->sd.ino;
+	ie.id		= id;
+	ie.ino		= sk->sd.ino;
 	ie.family	= sk->sd.family;
 	ie.type		= sk->type;
 	ie.proto	= sk->proto;
@@ -146,6 +140,17 @@ int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
 
 err:
 	return -1;
+}
+
+static const struct fdtype_ops inet_dump_ops = {
+	.type		= FDINFO_INETSK,
+	.make_gen_id	= make_gen_id,
+	.dump		= dump_one_inet_fd,
+};
+
+int dump_one_inet(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &inet_dump_ops, set);
 }
 
 int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
@@ -381,8 +386,8 @@ void show_inetsk(int fd, struct cr_options *o)
 			}
 		}
 
-		pr_msg("id %#x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
-			ie.id, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
+		pr_msg("id %#x ino %#x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
+			ie.id, ie.ino, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
 			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
 		pr_msg("\t"), show_fown_cont(&ie.fown), pr_msg("\n");
 

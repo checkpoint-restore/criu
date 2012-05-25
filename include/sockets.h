@@ -47,8 +47,7 @@ extern char *skstate2s(u32 state);
 
 extern struct socket_desc *lookup_socket(int ino);
 
-extern int dump_one_inet(struct socket_desc *_sk, struct fd_parms *p,
-			 int lfd, const struct cr_fdset *cr_fdset);
+extern int dump_one_inet(struct fd_parms *p, int lfd, const struct cr_fdset *set);
 extern int dump_one_unix(struct fd_parms *p, int lfd, const struct cr_fdset *set);
 
 extern int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto);

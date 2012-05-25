@@ -436,7 +436,7 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	int ifd;
 	struct tcp_stream_entry tse;
 
-	pr_info("Restoring TCP connection %x\n", ii->ie.id);
+	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie.id, ii->ie.ino);
 
 	ifd = open_image_ro(CR_FD_TCP_STREAM, ii->ie.id);
 	if (ifd < 0)

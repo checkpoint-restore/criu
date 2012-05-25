@@ -122,7 +122,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 		return dump_one_unix(p, lfd, cr_fdset);
 	case AF_INET:
 	case AF_INET6:
-		return dump_one_inet(sk, p, lfd, cr_fdset);
+		return dump_one_inet(p, lfd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;
