@@ -61,6 +61,8 @@ DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 include Makefile.syscall
 include Makefile.pie
 
+.PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope docs help
+
 all: $(PROGRAM)
 
 %.o: %.c
@@ -86,22 +88,18 @@ $(PROGRAM): $(OBJS)
 
 test-legacy: $(PROGRAM)
 	$(Q) $(MAKE) -C test/legacy all
-.PHONY: test-legacy
 
 zdtm: $(PROGRAM)
 	$(Q) $(MAKE) -C test/zdtm all
-.PHONY: zdtm
 
 test: zdtm
 	$(Q) $(SH) test/zdtm.sh
-.PHONY: test
 
 rebuild:
 	$(E) "  FORCE-REBUILD"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
 	$(Q) $(MAKE)
-.PHONY: rebuild
 
 clean: cleanpie cleansyscall
 	$(E) "  CLEAN"
@@ -118,29 +116,24 @@ clean: cleanpie cleansyscall
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout
 	$(Q) $(MAKE) -C Documentation clean
-.PHONY: clean
 
 distclean: clean
 	$(E) "  DISTCLEAN"
 	$(Q) $(RM) -f ./tags
 	$(Q) $(RM) -f ./cscope*
-.PHONY: distclean
 
 tags:
 	$(E) "  GEN" $@
 	$(Q) $(RM) -f tags
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' -print | xargs ctags -a
-.PHONY: tags
 
 cscope:
 	$(E) "  GEN" $@
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' -print > cscope.files
 	$(Q) $(CSCOPE) -bkqu
-.PHONY: cscope
 
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
-.PHONY: docs
 
 help:
 	$(E) '    Targets:'
@@ -153,7 +146,6 @@ help:
 	$(E) '      cscope          - Generate cscope database'
 	$(E) '      rebuild         - Force-rebuild of [*] targets'
 	$(E) '      test            - Run zdtm test-suite'
-.PHONY: help
 
 deps-targets := %.o %.s %.i $(PROGRAM) zdtm test-legacy
 
