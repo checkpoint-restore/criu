@@ -354,7 +354,7 @@ static int dump_reg_file(struct fd_parms *p, int lfd,
 
 static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 {
-	struct fd_parms params;
+	struct fd_parms params = { };
 	int fd, ret;
 
 	fd = open_proc(pid, "exe");
@@ -366,9 +366,7 @@ static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
 		return -1;
 	}
 
-	params.flags = 0;
-	params.pos = 0;
-	params.fown = (fown_t){ };
+	params.fd = FD_DESC_INVALID;
 	mm->exe_file_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
@@ -593,15 +591,14 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 		const struct cr_fdset *fdset)
 {
-	struct fd_parms p;
+	struct fd_parms p = { };
 
 	if (fstat(file_fd, &p.stat) < 0) {
 		pr_perror("Can't stat file for vma");
 		return -1;
 	}
 
-	p.pos = 0;
-	p.fown = (fown_t){ };
+	p.fd = FD_DESC_INVALID;
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
 	else

@@ -7,6 +7,7 @@
 
 #define FD_ID_INVALID		(-1U)
 #define FD_PID_INVALID		(-2U)
+#define FD_DESC_INVALID		(-3U)
 
 #define MAKE_FD_GENID(dev, ino, pos) \
 	(((u32)(dev) ^ (u32)(ino) ^ (u32)(pos)))
