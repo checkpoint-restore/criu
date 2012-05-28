@@ -77,6 +77,7 @@ int main(int argc, char ** argv)
 
 	memset(&saio, 0, sizeof(saio));
 	saio.sa_handler = (sig_t)signal_handler_io;
+	saio.sa_flags = SA_RESTART;
 	sigaction(SIGIO, &saio, 0);
 
 	if (setresuid(-1, 1, -1)) {
