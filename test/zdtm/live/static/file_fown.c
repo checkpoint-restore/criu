@@ -101,14 +101,6 @@ int main(int argc, char ** argv)
 	fcntl(ssk_pair[0], F_SETFL, fcntl(ssk_pair[0], F_GETFL) | O_NONBLOCK | O_ASYNC);
 	test_msg("main owner ssk_pair[0]: %d\n", fcntl(ssk_pair[0], F_GETOWN));
 
-	write(ssk_pair[0], SK_DATA, sizeof(SK_DATA));
-	read(ssk_pair[1], &buf, sizeof(buf));
-	if (strcmp(buf, SK_DATA)) {
-		fail("data corrupted\n");
-		exit(1);
-	}
-	test_msg("stream            : '%s'\n", buf);
-
 	if (setresuid(-1, euid, -1)) {
 		fail("setresuid failed");
 		exit(1);
@@ -126,10 +118,6 @@ int main(int argc, char ** argv)
 
 	if (pid == 0) {
 		int v = 1;
-
-		write(pipes[1], &v, sizeof(v));
-		read(pipes[0], &v, sizeof(v));
-
 		MAP_SYNC(map) = 1;
 
 		while (MAP_SYNC(map) != 3)
