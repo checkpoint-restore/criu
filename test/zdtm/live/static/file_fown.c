@@ -116,14 +116,13 @@ int main(int argc, char ** argv)
 
 	ppid = getpid();
 
-	pid = test_fork();
+	MAP_SYNC(map) = 0;
 
+	pid = test_fork();
 	if (pid < 0) {
 		err("can't fork %m");
 		exit(1);
 	}
-
-	MAP_SYNC(map) = 0;
 
 	if (pid == 0) {
 		int v = 1;
