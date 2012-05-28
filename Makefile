@@ -147,7 +147,7 @@ help:
 	$(E) '      rebuild         - Force-rebuild of [*] targets'
 	$(E) '      test            - Run zdtm test-suite'
 
-deps-targets := %.o %.s %.i $(PROGRAM) zdtm test-legacy
+deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM) zdtm test-legacy
 
 .DEFAULT_GOAL	:= $(PROGRAM)
 
