@@ -20,7 +20,7 @@ const char *test_author="Stanislav Kinsbursky <skinsbursky@openvz.org>";
 
 struct msg1 {
 	long mtype;
-	char mtext[20];
+	char mtext[30];
 };
 #define TEST_STRING "Test sysv5 msg"
 #define MSG_TYPE 1
