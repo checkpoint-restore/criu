@@ -1,13 +1,8 @@
 #include <sys/mman.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
-#include "compiler.h"
-#include "types.h"
 #include "syscall.h"
 #include "parasite.h"
 #include "util.h"
-#include "util-net.h"
 
 /*
  * Some notes on parasite code overall. There are a few
