@@ -1,28 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <limits.h>
 #include <unistd.h>
-#include <errno.h>
-#include <string.h>
 
-#include <sys/ptrace.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/wait.h>
-#include <sys/socket.h>
 
-#include "crtools.h"
-#include "compiler.h"
 #include "syscall.h"
-#include "types.h"
 #include "ptrace.h"
-#include "util.h"
-#include "util-net.h"
-#include "log.h"
-#include "sockets.h"
 #include "processor-flags.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
