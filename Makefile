@@ -77,14 +77,15 @@ all: $(PROGRAM)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -S $(CFLAGS) -fverbose-asm $< -o $@
 
+%.d: %.c
+	$(E) "  DEP     " $@
+	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
+
 $(DEPS) $(OBJS): $(SYS-OBJ) $(PIE-GEN)
 
 $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) $(SYS-OBJ) -o $@
-
-%.d: %.c
-	$(Q) $(CC) -M -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 test-legacy: $(PROGRAM)
 	$(Q) $(MAKE) -C test/legacy all
