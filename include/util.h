@@ -4,8 +4,6 @@
 /*
  * Some bits are stolen from perf and kvm tools
  */
-#include <string.h>
-#include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>

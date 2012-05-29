@@ -2,6 +2,7 @@
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "crtools.h"
 #include "util.h"

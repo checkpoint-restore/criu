@@ -8,11 +8,8 @@
 
 #ifndef __ASSEMBLY__
 
-#include <sys/types.h>
 #include <sys/un.h>
-#include <limits.h>
 
-#include "compiler.h"
 #include "image.h"
 #include "sockets.h"
 

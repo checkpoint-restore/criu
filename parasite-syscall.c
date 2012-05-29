@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 
 #include "syscall.h"
 #include "ptrace.h"
@@ -9,6 +10,10 @@
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 #include "parasite.h"
+#include "crtools.h"
+
+#include <string.h>
+#include <stdlib.h>
 
 #ifdef CONFIG_X86_64
 static const char code_syscall[] = {0x0f, 0x05, 0xcc, 0xcc,

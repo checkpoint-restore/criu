@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <wait.h>
+#include <stdlib.h>
 
 #include "types.h"
 #include "util.h"

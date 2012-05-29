@@ -4,6 +4,8 @@
 #include "parasite.h"
 #include "util.h"
 
+#include <string.h>
+
 /*
  * Some notes on parasite code overall. There are a few
  * calling convention specfics the caller must follow

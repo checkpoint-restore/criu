@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/un.h>
+#include <stdlib.h>
 
 #include "types.h"
 #include "libnetlink.h"

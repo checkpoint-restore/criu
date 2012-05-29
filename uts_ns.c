@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/utsname.h>
+#include <string.h>
 
 #include "util.h"
 #include "crtools.h"

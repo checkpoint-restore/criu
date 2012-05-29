@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
+#include <stdlib.h>
 
 #include "shmem.h"
 #include "image.h"

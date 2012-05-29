@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <stdlib.h>
 
 #include "crtools.h"
 

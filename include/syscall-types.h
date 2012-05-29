@@ -8,13 +8,10 @@
 #ifndef SYSCALL_TYPES_H__
 #define SYSCALL_TYPES_H__
 
-#include <sys/types.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
 
 #include "types.h"
-#include "compiler.h"
 
 #ifndef CONFIG_X86_64
 # error x86-32 bit mode not yet implemented

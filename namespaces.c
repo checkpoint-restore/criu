@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 #include "util.h"
 #include "syscall.h"
 #include "uts_ns.h"

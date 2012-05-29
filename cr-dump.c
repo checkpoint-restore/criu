@@ -15,6 +15,7 @@
 #include <sys/vfs.h>
 
 #include <sys/sendfile.h>
+#include <sys/mman.h>
 
 #include <linux/major.h>
 

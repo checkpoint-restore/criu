@@ -16,6 +16,8 @@
 
 #include "proc_parse.h"
 
+#include <stdlib.h>
+
 struct buffer {
 	char buf[PAGE_SIZE];
 	char end; /* '\0' */

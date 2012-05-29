@@ -1,25 +1,10 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
-#include <linux/types.h>
-#include <linux/net.h>
-#include <sys/types.h>
-#include <sys/vfs.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <netinet/tcp.h>
-#include <errno.h>
-#include <unistd.h>
-#include <limits.h>
-#include <sys/sendfile.h>
 
-#include "types.h"
 #include "libnetlink.h"
 #include "sockets.h"
-#include "sk-queue.h"
 #include "unix_diag.h"
-#include "image.h"
-#include "crtools.h"
-#include "util.h"
 #include "inet_diag.h"
 #include "files.h"
 #include "util-net.h"

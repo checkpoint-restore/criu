@@ -1,14 +1,6 @@
 #ifndef PARASITE_SYSCALL_H_
 #define PARASITE_SYSCALL_H_
 
-#include <sys/types.h>
-#include <sys/mman.h>
-
-#include "compiler.h"
-#include "types.h"
-#include "list.h"
-#include "crtools.h"
-
 #define BUILTIN_SYSCALL_SIZE	8
 
 /* parasite control block */
@@ -28,6 +20,9 @@ struct parasite_ctl {
 	void *			addr_cmd;				/* addr for command */
 	void *			addr_args;				/* address for arguments */
 };
+
+struct cr_fdset;
+struct list_head;
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
