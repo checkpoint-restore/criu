@@ -1,4 +1,4 @@
--include Makefile.inc
+include Makefile.inc
 
 CFLAGS		+= -I./include
 CFLAGS		+= -O0 -ggdb3
