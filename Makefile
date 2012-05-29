@@ -61,9 +61,14 @@ DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 include Makefile.syscall
 include Makefile.pie
 
-.PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope docs help
+.PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope	\
+	docs help deps preq
 
-all: $(PROGRAM)
+all: deps $(PROGRAM)
+
+deps: preq $(DEPS)
+
+preq: $(SYS-OBJ) $(PIE-GEN)
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -87,10 +92,10 @@ $(PROGRAM): $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) $(SYS-OBJ) -o $@
 
-test-legacy: $(PROGRAM)
+test-legacy: all
 	$(Q) $(MAKE) -C test/legacy all
 
-zdtm: $(PROGRAM)
+zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
 
 test: zdtm
@@ -150,7 +155,7 @@ help:
 
 deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM) zdtm test-legacy
 
-.DEFAULT_GOAL	:= $(PROGRAM)
+.DEFAULT_GOAL	:= all
 
 ifneq ($(filter $(deps-targets), $(MAKECMDGOALS)),)
 	INCDEPS := 1
