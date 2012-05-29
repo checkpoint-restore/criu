@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	fd = open(filename, O_RDWR | O_CREAT);
+	fd = open(filename, O_RDWR | O_CREAT, 0644);
 	if (fd == -1)
 		return 1;
 
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	if (fd < 0)
 		return 1;
 
-	fd3 = open(filename, O_RDWR | O_CREAT);
+	fd3 = open(filename, O_RDWR | O_CREAT, 0644);
 	if (fd3 == -1)
 		return 1;
 
