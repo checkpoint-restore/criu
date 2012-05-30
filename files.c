@@ -447,7 +447,7 @@ int open_reg_by_id(u32 id)
 	return open_fe_fd(fd);
 }
 
-#define SETFL_MASK (O_APPEND | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
+#define SETFL_MASK (O_APPEND | O_ASYNC | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
 int set_fd_flags(int fd, int flags)
 {
 	int ret;
