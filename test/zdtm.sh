@@ -29,6 +29,7 @@ transition/fork
 static/zombie00
 static/sockets00
 static/sockets_spair
+static/sockets_dgram
 static/socket_queues
 static/pid00
 static/pstree

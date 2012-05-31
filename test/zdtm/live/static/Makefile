@@ -36,6 +36,7 @@ TST_NOFILE	=				\
 		pstree				\
 		sockets00			\
 		sockets_spair			\
+		sockets_dgram			\
 		socket_queues			\
 		ipc_namespace			\
 		selfexe00			\
