@@ -1080,11 +1080,11 @@ err:
 	return -1;
 }
 
-struct pstree_item *alloc_pstree_item()
+struct pstree_item *__alloc_pstree_item(bool rst)
 {
 	struct pstree_item *item;
 
-	item = xzalloc(sizeof(*item));
+	item = xzalloc(sizeof(*item) + (rst ? sizeof(item->rst[0]) : 0));
 	if (!item)
 		return NULL;
 

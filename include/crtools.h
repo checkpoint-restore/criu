@@ -185,10 +185,12 @@ struct pstree_item {
 	int			state;		/* TASK_XXX constants */
 	int			nr_threads;	/* number of threads */
 	u32			*threads;	/* array of threads */
-	struct rst_info		*rst;
+	struct rst_info		rst[0];
 };
 
-extern struct pstree_item *alloc_pstree_item(void);
+extern struct pstree_item *__alloc_pstree_item(bool rst);
+#define alloc_pstree_item() __alloc_pstree_item(false)
+#define alloc_pstree_item_with_rst() __alloc_pstree_item(true)
 extern struct pstree_item *pstree_item_next(struct pstree_item *item);
 
 #define for_each_pstree_item(pi) \

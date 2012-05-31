@@ -95,15 +95,9 @@ static int prepare_pstree(void)
 			break;
 
 		ret = -1;
-		pi = alloc_pstree_item();
+		pi = alloc_pstree_item_with_rst();
 		if (pi == NULL)
 			break;
-
-		pi->rst = xzalloc(sizeof(*pi->rst));
-		if (pi->rst == NULL) {
-			xfree(pi);
-			break;
-		}
 
 		pi->pid = e.pid;
 		pi->pgid = e.pgid;
