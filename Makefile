@@ -58,17 +58,18 @@ OBJS		+= inotify.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
+MAKEFLAGS	+= --no-print-directory
+
 include Makefile.syscall
 include Makefile.pie
 
 .PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope	\
-	docs help deps preq
+	docs help pie
 
-all: deps $(PROGRAM)
+all: pie
+	$(Q) $(MAKE) $(PROGRAM)
 
-deps: preq $(DEPS)
-
-preq: $(SYS-OBJ) $(PIE-GEN)
+pie: $(PIE-GEN)
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -86,11 +87,9 @@ preq: $(SYS-OBJ) $(PIE-GEN)
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(DEPS) $(OBJS): $(SYS-OBJ) $(PIE-GEN)
-
-$(PROGRAM): $(OBJS)
+$(PROGRAM): $(OBJS) $(LIBS) $(SYS-OBJ) 
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $(OBJS) $(LIBS) $(SYS-OBJ) -o $@
+	$(Q) $(CC) $(CFLAGS) $^ -o $@
 
 test-legacy: all
 	$(Q) $(MAKE) -C test/legacy all
@@ -153,15 +152,11 @@ help:
 	$(E) '      rebuild         - Force-rebuild of [*] targets'
 	$(E) '      test            - Run zdtm test-suite'
 
-deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM) zdtm test-legacy
+deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM)
 
 .DEFAULT_GOAL	:= all
 
 ifneq ($(filter $(deps-targets), $(MAKECMDGOALS)),)
-	INCDEPS := 1
-endif
-
-ifeq ($(MAKECMDGOALS),)
 	INCDEPS := 1
 endif
 
