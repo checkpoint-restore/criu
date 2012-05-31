@@ -115,9 +115,21 @@ static int prepare_pstree(void)
 			pi->parent = NULL;
 			INIT_LIST_HEAD(&pi->list);
 		} else {
-			for_each_pstree_item(parent)
+			/*
+			 * Fast path -- if the pstree image is not edited, the
+			 * parent of any item should have already being restored
+			 * and sit among the last item's ancestors.
+			 */
+			while (parent) {
 				if (parent->pid == e.ppid)
 					break;
+				parent = parent->parent;
+			}
+
+			if (parent == NULL)
+				for_each_pstree_item(parent)
+					if (parent->pid == e.ppid)
+						break;
 
 			if (parent == NULL) {
 				pr_err("Can't find a parent for %d", pi->pid);
@@ -128,6 +140,8 @@ static int prepare_pstree(void)
 			pi->parent = parent;
 			list_add(&pi->list, &parent->children);
 		}
+
+		parent = pi;
 
 		pi->nr_threads = e.nr_threads;
 		pi->threads = xmalloc(e.nr_threads * sizeof(u32));
