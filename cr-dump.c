@@ -49,17 +49,24 @@
 static char big_buffer[PATH_MAX];
 static char loc_buf[PAGE_SIZE];
 
-void free_pstree(struct list_head *pstree_list)
-{
-	struct pstree_item *item, *p;
+static struct pstree_item *root_item = NULL;
 
-	list_for_each_entry_safe(item, p, pstree_list, list) {
-		xfree(item->children);
+static void free_pstree(struct pstree_item *root_item)
+{
+	struct pstree_item *item = root_item, *parent;
+
+	while (item) {
+		if (!list_empty(&item->children)) {
+			item = list_first_entry(&item->children, struct pstree_item, list);
+			continue;
+		}
+
+		parent = item->parent;
+		list_del(&item->list);
 		xfree(item->threads);
 		xfree(item);
+		item = parent;
 	}
-
-	INIT_LIST_HEAD(pstree_list);
 }
 
 void free_mappings(struct list_head *vma_area_list)
@@ -1073,9 +1080,44 @@ err:
 	return -1;
 }
 
+struct pstree_item *alloc_pstree_item()
+{
+	struct pstree_item *item;
+
+	item = xzalloc(sizeof(*item));
+	if (!item)
+		return NULL;
+
+	INIT_LIST_HEAD(&item->children);
+	item->threads = NULL;
+	item->nr_threads = 0;
+
+	return item;
+}
+
 static int get_children(struct pstree_item *item)
 {
-	return parse_children(item, &item->children, &item->nr_children);
+	u32 *ch;
+	int ret, i, nr_children;
+	struct pstree_item *c;
+
+	ret = parse_children(item, &ch, &nr_children);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < nr_children; i++) {
+		c = alloc_pstree_item();
+		if (c == NULL) {
+			ret = -1;
+			goto free;
+		}
+		c->pid = ch[i];
+		c->parent = item;
+		list_add_tail(&c->list, &item->children);
+	}
+free:
+	xfree(ch);
+	return ret;
 }
 
 static void unseize_task_and_threads(const struct pstree_item *item, int st)
@@ -1086,12 +1128,36 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 		unseize_task(item->threads[i], st); /* item->pid will be here */
 }
 
-static void pstree_switch_state(const struct list_head *list, int st)
+struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
-	struct pstree_item *item;
+	if (!list_empty(&item->children)) {
+		item = list_first_entry(&item->children, struct pstree_item, list);
+		return item;
+	}
+
+	while (1) {
+		if (item->parent == NULL) {
+			item = NULL;
+			break;
+		}
+		if (item->list.next == &item->parent->children) {
+			item = item->parent;
+			continue;
+		} else {
+			item = list_entry(item->list.next, struct pstree_item, list);
+			break;
+		}
+	}
+
+	return item;
+}
+
+static void pstree_switch_state(struct pstree_item *root_item, int st)
+{
+	struct pstree_item *item = root_item;
 
 	pr_info("Unfreezing tasks into %d\n", st);
-	list_for_each_entry(item, list, list)
+	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
 }
 
@@ -1180,11 +1246,11 @@ static int collect_threads(struct pstree_item *item)
  *    unsupported (FIXME #2).
  */
 
-static int check_xids(struct list_head *list)
+static int check_xids(struct pstree_item *root_item)
 {
 	struct pstree_item *p, *tmp;
 
-	list_for_each_entry(p, list, list) {
+	for_each_pstree_item(p) {
 		if (p->parent == NULL)
 			continue;
 
@@ -1196,35 +1262,28 @@ static int check_xids(struct list_head *list)
 		}
 
 		/* Easing #2 for pgids */
-		list_for_each_entry(tmp, list, list)
+		for_each_pstree_item(tmp)
 			if (tmp->pid == p->pgid)
 				break;
 
-		if (&tmp->list == list) {
+		if (tmp == NULL) {
 			pr_err("PGIG mismatch on %d (%d)\n",
 					p->pid, p->pgid);
 			return -1;
 		}
 	}
+
 	return 0;
 }
 
-static struct pstree_item *collect_task(pid_t pid, struct pstree_item *parent,
-		struct list_head *list)
+static int collect_task(struct pstree_item *item)
 {
 	int ret;
-	struct pstree_item *item;
-
-	item = xzalloc(sizeof(*item));
-	if (!item)
-		goto err;
-
-	item->pid = pid;
-	item->parent = parent;
+	pid_t pid = item->pid;
 
 	ret = seize_task(pid, item_ppid(item), &item->pgid, &item->sid);
 	if (ret < 0)
-		goto err_free;
+		goto err;
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
 	item->state = ret;
@@ -1237,40 +1296,43 @@ static struct pstree_item *collect_task(pid_t pid, struct pstree_item *parent,
 	if (ret < 0)
 		goto err_close;
 
-	if ((item->state == TASK_DEAD) && (item->nr_children > 0)) {
+	if ((item->state == TASK_DEAD) && !list_empty(&item->children)) {
 		pr_err("Zombie with children?! O_o Run, run, run!\n");
 		goto err_close;
 	}
 
 	close_pid_proc();
-	list_add_tail(&item->list, list);
 	pr_info("Collected %d in %d state\n", item->pid, item->state);
-	return item;
+	return 0;
 
 err_close:
 	close_pid_proc();
 	unseize_task(pid, item->state);
-err_free:
-	xfree(item->children);
-	xfree(item->threads);
-	xfree(item);
 err:
-	return NULL;
+	return -1;
 }
 
 static int check_subtree(const struct pstree_item *item)
 {
 	u32 *ch;
-	int nr, ret;
+	int nr, ret, i;
+	struct pstree_item *child;
 
 	ret = parse_children(item, &ch, &nr);
 	if (ret < 0)
 		return ret;
 
-	ret = ((nr == item->nr_children) && !memcmp(ch, item->children, nr));
+	i = 0;
+	list_for_each_entry(child, &item->children, list) {
+		if (child->pid != ch[i])
+			break;
+		i++;
+		if (i > nr)
+			break;
+	}
 	xfree(ch);
 
-	if (!ret) {
+	if (i != nr) {
 		pr_info("Children set has changed while suspending\n");
 		return -1;
 	}
@@ -1278,23 +1340,25 @@ static int check_subtree(const struct pstree_item *item)
 	return 0;
 }
 
-static int collect_subtree(pid_t pid, struct pstree_item *parent,
-		struct list_head *pstree_list, int leader_only)
+static int collect_subtree(struct pstree_item *item, int leader_only)
 {
-	struct pstree_item *item;
-	int i;
+	struct pstree_item *child;
+	pid_t pid = item->pid;
+	int ret;
 
 	pr_info("Collecting tasks starting from %d\n", pid);
-	item = collect_task(pid, parent, pstree_list);
-	if (item == NULL)
+	ret = collect_task(item);
+	if (ret)
 		return -1;
 
 	if (leader_only)
 		return 0;
 
-	for (i = 0; i < item->nr_children; i++)
-		if (collect_subtree(item->children[i], item, pstree_list, 0) < 0)
+	list_for_each_entry(child, &item->children, list) {
+		ret = collect_subtree(child, 0);
+		if (ret < 0)
 			return -1;
+	}
 
 	if (check_subtree(item))
 		return -1;
@@ -1302,39 +1366,35 @@ static int collect_subtree(pid_t pid, struct pstree_item *parent,
 	return 0;
 }
 
-static int dump_pstree(pid_t pid, const struct list_head *pstree_list);
+static int dump_pstree(struct pstree_item *item);
 
-static int collect_dump_pstree(pid_t pid, struct list_head *pstree_list,
-			  const struct cr_options *opts)
+static int collect_pstree(pid_t pid, const struct cr_options *opts)
 {
 	int ret, attempts = 5;
 
 	while (1) {
-		struct pstree_item *item;
+		root_item = alloc_pstree_item();
+		if (root_item == NULL)
+			return -1;
 
-		ret = collect_subtree(pid, NULL, pstree_list, opts->leader_only);
+		root_item->pid = pid;
+		INIT_LIST_HEAD(&root_item->list);
+
+		ret = collect_subtree(root_item, opts->leader_only);
 		if (ret == 0) {
 			/*
 			 * Some tasks could have been reparented to
 			 * namespaces' reaper. Check this.
 			 */
 			if (opts->namespaces_flags & CLONE_NEWPID) {
-				item = list_first_entry(pstree_list,
-						struct pstree_item, list);
-				BUG_ON(item->pid != 1);
+				BUG_ON(root_item->pid != 1);
 
-				if (check_subtree(item))
+				if (check_subtree(root_item))
 					goto try_again;
 			}
 
 			break;
 		}
-
-		if (list_empty(pstree_list))
-			/*
-			 * No items at all -- no need in re-scanning it again
-			 */
-			break;
 
 		/*
 		 * Old tasks can die and new ones can appear while we
@@ -1349,59 +1409,44 @@ try_again:
 		attempts--;
 		pr_info("Trying to suspend tasks again\n");
 
-		while (!list_empty(pstree_list)) {
-			item = list_first_entry(pstree_list,
-					struct pstree_item, list);
-			list_del(&item->list);
-
-			unseize_task_and_threads(item, TASK_ALIVE);
-
-			xfree(item->children);
-			xfree(item->threads);
-			xfree(item);
-		}
+		pstree_switch_state(root_item, TASK_ALIVE);
+		free_pstree(root_item);
 	}
 
 	if (!ret)
-		ret = check_xids(pstree_list);
+		ret = check_xids(root_item);
 
 	if (ret)
 		return ret;
 
-	return dump_pstree(pid, pstree_list);
+	return dump_pstree(root_item);
 }
 
-static int dump_pstree(pid_t pid, const struct list_head *pstree_list)
+static int dump_pstree(struct pstree_item *root_item)
 {
-	const struct pstree_item *item;
+	struct pstree_item *item = root_item;
 	struct pstree_entry e;
 	int ret = -1;
 	int pstree_fd;
 
 	pr_info("\n");
-	pr_info("Dumping pstree (pid: %d)\n", pid);
+	pr_info("Dumping pstree (pid: %d)\n", root_item->pid);
 	pr_info("----------------------------------------\n");
 
 	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
 	if (pstree_fd < 0)
 		return -1;
 
-	list_for_each_entry(item, pstree_list, list) {
-
-		pr_info("Process: %d (%d children)\n",
-			item->pid, item->nr_children);
+	for_each_pstree_item(item) {
+		pr_info("Process: %d\n", item->pid);
 
 		e.pid		= item->pid;
+		e.ppid		= item->parent ? item->parent->pid : 0;
 		e.pgid		= item->pgid;
 		e.sid		= item->sid;
-		e.nr_children	= item->nr_children;
 		e.nr_threads	= item->nr_threads;
 
 		if (write_img(pstree_fd, &e))
-			goto err;
-
-		if (write_img_buf(pstree_fd, item->children,
-					item->nr_children * sizeof(u32)))
 			goto err;
 
 		if (write_img_buf(pstree_fd, item->threads,
@@ -1647,7 +1692,6 @@ err_cure:
 
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 {
-	LIST_HEAD(pstree_list);
 	struct pstree_item *item;
 	int ret = -1;
 
@@ -1655,7 +1699,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("Dumping process %s(pid: %d)\n", !opts->leader_only ? "group " : "", pid);
 	pr_info("========================================\n");
 
-	if (collect_dump_pstree(pid, &pstree_list, opts))
+	if (collect_pstree(pid, opts))
 		goto err;
 
 	if (opts->namespaces_flags) {
@@ -1682,7 +1726,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (init_pipes_dump())
 		goto err;
 
-	list_for_each_entry(item, &pstree_list, list) {
+	for_each_pstree_item(item) {
 		if (dump_one_task(item))
 			goto err;
 
@@ -1711,9 +1755,9 @@ err:
 	 */
 	if (ret)
 		tcp_unlock_all();
-	pstree_switch_state(&pstree_list, 
+	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts->final_state);
-	free_pstree(&pstree_list);
+	free_pstree(root_item);
 
 	return ret;
 }

@@ -48,7 +48,7 @@
 static struct task_entries *task_entries;
 
 static struct pstree_item *me;
-static LIST_HEAD(tasks);
+static struct pstree_item *root_item = NULL;
 
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, struct list_head *vmas, int nr_vmas);
@@ -70,6 +70,7 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 static int prepare_pstree(void)
 {
 	int ret = 0, ps_fd;
+	struct pstree_item *pi, *parent = NULL;
 
 	pr_info("Reading image tree\n");
 
@@ -88,37 +89,46 @@ static int prepare_pstree(void)
 
 	while (1) {
 		struct pstree_entry e;
-		struct pstree_item *pi;
 
 		ret = read_img_eof(ps_fd, &e);
 		if (ret <= 0)
 			break;
 
 		ret = -1;
-		pi = xmalloc(sizeof(*pi));
+		pi = alloc_pstree_item();
 		if (pi == NULL)
 			break;
 
 		pi->rst = xzalloc(sizeof(*pi->rst));
-		if (pi->rst == NULL)
+		if (pi->rst == NULL) {
+			xfree(pi);
 			break;
+		}
 
 		pi->pid = e.pid;
 		pi->pgid = e.pgid;
 		pi->sid = e.sid;
 
-		ret = -1;
-		pi->nr_children = e.nr_children;
-		pi->children = xmalloc(e.nr_children * sizeof(u32));
-		if (!pi->children)
-			break;
+		if (e.ppid == 0) {
+			BUG_ON(root_item);
+			root_item = pi;
+			pi->parent = NULL;
+			INIT_LIST_HEAD(&pi->list);
+		} else {
+			for_each_pstree_item(parent)
+				if (parent->pid == e.ppid)
+					break;
 
-		ret = read_img_buf(ps_fd, pi->children,
-				e.nr_children * sizeof(u32));
-		if (ret < 0)
-			break;
+			if (parent == NULL) {
+				pr_err("Can't find a parent for %d", pi->pid);
+				xfree(pi);
+				break;
+			}
 
-		ret = -1;
+			pi->parent = parent;
+			list_add(&pi->list, &parent->children);
+		}
+
 		pi->nr_threads = e.nr_threads;
 		pi->threads = xmalloc(e.nr_threads * sizeof(u32));
 		if (!pi->threads)
@@ -129,7 +139,6 @@ static int prepare_pstree(void)
 		if (ret < 0)
 			break;
 
-		list_add_tail(&pi->list, &tasks);
 		task_entries->nr += e.nr_threads;
 		task_entries->nr_tasks++;
 	}
@@ -178,7 +187,7 @@ static int prepare_shared(void)
 	if (collect_inotify())
 		return -1;
 
-	list_for_each_entry(pi, &tasks, list) {
+	for_each_pstree_item(pi) {
 		ret = prepare_shmem_pid(pi->pid);
 		if (ret < 0)
 			break;
@@ -464,16 +473,18 @@ static int restore_one_task(int pid)
  */
 #define STACK_SIZE	(8 * 4096)
 struct cr_clone_arg {
-	int pid, fd;
+	struct pstree_item *item;
 	unsigned long clone_flags;
+	int fd;
 };
 
-static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
+static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone_flags)
 {
 	int ret = -1;
 	char buf[32];
 	struct cr_clone_arg ca;
 	void *stack;
+	pid_t pid = item->pid;
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ns_clone_flags);
 
@@ -485,7 +496,7 @@ static inline int fork_with_pid(int pid, unsigned long ns_clone_flags)
 	}
 
 	snprintf(buf, sizeof(buf), "%d", pid - 1);
-	ca.pid = pid;
+	ca.item = item;
 	ca.clone_flags = ns_clone_flags;
 	ca.fd = open(LAST_PID_PATH, O_RDWR);
 	if (ca.fd < 0) {
@@ -591,30 +602,24 @@ static void restore_pgid(void)
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
+	struct pstree_item *child;
 	pid_t pid;
-	int ret, i;
+	int ret;
 	sigset_t blockmask;
 
 	close_safe(&ca->fd);
 
+	me = ca->item;
+
 	pid = getpid();
-	if (ca->pid != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, ca->pid);
+	if (me->pid != pid) {
+		pr_err("Pid %d do not match expected %d\n", pid, me->pid);
 		exit(-1);
 	}
 
 	ret = log_init_by_pid();
 	if (ret < 0)
 		exit(1);
-
-	list_for_each_entry(me, &tasks, list)
-		if (me->pid == pid)
-			break;
-
-	if (me == list_entry(&tasks, struct pstree_item, list)) {
-		pr_err("Pid %d not found in pstree image\n", pid);
-		exit(1);
-	}
 
 	if (ca->clone_flags) {
 		ret = prepare_namespace(me->pid, ca->clone_flags);
@@ -637,9 +642,9 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 	}
 
-	pr_info("Restoring %d children:\n", me->nr_children);
-	for (i = 0; i < me->nr_children; i++) {
-		ret = fork_with_pid(me->children[i], 0);
+	pr_info("Restoring children:\n");
+	list_for_each_entry(child, &me->children, list) {
+		ret = fork_with_pid(child, 0);
 		if (ret < 0)
 			exit(1);
 	}
@@ -652,11 +657,10 @@ static int restore_task_with_children(void *_arg)
 	return restore_one_task(me->pid);
 }
 
-static int restore_root_task(pid_t pid, struct cr_options *opts)
+static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 {
 	int ret;
 	struct sigaction act, old_act;
-	struct pstree_item *init;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
@@ -672,13 +676,6 @@ static int restore_root_task(pid_t pid, struct cr_options *opts)
 		return -1;
 	}
 
-	init = list_first_entry(&tasks, struct pstree_item, list);
-	if (init->pid != pid) {
-		pr_err("Pids mismatch. Init has pid %d, requested %d\n",
-				init->pid, pid);
-		return -1;
-	}
-
 	/*
 	 * FIXME -- currently we assume that all the tasks live
 	 * in the same set of namespaces. This is done to debug
@@ -686,7 +683,7 @@ static int restore_root_task(pid_t pid, struct cr_options *opts)
 	 * this later.
 	 */
 
-	ret = fork_with_pid(init->pid, opts->namespaces_flags);
+	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
 
@@ -705,11 +702,12 @@ static int restore_root_task(pid_t pid, struct cr_options *opts)
 
 out:
 	if (ret < 0) {
-		pr_err("Someone can't be restored\n");
 		struct pstree_item *pi;
+		pr_err("Someone can't be restored\n");
 
-		list_for_each_entry(pi, &tasks, list)
+		for_each_pstree_item(pi)
 			kill(pi->pid, SIGKILL);
+
 		return 1;
 	}
 
@@ -746,7 +744,7 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 	if (prepare_shared() < 0)
 		return -1;
 
-	return restore_root_task(pid, opts);
+	return restore_root_task(root_item, opts);
 }
 
 #define TASK_SIZE_MAX   ((1UL << 47) - PAGE_SIZE)

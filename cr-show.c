@@ -418,8 +418,8 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 		ret = read_img_eof(fd_pstree, &e);
 		if (ret <= 0)
 			goto out;
-		pr_msg("pid: %8d pgid: %8d sid %8d  nr_children: %8d nr_threads: %8d\n",
-		       e.pid, e.pgid, e.sid, e.nr_children, e.nr_threads);
+		pr_msg("pid: %8d ppid %8d pgid: %8d sid %8d  nr_threads: %8d\n",
+		       e.pid, e.ppid, e.pgid, e.sid, e.nr_threads);
 
 		if (collect) {
 			item = xzalloc(sizeof(struct pstree_item));
@@ -435,18 +435,6 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 			}
 
 			list_add_tail(&item->list, collect);
-		}
-
-		if (e.nr_children) {
-			pr_msg("\\\n");
-			pr_msg(" +--- children: ");
-			while (e.nr_children--) {
-				ret = read_img(fd_pstree, &pid);
-				if (ret < 0)
-					goto out;
-				pr_msg(" %6d", pid);
-			}
-			pr_msg("\n");
 		}
 
 		if (e.nr_threads) {
@@ -640,7 +628,7 @@ err:
 
 static int cr_show_all(struct cr_options *opts)
 {
-	struct pstree_item *item = NULL;
+	struct pstree_item *item = NULL, *tmp;
 	LIST_HEAD(pstree_list);
 	int i, ret = -1, fd, pid;
 
@@ -709,7 +697,11 @@ static int cr_show_all(struct cr_options *opts)
 	}
 
 out:
-	free_pstree(&pstree_list);
+	list_for_each_entry_safe(item, tmp, &pstree_list, list) {
+		list_del(&item->list);
+		xfree(item->threads);
+		xfree(item);
+	}
 	return ret;
 }
 

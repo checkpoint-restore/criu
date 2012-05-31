@@ -3,12 +3,11 @@
 
 #include <sys/types.h>
 
+#include "list.h"
 #include "types.h"
 #include "list.h"
 #include "util.h"
 #include "image.h"
-
-extern void free_pstree(struct list_head *pstree_list);
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -180,15 +179,20 @@ struct pstree_item {
 	struct list_head	list;
 	pid_t			pid;		/* leader pid */
 	struct pstree_item	*parent;
+	struct list_head	children;	/* array of children */
 	pid_t			pgid;
 	pid_t			sid;
 	int			state;		/* TASK_XXX constants */
-	int			nr_children;	/* number of children */
 	int			nr_threads;	/* number of threads */
 	u32			*threads;	/* array of threads */
-	u32			*children;	/* array of children */
 	struct rst_info		*rst;
 };
+
+extern struct pstree_item *alloc_pstree_item(void);
+extern struct pstree_item *pstree_item_next(struct pstree_item *item);
+
+#define for_each_pstree_item(pi) \
+	for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
