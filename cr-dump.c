@@ -547,7 +547,7 @@ err:
 
 static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 {
-	struct fd_parms p;
+	struct fd_parms p = { .fd = FD_DESC_INVALID, };
 	struct fs_entry fe;
 	int fd, ret;
 
@@ -560,9 +560,6 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
-	p.flags = 0;
-	p.pos = 0;
-	p.fown = (fown_t){ };
 	fe.cwd_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
@@ -580,8 +577,6 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
-	p.flags = 0;
-	p.pos = 0;
 	fe.root_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, fe.root_id, &p);
