@@ -50,6 +50,7 @@
 		if ((condition)) {					\
 			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);	\
 			raise(SIGABRT);					\
+			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__; \
 		}							\
 	} while (0)
 
