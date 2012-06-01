@@ -20,95 +20,127 @@
 #define F_GETSIG	11	/* for sockets. */
 #endif
 
-const char *test_doc	= "Check for signal delivery for file owners";
+const char *test_doc	= "Check for signal delivery on file owners";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-static int received_io;
-
-#define MAP(map, i)		(((int *)map)[i])
-#define MAP_SYNC(map)		MAP(map, 0)
-#define MAP_PID_PIPE0(map)	MAP(map, 1)
-#define MAP_PID_PIPE1(map)	MAP(map, 2)
-#define MAP_PID_SOK(map)	MAP(map, 3)
-
-#define SK_DATA "packet"
+struct params {
+	int	sigio;
+	int	pipe_flags[2];
+	int	pipe_pid[2];
+	int	pipe_sig[2];
+} *shared;
 
 static void signal_handler_io(int status)
 {
-	received_io++;
+	shared->sigio++;
 }
 
-int main(int argc, char ** argv)
+static void fill_pipe_params(struct params *p, int *pipes)
 {
-	pid_t pid, ppid;
-	struct sigaction saio;
-	int status;
-	int pipes[2];
-	void *map;
-	uid_t ruid;
-	uid_t euid;
-	uid_t suid;
+	p->pipe_flags[0] = fcntl(pipes[0], F_GETFL);
+	p->pipe_flags[1] = fcntl(pipes[1], F_GETFL);
 
-	int ssk_pair[2];
-	char buf[64];
+	/*
+	 * The kernel's O_LARGEFILE set automatically
+	 * on open() in x86-64, so unmask it explicitly
+	 * we restore pipes via open call while the former
+	 * pipes are created with pipe() and have no O_LARGEFILE
+	 * set.
+	 */
+	p->pipe_flags[0] &= ~00100000;
+	p->pipe_flags[1] &= ~00100000;
+
+	test_msg("pipe_flags0 %08o\n", p->pipe_flags[0]);
+	test_msg("pipe_flags1 %08o\n", p->pipe_flags[1]);
+
+	p->pipe_pid[0] = fcntl(pipes[0], F_GETOWN);
+	p->pipe_pid[1] = fcntl(pipes[1], F_GETOWN);
+
+	p->pipe_sig[0] = fcntl(pipes[0], F_GETSIG);
+	p->pipe_sig[1] = fcntl(pipes[1], F_GETSIG);
+}
+
+static int cmp_pipe_params(struct params *p1, struct params *p2)
+{
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		if (p1->pipe_flags[i] != p2->pipe_flags[i]) {
+			fail("pipe flags failed [%d] expected %08o got %08o\n",
+			     i, p1->pipe_flags[i], p2->pipe_flags[i]);
+			return -1;
+		}
+		if (p1->pipe_pid[i] != p2->pipe_pid[i]) {
+			fail("pipe pid failed [%d] expected %d got %d\n",
+			     i, p1->pipe_pid[i], p2->pipe_pid[i]);
+			return -1;
+		}
+		if (p1->pipe_sig[i] != p2->pipe_sig[i]) {
+			fail("pipe sig failed [%d] expected %d got %d\n",
+			     i, p1->pipe_sig[i], p2->pipe_sig[i]);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct sigaction saio = { };
+	struct params obtained = { };
+	uid_t ruid, euid, suid;
+	int status, pipes[2];
+	pid_t pid;
 
 	test_init(argc, argv);
 
-	if (getresuid(&ruid, &euid, &suid)) {
-		fail("getresuid failed");
+	shared = (void *)mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if ((void *)shared == MAP_FAILED) {
+		fail("mmap failed");
 		exit(1);
 	}
 
-	map = mmap(NULL, 1024, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	if (map == MAP_FAILED) {
-		fail("Can't map");
+	if (getresuid(&ruid, &euid, &suid)) {
+		fail("getresuid failed\n");
 		exit(1);
 	}
 
 	if (pipe(pipes)) {
-		err("Can't create pipes: %m\n");
+		err("Can't create pipe: %m\n");
 		exit(1);
 	}
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair) == -1) {
-		fail("socketpair\n");
+	saio.sa_handler	= (sig_t)signal_handler_io;
+	saio.sa_flags	= SA_RESTART;
+	if (sigaction(SIGIO, &saio, 0)) {
+		fail("sigaction failed\n");
 		exit(1);
 	}
-
-	memset(&saio, 0, sizeof(saio));
-	saio.sa_handler = (sig_t)signal_handler_io;
-	saio.sa_flags = SA_RESTART;
-	sigaction(SIGIO, &saio, 0);
 
 	if (setresuid(-1, 1, -1)) {
-		fail("setresuid failed");
+		fail("setresuid failed\n");
 		exit(1);
 	}
 
-	fcntl(pipes[0], F_SETOWN, getpid());
-	fcntl(pipes[1], F_SETOWN, getpid());
+	if (fcntl(pipes[0], F_SETOWN, getpid())					||
+	    fcntl(pipes[1], F_SETOWN, getpid())					||
+	    fcntl(pipes[0], F_SETSIG, SIGIO)					||
+	    fcntl(pipes[1], F_SETSIG, SIGIO)					||
+	    fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_ASYNC)	||
+	    fcntl(pipes[1], F_SETFL, fcntl(pipes[1], F_GETFL) | O_ASYNC)) {
+		fail("fcntl failed\n");
+		exit(1);
+	}
 
-	test_msg("main owner pipes[0]: %d\n", fcntl(pipes[0], F_GETOWN));
+	asm volatile ("" :::);
 
-	fcntl(pipes[0], F_SETSIG, SIGIO);
-	fcntl(pipes[1], F_SETSIG, SIGIO);
-
-	fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_NONBLOCK | O_ASYNC);
-	fcntl(pipes[1], F_SETFL, fcntl(pipes[1], F_GETFL) | O_NONBLOCK | O_ASYNC);
-
-	fcntl(ssk_pair[0], F_SETOWN, getpid());
-	fcntl(ssk_pair[0], F_SETSIG, SIGIO);
-	fcntl(ssk_pair[0], F_SETFL, fcntl(ssk_pair[0], F_GETFL) | O_NONBLOCK | O_ASYNC);
-	test_msg("main owner ssk_pair[0]: %d\n", fcntl(ssk_pair[0], F_GETOWN));
+	fill_pipe_params(shared, pipes);
 
 	if (setresuid(-1, euid, -1)) {
-		fail("setresuid failed");
+		fail("setresuid failed\n");
 		exit(1);
 	}
-
-	ppid = getpid();
-
-	MAP_SYNC(map) = 0;
 
 	pid = test_fork();
 	if (pid < 0) {
@@ -117,50 +149,44 @@ int main(int argc, char ** argv)
 	}
 
 	if (pid == 0) {
-		int v = 1;
-		MAP_SYNC(map) = 1;
+		struct params p = { };
 
-		while (MAP_SYNC(map) != 3)
-			sleep(1);
+		test_waitsig();
 
 		fcntl(pipes[1], F_SETOWN, getpid());
+		fill_pipe_params(&p, pipes);
 
-		write(pipes[1], &v, sizeof(v));
-		read(pipes[0], &v, sizeof(v));
-
-		write(ssk_pair[0], SK_DATA, sizeof(SK_DATA));
-		read(ssk_pair[1], &buf, sizeof(buf));
-		if (strcmp(buf, SK_DATA)) {
-			fail("data corrupted\n");
+		if (write(pipes[1], &p, sizeof(p)) != sizeof(p)) {
+			fail("write failed\n");
 			exit(1);
 		}
-		test_msg("stream            : '%s'\n", buf);
-
-		MAP_PID_PIPE0(map) = fcntl(pipes[0], F_GETOWN);
-		MAP_PID_PIPE1(map) = fcntl(pipes[1], F_GETOWN);
-		MAP_PID_SOK(map) = fcntl(ssk_pair[0], F_GETOWN);
 
 		exit(0);
 	}
 
-	while (MAP_SYNC(map) != 1)
-		sleep(1);
-
 	test_daemon();
 	test_waitsig();
+	kill(pid, SIGTERM);
 
-	MAP_SYNC(map) = 3;
+	if (waitpid(pid, &status, P_ALL) == -1) {
+		fail("waitpid failed\n");
+		exit(1);
+	}
 
-	waitpid(pid, &status, P_ALL);
+	if (read(pipes[0], &obtained, sizeof(obtained)) != sizeof(obtained)) {
+		fail("read failed\n");
+		exit(1);
+	}
 
-	if (received_io < 1		||
-	    MAP_PID_PIPE0(map) != ppid	||
-	    MAP_PID_PIPE1(map) != pid	||
-	    MAP_PID_SOK(map)   != ppid) {
-		fail("received_io = %d ppid: %d  MAP_PID_PIPE0(map): %d "
-		     "MAP_PID_PIPE1(map): %d MAP_PID_SOK(map): %d\n",
-		     received_io, ppid, MAP_PID_PIPE0(map),
-		     MAP_PID_PIPE1(map), MAP_PID_SOK(map));
+	if (shared->sigio < 1) {
+		fail("shared->sigio = %d (> 0 expected)\n", shared->sigio);
+		exit(1);
+	}
+
+	shared->pipe_pid[1] = pid;
+
+	if (cmp_pipe_params(shared, &obtained)) {
+		fail("params comparison failed\n");
 		exit(1);
 	}
 
