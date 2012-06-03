@@ -25,15 +25,16 @@ enum fdinfo_states {
 	FD_STATE_MAX
 };
 
+struct file_desc;
+
 struct fdinfo_list_entry {
 	struct list_head	desc_list;
+	struct file_desc	*desc;
 	struct list_head	ps_list;
 	int			pid;
 	futex_t			real_pid;
 	struct fdinfo_entry	fe;
 };
-
-struct file_desc;
 
 struct file_desc_ops {
 	int type;

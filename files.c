@@ -179,6 +179,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info
 			break;
 
 	list_add_tail(&le->desc_list, &l->desc_list);
+	le->desc = fdesc;
 
 	if (unlikely(le->fe.type == FDINFO_EVENTPOLL))
 		list_add_tail(&le->ps_list, &rst_info->eventpoll);
@@ -407,25 +408,23 @@ static char *fdinfo_states[FD_STATE_MAX] = {
 	[FD_STATE_RECV]		= "receive",
 };
 
-static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
+static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 {
 	int ret = 0;
-	struct file_desc *fdesc;
 
 	BUG_ON(state >= FD_STATE_MAX);
-
-	fdesc = find_file_desc(fe);
-	pr_info("\tRestoring fd %d (state -> %s)\n", fe->fd, fdinfo_states[state]);
+	pr_info("\tRestoring fd %d (state -> %s)\n",
+			fle->fe.fd, fdinfo_states[state]);
 
 	switch (state) {
 	case FD_STATE_PREP:
-		ret = open_transport_fd(pid, fe, fdesc);
+		ret = open_transport_fd(pid, &fle->fe, fle->desc);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fe, fdesc);
+		ret = open_fd(pid, &fle->fe, fle->desc);
 		break;
 	case FD_STATE_RECV:
-		ret = receive_fd(pid, fe, fdesc);
+		ret = receive_fd(pid, &fle->fe, fle->desc);
 		break;
 	}
 
@@ -442,7 +441,7 @@ int prepare_fds(struct pstree_item *me)
 
 	for (state = 0; state < FD_STATE_MAX; state++) {
 		list_for_each_entry(fle, &me->rst->fds, ps_list) {
-			ret = open_fdinfo(me->pid.pid, &fle->fe, state);
+			ret = open_fdinfo(me->pid.pid, fle, state);
 			if (ret)
 				goto done;
 		}
@@ -453,7 +452,7 @@ int prepare_fds(struct pstree_item *me)
 		 * list and restore at the very end.
 		 */
 		list_for_each_entry(fle, &me->rst->eventpoll, ps_list) {
-			ret = open_fdinfo(me->pid.pid, &fle->fe, state);
+			ret = open_fdinfo(me->pid.pid, fle, state);
 			if (ret)
 				goto done;
 		}
