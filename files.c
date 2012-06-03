@@ -257,33 +257,28 @@ static int should_open_transport(struct fdinfo_entry *fe, struct file_desc *fd)
 		return 0;
 }
 
-static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
+static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 {
-	struct fdinfo_list_entry *fle;
+	struct fdinfo_list_entry *flem;
 	struct sockaddr_un saddr;
 	int sock;
 	int ret, sun_len;
 
-	fle = file_master(d);
+	flem = file_master(fle->desc);
 
-	if (fle->pid == pid) {
-		if (fle->fe.fd == fe->fd) {
+	if (flem->pid == pid) {
+		if (flem->fe.fd == fle->fe.fd) {
 			/* file master */
-			if (!should_open_transport(fe, d))
+			if (!should_open_transport(&fle->fe, fle->desc))
 				return 0;
 		} else
 			return 0;
 	}
 
-	transport_name_gen(&saddr, &sun_len, getpid(), fe->fd);
+	transport_name_gen(&saddr, &sun_len, getpid(), fle->fe.fd);
 
 	pr_info("\t\tCreate transport fd %s\n", saddr.sun_path + 1);
 
-	list_for_each_entry(fle, &d->fd_info_head, desc_list)
-		if ((fle->pid == pid) && (fle->fe.fd == fe->fd))
-			break;
-
-	BUG_ON(&d->fd_info_head == &fle->desc_list);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -296,7 +291,7 @@ static int open_transport_fd(int pid, struct fdinfo_entry *fe, struct file_desc 
 		return -1;
 	}
 
-	ret = reopen_fd_as(fe->fd, sock);
+	ret = reopen_fd_as(fle->fe.fd, sock);
 	if (ret < 0)
 		return -1;
 
@@ -418,7 +413,7 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 
 	switch (state) {
 	case FD_STATE_PREP:
-		ret = open_transport_fd(pid, &fle->fe, fle->desc);
+		ret = open_transport_fd(pid, fle);
 		break;
 	case FD_STATE_CREATE:
 		ret = open_fd(pid, &fle->fe, fle->desc);
