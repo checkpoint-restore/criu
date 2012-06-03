@@ -495,8 +495,7 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 			return dump_unsupp_fd(&p);
 	}
 
-	if (S_ISREG(p.stat.st_mode) ||
-            S_ISDIR(p.stat.st_mode))
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
 		return dump_reg_file(&p, lfd, cr_fdset);
 
 	if (S_ISFIFO(p.stat.st_mode) && (statfs.f_type == PIPEFS_MAGIC))
