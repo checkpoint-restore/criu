@@ -109,15 +109,12 @@ int dump_socket_opts(int sk, struct sk_opts_entry *soe)
 
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
-	struct socket_desc *sk;
+	int family;
 
-	sk = lookup_socket(p->stat.st_ino);
-	if (!sk) {
-		pr_err("Uncollected socket 0x%8x\n", (int)p->stat.st_ino);
+	if (dump_opt(lfd, SO_DOMAIN, &family))
 		return -1;
-	}
 
-	switch (sk->family) {
+	switch (family) {
 	case AF_UNIX:
 		return dump_one_unix(p, lfd, cr_fdset);
 	case AF_INET:
