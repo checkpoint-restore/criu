@@ -315,7 +315,7 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 
 	/* Maybe we've dumped it already */
 	for (i = 0; i < nr_pipes; i++) {
-		if (pipes_with_data[i] == p->id)
+		if (pipes_with_data[i] == p->stat.st_ino)
 			return 0;
 	}
 
@@ -326,7 +326,7 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	pipes_with_data[nr_pipes] = p->id;
+	pipes_with_data[nr_pipes] = p->stat.st_ino;
 	nr_pipes++;
 
 	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
@@ -346,7 +346,7 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 		struct pipe_data_entry pde;
 		int wrote;
 
-		pde.pipe_id	= p->id;
+		pde.pipe_id	= p->stat.st_ino;
 		pde.bytes	= bytes;
 		pde.off		= 0;
 
@@ -398,10 +398,11 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct pipe_entry pe;
 
-	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n", lfd, id, p->id);
+	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n",
+			lfd, id, (u32)p->stat.st_ino);
 
 	pe.id		= id;
-	pe.pipe_id	= p->id;
+	pe.pipe_id	= p->stat.st_ino;
 	pe.flags	= p->flags;
 	pe.fown		= p->fown;
 

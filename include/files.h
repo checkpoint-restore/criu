@@ -13,7 +13,6 @@ struct fd_parms {
 	unsigned int	flags;
 	char		fd_flags;
 	struct stat	stat;
-	u32		id;
 	pid_t		pid;
 	fown_t		fown;
 };

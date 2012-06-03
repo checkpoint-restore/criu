@@ -326,7 +326,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e.type	= ops->type;
-	e.id	= p->id = ops->make_gen_id(p);
+	e.id	= ops->make_gen_id(p);
 	e.fd	= p->fd;
 	e.flags = p->fd_flags;
 
@@ -397,7 +397,6 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 	p->pos		= lseek(lfd, 0, SEEK_CUR);
 	p->flags	= fcntl(lfd, F_GETFL);
 	p->pid		= pid;
-	p->id		= FD_ID_INVALID;
 	p->fd_flags	= fd_flags;
 	p->fown		= (fown_t){ };
 

@@ -5,7 +5,6 @@
 #include "types.h"
 #include "rbtree.h"
 
-#define FD_ID_INVALID		(-1U)
 #define FD_PID_INVALID		(-2U)
 #define FD_DESC_INVALID		(-3U)
 
