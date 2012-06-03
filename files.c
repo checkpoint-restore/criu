@@ -267,12 +267,18 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	flem = file_master(fle->desc);
 
 	if (flem->pid == pid) {
-		if (flem->fe.fd == fle->fe.fd) {
-			/* file master */
-			if (!should_open_transport(&fle->fe, fle->desc))
-				return 0;
-		} else
+		if (flem->fe.fd != fle->fe.fd)
+			/* dup-ed file. Will be opened in the open_fd */
 			return 0;
+
+		if (!should_open_transport(&fle->fe, fle->desc))
+			/* pure master file */
+			return 0;
+
+		/*
+		 * some master file, that wants a transport, e.g.
+		 * a pipe or unix socket pair 'slave' end
+		 */
 	}
 
 	transport_name_gen(&saddr, &sun_len, getpid(), fle->fe.fd);
