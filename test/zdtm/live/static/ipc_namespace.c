@@ -209,7 +209,7 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 	sprintf(buf, "%d\n", val);
 	ret = write(fd, buf, 32);
 	if (ret < 0) {
-		err("Can't write %s\n", name);
+		err("Can't write %u into %s\n", val, name);
 		return -errno;
 	}
 	close(fd);
@@ -263,7 +263,7 @@ static int rand_ipc_ns(void)
 
 
 	if (!ret)
-		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", (unsigned)lrand48());
+		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", (((unsigned)lrand48()) % 1023) + 1);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", (unsigned)lrand48() & (32768 * sizeof(void)/4 - 1));
 	if (!ret)
