@@ -87,9 +87,9 @@ pie: $(PIE-GEN)
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) $(LIBS) $(SYS-OBJ) 
+$(PROGRAM): $(OBJS) $(SYS-OBJ)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
 test-legacy: all
 	$(Q) $(MAKE) -C test/legacy all
