@@ -64,6 +64,7 @@ TST_FILE	=				\
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\
+		fifo_ro				\
 		fifo_wronly			\
 		unlink_fifo			\
 		unlink_fifo_wronly		\
