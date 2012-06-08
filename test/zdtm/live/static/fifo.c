@@ -14,11 +14,16 @@ const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
+#define BUF_SIZE (16 * 4096) /* A fifo buffer has 16 slots by default */
+
 int main(int argc, char **argv)
 {
 	int fd;
 	struct stat st;
 	mode_t mode = S_IFIFO | 0700;
+	uint8_t buf[BUF_SIZE];
+	uint32_t crc;
+	int ret;;
 
 	test_init(argc, argv);
 
@@ -33,8 +38,28 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	crc = ~0;
+	datagen(buf, BUF_SIZE, &crc);
+	ret = write(fd, buf, BUF_SIZE);
+	if (ret != BUF_SIZE) {
+		err("write() failed\n");
+		return 1;
+	}
+
 	test_daemon();
 	test_waitsig();
+
+	ret = read(fd, buf, BUF_SIZE);
+	if (ret != BUF_SIZE) {
+		err("read() failed\n");
+		return 1;
+	}
+
+	crc = ~0;
+	if (datachk(buf, BUF_SIZE, &crc)) {
+		fail("data corrupted\n");
+		return 1;
+	}
 
 	if (close(fd) < 0) {
 		fail("can't close %s: %m", filename);
