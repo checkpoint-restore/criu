@@ -20,11 +20,12 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 #include <wait.h>
-#define PORT 8880
+
+static int port = 8880;
 
 int init_client(char *servIP, unsigned short servPort);
 int accept_server(int sock);
-int init_server(int port);
+int init_server();
 
 #define BUF_SIZE 1024
 
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	if ((fd_s = init_server(PORT)) < 0) {
+	if ((fd_s = init_server()) < 0) {
 		err("initializing server failed");
 		return 1;
 	}
@@ -56,7 +57,7 @@ int main(int argc, char **argv)
 		 * Chiled is client of TCP connection
 		 */
 		close(fd_s);
-		fd = init_client("127.0.0.1", PORT);
+		fd = init_client("127.0.0.1", port);
 		if (fd < 0)
 			return 1;
 
@@ -142,21 +143,32 @@ error:
 	return -1;
 }
 
-int init_server(int port)
+int init_server()
 {
 	struct sockaddr_in addr;
-	int sock;
+	int sock, ret;
+
 	memset(&addr,0,sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htons(INADDR_ANY);
-	addr.sin_port = htons(port);
 	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
 		err ("socket() failed %m");
 		return -1;
 	}
 
-	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+	while (1) {
+		addr.sin_port = htons(port);
+		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
+		if (ret == -1 && errno == EADDRINUSE) {
+			test_msg("The port %d is already in use.\n", port);
+			port++;
+			continue;
+		}
+		break;
+	}
+
+	if (ret == -1) {
 		err ("bind() failed %m");
 		return -1;
 	}
