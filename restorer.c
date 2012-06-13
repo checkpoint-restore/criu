@@ -47,7 +47,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 	/* sa_restorer may be unmaped, so we can't go back to userspace*/
 	sys_kill(sys_getpid(), SIGSTOP);
-	sys_exit(1);
+	sys_exit_group(1);
 }
 
 static void restore_creds(struct creds_entry *ce)
@@ -226,7 +226,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 core_restore_end:
 	write_num_n(__LINE__);
 	write_num_n(sys_getpid());
-	sys_exit(-1);
+	sys_exit_group(1);
 	return -1;
 }
 
@@ -687,7 +687,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 core_restore_end:
 	write_num_n(__LINE__);
 	write_num_n(sys_getpid());
-	sys_exit(-1);
+	sys_exit_group(1);
 	return -1;
 
 core_restore_failed:
