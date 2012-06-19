@@ -121,7 +121,7 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	futex_wait_until(&si->lock, 1);
 
 	pr_info("Opening shmem [%s] \n", path);
-	ret = open(path, O_RDWR);
+	ret = open_proc_rw(si->pid, "map_files/%lx-%lx", si->start, si->end);
 	if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s",
 				si->pid, path);
