@@ -273,6 +273,7 @@ int collect_pipes(void)
 		if (pi == NULL)
 			break;
 
+		pi->create = 0;
 		ret = read_img_eof(fd, &pi->pe);
 		if (ret <= 0)
 			break;
