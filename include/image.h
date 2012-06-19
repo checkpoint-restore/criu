@@ -166,7 +166,8 @@ struct pipe_data_entry {
  * some part of pages may be loosed if data are not
  * aligned in a file.
  */
-#define PIPE_NONALIG_DATA (15 * PAGE_SIZE)
+#define PIPE_DEF_BUFFERS	16
+#define PIPE_MAX_NONALIG_SIZE	((PIPE_DEF_BUFFERS - 1) * PAGE_SIZE)
 
 #define USK_EXTERN	(1 << 0)
 

@@ -373,7 +373,7 @@ dump:
 		pde.bytes = has_bytes;
 		pde.off = 0;
 
-		if (has_bytes > PIPE_NONALIG_DATA) {
+		if (has_bytes > PIPE_MAX_NONALIG_SIZE) {
 			off = lseek(fd_pipes, 0, SEEK_CUR);
 			off += sizeof(pde);
 			off &= PAGE_SIZE -1;
