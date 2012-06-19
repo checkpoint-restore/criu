@@ -1489,7 +1489,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	core->tc.task_state = TASK_ALIVE;
 	core->tc.exit_code = 0;
 
-	fd_core = open_image(CR_FD_CORE, O_DUMP, pid);
+	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->pid);
 	if (fd_core < 0)
 		goto err_free;
 
@@ -1582,11 +1582,6 @@ static int dump_one_task(struct pstree_item *item)
 	if (item->state == TASK_DEAD)
 		return dump_one_zombie(item, &pps_buf);
 
-	ret = -1;
-	cr_fdset = cr_task_fdset_open(item->pid.pid, O_DUMP);
-	if (!cr_fdset)
-		goto err;
-
 	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
@@ -1605,6 +1600,21 @@ static int dump_one_task(struct pstree_item *item)
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
 	}
+
+	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
+	if (ret) {
+		pr_err("Can't dump misc (pid: %d)\n", pid);
+		goto err_cure_fdset;
+	}
+
+	item->pid.pid = misc.pid;
+	item->sid = misc.sid;
+	item->pgid = misc.pgid;
+
+	ret = -1;
+	cr_fdset = cr_task_fdset_open(item->pid.pid, O_DUMP);
+	if (!cr_fdset)
+		goto err_cure;
 
 	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds);
 	if (ret) {
@@ -1627,12 +1637,6 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parasite_dump_itimers_seized(parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
-		goto err_cure;
-	}
-
-	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
-	if (ret) {
-		pr_err("Can't dump misc (pid: %d)\n", pid);
 		goto err_cure;
 	}
 
@@ -1672,8 +1676,8 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-err:
 	close_cr_fdset(&cr_fdset);
+err:
 	close_pid_proc();
 err_free:
 	free_mappings(&vma_area_list);
@@ -1681,6 +1685,8 @@ err_free:
 	return ret;
 
 err_cure:
+	close_cr_fdset(&cr_fdset);
+err_cure_fdset:
 	parasite_cure_seized(parasite_ctl);
 	goto err;
 }
@@ -1696,14 +1702,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	if (collect_pstree(pid, opts))
 		goto err;
-
-	if (dump_pstree(root_item))
-		goto err;
-
-	if (opts->namespaces_flags) {
-		if (dump_namespaces(pid, opts->namespaces_flags) < 0)
-			goto err;
-	}
 
 	/*
 	 * Ignore collection errors by now since we may not want
@@ -1728,6 +1726,13 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		if (opts->leader_only)
 			break;
 	}
+
+	if (dump_pstree(root_item))
+		goto err;
+
+	if (opts->namespaces_flags)
+		if (dump_namespaces(pid, opts->namespaces_flags) < 0)
+			goto err;
 
 	ret = cr_dump_shmem();
 	if (ret)
