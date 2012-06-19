@@ -304,6 +304,98 @@ static int open_pipe(struct file_desc *d)
 static u32 *pipes_with_data;	/* pipes for which data already dumped */
 static int nr_pipes = 0;
 
+#if 0
+static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
+{
+	int pipe_size, i, bytes;
+	int steal_pipe[2];
+	int ret = -1;
+
+	if (p->flags & O_WRONLY)
+		return 0;
+
+	/* Maybe we've dumped it already */
+	for (i = 0; i < nr_pipes; i++) {
+		if (pipes_with_data[i] == p->id)
+			return 0;
+	}
+
+	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
+
+	if (PIPES_SIZE < nr_pipes + 1) {
+		pr_err("OOM storing pipe\n");
+		return -1;
+	}
+
+	pipes_with_data[nr_pipes] = p->id;
+	nr_pipes++;
+
+	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
+	if (pipe_size < 0) {
+		pr_err("Can't obtain piped data size\n");
+		goto err;
+	}
+
+	if (pipe(steal_pipe) < 0) {
+		pr_perror("Can't create pipe for stealing data");
+		goto err;
+	}
+
+	bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
+	if (bytes > 0) {
+		int fd_pipes_data = fdset_fd(glob_fdset, CR_FD_PIPES_DATA);
+		struct pipe_data_entry pde;
+		int wrote;
+
+		pde.pipe_id	= p->id;
+		pde.bytes	= bytes;
+		pde.off		= 0;
+
+		if (bytes > PIPE_MAX_NONALIG_SIZE) {
+			off_t off;
+
+			off  = lseek(fd_pipes_data, 0, SEEK_CUR);
+			off += sizeof(pde);
+			off &= ~PAGE_MASK;
+
+			if (off)
+				pde.off = PAGE_SIZE - off;
+
+			pr_info("\toff %#lx %#x bytes %#x\n", off, pde.off, bytes);
+		}
+
+		if (write_img(fd_pipes_data, &pde))
+			goto err_close;
+
+		/* Don't forget to advance position if a hole needed */
+		if (pde.off)
+			lseek(fd_pipes_data, pde.off, SEEK_CUR);
+
+		wrote = splice(steal_pipe[0], NULL, fd_pipes_data, NULL, bytes, 0);
+		if (wrote < 0) {
+			pr_perror("Can't push pipe data");
+			goto err_close;
+		} else if (wrote != bytes) {
+			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n", id, bytes, wrote);
+			goto err_close;
+		}
+	} else if (bytes < 0) {
+		if (errno != EAGAIN) {
+			pr_perror("Can't pick pipe data");
+			goto err_close;
+		}
+	}
+
+	ret = 0;
+
+err_close:
+	close(steal_pipe[0]);
+	close(steal_pipe[1]);
+err:
+	return ret;
+}
+#endif
+
 static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct pipe_entry pe;
