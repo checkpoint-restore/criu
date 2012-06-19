@@ -29,58 +29,6 @@ struct pipe_info {
 
 static LIST_HEAD(pipes);
 
-static int open_pipe(struct file_desc *d);
-static int pipe_should_open_transport(struct fdinfo_entry *fe,
-		struct file_desc *d);
-
-static struct file_desc_ops pipe_desc_ops = {
-	.type = FDINFO_PIPE,
-	.open = open_pipe,
-	.want_transport = pipe_should_open_transport,
-};
-
-int collect_pipes(void)
-{
-	struct pipe_info *pi = NULL, *tmp;
-	int fd, ret = -1;
-
-	fd = open_image_ro(CR_FD_PIPES);
-	if (fd < 0)
-		return -1;
-
-	while (1) {
-		pi = xmalloc(sizeof(*pi));
-		ret = -1;
-		if (pi == NULL)
-			break;
-
-		ret = read_img_eof(fd, &pi->pe);
-		if (ret <= 0)
-			break;
-
-		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
-					pi->pe.id, pi->pe.pipe_id);
-
-		file_desc_add(&pi->d, pi->pe.id, &pipe_desc_ops);
-
-		list_for_each_entry(tmp, &pipes, list)
-			if (pi->pe.pipe_id == tmp->pe.pipe_id)
-				break;
-
-		if (&tmp->list == &pipes)
-			INIT_LIST_HEAD(&pi->pipe_list);
-		else
-			list_add(&pi->pipe_list, &tmp->pipe_list);
-
-		list_add_tail(&pi->list, &pipes);
-	}
-
-	xfree(pi);
-
-	close(fd);
-	return ret;
-}
-
 static void show_saved_pipe_fds(struct pipe_info *pi)
 {
 	struct fdinfo_list_entry *fle;
@@ -175,43 +123,6 @@ void mark_pipe_master(void)
 	handle_pipes_data();
 }
 
-static int pipe_should_open_transport(struct fdinfo_entry *fe,
-		struct file_desc *d)
-{
-	struct pipe_info *pi;
-
-	pi = container_of(d, struct pipe_info, d);
-	return !pi->create;
-}
-
-static int recv_pipe_fd(struct pipe_info *pi)
-{
-	struct fdinfo_list_entry *fle;
-	char path[PATH_MAX];
-	int tmp, fd;
-
-	fle = file_master(&pi->d);
-	fd = fle->fe.fd;
-
-	pr_info("\tWaiting fd for %d\n", fd);
-
-	tmp = recv_fd(fd);
-	if (tmp < 0) {
-		pr_err("Can't get fd %d\n", tmp);
-		return -1;
-	}
-	close(fd);
-
-	snprintf(path, PATH_MAX, "/proc/self/fd/%d", tmp);
-	fd = open(path, pi->pe.flags);
-	close(tmp);
-
-	if (restore_fown(fd, &pi->pe.fown))
-		return -1;
-
-	return fd;
-}
-
 static int restore_pipe_data(int pfd, struct pipe_info *pi)
 {
 	int fd, size = 0, ret;
@@ -245,6 +156,34 @@ static int restore_pipe_data(int pfd, struct pipe_info *pi)
 err:
 	close(fd);
 	return ret;
+}
+
+static int recv_pipe_fd(struct pipe_info *pi)
+{
+	struct fdinfo_list_entry *fle;
+	char path[PATH_MAX];
+	int tmp, fd;
+
+	fle = file_master(&pi->d);
+	fd = fle->fe.fd;
+
+	pr_info("\tWaiting fd for %d\n", fd);
+
+	tmp = recv_fd(fd);
+	if (tmp < 0) {
+		pr_err("Can't get fd %d\n", tmp);
+		return -1;
+	}
+	close(fd);
+
+	snprintf(path, PATH_MAX, "/proc/self/fd/%d", tmp);
+	fd = open(path, pi->pe.flags);
+	close(tmp);
+
+	if (restore_fown(fd, &pi->pe.fown))
+		return -1;
+
+	return fd;
 }
 
 static int open_pipe(struct file_desc *d)
@@ -298,6 +237,63 @@ static int open_pipe(struct file_desc *d)
 		return -1;
 
 	return tmp;
+}
+
+static int pipe_should_open_transport(struct fdinfo_entry *fe,
+		struct file_desc *d)
+{
+	struct pipe_info *pi;
+
+	pi = container_of(d, struct pipe_info, d);
+	return !pi->create;
+}
+
+static struct file_desc_ops pipe_desc_ops = {
+	.type		= FDINFO_PIPE,
+	.open		= open_pipe,
+	.want_transport	= pipe_should_open_transport,
+};
+
+int collect_pipes(void)
+{
+	struct pipe_info *pi = NULL, *tmp;
+	int fd, ret = -1;
+
+	fd = open_image_ro(CR_FD_PIPES);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		pi = xmalloc(sizeof(*pi));
+		ret = -1;
+		if (pi == NULL)
+			break;
+
+		ret = read_img_eof(fd, &pi->pe);
+		if (ret <= 0)
+			break;
+
+		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
+					pi->pe.id, pi->pe.pipe_id);
+
+		file_desc_add(&pi->d, pi->pe.id, &pipe_desc_ops);
+
+		list_for_each_entry(tmp, &pipes, list)
+			if (pi->pe.pipe_id == tmp->pe.pipe_id)
+				break;
+
+		if (&tmp->list == &pipes)
+			INIT_LIST_HEAD(&pi->pipe_list);
+		else
+			list_add(&pi->pipe_list, &tmp->pipe_list);
+
+		list_add_tail(&pi->list, &pipes);
+	}
+
+	xfree(pi);
+
+	close(fd);
+	return ret;
 }
 
 static u32 pipes_with_data[1024];	/* pipes for which data already dumped */
