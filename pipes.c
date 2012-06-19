@@ -416,8 +416,7 @@ static const struct fdtype_ops pipe_ops = {
 	.dump		= dump_one_pipe,
 };
 
-int dump_pipe(struct fd_parms *p, int lfd,
-			     const struct cr_fdset *cr_fdset)
+int dump_pipe(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	return do_dump_gen_file(p, lfd, &pipe_ops, cr_fdset);
 }
