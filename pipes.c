@@ -179,7 +179,7 @@ static int pipe_should_open_transport(struct fdinfo_entry *fe,
 		struct file_desc *d)
 {
 	struct pipe_info *pi;
-	
+
 	pi = container_of(d, struct pipe_info, d);
 	return !pi->create;
 }
