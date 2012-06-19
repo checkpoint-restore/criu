@@ -2,7 +2,7 @@ CFLAGS	= -g -O2 -Wall -Werror -Wno-unused-result
 
 LIB	= libzdtmtst.a
 
-LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c
+LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
 LIBDEP	= $(LIBSRC:%.c=%.d)
 

@@ -89,4 +89,15 @@ extern int parse_opt_string(char *param, void *arg);
 		 __FILE__, __LINE__, ## arg)
 #define pass()	test_msg("PASS\n")
 
+typedef struct {
+	unsigned long	seed;
+	int		pipes[2];
+} task_waiter_t;
+
+extern void task_waiter_init(task_waiter_t *t);
+extern void task_waiter_fini(task_waiter_t *t);
+extern void task_waiter_wait4(task_waiter_t *t, unsigned int lockid);
+extern void task_waiter_complete(task_waiter_t *t, unsigned int lockid);
+extern void task_waiter_complete_current(task_waiter_t *t);
+
 #endif /* _VIMITESU_H_ */
