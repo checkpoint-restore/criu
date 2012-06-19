@@ -1364,8 +1364,6 @@ static int collect_subtree(struct pstree_item *item, int leader_only)
 	return 0;
 }
 
-static int dump_pstree(struct pstree_item *item);
-
 static int collect_pstree(pid_t pid, const struct cr_options *opts)
 {
 	int ret, attempts = 5;
@@ -1414,10 +1412,7 @@ try_again:
 	if (!ret)
 		ret = check_xids(root_item);
 
-	if (ret)
-		return ret;
-
-	return dump_pstree(root_item);
+	return ret;
 }
 
 static int dump_pstree(struct pstree_item *root_item)
@@ -1700,6 +1695,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("========================================\n");
 
 	if (collect_pstree(pid, opts))
+		goto err;
+
+	if (dump_pstree(root_item))
 		goto err;
 
 	if (opts->namespaces_flags) {
