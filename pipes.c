@@ -181,8 +181,12 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	fd = open(path, pi->pe.flags);
 	close(tmp);
 
-	if (restore_fown(fd, &pi->pe.fown))
-		return -1;
+	if (fd >= 0) {
+		if (restore_fown(fd, &pi->pe.fown)) {
+			close(fd);
+			return -1;
+		}
+	}
 
 	return fd;
 }
