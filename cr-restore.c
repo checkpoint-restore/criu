@@ -17,6 +17,7 @@
 #include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/shm.h>
+#include <sys/mount.h>
 
 #include <sched.h>
 
@@ -521,17 +522,11 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 		goto err_close;
 	}
 
-	/* A process with pid = 1 is "init". It should be restore in new pid ns.
-	 * The first process in pid ns gets pid = 1 automaticaly. */
-	if (pid == 1) {
-		ca.clone_flags |= CLONE_NEWPID;
-		if (item != root_item) {
-			pr_err("Only first task can have pid = 1");
-			goto err_unlock;
-		}
-	} else
+	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		if (write_img_buf(ca.fd, buf, strlen(buf)))
 			goto err_unlock;
+	} else
+		BUG_ON(pid != 1);
 
 	ret = clone(restore_task_with_children, stack + STACK_SIZE,
 			ca.clone_flags | SIGCHLD, &ca);
@@ -620,6 +615,8 @@ static void restore_pgid(void)
 	}
 }
 
+static char proc_mountpoint[PATH_MAX] = "/proc";
+
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
@@ -636,6 +633,15 @@ static int restore_task_with_children(void *_arg)
 	if (me->pid.pid != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, me->pid.pid);
 		exit(-1);
+	}
+
+	if (pid == 1) { /* New pid namespace */
+		ret = mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL);
+		if (ret == -1) {
+			pr_err("mount failed");
+			exit(1);
+		}
+		set_proc_mountpoint(proc_mountpoint);
 	}
 
 	ret = log_init_by_pid();
@@ -704,6 +710,18 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	 * this later.
 	 */
 
+	if (init->pid.pid == 1) {
+		sprintf(proc_mountpoint, "/tmp/crtools-proc.XXXXXX");
+		if (mkdtemp(proc_mountpoint) == NULL) {
+			pr_err("mkdtemp failed %m");
+			return -1;
+		}
+		/* A process with pid = 1 is "init".
+		 * It should be restore in new pid ns.
+		 * The first process in pid ns gets pid = 1 automaticaly. */
+		opts->namespaces_flags |= CLONE_NEWPID;
+	}
+
 	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
@@ -722,6 +740,16 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	ret = (int)futex_get(&task_entries->nr_in_progress);
 
 out:
+	if (init->pid.pid == 1) {
+		int err;
+		err = umount(proc_mountpoint);
+		if (err == -1)
+			pr_err("Can't umount %s\n", proc_mountpoint);
+		err = rmdir(proc_mountpoint);
+		if (err == -1)
+			pr_err("Can't delete %s\n", proc_mountpoint);
+	}
+
 	if (ret < 0) {
 		struct pstree_item *pi;
 		pr_err("Someone can't be restored\n");
