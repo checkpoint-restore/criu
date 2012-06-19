@@ -33,8 +33,8 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				      struct list_head *vma_area_list,
 				      struct cr_fdset *cr_fdset);
 struct parasite_dump_tid_addr;
-extern int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl,
-					 pid_t pid, unsigned int **tid_add);
+extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
+					unsigned int **tid_add, u32 *tid);
 
 extern int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds, char *flags);
 

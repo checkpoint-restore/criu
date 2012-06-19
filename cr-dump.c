@@ -1480,7 +1480,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	if (ret)
 		goto err_free;
 
-	ret = parasite_dump_tid_addr_seized(parasite_ctl, pid, &taddr);
+	ret = parasite_dump_thread_seized(parasite_ctl, pid, &taddr, &tid->pid);
 	if (ret) {
 		pr_err("Can't dump tid address for pid %d", pid);
 		goto err_free;

@@ -416,7 +416,8 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl, pid_t pid, unsigned int **tid_addr)
+int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
+					unsigned int **tid_addr, u32 *tid)
 {
 	struct parasite_dump_tid_addr args = { };
 	int ret;
@@ -425,6 +426,7 @@ int parasite_dump_tid_addr_seized(struct parasite_ctl *ctl, pid_t pid, unsigned 
 			(parasite_status_t *)&args, sizeof(args));
 
 	*tid_addr = args.tid_addr;
+	*tid = args.tid;
 
 	return ret;
 }

@@ -363,6 +363,10 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->brk = sys_brk(0);
 	args->blocked = old_blocked;
 
+	args->pid = sys_getpid();
+	args->sid = sys_getsid();
+	args->pgid = sys_getpgid();
+
 	return 0;
 }
 
@@ -376,6 +380,8 @@ static int dump_tid_addr(struct parasite_dump_tid_addr *args)
 		SET_PARASITE_RET(st, ret);
 		return ret;
 	}
+
+	args->tid = sys_gettid();
 
 	return 0;
 }

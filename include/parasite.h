@@ -73,12 +73,17 @@ struct parasite_dump_misc {
 	unsigned int		secbits;
 	unsigned long		brk;
 	k_rtsigset_t		blocked;
+
+	u32 pid;
+	u32 sid;
+	u32 pgid;
 };
 
 struct parasite_dump_tid_addr {
 	parasite_status_t	status;
 
-	unsigned int *tid_addr;
+	unsigned int		*tid_addr;
+	int			tid;
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
