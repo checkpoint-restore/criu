@@ -10,21 +10,22 @@
 #include "pipes.h"
 #include "util-net.h"
 
-/* The sequence of objects which should be restored:
+/*
+ * The sequence of objects which should be restored:
  * pipe -> files struct-s -> fd-s.
  * pipe_entry describes  pipe's file structs-s.
  * A pipe doesn't have own properties, so it has no object.
  */
 
 struct pipe_info {
-	struct pipe_entry pe;
-	struct list_head pipe_list;	/* all pipe_info with the same pipe_id
-					 * This is pure circular list without head */
-	struct list_head list;		/* list head for fdinfo_list_entry-s */
-	struct file_desc d;
-	int create;
-	int bytes;
-	off_t off;
+	struct pipe_entry	pe;
+	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
+						 * This is pure circular list without head */
+	struct list_head	list;		/* list head for fdinfo_list_entry-s */
+	struct file_desc	d;
+	int			create;
+	int			bytes;
+	off_t			off;
 };
 
 static LIST_HEAD(pipes);
