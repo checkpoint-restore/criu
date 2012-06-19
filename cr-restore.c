@@ -69,7 +69,7 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 
 static int prepare_pstree(void)
 {
-	int ret = 0, ps_fd;
+	int ret = 0, i, ps_fd;
 	struct pstree_item *pi, *parent = NULL;
 
 	pr_info("Reading image tree\n");
@@ -99,7 +99,7 @@ static int prepare_pstree(void)
 		if (pi == NULL)
 			break;
 
-		pi->pid = e.pid;
+		pi->pid.pid = e.pid;
 		pi->pgid = e.pgid;
 		pi->sid = e.sid;
 
@@ -115,18 +115,18 @@ static int prepare_pstree(void)
 			 * and sit among the last item's ancestors.
 			 */
 			while (parent) {
-				if (parent->pid == e.ppid)
+				if (parent->pid.pid == e.ppid)
 					break;
 				parent = parent->parent;
 			}
 
 			if (parent == NULL)
 				for_each_pstree_item(parent)
-					if (parent->pid == e.ppid)
+					if (parent->pid.pid == e.ppid)
 						break;
 
 			if (parent == NULL) {
-				pr_err("Can't find a parent for %d", pi->pid);
+				pr_err("Can't find a parent for %d", pi->pid.pid);
 				xfree(pi);
 				break;
 			}
@@ -138,12 +138,16 @@ static int prepare_pstree(void)
 		parent = pi;
 
 		pi->nr_threads = e.nr_threads;
-		pi->threads = xmalloc(e.nr_threads * sizeof(u32));
+		pi->threads = xmalloc(e.nr_threads * sizeof(struct pid));
 		if (!pi->threads)
 			break;
 
-		ret = read_img_buf(ps_fd, pi->threads,
-				e.nr_threads * sizeof(u32));
+		ret = 0;
+		for (i = 0; i < e.nr_threads; i++) {
+			ret = read_img_buf(ps_fd, &pi->threads[i].pid, sizeof(u32));
+			if (ret < 0)
+				break;
+		}
 		if (ret < 0)
 			break;
 
@@ -196,11 +200,11 @@ static int prepare_shared(void)
 		return -1;
 
 	for_each_pstree_item(pi) {
-		ret = prepare_shmem_pid(pi->pid);
+		ret = prepare_shmem_pid(pi->pid.pid);
 		if (ret < 0)
 			break;
 
-		ret = prepare_fd_pid(pi->pid, pi->rst);
+		ret = prepare_fd_pid(pi->pid.pid, pi->rst);
 		if (ret < 0)
 			break;
 	}
@@ -492,7 +496,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	char buf[32];
 	struct cr_clone_arg ca;
 	void *stack;
-	pid_t pid = item->pid;
+	pid_t pid = item->pid.pid;
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ns_clone_flags);
 
@@ -573,8 +577,8 @@ static void restore_sid(void)
 	 * we can call setpgid() on custom values.
 	 */
 
-	pr_info("Restoring %d to %d sid\n", me->pid, me->sid);
-	if (me->pid == me->sid) {
+	pr_info("Restoring %d to %d sid\n", me->pid.pid, me->sid);
+	if (me->pid.pid == me->sid) {
 		sid = setsid();
 		if (sid != me->sid) {
 			pr_perror("Can't restore sid (%d)", sid);
@@ -594,7 +598,7 @@ static void restore_pgid(void)
 {
 	pid_t pgid;
 
-	pr_info("Restoring %d to %d pgid\n", me->pid, me->pgid);
+	pr_info("Restoring %d to %d pgid\n", me->pid.pid, me->pgid);
 
 	pgid = getpgrp();
 	if (me->pgid == pgid)
@@ -602,7 +606,7 @@ static void restore_pgid(void)
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
 	if (setpgid(0, me->pgid) != 0) {
-		pr_perror("Can't restore pgid (%d/%d->%d)", me->pid, pgid, me->pgid);
+		pr_perror("Can't restore pgid (%d/%d->%d)", me->pid.pid, pgid, me->pgid);
 		xid_fail();
 	}
 }
@@ -620,8 +624,8 @@ static int restore_task_with_children(void *_arg)
 	me = ca->item;
 
 	pid = getpid();
-	if (me->pid != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, me->pid);
+	if (me->pid.pid != pid) {
+		pr_err("Pid %d do not match expected %d\n", pid, me->pid.pid);
 		exit(-1);
 	}
 
@@ -630,7 +634,7 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 
 	if (ca->clone_flags) {
-		ret = prepare_namespace(me->pid, ca->clone_flags);
+		ret = prepare_namespace(me->pid.pid, ca->clone_flags);
 		if (ret)
 			exit(-1);
 	}
@@ -646,7 +650,7 @@ static int restore_task_with_children(void *_arg)
 	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
-		pr_perror("%d: Can't block signals", me->pid);
+		pr_perror("%d: Can't block signals", me->pid.pid);
 		exit(1);
 	}
 
@@ -662,7 +666,7 @@ static int restore_task_with_children(void *_arg)
 
 	restore_pgid();
 
-	return restore_one_task(me->pid);
+	return restore_one_task(me->pid.pid);
 }
 
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
@@ -714,7 +718,7 @@ out:
 		pr_err("Someone can't be restored\n");
 
 		for_each_pstree_item(pi)
-			kill(pi->pid, SIGKILL);
+			kill(pi->pid.pid, SIGKILL);
 
 		return 1;
 	}
@@ -1133,7 +1137,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	 * Fill up per-thread data.
 	 */
 	for (i = 0; i < me->nr_threads; i++) {
-		thread_args[i].pid = me->threads[i];
+		thread_args[i].pid = me->threads[i].pid;
 
 		/* skip self */
 		if (thread_args[i].pid == pid)

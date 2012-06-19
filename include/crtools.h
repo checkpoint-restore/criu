@@ -175,16 +175,24 @@ struct rst_info {
 	struct list_head	eventpoll;
 };
 
+struct pid
+{
+	union { /* They will be splitted, when crtools will support pid ns */
+	u32 real_pid;
+	u32 pid;
+	};
+};
+
 struct pstree_item {
 	struct list_head	list;
-	pid_t			pid;		/* leader pid */
+	struct pid		pid;		/* leader pid */
 	struct pstree_item	*parent;
 	struct list_head	children;	/* array of children */
 	pid_t			pgid;
 	pid_t			sid;
 	int			state;		/* TASK_XXX constants */
 	int			nr_threads;	/* number of threads */
-	u32			*threads;	/* array of threads */
+	struct pid		*threads;	/* array of threads */
 	struct rst_info		rst[0];
 };
 
