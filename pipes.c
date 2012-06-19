@@ -90,7 +90,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 		pr_info("   `- FD %d pid %d\n", fle->fe.fd, fle->pid);
 }
 
-static int handle_pipes_data()
+static int handle_pipes_data(void)
 {
 	int fd, ret;
 
@@ -128,7 +128,7 @@ err:
 }
 
 /* Choose who will restore a pipe. */
-void mark_pipe_master()
+void mark_pipe_master(void)
 {
 	LIST_HEAD(head);
 
