@@ -239,8 +239,7 @@ static int open_pipe(struct file_desc *d)
 	return tmp;
 }
 
-static int pipe_should_open_transport(struct fdinfo_entry *fe,
-		struct file_desc *d)
+static int want_transport(struct fdinfo_entry *fe, struct file_desc *d)
 {
 	struct pipe_info *pi;
 
@@ -251,7 +250,7 @@ static int pipe_should_open_transport(struct fdinfo_entry *fe,
 static struct file_desc_ops pipe_desc_ops = {
 	.type		= FDINFO_PIPE,
 	.open		= open_pipe,
-	.want_transport	= pipe_should_open_transport,
+	.want_transport	= want_transport,
 };
 
 int collect_pipes(void)
