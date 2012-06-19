@@ -46,6 +46,7 @@ TST_NOFILE	=				\
 		file_fown			\
 		eventfs00			\
 		inotify00			\
+		uptime_grow			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -158,6 +159,7 @@ futex:			override LDFLAGS += -pthread
 jobctl00:		override LDLIBS += -lutil
 socket_listen:		override LDLIBS += -lrt
 socket_aio:		override LDLIBS += -lrt
+uptime_grow:	override LDLIBS += -lrt
 unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
