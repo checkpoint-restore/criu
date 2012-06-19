@@ -29,24 +29,23 @@ int capset(struct cap_hdr *hdrp, const struct cap_data *datap);
 
 int main(int argc, char **argv)
 {
-	int pid, s_p[2], f_p[2], r_p[3];
+	task_waiter_t t;
+	int pid, result_pipe[2];
 	char res = 'x';
 
 	test_init(argc, argv);
+	task_waiter_init(&t);
 
-	pipe(s_p);
-	pipe(f_p);
-	pipe(r_p);
+	if (pipe(result_pipe)) {
+		err("Can't create pipe\n");
+		return 1;
+	}
 
-	pid = fork();
+	pid = test_fork();
 	if (pid == 0) {
 		struct cap_hdr hdr;
 		struct cap_data data[_LINUX_CAPABILITY_U32S_3];
 		struct cap_data data_2[_LINUX_CAPABILITY_U32S_3];
-
-		close(s_p[0]);
-		close(f_p[1]);
-		close(r_p[0]);
 
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
@@ -61,10 +60,8 @@ int main(int argc, char **argv)
 
 		capset(&hdr, data);
 
-		close(s_p[1]);
-
-		read(f_p[0], &res, 1);
-		close(f_p[0]);
+		task_waiter_complete_current(&t);
+		task_waiter_wait4(&t, getppid());
 
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
@@ -98,24 +95,23 @@ int main(int argc, char **argv)
 
 		res = '0';
 bad:
-		write(r_p[1], &res, 1);
-		close(r_p[1]);
+		write(result_pipe[1], &res, 1);
+		close(result_pipe[0]);
+		close(result_pipe[1]);
 		_exit(0);
 	}
 
-	close(f_p[0]);
-	close(s_p[1]);
-	close(r_p[1]);
-
-	read(s_p[0], &res, 1);
-	close(s_p[0]);
+	task_waiter_wait4(&t, pid);
 
 	test_daemon();
 	test_waitsig();
 
-	close(f_p[1]);
+	task_waiter_complete_current(&t);
 
-	read(r_p[0], &res, 1);
+	read(result_pipe[0], &res, 1);
+	close(result_pipe[0]);
+	close(result_pipe[1]);
+
 	if (res == '0')
 		pass();
 	else
