@@ -629,13 +629,21 @@ static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	return 0;
 }
 
+static char *fdinfo_states[FD_STATE_MAX] = {
+	[FD_STATE_PREP]		= "prepare",
+	[FD_STATE_CREATE]	= "create",
+	[FD_STATE_RECV]		= "receive",
+};
+
 static int open_fdinfo(int pid, struct fdinfo_entry *fe, int state)
 {
 	int ret = 0;
 	struct file_desc *fdesc;
 
+	BUG_ON(state >= FD_STATE_MAX);
+
 	fdesc = find_file_desc(fe);
-	pr_info("\tRestoring fd %d (state -> %d)\n", fe->fd, state);
+	pr_info("\tRestoring fd %d (state -> %s)\n", fe->fd, fdinfo_states[state]);
 
 	switch (state) {
 	case FD_STATE_PREP:
