@@ -205,6 +205,7 @@ void close_image_dir(void)
 
 static pid_t open_proc_pid = 0;
 static int open_proc_fd = -1;
+static int proc_dir_fd = -1;
 
 int close_pid_proc(void)
 {
@@ -219,6 +220,38 @@ int close_pid_proc(void)
 	return ret;
 }
 
+void close_proc()
+{
+	close_pid_proc();
+	if (proc_dir_fd > 0)
+		close(proc_dir_fd);
+	proc_dir_fd = -1;
+}
+
+int set_proc_mountpoint(char *path)
+{
+	int sfd = get_service_fd(PROC_FD_OFF), fd;
+
+	close_proc();
+
+	fd = open(path, O_DIRECTORY | O_RDONLY);
+	if (fd == -1) {
+		pr_err("Can't open %s\n", path);
+		return -1;
+	}
+
+	sfd = dup2(fd, sfd);
+	close(fd);
+	if (sfd < 0) {
+		pr_err("Can't set proc fd");
+		return -1;
+	}
+
+	proc_dir_fd = sfd;
+
+	return 0;
+}
+
 inline int open_pid_proc(pid_t pid)
 {
 	char path[18];
@@ -228,8 +261,15 @@ inline int open_pid_proc(pid_t pid)
 		return open_proc_fd;
 
 	close_pid_proc();
-	sprintf(path, "/proc/%d", pid);
-	fd = open(path, O_RDONLY);
+
+	if (proc_dir_fd == -1) {
+		fd = set_proc_mountpoint("/proc");
+		if (fd < 0)
+			return fd;
+	}
+
+	sprintf(path, "%d", pid);
+	fd = openat(proc_dir_fd, path, O_RDONLY);
 	if (fd < 0)
 		pr_perror("Can't open %s", path);
 	else {

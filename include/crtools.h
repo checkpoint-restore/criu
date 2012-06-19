@@ -84,6 +84,7 @@ enum {
 	LOG_FD_OFF = 1,
 	IMG_FD_OFF,
 	SELF_EXE_FD_OFF,
+	PROC_FD_OFF,
 };
 
 int get_service_fd(int type);

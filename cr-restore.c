@@ -981,7 +981,7 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	restore_thread_vma_len	= 0;
 
 	ret = parse_smaps(pid, &self_vma_list, false);
-	close_pid_proc();
+	close_proc();
 	if (ret < 0)
 		goto err;
 
