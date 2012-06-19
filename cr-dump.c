@@ -998,6 +998,7 @@ static int parse_threads(const struct pstree_item *item, struct pid **_t, int *_
 		}
 		t = tmp;
 		t[nr - 1].real_pid = atoi(de->d_name);
+		t[nr - 1].pid = -1;
 		nr++;
 	}
 
@@ -1086,6 +1087,8 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	INIT_LIST_HEAD(&item->children);
 	item->threads = NULL;
 	item->nr_threads = 0;
+	item->pid.pid = -1;
+	item->pid.real_pid = -1;
 
 	return item;
 }
@@ -1580,8 +1583,18 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err;
 
-	if (item->state == TASK_DEAD)
+	if (item->state == TASK_DEAD) {
+		/* FIXME don't support zombie in pid name space*/
+		if (root_item->pid.pid == 1) {
+			pr_err("Can't dump a zombie %d in PIDNS", item->pid.real_pid);
+			ret = -1;
+			goto err;
+		}
+		item->pid.pid = item->pid.real_pid;
+
+		BUG_ON(!list_empty(&item->children));
 		return dump_one_zombie(item, &pps_buf);
+	}
 
 	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {

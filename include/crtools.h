@@ -177,10 +177,8 @@ struct rst_info {
 
 struct pid
 {
-	union { /* They will be splitted, when crtools will support pid ns */
 	u32 real_pid;
 	u32 pid;
-	};
 };
 
 struct pstree_item {
