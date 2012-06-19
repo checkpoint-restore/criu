@@ -25,8 +25,6 @@ static/xids00
 streaming/pipe_loop00
 streaming/pipe_shared00
 transition/file_read
-transition/fork
-static/zombie00
 static/sockets00
 static/sockets_spair
 static/sockets_dgram
@@ -40,11 +38,19 @@ static/socket_udp
 static/socket6_udp
 static/socket_udplite
 static/selfexe00
-static/file_fown
 static/unlink_fstat00
 static/unlink_fstat02
 static/eventfs00
 static/inotify00
+"
+# Duplicate list with pidns/ prefix
+TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#pidns/#')
+
+# These ones are not in pidns
+TEST_LIST=$TEST_LIST "
+static/zombie00
+transition/fork
+static/file_fown
 "
 
 UTS_TEST_LIST="
@@ -60,16 +66,58 @@ transition/ipc
 "
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
+TINIT=`pwd`/`dirname $0`/zdtm/lib/test_init
 test -x $CRTOOLS || exit 1
+
 ARGS=""
+
+PID=""
+PIDNS=""
+
+start_test()
+{
+	local tdir=$1
+	local tname=$2
+
+	killall -9 $tname &> /dev/null
+	make -C $tdir cleanout
+
+	if [ -z "$PIDNS" ]; then
+		make -C $tdir $tname.pid
+		PID=`cat $test.pid` || return 1
+	else
+		killall -9 test_init
+		$TINIT  $tdir $tname || {
+			echo ERROR: fail to start $tdir/$tname
+			return 1;
+		}
+
+		PID=`ps h -C test_init -o pid`
+		PID=$((PID))
+	fi
+}
+
+stop_test()
+{
+	local tdir=$1
+	local tname=$2
+
+	if [ -z "$PIDNS" ]; then
+		make -C $tdir $tname.out
+	else
+		killall test_init
+	fi
+}
 
 save_fds()
 {
+	test -n "$PIDNS" && return 0
 	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | awk '{ print $9,$10,$11; }' > $2
 }
 
 diff_fds()
 {
+	test -n "$PIDNS" && return 0
 	if ! diff -up $1 $2; then
 		echo ERROR: Sets of descriptors are differ:
 		echo $1
@@ -80,7 +128,11 @@ diff_fds()
 
 run_test()
 {
-	local test=$ZP/$1
+	local test=$1
+
+	expr "$test" : 'pidns/' && PIDNS=1 || PIDNS=""
+	test=${ZP}/${test#pidns/}
+
 	shift
 	local args=$*
 	local tname=`basename $test`
@@ -89,24 +141,21 @@ run_test()
 
 	echo "Execute $test"
 
-	killall -9 $tname &> /dev/null
-	make -C $tdir cleanout $tname.pid
+	start_test $tdir $tname || return 1
 
-	local pid ddump
-	pid=`cat $test.pid` || return 1
-
-	kill -s 0 "$pid" || {
-		echo "Get a wrong pid '$pid'"
+	local ddump
+	kill -s 0 "$PID" || {
+		echo "Get a wrong pid '$PID'"
 		return 1
 	}
 
-	ddump=dump/$tname/$pid
+	ddump=dump/$tname/$PID
 	DUMP_PATH=`pwd`/$ddump
 
-	echo Dump $pid
+	echo Dump $PID
 	mkdir -p $ddump
-	save_fds $pid  $ddump/dump.fd
-	setsid $CRTOOLS dump -D $ddump -o dump.log -v 4 -t $pid $args $ARGS || {
+	save_fds $PID  $ddump/dump.fd
+	setsid $CRTOOLS dump -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -121,15 +170,15 @@ run_test()
 			sleep 1
 		done
 
-		echo Restore $pid
-		setsid $CRTOOLS restore --log-pid -D $ddump -o restore.log -v 4 -d -t $pid $args || return 2
+		echo Restore $PID
+		setsid $CRTOOLS restore --log-pid -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
-		save_fds $pid  $ddump/restore.fd
+		save_fds $PID  $ddump/restore.fd
 		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
 	fi
 
-	echo Check results $pid
-	make -C $tdir $tname.out
+	echo Check results $PID
+	stop_test $tdir $tname
 	for i in `seq 50`; do
 		test -f $test.out && break
 		echo Waiting...
@@ -141,7 +190,7 @@ run_test()
 
 case_error()
 {
-	local test=$ZP/$1
+	test=${ZP}/${1#pidns/}
 	local test_log=`pwd`/$test.out
 
 	echo "Test: $test"
