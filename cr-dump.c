@@ -1409,9 +1409,6 @@ try_again:
 		free_pstree(root_item);
 	}
 
-	if (!ret)
-		ret = check_xids(root_item);
-
 	return ret;
 }
 
@@ -1425,6 +1422,10 @@ static int dump_pstree(struct pstree_item *root_item)
 	pr_info("\n");
 	pr_info("Dumping pstree (pid: %d)\n", root_item->pid.real_pid);
 	pr_info("----------------------------------------\n");
+
+	ret = check_xids(root_item);
+	if (ret)
+		return -1;
 
 	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
 	if (pstree_fd < 0)
