@@ -521,11 +521,20 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 		goto err_close;
 	}
 
-	if (write_img_buf(ca.fd, buf, strlen(buf)))
-		goto err_unlock;
+	/* A process with pid = 1 is "init". It should be restore in new pid ns.
+	 * The first process in pid ns gets pid = 1 automaticaly. */
+	if (pid == 1) {
+		ca.clone_flags |= CLONE_NEWPID;
+		if (item != root_item) {
+			pr_err("Only first task can have pid = 1");
+			goto err_unlock;
+		}
+	} else
+		if (write_img_buf(ca.fd, buf, strlen(buf)))
+			goto err_unlock;
 
 	ret = clone(restore_task_with_children, stack + STACK_SIZE,
-			ns_clone_flags | SIGCHLD, &ca);
+			ca.clone_flags | SIGCHLD, &ca);
 
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
