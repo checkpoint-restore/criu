@@ -10,13 +10,15 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 %.d:	%.c
 	$(DEPEND.c) $(OUTPUT_OPTION) $<
 
-all:	$(LIB)
+all:	$(LIB) test_init
 install: all
 
 $(LIB):	$(LIB)(${LIBOBJ})
 
+test_init: test_init.c
+
 clean:
-	$(RM) $(LIBOBJ) $(LIB) *~
+	$(RM) $(LIBOBJ) $(LIB) test_init *~
 
 cleandep:
 	$(RM) $(LIBDEP)
