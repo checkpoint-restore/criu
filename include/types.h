@@ -186,6 +186,10 @@ typedef struct {
 # define PAGE_SIZE	4096
 #endif
 
+#ifndef PAGE_MASK
+# define PAGE_MASK	(~(PAGE_SIZE - 1))
+#endif
+
 /* For sys_kcmp */
 enum kcmp_type {
 	KCMP_FILE,
