@@ -300,9 +300,8 @@ static int open_pipe(struct file_desc *d)
 	return tmp;
 }
 
-#define PIPES_SIZE 1024
-static u32 *pipes_with_data;	/* pipes for which data already dumped */
-static int nr_pipes = 0;
+static u32 pipes_with_data[1024];	/* pipes for which data already dumped */
+static int nr_pipes;
 
 static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 {
@@ -321,7 +320,7 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 
 	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
 
-	if (PIPES_SIZE < nr_pipes + 1) {
+	if (ARRAY_SIZE(pipes_with_data) < nr_pipes + 1) {
 		pr_err("OOM storing pipe\n");
 		return -1;
 	}
@@ -421,15 +420,4 @@ int dump_pipe(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset)
 {
 	return do_dump_gen_file(p, lfd, &pipe_ops, cr_fdset);
-}
-
-int init_pipes_dump(void)
-{
-	pipes_with_data = xmalloc(PIPES_SIZE * sizeof(*pipes_with_data));
-	return pipes_with_data == NULL ? -1 : 0;
-}
-
-void fini_pipes_dump(void)
-{
-	xfree(pipes_with_data);
 }
