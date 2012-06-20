@@ -114,7 +114,7 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	char path[128];
 	int ret;
 
-	sprintf(path, "/proc/%d/map_files/%lx-%lx",
+	snprintf(path, sizeof(path), "/proc/%d/map_files/%lx-%lx",
 		si->pid, si->start, si->end);
 
 	pr_info("Waiting for [%s] to appear\n", path);

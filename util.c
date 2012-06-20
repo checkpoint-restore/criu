@@ -268,7 +268,7 @@ inline int open_pid_proc(pid_t pid)
 			return fd;
 	}
 
-	sprintf(path, "%d", pid);
+	snprintf(path, sizeof(path), "%d", pid);
 	fd = openat(proc_dir_fd, path, O_RDONLY);
 	if (fd < 0)
 		pr_perror("Can't open %s", path);

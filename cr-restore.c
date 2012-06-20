@@ -711,7 +711,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	 */
 
 	if (init->pid.pid == 1) {
-		sprintf(proc_mountpoint, "/tmp/crtools-proc.XXXXXX");
+		snprintf(proc_mountpoint, sizeof(proc_mountpoint), "/tmp/crtools-proc.XXXXXX");
 		if (mkdtemp(proc_mountpoint) == NULL) {
 			pr_err("mkdtemp failed %m");
 			return -1;

@@ -34,7 +34,7 @@ static int nf_connection_switch_raw(u32 *src_addr, u16 src_port, u32 *dst_addr, 
 		return -1;
 	}
 
-	sprintf(buf, nf_conn_cmd, lock ? "-A" : "-D",
+	snprintf(buf, sizeof(buf), nf_conn_cmd, lock ? "-A" : "-D",
 			dip, (int)dst_port, sip, (int)src_port);
 
 	pr_debug("\tRunning iptables [%s]\n", buf);

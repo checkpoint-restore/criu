@@ -217,7 +217,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (read_img(ifd, &gfe) < 0)
 		return -1;
 
-	sprintf(gf->path, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 	gfd = open(gf->path, O_WRONLY | O_CREAT | O_EXCL, gfe.mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
