@@ -84,29 +84,29 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 		return -1;
 	gf->path = xmalloc(PATH_MAX);
 	if (!gf->path)
-		return -1;
+		goto err;
 
 	ifd = open_image_ro(CR_FD_GHOST_FILE, rfe->remap_id);
 	if (ifd < 0)
-		return -1;
+		goto err;
 
 	if (read_img(ifd, &gfe) < 0)
-		return -1;
+		goto err;
 
 	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 	gfd = open(gf->path, O_WRONLY | O_CREAT | O_EXCL, gfe.mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
-		return -1;
+		goto err;
 	}
 
 	if (fchown(gfd, gfe.uid, gfe.gid) < 0) {
 		pr_perror("Can't reset user/group on ghost %#x\n", rfe->remap_id);
-		return -1;
+		goto err;
 	}
 
 	if (copy_file(ifd, gfd, 0) < 0)
-		return -1;
+		goto err;
 
 	close(ifd);
 	close(gfd);
@@ -116,6 +116,11 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 gf_found:
 	rfi->remap_path = gf->path;
 	return 0;
+
+err:
+	xfree(gf->path);
+	xfree(gf);
+	return -1;
 }
 
 static int collect_remaps(void)
