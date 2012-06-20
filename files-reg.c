@@ -359,6 +359,7 @@ static int open_fe_fd(struct file_desc *d)
 
 	return tmp;
 }
+
 int open_reg_by_id(u32 id)
 {
 	struct file_desc *fd;
