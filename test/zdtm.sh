@@ -47,7 +47,7 @@ static/inotify00
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#pidns/#')
 
 # These ones are not in pidns
-TEST_LIST=$TEST_LIST "
+TEST_LIST="$TEST_LIST
 static/zombie00
 transition/fork
 static/file_fown
