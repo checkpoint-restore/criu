@@ -15,16 +15,17 @@
 #include "files-reg.h"
 
 struct reg_file_info {
-	struct reg_file_entry rfe;
-	char *remap_path;
-	char *path;
-	struct file_desc d;
+	struct file_desc	d;
+
+	struct reg_file_entry	rfe;
+	char			*remap_path;
+	char			*path;
 };
 
 struct ghost_file {
-	u32 id;
-	char *path;
-	struct list_head list;
+	struct list_head	list;
+	u32			id;
+	char			*path;
 };
 
 /*
@@ -33,10 +34,10 @@ struct ghost_file {
  * us. Any brave soul to implement link unlinked file back?
  */
 struct ghost_file_dumpee {
-	u32	dev;
-	u32	ino;
-	u32	id;
-	struct list_head list;
+	struct list_head	list;
+	u32			id;
+	u32			dev;
+	u32			ino;
 };
 
 static u32 ghost_file_ids = 1;
