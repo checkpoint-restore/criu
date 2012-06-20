@@ -44,6 +44,7 @@ OBJS		+= sk-tcp.o
 OBJS		+= sk-unix.o
 OBJS		+= sk-queue.o
 OBJS		+= files.o
+OBJS		+= files-reg.o
 OBJS		+= pipes.o
 OBJS		+= file-ids.o
 OBJS		+= namespaces.o
