@@ -42,8 +42,6 @@ struct ghost_file_dumpee {
 static u32 ghost_file_ids = 1;
 static LIST_HEAD(ghost_files);
 
-static char big_buffer[PATH_MAX];
-
 /*
  * This constant is selected without any calculations. Just do not
  * want to pick up too big files with us in the image.
@@ -285,21 +283,22 @@ static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
+	char path[PATH_MAX];
 	int len, rfd;
 	struct reg_file_entry rfe;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
-	len = readlink(fd_str, big_buffer, sizeof(big_buffer) - 1);
+	len = readlink(fd_str, path, sizeof(path) - 1);
 	if (len < 0) {
 		pr_perror("Can't readlink %s", fd_str);
 		return len;
 	}
 
-	big_buffer[len] = '\0';
+	path[len] = '\0';
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
-			p->fd, lfd, big_buffer);
+			p->fd, lfd, path);
 
-	if (check_path_remap(big_buffer, &p->stat, lfd, id))
+	if (check_path_remap(path, &p->stat, lfd, id))
 		return -1;
 
 	rfe.len = len;
@@ -312,7 +311,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	if (write_img(rfd, &rfe))
 		return -1;
-	if (write_img_buf(rfd, big_buffer, len))
+	if (write_img_buf(rfd, path, len))
 		return -1;
 
 	return 0;
