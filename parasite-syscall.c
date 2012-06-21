@@ -419,7 +419,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_addr, u32 *tid)
 {
-	struct parasite_dump_tid_addr args = { };
+	struct parasite_dump_tid_info args = { };
 	int ret;
 
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_TID_ADDR, ctl, pid,

@@ -79,7 +79,7 @@ struct parasite_dump_misc {
 	u32 pgid;
 };
 
-struct parasite_dump_tid_addr {
+struct parasite_dump_tid_info {
 	parasite_status_t	status;
 
 	unsigned int		*tid_addr;
