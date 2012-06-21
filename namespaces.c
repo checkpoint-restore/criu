@@ -82,6 +82,11 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 
 	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->pid, ns_pid->real_pid);
 
+	if ((opts.namespaces_flags & CLONE_NEWPID) && ns_pid->pid != 1) {
+		pr_err("Can't dump a pid namespace without the process init\n");
+		return -1;
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Can't fork ns dumper");

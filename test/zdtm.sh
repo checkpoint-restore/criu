@@ -152,6 +152,10 @@ run_test()
 	ddump=dump/$tname/$PID
 	DUMP_PATH=`pwd`/$ddump
 
+	if [ -n "$PIDNS" ]; then
+		args="--namespace pid $args"
+	fi
+
 	echo Dump $PID
 	mkdir -p $ddump
 	save_fds $PID  $ddump/dump.fd

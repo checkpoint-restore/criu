@@ -187,6 +187,8 @@ static int parse_ns_string(const char *ptr)
 			opts.namespaces_flags |= CLONE_NEWIPC;
 		else if (!strncmp(ptr, "mnt", 3))
 			opts.namespaces_flags |= CLONE_NEWNS;
+		else if (!strncmp(ptr, "pid", 3))
+			opts.namespaces_flags |= CLONE_NEWPID;
 		else
 			goto bad_ns;
 		ptr += 4;
@@ -392,7 +394,7 @@ usage:
 
 	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
-	pr_msg("                        supported: uts, ipc\n");
+	pr_msg("                        supported: uts, ipc, pid\n");
 	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 

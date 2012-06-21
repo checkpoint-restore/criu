@@ -711,16 +711,23 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	 */
 
 	if (init->pid.pid == 1) {
+		if (!(opts->namespaces_flags & CLONE_NEWPID)) {
+			pr_err("This process tree can be restored in a new pid namespace.\n");
+			pr_err("crtools should be re-executed with --namespace pid\n");
+			return -1;
+		}
+
 		snprintf(proc_mountpoint, sizeof(proc_mountpoint), "/tmp/crtools-proc.XXXXXX");
 		if (mkdtemp(proc_mountpoint) == NULL) {
 			pr_err("mkdtemp failed %m");
 			return -1;
 		}
-		/* A process with pid = 1 is "init".
-		 * It should be restore in new pid ns.
-		 * The first process in pid ns gets pid = 1 automaticaly. */
-		opts->namespaces_flags |= CLONE_NEWPID;
+
+	} else	if (opts->namespaces_flags & CLONE_NEWPID) {
+		pr_err("Can't restore pid namespace without the process init\n");
+		return -1;
 	}
+
 
 	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)

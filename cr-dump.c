@@ -1197,12 +1197,9 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 			 * Some tasks could have been reparented to
 			 * namespaces' reaper. Check this.
 			 */
-			if (opts->namespaces_flags & CLONE_NEWPID) {
-				BUG_ON(root_item->pid.real_pid != 1);
-
+			if (opts->namespaces_flags & CLONE_NEWPID)
 				if (check_subtree(root_item))
 					goto try_again;
-			}
 
 			break;
 		}
