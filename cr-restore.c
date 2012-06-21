@@ -339,9 +339,41 @@ err:
 	return ret;
 }
 
+static int pstree_wait_helpers()
+{
+	struct pstree_item *pi;
+
+	list_for_each_entry(pi, &me->children, list) {
+		int status, ret;
+
+		if (pi->state != TASK_HELPER)
+			continue;
+
+		/* Check, that a helper completed. */
+		ret = waitpid(pi->pid.virt, &status, 0);
+		if (ret == -1) {
+			if (errno == ECHILD)
+				continue; /* It has been waited in sigchld_handler */
+			pr_err("waitpid(%d) failed\n", pi->pid.virt);
+			return -1;
+		}
+		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_err("%d exited with non-zero code (%d,%d)", pi->pid.virt,
+				WEXITSTATUS(status), WTERMSIG(status));
+			return -1;
+		}
+
+	}
+
+	return 0;
+}
+
 static int restore_one_alive_task(int pid)
 {
 	pr_info("Restoring resources\n");
+
+	if (pstree_wait_helpers())
+		return -1;
 
 	if (prepare_fds(me))
 		return -1;
@@ -403,6 +435,13 @@ static void zombie_prepare_signals(void)
 static inline int sig_fatal(int sig)
 {
 	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1 << sig));
+}
+
+static int restore_one_fake(int pid)
+{
+	/* We should wait here, otherwise last_pid will be changed. */
+	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
+	return 0;
 }
 
 static int restore_one_zombie(int pid, int exit_code)
@@ -472,6 +511,9 @@ out:
 static int restore_one_task(int pid)
 {
 	struct task_core_entry tc;
+
+	if (me->state == TASK_HELPER)
+		return restore_one_fake(pid);
 
 	if (check_core_header(pid, &tc))
 		return -1;
@@ -557,12 +599,43 @@ err:
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	if (siginfo->si_code & CLD_EXITED)
-		pr_err("%d exited, status=%d\n",
-			siginfo->si_pid, siginfo->si_status);
-	else if (siginfo->si_code & CLD_KILLED)
-		pr_err("%d killed by signal %d\n",
-			siginfo->si_pid, siginfo->si_status);
+	struct pstree_item *pi;
+	pid_t pid = siginfo->si_pid;
+	int status;
+	int exit;
+
+	exit = siginfo->si_code & CLD_EXITED;
+	status = siginfo->si_status;
+	if (!me || status)
+		goto err;
+
+	/* Skip a helper if it was completed successfully */
+	while (pid) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if (pid <= 0)
+			return;
+
+		exit = WIFEXITED(status);
+		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
+		if (status)
+			break;
+
+		list_for_each_entry(pi, &me->children, list) {
+			if (pi->state != TASK_HELPER)
+				continue;
+			if (pi->pid.virt == siginfo->si_pid)
+				break;
+		}
+
+		if (&pi->list == &me->children)
+			break; /* The process is not a helper */
+	}
+
+err:
+	if (exit)
+		pr_err("%d exited, status=%d\n", pid, status);
+	else
+		pr_err("%d killed by signal %d\n", pid, status);
 
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
@@ -704,8 +777,11 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		return -1;
 	}
 
-	act.sa_flags |= SA_NOCLDWAIT | SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
+	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
 	act.sa_sigaction = sigchld_handler;
+	sigemptyset(&act.sa_mask);
+	sigaddset(&act.sa_mask, SIGCHLD);
+
 	ret = sigaction(SIGCHLD, &act, &old_act);
 	if (ret < 0) {
 		perror("sigaction() failed\n");
