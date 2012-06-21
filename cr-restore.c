@@ -68,6 +68,7 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
+static int max_pid = 0;
 static int prepare_pstree(void)
 {
 	int ret = 0, i, ps_fd;
@@ -101,8 +102,16 @@ static int prepare_pstree(void)
 			break;
 
 		pi->pid.virt = e.pid;
+		if (e.pid > max_pid)
+			max_pid = e.pid;
+
 		pi->pgid = e.pgid;
+		if (e.pgid > max_pid)
+			max_pid = e.pgid;
+
 		pi->sid = e.sid;
+		if (e.sid > max_pid)
+			max_pid = e.sid;
 
 		if (e.ppid == 0) {
 			BUG_ON(root_item);
