@@ -53,6 +53,11 @@ transition/fork
 static/file_fown
 "
 
+# These ones are in pidns
+TEST_LIST="$TEST_LIST
+pidns/static/session00
+"
+
 UTS_TEST_LIST="
 static/utsname
 "
