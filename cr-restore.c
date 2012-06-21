@@ -756,7 +756,7 @@ err:
 
 static void xid_fail(void)
 {
-	/* exit(1) */
+	exit(1);
 }
 
 static void restore_sid(void)
@@ -782,6 +782,9 @@ static void restore_sid(void)
 	} else {
 		sid = getsid(getppid());
 		if (sid != me->sid) {
+			/* Skip the root task if it's not init */
+			if (me == root_item && root_item->pid.virt != 1)
+				return;
 			pr_err("Requested sid %d doesn't match inherited %d\n",
 					me->sid, sid);
 			xid_fail();
