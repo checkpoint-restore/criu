@@ -24,7 +24,6 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 
 int main(int argc, char *argv[])
 {
-	struct sockaddr_un addr;
 	struct sockaddr_un name_bound;
 	struct sockaddr_un name_conn;
 	struct sockaddr_un name_bound_conn;
@@ -33,7 +32,6 @@ int main(int argc, char *argv[])
 	int sk_dgram_conn_client;
 	int sk_dgram_conn_server;
 	int sk_dgram_bound_conn;
-	unsigned int addrlen;
 
 	char path[PATH_MAX];
 	char buf[64];
@@ -51,10 +49,6 @@ int main(int argc, char *argv[])
 
 	snprintf(path, sizeof(path), "%s/test-socket", cwd);
 	unlink(path);
-
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, sizeof(addr.sun_path));
-	addrlen = sizeof(addr.sun_family) + strlen(path);
 
 	sk_dgram_bound_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
 	sk_dgram_bound_server	= socket(AF_UNIX, SOCK_DGRAM, 0);
