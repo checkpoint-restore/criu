@@ -780,7 +780,7 @@ static void restore_sid(void)
 			xid_fail();
 		}
 	} else {
-		sid = getsid(getppid());
+		sid = getsid(getpid());
 		if (sid != me->sid) {
 			/* Skip the root task if it's not init */
 			if (me == root_item && root_item->pid.virt != 1)
