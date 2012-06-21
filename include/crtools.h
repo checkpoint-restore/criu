@@ -189,6 +189,7 @@ struct pstree_item {
 	struct list_head	children;	/* array of children */
 	pid_t			pgid;
 	pid_t			sid;
+	pid_t			born_sid;
 	int			state;		/* TASK_XXX constants */
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */

@@ -901,6 +901,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	item->nr_threads = 0;
 	item->pid.virt = -1;
 	item->pid.real = -1;
+	item->born_sid = -1;
 
 	return item;
 }
