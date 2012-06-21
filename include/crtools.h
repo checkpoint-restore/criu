@@ -178,13 +178,13 @@ struct rst_info {
 
 struct pid
 {
-	u32 real_pid;		/* used to peek/poke tasks during dump stage */
-	u32 pid;		/* used all over in the images and saved after restore */
+	u32 real;		/* used to peek/poke tasks during dump stage */
+	u32 virt;		/* used all over in the images and saved after restore */
 };
 
 struct pstree_item {
 	struct list_head	list;
-	struct pid		pid;		/* leader pid */
+	struct pid		pid;
 	struct pstree_item	*parent;
 	struct list_head	children;	/* array of children */
 	pid_t			pgid;

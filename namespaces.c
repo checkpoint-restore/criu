@@ -36,25 +36,25 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	struct cr_fdset *fdset;
 	int ret = 0;
 
-	fdset = cr_ns_fdset_open(ns_pid->pid, O_DUMP);
+	fdset = cr_ns_fdset_open(ns_pid->virt, O_DUMP);
 	if (fdset == NULL)
 		return -1;
 
 	if (ns_flags & CLONE_NEWUTS) {
 		pr_info("Dump UTS namespace\n");
-		ret = dump_uts_ns(ns_pid->real_pid, fdset);
+		ret = dump_uts_ns(ns_pid->real, fdset);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWIPC) {
 		pr_info("Dump IPC namespace\n");
-		ret = dump_ipc_ns(ns_pid->real_pid, fdset);
+		ret = dump_ipc_ns(ns_pid->real, fdset);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWNS) {
 		pr_info("Dump MNT namespace (mountpoints)\n");
-		ret = dump_mnt_ns(ns_pid->real_pid, fdset);
+		ret = dump_mnt_ns(ns_pid->real, fdset);
 		if (ret < 0)
 			goto err;
 	}
@@ -80,9 +80,9 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	 * net namesapce with this is still open
 	 */
 
-	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->pid, ns_pid->real_pid);
+	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->virt, ns_pid->real);
 
-	if ((opts.namespaces_flags & CLONE_NEWPID) && ns_pid->pid != 1) {
+	if ((opts.namespaces_flags & CLONE_NEWPID) && ns_pid->virt != 1) {
 		pr_err("Can't dump a pid namespace without the process init\n");
 		return -1;
 	}

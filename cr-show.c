@@ -426,7 +426,7 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 			if (!item)
 				return -1;
 
-			item->pid.pid = e.pid;
+			item->pid.virt = e.pid;
 			item->nr_threads = e.nr_threads;
 			item->threads = xzalloc(sizeof(u32) * e.nr_threads);
 			if (!item->threads) {
@@ -446,7 +446,7 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 					goto out;
 				pr_msg(" %6d", pid);
 				if (item)
-					item->threads[e.nr_threads].pid = pid;
+					item->threads[e.nr_threads].virt = pid;
 			}
 			pr_msg("\n");
 		}
@@ -649,7 +649,7 @@ static int cr_show_all(struct cr_options *opts)
 	show_sk_queues(fd, opts);
 	close(fd);
 
-	pid = list_first_entry(&pstree_list, struct pstree_item, list)->pid.pid;
+	pid = list_first_entry(&pstree_list, struct pstree_item, list)->pid.virt;
 	ret = try_show_namespaces(pid, opts);
 	if (ret)
 		goto out;
@@ -657,7 +657,7 @@ static int cr_show_all(struct cr_options *opts)
 	list_for_each_entry(item, &pstree_list, list) {
 		struct cr_fdset *cr_fdset = NULL;
 
-		cr_fdset = cr_task_fdset_open(item->pid.pid, O_SHOW);
+		cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
 		if (!cr_fdset)
 			goto out;
 
@@ -668,7 +668,7 @@ static int cr_show_all(struct cr_options *opts)
 
 			for (i = 0; i < item->nr_threads; i++) {
 
-				if (item->threads[i].pid == item->pid.pid)
+				if (item->threads[i].virt == item->pid.virt)
 					continue;
 
 				fd_th = open_image_ro(CR_FD_CORE, item->threads[i]);
@@ -676,7 +676,7 @@ static int cr_show_all(struct cr_options *opts)
 					goto out;
 
 				pr_msg("\n");
-				pr_msg("Thread: %d\n", item->threads[i].pid);
+				pr_msg("Thread: %d\n", item->threads[i].virt);
 				pr_msg("----------------------------------------\n");
 
 				show_core(fd_th, opts);

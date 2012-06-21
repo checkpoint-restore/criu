@@ -442,7 +442,7 @@ int prepare_fds(struct pstree_item *me)
 
 	for (state = 0; state < FD_STATE_MAX; state++) {
 		list_for_each_entry(fle, &me->rst->fds, ps_list) {
-			ret = open_fdinfo(me->pid.pid, fle, state);
+			ret = open_fdinfo(me->pid.virt, fle, state);
 			if (ret)
 				goto done;
 		}
@@ -453,7 +453,7 @@ int prepare_fds(struct pstree_item *me)
 		 * list and restore at the very end.
 		 */
 		list_for_each_entry(fle, &me->rst->eventpoll, ps_list) {
-			ret = open_fdinfo(me->pid.pid, fle, state);
+			ret = open_fdinfo(me->pid.virt, fle, state);
 			if (ret)
 				goto done;
 		}
