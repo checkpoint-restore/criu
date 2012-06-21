@@ -1035,60 +1035,6 @@ static int collect_threads(struct pstree_item *item)
 	return ret;
 }
 
-/*
- * Few words about sid and pgid handling.
- *
- * An axiom: session can only be changed on self, group -- on self or
- * on one of self children.
- *
- * Conclusions:
- * 1. both should better be saved in pstree.img so we can restore sid
- *    at the time we fork kids and pgid is just for harmony;
- * 2. if we seized the parent these IDs* shouldn't change and it's safe
- *    to read and check them right at the seizing time.
- * 
- * Easings:
- * 1. with the existing setsid we can only reset sid to task's pid.
- *    Thus, if task escaped from its ancestors with sid we will not be
- *    able to easily restore this construction. Thus for now this is
- *    treated as "unsupported" (FIXME);
- *
- * 2. when task whose pid is equal to pgid/sid (i.e. leader) exits we
- *    lose the ability to restore the grp/session easily with the 
- *    existing interfaces, thus we also treat this as temporarily
- *    unsupported (FIXME #2).
- */
-
-static int check_xids(struct pstree_item *root_item)
-{
-	struct pstree_item *p, *tmp;
-
-	for_each_pstree_item(p) {
-		if (p->parent == NULL)
-			continue;
-
-		/* Easing #1 and #2 for sids */
-		if ((p->sid != p->pid.virt) && (p->sid != p->parent->sid)) {
-			pr_err("SID mismatch on %d (%d/%d)\n",
-					p->pid.virt, p->sid, p->parent->sid);
-			return -1;
-		}
-
-		/* Easing #2 for pgids */
-		for_each_pstree_item(tmp)
-			if (tmp->pid.virt == p->pgid)
-				break;
-
-		if (tmp == NULL) {
-			pr_err("PGIG mismatch on %d (%d)\n",
-					p->pid.virt, p->pgid);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int collect_task(struct pstree_item *item)
 {
 	int ret;
@@ -1235,10 +1181,6 @@ static int dump_pstree(struct pstree_item *root_item)
 	pr_info("\n");
 	pr_info("Dumping pstree (pid: %d)\n", root_item->pid.real);
 	pr_info("----------------------------------------\n");
-
-	ret = check_xids(root_item);
-	if (ret)
-		return -1;
 
 	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
 	if (pstree_fd < 0)
