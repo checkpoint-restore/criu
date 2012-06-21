@@ -178,8 +178,8 @@ struct rst_info {
 
 struct pid
 {
-	u32 real_pid;
-	u32 pid;
+	u32 real_pid;		/* used to peek/poke tasks during dump stage */
+	u32 pid;		/* used all over in the images and saved after restore */
 };
 
 struct pstree_item {
