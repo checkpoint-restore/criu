@@ -172,6 +172,90 @@ static int prepare_pstree(void)
 	return ret;
 }
 
+static int prepare_pstree_ids(void)
+{
+	struct pstree_item *item, *child, *helper, *tmp;
+	LIST_HEAD(helpers);
+
+	/*
+	 * Some task can be reparented to init. A helper task should be added
+	 * for restoring sid of such tasks. The helper tasks will be exited
+	 * immediately after forking children and all children will be
+	 * reparented to init.
+	 */
+	list_for_each_entry(item, &root_item->children, list) {
+		if (item->sid == root_item->sid || item->sid == item->pid.virt)
+			continue;
+
+		helper = alloc_pstree_item();
+		if (helper == NULL)
+			return -1;
+		helper->sid = item->sid;
+		helper->pgid = item->sid;
+		helper->pid.virt = item->sid;
+		helper->state = TASK_HELPER;
+		helper->parent = root_item;
+		list_add_tail(&helper->list, &helpers);
+
+		pr_info("Add a helper %d for restoring SID %d\n",
+				helper->pid.virt, helper->sid);
+
+		child = list_entry(item->list.prev, struct pstree_item, list);
+		item = child;
+
+		list_for_each_entry_safe_continue(child, tmp, &root_item->children, list) {
+			if (child->sid != helper->sid)
+				continue;
+			if (child->sid == child->pid.virt)
+				continue;
+
+			pr_info("Attach %d to the temporary task %d\n",
+					child->pid.virt, helper->pid.virt);
+
+			child->parent = helper;
+			list_move(&child->list, &helper->children);
+		}
+	}
+
+	/* Try to connect helpers to session leaders */
+	for_each_pstree_item(item) {
+		if (!item->parent) /* skip the root task */
+			continue;
+
+		if (item->state == TASK_HELPER)
+			continue;
+
+		if (item->sid != item->pid.virt)
+			continue;
+
+		pr_info("Session leader %d\n", item->sid);
+
+		/* Try to find helpers, who should be connected to the leader */
+		list_for_each_entry(child, &helpers, list) {
+			if (child->state != TASK_HELPER)
+				continue;
+
+			if (child->sid != item->sid)
+				continue;
+
+			child->pgid = item->pgid;
+			child->pid.virt = ++max_pid;
+			child->parent = item;
+			list_move(&child->list, &item->children);
+
+			pr_info("Attach %d to the task %d\n",
+					child->pid.virt, item->pid.virt);
+
+			break;
+		}
+	}
+
+	/* All other helpers are session leaders for own sessions */
+	list_splice(&helpers, &root_item->children);
+
+	return 0;
+}
+
 static int prepare_shared(void)
 {
 	int ret = 0;
@@ -883,6 +967,9 @@ static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 		return -1;
 
 	if (prepare_shared() < 0)
+		return -1;
+
+	if (prepare_pstree_ids() < 0)
 		return -1;
 
 	return restore_root_task(root_item, opts);
