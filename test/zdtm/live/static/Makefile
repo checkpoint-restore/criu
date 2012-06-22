@@ -48,6 +48,8 @@ TST_NOFILE	=				\
 		inotify00			\
 		uptime_grow			\
 		session00			\
+		pty00				\
+		tty00				\
 #		jobctl00			\
 
 TST_FILE	=				\
