@@ -68,7 +68,6 @@ extern int restore_fown(int fd, fown_t *fown);
 int rst_file_params(int fd, fown_t *fown, int flags);
 
 void show_saved_files(void);
-extern int collect_reg_files(void);
 struct pstree_item;
 extern int prepare_fds(struct pstree_item *);
 struct rst_info;
@@ -76,11 +75,8 @@ extern int prepare_fd_pid(int pid, struct rst_info *);
 extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 extern int prepare_fs(int pid);
-extern int open_reg_by_id(u32 id);
 int set_fd_flags(int fd, int flags);
 
 extern int self_exe_fd;
-
-void clear_ghost_files(void);
 
 #endif /* FILES_H_ */

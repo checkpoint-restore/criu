@@ -15,6 +15,7 @@
 #include "crtools.h"
 
 #include "files.h"
+#include "files-reg.h"
 #include "image.h"
 #include "list.h"
 #include "util.h"

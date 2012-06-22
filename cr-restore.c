@@ -34,6 +34,7 @@
 #include "sockets.h"
 #include "lock.h"
 #include "files.h"
+#include "files-reg.h"
 #include "pipes.h"
 #include "sk-inet.h"
 #include "eventfd.h"
