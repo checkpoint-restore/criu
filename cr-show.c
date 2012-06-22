@@ -192,7 +192,7 @@ void show_pipes_data(int fd_pipes, struct cr_options *o)
 	}
 
 out:
-	pr_img_tail(CR_FD_PIPES);
+	pr_img_tail(CR_FD_PIPES_DATA);
 }
 
 void show_pipes(int fd_pipes, struct cr_options *o)
