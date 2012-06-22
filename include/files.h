@@ -7,6 +7,11 @@
 #include "list.h"
 #include "image.h"
 
+struct pstree_item;
+struct file_desc;
+struct cr_fdset;
+struct rst_info;
+
 struct fd_parms {
 	int		fd;
 	unsigned long	pos;
@@ -37,45 +42,45 @@ struct fdinfo_list_entry {
 };
 
 struct file_desc_ops {
-	int type;
-	int (*open)(struct file_desc *);
-	int (*want_transport)(struct fdinfo_entry *, struct file_desc *);
+	unsigned int		type;
+	int			(*open)(struct file_desc *d);
+	int			(*want_transport)(struct fdinfo_entry *fe, struct file_desc *d);
 };
 
 struct file_desc {
-	u32 id;
-	struct list_head hash;
-	struct list_head fd_info_head;
-	struct file_desc_ops *ops;
+	u32			id;
+	struct list_head	hash;
+	struct list_head	fd_info_head;
+	struct file_desc_ops	*ops;
 };
 
 struct fdtype_ops {
-	unsigned int	type;
-	u32		(*make_gen_id)(const struct fd_parms *p);
-	int		(*dump)(int lfd, u32 id, const struct fd_parms *p);
+	unsigned int		type;
+	u32			(*make_gen_id)(const struct fd_parms *p);
+	int			(*dump)(int lfd, u32 id, const struct fd_parms *p);
 };
 
 extern u32 make_gen_id(const struct fd_parms *p);
-struct cr_fdset;
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset);
+			    const struct fdtype_ops *ops,
+			    const struct cr_fdset *cr_fdset);
 
 extern void file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
-extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *, int transport);
-extern int restore_fown(int fd, fown_t *fown);
-int rst_file_params(int fd, fown_t *fown, int flags);
 
-void show_saved_files(void);
-struct pstree_item;
-extern int prepare_fds(struct pstree_item *);
-struct rst_info;
-extern int prepare_fd_pid(int pid, struct rst_info *);
+extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int transport);
+extern int restore_fown(int fd, fown_t *fown);
+extern int rst_file_params(int fd, fown_t *fown, int flags);
+
+extern void show_saved_files(void);
+
+extern int prepare_fds(struct pstree_item *me);
+extern int prepare_fd_pid(int pid, struct rst_info *rst_info);
 extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
 extern int prepare_fs(int pid);
-int set_fd_flags(int fd, int flags);
+extern int set_fd_flags(int fd, int flags);
 
 extern int self_exe_fd;
 
