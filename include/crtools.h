@@ -54,6 +54,8 @@ enum {
 	CR_FD_UNIXSK,
 	CR_FD_PIPES,
 	CR_FD_PIPES_DATA,
+	CR_FD_FIFO,
+	CR_FD_FIFO_DATA,
 	CR_FD_REMAP_FPATH,
 	CR_FD_EVENTFD,
 	CR_FD_EVENTPOLL,
@@ -104,6 +106,8 @@ void show_mm(int fd_mm, struct cr_options *o);
 void show_vmas(int fd_vma, struct cr_options *o);
 void show_pipes(int fd_pipes, struct cr_options *o);
 void show_pipes_data(int fd_pipes, struct cr_options *o);
+void show_fifo(int fd, struct cr_options *o);
+void show_fifo_data(int fd_pipes, struct cr_options *o);
 void show_pstree(int fd_pstree, struct cr_options *o);
 void show_sigacts(int fd_sigacts, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);

@@ -62,6 +62,7 @@ static char *fdtype2s(u8 type)
 		[FDINFO_REG] = "reg",
 		[FDINFO_INETSK] = "isk",
 		[FDINFO_PIPE] = "pipe",
+		[FDINFO_FIFO] = "fifo",
 		[FDINFO_UNIXSK] = "usk",
 		[FDINFO_EVENTFD] = "efd",
 		[FDINFO_EVENTPOLL] = "epl",
@@ -175,24 +176,23 @@ void show_ghost_file(int fd, struct cr_options *o)
 	pr_img_tail(CR_FD_GHOST_FILE);
 }
 
-void show_pipes_data(int fd_pipes, struct cr_options *o)
+void __show_pipes_data(int fd, struct cr_options *o)
 {
 	struct pipe_data_entry e;
-	int ret;
-
-	pr_img_head(CR_FD_PIPES_DATA);
 
 	while (1) {
-		ret = read_img_eof(fd_pipes, &e);
-		if (ret <= 0)
-			goto out;
+		if (read_img_eof(fd, &e) <= 0)
+			break;
 		pr_msg("pipeid: 0x%8x bytes: 0x%8x off: 0x%8x\n",
 		       e.pipe_id, e.bytes, e.off);
-
-		lseek(fd_pipes, e.off + e.bytes, SEEK_CUR);
+		lseek(fd, e.off + e.bytes, SEEK_CUR);
 	}
+}
 
-out:
+void show_pipes_data(int fd_pipes, struct cr_options *o)
+{
+	pr_img_head(CR_FD_PIPES_DATA);
+	__show_pipes_data(fd_pipes, o);
 	pr_img_tail(CR_FD_PIPES_DATA);
 }
 
@@ -215,6 +215,26 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 
 out:
 	pr_img_tail(CR_FD_PIPES);
+}
+
+void show_fifo_data(int fd, struct cr_options *o)
+{
+	pr_img_head(CR_FD_FIFO_DATA);
+	__show_pipes_data(fd, o);
+	pr_img_tail(CR_FD_FIFO_DATA);
+}
+
+void show_fifo(int fd, struct cr_options *o)
+{
+	struct fifo_entry e;
+
+	pr_img_head(CR_FD_FIFO);
+	while (1) {
+		if (read_img_eof(fd, &e) <= 0)
+			break;
+		pr_msg("id: 0x%8x pipeid: 0x%8x\n", e.id, e.pipe_id);
+	}
+	pr_img_tail(CR_FD_FIFO);
 }
 
 void show_fs(int fd_fs, struct cr_options *o)

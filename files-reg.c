@@ -14,14 +14,6 @@
 
 #include "files-reg.h"
 
-struct reg_file_info {
-	struct file_desc	d;
-
-	struct reg_file_entry	rfe;
-	char			*remap_path;
-	char			*path;
-};
-
 struct ghost_file {
 	struct list_head	list;
 	u32			id;
@@ -348,7 +340,12 @@ int dump_reg_file(struct fd_parms *p, int lfd,
 	return do_dump_gen_file(p, lfd, &regfile_ops, cr_fdset);
 }
 
-static int open_fe_fd(struct file_desc *d)
+static int __open_reg_fd(struct reg_file_info *rfi)
+{
+	return open(rfi->path, rfi->rfe.flags);
+}
+
+int open_fe_fd(struct file_desc *d)
 {
 	struct reg_file_info *rfi;
 	int tmp;
@@ -362,7 +359,7 @@ static int open_fe_fd(struct file_desc *d)
 			return -1;
 		}
 
-	tmp = open(rfi->path, rfi->rfe.flags);
+	tmp = rfi->open(rfi);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		return -1;
@@ -422,6 +419,7 @@ int collect_reg_files(void)
 			break;
 
 		rfi->remap_path = NULL;
+		rfi->open = __open_reg_fd;
 
 		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe.id);
 		file_desc_add(&rfi->d, rfi->rfe.id, &reg_desc_ops);

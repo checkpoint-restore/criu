@@ -17,6 +17,8 @@
 #define VMAS_MAGIC		0x54123737 /* Tula */
 #define PIPES_MAGIC		0x56513555 /* Tver */
 #define PIPES_DATA_MAGIC	0x56453709 /* Dubna */
+#define FIFO_MAGIC		0x58364939 /* Kirov */
+#define FIFO_DATA_MAGIC		0x59333054 /* Tosno */
 #define SIGACT_MAGIC		0x55344201 /* Murom */
 #define UNIXSK_MAGIC		0x54373943 /* Ryazan */
 #define INETSK_MAGIC		0x56443851 /* Pereslavl */
@@ -45,6 +47,7 @@ enum fd_types {
 	FDINFO_UND,
 	FDINFO_REG,
 	FDINFO_PIPE,
+	FDINFO_FIFO,
 	FDINFO_INETSK,
 	FDINFO_UNIXSK,
 	FDINFO_EVENTFD,
@@ -160,6 +163,11 @@ struct pipe_data_entry {
 	u32	bytes;
 	u32	off;
 	u8	data[0];
+} __packed;
+
+struct fifo_entry {
+	u32	id;
+	u32	pipe_id;
 } __packed;
 
 /*

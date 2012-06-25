@@ -37,6 +37,7 @@
 #include "files.h"
 #include "files-reg.h"
 #include "pipes.h"
+#include "fifo.h"
 #include "shmem.h"
 #include "sk-inet.h"
 #include "eventfd.h"
@@ -293,8 +294,12 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
 		return dump_reg_file(&p, lfd, cr_fdset);
 
-	if (S_ISFIFO(p.stat.st_mode) && (statfs.f_type == PIPEFS_MAGIC))
-		return dump_pipe(&p, lfd, cr_fdset);
+	if (S_ISFIFO(p.stat.st_mode)) {
+		if (statfs.f_type == PIPEFS_MAGIC)
+			return dump_pipe(&p, lfd, cr_fdset);
+		else
+			return dump_fifo(&p, lfd, cr_fdset);
+	}
 
 	return dump_unsupp_fd(&p);
 }

@@ -47,6 +47,7 @@ OBJS		+= sk-queue.o
 OBJS		+= files.o
 OBJS		+= files-reg.o
 OBJS		+= pipes.o
+OBJS		+= fifo.o
 OBJS		+= file-ids.o
 OBJS		+= namespaces.o
 OBJS		+= uts_ns.o

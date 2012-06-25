@@ -36,6 +36,7 @@
 #include "files.h"
 #include "files-reg.h"
 #include "pipes.h"
+#include "fifo.h"
 #include "sk-inet.h"
 #include "eventfd.h"
 #include "eventpoll.h"
@@ -84,6 +85,9 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_pipes())
+		return -1;
+
+	if (collect_fifo())
 		return -1;
 
 	if (collect_inet_sockets())

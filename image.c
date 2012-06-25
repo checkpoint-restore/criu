@@ -39,6 +39,8 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(VMAS,		"vmas-%d",	 show_vmas),
 	FD_ENTRY(PIPES,		"pipes",	 show_pipes),
 	FD_ENTRY(PIPES_DATA,	"pipes-data",	 show_pipes_data),
+	FD_ENTRY(FIFO,		"fifo",		 show_fifo),
+	FD_ENTRY(FIFO_DATA,	"fifo-data",	 show_fifo_data),
 	FD_ENTRY(PSTREE,	"pstree",	 show_pstree),
 	FD_ENTRY(SIGACT,	"sigacts-%d",	 show_sigacts),
 	FD_ENTRY(UNIXSK,	"unixsk",	 show_unixsk),
