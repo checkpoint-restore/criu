@@ -42,6 +42,7 @@ static/unlink_fstat00
 static/unlink_fstat02
 static/eventfs00
 static/inotify00
+static/unbound_sock
 "
 # Duplicate list with pidns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#pidns/#')
