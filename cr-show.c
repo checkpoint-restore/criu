@@ -22,6 +22,7 @@
 #include "image.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
+#include "pstree.h"
 
 #define DEF_PAGES_PER_LINE	6
 

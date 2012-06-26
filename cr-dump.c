@@ -42,32 +42,13 @@
 #include "eventfd.h"
 #include "eventpoll.h"
 #include "inotify.h"
+#include "pstree.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
 #endif
 
 static char loc_buf[PAGE_SIZE];
-
-static struct pstree_item *root_item = NULL;
-
-static void free_pstree(struct pstree_item *root_item)
-{
-	struct pstree_item *item = root_item, *parent;
-
-	while (item) {
-		if (!list_empty(&item->children)) {
-			item = list_first_entry(&item->children, struct pstree_item, list);
-			continue;
-		}
-
-		parent = item->parent;
-		list_del(&item->list);
-		xfree(item->threads);
-		xfree(item);
-		item = parent;
-	}
-}
 
 void free_mappings(struct list_head *vma_area_list)
 {
@@ -888,24 +869,6 @@ err:
 	return -1;
 }
 
-struct pstree_item *__alloc_pstree_item(bool rst)
-{
-	struct pstree_item *item;
-
-	item = xzalloc(sizeof(*item) + (rst ? sizeof(item->rst[0]) : 0));
-	if (!item)
-		return NULL;
-
-	INIT_LIST_HEAD(&item->children);
-	item->threads = NULL;
-	item->nr_threads = 0;
-	item->pid.virt = -1;
-	item->pid.real = -1;
-	item->born_sid = -1;
-
-	return item;
-}
-
 static int get_children(struct pstree_item *item)
 {
 	u32 *ch;
@@ -937,30 +900,6 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 
 	for (i = 0; i < item->nr_threads; i++)
 		unseize_task(item->threads[i].real, st); /* item->pid will be here */
-}
-
-struct pstree_item *pstree_item_next(struct pstree_item *item)
-{
-	if (!list_empty(&item->children)) {
-		item = list_first_entry(&item->children, struct pstree_item, list);
-		return item;
-	}
-
-	while (1) {
-		if (item->parent == NULL) {
-			item = NULL;
-			break;
-		}
-		if (item->list.next == &item->parent->children) {
-			item = item->parent;
-			continue;
-		} else {
-			item = list_entry(item->list.next, struct pstree_item, list);
-			break;
-		}
-	}
-
-	return item;
 }
 
 static void pstree_switch_state(struct pstree_item *root_item, int st)
@@ -1168,47 +1107,6 @@ try_again:
 		free_pstree(root_item);
 	}
 
-	return ret;
-}
-
-static int dump_pstree(struct pstree_item *root_item)
-{
-	struct pstree_item *item = root_item;
-	struct pstree_entry e;
-	int ret = -1, i;
-	int pstree_fd;
-
-	pr_info("\n");
-	pr_info("Dumping pstree (pid: %d)\n", root_item->pid.real);
-	pr_info("----------------------------------------\n");
-
-	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
-	if (pstree_fd < 0)
-		return -1;
-
-	for_each_pstree_item(item) {
-		pr_info("Process: %d(%d)\n", item->pid.virt, item->pid.real);
-
-		e.pid		= item->pid.virt;
-		e.ppid		= item->parent ? item->parent->pid.virt : 0;
-		e.pgid		= item->pgid;
-		e.sid		= item->sid;
-		e.nr_threads	= item->nr_threads;
-
-		if (write_img(pstree_fd, &e))
-			goto err;
-
-		for (i = 0; i < item->nr_threads; i++) {
-			if (write_img_buf(pstree_fd,
-					  &item->threads[i].virt, sizeof(u32)))
-				goto err;
-		}
-	}
-	ret = 0;
-
-err:
-	pr_info("----------------------------------------\n");
-	close(pstree_fd);
 	return ret;
 }
 

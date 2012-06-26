@@ -22,6 +22,7 @@
 #include "util-net.h"
 #include "lock.h"
 #include "sockets.h"
+#include "pstree.h"
 
 static struct fdinfo_list_entry *fdinfo_list;
 static int nr_fdinfo_list;

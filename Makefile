@@ -56,6 +56,7 @@ OBJS		+= eventfd.o
 OBJS		+= eventpoll.o
 OBJS		+= mount.o
 OBJS		+= inotify.o
+OBJS		+= pstree.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

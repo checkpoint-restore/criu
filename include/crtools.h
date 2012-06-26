@@ -182,28 +182,6 @@ struct pid
 	u32 virt;		/* used all over in the images and saved after restore */
 };
 
-struct pstree_item {
-	struct list_head	list;
-	struct pid		pid;
-	struct pstree_item	*parent;
-	struct list_head	children;	/* array of children */
-	pid_t			pgid;
-	pid_t			sid;
-	pid_t			born_sid;
-	int			state;		/* TASK_XXX constants */
-	int			nr_threads;	/* number of threads */
-	struct pid		*threads;	/* array of threads */
-	struct rst_info		rst[0];
-};
-
-extern struct pstree_item *__alloc_pstree_item(bool rst);
-#define alloc_pstree_item() __alloc_pstree_item(false)
-#define alloc_pstree_item_with_rst() __alloc_pstree_item(true)
-extern struct pstree_item *pstree_item_next(struct pstree_item *item);
-
-#define for_each_pstree_item(pi) \
-	for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
-
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
 	return addr >= (unsigned long)vma->vma.start &&
