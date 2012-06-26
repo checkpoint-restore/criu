@@ -218,7 +218,7 @@ err:
 
 static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 			    pid_t pid,
-			    parasite_status_t *args, int args_size)
+			    void *args, int args_size)
 {
 	int ret;
 	user_regs_struct_t regs_orig, regs;
@@ -249,8 +249,7 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	BUG_ON(ret && !args);
 
 	if (ret)
-		pr_err("Parasite exited with %d ret (%li at %li)\n",
-		       ret, args->ret, args->line);
+		pr_err("Parasite exited with %d\n", ret);
 
 	if (ctl->pid != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
@@ -262,7 +261,7 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 }
 
 static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
-			    parasite_status_t *args, int args_size)
+			    void *args, int args_size)
 {
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid, args, args_size);
 }
@@ -371,7 +370,6 @@ static int parasite_file_cmd(char *what, int cmd, int type,
 			     struct parasite_ctl *ctl,
 			     struct cr_fdset *cr_fdset)
 {
-	parasite_status_t args = { };
 	int ret = -1, fd;
 
 	pr_info("\n");
@@ -383,7 +381,7 @@ static int parasite_file_cmd(char *what, int cmd, int type,
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_execute(cmd, ctl, (parasite_status_t *)&args, sizeof(args));
+	ret = parasite_execute(cmd, ctl, NULL, 0);
 
 	fchmod(fd, CR_FD_PERM);
 out:
@@ -399,19 +397,18 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 	args.sun_len = gen_parasite_saddr(&args.saddr, pid);
 
 	return parasite_execute(PARASITE_CMD_INIT, ctl,
-				(parasite_status_t *)&args, sizeof(args));
+				&args, sizeof(args));
 }
 
 static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 {
-	parasite_status_t args = { };
 	int ret;
 
 	ret = parasite_send_fd(ctl, log_get_fd());
 	if (ret)
 		return ret;
 
-	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl, &args, sizeof(args));
+	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl, NULL, 0);
 	if (ret < 0)
 		return ret;
 
@@ -425,7 +422,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 	int ret;
 
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_TID_ADDR, ctl, pid,
-			(parasite_status_t *)&args, sizeof(args));
+			&args, sizeof(args));
 
 	*tid_addr = args.tid_addr;
 	*tid = args.tid;
@@ -448,8 +445,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)
 {
 	return parasite_execute(PARASITE_CMD_DUMP_MISC, ctl,
-				(parasite_status_t *)misc,
-				sizeof(struct parasite_dump_misc));
+				misc, sizeof(struct parasite_dump_misc));
 }
 
 /*
@@ -460,7 +456,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			       struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args parasite_dumppages = { };
-	parasite_status_t *st = &parasite_dumppages.status;
 	unsigned long nrpages_dumped = 0, nrpages_skipped = 0, nrpages_total = 0;
 	struct vma_area *vma_area;
 	int ret = -1;
@@ -473,11 +468,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	if (ret < 0)
 		goto out;
 
-	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, st, sizeof(*st));
+	ret = parasite_execute(PARASITE_CMD_DUMPPAGES_INIT, ctl, NULL, 0);
 	if (ret < 0) {
-		pr_err("Dumping pages failed with %li at %li\n",
-				parasite_dumppages.status.ret,
-				parasite_dumppages.status.line);
+		pr_err("Dumping pages failed with %i\n", ret);
 		goto out;
 	}
 
@@ -509,13 +502,10 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		}
 
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl,
-				       (parasite_status_t *) &parasite_dumppages,
+				       &parasite_dumppages,
 				       sizeof(parasite_dumppages));
 		if (ret) {
-			pr_err("Dumping pages failed with %li at %li\n",
-				 parasite_dumppages.status.ret,
-				 parasite_dumppages.status.line);
-
+			pr_err("Dumping pages failed with %d\n", ret);
 			goto out;
 		}
 
@@ -547,14 +537,12 @@ out:
 int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds, char *flags)
 {
 	struct parasite_drain_fd *args;
-	parasite_status_t *st;
 	int ret = -1;
 	int sock;
 
 	args = xmalloc(sizeof(*args));
 	if (!args)
 		return -ENOMEM;
-	st = &args->status;
 
 	args->sun_len = gen_parasite_saddr(&args->saddr, (int)-2u);
 	args->nr_fds = nr_fds;
@@ -574,7 +562,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int
 
 	memcpy(&args->fds, fds, sizeof(int) * nr_fds);
 
-	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl, st, sizeof(*args));
+	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl, args, sizeof(*args));
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;

@@ -35,27 +35,12 @@ enum {
 	PARASITE_CMD_MAX,
 };
 
-typedef struct  {
-	long			ret;		/* ret code */
-	long			line;		/* where we're failed */
-} parasite_status_t;
-
-#define SET_PARASITE_RET(st, err)		\
-	do {					\
-		(st)->ret	= err,		\
-		(st)->line	= __LINE__;	\
-	} while (0)
-
 struct parasite_init_args {
-	parasite_status_t	status;
-
 	int			sun_len;
 	struct sockaddr_un	saddr;
 };
 
 struct parasite_dump_pages_args {
-	parasite_status_t       status;
-
 	struct vma_entry	vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		nrpages_skipped;
@@ -68,8 +53,6 @@ struct parasite_dump_pages_args {
  */
 
 struct parasite_dump_misc {
-	parasite_status_t	status;
-
 	unsigned int		secbits;
 	unsigned long		brk;
 	k_rtsigset_t		blocked;
@@ -80,8 +63,6 @@ struct parasite_dump_misc {
 };
 
 struct parasite_dump_tid_info {
-	parasite_status_t	status;
-
 	unsigned int		*tid_addr;
 	int			tid;
 };
@@ -89,8 +70,6 @@ struct parasite_dump_tid_info {
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
 
 struct parasite_drain_fd {
-	parasite_status_t	status;
-
 	struct sockaddr_un	saddr;
 	int			sun_len;
 	int			fds[PARASITE_MAX_FDS];

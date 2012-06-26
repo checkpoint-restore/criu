@@ -40,7 +40,7 @@ static int brk_init(void)
 	/*
 	 *  Map 10 MB. Hope this will be enough for unix skb's...
 	 */
-       ret = sys_mmap(NULL, MAX_HEAP_SIZE,
+        ret = sys_mmap(NULL, MAX_HEAP_SIZE,
 			    PROT_READ | PROT_WRITE,
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (ret < 0)
@@ -114,17 +114,31 @@ static inline int should_dump_page(struct vma_entry *vmae, u64 pme)
 
 static int fd_pages = -1;
 
-static int dump_pages_init(parasite_status_t *st)
+static int dump_pages_init()
 {
 	fd_pages = recv_fd(tsock);
 	if (fd_pages < 0)
-		goto err;
+		return fd_pages;
 
 	return 0;
+}
 
-err:
-	SET_PARASITE_RET(st, fd_pages);
-	return -1;
+static int sys_write_safe(int fd, void *buf, int size)
+{
+	int ret;
+
+	ret = sys_write(fd, buf, size);
+	if (ret < 0) {
+		sys_write_msg("sys_write failed\n");
+		return ret;
+	}
+
+	if (ret != size) {
+		sys_write_msg("not all data was written\n");
+		ret = -EIO;
+	}
+
+	return 0;
 }
 
 /*
@@ -133,7 +147,6 @@ err:
  */
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
-	parasite_status_t *st = &args->status;
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
 	u64 *map, off;
@@ -153,14 +166,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 */
 	map = brk_alloc(length);
 	if (!map) {
-		SET_PARASITE_RET(st, -ENOMEM);
+		ret = -ENOMEM;
 		goto err;
 	}
 
 	fd = sys_open("/proc/self/pagemap", O_RDONLY, 0);
 	if (fd < 0) {
 		sys_write_msg("Can't open self pagemap");
-		SET_PARASITE_RET(st, fd);
+		ret = fd;
 		goto err_free;
 	}
 
@@ -168,14 +181,13 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	off = sys_lseek(fd, off, SEEK_SET);
 	if (off != pfn * sizeof(*map)) {
 		sys_write_msg("Can't seek pagemap");
-		SET_PARASITE_RET(st, off);
+		ret = off;
 		goto err_close;
 	}
 
 	ret = sys_read(fd, map, length);
 	if (ret != length) {
 		sys_write_msg("Can't read self pagemap");
-		SET_PARASITE_RET(st, ret);
 		goto err_free;
 	}
 
@@ -194,14 +206,13 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 				   prot_new);
 		if (ret) {
 			sys_write_msg("sys_mprotect failed\n");
-			SET_PARASITE_RET(st, ret);
 			goto err_free;
 		}
 	}
 
 	ret = 0;
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		unsigned long vaddr, written;
+		unsigned long vaddr;
 
 		if (should_dump_page(&args->vma_entry, map[pfn])) {
 			/*
@@ -209,15 +220,13 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			 * page_entry structure, see image.h
 			 */
 			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
-			written = 0;
 
-			written += sys_write(fd, &vaddr, sizeof(vaddr));
-			written += sys_write(fd, (void *)vaddr, PAGE_SIZE);
-			if (written != sizeof(vaddr) + PAGE_SIZE) {
-				ret = -1;
-				SET_PARASITE_RET(st, -EIO);
-				goto err_free;
-			}
+			ret = sys_write_safe(fd, &vaddr, sizeof(vaddr));
+			if (ret)
+				return ret;
+			ret = sys_write_safe(fd, (void *)vaddr, PAGE_SIZE);
+			if (ret)
+				return ret;
 
 			args->nrpages_dumped++;
 		} else if (map[pfn] & PME_PRESENT)
@@ -233,7 +242,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 				   prot_old);
 		if (ret) {
 			sys_write_msg("PANIC: Ouch! sys_mprotect failed on restore\n");
-			SET_PARASITE_RET(st, ret);
 			goto err_free;
 		}
 	}
@@ -251,11 +259,10 @@ err_close:
 
 static int dump_pages_fini(void)
 {
-	sys_close(fd_pages);
-	return 0;
+	return sys_close(fd_pages);
 }
 
-static int dump_sigact(parasite_status_t *st)
+static int dump_sigact()
 {
 	rt_sigaction_t act;
 	struct sa_entry e;
@@ -263,10 +270,8 @@ static int dump_sigact(parasite_status_t *st)
 	int ret;
 
 	fd = recv_fd(tsock);
-	if (fd < 0) {
-		SET_PARASITE_RET(st, fd);
+	if (fd < 0)
 		return fd;
-	}
 
 	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
@@ -275,7 +280,6 @@ static int dump_sigact(parasite_status_t *st)
 		ret = sys_sigaction(sig, NULL, &act, sizeof(rt_sigset_t));
 		if (ret < 0) {
 			sys_write_msg("sys_sigaction failed\n");
-			SET_PARASITE_RET(st, ret);
 			goto err_close;
 		}
 
@@ -284,12 +288,9 @@ static int dump_sigact(parasite_status_t *st)
 		ASSIGN_TYPED(e.restorer, act.rt_sa_restorer);
 		ASSIGN_TYPED(e.mask, act.rt_sa_mask.sig[0]);
 
-		ret = sys_write(fd, &e, sizeof(e));
-		if (ret != sizeof(e)) {
-			sys_write_msg("sys_write failed\n");
-			SET_PARASITE_RET(st, -EIO);
+		ret = sys_write_safe(fd, &e, sizeof(e));
+		if (ret)
 			goto err_close;
-		}
 	}
 
 	ret = 0;
@@ -298,7 +299,7 @@ err_close:
 	return ret;
 }
 
-static int dump_itimer(int which, int fd, parasite_status_t *st)
+static int dump_itimer(int which, int fd)
 {
 	struct itimerval val;
 	int ret;
@@ -307,7 +308,6 @@ static int dump_itimer(int which, int fd, parasite_status_t *st)
 	ret = sys_getitimer(which, &val);
 	if (ret < 0) {
 		sys_write_msg("getitimer failed\n");
-		SET_PARASITE_RET(st, ret);
 		return ret;
 	}
 
@@ -316,36 +316,31 @@ static int dump_itimer(int which, int fd, parasite_status_t *st)
 	ie.vsec = val.it_value.tv_sec;
 	ie.vusec = val.it_value.tv_sec;
 
-	ret = sys_write(fd, &ie, sizeof(ie));
-	if (ret != sizeof(ie)) {
-		sys_write_msg("sys_write failed\n");
-		SET_PARASITE_RET(st, -EIO);
-		return -1;
-	}
+	ret = sys_write_safe(fd, &ie, sizeof(ie));
+	if (ret)
+		return ret;
 
 	return 0;
 }
 
-static int dump_itimers(parasite_status_t *st)
+static int dump_itimers()
 {
 	int fd;
 	int ret = -1;
 
 	fd = recv_fd(tsock);
-	if (fd < 0) {
-		SET_PARASITE_RET(st, fd);
+	if (fd < 0)
 		return fd;
-	}
 
-	ret = dump_itimer(ITIMER_REAL, fd, st);
+	ret = dump_itimer(ITIMER_REAL, fd);
 	if (ret < 0)
 		goto err_close;
 
-	ret = dump_itimer(ITIMER_VIRTUAL, fd, st);
+	ret = dump_itimer(ITIMER_VIRTUAL, fd);
 	if (ret < 0)
 		goto err_close;
 
-	ret = dump_itimer(ITIMER_PROF, fd, st);
+	ret = dump_itimer(ITIMER_PROF, fd);
 	if (ret < 0)
 		goto err_close;
 
@@ -372,14 +367,11 @@ static int dump_misc(struct parasite_dump_misc *args)
 
 static int dump_tid_info(struct parasite_dump_tid_info *args)
 {
-	parasite_status_t *st = &args->status;
 	int ret;
 
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
-	if (ret) {
-		SET_PARASITE_RET(st, ret);
+	if (ret)
 		return ret;
-	}
 
 	args->tid = sys_gettid();
 
@@ -388,44 +380,32 @@ static int dump_tid_info(struct parasite_dump_tid_info *args)
 
 static int drain_fds(struct parasite_drain_fd *args)
 {
-	parasite_status_t *st = &args->status;
 	int ret;
 
 	ret = send_fds(tsock, &args->saddr, args->sun_len,
 		       args->fds, args->nr_fds, true);
-	if (ret) {
+	if (ret)
 		sys_write_msg("send_fds failed\n");
-		SET_PARASITE_RET(st, ret);
-		goto err;
-	}
 
-err:
 	return ret;
 }
 
 static int init(struct parasite_init_args *args)
 {
-	parasite_status_t *st = &args->status;
 	k_rtsigset_t to_block;
 	int ret;
 
 	ret = brk_init();
-	if (ret) {
-		SET_PARASITE_RET(st, ret);
-		return -1;
-	}
+	if (ret)
+		return -ret;
 
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (tsock < 0) {
-		SET_PARASITE_RET(st, tsock);
-		return -1;
-	}
+	if (tsock < 0)
+		return -tsock;
 
 	ret = sys_bind(tsock, (struct sockaddr *) &args->saddr, args->sun_len);
-	if (ret < 0) {
-		SET_PARASITE_RET(st, ret);
-		return -1;
-	}
+	if (ret < 0)
+		return ret;
 
 	ksigfillset(&to_block);
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block, &old_blocked, sizeof(k_rtsigset_t));
@@ -434,11 +414,10 @@ static int init(struct parasite_init_args *args)
 	else
 		reset_blocked = 1;
 
-	SET_PARASITE_RET(st, ret);
 	return ret;
 }
 
-static int parasite_set_logfd(parasite_status_t *st)
+static int parasite_set_logfd()
 {
 	int ret;
 
@@ -448,7 +427,6 @@ static int parasite_set_logfd(parasite_status_t *st)
 		ret = 0;
 	}
 
-	SET_PARASITE_RET(st, ret);
 	return ret;
 }
 
@@ -477,33 +455,27 @@ int __used parasite_service(unsigned long cmd, void *args)
 	case PARASITE_CMD_FINI:
 		return fini();
 	case PARASITE_CMD_SET_LOGFD:
-		return parasite_set_logfd((parasite_status_t *)args);
+		return parasite_set_logfd();
 	case PARASITE_CMD_DUMPPAGES_INIT:
-		return dump_pages_init((parasite_status_t *) args);
+		return dump_pages_init();
 	case PARASITE_CMD_DUMPPAGES_FINI:
 		return dump_pages_fini();
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
-		return dump_sigact((parasite_status_t *)args);
+		return dump_sigact();
 	case PARASITE_CMD_DUMP_ITIMERS:
-		return dump_itimers((parasite_status_t *)args);
+		return dump_itimers();
 	case PARASITE_CMD_DUMP_MISC:
 		return dump_misc((struct parasite_dump_misc *)args);
 	case PARASITE_CMD_DUMP_TID_ADDR:
 		return dump_tid_info((struct parasite_dump_tid_info *)args);
 	case PARASITE_CMD_DRAIN_FDS:
 		return drain_fds((struct parasite_drain_fd *)args);
-	default:
-		{
-			parasite_status_t *st = (parasite_status_t *)args;
-			SET_PARASITE_RET(st, -EINVAL);
-			sys_write_msg("Unknown command to parasite\n");
-		}
-		break;
 	}
 
-	return -1;
+	sys_write_msg("Unknown command to parasite\n");
+	return -EINVAL;
 }
 
 #else /* CONFIG_X86_64 */
