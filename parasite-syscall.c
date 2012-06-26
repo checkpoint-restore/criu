@@ -240,6 +240,8 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	parasite_setup_regs(ctl->parasite_ip, &regs);
 
 	ret = __parasite_execute(ctl, pid, &regs);
+	if (ret == 0)
+		ret = (int)regs.ax;
 
 	if (args)
 		memcpy(args, ctl->addr_args, args_size);
