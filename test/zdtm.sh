@@ -180,7 +180,7 @@ run_test()
 		while :; do
 			killall -9 $tname &> /dev/null || break
 			echo Waiting...
-			sleep 1
+			sleep 0.1
 		done
 
 		echo Restore $PID
@@ -195,7 +195,7 @@ run_test()
 	for i in `seq 50`; do
 		test -f $test.out && break
 		echo Waiting...
-		sleep 1
+		sleep 0.1
 	done
 	cat $test.out
 	cat $test.out | grep PASS || return 2
