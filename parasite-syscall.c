@@ -246,8 +246,6 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	if (args)
 		memcpy(args, ctl->addr_args, args_size);
 
-	BUG_ON(ret && !args);
-
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
 
