@@ -139,7 +139,7 @@ run_test()
 {
 	local test=$1
 
-	expr "$test" : 'pidns/' && PIDNS=1 || PIDNS=""
+	expr "$test" : 'pidns/' > /dev/null && PIDNS=1 || PIDNS=""
 	test=${ZP}/${test#pidns/}
 
 	shift
