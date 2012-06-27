@@ -98,7 +98,18 @@ struct mount_info {
 	char		*source;
 	char		*options;
 	struct mount_info *next;
+
+	/* tree linkage */
+	struct mount_info *parent;
+	struct list_head children;
+	struct list_head siblings;
 };
+
+static inline void mnt_entry_init(struct mount_info *pm)
+{
+	pm->parent = NULL;
+	INIT_LIST_HEAD(&pm->children);
+}
 
 extern struct mount_info *parse_mountinfo(pid_t pid);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);

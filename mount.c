@@ -41,6 +41,137 @@ int collect_mount_info(void)
 	return 0;
 }
 
+static struct mount_info *mnt_find_by_id(struct mount_info *list, int id)
+{
+	struct mount_info *m;
+
+	for (m = list; m != NULL; m = m->next)
+		if (m->mnt_id == id)
+			return m;
+
+	return NULL;
+}
+
+static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
+{
+	struct mount_info *m, *root = NULL;
+
+	/*
+	 * Just resolve the mnt_id:parent_mnt_id relations
+	 */
+
+	pr_debug("\tBuilding plain mount tree\n");
+	for (m = list; m != NULL; m = m->next) {
+		struct mount_info *p;
+
+		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
+		p = mnt_find_by_id(list, m->parent_mnt_id);
+		if (!p) {
+			/* This should be / */
+			if (root == NULL && !strcmp(m->mountpoint, "/")) {
+				root = m;
+				continue;
+			}
+
+			pr_err("Mountpoint %d w/o parent %d found @%s (root %s)\n",
+					m->mnt_id, m->parent_mnt_id, m->mountpoint,
+					root ? "found" : "not found");
+			return NULL;
+		}
+
+		m->parent = p;
+		list_add_tail(&m->siblings, &p->children);
+	}
+
+	if (!root) {
+		pr_err("No root found for tree\n");
+		return NULL;
+	}
+
+	return root;
+}
+
+static int mnt_depth(struct mount_info *m)
+{
+	int depth = 0;
+	char *c;
+
+	for (c = m->mountpoint; *c != '\0'; c++)
+		if (*c == '/')
+			depth++;
+
+	return depth;
+}
+
+static void mnt_resort_siblings(struct mount_info *tree)
+{
+	struct mount_info *m, *p;
+	LIST_HEAD(list);
+
+	/*
+	 * Put siblings of each node in an order they can be (u)mounted
+	 * I.e. if we have mounts on foo/bar/, foo/bar/foobar/ and foo/
+	 * we should put them in the foo/bar/foobar/, foo/bar/, foo/ order.
+	 * Otherwise we will not be able to (u)mount them in a sequence.
+	 *
+	 * Funny, but all we need for this is to sort them in the descending
+	 * order of the amount of /-s in a path =)
+	 *
+	 * Use stupid insertion sort here, we're not expecting mount trees
+	 * to contain hundreds (or more) elements.
+	 */
+
+	pr_info("\tResorting siblings on %d\n", tree->mnt_id);
+	while (!list_empty(&tree->children)) {
+		int depth;
+
+		m = list_first_entry(&tree->children, struct mount_info, siblings);
+		list_del(&m->siblings);
+
+		depth = mnt_depth(m);
+		list_for_each_entry(p, &list, siblings)
+			if (mnt_depth(p) <= depth)
+				break;
+
+		list_add(&m->siblings, &p->siblings);
+		mnt_resort_siblings(m);
+	}
+
+	list_splice(&list, &tree->children);
+}
+
+static void mnt_tree_show(struct mount_info *tree, int off)
+{
+	struct mount_info *m;
+
+	pr_info("%*s[%s](%d->%d)\n", off, "",
+			tree->mountpoint, tree->mnt_id, tree->parent_mnt_id);
+
+	list_for_each_entry(m, &tree->children, siblings)
+		mnt_tree_show(m, off + 1);
+
+	pr_info("%*s<--\n", off, "");
+}
+
+static struct mount_info *mnt_build_tree(struct mount_info *list)
+{
+	struct mount_info *tree;
+
+	/*
+	 * Organize them in a sequence in which they can be mounted/umounted.
+	 */
+
+	pr_info("Building mountpoints tree\n");
+	tree = mnt_build_ids_tree(list);
+	if (!tree)
+		return NULL;
+
+	mnt_resort_siblings(tree);
+	pr_info("Done:\n");
+	mnt_tree_show(tree, 0);
+	return tree;
+}
+
 static char *fstypes[] = {
 	"unsupported",
 	"proc",
@@ -134,6 +265,8 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 		pr_err("Can't parse %d's mountinfo\n", ns_pid);
 		return -1;
 	}
+
+	mnt_build_tree(pm);
 
 	pr_info("Dumping mountpoints\n");
 

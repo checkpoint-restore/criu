@@ -647,6 +647,8 @@ struct mount_info *parse_mountinfo(pid_t pid)
 		if (!new)
 			goto err;
 
+		mnt_entry_init(new);
+
 		ret = parse_mountinfo_ent(str, new);
 		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
