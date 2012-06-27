@@ -89,14 +89,14 @@ struct proc_mountinfo {
 	int		mnt_id;
 	int		parent_mnt_id;
 	unsigned int	s_dev;
-	char		root[64];
-	char		mountpoint[64];
+	char		*root;
+	char		*mountpoint;
 	unsigned	flags;
 	int		master_id;
 	int		shared_id;
-	char		fstype[32];
-	char		source[64];
-	char		options[128];
+	char		*fstype;
+	char		*source;
+	char		*options;
 	struct proc_mountinfo *next;
 };
 

@@ -589,12 +589,12 @@ static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
-	char opt[64];
+	char *opt;
 
-	ret = sscanf(str, "%i %i %u:%u %63s %63s %63s %n",
+	ret = sscanf(str, "%i %i %u:%u %ms %ms %ms %n",
 			&new->mnt_id, &new->parent_mnt_id,
-			&kmaj, &kmin, new->root, new->mountpoint,
-			opt, &n);
+			&kmaj, &kmin, &new->root, &new->mountpoint,
+			&opt, &n);
 	if (ret != 7)
 		return -1;
 
@@ -603,17 +603,25 @@ static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
 	if (parse_mnt_flags(opt, &new->flags))
 		return -1;
 
+	free(opt); /* after %ms scanf */
+
 	str += n;
 	if (parse_mnt_opt(str, new, &n))
 		return -1;
 
 	str += n;
-	ret = sscanf(str, "%31s %53s %63s", new->fstype, new->source, opt);
+	ret = sscanf(str, "%ms %ms %ms", &new->fstype, &new->source, &opt);
 	if (ret != 3)
+		return -1;
+
+	new->options = xmalloc(strlen(opt));
+	if (!new->options)
 		return -1;
 
 	if (parse_sb_opt(opt, &new->flags, new->options))
 		return -1;
+
+	free(opt);
 
 	return 0;
 }
