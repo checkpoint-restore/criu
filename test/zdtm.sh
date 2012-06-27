@@ -53,6 +53,10 @@ transition/fork
 static/file_fown
 "
 
+MNT_TEST_LIST="
+static/mountpoints
+"
+
 # These ones are in pidns
 TEST_LIST="$TEST_LIST
 pidns/static/session00
@@ -230,11 +234,14 @@ if [ $# -eq 0 ]; then
 	for t in $UTS_TEST_LIST; do
 		run_test $t -n uts || case_error $t
 	done
+	for t in $MNT_TEST_LIST; do
+		run_test $t -n mnt || case_error $t
+	done
 	for t in $IPC_TEST_LIST; do
 		run_test $t -n ipc || case_error $t
 	done
 elif [ "$1" == "-l" ]; then
-	echo $TEST_LIST $UTS_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
+	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
 elif [ "$1" == "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
@@ -248,6 +255,8 @@ EOF
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n uts || case_error $1
+	elif echo $MNT_TEST_LIST | fgrep -qw $1; then
+		run_test $1 -n mnt || case_error $1
 	elif echo $IPC_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n ipc || case_error $1
 	else

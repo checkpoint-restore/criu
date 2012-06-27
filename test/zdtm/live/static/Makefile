@@ -50,6 +50,7 @@ TST_NOFILE	=				\
 		session00			\
 		pty00				\
 		tty00				\
+		mountpoints			\
 #		jobctl00			\
 
 TST_FILE	=				\
