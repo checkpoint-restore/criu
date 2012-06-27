@@ -6,9 +6,9 @@ const char *test_author = "Evgeny Antysev <eantyshev@parallels.com>";
 #include <time.h>
 #include <stdlib.h>
 
-# define tv_gt(a, b) \
+# define tv_ge(a, b) \
   (((a)->tv_sec == (b)->tv_sec) ? \
-   ((a)->tv_nsec > (b)->tv_nsec) : \
+   ((a)->tv_nsec >= (b)->tv_nsec) : \
    ((a)->tv_sec > (b)->tv_sec))
  
 int main(int argc, char **argv)
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 			err("clock_gettime failed: %m\n");
 			exit(1);
 		}
-		if (!tv_gt(&tm, &tm_old)) {
+		if (!tv_ge(&tm, &tm_old)) {
 			diff_nsec = (tm_old.tv_sec - tm.tv_sec) * 1.0E9 +\
 				(tm_old.tv_nsec - tm.tv_nsec);
 			fail("clock step backward for %e nsec\n", diff_nsec);
