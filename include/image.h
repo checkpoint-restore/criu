@@ -289,6 +289,17 @@ struct ipc_sem_entry {
 	u8	pad[6];
 } __packed;
 
+struct mnt_entry {
+	u32	mnt_id;
+	u32	root_dev;
+	u32	root_dentry_len;
+	u32	parent_mnt_id;
+	u32	mountpoint_path_len;
+	u32	flags;
+	u32	source_len;
+	u32	options_len;
+} __packed;
+
 #define VMA_AREA_NONE		(0 <<  0)
 #define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
 #define VMA_AREA_STACK		(1 <<  1)
