@@ -16,18 +16,10 @@
 
 #include "compiler.h"
 #include "crtools.h"
-#include "util.h"
-#include "log.h"
 #include "sockets.h"
 #include "syscall.h"
-#include "uts_ns.h"
-#include "ipc_ns.h"
 #include "files.h"
 #include "sk-inet.h"
-#include "eventfd.h"
-#include "eventpoll.h"
-#include "inotify.h"
-#include "mount.h"
 
 struct cr_options opts;
 
