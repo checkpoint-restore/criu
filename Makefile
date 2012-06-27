@@ -26,6 +26,7 @@ export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 OBJS		+= parasite-syscall.o
 OBJS		+= cr-restore.o
 OBJS		+= crtools.o
+OBJS		+= image.o
 OBJS		+= proc_parse.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-show.o
