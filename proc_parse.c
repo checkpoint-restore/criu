@@ -549,7 +549,7 @@ static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 	return do_opt2flag(opt, flags, sb_opt2flag, uopt);
 }
 
-static int parse_mnt_opt(char *str, struct proc_mountinfo *mi, int *off)
+static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
 {
 	char *istr = str, *end;
 
@@ -585,7 +585,7 @@ static int parse_mnt_opt(char *str, struct proc_mountinfo *mi, int *off)
 	return 0;
 }
 
-static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
+static int parse_mountinfo_ent(char *str, struct mount_info *new)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
@@ -626,9 +626,9 @@ static int parse_mountinfo_ent(char *str, struct proc_mountinfo *new)
 	return 0;
 }
 
-struct proc_mountinfo *parse_mountinfo(pid_t pid)
+struct mount_info *parse_mountinfo(pid_t pid)
 {
-	struct proc_mountinfo *list = NULL;
+	struct mount_info *list = NULL;
 	FILE *f;
 	char str[256];
 
@@ -640,7 +640,7 @@ struct proc_mountinfo *parse_mountinfo(pid_t pid)
 	}
 
 	while (fgets(str, sizeof(str), f)) {
-		struct proc_mountinfo *new;
+		struct mount_info *new;
 		int ret;
 
 		new = xmalloc(sizeof(*new));
@@ -667,7 +667,7 @@ out:
 
 err:
 	while (list) {
-		struct proc_mountinfo *next = list->next;
+		struct mount_info *next = list->next;
 		xfree(list);
 		list = next;
 	}

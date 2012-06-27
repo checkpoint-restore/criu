@@ -14,11 +14,11 @@
 #include "mount.h"
 #include "proc_parse.h"
 
-static struct proc_mountinfo *mntinfo;
+static struct mount_info *mntinfo;
 
 int open_mount(unsigned int s_dev)
 {
-	struct proc_mountinfo *i;
+	struct mount_info *i;
 
 	for (i = mntinfo; i != NULL; i = i->next)
 		if (s_dev == i->s_dev)

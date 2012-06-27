@@ -85,7 +85,7 @@ struct proc_status_creds {
 	unsigned int cap_bnd[PROC_CAP_SIZE];
 };
 
-struct proc_mountinfo {
+struct mount_info {
 	int		mnt_id;
 	int		parent_mnt_id;
 	unsigned int	s_dev;
@@ -97,10 +97,10 @@ struct proc_mountinfo {
 	char		*fstype;
 	char		*source;
 	char		*options;
-	struct proc_mountinfo *next;
+	struct mount_info *next;
 };
 
-extern struct proc_mountinfo *parse_mountinfo(pid_t pid);
+extern struct mount_info *parse_mountinfo(pid_t pid);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
 extern int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s);
 extern int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
