@@ -266,8 +266,6 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
-	mnt_build_tree(pm);
-
 	pr_info("Dumping mountpoints\n");
 
 	img_fd = fdset_fd(fdset, CR_FD_MOUNTPOINTS);
@@ -282,6 +280,140 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 	} while (pm);
 
 	return 0;
+}
+
+static int mnt_tree_for_each(struct mount_info *m,
+		int (*fn)(struct mount_info *))
+{
+	pr_err("NOT IMPLEMENTED\n");
+	return -1;
+}
+
+static int mnt_tree_for_each_reverse(struct mount_info *m,
+		int (*fn)(struct mount_info *))
+{
+	pr_err("NOT IMPLEMENTED\n");
+	return -1;
+}
+
+static int do_mount_one(struct mount_info *mi)
+{
+	if (!mi->parent)
+		return 0;
+
+	pr_debug("\tMounting %s @%s\n", mi->fstype, mi->mountpoint);
+	return 0;
+}
+
+static int do_umount_one(struct mount_info *mi)
+{
+	if (!mi->parent)
+		return 0;
+
+	pr_debug("\tUmounting %s\n", mi->mountpoint);
+	return 0;
+}
+
+static int clean_mnt_ns(void)
+{
+	struct mount_info *pm;
+
+	pr_info("Cleaning mount namespace\n");
+
+	pm = parse_mountinfo(getpid());
+	if (!pm) {
+		pr_err("Can't parse my new mount namespace\n");
+		return -1;
+	}
+
+	pm = mnt_build_tree(pm);
+	if (!pm)
+		return -1;
+
+	return mnt_tree_for_each_reverse(pm, do_umount_one);
+}
+
+static int populate_mnt_ns(int ns_pid)
+{
+	int img, ret;
+	struct mount_info *pms = NULL;
+
+	pr_info("Populating mount namespace\n");
+
+	img = open_image_ro(CR_FD_MOUNTPOINTS, ns_pid);
+	if (img < 0)
+		return -1;
+
+	pr_debug("Reading mountpoint images\n");
+
+	while (1) {
+		struct mnt_entry me;
+		struct mount_info *pm;
+
+		ret = read_img_eof(img, &me);
+		if (ret <= 0)
+			break;
+
+		ret = -1;
+		pm = xmalloc(sizeof(*pm));
+		if (!pm)
+			break;
+
+		mnt_entry_init(pm);
+
+		pm->mnt_id = me.mnt_id;
+		pm->parent_mnt_id = me.parent_mnt_id;
+		pm->s_dev = me.root_dev;
+		pm->flags = me.flags;
+		pm->fstype = decode_fstype(me.fstype); /* FIXME: abort unsupported early */
+
+		pr_debug("\t\tGetting root for %d\n", pm->mnt_id);
+		if (read_img_str(img, &pm->root, me.root_dentry_len) < 0)
+			break;
+
+		pr_debug("\t\tGetting mpt for %d\n", pm->mnt_id);
+		if (read_img_str(img, &pm->mountpoint, me.mountpoint_path_len) < 0)
+			break;
+
+		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
+		if (read_img_str(img, &pm->source, me.source_len) < 0)
+			break;
+
+		pr_debug("\t\tGetting opts for %d\n", pm->mnt_id);
+		if (read_img_str(img, &pm->options, me.options_len) < 0)
+			break;
+
+		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
+		pm->next = pms;
+		pms = pm;
+	}
+
+	close(img);
+
+	pms = mnt_build_tree(pms);
+	if (!pms)
+		return -1;
+
+	return mnt_tree_for_each(pms, do_mount_one);
+}
+
+int prepare_mnt_ns(int ns_pid)
+{
+	int ret;
+
+	pr_info("Restoring mount namespace\n");
+
+	/*
+	 * The new mount namespace is filled with the mountpoint
+	 * clones from the original one. We have to umount them
+	 * prior to recreating new ones.
+	 */
+
+	ret = clean_mnt_ns();
+	if (!ret)
+		ret = populate_mnt_ns(ns_pid);
+
+	return ret;
 }
 
 void show_mountpoints(int fd, struct cr_options *o)

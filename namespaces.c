@@ -124,6 +124,8 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 		ret = prepare_utsns(pid);
 	if (clone_flags & CLONE_NEWIPC)
 		ret = prepare_ipc_ns(pid);
+	if (clone_flags & CLONE_NEWNS)
+		ret = prepare_mnt_ns(pid);
 
 	return ret;
 }
