@@ -433,11 +433,32 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 	return ret;
 }
 
+static int close_old_fds(struct pstree_item *me)
+{
+	/*
+	 * FIXME -- The existing test_init implementation uses system()
+	 * which in turn doesn't work when all fds are closed
+	 */
+	if (me->pid.virt == 1)
+		return 0;
+
+	/* FIXME -- wait for nextfd syscall (or read proc) */
+	close(0);
+	close(1);
+	close(2);
+	close(255); /* bash */
+	return 0;
+}
+
 int prepare_fds(struct pstree_item *me)
 {
 	u32 ret;
 	int state;
 	struct fdinfo_list_entry *fle;
+
+	ret = close_old_fds(me);
+	if (ret)
+		return ret;
 
 	pr_info("Opening fdinfo-s\n");
 
