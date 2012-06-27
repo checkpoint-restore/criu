@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/mount.h>
 
 #include "crtools.h"
 #include "types.h"
@@ -334,7 +335,12 @@ static int do_umount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
-	pr_debug("\tUmounting %s\n", mi->mountpoint);
+	if (umount(mi->mountpoint)) {
+		pr_perror("Can't umount at %s", mi->mountpoint);
+		return -1;
+	}
+
+	pr_info("Umounted at %s\n", mi->mountpoint);
 	return 0;
 }
 
