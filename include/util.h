@@ -235,6 +235,8 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 		___p;							\
 	})
 
+#include <stdlib.h>
+
 #define xstrdup(str)		__xalloc(strdup, strlen(str) + 1, str)
 #define xmalloc(size)		__xalloc(malloc, size, size)
 #define xzalloc(size)		__xalloc(calloc, size, 1, size)
@@ -286,5 +288,30 @@ int is_anon_link_type(int lfd, char *type);
 	(((c) >= '0' && (c) <= '9')	||	\
 	 ((c) >= 'a' && (c) <= 'f')	||	\
 	 ((c) >= 'A' && (c) <= 'F'))
+
+/*
+ * read_img_str -- same as read_img_buf, but allocates memory for
+ * the buffer and puts the '\0' at the end
+ */
+
+static inline int read_img_str(int fd, char **pstr, int size)
+{
+	int ret;
+	char *str;
+
+	str = xmalloc(size + 1);
+	if (!str)
+		return -1;
+
+	ret = read_img_buf(fd, str, size);
+	if (ret < 0) {
+		xfree(str);
+		return -1;
+	}
+
+	str[size] = '\0';
+	*pstr = str;
+	return 0;
+}
 
 #endif /* UTIL_H_ */

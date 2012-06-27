@@ -394,8 +394,6 @@ int collect_reg_files(void)
 		return -1;
 
 	while (1) {
-		int len;
-
 		rfi = xmalloc(sizeof(*rfi));
 		ret = -1;
 		if (rfi == NULL)
@@ -406,18 +404,11 @@ int collect_reg_files(void)
 		if (ret <= 0)
 			break;
 
-		len = rfi->rfe.len;
-		rfi->path = xmalloc(len + 1);
-		ret = -1;
-		if (rfi->path == NULL)
-			break;
-
-		ret = read_img_buf(fd, rfi->path, len);
+		ret = read_img_str(fd, &rfi->path, rfi->rfe.len);
 		if (ret < 0)
 			break;
 
 		rfi->remap_path = NULL;
-		rfi->path[len] = '\0';
 
 		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe.id);
 		file_desc_add(&rfi->d, rfi->rfe.id, &reg_desc_ops);
