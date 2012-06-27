@@ -282,18 +282,42 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 	return 0;
 }
 
+#define MNT_TREE_WALK(_mi, _el, _fn_f, _fn_r) do {				\
+		while (1) {							\
+			if (_fn_f(_mi))						\
+				return -1;					\
+			if (!list_empty(&_mi->children)) {			\
+				_mi = list_entry(_mi->children._el,		\
+						struct mount_info, siblings);	\
+				continue;					\
+			}							\
+	up:									\
+			if (_fn_r(_mi))						\
+				return -1;					\
+			if (_mi->parent == NULL)				\
+				return 0;					\
+			if (_mi->siblings._el == &_mi->parent->children) {	\
+				_mi = _mi->parent;				\
+				goto up;					\
+			}							\
+			_mi = list_entry(_mi->siblings._el,			\
+					struct mount_info, siblings);		\
+		}								\
+	} while (0)
+
+#define MNT_WALK_NONE	0 &&
+
+
 static int mnt_tree_for_each(struct mount_info *m,
 		int (*fn)(struct mount_info *))
 {
-	pr_err("NOT IMPLEMENTED\n");
-	return -1;
+	MNT_TREE_WALK(m, next, fn, MNT_WALK_NONE);
 }
 
 static int mnt_tree_for_each_reverse(struct mount_info *m,
 		int (*fn)(struct mount_info *))
 {
-	pr_err("NOT IMPLEMENTED\n");
-	return -1;
+	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn);
 }
 
 static int do_mount_one(struct mount_info *mi)
