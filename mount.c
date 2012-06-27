@@ -41,6 +41,53 @@ int collect_mount_info(void)
 	return 0;
 }
 
+static char *fstypes[] = {
+	"unsupported",
+	"proc",
+	"sysfs",
+};
+
+static u32 encode_fstype(char *fst)
+{
+	int i;
+
+	/*
+	 * This fn is required for two things.
+	 * 1st -- to check supported filesystems (as just mounting
+	 * anything is wrong, almost every fs has its own features)
+	 * 2nd -- save some space in the image (since we scan all
+	 * names anyway)
+	 */
+
+	for (i = 0; i < ARRAY_SIZE(fstypes); i++)
+		if (!strcmp(fstypes[i], fst))
+			return i;
+
+	return 0;
+}
+
+static char *decode_fstype(u32 fst)
+{
+	static char uns[12];
+
+	if (fst >= ARRAY_SIZE(fstypes)) {
+		sprintf(uns, "x%d", fst);
+		return uns;
+	}
+
+	return fstypes[fst];
+}
+
+static inline int is_root(char *p)
+{
+	return p[0] == '/' && p[1] == '\0';
+}
+
+static inline int is_root_mount(struct mount_info *mi)
+{
+	return is_root(mi->mountpoint);
+}
+
 static int dump_one_mountpoint(struct mount_info *pm, int fd)
 {
 	struct mnt_entry me;
@@ -53,6 +100,11 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.root_dentry_len = strlen(pm->root);
 	me.parent_mnt_id = pm->parent_mnt_id;
 	me.mountpoint_path_len = strlen(pm->mountpoint);
+	me.fstype = encode_fstype(pm->fstype);
+	if (!me.fstype && !is_root_mount(pm)) {
+		pr_err("FS %s unsupported\n", pm->fstype);
+		return -1;
+	}
 
 	me.flags = pm->flags;
 	me.source_len = strlen(pm->source);
@@ -113,7 +165,8 @@ void show_mountpoints(int fd, struct cr_options *o)
 		if (ret <= 0)
 			break;
 
-		pr_msg("%d:%d ", me.mnt_id, me.parent_mnt_id);
+		pr_msg("%d:%d [%s] ", me.mnt_id, me.parent_mnt_id,
+				decode_fstype(me.fstype));
 
 		ret = read_img_buf(fd, buf, me.root_dentry_len);
 		if (ret < 0)

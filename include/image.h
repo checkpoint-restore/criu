@@ -290,6 +290,7 @@ struct ipc_sem_entry {
 } __packed;
 
 struct mnt_entry {
+	u32	fstype;
 	u32	mnt_id;
 	u32	root_dev;
 	u32	root_dentry_len;
