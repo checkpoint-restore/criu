@@ -321,13 +321,58 @@ static int mnt_tree_for_each_reverse(struct mount_info *m,
 	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn);
 }
 
+static char *resolve_source(struct mount_info *mi)
+{
+	if (kdev_major(mi->s_dev) == 0)
+		/*
+		 * Anonymous block device. Kernel creates them for
+		 * diskless mounts.
+		 */
+		return mi->source;
+
+	pr_err("No device for %s mount\n", mi->mountpoint);
+	return NULL;
+}
+
+static int do_new_mount(struct mount_info *mi)
+{
+	char *src;
+
+	src = resolve_source(mi);
+	if (!src)
+		return -1;
+
+	if (mount(src, mi->mountpoint, mi->fstype,
+				mi->flags, mi->options) < 0) {
+		pr_perror("Can't mount at %s", mi->mountpoint);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int do_bind_mount(struct mount_info *mi)
+{
+	pr_err("No bind mounts at %s\n", mi->mountpoint);
+	return -1;
+}
+
+static inline int fsroot_mounted(struct mount_info *mi)
+{
+	return is_root(mi->root);
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	if (!mi->parent)
 		return 0;
 
 	pr_debug("\tMounting %s @%s\n", mi->fstype, mi->mountpoint);
-	return 0;
+
+	if (fsroot_mounted(mi))
+		return do_new_mount(mi);
+	else
+		return do_bind_mount(mi);
 }
 
 static int do_umount_one(struct mount_info *mi)
