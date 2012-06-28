@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <unistd.h>
+#include <linux/unistd.h>
 #include <time.h>
 
 #include "zdtmtst.h"
@@ -13,15 +14,7 @@
 
 static long sys_gettid(void)
 {
-	long ret;
-
-	asm volatile("movl $186, %%eax	\n"
-		     "syscall		\n"
-		     "movq %%rax, %0	\n"
-		     : "=r"(ret)
-		     :
-		     : "rax", "memory");
-	return ret;
+	return syscall(__NR_gettid);
 }
 
 void task_waiter_init(task_waiter_t *t)
