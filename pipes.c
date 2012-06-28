@@ -52,10 +52,7 @@ static int handle_pipes_data(void)
 		struct pipe_data_entry pde;
 
 		ret = read_img_eof(fd, &pde);
-		if (ret < 0)
-			goto err;
-
-		if (ret == 0)
+		if (ret <= 0)
 			break;
 
 		list_for_each_entry(pi, &pipes, list) {
@@ -71,7 +68,7 @@ static int handle_pipes_data(void)
 			break;
 		}
 	}
-err:
+
 	close(fd);
 	return ret;
 }
