@@ -124,28 +124,28 @@ void mark_pipe_master(void)
 	handle_pipes_data();
 }
 
-static int restore_pipe_data(int pfd, struct pipe_info *pi)
+int restore_pipe_data(int img_type, int pfd, u32 id, int bytes, off_t off)
 {
-	int fd, size = 0, ret;
+	int img, size = 0, ret;
 
-	fd = open_image_ro(CR_FD_PIPES_DATA);
-	if (fd < 0)
+	img = open_image_ro(img_type);
+	if (img < 0)
 		return -1;
 
-	lseek(fd, pi->off, SEEK_SET);
+	lseek(img, off, SEEK_SET);
 
-	pr_info("\t\tSplicing data size=%d off=%ld\n", pi->bytes, pi->off);
+	pr_info("\t\tSplicing data size=%d off=%ld\n", bytes, off);
 
-	while (size != pi->bytes) {
-		ret = splice(fd, NULL, pfd, NULL, pi->bytes - size, 0);
+	while (size != bytes) {
+		ret = splice(img, NULL, pfd, NULL, bytes - size, 0);
 		if (ret < 0) {
-			pr_perror("%#x: Error splicing data", pi->pe.id);
+			pr_perror("%#x: Error splicing data", id);
 			goto err;
 		}
 
 		if (ret == 0) {
 			pr_err("%#x: Wanted to restore %d bytes, but got %d\n",
-				pi->pe.id, pi->bytes, size);
+			       id, bytes, size);
 			ret = -1;
 			goto err;
 		}
@@ -155,7 +155,7 @@ static int restore_pipe_data(int pfd, struct pipe_info *pi)
 
 	ret = 0;
 err:
-	close(fd);
+	close(img);
 	return ret;
 }
 
@@ -210,7 +210,7 @@ static int open_pipe(struct file_desc *d)
 		return -1;
 	}
 
-	ret = restore_pipe_data(pfd[1], pi);
+	ret = restore_pipe_data(CR_FD_PIPES_DATA, pfd[1], pi->pe.id, pi->bytes, pi->off);
 	if (ret)
 		return -1;
 
@@ -304,8 +304,9 @@ int collect_pipes(void)
 static u32 pipes_with_data[1024];	/* pipes for which data already dumped */
 static int nr_pipes;
 
-static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
+int dump_one_pipe_data(int img_type, int lfd, u32 id, const struct fd_parms *p)
 {
+	int img = fdset_fd(glob_fdset, img_type);
 	int pipe_size, i, bytes;
 	int steal_pipe[2];
 	int ret = -1;
@@ -342,7 +343,6 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 
 	bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
 	if (bytes > 0) {
-		int fd_pipes_data = fdset_fd(glob_fdset, CR_FD_PIPES_DATA);
 		struct pipe_data_entry pde;
 		int wrote;
 
@@ -353,7 +353,7 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 		if (bytes > PIPE_MAX_NONALIG_SIZE) {
 			off_t off;
 
-			off  = lseek(fd_pipes_data, 0, SEEK_CUR);
+			off  = lseek(img, 0, SEEK_CUR);
 			off += sizeof(pde);
 			off &= ~PAGE_MASK;
 
@@ -363,14 +363,14 @@ static int dump_one_pipe_data(int lfd, u32 id, const struct fd_parms *p)
 			pr_info("\toff %#lx %#x bytes %#x\n", off, pde.off, bytes);
 		}
 
-		if (write_img(fd_pipes_data, &pde))
+		if (write_img(img, &pde))
 			goto err_close;
 
 		/* Don't forget to advance position if a hole needed */
 		if (pde.off)
-			lseek(fd_pipes_data, pde.off, SEEK_CUR);
+			lseek(img, pde.off, SEEK_CUR);
 
-		wrote = splice(steal_pipe[0], NULL, fd_pipes_data, NULL, bytes, 0);
+		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
 		if (wrote < 0) {
 			pr_perror("Can't push pipe data");
 			goto err_close;
@@ -409,7 +409,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	if (write_img(fdset_fd(glob_fdset, CR_FD_PIPES), &pe))
 		return -1;
 
-	return dump_one_pipe_data(lfd, id, p);
+	return dump_one_pipe_data(CR_FD_PIPES_DATA, lfd, id, p);
 }
 
 static const struct fdtype_ops pipe_ops = {
