@@ -87,6 +87,7 @@ TST		=				\
 		$(TST_FILE)			\
 		$(TST_DIR)			\
 		env00				\
+		fifo-rowo-pair			\
 		umask00				\
 		cmdlinenv00			\
 
@@ -129,6 +130,9 @@ env00.pid:	env00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
 umask00.pid:	umask00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --mask=0345
+
+fifo-rowo-pair.pid: fifo-rowo-pair
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --name_master=$<.master.test --name_slave=$<.slave.test
 
 %.out:	%.pid %
 	-kill -TERM `< $<`
