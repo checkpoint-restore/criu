@@ -87,8 +87,8 @@ static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	pos = strstr(buf, "count-raw:");
-	if (!pos || !sscanf(pos, "count-raw: %lx", &efe.counter)) {
+	pos = strstr(buf, "eventfd-count:");
+	if (!pos || !sscanf(pos, "eventfd-count: %lx", &efe.counter)) {
 		pr_err("Counter value is not found for %d (%d)\n", p->fd, lfd);
 		return -1;
 	}
