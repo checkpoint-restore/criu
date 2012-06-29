@@ -22,10 +22,11 @@ int main(int argc, char ** argv)
 	gid_t gid;
 	uint8_t buf[fsize];
 	struct stat fst;
+	uint32_t crc;
 
 	test_init(argc, argv);
 
-	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
 		err("can't open %s: %m\n", filename);
 		exit(1);
@@ -45,7 +46,9 @@ int main(int argc, char ** argv)
 		err("%s file size eq %d\n", fst.st_size);
 		goto failed;
 	}
-	memset(buf, '0', sizeof(buf));
+
+	crc = ~0;
+	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
 		err("can't write %s: %m\n", filename);
 		goto failed;
@@ -97,6 +100,21 @@ int main(int argc, char ** argv)
 	if (fst.st_uid != uid || fst.st_gid != gid) {
 		fail("u(g)id changed: uid=%d(%d), gid=%d(%d)",
 				fst.st_uid, uid, fst.st_gid, gid);
+		goto failed;
+	}
+
+	if (lseek(fd, 0, SEEK_SET) != 0) {
+		err("can't reposition to 0: %m");
+		goto failed;
+	}
+	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+		fail("can't read %s: %m\n", filename);
+		goto failed;
+	}
+
+	crc = ~0;
+	if (datachk(buf, sizeof(buf), &crc)) {
+		fail("CRC mismatch\n");
 		goto failed;
 	}
 
