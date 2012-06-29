@@ -67,9 +67,10 @@ void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("inotify-wd: id 0x%08x 0x%08x s_dev 0x%08x i_ino 0x%016lx mask 0x%08x "
+		pr_msg("inotify-wd: id 0x%08x 0x%08x s_dev 0x%08x i_ino 0x%016lx "
+		       " mask 0x%08x ignored_mask 0x%08x "
 		       "[fhandle] 0x%08x 0x%08x 0x%016lx:0x%016lx ...\n",
-		       e.id, e.wd, e.s_dev, e.i_ino, e.mask,
+		       e.id, e.wd, e.s_dev, e.i_ino, e.mask, e.ignored_mask,
 		       e.f_handle.bytes, e.f_handle.type,
 		       e.f_handle.__handle[0],
 		       e.f_handle.__handle[1]);
@@ -166,7 +167,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	if (write_img(image_fd, &ie))
 		goto err;
 
-	pos = strstr(fdinfo_buf, "wd:");
+	pos = strstr(fdinfo_buf, "inotify wd:");
 	if (!pos)
 		return 0;
 
@@ -174,11 +175,12 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	while (tok) {
 		pr_debug("Line: `%s'\n", tok);
 		ret = sscanf(tok,
-			     "wd: %8d ino: %16lx, sdev: %8x mask %8x "
-			     "fhandle-bytes: %8x fhandle-type: %8x f_handle: ",
-			     &we.wd, &we.i_ino, &we.s_dev, &we.mask,
+			     "inotify wd: %8d ino: %16lx sdev: %8x "
+			     "mask: %8x ignored_mask: %8x fhandle-bytes: %8x "
+			     "fhandle-type: %8x f_handle: ",
+			     &we.wd, &we.i_ino, &we.s_dev, &we.mask, &we.ignored_mask,
 			     &we.f_handle.bytes, &we.f_handle.type);
-		if (ret != 6) {
+		if (ret != 7) {
 			pr_err("Inotify fdinfo format mismatch #%d\n", ret);
 			goto parse_error;
 		}
@@ -207,6 +209,7 @@ err:
 	return ret;
 
 parse_error:
+	ret = -1;
 	pr_err("Incorrect format in inotify fdinfo %d (%d)\n", p->fd, lfd);
 	goto err;
 }

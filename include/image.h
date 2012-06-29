@@ -116,6 +116,7 @@ struct inotify_wd_entry {
 	u32	id;
 	u64	i_ino;
 	u32	mask;
+	u32	ignored_mask;
 	u32	s_dev;
 	u32	wd;
 	fh_t	f_handle;
