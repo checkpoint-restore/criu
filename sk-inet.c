@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <unistd.h>
@@ -81,8 +82,23 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 			return 0;
 		}
 		break;
+	case TCP_CLOSE:
+		/* Trivial case, we just need to create a socket on restore */
+		break;
 	default:
 		pr_err("Unknown state %d\n", sk->state);
+		return 0;
+	}
+
+	/* Make sure it's a proto we support */
+	switch (sk->proto) {
+	case IPPROTO_IP:
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
+		break;
+	default:
+		pr_err("Unsupported socket proto %d\n", sk->proto);
 		return 0;
 	}
 
@@ -92,14 +108,73 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 #define tcp_connection(sk)	(((sk)->proto == IPPROTO_TCP) &&	\
 				 ((sk)->state == TCP_ESTABLISHED))
 
+static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
+{
+	struct inet_sk_desc *sk;
+	char address[128];
+	socklen_t aux;
+	int ret;
+
+	sk = xzalloc(sizeof(*sk));
+	if (!sk)
+		goto err;
+
+	/* It should has no peer name */
+	aux = sizeof(address);
+	ret = getsockopt(lfd, SOL_SOCKET, SO_PEERNAME, address, &aux);
+	if (ret != -1 || errno != ENOTCONN) {
+		pr_err("Errno %d returned from unconnected socket\n", errno);
+		goto err;
+	}
+
+	sk->sd.ino = p->stat.st_ino;
+
+	ret  = do_dump_opt(lfd, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
+	ret |= do_dump_opt(lfd, SO_TYPE, &sk->type, sizeof(sk->type));
+	ret |= do_dump_opt(lfd, SO_PROTOCOL, &sk->proto, sizeof(sk->proto));
+	if (ret)
+		goto err;
+
+	if (sk->proto == IPPROTO_TCP) {
+		struct tcp_info info;
+
+		aux = sizeof(info);
+		ret = getsockopt(lfd, SOL_TCP, TCP_INFO, &info, &aux);
+		if (ret) {
+			pr_perror("Failt to obtain TCP_INFO");
+			goto err;
+		}
+
+		if (info.tcpi_state != TCP_CLOSE) {
+			pr_err("Socket state %d obtained but expected %d\n",
+			       info.tcpi_state, TCP_CLOSE);
+			goto err;
+		}
+
+		sk->wqlen = info.tcpi_backoff;
+	}
+
+	sk->state = TCP_CLOSE;
+
+	sk_collect_one(sk->sd.ino, sk->sd.family, &sk->sd);
+
+	return sk;
+err:
+	xfree(sk);
+	return NULL;
+}
+
 static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct inet_sk_desc *sk;
 	struct inet_sk_entry ie;
 
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino);
-	if (!sk)
-		goto err;
+	if (!sk) {
+		sk = gen_uncon_sk(lfd, p);
+		if (!sk)
+			goto err;
+	}
 
 	if (!can_dump_inet_sk(sk))
 		goto err;
@@ -184,6 +259,18 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 	return ret;
 }
 
+static u32 zero_addr[4];
+
+static bool is_bound(struct inet_sk_info *ii)
+{
+	BUILD_BUG_ON(sizeof(zero_addr) <
+		     max(sizeof(ii->ie.dst_addr), sizeof(ii->ie.src_addr)));
+
+	return memcmp(zero_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr)) ||
+	       memcmp(zero_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+}
+
+
 static int open_inet_sk(struct file_desc *d);
 
 static struct file_desc_ops inet_desc_ops = {
@@ -265,8 +352,10 @@ static int open_inet_sk(struct file_desc *d)
 	 * bind() and listen(), and that's all.
 	 */
 
-	if (inet_bind(sk, ii))
-		goto err;
+	if (is_bound(ii)) {
+		if (inet_bind(sk, ii))
+			goto err;
+	}
 
 	if (ii->ie.state == TCP_LISTEN) {
 		if (ii->ie.proto != IPPROTO_TCP) {

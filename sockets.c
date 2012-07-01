@@ -75,7 +75,7 @@ int restore_socket_opts(int sk, struct sk_opts_entry *soe)
 	return ret;
 }
 
-static int do_dump_opt(int sk, int name, void *val, int len)
+int do_dump_opt(int sk, int name, void *val, int len)
 {
 	socklen_t aux = len;
 

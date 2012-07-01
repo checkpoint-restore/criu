@@ -53,4 +53,6 @@ extern int dump_one_unix(struct fd_parms *p, int lfd, const struct cr_fdset *set
 extern int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto);
 extern int unix_receive_one(struct nlmsghdr *h);
 
+extern int do_dump_opt(int sk, int name, void *val, int len);
+
 #endif /* CR_SOCKETS_H__ */
