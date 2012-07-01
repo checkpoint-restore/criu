@@ -26,6 +26,14 @@ TEST_OPTION(name_master, string, "master fifo name", 1);
 char *name_slave;
 TEST_OPTION(name_slave, string, "slave fifo name", 1);
 
+#define TEST_VALUE	(00100)
+
+#define exit_shot(pid, code)	\
+	do { kill(pid, SIGKILL); exit(code); } while (0)
+
+#define exit_shot_parent(code)	\
+	exit_shot(getppid(), 1)
+
 int main(int argc, char **argv)
 {
 	task_waiter_t t;
@@ -60,29 +68,29 @@ int main(int argc, char **argv)
 		fd_master = open(name_master, O_WRONLY);
 		if (fd_master < 0) {
 			err("can't open %s: %m\n", name_master);
-			exit(1);
+			exit_shot_parent(1);
 		}
 
 		new_slave = dup2(fd_slave, 64);
 		if (new_slave < 0) {
 			err("can't dup %s: %m\n", name_slave);
-			exit(1);
+			exit_shot_parent(1);
 		}
 
 		close(fd_slave);
 
 		task_waiter_complete_current(&t);
 
-		v = 00100;
+		v = TEST_VALUE;
 		if (write(new_slave, &v, sizeof(v)) != sizeof(v)) {
 			err("write failed: %m\n");
-			exit(1);
+			exit_shot_parent(1);
 		}
 
-		v = 00100;
+		v = TEST_VALUE;
 		if (write(fd_master, &v, sizeof(v)) != sizeof(v)) {
 			err("write failed: %m\n");
-			exit(1);
+			exit_shot_parent(1);
 		}
 
 		/* Don't exit until explicitly asked */
@@ -97,7 +105,7 @@ int main(int argc, char **argv)
 	fd_master = open(name_master, O_RDONLY);
 	if (fd_master < 0) {
 		err("can't open %s: %m\n", name_master);
-		exit(1);
+		exit_shot(pid, 1);
 	}
 
 	/* Wait until data appear in kernel fifo buffer */
@@ -108,38 +116,39 @@ int main(int argc, char **argv)
 
 	if (read(fd_master, &v, sizeof(v)) != sizeof(v)) {
 		err("read failed: %m\n");
-		exit(1);
+		exit_shot(pid, 1);
 	}
 
 	task_waiter_complete_current(&t);
 
-	if (v != 00100) {
+	if (v != TEST_VALUE) {
 		fail("read data mismatch\n");
-		exit(1);
+		exit_shot(pid, 1);
 	}
 
 	if (read(fd_slave, &v, sizeof(v)) != sizeof(v)) {
 		err("read failed: %m\n");
-		exit(1);
+		exit_shot(pid, 1);
 	}
-	if (v != 00100) {
+	if (v != TEST_VALUE) {
 		fail("read data mismatch\n");
-		exit(1);
+		exit_shot(pid, 1);
 	}
 
 	waitpid(pid, &status, P_ALL);
 
-	if (unlink(name_master) < 0) {
+	if (unlink(name_master) < 0)
 		err("can't unlink %s: %m", name_master);
-		exit(1);
-	}
 
-	if (unlink(name_slave) < 0) {
+	if (unlink(name_slave) < 0)
 		err("can't unlink %s: %m", name_slave);
-		exit(1);
+
+	if (!WIFEXITED(status)) {
+		err("child %d is still running\n", pid);
+		exit_shot(pid, 1);
 	}
 
-	errno = (status >> 8) & 0x7f;
+	errno = WEXITSTATUS(status);
 	if (errno) {
 		fail("Child exited with error %m");
 		exit(errno);
