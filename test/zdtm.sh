@@ -45,6 +45,8 @@ static/inotify00
 static/unbound_sock
 static/fifo-rowo-pair
 static/fifo-ghost
+static/fifo
+static/fifo_wronly
 "
 # Duplicate list with pidns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#pidns/#')
