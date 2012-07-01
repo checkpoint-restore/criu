@@ -301,7 +301,7 @@ int collect_pipes(void)
 static u32 pipes_with_data[1024];	/* pipes for which data already dumped */
 static int nr_pipes;
 
-int dump_one_pipe_data(int img_type, int lfd, u32 id, const struct fd_parms *p)
+int dump_one_pipe_data(int img_type, int lfd, const struct fd_parms *p)
 {
 	int img = fdset_fd(glob_fdset, img_type);
 	int pipe_size, i, bytes;
@@ -317,7 +317,7 @@ int dump_one_pipe_data(int img_type, int lfd, u32 id, const struct fd_parms *p)
 			return 0;
 	}
 
-	pr_info("Dumping data from pipe %#x fd %d\n", id, lfd);
+	pr_info("Dumping data from pipe %#x fd %d\n", (u32)p->stat.st_ino, lfd);
 
 	if (ARRAY_SIZE(pipes_with_data) < nr_pipes + 1) {
 		pr_err("OOM storing pipe\n");
@@ -372,7 +372,8 @@ int dump_one_pipe_data(int img_type, int lfd, u32 id, const struct fd_parms *p)
 			pr_perror("Can't push pipe data");
 			goto err_close;
 		} else if (wrote != bytes) {
-			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n", id, bytes, wrote);
+			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n",
+					(u32)p->stat.st_ino, bytes, wrote);
 			goto err_close;
 		}
 	} else if (bytes < 0) {
@@ -406,7 +407,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	if (write_img(fdset_fd(glob_fdset, CR_FD_PIPES), &pe))
 		return -1;
 
-	return dump_one_pipe_data(CR_FD_PIPES_DATA, lfd, id, p);
+	return dump_one_pipe_data(CR_FD_PIPES_DATA, lfd, p);
 }
 
 static const struct fdtype_ops pipe_ops = {
