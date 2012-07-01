@@ -298,12 +298,9 @@ int collect_pipes(void)
 	return ret;
 }
 
-static u32 pipes_with_data[1024];	/* pipes for which data already dumped */
-static int nr_pipes;
-
-int dump_one_pipe_data(int img_type, int lfd, const struct fd_parms *p)
+int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p)
 {
-	int img = fdset_fd(glob_fdset, img_type);
+	int img;
 	int pipe_size, i, bytes;
 	int steal_pipe[2];
 	int ret = -1;
@@ -312,20 +309,20 @@ int dump_one_pipe_data(int img_type, int lfd, const struct fd_parms *p)
 		return 0;
 
 	/* Maybe we've dumped it already */
-	for (i = 0; i < nr_pipes; i++) {
-		if (pipes_with_data[i] == p->stat.st_ino)
+	for (i = 0; i < pd->nr; i++) {
+		if (pd->ids[i] == p->stat.st_ino)
 			return 0;
 	}
-
+	
 	pr_info("Dumping data from pipe %#x fd %d\n", (u32)p->stat.st_ino, lfd);
 
-	if (ARRAY_SIZE(pipes_with_data) < nr_pipes + 1) {
+	if (pd->nr >= NR_PIPES_WITH_DATA) {
 		pr_err("OOM storing pipe\n");
 		return -1;
 	}
 
-	pipes_with_data[nr_pipes] = p->stat.st_ino;
-	nr_pipes++;
+	img = fdset_fd(glob_fdset, pd->img_type);
+	pd->ids[pd->nr++] = p->stat.st_ino;
 
 	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
 	if (pipe_size < 0) {
@@ -392,6 +389,8 @@ err:
 	return ret;
 }
 
+static struct pipe_data_dump pd_pipes = { .img_type = CR_FD_PIPES_DATA, };
+
 static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct pipe_entry pe;
@@ -407,7 +406,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	if (write_img(fdset_fd(glob_fdset, CR_FD_PIPES), &pe))
 		return -1;
 
-	return dump_one_pipe_data(CR_FD_PIPES_DATA, lfd, p);
+	return dump_one_pipe_data(&pd_pipes, lfd, p);
 }
 
 static const struct fdtype_ops pipe_ops = {

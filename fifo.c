@@ -35,6 +35,7 @@ struct fifo_info {
 };
 
 static LIST_HEAD(fifo_head);
+static struct pipe_data_dump pd_fifo = { .img_type = CR_FD_FIFO_DATA, };
 
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
@@ -58,7 +59,7 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	if (write_img(img, &e) < 0)
 		return -1;
 
-	return dump_one_pipe_data(CR_FD_FIFO_DATA, lfd, p);
+	return dump_one_pipe_data(&pd_fifo, lfd, p);
 }
 
 static const struct fdtype_ops fifo_ops = {
