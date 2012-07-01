@@ -65,7 +65,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 {
 	struct ghost_file *gf;
 	struct ghost_file_entry gfe;
-	int gfd, ifd;
+	int gfd, ifd, ghost_flags;
 
 	list_for_each_entry(gf, &ghost_files, list)
 		if (gf->id == rfe->remap_id)
@@ -94,7 +94,17 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 		goto err;
 
 	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
-	gfd = open(gf->path, O_WRONLY | O_CREAT | O_EXCL, gfe.mode);
+
+	if (S_ISFIFO(gfe.mode)) {
+		if (mknod(gf->path, gfe.mode, 0)) {
+			pr_perror("Can't create node for ghost file\n");
+			goto err;
+		}
+		ghost_flags = O_RDWR; /* To not block */
+	} else
+		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
+
+	gfd = open(gf->path, ghost_flags, gfe.mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
 		goto err;
@@ -105,8 +115,10 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 		goto err;
 	}
 
-	if (copy_file(ifd, gfd, 0) < 0)
-		goto err;
+	if (S_ISREG(gfe.mode)) {
+		if (copy_file(ifd, gfd, 0) < 0)
+			goto err;
+	}
 
 	close(ifd);
 	close(gfd);
@@ -179,17 +191,6 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	if (img < 0)
 		return -1;
 
-	/*
-	 * Reopen file locally since it may have no read
-	 * permissions when drained
-	 */
-	snprintf(lpath, sizeof(lpath), "/proc/self/fd/%d", _fd);
-	fd = open(lpath, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Can't open ghost original file");
-		return -1;
-	}
-
 	gfe.uid = st->st_uid;
 	gfe.gid = st->st_gid;
 	gfe.mode = st->st_mode;
@@ -197,8 +198,20 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	if (write_img(img, &gfe))
 		return -1;
 
-	if (copy_file(fd, img, st->st_size))
-		return -1;
+	if (S_ISREG(st->st_mode)) {
+		/*
+		 * Reopen file locally since it may have no read
+		 * permissions when drained
+		 */
+		snprintf(lpath, sizeof(lpath), "/proc/self/fd/%d", _fd);
+		fd = open(lpath, O_RDONLY);
+		if (fd < 0) {
+			pr_perror("Can't open ghost original file");
+			return -1;
+		}
+		if (copy_file(fd, img, st->st_size))
+			return -1;
+	}
 
 	close(fd);
 	close(img);
