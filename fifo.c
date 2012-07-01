@@ -73,6 +73,8 @@ int dump_fifo(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return do_dump_gen_file(p, lfd, &fifo_ops, set);
 }
 
+static struct pipe_data_rst *pd_hash_fifo[PIPE_DATA_HASH_SIZE];
+
 static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 {
 	struct fifo_info *info = arg;
@@ -96,13 +98,12 @@ static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 		goto out;
 	}
 
-	if (info->restore_data) {
-		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe->id,
-				      info->bytes, info->off)) {
+	if (info->restore_data)
+		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo,
+					info->fe->pipe_id, pd_hash_fifo)) {
 			close(new_fifo);
 			new_fifo = -1;
 		}
-	}
 
 out:
 	close(fake_fifo);
@@ -121,44 +122,9 @@ static struct file_desc_ops fifo_desc_ops = {
 	.open		= open_fifo_fd,
 };
 
-static int handle_fifo_data(void)
-{
-	int img, ret;
-
-	img = open_image_ro(CR_FD_FIFO_DATA);
-	if (img < 0)
-		return -1;
-
-	while (1) {
-		struct pipe_data_entry pde;
-		struct fifo_info *info;
-
-		ret = read_img_eof(img, &pde);
-		if (ret <= 0)
-			break;
-
-		list_for_each_entry(info, &fifo_head, list) {
-			if (info->fe->pipe_id != pde.pipe_id ||
-			    info->restore_data)
-				continue;
-
-			info->off	= lseek(img, 0, SEEK_CUR) + pde.off;
-			info->bytes	= pde.bytes;
-
-			lseek(img, pde.bytes + pde.off, SEEK_CUR);
-
-			info->restore_data = true;
-			break;
-		}
-	}
-
-	close(img);
-	return ret;
-}
-
 int collect_fifo(void)
 {
-	struct fifo_info *info = NULL;
+	struct fifo_info *info = NULL, *f;
 	int img, ret;
 
 	img = open_image_ro(CR_FD_FIFO);
@@ -183,15 +149,21 @@ int collect_fifo(void)
 			info->fe->id, info->fe->pipe_id);
 
 		file_desc_add(&info->d, info->fe->id, &fifo_desc_ops);
-		list_add(&info->list, &fifo_head);
-	}
 
-	if (!ret)
-		ret = handle_fifo_data();
+		/* check who will restore the fifo data */
+		list_for_each_entry(f, &fifo_head, list)
+			if (f->fe->pipe_id == info->fe->pipe_id)
+				break;
+
+		if (&f->list == &fifo_head) {
+			list_add(&info->list, &fifo_head);
+			info->restore_data = true;
+		}
+	}
 
 	xfree(info ? info->fe : NULL);
 	xfree(info);
 	close(img);
 
-	return ret;
+	return collect_pipe_data(CR_FD_FIFO_DATA, pd_hash_fifo);
 }

@@ -39,34 +39,37 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 		pr_info("   `- FD %d pid %d\n", fle->fe->fd, fle->pid);
 }
 
-static int handle_pipes_data(void)
+int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 {
 	int fd, ret;
 
-	fd = open_image_ro(CR_FD_PIPES_DATA);
+	fd = open_image_ro(img_type);
 	if (fd < 0)
 		return -1;
 
 	while (1) {
-		struct pipe_info *pi;
-		struct pipe_data_entry pde;
+		struct pipe_data_rst *r;
+		u32 off;
 
-		ret = read_img_eof(fd, &pde);
+		ret = -1;
+		r = xmalloc(sizeof(*r));
+		if (!r)
+			break;
+
+		ret = read_img_eof(fd, &r->pde);
 		if (ret <= 0)
 			break;
 
-		list_for_each_entry(pi, &pipes, list) {
-			if (pi->pe.pipe_id != pde.pipe_id)
-				continue;
-			if (!pi->create)
-				continue;
+		off = r->pde.off + lseek(fd, 0, SEEK_CUR);
+		lseek(fd, r->pde.bytes + r->pde.off, SEEK_CUR);
+		r->pde.off = off;
 
-			pi->off = lseek(fd, 0, SEEK_CUR) + pde.off;
-			pi->bytes = pde.bytes;
+		ret = r->pde.pipe_id & PIPE_DATA_HASH_MASK;
+		r->next = hash[ret];
+		hash[ret] = r;
 
-			lseek(fd, pde.bytes + pde.off, SEEK_CUR);
-			break;
-		}
+		pr_info("Collected pipe data for %#x (chain %u)\n",
+				r->pde.pipe_id, ret);
 	}
 
 	close(fd);
@@ -117,24 +120,33 @@ void mark_pipe_master(void)
 	}
 
 	list_splice(&head, &pipes);
-
-	handle_pipes_data();
 }
 
-int restore_pipe_data(int img_type, int pfd, u32 id, int bytes, off_t off)
+static struct pipe_data_rst *pd_hash_pipes[PIPE_DATA_HASH_SIZE];
+
+int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash)
 {
 	int img, size = 0, ret;
+	struct pipe_data_rst *pd;
+
+	for (pd = hash[id & PIPE_DATA_HASH_MASK]; pd != NULL; pd = pd->next)
+		if (pd->pde.pipe_id == id)
+			break;
+
+	if (!pd) { /* no data for this pipe */
+		pr_info("No data for pipe %#x\n", id);
+		return 0;
+	}
 
 	img = open_image_ro(img_type);
 	if (img < 0)
 		return -1;
 
-	lseek(img, off, SEEK_SET);
+	pr_info("\t\tSplicing data size=%u off=%u\n", pd->pde.bytes, pd->pde.off);
+	lseek(img, pd->pde.off, SEEK_SET);
 
-	pr_info("\t\tSplicing data size=%d off=%ld\n", bytes, off);
-
-	while (size != bytes) {
-		ret = splice(img, NULL, pfd, NULL, bytes - size, 0);
+	while (size != pd->pde.bytes) {
+		ret = splice(img, NULL, pfd, NULL, pd->pde.bytes - size, 0);
 		if (ret < 0) {
 			pr_perror("%#x: Error splicing data", id);
 			goto err;
@@ -142,7 +154,7 @@ int restore_pipe_data(int img_type, int pfd, u32 id, int bytes, off_t off)
 
 		if (ret == 0) {
 			pr_err("%#x: Wanted to restore %d bytes, but got %d\n",
-			       id, bytes, size);
+			       id, pd->pde.bytes, size);
 			ret = -1;
 			goto err;
 		}
@@ -207,7 +219,8 @@ static int open_pipe(struct file_desc *d)
 		return -1;
 	}
 
-	ret = restore_pipe_data(CR_FD_PIPES_DATA, pfd[1], pi->pe.id, pi->bytes, pi->off);
+	ret = restore_pipe_data(CR_FD_PIPES_DATA, pfd[1],
+			pi->pe.pipe_id, pd_hash_pipes);
 	if (ret)
 		return -1;
 
@@ -295,7 +308,8 @@ int collect_pipes(void)
 	xfree(pi);
 
 	close(fd);
-	return ret;
+
+	return collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
 }
 
 int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p)
