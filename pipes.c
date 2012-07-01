@@ -24,8 +24,6 @@ struct pipe_info {
 	struct list_head	list;		/* list head for fdinfo_list_entry-s */
 	struct file_desc	d;
 	int			create;
-	int			bytes;
-	off_t			off;
 };
 
 static LIST_HEAD(pipes);

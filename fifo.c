@@ -28,9 +28,6 @@ struct fifo_info {
 	struct list_head	list;
 	struct file_desc	d;
 	struct fifo_entry	*fe;
-
-	u32			bytes;
-	off_t			off;
 	bool			restore_data;
 };
 
