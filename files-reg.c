@@ -340,12 +340,8 @@ int dump_reg_file(struct fd_parms *p, int lfd,
 	return do_dump_gen_file(p, lfd, &regfile_ops, cr_fdset);
 }
 
-static int __open_reg_fd(struct reg_file_info *rfi)
-{
-	return open(rfi->path, rfi->rfe.flags);
-}
-
-int open_fe_fd(struct file_desc *d)
+static int open_path(struct file_desc *d,
+		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
 	int tmp;
@@ -359,7 +355,7 @@ int open_fe_fd(struct file_desc *d)
 			return -1;
 		}
 
-	tmp = rfi->open(rfi);
+	tmp = open_cb(rfi, arg);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		return -1;
@@ -376,7 +372,7 @@ int open_fe_fd(struct file_desc *d)
 	return tmp;
 }
 
-int open_reg_by_id(u32 id)
+int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct file_desc *fd;
 
@@ -386,7 +382,22 @@ int open_reg_by_id(u32 id)
 		return -1;
 	}
 
-	return open_fe_fd(fd);
+	return open_path(fd, open_cb, arg);
+}
+
+static int do_open_reg(struct reg_file_info *rfi, void *arg)
+{
+	return open(rfi->path, rfi->rfe.flags);
+}
+
+static int open_fe_fd(struct file_desc *fd)
+{
+	return open_path(fd, do_open_reg, NULL);
+}
+
+int open_reg_by_id(u32 id)
+{
+	return open_path_by_id(id, do_open_reg, NULL);
 }
 
 static struct file_desc_ops reg_desc_ops = {
@@ -419,7 +430,6 @@ int collect_reg_files(void)
 			break;
 
 		rfi->remap_path = NULL;
-		rfi->open = __open_reg_fd;
 
 		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe.id);
 		file_desc_add(&rfi->d, rfi->rfe.id, &reg_desc_ops);

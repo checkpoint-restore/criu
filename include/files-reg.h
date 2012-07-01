@@ -15,15 +15,12 @@ struct reg_file_info {
 
 	char			*remap_path;
 	char			*path;
-
-	int			(*open)(struct reg_file_info *rfi);
-	void			*priv;
 };
 
 extern int open_reg_by_id(u32 id);
+extern int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void *arg);
 extern void clear_ghost_files(void);
 extern int collect_reg_files(void);
-extern int open_fe_fd(struct file_desc *d);
 
 extern int dump_reg_file(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset);
 extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);

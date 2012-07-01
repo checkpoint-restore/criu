@@ -72,9 +72,9 @@ int dump_fifo(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return do_dump_gen_file(p, lfd, &fifo_ops, set);
 }
 
-static int __open_fifo_fd(struct reg_file_info *rfi)
+static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 {
-	struct fifo_info *info = rfi->priv;
+	struct fifo_info *info = arg;
 	int new_fifo, fake_fifo = -1;
 
 	/*
@@ -111,24 +111,8 @@ out:
 static int open_fifo_fd(struct file_desc *d)
 {
 	struct fifo_info *info = container_of(d, struct fifo_info, d);
-	struct reg_file_info *rfi;
-	struct file_desc *rd;
 
-	pr_info("\t\tCreating fifo pipe_id=%#x id=%#x\n",
-		info->fe.pipe_id, info->fe.id);
-
-	rd = find_file_desc_raw(FDINFO_REG, info->fe.id);
-	if (!rd) {
-		pr_perror("Can't find regfile for fifo %#x\n", info->fe.id);
-		return -1;
-	}
-
-	rfi = container_of(rd, struct reg_file_info, d);
-	if (rfi->open != __open_fifo_fd)
-		rfi->open = __open_fifo_fd;
-	rfi->priv = info;
-
-	return open_fe_fd(rd);
+	return open_path_by_id(info->fe.id, do_open_fifo, info);
 }
 
 static struct file_desc_ops fifo_desc_ops = {
