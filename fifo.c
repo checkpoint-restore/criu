@@ -158,22 +158,20 @@ static int handle_fifo_data(void)
 int collect_fifo(void)
 {
 	struct fifo_info *info = NULL;
-	int img, ret = -1;
+	int img, ret;
 
 	img = open_image_ro(CR_FD_FIFO);
 	if (img < 0)
 		return -1;
 
 	while (1) {
+		ret = -1;
 		info = xzalloc(sizeof(*info));
-		if (info) {
-			info->fe = xzalloc(sizeof(*info->fe));
-			if (!info->fe)
-				ret = -1;
-		} else
-			ret = -1;
+		if (!info)
+			break;
 
-		if (ret)
+		info->fe = xzalloc(sizeof(*info->fe));
+		if (!info->fe)
 			break;
 
 		ret = read_img_eof(img, info->fe);
