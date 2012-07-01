@@ -14,22 +14,23 @@
 
 #include "files-reg.h"
 
-struct ghost_file {
-	struct list_head	list;
-	u32			id;
-	char			*path;
-};
-
 /*
  * Ghost files are those not visible from the FS. Dumping them is
  * nasty and the only way we have -- just carry its contents with
  * us. Any brave soul to implement link unlinked file back?
  */
-struct ghost_file_dumpee {
+struct ghost_file {
 	struct list_head	list;
 	u32			id;
-	u32			dev;
-	u32			ino;
+	union {
+		struct /* for dumping */ {
+			u32	dev;
+			u32	ino;
+		};
+		struct /* for restoring */ {
+			char *path;
+		};
+	};
 };
 
 static u32 ghost_file_ids = 1;
@@ -212,7 +213,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 
 static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 {
-	struct ghost_file_dumpee *gf;
+	struct ghost_file *gf;
 	struct remap_file_path_entry rpe;
 
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
