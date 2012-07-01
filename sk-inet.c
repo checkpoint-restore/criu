@@ -307,7 +307,7 @@ int collect_inet_sockets(void)
 		xfree(ii);
 
 	close(fd);
-	return 0;
+	return ret;
 }
 
 static int open_inet_sk(struct file_desc *d)
