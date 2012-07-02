@@ -211,13 +211,14 @@ struct shmems {
 
 enum {
 	CR_STATE_FORKING,
+	CR_STATE_RESTORE_PGID,
 	CR_STATE_RESTORE,
 	CR_STATE_RESTORE_SIGCHLD,
 	CR_STATE_COMPLETE
 };
 
 struct task_entries {
-	int nr, nr_tasks;
+	int nr, nr_tasks, nr_helpers;
 	futex_t nr_in_progress;
 	futex_t start;
 };

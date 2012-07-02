@@ -197,9 +197,6 @@ int prepare_pstree(void)
 		task_entries->nr_tasks++;
 	}
 
-	if (!ret)
-		futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks);
-
 	close(ps_fd);
 	return ret;
 }
@@ -228,6 +225,7 @@ int prepare_pstree_ids(void)
 		helper->state = TASK_HELPER;
 		helper->parent = root_item;
 		list_add_tail(&helper->list, &helpers);
+		task_entries->nr_helpers++;
 
 		pr_info("Add a helper %d for restoring SID %d\n",
 				helper->pid.virt, helper->sid);
