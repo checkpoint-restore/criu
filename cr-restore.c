@@ -705,10 +705,14 @@ static int restore_task_with_children(void *_arg)
 			exit(1);
 	}
 
+	if (me->pgid == me->pid.virt)
+		restore_pgid();
+
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
 
-	restore_pgid();
+	if (me->pgid != me->pid.virt)
+		restore_pgid();
 
 	if (me->state != TASK_HELPER) {
 		futex_dec_and_wake(&task_entries->nr_in_progress);
