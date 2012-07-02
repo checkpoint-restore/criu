@@ -30,11 +30,13 @@ static pid_t master_pid = 0;
 int proc_id = 0;
 static int proc_id_cur = 0;
 
-int test_fork() {
-	proc_id_cur++;
+int test_fork_id(int id)
+{
 	pid_t pid = fork();
+	if (id < 0)
+		id = ++proc_id_cur;
 	if (pid == 0)
-		proc_id = proc_id_cur;
+		proc_id = id;
 	return pid;
 }
 

@@ -12,7 +12,8 @@ extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, int (
 #endif
 
 /*wrapper for fork: init log offset*/
-extern int test_fork();
+#define test_fork() test_fork_id(-1)
+extern int test_fork_id(int id);
 /* finish setting up the test, write out pid file, and go to background */
 extern void test_daemon(void);
 /* store a message to a static buffer */
