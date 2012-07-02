@@ -308,6 +308,36 @@ int prepare_pstree_ids(void)
 	/* All other helpers are session leaders for own sessions */
 	list_splice(&helpers, &root_item->children);
 
+	/* Add a process group leader if it is absent  */
+	for_each_pstree_item(item) {
+		struct pstree_item *gleader;
+
+		if (!item->pgid || item->pid.virt == item->pgid)
+			continue;
+
+		for_each_pstree_item(gleader) {
+			if (gleader->pid.virt == item->pgid)
+				break;
+		}
+
+		if (gleader)
+			continue;
+
+		helper = alloc_pstree_item();
+		if (helper == NULL)
+			return -1;
+		helper->sid = item->sid;
+		helper->pgid = item->pgid;
+		helper->pid.virt = item->pgid;
+		helper->state = TASK_HELPER;
+		helper->parent = item;
+		list_add(&helper->list, &item->children);
+		task_entries->nr_helpers++;
+
+		pr_info("Add a helper %d for restoring PGID %d\n",
+				helper->pid.virt, helper->pgid);
+	}
+
 	return 0;
 }
 
