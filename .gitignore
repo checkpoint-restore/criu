@@ -5,6 +5,7 @@
 *.elf
 *.out
 *.swp
+*.swo
 *-blob.h
 .git-ignore
 crtools
@@ -14,3 +15,5 @@ TAGS
 syscall-x86-64.S
 include/syscall.h
 include/syscall-codes.h
+protobuf/*.c
+protobuf/*.h
