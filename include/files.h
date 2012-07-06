@@ -38,7 +38,7 @@ struct fdinfo_list_entry {
 	struct list_head	ps_list;
 	int			pid;
 	futex_t			real_pid;
-	struct fdinfo_entry	fe;
+	struct fdinfo_entry	*fe;
 };
 
 struct file_desc_ops {

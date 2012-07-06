@@ -518,7 +518,7 @@ int run_unix_connections(void)
 		addr.sun_family = AF_UNIX;
 		memcpy(&addr.sun_path, peer->name, peer->ue.namelen);
 try_again:
-		if (connect(fle->fe.fd, (struct sockaddr *)&addr,
+		if (connect(fle->fe->fd, (struct sockaddr *)&addr,
 					sizeof(addr.sun_family) +
 					peer->ue.namelen) < 0) {
 			if (attempts) {
@@ -531,13 +531,13 @@ try_again:
 			return -1;
 		}
 
-		if (restore_sk_queue(fle->fe.fd, peer->ue.id))
+		if (restore_sk_queue(fle->fe->fd, peer->ue.id))
 			return -1;
 
-		if (rst_file_params(fle->fe.fd, &ui->ue.fown, ui->ue.flags))
+		if (rst_file_params(fle->fe->fd, &ui->ue.fown, ui->ue.flags))
 			return -1;
 
-		if (restore_socket_opts(fle->fe.fd, &ui->ue.opts))
+		if (restore_socket_opts(fle->fe->fd, &ui->ue.opts))
 			return -1;
 
 		cj = cj->next;
@@ -633,14 +633,14 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	fle = file_master(&ui->d);
 
 	pr_info("Opening pair slave (id %#x ino %#x peer %#x) on %d\n",
-			ui->ue.id, ui->ue.ino, ui->ue.peer, fle->fe.fd);
+			ui->ue.id, ui->ue.ino, ui->ue.peer, fle->fe->fd);
 
-	sk = recv_fd(fle->fe.fd);
+	sk = recv_fd(fle->fe->fd);
 	if (sk < 0) {
 		pr_err("Can't recv pair slave");
 		return -1;
 	}
-	close(fle->fe.fd);
+	close(fle->fe->fd);
 
 	if (bind_unix_sk(sk, ui))
 		return -1;
@@ -826,7 +826,7 @@ int resolve_unix_peers(void)
 
 		if ((fle->pid < fle_peer->pid) ||
 				(fle->pid == fle_peer->pid &&
-				 fle->fe.fd < fle_peer->fe.fd)) {
+				 fle->fe->fd < fle_peer->fe->fd)) {
 			ui->flags |= USK_PAIR_MASTER;
 			peer->flags |= USK_PAIR_SLAVE;
 		} else {
@@ -843,7 +843,7 @@ int resolve_unix_peers(void)
 				ui->peer ? ui->peer->ue.ino : 0, ui->flags);
 		list_for_each_entry(fle, &ui->d.fd_info_head, desc_list)
 			pr_info("\t\tfd %d in pid %d\n",
-					fle->fe.fd, fle->pid);
+					fle->fe->fd, fle->pid);
 
 	}
 

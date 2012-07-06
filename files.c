@@ -95,7 +95,7 @@ void show_saved_files(void)
 
 			pr_info(" `- type %d ID %#x\n", fd->ops->type, fd->id);
 			list_for_each_entry(le, &fd->fd_info_head, desc_list)
-				pr_info("   `- FD %d pid %d\n", le->fe.fd, le->pid);
+				pr_info("   `- FD %d pid %d\n", le->fe->fd, le->pid);
 		}
 }
 
@@ -168,7 +168,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info
 
 	le->pid = pid;
 	futex_init(&le->real_pid);
-	le->fe = *e;
+	le->fe = e;
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -183,7 +183,7 @@ static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info
 	list_add_tail(&le->desc_list, &l->desc_list);
 	le->desc = fdesc;
 
-	if (unlikely(le->fe.type == FDINFO_EVENTPOLL))
+	if (unlikely(le->fe->type == FDINFO_EVENTPOLL))
 		list_add_tail(&le->ps_list, &rst_info->eventpoll);
 	else
 		list_add_tail(&le->ps_list, &rst_info->fds);
@@ -206,13 +206,17 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 	}
 
 	while (1) {
-		struct fdinfo_entry e;
+		struct fdinfo_entry *e = xmalloc(sizeof(*e));
+		if (!e) {
+			ret = -1;
+			break;
+		}
 
-		ret = read_img_eof(fdinfo_fd, &e);
+		ret = read_img_eof(fdinfo_fd, e);
 		if (ret <= 0)
 			break;
 
-		ret = collect_fd(pid, &e, rst_info);
+		ret = collect_fd(pid, e, rst_info);
 		if (ret < 0)
 			break;
 	}
@@ -269,11 +273,11 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	flem = file_master(fle->desc);
 
 	if (flem->pid == pid) {
-		if (flem->fe.fd != fle->fe.fd)
+		if (flem->fe->fd != fle->fe->fd)
 			/* dup-ed file. Will be opened in the open_fd */
 			return 0;
 
-		if (!should_open_transport(&fle->fe, fle->desc))
+		if (!should_open_transport(fle->fe, fle->desc))
 			/* pure master file */
 			return 0;
 
@@ -283,7 +287,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 		 */
 	}
 
-	transport_name_gen(&saddr, &sun_len, getpid(), fle->fe.fd);
+	transport_name_gen(&saddr, &sun_len, getpid(), fle->fe->fd);
 
 	pr_info("\t\tCreate transport fd %s\n", saddr.sun_path + 1);
 
@@ -299,11 +303,11 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 		return -1;
 	}
 
-	ret = reopen_fd_as(fle->fe.fd, sock);
+	ret = reopen_fd_as(fle->fe->fd, sock);
 	if (ret < 0)
 		return -1;
 
-	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
+	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
 	futex_set_and_wake(&fle->real_pid, getpid());
 
 	return 0;
@@ -314,10 +318,10 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	struct sockaddr_un saddr;
 	int len;
 
-	pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe.fd);
+	pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
 	futex_wait_while(&fle->real_pid, 0);
 	transport_name_gen(&saddr, &len,
-			futex_get(&fle->real_pid), fle->fe.fd);
+			futex_get(&fle->real_pid), fle->fe->fd);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
 	return send_fd(tsk, &saddr, len, fd);
 }
@@ -329,7 +333,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	struct fdinfo_list_entry *fle;
 
 	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->fd != fle->fe.fd))
+	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
 		return 0;
 
 	tmp = d->ops->open(d);
@@ -351,20 +355,20 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid) {
-			pr_info("\t\t\tGoing to dup %d into %d\n", fe->fd, fle->fe.fd);
-			if (fe->fd == fle->fe.fd)
+			pr_info("\t\t\tGoing to dup %d into %d\n", fe->fd, fle->fe->fd);
+			if (fe->fd == fle->fe->fd)
 				continue;
 
-			if (move_img_fd(&sock, fle->fe.fd))
+			if (move_img_fd(&sock, fle->fe->fd))
 				return -1;
 
-			if (dup2(fe->fd, fle->fe.fd) != fle->fe.fd) {
+			if (dup2(fe->fd, fle->fe->fd) != fle->fe->fd) {
 				pr_perror("Can't dup local fd %d -> %d",
-						fe->fd, fle->fe.fd);
+						fe->fd, fle->fe->fd);
 				return -1;
 			}
 
-			fcntl(fle->fe.fd, F_SETFD, fle->fe.flags);
+			fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
 
 			continue;
 		}
@@ -417,17 +421,17 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 
 	BUG_ON(state >= FD_STATE_MAX);
 	pr_info("\tRestoring fd %d (state -> %s)\n",
-			fle->fe.fd, fdinfo_states[state]);
+			fle->fe->fd, fdinfo_states[state]);
 
 	switch (state) {
 	case FD_STATE_PREP:
 		ret = open_transport_fd(pid, fle);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, &fle->fe, fle->desc);
+		ret = open_fd(pid, fle->fe, fle->desc);
 		break;
 	case FD_STATE_RECV:
-		ret = receive_fd(pid, &fle->fe, fle->desc);
+		ret = receive_fd(pid, fle->fe, fle->desc);
 		break;
 	}
 
