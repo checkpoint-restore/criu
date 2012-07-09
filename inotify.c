@@ -36,12 +36,12 @@
 
 struct inotify_wd_info {
 	struct list_head		list;
-	struct inotify_wd_entry		iwe;
+	struct inotify_wd_entry		*iwe;
 };
 
 struct inotify_file_info {
 	struct list_head		list;
-	struct inotify_file_entry	ife;
+	struct inotify_file_entry	*ife;
 	struct list_head		marks;
 	struct file_desc		d;
 };
@@ -284,21 +284,21 @@ static int open_inotify_fd(struct file_desc *d)
 
 	info = container_of(d, struct inotify_file_info, d);
 
-	tmp = inotify_init1(info->ife.flags);
+	tmp = inotify_init1(info->ife->flags);
 	if (tmp < 0) {
-		pr_perror("Can't create inotify for 0x%08x", info->ife.id);
+		pr_perror("Can't create inotify for 0x%08x", info->ife->id);
 		return -1;
 	}
 
 	list_for_each_entry(wd_info, &info->marks, list) {
-		pr_info("\tRestore inotify for 0x%08x\n", wd_info->iwe.id);
-		if (restore_one_inotify(tmp, &wd_info->iwe)) {
+		pr_info("\tRestore inotify for 0x%08x\n", wd_info->iwe->id);
+		if (restore_one_inotify(tmp, wd_info->iwe)) {
 			close_safe(&tmp);
 			break;
 		}
 	}
 
-	if (restore_fown(tmp, &info->ife.fown))
+	if (restore_fown(tmp, &info->ife->fown))
 		close_safe(&tmp);
 
 	return tmp;
@@ -314,7 +314,7 @@ static int collect_mark(struct inotify_wd_info *mark)
 	struct inotify_file_info *p;
 
 	list_for_each_entry(p, &info_head, list) {
-		if (p->ife.id == mark->iwe.id) {
+		if (p->ife->id == mark->iwe->id) {
 			list_add(&mark->list, &p->marks);
 			return 0;
 		}
@@ -334,24 +334,27 @@ int collect_inotify(void)
 		return -1;
 
 	while (1) {
-		struct inotify_file_entry ife;
+		info = xmalloc(sizeof(*info));
+		if (!info)
+			return -1;
 
-		ret = read_img_eof(image_fd, &ife);
+		info->ife = xmalloc(sizeof(*info->ife));
+		if (!info->ife)
+			return -1;
+
+		ret = read_img_eof(image_fd, info->ife);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
 			break;
 
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			return -1;
-
-		info->ife = ife;
 		INIT_LIST_HEAD(&info->list);
 		INIT_LIST_HEAD(&info->marks);
 
 		list_add(&info->list, &info_head);
 	}
+
+	ret = -1;
 
 	image_wd = open_image_ro(CR_FD_INOTIFY_WD);
 	if (image_wd < 0)
@@ -361,7 +364,11 @@ int collect_inotify(void)
 		mark = xmalloc(sizeof(*mark));
 		if (!mark)
 			goto err;
-		ret = read_img_eof(image_wd, &mark->iwe);
+		mark->iwe = xmalloc(sizeof(*mark->iwe));
+		if (!mark->iwe)
+			goto err;
+
+		ret = read_img_eof(image_wd, mark->iwe);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -369,14 +376,14 @@ int collect_inotify(void)
 
 		if (collect_mark(mark)) {
 			ret = -1;
-			pr_err("Can't find inotify with id 0x%08x\n", mark->iwe.id);
+			pr_err("Can't find inotify with id 0x%08x\n", mark->iwe->id);
 			goto err;
 		}
 	}
 
 	list_for_each_entry(info, &info_head, list) {
-		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife.id, info->ife.flags);
-		file_desc_add(&info->d, info->ife.id, &desc_ops);
+		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
+		file_desc_add(&info->d, info->ife->id, &desc_ops);
 	}
 	ret = 0;
 err:
