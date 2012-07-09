@@ -22,12 +22,12 @@
 #include "log.h"
 
 struct eventpoll_file_info {
-	struct eventpoll_file_entry	efe;
+	struct eventpoll_file_entry	*efe;
 	struct file_desc		d;
 };
 
 struct eventpoll_tfd_file_info {
-	struct eventpoll_tfd_entry	tdefe;
+	struct eventpoll_tfd_entry	*tdefe;
 	struct list_head		list;
 };
 
@@ -169,27 +169,27 @@ static int eventpoll_open(struct file_desc *d)
 	tmp = epoll_create(1);
 	if (tmp < 0) {
 		pr_perror("Can't create epoll %#08x",
-			  info->efe.id);
+			  info->efe->id);
 		return -1;
 	}
 
-	if (rst_file_params(tmp, &info->efe.fown, info->efe.flags)) {
+	if (rst_file_params(tmp, &info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore file params on epoll %#08x",
-			  info->efe.id);
+			  info->efe->id);
 		goto err_close;
 	}
 
 	list_for_each_entry(td_info, &eventpoll_tfds, list) {
 		struct epoll_event event;
 
-		if (td_info->tdefe.id != info->efe.id)
+		if (td_info->tdefe->id != info->efe->id)
 			continue;
 
-		event.events	= td_info->tdefe.events;
-		event.data.u64	= td_info->tdefe.data;
-		ret = epoll_ctl(tmp, EPOLL_CTL_ADD, td_info->tdefe.tfd, &event);
+		event.events	= td_info->tdefe->events;
+		event.data.u64	= td_info->tdefe->data;
+		ret = epoll_ctl(tmp, EPOLL_CTL_ADD, td_info->tdefe->tfd, &event);
 		if (ret) {
-			pr_perror("Can't add event on %#08x", info->efe.id);
+			pr_perror("Can't add event on %#08x", info->efe->id);
 			goto err_close;
 		}
 	}
@@ -219,10 +219,14 @@ int collect_eventpoll(void)
 		struct eventpoll_tfd_file_info *info;
 
 		info = xmalloc(sizeof(*info));
-		if (!info)
+		if (info) {
+			info->tdefe = xmalloc(sizeof(*info->tdefe));
+			if (!info->tdefe)
+				goto err;
+		} else
 			goto err;
 
-		ret = read_img_eof(image_fd, &info->tdefe);
+		ret = read_img_eof(image_fd, info->tdefe);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -231,7 +235,7 @@ int collect_eventpoll(void)
 		INIT_LIST_HEAD(&info->list);
 
 		list_add(&info->list, &eventpoll_tfds);
-		pr_info_eventpoll_tfd("Collected ", &info->tdefe);
+		pr_info_eventpoll_tfd("Collected ", info->tdefe);
 	}
 
 	close_safe(&image_fd);
@@ -244,17 +248,21 @@ int collect_eventpoll(void)
 		struct eventpoll_file_info *info;
 
 		info = xmalloc(sizeof(*info));
-		if (!info)
+		if (info) {
+			info->efe = xmalloc(sizeof(*info->efe));
+			if (!info->efe)
+				goto err;
+		} else
 			goto err;
 
-		ret = read_img_eof(image_fd, &info->efe);
+		ret = read_img_eof(image_fd, info->efe);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
 			break;
 
-		pr_info_eventpoll("Collected ", &info->efe);
-		file_desc_add(&info->d, info->efe.id, &desc_ops);
+		pr_info_eventpoll("Collected ", info->efe);
+		file_desc_add(&info->d, info->efe->id, &desc_ops);
 	}
 
 err:
