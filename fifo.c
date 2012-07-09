@@ -27,7 +27,7 @@
 struct fifo_info {
 	struct list_head	list;
 	struct file_desc	d;
-	struct fifo_entry	fe;
+	struct fifo_entry	*fe;
 
 	u32			bytes;
 	off_t			off;
@@ -85,18 +85,18 @@ static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 	 */
 	fake_fifo = open(rfi->path, O_RDWR);
 	if (fake_fifo < 0) {
-		pr_perror("Can't open fake fifo %#x [%s]", info->fe.id, rfi->path);
+		pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, rfi->path);
 		return -1;
 	}
 
 	new_fifo = open(rfi->path, rfi->rfe.flags);
 	if (new_fifo < 0) {
-		pr_perror("Can't open fifo %#x [%s]", info->fe.id, rfi->path);
+		pr_perror("Can't open fifo %#x [%s]", info->fe->id, rfi->path);
 		goto out;
 	}
 
 	if (info->restore_data) {
-		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe.id,
+		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe->id,
 				      info->bytes, info->off)) {
 			close(new_fifo);
 			new_fifo = -1;
@@ -112,7 +112,7 @@ static int open_fifo_fd(struct file_desc *d)
 {
 	struct fifo_info *info = container_of(d, struct fifo_info, d);
 
-	return open_path_by_id(info->fe.id, do_open_fifo, info);
+	return open_path_by_id(info->fe->id, do_open_fifo, info);
 }
 
 static struct file_desc_ops fifo_desc_ops = {
@@ -137,7 +137,7 @@ static int handle_fifo_data(void)
 			break;
 
 		list_for_each_entry(info, &fifo_head, list) {
-			if (info->fe.pipe_id != pde.pipe_id ||
+			if (info->fe->pipe_id != pde.pipe_id ||
 			    info->restore_data)
 				continue;
 
@@ -166,25 +166,31 @@ int collect_fifo(void)
 
 	while (1) {
 		info = xzalloc(sizeof(*info));
-		if (!info) {
+		if (info) {
+			info->fe = xzalloc(sizeof(*info->fe));
+			if (!info->fe)
+				ret = -1;
+		} else
 			ret = -1;
-			break;
-		}
 
-		ret = read_img_eof(img, &info->fe);
+		if (ret)
+			break;
+
+		ret = read_img_eof(img, info->fe);
 		if (ret <= 0)
 			break;
 
 		pr_info("Collected fifo entry ID %#x PIPE ID %#x\n",
-			info->fe.id, info->fe.pipe_id);
+			info->fe->id, info->fe->pipe_id);
 
-		file_desc_add(&info->d, info->fe.id, &fifo_desc_ops);
+		file_desc_add(&info->d, info->fe->id, &fifo_desc_ops);
 		list_add(&info->list, &fifo_head);
 	}
 
 	if (!ret)
 		ret = handle_fifo_data();
 
+	xfree(info ? info->fe : NULL);
 	xfree(info);
 	close(img);
 
