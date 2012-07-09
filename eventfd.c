@@ -22,7 +22,7 @@
 #include "log.h"
 
 struct eventfd_file_info {
-	struct eventfd_file_entry	efe;
+	struct eventfd_file_entry	*efe;
 	struct file_desc		d;
 };
 
@@ -118,16 +118,16 @@ static int eventfd_open(struct file_desc *d)
 
 	info = container_of(d, struct eventfd_file_info, d);
 
-	tmp = eventfd(info->efe.counter, 0);
+	tmp = eventfd(info->efe->counter, 0);
 	if (tmp < 0) {
 		pr_perror("Can't create eventfd %#08x",
-			  info->efe.id);
+			  info->efe->id);
 		return -1;
 	}
 
-	if (rst_file_params(tmp, &info->efe.fown, info->efe.flags)) {
+	if (rst_file_params(tmp, &info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore params on eventfd %#08x",
-			  info->efe.id);
+			  info->efe->id);
 		goto err_close;
 	}
 
@@ -159,16 +159,21 @@ int collect_eventfd(void)
 		if (!info)
 			break;
 
-		ret = read_img_eof(image_fd, &info->efe);
+		info->efe = xmalloc(sizeof(*info->efe));
+		if (!info->efe)
+			break;
+
+		ret = read_img_eof(image_fd, info->efe);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
 			break;
-		pr_info_eventfd("Collected ", &info->efe);
-		file_desc_add(&info->d, info->efe.id, &eventfd_desc_ops);
+		pr_info_eventfd("Collected ", info->efe);
+		file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
 	}
 
 err:
+	xfree(info ? info->efe : NULL);
 	xfree(info);
 	close(image_fd);
 	return ret;
