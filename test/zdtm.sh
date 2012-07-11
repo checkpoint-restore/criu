@@ -197,10 +197,12 @@ run_test()
 
 	echo Check results $PID
 	stop_test $tdir $tname
+	sltime=1
 	for i in `seq 50`; do
 		test -f $test.out && break
 		echo Waiting...
-		sleep 0.1
+		sleep 0.$sltime
+		[ $sltime -le 9 ] && ((sltime++))
 	done
 	cat $test.out
 	cat $test.out | grep PASS || return 2
