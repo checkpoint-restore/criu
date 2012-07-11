@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/eventfd.h>
+#include <sys/epoll.h>
 #include <fcntl.h>
 #include "proc_parse.h"
 #include "sockets.h"
@@ -177,11 +178,62 @@ static int check_fdinfo_eventfd(void)
 	return 0;
 }
 
+static int check_one_epoll(union fdinfo_entries *e, void *arg)
+{
+	*(int *)arg = e->epl.tfd;
+	return 0;
+}
+
+static int check_fdinfo_eventpoll(void)
+{
+	int efd, pfd[2], proc_fd = 0, ret;
+	struct epoll_event ev;
+
+	if (pipe(pfd)) {
+		pr_perror("Can't make pipe to watch");
+		return -1;
+	}
+
+	efd = epoll_create(1);
+	if (efd < 0) {
+		pr_perror("Can't make epoll fd");
+		return -1;
+	}
+
+	memset(&ev, 0, sizeof(ev));
+	ev.events = EPOLLIN | EPOLLOUT;
+
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, pfd[0], &ev)) {
+		pr_perror("Can't add epoll tfd");
+		return -1;
+	}
+
+	ret = parse_fdinfo(efd, FDINFO_EVENTPOLL, check_one_epoll, &proc_fd);
+	close(efd);
+	close(pfd[0]);
+	close(pfd[1]);
+
+	if (ret) {
+		pr_err("Error parsing proc fdinfo");
+		return -1;
+	}
+
+	if (pfd[0] != proc_fd) {
+		pr_err("TFD mismatch (or not met) %d want %d\n",
+				proc_fd, pfd[0]);
+		return -1;
+	}
+
+	pr_info("Epoll fdinfo works OK (%d vs %d)\n", pfd[0], proc_fd);
+	return 0;
+}
+
 static int check_fdinfo_ext(void)
 {
 	int ret = 0;
 
 	ret |= check_fdinfo_eventfd();
+	ret |= check_fdinfo_eventpoll();
 
 	return ret;
 }
