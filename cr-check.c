@@ -104,8 +104,8 @@ static int check_prctl(void)
 	}
 
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
-	if (ret != -EBUSY) {
-		pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported\n");
+	if (ret != -EBADF) {
+		pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported (%d)\n", ret);
 		return -1;
 	}
 
