@@ -281,7 +281,7 @@ bool is_anon_inode(struct statfs *statfs)
 
 int is_anon_link_type(int lfd, char *type)
 {
-	char link[PATH_MAX], aux[32];
+	char link[32], aux[32];
 	ssize_t ret;
 
 	snprintf(aux, sizeof(aux), "/proc/self/fd/%d", lfd);
