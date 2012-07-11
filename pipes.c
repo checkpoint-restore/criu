@@ -169,7 +169,7 @@ err:
 static int recv_pipe_fd(struct pipe_info *pi)
 {
 	struct fdinfo_list_entry *fle;
-	char path[PATH_MAX];
+	char path[32];
 	int tmp, fd;
 
 	fle = file_master(&pi->d);
@@ -184,7 +184,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	}
 	close(fd);
 
-	snprintf(path, PATH_MAX, "/proc/self/fd/%d", tmp);
+	snprintf(path, sizeof(path), "/proc/self/fd/%d", tmp);
 	fd = open(path, pi->pe.flags);
 	close(tmp);
 
