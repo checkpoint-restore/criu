@@ -21,7 +21,7 @@ struct pipe_data_dump {
 extern int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p);
 
 struct pipe_data_rst {
-	struct pipe_data_entry	pde;
+	struct pipe_data_entry	*pde;
 	struct pipe_data_rst	*next;
 };
 
