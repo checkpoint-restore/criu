@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/eventfd.h>
 #include <fcntl.h>
 #include "proc_parse.h"
 #include "sockets.h"
@@ -10,6 +11,7 @@
 #include "syscall.h"
 #include "files.h"
 #include "sk-inet.h"
+#include "proc_parse.h"
 
 static int check_map_files(void)
 {
@@ -140,6 +142,50 @@ static int check_proc_stat(void)
 	return 0;
 }
 
+static int check_one_fdinfo(union fdinfo_entries *e, void *arg)
+{
+	*(int *)arg = (int)e->efd.counter;
+	return 0;
+}
+
+static int check_fdinfo_eventfd(void)
+{
+	int fd, ret;
+	int cnt = 13, proc_cnt = 0;
+
+	fd = eventfd(cnt, 0);
+	if (fd < 0) {
+		pr_perror("Can't make eventfd");
+		return -1;
+	}
+
+	ret = parse_fdinfo(fd, FDINFO_EVENTFD, check_one_fdinfo, &proc_cnt);
+	close(fd);
+
+	if (ret) {
+		pr_err("Error parsing proc fdinfo\n");
+		return -1;
+	}
+
+	if (proc_cnt != cnt) {
+		pr_err("Counter mismatch (or not met) %d want %d\n",
+				proc_cnt, cnt);
+		return -1;
+	}
+
+	pr_info("Eventfd fdinfo works OK (%d vs %d)\n", cnt, proc_cnt);
+	return 0;
+}
+
+static int check_fdinfo_ext(void)
+{
+	int ret = 0;
+
+	ret |= check_fdinfo_eventfd();
+
+	return ret;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -153,6 +199,7 @@ int cr_check(void)
 	ret |= check_fcntl();
 	ret |= check_proc_stat();
 	ret |= check_tcp_repair();
+	ret |= check_fdinfo_ext();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
