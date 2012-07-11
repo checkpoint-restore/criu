@@ -15,7 +15,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "eventpoll.h"
-
+#include "proc_parse.h"
 #include "crtools.h"
 #include "image.h"
 #include "util.h"
@@ -92,59 +92,28 @@ out:
 	pr_img_tail(CR_FD_EVENTPOLL);
 }
 
+static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
+{
+	struct eventpoll_tfd_entry *efd = &e->epl;
+
+	efd->id = *(u32 *)arg;
+	pr_info_eventpoll_tfd("Dumping: ", efd);
+	return write_img(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD), efd);
+}
+
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
-	int image_fd = fdset_fd(glob_fdset, CR_FD_EVENTPOLL);
-	int image_tfd = fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD);
 	struct eventpoll_file_entry e;
-	struct eventpoll_tfd_entry efd;
-	char buf[PAGE_SIZE], *tok;
-	int ret, fdinfo;
 
-	snprintf(buf, sizeof(buf), "/proc/self/fdinfo/%d", lfd);
-	fdinfo = open(buf, O_RDONLY);
-	if (fdinfo < 0) {
-		pr_perror("Can't open %d (%d)", p->fd, lfd);
-		return -1;
-	}
-
-	ret = read(fdinfo, buf, sizeof(buf));
-	close(fdinfo);
-	if (ret <= 0) {
-		pr_perror("Reading eventpoll from %d (%d) failed", p->fd, lfd);
-		return -1;
-	}
-
-	e.id	= id;
-	e.flags	= p->flags;
-	e.fown	= p->fown;
+	e.id = id;
+	e.flags = p->flags;
+	e.fown = p->fown;
 
 	pr_info_eventpoll("Dumping ", &e);
-	if (write_img(image_fd, &e))
+	if (write_img(fdset_fd(glob_fdset, CR_FD_EVENTPOLL), &e))
 		return -1;
 
-	tok = strstr(buf, "tfd:");
-	if (!tok)
-		return 0;
-
-	tok = strtok(tok, "\n");
-	while (tok) {
-		efd.id = id;
-		if (sscanf(tok, "tfd: %8d events: %8x data: %16lx",
-			&efd.tfd, &efd.events, &efd.data) != 3)
-			goto parsing_err;
-		tok = strtok(NULL, "\n");
-
-		pr_info_eventpoll_tfd("Dumping: ", &efd);
-		if (write_img(image_tfd, &efd))
-			return -1;
-	}
-
-	return 0;
-
-parsing_err:
-	pr_err("Parsing error %d (%d)", p->fd, lfd);
-	return -1;
+	return parse_fdinfo(lfd, FDINFO_EVENTPOLL, dump_eventpoll_entry, &id);
 }
 
 static const struct fdtype_ops eventpoll_ops = {

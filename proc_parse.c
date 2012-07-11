@@ -675,3 +675,59 @@ err:
 	}
 	goto out;
 }
+
+#define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
+
+int parse_fdinfo(int fd, int type,
+		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
+{
+	FILE *f;
+	char str[256];
+
+	sprintf(str, "/proc/self/fdinfo/%d", fd);
+	f = fopen(str, "r");
+	if (!f) {
+		pr_perror("Can't open fdinfo to parse");
+		return -1;
+	}
+
+	while (fgets(str, sizeof(str), f)) {
+		int ret;
+		union fdinfo_entries entry;
+
+		if (fdinfo_field(str, "pos") || fdinfo_field(str, "counter"))
+			continue;
+
+		if (fdinfo_field(str, "eventfd-count")) {
+			if (type != FDINFO_EVENTFD)
+				goto parse_err;
+			ret = sscanf(str, "eventfd-count: %lx",
+					&entry.efd.counter);
+			if (ret != 1)
+				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				return ret;
+			continue;
+		}
+		if (fdinfo_field(str, "tfd")) {
+			if (type != FDINFO_EVENTPOLL)
+				goto parse_err;
+			ret = sscanf(str, "tfd: %d events: %x data: %lx",
+					&entry.epl.tfd, &entry.epl.events, &entry.epl.data);
+			if (ret != 3)
+				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				return ret;
+			continue;
+		}
+	}
+
+	fclose(f);
+	return 0;
+
+parse_err:
+	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
+	return -1;
+}

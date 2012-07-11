@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 #include "types.h"
-
+#include "image.h"
 #include "list.h"
 
 #define PROC_TASK_COMM_LEN	32
@@ -116,5 +116,13 @@ extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
 extern int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s);
 extern int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files);
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
+
+union fdinfo_entries {
+	struct eventfd_file_entry efd;
+	struct eventpoll_tfd_entry epl;
+};
+
+extern int parse_fdinfo(int fd, int type,
+		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
 
 #endif /* PROC_PARSE_H__ */

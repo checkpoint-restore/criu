@@ -15,7 +15,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "eventfd.h"
-
+#include "proc_parse.h"
 #include "crtools.h"
 #include "image.h"
 #include "util.h"
@@ -60,44 +60,36 @@ out:
 	pr_img_tail(CR_FD_EVENTFD);
 }
 
+struct eventfd_dump_arg {
+	u32 id;
+	const struct fd_parms *p;
+	bool dumped;
+};
+
+static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
+{
+	struct eventfd_dump_arg *da = arg;
+	struct eventfd_file_entry *efe = &e->efd;
+
+	if (da->dumped) {
+		pr_err("Several counters in a file?\n");
+		return -1;
+	}
+
+	da->dumped = true;
+	efe->id = da->id;
+	efe->flags = da->p->flags;
+	efe->fown = da->p->fown;
+
+	pr_info_eventfd("Dumping ", efe);
+
+	return write_img(fdset_fd(glob_fdset, CR_FD_EVENTFD), efe);
+}
+
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
-	int image_fd = fdset_fd(glob_fdset, CR_FD_EVENTFD);
-	struct eventfd_file_entry efe;
-	char buf[64];
-	char *pos;
-	int ret, fdinfo;
-
-	efe.id		= id;
-	efe.flags	= p->flags;
-	efe.fown	= p->fown;
-
-	snprintf(buf, sizeof(buf), "/proc/self/fdinfo/%d", lfd);
-	fdinfo = open(buf, O_RDONLY);
-	if (fdinfo < 0) {
-		pr_perror("Can't open  %d (%d)", p->fd, lfd);
-		return -1;
-	}
-
-	ret = read(fdinfo, buf, sizeof(buf));
-	close(fdinfo);
-
-	if (ret <= 0) {
-		pr_perror("Reading eventfd from %d (%d) failed", p->fd, lfd);
-		return -1;
-	}
-
-	pos = strstr(buf, "eventfd-count:");
-	if (!pos || !sscanf(pos, "eventfd-count: %lx", &efe.counter)) {
-		pr_err("Counter value is not found for %d (%d)\n", p->fd, lfd);
-		return -1;
-	}
-
-	pr_info_eventfd("Dumping ", &efe);
-	if (write_img(image_fd, &efe))
-		return -1;
-
-	return 0;
+	struct eventfd_dump_arg da = { .id = id, .p = p, };
+	return parse_fdinfo(lfd, FDINFO_EVENTFD, dump_eventfd_entry, &da);
 }
 
 static const struct fdtype_ops eventfd_ops = {
