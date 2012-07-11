@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
+#include <sys/inotify.h>
 #include <fcntl.h>
 #include "proc_parse.h"
 #include "sockets.h"
@@ -228,12 +229,52 @@ static int check_fdinfo_eventpoll(void)
 	return 0;
 }
 
+static int check_one_inotify(union fdinfo_entries *e, void *arg)
+{
+	*(int *)arg = e->ify.wd;
+	return 0;
+}
+
+static int check_fdinfo_inotify(void)
+{
+	int ifd, wd, proc_wd = -1, ret;
+
+	ifd = inotify_init1(0);
+	if (ifd < 0) {
+		pr_perror("Can't make inotify fd");
+		return -1;
+	}
+
+	wd = inotify_add_watch(ifd, ".", IN_ALL_EVENTS);
+	if (wd < 0) {
+		pr_perror("Can't add watch");
+		return -1;
+	}
+
+	ret = parse_fdinfo(ifd, FDINFO_INOTIFY, check_one_inotify, &proc_wd);
+	close(ifd);
+
+	if (ret < 0) {
+		pr_err("Error parsing proc fdinfo\n");
+		return -1;
+	}
+
+	if (wd != proc_wd) {
+		pr_err("WD mismatch (or not met) %d want %d\n", proc_wd, wd);
+		return -1;
+	}
+
+	pr_info("Inotify fdinfo works OK (%d vs %d)\n", wd, proc_wd);
+	return 0;
+}
+
 static int check_fdinfo_ext(void)
 {
 	int ret = 0;
 
 	ret |= check_fdinfo_eventfd();
 	ret |= check_fdinfo_eventpoll();
+	ret |= check_fdinfo_inotify();
 
 	return ret;
 }
