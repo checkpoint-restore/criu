@@ -242,7 +242,7 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 #define xzalloc(size)		__xalloc(calloc, size, 1, size)
 #define xrealloc(p, size)	__xalloc(realloc, size, p, size)
 
-#define xfree(p)		if (p) free(p)
+#define xfree(p)		do { if (p) free(p); } while (0)
 
 #define xrealloc_safe(pptr, size)					\
 	({								\
