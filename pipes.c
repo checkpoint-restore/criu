@@ -40,13 +40,13 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 {
 	int fd, ret;
+	struct pipe_data_rst *r = NULL;
 
 	fd = open_image_ro(img_type);
 	if (fd < 0)
 		return -1;
 
 	while (1) {
-		struct pipe_data_rst *r;
 		u32 off;
 
 		ret = -1;
@@ -71,6 +71,11 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 
 		pr_info("Collected pipe data for %#x (chain %u)\n",
 				r->pde->pipe_id, ret);
+	}
+
+	if (r) {
+		xfree(r->pde);
+		xfree(r);
 	}
 
 	close(fd);
