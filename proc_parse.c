@@ -676,6 +676,35 @@ err:
 	goto out;
 }
 
+static char nybble(const char n)
+{
+       if      (n >= '0' && n <= '9') return n - '0';
+       else if (n >= 'A' && n <= 'F') return n - ('A' - 10);
+       else if (n >= 'a' && n <= 'f') return n - ('a' - 10);
+       return 0;
+}
+
+static void parse_fhandle_encoded(char *tok, fh_t *f)
+{
+	char *d = (char *)f->__handle;
+	int i = 0;
+
+	memzero(d, sizeof(f->__handle));
+
+	while (*tok == ' ')
+		tok++;
+
+	while (*tok) {
+		if (i >= sizeof(f->__handle))
+			break;
+		d[i++] = (nybble(tok[0]) << 4) | nybble(tok[1]);
+		if (tok[1])
+			tok += 2;
+		else
+			break;
+	}
+}
+
 #define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
 
 int parse_fdinfo(int fd, int type,
@@ -717,6 +746,29 @@ int parse_fdinfo(int fd, int type,
 					&entry.epl.tfd, &entry.epl.events, &entry.epl.data);
 			if (ret != 3)
 				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				return ret;
+			continue;
+		}
+		if (fdinfo_field(str, "inotify wd")) {
+			int hoff;
+
+			if (type != FDINFO_INOTIFY)
+				goto parse_err;
+			ret = sscanf(str,
+					"inotify wd: %8d ino: %16lx sdev: %8x "
+					"mask: %8x ignored_mask: %8x "
+					"fhandle-bytes: %8x fhandle-type: %8x "
+					"f_handle: %n",
+					&entry.ify.wd, &entry.ify.i_ino, &entry.ify.s_dev,
+					&entry.ify.mask, &entry.ify.ignored_mask,
+					&entry.ify.f_handle.bytes, &entry.ify.f_handle.type,
+					&hoff);
+			if (ret != 7)
+				goto parse_err;
+			parse_fhandle_encoded(str + hoff, &entry.ify.f_handle);
+
 			ret = cb(&entry, arg);
 			if (ret)
 				return ret;

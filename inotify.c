@@ -22,7 +22,7 @@
 #include "compiler.h"
 #include "types.h"
 #include "inotify.h"
-
+#include "proc_parse.h"
 #include "syscall.h"
 #include "crtools.h"
 #include "mount.h"
@@ -47,7 +47,6 @@ struct inotify_file_info {
 };
 
 static LIST_HEAD(info_head);
-static char fdinfo_buf[PAGE_SIZE];
 
 /* Checks if file desciptor @lfd is inotify */
 int is_inotify_link(int lfd)
@@ -99,119 +98,32 @@ out:
 	pr_img_tail(CR_FD_INOTIFY);
 }
 
-static char nybble(const char n)
+static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-       if      (n >= '0' && n <= '9') return n - '0';
-       else if (n >= 'A' && n <= 'F') return n - ('A' - 10);
-       else if (n >= 'a' && n <= 'f') return n - ('a' - 10);
-       return 0;
-}
+	struct inotify_wd_entry *we = &e->ify;
 
-static void parse_fhandle_encoded(char *tok, fh_t *f)
-{
-	char *d = (char *)f->__handle;
-	int i = 0;
-
-	memzero(d, sizeof(f->__handle));
-
-	while (*tok == ' ')
-		tok++;
-
-	while (*tok) {
-		if (i >= sizeof(f->__handle))
-			break;
-		d[i++] = (nybble(tok[0]) << 4) | nybble(tok[1]);
-		if (tok[1])
-			tok += 2;
-		else
-			break;
-	}
+	we->id = *(u32 *)arg;
+	pr_info("inotify wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
+			we->wd, we->s_dev, we->i_ino, we->mask);
+	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
+			we->f_handle.bytes, we->f_handle.type,
+			we->f_handle.__handle[0], we->f_handle.__handle[1]);
+	return write_img(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we);
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct inotify_file_entry ie;
-	struct inotify_wd_entry we;
-	int image_fd, image_wd;
-	int ret = -1, fdinfo;
-	char *tok, *pos;
 
-	image_fd = fdset_fd(glob_fdset, CR_FD_INOTIFY);
-	image_wd = fdset_fd(glob_fdset, CR_FD_INOTIFY_WD);
+	ie.id = id;
+	ie.flags = p->flags;
+	ie.fown = p->fown;
 
-	pr_info("Dumping inotify %d with id 0x%08x\n", lfd, id);
-
-	ie.id	= id;
-	ie.flags= p->flags;
-	ie.fown	= p->fown;
-
-	we.id	= id;
-
-	snprintf(fdinfo_buf, sizeof(fdinfo_buf), "/proc/self/fdinfo/%d", lfd);
-	fdinfo = open(fdinfo_buf, O_RDONLY);
-	if (fdinfo < 0) {
-		pr_perror("Can't open  %d (%d)", p->fd, lfd);
+	pr_info("inotify: id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
+	if (write_img(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie))
 		return -1;
-	}
 
-	ret = read(fdinfo, fdinfo_buf, sizeof(fdinfo_buf));
-	close(fdinfo);
-
-	if (ret <= 0) {
-		pr_perror("Reading inotify from %d (%d) failed", p->fd, lfd);
-		return -1;
-	}
-
-	ret = -1;
-
-	if (write_img(image_fd, &ie))
-		goto err;
-
-	pos = strstr(fdinfo_buf, "inotify wd:");
-	if (!pos)
-		return 0;
-
-	tok = strtok(pos, "\n");
-	while (tok) {
-		pr_debug("Line: `%s'\n", tok);
-		ret = sscanf(tok,
-			     "inotify wd: %8d ino: %16lx sdev: %8x "
-			     "mask: %8x ignored_mask: %8x fhandle-bytes: %8x "
-			     "fhandle-type: %8x f_handle: ",
-			     &we.wd, &we.i_ino, &we.s_dev, &we.mask, &we.ignored_mask,
-			     &we.f_handle.bytes, &we.f_handle.type);
-		if (ret != 7) {
-			pr_err("Inotify fdinfo format mismatch #%d\n", ret);
-			goto parse_error;
-		}
-
-		pos = strstr(tok, "f_handle: ");
-		if (!pos)
-			goto parse_error;
-		tok = pos + 10;
-
-		parse_fhandle_encoded(tok, &we.f_handle);
-
-		pr_info("inotify: id 0x%08x flags 0x%08x wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
-			ie.id, ie.flags, we.wd, we.s_dev, we.i_ino, we.mask);
-		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
-			we.f_handle.bytes, we.f_handle.type,
-			we.f_handle.__handle[0], we.f_handle.__handle[1]);
-
-		if (write_img(image_wd, &we))
-			goto err;
-
-		tok = strtok(NULL, "\n");
-	}
-
-	ret = 0;
-err:
-	return ret;
-
-parse_error:
-	ret = -1;
-	pr_err("Incorrect format in inotify fdinfo %d (%d)\n", p->fd, lfd);
-	goto err;
+	return parse_fdinfo(lfd, FDINFO_INOTIFY, dump_inotify_entry, &id);
 }
 
 static const struct fdtype_ops inotify_ops = {

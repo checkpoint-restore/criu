@@ -120,6 +120,7 @@ extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
 union fdinfo_entries {
 	struct eventfd_file_entry efd;
 	struct eventpoll_tfd_entry epl;
+	struct inotify_wd_entry ify;
 };
 
 extern int parse_fdinfo(int fd, int type,
