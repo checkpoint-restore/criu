@@ -322,11 +322,11 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 
 	/* Maybe we've dumped it already */
 	for (i = 0; i < pd->nr; i++) {
-		if (pd->ids[i] == p->stat.st_ino)
+		if (pd->ids[i] == pipe_id(p))
 			return 0;
 	}
 	
-	pr_info("Dumping data from pipe %#x fd %d\n", (u32)p->stat.st_ino, lfd);
+	pr_info("Dumping data from pipe %#x fd %d\n", pipe_id(p), lfd);
 
 	if (pd->nr >= NR_PIPES_WITH_DATA) {
 		pr_err("OOM storing pipe\n");
@@ -334,7 +334,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	}
 
 	img = fdset_fd(glob_fdset, pd->img_type);
-	pd->ids[pd->nr++] = p->stat.st_ino;
+	pd->ids[pd->nr++] = pipe_id(p);
 
 	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
 	if (pipe_size < 0) {
@@ -352,7 +352,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 		struct pipe_data_entry pde;
 		int wrote;
 
-		pde.pipe_id	= p->stat.st_ino;
+		pde.pipe_id	= pipe_id(p);
 		pde.bytes	= bytes;
 		pde.off		= 0;
 
@@ -382,7 +382,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 			goto err_close;
 		} else if (wrote != bytes) {
 			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n",
-					(u32)p->stat.st_ino, bytes, wrote);
+					pipe_id(p), bytes, wrote);
 			goto err_close;
 		}
 	} else if (bytes < 0) {
@@ -408,10 +408,10 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	struct pipe_entry pe;
 
 	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n",
-			lfd, id, (u32)p->stat.st_ino);
+			lfd, id, pipe_id(p));
 
 	pe.id		= id;
-	pe.pipe_id	= p->stat.st_ino;
+	pe.pipe_id	= pipe_id(p);
 	pe.flags	= p->flags;
 	pe.fown		= p->fown;
 

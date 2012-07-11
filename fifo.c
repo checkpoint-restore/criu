@@ -48,10 +48,10 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 
 	pr_info("Dumping fifo %d with id %#x pipe_id %#x\n",
-		lfd, id, (u32)p->stat.st_ino);
+			lfd, id, pipe_id(p));
 
 	e.id		= id;
-	e.pipe_id	= p->stat.st_ino;
+	e.pipe_id	= pipe_id(p);
 
 	if (write_img(img, &e) < 0)
 		return -1;

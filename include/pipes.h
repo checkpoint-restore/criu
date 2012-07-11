@@ -5,6 +5,11 @@ extern void mark_pipe_master(void);
 int dump_pipe(struct fd_parms *p, int lfd,
 			     const struct cr_fdset *cr_fdset);
 
+static inline u32 pipe_id(const struct fd_parms *p)
+{
+	return p->stat.st_ino;
+}
+
 #define NR_PIPES_WITH_DATA	1024
 
 struct pipe_data_dump {
