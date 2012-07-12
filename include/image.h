@@ -161,7 +161,6 @@ struct pipe_entry {
 struct pipe_data_entry {
 	u32	pipe_id;
 	u32	bytes;
-	u32	off;
 	u8	data[0];
 } __packed;
 
@@ -169,14 +168,6 @@ struct fifo_entry {
 	u32	id;
 	u32	pipe_id;
 } __packed;
-
-/*
- * splice() connect cache pages to pipe buffer, so
- * some part of pages may be loosed if data are not
- * aligned in a file.
- */
-#define PIPE_DEF_BUFFERS	16
-#define PIPE_MAX_NONALIG_SIZE	((PIPE_DEF_BUFFERS - 1) * PAGE_SIZE)
 
 #define USK_EXTERN	(1 << 0)
 

@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "crtools.h"
 #include "image.h"
@@ -37,6 +38,27 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 		pr_info("   `- FD %d pid %d\n", fle->fe->fd, fle->pid);
 }
 
+static int pipe_data_read(int fd, struct pipe_data_rst *r)
+{
+	/*
+	 * We potentially allocate more memory than required for data,
+	 * but this is OK. Look at restore_pipe_data -- it vmsplice-s
+	 * this into the kernel with F_GIFT flag (since some time it
+	 * works on non-aligned data), thus just giving this page to
+	 * pipe buffer. And since kernel allocates pipe buffers in pages
+	 * anyway we don't increase memory consumption :)
+	 */
+
+	r->data = mmap(NULL, r->pde->bytes, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANON, 0, 0);
+	if (r->data == MAP_FAILED) {
+		pr_perror("Can't map mem for pipe buffers");
+		return -1;
+	}
+
+	return read_img_buf(fd, r->data, r->pde->bytes);
+}
+
 int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 {
 	int fd, ret;
@@ -47,8 +69,6 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		return -1;
 
 	while (1) {
-		u32 off;
-
 		ret = -1;
 		r = xmalloc(sizeof(*r));
 		if (!r)
@@ -61,9 +81,9 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		if (ret <= 0)
 			break;
 
-		off = r->pde->off + lseek(fd, 0, SEEK_CUR);
-		lseek(fd, r->pde->bytes + r->pde->off, SEEK_CUR);
-		r->pde->off = off;
+		ret = pipe_data_read(fd, r);
+		if (ret < 0)
+			break;
 
 		ret = r->pde->pipe_id & PIPE_DATA_HASH_MASK;
 		r->next = hash[ret];
@@ -132,8 +152,9 @@ static struct pipe_data_rst *pd_hash_pipes[PIPE_DATA_HASH_SIZE];
 
 int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash)
 {
-	int img, size = 0, ret;
+	int ret;
 	struct pipe_data_rst *pd;
+	struct iovec iov;
 
 	for (pd = hash[id & PIPE_DATA_HASH_MASK]; pd != NULL; pd = pd->next)
 		if (pd->pde->pipe_id == id)
@@ -144,33 +165,46 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 		return 0;
 	}
 
-	img = open_image_ro(img_type);
-	if (img < 0)
+	if (!pd->data) {
+		pr_err("Double data restore occurred on %#x\n", id);
 		return -1;
+	}
 
-	pr_info("\t\tSplicing data size=%u off=%u\n", pd->pde->bytes, pd->pde->off);
-	lseek(img, pd->pde->off, SEEK_SET);
+	iov.iov_base = pd->data;
+	iov.iov_len = pd->pde->bytes;
 
-	while (size != pd->pde->bytes) {
-		ret = splice(img, NULL, pfd, NULL, pd->pde->bytes - size, 0);
+	while (iov.iov_len > 0) {
+		ret = vmsplice(pfd, &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			pr_perror("%#x: Error splicing data", id);
 			goto err;
 		}
 
-		if (ret == 0) {
-			pr_err("%#x: Wanted to restore %d bytes, but got %d\n",
-			       id, pd->pde->bytes, size);
+		if (ret == 0 || ret > iov.iov_len /* sanity */) {
+			pr_err("%#x: Wanted to restore %lu bytes, but got %d\n", id,
+					iov.iov_len, ret);
 			ret = -1;
 			goto err;
 		}
 
-		size += ret;
+		iov.iov_base += ret;
+		iov.iov_len -= ret;
 	}
 
+	/*
+	 * 3 reasons for killing the buffer from our address space:
+	 *
+	 * 1. We gifted the pages to the kernel to optimize memory usage, thus
+	 *    accidental memory corruption can change the pipe buffer.
+	 * 2. This will make the vmas restoration a bit faster due to less self
+	 *    mappings to be unmapped.
+	 * 3. We can catch bugs with double pipe data restore.
+	 */
+
+	munmap(pd->data, pd->pde->bytes);
+	pd->data = NULL;
 	ret = 0;
 err:
-	close(img);
 	return ret;
 }
 
@@ -362,27 +396,9 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 
 		pde.pipe_id	= pipe_id(p);
 		pde.bytes	= bytes;
-		pde.off		= 0;
-
-		if (bytes > PIPE_MAX_NONALIG_SIZE) {
-			off_t off;
-
-			off  = lseek(img, 0, SEEK_CUR);
-			off += sizeof(pde);
-			off &= ~PAGE_MASK;
-
-			if (off)
-				pde.off = PAGE_SIZE - off;
-
-			pr_info("\toff %#lx %#x bytes %#x\n", off, pde.off, bytes);
-		}
 
 		if (write_img(img, &pde))
 			goto err_close;
-
-		/* Don't forget to advance position if a hole needed */
-		if (pde.off)
-			lseek(img, pde.off, SEEK_CUR);
 
 		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
 		if (wrote < 0) {

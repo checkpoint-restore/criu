@@ -183,9 +183,8 @@ void __show_pipes_data(int fd, struct cr_options *o)
 	while (1) {
 		if (read_img_eof(fd, &e) <= 0)
 			break;
-		pr_msg("pipeid: 0x%8x bytes: 0x%8x off: 0x%8x\n",
-		       e.pipe_id, e.bytes, e.off);
-		lseek(fd, e.off + e.bytes, SEEK_CUR);
+		pr_msg("pipeid: 0x%8x bytes: 0x%8x\n", e.pipe_id, e.bytes);
+		lseek(fd, e.bytes, SEEK_CUR);
 	}
 }
 

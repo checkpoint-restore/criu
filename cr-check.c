@@ -279,6 +279,25 @@ static int check_fdinfo_ext(void)
 	return ret;
 }
 
+static int check_unaligned_vmsplice(void)
+{
+	int p[2], ret;
+	char buf; /* :) */
+	struct iovec iov;
+
+	pipe(p);
+	iov.iov_base = &buf;
+	iov.iov_len = sizeof(buf);
+	ret = vmsplice(p[1], &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+	if (ret < 0) {
+		pr_perror("Unaligned vmsplice doesn't work");
+		return -1;
+	}
+
+	pr_info("Unaligned vmsplice works OK\n");
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -293,6 +312,7 @@ int cr_check(void)
 	ret |= check_proc_stat();
 	ret |= check_tcp_repair();
 	ret |= check_fdinfo_ext();
+	ret |= check_unaligned_vmsplice();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
