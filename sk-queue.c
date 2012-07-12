@@ -165,7 +165,7 @@ void show_sk_queues(int fd, struct cr_options *o)
 		if (!p)
 			break;
 		buf = p;
-		pr_info("pkt for %u length %u bytes\n",
+		pr_msg("pkt for %u length %u bytes\n",
 				pe.id_for, pe.length);
 
 		ret = read_img_buf(fd, (unsigned char *)buf, pe.length);
