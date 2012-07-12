@@ -1,0 +1,8 @@
+import "fown.proto";
+
+message pipe_entry {
+	required uint32		id		= 1;
+	required uint32		pipe_id		= 2;
+	required uint32		flags		= 3;
+	required fown_entry	fown		= 4;
+}

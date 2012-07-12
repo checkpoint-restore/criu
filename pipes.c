@@ -11,6 +11,9 @@
 #include "pipes.h"
 #include "util-net.h"
 
+#include "protobuf.h"
+#include "protobuf/pipe.pb-c.h"
+
 /*
  * The sequence of objects which should be restored:
  * pipe -> files struct-s -> fd-s.
@@ -19,7 +22,7 @@
  */
 
 struct pipe_info {
-	struct pipe_entry	*pe;
+	PipeEntry		*pe;
 	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
 						 * This is pure circular list without head */
 	struct list_head	list;		/* list head for fdinfo_list_entry-s */
@@ -231,7 +234,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	close(tmp);
 
 	if (fd >= 0) {
-		if (restore_fown(fd, &pi->pe->fown)) {
+		if (pb_restore_fown(fd, pi->pe->fown)) {
 			close(fd);
 			return -1;
 		}
@@ -288,7 +291,7 @@ static int open_pipe(struct file_desc *d)
 	close(pfd[!(pi->pe->flags & O_WRONLY)]);
 	tmp = pfd[pi->pe->flags & O_WRONLY];
 
-	if (rst_file_params(tmp, &pi->pe->fown, pi->pe->flags))
+	if (pb_rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
 		return -1;
 
 	return tmp;
@@ -322,12 +325,9 @@ int collect_pipes(void)
 		pi = xmalloc(sizeof(*pi));
 		if (pi == NULL)
 			break;
-		pi->pe = xmalloc(sizeof(*pi->pe));
-		if (pi->pe == NULL)
-			break;
 
 		pi->create = 0;
-		ret = read_img_eof(fd, pi->pe);
+		ret = pb_read_eof(fd, &pi->pe, pipe_entry);
 		if (ret <= 0)
 			break;
 
@@ -348,7 +348,6 @@ int collect_pipes(void)
 		list_add_tail(&pi->list, &pipes);
 	}
 
-	xfree(pi ? pi->pe : NULL);
 	xfree(pi);
 
 	close(fd);
@@ -433,17 +432,20 @@ static struct pipe_data_dump pd_pipes = { .img_type = CR_FD_PIPES_DATA, };
 
 static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct pipe_entry pe;
+	PipeEntry pe = PIPE_ENTRY__INIT;
+	FownEntry fown = FOWN_ENTRY__INIT;
 
 	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n",
 			lfd, id, pipe_id(p));
 
+	pb_prep_fown(&fown, &p->fown);
+
 	pe.id		= id;
 	pe.pipe_id	= pipe_id(p);
 	pe.flags	= p->flags;
-	pe.fown		= p->fown;
+	pe.fown		= &fown;
 
-	if (write_img(fdset_fd(glob_fdset, CR_FD_PIPES), &pe))
+	if (pb_write(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, pipe_entry))
 		return -1;
 
 	return dump_one_pipe_data(&pd_pipes, lfd, p);

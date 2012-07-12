@@ -33,6 +33,7 @@
 #include "protobuf/fown.pb-c.h"
 #include "protobuf/fs.pb-c.h"
 #include "protobuf/pstree.pb-c.h"
+#include "protobuf/pipe.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -203,19 +204,20 @@ void show_pipes_data(int fd_pipes, struct cr_options *o)
 
 void show_pipes(int fd_pipes, struct cr_options *o)
 {
-	struct pipe_entry e;
+	PipeEntry *e;
 	int ret;
 
 	pr_img_head(CR_FD_PIPES);
 
 	while (1) {
-		ret = read_img_eof(fd_pipes, &e);
+		ret = pb_read_eof(fd_pipes, &e, pipe_entry);
 		if (ret <= 0)
 			goto out;
 		pr_msg("id: 0x%8x pipeid: 0x%8x flags: 0x%8x ",
-		       e.id, e.pipe_id, e.flags);
-		show_fown_cont(&e.fown);
+		       e->id, e->pipe_id, e->flags);
+		pb_show_fown_cont(e->fown);
 		pr_msg("\n");
+		pipe_entry__free_unpacked(e, NULL);
 	}
 
 out:
