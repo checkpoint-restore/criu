@@ -1,0 +1,4 @@
+message remap_file_path_entry {
+	required uint32		orig_id		= 1;
+	required uint32		remap_id	= 2;
+}

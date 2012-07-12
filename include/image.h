@@ -69,11 +69,6 @@ typedef struct {
 	u32	pid;
 } __packed fown_t;
 
-struct remap_file_path_entry {
-	u32	orig_id;
-	u32	remap_id;
-} __packed;
-
 /*
  * Top bit set in the tgt id means we've remapped
  * to a ghost file.

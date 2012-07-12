@@ -14,6 +14,7 @@
 
 #include "protobuf.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/remap-file-path.pb-c.h"
 
 #include "files-reg.h"
 
@@ -57,7 +58,7 @@ void clear_ghost_files(void)
 }
 
 static int open_remap_ghost(struct reg_file_info *rfi,
-		struct remap_file_path_entry *rfe)
+		RemapFilePathEntry *rfe)
 {
 	struct ghost_file *gf;
 	GhostFileEntry *gfe = NULL;
@@ -143,34 +144,36 @@ static int collect_remaps(void)
 		return -1;
 
 	while (1) {
-		struct remap_file_path_entry rfe;
+		RemapFilePathEntry *rfe = NULL;
 		struct file_desc *fdesc;
 		struct reg_file_info *rfi;
 
-		ret = read_img_eof(fd, &rfe);
+		ret = pb_read_eof(fd, &rfe, remap_file_path_entry);
 		if (ret <= 0)
 			break;
 
 		ret = -1;
 
-		if (!(rfe.remap_id & REMAP_GHOST)) {
+		if (!(rfe->remap_id & REMAP_GHOST)) {
 			pr_err("Non ghost remap not supported @%#x\n",
-					rfe.orig_id);
-			break;
+					rfe->orig_id);
+			goto tail;
 		}
 
-		fdesc = find_file_desc_raw(FDINFO_REG, rfe.orig_id);
+		fdesc = find_file_desc_raw(FDINFO_REG, rfe->orig_id);
 		if (fdesc == NULL) {
 			pr_err("Remap for non existing file %#x\n",
-					rfe.orig_id);
-			break;
+					rfe->orig_id);
+			goto tail;
 		}
 
-		rfe.remap_id &= ~REMAP_GHOST;
+		rfe->remap_id &= ~REMAP_GHOST;
 		rfi = container_of(fdesc, struct reg_file_info, d);
-		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe.remap_id);
-		ret = open_remap_ghost(rfi, &rfe);
-		if (ret < 0)
+		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
+		ret = open_remap_ghost(rfi, rfe);
+tail:
+		remap_file_path_entry__free_unpacked(rfe, NULL);
+		if (ret)
 			break;
 	}
 
@@ -220,7 +223,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 {
 	struct ghost_file *gf;
-	struct remap_file_path_entry rpe;
+	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
 
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
@@ -250,7 +253,8 @@ dump_entry:
 	rpe.orig_id = id;
 	rpe.remap_id = gf->id | REMAP_GHOST;
 
-	return write_img(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH), &rpe);
+	return pb_write(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+			&rpe, remap_file_path_entry);
 }
 
 static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)

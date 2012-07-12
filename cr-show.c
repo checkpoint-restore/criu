@@ -29,6 +29,7 @@
 #include "protobuf/regfile.pb-c.h"
 #include "protobuf/ghost-file.pb-c.h"
 #include "protobuf/fifo.pb-c.h"
+#include "protobuf/remap-file-path.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -138,20 +139,21 @@ static inline char *remap_id_type(u32 id)
 
 void show_remap_files(int fd, struct cr_options *o)
 {
-	struct remap_file_path_entry rfe;
+	RemapFilePathEntry *rfe;
 
 	pr_img_head(CR_FD_REMAP_FPATH);
 
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd, &rfe);
+		ret = pb_read_eof(fd, &rfe, remap_file_path_entry);
 		if (ret <= 0)
 			break;
 
-		pr_msg("%#x -> %#x (%s)\n", rfe.orig_id,
-				(rfe.remap_id & ~REMAP_GHOST),
-				remap_id_type(rfe.remap_id));
+		pr_msg("%#x -> %#x (%s)\n", rfe->orig_id,
+				(rfe->remap_id & ~REMAP_GHOST),
+				remap_id_type(rfe->remap_id));
+		remap_file_path_entry__free_unpacked(rfe, NULL);
 	}
 
 	pr_img_tail(CR_FD_REMAP_FPATH);
