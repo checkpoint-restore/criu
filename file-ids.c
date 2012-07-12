@@ -30,7 +30,7 @@ u32 fd_id_generate_special(void)
 	return fd_tree.subid++;
 }
 
-int fd_id_generate(pid_t pid, struct fdinfo_entry *fe)
+int fd_id_generate(pid_t pid, FdinfoEntry *fe)
 {
 	u32 id;
 	struct kid_elem e;

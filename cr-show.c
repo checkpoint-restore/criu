@@ -24,6 +24,9 @@
 #include "ipc_ns.h"
 #include "pstree.h"
 
+#include "protobuf.h"
+#include "protobuf/fdinfo.pb-c.h"
+
 #define DEF_PAGES_PER_LINE	6
 
 #ifndef CONFIG_X86_64
@@ -77,21 +80,16 @@ static char *fdtype2s(u8 type)
 
 void show_files(int fd_files, struct cr_options *o)
 {
-	struct fdinfo_entry e;
-
 	pr_img_head(CR_FD_FDINFO);
 
 	while (1) {
-		int ret;
-
-		ret = read_img_eof(fd_files, &e);
+		FdinfoEntry *e;
+		int ret = pb_read_eof(fd_files, &e, fdinfo_entry);
 		if (ret <= 0)
 			goto out;
-
-		pr_msg("type: %-5s fd: %-5d id: %#x flags %#x",
-		       fdtype2s(e.type), e.fd, e.id, e.flags);
-
-		pr_msg("\n");
+		pr_msg("type: %-5s fd: %-5d id: %#x flags %#x\n",
+		       fdtype2s(e->type), e->fd, e->id, e->flags);
+		fdinfo_entry__free_unpacked(e, NULL);
 	}
 
 out:

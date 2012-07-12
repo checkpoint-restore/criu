@@ -131,13 +131,6 @@ struct inotify_file_entry {
 	fown_t	fown;
 } __packed;
 
-struct fdinfo_entry {
-	u32	fd;
-	u8	type;
-	u8	flags;
-	u32	id;
-} __packed;
-
 struct fs_entry {
 	u32	cwd_id;
 	u32	root_id;

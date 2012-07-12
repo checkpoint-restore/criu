@@ -7,6 +7,8 @@
 #include "list.h"
 #include "image.h"
 
+#include "../protobuf/fdinfo.pb-c.h"
+
 struct pstree_item;
 struct file_desc;
 struct cr_fdset;
@@ -38,13 +40,13 @@ struct fdinfo_list_entry {
 	struct list_head	ps_list;
 	int			pid;
 	futex_t			real_pid;
-	struct fdinfo_entry	*fe;
+	FdinfoEntry		*fe;
 };
 
 struct file_desc_ops {
 	unsigned int		type;
 	int			(*open)(struct file_desc *d);
-	int			(*want_transport)(struct fdinfo_entry *fe, struct file_desc *d);
+	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
 };
 
 struct file_desc {

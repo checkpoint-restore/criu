@@ -9,7 +9,6 @@
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;
-struct fdinfo_entry;
 struct cr_options;
 struct file_desc;
 struct fd_parms;

@@ -294,7 +294,7 @@ static int open_pipe(struct file_desc *d)
 	return tmp;
 }
 
-static int want_transport(struct fdinfo_entry *fe, struct file_desc *d)
+static int want_transport(FdinfoEntry *fe, struct file_desc *d)
 {
 	struct pipe_info *pi;
 

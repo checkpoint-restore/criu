@@ -3,7 +3,7 @@ include Makefile.inc
 CFLAGS		+= -I./include
 CFLAGS		+= -O0 -ggdb3
 
-LIBS		+= -lrt -lpthread
+LIBS		+= -lrt -lpthread -lprotobuf-c
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
@@ -61,6 +61,8 @@ OBJS		+= inotify.o
 OBJS		+= pstree.o
 OBJS		+= protobuf.o
 
+PROTOBUF-LIB	:= protobuf/protobuf-lib.o
+
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 MAKEFLAGS	+= --no-print-directory
@@ -69,12 +71,15 @@ include Makefile.syscall
 include Makefile.pie
 
 .PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope	\
-	docs help pie
+	docs help pie protobuf
 
-all: pie
+all: protobuf pie
 	$(Q) $(MAKE) $(PROGRAM)
 
 pie: $(PIE-GEN)
+
+protobuf:
+	$(Q) $(MAKE) -C protobuf/ all
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -92,7 +97,7 @@ pie: $(PIE-GEN)
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) $(SYS-OBJ)
+$(PROGRAM): $(OBJS) $(SYS-OBJ) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
@@ -121,6 +126,7 @@ clean: cleanpie cleansyscall
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -rf ./test/dump/
+	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C test/legacy clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean

@@ -573,7 +573,7 @@ done:
 	return 0;
 }
 
-static int unixsk_should_open_transport(struct fdinfo_entry *fe,
+static int unixsk_should_open_transport(FdinfoEntry *fe,
 				struct file_desc *d)
 {
 	struct unix_sk_info *ui;

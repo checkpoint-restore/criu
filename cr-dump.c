@@ -45,6 +45,9 @@
 #include "inotify.h"
 #include "pstree.h"
 
+#include "protobuf.h"
+#include "protobuf/fdinfo.pb-c.h"
+
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
 #endif
@@ -130,7 +133,7 @@ u32 make_gen_id(const struct fd_parms *p)
 int do_dump_gen_file(struct fd_parms *p, int lfd,
 		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset)
 {
-	struct fdinfo_entry e;
+	FdinfoEntry e = FDINFO_ENTRY__INIT;
 	int ret = -1;
 
 	e.type	= ops->type;
@@ -143,17 +146,12 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 		ret = ops->dump(lfd, e.id, p);
 
 	if (ret < 0)
-		goto err;
+		return -1;
 
 	pr_info("fdinfo: type: 0x%2x flags: 0x%4x pos: 0x%8lx fd: %d\n",
 		ops->type, p->flags, p->pos, p->fd);
 
-	if (write_img(fdset_fd(cr_fdset, CR_FD_FDINFO), &e))
-		goto err;
-
-	ret = 0;
-err:
-	return ret;
+	return pb_write(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, fdinfo_entry);
 }
 
 static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)

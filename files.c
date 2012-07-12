@@ -24,6 +24,8 @@
 #include "sockets.h"
 #include "pstree.h"
 
+#include "protobuf.h"
+
 static struct fdinfo_list_entry *fdinfo_list;
 static int nr_fdinfo_list;
 
@@ -71,7 +73,7 @@ struct file_desc *find_file_desc_raw(int type, u32 id)
 	return NULL;
 }
 
-static inline struct file_desc *find_file_desc(struct fdinfo_entry *fe)
+static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 {
 	return find_file_desc_raw(fe->type, fe->id);
 }
@@ -152,7 +154,7 @@ int rst_file_params(int fd, fown_t *fown, int flags)
 	return 0;
 }
 
-static int collect_fd(int pid, struct fdinfo_entry *e, struct rst_info *rst_info)
+static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
 	struct file_desc *fdesc;
@@ -206,19 +208,17 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 	}
 
 	while (1) {
-		struct fdinfo_entry *e = xmalloc(sizeof(*e));
-		if (!e) {
-			ret = -1;
-			break;
-		}
+		FdinfoEntry *e;
 
-		ret = read_img_eof(fdinfo_fd, e);
+		ret = pb_read_eof(fdinfo_fd, &e, fdinfo_entry);
 		if (ret <= 0)
 			break;
 
 		ret = collect_fd(pid, e, rst_info);
-		if (ret < 0)
+		if (ret < 0) {
+			fdinfo_entry__free_unpacked(e, NULL);
 			break;
+		}
 	}
 
 	close(fdinfo_fd);
@@ -255,7 +255,7 @@ static void transport_name_gen(struct sockaddr_un *addr, int *len,
 	*addr->sun_path = '\0';
 }
 
-static int should_open_transport(struct fdinfo_entry *fe, struct file_desc *fd)
+static int should_open_transport(FdinfoEntry *fe, struct file_desc *fd)
 {
 	if (fd->ops->want_transport)
 		return fd->ops->want_transport(fe, fd);
@@ -326,7 +326,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	return send_fd(tsk, &saddr, len, fd);
 }
 
-static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
+static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	int tmp;
 	int sock;
@@ -383,7 +383,7 @@ static int open_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
 	return 0;
 }
 
-static int receive_fd(int pid, struct fdinfo_entry *fe, struct file_desc *d)
+static int receive_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	int tmp;
 	struct fdinfo_list_entry *fle;
