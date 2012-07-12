@@ -365,8 +365,6 @@ static int open_path(struct file_desc *d,
 	if (rfi->remap_path)
 		unlink(rfi->path);
 
-	lseek(tmp, rfi->rfe.pos, SEEK_SET);
-
 	if (restore_fown(tmp, &rfi->rfe.fown))
 		return -1;
 
@@ -388,7 +386,20 @@ int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void
 
 static int do_open_reg(struct reg_file_info *rfi, void *arg)
 {
-	return open(rfi->path, rfi->rfe.flags);
+	int fd;
+
+	fd = open(rfi->path, rfi->rfe.flags);
+	if (fd < 0) {
+		pr_perror("Can't open file on restore");
+		return fd;
+	}
+
+	if (lseek(fd, rfi->rfe.pos, SEEK_SET) < 0) {
+		pr_perror("Can't restore file pos");
+		return -1;
+	}
+
+	return fd;
 }
 
 static int open_fe_fd(struct file_desc *fd)
