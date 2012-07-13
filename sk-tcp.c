@@ -16,6 +16,9 @@
 #include "netfilter.h"
 #include "image.h"
 
+#include "protobuf.h"
+#include "protobuf/tcp-stream.pb-c.h"
+
 #ifndef TCP_REPAIR
 #define TCP_REPAIR		19      /* TCP sock is under repair right now */
 #define TCP_REPAIR_QUEUE	20
@@ -193,7 +196,7 @@ err_recv:
 	goto err_buf;
 }
 
-static int tcp_stream_get_options(int sk, struct tcp_stream_entry *tse)
+static int tcp_stream_get_options(int sk, TcpStreamEntry *tse)
 {
 	int ret;
 	socklen_t auxl;
@@ -229,7 +232,7 @@ err_sopt:
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	int ret, img_fd;
-	struct tcp_stream_entry tse;
+	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
 
 	/*
@@ -271,7 +274,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	if (img_fd < 0)
 		goto err_img;
 
-	ret = write_img(img_fd, &tse);
+	ret = pb_write(img_fd, &tse, tcp_stream_entry);
 	if (ret < 0)
 		goto err_iw;
 
@@ -333,7 +336,7 @@ static int set_tcp_queue_seq(int sk, int queue, u32 seq)
 	return 0;
 }
 
-static int restore_tcp_seqs(int sk, struct tcp_stream_entry *tse)
+static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 {
 	if (set_tcp_queue_seq(sk, TCP_RECV_QUEUE,
 				tse->inq_seq - tse->inq_len))
@@ -377,7 +380,7 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 	return 0;
 }
 
-static int restore_tcp_queues(int sk, struct tcp_stream_entry *tse, int fd)
+static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 {
 	if (tse->inq_len &&
 			send_tcp_queue(sk, TCP_RECV_QUEUE, tse->inq_len, fd))
@@ -389,7 +392,7 @@ static int restore_tcp_queues(int sk, struct tcp_stream_entry *tse, int fd)
 	return 0;
 }
 
-static int restore_tcp_opts(int sk, struct tcp_stream_entry *tse)
+static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
 {
 	struct tcp_repair_opt opts[4];
 	int onr = 0;
@@ -434,7 +437,7 @@ static int restore_tcp_opts(int sk, struct tcp_stream_entry *tse)
 static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 {
 	int ifd;
-	struct tcp_stream_entry tse;
+	TcpStreamEntry *tse;
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
 
@@ -442,10 +445,10 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	if (ifd < 0)
 		goto err;
 
-	if (read_img(ifd, &tse) < 0)
+	if (pb_read(ifd, &tse, tcp_stream_entry) < 0)
 		goto err_c;
 
-	if (restore_tcp_seqs(sk, &tse))
+	if (restore_tcp_seqs(sk, tse))
 		goto err_c;
 
 	if (inet_bind(sk, ii))
@@ -454,16 +457,18 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	if (inet_connect(sk, ii))
 		goto err_c;
 
-	if (restore_tcp_opts(sk, &tse))
+	if (restore_tcp_opts(sk, tse))
 		goto err_c;
 
-	if (restore_tcp_queues(sk, &tse, ifd))
+	if (restore_tcp_queues(sk, tse, ifd))
 		goto err_c;
 
+	tcp_stream_entry__free_unpacked(tse, NULL);
 	close(ifd);
 	return 0;
 
 err_c:
+	tcp_stream_entry__free_unpacked(tse, NULL);
 	close(ifd);
 err:
 	return -1;
@@ -498,44 +503,50 @@ void tcp_unlock_connections(void)
 
 void show_tcp_stream(int fd, struct cr_options *opt)
 {
-	struct tcp_stream_entry tse;
+	TcpStreamEntry *tse;
 	pr_img_head(CR_FD_TCP_STREAM);
 
-	if (read_img(fd, &tse) > 0) {
-		pr_msg("IN:   seq %10u len %10u\n", tse.inq_seq, tse.inq_len);
-		pr_msg("OUT:  seq %10u len %10u\n", tse.outq_seq, tse.outq_len);
-		pr_msg("OPTS: %#x\n", (int)tse.opt_mask);
-		pr_msg("\tmss_clamp %u\n", (int)tse.mss_clamp);
-		if (tse.opt_mask & TCPI_OPT_WSCALE)
-			pr_msg("\twscale %u\n", (int)tse.snd_wscale);
-		if (tse.opt_mask & TCPI_OPT_TIMESTAMPS)
+	if (pb_read_eof(fd, &tse, tcp_stream_entry) > 0) {
+		pr_msg("IN:   seq %10u len %10u\n", tse->inq_seq, tse->inq_len);
+		pr_msg("OUT:  seq %10u len %10u\n", tse->outq_seq, tse->outq_len);
+		pr_msg("OPTS: %#x\n", (int)tse->opt_mask);
+		pr_msg("\tmss_clamp %u\n", (int)tse->mss_clamp);
+		if (tse->opt_mask & TCPI_OPT_WSCALE)
+			pr_msg("\twscale %u\n", (int)tse->snd_wscale);
+		if (tse->opt_mask & TCPI_OPT_TIMESTAMPS)
 			pr_msg("\ttimestamps\n");
-		if (tse.opt_mask & TCPI_OPT_SACK)
+		if (tse->opt_mask & TCPI_OPT_SACK)
 			pr_msg("\tsack\n");
 
 		if (opt->show_pages_content) {
 			unsigned char *buf;
 
-			buf = xmalloc(max(tse.inq_len, tse.outq_len));
+			buf = xmalloc(max(tse->inq_len, tse->outq_len));
 			if (!buf)
-				return;
+				goto out;
 
-			if (tse.inq_len && read_img_buf(fd,
-						buf, tse.inq_len) > 0) {
+			if (tse->inq_len && read_img_buf(fd,
+						buf, tse->inq_len) > 0) {
 				pr_msg("IN queue:\n");
-				print_data(0, buf, tse.inq_len);
+				print_data(0, buf, tse->inq_len);
 			}
 
-			if (tse.outq_len && read_img_buf(fd,
-						buf, tse.outq_len) > 0) {
+			if (tse->outq_len && read_img_buf(fd,
+						buf, tse->outq_len) > 0) {
 				pr_msg("OUT queue:\n");
-				print_data(0, buf, tse.outq_len);
+				print_data(0, buf, tse->outq_len);
 			}
 
 			xfree(buf);
 		}
+
+		tcp_stream_entry__free_unpacked(tse, NULL);
+		tse = NULL;
 	}
 
+out:
+	if (tse)
+		tcp_stream_entry__free_unpacked(tse, NULL);
 	pr_img_tail(CR_FD_TCP_STREAM);
 }
 

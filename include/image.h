@@ -123,17 +123,6 @@ struct inet_sk_entry {
 	struct sk_opts_entry opts;
 } __packed;
 
-struct tcp_stream_entry {
-	u32	inq_len;
-	u32	inq_seq;
-	u32	outq_len;
-	u32	outq_seq;
-
-	u8	opt_mask;	/* TCPI_OPT_ bits */
-	u8	snd_wscale;
-	u16	mss_clamp;
-} __packed;
-
 struct sk_packet_entry {
 	u32	id_for;
 	u32	length;
