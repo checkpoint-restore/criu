@@ -19,7 +19,7 @@
  */
 
 struct pipe_info {
-	struct pipe_entry	pe;
+	struct pipe_entry	*pe;
 	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
 						 * This is pure circular list without head */
 	struct list_head	list;		/* list head for fdinfo_list_entry-s */
@@ -33,7 +33,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 {
 	struct fdinfo_list_entry *fle;
 
-	pr_info("  `- ID %p %#xpn", pi, pi->pe.id);
+	pr_info("  `- ID %p %#xpn", pi, pi->pe->id);
 	list_for_each_entry(fle, &pi->d.fd_info_head, desc_list)
 		pr_info("   `- FD %d pid %d\n", fle->fe->fd, fle->pid);
 }
@@ -120,7 +120,7 @@ void mark_pipe_master(void)
 		pi = list_first_entry(&pipes, struct pipe_info, list);
 		list_move(&pi->list, &head);
 
-		pr_info(" `- PIPE ID %#x\n", pi->pe.pipe_id);
+		pr_info(" `- PIPE ID %#x\n", pi->pe->pipe_id);
 		show_saved_pipe_fds(pi);
 
 		fle = file_master(&pi->d);
@@ -142,7 +142,7 @@ void mark_pipe_master(void)
 			show_saved_pipe_fds(pic);
 		}
 		p->create = 1;
-		pr_info("    by %#x\n", p->pe.id);
+		pr_info("    by %#x\n", p->pe->id);
 	}
 
 	list_splice(&head, &pipes);
@@ -227,11 +227,11 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	close(fd);
 
 	snprintf(path, sizeof(path), "/proc/self/fd/%d", tmp);
-	fd = open(path, pi->pe.flags);
+	fd = open(path, pi->pe->flags);
 	close(tmp);
 
 	if (fd >= 0) {
-		if (restore_fown(fd, &pi->pe.fown)) {
+		if (restore_fown(fd, &pi->pe->fown)) {
 			close(fd);
 			return -1;
 		}
@@ -249,7 +249,7 @@ static int open_pipe(struct file_desc *d)
 
 	pi = container_of(d, struct pipe_info, d);
 
-	pr_info("\t\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe.pipe_id, pi->pe.id);
+	pr_info("\t\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe->pipe_id, pi->pe->id);
 
 	if (!pi->create)
 		return recv_pipe_fd(pi);
@@ -260,7 +260,7 @@ static int open_pipe(struct file_desc *d)
 	}
 
 	ret = restore_pipe_data(CR_FD_PIPES_DATA, pfd[1],
-			pi->pe.pipe_id, pd_hash_pipes);
+			pi->pe->pipe_id, pd_hash_pipes);
 	if (ret)
 		return -1;
 
@@ -275,7 +275,7 @@ static int open_pipe(struct file_desc *d)
 		int fd;
 
 		fle = file_master(&p->d);
-		fd = pfd[p->pe.flags & O_WRONLY];
+		fd = pfd[p->pe->flags & O_WRONLY];
 
 		if (send_fd_to_peer(fd, fle, sock)) {
 			pr_perror("Can't send file descriptor");
@@ -285,10 +285,10 @@ static int open_pipe(struct file_desc *d)
 
 	close(sock);
 
-	close(pfd[!(pi->pe.flags & O_WRONLY)]);
-	tmp = pfd[pi->pe.flags & O_WRONLY];
+	close(pfd[!(pi->pe->flags & O_WRONLY)]);
+	tmp = pfd[pi->pe->flags & O_WRONLY];
 
-	if (rst_file_params(tmp, &pi->pe.fown, pi->pe.flags))
+	if (rst_file_params(tmp, &pi->pe->fown, pi->pe->flags))
 		return -1;
 
 	return tmp;
@@ -318,23 +318,26 @@ int collect_pipes(void)
 		return -1;
 
 	while (1) {
-		pi = xmalloc(sizeof(*pi));
 		ret = -1;
+		pi = xmalloc(sizeof(*pi));
 		if (pi == NULL)
+			break;
+		pi->pe = xmalloc(sizeof(*pi->pe));
+		if (pi->pe == NULL)
 			break;
 
 		pi->create = 0;
-		ret = read_img_eof(fd, &pi->pe);
+		ret = read_img_eof(fd, pi->pe);
 		if (ret <= 0)
 			break;
 
 		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
-					pi->pe.id, pi->pe.pipe_id);
+					pi->pe->id, pi->pe->pipe_id);
 
-		file_desc_add(&pi->d, pi->pe.id, &pipe_desc_ops);
+		file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops);
 
 		list_for_each_entry(tmp, &pipes, list)
-			if (pi->pe.pipe_id == tmp->pe.pipe_id)
+			if (pi->pe->pipe_id == tmp->pe->pipe_id)
 				break;
 
 		if (&tmp->list == &pipes)
@@ -345,6 +348,7 @@ int collect_pipes(void)
 		list_add_tail(&pi->list, &pipes);
 	}
 
+	xfree(pi ? pi->pe : NULL);
 	xfree(pi);
 
 	close(fd);
