@@ -73,7 +73,7 @@ done:
 		return 1;
 	}
 
-	if (mount("none", MPTS_ROOT"/kernel/debug", "proc", 0, "") < 0) {
+	if (mount("none", MPTS_ROOT"/kernel", "proc", 0, "") < 0) {
 		fail("Can't mount proc");
 		return 1;
 	}
@@ -82,7 +82,7 @@ done:
 	test_waitsig();
 
 	/* this checks both -- sys and proc presence */
-	if (access(MPTS_ROOT"/kernel/debug/slabinfo", F_OK)) {
+	if (access(MPTS_ROOT"/kernel/slabinfo", F_OK)) {
 		fail("No proc after restore");
 		return 1;
 	}
