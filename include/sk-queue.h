@@ -8,7 +8,7 @@
 
 struct sk_packet {
 	struct list_head	list;
-	struct sk_packet_entry	entry;
+	struct sk_packet_entry	*entry;
 	off_t			img_off;
 };
 

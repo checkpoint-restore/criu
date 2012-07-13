@@ -33,12 +33,16 @@ int read_sk_queues(void)
 		return -1;
 
 	while (1) {
+		ret = -1;
 		pkt = xmalloc(sizeof(*pkt));
 		if (!pkt) {
 			pr_err("Failed to allocate packet header\n");
-			return -ENOMEM;
+			break;
 		}
-		ret = read_img_eof(fd, &pkt->entry);
+		pkt->entry = xmalloc(sizeof(*pkt->entry));
+		if (!pkt->entry)
+			break;
+		ret = read_img_eof(fd, pkt->entry);
 		if (ret <= 0)
 			break;
 
@@ -48,9 +52,10 @@ int read_sk_queues(void)
 		 * will be broken.
 		 */
 		list_add_tail(&pkt->list, &packets_list);
-		lseek(fd, pkt->entry.length, SEEK_CUR);
+		lseek(fd, pkt->entry->length, SEEK_CUR);
 	}
 	close(fd);
+	xfree(pkt ? pkt->entry : NULL);
 	xfree(pkt);
 
 	return ret;
@@ -191,7 +196,7 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		return -1;
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
-		struct sk_packet_entry *entry = &pkt->entry;
+		struct sk_packet_entry *entry = pkt->entry;
 
 		if (entry->id_for != peer_id)
 			continue;
