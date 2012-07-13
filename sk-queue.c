@@ -19,6 +19,12 @@
 
 #include "sk-queue.h"
 
+struct sk_packet {
+	struct list_head	list;
+	struct sk_packet_entry	*entry;
+	off_t			img_off;
+};
+
 static LIST_HEAD(packets_list);
 
 int read_sk_queues(void)
