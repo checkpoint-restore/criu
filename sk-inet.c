@@ -264,10 +264,10 @@ static u32 zero_addr[4];
 static bool is_bound(struct inet_sk_info *ii)
 {
 	BUILD_BUG_ON(sizeof(zero_addr) <
-		     max(sizeof(ii->ie.dst_addr), sizeof(ii->ie.src_addr)));
+		     max(sizeof(ii->ie->dst_addr), sizeof(ii->ie->src_addr)));
 
-	return memcmp(zero_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr)) ||
-	       memcmp(zero_addr, ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+	return memcmp(zero_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr)) ||
+	       memcmp(zero_addr, ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
 }
 
 
@@ -293,13 +293,17 @@ int collect_inet_sockets(void)
 		if (!ii)
 			break;
 
-		ret = read_img_eof(fd, &ii->ie);
+		ii->ie = xmalloc(sizeof(*ii->ie));
+		if (!ii->ie)
+			break;
+
+		ret = read_img_eof(fd, ii->ie);
 		if (ret <= 0)
 			break;
 
-		file_desc_add(&ii->d, ii->ie.id, &inet_desc_ops);
+		file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 
-		if (tcp_connection(&ii->ie))
+		if (tcp_connection(ii->ie))
 			tcp_locked_conn_add(ii);
 	}
 
@@ -317,25 +321,25 @@ static int open_inet_sk(struct file_desc *d)
 
 	ii = container_of(d, struct inet_sk_info, d);
 
-	show_one_inet_img("Restore", &ii->ie);
+	show_one_inet_img("Restore", ii->ie);
 
-	if (ii->ie.family != AF_INET && ii->ie.family != AF_INET6) {
-		pr_err("Unsupported socket family: %d\n", ii->ie.family);
+	if (ii->ie->family != AF_INET && ii->ie->family != AF_INET6) {
+		pr_err("Unsupported socket family: %d\n", ii->ie->family);
 		return -1;
 	}
 
-	if ((ii->ie.type != SOCK_STREAM) && (ii->ie.type != SOCK_DGRAM)) {
-		pr_err("Unsupported socket type: %d\n", ii->ie.type);
+	if ((ii->ie->type != SOCK_STREAM) && (ii->ie->type != SOCK_DGRAM)) {
+		pr_err("Unsupported socket type: %d\n", ii->ie->type);
 		return -1;
 	}
 
-	sk = socket(ii->ie.family, ii->ie.type, ii->ie.proto);
+	sk = socket(ii->ie->family, ii->ie->type, ii->ie->proto);
 	if (sk < 0) {
 		pr_perror("Can't create unix socket");
 		return -1;
 	}
 
-	if (tcp_connection(&ii->ie)) {
+	if (tcp_connection(ii->ie)) {
 		if (!opts.tcp_established_ok) {
 			pr_err("Connected TCP socket in image\n");
 			goto err;
@@ -357,26 +361,26 @@ static int open_inet_sk(struct file_desc *d)
 			goto err;
 	}
 
-	if (ii->ie.state == TCP_LISTEN) {
-		if (ii->ie.proto != IPPROTO_TCP) {
-			pr_err("Wrong socket in listen state %d\n", ii->ie.proto);
+	if (ii->ie->state == TCP_LISTEN) {
+		if (ii->ie->proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ii->ie->proto);
 			goto err;
 		}
 
-		if (listen(sk, ii->ie.backlog) == -1) {
+		if (listen(sk, ii->ie->backlog) == -1) {
 			pr_perror("Can't listen on a socket");
 			goto err;
 		}
 	}
 
-	if (ii->ie.state == TCP_ESTABLISHED &&
+	if (ii->ie->state == TCP_ESTABLISHED &&
 			inet_connect(sk, ii))
 		goto err;
 done:
-	if (rst_file_params(sk, &ii->ie.fown, ii->ie.flags))
+	if (rst_file_params(sk, &ii->ie->fown, ii->ie->flags))
 		goto err;
 
-	if (restore_socket_opts(sk, &ii->ie.opts))
+	if (restore_socket_opts(sk, &ii->ie->opts))
 		return -1;
 
 	return sk;
@@ -395,15 +399,15 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 	int addr_size;
 
 	memzero(&addr, sizeof(addr));
-	if (ii->ie.family == AF_INET) {
-		addr.v4.sin_family = ii->ie.family;
-		addr.v4.sin_port = htons(ii->ie.src_port);
-		memcpy(&addr.v4.sin_addr.s_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr));
+	if (ii->ie->family == AF_INET) {
+		addr.v4.sin_family = ii->ie->family;
+		addr.v4.sin_port = htons(ii->ie->src_port);
+		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr));
 		addr_size = sizeof(addr.v4);
-	} else if (ii->ie.family == AF_INET6) {
-		addr.v6.sin6_family = ii->ie.family;
-		addr.v6.sin6_port = htons(ii->ie.src_port);
-		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie.src_addr, sizeof(ii->ie.src_addr));
+	} else if (ii->ie->family == AF_INET6) {
+		addr.v6.sin6_family = ii->ie->family;
+		addr.v6.sin6_port = htons(ii->ie->src_port);
+		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr));
 		addr_size = sizeof(addr.v6);
 	} else
 		BUG_ON(1);
@@ -425,17 +429,17 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 	int addr_size;
 
 	memzero(&addr, sizeof(addr));
-	if (ii->ie.family == AF_INET) {
-		addr.v4.sin_family = ii->ie.family;
-		addr.v4.sin_port = htons(ii->ie.dst_port);
+	if (ii->ie->family == AF_INET) {
+		addr.v4.sin_family = ii->ie->family;
+		addr.v4.sin_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v4.sin_addr.s_addr,
-				ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+				ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
 		addr_size = sizeof(addr.v4);
-	} else if (ii->ie.family == AF_INET6) {
-		addr.v6.sin6_family = ii->ie.family;
-		addr.v6.sin6_port = htons(ii->ie.dst_port);
+	} else if (ii->ie->family == AF_INET6) {
+		addr.v6.sin6_family = ii->ie->family;
+		addr.v6.sin6_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v6.sin6_addr.s6_addr,
-				ii->ie.dst_addr, sizeof(ii->ie.dst_addr));
+				ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
 		addr_size = sizeof(addr.v6);
 	} else
 		BUG_ON(1);

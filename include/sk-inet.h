@@ -20,7 +20,7 @@ struct inet_sk_desc {
 };
 
 struct inet_sk_info {
-	struct inet_sk_entry ie;
+	struct inet_sk_entry *ie;
 	struct file_desc d;
 	struct list_head rlist;
 };

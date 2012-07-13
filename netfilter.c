@@ -72,6 +72,6 @@ int nf_unlock_connection(struct inet_sk_desc *sk)
 
 int nf_unlock_connection_info(struct inet_sk_info *si)
 {
-	return nf_connection_switch_raw(si->ie.src_addr, si->ie.src_port,
-			si->ie.dst_addr, si->ie.dst_port, 0);
+	return nf_connection_switch_raw(si->ie->src_addr, si->ie->src_port,
+			si->ie->dst_addr, si->ie->dst_port, 0);
 }
