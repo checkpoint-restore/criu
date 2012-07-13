@@ -59,14 +59,14 @@ int read_sk_queues(void)
 int dump_sk_queue(int sock_fd, int sock_id)
 {
 	struct sk_packet_entry *pe;
-	unsigned long size;
+	int ret, size, orig_peek_off;
 	socklen_t tmp;
-	int ret, orig_peek_off;
 
 	/*
 	 * Save original peek offset.
 	 */
 	tmp = sizeof(orig_peek_off);
+	orig_peek_off = 0;
 	ret = getsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, &tmp);
 	if (ret < 0) {
 		pr_perror("getsockopt failed\n");
@@ -76,6 +76,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	 * Discover max DGRAM size
 	 */
 	tmp = sizeof(size);
+	size = 0;
 	ret = getsockopt(sock_fd, SOL_SOCKET, SO_SNDBUF, &size, &tmp);
 	if (ret < 0) {
 		pr_perror("getsockopt failed\n");
