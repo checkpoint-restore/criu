@@ -19,6 +19,7 @@ struct parasite_ctl {
 
 	void *			addr_cmd;				/* addr for command */
 	void *			addr_args;				/* address for arguments */
+	int			tsock;					/* transport socket for transfering fds */
 };
 
 struct cr_fdset;

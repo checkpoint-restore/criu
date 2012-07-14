@@ -326,26 +326,11 @@ static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 
 static int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 {
-	struct sockaddr_un saddr;
-	int sun_len, ret = -1;
-	int sock;
-
-	sun_len = gen_parasite_saddr(&saddr, ctl->pid);
-
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
+	if (send_fd(ctl->tsock, NULL, 0, fd) < 0) {
+		pr_perror("Can't send file descriptor");
 		return -1;
 	}
-
-	if (send_fd(sock, &saddr, sun_len, fd) < 0) {
-		pr_perror("Can't send file descriptor");
-		goto out;
-	}
-	ret = 0;
-out:
-	close(sock);
-	return ret;
+	return 0;
 }
 
 static int parasite_prep_file(int fd, struct parasite_ctl *ctl)
@@ -411,6 +396,44 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 		return ret;
 
 	return 0;
+}
+
+static int parasite_connect_tsocket(struct parasite_ctl *ctl)
+{
+	struct parasite_init_args args = { };
+	struct sockaddr_un saddr;
+	int sun_len;
+	int sock;
+
+	sun_len = gen_parasite_saddr(&saddr, ctl->pid);
+
+	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		return -1;
+	}
+
+	if (connect(sock, &saddr, sun_len) < 0) {
+		pr_perror("Can't connect a transport socket");
+		goto err;
+	}
+
+	args.sun_len = gen_parasite_saddr(&args.saddr, -getpid());
+
+	if (bind(sock, (struct sockaddr *)&args.saddr, args.sun_len) < 0) {
+		pr_perror("Can't bind socket");
+		goto err;
+	}
+
+	if (parasite_execute(PARASITE_CMD_TCONNECT, ctl,
+				&args, sizeof(args)) < 0)
+		goto err;
+
+	ctl->tsock = sock;
+	return 0;
+err:
+	close(sock);
+	return -1;
 }
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
@@ -536,28 +559,12 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int
 {
 	struct parasite_drain_fd *args;
 	int ret = -1;
-	int sock;
 
 	args = xmalloc(sizeof(*args));
 	if (!args)
 		return -ENOMEM;
 
-	args->sun_len = gen_parasite_saddr(&args->saddr, (int)-2u);
 	args->nr_fds = nr_fds;
-
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
-		ret = sock;
-		goto out;
-	}
-
-	ret = bind(sock, (struct sockaddr *)&args->saddr, args->sun_len);
-	if (ret < 0) {
-		pr_perror("Can't bind socket");
-		goto err;
-	}
-
 	memcpy(&args->fds, fds, sizeof(int) * nr_fds);
 
 	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl, args, sizeof(*args));
@@ -566,15 +573,13 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int
 		goto err;
 	}
 
-	ret = recv_fds(sock, lfds, nr_fds, flags);
+	ret = recv_fds(ctl->tsock, lfds, nr_fds, flags);
 	if (ret) {
 		pr_err("Can't retrieve FDs from socket\n");
 		goto err;
 	}
 
 err:
-	close(sock);
-out:
 	xfree(args);
 	return ret;
 }
@@ -582,6 +587,9 @@ out:
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;
+
+	if (ctl->tsock >= 0)
+		close(ctl->tsock);
 
 	if (ctl->parasite_ip) {
 		ctl->signals_blocked = 0;
@@ -631,6 +639,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
+
+	ctl->tsock = -1;
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
 		pr_err("Can't obtain registers (pid: %d)\n", pid);
@@ -707,6 +717,12 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	}
 
 	ctl->signals_blocked = 1;
+
+	ret = parasite_connect_tsocket(ctl);
+	if (ret) {
+		pr_err("%d: Can't set connect\n", pid);
+		goto err_restore;
+	}
 
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {

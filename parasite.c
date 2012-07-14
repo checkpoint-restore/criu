@@ -382,7 +382,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 {
 	int ret;
 
-	ret = send_fds(tsock, &args->saddr, args->sun_len,
+	ret = send_fds(tsock, NULL, 0,
 		       args->fds, args->nr_fds, true);
 	if (ret)
 		sys_write_msg("send_fds failed\n");
@@ -415,6 +415,11 @@ static int init(struct parasite_init_args *args)
 		reset_blocked = 1;
 
 	return ret;
+}
+
+static int tconnect(struct parasite_init_args *args)
+{
+	return sys_connect(tsock, (struct sockaddr *) &args->saddr, args->sun_len);
 }
 
 static int parasite_set_logfd()
@@ -452,6 +457,8 @@ int __used parasite_service(unsigned long cmd, void *args)
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
 		return init((struct parasite_init_args *) args);
+	case PARASITE_CMD_TCONNECT:
+		return tconnect((struct parasite_init_args *) args);
 	case PARASITE_CMD_FINI:
 		return fini();
 	case PARASITE_CMD_SET_LOGFD:
