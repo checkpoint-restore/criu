@@ -102,9 +102,6 @@ static int prepare_shared(void)
 	if (collect_eventpoll())
 		return -1;
 
-	if (collect_mount_info())
-		return -1;
-
 	if (collect_inotify())
 		return -1;
 
@@ -660,6 +657,10 @@ static int restore_task_with_children(void *_arg)
 	ret = log_init_by_pid();
 	if (ret < 0)
 		exit(1);
+
+	if (me->parent == NULL)
+		if (collect_mount_info())
+			exit(-1);
 
 	if (ca->clone_flags) {
 		ret = prepare_namespace(me->pid.virt, ca->clone_flags);

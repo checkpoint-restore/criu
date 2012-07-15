@@ -36,6 +36,8 @@ int open_mount(unsigned int s_dev)
 
 int collect_mount_info(void)
 {
+	pr_info("Collecting mountinfo\n");
+
 	mntinfo = parse_mountinfo(getpid());
 	if (!mntinfo) {
 		pr_err("Parsing mountinfo %d failed\n", getpid());
@@ -390,13 +392,11 @@ static int clean_mnt_ns(void)
 
 	pr_info("Cleaning mount namespace\n");
 
-	pm = parse_mountinfo(getpid());
-	if (!pm) {
-		pr_err("Can't parse my new mount namespace\n");
-		return -1;
-	}
+	/*
+	 * Mountinfos were collected at prepare stage
+	 */
 
-	pm = mnt_build_tree(pm);
+	pm = mnt_build_tree(mntinfo);
 	if (!pm)
 		return -1;
 
