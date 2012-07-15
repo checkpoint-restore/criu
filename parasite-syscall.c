@@ -453,8 +453,30 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	return parasite_file_cmd("sigactions", PARASITE_CMD_DUMP_SIGACTS,
-				 CR_FD_SIGACT, ctl, cr_fdset);
+	struct parasite_dump_sa_args args;
+	int ret, i, fd;
+	struct sa_entry se;
+
+	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl, &args, sizeof(args));
+	if (ret < 0)
+		return ret;
+
+	fd = fdset_fd(cr_fdset, CR_FD_SIGACT);
+
+	for (i = 1; i < SIGMAX; i++) {
+		if (i == SIGSTOP || i == SIGKILL)
+			continue;
+
+		ASSIGN_TYPED(se.sigaction, args.sas[i].rt_sa_handler);
+		ASSIGN_TYPED(se.flags, args.sas[i].rt_sa_flags);
+		ASSIGN_TYPED(se.restorer, args.sas[i].rt_sa_restorer);
+		ASSIGN_TYPED(se.mask, args.sas[i].rt_sa_mask.sig[0]);
+
+		if (write_img(fd, &se) < 0)
+			return -1;
+	}
+
+	return 0;
 }
 
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)

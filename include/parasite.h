@@ -48,6 +48,10 @@ struct parasite_dump_pages_args {
 	unsigned long		nrpages_total;
 };
 
+struct parasite_dump_sa_args {
+	rt_sigaction_t sas[SIGMAX];
+};
+
 /*
  * Misc sfuff, that is too small for separate file, but cannot
  * be read w/o using parasite

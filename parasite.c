@@ -262,40 +262,21 @@ static int dump_pages_fini(void)
 	return sys_close(fd_pages);
 }
 
-static int dump_sigact()
+static int dump_sigact(struct parasite_dump_sa_args *da)
 {
-	rt_sigaction_t act;
-	struct sa_entry e;
-	int fd, sig;
-	int ret;
-
-	fd = recv_fd(tsock);
-	if (fd < 0)
-		return fd;
+	int sig, ret;
 
 	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = sys_sigaction(sig, NULL, &act, sizeof(rt_sigset_t));
+		ret = sys_sigaction(sig, NULL, &da->sas[sig], sizeof(rt_sigset_t));
 		if (ret < 0) {
 			sys_write_msg("sys_sigaction failed\n");
-			goto err_close;
+			break;
 		}
-
-		ASSIGN_TYPED(e.sigaction, act.rt_sa_handler);
-		ASSIGN_TYPED(e.flags, act.rt_sa_flags);
-		ASSIGN_TYPED(e.restorer, act.rt_sa_restorer);
-		ASSIGN_TYPED(e.mask, act.rt_sa_mask.sig[0]);
-
-		ret = sys_write_safe(fd, &e, sizeof(e));
-		if (ret)
-			goto err_close;
 	}
 
-	ret = 0;
-err_close:
-	sys_close(fd);
 	return ret;
 }
 
@@ -470,7 +451,7 @@ int __used parasite_service(unsigned long cmd, void *args)
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages((struct parasite_dump_pages_args *)args);
 	case PARASITE_CMD_DUMP_SIGACTS:
-		return dump_sigact();
+		return dump_sigact((struct parasite_dump_sa_args *)args);
 	case PARASITE_CMD_DUMP_ITIMERS:
 		return dump_itimers();
 	case PARASITE_CMD_DUMP_MISC:
