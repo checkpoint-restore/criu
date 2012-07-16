@@ -71,8 +71,6 @@ struct parasite_dump_tid_info {
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
 
 struct parasite_drain_fd {
-	struct sockaddr_un	saddr;
-	int			sun_len;
 	int			fds[PARASITE_MAX_FDS];
 	int			nr_fds;
 };
