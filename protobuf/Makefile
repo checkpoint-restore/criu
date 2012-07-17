@@ -34,6 +34,7 @@ PROTO_FILES	+= pstree.proto
 PROTO_FILES	+= pipe.proto
 PROTO_FILES	+= tcp-stream.proto
 PROTO_FILES	+= sk-packet.proto
+PROTO_FILES	+= mnt.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

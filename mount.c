@@ -18,6 +18,9 @@
 #include "proc_parse.h"
 #include "image.h"
 
+#include "protobuf.h"
+#include "protobuf/mnt.pb-c.h"
+
 static struct mount_info *mntinfo;
 
 int open_mount(unsigned int s_dev)
@@ -222,35 +225,27 @@ static inline int is_root_mount(struct mount_info *mi)
 
 static int dump_one_mountpoint(struct mount_info *pm, int fd)
 {
-	struct mnt_entry me;
+	MntEntry me = MNT_ENTRY__INIT;
 
 	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev,
 			pm->root, pm->mountpoint);
 
-	me.mnt_id = pm->mnt_id;
-	me.root_dev = pm->s_dev;
-	me.root_dentry_len = strlen(pm->root);
-	me.parent_mnt_id = pm->parent_mnt_id;
-	me.mountpoint_path_len = strlen(pm->mountpoint);
-	me.fstype = encode_fstype(pm->fstype);
+	me.fstype		= encode_fstype(pm->fstype);
+	me.mnt_id		= pm->mnt_id;
+	me.root_dev		= pm->s_dev;
+	me.parent_mnt_id	= pm->parent_mnt_id;
+	me.flags		= pm->flags;
+	me.root			= pm->root;
+	me.mountpoint		= pm->mountpoint;
+	me.source		= pm->source;
+	me.options		= pm->options;
+
 	if (!me.fstype && !is_root_mount(pm)) {
 		pr_err("FS %s unsupported\n", pm->fstype);
 		return -1;
 	}
 
-	me.flags = pm->flags;
-	me.source_len = strlen(pm->source);
-	me.options_len = strlen(pm->options);
-
-	if (write_img(fd, &me))
-		return -1;
-	if (write_img_buf(fd, pm->root, me.root_dentry_len))
-		return -1;
-	if (write_img_buf(fd, pm->mountpoint, me.mountpoint_path_len))
-		return -1;
-	if (write_img_buf(fd, pm->source, me.source_len))
-		return -1;
-	if (write_img_buf(fd, pm->options, me.options_len))
+	if (pb_write(fd, &me, mnt_entry))
 		return -1;
 
 	return 0;
@@ -410,6 +405,7 @@ static int clean_mnt_ns(void)
 
 static int populate_mnt_ns(int ns_pid)
 {
+	MntEntry *me = NULL;
 	int img, ret;
 	struct mount_info *pms = NULL;
 
@@ -422,10 +418,9 @@ static int populate_mnt_ns(int ns_pid)
 	pr_debug("Reading mountpoint images\n");
 
 	while (1) {
-		struct mnt_entry me;
 		struct mount_info *pm;
 
-		ret = read_img_eof(img, &me);
+		ret = pb_read_eof(img, &me, mnt_entry);
 		if (ret <= 0)
 			break;
 
@@ -436,32 +431,41 @@ static int populate_mnt_ns(int ns_pid)
 
 		mnt_entry_init(pm);
 
-		pm->mnt_id = me.mnt_id;
-		pm->parent_mnt_id = me.parent_mnt_id;
-		pm->s_dev = me.root_dev;
-		pm->flags = me.flags;
-		pm->fstype = decode_fstype(me.fstype); /* FIXME: abort unsupported early */
+		pm->mnt_id		= me->mnt_id;
+		pm->parent_mnt_id	= me->parent_mnt_id;
+		pm->s_dev		= me->root_dev;
+		pm->flags		= me->flags;
+
+		/* FIXME: abort unsupported early */
+		pm->fstype		= decode_fstype(me->fstype);
 
 		pr_debug("\t\tGetting root for %d\n", pm->mnt_id);
-		if (read_img_str(img, &pm->root, me.root_dentry_len) < 0)
-			break;
+		pm->root = xstrdup(me->root);
+		if (!pm->root)
+			return -1;
 
 		pr_debug("\t\tGetting mpt for %d\n", pm->mnt_id);
-		if (read_img_str(img, &pm->mountpoint, me.mountpoint_path_len) < 0)
-			break;
+		pm->mountpoint = xstrdup(me->mountpoint);
+		if (!pm->mountpoint)
+			return -1;
 
 		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
-		if (read_img_str(img, &pm->source, me.source_len) < 0)
-			break;
+		pm->source = xstrdup(me->source);
+		if (!pm->source)
+			return -1;
 
 		pr_debug("\t\tGetting opts for %d\n", pm->mnt_id);
-		if (read_img_str(img, &pm->options, me.options_len) < 0)
-			break;
+		pm->options = xstrdup(me->options);
+		if (!pm->options)
+			return -1;
 
 		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
 		pm->next = pms;
 		pms = pm;
 	}
+
+	if (me)
+		mnt_entry__free_unpacked(me, NULL);
 
 	close(img);
 
@@ -493,51 +497,26 @@ int prepare_mnt_ns(int ns_pid)
 
 void show_mountpoints(int fd, struct cr_options *o)
 {
-	struct mnt_entry me;
-	char buf[PATH_MAX];
-
 	pr_img_head(CR_FD_MOUNTPOINTS);
 
 	while (1) {
+		MntEntry *me;
 		int ret;
 
-		ret = read_img_eof(fd, &me);
+		ret = pb_read_eof(fd, &me, mnt_entry);
 		if (ret <= 0)
 			break;
 
-		pr_msg("%d:%d [%s] ", me.mnt_id, me.parent_mnt_id,
-				decode_fstype(me.fstype));
+		pr_msg("%d:%d [%s] ", me->mnt_id, me->parent_mnt_id,
+				decode_fstype(me->fstype));
+		pr_msg("%d:%d %s ", kdev_major(me->root_dev),
+				kdev_minor(me->root_dev), me->root);
+		pr_msg("@ %s ", me->mountpoint);
+		pr_msg("flags %08x ", me->flags);
+		pr_msg("dev %s ", me->source);
+		pr_msg("options %s\n", me->options);
 
-		ret = read_img_buf(fd, buf, me.root_dentry_len);
-		if (ret < 0)
-			break;
-
-		buf[me.root_dentry_len] = '\0';
-		pr_msg("%d:%d %s ", kdev_major(me.root_dev),
-				kdev_minor(me.root_dev), buf);
-
-		ret = read_img_buf(fd, buf, me.mountpoint_path_len);
-		if (ret < 0)
-			break;
-
-		buf[me.mountpoint_path_len] = '\0';
-		pr_msg("@ %s ", buf);
-
-		pr_msg("flags %08x ", me.flags);
-
-		ret = read_img_buf(fd, buf, me.source_len);
-		if (ret < 0)
-			break;
-
-		buf[me.source_len] = '\0';
-		pr_msg("dev %s ", buf);
-
-		ret = read_img_buf(fd, buf, me.options_len);
-		if (ret < 0)
-			break;
-
-		buf[me.options_len] = '\0';
-		pr_msg("options %s\n", buf);
+		mnt_entry__free_unpacked(me, NULL);
 	}
 
 	pr_img_tail(CR_FD_MOUNTPOINTS);
