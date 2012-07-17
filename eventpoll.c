@@ -21,13 +21,16 @@
 #include "util.h"
 #include "log.h"
 
+#include "protobuf.h"
+#include "protobuf/eventpoll.pb-c.h"
+
 struct eventpoll_file_info {
-	struct eventpoll_file_entry	*efe;
+	EventpollFileEntry		*efe;
 	struct file_desc		d;
 };
 
 struct eventpoll_tfd_file_info {
-	struct eventpoll_tfd_entry	*tdefe;
+	EventpollTfdEntry		*tdefe;
 	struct list_head		list;
 };
 
@@ -39,31 +42,32 @@ int is_eventpoll_link(int lfd)
 	return is_anon_link_type(lfd, "[eventpoll]");
 }
 
-static void pr_info_eventpoll_tfd(char *action, struct eventpoll_tfd_entry *e)
+static void pr_info_eventpoll_tfd(char *action, EventpollTfdEntry *e)
 {
 	pr_info("%seventpoll-tfd: id %#08x tfd %#08x events %#08x data %#016lx\n",
 		action, e->id, e->tfd, e->events, e->data);
 }
 
-static void pr_info_eventpoll(char *action, struct eventpoll_file_entry *e)
+static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 {
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
 void show_eventpoll_tfd(int fd, struct cr_options *o)
 {
-	struct eventpoll_tfd_entry e;
+	EventpollTfdEntry *e;
 
 	pr_img_head(CR_FD_EVENTPOLL_TFD);
 
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd, &e);
+		ret = pb_read_eof(fd, &e, eventpoll_tfd_entry);
 		if (ret <= 0)
 			goto out;
 		pr_msg("id: %#08x tfd %#08x events %#08x data %#016lx\n",
-		       e.id, e.tfd, e.events, e.data);
+		       e->id, e->tfd, e->events, e->data);
+		eventpoll_tfd_entry__free_unpacked(e, NULL);
 	}
 
 out:
@@ -72,20 +76,21 @@ out:
 
 void show_eventpoll(int fd, struct cr_options *o)
 {
-	struct eventpoll_file_entry e;
+	EventpollFileEntry *e;
 
 	pr_img_head(CR_FD_EVENTPOLL);
 
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd, &e);
+		ret = pb_read_eof(fd, &e, eventpoll_file_entry);
 		if (ret <= 0)
 			goto out;
 		pr_msg("id: %#08x flags %#04x ",
-		       e.id, e.flags);
-		show_fown_cont(&e.fown);
+		       e->id, e->flags);
+		/* FIXME Show fown */
 		pr_msg("\n");
+		eventpoll_file_entry__free_unpacked(e, NULL);
 	}
 
 out:
@@ -94,23 +99,28 @@ out:
 
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 {
-	struct eventpoll_tfd_entry *efd = &e->epl;
+	EventpollTfdEntry *efd = &e->epl;
 
 	efd->id = *(u32 *)arg;
 	pr_info_eventpoll_tfd("Dumping: ", efd);
-	return write_img(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD), efd);
+	return pb_write(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
+			efd, eventpoll_tfd_entry);
 }
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct eventpoll_file_entry e;
+	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
+	FownEntry fown;
+
+	pb_prep_fown(&fown, &p->fown);
 
 	e.id = id;
 	e.flags = p->flags;
-	e.fown = p->fown;
+	e.fown = &fown;
 
 	pr_info_eventpoll("Dumping ", &e);
-	if (write_img(fdset_fd(glob_fdset, CR_FD_EVENTPOLL), &e))
+	if (pb_write(fdset_fd(glob_fdset, CR_FD_EVENTPOLL),
+		     &e, eventpoll_file_entry))
 		return -1;
 
 	return parse_fdinfo(lfd, FDINFO_EVENTPOLL, dump_eventpoll_entry, &id);
@@ -131,6 +141,7 @@ static int eventpoll_open(struct file_desc *d)
 {
 	struct eventpoll_tfd_file_info *td_info;
 	struct eventpoll_file_info *info;
+	fown_t fown;
 	int tmp, ret;
 
 	info = container_of(d, struct eventpoll_file_info, d);
@@ -142,7 +153,13 @@ static int eventpoll_open(struct file_desc *d)
 		return -1;
 	}
 
-	if (rst_file_params(tmp, &info->efe->fown, info->efe->flags)) {
+	fown.uid	= info->efe->fown->uid;
+	fown.euid	= info->efe->fown->uid;
+	fown.signum	= info->efe->fown->signum;
+	fown.pid_type	= info->efe->fown->pid_type;
+	fown.pid	= info->efe->fown->pid;
+
+	if (rst_file_params(tmp, &fown, info->efe->flags)) {
 		pr_perror("Can't restore file params on epoll %#08x",
 			  info->efe->id);
 		goto err_close;
@@ -195,7 +212,7 @@ int collect_eventpoll(void)
 		} else
 			goto err;
 
-		ret = read_img_eof(image_fd, info->tdefe);
+		ret = pb_read_eof(image_fd, &info->tdefe, eventpoll_tfd_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -216,15 +233,12 @@ int collect_eventpoll(void)
 	while (1) {
 		struct eventpoll_file_info *info;
 
+		ret = -1;
 		info = xmalloc(sizeof(*info));
-		if (info) {
-			info->efe = xmalloc(sizeof(*info->efe));
-			if (!info->efe)
-				goto err;
-		} else
+		if (!info)
 			goto err;
 
-		ret = read_img_eof(image_fd, info->efe);
+		ret = pb_read_eof(image_fd, &info->efe, eventpoll_file_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)

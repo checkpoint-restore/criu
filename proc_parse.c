@@ -742,6 +742,8 @@ int parse_fdinfo(int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "tfd")) {
+			eventpoll_tfd_entry__init(&entry.epl);
+
 			if (type != FDINFO_EVENTPOLL)
 				goto parse_err;
 			ret = sscanf(str, "tfd: %d events: %x data: %lx",
