@@ -25,6 +25,7 @@ PROTO_FILES	+= regfile.proto
 PROTO_FILES	+= ghost-file.proto
 PROTO_FILES	+= fifo.proto
 PROTO_FILES	+= remap-file-path.proto
+PROTO_FILES	+= eventfd.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

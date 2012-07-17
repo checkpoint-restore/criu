@@ -6,6 +6,8 @@
 #include "image.h"
 #include "list.h"
 
+#include "../protobuf/eventfd.pb-c.h"
+
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
 
@@ -118,7 +120,7 @@ extern int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
 
 union fdinfo_entries {
-	struct eventfd_file_entry efd;
+	EventfdFileEntry efd;
 	struct eventpoll_tfd_entry epl;
 	struct inotify_wd_entry ify;
 };

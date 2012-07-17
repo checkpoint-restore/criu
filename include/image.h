@@ -75,13 +75,6 @@ typedef struct {
  */
 #define REMAP_GHOST	(1 << 31)
 
-struct eventfd_file_entry {
-	u32	id;
-	u16	flags;
-	fown_t	fown;
-	u64	counter;
-} __packed;
-
 struct eventpoll_tfd_entry {
 	u32	id;
 	u32	tfd;

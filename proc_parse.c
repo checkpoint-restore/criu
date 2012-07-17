@@ -728,6 +728,8 @@ int parse_fdinfo(int fd, int type,
 			continue;
 
 		if (fdinfo_field(str, "eventfd-count")) {
+			eventfd_file_entry__init(&entry.efd);
+
 			if (type != FDINFO_EVENTFD)
 				goto parse_err;
 			ret = sscanf(str, "eventfd-count: %lx",

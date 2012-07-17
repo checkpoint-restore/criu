@@ -21,8 +21,11 @@
 #include "util.h"
 #include "log.h"
 
+#include "protobuf.h"
+#include "protobuf/eventfd.pb-c.h"
+
 struct eventfd_file_info {
-	struct eventfd_file_entry	*efe;
+	EventfdFileEntry		*efe;
 	struct file_desc		d;
 };
 
@@ -32,7 +35,7 @@ int is_eventfd_link(int lfd)
 	return is_anon_link_type(lfd, "[eventfd]");
 }
 
-static void pr_info_eventfd(char *action, struct eventfd_file_entry *efe)
+static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 {
 	pr_info("%seventfd: id %#08x flags %#04x counter %#016lx\n",
 		action, efe->id, efe->flags, efe->counter);
@@ -40,20 +43,21 @@ static void pr_info_eventfd(char *action, struct eventfd_file_entry *efe)
 
 void show_eventfds(int fd, struct cr_options *o)
 {
-	struct eventfd_file_entry efe;
+	EventfdFileEntry *efe;
 
 	pr_img_head(CR_FD_EVENTFD);
 
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd, &efe);
+		ret = pb_read_eof(fd, &efe, eventfd_file_entry);
 		if (ret <= 0)
 			goto out;
 		pr_msg("id: %#08x flags %#04x counter: %#016lx ",
-		       efe.id, efe.flags, efe.counter);
-		show_fown_cont(&efe.fown);
+		       efe->id, efe->flags, efe->counter);
+		pb_show_fown_cont(efe->fown);
 		pr_msg("\n");
+		eventfd_file_entry__free_unpacked(efe, NULL);
 	}
 
 out:
@@ -69,21 +73,23 @@ struct eventfd_dump_arg {
 static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 {
 	struct eventfd_dump_arg *da = arg;
-	struct eventfd_file_entry *efe = &e->efd;
+	FownEntry fown;
 
 	if (da->dumped) {
 		pr_err("Several counters in a file?\n");
 		return -1;
 	}
 
+	pb_prep_fown(&fown, &da->p->fown);
+
 	da->dumped = true;
-	efe->id = da->id;
-	efe->flags = da->p->flags;
-	efe->fown = da->p->fown;
+	e->efd.id = da->id;
+	e->efd.flags = da->p->flags;
+	e->efd.fown = &fown;
 
-	pr_info_eventfd("Dumping ", efe);
-
-	return write_img(fdset_fd(glob_fdset, CR_FD_EVENTFD), efe);
+	pr_info_eventfd("Dumping ", &e->efd);
+	return pb_write(fdset_fd(glob_fdset, CR_FD_EVENTFD),
+			&e->efd, eventfd_file_entry);
 }
 
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
@@ -117,7 +123,7 @@ static int eventfd_open(struct file_desc *d)
 		return -1;
 	}
 
-	if (rst_file_params(tmp, &info->efe->fown, info->efe->flags)) {
+	if (pb_rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore params on eventfd %#08x",
 			  info->efe->id);
 		goto err_close;
@@ -151,11 +157,7 @@ int collect_eventfd(void)
 		if (!info)
 			break;
 
-		info->efe = xmalloc(sizeof(*info->efe));
-		if (!info->efe)
-			break;
-
-		ret = read_img_eof(image_fd, info->efe);
+		ret = pb_read_eof(image_fd, &info->efe, eventfd_file_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
