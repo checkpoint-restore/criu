@@ -1,0 +1,4 @@
+message pipe_data_entry {
+	required uint32	pipe_id		= 1;
+	required uint32	bytes		= 2;
+}

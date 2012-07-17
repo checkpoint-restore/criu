@@ -34,6 +34,7 @@
 #include "protobuf/fs.pb-c.h"
 #include "protobuf/pstree.pb-c.h"
 #include "protobuf/pipe.pb-c.h"
+#include "protobuf/pipe-data.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -185,13 +186,14 @@ void show_ghost_file(int fd, struct cr_options *o)
 
 void __show_pipes_data(int fd, struct cr_options *o)
 {
-	struct pipe_data_entry e;
+	PipeDataEntry *e;
 
 	while (1) {
-		if (read_img_eof(fd, &e) <= 0)
+		if (pb_read_eof(fd, &e, pipe_data_entry) <= 0)
 			break;
-		pr_msg("pipeid: 0x%8x bytes: 0x%8x\n", e.pipe_id, e.bytes);
-		lseek(fd, e.bytes, SEEK_CUR);
+		pr_msg("pipeid: 0x%8x bytes: 0x%8x\n", e->pipe_id, e->bytes);
+		lseek(fd, e->bytes, SEEK_CUR);
+		pipe_data_entry__free_unpacked(e, NULL);
 	}
 }
 

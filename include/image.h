@@ -75,12 +75,6 @@ typedef struct {
  */
 #define REMAP_GHOST	(1 << 31)
 
-struct pipe_data_entry {
-	u32	pipe_id;
-	u32	bytes;
-	u8	data[0];
-} __packed;
-
 #define USK_EXTERN	(1 << 0)
 
 struct sk_opts_entry {

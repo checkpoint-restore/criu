@@ -1,5 +1,8 @@
 #ifndef __CR_PIPES_H__
 #define __CR_PIPES_H__
+
+#include "../protobuf/pipe-data.pb-c.h"
+
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
 int dump_pipe(struct fd_parms *p, int lfd,
@@ -21,7 +24,7 @@ struct pipe_data_dump {
 extern int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p);
 
 struct pipe_data_rst {
-	struct pipe_data_entry	*pde;
+	PipeDataEntry		*pde;
 	void *data;
 	struct pipe_data_rst	*next;
 };

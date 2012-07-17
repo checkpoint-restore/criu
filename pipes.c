@@ -13,6 +13,7 @@
 
 #include "protobuf.h"
 #include "protobuf/pipe.pb-c.h"
+#include "protobuf/pipe-data.pb-c.h"
 
 /*
  * The sequence of objects which should be restored:
@@ -76,11 +77,8 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		r = xmalloc(sizeof(*r));
 		if (!r)
 			break;
-		r->pde = xmalloc(sizeof(*r->pde));
-		if (!r->pde)
-			break;
 
-		ret = read_img_eof(fd, r->pde);
+		ret = pb_read_eof(fd, &r->pde, pipe_data_entry);
 		if (ret <= 0)
 			break;
 
@@ -96,10 +94,9 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 				r->pde->pipe_id, ret);
 	}
 
-	if (r) {
-		xfree(r->pde);
-		xfree(r);
-	}
+	if (r && r->pde)
+		pipe_data_entry__free_unpacked(r->pde, NULL);
+	xfree(r);
 
 	close(fd);
 	return ret;
@@ -394,13 +391,13 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 
 	bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
 	if (bytes > 0) {
-		struct pipe_data_entry pde;
+		PipeDataEntry pde = PIPE_DATA_ENTRY__INIT;
 		int wrote;
 
 		pde.pipe_id	= pipe_id(p);
 		pde.bytes	= bytes;
 
-		if (write_img(img, &pde))
+		if (pb_write(img, &pde, pipe_data_entry))
 			goto err_close;
 
 		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
