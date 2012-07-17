@@ -88,7 +88,7 @@ void show_eventpoll(int fd, struct cr_options *o)
 			goto out;
 		pr_msg("id: %#08x flags %#04x ",
 		       e->id, e->flags);
-		/* FIXME Show fown */
+		pb_show_fown_cont(e->fown);
 		pr_msg("\n");
 		eventpoll_file_entry__free_unpacked(e, NULL);
 	}
@@ -141,7 +141,6 @@ static int eventpoll_open(struct file_desc *d)
 {
 	struct eventpoll_tfd_file_info *td_info;
 	struct eventpoll_file_info *info;
-	fown_t fown;
 	int tmp, ret;
 
 	info = container_of(d, struct eventpoll_file_info, d);
@@ -153,13 +152,7 @@ static int eventpoll_open(struct file_desc *d)
 		return -1;
 	}
 
-	fown.uid	= info->efe->fown->uid;
-	fown.euid	= info->efe->fown->uid;
-	fown.signum	= info->efe->fown->signum;
-	fown.pid_type	= info->efe->fown->pid_type;
-	fown.pid	= info->efe->fown->pid;
-
-	if (rst_file_params(tmp, &fown, info->efe->flags)) {
+	if (pb_rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore file params on epoll %#08x",
 			  info->efe->id);
 		goto err_close;
