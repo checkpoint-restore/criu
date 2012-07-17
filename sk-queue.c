@@ -19,9 +19,12 @@
 
 #include "sk-queue.h"
 
+#include "protobuf.h"
+#include "protobuf/sk-packet.pb-c.h"
+
 struct sk_packet {
 	struct list_head	list;
-	struct sk_packet_entry	*entry;
+	SkPacketEntry		*entry;
 	off_t			img_off;
 };
 
@@ -45,10 +48,7 @@ int read_sk_queues(void)
 			pr_err("Failed to allocate packet header\n");
 			break;
 		}
-		pkt->entry = xmalloc(sizeof(*pkt->entry));
-		if (!pkt->entry)
-			break;
-		ret = read_img_eof(fd, pkt->entry);
+		ret = pb_read_eof(fd, &pkt->entry, sk_packet_entry);
 		if (ret <= 0)
 			break;
 
@@ -61,7 +61,6 @@ int read_sk_queues(void)
 		lseek(fd, pkt->entry->length, SEEK_CUR);
 	}
 	close(fd);
-	xfree(pkt ? pkt->entry : NULL);
 	xfree(pkt);
 
 	return ret;
@@ -69,8 +68,9 @@ int read_sk_queues(void)
 
 int dump_sk_queue(int sock_fd, int sock_id)
 {
-	struct sk_packet_entry *pe;
+	SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
 	int ret, size, orig_peek_off;
+	void *data;
 	socklen_t tmp;
 
 	/*
@@ -96,13 +96,13 @@ int dump_sk_queue(int sock_fd, int sock_id)
 
 	/* Note: 32 bytes will be used by kernel for protocol header. */
 	size -= 32;
+
 	/*
-	 * Try to alloc buffer for max supported DGRAM + our header.
-	 * Note: STREAM queue will be written by chunks of this size.
+	 * Allocate data for a streem.
 	 */
-	pe = xmalloc(size + sizeof(struct sk_packet_entry));
-	if (!pe)
-		return -ENOMEM;
+	data = xmalloc(size);
+	if (!data)
+		return -1;
 
 	/*
 	 * Enable peek offset incrementation.
@@ -113,11 +113,11 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		goto err_brk;
 	}
 
-	pe->id_for = sock_id;
+	pe.id_for = sock_id;
 
 	while (1) {
 		struct iovec iov = {
-			.iov_base	= pe->data,
+			.iov_base	= data,
 			.iov_len	= size,
 		};
 		struct msghdr msg = {
@@ -125,7 +125,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			.msg_iovlen	= 1,
 		};
 
-		ret = pe->length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
+		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
 		if (ret < 0) {
 			if (ret == -EAGAIN)
 				break; /* we're done */
@@ -141,8 +141,14 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			ret = -E2BIG;
 			goto err_set_sock;
 		}
-		ret = write_img_buf(fdset_fd(glob_fdset, CR_FD_SK_QUEUES),
-				pe, sizeof(pe) + pe->length);
+
+		ret = pb_write(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), &pe, sk_packet_entry);
+		if (ret < 0) {
+			ret = -EIO;
+			goto err_set_sock;
+		}
+
+		ret = write_img_buf(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), data, pe.length);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err_set_sock;
@@ -158,35 +164,37 @@ err_set_sock:
 	if (ret < 0)
 		pr_perror("setsockopt failed on restore\n");
 err_brk:
-	xfree(pe);
+	xfree(data);
 	return ret;
 }
 
 void show_sk_queues(int fd, struct cr_options *o)
 {
-	struct sk_packet_entry pe;
-	char *buf = NULL, *p;
+	SkPacketEntry *pe;
 	int ret;
 
 	pr_img_head(CR_FD_SK_QUEUES);
 	while (1) {
-		ret = read_img_eof(fd, &pe);
+		void *data;
+
+		ret = pb_read_eof(fd, &pe, sk_packet_entry);
 		if (ret <= 0)
 			break;
-		p = xrealloc(buf, pe.length);
-		if (!p)
-			break;
-		buf = p;
 		pr_msg("pkt for %u length %u bytes\n",
-				pe.id_for, pe.length);
+			pe->id_for, (unsigned int)pe->length);
 
-		ret = read_img_buf(fd, (unsigned char *)buf, pe.length);
-		if (ret < 0)
+		data = xmalloc(pe->length);
+		if (!data)
 			break;
-
-		print_data(0, (unsigned char *)buf, pe.length);
+		ret = read_img_buf(fd, (unsigned char *)data, pe->length);
+		if (ret < 0) {
+			xfree(data);
+			break;
+		}
+		print_data(0, (unsigned char *)data, pe->length);
+		sk_packet_entry__free_unpacked(pe, NULL);
+		xfree(data);
 	}
-	xfree(buf);
 	pr_img_tail(CR_FD_SK_QUEUES);
 }
 
@@ -202,13 +210,13 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		return -1;
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
-		struct sk_packet_entry *entry = pkt->entry;
+		SkPacketEntry *entry = pkt->entry;
 
 		if (entry->id_for != peer_id)
 			continue;
 
 		pr_info("\tRestoring %d-bytes skb for %u\n",
-				entry->length, peer_id);
+			(unsigned int)entry->length, peer_id);
 
 		ret = sendfile(fd, img_fd, &pkt->img_off, entry->length);
 		if (ret < 0) {
@@ -217,10 +225,11 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		}
 		if (ret != entry->length) {
 			pr_err("Restored skb trimmed to %d/%d\n",
-					ret, entry->length);
+			       ret, (unsigned int)entry->length);
 			return -1;
 		}
 		list_del(&pkt->list);
+		sk_packet_entry__free_unpacked(entry, NULL);
 		xfree(pkt);
 	}
 

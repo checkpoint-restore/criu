@@ -123,12 +123,6 @@ struct inet_sk_entry {
 	struct sk_opts_entry opts;
 } __packed;
 
-struct sk_packet_entry {
-	u32	id_for;
-	u32	length;
-	u8	data[0];
-} __packed;
-
 struct vma_entry {
 	u64	start;
 	u64	end;

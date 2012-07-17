@@ -1,0 +1,4 @@
+message sk_packet_entry {
+	required uint32		id_for		= 1;
+	required uint32		length		= 2;
+}
