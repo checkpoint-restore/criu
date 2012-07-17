@@ -101,6 +101,7 @@ void show_saved_files(void)
 		}
 }
 
+/* FIXME Drop it after PB merged */
 int restore_fown(int fd, fown_t *fown)
 {
 	struct f_owner_ex owner;
@@ -145,11 +146,77 @@ int restore_fown(int fd, fown_t *fown)
 	return 0;
 }
 
+int pb_restore_fown(int fd, FownEntry *fown)
+{
+	struct f_owner_ex owner;
+	uid_t uids[3];
+	pid_t pid = getpid();
+
+	if (fown->signum) {
+		if (fcntl(fd, F_SETSIG, fown->signum)) {
+			pr_perror("%d: Can't set signal", pid);
+			return -1;
+		}
+	}
+
+	/* May be untouched */
+	if (!fown->pid)
+		return 0;
+
+	if (getresuid(&uids[0], &uids[1], &uids[2])) {
+		pr_perror("%d: Can't get current UIDs", pid);
+		return -1;
+	}
+
+	if (setresuid(fown->uid, fown->euid, uids[2])) {
+		pr_perror("%d: Can't set UIDs", pid);
+		return -1;
+	}
+
+	owner.type = fown->pid_type;
+	owner.pid = fown->pid;
+
+	if (fcntl(fd, F_SETOWN_EX, &owner)) {
+		pr_perror("%d: Can't setup %d file owner pid",
+			  pid, fd);
+		return -1;
+	}
+
+	if (setresuid(uids[0], uids[1], uids[2])) {
+		pr_perror("%d: Can't revert UIDs back", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
+/* FIXME Drop it after PB merged */
 int rst_file_params(int fd, fown_t *fown, int flags)
 {
 	if (set_fd_flags(fd, flags) < 0)
 		return -1;
 	if (restore_fown(fd, fown) < 0)
+		return -1;
+	return 0;
+}
+
+/* FIXME Drop once PB merged */
+void pb_prep_fown(FownEntry *dst, const fown_t *src)
+{
+	fown_entry__init(dst);
+
+	dst->uid	= src->uid;
+	dst->euid	= src->euid;
+	dst->signum	= src->signum;
+	dst->pid_type	= src->pid_type;
+	dst->pid	= src->pid;
+}
+
+int pb_rst_file_params(int fd, FownEntry *fown, int flags)
+{
+	if (set_fd_flags(fd, flags) < 0)
+		return -1;
+	if (pb_restore_fown(fd, fown) < 0)
 		return -1;
 	return 0;
 }

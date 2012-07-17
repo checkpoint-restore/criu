@@ -8,6 +8,7 @@
 #include "image.h"
 
 #include "../protobuf/fdinfo.pb-c.h"
+#include "../protobuf/fown.pb-c.h"
 
 struct pstree_item;
 struct file_desc;
@@ -74,6 +75,10 @@ extern struct file_desc *find_file_desc_raw(int type, u32 id);
 extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int transport);
 extern int restore_fown(int fd, fown_t *fown);
 extern int rst_file_params(int fd, fown_t *fown, int flags);
+
+extern int pb_restore_fown(int fd, FownEntry *fown);
+extern int pb_rst_file_params(int fd, FownEntry *fown, int flags);
+extern void pb_prep_fown(FownEntry *dst, const fown_t *src);
 
 extern void show_saved_files(void);
 
