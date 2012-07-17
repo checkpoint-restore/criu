@@ -234,6 +234,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		struct rtattr **tb)
 {
 	struct unix_sk_desc *d;
+	char *name = NULL;
+	int ret = 0;
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
@@ -248,8 +250,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 
 	if (tb[UNIX_DIAG_NAME]) {
 		int len		= RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
-		char *name	= xmalloc(len + 1);
 
+		name = xmalloc(len + 1);
 		if (!name)
 			goto err;
 
@@ -263,22 +265,20 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			if (name[0] != '/') {
 				pr_warn("Relative bind path '%s' "
 					"unsupported\n", name);
-				xfree(name);
-				xfree(d);
-				return 0;
+				goto skip;
 			}
 
 			if (!tb[UNIX_DIAG_VFS]) {
 				pr_err("Bound socket w/o inode %d\n",
 						m->udiag_ino);
-				goto err;
+				goto skip;
 			}
 
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			if (stat(name, &st)) {
 				pr_perror("Can't stat socket %d(%s)",
 						m->udiag_ino, name);
-				goto err;
+				goto skip;
 			}
 
 			if ((st.st_ino != uv->udiag_vfs_ino) ||
@@ -354,12 +354,13 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	show_one_unix("Collected", d);
 
 	return 0;
-
 err:
+	ret = -1;
+skip:
 	xfree(d->icons);
-	xfree(d->name);
+	xfree(name);
 	xfree(d);
-	return -1;
+	return ret;
 }
 
 int unix_receive_one(struct nlmsghdr *h)
