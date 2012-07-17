@@ -12,6 +12,9 @@
 #include "list.h"
 #include "util.h"
 
+#include "protobuf.h"
+#include "protobuf/regfile.pb-c.h"
+
 #include "files-reg.h"
 
 /*
@@ -162,7 +165,7 @@ static int collect_remaps(void)
 
 		rfe.remap_id &= ~REMAP_GHOST;
 		rfi = container_of(fdesc, struct reg_file_info, d);
-		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe.id, rfe.remap_id);
+		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe.remap_id);
 		ret = open_remap_ghost(rfi, &rfe);
 		if (ret < 0)
 			break;
@@ -291,13 +294,14 @@ static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
 	return 0;
 }
 
-
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
 	char path[PATH_MAX];
 	int len, rfd;
-	struct reg_file_entry rfe;
+
+	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
+	FownEntry fown = FOWN_ENTRY__INIT;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
 	len = readlink(fd_str, path, sizeof(path) - 1);
@@ -313,20 +317,21 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	if (check_path_remap(path, &p->stat, lfd, id))
 		return -1;
 
-	rfe.len = len;
-	rfe.flags = p->flags;
-	rfe.pos = p->pos;
-	rfe.id = id;
-	rfe.fown = p->fown;
+	fown.uid	= p->fown.uid;
+	fown.euid	= p->fown.euid;
+	fown.signum	= p->fown.signum;
+	fown.pid_type	= p->fown.pid_type;
+	fown.pid	= p->fown.pid;
+
+	rfe.id		= id;
+	rfe.flags	= p->flags;
+	rfe.pos		= p->pos;
+	rfe.fown	= &fown;
+	rfe.name	= path;
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 
-	if (write_img(rfd, &rfe))
-		return -1;
-	if (write_img_buf(rfd, path, len))
-		return -1;
-
-	return 0;
+	return pb_write(rfd, &rfe, reg_file_entry);
 }
 
 static const struct fdtype_ops regfile_ops = {
@@ -345,6 +350,7 @@ static int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
+	fown_t fown;
 	int tmp;
 
 	rfi = container_of(d, struct reg_file_info, d);
@@ -365,7 +371,13 @@ static int open_path(struct file_desc *d,
 	if (rfi->remap_path)
 		unlink(rfi->path);
 
-	if (restore_fown(tmp, &rfi->rfe.fown))
+	fown.uid	= rfi->rfe->fown->uid;
+	fown.euid	= rfi->rfe->fown->uid;
+	fown.signum	= rfi->rfe->fown->signum;
+	fown.pid_type	= rfi->rfe->fown->pid_type;
+	fown.pid	= rfi->rfe->fown->pid;
+
+	if (restore_fown(tmp, &fown))
 		return -1;
 
 	return tmp;
@@ -388,13 +400,13 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 {
 	int fd;
 
-	fd = open(rfi->path, rfi->rfe.flags);
+	fd = open(rfi->path, rfi->rfe->flags);
 	if (fd < 0) {
 		pr_perror("Can't open file on restore");
 		return fd;
 	}
 
-	if (lseek(fd, rfi->rfe.pos, SEEK_SET) < 0) {
+	if (lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
 		pr_perror("Can't restore file pos");
 		return -1;
 	}
@@ -427,24 +439,26 @@ int collect_reg_files(void)
 		return -1;
 
 	while (1) {
+		RegFileEntry *rfe;
+
 		rfi = xmalloc(sizeof(*rfi));
 		ret = -1;
 		if (rfi == NULL)
 			break;
 
 		rfi->path = NULL;
-		ret = read_img_eof(fd, &rfi->rfe);
+
+		ret = pb_read_eof(fd, &rfe, reg_file_entry);
 		if (ret <= 0)
 			break;
 
-		ret = read_img_str(fd, &rfi->path, rfi->rfe.len);
-		if (ret < 0)
-			break;
+		rfi->rfe = rfe;
+		rfi->path = rfe->name;
 
 		rfi->remap_path = NULL;
 
-		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe.id);
-		file_desc_add(&rfi->d, rfi->rfe.id, &reg_desc_ops);
+		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
+		file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 	}
 
 	if (rfi) {

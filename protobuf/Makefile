@@ -20,6 +20,8 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 LIBRARY		:= protobuf-lib.o
 
 PROTO_FILES	+= fdinfo.proto
+PROTO_FILES	+= fown.proto
+PROTO_FILES	+= regfile.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

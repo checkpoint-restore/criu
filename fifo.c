@@ -12,6 +12,8 @@
 
 #include "fifo.h"
 
+#include "protobuf/regfile.pb-c.h"
+
 /*
  * FIFO checkpoint and restore is done in a bit unusual manner.
  * We use files-reg.c engine to save fifo path and flags,
@@ -89,7 +91,7 @@ static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 		return -1;
 	}
 
-	new_fifo = open(rfi->path, rfi->rfe.flags);
+	new_fifo = open(rfi->path, rfi->rfe->flags);
 	if (new_fifo < 0) {
 		pr_perror("Can't open fifo %#x [%s]", info->fe->id, rfi->path);
 		goto out;

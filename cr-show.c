@@ -26,6 +26,7 @@
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/regfile.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -104,34 +105,24 @@ void show_fown_cont(fown_t *fown)
 
 void show_reg_files(int fd_reg_files, struct cr_options *o)
 {
-	struct reg_file_entry rfe;
+	local_buf[0] = 0;
 
 	pr_img_head(CR_FD_REG_FILES);
-
 	while (1) {
+		RegFileEntry *rfe;
 		int ret;
 
-		ret = read_img_eof(fd_reg_files, &rfe);
+		ret = pb_read_eof(fd_reg_files, &rfe, reg_file_entry);
 		if (ret <= 0)
-			goto out;
+			break;
 
-		pr_msg("id: 0x%8x flags: 0x%4x pos: 0x%lx ", rfe.id, rfe.flags, rfe.pos);
-		show_fown_cont(&rfe.fown);
-
-		if (rfe.len) {
-			int ret = read(fd_reg_files, local_buf, rfe.len);
-			if (ret != rfe.len) {
-				pr_perror("Can't read %d bytes", rfe.len);
-				goto out;
-			}
-			local_buf[rfe.len] = 0;
-			pr_msg(" --> %s", local_buf);
-		}
-
+		pr_msg("id: 0x%8x flags: 0x%4x pos: 0x%lx",
+		       rfe->id, rfe->flags, rfe->pos);
+		if (rfe->name)
+			pr_msg(" --> %s", rfe->name);
 		pr_msg("\n");
+		reg_file_entry__free_unpacked(rfe, NULL);
 	}
-
-out:
 	pr_img_tail(CR_FD_REG_FILES);
 }
 

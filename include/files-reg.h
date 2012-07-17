@@ -5,14 +5,14 @@
 #include "files.h"
 #include "image.h"
 
+#include "../protobuf/regfile.pb-c.h"
+
 struct cr_fdset;
 struct fd_parms;
 
 struct reg_file_info {
 	struct file_desc	d;
-
-	struct reg_file_entry	rfe;
-
+	RegFileEntry		*rfe;
 	char			*remap_path;
 	char			*path;
 };

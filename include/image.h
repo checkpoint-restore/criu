@@ -69,15 +69,6 @@ typedef struct {
 	u32	pid;
 } __packed fown_t;
 
-struct reg_file_entry {
-	u32	id;
-	u16	flags;
-	u16	len;
-	u64	pos;
-	fown_t	fown;
-	u8	name[0];
-} __packed;
-
 struct remap_file_path_entry {
 	u32	orig_id;
 	u32	remap_id;
