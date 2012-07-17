@@ -118,6 +118,8 @@ void show_ghost_file(int fd, struct cr_options *o);
 void show_fown_cont(fown_t *fown);
 void show_eventfds(int fd, struct cr_options *o);
 
+void pb_show_fown_cont(void *p);
+
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 

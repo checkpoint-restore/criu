@@ -30,6 +30,7 @@
 #include "protobuf/ghost-file.pb-c.h"
 #include "protobuf/fifo.pb-c.h"
 #include "protobuf/remap-file-path.pb-c.h"
+#include "protobuf/fown.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -102,6 +103,14 @@ out:
 
 void show_fown_cont(fown_t *fown)
 {
+	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
+	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
+}
+
+/* FIXME Drop once PB transition complete */
+void pb_show_fown_cont(void *p)
+{
+	FownEntry *fown = p;
 	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
 }
