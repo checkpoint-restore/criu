@@ -25,6 +25,7 @@
 #include "pstree.h"
 
 #include "protobuf.h"
+#include "protobuf/fs.pb-c.h"
 
 static struct fdinfo_list_entry *fdinfo_list;
 static int nr_fdinfo_list;
@@ -560,23 +561,23 @@ done:
 
 int prepare_fs(int pid)
 {
-	int ifd, cwd;
-	struct fs_entry fe;
+	int ifd, cwd, ret = -1;
+	FsEntry *fe;
 
 	ifd = open_image_ro(CR_FD_FS, pid);
 	if (ifd < 0)
 		return -1;
 
-	if (read_img(ifd, &fe) < 0)
+	if (pb_read(ifd, &fe, fs_entry) < 0)
 		return -1;
 
-	cwd = open_reg_by_id(fe.cwd_id);
+	cwd = open_reg_by_id(fe->cwd_id);
 	if (cwd < 0)
-		return -1;
+		goto err;
 
 	if (fchdir(cwd) < 0) {
 		pr_perror("Can't change root");
-		return -1;
+		goto err;
 	}
 
 	close(cwd);
@@ -591,7 +592,10 @@ int prepare_fs(int pid)
 	 * by path thus exposing this (yet unclean) logic here.
 	 */
 
-	return 0;
+	ret = 0;
+err:
+	fs_entry__free_unpacked(fe, NULL);
+	return ret;
 }
 
 int get_filemap_fd(int pid, struct vma_entry *vma_entry)

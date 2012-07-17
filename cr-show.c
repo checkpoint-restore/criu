@@ -31,6 +31,7 @@
 #include "protobuf/fifo.pb-c.h"
 #include "protobuf/remap-file-path.pb-c.h"
 #include "protobuf/fown.pb-c.h"
+#include "protobuf/fs.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -243,13 +244,14 @@ void show_fifo(int fd, struct cr_options *o)
 
 void show_fs(int fd_fs, struct cr_options *o)
 {
-	struct fs_entry fe;
+	FsEntry *fe;
 
 	pr_img_head(CR_FD_FS);
 
-	if (read_img(fd_fs, &fe) > 0) {
-		pr_msg("CWD : %#x\n", fe.cwd_id);
-		pr_msg("ROOT: %#x\n", fe.root_id);
+	if (pb_read_eof(fd_fs, &fe, fs_entry) > 0) {
+		pr_msg("CWD : %#x\n", fe->cwd_id);
+		pr_msg("ROOT: %#x\n", fe->root_id);
+		fs_entry__free_unpacked(fe, NULL);
 	}
 
 	pr_img_tail(CR_FD_FS);

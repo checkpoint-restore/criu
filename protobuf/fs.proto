@@ -1,0 +1,4 @@
+message fs_entry {
+	required uint32		cwd_id		= 1;
+	required uint32		root_id		= 2;
+}

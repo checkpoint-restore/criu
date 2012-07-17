@@ -47,6 +47,7 @@
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/fs.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -344,7 +345,7 @@ err:
 static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 {
 	struct fd_parms p = { .fd = FD_DESC_INVALID, };
-	struct fs_entry fe;
+	FsEntry fe = FS_ENTRY__INIT;
 	int fd, ret;
 
 	fd = open_proc(pid, "cwd");
@@ -384,7 +385,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 	pr_info("Dumping task cwd id %#x root id %#x\n",
 			fe.cwd_id, fe.root_id);
 
-	return write_img(fdset_fd(fdset, CR_FD_FS), &fe);
+	return pb_write(fdset_fd(fdset, CR_FD_FS), &fe, fs_entry);
 }
 
 static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
