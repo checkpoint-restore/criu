@@ -6,6 +6,7 @@
 #include "image.h"
 
 #include "../protobuf/regfile.pb-c.h"
+#include "../protobuf/ghost-file.pb-c.h"
 
 struct cr_fdset;
 struct fd_parms;

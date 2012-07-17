@@ -80,12 +80,6 @@ struct remap_file_path_entry {
  */
 #define REMAP_GHOST	(1 << 31)
 
-struct ghost_file_entry {
-	u32	uid;
-	u32	gid;
-	u32	mode;
-} __packed;
-
 struct eventfd_file_entry {
 	u32	id;
 	u16	flags;

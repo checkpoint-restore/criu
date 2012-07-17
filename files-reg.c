@@ -60,7 +60,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 		struct remap_file_path_entry *rfe)
 {
 	struct ghost_file *gf;
-	struct ghost_file_entry gfe;
+	GhostFileEntry *gfe = NULL;
 	int gfd, ifd, ghost_flags;
 
 	list_for_each_entry(gf, &ghost_files, list)
@@ -86,13 +86,13 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (ifd < 0)
 		goto err;
 
-	if (read_img(ifd, &gfe) < 0)
+	if (pb_read(ifd, &gfe, ghost_file_entry) < 0)
 		goto err;
 
 	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
-	if (S_ISFIFO(gfe.mode)) {
-		if (mknod(gf->path, gfe.mode, 0)) {
+	if (S_ISFIFO(gfe->mode)) {
+		if (mknod(gf->path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file\n");
 			goto err;
 		}
@@ -100,22 +100,23 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	} else
 		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
 
-	gfd = open(gf->path, ghost_flags, gfe.mode);
+	gfd = open(gf->path, ghost_flags, gfe->mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
 		goto err;
 	}
 
-	if (fchown(gfd, gfe.uid, gfe.gid) < 0) {
+	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
 		pr_perror("Can't reset user/group on ghost %#x\n", rfe->remap_id);
 		goto err;
 	}
 
-	if (S_ISREG(gfe.mode)) {
+	if (S_ISREG(gfe->mode)) {
 		if (copy_file(ifd, gfd, 0) < 0)
 			goto err;
 	}
 
+	ghost_file_entry__free_unpacked(gfe, NULL);
 	close(ifd);
 	close(gfd);
 
@@ -126,6 +127,8 @@ gf_found:
 	return 0;
 
 err:
+	if (gfe)
+		ghost_file_entry__free_unpacked(gfe, NULL);
 	xfree(gf->path);
 	xfree(gf);
 	return -1;
@@ -178,7 +181,7 @@ static int collect_remaps(void)
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
 	int img, fd;
-	struct ghost_file_entry gfe;
+	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	char lpath[32];
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
@@ -191,7 +194,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	gfe.gid = st->st_gid;
 	gfe.mode = st->st_mode;
 
-	if (write_img(img, &gfe))
+	if (pb_write(img, &gfe, ghost_file_entry))
 		return -1;
 
 	if (S_ISREG(st->st_mode)) {

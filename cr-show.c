@@ -27,6 +27,7 @@
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/ghost-file.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -157,11 +158,13 @@ void show_remap_files(int fd, struct cr_options *o)
 
 void show_ghost_file(int fd, struct cr_options *o)
 {
-	struct ghost_file_entry gfe;
+	GhostFileEntry *gfe;
 
 	pr_img_head(CR_FD_GHOST_FILE);
-	if (read_img(fd, &gfe) > 0)
-		pr_msg("uid %u god %u mode %#x\n", gfe.uid, gfe.gid, gfe.mode);
+	if (pb_read_eof(fd, &gfe, ghost_file_entry) > 0) {
+		pr_msg("uid %u god %u mode %#x\n", gfe->uid, gfe->gid, gfe->mode);
+		ghost_file_entry__free_unpacked(gfe, NULL);
+	}
 	pr_img_tail(CR_FD_GHOST_FILE);
 }
 
