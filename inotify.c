@@ -34,14 +34,17 @@
 #include "list.h"
 #include "lock.h"
 
+#include "protobuf.h"
+#include "protobuf/inotify.pb-c.h"
+
 struct inotify_wd_info {
 	struct list_head		list;
-	struct inotify_wd_entry		*iwe;
+	InotifyWdEntry			*iwe;
 };
 
 struct inotify_file_info {
 	struct list_head		list;
-	struct inotify_file_entry	*ife;
+	InotifyFileEntry		*ife;
 	struct list_head		marks;
 	struct file_desc		d;
 };
@@ -56,23 +59,31 @@ int is_inotify_link(int lfd)
 
 void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 {
-	struct inotify_wd_entry e;
+	InotifyWdEntry *e;
 
 	pr_img_head(CR_FD_INOTIFY_WD);
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd_inotify_wd, &e);
+		ret = pb_read_eof(fd_inotify_wd, &e, inotify_wd_entry);
 		if (ret <= 0)
 			goto out;
 
+		if (e->f_handle->n_handle < 2) {
+			pr_err("Corrupted image n_handle = %d while %d expected\n",
+			       (int)e->f_handle->n_handle, FH_ENTRY_SIZES__min_entries);
+			goto out;
+		}
+
 		pr_msg("inotify-wd: id 0x%08x 0x%08x s_dev 0x%08x i_ino 0x%016lx "
 		       " mask 0x%08x ignored_mask 0x%08x "
-		       "[fhandle] 0x%08x 0x%08x 0x%016lx:0x%016lx ...\n",
-		       e.id, e.wd, e.s_dev, e.i_ino, e.mask, e.ignored_mask,
-		       e.f_handle.bytes, e.f_handle.type,
-		       e.f_handle.__handle[0],
-		       e.f_handle.__handle[1]);
+		       "[fhandle] bytes 0x%08x type 0x%08x "
+		       "handle 0x%016lx:0x%016lx\n",
+		       e->id, e->wd, e->s_dev, e->i_ino, e->mask, e->ignored_mask,
+		       e->f_handle->bytes, e->f_handle->type,
+		       e->f_handle->handle[0], e->f_handle->handle[1]);
+
+		inotify_wd_entry__free_unpacked(e, NULL);
 	}
 out:
 	pr_img_tail(CR_FD_INOTIFY_WD);
@@ -80,19 +91,21 @@ out:
 
 void show_inotify(int fd_inotify, struct cr_options *o)
 {
-	struct inotify_file_entry e;
+	InotifyFileEntry *e;
 
 	pr_img_head(CR_FD_INOTIFY);
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd_inotify, &e);
+		ret = pb_read_eof(fd_inotify, &e, inotify_file_entry);
 		if (ret <= 0)
 			goto out;
 
-		pr_msg("inotify: id 0x%08x flags 0x%08x\n\t", e.id, e.flags);
-		show_fown_cont(&e.fown);
+		pr_msg("inotify: id 0x%08x flags 0x%08x\n\t", e->id, e->flags);
+		pb_show_fown_cont(e->fown);
 		pr_msg("\n");
+
+		inotify_file_entry__free_unpacked(e, NULL);
 	}
 out:
 	pr_img_tail(CR_FD_INOTIFY);
@@ -100,27 +113,30 @@ out:
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-	struct inotify_wd_entry *we = &e->ify;
+	InotifyWdEntry *we = &e->ify;
 
 	we->id = *(u32 *)arg;
 	pr_info("inotify wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
 	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
-			we->f_handle.bytes, we->f_handle.type,
-			we->f_handle.__handle[0], we->f_handle.__handle[1]);
-	return write_img(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we);
+			we->f_handle->bytes, we->f_handle->type,
+			we->f_handle->handle[0], we->f_handle->handle[1]);
+	return pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, inotify_wd_entry);
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct inotify_file_entry ie;
+	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
+	FownEntry fown;
+
+	pb_prep_fown(&fown, &p->fown);
 
 	ie.id = id;
 	ie.flags = p->flags;
-	ie.fown = p->fown;
+	ie.fown = &fown;
 
 	pr_info("inotify: id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
-	if (write_img(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie))
+	if (pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, inotify_file_entry))
 		return -1;
 
 	return parse_fdinfo(lfd, FDINFO_INOTIFY, dump_inotify_entry, &id);
@@ -137,11 +153,20 @@ int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return do_dump_gen_file(p, lfd, &inotify_ops, set);
 }
 
-static int restore_one_inotify(int inotify_fd, struct inotify_wd_entry *iwe)
+static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 {
 	char path[32];
 	int mntfd, ret = -1;
 	int wd, target;
+	fh_t handle = { };
+
+	/* syscall waits for strict structure here */
+	handle.type	= iwe->f_handle->type;
+	handle.bytes	= iwe->f_handle->bytes;
+
+	memcpy(handle.__handle, iwe->f_handle->handle,
+	       min(pb_repeated_size(iwe->f_handle, handle),
+		   sizeof(handle.__handle)));
 
 	mntfd = open_mount(iwe->s_dev);
 	if (mntfd < 0) {
@@ -149,7 +174,7 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_entry *iwe)
 		return -1;
 	}
 
-	target = sys_open_by_handle_at(mntfd, (void *)&iwe->f_handle, 0);
+	target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
 	if (target < 0) {
 		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
 			  iwe->s_dev, iwe->i_ino);
@@ -210,7 +235,7 @@ static int open_inotify_fd(struct file_desc *d)
 		}
 	}
 
-	if (restore_fown(tmp, &info->ife->fown))
+	if (pb_restore_fown(tmp, info->ife->fown))
 		close_safe(&tmp);
 
 	return tmp;
@@ -250,11 +275,7 @@ int collect_inotify(void)
 		if (!info)
 			return -1;
 
-		info->ife = xmalloc(sizeof(*info->ife));
-		if (!info->ife)
-			return -1;
-
-		ret = read_img_eof(image_fd, info->ife);
+		ret = pb_read_eof(image_fd, &info->ife, inotify_file_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -273,14 +294,12 @@ int collect_inotify(void)
 		goto err;
 
 	while (1) {
+		ret = -1;
 		mark = xmalloc(sizeof(*mark));
 		if (!mark)
 			goto err;
-		mark->iwe = xmalloc(sizeof(*mark->iwe));
-		if (!mark->iwe)
-			goto err;
 
-		ret = read_img_eof(image_wd, mark->iwe);
+		ret = pb_read_eof(image_wd, &mark->iwe, inotify_wd_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)

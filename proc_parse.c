@@ -15,6 +15,7 @@
 #include "crtools.h"
 
 #include "proc_parse.h"
+#include "protobuf.h"
 
 #include <stdlib.h>
 
@@ -684,18 +685,18 @@ static char nybble(const char n)
        return 0;
 }
 
-static void parse_fhandle_encoded(char *tok, fh_t *f)
+static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
-	char *d = (char *)f->__handle;
+	char *d = (char *)fh->handle;
 	int i = 0;
 
-	memzero(d, sizeof(f->__handle));
+	memzero(d, pb_repeated_size(fh, handle));
 
 	while (*tok == ' ')
 		tok++;
 
 	while (*tok) {
-		if (i >= sizeof(f->__handle))
+		if (i >= pb_repeated_size(fh, handle))
 			break;
 		d[i++] = (nybble(tok[0]) << 4) | nybble(tok[1]);
 		if (tok[1])
@@ -756,7 +757,11 @@ int parse_fdinfo(int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "inotify wd")) {
+			FhEntry f_handle = FH_ENTRY__INIT;
 			int hoff;
+
+			inotify_wd_entry__init(&entry.ify);
+			entry.ify.f_handle = &f_handle;
 
 			if (type != FDINFO_INOTIFY)
 				goto parse_err;
@@ -767,13 +772,22 @@ int parse_fdinfo(int fd, int type,
 					"f_handle: %n",
 					&entry.ify.wd, &entry.ify.i_ino, &entry.ify.s_dev,
 					&entry.ify.mask, &entry.ify.ignored_mask,
-					&entry.ify.f_handle.bytes, &entry.ify.f_handle.type,
+					&entry.ify.f_handle->bytes, &entry.ify.f_handle->type,
 					&hoff);
 			if (ret != 7)
 				goto parse_err;
-			parse_fhandle_encoded(str + hoff, &entry.ify.f_handle);
+
+			f_handle.n_handle = FH_ENTRY_SIZES__min_entries;
+			f_handle.handle = xmalloc(pb_repeated_size(&f_handle, handle));
+			if (!f_handle.handle)
+				return -1;
+
+			parse_fhandle_encoded(str + hoff, entry.ify.f_handle);
 
 			ret = cb(&entry, arg);
+
+			xfree(f_handle.handle);
+
 			if (ret)
 				return ret;
 			continue;

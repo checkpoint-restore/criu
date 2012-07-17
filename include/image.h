@@ -75,22 +75,6 @@ typedef struct {
  */
 #define REMAP_GHOST	(1 << 31)
 
-struct inotify_wd_entry {
-	u32	id;
-	u64	i_ino;
-	u32	mask;
-	u32	ignored_mask;
-	u32	s_dev;
-	u32	wd;
-	fh_t	f_handle;
-} __packed;
-
-struct inotify_file_entry {
-	u32	id;
-	u16	flags;
-	fown_t	fown;
-} __packed;
-
 struct fs_entry {
 	u32	cwd_id;
 	u32	root_id;

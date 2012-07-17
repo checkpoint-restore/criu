@@ -1,0 +1,11 @@
+enum fh_entry_sizes {
+	min_entries			= 16;
+}
+
+message fh_entry {
+	required uint32		bytes	= 1;
+	required uint32		type	= 2;
+
+	/* The minimum is fh_n_handle repetitions */
+	repeated uint64		handle	= 3;
+}

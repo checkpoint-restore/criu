@@ -1,0 +1,18 @@
+import "fh.proto";
+import "fown.proto";
+
+message inotify_wd_entry {
+	required uint32		id		= 1;
+	required uint64		i_ino		= 2;
+	required uint32		mask		= 3;
+	required uint32		ignored_mask	= 4;
+	required uint32		s_dev		= 5;
+	required uint32		wd		= 6;
+	required fh_entry	f_handle	= 7;
+}
+
+message inotify_file_entry {
+	required uint32		id		= 1;
+	required uint32		flags		= 2;
+	required fown_entry	fown		= 4;
+}
