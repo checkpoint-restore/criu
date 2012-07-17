@@ -12,7 +12,9 @@
 
 #include "fifo.h"
 
+#include "protobuf.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/fifo.pb-c.h"
 
 /*
  * FIFO checkpoint and restore is done in a bit unusual manner.
@@ -29,7 +31,7 @@
 struct fifo_info {
 	struct list_head	list;
 	struct file_desc	d;
-	struct fifo_entry	*fe;
+	FifoEntry		*fe;
 	bool			restore_data;
 };
 
@@ -39,7 +41,7 @@ static struct pipe_data_dump pd_fifo = { .img_type = CR_FD_FIFO_DATA, };
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
 	int img = fdset_fd(glob_fdset, CR_FD_FIFO);
-	struct fifo_entry e;
+	FifoEntry e = FIFO_ENTRY__INIT;
 
 	/*
 	 * It's a trick here, we use regular files dumping
@@ -55,7 +57,7 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	e.id		= id;
 	e.pipe_id	= pipe_id(p);
 
-	if (write_img(img, &e) < 0)
+	if (pb_write(img, &e, fifo_entry))
 		return -1;
 
 	return dump_one_pipe_data(&pd_fifo, lfd, p);
@@ -136,11 +138,7 @@ int collect_fifo(void)
 		if (!info)
 			break;
 
-		info->fe = xzalloc(sizeof(*info->fe));
-		if (!info->fe)
-			break;
-
-		ret = read_img_eof(img, info->fe);
+		ret = pb_read_eof(img, &info->fe, fifo_entry);
 		if (ret <= 0)
 			break;
 

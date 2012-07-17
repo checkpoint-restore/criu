@@ -142,11 +142,6 @@ struct pipe_data_entry {
 	u8	data[0];
 } __packed;
 
-struct fifo_entry {
-	u32	id;
-	u32	pipe_id;
-} __packed;
-
 #define USK_EXTERN	(1 << 0)
 
 struct sk_opts_entry {

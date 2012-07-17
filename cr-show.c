@@ -28,6 +28,7 @@
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
 #include "protobuf/ghost-file.pb-c.h"
+#include "protobuf/fifo.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -217,13 +218,14 @@ void show_fifo_data(int fd, struct cr_options *o)
 
 void show_fifo(int fd, struct cr_options *o)
 {
-	struct fifo_entry e;
+	FifoEntry *e;
 
 	pr_img_head(CR_FD_FIFO);
 	while (1) {
-		if (read_img_eof(fd, &e) <= 0)
+		if (pb_read_eof(fd, &e, fifo_entry) <= 0)
 			break;
-		pr_msg("id: 0x%8x pipeid: 0x%8x\n", e.id, e.pipe_id);
+		pr_msg("id: 0x%8x pipeid: 0x%8x\n", e->id, e->pipe_id);
+		fifo_entry__free_unpacked(e, NULL);
 	}
 	pr_img_tail(CR_FD_FIFO);
 }
