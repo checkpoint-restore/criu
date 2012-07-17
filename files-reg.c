@@ -308,7 +308,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	int len, rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
-	FownEntry fown = FOWN_ENTRY__INIT;
+	FownEntry fown;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
 	len = readlink(fd_str, path, sizeof(path) - 1);
@@ -324,11 +324,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	if (check_path_remap(path, &p->stat, lfd, id))
 		return -1;
 
-	fown.uid	= p->fown.uid;
-	fown.euid	= p->fown.euid;
-	fown.signum	= p->fown.signum;
-	fown.pid_type	= p->fown.pid_type;
-	fown.pid	= p->fown.pid;
+	pb_prep_fown(&fown, &p->fown);
 
 	rfe.id		= id;
 	rfe.flags	= p->flags;
@@ -357,7 +353,6 @@ static int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
-	fown_t fown;
 	int tmp;
 
 	rfi = container_of(d, struct reg_file_info, d);
@@ -378,13 +373,7 @@ static int open_path(struct file_desc *d,
 	if (rfi->remap_path)
 		unlink(rfi->path);
 
-	fown.uid	= rfi->rfe->fown->uid;
-	fown.euid	= rfi->rfe->fown->uid;
-	fown.signum	= rfi->rfe->fown->signum;
-	fown.pid_type	= rfi->rfe->fown->pid_type;
-	fown.pid	= rfi->rfe->fown->pid;
-
-	if (restore_fown(tmp, &fown))
+	if (pb_restore_fown(tmp, rfi->rfe->fown))
 		return -1;
 
 	return tmp;
