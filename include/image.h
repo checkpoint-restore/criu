@@ -75,14 +75,6 @@ typedef struct {
  */
 #define REMAP_GHOST	(1 << 31)
 
-struct pstree_entry {
-	u32	pid;
-	u32	ppid;
-	u32	pgid;
-	u32	sid;
-	u32	nr_threads;
-} __packed;
-
 struct pipe_entry {
 	u32	id;
 	u32	pipe_id;

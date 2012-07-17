@@ -32,6 +32,7 @@
 #include "protobuf/remap-file-path.pb-c.h"
 #include "protobuf/fown.pb-c.h"
 #include "protobuf/fs.pb-c.h"
+#include "protobuf/pstree.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -433,29 +434,30 @@ out:
 
 static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 {
-	struct pstree_entry e;
+	PstreeEntry *e;
 
 	pr_img_head(CR_FD_PSTREE);
 
 	while (1) {
-		u32 pid;
 		int ret;
 		struct pstree_item *item = NULL;
 
-		ret = read_img_eof(fd_pstree, &e);
+		e = NULL;
+		ret = pb_read_eof(fd_pstree, &e, pstree_entry);
 		if (ret <= 0)
 			goto out;
-		pr_msg("pid: %8d ppid %8d pgid: %8d sid %8d  nr_threads: %8d\n",
-		       e.pid, e.ppid, e.pgid, e.sid, e.nr_threads);
+		pr_msg("pid: %8d ppid %8d pgid: %8d sid %8d  n_threads: %8d\n",
+		       (int)e->pid, (int)e->ppid, (int)e->pgid,
+		       (int)e->sid, (int)e->n_threads);
 
 		if (collect) {
 			item = xzalloc(sizeof(struct pstree_item));
 			if (!item)
 				return -1;
 
-			item->pid.virt = e.pid;
-			item->nr_threads = e.nr_threads;
-			item->threads = xzalloc(sizeof(u32) * e.nr_threads);
+			item->pid.virt = e->pid;
+			item->nr_threads = e->n_threads;
+			item->threads = xzalloc(sizeof(u32) * e->n_threads);
 			if (!item->threads) {
 				xfree(item);
 				return -1;
@@ -464,23 +466,23 @@ static int show_collect_pstree(int fd_pstree, struct list_head *collect)
 			list_add_tail(&item->list, collect);
 		}
 
-		if (e.nr_threads) {
+		if (e->n_threads) {
 			pr_msg("  \\\n");
 			pr_msg("   --- threads: ");
-			while (e.nr_threads--) {
-				ret = read_img(fd_pstree, &pid);
-				if (ret < 0)
-					goto out;
-				pr_msg(" %6d", pid);
+			while (e->n_threads--) {
+				pr_msg(" %6d", (int)e->threads[e->n_threads]);
 				if (item)
-					item->threads[e.nr_threads].virt = pid;
+					item->threads[e->n_threads].virt = e->threads[e->n_threads];
 			}
 			pr_msg("\n");
 		}
 
+		pstree_entry__free_unpacked(e, NULL);
 	}
 
 out:
+	if (e)
+		pstree_entry__free_unpacked(e, NULL);
 	pr_img_tail(CR_FD_PSTREE);
 	return 0;
 }

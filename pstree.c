@@ -6,6 +6,9 @@
 #include "restorer.h"
 #include "util.h"
 
+#include "protobuf.h"
+#include "protobuf/pstree.pb-c.h"
+
 struct pstree_item *root_item;
 
 void free_pstree(struct pstree_item *root_item)
@@ -71,7 +74,7 @@ struct pstree_item *pstree_item_next(struct pstree_item *item)
 int dump_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item;
-	struct pstree_entry e;
+	PstreeEntry e = PSTREE_ENTRY__INIT;
 	int ret = -1, i;
 	int pstree_fd;
 
@@ -90,16 +93,20 @@ int dump_pstree(struct pstree_item *root_item)
 		e.ppid		= item->parent ? item->parent->pid.virt : 0;
 		e.pgid		= item->pgid;
 		e.sid		= item->sid;
-		e.nr_threads	= item->nr_threads;
+		e.n_threads	= item->nr_threads;
 
-		if (write_img(pstree_fd, &e))
+		e.threads = xmalloc(sizeof(e.threads[0]) * e.n_threads);
+		if (!e.threads)
 			goto err;
 
-		for (i = 0; i < item->nr_threads; i++) {
-			if (write_img_buf(pstree_fd,
-					  &item->threads[i].virt, sizeof(u32)))
-				goto err;
-		}
+		for (i = 0; i < item->nr_threads; i++)
+			e.threads[i] = item->threads[i].virt;
+
+		ret = pb_write(pstree_fd, &e, pstree_entry);
+		xfree(e.threads);
+
+		if (ret)
+			goto err;
 	}
 	ret = 0;
 
@@ -122,9 +129,9 @@ int prepare_pstree(void)
 		return ps_fd;
 
 	while (1) {
-		struct pstree_entry e;
+		PstreeEntry *e;
 
-		ret = read_img_eof(ps_fd, &e);
+		ret = pb_read_eof(ps_fd, &e, pstree_entry);
 		if (ret <= 0)
 			break;
 
@@ -133,19 +140,19 @@ int prepare_pstree(void)
 		if (pi == NULL)
 			break;
 
-		pi->pid.virt = e.pid;
-		if (e.pid > max_pid)
-			max_pid = e.pid;
+		pi->pid.virt = e->pid;
+		if (e->pid > max_pid)
+			max_pid = e->pid;
 
-		pi->pgid = e.pgid;
-		if (e.pgid > max_pid)
-			max_pid = e.pgid;
+		pi->pgid = e->pgid;
+		if (e->pgid > max_pid)
+			max_pid = e->pgid;
 
-		pi->sid = e.sid;
-		if (e.sid > max_pid)
-			max_pid = e.sid;
+		pi->sid = e->sid;
+		if (e->sid > max_pid)
+			max_pid = e->sid;
 
-		if (e.ppid == 0) {
+		if (e->ppid == 0) {
 			BUG_ON(root_item);
 			root_item = pi;
 			pi->parent = NULL;
@@ -157,14 +164,14 @@ int prepare_pstree(void)
 			 * and sit among the last item's ancestors.
 			 */
 			while (parent) {
-				if (parent->pid.virt == e.ppid)
+				if (parent->pid.virt == e->ppid)
 					break;
 				parent = parent->parent;
 			}
 
 			if (parent == NULL)
 				for_each_pstree_item(parent)
-					if (parent->pid.virt == e.ppid)
+					if (parent->pid.virt == e->ppid)
 						break;
 
 			if (parent == NULL) {
@@ -179,22 +186,19 @@ int prepare_pstree(void)
 
 		parent = pi;
 
-		pi->nr_threads = e.nr_threads;
-		pi->threads = xmalloc(e.nr_threads * sizeof(struct pid));
+		pi->nr_threads = e->n_threads;
+		pi->threads = xmalloc(e->n_threads * sizeof(struct pid));
 		if (!pi->threads)
 			break;
 
 		ret = 0;
-		for (i = 0; i < e.nr_threads; i++) {
-			ret = read_img_buf(ps_fd, &pi->threads[i].virt, sizeof(u32));
-			if (ret < 0)
-				break;
-		}
-		if (ret < 0)
-			break;
+		for (i = 0; i < e->n_threads; i++)
+			pi->threads[i].virt = e->threads[i];
 
-		task_entries->nr += e.nr_threads;
+		task_entries->nr += e->n_threads;
 		task_entries->nr_tasks++;
+
+		pstree_entry__free_unpacked(e, NULL);
 	}
 
 	close(ps_fd);

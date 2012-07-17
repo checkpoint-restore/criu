@@ -30,6 +30,7 @@ PROTO_FILES	+= eventpoll.proto
 PROTO_FILES	+= fh.proto
 PROTO_FILES	+= inotify.proto
 PROTO_FILES	+= fs.proto
+PROTO_FILES	+= pstree.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
