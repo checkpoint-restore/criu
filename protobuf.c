@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
+#include <google/protobuf-c/protobuf-c.h>
+
 #include "compiler.h"
 #include "types.h"
 #include "log.h"
@@ -17,6 +19,129 @@
  * be more than enough for most objects.
  */
 #define PB_PKOBJ_LOCAL_SIZE	1024
+
+typedef void (pb_pr_field_t)(void *obj, void *arg);
+
+static void pb_msg_int32x(void *obj, void *arg)
+{
+	pr_msg("0x%08x", *(int *)obj);
+}
+
+static void pb_msg_int64x(void *obj, void *arg)
+{
+	pr_msg("0x%016lx", *(long *)obj);
+}
+
+static void pb_msg_string(void *obj, void *arg)
+{
+	pr_msg("\"%s\"",	*(char **)obj);
+}
+
+static void pb_msg_unk(void *obj, void *arg)
+{
+	pr_msg("unknown object %p\n", obj);
+}
+
+static void __pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md);
+
+static void show_nested_message(void *msg, void *md)
+{
+	pr_msg("[ ");
+	__pb_show_msg(msg, md);
+	pr_msg(" ] ");
+}
+
+
+static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
+			  unsigned long nr_fields)
+{
+	pb_pr_field_t *show;
+	unsigned long counter;
+	size_t fsize;
+	void *arg;
+
+	pr_msg("%s: ", fd->name);
+
+	switch (fd->type) {
+		case PROTOBUF_C_TYPE_INT32:
+		case PROTOBUF_C_TYPE_SINT32:
+		case PROTOBUF_C_TYPE_UINT32:
+		case PROTOBUF_C_TYPE_SFIXED32:
+			show = pb_msg_int32x;
+			fsize = 4;
+			break;
+		case PROTOBUF_C_TYPE_INT64:
+		case PROTOBUF_C_TYPE_SINT64:
+		case PROTOBUF_C_TYPE_SFIXED64:
+		case PROTOBUF_C_TYPE_FIXED32:
+		case PROTOBUF_C_TYPE_UINT64:
+		case PROTOBUF_C_TYPE_FIXED64:
+			show = pb_msg_int64x;
+			fsize = 8;
+			break;
+		case PROTOBUF_C_TYPE_STRING:
+			show = pb_msg_string;
+			fsize = sizeof (void *);
+			break;
+		case PROTOBUF_C_TYPE_MESSAGE:
+			where = (void *)(*(long *)where);
+			arg = (void *)fd->descriptor;
+			show = show_nested_message;
+			fsize = sizeof (void *);
+			break;
+		case PROTOBUF_C_TYPE_FLOAT:
+		case PROTOBUF_C_TYPE_DOUBLE:
+		case PROTOBUF_C_TYPE_BOOL:
+		case PROTOBUF_C_TYPE_ENUM:
+		case PROTOBUF_C_TYPE_BYTES:
+		default:
+			show = pb_msg_unk;
+			nr_fields = 1;
+			break;
+	}
+
+	show(where, arg);
+	where += fsize;
+
+	for (counter = 0; counter < nr_fields - 1; counter++, where += fsize) {
+		pr_msg(":");
+		show(where, arg);
+	}
+
+	pr_msg(" ");
+}
+
+static void __pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
+{
+	int i;
+
+	BUG_ON(md == NULL);
+
+	for (i = 0; i < md->n_fields; i++) {
+		const ProtobufCFieldDescriptor fd = md->fields[i];
+		unsigned long *data;
+		size_t nr_fields;
+
+		if (fd.label == PROTOBUF_C_LABEL_OPTIONAL)
+			continue;
+
+		nr_fields = 1;
+		data = (unsigned long *)(msg + fd.offset);
+
+		if (fd.label == PROTOBUF_C_LABEL_REPEATED) {
+			nr_fields = *(size_t *)(msg + fd.quantifier_offset);
+			data = (unsigned long *)*data;
+		}
+
+		pb_show_field(&fd, data, nr_fields);
+	}
+}
+
+void pb_show_msg(const void *msg, const void *msg_desc)
+{
+	__pb_show_msg(msg, msg_desc);
+	pr_msg("\n");
+}
 
 /*
  * Reads PB record (header + packed object) from file @fd and unpack

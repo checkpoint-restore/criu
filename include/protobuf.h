@@ -54,4 +54,6 @@ extern int pb_write_object_with_header(int fd, void *obj,
 #define pb_repeated_size(__obj, __member)						\
 	(sizeof(*(__obj)->__member) * (__obj)->n_ ##__member)
 
+extern void pb_show_msg(const void *msg, const void *msg_desc);
+
 #endif /* PROTOBUF_H__ */
