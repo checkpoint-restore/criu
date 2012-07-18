@@ -1,0 +1,6 @@
+message sa_entry {
+	required uint64	sigaction	= 1;
+	required uint64	flags		= 2;
+	required uint64	restorer	= 3;
+	required uint64	mask		= 4;
+}

@@ -12,6 +12,9 @@
 #include "parasite.h"
 #include "crtools.h"
 
+#include "protobuf.h"
+#include "protobuf/sa.pb-c.h"
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -431,7 +434,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 {
 	struct parasite_dump_sa_args args;
 	int ret, i, fd;
-	struct sa_entry se;
+	SaEntry se = SA_ENTRY__INIT;
 
 	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl, &args, sizeof(args));
 	if (ret < 0)
@@ -448,7 +451,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 		ASSIGN_TYPED(se.restorer, args.sas[i].rt_sa_restorer);
 		ASSIGN_TYPED(se.mask, args.sas[i].rt_sa_mask.sig[0]);
 
-		if (write_img(fd, &se) < 0)
+		if (pb_write(fd, &se, sa_entry) < 0)
 			return -1;
 	}
 

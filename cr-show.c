@@ -35,6 +35,7 @@
 #include "protobuf/pstree.pb-c.h"
 #include "protobuf/pipe.pb-c.h"
 #include "protobuf/pipe-data.pb-c.h"
+#include "protobuf/sa.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -359,22 +360,23 @@ out:
 
 void show_sigacts(int fd_sigacts, struct cr_options *o)
 {
-	struct sa_entry e;
+	SaEntry *e;
 
 	pr_img_head(CR_FD_SIGACT);
 
 	while (1) {
 		int ret;
 
-		ret = read_img_eof(fd_sigacts, &e);
+		ret = pb_read_eof(fd_sigacts, &e, sa_entry);
 		if (ret <= 0)
 			goto out;
 		pr_msg("sigaction: 0x%016lx mask: 0x%08lx "
 		       "flags: 0x%016lx restorer: 0x%016lx\n",
-		       (long)e.sigaction,
-		       (long)e.mask,
-		       (long)e.flags,
-		       (long)e.restorer);
+		       (long)e->sigaction,
+		       (long)e->mask,
+		       (long)e->flags,
+		       (long)e->restorer);
+		sa_entry__free_unpacked(e, NULL);
 	}
 
 out:

@@ -49,6 +49,9 @@
 #include "inotify.h"
 #include "pstree.h"
 
+#include "protobuf.h"
+#include "protobuf/sa.pb-c.h"
+
 static struct pstree_item *me;
 
 static int restore_task_with_children(void *);
@@ -194,7 +197,7 @@ static int prepare_sigactions(int pid)
 {
 	rt_sigaction_t act, oact;
 	int fd_sigact;
-	struct sa_entry e;
+	SaEntry *e;
 	int sig;
 	int ret = -1;
 
@@ -206,14 +209,16 @@ static int prepare_sigactions(int pid)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = read_img(fd_sigact, &e);
+		ret = pb_read(fd_sigact, &e, sa_entry);
 		if (ret < 0)
 			break;
 
-		ASSIGN_TYPED(act.rt_sa_handler, e.sigaction);
-		ASSIGN_TYPED(act.rt_sa_flags, e.flags);
-		ASSIGN_TYPED(act.rt_sa_restorer, e.restorer);
-		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e.mask);
+		ASSIGN_TYPED(act.rt_sa_handler, e->sigaction);
+		ASSIGN_TYPED(act.rt_sa_flags, e->flags);
+		ASSIGN_TYPED(act.rt_sa_restorer, e->restorer);
+		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e->mask);
+
+		sa_entry__free_unpacked(e, NULL);
 
 		if (sig == SIGCHLD) {
 			sigchld_act = act;

@@ -201,13 +201,6 @@ struct page_entry {
 	u8	data[PAGE_IMAGE_SIZE];
 } __packed;
 
-struct sa_entry {
-	u64		sigaction;
-	u64		flags;
-	u64		restorer;
-	u64		mask;
-} __packed;
-
 struct itimer_entry {
 	u64		isec;
 	u64		iusec;
