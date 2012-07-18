@@ -267,27 +267,7 @@ out:
 
 void show_sigacts(int fd_sigacts, struct cr_options *o)
 {
-	SaEntry *e;
-
-	pr_img_head(CR_FD_SIGACT);
-
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd_sigacts, &e, sa_entry);
-		if (ret <= 0)
-			goto out;
-		pr_msg("sigaction: 0x%016lx mask: 0x%08lx "
-		       "flags: 0x%016lx restorer: 0x%016lx\n",
-		       (long)e->sigaction,
-		       (long)e->mask,
-		       (long)e->flags,
-		       (long)e->restorer);
-		sa_entry__free_unpacked(e, NULL);
-	}
-
-out:
-	pr_img_tail(CR_FD_SIGACT);
+	pb_show_plain(fd_sigacts, sa_entry);
 }
 
 static void show_itimer(char *n, ItimerEntry *ie)
