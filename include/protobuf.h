@@ -27,17 +27,17 @@ extern int pb_read_object_with_header(int fd, void **pobj,
 				      pb_unpack_t unpack,
 				      bool eof);
 
-#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn(NULL, 0, NULL); (pb_unpack_t)&__fn; })
-#define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn(__o, NULL); (pb_pack_t)&__fn; })
-#define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn(__o); (pb_getpksize_t)&__fn; })
+#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn##__unpack(NULL, 0, NULL); (pb_unpack_t)&__fn##__unpack; })
+#define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn##__pack(__o, NULL); (pb_pack_t)&__fn##__pack; })
+#define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn##__get_packed_size(__o); (pb_getpksize_t)&__fn##__get_packed_size; })
 
 #define pb_read(__fd, __obj_pptr, __proto_message_name)					\
 	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
-		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name ##__unpack), false)
+		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name), false)
 
 #define pb_read_eof(__fd, __obj_pptr, __proto_message_name)				\
 	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
-		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name ##__unpack), true)
+		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name), true)
 
 extern int pb_write_object_with_header(int fd, void *obj,
 				       pb_getpksize_t getpksize,
@@ -45,8 +45,8 @@ extern int pb_write_object_with_header(int fd, void *obj,
 
 #define pb_write(__fd, __obj, __proto_message_name)					\
 	pb_write_object_with_header(__fd, __obj,					\
-		PB_GPS_TYPECHECK(__obj, __proto_message_name ##__get_packed_size),	\
-		PB_PACK_TYPECHECK(__obj, __proto_message_name ##__pack))
+		PB_GPS_TYPECHECK(__obj, __proto_message_name),				\
+		PB_PACK_TYPECHECK(__obj, __proto_message_name))
 
 #define pb_pksize(__obj, __proto_message_name)						\
 	(__proto_message_name ##__get_packed_size(__obj) + sizeof(u32))
