@@ -497,18 +497,5 @@ int prepare_mnt_ns(int ns_pid)
 
 void show_mountpoints(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_MOUNTPOINTS);
-
-	while (1) {
-		MntEntry *me;
-		int ret;
-
-		ret = pb_read_eof(fd, &me, mnt_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(me, &mnt_entry__descriptor);
-		mnt_entry__free_unpacked(me, NULL);
-	}
-
-	pr_img_tail(CR_FD_MOUNTPOINTS);
+	pb_show_plain(fd, mnt_entry);
 }

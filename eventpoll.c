@@ -55,41 +55,12 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 
 void show_eventpoll_tfd(int fd, struct cr_options *o)
 {
-	EventpollTfdEntry *e;
-
-	pr_img_head(CR_FD_EVENTPOLL_TFD);
-
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd, &e, eventpoll_tfd_entry);
-		if (ret <= 0)
-			goto out;
-		pb_show_msg(e, &eventpoll_tfd_entry__descriptor);
-		eventpoll_tfd_entry__free_unpacked(e, NULL);
-	}
-
-out:
-	pr_img_tail(CR_FD_EVENTPOLL_TFD);
+	pb_show_plain(fd, eventpoll_tfd_entry);
 }
 
 void show_eventpoll(int fd, struct cr_options *o)
 {
-	EventpollFileEntry *e;
-
-	pr_img_head(CR_FD_EVENTPOLL);
-
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd, &e, eventpoll_file_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(e, &eventpoll_file_entry__descriptor);
-		eventpoll_file_entry__free_unpacked(e, NULL);
-	}
-
-	pr_img_tail(CR_FD_EVENTPOLL);
+	pb_show_plain(fd, eventpoll_file_entry);
 }
 
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)

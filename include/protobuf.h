@@ -22,6 +22,7 @@
 typedef size_t (*pb_getpksize_t)(void *obj);
 typedef size_t (*pb_pack_t)(void *obj, void *where);
 typedef void  *(*pb_unpack_t)(void *allocator, size_t size, void *from);
+typedef void   (*pb_free_t)(void *obj, void *allocator);
 
 extern int pb_read_object_with_header(int fd, void **pobj,
 				      pb_unpack_t unpack,
@@ -30,6 +31,7 @@ extern int pb_read_object_with_header(int fd, void **pobj,
 #define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn##__unpack(NULL, 0, NULL); (pb_unpack_t)&__fn##__unpack; })
 #define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn##__pack(__o, NULL); (pb_pack_t)&__fn##__pack; })
 #define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn##__get_packed_size(__o); (pb_getpksize_t)&__fn##__get_packed_size; })
+#define PB_FREE_TYPECHECK(__o, __fn)	({ if (0) __fn##__free_unpacked(__o, NULL); (pb_free_t)&__fn##__free_unpacked; })
 
 #define pb_read(__fd, __obj_pptr, __proto_message_name)					\
 	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
@@ -54,6 +56,16 @@ extern int pb_write_object_with_header(int fd, void *obj,
 #define pb_repeated_size(__obj, __member)						\
 	(sizeof(*(__obj)->__member) * (__obj)->n_ ##__member)
 
+#include <google/protobuf-c/protobuf-c.h>
+
 extern void pb_show_msg(const void *msg, const void *msg_desc);
+extern void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *d,
+		pb_unpack_t unpack, pb_free_t free);
+
+/* Don't have objects at hands to also do typechecking here */
+#define pb_show_plain(__fd, __proto_message_name)			\
+	do_pb_show_plain(__fd, &__proto_message_name##__descriptor,	\
+			(pb_unpack_t)__proto_message_name##__unpack,			\
+			(pb_free_t)__proto_message_name##__free_unpacked)
 
 #endif /* PROTOBUF_H__ */

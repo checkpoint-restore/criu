@@ -59,43 +59,12 @@ int is_inotify_link(int lfd)
 
 void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 {
-	InotifyWdEntry *e;
-
-	pr_img_head(CR_FD_INOTIFY_WD);
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd_inotify_wd, &e, inotify_wd_entry);
-		if (ret <= 0)
-			goto out;
-
-		if (e->f_handle->n_handle < 2) {
-			pr_err("Corrupted image n_handle = %d while %d expected\n",
-			       (int)e->f_handle->n_handle, FH_ENTRY_SIZES__min_entries);
-			goto out;
-		}
-		pb_show_msg(e, &inotify_wd_entry__descriptor);
-		inotify_wd_entry__free_unpacked(e, NULL);
-	}
-out:
-	pr_img_tail(CR_FD_INOTIFY_WD);
+	pb_show_plain(fd_inotify_wd, inotify_wd_entry);
 }
 
 void show_inotify(int fd_inotify, struct cr_options *o)
 {
-	InotifyFileEntry *e;
-
-	pr_img_head(CR_FD_INOTIFY);
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd_inotify, &e, inotify_file_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(e, &inotify_file_entry__descriptor);
-		inotify_file_entry__free_unpacked(e, NULL);
-	}
-	pr_img_tail(CR_FD_INOTIFY);
+	pb_show_plain(fd_inotify, inotify_file_entry);
 }
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)

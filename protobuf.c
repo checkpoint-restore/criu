@@ -143,6 +143,20 @@ void pb_show_msg(const void *msg, const void *msg_desc)
 	pr_msg("\n");
 }
 
+void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
+		pb_unpack_t unpack, pb_free_t free)
+{
+	while (1) {
+		void *obj;
+
+		if (pb_read_object_with_header(fd, &obj, unpack, true) <= 0)
+			break;
+
+		pb_show_msg(obj, md);
+		free(obj, NULL);
+	}
+}
+
 /*
  * Reads PB record (header + packed object) from file @fd and unpack
  * it with @unpack procedure to the pointer @pobj

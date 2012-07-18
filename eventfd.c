@@ -43,22 +43,7 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 
 void show_eventfds(int fd, struct cr_options *o)
 {
-	EventfdFileEntry *efe;
-
-	pr_img_head(CR_FD_EVENTFD);
-
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd, &efe, eventfd_file_entry);
-		if (ret <= 0)
-			goto out;
-		pb_show_msg(efe, &eventfd_file_entry__descriptor);
-		eventfd_file_entry__free_unpacked(efe, NULL);
-	}
-
-out:
-	pr_img_tail(CR_FD_EVENTFD);
+	pb_show_plain(fd, eventfd_file_entry);
 }
 
 struct eventfd_dump_arg {

@@ -67,21 +67,11 @@
 	       #n2, s.n2,		\
 	       #n3, s.n3)
 
-static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
 
 void show_files(int fd_files, struct cr_options *o)
 {
-	pr_img_head(CR_FD_FDINFO);
-	while (1) {
-		FdinfoEntry *e;
-		int ret = pb_read_eof(fd_files, &e, fdinfo_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(e, &fdinfo_entry__descriptor);
-		fdinfo_entry__free_unpacked(e, NULL);
-	}
-	pr_img_tail(CR_FD_FDINFO);
+	pb_show_plain(fd_files, fdinfo_entry);
 }
 
 void show_fown_cont(fown_t *fown)
@@ -100,20 +90,7 @@ void pb_show_fown_cont(void *p)
 
 void show_reg_files(int fd_reg_files, struct cr_options *o)
 {
-	local_buf[0] = 0;
-
-	pr_img_head(CR_FD_REG_FILES);
-	while (1) {
-		RegFileEntry *rfe;
-		int ret;
-
-		ret = pb_read_eof(fd_reg_files, &rfe, reg_file_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(rfe, &reg_file_entry__descriptor);
-		reg_file_entry__free_unpacked(rfe, NULL);
-	}
-	pr_img_tail(CR_FD_REG_FILES);
+	pb_show_plain(fd_reg_files, reg_file_entry);
 }
 
 static inline char *remap_id_type(u32 id)
@@ -126,19 +103,7 @@ static inline char *remap_id_type(u32 id)
 
 void show_remap_files(int fd, struct cr_options *o)
 {
-	RemapFilePathEntry *rfe;
-
-	pr_img_head(CR_FD_REMAP_FPATH);
-	while (1) {
-		int ret;
-
-		ret = pb_read_eof(fd, &rfe, remap_file_path_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(rfe, &remap_file_path_entry__descriptor);
-		remap_file_path_entry__free_unpacked(rfe, NULL);
-	}
-	pr_img_tail(CR_FD_REMAP_FPATH);
+	pb_show_plain(fd, remap_file_path_entry);
 }
 
 void show_ghost_file(int fd, struct cr_options *o)
@@ -175,18 +140,7 @@ void show_pipes_data(int fd_pipes, struct cr_options *o)
 
 void show_pipes(int fd_pipes, struct cr_options *o)
 {
-	PipeEntry *e;
-	int ret;
-
-	pr_img_head(CR_FD_PIPES);
-	while (1) {
-		ret = pb_read_eof(fd_pipes, &e, pipe_entry);
-		if (ret <= 0)
-			break;
-		pb_show_msg(e, &pipe_entry__descriptor);
-		pipe_entry__free_unpacked(e, NULL);
-	}
-	pr_img_tail(CR_FD_PIPES);
+	pb_show_plain(fd_pipes, pipe_entry);
 }
 
 void show_fifo_data(int fd, struct cr_options *o)
@@ -198,16 +152,7 @@ void show_fifo_data(int fd, struct cr_options *o)
 
 void show_fifo(int fd, struct cr_options *o)
 {
-	FifoEntry *e;
-
-	pr_img_head(CR_FD_FIFO);
-	while (1) {
-		if (pb_read_eof(fd, &e, fifo_entry) <= 0)
-			break;
-		pb_show_msg(e, &fifo_entry__descriptor);
-		fifo_entry__free_unpacked(e, NULL);
-	}
-	pr_img_tail(CR_FD_FIFO);
+	pb_show_plain(fd, fifo_entry);
 }
 
 void show_fs(int fd_fs, struct cr_options *o)
