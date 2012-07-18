@@ -19,17 +19,17 @@
  * to match this typedefs.
  */
 
-typedef size_t (pb_getpksize_t)(void *obj);
-typedef size_t (pb_pack_t)(void *obj, void *where);
-typedef void *(pb_unpack_t)(void *allocator, size_t size, void *from);
+typedef size_t (*pb_getpksize_t)(void *obj);
+typedef size_t (*pb_pack_t)(void *obj, void *where);
+typedef void  *(*pb_unpack_t)(void *allocator, size_t size, void *from);
 
 extern int pb_read_object_with_header(int fd, void **pobj,
-				      pb_unpack_t *unpack,
+				      pb_unpack_t unpack,
 				      bool eof);
 
-#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn(NULL, 0, NULL); (pb_unpack_t *)&__fn; })
-#define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn(__o, NULL); (pb_pack_t *)&__fn; })
-#define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn(__o); (pb_getpksize_t *)&__fn; })
+#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn(NULL, 0, NULL); (pb_unpack_t)&__fn; })
+#define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn(__o, NULL); (pb_pack_t)&__fn; })
+#define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn(__o); (pb_getpksize_t)&__fn; })
 
 #define pb_read(__fd, __obj_pptr, __proto_message_name)					\
 	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
@@ -40,8 +40,8 @@ extern int pb_read_object_with_header(int fd, void **pobj,
 		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name ##__unpack), true)
 
 extern int pb_write_object_with_header(int fd, void *obj,
-				       pb_getpksize_t *getpksize,
-				       pb_pack_t *pack);
+				       pb_getpksize_t getpksize,
+				       pb_pack_t pack);
 
 #define pb_write(__fd, __obj, __proto_message_name)					\
 	pb_write_object_with_header(__fd, __obj,					\

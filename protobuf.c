@@ -153,7 +153,7 @@ void pb_show_msg(const void *msg, const void *msg_desc)
  *
  * Don't forget to free memory granted to unpacked object in calling code if needed
  */
-int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t *unpack, bool eof)
+int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof)
 {
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
@@ -215,7 +215,7 @@ err:
  *  0 on success
  * -1 on error
  */
-int pb_write_object_with_header(int fd, void *obj, pb_getpksize_t *getpksize, pb_pack_t *pack)
+int pb_write_object_with_header(int fd, void *obj, pb_getpksize_t getpksize, pb_pack_t pack)
 {
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
