@@ -280,53 +280,19 @@ static int dump_sigact(struct parasite_dump_sa_args *da)
 	return ret;
 }
 
-static int dump_itimer(int which, int fd)
+static int dump_itimers(struct parasite_dump_itimers_args *args)
 {
-	struct itimerval val;
 	int ret;
-	struct itimer_entry ie;
 
-	ret = sys_getitimer(which, &val);
-	if (ret < 0) {
-		sys_write_msg("getitimer failed\n");
-		return ret;
-	}
+	ret = sys_getitimer(ITIMER_REAL, &args->real);
+	if (!ret)
+		ret = sys_getitimer(ITIMER_VIRTUAL, &args->virt);
+	if (!ret)
+		ret = sys_getitimer(ITIMER_PROF, &args->prof);
 
-	ie.isec = val.it_interval.tv_sec;
-	ie.iusec = val.it_interval.tv_usec;
-	ie.vsec = val.it_value.tv_sec;
-	ie.vusec = val.it_value.tv_sec;
-
-	ret = sys_write_safe(fd, &ie, sizeof(ie));
 	if (ret)
-		return ret;
+		sys_write_msg("getitimer failed\n");
 
-	return 0;
-}
-
-static int dump_itimers()
-{
-	int fd;
-	int ret = -1;
-
-	fd = recv_fd(tsock);
-	if (fd < 0)
-		return fd;
-
-	ret = dump_itimer(ITIMER_REAL, fd);
-	if (ret < 0)
-		goto err_close;
-
-	ret = dump_itimer(ITIMER_VIRTUAL, fd);
-	if (ret < 0)
-		goto err_close;
-
-	ret = dump_itimer(ITIMER_PROF, fd);
-	if (ret < 0)
-		goto err_close;
-
-err_close:
-	sys_close(fd);
 	return ret;
 }
 
@@ -453,7 +419,7 @@ int __used parasite_service(unsigned long cmd, void *args)
 	case PARASITE_CMD_DUMP_SIGACTS:
 		return dump_sigact((struct parasite_dump_sa_args *)args);
 	case PARASITE_CMD_DUMP_ITIMERS:
-		return dump_itimers();
+		return dump_itimers((struct parasite_dump_itimers_args *)args);
 	case PARASITE_CMD_DUMP_MISC:
 		return dump_misc((struct parasite_dump_misc *)args);
 	case PARASITE_CMD_DUMP_TID_ADDR:

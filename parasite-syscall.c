@@ -349,30 +349,6 @@ static int parasite_prep_file(int fd, struct parasite_ctl *ctl)
 	return 0;
 }
 
-static int parasite_file_cmd(char *what, int cmd, int type,
-			     struct parasite_ctl *ctl,
-			     struct cr_fdset *cr_fdset)
-{
-	int ret = -1, fd;
-
-	pr_info("\n");
-	pr_info("Dumping %s (pid: %d)\n", what, ctl->pid);
-	pr_info("----------------------------------------\n");
-
-	fd = fdset_fd(cr_fdset, type);
-	ret = parasite_prep_file(fd, ctl);
-	if (ret < 0)
-		goto out;
-
-	ret = parasite_execute(cmd, ctl, NULL, 0);
-
-	fchmod(fd, CR_FD_PERM);
-out:
-	pr_info("----------------------------------------\n");
-
-	return ret;
-}
-
 static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 {
 	struct parasite_init_args args = { };
@@ -479,10 +455,36 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	return 0;
 }
 
+static int dump_one_timer(struct itimerval *v, int fd)
+{
+	struct itimer_entry ie;
+
+	ie.isec = v->it_interval.tv_sec;
+	ie.iusec = v->it_interval.tv_usec;
+	ie.vsec = v->it_value.tv_sec;
+	ie.vusec = v->it_value.tv_sec;
+
+	return write_img(fd, &ie);
+}
+
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
-	return parasite_file_cmd("timers", PARASITE_CMD_DUMP_ITIMERS,
-				 CR_FD_ITIMERS, ctl, cr_fdset);
+	struct parasite_dump_itimers_args args;
+	int ret, fd;
+
+	ret = parasite_execute(PARASITE_CMD_DUMP_ITIMERS, ctl, &args, sizeof(args));
+	if (ret < 0)
+		return ret;
+
+	fd = fdset_fd(cr_fdset, CR_FD_ITIMERS);
+
+	ret = dump_one_timer(&args.real, fd);
+	if (!ret)
+		ret = dump_one_timer(&args.virt, fd);
+	if (!ret)
+		ret = dump_one_timer(&args.prof, fd);
+
+	return ret;
 }
 
 int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)

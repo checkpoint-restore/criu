@@ -52,6 +52,12 @@ struct parasite_dump_sa_args {
 	rt_sigaction_t sas[SIGMAX];
 };
 
+struct parasite_dump_itimers_args {
+	struct itimerval real;
+	struct itimerval virt;
+	struct itimerval prof;
+};
+
 /*
  * Misc sfuff, that is too small for separate file, but cannot
  * be read w/o using parasite
