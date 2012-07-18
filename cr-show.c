@@ -36,6 +36,7 @@
 #include "protobuf/pipe.pb-c.h"
 #include "protobuf/pipe-data.pb-c.h"
 #include "protobuf/sa.pb-c.h"
+#include "protobuf/itimer.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -383,7 +384,7 @@ out:
 	pr_img_tail(CR_FD_SIGACT);
 }
 
-static void show_itimer(char *n, struct itimer_entry *ie)
+static void show_itimer(char *n, ItimerEntry *ie)
 {
 	pr_msg("%s: int %lu.%lu val %lu.%lu\n", n,
 	       (unsigned long)ie->isec, (unsigned long)ie->iusec,
@@ -392,15 +393,28 @@ static void show_itimer(char *n, struct itimer_entry *ie)
 
 void show_itimers(int fd, struct cr_options *o)
 {
-	struct itimer_entry ie[3];
+	ItimerEntry *ie;
+	int ret;
 
 	pr_img_head(CR_FD_ITIMERS);
-	if (read_img_buf(fd, ie, sizeof(ie)) < 0)
-		goto out;
 
-	show_itimer("real", &ie[0]);
-	show_itimer("virt", &ie[1]);
-	show_itimer("prof", &ie[2]);
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	show_itimer("real", ie);
+	itimer_entry__free_unpacked(ie, NULL);
+
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	show_itimer("virt", ie);
+	itimer_entry__free_unpacked(ie, NULL);
+
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	show_itimer("prof", ie);
+	itimer_entry__free_unpacked(ie, NULL);
 out:
 	pr_img_tail(CR_FD_ITIMERS);
 }

@@ -14,6 +14,7 @@
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
+#include "protobuf/itimer.pb-c.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -460,14 +461,14 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 
 static int dump_one_timer(struct itimerval *v, int fd)
 {
-	struct itimer_entry ie;
+	ItimerEntry ie = ITIMER_ENTRY__INIT;
 
 	ie.isec = v->it_interval.tv_sec;
 	ie.iusec = v->it_interval.tv_usec;
 	ie.vsec = v->it_value.tv_sec;
 	ie.vusec = v->it_value.tv_sec;
 
-	return write_img(fd, &ie);
+	return pb_write(fd, &ie, itimer_entry);
 }
 
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)

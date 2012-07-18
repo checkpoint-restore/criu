@@ -37,6 +37,7 @@ PROTO_FILES	+= sk-packet.proto
 PROTO_FILES	+= mnt.proto
 PROTO_FILES	+= pipe-data.proto
 PROTO_FILES	+= sa.proto
+PROTO_FILES	+= itimer.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

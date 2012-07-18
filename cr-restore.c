@@ -51,6 +51,7 @@
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
+#include "protobuf/itimer.pb-c.h"
 
 static struct pstree_item *me;
 
@@ -937,7 +938,7 @@ static inline int timeval_valid(struct timeval *tv)
 	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
 }
 
-static inline int itimer_restore_and_fix(char *n, struct itimer_entry *ie,
+static inline int itimer_restore_and_fix(char *n, ItimerEntry *ie,
 		struct itimerval *val)
 {
 	if (ie->isec == 0 && ie->iusec == 0) {
@@ -980,23 +981,36 @@ static inline int itimer_restore_and_fix(char *n, struct itimer_entry *ie,
 static int prepare_itimers(int pid, struct task_restore_core_args *args)
 {
 	int fd, ret = -1;
-	struct itimer_entry ie[3];
+	ItimerEntry *ie;
 
 	fd = open_image_ro(CR_FD_ITIMERS, pid);
 	if (fd < 0)
 		return fd;
 
-	if (read_img_buf(fd, ie, sizeof(ie)) > 0) {
-		ret = itimer_restore_and_fix("real",
-				&ie[0], &args->itimers[0]);
-		if (!ret)
-			ret = itimer_restore_and_fix("virt",
-					&ie[1], &args->itimers[1]);
-		if (!ret)
-			ret = itimer_restore_and_fix("prof",
-					&ie[2], &args->itimers[2]);
-	}
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	ret = itimer_restore_and_fix("real", ie, &args->itimers[0]);
+	itimer_entry__free_unpacked(ie, NULL);
+	if (ret < 0)
+		goto out;
 
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	ret = itimer_restore_and_fix("virt", ie, &args->itimers[1]);
+	itimer_entry__free_unpacked(ie, NULL);
+	if (ret < 0)
+		goto out;
+
+	ret = pb_read(fd, &ie, itimer_entry);
+	if (ret < 0)
+		goto out;
+	ret = itimer_restore_and_fix("prof", ie, &args->itimers[2]);
+	itimer_entry__free_unpacked(ie, NULL);
+	if (ret < 0)
+		goto out;
+out:
 	close_safe(&fd);
 	return ret;
 }

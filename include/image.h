@@ -201,13 +201,6 @@ struct page_entry {
 	u8	data[PAGE_IMAGE_SIZE];
 } __packed;
 
-struct itimer_entry {
-	u64		isec;
-	u64		iusec;
-	u64		vsec;
-	u64		vusec;
-} __packed;
-
 #define CR_CAP_SIZE	2
 
 struct creds_entry {
