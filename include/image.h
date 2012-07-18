@@ -335,22 +335,6 @@ struct task_core_entry {
 	u64				blk_sigset;
 };
 
-struct mm_entry {
-	u64	mm_start_code;
-	u64	mm_end_code;
-	u64	mm_start_data;
-	u64	mm_end_data;
-	u64	mm_start_stack;
-	u64	mm_start_brk;
-	u64	mm_brk;
-	u64	mm_arg_start;
-	u64	mm_arg_end;
-	u64	mm_env_start;
-	u64	mm_env_end;
-	u64	mm_saved_auxv[AT_VECTOR_SIZE];
-	u32	exe_file_id;
-} __packed;
-
 struct core_ids_entry {
 	u32	vm_id;
 	u32	files_id;

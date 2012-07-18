@@ -437,8 +437,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)args->mm.mm_arg_end, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)args->mm.mm_env_start, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)args->mm.mm_env_end, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm.mm_saved_auxv,
-								sizeof(args->mm.mm_saved_auxv));
+	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm_saved_auxv,
+								sizeof(args->mm_saved_auxv));
 	if (ret)
 		goto core_restore_end;
 

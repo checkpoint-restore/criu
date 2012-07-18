@@ -1057,23 +1057,38 @@ static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct li
 
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
-	int fd, exe_fd;
+	int fd, exe_fd, ret = -1;
+	MmEntry *mm;
 
 	fd = open_image_ro(CR_FD_MM, pid);
 	if (fd < 0)
 		return -1;
 
-	if (read_img(fd, &args->mm) < 0)
+	if (pb_read(fd, &mm, mm_entry) < 0)
 		return -1;
+
+	args->mm = *mm;
+	args->mm.n_mm_saved_auxv = 0;
+	args->mm.mm_saved_auxv = NULL;
+
+	if (mm->n_mm_saved_auxv != AT_VECTOR_SIZE) {
+		pr_err("Image corrupted on pid %d\n", pid);
+		goto out;
+	}
+
+	memcpy(args->mm_saved_auxv, mm->mm_saved_auxv,
+	       pb_repeated_size(mm, mm_saved_auxv));
 
 	exe_fd = open_reg_by_id(args->mm.exe_file_id);
 	if (exe_fd < 0)
-		return -1;
+		goto out;
 
 	args->fd_exe_link = exe_fd;
-
+	ret = 0;
+out:
+	mm_entry__free_unpacked(mm, NULL);
 	close(fd);
-	return 0;
+	return ret;
 }
 
 static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)

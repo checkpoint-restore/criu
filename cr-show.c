@@ -37,6 +37,7 @@
 #include "protobuf/pipe-data.pb-c.h"
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
+#include "protobuf/mm.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -615,25 +616,27 @@ out:
 
 void show_mm(int fd_mm, struct cr_options *o)
 {
-	struct mm_entry mme;
+	MmEntry *mme;
 
 	pr_img_head(CR_FD_MM);
 
-	if (read_img(fd_mm, &mme) < 0)
+	if (pb_read(fd_mm, &mme, mm_entry) < 0)
 		goto out;
 
-	pr_msg("\tBrk:          0x%lx\n", mme.mm_brk);
-	pr_msg("\tStart code:   0x%lx\n", mme.mm_start_code);
-	pr_msg("\tEnd code:     0x%lx\n", mme.mm_end_code);
-	pr_msg("\tStart stack:  0x%lx\n", mme.mm_start_stack);
-	pr_msg("\tStart data:   0x%lx\n", mme.mm_start_data);
-	pr_msg("\tEnd data:     0x%lx\n", mme.mm_end_data);
-	pr_msg("\tStart brk:    0x%lx\n", mme.mm_start_brk);
-	pr_msg("\tArg start:    0x%lx\n", mme.mm_arg_start);
-	pr_msg("\tArg end:      0x%lx\n", mme.mm_arg_end);
-	pr_msg("\tEnv start:    0x%lx\n", mme.mm_env_start);
-	pr_msg("\tEnv end:      0x%lx\n", mme.mm_env_end);
-	pr_msg("\tExe file ID   %#x\n", mme.exe_file_id);
+	pr_msg("\tBrk:          0x%lx\n", mme->mm_brk);
+	pr_msg("\tStart code:   0x%lx\n", mme->mm_start_code);
+	pr_msg("\tEnd code:     0x%lx\n", mme->mm_end_code);
+	pr_msg("\tStart stack:  0x%lx\n", mme->mm_start_stack);
+	pr_msg("\tStart data:   0x%lx\n", mme->mm_start_data);
+	pr_msg("\tEnd data:     0x%lx\n", mme->mm_end_data);
+	pr_msg("\tStart brk:    0x%lx\n", mme->mm_start_brk);
+	pr_msg("\tArg start:    0x%lx\n", mme->mm_arg_start);
+	pr_msg("\tArg end:      0x%lx\n", mme->mm_arg_end);
+	pr_msg("\tEnv start:    0x%lx\n", mme->mm_env_start);
+	pr_msg("\tEnv end:      0x%lx\n", mme->mm_env_end);
+	pr_msg("\tExe file ID   %#x\n", mme->exe_file_id);
+
+	mm_entry__free_unpacked(mme, NULL);
 out:
 	pr_img_tail(CR_FD_MM);
 }

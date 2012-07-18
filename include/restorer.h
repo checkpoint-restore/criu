@@ -11,6 +11,8 @@
 #include "util.h"
 #include "crtools.h"
 
+#include "../protobuf/mm.pb-c.h"
+
 #ifndef CONFIG_X86_64
 # error Only x86-64 is supported
 #endif
@@ -84,7 +86,9 @@ struct task_restore_core_args {
 	struct itimerval		itimers[3];
 
 	struct creds_entry		creds;
-	struct mm_entry			mm;
+
+	MmEntry				mm;
+	u64				mm_saved_auxv[AT_VECTOR_SIZE];
 } __aligned(sizeof(long));
 
 struct pt_regs {

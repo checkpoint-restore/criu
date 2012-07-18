@@ -49,6 +49,7 @@
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fs.pb-c.h"
+#include "protobuf/mm.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -156,7 +157,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	return pb_write(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, fdinfo_entry);
 }
 
-static int dump_task_exe_link(pid_t pid, struct mm_entry *mm)
+static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 {
 	struct fd_parms params = { };
 	int fd, ret;
@@ -494,7 +495,7 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
 #define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
 
-static int get_task_auxv(pid_t pid, struct mm_entry *mm)
+static int get_task_auxv(pid_t pid, MmEntry *mm)
 {
 	int fd, ret, i;
 
@@ -526,7 +527,8 @@ err:
 static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct cr_fdset *fdset)
 {
-	struct mm_entry mme;
+	MmEntry mme = MM_ENTRY__INIT;
+	int ret = -1;
 
 	mme.mm_start_code = stat->start_code;
 	mme.mm_end_code = stat->end_code;
@@ -542,14 +544,22 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 
 	mme.mm_brk = misc->brk;
 
+	mme.n_mm_saved_auxv = AT_VECTOR_SIZE;
+	mme.mm_saved_auxv = xmalloc(pb_repeated_size(&mme, mm_saved_auxv));
+	if (!mme.mm_saved_auxv)
+		goto out;
+
 	if (get_task_auxv(pid, &mme))
-		return -1;
+		goto out;
 	pr_info("OK\n");
 
 	if (dump_task_exe_link(pid, &mme))
-		return -1;
+		goto out;
 
-	return write_img(fdset_fd(fdset, CR_FD_MM), &mme);
+	ret = pb_write(fdset_fd(fdset, CR_FD_MM), &mme, mm_entry);
+	xfree(mme.mm_saved_auxv);
+out:
+	return ret;
 }
 
 static int get_task_personality(pid_t pid, u32 *personality)

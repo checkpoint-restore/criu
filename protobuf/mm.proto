@@ -1,0 +1,16 @@
+message mm_entry {
+	required uint64	mm_start_code	=  1;
+	required uint64	mm_end_code	=  2;
+	required uint64	mm_start_data	=  3;
+	required uint64	mm_end_data	=  4;
+	required uint64	mm_start_stack	=  5;
+	required uint64	mm_start_brk	=  6;
+	required uint64	mm_brk		=  7;
+	required uint64	mm_arg_start	=  8;
+	required uint64	mm_arg_end	=  9;
+	required uint64	mm_env_start	= 10;
+	required uint64	mm_env_end	= 11;
+	required uint32	exe_file_id	= 12;
+
+	repeated uint64	mm_saved_auxv	= 13;
+}
