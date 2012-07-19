@@ -195,7 +195,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 				ue.ino, ue.peer);
 	}
 
-	if (pb_dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, unix_sk_entry))
@@ -470,7 +470,7 @@ void show_unixsk(int fd, struct cr_options *o)
 		pr_msg("\n");
 
 		if (ue->opts)
-			pb_show_socket_opts(ue->opts);
+			show_socket_opts(ue->opts);
 		unix_sk_entry__free_unpacked(ue, NULL);
 	}
 out:
@@ -540,7 +540,7 @@ try_again:
 		if (rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
 			return -1;
 
-		if (pb_restore_socket_opts(fle->fe->fd, ui->ue->opts))
+		if (restore_socket_opts(fle->fe->fd, ui->ue->opts))
 			return -1;
 
 		cj = cj->next;
@@ -651,7 +651,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 		return -1;
 
-	if (pb_restore_socket_opts(sk, ui->ue->opts))
+	if (restore_socket_opts(sk, ui->ue->opts))
 		return -1;
 
 	return sk;
@@ -683,7 +683,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 			return -1;
 
-		if (pb_restore_socket_opts(sk, ui->ue->opts))
+		if (restore_socket_opts(sk, ui->ue->opts))
 			return -1;
 
 	} else if (ui->peer) {

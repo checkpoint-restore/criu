@@ -209,7 +209,7 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
-	if (pb_dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, inet_sk_entry))
@@ -390,7 +390,7 @@ done:
 	if (rst_file_params(sk, ii->ie->fown, ii->ie->flags))
 		goto err;
 
-	if (pb_restore_socket_opts(sk, ii->ie->opts))
+	if (restore_socket_opts(sk, ii->ie->opts))
 		return -1;
 
 	return sk;
@@ -501,7 +501,7 @@ void show_inetsk(int fd, struct cr_options *o)
 			ie->id, ie->ino, skfamily2s(ie->family), sktype2s(ie->type), skproto2s(ie->proto),
 			skstate2s(ie->state), src_addr, ie->src_port, dst_addr, ie->dst_port, ie->flags);
 		pr_msg("\t"), show_fown_cont(ie->fown), pr_msg("\n");
-		pb_show_socket_opts(ie->opts);
+		show_socket_opts(ie->opts);
 
 		inet_sk_entry__free_unpacked(ie, NULL);
 	}

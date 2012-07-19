@@ -63,7 +63,7 @@ static int do_restore_opt(int sk, int name, void *val, int len)
 
 #define restore_opt(s, n, f)	do_restore_opt(s, n, f, sizeof(*f))
 
-int pb_restore_socket_opts(int sk, SkOptsEntry *soe)
+int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0;
 	struct timeval tv;
@@ -78,18 +78,6 @@ int pb_restore_socket_opts(int sk, SkOptsEntry *soe)
 	tv.tv_sec = soe->so_rcv_tmo_sec;
 	tv.tv_usec = soe->so_rcv_tmo_usec;
 	ret |= restore_opt(sk, SO_RCVTIMEO, &tv);
-
-	return ret;
-}
-
-int restore_socket_opts(int sk, struct sk_opts_entry *soe)
-{
-	int ret = 0;
-
-	ret |= restore_opt(sk, SO_SNDBUFFORCE, &soe->so_sndbuf);
-	ret |= restore_opt(sk, SO_RCVBUFFORCE, &soe->so_rcvbuf);
-	ret |= restore_opt(sk, SO_SNDTIMEO, &soe->so_snd_tmo);
-	ret |= restore_opt(sk, SO_RCVTIMEO, &soe->so_rcv_tmo);
 
 	return ret;
 }
@@ -114,19 +102,7 @@ int do_dump_opt(int sk, int name, void *val, int len)
 
 #define dump_opt(s, n, f)	do_dump_opt(s, n, f, sizeof(*f))
 
-int dump_socket_opts(int sk, struct sk_opts_entry *soe)
-{
-	int ret = 0;
-
-	ret |= dump_opt(sk, SO_SNDBUF, &soe->so_sndbuf);
-	ret |= dump_opt(sk, SO_RCVBUF, &soe->so_rcvbuf);
-	ret |= dump_opt(sk, SO_SNDTIMEO, &soe->so_snd_tmo);
-	ret |= dump_opt(sk, SO_RCVTIMEO, &soe->so_rcv_tmo);
-
-	return ret;
-}
-
-int pb_dump_socket_opts(int sk, SkOptsEntry *soe)
+int dump_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0;
 	struct timeval tv;
@@ -402,29 +378,7 @@ char *skstate2s(u32 state)
 		return unknown(state);
 }
 
-static void sk_show_timeval(char *name, u64 *tmo)
-{
-	struct timeval tv;
-
-	tv.tv_sec = tmo[0];
-	tv.tv_usec = tmo[1];
-
-	pr_msg("%s: %lu.%lu  ", name, tv.tv_sec, tv.tv_usec);
-}
-
-void show_socket_opts(struct sk_opts_entry *soe)
-{
-	pr_msg("\t");
-
-	pr_msg("sndbuf: %u  ", soe->so_sndbuf);
-	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
-	sk_show_timeval("sndtmo", soe->so_snd_tmo);
-	sk_show_timeval("rcvtmo", soe->so_rcv_tmo);
-
-	pr_msg("\n");
-}
-
-void pb_show_socket_opts(SkOptsEntry *soe)
+void show_socket_opts(SkOptsEntry *soe)
 {
 	pr_msg("\t");
 
