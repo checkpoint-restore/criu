@@ -42,12 +42,12 @@ static void pb_msg_unk(void *obj, void *arg)
 	pr_msg("unknown object %p\n", obj);
 }
 
-static void __pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md);
+static void pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md);
 
 static void show_nested_message(void *msg, void *md)
 {
 	pr_msg("[ ");
-	__pb_show_msg(msg, md);
+	pb_show_msg(msg, md);
 	pr_msg(" ] ");
 }
 
@@ -132,7 +132,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 	pr_msg(" ");
 }
 
-static void __pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
+static void pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
 {
 	int i;
 
@@ -158,12 +158,6 @@ static void __pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
 	}
 }
 
-void pb_show_msg(const void *msg, const void *msg_desc)
-{
-	__pb_show_msg(msg, msg_desc);
-	pr_msg("\n");
-}
-
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 		pb_unpack_t unpack, pb_free_t free)
 {
@@ -174,6 +168,7 @@ void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 			break;
 
 		pb_show_msg(obj, md);
+		pr_msg("\n");
 		free(obj, NULL);
 	}
 }

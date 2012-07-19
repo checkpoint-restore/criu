@@ -58,7 +58,6 @@ extern int pb_write_object_with_header(int fd, void *obj,
 
 #include <google/protobuf-c/protobuf-c.h>
 
-extern void pb_show_msg(const void *msg, const void *msg_desc);
 extern void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *d,
 		pb_unpack_t unpack, pb_free_t free);
 
