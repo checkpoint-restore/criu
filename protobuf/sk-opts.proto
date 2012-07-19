@@ -1,0 +1,9 @@
+message sk_opts_entry {
+	required uint32		so_sndbuf	= 1;
+	required uint32		so_rcvbuf	= 2;
+
+	required uint64		so_snd_tmo_sec	= 3;
+	required uint64		so_snd_tmo_usec	= 4;
+	required uint64		so_rcv_tmo_sec	= 5;
+	required uint64		so_rcv_tmo_usec	= 6;
+}

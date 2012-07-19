@@ -63,6 +63,25 @@ static int do_restore_opt(int sk, int name, void *val, int len)
 
 #define restore_opt(s, n, f)	do_restore_opt(s, n, f, sizeof(*f))
 
+int pb_restore_socket_opts(int sk, SkOptsEntry *soe)
+{
+	int ret = 0;
+	struct timeval tv;
+
+	ret |= restore_opt(sk, SO_SNDBUFFORCE, &soe->so_sndbuf);
+	ret |= restore_opt(sk, SO_RCVBUFFORCE, &soe->so_rcvbuf);
+
+	tv.tv_sec = soe->so_snd_tmo_sec;
+	tv.tv_usec = soe->so_snd_tmo_usec;
+	ret |= restore_opt(sk, SO_SNDTIMEO, &tv);
+
+	tv.tv_sec = soe->so_rcv_tmo_sec;
+	tv.tv_usec = soe->so_rcv_tmo_usec;
+	ret |= restore_opt(sk, SO_RCVTIMEO, &tv);
+
+	return ret;
+}
+
 int restore_socket_opts(int sk, struct sk_opts_entry *soe)
 {
 	int ret = 0;
@@ -103,6 +122,25 @@ int dump_socket_opts(int sk, struct sk_opts_entry *soe)
 	ret |= dump_opt(sk, SO_RCVBUF, &soe->so_rcvbuf);
 	ret |= dump_opt(sk, SO_SNDTIMEO, &soe->so_snd_tmo);
 	ret |= dump_opt(sk, SO_RCVTIMEO, &soe->so_rcv_tmo);
+
+	return ret;
+}
+
+int pb_dump_socket_opts(int sk, SkOptsEntry *soe)
+{
+	int ret = 0;
+	struct timeval tv;
+
+	ret |= dump_opt(sk, SO_SNDBUF, &soe->so_sndbuf);
+	ret |= dump_opt(sk, SO_RCVBUF, &soe->so_rcvbuf);
+
+	ret |= dump_opt(sk, SO_SNDTIMEO, &tv);
+	soe->so_snd_tmo_sec = tv.tv_sec;
+	soe->so_snd_tmo_usec = tv.tv_usec;
+
+	ret |= dump_opt(sk, SO_RCVTIMEO, &tv);
+	soe->so_rcv_tmo_sec = tv.tv_sec;
+	soe->so_rcv_tmo_usec = tv.tv_usec;
 
 	return ret;
 }
@@ -382,6 +420,18 @@ void show_socket_opts(struct sk_opts_entry *soe)
 	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
 	sk_show_timeval("sndtmo", soe->so_snd_tmo);
 	sk_show_timeval("rcvtmo", soe->so_rcv_tmo);
+
+	pr_msg("\n");
+}
+
+void pb_show_socket_opts(SkOptsEntry *soe)
+{
+	pr_msg("\t");
+
+	pr_msg("sndbuf: %u  ", soe->so_sndbuf);
+	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
+	pr_msg("sndtmo: %lu.%lu  ", soe->so_snd_tmo_sec, soe->so_snd_tmo_usec);
+	pr_msg("rcvtmo: %lu.%lu  ", soe->so_rcv_tmo_sec, soe->so_rcv_tmo_usec);
 
 	pr_msg("\n");
 }
