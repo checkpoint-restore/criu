@@ -88,14 +88,6 @@ void show_reg_files(int fd_reg_files, struct cr_options *o)
 	pb_show_plain(fd_reg_files, reg_file_entry);
 }
 
-static inline char *remap_id_type(u32 id)
-{
-	if (id & REMAP_GHOST)
-		return "ghost";
-	else
-		return "real";
-}
-
 void show_remap_files(int fd, struct cr_options *o)
 {
 	pb_show_plain(fd, remap_file_path_entry);
