@@ -11,7 +11,7 @@ crtools - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-'crtools' [-c] [-s] [-f <file>] [-d] [-n] [-o <path>] [-D <path>] [-v [num]] [--help] <command> (-p|-t) <pid>
+'crtools' [-c] [-s] [-f <file>] [-d] [-n] [-o <path>] [-D <path>] [-v [num]] [--help] <command> -t <pid>
 
 DESCRIPTION
 -----------
@@ -46,10 +46,6 @@ OPTIONS
 -f <file>::
     This option is valid for 'show' command only and allows to see content of
     the <file> specified.
-
--p <pid>::
-    Checkpoint only one process specified by 'pid' instead of the whole process
-    tree.
 
 -t <pid>::
     Checkpoint the whole process tree starting from 'pid'.

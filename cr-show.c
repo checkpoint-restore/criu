@@ -600,9 +600,6 @@ static int cr_show_all(struct cr_options *opts)
 				fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
 
 		close_cr_fdset(&cr_fdset);
-
-		if (opts->leader_only)
-			break;
 	}
 
 out:

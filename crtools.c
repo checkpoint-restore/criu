@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:p:t:hcD:o:n:vxV";
+	static const char short_opts[] = "dsf:t:hcD:o:n:vxV";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -69,7 +69,6 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		static struct option long_opts[] = {
-			{ "pid", required_argument, 0, 'p' },
 			{ "tree", required_argument, 0, 't' },
 			{ "leave-stopped", no_argument, 0, 's' },
 			{ "restore-detached", no_argument, 0, 'd' },
@@ -98,13 +97,8 @@ int main(int argc, char *argv[])
 		case 'x':
 			opts.ext_unix_sk = true;
 			break;
-		case 'p':
-			pid = atoi(optarg);
-			opts.leader_only = true;
-			break;
 		case 't':
 			pid = atoi(optarg);
-			opts.leader_only = false;
 			break;
 		case 'c':
 			opts.show_pages_content	= true;
@@ -236,7 +230,6 @@ usage:
 	pr_msg("\nDump/Restore options:\n");
 
 	pr_msg("\n* Generic:\n");
-	pr_msg("  -p|--pid              checkpoint/restore only a single process identified by pid\n");
 	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
 	pr_msg("  -d|--restore-detached detach after restore\n");
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");

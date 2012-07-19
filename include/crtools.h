@@ -76,7 +76,6 @@ enum {
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
-	bool			leader_only;
 	bool			show_pages_content;
 	bool			restore_detach;
 	bool			ext_unix_sk;

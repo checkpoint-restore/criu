@@ -859,7 +859,7 @@ static int prepare_task_entries()
 	return 0;
 }
 
-static int restore_all_tasks(pid_t pid, struct cr_options *opts)
+int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
 	if (check_img_inventory() < 0)
 		return -1;
@@ -1367,11 +1367,4 @@ err:
 	/* Just to be sure */
 	exit(1);
 	return -1;
-}
-
-int cr_restore_tasks(pid_t pid, struct cr_options *opts)
-{
-	if (opts->leader_only)
-		return restore_one_task(pid);
-	return restore_all_tasks(pid, opts);
 }

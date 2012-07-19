@@ -1051,7 +1051,7 @@ static int check_subtree(const struct pstree_item *item)
 	return 0;
 }
 
-static int collect_subtree(struct pstree_item *item, int leader_only)
+static int collect_subtree(struct pstree_item *item)
 {
 	struct pstree_item *child;
 	pid_t pid = item->pid.real;
@@ -1062,11 +1062,8 @@ static int collect_subtree(struct pstree_item *item, int leader_only)
 	if (ret)
 		return -1;
 
-	if (leader_only)
-		return 0;
-
 	list_for_each_entry(child, &item->children, list) {
-		ret = collect_subtree(child, 0);
+		ret = collect_subtree(child);
 		if (ret < 0)
 			return -1;
 	}
@@ -1089,7 +1086,7 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 		root_item->pid.real = pid;
 		INIT_LIST_HEAD(&root_item->list);
 
-		ret = collect_subtree(root_item, opts->leader_only);
+		ret = collect_subtree(root_item);
 		if (ret == 0) {
 			/*
 			 * Some tasks could have been reparented to
@@ -1373,7 +1370,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	int ret = -1;
 
 	pr_info("========================================\n");
-	pr_info("Dumping process %s(pid: %d)\n", !opts->leader_only ? "group " : "", pid);
+	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
 	if (write_img_inventory())
@@ -1401,9 +1398,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	for_each_pstree_item(item) {
 		if (dump_one_task(item))
 			goto err;
-
-		if (opts->leader_only)
-			break;
 	}
 
 	if (dump_pstree(root_item))
