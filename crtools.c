@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:p:t:hcD:o:n:vx";
+	static const char short_opts[] = "dsf:p:t:hcD:o:n:vxV";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 			{ SK_EST_PARAM, no_argument, 0, 42 },
 			{ "close", required_argument, 0, 43 },
 			{ "log-pid", no_argument, 0, 44},
+			{ "version", no_argument, 0, 'V'},
 			{ },
 		};
 
@@ -162,6 +163,9 @@ int main(int argc, char *argv[])
 		case 44:
 			opts.log_file_per_pid = 1;
 			break;
+		case 'V':
+			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
+			return 0;
 		case 'h':
 		default:
 			goto usage;
@@ -262,6 +266,7 @@ usage:
 
 	pr_msg("\nOther options:\n");
 	pr_msg("  -h|--help             show this text\n");
+	pr_msg("  -V|--version          show version\n");
 
 	return -1;
 
