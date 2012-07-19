@@ -76,13 +76,10 @@ static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
-	FownEntry fown;
-
-	pb_prep_fown(&fown, &p->fown);
 
 	e.id = id;
 	e.flags = p->flags;
-	e.fown = &fown;
+	e.fown = (FownEntry *)&p->fown;
 
 	pr_info_eventpoll("Dumping ", &e);
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_EVENTPOLL),
@@ -118,7 +115,7 @@ static int eventpoll_open(struct file_desc *d)
 		return -1;
 	}
 
-	if (pb_rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
+	if (rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore file params on epoll %#08x",
 			  info->efe->id);
 		goto err_close;

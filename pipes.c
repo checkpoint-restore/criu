@@ -231,7 +231,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	close(tmp);
 
 	if (fd >= 0) {
-		if (pb_restore_fown(fd, pi->pe->fown)) {
+		if (restore_fown(fd, pi->pe->fown)) {
 			close(fd);
 			return -1;
 		}
@@ -288,7 +288,7 @@ static int open_pipe(struct file_desc *d)
 	close(pfd[!(pi->pe->flags & O_WRONLY)]);
 	tmp = pfd[pi->pe->flags & O_WRONLY];
 
-	if (pb_rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
+	if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
 		return -1;
 
 	return tmp;
@@ -430,17 +430,14 @@ static struct pipe_data_dump pd_pipes = { .img_type = CR_FD_PIPES_DATA, };
 static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 {
 	PipeEntry pe = PIPE_ENTRY__INIT;
-	FownEntry fown = FOWN_ENTRY__INIT;
 
 	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n",
 			lfd, id, pipe_id(p));
 
-	pb_prep_fown(&fown, &p->fown);
-
 	pe.id		= id;
 	pe.pipe_id	= pipe_id(p);
 	pe.flags	= p->flags;
-	pe.fown		= &fown;
+	pe.fown		= (FownEntry *)&p->fown;
 
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, pipe_entry))
 		return -1;

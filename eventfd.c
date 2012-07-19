@@ -55,19 +55,16 @@ struct eventfd_dump_arg {
 static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 {
 	struct eventfd_dump_arg *da = arg;
-	FownEntry fown;
 
 	if (da->dumped) {
 		pr_err("Several counters in a file?\n");
 		return -1;
 	}
 
-	pb_prep_fown(&fown, &da->p->fown);
-
 	da->dumped = true;
 	e->efd.id = da->id;
 	e->efd.flags = da->p->flags;
-	e->efd.fown = &fown;
+	e->efd.fown = (FownEntry *)&da->p->fown;
 
 	pr_info_eventfd("Dumping ", &e->efd);
 	return pb_write(fdset_fd(glob_fdset, CR_FD_EVENTFD),
@@ -105,7 +102,7 @@ static int eventfd_open(struct file_desc *d)
 		return -1;
 	}
 
-	if (pb_rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
+	if (rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
 		pr_perror("Can't restore params on eventfd %#08x",
 			  info->efe->id);
 		goto err_close;

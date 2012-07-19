@@ -111,7 +111,6 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk;
 	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
-	FownEntry fown = FOWN_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino);
@@ -123,8 +122,6 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	BUG_ON(sk->sd.already_dumped);
 
-	pb_prep_fown(&fown, &p->fown);
-
 	ue.name.len	= (size_t)sk->namelen;
 	ue.name.data	= (void *)sk->name;
 
@@ -135,7 +132,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue.flags	= p->flags;
 	ue.backlog	= sk->wqlen;
 	ue.peer		= sk->peer_ino;
-	ue.fown		= &fown;
+	ue.fown		= (FownEntry *)&p->fown;
 	ue.opts		= &skopts;
 	ue.uflags	= 0;
 
@@ -469,7 +466,7 @@ void show_unixsk(int fd, struct cr_options *o)
 			pr_msg(" --> %s\n", ue->name.data);
 		} else
 			pr_msg("\n");
-		pb_show_fown_cont(ue->fown);
+		show_fown_cont(ue->fown);
 		pr_msg("\n");
 
 		if (ue->opts)
@@ -540,7 +537,7 @@ try_again:
 		if (restore_sk_queue(fle->fe->fd, peer->ue->id))
 			return -1;
 
-		if (pb_rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
+		if (rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
 			return -1;
 
 		if (pb_restore_socket_opts(fle->fe->fd, ui->ue->opts))
@@ -610,7 +607,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk[0], ui))
 		return -1;
 
-	if (pb_rst_file_params(sk[0], ui->ue->fown, ui->ue->flags))
+	if (rst_file_params(sk[0], ui->ue->fown, ui->ue->flags))
 		return -1;
 
 	tsk = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -651,7 +648,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk, ui))
 		return -1;
 
-	if (pb_rst_file_params(sk, ui->ue->fown, ui->ue->flags))
+	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 		return -1;
 
 	if (pb_restore_socket_opts(sk, ui->ue->opts))
@@ -683,7 +680,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
-		if (pb_rst_file_params(sk, ui->ue->fown, ui->ue->flags))
+		if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 			return -1;
 
 		if (pb_restore_socket_opts(sk, ui->ue->opts))

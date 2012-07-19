@@ -169,7 +169,6 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	struct inet_sk_desc *sk;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	FownEntry fown;
 	int ret = -1;
 
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino);
@@ -184,8 +183,6 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	BUG_ON(sk->sd.already_dumped);
 
-	pb_prep_fown(&fown, &p->fown);
-
 	ie.id		= id;
 	ie.ino		= sk->sd.ino;
 	ie.family	= sk->sd.family;
@@ -197,7 +194,7 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	ie.backlog	= sk->wqlen;
 	ie.flags	= p->flags;
 
-	ie.fown		= &fown;
+	ie.fown		= (FownEntry *)&p->fown;
 	ie.opts		= &skopts;
 
 	ie.n_src_addr = 4;
@@ -390,7 +387,7 @@ static int open_inet_sk(struct file_desc *d)
 			inet_connect(sk, ii))
 		goto err;
 done:
-	if (pb_rst_file_params(sk, ii->ie->fown, ii->ie->flags))
+	if (rst_file_params(sk, ii->ie->fown, ii->ie->flags))
 		goto err;
 
 	if (pb_restore_socket_opts(sk, ii->ie->opts))
@@ -503,7 +500,7 @@ void show_inetsk(int fd, struct cr_options *o)
 		pr_msg("id %#x ino %#x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
 			ie->id, ie->ino, skfamily2s(ie->family), sktype2s(ie->type), skproto2s(ie->proto),
 			skstate2s(ie->state), src_addr, ie->src_port, dst_addr, ie->dst_port, ie->flags);
-		pr_msg("\t"), pb_show_fown_cont(ie->fown), pr_msg("\n");
+		pr_msg("\t"), show_fown_cont(ie->fown), pr_msg("\n");
 		pb_show_socket_opts(ie->opts);
 
 		inet_sk_entry__free_unpacked(ie, NULL);

@@ -74,14 +74,7 @@ void show_files(int fd_files, struct cr_options *o)
 	pb_show_plain(fd_files, fdinfo_entry);
 }
 
-void show_fown_cont(fown_t *fown)
-{
-	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
-	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
-}
-
-/* FIXME Drop once PB transition complete */
-void pb_show_fown_cont(void *p)
+void show_fown_cont(void *p)
 {
 	FownEntry *fown = p;
 	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",

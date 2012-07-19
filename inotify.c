@@ -83,13 +83,10 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
-	FownEntry fown;
-
-	pb_prep_fown(&fown, &p->fown);
 
 	ie.id = id;
 	ie.flags = p->flags;
-	ie.fown = &fown;
+	ie.fown = (FownEntry *)&p->fown;
 
 	pr_info("inotify: id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, inotify_file_entry))
@@ -191,7 +188,7 @@ static int open_inotify_fd(struct file_desc *d)
 		}
 	}
 
-	if (pb_restore_fown(tmp, info->ife->fown))
+	if (restore_fown(tmp, info->ife->fown))
 		close_safe(&tmp);
 
 	return tmp;

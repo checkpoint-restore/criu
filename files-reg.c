@@ -308,7 +308,6 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	int len, rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
-	FownEntry fown;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
 	len = readlink(fd_str, path, sizeof(path) - 1);
@@ -324,12 +323,10 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	if (check_path_remap(path, &p->stat, lfd, id))
 		return -1;
 
-	pb_prep_fown(&fown, &p->fown);
-
 	rfe.id		= id;
 	rfe.flags	= p->flags;
 	rfe.pos		= p->pos;
-	rfe.fown	= &fown;
+	rfe.fown	= (FownEntry *)&p->fown;
 	rfe.name	= path;
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
@@ -373,7 +370,7 @@ static int open_path(struct file_desc *d,
 	if (rfi->remap_path)
 		unlink(rfi->path);
 
-	if (pb_restore_fown(tmp, rfi->rfe->fown))
+	if (restore_fown(tmp, rfi->rfe->fown))
 		return -1;
 
 	return tmp;

@@ -159,7 +159,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 {
-	struct fd_parms params = { };
+	struct fd_parms params = FD_PARMS_INIT;
 	int fd, ret;
 
 	fd = open_proc(pid, "exe");
@@ -195,7 +195,8 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 	p->flags	= fcntl(lfd, F_GETFL);
 	p->pid		= pid;
 	p->fd_flags	= fd_flags;
-	p->fown		= (fown_t){ };
+
+	fown_entry__init(&p->fown);
 
 	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
 		pid, fd, p->pos, p->flags, (int)fd_flags);
@@ -346,7 +347,7 @@ err:
 
 static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 {
-	struct fd_parms p = { .fd = FD_DESC_INVALID, };
+	struct fd_parms p = FD_PARMS_INIT;
 	FsEntry fe = FS_ENTRY__INIT;
 	int fd, ret;
 
@@ -393,7 +394,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 		const struct cr_fdset *fdset)
 {
-	struct fd_parms p = { };
+	struct fd_parms p = FD_PARMS_INIT;
 
 	if (fstat(file_fd, &p.stat) < 0) {
 		pr_perror("Can't stat file for vma");

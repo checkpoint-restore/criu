@@ -22,8 +22,14 @@ struct fd_parms {
 	char		fd_flags;
 	struct stat	stat;
 	pid_t		pid;
-	fown_t		fown;
+	FownEntry	fown;
 };
+
+#define FD_PARMS_INIT			\
+{					\
+	.fd	= FD_DESC_INVALID,	\
+	.fown	= FOWN_ENTRY__INIT,	\
+}
 
 enum fdinfo_states {
 	FD_STATE_PREP,		/* Create unix sockets */
@@ -73,12 +79,8 @@ extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
 
 extern int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int transport);
-extern int restore_fown(int fd, fown_t *fown);
-extern int rst_file_params(int fd, fown_t *fown, int flags);
-
-extern int pb_restore_fown(int fd, FownEntry *fown);
-extern int pb_rst_file_params(int fd, FownEntry *fown, int flags);
-extern void pb_prep_fown(FownEntry *dst, const fown_t *src);
+extern int restore_fown(int fd, FownEntry *fown);
+extern int rst_file_params(int fd, FownEntry *fown, int flags);
 
 extern void show_saved_files(void);
 
