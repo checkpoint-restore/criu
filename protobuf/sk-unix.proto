@@ -1,0 +1,21 @@
+import "fown.proto";
+import "sk-opts.proto";
+
+message unix_sk_entry {
+	required uint32			id		=  1;
+	required uint32			ino		=  2;
+	required uint32			type		=  3;
+	required uint32			state		=  4;
+	required uint32			flags		=  5;
+	required uint32			uflags		=  6;
+	required uint32			backlog		=  7;
+	required uint32			peer		=  8;
+	required fown_entry		fown		=  9;
+	required sk_opts_entry		opts		= 10;
+
+	/*
+	 * Abstract name may contain \0 at any point,
+	 * so we need to carry it as byte sequence...
+	 */
+	required bytes			name		= 11;
+}

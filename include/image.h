@@ -84,22 +84,6 @@ struct sk_opts_entry {
 	u64	so_rcv_tmo[2];
 };
 
-struct unix_sk_entry {
-	u32	id;
-	u32	ino;
-	u8	type;
-	u8	state;
-	u8	namelen; /* fits UNIX_PATH_MAX */
-	u8	pad;
-	u32	flags;
-	u32	uflags;  /* own service flags */
-	u32	backlog;
-	u32	peer;
-	fown_t	fown;
-	struct sk_opts_entry opts;
-	u8	name[0];
-} __packed;
-
 struct inet_sk_entry {
 	u32	id;
 	u32	ino;

@@ -20,7 +20,8 @@
 #include "sockets.h"
 #include "sk-queue.h"
 
-static char buf[4096];
+#include "protobuf.h"
+#include "protobuf/sk-unix.pb-c.h"
 
 struct unix_sk_desc {
 	struct socket_desc	sd;
@@ -72,10 +73,10 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 	}
 }
 
-static void show_one_unix_img(const char *act, const struct unix_sk_entry *e)
+static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
 	pr_info("\t%s: id 0x%x ino 0x%x peer 0x%x type %d state %d name %d bytes\n",
-		act, e->id, e->ino, e->peer, e->type, e->state, e->namelen);
+		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
@@ -109,7 +110,9 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk;
-	struct unix_sk_entry ue;
+	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
+	FownEntry fown = FOWN_ENTRY__INIT;
+	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino);
 	if (!sk)
@@ -120,15 +123,20 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	BUG_ON(sk->sd.already_dumped);
 
+	pb_prep_fown(&fown, &p->fown);
+
+	ue.name.len	= (size_t)sk->namelen;
+	ue.name.data	= (void *)sk->name;
+
 	ue.id		= id;
 	ue.ino		= sk->sd.ino;
 	ue.type		= sk->type;
 	ue.state	= sk->state;
-	ue.namelen	= sk->namelen;
 	ue.flags	= p->flags;
 	ue.backlog	= sk->wqlen;
 	ue.peer		= sk->peer_ino;
-	ue.fown		= p->fown;
+	ue.fown		= &fown;
+	ue.opts		= &skopts;
 	ue.uflags	= 0;
 
 	if (ue.peer) {
@@ -190,12 +198,10 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 				ue.ino, ue.peer);
 	}
 
-	if (dump_socket_opts(lfd, &ue.opts))
+	if (pb_dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue))
-		goto err;
-	if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK), sk->name, ue.namelen))
+	if (pb_write(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, unix_sk_entry))
 		goto err;
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
@@ -209,6 +215,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
+
 	return 0;
 
 err:
@@ -376,7 +383,9 @@ int fix_external_unix_sockets(void)
 	pr_debug("Dumping external sockets\n");
 
 	list_for_each_entry(sk, &unix_sockets, list) {
-		struct unix_sk_entry e = { };
+		UnixSkEntry e = UNIX_SK_ENTRY__INIT;
+		FownEntry fown = FOWN_ENTRY__INIT;
+		SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
 		BUG_ON(sk->sd.already_dumped);
 
@@ -394,16 +403,16 @@ int fix_external_unix_sockets(void)
 		e.ino		= sk->sd.ino;
 		e.type		= SOCK_DGRAM;
 		e.state		= TCP_LISTEN;
-		e.namelen	= sk->namelen;
+		e.name.data	= (void *)sk->name;
+		e.name.len	= (size_t)sk->namelen;
 		e.uflags	= USK_EXTERN;
 		e.peer		= 0;
+		e.fown		= &fown;
+		e.opts		= &skopts;
 
 		show_one_unix("Dumping extern", sk);
 
-		if (write_img(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e))
-			goto err;
-		if (write_img_buf(fdset_fd(glob_fdset, CR_FD_UNIXSK),
-					sk->name, e.namelen))
+		if (pb_write(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, unix_sk_entry))
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);
@@ -415,7 +424,7 @@ err:
 }
 
 struct unix_sk_info {
-	struct unix_sk_entry *ue;
+	UnixSkEntry *ue;
 	struct list_head list;
 	char *name;
 	unsigned flags;
@@ -440,35 +449,32 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 
 void show_unixsk(int fd, struct cr_options *o)
 {
-	struct unix_sk_entry ue;
+	UnixSkEntry *ue;
 	int ret = 0;
 
 	pr_img_head(CR_FD_UNIXSK);
 
 	while (1) {
-		ret = read_img_eof(fd, &ue);
+		ret = pb_read_eof(fd, &ue, unix_sk_entry);
 		if (ret <= 0)
 			goto out;
 
 		pr_msg("id %#x ino %#x type %s state %s namelen %4d backlog %4d peer %#x flags %#x uflags %#x",
-			ue.id, ue.ino, sktype2s(ue.type), skstate2s(ue.state),
-			ue.namelen, ue.backlog, ue.peer, ue.flags, ue.uflags);
+			ue->id, ue->ino, sktype2s(ue->type), skstate2s(ue->state),
+			(int)ue->name.len, ue->backlog, ue->peer, ue->flags, ue->uflags);
 
-		if (ue.namelen) {
-			BUG_ON(ue.namelen > sizeof(buf));
-			ret = read_img_buf(fd, buf, ue.namelen);
-			if (ret < 0) {
-				pr_info("\n");
-				goto out;
-			}
-			if (!buf[0])
-				buf[0] = '@';
-			pr_msg(" --> %s\n", buf);
+		if (ue->name.len) {
+			if (!ue->name.data[0])
+				ue->name.data[0] = '@';
+			pr_msg(" --> %s\n", ue->name.data);
 		} else
 			pr_msg("\n");
-		pr_msg("\t"), show_fown_cont(&ue.fown), pr_msg("\n");
+		pb_show_fown_cont(ue->fown);
+		pr_msg("\n");
 
-		show_socket_opts(&ue.opts);
+		if (ue->opts)
+			pb_show_socket_opts(ue->opts);
+		unix_sk_entry__free_unpacked(ue, NULL);
 	}
 out:
 	pr_img_tail(CR_FD_UNIXSK);
@@ -516,11 +522,11 @@ int run_unix_connections(void)
 
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
-		memcpy(&addr.sun_path, peer->name, peer->ue->namelen);
+		memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
 try_again:
 		if (connect(fle->fe->fd, (struct sockaddr *)&addr,
 					sizeof(addr.sun_family) +
-					peer->ue->namelen) < 0) {
+					peer->ue->name.len) < 0) {
 			if (attempts) {
 				usleep(1000);
 				attempts--;
@@ -534,10 +540,10 @@ try_again:
 		if (restore_sk_queue(fle->fe->fd, peer->ue->id))
 			return -1;
 
-		if (rst_file_params(fle->fe->fd, &ui->ue->fown, ui->ue->flags))
+		if (pb_rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
 			return -1;
 
-		if (restore_socket_opts(fle->fe->fd, &ui->ue->opts))
+		if (pb_restore_socket_opts(fle->fe->fd, ui->ue->opts))
 			return -1;
 
 		cj = cj->next;
@@ -562,10 +568,10 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	memcpy(&addr.sun_path, ui->name, ui->ue->namelen);
+	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
 	if (bind(sk, (struct sockaddr *)&addr,
-				sizeof(addr.sun_family) + ui->ue->namelen)) {
+				sizeof(addr.sun_family) + ui->ue->name.len)) {
 		pr_perror("Can't bind socket");
 		return -1;
 	}
@@ -604,7 +610,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk[0], ui))
 		return -1;
 
-	if (rst_file_params(sk[0], &ui->ue->fown, ui->ue->flags))
+	if (pb_rst_file_params(sk[0], ui->ue->fown, ui->ue->flags))
 		return -1;
 
 	tsk = socket(PF_UNIX, SOCK_DGRAM, 0);
@@ -645,10 +651,10 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (bind_unix_sk(sk, ui))
 		return -1;
 
-	if (rst_file_params(sk, &ui->ue->fown, ui->ue->flags))
+	if (pb_rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 		return -1;
 
-	if (restore_socket_opts(sk, &ui->ue->opts))
+	if (pb_restore_socket_opts(sk, ui->ue->opts))
 		return -1;
 
 	return sk;
@@ -677,10 +683,10 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
-		if (rst_file_params(sk, &ui->ue->fown, ui->ue->flags))
+		if (pb_rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 			return -1;
 
-		if (restore_socket_opts(sk, &ui->ue->opts))
+		if (pb_restore_socket_opts(sk, ui->ue->opts))
 			return -1;
 
 	} else if (ui->peer) {
@@ -713,6 +719,7 @@ static struct file_desc_ops unix_desc_ops = {
 
 int collect_unix_sockets(void)
 {
+	struct unix_sk_info *ui = NULL;
 	int fd, ret;
 
 	pr_info("Reading unix sockets in\n");
@@ -726,38 +733,24 @@ int collect_unix_sockets(void)
 	}
 
 	while (1) {
-		struct unix_sk_info *ui;
-
-		ui = xmalloc(sizeof(*ui));
 		ret = -1;
+		ui = xmalloc(sizeof(*ui));
 		if (ui == NULL)
 			break;
 
-		ui->ue = xmalloc(sizeof(*ui->ue));
-		if (ui->ue == NULL)
+		ret = pb_read_eof(fd, &ui->ue, unix_sk_entry);
+		if (ret <= 0)
 			break;
 
-		ret = read_img_eof(fd, ui->ue);
-		if (ret <= 0) {
-			xfree(ui);
-			break;
-		}
-
-		if (ui->ue->namelen) {
+		if (ui->ue->name.len) {
 			ret = -1;
 
-			if (!ui->ue->namelen || ui->ue->namelen >= UNIX_PATH_MAX) {
-				pr_err("Bad unix name len %d\n", ui->ue->namelen);
+			if (ui->ue->name.len >= UNIX_PATH_MAX) {
+				pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
 				break;
 			}
 
-			ui->name = xmalloc(ui->ue->namelen);
-			if (ui->name == NULL)
-				break;
-
-			ret = read_img_buf(fd, ui->name, ui->ue->namelen);
-			if (ret < 0)
-				break;
+			ui->name = (void *)ui->ue->name.data;
 
 			/*
 			 * Make FS clean from sockets we're about to
@@ -776,6 +769,7 @@ int collect_unix_sockets(void)
 		list_add_tail(&ui->list, &unix_sockets);
 	}
 
+	xfree(ui);
 	close(fd);
 
 	return read_sk_queues();
