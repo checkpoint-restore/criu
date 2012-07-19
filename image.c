@@ -9,6 +9,64 @@
 #include "ipc_ns.h"
 #include "sk-inet.h"
 #include "mount.h"
+#include "protobuf.h"
+#include "protobuf/inventory.pb-c.h"
+
+int check_img_inventory(void)
+{
+	int fd, ret;
+	InventoryEntry *he;
+
+	fd = open_image_ro(CR_FD_INVENTORY);
+	if (fd < 0)
+		return -1;
+
+	ret = pb_read(fd, &he, inventory_entry);
+	close(fd);
+	if (ret < 0)
+		return ret;
+
+	ret = he->img_version;
+	inventory_entry__free_unpacked(he, NULL);
+
+	if (ret != CRTOOLS_IMAGES_V1) {
+		pr_err("Not supported images version %u\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
+int write_img_inventory(void)
+{
+	int fd;
+	InventoryEntry he = INVENTORY_ENTRY__INIT;
+
+	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
+
+	fd = open_image(CR_FD_INVENTORY, O_DUMP);
+	if (fd < 0)
+		return -1;
+
+	he.img_version = CRTOOLS_IMAGES_V1;
+
+	if (pb_write(fd, &he, inventory_entry) < 0)
+		return -1;
+
+	close(fd);
+	return 0;
+}
+
+static void show_inventory(int fd, struct cr_options *o)
+{
+	InventoryEntry *he;
+
+	if (pb_read(fd, &he, inventory_entry) < 0)
+		return;
+
+	pr_msg("Version: %u\n", he->img_version);
+	inventory_entry__free_unpacked(he, NULL);
+}
 
 /*
  * The cr fd set is the set of files where the information
@@ -25,6 +83,7 @@
 	}
 
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
+	FD_ENTRY(INVENTORY,	"inventory",	 show_inventory),
 	FD_ENTRY(FDINFO,	"fdinfo-%d",	 show_files),
 	FD_ENTRY(PAGES,		"pages-%d",	 show_pages),
 	FD_ENTRY(SHMEM_PAGES,	"pages-shmem-%ld", show_pages),

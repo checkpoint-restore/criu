@@ -675,7 +675,6 @@ static int dump_task_core(struct core_entry *core, int fd_core)
 {
 	pr_info("Dumping header ... ");
 
-	core->header.version	= HEADER_VERSION;
 	core->header.arch	= HEADER_ARCH_X86_64;
 	core->header.flags	= 0;
 
@@ -1376,6 +1375,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("========================================\n");
 	pr_info("Dumping process %s(pid: %d)\n", !opts->leader_only ? "group " : "", pid);
 	pr_info("========================================\n");
+
+	if (write_img_inventory())
+		goto err;
 
 	if (collect_pstree(pid, opts))
 		goto err;

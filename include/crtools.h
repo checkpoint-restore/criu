@@ -18,6 +18,7 @@
 #define CRIU_VERSION_MINOR	0
 
 enum {
+	CR_FD_INVENTORY,
 	/*
 	 * Task entries
 	 */
@@ -122,6 +123,9 @@ void show_remap_files(int fd, struct cr_options *o);
 void show_ghost_file(int fd, struct cr_options *o);
 void show_fown_cont(void *p);
 void show_eventfds(int fd, struct cr_options *o);
+
+int check_img_inventory(void);
+int write_img_inventory(void);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];

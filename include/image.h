@@ -5,10 +5,17 @@
 #include "compiler.h"
 
 /*
+ * Basic multi-file images
+ */
+
+#define CRTOOLS_IMAGES_V1	1
+
+/*
  * The magic-s below correspond to coordinates
  * of various Russian towns in the NNNNEEEE form.
  */
 
+#define INVENTORY_MAGIC		0x58313116 /* Veliky Novgorod */
 #define PSTREE_MAGIC		0x50273030 /* Kyiv */
 #define FDINFO_MAGIC		0x56213732 /* Dmitrov */
 #define PAGES_MAGIC		0x56084025 /* Vladimir */
@@ -80,12 +87,10 @@ struct page_entry {
 
 #define CR_CAP_SIZE	2
 
-#define HEADER_VERSION		1
 #define HEADER_ARCH_X86_64	1
 
 struct image_header {
-	u16	version;
-	u16	arch;
+	u32	arch;
 	u32	flags;
 } __packed;
 

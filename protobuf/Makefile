@@ -19,6 +19,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 
 LIBRARY		:= protobuf-lib.o
 
+PROTO_FILES	+= inventory.proto
 PROTO_FILES	+= fdinfo.proto
 PROTO_FILES	+= fown.proto
 PROTO_FILES	+= regfile.proto

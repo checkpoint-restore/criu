@@ -403,11 +403,6 @@ static int check_core_header(int pid, struct task_core_entry *tc)
 	if (read_img(fd, &hdr) < 0)
 		goto out;
 
-	if (hdr.version != HEADER_VERSION) {
-		pr_err("Core version mismatch %d\n", (int)hdr.version);
-		goto out;
-	}
-
 	if (hdr.arch != HEADER_ARCH_X86_64) {
 		pr_err("Core arch mismatch %d\n", (int)hdr.arch);
 		goto out;
@@ -866,6 +861,9 @@ static int prepare_task_entries()
 
 static int restore_all_tasks(pid_t pid, struct cr_options *opts)
 {
+	if (check_img_inventory() < 0)
+		return -1;
+
 	if (prepare_task_entries() < 0)
 		return -1;
 

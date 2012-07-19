@@ -1,0 +1,3 @@
+message inventory_entry {
+	required uint32	img_version = 1;
+}
