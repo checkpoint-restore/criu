@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			if (optind < argc - 1) {
-				char *opt = argv[optind + 1];
+				char *opt = argv[optind];
 
 				if (isdigit(*opt)) {
 					log_level = -atoi(opt);
