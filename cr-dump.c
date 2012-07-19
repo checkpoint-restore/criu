@@ -171,7 +171,6 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 		return -1;
 	}
 
-	params.fd = FD_DESC_INVALID;
 	mm->exe_file_id = fd_id_generate_special();
 
 	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
@@ -401,7 +400,6 @@ static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
 		return -1;
 	}
 
-	p.fd = FD_DESC_INVALID;
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
 	else
