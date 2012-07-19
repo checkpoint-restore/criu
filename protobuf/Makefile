@@ -42,6 +42,11 @@ PROTO_FILES	+= mm.proto
 PROTO_FILES	+= sk-opts.proto
 PROTO_FILES	+= sk-unix.proto
 PROTO_FILES	+= sk-inet.proto
+PROTO_FILES	+= ipc-var.proto
+PROTO_FILES	+= ipc-desc.proto
+PROTO_FILES	+= ipc-shm.proto
+PROTO_FILES	+= ipc-msg.proto
+PROTO_FILES	+= ipc-sem.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

@@ -1,0 +1,14 @@
+message ipc_var_entry {
+	repeated uint32			sem_ctls		=  1;
+	required uint32			msg_ctlmax		=  2;
+	required uint32			msg_ctlmnb		=  3;
+	required uint32			msg_ctlmni		=  4;
+	required uint32			auto_msgmni		=  5;
+	required uint64			shm_ctlmax		=  6;
+	required uint64			shm_ctlall		=  7;
+	required uint32			shm_ctlmni		=  8;
+	required uint32			shm_rmid_forced		=  9;
+	required uint32			mq_queues_max		= 10;
+	required uint32			mq_msg_max		= 11;
+	required uint32			mq_msgsize_max		= 12;
+}

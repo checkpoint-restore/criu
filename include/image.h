@@ -66,56 +66,6 @@ struct vma_entry {
 	s64	fd;
 } __packed;
 
-struct ipc_var_entry {
-	u32	sem_ctls[4];
-	u32	msg_ctlmax;
-	u32	msg_ctlmnb;
-	u32	msg_ctlmni;
-	u32	auto_msgmni;
-	u64	shm_ctlmax;
-	u64	shm_ctlall;
-	u32	shm_ctlmni;
-	u32	shm_rmid_forced;
-	u32	mq_queues_max;
-	u32	mq_msg_max;
-	u32	mq_msgsize_max;
-} __packed;
-
-struct ipc_desc_entry {
-	u32	key;
-	u32	uid;
-	u32	gid;
-	u32	cuid;
-	u32	cgid;
-	u32	mode;
-	u32	id;
-	u8	pad[4];
-} __packed;
-
-struct ipc_shm_entry {
-	struct ipc_desc_entry desc;
-	u64	size;
-} __packed;
-
-struct ipc_msg {
-	u64	mtype;
-	u32	msize;
-	u8	pad[4];
-} __packed;
-
-struct ipc_msg_entry {
-	struct ipc_desc_entry desc;
-	u16	qbytes;
-	u16	qnum;
-	u8	pad[4];
-} __packed;
-
-struct ipc_sem_entry {
-	struct ipc_desc_entry desc;
-	u16	nsems;
-	u8	pad[6];
-} __packed;
-
 #define VMA_AREA_NONE		(0 <<  0)
 #define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
 #define VMA_AREA_STACK		(1 <<  1)
