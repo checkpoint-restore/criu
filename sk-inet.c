@@ -231,7 +231,7 @@ err:
 }
 
 static const struct fdtype_ops inet_dump_ops = {
-	.type		= FDINFO_INETSK,
+	.type		= FD_TYPES__INETSK,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_inet_fd,
 };
@@ -288,7 +288,7 @@ static bool is_bound(struct inet_sk_info *ii)
 static int open_inet_sk(struct file_desc *d);
 
 static struct file_desc_ops inet_desc_ops = {
-	.type = FDINFO_INETSK,
+	.type = FD_TYPES__INETSK,
 	.open = open_inet_sk,
 };
 

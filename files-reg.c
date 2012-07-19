@@ -160,7 +160,7 @@ static int collect_remaps(void)
 			goto tail;
 		}
 
-		fdesc = find_file_desc_raw(FDINFO_REG, rfe->orig_id);
+		fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
 		if (fdesc == NULL) {
 			pr_err("Remap for non existing file %#x\n",
 					rfe->orig_id);
@@ -335,7 +335,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 }
 
 static const struct fdtype_ops regfile_ops = {
-	.type		= FDINFO_REG,
+	.type		= FD_TYPES__REG,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_reg_file,
 };
@@ -380,7 +380,7 @@ int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void
 {
 	struct file_desc *fd;
 
-	fd = find_file_desc_raw(FDINFO_REG, id);
+	fd = find_file_desc_raw(FD_TYPES__REG, id);
 	if (fd == NULL) {
 		pr_perror("Can't find regfile for %#x\n", id);
 		return -1;
@@ -418,7 +418,7 @@ int open_reg_by_id(u32 id)
 }
 
 static struct file_desc_ops reg_desc_ops = {
-	.type = FDINFO_REG,
+	.type = FD_TYPES__REG,
 	.open = open_fe_fd,
 };
 

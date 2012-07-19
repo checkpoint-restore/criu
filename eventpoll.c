@@ -86,11 +86,11 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 		     &e, eventpoll_file_entry))
 		return -1;
 
-	return parse_fdinfo(lfd, FDINFO_EVENTPOLL, dump_eventpoll_entry, &id);
+	return parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &id);
 }
 
 static const struct fdtype_ops eventpoll_ops = {
-	.type		= FDINFO_EVENTPOLL,
+	.type		= FD_TYPES__EVENTPOLL,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_eventpoll,
 };
@@ -144,7 +144,7 @@ err_close:
 }
 
 static struct file_desc_ops desc_ops = {
-	.type = FDINFO_EVENTPOLL,
+	.type = FD_TYPES__EVENTPOLL,
 	.open = eventpoll_open,
 };
 

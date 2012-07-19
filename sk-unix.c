@@ -220,7 +220,7 @@ err:
 }
 
 static const struct fdtype_ops unix_dump_ops = {
-	.type		= FDINFO_UNIXSK,
+	.type		= FD_TYPES__UNIXSK,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_unix_fd,
 };
@@ -709,7 +709,7 @@ static int open_unix_sk(struct file_desc *d)
 }
 
 static struct file_desc_ops unix_desc_ops = {
-	.type = FDINFO_UNIXSK,
+	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
 	.want_transport = unixsk_should_open_transport,
 };

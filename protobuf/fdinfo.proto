@@ -1,6 +1,18 @@
+enum fd_types {
+	UND		= 0;
+	REG		= 1;
+	PIPE		= 2;
+	FIFO		= 3;
+	INETSK		= 4;
+	UNIXSK		= 5;
+	EVENTFD		= 6;
+	EVENTPOLL	= 7;
+	INOTIFY		= 8;
+}
+
 message fdinfo_entry {
 	required uint32	id	= 1;
 	required uint32	flags	= 2;
-	required uint32	type	= 3;
+	required fd_types type	= 3;
 	required uint32	fd	= 4;
 }

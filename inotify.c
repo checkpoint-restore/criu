@@ -92,11 +92,11 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	if (pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, inotify_file_entry))
 		return -1;
 
-	return parse_fdinfo(lfd, FDINFO_INOTIFY, dump_inotify_entry, &id);
+	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);
 }
 
 static const struct fdtype_ops inotify_ops = {
-	.type		= FDINFO_INOTIFY,
+	.type		= FD_TYPES__INOTIFY,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_inotify,
 };
@@ -195,7 +195,7 @@ static int open_inotify_fd(struct file_desc *d)
 }
 
 static struct file_desc_ops desc_ops = {
-	.type = FDINFO_INOTIFY,
+	.type = FD_TYPES__INOTIFY,
 	.open = open_inotify_fd,
 };
 

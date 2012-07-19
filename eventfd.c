@@ -74,11 +74,11 @@ static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct eventfd_dump_arg da = { .id = id, .p = p, };
-	return parse_fdinfo(lfd, FDINFO_EVENTFD, dump_eventfd_entry, &da);
+	return parse_fdinfo(lfd, FD_TYPES__EVENTFD, dump_eventfd_entry, &da);
 }
 
 static const struct fdtype_ops eventfd_ops = {
-	.type		= FDINFO_EVENTFD,
+	.type		= FD_TYPES__EVENTFD,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_eventfd,
 };
@@ -116,7 +116,7 @@ err_close:
 }
 
 static struct file_desc_ops eventfd_desc_ops = {
-	.type = FDINFO_EVENTFD,
+	.type = FD_TYPES__EVENTFD,
 	.open = eventfd_open,
 };
 

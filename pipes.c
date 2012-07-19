@@ -303,7 +303,7 @@ static int want_transport(FdinfoEntry *fe, struct file_desc *d)
 }
 
 static struct file_desc_ops pipe_desc_ops = {
-	.type		= FDINFO_PIPE,
+	.type		= FD_TYPES__PIPE,
 	.open		= open_pipe,
 	.want_transport	= want_transport,
 };
@@ -446,7 +446,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 }
 
 static const struct fdtype_ops pipe_ops = {
-	.type		= FDINFO_PIPE,
+	.type		= FD_TYPES__PIPE,
 	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_pipe,
 };

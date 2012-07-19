@@ -16,6 +16,7 @@
 
 #include "proc_parse.h"
 #include "protobuf.h"
+#include "protobuf/fdinfo.pb-c.h"
 
 #include <stdlib.h>
 
@@ -731,7 +732,7 @@ int parse_fdinfo(int fd, int type,
 		if (fdinfo_field(str, "eventfd-count")) {
 			eventfd_file_entry__init(&entry.efd);
 
-			if (type != FDINFO_EVENTFD)
+			if (type != FD_TYPES__EVENTFD)
 				goto parse_err;
 			ret = sscanf(str, "eventfd-count: %lx",
 					&entry.efd.counter);
@@ -745,7 +746,7 @@ int parse_fdinfo(int fd, int type,
 		if (fdinfo_field(str, "tfd")) {
 			eventpoll_tfd_entry__init(&entry.epl);
 
-			if (type != FDINFO_EVENTPOLL)
+			if (type != FD_TYPES__EVENTPOLL)
 				goto parse_err;
 			ret = sscanf(str, "tfd: %d events: %x data: %lx",
 					&entry.epl.tfd, &entry.epl.events, &entry.epl.data);
@@ -763,7 +764,7 @@ int parse_fdinfo(int fd, int type,
 			inotify_wd_entry__init(&entry.ify);
 			entry.ify.f_handle = &f_handle;
 
-			if (type != FDINFO_INOTIFY)
+			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 			ret = sscanf(str,
 					"inotify wd: %8d ino: %16lx sdev: %8x "

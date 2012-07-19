@@ -161,7 +161,7 @@ static int check_fdinfo_eventfd(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(fd, FDINFO_EVENTFD, check_one_fdinfo, &proc_cnt);
+	ret = parse_fdinfo(fd, FD_TYPES__EVENTFD, check_one_fdinfo, &proc_cnt);
 	close(fd);
 
 	if (ret) {
@@ -209,7 +209,7 @@ static int check_fdinfo_eventpoll(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(efd, FDINFO_EVENTPOLL, check_one_epoll, &proc_fd);
+	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, check_one_epoll, &proc_fd);
 	close(efd);
 	close(pfd[0]);
 	close(pfd[1]);
@@ -251,7 +251,7 @@ static int check_fdinfo_inotify(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(ifd, FDINFO_INOTIFY, check_one_inotify, &proc_wd);
+	ret = parse_fdinfo(ifd, FD_TYPES__INOTIFY, check_one_inotify, &proc_wd);
 	close(ifd);
 
 	if (ret < 0) {
