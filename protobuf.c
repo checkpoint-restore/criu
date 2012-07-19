@@ -51,6 +51,24 @@ static void show_nested_message(void *msg, void *md)
 	pr_msg(" ] ");
 }
 
+static void show_enum(void *msg, void *md)
+{
+	ProtobufCEnumDescriptor *d = md;
+	const char *val_name = NULL;
+	int val, i;
+
+	val = *(int *)msg;
+	for (i = 0; i < d->n_values; i++)
+		if (d->values[i].value == val) {
+			val_name = d->values[i].name;
+			break;
+		}
+
+	if (val_name != NULL)
+		pr_msg("%s", val_name);
+	else
+		pr_msg("%d", val);
+}
 
 static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			  unsigned long nr_fields)
@@ -89,10 +107,13 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			show = show_nested_message;
 			fsize = sizeof (void *);
 			break;
+		case PROTOBUF_C_TYPE_ENUM:
+			show = show_enum;
+			arg = (void *)fd->descriptor;
+			break;
 		case PROTOBUF_C_TYPE_FLOAT:
 		case PROTOBUF_C_TYPE_DOUBLE:
 		case PROTOBUF_C_TYPE_BOOL:
-		case PROTOBUF_C_TYPE_ENUM:
 		case PROTOBUF_C_TYPE_BYTES:
 		default:
 			show = pb_msg_unk;
