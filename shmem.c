@@ -7,6 +7,8 @@
 #include "crtools.h"
 #include "restorer.h"
 
+#include "protobuf.h"
+
 struct shmems *rst_shmems;
 
 void show_saved_shmems(void)
@@ -22,7 +24,7 @@ void show_saved_shmems(void)
 			rst_shmems->entries[i].pid);
 }
 
-static int collect_shmem(int pid, struct vma_entry *vi)
+static int collect_shmem(int pid, VmaEntry *vi)
 {
 	int nr_shmems = rst_shmems->nr_shmems;
 	unsigned long size = vi->pgoff + vi->end - vi->start;
@@ -77,7 +79,7 @@ static int collect_shmem(int pid, struct vma_entry *vi)
 int prepare_shmem_pid(int pid)
 {
 	int fd, ret = -1;
-	struct vma_entry vi;
+	VmaEntry *vi;
 
 	fd = open_image_ro(CR_FD_VMAS, pid);
 	if (fd < 0) {
@@ -88,19 +90,21 @@ int prepare_shmem_pid(int pid)
 	}
 
 	while (1) {
-		ret = read_img_eof(fd, &vi);
+		ret = pb_read_eof(fd, &vi, vma_entry);
 		if (ret <= 0)
 			break;
 
-		pr_info("vma 0x%lx 0x%lx\n", vi.start, vi.end);
+		pr_info("vma 0x%lx 0x%lx\n", vi->start, vi->end);
 
-		if (!vma_entry_is(&vi, VMA_ANON_SHARED))
+		if (!vma_entry_is(vi, VMA_ANON_SHARED) ||
+		    vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
+			vma_entry__free_unpacked(vi, NULL);
 			continue;
+		}
 
-		if (vma_entry_is(&vi, VMA_AREA_SYSVIPC))
-			continue;
+		ret = collect_shmem(pid, vi);
+		vma_entry__free_unpacked(vi, NULL);
 
-		ret = collect_shmem(pid, &vi);
 		if (ret)
 			break;
 	}
@@ -156,7 +160,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	return ret;
 }
 
-int get_shmem_fd(int pid, struct vma_entry *vi)
+int get_shmem_fd(int pid, VmaEntry *vi)
 {
 	struct shmem_info *si;
 	void *addr;
@@ -241,7 +245,7 @@ static struct shmem_info_dump* shmem_find(unsigned long shmid)
 	return NULL;
 }
 
-int add_shmem_area(pid_t pid, struct vma_entry *vma)
+int add_shmem_area(pid_t pid, VmaEntry *vma)
 {
 	struct shmem_info_dump *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);

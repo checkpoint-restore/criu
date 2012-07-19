@@ -52,6 +52,7 @@
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
+#include "protobuf/vma.pb-c.h"
 
 static struct pstree_item *me;
 
@@ -141,6 +142,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 	*nr_vmas = 0;
 	while (1) {
 		struct vma_area *vma;
+		VmaEntry *e;
 
 		ret = -1;
 		vma = alloc_vma_area();
@@ -149,9 +151,12 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 
 		(*nr_vmas)++;
 		list_add_tail(&vma->list, vmas);
-		ret = read_img_eof(fd, &vma->vma);
+		ret = pb_read_eof(fd, &e, vma_entry);
 		if (ret <= 0)
 			break;
+
+		vma->vma = *e;
+		vma_entry__free_unpacked(e, NULL);
 
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
@@ -1055,9 +1060,9 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return 0;
 }
 
-static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct list_head *vmas)
+static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head *vmas)
 {
-	struct vma_entry *vma, *ret;
+	VmaEntry *vma, *ret;
 	struct vma_area *vma_area;
 
 	ret = vma = mmap(addr, len, PROT_READ | PROT_WRITE,
@@ -1146,8 +1151,8 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	if (ret < 0)
 		goto err;
 
-	self_vmas_len = round_up((ret + 1) * sizeof(struct vma_entry), PAGE_SIZE);
-	vmas_len = round_up((nr_vmas + 1) * sizeof(struct vma_entry), PAGE_SIZE);
+	self_vmas_len = round_up((ret + 1) * sizeof(VmaEntry), PAGE_SIZE);
+	vmas_len = round_up((nr_vmas + 1) * sizeof(VmaEntry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 

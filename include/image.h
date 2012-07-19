@@ -55,17 +55,6 @@
 
 #define USK_EXTERN	(1 << 0)
 
-struct vma_entry {
-	u64	start;
-	u64	end;
-	u64	pgoff;
-	u64	shmid;
-	u32	prot;
-	u32	flags;
-	u32	status;
-	s64	fd;
-} __packed;
-
 #define VMA_AREA_NONE		(0 <<  0)
 #define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
 #define VMA_AREA_STACK		(1 <<  1)

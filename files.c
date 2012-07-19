@@ -531,7 +531,7 @@ err:
 	return ret;
 }
 
-int get_filemap_fd(int pid, struct vma_entry *vma_entry)
+int get_filemap_fd(int pid, VmaEntry *vma_entry)
 {
 	return open_reg_by_id(vma_entry->shmid);
 }

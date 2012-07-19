@@ -244,7 +244,7 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 	return 0;
 }
 
-static u64 restore_mapping(const struct vma_entry *vma_entry)
+static u64 restore_mapping(const VmaEntry *vma_entry)
 {
 	int prot	= vma_entry->prot;
 	int flags	= vma_entry->flags | MAP_FIXED;
@@ -295,7 +295,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
 	struct core_entry *core_entry;
-	struct vma_entry *vma_entry;
+	VmaEntry *vma_entry;
 	u64 va;
 
 	struct rt_sigframe *rt_sigframe;

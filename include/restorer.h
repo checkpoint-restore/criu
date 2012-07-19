@@ -12,6 +12,7 @@
 #include "crtools.h"
 
 #include "../protobuf/mm.pb-c.h"
+#include "../protobuf/vma.pb-c.h"
 #include "../protobuf/creds.pb-c.h"
 
 #ifndef CONFIG_X86_64
@@ -80,8 +81,8 @@ struct task_restore_core_args {
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
-	struct vma_entry		*self_vmas;
-	struct vma_entry		*tgt_vmas;
+	VmaEntry			*self_vmas;
+	VmaEntry			*tgt_vmas;
 	rt_sigaction_t			sigchld_act;
 
 	struct itimerval		itimers[3];

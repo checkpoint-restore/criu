@@ -391,7 +391,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 	return pb_write(fdset_fd(fdset, CR_FD_FS), &fe, fs_entry);
 }
 
-static int dump_filemap(pid_t pid, struct vma_entry *vma, int file_fd,
+static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
 		const struct cr_fdset *fdset)
 {
 	struct fd_parms p = FD_PARMS_INIT;
@@ -423,7 +423,7 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 	fd = fdset_fd(cr_fdset, CR_FD_VMAS);
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-		struct vma_entry *vma = &vma_area->vma;
+		VmaEntry *vma = &vma_area->vma;
 
 		pr_info_vma(vma_area);
 
@@ -439,7 +439,7 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			ret = 0;
 
 		if (!ret)
-			ret = write_img(fd, vma);
+			ret = pb_write(fd, vma, vma_entry);
 		if (ret)
 			goto err;
 	}

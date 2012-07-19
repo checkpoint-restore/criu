@@ -15,6 +15,8 @@
 
 #include "util-net.h"
 
+#include "../protobuf/vma.pb-c.h"
+
 #define __head __used __section(.head.text)
 
 enum {
@@ -42,7 +44,7 @@ struct parasite_init_args {
 };
 
 struct parasite_dump_pages_args {
-	struct vma_entry	vma_entry;
+	VmaEntry		vma_entry;
 	unsigned long		nrpages_dumped;	/* how many pages are dumped */
 	unsigned long		nrpages_skipped;
 	unsigned long		nrpages_total;

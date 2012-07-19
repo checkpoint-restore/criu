@@ -9,6 +9,8 @@
 #include "util.h"
 #include "image.h"
 
+#include "../protobuf/vma.pb-c.h"
+
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 #define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
@@ -168,7 +170,7 @@ void free_mappings(struct list_head *vma_area_list);
 
 struct vma_area {
 	struct list_head	list;
-	struct vma_entry	vma;
+	VmaEntry		vma;
 	int			vm_file_fd;
 };
 

@@ -9,6 +9,7 @@
 
 #include "../protobuf/fdinfo.pb-c.h"
 #include "../protobuf/fown.pb-c.h"
+#include "../protobuf/vma.pb-c.h"
 
 struct pstree_item;
 struct file_desc;
@@ -87,7 +88,7 @@ extern void show_saved_files(void);
 extern int prepare_fds(struct pstree_item *me);
 extern int prepare_fd_pid(int pid, struct rst_info *rst_info);
 extern int prepare_shared_fdinfo(void);
-extern int get_filemap_fd(int pid, struct vma_entry *vma_entry);
+extern int get_filemap_fd(int pid, VmaEntry *vma_entry);
 extern int prepare_fs(int pid);
 extern int set_fd_flags(int fd, int flags);
 

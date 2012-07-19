@@ -48,6 +48,7 @@ PROTO_FILES	+= ipc-shm.proto
 PROTO_FILES	+= ipc-msg.proto
 PROTO_FILES	+= ipc-sem.proto
 PROTO_FILES	+= creds.proto
+PROTO_FILES	+= vma.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

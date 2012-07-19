@@ -1,0 +1,10 @@
+message vma_entry {
+	required uint64		start	= 1;
+	required uint64		end	= 2;
+	required uint64		pgoff	= 3;
+	required uint64		shmid	= 4;
+	required uint32		prot	= 5;
+	required uint32		flags	= 6;
+	required uint32		status	= 7;
+	required sint64		fd	= 8;
+}

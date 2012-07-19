@@ -102,7 +102,7 @@ static void sys_write_msg(const char *msg)
 #define PME_SWAP	(1ULL << 62)
 #define PME_FILE	(1ULL << 61)
 
-static inline int should_dump_page(struct vma_entry *vmae, u64 pme)
+static inline int should_dump_page(VmaEntry *vmae, u64 pme)
 {
 	return (pme & (PME_PRESENT | PME_SWAP)) &&
 		/*

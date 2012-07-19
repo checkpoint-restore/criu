@@ -16,6 +16,8 @@
 #include "types.h"
 #include "log.h"
 
+#include "../protobuf/vma.pb-c.h"
+
 #define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
 #define KBYTES_SHIFT	10
 #define MBYTES_SHIFT	20
@@ -155,6 +157,7 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 	({							\
 		struct vma_area *p__ = xzalloc(sizeof(*p__));	\
 		if (p__) {					\
+			vma_entry__init(&p__->vma);		\
 			p__->vm_file_fd = -1;			\
 			p__->vma.fd	= -1;			\
 		}						\

@@ -38,6 +38,7 @@
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/mm.pb-c.h"
+#include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
@@ -166,24 +167,7 @@ void show_fs(int fd_fs, struct cr_options *o)
 
 void show_vmas(int fd_vma, struct cr_options *o)
 {
-	struct vma_area vma_area = {};
-	struct vma_entry ve;
-
-	pr_img_head(CR_FD_VMAS);
-
-	while (1) {
-		int ret;
-
-		ret = read_img_eof(fd_vma, &ve);
-		if (ret <= 0)
-			break;
-
-		/* Simply in a sake of fancy printing */
-		vma_area.vma = ve;
-		pr_msg_vma(&vma_area);
-	}
-
-	pr_img_tail(CR_FD_VMAS);
+	pb_show_plain(fd_vma, vma_entry);
 }
 
 static int nice_width_for(unsigned long addr)
