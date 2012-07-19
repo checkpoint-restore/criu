@@ -9,23 +9,14 @@
 #include "namespaces.h"
 #include "sysctl.h"
 
-static int dump_uts_string(int fd, const char *str)
-{
-	int ret;
-	u32 len;
-
-	len = strlen(str);
-	ret = write_img(fd, &len);
-	if (!ret)
-		ret = write_img_buf(fd, str, len);
-
-	return ret;
-}
+#include "protobuf.h"
+#include "protobuf/utsns.pb-c.h"
 
 int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 {
-	int fd, ret;
+	int ret;
 	struct utsname ubuf;
+	UtsnsEntry ue = UTSNS_ENTRY__INIT;
 
 	ret = switch_ns(ns_pid, CLONE_NEWUTS, "uts");
 	if (ret < 0)
@@ -36,47 +27,20 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 		pr_perror("Error calling uname");
 		return ret;
 	}
+	
+	ue.nodename = ubuf.nodename;
+	ue.domainname = ubuf.domainname;
 
-	fd = fdset_fd(fdset, CR_FD_UTSNS);
-
-	ret = dump_uts_string(fd, ubuf.nodename);
-	if (!ret)
-		ret = dump_uts_string(fd, ubuf.domainname);
-
-	return ret;
-}
-
-static int read_uts_str(int fd, char *n, int size)
-{
-	int ret;
-	u32 len;
-
-	ret = read_img(fd, &len);
-	if (ret < 0)
-		return -1;
-
-	if (len >= size) {
-		pr_err("Corrupted %s\n", n);
-		return -1;
-	}
-
-	ret = read_img_buf(fd, n, len);
-	if (ret < 0)
-		return -1;
-
-	n[len] = '\0';
-	return 0;
+	return pb_write(fdset_fd(fdset, CR_FD_UTSNS), &ue, utsns_entry);
 }
 
 int prepare_utsns(int pid)
 {
 	int fd, ret;
-	char hostname[65];
-	char domainname[65];
-
-	struct sysctl_req req[] = {
-		{ "kernel/hostname",	hostname,	CTL_STR(sizeof(hostname)) },
-		{ "kernel/domainname",	domainname,	CTL_STR(sizeof(hostname)) },
+	UtsnsEntry *ue;
+	struct sysctl_req req[3] = {
+		{ "kernel/hostname" },
+		{ "kernel/domainname" },
 		{ },
 	};
 
@@ -84,46 +48,33 @@ int prepare_utsns(int pid)
 	if (fd < 0)
 		return -1;
 
-	ret = read_uts_str(fd, hostname, sizeof(hostname));
+	ret = pb_read(fd, &ue, utsns_entry);
 	if (ret < 0)
 		goto out;
 
-	ret = read_uts_str(fd, domainname, sizeof(domainname));
-	if (ret < 0)
-		goto out;
+	req[0].arg = ue->nodename;
+	req[0].type = CTL_STR(strlen(ue->nodename));
+	req[1].arg = ue->domainname;
+	req[1].type = CTL_STR(strlen(ue->domainname));
 
 	ret = sysctl_op(req, CTL_WRITE);
+	utsns_entry__free_unpacked(ue, NULL);
 out:
 	close(fd);
 	return ret;
 }
 
-static void show_uts_string(int fd, char *n)
-{
-	int ret;
-	u32 len;
-	char str[65];
-
-	ret = read_img_eof(fd, &len);
-	if (ret > 0) {
-		if (len >= sizeof(str)) {
-			pr_err("Corrupted hostname\n");
-			return;
-		}
-
-		ret = read_img_buf(fd, str, len);
-		if (ret < 0)
-			return;
-
-		str[len] = '\0';
-		pr_msg("%s: [%s]\n", n, str);
-	}
-}
-
 void show_utsns(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_UTSNS);
-	show_uts_string(fd, "hostname");
-	show_uts_string(fd, "domainname");
-	pr_img_tail(CR_FD_UTSNS);
+	int ret;
+	UtsnsEntry *ue;
+
+	ret = pb_read(fd, &ue, utsns_entry);
+	if (ret < 0)
+		return;
+
+	pr_msg("nodename: %s\n", ue->nodename);
+	pr_msg("domainname: %s\n", ue->domainname);
+
+	utsns_entry__free_unpacked(ue, NULL);
 }
