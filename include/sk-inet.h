@@ -1,6 +1,9 @@
 #ifndef __CR_SK_INET_H__
 #define __CR_SK_INET_H__
 
+#include "protobuf.h"
+#include "../protobuf/sk-inet.pb-c.h"
+
 #define INET_ADDR_LEN		40
 
 struct inet_sk_desc {
@@ -20,7 +23,7 @@ struct inet_sk_desc {
 };
 
 struct inet_sk_info {
-	struct inet_sk_entry *ie;
+	InetSkEntry *ie;
 	struct file_desc d;
 	struct list_head rlist;
 };

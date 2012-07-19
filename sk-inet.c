@@ -33,7 +33,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		sk->state, src_addr);
 }
 
-static void show_one_inet_img(const char *act, const struct inet_sk_entry *e)
+static void show_one_inet_img(const char *act, const InetSkEntry *e)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
 
@@ -167,7 +167,10 @@ err:
 static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct inet_sk_desc *sk;
-	struct inet_sk_entry ie;
+	InetSkEntry ie = INET_SK_ENTRY__INIT;
+	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
+	FownEntry fown;
+	int ret = -1;
 
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino);
 	if (!sk) {
@@ -181,7 +184,7 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	BUG_ON(sk->sd.already_dumped);
 
-	memset(&ie, 0, sizeof(ie));
+	pb_prep_fown(&fown, &p->fown);
 
 	ie.id		= id;
 	ie.ino		= sk->sd.ino;
@@ -193,14 +196,26 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	ie.dst_port	= sk->dst_port;
 	ie.backlog	= sk->wqlen;
 	ie.flags	= p->flags;
-	ie.fown		= p->fown;
+
+	ie.fown		= &fown;
+	ie.opts		= &skopts;
+
+	ie.n_src_addr = 4;
+	ie.n_dst_addr = 4;
+
+	ie.src_addr = xmalloc(pb_repeated_size(&ie, src_addr));
+	ie.dst_addr = xmalloc(pb_repeated_size(&ie, dst_addr));
+
+	if (!ie.src_addr || !ie.dst_addr)
+		goto err;
+
 	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
 	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
 
-	if (dump_socket_opts(lfd, &ie.opts))
+	if (pb_dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (write_img(fdset_fd(glob_fdset, CR_FD_INETSK), &ie))
+	if (pb_write(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, inet_sk_entry))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", p->fd);
@@ -209,12 +224,13 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	sk->sd.already_dumped = 1;
 
 	if (tcp_connection(sk))
-		return dump_one_tcp(lfd, sk);
-
-	return 0;
-
+		ret = dump_one_tcp(lfd, sk);
+	else
+		ret = 0;
 err:
-	return -1;
+	xfree(ie.src_addr);
+	xfree(ie.dst_addr);
+	return ret;
 }
 
 static const struct fdtype_ops inet_dump_ops = {
@@ -263,11 +279,12 @@ static u32 zero_addr[4];
 
 static bool is_bound(struct inet_sk_info *ii)
 {
-	BUILD_BUG_ON(sizeof(zero_addr) <
-		     max(sizeof(ii->ie->dst_addr), sizeof(ii->ie->src_addr)));
+	BUG_ON(sizeof(zero_addr) <
+		     max(pb_repeated_size(ii->ie, dst_addr),
+			 pb_repeated_size(ii->ie, src_addr)));
 
-	return memcmp(zero_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr)) ||
-	       memcmp(zero_addr, ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
+	return memcmp(zero_addr, ii->ie->src_addr, pb_repeated_size(ii->ie, src_addr)) ||
+	       memcmp(zero_addr, ii->ie->dst_addr, pb_repeated_size(ii->ie, dst_addr));
 }
 
 
@@ -293,11 +310,7 @@ int collect_inet_sockets(void)
 		if (!ii)
 			break;
 
-		ii->ie = xmalloc(sizeof(*ii->ie));
-		if (!ii->ie)
-			break;
-
-		ret = read_img_eof(fd, ii->ie);
+		ret = pb_read_eof(fd, &ii->ie, inet_sk_entry);
 		if (ret <= 0)
 			break;
 
@@ -377,10 +390,10 @@ static int open_inet_sk(struct file_desc *d)
 			inet_connect(sk, ii))
 		goto err;
 done:
-	if (rst_file_params(sk, &ii->ie->fown, ii->ie->flags))
+	if (pb_rst_file_params(sk, ii->ie->fown, ii->ie->flags))
 		goto err;
 
-	if (restore_socket_opts(sk, &ii->ie->opts))
+	if (pb_restore_socket_opts(sk, ii->ie->opts))
 		return -1;
 
 	return sk;
@@ -398,16 +411,21 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 	} addr;
 	int addr_size;
 
+
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
+		BUG_ON(pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v4.sin_addr.s_addr));
+
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->src_port);
-		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr));
+		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
+		BUG_ON(pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v6.sin6_addr.s6_addr));
+
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->src_port);
-		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(ii->ie->src_addr));
+		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(addr.v6.sin6_addr.s6_addr));
 		addr_size = sizeof(addr.v6);
 	} else
 		BUG_ON(1);
@@ -428,18 +446,21 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 	} addr;
 	int addr_size;
 
+
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
+		BUG_ON(pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v4.sin_addr.s_addr));
+
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->dst_port);
-		memcpy(&addr.v4.sin_addr.s_addr,
-				ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
+		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->dst_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
+		BUG_ON(pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v6.sin6_addr.s6_addr));
+
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->dst_port);
-		memcpy(&addr.v6.sin6_addr.s6_addr,
-				ii->ie->dst_addr, sizeof(ii->ie->dst_addr));
+		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->dst_addr, sizeof(addr.v6.sin6_addr.s6_addr));
 		addr_size = sizeof(addr.v6);
 	} else
 		BUG_ON(1);
@@ -454,7 +475,7 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 void show_inetsk(int fd, struct cr_options *o)
 {
-	struct inet_sk_entry ie;
+	InetSkEntry *ie;
 	int ret = 0;
 
 	pr_img_head(CR_FD_INETSK);
@@ -463,28 +484,29 @@ void show_inetsk(int fd, struct cr_options *o)
 		char src_addr[INET_ADDR_LEN] = "<unknown>";
 		char dst_addr[INET_ADDR_LEN] = "<unknown>";
 
-		ret = read_img_eof(fd, &ie);
+		ret = pb_read_eof(fd, &ie, inet_sk_entry);
 		if (ret <= 0)
 			goto out;
 
-		if (inet_ntop(ie.family, (void *)ie.src_addr, src_addr,
+		if (inet_ntop(ie->family, (void *)ie->src_addr, src_addr,
 			      INET_ADDR_LEN) == NULL) {
 			pr_perror("Failed to translate src address");
 		}
 
-		if (ie.state == TCP_ESTABLISHED) {
-			if (inet_ntop(ie.family, (void *)ie.dst_addr, dst_addr,
+		if (ie->state == TCP_ESTABLISHED) {
+			if (inet_ntop(ie->family, (void *)ie->dst_addr, dst_addr,
 				      INET_ADDR_LEN) == NULL) {
 				pr_perror("Failed to translate dst address");
 			}
 		}
 
 		pr_msg("id %#x ino %#x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
-			ie.id, ie.ino, skfamily2s(ie.family), sktype2s(ie.type), skproto2s(ie.proto),
-			skstate2s(ie.state), src_addr, ie.src_port, dst_addr, ie.dst_port, ie.flags);
-		pr_msg("\t"), show_fown_cont(&ie.fown), pr_msg("\n");
+			ie->id, ie->ino, skfamily2s(ie->family), sktype2s(ie->type), skproto2s(ie->proto),
+			skstate2s(ie->state), src_addr, ie->src_port, dst_addr, ie->dst_port, ie->flags);
+		pr_msg("\t"), pb_show_fown_cont(ie->fown), pr_msg("\n");
+		pb_show_socket_opts(ie->opts);
 
-		show_socket_opts(&ie.opts);
+		inet_sk_entry__free_unpacked(ie, NULL);
 	}
 
 out:

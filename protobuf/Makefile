@@ -41,6 +41,7 @@ PROTO_FILES	+= itimer.proto
 PROTO_FILES	+= mm.proto
 PROTO_FILES	+= sk-opts.proto
 PROTO_FILES	+= sk-unix.proto
+PROTO_FILES	+= sk-inet.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))

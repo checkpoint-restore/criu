@@ -1,0 +1,21 @@
+import "fown.proto";
+import "sk-opts.proto";
+
+message inet_sk_entry {
+	required uint32			id		=  1;
+	required uint32			ino		=  2;
+	required uint32			family		=  3;
+	required uint32			type		=  4;
+	required uint32			proto		=  5;
+	required uint32			state		=  6;
+	required uint32			src_port	=  7;
+	required uint32			dst_port	=  8;
+	required uint32			flags		=  9;
+	required uint32			backlog		= 10;
+
+	repeated uint32			src_addr	= 11;
+	repeated uint32			dst_addr	= 12;
+
+	required fown_entry		fown		= 13;
+	required sk_opts_entry		opts		= 14;
+}

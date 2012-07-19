@@ -84,23 +84,6 @@ struct sk_opts_entry {
 	u64	so_rcv_tmo[2];
 };
 
-struct inet_sk_entry {
-	u32	id;
-	u32	ino;
-	u8	family;
-	u8	type;
-	u8	proto;
-	u8	state;
-	u16	src_port;
-	u16	dst_port;
-	u32	flags;
-	u32	backlog;
-	fown_t	fown;
-	u32	src_addr[4];
-	u32	dst_addr[4];
-	struct sk_opts_entry opts;
-} __packed;
-
 struct vma_entry {
 	u64	start;
 	u64	end;
