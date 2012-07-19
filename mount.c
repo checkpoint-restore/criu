@@ -506,16 +506,7 @@ void show_mountpoints(int fd, struct cr_options *o)
 		ret = pb_read_eof(fd, &me, mnt_entry);
 		if (ret <= 0)
 			break;
-
-		pr_msg("%d:%d [%s] ", me->mnt_id, me->parent_mnt_id,
-				decode_fstype(me->fstype));
-		pr_msg("%d:%d %s ", kdev_major(me->root_dev),
-				kdev_minor(me->root_dev), me->root);
-		pr_msg("@ %s ", me->mountpoint);
-		pr_msg("flags %08x ", me->flags);
-		pr_msg("dev %s ", me->source);
-		pr_msg("options %s\n", me->options);
-
+		pb_show_msg(me, &mnt_entry__descriptor);
 		mnt_entry__free_unpacked(me, NULL);
 	}
 

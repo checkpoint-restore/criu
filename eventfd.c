@@ -53,10 +53,7 @@ void show_eventfds(int fd, struct cr_options *o)
 		ret = pb_read_eof(fd, &efe, eventfd_file_entry);
 		if (ret <= 0)
 			goto out;
-		pr_msg("id: %#08x flags %#04x counter: %#016lx ",
-		       efe->id, efe->flags, efe->counter);
-		pb_show_fown_cont(efe->fown);
-		pr_msg("\n");
+		pb_show_msg(efe, &eventfd_file_entry__descriptor);
 		eventfd_file_entry__free_unpacked(efe, NULL);
 	}
 

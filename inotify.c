@@ -74,15 +74,7 @@ void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 			       (int)e->f_handle->n_handle, FH_ENTRY_SIZES__min_entries);
 			goto out;
 		}
-
-		pr_msg("inotify-wd: id 0x%08x 0x%08x s_dev 0x%08x i_ino 0x%016lx "
-		       " mask 0x%08x ignored_mask 0x%08x "
-		       "[fhandle] bytes 0x%08x type 0x%08x "
-		       "handle 0x%016lx:0x%016lx\n",
-		       e->id, e->wd, e->s_dev, e->i_ino, e->mask, e->ignored_mask,
-		       e->f_handle->bytes, e->f_handle->type,
-		       e->f_handle->handle[0], e->f_handle->handle[1]);
-
+		pb_show_msg(e, &inotify_wd_entry__descriptor);
 		inotify_wd_entry__free_unpacked(e, NULL);
 	}
 out:
@@ -99,15 +91,10 @@ void show_inotify(int fd_inotify, struct cr_options *o)
 
 		ret = pb_read_eof(fd_inotify, &e, inotify_file_entry);
 		if (ret <= 0)
-			goto out;
-
-		pr_msg("inotify: id 0x%08x flags 0x%08x\n\t", e->id, e->flags);
-		pb_show_fown_cont(e->fown);
-		pr_msg("\n");
-
+			break;
+		pb_show_msg(e, &inotify_file_entry__descriptor);
 		inotify_file_entry__free_unpacked(e, NULL);
 	}
-out:
 	pr_img_tail(CR_FD_INOTIFY);
 }
 

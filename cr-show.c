@@ -70,41 +70,17 @@
 static char local_buf[PAGE_SIZE];
 static LIST_HEAD(pstree_list);
 
-static char *fdtype2s(u8 type)
-{
-	static char und[4];
-	static char *fdtypes[] = {
-		[FDINFO_REG] = "reg",
-		[FDINFO_INETSK] = "isk",
-		[FDINFO_PIPE] = "pipe",
-		[FDINFO_FIFO] = "fifo",
-		[FDINFO_UNIXSK] = "usk",
-		[FDINFO_EVENTFD] = "efd",
-		[FDINFO_EVENTPOLL] = "epl",
-		[FDINFO_INOTIFY] = "ify",
-	};
-
-	if (type > FDINFO_UND && type < FD_INFO_MAX)
-		return fdtypes[type];
-	snprintf(und, sizeof(und), "x%03d\n", (int)type);
-	return und;
-}
-
 void show_files(int fd_files, struct cr_options *o)
 {
 	pr_img_head(CR_FD_FDINFO);
-
 	while (1) {
 		FdinfoEntry *e;
 		int ret = pb_read_eof(fd_files, &e, fdinfo_entry);
 		if (ret <= 0)
-			goto out;
-		pr_msg("type: %-5s fd: %-5d id: %#x flags %#x\n",
-		       fdtype2s(e->type), e->fd, e->id, e->flags);
+			break;
+		pb_show_msg(e, &fdinfo_entry__descriptor);
 		fdinfo_entry__free_unpacked(e, NULL);
 	}
-
-out:
 	pr_img_tail(CR_FD_FDINFO);
 }
 
@@ -134,12 +110,7 @@ void show_reg_files(int fd_reg_files, struct cr_options *o)
 		ret = pb_read_eof(fd_reg_files, &rfe, reg_file_entry);
 		if (ret <= 0)
 			break;
-
-		pr_msg("id: 0x%8x flags: 0x%4x pos: 0x%lx",
-		       rfe->id, rfe->flags, rfe->pos);
-		if (rfe->name)
-			pr_msg(" --> %s", rfe->name);
-		pr_msg("\n");
+		pb_show_msg(rfe, &reg_file_entry__descriptor);
 		reg_file_entry__free_unpacked(rfe, NULL);
 	}
 	pr_img_tail(CR_FD_REG_FILES);
@@ -158,20 +129,15 @@ void show_remap_files(int fd, struct cr_options *o)
 	RemapFilePathEntry *rfe;
 
 	pr_img_head(CR_FD_REMAP_FPATH);
-
 	while (1) {
 		int ret;
 
 		ret = pb_read_eof(fd, &rfe, remap_file_path_entry);
 		if (ret <= 0)
 			break;
-
-		pr_msg("%#x -> %#x (%s)\n", rfe->orig_id,
-				(rfe->remap_id & ~REMAP_GHOST),
-				remap_id_type(rfe->remap_id));
+		pb_show_msg(rfe, &remap_file_path_entry__descriptor);
 		remap_file_path_entry__free_unpacked(rfe, NULL);
 	}
-
 	pr_img_tail(CR_FD_REMAP_FPATH);
 }
 
@@ -213,19 +179,13 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 	int ret;
 
 	pr_img_head(CR_FD_PIPES);
-
 	while (1) {
 		ret = pb_read_eof(fd_pipes, &e, pipe_entry);
 		if (ret <= 0)
-			goto out;
-		pr_msg("id: 0x%8x pipeid: 0x%8x flags: 0x%8x ",
-		       e->id, e->pipe_id, e->flags);
-		pb_show_fown_cont(e->fown);
-		pr_msg("\n");
+			break;
+		pb_show_msg(e, &pipe_entry__descriptor);
 		pipe_entry__free_unpacked(e, NULL);
 	}
-
-out:
 	pr_img_tail(CR_FD_PIPES);
 }
 
@@ -244,7 +204,7 @@ void show_fifo(int fd, struct cr_options *o)
 	while (1) {
 		if (pb_read_eof(fd, &e, fifo_entry) <= 0)
 			break;
-		pr_msg("id: 0x%8x pipeid: 0x%8x\n", e->id, e->pipe_id);
+		pb_show_msg(e, &fifo_entry__descriptor);
 		fifo_entry__free_unpacked(e, NULL);
 	}
 	pr_img_tail(CR_FD_FIFO);

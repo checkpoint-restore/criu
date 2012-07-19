@@ -65,8 +65,7 @@ void show_eventpoll_tfd(int fd, struct cr_options *o)
 		ret = pb_read_eof(fd, &e, eventpoll_tfd_entry);
 		if (ret <= 0)
 			goto out;
-		pr_msg("id: %#08x tfd %#08x events %#08x data %#016lx\n",
-		       e->id, e->tfd, e->events, e->data);
+		pb_show_msg(e, &eventpoll_tfd_entry__descriptor);
 		eventpoll_tfd_entry__free_unpacked(e, NULL);
 	}
 
@@ -85,15 +84,11 @@ void show_eventpoll(int fd, struct cr_options *o)
 
 		ret = pb_read_eof(fd, &e, eventpoll_file_entry);
 		if (ret <= 0)
-			goto out;
-		pr_msg("id: %#08x flags %#04x ",
-		       e->id, e->flags);
-		pb_show_fown_cont(e->fown);
-		pr_msg("\n");
+			break;
+		pb_show_msg(e, &eventpoll_file_entry__descriptor);
 		eventpoll_file_entry__free_unpacked(e, NULL);
 	}
 
-out:
 	pr_img_tail(CR_FD_EVENTPOLL);
 }
 
