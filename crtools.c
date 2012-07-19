@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
 	pid_t pid = 0;
 	int ret = -1;
 	int opt, idx;
-	int action = -1;
 	int log_inited = 0;
 	int log_level = 0;
 
@@ -64,8 +63,6 @@ int main(int argc, char *argv[])
 
 	if (argc < 2)
 		goto usage;
-
-	action = argv[1][0];
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
@@ -89,7 +86,7 @@ int main(int argc, char *argv[])
 			{ },
 		};
 
-		opt = getopt_long(argc - 1, argv + 1, short_opts, long_opts, &idx);
+		opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
 		if (opt == -1)
 			break;
 
@@ -187,15 +184,15 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (strcmp(argv[1], "dump") &&
-	    strcmp(argv[1], "restore") &&
-	    strcmp(argv[1], "show") &&
-	    strcmp(argv[1], "check")) {
-		pr_err("Unknown command");
+	if (strcmp(argv[optind], "dump") &&
+	    strcmp(argv[optind], "restore") &&
+	    strcmp(argv[optind], "show") &&
+	    strcmp(argv[optind], "check")) {
+		pr_err("Unknown command %s", argv[optind]);
 		goto usage;
 	}
 
-	switch (action) {
+	switch (argv[optind][0]) {
 	case 'd':
 		if (!pid)
 			goto opt_pid_missing;
@@ -262,6 +259,9 @@ usage:
 	pr_msg("  -f|--file             show contents of a checkpoint file\n");
 	pr_msg("  -D|--images-dir       directory where to get images from\n");
 	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
+
+	pr_msg("\nOther options:\n");
+	pr_msg("  -h|--help             show this text\n");
 
 	return -1;
 
