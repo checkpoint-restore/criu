@@ -55,7 +55,7 @@ HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
 OBJS	:= $(patsubst %.c,%.o,$(SRCS))
 
-.DEFAULT_GOAL	:= all
+.DEFAULT_GOAL	:= protobuf
 
 %.pb-c.c: %.proto
 	$(E) "  PROTOBUF "$@
@@ -71,9 +71,9 @@ $(LIBRARY): $(OBJS)
 	$(E) "  LINK     "$@
 	$(Q) ld -r -o $@ $(OBJS)
 
-.PHONY: all clean
+.PHONY: protobuf
 
-all: $(LIBRARY)
+protobuf: $(LIBRARY)
 
 clean:
 	$(E) "  CLEAN PROTOBUF"

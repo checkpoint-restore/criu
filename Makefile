@@ -79,7 +79,7 @@ all: protobuf pie
 pie: $(PIE-GEN)
 
 protobuf:
-	$(Q) $(MAKE) -C protobuf/ all
+	$(Q) $(MAKE) -C protobuf/
 
 %.o: %.c
 	$(E) "  CC      " $@
