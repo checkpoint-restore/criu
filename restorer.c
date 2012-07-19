@@ -131,7 +131,6 @@ static void restore_creds(CredsEntry *ce)
 long __export_restore_thread(struct thread_restore_args *args)
 {
 	long ret = -1;
-	struct core_entry *core_entry;
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp, fsgs_base;
 	int my_pid = sys_gettid();
@@ -143,23 +142,12 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	core_entry = (struct core_entry *)&args->mem_zone.heap;
-
-	ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
-	if (ret != sizeof(*core_entry)) {
-		write_num_n(__LINE__);
-		goto core_restore_end;
-	}
-
-	/* We're to close it! */
-	sys_close(args->fd_core);
-
-	sys_set_tid_address((int *) core_entry->clear_tid_address);
+	sys_set_tid_address((int *)args->clear_tid_addr);
 
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
-#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
+#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
+#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
 
 	CPREGT1(r8);
 	CPREGT1(r9);
@@ -183,7 +171,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	CPREGT1(gs);
 	CPREGT1(fs);
 
-	fsgs_base = core_entry->arch.gpregs.fs_base;
+	fsgs_base = args->gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -191,7 +179,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	fsgs_base = core_entry->arch.gpregs.gs_base;
+	fsgs_base = args->gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -294,7 +282,6 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
-	struct core_entry *core_entry;
 	VmaEntry *vma_entry;
 	u64 va;
 
@@ -310,20 +297,12 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restorer_set_logfd(args->logfd);
 
-	core_entry	= first_on_heap(core_entry, args->mem_zone.heap);
-
 #if 0
 	write_hex_n((long)args);
 	write_hex_n((long)args->mem_zone.heap);
 	write_hex_n((long)core_entry);
 	write_hex_n((long)vma_entry);
 #endif
-
-	ret = sys_read(args->fd_core, core_entry, sizeof(*core_entry));
-	if (ret != sizeof(*core_entry)) {
-		write_num_n(__LINE__);
-		goto core_restore_end;
-	}
 
 	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
@@ -412,7 +391,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	sys_munmap(args->tgt_vmas,
 			((void *)(vma_entry + 1) - ((void *)args->tgt_vmas)));
-	sys_close(args->fd_core);
 
 	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
 	if (ret < 0) {
@@ -421,12 +399,12 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	sys_set_tid_address((int *) core_entry->clear_tid_address);
+	sys_set_tid_address((int *)args->clear_tid_addr);
 
 	/*
 	 * Tune up the task fields.
 	 */
-	ret |= sys_prctl_safe(PR_SET_NAME, (long)core_entry->tc.comm, 0, 0);
+	ret |= sys_prctl_safe(PR_SET_NAME, (long)args->comm, 0, 0);
 
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
 	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
@@ -462,8 +440,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 */
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.d
-#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = core_entry->arch.gpregs.s
+#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
+#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
 
 	CPREG1(r8);
 	CPREG1(r9);
@@ -487,7 +465,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	CPREG1(gs);
 	CPREG1(fs);
 
-	fsgs_base = core_entry->arch.gpregs.fs_base;
+	fsgs_base = args->gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -495,7 +473,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	fsgs_base = core_entry->arch.gpregs.gs_base;
+	fsgs_base = args->gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
 		write_num_n(__LINE__);
@@ -506,7 +484,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	/*
 	 * Blocked signals.
 	 */
-	rt_sigframe->uc.uc_sigmask.sig[0] = core_entry->tc.blk_sigset;
+	rt_sigframe->uc.uc_sigmask.sig[0] = args->blk_sigset;
 
 	/*
 	 * Threads restoration. This requires some more comments. This

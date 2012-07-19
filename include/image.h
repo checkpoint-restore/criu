@@ -87,137 +87,18 @@ struct page_entry {
 
 #define CR_CAP_SIZE	2
 
-#define HEADER_ARCH_X86_64	1
-
-struct image_header {
-	u32	arch;
-	u32	flags;
-} __packed;
-
-/*
- * PTRACE_GETREGS
- * PTRACE_GETFPREGS
- * PTRACE_GETFPXREGS		dep CONFIG_X86_32
- * PTRACE_GET_THREAD_AREA	dep CONFIG_X86_32 || CONFIG_IA32_EMULATION
- * PTRACE_GETFDPIC		dep CONFIG_BINFMT_ELF_FDPIC
- *
- * PTRACE_ARCH_PRCTL		dep CONFIG_X86_64
- *  ARCH_SET_GS/ARCH_GET_FS
- *  ARCH_SET_FS/ARCH_GET_GS
- */
-
 #ifdef CONFIG_X86_64
-
-struct user_regs_entry {
-	u64	r15;
-	u64	r14;
-	u64	r13;
-	u64	r12;
-	u64	bp;
-	u64	bx;
-	u64	r11;
-	u64	r10;
-	u64	r9;
-	u64	r8;
-	u64	ax;
-	u64	cx;
-	u64	dx;
-	u64	si;
-	u64	di;
-	u64	orig_ax;
-	u64	ip;
-	u64	cs;
-	u64	flags;
-	u64	sp;
-	u64	ss;
-	u64	fs_base;
-	u64	gs_base;
-	u64	ds;
-	u64	es;
-	u64	fs;
-	u64	gs;
-} __packed;
-
-struct desc_struct {
- union {
-	struct {
-		u32 a;
-		u32 b;
-	} x86_32;
-	u64	base_addr;
- };
-} __packed;
-
-struct user_fpregs_entry {
-	u16	cwd;
-	u16	swd;
-	u16	twd;	/* Note this is not the same as
-			   the 32bit/x87/FSAVE twd */
-	u16	fop;
-	u64	rip;
-	u64	rdp;
-	u32	mxcsr;
-	u32	mxcsr_mask;
-	u32	st_space[32];	/* 8*16 bytes for each FP-reg = 128 bytes */
-	u32	xmm_space[64];	/* 16*16 bytes for each XMM-reg = 256 bytes */
-	u32	padding[24];
-} __packed;
 
 #define GDT_ENTRY_TLS_ENTRIES 3
 #define TASK_COMM_LEN 16
 
 #define TASK_PF_USED_MATH		0x00002000
 
-#define CKPT_ARCH_SIZE			(1 * 4096)
-
-struct ckpt_arch_entry {
-	union {
-		struct {
-			struct user_regs_entry		gpregs;
-			struct user_fpregs_entry	fpregs;
-		};
-		u8 __arch_pad[CKPT_ARCH_SIZE];	/* should be enough for all */
-	};
-};
-
-#define CKPT_CORE_SIZE			(2 * 4096)
-
 #ifdef CONFIG_X86_64
 # define AT_VECTOR_SIZE 44
 #else
 # define AT_VECTOR_SIZE 22		/* Not needed at moment */
 #endif
-
-struct task_core_entry {
-	u8				task_state;
-	u8				pad[3];
-	u32				exit_code;
-
-	u32				personality;
-	u8				comm[TASK_COMM_LEN];
-	u32				flags;
-	u64				blk_sigset;
-};
-
-struct core_ids_entry {
-	u32	vm_id;
-	u32	files_id;
-	u32	fs_id;
-	u32	sighand_id;
-} __packed;
-
-struct core_entry {
-	union {
-		struct {
-			struct image_header	header;
-			struct task_core_entry	tc;
-			struct ckpt_arch_entry	arch;
-			struct core_ids_entry	ids;
-			u64 clear_tid_address;
-		};
-		u8 __core_pad[CKPT_CORE_SIZE];
-	};
-} __packed;
 
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2

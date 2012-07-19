@@ -51,6 +51,7 @@
 #include "protobuf/fs.pb-c.h"
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/creds.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -490,8 +491,8 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 	return pb_write(fdset_fd(fds, CR_FD_CREDS), &ce, creds_entry);
 }
 
-#define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e
-#define assign_array(dst, src, e)	memcpy(&dst.e, &src.e, sizeof(dst.e))
+#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.e
+#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
 static int get_task_auxv(pid_t pid, MmEntry *mm)
 {
@@ -585,10 +586,11 @@ err:
 	return ret;
 }
 
-static int get_task_regs(pid_t pid, struct core_entry *core, const struct parasite_ctl *ctl)
+static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 {
 	user_fpregs_struct_t fpregs	= {-1};
 	user_regs_struct_t regs		= {-1};
+
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers ... ");
@@ -624,46 +626,51 @@ static int get_task_regs(pid_t pid, struct core_entry *core, const struct parasi
 		}
 	}
 
-	assign_reg(core->arch.gpregs, regs, r15);
-	assign_reg(core->arch.gpregs, regs, r14);
-	assign_reg(core->arch.gpregs, regs, r13);
-	assign_reg(core->arch.gpregs, regs, r12);
-	assign_reg(core->arch.gpregs, regs, bp);
-	assign_reg(core->arch.gpregs, regs, bx);
-	assign_reg(core->arch.gpregs, regs, r11);
-	assign_reg(core->arch.gpregs, regs, r10);
-	assign_reg(core->arch.gpregs, regs, r9);
-	assign_reg(core->arch.gpregs, regs, r8);
-	assign_reg(core->arch.gpregs, regs, ax);
-	assign_reg(core->arch.gpregs, regs, cx);
-	assign_reg(core->arch.gpregs, regs, dx);
-	assign_reg(core->arch.gpregs, regs, si);
-	assign_reg(core->arch.gpregs, regs, di);
-	assign_reg(core->arch.gpregs, regs, orig_ax);
-	assign_reg(core->arch.gpregs, regs, ip);
-	assign_reg(core->arch.gpregs, regs, cs);
-	assign_reg(core->arch.gpregs, regs, flags);
-	assign_reg(core->arch.gpregs, regs, sp);
-	assign_reg(core->arch.gpregs, regs, ss);
-	assign_reg(core->arch.gpregs, regs, fs_base);
-	assign_reg(core->arch.gpregs, regs, gs_base);
-	assign_reg(core->arch.gpregs, regs, ds);
-	assign_reg(core->arch.gpregs, regs, es);
-	assign_reg(core->arch.gpregs, regs, fs);
-	assign_reg(core->arch.gpregs, regs, gs);
+	assign_reg(core->thread_info->gpregs, regs, r15);
+	assign_reg(core->thread_info->gpregs, regs, r14);
+	assign_reg(core->thread_info->gpregs, regs, r13);
+	assign_reg(core->thread_info->gpregs, regs, r12);
+	assign_reg(core->thread_info->gpregs, regs, bp);
+	assign_reg(core->thread_info->gpregs, regs, bx);
+	assign_reg(core->thread_info->gpregs, regs, r11);
+	assign_reg(core->thread_info->gpregs, regs, r10);
+	assign_reg(core->thread_info->gpregs, regs, r9);
+	assign_reg(core->thread_info->gpregs, regs, r8);
+	assign_reg(core->thread_info->gpregs, regs, ax);
+	assign_reg(core->thread_info->gpregs, regs, cx);
+	assign_reg(core->thread_info->gpregs, regs, dx);
+	assign_reg(core->thread_info->gpregs, regs, si);
+	assign_reg(core->thread_info->gpregs, regs, di);
+	assign_reg(core->thread_info->gpregs, regs, orig_ax);
+	assign_reg(core->thread_info->gpregs, regs, ip);
+	assign_reg(core->thread_info->gpregs, regs, cs);
+	assign_reg(core->thread_info->gpregs, regs, flags);
+	assign_reg(core->thread_info->gpregs, regs, sp);
+	assign_reg(core->thread_info->gpregs, regs, ss);
+	assign_reg(core->thread_info->gpregs, regs, fs_base);
+	assign_reg(core->thread_info->gpregs, regs, gs_base);
+	assign_reg(core->thread_info->gpregs, regs, ds);
+	assign_reg(core->thread_info->gpregs, regs, es);
+	assign_reg(core->thread_info->gpregs, regs, fs);
+	assign_reg(core->thread_info->gpregs, regs, gs);
 
-	assign_reg(core->arch.fpregs, fpregs, cwd);
-	assign_reg(core->arch.fpregs, fpregs, swd);
-	assign_reg(core->arch.fpregs, fpregs, twd);
-	assign_reg(core->arch.fpregs, fpregs, fop);
-	assign_reg(core->arch.fpregs, fpregs, rip);
-	assign_reg(core->arch.fpregs, fpregs, rdp);
-	assign_reg(core->arch.fpregs, fpregs, mxcsr);
-	assign_reg(core->arch.fpregs, fpregs, mxcsr_mask);
+	assign_reg(core->thread_info->fpregs, fpregs, cwd);
+	assign_reg(core->thread_info->fpregs, fpregs, swd);
+	assign_reg(core->thread_info->fpregs, fpregs, twd);
+	assign_reg(core->thread_info->fpregs, fpregs, fop);
+	assign_reg(core->thread_info->fpregs, fpregs, rip);
+	assign_reg(core->thread_info->fpregs, fpregs, rdp);
+	assign_reg(core->thread_info->fpregs, fpregs, mxcsr);
+	assign_reg(core->thread_info->fpregs, fpregs, mxcsr_mask);
 
-	assign_array(core->arch.fpregs, fpregs,	st_space);
-	assign_array(core->arch.fpregs, fpregs,	xmm_space);
-	assign_array(core->arch.fpregs, fpregs,	padding);
+	/* Make sure we have enough space */
+	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs.st_space));
+	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs.xmm_space));
+	BUG_ON(core->thread_info->fpregs->n_padding != ARRAY_SIZE(fpregs.padding));
+
+	assign_array(core->thread_info->fpregs, fpregs,	st_space);
+	assign_array(core->thread_info->fpregs, fpregs,	xmm_space);
+	assign_array(core->thread_info->fpregs, fpregs,	padding);
 
 	ret = 0;
 
@@ -671,22 +678,12 @@ err:
 	return ret;
 }
 
-static int dump_task_core(struct core_entry *core, int fd_core)
-{
-	pr_info("Dumping header ... ");
-
-	core->header.arch	= HEADER_ARCH_X86_64;
-	core->header.flags	= 0;
-
-	return write_img(fd_core, core);
-}
-
 static DECLARE_KCMP_TREE(vm_tree, KCMP_VM);
 static DECLARE_KCMP_TREE(fs_tree, KCMP_FS);
 static DECLARE_KCMP_TREE(files_tree, KCMP_FILES);
 static DECLARE_KCMP_TREE(sighand_tree, KCMP_SIGHAND);
 
-static int dump_task_kobj_ids(pid_t pid, struct core_entry *core)
+static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
 {
 	int new;
 	struct kid_elem elem;
@@ -696,29 +693,29 @@ static int dump_task_kobj_ids(pid_t pid, struct core_entry *core)
 	elem.genid = 0; /* FIXME optimize */
 
 	new = 0;
-	core->ids.vm_id = kid_generate_gen(&vm_tree, &elem, &new);
-	if (!core->ids.vm_id || !new) {
+	core->ids->vm_id = kid_generate_gen(&vm_tree, &elem, &new);
+	if (!core->ids->vm_id || !new) {
 		pr_err("Can't make VM id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids.fs_id = kid_generate_gen(&fs_tree, &elem, &new);
-	if (!core->ids.fs_id || !new) {
+	core->ids->fs_id = kid_generate_gen(&fs_tree, &elem, &new);
+	if (!core->ids->fs_id || !new) {
 		pr_err("Can't make FS id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids.files_id = kid_generate_gen(&files_tree, &elem, &new);
-	if (!core->ids.files_id || !new) {
+	core->ids->files_id = kid_generate_gen(&files_tree, &elem, &new);
+	if (!core->ids->files_id || !new) {
 		pr_err("Can't make FILES id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids.sighand_id = kid_generate_gen(&sighand_tree, &elem, &new);
-	if (!core->ids.sighand_id || !new) {
+	core->ids->sighand_id = kid_generate_gen(&sighand_tree, &elem, &new);
+	if (!core->ids->sighand_id || !new) {
 		pr_err("Can't make IO id for %d\n", pid);
 		return -1;
 	}
@@ -726,20 +723,113 @@ static int dump_task_kobj_ids(pid_t pid, struct core_entry *core)
 	return 0;
 }
 
+static void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		if (core->thread_info) {
+			if (core->thread_info->fpregs) {
+				xfree(core->thread_info->fpregs->st_space);
+				xfree(core->thread_info->fpregs->xmm_space);
+				xfree(core->thread_info->fpregs->padding);
+			}
+			xfree(core->thread_info->gpregs);
+			xfree(core->thread_info->fpregs);
+		}
+		xfree(core->thread_info);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
+}
+
+static CoreEntry *core_entry_alloc(int alloc_thread_info,
+				   int alloc_tc,
+				   int alloc_ids)
+{
+	CoreEntry *core;
+	ThreadInfoX86 *thread_info;
+	UserX86RegsEntry *gpregs;
+	UserX86FpregsEntry *fpregs;
+	TaskCoreEntry *tc;
+	TaskKobjIdsEntry *ids;
+
+	core = xmalloc(sizeof(*core));
+	if (!core)
+		return NULL;
+	core_entry__init(core);
+
+	core->mtype = CORE_ENTRY__MARCH__X86_64;
+
+	if (alloc_thread_info) {
+		thread_info = xmalloc(sizeof(*thread_info));
+		if (!thread_info)
+			goto err;
+		thread_info_x86__init(thread_info);
+		core->thread_info = thread_info;
+
+		gpregs = xmalloc(sizeof(*gpregs));
+		if (!gpregs)
+			goto err;
+		user_x86_regs_entry__init(gpregs);
+		thread_info->gpregs = gpregs;
+
+		fpregs = xmalloc(sizeof(*fpregs));
+		if (!fpregs)
+			goto err;
+		user_x86_fpregs_entry__init(fpregs);
+		thread_info->fpregs = fpregs;
+
+		/* These are numbers from kernel */
+		fpregs->n_st_space	= 32;
+		fpregs->n_xmm_space	= 64;
+		fpregs->n_padding	= 24;
+
+		fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
+		fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
+		fpregs->padding		= xzalloc(pb_repeated_size(fpregs, padding));
+
+		if (!fpregs->st_space || !fpregs->xmm_space || !fpregs->padding)
+			goto err;
+
+	}
+
+	if (alloc_tc) {
+		tc = xzalloc(sizeof(*tc) + TASK_COMM_LEN);
+		if (!tc)
+			goto err;
+		task_core_entry__init(tc);
+		tc->comm = (void *)tc + sizeof(*tc);
+		core->tc = tc;
+	}
+
+	if (alloc_ids) {
+		ids = xmalloc(sizeof(*ids));
+		if (!ids)
+			goto err;
+		task_kobj_ids_entry__init(ids);
+		core->ids = ids;
+	}
+
+	return core;
+err:
+	core_entry_free(core);
+	return NULL;
+}
+
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
 		const struct cr_fdset *cr_fdset)
 {
-	struct core_entry *core;
+	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
+	CoreEntry *core;
 	int ret = -1;
+
+	core = core_entry_alloc(1, 1, 1);
+	if (!core)
+		return -1;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
-
-	core = xzalloc(sizeof(*core));
-	if (!core)
-		goto err;
 
 	ret = dump_task_kobj_ids(pid, core);
 	if (ret)
@@ -753,26 +843,27 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	ret = get_task_personality(pid, &core->tc.personality);
+	ret = get_task_personality(pid, &core->tc->personality);
 	if (ret)
 		goto err_free;
 
-	strncpy((char *)core->tc.comm, stat->comm, TASK_COMM_LEN);
-	core->tc.flags = stat->flags;
-	BUILD_BUG_ON(sizeof(core->tc.blk_sigset) != sizeof(k_rtsigset_t));
-	memcpy(&core->tc.blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
+	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
+	core->tc->flags = stat->flags;
+	BUILD_BUG_ON(sizeof(core->tc->blk_sigset) != sizeof(k_rtsigset_t));
+	memcpy(&core->tc->blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
 
-	core->tc.task_state = TASK_ALIVE;
-	core->tc.exit_code = 0;
+	core->tc->task_state = TASK_ALIVE;
+	core->tc->exit_code = 0;
 
-	ret = dump_task_core(core, fdset_fd(cr_fdset, CR_FD_CORE));
-	if (ret)
+	ret = pb_write(fd_core, core, core_entry);
+	if (ret < 0) {
+		pr_info("ERROR\n");
 		goto err_free;
-	pr_info("OK\n");
+	} else
+		pr_info("OK\n");
 
 err_free:
-	free(core);
-err:
+	core_entry_free(core);
 	pr_info("----------------------------------------\n");
 
 	return ret;
@@ -1121,7 +1212,7 @@ try_again:
 
 static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 {
-	struct core_entry *core;
+	CoreEntry *core;
 	int ret = -1, fd_core;
 	unsigned int *taddr;
 	pid_t pid = tid->real;
@@ -1130,7 +1221,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	core = xzalloc(sizeof(*core));
+	core = core_entry_alloc(1, 0, 0);
 	if (!core)
 		goto err;
 
@@ -1145,22 +1236,19 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	}
 
 	pr_info("%d: tid_address=%p\n", pid, taddr);
-	core->clear_tid_address = (u64) taddr;
+	core->thread_info->clear_tid_addr = (u64) taddr;
 
 	pr_info("OK\n");
-
-	core->tc.task_state = TASK_ALIVE;
-	core->tc.exit_code = 0;
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (fd_core < 0)
 		goto err_free;
 
-	ret = dump_task_core(core, fd_core);
+	ret = pb_write(fd_core, core, core_entry);
 
 	close(fd_core);
 err_free:
-	free(core);
+	core_entry_free(core);
 err:
 	pr_info("----------------------------------------\n");
 	return ret;
@@ -1169,24 +1257,24 @@ err:
 static int dump_one_zombie(const struct pstree_item *item,
 			   const struct proc_pid_stat *pps)
 {
-	struct core_entry *core;
+	CoreEntry *core;
 	int ret = -1, fd_core;
 
-	core = xzalloc(sizeof(*core));
+	core = core_entry_alloc(0, 1, 0);
 	if (core == NULL)
 		goto err;
 
-	core->tc.task_state = TASK_DEAD;
-	core->tc.exit_code = pps->exit_code;
+	core->tc->task_state = TASK_DEAD;
+	core->tc->exit_code = pps->exit_code;
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid);
 	if (fd_core < 0)
 		goto err_free;
 
-	ret = dump_task_core(core, fd_core);
+	ret = pb_write(fd_core, core, core_entry);
 	close(fd_core);
 err_free:
-	xfree(core);
+	core_entry_free(core);
 err:
 	return ret;
 }

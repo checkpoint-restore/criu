@@ -40,6 +40,7 @@
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -50,24 +51,6 @@
 
 #define PR_SYMBOL(sym)			\
 	(isprint(sym) ? sym : '.')
-
-#define pr_regs4(s, n1, n2, n3, n4)	\
-	pr_msg("%8s: 0x%16lx "		\
-	       "%8s: 0x%16lx "		\
-	       "%8s: 0x%16lx "		\
-	       "%8s: 0x%16lx\n",	\
-	       #n1, s.n1,		\
-	       #n2, s.n2,		\
-	       #n3, s.n3,		\
-	       #n4, s.n4)
-
-#define pr_regs3(s, n1, n2, n3)		\
-	pr_msg("%8s: 0x%16lx "		\
-	       "%8s: 0x%16lx "		\
-	       "%8s: 0x%16lx\n",	\
-	       #n1, s.n1,		\
-	       #n2, s.n2,		\
-	       #n3, s.n3)
 
 static LIST_HEAD(pstree_list);
 
@@ -370,30 +353,6 @@ void show_pstree(int fd_pstree, struct cr_options *o)
 	show_collect_pstree(fd_pstree, NULL);
 }
 
-static void show_core_regs(int fd_core)
-{
-	struct user_regs_entry regs;
-
-	pr_msg("\n\t---[GP registers set]---\n");
-
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, arch.gpregs), SEEK_SET);
-
-	if (read_img(fd_core, &regs) < 0)
-		goto err;
-
-	pr_regs4(regs, cs, ip, ds, es);
-	pr_regs4(regs, ss, sp, fs, gs);
-	pr_regs4(regs, di, si, dx, cx);
-	pr_regs4(regs, ax, r8, r9, r10);
-	pr_regs4(regs, r11, r12, r13, r14);
-	pr_regs3(regs, r15, bp, bx);
-	pr_regs4(regs, orig_ax, flags, fs_base, gs_base);
-	pr_msg("\n");
-
-err:
-	return;
-}
-
 static inline char *task_state_str(int state)
 {
 	switch (state) {
@@ -406,68 +365,98 @@ static inline char *task_state_str(int state)
 	}
 }
 
-static void show_core_rest(int fd_core)
+static void show_core_rest(TaskCoreEntry *tc)
 {
-	struct task_core_entry tc;
+	if (!tc)
+		return;
 
-	lseek(fd_core, GET_FILE_OFF(struct core_entry, tc), SEEK_SET);
-	if (read_img(fd_core, &tc) < 0)
-		goto err;
-
-	pr_msg("\n\t---[Task parameters]---\n");
-	pr_msg("\tPersonality:  %#x\n", tc.personality);
-	pr_msg("\tCommand:      %s\n", tc.comm);
+	pr_msg("\t---[ Task parameters ]---\n");
+	pr_msg("\tPersonality:  %#x\n", tc->personality);
+	pr_msg("\tCommand:      %s\n", tc->comm);
 	pr_msg("\tState:        %d (%s)\n",
-	       (int)tc.task_state,
-	       task_state_str((int)tc.task_state));
+	       (int)tc->task_state,
+	       task_state_str((int)tc->task_state));
 
 	pr_msg("\t   Exit code: %u\n",
-	       (unsigned int)tc.exit_code);
+	       (unsigned int)tc->exit_code);
 
-	pr_msg("\tBlkSig: 0x%lx\n", tc.blk_sigset);
+	pr_msg("\tBlkSig: 0x%lx\n", tc->blk_sigset);
 	pr_msg("\n");
-
-err:
-	return;
 }
 
-static void show_core_ids(int fd)
+static void show_core_ids(TaskKobjIdsEntry *ids)
 {
-	struct core_ids_entry cie;
+	if (!ids)
+		return;
 
-	lseek(fd, GET_FILE_OFF(struct core_entry, ids), SEEK_SET);
-	if (read_img(fd, &cie) < 0)
-		goto err;
+	pr_msg("\t---[ Task IDS ]---\n");
+	pr_msg("\tVM:      %#x\n", ids->vm_id);
+	pr_msg("\tFS:      %#x\n", ids->fs_id);
+	pr_msg("\tFILES:   %#x\n", ids->files_id);
+	pr_msg("\tSIGHAND: %#x\n", ids->sighand_id);
+}
 
-	pr_msg("\tVM:      %#x\n", cie.vm_id);
-	pr_msg("\tFS:      %#x\n", cie.fs_id);
-	pr_msg("\tFILES:   %#x\n", cie.files_id);
-	pr_msg("\tSIGHAND: %#x\n", cie.sighand_id);
-err:
-	return;
+static void show_core_regs(UserX86RegsEntry *regs)
+{
+#define pr_regs4(s, n1, n2, n3, n4)	\
+	pr_msg("\t%8s: 0x%-16lx "	\
+	       "%8s: 0x%-16lx "		\
+	       "%8s: 0x%-16lx "		\
+	       "%8s: 0x%-16lx\n",	\
+	       #n1, s->n1,		\
+	       #n2, s->n2,		\
+	       #n3, s->n3,		\
+	       #n4, s->n4)
+
+#define pr_regs3(s, n1, n2, n3)		\
+	pr_msg("\t%8s: 0x%-16lx "	\
+	       "%8s: 0x%-16lx "		\
+	       "%8s: 0x%-16lx\n",	\
+	       #n1, s->n1,		\
+	       #n2, s->n2,		\
+	       #n3, s->n3)
+
+	pr_msg("\t---[ GP registers set ]---\n");
+
+	pr_regs4(regs, cs, ip, ds, es);
+	pr_regs4(regs, ss, sp, fs, gs);
+	pr_regs4(regs, di, si, dx, cx);
+	pr_regs4(regs, ax, r8, r9, r10);
+	pr_regs4(regs, r11, r12, r13, r14);
+	pr_regs3(regs, r15, bp, bx);
+	pr_regs4(regs, orig_ax, flags, fs_base, gs_base);
+	pr_msg("\n");
+}
+
+void show_thread_info(ThreadInfoX86 *thread_info)
+{
+	pr_msg("\t---[ Thread info ]---\n");
+	pr_msg("\tclear_tid_addr:  0x%lx\n", thread_info->clear_tid_addr);
+	pr_msg("\n");
+
+	show_core_regs(thread_info->gpregs);
 }
 
 void show_core(int fd_core, struct cr_options *o)
 {
-	struct stat stat;
-	bool is_thread;
+	CoreEntry *core;
 
-	if (fstat(fd_core, &stat)) {
-		pr_perror("Can't get stat on core file");
-		goto out;
+	pr_img_head(CR_FD_CORE);
+	if (pb_read_eof(fd_core, &core, core_entry) > 0) {
+
+		pr_msg("\t---[ General ]---\n");
+		pr_msg("\tmtype:           0x%x\n", core->mtype);
+		pr_msg("\n");
+
+		/* Continue if we support it */
+		if (core->mtype == CORE_ENTRY__MARCH__X86_64) {
+			show_thread_info(core->thread_info);
+			show_core_rest(core->tc);
+			show_core_ids(core->ids);
+		}
+
+		core_entry__free_unpacked(core, NULL);
 	}
-
-	is_thread = (stat.st_size == GET_FILE_OFF_AFTER(struct core_entry));
-
-	if (is_thread)
-		pr_img_head(CR_FD_CORE, " (thread)");
-	else
-		pr_img_head(CR_FD_CORE);
-
-	show_core_regs(fd_core);
-	show_core_rest(fd_core);
-	show_core_ids(fd_core);
-out:
 	pr_img_tail(CR_FD_CORE);
 }
 

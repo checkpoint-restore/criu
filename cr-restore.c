@@ -57,7 +57,7 @@
 static struct pstree_item *me;
 
 static int restore_task_with_children(void *);
-static int sigreturn_restore(pid_t pid, struct list_head *vmas, int nr_vmas);
+static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *vmas, int nr_vmas);
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -186,7 +186,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 	return ret;
 }
 
-static int prepare_and_sigreturn(int pid)
+static int prepare_and_sigreturn(int pid, CoreEntry *core)
 {
 	int err, nr_vmas;
 	LIST_HEAD(vma_list);
@@ -195,7 +195,7 @@ static int prepare_and_sigreturn(int pid)
 	if (err)
 		return err;
 
-	return sigreturn_restore(pid, &vma_list, nr_vmas);
+	return sigreturn_restore(pid, core, &vma_list, nr_vmas);
 }
 
 static rt_sigaction_t sigchld_act;
@@ -276,7 +276,7 @@ static int pstree_wait_helpers()
 }
 
 
-static int restore_one_alive_task(int pid)
+static int restore_one_alive_task(int pid, CoreEntry *core)
 {
 	pr_info("Restoring resources\n");
 
@@ -292,7 +292,7 @@ static int restore_one_alive_task(int pid)
 	if (prepare_sigactions(pid))
 		return -1;
 
-	return prepare_and_sigreturn(pid);
+	return prepare_and_sigreturn(pid, core);
 }
 
 static void zombie_prepare_signals(void)
@@ -391,24 +391,19 @@ static int restore_one_zombie(int pid, int exit_code)
 	return -1;
 }
 
-static int check_core_header(int pid, struct task_core_entry *tc)
+static int check_core_header(int pid, CoreEntry *core)
 {
 	int fd = -1, ret = -1;
-	struct image_header hdr;
 
 	fd = open_image_ro(CR_FD_CORE, pid);
 	if (fd < 0)
 		return -1;
 
-	if (read_img(fd, &hdr) < 0)
-		goto out;
-
-	if (hdr.arch != HEADER_ARCH_X86_64) {
-		pr_err("Core arch mismatch %d\n", (int)hdr.arch);
+	if (core->mtype != CORE_ENTRY__MARCH__X86_64) {
+		pr_err("Core march mismatch %d\n", (int)core->mtype);
 		goto out;
 	}
-
-	ret = read_img(fd, tc);
+	ret = 0;
 out:
 	close_safe(&fd);
 	return ret < 0 ? ret : 0;
@@ -416,23 +411,43 @@ out:
 
 static int restore_one_task(int pid)
 {
-	struct task_core_entry tc;
+	int fd, ret;
+	CoreEntry *core;
 
 	if (me->state == TASK_HELPER)
 		return restore_one_fake(pid);
 
-	if (check_core_header(pid, &tc))
+	fd = open_image_ro(CR_FD_CORE, pid);
+	if (fd < 0)
 		return -1;
 
-	switch ((int)tc.task_state) {
-	case TASK_ALIVE:
-		return restore_one_alive_task(pid);
-	case TASK_DEAD:
-		return restore_one_zombie(pid, tc.exit_code);
-	default:
-		pr_err("Unknown state in code %d\n", (int)tc.task_state);
+	ret = pb_read(fd, &core, core_entry);
+	close(fd);
+
+	if (ret < 0)
 		return -1;
+
+	if (check_core_header(pid, core)) {
+		ret = -1;
+		goto out;
 	}
+
+	switch ((int)core->tc->task_state) {
+	case TASK_ALIVE:
+		ret = restore_one_alive_task(pid, core);
+		break;
+	case TASK_DEAD:
+		ret = restore_one_zombie(pid, core->tc->exit_code);
+		break;
+	default:
+		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
+		ret = -1;
+		break;
+	}
+
+out:
+	core_entry__free_unpacked(core, NULL);
+	return ret;
 }
 
 /*
@@ -1117,7 +1132,7 @@ out:
 	return ret;
 }
 
-static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
+static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_vmas, int nr_vmas)
 {
 	long restore_code_len, restore_task_vma_len;
 	long restore_thread_vma_len, self_vmas_len, vmas_len;
@@ -1134,7 +1149,6 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	struct thread_restore_args *thread_args;
 
 	LIST_HEAD(self_vma_list);
-	int fd_core = -1;
 	int fd_pages = -1;
 	int i;
 
@@ -1158,12 +1172,6 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
-
-	fd_core = open_image_ro(CR_FD_CORE, pid);
-	if (fd_core < 0) {
-		pr_perror("Can't open core-out-%d", pid);
-		goto err;
-	}
 
 	fd_pages = open_image_ro(CR_FD_PAGES, pid);
 	if (fd_pages < 0) {
@@ -1279,11 +1287,23 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	/*
 	 * Arguments for task restoration.
 	 */
+
+	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
+
 	task_args->pid		= pid;
-	task_args->fd_core	= fd_core;
 	task_args->logfd	= log_get_fd();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_pages	= fd_pages;
+
+	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
+
+	task_args->clear_tid_addr	= core->thread_info->clear_tid_addr;
+	task_args->ids			= *core->ids;
+	task_args->gpregs		= *core->thread_info->gpregs;
+	task_args->blk_sigset		= core->tc->blk_sigset;
+
+	/* No longer need it */
+	core_entry__free_unpacked(core, NULL);
 
 	ret = prepare_itimers(pid, task_args);
 	if (ret < 0)
@@ -1310,18 +1330,40 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 	 * Fill up per-thread data.
 	 */
 	for (i = 0; i < me->nr_threads; i++) {
+		int fd_core;
 		thread_args[i].pid = me->threads[i].virt;
 
 		/* skip self */
 		if (thread_args[i].pid == pid)
 			continue;
 
-		/* Core files are to be opened */
-		thread_args[i].fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
-		if (thread_args[i].fd_core < 0)
+		fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
+		if (fd_core < 0) {
+			pr_err("Can't open core data for thread %d\n",
+			       thread_args[i].pid);
 			goto err;
+		}
 
-		thread_args[i].rst_lock = &task_args->rst_lock;
+		ret = pb_read(fd_core, &core, core_entry);
+		close(fd_core);
+
+		if (core->tc || core->ids) {
+			pr_err("Thread has optional fields present %d\n",
+			       thread_args[i].pid);
+			ret = -1;
+		}
+
+		if (ret < 0) {
+			pr_err("Can't read core data for thread %d\n",
+			       thread_args[i].pid);
+			goto err;
+		}
+
+		thread_args[i].rst_lock		= &task_args->rst_lock;
+		thread_args[i].gpregs		= *core->thread_info->gpregs;
+		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
+
+		core_entry__free_unpacked(core, NULL);
 
 		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
 				i, thread_args[i].mem_zone.stack,
@@ -1334,12 +1376,10 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 
 	pr_info("task_args: %p\n"
 		"task_args->pid: %d\n"
-		"task_args->fd_core: %d\n"
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
 		task_args, task_args->pid,
-		task_args->fd_core,
 		task_args->nr_threads,
 		task_args->clone_restore_fn,
 		task_args->thread_args);
@@ -1362,7 +1402,6 @@ static int sigreturn_restore(pid_t pid, struct list_head *tgt_vmas, int nr_vmas)
 
 err:
 	free_mappings(&self_vma_list);
-	close_safe(&fd_core);
 
 	/* Just to be sure */
 	exit(1);

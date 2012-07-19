@@ -14,6 +14,7 @@
 #include "../protobuf/mm.pb-c.h"
 #include "../protobuf/vma.pb-c.h"
 #include "../protobuf/creds.pb-c.h"
+#include "../protobuf/core.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error Only x86-64 is supported
@@ -60,15 +61,15 @@ struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;
-	int				fd_core;
 	mutex_t				*rst_lock;
+	UserX86RegsEntry		gpregs;
+	u64				clear_tid_addr;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;			/* task pid */
-	int				fd_core;		/* opened core file */
 	int				fd_exe_link;		/* opened self->exe file */
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
@@ -95,6 +96,11 @@ struct task_restore_core_args {
 
 	MmEntry				mm;
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];
+	u64				clear_tid_addr;
+	u64				blk_sigset;
+	char				comm[TASK_COMM_LEN];
+	TaskKobjIdsEntry		ids;
+	UserX86RegsEntry		gpregs;
 } __aligned(sizeof(long));
 
 struct pt_regs {
