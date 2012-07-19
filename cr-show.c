@@ -38,6 +38,7 @@
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/mm.pb-c.h"
+#include "protobuf/creds.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -298,35 +299,37 @@ out:
 	pr_img_tail(CR_FD_ITIMERS);
 }
 
-static void show_cap(char *name, u32 *v)
+static void show_cap(char *name, int nr, uint32_t *v)
 {
 	int i;
 
 	pr_msg("%s: ", name);
-	for (i = CR_CAP_SIZE - 1; i >= 0; i--)
+	for (i = nr - 1; i >= 0; i--)
 		pr_msg("0x%08x", v[i]);
 	pr_msg("\n");
 }
 
 void show_creds(int fd, struct cr_options *o)
 {
-	struct creds_entry ce;
+	CredsEntry *ce;
 
 	pr_img_head(CR_FD_CREDS);
-	if (read_img(fd, &ce) < 0)
+	if (pb_read(fd, &ce, creds_entry) < 0)
 		goto out;
 
 	pr_msg("uid %u  euid %u  suid %u  fsuid %u\n",
-	       ce.uid, ce.euid, ce.suid, ce.fsuid);
+	       ce->uid, ce->euid, ce->suid, ce->fsuid);
 	pr_msg("gid %u  egid %u  sgid %u  fsgid %u\n",
-	       ce.gid, ce.egid, ce.sgid, ce.fsgid);
+	       ce->gid, ce->egid, ce->sgid, ce->fsgid);
 
-	show_cap("Inh", ce.cap_inh);
-	show_cap("Eff", ce.cap_eff);
-	show_cap("Prm", ce.cap_prm);
-	show_cap("Bnd", ce.cap_bnd);
+	show_cap("Inh", ce->n_cap_inh, ce->cap_inh);
+	show_cap("Eff", ce->n_cap_eff, ce->cap_eff);
+	show_cap("Prm", ce->n_cap_prm, ce->cap_prm);
+	show_cap("Bnd", ce->n_cap_bnd, ce->cap_bnd);
 
-	pr_msg("secbits: %#x\n", ce.secbits);
+	pr_msg("secbits: %#x\n", ce->secbits);
+
+	creds_entry__free_unpacked(ce, NULL);
 out:
 	pr_img_tail(CR_FD_CREDS);
 }

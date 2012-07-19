@@ -23,6 +23,8 @@
 #include "lock.h"
 #include "restorer.h"
 
+#include "protobuf/creds.pb-c.h"
+
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
@@ -50,7 +52,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	sys_exit_group(1);
 }
 
-static void restore_creds(struct creds_entry *ce)
+static void restore_creds(CredsEntry *ce)
 {
 	int b, i;
 	struct cap_header hdr;

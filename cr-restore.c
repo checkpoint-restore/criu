@@ -1015,21 +1015,44 @@ out:
 	return ret;
 }
 
+static inline int verify_cap_size(CredsEntry *ce)
+{
+	return ((ce->n_cap_inh == CR_CAP_SIZE) && (ce->n_cap_eff == CR_CAP_SIZE) &&
+		(ce->n_cap_prm == CR_CAP_SIZE) && (ce->n_cap_bnd == CR_CAP_SIZE));
+}
+
 static int prepare_creds(int pid, struct task_restore_core_args *args)
 {
 	int fd, ret;
+	CredsEntry *ce;
 
 	fd = open_image_ro(CR_FD_CREDS, pid);
 	if (fd < 0)
 		return fd;
 
-	ret = read_img(fd, &args->creds);
-
+	ret = pb_read(fd, &ce, creds_entry);
 	close_safe(&fd);
+
+	if (ret < 0)
+		return ret;
+	if (!verify_cap_size(ce))
+		return -1;
+
+	args->creds = *ce;
+	args->creds.cap_inh = args->cap_inh;
+	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
+	args->creds.cap_eff = args->cap_eff;
+	memcpy(args->cap_eff, ce->cap_eff, sizeof(args->cap_eff));
+	args->creds.cap_prm = args->cap_prm;
+	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
+	args->creds.cap_bnd = args->cap_bnd;
+	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
+
+	creds_entry__free_unpacked(ce, NULL);
 
 	/* XXX -- validate creds here? */
 
-	return ret > 0 ? 0 : -1;
+	return 0;
 }
 
 static struct vma_entry *vma_list_remap(void *addr, unsigned long len, struct list_head *vmas)

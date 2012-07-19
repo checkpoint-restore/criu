@@ -50,6 +50,7 @@
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fs.pb-c.h"
 #include "protobuf/mm.pb-c.h"
+#include "protobuf/creds.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -452,9 +453,9 @@ err:
 static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 			   const struct cr_fdset *fds)
 {
-	int ret, i;
+	int ret;
 	struct proc_status_creds cr;
-	struct creds_entry ce;
+	CredsEntry ce = CREDS_ENTRY__INIT;
 
 	pr_info("\n");
 	pr_info("Dumping creds for %d)\n", pid);
@@ -475,20 +476,18 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 
 	BUILD_BUG_ON(CR_CAP_SIZE != PROC_CAP_SIZE);
 
-	for (i = 0; i < CR_CAP_SIZE; i++) {
-		ce.cap_inh[i] = cr.cap_inh[i];
-		ce.cap_prm[i] = cr.cap_prm[i];
-		ce.cap_eff[i] = cr.cap_eff[i];
-		ce.cap_bnd[i] = cr.cap_bnd[i];
-	}
+	ce.n_cap_inh = CR_CAP_SIZE;
+	ce.cap_inh = cr.cap_inh;
+	ce.n_cap_prm = CR_CAP_SIZE;
+	ce.cap_prm = cr.cap_prm;
+	ce.n_cap_eff = CR_CAP_SIZE;
+	ce.cap_eff = cr.cap_eff;
+	ce.n_cap_bnd = CR_CAP_SIZE;
+	ce.cap_bnd = cr.cap_bnd;
 
 	ce.secbits = misc->secbits;
 
-	ret = write_img(fdset_fd(fds, CR_FD_CREDS), &ce);
-	if (ret < 0)
-		return ret;
-
-	return 0;
+	return pb_write(fdset_fd(fds, CR_FD_CREDS), &ce, creds_entry);
 }
 
 #define assign_reg(dst, src, e)		dst.e = (__typeof__(dst.e))src.e

@@ -12,6 +12,7 @@
 #include "crtools.h"
 
 #include "../protobuf/mm.pb-c.h"
+#include "../protobuf/creds.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error Only x86-64 is supported
@@ -85,7 +86,11 @@ struct task_restore_core_args {
 
 	struct itimerval		itimers[3];
 
-	struct creds_entry		creds;
+	CredsEntry			creds;
+	uint32_t			cap_inh[CR_CAP_SIZE];
+	uint32_t			cap_prm[CR_CAP_SIZE];
+	uint32_t			cap_eff[CR_CAP_SIZE];
+	uint32_t			cap_bnd[CR_CAP_SIZE];
 
 	MmEntry				mm;
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];

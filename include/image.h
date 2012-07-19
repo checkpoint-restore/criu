@@ -91,24 +91,6 @@ struct page_entry {
 
 #define CR_CAP_SIZE	2
 
-struct creds_entry {
-	u32	uid;
-	u32	gid;
-	u32	euid;
-	u32	egid;
-	u32	suid;
-	u32	sgid;
-	u32	fsuid;
-	u32	fsgid;
-
-	u32	cap_inh[CR_CAP_SIZE];
-	u32	cap_prm[CR_CAP_SIZE];
-	u32	cap_eff[CR_CAP_SIZE];
-	u32	cap_bnd[CR_CAP_SIZE];
-
-	u32	secbits;
-} __packed;
-
 #define HEADER_VERSION		1
 #define HEADER_ARCH_X86_64	1
 
