@@ -10,7 +10,7 @@ SYS-GEN		:= syscalls-x86-64.sh
 
 SYS-OBJ		:= $(patsubst %.S,%.o,$(SYS-ASM))
 
-SYS-FLAGS	:= -fpie -Wstrict-prototypes -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
+SYS-FLAGS	:= -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
 
 $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
