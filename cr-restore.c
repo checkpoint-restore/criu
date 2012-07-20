@@ -391,7 +391,7 @@ static int restore_one_zombie(int pid, int exit_code)
 	return -1;
 }
 
-static int check_core_header(int pid, CoreEntry *core)
+static int check_core(int pid, CoreEntry *core)
 {
 	int fd = -1, ret = -1;
 
@@ -403,6 +403,17 @@ static int check_core_header(int pid, CoreEntry *core)
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
 		goto out;
 	}
+
+	if (!core->tc) {
+		pr_err("Core task state data missed\n");
+		goto out;
+	}
+
+	if (!core->ids && core->tc->task_state != TASK_DEAD) {
+		pr_err("Core IDS data missed for non-zombie\n");
+		goto out;
+	}
+
 	ret = 0;
 out:
 	close_safe(&fd);
@@ -427,7 +438,7 @@ static int restore_one_task(int pid)
 	if (ret < 0)
 		return -1;
 
-	if (check_core_header(pid, core)) {
+	if (check_core(pid, core)) {
 		ret = -1;
 		goto out;
 	}
