@@ -101,8 +101,6 @@ void log_set_loglevel(unsigned int level)
 		current_loglevel = DEFAULT_LOGLEVEL;
 	else
 		current_loglevel = level;
-
-	pr_msg("Loglevel set to %d\n", level);
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
