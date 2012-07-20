@@ -430,6 +430,9 @@ static void show_core_regs(UserX86RegsEntry *regs)
 
 void show_thread_info(ThreadInfoX86 *thread_info)
 {
+	if (!thread_info)
+		return;
+
 	pr_msg("\t---[ Thread info ]---\n");
 	pr_msg("\tclear_tid_addr:  0x%lx\n", thread_info->clear_tid_addr);
 	pr_msg("\n");
