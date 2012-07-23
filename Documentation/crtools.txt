@@ -82,6 +82,18 @@ OPTIONS
 -h|--help::
     Print inline help.
 
+EXAMPLES
+--------
+
+To checkpoint a program with pid '1234' and write all image files into
+directory 'checkpoint' one should type
+
+    crtools dump -D checkpoint -t 1234
+
+To restore this program detaching crtools itself, one should type
+
+    crtools restore -d -D checkpoint -t 1234
+
 AUTHOR
 ------
 OpenVZ team.
