@@ -297,13 +297,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restorer_set_logfd(args->logfd);
 
-#if 0
-	write_hex_n((long)args);
-	write_hex_n((long)args->mem_zone.heap);
-	write_hex_n((long)core_entry);
-	write_hex_n((long)vma_entry);
-#endif
-
 	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
