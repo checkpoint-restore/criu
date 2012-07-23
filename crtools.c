@@ -216,8 +216,8 @@ int main(int argc, char *argv[])
 
 usage:
 	pr_msg("\nUsage:\n");
-	pr_msg("  %s dump -p|-t pid [<options>]\n", argv[0]);
-	pr_msg("  %s restore -p|-t pid [<options>]\n", argv[0]);
+	pr_msg("  %s dump -t pid [<options>]\n", argv[0]);
+	pr_msg("  %s restore -t pid [<options>]\n", argv[0]);
 	pr_msg("  %s show (-D dir)|(-f file) [<options>]\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
 
