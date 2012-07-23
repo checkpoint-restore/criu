@@ -11,7 +11,7 @@ crtools - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-'crtools' [-c] [-s] [-f <file>] [-d] [-n] [-o <path>] [-D <path>] [-v [num]] [--help] <command> -t <pid>
+'crtools' <command> -t <pid>
 
 DESCRIPTION
 -----------
