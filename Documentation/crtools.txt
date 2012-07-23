@@ -36,33 +36,51 @@ OPTIONS
     In case of 'dump' command processes being checkpointed wont be killed once
     checkpoint complete but rather continue execution.
 
--D <path>::
+-D|--images-dir <path>::
     Use path 'path' as a base directory where to look for dump files set. This
     commands allpies to any <command>.
 
--s::
+-s|--leave-stopped::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
--f <file>::
+-f|--file <file>::
     This option is valid for 'show' command only and allows to see content of
     the <file> specified.
 
--t <pid>::
+-x|--ext-unix-sk::
+    Dump external unix sockets.
+
+-t|--tree <pid>::
     Checkpoint the whole process tree starting from 'pid'.
 
--d::
+-d|--restore-detached::
     Detach 'crtools' itself once restore is complete.
 
--n <ns>::
+-n|--namespaces <ns>::
     Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: uts, ipc.
+    Currently supported namespaces: uts, ipc, mnt, pid.
 
--o <file>::
+-o|--log-file <file>::
     Write logging messages to 'file'.
 
 -v <num>::
     Set logging level to 'num'. Valid options are: 0 - (silent, error messages
     only), 1 - informative (default), 2 - debug messages.
+
+--log-pid::
+    Write separate logging files per each pid.
+
+--close <fd>::
+    Close file with descriptor 'fd' before anything else.
+
+--tcp-established::
+    Checkpoint/restore established TCP connections.
+
+-V|--version::
+    Print program version.
+
+-h|--help::
+    Print inline help.
 
 AUTHOR
 ------
