@@ -161,11 +161,7 @@ int collect_eventpoll(void)
 		struct eventpoll_tfd_file_info *info;
 
 		info = xmalloc(sizeof(*info));
-		if (info) {
-			info->tdefe = xmalloc(sizeof(*info->tdefe));
-			if (!info->tdefe)
-				goto err;
-		} else
+		if (!info)
 			goto err;
 
 		ret = pb_read_eof(image_fd, &info->tdefe, eventpoll_tfd_entry);
