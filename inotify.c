@@ -217,7 +217,7 @@ int collect_inotify(void)
 {
 	struct inotify_file_info *info;
 	struct inotify_wd_info *mark;
-	int image_fd = -1, image_wd = -1, ret = -1;
+	int image_fd = -1, ret = -1;
 
 	image_fd = open_image_ro(CR_FD_INOTIFY);
 	if (image_fd < 0)
@@ -234,16 +234,18 @@ int collect_inotify(void)
 		else if (!ret)
 			break;
 
-		INIT_LIST_HEAD(&info->list);
 		INIT_LIST_HEAD(&info->marks);
-
 		list_add(&info->list, &info_head);
+		file_desc_add(&info->d, info->ife->id, &desc_ops);
+		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
 	}
+
+	close_safe(&image_fd);
 
 	ret = -1;
 
-	image_wd = open_image_ro(CR_FD_INOTIFY_WD);
-	if (image_wd < 0)
+	image_fd = open_image_ro(CR_FD_INOTIFY_WD);
+	if (image_fd < 0)
 		goto err;
 
 	while (1) {
@@ -252,7 +254,7 @@ int collect_inotify(void)
 		if (!mark)
 			goto err;
 
-		ret = pb_read_eof(image_wd, &mark->iwe, inotify_wd_entry);
+		ret = pb_read_eof(image_fd, &mark->iwe, inotify_wd_entry);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -265,13 +267,8 @@ int collect_inotify(void)
 		}
 	}
 
-	list_for_each_entry(info, &info_head, list) {
-		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
-		file_desc_add(&info->d, info->ife->id, &desc_ops);
-	}
 	ret = 0;
 err:
-	close_safe(&image_wd);
 	close_safe(&image_fd);
 
 	return ret;
