@@ -210,10 +210,14 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 	}
 }
 
+static inline void pb_no_payload(int fd, void *obj) { }
+
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
-		pb_unpack_t unpack, pb_free_t free, int single_entry)
+		pb_unpack_t unpack, pb_free_t free, int single_entry,
+		void (*payload_hadler)(int fd, void *obj))
 {
 	pb_pr_ctl_t ctl = {NULL, single_entry, 0};
+	void (*handle_payload)(int fd, void *obj) = (payload_hadler) ? : pb_no_payload;
 
 	while (1) {
 		void *obj;
@@ -223,6 +227,7 @@ void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 
 		ctl.arg = (void *)md;
 		pb_show_msg(obj, &ctl);
+		handle_payload(fd, obj);
 		free(obj, NULL);
 		if (single_entry)
 			break;

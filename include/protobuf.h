@@ -59,17 +59,23 @@ extern int pb_write_object_with_header(int fd, void *obj,
 #include <google/protobuf-c/protobuf-c.h>
 
 extern void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *d,
-		pb_unpack_t unpack, pb_free_t free, int single_entry);
+		pb_unpack_t unpack, pb_free_t free, int single_entry,
+		void (*payload_hadler)(int fd, void *obj));
 
 /* Don't have objects at hands to also do typechecking here */
-#define pb_show_plain(__fd, __proto_message_name)			\
+#define pb_show_plain_payload(__fd, __proto_message_name, payload_hadler)		\
 	do_pb_show_plain(__fd, &__proto_message_name##__descriptor,	\
 			(pb_unpack_t)__proto_message_name##__unpack,			\
-			(pb_free_t)__proto_message_name##__free_unpacked, 0)
+			(pb_free_t)__proto_message_name##__free_unpacked,		\
+			0, payload_hadler)
+
+#define pb_show_plain(__fd, __proto_message_name)			\
+	pb_show_plain_payload(__fd, __proto_message_name, NULL)
 
 #define pb_show_vertical(__fd, __proto_message_name)			\
 	do_pb_show_plain(__fd, &__proto_message_name##__descriptor,	\
 			(pb_unpack_t)__proto_message_name##__unpack,			\
-			(pb_free_t)__proto_message_name##__free_unpacked, 1)
+			(pb_free_t)__proto_message_name##__free_unpacked,		\
+			1, NULL)
 
 #endif /* PROTOBUF_H__ */
