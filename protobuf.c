@@ -20,40 +20,45 @@
  */
 #define PB_PKOBJ_LOCAL_SIZE	1024
 
-typedef void (pb_pr_field_t)(void *obj, void *arg);
+struct pb_pr_ctrl_s {
+	void *arg;
+};
 
-static void pb_msg_int32x(void *obj, void *arg)
+typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
+typedef void (pb_pr_field_t)(void *obj, pb_pr_ctl_t *ctl);
+
+static void pb_msg_int32x(void *obj, pb_pr_ctl_t *ctl)
 {
 	pr_msg("0x%08x", *(int *)obj);
 }
 
-static void pb_msg_int64x(void *obj, void *arg)
+static void pb_msg_int64x(void *obj, pb_pr_ctl_t *ctl)
 {
 	pr_msg("0x%016lx", *(long *)obj);
 }
 
-static void pb_msg_string(void *obj, void *arg)
+static void pb_msg_string(void *obj, pb_pr_ctl_t *ctl)
 {
 	pr_msg("\"%s\"",	*(char **)obj);
 }
 
-static void pb_msg_unk(void *obj, void *arg)
+static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
 {
 	pr_msg("unknown object %p\n", obj);
 }
 
-static void pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md);
+static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 
-static void show_nested_message(void *msg, void *md)
+static void show_nested_message(void *msg, pb_pr_ctl_t *ctl)
 {
 	pr_msg("[ ");
-	pb_show_msg(msg, md);
+	pb_show_msg(msg, ctl);
 	pr_msg(" ] ");
 }
 
-static void show_enum(void *msg, void *md)
+static void show_enum(void *msg, pb_pr_ctl_t *ctl)
 {
-	ProtobufCEnumDescriptor *d = md;
+	ProtobufCEnumDescriptor *d = ctl->arg;
 	const char *val_name = NULL;
 	int val, i;
 
@@ -71,12 +76,11 @@ static void show_enum(void *msg, void *md)
 }
 
 static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
-			  unsigned long nr_fields)
+			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
 	pb_pr_field_t *show;
 	unsigned long counter;
 	size_t fsize;
-	void *arg;
 
 	pr_msg("%s: ", fd->name);
 
@@ -103,13 +107,13 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			break;
 		case PROTOBUF_C_TYPE_MESSAGE:
 			where = (void *)(*(long *)where);
-			arg = (void *)fd->descriptor;
+			ctl->arg = (void *)fd->descriptor;
 			show = show_nested_message;
 			fsize = sizeof (void *);
 			break;
 		case PROTOBUF_C_TYPE_ENUM:
 			show = show_enum;
-			arg = (void *)fd->descriptor;
+			ctl->arg = (void *)fd->descriptor;
 			break;
 		case PROTOBUF_C_TYPE_FLOAT:
 		case PROTOBUF_C_TYPE_DOUBLE:
@@ -121,20 +125,21 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			break;
 	}
 
-	show(where, arg);
+	show(where, ctl);
 	where += fsize;
 
 	for (counter = 0; counter < nr_fields - 1; counter++, where += fsize) {
 		pr_msg(":");
-		show(where, arg);
+		show(where, ctl);
 	}
 
 	pr_msg(" ");
 }
 
-static void pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
+static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 {
 	int i;
+	const ProtobufCMessageDescriptor *md = ctl->arg;
 
 	BUG_ON(md == NULL);
 
@@ -154,20 +159,23 @@ static void pb_show_msg(const void *msg, const ProtobufCMessageDescriptor *md)
 			data = (unsigned long *)*data;
 		}
 
-		pb_show_field(&fd, data, nr_fields);
+		pb_show_field(&fd, data, nr_fields, ctl);
 	}
 }
 
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 		pb_unpack_t unpack, pb_free_t free)
 {
+	pb_pr_ctl_t ctl = {NULL};
+
 	while (1) {
 		void *obj;
 
 		if (pb_read_object_with_header(fd, &obj, unpack, true) <= 0)
 			break;
 
-		pb_show_msg(obj, md);
+		ctl.arg = (void *)md;
+		pb_show_msg(obj, &ctl);
 		pr_msg("\n");
 		free(obj, NULL);
 	}
