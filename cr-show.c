@@ -418,29 +418,7 @@ void show_core(int fd_core, struct cr_options *o)
 
 void show_mm(int fd_mm, struct cr_options *o)
 {
-	MmEntry *mme;
-
-	pr_img_head(CR_FD_MM);
-
-	if (pb_read(fd_mm, &mme, mm_entry) < 0)
-		goto out;
-
-	pr_msg("\tBrk:          0x%lx\n", mme->mm_brk);
-	pr_msg("\tStart code:   0x%lx\n", mme->mm_start_code);
-	pr_msg("\tEnd code:     0x%lx\n", mme->mm_end_code);
-	pr_msg("\tStart stack:  0x%lx\n", mme->mm_start_stack);
-	pr_msg("\tStart data:   0x%lx\n", mme->mm_start_data);
-	pr_msg("\tEnd data:     0x%lx\n", mme->mm_end_data);
-	pr_msg("\tStart brk:    0x%lx\n", mme->mm_start_brk);
-	pr_msg("\tArg start:    0x%lx\n", mme->mm_arg_start);
-	pr_msg("\tArg end:      0x%lx\n", mme->mm_arg_end);
-	pr_msg("\tEnv start:    0x%lx\n", mme->mm_env_start);
-	pr_msg("\tEnv end:      0x%lx\n", mme->mm_env_end);
-	pr_msg("\tExe file ID   %#x\n", mme->exe_file_id);
-
-	mm_entry__free_unpacked(mme, NULL);
-out:
-	pr_img_tail(CR_FD_MM);
+	pb_show_vertical(fd_mm, mm_entry);
 }
 
 static int cr_parse_file(struct cr_options *opts)
