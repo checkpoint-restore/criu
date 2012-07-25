@@ -318,37 +318,6 @@ static inline char *task_state_str(int state)
 	}
 }
 
-static void show_core_rest(TaskCoreEntry *tc)
-{
-	if (!tc)
-		return;
-
-	pr_msg("\t---[ Task parameters ]---\n");
-	pr_msg("\tPersonality:  %#x\n", tc->personality);
-	pr_msg("\tCommand:      %s\n", tc->comm);
-	pr_msg("\tState:        %d (%s)\n",
-	       (int)tc->task_state,
-	       task_state_str((int)tc->task_state));
-
-	pr_msg("\t   Exit code: %u\n",
-	       (unsigned int)tc->exit_code);
-
-	pr_msg("\tBlkSig: 0x%lx\n", tc->blk_sigset);
-	pr_msg("\n");
-}
-
-static void show_core_ids(TaskKobjIdsEntry *ids)
-{
-	if (!ids)
-		return;
-
-	pr_msg("\t---[ Task IDS ]---\n");
-	pr_msg("\tVM:      %#x\n", ids->vm_id);
-	pr_msg("\tFS:      %#x\n", ids->fs_id);
-	pr_msg("\tFILES:   %#x\n", ids->files_id);
-	pr_msg("\tSIGHAND: %#x\n", ids->sighand_id);
-}
-
 static void show_core_regs(UserX86RegsEntry *regs)
 {
 #define pr_regs4(s, n1, n2, n3, n4)	\
@@ -395,25 +364,7 @@ void show_thread_info(ThreadInfoX86 *thread_info)
 
 void show_core(int fd_core, struct cr_options *o)
 {
-	CoreEntry *core;
-
-	pr_img_head(CR_FD_CORE);
-	if (pb_read_eof(fd_core, &core, core_entry) > 0) {
-
-		pr_msg("\t---[ General ]---\n");
-		pr_msg("\tmtype:           0x%x\n", core->mtype);
-		pr_msg("\n");
-
-		/* Continue if we support it */
-		if (core->mtype == CORE_ENTRY__MARCH__X86_64) {
-			show_thread_info(core->thread_info);
-			show_core_rest(core->tc);
-			show_core_ids(core->ids);
-		}
-
-		core_entry__free_unpacked(core, NULL);
-	}
-	pr_img_tail(CR_FD_CORE);
+	pb_show_vertical(fd_core, core_entry);
 }
 
 void show_mm(int fd_mm, struct cr_options *o)
