@@ -78,14 +78,7 @@ void show_remap_files(int fd, struct cr_options *o)
 
 void show_ghost_file(int fd, struct cr_options *o)
 {
-	GhostFileEntry *gfe;
-
-	pr_img_head(CR_FD_GHOST_FILE);
-	if (pb_read_eof(fd, &gfe, ghost_file_entry) > 0) {
-		pr_msg("uid %u god %u mode %#x\n", gfe->uid, gfe->gid, gfe->mode);
-		ghost_file_entry__free_unpacked(gfe, NULL);
-	}
-	pr_img_tail(CR_FD_GHOST_FILE);
+	pb_show_vertical(fd, ghost_file_entry);
 }
 
 void __show_pipes_data(int fd, struct cr_options *o)
