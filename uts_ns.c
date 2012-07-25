@@ -66,15 +66,5 @@ out:
 
 void show_utsns(int fd, struct cr_options *o)
 {
-	int ret;
-	UtsnsEntry *ue;
-
-	ret = pb_read(fd, &ue, utsns_entry);
-	if (ret < 0)
-		return;
-
-	pr_msg("nodename: %s\n", ue->nodename);
-	pr_msg("domainname: %s\n", ue->domainname);
-
-	utsns_entry__free_unpacked(ue, NULL);
+	pb_show_vertical(fd, utsns_entry);
 }
