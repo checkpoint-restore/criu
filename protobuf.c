@@ -22,6 +22,7 @@
 
 struct pb_pr_ctrl_s {
 	void *arg;
+	int single_entry;
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
@@ -47,13 +48,18 @@ static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
 	pr_msg("unknown object %p\n", obj);
 }
 
+static void print_nested_message_braces(pb_pr_ctl_t *ctl, int side)
+{
+	pr_msg("%s%s", (side) ? "]" : "[", (ctl->single_entry) ? "\n" : " ");
+}
+
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 
 static void show_nested_message(void *msg, pb_pr_ctl_t *ctl)
 {
-	pr_msg("[ ");
+	print_nested_message_braces(ctl, 0);
 	pb_show_msg(msg, ctl);
-	pr_msg(" ] ");
+	print_nested_message_braces(ctl, 1);
 }
 
 static void show_enum(void *msg, pb_pr_ctl_t *ctl)
@@ -133,7 +139,10 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 		show(where, ctl);
 	}
 
-	pr_msg(" ");
+	if (ctl->single_entry)
+		pr_msg("\n");
+	else
+		pr_msg(" ");
 }
 
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
@@ -164,9 +173,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 }
 
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
-		pb_unpack_t unpack, pb_free_t free)
+		pb_unpack_t unpack, pb_free_t free, int single_entry)
 {
-	pb_pr_ctl_t ctl = {NULL};
+	pb_pr_ctl_t ctl = {NULL, single_entry};
 
 	while (1) {
 		void *obj;
@@ -176,8 +185,10 @@ void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 
 		ctl.arg = (void *)md;
 		pb_show_msg(obj, &ctl);
-		pr_msg("\n");
 		free(obj, NULL);
+		if (single_entry)
+			break;
+		pr_msg("\n");
 	}
 }
 

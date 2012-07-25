@@ -59,12 +59,17 @@ extern int pb_write_object_with_header(int fd, void *obj,
 #include <google/protobuf-c/protobuf-c.h>
 
 extern void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *d,
-		pb_unpack_t unpack, pb_free_t free);
+		pb_unpack_t unpack, pb_free_t free, int single_entry);
 
 /* Don't have objects at hands to also do typechecking here */
 #define pb_show_plain(__fd, __proto_message_name)			\
 	do_pb_show_plain(__fd, &__proto_message_name##__descriptor,	\
 			(pb_unpack_t)__proto_message_name##__unpack,			\
-			(pb_free_t)__proto_message_name##__free_unpacked)
+			(pb_free_t)__proto_message_name##__free_unpacked, 0)
+
+#define pb_show_vertical(__fd, __proto_message_name)			\
+	do_pb_show_plain(__fd, &__proto_message_name##__descriptor,	\
+			(pb_unpack_t)__proto_message_name##__unpack,			\
+			(pb_free_t)__proto_message_name##__free_unpacked, 1)
 
 #endif /* PROTOBUF_H__ */
