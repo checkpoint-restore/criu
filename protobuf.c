@@ -64,7 +64,7 @@ static void print_nested_message_braces(pb_pr_ctl_t *ctl, int right_brace)
 {
 	if (right_brace)
 		print_tabs(ctl);
-	pr_msg("%s%s", (right_brace) ? "]" : "[", (ctl->single_entry) ? "\n" : " ");
+	pr_msg("%s%s", (right_brace) ? "}" : "{", (ctl->single_entry) ? "\n" : " ");
 }
 
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
