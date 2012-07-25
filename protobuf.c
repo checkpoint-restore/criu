@@ -23,6 +23,7 @@
 struct pb_pr_ctrl_s {
 	void *arg;
 	int single_entry;
+	int depth;
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
@@ -48,9 +49,22 @@ static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
 	pr_msg("unknown object %p\n", obj);
 }
 
-static void print_nested_message_braces(pb_pr_ctl_t *ctl, int side)
+static inline void print_tabs(pb_pr_ctl_t *ctl)
 {
-	pr_msg("%s%s", (side) ? "]" : "[", (ctl->single_entry) ? "\n" : " ");
+	int counter = ctl->depth;
+
+	if (!ctl->single_entry)
+		return;
+
+	while (counter--)
+		pr_msg("\t");
+}
+
+static void print_nested_message_braces(pb_pr_ctl_t *ctl, int right_brace)
+{
+	if (right_brace)
+		print_tabs(ctl);
+	pr_msg("%s%s", (right_brace) ? "]" : "[", (ctl->single_entry) ? "\n" : " ");
 }
 
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
@@ -58,7 +72,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 static void show_nested_message(void *msg, pb_pr_ctl_t *ctl)
 {
 	print_nested_message_braces(ctl, 0);
+	ctl->depth++;
 	pb_show_msg(msg, ctl);
+	ctl->depth--;
 	print_nested_message_braces(ctl, 1);
 }
 
@@ -87,6 +103,8 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 	pb_pr_field_t *show;
 	unsigned long counter;
 	size_t fsize;
+
+	print_tabs(ctl);
 
 	pr_msg("%s: ", fd->name);
 
@@ -175,7 +193,7 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
 		pb_unpack_t unpack, pb_free_t free, int single_entry)
 {
-	pb_pr_ctl_t ctl = {NULL, single_entry};
+	pb_pr_ctl_t ctl = {NULL, single_entry, 0};
 
 	while (1) {
 		void *obj;
