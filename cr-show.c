@@ -81,24 +81,16 @@ void show_ghost_file(int fd, struct cr_options *o)
 	pb_show_vertical(fd, ghost_file_entry);
 }
 
-void __show_pipes_data(int fd, struct cr_options *o)
+static void pipe_data_handler(int fd, void *obj)
 {
-	PipeDataEntry *e;
-
-	while (1) {
-		if (pb_read_eof(fd, &e, pipe_data_entry) <= 0)
-			break;
-		pr_msg("pipeid: 0x%8x bytes: 0x%8x\n", e->pipe_id, e->bytes);
-		lseek(fd, e->bytes, SEEK_CUR);
-		pipe_data_entry__free_unpacked(e, NULL);
-	}
+	PipeDataEntry *e = obj;
+	pr_msg("\n");
+	print_image_data(fd, e->bytes);
 }
 
-void show_pipes_data(int fd_pipes, struct cr_options *o)
+void show_pipes_data(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_PIPES_DATA);
-	__show_pipes_data(fd_pipes, o);
-	pr_img_tail(CR_FD_PIPES_DATA);
+	pb_show_plain_payload(fd, pipe_data_entry, pipe_data_handler);
 }
 
 void show_pipes(int fd_pipes, struct cr_options *o)
@@ -108,9 +100,7 @@ void show_pipes(int fd_pipes, struct cr_options *o)
 
 void show_fifo_data(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_FIFO_DATA);
-	__show_pipes_data(fd, o);
-	pr_img_tail(CR_FD_FIFO_DATA);
+	show_pipes_data(fd, o);
 }
 
 void show_fifo(int fd, struct cr_options *o)
