@@ -163,6 +163,24 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 		pr_msg(" ");
 }
 
+static int pb_optional_field_present(const ProtobufCFieldDescriptor *field,
+				    void *msg)
+{
+	if ((field->type == PROTOBUF_C_TYPE_MESSAGE) ||
+		(field->type == PROTOBUF_C_TYPE_STRING)) {
+		const void *opt_flag = * (const void * const *)(msg + field->offset);
+
+		if ((opt_flag == NULL) || (opt_flag == field->default_value))
+			return 0;
+	} else {
+		const protobuf_c_boolean *has = msg + field->quantifier_offset;
+
+		if (!*has)
+			return 0;
+	}
+	return 1;
+}
+
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 {
 	int i;
@@ -175,11 +193,13 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 		unsigned long *data;
 		size_t nr_fields;
 
-		if (fd.label == PROTOBUF_C_LABEL_OPTIONAL)
-			continue;
-
 		nr_fields = 1;
 		data = (unsigned long *)(msg + fd.offset);
+
+		if (fd.label == PROTOBUF_C_LABEL_OPTIONAL) {
+			if (!pb_optional_field_present(&fd, data))
+				continue;
+		}
 
 		if (fd.label == PROTOBUF_C_LABEL_REPEATED) {
 			nr_fields = *(size_t *)(msg + fd.quantifier_offset);
