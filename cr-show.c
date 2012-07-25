@@ -120,17 +120,7 @@ void show_fifo(int fd, struct cr_options *o)
 
 void show_fs(int fd_fs, struct cr_options *o)
 {
-	FsEntry *fe;
-
-	pr_img_head(CR_FD_FS);
-
-	if (pb_read_eof(fd_fs, &fe, fs_entry) > 0) {
-		pr_msg("CWD : %#x\n", fe->cwd_id);
-		pr_msg("ROOT: %#x\n", fe->root_id);
-		fs_entry__free_unpacked(fe, NULL);
-	}
-
-	pr_img_tail(CR_FD_FS);
+	pb_show_vertical(fd_fs, fs_entry);
 }
 
 void show_vmas(int fd_vma, struct cr_options *o)
