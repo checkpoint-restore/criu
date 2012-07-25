@@ -175,25 +175,13 @@ void show_sk_queues(int fd, struct cr_options *o)
 
 	pr_img_head(CR_FD_SK_QUEUES);
 	while (1) {
-		void *data;
-
 		ret = pb_read_eof(fd, &pe, sk_packet_entry);
 		if (ret <= 0)
 			break;
 		pr_msg("pkt for %u length %u bytes\n",
 			pe->id_for, (unsigned int)pe->length);
-
-		data = xmalloc(pe->length);
-		if (!data)
-			break;
-		ret = read_img_buf(fd, (unsigned char *)data, pe->length);
-		if (ret < 0) {
-			xfree(data);
-			break;
-		}
-		print_data(0, (unsigned char *)data, pe->length);
+		print_image_data(fd, pe->length);
 		sk_packet_entry__free_unpacked(pe, NULL);
-		xfree(data);
 	}
 	pr_img_tail(CR_FD_SK_QUEUES);
 }

@@ -165,6 +165,23 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
+void print_image_data(int fd, unsigned int length)
+{
+	void *data;
+	int ret;
+
+	data = xmalloc(length);
+	if (!data)
+		return;
+	ret = read_img_buf(fd, (unsigned char *)data, length);
+	if (ret < 0) {
+		xfree(data);
+		return;
+	}
+	print_data(0, (unsigned char *)data, length);
+	xfree(data);
+}
+
 void show_pages(int fd_pages, struct cr_options *o)
 {
 	pr_img_head(CR_FD_PAGES);
