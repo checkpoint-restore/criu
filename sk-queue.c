@@ -168,22 +168,16 @@ err_brk:
 	return ret;
 }
 
+static void sk_queue_data_handler(int fd, void *obj)
+{
+	SkPacketEntry *e = obj;
+	pr_msg("\n");
+	print_image_data(fd, e->length);
+}
+
 void show_sk_queues(int fd, struct cr_options *o)
 {
-	SkPacketEntry *pe;
-	int ret;
-
-	pr_img_head(CR_FD_SK_QUEUES);
-	while (1) {
-		ret = pb_read_eof(fd, &pe, sk_packet_entry);
-		if (ret <= 0)
-			break;
-		pr_msg("pkt for %u length %u bytes\n",
-			pe->id_for, (unsigned int)pe->length);
-		print_image_data(fd, pe->length);
-		sk_packet_entry__free_unpacked(pe, NULL);
-	}
-	pr_img_tail(CR_FD_SK_QUEUES);
+	pb_show_plain_payload(fd, sk_packet_entry, sk_queue_data_handler);
 }
 
 int restore_sk_queue(int fd, unsigned int peer_id)
