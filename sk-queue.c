@@ -168,16 +168,21 @@ err_brk:
 	return ret;
 }
 
-static void sk_queue_data_handler(int fd, void *obj)
+static void sk_queue_data_handler(int fd, void *obj, int show_pages_content)
 {
 	SkPacketEntry *e = obj;
-	pr_msg("\n");
-	print_image_data(fd, e->length);
+
+	if (show_pages_content) {
+		pr_msg("\n");
+		print_image_data(fd, e->length);
+	} else
+		lseek(fd, e->length, SEEK_CUR);
 }
 
 void show_sk_queues(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, sk_packet_entry, sk_queue_data_handler);
+	pb_show_plain_payload(fd, sk_packet_entry,
+			sk_queue_data_handler, o->show_pages_content);
 }
 
 int restore_sk_queue(int fd, unsigned int peer_id)

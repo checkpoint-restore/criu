@@ -81,16 +81,21 @@ void show_ghost_file(int fd, struct cr_options *o)
 	pb_show_vertical(fd, ghost_file_entry);
 }
 
-static void pipe_data_handler(int fd, void *obj)
+static void pipe_data_handler(int fd, void *obj, int show_pages_content)
 {
 	PipeDataEntry *e = obj;
-	pr_msg("\n");
-	print_image_data(fd, e->bytes);
+
+	if (show_pages_content) {
+		pr_msg("\n");
+		print_image_data(fd, e->bytes);
+	} else
+		lseek(fd, e->bytes, SEEK_CUR);
 }
 
 void show_pipes_data(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, pipe_data_entry, pipe_data_handler);
+	pb_show_plain_payload(fd, pipe_data_entry,
+			pipe_data_handler, o->show_pages_content);
 }
 
 void show_pipes(int fd_pipes, struct cr_options *o)
