@@ -86,14 +86,11 @@ static void pr_ipc_sem_array(unsigned int loglevel, int nr, u16 *values)
 #define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_INFO, nr, values)
 #define pr_msg_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_MSG, nr, values)
 
-static void pr_ipc_sem_entry(unsigned int loglevel, const IpcSemEntry *sem)
+static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 {
-	pr_ipc_desc_entry(loglevel, sem->desc);
-	print_on_level(loglevel, "nsems: %-10d\n", sem->nsems);
+	pr_ipc_desc_entry(LOG_INFO, sem->desc);
+	print_on_level(LOG_INFO, "nsems: %-10d\n", sem->nsems);
 }
-
-#define pr_info_ipc_sem_entry(sem)		pr_ipc_sem_entry(LOG_INFO, sem)
-#define pr_msg_ipc_sem_entry(sem)		pr_ipc_sem_entry(LOG_MSG, sem)
 
 static int dump_ipc_sem_set(int fd, const IpcSemEntry *entry)
 {
@@ -480,42 +477,25 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 	return 0;
 }
 
-static void show_ipc_sem_entries(int fd)
+static void ipc_sem_handler(int fd, void *obj, int show_pages_content)
 {
-	IpcSemEntry *entry;
+	IpcSemEntry *e = obj;
 	u16 *values;
+	int size;
 
-	pr_msg("\nSemaphores sets:\n");
-	while (1) {
-		int size;
-
-		values = NULL;
-
-		if (pb_read_eof(fd, &entry, ipc_sem_entry) <= 0)
-			break;
-		pr_msg_ipc_sem_entry(entry);
-		size = sizeof(u16) * entry->nsems;
-		values = xmalloc(size);
-		if (values == NULL)
-			break;
-		if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0)
-			break;
-		pr_msg_ipc_sem_array(entry->nsems, values);
-
-		ipc_sem_entry__free_unpacked(entry, NULL);
-		xfree(values);
-	}
-
-	xfree(values);
-	if (entry)
-		ipc_sem_entry__free_unpacked(entry, NULL);
+	pr_msg("\n");
+	size = sizeof(u16) * e->nsems;
+	values = xmalloc(size);
+	if (values == NULL)
+		return;
+	if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0)
+		return;
+	pr_msg_ipc_sem_array(e->nsems, values);
 }
 
 void show_ipc_sem(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_IPCNS);
-	show_ipc_sem_entries(fd);
-	pr_img_tail(CR_FD_IPCNS);
+	pb_show_plain_payload(fd, ipc_sem_entry, ipc_sem_handler, 0);
 }
 
 static void show_ipc_msg_entries(int fd)
