@@ -81,7 +81,11 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 
 struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
-	BUG_ON(list_empty(&d->fd_info_head));
+	if (list_empty(&d->fd_info_head)) {
+		pr_err("Empty list on file desc id %#x\n", d->id);
+		BUG_ON(1);
+	}
+
 	return list_first_entry(&d->fd_info_head,
 			struct fdinfo_list_entry, desc_list);
 }
