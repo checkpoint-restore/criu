@@ -267,6 +267,6 @@ usage:
 	return -1;
 
 opt_pid_missing:
-	pr_msg("No pid specified (-t or -p option missing)\n");
+	pr_msg("No pid specified (-t option missing)\n");
 	return -1;
 }
