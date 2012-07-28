@@ -177,24 +177,18 @@ static int dump_ipc_sem(int fd)
 	return info.semusz;
 }
 
-static void pr_ipc_msg(unsigned int loglevel, int nr, const IpcMsg *msg)
+static void pr_info_ipc_msg(int nr, const IpcMsg *msg)
 {
-	print_on_level(loglevel, "  %-5d: type: %-20ld size: %-10d\n",
+	print_on_level(LOG_INFO, "  %-5d: type: %-20ld size: %-10d\n",
 		       nr++, msg->mtype, msg->msize);
 }
 
-#define pr_info_ipc_msg(nr, msg)	pr_ipc_msg(LOG_INFO, nr, msg)
-#define pr_msg_ipc_msg(nr, msg)		pr_ipc_msg(LOG_MSG, nr, msg)
-
-static void pr_ipc_msg_entry(unsigned int loglevel, const IpcMsgEntry *msg)
+static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 {
-	pr_ipc_desc_entry(loglevel, msg->desc);
-	print_on_level(loglevel, "qbytes: %-10d qnum: %-10d\n",
+	pr_ipc_desc_entry(LOG_INFO, msg->desc);
+	print_on_level(LOG_INFO, "qbytes: %-10d qnum: %-10d\n",
 		       msg->qbytes, msg->qnum);
 }
-
-#define pr_info_ipc_msg_entry(msg)	pr_ipc_msg_entry(LOG_INFO, msg)
-#define pr_msg_ipc_msg_entry(msg)	pr_ipc_msg_entry(LOG_MSG, msg)
 
 static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry, size_t cbytes)
 {
@@ -498,49 +492,32 @@ void show_ipc_sem(int fd, struct cr_options *o)
 	pb_show_plain_payload(fd, ipc_sem_entry, ipc_sem_handler, 0);
 }
 
-static void show_ipc_msg_entries(int fd)
+static void ipc_msg_data_handler(int fd, void *obj, int show_pages_content)
 {
-	pr_msg("\nMessage queues:\n");
-	while (1) {
-		int ret;
-		IpcMsgEntry *entry;
-		int msg_nr = 0;
+	IpcMsg *e = obj;
 
-		ret = pb_read_eof(fd, &entry, ipc_msg_entry);
-		if (ret <= 0)
-			return;
+	if (show_pages_content) {
+		pr_msg("\n");
+		print_image_data(fd, round_up(e->msize, sizeof(u64)));
+	} else
+		lseek(fd, round_up(e->msize, sizeof(u64)), SEEK_CUR);
+}
 
-		pr_msg_ipc_msg_entry(entry);
+static void ipc_msg_handler(int fd, void *obj, int show_pages_content)
+{
+	IpcMsgEntry *e = obj;
+	int msg_nr = 0;
 
-		while (msg_nr < entry->qnum) {
-			IpcMsg *msg;
+	pr_msg("\n");
+	while (msg_nr++ < e->qnum)
+		pb_show_plain_payload(fd, ipc_msg, ipc_msg_data_handler,
+					show_pages_content);
 
-			ret = pb_read(fd, &msg, ipc_msg);
-			if (ret <= 0)
-				break;
-
-			pr_msg_ipc_msg(msg_nr, msg);
-
-			if (lseek(fd, round_up(msg->msize, sizeof(u64)), SEEK_CUR) == (off_t) -1)
-				ret = -1;
-			ipc_msg__free_unpacked(msg, NULL);
-			msg_nr++;
-
-			if (ret < 0)
-				break;
-		}
-
-		ipc_msg_entry__free_unpacked(entry, NULL);
-		if (ret < 0)
-			break;
-	}
 }
 
 void show_ipc_msg(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_IPCNS);
-	show_ipc_msg_entries(fd);
-	pr_img_tail(CR_FD_IPCNS);
+	pb_show_plain_payload(fd, ipc_msg_entry, ipc_msg_handler, o->show_pages_content);
 }
 
 static void show_ipc_shm_entries(int fd)
