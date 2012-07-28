@@ -70,7 +70,7 @@ MAKEFLAGS	+= --no-print-directory
 include Makefile.syscall
 include Makefile.pie
 
-.PHONY: all test-legacy zdtm test rebuild clean distclean tags cscope	\
+.PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf
 
 all: protobuf pie
@@ -101,9 +101,6 @@ $(PROGRAM): $(OBJS) $(SYS-OBJ) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
-test-legacy: all
-	$(Q) $(MAKE) -C test/legacy all
-
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
 
@@ -127,7 +124,6 @@ clean: cleanpie cleansyscall
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(MAKE) -C protobuf/ clean
-	$(Q) $(MAKE) -C test/legacy clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout
