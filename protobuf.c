@@ -138,6 +138,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 		case PROTOBUF_C_TYPE_ENUM:
 			show = show_enum;
 			ctl->arg = (void *)fd->descriptor;
+			fsize = 4;
 			break;
 		case PROTOBUF_C_TYPE_FLOAT:
 		case PROTOBUF_C_TYPE_DOUBLE:
