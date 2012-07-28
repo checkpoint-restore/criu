@@ -297,14 +297,11 @@ static int dump_ipc_msg(int fd)
 	return info.msgpool;
 }
 
-static void pr_ipc_shm(unsigned int loglevel, const IpcShmEntry *shm)
+static void pr_info_ipc_shm(const IpcShmEntry *shm)
 {
-	pr_ipc_desc_entry(loglevel, shm->desc);
-	print_on_level(loglevel, "size: %-10lu\n", shm->size);
+	pr_ipc_desc_entry(LOG_INFO, shm->desc);
+	print_on_level(LOG_INFO, "size: %-10lu\n", shm->size);
 }
-
-#define pr_info_ipc_shm(shm)	pr_ipc_shm(LOG_INFO, shm)
-#define pr_msg_ipc_shm(shm)	pr_ipc_shm(LOG_MSG, shm)
 
 static int ipc_sysctl_req(IpcVarEntry *e, int op)
 {
@@ -520,33 +517,21 @@ void show_ipc_msg(int fd, struct cr_options *o)
 	pb_show_plain_payload(fd, ipc_msg_entry, ipc_msg_handler, o->show_pages_content);
 }
 
-static void show_ipc_shm_entries(int fd)
+static void ipc_shm_handler(int fd, void *obj, int show_pages_content)
 {
-	pr_msg("\nShared memory segments:\n");
-	while (1) {
-		int ret;
-		IpcShmEntry *shm;
+	IpcShmEntry *e = obj;
 
-		ret = pb_read_eof(fd, &shm, ipc_shm_entry);
-		if (ret <= 0)
-			return;
-
-		pr_msg_ipc_shm(shm);
-
-		if (lseek(fd, round_up(shm->size, sizeof(u32)), SEEK_CUR) == (off_t) -1)
-			ret = -1;
-
-		ipc_shm_entry__free_unpacked(shm, NULL);
-		if (ret < 0)
-			break;
-	}
+	if (show_pages_content) {
+		pr_msg("\n");
+		print_image_data(fd, round_up(e->size, sizeof(u64)));
+	} else
+		lseek(fd, round_up(e->size, sizeof(u32)), SEEK_CUR);
 }
 
 void show_ipc_shm(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_IPCNS);
-	show_ipc_shm_entries(fd);
-	pr_img_tail(CR_FD_IPCNS);
+	pb_show_plain_payload(fd, ipc_shm_entry, ipc_shm_handler,
+				o->show_pages_content);
 }
 
 static void show_ipc_var_entry(int fd)
