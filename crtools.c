@@ -182,6 +182,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	if (optind >= argc)
+		goto usage;
+
 	if (strcmp(argv[optind], "dump") &&
 	    strcmp(argv[optind], "restore") &&
 	    strcmp(argv[optind], "show") &&
