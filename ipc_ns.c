@@ -534,24 +534,9 @@ void show_ipc_shm(int fd, struct cr_options *o)
 				o->show_pages_content);
 }
 
-static void show_ipc_var_entry(int fd)
-{
-	int ret;
-	IpcVarEntry *var;
-
-	ret = pb_read_eof(fd, &var, ipc_var_entry);
-	if (ret <= 0)
-		return;
-	ipc_sysctl_req(var, CTL_SHOW);
-
-	ipc_var_entry__free_unpacked(var, NULL);
-}
-
 void show_ipc_var(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_IPCNS);
-	show_ipc_var_entry(fd);
-	pr_img_tail(CR_FD_IPCNS);
+	pb_show_vertical(fd, ipc_var_entry);
 }
 
 static int prepare_ipc_sem_values(int fd, const IpcSemEntry *entry)
