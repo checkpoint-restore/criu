@@ -258,64 +258,37 @@ void show_creds(int fd, struct cr_options *o)
 	pb_show_vertical(fd, creds_entry);
 }
 
-static int show_collect_pstree(int fd_pstree, struct list_head *collect)
+static void pstree_handler(int fd, void *obj, int collect)
 {
-	PstreeEntry *e;
+	PstreeEntry *e = obj;
+	struct pstree_item *item = NULL;
 
-	pr_img_head(CR_FD_PSTREE);
+	if (!collect)
+		return;
 
-	while (1) {
-		int ret;
-		struct pstree_item *item = NULL;
+	item = xzalloc(sizeof(struct pstree_item));
+	if (!item)
+		return;
 
-		e = NULL;
-		ret = pb_read_eof(fd_pstree, &e, pstree_entry);
-		if (ret <= 0)
-			goto out;
-		pr_msg("pid: %8d ppid %8d pgid: %8d sid %8d  n_threads: %8d\n",
-		       (int)e->pid, (int)e->ppid, (int)e->pgid,
-		       (int)e->sid, (int)e->n_threads);
-
-		if (collect) {
-			item = xzalloc(sizeof(struct pstree_item));
-			if (!item)
-				return -1;
-
-			item->pid.virt = e->pid;
-			item->nr_threads = e->n_threads;
-			item->threads = xzalloc(sizeof(u32) * e->n_threads);
-			if (!item->threads) {
-				xfree(item);
-				return -1;
-			}
-
-			list_add_tail(&item->list, collect);
-		}
-
-		if (e->n_threads) {
-			pr_msg("  \\\n");
-			pr_msg("   --- threads: ");
-			while (e->n_threads--) {
-				pr_msg(" %6d", (int)e->threads[e->n_threads]);
-				if (item)
-					item->threads[e->n_threads].virt = e->threads[e->n_threads];
-			}
-			pr_msg("\n");
-		}
-
-		pstree_entry__free_unpacked(e, NULL);
+	item->pid.virt = e->pid;
+	item->nr_threads = e->n_threads;
+	item->threads = xzalloc(sizeof(u32) * e->n_threads);
+	if (!item->threads) {
+		xfree(item);
+		return;
 	}
 
-out:
-	if (e)
-		pstree_entry__free_unpacked(e, NULL);
-	pr_img_tail(CR_FD_PSTREE);
-	return 0;
+	list_add_tail(&item->list, &pstree_list);
 }
 
-void show_pstree(int fd_pstree, struct cr_options *o)
+void show_collect_pstree(int fd, int collect)
 {
-	show_collect_pstree(fd_pstree, NULL);
+	pb_show_plain_payload(fd, pstree_entry, pstree_handler, collect);
+}
+
+void show_pstree(int fd, struct cr_options *o)
+{
+	show_collect_pstree(fd, 0);
 }
 
 static inline char *task_state_str(int state)
@@ -424,17 +397,12 @@ err:
 static int cr_show_all(struct cr_options *opts)
 {
 	struct pstree_item *item = NULL, *tmp;
-	LIST_HEAD(pstree_list);
 	int i, ret = -1, fd, pid;
 
 	fd = open_image_ro(CR_FD_PSTREE);
 	if (fd < 0)
 		goto out;
-
-	ret = show_collect_pstree(fd, &pstree_list);
-	if (ret)
-		goto out;
-
+	show_collect_pstree(fd, 1);
 	close(fd);
 
 	fd = open_image_ro(CR_FD_SK_QUEUES);
