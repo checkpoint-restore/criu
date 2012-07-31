@@ -13,8 +13,11 @@ const char *test_author = "Evgeny Antysev <eantyshev@parallels.com>";
  
 int main(int argc, char **argv)
 {
-	struct timespec tm_old, tm;
+	struct timespec tm_old, tm, ts;
 	double diff_nsec;
+	ts.tv_sec = 0;
+	ts.tv_nsec = 1000000;
+
 	test_init(argc, argv);
 
 	if (clock_gettime(CLOCK_MONOTONIC, &tm_old)) {
@@ -36,6 +39,12 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		tm_old = tm;
+		/*
+		Kernel can't suspend container by design if calls
+		clock_gettime() in a loop, so we need to sleep
+		between clock_gettime().
+		*/
+		nanosleep(&ts, NULL);
 	}
 	pass();
 	return 0;
