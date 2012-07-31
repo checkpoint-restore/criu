@@ -183,7 +183,7 @@ tail:
 
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
-	int img, fd;
+	int img, fd = -1;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	char lpath[32];
 
@@ -215,7 +215,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 			return -1;
 	}
 
-	close(fd);
+	close_safe(&fd);
 	close(img);
 	return 0;
 }
