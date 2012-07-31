@@ -82,7 +82,7 @@ done:
 	test_waitsig();
 
 	/* this checks both -- sys and proc presence */
-	if (access(MPTS_ROOT"/kernel/slabinfo", F_OK)) {
+	if (access(MPTS_ROOT"/kernel/meminfo", F_OK)) {
 		fail("No proc after restore");
 		return 1;
 	}
