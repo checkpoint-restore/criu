@@ -92,6 +92,7 @@ start_test()
 {
 	local tdir=$1
 	local tname=$2
+	local tpid=$tdir/$tname.init.pid
 
 	killall -9 $tname &> /dev/null
 	make -C $tdir cleanout
@@ -100,14 +101,13 @@ start_test()
 		make -C $tdir $tname.pid
 		PID=`cat $test.pid` || return 1
 	else
-		killall -9 test_init
-		$TINIT  $tdir $tname || {
+		$TINIT  $tdir $tname $tpid || {
 			echo ERROR: fail to start $tdir/$tname
 			return 1;
 		}
 
-		PID=`ps h -C test_init -o pid`
-		PID=$((PID))
+		PID=`cat $tpid`
+		ps -p $PID || return 1
 	fi
 }
 

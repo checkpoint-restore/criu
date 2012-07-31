@@ -19,6 +19,7 @@
 static int sig_received;
 static char dir[PATH_MAX];
 static char name[PATH_MAX];
+static char pidfile[PATH_MAX];
 int status_pipe[2];
 
 static void sig_hand(int signo)
@@ -96,13 +97,14 @@ int main(int argc, char *argv[])
 {
 	void *stack;
 	pid_t pid;
-	int ret, status;
+	int ret, status, fd;
 
-	if (argc < 3)
+	if (argc < 4)
 		exit(1);
 
 	strcpy(dir, argv[1]);
 	strcpy(name, argv[2]);
+	strcpy(pidfile, argv[3]);
 
 	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
 			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
@@ -124,5 +126,18 @@ int main(int argc, char *argv[])
 	ret = read(status_pipe[0], &status, sizeof(status));
 	if (ret != sizeof(status) || status)
 		exit(1);
+
+	fd = open(pidfile, O_CREAT | O_EXCL | O_WRONLY, 0666);
+	if (fd == -1) {
+		fprintf(stderr, "Can't create a pid file %s: %m", pidfile);
+		return 1;
+	}
+	ret = dprintf(fd, "%d", pid);
+	if (ret == -1) {
+		fprintf(stderr, "Can't write in a pid file\n");
+		return 1;
+	}
+	close(fd);
+
 	return 0;
 }
