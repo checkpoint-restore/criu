@@ -1,4 +1,4 @@
-CFLAGS	= -g -O2 -Wall -Werror -Wno-unused-result
+CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 LIB	= libzdtmtst.a
 
