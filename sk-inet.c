@@ -406,7 +406,7 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 		struct sockaddr_in	v4;
 		struct sockaddr_in6	v6;
 	} addr;
-	int addr_size;
+	int addr_size = 0;
 
 
 	memzero(&addr, sizeof(addr));
@@ -441,7 +441,7 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 		struct sockaddr_in	v4;
 		struct sockaddr_in6	v6;
 	} addr;
-	int addr_size;
+	int addr_size = 0;
 
 
 	memzero(&addr, sizeof(addr));
