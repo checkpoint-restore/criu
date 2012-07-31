@@ -11,6 +11,10 @@ extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, int (
 #define CLONE_NEWUTS 0x04000000
 #endif
 
+#ifndef CLONE_NEWIPC
+#define CLONE_NEWIPC 0x08000000
+#endif
+
 /*wrapper for fork: init log offset*/
 #define test_fork() test_fork_id(-1)
 extern int test_fork_id(int id);
