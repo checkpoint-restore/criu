@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <signal.h>
 #include <sched.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <linux/limits.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/param.h>
 
 #define STACK_SIZE	(8 * 4096)
 #ifndef CLONE_NEWPID
@@ -24,8 +26,43 @@ int status_pipe[2];
 
 static void sig_hand(int signo)
 {
-	sig_received = signo;
+	int status, len = 0;
+	pid_t pid;
+	char buf[128] = "";
+
+	if (signo == SIGTERM) {
+		sig_received = signo;
+		len = snprintf(buf, sizeof(buf), "Time to stop and check\n");
+		goto write_out;
+	}
+
+	while (1) {
+		pid = waitpid(-1, &status, WNOHANG);
+		if (pid == 0)
+			return;
+		if (pid == -1) {
+			if (errno == ECHILD) {
+				if (sig_received)
+					return;
+				sig_received = signo;
+				len = snprintf(buf, sizeof(buf),
+						"All test processes exited\n");
+			} else {
+				len = snprintf(buf, sizeof(buf),
+						"wait() failed: %m\n");
+			}
+				goto write_out;
+		}
+		if (status)
+			fprintf(stderr, "%d return %d\n", pid, status);
+	}
+
+	return;
+write_out:
+	/* fprintf can't be used in a sighandler due to glibc locks */
+	write(STDERR_FILENO, buf, MAX(len, sizeof(buf)));
 }
+
 void test_waitsig(void)
 {
 	sigset_t mask, oldmask;
@@ -61,9 +98,15 @@ int fn(void *_arg)
 	}
 
 	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGTERM);
+	sigaddset(&sa.sa_mask, SIGCHLD);
 
 	if (sigaction(SIGTERM, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
+		exit(1);
+	}
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
 		exit(1);
 	}
 
