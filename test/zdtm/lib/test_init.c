@@ -11,6 +11,10 @@
 #include <fcntl.h>
 
 #define STACK_SIZE	(8 * 4096)
+#ifndef CLONE_NEWPID
+/* CLONE_NEWPID since Linux 2.6.24 */
+#define CLONE_NEWPID          0x20000000
+#endif
 
 static int sig_received;
 static char dir[PATH_MAX];
