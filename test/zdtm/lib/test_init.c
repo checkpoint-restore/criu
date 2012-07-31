@@ -122,6 +122,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "clone() failed: %m\n");
 		exit(1);
 	}
+	close(status_pipe[1]);
+
 	status = 1;
 	ret = read(status_pipe[0], &status, sizeof(status));
 	if (ret != sizeof(status) || status)
