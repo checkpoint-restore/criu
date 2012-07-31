@@ -264,7 +264,7 @@ static int dump_pages_fini(void)
 
 static int dump_sigact(struct parasite_dump_sa_args *da)
 {
-	int sig, ret;
+	int sig, ret = 0;
 
 	for (sig = 1; sig < SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
