@@ -632,40 +632,33 @@ static void restore_pgid(void)
 	}
 }
 
-static char proc_mountpoint[PATH_MAX] = "/proc";
-
-static int prepare_proc(void)
-{
-	snprintf(proc_mountpoint, sizeof(proc_mountpoint), "/tmp/crtools-proc.XXXXXX");
-	if (mkdtemp(proc_mountpoint) == NULL) {
-		pr_err("mkdtemp failed %m");
-		return -1;
-	}
-
-	return 0;
-}
-
-static void umount_proc(void)
-{
-	int err;
-	err = umount(proc_mountpoint);
-	if (err == -1)
-		pr_err("Can't umount %s\n", proc_mountpoint);
-	err = rmdir(proc_mountpoint);
-	if (err == -1)
-		pr_err("Can't delete %s\n", proc_mountpoint);
-}
-
 static void mount_proc(void)
 {
 	int ret;
+	char proc_mountpoint[PATH_MAX];
 
+	mkdir("/tmp/", 0777);
+	snprintf(proc_mountpoint, sizeof(proc_mountpoint), "crtools-proc.XXXXXX");
+	if (mkdtemp(proc_mountpoint) == NULL) {
+		pr_err("mkdtemp failed %m");
+		exit(1);
+	}
+
+	pr_info("Mount procfs in %s\n", proc_mountpoint);
 	ret = mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL);
 	if (ret == -1) {
 		pr_err("mount failed");
 		exit(1);
 	}
 	set_proc_mountpoint(proc_mountpoint);
+	if (umount2(proc_mountpoint, MNT_DETACH) == -1) {
+		pr_err("Can't umount %s\n", proc_mountpoint);
+		exit(1);
+	}
+	if (rmdir(proc_mountpoint) == -1) {
+		pr_err("Can't remove %s\n", proc_mountpoint);
+		exit(1);
+	}
 }
 
 static int restore_task_with_children(void *_arg)
@@ -698,6 +691,12 @@ static int restore_task_with_children(void *_arg)
 		ret = prepare_namespace(me->pid.virt, ca->clone_flags);
 		if (ret)
 			exit(-1);
+
+		/*
+		 * We need non /proc proc mount for restoring pid and mount
+		 * namespaces and do not care for the rest of the cases.
+		 * Thus -- mount proc at custom location for any new namespace
+		 */
 
 		mount_proc();
 	}
@@ -778,15 +777,6 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	}
 
 	/*
-	 * We need non /proc proc mount for restoring pid and mount namespaces
-	 * and do not care for the rest of the cases. Thus -- mount proc at
-	 * custom location for any new namespace
-	 */
-
-	if (opts->namespaces_flags && prepare_proc())
-		return -1;
-
-	/*
 	 * FIXME -- currently we assume that all the tasks live
 	 * in the same set of namespaces. This is done to debug
 	 * the ns contents dumping/restoring. Need to revisit
@@ -832,9 +822,6 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	ret = (int)futex_get(&task_entries->nr_in_progress);
 
 out:
-	if (opts->namespaces_flags)
-		umount_proc();
-
 	if (ret < 0) {
 		struct pstree_item *pi;
 		pr_err("Someone can't be restored\n");
