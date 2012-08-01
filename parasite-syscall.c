@@ -371,20 +371,37 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 {
 	struct parasite_init_args args = { };
-	int sock;
+	static int sock = -1;
 
-	args.h_addr_len = gen_parasite_saddr(&args.h_addr, pid);
-	args.p_addr_len = gen_parasite_saddr(&args.p_addr, -pid);
+	pr_info("Putting tsock into pid %d\n", pid);
+	args.h_addr_len = gen_parasite_saddr(&args.h_addr, 0);
+	args.p_addr_len = gen_parasite_saddr(&args.p_addr, pid);
 
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
-		return -1;
-	}
+	if (sock == -1) {
+		sock = socket(PF_UNIX, SOCK_DGRAM, 0);
+		if (sock < 0) {
+			pr_perror("Can't create socket");
+			return -1;
+		}
 
-	if (bind(sock, (struct sockaddr *)&args.h_addr, args.h_addr_len) < 0) {
-		pr_perror("Can't bind socket");
-		goto err;
+		if (bind(sock, (struct sockaddr *)&args.h_addr, args.h_addr_len) < 0) {
+			pr_perror("Can't bind socket");
+			goto err;
+		}
+	} else {
+		struct sockaddr addr = { .sa_family = AF_UNSPEC, };
+
+		/*
+		 * When the peer of a dgram socket dies the original socket
+		 * remains in connected state, thus denying any connections
+		 * from "other" sources. Unconnect the socket by hands thus
+		 * allowing for parasite to connect back.
+		 */
+
+		if (connect(sock, &addr, sizeof(addr)) < 0) {
+			pr_perror("Can't unconnect");
+			goto err;
+		}
 	}
 
 	if (parasite_execute(PARASITE_CMD_INIT, ctl, &args, sizeof(args)) < 0) {
@@ -604,8 +621,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;
 
-	if (ctl->tsock >= 0)
-		close(ctl->tsock);
+	ctl->tsock = -1;
 
 	if (ctl->parasite_ip) {
 		ctl->signals_blocked = 0;
