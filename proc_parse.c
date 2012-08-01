@@ -714,6 +714,7 @@ int parse_fdinfo(int fd, int type,
 {
 	FILE *f;
 	char str[256];
+	bool entry_met = false;
 
 	sprintf(str, "/proc/self/fdinfo/%d", fd);
 	f = fopen(str, "r");
@@ -741,6 +742,8 @@ int parse_fdinfo(int fd, int type,
 			ret = cb(&entry, arg);
 			if (ret)
 				return ret;
+
+			entry_met = true;
 			continue;
 		}
 		if (fdinfo_field(str, "tfd")) {
@@ -755,6 +758,8 @@ int parse_fdinfo(int fd, int type,
 			ret = cb(&entry, arg);
 			if (ret)
 				return ret;
+
+			entry_met = true;
 			continue;
 		}
 		if (fdinfo_field(str, "inotify wd")) {
@@ -791,11 +796,18 @@ int parse_fdinfo(int fd, int type,
 
 			if (ret)
 				return ret;
+
+			entry_met = true;
 			continue;
 		}
 	}
 
 	fclose(f);
+	if (!entry_met) {
+		pr_err("No records of type %d found in fdinfo file\n", type);
+		goto parse_err;
+	}
+
 	return 0;
 
 parse_err:
