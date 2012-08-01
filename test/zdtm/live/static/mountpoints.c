@@ -16,6 +16,7 @@ static char buf[1024];
 static int test_fn(int argc, char **argv)
 {
 	FILE *f;
+	int fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
 
 again:
@@ -77,6 +78,10 @@ done:
 		fail("Can't mount proc");
 		return 1;
 	}
+
+	fd = open(MPTS_ROOT"/kernel/meminfo", O_RDONLY);
+	if (fd == -1)
+		return 1;
 
 	test_daemon();
 	test_waitsig();
