@@ -19,6 +19,7 @@
 #include "util-net.h"
 #include "sockets.h"
 #include "sk-queue.h"
+#include "mount.h"
 
 #include "protobuf.h"
 #include "protobuf/sk-unix.pb-c.h"
@@ -261,6 +262,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		if (name[0] != '\0') {
 			struct unix_diag_vfs *uv;
 			struct stat st;
+			char rpath[PATH_MAX];
 
 			if (name[0] != '/') {
 				pr_warn("Relative bind path '%s' "
@@ -275,9 +277,10 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			}
 
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
-			if (stat(name, &st)) {
+			snprintf(rpath, sizeof(rpath), ".%s", name);
+			if (fstatat(mntns_root, rpath, &st, 0)) {
 				pr_perror("Can't stat socket %d(%s)",
-						m->udiag_ino, name);
+						m->udiag_ino, rpath);
 				goto skip;
 			}
 

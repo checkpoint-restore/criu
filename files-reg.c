@@ -7,6 +7,7 @@
 
 #include "crtools.h"
 
+#include "mount.h"
 #include "files.h"
 #include "image.h"
 #include "list.h"
@@ -257,7 +258,7 @@ dump_entry:
 			&rpe, remap_file_path_entry);
 }
 
-static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
+static int check_path_remap(char *rpath, const struct stat *ost, int lfd, u32 id)
 {
 	int ret;
 	struct stat pst;
@@ -269,9 +270,9 @@ static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
 		 * be careful whether anybody still has any of its hardlinks
 		 * also open.
 		 */
-		return dump_ghost_remap(path, ost, lfd, id);
+		return dump_ghost_remap(rpath + 1, ost, lfd, id);
 
-	ret = stat(path, &pst);
+	ret = fstatat(mntns_root, rpath, &pst, 0);
 	if (ret < 0) {
 		/*
 		 * FIXME linked file, but path is not accessible (unless any
@@ -304,13 +305,13 @@ static int check_path_remap(char *path, const struct stat *ost, int lfd, u32 id)
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
-	char path[PATH_MAX];
+	char rpath[PATH_MAX + 1] = ".", *path = rpath + 1;;
 	int len, rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
 	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
-	len = readlink(fd_str, path, sizeof(path) - 1);
+	len = readlink(fd_str, path, sizeof(rpath) - 2);
 	if (len < 0) {
 		pr_perror("Can't readlink %s", fd_str);
 		return len;
@@ -320,7 +321,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
 			p->fd, lfd, path);
 
-	if (check_path_remap(path, &p->stat, lfd, id))
+	if (check_path_remap(rpath, &p->stat, lfd, id))
 		return -1;
 
 	rfe.id		= id;

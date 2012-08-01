@@ -22,6 +22,7 @@
 #include "protobuf/mnt.pb-c.h"
 
 static struct mount_info *mntinfo;
+int mntns_root = -1;
 
 int open_mount(unsigned int s_dev)
 {
@@ -498,4 +499,38 @@ int prepare_mnt_ns(int ns_pid)
 void show_mountpoints(int fd, struct cr_options *o)
 {
 	pb_show_plain(fd, mnt_entry);
+}
+
+int mntns_collect_root(pid_t pid)
+{
+	int fd, pfd;
+	int ret;
+	char path[PATH_MAX + 1];
+
+	/* If /proc/pid/root links on '/', it signs that a root of the task
+	 * and a root of mntns is the same. */
+
+	pfd = open_pid_proc(pid);
+	ret = readlinkat(pfd, "root", path, PATH_MAX);
+	if (ret < 0)
+		return ret;
+
+	path[ret + 1] = '\0';
+
+	if (ret != 1 || path[0] != '/') {
+		pr_err("The root task has another root than mntns: %s\n", path);
+		close_pid_proc();
+		return -1;
+	}
+
+	fd = openat(pfd, "root", O_RDONLY | O_DIRECTORY, 0);
+	close_pid_proc();
+	if (fd < 0) {
+		pr_perror("Can't open the task root");
+		return -1;
+	}
+
+	mntns_root = fd;
+
+	return 0;
 }

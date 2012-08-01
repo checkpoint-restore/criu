@@ -1,6 +1,9 @@
 #ifndef MOUNT_H__
 #define MOUNT_H__
 
+extern int mntns_root;
+int mntns_collect_root(pid_t pid);
+
 struct proc_mountinfo;
 
 extern int open_mount(unsigned int s_dev);

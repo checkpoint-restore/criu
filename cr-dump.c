@@ -45,6 +45,7 @@
 #include "eventpoll.h"
 #include "inotify.h"
 #include "pstree.h"
+#include "mount.h"
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
@@ -1473,6 +1474,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	 * dumping containers, we'll better fail here, rather than
 	 * in the dump stage
 	 */
+
+	if (mntns_collect_root(root_item->pid.real))
+		goto err;
 
 	collect_sockets();
 
