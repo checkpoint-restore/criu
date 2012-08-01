@@ -48,10 +48,10 @@ static/fifo-ghost
 static/fifo
 static/fifo_wronly
 "
-# Duplicate list with pidns/ prefix
-TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#pidns/#')
+# Duplicate list with ns/ prefix
+TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 
-# These ones are not in pidns
+# These ones are not in ns
 TEST_LIST="$TEST_LIST
 static/zombie00
 transition/fork
@@ -62,9 +62,9 @@ MNT_TEST_LIST="
 static/mountpoints
 "
 
-# These ones are in pidns
+# These ones are in ns
 TEST_LIST="$TEST_LIST
-pidns/static/session00
+ns/static/session00
 "
 
 UTS_TEST_LIST="
@@ -144,8 +144,8 @@ run_test()
 {
 	local test=$1
 
-	expr "$test" : 'pidns/' > /dev/null && PIDNS=1 || PIDNS=""
-	test=${ZP}/${test#pidns/}
+	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
+	test=${ZP}/${test#ns/}
 
 	shift
 	local args=$*
@@ -167,7 +167,7 @@ run_test()
 	DUMP_PATH=`pwd`/$ddump
 
 	if [ -n "$PIDNS" ]; then
-		args="--namespace pid $args"
+		args="--namespace pid --namespace mnt $args"
 	fi
 
 	echo Dump $PID
@@ -210,7 +210,7 @@ run_test()
 
 case_error()
 {
-	test=${ZP}/${1#pidns/}
+	test=${ZP}/${1#ns/}
 	local test_log=`pwd`/$test.out
 
 	echo "Test: $test"
