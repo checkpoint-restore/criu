@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <sys/types.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -11,6 +12,8 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/param.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 
 #define STACK_SIZE	(8 * 4096)
 #ifndef CLONE_NEWPID
@@ -81,6 +84,56 @@ void test_waitsig(void)
 	sig_received = 0;
 }
 
+static int prepare_mntns()
+{
+	FILE *f;
+	unsigned fs_cnt, fs_cnt_last = 0;
+	char buf[1024];
+
+again:
+	fs_cnt = 0;
+	f = fopen("/proc/self/mountinfo", "r");
+	if (!f) {
+		fprintf(stderr, "Can't open mountinfo");
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		char *mp = buf, *end;
+
+		mp = strchr(mp, ' ') + 1;
+		mp = strchr(mp, ' ') + 1;
+		mp = strchr(mp, ' ') + 1;
+		mp = strchr(mp, ' ') + 1;
+		end = strchr(mp, ' ');
+		*end = '\0';
+
+		if (!strcmp(mp, "/"))
+			continue;
+		if (!strcmp(mp, "/proc"))
+			continue;
+
+		umount(mp);
+		fs_cnt++;
+	}
+
+	fclose(f);
+
+	if (fs_cnt == 0)
+		goto done;
+
+	if (fs_cnt != fs_cnt_last) {
+		fs_cnt_last = fs_cnt;
+		goto again;
+	}
+
+	fprintf(stderr, "Can't umount all the filesystems");
+	return -1;
+done:
+	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
+	return 0;
+}
+
 int fn(void *_arg)
 {
 	struct sigaction sa = {
@@ -91,6 +144,10 @@ int fn(void *_arg)
 	int ret;
 
 	close(status_pipe[0]);
+
+	if (prepare_mntns())
+		return 1;
+
 	ret = fcntl(status_pipe[1], F_SETFD, FD_CLOEXEC);
 	if (ret == -1) {
 		fprintf(stderr, "fcntl failed %m\n");
@@ -160,7 +217,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Pipe() failed %m\n");
 		exit(1);
 	}
-	pid = clone(fn, stack + STACK_SIZE, CLONE_NEWPID | SIGCHLD, NULL);
+	pid = clone(fn, stack + STACK_SIZE, CLONE_NEWPID | CLONE_NEWNS | SIGCHLD, NULL);
 	if (pid < 0) {
 		fprintf(stderr, "clone() failed: %m\n");
 		exit(1);
