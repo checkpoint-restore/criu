@@ -21,7 +21,6 @@
 
 enum {
 	PARASITE_CMD_INIT,
-	PARASITE_CMD_TCONNECT,
 	PARASITE_CMD_SET_LOGFD,
 	PARASITE_CMD_FINI,
 
@@ -39,8 +38,11 @@ enum {
 };
 
 struct parasite_init_args {
-	int			sun_len;
-	struct sockaddr_un	saddr;
+	int			h_addr_len;
+	struct sockaddr_un	h_addr;
+
+	int			p_addr_len;
+	struct sockaddr_un	p_addr;
 };
 
 struct parasite_dump_pages_args {

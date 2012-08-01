@@ -350,7 +350,11 @@ static int init(struct parasite_init_args *args)
 	if (tsock < 0)
 		return -tsock;
 
-	ret = sys_bind(tsock, (struct sockaddr *) &args->saddr, args->sun_len);
+	ret = sys_bind(tsock, (struct sockaddr *) &args->p_addr, args->p_addr_len);
+	if (ret < 0)
+		return ret;
+
+	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
 	if (ret < 0)
 		return ret;
 
@@ -362,11 +366,6 @@ static int init(struct parasite_init_args *args)
 		reset_blocked = 1;
 
 	return ret;
-}
-
-static int tconnect(struct parasite_init_args *args)
-{
-	return sys_connect(tsock, (struct sockaddr *) &args->saddr, args->sun_len);
 }
 
 static int parasite_set_logfd()
@@ -404,8 +403,6 @@ int __used parasite_service(unsigned long cmd, void *args)
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
 		return init((struct parasite_init_args *) args);
-	case PARASITE_CMD_TCONNECT:
-		return tconnect((struct parasite_init_args *) args);
 	case PARASITE_CMD_FINI:
 		return fini();
 	case PARASITE_CMD_SET_LOGFD:

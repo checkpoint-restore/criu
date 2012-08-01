@@ -353,16 +353,6 @@ static int parasite_prep_file(int fd, struct parasite_ctl *ctl)
 	return 0;
 }
 
-static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
-{
-	struct parasite_init_args args = { };
-
-	args.sun_len = gen_parasite_saddr(&args.saddr, pid);
-
-	return parasite_execute(PARASITE_CMD_INIT, ctl,
-				&args, sizeof(args));
-}
-
 static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 {
 	int ret;
@@ -378,14 +368,13 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-static int parasite_connect_tsocket(struct parasite_ctl *ctl)
+static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 {
 	struct parasite_init_args args = { };
-	struct sockaddr_un saddr;
-	int sun_len;
 	int sock;
 
-	sun_len = gen_parasite_saddr(&saddr, ctl->pid);
+	args.h_addr_len = gen_parasite_saddr(&args.h_addr, pid);
+	args.p_addr_len = gen_parasite_saddr(&args.p_addr, -pid);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -393,21 +382,20 @@ static int parasite_connect_tsocket(struct parasite_ctl *ctl)
 		return -1;
 	}
 
-	if (connect(sock, &saddr, sun_len) < 0) {
-		pr_perror("Can't connect a transport socket");
-		goto err;
-	}
-
-	args.sun_len = gen_parasite_saddr(&args.saddr, -getpid());
-
-	if (bind(sock, (struct sockaddr *)&args.saddr, args.sun_len) < 0) {
+	if (bind(sock, (struct sockaddr *)&args.h_addr, args.h_addr_len) < 0) {
 		pr_perror("Can't bind socket");
 		goto err;
 	}
 
-	if (parasite_execute(PARASITE_CMD_TCONNECT, ctl,
-				&args, sizeof(args)) < 0)
+	if (parasite_execute(PARASITE_CMD_INIT, ctl, &args, sizeof(args)) < 0) {
+		pr_err("Can't init parasite\n");
 		goto err;
+	}
+
+	if (connect(sock, (struct sockaddr *)&args.p_addr, args.p_addr_len) < 0) {
+		pr_perror("Can't connect a transport socket");
+		goto err;
+	}
 
 	ctl->tsock = sock;
 	return 0;
@@ -745,12 +733,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	}
 
 	ctl->signals_blocked = 1;
-
-	ret = parasite_connect_tsocket(ctl);
-	if (ret) {
-		pr_err("%d: Can't set connect\n", pid);
-		goto err_restore;
-	}
 
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {
