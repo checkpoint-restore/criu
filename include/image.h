@@ -53,6 +53,7 @@
 #define EVENTFD_MAGIC		0x44523722 /* Anapa */
 #define EVENTPOLL_MAGIC		0x45023858 /* Krasnodar */
 #define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
+#define SIGNALFD_MAGIC		0x57323820 /* Uglich */
 #define INOTIFY_MAGIC		0x48424431 /* Volgograd */
 #define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
 #define MOUNTPOINTS_MAGIC	0x55563928 /* Petushki */

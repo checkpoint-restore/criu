@@ -44,6 +44,7 @@
 #include "eventfd.h"
 #include "eventpoll.h"
 #include "inotify.h"
+#include "signalfd.h"
 #include "pstree.h"
 #include "mount.h"
 
@@ -291,6 +292,8 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 			return dump_eventpoll(&p, lfd, cr_fdset);
 		else if (is_inotify_link(lfd))
 			return dump_inotify(&p, lfd, cr_fdset);
+		else if (is_signalfd_link(lfd))
+			return dump_signalfd(&p, lfd, cr_fdset);
 		else
 			return dump_unsupp_fd(&p);
 	}

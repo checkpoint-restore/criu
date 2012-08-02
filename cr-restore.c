@@ -40,6 +40,7 @@
 #include "sk-inet.h"
 #include "eventfd.h"
 #include "eventpoll.h"
+#include "signalfd.h"
 #include "proc_parse.h"
 #include "restorer-blob.h"
 #include "crtools.h"
@@ -105,6 +106,9 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_eventpoll())
+		return -1;
+
+	if (collect_signalfd())
 		return -1;
 
 	if (collect_inotify())

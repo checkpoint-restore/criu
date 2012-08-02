@@ -3,6 +3,7 @@
 #include "crtools.h"
 #include "image.h"
 #include "eventpoll.h"
+#include "signalfd.h"
 #include "inotify.h"
 #include "sockets.h"
 #include "uts_ns.h"
@@ -92,6 +93,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(EVENTFD,	"eventfd",	 show_eventfds),
 	FD_ENTRY(EVENTPOLL,	"eventpoll",	 show_eventpoll),
 	FD_ENTRY(EVENTPOLL_TFD,	"eventpoll-tfd", show_eventpoll_tfd),
+	FD_ENTRY(SIGNALFD,	"signalfd",	 show_signalfd),
 	FD_ENTRY(INOTIFY,	"inotify",	 show_inotify),
 	FD_ENTRY(INOTIFY_WD,	"inotify-wd",	 show_inotify_wd),
 	FD_ENTRY(CORE,		"core-%d",	 show_core),

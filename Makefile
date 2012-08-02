@@ -59,6 +59,7 @@ OBJS		+= eventfd.o
 OBJS		+= eventpoll.o
 OBJS		+= mount.o
 OBJS		+= inotify.o
+OBJS		+= signalfd.o
 OBJS		+= pstree.o
 OBJS		+= protobuf.o
 
