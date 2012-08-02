@@ -8,6 +8,7 @@
 #include "ipc_ns.h"
 #include "mount.h"
 #include "namespaces.h"
+#include "net.h"
 
 int switch_ns(int pid, int type, char *ns, int *rst)
 {
@@ -87,6 +88,12 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 		if (ret < 0)
 			goto err;
 	}
+	if (ns_flags & CLONE_NEWNET) {
+		pr_info("Dump NET namespace info\n");
+		ret = dump_net_ns(ns_pid->real, fdset);
+		if (ret < 0)
+			goto err;
+	}
 err:
 	close_cr_fdset(&fdset);
 	return ret;
@@ -149,6 +156,14 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			pid, clone_flags);
 
+	/*
+	 * On netns restore we launch an IP tool, thus we
+	 * have to restore it _before_ altering the mount
+	 * tree (i.e. -- mnt_ns restoring)
+	 */
+
+	if (clone_flags & CLONE_NEWNET)
+		ret = prepare_net_ns(pid);
 	if (clone_flags & CLONE_NEWUTS)
 		ret = prepare_utsns(pid);
 	if (clone_flags & CLONE_NEWIPC)

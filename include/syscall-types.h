@@ -53,6 +53,10 @@ struct file_handle;
 #define CLONE_NEWIPC	0x08000000
 #endif
 
+#ifndef CLONE_NEWNET
+#define CLONE_NEWNET	0x40000000
+#endif
+
 #define setns	sys_setns
 
 #endif /* SYSCALL_TYPES_H__ */

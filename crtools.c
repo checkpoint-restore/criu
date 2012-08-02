@@ -38,6 +38,8 @@ static int parse_ns_string(const char *ptr)
 			opts.namespaces_flags |= CLONE_NEWNS;
 		else if (!strncmp(ptr, "pid", 3))
 			opts.namespaces_flags |= CLONE_NEWPID;
+		else if (!strncmp(ptr, "net", 3))
+			opts.namespaces_flags |= CLONE_NEWNET;
 		else
 			goto bad_ns;
 		ptr += 4;

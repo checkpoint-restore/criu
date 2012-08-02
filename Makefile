@@ -27,6 +27,7 @@ OBJS		+= parasite-syscall.o
 OBJS		+= cr-restore.o
 OBJS		+= crtools.o
 OBJS		+= image.o
+OBJS		+= net.o
 OBJS		+= proc_parse.o
 OBJS		+= cr-dump.o
 OBJS		+= cr-show.o
