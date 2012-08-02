@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:t:hcD:o:n:vxV";
+	static const char short_opts[] = "dsf:t:hcD:o:n:vxVr:";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
 			{ "images-dir", required_argument, 0, 'D' },
 			{ "log-file", required_argument, 0, 'o' },
 			{ "namespaces", required_argument, 0, 'n' },
+			{ "root", required_argument, 0, 'r' },
 			{ "ext-unix-sk", no_argument, 0, 'x' },
 			{ "help", no_argument, 0, 'h' },
 			{ SK_EST_PARAM, no_argument, 0, 42 },
@@ -107,6 +108,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			opts.show_dump_file = optarg;
+			break;
+		case 'r':
+			opts.root = optarg;
 			break;
 		case 'd':
 			opts.restore_detach = true;
@@ -245,6 +249,7 @@ usage:
 	pr_msg("                        supported: uts, ipc, pid\n");
 	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
+	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");

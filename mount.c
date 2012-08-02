@@ -378,6 +378,13 @@ static int do_umount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
+	/*
+	 * Don't umount the future root. It can be a mountpoint only,
+	 * otherwise pivot_root() fails.
+	 */
+	if (opts.root && !strcmp(opts.root, mi->mountpoint))
+		return 0;
+
 	if (umount(mi->mountpoint)) {
 		pr_perror("Can't umount at %s", mi->mountpoint);
 		return -1;
@@ -420,6 +427,33 @@ static int populate_mnt_ns(int ns_pid)
 	struct mount_info *pms = NULL;
 
 	pr_info("Populating mount namespace\n");
+
+	if (opts.root) {
+		char put_root[PATH_MAX] = "crtools-put-root.XXXXXX";
+
+		if (chdir(opts.root)) {
+			pr_perror("chdir(%s) failed", opts.root);
+			return -1;
+		}
+		if (mkdtemp(put_root) == NULL) {
+			pr_perror("Can't create a temparary directory");
+			return -1;
+		}
+		if (pivot_root(".", put_root)) {
+			pr_perror("pivot_root(., %s) failed", put_root);
+			if (rmdir(put_root))
+				pr_perror("Can't remove the directory %s", put_root);
+			return -1;
+		}
+		if (umount2(put_root, MNT_DETACH)) {
+			pr_perror("Can't umount %s", put_root);
+			return -1;
+		}
+		if (rmdir(put_root)) {
+			pr_perror("Can't remove the directory %s", put_root);
+			return -1;
+		}
+	}
 
 	img = open_image_ro(CR_FD_MOUNTPOINTS, ns_pid);
 	if (img < 0)

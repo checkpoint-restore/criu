@@ -87,6 +87,7 @@ struct cr_options {
 	unsigned int		namespaces_flags;
 	bool			log_file_per_pid;
 	char			*output;
+	char			*root;
 };
 
 extern struct cr_options opts;
