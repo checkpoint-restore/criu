@@ -1304,7 +1304,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	return 0;
 }
 
-static int dump_one_task(struct pstree_item *item, const struct cr_options *o)
+static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
 	LIST_HEAD(vma_area_list);
@@ -1359,7 +1359,7 @@ static int dump_one_task(struct pstree_item *item, const struct cr_options *o)
 		goto err;
 	}
 
-	parasite_ctl = parasite_infect_seized(pid, &vma_area_list, o);
+	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
 		ret = -1;
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
@@ -1491,7 +1491,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		goto err;
 
 	for_each_pstree_item(item) {
-		if (dump_one_task(item, opts))
+		if (dump_one_task(item))
 			goto err;
 	}
 
