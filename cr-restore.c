@@ -115,6 +115,9 @@ static int prepare_shared(void)
 		return -1;
 
 	for_each_pstree_item(pi) {
+		if (pi->state == TASK_HELPER)
+			continue;
+
 		ret = prepare_shmem_pid(pi->pid.virt);
 		if (ret < 0)
 			break;
