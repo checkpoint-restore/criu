@@ -170,7 +170,7 @@ static int restore_links(int pid)
 	return ret;
 }
 
-int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
+static int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
 {
 	int pid, ret, status;
 
@@ -227,6 +227,35 @@ int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
 	return 0;
 }
 
+static inline int dump_ifaddr(struct cr_fdset *fds)
+{
+	return run_ip_tool("addr", "save", -1, fdset_fd(fds, CR_FD_IFADDR));
+}
+
+static int restore_ip_dump(int type, int pid, char *cmd)
+{
+	int fd, ret;
+
+	ret = fd = open_image_ro(type, pid);
+	if (fd > 0) {
+		ret = run_ip_tool(cmd, "restore", fd, -1);
+		close(fd);
+	}
+
+	return ret;
+}
+
+static inline int restore_ifaddr(int pid)
+{
+	return restore_ip_dump(CR_FD_IFADDR, pid, "addr");
+}
+
+void show_ifaddrs(int fd, struct cr_options *o)
+{
+	BUG_ON(1);
+}
+
+
 int dump_net_ns(int pid, struct cr_fdset *fds)
 {
 	int ret;
@@ -234,6 +263,8 @@ int dump_net_ns(int pid, struct cr_fdset *fds)
 	ret = switch_ns(pid, CLONE_NEWNET, "net", NULL);
 	if (!ret)
 		ret = dump_links(fds);
+	if (!ret)
+		ret = dump_ifaddr(fds);
 
 	return ret;
 }
@@ -243,6 +274,8 @@ int prepare_net_ns(int pid)
 	int ret;
 
 	ret = restore_links(pid);
+	if (!ret)
+		ret = restore_ifaddr(pid);
 
 	return ret;
 }

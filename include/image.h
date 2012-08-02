@@ -58,6 +58,8 @@
 #define MOUNTPOINTS_MAGIC	0x55563928 /* Petushki */
 #define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
 
+#define IFADDR_MAGIC		RAW_IMAGE_MAGIC
+
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
 #define PAGE_ANON	2

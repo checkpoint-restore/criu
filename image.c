@@ -119,6 +119,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x", show_tcp_stream),
 	FD_ENTRY(MOUNTPOINTS,	"mountpoints-%d", show_mountpoints),
 	FD_ENTRY(NETDEV,	"netdev-%d",	 show_netdevices),
+	FD_ENTRY(IFADDR,	"ifaddr-%d",	 show_ifaddrs),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)
