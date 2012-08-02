@@ -1,0 +1,11 @@
+enum nd_type {
+	LOOPBACK	= 1;
+}
+
+message net_device_entry {
+	required nd_type type		= 1;
+	required uint32  ifindex	= 2;
+	required uint32  mtu		= 3;
+	required uint32  flags		= 4;
+	required string  name		= 5;
+}

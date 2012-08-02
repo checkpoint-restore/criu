@@ -56,6 +56,7 @@
 #define INOTIFY_MAGIC		0x48424431 /* Volgograd */
 #define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
 #define MOUNTPOINTS_MAGIC	0x55563928 /* Petushki */
+#define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1

@@ -9,6 +9,7 @@
 #include "ipc_ns.h"
 #include "sk-inet.h"
 #include "mount.h"
+#include "net.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 
@@ -117,6 +118,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(GHOST_FILE,	"ghost-file-%x", show_ghost_file),
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x", show_tcp_stream),
 	FD_ENTRY(MOUNTPOINTS,	"mountpoints-%d", show_mountpoints),
+	FD_ENTRY(NETDEV,	"netdev-%d",	 show_netdevices),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

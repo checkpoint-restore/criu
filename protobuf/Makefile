@@ -52,6 +52,7 @@ PROTO_FILES	+= utsns.proto
 PROTO_FILES	+= creds.proto
 PROTO_FILES	+= vma.proto
 PROTO_FILES	+= core.proto
+PROTO_FILES	+= netdev.proto
 
 HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
