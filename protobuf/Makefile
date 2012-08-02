@@ -30,6 +30,7 @@ PROTO_FILES	+= eventfd.proto
 PROTO_FILES	+= eventpoll.proto
 PROTO_FILES	+= fh.proto
 PROTO_FILES	+= inotify.proto
+PROTO_FILES	+= signalfd.proto
 PROTO_FILES	+= fs.proto
 PROTO_FILES	+= pstree.proto
 PROTO_FILES	+= pipe.proto

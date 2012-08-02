@@ -1,0 +1,8 @@
+import "fown.proto";
+
+message signalfd_entry {
+	required uint32		id		= 1;
+	required uint32		flags		= 2;
+	required fown_entry	fown		= 3;
+	required uint64		sigmask		= 4;
+};

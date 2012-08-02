@@ -8,6 +8,7 @@ enum fd_types {
 	EVENTFD		= 6;
 	EVENTPOLL	= 7;
 	INOTIFY		= 8;
+	SIGNALFD	= 9;
 }
 
 message fdinfo_entry {
