@@ -11,6 +11,7 @@
 #include "parasite-blob.h"
 #include "parasite.h"
 #include "crtools.h"
+#include "namespaces.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -378,6 +379,15 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, const struct cr_op
 	args.p_addr_len = gen_parasite_saddr(&args.p_addr, pid);
 
 	if (sock == -1) {
+		int rst = -1;
+
+		if (o->namespaces_flags & CLONE_NEWNET) {
+			pr_info("Switching to %d's net for tsock creation\n", pid);
+
+			if (switch_ns(pid, CLONE_NEWNET, "net", &rst))
+				return -1;
+		}
+
 		sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 		if (sock < 0) {
 			pr_perror("Can't create socket");
@@ -388,6 +398,9 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, const struct cr_op
 			pr_perror("Can't bind socket");
 			goto err;
 		}
+
+		if (rst > 0 && restore_ns(rst, CLONE_NEWNET) < 0)
+			goto err;
 	} else {
 		struct sockaddr addr = { .sa_family = AF_UNSPEC, };
 
