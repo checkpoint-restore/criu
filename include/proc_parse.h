@@ -8,6 +8,7 @@
 
 #include "../protobuf/eventfd.pb-c.h"
 #include "../protobuf/eventpoll.pb-c.h"
+#include "../protobuf/signalfd.pb-c.h"
 #include "../protobuf/inotify.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
@@ -124,6 +125,7 @@ extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
 union fdinfo_entries {
 	EventfdFileEntry efd;
 	EventpollTfdEntry epl;
+	SignalfdEntry sfd;
 	InotifyWdEntry ify;
 };
 

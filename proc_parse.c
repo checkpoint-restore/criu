@@ -762,6 +762,22 @@ int parse_fdinfo(int fd, int type,
 			entry_met = true;
 			continue;
 		}
+		if (fdinfo_field(str, "sigmask")) {
+			signalfd_entry__init(&entry.sfd);
+
+			if (type != FD_TYPES__SIGNALFD)
+				goto parse_err;
+			ret = sscanf(str, "sigmask: %Lx",
+					(unsigned long long *)&entry.sfd.sigmask);
+			if (ret != 1)
+				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				return ret;
+
+			entry_met = true;
+			continue;
+		}
 		if (fdinfo_field(str, "inotify wd")) {
 			FhEntry f_handle = FH_ENTRY__INIT;
 			int hoff;
