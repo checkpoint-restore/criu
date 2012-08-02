@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <netinet/tcp.h>
 
 #include "libnetlink.h"
