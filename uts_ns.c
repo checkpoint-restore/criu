@@ -18,7 +18,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 	struct utsname ubuf;
 	UtsnsEntry ue = UTSNS_ENTRY__INIT;
 
-	ret = switch_ns(ns_pid, CLONE_NEWUTS, "uts");
+	ret = switch_ns(ns_pid, CLONE_NEWUTS, "uts", NULL);
 	if (ret < 0)
 		return ret;
 

@@ -9,7 +9,7 @@
 #include "mount.h"
 #include "namespaces.h"
 
-int switch_ns(int pid, int type, char *ns)
+int switch_ns(int pid, int type, char *ns, int *rst)
 {
 	char buf[32];
 	int nsfd;
@@ -19,15 +19,44 @@ int switch_ns(int pid, int type, char *ns)
 	nsfd = open(buf, O_RDONLY);
 	if (nsfd < 0) {
 		pr_perror("Can't open ipcns file");
-		goto out;
+		goto err_ns;
+	}
+
+	if (rst) {
+		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", ns);
+		*rst = open(buf, O_RDONLY);
+		if (*rst < 0) {
+			pr_perror("Can't open ns file");
+			goto err_rst;
+		}
 	}
 
 	ret = setns(nsfd, type);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_perror("Can't setns %d/%s", pid, ns);
+		goto err_set;
+	}
 
 	close(nsfd);
-out:
+	return 0;
+
+err_set:
+	if (rst)
+		close(*rst);
+err_rst:
+	close(nsfd);
+err_ns:
+	return -1;
+}
+
+int restore_ns(int rst, int type)
+{
+	int ret;
+
+	ret = setns(rst, type);
+	if (ret < 0)
+		pr_perror("Can't restore ns back");
+
 	return ret;
 }
 

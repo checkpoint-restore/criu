@@ -456,7 +456,7 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 {
 	int ret;
 
-	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc");
+	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc", NULL);
 	if (ret < 0)
 		return ret;
 
