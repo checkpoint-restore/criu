@@ -708,6 +708,10 @@ static int restore_task_with_children(void *_arg)
 		mount_proc();
 	}
 
+	if (me == root_item)
+		if (prepare_shared())
+			exit(-1);
+
 	/*
 	 * The block mask will be restored in sigresturn.
 	 *
@@ -888,9 +892,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 		return -1;
 
 	if (prepare_pstree() < 0)
-		return -1;
-
-	if (prepare_shared() < 0)
 		return -1;
 
 	if (prepare_pstree_ids() < 0)
