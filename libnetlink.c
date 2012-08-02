@@ -31,7 +31,17 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 		if (hdr->nlmsg_type == NLMSG_DONE)
 			return 0;
 		if (hdr->nlmsg_type == NLMSG_ERROR) {
-			pr_err("Error getting sockets list\n");
+			struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(hdr);
+
+			if (hdr->nlmsg_len - sizeof(*hdr) < sizeof(struct nlmsgerr)) {
+				pr_err("ERROR truncated\n");
+				return -1;
+			}
+
+			if (err->error == 0)
+				return 0;
+
+			pr_err("ERROR %d reported by netlink\n", -err->error);
 			return -1;
 		}
 		if (cb(hdr, arg))
