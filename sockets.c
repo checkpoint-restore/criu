@@ -9,8 +9,6 @@
 #include "files.h"
 #include "util-net.h"
 
-static char buf[4096];
-
 #ifndef NETLINK_SOCK_DIAG
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
 #endif
@@ -172,67 +170,6 @@ static int inet6_udplite_receive_one(struct nlmsghdr *h)
 	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDPLITE);
 }
 
-static int collect_sockets_nl(int nl, void *req, int size,
-			      int (*receive_callback)(struct nlmsghdr *h))
-{
-	struct msghdr msg;
-	struct sockaddr_nl nladdr;
-	struct iovec iov;
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name	= &nladdr;
-	msg.msg_namelen	= sizeof(nladdr);
-	msg.msg_iov	= &iov;
-	msg.msg_iovlen	= 1;
-
-	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family= AF_NETLINK;
-
-	iov.iov_base	= req;
-	iov.iov_len	= size;
-
-	if (sendmsg(nl, &msg, 0) < 0) {
-		pr_perror("Can't send request message");
-		goto err;
-	}
-
-	iov.iov_base	= buf;
-	iov.iov_len	= sizeof(buf);
-
-	while (1) {
-		int err;
-
-		memset(&msg, 0, sizeof(msg));
-		msg.msg_name	= &nladdr;
-		msg.msg_namelen	= sizeof(nladdr);
-		msg.msg_iov	= &iov;
-		msg.msg_iovlen	= 1;
-
-		err = recvmsg(nl, &msg, 0);
-		if (err < 0) {
-			if (errno == EINTR)
-				continue;
-			else {
-				pr_perror("Error receiving nl report");
-				goto err;
-			}
-		}
-		if (err == 0)
-			break;
-
-		err = nlmsg_receive(buf, err, receive_callback);
-		if (err < 0)
-			goto err;
-		if (err == 0)
-			break;
-	}
-
-	return 0;
-
-err:
-	return -1;
-}
-
 int collect_sockets(void)
 {
 	int err = 0, tmp;
@@ -263,7 +200,7 @@ int collect_sockets(void)
 	req.r.u.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS |
 				  UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS |
 				  UDIAG_SHOW_RQLEN;
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), unix_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), unix_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -273,7 +210,7 @@ int collect_sockets(void)
 	req.r.i.idiag_ext	= 0;
 	/* Only listening and established sockets supported yet */
 	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_tcp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_tcp_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -282,7 +219,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_udp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udp_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -291,7 +228,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet_udplite_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udplite_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -301,7 +238,7 @@ int collect_sockets(void)
 	req.r.i.idiag_ext	= 0;
 	/* Only listening sockets supported yet */
 	req.r.i.idiag_states	= 1 << TCP_LISTEN;
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_tcp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_tcp_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -310,7 +247,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_udp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udp_receive_one);
 	if (tmp)
 		err = tmp;
 
@@ -319,7 +256,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = collect_sockets_nl(nl, &req, sizeof(req), inet6_udplite_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udplite_receive_one);
 	if (tmp)
 		err = tmp;
 

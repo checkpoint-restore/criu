@@ -20,7 +20,7 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	return 0;
 }
 
-int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
+static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 {
 	struct nlmsghdr *hdr;
 
@@ -39,3 +39,66 @@ int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 
 	return 1;
 }
+
+int do_rtnl_req(int nl, void *req, int size,
+		int (*receive_callback)(struct nlmsghdr *h))
+{
+	struct msghdr msg;
+	struct sockaddr_nl nladdr;
+	struct iovec iov;
+	static char buf[4096];
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name	= &nladdr;
+	msg.msg_namelen	= sizeof(nladdr);
+	msg.msg_iov	= &iov;
+	msg.msg_iovlen	= 1;
+
+	memset(&nladdr, 0, sizeof(nladdr));
+	nladdr.nl_family= AF_NETLINK;
+
+	iov.iov_base	= req;
+	iov.iov_len	= size;
+
+	if (sendmsg(nl, &msg, 0) < 0) {
+		pr_perror("Can't send request message");
+		goto err;
+	}
+
+	iov.iov_base	= buf;
+	iov.iov_len	= sizeof(buf);
+
+	while (1) {
+		int err;
+
+		memset(&msg, 0, sizeof(msg));
+		msg.msg_name	= &nladdr;
+		msg.msg_namelen	= sizeof(nladdr);
+		msg.msg_iov	= &iov;
+		msg.msg_iovlen	= 1;
+
+		err = recvmsg(nl, &msg, 0);
+		if (err < 0) {
+			if (errno == EINTR)
+				continue;
+			else {
+				pr_perror("Error receiving nl report");
+				goto err;
+			}
+		}
+		if (err == 0)
+			break;
+
+		err = nlmsg_receive(buf, err, receive_callback);
+		if (err < 0)
+			goto err;
+		if (err == 0)
+			break;
+	}
+
+	return 0;
+
+err:
+	return -1;
+}
+
