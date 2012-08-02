@@ -4,7 +4,9 @@
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
+#include <sys/signalfd.h>
 #include <fcntl.h>
+#include <signal.h>
 #include "proc_parse.h"
 #include "sockets.h"
 #include "crtools.h"
@@ -179,6 +181,35 @@ static int check_fdinfo_eventfd(void)
 	return 0;
 }
 
+static int check_one_sfd(union fdinfo_entries *e, void *arg)
+{
+	return 0;
+}
+
+static int check_fdinfo_signalfd(void)
+{
+	int fd, ret;
+	sigset_t mask;
+
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGUSR1);
+	fd = signalfd(-1, &mask, 0);
+	if (fd < 0) {
+		pr_perror("Can't make signalfd");
+		return -1;
+	}
+
+	ret = parse_fdinfo(fd, FD_TYPES__SIGNALFD, check_one_sfd, NULL);
+	close(fd);
+
+	if (ret) {
+		pr_err("Error parsing proc fdinfo\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_one_epoll(union fdinfo_entries *e, void *arg)
 {
 	*(int *)arg = e->epl.tfd;
@@ -274,6 +305,7 @@ static int check_fdinfo_ext(void)
 
 	ret |= check_fdinfo_eventfd();
 	ret |= check_fdinfo_eventpoll();
+	ret |= check_fdinfo_signalfd();
 	ret |= check_fdinfo_inotify();
 
 	return ret;
