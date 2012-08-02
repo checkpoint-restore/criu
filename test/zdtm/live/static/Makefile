@@ -45,6 +45,7 @@ TST_NOFILE	=				\
 		xids00				\
 		file_fown			\
 		eventfs00			\
+		signalfd00			\
 		inotify00			\
 		uptime_grow			\
 		session00			\
