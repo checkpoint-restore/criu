@@ -5,6 +5,6 @@
 
 extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
 extern int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h));
+		int (*receive_callback)(struct nlmsghdr *h, void *), void *);
 
 #endif /* LIBNETLINK_H__ */

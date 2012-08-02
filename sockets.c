@@ -141,32 +141,32 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 	return -1;
 }
 
-static int inet_tcp_receive_one(struct nlmsghdr *h)
+static int inet_tcp_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
-static int inet_udp_receive_one(struct nlmsghdr *h)
+static int inet_udp_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 
-static int inet_udplite_receive_one(struct nlmsghdr *h)
+static int inet_udplite_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
 }
 
-static int inet6_tcp_receive_one(struct nlmsghdr *h)
+static int inet6_tcp_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 }
 
-static int inet6_udp_receive_one(struct nlmsghdr *h)
+static int inet6_udp_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 }
 
-static int inet6_udplite_receive_one(struct nlmsghdr *h)
+static int inet6_udplite_receive_one(struct nlmsghdr *h, void *arg)
 {
 	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDPLITE);
 }
@@ -201,7 +201,7 @@ int collect_sockets(void)
 	req.r.u.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS |
 				  UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS |
 				  UDIAG_SHOW_RQLEN;
-	tmp = do_rtnl_req(nl, &req, sizeof(req), unix_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), unix_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -211,7 +211,7 @@ int collect_sockets(void)
 	req.r.i.idiag_ext	= 0;
 	/* Only listening and established sockets supported yet */
 	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_tcp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_tcp_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -220,7 +220,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udp_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -229,7 +229,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udplite_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_udplite_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -239,7 +239,7 @@ int collect_sockets(void)
 	req.r.i.idiag_ext	= 0;
 	/* Only listening sockets supported yet */
 	req.r.i.idiag_states	= 1 << TCP_LISTEN;
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_tcp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_tcp_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -248,7 +248,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udp_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udp_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -257,7 +257,7 @@ int collect_sockets(void)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udplite_receive_one);
+	tmp = do_rtnl_req(nl, &req, sizeof(req), inet6_udplite_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 

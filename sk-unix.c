@@ -367,7 +367,7 @@ skip:
 	return ret;
 }
 
-int unix_receive_one(struct nlmsghdr *h)
+int unix_receive_one(struct nlmsghdr *h, void *arg)
 {
 	struct unix_diag_msg *m = NLMSG_DATA(h);
 	struct rtattr *tb[UNIX_DIAG_MAX+1];

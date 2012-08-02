@@ -21,7 +21,7 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	return 0;
 }
 
-static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
+static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *), void *arg)
 {
 	struct nlmsghdr *hdr;
 
@@ -34,7 +34,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 			pr_err("Error getting sockets list\n");
 			return -1;
 		}
-		if (cb(hdr))
+		if (cb(hdr, arg))
 			return -1;
 	}
 
@@ -42,7 +42,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *))
 }
 
 int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h))
+		int (*receive_callback)(struct nlmsghdr *h, void *), void *arg)
 {
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
@@ -90,7 +90,7 @@ int do_rtnl_req(int nl, void *req, int size,
 		if (err == 0)
 			break;
 
-		err = nlmsg_receive(buf, err, receive_callback);
+		err = nlmsg_receive(buf, err, receive_callback, arg);
 		if (err < 0)
 			goto err;
 		if (err == 0)
