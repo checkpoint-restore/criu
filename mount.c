@@ -389,6 +389,7 @@ static int do_umount_one(struct mount_info *mi)
 
 static int clean_mnt_ns(void)
 {
+	int ret;
 	struct mount_info *pm;
 
 	pr_info("Cleaning mount namespace\n");
@@ -401,7 +402,15 @@ static int clean_mnt_ns(void)
 	if (!pm)
 		return -1;
 
-	return mnt_tree_for_each_reverse(pm, do_umount_one);
+	ret = mnt_tree_for_each_reverse(pm, do_umount_one);
+
+	while (mntinfo) {
+		pm = mntinfo->next;
+		xfree(mntinfo);
+		mntinfo = pm;
+	}
+
+	return ret;
 }
 
 static int populate_mnt_ns(int ns_pid)
@@ -469,6 +478,7 @@ static int populate_mnt_ns(int ns_pid)
 		mnt_entry__free_unpacked(me, NULL);
 
 	close(img);
+	mntinfo = pms;
 
 	pms = mnt_build_tree(pms);
 	if (!pms)
