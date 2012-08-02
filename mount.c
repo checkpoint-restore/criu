@@ -555,11 +555,11 @@ int mntns_collect_root(pid_t pid)
 	 * and a root of mntns is the same. */
 
 	pfd = open_pid_proc(pid);
-	ret = readlinkat(pfd, "root", path, PATH_MAX);
+	ret = readlinkat(pfd, "root", path, sizeof(path) - 1);
 	if (ret < 0)
 		return ret;
 
-	path[ret + 1] = '\0';
+	path[ret] = '\0';
 
 	if (ret != 1 || path[0] != '/') {
 		pr_err("The root task has another root than mntns: %s\n", path);
