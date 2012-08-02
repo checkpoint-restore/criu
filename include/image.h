@@ -59,6 +59,7 @@
 #define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
+#define ROUTE_MAGIC		RAW_IMAGE_MAGIC
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
