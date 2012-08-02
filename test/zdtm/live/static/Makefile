@@ -51,6 +51,7 @@ TST_NOFILE	=				\
 		pty00				\
 		tty00				\
 		mountpoints			\
+		netns				\
 		session01			\
 #		jobctl00			\
 
