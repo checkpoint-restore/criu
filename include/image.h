@@ -11,6 +11,13 @@
 #define CRTOOLS_IMAGES_V1	1
 
 /*
+ * Raw images are images in which data is stored in some
+ * non-crtool format (ip tool dumps, tarballs, etc.)
+ */
+
+#define RAW_IMAGE_MAGIC		0x0
+
+/*
  * The magic-s below correspond to coordinates
  * of various Russian towns in the NNNNEEEE form.
  */

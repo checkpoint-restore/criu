@@ -240,6 +240,9 @@ int open_image(int type, unsigned long flags, ...)
 		goto err;
 	}
 
+	if (fdset_template[type].magic == RAW_IMAGE_MAGIC)
+		goto skip_magic;
+
 	if (flags == O_RDONLY) {
 		u32 magic;
 
@@ -254,6 +257,7 @@ int open_image(int type, unsigned long flags, ...)
 			goto err;
 	}
 
+skip_magic:
 	return ret;
 err:
 	return -1;
