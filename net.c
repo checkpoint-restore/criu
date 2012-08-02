@@ -170,6 +170,63 @@ static int restore_links(int pid)
 	return ret;
 }
 
+int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
+{
+	int pid, ret, status;
+
+	pr_debug("\tRunning ip %s %s\n", arg1, arg2);
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't forn IP tool");
+		return -1;
+	}
+
+	if (!pid) {
+		char *ip_tool_cmd;
+
+		ip_tool_cmd = getenv("CR_IP_TOOL");
+		if (!ip_tool_cmd)
+			ip_tool_cmd = "ip";
+
+		if (fdin < 0)
+			close(0);
+		else if (fdin != 0) {
+			dup2(fdin, 0);
+			close(fdin);
+		}
+
+		if (fdout < 0)
+			close(1);
+		else if (fdout != 1) {
+			dup2(fdout, 1);
+			close(fdout);
+		}
+
+		if (log_get_fd() != 2) {
+			dup2(log_get_fd(), 2);
+			close(log_get_fd());
+		}
+
+		execlp(ip_tool_cmd, "ip", arg1, arg2, NULL);
+		exit(-1);
+	}
+
+	ret = waitpid(pid, &status, 0);
+	if (ret < 0) {
+		pr_perror("Can't wait IP tool");
+		return -1;
+	}
+
+	if (!(WIFEXITED(status) && !WEXITSTATUS(status))) {
+		pr_err("IP tool failed on %s %s with %d (%d)\n", arg1, arg2,
+				status, WEXITSTATUS(status));
+		return -1;
+	}
+
+	return 0;
+}
+
 int dump_net_ns(int pid, struct cr_fdset *fds)
 {
 	int ret;
