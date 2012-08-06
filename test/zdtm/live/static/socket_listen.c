@@ -28,6 +28,8 @@ int init_server();
 
 #define BUF_SIZE 1024
 
+static void sig_hand(int signo) {}
+
 int main(int argc, char **argv)
 {
 	unsigned char buf[BUF_SIZE];
@@ -36,6 +38,10 @@ int main(int argc, char **argv)
 	pid_t pid;
 	int res;
 	uint32_t crc;
+	struct sigaction sa = {
+		.sa_handler	= sig_hand,
+		/* don't set SA_RESTART */
+	};
 
 	test_init(argc, argv);
 
@@ -46,6 +52,10 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
+
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGCHLD, &sa, NULL))
+		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
 
 	pid = test_fork();
 	if (pid < 0) {
