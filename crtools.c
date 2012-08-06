@@ -246,7 +246,7 @@ usage:
 
 	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
-	pr_msg("                        supported: uts, ipc, pid\n");
+	pr_msg("                        supported: uts, ipc, mnt, pid, net\n");
 	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
