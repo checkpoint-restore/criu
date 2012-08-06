@@ -58,7 +58,7 @@ OPTIONS
 
 -n|--namespaces <ns>::
     Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: uts, ipc, mnt, pid.
+    Currently supported namespaces: uts, ipc, mnt, pid, net.
 
 -o|--log-file <file>::
     Write logging messages to 'file'.
