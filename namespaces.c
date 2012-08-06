@@ -151,8 +151,6 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 
 int prepare_namespace(int pid, unsigned long clone_flags)
 {
-	int ret = 0;
-
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			pid, clone_flags);
 
@@ -162,16 +160,16 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	 * tree (i.e. -- mnt_ns restoring)
 	 */
 
-	if (clone_flags & CLONE_NEWNET)
-		ret = prepare_net_ns(pid);
-	if (clone_flags & CLONE_NEWUTS)
-		ret = prepare_utsns(pid);
-	if (clone_flags & CLONE_NEWIPC)
-		ret = prepare_ipc_ns(pid);
-	if (clone_flags & CLONE_NEWNS)
-		ret = prepare_mnt_ns(pid);
+	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(pid))
+		return -1;
+	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(pid))
+		return -1;
+	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(pid))
+		return -1;
+	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns(pid))
+		return -1;
 
-	return ret;
+	return 0;
 }
 
 int try_show_namespaces(int ns_pid, struct cr_options *o)
