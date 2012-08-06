@@ -88,7 +88,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (ifd < 0)
 		goto err;
 
-	if (pb_read(ifd, &gfe, ghost_file_entry) < 0)
+	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
 		goto err;
 
 	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
@@ -149,7 +149,7 @@ static int collect_remaps(void)
 		struct file_desc *fdesc;
 		struct reg_file_info *rfi;
 
-		ret = pb_read_eof(fd, &rfe, remap_file_path_entry);
+		ret = pb_read_one_eof(fd, &rfe, PB_REMAP_FPATH);
 		if (ret <= 0)
 			break;
 
@@ -442,7 +442,7 @@ int collect_reg_files(void)
 
 		rfi->path = NULL;
 
-		ret = pb_read_eof(fd, &rfe, reg_file_entry);
+		ret = pb_read_one_eof(fd, &rfe, PB_REG_FILES);
 		if (ret <= 0)
 			break;
 

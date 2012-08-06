@@ -228,7 +228,7 @@ int collect_inotify(void)
 		if (!info)
 			return -1;
 
-		ret = pb_read_eof(image_fd, &info->ife, inotify_file_entry);
+		ret = pb_read_one_eof(image_fd, &info->ife, PB_INOTIFY);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -254,7 +254,7 @@ int collect_inotify(void)
 		if (!mark)
 			goto err;
 
-		ret = pb_read_eof(image_fd, &mark->iwe, inotify_wd_entry);
+		ret = pb_read_one_eof(image_fd, &mark->iwe, PB_INOTIFY_WD);
 		if (ret < 0)
 			goto err;
 		else if (!ret)

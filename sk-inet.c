@@ -308,7 +308,7 @@ int collect_inet_sockets(void)
 		if (!ii)
 			break;
 
-		ret = pb_read_eof(fd, &ii->ie, inet_sk_entry);
+		ret = pb_read_one_eof(fd, &ii->ie, PB_INETSK);
 		if (ret <= 0)
 			break;
 
@@ -482,7 +482,7 @@ void show_inetsk(int fd, struct cr_options *o)
 		char src_addr[INET_ADDR_LEN] = "<unknown>";
 		char dst_addr[INET_ADDR_LEN] = "<unknown>";
 
-		ret = pb_read_eof(fd, &ie, inet_sk_entry);
+		ret = pb_read_one_eof(fd, &ie, PB_INETSK);
 		if (ret <= 0)
 			goto out;
 

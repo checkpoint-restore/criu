@@ -464,7 +464,7 @@ static int populate_mnt_ns(int ns_pid)
 	while (1) {
 		struct mount_info *pm;
 
-		ret = pb_read_eof(img, &me, mnt_entry);
+		ret = pb_read_one_eof(img, &me, PB_MOUNTPOINTS);
 		if (ret <= 0)
 			break;
 

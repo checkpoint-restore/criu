@@ -78,7 +78,7 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		if (!r)
 			break;
 
-		ret = pb_read_eof(fd, &r->pde, pipe_data_entry);
+		ret = pb_read_one_eof(fd, &r->pde, PB_PIPES_DATA);
 		if (ret <= 0)
 			break;
 
@@ -324,7 +324,7 @@ int collect_pipes(void)
 			break;
 
 		pi->create = 0;
-		ret = pb_read_eof(fd, &pi->pe, pipe_entry);
+		ret = pb_read_one_eof(fd, &pi->pe, PB_PIPES);
 		if (ret <= 0)
 			break;
 

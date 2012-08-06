@@ -622,7 +622,7 @@ static int prepare_ipc_sem(int pid)
 		int ret;
 		IpcSemEntry *entry;
 
-		ret = pb_read_eof(fd, &entry, ipc_sem_entry);
+		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_SEM);
 		if (ret < 0)
 			return -EIO;
 		if (ret == 0)
@@ -653,7 +653,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
 			char mtext[MSGMAX];
 		} data;
 
-		ret = pb_read(fd, &msg, ipc_msg);
+		ret = pb_read_one(fd, &msg, PB_IPCNS_MSG);
 		if (ret <= 0)
 			return -EIO;
 
@@ -739,7 +739,7 @@ static int prepare_ipc_msg(int pid)
 		int ret;
 		IpcMsgEntry *entry;
 
-		ret = pb_read_eof(fd, &entry, ipc_msg_entry);
+		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_MSG_ENT);
 		if (ret < 0) {
 			pr_err("Failed to read IPC messages queue\n");
 			return -EIO;
@@ -833,7 +833,7 @@ static int prepare_ipc_shm(int pid)
 		int ret;
 		IpcShmEntry *shm;
 
-		ret = pb_read_eof(fd, &shm, ipc_shm_entry);
+		ret = pb_read_one_eof(fd, &shm, PB_IPCNS_SHM);
 		if (ret < 0) {
 			pr_err("Failed to read IPC shared memory segment\n");
 			return -EIO;
@@ -864,7 +864,7 @@ static int prepare_ipc_var(int pid)
 	if (fd < 0)
 		return -1;
 
-	ret = pb_read(fd, &var, ipc_var_entry);
+	ret = pb_read_one(fd, &var, PB_IPCNS_VAR);
 	if (ret <= 0) {
 		pr_err("Failed to read IPC namespace variables\n");
 		return -EFAULT;

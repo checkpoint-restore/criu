@@ -23,7 +23,7 @@ int check_img_inventory(void)
 	if (fd < 0)
 		return -1;
 
-	ret = pb_read(fd, &he, inventory_entry);
+	ret = pb_read_one(fd, &he, PB_INVENTORY);
 	close(fd);
 	if (ret < 0)
 		return ret;
@@ -63,7 +63,7 @@ static void show_inventory(int fd, struct cr_options *o)
 {
 	InventoryEntry *he;
 
-	if (pb_read(fd, &he, inventory_entry) < 0)
+	if (pb_read_one(fd, &he, PB_INVENTORY) < 0)
 		return;
 
 	pr_msg("Version: %u\n", he->img_version);

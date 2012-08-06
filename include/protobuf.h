@@ -62,22 +62,12 @@ typedef size_t (*pb_pack_t)(void *obj, void *where);
 typedef void  *(*pb_unpack_t)(void *allocator, size_t size, void *from);
 typedef void   (*pb_free_t)(void *obj, void *allocator);
 
-extern int pb_read_object_with_header(int fd, void **pobj,
-				      pb_unpack_t unpack,
-				      bool eof);
-
-#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn##__unpack(NULL, 0, NULL); (pb_unpack_t)&__fn##__unpack; })
-#define PB_FREE_TYPECHECK(__o, __fn)	({ if (0) __fn##__free_unpacked(__o, NULL); (pb_free_t)&__fn##__free_unpacked; })
-
 void cr_pb_init(void);
 
-#define pb_read(__fd, __obj_pptr, __proto_message_name)					\
-	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
-		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name), false)
+extern int do_pb_read_one(int fd, void **objp, int type, bool eof);
 
-#define pb_read_eof(__fd, __obj_pptr, __proto_message_name)				\
-	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
-		PB_UNPACK_TYPECHECK(__obj_pptr, __proto_message_name), true)
+#define pb_read_one(fd, objp, type) do_pb_read_one(fd, (void **)objp, type, false)
+#define pb_read_one_eof(fd, objp, type) do_pb_read_one(fd, (void **)objp, type, true)
 
 extern int pb_write_one(int fd, void *obj, int type);
 

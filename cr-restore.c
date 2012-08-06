@@ -158,7 +158,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 
 		(*nr_vmas)++;
 		list_add_tail(&vma->list, vmas);
-		ret = pb_read_eof(fd, &e, vma_entry);
+		ret = pb_read_one_eof(fd, &e, PB_VMAS);
 		if (ret <= 0)
 			break;
 
@@ -222,7 +222,7 @@ static int prepare_sigactions(int pid)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = pb_read(fd_sigact, &e, sa_entry);
+		ret = pb_read_one(fd_sigact, &e, PB_SIGACT);
 		if (ret < 0)
 			break;
 
@@ -439,7 +439,7 @@ static int restore_one_task(int pid)
 	if (fd < 0)
 		return -1;
 
-	ret = pb_read(fd, &core, core_entry);
+	ret = pb_read_one(fd, &core, PB_CORE);
 	close(fd);
 
 	if (ret < 0)
@@ -1021,7 +1021,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (fd < 0)
 		return fd;
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("real", ie, &args->itimers[0]);
@@ -1029,7 +1029,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("virt", ie, &args->itimers[1]);
@@ -1037,7 +1037,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("prof", ie, &args->itimers[2]);
@@ -1064,7 +1064,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	if (fd < 0)
 		return fd;
 
-	ret = pb_read(fd, &ce, creds_entry);
+	ret = pb_read_one(fd, &ce, PB_CREDS);
 	close_safe(&fd);
 
 	if (ret < 0)
@@ -1121,7 +1121,7 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 	if (fd < 0)
 		return -1;
 
-	if (pb_read(fd, &mm, mm_entry) < 0)
+	if (pb_read_one(fd, &mm, PB_MM) < 0)
 		return -1;
 
 	args->mm = *mm;
@@ -1360,7 +1360,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			goto err;
 		}
 
-		ret = pb_read(fd_core, &core, core_entry);
+		ret = pb_read_one(fd_core, &core, PB_CORE);
 		close(fd_core);
 
 		if (core->tc || core->ids) {

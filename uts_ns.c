@@ -48,7 +48,7 @@ int prepare_utsns(int pid)
 	if (fd < 0)
 		return -1;
 
-	ret = pb_read(fd, &ue, utsns_entry);
+	ret = pb_read_one(fd, &ue, PB_UTSNS);
 	if (ret < 0)
 		goto out;
 

@@ -232,19 +232,19 @@ void show_itimers(int fd, struct cr_options *o)
 
 	pr_img_head(CR_FD_ITIMERS);
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	show_itimer("real", ie);
 	itimer_entry__free_unpacked(ie, NULL);
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	show_itimer("virt", ie);
 	itimer_entry__free_unpacked(ie, NULL);
 
-	ret = pb_read(fd, &ie, itimer_entry);
+	ret = pb_read_one(fd, &ie, PB_ITIMERS);
 	if (ret < 0)
 		goto out;
 	show_itimer("prof", ie);

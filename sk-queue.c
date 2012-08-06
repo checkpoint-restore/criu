@@ -48,7 +48,7 @@ int read_sk_queues(void)
 			pr_err("Failed to allocate packet header\n");
 			break;
 		}
-		ret = pb_read_eof(fd, &pkt->entry, sk_packet_entry);
+		ret = pb_read_one_eof(fd, &pkt->entry, PB_SK_QUEUES);
 		if (ret <= 0)
 			break;
 

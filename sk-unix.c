@@ -457,7 +457,7 @@ void show_unixsk(int fd, struct cr_options *o)
 	pr_img_head(CR_FD_UNIXSK);
 
 	while (1) {
-		ret = pb_read_eof(fd, &ue, unix_sk_entry);
+		ret = pb_read_one_eof(fd, &ue, PB_UNIXSK);
 		if (ret <= 0)
 			goto out;
 
@@ -740,7 +740,7 @@ int collect_unix_sockets(void)
 		if (ui == NULL)
 			break;
 
-		ret = pb_read_eof(fd, &ui->ue, unix_sk_entry);
+		ret = pb_read_one_eof(fd, &ui->ue, PB_UNIXSK);
 		if (ret <= 0)
 			break;
 

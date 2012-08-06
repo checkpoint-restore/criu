@@ -138,7 +138,7 @@ int collect_fifo(void)
 		if (!info)
 			break;
 
-		ret = pb_read_eof(img, &info->fe, fifo_entry);
+		ret = pb_read_one_eof(img, &info->fe, PB_FIFO);
 		if (ret <= 0)
 			break;
 

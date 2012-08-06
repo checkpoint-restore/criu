@@ -54,6 +54,8 @@ struct cr_pb_message_desc {
 
 #define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn##__pack(__o, NULL); (pb_pack_t)&__fn##__pack; })
 #define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn##__get_packed_size(__o); (pb_getpksize_t)&__fn##__get_packed_size; })
+#define PB_UNPACK_TYPECHECK(__op, __fn)	({ if (0) *__op = __fn##__unpack(NULL, 0, NULL); (pb_unpack_t)&__fn##__unpack; })
+#define PB_FREE_TYPECHECK(__o, __fn)	({ if (0) __fn##__free_unpacked(__o, NULL); (pb_free_t)&__fn##__free_unpacked; })
 
 /*
  * This should be explicitly "called" to do type-checking
@@ -309,6 +311,17 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 	}
 }
 
+static int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof);
+int do_pb_read_one(int fd, void **pobj, int type, bool eof)
+{
+	if (!cr_pb_descs[type].pb_desc) {
+		pr_err("Wrong object requested %d\n", type);
+		return -1;
+	}
+
+	return pb_read_object_with_header(fd, pobj, cr_pb_descs[type].unpack, eof);
+}
+
 static inline void pb_no_payload(int fd, void *obj, int flags) { }
 
 void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
@@ -347,7 +360,7 @@ void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
  *
  * Don't forget to free memory granted to unpacked object in calling code if needed
  */
-int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof)
+static int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof)
 {
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;

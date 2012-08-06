@@ -164,7 +164,7 @@ int collect_eventpoll(void)
 		if (!info)
 			goto err;
 
-		ret = pb_read_eof(image_fd, &info->tdefe, eventpoll_tfd_entry);
+		ret = pb_read_one_eof(image_fd, &info->tdefe, PB_EVENTPOLL_TFD);
 		if (ret < 0)
 			goto err;
 		else if (!ret)
@@ -190,7 +190,7 @@ int collect_eventpoll(void)
 		if (!info)
 			goto err;
 
-		ret = pb_read_eof(image_fd, &info->efe, eventpoll_file_entry);
+		ret = pb_read_one_eof(image_fd, &info->efe, PB_EVENTPOLL);
 		if (ret < 0)
 			goto err;
 		else if (!ret)

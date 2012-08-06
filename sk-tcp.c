@@ -445,7 +445,7 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	if (ifd < 0)
 		goto err;
 
-	if (pb_read(ifd, &tse, tcp_stream_entry) < 0)
+	if (pb_read_one(ifd, &tse, PB_TCP_STREAM) < 0)
 		goto err_c;
 
 	if (restore_tcp_seqs(sk, tse))
@@ -506,7 +506,7 @@ void show_tcp_stream(int fd, struct cr_options *opt)
 	TcpStreamEntry *tse;
 	pr_img_head(CR_FD_TCP_STREAM);
 
-	if (pb_read_eof(fd, &tse, tcp_stream_entry) > 0) {
+	if (pb_read_one_eof(fd, &tse, PB_TCP_STREAM) > 0) {
 		pr_msg("IN:   seq %10u len %10u\n", tse->inq_seq, tse->inq_len);
 		pr_msg("OUT:  seq %10u len %10u\n", tse->outq_seq, tse->outq_len);
 		pr_msg("OPTS: %#x\n", (int)tse->opt_mask);

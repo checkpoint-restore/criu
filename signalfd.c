@@ -133,7 +133,7 @@ int collect_signalfd(void)
 		if (!info)
 			break;
 
-		ret = pb_read_eof(image_fd, &info->sfe, signalfd_entry);
+		ret = pb_read_one_eof(image_fd, &info->sfe, PB_SIGNALFD);
 		if (ret <= 0)
 			break;
 

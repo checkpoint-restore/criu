@@ -155,7 +155,7 @@ static int restore_links(int pid)
 	}
 
 	while (1) {
-		ret = pb_read_eof(fd, &nde, net_device_entry);
+		ret = pb_read_one_eof(fd, &nde, PB_NETDEV);
 		if (ret <= 0)
 			break;
 

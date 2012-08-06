@@ -136,7 +136,7 @@ int collect_eventfd(void)
 		if (!info)
 			break;
 
-		ret = pb_read_eof(image_fd, &info->efe, eventfd_file_entry);
+		ret = pb_read_one_eof(image_fd, &info->efe, PB_EVENTFD);
 		if (ret < 0)
 			goto err;
 		else if (!ret)

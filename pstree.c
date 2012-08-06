@@ -131,7 +131,7 @@ int prepare_pstree(void)
 	while (1) {
 		PstreeEntry *e;
 
-		ret = pb_read_eof(ps_fd, &e, pstree_entry);
+		ret = pb_read_one_eof(ps_fd, &e, PB_PSTREE);
 		if (ret <= 0)
 			break;
 

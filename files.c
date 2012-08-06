@@ -215,7 +215,7 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 	while (1) {
 		FdinfoEntry *e;
 
-		ret = pb_read_eof(fdinfo_fd, &e, fdinfo_entry);
+		ret = pb_read_one_eof(fdinfo_fd, &e, PB_FDINFO);
 		if (ret <= 0)
 			break;
 
@@ -505,7 +505,7 @@ int prepare_fs(int pid)
 	if (ifd < 0)
 		return -1;
 
-	if (pb_read(ifd, &fe, fs_entry) < 0)
+	if (pb_read_one(ifd, &fe, PB_FS) < 0)
 		return -1;
 
 	cwd = open_reg_by_id(fe->cwd_id);
