@@ -181,7 +181,7 @@ static void sk_queue_data_handler(int fd, void *obj, int show_pages_content)
 
 void show_sk_queues(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, sk_packet_entry,
+	pb_show_plain_payload(fd, PB_SK_QUEUES,
 			sk_queue_data_handler, o->show_pages_content);
 }
 

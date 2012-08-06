@@ -311,39 +311,32 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 	}
 }
 
-static int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof);
-int do_pb_read_one(int fd, void **pobj, int type, bool eof)
-{
-	if (!cr_pb_descs[type].pb_desc) {
-		pr_err("Wrong object requested %d\n", type);
-		return -1;
-	}
-
-	return pb_read_object_with_header(fd, pobj, cr_pb_descs[type].unpack, eof);
-}
-
 static inline void pb_no_payload(int fd, void *obj, int flags) { }
 
-void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
-		pb_unpack_t unpack, pb_free_t free, int single_entry,
+void do_pb_show_plain(int fd, int type, int single_entry,
 		void (*payload_hadler)(int fd, void *obj, int flags),
 		int flags)
 {
 	pb_pr_ctl_t ctl = {NULL, single_entry, 0};
 	void (*handle_payload)(int fd, void *obj, int flags);
 
+	if (!cr_pb_descs[type].pb_desc) {
+		pr_err("Wrong object requested %d\n", type);
+		return;
+	}
+
 	handle_payload = (payload_hadler) ? : pb_no_payload;
 
 	while (1) {
 		void *obj;
 
-		if (pb_read_object_with_header(fd, &obj, unpack, true) <= 0)
+		if (pb_read_one_eof(fd, &obj, type) <= 0)
 			break;
 
-		ctl.arg = (void *)md;
+		ctl.arg = (void *)cr_pb_descs[type].pb_desc;
 		pb_show_msg(obj, &ctl);
 		handle_payload(fd, obj, flags);
-		free(obj, NULL);
+		cr_pb_descs[type].free(obj, NULL);
 		if (single_entry)
 			break;
 		pr_msg("\n");
@@ -360,12 +353,18 @@ void do_pb_show_plain(int fd, const ProtobufCMessageDescriptor *md,
  *
  * Don't forget to free memory granted to unpacked object in calling code if needed
  */
-static int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, bool eof)
+
+int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 {
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size;
 	int ret;
+
+	if (!cr_pb_descs[type].pb_desc) {
+		pr_err("Wrong object requested %d\n", type);
+		return -1;
+	}
 
 	*pobj = NULL;
 
@@ -399,7 +398,7 @@ static int pb_read_object_with_header(int fd, void **pobj, pb_unpack_t unpack, b
 		goto err;
 	}
 
-	*pobj = unpack(NULL, size, buf);
+	*pobj = cr_pb_descs[type].unpack(NULL, size, buf);
 	if (!*pobj) {
 		ret = -1;
 		pr_err("Failed unpacking object %p\n", pobj);

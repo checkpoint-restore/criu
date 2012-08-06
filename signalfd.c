@@ -33,7 +33,7 @@ struct signalfd_dump_arg {
 
 void show_signalfd(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, signalfd_entry);
+	pb_show_plain(fd, PB_SIGNALFD);
 }
 
 static int dump_signalfd_entry(union fdinfo_entries *e, void *arg)

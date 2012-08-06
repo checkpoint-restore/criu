@@ -55,12 +55,12 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 
 void show_eventpoll_tfd(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, eventpoll_tfd_entry);
+	pb_show_plain(fd, PB_EVENTPOLL_TFD);
 }
 
 void show_eventpoll(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, eventpoll_file_entry);
+	pb_show_plain(fd, PB_EVENTPOLL);
 }
 
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)

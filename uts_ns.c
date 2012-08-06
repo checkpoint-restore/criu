@@ -66,5 +66,5 @@ out:
 
 void show_utsns(int fd, struct cr_options *o)
 {
-	pb_show_vertical(fd, utsns_entry);
+	pb_show_vertical(fd, PB_UTSNS);
 }

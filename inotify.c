@@ -59,12 +59,12 @@ int is_inotify_link(int lfd)
 
 void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 {
-	pb_show_plain(fd_inotify_wd, inotify_wd_entry);
+	pb_show_plain(fd_inotify_wd, PB_INOTIFY_WD);
 }
 
 void show_inotify(int fd_inotify, struct cr_options *o)
 {
-	pb_show_plain(fd_inotify, inotify_file_entry);
+	pb_show_plain(fd_inotify, PB_INOTIFY);
 }
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)

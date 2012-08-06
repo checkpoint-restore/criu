@@ -43,7 +43,7 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 
 void show_eventfds(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, eventfd_file_entry);
+	pb_show_plain(fd, PB_EVENTFD);
 }
 
 struct eventfd_dump_arg {

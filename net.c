@@ -15,7 +15,7 @@
 
 void show_netdevices(int fd, struct cr_options *opt)
 {
-	pb_show_plain(fd, net_device_entry);
+	pb_show_plain(fd, PB_NETDEV);
 }
 
 static int dump_one_netdev(int type, struct nlmsghdr *h, struct ifinfomsg *ifi, struct cr_fdset *fds)

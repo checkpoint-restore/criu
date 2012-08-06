@@ -542,7 +542,7 @@ int prepare_mnt_ns(int ns_pid)
 
 void show_mountpoints(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, mnt_entry);
+	pb_show_plain(fd, PB_MOUNTPOINTS);
 }
 
 int mntns_collect_root(pid_t pid)

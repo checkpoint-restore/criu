@@ -56,7 +56,7 @@ static LIST_HEAD(pstree_list);
 
 void show_files(int fd_files, struct cr_options *o)
 {
-	pb_show_plain(fd_files, fdinfo_entry);
+	pb_show_plain(fd_files, PB_FDINFO);
 }
 
 void show_fown_cont(void *p)
@@ -68,17 +68,17 @@ void show_fown_cont(void *p)
 
 void show_reg_files(int fd_reg_files, struct cr_options *o)
 {
-	pb_show_plain(fd_reg_files, reg_file_entry);
+	pb_show_plain(fd_reg_files, PB_REG_FILES);
 }
 
 void show_remap_files(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, remap_file_path_entry);
+	pb_show_plain(fd, PB_REMAP_FPATH);
 }
 
 void show_ghost_file(int fd, struct cr_options *o)
 {
-	pb_show_vertical(fd, ghost_file_entry);
+	pb_show_vertical(fd, PB_GHOST_FILE);
 }
 
 static void pipe_data_handler(int fd, void *obj, int show_pages_content)
@@ -94,13 +94,13 @@ static void pipe_data_handler(int fd, void *obj, int show_pages_content)
 
 void show_pipes_data(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, pipe_data_entry,
+	pb_show_plain_payload(fd, PB_PIPES_DATA,
 			pipe_data_handler, o->show_pages_content);
 }
 
 void show_pipes(int fd_pipes, struct cr_options *o)
 {
-	pb_show_plain(fd_pipes, pipe_entry);
+	pb_show_plain(fd_pipes, PB_PIPES);
 }
 
 void show_fifo_data(int fd, struct cr_options *o)
@@ -110,17 +110,17 @@ void show_fifo_data(int fd, struct cr_options *o)
 
 void show_fifo(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, fifo_entry);
+	pb_show_plain(fd, PB_FIFO);
 }
 
 void show_fs(int fd_fs, struct cr_options *o)
 {
-	pb_show_vertical(fd_fs, fs_entry);
+	pb_show_vertical(fd_fs, PB_FS);
 }
 
 void show_vmas(int fd_vma, struct cr_options *o)
 {
-	pb_show_plain(fd_vma, vma_entry);
+	pb_show_plain(fd_vma, PB_VMAS);
 }
 
 static int nice_width_for(unsigned long addr)
@@ -215,7 +215,7 @@ out:
 
 void show_sigacts(int fd_sigacts, struct cr_options *o)
 {
-	pb_show_plain(fd_sigacts, sa_entry);
+	pb_show_plain(fd_sigacts, PB_SIGACT);
 }
 
 static void show_itimer(char *n, ItimerEntry *ie)
@@ -255,7 +255,7 @@ out:
 
 void show_creds(int fd, struct cr_options *o)
 {
-	pb_show_vertical(fd, creds_entry);
+	pb_show_vertical(fd, PB_CREDS);
 }
 
 static void pstree_handler(int fd, void *obj, int collect)
@@ -283,7 +283,7 @@ static void pstree_handler(int fd, void *obj, int collect)
 
 void show_collect_pstree(int fd, int collect)
 {
-	pb_show_plain_payload(fd, pstree_entry, pstree_handler, collect);
+	pb_show_plain_payload(fd, PB_PSTREE, pstree_handler, collect);
 }
 
 void show_pstree(int fd, struct cr_options *o)
@@ -349,12 +349,12 @@ void show_thread_info(ThreadInfoX86 *thread_info)
 
 void show_core(int fd_core, struct cr_options *o)
 {
-	pb_show_vertical(fd_core, core_entry);
+	pb_show_vertical(fd_core, PB_CORE);
 }
 
 void show_mm(int fd_mm, struct cr_options *o)
 {
-	pb_show_vertical(fd_mm, mm_entry);
+	pb_show_vertical(fd_mm, PB_MM);
 }
 
 static int cr_parse_file(struct cr_options *opts)
