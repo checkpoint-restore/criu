@@ -248,7 +248,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 		return -1;
 	}
 
-	if (pb_write(fd, &me, mnt_entry))
+	if (pb_write_one(fd, &me, PB_MOUNTPOINTS))
 		return -1;
 
 	return 0;

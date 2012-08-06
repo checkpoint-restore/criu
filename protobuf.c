@@ -52,6 +52,9 @@ struct cr_pb_message_desc {
 	const ProtobufCMessageDescriptor *pb_desc;
 };
 
+#define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn##__pack(__o, NULL); (pb_pack_t)&__fn##__pack; })
+#define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn##__get_packed_size(__o); (pb_getpksize_t)&__fn##__get_packed_size; })
+
 /*
  * This should be explicitly "called" to do type-checking
  */
@@ -406,21 +409,26 @@ err:
  *  0 on success
  * -1 on error
  */
-int pb_write_object_with_header(int fd, void *obj, pb_getpksize_t getpksize, pb_pack_t pack)
+int pb_write_one(int fd, void *obj, int type)
 {
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size, packed;
 	int ret = -1;
 
-	size = getpksize(obj);
+	if (!cr_pb_descs[type].pb_desc) {
+		pr_err("Wron object requested %d\n", type);
+		return -1;
+	}
+
+	size = cr_pb_descs[type].getpksize(obj);
 	if (size > (u32)sizeof(local)) {
 		buf = xmalloc(size);
 		if (!buf)
 			goto err;
 	}
 
-	packed = pack(obj, buf);
+	packed = cr_pb_descs[type].pack(obj, buf);
 	if (packed != size) {
 		pr_err("Failed packing PB object %p\n", obj);
 		goto err;

@@ -102,7 +102,7 @@ int dump_pstree(struct pstree_item *root_item)
 		for (i = 0; i < item->nr_threads; i++)
 			e.threads[i] = item->threads[i].virt;
 
-		ret = pb_write(pstree_fd, &e, pstree_entry);
+		ret = pb_write_one(pstree_fd, &e, PB_PSTREE);
 		xfree(e.threads);
 
 		if (ret)

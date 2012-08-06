@@ -77,7 +77,7 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
-	return pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, inotify_wd_entry);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
@@ -89,7 +89,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.fown = (FownEntry *)&p->fown;
 
 	pr_info("inotify: id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
-	if (pb_write(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, inotify_file_entry))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, PB_INOTIFY))
 		return -1;
 
 	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);

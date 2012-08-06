@@ -69,8 +69,8 @@ static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 
 	efd->id = *(u32 *)arg;
 	pr_info_eventpoll_tfd("Dumping: ", efd);
-	return pb_write(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
-			efd, eventpoll_tfd_entry);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
+			efd, PB_EVENTPOLL_TFD);
 }
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
@@ -82,8 +82,8 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	e.fown = (FownEntry *)&p->fown;
 
 	pr_info_eventpoll("Dumping ", &e);
-	if (pb_write(fdset_fd(glob_fdset, CR_FD_EVENTPOLL),
-		     &e, eventpoll_file_entry))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL),
+		     &e, PB_EVENTPOLL))
 		return -1;
 
 	return parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &id);

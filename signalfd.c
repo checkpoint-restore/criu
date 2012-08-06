@@ -50,8 +50,8 @@ static int dump_signalfd_entry(union fdinfo_entries *e, void *arg)
 	e->sfd.flags = da->p->flags;
 	e->sfd.fown = (FownEntry *)&da->p->fown;
 
-	return pb_write(fdset_fd(glob_fdset, CR_FD_SIGNALFD),
-			&e->sfd, signalfd_entry);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_SIGNALFD),
+			&e->sfd, PB_SIGNALFD);
 }
 
 static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)

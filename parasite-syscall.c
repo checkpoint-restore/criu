@@ -470,7 +470,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 		ASSIGN_TYPED(se.restorer, args.sas[i].rt_sa_restorer);
 		ASSIGN_TYPED(se.mask, args.sas[i].rt_sa_mask.sig[0]);
 
-		if (pb_write(fd, &se, sa_entry) < 0)
+		if (pb_write_one(fd, &se, PB_SIGACT) < 0)
 			return -1;
 	}
 
@@ -486,7 +486,7 @@ static int dump_one_timer(struct itimerval *v, int fd)
 	ie.vsec = v->it_value.tv_sec;
 	ie.vusec = v->it_value.tv_sec;
 
-	return pb_write(fd, &ie, itimer_entry);
+	return pb_write_one(fd, &ie, PB_ITIMERS);
 }
 
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)

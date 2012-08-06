@@ -274,7 +274,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	if (img_fd < 0)
 		goto err_img;
 
-	ret = pb_write(img_fd, &tse, tcp_stream_entry);
+	ret = pb_write_one(img_fd, &tse, PB_TCP_STREAM);
 	if (ret < 0)
 		goto err_iw;
 

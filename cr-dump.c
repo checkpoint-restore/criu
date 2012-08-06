@@ -158,7 +158,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	pr_info("fdinfo: type: 0x%2x flags: 0x%4x pos: 0x%8lx fd: %d\n",
 		ops->type, p->flags, p->pos, p->fd);
 
-	return pb_write(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, fdinfo_entry);
+	return pb_write_one(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, PB_FDINFO);
 }
 
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
@@ -393,7 +393,7 @@ static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
 	pr_info("Dumping task cwd id %#x root id %#x\n",
 			fe.cwd_id, fe.root_id);
 
-	return pb_write(fdset_fd(fdset, CR_FD_FS), &fe, fs_entry);
+	return pb_write_one(fdset_fd(fdset, CR_FD_FS), &fe, PB_FS);
 }
 
 static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
@@ -444,7 +444,7 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 			ret = 0;
 
 		if (!ret)
-			ret = pb_write(fd, vma, vma_entry);
+			ret = pb_write_one(fd, vma, PB_VMAS);
 		if (ret)
 			goto err;
 	}
@@ -492,7 +492,7 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 
 	ce.secbits = misc->secbits;
 
-	return pb_write(fdset_fd(fds, CR_FD_CREDS), &ce, creds_entry);
+	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
 }
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.e
@@ -559,7 +559,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	if (dump_task_exe_link(pid, &mme))
 		goto out;
 
-	ret = pb_write(fdset_fd(fdset, CR_FD_MM), &mme, mm_entry);
+	ret = pb_write_one(fdset_fd(fdset, CR_FD_MM), &mme, PB_MM);
 	xfree(mme.mm_saved_auxv);
 out:
 	return ret;
@@ -859,7 +859,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
 
-	ret = pb_write(fd_core, core, core_entry);
+	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0) {
 		pr_info("ERROR\n");
 		goto err_free;
@@ -1248,7 +1248,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	if (fd_core < 0)
 		goto err_free;
 
-	ret = pb_write(fd_core, core, core_entry);
+	ret = pb_write_one(fd_core, core, PB_CORE);
 
 	close(fd_core);
 err_free:
@@ -1275,7 +1275,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	if (fd_core < 0)
 		goto err_free;
 
-	ret = pb_write(fd_core, core, core_entry);
+	ret = pb_write_one(fd_core, core, PB_CORE);
 	close(fd_core);
 err_free:
 	core_entry_free(core);

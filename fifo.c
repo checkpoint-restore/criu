@@ -57,7 +57,7 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	e.id		= id;
 	e.pipe_id	= pipe_id(p);
 
-	if (pb_write(img, &e, fifo_entry))
+	if (pb_write_one(img, &e, PB_FIFO))
 		return -1;
 
 	return dump_one_pipe_data(&pd_fifo, lfd, p);

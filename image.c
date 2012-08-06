@@ -52,7 +52,7 @@ int write_img_inventory(void)
 
 	he.img_version = CRTOOLS_IMAGES_V1;
 
-	if (pb_write(fd, &he, inventory_entry) < 0)
+	if (pb_write_one(fd, &he, PB_INVENTORY) < 0)
 		return -1;
 
 	close(fd);

@@ -42,7 +42,7 @@ static int dump_one_netdev(int type, struct nlmsghdr *h, struct ifinfomsg *ifi, 
 	netdev.flags = ifi->ifi_flags;
 	netdev.name = RTA_DATA(tb[IFLA_IFNAME]);
 
-	return pb_write(fdset_fd(fds, CR_FD_NETDEV), &netdev, net_device_entry);
+	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), &netdev, PB_NETDEV);
 }
 
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)

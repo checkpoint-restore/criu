@@ -67,8 +67,8 @@ static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 	e->efd.fown = (FownEntry *)&da->p->fown;
 
 	pr_info_eventfd("Dumping ", &e->efd);
-	return pb_write(fdset_fd(glob_fdset, CR_FD_EVENTFD),
-			&e->efd, eventfd_file_entry);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTFD),
+			&e->efd, PB_EVENTFD);
 }
 
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)

@@ -200,7 +200,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, unix_sk_entry))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, PB_UNIXSK))
 		goto err;
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
@@ -414,7 +414,7 @@ int fix_external_unix_sockets(void)
 
 		show_one_unix("Dumping extern", sk);
 
-		if (pb_write(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, unix_sk_entry))
+		if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, PB_UNIXSK))
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);

@@ -198,7 +198,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	gfe.gid = st->st_gid;
 	gfe.mode = st->st_mode;
 
-	if (pb_write(img, &gfe, ghost_file_entry))
+	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		return -1;
 
 	if (S_ISREG(st->st_mode)) {
@@ -254,8 +254,8 @@ dump_entry:
 	rpe.orig_id = id;
 	rpe.remap_id = gf->id | REMAP_GHOST;
 
-	return pb_write(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
-			&rpe, remap_file_path_entry);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+			&rpe, PB_REMAP_FPATH);
 }
 
 static int check_path_remap(char *rpath, const struct stat *ost, int lfd, u32 id)
@@ -332,7 +332,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 
-	return pb_write(rfd, &rfe, reg_file_entry);
+	return pb_write_one(rfd, &rfe, PB_REG_FILES);
 }
 
 static const struct fdtype_ops regfile_ops = {

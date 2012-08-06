@@ -213,7 +213,7 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, inet_sk_entry))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, PB_INETSK))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", p->fd);

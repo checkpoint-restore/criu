@@ -397,7 +397,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 		pde.pipe_id	= pipe_id(p);
 		pde.bytes	= bytes;
 
-		if (pb_write(img, &pde, pipe_data_entry))
+		if (pb_write_one(img, &pde, PB_PIPES_DATA))
 			goto err_close;
 
 		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
@@ -439,7 +439,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	pe.flags	= p->flags;
 	pe.fown		= (FownEntry *)&p->fown;
 
-	if (pb_write(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, pipe_entry))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, PB_PIPES))
 		return -1;
 
 	return dump_one_pipe_data(&pd_pipes, lfd, p);

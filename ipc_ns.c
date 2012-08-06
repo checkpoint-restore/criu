@@ -134,7 +134,7 @@ static int dump_ipc_sem_desc(int fd, int id, const struct semid_ds *ds)
 	fill_ipc_desc(id, sem.desc, &ds->sem_perm);
 	pr_info_ipc_sem_entry(&sem);
 
-	ret = pb_write(fd, &sem, ipc_sem_entry);
+	ret = pb_write_one(fd, &sem, PB_IPCNS_SEM);
 	if (ret < 0) {
 		pr_err("Failed to write IPC semaphores set\n");
 		return ret;
@@ -222,7 +222,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry, size_t 
 
 		pr_info_ipc_msg(msg_nr, &msg);
 
-		ret = pb_write(fd, &msg, ipc_msg);
+		ret = pb_write_one(fd, &msg, PB_IPCNS_MSG);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message header\n");
 			break;
@@ -254,7 +254,7 @@ static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
 
 	pr_info_ipc_msg_entry(&msg);
 
-	ret = pb_write(fd, &msg, ipc_msg_entry);
+	ret = pb_write_one(fd, &msg, PB_IPCNS_MSG_ENT);
 	if (ret < 0) {
 		pr_err("Failed to write IPC message queue\n");
 		return ret;
@@ -361,7 +361,7 @@ static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
 	fill_ipc_desc(id, shm.desc, &ds->shm_perm);
 	pr_info_ipc_shm(&shm);
 
-	ret = pb_write(fd, &shm, ipc_shm_entry);
+	ret = pb_write_one(fd, &shm, PB_IPCNS_SHM);
 	if (ret < 0) {
 		pr_err("Failed to write IPC shared memory segment\n");
 		return ret;
@@ -422,7 +422,7 @@ static int dump_ipc_var(int fd)
 		goto err;
 	}
 
-	ret = pb_write(fd, &var, ipc_var_entry);
+	ret = pb_write_one(fd, &var, PB_IPCNS_VAR);
 	if (ret < 0) {
 		pr_err("Failed to write IPC variables\n");
 		goto err;

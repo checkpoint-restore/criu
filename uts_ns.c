@@ -31,7 +31,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 	ue.nodename = ubuf.nodename;
 	ue.domainname = ubuf.domainname;
 
-	return pb_write(fdset_fd(fdset, CR_FD_UTSNS), &ue, utsns_entry);
+	return pb_write_one(fdset_fd(fdset, CR_FD_UTSNS), &ue, PB_UTSNS);
 }
 
 int prepare_utsns(int pid)

@@ -142,7 +142,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			goto err_set_sock;
 		}
 
-		ret = pb_write(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), &pe, sk_packet_entry);
+		ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err_set_sock;
