@@ -697,13 +697,12 @@ static int restore_task_with_children(void *_arg)
 	if (ret < 0)
 		exit(1);
 
-	if (me->parent == NULL)
+	/* Restore root task */
+	if (me->parent == NULL) {
 		if (collect_mount_info())
 			exit(-1);
 
-	if (ca->clone_flags) {
-		ret = prepare_namespace(me->pid.virt, ca->clone_flags);
-		if (ret)
+		if (prepare_namespace(me->pid.virt, ca->clone_flags))
 			exit(-1);
 
 		/*
@@ -711,14 +710,12 @@ static int restore_task_with_children(void *_arg)
 		 * namespaces and do not care for the rest of the cases.
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
-
 		if (mount_proc())
 			exit(-1);
-	}
 
-	if (me == root_item)
 		if (prepare_shared())
 			exit(-1);
+	}
 
 	/*
 	 * The block mask will be restored in sigresturn.
