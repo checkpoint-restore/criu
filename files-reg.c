@@ -305,7 +305,7 @@ static int check_path_remap(char *rpath, const struct stat *ost, int lfd, u32 id
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	char fd_str[128];
-	char rpath[PATH_MAX + 1] = ".", *path = rpath + 1;;
+	char rpath[PATH_MAX + 1] = ".", *path = rpath + 1;
 	int len, rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
