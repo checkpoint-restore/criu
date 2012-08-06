@@ -641,33 +641,38 @@ static void restore_pgid(void)
 	}
 }
 
-static void mount_proc(void)
+static int mount_proc(void)
 {
 	int ret;
 	char proc_mountpoint[PATH_MAX];
 
-	mkdir("/tmp/", 0777);
 	snprintf(proc_mountpoint, sizeof(proc_mountpoint), "crtools-proc.XXXXXX");
 	if (mkdtemp(proc_mountpoint) == NULL) {
-		pr_err("mkdtemp failed %m");
-		exit(1);
+		pr_perror("mkdtemp failed %s", proc_mountpoint);
+		return -1;
 	}
 
 	pr_info("Mount procfs in %s\n", proc_mountpoint);
-	ret = mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL);
-	if (ret == -1) {
-		pr_err("mount failed");
-		exit(1);
+	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
+		pr_perror("mount failed");
+		ret = -1;
+		goto out_rmdir;
 	}
-	set_proc_mountpoint(proc_mountpoint);
+
+	ret = set_proc_mountpoint(proc_mountpoint);
+
 	if (umount2(proc_mountpoint, MNT_DETACH) == -1) {
-		pr_err("Can't umount %s\n", proc_mountpoint);
-		exit(1);
+		pr_perror("Can't umount %s", proc_mountpoint);
+		return -1;
 	}
+
+out_rmdir:
 	if (rmdir(proc_mountpoint) == -1) {
-		pr_err("Can't remove %s\n", proc_mountpoint);
-		exit(1);
+		pr_perror("Can't remove %s", proc_mountpoint);
+		return -1;
 	}
+
+	return ret;
 }
 
 static int restore_task_with_children(void *_arg)
@@ -707,7 +712,8 @@ static int restore_task_with_children(void *_arg)
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 
-		mount_proc();
+		if (mount_proc())
+			exit(-1);
 	}
 
 	if (me == root_item)
