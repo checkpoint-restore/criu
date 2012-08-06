@@ -524,6 +524,8 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
 
+	if (ca.clone_flags & CLONE_NEWPID)
+		item->pid.real = ret;
 err_unlock:
 	if (flock(ca.fd, LOCK_UN))
 		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
@@ -837,9 +839,14 @@ out:
 		struct pstree_item *pi;
 		pr_err("Someone can't be restored\n");
 
-		for_each_pstree_item(pi)
-			kill(pi->pid.virt, SIGKILL);
-
+		if (opts->namespaces_flags & CLONE_NEWPID) {
+			/* Kill init */
+			if (root_item->pid.real > 0)
+				kill(root_item->pid.real, SIGKILL);
+		} else {
+			for_each_pstree_item(pi)
+				kill(pi->pid.virt, SIGKILL);
+		}
 		return 1;
 	}
 
