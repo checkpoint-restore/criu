@@ -6,12 +6,107 @@
 
 #include <google/protobuf-c/protobuf-c.h>
 
+#include "crtools.h"
 #include "compiler.h"
 #include "types.h"
 #include "log.h"
 #include "util.h"
 
 #include "protobuf.h"
+#include "protobuf/inventory.pb-c.h"
+#include "protobuf/regfile.pb-c.h"
+#include "protobuf/eventfd.pb-c.h"
+#include "protobuf/eventpoll.pb-c.h"
+#include "protobuf/signalfd.pb-c.h"
+#include "protobuf/inotify.pb-c.h"
+#include "protobuf/core.pb-c.h"
+#include "protobuf/mm.pb-c.h"
+#include "protobuf/pipe.pb-c.h"
+#include "protobuf/fifo.pb-c.h"
+#include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/pipe-data.pb-c.h"
+#include "protobuf/pstree.pb-c.h"
+#include "protobuf/sa.pb-c.h"
+#include "protobuf/sk-unix.pb-c.h"
+#include "protobuf/sk-inet.pb-c.h"
+#include "protobuf/sk-packet.pb-c.h"
+#include "protobuf/creds.pb-c.h"
+#include "protobuf/itimer.pb-c.h"
+#include "protobuf/utsns.pb-c.h"
+#include "protobuf/ipc-var.pb-c.h"
+#include "protobuf/ipc-shm.pb-c.h"
+#include "protobuf/ipc-msg.pb-c.h"
+#include "protobuf/ipc-sem.pb-c.h"
+#include "protobuf/fs.pb-c.h"
+#include "protobuf/remap-file-path.pb-c.h"
+#include "protobuf/ghost-file.pb-c.h"
+#include "protobuf/mnt.pb-c.h"
+#include "protobuf/netdev.pb-c.h"
+#include "protobuf/tcp-stream.pb-c.h"
+
+struct cr_pb_message_desc {
+	pb_getpksize_t	getpksize;
+	pb_pack_t	pack;
+	pb_unpack_t	unpack;
+	pb_free_t	free;
+	const ProtobufCMessageDescriptor *pb_desc;
+};
+
+/*
+ * This should be explicitly "called" to do type-checking
+ */
+
+#define CR_PB_MDESC_INIT(__var, __type, __name)	do {				\
+		__var.getpksize = PB_GPS_TYPECHECK((__type *)NULL, __name);	\
+		__var.pack = PB_PACK_TYPECHECK((__type *)NULL, __name);		\
+		__var.unpack = PB_UNPACK_TYPECHECK((__type **)NULL, __name);	\
+		__var.free = PB_FREE_TYPECHECK((__type *)NULL, __name);		\
+		__var.pb_desc = &__name##__descriptor;				\
+	} while (0)
+
+static struct cr_pb_message_desc cr_pb_descs[PB_MAX];
+
+#define CR_PB_DESC(__type, __vtype, __ftype)	\
+	CR_PB_MDESC_INIT(cr_pb_descs[PB_##__type], __vtype##Entry, __ftype##_entry)
+
+void cr_pb_init(void)
+{
+	CR_PB_DESC(INVENTORY,		Inventory,	inventory);
+	CR_PB_DESC(FDINFO,		Fdinfo,		fdinfo);
+	CR_PB_DESC(REG_FILES,		RegFile,	reg_file);
+	CR_PB_DESC(EVENTFD,		EventfdFile,	eventfd_file);
+	CR_PB_DESC(EVENTPOLL,		EventpollFile,	eventpoll_file);
+	CR_PB_DESC(EVENTPOLL_TFD,	EventpollTfd,	eventpoll_tfd);
+	CR_PB_DESC(SIGNALFD,		Signalfd,	signalfd);
+	CR_PB_DESC(INOTIFY,		InotifyFile,	inotify_file);
+	CR_PB_DESC(INOTIFY_WD,		InotifyWd,	inotify_wd);
+	CR_PB_DESC(CORE,		Core,		core);
+	CR_PB_DESC(MM,			Mm,		mm);
+	CR_PB_DESC(VMAS,		Vma,		vma);
+	CR_PB_DESC(PIPES,		Pipe,		pipe);
+	CR_PB_DESC(PIPES_DATA,		PipeData,	pipe_data);
+	CR_PB_DESC(FIFO,		Fifo,		fifo);
+	CR_PB_DESC(PSTREE,		Pstree,		pstree);
+	CR_PB_DESC(SIGACT,		Sa,		sa);
+	CR_PB_DESC(UNIXSK,		UnixSk,		unix_sk);
+	CR_PB_DESC(INETSK,		InetSk,		inet_sk);
+	CR_PB_DESC(SK_QUEUES,		SkPacket,	sk_packet);
+	CR_PB_DESC(ITIMERS,		Itimer,		itimer);
+	CR_PB_DESC(CREDS,		Creds,		creds);
+	CR_PB_DESC(UTSNS,		Utsns,		utsns);
+	CR_PB_DESC(IPCNS_VAR,		IpcVar,		ipc_var);
+	CR_PB_DESC(IPCNS_SHM,		IpcShm,		ipc_shm);
+	/* There's no _entry suffix in this one :( */
+	CR_PB_MDESC_INIT(cr_pb_descs[PB_IPCNS_MSG], 	IpcMsg, ipc_msg);
+	CR_PB_DESC(IPCNS_MSG_ENT,	IpcMsg,		ipc_msg);
+	CR_PB_DESC(IPCNS_SEM,		IpcSem,		ipc_sem);
+	CR_PB_DESC(FS,			Fs,		fs);
+	CR_PB_DESC(REMAP_FPATH,		RemapFilePath,	remap_file_path);
+	CR_PB_DESC(GHOST_FILE,		GhostFile,	ghost_file);
+	CR_PB_DESC(TCP_STREAM,		TcpStream,	tcp_stream);
+	CR_PB_DESC(MOUNTPOINTS,		Mnt,		mnt);
+	CR_PB_DESC(NETDEV,		NetDevice,	net_device);
+}
 
 /*
  * To speed up reading of packed objects

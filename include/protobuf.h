@@ -5,6 +5,44 @@
 #include "compiler.h"
 #include "util.h"
 
+enum {
+	PB_INVENTORY,
+	PB_FDINFO,
+	PB_CORE,
+	PB_MM,
+	PB_VMAS,
+	PB_SIGACT,
+	PB_ITIMERS,
+	PB_CREDS,
+	PB_FS,
+	PB_UTSNS,
+	PB_IPCNS_VAR,
+	PB_IPCNS_SHM,
+	PB_IPCNS_MSG,
+	PB_IPCNS_MSG_ENT,
+	PB_IPCNS_SEM,
+	PB_MOUNTPOINTS,
+	PB_NETDEV,
+	PB_PSTREE,
+	PB_GHOST_FILE,
+	PB_TCP_STREAM,
+	PB_SK_QUEUES,
+	PB_REG_FILES,
+	PB_INETSK,
+	PB_UNIXSK,
+	PB_PIPES,
+	PB_FIFO,
+	PB_PIPES_DATA,
+	PB_REMAP_FPATH,
+	PB_EVENTFD,
+	PB_EVENTPOLL,
+	PB_EVENTPOLL_TFD,
+	PB_SIGNALFD,
+	PB_INOTIFY,
+	PB_INOTIFY_WD,
+
+	PB_MAX
+};
 /*
  * ATTENTION
  *
@@ -32,6 +70,8 @@ extern int pb_read_object_with_header(int fd, void **pobj,
 #define PB_PACK_TYPECHECK(__o, __fn)	({ if (0) __fn##__pack(__o, NULL); (pb_pack_t)&__fn##__pack; })
 #define PB_GPS_TYPECHECK(__o, __fn)	({ if (0) __fn##__get_packed_size(__o); (pb_getpksize_t)&__fn##__get_packed_size; })
 #define PB_FREE_TYPECHECK(__o, __fn)	({ if (0) __fn##__free_unpacked(__o, NULL); (pb_free_t)&__fn##__free_unpacked; })
+
+void cr_pb_init(void);
 
 #define pb_read(__fd, __obj_pptr, __proto_message_name)					\
 	pb_read_object_with_header(__fd, (void **)__obj_pptr,				\
