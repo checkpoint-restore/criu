@@ -412,21 +412,27 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
-		BUG_ON(pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v4.sin_addr.s_addr));
-
+		if (pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v4.sin_addr.s_addr)) {
+			pr_perror("IPv4 source address dump size is to small");
+			return -1;
+		}
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->src_port);
 		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
-		BUG_ON(pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v6.sin6_addr.s6_addr));
-
+		if (pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v6.sin6_addr.s6_addr)) {
+			pr_perror("IPv6 source address dump size is to small");
+			return -1;
+		}
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->src_port);
 		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(addr.v6.sin6_addr.s6_addr));
 		addr_size = sizeof(addr.v6);
-	} else
-		BUG_ON(1);
+	} else {
+		pr_perror("Unsupported address family: %d\n", ii->ie->family);
+		return -1;
+	}
 
 	if (bind(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't bind inet socket");
@@ -447,21 +453,27 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
-		BUG_ON(pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v4.sin_addr.s_addr));
-
+		if (pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v4.sin_addr.s_addr)) {
+			pr_perror("IPv4 destination address dump size is to small");
+			return -1;
+		}
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->dst_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
-		BUG_ON(pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v6.sin6_addr.s6_addr));
-
+		if (pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v6.sin6_addr.s6_addr)) {
+			pr_perror("IPv6 destination address dump size is to small");
+			return -1;
+		}
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->dst_addr, sizeof(addr.v6.sin6_addr.s6_addr));
 		addr_size = sizeof(addr.v6);
-	} else
-		BUG_ON(1);
+	} else {
+		pr_perror("Unsupported address family: %d\n", ii->ie->family);
+		return -1;
+	}
 
 	if (connect(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't connect inet socket back");
