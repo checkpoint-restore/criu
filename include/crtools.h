@@ -84,6 +84,7 @@ struct cr_options {
 	bool			restore_detach;
 	bool			ext_unix_sk;
 	bool			tcp_established_ok;
+	bool			evasive_devices;
 	unsigned int		namespaces_flags;
 	bool			log_file_per_pid;
 	char			*output;

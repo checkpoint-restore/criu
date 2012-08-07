@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
 			{ "close", required_argument, 0, 43 },
 			{ "log-pid", no_argument, 0, 44},
 			{ "version", no_argument, 0, 'V'},
+			{ "evasive-devices", no_argument, 0, 45},
 			{ },
 		};
 
@@ -164,6 +165,9 @@ int main(int argc, char *argv[])
 		}
 		case 44:
 			opts.log_file_per_pid = 1;
+			break;
+		case 45:
+			opts.evasive_devices = true;
 			break;
 		case 'V':
 			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
@@ -252,6 +256,7 @@ usage:
 	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
+	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");

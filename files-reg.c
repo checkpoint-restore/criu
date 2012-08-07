@@ -285,6 +285,10 @@ static int check_path_remap(char *rpath, const struct stat *ost, int lfd, u32 id
 	}
 
 	if ((pst.st_ino != ost->st_ino) || (pst.st_dev != ost->st_dev)) {
+		if (opts.evasive_devices &&
+		    (S_ISCHR(ost->st_mode) || S_ISBLK(ost->st_mode)) &&
+		    pst.st_rdev == ost->st_rdev)
+			return 0;
 		/*
 		 * FIXME linked file, but the name we see it by is reused
 		 * by somebody else.
