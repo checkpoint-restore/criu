@@ -57,11 +57,6 @@ enum {
  * to match this typedefs.
  */
 
-typedef size_t (*pb_getpksize_t)(void *obj);
-typedef size_t (*pb_pack_t)(void *obj, void *where);
-typedef void  *(*pb_unpack_t)(void *allocator, size_t size, void *from);
-typedef void   (*pb_free_t)(void *obj, void *allocator);
-
 void cr_pb_init(void);
 
 extern int do_pb_read_one(int fd, void **objp, int type, bool eof);

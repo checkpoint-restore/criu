@@ -44,6 +44,11 @@
 #include "protobuf/netdev.pb-c.h"
 #include "protobuf/tcp-stream.pb-c.h"
 
+typedef size_t (*pb_getpksize_t)(void *obj);
+typedef size_t (*pb_pack_t)(void *obj, void *where);
+typedef void  *(*pb_unpack_t)(void *allocator, size_t size, void *from);
+typedef void   (*pb_free_t)(void *obj, void *allocator);
+
 struct cr_pb_message_desc {
 	pb_getpksize_t	getpksize;
 	pb_pack_t	pack;
