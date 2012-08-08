@@ -357,6 +357,26 @@ void show_mm(int fd_mm, struct cr_options *o)
 	pb_show_vertical(fd_mm, PB_MM);
 }
 
+static struct {
+	u32 magic;
+	u32 mask;
+	char *hint;
+} magic_hints[] = {
+	{ .magic = 0x45311224, .mask = 0xffffffff, .hint = "ip route dump", },
+	{ .magic = 0x47361222, .mask = 0xffffffff, .hint = "ip ifaddr dump", },
+	{ .magic = 0x00008b1f, .mask = 0x0000ffff, .hint = "gzip file", },
+	{ },
+};
+
+static void try_hint_magic(u32 magic)
+{
+	int i;
+
+	for (i = 0; magic_hints[i].hint != 0; i++)
+		if ((magic & magic_hints[i].mask) == magic_hints[i].magic)
+			pr_msg("This can be %s\n", magic_hints[i].hint);
+}
+
 static int cr_parse_file(struct cr_options *opts)
 {
 	u32 magic;
@@ -378,6 +398,7 @@ static int cr_parse_file(struct cr_options *opts)
 	if (i == CR_FD_MAX) {
 		pr_err("Unknown magic %#x in %s\n",
 				magic, opts->show_dump_file);
+		try_hint_magic(magic);
 		goto err;
 	}
 
