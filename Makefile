@@ -75,10 +75,11 @@ include Makefile.pie
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf
 
-all: protobuf pie
+all: pie
 	$(Q) $(MAKE) $(PROGRAM)
 
-pie: $(PIE-GEN)
+pie: protobuf
+	$(Q) $(MAKE) $(PIE-GEN)
 
 protobuf:
 	$(Q) $(MAKE) -C protobuf/
