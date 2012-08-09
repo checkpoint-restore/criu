@@ -204,6 +204,16 @@ static void show_enum(void *msg, pb_pr_ctl_t *ctl)
 		pr_msg("%d", val);
 }
 
+static void show_bool(void *msg, pb_pr_ctl_t *ctl)
+{
+	protobuf_c_boolean val = *(protobuf_c_boolean *)msg;
+
+	if (val)
+		pr_msg("True");
+	else
+		pr_msg("False");
+}
+
 static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
@@ -247,9 +257,12 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			ctl->arg = (void *)fd->descriptor;
 			fsize = 4;
 			break;
+		case PROTOBUF_C_TYPE_BOOL:
+			show = show_bool;
+			fsize = 4;
+			break;
 		case PROTOBUF_C_TYPE_FLOAT:
 		case PROTOBUF_C_TYPE_DOUBLE:
-		case PROTOBUF_C_TYPE_BOOL:
 		case PROTOBUF_C_TYPE_BYTES:
 		default:
 			show = pb_msg_unk;
