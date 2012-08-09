@@ -180,7 +180,7 @@ run_test()
 		return 1
 	}
 	if expr " $ARGS" : ' -s' > /dev/null; then
-		save_fds $pid  $ddump/dump.fd.after
+		save_fds $PID  $ddump/dump.fd.after
 		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 		killall -CONT $tname
 	else
