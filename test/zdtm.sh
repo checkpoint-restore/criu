@@ -34,6 +34,7 @@ static/pstree
 static/caps00
 static/cmdlinenv00
 static/socket_listen
+static/packet_sock
 static/socket_udp
 static/socket6_udp
 static/socket_udplite

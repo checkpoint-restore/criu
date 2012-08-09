@@ -23,6 +23,7 @@ TST_NOFILE	=				\
 		socket6_udp			\
 		socket_udplite			\
 		socket_aio			\
+		packet_sock			\
 		msgque				\
 		inotify_system			\
 		inotify_system_nodel		\
