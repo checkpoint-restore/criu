@@ -23,6 +23,8 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 
+#define SK_RESERVE	8
+
 static int test_sockaddr(int n, struct sockaddr_ll *have, struct sockaddr_ll *want)
 {
 	if (have->sll_family != want->sll_family) {
@@ -52,7 +54,7 @@ int main(int argc, char **argv)
 	int sk1, sk2;
 	struct sockaddr_ll addr, addr1, addr2;
 	socklen_t alen;
-	int ver;
+	int ver, rsv;
 
 	test_init(argc, argv);
 
@@ -94,6 +96,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	rsv = SK_RESERVE;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, sizeof(rsv)) < 0) {
+		err("Can't set reserve %m");
+		return 1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
@@ -125,6 +133,17 @@ int main(int argc, char **argv)
 
 	if (test_sockaddr(2, &addr, &addr2))
 		return 1;
+
+	alen = sizeof(rsv);
+	if (getsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, &alen) < 0) {
+		fail("Can't get sockopt rsv %m");
+		return 1;
+	}
+
+	if (rsv != SK_RESERVE) {
+		fail("Reserve mismatch have %d, want %d\n", rsv, SK_RESERVE);
+		return 1;
+	}
 
 	pass();
 	return 0;

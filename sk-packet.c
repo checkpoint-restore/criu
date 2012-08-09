@@ -56,6 +56,9 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_opt(lfd, SOL_PACKET, PACKET_VERSION, &psk.version))
 		return -1;
 
+	if (dump_opt(lfd, SOL_PACKET, PACKET_RESERVE, &psk.reserve))
+		return -1;
+
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 }
 
@@ -98,6 +101,9 @@ static int open_packet_sk(struct file_desc *d)
 	}
 
 	if (restore_opt(sk, SOL_PACKET, PACKET_VERSION, &pse->version))
+		goto err_cl;
+
+	if (restore_opt(sk, SOL_PACKET, PACKET_RESERVE, &pse->reserve))
 		goto err_cl;
 
 	if (rst_file_params(sk, pse->fown, pse->flags))
