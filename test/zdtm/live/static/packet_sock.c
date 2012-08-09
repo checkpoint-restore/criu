@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 	int sk1, sk2;
 	struct sockaddr_ll addr, addr1, addr2;
 	socklen_t alen;
-	int ver, rsv;
+	int ver, rsv, yes;
 
 	test_init(argc, argv);
 
@@ -96,9 +96,21 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	yes = 1;
+	if (setsockopt(sk1, SOL_PACKET, PACKET_AUXDATA, &yes, sizeof(yes)) < 0) {
+		err("Can't set auxdata %m");
+		return 1;
+	}
+
 	rsv = SK_RESERVE;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, sizeof(rsv)) < 0) {
 		err("Can't set reserve %m");
+		return 1;
+	}
+
+	yes = 1;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_ORIGDEV, &yes, sizeof(yes)) < 0) {
+		err("Can't set origdev %m");
 		return 1;
 	}
 
@@ -125,6 +137,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	alen = sizeof(yes);
+	if (getsockopt(sk1, SOL_PACKET, PACKET_AUXDATA, &yes, &alen) < 0) {
+		fail("Can't get sockopt auxdata %m");
+		return 1;
+	}
+
+	if (yes != 1) {
+		fail("Auxdata not ON");
+		return 1;
+	}
+
 	alen = sizeof(addr);
 	if (getsockname(sk2, (struct sockaddr *)&addr, &alen) < 0) {
 		fail("Can't get sockname 2 rst");
@@ -137,6 +160,17 @@ int main(int argc, char **argv)
 	alen = sizeof(rsv);
 	if (getsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, &alen) < 0) {
 		fail("Can't get sockopt rsv %m");
+		return 1;
+	}
+
+	alen = sizeof(yes);
+	if (getsockopt(sk2, SOL_PACKET, PACKET_ORIGDEV, &yes, &alen) < 0) {
+		fail("Can't get sockopt origdev %m");
+		return 1;
+	}
+
+	if (yes != 1) {
+		fail("OrigDev not ON");
 		return 1;
 	}
 

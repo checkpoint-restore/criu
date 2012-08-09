@@ -24,7 +24,7 @@ void show_packetsk(int fd, struct cr_options *o)
 
 static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
-	int type;
+	int type, yes;
 	PacketSockEntry psk = PACKET_SOCK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	struct sockaddr_ll addr;
@@ -59,6 +59,18 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_opt(lfd, SOL_PACKET, PACKET_RESERVE, &psk.reserve))
 		return -1;
 
+	if (dump_opt(lfd, SOL_PACKET, PACKET_AUXDATA, &yes))
+		return -1;
+	psk.aux_data = (yes ? true : false);
+
+	if (dump_opt(lfd, SOL_PACKET, PACKET_ORIGDEV, &yes))
+		return 1;
+	psk.orig_dev = (yes ? true : false);
+
+	if (dump_opt(lfd, SOL_PACKET, PACKET_VNET_HDR, &yes))
+		return 1;
+	psk.vnet_hdr = (yes ? true : false);
+
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 }
 
@@ -78,7 +90,7 @@ static int open_packet_sk(struct file_desc *d)
 	struct packet_sock_info *psi;
 	PacketSockEntry *pse;
 	struct sockaddr_ll addr;
-	int sk;
+	int sk, yes;
 
 	psi = container_of(d, struct packet_sock_info, d);
 	pse = psi->pse;
@@ -105,6 +117,24 @@ static int open_packet_sk(struct file_desc *d)
 
 	if (restore_opt(sk, SOL_PACKET, PACKET_RESERVE, &pse->reserve))
 		goto err_cl;
+
+	if (pse->aux_data) {
+		yes = 1;
+		if (restore_opt(sk, SOL_PACKET, PACKET_AUXDATA, &yes))
+			goto err_cl;
+	}
+
+	if (pse->orig_dev) {
+		yes = 1;
+		if (restore_opt(sk, SOL_PACKET, PACKET_ORIGDEV, &yes))
+			goto err_cl;
+	}
+
+	if (pse->vnet_hdr) {
+		yes = 1;
+		if (restore_opt(sk, SOL_PACKET, PACKET_VNET_HDR, &yes))
+			goto err_cl;
+	}
 
 	if (rst_file_params(sk, pse->fown, pse->flags))
 		goto err_cl;
