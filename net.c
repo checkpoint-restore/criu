@@ -260,16 +260,6 @@ static inline int restore_route(int pid)
 	return restore_ip_dump(CR_FD_ROUTE, pid, "route");
 }
 
-void show_ifaddrs(int fd, struct cr_options *o)
-{
-	BUG_ON(1);
-}
-
-void show_routes(int fd, struct cr_options *o)
-{
-	BUG_ON(1);
-}
-
 int dump_net_ns(int pid, struct cr_fdset *fds)
 {
 	int ret;

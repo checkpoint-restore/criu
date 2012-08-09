@@ -85,6 +85,8 @@ static void show_inventory(int fd, struct cr_options *o)
 		.show	= _show,		\
 	}
 
+static void show_raw_image(int fd, struct cr_options *opt) {};
+
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(INVENTORY,	"inventory",	 show_inventory),
 	FD_ENTRY(FDINFO,	"fdinfo-%d",	 show_files),
@@ -123,8 +125,8 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x", show_tcp_stream),
 	FD_ENTRY(MOUNTPOINTS,	"mountpoints-%d", show_mountpoints),
 	FD_ENTRY(NETDEV,	"netdev-%d",	 show_netdevices),
-	FD_ENTRY(IFADDR,	"ifaddr-%d",	 show_ifaddrs),
-	FD_ENTRY(ROUTE,		"route-%d",	 show_routes),
+	FD_ENTRY(IFADDR,	"ifaddr-%d",	 show_raw_image),
+	FD_ENTRY(ROUTE,		"route-%d",	 show_raw_image),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)
