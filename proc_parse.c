@@ -13,6 +13,7 @@
 #include "list.h"
 #include "util.h"
 #include "crtools.h"
+#include "mount.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"
@@ -592,6 +593,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 	unsigned int kmaj, kmin;
 	int ret, n;
 	char *opt;
+	char *fstype;
 
 	ret = sscanf(str, "%i %i %u:%u %ms %ms %ms %n",
 			&new->mnt_id, &new->parent_mnt_id,
@@ -612,9 +614,12 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 		return -1;
 
 	str += n;
-	ret = sscanf(str, "%ms %ms %ms", &new->fstype, &new->source, &opt);
+	ret = sscanf(str, "%ms %ms %ms", &fstype, &new->source, &opt);
 	if (ret != 3)
 		return -1;
+
+	new->fstype = find_fstype_by_name(fstype);
+	free(fstype);
 
 	new->options = xmalloc(strlen(opt));
 	if (!new->options)
@@ -658,7 +663,7 @@ struct mount_info *parse_mountinfo(pid_t pid)
 		}
 
 		pr_info("\ttype %s source %s %x %s @ %s flags %x options %s\n",
-				new->fstype, new->source,
+				new->fstype->name, new->source,
 				new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
 

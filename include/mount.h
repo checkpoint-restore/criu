@@ -8,6 +8,7 @@ struct proc_mountinfo;
 
 extern int open_mount(unsigned int s_dev);
 extern int collect_mount_info(void);
+extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
 extern int dump_mnt_ns(int pid, struct cr_fdset *);

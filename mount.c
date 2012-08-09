@@ -179,14 +179,14 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	return tree;
 }
 
-static char *fstypes[] = {
-	"unsupported",
-	"proc",
-	"sysfs",
-	"devtmpfs",
+static struct fstype fstypes[] = {
+	{ "unsupported" },
+	{ "proc" },
+	{ "sysfs" },
+	{ "devtmpfs" },
 };
 
-static u32 encode_fstype(char *fst)
+struct fstype *find_fstype_by_name(char *fst)
 {
 	int i;
 
@@ -199,22 +199,24 @@ static u32 encode_fstype(char *fst)
 	 */
 
 	for (i = 0; i < ARRAY_SIZE(fstypes); i++)
-		if (!strcmp(fstypes[i], fst))
-			return i;
+		if (!strcmp(fstypes[i].name, fst))
+			return fstypes + i;
 
-	return 0;
+	return &fstypes[0];
 }
 
-static char *decode_fstype(u32 fst)
+static u32 encode_fstype(struct fstype *fst)
 {
-	static char uns[12];
+	return fst - fstypes;
+}
 
-	if (fst >= ARRAY_SIZE(fstypes)) {
-		sprintf(uns, "x%d", fst);
-		return uns;
-	}
+static struct fstype *decode_fstype(u32 fst)
+{
 
-	return fstypes[fst];
+	if (fst >= ARRAY_SIZE(fstypes))
+		return &fstypes[0];
+
+	return &fstypes[fst];
 }
 
 static inline int is_root(char *p)
@@ -235,6 +237,9 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 			pm->root, pm->mountpoint);
 
 	me.fstype		= encode_fstype(pm->fstype);
+	if (fstypes[me.fstype].dump && fstypes[me.fstype].dump(pm))
+		return -1;
+
 	me.mnt_id		= pm->mnt_id;
 	me.root_dev		= pm->s_dev;
 	me.parent_mnt_id	= pm->parent_mnt_id;
@@ -245,7 +250,8 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.options		= pm->options;
 
 	if (!me.fstype && !is_root_mount(pm)) {
-		pr_err("FS %s unsupported\n", pm->fstype);
+		pr_err("FS mnt %s dev 0x%x root %s unsupported\n",
+				pm->mountpoint, pm->s_dev, pm->root);
 		return -1;
 	}
 
@@ -336,16 +342,20 @@ static char *resolve_source(struct mount_info *mi)
 static int do_new_mount(struct mount_info *mi)
 {
 	char *src;
+	struct fstype *tp = mi->fstype;
 
 	src = resolve_source(mi);
 	if (!src)
 		return -1;
 
-	if (mount(src, mi->mountpoint, mi->fstype,
+	if (mount(src, mi->mountpoint, tp->name,
 				mi->flags, mi->options) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
+
+	if (tp->restore && tp->restore(mi))
+		return -1;
 
 	return 0;
 }
@@ -366,7 +376,7 @@ static int do_mount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
-	pr_debug("\tMounting %s @%s\n", mi->fstype, mi->mountpoint);
+	pr_debug("\tMounting %s @%s\n", mi->fstype->name, mi->mountpoint);
 
 	if (fsroot_mounted(mi))
 		return do_new_mount(mi);
