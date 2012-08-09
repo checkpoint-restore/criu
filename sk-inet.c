@@ -130,9 +130,9 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 
 	sk->sd.ino = p->stat.st_ino;
 
-	ret  = do_dump_opt(lfd, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
-	ret |= do_dump_opt(lfd, SO_TYPE, &sk->type, sizeof(sk->type));
-	ret |= do_dump_opt(lfd, SO_PROTOCOL, &sk->proto, sizeof(sk->proto));
+	ret  = do_dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
+	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &sk->type, sizeof(sk->type));
+	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_PROTOCOL, &sk->proto, sizeof(sk->proto));
 	if (ret)
 		goto err;
 

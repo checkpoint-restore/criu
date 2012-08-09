@@ -32,7 +32,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	pr_info("Dumping packet socket fd %d id %#x\n", lfd, id);
 
-	if (dump_opt(lfd, SO_TYPE, &type))
+	if (dump_opt(lfd, SOL_SOCKET, SO_TYPE, &type))
 		return -1;
 
 	psk.id = id;

@@ -51,49 +51,47 @@ int sk_collect_one(int ino, int family, struct socket_desc *d)
 	return 0;
 }
 
-static int do_restore_opt(int sk, int name, void *val, int len)
+int do_restore_opt(int sk, int level, int name, void *val, int len)
 {
-	if (setsockopt(sk, SOL_SOCKET, name, val, len) < 0) {
-		pr_perror("Can't set SOL_SOCKET:%d (len %d)", name, len);
+	if (setsockopt(sk, level, name, val, len) < 0) {
+		pr_perror("Can't set %d:%d (len %d)", level, name, len);
 		return -1;
 	}
 
 	return 0;
 }
 
-#define restore_opt(s, n, f)	do_restore_opt(s, n, f, sizeof(*f))
-
 int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0;
 	struct timeval tv;
 
-	ret |= restore_opt(sk, SO_SNDBUFFORCE, &soe->so_sndbuf);
-	ret |= restore_opt(sk, SO_RCVBUFFORCE, &soe->so_rcvbuf);
+	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &soe->so_sndbuf);
+	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &soe->so_rcvbuf);
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
-	ret |= restore_opt(sk, SO_SNDTIMEO, &tv);
+	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 
 	tv.tv_sec = soe->so_rcv_tmo_sec;
 	tv.tv_usec = soe->so_rcv_tmo_usec;
-	ret |= restore_opt(sk, SO_RCVTIMEO, &tv);
+	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 
 	return ret;
 }
 
-int do_dump_opt(int sk, int name, void *val, int len)
+int do_dump_opt(int sk, int level, int name, void *val, int len)
 {
 	socklen_t aux = len;
 
-	if (getsockopt(sk, SOL_SOCKET, name, val, &aux) < 0) {
-		pr_perror("Can't get SOL_SOCKET:%d opt", name);
+	if (getsockopt(sk, level, name, val, &aux) < 0) {
+		pr_perror("Can't get %d:%d opt", level, name);
 		return -1;
 	}
 
 	if (aux != len) {
-		pr_err("Len mismatch on SOL_SOCKET:%d : %d, want %d\n",
-				name, aux, len);
+		pr_err("Len mismatch on %d:%d : %d, want %d\n",
+				level, name, aux, len);
 		return -1;
 	}
 
@@ -105,14 +103,14 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	int ret = 0;
 	struct timeval tv;
 
-	ret |= dump_opt(sk, SO_SNDBUF, &soe->so_sndbuf);
-	ret |= dump_opt(sk, SO_RCVBUF, &soe->so_rcvbuf);
+	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDBUF, &soe->so_sndbuf);
+	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVBUF, &soe->so_rcvbuf);
 
-	ret |= dump_opt(sk, SO_SNDTIMEO, &tv);
+	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 	soe->so_snd_tmo_sec = tv.tv_sec;
 	soe->so_snd_tmo_usec = tv.tv_usec;
 
-	ret |= dump_opt(sk, SO_RCVTIMEO, &tv);
+	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 	soe->so_rcv_tmo_sec = tv.tv_sec;
 	soe->so_rcv_tmo_usec = tv.tv_usec;
 
@@ -123,7 +121,7 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	int family;
 
-	if (dump_opt(lfd, SO_DOMAIN, &family))
+	if (dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &family))
 		return -1;
 
 	switch (family) {
