@@ -285,7 +285,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 }
 
 static int pb_optional_field_present(const ProtobufCFieldDescriptor *field,
-				    void *msg)
+		const void *msg)
 {
 	if ((field->type == PROTOBUF_C_TYPE_MESSAGE) ||
 		(field->type == PROTOBUF_C_TYPE_STRING)) {
@@ -318,7 +318,7 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 		data = (unsigned long *)(msg + fd.offset);
 
 		if (fd.label == PROTOBUF_C_LABEL_OPTIONAL) {
-			if (!pb_optional_field_present(&fd, data))
+			if (!pb_optional_field_present(&fd, msg))
 				continue;
 		}
 
