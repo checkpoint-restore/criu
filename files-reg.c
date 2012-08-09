@@ -427,44 +427,28 @@ static struct file_desc_ops reg_desc_ops = {
 	.open = open_fe_fd,
 };
 
+static int collect_one_regfile(void *o, ProtobufCMessage *base)
+{
+	struct reg_file_info *rfi = o;
+
+	rfi->rfe = pb_msg(base, RegFileEntry);
+	rfi->path = rfi->rfe->name;
+	rfi->remap_path = NULL;
+
+	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
+	file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
+
+	return 0;
+}
+
 int collect_reg_files(void)
 {
-	struct reg_file_info *rfi = NULL;
-	int fd, ret = -1;
+	int ret;
 
-	fd = open_image_ro(CR_FD_REG_FILES);
-	if (fd < 0)
-		return -1;
+	ret = collect_image(CR_FD_REG_FILES, PB_REG_FILES,
+			sizeof(struct reg_file_info), collect_one_regfile);
+	if (!ret)
+		ret = collect_remaps();
 
-	while (1) {
-		RegFileEntry *rfe;
-
-		rfi = xmalloc(sizeof(*rfi));
-		ret = -1;
-		if (rfi == NULL)
-			break;
-
-		rfi->path = NULL;
-
-		ret = pb_read_one_eof(fd, &rfe, PB_REG_FILES);
-		if (ret <= 0)
-			break;
-
-		rfi->rfe = rfe;
-		rfi->path = rfe->name;
-
-		rfi->remap_path = NULL;
-
-		pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
-		file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
-	}
-
-	if (rfi) {
-		xfree(rfi->path);
-		xfree(rfi);
-	}
-
-	close(fd);
-
-	return collect_remaps();
+	return ret;
 }

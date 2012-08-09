@@ -72,6 +72,9 @@ extern int pb_write_one(int fd, void *obj, int type);
 #define pb_repeated_size(__obj, __member)						\
 	(sizeof(*(__obj)->__member) * (__obj)->n_ ##__member)
 
+#define pb_msg(__base, __type)			\
+	container_of(__base, __type, base)
+
 #include <google/protobuf-c/protobuf-c.h>
 
 extern void do_pb_show_plain(int fd, int type, int single_entry,
@@ -87,4 +90,6 @@ extern void do_pb_show_plain(int fd, int type, int single_entry,
 #define pb_show_vertical(__fd, __type)							\
 	do_pb_show_plain(__fd, __type, 1, NULL, 0)
 
+int collect_image(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg));
 #endif /* PROTOBUF_H__ */

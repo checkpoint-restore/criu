@@ -308,48 +308,42 @@ static struct file_desc_ops pipe_desc_ops = {
 	.want_transport	= want_transport,
 };
 
+static int collect_one_pipe(void *o, ProtobufCMessage *base)
+{
+	struct pipe_info *pi = o, *tmp;
+
+	pi->pe = pb_msg(base, PipeEntry);
+
+	pi->create = 0;
+	pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
+			pi->pe->id, pi->pe->pipe_id);
+
+	file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops);
+
+	list_for_each_entry(tmp, &pipes, list)
+		if (pi->pe->pipe_id == tmp->pe->pipe_id)
+			break;
+
+	if (&tmp->list == &pipes)
+		INIT_LIST_HEAD(&pi->pipe_list);
+	else
+		list_add(&pi->pipe_list, &tmp->pipe_list);
+
+	list_add_tail(&pi->list, &pipes);
+
+	return 0;
+}
+
 int collect_pipes(void)
 {
-	struct pipe_info *pi = NULL, *tmp;
-	int fd, ret = -1;
+	int ret;
 
-	fd = open_image_ro(CR_FD_PIPES);
-	if (fd < 0)
-		return -1;
+	ret = collect_image(CR_FD_PIPES, PB_PIPES,
+			sizeof(struct pipe_info), collect_one_pipe);
+	if (!ret)
+		ret = collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
 
-	while (1) {
-		ret = -1;
-		pi = xmalloc(sizeof(*pi));
-		if (pi == NULL)
-			break;
-
-		pi->create = 0;
-		ret = pb_read_one_eof(fd, &pi->pe, PB_PIPES);
-		if (ret <= 0)
-			break;
-
-		pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
-					pi->pe->id, pi->pe->pipe_id);
-
-		file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops);
-
-		list_for_each_entry(tmp, &pipes, list)
-			if (pi->pe->pipe_id == tmp->pe->pipe_id)
-				break;
-
-		if (&tmp->list == &pipes)
-			INIT_LIST_HEAD(&pi->pipe_list);
-		else
-			list_add(&pi->pipe_list, &tmp->pipe_list);
-
-		list_add_tail(&pi->list, &pipes);
-	}
-
-	xfree(pi);
-
-	close(fd);
-
-	return collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
+	return ret;
 }
 
 int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p)

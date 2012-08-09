@@ -471,3 +471,42 @@ err:
 		xfree(buf);
 	return ret;
 }
+
+int collect_image(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg))
+{
+	int fd, ret;
+
+	fd = open_image_ro(fd_t);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		void *obj;
+		ProtobufCMessage *msg;
+
+		if (size) {
+			ret = -1;
+			obj = xmalloc(size);
+			if (!obj)
+				break;
+		} else
+			obj = NULL;
+
+		ret = pb_read_one_eof(fd, &msg, obj_t);
+		if (ret <= 0) {
+			xfree(obj);
+			break;
+		}
+
+		ret = collect(obj, msg);
+		if (ret < 0) {
+			xfree(obj);
+			cr_pb_descs[obj_t].free(msg, NULL);
+			break;
+		}
+	}
+
+	close(fd);
+	return ret;
+}

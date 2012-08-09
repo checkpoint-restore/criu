@@ -120,34 +120,19 @@ static struct file_desc_ops eventfd_desc_ops = {
 	.open = eventfd_open,
 };
 
+static int collect_one_efd(void *obj, ProtobufCMessage *msg)
+{
+	struct eventfd_file_info *info = obj;
+
+	info->efe = pb_msg(msg, EventfdFileEntry);
+	file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
+	pr_info_eventfd("Collected ", info->efe);
+
+	return 0;
+}
+
 int collect_eventfd(void)
 {
-	struct eventfd_file_info *info = NULL;
-	int ret, image_fd;
-
-	image_fd = open_image_ro(CR_FD_EVENTFD);
-	if (image_fd < 0)
-		return -1;
-
-	while (1) {
-		ret = -1;
-
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			break;
-
-		ret = pb_read_one_eof(image_fd, &info->efe, PB_EVENTFD);
-		if (ret < 0)
-			goto err;
-		else if (!ret)
-			break;
-		pr_info_eventfd("Collected ", info->efe);
-		file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
-	}
-
-err:
-	xfree(info ? info->efe : NULL);
-	xfree(info);
-	close(image_fd);
-	return ret;
+	return collect_image(CR_FD_EVENTFD, PB_EVENTFD,
+			sizeof(struct eventfd_file_info), collect_one_efd);
 }

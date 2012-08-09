@@ -719,62 +719,51 @@ static struct file_desc_ops unix_desc_ops = {
 	.want_transport = unixsk_should_open_transport,
 };
 
+static int collect_one_unixsk(void *o, ProtobufCMessage *base)
+{
+	struct unix_sk_info *ui = o;
+
+	ui->ue = pb_msg(base, UnixSkEntry);
+
+	if (ui->ue->name.len) {
+		if (ui->ue->name.len >= UNIX_PATH_MAX) {
+			pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
+			return -1;
+		}
+
+		ui->name = (void *)ui->ue->name.data;
+
+		/*
+		 * Make FS clean from sockets we're about to
+		 * restore. See for how we bind them for details
+		 */
+		if (ui->name[0] != '\0' &&
+				!(ui->ue->uflags & USK_EXTERN))
+			unlink(ui->name);
+	} else
+		ui->name = NULL;
+
+	ui->peer = NULL;
+	ui->flags = 0;
+	pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue->ino, ui->ue->peer);
+	file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
+	list_add_tail(&ui->list, &unix_sockets);
+
+	return 0;
+}
+
 int collect_unix_sockets(void)
 {
-	struct unix_sk_info *ui = NULL;
-	int fd, ret;
+	int ret;
 
 	pr_info("Reading unix sockets in\n");
 
-	fd = open_image_ro(CR_FD_UNIXSK);
-	if (fd < 0) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
+	ret = collect_image(CR_FD_UNIXSK, PB_UNIXSK,
+			sizeof(struct unix_sk_info), collect_one_unixsk);
+	if (!ret)
+		ret = read_sk_queues();
 
-	while (1) {
-		ret = -1;
-		ui = xmalloc(sizeof(*ui));
-		if (ui == NULL)
-			break;
-
-		ret = pb_read_one_eof(fd, &ui->ue, PB_UNIXSK);
-		if (ret <= 0)
-			break;
-
-		if (ui->ue->name.len) {
-			ret = -1;
-
-			if (ui->ue->name.len >= UNIX_PATH_MAX) {
-				pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
-				break;
-			}
-
-			ui->name = (void *)ui->ue->name.data;
-
-			/*
-			 * Make FS clean from sockets we're about to
-			 * restore. See for how we bind them for details
-			 */
-			if (ui->name[0] != '\0' &&
-			    !(ui->ue->uflags & USK_EXTERN))
-				unlink(ui->name);
-		} else
-			ui->name = NULL;
-
-		ui->peer = NULL;
-		ui->flags = 0;
-		pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue->ino, ui->ue->peer);
-		file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
-		list_add_tail(&ui->list, &unix_sockets);
-	}
-
-	xfree(ui);
-	close(fd);
-
-	return read_sk_queues();
+	return 0;
 }
 
 int resolve_unix_peers(void)

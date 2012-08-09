@@ -293,36 +293,22 @@ static struct file_desc_ops inet_desc_ops = {
 	.open = open_inet_sk,
 };
 
+static int collect_one_inetsk(void *o, ProtobufCMessage *base)
+{
+	struct inet_sk_info *ii = o;
+
+	ii->ie = pb_msg(base, InetSkEntry);
+	file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
+	if (tcp_connection(ii->ie))
+		tcp_locked_conn_add(ii);
+
+	return 0;
+}
+
 int collect_inet_sockets(void)
 {
-	struct inet_sk_info *ii = NULL;
-	int fd, ret = -1;
-
-	fd = open_image_ro(CR_FD_INETSK);
-	if (fd < 0)
-		return -1;
-
-	while (1) {
-		ii = xmalloc(sizeof(*ii));
-		ret = -1;
-		if (!ii)
-			break;
-
-		ret = pb_read_one_eof(fd, &ii->ie, PB_INETSK);
-		if (ret <= 0)
-			break;
-
-		file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
-
-		if (tcp_connection(ii->ie))
-			tcp_locked_conn_add(ii);
-	}
-
-	if (ii)
-		xfree(ii);
-
-	close(fd);
-	return ret;
+	return collect_image(CR_FD_INETSK, PB_INETSK,
+			sizeof(struct inet_sk_info), collect_one_inetsk);
 }
 
 static int open_inet_sk(struct file_desc *d)

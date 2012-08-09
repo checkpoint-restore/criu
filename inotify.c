@@ -210,66 +210,40 @@ static int collect_mark(struct inotify_wd_info *mark)
 		}
 	}
 
+	pr_err("Can't find inotify with id 0x%08x\n", mark->iwe->id);
 	return -1;
+}
+
+static int collect_one_ify(void *o, ProtobufCMessage *msg)
+{
+	struct inotify_file_info *info = o;
+
+	info->ife = pb_msg(msg, InotifyFileEntry);
+	INIT_LIST_HEAD(&info->marks);
+	list_add(&info->list, &info_head);
+	file_desc_add(&info->d, info->ife->id, &desc_ops);
+	pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
+
+	return 0;
+}
+
+static int collect_one_wd(void *o, ProtobufCMessage *msg)
+{
+	struct inotify_wd_info *mark = o;
+
+	mark->iwe = pb_msg(msg, InotifyWdEntry);
+	return collect_mark(mark);
 }
 
 int collect_inotify(void)
 {
-	struct inotify_file_info *info;
-	struct inotify_wd_info *mark;
-	int image_fd = -1, ret = -1;
+	int ret;
 
-	image_fd = open_image_ro(CR_FD_INOTIFY);
-	if (image_fd < 0)
-		return -1;
-
-	while (1) {
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			return -1;
-
-		ret = pb_read_one_eof(image_fd, &info->ife, PB_INOTIFY);
-		if (ret < 0)
-			goto err;
-		else if (!ret)
-			break;
-
-		INIT_LIST_HEAD(&info->marks);
-		list_add(&info->list, &info_head);
-		file_desc_add(&info->d, info->ife->id, &desc_ops);
-		pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
-	}
-
-	close_safe(&image_fd);
-
-	ret = -1;
-
-	image_fd = open_image_ro(CR_FD_INOTIFY_WD);
-	if (image_fd < 0)
-		goto err;
-
-	while (1) {
-		ret = -1;
-		mark = xmalloc(sizeof(*mark));
-		if (!mark)
-			goto err;
-
-		ret = pb_read_one_eof(image_fd, &mark->iwe, PB_INOTIFY_WD);
-		if (ret < 0)
-			goto err;
-		else if (!ret)
-			break;
-
-		if (collect_mark(mark)) {
-			ret = -1;
-			pr_err("Can't find inotify with id 0x%08x\n", mark->iwe->id);
-			goto err;
-		}
-	}
-
-	ret = 0;
-err:
-	close_safe(&image_fd);
+	ret = collect_image(CR_FD_INOTIFY, PB_INOTIFY,
+			sizeof(struct inotify_file_info), collect_one_ify);
+	if (!ret)
+		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
+				sizeof(struct inotify_wd_info), collect_one_wd);
 
 	return ret;
 }

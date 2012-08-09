@@ -148,59 +148,39 @@ static struct file_desc_ops desc_ops = {
 	.open = eventpoll_open,
 };
 
+static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg)
+{
+	struct eventpoll_tfd_file_info *info = o;
+
+	info->tdefe = pb_msg(msg, EventpollTfdEntry);
+	list_add(&info->list, &eventpoll_tfds);
+	pr_info_eventpoll_tfd("Collected ", info->tdefe);
+
+	return 0;
+}
+
+static int collect_one_epoll(void *o, ProtobufCMessage *msg)
+{
+	struct eventpoll_file_info *info = o;
+
+	info->efe = pb_msg(msg, EventpollFileEntry);
+	file_desc_add(&info->d, info->efe->id, &desc_ops);
+	pr_info_eventpoll("Collected ", info->efe);
+
+	return 0;
+}
+
 int collect_eventpoll(void)
 {
-	int image_fd;
-	int ret = -1;
+	int ret;
 
-	image_fd = open_image_ro(CR_FD_EVENTPOLL_TFD);
-	if (image_fd < 0)
-		return -1;
+	ret = collect_image(CR_FD_EVENTPOLL_TFD, PB_EVENTPOLL_TFD,
+			sizeof(struct eventpoll_tfd_file_info),
+			collect_one_epoll_tfd);
+	if (!ret)
+		ret = collect_image(CR_FD_EVENTPOLL, PB_EVENTPOLL,
+				sizeof(struct eventpoll_file_info),
+				collect_one_epoll);
 
-	while (1) {
-		struct eventpoll_tfd_file_info *info;
-
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			goto err;
-
-		ret = pb_read_one_eof(image_fd, &info->tdefe, PB_EVENTPOLL_TFD);
-		if (ret < 0)
-			goto err;
-		else if (!ret)
-			break;
-
-		INIT_LIST_HEAD(&info->list);
-
-		list_add(&info->list, &eventpoll_tfds);
-		pr_info_eventpoll_tfd("Collected ", info->tdefe);
-	}
-
-	close_safe(&image_fd);
-
-	image_fd = open_image_ro(CR_FD_EVENTPOLL);
-	if (image_fd < 0)
-		return -1;
-
-	while (1) {
-		struct eventpoll_file_info *info;
-
-		ret = -1;
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			goto err;
-
-		ret = pb_read_one_eof(image_fd, &info->efe, PB_EVENTPOLL);
-		if (ret < 0)
-			goto err;
-		else if (!ret)
-			break;
-
-		pr_info_eventpoll("Collected ", info->efe);
-		file_desc_add(&info->d, info->efe->id, &desc_ops);
-	}
-
-err:
-	close_safe(&image_fd);
 	return ret;
 }

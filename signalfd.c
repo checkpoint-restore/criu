@@ -118,30 +118,18 @@ static struct file_desc_ops signalfd_desc_ops = {
 	.open = signalfd_open,
 };
 
+static int collect_one_sigfd(void *o, ProtobufCMessage *msg)
+{
+	struct signalfd_info *info = o;
+
+	info->sfe = pb_msg(msg, SignalfdEntry);
+	file_desc_add(&info->d, info->sfe->id, &signalfd_desc_ops);
+
+	return 0;
+}
+
 int collect_signalfd(void)
 {
-	struct signalfd_info *info = NULL;
-	int ret, image_fd;
-
-	image_fd = open_image_ro(CR_FD_SIGNALFD);
-	if (image_fd < 0)
-		return -1;
-
-	while (1) {
-		ret = -1;
-		info = xmalloc(sizeof(*info));
-		if (!info)
-			break;
-
-		ret = pb_read_one_eof(image_fd, &info->sfe, PB_SIGNALFD);
-		if (ret <= 0)
-			break;
-
-		file_desc_add(&info->d, info->sfe->id, &signalfd_desc_ops);
-	}
-
-	xfree(info ? info->sfe : NULL);
-	xfree(info);
-	close(image_fd);
-	return ret;
+	return collect_image(CR_FD_SIGNALFD, PB_SIGNALFD,
+			sizeof(struct signalfd_info), collect_one_sigfd);
 }
