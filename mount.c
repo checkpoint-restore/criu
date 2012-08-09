@@ -179,7 +179,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	return tree;
 }
 
-DIR *open_mountpoint(struct mount_info *pm)
+static DIR *open_mountpoint(struct mount_info *pm)
 {
 	int fd, ret;
 	char path[PATH_MAX + 1];
@@ -222,7 +222,7 @@ DIR *open_mountpoint(struct mount_info *pm)
 	return fdir;
 }
 
-int close_mountpoint(DIR *dfd)
+static int close_mountpoint(DIR *dfd)
 {
 	if (closedir(dfd)) {
 		pr_perror("Unable to close directory");
@@ -231,11 +231,42 @@ int close_mountpoint(DIR *dfd)
 	return 0;
 }
 
+static int binfmt_misc_dump(struct mount_info *pm)
+{
+	int ret = -1;
+	struct dirent *de;
+	DIR *fdir = NULL;
+
+	fdir = open_mountpoint(pm);
+	if (fdir == NULL)
+		return -1;
+
+	while ((de = readdir(fdir))) {
+		if (!strcmp(de->d_name, "."))
+			continue;
+		if (!strcmp(de->d_name, ".."))
+			continue;
+		if (!strcmp(de->d_name, "register"))
+			continue;
+		if (!strcmp(de->d_name, "status"))
+			continue;
+
+		pr_err("binfmt_misc isn't empty: %s\n", de->d_name);
+		goto out;
+	}
+
+	ret = 0;
+out:
+	close_mountpoint(fdir);
+	return ret;
+}
+
 static struct fstype fstypes[] = {
 	{ "unsupported" },
 	{ "proc" },
 	{ "sysfs" },
 	{ "devtmpfs" },
+	{ "binfmt_misc", binfmt_misc_dump },
 };
 
 struct fstype *find_fstype_by_name(char *fst)

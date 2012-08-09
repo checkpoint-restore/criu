@@ -78,6 +78,11 @@ done:
 		fail("Can't mount proc");
 		return 1;
 	}
+	if (mount("none", MPTS_ROOT"/kernel/sys/fs/binfmt_misc",
+					"binfmt_misc", 0, "") < 0) {
+		fail("Can't mount proc");
+		return 1;
+	}
 
 	fd = open(MPTS_ROOT"/kernel/meminfo", O_RDONLY);
 	if (fd == -1)
