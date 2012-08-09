@@ -127,6 +127,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(NETDEV,	"netdev-%d",	 show_netdevices),
 	FD_ENTRY(IFADDR,	"ifaddr-%d",	 show_raw_image),
 	FD_ENTRY(ROUTE,		"route-%d",	 show_raw_image),
+	FD_ENTRY(TMPFS,		"tmpfs-%d.tar.gz", show_raw_image),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

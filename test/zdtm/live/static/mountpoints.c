@@ -16,7 +16,7 @@ static char buf[1024];
 static int test_fn(int argc, char **argv)
 {
 	FILE *f;
-	int fd;
+	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
 
 again:
@@ -71,6 +71,16 @@ done:
 
 	if (mount("none", MPTS_ROOT, "sysfs", 0, "") < 0) {
 		fail("Can't mount sysfs");
+		return 1;
+	}
+
+	if (mount("none", MPTS_ROOT"/dev", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	tmpfs_fd = open(MPTS_ROOT"/dev/test", O_WRONLY | O_CREAT);
+	if (write(tmpfs_fd, "hello", 5) <= 0) {
+		err("write() failed");
 		return 1;
 	}
 

@@ -75,6 +75,8 @@ enum {
 	CR_FD_INOTIFY_WD,
 	_CR_FD_GLOB_TO,
 
+	CR_FD_TMPFS,
+
 	CR_FD_MAX
 };
 

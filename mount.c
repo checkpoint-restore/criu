@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "crtools.h"
 #include "types.h"
@@ -231,6 +233,137 @@ static int close_mountpoint(DIR *dfd)
 	return 0;
 }
 
+static int tmpfs_dump(struct mount_info *pm)
+{
+	int ret, status;
+	pid_t pid;
+
+	pid = fork();
+	if (pid == -1) {
+		pr_perror("fork() failed\n");
+		return -1;
+	} else if (pid == 0) {
+		char tmpfs_path[PATH_MAX];
+		int fd, fd_img;
+		DIR *fdir;
+
+		fdir = open_mountpoint(pm);
+		if (fdir == NULL)
+			exit(1);
+
+		fd = dirfd(fdir);
+		if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {
+			pr_perror("Can not drop FD_CLOEXEC");
+			exit(1);
+		}
+
+		fd_img = open_image(CR_FD_TMPFS, O_DUMP, pm->mnt_id);
+		if (fd_img < 0)
+			exit(1);
+
+		ret = dup2(fd_img, STDOUT_FILENO);
+		if (ret < 0) {
+			pr_perror("dup2() failed");
+			exit(1);
+		}
+		ret = dup2(log_get_fd(), STDERR_FILENO);
+		if (ret < 0) {
+			pr_perror("dup2() failed");
+			exit(1);
+		}
+		close(fd_img);
+
+		/* tmpfs is in another mount namespace,
+		 * a direct path is inaccessible */
+		snprintf(tmpfs_path, sizeof(tmpfs_path),
+					       "/proc/self/fd/%d", fd);
+
+		execlp("tar", "tar", "-czlp",
+			"--sparse",
+			"--numeric-owner",
+			"-C", tmpfs_path, ".", NULL);
+		pr_perror("exec failed");
+		exit(1);
+	}
+
+	ret = waitpid(pid, &status, 0);
+	if (ret == -1) {
+		pr_perror("waitpid() failed");
+		return -1;
+	}
+
+	if (status) {
+		pr_err("Can't dump tmpfs content\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int tmpfs_restore(struct mount_info *pm)
+{
+	int ret, status = -1;
+	sigset_t mask, oldmask;
+	pid_t pid;
+
+	ret = sigprocmask(SIG_SETMASK, NULL, &oldmask);
+	if (ret == -1) {
+		pr_perror("Can not get mask of blocked signals");
+		return -1;
+	}
+	mask = oldmask;
+	sigaddset(&mask, SIGCHLD);
+	ret = sigprocmask(SIG_SETMASK, &mask, NULL);
+	if (ret == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		return -1;
+	}
+
+	pid = fork();
+	if (pid == -1) {
+		pr_perror("fork() failed\n");
+		goto out_unlock;
+	} else if (pid == 0) {
+		int fd_img;
+
+		fd_img = open_image_ro(CR_FD_TMPFS, pm->mnt_id);
+		if (fd_img < 0)
+			exit(1);
+
+		ret = dup2(fd_img, STDIN_FILENO);
+		if (ret < 0) {
+			pr_perror("dup2() failed");
+			exit(1);
+		}
+		close(fd_img);
+
+		execlp("tar", "tar", "-xz", "-C", pm->mountpoint, NULL);
+		pr_perror("exec failed");
+		exit(1);
+	}
+
+	ret = waitpid(pid, &status, 0);
+	if (ret == -1) {
+		pr_perror("waitpid() failed");
+		goto out_unlock;
+	}
+
+	if (status) {
+		pr_err("Can't restore tmpfs content\n");
+		status = -1;
+		goto out_unlock;
+	}
+
+out_unlock:
+	ret = sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	if (ret == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		BUG_ON(1);
+	}
+
+	return status;
+}
+
 static int binfmt_misc_dump(struct mount_info *pm)
 {
 	int ret = -1;
@@ -267,6 +400,7 @@ static struct fstype fstypes[] = {
 	{ "sysfs" },
 	{ "devtmpfs" },
 	{ "binfmt_misc", binfmt_misc_dump },
+	{ "tmpfs", tmpfs_dump, tmpfs_restore },
 };
 
 struct fstype *find_fstype_by_name(char *fst)
