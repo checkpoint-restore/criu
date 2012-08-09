@@ -16,4 +16,6 @@ message packet_sock_entry {
 	required bool		aux_data	= 10;
 	required bool		orig_dev	= 11;
 	required bool		vnet_hdr	= 12;
+	required bool		loss		= 13;
+	required uint32		timestamp	= 14;
 }
