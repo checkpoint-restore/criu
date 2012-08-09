@@ -9,6 +9,7 @@
 #include "uts_ns.h"
 #include "ipc_ns.h"
 #include "sk-inet.h"
+#include "sk-packet.h"
 #include "mount.h"
 #include "net.h"
 #include "protobuf.h"
@@ -107,6 +108,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(SIGACT,	"sigacts-%d",	 show_sigacts),
 	FD_ENTRY(UNIXSK,	"unixsk",	 show_unixsk),
 	FD_ENTRY(INETSK,	"inetsk",	 show_inetsk),
+	FD_ENTRY(PACKETSK,	"packetsk",	 show_packetsk),
 	FD_ENTRY(SK_QUEUES,	"sk-queues",	 show_sk_queues),
 	FD_ENTRY(ITIMERS,	"itimers-%d",	 show_itimers),
 	FD_ENTRY(CREDS,		"creds-%d",	 show_creds),

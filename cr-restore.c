@@ -32,6 +32,7 @@
 #include "syscall.h"
 #include "restorer.h"
 #include "sockets.h"
+#include "sk-packet.h"
 #include "lock.h"
 #include "files.h"
 #include "files-reg.h"
@@ -100,6 +101,9 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_unix_sockets())
+		return -1;
+
+	if (collect_packet_sockets())
 		return -1;
 
 	if (collect_eventfd())

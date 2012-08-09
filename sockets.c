@@ -9,6 +9,7 @@
 #include "inet_diag.h"
 #include "files.h"
 #include "util-net.h"
+#include "sk-packet.h"
 
 #ifndef NETLINK_SOCK_DIAG
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
@@ -99,8 +100,6 @@ int do_dump_opt(int sk, int name, void *val, int len)
 	return 0;
 }
 
-#define dump_opt(s, n, f)	do_dump_opt(s, n, f, sizeof(*f))
-
 int dump_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0;
@@ -133,6 +132,8 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 	case AF_INET:
 	case AF_INET6:
 		return dump_one_inet(p, lfd, cr_fdset);
+	case AF_PACKET:
+		return dump_one_packet_sk(p, lfd, cr_fdset);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

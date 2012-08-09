@@ -56,5 +56,6 @@ extern int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 extern int unix_receive_one(struct nlmsghdr *h, void *);
 
 extern int do_dump_opt(int sk, int name, void *val, int len);
+#define dump_opt(s, n, f)	do_dump_opt(s, n, f, sizeof(*f))
 
 #endif /* CR_SOCKETS_H__ */

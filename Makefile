@@ -44,6 +44,7 @@ OBJS		+= sockets.o
 OBJS		+= sk-inet.o
 OBJS		+= sk-tcp.o
 OBJS		+= sk-unix.o
+OBJS		+= sk-packet.o
 OBJS		+= sk-queue.o
 OBJS		+= files.o
 OBJS		+= files-reg.o

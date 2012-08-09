@@ -29,6 +29,7 @@
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/sk-unix.pb-c.h"
 #include "protobuf/sk-inet.pb-c.h"
+#include "protobuf/packet-sock.pb-c.h"
 #include "protobuf/sk-packet.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
@@ -116,6 +117,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(TCP_STREAM,		TcpStream,	tcp_stream);
 	CR_PB_DESC(MOUNTPOINTS,		Mnt,		mnt);
 	CR_PB_DESC(NETDEV,		NetDevice,	net_device);
+	CR_PB_DESC(PACKETSK,		PacketSock,	packet_sock);
 }
 
 /*

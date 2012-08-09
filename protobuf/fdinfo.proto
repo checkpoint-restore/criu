@@ -9,6 +9,7 @@ enum fd_types {
 	EVENTPOLL	= 7;
 	INOTIFY		= 8;
 	SIGNALFD	= 9;
+	PACKETSK	= 10;
 }
 
 message fdinfo_entry {
