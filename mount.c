@@ -183,6 +183,7 @@ static char *fstypes[] = {
 	"unsupported",
 	"proc",
 	"sysfs",
+	"devtmpfs",
 };
 
 static u32 encode_fstype(char *fst)
