@@ -179,6 +179,58 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	return tree;
 }
 
+DIR *open_mountpoint(struct mount_info *pm)
+{
+	int fd, ret;
+	char path[PATH_MAX + 1];
+	struct stat st;
+	DIR *fdir;
+
+	if (!list_empty(&pm->children)) {
+		pr_err("Something is mounted on top of %s\n", pm->fstype->name);
+		return NULL;
+	}
+
+	snprintf(path, sizeof(path), ".%s", pm->mountpoint);
+	fd = openat(mntns_root, path, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s", pm->mountpoint);
+		return NULL;
+	}
+
+	ret = fstat(fd, &st);
+	if (ret < 0) {
+		pr_perror("fstat(%s) failed", path);
+		close(fd);
+		return NULL;
+	}
+
+	if (st.st_dev != pm->s_dev) {
+		pr_err("The file system 0x%x %s %s is inaccessible\n",
+				pm->s_dev, pm->fstype->name, pm->mountpoint);
+		close(fd);
+		return NULL;
+	}
+
+	fdir = fdopendir(fd);
+	if (fdir == NULL) {
+		close(fd);
+		pr_perror("Can't open %s", pm->mountpoint);
+		return NULL;
+	}
+
+	return fdir;
+}
+
+int close_mountpoint(DIR *dfd)
+{
+	if (closedir(dfd)) {
+		pr_perror("Unable to close directory");
+		return -1;
+	}
+	return 0;
+}
+
 static struct fstype fstypes[] = {
 	{ "unsupported" },
 	{ "proc" },
