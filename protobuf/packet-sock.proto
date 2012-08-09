@@ -10,4 +10,6 @@ message packet_sock_entry {
 
 	required fown_entry		fown		= 6;
 	required sk_opts_entry		opts		= 7;
+
+	required uint32		version		= 8;
 }

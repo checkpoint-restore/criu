@@ -20,7 +20,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <netpacket/packet.h>
+#include <linux/if_packet.h>
 #include <net/ethernet.h>
 
 static int test_sockaddr(int n, struct sockaddr_ll *have, struct sockaddr_ll *want)
@@ -52,6 +52,7 @@ int main(int argc, char **argv)
 	int sk1, sk2;
 	struct sockaddr_ll addr, addr1, addr2;
 	socklen_t alen;
+	int ver;
 
 	test_init(argc, argv);
 
@@ -87,6 +88,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	ver = TPACKET_V2;
+	if (setsockopt(sk1, SOL_PACKET, PACKET_VERSION, &ver, sizeof(ver)) < 0) {
+		err("Can't set version %m");
+		return 1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
@@ -98,6 +105,17 @@ int main(int argc, char **argv)
 
 	if (test_sockaddr(1, &addr, &addr1))
 		return 1;
+
+	alen = sizeof(ver);
+	if (getsockopt(sk1, SOL_PACKET, PACKET_VERSION, &ver, &alen) < 0) {
+		fail("Can't get sockopt ver %m");
+		return 1;
+	}
+
+	if (ver != TPACKET_V2) {
+		fail("Version mismatch have %d, want %d\n", ver, TPACKET_V2);
+		return 1;
+	}
 
 	alen = sizeof(addr);
 	if (getsockname(sk2, (struct sockaddr *)&addr, &alen) < 0) {

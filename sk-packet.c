@@ -1,5 +1,5 @@
+#include <linux/if_packet.h>
 #include <sys/socket.h>
-#include <netpacket/packet.h>
 #include <unistd.h>
 #include <string.h>
 #include "crtools.h"
@@ -53,6 +53,9 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	psk.protocol = addr.sll_protocol;
 	psk.ifindex = addr.sll_ifindex;
 
+	if (dump_opt(lfd, SOL_PACKET, PACKET_VERSION, &psk.version))
+		return -1;
+
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 }
 
@@ -93,6 +96,9 @@ static int open_packet_sk(struct file_desc *d)
 		pr_perror("Can't bind packet socket");
 		goto err_cl;
 	}
+
+	if (restore_opt(sk, SOL_PACKET, PACKET_VERSION, &pse->version))
+		goto err_cl;
 
 	if (rst_file_params(sk, pse->fown, pse->flags))
 		goto err_cl;
