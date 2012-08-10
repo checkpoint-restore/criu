@@ -32,6 +32,7 @@ struct sockaddr;
 struct msghdr;
 struct rusage;
 struct file_handle;
+struct robust_list_head;
 
 #ifndef F_GETFD
 #define F_GETFD 1
