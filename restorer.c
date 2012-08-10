@@ -144,6 +144,15 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	sys_set_tid_address((int *)args->clear_tid_addr);
 
+	if (args->has_futex) {
+		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
+			write_num_n(__LINE__);
+			write_num_n(my_pid);
+			write_num_n(args->pid);
+			goto core_restore_end;
+		}
+	}
+
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
@@ -431,6 +440,15 @@ long __export_restore_task(struct task_restore_core_args *args)
 	ret = restore_self_exe_late(args);
 	if (ret)
 		goto core_restore_end;
+
+	if (args->has_futex) {
+		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
+			write_num_n(__LINE__);
+			write_num_n(my_pid);
+			write_num_n(args->pid);
+			goto core_restore_end;
+		}
+	}
 
 	/*
 	 * We need to prepare a valid sigframe here, so

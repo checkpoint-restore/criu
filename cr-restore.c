@@ -1339,6 +1339,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	task_args->gpregs		= *core->thread_info->gpregs;
 	task_args->blk_sigset		= core->tc->blk_sigset;
 
+	if (core->thread_core) {
+		task_args->has_futex		= true;
+		task_args->futex_rla		= core->thread_core->futex_rla;
+		task_args->futex_rla_len	= core->thread_core->futex_rla_len;
+	}
+
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
 
@@ -1399,6 +1405,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		thread_args[i].rst_lock		= &task_args->rst_lock;
 		thread_args[i].gpregs		= *core->thread_info->gpregs;
 		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
+
+		if (core->thread_core) {
+			thread_args[i].has_futex	= true;
+			thread_args[i].futex_rla	= core->thread_core->futex_rla;
+			thread_args[i].futex_rla_len	= core->thread_core->futex_rla_len;
+		}
 
 		core_entry__free_unpacked(core, NULL);
 
