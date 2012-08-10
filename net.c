@@ -160,7 +160,8 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk)
 	req.i.ifi_index = nde->ifindex;
 	req.i.ifi_flags = nde->flags;
 
-	/* FIXME -- restore mtu as well */
+	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde->name, strlen(nde->name));
+	addattr_l(&req.h, sizeof(req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
 
 	pr_info("Restoring netdev idx %d\n", nde->ifindex);
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
