@@ -565,6 +565,24 @@ out:
 	return ret;
 }
 
+static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
+{
+	struct robust_list_head *head = NULL;
+	size_t len = 0;
+	int ret;
+
+	ret = sys_get_robust_list(pid, &head, &len);
+	if (ret) {
+		pr_err("Failed obtaining futex robust list on %d\n", pid);
+		return -1;
+	}
+
+	info->futex_rla		= (u64)head;
+	info->futex_rla_len	= (u32)len;
+
+	return 0;
+}
+
 static int get_task_personality(pid_t pid, u32 *personality)
 {
 	FILE *file = NULL;
@@ -740,6 +758,7 @@ static void core_entry_free(CoreEntry *core)
 			xfree(core->thread_info->fpregs);
 		}
 		xfree(core->thread_info);
+		xfree(core->thread_core);
 		xfree(core->tc);
 		xfree(core->ids);
 	}
@@ -755,6 +774,7 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 	UserX86FpregsEntry *fpregs;
 	TaskCoreEntry *tc;
 	TaskKobjIdsEntry *ids;
+	ThreadCoreEntry *thread_core;
 
 	core = xmalloc(sizeof(*core));
 	if (!core)
@@ -769,6 +789,12 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 			goto err;
 		thread_info_x86__init(thread_info);
 		core->thread_info = thread_info;
+
+		thread_core = xmalloc(sizeof(*thread_core));
+		if (!thread_core)
+			goto err;
+		thread_core_entry__init(thread_core);
+		core->thread_core = thread_core;
 
 		gpregs = xmalloc(sizeof(*gpregs));
 		if (!gpregs)
@@ -844,6 +870,10 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		goto err_free;
 
 	ret = get_task_regs(pid, core, ctl);
+	if (ret)
+		goto err_free;
+
+	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
 		goto err_free;
 
@@ -1230,6 +1260,10 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 		goto err;
 
 	ret = get_task_regs(pid, core, NULL);
+	if (ret)
+		goto err_free;
+
+	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
 		goto err_free;
 

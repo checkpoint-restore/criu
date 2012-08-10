@@ -66,6 +66,11 @@ message thread_info_x86 {
 	required user_x86_fpregs_entry	fpregs		= 3;
 }
 
+message thread_core_entry {
+	required uint64			futex_rla	= 1;
+	required uint32			futex_rla_len	= 2;
+}
+
 message core_entry {
 	enum march {
 		UNKNOWN		= 0;
@@ -77,4 +82,5 @@ message core_entry {
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
+	optional thread_core_entry	thread_core	= 5;
 }
