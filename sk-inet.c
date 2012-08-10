@@ -198,8 +198,12 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	ie.fown		= (FownEntry *)&p->fown;
 	ie.opts		= &skopts;
 
-	ie.n_src_addr = 4;
-	ie.n_dst_addr = 4;
+	ie.n_src_addr = 1;
+	ie.n_dst_addr = 1;
+	if (ie.family == AF_INET6) {
+		ie.n_src_addr = 4;
+		ie.n_dst_addr = 4;
+	}
 
 	ie.src_addr = xmalloc(pb_repeated_size(&ie, src_addr));
 	ie.dst_addr = xmalloc(pb_repeated_size(&ie, dst_addr));
@@ -207,8 +211,8 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (!ie.src_addr || !ie.dst_addr)
 		goto err;
 
-	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * 4);
-	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * 4);
+	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * ie.n_src_addr);
+	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * ie.n_dst_addr);
 
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
@@ -277,10 +281,6 @@ static u32 zero_addr[4];
 
 static bool is_bound(struct inet_sk_info *ii)
 {
-	BUG_ON(sizeof(zero_addr) <
-		     max(pb_repeated_size(ii->ie, dst_addr),
-			 pb_repeated_size(ii->ie, src_addr)));
-
 	return memcmp(zero_addr, ii->ie->src_addr, pb_repeated_size(ii->ie, src_addr)) ||
 	       memcmp(zero_addr, ii->ie->dst_addr, pb_repeated_size(ii->ie, dst_addr));
 }
