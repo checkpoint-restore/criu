@@ -18,18 +18,10 @@ void show_netdevices(int fd, struct cr_options *opt)
 	pb_show_plain(fd, PB_NETDEV);
 }
 
-static int dump_one_netdev(int type, struct nlmsghdr *h, struct ifinfomsg *ifi, struct cr_fdset *fds)
+static int dump_one_netdev(int type, struct ifinfomsg *ifi,
+		struct rtattr **tb, struct cr_fdset *fds)
 {
-	int len = h->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-	struct rtattr * tb[IFLA_MAX+1];
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
-
-	if (len < 0) {
-		pr_err("No iflas for link %d\n", ifi->ifi_index);
-		return -1;
-	}
-
-	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
 	if (!tb[IFLA_IFNAME]) {
 		pr_err("No name for link %d\n", ifi->ifi_index);
@@ -49,14 +41,23 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 {
 	struct cr_fdset *fds = arg;
 	struct ifinfomsg *ifi;
-	int ret = 0;
+	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+	struct rtattr * tb[IFLA_MAX+1];
 
 	ifi = NLMSG_DATA(hdr);
+
+	if (len < 0) {
+		pr_err("No iflas for link %d\n", ifi->ifi_index);
+		return -1;
+	}
+
+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+
 	pr_info("\tLD: Got link %d, type %d\n", ifi->ifi_index, ifi->ifi_type);
 
 	switch (ifi->ifi_type) {
 	case ARPHRD_LOOPBACK:
-		ret = dump_one_netdev(ND_TYPE__LOOPBACK, hdr, ifi, fds);
+		ret = dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds);
 		break;
 	default:
 		pr_err("Unsupported link type %d\n", ifi->ifi_type);
