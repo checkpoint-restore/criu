@@ -37,6 +37,39 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), &netdev, PB_NETDEV);
 }
 
+static int dump_one_ethernet(struct ifinfomsg *ifi,
+		struct rtattr **tb, struct cr_fdset *fds)
+{
+	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
+	char *kind;
+
+	if (!tb[IFLA_LINKINFO]) {
+		pr_err("No linkinfo for eth link %d\n", ifi->ifi_index);
+		return -1;
+	}
+
+	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+	if (!linkinfo[IFLA_INFO_KIND]) {
+		pr_err("No kind for eth link %d\n", ifi->ifi_index);
+		return -1;
+	}
+
+	kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+	if (!strcmp(kind, "veth"))
+		/*
+		 * This is not correct. The peer of the veth device may
+		 * be either outside or inside the netns we're working
+		 * on, but there's currently no way of finding this out.
+		 *
+		 * Sigh... we have to assume, that the veth device is a
+		 * connection to the outer world and just dump this end :(
+		 */
+		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds);
+
+	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
+	return -1;
+}
+
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 {
 	struct cr_fdset *fds = arg;
@@ -58,6 +91,9 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	switch (ifi->ifi_type) {
 	case ARPHRD_LOOPBACK:
 		ret = dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds);
+		break;
+	case ARPHRD_ETHER:
+		ret = dump_one_ethernet(ifi, tb, fds);
 		break;
 	default:
 		pr_err("Unsupported link type %d\n", ifi->ifi_type);
@@ -134,6 +170,8 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK:
 		return restore_one_link(nde, nlsk);
+	case ND_TYPE__VETH:
+		break;
 	}
 
 	BUG_ON(1);

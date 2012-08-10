@@ -1,5 +1,6 @@
 enum nd_type {
 	LOOPBACK	= 1;
+	VETH		= 2;
 }
 
 message net_device_entry {
