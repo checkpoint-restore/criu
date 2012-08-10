@@ -19,6 +19,9 @@
 #include "sockets.h"
 #include "sk-inet.h"
 
+#define PB_ALEN_INET	1
+#define PB_ALEN_INET6	4
+
 static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
 	char src_addr[INET_ADDR_LEN] = "<unknown>";
@@ -198,11 +201,11 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	ie.fown		= (FownEntry *)&p->fown;
 	ie.opts		= &skopts;
 
-	ie.n_src_addr = 1;
-	ie.n_dst_addr = 1;
+	ie.n_src_addr = PB_ALEN_INET;
+	ie.n_dst_addr = PB_ALEN_INET;
 	if (ie.family == AF_INET6) {
-		ie.n_src_addr = 4;
-		ie.n_dst_addr = 4;
+		ie.n_src_addr = PB_ALEN_INET6;
+		ie.n_dst_addr = PB_ALEN_INET6;
 	}
 
 	ie.src_addr = xmalloc(pb_repeated_size(&ie, src_addr));
@@ -211,8 +214,8 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (!ie.src_addr || !ie.dst_addr)
 		goto err;
 
-	memcpy(ie.src_addr, sk->src_addr, sizeof(u32) * ie.n_src_addr);
-	memcpy(ie.dst_addr, sk->dst_addr, sizeof(u32) * ie.n_dst_addr);
+	memcpy(ie.src_addr, sk->src_addr, pb_repeated_size(&ie, src_addr));
+	memcpy(ie.dst_addr, sk->dst_addr, pb_repeated_size(&ie, dst_addr));
 
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
@@ -311,6 +314,26 @@ int collect_inet_sockets(void)
 			sizeof(struct inet_sk_info), collect_one_inetsk);
 }
 
+static int inet_validate_address(InetSkEntry *ie)
+{
+	if ((ie->family == AF_INET) &&
+			/* v0.1 had 4 in ipv4 addr len */
+			(pb_repeated_size(ie, src_addr) >= PB_ALEN_INET) &&
+			(pb_repeated_size(ie, dst_addr) >= PB_ALEN_INET) )
+		return 0;
+
+	if ((ie->family == AF_INET6) &&
+			(pb_repeated_size(ie, src_addr) == PB_ALEN_INET6) &&
+			(pb_repeated_size(ie, dst_addr) == PB_ALEN_INET6) )
+		return 0;
+
+	pr_err("Addr len mismatch f %d ss %lu ds %lu\n", ie->family,
+			pb_repeated_size(ie, src_addr),
+			pb_repeated_size(ie, dst_addr));
+
+	return -1;
+}
+
 static int open_inet_sk(struct file_desc *d)
 {
 	struct inet_sk_info *ii;
@@ -329,6 +352,9 @@ static int open_inet_sk(struct file_desc *d)
 		pr_err("Unsupported socket type: %d\n", ii->ie->type);
 		return -1;
 	}
+
+	if (!inet_validate_address(ii->ie))
+		return -1;
 
 	sk = socket(ii->ie->family, ii->ie->type, ii->ie->proto);
 	if (sk < 0) {
@@ -395,22 +421,16 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 	} addr;
 	int addr_size = 0;
 
+	BUILD_BUG_ON(sizeof(addr.v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(uint32_t));
+	BUILD_BUG_ON(sizeof(addr.v6.sin6_addr.s6_addr) > PB_ALEN_INET6 * sizeof(uint32_t));
 
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
-		if (pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v4.sin_addr.s_addr)) {
-			pr_perror("IPv4 source address dump size is to small");
-			return -1;
-		}
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->src_port);
 		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
-		if (pb_repeated_size(ii->ie, src_addr) < sizeof(addr.v6.sin6_addr.s6_addr)) {
-			pr_perror("IPv6 source address dump size is to small");
-			return -1;
-		}
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->src_port);
 		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(addr.v6.sin6_addr.s6_addr));
@@ -439,19 +459,11 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 	memzero(&addr, sizeof(addr));
 	if (ii->ie->family == AF_INET) {
-		if (pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v4.sin_addr.s_addr)) {
-			pr_perror("IPv4 destination address dump size is to small");
-			return -1;
-		}
 		addr.v4.sin_family = ii->ie->family;
 		addr.v4.sin_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->dst_addr, sizeof(addr.v4.sin_addr.s_addr));
 		addr_size = sizeof(addr.v4);
 	} else if (ii->ie->family == AF_INET6) {
-		if (pb_repeated_size(ii->ie, dst_addr) < sizeof(addr.v6.sin6_addr.s6_addr)) {
-			pr_perror("IPv6 destination address dump size is to small");
-			return -1;
-		}
 		addr.v6.sin6_family = ii->ie->family;
 		addr.v6.sin6_port = htons(ii->ie->dst_port);
 		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->dst_addr, sizeof(addr.v6.sin6_addr.s6_addr));
