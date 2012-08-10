@@ -182,6 +182,36 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk,
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
 }
 
+#ifndef VETH_INFO_MAX
+enum {
+	VETH_INFO_UNSPEC,
+	VETH_INFO_PEER,
+
+	__VETH_INFO_MAX
+#define VETH_INFO_MAX   (__VETH_INFO_MAX - 1)
+};
+#endif
+
+static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	struct rtattr *veth_data, *peer_data;
+	struct ifinfomsg ifm;
+	char veth_host_name[] = "veth_host";
+
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "veth", 4);
+
+	veth_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_DATA, NULL, 0);
+	peer_data = NLMSG_TAIL(&req->h);
+	memset(&ifm, 0, sizeof(ifm));
+	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
+	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, veth_host_name, sizeof(veth_host_name));
+	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
+	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
+
+	return 0;
+}
+
 static int restore_link(NetDeviceEntry *nde, int nlsk)
 {
 	pr_info("Restoring link type %d\n", nde->type);
@@ -190,7 +220,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	case ND_TYPE__LOOPBACK:
 		return restore_one_link(nde, nlsk, NULL);
 	case ND_TYPE__VETH:
-		break;
+		return restore_one_link(nde, nlsk, veth_link_info);
 	}
 
 	BUG_ON(1);
