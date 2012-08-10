@@ -140,12 +140,15 @@ static int restore_link_cb(struct nlmsghdr *hdr, void *arg)
 	return 0;
 }
 
+struct newlink_req {
+	struct nlmsghdr h;
+	struct ifinfomsg i;
+	char buf[1024];
+};
+
 static int restore_one_link(NetDeviceEntry *nde, int nlsk)
 {
-	struct {
-		struct nlmsghdr h;
-		struct ifinfomsg i;
-	} req;
+	struct newlink_req req;
 
 	memset(&req, 0, sizeof(req));
 
@@ -160,7 +163,7 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk)
 	/* FIXME -- restore mtu as well */
 
 	pr_info("Restoring netdev idx %d\n", nde->ifindex);
-	return do_rtnl_req(nlsk, &req, sizeof(req), restore_link_cb, NULL);
+	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
 }
 
 static int restore_link(NetDeviceEntry *nde, int nlsk)
