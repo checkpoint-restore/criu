@@ -5,6 +5,7 @@
 #include <string.h>
 #include <net/if_arp.h>
 #include <sys/wait.h>
+#include <sched.h>
 #include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"
@@ -12,6 +13,8 @@
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
+
+static int ns_fd = -1;
 
 void show_netdevices(int fd, struct cr_options *opt)
 {
@@ -192,11 +195,17 @@ enum {
 };
 #endif
 
+#if IFLA_MAX <= 28
+#define IFLA_NET_NS_FD	28
+#endif
+
 static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 {
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
 	char veth_host_name[] = "veth_host";
+
+	BUG_ON(ns_fd < 0);
 
 	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "veth", 4);
 
@@ -206,6 +215,7 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	memset(&ifm, 0, sizeof(ifm));
 	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
 	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, veth_host_name, sizeof(veth_host_name));
+	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &ns_fd, sizeof(ns_fd));
 	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
 	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
 
@@ -373,5 +383,19 @@ int prepare_net_ns(int pid)
 	if (!ret)
 		ret = restore_route(pid);
 
+	close(ns_fd);
+
 	return ret;
+}
+
+int netns_pre_create(void)
+{
+	ns_fd = open("/proc/self/ns/net", O_RDONLY);
+	if (ns_fd < 0) {
+		pr_perror("Can't cache net fd");
+		return -1;
+	}
+
+	pr_info("Saved netns fd for links restore\n");
+	return 0;
 }

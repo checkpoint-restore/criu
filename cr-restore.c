@@ -50,6 +50,7 @@
 #include "mount.h"
 #include "inotify.h"
 #include "pstree.h"
+#include "net.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -528,6 +529,15 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 			goto err_unlock;
 	} else
 		BUG_ON(pid != 1);
+
+	if (ca.clone_flags & CLONE_NEWNET)
+		/*
+		 * When restoring a net namespace we need to communicate
+		 * with the original (i.e. -- init) one. Thus, prepare for
+		 * that before we leave the existing namespaces.
+		 */
+		if (netns_pre_create())
+			goto err_unlock;
 
 	ret = clone(restore_task_with_children, stack + STACK_SIZE,
 			ca.clone_flags | SIGCHLD, &ca);
