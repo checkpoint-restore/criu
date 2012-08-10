@@ -150,7 +150,7 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk)
 	memset(&req, 0, sizeof(req));
 
 	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
+	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
 	req.h.nlmsg_type = RTM_NEWLINK;
 	req.h.nlmsg_seq = CR_NLMSG_SEQ;
 	req.i.ifi_family = AF_PACKET;
