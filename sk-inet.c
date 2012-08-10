@@ -318,13 +318,13 @@ static int inet_validate_address(InetSkEntry *ie)
 {
 	if ((ie->family == AF_INET) &&
 			/* v0.1 had 4 in ipv4 addr len */
-			(pb_repeated_size(ie, src_addr) >= PB_ALEN_INET) &&
-			(pb_repeated_size(ie, dst_addr) >= PB_ALEN_INET) )
+			(ie->n_src_addr >= PB_ALEN_INET) &&
+			(ie->n_dst_addr >= PB_ALEN_INET) )
 		return 0;
 
 	if ((ie->family == AF_INET6) &&
-			(pb_repeated_size(ie, src_addr) == PB_ALEN_INET6) &&
-			(pb_repeated_size(ie, dst_addr) == PB_ALEN_INET6) )
+			(ie->n_src_addr == PB_ALEN_INET6) &&
+			(ie->n_dst_addr == PB_ALEN_INET6) )
 		return 0;
 
 	pr_err("Addr len mismatch f %d ss %lu ds %lu\n", ie->family,
@@ -353,7 +353,7 @@ static int open_inet_sk(struct file_desc *d)
 		return -1;
 	}
 
-	if (!inet_validate_address(ii->ie))
+	if (inet_validate_address(ii->ie))
 		return -1;
 
 	sk = socket(ii->ie->family, ii->ie->type, ii->ie->proto);
