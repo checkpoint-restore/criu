@@ -6,5 +6,8 @@ message vma_entry {
 	required uint32		prot	= 5;
 	required uint32		flags	= 6;
 	required uint32		status	= 7;
+	// This fd thing is unused in the image, it was lost
+	// while switching from execve restore model. It is
+	// -1 by default.
 	required sint64		fd	= 8;
 }

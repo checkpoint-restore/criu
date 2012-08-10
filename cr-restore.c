@@ -166,6 +166,13 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (ret <= 0)
 			break;
 
+		if (e->fd != -1) {
+			ret = -1;
+			pr_err("Error in vma->fd setting (%Ld)\n", 
+					(unsigned long long)e->fd);
+			break;
+		}
+
 		vma->vma = *e;
 		vma_entry__free_unpacked(e, NULL);
 
