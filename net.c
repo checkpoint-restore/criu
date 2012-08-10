@@ -146,7 +146,8 @@ struct newlink_req {
 	char buf[1024];
 };
 
-static int restore_one_link(NetDeviceEntry *nde, int nlsk)
+static int restore_one_link(NetDeviceEntry *nde, int nlsk,
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
 {
 	struct newlink_req req;
 
@@ -163,6 +164,20 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk)
 	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde->name, strlen(nde->name));
 	addattr_l(&req.h, sizeof(req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
 
+	if (link_info) {
+		struct rtattr *linkinfo;
+		int ret;
+
+		linkinfo = NLMSG_TAIL(&req.h);
+		addattr_l(&req.h, sizeof(req), IFLA_LINKINFO, NULL, 0);
+
+		ret = link_info(nde, &req);
+		if (ret < 0)
+			return ret;
+
+		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.h) - (void *)linkinfo;
+	}
+
 	pr_info("Restoring netdev idx %d\n", nde->ifindex);
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
 }
@@ -173,7 +188,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK:
-		return restore_one_link(nde, nlsk);
+		return restore_one_link(nde, nlsk, NULL);
 	case ND_TYPE__VETH:
 		break;
 	}
