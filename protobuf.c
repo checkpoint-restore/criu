@@ -138,12 +138,12 @@ typedef void (pb_pr_field_t)(void *obj, pb_pr_ctl_t *ctl);
 
 static void pb_msg_int32x(void *obj, pb_pr_ctl_t *ctl)
 {
-	pr_msg("0x%08x", *(int *)obj);
+	pr_msg("%#x", *(int *)obj);
 }
 
 static void pb_msg_int64x(void *obj, pb_pr_ctl_t *ctl)
 {
-	pr_msg("0x%016lx", *(long *)obj);
+	pr_msg("%#016lx", *(long *)obj);
 }
 
 static void pb_msg_string(void *obj, pb_pr_ctl_t *ctl)
