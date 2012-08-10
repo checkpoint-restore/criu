@@ -12,6 +12,7 @@ TST_NOFILE	=				\
 		zombie00			\
 		fpu00				\
 		futex				\
+		futex-rl			\
 		mmx00				\
 		sse00				\
 		sse20				\
@@ -169,6 +170,8 @@ $(TST):	$(LIB)
 
 futex.o:		override CFLAGS += -pthread
 futex:			override LDFLAGS += -pthread
+futex-rl.o:		override CFLAGS += -pthread
+futex-rl:		override LDFLAGS += -pthread
 jobctl00:		override LDLIBS += -lutil
 socket_listen:		override LDLIBS += -lrt
 socket_aio:		override LDLIBS += -lrt
