@@ -62,7 +62,6 @@ static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 
 static const struct fdtype_ops signalfd_ops = {
 	.type		= FD_TYPES__SIGNALFD,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_signalfd,
 };
 

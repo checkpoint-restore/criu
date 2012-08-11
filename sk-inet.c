@@ -240,7 +240,6 @@ err:
 
 static const struct fdtype_ops inet_dump_ops = {
 	.type		= FD_TYPES__INETSK,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_inet_fd,
 };
 

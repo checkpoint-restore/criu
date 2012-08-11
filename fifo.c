@@ -65,7 +65,6 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 
 static const struct fdtype_ops fifo_ops = {
 	.type		= FD_TYPES__FIFO,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_fifo,
 };
 

@@ -91,7 +91,6 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 
 static const struct fdtype_ops eventpoll_ops = {
 	.type		= FD_TYPES__EVENTPOLL,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_eventpoll,
 };
 

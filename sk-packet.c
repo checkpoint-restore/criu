@@ -83,7 +83,6 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 static const struct fdtype_ops packet_dump_ops = {
 	.type		= FD_TYPES__PACKETSK,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_packet_fd,
 };
 

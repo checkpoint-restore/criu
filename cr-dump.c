@@ -132,7 +132,7 @@ static int collect_fds(pid_t pid, int *fd, int *nr_fd)
 	return 0;
 }
 
-u32 make_gen_id(const struct fd_parms *p)
+static u32 make_gen_id(const struct fd_parms *p)
 {
 	return MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
 }
@@ -144,7 +144,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e.type	= ops->type;
-	e.id	= ops->make_gen_id(p);
+	e.id	= make_gen_id(p);
 	e.fd	= p->fd;
 	e.flags = p->fd_flags;
 

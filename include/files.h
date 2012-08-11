@@ -66,11 +66,9 @@ struct file_desc {
 
 struct fdtype_ops {
 	unsigned int		type;
-	u32			(*make_gen_id)(const struct fd_parms *p);
 	int			(*dump)(int lfd, u32 id, const struct fd_parms *p);
 };
 
-extern u32 make_gen_id(const struct fd_parms *p);
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 			    const struct fdtype_ops *ops,
 			    const struct cr_fdset *cr_fdset);

@@ -223,7 +223,6 @@ err:
 
 static const struct fdtype_ops unix_dump_ops = {
 	.type		= FD_TYPES__UNIXSK,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_unix_fd,
 };
 

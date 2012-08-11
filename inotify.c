@@ -97,7 +97,6 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 static const struct fdtype_ops inotify_ops = {
 	.type		= FD_TYPES__INOTIFY,
-	.make_gen_id	= make_gen_id,
 	.dump		= dump_one_inotify,
 };
 
