@@ -798,7 +798,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
-		perror("sigaction() failed\n");
+		pr_perror("sigaction() failed\n");
 		return -1;
 	}
 
@@ -809,7 +809,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	ret = sigaction(SIGCHLD, &act, &old_act);
 	if (ret < 0) {
-		perror("sigaction() failed\n");
+		pr_perror("sigaction() failed\n");
 		return -1;
 	}
 
@@ -880,7 +880,7 @@ out:
 
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
-		perror("sigaction() failed\n");
+		pr_perror("sigaction() failed\n");
 		return -1;
 	}
 

@@ -595,7 +595,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 		goto err;
 
 	if (!fgets(loc_buf, sizeof(loc_buf), file)) {
-		perror("Can't read task personality");
+		pr_perror("Can't read task personality");
 		goto err;
 	}
 
