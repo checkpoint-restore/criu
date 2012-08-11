@@ -277,13 +277,13 @@ static void *mmap_seized(struct parasite_ctl *ctl,
 	void *map = NULL;
 	int ret;
 
-	regs.ax = (unsigned long)__NR_mmap;	/* mmap		*/
-	regs.di = (unsigned long)addr;		/* @addr	*/
-	regs.si = (unsigned long)length;	/* @length	*/
-	regs.dx = (unsigned long)prot;		/* @prot	*/
-	regs.r10= (unsigned long)flags;		/* @flags	*/
-	regs.r8 = (unsigned long)fd;		/* @fd		*/
-	regs.r9 = (unsigned long)offset;	/* @offset	*/
+	regs.ax  = (unsigned long)__NR_mmap;	/* mmap		*/
+	regs.di  = (unsigned long)addr;		/* @addr	*/
+	regs.si  = (unsigned long)length;	/* @length	*/
+	regs.dx  = (unsigned long)prot;		/* @prot	*/
+	regs.r10 = (unsigned long)flags;	/* @flags	*/
+	regs.r8  = (unsigned long)fd;		/* @fd		*/
+	regs.r9  = (unsigned long)offset;	/* @offset	*/
 
 	parasite_setup_regs(ctl->syscall_ip, &regs);
 

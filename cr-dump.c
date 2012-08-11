@@ -226,10 +226,10 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 		return -1;
 	}
 
-	p->fown.uid	= v[0];
-	p->fown.euid	= v[1];
-	p->fown.pid_type= owner_ex.type;
-	p->fown.pid	= owner_ex.pid;
+	p->fown.uid	 = v[0];
+	p->fown.euid	 = v[1];
+	p->fown.pid_type = owner_ex.type;
+	p->fown.pid	 = owner_ex.pid;
 
 	return 0;
 }
@@ -495,7 +495,7 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
 }
 
-#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.e
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
 static int get_task_auxv(pid_t pid, MmEntry *mm)

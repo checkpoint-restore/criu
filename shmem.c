@@ -223,8 +223,7 @@ int prepare_shmem_restore(void)
 	return 0;
 }
 
-struct shmem_info_dump
-{
+struct shmem_info_dump {
 	unsigned long	size;
 	unsigned long	shmid;
 	unsigned long	start;
@@ -235,7 +234,7 @@ struct shmem_info_dump
 static int nr_shmems;
 static struct shmem_info_dump *dump_shmems;
 
-static struct shmem_info_dump* shmem_find(unsigned long shmid)
+static struct shmem_info_dump *shmem_find(unsigned long shmid)
 {
 	int i;
 
@@ -285,7 +284,7 @@ int cr_dump_shmem(void)
 	for (si = dump_shmems; si < &dump_shmems[nr_shmems]; si++) {
 		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
 
-		nrpages = (si->size + PAGE_SIZE -1) / PAGE_SIZE;
+		nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 		map = xmalloc(nrpages * sizeof(*map));
 		if (!map)
 			goto err;

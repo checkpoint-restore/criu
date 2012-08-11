@@ -180,7 +180,7 @@ typedef struct {
 # error x86-32 bit mode not yet implemented
 #endif /* CONFIG_X86_64 */
 
-#define ASSIGN_TYPED(a,b) a = (typeof(a))b
+#define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
 
 #ifndef PAGE_SIZE
 # define PAGE_SIZE	4096

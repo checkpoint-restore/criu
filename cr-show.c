@@ -141,7 +141,7 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 
 	addr_len = nice_width_for(addr + size);
 
-	for (i = 0; i < size; i+= 16) {
+	for (i = 0; i < size; i += 16) {
 		pr_msg("%#0*lx: ", addr_len, addr + i);
 		for (j = 0; j < 8; j++)
 			pr_msg("0x%02x ", data[i +  j]);

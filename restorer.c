@@ -156,7 +156,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
-#define CPREGT2(d,s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
+#define CPREGT2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
 
 	CPREGT1(r8);
 	CPREGT1(r9);
@@ -459,7 +459,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
 #define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
-#define CPREG2(d,s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
+#define CPREG2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
 
 	CPREG1(r8);
 	CPREG1(r9);

@@ -243,8 +243,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	if (!d)
 		return -1;
 
-	d->type	= m->udiag_type;
-	d->state= m->udiag_state;
+	d->type	 = m->udiag_type;
+	d->state = m->udiag_state;
 	INIT_LIST_HEAD(&d->list);
 
 	if (tb[UNIX_DIAG_PEER])
