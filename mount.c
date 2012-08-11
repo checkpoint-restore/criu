@@ -273,8 +273,11 @@ static int tmpfs_dump(struct mount_info *pm)
 		}
 		close(fd_img);
 
-		/* tmpfs is in another mount namespace,
-		 * a direct path is inaccessible */
+		/*
+		 * tmpfs is in another mount namespace,
+		 * a direct path is inaccessible
+		 */
+
 		snprintf(tmpfs_path, sizeof(tmpfs_path),
 					       "/proc/self/fd/%d", fd);
 
@@ -780,8 +783,10 @@ int mntns_collect_root(pid_t pid)
 	int ret;
 	char path[PATH_MAX + 1];
 
-	/* If /proc/pid/root links on '/', it signs that a root of the task
-	 * and a root of mntns is the same. */
+	/*
+	 * If /proc/pid/root links on '/', it signs that a root of the task
+	 * and a root of mntns is the same.
+	 */
 
 	pfd = open_pid_proc(pid);
 	ret = readlinkat(pfd, "root", path, sizeof(path) - 1);

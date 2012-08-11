@@ -179,7 +179,8 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	if (si->fd != -1)
 		return dup(si->fd);
 
-	/* The following hack solves problems:
+	/*
+	 * The following hack solves problems:
 	 * vi->pgoff may be not zero in a target process.
 	 * This mapping may be mapped more then once.
 	 * The restorer doesn't have snprintf.
