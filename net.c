@@ -78,7 +78,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	struct cr_fdset *fds = arg;
 	struct ifinfomsg *ifi;
 	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-	struct rtattr * tb[IFLA_MAX+1];
+	struct rtattr *tb[IFLA_MAX + 1];
 
 	ifi = NLMSG_DATA(hdr);
 

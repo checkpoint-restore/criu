@@ -31,7 +31,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 		if (hdr->nlmsg_type == NLMSG_DONE)
 			return 0;
 		if (hdr->nlmsg_type == NLMSG_ERROR) {
-			struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(hdr);
+			struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(hdr);
 
 			if (hdr->nlmsg_len - sizeof(*hdr) < sizeof(struct nlmsgerr)) {
 				pr_err("ERROR truncated\n");
@@ -66,7 +66,7 @@ int do_rtnl_req(int nl, void *req, int size,
 	msg.msg_iovlen	= 1;
 
 	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family= AF_NETLINK;
+	nladdr.nl_family = AF_NETLINK;
 
 	iov.iov_base	= req;
 	iov.iov_len	= size;
@@ -120,7 +120,7 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 	struct rtattr *rta;
 
 	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {
-		pr_err("addattr_l ERROR: message exceeded bound of %d\n",maxlen);
+		pr_err("addattr_l ERROR: message exceeded bound of %d\n", maxlen);
 		return -1;
 	}
 

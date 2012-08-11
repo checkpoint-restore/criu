@@ -319,12 +319,12 @@ static int inet_validate_address(InetSkEntry *ie)
 	if ((ie->family == AF_INET) &&
 			/* v0.1 had 4 in ipv4 addr len */
 			(ie->n_src_addr >= PB_ALEN_INET) &&
-			(ie->n_dst_addr >= PB_ALEN_INET) )
+			(ie->n_dst_addr >= PB_ALEN_INET))
 		return 0;
 
 	if ((ie->family == AF_INET6) &&
 			(ie->n_src_addr == PB_ALEN_INET6) &&
-			(ie->n_dst_addr == PB_ALEN_INET6) )
+			(ie->n_dst_addr == PB_ALEN_INET6))
 		return 0;
 
 	pr_err("Addr len mismatch f %d ss %lu ds %lu\n", ie->family,
