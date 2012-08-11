@@ -78,7 +78,7 @@ static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipc
 
 static void pr_ipc_sem_array(unsigned int loglevel, int nr, u16 *values)
 {
-	while(nr--)
+	while (nr--)
 		print_on_level(loglevel, "  %-5d", values[nr]);
 	print_on_level(loglevel, "\n");
 }
