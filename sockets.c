@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -10,6 +11,8 @@
 #include "files.h"
 #include "util-net.h"
 #include "sk-packet.h"
+#include "namespaces.h"
+#include "crtools.h"
 
 #ifndef NETLINK_SOCK_DIAG
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
@@ -170,9 +173,10 @@ static int inet6_udplite_receive_one(struct nlmsghdr *h, void *arg)
 	return inet_collect_one(h, AF_INET6, SOCK_DGRAM, IPPROTO_UDPLITE);
 }
 
-int collect_sockets(void)
+int collect_sockets(int pid)
 {
 	int err = 0, tmp;
+	int rst = -1;
 	int nl;
 	struct {
 		struct nlmsghdr hdr;
@@ -182,10 +186,18 @@ int collect_sockets(void)
 		} r;
 	} req;
 
+	if (opts.namespaces_flags & CLONE_NEWNET) {
+		pr_info("Switching to %d's net for collecting sockets\n", pid);
+
+		if (switch_ns(pid, CLONE_NEWNET, "net", &rst))
+			return -1;
+	}
+
 	nl = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
 	if (nl < 0) {
 		pr_perror("Can't create sock diag socket");
-		return -1;
+		err = -1;
+		goto out;
 	}
 
 	memset(&req, 0, sizeof(req));
@@ -261,6 +273,9 @@ int collect_sockets(void)
 		err = tmp;
 
 	close(nl);
+out:
+	if (rst > 0 && restore_ns(rst, CLONE_NEWNET) < 0)
+		err = -1;
 	return err;
 }
 

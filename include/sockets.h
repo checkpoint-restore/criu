@@ -31,7 +31,7 @@ extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void show_socket_opts(SkOptsEntry *soe);
 
 extern int sk_collect_one(int ino, int family, struct socket_desc *d);
-extern int collect_sockets(void);
+extern int collect_sockets(int pid);
 extern int collect_inet_sockets(void);
 extern int collect_unix_sockets(void);
 extern int fix_external_unix_sockets(void);

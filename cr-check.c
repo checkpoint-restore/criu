@@ -33,7 +33,7 @@ static int check_sock_diag(void)
 {
 	int ret;
 
-	ret = collect_sockets();
+	ret = collect_sockets(getpid());
 	if (!ret)
 		return 0;
 

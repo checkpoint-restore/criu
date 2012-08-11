@@ -1515,7 +1515,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (mntns_collect_root(root_item->pid.real))
 		goto err;
 
-	collect_sockets();
+	collect_sockets(pid);
 
 	glob_fdset = cr_glob_fdset_open(O_DUMP);
 	if (!glob_fdset)
