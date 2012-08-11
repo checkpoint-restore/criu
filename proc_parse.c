@@ -685,10 +685,10 @@ err:
 
 static char nybble(const char n)
 {
-       if      (n >= '0' && n <= '9') return n - '0';
-       else if (n >= 'A' && n <= 'F') return n - ('A' - 10);
-       else if (n >= 'a' && n <= 'f') return n - ('a' - 10);
-       return 0;
+	if (n >= '0' && n <= '9') return n - '0';
+	else if (n >= 'A' && n <= 'F') return n - ('A' - 10);
+	else if (n >= 'a' && n <= 'f') return n - ('a' - 10);
+	return 0;
 }
 
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)

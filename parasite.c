@@ -40,11 +40,11 @@ static int brk_init(void)
 	/*
 	 *  Map 10 MB. Hope this will be enough for unix skb's...
 	 */
-        ret = sys_mmap(NULL, MAX_HEAP_SIZE,
+	ret = sys_mmap(NULL, MAX_HEAP_SIZE,
 			    PROT_READ | PROT_WRITE,
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (ret < 0)
-               return -ENOMEM;
+		return -ENOMEM;
 
 	brk_start = brk_tail = (void *)ret;
 	brk_end = brk_start + MAX_HEAP_SIZE;

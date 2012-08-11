@@ -235,7 +235,7 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
 	} else
 		root->rb_node = child;
 
- color:
+color:
 	if (color == RB_BLACK)
 		__rb_erase_color(child, parent, root);
 }
