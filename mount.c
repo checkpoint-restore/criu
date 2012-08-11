@@ -208,7 +208,7 @@ static DIR *open_mountpoint(struct mount_info *pm)
 	}
 
 	if (st.st_dev != pm->s_dev) {
-		pr_err("The file system 0x%x %s %s is inaccessible\n",
+		pr_err("The file system %#x %s %s is inaccessible\n",
 				pm->s_dev, pm->fstype->name, pm->mountpoint);
 		close(fd);
 		return NULL;
@@ -471,7 +471,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.options		= pm->options;
 
 	if (!me.fstype && !is_root_mount(pm)) {
-		pr_err("FS mnt %s dev 0x%x root %s unsupported\n",
+		pr_err("FS mnt %s dev %#x root %s unsupported\n",
 				pm->mountpoint, pm->s_dev, pm->root);
 		return -1;
 	}

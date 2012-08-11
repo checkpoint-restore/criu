@@ -64,7 +64,7 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino 0x%x peer_ino 0x%x family %4d type %4d state %2d name %s\n",
+	pr_debug("\t%s: ino %#x peer_ino %#x family %4d type %4d state %2d name %s\n",
 		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
@@ -77,7 +77,7 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
-	pr_info("\t%s: id 0x%x ino 0x%x peer 0x%x type %d state %d name %d bytes\n",
+	pr_info("\t%s: id %#x ino %#x peer %#x type %d state %d name %d bytes\n",
 		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
@@ -745,7 +745,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 
 	ui->peer = NULL;
 	ui->flags = 0;
-	pr_info(" `- Got 0x%x peer 0x%x\n", ui->ue->ino, ui->ue->peer);
+	pr_info(" `- Got %#x peer %#x\n", ui->ue->ino, ui->ue->peer);
 	file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 	list_add_tail(&ui->list, &unix_sockets);
 
