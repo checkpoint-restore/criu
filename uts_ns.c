@@ -27,7 +27,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 		pr_perror("Error calling uname");
 		return ret;
 	}
-	
+
 	ue.nodename = ubuf.nodename;
 	ue.domainname = ubuf.domainname;
 

@@ -169,7 +169,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 
 		if (e->fd != -1) {
 			ret = -1;
-			pr_err("Error in vma->fd setting (%Ld)\n", 
+			pr_err("Error in vma->fd setting (%Ld)\n",
 					(unsigned long long)e->fd);
 			break;
 		}
@@ -602,7 +602,7 @@ err:
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
-/* 
+/*
  * FIXME Din't fail on xid restore failure. MySQL uses runaway
  * pgid and sid and there's nothing we can do about it yet :(
  */

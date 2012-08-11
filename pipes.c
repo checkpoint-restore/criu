@@ -361,7 +361,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 		if (pd->ids[i] == pipe_id(p))
 			return 0;
 	}
-	
+
 	pr_info("Dumping data from pipe %#x fd %d\n", pipe_id(p), lfd);
 
 	if (pd->nr >= NR_PIPES_WITH_DATA) {

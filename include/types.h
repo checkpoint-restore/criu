@@ -105,7 +105,7 @@ typedef struct {
 #define _KNSIG           64
 # define _NSIG_BPW      64
 
-#define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW) 
+#define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW)
 
 typedef struct {
 	unsigned long sig[_KNSIG_WORDS];
