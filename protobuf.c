@@ -296,20 +296,11 @@ static pb_pr_show_t get_pb_show_function(int type)
 	return pb_msg_unk;
 }
 
-static void pb_show_field(const ProtobufCFieldDescriptor *fd,
-			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
+static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
+			     size_t fsize)
 {
-	pb_pr_show_t show;
 	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
-	size_t fsize;
-
-	print_tabs(ctl);
-
-	pr_msg("%s: ", fd->name);
-
-	fsize = pb_show_prepare_field_context(fd, ctl);
-	show = get_pb_show_function(fd->type);
 
 	show(field->data, ctl);
 	field->data += fsize;
@@ -318,6 +309,19 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 		pr_msg(":");
 		show(field->data, ctl);
 	}
+}
+
+static void pb_show_field(const ProtobufCFieldDescriptor *fd,
+			  int nr_fields, pb_pr_ctl_t *ctl)
+{
+	pb_pr_show_t show;
+
+	print_tabs(ctl);
+	pr_msg("%s: ", fd->name);
+
+	show = get_pb_show_function(fd->type);
+
+	pb_show_repeated(ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
 
 	if (ctl->single_entry)
 		pr_msg("\n");
