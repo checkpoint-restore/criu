@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
 #else
 	test_init(argc, argv);
-	test_fn();
+	test_fn(argc, argv);
 #endif
 	return 0;
 }
