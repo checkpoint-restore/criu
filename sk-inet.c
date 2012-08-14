@@ -279,12 +279,10 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 	return ret;
 }
 
-static u32 zero_addr[4];
-
 static bool is_bound(struct inet_sk_info *ii)
 {
-	return memcmp(zero_addr, ii->ie->src_addr, pb_repeated_size(ii->ie, src_addr)) ||
-	       memcmp(zero_addr, ii->ie->dst_addr, pb_repeated_size(ii->ie, dst_addr));
+	/* zero port is reserved */
+	return ii->ie->src_port;
 }
 
 
