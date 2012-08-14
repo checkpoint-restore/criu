@@ -204,8 +204,17 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	ie.n_src_addr = PB_ALEN_INET;
 	ie.n_dst_addr = PB_ALEN_INET;
 	if (ie.family == AF_INET6) {
+		int val;
+
 		ie.n_src_addr = PB_ALEN_INET6;
 		ie.n_dst_addr = PB_ALEN_INET6;
+
+		ret = dump_opt(lfd, SOL_IPV6, IPV6_V6ONLY, &val);
+		if (ret < 0)
+			goto err;
+
+		ie.v6only = val ? true : false;
+		ie.has_v6only = true;
 	}
 
 	ie.src_addr = xmalloc(pb_repeated_size(&ie, src_addr));
@@ -357,6 +366,13 @@ static int open_inet_sk(struct file_desc *d)
 	if (sk < 0) {
 		pr_perror("Can't create unix socket");
 		return -1;
+	}
+
+	if (ii->ie->v6only) {
+		int yes = 1;
+
+		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
+			return -1;
 	}
 
 	if (tcp_connection(ii->ie)) {
