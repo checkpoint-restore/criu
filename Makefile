@@ -1,7 +1,6 @@
 include Makefile.inc
 
-CFLAGS		+= -I./include
-CFLAGS		+= -O0 -ggdb3 -fno-strict-aliasing
+CFLAGS		+= -I./include -fno-strict-aliasing
 
 LIBS		+= -lrt -lpthread -lprotobuf-c
 
@@ -14,6 +13,13 @@ endif
 
 ifeq ($(DEBUG),1)
 	DEFINES += -DCR_DEBUG
+endif
+
+ifeq ($(DEBUG),1)
+	DEFINES += -DCR_DEBUG
+	CFLAGS	+= -O0 -ggdb3
+else
+	CFLAGS	+= -O2
 endif
 
 WARNINGS	+= -Wall
