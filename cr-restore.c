@@ -547,6 +547,20 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 
 	if (ca.clone_flags & CLONE_NEWPID)
 		item->pid.real = ret;
+
+	if (opts.pidfile && root_item == item) {
+		int fd;
+
+		fd = open(opts.pidfile, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+		if (fd == -1) {
+			pr_perror("Can't open %s", opts.pidfile);
+			kill(ret, SIGKILL);
+		} else {
+			dprintf(fd, "%d", ret);
+			close(fd);
+		}
+	}
+
 err_unlock:
 	if (flock(ca.fd, LOCK_UN))
 		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);

@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
 			{ "log-pid", no_argument, 0, 44},
 			{ "version", no_argument, 0, 'V'},
 			{ "evasive-devices", no_argument, 0, 45},
+			{ "pidfile", required_argument, 0, 46},
 			{ },
 		};
 
@@ -168,6 +169,9 @@ int main(int argc, char *argv[])
 			break;
 		case 45:
 			opts.evasive_devices = true;
+			break;
+		case 46:
+			opts.pidfile = optarg;
 			break;
 		case 'V':
 			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
@@ -249,6 +253,7 @@ usage:
 	pr_msg("  -d|--restore-detached detach after restore\n");
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
 	pr_msg("  -D|--images-dir       directory where to put images to\n");
+	pr_msg("     --pidfile [FILE]	write a pid of a root task in this file\n");
 
 	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");

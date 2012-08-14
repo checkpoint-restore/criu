@@ -92,6 +92,7 @@ struct cr_options {
 	bool			log_file_per_pid;
 	char			*output;
 	char			*root;
+	char			*pidfile;
 };
 
 extern struct cr_options opts;
