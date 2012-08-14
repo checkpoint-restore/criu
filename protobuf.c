@@ -128,6 +128,7 @@ void cr_pb_init(void)
 #define PB_PKOBJ_LOCAL_SIZE	1024
 
 struct pb_pr_field_s {
+	void *data;
 	int depth;
 };
 
@@ -220,10 +221,11 @@ static void show_bool(void *msg, pb_pr_ctl_t *ctl)
 		pr_msg("False");
 }
 
-static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
+static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
 	pb_pr_show_t show;
+	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
 	size_t fsize;
 
@@ -253,7 +255,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			fsize = sizeof (void *);
 			break;
 		case PROTOBUF_C_TYPE_MESSAGE:
-			where = (void *)(*(long *)where);
+			field->data = (void *)(*(long *)field->data);
 			ctl->arg = (void *)fd->descriptor;
 			show = show_nested_message;
 			fsize = sizeof (void *);
@@ -276,12 +278,12 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			break;
 	}
 
-	show(where, ctl);
-	where += fsize;
+	show(field->data, ctl);
+	field->data += fsize;
 
-	for (counter = 0; counter < nr_fields - 1; counter++, where += fsize) {
+	for (counter = 0; counter < nr_fields - 1; counter++, field->data += fsize) {
 		pr_msg(":");
-		show(where, ctl);
+		show(field->data, ctl);
 	}
 
 	if (ctl->single_entry)
@@ -333,7 +335,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 			data = (unsigned long *)*data;
 		}
 
-		pb_show_field(&fd, data, nr_fields, ctl);
+		ctl->cur.data = data;
+
+		pb_show_field(&fd, nr_fields, ctl);
 	}
 }
 
