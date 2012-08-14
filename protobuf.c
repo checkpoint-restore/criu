@@ -244,7 +244,7 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 					  pb_pr_ctl_t *ctl)
 {
 	pb_pr_field_t *field = &ctl->cur;
-	size_t fsize;
+	size_t fsize = 0;
 
 	switch (fd->type) {
 	case PROTOBUF_C_TYPE_ENUM:
