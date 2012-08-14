@@ -61,6 +61,7 @@
 #endif /* BUG_ON_HANDLER */
 
 #define BUG_ON(condition)	BUG_ON_HANDLER((condition))
+#define BUG()			BUG_ON(true)
 
 /*
  * Write buffer @ptr of @size bytes into @fd file

@@ -221,6 +221,49 @@ static void show_bool(void *msg, pb_pr_ctl_t *ctl)
 		pr_msg("False");
 }
 
+static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
+					  pb_pr_ctl_t *ctl)
+{
+	pb_pr_field_t *field = &ctl->cur;
+	size_t fsize;
+
+	switch (fd->type) {
+	case PROTOBUF_C_TYPE_ENUM:
+		ctl->arg = (void *)fd->descriptor;
+	case PROTOBUF_C_TYPE_INT32:
+	case PROTOBUF_C_TYPE_SINT32:
+	case PROTOBUF_C_TYPE_UINT32:
+	case PROTOBUF_C_TYPE_SFIXED32:
+	case PROTOBUF_C_TYPE_FLOAT:
+		fsize = 4;
+		break;
+	case PROTOBUF_C_TYPE_INT64:
+	case PROTOBUF_C_TYPE_SINT64:
+	case PROTOBUF_C_TYPE_SFIXED64:
+	case PROTOBUF_C_TYPE_FIXED32:
+	case PROTOBUF_C_TYPE_UINT64:
+	case PROTOBUF_C_TYPE_FIXED64:
+	case PROTOBUF_C_TYPE_DOUBLE:
+		fsize = 8;
+		break;
+	case PROTOBUF_C_TYPE_MESSAGE:
+		ctl->arg = (void *)fd->descriptor;
+		field->data = (void *)(*(long *)field->data);
+	case PROTOBUF_C_TYPE_STRING:
+		fsize = sizeof (void *);
+		break;
+	case PROTOBUF_C_TYPE_BOOL:
+		fsize = sizeof (protobuf_c_boolean);
+		break;
+	case PROTOBUF_C_TYPE_BYTES:
+		fsize = sizeof (ProtobufCBinaryData);
+		break;
+	default:
+		BUG();
+	}
+	return fsize;
+}
+
 static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
@@ -233,13 +276,14 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 
 	pr_msg("%s: ", fd->name);
 
+	fsize = pb_show_prepare_field_context(fd, ctl);
+
 	switch (fd->type) {
 		case PROTOBUF_C_TYPE_INT32:
 		case PROTOBUF_C_TYPE_SINT32:
 		case PROTOBUF_C_TYPE_UINT32:
 		case PROTOBUF_C_TYPE_SFIXED32:
 			show = pb_msg_int32x;
-			fsize = 4;
 			break;
 		case PROTOBUF_C_TYPE_INT64:
 		case PROTOBUF_C_TYPE_SINT64:
@@ -248,22 +292,15 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 		case PROTOBUF_C_TYPE_UINT64:
 		case PROTOBUF_C_TYPE_FIXED64:
 			show = pb_msg_int64x;
-			fsize = 8;
 			break;
 		case PROTOBUF_C_TYPE_STRING:
 			show = pb_msg_string;
-			fsize = sizeof (void *);
 			break;
 		case PROTOBUF_C_TYPE_MESSAGE:
-			field->data = (void *)(*(long *)field->data);
-			ctl->arg = (void *)fd->descriptor;
 			show = show_nested_message;
-			fsize = sizeof (void *);
 			break;
 		case PROTOBUF_C_TYPE_ENUM:
 			show = show_enum;
-			ctl->arg = (void *)fd->descriptor;
-			fsize = 4;
 			break;
 		case PROTOBUF_C_TYPE_BOOL:
 			show = show_bool;
