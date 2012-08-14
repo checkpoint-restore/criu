@@ -134,7 +134,7 @@ struct pb_pr_ctrl_s {
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
-typedef void (pb_pr_field_t)(void *obj, pb_pr_ctl_t *ctl);
+typedef void (*pb_pr_field_t)(void *obj, pb_pr_ctl_t *ctl);
 
 static void pb_msg_int32x(void *obj, pb_pr_ctl_t *ctl)
 {
@@ -217,7 +217,7 @@ static void show_bool(void *msg, pb_pr_ctl_t *ctl)
 static void pb_show_field(const ProtobufCFieldDescriptor *fd, void *where,
 			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
-	pb_pr_field_t *show;
+	pb_pr_field_t show;
 	unsigned long counter;
 	size_t fsize;
 
