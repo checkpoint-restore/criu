@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing
+CFLAGS	= --static -g -O2 -Wall -Werror -fno-strict-aliasing
 
 TST_NOFILE	=	\
 		pipe_loop00	\
@@ -57,7 +57,7 @@ wait_stop:
 
 $(TST):	$(LIB)
 
-file_aio: override LDLIBS += -lrt
+file_aio: override LDLIBS += -lrt -pthread
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

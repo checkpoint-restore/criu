@@ -91,11 +91,20 @@ ARGS=""
 PID=""
 PIDNS=""
 
+umount_zdtm_root()
+{
+	[ -z "$ZDTM_ROOT" ] && return;
+	umount -l "$ZDTM_ROOT"
+	rmdir "$ZDTM_ROOT"
+}
+trap umount_zdtm_root EXIT
+
 start_test()
 {
 	local tdir=$1
 	local tname=$2
-	local tpid=$tdir/$tname.init.pid
+	export ZDTM_ROOT
+	TPID=`readlink -f $tdir`/$tname.init.pid
 
 	killall -9 $tname &> /dev/null
 	make -C $tdir cleanout
@@ -104,12 +113,23 @@ start_test()
 		make -C $tdir $tname.pid
 		PID=`cat $test.pid` || return 1
 	else
-		$TINIT  $tdir $tname $tpid || {
+		if [ -z "$ZDTM_ROOT" ]; then
+			mkdir dump
+			ZDTM_ROOT=`mktemp -d dump/crtools-root.XXXXXX`
+			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
+			mount --bind . $ZDTM_ROOT || return 1
+		fi
+	(	export ZDTM_NEWNS=1
+		export ZDTM_PIDFILE=$TPID
+		cd $ZDTM_ROOT
+		rm -f $ZDTM_PIDFILE
+		make -C $tdir $tname.pid || {
 			echo ERROR: fail to start $tdir/$tname
 			return 1;
 		}
+	)
 
-		PID=`cat $tpid`
+		PID=`cat "$TPID"`
 		ps -p $PID || return 1
 	fi
 }
@@ -122,7 +142,7 @@ stop_test()
 	if [ -z "$PIDNS" ]; then
 		make -C $tdir $tname.out
 	else
-		killall test_init
+		kill `cat "$TPID"`
 	fi
 }
 
@@ -170,7 +190,7 @@ run_test()
 	DUMP_PATH=`pwd`/$ddump
 
 	if [ -n "$PIDNS" ]; then
-		args="--namespace pid --namespace mnt $args"
+		args="-n uts -n ipc -n net -n pid -n mnt --root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
 	echo Dump $PID

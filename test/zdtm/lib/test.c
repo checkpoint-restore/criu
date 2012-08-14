@@ -10,10 +10,14 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sched.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <string.h>
 
 #include "zdtmtst.h"
+#include "ns.h"
 
-static volatile sig_atomic_t sig_received = 0;
+volatile sig_atomic_t sig_received = 0;
 
 static void sig_hand(int signo)
 {
@@ -22,7 +26,7 @@ static void sig_hand(int signo)
 
 static char *outfile;
 TEST_OPTION(outfile, string, "output file", 1);
-static char *pidfile;
+char *pidfile;
 TEST_OPTION(pidfile, string, "file to store pid", 1);
 
 static pid_t master_pid = 0;
@@ -85,11 +89,26 @@ void test_init(int argc, char **argv)
 
 	pid_t pid;
 	static FILE *pidf;
+	char *val;
 	struct sigaction sa = {
 		.sa_handler	= sig_hand,
 		.sa_flags	= SA_RESTART,
 	};
 	sigemptyset(&sa.sa_mask);
+
+	val = getenv("ZDTM_NEWNS");
+	if (val) {
+		unsetenv("ZDTM_NEWNS");
+		ns_create(argc, argv);
+		exit(1);
+	}
+
+	val = getenv("ZDTM_EXE");
+	if (val) {
+		unsetenv("ZDTM_EXE");
+		ns_init(argc, argv);
+		exit(1);
+	}
 
 	if (sigaction(SIGTERM, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");

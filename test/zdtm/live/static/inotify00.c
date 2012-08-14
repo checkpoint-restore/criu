@@ -35,8 +35,6 @@ int main (int argc, char *argv[])
 
 	wd  = 0;
 	wd |= inotify_add_watch(fd, "/", IN_ALL_EVENTS);
-	wd |= inotify_add_watch(fd, "/root", IN_ALL_EVENTS);
-	wd |= inotify_add_watch(fd, "/boot", IN_ALL_EVENTS);
 	if (wd < 0) {
 		fail("inotify_add_watch failed");
 		exit(1);

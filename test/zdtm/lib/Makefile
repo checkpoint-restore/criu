@@ -1,8 +1,8 @@
-CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS	= --static -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 LIB	= libzdtmtst.a
 
-LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c
+LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
 LIBDEP	= $(LIBSRC:%.c=%.d)
 
@@ -10,7 +10,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 %.d:	%.c
 	$(DEPEND.c) $(OUTPUT_OPTION) $<
 
-all:	$(LIB) test_init
+all:	$(LIB)
 install: all
 
 $(LIB):	$(LIB)(${LIBOBJ})

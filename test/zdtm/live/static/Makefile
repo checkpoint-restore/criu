@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS	= --static -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 TST_NOFILE	=				\
 		busyloop00			\
@@ -173,9 +173,9 @@ futex:			override LDFLAGS += -pthread
 futex-rl.o:		override CFLAGS += -pthread
 futex-rl:		override LDFLAGS += -pthread
 jobctl00:		override LDLIBS += -lutil
-socket_listen:		override LDLIBS += -lrt
-socket_aio:		override LDLIBS += -lrt
-uptime_grow:	override LDLIBS += -lrt
+socket_listen:		override LDLIBS += -lrt -pthread
+socket_aio:		override LDLIBS += -lrt -pthread
+uptime_grow:	override LDLIBS += -lrt -pthread
 unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
