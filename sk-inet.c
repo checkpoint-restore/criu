@@ -496,43 +496,5 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 void show_inetsk(int fd, struct cr_options *o)
 {
-	InetSkEntry *ie;
-	int ret = 0;
-
-	pr_img_head(CR_FD_INETSK);
-
-	while (1) {
-		char src_addr[INET_ADDR_LEN] = "<unknown>";
-		char dst_addr[INET_ADDR_LEN] = "<unknown>";
-
-		ret = pb_read_one_eof(fd, &ie, PB_INETSK);
-		if (ret <= 0)
-			goto out;
-
-		if (inet_ntop(ie->family, (void *)ie->src_addr, src_addr,
-			      INET_ADDR_LEN) == NULL) {
-			pr_perror("Failed to translate src address");
-		}
-
-		if (ie->state == TCP_ESTABLISHED) {
-			if (inet_ntop(ie->family, (void *)ie->dst_addr, dst_addr,
-				      INET_ADDR_LEN) == NULL) {
-				pr_perror("Failed to translate dst address");
-			}
-		}
-
-		pr_msg("id %#x ino %#x family %s type %s proto %s state %s %s:%d <-> %s:%d flags 0x%2x\n",
-			ie->id, ie->ino, skfamily2s(ie->family), sktype2s(ie->type), skproto2s(ie->proto),
-			skstate2s(ie->state), src_addr, ie->src_port, dst_addr, ie->dst_port, ie->flags);
-		pr_msg("\t"), show_fown_cont(ie->fown), pr_msg("\n");
-		show_socket_opts(ie->opts);
-
-		inet_sk_entry__free_unpacked(ie, NULL);
-	}
-
-out:
-	if (ret)
-		pr_info("\n");
-	pr_img_tail(CR_FD_INETSK);
+	pb_show_plain_pretty(fd, PB_INETSK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 9:%2x 11:A 12:A");
 }
-

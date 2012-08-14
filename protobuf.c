@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -12,6 +13,7 @@
 #include "log.h"
 #include "util.h"
 #include "string.h"
+#include "sockets.h"
 
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
@@ -127,6 +129,8 @@ void cr_pb_init(void)
  * be more than enough for most objects.
  */
 #define PB_PKOBJ_LOCAL_SIZE	1024
+
+#define INET_ADDR_LEN		40
 
 struct pb_pr_field_s {
 	void *data;
@@ -281,7 +285,23 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 
 static int pb_show_pretty(pb_pr_field_t *field)
 {
-	pr_msg(field->fmt, *(long *)field->data);
+	switch (field->fmt[0]) {
+	case '%':
+		pr_msg(field->fmt, *(long *)field->data);
+		break;
+	case 'A':
+		{
+			char addr[INET_ADDR_LEN] = "<unknown>";
+			int family = (field->count == 1) ? AF_INET : AF_INET6;
+
+			if (inet_ntop(family, (void *)field->data, addr,
+				      INET_ADDR_LEN) == NULL)
+				pr_msg("failed to translate");
+			else
+				pr_msg("%s", addr);
+		}
+		return 1;
+	}
 	return 0;
 }
 
