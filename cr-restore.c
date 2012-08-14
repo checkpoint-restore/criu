@@ -496,7 +496,6 @@ struct cr_clone_arg {
 static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone_flags)
 {
 	int ret = -1;
-	char buf[32];
 	struct cr_clone_arg ca;
 	void *stack;
 	pid_t pid = item->pid.virt;
@@ -510,25 +509,31 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 		goto err;
 	}
 
-	snprintf(buf, sizeof(buf), "%d", pid - 1);
 	ca.item = item;
 	ca.clone_flags = ns_clone_flags;
-	ca.fd = open(LAST_PID_PATH, O_RDWR);
-	if (ca.fd < 0) {
-		pr_perror("%d: Can't open %s", pid, LAST_PID_PATH);
-		goto err;
-	}
-
-	if (flock(ca.fd, LOCK_EX)) {
-		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-		goto err_close;
-	}
 
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
+		char buf[32];
+
+		ca.fd = open(LAST_PID_PATH, O_RDWR);
+		if (ca.fd < 0) {
+			pr_perror("%d: Can't open %s", pid, LAST_PID_PATH);
+			goto err;
+		}
+
+		if (flock(ca.fd, LOCK_EX)) {
+			close(ca.fd);
+			pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
+			goto err;
+		}
+
+		snprintf(buf, sizeof(buf), "%d", pid - 1);
 		if (write_img_buf(ca.fd, buf, strlen(buf)))
 			goto err_unlock;
-	} else
+	} else {
+		ca.fd = -1;
 		BUG_ON(pid != 1);
+	}
 
 	if (ca.clone_flags & CLONE_NEWNET)
 		/*
@@ -562,11 +567,12 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	}
 
 err_unlock:
-	if (flock(ca.fd, LOCK_UN))
-		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
+	if (ca.fd >= 0) {
+		if (flock(ca.fd, LOCK_UN))
+			pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
 
-err_close:
-	close_safe(&ca.fd);
+		close(ca.fd);
+	}
 err:
 	if (stack != MAP_FAILED)
 		munmap(stack, STACK_SIZE);
