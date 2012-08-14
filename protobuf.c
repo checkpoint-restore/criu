@@ -11,6 +11,7 @@
 #include "types.h"
 #include "log.h"
 #include "util.h"
+#include "string.h"
 
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
@@ -129,7 +130,10 @@ void cr_pb_init(void)
 
 struct pb_pr_field_s {
 	void *data;
+	int number;
 	int depth;
+	int count;
+	char fmt[32];
 };
 
 typedef struct pb_pr_field_s pb_pr_field_t;
@@ -137,30 +141,35 @@ typedef struct pb_pr_field_s pb_pr_field_t;
 struct pb_pr_ctrl_s {
 	void *arg;
 	int single_entry;
+	const char *pretty_fmt;
 	pb_pr_field_t cur;
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
-typedef void (*pb_pr_show_t)(pb_pr_field_t *field);
+typedef int (*pb_pr_show_t)(pb_pr_field_t *field);
 
-static void pb_msg_int32x(pb_pr_field_t *field)
+static int pb_msg_int32x(pb_pr_field_t *field)
 {
 	pr_msg("%#x", *(int *)field->data);
+	return 0;
 }
 
-static void pb_msg_int64x(pb_pr_field_t *field)
+static int pb_msg_int64x(pb_pr_field_t *field)
 {
 	pr_msg("%#016lx", *(long *)field->data);
+	return 0;
 }
 
-static void pb_msg_string(pb_pr_field_t *field)
+static int pb_msg_string(pb_pr_field_t *field)
 {
 	pr_msg("\"%s\"",	*(char **)field->data);
+	return 0;
 }
 
-static void pb_msg_unk(pb_pr_field_t *field)
+static int pb_msg_unk(pb_pr_field_t *field)
 {
 	pr_msg("unknown object %p", field->data);
+	return 0;
 }
 
 static inline void print_tabs(pb_pr_ctl_t *ctl)
@@ -183,7 +192,7 @@ static void print_nested_message_braces(pb_pr_ctl_t *ctl, int right_brace)
 
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 
-static void show_nested_message(pb_pr_field_t *field)
+static int show_nested_message(pb_pr_field_t *field)
 {
 	pb_pr_ctl_t *ctl = container_of(field, pb_pr_ctl_t, cur);
 
@@ -192,9 +201,10 @@ static void show_nested_message(pb_pr_field_t *field)
 	pb_show_msg(field->data, ctl);
 	field->depth--;
 	print_nested_message_braces(ctl, 1);
+	return 0;
 }
 
-static void show_enum(pb_pr_field_t *field)
+static int show_enum(pb_pr_field_t *field)
 {
 	pb_pr_ctl_t *ctl = container_of(field, pb_pr_ctl_t, cur);
 	ProtobufCEnumDescriptor *d = ctl->arg;
@@ -212,9 +222,10 @@ static void show_enum(pb_pr_field_t *field)
 		pr_msg("%s", val_name);
 	else
 		pr_msg("%d", val);
+	return 0;
 }
 
-static void show_bool(pb_pr_field_t *field)
+static int show_bool(pb_pr_field_t *field)
 {
 	protobuf_c_boolean val = *(protobuf_c_boolean *)field->data;
 
@@ -222,6 +233,7 @@ static void show_bool(pb_pr_field_t *field)
 		pr_msg("True");
 	else
 		pr_msg("False");
+	return 0;
 }
 
 static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
@@ -267,6 +279,35 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 	return fsize;
 }
 
+static int pb_show_pretty(pb_pr_field_t *field)
+{
+	pr_msg(field->fmt, *(long *)field->data);
+	return 0;
+}
+
+static int pb_field_show_pretty(pb_pr_ctl_t *ctl)
+{
+	pb_pr_field_t *field = &ctl->cur;
+	int found;
+	char cookie[32];
+	const char *ptr;
+
+	if (!ctl->pretty_fmt)
+		return 0;
+
+	sprintf(cookie, " %d:", field->number);
+	if (!strncmp(ctl->pretty_fmt, &cookie[1], strlen(&cookie[1])))
+		ptr = ctl->pretty_fmt;
+	else {
+		ptr = strstr(ctl->pretty_fmt, cookie);
+		if (!ptr)
+			return 0;
+	}
+	found = sscanf(ptr, "%*[ 1-9:]%s", field->fmt);
+	BUG_ON(found > 1);
+	return found;
+}
+
 static pb_pr_show_t get_pb_show_function(int type)
 {
 	switch (type) {
@@ -299,13 +340,25 @@ static pb_pr_show_t get_pb_show_function(int type)
 	return pb_msg_unk;
 }
 
+static pb_pr_show_t get_show_function(int type, pb_pr_ctl_t *ctl)
+{
+	if (pb_field_show_pretty(ctl))
+		return pb_show_pretty;
+	return get_pb_show_function(type);
+}
+
 static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
-			     size_t fsize)
+			  size_t fsize)
 {
 	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
+	int done;
 
-	show(field);
+	field->count = nr_fields;
+	done = show(field);
+	if (done)
+		return;
+
 	field->data += fsize;
 
 	for (counter = 0; counter < nr_fields - 1; counter++, field->data += fsize) {
@@ -322,7 +375,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 	print_tabs(ctl);
 	pr_msg("%s: ", fd->name);
 
-	show = get_pb_show_function(fd->type);
+	show = get_show_function(fd->type, ctl);
 
 	pb_show_repeated(ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
 
@@ -376,6 +429,7 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 		}
 
 		ctl->cur.data = data;
+		ctl->cur.number = i + 1;
 
 		pb_show_field(&fd, nr_fields, ctl);
 	}
@@ -385,9 +439,9 @@ static inline void pb_no_payload(int fd, void *obj, int flags) { }
 
 void do_pb_show_plain(int fd, int type, int single_entry,
 		void (*payload_hadler)(int fd, void *obj, int flags),
-		int flags)
+		int flags, const char *pretty_fmt)
 {
-	pb_pr_ctl_t ctl = {NULL, single_entry};
+	pb_pr_ctl_t ctl = {NULL, single_entry, pretty_fmt};
 	void (*handle_payload)(int fd, void *obj, int flags);
 
 	if (!cr_pb_descs[type].pb_desc) {

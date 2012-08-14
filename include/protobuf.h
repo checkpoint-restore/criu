@@ -80,16 +80,16 @@ extern int pb_write_one(int fd, void *obj, int type);
 
 extern void do_pb_show_plain(int fd, int type, int single_entry,
 		void (*payload_hadler)(int fd, void *obj, int flags),
-		int flags);
+		int flags, const char *pretty_fmt);
 
 #define pb_show_plain_payload(__fd, __type, payload_hadler, flags)			\
-	do_pb_show_plain(__fd, __type, 0, payload_hadler, flags)
+	do_pb_show_plain(__fd, __type, 0, payload_hadler, flags, NULL)
 
 #define pb_show_plain(__fd, __type)							\
 	pb_show_plain_payload(__fd, __type, NULL, 0)
 
 #define pb_show_vertical(__fd, __type)							\
-	do_pb_show_plain(__fd, __type, 1, NULL, 0)
+	do_pb_show_plain(__fd, __type, 1, NULL, 0, NULL)
 
 int collect_image(int fd_t, int obj_t, unsigned size,
 		int (*collect)(void *obj, ProtobufCMessage *msg));
