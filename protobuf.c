@@ -141,26 +141,26 @@ struct pb_pr_ctrl_s {
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
-typedef void (*pb_pr_show_t)(void *obj, pb_pr_ctl_t *ctl);
+typedef void (*pb_pr_show_t)(pb_pr_field_t *field);
 
-static void pb_msg_int32x(void *obj, pb_pr_ctl_t *ctl)
+static void pb_msg_int32x(pb_pr_field_t *field)
 {
-	pr_msg("%#x", *(int *)obj);
+	pr_msg("%#x", *(int *)field->data);
 }
 
-static void pb_msg_int64x(void *obj, pb_pr_ctl_t *ctl)
+static void pb_msg_int64x(pb_pr_field_t *field)
 {
-	pr_msg("%#016lx", *(long *)obj);
+	pr_msg("%#016lx", *(long *)field->data);
 }
 
-static void pb_msg_string(void *obj, pb_pr_ctl_t *ctl)
+static void pb_msg_string(pb_pr_field_t *field)
 {
-	pr_msg("\"%s\"",	*(char **)obj);
+	pr_msg("\"%s\"",	*(char **)field->data);
 }
 
-static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
+static void pb_msg_unk(pb_pr_field_t *field)
 {
-	pr_msg("unknown object %p", obj);
+	pr_msg("unknown object %p", field->data);
 }
 
 static inline void print_tabs(pb_pr_ctl_t *ctl)
@@ -183,22 +183,25 @@ static void print_nested_message_braces(pb_pr_ctl_t *ctl, int right_brace)
 
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 
-static void show_nested_message(void *msg, pb_pr_ctl_t *ctl)
+static void show_nested_message(pb_pr_field_t *field)
 {
+	pb_pr_ctl_t *ctl = container_of(field, pb_pr_ctl_t, cur);
+
 	print_nested_message_braces(ctl, 0);
-	ctl->cur.depth++;
-	pb_show_msg(msg, ctl);
-	ctl->cur.depth--;
+	field->depth++;
+	pb_show_msg(field->data, ctl);
+	field->depth--;
 	print_nested_message_braces(ctl, 1);
 }
 
-static void show_enum(void *msg, pb_pr_ctl_t *ctl)
+static void show_enum(pb_pr_field_t *field)
 {
+	pb_pr_ctl_t *ctl = container_of(field, pb_pr_ctl_t, cur);
 	ProtobufCEnumDescriptor *d = ctl->arg;
 	const char *val_name = NULL;
 	int val, i;
 
-	val = *(int *)msg;
+	val = *(int *)field->data;
 	for (i = 0; i < d->n_values; i++)
 		if (d->values[i].value == val) {
 			val_name = d->values[i].name;
@@ -211,9 +214,9 @@ static void show_enum(void *msg, pb_pr_ctl_t *ctl)
 		pr_msg("%d", val);
 }
 
-static void show_bool(void *msg, pb_pr_ctl_t *ctl)
+static void show_bool(pb_pr_field_t *field)
 {
-	protobuf_c_boolean val = *(protobuf_c_boolean *)msg;
+	protobuf_c_boolean val = *(protobuf_c_boolean *)field->data;
 
 	if (val)
 		pr_msg("True");
@@ -302,12 +305,12 @@ static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
 	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
 
-	show(field->data, ctl);
+	show(field);
 	field->data += fsize;
 
 	for (counter = 0; counter < nr_fields - 1; counter++, field->data += fsize) {
 		pr_msg(":");
-		show(field->data, ctl);
+		show(field);
 	}
 }
 
