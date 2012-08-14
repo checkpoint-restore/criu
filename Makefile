@@ -1,7 +1,7 @@
 include Makefile.inc
 
 CFLAGS		+= -I./include
-CFLAGS		+= -O0 -ggdb3
+CFLAGS		+= -O0 -ggdb3 -fno-strict-aliasing
 
 LIBS		+= -lrt -lpthread -lprotobuf-c
 

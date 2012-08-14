@@ -24,7 +24,7 @@ DEPS		+= $(patsubst %.o,%.d,$(POBJS))
 DEPS		+= $(patsubst %.o,%.d,$(ROBJS))
 
 PIELDS		:= pie.lds.S
-PIEFLAGS	:= -fpie  -Wa,--noexecstack
+PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
 ASMFLAGS	:= -D__ASSEMBLY__
 
 $(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
