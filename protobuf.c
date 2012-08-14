@@ -264,6 +264,38 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 	return fsize;
 }
 
+static pb_pr_show_t get_pb_show_function(int type)
+{
+	switch (type) {
+	case PROTOBUF_C_TYPE_INT32:
+	case PROTOBUF_C_TYPE_SINT32:
+	case PROTOBUF_C_TYPE_UINT32:
+	case PROTOBUF_C_TYPE_SFIXED32:
+		return pb_msg_int32x;
+	case PROTOBUF_C_TYPE_INT64:
+	case PROTOBUF_C_TYPE_SINT64:
+	case PROTOBUF_C_TYPE_SFIXED64:
+	case PROTOBUF_C_TYPE_FIXED32:
+	case PROTOBUF_C_TYPE_UINT64:
+	case PROTOBUF_C_TYPE_FIXED64:
+		return pb_msg_int64x;
+	case PROTOBUF_C_TYPE_STRING:
+		return pb_msg_string;
+	case PROTOBUF_C_TYPE_MESSAGE:
+		return show_nested_message;
+	case PROTOBUF_C_TYPE_ENUM:
+		return show_enum;
+	case PROTOBUF_C_TYPE_FLOAT:
+	case PROTOBUF_C_TYPE_DOUBLE:
+	case PROTOBUF_C_TYPE_BOOL:
+	case PROTOBUF_C_TYPE_BYTES:
+		return show_bool;
+	default:
+		BUG();
+	}
+	return pb_msg_unk;
+}
+
 static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 			  unsigned long nr_fields, pb_pr_ctl_t *ctl)
 {
@@ -277,43 +309,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 	pr_msg("%s: ", fd->name);
 
 	fsize = pb_show_prepare_field_context(fd, ctl);
-
-	switch (fd->type) {
-		case PROTOBUF_C_TYPE_INT32:
-		case PROTOBUF_C_TYPE_SINT32:
-		case PROTOBUF_C_TYPE_UINT32:
-		case PROTOBUF_C_TYPE_SFIXED32:
-			show = pb_msg_int32x;
-			break;
-		case PROTOBUF_C_TYPE_INT64:
-		case PROTOBUF_C_TYPE_SINT64:
-		case PROTOBUF_C_TYPE_SFIXED64:
-		case PROTOBUF_C_TYPE_FIXED32:
-		case PROTOBUF_C_TYPE_UINT64:
-		case PROTOBUF_C_TYPE_FIXED64:
-			show = pb_msg_int64x;
-			break;
-		case PROTOBUF_C_TYPE_STRING:
-			show = pb_msg_string;
-			break;
-		case PROTOBUF_C_TYPE_MESSAGE:
-			show = show_nested_message;
-			break;
-		case PROTOBUF_C_TYPE_ENUM:
-			show = show_enum;
-			break;
-		case PROTOBUF_C_TYPE_BOOL:
-			show = show_bool;
-			fsize = 4;
-			break;
-		case PROTOBUF_C_TYPE_FLOAT:
-		case PROTOBUF_C_TYPE_DOUBLE:
-		case PROTOBUF_C_TYPE_BYTES:
-		default:
-			show = pb_msg_unk;
-			nr_fields = 1;
-			break;
-	}
+	show = get_pb_show_function(fd->type);
 
 	show(field->data, ctl);
 	field->data += fsize;
