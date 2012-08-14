@@ -1505,17 +1505,19 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (collect_pstree(pid, opts))
 		goto err;
 
-	/*
-	 * Ignore collection errors by now since we may not want
-	 * to dump the missed sockets. But later, when we will start
-	 * dumping containers, we'll better fail here, rather than
-	 * in the dump stage
-	 */
-
 	if (mntns_collect_root(root_item->pid.real))
 		goto err;
 
-	collect_sockets(pid);
+	ret = collect_sockets(pid);
+
+	/*
+	 * If netns isn't dumped, crtools will fail only
+	 * if an unsupported socket will be really dumped.
+	 */
+	if ((opts->namespaces_flags & CLONE_NEWNET) && ret)
+		goto err;
+
+	ret = -1;
 
 	glob_fdset = cr_glob_fdset_open(O_DUMP);
 	if (!glob_fdset)
