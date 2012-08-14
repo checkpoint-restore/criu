@@ -127,10 +127,16 @@ void cr_pb_init(void)
  */
 #define PB_PKOBJ_LOCAL_SIZE	1024
 
+struct pb_pr_field_s {
+	int depth;
+};
+
+typedef struct pb_pr_field_s pb_pr_field_t;
+
 struct pb_pr_ctrl_s {
 	void *arg;
 	int single_entry;
-	int depth;
+	pb_pr_field_t cur;
 };
 
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
@@ -158,7 +164,7 @@ static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
 
 static inline void print_tabs(pb_pr_ctl_t *ctl)
 {
-	int counter = ctl->depth;
+	int counter = ctl->cur.depth;
 
 	if (!ctl->single_entry)
 		return;
@@ -179,9 +185,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 static void show_nested_message(void *msg, pb_pr_ctl_t *ctl)
 {
 	print_nested_message_braces(ctl, 0);
-	ctl->depth++;
+	ctl->cur.depth++;
 	pb_show_msg(msg, ctl);
-	ctl->depth--;
+	ctl->cur.depth--;
 	print_nested_message_braces(ctl, 1);
 }
 
@@ -337,7 +343,7 @@ void do_pb_show_plain(int fd, int type, int single_entry,
 		void (*payload_hadler)(int fd, void *obj, int flags),
 		int flags)
 {
-	pb_pr_ctl_t ctl = {NULL, single_entry, 0};
+	pb_pr_ctl_t ctl = {NULL, single_entry};
 	void (*handle_payload)(int fd, void *obj, int flags);
 
 	if (!cr_pb_descs[type].pb_desc) {
