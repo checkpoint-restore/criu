@@ -153,7 +153,7 @@ static void pb_msg_string(void *obj, pb_pr_ctl_t *ctl)
 
 static void pb_msg_unk(void *obj, pb_pr_ctl_t *ctl)
 {
-	pr_msg("unknown object %p\n", obj);
+	pr_msg("unknown object %p", obj);
 }
 
 static inline void print_tabs(pb_pr_ctl_t *ctl)
