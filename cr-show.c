@@ -283,7 +283,8 @@ static void pstree_handler(int fd, void *obj, int collect)
 
 void show_collect_pstree(int fd, int collect)
 {
-	pb_show_plain_payload(fd, PB_PSTREE, pstree_handler, collect);
+	pb_show_plain_payload_pretty(fd, PB_PSTREE, pstree_handler,
+				     collect, "1:%d 2:%d 3:%d 4:%d 5:%d");
 }
 
 void show_pstree(int fd, struct cr_options *o)
