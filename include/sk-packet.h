@@ -1,5 +1,10 @@
 #ifndef __CR_SK_PACKET_H__
 #define __CR_SK_PACKET_H__
+
+#ifndef PACKET_TIMESTAMP
+#define PACKET_TIMESTAMP	17
+#endif
+
 struct cr_fdset;
 struct fd_parms;
 struct cr_options;
