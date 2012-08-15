@@ -207,6 +207,15 @@ run_test()
 	DUMP_PATH=`pwd`/$ddump
 
 	if [ -n "$PIDNS" ]; then
+		[ -z "$CR_IP_TOOL" ] && CR_IP_TOOL=ip
+		$CR_IP_TOOL a help 2>&1 | grep -q showdump || {
+			cat >&2 <<EOF
+The util "ip" is incompatible. The good one can be cloned from
+git://git.criu.org/iproute2. It should be compiled and a path
+to ip is written in \$CR_IP_TOOL.
+EOF
+			exit 1;
+		}
 		args="-n uts -n ipc -n net -n pid -n mnt --root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
