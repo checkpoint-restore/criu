@@ -99,6 +99,22 @@ umount_zdtm_root()
 }
 trap umount_zdtm_root EXIT
 
+construct_root()
+{
+	local root=$1
+	local test_path=$2
+	local libdir=$root/lib64
+
+	mkdir $libdir
+	for i in `ldd $test_path | awk '{ print $1 }' | grep -v vdso`; do
+		local lib=`basename $i`
+		[ -f $libdir/$lib ] && continue ||
+		[ -f $i ] && cp $i $libdir && continue ||
+		[ -f /lib64/$i ] && cp /lib64/$i $libdir && continue ||
+		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir || return 1
+	done
+}
+
 start_test()
 {
 	local tdir=$1
@@ -119,6 +135,7 @@ start_test()
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --bind . $ZDTM_ROOT || return 1
 		fi
+		construct_root $ZDTM_ROOT $tdir/$tname || return 1
 	(	export ZDTM_NEWNS=1
 		export ZDTM_PIDFILE=$TPID
 		cd $ZDTM_ROOT

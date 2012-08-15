@@ -1,7 +1,7 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= --static -g -O2 -Wall -Werror -fno-strict-aliasing
+CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing
 
 TST_NOFILE	=	\
 		pipe_loop00	\
