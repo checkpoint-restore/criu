@@ -8,6 +8,7 @@
 #include "sockets.h"
 #include "unix_diag.h"
 #include "inet_diag.h"
+#include "packet_diag.h"
 #include "files.h"
 #include "util-net.h"
 #include "sk-packet.h"
@@ -46,6 +47,7 @@ int sk_collect_one(int ino, int family, struct socket_desc *d)
 
 	d->ino		= ino;
 	d->family	= family;
+	d->already_dumped = 0;
 
 	chain = &sockets[ino % SK_HASH_SIZE];
 	d->next = *chain;
@@ -174,6 +176,7 @@ int collect_sockets(int pid)
 		union {
 			struct unix_diag_req	u;
 			struct inet_diag_req_v2	i;
+			struct packet_diag_req	p;
 		} r;
 	} req;
 
@@ -260,6 +263,13 @@ int collect_sockets(int pid)
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
 	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	if (tmp)
+		err = tmp;
+
+	req.r.p.sdiag_family	= AF_PACKET;
+	req.r.p.sdiag_protocol	= 0;
+	req.r.p.pdiag_show	= PACKET_SHOW_INFO;
+	tmp = do_rtnl_req(nl, &req, sizeof(req), packet_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 

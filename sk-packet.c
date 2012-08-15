@@ -1,12 +1,16 @@
 #include <linux/if_packet.h>
 #include <sys/socket.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <unistd.h>
 #include <string.h>
 #include "crtools.h"
 #include "types.h"
 #include "files.h"
 #include "sockets.h"
+#include "libnetlink.h"
 #include "sk-packet.h"
+#include "packet_diag.h"
 
 #include "protobuf.h"
 #include "protobuf/packet-sock.pb-c.h"
@@ -17,6 +21,13 @@ struct packet_sock_info {
 	struct file_desc d;
 };
 
+struct packet_sock_desc {
+	struct socket_desc sd;
+	unsigned int type;
+	unsigned short proto;
+	struct packet_diag_info nli;
+};
+
 void show_packetsk(int fd, struct cr_options *o)
 {
 	pb_show_plain(fd, PB_PACKETSK);
@@ -24,19 +35,20 @@ void show_packetsk(int fd, struct cr_options *o)
 
 static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
-	int type, yes;
 	PacketSockEntry psk = PACKET_SOCK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	struct sockaddr_ll addr;
-	socklen_t alen;
+	struct packet_sock_desc *sd;
 
-	pr_info("Dumping packet socket fd %d id %#x\n", lfd, id);
-
-	if (dump_opt(lfd, SOL_SOCKET, SO_TYPE, &type))
+	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino);
+	if (sd < 0)
 		return -1;
 
+	pr_info("Dumping packet socket fd %d id %#x\n", lfd, id);
+	BUG_ON(sd->sd.already_dumped);
+	sd->sd.already_dumped = 1;
+
 	psk.id = id;
-	psk.type = type;
+	psk.type = sd->type;
 	psk.flags = p->flags;
 	psk.fown = (FownEntry *)&p->fown;
 	psk.opts = &skopts;
@@ -44,39 +56,15 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		return -1;
 
-	alen = sizeof(addr);
-	if (getsockname(lfd, (struct sockaddr *)&addr, &alen) < 0) {
-		pr_perror("Can't get packet sock name");
-		return -1;
-	}
-
-	psk.protocol = addr.sll_protocol;
-	psk.ifindex = addr.sll_ifindex;
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_VERSION, &psk.version))
-		return -1;
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_RESERVE, &psk.reserve))
-		return -1;
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_TIMESTAMP, &psk.timestamp))
-		return -1;
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_AUXDATA, &yes))
-		return -1;
-	psk.aux_data = (yes ? true : false);
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_ORIGDEV, &yes))
-		return 1;
-	psk.orig_dev = (yes ? true : false);
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_VNET_HDR, &yes))
-		return 1;
-	psk.vnet_hdr = (yes ? true : false);
-
-	if (dump_opt(lfd, SOL_PACKET, PACKET_LOSS, &yes))
-		return 1;
-	psk.loss = (yes ? true : false);
+	psk.protocol = sd->proto;
+	psk.ifindex = sd->nli.pdi_index;
+	psk.version = sd->nli.pdi_version;
+	psk.reserve = sd->nli.pdi_reserve;
+	psk.timestamp = sd->nli.pdi_tstamp;
+	psk.aux_data = (sd->nli.pdi_flags & PDI_AUXDATA ? true : false);
+	psk.orig_dev = (sd->nli.pdi_flags & PDI_ORIGDEV ? true : false);
+	psk.vnet_hdr = (sd->nli.pdi_flags & PDI_VNETHDR ? true : false);
+	psk.loss = (sd->nli.pdi_flags & PDI_LOSS ? true : false);
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 }
@@ -89,6 +77,33 @@ static const struct fdtype_ops packet_dump_ops = {
 int dump_one_packet_sk(struct fd_parms *p, int lfd, const struct cr_fdset *fds)
 {
 	return do_dump_gen_file(p, lfd, &packet_dump_ops, fds);
+}
+
+int packet_receive_one(struct nlmsghdr *hdr, void *arg)
+{
+	struct packet_diag_msg *m;
+	struct rtattr *tb[PACKET_DIAG_MAX + 1];
+	struct packet_sock_desc *sd;
+
+	m = NLMSG_DATA(hdr);
+	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr *)(m + 1),
+			hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+	pr_msg("Collect packet sock %u %u\n", m->pdiag_ino, (unsigned int)m->pdiag_num);
+
+	if (!tb[PACKET_DIAG_INFO]) {
+		pr_err("No packet sock info in nlm\n");
+		return -1;
+	}
+
+	sd = xmalloc(sizeof(*sd));
+	if (!sd)
+		return -1;
+
+	sd->type = m->pdiag_type;
+	sd->proto = htons(m->pdiag_num);
+	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
+
+	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
 }
 
 static int open_packet_sk(struct file_desc *d)
