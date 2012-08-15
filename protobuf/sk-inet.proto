@@ -2,6 +2,14 @@ import "fown.proto";
 import "sk-opts.proto";
 
 message inet_sk_entry {
+	/*
+	 * We have two IDs here -- id and ino. The first one
+	 * is used when restoring socket behind a file descriprot.
+	 * The fdinfo image's id is it. The second one is used
+	 * in sk-inet.c internally, in particular we identify
+	 * a TCP stream to restore into this socket using the
+	 * ino value.
+	 */
 	required uint32			id		=  1;
 	required uint32			ino		=  2;
 	required uint32			family		=  3;
