@@ -168,14 +168,14 @@ err:
 	return NULL;
 }
 
-static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
+static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int family)
 {
 	struct inet_sk_desc *sk;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	int ret = -1;
 
-	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino);
+	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family);
 	if (!sk) {
 		sk = gen_uncon_sk(lfd, p);
 		if (!sk)
@@ -189,7 +189,7 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	ie.id		= id;
 	ie.ino		= sk->sd.ino;
-	ie.family	= sk->sd.family;
+	ie.family	= family;
 	ie.type		= sk->type;
 	ie.proto	= sk->proto;
 	ie.state	= sk->state;
@@ -247,6 +247,11 @@ err:
 	return ret;
 }
 
+static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
+{
+	return do_dump_one_inet_fd(lfd, id, p, PF_INET);
+}
+
 static const struct fdtype_ops inet_dump_ops = {
 	.type		= FD_TYPES__INETSK,
 	.dump		= dump_one_inet_fd,
@@ -255,6 +260,21 @@ static const struct fdtype_ops inet_dump_ops = {
 int dump_one_inet(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 {
 	return do_dump_gen_file(p, lfd, &inet_dump_ops, set);
+}
+
+static int dump_one_inet6_fd(int lfd, u32 id, const struct fd_parms *p)
+{
+	return do_dump_one_inet_fd(lfd, id, p, PF_INET6);
+}
+
+static const struct fdtype_ops inet6_dump_ops = {
+	.type		= FD_TYPES__INETSK,
+	.dump		= dump_one_inet6_fd,
+};
+
+int dump_one_inet6(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+{
+	return do_dump_gen_file(p, lfd, &inet6_dump_ops, set);
 }
 
 int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)

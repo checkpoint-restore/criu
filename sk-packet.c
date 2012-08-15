@@ -39,7 +39,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	struct packet_sock_desc *sd;
 
-	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino);
+	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET);
 	if (sd < 0)
 		return -1;
 

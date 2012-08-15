@@ -31,13 +31,17 @@
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
-struct socket_desc *lookup_socket(int ino)
+struct socket_desc *lookup_socket(int ino, int family)
 {
 	struct socket_desc *sd;
 
+	pr_debug("\tSearching for socket %x (family %d)\n", ino, family);
 	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next)
-		if (sd->ino == ino)
+		if (sd->ino == ino) {
+			BUG_ON(sd->family != family);
 			return sd;
+		}
+
 	return NULL;
 }
 
@@ -133,8 +137,9 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 	case AF_UNIX:
 		return dump_one_unix(p, lfd, cr_fdset);
 	case AF_INET:
-	case AF_INET6:
 		return dump_one_inet(p, lfd, cr_fdset);
+	case AF_INET6:
+		return dump_one_inet6(p, lfd, cr_fdset);
 	case AF_PACKET:
 		return dump_one_packet_sk(p, lfd, cr_fdset);
 	default:

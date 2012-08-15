@@ -115,7 +115,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
-	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino);
+	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX);
 	if (!sk)
 		goto err;
 
@@ -141,7 +141,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ue.peer) {
 		struct unix_sk_desc *peer;
 
-		peer = (struct unix_sk_desc *)lookup_socket(ue.peer);
+		peer = (struct unix_sk_desc *)lookup_socket(ue.peer, PF_UNIX);
 		if (!peer) {
 			pr_err("Unix socket %#x without peer %#x\n",
 					ue.ino, ue.peer);
