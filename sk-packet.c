@@ -21,11 +21,20 @@ struct packet_sock_info {
 	struct file_desc d;
 };
 
+struct packet_mreq_max {
+	int             mr_ifindex;
+	unsigned short  mr_type;
+	unsigned short  mr_alen;
+	unsigned char   mr_address[MAX_ADDR_LEN];
+};
+
 struct packet_sock_desc {
 	struct socket_desc sd;
 	unsigned int type;
 	unsigned short proto;
 	struct packet_diag_info nli;
+	int mreq_n;
+	struct packet_diag_mclist *mreqs;
 };
 
 void show_packetsk(int fd, struct cr_options *o)
@@ -33,11 +42,71 @@ void show_packetsk(int fd, struct cr_options *o)
 	pb_show_plain(fd, PB_PACKETSK);
 }
 
+static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
+{
+	int i;
+
+	if (!sd->mreq_n)
+		return 0;
+
+	pr_debug("\tdumping %d mreqs\n", sd->mreq_n);
+	psk->mclist = xmalloc(sd->mreq_n * sizeof(psk->mclist[0]));
+	if (!psk->mclist)
+		return -1;
+
+	for (i = 0; i < sd->mreq_n; i++) {
+		struct packet_diag_mclist *m = &sd->mreqs[i];
+		PacketMclist *im;
+
+		if (m->pdmc_count != 1) {
+			pr_err("Multiple MC membership not supported (but can be)\n");
+			goto err;
+		}
+
+		pr_debug("\tmr%d: idx %d type %d\n", i,
+				m->pdmc_index, m->pdmc_type);
+
+		im = xmalloc(sizeof(*im));
+		if (!im)
+			goto err;
+
+		packet_mclist__init(im);
+		psk->mclist[i] = im;
+		psk->n_mclist++;
+
+		im->index = m->pdmc_index;
+		im->type = m->pdmc_type;
+
+		switch (m->pdmc_type) {
+			case PACKET_MR_MULTICAST:
+			case PACKET_MR_UNICAST:
+				im->addr.len = m->pdmc_alen;
+				im->addr.data = xmalloc(m->pdmc_alen);
+				if (!im->addr.data)
+					goto err;
+
+				memcpy(im->addr.data, m->pdmc_addr, m->pdmc_alen);
+				break;
+			case PACKET_MR_PROMISC:
+			case PACKET_MR_ALLMULTI:
+				break;
+			default:
+				pr_err("Unknown mc membership type %d\n", m->pdmc_type);
+				goto err;
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
 static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	PacketSockEntry psk = PACKET_SOCK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	struct packet_sock_desc *sd;
+	int i, ret;
 
 	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET);
 	if (sd < 0)
@@ -67,7 +136,16 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	psk.vnet_hdr = (sd->nli.pdi_flags & PDI_VNETHDR ? true : false);
 	psk.loss = (sd->nli.pdi_flags & PDI_LOSS ? true : false);
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
+	ret = dump_mreqs(&psk, sd);
+	if (ret)
+		goto out;
+
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
+out:
+	for (i = 0; i < psk.n_mclist; i++)
+		xfree(psk.mclist[i]->addr.data);
+	xfree(psk.mclist);
+	return ret;
 }
 
 static const struct fdtype_ops packet_dump_ops = {
@@ -78,6 +156,18 @@ static const struct fdtype_ops packet_dump_ops = {
 int dump_one_packet_sk(struct fd_parms *p, int lfd, const struct cr_fdset *fds)
 {
 	return do_dump_gen_file(p, lfd, &packet_dump_ops, fds);
+}
+
+static int packet_save_mreqs(struct packet_sock_desc *sd, struct rtattr *mc)
+{
+	sd->mreq_n = RTA_PAYLOAD(mc) / sizeof(struct packet_diag_mclist);
+	pr_debug("\tGot %d mreqs\n", sd->mreq_n);
+	sd->mreqs = xmalloc(RTA_PAYLOAD(mc));
+	if (!sd->mreqs)
+		return -1;
+
+	memcpy(sd->mreqs, RTA_DATA(mc), RTA_PAYLOAD(mc));
+	return 0;
 }
 
 int packet_receive_one(struct nlmsghdr *hdr, void *arg)
@@ -96,6 +186,11 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 		return -1;
 	}
 
+	if (!tb[PACKET_DIAG_MCLIST]) {
+		pr_err("No packet sock mclist in nlm\n");
+		return -1;
+	}
+
 	sd = xmalloc(sizeof(*sd));
 	if (!sd)
 		return -1;
@@ -104,7 +199,38 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	sd->proto = htons(m->pdiag_num);
 	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
 
+	if (packet_save_mreqs(sd, tb[PACKET_DIAG_MCLIST]))
+		return -1;
+
 	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
+}
+
+static int restore_mreqs(int sk, PacketSockEntry *pse)
+{
+	int i;
+
+	for (i = 0; i < pse->n_mclist; i++) {
+		PacketMclist *ml;
+		struct packet_mreq_max mreq;
+
+		ml = pse->mclist[i];
+		pr_info("Restoring mreq type %d\n", ml->type);
+
+		if (ml->addr.len > sizeof(mreq.mr_address)) {
+			pr_err("To big mcaddr %lu\n", ml->addr.len);
+			return -1;
+		}
+
+		mreq.mr_ifindex = ml->index;
+		mreq.mr_type = ml->type;
+		mreq.mr_alen = ml->addr.len;
+		memcpy(mreq.mr_address, ml->addr.data, ml->addr.len);
+
+		if (restore_opt(sk, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq))
+			return -1;
+	}
+
+	return 0;
 }
 
 static int open_packet_sk(struct file_desc *d)
@@ -169,6 +295,9 @@ static int open_packet_sk(struct file_desc *d)
 		if (restore_opt(sk, SOL_PACKET, PACKET_LOSS, &yes))
 			goto err_cl;
 	}
+
+	if (restore_mreqs(sk, pse))
+		goto err_cl;
 
 	if (rst_file_params(sk, pse->fown, pse->flags))
 		goto err_cl;

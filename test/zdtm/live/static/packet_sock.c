@@ -49,12 +49,26 @@ static int test_sockaddr(int n, struct sockaddr_ll *have, struct sockaddr_ll *wa
 	return 0;
 }
 
+#ifndef MAX_ADDR_LEN
+#define MAX_ADDR_LEN	32
+#endif
+
+struct packet_mreq_max {
+	int             mr_ifindex;
+	unsigned short  mr_type;
+	unsigned short  mr_alen;
+	unsigned char   mr_address[MAX_ADDR_LEN];
+};
+
+#define LO_ADDR_LEN	6
+
 int main(int argc, char **argv)
 {
 	int sk1, sk2;
 	struct sockaddr_ll addr, addr1, addr2;
 	socklen_t alen;
 	int ver, rsv, yes;
+	struct packet_mreq_max mreq;
 
 	test_init(argc, argv);
 
@@ -114,6 +128,23 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = 1;
+	mreq.mr_type = PACKET_MR_PROMISC;
+	if (setsockopt(sk1, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+		err("Can't add promisc member %m");
+		return 1;
+	}
+
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = 1;
+	mreq.mr_type = PACKET_MR_UNICAST;
+	mreq.mr_alen = LO_ADDR_LEN;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+		err("Can't add ucast member %m");
+		return 1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
@@ -148,6 +179,14 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = 1;
+	mreq.mr_type = PACKET_MR_PROMISC;
+	if (setsockopt(sk1, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+		fail("Promisc member not kept");
+		return 1;
+	}
+
 	alen = sizeof(addr);
 	if (getsockname(sk2, (struct sockaddr *)&addr, &alen) < 0) {
 		fail("Can't get sockname 2 rst");
@@ -176,6 +215,15 @@ int main(int argc, char **argv)
 
 	if (rsv != SK_RESERVE) {
 		fail("Reserve mismatch have %d, want %d\n", rsv, SK_RESERVE);
+		return 1;
+	}
+
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = 1;
+	mreq.mr_type = PACKET_MR_UNICAST;
+	mreq.mr_alen = LO_ADDR_LEN;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+		fail("Ucast member not kept");
 		return 1;
 	}
 
