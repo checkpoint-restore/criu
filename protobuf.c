@@ -349,11 +349,12 @@ static pb_pr_show_t get_pb_show_function(int type)
 		return show_nested_message;
 	case PROTOBUF_C_TYPE_ENUM:
 		return show_enum;
+	case PROTOBUF_C_TYPE_BOOL:
+		return show_bool;
 	case PROTOBUF_C_TYPE_FLOAT:
 	case PROTOBUF_C_TYPE_DOUBLE:
-	case PROTOBUF_C_TYPE_BOOL:
 	case PROTOBUF_C_TYPE_BYTES:
-		return show_bool;
+		break;
 	default:
 		BUG();
 	}
