@@ -61,6 +61,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	psk.version = sd->nli.pdi_version;
 	psk.reserve = sd->nli.pdi_reserve;
 	psk.timestamp = sd->nli.pdi_tstamp;
+	psk.copy_thresh = sd->nli.pdi_copy_thresh;
 	psk.aux_data = (sd->nli.pdi_flags & PDI_AUXDATA ? true : false);
 	psk.orig_dev = (sd->nli.pdi_flags & PDI_ORIGDEV ? true : false);
 	psk.vnet_hdr = (sd->nli.pdi_flags & PDI_VNETHDR ? true : false);
@@ -140,6 +141,9 @@ static int open_packet_sk(struct file_desc *d)
 		goto err_cl;
 
 	if (restore_opt(sk, SOL_PACKET, PACKET_TIMESTAMP, &pse->timestamp))
+		goto err_cl;
+
+	if (restore_opt(sk, SOL_PACKET, PACKET_COPY_THRESH, &pse->copy_thresh))
 		goto err_cl;
 
 	if (pse->aux_data) {
