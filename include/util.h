@@ -318,4 +318,6 @@ static inline int read_img_str(int fd, char **pstr, int size)
 	return 0;
 }
 
+extern void *shmalloc(size_t bytes);
+
 #endif /* UTIL_H_ */

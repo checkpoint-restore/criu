@@ -294,3 +294,34 @@ int is_anon_link_type(int lfd, char *type)
 	snprintf(aux, sizeof(aux), "anon_inode:%s", type);
 	return !strcmp(link, aux);
 }
+
+static void *sh_buf;
+static unsigned int sh_bytes_left;
+#define SH_BUF_CHUNK	4096
+
+void *shmalloc(size_t bytes)
+{
+	void *ret;
+
+	if (bytes > SH_BUF_CHUNK) {
+		pr_err("Too big shared buffer requested %lu\n", bytes);
+		return NULL;
+	}
+
+	if (sh_bytes_left < bytes) {
+		sh_buf = mmap(NULL, SH_BUF_CHUNK, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_ANON, 0, 0);
+		if (sh_buf == MAP_FAILED) {
+			pr_perror("Can't alloc shared buffer");
+			return NULL;
+		}
+
+		sh_bytes_left = SH_BUF_CHUNK;
+	}
+
+	ret = sh_buf;
+	sh_buf += bytes;
+	sh_bytes_left -= bytes;
+
+	return ret;
+}

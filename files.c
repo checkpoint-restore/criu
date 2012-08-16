@@ -27,9 +27,6 @@
 #include "protobuf.h"
 #include "protobuf/fs.pb-c.h"
 
-static struct fdinfo_list_entry *fdinfo_list;
-static int nr_fdinfo_list;
-
 #define FDESC_HASH_SIZE	64
 static struct list_head file_desc_hash[FDESC_HASH_SIZE];
 
@@ -38,13 +35,6 @@ static struct list_head file_desc_hash[FDESC_HASH_SIZE];
 int prepare_shared_fdinfo(void)
 {
 	int i;
-
-	fdinfo_list = mmap(NULL, FDINFO_POOL_SIZE,
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (fdinfo_list == MAP_FAILED) {
-		pr_perror("Can't map fdinfo_list");
-		return -1;
-	}
 
 	for (i = 0; i < FDESC_HASH_SIZE; i++)
 		INIT_LIST_HEAD(&file_desc_hash[i]);
@@ -161,17 +151,15 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
-	struct fdinfo_list_entry *l, *le = &fdinfo_list[nr_fdinfo_list];
+	struct fdinfo_list_entry *l, *le;
 	struct file_desc *fdesc;
 
 	pr_info("Collect fdinfo pid=%d fd=%d id=0x%16x\n",
 		pid, e->fd, e->id);
 
-	nr_fdinfo_list++;
-	if ((nr_fdinfo_list) * sizeof(struct fdinfo_list_entry) >= FDINFO_POOL_SIZE) {
-		pr_err("OOM storing fdinfo_list_entries\n");
+	le = shmalloc(sizeof(*le));
+	if (!le)
 		return -1;
-	}
 
 	le->pid = pid;
 	futex_init(&le->real_pid);
