@@ -24,6 +24,11 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #include <net/ethernet.h>
 
 #define SK_RESERVE	8
+#define DEF_FANOUT	13
+
+#ifndef PACKET_FANOUT
+#define PACKET_FANOUT	18
+#endif
 
 static int test_sockaddr(int n, struct sockaddr_ll *have, struct sockaddr_ll *want)
 {
@@ -128,6 +133,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	yes = DEF_FANOUT;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_FANOUT, &yes, sizeof(yes)) < 0) {
+		err("Can't configure fanout %m");
+		return 1;
+	}
+
 	memset(&mreq, 0, sizeof(mreq));
 	mreq.mr_ifindex = 1;
 	mreq.mr_type = PACKET_MR_PROMISC;
@@ -187,6 +198,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	alen = sizeof(yes);
+	if (getsockopt(sk1, SOL_PACKET, PACKET_FANOUT, &yes, &alen) < 0) {
+		fail("Can't read fanout back %m");
+		return 1;
+	}
+
+	if (yes != 0) {
+		fail("Fanout screwed up to %x", yes);
+		return 1;
+	}
+
 	alen = sizeof(addr);
 	if (getsockname(sk2, (struct sockaddr *)&addr, &alen) < 0) {
 		fail("Can't get sockname 2 rst");
@@ -224,6 +246,17 @@ int main(int argc, char **argv)
 	mreq.mr_alen = LO_ADDR_LEN;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
 		fail("Ucast member not kept");
+		return 1;
+	}
+
+	alen = sizeof(yes);
+	if (getsockopt(sk2, SOL_PACKET, PACKET_FANOUT, &yes, &alen) < 0) {
+		fail("Can't read fanout2 back %m");
+		return 1;
+	}
+
+	if (yes != DEF_FANOUT) {
+		fail("Fanout2 screwed up to %x", yes);
 		return 1;
 	}
 
