@@ -13,6 +13,4 @@ extern struct shmems *rst_shmems;
 
 int cr_dump_shmem(void);
 int add_shmem_area(pid_t pid, VmaEntry *vma);
-int init_shmem_dump(void);
-void fini_shmem_dump(void);
 #endif

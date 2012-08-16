@@ -1523,9 +1523,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (!glob_fdset)
 		goto err;
 
-	if (init_shmem_dump())
-		goto err;
-
 	for_each_pstree_item(item) {
 		if (dump_one_task(item))
 			goto err;
@@ -1548,7 +1545,6 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 
 	fd_id_show_tree();
 err:
-	fini_shmem_dump();
 	close_cr_fdset(&glob_fdset);
 
 	/*

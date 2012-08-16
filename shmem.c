@@ -229,41 +229,45 @@ struct shmem_info_dump {
 	unsigned long	start;
 	unsigned long	end;
 	int		pid;
+
+	struct shmem_info_dump *next;
 };
 
-static int nr_shmems;
-static struct shmem_info_dump *dump_shmems;
+#define SHMEM_HASH_SIZE	32
+static struct shmem_info_dump *shmems_hash[SHMEM_HASH_SIZE];
 
-static struct shmem_info_dump *shmem_find(unsigned long shmid)
+static struct shmem_info_dump *shmem_find(struct shmem_info_dump **chain,
+		unsigned long shmid)
 {
-	int i;
+	struct shmem_info_dump *sh;
 
-	for (i = 0; i < nr_shmems; i++)
-		if (dump_shmems[i].shmid == shmid)
-			return &dump_shmems[i];
+	for (sh = *chain; sh; sh = sh->next)
+		if (sh->shmid == shmid)
+			return sh;
 
 	return NULL;
 }
 
 int add_shmem_area(pid_t pid, VmaEntry *vma)
 {
-	struct shmem_info_dump *si;
+	struct shmem_info_dump *si, **chain;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
 
-	si = shmem_find(vma->shmid);
+	chain = &shmems_hash[vma->shmid % SHMEM_HASH_SIZE];
+	si = shmem_find(chain, vma->shmid);
 	if (si) {
 		if (si->size < size)
 			si->size = size;
 		return 0;
 	}
 
-	nr_shmems++;
-	if (nr_shmems * sizeof(*si) == SHMEMS_SIZE) {
-		pr_err("OOM storing shmems\n");
+	si = xmalloc(sizeof(*si));
+	if (!si)
 		return -1;
-	}
 
-	si = &dump_shmems[nr_shmems - 1];
+	si->next = *chain;
+	*chain = si;
+
 	si->size = size;
 	si->pid = pid;
 	si->start = vma->start;
@@ -273,15 +277,19 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 	return 0;
 }
 
+#define for_each_shmem_dump(_i, _si)				\
+	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
+		for (si = shmems_hash[i]; si; si = si->next)
+
 int cr_dump_shmem(void)
 {
-	int err, fd;
+	int i, err, fd;
 	unsigned char *map = NULL;
 	void *addr = NULL;
 	struct shmem_info_dump *si;
 	unsigned long pfn, nrpages;
 
-	for (si = dump_shmems; si < &dump_shmems[nr_shmems]; si++) {
+	for_each_shmem_dump (i, si) {
 		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
 
 		nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -345,16 +353,4 @@ err_unmap:
 err:
 	xfree(map);
 	return -1;
-}
-
-int init_shmem_dump(void)
-{
-	nr_shmems = 0;
-	dump_shmems = xmalloc(SHMEMS_SIZE);
-	return dump_shmems == NULL ? -1 : 0;
-}
-
-void fini_shmem_dump(void)
-{
-	xfree(dump_shmems);
 }
