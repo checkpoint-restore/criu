@@ -67,6 +67,16 @@ struct packet_mreq_max {
 
 #define LO_ADDR_LEN	6
 
+struct tpacket_req3 {
+	unsigned int tp_block_size;
+	unsigned int tp_block_nr;
+	unsigned int tp_frame_size;
+	unsigned int tp_frame_nr;
+	unsigned int tp_retire_blk_tov;
+	unsigned int tp_sizeof_priv;
+	unsigned int tp_feature_req_word;
+};
+
 int main(int argc, char **argv)
 {
 	int sk1, sk2;
@@ -74,6 +84,7 @@ int main(int argc, char **argv)
 	socklen_t alen;
 	int ver, rsv, yes;
 	struct packet_mreq_max mreq;
+	struct tpacket_req3 ring;
 
 	test_init(argc, argv);
 
@@ -121,6 +132,16 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	memset(&ring, 0, sizeof(ring));
+	ring.tp_block_size = 4096;
+	ring.tp_block_nr = 1;
+	ring.tp_frame_size = 1024;
+	ring.tp_frame_nr = 4;
+	if (setsockopt(sk1, SOL_PACKET, PACKET_RX_RING, &ring, sizeof(ring)) < 0) {
+		err("Can't set rx ring %m");
+		return 1;
+	}
+
 	rsv = SK_RESERVE;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, sizeof(rsv)) < 0) {
 		err("Can't set reserve %m");
@@ -153,6 +174,16 @@ int main(int argc, char **argv)
 	mreq.mr_alen = LO_ADDR_LEN;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
 		err("Can't add ucast member %m");
+		return 1;
+	}
+
+	memset(&ring, 0, sizeof(ring));
+	ring.tp_block_size = 4096;
+	ring.tp_block_nr = 1;
+	ring.tp_frame_size = 1024;
+	ring.tp_frame_nr = 4;
+	if (setsockopt(sk2, SOL_PACKET, PACKET_TX_RING, &ring, sizeof(ring)) < 0) {
+		err("Can't set tx ring %m");
 		return 1;
 	}
 
