@@ -274,7 +274,7 @@ int collect_sockets(int pid)
 	req.r.p.sdiag_family	= AF_PACKET;
 	req.r.p.sdiag_protocol	= 0;
 	req.r.p.pdiag_show	= PACKET_SHOW_INFO | PACKET_SHOW_MCLIST |
-					PACKET_SHOW_FANOUT;
+					PACKET_SHOW_FANOUT | PACKET_SHOW_RING_CFG;
 	tmp = do_rtnl_req(nl, &req, sizeof(req), packet_receive_one, NULL);
 	if (tmp)
 		err = tmp;

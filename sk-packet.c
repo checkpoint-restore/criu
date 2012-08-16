@@ -36,6 +36,7 @@ struct packet_sock_desc {
 	int mreq_n;
 	struct packet_diag_mclist *mreqs;
 	unsigned int fanout;
+	struct packet_diag_ring *rx, *tx;
 };
 
 #define NO_FANOUT	((unsigned int)-1)
@@ -104,6 +105,44 @@ err:
 	return -1;
 }
 
+static PacketRing *dump_ring(struct packet_diag_ring *dr)
+{
+	PacketRing *ring;
+
+	ring = xmalloc(sizeof(*ring));
+	if (!ring)
+		return NULL;
+
+	packet_ring__init(ring);
+
+	ring->block_size = dr->pdr_block_size;
+	ring->block_nr = dr->pdr_block_nr;
+	ring->frame_size = dr->pdr_frame_size;
+	ring->frame_nr = dr->pdr_frame_nr;
+	ring->retire_tmo = dr->pdr_retire_tmo;
+	ring->sizeof_priv = dr->pdr_sizeof_priv;
+	ring->features = dr->pdr_features;
+
+	return ring;
+}
+
+static int dump_rings(PacketSockEntry *psk, struct packet_sock_desc *sd)
+{
+	if (sd->rx) {
+		psk->rx_ring = dump_ring(sd->rx);
+		if (!psk->rx_ring)
+			return -1;
+	}
+
+	if (sd->tx) {
+		psk->tx_ring = dump_ring(sd->tx);
+		if (!psk->tx_ring)
+			return -1;
+	}
+
+	return 0;
+}
+
 static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	PacketSockEntry psk = PACKET_SOCK_ENTRY__INIT;
@@ -148,8 +187,14 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 		psk.fanout = sd->fanout;
 	}
 
+	ret = dump_rings(&psk, sd);
+	if (ret)
+		goto out;
+
 	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 out:
+	xfree(psk.rx_ring);
+	xfree(psk.tx_ring);
 	for (i = 0; i < psk.n_mclist; i++)
 		xfree(psk.mclist[i]->addr.data);
 	xfree(psk.mclist);
@@ -215,6 +260,18 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	else
 		sd->fanout = NO_FANOUT;
 
+	if (tb[PACKET_DIAG_RX_RING]) {
+		sd->rx = xmalloc(sizeof(*sd->rx));
+		memcpy(sd->rx, RTA_DATA(tb[PACKET_DIAG_RX_RING]), sizeof(*sd->rx));
+	} else
+		sd->rx = NULL;
+
+	if (tb[PACKET_DIAG_TX_RING]) {
+		sd->tx = xmalloc(sizeof(*sd->tx));
+		memcpy(sd->tx, RTA_DATA(tb[PACKET_DIAG_TX_RING]), sizeof(*sd->tx));
+	} else
+		sd->tx = NULL;
+
 	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
 }
 
@@ -242,6 +299,37 @@ static int restore_mreqs(int sk, PacketSockEntry *pse)
 		if (restore_opt(sk, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq))
 			return -1;
 	}
+
+	return 0;
+}
+
+static int restore_ring(int sk, int type, PacketRing *ring)
+{
+	struct tpacket_req3 req;
+
+	if (!ring)
+		return 0;
+
+	pr_debug("\tRestoring %d ring\n", type);
+
+	req.tp_block_size = ring->block_size;
+	req.tp_block_nr = ring->block_nr;
+	req.tp_frame_size = ring->frame_size;
+	req.tp_frame_nr = ring->frame_nr;
+	req.tp_retire_blk_tov = ring->retire_tmo;
+	req.tp_sizeof_priv = ring->sizeof_priv;
+	req.tp_feature_req_word = ring->features;
+
+	return restore_opt(sk, SOL_PACKET, type, &req);
+}
+
+static int restore_rings(int sk, PacketSockEntry *psk)
+{
+	if (restore_ring(sk, PACKET_RX_RING, psk->rx_ring))
+		return -1;
+
+	if (restore_ring(sk, PACKET_TX_RING, psk->tx_ring))
+		return -1;
 
 	return 0;
 }
@@ -310,6 +398,9 @@ static int open_packet_sk(struct file_desc *d)
 	}
 
 	if (restore_mreqs(sk, pse))
+		goto err_cl;
+
+	if (restore_rings(sk, pse))
 		goto err_cl;
 
 	if (pse->has_fanout) {

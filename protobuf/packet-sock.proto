@@ -7,6 +7,17 @@ message packet_mclist {
 	required bytes	addr	= 3;
 }
 
+message packet_ring {
+	required uint32	block_size	= 1;
+	required uint32	block_nr	= 2;
+	required uint32	frame_size	= 3;
+	required uint32	frame_nr	= 4;
+
+	required uint32	retire_tmo	= 5;
+	required uint32	sizeof_priv	= 6;
+	required uint32	features	= 7;
+}
+
 message packet_sock_entry {
 	required uint32			id		= 1;
 	required uint32			type		= 2;
@@ -27,4 +38,6 @@ message packet_sock_entry {
 	required uint32		copy_thresh	= 15;
 	repeated packet_mclist	mclist		= 16;
 	optional uint32		fanout		= 17 [ default = 0xffffffff ];
+	optional packet_ring	rx_ring		= 18;
+	optional packet_ring	tx_ring		= 19;
 }
