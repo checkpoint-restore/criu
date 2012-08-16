@@ -35,7 +35,10 @@ struct packet_sock_desc {
 	struct packet_diag_info nli;
 	int mreq_n;
 	struct packet_diag_mclist *mreqs;
+	unsigned int fanout;
 };
+
+#define NO_FANOUT	((unsigned int)-1)
 
 void show_packetsk(int fd, struct cr_options *o)
 {
@@ -140,6 +143,11 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ret)
 		goto out;
 
+	if (sd->fanout != NO_FANOUT) {
+		psk.has_fanout = true;
+		psk.fanout = sd->fanout;
+	}
+
 	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 out:
 	for (i = 0; i < psk.n_mclist; i++)
@@ -201,6 +209,11 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 
 	if (packet_save_mreqs(sd, tb[PACKET_DIAG_MCLIST]))
 		return -1;
+
+	if (tb[PACKET_DIAG_FANOUT])
+		sd->fanout = *(__u32 *)RTA_DATA(tb[PACKET_DIAG_FANOUT]);
+	else
+		sd->fanout = NO_FANOUT;
 
 	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
 }
@@ -298,6 +311,12 @@ static int open_packet_sk(struct file_desc *d)
 
 	if (restore_mreqs(sk, pse))
 		goto err_cl;
+
+	if (pse->has_fanout) {
+		pr_info("Restoring fanout %x\n", pse->fanout);
+		if (restore_opt(sk, SOL_PACKET, PACKET_FANOUT, &pse->fanout))
+			goto err_cl;
+	}
 
 	if (rst_file_params(sk, pse->fown, pse->flags))
 		goto err_cl;

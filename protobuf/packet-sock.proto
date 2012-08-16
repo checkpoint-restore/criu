@@ -26,4 +26,5 @@ message packet_sock_entry {
 	required uint32		timestamp	= 14;
 	required uint32		copy_thresh	= 15;
 	repeated packet_mclist	mclist		= 16;
+	optional uint32		fanout		= 17 [ default = 0xffffffff ];
 }

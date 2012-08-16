@@ -18,4 +18,8 @@ extern int packet_receive_one(struct nlmsghdr *h, void *arg);
 #ifndef PACKET_VNET_HDR
 #define PACKET_VNET_HDR 15
 #endif
+
+#ifndef PACKET_FANOUT
+#define PACKET_FANOUT	18
+#endif
 #endif
