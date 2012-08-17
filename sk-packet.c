@@ -179,7 +179,7 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	m = NLMSG_DATA(hdr);
 	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr *)(m + 1),
 			hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
-	pr_msg("Collect packet sock %u %u\n", m->pdiag_ino, (unsigned int)m->pdiag_num);
+	pr_info("Collect packet sock %u %u\n", m->pdiag_ino, (unsigned int)m->pdiag_num);
 
 	if (!tb[PACKET_DIAG_INFO]) {
 		pr_err("No packet sock info in nlm\n");
