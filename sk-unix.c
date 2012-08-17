@@ -431,6 +431,7 @@ struct unix_sk_info {
 	unsigned flags;
 	struct unix_sk_info *peer;
 	struct file_desc d;
+	futex_t bound;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -511,7 +512,6 @@ int run_unix_connections(void)
 
 	cj = conn_jobs;
 	while (cj) {
-		int attempts = 8;
 		struct unix_sk_info *ui = cj->sk;
 		struct unix_sk_info *peer = ui->peer;
 		struct fdinfo_list_entry *fle;
@@ -521,19 +521,15 @@ int run_unix_connections(void)
 
 		fle = file_master(&ui->d);
 
+		futex_wait_while(&peer->bound, 0);
+
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
 		memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
-try_again:
+
 		if (connect(fle->fe->fd, (struct sockaddr *)&addr,
 					sizeof(addr.sun_family) +
 					peer->ue->name.len) < 0) {
-			if (attempts) {
-				usleep(1000);
-				attempts--;
-				goto try_again; /* FIXME use futex waiters */
-			}
-
 			pr_perror("Can't connect %#x socket", ui->ue->ino);
 			return -1;
 		}
@@ -576,6 +572,8 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		pr_perror("Can't bind socket");
 		return -1;
 	}
+
+	futex_set_and_wake(&ui->bound, 1);
 done:
 	return 0;
 }
@@ -742,6 +740,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	} else
 		ui->name = NULL;
 
+	futex_init(&ui->bound);
 	ui->peer = NULL;
 	ui->flags = 0;
 	pr_info(" `- Got %#x peer %#x\n", ui->ue->ino, ui->ue->peer);
