@@ -306,7 +306,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
+int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 {
 	struct sockaddr_un saddr;
 	int len;
@@ -316,7 +316,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int tsk)
 	transport_name_gen(&saddr, &len,
 			futex_get(&fle->real_pid), fle->fe->fd);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
-	return send_fd(tsk, &saddr, len, fd);
+	return send_fd(sock, &saddr, len, fd);
 }
 
 static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
