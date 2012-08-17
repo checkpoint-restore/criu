@@ -11,8 +11,6 @@
 #include <sys/un.h>
 
 #include "image.h"
-#include "sockets.h"
-
 #include "util-net.h"
 
 #include "../protobuf/vma.pb-c.h"

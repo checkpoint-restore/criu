@@ -1,8 +1,9 @@
 #include <sys/mman.h>
+#include <errno.h>
+#include <signal.h>
 
 #include "syscall.h"
 #include "parasite.h"
-#include "util.h"
 
 #include <string.h>
 
