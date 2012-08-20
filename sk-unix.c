@@ -482,28 +482,6 @@ out:
 	pr_img_tail(CR_FD_UNIXSK);
 }
 
-struct unix_conn_job {
-	struct unix_sk_info	*sk;
-	struct unix_conn_job	*next;
-};
-
-static struct unix_conn_job *conn_jobs;
-
-static int schedule_conn_job(struct unix_sk_info *ui)
-{
-	struct unix_conn_job *cj;
-
-	cj = xmalloc(sizeof(*cj));
-	if (!cj)
-		return -1;
-
-	cj->sk = ui;
-	cj->next = conn_jobs;
-	conn_jobs = cj;
-
-	return 0;
-}
-
 static int post_open_unix_sk(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
@@ -690,10 +668,6 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		if (restore_socket_opts(sk, ui->ue->opts))
 			return -1;
 
-	} else if (ui->peer) {
-		pr_info("\tWill connect %#x to %#x later\n", ui->ue->ino, ui->ue->peer);
-		if (schedule_conn_job(ui))
-			return -1;
 	}
 
 	return sk;
