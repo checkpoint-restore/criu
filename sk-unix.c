@@ -520,33 +520,33 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	if (peer == NULL)
 		return 0;
 
-		pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
+	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
-		fle = file_master(&ui->d);
+	fle = file_master(&ui->d);
 
-		/* Skip external sockets */
-		if (!list_empty(&peer->d.fd_info_head))
-			futex_wait_while(&peer->bound, 0);
+	/* Skip external sockets */
+	if (!list_empty(&peer->d.fd_info_head))
+		futex_wait_while(&peer->bound, 0);
 
-		memset(&addr, 0, sizeof(addr));
-		addr.sun_family = AF_UNIX;
-		memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
 
-		if (connect(fle->fe->fd, (struct sockaddr *)&addr,
-					sizeof(addr.sun_family) +
-					peer->ue->name.len) < 0) {
-			pr_perror("Can't connect %#x socket", ui->ue->ino);
-			return -1;
-		}
+	if (connect(fle->fe->fd, (struct sockaddr *)&addr,
+				sizeof(addr.sun_family) +
+				peer->ue->name.len) < 0) {
+		pr_perror("Can't connect %#x socket", ui->ue->ino);
+		return -1;
+	}
 
-		if (restore_sk_queue(fle->fe->fd, peer->ue->id))
-			return -1;
+	if (restore_sk_queue(fle->fe->fd, peer->ue->id))
+		return -1;
 
-		if (rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
-			return -1;
+	if (rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
+		return -1;
 
-		if (restore_socket_opts(fle->fe->fd, ui->ue->opts))
-			return -1;
+	if (restore_socket_opts(fle->fe->fd, ui->ue->opts))
+		return -1;
 
 	return 0;
 }
