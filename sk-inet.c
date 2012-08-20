@@ -517,32 +517,44 @@ err:
 	return -1;
 }
 
+union sockaddr_inet {
+	struct sockaddr_in v4;
+	struct sockaddr_in6 v6;
+};
+
+static int restore_sockaddr(union sockaddr_inet *sa,
+		int family, uint32_t pb_port, uint32_t *pb_addr)
+{
+	BUILD_BUG_ON(sizeof(sa->v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(uint32_t));
+	BUILD_BUG_ON(sizeof(sa->v6.sin6_addr.s6_addr) > PB_ALEN_INET6 * sizeof(uint32_t));
+
+	memzero(sa, sizeof(*sa));
+
+	if (family == AF_INET) {
+		sa->v4.sin_family = AF_INET;
+		sa->v4.sin_port = htons(pb_port);
+		memcpy(&sa->v4.sin_addr.s_addr, pb_addr, sizeof(sa->v4.sin_addr.s_addr));
+		return sizeof(sa->v4);
+	}
+
+	if (family == AF_INET6) {
+		sa->v6.sin6_family = AF_INET6;
+		sa->v6.sin6_port = htons(pb_port);
+		memcpy(sa->v6.sin6_addr.s6_addr, pb_addr, sizeof(sa->v6.sin6_addr.s6_addr));
+		return sizeof(sa->v6);
+	}
+
+	BUG();
+	return -1;
+}
+
 int inet_bind(int sk, struct inet_sk_info *ii)
 {
-	union {
-		struct sockaddr_in	v4;
-		struct sockaddr_in6	v6;
-	} addr;
-	int addr_size = 0;
+	union sockaddr_inet addr;
+	int addr_size;
 
-	BUILD_BUG_ON(sizeof(addr.v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(uint32_t));
-	BUILD_BUG_ON(sizeof(addr.v6.sin6_addr.s6_addr) > PB_ALEN_INET6 * sizeof(uint32_t));
-
-	memzero(&addr, sizeof(addr));
-	if (ii->ie->family == AF_INET) {
-		addr.v4.sin_family = ii->ie->family;
-		addr.v4.sin_port = htons(ii->ie->src_port);
-		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->src_addr, sizeof(addr.v4.sin_addr.s_addr));
-		addr_size = sizeof(addr.v4);
-	} else if (ii->ie->family == AF_INET6) {
-		addr.v6.sin6_family = ii->ie->family;
-		addr.v6.sin6_port = htons(ii->ie->src_port);
-		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->src_addr, sizeof(addr.v6.sin6_addr.s6_addr));
-		addr_size = sizeof(addr.v6);
-	} else {
-		pr_perror("Unsupported address family: %d\n", ii->ie->family);
-		return -1;
-	}
+	addr_size = restore_sockaddr(&addr, ii->ie->family,
+			ii->ie->src_port, ii->ie->src_addr);
 
 	if (bind(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't bind inet socket");
@@ -554,28 +566,11 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 
 int inet_connect(int sk, struct inet_sk_info *ii)
 {
-	union {
-		struct sockaddr_in	v4;
-		struct sockaddr_in6	v6;
-	} addr;
-	int addr_size = 0;
+	union sockaddr_inet addr;
+	int addr_size;
 
-
-	memzero(&addr, sizeof(addr));
-	if (ii->ie->family == AF_INET) {
-		addr.v4.sin_family = ii->ie->family;
-		addr.v4.sin_port = htons(ii->ie->dst_port);
-		memcpy(&addr.v4.sin_addr.s_addr, ii->ie->dst_addr, sizeof(addr.v4.sin_addr.s_addr));
-		addr_size = sizeof(addr.v4);
-	} else if (ii->ie->family == AF_INET6) {
-		addr.v6.sin6_family = ii->ie->family;
-		addr.v6.sin6_port = htons(ii->ie->dst_port);
-		memcpy(&addr.v6.sin6_addr.s6_addr, ii->ie->dst_addr, sizeof(addr.v6.sin6_addr.s6_addr));
-		addr_size = sizeof(addr.v6);
-	} else {
-		pr_perror("Unsupported address family: %d\n", ii->ie->family);
-		return -1;
-	}
+	addr_size = restore_sockaddr(&addr, ii->ie->family,
+			ii->ie->dst_port, ii->ie->dst_addr);
 
 	if (connect(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't connect inet socket back");
