@@ -24,6 +24,9 @@
 #include "protobuf.h"
 #include "protobuf/eventpoll.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "epoll: "
+
 struct eventpoll_file_info {
 	EventpollFileEntry		*efe;
 	struct file_desc		d;
