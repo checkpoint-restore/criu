@@ -104,12 +104,18 @@ static void sys_write_msg(const char *msg)
 
 static inline int should_dump_page(VmaEntry *vmae, u64 pme)
 {
-	return (pme & (PME_PRESENT | PME_SWAP)) &&
-		/*
-		 * Optimisation for private mapping pages, that haven't
-		 * yet being COW-ed
-		 */
-		!(vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE));
+	if (vma_entry_is(vmae, VMA_AREA_VDSO))
+		return 1;
+	/*
+	 * Optimisation for private mapping pages, that haven't
+	 * yet being COW-ed
+	 */
+	if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
+		return 0;
+	if (pme & (PME_PRESENT | PME_SWAP))
+		return 1;
+
+	return 0;
 }
 
 static int fd_pages = -1;
