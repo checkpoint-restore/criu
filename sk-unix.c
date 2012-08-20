@@ -521,7 +521,9 @@ int run_unix_connections(void)
 
 		fle = file_master(&ui->d);
 
-		futex_wait_while(&peer->bound, 0);
+		/* Skip external sockets */
+		if (!list_empty(&peer->d.fd_info_head))
+			futex_wait_while(&peer->bound, 0);
 
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
