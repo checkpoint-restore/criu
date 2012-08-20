@@ -35,6 +35,7 @@ struct fd_parms {
 enum fdinfo_states {
 	FD_STATE_PREP,		/* Create unix sockets */
 	FD_STATE_CREATE,	/* Create and send fd */
+	FD_STATE_POST_CREATE,	/* Execute actions, when everyone was created */
 	FD_STATE_RECV,		/* Receive fd */
 
 	FD_STATE_MAX
@@ -54,6 +55,7 @@ struct fdinfo_list_entry {
 struct file_desc_ops {
 	unsigned int		type;
 	int			(*open)(struct file_desc *d);
+	int			(*post_open)(struct file_desc *d, int fd);
 	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
 };
 

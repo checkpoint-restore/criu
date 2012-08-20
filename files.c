@@ -319,6 +319,19 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 	return send_fd(sock, &saddr, len, fd);
 }
 
+static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+{
+	struct fdinfo_list_entry *fle;
+
+	fle = file_master(d);
+	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
+		return 0;
+
+	if (d->ops->post_open && d->ops->post_open(d, fle->fe->fd))
+		return -1;
+
+	return 0;
+}
 static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	int tmp;
@@ -405,6 +418,7 @@ static int receive_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 static char *fdinfo_states[FD_STATE_MAX] = {
 	[FD_STATE_PREP]		= "prepare",
 	[FD_STATE_CREATE]	= "create",
+	[FD_STATE_POST_CREATE]	= "post_create",
 	[FD_STATE_RECV]		= "receive",
 };
 
@@ -422,6 +436,9 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 		break;
 	case FD_STATE_CREATE:
 		ret = open_fd(pid, fle->fe, fle->desc);
+		break;
+	case FD_STATE_POST_CREATE:
+		ret = post_open_fd(pid, fle->fe, fle->desc);
 		break;
 	case FD_STATE_RECV:
 		ret = receive_fd(pid, fle->fe, fle->desc);
