@@ -344,13 +344,6 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 	return ret;
 }
 
-static bool is_bound(struct inet_sk_info *ii)
-{
-	/* zero port is reserved */
-	return ii->ie->src_port;
-}
-
-
 static int open_inet_sk(struct file_desc *d);
 static int post_open_inet_sk(struct file_desc *d, int sk);
 
@@ -483,7 +476,7 @@ static int open_inet_sk(struct file_desc *d)
 	 * bind() and listen(), and that's all.
 	 */
 
-	if (is_bound(ii)) {
+	if (ie->src_port) {
 		if (inet_bind(sk, ii))
 			goto err;
 	}
