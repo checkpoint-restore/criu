@@ -37,6 +37,9 @@
 #include "protobuf.h"
 #include "protobuf/inotify.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "fsnotify: "
+
 struct inotify_wd_info {
 	struct list_head		list;
 	InotifyWdEntry			*iwe;
@@ -72,7 +75,7 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	InotifyWdEntry *we = &e->ify;
 
 	we->id = *(u32 *)arg;
-	pr_info("inotify wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
+	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
 	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
 			we->f_handle->bytes, we->f_handle->type,
@@ -88,7 +91,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.flags = p->flags;
 	ie.fown = (FownEntry *)&p->fown;
 
-	pr_info("inotify: id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
+	pr_info("id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
 	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, PB_INOTIFY))
 		return -1;
 
@@ -221,7 +224,7 @@ static int collect_one_ify(void *o, ProtobufCMessage *msg)
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &info_head);
 	file_desc_add(&info->d, info->ife->id, &desc_ops);
-	pr_info("Collected inotify: id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
+	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
 
 	return 0;
 }
