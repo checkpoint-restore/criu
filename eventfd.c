@@ -24,6 +24,9 @@
 #include "protobuf.h"
 #include "protobuf/eventfd.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "eventfd: "
+
 struct eventfd_file_info {
 	EventfdFileEntry		*efe;
 	struct file_desc		d;
@@ -37,7 +40,7 @@ int is_eventfd_link(int lfd)
 
 static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 {
-	pr_info("%seventfd: id %#08x flags %#04x counter %#016lx\n",
+	pr_info("%s: id %#08x flags %#04x counter %#016lx\n",
 		action, efe->id, efe->flags, efe->counter);
 }
 
