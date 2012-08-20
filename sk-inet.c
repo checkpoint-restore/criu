@@ -427,32 +427,34 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 static int open_inet_sk(struct file_desc *d)
 {
 	struct inet_sk_info *ii;
+	InetSkEntry *ie;
 	int sk, yes = 1;
 
 	ii = container_of(d, struct inet_sk_info, d);
+	ie = ii->ie;
 
-	show_one_inet_img("Restore", ii->ie);
+	show_one_inet_img("Restore", ie);
 
-	if (ii->ie->family != AF_INET && ii->ie->family != AF_INET6) {
-		pr_err("Unsupported socket family: %d\n", ii->ie->family);
+	if (ie->family != AF_INET && ie->family != AF_INET6) {
+		pr_err("Unsupported socket family: %d\n", ie->family);
 		return -1;
 	}
 
-	if ((ii->ie->type != SOCK_STREAM) && (ii->ie->type != SOCK_DGRAM)) {
-		pr_err("Unsupported socket type: %d\n", ii->ie->type);
+	if ((ie->type != SOCK_STREAM) && (ie->type != SOCK_DGRAM)) {
+		pr_err("Unsupported socket type: %d\n", ie->type);
 		return -1;
 	}
 
-	if (inet_validate_address(ii->ie))
+	if (inet_validate_address(ie))
 		return -1;
 
-	sk = socket(ii->ie->family, ii->ie->type, ii->ie->proto);
+	sk = socket(ie->family, ie->type, ie->proto);
 	if (sk < 0) {
 		pr_perror("Can't create unix socket");
 		return -1;
 	}
 
-	if (ii->ie->v6only) {
+	if (ie->v6only) {
 		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
 			return -1;
 	}
@@ -464,7 +466,7 @@ static int open_inet_sk(struct file_desc *d)
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &yes))
 		return -1;
 
-	if (tcp_connection(ii->ie)) {
+	if (tcp_connection(ie)) {
 		if (!opts.tcp_established_ok) {
 			pr_err("Connected TCP socket in image\n");
 			goto err;
@@ -486,28 +488,28 @@ static int open_inet_sk(struct file_desc *d)
 			goto err;
 	}
 
-	if (ii->ie->state == TCP_LISTEN) {
-		if (ii->ie->proto != IPPROTO_TCP) {
-			pr_err("Wrong socket in listen state %d\n", ii->ie->proto);
+	if (ie->state == TCP_LISTEN) {
+		if (ie->proto != IPPROTO_TCP) {
+			pr_err("Wrong socket in listen state %d\n", ie->proto);
 			goto err;
 		}
 
-		if (listen(sk, ii->ie->backlog) == -1) {
+		if (listen(sk, ie->backlog) == -1) {
 			pr_perror("Can't listen on a socket");
 			goto err;
 		}
 	}
 
-	if (ii->ie->state == TCP_ESTABLISHED &&
+	if (ie->state == TCP_ESTABLISHED &&
 			inet_connect(sk, ii))
 		goto err;
 done:
 	futex_dec(&ii->port->users);
 
-	if (rst_file_params(sk, ii->ie->fown, ii->ie->flags))
+	if (rst_file_params(sk, ie->fown, ie->flags))
 		goto err;
 
-	if (restore_socket_opts(sk, ii->ie->opts))
+	if (restore_socket_opts(sk, ie->opts))
 		return -1;
 
 	return sk;
