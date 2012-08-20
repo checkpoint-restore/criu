@@ -22,9 +22,11 @@ struct inet_sk_desc {
 	struct list_head rlist;
 };
 
+struct inet_port;
 struct inet_sk_info {
 	InetSkEntry *ie;
 	struct file_desc d;
+	struct inet_port *port;
 	struct list_head rlist;
 };
 

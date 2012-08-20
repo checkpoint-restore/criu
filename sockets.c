@@ -86,6 +86,8 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	tv.tv_usec = soe->so_rcv_tmo_usec;
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 
+	/* The restore of SO_REUSEADDR depends on type of socket */
+
 	return ret;
 }
 
@@ -109,7 +111,7 @@ int do_dump_opt(int sk, int level, int name, void *val, int len)
 
 int dump_socket_opts(int sk, SkOptsEntry *soe)
 {
-	int ret = 0;
+	int ret = 0, val;
 	struct timeval tv;
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDBUF, &soe->so_sndbuf);
@@ -122,6 +124,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 	soe->so_rcv_tmo_sec = tv.tv_sec;
 	soe->so_rcv_tmo_usec = tv.tv_usec;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val);
+	soe->reuseaddr = val ? true : false;
+	soe->has_reuseaddr = true;
 
 	return ret;
 }

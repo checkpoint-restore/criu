@@ -6,4 +6,5 @@ message sk_opts_entry {
 	required uint64		so_snd_tmo_usec	= 4;
 	required uint64		so_rcv_tmo_sec	= 5;
 	required uint64		so_rcv_tmo_usec	= 6;
+	optional bool		reuseaddr	= 7;
 }

@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -21,6 +22,41 @@
 
 #define PB_ALEN_INET	1
 #define PB_ALEN_INET6	4
+
+static LIST_HEAD(inet_ports);
+
+struct inet_port {
+	int port;
+	int type;
+	futex_t users;
+	struct list_head list;
+};
+
+static struct inet_port *port_add(int type, int port)
+{
+	struct inet_port *e;
+
+	list_for_each_entry(e, &inet_ports, list)
+		if (e->type == type && e->port == port) {
+			futex_inc(&e->users);
+			return e;
+		}
+
+	e = shmalloc(sizeof(*e));
+	if (e == NULL) {
+		pr_err("Not enough memory\n");
+		return NULL;
+	}
+
+	e->port = port;
+	e->type = type;
+	futex_init(&e->users);
+	futex_inc(&e->users);
+
+	list_add(&e->list, &inet_ports);
+
+	return e;
+}
 
 static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 {
@@ -316,10 +352,12 @@ static bool is_bound(struct inet_sk_info *ii)
 
 
 static int open_inet_sk(struct file_desc *d);
+static int post_open_inet_sk(struct file_desc *d, int sk);
 
 static struct file_desc_ops inet_desc_ops = {
 	.type = FD_TYPES__INETSK,
 	.open = open_inet_sk,
+	.post_open = post_open_inet_sk,
 };
 
 static int collect_one_inetsk(void *o, ProtobufCMessage *base)
@@ -330,6 +368,15 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 	file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 	if (tcp_connection(ii->ie))
 		tcp_locked_conn_add(ii);
+
+	/*
+	 * A socket can reuse addr only if all previous sockets allow that,
+	 * so a value of SO_REUSEADDR can be restored after restoring all
+	 * sockets.
+	 */
+	ii->port = port_add(ii->ie->type, ii->ie->src_port);
+	if (ii->port == NULL)
+		return -1;
 
 	return 0;
 }
@@ -360,10 +407,27 @@ static int inet_validate_address(InetSkEntry *ie)
 	return -1;
 }
 
+static int post_open_inet_sk(struct file_desc *d, int sk)
+{
+	struct inet_sk_info *ii;
+	int no = 0;
+
+	ii = container_of(d, struct inet_sk_info, d);
+
+	if (!ii->ie->opts->reuseaddr) {
+		futex_wait_until(&ii->port->users, 0);
+
+		if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &no))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int open_inet_sk(struct file_desc *d)
 {
 	struct inet_sk_info *ii;
-	int sk;
+	int sk, yes = 1;
 
 	ii = container_of(d, struct inet_sk_info, d);
 
@@ -389,11 +453,16 @@ static int open_inet_sk(struct file_desc *d)
 	}
 
 	if (ii->ie->v6only) {
-		int yes = 1;
-
 		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
 			return -1;
 	}
+
+	/*
+	 * Set SO_REUSEADDR, because some sockets can be bound to one addr.
+	 * The origin value of SO_REUSEADDR will be restored in post_open.
+	 */
+	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &yes))
+		return -1;
 
 	if (tcp_connection(ii->ie)) {
 		if (!opts.tcp_established_ok) {
@@ -433,6 +502,8 @@ static int open_inet_sk(struct file_desc *d)
 			inet_connect(sk, ii))
 		goto err;
 done:
+	futex_dec(&ii->port->users);
+
 	if (rst_file_params(sk, ii->ie->fown, ii->ie->flags))
 		goto err;
 
