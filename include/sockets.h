@@ -36,7 +36,6 @@ extern int collect_inet_sockets(void);
 extern int collect_unix_sockets(void);
 extern int fix_external_unix_sockets(void);
 extern int resolve_unix_peers(void);
-extern int run_unix_connections(void);
 
 extern void show_unixsk(int fd, struct cr_options *o);
 extern void show_inetsk(int fd, struct cr_options *o);

@@ -504,18 +504,21 @@ static int schedule_conn_job(struct unix_sk_info *ui)
 	return 0;
 }
 
-int run_unix_connections(void)
+static int post_open_unix_sk(struct file_desc *d, int fd)
 {
-	struct unix_conn_job *cj;
-
-	pr_info("Running delayed unix connections\n");
-
-	cj = conn_jobs;
-	while (cj) {
-		struct unix_sk_info *ui = cj->sk;
-		struct unix_sk_info *peer = ui->peer;
+	struct unix_sk_info *ui;
+		struct unix_sk_info *peer;
 		struct fdinfo_list_entry *fle;
 		struct sockaddr_un addr;
+
+	ui = container_of(d, struct unix_sk_info, d);
+	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
+		return 0;
+
+	peer = ui->peer;
+
+	if (peer == NULL)
+		return 0;
 
 		pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
@@ -544,9 +547,6 @@ int run_unix_connections(void)
 
 		if (restore_socket_opts(fle->fe->fd, ui->ue->opts))
 			return -1;
-
-		cj = cj->next;
-	}
 
 	return 0;
 }
@@ -715,6 +715,7 @@ static int open_unix_sk(struct file_desc *d)
 static struct file_desc_ops unix_desc_ops = {
 	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
+	.post_open = post_open_unix_sk,
 	.want_transport = unixsk_should_open_transport,
 };
 

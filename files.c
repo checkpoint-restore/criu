@@ -495,8 +495,6 @@ int prepare_fds(struct pstree_item *me)
 				goto done;
 		}
 	}
-
-	ret = run_unix_connections();
 done:
 	return ret;
 }
