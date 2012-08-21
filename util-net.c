@@ -121,7 +121,7 @@ int recv_fds(int sock, int *fds, int nr_fds, char *flags)
 			return -1;
 		builtin_memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
 		if (flags)
-			builtin_memcpy(flags, fdset.msg, sizeof(char) * min_fd);
+			builtin_memcpy(flags + i, fdset.msg, sizeof(char) * min_fd);
 	}
 
 	return 0;
