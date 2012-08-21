@@ -3,59 +3,58 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/user.h>
 #include <string.h>
+#include <linux/limits.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include "zdtmtst.h"
 
-static struct {
-	char buffer[LOG_BUF_SIZE];
-	char *ptr;
-	int left;
-} msg_buf = {
-	.buffer = {},
-	.ptr = msg_buf.buffer,
-	.left = sizeof(msg_buf.buffer),
-};
+int test_log_init(const char *fname, const char *suffix)
+{
+	char path[PATH_MAX];
+	int logfd;
+
+	snprintf(path, sizeof(path), "%s%s", fname, suffix);
+	logfd = open(path, O_WRONLY | O_EXCL | O_CREAT | O_APPEND, 0644);
+	if (logfd < 0) {
+		err("Can't open file %s", fname);
+		return -1;
+	}
+
+	dup2(logfd, STDERR_FILENO);
+	dup2(logfd, STDOUT_FILENO);
+
+	close(logfd);
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
+	return 0;
+}
 
 void test_msg(const char *format, ...)
 {
 	va_list arg;
-	int len;
+	int len, off = 0;
+	char buf[PAGE_SIZE];
+	struct timeval tv;
+	struct tm *tm;
 
+	gettimeofday(&tv, NULL);
+	tm = localtime(&tv.tv_sec);
+	if (tm == NULL) {
+		err("localtime() failed");
+	} else {
+		off += strftime(buf, sizeof(buf), "%H:%M:%S", tm);
+	}
+
+	off += sprintf(buf + off, ".%.3ld: ", tv.tv_usec / 1000);
+	off += sprintf(buf + off, "%5d: ", getpid());
 	va_start(arg, format);
-	len = vsnprintf(msg_buf.ptr, msg_buf.left, format, arg);
+	len = vsnprintf(buf + off, sizeof(buf) - off, format, arg);
 	va_end(arg);
 
-	if (len >= msg_buf.left) {	/* indicate message buffer overflow */
-		const char overflow_mark[] = "\n.@.\n";
-		msg_buf.left = 0;
-		msg_buf.ptr = msg_buf.buffer + sizeof(msg_buf.buffer);
-		strcpy(msg_buf.ptr - sizeof(overflow_mark), overflow_mark);
-		msg_buf.ptr--;		/* correct for terminating '\0' */
-		return;
-	}
-
-	msg_buf.ptr += len;
-	msg_buf.left -= len;
-}
-
-extern int proc_id;
-
-void dump_msg(const char *fname)
-{
-	if (msg_buf.ptr != msg_buf.buffer) {
-		int fd;
-		if (proc_id == 0) {
-			fd = open(fname, O_WRONLY | O_CREAT | O_EXCL | O_APPEND, 0644);
-		} else {
-			char fname_child[1000];
-			snprintf(fname_child,1000,"%s.%d",fname,proc_id);
-			fd = open(fname_child, O_WRONLY | O_CREAT | O_APPEND, 0644);
-		}
-		if (fd < 0)
-			return;
-		/* ignore errors as there's no way to report them */
-		write(fd, msg_buf.buffer, msg_buf.ptr - msg_buf.buffer);
-		close(fd);
-	}
+	dprintf(STDERR_FILENO, buf);
 }

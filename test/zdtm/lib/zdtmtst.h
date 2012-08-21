@@ -82,7 +82,8 @@ extern int parse_opt_string(char *param, void *arg);
 #define __stringify(x)          __stringify_1(x)
 
 /* message helpers */
-#define LOG_BUF_SIZE 0x1000
+extern void setup_outfile(void);
+extern int test_log_init(const char *outfile, const char *suffix);
 #define err(format, arg...)	\
 	test_msg("ERR: %s:%d: " format " (errno = %d)\n", \
 		__FILE__, __LINE__, ## arg, errno)

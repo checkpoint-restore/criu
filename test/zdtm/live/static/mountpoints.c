@@ -60,9 +60,6 @@ again:
 	return -1;
 
 done:
-	close(0);
-	close(1);
-	close(2);
 	rmdir(MPTS_ROOT);
 	if (mkdir(MPTS_ROOT, 0600) < 0) {
 		fail("Can't make zdtm_sys");
@@ -93,6 +90,10 @@ done:
 		fail("Can't mount proc");
 		return 1;
 	}
+
+	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
+
+	setup_outfile();
 
 	fd = open(MPTS_ROOT"/kernel/meminfo", O_RDONLY);
 	if (fd == -1)

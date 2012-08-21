@@ -44,15 +44,21 @@ int test_fork_id(int id)
 	return pid;
 }
 
+#define INPROGRESS ".inprogress"
 static void test_fini(void)
 {
-	extern void dump_msg(const char *);
-	dump_msg(outfile);
-	if (getpid() == master_pid)
-		unlink(pidfile);
+	char path[PATH_MAX];
+
+	if (getpid() != master_pid)
+		return;
+
+	snprintf(path, sizeof(path), "%s%s", outfile, INPROGRESS);
+	rename(path, outfile);
+
+	unlink(pidfile);
 }
 
-static void setup_outfile()
+void setup_outfile()
 {
 	if (!access(outfile, F_OK) || errno != ENOENT) {
 		fprintf(stderr, "Output file %s appears to exist, aborting\n",
@@ -64,6 +70,8 @@ static void setup_outfile()
 		fprintf(stderr, "Can't register exit function\n");
 		exit(1);
 	}
+	if (test_log_init(outfile, INPROGRESS))
+		exit(1);
 }
 
 static void redir_stdfds()
@@ -76,9 +84,7 @@ static void redir_stdfds()
 		exit(1);
 	}
 
-	dup2(nullfd, 0);
-	dup2(nullfd, 1);
-	dup2(nullfd, 2);
+	dup2(nullfd, STDIN_FILENO);
 	if (nullfd > 2)
 		close(nullfd);
 }
@@ -246,7 +252,9 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 
 	parseargs(argc, argv);
 
-	setup_outfile();
+	/* setup_outfile() should be called in a target mount namespace */
+	if (!(clone_flags & CLONE_NEWNS))
+		setup_outfile();
 	redir_stdfds();
 
 	pidf = fopen(pidfile, "wx");
