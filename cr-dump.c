@@ -156,8 +156,8 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	if (ret < 0)
 		return -1;
 
-	pr_info("fdinfo: type: 0x%2x flags: 0x%4x pos: 0x%8lx fd: %d\n",
-		ops->type, p->flags, p->pos, p->fd);
+	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8lx fd: %d\n",
+		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
 
 	return pb_write_one(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, PB_FDINFO);
 }
