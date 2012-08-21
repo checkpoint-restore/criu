@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -289,6 +290,21 @@ static int pb_show_pretty(pb_pr_field_t *field)
 	case '%':
 		pr_msg(field->fmt, *(long *)field->data);
 		break;
+	case 'S':
+		{
+			ProtobufCBinaryData *name = (ProtobufCBinaryData *)field->data;
+			int i;
+
+			for (i = 0; i < name->len; i++) {
+				char c = (char)name->data[i];
+
+				if (isprint(c))
+					pr_msg("%c", c);
+				else if (c != 0)
+					pr_msg(".");
+			}
+			break;
+		}
 	case 'A':
 		{
 			char addr[INET_ADDR_LEN] = "<unknown>";

@@ -451,35 +451,7 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 
 void show_unixsk(int fd, struct cr_options *o)
 {
-	UnixSkEntry *ue;
-	int ret = 0;
-
-	pr_img_head(CR_FD_UNIXSK);
-
-	while (1) {
-		ret = pb_read_one_eof(fd, &ue, PB_UNIXSK);
-		if (ret <= 0)
-			goto out;
-
-		pr_msg("id %#x ino %#x type %s state %s namelen %4d backlog %4d peer %#x flags %#x uflags %#x",
-			ue->id, ue->ino, sktype2s(ue->type), skstate2s(ue->state),
-			(int)ue->name.len, ue->backlog, ue->peer, ue->flags, ue->uflags);
-
-		if (ue->name.len) {
-			if (!ue->name.data[0])
-				ue->name.data[0] = '@';
-			pr_msg(" --> %s\n", ue->name.data);
-		} else
-			pr_msg("\n");
-		show_fown_cont(ue->fown);
-		pr_msg("\n");
-
-		if (ue->opts)
-			show_socket_opts(ue->opts);
-		unix_sk_entry__free_unpacked(ue, NULL);
-	}
-out:
-	pr_img_tail(CR_FD_UNIXSK);
+	pb_show_plain_pretty(fd, PB_UNIXSK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 11:S");
 }
 
 static int post_open_unix_sk(struct file_desc *d, int fd)
