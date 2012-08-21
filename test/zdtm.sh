@@ -59,6 +59,7 @@ TEST_LIST="$TEST_LIST
 static/zombie00
 transition/fork
 static/file_fown
+static/socket-ext
 "
 
 MNT_TEST_LIST="
@@ -222,7 +223,7 @@ EOF
 	echo Dump $PID
 	mkdir -p $ddump
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS dump --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS dump -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -246,7 +247,7 @@ EOF
 		done
 
 		echo Restore $PID
-		setsid $CRTOOLS restore --log-pid -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
+		setsid $CRTOOLS restore --log-pid -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
 		save_fds $PID  $ddump/restore.fd
 		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2

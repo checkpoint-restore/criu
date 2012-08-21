@@ -56,6 +56,7 @@ TST_NOFILE	=				\
 		mountpoints			\
 		netns				\
 		session01			\
+		socket-ext			\
 #		jobctl00			\
 
 TST_FILE	=				\
