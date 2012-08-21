@@ -56,7 +56,7 @@ static LIST_HEAD(pstree_list);
 
 void show_files(int fd_files, struct cr_options *o)
 {
-	pb_show_plain(fd_files, PB_FDINFO);
+	pb_show_plain_pretty(fd_files, PB_FDINFO, "2:%#o 4:%d");
 }
 
 void show_fown_cont(void *p)
