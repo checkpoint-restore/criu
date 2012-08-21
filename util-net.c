@@ -102,6 +102,8 @@ int recv_fds(int sock, int *fds, int nr_fds, char *flags)
 		cmsg = CMSG_FIRSTHDR(&fdset.hdr);
 		if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS)
 			return -EINVAL;
+		if (fdset.hdr.msg_flags & MSG_CTRUNC)
+			return -ENFILE;
 
 		min_fd = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
 		/*
