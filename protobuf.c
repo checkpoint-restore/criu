@@ -241,6 +241,16 @@ static int show_bool(pb_pr_field_t *field)
 	return 0;
 }
 
+static int show_bytes(pb_pr_field_t *field)
+{
+	ProtobufCBinaryData *bytes = (ProtobufCBinaryData *)field->data;
+	int i = 0;
+
+	while (i < bytes->len)
+		pr_msg("%02x ", bytes->data[i++]);
+	return 0;
+}
+
 static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 					  pb_pr_ctl_t *ctl)
 {
@@ -367,9 +377,10 @@ static pb_pr_show_t get_pb_show_function(int type)
 		return show_enum;
 	case PROTOBUF_C_TYPE_BOOL:
 		return show_bool;
+	case PROTOBUF_C_TYPE_BYTES:
+		return show_bytes;
 	case PROTOBUF_C_TYPE_FLOAT:
 	case PROTOBUF_C_TYPE_DOUBLE:
-	case PROTOBUF_C_TYPE_BYTES:
 		break;
 	default:
 		BUG();
