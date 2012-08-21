@@ -18,7 +18,7 @@ static int ns_fd = -1;
 
 void show_netdevices(int fd, struct cr_options *opt)
 {
-	pb_show_plain(fd, PB_NETDEV);
+	pb_show_plain_pretty(fd, PB_NETDEV, "2:%d");
 }
 
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,

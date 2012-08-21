@@ -43,7 +43,7 @@ struct packet_sock_desc {
 
 void show_packetsk(int fd, struct cr_options *o)
 {
-	pb_show_plain(fd, PB_PACKETSK);
+	pb_show_plain_pretty(fd, PB_PACKETSK, "5:%d");
 }
 
 static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
