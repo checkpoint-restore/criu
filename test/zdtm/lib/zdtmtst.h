@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 /* set up test */
+extern void test_ext_init(int argc, char **argv);
 extern void test_init(int argc, char **argv);
 extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, int (*fn)(int , char **));
 
@@ -62,6 +63,7 @@ extern void __push_opt(struct long_opt *opt);
 #define __param_check(name, p, type) \
 	static inline type *__check_##name(void) { return(p); }
 
+extern void parseargs(int, char **);
 extern int parse_opt_bool(char *param, void *arg);
 #define param_check_bool(name, p) __param_check(name, p, int)
 extern int parse_opt_int(char *param, void *arg);

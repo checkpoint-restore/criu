@@ -231,10 +231,18 @@ EOF
 		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 		killall -CONT $tname
 	else
-		while :; do
-			killall -9 $tname &> /dev/null || break
-			echo Waiting...
-			sleep 0.1
+		# Wait while tasks are dying, otherwise PIDs would be busy.
+		for i in $ddump/core-*.img; do
+			local pid
+
+			[ -n "$PIDNS" ] && break;
+
+			pid=`expr "$i" : '.*/core-\([0-9]*\).img'`
+			while :; do
+				kill -0 $pid &> /dev/null || break;
+				echo Waiting the process $pid
+				sleep 0.1
+			done
 		done
 
 		echo Restore $PID

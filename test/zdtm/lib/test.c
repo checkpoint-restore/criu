@@ -89,10 +89,15 @@ static void redir_stdfds()
 		close(nullfd);
 }
 
+void test_ext_init(int argc, char **argv)
+{
+	parseargs(argc, argv);
+	if (test_log_init(outfile, ".external"))
+		exit(1);
+}
+
 void test_init(int argc, char **argv)
 {
-	extern void parseargs(int, char **);
-
 	pid_t pid;
 	static FILE *pidf;
 	char *val;
