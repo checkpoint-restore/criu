@@ -249,8 +249,12 @@ EOF
 		echo Restore $PID
 		setsid $CRTOOLS restore --log-pid -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
-		save_fds $PID  $ddump/restore.fd
-		diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
+		for i in `seq 5`; do
+			save_fds $PID  $ddump/restore.fd
+			diff_fds $ddump/dump.fd $ddump/restore.fd && break
+			sleep 0.2
+		done
+		[ $i -eq 5 ] && return 2;
 	fi
 
 	echo Check results $PID
