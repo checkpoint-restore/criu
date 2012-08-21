@@ -601,32 +601,25 @@ out:
 	return ret;
 }
 
-int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds, char *flags)
+int parasite_drain_fds_seized(struct parasite_ctl *ctl,
+		struct parasite_drain_fd *dfds, int *lfds, char *flags)
 {
-	struct parasite_drain_fd *args;
 	int ret = -1;
 
-	args = xmalloc(sizeof(*args));
-	if (!args)
-		return -ENOMEM;
-
-	args->nr_fds = nr_fds;
-	memcpy(&args->fds, fds, sizeof(int) * nr_fds);
-
-	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl, args, sizeof(*args));
+	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl,
+			dfds, drain_fds_size(dfds));
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
 	}
 
-	ret = recv_fds(ctl->tsock, lfds, nr_fds, flags);
+	ret = recv_fds(ctl->tsock, lfds, dfds->nr_fds, flags);
 	if (ret) {
 		pr_err("Can't retrieve FDs from socket\n");
 		goto err;
 	}
 
 err:
-	xfree(args);
 	return ret;
 }
 

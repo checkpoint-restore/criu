@@ -37,7 +37,9 @@ struct parasite_dump_tid_info;
 extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_add, u32 *tid);
 
-extern int parasite_drain_fds_seized(struct parasite_ctl *ctl, int *fds, int *lfds, int nr_fds, char *flags);
+struct parasite_drain_fd;
+extern int parasite_drain_fds_seized(struct parasite_ctl *ctl, struct parasite_drain_fd *dfds,
+		int *lfds, char *flags);
 
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,

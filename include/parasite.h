@@ -83,9 +83,14 @@ struct parasite_dump_tid_info {
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
 
 struct parasite_drain_fd {
-	int			fds[PARASITE_MAX_FDS];
-	int			nr_fds;
+	int	nr_fds;
+	int	fds[PARASITE_MAX_FDS];
 };
+
+static inline int drain_fds_size(struct parasite_drain_fd *dfds)
+{
+	return sizeof(dfds->nr_fds) + dfds->nr_fds * sizeof(dfds->fds[0]);
+}
 
 /*
  * Some useful offsets

@@ -97,7 +97,7 @@ err:
 
 struct cr_fdset *glob_fdset;
 
-static int collect_fds(pid_t pid, int *fd, int *nr_fd)
+static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 {
 	struct dirent *de;
 	DIR *fd_dir;
@@ -118,12 +118,13 @@ static int collect_fds(pid_t pid, int *fd, int *nr_fd)
 		if (!strcmp(de->d_name, ".."))
 			continue;
 
-		if (n > *nr_fd - 1)
+		if (n > PARASITE_MAX_FDS - 1)
 			return -ENOMEM;
-		fd[n++] = atoi(de->d_name);
+
+		dfds->fds[n++] = atoi(de->d_name);
 	}
 
-	*nr_fd = n;
+	dfds->nr_fds = n;
 	pr_info("Found %d file descriptors\n", n);
 	pr_info("----------------------------------------\n");
 
@@ -312,7 +313,7 @@ static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
 }
 
 static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdset *cr_fdset,
-				  int *fds, int nr_fds)
+		struct parasite_drain_fd *dfds)
 {
 	int *lfds;
 	char *flags;
@@ -322,20 +323,20 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	pr_info("Dumping opened files (pid: %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	lfds = xmalloc(PARASITE_MAX_FDS * sizeof(int));
+	lfds = xmalloc(dfds->nr_fds * sizeof(int));
 	if (!lfds)
 		goto err;
 
-	flags = xmalloc(PARASITE_MAX_FDS * sizeof(char));
+	flags = xmalloc(dfds->nr_fds * sizeof(char));
 	if (!flags)
 		goto err1;
 
-	ret = parasite_drain_fds_seized(ctl, fds, lfds, nr_fds, flags);
+	ret = parasite_drain_fds_seized(ctl, dfds, lfds, flags);
 	if (ret)
 		goto err2;
 
-	for (i = 0; i < nr_fds; i++) {
-		ret = dump_one_file(ctl->pid, fds[i], lfds[i], flags[i], cr_fdset);
+	for (i = 0; i < dfds->nr_fds; i++) {
+		ret = dump_one_file(ctl->pid, dfds->fds[i], lfds[i], flags[i], cr_fdset);
 		close(lfds[i]);
 		if (ret)
 			goto err2;
@@ -1346,16 +1347,14 @@ static int dump_one_task(struct pstree_item *item)
 	int ret = -1;
 	struct parasite_dump_misc misc;
 	struct cr_fdset *cr_fdset = NULL;
-
-	int nr_fds = PARASITE_MAX_FDS;
-	int *fds = NULL;
+	struct parasite_drain_fd *dfds;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	fds = xmalloc(nr_fds * sizeof(int));
-	if (!fds)
+	dfds = xmalloc(sizeof(*dfds));
+	if (!dfds)
 		goto err_free;
 
 	if (item->state == TASK_STOPPED) {
@@ -1387,7 +1386,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = collect_fds(pid, fds, &nr_fds);
+	ret = collect_fds(pid, dfds);
 	if (ret) {
 		pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1415,7 +1414,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (!cr_fdset)
 		goto err_cure;
 
-	ret = dump_task_files_seized(parasite_ctl, cr_fdset, fds, nr_fds);
+	ret = dump_task_files_seized(parasite_ctl, cr_fdset, dfds);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
@@ -1480,7 +1479,7 @@ err:
 	close_pid_proc();
 err_free:
 	free_mappings(&vma_area_list);
-	xfree(fds);
+	xfree(dfds);
 	return ret;
 
 err_cure:
