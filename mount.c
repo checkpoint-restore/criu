@@ -361,7 +361,7 @@ out_unlock:
 	ret = sigprocmask(SIG_SETMASK, &oldmask, NULL);
 	if (ret == -1) {
 		pr_perror("Can not set mask of blocked signals");
-		BUG_ON(1);
+		BUG();
 	}
 
 	return status;
