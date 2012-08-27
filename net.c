@@ -233,7 +233,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 		return restore_one_link(nde, nlsk, veth_link_info);
 	}
 
-	BUG_ON(1);
+	BUG();
 	return -1;
 }
 
