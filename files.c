@@ -149,19 +149,19 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
-	struct fdinfo_list_entry *l, *le;
+	struct fdinfo_list_entry *le, *new_le;
 	struct file_desc *fdesc;
 
 	pr_info("Collect fdinfo pid=%d fd=%d id=0x%16x\n",
 		pid, e->fd, e->id);
 
-	le = shmalloc(sizeof(*le));
-	if (!le)
+	new_le = shmalloc(sizeof(*new_le));
+	if (!new_le)
 		return -1;
 
-	le->pid = pid;
-	futex_init(&le->real_pid);
-	le->fe = e;
+	futex_init(&new_le->real_pid);
+	new_le->pid = pid;
+	new_le->fe = e;
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -169,17 +169,18 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 		return -1;
 	}
 
-	list_for_each_entry(l, &fdesc->fd_info_head, desc_list)
-		if (l->pid > le->pid)
+	list_for_each_entry(le, &fdesc->fd_info_head, desc_list) {
+		if (le->pid > new_le->pid)
 			break;
+	}
 
-	list_add_tail(&le->desc_list, &l->desc_list);
-	le->desc = fdesc;
+	list_add_tail(&new_le->desc_list, &le->desc_list);
+	new_le->desc = fdesc;
 
-	if (unlikely(le->fe->type == FD_TYPES__EVENTPOLL))
-		list_add_tail(&le->ps_list, &rst_info->eventpoll);
+	if (unlikely(new_le->fe->type == FD_TYPES__EVENTPOLL))
+		list_add_tail(&new_le->ps_list, &rst_info->eventpoll);
 	else
-		list_add_tail(&le->ps_list, &rst_info->fds);
+		list_add_tail(&new_le->ps_list, &rst_info->fds);
 	return 0;
 }
 
