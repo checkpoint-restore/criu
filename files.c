@@ -71,7 +71,7 @@ struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
 	if (list_empty(&d->fd_info_head)) {
 		pr_err("Empty list on file desc id %#x\n", d->id);
-		BUG_ON(1);
+		BUG();
 	}
 
 	return list_first_entry(&d->fd_info_head,
