@@ -55,7 +55,7 @@ static int tcp_repair_on(int fd)
 	return ret;
 }
 
-static void tcp_repair_off(int fd)
+void tcp_repair_off(int fd)
 {
 	int aux = 0;
 
@@ -484,7 +484,6 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 	if (restore_tcp_conn_state(fd, ii))
 		return -1;
 
-	tcp_repair_off(fd);
 	return 0;
 }
 

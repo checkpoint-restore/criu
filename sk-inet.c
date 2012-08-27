@@ -403,16 +403,23 @@ static int inet_validate_address(InetSkEntry *ie)
 static int post_open_inet_sk(struct file_desc *d, int sk)
 {
 	struct inet_sk_info *ii;
-	int no = 0;
+	int val;
 
 	ii = container_of(d, struct inet_sk_info, d);
 
-	if (!ii->ie->opts->reuseaddr) {
-		futex_wait_until(&ii->port->users, 0);
+	/* SO_REUSEADDR is set for all sockets */
+	if (!tcp_connection(ii->ie) && ii->ie->opts->reuseaddr)
+		return 0;
 
-		if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &no))
-			return -1;
-	}
+	futex_wait_until(&ii->port->users, 0);
+
+	/* Disabling repair mode drops SO_REUSEADDR */
+	if (tcp_connection(ii->ie))
+		tcp_repair_off(sk);
+
+	val = ii->ie->opts->reuseaddr;
+	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
+		return -1;
 
 	return 0;
 }

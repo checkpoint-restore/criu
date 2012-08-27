@@ -33,6 +33,7 @@ struct inet_sk_info {
 int inet_bind(int sk, struct inet_sk_info *);
 int inet_connect(int sk, struct inet_sk_info *);
 
+void tcp_repair_off(int sk);
 void tcp_unlock_all(void);
 void tcp_locked_conn_add(struct inet_sk_info *);
 void tcp_unlock_connections(void);
