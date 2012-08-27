@@ -30,8 +30,6 @@
 #define FDESC_HASH_SIZE	64
 static struct list_head file_desc_hash[FDESC_HASH_SIZE];
 
-#define FDINFO_POOL_SIZE	(4 * 4096)
-
 int prepare_shared_fdinfo(void)
 {
 	int i;
