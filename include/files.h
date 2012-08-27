@@ -92,6 +92,4 @@ extern int get_filemap_fd(int pid, VmaEntry *vma_entry);
 extern int prepare_fs(int pid);
 extern int set_fd_flags(int fd, int flags);
 
-extern int self_exe_fd;
-
 #endif /* FILES_H_ */
