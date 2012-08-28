@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <sys/param.h>
 #include <sys/mman.h>
+#include <sys/user.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sched.h>
@@ -117,7 +118,11 @@ done:
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
 	return 0;
 }
+
+/* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
+	char stack[PAGE_SIZE];
+	char stack_ptr[0];
 	int argc;
 	char **argv;
 	int status_pipe[2];
@@ -264,30 +269,22 @@ int ns_init(int argc, char **argv)
 	exit(1);
 }
 
-#define STACK_SIZE	(8 * 4096)
 void ns_create(int argc, char **argv)
 {
-	void *stack;
 	pid_t pid;
 	int ret, status;
-	static struct ns_exec_args args;
+	struct ns_exec_args args;
 	int fd;
 
 	args.argc = argc;
 	args.argv = argv;
 
-	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
-			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
-	if (stack == MAP_FAILED) {
-		fprintf(stderr, "Can't map stack %m\n");
-		exit(1);
-	}
 	ret = pipe(args.status_pipe);
 	if (ret) {
 		fprintf(stderr, "Pipe() failed %m\n");
 		exit(1);
 	}
-	pid = clone(ns_exec, stack + STACK_SIZE,
+	pid = clone(ns_exec, args.stack_ptr,
 			CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
 			CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD, &args);
 	if (pid < 0) {
