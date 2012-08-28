@@ -480,14 +480,10 @@ out:
 	return ret;
 }
 
-/*
- * This stack size is important for the restorer
- * itself only. At the final phase, we will switch
- * to the original stack the program had at checkpoint
- * time.
- */
-#define STACK_SIZE	(8 * 4096)
+/* All arguments should be above stack, because it grows down */
 struct cr_clone_arg {
+	char stack[PAGE_SIZE];
+	char stack_ptr[0];
 	struct pstree_item *item;
 	unsigned long clone_flags;
 	int fd;
@@ -497,17 +493,9 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 {
 	int ret = -1;
 	struct cr_clone_arg ca;
-	void *stack;
 	pid_t pid = item->pid.virt;
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ns_clone_flags);
-
-	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
-			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
-	if (stack == MAP_FAILED) {
-		pr_perror("Failed to map stack for the child");
-		goto err;
-	}
 
 	ca.item = item;
 	ca.clone_flags = ns_clone_flags;
@@ -544,7 +532,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 		if (netns_pre_create())
 			goto err_unlock;
 
-	ret = clone(restore_task_with_children, stack + STACK_SIZE,
+	ret = clone(restore_task_with_children, ca.stack_ptr,
 			ca.clone_flags | SIGCHLD, &ca);
 
 	if (ret < 0)
@@ -574,8 +562,6 @@ err_unlock:
 		close(ca.fd);
 	}
 err:
-	if (stack != MAP_FAILED)
-		munmap(stack, STACK_SIZE);
 	return ret;
 }
 
