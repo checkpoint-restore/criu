@@ -61,7 +61,7 @@ $(PROTO_LIBRARY): $(PROTO_OBJS)
 
 .PHONY: protobuf
 
-protobuf: $(PROTO_LIBRARY)
+protobuf: $(PROTO_LIBRARY) $(PROTO_SRCS) $(PROTO_HDRS)
 
 clean:
 	$(E) "  CLEAN PROTOBUF"
