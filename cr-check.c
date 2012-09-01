@@ -16,6 +16,7 @@
 #include "files.h"
 #include "sk-inet.h"
 #include "proc_parse.h"
+#include "mount.h"
 
 static int check_map_files(void)
 {
@@ -333,6 +334,11 @@ static int check_unaligned_vmsplice(void)
 int cr_check(void)
 {
 	int ret = 0;
+
+	if (mntns_collect_root(getpid())) {
+		pr_err("Can't collect root mount point\n");
+		return -1;
+	}
 
 	ret |= check_map_files();
 	ret |= check_sock_diag();
