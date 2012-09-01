@@ -1,33 +1,6 @@
 include Makefile.inc
 
-CFLAGS		+= -I./include -fno-strict-aliasing
-
-LIBS		+= -lrt -lpthread -lprotobuf-c
-
-DEFINES		+= -D_FILE_OFFSET_BITS=64
-DEFINES		+= -D_GNU_SOURCE
-
-ifneq ($(WERROR),0)
-	WARNINGS += -Werror
-endif
-
-ifeq ($(DEBUG),1)
-	DEFINES += -DCR_DEBUG
-endif
-
-ifeq ($(DEBUG),1)
-	DEFINES += -DCR_DEBUG
-	CFLAGS	+= -O0 -ggdb3
-else
-	CFLAGS	+= -O2
-endif
-
-WARNINGS	+= -Wall
-CFLAGS		+= $(WARNINGS) $(DEFINES)
-
 PROGRAM		:= crtools
-
-export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
 
 OBJS		+= parasite-syscall.o
 OBJS		+= cr-restore.o

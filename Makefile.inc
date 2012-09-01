@@ -1,3 +1,7 @@
+#
+# Common definitions
+#
+
 ifeq ($(strip $(V)),)
 	E = @echo
 	Q = @
@@ -38,3 +42,30 @@ ifeq ($(uname_M),x86_64)
 endif
 
 no-deps-targets := tags cscope clean cleanout cleandep realclean
+
+CFLAGS		+= -I./include -fno-strict-aliasing
+
+LIBS		+= -lrt -lpthread -lprotobuf-c
+
+DEFINES		+= -D_FILE_OFFSET_BITS=64
+DEFINES		+= -D_GNU_SOURCE
+
+ifneq ($(WERROR),0)
+	WARNINGS += -Werror
+endif
+
+ifeq ($(DEBUG),1)
+	DEFINES += -DCR_DEBUG
+endif
+
+ifeq ($(DEBUG),1)
+	DEFINES += -DCR_DEBUG
+	CFLAGS	+= -O0 -ggdb3
+else
+	CFLAGS	+= -O2
+endif
+
+WARNINGS	+= -Wall
+CFLAGS		+= $(WARNINGS) $(DEFINES)
+
+export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES

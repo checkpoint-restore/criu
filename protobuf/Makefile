@@ -1,21 +1,4 @@
--include ../Makefile.inc
-
-CFLAGS		+= -I./include
-CFLAGS		+= -O0 -ggdb3
-
-DEFINES		+= -D_FILE_OFFSET_BITS=64
-DEFINES		+= -D_GNU_SOURCE
-
-ifneq ($(WERROR),0)
-	WARNINGS += -Werror
-endif
-
-ifeq ($(DEBUG),1)
-	DEFINES += -DCR_DEBUG
-endif
-
-WARNINGS	+= -Wall
-CFLAGS		+= $(WARNINGS) $(DEFINES)
+include ../Makefile.inc
 
 LIBRARY		:= protobuf-lib.o
 
