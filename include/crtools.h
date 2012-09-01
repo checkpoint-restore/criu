@@ -93,6 +93,7 @@ struct cr_options {
 	char			*output;
 	char			*root;
 	char			*pidfile;
+	struct list_head	veth_pairs;
 };
 
 extern struct cr_options opts;

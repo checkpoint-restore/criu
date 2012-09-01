@@ -20,6 +20,7 @@
 #include "syscall.h"
 #include "files.h"
 #include "sk-inet.h"
+#include "net.h"
 
 struct cr_options opts;
 
@@ -70,6 +71,7 @@ int main(int argc, char *argv[])
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
+	INIT_LIST_HEAD(&opts.veth_pairs);
 
 	while (1) {
 		static struct option long_opts[] = {
@@ -90,6 +92,7 @@ int main(int argc, char *argv[])
 			{ "version", no_argument, 0, 'V'},
 			{ "evasive-devices", no_argument, 0, 45},
 			{ "pidfile", required_argument, 0, 46},
+			{ "veth-pair", required_argument, 0, 47},
 			{ },
 		};
 
@@ -172,6 +175,25 @@ int main(int argc, char *argv[])
 			break;
 		case 46:
 			opts.pidfile = optarg;
+			break;
+		case 47:
+			{
+				struct veth_pair *n;
+
+				n = xmalloc(sizeof(*n));
+				if (n == NULL)
+					return -1;
+				n->outside = strchr(optarg, '=');
+				if (n->outside == NULL) {
+					xfree(n);
+					pr_err("Invalid agument for --veth-pair\n");
+					goto usage;
+				}
+
+				*n->outside++ = '\0';
+				n->inside = optarg;
+				list_add(&n->node, &opts.veth_pairs);
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
@@ -262,6 +284,7 @@ usage:
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
 	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
+	pr_msg("  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");

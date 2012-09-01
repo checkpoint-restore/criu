@@ -10,6 +10,7 @@
 #include "namespaces.h"
 #include "net.h"
 #include "libnetlink.h"
+#include "crtools.h"
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
@@ -203,7 +204,7 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 {
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
-	char veth_host_name[] = "veth_host";
+	struct veth_pair *n;
 
 	BUG_ON(ns_fd < 0);
 
@@ -214,7 +215,12 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	peer_data = NLMSG_TAIL(&req->h);
 	memset(&ifm, 0, sizeof(ifm));
 	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
-	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, veth_host_name, sizeof(veth_host_name));
+	list_for_each_entry(n, &opts.veth_pairs, node) {
+		if (!strcmp(nde->name, n->inside))
+			break;
+	}
+	if (&n->node != &opts.veth_pairs)
+		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, n->outside, strlen(n->outside));
 	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &ns_fd, sizeof(ns_fd));
 	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
 	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
