@@ -4,6 +4,7 @@
 extern int log_init(const char *output);
 extern void log_fini(void);
 extern int log_init_by_pid(void);
+extern void log_closedir(void);
 
 extern int log_get_fd(void);
 

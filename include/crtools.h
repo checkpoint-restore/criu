@@ -99,6 +99,7 @@ extern struct cr_options opts;
 
 enum {
 	LOG_FD_OFF = 1,
+	LOG_DIR_FD_OFF,
 	IMG_FD_OFF,
 	SELF_EXE_FD_OFF,
 	PROC_FD_OFF,

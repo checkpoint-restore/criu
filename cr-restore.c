@@ -311,6 +311,8 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_sigactions(pid))
 		return -1;
 
+	log_closedir();
+
 	return prepare_and_sigreturn(pid, core);
 }
 
