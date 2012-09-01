@@ -282,10 +282,14 @@ case_error()
 	echo "====================== ERROR ======================"
 
 	if [ -n "$DUMP_PATH" ]; then
-		[ -e "$DUMP_PATH/dump.log" ] &&
+		[ -e "$DUMP_PATH/dump.log" ] && {
 			echo "Dump log   : $DUMP_PATH/dump.log"
-		[ -e "$DUMP_PATH/restore.log" ] &&
+			cat $DUMP_PATH/dump.log* | grep Error
+		}
+		[ -e "$DUMP_PATH/restore.log" ] && {
 			echo "Restore log: $DUMP_PATH/restore.log"
+			cat $DUMP_PATH/restore.log* | grep Error
+		}
 	fi
 	[ -e "$test_log" ] &&
 		echo "Output file: $test_log"
