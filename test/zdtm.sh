@@ -16,6 +16,7 @@ static/sleeping00
 static/write_read00
 static/write_read01
 static/write_read02
+static/write_read10
 static/wait00
 static/vdso00
 static/file_shared
@@ -23,6 +24,7 @@ static/timers
 static/futex
 static/futex-rl
 static/xids00
+static/pthread00
 streaming/pipe_loop00
 streaming/pipe_shared00
 transition/file_read
@@ -69,6 +71,7 @@ static/mountpoints
 # These ones are in ns
 TEST_LIST="$TEST_LIST
 ns/static/session00
+ns/static/session01
 "
 
 UTS_TEST_LIST="
