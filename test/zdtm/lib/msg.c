@@ -56,5 +56,5 @@ void test_msg(const char *format, ...)
 	len = vsnprintf(buf + off, sizeof(buf) - off, format, arg);
 	va_end(arg);
 
-	dprintf(STDERR_FILENO, buf);
+	fprintf(stderr, buf);
 }
