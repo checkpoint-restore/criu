@@ -121,6 +121,8 @@ rebuild:
 	$(E) "  FORCE-REBUILD"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
+	$(Q) $(RM) -f ./protobuf/*.pb-c.c
+	$(Q) $(RM) -f ./protobuf/*.pb-c.h
 	$(Q) $(MAKE)
 
 clean: cleanpie cleansyscall
