@@ -250,7 +250,7 @@ EOF
 		done
 
 		echo Restore $PID
-		setsid $CRTOOLS restore --log-pid -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
+		setsid $CRTOOLS restore -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd
