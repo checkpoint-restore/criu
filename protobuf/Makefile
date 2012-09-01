@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-LIBRARY		:= protobuf-lib.o
+PROTO_LIBRARY	:= protobuf-lib.o
 
 PROTO_FILES	+= inventory.proto
 PROTO_FILES	+= fdinfo.proto
@@ -39,9 +39,9 @@ PROTO_FILES	+= vma.proto
 PROTO_FILES	+= core.proto
 PROTO_FILES	+= netdev.proto
 
-HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
-SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
-OBJS	:= $(patsubst %.c,%.o,$(SRCS))
+PROTO_HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
+PROTO_SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
+PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 
 .DEFAULT_GOAL	:= protobuf
 
@@ -55,15 +55,14 @@ OBJS	:= $(patsubst %.c,%.o,$(SRCS))
 
 .SECONDARY:
 
-$(LIBRARY): $(OBJS)
+$(PROTO_LIBRARY): $(PROTO_OBJS)
 	$(E) "  LINK     "$@
-	$(Q) ld -r -o $@ $(OBJS)
+	$(Q) ld -r -o $@ $(PROTO_OBJS)
 
 .PHONY: protobuf
 
-protobuf: $(LIBRARY)
+protobuf: $(PROTO_LIBRARY)
 
 clean:
 	$(E) "  CLEAN PROTOBUF"
-	$(Q) rm -f $(SRCS) $(HDRS) $(OBJS) $(LIBRARY)
-
+	$(Q) rm -f $(PROTO_SRCS) $(PROTO_HDRS) $(PROTO_OBJS) $(PROTO_LIBRARY)
