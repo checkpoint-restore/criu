@@ -639,8 +639,10 @@ err:
 	return ret;
 }
 
-int collect_image(int fd_t, int obj_t, unsigned size,
-		int (*collect)(void *obj, ProtobufCMessage *msg))
+static int __collect_image(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg),
+		void * (*alloc)(size_t size),
+		void (*free)(void *ptr))
 {
 	int fd, ret;
 
@@ -654,7 +656,7 @@ int collect_image(int fd_t, int obj_t, unsigned size,
 
 		if (size) {
 			ret = -1;
-			obj = xmalloc(size);
+			obj = alloc(size);
 			if (!obj)
 				break;
 		} else
@@ -662,13 +664,13 @@ int collect_image(int fd_t, int obj_t, unsigned size,
 
 		ret = pb_read_one_eof(fd, &msg, obj_t);
 		if (ret <= 0) {
-			xfree(obj);
+			free(obj);
 			break;
 		}
 
 		ret = collect(obj, msg);
 		if (ret < 0) {
-			xfree(obj);
+			free(obj);
 			cr_pb_descs[obj_t].free(msg, NULL);
 			break;
 		}
@@ -676,4 +678,16 @@ int collect_image(int fd_t, int obj_t, unsigned size,
 
 	close(fd);
 	return ret;
+}
+
+int collect_image(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg))
+{
+	return __collect_image(fd_t, obj_t, size, collect, malloc, free);
+}
+
+int collect_image_sh(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg))
+{
+	return __collect_image(fd_t, obj_t, size, collect, shmalloc, shfree_last);
 }

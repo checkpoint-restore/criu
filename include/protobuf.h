@@ -100,4 +100,6 @@ extern void do_pb_show_plain(int fd, int type, int single_entry,
 
 int collect_image(int fd_t, int obj_t, unsigned size,
 		int (*collect)(void *obj, ProtobufCMessage *msg));
+int collect_image_sh(int fd_t, int obj_t, unsigned size,
+		int (*collect)(void *obj, ProtobufCMessage *msg));
 #endif /* PROTOBUF_H__ */
