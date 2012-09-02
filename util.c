@@ -297,6 +297,7 @@ int is_anon_link_type(int lfd, char *type)
 
 static void *sh_buf;
 static unsigned int sh_bytes_left;
+static size_t sh_last_size;
 #define SH_BUF_CHUNK	4096
 
 void *shmalloc(size_t bytes)
@@ -322,6 +323,16 @@ void *shmalloc(size_t bytes)
 	ret = sh_buf;
 	sh_buf += bytes;
 	sh_bytes_left -= bytes;
+	sh_last_size = bytes;
 
 	return ret;
+}
+
+/* Only last chunk can be released */
+void shfree_last(void *ptr)
+{
+	BUG_ON(sh_buf - sh_last_size != ptr);
+	sh_buf -= sh_last_size;
+	sh_bytes_left += sh_last_size;
+	sh_last_size = 0;
 }
