@@ -705,7 +705,7 @@ int collect_unix_sockets(void)
 
 	pr_info("Reading unix sockets in\n");
 
-	ret = collect_image(CR_FD_UNIXSK, PB_UNIXSK,
+	ret = collect_image_sh(CR_FD_UNIXSK, PB_UNIXSK,
 			sizeof(struct unix_sk_info), collect_one_unixsk);
 	if (!ret)
 		ret = read_sk_queues();
