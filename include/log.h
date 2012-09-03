@@ -1,6 +1,8 @@
 #ifndef LOG_H__
 #define LOG_H__
 
+#include "log-levels.h"
+
 extern int log_init(const char *output);
 extern void log_fini(void);
 extern int log_init_by_pid(void);
@@ -12,12 +14,6 @@ extern void log_set_loglevel(unsigned int loglevel);
 
 extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
-
-#define LOG_MSG		(0) /* Print message regardless of log level */
-#define LOG_ERROR	(1) /* Errors only, when we're in trouble */
-#define LOG_WARN	(2) /* Warnings, dazen and confused but trying to continue */
-#define LOG_INFO	(3) /* Informative, everything is fine */
-#define LOG_DEBUG	(4) /* Debug only */
 
 #ifndef LOG_PREFIX
 # define LOG_PREFIX
