@@ -77,6 +77,7 @@ struct task_restore_core_args {
 	int				fd_exe_link;		/* opened self->exe file */
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
+	unsigned int			loglevel;
 	bool				restore_threads;	/* if to restore threads */
 	mutex_t				rst_lock;
 

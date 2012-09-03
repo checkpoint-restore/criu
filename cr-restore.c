@@ -1337,6 +1337,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	task_args->pid		= pid;
 	task_args->logfd	= log_get_fd();
+	task_args->loglevel	= log_get_loglevel();
 	task_args->sigchld_act	= sigchld_act;
 	task_args->fd_pages	= fd_pages;
 
