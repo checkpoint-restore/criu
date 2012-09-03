@@ -11,6 +11,7 @@ extern void log_closedir(void);
 extern int log_get_fd(void);
 
 extern void log_set_loglevel(unsigned int loglevel);
+extern unsigned int log_get_loglevel(void);
 
 extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));

@@ -130,6 +130,11 @@ void log_set_loglevel(unsigned int level)
 		current_loglevel = level;
 }
 
+unsigned int log_get_loglevel(void)
+{
+	return current_loglevel;
+}
+
 void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list params;
