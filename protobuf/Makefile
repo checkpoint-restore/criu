@@ -45,11 +45,11 @@ PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 
 .DEFAULT_GOAL	:= protobuf
 
-%.pb-c.c: %.proto
+%.pb-c.c %.pb-c.h: %.proto
 	$(E) "  PROTOBUF "$@
 	$(Q) protoc-c --c_out=./ $<
 
-%.o: %.c
+%.o: %.c %.h
 	$(E) "  CC       "$@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
