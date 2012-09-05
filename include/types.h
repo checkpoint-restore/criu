@@ -181,6 +181,7 @@ typedef struct {
 #endif /* CONFIG_X86_64 */
 
 #define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
+#define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
 
 #ifndef PAGE_SIZE
 # define PAGE_SIZE	4096
