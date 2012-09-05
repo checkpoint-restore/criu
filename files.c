@@ -177,10 +177,15 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
 
-	if (unlikely(new_le->fe->type == FD_TYPES__EVENTPOLL))
+	switch (new_le->fe->type) {
+	case FD_TYPES__EVENTPOLL:
 		list_add_tail(&new_le->ps_list, &rst_info->eventpoll);
-	else
+		break;
+	default:
 		list_add_tail(&new_le->ps_list, &rst_info->fds);
+		break;
+	}
+
 	return 0;
 }
 
