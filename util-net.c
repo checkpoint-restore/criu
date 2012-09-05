@@ -28,8 +28,8 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
 	BUILD_BUG_ON(CR_SCM_MAX_FD > SCM_MAX_FD);
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
-	fdset->iov.iov_base		= &fdset->msg;
-	fdset->iov.iov_len		= with_flags ? sizeof(fdset->msg) : 1;
+	fdset->iov.iov_base		= fdset->opts;
+	fdset->iov.iov_len		= with_flags ? sizeof(fdset->opts) : 1;
 
 	fdset->hdr.msg_iov		= &fdset->iov;
 	fdset->hdr.msg_iovlen		= 1;
@@ -64,13 +64,35 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 			int j;
 
 			for (j = 0; j < min_fd; j++) {
-				int flags;
+				int flags, fd = fds[i + j];
+				struct fd_opts *p = fdset.opts + j;
+				struct f_owner_ex owner_ex;
+				u32 v[2];
 
-				flags = sys_fcntl(fds[i + j], F_GETFD, 0);
+				flags = sys_fcntl(fd, F_GETFD, 0);
 				if (flags < 0)
 					return -1;
 
-				fdset.msg[j] = (char)flags;
+				p->flags = (char)flags;
+
+				if (sys_fcntl(fd, F_GETOWN_EX, (long)&owner_ex))
+					return -1;
+
+				/*
+				 * Simple case -- nothing is changed.
+				 */
+				if (owner_ex.pid == 0) {
+					p->fown.pid = 0;
+					continue;
+				}
+
+				if (sys_fcntl(fd, F_GETOWNER_UIDS, (long)&v))
+					return -1;
+
+				p->fown.uid	 = v[0];
+				p->fown.euid	 = v[1];
+				p->fown.pid_type = owner_ex.type;
+				p->fown.pid	 = owner_ex.pid;
 			}
 		}
 
@@ -82,7 +104,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	return 0;
 }
 
-int recv_fds(int sock, int *fds, int nr_fds, char *flags)
+int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 {
 	struct scm_fdset fdset;
 	struct cmsghdr *cmsg;
@@ -90,7 +112,7 @@ int recv_fds(int sock, int *fds, int nr_fds, char *flags)
 	int ret;
 	int i, min_fd;
 
-	cmsg_data = scm_fdset_init(&fdset, NULL, 0, flags != NULL);
+	cmsg_data = scm_fdset_init(&fdset, NULL, 0, opts != NULL);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd);
@@ -120,8 +142,8 @@ int recv_fds(int sock, int *fds, int nr_fds, char *flags)
 		if (unlikely(min_fd <= 0))
 			return -1;
 		builtin_memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
-		if (flags)
-			builtin_memcpy(flags + i, fdset.msg, sizeof(char) * min_fd);
+		if (opts)
+			builtin_memcpy(opts + i, fdset.opts, sizeof(struct fd_opts) * min_fd);
 	}
 
 	return 0;

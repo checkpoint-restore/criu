@@ -184,11 +184,9 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 	return ret;
 }
 
-static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_parms *p)
+static int fill_fd_params(pid_t pid, int fd, int lfd,
+				struct fd_opts *opts, struct fd_parms *p)
 {
-	struct f_owner_ex owner_ex;
-	u32 v[2];
-
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d\n", lfd);
 		return -1;
@@ -198,12 +196,12 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 	p->pos		= lseek(lfd, 0, SEEK_CUR);
 	p->flags	= fcntl(lfd, F_GETFL);
 	p->pid		= pid;
-	p->fd_flags	= fd_flags;
+	p->fd_flags	= opts->flags;
 
 	fown_entry__init(&p->fown);
 
 	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
-		pid, fd, p->pos, p->flags, (int)fd_flags);
+		pid, fd, p->pos, p->flags, (int)p->fd_flags);
 
 	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
 	if (p->fown.signum < 0) {
@@ -211,26 +209,13 @@ static int fill_fd_params(pid_t pid, int fd, int lfd, char fd_flags, struct fd_p
 		return -1;
 	}
 
-	if (fcntl(lfd, F_GETOWN_EX, (long)&owner_ex)) {
-		pr_perror("Can't get owners on %d\n", lfd);
-		return -1;
-	}
-
-	/*
-	 * Simple case -- nothing is changed.
-	 */
-	if (owner_ex.pid == 0)
+	if (opts->fown.pid == 0)
 		return 0;
 
-	if (fcntl(lfd, F_GETOWNER_UIDS, (long)&v)) {
-		pr_perror("Can't get owner uids on %d\n", lfd);
-		return -1;
-	}
-
-	p->fown.uid	 = v[0];
-	p->fown.euid	 = v[1];
-	p->fown.pid_type = owner_ex.type;
-	p->fown.pid	 = owner_ex.pid;
+	p->fown.pid	 = opts->fown.pid;
+	p->fown.pid_type = opts->fown.pid_type;
+	p->fown.uid	 = opts->fown.uid;
+	p->fown.euid	 = opts->fown.euid;
 
 	return 0;
 }
@@ -264,13 +249,13 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 #define PIPEFS_MAGIC	0x50495045
 #endif
 
-static int dump_one_file(pid_t pid, int fd, int lfd, char fd_flags,
+static int dump_one_file(pid_t pid, int fd, int lfd, struct fd_opts *opts,
 		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
 	struct statfs statfs;
 
-	if (fill_fd_params(pid, fd, lfd, fd_flags, &p) < 0) {
+	if (fill_fd_params(pid, fd, lfd, opts, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
 		return -1;
 	}
@@ -316,7 +301,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 		struct parasite_drain_fd *dfds)
 {
 	int *lfds;
-	char *flags;
+	struct fd_opts *opts;
 	int i, ret = -1;
 
 	pr_info("\n");
@@ -327,16 +312,16 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 	if (!lfds)
 		goto err;
 
-	flags = xmalloc(dfds->nr_fds * sizeof(char));
-	if (!flags)
+	opts = xmalloc(dfds->nr_fds * sizeof(struct fd_opts));
+	if (!opts)
 		goto err1;
 
-	ret = parasite_drain_fds_seized(ctl, dfds, lfds, flags);
+	ret = parasite_drain_fds_seized(ctl, dfds, lfds, opts);
 	if (ret)
 		goto err2;
 
 	for (i = 0; i < dfds->nr_fds; i++) {
-		ret = dump_one_file(ctl->pid, dfds->fds[i], lfds[i], flags[i], cr_fdset);
+		ret = dump_one_file(ctl->pid, dfds->fds[i], lfds[i], opts + i, cr_fdset);
 		close(lfds[i]);
 		if (ret)
 			goto err2;
@@ -344,7 +329,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 
 	pr_info("----------------------------------------\n");
 err2:
-	xfree(flags);
+	xfree(opts);
 err1:
 	xfree(lfds);
 err:

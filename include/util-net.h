@@ -21,16 +21,27 @@
 #define CR_SCM_MSG_SIZE		(1024)
 #define CR_SCM_MAX_FD		(252)
 
+struct fd_opts {
+	char flags;
+	struct {
+		uint32_t uid;
+		uint32_t euid;
+		uint32_t signum;
+		uint32_t pid_type;
+		uint32_t pid;
+	} fown;
+};
+
 struct scm_fdset {
 	struct msghdr	hdr;
 	struct iovec	iov;
 	char		msg_buf[CR_SCM_MSG_SIZE];
-	char		msg[CR_SCM_MAX_FD];
+	struct fd_opts	opts[CR_SCM_MAX_FD];
 };
 
 extern int send_fds(int sock, struct sockaddr_un *saddr, int saddr_len,
 		int *fds, int nr_fds, bool with_flags);
-extern int recv_fds(int sock, int *fds, int nr_fds, char *flags);
+extern int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts);
 
 static inline int send_fd(int sock, struct sockaddr_un *saddr, int saddr_len, int fd)
 {
