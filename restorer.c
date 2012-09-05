@@ -29,8 +29,8 @@
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
 		if (__ret) {						\
-			write_num_n(__LINE__);				\
-			write_num_n(__ret);				\
+			write_num_n_err(__LINE__);			\
+			write_num_n_err(__ret);				\
 		}							\
 		__ret;							\
 	})
@@ -39,12 +39,12 @@ static struct task_entries *task_entries;
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	write_num(siginfo->si_pid);
+	write_num_info(siginfo->si_pid);
 	if (siginfo->si_code & CLD_EXITED)
-		write_string(" exited, status=");
+		write_str_info(" exited, status=");
 	else if (siginfo->si_code & CLD_KILLED)
-		write_string(" killed by signal ");
-	write_num_n(siginfo->si_status);
+		write_str_info(" killed by signal ");
+	write_num_n_info(siginfo->si_status);
 
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 	/* sa_restorer may be unmaped, so we can't go back to userspace*/
@@ -136,9 +136,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 	int my_pid = sys_gettid();
 
 	if (my_pid != args->pid) {
-		write_num_n(__LINE__);
-		write_num_n(my_pid);
-		write_num_n(args->pid);
+		write_num_n_err(__LINE__);
+		write_num_n_err(my_pid);
+		write_num_n_err(args->pid);
 		goto core_restore_end;
 	}
 
@@ -146,9 +146,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	if (args->has_futex) {
 		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
-			write_num_n(__LINE__);
-			write_num_n(my_pid);
-			write_num_n(args->pid);
+			write_num_n_err(__LINE__);
+			write_num_n_err(my_pid);
+			write_num_n_err(args->pid);
 			goto core_restore_end;
 		}
 	}
@@ -183,16 +183,16 @@ long __export_restore_thread(struct thread_restore_args *args)
 	fsgs_base = args->gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
+		write_num_n_err(__LINE__);
+		write_num_n_err(ret);
 		goto core_restore_end;
 	}
 
 	fsgs_base = args->gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
+		write_num_n_err(__LINE__);
+		write_num_n_err(ret);
 		goto core_restore_end;
 	}
 
@@ -207,8 +207,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 	restore_creds(NULL);
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
-	write_num(sys_gettid());
-	write_string_n(": Restored");
+	write_num_info(sys_gettid());
+	write_str_n_info(": Restored");
 
 	futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
 	futex_dec_and_wake(&task_entries->nr_in_progress);
@@ -223,8 +223,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 		: "r"(new_sp)
 		: "rax","rsp","memory");
 core_restore_end:
-	write_num_n(__LINE__);
-	write_num_n(sys_getpid());
+	write_num_n_err(__LINE__);
+	write_num_n_err(sys_getpid());
 	sys_exit_group(1);
 	return -1;
 }
@@ -233,7 +233,7 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 {
 	int fd = args->fd_exe_link;
 
-	write_string("Restoring EXE\n");
+	write_str_info("Restoring EXE\n");
 	sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
 	sys_close(fd);
 
@@ -305,6 +305,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	sys_sigaction(SIGCHLD, &act, NULL, sizeof(rt_sigset_t));
 
 	restorer_set_logfd(args->logfd);
+	restorer_set_loglevel(args->loglevel);
 
 	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
@@ -318,7 +319,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 			vma_entry->start -= PAGE_SIZE;
 
 		if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
-			write_num_n(__LINE__);
+			write_num_n_err(__LINE__);
 			goto core_restore_end;
 		}
 	}
@@ -336,14 +337,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 		va = restore_mapping(vma_entry);
 
 		if (va != vma_entry->start) {
-			write_num_n(__LINE__);
-			write_hex_n(vma_entry->start);
-			write_hex_n(vma_entry->end);
-			write_hex_n(vma_entry->prot);
-			write_hex_n(vma_entry->flags);
-			write_hex_n(vma_entry->fd);
-			write_hex_n(vma_entry->pgoff);
-			write_hex_n(va);
+			write_num_n_err(__LINE__);
+			write_hex_n_err(vma_entry->start);
+			write_hex_n_err(vma_entry->end);
+			write_hex_n_err(vma_entry->prot);
+			write_hex_n_err(vma_entry->flags);
+			write_hex_n_err(vma_entry->fd);
+			write_hex_n_err(vma_entry->pgoff);
+			write_hex_n_err(va);
 			goto core_restore_end;
 		}
 	}
@@ -357,15 +358,15 @@ long __export_restore_task(struct task_restore_core_args *args)
 			break;
 
 		if (ret != sizeof(va)) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
+			write_num_n_err(__LINE__);
+			write_num_n_err(ret);
 			goto core_restore_end;
 		}
 
 		ret = sys_read(args->fd_pages, (void *)va, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
+			write_num_n_err(__LINE__);
+			write_num_n_err(ret);
 			goto core_restore_end;
 		}
 	}
@@ -403,8 +404,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
 	if (ret < 0) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
+		write_num_n_err(__LINE__);
+		write_num_n_err(ret);
 		goto core_restore_end;
 	}
 
@@ -443,9 +444,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	if (args->has_futex) {
 		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
-			write_num_n(__LINE__);
-			write_num_n(my_pid);
-			write_num_n(args->pid);
+			write_num_n_err(__LINE__);
+			write_num_n_err(my_pid);
+			write_num_n_err(args->pid);
 			goto core_restore_end;
 		}
 	}
@@ -486,16 +487,16 @@ long __export_restore_task(struct task_restore_core_args *args)
 	fsgs_base = args->gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
+		write_num_n_err(__LINE__);
+		write_num_n_err(ret);
 		goto core_restore_end;
 	}
 
 	fsgs_base = args->gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
-		write_num_n(__LINE__);
-		write_num_n(ret);
+		write_num_n_err(__LINE__);
+		write_num_n_err(ret);
 		goto core_restore_end;
 	}
 
@@ -532,15 +533,15 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		fd = sys_open(LAST_PID_PATH, O_RDWR, LAST_PID_PERM);
 		if (fd < 0) {
-			write_num_n(__LINE__);
-			write_num_n(fd);
+			write_num_n_err(__LINE__);
+			write_num_n_err(fd);
 			goto core_restore_end;
 		}
 
 		ret = sys_flock(fd, LOCK_EX);
 		if (ret) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
+			write_num_n_err(__LINE__);
+			write_num_n_err(ret);
 			goto core_restore_end;
 		}
 
@@ -560,9 +561,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 			last_pid_len = vprint_num(last_pid_buf, thread_args[i].pid - 1);
 			ret = sys_write(fd, last_pid_buf, last_pid_len - 1);
 			if (ret < 0) {
-				write_num_n(__LINE__);
-				write_num_n(ret);
-				write_string_n(last_pid_buf);
+				write_num_n_err(__LINE__);
+				write_num_n_err(ret);
+				write_str_n_err(last_pid_buf);
 				goto core_restore_end;
 			}
 
@@ -611,8 +612,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		ret = sys_flock(fd, LOCK_UN);
 		if (ret) {
-			write_num_n(__LINE__);
-			write_num_n(ret);
+			write_num_n_err(__LINE__);
+			write_num_n_err(ret);
 			goto core_restore_end;
 		}
 
@@ -628,8 +629,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
-	write_num(sys_getpid());
-	write_string_n(": Restored");
+	write_num_info(sys_getpid());
+	write_str_n_info(": Restored");
 
 	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE);
 
@@ -683,8 +684,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 		: "rax","rsp","memory");
 
 core_restore_end:
-	write_num_n(__LINE__);
-	write_num_n(sys_getpid());
+	write_num_n_err(__LINE__);
+	write_num_n_err(sys_getpid());
 	sys_exit_group(1);
 	return -1;
 
