@@ -57,7 +57,7 @@
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 
-static struct pstree_item *me;
+static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *vmas, int nr_vmas);
@@ -269,7 +269,7 @@ static int pstree_wait_helpers()
 {
 	struct pstree_item *pi;
 
-	list_for_each_entry(pi, &me->children, list) {
+	list_for_each_entry(pi, &current->children, list) {
 		int status, ret;
 
 		if (pi->state != TASK_HELPER)
@@ -302,7 +302,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (pstree_wait_helpers())
 		return -1;
 
-	if (prepare_fds(me))
+	if (prepare_fds(current))
 		return -1;
 
 	if (prepare_fs(pid))
@@ -446,7 +446,7 @@ static int restore_one_task(int pid)
 	int fd, ret;
 	CoreEntry *core;
 
-	if (me->state == TASK_HELPER)
+	if (current->state == TASK_HELPER)
 		return restore_one_fake(pid);
 
 	fd = open_image_ro(CR_FD_CORE, pid);
@@ -576,7 +576,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 
 	exit = siginfo->si_code & CLD_EXITED;
 	status = siginfo->si_status;
-	if (!me || status)
+	if (!current || status)
 		goto err;
 
 	/* Skip a helper if it was completed successfully */
@@ -590,14 +590,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (status)
 			break;
 
-		list_for_each_entry(pi, &me->children, list) {
+		list_for_each_entry(pi, &current->children, list) {
 			if (pi->state != TASK_HELPER)
 				continue;
 			if (pi->pid.virt == siginfo->si_pid)
 				break;
 		}
 
-		if (&pi->list == &me->children)
+		if (&pi->list == &current->children)
 			break; /* The process is not a helper */
 	}
 
@@ -633,21 +633,21 @@ static void restore_sid(void)
 	 * we can call setpgid() on custom values.
 	 */
 
-	if (me->pid.virt == me->sid) {
-		pr_info("Restoring %d to %d sid\n", me->pid.virt, me->sid);
+	if (current->pid.virt == current->sid) {
+		pr_info("Restoring %d to %d sid\n", current->pid.virt, current->sid);
 		sid = setsid();
-		if (sid != me->sid) {
+		if (sid != current->sid) {
 			pr_perror("Can't restore sid (%d)", sid);
 			xid_fail();
 		}
 	} else {
 		sid = getsid(getpid());
-		if (sid != me->sid) {
+		if (sid != current->sid) {
 			/* Skip the root task if it's not init */
-			if (me == root_item && root_item->pid.virt != 1)
+			if (current == root_item && root_item->pid.virt != 1)
 				return;
 			pr_err("Requested sid %d doesn't match inherited %d\n",
-					me->sid, sid);
+					current->sid, sid);
 			xid_fail();
 		}
 	}
@@ -657,15 +657,15 @@ static void restore_pgid(void)
 {
 	pid_t pgid;
 
-	pr_info("Restoring %d to %d pgid\n", me->pid.virt, me->pgid);
+	pr_info("Restoring %d to %d pgid\n", current->pid.virt, current->pgid);
 
 	pgid = getpgrp();
-	if (me->pgid == pgid)
+	if (current->pgid == pgid)
 		return;
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
-	if (setpgid(0, me->pgid) != 0) {
-		pr_perror("Can't restore pgid (%d/%d->%d)", me->pid.virt, pgid, me->pgid);
+	if (setpgid(0, current->pgid) != 0) {
+		pr_perror("Can't restore pgid (%d/%d->%d)", current->pid.virt, pgid, current->pgid);
 		xid_fail();
 	}
 }
@@ -714,11 +714,11 @@ static int restore_task_with_children(void *_arg)
 
 	close_safe(&ca->fd);
 
-	me = ca->item;
+	current = ca->item;
 
 	pid = getpid();
-	if (me->pid.virt != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, me->pid.virt);
+	if (current->pid.virt != pid) {
+		pr_err("Pid %d do not match expected %d\n", pid, current->pid.virt);
 		exit(-1);
 	}
 
@@ -727,11 +727,11 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 
 	/* Restore root task */
-	if (me->parent == NULL) {
+	if (current->parent == NULL) {
 		if (collect_mount_info())
 			exit(-1);
 
-		if (prepare_namespace(me->pid.virt, ca->clone_flags))
+		if (prepare_namespace(current->pid.virt, ca->clone_flags))
 			exit(-1);
 
 		/*
@@ -755,12 +755,12 @@ static int restore_task_with_children(void *_arg)
 	sigdelset(&blockmask, SIGCHLD);
 	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
 	if (ret) {
-		pr_perror("%d: Can't block signals", me->pid.virt);
+		pr_perror("%d: Can't block signals", current->pid.virt);
 		exit(1);
 	}
 
 	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &me->children, list) {
+	list_for_each_entry(child, &current->children, list) {
 		if (!restore_before_setsid(child))
 			continue;
 
@@ -774,7 +774,7 @@ static int restore_task_with_children(void *_arg)
 	restore_sid();
 
 	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &me->children, list) {
+	list_for_each_entry(child, &current->children, list) {
 		if (restore_before_setsid(child))
 			continue;
 		ret = fork_with_pid(child, 0);
@@ -782,21 +782,21 @@ static int restore_task_with_children(void *_arg)
 			exit(1);
 	}
 
-	if (me->pgid == me->pid.virt)
+	if (current->pgid == current->pid.virt)
 		restore_pgid();
 
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
 
-	if (me->pgid != me->pid.virt)
+	if (current->pgid != current->pid.virt)
 		restore_pgid();
 
-	if (me->state != TASK_HELPER) {
+	if (current->state != TASK_HELPER) {
 		futex_dec_and_wake(&task_entries->nr_in_progress);
 		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_PGID);
 	}
 
-	return restore_one_task(me->pid.virt);
+	return restore_one_task(current->pid.virt);
 }
 
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
@@ -1240,11 +1240,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * per thread.
 	 */
 
-	restore_thread_vma_len = sizeof(*thread_args) * me->nr_threads;
+	restore_thread_vma_len = sizeof(*thread_args) * current->nr_threads;
 	restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
 
 	pr_info("%d threads require %ldK of memory\n",
-			me->nr_threads,
+			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
@@ -1284,7 +1284,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	thread_args			= (void *)((long)task_args + sizeof(*task_args));
 
 	memzero_p(task_args);
-	memzero(thread_args, sizeof(*thread_args) * me->nr_threads);
+	memzero(thread_args, sizeof(*thread_args) * current->nr_threads);
 
 	/*
 	 * Code at a new place.
@@ -1374,16 +1374,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	/*
 	 * Now prepare run-time data for threads restore.
 	 */
-	task_args->nr_threads		= me->nr_threads;
+	task_args->nr_threads		= current->nr_threads;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
 
 	/*
 	 * Fill up per-thread data.
 	 */
-	for (i = 0; i < me->nr_threads; i++) {
+	for (i = 0; i < current->nr_threads; i++) {
 		int fd_core;
-		thread_args[i].pid = me->threads[i].virt;
+		thread_args[i].pid = current->threads[i].virt;
 
 		/* skip self */
 		if (thread_args[i].pid == pid)
