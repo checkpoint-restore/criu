@@ -44,9 +44,9 @@ enum fdinfo_states {
 struct file_desc;
 
 struct fdinfo_list_entry {
-	struct list_head	desc_list;
-	struct file_desc	*desc;
-	struct list_head	ps_list;
+	struct list_head	desc_list;	/* To chain on  @fd_info_head */
+	struct file_desc	*desc;		/* Associated file descriptor */
+	struct list_head	ps_list;	/* To chain  per-task files */
 	int			pid;
 	futex_t			real_pid;
 	FdinfoEntry		*fe;
@@ -60,10 +60,10 @@ struct file_desc_ops {
 };
 
 struct file_desc {
-	u32			id;
-	struct list_head	hash;
-	struct list_head	fd_info_head;
-	struct file_desc_ops	*ops;
+	u32			id;		/* File descriptor id, unique */
+	struct list_head	hash;		/* Descriptor hashing and lookup */
+	struct list_head	fd_info_head;	/* Chain of fdinfo_list_entry-s with same ID and type but different pids */
+	struct file_desc_ops	*ops;		/* Associated operations */
 };
 
 struct fdtype_ops {
