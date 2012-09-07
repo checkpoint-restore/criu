@@ -1339,6 +1339,89 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	return 0;
 }
 
+static int fill_zombies_pids(struct pstree_item *item)
+{
+	struct pstree_item *child;
+	int i, nr;
+	pid_t *ch;
+
+	if (parse_children(item->pid.virt, &ch, &nr) < 0)
+		return -1;
+
+	list_for_each_entry(child, &item->children, list) {
+		if (child->pid.virt < 0)
+			continue;
+		for (i = 0; i < nr; i++) {
+			if (ch[i] == child->pid.virt) {
+				ch[i] = -1;
+				break;
+			}
+		}
+	}
+
+	i = 0;
+	list_for_each_entry(child, &item->children, list) {
+		if (child->pid.virt > 0)
+			continue;
+		for (; i < nr; i++) {
+			if (ch[i] < 0)
+				continue;
+			child->pid.virt = ch[i];
+			ch[i] = -1;
+			break;
+		}
+		BUG_ON(i == nr);
+	}
+
+	return 0;
+}
+
+static int dump_zombies()
+{
+	struct pstree_item *item;
+	int oldfd, ret = -1;
+	int pidns = opts.namespaces_flags & CLONE_NEWPID;
+
+	if (pidns) {
+		oldfd = set_proc_fd(pidns_proc);
+		if (oldfd < 0)
+			return -1;
+	}
+
+	for_each_pstree_item(item) {
+		if (item->state != TASK_DEAD)
+			continue;
+
+		if (item->pid.virt < 0) {
+			if (!pidns)
+				item->pid.virt = item->pid.real;
+			else if (root_item == item) {
+				pr_err("A root task is dead\n");
+				goto err;
+			} else if (fill_zombies_pids(item->parent))
+				goto err;
+		}
+
+		pr_info("Obtainting zombie stat ... ");
+		if (parse_pid_stat(item->pid.virt, &pps_buf) < 0)
+			goto err;
+
+		item->sid = pps_buf.sid;
+		item->pgid = pps_buf.pgid;
+
+		BUG_ON(!list_empty(&item->children));
+		if (dump_one_zombie(item, &pps_buf) < 0)
+			goto err;
+	}
+
+	ret = 0;
+err:
+	if (pidns)
+		close_proc();
+
+	return ret;
+}
+
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1358,6 +1441,9 @@ static int dump_one_task(struct pstree_item *item)
 		return -1;
 	}
 
+	if (item->state == TASK_DEAD)
+		return 0;
+
 	dfds = xmalloc(sizeof(*dfds));
 	if (!dfds)
 		goto err_free;
@@ -1366,19 +1452,6 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parse_pid_stat(pid, &pps_buf);
 	if (ret < 0)
 		goto err;
-
-	if (item->state == TASK_DEAD) {
-		/* FIXME don't support zombie in pid name space*/
-		if (root_item->pid.virt == 1) {
-			pr_err("Can't dump a zombie %d in PIDNS", item->pid.real);
-			ret = -1;
-			goto err;
-		}
-		item->pid.virt = item->pid.real;
-
-		BUG_ON(!list_empty(&item->children));
-		return dump_one_zombie(item, &pps_buf);
-	}
 
 	ret = collect_mappings(pid, &vma_area_list);
 	if (ret) {
@@ -1399,7 +1472,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	if (opts.namespaces_flags & CLONE_NEWPID && pidns_proc < 0) {
+	if (opts.namespaces_flags & CLONE_NEWPID && root_item == item) {
 		pidns_proc = parasite_get_proc_fd_seized(parasite_ctl);
 		if (pidns_proc < 0) {
 			pr_err("Can't get proc fd (pid: %d)\n", pid);
@@ -1535,6 +1608,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		if (dump_one_task(item))
 			goto err;
 	}
+
+	if (dump_zombies())
+		goto err;
 
 	if (dump_pstree(root_item))
 		goto err;

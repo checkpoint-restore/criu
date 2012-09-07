@@ -52,14 +52,14 @@ static/fifo-rowo-pair
 static/fifo-ghost
 static/fifo
 static/fifo_wronly
+static/zombie00
+transition/fork
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 
 # These ones are not in ns
 TEST_LIST="$TEST_LIST
-static/zombie00
-transition/fork
 static/file_fown
 static/socket-ext
 "
