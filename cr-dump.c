@@ -954,16 +954,26 @@ static int check_threads(const struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(const struct pstree_item *item, u32 **_c, int *_n)
+static int parse_children(int pid, u32 **_c, int *_n)
 {
 	FILE *file;
 	char *tok;
 	u32 *ch = NULL;
-	int nr = 1, i;
+	int nr = 1;
+	DIR *dir;
+	struct dirent *de;
 
-	for (i = 0; i < item->nr_threads; i++) {
-		file = fopen_proc(item->pid.real, "task/%d/children",
-						item->threads[i].real);
+	dir = opendir_proc(pid, "task");
+	if (dir == NULL)
+		return -1;
+
+	while ((de = readdir(dir))) {
+		if (!strcmp(de->d_name, "."))
+			continue;
+		if (!strcmp(de->d_name, ".."))
+			continue;
+
+		file = fopen_proc(pid, "task/%s/children", de->d_name);
 		if (!file)
 			goto err;
 
@@ -988,9 +998,10 @@ static int parse_children(const struct pstree_item *item, u32 **_c, int *_n)
 	*_c = ch;
 	*_n = nr - 1;
 
+	closedir(dir);
 	return 0;
-
 err:
+	closedir(dir);
 	xfree(ch);
 	return -1;
 }
@@ -1001,7 +1012,7 @@ static int get_children(struct pstree_item *item)
 	int ret, i, nr_children;
 	struct pstree_item *c;
 
-	ret = parse_children(item, &ch, &nr_children);
+	ret = parse_children(item->pid.real, &ch, &nr_children);
 	if (ret < 0)
 		return ret;
 
@@ -1143,7 +1154,7 @@ static int check_subtree(const struct pstree_item *item)
 	int nr, ret, i;
 	struct pstree_item *child;
 
-	ret = parse_children(item, &ch, &nr);
+	ret = parse_children(item->pid.real, &ch, &nr);
 	if (ret < 0)
 		return ret;
 
