@@ -623,6 +623,25 @@ err:
 	return ret;
 }
 
+int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
+{
+	int ret = -1, fd;
+
+	ret = parasite_execute(PARASITE_CMD_GET_PROC_FD, ctl, NULL, 0);
+	if (ret) {
+		pr_err("Parasite failed to get proc fd\n");
+		return ret;
+	}
+
+	fd = recv_fd(ctl->tsock);
+	if (fd < 0) {
+		pr_err("Can't retrieve FD from socket\n");
+		return fd;
+	}
+
+	return fd;
+}
+
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;

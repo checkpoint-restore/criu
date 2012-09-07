@@ -1,6 +1,8 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <signal.h>
+#include <linux/limits.h>
+#include <sys/mount.h>
 
 #include "syscall.h"
 #include "parasite.h"
@@ -375,6 +377,58 @@ static int init(struct parasite_init_args *args)
 	return ret;
 }
 
+static char proc_mountpoint[] = "proc.crtools";
+static int parasite_get_proc_fd()
+{
+	int ret, fd;
+	char buf[2];
+
+	ret = sys_readlink("/proc/self", buf, sizeof(buf));
+	if (ret < 0 && ret != -ENOENT) {
+		sys_write_msg("Can't readlink /proc/self\n");
+		return ret;
+	}
+
+	/* Fast path -- if /proc belongs to this pidns */
+	if (ret == 1 && buf[0] == '1') {
+		fd = sys_open("/proc", O_RDONLY, 0);
+		goto out_send_fd;
+	}
+
+	if (sys_mkdir(proc_mountpoint, 0700)) {
+		sys_write_msg("Can't create a directory ");
+		sys_write_msg(proc_mountpoint);
+		sys_write_msg("\n");
+		return ret;
+	}
+
+	if (sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
+		sys_write_msg("mount failed\n");
+		ret = -1;
+		goto out_rmdir;
+	}
+
+	fd = sys_open(proc_mountpoint, O_RDONLY, 0);
+
+	if (sys_umount2(proc_mountpoint, MNT_DETACH)) {
+		sys_write_msg("Can't umount procfs\n");
+		return -1;
+	}
+
+out_rmdir:
+	if (sys_rmdir(proc_mountpoint)) {
+		sys_write_msg("Can't remove directory\n");
+		return -1;
+	}
+
+out_send_fd:
+	if (fd < 0)
+		return fd;
+	ret = send_fd(tsock, NULL, 0, fd);
+	sys_close(fd);
+	return ret;
+}
+
 static int parasite_set_logfd()
 {
 	int ret;
@@ -430,6 +484,8 @@ int __used parasite_service(unsigned long cmd, void *args)
 		return dump_tid_info((struct parasite_dump_tid_info *)args);
 	case PARASITE_CMD_DRAIN_FDS:
 		return drain_fds((struct parasite_drain_fd *)args);
+	case PARASITE_CMD_GET_PROC_FD:
+		return parasite_get_proc_fd();
 	}
 
 	sys_write_msg("Unknown command to parasite\n");
