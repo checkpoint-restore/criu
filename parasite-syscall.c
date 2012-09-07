@@ -435,7 +435,7 @@ err:
 }
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
-					unsigned int **tid_addr, u32 *tid)
+					unsigned int **tid_addr, pid_t *tid)
 {
 	struct parasite_dump_tid_info args = { };
 	int ret;

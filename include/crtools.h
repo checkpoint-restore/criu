@@ -203,8 +203,8 @@ struct rst_info {
 
 struct pid
 {
-	u32 real;		/* used to peek/poke tasks during dump stage */
-	u32 virt;		/* used all over in the images and saved after restore */
+	pid_t real;		/* used to peek/poke tasks during dump stage */
+	pid_t virt;		/* used all over in the images and saved after restore */
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)

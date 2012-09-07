@@ -954,11 +954,11 @@ static int check_threads(const struct pstree_item *item)
 	return 0;
 }
 
-static int parse_children(int pid, u32 **_c, int *_n)
+static int parse_children(pid_t pid, pid_t **_c, int *_n)
 {
 	FILE *file;
 	char *tok;
-	u32 *ch = NULL;
+	pid_t *ch = NULL;
 	int nr = 1;
 	DIR *dir;
 	struct dirent *de;
@@ -984,7 +984,7 @@ static int parse_children(int pid, u32 **_c, int *_n)
 
 		tok = strtok(loc_buf, " \n");
 		while (tok) {
-			u32 *tmp = xrealloc(ch, nr * sizeof(u32));
+			pid_t *tmp = xrealloc(ch, nr * sizeof(pid_t));
 			if (!tmp)
 				goto err;
 			ch = tmp;
@@ -1008,7 +1008,7 @@ err:
 
 static int get_children(struct pstree_item *item)
 {
-	u32 *ch;
+	pid_t *ch;
 	int ret, i, nr_children;
 	struct pstree_item *c;
 
@@ -1150,7 +1150,7 @@ err:
 
 static int check_subtree(const struct pstree_item *item)
 {
-	u32 *ch;
+	pid_t *ch;
 	int nr, ret, i;
 	struct pstree_item *child;
 
