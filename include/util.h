@@ -178,6 +178,7 @@ int set_proc_mountpoint(char *path);
 void close_proc(void);
 int open_pid_proc(pid_t pid);
 int close_pid_proc(void);
+int set_proc_fd(int fd);
 
 int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 

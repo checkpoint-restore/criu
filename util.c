@@ -170,6 +170,21 @@ void close_proc()
 	proc_dir_fd = -1;
 }
 
+int set_proc_fd(int fd)
+{
+	int sfd = get_service_fd(PROC_FD_OFF);
+
+	sfd = dup2(fd, sfd);
+	if (sfd < 0) {
+		pr_perror("Can't set proc fd\n");
+		return -1;
+	}
+
+	proc_dir_fd = sfd;
+
+	return 0;
+}
+
 int set_proc_mountpoint(char *path)
 {
 	int sfd = get_service_fd(PROC_FD_OFF), fd;
