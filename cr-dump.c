@@ -1338,14 +1338,14 @@ static int dump_one_task(struct pstree_item *item)
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+	if (item->state == TASK_STOPPED) {
+		pr_err("Stopped tasks are not supported\n");
+		return -1;
+	}
+
 	dfds = xmalloc(sizeof(*dfds));
 	if (!dfds)
 		goto err_free;
-
-	if (item->state == TASK_STOPPED) {
-		pr_err("Stopped tasks are not supported\n");
-		goto err_free;
-	}
 
 	pr_info("Obtainting task stat ... ");
 	ret = parse_pid_stat(pid, &pps_buf);
