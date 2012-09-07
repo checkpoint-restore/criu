@@ -877,7 +877,8 @@ out:
 				kill(root_item->pid.real, SIGKILL);
 		} else {
 			for_each_pstree_item(pi)
-				kill(pi->pid.virt, SIGKILL);
+				if (pi->pid.virt > 0)
+					kill(pi->pid.virt, SIGKILL);
 		}
 		return 1;
 	}
