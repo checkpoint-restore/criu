@@ -1291,7 +1291,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
-	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid);
+	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid.virt);
 	if (fd_core < 0)
 		goto err_free;
 
