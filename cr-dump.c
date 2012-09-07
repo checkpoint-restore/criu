@@ -60,6 +60,7 @@
 #endif
 
 static char loc_buf[PAGE_SIZE];
+static int pidns_proc = -1;
 
 void free_mappings(struct list_head *vma_area_list)
 {
@@ -1391,11 +1392,19 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
+	ret = -1;
 	parasite_ctl = parasite_infect_seized(pid, &vma_area_list);
 	if (!parasite_ctl) {
-		ret = -1;
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
+	}
+
+	if (opts.namespaces_flags & CLONE_NEWPID && pidns_proc < 0) {
+		pidns_proc = parasite_get_proc_fd_seized(parasite_ctl);
+		if (pidns_proc < 0) {
+			pr_err("Can't get proc fd (pid: %d)\n", pid);
+			goto err_cure_fdset;
+		}
 	}
 
 	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
@@ -1556,6 +1565,8 @@ err:
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts->final_state);
 	free_pstree(root_item);
+
+	close_safe(&pidns_proc);
 
 	return ret;
 }
