@@ -36,6 +36,20 @@
 
 #include "crtools.h"
 
+/* /proc/PID/maps can contain not up to date information about stack */
+void mark_stack_vma(unsigned long sp, struct list_head *vma_area_list)
+{
+	struct vma_area *vma_area;
+	list_for_each_entry(vma_area, vma_area_list, list) {
+		if (in_vma_area(vma_area, sp)) {
+			vma_area->vma.status |= VMA_AREA_STACK;
+			vma_area->vma.flags  |= MAP_GROWSDOWN;
+			return;
+		}
+	}
+	BUG();
+}
+
 void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 {
 	if (!vma_area)

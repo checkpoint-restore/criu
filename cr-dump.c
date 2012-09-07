@@ -833,7 +833,8 @@ err:
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
-		const struct cr_fdset *cr_fdset)
+		const struct cr_fdset *cr_fdset,
+		struct list_head *vma_area_list)
 {
 	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
 	CoreEntry *core;
@@ -858,6 +859,8 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	ret = get_task_regs(pid, core, ctl);
 	if (ret)
 		goto err_free;
+
+	mark_stack_vma(core->thread_info->gpregs->sp, vma_area_list);
 
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
@@ -1423,7 +1426,8 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(pid, &pps_buf, &misc, parasite_ctl, cr_fdset);
+	ret = dump_task_core_all(pid, &pps_buf, &misc,
+					parasite_ctl, cr_fdset, &vma_area_list);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;

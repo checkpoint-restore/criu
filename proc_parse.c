@@ -144,10 +144,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 		}
 
-		if (strstr(buf, "[stack")) {
-			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_STACK;
-			vma_area->vma.flags  |= MAP_GROWSDOWN;
-		} else if (strstr(buf, "[vsyscall]")) {
+		if (strstr(buf, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;

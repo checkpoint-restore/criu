@@ -1208,6 +1208,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	if (ret < 0)
 		goto err;
 
+	/* required to unmap stack _with_ guard page */
+	mark_stack_vma((long) &self_vma_list, &self_vma_list);
+
 	self_vmas_len = round_up((ret + 1) * sizeof(VmaEntry), PAGE_SIZE);
 	vmas_len = round_up((nr_vmas + 1) * sizeof(VmaEntry), PAGE_SIZE);
 

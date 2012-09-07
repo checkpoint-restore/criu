@@ -165,6 +165,8 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 		p__;						\
 	})
 
+extern void mark_stack_vma(unsigned long sp, struct list_head *vma_area_list);
+
 extern int move_img_fd(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
 
