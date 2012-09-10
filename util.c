@@ -44,6 +44,12 @@ void mark_stack_vma(unsigned long sp, struct list_head *vma_area_list)
 		if (in_vma_area(vma_area, sp)) {
 			vma_area->vma.status |= VMA_AREA_STACK;
 			vma_area->vma.flags  |= MAP_GROWSDOWN;
+
+			/*
+			 * The kernel doesn't show stack guard pages on
+			 * proc output, so add pages here by hands.
+			 */
+			vma_area->vma.start -= PAGE_SIZE;
 			return;
 		}
 	}

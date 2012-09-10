@@ -311,13 +311,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		/*
-		 * The kernel doesn't show stack guard pages on
-		 * proc output, so add pages here by hands.
-		 */
-		if (vma_entry_is(vma_entry, VMA_AREA_STACK))
-			vma_entry->start -= PAGE_SIZE;
-
 		if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
 			write_num_n_err(__LINE__);
 			goto core_restore_end;
