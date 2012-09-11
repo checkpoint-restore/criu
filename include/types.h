@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "bitops.h"
-#include "atomic.h"
 
 /* prctl */
 #define ARCH_SET_GS 0x1001

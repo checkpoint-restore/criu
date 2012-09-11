@@ -12,7 +12,7 @@
 #include "util.h"
 
 typedef struct {
-	u32	raw;
+	atomic_t raw;
 } futex_t;
 
 #define FUTEX_ABORT_FLAG	(0x80000000)
@@ -39,11 +39,11 @@ static inline void futex_set(futex_t *f, u32 v)
 		u32 tmp;					\
 								\
 		while (1) {					\
-			tmp = (__f)->raw;			\
+			tmp = atomic_get(&(__f)->raw);			\
 			if ((tmp & FUTEX_ABORT_FLAG) ||		\
 			    (tmp __cond (__v)))			\
 				break;				\
-			ret = sys_futex(&(__f)->raw, FUTEX_WAIT,\
+			ret = sys_futex(&(__f)->raw.counter, FUTEX_WAIT,\
 					tmp, NULL, NULL, 0);	\
 			BUG_ON(ret < 0 && ret != -EWOULDBLOCK);	\
 		}						\
@@ -53,7 +53,7 @@ static inline void futex_set(futex_t *f, u32 v)
 static inline void futex_set_and_wake(futex_t *f, u32 v)
 {
 	atomic_set(&f->raw, v);
-	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+	BUG_ON(sys_futex(&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
 /* Mark futex @f as wait abort needed and wake up all waiters */
@@ -67,14 +67,14 @@ static inline void futex_abort_and_wake(futex_t *f)
 static inline void futex_dec_and_wake(futex_t *f)
 {
 	atomic_dec(&f->raw);
-	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+	BUG_ON(sys_futex(&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
 /* Plain increment futex @f value */
-static inline void futex_inc(futex_t *f) { f->raw++; }
+static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
 
 /* Plain decrement futex @f value */
-static inline void futex_dec(futex_t *f) { f->raw--; }
+static inline void futex_dec(futex_t *f) { atomic_dec(&f->raw); }
 
 /* Wait until futex @f value become @v */
 static inline void futex_wait_until(futex_t *f, u32 v)
@@ -87,14 +87,14 @@ static inline void futex_wait_while_gt(futex_t *f, u32 v)
 /* Wait while futex @f value is @v */
 static inline void futex_wait_while(futex_t *f, u32 v)
 {
-	while (f->raw == v) {
-		int ret = sys_futex(&f->raw, FUTEX_WAIT, v, NULL, NULL, 0);
+	while (atomic_get(&f->raw) == v) {
+		int ret = sys_futex(&f->raw.counter, FUTEX_WAIT, v, NULL, NULL, 0);
 		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }
 
 typedef struct {
-	u32	raw;
+	atomic_t	raw;
 } mutex_t;
 
 static void inline mutex_init(mutex_t *m)
@@ -109,7 +109,7 @@ static void inline mutex_lock(mutex_t *m)
 	int ret;
 
 	while ((c = atomic_inc(&m->raw))) {
-		ret = sys_futex(&m->raw, FUTEX_WAIT, c + 1, NULL, NULL, 0);
+		ret = sys_futex(&m->raw.counter, FUTEX_WAIT, c + 1, NULL, NULL, 0);
 		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }
@@ -118,7 +118,7 @@ static void inline mutex_unlock(mutex_t *m)
 {
 	u32 c = 0;
 	atomic_set(&m->raw, c);
-	BUG_ON(sys_futex(&m->raw, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
+	BUG_ON(sys_futex(&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
 #endif /* CR_LOCK_H_ */

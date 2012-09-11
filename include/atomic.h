@@ -3,10 +3,15 @@
 
 #include "types.h"
 
+typedef struct {
+	u32 counter;
+} atomic_t;
+
 #define atomic_set(mem, v)					\
 	({							\
+		u32 ret__ = v;					\
 		asm volatile ("lock xchg %0, %1\n"		\
-				: "+r" (v), "+m" (*mem)		\
+				: "+r" (ret__), "+m" ((mem)->counter)	\
 				:				\
 				: "cc", "memory");		\
 	})
@@ -15,7 +20,7 @@
 	({							\
 		u32 ret__ = 0;					\
 		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" (*mem)	\
+				: "+r" (ret__),	"+m" ((mem)->counter)	\
 				:				\
 				: "cc", "memory");		\
 		ret__;						\
@@ -25,7 +30,7 @@
 	({							\
 		u32 ret__ = 1;					\
 		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" (*mem)	\
+				: "+r" (ret__),	"+m" ((mem)->counter)	\
 				:				\
 				: "cc", "memory");		\
 		ret__;						\
@@ -35,7 +40,7 @@
 	({							\
 		u32 ret__ = -1;					\
 		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" (*mem)	\
+				: "+r" (ret__),	"+m" ((mem)->counter)	\
 				:				\
 				: "cc", "memory");		\
 		ret__;						\
