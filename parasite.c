@@ -380,7 +380,7 @@ static int init(struct parasite_init_args *args)
 static char proc_mountpoint[] = "proc.crtools";
 static int parasite_get_proc_fd()
 {
-	int ret, fd;
+	int ret, fd = -1;
 	char buf[2];
 
 	ret = sys_readlink("/proc/self", buf, sizeof(buf));
