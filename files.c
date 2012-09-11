@@ -341,7 +341,7 @@ static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 
 static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
-	int tmp;
+	int ret;
 	int sock;
 	struct fdinfo_list_entry *fle;
 
@@ -349,11 +349,11 @@ static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
 		return 0;
 
-	tmp = d->ops->open(d);
-	if (tmp < 0)
+	ret = d->ops->open(d);
+	if (ret < 0)
 		return -1;
 
-	if (reopen_fd_as(fe->fd, tmp))
+	if (reopen_fd_as(fe->fd, ret))
 		return -1;
 
 	fcntl(fe->fd, F_SETFD, fe->flags);
