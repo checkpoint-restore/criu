@@ -18,7 +18,7 @@ TEST_OPTION(filename, string, "file name", 1);
 
 int main(int argc, char ** argv)
 {
-	int fd, ret;
+	int fd, child_fd, ret;
 	pid_t pid;
 	uint32_t crc;
 	uint8_t buf[1000000];
@@ -26,6 +26,12 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
+	if (fd < 0) {
+		err("can't open %s: %m\n", filename);
+		exit(1);
+	}
+
+	child_fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
 		err("can't open %s: %m\n", filename);
 		exit(1);
@@ -43,16 +49,19 @@ int main(int argc, char ** argv)
 	}
 
 	if (pid == 0) {	/* child writes to the unlinked file and returns */
+		close(fd);
 		test_waitsig();
 
 		crc = ~0;
 		datagen(buf, sizeof(buf), &crc);
-		if (write(fd, buf, sizeof(buf)) != sizeof(buf))
+		if (write(child_fd, buf, sizeof(buf)) != sizeof(buf))
 			_exit(errno);
 
-		close(fd);
+		close(child_fd);
 		_exit(0);
 	}
+
+	close(child_fd);
 
 	test_daemon();
 	test_waitsig();
