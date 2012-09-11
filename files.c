@@ -325,6 +325,26 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 	return send_fd(sock, &saddr, len, fd);
 }
 
+static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
+{
+	int dfd = fle->fe->fd;
+
+	if (fd == dfd)
+		return 0;
+
+	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
+	if (move_img_fd(sock, dfd))
+		return -1;
+
+	if (dup2(fd, dfd) != dfd) {
+		pr_perror("Can't dup local fd %d -> %d", fd, dfd);
+		return -1;
+	}
+
+	fcntl(dfd, F_SETFD, fle->fe->flags);
+	return 0;
+}
+
 static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	struct fdinfo_list_entry *fle;
@@ -367,27 +387,13 @@ static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 	pr_info("\t\tCreate fd for %d\n", fe->fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
-		if (pid == fle->pid) {
-			pr_info("\t\t\tGoing to dup %d into %d\n", fe->fd, fle->fe->fd);
-			if (fe->fd == fle->fe->fd)
-				continue;
+		if (pid == fle->pid)
+			ret = send_fd_to_self(fe->fd, fle, &sock);
+		else
+			ret = send_fd_to_peer(fe->fd, fle, sock);
 
-			if (move_img_fd(&sock, fle->fe->fd))
-				return -1;
-
-			if (dup2(fe->fd, fle->fe->fd) != fle->fe->fd) {
-				pr_perror("Can't dup local fd %d -> %d",
-						fe->fd, fle->fe->fd);
-				return -1;
-			}
-
-			fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
-
-			continue;
-		}
-
-		if (send_fd_to_peer(fe->fd, fle, sock)) {
-			pr_perror("Can't send file descriptor");
+		if (ret) {
+			pr_err("Can't sent fd %d to %d\n", fe->fd, fle->pid);
 			return -1;
 		}
 	}
