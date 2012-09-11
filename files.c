@@ -329,15 +329,16 @@ static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	struct fdinfo_list_entry *fle;
 
+	if (!d->ops->post_open)
+		return 0;
+
 	fle = file_master(d);
 	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
 		return 0;
 
-	if (d->ops->post_open && d->ops->post_open(d, fle->fe->fd))
-		return -1;
-
-	return 0;
+	return d->ops->post_open(d, fle->fe->fd);
 }
+
 static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 {
 	int tmp;
