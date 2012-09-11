@@ -46,4 +46,15 @@ typedef struct {
 		ret__;						\
 	})
 
+/* true if the result is 0, or false for all other cases. */
+#define atomic_dec_and_test(mem)				\
+	({							\
+		unsigned char ret__;				\
+		asm volatile ("lock decl %0; sete %1\n"		\
+				: "+m" ((mem)->counter), "=qm" (ret__)	\
+				:				\
+				: "cc", "memory");		\
+		ret__ != 0;					\
+	})
+
 #endif /* ATOMIC_H__ */
