@@ -454,6 +454,20 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 	return ret;
 }
 
+static int open_fdinfos(int pid, struct list_head *list, int state)
+{
+	int ret = 0;
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry(fle, list, ps_list) {
+		ret = open_fdinfo(pid, fle, state);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 static int close_old_fds(struct pstree_item *me)
 {
 	/*
@@ -475,7 +489,6 @@ int prepare_fds(struct pstree_item *me)
 {
 	u32 ret;
 	int state;
-	struct fdinfo_list_entry *fle;
 
 	ret = close_old_fds(me);
 	if (ret)
@@ -484,24 +497,20 @@ int prepare_fds(struct pstree_item *me)
 	pr_info("Opening fdinfo-s\n");
 
 	for (state = 0; state < FD_STATE_MAX; state++) {
-		list_for_each_entry(fle, &me->rst->fds, ps_list) {
-			ret = open_fdinfo(me->pid.virt, fle, state);
-			if (ret)
-				goto done;
-		}
+		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
+		if (ret)
+			break;
 
 		/*
 		 * The eventpoll descriptors require all the other ones
 		 * to be already restored, thus we store them in a separate
 		 * list and restore at the very end.
 		 */
-		list_for_each_entry(fle, &me->rst->eventpoll, ps_list) {
-			ret = open_fdinfo(me->pid.virt, fle, state);
-			if (ret)
-				goto done;
-		}
+		ret = open_fdinfos(me->pid.virt, &me->rst->eventpoll, state);
+		if (ret)
+			break;
 	}
-done:
+
 	return ret;
 }
 
