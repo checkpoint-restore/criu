@@ -12,6 +12,7 @@
 #include "image.h"
 #include "list.h"
 #include "util.h"
+#include "atomic.h"
 
 #include "protobuf.h"
 #include "protobuf/regfile.pb-c.h"
@@ -36,6 +37,7 @@ struct ghost_file {
 			char *path;
 		};
 	};
+	atomic_t users;
 };
 
 static u32 ghost_file_ids = 1;
@@ -46,17 +48,6 @@ static LIST_HEAD(ghost_files);
  * want to pick up too big files with us in the image.
  */
 #define MAX_GHOST_FILE_SIZE	(1 * 1024 * 1024)
-
-void clear_ghost_files(void)
-{
-	struct ghost_file *gf;
-
-	pr_info("Unlinking ghosts\n");
-	list_for_each_entry(gf, &ghost_files, list) {
-		pr_info("\t`- %s\n", gf->path);
-		unlink(gf->path);
-	}
-}
 
 static int open_remap_ghost(struct reg_file_info *rfi,
 		RemapFilePathEntry *rfe)
@@ -77,7 +68,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	pr_info("Opening ghost file %#x for %s\n", rfe->remap_id, rfi->path);
 
-	gf = xmalloc(sizeof(*gf));
+	gf = shmalloc(sizeof(*gf));
 	if (!gf)
 		return -1;
 	gf->path = xmalloc(PATH_MAX);
@@ -123,16 +114,18 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	close(gfd);
 
 	gf->id = rfe->remap_id;
+	atomic_set(&gf->users, 0);
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
-	rfi->remap_path = gf->path;
+	atomic_inc(&gf->users);
+	rfi->ghost = gf;
 	return 0;
 
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);
 	xfree(gf->path);
-	xfree(gf);
+	shfree_last(gf);
 	return -1;
 }
 
@@ -358,10 +351,10 @@ static int open_path(struct file_desc *d,
 
 	rfi = container_of(d, struct reg_file_info, d);
 
-	if (rfi->remap_path)
-		if (link(rfi->remap_path, rfi->path) < 0) {
+	if (rfi->ghost)
+		if (link(rfi->ghost->path, rfi->path) < 0) {
 			pr_perror("Can't link %s -> %s\n",
-					rfi->remap_path, rfi->path);
+					rfi->ghost->path, rfi->path);
 			return -1;
 		}
 
@@ -371,8 +364,13 @@ static int open_path(struct file_desc *d,
 		return -1;
 	}
 
-	if (rfi->remap_path)
+	if (rfi->ghost) {
 		unlink(rfi->path);
+		if (atomic_dec_and_test(&rfi->ghost->users)) {
+			pr_info("Unlink the ghost %s\n", rfi->ghost->path);
+			unlink(rfi->ghost->path);
+		}
+	}
 
 	if (restore_fown(tmp, rfi->rfe->fown))
 		return -1;
@@ -432,7 +430,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 
 	rfi->rfe = pb_msg(base, RegFileEntry);
 	rfi->path = rfi->rfe->name;
-	rfi->remap_path = NULL;
+	rfi->ghost = NULL;
 
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
 	file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);

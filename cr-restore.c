@@ -893,11 +893,6 @@ out:
 		return -1;
 	}
 
-	/*
-	 * Maybe rework ghosts to be auto-unlinkable?
-	 */
-
-	clear_ghost_files();
 	tcp_unlock_connections();
 
 	pr_info("Go on!!!\n");

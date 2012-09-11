@@ -11,10 +11,11 @@
 struct cr_fdset;
 struct fd_parms;
 
+struct ghost_file;
 struct reg_file_info {
 	struct file_desc	d;
 	RegFileEntry		*rfe;
-	char			*remap_path;
+	struct ghost_file	*ghost;
 	char			*path;
 };
 
