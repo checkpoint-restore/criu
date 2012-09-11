@@ -147,6 +147,16 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
+static struct list_head *select_ps_list(int type, struct rst_info *ri)
+{
+	switch (type) {
+	case FD_TYPES__EVENTPOLL:
+		return &ri->eventpoll;
+	default:
+		return &ri->fds;
+	}
+}
+
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *le, *new_le;
@@ -176,15 +186,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
-
-	switch (new_le->fe->type) {
-	case FD_TYPES__EVENTPOLL:
-		list_add_tail(&new_le->ps_list, &rst_info->eventpoll);
-		break;
-	default:
-		list_add_tail(&new_le->ps_list, &rst_info->fds);
-		break;
-	}
+	list_add_tail(&new_le->ps_list, select_ps_list(e->type, rst_info));
 
 	return 0;
 }
