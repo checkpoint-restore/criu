@@ -7,6 +7,9 @@
 #include <sys/signalfd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+
 #include "proc_parse.h"
 #include "sockets.h"
 #include "crtools.h"
@@ -17,6 +20,53 @@
 #include "sk-inet.h"
 #include "proc_parse.h"
 #include "mount.h"
+#include "tty.h"
+
+static int check_tty(void)
+{
+	int master = -1, slave = -1;
+	const int lock = 1;
+	struct termios t;
+	char *slavename;
+	int ret = -1;
+
+	if (ARRAY_SIZE(t.c_cc) < TERMIOS_NCC) {
+		pr_msg("struct termios has %d @c_cc while "
+			"at least %d expected.\n",
+			(int)ARRAY_SIZE(t.c_cc),
+			TERMIOS_NCC);
+		goto out;
+	}
+
+	master = open("/dev/ptmx", O_RDWR);
+	if (master < 0) {
+		pr_msg("Can't open master pty.\n");
+		goto out;
+	}
+
+	if (ioctl(master, TIOCSPTLCK, &lock)) {
+		pr_msg("Unable to lock pty device.\n");
+		goto out;
+	}
+
+	slavename = ptsname(master);
+	slave = open(slavename, O_RDWR);
+	if (slave < 0) {
+		if (errno != EIO) {
+			pr_msg("Unexpected error code on locked pty.\n");
+			goto out;
+		}
+	} else {
+		pr_msg("Managed to open locked pty.\n");
+		goto out;
+	}
+
+	ret = 0;
+out:
+	close_safe(&master);
+	close_safe(&slave);
+	return ret;
+}
 
 static int check_map_files(void)
 {
@@ -351,6 +401,7 @@ int cr_check(void)
 	ret |= check_tcp_repair();
 	ret |= check_fdinfo_ext();
 	ret |= check_unaligned_vmsplice();
+	ret |= check_tty();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
