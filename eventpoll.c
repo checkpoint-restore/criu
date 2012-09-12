@@ -104,11 +104,12 @@ int dump_eventpoll(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 
 static int eventpoll_open(struct file_desc *d)
 {
-	struct eventpoll_tfd_file_info *td_info;
 	struct eventpoll_file_info *info;
-	int tmp, ret;
+	int tmp;
 
 	info = container_of(d, struct eventpoll_file_info, d);
+
+	pr_info_eventpoll("Restore ", info->efe);
 
 	tmp = epoll_create(1);
 	if (tmp < 0) {
@@ -123,31 +124,44 @@ static int eventpoll_open(struct file_desc *d)
 		goto err_close;
 	}
 
+	return tmp;
+err_close:
+	close(tmp);
+	return -1;
+}
+
+static int eventpoll_post_open(struct file_desc *d, int fd)
+{
+	int ret;
+	struct eventpoll_tfd_file_info *td_info;
+	struct eventpoll_file_info *info;
+
+	info = container_of(d, struct eventpoll_file_info, d);
+
 	list_for_each_entry(td_info, &eventpoll_tfds, list) {
 		struct epoll_event event;
 
 		if (td_info->tdefe->id != info->efe->id)
 			continue;
 
+		pr_info_eventpoll_tfd("Restore ", td_info->tdefe);
+
 		event.events	= td_info->tdefe->events;
 		event.data.u64	= td_info->tdefe->data;
-		ret = epoll_ctl(tmp, EPOLL_CTL_ADD, td_info->tdefe->tfd, &event);
+		ret = epoll_ctl(fd, EPOLL_CTL_ADD, td_info->tdefe->tfd, &event);
 		if (ret) {
 			pr_perror("Can't add event on %#08x", info->efe->id);
-			goto err_close;
+			return -1;
 		}
 	}
 
-	return tmp;
-
-err_close:
-	close(tmp);
-	return -1;
+	return 0;
 }
 
 static struct file_desc_ops desc_ops = {
 	.type = FD_TYPES__EVENTPOLL,
 	.open = eventpoll_open,
+	.post_open = eventpoll_post_open,
 };
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg)
