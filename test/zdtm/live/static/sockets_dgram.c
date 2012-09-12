@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 	int sk_dgram_bound_client;
 	int sk_dgram_bound_server;
 	int sk_dgram_conn_client;
+	int sk_dgram_conn_client2;
 	int sk_dgram_conn_server;
 	int sk_dgram_bound_conn;
 
@@ -53,12 +54,14 @@ int main(int argc, char *argv[])
 	sk_dgram_bound_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
 	sk_dgram_bound_server	= socket(AF_UNIX, SOCK_DGRAM, 0);
 	sk_dgram_conn_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_conn_client2	= socket(AF_UNIX, SOCK_DGRAM, 0);
 	sk_dgram_conn_server	= socket(AF_UNIX, SOCK_DGRAM, 0);
 	sk_dgram_bound_conn	= socket(AF_UNIX, SOCK_DGRAM, 0);
 
 	if (sk_dgram_conn_server < 0	||
 	    sk_dgram_bound_server < 0	||
 	    sk_dgram_conn_client < 0	||
+	    sk_dgram_conn_client2 < 0	||
 	    sk_dgram_conn_server < 0	||
 	    sk_dgram_bound_conn < 0) {
 		fail("socket");
@@ -96,6 +99,12 @@ int main(int argc, char *argv[])
 	}
 
 	ret = connect(sk_dgram_conn_client, &name_conn, sizeof(name_conn));
+	if (ret) {
+		fail("connect");
+		exit(1);
+	}
+
+	ret = connect(sk_dgram_conn_client2, &name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
