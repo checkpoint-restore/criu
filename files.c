@@ -378,21 +378,22 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 	return 0;
 }
 
-static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 {
-	struct fdinfo_list_entry *fle;
+	struct file_desc *d = fle->desc;
+	struct fdinfo_list_entry *flem;
 
 	if (!d->ops->post_open)
 		return 0;
 
-	if (is_service_fd(fe->fd, CTL_TTY_OFF))
-		return d->ops->post_open(d, fe->fd);
+	if (is_service_fd(fle->fe->fd, CTL_TTY_OFF))
+		return d->ops->post_open(d, fle->fe->fd);
 
-	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
+	flem = file_master(d);
+	if ((flem->pid != pid) || (fle->fe->fd != flem->fe->fd))
 		return 0;
 
-	return d->ops->post_open(d, fle->fe->fd);
+	return d->ops->post_open(d, flem->fe->fd);
 }
 
 
@@ -425,50 +426,51 @@ static int serve_out_fd(int pid, int fd, struct file_desc *d)
 	return 0;
 }
 
-static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+static int open_fd(int pid, struct fdinfo_list_entry *fle)
 {
+	struct file_desc *d = fle->desc;
 	int new_fd;
-	struct fdinfo_list_entry *fle;
+	struct fdinfo_list_entry *flem;
 
-	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
+	flem = file_master(d);
+	if ((flem->pid != pid) || (fle->fe->fd != flem->fe->fd))
 		return 0;
 
 	new_fd = d->ops->open(d);
 	if (new_fd < 0)
 		return -1;
 
-	if (reopen_fd_as(fe->fd, new_fd))
+	if (reopen_fd_as(fle->fe->fd, new_fd))
 		return -1;
 
-	fcntl(fe->fd, F_SETFD, fe->flags);
+	fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
 
-	return serve_out_fd(pid, fe->fd, d);
+	return serve_out_fd(pid, fle->fe->fd, d);
 }
 
-static int receive_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 {
 	int tmp;
-	struct fdinfo_list_entry *fle;
+	struct fdinfo_list_entry *flem;
 
-	fle = file_master(d);
+	flem = file_master(fle->desc);
 
-	if (fle->pid == pid)
+	if (flem->pid == pid)
 		return 0;
 
-	pr_info("\tReceive fd for %d\n", fe->fd);
+	pr_info("\tReceive fd for %d\n", fle->fe->fd);
 
-	tmp = recv_fd(fe->fd);
+	tmp = recv_fd(fle->fe->fd);
 	if (tmp < 0) {
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;
 	}
-	close(fe->fd);
+	close(fle->fe->fd);
 
-	if (reopen_fd_as(fe->fd, tmp) < 0)
+	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
 		return -1;
 
-	fcntl(tmp, F_SETFD, fe->flags);
+	fcntl(tmp, F_SETFD, fle->fe->flags);
 	return 0;
 }
 
@@ -492,13 +494,13 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 		ret = open_transport_fd(pid, fle);
 		break;
 	case FD_STATE_CREATE:
-		ret = open_fd(pid, fle->fe, fle->desc);
+		ret = open_fd(pid, fle);
 		break;
 	case FD_STATE_RECV:
-		ret = receive_fd(pid, fle->fe, fle->desc);
+		ret = receive_fd(pid, fle);
 		break;
 	case FD_STATE_POST_CREATE:
-		ret = post_open_fd(pid, fle->fe, fle->desc);
+		ret = post_open_fd(pid, fle);
 		break;
 	}
 
