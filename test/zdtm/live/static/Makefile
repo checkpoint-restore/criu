@@ -54,6 +54,7 @@ TST_NOFILE	=				\
 		pty00				\
 		pty01				\
 		pty02				\
+		pty03				\
 		tty00				\
 		mountpoints			\
 		netns				\
