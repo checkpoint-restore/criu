@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ZP="zdtm/live"
 
@@ -126,7 +126,7 @@ start_test()
 	export ZDTM_ROOT
 	TPID=`readlink -f $tdir`/$tname.init.pid
 
-	killall -9 $tname &> /dev/null
+	killall -9 $tname > /dev/null 2>&1
 	make -C $tdir cleanout
 
 	if [ -z "$PIDNS" ]; then
@@ -243,7 +243,7 @@ EOF
 
 			pid=`expr "$i" : '.*/core-\([0-9]*\).img'`
 			while :; do
-				kill -0 $pid &> /dev/null || break;
+				kill -0 $pid > /dev/null 2>&1 || break;
 				echo Waiting the process $pid
 				sleep 0.1
 			done
@@ -267,7 +267,7 @@ EOF
 		test -f $test.out && break
 		echo Waiting...
 		sleep 0.$sltime
-		[ $sltime -le 9 ] && ((sltime++))
+		[ $sltime -le 9 ] && sltime=$((sltime+1))
 	done
 	cat $test.out
 	cat $test.out | grep PASS || return 2
@@ -298,7 +298,7 @@ case_error()
 
 cd `dirname $0` || exit 1
 
-if [ "$1" == "-d" ]; then
+if [ "$1" = "-d" ]; then
 	ARGS="-s"
 	shift
 fi
@@ -316,9 +316,9 @@ if [ $# -eq 0 ]; then
 	for t in $IPC_TEST_LIST; do
 		run_test $t -n ipc || case_error $t
 	done
-elif [ "$1" == "-l" ]; then
+elif [ "$1" = "-l" ]; then
 	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
-elif [ "$1" == "-h" ]; then
+elif [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
 Usage:
