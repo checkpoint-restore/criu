@@ -52,6 +52,7 @@ TST_NOFILE	=				\
 		uptime_grow			\
 		session00			\
 		pty00				\
+		pty01				\
 		tty00				\
 		mountpoints			\
 		netns				\
