@@ -1267,7 +1267,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
-					      self_vmas_len +
+					      self_vmas_len + vmas_len +
 					      SHMEMS_SIZE + TASK_ENTRIES_SIZE);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
