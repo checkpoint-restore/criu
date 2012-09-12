@@ -11,6 +11,7 @@ struct pstree_item {
 	pid_t			pgid;
 	pid_t			sid;
 	pid_t			born_sid;
+	u32			ctl_tty_id;
 	int			state;		/* TASK_XXX constants */
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */

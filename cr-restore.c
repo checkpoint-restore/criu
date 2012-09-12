@@ -134,6 +134,12 @@ static int prepare_shared(void)
 		ret = prepare_fd_pid(pi->pid.virt, pi->rst);
 		if (ret < 0)
 			break;
+
+		if (pi->ctl_tty_id) {
+			ret = prepare_ctl_tty(pi->pid.virt, pi->rst, pi->ctl_tty_id);
+			if (ret < 0)
+				break;
+		}
 	}
 
 	mark_pipe_master();

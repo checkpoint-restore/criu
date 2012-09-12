@@ -87,6 +87,7 @@ extern void show_saved_files(void);
 
 extern int prepare_fds(struct pstree_item *me);
 extern int prepare_fd_pid(int pid, struct rst_info *rst_info);
+extern int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id);
 extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(int pid, VmaEntry *vma_entry);
 extern int prepare_fs(int pid);

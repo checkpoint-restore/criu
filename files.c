@@ -196,6 +196,25 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	return 0;
 }
 
+int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
+{
+	FdinfoEntry *e = xmalloc(sizeof(*e));
+	if (!e)
+		return -1;
+	fdinfo_entry__init(e);
+
+	e->id		= ctl_tty_id;
+	e->fd		= get_service_fd(CTL_TTY_OFF);
+	e->type		= FD_TYPES__TTY;
+
+	if (collect_fd(pid, e, rst_info)) {
+		xfree(e);
+		return -1;
+	}
+
+	return 0;
+}
+
 int prepare_fd_pid(int pid, struct rst_info *rst_info)
 {
 	int fdinfo_fd, ret = 0;
@@ -357,6 +376,9 @@ static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 
 	if (!d->ops->post_open)
 		return 0;
+
+	if (fe->fd == get_service_fd(CTL_TTY_OFF))
+		return d->ops->post_open(d, fe->fd);
 
 	fle = file_master(d);
 	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))

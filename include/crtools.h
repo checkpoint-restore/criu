@@ -106,6 +106,7 @@ enum {
 	IMG_FD_OFF,
 	SELF_EXE_FD_OFF,
 	PROC_FD_OFF,
+	CTL_TTY_OFF,
 };
 
 int get_service_fd(int type);

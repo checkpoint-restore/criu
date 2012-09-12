@@ -320,6 +320,55 @@ static int tty_get_pgrp(int fd)
 	return prgp;
 }
 
+static int tty_set_sid(int fd)
+{
+	if (ioctl(fd, TIOCSCTTY, 1)) {
+		pr_perror("Can't set sid on terminal fd %d\n", fd);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int tty_set_prgp(int fd, int group)
+{
+	if (ioctl(fd, TIOCSPGRP, &group)) {
+		pr_perror("Failed to set group %d on %d\n", group, fd);
+		return -1;
+	}
+	return 0;
+}
+
+static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
+{
+	struct tty_info *info = container_of(d, struct tty_info, d);
+	int slave, ret = -1;
+	char pts_name[64];
+
+	if (fd != get_service_fd(CTL_TTY_OFF))
+		return 0;
+
+	snprintf(pts_name, sizeof(pts_name), PTS_FMT, info->tie->pty->index);
+	slave = open(pts_name, O_RDONLY);
+	if (slave < 0) {
+		pr_perror("Can't open %s", pts_name);
+		return -1;
+	}
+
+	pr_info("Restore session %d by %d tty (index %d)\n",
+		 info->tie->sid, (int)getpid(),
+		 info->tie->pty->index);
+
+	ret = tty_set_sid(slave);
+	if (!ret)
+		ret = tty_set_prgp(slave, info->tie->pgrp);
+
+	close(slave);
+	close(fd);
+
+	return ret;
+}
+
 static char *tty_type(struct tty_info *info)
 {
 	static char *tty_types[] = {
@@ -526,19 +575,43 @@ static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
 static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
+	.post_open	= tty_restore_ctl_terminal,
 	.want_transport = tty_transport,
 };
+
+static int tty_find_restoring_task(struct tty_info *info)
+{
+	struct pstree_item *item;
+
+	if (info->tie->sid == 0)
+		return 0;
+
+	pr_info("Set a control terminal to %d\n", info->tie->sid);
+
+	for_each_pstree_item(item) {
+		if (item->sid == info->tie->sid) {
+			item->ctl_tty_id = info->tfe->id;
+			return 0;
+		}
+	}
+
+	pr_err("No task found with sid %d\n", info->tie->sid);
+	return -1;
+}
 
 static int tty_setup_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
 
 	list_for_each_entry(info, &all_ttys, list) {
+		tty_find_restoring_task(info);
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
+
+			tty_find_restoring_task(peer);
 
 			list_add(&peer->sibling, &info->sibling);
 			list_del(&peer->list);
