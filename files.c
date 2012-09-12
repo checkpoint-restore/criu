@@ -198,9 +198,17 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 {
-	FdinfoEntry *e = xmalloc(sizeof(*e));
+	FdinfoEntry *e;
+
+	if (!ctl_tty_id)
+		return 0;
+
+	pr_info("Requesting for ctl tty %#x into service fd\n", ctl_tty_id);
+
+	e = xmalloc(sizeof(*e));
 	if (!e)
 		return -1;
+
 	fdinfo_entry__init(e);
 
 	e->id		= ctl_tty_id;
