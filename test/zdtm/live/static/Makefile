@@ -142,7 +142,7 @@ fifo-rowo-pair.pid: fifo-rowo-pair
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --name_master=$<.master.test --name_slave=$<.slave.test
 
 %.out:	%.pid %
-	-kill -TERM `< $<`
+	-kill -TERM `cat $<`
 
 $(TST_STATE:%=%.state):	%.state: %
 	$(<D)/$(<F) --statefile=$@ --outfile=$<.out start
@@ -153,7 +153,7 @@ $(TST_STATE:%=%.out): %.out: % %.state
 start:	$(PID) $(STATE)
 
 %.is_running:	%.pid
-	kill -0 `< $<`
+	kill -0 `cat $<`
 
 check_start:	$(PID:%.pid=%.is_running)
 

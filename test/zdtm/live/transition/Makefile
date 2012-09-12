@@ -33,12 +33,12 @@ $(TST_FILE:%=%.pid):	%.pid:	%
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --filename=$<.test
 
 %.out:	%.pid %
-	-kill -TERM `< $<`
+	-kill -TERM `cat $<`
 
 start:	$(PID)
 
 %.is_running:	%.pid
-	kill -0 `< $<`
+	kill -0 `cat $<`
 
 check_start:	$(PID:%.pid=%.is_running)
 
