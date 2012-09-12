@@ -20,6 +20,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <linux/version.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 
@@ -67,6 +68,8 @@ struct packet_mreq_max {
 
 #define LO_ADDR_LEN	6
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
+
 struct tpacket_req3 {
 	unsigned int tp_block_size;
 	unsigned int tp_block_nr;
@@ -76,6 +79,8 @@ struct tpacket_req3 {
 	unsigned int tp_sizeof_priv;
 	unsigned int tp_feature_req_word;
 };
+
+#endif
 
 int main(int argc, char **argv)
 {
