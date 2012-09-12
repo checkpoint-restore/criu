@@ -140,6 +140,9 @@ static int prepare_shared(void)
 			break;
 	}
 
+	if (ret < 0)
+		goto err;
+
 	mark_pipe_master();
 
 	ret = tty_prepare_shared();
@@ -147,12 +150,11 @@ static int prepare_shared(void)
 		goto err;
 
 	ret = resolve_unix_peers();
+	if (ret)
+		goto err;
 
-	if (!ret) {
-		show_saved_shmems();
-		show_saved_files();
-	}
-
+	show_saved_shmems();
+	show_saved_files();
 err:
 	return ret;
 }
