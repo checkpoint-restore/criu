@@ -281,10 +281,13 @@ static int tmpfs_dump(struct mount_info *pm)
 		snprintf(tmpfs_path, sizeof(tmpfs_path),
 					       "/proc/self/fd/%d", fd);
 
-		execlp("tar", "tar", "-czlp",
+		execlp("tar", "tar", "--create",
+			"--gzip",
+			"--check-links",
+			"--preserve-permissions",
 			"--sparse",
 			"--numeric-owner",
-			"-C", tmpfs_path, ".", NULL);
+			"--directory", tmpfs_path, ".", NULL);
 		pr_perror("exec failed");
 		exit(1);
 	}
@@ -340,7 +343,8 @@ static int tmpfs_restore(struct mount_info *pm)
 		}
 		close(fd_img);
 
-		execlp("tar", "tar", "-xz", "-C", pm->mountpoint, NULL);
+		execlp("tar", "tar", "--extract", "--gzip",
+					"--directory", pm->mountpoint, NULL);
 		pr_perror("exec failed");
 		exit(1);
 	}
