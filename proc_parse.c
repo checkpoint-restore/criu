@@ -824,13 +824,17 @@ int parse_fdinfo(int fd, int type,
 	}
 
 	fclose(f);
-	if (!entry_met) {
-		pr_err("No records of type %d found in fdinfo file\n", type);
-		goto parse_err;
-	}
 
-	return 0;
+	if (entry_met)
+		return 0;
+	/*
+	 * An eventpoll file may have no target fds set thus
+	 * resulting in no tfd: lines in proc. This is normal.
+	 */
+	if (type == FD_TYPES__EVENTPOLL)
+		return 0;
 
+	pr_err("No records of type %d found in fdinfo file\n", type);
 parse_err:
 	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
 	return -1;
