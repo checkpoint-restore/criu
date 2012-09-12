@@ -41,6 +41,7 @@
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
+#include "protobuf/tty.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -111,6 +112,16 @@ void show_fifo_data(int fd, struct cr_options *o)
 void show_fifo(int fd, struct cr_options *o)
 {
 	pb_show_plain(fd, PB_FIFO);
+}
+
+void show_tty(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_TTY);
+}
+
+void show_tty_info(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_TTY_INFO);
 }
 
 void show_fs(int fd_fs, struct cr_options *o)

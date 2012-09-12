@@ -136,6 +136,8 @@ void show_remap_files(int fd, struct cr_options *o);
 void show_ghost_file(int fd, struct cr_options *o);
 void show_fown_cont(void *p);
 void show_eventfds(int fd, struct cr_options *o);
+void show_tty(int fd, struct cr_options *o);
+void show_tty_info(int fd, struct cr_options *o);
 
 int check_img_inventory(void);
 int write_img_inventory(void);
