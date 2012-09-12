@@ -163,7 +163,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			 * It can be external socket, so we defer dumping
 			 * until all sockets the program owns are processed.
 			 */
-			if (!peer->sd.already_dumped && !list_empty(&peer->list)) {
+			if (!peer->sd.already_dumped && list_empty(&peer->list)) {
 				show_one_unix("Add a peer", peer);
 				list_add_tail(&peer->list, &unix_sockets);
 			}
