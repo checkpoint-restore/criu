@@ -37,7 +37,7 @@ int test_log_init(const char *fname, const char *suffix)
 void test_msg(const char *format, ...)
 {
 	va_list arg;
-	int len, off = 0;
+	int off = 0;
 	char buf[PAGE_SIZE];
 	struct timeval tv;
 	struct tm *tm;
@@ -53,7 +53,7 @@ void test_msg(const char *format, ...)
 	off += sprintf(buf + off, ".%.3ld: ", tv.tv_usec / 1000);
 	off += sprintf(buf + off, "%5d: ", getpid());
 	va_start(arg, format);
-	len = vsnprintf(buf + off, sizeof(buf) - off, format, arg);
+	off += vsnprintf(buf + off, sizeof(buf) - off, format, arg);
 	va_end(arg);
 
 	fprintf(stderr, buf);
