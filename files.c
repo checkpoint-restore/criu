@@ -469,37 +469,23 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-static char *fdinfo_states[FD_STATE_MAX] = {
-	[FD_STATE_PREP]		= "prepare",
-	[FD_STATE_CREATE]	= "create",
-	[FD_STATE_POST_CREATE]	= "post_create",
-	[FD_STATE_RECV]		= "receive",
+struct fd_open_state {
+	char *name;
+	int (*cb)(int, struct fdinfo_list_entry *);
+};
+
+static struct fd_open_state states[] = {
+	{ "prepare",		open_transport_fd, },
+	{ "create",		open_fd, },
+	{ "receive",		receive_fd, },
+	{ "post_create",	post_open_fd, },
 };
 
 static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 {
-	int ret = 0;
-
-	BUG_ON(state >= FD_STATE_MAX);
 	pr_info("\tRestoring fd %d (state -> %s)\n",
-			fle->fe->fd, fdinfo_states[state]);
-
-	switch (state) {
-	case FD_STATE_PREP:
-		ret = open_transport_fd(pid, fle);
-		break;
-	case FD_STATE_CREATE:
-		ret = open_fd(pid, fle);
-		break;
-	case FD_STATE_RECV:
-		ret = receive_fd(pid, fle);
-		break;
-	case FD_STATE_POST_CREATE:
-		ret = post_open_fd(pid, fle);
-		break;
-	}
-
-	return ret;
+			fle->fe->fd, states[state].name);
+	return states[state].cb(pid, fle);
 }
 
 static int open_fdinfos(int pid, struct list_head *list, int state)
@@ -544,7 +530,7 @@ int prepare_fds(struct pstree_item *me)
 
 	pr_info("Opening fdinfo-s\n");
 
-	for (state = 0; state < FD_STATE_MAX; state++) {
+	for (state = 0; state < ARRAY_SIZE(states); state++) {
 		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
 		if (ret)
 			break;

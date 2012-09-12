@@ -32,15 +32,6 @@ struct fd_parms {
 	.fown	= FOWN_ENTRY__INIT,	\
 }
 
-enum fdinfo_states {
-	FD_STATE_PREP,		/* Create unix sockets */
-	FD_STATE_CREATE,	/* Create and send fd */
-	FD_STATE_RECV,		/* Receive fd */
-	FD_STATE_POST_CREATE,	/* Execute actions, when everyone was created */
-
-	FD_STATE_MAX
-};
-
 struct file_desc;
 
 struct fdinfo_list_entry {
