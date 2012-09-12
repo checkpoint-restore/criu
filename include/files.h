@@ -35,8 +35,8 @@ struct fd_parms {
 enum fdinfo_states {
 	FD_STATE_PREP,		/* Create unix sockets */
 	FD_STATE_CREATE,	/* Create and send fd */
-	FD_STATE_POST_CREATE,	/* Execute actions, when everyone was created */
 	FD_STATE_RECV,		/* Receive fd */
+	FD_STATE_POST_CREATE,	/* Execute actions, when everyone was created */
 
 	FD_STATE_MAX
 };

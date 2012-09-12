@@ -450,11 +450,11 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 	case FD_STATE_CREATE:
 		ret = open_fd(pid, fle->fe, fle->desc);
 		break;
-	case FD_STATE_POST_CREATE:
-		ret = post_open_fd(pid, fle->fe, fle->desc);
-		break;
 	case FD_STATE_RECV:
 		ret = receive_fd(pid, fle->fe, fle->desc);
+		break;
+	case FD_STATE_POST_CREATE:
+		ret = post_open_fd(pid, fle->fe, fle->desc);
 		break;
 	}
 
