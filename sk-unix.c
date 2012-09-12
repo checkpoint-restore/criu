@@ -163,8 +163,10 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			 * It can be external socket, so we defer dumping
 			 * until all sockets the program owns are processed.
 			 */
-			if (!peer->sd.already_dumped)
+			if (!peer->sd.already_dumped) {
+				show_one_unix("Add a peer", peer);
 				list_add_tail(&peer->list, &unix_sockets);
+			}
 		}
 	} else if (ue.state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
@@ -388,6 +390,8 @@ int fix_external_unix_sockets(void)
 		FownEntry fown = FOWN_ENTRY__INIT;
 		SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
+		show_one_unix("Dumping extern", sk);
+
 		BUG_ON(sk->sd.already_dumped);
 
 		if (!opts.ext_unix_sk) {
@@ -410,8 +414,6 @@ int fix_external_unix_sockets(void)
 		e.peer		= 0;
 		e.fown		= &fown;
 		e.opts		= &skopts;
-
-		show_one_unix("Dumping extern", sk);
 
 		if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, PB_UNIXSK))
 			goto err;
