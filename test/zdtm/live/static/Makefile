@@ -147,7 +147,7 @@ fifo-rowo-pair.pid: fifo-rowo-pair
 $(TST_STATE:%=%.state):	%.state: %
 	$(<D)/$(<F) --statefile=$@ --outfile=$<.out start
 
-$(TST_STATE:%=%.out): %.out: % %.state
+$(TST_STATE:%=%.out): %.out: %
 	-$(<D)/$(<F) --statefile=$<.state --outfile=$@ stop
 
 start:	$(PID) $(STATE)
