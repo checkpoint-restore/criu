@@ -1240,23 +1240,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	}
 
 	restore_code_len	= sizeof(restorer_blob);
-	restore_code_len	= round_up(restore_code_len, 16);
+	restore_code_len	= round_up(restore_code_len, PAGE_SIZE);
 
-	restore_task_vma_len	= round_up(restore_code_len + sizeof(*task_args), PAGE_SIZE);
-
-	/*
-	 * Thread statistics
-	 */
-
-	/*
-	 * Compute how many memory we will need
-	 * to restore all threads, every thread
-	 * requires own stack and heap, it's ~40K
-	 * per thread.
-	 */
-
-	restore_thread_vma_len = sizeof(*thread_args) * current->nr_threads;
-	restore_thread_vma_len = round_up(restore_thread_vma_len, 16);
+	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
+	restore_thread_vma_len = round_up(sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
 
 	pr_info("%d threads require %ldK of memory\n",
 			current->nr_threads,
@@ -1265,6 +1252,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
 
 	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
+					      restore_code_len +
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
 					      self_vmas_len + vmas_len +
@@ -1279,7 +1267,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
 	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint,
+	mem = mmap((void *)exec_mem_hint, restore_code_len +
 			restore_task_vma_len + restore_thread_vma_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
@@ -1295,8 +1283,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	restore_code_start		= mem;
 	restore_thread_exec_start	= restore_code_start + restorer_blob_offset____export_restore_thread;
 	restore_task_exec_start		= restore_code_start + restorer_blob_offset____export_restore_task;
+
 	task_args			= restore_code_start + restore_code_len;
-	thread_args			= (void *)((long)task_args + sizeof(*task_args));
+	thread_args			= ((void *)task_args) + restore_task_vma_len;
 
 	memzero_p(task_args);
 	memzero(thread_args, sizeof(*thread_args) * current->nr_threads);
@@ -1322,7 +1311,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * address.
 	 */
 
-	mem += restore_task_vma_len + restore_thread_vma_len;
+	mem += restore_code_len + restore_task_vma_len + restore_thread_vma_len;
 	ret = shmem_remap(rst_shmems, mem, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
