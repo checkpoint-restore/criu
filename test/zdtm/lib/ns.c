@@ -10,7 +10,6 @@
 #include <sys/wait.h>
 #include <sys/param.h>
 #include <sys/mman.h>
-#include <sys/user.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sched.h>
@@ -119,9 +118,11 @@ done:
 	return 0;
 }
 
+#define NS_STACK_SIZE	4096
+
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
-	char stack[PAGE_SIZE];
+	char stack[NS_STACK_SIZE];
 	char stack_ptr[0];
 	int argc;
 	char **argv;
