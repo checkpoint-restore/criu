@@ -381,7 +381,6 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 {
 	struct file_desc *d = fle->desc;
-	struct fdinfo_list_entry *flem;
 
 	if (!d->ops->post_open)
 		return 0;
@@ -389,11 +388,10 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 	if (is_service_fd(fle->fe->fd, CTL_TTY_OFF))
 		return d->ops->post_open(d, fle->fe->fd);
 
-	flem = file_master(d);
-	if ((flem->pid != pid) || (fle->fe->fd != flem->fe->fd))
+	if (fle != file_master(d))
 		return 0;
 
-	return d->ops->post_open(d, flem->fe->fd);
+	return d->ops->post_open(d, fle->fe->fd);
 }
 
 
@@ -430,10 +428,8 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 {
 	struct file_desc *d = fle->desc;
 	int new_fd;
-	struct fdinfo_list_entry *flem;
 
-	flem = file_master(d);
-	if ((flem->pid != pid) || (fle->fe->fd != flem->fe->fd))
+	if (fle != file_master(d))
 		return 0;
 
 	new_fd = d->ops->open(d);
@@ -454,7 +450,6 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	struct fdinfo_list_entry *flem;
 
 	flem = file_master(fle->desc);
-
 	if (flem->pid == pid)
 		return 0;
 
