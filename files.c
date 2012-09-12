@@ -395,24 +395,11 @@ static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 	return d->ops->post_open(d, fle->fe->fd);
 }
 
-static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+
+static int serve_out_fd(int pid, int fd, struct file_desc *d)
 {
-	int ret;
-	int sock;
+	int sock, ret;
 	struct fdinfo_list_entry *fle;
-
-	fle = file_master(d);
-	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
-		return 0;
-
-	ret = d->ops->open(d);
-	if (ret < 0)
-		return -1;
-
-	if (reopen_fd_as(fe->fd, ret))
-		return -1;
-
-	fcntl(fe->fd, F_SETFD, fe->flags);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -420,22 +407,43 @@ static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 		return -1;
 	}
 
-	pr_info("\t\tCreate fd for %d\n", fe->fd);
+	pr_info("\t\tCreate fd for %d\n", fd);
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid)
-			ret = send_fd_to_self(fe->fd, fle, &sock);
+			ret = send_fd_to_self(fd, fle, &sock);
 		else
-			ret = send_fd_to_peer(fe->fd, fle, sock);
+			ret = send_fd_to_peer(fd, fle, sock);
 
 		if (ret) {
-			pr_err("Can't sent fd %d to %d\n", fe->fd, fle->pid);
+			pr_err("Can't sent fd %d to %d\n", fd, fle->pid);
 			return -1;
 		}
 	}
 
 	close(sock);
 	return 0;
+}
+
+static int open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
+{
+	int new_fd;
+	struct fdinfo_list_entry *fle;
+
+	fle = file_master(d);
+	if ((fle->pid != pid) || (fe->fd != fle->fe->fd))
+		return 0;
+
+	new_fd = d->ops->open(d);
+	if (new_fd < 0)
+		return -1;
+
+	if (reopen_fd_as(fe->fd, new_fd))
+		return -1;
+
+	fcntl(fe->fd, F_SETFD, fe->flags);
+
+	return serve_out_fd(pid, fe->fd, d);
 }
 
 static int receive_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
