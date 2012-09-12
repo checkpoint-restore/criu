@@ -51,6 +51,7 @@
 #include "inotify.h"
 #include "pstree.h"
 #include "net.h"
+#include "tty.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -119,6 +120,9 @@ static int prepare_shared(void)
 	if (collect_inotify())
 		return -1;
 
+	if (collect_tty())
+		return -1;
+
 	for_each_pstree_item(pi) {
 		if (pi->state == TASK_HELPER)
 			continue;
@@ -133,6 +137,11 @@ static int prepare_shared(void)
 	}
 
 	mark_pipe_master();
+
+	ret = tty_prepare_shared();
+	if (ret)
+		goto err;
+
 	ret = resolve_unix_peers();
 
 	if (!ret) {
@@ -140,6 +149,7 @@ static int prepare_shared(void)
 		show_saved_files();
 	}
 
+err:
 	return ret;
 }
 

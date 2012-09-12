@@ -23,6 +23,7 @@
 #include "lock.h"
 #include "sockets.h"
 #include "pstree.h"
+#include "tty.h"
 
 #include "protobuf.h"
 #include "protobuf/fs.pb-c.h"
@@ -152,6 +153,10 @@ static struct list_head *select_ps_list(int type, struct fdinfo_list_entry *le, 
 	switch (type) {
 	case FD_TYPES__EVENTPOLL:
 		return &ri->eventpoll;
+	case FD_TYPES__TTY:
+		if (!tty_is_master(le))
+			return &ri->tty_slaves;
+		/* Fall through */
 	default:
 		return &ri->fds;
 	}

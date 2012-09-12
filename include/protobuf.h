@@ -41,6 +41,8 @@ enum {
 	PB_SIGNALFD,
 	PB_INOTIFY,
 	PB_INOTIFY_WD,
+	PB_TTY,
+	PB_TTY_INFO,
 
 	PB_MAX
 };

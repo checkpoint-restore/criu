@@ -42,6 +42,7 @@ OBJS		+= inotify.o
 OBJS		+= signalfd.o
 OBJS		+= pstree.o
 OBJS		+= protobuf.o
+OBJS		+= tty.o
 
 PROTOBUF-LIB	:= protobuf/protobuf-lib.o
 

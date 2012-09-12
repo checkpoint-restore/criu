@@ -128,6 +128,8 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(IFADDR,	"ifaddr-%d",	 show_raw_image),
 	FD_ENTRY(ROUTE,		"route-%d",	 show_raw_image),
 	FD_ENTRY(TMPFS,		"tmpfs-%d.tar.gz", show_raw_image),
+	FD_ENTRY(TTY,		"tty",		 NULL),
+	FD_ENTRY(TTY_INFO,	"tty-info",	 NULL),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

@@ -47,6 +47,7 @@
 #include "signalfd.h"
 #include "pstree.h"
 #include "mount.h"
+#include "tty.h"
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
@@ -235,12 +236,10 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	switch (maj) {
 	case MEM_MAJOR:
 		return dump_reg_file(p, lfd, set);
-	case TTY_MAJOR:
+	case TTYAUX_MAJOR:
+	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
 	case UNIX98_PTY_SLAVE_MAJOR:
-		if (p->fd < 3) {
-			pr_info("... Skipping tty ... %d\n", p->fd);
-			return 0;
-		}
+		return dump_tty(p, lfd, set);
 	}
 
 	return dump_unsupp_fd(p);

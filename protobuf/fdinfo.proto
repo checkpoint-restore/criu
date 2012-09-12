@@ -10,6 +10,7 @@ enum fd_types {
 	INOTIFY		= 8;
 	SIGNALFD	= 9;
 	PACKETSK	= 10;
+	TTY		= 11;
 }
 
 message fdinfo_entry {

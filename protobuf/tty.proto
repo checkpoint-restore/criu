@@ -1,0 +1,67 @@
+import "fown.proto";
+
+message winsize_entry {
+	required uint32			ws_row		= 1;
+	required uint32			ws_col		= 2;
+	required uint32			ws_xpixel	= 3;
+	required uint32			ws_ypixel	= 4;
+};
+
+message termios_entry {
+	required uint32			c_iflag		= 1;
+	required uint32			c_oflag		= 2;
+	required uint32			c_cflag		= 3;
+	required uint32			c_lflag		= 4;
+	required uint32			c_line		= 5;
+	required uint32			c_ispeed	= 6;
+	required uint32			c_ospeed	= 7;
+
+	repeated uint32			c_cc		= 8;
+}
+
+message tty_pty_entry {
+	required uint32			index		= 1;
+}
+
+enum TtyType {
+	UNKNOWN		= 0;
+	PTY		= 1;
+}
+
+message tty_info_entry {
+	required uint32			id		=  1;
+
+	required TtyType		type		=  2;
+
+	required bool			locked		=  3;
+	required bool			exclusive	=  4;
+	required bool			packet_mode	=  5;
+
+	required uint32			sid		=  6;
+	required uint32			pgrp		=  7;
+
+	/*
+	 * Convenient for printing errors and such, with this
+	 * device encoded we can figure out major and minor
+	 * numbers.
+	 */
+	required uint32			rdev		=  8;
+
+	required termios_entry		termios		=  9;
+	required termios_entry		termios_locked	= 10;
+	required winsize_entry		winsize		= 11;
+
+	/*
+	 * These are optional fields which presense depends on
+	 * TTY type.
+	 */
+	optional tty_pty_entry		pty		= 12;
+};
+
+message tty_file_entry {
+	required uint32			id		= 1;
+	required uint32			tty_info_id	= 2;
+
+	required uint32			flags		= 3;
+	required fown_entry		fown		= 4;
+}
