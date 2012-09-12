@@ -199,6 +199,7 @@ struct vma_area {
 struct rst_info {
 	struct list_head	fds;
 	struct list_head	eventpoll;
+	struct list_head	tty_slaves;
 };
 
 struct pid

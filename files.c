@@ -147,7 +147,7 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static struct list_head *select_ps_list(int type, struct rst_info *ri)
+static struct list_head *select_ps_list(int type, struct fdinfo_list_entry *le, struct rst_info *ri)
 {
 	switch (type) {
 	case FD_TYPES__EVENTPOLL:
@@ -186,7 +186,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
-	list_add_tail(&new_le->ps_list, select_ps_list(e->type, rst_info));
+	list_add_tail(&new_le->ps_list, select_ps_list(e->type, new_le, rst_info));
 
 	return 0;
 }
@@ -197,6 +197,7 @@ int prepare_fd_pid(int pid, struct rst_info *rst_info)
 
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
+	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
 	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
 	if (fdinfo_fd < 0) {
@@ -505,6 +506,14 @@ int prepare_fds(struct pstree_item *me)
 
 	for (state = 0; state < FD_STATE_MAX; state++) {
 		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
+		if (ret)
+			break;
+
+		/*
+		 * Now handle TTYs. Slaves are delayed to be sure masters
+		 * are already opened.
+		 */
+		ret = open_fdinfos(me->pid.virt, &me->rst->tty_slaves, state);
 		if (ret)
 			break;
 
