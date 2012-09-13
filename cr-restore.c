@@ -1266,15 +1266,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
-	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint, restore_code_len +
-			restore_task_vma_len + restore_thread_vma_len,
+	mem = mmap((void *)exec_mem_hint, restore_code_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
 	if (mem != (void *)exec_mem_hint) {
-		pr_err("Can't mmap section for restore code\n");
+		pr_err("Can't map restorer code");
 		goto err;
 	}
+	memcpy(mem, &restorer_blob, sizeof(restorer_blob));
 
 	/*
 	 * Prepare a memory map for restorer. Note a thread space
@@ -1284,16 +1283,21 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	restore_thread_exec_start	= restore_code_start + restorer_blob_offset____export_restore_thread;
 	restore_task_exec_start		= restore_code_start + restorer_blob_offset____export_restore_task;
 
-	task_args			= restore_code_start + restore_code_len;
-	thread_args			= ((void *)task_args) + restore_task_vma_len;
+	exec_mem_hint += restore_code_len;
 
-	memzero_p(task_args);
-	memzero(thread_args, sizeof(*thread_args) * current->nr_threads);
+	/* VMA we need to run task_restore code */
+	mem = mmap((void *)exec_mem_hint,
+			restore_task_vma_len + restore_thread_vma_len,
+			PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
+	if (mem != (void *)exec_mem_hint) {
+		pr_err("Can't mmap section for restore code\n");
+		goto err;
+	}
 
-	/*
-	 * Code at a new place.
-	 */
-	memcpy(restore_code_start, &restorer_blob, sizeof(restorer_blob));
+	memzero(mem, restore_task_vma_len + restore_thread_vma_len);
+	task_args	= mem;
+	thread_args	= mem + restore_task_vma_len;
 
 	/*
 	 * Adjust stack.
@@ -1311,7 +1315,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * address.
 	 */
 
-	mem += restore_code_len + restore_task_vma_len + restore_thread_vma_len;
+	mem += restore_task_vma_len + restore_thread_vma_len;
 	ret = shmem_remap(rst_shmems, mem, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
