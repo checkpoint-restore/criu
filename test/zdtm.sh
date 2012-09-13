@@ -62,6 +62,7 @@ TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 TEST_LIST="$TEST_LIST
 static/file_fown
 static/socket-ext
+static/socket-tcp
 "
 
 MNT_TEST_LIST="
@@ -226,7 +227,7 @@ EOF
 	echo Dump $PID
 	mkdir -p $ddump
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS dump -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS dump --tcp-established -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -250,7 +251,7 @@ EOF
 		done
 
 		echo Restore $PID
-		setsid $CRTOOLS restore -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
+		setsid $CRTOOLS restore --tcp-established -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd
