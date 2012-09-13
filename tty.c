@@ -345,7 +345,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	int slave, ret = -1;
 	char pts_name[64];
 
-	if (fd != get_service_fd(CTL_TTY_OFF))
+	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
 
 	snprintf(pts_name, sizeof(pts_name), PTS_FMT, info->tie->pty->index);

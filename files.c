@@ -385,7 +385,7 @@ static int post_open_fd(int pid, FdinfoEntry *fe, struct file_desc *d)
 	if (!d->ops->post_open)
 		return 0;
 
-	if (fe->fd == get_service_fd(CTL_TTY_OFF))
+	if (is_service_fd(fe->fd, CTL_TTY_OFF))
 		return d->ops->post_open(d, fe->fd);
 
 	fle = file_master(d);
