@@ -107,6 +107,8 @@ void test_init(int argc, char **argv)
 	};
 	sigemptyset(&sa.sa_mask);
 
+	parseargs(argc, argv);
+
 	val = getenv("ZDTM_NEWNS");
 	if (val) {
 		unsetenv("ZDTM_NEWNS");
@@ -116,6 +118,8 @@ void test_init(int argc, char **argv)
 
 	val = getenv("ZDTM_EXE");
 	if (val) {
+		test_log_init(outfile, "ns");
+		redir_stdfds();
 		unsetenv("ZDTM_EXE");
 		ns_init(argc, argv);
 		exit(1);
@@ -130,8 +134,6 @@ void test_init(int argc, char **argv)
 		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
 		exit(1);
 	}
-
-	parseargs(argc, argv);
 
 	setup_outfile();
 	redir_stdfds();

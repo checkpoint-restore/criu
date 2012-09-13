@@ -246,8 +246,6 @@ int ns_init(int argc, char **argv)
 	/* suspend/resume */
 	test_waitsig();
 
-	parseargs(argc, argv);
-
 	fd = open(pidfile, O_RDONLY);
 	if (fd == -1) {
 		fprintf(stderr, "open(%s) failed: %m\n", pidfile);

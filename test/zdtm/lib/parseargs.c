@@ -141,10 +141,10 @@ void parseargs(int argc, char ** argv)
 
 		value = strchr(name, '=');
 		if (value)
-			*value++ = '\0';
+			value++;
 
 		for (opt = opt_head; opt; opt = opt->next)
-			if (!strcmp(name, opt->name)) {
+			if (!strncmp(name, opt->name, value - name - 1)) {
 				if (opt->parse_opt(value, opt->value)) {
 					fprintf(stderr, "%s: failed to parse\n", argv[i]);
 					helpexit();
