@@ -73,6 +73,9 @@ int main(int argc, char *argv[])
 	opts.final_state = TASK_DEAD;
 	INIT_LIST_HEAD(&opts.veth_pairs);
 
+	if (init_service_fd())
+		return -1;
+
 	while (1) {
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },

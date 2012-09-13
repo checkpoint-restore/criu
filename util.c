@@ -259,7 +259,9 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 	return openat(dirfd, path, flags);
 }
 
-int get_service_fd(int type)
+static int service_fd_rlim_cur;
+
+int init_service_fd(void)
 {
 	struct rlimit rlimit;
 
@@ -273,7 +275,21 @@ int get_service_fd(int type)
 		return -1;
 	}
 
-	return rlimit.rlim_cur - type;
+	service_fd_rlim_cur = (int)rlimit.rlim_cur;
+	BUG_ON(service_fd_rlim_cur < SERVICE_FD_MAX);
+
+	return 0;
+}
+
+int get_service_fd(enum sfd_type type)
+{
+	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
+	return service_fd_rlim_cur - type;
+}
+
+bool is_service_fd(int fd, enum sfd_type type)
+{
+	return fd == get_service_fd(type);
 }
 
 int copy_file(int fd_in, int fd_out, size_t bytes)

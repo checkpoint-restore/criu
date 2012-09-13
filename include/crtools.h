@@ -100,16 +100,22 @@ struct cr_options {
 
 extern struct cr_options opts;
 
-enum {
-	LOG_FD_OFF = 1,
+enum sfd_type {
+	SERVICE_FD_MIN,
+
+	LOG_FD_OFF,
 	LOG_DIR_FD_OFF,
 	IMG_FD_OFF,
 	SELF_EXE_FD_OFF,
 	PROC_FD_OFF,
 	CTL_TTY_OFF,
+
+	SERVICE_FD_MAX
 };
 
-int get_service_fd(int type);
+extern int init_service_fd(void);
+extern int get_service_fd(enum sfd_type type);
+extern bool is_service_fd(int fd, enum sfd_type type);
 
 /* file descriptors template */
 struct cr_fd_desc_tmpl {
