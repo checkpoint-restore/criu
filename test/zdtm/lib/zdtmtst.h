@@ -107,5 +107,8 @@ extern void task_waiter_fini(task_waiter_t *t);
 extern void task_waiter_wait4(task_waiter_t *t, unsigned int lockid);
 extern void task_waiter_complete(task_waiter_t *t, unsigned int lockid);
 extern void task_waiter_complete_current(task_waiter_t *t);
+extern int tcp_init_server(int *port);
+extern int tcp_accept_server(int sock);
+extern int tcp_init_client(char *servIP, unsigned short servPort);
 
 #endif /* _VIMITESU_H_ */

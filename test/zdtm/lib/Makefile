@@ -2,7 +2,7 @@ CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 LIB	= libzdtmtst.a
 
-LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c
+LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
 LIBDEP	= $(LIBSRC:%.c=%.d)
 
