@@ -62,6 +62,7 @@ TST_NOFILE	=				\
 		netns				\
 		session01			\
 		socket-ext			\
+		unhashed_proc			\
 #		jobctl00			\
 
 TST_FILE	=				\
