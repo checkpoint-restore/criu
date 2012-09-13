@@ -176,6 +176,8 @@ int ns_exec(void *_arg)
 
 	close(args->status_pipe[0]);
 
+	setsid();
+
 	system("ip link set up dev lo");
 
 	ret = dup2(args->status_pipe[1], STATUS_FD);
