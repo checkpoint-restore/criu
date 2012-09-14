@@ -438,16 +438,6 @@ err:
 		return -1;
 }
 
-/*
- * Unix98 pty slave peers requires the master peers being
- * opened early, this function test if it's master pty.
- */
-int tty_is_master(struct fdinfo_list_entry *le)
-{
-	struct tty_info *info = container_of(le->desc, struct tty_info, d);
-	return pty_is_master(info);
-}
-
 static int pty_open_slaves(struct tty_info *info)
 {
 	int sock = -1, fd = -1, ret = -1;
@@ -616,11 +606,25 @@ static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
 	return !info->create;
 }
 
+static struct list_head *tty_select_pslist(struct file_desc *d, struct rst_info *ri)
+{
+	/*
+	 * Unix98 pty slave peers requires the master peers being
+	 * opened before them
+	 */
+
+	if (pty_is_master(container_of(d, struct tty_info, d)))
+		return &ri->fds;
+	else
+		return &ri->tty_slaves;
+}
+
 static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
 	.post_open	= tty_restore_ctl_terminal,
 	.want_transport = tty_transport,
+	.select_ps_list	= tty_select_pslist,
 };
 
 static int tty_find_restoring_task(struct tty_info *info)

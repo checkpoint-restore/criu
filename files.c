@@ -148,18 +148,12 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static struct list_head *select_ps_list(int type, struct fdinfo_list_entry *le, struct rst_info *ri)
+static struct list_head *select_ps_list(struct file_desc *desc, struct rst_info *ri)
 {
-	switch (type) {
-	case FD_TYPES__EVENTPOLL:
-		return &ri->eventpoll;
-	case FD_TYPES__TTY:
-		if (!tty_is_master(le))
-			return &ri->tty_slaves;
-		/* Fall through */
-	default:
+	if (desc->ops->select_ps_list)
+		return desc->ops->select_ps_list(desc, ri);
+	else
 		return &ri->fds;
-	}
 }
 
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
@@ -191,7 +185,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
-	list_add_tail(&new_le->ps_list, select_ps_list(e->type, new_le, rst_info));
+	list_add_tail(&new_le->ps_list, select_ps_list(fdesc, rst_info));
 
 	return 0;
 }

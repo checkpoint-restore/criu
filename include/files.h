@@ -48,6 +48,7 @@ struct file_desc_ops {
 	int			(*open)(struct file_desc *d);
 	int			(*post_open)(struct file_desc *d, int fd);
 	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
+	struct list_head *	(*select_ps_list)(struct file_desc *, struct rst_info *);
 };
 
 struct file_desc {

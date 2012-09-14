@@ -158,10 +158,16 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 	return 0;
 }
 
+static struct list_head *eventpoll_select_list(struct file_desc *d, struct rst_info *ri)
+{
+	return &ri->eventpoll;
+}
+
 static struct file_desc_ops desc_ops = {
 	.type = FD_TYPES__EVENTPOLL,
 	.open = eventpoll_open,
 	.post_open = eventpoll_post_open,
+	.select_ps_list = eventpoll_select_list,
 };
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg)
