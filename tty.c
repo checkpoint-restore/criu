@@ -806,15 +806,24 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	info.sid		= sid;
 	info.pgrp		= pgrp;
 	info.rdev		= p->stat.st_rdev;
-	info.termios		= &termios;
-	info.termios_locked	= &termios_locked;
-	info.winsize		= &winsize;
 	info.pty		= &pty;
 
 	pty.index		= index;
 
+	/*
+	 * Nothing we can do on hangin up terminal,
+	 * just write out minimum information we can
+	 * gather.
+	 */
+	if (hangup)
+		return pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
+
 	if (pty_get_flags(lfd, major, index, &info))
 		goto out;
+
+	info.termios		= &termios;
+	info.termios_locked	= &termios_locked;
+	info.winsize		= &winsize;
 
 	termios.n_c_cc		= TERMIOS_NCC;
 	termios.c_cc		= xmalloc(pb_repeated_size(&termios, c_cc));
