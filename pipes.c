@@ -131,7 +131,7 @@ void mark_pipe_master(void)
 		list_for_each_entry(pic, &pi->pipe_list, pipe_list) {
 			list_move(&pic->list, &head);
 
-			fle = file_master(&p->d);
+			fle = file_master(&pic->d);
 			if (fle->pid < pid ||
 			    (pid == fle->pid && fle->fe->fd < fd)) {
 				p = pic;
