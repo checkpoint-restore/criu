@@ -639,13 +639,56 @@ static int tty_setup_slavery(void)
 	return 0;
 }
 
-static int veirfy_termios(u32 id, TermiosEntry *e)
+static int verify_termios(u32 id, TermiosEntry *e)
 {
 	if (e && e->n_c_cc < TERMIOS_NCC) {
 		pr_err("pty ID %#x n_c_cc (%d) has wrong value\n",
 		       id, (int)e->n_c_cc);
 		return -1;
 	}
+	return 0;
+}
+
+#define term_opts_missing_cmp(p, op)		\
+	(!(p)->tie->termios		op	\
+	 !(p)->tie->termios_locked	op	\
+	 !(p)->tie->winsize)
+
+#define term_opts_missing_any(p)		\
+	term_opts_missing_cmp(p, ||)
+
+#define term_opts_missing_all(p)		\
+	term_opts_missing_cmp(p, &&)
+
+static int verify_info(struct tty_info *info)
+{
+	/*
+	 * Master peer must have all parameters present,
+	 * while slave peer must have either all parameters present
+	 * or don't have them at all.
+	 */
+	if (term_opts_missing_any(info)) {
+		if (pty_is_master(info)) {
+			pr_err("Corrupted master peer %x\n", info->tfe->id);
+			return -1;
+		} else if (!term_opts_missing_all(info)) {
+			pr_err("Corrupted slave peer %x\n", info->tfe->id);
+			return -1;
+		}
+	}
+
+	if (verify_termios(info->tfe->id, info->tie->termios_locked) ||
+	    verify_termios(info->tfe->id, info->tie->termios))
+		return -1;
+
+	if (!pty_is_master(info)) {
+		if (info->tie->sid || info->tie->pgrp) {
+			pr_err("Found sid %d pgrp %d on slave peer %x\n",
+			       info->tie->sid, info->tie->pgrp, info->tfe->id);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -701,18 +744,8 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	INIT_LIST_HEAD(&info->sibling);
 	info->major = major(info->tie->rdev);
 
-	/*
-	 * Verify data obtained from the image.
-	 */
-	if (veirfy_termios(info->tfe->id, info->tie->termios))
+	if (verify_info(info))
 		return -1;
-	else if (veirfy_termios(info->tfe->id, info->tie->termios_locked))
-		return -1;
-	else if (!pty_is_master(info) && (info->tie->sid || info->tie->pgrp)) {
-		pr_err("Found sid %d pgrp %d on slave peer %x\n",
-			info->tie->sid, info->tie->pgrp, info->tfe->id);
-		return -1;
-	}
 
 	pr_info("Collected tty ID %#x\n", info->tfe->id);
 
