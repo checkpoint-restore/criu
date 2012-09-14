@@ -670,8 +670,7 @@ static void tty_setup_orphan_slavery(void)
 			 * waiting for each other.
 			 */
 			b = file_master(&peer->d);
-			if (a->pid > b->pid ||
-			    (a->pid == b->pid && a->fe->fd > b->fe->fd)) {
+			if (fdinfo_rst_prio(b, a)) {
 				a = b;
 				m = peer;
 			}

@@ -762,9 +762,7 @@ int resolve_unix_peers(void)
 		fle = file_master(&ui->d);
 		fle_peer = file_master(&peer->d);
 
-		if ((fle->pid < fle_peer->pid) ||
-				(fle->pid == fle_peer->pid &&
-				 fle->fe->fd < fle_peer->fe->fd)) {
+		if (fdinfo_rst_prio(fle, fle_peer)) {
 			ui->flags |= USK_PAIR_MASTER;
 			peer->flags |= USK_PAIR_SLAVE;
 		} else {

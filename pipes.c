@@ -112,7 +112,6 @@ void mark_pipe_master(void)
 	while (1) {
 		struct fdinfo_list_entry *fle;
 		struct pipe_info *pi, *pic, *p;
-		int fd, pid;
 
 		if (list_empty(&pipes))
 			break;
@@ -125,18 +124,15 @@ void mark_pipe_master(void)
 
 		fle = file_master(&pi->d);
 		p = pi;
-		fd = fle->fe->fd;
-		pid = fle->pid;
 
 		list_for_each_entry(pic, &pi->pipe_list, pipe_list) {
-			list_move(&pic->list, &head);
+			struct fdinfo_list_entry *f;
 
-			fle = file_master(&pic->d);
-			if (fle->pid < pid ||
-			    (pid == fle->pid && fle->fe->fd < fd)) {
+			list_move(&pic->list, &head);
+			f = file_master(&pic->d);
+			if (fdinfo_rst_prio(f, fle)) {
 				p = pic;
-				fd = fle->fe->fd;
-				pid = fle->pid;
+				fle = f;
 			}
 
 			show_saved_pipe_fds(pic);

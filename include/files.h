@@ -43,6 +43,12 @@ struct fdinfo_list_entry {
 	FdinfoEntry		*fe;
 };
 
+/* reports whether fd_a takes prio over fd_b */
+static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_list_entry *fd_b)
+{
+	return (fd_a->pid < fd_b->pid) || ((fd_a->pid == fd_b->pid) && (fd_a->fe->fd < fd_b->fe->fd));
+}
+
 struct file_desc_ops {
 	unsigned int		type;
 	int			(*open)(struct file_desc *d);
