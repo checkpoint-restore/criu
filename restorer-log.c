@@ -22,7 +22,7 @@ void restorer_set_loglevel(unsigned int loglevel)
 	current_loglevel = loglevel;
 }
 
-static void write_str(char *str)
+static void write_str(const char *str)
 {
 	int len = 0;
 
@@ -32,7 +32,7 @@ static void write_str(char *str)
 	sys_write(current_logfd, str, len);
 }
 
-void write_str_on_level(unsigned int loglevel, char *str)
+void print_on_level(unsigned int loglevel, const char *str, ...)
 {
 	if (loglevel > current_loglevel)
 		return;
