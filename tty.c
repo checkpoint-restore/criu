@@ -842,10 +842,10 @@ int collect_tty(void)
 	ret = collect_image(CR_FD_TTY_INFO, PB_TTY_INFO,
 			    sizeof(struct tty_info_entry),
 			    collect_one_tty_info_entry);
-
-	ret = collect_image(CR_FD_TTY, PB_TTY,
-			    sizeof(struct tty_info),
-			    collect_one_tty);
+	if (!ret)
+		ret = collect_image(CR_FD_TTY, PB_TTY,
+				sizeof(struct tty_info),
+				collect_one_tty);
 	return ret;
 }
 
