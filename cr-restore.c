@@ -62,6 +62,7 @@ static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *vmas, int nr_vmas);
+static int prepare_restorer_blob(void);
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -150,6 +151,10 @@ static int prepare_shared(void)
 		goto err;
 
 	ret = resolve_unix_peers();
+	if (ret)
+		goto err;
+
+	ret = prepare_restorer_blob();
 	if (ret)
 		goto err;
 
@@ -1189,9 +1194,47 @@ out:
 	return ret;
 }
 
+static void *restorer;
+static unsigned long restorer_len;
+
+static int prepare_restorer_blob(void)
+{
+	/*
+	 * We map anonymous mapping, not mremap the restorer itself later.
+	 * Otherwise the resoter vma would be tied to crtools binary which 
+	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
+	 */
+
+	restorer_len = round_up(sizeof(restorer_blob), PAGE_SIZE);
+	restorer = mmap(NULL, restorer_len,
+			PROT_READ | PROT_WRITE | PROT_EXEC,
+			MAP_PRIVATE | MAP_ANON, 0, 0);
+	if (restorer == MAP_FAILED) {
+		pr_err("Can't map restorer code");
+		return -1;
+	}
+
+	memcpy(restorer, &restorer_blob, sizeof(restorer_blob));
+	return 0;
+}
+
+static int remap_restorer_blob(void *addr)
+{
+	void *mem;
+
+	mem = mremap(restorer, restorer_len, restorer_len,
+			MREMAP_FIXED | MREMAP_MAYMOVE, addr);
+	if (mem != addr) {
+		pr_perror("Can't remap restorer blob");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_vmas, int nr_vmas)
 {
-	long restore_code_len, restore_task_vma_len;
+	long restore_task_vma_len;
 	long restore_thread_vma_len, self_vmas_len, vmas_len;
 
 	void *mem = MAP_FAILED;
@@ -1211,7 +1254,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	pr_info("Restore via sigreturn\n");
 
-	restore_code_len	= 0;
 	restore_task_vma_len	= 0;
 	restore_thread_vma_len	= 0;
 
@@ -1239,9 +1281,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		goto err;
 	}
 
-	restore_code_len	= sizeof(restorer_blob);
-	restore_code_len	= round_up(restore_code_len, PAGE_SIZE);
-
 	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
 	restore_thread_vma_len = round_up(sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
 
@@ -1252,7 +1291,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
 
 	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
-					      restore_code_len +
+					      restorer_len +
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
 					      self_vmas_len + vmas_len +
@@ -1266,24 +1305,19 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
 			KBYTES(restore_task_vma_len + restore_thread_vma_len));
 
-	mem = mmap((void *)exec_mem_hint, restore_code_len,
-			PROT_READ | PROT_WRITE | PROT_EXEC,
-			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-	if (mem != (void *)exec_mem_hint) {
-		pr_err("Can't map restorer code");
+	ret = remap_restorer_blob((void *)exec_mem_hint);
+	if (ret < 0)
 		goto err;
-	}
-	memcpy(mem, &restorer_blob, sizeof(restorer_blob));
 
 	/*
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_code_start		= mem;
+	restore_code_start		= (void *)exec_mem_hint;
 	restore_thread_exec_start	= restore_code_start + restorer_blob_offset____export_restore_thread;
 	restore_task_exec_start		= restore_code_start + restorer_blob_offset____export_restore_task;
 
-	exec_mem_hint += restore_code_len;
+	exec_mem_hint += restorer_len;
 
 	/* VMA we need to run task_restore code */
 	mem = mmap((void *)exec_mem_hint,
