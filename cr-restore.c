@@ -91,6 +91,10 @@ static int prepare_shared(void)
 	if (prepare_shared_fdinfo())
 		return -1;
 
+	if (prepare_shared_tty())
+		return -1;
+
+
 	if (collect_reg_files())
 		return -1;
 
@@ -145,12 +149,8 @@ static int prepare_shared(void)
 		goto err;
 
 	mark_pipe_master();
+
 	ret = tty_setup_orphan_slavery(&opts);
-	if (ret)
-		goto err;
-
-
-	ret = tty_prepare_shared();
 	if (ret)
 		goto err;
 

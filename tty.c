@@ -104,7 +104,7 @@ static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
  */
 static mutex_t *tty_mutex;
 
-int tty_prepare_shared(void)
+int prepare_shared_tty(void)
 {
 	tty_mutex = shmalloc(sizeof(*tty_mutex));
 	if (!tty_mutex) {
