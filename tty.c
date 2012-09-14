@@ -638,18 +638,15 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 	pr_info("Set a control terminal to %d\n", info->tie->sid);
 
-	for_each_pstree_item(item) {
-		if (item->sid == info->tie->sid) {
-			item->ctl_tty_id = info->tfe->id;
-			return 0;
-		}
-	}
+	for_each_pstree_item(item)
+		if (item->sid == info->tie->sid)
+			return prepare_ctl_tty(item->pid.virt, item->rst, info->tfe->id);
 
 	pr_err("No task found with sid %d\n", info->tie->sid);
 	return -1;
 }
 
-int tty_setup_orphan_slavery(const struct cr_options *opts)
+static void tty_setup_orphan_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
 
@@ -688,11 +685,9 @@ int tty_setup_orphan_slavery(const struct cr_options *opts)
 				 m->tfe->id);
 		}
 	}
-
-	return 0;
 }
 
-static int tty_setup_slavery(void)
+void tty_setup_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
 
@@ -720,7 +715,7 @@ static int tty_setup_slavery(void)
 			tty_show_pty_info("    `- sibling", peer);
 	}
 
-	return 0;
+	tty_setup_orphan_slavery();
 }
 
 static int verify_termios(u32 id, TermiosEntry *e)
@@ -851,9 +846,6 @@ int collect_tty(void)
 	ret = collect_image(CR_FD_TTY, PB_TTY,
 			    sizeof(struct tty_info),
 			    collect_one_tty);
-	if (!ret)
-		ret = tty_setup_slavery();
-
 	return ret;
 }
 

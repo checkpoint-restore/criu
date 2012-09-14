@@ -139,10 +139,6 @@ static int prepare_shared(void)
 		ret = prepare_fd_pid(pi->pid.virt, pi->rst);
 		if (ret < 0)
 			break;
-
-		ret = prepare_ctl_tty(pi->pid.virt, pi->rst, pi->ctl_tty_id);
-		if (ret < 0)
-			break;
 	}
 
 	if (ret < 0)
@@ -150,9 +146,7 @@ static int prepare_shared(void)
 
 	mark_pipe_master();
 
-	ret = tty_setup_orphan_slavery(&opts);
-	if (ret)
-		goto err;
+	tty_setup_slavery();
 
 	ret = resolve_unix_peers();
 	if (ret)
