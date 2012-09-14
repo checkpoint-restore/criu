@@ -55,12 +55,6 @@
  * only one slave parameters should be restored, there is no need to carry
  * all parameters for every slave peer we've found.
  *
- * FIXME:
- *
- * - Need to find a way to restore standalone terminals, ie slaves
- *   which have no master hooked on.
- *
- * - Need to restore control terminals.
  */
 
 #undef	LOG_PREFIX
