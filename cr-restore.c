@@ -145,6 +145,10 @@ static int prepare_shared(void)
 		goto err;
 
 	mark_pipe_master();
+	ret = tty_setup_orphan_slavery(&opts);
+	if (ret)
+		goto err;
+
 
 	ret = tty_prepare_shared();
 	if (ret)

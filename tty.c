@@ -80,6 +80,8 @@ struct tty_info {
 
 	struct list_head		sibling;
 	int				major;
+
+	bool				create;
 };
 
 static LIST_HEAD(all_tty_info_entries);
@@ -521,6 +523,42 @@ static int receive_tty(struct tty_info *info)
 	return fd;
 }
 
+static int pty_open_fake_ptmx(struct tty_info *slave)
+{
+	int master = -1, ret = -1, fd = -1;
+	char pts_name[64];
+
+	snprintf(pts_name, sizeof(pts_name), PTS_FMT, slave->tie->pty->index);
+
+	master = pty_open_ptmx_index(O_RDONLY, slave->tie->pty->index);
+	if (master < 0) {
+		pr_perror("Can't open fale %x (index %d)",
+			  slave->tfe->id, slave->tie->pty->index);
+		return -1;
+	}
+
+	unlock_pty(master);
+
+	fd = open(pts_name, slave->tfe->flags);
+	if (fd < 0) {
+		pr_perror("Can't open slave %s", pts_name);
+		goto err;
+	}
+
+	if (restore_tty_params(fd, slave))
+		goto err;
+
+	if (pty_open_slaves(slave))
+		goto err;
+
+	ret = fd;
+	fd = -1;
+err:
+	close_safe(&master);
+	close_safe(&fd);
+	return ret;
+}
+
 static int pty_open_ptmx(struct tty_info *info)
 {
 	int master = -1;
@@ -568,8 +606,11 @@ static int tty_open(struct file_desc *d)
 
 	tty_show_pty_info("open", info);
 
-	if (!pty_is_master(info))
+	if (!info->create)
 		return receive_tty(info);
+
+	if (!pty_is_master(info))
+		return pty_open_fake_ptmx(info);
 
 	return pty_open_ptmx(info);
 
@@ -578,7 +619,7 @@ static int tty_open(struct file_desc *d)
 static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
-	return pty_is_master(info) == false;
+	return !info->create;
 }
 
 static struct file_desc_ops tty_desc_ops = {
@@ -606,6 +647,49 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 	pr_err("No task found with sid %d\n", info->tie->sid);
 	return -1;
+}
+
+int tty_setup_orphan_slavery(const struct cr_options *opts)
+{
+	struct tty_info *info, *peer, *m;
+
+	list_for_each_entry(info, &all_ttys, list) {
+		struct fdinfo_list_entry *a, *b;
+		bool has_leader = false;
+
+		if (pty_is_master(info))
+			continue;
+
+		a = file_master(&info->d);
+		m = info;
+
+		list_for_each_entry(peer, &info->sibling, sibling) {
+			if (pty_is_master(peer)) {
+				has_leader = true;
+				break;
+			}
+
+			/*
+			 * Same check as in pipes and files -- need to
+			 * order slave ends so that they do not dead lock
+			 * waiting for each other.
+			 */
+			b = file_master(&peer->d);
+			if (a->pid > b->pid ||
+			    (a->pid == b->pid && a->fe->fd > b->fe->fd)) {
+				a = b;
+				m = peer;
+			}
+		}
+
+		if (!has_leader) {
+			m->create = true;
+			pr_debug("Found orphan slave fake leader (%#x)\n",
+				 m->tfe->id);
+		}
+	}
+
+	return 0;
 }
 
 static int tty_setup_slavery(void)
@@ -743,6 +827,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 
 	INIT_LIST_HEAD(&info->sibling);
 	info->major = major(info->tie->rdev);
+	info->create = (info->major == TTYAUX_MAJOR);
 
 	if (verify_info(info))
 		return -1;
