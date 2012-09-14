@@ -412,20 +412,26 @@ static int restore_tty_params(int fd, struct tty_info *info)
 	 * never be extended.
 	 */
 
-	memzero(&t, sizeof(t));
-	termios_copy(&t, info->tie->termios_locked);
-	if (ioctl(fd, TIOCSLCKTRMIOS, &t) < 0)
-		goto err;
+	if (info->tie->termios_locked) {
+		memzero(&t, sizeof(t));
+		termios_copy(&t, info->tie->termios_locked);
+		if (ioctl(fd, TIOCSLCKTRMIOS, &t) < 0)
+			goto err;
+	}
 
-	memzero(&t, sizeof(t));
-	termios_copy(&t, info->tie->termios);
-	if (ioctl(fd, TCSETS, &t) < 0)
-		goto err;
+	if (info->tie->termios) {
+		memzero(&t, sizeof(t));
+		termios_copy(&t, info->tie->termios);
+		if (ioctl(fd, TCSETS, &t) < 0)
+			goto err;
+	}
 
-	memzero(&w, sizeof(w));
-	winsize_copy(&w, info->tie->winsize);
-	if (ioctl(fd, TIOCSWINSZ, &w) < 0)
-		goto err;
+	if (info->tie->winsize) {
+		memzero(&w, sizeof(w));
+		winsize_copy(&w, info->tie->winsize);
+		if (ioctl(fd, TIOCSWINSZ, &w) < 0)
+			goto err;
+	}
 
 	return 0;
 err:
@@ -632,7 +638,7 @@ static int tty_setup_slavery(void)
 
 static int veirfy_termios(u32 id, TermiosEntry *e)
 {
-	if (e->n_c_cc < TERMIOS_NCC) {
+	if (e && e->n_c_cc < TERMIOS_NCC) {
 		pr_err("pty ID %#x n_c_cc (%d) has wrong value\n",
 		       id, (int)e->n_c_cc);
 		return -1;

@@ -47,9 +47,9 @@ message tty_info_entry {
 	 */
 	required uint32			rdev		=  8;
 
-	required termios_entry		termios		=  9;
-	required termios_entry		termios_locked	= 10;
-	required winsize_entry		winsize		= 11;
+	optional termios_entry		termios		=  9;
+	optional termios_entry		termios_locked	= 10;
+	optional winsize_entry		winsize		= 11;
 
 	/*
 	 * These are optional fields which presense depends on
