@@ -290,34 +290,37 @@ static int lock_pty(int fd)
 	return 0;
 }
 
-static int tty_get_sid(int fd)
+static int tty_get_sid_pgrp(int fd, int *sid, int *pgrp, bool *hangup)
 {
-	int sid, ret;
+	int ret;
 
-	ret = ioctl(fd, TIOCGSID, &sid);
+	ret = ioctl(fd, TIOCGSID, sid);
 	if (ret < 0) {
-		if (errno != ENOTTY) {
-			pr_perror("Can't get sid on %d", fd);
-			return -1;
-		}
-		sid = 0;
+		if (errno != ENOTTY)
+			goto err;
+		*sid = 0;
 	}
-	return sid;
-}
 
-static int tty_get_pgrp(int fd)
-{
-	int prgp, ret;
-
-	ret = ioctl(fd, TIOCGPGRP, &prgp);
+	ret = ioctl(fd, TIOCGPGRP, pgrp);
 	if (ret < 0) {
-		if (errno != ENOTTY) {
-			pr_perror("Can't get prgp on %d", fd);
-			return -1;
-		}
-		prgp = 0;
+		if (errno != ENOTTY)
+			goto err;
+		*pgrp = 0;
 	}
-	return prgp;
+
+	*hangup = false;
+	return 0;
+
+err:
+	if (errno != EIO) {
+		pr_perror("Can't get sid/pgrp on %d", fd);
+		return -1;
+	}
+
+	/* kernel reports EIO for get ioctls on pair-less ptys */
+	*sid = *pgrp = 0;
+	*hangup = true;
+	return 0;
 }
 
 static int tty_set_sid(int fd)
@@ -789,14 +792,13 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	WinsizeEntry winsize		= WINSIZE_ENTRY__INIT;
 	TtyPtyEntry pty			= TTY_PTY_ENTRY__INIT;
 
+	bool hangup = false;
 	struct termios t;
 	struct winsize w;
 
 	int ret = -1, sid, pgrp;
 
-	sid	= tty_get_sid(lfd);
-	pgrp	= tty_get_pgrp(lfd);
-	if (sid < 0 || pgrp < 0)
+	if (tty_get_sid_pgrp(lfd, &sid, &pgrp, &hangup))
 		return -1;
 
 	info.id			= id;
