@@ -78,7 +78,19 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
-static int prepare_shared(void)
+static int crtools_prepare_shared(void)
+{
+	if (prepare_shared_fdinfo())
+		return -1;
+
+	/* Connections are unlocked from crtools */
+	if (collect_inet_sockets())
+		return -1;
+
+	return 0;
+}
+
+static int root_prepare_shared(void)
 {
 	int ret = 0;
 	struct pstree_item *pi;
@@ -88,12 +100,8 @@ static int prepare_shared(void)
 	if (prepare_shmem_restore())
 		return -1;
 
-	if (prepare_shared_fdinfo())
-		return -1;
-
 	if (prepare_shared_tty())
 		return -1;
-
 
 	if (collect_reg_files())
 		return -1;
@@ -102,9 +110,6 @@ static int prepare_shared(void)
 		return -1;
 
 	if (collect_fifo())
-		return -1;
-
-	if (collect_inet_sockets())
 		return -1;
 
 	if (collect_unix_sockets())
@@ -761,7 +766,7 @@ static int restore_task_with_children(void *_arg)
 		if (mount_proc())
 			exit(-1);
 
-		if (prepare_shared())
+		if (root_prepare_shared())
 			exit(-1);
 	}
 
@@ -949,6 +954,9 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 		return -1;
 
 	if (prepare_pstree_ids() < 0)
+		return -1;
+
+	if (crtools_prepare_shared() < 0)
 		return -1;
 
 	futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks + task_entries->nr_helpers);
