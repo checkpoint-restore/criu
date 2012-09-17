@@ -37,7 +37,7 @@ struct ghost_file {
 			char *path;
 		};
 	};
-	atomic_t users;
+	unsigned int users;
 };
 
 static u32 ghost_file_ids = 1;
@@ -116,10 +116,10 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	close(gfd);
 
 	gf->id = rfe->remap_id;
-	atomic_set(&gf->users, 0);
+	gf->users = 0;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
-	atomic_inc(&gf->users);
+	gf->users++;
 	rfi->ghost = gf;
 	return 0;
 
@@ -370,7 +370,8 @@ static int open_path(struct file_desc *d,
 
 	if (rfi->ghost) {
 		unlink(rfi->path);
-		if (atomic_dec_and_test(&rfi->ghost->users)) {
+		BUG_ON(!rfi->ghost->users);
+		if (--rfi->ghost->users == 0) {
 			pr_info("Unlink the ghost %s\n", rfi->ghost->path);
 			unlink(rfi->ghost->path);
 		}
