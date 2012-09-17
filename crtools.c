@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
 	/* Default options */
 	opts.final_state = TASK_DEAD;
 	INIT_LIST_HEAD(&opts.veth_pairs);
+	INIT_LIST_HEAD(&opts.scripts);
 
 	if (init_service_fd())
 		return -1;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
 			{ "evasive-devices", no_argument, 0, 45},
 			{ "pidfile", required_argument, 0, 46},
 			{ "veth-pair", required_argument, 0, 47},
+			{ "action-script", required_argument, 0, 49},
 			{ },
 		};
 
@@ -198,6 +200,18 @@ int main(int argc, char *argv[])
 				list_add(&n->node, &opts.veth_pairs);
 			}
 			break;
+		case 49:
+			{
+				struct script *script;
+
+				script = xmalloc(sizeof(struct script));
+				if (script == NULL)
+					return -1;
+
+				script->path = optarg;
+				list_add(&script->node, &opts.scripts);
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
 			return 0;
@@ -288,6 +302,10 @@ usage:
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
 	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
 	pr_msg("  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n");
+	pr_msg("  --action-script [SCR]	add an external action script\n");
+	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
+	pr_msg("			* network-lock - lock network in a target network namespace");
+	pr_msg("			* network-unlock - unlock network in a target network namespace");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");

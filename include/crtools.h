@@ -82,6 +82,11 @@ enum {
 	CR_FD_MAX
 };
 
+struct script {
+	struct list_head node;
+	char *path;
+};
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -96,6 +101,7 @@ struct cr_options {
 	char			*root;
 	char			*pidfile;
 	struct list_head	veth_pairs;
+	struct list_head	scripts;
 };
 
 extern struct cr_options opts;
