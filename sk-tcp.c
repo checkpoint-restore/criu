@@ -67,9 +67,11 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 		goto err1;
 	}
 
-	ret = nf_lock_connection(sk);
-	if (ret < 0)
-		goto err2;
+	if (!(opts.namespaces_flags & CLONE_NEWNET)) {
+		ret = nf_lock_connection(sk);
+		if (ret < 0)
+			goto err2;
+	}
 
 	ret = tcp_repair_on(sk->rfd);
 	if (ret < 0)
@@ -79,7 +81,8 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 	return 0;
 
 err3:
-	nf_unlock_connection(sk);
+	if (!(opts.namespaces_flags & CLONE_NEWNET))
+		nf_unlock_connection(sk);
 err2:
 	close(sk->rfd);
 err1:
