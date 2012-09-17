@@ -103,7 +103,7 @@ static void tcp_unlock_one(struct inet_sk_desc *sk)
 	close(sk->rfd);
 }
 
-void tcp_unlock_all(void)
+void cpt_unlock_tcp_connections(void)
 {
 	struct inet_sk_desc *sk, *n;
 
@@ -531,7 +531,7 @@ void tcp_locked_conn_add(struct inet_sk_info *ii)
 	list_add_tail(&ii->rlist, &rst_tcp_repair_sockets);
 }
 
-void tcp_unlock_connections(void)
+void rst_unlock_tcp_connections(void)
 {
 	struct inet_sk_info *ii;
 

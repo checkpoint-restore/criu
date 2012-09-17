@@ -423,8 +423,8 @@ void network_unlock(void)
 	pr_info("Unlock network\n");
 
 	if  (!(opts.namespaces_flags & CLONE_NEWNET)) {
-		tcp_unlock_all();
-		tcp_unlock_connections();
+		cpt_unlock_tcp_connections();
+		rst_unlock_tcp_connections();
 
 		return;
 	}
