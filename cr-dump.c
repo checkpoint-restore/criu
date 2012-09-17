@@ -48,6 +48,7 @@
 #include "pstree.h"
 #include "mount.h"
 #include "tty.h"
+#include "net.h"
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
@@ -1579,6 +1580,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+	if (network_lock())
+		goto err;
+
 	if (write_img_inventory())
 		goto err;
 
@@ -1636,7 +1640,7 @@ err:
 	 * don't, just close them silently.
 	 */
 	if (ret)
-		tcp_unlock_all();
+		network_unlock();
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts->final_state);
 	free_pstree(root_item);

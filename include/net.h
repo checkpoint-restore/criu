@@ -16,4 +16,7 @@ struct veth_pair {
 	char *inside;
 	char *outside;
 };
+
+extern int network_lock(void);
+extern void network_unlock(void);
 #endif

@@ -11,6 +11,7 @@
 #include "net.h"
 #include "libnetlink.h"
 #include "crtools.h"
+#include "sk-inet.h"
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
@@ -405,3 +406,28 @@ int netns_pre_create(void)
 	pr_info("Saved netns fd for links restore\n");
 	return 0;
 }
+
+int network_lock(void)
+{
+	pr_info("Lock network\n");
+
+	/* Each connection will be locked on dump */
+	if  (!(opts.namespaces_flags & CLONE_NEWNET))
+		return 0;
+
+	return run_scripts("network-lock");
+}
+
+void network_unlock(void)
+{
+	pr_info("Unlock network\n");
+
+	if  (!(opts.namespaces_flags & CLONE_NEWNET)) {
+		tcp_unlock_all();
+
+		return;
+	}
+
+	run_scripts("network-unlock");
+}
+
