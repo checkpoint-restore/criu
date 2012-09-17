@@ -3,6 +3,8 @@
 #include <linux/sockios.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <string.h>
 
 #include "crtools.h"
 #include "util.h"
@@ -459,11 +461,59 @@ err:
 	return -1;
 }
 
+/*
+ * rst_tcp_socks contains sockets in repair mode,
+ * which will be off in restorer before resuming.
+ */
+static int *rst_tcp_socks = NULL;
+static int rst_tcp_socks_num = 0;
+int rst_tcp_socks_size = 0;
+
+int rst_tcp_socks_remap(void *addr)
+{
+	void *ret;
+	if (!rst_tcp_socks) {
+		BUG_ON(rst_tcp_socks_size);
+		return 0;
+	}
+
+	rst_tcp_socks[rst_tcp_socks_num] = -1;
+
+	ret = mmap(addr, rst_tcp_socks_size, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+
+	if (ret != addr) {
+		pr_perror("mmap() failed\n");
+		return -1;
+	}
+
+	memcpy(addr, rst_tcp_socks, rst_tcp_socks_size);
+
+	return 0;
+}
+
+static int rst_tcp_socks_add(int fd)
+{
+	/* + 2 = ( new one + guard (-1) ) */
+	if ((rst_tcp_socks_num + 2) * sizeof(int) > rst_tcp_socks_size) {
+		rst_tcp_socks_size += PAGE_SIZE;
+		rst_tcp_socks = xrealloc(rst_tcp_socks, rst_tcp_socks_size);
+		if (rst_tcp_socks == NULL)
+			return -1;
+	}
+
+	rst_tcp_socks[rst_tcp_socks_num++] = fd;
+	return 0;
+}
+
 int restore_one_tcp(int fd, struct inet_sk_info *ii)
 {
 	pr_info("Restoring TCP connection\n");
 
 	if (tcp_repair_on(fd))
+		return -1;
+
+	if (rst_tcp_socks_add(fd))
 		return -1;
 
 	if (restore_tcp_conn_state(fd, ii))

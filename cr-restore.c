@@ -1293,7 +1293,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 					      restore_task_vma_len +
 					      restore_thread_vma_len +
 					      self_vmas_len + vmas_len +
-					      SHMEMS_SIZE + TASK_ENTRIES_SIZE);
+					      SHMEMS_SIZE + TASK_ENTRIES_SIZE +
+					      rst_tcp_socks_size);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
 		       restore_task_vma_len + restore_thread_vma_len);
@@ -1368,6 +1369,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, tgt_vmas);
 	if (!task_args->tgt_vmas)
 		goto err;
+
+	mem += vmas_len;
+	if (rst_tcp_socks_remap(mem))
+		goto err;
+	task_args->rst_tcp_socks = mem;
+	task_args->rst_tcp_socks_size = rst_tcp_socks_size;
 
 	/*
 	 * Arguments for task restoration.

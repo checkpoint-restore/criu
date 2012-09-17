@@ -3,6 +3,9 @@
 
 #include <netinet/tcp.h>
 
+#include "sockets.h"
+#include "files.h"
+#include "list.h"
 #include "protobuf.h"
 #include "../protobuf/sk-inet.pb-c.h"
 
@@ -62,4 +65,7 @@ struct cr_options;
 void show_tcp_stream(int fd, struct cr_options *);
 
 int check_tcp_repair(void);
+
+extern int rst_tcp_socks_size;
+extern int rst_tcp_socks_remap(void *addr);
 #endif

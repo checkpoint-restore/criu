@@ -110,6 +110,9 @@ struct task_restore_core_args {
 	bool				has_futex;
 	u64				futex_rla;
 	u32				futex_rla_len;
+
+	int				*rst_tcp_socks;
+	int				rst_tcp_socks_size;
 } __aligned(sizeof(long));
 
 struct pt_regs {

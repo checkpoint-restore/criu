@@ -18,6 +18,7 @@
 #include "restorer-log.h"
 #include "util.h"
 #include "image.h"
+#include "sk-inet.h"
 
 #include "crtools.h"
 #include "lock.h"
@@ -279,6 +280,19 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 		sys_close(vma_entry->fd);
 
 	return addr;
+}
+
+static void rst_tcp_socks_all(int *arr, int size)
+{
+	int i;
+
+	if (size == 0)
+		return;
+
+	for (i =0; arr[i] >= 0; i++)
+		tcp_repair_off(arr[i]);
+
+	sys_munmap(arr, size);
 }
 
 /*
@@ -631,9 +645,11 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
-	sys_close(args->logfd);
-
 	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+
+	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
+
+	sys_close(args->logfd);
 
 	/*
 	 * The code that prepared the itimers makes shure the
