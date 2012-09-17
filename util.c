@@ -387,3 +387,20 @@ void shfree_last(void *ptr)
 	sh_bytes_left += sh_last_size;
 	sh_last_size = 0;
 }
+
+int run_scripts(char *action)
+{
+	struct script *script;
+	int ret = 0;
+
+	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
+		pr_perror("Can't set CRTOOL_SCRIPT_ACTION=%s\n", action);
+		return -1;
+	}
+
+	list_for_each_entry(script, &opts.scripts, node)
+		ret |= system(script->path);
+
+	unsetenv("CRTOOLS_SCRIPT_ACTION");
+	return ret;
+}

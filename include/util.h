@@ -323,5 +323,6 @@ static inline int read_img_str(int fd, char **pstr, int size)
 
 extern void *shmalloc(size_t bytes);
 extern void shfree_last(void *ptr);
+extern int run_scripts(char *action);
 
 #endif /* UTIL_H_ */
