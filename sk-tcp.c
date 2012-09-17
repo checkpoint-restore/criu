@@ -19,12 +19,6 @@
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
 
-#ifndef TCP_REPAIR
-#define TCP_REPAIR		19      /* TCP sock is under repair right now */
-#define TCP_REPAIR_QUEUE	20
-#define TCP_QUEUE_SEQ		21
-#define TCP_REPAIR_OPTIONS	22
-
 struct tcp_repair_opt {
 	u32	opt_code;
 	u32	opt_val;
@@ -36,7 +30,6 @@ enum {
 	TCP_SEND_QUEUE,
 	TCP_QUEUES_NR,
 };
-#endif
 
 #ifndef TCPOPT_SACK_PERM
 #define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
@@ -53,14 +46,6 @@ static int tcp_repair_on(int fd)
 		pr_perror("Can't turn TCP repair mode ON");
 
 	return ret;
-}
-
-void tcp_repair_off(int fd)
-{
-	int aux = 0;
-
-	if (setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux)) < 0)
-		pr_perror("Failed to turn off repair mode on socket");
 }
 
 static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
