@@ -12,14 +12,42 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
 static int port = 8880;
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 4096
+
+int read_data(int fd, unsigned char *buf, int size)
+{
+	int cur = 0;
+	int ret;
+	while (cur != size) {
+		ret = read(fd, buf + cur, size - cur);
+		if (ret <= 0)
+			return -1;
+		cur += ret;
+	}
+
+	return 0;
+}
+
+int write_data(int fd, const unsigned char *buf, int size)
+{
+	int cur = 0;
+	int ret;
+
+	while (cur != size) {
+		ret = write(fd, buf + cur, size - cur);
+		if (ret <= 0)
+			return -1;
+		cur += ret;
+	}
+
+	return 0;
+}
 
 int main(int argc, char **argv)
 {
 	unsigned char buf[BUF_SIZE];
 	int fd, fd_s;
 	pid_t extpid;
-	int res;
 	uint32_t crc;
 	int pfd[2];
 
@@ -45,16 +73,15 @@ int main(int argc, char **argv)
 		if (fd < 0)
 			return 1;
 
-		res = read(fd, buf, BUF_SIZE);
-		if (res != BUF_SIZE) {
-			err("read less then have to: %d instead of %d", res, BUF_SIZE);
+		if (read_data(fd, buf, BUF_SIZE)) {
+			err("read less then have to");
 			return 1;
 		}
 		if (datachk(buf, BUF_SIZE, &crc))
 			return 2;
 
 		datagen(buf, BUF_SIZE, &crc);
-		if (write(fd, buf, BUF_SIZE) < BUF_SIZE) {
+		if (write_data(fd, buf, BUF_SIZE)) {
 			err("can't write");
 			return 1;
 		}
@@ -88,14 +115,13 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	datagen(buf, BUF_SIZE, &crc);
-	if (write(fd, buf, BUF_SIZE) < BUF_SIZE) {
+	if (write_data(fd, buf, BUF_SIZE)) {
 		err("can't write");
 		return 1;
 	}
 
-	res = read(fd, buf, BUF_SIZE);
-	if (res != BUF_SIZE) {
-		err("read less then have to: %d instead of %d", res, BUF_SIZE);
+	if (read_data(fd, buf, BUF_SIZE)) {
+		err("read less then have to");
 		return 1;
 	}
 	if (datachk(buf, BUF_SIZE, &crc))
