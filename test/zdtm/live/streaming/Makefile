@@ -9,6 +9,7 @@ TST_NOFILE	=	\
 		socket_loop00	\
 		netlink00	\
 		file_aio	\
+		socket-tcp	\
 
 TST_FILE	=	\
 		unix_sock	\
@@ -58,6 +59,7 @@ wait_stop:
 $(TST):	$(LIB)
 
 file_aio: override LDLIBS += -lrt -pthread
+socket-tcp: override CFLAGS += -D STREAM
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

@@ -9,6 +9,7 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
 
 static int port = 8880;
 
@@ -73,6 +74,22 @@ int main(int argc, char **argv)
 		if (fd < 0)
 			return 1;
 
+#ifdef STREAM
+		while (1) {
+			if (read_data(fd, buf, BUF_SIZE)) {
+				err("read less then have to");
+				return 1;
+			}
+			if (datachk(buf, BUF_SIZE, &crc))
+				return 2;
+
+			datagen(buf, BUF_SIZE, &crc);
+			if (write_data(fd, buf, BUF_SIZE)) {
+				err("can't write");
+				return 1;
+			}
+		}
+#else
 		if (read_data(fd, buf, BUF_SIZE)) {
 			err("read less then have to");
 			return 1;
@@ -85,6 +102,7 @@ int main(int argc, char **argv)
 			err("can't write");
 			return 1;
 		}
+#endif
 		return 0;
 	}
 
@@ -112,6 +130,23 @@ int main(int argc, char **argv)
 	}
 
 	test_daemon();
+#ifdef STREAM
+	while (test_go()) {
+		datagen(buf, BUF_SIZE, &crc);
+		if (write_data(fd, buf, BUF_SIZE)) {
+			err("can't write");
+			return 1;
+		}
+
+		if (read_data(fd, buf, BUF_SIZE)) {
+			err("read less then have to");
+			return 1;
+		}
+		if (datachk(buf, BUF_SIZE, &crc))
+			return 2;
+	}
+	kill(extpid, SIGKILL);
+#else
 	test_waitsig();
 
 	datagen(buf, BUF_SIZE, &crc);
@@ -126,7 +161,7 @@ int main(int argc, char **argv)
 	}
 	if (datachk(buf, BUF_SIZE, &crc))
 		return 2;
-
+#endif
 	pass();
 	return 0;
 }
