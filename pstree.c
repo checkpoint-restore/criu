@@ -141,16 +141,13 @@ int prepare_pstree(void)
 			break;
 
 		pi->pid.virt = e->pid;
-		if (e->pid > max_pid)
-			max_pid = e->pid;
+		max_pid = max((int)e->pid, max_pid);
 
 		pi->pgid = e->pgid;
-		if (e->pgid > max_pid)
-			max_pid = e->pgid;
+		max_pid = max((int)e->pgid, max_pid);
 
 		pi->sid = e->sid;
-		if (e->sid > max_pid)
-			max_pid = e->sid;
+		max_pid = max((int)e->sid, max_pid);
 
 		if (e->ppid == 0) {
 			BUG_ON(root_item);
