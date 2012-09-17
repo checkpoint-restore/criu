@@ -37,7 +37,8 @@ enum {
 #define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
 #endif
 
-static LIST_HEAD(tcp_repair_sockets);
+static LIST_HEAD(cpt_tcp_repair_sockets);
+static LIST_HEAD(rst_tcp_repair_sockets);
 
 static int tcp_repair_on(int fd)
 {
@@ -74,7 +75,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 	if (ret < 0)
 		goto err3;
 
-	list_add_tail(&sk->rlist, &tcp_repair_sockets);
+	list_add_tail(&sk->rlist, &cpt_tcp_repair_sockets);
 	return 0;
 
 err3:
@@ -103,7 +104,7 @@ void tcp_unlock_all(void)
 {
 	struct inet_sk_desc *sk, *n;
 
-	list_for_each_entry_safe(sk, n, &tcp_repair_sockets, rlist)
+	list_for_each_entry_safe(sk, n, &cpt_tcp_repair_sockets, rlist)
 		tcp_unlock_one(sk);
 }
 
@@ -524,14 +525,14 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 
 void tcp_locked_conn_add(struct inet_sk_info *ii)
 {
-	list_add_tail(&ii->rlist, &tcp_repair_sockets);
+	list_add_tail(&ii->rlist, &rst_tcp_repair_sockets);
 }
 
 void tcp_unlock_connections(void)
 {
 	struct inet_sk_info *ii;
 
-	list_for_each_entry(ii, &tcp_repair_sockets, rlist)
+	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)
 		nf_unlock_connection_info(ii);
 }
 
