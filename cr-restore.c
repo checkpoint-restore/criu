@@ -103,6 +103,9 @@ static int root_prepare_shared(void)
 	if (prepare_shared_tty())
 		return -1;
 
+	if (prepare_shared_reg_files())
+		return -1;
+
 	if (collect_reg_files())
 		return -1;
 

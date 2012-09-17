@@ -24,6 +24,8 @@ extern int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *
 extern void clear_ghost_files(void);
 extern int collect_reg_files(void);
 
+extern int prepare_shared_reg_files(void);
+
 extern int dump_reg_file(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset);
 extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 

@@ -43,6 +43,8 @@ struct ghost_file {
 static u32 ghost_file_ids = 1;
 static LIST_HEAD(ghost_files);
 
+static mutex_t *ghost_file_mutex;
+
 /*
  * This constant is selected without any calculations. Just do not
  * want to pick up too big files with us in the image.
@@ -351,12 +353,14 @@ static int open_path(struct file_desc *d,
 
 	rfi = container_of(d, struct reg_file_info, d);
 
-	if (rfi->ghost)
+	if (rfi->ghost) {
+		mutex_lock(ghost_file_mutex);
 		if (link(rfi->ghost->path, rfi->path) < 0) {
 			pr_perror("Can't link %s -> %s\n",
 					rfi->ghost->path, rfi->path);
 			return -1;
 		}
+	}
 
 	tmp = open_cb(rfi, arg);
 	if (tmp < 0) {
@@ -370,6 +374,7 @@ static int open_path(struct file_desc *d,
 			pr_info("Unlink the ghost %s\n", rfi->ghost->path);
 			unlink(rfi->ghost->path);
 		}
+		mutex_unlock(ghost_file_mutex);
 	}
 
 	if (restore_fown(tmp, rfi->rfe->fown))
@@ -435,6 +440,16 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
 	file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 
+	return 0;
+}
+
+int prepare_shared_reg_files(void)
+{
+	ghost_file_mutex = shmalloc(sizeof(*ghost_file_mutex));
+	if (!ghost_file_mutex)
+		return -1;
+
+	mutex_init(ghost_file_mutex);
 	return 0;
 }
 
