@@ -890,6 +890,18 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
 	ret = (int)futex_get(&task_entries->nr_in_progress);
 
+	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
+	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	futex_wait_until(&task_entries->nr_in_progress, 0);
+
+	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
+	ret = sigaction(SIGCHLD, &old_act, NULL);
+	if (ret < 0) {
+		pr_perror("sigaction() failed\n");
+		goto out;
+	}
+
+	network_unlock();
 out:
 	if (ret < 0) {
 		struct pstree_item *pi;
@@ -906,18 +918,6 @@ out:
 		}
 		return 1;
 	}
-
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
-	futex_wait_until(&task_entries->nr_in_progress, 0);
-
-	ret = sigaction(SIGCHLD, &old_act, NULL);
-	if (ret < 0) {
-		pr_perror("sigaction() failed\n");
-		return -1;
-	}
-
-	tcp_unlock_connections();
 
 	pr_info("Go on!!!\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);

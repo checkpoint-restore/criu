@@ -424,6 +424,7 @@ void network_unlock(void)
 
 	if  (!(opts.namespaces_flags & CLONE_NEWNET)) {
 		tcp_unlock_all();
+		tcp_unlock_connections();
 
 		return;
 	}
