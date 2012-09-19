@@ -60,6 +60,25 @@ OPTIONS
     Checkpoint namespaces. Namespaces must be separated by comma.
     Currently supported namespaces: uts, ipc, mnt, pid, net.
 
+-r|--root <path>::
+    Change the root filesystem (when run in mount namespace).
+
+--evasive-devices::
+    Use any path to a device file if the original one is inaccessible.
+
+--veth-pair <IN=OUT>::
+    Correspondence between outside and inside names of veth devices.
+
+--action-script <SCR>::
+    Add an external action script.
+    The environment variable 'CRTOOL_SCRIPT_ACTION' contains one of the
+    actions:
+        * 'network-lock'
+                lock network in a target network namespace
+
+        * 'network-unlock'
+                unlock network in a target network namespace
+
 -o|--log-file <file>::
     Write logging messages to 'file'.
 
