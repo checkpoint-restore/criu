@@ -37,20 +37,16 @@
 #define MSGMAX			8192
 #endif
 
-#ifndef MSG_STEAL
-
-#define MSG_STEAL		040000
-
-/* message buffer for msgrcv in case of array calls */
-struct msgbuf_a {
-	long mtype;         /* type of message */
-	int msize;       /* size of message */
-	char mtext[0];      /* message text */
-};
+#ifndef MSG_COPY
+#define MSG_COPY		040000
 #endif
 
 #ifndef MSG_SET
 #define MSG_SET			13
+#endif
+
+#ifndef MSG_SET_COPY
+#define MSG_SET_COPY		14
 #endif
 
 #ifndef SEM_SET
@@ -190,54 +186,58 @@ static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 		       msg->qbytes, msg->qnum);
 }
 
-static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry, size_t cbytes)
+static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry,
+				       unsigned int msg_nr)
 {
-	void *msg_array, *ptr;
-	size_t array_size;
-	int ret, msg_nr = 0;
+	struct msgbuf *message;
+	unsigned int msgmax;
+	int ret, msg_cnt = 0;
+	struct sysctl_req req[] = {
+		{ "kernel/msgmax", &msgmax, CTL_U32 },
+		{ },
+	};
 
-	/*
-	 * Here we allocate memory for struct msgbuf_a twice becase messages in
-	 * array will be aligned by struct msgbuf_a.
-	 */
-	array_size = entry->qnum * sizeof(struct msgbuf_a) * 2 + cbytes;
-	msg_array = ptr = xmalloc(array_size);
-	if (msg_array == NULL) {
-		pr_err("Failed to allocate memory for IPC messages\n");
-		return -ENOMEM;
-	}
-
-	ret = msgrcv(entry->desc->id, msg_array, array_size, 0, IPC_NOWAIT | MSG_STEAL);
+	ret = sysctl_op(req, CTL_READ);
 	if (ret < 0) {
-		pr_perror("Failed to receive IPC messages array");
+		pr_err("Failed to read max IPC message size\n");
 		goto err;
 	}
 
-	while (msg_nr < entry->qnum) {
-		struct msgbuf_a *data = ptr;
+	msgmax += sizeof(struct msgbuf);
+	message = xmalloc(msgmax);
+	if (message == NULL) {
+		pr_err("Failed to allocate memory for IPC message\n");
+		return -ENOMEM;
+	}
+
+	for (msg_cnt = 0; msg_cnt < msg_nr; msg_cnt++) {
 		IpcMsg msg = IPC_MSG__INIT;
 
-		msg.msize = data->msize;
-		msg.mtype = data->mtype;
+		ret = msgrcv(entry->desc->id, message, msgmax, msg_cnt, IPC_NOWAIT | MSG_COPY);
+		if (ret < 0) {
+			pr_perror("Failed to copy IPC message");
+			goto err;
+		}
 
-		pr_info_ipc_msg(msg_nr, &msg);
+		msg.msize = ret;
+		msg.mtype = message->mtype;
+
+		pr_info_ipc_msg(msg_cnt, &msg);
 
 		ret = pb_write_one(fd, &msg, PB_IPCNS_MSG);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message header\n");
 			break;
 		}
-		ret = write_img_buf(fd, data->mtext, round_up(msg.msize, sizeof(u64)));
+		ret = write_img_buf(fd, message->mtext, round_up(msg.msize, sizeof(u64)));
 		if (ret < 0) {
 			pr_err("Failed to write IPC message data\n");
 			break;
 		}
-		msg_nr++;
-		ptr += round_up(data->msize + sizeof(struct msgbuf_a), sizeof(struct msgbuf_a));
 	}
 	ret = 0;
 err:
-	xfree(msg_array);
+	xfree(message);
 	return ret;
 }
 
@@ -259,7 +259,7 @@ static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
 		pr_err("Failed to write IPC message queue\n");
 		return ret;
 	}
-	return dump_ipc_msg_queue_messages(fd, &msg, ds->msg_cbytes);
+	return dump_ipc_msg_queue_messages(fd, &msg, ds->msg_qnum);
 }
 
 static int dump_ipc_msg(int fd)
@@ -291,7 +291,7 @@ static int dump_ipc_msg(int fd)
 			slot++;
 	}
 	if (slot != info.msgpool) {
-		pr_err("Failed to collect %d (only %d succeeded)\n", info.msgpool, slot);
+		pr_err("Failed to collect %d message queues (only %d succeeded)\n", info.msgpool, slot);
 		return -EFAULT;
 	}
 	return info.msgpool;
