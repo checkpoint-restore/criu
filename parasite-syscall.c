@@ -228,6 +228,8 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	int ret;
 	user_regs_struct_t regs_orig, regs;
 
+	BUG_ON(args_size > PARASITE_ARG_SIZE);
+
 	if (ctl->pid == pid)
 		regs = ctl->regs_orig;
 	else {
