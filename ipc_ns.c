@@ -189,7 +189,7 @@ static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry,
 				       unsigned int msg_nr)
 {
-	struct msgbuf *message;
+	struct msgbuf *message = NULL;
 	unsigned int msgmax;
 	int ret, msg_cnt = 0;
 	struct sysctl_req req[] = {
