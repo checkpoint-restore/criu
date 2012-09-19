@@ -634,7 +634,7 @@ struct mount_info *parse_mountinfo(pid_t pid)
 {
 	struct mount_info *list = NULL;
 	FILE *f;
-	char str[256];
+	char str[1024];
 
 	snprintf(str, sizeof(str), "/proc/%d/mountinfo", pid);
 	f = fopen(str, "r");
