@@ -7,4 +7,5 @@ message tcp_stream_entry {
 	required uint32		opt_mask	= 5; /* TCPI_OPT_ bits */
 	required uint32		snd_wscale	= 6;
 	required uint32		mss_clamp	= 7;
+	optional uint32		rcv_wscale	= 8;
 }

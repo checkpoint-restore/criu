@@ -204,8 +204,11 @@ static int tcp_stream_get_options(int sk, TcpStreamEntry *tse)
 		goto err_sopt;
 
 	tse->opt_mask = ti.tcpi_options;
-	if (ti.tcpi_options & TCPI_OPT_WSCALE)
+	if (ti.tcpi_options & TCPI_OPT_WSCALE) {
 		tse->snd_wscale = ti.tcpi_snd_wscale;
+		tse->rcv_wscale = ti.tcpi_rcv_wscale;
+		tse->has_rcv_wscale = true;
+	}
 
 	pr_info("\toptions: mss_clamp %x wscale %x tstamp %d sack %d\n",
 			(int)tse->mss_clamp,
@@ -398,9 +401,10 @@ static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
 	}
 
 	if (tse->opt_mask & TCPI_OPT_WSCALE) {
-		pr_debug("\t\tWill set wscale to %u\n", tse->snd_wscale);
+		pr_debug("\t\tWill set snd_wscale to %u\n", tse->snd_wscale);
+		pr_debug("\t\tWill set rcv_wscale to %u\n", tse->rcv_wscale);
 		opts[onr].opt_code = TCPOPT_WINDOW;
-		opts[onr].opt_val = tse->snd_wscale;
+		opts[onr].opt_val = tse->snd_wscale + (tse->rcv_wscale << 16);
 		onr++;
 	}
 
@@ -550,7 +554,8 @@ void show_tcp_stream(int fd, struct cr_options *opt)
 		pr_msg("OPTS: %#x\n", (int)tse->opt_mask);
 		pr_msg("\tmss_clamp %u\n", (int)tse->mss_clamp);
 		if (tse->opt_mask & TCPI_OPT_WSCALE)
-			pr_msg("\twscale %u\n", (int)tse->snd_wscale);
+			pr_msg("\tsnd wscale %u\n", (int)tse->snd_wscale);
+			pr_msg("\trcv wscale %u\n", (int)tse->rcv_wscale);
 		if (tse->opt_mask & TCPI_OPT_TIMESTAMPS)
 			pr_msg("\ttimestamps\n");
 		if (tse->opt_mask & TCPI_OPT_SACK)
