@@ -178,17 +178,15 @@ static int parse_index(u32 id, int lfd, int major)
 	return index;
 }
 
-static int tty_test_and_set_index(int index)
+static int tty_test_and_set(int bit, unsigned long *bitmap)
 {
 	int ret;
 
-	BUG_ON(index > (MAX_TTYS << 1));
+	BUG_ON(bit > (MAX_TTYS << 1));
 
-	/* FIXME Locking! */
-	ret = test_bit(index, tty_bitmap);
+	ret = test_bit(bit, bitmap);
 	if (!ret)
-		set_bit(index, tty_bitmap);
-
+		set_bit(bit, bitmap);
 	return ret;
 }
 
@@ -997,7 +995,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 	 */
 	ioctl(lfd, TCFLSH, TCIOFLUSH);
 
-	if (!tty_test_and_set_index(e.tty_info_id))
+	if (!tty_test_and_set(e.tty_info_id, tty_bitmap))
 		ret = dump_pty_info(lfd, e.tty_info_id, p, major, index);
 
 	if (!ret)
