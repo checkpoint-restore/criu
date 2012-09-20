@@ -91,6 +91,7 @@ static LIST_HEAD(all_ttys);
  */
 #define MAX_TTYS 1024
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
+static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
 /*
  * /dev/ptmx is a shared resource between all tasks
@@ -922,6 +923,15 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 */
 	if (hangup)
 		return pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
+
+	/*
+	 * Now trace the paired/unpaired ttys. For example
+	 * the task might have slave peer assigned but no
+	 * master peer. Such "detached" master peers are
+	 * not yet supported by our tool and better to
+	 * inform a user about such situatio,
+	 */
+	tty_test_and_set(id, tty_active_pairs);
 
 	if (pty_get_flags(lfd, major, index, &info))
 		goto out;
