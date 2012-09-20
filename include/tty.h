@@ -18,4 +18,6 @@ extern int collect_tty(void);
 extern int prepare_shared_tty(void);
 extern void tty_setup_slavery(void);
 
+extern int tty_verify_active_pairs(void);
+
 #endif /* CR_TTY_H__ */

@@ -1630,6 +1630,10 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (ret)
 		goto err;
 
+	ret = tty_verify_active_pairs();
+	if (ret)
+		goto err;
+
 	fd_id_show_tree();
 err:
 	close_cr_fdset(&glob_fdset);
