@@ -309,26 +309,12 @@ static int tmpfs_dump(struct mount_info *pm)
 static int tmpfs_restore(struct mount_info *pm)
 {
 	int ret, status = -1;
-	sigset_t mask, oldmask;
 	pid_t pid;
-
-	ret = sigprocmask(SIG_SETMASK, NULL, &oldmask);
-	if (ret == -1) {
-		pr_perror("Can not get mask of blocked signals");
-		return -1;
-	}
-	mask = oldmask;
-	sigaddset(&mask, SIGCHLD);
-	ret = sigprocmask(SIG_SETMASK, &mask, NULL);
-	if (ret == -1) {
-		pr_perror("Can not set mask of blocked signals");
-		return -1;
-	}
 
 	pid = fork();
 	if (pid == -1) {
 		pr_perror("fork() failed\n");
-		goto out_unlock;
+		return -1;
 	} else if (pid == 0) {
 		int fd_img;
 
@@ -352,20 +338,12 @@ static int tmpfs_restore(struct mount_info *pm)
 	ret = waitpid(pid, &status, 0);
 	if (ret == -1) {
 		pr_perror("waitpid() failed");
-		goto out_unlock;
+		return -1;
 	}
 
 	if (status) {
 		pr_err("Can't restore tmpfs content\n");
-		status = -1;
-		goto out_unlock;
-	}
-
-out_unlock:
-	ret = sigprocmask(SIG_SETMASK, &oldmask, NULL);
-	if (ret == -1) {
-		pr_perror("Can not set mask of blocked signals");
-		BUG();
+		return -1;
 	}
 
 	return status;
