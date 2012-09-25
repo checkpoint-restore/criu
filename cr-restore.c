@@ -892,6 +892,8 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	pr_info("Wait until all tasks are restored\n");
 	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
 	ret = (int)futex_get(&task_entries->nr_in_progress);
+	if (ret < 0)
+		goto out;
 
 	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
 	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
