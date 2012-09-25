@@ -705,6 +705,6 @@ core_restore_failed:
 		"jmp *%%rax				\n"
 		:
 		: "r"(ret)
-		: );
+		: "memory");
 	return ret;
 }
