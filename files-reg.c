@@ -253,7 +253,7 @@ dump_entry:
 			&rpe, PB_REMAP_FPATH);
 }
 
-static int check_path_remap(char *rpath, const struct stat *ost, int lfd, u32 id)
+static int check_path_remap(char *rpath, int plen, const struct stat *ost, int lfd, u32 id)
 {
 	int ret;
 	struct stat pst;
@@ -320,7 +320,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
 			p->fd, lfd, path);
 
-	if (check_path_remap(rpath, &p->stat, lfd, id))
+	if (check_path_remap(rpath, len, &p->stat, lfd, id))
 		return -1;
 
 	rfe.id		= id;
