@@ -58,6 +58,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	GhostFileEntry *gfe = NULL;
 	int gfd, ifd, ghost_flags;
 
+	rfe->remap_id &= ~REMAP_GHOST;
 	list_for_each_entry(gf, &ghost_files, list)
 		if (gf->id == rfe->remap_id)
 			goto gf_found;
@@ -163,7 +164,6 @@ static int collect_remaps(void)
 			goto tail;
 		}
 
-		rfe->remap_id &= ~REMAP_GHOST;
 		rfi = container_of(fdesc, struct reg_file_info, d);
 		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
 		ret = open_remap_ghost(rfi, rfe);
