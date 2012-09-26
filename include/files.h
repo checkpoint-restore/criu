@@ -95,4 +95,6 @@ extern int set_fd_flags(int fd, int flags);
 #define AT_EMPTY_PATH 0x1000
 #endif
 
+#define LREMAP_PARAM	"link-remap"
+
 #endif /* FILES_H_ */

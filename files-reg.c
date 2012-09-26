@@ -285,6 +285,12 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
 
+	if (!opts.link_remap_ok) {
+		pr_err("Can't create link remap for %s. "
+				"Use " LREMAP_PARAM " option.\n", path);
+		return -1;
+	}
+
 	/*
 	 * Linked remapping -- we create a hard link on a removed file
 	 * in the directory original file used to sit.

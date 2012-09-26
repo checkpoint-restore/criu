@@ -232,7 +232,7 @@ EOF
 	echo Dump $PID
 	mkdir -p $ddump
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS dump --tcp-established -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS dump --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}

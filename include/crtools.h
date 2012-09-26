@@ -95,6 +95,7 @@ struct cr_options {
 	bool			ext_unix_sk;
 	bool			tcp_established_ok;
 	bool			evasive_devices;
+	bool			link_remap_ok;
 	unsigned int		namespaces_flags;
 	bool			log_file_per_pid;
 	char			*output;

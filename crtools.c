@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
 			{ "pidfile", required_argument, 0, 46},
 			{ "veth-pair", required_argument, 0, 47},
 			{ "action-script", required_argument, 0, 49},
+			{ LREMAP_PARAM, no_argument, 0, 41},
 			{ },
 		};
 
@@ -159,6 +160,10 @@ int main(int argc, char *argv[])
 				if (log_level >= 0)
 					log_level++;
 			}
+			break;
+		case 41:
+			pr_info("Will allow link remaps on FS\n");
+			opts.link_remap_ok = true;
 			break;
 		case 42:
 			pr_info("Will dump TCP connections\n");
@@ -302,6 +307,7 @@ usage:
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
 	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
 	pr_msg("  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n");
+	pr_msg("  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n");
 	pr_msg("  --action-script [SCR]	add an external action script\n");
 	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
 	pr_msg("			* network-lock - lock network in a target network namespace");
