@@ -310,8 +310,8 @@ usage:
 	pr_msg("  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n");
 	pr_msg("  --action-script [SCR]	add an external action script\n");
 	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
-	pr_msg("			* network-lock - lock network in a target network namespace");
-	pr_msg("			* network-unlock - unlock network in a target network namespace");
+	pr_msg("			* network-lock - lock network in a target network namespace\n");
+	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
