@@ -20,6 +20,11 @@
 
 #include "files-reg.h"
 
+struct file_remap {
+	char *path;
+	unsigned int users;
+};
+
 /*
  * Ghost files are those not visible from the FS. Dumping them is
  * nasty and the only way we have -- just carry its contents with
@@ -33,11 +38,9 @@ struct ghost_file {
 			u32	dev;
 			u32	ino;
 		};
-		struct /* for restoring */ {
-			char *path;
-		};
+
+		struct file_remap remap; /* for restoring */
 	};
-	unsigned int users;
 };
 
 static u32 ghost_file_ids = 1;
@@ -74,8 +77,8 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf = shmalloc(sizeof(*gf));
 	if (!gf)
 		return -1;
-	gf->path = xmalloc(PATH_MAX);
-	if (!gf->path)
+	gf->remap.path = xmalloc(PATH_MAX);
+	if (!gf->remap.path)
 		goto err;
 
 	ifd = open_image_ro(CR_FD_GHOST_FILE, rfe->remap_id);
@@ -85,10 +88,10 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
 		goto err;
 
-	snprintf(gf->path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
 	if (S_ISFIFO(gfe->mode)) {
-		if (mknod(gf->path, gfe->mode, 0)) {
+		if (mknod(gf->remap.path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file\n");
 			goto err;
 		}
@@ -96,7 +99,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	} else
 		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
 
-	gfd = open(gf->path, ghost_flags, gfe->mode);
+	gfd = open(gf->remap.path, ghost_flags, gfe->mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
 		goto err;
@@ -117,17 +120,17 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	close(gfd);
 
 	gf->id = rfe->remap_id;
-	gf->users = 0;
+	gf->remap.users = 0;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
-	gf->users++;
-	rfi->ghost = gf;
+	gf->remap.users++;
+	rfi->remap = &gf->remap;
 	return 0;
 
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);
-	xfree(gf->path);
+	xfree(gf->remap.path);
 	shfree_last(gf);
 	return -1;
 }
@@ -353,11 +356,11 @@ static int open_path(struct file_desc *d,
 
 	rfi = container_of(d, struct reg_file_info, d);
 
-	if (rfi->ghost) {
+	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
-		if (link(rfi->ghost->path, rfi->path) < 0) {
+		if (link(rfi->remap->path, rfi->path) < 0) {
 			pr_perror("Can't link %s -> %s\n",
-					rfi->ghost->path, rfi->path);
+					rfi->remap->path, rfi->path);
 			return -1;
 		}
 	}
@@ -368,12 +371,12 @@ static int open_path(struct file_desc *d,
 		return -1;
 	}
 
-	if (rfi->ghost) {
+	if (rfi->remap) {
 		unlink(rfi->path);
-		BUG_ON(!rfi->ghost->users);
-		if (--rfi->ghost->users == 0) {
-			pr_info("Unlink the ghost %s\n", rfi->ghost->path);
-			unlink(rfi->ghost->path);
+		BUG_ON(!rfi->remap->users);
+		if (--rfi->remap->users == 0) {
+			pr_info("Unlink the ghost %s\n", rfi->remap->path);
+			unlink(rfi->remap->path);
 		}
 		mutex_unlock(ghost_file_mutex);
 	}
@@ -436,7 +439,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 
 	rfi->rfe = pb_msg(base, RegFileEntry);
 	rfi->path = rfi->rfe->name;
-	rfi->ghost = NULL;
+	rfi->remap = NULL;
 
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
 	file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
