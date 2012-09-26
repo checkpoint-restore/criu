@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "crtools.h"
-
+#include "file-ids.h"
 #include "mount.h"
 #include "files.h"
 #include "image.h"
@@ -135,6 +135,32 @@ err:
 	return -1;
 }
 
+static int open_remap_linked(struct reg_file_info *rfi,
+		RemapFilePathEntry *rfe)
+{
+	struct file_remap *rm;
+	struct file_desc *rdesc;
+	struct reg_file_info *rrfi;
+
+	rdesc = find_file_desc_raw(FD_TYPES__REG, rfe->remap_id);
+	if (!rdesc) {
+		pr_err("Can't find target file %x\n", rfe->remap_id);
+		return -1;
+	}
+
+	rm = xmalloc(sizeof(*rm));
+	if (!rm)
+		return -1;
+
+	rrfi = container_of(rdesc, struct reg_file_info, d);
+	pr_info("Remapped %s -> %s\n", rfi->path, rrfi->path);
+
+	rm->path = rrfi->path;
+	rm->users = 1;
+	rfi->remap = rm;
+	return 0;
+}
+
 static int collect_remaps(void)
 {
 	int fd, ret = 0;
@@ -153,13 +179,6 @@ static int collect_remaps(void)
 			break;
 
 		ret = -1;
-
-		if (!(rfe->remap_id & REMAP_GHOST)) {
-			pr_err("Non ghost remap not supported @%#x\n",
-					rfe->orig_id);
-			goto tail;
-		}
-
 		fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
 		if (fdesc == NULL) {
 			pr_err("Remap for non existing file %#x\n",
@@ -169,7 +188,11 @@ static int collect_remaps(void)
 
 		rfi = container_of(fdesc, struct reg_file_info, d);
 		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
-		ret = open_remap_ghost(rfi, rfe);
+
+		if (rfe->remap_id & REMAP_GHOST)
+			ret = open_remap_ghost(rfi, rfe);
+		else
+			ret = open_remap_linked(rfi, rfe);
 tail:
 		remap_file_path_entry__free_unpacked(rfe, NULL);
 		if (ret)
@@ -256,6 +279,60 @@ dump_entry:
 			&rpe, PB_REMAP_FPATH);
 }
 
+static int create_link_remap(char *path, int len, int lfd, u32 *idp)
+{
+	char link_name[PATH_MAX], *tmp;
+	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
+	FownEntry fwn = FOWN_ENTRY__INIT;
+
+	/*
+	 * Linked remapping -- we create a hard link on a removed file
+	 * in the directory original file used to sit.
+	 *
+	 * Bad news is than we can't easily open lfd's parent dir. Thus
+	 * we have to just generate an absolute path and use it. The linkat
+	 * will fail if we chose the bad one.
+	 */
+
+	memcpy(link_name, path, len);
+	tmp = link_name + len;
+	while (*tmp != '/') {
+		BUG_ON(tmp == link_name);
+		tmp--;
+	}
+
+	rfe.id = *idp 	= fd_id_generate_special();
+	rfe.flags	= 0;
+	rfe.pos		= 0;
+	rfe.fown	= &fwn;
+	rfe.name	= link_name;
+
+	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
+	sprintf(tmp + 1, "link_remap.%d", rfe.id);
+
+	if (linkat(lfd, "", 0, link_name, AT_EMPTY_PATH) < 0) {
+		pr_perror("Can't link remap to %s", path);
+		return -1;
+	}
+
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILES);
+}
+
+static int dump_linked_remap(char *path, int len, const struct stat *ost, int lfd, u32 id)
+{
+	u32 lid;
+	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
+
+	if (create_link_remap(path, len, lfd, &lid))
+		return -1;
+
+	rpe.orig_id = id;
+	rpe.remap_id = lid;
+
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+			&rpe, PB_REMAP_FPATH);
+}
+
 static int check_path_remap(char *rpath, int plen, const struct stat *ost, int lfd, u32 id)
 {
 	int ret;
@@ -278,6 +355,10 @@ static int check_path_remap(char *rpath, int plen, const struct stat *ost, int l
 		 * uning linkat with AT_EMPTY_PATH flag and remap it to this
 		 * name.
 		 */
+
+		if (errno == ENOENT)
+			return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id);
+
 		pr_perror("Can't stat path");
 		return -1;
 	}
