@@ -78,6 +78,7 @@ TST_FILE	=				\
 		unlink_fstat00			\
 		unlink_fstat01			\
 		unlink_fstat02			\
+		unlink_fstat03			\
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\

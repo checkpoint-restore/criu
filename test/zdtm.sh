@@ -44,6 +44,7 @@ static/socket_udplite
 static/selfexe00
 static/unlink_fstat00
 static/unlink_fstat02
+static/unlink_fstat03
 static/eventfs00
 static/signalfd00
 static/inotify00
