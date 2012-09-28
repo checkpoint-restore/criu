@@ -235,118 +235,66 @@ static int close_mountpoint(DIR *dfd)
 
 static int tmpfs_dump(struct mount_info *pm)
 {
-	int ret, status;
-	pid_t pid;
+	int ret = -1;
+	char tmpfs_path[PATH_MAX];
+	int fd, fd_img = -1;
+	DIR *fdir = NULL;
 
-	pid = fork();
-	if (pid == -1) {
-		pr_perror("fork() failed\n");
+	fdir = open_mountpoint(pm);
+	if (fdir == NULL)
 		return -1;
-	} else if (pid == 0) {
-		char tmpfs_path[PATH_MAX];
-		int fd, fd_img;
-		DIR *fdir;
 
-		fdir = open_mountpoint(pm);
-		if (fdir == NULL)
-			exit(1);
+	fd = dirfd(fdir);
+	if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {
+		pr_perror("Can not drop FD_CLOEXEC");
+		goto out;
+	}
 
-		fd = dirfd(fdir);
-		if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {
-			pr_perror("Can not drop FD_CLOEXEC");
-			exit(1);
-		}
+	fd_img = open_image(CR_FD_TMPFS, O_DUMP, pm->mnt_id);
+	if (fd_img < 0)
+		goto out;
 
-		fd_img = open_image(CR_FD_TMPFS, O_DUMP, pm->mnt_id);
-		if (fd_img < 0)
-			exit(1);
+	snprintf(tmpfs_path, sizeof(tmpfs_path),
+				       "/proc/self/fd/%d", fd);
 
-		ret = dup2(fd_img, STDOUT_FILENO);
-		if (ret < 0) {
-			pr_perror("dup2() failed");
-			exit(1);
-		}
-		ret = dup2(log_get_fd(), STDERR_FILENO);
-		if (ret < 0) {
-			pr_perror("dup2() failed");
-			exit(1);
-		}
-		close(fd_img);
-
-		/*
-		 * tmpfs is in another mount namespace,
-		 * a direct path is inaccessible
-		 */
-
-		snprintf(tmpfs_path, sizeof(tmpfs_path),
-					       "/proc/self/fd/%d", fd);
-
-		execlp("tar", "tar", "--create",
+	ret = cr_system(-1, fd_img, -1, "tar", (char *[])
+			{ "tar", "--create",
 			"--gzip",
 			"--check-links",
 			"--preserve-permissions",
 			"--sparse",
 			"--numeric-owner",
-			"--directory", tmpfs_path, ".", NULL);
-		pr_perror("exec failed");
-		exit(1);
-	}
+			"--directory", tmpfs_path, ".", NULL });
 
-	ret = waitpid(pid, &status, 0);
-	if (ret == -1) {
-		pr_perror("waitpid() failed");
-		return -1;
-	}
-
-	if (status) {
+	if (ret)
 		pr_err("Can't dump tmpfs content\n");
-		return -1;
-	}
 
-	return 0;
+out:
+	close_safe(&fd_img);
+	close_mountpoint(fdir);
+	return ret;
 }
 
 static int tmpfs_restore(struct mount_info *pm)
 {
-	int ret, status = -1;
-	pid_t pid;
+	int ret;
+	int fd_img;
 
-	pid = fork();
-	if (pid == -1) {
-		pr_perror("fork() failed\n");
+	fd_img = open_image_ro(CR_FD_TMPFS, pm->mnt_id);
+	if (fd_img < 0)
 		return -1;
-	} else if (pid == 0) {
-		int fd_img;
 
-		fd_img = open_image_ro(CR_FD_TMPFS, pm->mnt_id);
-		if (fd_img < 0)
-			exit(1);
+	ret = cr_system(fd_img, -1, -1, "tar",
+			(char *[]) {"tar", "--extract", "--gzip",
+				"--directory", pm->mountpoint, NULL});
+	close(fd_img);
 
-		ret = dup2(fd_img, STDIN_FILENO);
-		if (ret < 0) {
-			pr_perror("dup2() failed");
-			exit(1);
-		}
-		close(fd_img);
-
-		execlp("tar", "tar", "--extract", "--gzip",
-					"--directory", pm->mountpoint, NULL);
-		pr_perror("exec failed");
-		exit(1);
-	}
-
-	ret = waitpid(pid, &status, 0);
-	if (ret == -1) {
-		pr_perror("waitpid() failed");
-		return -1;
-	}
-
-	if (status) {
+	if (ret) {
 		pr_err("Can't restore tmpfs content\n");
 		return -1;
 	}
 
-	return status;
+	return 0;
 }
 
 static int binfmt_misc_dump(struct mount_info *pm)

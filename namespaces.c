@@ -151,18 +151,8 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 
 int prepare_namespace(int pid, unsigned long clone_flags)
 {
-	sigset_t blockmask, oldmask;
-	int ret = -1;
-
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			pid, clone_flags);
-
-	sigemptyset(&blockmask);
-	sigaddset(&blockmask, SIGCHLD);
-	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
-		pr_perror("Can not set mask of blocked signals");
-		return -1;
-	}
 
 	/*
 	 * On netns restore we launch an IP tool, thus we
@@ -171,22 +161,15 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	 */
 
 	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(pid))
-		goto out;
+		return -1;
 	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(pid))
-		goto out;
+		return -1;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(pid))
-		goto out;
+		return -1;
 	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns(pid))
-		goto out;
+		return -1;
 
-	ret = 0;
-out:
-	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
-		pr_perror("Can not set mask of blocked signals");
-		BUG();
-	}
-
-	return ret;
+	return 0;
 }
 
 int try_show_namespaces(int ns_pid, struct cr_options *o)
