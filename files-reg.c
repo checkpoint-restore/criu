@@ -300,8 +300,9 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 	 * will fail if we chose the bad one.
 	 */
 
-	memcpy(link_name, path, len);
-	tmp = link_name + len;
+	link_name[0] = '.';
+	memcpy(link_name + 1, path, len);
+	tmp = link_name + len + 1;
 	while (*tmp != '/') {
 		BUG_ON(tmp == link_name);
 		tmp--;
@@ -311,12 +312,12 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 	rfe.flags	= 0;
 	rfe.pos		= 0;
 	rfe.fown	= &fwn;
-	rfe.name	= link_name;
+	rfe.name	= link_name + 1;
 
 	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
 	sprintf(tmp + 1, "link_remap.%d", rfe.id);
 
-	if (linkat(lfd, "", 0, link_name, AT_EMPTY_PATH) < 0) {
+	if (linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH) < 0) {
 		pr_perror("Can't link remap to %s", path);
 		return -1;
 	}
