@@ -160,9 +160,10 @@ err_set_sock:
 	/*
 	 * Restore original peek offset.
 	 */
-	ret = setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, sizeof(int));
-	if (ret < 0)
+	if (setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, sizeof(int))) {
 		pr_perror("setsockopt failed on restore\n");
+		ret = -1;
+	}
 err_brk:
 	xfree(data);
 	return ret;
