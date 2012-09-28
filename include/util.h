@@ -325,4 +325,6 @@ extern void *shmalloc(size_t bytes);
 extern void shfree_last(void *ptr);
 extern int run_scripts(char *action);
 
+extern int cr_system(int in, int out, int err, char *cmd, char *const argv[]);
+
 #endif /* UTIL_H_ */

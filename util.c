@@ -404,3 +404,109 @@ int run_scripts(char *action)
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
 	return ret;
 }
+
+#define DUP_SAFE(fd, out)						\
+	({							\
+		int ret__;					\
+		ret__ = dup(fd);				\
+		if (ret__ == -1) {				\
+			pr_perror("dup(%d) failed", fd);	\
+			goto out;				\
+		}						\
+		ret__;						\
+	})
+
+/*
+ * If "in" is negative, stdin will be closed.
+ * If "out" or "err" are negative, a log file descriptor will be used.
+ */
+int cr_system(int in, int out, int err, char *cmd, char *const argv[])
+{
+	sigset_t blockmask, oldmask;
+	int ret = -1, status;
+	pid_t pid;
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		return -1;
+	}
+
+	pid = fork();
+	if (pid == -1) {
+		pr_perror("fork() failed\n");
+		goto out;
+	} else if (pid == 0) {
+		if (out < 0)
+			out = log_get_fd();
+		if (err < 0)
+			err = log_get_fd();
+
+		/*
+		 * out, err, in should be a separate fds,
+		 * because reopen_fd_as() closes an old fd
+		 */
+		if (err == out || err == in)
+			err = DUP_SAFE(err, out_chld);
+
+		if (out == in)
+			out = DUP_SAFE(out, out_chld);
+
+		if (in < 0) {
+			close(STDIN_FILENO);
+		} else {
+			if (move_img_fd(&out, STDIN_FILENO) ||
+			    move_img_fd(&err, STDIN_FILENO))
+				goto out_chld;
+
+			if (reopen_fd_as_nocheck(STDIN_FILENO, in))
+				goto out_chld;
+		}
+
+		if (move_img_fd(&err, STDOUT_FILENO))
+			goto out_chld;
+
+		if (reopen_fd_as_nocheck(STDOUT_FILENO, out))
+			goto out_chld;
+
+		if (reopen_fd_as_nocheck(STDERR_FILENO, err))
+			goto out_chld;
+
+		execvp(cmd, argv);
+
+		pr_perror("exec failed");
+out_chld:
+		_exit(1);
+	}
+
+	while (1) {
+		ret = waitpid(pid, &status, 0);
+		if (ret == -1) {
+			pr_perror("waitpid() failed");
+			goto out;
+		}
+
+		if (WIFEXITED(status)) {
+			if (WEXITSTATUS(status))
+				pr_err("exited, status=%d\n", WEXITSTATUS(status));
+			break;
+		} else if (WIFSIGNALED(status)) {
+			pr_err("killed by signal %d\n", WTERMSIG(status));
+			break;
+		} else if (WIFSTOPPED(status)) {
+			pr_err("stopped by signal %d\n", WSTOPSIG(status));
+		} else if (WIFCONTINUED(status)) {
+			pr_err("continued\n");
+		}
+	}
+
+	ret = status ? -1 : 0;
+out:
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+		pr_perror("Can not unset mask of blocked signals");
+		BUG();
+	}
+
+	return ret;
+}
