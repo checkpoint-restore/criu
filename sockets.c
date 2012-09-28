@@ -75,6 +75,7 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	int ret = 0;
 	struct timeval tv;
 
+	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &soe->so_sndbuf);
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &soe->so_rcvbuf);
 

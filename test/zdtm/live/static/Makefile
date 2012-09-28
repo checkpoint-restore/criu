@@ -40,6 +40,7 @@ TST_NOFILE	=				\
 		sockets_spair			\
 		sockets_dgram			\
 		socket_queues			\
+		socket_queues02			\
 		socket-tcp			\
 		ipc_namespace			\
 		selfexe00			\
