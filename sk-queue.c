@@ -127,9 +127,9 @@ int dump_sk_queue(int sock_fd, int sock_id)
 
 		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
 		if (ret < 0) {
-			if (ret == -EAGAIN)
+			if (errno == EAGAIN)
 				break; /* we're done */
-			pr_perror("sys_recvmsg fail: error\n");
+			pr_perror("recvmsg fail: error\n");
 			goto err_set_sock;
 		}
 		if (msg.msg_flags & MSG_TRUNC) {
