@@ -209,6 +209,7 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
 		SkPacketEntry *entry = pkt->entry;
+		char *buf;
 
 		if (entry->id_for != peer_id)
 			continue;
@@ -216,9 +217,32 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		pr_info("\tRestoring %d-bytes skb for %u\n",
 			(unsigned int)entry->length, peer_id);
 
-		ret = sendfile(fd, img_fd, &pkt->img_off, entry->length);
+		/*
+		 * Don't try to use sendfile here, because it use sendpage() and
+		 * all data are splitted on pages and a new skb is allocated for
+		 * each page. It creates a big overhead on SNDBUF.
+		 * sendfile() isn't suatable for DGRAM sockets, because message
+		 * boundaries messages should be saved.
+		 */
+
+		buf = xmalloc(entry->length);
+		if (buf ==NULL)
+			return -1;
+
+		if (lseek(img_fd, pkt->img_off, SEEK_SET) == -1) {
+			pr_perror("lseek() failed");
+			xfree(buf);
+			return -1;
+		}
+		if (read_img_buf(img_fd, buf, entry->length) != 1) {
+			xfree(buf);
+			return -1;
+		}
+
+		ret = write(fd, buf, entry->length);
+		xfree(buf);
 		if (ret < 0) {
-			pr_perror("Failed to sendfile packet");
+			pr_perror("Failed to send packet");
 			return -1;
 		}
 		if (ret != entry->length) {
