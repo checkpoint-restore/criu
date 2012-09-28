@@ -101,6 +101,8 @@ ARGS=""
 PID=""
 PIDNS=""
 
+ITERATIONS=1
+
 umount_zdtm_root()
 {
 	[ -z "$ZDTM_ROOT" ] && return;
@@ -213,9 +215,6 @@ run_test()
 		return 1
 	}
 
-	ddump=dump/$tname/$PID
-	DUMP_PATH=`pwd`/$ddump
-
 	if [ -n "$PIDNS" ]; then
 		[ -z "$CR_IP_TOOL" ] && CR_IP_TOOL=ip
 		$CR_IP_TOOL a help 2>&1 | grep -q showdump || {
@@ -229,8 +228,13 @@ EOF
 		args="-n uts -n ipc -n net -n pid -n mnt --root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
+	for i in `seq $ITERATIONS`; do
+
+	ddump=dump/$tname/$PID/$i
+	DUMP_PATH=`pwd`/$ddump
 	echo Dump $PID
 	mkdir -p $ddump
+
 	save_fds $PID  $ddump/dump.fd
 	setsid $CRTOOLS dump --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
@@ -264,7 +268,10 @@ EOF
 			sleep 0.2
 		done
 		[ $i -eq 5 ] && return 2;
+		[ -n "$PIDNS" ] && PID=`cat $TPID`
 	fi
+
+	done
 
 	echo Check results $PID
 	stop_test $tdir $tname
@@ -304,10 +311,20 @@ case_error()
 
 cd `dirname $0` || exit 1
 
-if [ "$1" = "-d" ]; then
-	ARGS="-s"
-	shift
-fi
+while :; do
+	if [ "$1" = "-d" ]; then
+		ARGS="-s"
+		shift
+		continue
+	fi
+	if [ "$1" = "-i" ]; then
+		shift
+		ITERATIONS=$1
+		shift
+		continue
+	fi
+	break;
+done
 
 if [ $# -eq 0 ]; then
 	for t in $TEST_LIST; do
@@ -333,6 +350,7 @@ zdtm.sh [OPTIONS] [TEST NAME]
 Options:
 	-l : Show list of tests.
 	-d : Dump a test process and check that this process can continue working.
+	-i : Number of ITERATIONS of dump/restore
 EOF
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
