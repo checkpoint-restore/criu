@@ -577,34 +577,34 @@ static int clean_mnt_ns(void)
 
 static int cr_pivot_root()
 {
-		char put_root[PATH_MAX] = "crtools-put-root.XXXXXX";
+	char put_root[PATH_MAX] = "crtools-put-root.XXXXXX";
 
-		pr_info("Move the root to %s", opts.root);
+	pr_info("Move the root to %s", opts.root);
 
-		if (chdir(opts.root)) {
-			pr_perror("chdir(%s) failed", opts.root);
-			return -1;
-		}
-		if (mkdtemp(put_root) == NULL) {
-			pr_perror("Can't create a temparary directory");
-			return -1;
-		}
-		if (pivot_root(".", put_root)) {
-			pr_perror("pivot_root(., %s) failed", put_root);
-			if (rmdir(put_root))
-				pr_perror("Can't remove the directory %s", put_root);
-			return -1;
-		}
-		if (umount2(put_root, MNT_DETACH)) {
-			pr_perror("Can't umount %s", put_root);
-			return -1;
-		}
-		if (rmdir(put_root)) {
+	if (chdir(opts.root)) {
+		pr_perror("chdir(%s) failed", opts.root);
+		return -1;
+	}
+	if (mkdtemp(put_root) == NULL) {
+		pr_perror("Can't create a temparary directory");
+		return -1;
+	}
+	if (pivot_root(".", put_root)) {
+		pr_perror("pivot_root(., %s) failed", put_root);
+		if (rmdir(put_root))
 			pr_perror("Can't remove the directory %s", put_root);
-			return -1;
-		}
+		return -1;
+	}
+	if (umount2(put_root, MNT_DETACH)) {
+		pr_perror("Can't umount %s", put_root);
+		return -1;
+	}
+	if (rmdir(put_root)) {
+		pr_perror("Can't remove the directory %s", put_root);
+		return -1;
+	}
 
-		return 0;
+	return 0;
 }
 
 static int populate_mnt_ns(int ns_pid)
