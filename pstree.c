@@ -150,7 +150,11 @@ int prepare_pstree(void)
 		max_pid = max((int)e->sid, max_pid);
 
 		if (e->ppid == 0) {
-			BUG_ON(root_item);
+			if (root_item) {
+				pr_err("Parent missed on non-root task "
+				       "with pid %d, image corruption!\n", e->pid);
+				goto err;
+			}
 			root_item = pi;
 			pi->parent = NULL;
 			INIT_LIST_HEAD(&pi->list);
@@ -198,6 +202,7 @@ int prepare_pstree(void)
 		pstree_entry__free_unpacked(e, NULL);
 	}
 
+err:
 	close(ps_fd);
 	return ret;
 }
