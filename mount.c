@@ -540,13 +540,6 @@ static int do_umount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
-	/*
-	 * Don't umount the future root. It can be a mountpoint only,
-	 * otherwise pivot_root() fails.
-	 */
-	if (opts.root && !strcmp(opts.root, mi->mountpoint))
-		return 0;
-
 	if (umount(mi->mountpoint)) {
 		pr_perror("Can't umount at %s", mi->mountpoint);
 		return -1;
@@ -582,16 +575,11 @@ static int clean_mnt_ns(void)
 	return ret;
 }
 
-static int populate_mnt_ns(int ns_pid)
+static int cr_pivot_root()
 {
-	MntEntry *me = NULL;
-	int img, ret;
-	struct mount_info *pms = NULL;
-
-	pr_info("Populating mount namespace\n");
-
-	if (opts.root) {
 		char put_root[PATH_MAX] = "crtools-put-root.XXXXXX";
+
+		pr_info("Move the root to %s", opts.root);
 
 		if (chdir(opts.root)) {
 			pr_perror("chdir(%s) failed", opts.root);
@@ -615,7 +603,17 @@ static int populate_mnt_ns(int ns_pid)
 			pr_perror("Can't remove the directory %s", put_root);
 			return -1;
 		}
-	}
+
+		return 0;
+}
+
+static int populate_mnt_ns(int ns_pid)
+{
+	MntEntry *me = NULL;
+	int img, ret;
+	struct mount_info *pms = NULL;
+
+	pr_info("Populating mount namespace\n");
 
 	img = open_image_ro(CR_FD_MOUNTPOINTS, ns_pid);
 	if (img < 0)
@@ -695,7 +693,11 @@ int prepare_mnt_ns(int ns_pid)
 	 * prior to recreating new ones.
 	 */
 
-	ret = clean_mnt_ns();
+	if (opts.root)
+		ret = cr_pivot_root();
+	else
+		ret = clean_mnt_ns();
+
 	if (!ret)
 		ret = populate_mnt_ns(ns_pid);
 
