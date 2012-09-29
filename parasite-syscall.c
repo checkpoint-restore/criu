@@ -575,7 +575,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 				       sizeof(parasite_dumppages));
 		if (ret) {
 			pr_err("Dumping pages failed with %d\n", ret);
-			goto out;
+			goto out_fini;
 		}
 
 		pr_info("vma %lx-%lx  dumped: %lu pages %lu skipped %lu total\n",
@@ -589,13 +589,13 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		nrpages_total += parasite_dumppages.nrpages_total;
 	}
 
-	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
-
 	pr_info("\n");
 	pr_info("Summary: %lu dumped %lu skipped %lu total\n",
 			nrpages_dumped, nrpages_skipped, nrpages_total);
 	ret = 0;
 
+out_fini:
+	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl, NULL, 0);
 out:
 	fchmod(fdset_fd(cr_fdset, CR_FD_PAGES), CR_FD_PERM);
 	pr_info("----------------------------------------\n");
