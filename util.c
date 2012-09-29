@@ -281,10 +281,21 @@ int init_service_fd(void)
 	return 0;
 }
 
+static int __get_service_fd(enum sfd_type type)
+{
+	return service_fd_rlim_cur - type;
+}
+
 int get_service_fd(enum sfd_type type)
 {
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
-	return service_fd_rlim_cur - type;
+	return __get_service_fd(type);
+}
+
+bool is_any_service_fd(int fd)
+{
+	return fd > __get_service_fd(SERVICE_FD_MAX) &&
+		fd < __get_service_fd(SERVICE_FD_MIN);
 }
 
 bool is_service_fd(int fd, enum sfd_type type)

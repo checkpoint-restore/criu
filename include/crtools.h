@@ -123,6 +123,7 @@ enum sfd_type {
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
+extern bool is_any_service_fd(int fd);
 
 /* file descriptors template */
 struct cr_fd_desc_tmpl {

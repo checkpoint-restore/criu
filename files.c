@@ -498,18 +498,33 @@ static int open_fdinfos(int pid, struct list_head *list, int state)
 
 static int close_old_fds(struct pstree_item *me)
 {
-	/*
-	 * FIXME -- The existing test_init implementation uses system()
-	 * which in turn doesn't work when all fds are closed
-	 */
-	if (me->pid.virt == 1)
-		return 0;
+	DIR *dir;
+	struct dirent *de;
+	int fd, ret;
 
-	/* FIXME -- wait for nextfd syscall (or read proc) */
-	close(0);
-	close(1);
-	close(2);
-	close(255); /* bash */
+	dir = opendir_proc(getpid(), "fd");
+	if (dir == NULL)
+		return -1;
+
+	while ((de = readdir(dir))) {
+		if (!strcmp(de->d_name, "."))
+			continue;
+		if (!strcmp(de->d_name, ".."))
+			continue;
+
+		ret = sscanf(de->d_name, "%d", &fd);
+		if (ret != 1) {
+			pr_err("Can't parse %s\n", de->d_name);
+			return -1;
+		}
+
+		if ((!is_any_service_fd(fd)) && (dirfd(dir) != fd))
+			close_safe(&fd);
+	}
+
+	closedir(dir);
+	close_pid_proc();
+
 	return 0;
 }
 
