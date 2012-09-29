@@ -122,12 +122,20 @@ static inline int should_dump_page(VmaEntry *vmae, u64 pme)
 }
 
 static int fd_pages = -1;
+static int fd_pagemap = -1;
 
 static int dump_pages_init()
 {
 	fd_pages = recv_fd(tsock);
 	if (fd_pages < 0)
 		return fd_pages;
+
+	fd_pagemap = sys_open("/proc/self/pagemap", O_RDONLY, 0);
+	if (fd_pagemap < 0) {
+		sys_write_msg("Can't open self pagemap");
+		sys_close(fd_pages);
+		return fd_pagemap;
+	}
 
 	return 0;
 }
@@ -159,7 +167,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
 	u64 *map, off;
-	int ret = -1, fd;
+	int ret = -1;
 
 	args->nrpages_dumped = 0;
 	args->nrpages_skipped = 0;
@@ -179,29 +187,19 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 		goto err;
 	}
 
-	fd = sys_open("/proc/self/pagemap", O_RDONLY, 0);
-	if (fd < 0) {
-		sys_write_msg("Can't open self pagemap");
-		ret = fd;
-		goto err_free;
-	}
-
 	off = pfn * sizeof(*map);
-	off = sys_lseek(fd, off, SEEK_SET);
+	off = sys_lseek(fd_pagemap, off, SEEK_SET);
 	if (off != pfn * sizeof(*map)) {
 		sys_write_msg("Can't seek pagemap");
 		ret = off;
-		goto err_close;
+		goto err_free;
 	}
 
-	ret = sys_read(fd, map, length);
+	ret = sys_read(fd_pagemap, map, length);
 	if (ret != length) {
 		sys_write_msg("Can't read self pagemap");
 		goto err_free;
 	}
-
-	sys_close(fd);
-	fd = fd_pages;
 
 	/*
 	 * Try to change page protection if needed so we would
@@ -230,10 +228,10 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			 */
 			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
 
-			ret = sys_write_safe(fd, &vaddr, sizeof(vaddr));
+			ret = sys_write_safe(fd_pages, &vaddr, sizeof(vaddr));
 			if (ret)
 				return ret;
-			ret = sys_write_safe(fd, (void *)vaddr, PAGE_SIZE);
+			ret = sys_write_safe(fd_pages, (void *)vaddr, PAGE_SIZE);
 			if (ret)
 				return ret;
 
@@ -260,15 +258,16 @@ err_free:
 	brk_free(length);
 err:
 	return ret;
-
-err_close:
-	sys_close(fd);
-	goto err_free;
 }
 
 static int dump_pages_fini(void)
 {
-	return sys_close(fd_pages);
+	int ret;
+
+	ret = sys_close(fd_pagemap);
+	ret |= sys_close(fd_pages);
+
+	return ret;
 }
 
 static int dump_sigact(struct parasite_dump_sa_args *da)
