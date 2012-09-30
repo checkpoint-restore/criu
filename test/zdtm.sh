@@ -55,6 +55,9 @@ static/fifo
 static/fifo_wronly
 static/zombie00
 transition/fork
+static/pty00
+static/pty01
+static/pty04
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
@@ -64,10 +67,7 @@ TEST_LIST="$TEST_LIST
 static/file_fown
 static/socket-ext
 static/socket-tcp
-static/pty00
-static/pty01
 static/pty03
-static/pty04
 "
 
 MNT_TEST_LIST="
