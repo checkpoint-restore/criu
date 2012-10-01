@@ -122,9 +122,10 @@ int prepare_shared_tty(void)
 
 #define termios_copy(d, s)				\
 	do {						\
+		struct termios __t;			\
+							\
 		memcpy((d)->c_cc, (s)->c_cc,		\
-		       min(sizeof((s)->c_cc),		\
-			   sizeof((d)->c_cc)));		\
+		       sizeof(__t.c_cc));		\
 							\
 		ASSIGN_MEMBER((d),(s), c_iflag);	\
 		ASSIGN_MEMBER((d),(s), c_oflag);	\
@@ -926,6 +927,14 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	struct winsize w;
 
 	int ret = -1, sid, pgrp;
+
+	/*
+	 * Make sure the structures the system provides us
+	 * correlates well with protobuf templates.
+	 */
+	BUILD_BUG_ON(ARRAY_SIZE(t.c_cc) < TERMIOS_NCC);
+	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
+	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
 	if (tty_get_sid_pgrp(lfd, &sid, &pgrp, &hangup))
 		return -1;
