@@ -19,59 +19,14 @@
 extern int pivot_root(const char *new_root, const char *put_old);
 static int prepare_mntns()
 {
-	FILE *f;
-	unsigned fs_cnt, fs_cnt_last = 0;
-	char buf[1024];
+	int dfd;
 	char *root;
 
 	root = getenv("ZDTM_ROOT");
-	fprintf(stderr, "'%s'\n", root);
-again:
-	fs_cnt = 0;
-	f = fopen("/proc/self/mountinfo", "r");
-	if (!f) {
-		fprintf(stderr, "Can't open mountinfo");
+	if (!root) {
+		fprintf(stderr, "ZDTM_ROOT isn't set\n");
 		return -1;
 	}
-
-	while (fgets(buf, sizeof(buf), f) != NULL) {
-		char *mp = buf, *end;
-
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		end = strchr(mp, ' ');
-		*end = '\0';
-
-		if (!strcmp(mp, "/"))
-			continue;
-		if (!strcmp(mp, "/proc"))
-			continue;
-		if (root && !strcmp(mp, root))
-			continue;
-
-		fprintf(stderr, "%s\n", mp);
-		if (umount(mp))
-			fprintf(stderr, "%s - %m\n", mp);
-		fs_cnt++;
-	}
-
-	fclose(f);
-
-	if (fs_cnt == 0)
-		goto done;
-
-	if (fs_cnt != fs_cnt_last) {
-		fs_cnt_last = fs_cnt;
-		goto again;
-	}
-
-	fprintf(stderr, "Can't umount all the filesystems");
-	return -1;
-done:
-	if (root) {
-		int dfd;
 
 		dfd = open(".", O_RDONLY);
 		if (dfd == -1) {
@@ -79,10 +34,6 @@ done:
 			return -1;
 		}
 
-		if (umount("/proc")) {
-			fprintf(stderr, "umount(/proc) failed: %m\n");
-			return -1;
-		}
 		if (chdir(root)) {
 			fprintf(stderr, "chdir(%s) failed: %m\n", root);
 			return -1;
@@ -95,7 +46,7 @@ done:
 			fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
 			return -1;
 		}
-		if (umount("./old")) {
+		if (umount2("./old", MNT_DETACH)) {
 			fprintf(stderr, "umount(./old) failed: %m\n");
 			return -1;
 		}
@@ -112,7 +63,7 @@ done:
 			return -1;
 		}
 		close(dfd);
-	}
+
 	mkdir("/dev", 0777);
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
 	return 0;
