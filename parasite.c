@@ -452,7 +452,7 @@ static int fini(void)
 	return 0;
 }
 
-int __used parasite_service(unsigned long cmd, void *args)
+int __used parasite_service(unsigned int cmd, void *args)
 {
 	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_init_args) > PARASITE_ARG_SIZE);

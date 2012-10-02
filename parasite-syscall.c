@@ -221,7 +221,7 @@ err:
 	return ret;
 }
 
-static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
+static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl,
 			    pid_t pid,
 			    void *args, int args_size)
 {
@@ -265,7 +265,7 @@ static int parasite_execute_by_pid(unsigned long cmd, struct parasite_ctl *ctl,
 	return ret;
 }
 
-static int parasite_execute(unsigned long cmd, struct parasite_ctl *ctl,
+static int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl,
 			    void *args, int args_size)
 {
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid, args, args_size);
