@@ -27,6 +27,37 @@ static int logdir = -1;
 static char buffer[PAGE_SIZE];
 static char buf_off = 0;
 
+static struct timeval start;
+/*
+ * Manual buf len as sprintf will _always_ put '\0' at the
+ * and, but we want a "constant" pid to be there on restore
+ */
+#define TS_BUF_OFF	12
+
+static void timediff(struct timeval *from, struct timeval *to)
+{
+	to->tv_sec -= from->tv_sec;
+	if (to->tv_usec >= from->tv_usec)
+		to->tv_usec -= from->tv_usec;
+	else {
+		to->tv_sec--;
+		to->tv_usec += 1000000 - from->tv_usec;
+	}
+}
+
+static void print_ts(void)
+{
+	struct timeval t;
+
+	gettimeofday(&t, NULL);
+	timediff(&start, &t);
+	snprintf(buffer, TS_BUF_OFF,
+			"(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
+	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
+}
+
+
+
 int log_get_fd(void)
 {
 	return current_logfd;
@@ -35,6 +66,9 @@ int log_get_fd(void)
 int log_init(const char *output)
 {
 	int new_logfd, sfd, dfd;
+
+	gettimeofday(&start, NULL);
+	buf_off = TS_BUF_OFF;
 
 	dfd = get_service_fd(LOG_DIR_FD_OFF);
 	if (dfd < 0) {
@@ -96,8 +130,15 @@ int log_init_by_pid(void)
 {
 	char path[PATH_MAX];
 
+	/*
+	 * reset buf_off as this fn is called on each fork while
+	 * restoring process tree
+	 */
+
+	buf_off = TS_BUF_OFF;
+
 	if (!opts.log_file_per_pid) {
-		buf_off = snprintf(buffer, PAGE_SIZE, "%6d: ", getpid());
+		buf_off += snprintf(buffer + buf_off, PAGE_SIZE - buf_off, "%6d: ", getpid());
 		return 0;
 	}
 
@@ -147,6 +188,8 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 			return;
 		fd = current_logfd;
 	}
+
+	print_ts();
 
 	va_start(params, format);
 	size = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
