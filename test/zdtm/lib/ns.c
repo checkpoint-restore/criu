@@ -62,6 +62,10 @@ static int prepare_mntns()
 			fprintf(stderr, "mkdir(/dev) failed: %m\n");
 			return -1;
 		}
+		if (mknod("/dev/ptmx", 0666 | S_IFCHR, makedev(5, 2)) && errno != EEXIST) {
+			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
+			return -1;
+		}
 		if (mkdir("/dev/pts", 0755) && errno != EEXIST) {
 			fprintf(stderr, "mkdir(/dev/pts) failed: %m\n");
 			return -1;
