@@ -160,15 +160,18 @@ int prepare_pstree(void)
 				parent = parent->parent;
 			}
 
-			if (parent == NULL)
-				for_each_pstree_item(parent)
+			if (parent == NULL) {
+				for_each_pstree_item(parent) {
 					if (parent->pid.virt == e->ppid)
 						break;
+				}
 
-			if (parent == NULL) {
-				pr_err("Can't find a parent for %d", pi->pid.virt);
-				xfree(pi);
-				break;
+				if (parent == NULL) {
+					pr_err("Can't find a parent for %d", pi->pid.virt);
+					pstree_entry__free_unpacked(e, NULL);
+					xfree(pi);
+					goto err;
+				}
 			}
 
 			pi->parent = parent;
