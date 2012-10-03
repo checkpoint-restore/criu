@@ -189,7 +189,8 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 		fd = current_logfd;
 	}
 
-	print_ts();
+	if (loglevel != LOG_MSG)
+		print_ts();
 
 	va_start(params, format);
 	size = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
