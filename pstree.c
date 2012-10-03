@@ -38,8 +38,8 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 		return NULL;
 
 	INIT_LIST_HEAD(&item->children);
-	item->threads = NULL;
-	item->nr_threads = 0;
+	INIT_LIST_HEAD(&item->list);
+
 	item->pid.virt = -1;
 	item->pid.real = -1;
 	item->born_sid = -1;
@@ -148,7 +148,6 @@ int prepare_pstree(void)
 			}
 			root_item = pi;
 			pi->parent = NULL;
-			INIT_LIST_HEAD(&pi->list);
 		} else {
 			/*
 			 * Fast path -- if the pstree image is not edited, the
