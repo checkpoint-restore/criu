@@ -47,28 +47,19 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	return item;
 }
 
+/* Deep first search on children */
 struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
-	if (!list_empty(&item->children)) {
-		item = list_first_entry(&item->children, struct pstree_item, list);
-		return item;
+	if (!list_empty(&item->children))
+		return list_first_entry(&item->children, struct pstree_item, list);
+
+	while (item->parent) {
+		if (item->list.next != &item->parent->children)
+			return list_entry(item->list.next, struct pstree_item, list);
+		item = item->parent;
 	}
 
-	while (1) {
-		if (item->parent == NULL) {
-			item = NULL;
-			break;
-		}
-		if (item->list.next == &item->parent->children) {
-			item = item->parent;
-			continue;
-		} else {
-			item = list_entry(item->list.next, struct pstree_item, list);
-			break;
-		}
-	}
-
-	return item;
+	return NULL;
 }
 
 int dump_pstree(struct pstree_item *root_item)
