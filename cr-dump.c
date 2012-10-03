@@ -1210,7 +1210,6 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 			return -1;
 
 		root_item->pid.real = pid;
-		INIT_LIST_HEAD(&root_item->sibling);
 
 		ret = collect_subtree(root_item);
 		if (ret == 0) {
