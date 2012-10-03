@@ -604,7 +604,7 @@ int pb_write_one(int fd, void *obj, int type)
 	int ret = -1;
 
 	if (!cr_pb_descs[type].pb_desc) {
-		pr_err("Wron object requested %d\n", type);
+		pr_err("Wrong object requested %d\n", type);
 		return -1;
 	}
 
