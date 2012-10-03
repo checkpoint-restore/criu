@@ -212,6 +212,12 @@ int prepare_pstree_ids(void)
 	 * reparented to init.
 	 */
 	list_for_each_entry(item, &root_item->children, list) {
+
+		/*
+		 * If a child belongs to the root task's session or it's
+		 * a session leader himself -- this is a simple case, we
+		 * just proceed in a normal way.
+		 */
 		if (item->sid == root_item->sid || item->sid == item->pid.virt)
 			continue;
 
@@ -232,6 +238,9 @@ int prepare_pstree_ids(void)
 		child = list_entry(item->list.prev, struct pstree_item, list);
 		item = child;
 
+		/*
+		 * Stack on helper task all children with target sid.
+		 */
 		list_for_each_entry_safe_continue(child, tmp, &root_item->children, list) {
 			if (child->sid != helper->sid)
 				continue;
