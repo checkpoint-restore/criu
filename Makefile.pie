@@ -12,7 +12,7 @@ PBLOB-BIN	:= parasite.bin
 PBLOB-BIN-O	:= $(PBLOB-BIN).o
 
 ROBJS		+= restorer.o
-ROBJS		+= restorer-log.o
+ROBJS		+= log-simple.o
 RSRCS		+= $(patsubst %.o,%.c,$(ROBJS))
 
 RBLOB-NAME	:= restorer

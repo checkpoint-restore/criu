@@ -38,9 +38,7 @@
 #define BUG_ON_HANDLER(condition)					\
 	do {								\
 		if ((condition)) {					\
-			write_str_err("BUG at " __FILE__ ": ");		\
-			write_num_err(__LINE__);			\
-			write_str_err("\n");				\
+			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);	\
 			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;	\
 		}							\
 	} while (0)
