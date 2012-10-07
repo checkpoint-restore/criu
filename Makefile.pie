@@ -39,7 +39,11 @@ parasite-util-net.o: util-net.c $(SYS-OBJ)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
 
-POBJS		+= parasite-util-net.o
+parasite-log.o: log-simple.c $(SYS-OBJ)
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
+
+POBJS		+= parasite-util-net.o parasite-log.o
 
 $(PBLOB-BIN-O): $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@

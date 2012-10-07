@@ -3,9 +3,11 @@
 #include <signal.h>
 #include <linux/limits.h>
 #include <sys/mount.h>
+#include <stdarg.h>
 
 #include "syscall.h"
 #include "parasite.h"
+#include "log.h"
 
 #include <string.h>
 
@@ -32,7 +34,6 @@
 
 static void *brk_start, *brk_end, *brk_tail;
 
-static int logfd = -1;
 static int tsock = -1;
 
 #define MAX_HEAP_SIZE	(10 << 20)	/* Hope 10MB will be enough...  */
@@ -93,14 +94,6 @@ static char *long2hex(unsigned long v)
 }
 #endif
 
-static void sys_write_msg(const char *msg)
-{
-	int size = 0;
-	while (msg[size])
-		size++;
-	sys_write(logfd, msg, size);
-}
-
 #define PME_PRESENT	(1ULL << 63)
 #define PME_SWAP	(1ULL << 62)
 #define PME_FILE	(1ULL << 61)
@@ -132,7 +125,7 @@ static int dump_pages_init()
 
 	fd_pagemap = sys_open("/proc/self/pagemap", O_RDONLY, 0);
 	if (fd_pagemap < 0) {
-		sys_write_msg("Can't open self pagemap");
+		pr_err("Can't open self pagemap");
 		sys_close(fd_pages);
 		return fd_pagemap;
 	}
@@ -146,12 +139,12 @@ static int sys_write_safe(int fd, void *buf, int size)
 
 	ret = sys_write(fd, buf, size);
 	if (ret < 0) {
-		sys_write_msg("sys_write failed\n");
+		pr_err("sys_write failed\n");
 		return ret;
 	}
 
 	if (ret != size) {
-		sys_write_msg("not all data was written\n");
+		pr_err("not all data was written\n");
 		ret = -EIO;
 	}
 
@@ -190,14 +183,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	off = pfn * sizeof(*map);
 	off = sys_lseek(fd_pagemap, off, SEEK_SET);
 	if (off != pfn * sizeof(*map)) {
-		sys_write_msg("Can't seek pagemap");
+		pr_err("Can't seek pagemap");
 		ret = off;
 		goto err_free;
 	}
 
 	ret = sys_read(fd_pagemap, map, length);
 	if (ret != length) {
-		sys_write_msg("Can't read self pagemap");
+		pr_err("Can't read self pagemap");
 		goto err_free;
 	}
 
@@ -212,7 +205,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_new);
 		if (ret) {
-			sys_write_msg("sys_mprotect failed\n");
+			pr_err("sys_mprotect failed\n");
 			goto err_free;
 		}
 	}
@@ -248,7 +241,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_old);
 		if (ret) {
-			sys_write_msg("PANIC: Ouch! sys_mprotect failed on restore\n");
+			pr_err("PANIC: Ouch! sys_mprotect failed on restore\n");
 			goto err_free;
 		}
 	}
@@ -280,7 +273,7 @@ static int dump_sigact(struct parasite_dump_sa_args *da)
 
 		ret = sys_sigaction(sig, NULL, &da->sas[sig], sizeof(rt_sigset_t));
 		if (ret < 0) {
-			sys_write_msg("sys_sigaction failed\n");
+			pr_err("sys_sigaction failed\n");
 			break;
 		}
 	}
@@ -299,7 +292,7 @@ static int dump_itimers(struct parasite_dump_itimers_args *args)
 		ret = sys_getitimer(ITIMER_PROF, &args->prof);
 
 	if (ret)
-		sys_write_msg("getitimer failed\n");
+		pr_err("getitimer failed\n");
 
 	return ret;
 }
@@ -340,7 +333,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 	ret = send_fds(tsock, NULL, 0,
 		       args->fds, args->nr_fds, true);
 	if (ret)
-		sys_write_msg("send_fds failed\n");
+		pr_err("send_fds failed\n");
 
 	return ret;
 }
@@ -384,7 +377,7 @@ static int parasite_get_proc_fd()
 
 	ret = sys_readlink("/proc/self", buf, sizeof(buf));
 	if (ret < 0 && ret != -ENOENT) {
-		sys_write_msg("Can't readlink /proc/self\n");
+		pr_err("Can't readlink /proc/self\n");
 		return ret;
 	}
 
@@ -395,14 +388,12 @@ static int parasite_get_proc_fd()
 	}
 
 	if (sys_mkdir(proc_mountpoint, 0700)) {
-		sys_write_msg("Can't create a directory ");
-		sys_write_msg(proc_mountpoint);
-		sys_write_msg("\n");
+		pr_err("Can't create a directory\n");
 		return ret;
 	}
 
 	if (sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
-		sys_write_msg("mount failed\n");
+		pr_err("mount failed\n");
 		ret = -1;
 		goto out_rmdir;
 	}
@@ -410,13 +401,13 @@ static int parasite_get_proc_fd()
 	fd = sys_open(proc_mountpoint, O_RDONLY, 0);
 
 	if (sys_umount2(proc_mountpoint, MNT_DETACH)) {
-		sys_write_msg("Can't umount procfs\n");
+		pr_err("Can't umount procfs\n");
 		return -1;
 	}
 
 out_rmdir:
 	if (sys_rmdir(proc_mountpoint)) {
-		sys_write_msg("Can't remove directory\n");
+		pr_err("Can't remove directory\n");
 		return -1;
 	}
 
@@ -434,7 +425,7 @@ static int parasite_set_logfd()
 
 	ret = recv_fd(tsock);
 	if (ret >= 0) {
-		logfd = ret;
+		log_set_fd(ret);
 		ret = 0;
 	}
 
@@ -445,7 +436,8 @@ static int fini(void)
 {
 	if (reset_blocked == 1)
 		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL, sizeof(k_rtsigset_t));
-	sys_close(logfd);
+
+	log_set_fd(-1);
 	sys_close(tsock);
 	brk_fini();
 
@@ -459,6 +451,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_tid_info) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_drain_fd) > PARASITE_ARG_SIZE);
+
+	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
@@ -487,7 +481,7 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return parasite_get_proc_fd();
 	}
 
-	sys_write_msg("Unknown command to parasite\n");
+	pr_err("Unknown command to parasite\n");
 	return -EINVAL;
 }
 
