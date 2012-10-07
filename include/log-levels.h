@@ -7,4 +7,6 @@
 #define LOG_INFO	(3) /* Informative, everything is fine */
 #define LOG_DEBUG	(4) /* Debug only */
 
+#define DEFAULT_LOGLEVEL	LOG_WARN
+
 #endif /* LOG_LEVELS_H__ */

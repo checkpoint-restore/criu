@@ -17,7 +17,6 @@
 #include "util.h"
 #include "crtools.h"
 
-#define DEFAULT_LOGLEVEL	LOG_WARN
 #define DEFAULT_LOGFD		STDERR_FILENO
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
