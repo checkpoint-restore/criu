@@ -360,12 +360,15 @@ static int parasite_prep_file(int fd, struct parasite_ctl *ctl)
 static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 {
 	int ret;
+	struct parasite_log_args a;
 
 	ret = parasite_send_fd(ctl, log_get_fd());
 	if (ret)
 		return ret;
 
-	ret = parasite_execute(PARASITE_CMD_SET_LOGFD, ctl, NULL, 0);
+	a.log_level = log_get_loglevel();
+
+	ret = parasite_execute(PARASITE_CMD_CFG_LOG, ctl, &a, sizeof(a));
 	if (ret < 0)
 		return ret;
 

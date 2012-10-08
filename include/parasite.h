@@ -19,7 +19,7 @@
 
 enum {
 	PARASITE_CMD_INIT,
-	PARASITE_CMD_SET_LOGFD,
+	PARASITE_CMD_CFG_LOG,
 	PARASITE_CMD_FINI,
 
 	PARASITE_CMD_DUMPPAGES_INIT,
@@ -42,6 +42,10 @@ struct parasite_init_args {
 
 	int			p_addr_len;
 	struct sockaddr_un	p_addr;
+};
+
+struct parasite_log_args {
+	int log_level;
 };
 
 struct parasite_dump_pages_args {

@@ -419,13 +419,14 @@ out_send_fd:
 	return ret;
 }
 
-static int parasite_set_logfd()
+static int parasite_cfg_log(struct parasite_log_args *args)
 {
 	int ret;
 
 	ret = recv_fd(tsock);
 	if (ret >= 0) {
 		log_set_fd(ret);
+		log_set_loglevel(args->log_level);
 		ret = 0;
 	}
 
@@ -459,8 +460,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return init((struct parasite_init_args *) args);
 	case PARASITE_CMD_FINI:
 		return fini();
-	case PARASITE_CMD_SET_LOGFD:
-		return parasite_set_logfd();
+	case PARASITE_CMD_CFG_LOG:
+		return parasite_cfg_log((struct parasite_log_args *) args);
 	case PARASITE_CMD_DUMPPAGES_INIT:
 		return dump_pages_init();
 	case PARASITE_CMD_DUMPPAGES_FINI:
