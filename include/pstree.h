@@ -4,16 +4,20 @@
 #include "crtools.h"
 
 struct pstree_item {
-	struct list_head	list;
-	struct pid		pid;
 	struct pstree_item	*parent;
-	struct list_head	children;	/* array of children */
+	struct list_head	children;	/* list of my children */
+	struct list_head	list;		/* linkage in my parent's children list */
+
+	struct pid		pid;
 	pid_t			pgid;
 	pid_t			sid;
 	pid_t			born_sid;
+
 	int			state;		/* TASK_XXX constants */
+
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */
+
 	struct rst_info		rst[0];
 };
 
