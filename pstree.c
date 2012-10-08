@@ -17,12 +17,12 @@ void free_pstree(struct pstree_item *root_item)
 
 	while (item) {
 		if (!list_empty(&item->children)) {
-			item = list_first_entry(&item->children, struct pstree_item, list);
+			item = list_first_entry(&item->children, struct pstree_item, sibling);
 			continue;
 		}
 
 		parent = item->parent;
-		list_del(&item->list);
+		list_del(&item->sibling);
 		xfree(item->threads);
 		xfree(item);
 		item = parent;
@@ -38,7 +38,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 		return NULL;
 
 	INIT_LIST_HEAD(&item->children);
-	INIT_LIST_HEAD(&item->list);
+	INIT_LIST_HEAD(&item->sibling);
 
 	item->pid.virt = -1;
 	item->pid.real = -1;
@@ -51,11 +51,11 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
 	if (!list_empty(&item->children))
-		return list_first_entry(&item->children, struct pstree_item, list);
+		return list_first_entry(&item->children, struct pstree_item, sibling);
 
 	while (item->parent) {
-		if (item->list.next != &item->parent->children)
-			return list_entry(item->list.next, struct pstree_item, list);
+		if (item->sibling.next != &item->parent->children)
+			return list_entry(item->sibling.next, struct pstree_item, sibling);
 		item = item->parent;
 	}
 
@@ -175,7 +175,7 @@ int prepare_pstree(void)
 			}
 
 			pi->parent = parent;
-			list_add(&pi->list, &parent->children);
+			list_add(&pi->sibling, &parent->children);
 		}
 
 		parent = pi;
@@ -211,7 +211,7 @@ int prepare_pstree_ids(void)
 	 * immediately after forking children and all children will be
 	 * reparented to init.
 	 */
-	list_for_each_entry(item, &root_item->children, list) {
+	list_for_each_entry(item, &root_item->children, sibling) {
 
 		/*
 		 * If a child belongs to the root task's session or it's
@@ -229,19 +229,19 @@ int prepare_pstree_ids(void)
 		helper->pid.virt = item->sid;
 		helper->state = TASK_HELPER;
 		helper->parent = root_item;
-		list_add_tail(&helper->list, &helpers);
+		list_add_tail(&helper->sibling, &helpers);
 		task_entries->nr_helpers++;
 
 		pr_info("Add a helper %d for restoring SID %d\n",
 				helper->pid.virt, helper->sid);
 
-		child = list_entry(item->list.prev, struct pstree_item, list);
+		child = list_entry(item->sibling.prev, struct pstree_item, sibling);
 		item = child;
 
 		/*
 		 * Stack on helper task all children with target sid.
 		 */
-		list_for_each_entry_safe_continue(child, tmp, &root_item->children, list) {
+		list_for_each_entry_safe_continue(child, tmp, &root_item->children, sibling) {
 			if (child->sid != helper->sid)
 				continue;
 			if (child->sid == child->pid.virt)
@@ -251,7 +251,7 @@ int prepare_pstree_ids(void)
 					child->pid.virt, helper->pid.virt);
 
 			child->parent = helper;
-			list_move(&child->list, &helper->children);
+			list_move(&child->sibling, &helper->children);
 		}
 	}
 
@@ -294,7 +294,7 @@ int prepare_pstree_ids(void)
 		pr_info("Session leader %d\n", item->sid);
 
 		/* Try to find helpers, who should be connected to the leader */
-		list_for_each_entry(child, &helpers, list) {
+		list_for_each_entry(child, &helpers, sibling) {
 			if (child->state != TASK_HELPER)
 				continue;
 
@@ -304,7 +304,7 @@ int prepare_pstree_ids(void)
 			child->pgid = item->pgid;
 			child->pid.virt = ++max_pid;
 			child->parent = item;
-			list_move(&child->list, &item->children);
+			list_move(&child->sibling, &item->children);
 
 			pr_info("Attach %d to the task %d\n",
 					child->pid.virt, item->pid.virt);
@@ -339,7 +339,7 @@ int prepare_pstree_ids(void)
 		helper->pid.virt = item->pgid;
 		helper->state = TASK_HELPER;
 		helper->parent = item;
-		list_add(&helper->list, &item->children);
+		list_add(&helper->sibling, &item->children);
 		task_entries->nr_helpers++;
 
 		pr_info("Add a helper %d for restoring PGID %d\n",

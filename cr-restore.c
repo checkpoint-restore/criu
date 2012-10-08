@@ -296,7 +296,7 @@ static int pstree_wait_helpers()
 {
 	struct pstree_item *pi;
 
-	list_for_each_entry(pi, &current->children, list) {
+	list_for_each_entry(pi, &current->children, sibling) {
 		int status, ret;
 
 		if (pi->state != TASK_HELPER)
@@ -617,14 +617,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (status)
 			break;
 
-		list_for_each_entry(pi, &current->children, list) {
+		list_for_each_entry(pi, &current->children, sibling) {
 			if (pi->state != TASK_HELPER)
 				continue;
 			if (pi->pid.virt == siginfo->si_pid)
 				break;
 		}
 
-		if (&pi->list == &current->children)
+		if (&pi->sibling == &current->children)
 			break; /* The process is not a helper */
 	}
 
@@ -787,7 +787,7 @@ static int restore_task_with_children(void *_arg)
 	}
 
 	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &current->children, list) {
+	list_for_each_entry(child, &current->children, sibling) {
 		if (!restore_before_setsid(child))
 			continue;
 
@@ -801,7 +801,7 @@ static int restore_task_with_children(void *_arg)
 	restore_sid();
 
 	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &current->children, list) {
+	list_for_each_entry(child, &current->children, sibling) {
 		if (restore_before_setsid(child))
 			continue;
 		ret = fork_with_pid(child, 0);

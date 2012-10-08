@@ -289,7 +289,7 @@ static void pstree_handler(int fd, void *obj, int collect)
 		return;
 	}
 
-	list_add_tail(&item->list, &pstree_list);
+	list_add_tail(&item->sibling, &pstree_list);
 }
 
 void show_collect_pstree(int fd, int collect)
@@ -445,12 +445,12 @@ static int cr_show_all(struct cr_options *opts)
 	show_sk_queues(fd, opts);
 	close(fd);
 
-	pid = list_first_entry(&pstree_list, struct pstree_item, list)->pid.virt;
+	pid = list_first_entry(&pstree_list, struct pstree_item, sibling)->pid.virt;
 	ret = try_show_namespaces(pid, opts);
 	if (ret)
 		goto out;
 
-	list_for_each_entry(item, &pstree_list, list) {
+	list_for_each_entry(item, &pstree_list, sibling) {
 		struct cr_fdset *cr_fdset = NULL;
 
 		cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
@@ -490,8 +490,8 @@ static int cr_show_all(struct cr_options *opts)
 	}
 
 out:
-	list_for_each_entry_safe(item, tmp, &pstree_list, list) {
-		list_del(&item->list);
+	list_for_each_entry_safe(item, tmp, &pstree_list, sibling) {
+		list_del(&item->sibling);
 		xfree(item->threads);
 		xfree(item);
 	}

@@ -1025,7 +1025,7 @@ static int get_children(struct pstree_item *item)
 		}
 		c->pid.real = ch[i];
 		c->parent = item;
-		list_add_tail(&c->list, &item->children);
+		list_add_tail(&c->sibling, &item->children);
 	}
 free:
 	xfree(ch);
@@ -1160,7 +1160,7 @@ static int check_subtree(const struct pstree_item *item)
 		return ret;
 
 	i = 0;
-	list_for_each_entry(child, &item->children, list) {
+	list_for_each_entry(child, &item->children, sibling) {
 		if (child->pid.real != ch[i])
 			break;
 		i++;
@@ -1188,7 +1188,7 @@ static int collect_subtree(struct pstree_item *item)
 	if (ret)
 		return -1;
 
-	list_for_each_entry(child, &item->children, list) {
+	list_for_each_entry(child, &item->children, sibling) {
 		ret = collect_subtree(child);
 		if (ret < 0)
 			return -1;
@@ -1210,7 +1210,7 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 			return -1;
 
 		root_item->pid.real = pid;
-		INIT_LIST_HEAD(&root_item->list);
+		INIT_LIST_HEAD(&root_item->sibling);
 
 		ret = collect_subtree(root_item);
 		if (ret == 0) {
@@ -1348,7 +1348,7 @@ static int fill_zombies_pids(struct pstree_item *item)
 	if (parse_children(item->pid.virt, &ch, &nr) < 0)
 		return -1;
 
-	list_for_each_entry(child, &item->children, list) {
+	list_for_each_entry(child, &item->children, sibling) {
 		if (child->pid.virt < 0)
 			continue;
 		for (i = 0; i < nr; i++) {
@@ -1360,7 +1360,7 @@ static int fill_zombies_pids(struct pstree_item *item)
 	}
 
 	i = 0;
-	list_for_each_entry(child, &item->children, list) {
+	list_for_each_entry(child, &item->children, sibling) {
 		if (child->pid.virt > 0)
 			continue;
 		for (; i < nr; i++) {
