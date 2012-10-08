@@ -2,6 +2,7 @@
 #define __CR_NS_H__
 
 #include "crtools.h"
+#include "pstree.h"
 
 int dump_namespaces(struct pid *pid, unsigned int ns_flags);
 int prepare_namespace(int pid, unsigned long clone_flags);

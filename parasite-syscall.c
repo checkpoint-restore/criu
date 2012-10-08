@@ -12,6 +12,7 @@
 #include "parasite.h"
 #include "crtools.h"
 #include "namespaces.h"
+#include "pstree.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"

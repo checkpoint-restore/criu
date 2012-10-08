@@ -221,12 +221,6 @@ struct rst_info {
 	struct list_head	tty_slaves;
 };
 
-struct pid
-{
-	pid_t real;		/* used to peek/poke tasks during dump stage */
-	pid_t virt;		/* used all over in the images and saved after restore */
-};
-
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
 	return addr >= (unsigned long)vma->vma.start &&
