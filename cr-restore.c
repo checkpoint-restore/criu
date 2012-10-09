@@ -549,7 +549,7 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 			goto err_unlock;
 	} else {
 		ca.fd = -1;
-		BUG_ON(pid != 1);
+		BUG_ON(pid != INIT_PID);
 	}
 
 	if (ca.clone_flags & CLONE_NEWNET)
@@ -671,7 +671,7 @@ static void restore_sid(void)
 		sid = getsid(getpid());
 		if (sid != current->sid) {
 			/* Skip the root task if it's not init */
-			if (current == root_item && root_item->pid.virt != 1)
+			if (current == root_item && root_item->pid.virt != INIT_PID)
 				return;
 			pr_err("Requested sid %d doesn't match inherited %d\n",
 					current->sid, sid);
@@ -855,7 +855,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	 * this later.
 	 */
 
-	if (init->pid.virt == 1) {
+	if (init->pid.virt == INIT_PID) {
 		if (!(opts->namespaces_flags & CLONE_NEWPID)) {
 			pr_err("This process tree can be restored in a new pid namespace.\n");
 			pr_err("crtools should be re-executed with --namespace pid\n");

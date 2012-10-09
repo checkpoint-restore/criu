@@ -3,6 +3,12 @@
 #include "list.h"
 #include "crtools.h"
 
+/*
+ * That's the init process which usually inherit
+ * all orphaned children in the system.
+ */
+#define INIT_PID	(1)
+
 struct pid {
 	/*
 	 * The @real pid is used to fetch tasks during dumping stage,
