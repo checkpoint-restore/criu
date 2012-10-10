@@ -55,8 +55,7 @@ int main(int argc, char ** argv)
 
 		test_daemon();
 
-		while (test_go())
-			;
+		test_waitsig();
 
 		ret = read(12, buf, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
