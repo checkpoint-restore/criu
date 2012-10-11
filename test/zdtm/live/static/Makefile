@@ -47,6 +47,7 @@ TST_NOFILE	=				\
 		sem				\
 		maps01				\
 		xids00				\
+		groups				\
 		file_fown			\
 		eventfs00			\
 		signalfd00			\

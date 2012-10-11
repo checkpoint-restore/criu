@@ -24,6 +24,7 @@ static/timers
 static/futex
 static/futex-rl
 static/xids00
+static/groups
 static/pthread00
 streaming/pipe_loop00
 streaming/pipe_shared00
