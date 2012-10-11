@@ -65,6 +65,7 @@ TST_NOFILE	=				\
 		session01			\
 		socket-ext			\
 		unhashed_proc			\
+		cow00				\
 #		jobctl00			\
 
 TST_FILE	=				\
