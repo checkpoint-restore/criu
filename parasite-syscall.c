@@ -244,7 +244,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 		regs = regs_orig;
 	}
 
-	memcpy(ctl->addr_cmd, &cmd, sizeof(cmd));
+	*ctl->addr_cmd = cmd;
 
 	parasite_setup_regs(ctl->parasite_ip, &regs);
 
@@ -807,7 +807,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 
 	/* Setup the rest of a control block */
 	ctl->parasite_ip	= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
-	ctl->addr_cmd		= (void *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
+	ctl->addr_cmd		= (unsigned int *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
 	ctl->addr_args		= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
 
 	ret = parasite_init(ctl, pid);

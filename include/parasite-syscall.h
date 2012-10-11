@@ -17,7 +17,7 @@ struct parasite_ctl {
 
 	int			signals_blocked;
 
-	void 			* addr_cmd;				/* addr for command */
+	unsigned int		* addr_cmd;				/* addr for command */
 	void 			* addr_args;				/* address for arguments */
 	int			tsock;					/* transport socket for transfering fds */
 };
