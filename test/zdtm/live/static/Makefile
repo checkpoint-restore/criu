@@ -66,6 +66,7 @@ TST_NOFILE	=				\
 		socket-ext			\
 		unhashed_proc			\
 		cow00				\
+		posix_timers			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -193,6 +194,7 @@ pthread00:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
 sem:			override CFLAGS += -DNEW_IPC_NS
+posix_timers:		override LDLIBS += -lrt
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)
