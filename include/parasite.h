@@ -80,8 +80,12 @@ struct parasite_dump_misc {
 	u32 pgid;
 };
 
+#define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int))
+
 struct parasite_dump_creds {
 	unsigned int		secbits;
+	unsigned int		ngroups;
+	unsigned int		groups[PARASITE_MAX_GROUPS];
 };
 
 struct parasite_dump_tid_info {

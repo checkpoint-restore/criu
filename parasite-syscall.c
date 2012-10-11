@@ -541,6 +541,16 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 		return -1;
 
 	ce->secbits = pc->secbits;
+	ce->n_groups = pc->ngroups;
+
+	/*
+	 * Achtung! We leak the parasite args pointer to the caller.
+	 * It's not safe in general, but in our case is OK, since the
+	 * latter doesn't go to parasite before using the data in it.
+	 */
+
+	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(pc->groups[0]));
+	ce->groups = pc->groups;
 	return 0;
 }
 

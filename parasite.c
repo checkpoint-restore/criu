@@ -314,8 +314,35 @@ static int dump_misc(struct parasite_dump_misc *args)
 
 static int dump_creds(struct parasite_dump_creds *args)
 {
+	int ret;
+
 	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
+
+	ret = sys_getgroups(0, NULL);
+	if (ret < 0)
+		goto grps_err;
+
+	args->ngroups = ret;
+	if (args->ngroups >= PARASITE_MAX_GROUPS) {
+		pr_err("Too many groups in task %d\n", (int)args->ngroups);
+		return -1;
+	}
+
+	ret = sys_getgroups(args->ngroups, args->groups);
+	if (ret < 0)
+		goto grps_err;
+
+	if (ret != args->ngroups) {
+		pr_err("Groups changed on the fly %d -> %d\n",
+				args->ngroups, ret);
+		return -1;
+	}
+
 	return 0;
+
+grps_err:
+	pr_err("Error calling getgroups (%d)\n", ret);
+	return -1;
 }
 
 static int dump_tid_info(struct parasite_dump_tid_info *args)

@@ -14,4 +14,6 @@ message creds_entry {
 	repeated uint32	cap_bnd = 12;
 
 	required uint32	secbits = 13;
+
+	repeated uint32	groups	= 14;
 }

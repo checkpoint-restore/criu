@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <fcntl.h>
+#include <grp.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1138,6 +1139,18 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
 	args->creds.cap_bnd = args->cap_bnd;
 	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
+
+	/*
+	 * We can set supplementary groups here. This won't affect any
+	 * permission checks for us (we're still root) and will not be
+	 * reset by subsequent creds changes in restorer.
+	 */
+
+	BUILD_BUG_ON(sizeof(*ce->groups) != sizeof(gid_t));
+	if (setgroups(ce->n_groups, ce->groups) < 0) {
+		pr_perror("Can't set supplementary groups");
+		return -1;
+	}
 
 	creds_entry__free_unpacked(ce, NULL);
 
