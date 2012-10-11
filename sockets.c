@@ -78,6 +78,14 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &soe->so_sndbuf);
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &soe->so_rcvbuf);
+	if (soe->has_so_priority) {
+		pr_debug("\trestore priority %d for socket\n", soe->so_priority);
+		ret |= restore_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
+	}
+	if (soe->has_so_rcvlowat) {
+		pr_debug("\trestore rcvlowat %d for socket\n", soe->so_rcvlowat);
+		ret |= restore_opt(sk, SOL_SOCKET, SO_RCVLOWAT, &soe->so_rcvlowat);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -117,6 +125,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDBUF, &soe->so_sndbuf);
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVBUF, &soe->so_rcvbuf);
+	soe->has_so_priority = true;
+	ret |= dump_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
+	soe->has_so_rcvlowat = true;
+	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVLOWAT, &soe->so_rcvlowat);
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 	soe->so_snd_tmo_sec = tv.tv_sec;
@@ -352,6 +364,8 @@ void show_socket_opts(SkOptsEntry *soe)
 	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
 	pr_msg("sndtmo: %lu.%lu  ", soe->so_snd_tmo_sec, soe->so_snd_tmo_usec);
 	pr_msg("rcvtmo: %lu.%lu  ", soe->so_rcv_tmo_sec, soe->so_rcv_tmo_usec);
+	pr_msg("prio:   %u  ", soe->so_priority);
+	pr_msg("rlowat: %u  ", soe->so_rcvlowat);
 
 	pr_msg("\n");
 }

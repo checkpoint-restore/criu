@@ -30,6 +30,7 @@ streaming/pipe_loop00
 streaming/pipe_shared00
 transition/file_read
 static/sockets00
+static/sock_opts00
 static/sockets_spair
 static/sockets_dgram
 static/socket_queues
