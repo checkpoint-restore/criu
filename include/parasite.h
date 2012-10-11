@@ -29,6 +29,7 @@ enum {
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
+	PARASITE_CMD_DUMP_CREDS,
 	PARASITE_CMD_DUMP_TID_ADDR,
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
@@ -71,13 +72,16 @@ struct parasite_dump_itimers_args {
  */
 
 struct parasite_dump_misc {
-	unsigned int		secbits;
 	unsigned long		brk;
 	k_rtsigset_t		blocked;
 
 	u32 pid;
 	u32 sid;
 	u32 pgid;
+};
+
+struct parasite_dump_creds {
+	unsigned int		secbits;
 };
 
 struct parasite_dump_tid_info {

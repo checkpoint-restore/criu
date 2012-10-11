@@ -302,7 +302,6 @@ static int reset_blocked = 0;
 
 static int dump_misc(struct parasite_dump_misc *args)
 {
-	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 	args->brk = sys_brk(0);
 	args->blocked = old_blocked;
 
@@ -310,6 +309,12 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->sid = sys_getsid();
 	args->pgid = sys_getpgid();
 
+	return 0;
+}
+
+static int dump_creds(struct parasite_dump_creds *args)
+{
+	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 	return 0;
 }
 
@@ -474,6 +479,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return dump_itimers((struct parasite_dump_itimers_args *)args);
 	case PARASITE_CMD_DUMP_MISC:
 		return dump_misc((struct parasite_dump_misc *)args);
+	case PARASITE_CMD_DUMP_CREDS:
+		return dump_creds((struct parasite_dump_creds *)args);
 	case PARASITE_CMD_DUMP_TID_ADDR:
 		return dump_tid_info((struct parasite_dump_tid_info *)args);
 	case PARASITE_CMD_DRAIN_FDS:

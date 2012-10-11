@@ -4,6 +4,11 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "protobuf.h"
+#include "protobuf/sa.pb-c.h"
+#include "protobuf/itimer.pb-c.h"
+#include "protobuf/creds.pb-c.h"
+
 #include "syscall.h"
 #include "ptrace.h"
 #include "processor-flags.h"
@@ -13,10 +18,6 @@
 #include "crtools.h"
 #include "namespaces.h"
 #include "pstree.h"
-
-#include "protobuf.h"
-#include "protobuf/sa.pb-c.h"
-#include "protobuf/itimer.pb-c.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -528,6 +529,18 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 		return -1;
 
 	*misc = *ma;
+	return 0;
+}
+
+int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
+{
+	struct parasite_dump_creds *pc;
+
+	pc = parasite_args(ctl, sizeof(*pc));
+	if (parasite_execute(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
+		return -1;
+
+	ce->secbits = pc->secbits;
 	return 0;
 }
 

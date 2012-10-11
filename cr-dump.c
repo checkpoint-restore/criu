@@ -20,6 +20,13 @@
 
 #include <linux/major.h>
 
+#include "protobuf.h"
+#include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/fs.pb-c.h"
+#include "protobuf/mm.pb-c.h"
+#include "protobuf/creds.pb-c.h"
+#include "protobuf/core.pb-c.h"
+
 #include "types.h"
 #include "list.h"
 #include "file-ids.h"
@@ -49,13 +56,6 @@
 #include "mount.h"
 #include "tty.h"
 #include "net.h"
-
-#include "protobuf.h"
-#include "protobuf/fdinfo.pb-c.h"
-#include "protobuf/fs.pb-c.h"
-#include "protobuf/mm.pb-c.h"
-#include "protobuf/creds.pb-c.h"
-#include "protobuf/core.pb-c.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -442,18 +442,17 @@ err:
 	return ret;
 }
 
-static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
-			   const struct cr_fdset *fds)
+static int dump_task_creds(struct parasite_ctl *ctl, const struct cr_fdset *fds)
 {
 	int ret;
 	struct proc_status_creds cr;
 	CredsEntry ce = CREDS_ENTRY__INIT;
 
 	pr_info("\n");
-	pr_info("Dumping creds for %d)\n", pid);
+	pr_info("Dumping creds for %d)\n", ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_pid_status(pid, &cr);
+	ret = parse_pid_status(ctl->pid, &cr);
 	if (ret < 0)
 		return ret;
 
@@ -477,7 +476,8 @@ static int dump_task_creds(pid_t pid, const struct parasite_dump_misc *misc,
 	ce.n_cap_bnd = CR_CAP_SIZE;
 	ce.cap_bnd = cr.cap_bnd;
 
-	ce.secbits = misc->secbits;
+	if (parasite_dump_creds(ctl, &ce) < 0)
+		return -1;
 
 	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
 }
@@ -1531,6 +1531,12 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
+	ret = dump_task_creds(parasite_ctl, cr_fdset);
+	if (ret) {
+		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
 	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
@@ -1540,12 +1546,6 @@ static int dump_one_task(struct pstree_item *item)
 	ret = dump_task_mappings(pid, &vma_area_list, cr_fdset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
-	ret = dump_task_creds(pid, &misc, cr_fdset);
-	if (ret) {
-		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
