@@ -13,4 +13,5 @@ message sk_opts_entry {
 	optional uint32		so_mark		= 10;
 	optional bool		so_passcred	= 11;
 	optional bool		so_passsec	= 12;
+	optional bool		so_dontroute	= 13;
 }

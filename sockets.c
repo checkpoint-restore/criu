@@ -100,6 +100,11 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset passsec for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
 	}
+	if (soe->has_so_dontroute && soe->so_dontroute) {
+		val = 1;
+		pr_debug("\tset dontroute for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -165,6 +170,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
 	soe->has_so_passsec = true;
 	soe->so_passsec = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
+	soe->has_so_dontroute = true;
+	soe->so_dontroute = val ? true : false;
 
 	return ret;
 }
