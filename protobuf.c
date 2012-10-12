@@ -341,7 +341,7 @@ static int pb_field_show_pretty(pb_pr_ctl_t *ctl)
 	char cookie[32];
 	const char *ptr;
 
-	if (!ctl->pretty_fmt)
+	if (!ctl->pretty_fmt || field->depth)
 		return 0;
 
 	sprintf(cookie, " %d:", field->number);
