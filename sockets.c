@@ -72,7 +72,7 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 
 int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
-	int ret = 0;
+	int ret = 0, val;
 	struct timeval tv;
 
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
@@ -89,6 +89,16 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	if (soe->has_so_mark) {
 		pr_debug("\trestore mark %d for socket\n", soe->so_mark);
 		ret |= restore_opt(sk, SOL_SOCKET, SO_MARK, &soe->so_mark);
+	}
+	if (soe->has_so_passcred && soe->so_passcred) {
+		val = 1;
+		pr_debug("\tset passcred for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
+	}
+	if (soe->has_so_passsec && soe->so_passsec) {
+		val = 1;
+		pr_debug("\tset passsec for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
 	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
@@ -147,6 +157,14 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val);
 	soe->reuseaddr = val ? true : false;
 	soe->has_reuseaddr = true;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
+	soe->has_so_passcred = true;
+	soe->so_passcred = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSSEC, &val);
+	soe->has_so_passsec = true;
+	soe->so_passsec = val ? true : false;
 
 	return ret;
 }

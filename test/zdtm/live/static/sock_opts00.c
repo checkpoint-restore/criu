@@ -12,7 +12,7 @@ const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 #define TEST_PORT 59687
 #define TEST_ADDR INADDR_ANY
 
-#define NOPTS	3
+#define NOPTS	5
 
 int main(int argc, char ** argv)
 {
@@ -22,6 +22,8 @@ int main(int argc, char ** argv)
 	vname[0] = SO_PRIORITY;
 	vname[1] = SO_RCVLOWAT;
 	vname[2] = SO_MARK;
+	vname[3] = SO_PASSCRED;
+	vname[4] = SO_PASSSEC;
 
 	test_init(argc, argv);
 

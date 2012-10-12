@@ -11,4 +11,6 @@ message sk_opts_entry {
 	optional uint32		so_priority	= 8;
 	optional uint32		so_rcvlowat	= 9;
 	optional uint32		so_mark		= 10;
+	optional bool		so_passcred	= 11;
+	optional bool		so_passsec	= 12;
 }
