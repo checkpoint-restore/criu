@@ -86,6 +86,10 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\trestore rcvlowat %d for socket\n", soe->so_rcvlowat);
 		ret |= restore_opt(sk, SOL_SOCKET, SO_RCVLOWAT, &soe->so_rcvlowat);
 	}
+	if (soe->has_so_mark) {
+		pr_debug("\trestore mark %d for socket\n", soe->so_mark);
+		ret |= restore_opt(sk, SOL_SOCKET, SO_MARK, &soe->so_mark);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -129,6 +133,8 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
 	soe->has_so_rcvlowat = true;
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVLOWAT, &soe->so_rcvlowat);
+	soe->has_so_mark = true;
+	ret |= dump_opt(sk, SOL_SOCKET, SO_MARK, &soe->so_mark);
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 	soe->so_snd_tmo_sec = tv.tv_sec;
