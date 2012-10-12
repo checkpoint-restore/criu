@@ -28,7 +28,6 @@ struct socket_desc {
 extern int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset);
 extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
-extern void show_socket_opts(SkOptsEntry *soe);
 
 extern int sk_collect_one(int ino, int family, struct socket_desc *d);
 extern int collect_sockets(int pid);

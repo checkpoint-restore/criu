@@ -355,17 +355,3 @@ char *skstate2s(u32 state)
 	else
 		return unknown(state);
 }
-
-void show_socket_opts(SkOptsEntry *soe)
-{
-	pr_msg("\t");
-
-	pr_msg("sndbuf: %u  ", soe->so_sndbuf);
-	pr_msg("rcvbuf: %u  ", soe->so_rcvbuf);
-	pr_msg("sndtmo: %lu.%lu  ", soe->so_snd_tmo_sec, soe->so_snd_tmo_usec);
-	pr_msg("rcvtmo: %lu.%lu  ", soe->so_rcv_tmo_sec, soe->so_rcv_tmo_usec);
-	pr_msg("prio:   %u  ", soe->so_priority);
-	pr_msg("rlowat: %u  ", soe->so_rcvlowat);
-
-	pr_msg("\n");
-}
