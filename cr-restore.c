@@ -155,7 +155,9 @@ static int root_prepare_shared(void)
 
 	mark_pipe_master();
 
-	tty_setup_slavery();
+	ret = tty_setup_slavery();
+	if (ret)
+		goto err;
 
 	ret = resolve_unix_peers();
 	if (ret)

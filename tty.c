@@ -667,7 +667,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 	return -1;
 }
 
-static void tty_setup_orphan_slavery(void)
+static int tty_setup_orphan_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
 
@@ -705,21 +705,25 @@ static void tty_setup_orphan_slavery(void)
 				 m->tfe->id);
 		}
 	}
+
+	return 0;
 }
 
-void tty_setup_slavery(void)
+int tty_setup_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
 
 	list_for_each_entry(info, &all_ttys, list) {
-		tty_find_restoring_task(info);
+		if (tty_find_restoring_task(info))
+			return -1;
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
 
-			tty_find_restoring_task(peer);
+			if (tty_find_restoring_task(peer))
+				return -1;
 
 			list_add(&peer->sibling, &info->sibling);
 			list_del(&peer->list);
@@ -735,7 +739,7 @@ void tty_setup_slavery(void)
 			tty_show_pty_info("    `- sibling", peer);
 	}
 
-	tty_setup_orphan_slavery();
+	return tty_setup_orphan_slavery();
 }
 
 static int verify_termios(u32 id, TermiosEntry *e)
