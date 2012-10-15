@@ -105,6 +105,11 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset dontroute for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
 	}
+	if (soe->has_so_no_check && soe->so_no_check) {
+		val = 1;
+		pr_debug("\tset no_check for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_NO_CHECK, &val);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -174,6 +179,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_DONTROUTE, &val);
 	soe->has_so_dontroute = true;
 	soe->so_dontroute = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_NO_CHECK, &val);
+	soe->has_so_no_check = true;
+	soe->so_no_check = val ? true : false;
 
 	return ret;
 }
