@@ -784,14 +784,6 @@ static int verify_info(struct tty_info *info)
 	    verify_termios(info->tfe->id, info->tie->termios))
 		return -1;
 
-	if (!pty_is_master(info)) {
-		if (info->tie->sid || info->tie->pgrp) {
-			pr_err("Found sid %d pgrp %d on slave peer %x\n",
-			       info->tie->sid, info->tie->pgrp, info->tfe->id);
-			return -1;
-		}
-	}
-
 	return 0;
 }
 
