@@ -187,7 +187,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 	return ret;
 }
 
-static int fill_fd_params(pid_t pid, int fd, int lfd,
+static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 				struct fd_opts *opts, struct fd_parms *p)
 {
 	if (fstat(lfd, &p->stat) < 0) {
@@ -195,16 +195,17 @@ static int fill_fd_params(pid_t pid, int fd, int lfd,
 		return -1;
 	}
 
+	p->ctl		= ctl;
 	p->fd		= fd;
 	p->pos		= lseek(lfd, 0, SEEK_CUR);
 	p->flags	= fcntl(lfd, F_GETFL);
-	p->pid		= pid;
+	p->pid		= ctl->pid;
 	p->fd_flags	= opts->flags;
 
 	fown_entry__init(&p->fown);
 
 	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
-		pid, fd, p->pos, p->flags, (int)p->fd_flags);
+		ctl->pid, fd, p->pos, p->flags, (int)p->fd_flags);
 
 	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
 	if (p->fown.signum < 0) {
@@ -250,13 +251,13 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 #define PIPEFS_MAGIC	0x50495045
 #endif
 
-static int dump_one_file(pid_t pid, int fd, int lfd, struct fd_opts *opts,
+static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
 		       const struct cr_fdset *cr_fdset)
 {
 	struct fd_parms p;
 	struct statfs statfs;
 
-	if (fill_fd_params(pid, fd, lfd, opts, &p) < 0) {
+	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
 		return -1;
 	}
@@ -322,7 +323,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 		goto err2;
 
 	for (i = 0; i < dfds->nr_fds; i++) {
-		ret = dump_one_file(ctl->pid, dfds->fds[i], lfds[i], opts + i, cr_fdset);
+		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, cr_fdset);
 		close(lfds[i]);
 		if (ret)
 			goto err2;

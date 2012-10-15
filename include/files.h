@@ -15,6 +15,7 @@ struct pstree_item;
 struct file_desc;
 struct cr_fdset;
 struct rst_info;
+struct parasite_ctl;
 
 struct fd_parms {
 	int		fd;
@@ -24,6 +25,8 @@ struct fd_parms {
 	struct stat	stat;
 	pid_t		pid;
 	FownEntry	fown;
+
+	struct parasite_ctl *ctl;
 };
 
 #define FD_PARMS_INIT			\
