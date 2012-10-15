@@ -22,8 +22,6 @@ struct parasite_ctl {
 	int			tsock;					/* transport socket for transfering fds */
 };
 
-extern void *parasite_args(struct parasite_ctl *ctl, int args_size);
-
 struct cr_fdset;
 struct list_head;
 
@@ -51,6 +49,6 @@ extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct list_head *vma_area_list);
 
-extern int parasite_dump_tty(struct parasite_ctl *ctl);
+extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
 
 #endif /* PARASITE_SYSCALL_H_ */

@@ -452,7 +452,7 @@ out_send_fd:
 	return ret;
 }
 
-static int parasite_dump_tty(struct parasite_dump_tty *args)
+static int parasite_dump_tty(struct parasite_tty_args *args)
 {
 	int ret;
 
@@ -520,7 +520,7 @@ int __used parasite_service(unsigned int cmd, void *args)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_tid_info) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_drain_fd) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_dump_tty) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_tty_args) > PARASITE_ARG_SIZE);
 
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
@@ -552,7 +552,7 @@ int __used parasite_service(unsigned int cmd, void *args)
 	case PARASITE_CMD_GET_PROC_FD:
 		return parasite_get_proc_fd();
 	case PARASITE_CMD_DUMP_TTY:
-		return parasite_dump_tty((struct parasite_dump_tty *)args);
+		return parasite_dump_tty((struct parasite_tty_args *)args);
 	}
 
 	pr_err("Unknown command to parasite\n");

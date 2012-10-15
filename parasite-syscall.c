@@ -223,7 +223,7 @@ err:
 	return ret;
 }
 
-void *parasite_args(struct parasite_ctl *ctl, int args_size)
+static void *parasite_args(struct parasite_ctl *ctl, int args_size)
 {
 	BUG_ON(args_size > PARASITE_ARG_SIZE);
 	return ctl->addr_args;
@@ -532,15 +532,17 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	return 0;
 }
 
-int parasite_dump_tty(struct parasite_ctl *ctl)
+struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd)
 {
-	struct parasite_dump_tty *p;
+	struct parasite_tty_args *p;
 
 	p = parasite_args(ctl, sizeof(*p));
-	if (parasite_execute(PARASITE_CMD_DUMP_TTY, ctl) < 0)
-		return -1;
+	p->fd = fd;
 
-	return 0;
+	if (parasite_execute(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+		return NULL;
+
+	return p;
 }
 
 int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)

@@ -313,27 +313,6 @@ static int lock_pty(int fd)
 	return 0;
 }
 
-static int tty_get_sid_pgrp(const struct fd_parms *p, int major,
-			    int *sid, int *pgrp, bool *hangup)
-{
-	struct parasite_dump_tty *args = parasite_args(p->ctl, sizeof(*args));
-	int ret;
-
-	*args = (struct parasite_dump_tty) {
-		.fd = p->fd,
-	};
-
-	ret = parasite_dump_tty(p->ctl);
-	if (ret)
-		return -1;
-
-	*sid = args->sid;
-	*pgrp = args->pgrp;
-	*hangup = args->hangup;
-
-	return 0;
-}
-
 static int tty_set_sid(int fd)
 {
 	if (ioctl(fd, TIOCSCTTY, 1)) {
@@ -909,12 +888,12 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	TermiosEntry termios_locked	= TERMIOS_ENTRY__INIT;
 	WinsizeEntry winsize		= WINSIZE_ENTRY__INIT;
 	TtyPtyEntry pty			= TTY_PTY_ENTRY__INIT;
+	struct parasite_tty_args *pti;
 
-	bool hangup = false;
 	struct termios t;
 	struct winsize w;
 
-	int ret = -1, sid, pgrp;
+	int ret = -1;
 
 	/*
 	 * Make sure the structures the system provides us
@@ -924,13 +903,14 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	if (tty_get_sid_pgrp(p, major, &sid, &pgrp, &hangup))
+	pti = parasite_dump_tty(p->ctl, p->fd);
+	if (!pti)
 		return -1;
 
 	info.id			= id;
 	info.type		= TTY_TYPE__PTY;
-	info.sid		= sid;
-	info.pgrp		= pgrp;
+	info.sid		= pti->sid;
+	info.pgrp		= pti->pgrp;
 	info.rdev		= p->stat.st_rdev;
 	info.pty		= &pty;
 
@@ -941,7 +921,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 * just write out minimum information we can
 	 * gather.
 	 */
-	if (hangup)
+	if (pti->hangup)
 		return pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
 
 	/*

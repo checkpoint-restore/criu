@@ -106,7 +106,7 @@ static inline int drain_fds_size(struct parasite_drain_fd *dfds)
 	return sizeof(dfds->nr_fds) + dfds->nr_fds * sizeof(dfds->fds[0]);
 }
 
-struct parasite_dump_tty {
+struct parasite_tty_args {
 	int	fd;
 
 	int	sid;
