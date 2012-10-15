@@ -28,6 +28,10 @@
 
 #include "protobuf.h"
 #include "protobuf/tty.pb-c.h"
+#include "protobuf/creds.pb-c.h"
+
+#include "parasite-syscall.h"
+#include "parasite.h"
 
 #include "pstree.h"
 #include "tty.h"
@@ -309,36 +313,24 @@ static int lock_pty(int fd)
 	return 0;
 }
 
-static int tty_get_sid_pgrp(int fd, int *sid, int *pgrp, bool *hangup)
+static int tty_get_sid_pgrp(const struct fd_parms *p, int major,
+			    int *sid, int *pgrp, bool *hangup)
 {
+	struct parasite_dump_tty *args = parasite_args(p->ctl, sizeof(*args));
 	int ret;
 
-	ret = ioctl(fd, TIOCGSID, sid);
-	if (ret < 0) {
-		if (errno != ENOTTY)
-			goto err;
-		*sid = 0;
-	}
+	*args = (struct parasite_dump_tty) {
+		.fd = p->fd,
+	};
 
-	ret = ioctl(fd, TIOCGPGRP, pgrp);
-	if (ret < 0) {
-		if (errno != ENOTTY)
-			goto err;
-		*pgrp = 0;
-	}
-
-	*hangup = false;
-	return 0;
-
-err:
-	if (errno != EIO) {
-		pr_perror("Can't get sid/pgrp on %d", fd);
+	ret = parasite_dump_tty(p->ctl);
+	if (ret)
 		return -1;
-	}
 
-	/* kernel reports EIO for get ioctls on pair-less ptys */
-	*sid = *pgrp = 0;
-	*hangup = true;
+	*sid = args->sid;
+	*pgrp = args->pgrp;
+	*hangup = args->hangup;
+
 	return 0;
 }
 
@@ -932,7 +924,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	if (tty_get_sid_pgrp(lfd, &sid, &pgrp, &hangup))
+	if (tty_get_sid_pgrp(p, major, &sid, &pgrp, &hangup))
 		return -1;
 
 	info.id			= id;
