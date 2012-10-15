@@ -33,6 +33,7 @@ enum {
 	PARASITE_CMD_DUMP_TID_ADDR,
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
+	PARASITE_CMD_DUMP_TTY,
 
 	PARASITE_CMD_MAX,
 };
@@ -104,6 +105,14 @@ static inline int drain_fds_size(struct parasite_drain_fd *dfds)
 {
 	return sizeof(dfds->nr_fds) + dfds->nr_fds * sizeof(dfds->fds[0]);
 }
+
+struct parasite_dump_tty {
+	int	fd;
+
+	int	sid;
+	int	pgrp;
+	bool	hangup;
+};
 
 /*
  * Some useful offsets

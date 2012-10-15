@@ -532,6 +532,17 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	return 0;
 }
 
+int parasite_dump_tty(struct parasite_ctl *ctl)
+{
+	struct parasite_dump_tty *p;
+
+	p = parasite_args(ctl, sizeof(*p));
+	if (parasite_execute(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+		return -1;
+
+	return 0;
+}
+
 int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 {
 	struct parasite_dump_creds *pc;

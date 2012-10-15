@@ -4,6 +4,7 @@
 #include <linux/limits.h>
 #include <sys/mount.h>
 #include <stdarg.h>
+#include <sys/ioctl.h>
 
 #include "syscall.h"
 #include "parasite.h"
@@ -451,6 +452,41 @@ out_send_fd:
 	return ret;
 }
 
+static int parasite_dump_tty(struct parasite_dump_tty *args)
+{
+	int ret;
+
+	ret = sys_ioctl(args->fd, TIOCGSID, (unsigned long)&args->sid);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			goto err;
+		args->sid = 0;
+	}
+
+	ret = sys_ioctl(args->fd, TIOCGPGRP, (unsigned long)&args->pgrp);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			goto err;
+		args->pgrp = 0;
+	}
+
+	args->hangup = false;
+	return 0;
+
+err:
+	if (ret != -EIO) {
+		pr_err("TTY: Can't get sid/pgrp\n");
+		return -1;
+	}
+
+	/* kernel reports EIO for get ioctls on pair-less ptys */
+	args->sid = 0;
+	args->pgrp = 0;
+	args->hangup = true;
+
+	return 0;
+}
+
 static int parasite_cfg_log(struct parasite_log_args *args)
 {
 	int ret;
@@ -484,6 +520,7 @@ int __used parasite_service(unsigned int cmd, void *args)
 	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_dump_tid_info) > PARASITE_ARG_SIZE);
 	BUILD_BUG_ON(sizeof(struct parasite_drain_fd) > PARASITE_ARG_SIZE);
+	BUILD_BUG_ON(sizeof(struct parasite_dump_tty) > PARASITE_ARG_SIZE);
 
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
@@ -514,6 +551,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return drain_fds((struct parasite_drain_fd *)args);
 	case PARASITE_CMD_GET_PROC_FD:
 		return parasite_get_proc_fd();
+	case PARASITE_CMD_DUMP_TTY:
+		return parasite_dump_tty((struct parasite_dump_tty *)args);
 	}
 
 	pr_err("Unknown command to parasite\n");
