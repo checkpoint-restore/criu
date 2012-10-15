@@ -223,7 +223,7 @@ err:
 	return ret;
 }
 
-static void *parasite_args(struct parasite_ctl *ctl, int args_size)
+void *parasite_args(struct parasite_ctl *ctl, int args_size)
 {
 	BUG_ON(args_size > PARASITE_ARG_SIZE);
 	return ctl->addr_args;

@@ -22,6 +22,8 @@ struct parasite_ctl {
 	int			tsock;					/* transport socket for transfering fds */
 };
 
+extern void *parasite_args(struct parasite_ctl *ctl, int args_size);
+
 struct cr_fdset;
 struct list_head;
 
