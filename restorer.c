@@ -127,6 +127,21 @@ static void restore_creds(CredsEntry *ce)
 	sys_capset(&hdr, data);
 }
 
+static void restore_sched_info(struct rst_sched_param *p)
+{
+	struct sched_param parm;
+
+	if ((p->policy == SCHED_OTHER) && (p->nice == 0))
+		return;
+
+	pr_info("Restoring scheduler params %d.%d.%d\n",
+			p->policy, p->nice, p->prio);
+
+	sys_setpriority(PRIO_PROCESS, 0, p->nice);
+	parm.sched_priority = p->prio;
+	sys_sched_setscheduler(0, p->policy, &parm);
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
@@ -151,6 +166,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 			goto core_restore_end;
 		}
 	}
+
+	restore_sched_info(&args->sp);
 
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
@@ -441,6 +458,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 			goto core_restore_end;
 		}
 	}
+
+	restore_sched_info(&args->sp);
 
 	/*
 	 * We need to prepare a valid sigframe here, so

@@ -18,6 +18,9 @@
 #include <sys/sendfile.h>
 #include <sys/mman.h>
 
+#include <sched.h>
+#include <sys/resource.h>
+
 #include <linux/major.h>
 
 #include "protobuf.h"
@@ -96,6 +99,54 @@ static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 
 err:
 	return ret;
+}
+
+static int dump_sched_info(int pid, ThreadCoreEntry *tc)
+{
+	int ret;
+	struct sched_param sp;
+
+	BUILD_BUG_ON(SCHED_OTHER != 0); /* default in proto message */
+
+	ret = sched_getscheduler(pid);
+	if (ret < 0) {
+		pr_perror("Can't get sched policy for %d", pid);
+		return -1;
+	}
+
+	pr_info("%d has %d sched policy\n", pid, ret);
+	tc->has_sched_policy = true;
+	tc->sched_policy = ret;
+
+	if ((ret == SCHED_RR) || (ret == SCHED_FIFO)) {
+		ret = sched_getparam(pid, &sp);
+		if (ret < 0) {
+			pr_perror("Can't get sched param for %d", pid);
+			return -1;
+		}
+
+		pr_info("\tdumping %d prio for %d\n", sp.sched_priority, pid);
+		tc->has_sched_prio = true;
+		tc->sched_prio = sp.sched_priority;
+	}
+
+	/*
+	 * The nice is ignored for RT sched policies, but is stored
+	 * in kernel. Thus we have to take it with us in the image.
+	 */
+
+	errno = 0;
+	ret = getpriority(PRIO_PROCESS, pid);
+	if (errno) {
+		pr_perror("Can't get nice for %d", pid);
+		return -1;
+	}
+
+	pr_info("\tdumping %d nice for %d\n", ret, pid);
+	tc->has_sched_nice = true;
+	tc->sched_nice = ret;
+
+	return 0;
 }
 
 struct cr_fdset *glob_fdset;
@@ -880,6 +931,10 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
 
+	ret = dump_sched_info(pid, core->thread_core);
+	if (ret)
+		goto err_free;
+
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0) {
 		pr_info("ERROR\n");
@@ -1276,6 +1331,10 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 
 	pr_info("%d: tid_address=%p\n", pid, taddr);
 	core->thread_info->clear_tid_addr = (u64) taddr;
+
+	ret = dump_sched_info(pid, core->thread_core);
+	if (ret)
+		goto err_free;
 
 	pr_info("OK\n");
 

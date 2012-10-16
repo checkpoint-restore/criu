@@ -1258,6 +1258,45 @@ static int remap_restorer_blob(void *addr)
 	return 0;
 }
 
+static int validate_sched_parm(struct rst_sched_param *sp)
+{
+	if ((sp->nice < -20) || (sp->nice > 19))
+		return 0;
+
+	switch (sp->policy) {
+	case SCHED_RR:
+	case SCHED_FIFO:
+		return ((sp->prio > 0) && (sp->prio < 100));
+	case SCHED_IDLE:
+	case SCHED_OTHER:
+	case SCHED_BATCH:
+		return sp->prio == 0;
+	}
+
+	return 0;
+}
+
+static int prep_sched_info(struct rst_sched_param *sp, ThreadCoreEntry *tc)
+{
+	if (!tc->has_sched_policy) {
+		sp->policy = SCHED_OTHER;
+		sp->nice = 0;
+		return 0;
+	}
+
+	sp->policy = tc->sched_policy;
+	sp->nice = tc->sched_nice;
+	sp->prio = tc->sched_prio;
+
+	if (!validate_sched_parm(sp)) {
+		pr_err("Inconsistent sched params received (%d.%d.%d)\n",
+				sp->policy, sp->nice, sp->prio);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_vmas, int nr_vmas)
 {
 	long restore_task_vma_len;
@@ -1427,6 +1466,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		task_args->has_futex		= true;
 		task_args->futex_rla		= core->thread_core->futex_rla;
 		task_args->futex_rla_len	= core->thread_core->futex_rla_len;
+
+		ret = prep_sched_info(&task_args->sp, core->thread_core);
+		if (ret)
+			goto err;
 	}
 
 	/* No longer need it */
@@ -1494,6 +1537,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			thread_args[i].has_futex	= true;
 			thread_args[i].futex_rla	= core->thread_core->futex_rla;
 			thread_args[i].futex_rla_len	= core->thread_core->futex_rla_len;
+
+			ret = prep_sched_info(&thread_args[i].sp, core->thread_core);
+			if (ret)
+				goto err;
 		}
 
 		core_entry__free_unpacked(core, NULL);

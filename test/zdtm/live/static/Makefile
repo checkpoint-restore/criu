@@ -19,6 +19,7 @@ TST_NOFILE	=				\
 		mprotect00			\
 		timers				\
 		unbound_sock			\
+		sched_prio00			\
 		socket_listen			\
 		socket_udp			\
 		socket6_udp			\

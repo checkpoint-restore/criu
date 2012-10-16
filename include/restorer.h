@@ -56,6 +56,12 @@ struct restore_mem_zone {
 #define first_on_heap(ptr, heap)	((typeof(ptr))heap)
 #define next_on_heap(ptr, prev)		((typeof(ptr))((long)(prev) + sizeof(*(prev))))
 
+struct rst_sched_param {
+	int policy;
+	int nice;
+	int prio;
+};
+
 /* Make sure it's pow2 in size */
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
@@ -68,6 +74,8 @@ struct thread_restore_args {
 	bool				has_futex;
 	u64				futex_rla;
 	u32				futex_rla_len;
+
+	struct rst_sched_param		sp;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -113,6 +121,8 @@ struct task_restore_core_args {
 
 	int				*rst_tcp_socks;
 	int				rst_tcp_socks_size;
+
+	struct rst_sched_param		sp;
 } __aligned(sizeof(long));
 
 struct pt_regs {

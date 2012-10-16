@@ -19,6 +19,7 @@ static/write_read02
 static/write_read10
 static/wait00
 static/vdso00
+static/sched_prio00
 static/file_shared
 static/timers
 static/futex

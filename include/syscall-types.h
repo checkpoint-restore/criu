@@ -10,6 +10,7 @@
 
 #include <sys/time.h>
 #include <arpa/inet.h>
+#include <sched.h>
 
 #include "types.h"
 

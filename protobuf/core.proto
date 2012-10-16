@@ -69,6 +69,9 @@ message thread_info_x86 {
 message thread_core_entry {
 	required uint64			futex_rla	= 1;
 	required uint32			futex_rla_len	= 2;
+	optional sint32			sched_nice	= 3;
+	optional uint32			sched_policy	= 4;
+	optional uint32			sched_prio	= 5;
 }
 
 message core_entry {
