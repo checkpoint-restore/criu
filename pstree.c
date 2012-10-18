@@ -73,6 +73,23 @@ int dump_pstree(struct pstree_item *root_item)
 	pr_info("Dumping pstree (pid: %d)\n", root_item->pid.real);
 	pr_info("----------------------------------------\n");
 
+	/*
+	 * Make sure we're dumping session leader, if not an
+	 * appropriate option must be passed.
+	 *
+	 * Also note that if we're not a session leader we
+	 * can't get the situation where the leader sits somewhere
+	 * deeper in process tree, thus top-level checking for
+	 * leader is enough.
+	 */
+	if (root_item->pid.virt != root_item->sid) {
+		if (!opts.shell_job) {
+			pr_err("The root process %d is not a session leader,"
+			       "miss option?\n", item->pid.virt);
+			return -1;
+		}
+	}
+
 	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
 	if (pstree_fd < 0)
 		return -1;
@@ -108,6 +125,56 @@ err:
 }
 
 static int max_pid = 0;
+
+static int prepare_pstree_for_shell_job(struct pstree_item *root)
+{
+	pid_t current_sid = getsid(getpid());
+	pid_t current_gid = getpgid(getpid());
+
+	struct pstree_item *pi;
+
+	pid_t old_sid;
+	pid_t old_gid;
+
+	if (!opts.shell_job)
+		return 0;
+
+	/*
+	 * Migration of a root task group leader is a bit tricky.
+	 * When a task yields SIGSTOP, the kernel notifies the parent
+	 * with SIGCHLD. This means when task is running in a
+	 * shell, the shell obtains SIGCHLD and sends a task to
+	 * the background.
+	 *
+	 * The situation gets changed once we restore the
+	 * program -- our tool become an additional stub between
+	 * the restored program and the shell. So to be able to
+	 * notify the shell with SIGCHLD from our restored
+	 * program -- we make the root task to inherit the
+	 * process group from us.
+	 *
+	 * Not that clever solution but at least it works.
+	 */
+
+	old_sid = root->sid;
+	old_gid = root->pgid;
+
+	pr_info("Migrating process tree (GID %d->%d SID %d->%d)\n",
+		old_gid, current_gid, old_sid, current_sid);
+
+	for_each_pstree_item(pi) {
+		if (pi->pgid == old_gid)
+			pi->pgid = current_gid;
+		if (pi->sid == old_sid)
+			pi->sid = current_sid;
+	}
+
+	max_pid = max((int)current_sid, max_pid);
+	max_pid = max((int)current_gid, max_pid);
+
+	return 0;
+}
+
 int prepare_pstree(void)
 {
 	int ret = 0, i, ps_fd;
@@ -195,6 +262,7 @@ int prepare_pstree(void)
 		pstree_entry__free_unpacked(e, NULL);
 	}
 
+	ret = prepare_pstree_for_shell_job(root_item);
 err:
 	close(ps_fd);
 	return ret;
@@ -204,6 +272,8 @@ int prepare_pstree_ids(void)
 {
 	struct pstree_item *item, *child, *helper, *tmp;
 	LIST_HEAD(helpers);
+
+	pid_t current_pgid = getpgid(getpid());
 
 	/*
 	 * Some task can be reparented to init. A helper task should be added
@@ -329,6 +399,14 @@ int prepare_pstree_ids(void)
 		}
 
 		if (gleader)
+			continue;
+
+		/*
+		 * If the PGID is eq to current one -- this
+		 * means we're inheriting group from the current
+		 * task so we need to escape creating a helper here.
+		 */
+		if (current_pgid == item->pgid)
 			continue;
 
 		helper = alloc_pstree_item();
