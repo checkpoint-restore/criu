@@ -152,15 +152,23 @@ static int tty_get_index(u32 id)
 /* Make sure the active pairs do exist */
 int tty_verify_active_pairs(void)
 {
-	int i;
+	int i, unpaired_slaves = 0;
 
 	for (i = 0; i < (MAX_TTYS << 1); i += 2) {
 		if (test_bit(i, tty_active_pairs) &&
 		    !test_bit(i + 1, tty_active_pairs)) {
-			pr_err("Found slave peer index %d without "
-				"correspond master peer\n",
-				tty_get_index(i));
-			return -1;
+			if (!opts.shell_job) {
+				pr_err("Found slave peer index %d without "
+				       "correspond master peer\n",
+				       tty_get_index(i));
+				return -1;
+			}
+
+			if (++unpaired_slaves > 1) {
+				pr_err("Only one slave external peer "
+				       "is allowed\n");
+				return -1;
+			}
 		}
 	}
 
@@ -844,6 +852,9 @@ int collect_tty(void)
 		ret = collect_image(CR_FD_TTY, PB_TTY,
 				sizeof(struct tty_info),
 				collect_one_tty);
+	if (!ret)
+		ret = tty_verify_active_pairs();
+
 	return ret;
 }
 
