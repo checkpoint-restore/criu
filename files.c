@@ -535,7 +535,7 @@ int prepare_fds(struct pstree_item *me)
 
 	ret = close_old_fds(me);
 	if (ret)
-		return ret;
+		goto err;
 
 	pr_info("Opening fdinfo-s\n");
 
@@ -562,6 +562,8 @@ int prepare_fds(struct pstree_item *me)
 			break;
 	}
 
+err:
+	tty_fini_fds();
 	return ret;
 }
 

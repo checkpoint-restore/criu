@@ -116,6 +116,7 @@ enum sfd_type {
 	SELF_EXE_FD_OFF,
 	PROC_FD_OFF,
 	CTL_TTY_OFF,
+	SELF_STDIN_OFF,
 
 	SERVICE_FD_MAX
 };

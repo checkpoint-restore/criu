@@ -88,6 +88,9 @@ static int crtools_prepare_shared(void)
 	if (collect_inet_sockets())
 		return -1;
 
+	if (tty_prep_fds())
+		return -1;
+
 	return 0;
 }
 

@@ -84,6 +84,7 @@ struct tty_info {
 
 static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
+static int self_stdin = -1;
 
 /*
  * Usually an application has not that many ttys opened.
@@ -1021,4 +1022,27 @@ static const struct fdtype_ops tty_ops = {
 int dump_tty(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 {
 	return do_dump_gen_file(p, lfd, &tty_ops, set);
+}
+
+int tty_prep_fds(void)
+{
+	self_stdin = get_service_fd(SELF_STDIN_OFF);
+
+	if (!isatty(STDIN_FILENO)) {
+		pr_err("Standart stream is not a terminal, aborting\n");
+		return -1;
+	}
+
+	if (dup2(STDIN_FILENO, self_stdin) < 0) {
+		self_stdin = -1;
+		pr_perror("Can't dup stdin to SELF_STDIN_OFF");
+		return -1;
+	}
+
+	return 0;
+}
+
+void tty_fini_fds(void)
+{
+	close_safe(&self_stdin);
 }

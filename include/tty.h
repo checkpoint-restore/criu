@@ -20,4 +20,7 @@ extern int tty_setup_slavery(void);
 
 extern int tty_verify_active_pairs(void);
 
+extern int tty_prep_fds(void);
+extern void tty_fini_fds(void);
+
 #endif /* CR_TTY_H__ */
