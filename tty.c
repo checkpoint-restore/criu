@@ -86,6 +86,8 @@ static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
 static int self_stdin = -1;
 
+#define INHERIT_SID			(-1)
+
 /*
  * Usually an application has not that many ttys opened.
  * If this won't be enough in future we simply need to
@@ -510,30 +512,61 @@ static int receive_tty(struct tty_info *info)
 	return fd;
 }
 
-static int pty_open_fake_ptmx(struct tty_info *slave)
+static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 {
 	int master = -1, ret = -1, fd = -1;
-	char pts_name[64];
 
-	snprintf(pts_name, sizeof(pts_name), PTS_FMT, slave->tie->pty->index);
+	/*
+	 * We may have 2 cases here: the slave either need to
+	 * be inherited, either it requires a fake master.
+	 */
 
-	master = pty_open_ptmx_index(O_RDONLY, slave->tie->pty->index);
-	if (master < 0) {
-		pr_perror("Can't open fale %x (index %d)",
-			  slave->tfe->id, slave->tie->pty->index);
-		return -1;
-	}
+	if (likely(slave->tie->sid == INHERIT_SID)) {
+		fd = dup(get_service_fd(SELF_STDIN_OFF));
+		if (fd < 0) {
+			pr_perror("Can't dup SELF_STDIN_OFF");
+			return -1;
+		}
+		pr_info("Migrated slave peer %x -> to fd %d\n",
+			slave->tfe->id, fd);
+	} else {
+		char pts_name[64];
 
-	unlock_pty(master);
+		snprintf(pts_name, sizeof(pts_name), PTS_FMT, slave->tie->pty->index);
 
-	fd = open(pts_name, slave->tfe->flags);
-	if (fd < 0) {
-		pr_perror("Can't open slave %s", pts_name);
-		goto err;
+		master = pty_open_ptmx_index(O_RDONLY, slave->tie->pty->index);
+		if (master < 0) {
+			pr_perror("Can't open fale %x (index %d)",
+				  slave->tfe->id, slave->tie->pty->index);
+			return -1;
+		}
+
+		unlock_pty(master);
+
+		fd = open(pts_name, slave->tfe->flags);
+		if (fd < 0) {
+			pr_perror("Can't open slave %s", pts_name);
+			goto err;
+		}
+
 	}
 
 	if (restore_tty_params(fd, slave))
 		goto err;
+
+	/*
+	 * If tty is migrated we need to set its group
+	 * to the parent group, because signals on key
+	 * presses are delivered to a group of terminal.
+	 *
+	 * Note, at this point the group/session should
+	 * be already restored properly thus we can simply
+	 * use syscalls intead of lookup via process tree.
+	 */
+	if (likely(slave->tie->sid == INHERIT_SID)) {
+		if (tty_set_prgp(fd, getpgid(getppid())))
+			goto err;
+	}
 
 	if (pty_open_slaves(slave))
 		goto err;
@@ -597,7 +630,7 @@ static int tty_open(struct file_desc *d)
 		return receive_tty(info);
 
 	if (!pty_is_master(info))
-		return pty_open_fake_ptmx(info);
+		return pty_open_unpaired_slave(d, info);
 
 	return pty_open_ptmx(info);
 
@@ -630,6 +663,18 @@ static struct file_desc_ops tty_desc_ops = {
 	.select_ps_list	= tty_select_pslist,
 };
 
+static struct pstree_item *find_first_sid(int sid)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		if (item->sid == sid)
+			return item;
+	}
+
+	return NULL;
+}
+
 static int tty_find_restoring_task(struct tty_info *info)
 {
 	struct pstree_item *item;
@@ -642,6 +687,11 @@ static int tty_find_restoring_task(struct tty_info *info)
 	for_each_pstree_item(item)
 		if (item->sid == info->tie->sid)
 			return prepare_ctl_tty(item->pid.virt, item->rst, info->tfe->id);
+
+	if (opts.shell_job && !pty_is_master(info)) {
+		info->tie->sid = info->tie->pgrp = INHERIT_SID;
+		return 0;
+	}
 
 	pr_err("No task found with sid %d\n", info->tie->sid);
 	return -1;
@@ -928,6 +978,36 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	pti = parasite_dump_tty(p->ctl, p->fd);
 	if (!pti)
 		return -1;
+
+	/*
+	 * There might be a cases where we get sid/pgid on
+	 * slave peer. For example the application is running
+	 * with redirection and we're migrating shell job.
+	 *
+	 * # ./app < /dev/zero > /dev/zero &2>1
+	 *
+	 * Which produce a tree like
+	 *          PID   PPID  PGID  SID
+	 * root     23786 23784 23786 23786 pts/0 \_ -bash
+	 * root     24246 23786 24246 23786 pts/0   \_ ./app
+	 *
+	 * And the application goes background, then we dump
+	 * it from the same shell.
+	 *
+	 * In this case we simply zap sid/pgid and inherit
+	 * the peer from the current terminal on restore.
+	 */
+	if (pti->sid) {
+		struct pstree_item *item = find_first_sid(pti->sid);
+		if (!item || item->pid.virt != pti->sid) {
+			if (!opts.shell_job) {
+				pr_err("Found sid %d pgid %d on slave peer fd %d. "
+				       "Missing option?\n",
+				       pti->sid, pti->pgrp, p->fd);
+				return -1;
+			}
+		}
+	}
 
 	info.id			= id;
 	info.type		= TTY_TYPE__PTY;
