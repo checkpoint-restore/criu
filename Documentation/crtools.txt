@@ -2,7 +2,7 @@ crtools(1)
 ==========
 :doctype:       manpage
 :man source:    CRtools
-:man version:   0.0.1
+:man version:   0.0.2
 :man manual:    CRtools Manual
 
 NAME
@@ -33,8 +33,6 @@ OPTIONS
 
 -c::
     In case of 'show' command the dumped pages content will be shown in hex format.
-    In case of 'dump' command processes being checkpointed wont be killed once
-    checkpoint complete but rather continue execution.
 
 -D|--images-dir <path>::
     Use path 'path' as a base directory where to look for dump files set. This
@@ -79,6 +77,10 @@ OPTIONS
         * 'network-unlock'
                 unlock network in a target network namespace
 
+--link-remap::
+    Allow to link unlinked files back when possible (modifies FS
+    till restore).
+
 -o|--log-file <file>::
     Write logging messages to 'file'.
 
@@ -94,6 +96,12 @@ OPTIONS
 
 --tcp-established::
     Checkpoint/restore established TCP connections.
+
+-j|--shell-job::
+    Allow to dump and restore shell jobs. This implies the restored task
+    will inherit session and process group ID from the crtools itself.
+    Also this option allows to migrate a single external tty connection, in other
+    words this option allows to migrate such application as 'top' and friends.
 
 -V|--version::
     Print program version.
