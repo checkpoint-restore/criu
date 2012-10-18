@@ -815,6 +815,16 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	if (verify_info(info))
 		return -1;
 
+	/*
+	 * The tty peers which have no @termios are hunged up,
+	 * so don't mark them as active, we create them with
+	 * faked master and they are rather a rudiment which
+	 * can't be used. Most likely they appear if a user has
+	 * dumped program when it was closing a peer.
+	 */
+	if (info->tie->termios)
+		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
+
 	pr_info("Collected tty ID %#x\n", info->tfe->id);
 
 	list_add(&info->list, &all_ttys);
