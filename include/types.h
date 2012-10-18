@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include "bitops.h"
 
@@ -87,8 +88,7 @@ typedef struct {
 	unsigned long sig[1];
 } rt_sigset_t;
 
-struct siginfo;
-typedef void rt_signalfn_t(int, struct siginfo *, void *);
+typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 
 typedef void rt_restorefn_t(void);
