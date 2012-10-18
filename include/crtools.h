@@ -93,6 +93,7 @@ struct cr_options {
 	bool			show_pages_content;
 	bool			restore_detach;
 	bool			ext_unix_sk;
+	bool			shell_job;
 	bool			tcp_established_ok;
 	bool			evasive_devices;
 	bool			link_remap_ok;

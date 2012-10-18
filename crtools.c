@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:t:hcD:o:n:vxVr:";
+	static const char short_opts[] = "dsf:t:hcD:o:n:vxVr:j";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
 			{ "veth-pair", required_argument, 0, 47},
 			{ "action-script", required_argument, 0, 49},
 			{ LREMAP_PARAM, no_argument, 0, 41},
+			{ "shell-job", no_argument, 0, 'j'},
 			{ },
 		};
 
@@ -217,6 +218,9 @@ int main(int argc, char *argv[])
 				list_add(&script->node, &opts.scripts);
 			}
 			break;
+		case 'j':
+			opts.shell_job = true;
+			break;
 		case 'V':
 			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
 			return 0;
@@ -312,6 +316,7 @@ usage:
 	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
 	pr_msg("			* network-lock - lock network in a target network namespace\n");
 	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
+	pr_msg("  -j|--shell-job        allow to dump and restore shell jobs\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
