@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
+#include <sys/resource.h>
 
 #include "compiler.h"
 #include "types.h"
