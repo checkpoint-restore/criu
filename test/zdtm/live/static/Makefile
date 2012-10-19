@@ -44,6 +44,7 @@ TST_NOFILE	=				\
 		socket_queues02			\
 		socket-tcp			\
 		sock_opts00			\
+		sock_opts01			\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
