@@ -19,4 +19,7 @@ struct veth_pair {
 
 extern int network_lock(void);
 extern void network_unlock(void);
+
+char *resolve_dev_name(int index);
+int collect_net_devs(unsigned long flags);
 #endif

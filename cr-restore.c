@@ -764,6 +764,9 @@ static int restore_task_with_children(void *_arg)
 		if (collect_mount_info())
 			exit(-1);
 
+		if (collect_net_devs(ca->clone_flags))
+			exit(-1);
+
 		if (prepare_namespace(current->pid.virt, ca->clone_flags))
 			exit(-1);
 
