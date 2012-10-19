@@ -109,15 +109,13 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	return ret;
 }
 
-static int dump_links(struct cr_fdset *fds)
+static int do_dump_links(int (*cb)(struct nlmsghdr *h, void *), void *arg)
 {
 	int sk, ret;
 	struct {
 		struct nlmsghdr nlh;
 		struct rtgenmsg g;
 	} req;
-
-	pr_info("Dumping netns links\n");
 
 	ret = sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sk < 0) {
@@ -133,10 +131,17 @@ static int dump_links(struct cr_fdset *fds)
 	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
 	req.g.rtgen_family = AF_PACKET;
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, fds);
+	ret = do_rtnl_req(sk, &req, sizeof(req), cb, arg);
 	close(sk);
 out:
 	return ret;
+}
+
+static int dump_links(struct cr_fdset *fds)
+{
+	pr_info("Dumping netns links\n");
+
+	return do_dump_links(dump_one_link, fds);
 }
 
 static int restore_link_cb(struct nlmsghdr *hdr, void *arg)
