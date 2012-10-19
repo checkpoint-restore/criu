@@ -3,6 +3,8 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <netinet/tcp.h>
+#include <errno.h>
+#include <linux/if.h>
 
 #include "libnetlink.h"
 #include "sockets.h"
@@ -14,6 +16,7 @@
 #include "sk-packet.h"
 #include "namespaces.h"
 #include "crtools.h"
+#include "net.h"
 
 #ifndef NETLINK_SOCK_DIAG
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
@@ -28,6 +31,43 @@
 #endif
 
 #define SK_HASH_SIZE		32
+
+static int dump_bound_dev(int sk, SkOptsEntry *soe)
+{
+	int dev = 0, ret;
+	socklen_t len = sizeof(dev);
+
+	ret = getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, &dev, &len);
+	if (ret && errno != ENOPROTOOPT) {
+		pr_perror("Can't get bound dev");
+		return ret;
+	}
+
+	if (dev == 0)
+		return 0;
+
+	pr_debug("\tDumping %d bound dev for sk\n", dev);
+	soe->has_so_bound_dev = true;
+	soe->so_bound_dev = dev;
+	return 0;
+}
+
+static int restore_bound_dev(int sk, SkOptsEntry *soe)
+{
+	char *n;
+
+	if (!soe->has_so_bound_dev || !soe->so_bound_dev)
+		return 0;
+
+	pr_debug("\tBinding socket to %d dev\n", soe->so_bound_dev);
+	n = resolve_dev_name(soe->so_bound_dev);
+	if (!n) {
+		pr_err("Can't resolve netdev name for %d\n", soe->so_bound_dev);
+		return -1;
+	}
+
+	return do_restore_opt(sk, SOL_SOCKET, SO_BINDTODEVICE, n, IFNAMSIZ);
+}
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
@@ -119,6 +159,8 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	tv.tv_usec = soe->so_rcv_tmo_usec;
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 
+	ret = restore_bound_dev(sk, soe);
+
 	/* The restore of SO_REUSEADDR depends on type of socket */
 
 	return ret;
@@ -183,6 +225,8 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_NO_CHECK, &val);
 	soe->has_so_no_check = true;
 	soe->so_no_check = val ? true : false;
+
+	ret = dump_bound_dev(sk, soe);
 
 	return ret;
 }
