@@ -166,9 +166,12 @@ int tty_verify_active_pairs(void)
 				return -1;
 			}
 
+			pr_debug("Unpaired slave %d\n", tty_get_index(i));
+
 			if (++unpaired_slaves > 1) {
 				pr_err("Only one slave external peer "
-				       "is allowed\n");
+				       "is allowed (index %d)\n",
+				       tty_get_index(i));
 				return -1;
 			}
 		}
