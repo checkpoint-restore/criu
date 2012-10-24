@@ -12,7 +12,7 @@
 const char *test_doc	= "Check sched prios to be preserved";
 const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 
-#define NRTASKS	4
+#define NRTASKS	3
 
 static int do_nothing(void)
 {
@@ -36,34 +36,19 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
-	/* first 3 -- normal */
 	parm[0] = -20;
 	parm[1] = 19;
 	parm[2] = 1;
-	parm[3] = 3;
-
-	/* next 1 -- RR */
 
 	for (i = 0; i < NRTASKS; i++) {
 		pid[i] = fork();
 		if (!pid[i])
 			return do_nothing();
 
-		if (i < 3) {
-			if (setpriority(PRIO_PROCESS, pid[i], parm[i])) {
-				err("Can't set prio %d", i);
-				kill_all(pid, i);
-				return -1;
-			}
-		} else {
-			struct sched_param p;
-
-			p.sched_priority = parm[i];
-			if (sched_setscheduler(pid[i], SCHED_RR, &p)) {
-				err("Can't set policy %d", i);
-				kill_all(pid, i);
-				return -1;
-			}
+		if (setpriority(PRIO_PROCESS, pid[i], parm[i])) {
+			err("Can't set prio %d", i);
+			kill_all(pid, i);
+			return -1;
 		}
 	}
 
@@ -71,32 +56,16 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	for (i = 0; i < NRTASKS; i++) {
-		if (i < 3) {
-			errno = 0;
-			ret = getpriority(PRIO_PROCESS, pid[i]);
-			if (errno) {
-				fail("No prio for task %d", i);
-				break;
-			}
+		errno = 0;
+		ret = getpriority(PRIO_PROCESS, pid[i]);
+		if (errno) {
+			fail("No prio for task %d", i);
+			break;
+		}
 
-			if (ret != parm[i]) {
-				fail("Broken nice for %d", i);
-				break;
-			}
-		} else {
-			struct sched_param p;
-
-			ret = sched_getscheduler(pid[i]);
-			if (ret != SCHED_RR) {
-				fail("Broken/No policy for %d", i);
-				break;
-			}
-
-			ret = sched_getparam(pid[i], &p);
-			if (ret < 0 || p.sched_priority != parm[i]) {
-				fail("Broken prio for %d", i);
-				break;
-			}
+		if (ret != parm[i]) {
+			fail("Broken nice for %d", i);
+			break;
 		}
 	}
 

@@ -20,6 +20,7 @@ TST_NOFILE	=				\
 		timers				\
 		unbound_sock			\
 		sched_prio00			\
+		sched_policy00			\
 		socket_listen			\
 		socket_udp			\
 		socket6_udp			\
