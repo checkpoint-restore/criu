@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
 
 #include "zdtmtst.h"
 
@@ -20,6 +22,7 @@ int main(int argc, char ** argv)
 	size_t fsize=1000;
 	uint8_t buf[fsize];
 	struct stat fst, fst2;
+	struct statfs fsst;
 
 	test_init(argc, argv);
 
@@ -59,12 +62,23 @@ int main(int argc, char ** argv)
 	test_daemon();
 	test_waitsig();
 
+	if (statfs(link_name, &fsst) < 0) {
+		err("statfs(%s): %m\n", link_name);
+		goto failed;
+	}
+
 	if (fstat(fd, &fst2) < 0) {
 		err("can't get %s file info after: %m\n", filename);
 		goto failed;
 	}
 
-	if ((fst.st_dev != fst2.st_dev) || (fst.st_ino != fst2.st_ino)) {
+	/* An NFS mount is restored with another st_dev */
+	if (fsst.f_type != NFS_SUPER_MAGIC && fst.st_dev != fst2.st_dev) {
+		fail("files differ after restore\n");
+		goto failed;
+	}
+
+	if (fst.st_ino != fst2.st_ino) {
 		fail("files differ after restore\n");
 		goto failed;
 	}
