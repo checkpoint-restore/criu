@@ -610,6 +610,9 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (rst_file_params(sk[0], ui->ue->fown, ui->ue->flags))
 		return -1;
 
+	if (restore_socket_opts(sk[0], ui->ue->opts))
+		return -1;
+
 	if (shutdown_unix_sk(sk[0], ui))
 		return -1;
 
