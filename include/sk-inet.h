@@ -28,6 +28,7 @@ struct inet_sk_desc {
 	unsigned int		wqlen;
 	unsigned int		src_addr[4];
 	unsigned int		dst_addr[4];
+	unsigned short		shutdown;
 
 	int rfd;
 	struct list_head rlist;
