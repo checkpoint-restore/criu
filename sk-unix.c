@@ -503,9 +503,8 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 static int post_open_unix_sk(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
-		struct unix_sk_info *peer;
-		struct fdinfo_list_entry *fle;
-		struct sockaddr_un addr;
+	struct unix_sk_info *peer;
+	struct sockaddr_un addr;
 
 	ui = container_of(d, struct unix_sk_info, d);
 	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
@@ -518,8 +517,6 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
-	fle = file_master(&ui->d);
-
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
 		futex_wait_while(&peer->bound, 0);
@@ -528,23 +525,23 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
 
-	if (connect(fle->fe->fd, (struct sockaddr *)&addr,
+	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
 		return -1;
 	}
 
-	if (restore_sk_queue(fle->fe->fd, peer->ue->id))
+	if (restore_sk_queue(fd, peer->ue->id))
 		return -1;
 
-	if (rst_file_params(fle->fe->fd, ui->ue->fown, ui->ue->flags))
+	if (rst_file_params(fd, ui->ue->fown, ui->ue->flags))
 		return -1;
 
-	if (restore_socket_opts(fle->fe->fd, ui->ue->opts))
+	if (restore_socket_opts(fd, ui->ue->opts))
 		return -1;
 
-	if (shutdown_unix_sk(fle->fe->fd, ui))
+	if (shutdown_unix_sk(fd, ui))
 		return -1;
 
 	return 0;
