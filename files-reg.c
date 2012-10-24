@@ -86,14 +86,14 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 		goto err;
 
 	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
-		goto err;
+		goto close_ifd;
 
 	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
 	if (S_ISFIFO(gfe->mode)) {
 		if (mknod(gf->remap.path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file\n");
-			goto err;
+			goto close_ifd;
 		}
 		ghost_flags = O_RDWR; /* To not block */
 	} else
@@ -102,17 +102,17 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gfd = open(gf->remap.path, ghost_flags, gfe->mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file");
-		goto err;
+		goto close_ifd;
 	}
 
 	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
 		pr_perror("Can't reset user/group on ghost %#x\n", rfe->remap_id);
-		goto err;
+		goto close_all;
 	}
 
 	if (S_ISREG(gfe->mode)) {
 		if (copy_file(ifd, gfd, 0) < 0)
-			goto err;
+			goto close_all;
 	}
 
 	ghost_file_entry__free_unpacked(gfe, NULL);
@@ -127,6 +127,10 @@ gf_found:
 	rfi->remap = &gf->remap;
 	return 0;
 
+close_all:
+	close_safe(&gfd);
+close_ifd:
+	close_safe(&ifd);
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);

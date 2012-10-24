@@ -476,6 +476,7 @@ static int cr_show_all(struct cr_options *opts)
 				pr_msg("----------------------------------------\n");
 
 				show_core(fd_th, opts);
+				close_safe(&fd_th);
 
 				pr_msg("----------------------------------------\n");
 

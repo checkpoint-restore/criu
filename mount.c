@@ -646,22 +646,22 @@ static int populate_mnt_ns(int ns_pid)
 		pr_debug("\t\tGetting root for %d\n", pm->mnt_id);
 		pm->root = xstrdup(me->root);
 		if (!pm->root)
-			return -1;
+			goto err;
 
 		pr_debug("\t\tGetting mpt for %d\n", pm->mnt_id);
 		pm->mountpoint = xstrdup(me->mountpoint);
 		if (!pm->mountpoint)
-			return -1;
+			goto err;
 
 		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
-			return -1;
+			goto err;
 
 		pr_debug("\t\tGetting opts for %d\n", pm->mnt_id);
 		pm->options = xstrdup(me->options);
 		if (!pm->options)
-			return -1;
+			goto err;
 
 		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
 		pm->next = pms;
@@ -679,6 +679,9 @@ static int populate_mnt_ns(int ns_pid)
 		return -1;
 
 	return mnt_tree_for_each(pms, do_mount_one);
+err:
+	close_safe(&img);
+	return -1;
 }
 
 int prepare_mnt_ns(int ns_pid)

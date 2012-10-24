@@ -265,6 +265,7 @@ static int restore_links(int pid)
 	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (nlsk < 0) {
 		pr_perror("Can't create nlk socket");
+		close_safe(&fd);
 		return -1;
 	}
 

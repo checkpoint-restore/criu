@@ -227,28 +227,28 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 		buf = xmalloc(entry->length);
 		if (buf ==NULL)
-			return -1;
+			goto err;
 
 		if (lseek(img_fd, pkt->img_off, SEEK_SET) == -1) {
 			pr_perror("lseek() failed");
 			xfree(buf);
-			return -1;
+			goto err;
 		}
 		if (read_img_buf(img_fd, buf, entry->length) != 1) {
 			xfree(buf);
-			return -1;
+			goto err;
 		}
 
 		ret = write(fd, buf, entry->length);
 		xfree(buf);
 		if (ret < 0) {
 			pr_perror("Failed to send packet");
-			return -1;
+			goto err;
 		}
 		if (ret != entry->length) {
 			pr_err("Restored skb trimmed to %d/%d\n",
 			       ret, (unsigned int)entry->length);
-			return -1;
+			goto err;
 		}
 		list_del(&pkt->list);
 		sk_packet_entry__free_unpacked(entry, NULL);
@@ -257,9 +257,12 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 	if (fcntl(fd, F_SETFL, flags) ) {
 		pr_perror("Unable to restore flags for %d", fd);
-		return -1;
+		goto err;
 	}
 
 	close(img_fd);
 	return 0;
+err:
+	close_safe(&img_fd);
+	return -1;
 }

@@ -576,20 +576,21 @@ int prepare_fs(int pid)
 	if (ifd < 0)
 		return -1;
 
-	if (pb_read_one(ifd, &fe, PB_FS) < 0)
+	if (pb_read_one(ifd, &fe, PB_FS) < 0) {
+		close_safe(&ifd);
 		return -1;
+	}
 
 	cwd = open_reg_by_id(fe->cwd_id);
-	if (cwd < 0)
-		goto err;
-
-	if (fchdir(cwd) < 0) {
-		pr_perror("Can't change root");
+	if (cwd < 0) {
+		close_safe(&ifd);
 		goto err;
 	}
 
-	close(cwd);
-	close(ifd);
+	if (fchdir(cwd) < 0) {
+		pr_perror("Can't change root");
+		goto close;
+	}
 
 	/*
 	 * FIXME: restore task's root. Don't want to do it now, since
@@ -601,6 +602,9 @@ int prepare_fs(int pid)
 	 */
 
 	ret = 0;
+close:
+	close_safe(&cwd);
+	close_safe(&ifd);
 err:
 	fs_entry__free_unpacked(fe, NULL);
 	return ret;

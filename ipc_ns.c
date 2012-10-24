@@ -611,7 +611,7 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *entry)
 
 static int prepare_ipc_sem(int pid)
 {
-	int fd;
+	int fd, ret;
 
 	pr_info("Restoring IPC semaphores sets\n");
 	fd = open_image_ro(CR_FD_IPCNS_SEM, pid);
@@ -619,12 +619,13 @@ static int prepare_ipc_sem(int pid)
 		return -1;
 
 	while (1) {
-		int ret;
 		IpcSemEntry *entry;
 
 		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_SEM);
-		if (ret < 0)
-			return -EIO;
+		if (ret < 0) {
+			ret = -EIO;
+			goto err;
+		}
 		if (ret == 0)
 			break;
 
@@ -635,10 +636,14 @@ static int prepare_ipc_sem(int pid)
 
 		if (ret < 0) {
 			pr_err("Failed to prepare semaphores set\n");
-			return ret;
+			goto err;
 		}
 	}
+
 	return close_safe(&fd);
+err:
+	close_safe(&fd);
+	return ret;
 }
 
 static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
@@ -728,7 +733,7 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *entry)
 
 static int prepare_ipc_msg(int pid)
 {
-	int fd;
+	int fd, ret;
 
 	pr_info("Restoring IPC message queues\n");
 	fd = open_image_ro(CR_FD_IPCNS_MSG, pid);
@@ -736,13 +741,13 @@ static int prepare_ipc_msg(int pid)
 		return -1;
 
 	while (1) {
-		int ret;
 		IpcMsgEntry *entry;
 
 		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_MSG_ENT);
 		if (ret < 0) {
 			pr_err("Failed to read IPC messages queue\n");
-			return -EIO;
+			ret = -EIO;
+			goto err;
 		}
 		if (ret == 0)
 			break;
@@ -754,10 +759,13 @@ static int prepare_ipc_msg(int pid)
 
 		if (ret < 0) {
 			pr_err("Failed to prepare messages queue\n");
-			return ret;
+			goto err;
 		}
 	}
 	return close_safe(&fd);
+err:
+	close_safe(&fd);
+	return ret;
 }
 
 static int prepare_ipc_shm_pages(int fd, const IpcShmEntry *shm)
@@ -822,7 +830,7 @@ static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 
 static int prepare_ipc_shm(int pid)
 {
-	int fd;
+	int fd, ret;
 
 	pr_info("Restoring IPC shared memory\n");
 	fd = open_image_ro(CR_FD_IPCNS_SHM, pid);
@@ -830,13 +838,13 @@ static int prepare_ipc_shm(int pid)
 		return -1;
 
 	while (1) {
-		int ret;
 		IpcShmEntry *shm;
 
 		ret = pb_read_one_eof(fd, &shm, PB_IPCNS_SHM);
 		if (ret < 0) {
 			pr_err("Failed to read IPC shared memory segment\n");
-			return -EIO;
+			ret = -EIO;
+			goto err;
 		}
 		if (ret == 0)
 			break;
@@ -848,10 +856,13 @@ static int prepare_ipc_shm(int pid)
 
 		if (ret < 0) {
 			pr_err("Failed to prepare shm segment\n");
-			return ret;
+			goto err;
 		}
 	}
 	return close_safe(&fd);
+err:
+	close_safe(&fd);
+	return ret;
 }
 
 static int prepare_ipc_var(int pid)
@@ -867,7 +878,8 @@ static int prepare_ipc_var(int pid)
 	ret = pb_read_one(fd, &var, PB_IPCNS_VAR);
 	if (ret <= 0) {
 		pr_err("Failed to read IPC namespace variables\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto err;
 	}
 
 	ipc_sysctl_req(var, CTL_PRINT);
@@ -877,9 +889,13 @@ static int prepare_ipc_var(int pid)
 
 	if (ret < 0) {
 		pr_err("Failed to prepare IPC namespace variables\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto err;
 	}
 	return close_safe(&fd);
+err:
+	close_safe(&fd);
+	return ret;
 }
 
 int prepare_ipc_ns(int pid)

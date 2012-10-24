@@ -1199,8 +1199,10 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 	if (fd < 0)
 		return -1;
 
-	if (pb_read_one(fd, &mm, PB_MM) < 0)
+	if (pb_read_one(fd, &mm, PB_MM) < 0) {
+		close_safe(&fd);
 		return -1;
+	}
 
 	args->mm = *mm;
 	args->mm.n_mm_saved_auxv = 0;
@@ -1349,7 +1351,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	fd_pages = open_image_ro(CR_FD_PAGES, pid);
 	if (fd_pages < 0) {
 		pr_perror("Can't open pages-%d", pid);
-		goto err;
+		goto free;
 	}
 
 	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
@@ -1587,6 +1589,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
 
 err:
+	close_safe(&fd_pages);
+free:
 	free_mappings(&self_vma_list);
 
 	/* Just to be sure */
