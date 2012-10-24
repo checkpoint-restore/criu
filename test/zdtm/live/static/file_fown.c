@@ -133,8 +133,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	asm volatile ("" :::);
-
 	fill_pipe_params(shared, pipes);
 
 	if (setresuid(-1, euid, -1)) {
