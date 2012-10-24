@@ -29,4 +29,6 @@ message unix_sk_entry {
 	 * so we need to carry it as byte sequence...
 	 */
 	required bytes			name		= 11;
+
+	optional sk_shutdown		shutdown	= 12;
 }

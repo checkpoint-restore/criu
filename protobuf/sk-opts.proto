@@ -18,3 +18,10 @@ message sk_opts_entry {
 
 	optional uint32		so_bound_dev	= 15;
 }
+
+enum sk_shutdown {
+	NONE = 0;
+	READ = 1;
+	WRITE = 2;
+	BOTH = 3;
+}
