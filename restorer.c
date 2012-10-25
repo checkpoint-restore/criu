@@ -411,6 +411,31 @@ long __export_restore_task(struct task_restore_core_args *args)
 			     vma_entry->prot);
 	}
 
+	/*
+	 * Finally restore madivse() bits
+	 */
+	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
+		unsigned long i;
+
+		if (!vma_entry->has_madv || !vma_entry->madv)
+			continue;
+		for (i = 0; i < sizeof(vma_entry->madv) * 8; i++) {
+			if (vma_entry->madv & (1ul << i)) {
+				ret = sys_madvise(vma_entry->start,
+						  vma_entry_len(vma_entry),
+						  i);
+				if (ret) {
+					pr_err("madvise(%lx, %ld, %ld) "
+					       "failed with %ld\n",
+						vma_entry->start,
+						vma_entry_len(vma_entry),
+						i, ret);
+					goto core_restore_end;
+				}
+			}
+		}
+	}
+
 	sys_munmap(args->tgt_vmas,
 			((void *)(vma_entry + 1) - ((void *)args->tgt_vmas)));
 
