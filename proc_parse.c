@@ -49,6 +49,59 @@ static bool is_vma_range_fmt(char *line)
 	return true;
 }
 
+static int parse_vmflags(char *buf, struct vma_area *vma_area)
+{
+	char *tok;
+
+	if (!buf[0])
+		return 0;
+
+	tok = strtok(buf, " \n");
+	if (!tok)
+		return 0;
+
+#define _vmflag_match(_t, _s) (_t[0] == _s[0] && _t[1] == _s[1])
+
+	do {
+		/* mmap() block */
+		if (_vmflag_match(tok, "gd"))
+			vma_area->vma.flags |= MAP_GROWSDOWN;
+		else if (_vmflag_match(tok, "lo"))
+			vma_area->vma.flags |= MAP_LOCKED;
+		else if (_vmflag_match(tok, "nr"))
+			vma_area->vma.flags |= MAP_NORESERVE;
+		else if (_vmflag_match(tok, "ht"))
+			vma_area->vma.flags |= MAP_HUGETLB;
+
+		/* madvise() block */
+		if (_vmflag_match(tok, "sr"))
+			vma_area->vma.madv |= (1ul << MADV_SEQUENTIAL);
+		else if (_vmflag_match(tok, "rr"))
+			vma_area->vma.madv |= (1ul << MADV_RANDOM);
+		else if (_vmflag_match(tok, "dc"))
+			vma_area->vma.madv |= (1ul << MADV_DONTFORK);
+		else if (_vmflag_match(tok, "dd"))
+			vma_area->vma.madv |= (1ul << MADV_DONTDUMP);
+		else if (_vmflag_match(tok, "mg"))
+			vma_area->vma.madv |= (1ul << MADV_MERGEABLE);
+		else if (_vmflag_match(tok, "hg"))
+			vma_area->vma.madv |= (1ul << MADV_HUGEPAGE);
+		else if (_vmflag_match(tok, "nh"))
+			vma_area->vma.madv |= (1ul << MADV_NOHUGEPAGE);
+
+		/*
+		 * Anything else is just ignored.
+		 */
+	} while ((tok = strtok(NULL, " \n")));
+
+#undef _vmflag_match
+
+	if (vma_area->vma.madv)
+		vma_area->vma.has_madv = true;
+
+	return 0;
+}
+
 int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
@@ -86,6 +139,11 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 				 */
 				vma_area = NULL;
 				goto err;
+			} else if (!strncmp(buf, "VmFlags: ", 9)) {
+				BUG_ON(!vma_area);
+				if (parse_vmflags(&buf[9], vma_area))
+					goto err;
+				continue;
 			} else
 				continue;
 		}

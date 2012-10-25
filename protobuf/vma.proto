@@ -10,4 +10,7 @@ message vma_entry {
 	// while switching from execve restore model. It is
 	// -1 by default.
 	required sint64		fd	= 8;
+
+	/* madvise flags bitmap */
+	optional uint64		madv	= 9;
 }
