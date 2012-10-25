@@ -51,6 +51,7 @@ TST_NOFILE	=				\
 		selfexe00			\
 		sem				\
 		maps01				\
+		maps02				\
 		xids00				\
 		groups				\
 		file_fown			\

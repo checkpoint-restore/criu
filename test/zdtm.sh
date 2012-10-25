@@ -10,6 +10,7 @@ static/cwd00
 static/env00
 static/maps00
 static/maps01
+static/maps02
 static/mprotect00
 static/mtime_mmap
 static/sleeping00
