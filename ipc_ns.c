@@ -876,10 +876,10 @@ static int prepare_ipc_var(int pid)
 		return -1;
 
 	ret = pb_read_one(fd, &var, PB_IPCNS_VAR);
+	close_safe(&fd);
 	if (ret <= 0) {
 		pr_err("Failed to read IPC namespace variables\n");
-		ret = -EFAULT;
-		goto err;
+		return -EFAULT;
 	}
 
 	ipc_sysctl_req(var, CTL_PRINT);
@@ -889,13 +889,10 @@ static int prepare_ipc_var(int pid)
 
 	if (ret < 0) {
 		pr_err("Failed to prepare IPC namespace variables\n");
-		ret = -EFAULT;
-		goto err;
+		return -EFAULT;
 	}
-	return close_safe(&fd);
-err:
-	close_safe(&fd);
-	return ret;
+
+	return 0;
 }
 
 int prepare_ipc_ns(int pid)
