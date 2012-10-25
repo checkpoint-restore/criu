@@ -227,4 +227,20 @@ typedef struct {
 	u64 __handle[16];
 } fh_t;
 
+#ifndef MAP_HUGETLB
+# define MAP_HUGETLB 0x40000
+#endif
+
+#ifndef MADV_HUGEPAGE
+# define MADV_HUGEPAGE 14
+#endif
+
+#ifndef MADV_NOHUGEPAGE
+# define MADV_NOHUGEPAGE 15
+#endif
+
+#ifndef MADV_DONTDUMP
+# define MADV_DONTDUMP 16
+#endif
+
 #endif /* CR_TYPES_H_ */
