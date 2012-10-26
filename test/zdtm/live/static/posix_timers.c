@@ -9,7 +9,6 @@
 const char *test_doc ="Posix timers migration check";
 const char *test_author = "Kinsbursky Stanislav <skinsbursky@parallels.com>";
 
-struct timespec start;
 sigset_t mask;
 
 #define WRONG_SIGNAL		1
@@ -32,6 +31,7 @@ static struct posix_timers_info {
 	int handler_cnt;
 	timer_t timerid;
 	int overrun;
+	struct timespec start, end;
 } posix_timers[] = {
 	[CLOCK_REALTIME] = {CLOCK_REALTIME, "REALTIME", realtime_handler, SIGALRM, 1},
 	[CLOCK_MONOTONIC] = {CLOCK_MONOTONIC, "MONOTONIC", monotonic_handler, SIGINT, 3},
@@ -81,7 +81,6 @@ static int check_handler_status(struct posix_timers_info *info, int ms_passed)
 static int check_timers(void)
 {
 	struct posix_timers_info *info = posix_timers;
-	struct timespec end;
 	int ms_passed;
 	int status = 0;
 
@@ -90,18 +89,20 @@ static int check_timers(void)
 		return -errno;
 	}
 
-       if (clock_gettime(CLOCK_REALTIME, &end) == -1) {
-		fail("Can't get end time\n");
-		return -errno;
-	}
-
-	ms_passed = (end.tv_sec - start.tv_sec) * 1000 + (end.tv_nsec - start.tv_nsec) / (1000 * 1000);
-
 	while (info->handler) {
 		if (timer_delete(info->timerid) == -1) {
 			fail("%s: Failed to delete timer\n", info->name);
 			return -errno;
 		}
+
+		if (clock_gettime(info->clock, &info->end) == -1) {
+			fail("Can't get %s end time\n", info->name);
+			return -errno;
+		}
+
+		ms_passed = (info->end.tv_sec - info->start.tv_sec) * 1000 +
+			(info->end.tv_nsec - info->start.tv_nsec) / (1000 * 1000);
+
 		if (check_handler_status(info, ms_passed))
 			status--;
 		info++;
@@ -146,11 +147,6 @@ static int setup_timers(void)
 	struct sigevent sev;
 	struct itimerspec its;
 
-	if (clock_gettime(CLOCK_REALTIME, &start) == -1) {
-		err("Can't get start time\n");
-		return -errno;
-	}
-
 	sigemptyset(&mask);
 	while(info->handler) {
 		sigaddset(&mask, info->sig);
@@ -186,6 +182,11 @@ static int setup_timers(void)
 		its.it_value.tv_nsec = info->ms_int * 1000 * 1000;
 		its.it_interval.tv_sec = its.it_value.tv_sec;
 		its.it_interval.tv_nsec = its.it_value.tv_nsec;
+
+		if (clock_gettime(info->clock, &info->start) == -1) {
+			err("Can't get %s start time\n", info->name);
+			return -errno;
+		}
 
 		if (timer_settime(info->timerid, 0, &its, NULL) == -1) {
 			err("Can't set timer\n");
