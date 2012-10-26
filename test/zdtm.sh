@@ -287,7 +287,7 @@ EOF
 		test -f $test.out && break
 		echo Waiting...
 		sleep 0.$sltime
-		[ $sltime -le 9 ] && sltime=$((sltime+1))
+		[ $sltime -lt 9 ] && sltime=$((sltime+1))
 	done
 	cat $test.out
 	cat $test.out | grep PASS || return 2
