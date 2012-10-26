@@ -116,6 +116,9 @@ static int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned lo
 	FILE *smaps = NULL;
 	char buf[1024];
 
+	if (!where)
+		return 0;
+
 	smaps = fopen("/proc/self/smaps", "r");
 	if (!smaps) {
 		err("Can't open smaps: %m");
@@ -153,8 +156,14 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 	}
 
 	if (madvise(m->start, MEM_SIZE, adv)) {
-		err("madvise failed: %m");
-		return -1;
+		if (errno == EINVAL) {
+			test_msg("madvise failed, no kernel support\n");
+			munmap(m->start, MEM_SIZE);
+			*m = (struct mmap_data){ };
+		} else {
+			err("madvise failed: %m");
+			return -1;
+		}
 	}
 
 	return 0;
