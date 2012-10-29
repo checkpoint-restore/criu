@@ -964,9 +964,10 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 		struct pstree_item *item = find_first_sid(pti->sid);
 		if (!item || item->pid.virt != pti->sid) {
 			if (!opts.shell_job) {
-				pr_err("Found sid %d pgid %d on slave peer fd %d. "
+				pr_err("Found sid %d pgid %d (%s) on peer fd %d. "
 				       "Missing option?\n",
-				       pti->sid, pti->pgrp, p->fd);
+				       pti->sid, pti->pgrp,
+				       tty_type(major), p->fd);
 				return -1;
 			}
 		}
