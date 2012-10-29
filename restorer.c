@@ -66,9 +66,6 @@ static void restore_creds(CredsEntry *ce)
 	 * We're still root here and thus can do it without failures.
 	 */
 
-	if (ce == NULL)
-		return;
-
 	/*
 	 * First -- set the SECURE_NO_SETUID_FIXUP bit not to
 	 * lose caps bits when changing xids.
@@ -229,13 +226,6 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	mutex_unlock(args->rst_lock);
 
-	/*
-	 * FIXME -- threads do not share creds, but it looks like
-	 * nobody tries to mess with this crap. That said we should
-	 * pass the master thread creds here
-	 */
-
-	restore_creds(NULL);
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	pr_info("%ld: Restored\n", sys_gettid());
@@ -540,6 +530,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 			goto core_restore_end;
 		}
 
+		/* 
+		 * last-pid is CAP_SYS_ADMIN protected, thus restore creds
+		 * _after_ opening that file, but before fork to make threads
+		 * inherit them properly
+		 */
+
+		restore_creds(&args->creds);
+
 		ret = sys_flock(fd, LOCK_EX);
 		if (ret) {
 			pr_err("Can't lock last_pid %d\n", fd);
@@ -616,14 +614,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 		}
 
 		sys_close(fd);
-	}
-
-	/*
-	 * Restore creds late to avoid potential problems with
-	 * insufficient caps for restoring this or that before
-	 */
-
-	restore_creds(&args->creds);
+	} else
+		restore_creds(&args->creds);
 
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
