@@ -143,15 +143,61 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &parm);
 }
 
+static int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+{
+	long ret;
+	unsigned long fsgs_base;
+
+#define CPREG1(d)	f->uc.uc_mcontext.d = r->d
+#define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
+
+	CPREG1(r8);
+	CPREG1(r9);
+	CPREG1(r10);
+	CPREG1(r11);
+	CPREG1(r12);
+	CPREG1(r13);
+	CPREG1(r14);
+	CPREG1(r15);
+	CPREG2(rdi, di);
+	CPREG2(rsi, si);
+	CPREG2(rbp, bp);
+	CPREG2(rbx, bx);
+	CPREG2(rdx, dx);
+	CPREG2(rax, ax);
+	CPREG2(rcx, cx);
+	CPREG2(rsp, sp);
+	CPREG2(rip, ip);
+	CPREG2(eflags, flags);
+	CPREG1(cs);
+	CPREG1(gs);
+	CPREG1(fs);
+
+	fsgs_base = r->fs_base;
+	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
+	if (ret) {
+		pr_info("SET_FS fail %ld\n", ret);
+		return -1;
+	}
+
+	fsgs_base = r->gs_base;
+	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
+	if (ret) {
+		pr_info("SET_GS fail %ld\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
  */
 long __export_restore_thread(struct thread_restore_args *args)
 {
-	long ret = -1;
 	struct rt_sigframe *rt_sigframe;
-	unsigned long new_sp, fsgs_base;
+	unsigned long new_sp;
 	int my_pid = sys_gettid();
 
 	if (my_pid != args->pid) {
@@ -172,44 +218,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-#define CPREGT1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
-#define CPREGT2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
-
-	CPREGT1(r8);
-	CPREGT1(r9);
-	CPREGT1(r10);
-	CPREGT1(r11);
-	CPREGT1(r12);
-	CPREGT1(r13);
-	CPREGT1(r14);
-	CPREGT1(r15);
-	CPREGT2(rdi, di);
-	CPREGT2(rsi, si);
-	CPREGT2(rbp, bp);
-	CPREGT2(rbx, bx);
-	CPREGT2(rdx, dx);
-	CPREGT2(rax, ax);
-	CPREGT2(rcx, cx);
-	CPREGT2(rsp, sp);
-	CPREGT2(rip, ip);
-	CPREGT2(eflags, flags);
-	CPREGT1(cs);
-	CPREGT1(gs);
-	CPREGT1(fs);
-
-	fsgs_base = args->gpregs.fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
-	if (ret) {
-		pr_err("SET_FS fail %ld\n", ret);
+	if (restore_gpregs(rt_sigframe, &args->gpregs))
 		goto core_restore_end;
-	}
-
-	fsgs_base = args->gpregs.gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
-	if (ret) {
-		pr_err("SET_GS fail %ld\n", ret);
-		goto core_restore_end;
-	}
 
 	mutex_unlock(args->rst_lock);
 
@@ -321,7 +331,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	u64 va;
 
 	struct rt_sigframe *rt_sigframe;
-	unsigned long new_sp, fsgs_base;
+	unsigned long new_sp;
 	pid_t my_pid = sys_getpid();
 	rt_sigaction_t act;
 
@@ -495,44 +505,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 */
 	rt_sigframe = (void *)args->t.mem_zone.rt_sigframe + 8;
 
-#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = args->t.gpregs.d
-#define CPREG2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->t.gpregs.s
-
-	CPREG1(r8);
-	CPREG1(r9);
-	CPREG1(r10);
-	CPREG1(r11);
-	CPREG1(r12);
-	CPREG1(r13);
-	CPREG1(r14);
-	CPREG1(r15);
-	CPREG2(rdi, di);
-	CPREG2(rsi, si);
-	CPREG2(rbp, bp);
-	CPREG2(rbx, bx);
-	CPREG2(rdx, dx);
-	CPREG2(rax, ax);
-	CPREG2(rcx, cx);
-	CPREG2(rsp, sp);
-	CPREG2(rip, ip);
-	CPREG2(eflags, flags);
-	CPREG1(cs);
-	CPREG1(gs);
-	CPREG1(fs);
-
-	fsgs_base = args->t.gpregs.fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
-	if (ret) {
-		pr_info("SET_FS fail %ld\n", ret);
+	if (restore_gpregs(rt_sigframe, &args->t.gpregs))
 		goto core_restore_end;
-	}
 
-	fsgs_base = args->t.gpregs.gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
-	if (ret) {
-		pr_info("SET_GS fail %ld\n", ret);
-		goto core_restore_end;
-	}
 
 	/*
 	 * Blocked signals.
