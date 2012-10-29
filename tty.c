@@ -683,6 +683,15 @@ static int tty_find_restoring_task(struct tty_info *info)
 	struct pstree_item *item;
 
 	if (info->tie->sid) {
+		/*
+		 * If there a slave peer present then it will
+		 * restore the controlling terminal.
+		 */
+		if (pty_is_master(info)) {
+			if (test_bit(info->tfe->tty_info_id - 1, tty_active_pairs))
+				return 0;
+		}
+
 		pr_info("Set a control terminal %x to %d\n",
 			info->tfe->id, info->tie->sid);
 
