@@ -89,7 +89,6 @@ struct task_restore_core_args {
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
 	unsigned int			loglevel;
-	bool				restore_threads;	/* if to restore threads */
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
