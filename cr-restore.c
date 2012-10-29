@@ -1361,8 +1361,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
-	restore_thread_vma_len = round_up(restore_thread_vma_len, PAGE_SIZE);
-
 	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
 					      restorer_len +
 					      restore_task_vma_len +
