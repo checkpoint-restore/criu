@@ -190,6 +190,23 @@ static int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	return 0;
 }
 
+static int restore_thread_common(struct rt_sigframe *sigframe,
+		struct thread_restore_args *args)
+{
+	sys_set_tid_address((int *)args->clear_tid_addr);
+
+	if (args->has_futex) {
+		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
+			pr_err("Robust list err\n");
+			return -1;
+		}
+	}
+
+	restore_sched_info(&args->sp);
+
+	return restore_gpregs(sigframe, &args->gpregs);
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
@@ -205,20 +222,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	sys_set_tid_address((int *)args->clear_tid_addr);
-
-	if (args->has_futex) {
-		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
-			pr_err("Robust list err %d\n", my_pid);
-			goto core_restore_end;
-		}
-	}
-
-	restore_sched_info(&args->sp);
-
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
 
-	if (restore_gpregs(rt_sigframe, &args->gpregs))
+	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
 
 	mutex_unlock(args->rst_lock);
@@ -455,8 +461,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	sys_set_tid_address((int *)args->t.clear_tid_addr);
-
 	/*
 	 * Tune up the task fields.
 	 */
@@ -488,15 +492,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 	if (ret)
 		goto core_restore_end;
 
-	if (args->t.has_futex) {
-		if (sys_set_robust_list((void *)args->t.futex_rla, args->t.futex_rla_len)) {
-			pr_err("Robust list set fail %d\n", my_pid);
-			goto core_restore_end;
-		}
-	}
-
-	restore_sched_info(&args->t.sp);
-
 	/*
 	 * We need to prepare a valid sigframe here, so
 	 * after sigreturn the kernel will pick up the
@@ -505,9 +500,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 */
 	rt_sigframe = (void *)args->t.mem_zone.rt_sigframe + 8;
 
-	if (restore_gpregs(rt_sigframe, &args->t.gpregs))
+	if (restore_thread_common(rt_sigframe, &args->t))
 		goto core_restore_end;
-
 
 	/*
 	 * Blocked signals.
