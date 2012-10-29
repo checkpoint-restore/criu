@@ -67,7 +67,6 @@ struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;
-	mutex_t				*rst_lock;
 	UserX86RegsEntry		gpregs;
 	u64				clear_tid_addr;
 
@@ -76,18 +75,21 @@ struct thread_restore_args {
 	u32				futex_rla_len;
 
 	struct rst_sched_param		sp;
+
+	union {
+		mutex_t			_rst_lock;
+		mutex_t			*rst_lock;
+	};
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
-	struct restore_mem_zone		mem_zone;
+	struct thread_restore_args	t;			/* thread group leader */
 
-	int				pid;			/* task pid */
 	int				fd_exe_link;		/* opened self->exe file */
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
 	unsigned int			loglevel;
 	bool				restore_threads;	/* if to restore threads */
-	mutex_t				rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
@@ -109,20 +111,12 @@ struct task_restore_core_args {
 
 	MmEntry				mm;
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];
-	u64				clear_tid_addr;
 	u64				blk_sigset;
 	char				comm[TASK_COMM_LEN];
 	TaskKobjIdsEntry		ids;
-	UserX86RegsEntry		gpregs;
-
-	bool				has_futex;
-	u64				futex_rla;
-	u32				futex_rla_len;
 
 	int				*rst_tcp_socks;
 	int				rst_tcp_socks_size;
-
-	struct rst_sched_param		sp;
 } __aligned(sizeof(long));
 
 struct pt_regs {

@@ -445,7 +445,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	sys_set_tid_address((int *)args->clear_tid_addr);
+	sys_set_tid_address((int *)args->t.clear_tid_addr);
 
 	/*
 	 * Tune up the task fields.
@@ -478,14 +478,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 	if (ret)
 		goto core_restore_end;
 
-	if (args->has_futex) {
-		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
+	if (args->t.has_futex) {
+		if (sys_set_robust_list((void *)args->t.futex_rla, args->t.futex_rla_len)) {
 			pr_err("Robust list set fail %d\n", my_pid);
 			goto core_restore_end;
 		}
 	}
 
-	restore_sched_info(&args->sp);
+	restore_sched_info(&args->t.sp);
 
 	/*
 	 * We need to prepare a valid sigframe here, so
@@ -493,10 +493,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * registers from the frame, set them up and
 	 * finally pass execution to the new IP.
 	 */
-	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
+	rt_sigframe = (void *)args->t.mem_zone.rt_sigframe + 8;
 
-#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.d
-#define CPREG2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->gpregs.s
+#define CPREG1(d)	rt_sigframe->uc.uc_mcontext.d = args->t.gpregs.d
+#define CPREG2(d, s)	rt_sigframe->uc.uc_mcontext.d = args->t.gpregs.s
 
 	CPREG1(r8);
 	CPREG1(r9);
@@ -520,14 +520,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 	CPREG1(gs);
 	CPREG1(fs);
 
-	fsgs_base = args->gpregs.fs_base;
+	fsgs_base = args->t.gpregs.fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
 	if (ret) {
 		pr_info("SET_FS fail %ld\n", ret);
 		goto core_restore_end;
 	}
 
-	fsgs_base = args->gpregs.gs_base;
+	fsgs_base = args->t.gpregs.gs_base;
 	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
 	if (ret) {
 		pr_info("SET_GS fail %ld\n", ret);
@@ -581,10 +581,10 @@ long __export_restore_task(struct task_restore_core_args *args)
 			char last_pid_buf[16], *s;
 
 			/* skip self */
-			if (thread_args[i].pid == args->pid)
+			if (thread_args[i].pid == args->t.pid)
 				continue;
 
-			mutex_lock(&args->rst_lock);
+			mutex_lock(&args->t._rst_lock);
 
 			new_sp =
 				RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,

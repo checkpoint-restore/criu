@@ -1408,7 +1408,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	/*
 	 * Adjust stack.
 	 */
-	new_sp = RESTORE_ALIGN_STACK((long)task_args->mem_zone.stack, sizeof(task_args->mem_zone.stack));
+	new_sp = RESTORE_ALIGN_STACK((long)task_args->t.mem_zone.stack,
+			sizeof(task_args->t.mem_zone.stack));
 
 	/*
 	 * Get a reference to shared memory area which is
@@ -1455,7 +1456,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
 
-	task_args->pid		= pid;
+	task_args->t.pid	= pid;
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();
 	task_args->sigchld_act	= sigchld_act;
@@ -1463,17 +1464,17 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	task_args->clear_tid_addr	= core->thread_info->clear_tid_addr;
+	task_args->t.clear_tid_addr	= core->thread_info->clear_tid_addr;
 	task_args->ids			= *core->ids;
-	task_args->gpregs		= *core->thread_info->gpregs;
+	task_args->t.gpregs		= *core->thread_info->gpregs;
 	task_args->blk_sigset		= core->tc->blk_sigset;
 
 	if (core->thread_core) {
-		task_args->has_futex		= true;
-		task_args->futex_rla		= core->thread_core->futex_rla;
-		task_args->futex_rla_len	= core->thread_core->futex_rla_len;
+		task_args->t.has_futex		= true;
+		task_args->t.futex_rla		= core->thread_core->futex_rla;
+		task_args->t.futex_rla_len	= core->thread_core->futex_rla_len;
 
-		ret = prep_sched_info(&task_args->sp, core->thread_core);
+		ret = prep_sched_info(&task_args->t.sp, core->thread_core);
 		if (ret)
 			goto err;
 	}
@@ -1493,7 +1494,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	if (ret < 0)
 		goto err;
 
-	mutex_init(&task_args->rst_lock);
+	mutex_init(&task_args->t._rst_lock);
 
 	/*
 	 * Now prepare run-time data for threads restore.
@@ -1535,7 +1536,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			goto err;
 		}
 
-		thread_args[i].rst_lock		= &task_args->rst_lock;
+		thread_args[i].rst_lock		= &task_args->t._rst_lock;
 		thread_args[i].gpregs		= *core->thread_info->gpregs;
 		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
 
@@ -1565,7 +1566,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
-		task_args, task_args->pid,
+		task_args, task_args->t.pid,
 		task_args->nr_threads,
 		task_args->clone_restore_fn,
 		task_args->thread_args);
