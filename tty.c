@@ -398,6 +398,11 @@ static bool pty_is_master(struct tty_info *info)
 	return info->major == TTYAUX_MAJOR;
 }
 
+static bool pty_is_hung(struct tty_info *info)
+{
+	return info->tie->sid == 0 && info->tie->termios == NULL;
+}
+
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d)\n",
@@ -692,8 +697,15 @@ static int tty_find_restoring_task(struct tty_info *info)
 						       item->rst,
 						       info->tfe->id);
 		}
-	} else
+	}
+
+	/*
+	 * Hung up terminals require a fake master peer.
+	 */
+	if (pty_is_hung(info)) {
+		pr_debug("Hung up terminal id %x\n", info->tfe->id);
 		return 0;
+	}
 
 	if (opts.shell_job && !pty_is_master(info)) {
 		info->tie->sid = info->tie->pgrp = INHERIT_SID;
