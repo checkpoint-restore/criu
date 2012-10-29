@@ -707,7 +707,11 @@ static int tty_find_restoring_task(struct tty_info *info)
 		return 0;
 	}
 
+	/*
+	 * We can only inherit one slave peer.
+	 */
 	if (opts.shell_job && !pty_is_master(info)) {
+		pr_info("Inherit terminal for id %x\n", info->tfe->id);
 		info->tie->sid = info->tie->pgrp = INHERIT_SID;
 		return 0;
 	}
