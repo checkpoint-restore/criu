@@ -1,0 +1,51 @@
+#!/usr/bin/expect
+
+exec rm -rf ./dump
+exec mkdir ./dump
+
+system echo "-1" > ./dump/pid.pid
+
+set current [fork]
+switch $current {
+	-1 {
+		puts "Fork failed."
+		exit -1
+	}
+	0 {
+		set timeout 5
+		spawn ./job
+		set pid [exp_pid]
+		expect "READY" {
+			puts "READY"
+		} timeout {
+			puts "FAIL: Timed out on ready"
+			exit -1
+		}
+		system ../../../crtools dump -v 4 -D ./dump -o dump.log -j -t $pid
+		system echo "$pid" > ./dump/pid.pid
+		exit 0
+	}
+	default {
+		sleep 2
+		set timeout 5
+
+		set ::pidfile [open ./dump/pid.pid r]
+		set pid [gets $::pidfile]
+
+		if {$pid == -1} {
+			puts "FAIL: Invalid pid read"
+			exit -1
+		}
+
+		spawn ../../../crtools restore -v 4 -D ./dump -o restore.log -j -t $pid
+
+		expect "ALIVE" {
+			puts "PASS"
+		} timeout {
+			puts "FAIL: Timed out"
+			exit -1
+		}
+
+		exit 0
+	}
+}
