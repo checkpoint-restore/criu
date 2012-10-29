@@ -361,7 +361,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	return ret;
 }
 
-static char *tty_type(struct tty_info *info)
+static char *tty_type(int major)
 {
 	static char *tty_types[] = {
 		[UNIX98_PTY_SLAVE_MAJOR]	= "pts",
@@ -369,10 +369,10 @@ static char *tty_type(struct tty_info *info)
 	};
 	static char tty_unknown[]		= "unknown";
 
-	switch (info->major) {
+	switch (major) {
 	case UNIX98_PTY_SLAVE_MAJOR:
 	case TTYAUX_MAJOR:
-		return tty_types[info->major];
+		return tty_types[major];
 	}
 
 	return tty_unknown;
@@ -391,7 +391,7 @@ static bool pty_is_hung(struct tty_info *info)
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d)\n",
-		prefix, tty_type(info), info->tfe->id, info->tie->pty->index,
+		prefix, tty_type(info->major), info->tfe->id, info->tie->pty->index,
 		pty_is_master(info), info->tie->sid, info->tie->pgrp);
 }
 
