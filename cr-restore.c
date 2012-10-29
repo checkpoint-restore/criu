@@ -1208,13 +1208,14 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 	args->mm.n_mm_saved_auxv = 0;
 	args->mm.mm_saved_auxv = NULL;
 
-	if (mm->n_mm_saved_auxv != AT_VECTOR_SIZE) {
+	if (mm->n_mm_saved_auxv > AT_VECTOR_SIZE) {
 		pr_err("Image corrupted on pid %d\n", pid);
 		goto out;
 	}
 
+	args->mm_saved_auxv_size = pb_repeated_size(mm, mm_saved_auxv);
 	memcpy(args->mm_saved_auxv, mm->mm_saved_auxv,
-	       pb_repeated_size(mm, mm_saved_auxv));
+	       args->mm_saved_auxv_size);
 
 	exe_fd = open_reg_by_id(args->mm.exe_file_id);
 	if (exe_fd < 0)

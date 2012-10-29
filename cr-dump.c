@@ -537,7 +537,7 @@ static int dump_task_creds(struct parasite_ctl *ctl, const struct cr_fdset *fds)
 #define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
-static int get_task_auxv(pid_t pid, MmEntry *mm)
+static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 {
 	int fd, ret, i;
 
@@ -560,6 +560,7 @@ static int get_task_auxv(pid_t pid, MmEntry *mm)
 		}
 	}
 
+	*size = i;
 	ret = 0;
 err:
 	close_safe(&fd);
@@ -591,7 +592,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	if (!mme.mm_saved_auxv)
 		goto out;
 
-	if (get_task_auxv(pid, &mme))
+	if (get_task_auxv(pid, &mme, &mme.n_mm_saved_auxv))
 		goto out;
 	pr_info("OK\n");
 

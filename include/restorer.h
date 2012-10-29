@@ -110,6 +110,7 @@ struct task_restore_core_args {
 
 	MmEntry				mm;
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];
+	u32				mm_saved_auxv_size;
 	u64				blk_sigset;
 	char				comm[TASK_COMM_LEN];
 	TaskKobjIdsEntry		ids;
