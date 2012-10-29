@@ -283,21 +283,6 @@ static int pty_open_ptmx_index(int flags, int index)
 	return ret;
 }
 
-static int try_open_pts(int index, int flags, bool report)
-{
-	char path[64];
-	int fd;
-
-	snprintf(path, sizeof(path), PTS_FMT, index);
-	fd = open(path, flags);
-	if (fd < 0 && report) {
-		pr_err("Can't open terminal %s\n", path);
-		return -1;
-	}
-
-	return fd;
-}
-
 static int unlock_pty(int fd)
 {
 	const int lock = 0;
@@ -931,51 +916,6 @@ int collect_tty(void)
 	return ret;
 }
 
-static int pty_get_flags(int lfd, int major, int index, TtyInfoEntry *e)
-{
-	int slave;
-
-	e->locked	= false;
-	e->exclusive	= false;
-
-	/*
-	 * FIXME
-	 *
-	 * PTYs are safe to use packet mode. While there
-	 * is no way to fetch packet mode settings from
-	 * the kernel, without it we see echos missing
-	 * in `screen' application restore. So, just set
-	 * it here for a while.
-	 */
-	e->packet_mode	= true;
-
-	/*
-	 * FIXME
-	 *
-	 * At moment we fetch only locked flag which
-	 * make sense on master peer only.
-	 *
-	 * For exclusive and packet mode the kernel
-	 * patching is needed.
-	 */
-	if (major != TTYAUX_MAJOR)
-		return 0;
-
-	slave = try_open_pts(index, O_RDONLY, false);
-	if (slave < 0) {
-		if (errno == EIO) {
-			e->locked = true;
-			return 0;
-		} else {
-			pr_err("Can't fetch flags on slave peer (index %d)\n", index);
-			return -1;
-		}
-	}
-
-	close(slave);
-	return 0;
-}
-
 static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, int index)
 {
 	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
@@ -1039,6 +979,10 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	info.rdev		= p->stat.st_rdev;
 	info.pty		= &pty;
 
+	info.locked		= pti->st_lock;
+	info.exclusive		= pti->st_excl;
+	info.packet_mode	= pti->st_pckt;
+
 	pty.index		= index;
 
 	/*
@@ -1057,9 +1001,6 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 * inform a user about such situatio,
 	 */
 	tty_test_and_set(id, tty_active_pairs);
-
-	if (pty_get_flags(lfd, major, index, &info))
-		goto out;
 
 	info.termios		= &termios;
 	info.termios_locked	= &termios_locked;
