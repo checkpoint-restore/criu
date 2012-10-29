@@ -456,6 +456,18 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 {
 	int ret;
 
+#ifndef TIOCGPKT
+# define TIOCGPKT	_IOR('T', 0x38, int)
+#endif
+
+#ifndef TIOCGPTLCK
+# define TIOCGPTLCK	_IOR('T', 0x39, int)
+#endif
+
+#ifndef TIOCGEXCL
+# define TIOCGEXCL	_IOR('T', 0x40, int)
+#endif
+
 	ret = sys_ioctl(args->fd, TIOCGSID, (unsigned long)&args->sid);
 	if (ret < 0) {
 		if (ret != -ENOTTY)
@@ -470,6 +482,27 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 		args->pgrp = 0;
 	}
 
+	ret = sys_ioctl(args->fd, TIOCGPKT, (unsigned long)&args->st_pckt);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			goto err;
+		args->st_pckt = 0;
+	}
+
+	ret = sys_ioctl(args->fd, TIOCGPTLCK, (unsigned long)&args->st_lock);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			goto err;
+		args->st_lock = 0;
+	}
+
+	ret = sys_ioctl(args->fd, TIOCGEXCL, (unsigned long)&args->st_excl);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			goto err;
+		args->st_excl = 0;
+	}
+
 	args->hangup = false;
 	return 0;
 
@@ -482,6 +515,9 @@ err:
 	/* kernel reports EIO for get ioctls on pair-less ptys */
 	args->sid = 0;
 	args->pgrp = 0;
+	args->st_pckt = 0;
+	args->st_lock = 0;
+	args->st_excl = 0;
 	args->hangup = true;
 
 	return 0;

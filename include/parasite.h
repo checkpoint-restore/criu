@@ -112,6 +112,10 @@ struct parasite_tty_args {
 	int	sid;
 	int	pgrp;
 	bool	hangup;
+
+	int	st_pckt;
+	int	st_lock;
+	int	st_excl;
 };
 
 /*
