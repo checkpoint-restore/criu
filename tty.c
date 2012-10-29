@@ -682,14 +682,18 @@ static int tty_find_restoring_task(struct tty_info *info)
 {
 	struct pstree_item *item;
 
-	if (info->tie->sid == 0)
+	if (info->tie->sid) {
+		pr_info("Set a control terminal %x to %d\n",
+			info->tfe->id, info->tie->sid);
+
+		for_each_pstree_item(item) {
+			if (item->sid == info->tie->sid)
+				return prepare_ctl_tty(item->pid.virt,
+						       item->rst,
+						       info->tfe->id);
+		}
+	} else
 		return 0;
-
-	pr_info("Set a control terminal to %d\n", info->tie->sid);
-
-	for_each_pstree_item(item)
-		if (item->sid == info->tie->sid)
-			return prepare_ctl_tty(item->pid.virt, item->rst, info->tfe->id);
 
 	if (opts.shell_job && !pty_is_master(info)) {
 		info->tie->sid = info->tie->pgrp = INHERIT_SID;
