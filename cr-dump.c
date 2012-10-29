@@ -1671,6 +1671,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 			goto err;
 	}
 
+	if (dump_verify_tty_sids())
+		goto err;
+
 	if (dump_zombies())
 		goto err;
 

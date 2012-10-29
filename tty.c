@@ -82,6 +82,16 @@ struct tty_info {
 	bool				create;
 };
 
+struct tty_dump_info {
+	struct list_head		list;
+
+	u32				id;
+	pid_t				sid;
+	pid_t				pgrp;
+	int				fd;
+	int				major;
+};
+
 static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
 static int self_stdin = -1;
@@ -916,31 +926,11 @@ int collect_tty(void)
 	return ret;
 }
 
-static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, int index)
+/* Make sure the ttys we're dumping do belong our process tree */
+int dump_verify_tty_sids(void)
 {
-	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
-	TermiosEntry termios		= TERMIOS_ENTRY__INIT;
-	TermiosEntry termios_locked	= TERMIOS_ENTRY__INIT;
-	WinsizeEntry winsize		= WINSIZE_ENTRY__INIT;
-	TtyPtyEntry pty			= TTY_PTY_ENTRY__INIT;
-	struct parasite_tty_args *pti;
-
-	struct termios t;
-	struct winsize w;
-
-	int ret = -1;
-
-	/*
-	 * Make sure the structures the system provides us
-	 * correlates well with protobuf templates.
-	 */
-	BUILD_BUG_ON(ARRAY_SIZE(t.c_cc) < TERMIOS_NCC);
-	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
-	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
-
-	pti = parasite_dump_tty(p->ctl, p->fd);
-	if (!pti)
-		return -1;
+	struct tty_dump_info *dinfo, *n;
+	int ret = 0;
 
 	/*
 	 * There might be a cases where we get sid/pgid on
@@ -960,18 +950,65 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 * In this case we simply zap sid/pgid and inherit
 	 * the peer from the current terminal on restore.
 	 */
-	if (pti->sid) {
-		struct pstree_item *item = find_first_sid(pti->sid);
-		if (!item || item->pid.virt != pti->sid) {
-			if (!opts.shell_job) {
-				pr_err("Found sid %d pgid %d (%s) on peer fd %d. "
-				       "Missing option?\n",
-				       pti->sid, pti->pgrp,
-				       tty_type(major), p->fd);
-				return -1;
+	list_for_each_entry_safe(dinfo, n, &all_ttys, list) {
+		if (!ret && dinfo->sid) {
+			struct pstree_item *item = find_first_sid(dinfo->sid);
+
+			if (!item || item->pid.virt != dinfo->sid) {
+				if (!opts.shell_job) {
+					pr_err("Found sid %d pgid %d (%s) on peer fd %d. "
+					       "Missing option?\n",
+					       dinfo->sid, dinfo->pgrp,
+					       tty_type(dinfo->major),
+					       dinfo->fd);
+					ret = -1;
+				}
 			}
 		}
+		xfree(dinfo);
 	}
+
+	return ret;
+}
+
+static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, int index)
+{
+	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
+	TermiosEntry termios		= TERMIOS_ENTRY__INIT;
+	TermiosEntry termios_locked	= TERMIOS_ENTRY__INIT;
+	WinsizeEntry winsize		= WINSIZE_ENTRY__INIT;
+	TtyPtyEntry pty			= TTY_PTY_ENTRY__INIT;
+	struct parasite_tty_args *pti;
+	struct tty_dump_info *dinfo;
+
+	struct termios t;
+	struct winsize w;
+
+	int ret = -1;
+
+	/*
+	 * Make sure the structures the system provides us
+	 * correlates well with protobuf templates.
+	 */
+	BUILD_BUG_ON(ARRAY_SIZE(t.c_cc) < TERMIOS_NCC);
+	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
+	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
+
+	pti = parasite_dump_tty(p->ctl, p->fd);
+	if (!pti)
+		return -1;
+
+	dinfo = xmalloc(sizeof(*dinfo));
+	if (!dinfo)
+		return -1;
+
+	dinfo->id		= id;
+	dinfo->sid		= pti->sid;
+	dinfo->pgrp		= pti->pgrp;
+	dinfo->fd		= p->fd;
+	dinfo->major		= major;
+
+	list_add_tail(&dinfo->list, &all_ttys);
 
 	info.id			= id;
 	info.type		= TTY_TYPE__PTY;
