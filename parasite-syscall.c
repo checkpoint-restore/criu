@@ -185,39 +185,9 @@ retry_signal:
 	}
 
 	/*
-	 * Our code is done.
+	 * We've reached this point iif int3 is triggered inside our
+	 * parasite code. So we're done.
 	 */
-	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-		pr_err("Can't interrupt (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
-		pr_err("Can't continue (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (wait4(pid, &status, __WALL, NULL) != pid) {
-		pr_err("Waited pid mismatch (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (!WIFSTOPPED(status)) {
-		pr_err("Task is still running (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
-		pr_err("Can't get siginfo (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (SI_EVENT(siginfo.si_code) != PTRACE_EVENT_STOP) {
-		pr_err("si_code doesn't match (pid: %d si_code: %d)\n",
-			pid, siginfo.si_code);
-		goto err;
-	}
-
 	ret = 0;
 err:
 	return ret;
