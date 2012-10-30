@@ -65,6 +65,7 @@ transition/fork
 static/pty00
 static/pty01
 static/pty04
+static/tty02
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
