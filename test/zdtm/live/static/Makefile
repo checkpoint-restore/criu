@@ -66,6 +66,7 @@ TST_NOFILE	=				\
 		pty03				\
 		pty04				\
 		tty00				\
+		tty02				\
 		mountpoints			\
 		netns				\
 		session01			\
