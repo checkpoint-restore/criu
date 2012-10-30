@@ -156,7 +156,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 {
 	struct inet_sk_desc *sk;
-	char address[128];
+	char address;
 	socklen_t aux;
 	int ret;
 
@@ -166,7 +166,7 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 
 	/* It should has no peer name */
 	aux = sizeof(address);
-	ret = getsockopt(lfd, SOL_SOCKET, SO_PEERNAME, address, &aux);
+	ret = getsockopt(lfd, SOL_SOCKET, SO_PEERNAME, &address, &aux);
 	if (ret != -1 || errno != ENOTCONN) {
 		pr_err("Errno %d returned from unconnected socket\n", errno);
 		goto err;
