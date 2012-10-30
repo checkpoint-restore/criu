@@ -686,18 +686,6 @@ static struct pstree_item *find_first_sid(int sid)
 	return NULL;
 }
 
-static struct pstree_item *tty_lookup_task_sid(struct tty_info *info)
-{
-	struct pstree_item *item;
-
-	for_each_pstree_item(item) {
-		if (item->sid == info->tie->sid)
-			return item;
-	}
-
-	return NULL;
-}
-
 static int tty_find_restoring_task(struct tty_info *info)
 {
 	struct pstree_item *item;
@@ -745,7 +733,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 				return 0;
 		}
 
-		item = tty_lookup_task_sid(info);
+		item = find_first_sid(info->tie->sid);
 		if (item) {
 			pr_info("Set a control terminal %x to %d\n",
 				info->tfe->id, info->tie->sid);
