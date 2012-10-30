@@ -293,10 +293,14 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
 
-	if (tcp_connection(sk))
+	switch (sk->proto) {
+	case IPPROTO_TCP:
 		ret = dump_one_tcp(lfd, sk);
-	else
+		break;
+	default:
 		ret = 0;
+		break;
+	}
 err:
 	xfree(ie.src_addr);
 	xfree(ie.dst_addr);

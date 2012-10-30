@@ -298,6 +298,9 @@ err_in:
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk)
 {
+	if (sk->state != TCP_ESTABLISHED)
+		return 0;
+
 	pr_info("Dumping TCP connection\n");
 
 	if (tcp_repair_establised(fd, sk))
