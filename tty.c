@@ -472,7 +472,7 @@ static int pty_open_slaves(struct tty_info *info)
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(pty_is_master(slave));
 
-		fd = open(pts_name, slave->tfe->flags);
+		fd = open(pts_name, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", pts_name);
 			goto err;
