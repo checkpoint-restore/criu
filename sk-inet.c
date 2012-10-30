@@ -160,9 +160,6 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
-#define tcp_connection(sk)	(((sk)->proto == IPPROTO_TCP) &&	\
-				 ((sk)->state == TCP_ESTABLISHED))
-
 static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 {
 	struct inet_sk_desc *sk;
@@ -382,6 +379,11 @@ static struct file_desc_ops inet_desc_ops = {
 	.open = open_inet_sk,
 	.post_open = post_open_inet_sk,
 };
+
+static inline int tcp_connection(InetSkEntry *ie)
+{
+	return (ie->proto == IPPROTO_TCP) && (ie->state == TCP_ESTABLISHED);
+}
 
 static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 {
