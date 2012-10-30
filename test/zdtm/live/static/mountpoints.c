@@ -42,7 +42,8 @@ again:
 		if (!strcmp(mp, "/proc"))
 			continue;
 
-		umount(mp);
+		if (umount(mp))
+			test_msg("umount(`%s') failed: %m\n", mp);
 		fs_cnt++;
 	}
 
