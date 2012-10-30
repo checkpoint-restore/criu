@@ -100,8 +100,14 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 		return 0;
 	}
 
-	if (sk->type == SOCK_DGRAM)
+	if (sk->type == SOCK_DGRAM) {
+		if (sk->wqlen != 0) {
+			pr_err("Can't dump corked dgram socket\n");
+			return 0;
+		}
+
 		return 1;
+	}
 
 	if (sk->type != SOCK_STREAM) {
 		pr_err("Only stream and dgram inet sockets for now\n");
