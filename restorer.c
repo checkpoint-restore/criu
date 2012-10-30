@@ -224,7 +224,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
 
-	mutex_unlock(args->rst_lock);
+	mutex_unlock(&args->ta->rst_lock);
+
+	restore_creds(&args->ta->creds);
 
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
@@ -529,14 +531,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 			goto core_restore_end;
 		}
 
-		/* 
-		 * last-pid is CAP_SYS_ADMIN protected, thus restore creds
-		 * _after_ opening that file, but before fork to make threads
-		 * inherit them properly
-		 */
-
-		restore_creds(&args->creds);
-
 		ret = sys_flock(fd, LOCK_EX);
 		if (ret) {
 			pr_err("Can't lock last_pid %d\n", fd);
@@ -550,7 +544,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 			if (thread_args[i].pid == args->t.pid)
 				continue;
 
-			mutex_lock(&args->t._rst_lock);
+			mutex_lock(&args->rst_lock);
 
 			new_sp =
 				RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
@@ -613,8 +607,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 		}
 
 		sys_close(fd);
-	} else
-		restore_creds(&args->creds);
+	}
+
+	/* 
+	 * Writing to last-pid is CAP_SYS_ADMIN protected, thus restore
+	 * creds _after_ all threads creation.
+	 */
+
+	restore_creds(&args->creds);
 
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 

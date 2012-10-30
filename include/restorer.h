@@ -62,6 +62,8 @@ struct rst_sched_param {
 	int prio;
 };
 
+struct task_restore_core_args;
+
 /* Make sure it's pow2 in size */
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
@@ -76,10 +78,7 @@ struct thread_restore_args {
 
 	struct rst_sched_param		sp;
 
-	union {
-		mutex_t			_rst_lock;
-		mutex_t			*rst_lock;
-	};
+	struct task_restore_core_args	*ta;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
@@ -89,6 +88,8 @@ struct task_restore_core_args {
 	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
 	unsigned int			loglevel;
+
+	mutex_t				rst_lock;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */

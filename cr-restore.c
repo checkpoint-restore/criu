@@ -1495,7 +1495,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	if (ret < 0)
 		goto err;
 
-	mutex_init(&task_args->t._rst_lock);
+	mutex_init(&task_args->rst_lock);
 
 	/*
 	 * Now prepare run-time data for threads restore.
@@ -1537,7 +1537,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			goto err;
 		}
 
-		thread_args[i].rst_lock		= &task_args->t._rst_lock;
+		thread_args[i].ta		= task_args;
 		thread_args[i].gpregs		= *core->thread_info->gpregs;
 		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
 
