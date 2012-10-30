@@ -395,7 +395,15 @@ static bool pty_is_master(struct tty_info *info)
 
 static bool pty_is_hung(struct tty_info *info)
 {
-	return info->tie->sid == 0 && info->tie->termios == NULL;
+	return info->tie->termios == NULL;
+}
+
+static bool tty_has_active_pair(struct tty_info *info)
+{
+	int d = pty_is_master(info) ? -1 : + 1;
+
+	return test_bit(info->tfe->tty_info_id + d,
+			tty_active_pairs);
 }
 
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
@@ -678,48 +686,90 @@ static struct pstree_item *find_first_sid(int sid)
 	return NULL;
 }
 
+static struct pstree_item *tty_lookup_task_sid(struct tty_info *info)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		if (item->sid == info->tie->sid)
+			return item;
+	}
+
+	return NULL;
+}
+
 static int tty_find_restoring_task(struct tty_info *info)
 {
 	struct pstree_item *item;
 
-	if (info->tie->sid) {
-		/*
-		 * If there a slave peer present then it will
-		 * restore the controlling terminal.
-		 */
-		if (pty_is_master(info)) {
-			if (test_bit(info->tfe->tty_info_id - 1, tty_active_pairs))
-				return 0;
-		}
-
-		pr_info("Set a control terminal %x to %d\n",
-			info->tfe->id, info->tie->sid);
-
-		for_each_pstree_item(item) {
-			if (item->sid == info->tie->sid)
-				return prepare_ctl_tty(item->pid.virt,
-						       item->rst,
-						       info->tfe->id);
-		}
-	}
-
 	/*
-	 * Hung up terminals require a fake master peer.
+	 * The overall scenario is the following (note
+	 * we might have corrupted image so don't believe
+	 * anything).
+	 *
+	 * SID is present on a peer
+	 * ------------------------
+	 *
+	 *  - if it's master peer and we have as well a slave
+	 *    peer then prefer restore controlling terminal
+	 *    via slave peer
+	 *
+	 *  - if it's master peer without slave, there must be
+	 *    a SID leader who will be restoring the peer
+	 *
+	 *  - if it's a slave peer and no session leader found
+	 *    than we need an option to inherit terminal
+	 *
+	 * No SID present on a peer
+	 * ------------------------
+	 *
+	 *  - if it's a master peer than we are in good shape
+	 *    and continue in a normal way, we're the peer keepers
+	 *
+	 *  - if it's a slave peer and no appropriate master peer
+	 *    found we need an option to inherit terminal
+	 *
+	 * In any case if it's hungup peer, then we jump out
+	 * early since it will require fake master peer and
+	 * rather non-usable anyway.
 	 */
+
 	if (pty_is_hung(info)) {
-		pr_debug("Hung up terminal id %x\n", info->tfe->id);
+		pr_debug("Hungup terminal found id %x\n", info->tfe->id);
 		return 0;
 	}
 
-	/*
-	 * We can only inherit one slave peer.
-	 */
-	if (opts.shell_job && !pty_is_master(info)) {
+	if (info->tie->sid) {
+		if (pty_is_master(info)) {
+			if (tty_has_active_pair(info))
+				return 0;
+		}
+
+		item = tty_lookup_task_sid(info);
+		if (item) {
+			pr_info("Set a control terminal %x to %d\n",
+				info->tfe->id, info->tie->sid);
+			return prepare_ctl_tty(item->pid.virt,
+					       item->rst,
+					       info->tfe->id);
+		}
+
+		if (pty_is_master(info))
+			goto notask;
+	} else {
+		if (pty_is_master(info))
+			return 0;
+		if (tty_has_active_pair(info))
+			return 0;
+	}
+
+	if (opts.shell_job) {
 		pr_info("Inherit terminal for id %x\n", info->tfe->id);
 		info->tie->sid = info->tie->pgrp = INHERIT_SID;
 		return 0;
 	}
 
+notask:
 	pr_err("No task found with sid %d\n", info->tie->sid);
 	return -1;
 }
