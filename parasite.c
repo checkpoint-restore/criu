@@ -452,6 +452,19 @@ out_send_fd:
 	return ret;
 }
 
+static inline int tty_ioctl(int fd, int cmd, int *arg)
+{
+	int ret;
+
+	ret = sys_ioctl(fd, cmd, (unsigned long)arg);
+	if (ret < 0) {
+		if (ret != -ENOTTY)
+			return -1;
+		*arg = 0;
+	}
+	return 0;
+}
+
 static int parasite_dump_tty(struct parasite_tty_args *args)
 {
 	int ret;
@@ -468,40 +481,25 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 # define TIOCGEXCL	_IOR('T', 0x40, int)
 #endif
 
-	ret = sys_ioctl(args->fd, TIOCGSID, (unsigned long)&args->sid);
-	if (ret < 0) {
-		if (ret != -ENOTTY)
-			goto err;
-		args->sid = 0;
-	}
+	ret = tty_ioctl(args->fd, TIOCGSID, &args->sid);
+	if (ret < 0)
+		goto err;
 
-	ret = sys_ioctl(args->fd, TIOCGPGRP, (unsigned long)&args->pgrp);
-	if (ret < 0) {
-		if (ret != -ENOTTY)
-			goto err;
-		args->pgrp = 0;
-	}
+	ret = tty_ioctl(args->fd, TIOCGPGRP, &args->pgrp);
+	if (ret < 0)
+		goto err;
 
-	ret = sys_ioctl(args->fd, TIOCGPKT, (unsigned long)&args->st_pckt);
-	if (ret < 0) {
-		if (ret != -ENOTTY)
-			goto err;
-		args->st_pckt = 0;
-	}
+	ret = tty_ioctl(args->fd, TIOCGPKT, &args->st_pckt);
+	if (ret < 0)
+		goto err;
 
-	ret = sys_ioctl(args->fd, TIOCGPTLCK, (unsigned long)&args->st_lock);
-	if (ret < 0) {
-		if (ret != -ENOTTY)
-			goto err;
-		args->st_lock = 0;
-	}
+	ret = tty_ioctl(args->fd, TIOCGPTLCK, &args->st_lock);
+	if (ret < 0)
+		goto err;
 
-	ret = sys_ioctl(args->fd, TIOCGEXCL, (unsigned long)&args->st_excl);
-	if (ret < 0) {
-		if (ret != -ENOTTY)
-			goto err;
-		args->st_excl = 0;
-	}
+	ret = tty_ioctl(args->fd, TIOCGEXCL, &args->st_excl);
+	if (ret < 0)
+		goto err;
 
 	args->hangup = false;
 	return 0;
