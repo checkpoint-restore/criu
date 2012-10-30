@@ -31,7 +31,9 @@
  *   there
  */
 
-#ifdef CONFIG_X86_64
+#ifndef CONFIG_X86_64
+#error non-x86-64 mode not yet implemented
+#endif
 
 static void *brk_start, *brk_end, *brk_tail;
 
@@ -585,7 +587,3 @@ int __used parasite_service(unsigned int cmd, void *args)
 	pr_err("Unknown command to parasite\n");
 	return -EINVAL;
 }
-
-#else /* CONFIG_X86_64 */
-# error x86-32 bit mode not yet implemented
-#endif /* CONFIG_X86_64 */
