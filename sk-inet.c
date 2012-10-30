@@ -167,8 +167,13 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 	/* It should has no peer name */
 	aux = sizeof(address);
 	ret = getsockopt(lfd, SOL_SOCKET, SO_PEERNAME, &address, &aux);
-	if (ret != -1 || errno != ENOTCONN) {
-		pr_err("Errno %d returned from unconnected socket\n", errno);
+	if (ret < 0) {
+		if (errno != ENOTCONN) {
+			pr_perror("Unexpected error returned from unconnected socket");
+			goto err;
+		}
+	} else if (ret == 0) {
+		pr_err("Name resolved on unconnected socket\n");
 		goto err;
 	}
 
