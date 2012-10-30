@@ -45,6 +45,7 @@ TST_NOFILE	=				\
 		socket_queues			\
 		socket_queues02			\
 		socket-tcp			\
+		socket-tcpbuf			\
 		sock_opts00			\
 		sock_opts01			\
 		ipc_namespace			\
