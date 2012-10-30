@@ -551,13 +551,6 @@ static int fini(void)
 
 int __used parasite_service(unsigned int cmd, void *args)
 {
-	BUILD_BUG_ON(sizeof(struct parasite_dump_pages_args) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_init_args) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_dump_misc) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_dump_tid_info) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_drain_fd) > PARASITE_ARG_SIZE);
-	BUILD_BUG_ON(sizeof(struct parasite_tty_args) > PARASITE_ARG_SIZE);
-
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	switch (cmd) {

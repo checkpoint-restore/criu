@@ -193,11 +193,16 @@ err:
 	return ret;
 }
 
-static void *parasite_args(struct parasite_ctl *ctl, int args_size)
+static void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 {
 	BUG_ON(args_size > PARASITE_ARG_SIZE);
 	return ctl->addr_args;
 }
+
+#define parasite_args(ctl, type) ({				\
+		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE);	\
+		ctl->addr_args;					\
+	})
 
 static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, pid_t pid)
 {
@@ -333,7 +338,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	if (ret)
 		return ret;
 
-	a = parasite_args(ctl, sizeof(*a));
+	a = parasite_args(ctl, struct parasite_log_args);
 	a->log_level = log_get_loglevel();
 
 	ret = parasite_execute(PARASITE_CMD_CFG_LOG, ctl);
@@ -348,7 +353,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 	struct parasite_init_args *args;
 	static int sock = -1;
 
-	args = parasite_args(ctl, sizeof(*args));
+	args = parasite_args(ctl, struct parasite_init_args);
 
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, 0);
@@ -416,7 +421,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 	struct parasite_dump_tid_info *args;
 	int ret;
 
-	args = parasite_args(ctl, sizeof(*args));
+	args = parasite_args(ctl, struct parasite_dump_tid_info);
 
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_TID_ADDR, ctl, pid);
 
@@ -432,7 +437,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	int ret, i, fd;
 	SaEntry se = SA_ENTRY__INIT;
 
-	args = parasite_args(ctl, sizeof(*args));
+	args = parasite_args(ctl, struct parasite_dump_sa_args);
 
 	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
@@ -473,7 +478,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	struct parasite_dump_itimers_args *args;
 	int ret, fd;
 
-	args = parasite_args(ctl, sizeof(*args));
+	args = parasite_args(ctl, struct parasite_dump_itimers_args);
 
 	ret = parasite_execute(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
@@ -494,7 +499,7 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 {
 	struct parasite_dump_misc *ma;
 
-	ma = parasite_args(ctl, sizeof(*ma));
+	ma = parasite_args(ctl, struct parasite_dump_misc);
 	if (parasite_execute(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
@@ -506,7 +511,7 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd)
 {
 	struct parasite_tty_args *p;
 
-	p = parasite_args(ctl, sizeof(*p));
+	p = parasite_args(ctl, struct parasite_tty_args);
 	p->fd = fd;
 
 	if (parasite_execute(PARASITE_CMD_DUMP_TTY, ctl) < 0)
@@ -519,7 +524,7 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 {
 	struct parasite_dump_creds *pc;
 
-	pc = parasite_args(ctl, sizeof(*pc));
+	pc = parasite_args(ctl, struct parasite_dump_creds);
 	if (parasite_execute(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
 		return -1;
 
@@ -563,7 +568,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 		goto out;
 	}
 
-	parasite_dumppages = parasite_args(ctl, sizeof(*parasite_dumppages));
+	parasite_dumppages = parasite_args(ctl, struct parasite_dump_pages_args);
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
 
@@ -630,7 +635,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	struct parasite_drain_fd *args;
 
 	size = drain_fds_size(dfds);
-	args = parasite_args(ctl, size);
+	args = parasite_args_s(ctl, size);
 	memcpy(args, dfds, size);
 
 	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl);
