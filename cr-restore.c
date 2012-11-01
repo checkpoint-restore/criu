@@ -1318,6 +1318,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 
 	long new_sp, exec_mem_hint;
 	long ret;
+	long restore_bootstrap_len;
 
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
@@ -1362,21 +1363,22 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
+	restore_bootstrap_len = restorer_len +
+				restore_task_vma_len +
+				restore_thread_vma_len +
+				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
+				self_vmas_len + vmas_len +
+				rst_tcp_socks_size;
 	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
-					      restorer_len +
-					      restore_task_vma_len +
-					      restore_thread_vma_len +
-					      self_vmas_len + vmas_len +
-					      SHMEMS_SIZE + TASK_ENTRIES_SIZE +
-					      rst_tcp_socks_size);
+					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
-		       restore_task_vma_len + restore_thread_vma_len);
+		       restore_bootstrap_len);
 		goto err;
 	}
 
 	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
-			KBYTES(restore_task_vma_len + restore_thread_vma_len));
+			KBYTES(restore_bootstrap_len));
 
 	ret = remap_restorer_blob((void *)exec_mem_hint);
 	if (ret < 0)
