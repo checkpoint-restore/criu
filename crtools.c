@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
 	    strcmp(argv[optind], "restore") &&
 	    strcmp(argv[optind], "show") &&
 	    strcmp(argv[optind], "check")) {
-		pr_err("Unknown command %s", argv[optind]);
+		pr_err("Unknown command %s\n", argv[optind]);
 		goto usage;
 	}
 
