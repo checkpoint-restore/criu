@@ -159,7 +159,7 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	tv.tv_usec = soe->so_rcv_tmo_usec;
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 
-	ret = restore_bound_dev(sk, soe);
+	ret |= restore_bound_dev(sk, soe);
 
 	/* The restore of SO_REUSEADDR depends on type of socket */
 
@@ -226,7 +226,7 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	soe->has_so_no_check = true;
 	soe->so_no_check = val ? true : false;
 
-	ret = dump_bound_dev(sk, soe);
+	ret |= dump_bound_dev(sk, soe);
 
 	return ret;
 }
