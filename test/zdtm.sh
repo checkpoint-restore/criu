@@ -46,6 +46,7 @@ static/cmdlinenv00
 static/socket_listen
 static/packet_sock
 static/socket_udp
+static/sock_filter
 static/socket6_udp
 static/socket_udplite
 static/selfexe00

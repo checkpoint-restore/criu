@@ -299,6 +299,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		break;
 	}
 err:
+	release_skopts(&skopts);
 	xfree(ie.src_addr);
 	xfree(ie.dst_addr);
 	return ret;
