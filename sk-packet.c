@@ -193,6 +193,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
 out:
+	release_skopts(&skopts);
 	xfree(psk.rx_ring);
 	xfree(psk.tx_ring);
 	for (i = 0; i < psk.n_mclist; i++)

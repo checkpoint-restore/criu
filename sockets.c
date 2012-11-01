@@ -231,6 +231,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	return ret;
 }
 
+void release_skopts(SkOptsEntry *soe)
+{
+}
+
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 {
 	int family;

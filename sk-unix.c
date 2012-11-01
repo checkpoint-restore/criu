@@ -232,6 +232,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
 	show_one_unix_img("Dumped", &ue);
+	release_skopts(&skopts);
 
 	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
@@ -239,6 +240,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	return 0;
 
 err:
+	release_skopts(&skopts);
 	return -1;
 }
 
