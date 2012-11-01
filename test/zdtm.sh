@@ -292,7 +292,7 @@ EOF
 		[ $sltime -lt 9 ] && sltime=$((sltime+1))
 	done
 	cat $test.out
-	cat $test.out | grep PASS || return 2
+	cat $test.out | grep -q PASS || return 2
 }
 
 case_error()
