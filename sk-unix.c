@@ -688,14 +688,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			pr_perror("Can't make usk listen");
 			return -1;
 		}
-
-		if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
-			return -1;
-
-		if (restore_socket_opts(sk, ui->ue->opts))
-			return -1;
-
 	}
+
+	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
+		return -1;
+
+	if (restore_socket_opts(sk, ui->ue->opts))
+		return -1;
 
 	return sk;
 }
