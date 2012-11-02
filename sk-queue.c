@@ -16,6 +16,7 @@
 #include "crtools.h"
 #include "util.h"
 #include "util-net.h"
+#include "sockets.h"
 
 #include "sk-queue.h"
 
@@ -189,19 +190,12 @@ void show_sk_queues(int fd, struct cr_options *o)
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
-	int ret, img_fd, flags;
+	int ret, img_fd;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1) {
-		pr_perror("Unable to get flags for %d", fd);
+	if (restore_prepare_socket(fd))
 		return -1;
-	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) ) {
-		pr_perror("Unable to set O_NONBLOCK for %d", fd);
-		return -1;
-	}
 
 	img_fd = open_image_ro(CR_FD_SK_QUEUES);
 	if (img_fd < 0)
@@ -253,11 +247,6 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		list_del(&pkt->list);
 		sk_packet_entry__free_unpacked(entry, NULL);
 		xfree(pkt);
-	}
-
-	if (fcntl(fd, F_SETFL, flags) ) {
-		pr_perror("Unable to restore flags for %d", fd);
-		goto err;
 	}
 
 	close(img_fd);

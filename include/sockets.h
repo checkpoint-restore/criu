@@ -30,6 +30,7 @@ extern int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fd
 extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);
+extern int restore_prepare_socket(int sk);
 
 extern int sk_collect_one(int ino, int family, struct socket_desc *d);
 extern int collect_sockets(int pid);

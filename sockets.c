@@ -204,6 +204,38 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 	return 0;
 }
 
+/*
+ * Set sizes of buffers to maximum and prevent blocking
+ * Caller of this fn should call other socket restoring
+ * routines to drop the non-blocking and set proper send
+ * and receive buffers.
+ */
+int restore_prepare_socket(int sk)
+{
+	int flags;
+
+	/* In kernel a bufsize has type int and a value is doubled. */
+	u32 maxbuf = INT_MAX / 2;
+
+	if (restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &maxbuf))
+		return -1;
+	if (restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &maxbuf))
+		return -1;
+
+	/* Prevent blocking on restore */
+	flags = fcntl(sk, F_GETFL, 0);
+	if (flags == -1) {
+		pr_perror("Unable to get flags for %d", sk);
+		return -1;
+	}
+	if (fcntl(sk, F_SETFL, flags | O_NONBLOCK) ) {
+		pr_perror("Unable to set O_NONBLOCK for %d", sk);
+		return -1;
+	}
+
+	return 0;
+}
+
 int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0, val;

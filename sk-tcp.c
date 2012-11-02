@@ -379,6 +379,9 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 
 static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 {
+	if (restore_prepare_socket(sk))
+		return -1;
+
 	if (tse->inq_len &&
 			send_tcp_queue(sk, TCP_RECV_QUEUE, tse->inq_len, fd))
 		return -1;
