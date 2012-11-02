@@ -5,18 +5,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <signal.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
 const char *test_doc	= "Check a non-controling terminal";
 const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
-
-static void sighup_handler(int signo)
-{
-	test_msg("SIGHUP is here\n");
-}
 
 int main(int argc, char ** argv)
 {
@@ -25,8 +19,6 @@ int main(int argc, char ** argv)
 	pid_t sid;
 
 	test_init(argc, argv);
-
-	signal(SIGHUP, sighup_handler);
 
 	setsid();
 
@@ -41,14 +33,9 @@ int main(int argc, char ** argv)
 	slavename = ptsname(fdm);
 
 	/* set up a controlling terminal */
-	fds = open(slavename, O_RDWR);
+	fds = open(slavename, O_RDWR | O_NOCTTY);
 	if (fds == -1) {
 		err("Can't open a slave pseudoterminal %s", slavename);
-		return 1;
-	}
-
-	if (ioctl(fds, TIOCNOTTY)) {
-		err("Unable to detach a terminal");
 		return 1;
 	}
 
