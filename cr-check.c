@@ -381,6 +381,30 @@ static int check_unaligned_vmsplice(void)
 	return 0;
 }
 
+#ifndef SO_GET_FILTER
+#define SO_GET_FILTER           SO_ATTACH_FILTER
+#endif
+
+static int check_so_get_filter(void)
+{
+	int sk;
+	socklen_t len;
+
+	sk = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (sk < 0) {
+		pr_perror("No socket");
+		return 1;
+	}
+
+	len = 0;
+	if (getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len)) {
+		pr_perror("Can't get socket filter");
+		return 1;
+	}
+
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -402,6 +426,7 @@ int cr_check(void)
 	ret |= check_fdinfo_ext();
 	ret |= check_unaligned_vmsplice();
 	ret |= check_tty();
+	ret |= check_so_get_filter();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
