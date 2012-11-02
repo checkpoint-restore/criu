@@ -12,25 +12,6 @@
 
 #include <string.h>
 
-/*
- * Some notes on parasite code overall. There are a few
- * calling convention specfics the caller must follow
- *
- * - on success, 0 must be returned, anything else
- *   treated as error; note that if 0 returned the
- *   caller code should not expect anything sane in
- *   parasite_status_t, parasite may not touch it at
- *   all
- *
- * - every routine which takes arguments and called from
- *   parasite_head
- *     parasite_service
- *   must provide parasite_status_t argument either via
- *   plain pointer or as first member of an embedding
- *   structure so service routine will pass error code
- *   there
- */
-
 #ifndef CONFIG_X86_64
 #error non-x86-64 mode not yet implemented
 #endif
