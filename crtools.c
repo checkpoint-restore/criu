@@ -323,11 +323,15 @@ usage:
 	pr_msg("     --log-pid		if the -o option is in effect, each restored processes is\n");
 	pr_msg("			written to the [NAME].pid file\n");
 	pr_msg("  -v [num]              set logging level\n");
-	pr_msg("                          0 - silent (only error messages)\n");
-	pr_msg("                          1 - informative (default)\n");
-	pr_msg("                          2 - debug\n");
-	pr_msg("  -vv            same as -v 1\n");
-	pr_msg("  -vvv           same as -v 2\n");
+	pr_msg("                          0 - messages regardless of log level\n");
+	pr_msg("                          1 - errors, when we are in trouble\n");
+	pr_msg("                          2 - warnings (default)\n");
+	pr_msg("                          3 - informative, everything is fine\n");
+	pr_msg("                          4 - debug only\n");
+	pr_msg("  -v             same as -v 1\n");
+	pr_msg("  -vv            same as -v 2\n");
+	pr_msg("  -vvv           same as -v 3\n");
+	pr_msg("  -vvvv          same as -v 4\n");
 
 	pr_msg("\nShow options:\n");
 	pr_msg("  -f|--file             show contents of a checkpoint file\n");
