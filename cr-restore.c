@@ -213,8 +213,9 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx vma\n",
-				vma->vma.start, vma->vma.end, vma->vma.pgoff);
+		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx (%x) vma\n",
+				vma->vma.start, vma->vma.end,
+				vma->vma.pgoff, vma->vma.status);
 
 		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
 			ret = vma->vma.shmid;
@@ -231,6 +232,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 			break;
 		}
 
+		pr_info("\t`- setting %d as mapping fd\n", ret);
 		vma->vma.fd = ret;
 	}
 
