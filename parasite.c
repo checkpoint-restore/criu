@@ -537,33 +537,33 @@ int __used parasite_service(unsigned int cmd, void *args)
 
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
-		return init((struct parasite_init_args *) args);
+		return init(args);
 	case PARASITE_CMD_FINI:
 		return fini();
 	case PARASITE_CMD_CFG_LOG:
-		return parasite_cfg_log((struct parasite_log_args *) args);
+		return parasite_cfg_log(args);
 	case PARASITE_CMD_DUMPPAGES_INIT:
 		return dump_pages_init();
 	case PARASITE_CMD_DUMPPAGES_FINI:
 		return dump_pages_fini();
 	case PARASITE_CMD_DUMPPAGES:
-		return dump_pages((struct parasite_dump_pages_args *)args);
+		return dump_pages(args);
 	case PARASITE_CMD_DUMP_SIGACTS:
-		return dump_sigact((struct parasite_dump_sa_args *)args);
+		return dump_sigact(args);
 	case PARASITE_CMD_DUMP_ITIMERS:
-		return dump_itimers((struct parasite_dump_itimers_args *)args);
+		return dump_itimers(args);
 	case PARASITE_CMD_DUMP_MISC:
-		return dump_misc((struct parasite_dump_misc *)args);
+		return dump_misc(args);
 	case PARASITE_CMD_DUMP_CREDS:
-		return dump_creds((struct parasite_dump_creds *)args);
+		return dump_creds(args);
 	case PARASITE_CMD_DUMP_TID_ADDR:
-		return dump_tid_info((struct parasite_dump_tid_info *)args);
+		return dump_tid_info(args);
 	case PARASITE_CMD_DRAIN_FDS:
-		return drain_fds((struct parasite_drain_fd *)args);
+		return drain_fds(args);
 	case PARASITE_CMD_GET_PROC_FD:
 		return parasite_get_proc_fd();
 	case PARASITE_CMD_DUMP_TTY:
-		return parasite_dump_tty((struct parasite_tty_args *)args);
+		return parasite_dump_tty(args);
 	}
 
 	pr_err("Unknown command to parasite\n");
