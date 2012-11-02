@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 				return -1;
 			break;
 		case 'v':
-			if (optind < argc - 1) {
+			if (optind < argc) {
 				char *opt = argv[optind];
 
 				if (isdigit(*opt)) {
