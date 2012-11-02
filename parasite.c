@@ -79,24 +79,6 @@ static void brk_free(unsigned long bytes)
 		brk_tail -= bytes;
 }
 
-#if 0
-static const unsigned char hex[] = "0123456789abcdef";
-static char *long2hex(unsigned long v)
-{
-	static char buf[32];
-	char *p = buf;
-	int i;
-
-	for (i = sizeof(long) - 1; i >= 0; i--) {
-		*p++ = hex[ ((((unsigned char *)&v)[i]) & 0xf0) >> 4 ];
-		*p++ = hex[ ((((unsigned char *)&v)[i]) & 0x0f) >> 0 ];
-	}
-	*p = 0;
-
-	return buf;
-}
-#endif
-
 #define PME_PRESENT	(1ULL << 63)
 #define PME_SWAP	(1ULL << 62)
 #define PME_FILE	(1ULL << 61)
