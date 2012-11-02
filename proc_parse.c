@@ -175,7 +175,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
 				if (errno != ENOENT) {
-					pr_perror("Can't open %d's map %lu", pid, start);
+					pr_perror("Can't open %d's map %lx", pid, start);
 					goto err;
 				}
 			}
