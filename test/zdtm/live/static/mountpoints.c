@@ -88,7 +88,7 @@ done:
 	}
 	if (mount("none", MPTS_ROOT"/kernel/sys/fs/binfmt_misc",
 					"binfmt_misc", 0, "") < 0) {
-		fail("Can't mount proc");
+		fail("Can't mount binfmt_misc");
 		return 1;
 	}
 
