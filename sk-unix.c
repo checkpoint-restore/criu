@@ -92,15 +92,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 
 	switch (sk->state) {
 	case TCP_LISTEN:
-		break;
 	case TCP_ESTABLISHED:
-		break;
 	case TCP_CLOSE:
-		if (sk->type != SOCK_DGRAM) {
-			pr_err("Unexpected state %d on type %d\n",
-				sk->state, sk->type);
-			return 0;
-		}
 		break;
 	default:
 		pr_err("Unknown state %d\n", sk->state);
