@@ -49,6 +49,7 @@ TST_NOFILE	=				\
 		socket-tcpbuf			\
 		sock_opts00			\
 		sock_opts01			\
+		sk-unix-unconn			\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
