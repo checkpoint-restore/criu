@@ -546,7 +546,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	struct sockaddr_un addr;
 
-	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state != TCP_LISTEN))
+	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state == TCP_ESTABLISHED))
 		/*
 		 * FIXME this can be done, but for doing this properly we
 		 * need to bind socket to its name, then rename one to
