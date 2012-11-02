@@ -224,6 +224,8 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		else if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(&vma->vma, VMA_FILE_SHARED))
 			ret = get_filemap_fd(pid, &vma->vma);
+		else if (vma_entry_is(&vma->vma, VMA_AREA_SOCKET))
+			ret = get_socket_fd(pid, &vma->vma);
 		else
 			continue;
 

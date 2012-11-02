@@ -59,6 +59,7 @@
 #include "mount.h"
 #include "tty.h"
 #include "net.h"
+#include "sk-packet.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -479,6 +480,8 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED))
 			ret = dump_filemap(pid, vma, vma_area->vm_file_fd, cr_fdset);
+		else if (vma_entry_is(vma, VMA_AREA_SOCKET))
+			ret = dump_socket_map(vma_area);
 		else
 			ret = 0;
 

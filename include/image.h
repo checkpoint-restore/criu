@@ -92,6 +92,7 @@
 #define VMA_ANON_PRIVATE	(1 <<  9)
 
 #define VMA_AREA_SYSVIPC	(1 <<  10)
+#define VMA_AREA_SOCKET		(1 <<  11)
 
 #define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)	((vma)->end - (vma)->start)

@@ -174,10 +174,20 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			 */
 			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
 			if (vma_area->vm_file_fd < 0) {
-				if (errno != ENOENT) {
-					pr_perror("Can't open %d's map %lx", pid, start);
-					goto err;
-				}
+				if (errno == ENXIO) {
+					struct stat buf;
+
+					if (fstatat(dirfd(map_files_dir), path, &buf, 0))
+						goto err_bogus_mapfile;
+
+					if (!S_ISSOCK(buf.st_mode))
+						goto err_bogus_mapfile;
+
+					pr_info("Found socket %lu mapping @%lx\n", buf.st_ino, start);
+					vma_area->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+					vma_area->vm_socket_id = buf.st_ino;
+				} else if (errno != ENOENT)
+					goto err_bogus_mapfile;
 			}
 		}
 
@@ -202,7 +212,9 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			goto err;
 		}
 
-		if (strstr(buf, "[vsyscall]")) {
+		if (vma_area->vma.status != 0) {
+			goto done;
+		} else if (strstr(buf, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
@@ -261,7 +273,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			}
 			vma_area->vma.flags  |= MAP_ANONYMOUS;
 		}
-
+done:
 		list_add_tail(&vma_area->list, vma_area_list);
 		nr++;
 	}
@@ -283,6 +295,10 @@ err_bogus_mapping:
 	pr_err("Bogus mapping 0x%lx-0x%lx (flags: %#x vm_file_fd: %d)\n",
 	       vma_area->vma.start, vma_area->vma.end,
 	       vma_area->vma.flags, vma_area->vm_file_fd);
+	goto err;
+
+err_bogus_mapfile:
+	pr_perror("Can't open %d's mapfile link %lx", pid, start);
 	goto err;
 }
 

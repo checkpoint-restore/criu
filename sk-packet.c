@@ -30,6 +30,7 @@ struct packet_mreq_max {
 
 struct packet_sock_desc {
 	struct socket_desc sd;
+	unsigned int file_id;
 	unsigned int type;
 	unsigned short proto;
 	struct packet_diag_info nli;
@@ -158,7 +159,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	BUG_ON(sd->sd.already_dumped);
 	sd->sd.already_dumped = 1;
 
-	psk.id = id;
+	psk.id = sd->file_id = id;
 	psk.type = sd->type;
 	psk.flags = p->flags;
 	psk.fown = (FownEntry *)&p->fown;
@@ -212,6 +213,26 @@ int dump_one_packet_sk(struct fd_parms *p, int lfd, const struct cr_fdset *fds)
 	return do_dump_gen_file(p, lfd, &packet_dump_ops, fds);
 }
 
+int dump_socket_map(struct vma_area *vma)
+{
+	struct packet_sock_desc *sd;
+
+	sd = (struct packet_sock_desc *)lookup_socket(vma->vm_socket_id, PF_PACKET);
+	if (!sd) {
+		pr_err("Can't find packet socket %u to mmap\n", vma->vm_socket_id);
+		return -1;
+	}
+
+	if (!sd->file_id) {
+		pr_err("Mmap-ed socket %u not open\n", vma->vm_socket_id);
+		return -1;
+	}
+
+	pr_info("Dumping socket map %x -> %lx\n", sd->file_id, vma->vma.start);
+	vma->vma.shmid = sd->file_id;
+	return 0;
+}
+
 static int packet_save_mreqs(struct packet_sock_desc *sd, struct rtattr *mc)
 {
 	sd->mreq_n = RTA_PAYLOAD(mc) / sizeof(struct packet_diag_mclist);
@@ -249,6 +270,7 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	if (!sd)
 		return -1;
 
+	sd->file_id = 0;
 	sd->type = m->pdiag_type;
 	sd->proto = htons(m->pdiag_num);
 	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
@@ -274,6 +296,40 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 		sd->tx = NULL;
 
 	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
+}
+
+int get_socket_fd(int pid, VmaEntry *vma)
+{
+	struct file_desc *fd;
+	struct fdinfo_list_entry *le;
+
+	pr_info("Getting packet socket fd for %d:%x\n",
+			pid, (int)vma->shmid);
+	fd = find_file_desc_raw(FD_TYPES__PACKETSK, vma->shmid);
+	if (!fd) {
+		pr_err("No packet socket %x\n", (int)vma->shmid);
+		return -1;
+	}
+
+	list_for_each_entry(le, &fd->fd_info_head, desc_list)
+		if (le->pid == pid) {
+			int fd;
+
+			/*
+			 * Restorer will close the mmap-ed fd
+			 */
+
+			fd = dup(le->fe->fd);
+			if (!fd) {
+				pr_perror("Can't dup packet sk");
+				return -1;
+			}
+
+			return fd;
+		}
+
+	pr_err("No open packet socket %x by %d\n", (int)vma->shmid, pid);
+	return -1;
 }
 
 static int restore_mreqs(int sk, PacketSockEntry *pse)

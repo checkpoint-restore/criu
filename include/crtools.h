@@ -211,7 +211,11 @@ void free_mappings(struct list_head *vma_area_list);
 struct vma_area {
 	struct list_head	list;
 	VmaEntry		vma;
-	int			vm_file_fd;
+
+	union {
+		int		vm_file_fd;
+		int		vm_socket_id;
+	};
 };
 
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
