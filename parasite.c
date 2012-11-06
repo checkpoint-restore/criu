@@ -64,20 +64,20 @@ static void brk_free(unsigned long bytes)
 #define PME_SWAP	(1ULL << 62)
 #define PME_FILE	(1ULL << 61)
 
-static inline int should_dump_page(VmaEntry *vmae, u64 pme)
+static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
 	if (vma_entry_is(vmae, VMA_AREA_VDSO))
-		return 1;
+		return true;
 	/*
 	 * Optimisation for private mapping pages, that haven't
 	 * yet being COW-ed
 	 */
 	if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
-		return 0;
+		return false;
 	if (pme & (PME_PRESENT | PME_SWAP))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 static int fd_pages = -1;
