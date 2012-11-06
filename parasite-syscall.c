@@ -225,7 +225,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 
 	ret = __parasite_execute(ctl, pid, &regs);
 	if (ret == 0)
-		ret = -(int)regs.ax;
+		ret = (int)regs.ax;
 
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
