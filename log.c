@@ -182,11 +182,13 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 	if (unlikely(loglevel == LOG_MSG)) {
 		fd = STDOUT_FILENO;
+		off = buf_off;
 	} else {
 		if (loglevel > current_loglevel)
 			return;
 		fd = current_logfd;
 		print_ts();
+		off = 0;
 	}
 
 	va_start(params, format);
@@ -195,7 +197,6 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 	size += buf_off;
 
-	off = 0;
 	while (off < size) {
 		ret = write(fd, buffer + off, size - off);
 		if (ret <= 0)
