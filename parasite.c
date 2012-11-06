@@ -424,7 +424,7 @@ static inline int tty_ioctl(int fd, int cmd, int *arg)
 	ret = sys_ioctl(fd, cmd, (unsigned long)arg);
 	if (ret < 0) {
 		if (ret != -ENOTTY)
-			return -1;
+			return ret;
 		*arg = 0;
 	}
 	return 0;
@@ -471,7 +471,7 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 
 err:
 	if (ret != -EIO) {
-		pr_err("TTY: Can't get sid/pgrp\n");
+		pr_err("TTY: Can't get sid/pgrp: %d\n", ret);
 		return -1;
 	}
 
