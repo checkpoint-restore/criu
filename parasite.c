@@ -342,12 +342,12 @@ static int init(struct parasite_init_args *args)
 	int ret;
 
 	ret = brk_init();
-	if (ret)
-		return -ret;
+	if (ret < 0)
+		return ret;
 
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (tsock < 0)
-		return -tsock;
+		return tsock;
 
 	ret = sys_bind(tsock, (struct sockaddr *) &args->p_addr, args->p_addr_len);
 	if (ret < 0)
