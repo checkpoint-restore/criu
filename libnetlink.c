@@ -28,8 +28,17 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 	for (hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
 		if (hdr->nlmsg_seq != CR_NLMSG_SEQ)
 			continue;
-		if (hdr->nlmsg_type == NLMSG_DONE)
+		if (hdr->nlmsg_type == NLMSG_DONE) {
+			int *len = (int *)NLMSG_DATA(hdr);
+
+			if (*len < 0) {
+				pr_err("ERROR %d reported by netlink (%s)\n",
+					*len, strerror(-*len));
+				return -1;
+			}
+
 			return 0;
+		}
 		if (hdr->nlmsg_type == NLMSG_ERROR) {
 			struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(hdr);
 
