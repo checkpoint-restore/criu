@@ -58,15 +58,8 @@ static int check_handler_status(struct posix_timers_info *info, int ms_passed)
 		return -1;
 	}
 
-	if (info->overrun + info->handler_cnt > ms_passed) {
-		fail("%s: Overrun (%d) is greater than time passed (%d). "
-			"Timers problems?\n", info->name, info->overrun + info->handler_cnt,
-			ms_passed);
-		return -E2BIG;
-	}
-
 	timer_ms = (info->overrun + info->handler_cnt) * info->ms_int;
-	displacement = (ms_passed - timer_ms) * 100 / ms_passed;
+	displacement = abs(ms_passed - timer_ms) * 100 / ms_passed;
 
 	if (displacement > MAX_TIMER_DISPLACEMENT) {
 		test_msg("%s: Time passed (ms) : %d msec\n", info->name, ms_passed);
