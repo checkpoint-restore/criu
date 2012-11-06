@@ -111,7 +111,7 @@ static int sys_write_safe(int fd, void *buf, int size)
 
 	if (ret != size) {
 		pr_err("not all data was written\n");
-		ret = -EIO;
+		return -EIO;
 	}
 
 	return 0;
