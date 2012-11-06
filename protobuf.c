@@ -405,6 +405,11 @@ static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
 	unsigned long counter;
 	int done;
 
+	if (nr_fields == 0) {
+		pr_msg("<empty>");
+		return;
+	}
+
 	field->count = nr_fields;
 	done = show(field);
 	if (done)
