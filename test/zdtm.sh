@@ -78,6 +78,7 @@ TEST_LIST="$TEST_LIST
 static/file_fown
 static/socket-ext
 static/socket-tcp
+static/socket-tcpbuf
 static/pty03
 "
 
