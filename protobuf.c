@@ -113,7 +113,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(IPCNS_VAR,		IpcVar,		ipc_var);
 	CR_PB_DESC(IPCNS_SHM,		IpcShm,		ipc_shm);
 	/* There's no _entry suffix in this one :( */
-	CR_PB_MDESC_INIT(cr_pb_descs[PB_IPCNS_MSG], 	IpcMsg, ipc_msg);
+	CR_PB_MDESC_INIT(cr_pb_descs[PB_IPCNS_MSG],	IpcMsg, ipc_msg);
 	CR_PB_DESC(IPCNS_MSG_ENT,	IpcMsg,		ipc_msg);
 	CR_PB_DESC(IPCNS_SEM,		IpcSem,		ipc_sem);
 	CR_PB_DESC(FS,			Fs,		fs);
