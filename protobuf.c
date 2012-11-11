@@ -575,6 +575,7 @@ int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 		goto err;
 	} else if (ret != size) {
 		pr_perror("Read %d bytes while %d expected", ret, size);
+		ret = -1;
 		goto err;
 	}
 
