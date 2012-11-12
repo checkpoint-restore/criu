@@ -36,6 +36,7 @@ TST_NOFILE	=				\
 		pipe00				\
 		pipe01				\
 		pthread00			\
+		pthread01			\
 		vdso00				\
 		utsname				\
 		pstree				\
@@ -202,6 +203,7 @@ uptime_grow:	override LDLIBS += -lrt -pthread
 unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
+pthread01:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
 sem:			override CFLAGS += -DNEW_IPC_NS

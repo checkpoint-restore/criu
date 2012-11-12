@@ -29,6 +29,7 @@ static/futex-rl
 static/xids00
 static/groups
 static/pthread00
+static/pthread01
 streaming/pipe_loop00
 streaming/pipe_shared00
 transition/file_read
