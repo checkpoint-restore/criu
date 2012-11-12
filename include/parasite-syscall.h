@@ -54,4 +54,8 @@ extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
 
+struct pstree_item;
+extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
+extern int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
+
 #endif /* PARASITE_SYSCALL_H_ */

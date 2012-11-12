@@ -674,6 +674,58 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
+int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (item->pid.real == item->threads[i].real)
+			continue;
+
+		ret = parasite_execute_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
+					      item->threads[i].real);
+		if (ret) {
+			pr_err("Can't init thread in parasite %d\n",
+			       item->threads[i].real);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (item->pid.real == item->threads[i].real)
+			continue;
+
+		ret = parasite_execute_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
+					      item->threads[i].real);
+		/*
+		 * Note the thread's fini() can be called even when not
+		 * all threads were init()'ed, say we're rolling back from
+		 * error happened while we were init()'ing some thread, thus
+		 * -ENOENT will be returned but we should continie for the
+		 * rest of threads set.
+		 *
+		 * Strictly speaking we always init() threads in sequence thus
+		 * we could simply break the loop once first -ENOENT returned
+		 * but I prefer to be on a safe side even if some future changes
+		 * would change the code logic.
+		 */
+		if (ret && ret != -ENOENT) {
+			pr_err("Can't fini thread in parasite %d\n",
+			       item->threads[i].real);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 int parasite_cure_seized(struct parasite_ctl *ctl)
 {
 	int ret = 0;
