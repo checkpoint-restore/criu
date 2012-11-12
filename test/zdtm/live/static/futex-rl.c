@@ -62,6 +62,8 @@ out:
 
 int main(int argc, char **argv)
 {
+	struct robust_list_head *head_orig = NULL, *head_new = NULL;
+	size_t len_orig = 0, len_new = 0;
 	pthread_t thread;
 	struct args *args;
 
@@ -70,6 +72,12 @@ int main(int argc, char **argv)
 	args = (struct args *)mmap(NULL, sizeof(*args), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if ((void *)args == MAP_FAILED) {
 		fail("mmap failed\n");
+		exit(1);
+	}
+
+	test_msg("Obtaining old RL for thread-leader\n");
+	if (syscall(__NR_get_robust_list, __gettid(), &head_orig, &len_orig)) {
+		fail("__NR_get_robust_list failed");
 		exit(1);
 	}
 
@@ -94,6 +102,17 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	task_waiter_complete(&args->waiter, 2);
+
+	test_msg("Obtaining new RL for thread-leader\n");
+	if (syscall(__NR_get_robust_list, __gettid(), &head_new, &len_new)) {
+		fail("__NR_get_robust_list failed");
+		exit(1);
+	}
+
+	if (head_orig != head_new || len_orig != len_new) {
+		fail("comparision failed");
+		exit(1);
+	}
 
 	pthread_join(thread, NULL);
 	if (args->result)
