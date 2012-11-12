@@ -1330,7 +1330,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	ret = parasite_dump_thread_seized(parasite_ctl, pid, &taddr,
 					  &tid->virt, &core->thread_core->blk_sigset);
 	if (ret) {
-		pr_err("Can't dump tid address for pid %d", pid);
+		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err_free;
 	}
 	core->thread_core->has_blk_sigset = true;
