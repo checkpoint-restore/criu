@@ -726,7 +726,7 @@ int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	return ret;
 }
 
-int parasite_cure_seized(struct parasite_ctl *ctl)
+int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 {
 	int ret = 0;
 
@@ -734,6 +734,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 
 	if (ctl->parasite_ip) {
 		ctl->signals_blocked = 0;
+		parasite_fini_threads_seized(ctl, item);
 		parasite_execute(PARASITE_CMD_FINI, ctl);
 	}
 
@@ -865,10 +866,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 	}
 
+	ret = parasite_init_threads_seized(ctl, item);
+	if (ret)
+		goto err_restore;
+
 	return ctl;
 
 err_restore:
-	parasite_cure_seized(ctl);
+	parasite_cure_seized(ctl, item);
 	return NULL;
 
 err:

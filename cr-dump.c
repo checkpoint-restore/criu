@@ -1601,7 +1601,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = parasite_cure_seized(parasite_ctl);
+	ret = parasite_cure_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
@@ -1630,7 +1630,7 @@ err_free:
 err_cure:
 	close_cr_fdset(&cr_fdset);
 err_cure_fdset:
-	parasite_cure_seized(parasite_ctl);
+	parasite_cure_seized(parasite_ctl, item);
 	goto err;
 }
 
