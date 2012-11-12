@@ -72,6 +72,7 @@ message thread_core_entry {
 	optional sint32			sched_nice	= 3;
 	optional uint32			sched_policy	= 4;
 	optional uint32			sched_prio	= 5;
+	optional uint64			blk_sigset	= 6;
 }
 
 message core_entry {
