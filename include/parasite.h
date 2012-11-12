@@ -95,7 +95,7 @@ struct parasite_dump_creds {
 
 struct parasite_dump_thread {
 	unsigned int		*tid_addr;
-	int			tid;
+	pid_t			tid;
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
