@@ -32,7 +32,7 @@ enum {
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_MISC,
 	PARASITE_CMD_DUMP_CREDS,
-	PARASITE_CMD_DUMP_TID_ADDR,
+	PARASITE_CMD_DUMP_THREAD,
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
 	PARASITE_CMD_DUMP_TTY,
@@ -93,7 +93,7 @@ struct parasite_dump_creds {
 	unsigned int		groups[PARASITE_MAX_GROUPS];
 };
 
-struct parasite_dump_tid_info {
+struct parasite_dump_thread {
 	unsigned int		*tid_addr;
 	int			tid;
 };

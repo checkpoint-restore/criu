@@ -322,7 +322,7 @@ grps_err:
 	return -1;
 }
 
-static int dump_tid_info(struct parasite_dump_tid_info *args)
+static int dump_thread(struct parasite_dump_thread *args)
 {
 	int ret;
 
@@ -615,8 +615,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return dump_misc(args);
 	case PARASITE_CMD_DUMP_CREDS:
 		return dump_creds(args);
-	case PARASITE_CMD_DUMP_TID_ADDR:
-		return dump_tid_info(args);
+	case PARASITE_CMD_DUMP_THREAD:
+		return dump_thread(args);
 	case PARASITE_CMD_DRAIN_FDS:
 		return drain_fds(args);
 	case PARASITE_CMD_GET_PROC_FD:

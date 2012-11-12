@@ -419,12 +419,12 @@ err:
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_addr, pid_t *tid)
 {
-	struct parasite_dump_tid_info *args;
+	struct parasite_dump_thread *args;
 	int ret;
 
-	args = parasite_args(ctl, struct parasite_dump_tid_info);
+	args = parasite_args(ctl, struct parasite_dump_thread);
 
-	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_TID_ADDR, ctl, pid);
+	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_THREAD, ctl, pid);
 
 	*tid_addr = args->tid_addr;
 	*tid = args->tid;
