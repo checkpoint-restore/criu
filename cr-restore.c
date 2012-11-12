@@ -472,6 +472,11 @@ static int check_core(int pid, CoreEntry *core)
 			pr_err("Core IDS data missed for non-zombie\n");
 			goto out;
 		}
+
+		if (!core->thread_info) {
+			pr_err("Core info data missed for non-zombie\n");
+			goto out;
+		}
 	}
 
 	ret = 0;
