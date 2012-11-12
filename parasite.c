@@ -20,6 +20,18 @@ static void *brk_start, *brk_end, *brk_tail;
 
 static int tsock = -1;
 
+static struct tid_state_s {
+	pid_t		tid;
+	bool		use_sig_blocked;
+	k_rtsigset_t	sig_blocked;
+} *tid_state;
+
+static unsigned int nr_tid_state;
+#define TID_STATE_SIZE(n)	\
+	(ALIGN(sizeof(struct tid_state_s) * n, PAGE_SIZE))
+
+#define thread_leader	(&tid_state[0])
+
 #define MAX_HEAP_SIZE	(10 << 20)	/* Hope 10MB will be enough...  */
 
 static int brk_init(void)
@@ -341,9 +353,21 @@ static int init(struct parasite_init_args *args)
 	k_rtsigset_t to_block;
 	int ret;
 
+	if (!args->nr_threads)
+		return -EINVAL;
+
 	ret = brk_init();
 	if (ret < 0)
 		return ret;
+
+	tid_state = (void *)sys_mmap(NULL, TID_STATE_SIZE(args->nr_threads),
+				     PROT_READ | PROT_WRITE,
+				     MAP_PRIVATE | MAP_ANONYMOUS,
+				     -1, 0);
+	if ((long)tid_state < 0)
+		return -ENOMEM;
+
+	nr_tid_state = args->nr_threads;
 
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (tsock < 0)
@@ -504,6 +528,8 @@ static int fini(void)
 {
 	if (reset_blocked == 1)
 		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL, sizeof(k_rtsigset_t));
+
+	sys_munmap(tid_state, TID_STATE_SIZE(nr_tid_state));
 
 	log_set_fd(-1);
 	sys_close(tsock);

@@ -348,7 +348,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
+static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 {
 	struct parasite_init_args *args;
 	static int sock = -1;
@@ -358,6 +358,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid)
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, 0);
 	args->p_addr_len = gen_parasite_saddr(&args->p_addr, pid);
+	args->nr_threads = nr_threads;
 
 	if (sock == -1) {
 		int rst = -1;
@@ -713,7 +714,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 	return ret;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct list_head *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
@@ -798,7 +799,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct list_head *vma_are
 	ctl->addr_cmd		= (unsigned int *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
 	ctl->addr_args		= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
 
-	ret = parasite_init(ctl, pid);
+	ret = parasite_init(ctl, pid, item->nr_threads);
 	if (ret) {
 		pr_err("%d: Can't create a transport socket\n", pid);
 		goto err_restore;
