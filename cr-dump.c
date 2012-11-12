@@ -1327,11 +1327,13 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	if (ret)
 		goto err_free;
 
-	ret = parasite_dump_thread_seized(parasite_ctl, pid, &taddr, &tid->virt);
+	ret = parasite_dump_thread_seized(parasite_ctl, pid, &taddr,
+					  &tid->virt, &core->thread_core->blk_sigset);
 	if (ret) {
 		pr_err("Can't dump tid address for pid %d", pid);
 		goto err_free;
 	}
+	core->thread_core->has_blk_sigset = true;
 
 	pr_info("%d: tid_address=%p\n", pid, taddr);
 	core->thread_info->clear_tid_addr = (u64) taddr;

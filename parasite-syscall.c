@@ -417,7 +417,8 @@ err:
 }
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
-					unsigned int **tid_addr, pid_t *tid)
+					unsigned int **tid_addr, pid_t *tid,
+					void *blocked)
 {
 	struct parasite_dump_thread *args;
 	int ret;
@@ -426,6 +427,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_THREAD, ctl, pid);
 
+	memcpy(blocked, &args->blocked, sizeof(args->blocked));
 	*tid_addr = args->tid_addr;
 	*tid = args->tid;
 

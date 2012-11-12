@@ -322,19 +322,6 @@ grps_err:
 	return -1;
 }
 
-static int dump_thread(struct parasite_dump_thread *args)
-{
-	int ret;
-
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
-	if (ret)
-		return ret;
-
-	args->tid = sys_gettid();
-
-	return 0;
-}
-
 static int drain_fds(struct parasite_drain_fd *args)
 {
 	int ret;
@@ -362,6 +349,29 @@ static struct tid_state_s *find_thread_state(pid_t tid)
 	}
 
 	return NULL;
+}
+
+static int dump_thread(struct parasite_dump_thread *args)
+{
+	pid_t tid = sys_gettid();
+	struct tid_state_s *s;
+	int ret;
+
+	s = find_thread_state(tid);
+	if (!s)
+		return -ENOENT;
+
+	if (!s->use_sig_blocked)
+		return -EINVAL;
+
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
+	if (ret)
+		return ret;
+
+	args->blocked = s->sig_blocked;
+	args->tid = tid;
+
+	return 0;
 }
 
 static int init_thread(void)
