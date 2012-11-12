@@ -277,13 +277,10 @@ static int dump_itimers(struct parasite_dump_itimers_args *args)
 	return ret;
 }
 
-static k_rtsigset_t old_blocked;
-static int reset_blocked = 0;
-
 static int dump_misc(struct parasite_dump_misc *args)
 {
 	args->brk = sys_brk(0);
-	args->blocked = old_blocked;
+	args->blocked = thread_leader->sig_blocked;
 
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
@@ -405,7 +402,6 @@ static int fini_thread(void)
 
 static int init(struct parasite_init_args *args)
 {
-	k_rtsigset_t to_block;
 	int ret;
 
 	if (!args->nr_threads)
@@ -424,6 +420,10 @@ static int init(struct parasite_init_args *args)
 
 	nr_tid_state = args->nr_threads;
 
+	ret = init_thread();
+	if (ret < 0)
+		return ret;
+
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (tsock < 0)
 		return tsock;
@@ -436,14 +436,7 @@ static int init(struct parasite_init_args *args)
 	if (ret < 0)
 		return ret;
 
-	ksigfillset(&to_block);
-	ret = sys_sigprocmask(SIG_SETMASK, &to_block, &old_blocked, sizeof(k_rtsigset_t));
-	if (ret < 0)
-		reset_blocked = ret;
-	else
-		reset_blocked = 1;
-
-	return ret;
+	return 0;
 }
 
 static char proc_mountpoint[] = "proc.crtools";
@@ -581,16 +574,16 @@ static int parasite_cfg_log(struct parasite_log_args *args)
 
 static int fini(void)
 {
-	if (reset_blocked == 1)
-		sys_sigprocmask(SIG_SETMASK, &old_blocked, NULL, sizeof(k_rtsigset_t));
+	int ret;
+
+	ret = fini_thread();
 
 	sys_munmap(tid_state, TID_STATE_SIZE(nr_tid_state));
-
 	log_set_fd(-1);
 	sys_close(tsock);
 	brk_fini();
 
-	return 0;
+	return ret;
 }
 
 int __used parasite_service(unsigned int cmd, void *args)
