@@ -1481,7 +1481,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	task_args->t.clear_tid_addr	= core->thread_info->clear_tid_addr;
 	task_args->ids			= *core->ids;
 	task_args->t.gpregs		= *core->thread_info->gpregs;
-	task_args->blk_sigset		= core->tc->blk_sigset;
+	task_args->t.blk_sigset		= core->tc->blk_sigset;
+	task_args->t.has_blk_sigset	= true;
 
 	if (core->thread_core) {
 		task_args->t.has_futex		= true;
@@ -1558,6 +1559,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 			thread_args[i].has_futex	= true;
 			thread_args[i].futex_rla	= core->thread_core->futex_rla;
 			thread_args[i].futex_rla_len	= core->thread_core->futex_rla_len;
+			thread_args[i].has_blk_sigset	= core->thread_core->has_blk_sigset;
+			thread_args[i].blk_sigset	= core->thread_core->blk_sigset;
 
 			ret = prep_sched_info(&thread_args[i].sp, core->thread_core);
 			if (ret)

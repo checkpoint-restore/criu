@@ -76,6 +76,9 @@ struct thread_restore_args {
 	u64				futex_rla;
 	u32				futex_rla_len;
 
+	bool				has_blk_sigset;
+	u64				blk_sigset;
+
 	struct rst_sched_param		sp;
 
 	struct task_restore_core_args	*ta;
@@ -112,7 +115,6 @@ struct task_restore_core_args {
 	MmEntry				mm;
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];
 	u32				mm_saved_auxv_size;
-	u64				blk_sigset;
 	char				comm[TASK_COMM_LEN];
 	TaskKobjIdsEntry		ids;
 

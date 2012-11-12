@@ -199,6 +199,9 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 		}
 	}
 
+	if (args->has_blk_sigset)
+		sigframe->uc.uc_sigmask.sig[0] = args->blk_sigset;
+
 	restore_sched_info(&args->sp);
 
 	return restore_gpregs(sigframe, &args->gpregs);
@@ -496,11 +499,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	if (restore_thread_common(rt_sigframe, &args->t))
 		goto core_restore_end;
-
-	/*
-	 * Blocked signals.
-	 */
-	rt_sigframe->uc.uc_sigmask.sig[0] = args->blk_sigset;
 
 	/*
 	 * Threads restoration. This requires some more comments. This
