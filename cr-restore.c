@@ -467,9 +467,11 @@ static int check_core(int pid, CoreEntry *core)
 		goto out;
 	}
 
-	if (!core->ids && core->tc->task_state != TASK_DEAD) {
-		pr_err("Core IDS data missed for non-zombie\n");
-		goto out;
+	if (core->tc->task_state != TASK_DEAD) {
+		if (!core->ids) {
+			pr_err("Core IDS data missed for non-zombie\n");
+			goto out;
+		}
 	}
 
 	ret = 0;
