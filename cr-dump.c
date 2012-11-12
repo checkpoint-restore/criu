@@ -1335,7 +1335,8 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	}
 	core->thread_core->has_blk_sigset = true;
 
-	pr_info("%d: tid_address=%p\n", pid, taddr);
+	pr_info("%d: tid_address=%p sig_blocked=0x%lx\n", pid, taddr,
+		core->thread_core->blk_sigset);
 	core->thread_info->clear_tid_addr = (u64) taddr;
 
 	ret = dump_sched_info(pid, core->thread_core);
