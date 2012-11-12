@@ -27,6 +27,8 @@ static struct tid_state_s {
 } *tid_state;
 
 static unsigned int nr_tid_state;
+static unsigned int next_tid_state;
+
 #define TID_STATE_SIZE(n)	\
 	(ALIGN(sizeof(struct tid_state_s) * n, PAGE_SIZE))
 
@@ -348,6 +350,59 @@ static int drain_fds(struct parasite_drain_fd *args)
 	return ret;
 }
 
+static struct tid_state_s *find_thread_state(pid_t tid)
+{
+	unsigned int i;
+
+	/*
+	 * FIXME
+	 *
+	 * We need a hash here rather
+	 */
+	for (i = 0; i < next_tid_state; i++) {
+		if (tid_state[i].tid == tid)
+			return &tid_state[i];
+	}
+
+	return NULL;
+}
+
+static int init_thread(void)
+{
+	k_rtsigset_t to_block;
+	int ret;
+
+	if (next_tid_state >= nr_tid_state)
+		return -ENOMEM;
+
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
+			      &tid_state[next_tid_state].sig_blocked,
+			      sizeof(k_rtsigset_t));
+	if (ret >= 0)
+		tid_state[next_tid_state].use_sig_blocked = true;
+	tid_state[next_tid_state].tid = sys_gettid();
+
+	next_tid_state++;
+
+	return ret;
+}
+
+static int fini_thread(void)
+{
+	struct tid_state_s *s;
+
+	s = find_thread_state(sys_gettid());
+	if (!s)
+		return -ENOENT;
+
+	if (s->use_sig_blocked)
+		return sys_sigprocmask(SIG_SETMASK, &s->sig_blocked,
+				       NULL, sizeof(k_rtsigset_t));
+
+	return 0;
+}
+
 static int init(struct parasite_init_args *args)
 {
 	k_rtsigset_t to_block;
@@ -545,8 +600,12 @@ int __used parasite_service(unsigned int cmd, void *args)
 	switch (cmd) {
 	case PARASITE_CMD_INIT:
 		return init(args);
+	case PARASITE_CMD_INIT_THREAD:
+		return init_thread();
 	case PARASITE_CMD_FINI:
 		return fini();
+	case PARASITE_CMD_FINI_THREAD:
+		return fini_thread();
 	case PARASITE_CMD_CFG_LOG:
 		return parasite_cfg_log(args);
 	case PARASITE_CMD_DUMPPAGES_INIT:
