@@ -850,9 +850,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
 
 	/* Setup the rest of a control block */
-	ctl->parasite_ip	= PARASITE_HEAD_ADDR((unsigned long)ctl->remote_map);
-	ctl->addr_cmd		= (unsigned int *)PARASITE_CMD_ADDR((unsigned long)ctl->local_map);
-	ctl->addr_args		= (void *)PARASITE_ARGS_ADDR((unsigned long)ctl->local_map);
+	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, __export_parasite_head_start);
+	ctl->addr_cmd		= parasite_sym(ctl->local_map, __export_parasite_cmd);
+	ctl->addr_args		= parasite_sym(ctl->local_map, __export_parasite_args);
 
 	ret = parasite_init(ctl, pid, item->nr_threads);
 	if (ret) {

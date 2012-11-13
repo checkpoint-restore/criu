@@ -123,16 +123,8 @@ struct parasite_tty_args {
 	int	st_excl;
 };
 
-/*
- * Some useful offsets
- */
-
-#define PARASITE_ARGS_ADDR(start)				\
-	((start) + parasite_blob_offset____export_parasite_args)
-#define PARASITE_CMD_ADDR(start)				\
-	((start) + parasite_blob_offset____export_parasite_cmd)
-#define PARASITE_HEAD_ADDR(start)				\
-	((start) + parasite_blob_offset____export_parasite_head_start)
+/* the parasite prefix is added by gen_offsets.sh */
+#define parasite_sym(pblob, name) ((void *)(pblob) + parasite_blob_offset__##name)
 
 #endif /* !__ASSEMBLY__ */
 #endif /* CR_PARASITE_H_ */
