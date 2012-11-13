@@ -1325,7 +1325,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
-	void *restore_code_start;
 
 	long new_sp, exec_mem_hint;
 	long ret;
@@ -1399,9 +1398,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_code_start		= (void *)exec_mem_hint;
-	restore_thread_exec_start	= restore_code_start + restorer_blob_offset____export_restore_thread;
-	restore_task_exec_start		= restore_code_start + restorer_blob_offset____export_restore_task;
+	restore_thread_exec_start	= restorer_sym(exec_mem_hint, __export_restore_thread);
+	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task);
 
 	exec_mem_hint += restorer_len;
 

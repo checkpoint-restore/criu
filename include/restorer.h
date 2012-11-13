@@ -273,4 +273,7 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 	return NULL;
 }
 
+/* the restorer_blob_offset__ prefix is added by gen_offsets.sh */
+#define restorer_sym(rblob, name)	((void *)(rblob) + restorer_blob_offset__##name)
+
 #endif /* CR_RESTORER_H__ */
