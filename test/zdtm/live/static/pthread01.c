@@ -33,7 +33,7 @@ static void show_sigset(const sigset_t *s)
 	char buf[1024];
 	size_t i;
 
-	for (i = 0; i < sizeof(s); i++)
+	for (i = 0; i < sizeof(*s); i++)
 		sprintf(&buf[i * 2], "%02x", p[i]);
 	test_msg("sigset: %s\n", buf);
 }
@@ -42,15 +42,15 @@ static void *ch_thread_2(void *arg)
 {
 	char __tls_data[sizeof(tls_data.rand_string)] = "XM5o:?B*[a";
 	int *results_map = arg;
-	sigset_t blk_sigset;
-	sigset_t new;
+	sigset_t blk_sigset = { };
+	sigset_t new = { };
 
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
 	sigemptyset(&blk_sigset);
 	sigprocmask(SIG_SETMASK, NULL, &blk_sigset);
 	sigaddset(&blk_sigset, SIGFPE);
-	sigprocmask(SIG_SETMASK, &blk_sigset, NULL);
+	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
 
 	task_waiter_complete(&t2, 1);
@@ -68,7 +68,7 @@ static void *ch_thread_2(void *arg)
 	} else
 		results_map[4] = 1;
 
-	sigprocmask(SIG_SETMASK, NULL, &new);
+	pthread_sigmask(SIG_SETMASK, NULL, &new);
 	if (memcmp(&tls_data.blk_sigset, &new, sizeof(tls_data.blk_sigset))) {
 		err("Failed to restore blk_sigset in thread 2\n");
 		results_map[6] = -1;
@@ -85,15 +85,15 @@ static void *ch_thread_1(void *arg)
 {
 	char __tls_data[sizeof(tls_data.rand_string)] = "pffYQSBo?6";
 	int *results_map = arg;
-	sigset_t blk_sigset;
-	sigset_t new;
+	sigset_t blk_sigset = { };
+	sigset_t new = { };
 
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
 	sigemptyset(&blk_sigset);
 	sigprocmask(SIG_SETMASK, NULL, &blk_sigset);
 	sigaddset(&blk_sigset, SIGTRAP);
-	sigprocmask(SIG_SETMASK, &blk_sigset, NULL);
+	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
 
 	task_waiter_complete(&t1, 1);
@@ -112,7 +112,7 @@ static void *ch_thread_1(void *arg)
 		results_map[3] = 1;
 
 	sigemptyset(&new);
-	sigprocmask(SIG_SETMASK, NULL, &new);
+	pthread_sigmask(SIG_SETMASK, NULL, &new);
 	if (memcmp(&tls_data.blk_sigset, &new, sizeof(tls_data.blk_sigset))) {
 		err("Failed to restore blk_sigset in thread 1\n");
 		results_map[5] = -1;
