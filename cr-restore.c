@@ -182,11 +182,23 @@ err:
 }
 
 /* Map a private vma, if it is not mapped by a parrent yet */
-static int map_private_vma(struct vma_area *vma, void *tgt_addr,
+static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 			struct vma_area **pvma, struct list_head *pvma_list)
 {
+	int ret;
 	void *addr, *paddr = NULL;
 	struct vma_area *p = *pvma;
+
+	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE)) {
+		ret = get_filemap_fd(pid, &vma->vma);
+		if (ret < 0) {
+			pr_err("Can't fixup fd\n");
+			return -1;
+		}
+		vma->vma.fd = ret;
+		/* shmid will be used for a temporary address */
+		vma->vma.shmid = 0;
+	}
 
 	list_for_each_entry_continue(p, pvma_list, list) {
 		if (p->vma.start > vma->vma.start)
@@ -228,6 +240,9 @@ static int map_private_vma(struct vma_area *vma, void *tgt_addr,
 	}
 
 	vma_premmaped_start(&(vma->vma)) = (unsigned long) addr;
+
+	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE))
+		close(vma->vma.fd);
 
 	return 0;
 }
@@ -311,7 +326,7 @@ static int read_vmas(int pid)
 		if (!vma_priv(&vma->vma))
 			continue;
 
-		ret = map_private_vma(vma, addr, &pvma, &old);
+		ret = map_private_vma(pid, vma, addr, &pvma, &old);
 		if (ret < 0)
 			break;
 
@@ -355,8 +370,7 @@ static int open_vmas(int pid, struct list_head *vmas)
 			ret = vma->vma.shmid;
 		else if (vma_entry_is(&vma->vma, VMA_ANON_SHARED))
 			ret = get_shmem_fd(pid, &vma->vma);
-		else if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE) ||
-				vma_entry_is(&vma->vma, VMA_FILE_SHARED))
+		else if (vma_entry_is(&vma->vma, VMA_FILE_SHARED))
 			ret = get_filemap_fd(pid, &vma->vma);
 		else if (vma_entry_is(&vma->vma, VMA_AREA_SOCKET))
 			ret = get_socket_fd(pid, &vma->vma);
