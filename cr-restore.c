@@ -260,6 +260,10 @@ static int restore_priv_vma_content(pid_t pid)
 	struct vma_area *vma;
 	int fd, ret = 0;
 
+	unsigned int nr_restored = 0;
+	unsigned int nr_shared = 0;
+	unsigned int nr_droped = 0;
+
 	vma = list_first_entry(&rst_vma_list, struct vma_area, list);
 
 	fd = open_image_ro(CR_FD_PAGES, pid);
@@ -304,10 +308,13 @@ static int restore_priv_vma_content(pid_t pid)
 
 		p = (void *) (va - vma->vma.start +
 					vma_premmaped_start(&vma->vma));
-		if (memcmp(p, buf, PAGE_SIZE) == 0)
+		if (memcmp(p, buf, PAGE_SIZE) == 0) {
+			nr_shared++;
 			continue;
+		}
 
 		memcpy(p, buf, PAGE_SIZE);
+		nr_restored++;
 	}
 	close(fd);
 
@@ -334,8 +341,13 @@ static int restore_priv_vma_content(pid_t pid)
 				return -1;
 			}
 			i++;
+			nr_droped++;
 		}
 	}
+
+	pr_info("nr_restored_pages: %d\n", nr_restored);
+	pr_info("nr_shared_pages:   %d\n", nr_shared);
+	pr_info("nr_droped_pages:   %d\n", nr_droped);
 
 	return 0;
 }
