@@ -21,6 +21,7 @@ __NR_rt_sigaction	13		sys_sigaction		(int signum, const rt_sigaction_t *act, rt_
 __NR_rt_sigprocmask	14		sys_sigprocmask		(int how, k_rtsigset_t *set, k_rtsigset_t *old, size_t sigsetsize)
 __NR_rt_sigreturn	15		sys_rt_sigreturn	(void)
 __NR_ioctl		16		sys_ioctl		(unsigned int fd, unsigned int cmd, unsigned long arg)
+__NR_mremap		25		sys_mremap		(unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long flags, unsigned long new_addr)
 __NR_mincore		27		sys_mincore		(void *addr, unsigned long size, unsigned char *vec)
 __NR_madvise		28		sys_madvise		(unsigned long start, size_t len, int behavior)
 __NR_shmat		30		sys_shmat		(int shmid, void *shmaddr, int shmflag)
