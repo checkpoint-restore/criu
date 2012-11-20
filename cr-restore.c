@@ -180,11 +180,17 @@ static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 {
 	int fd, ret = -1;
 
-	fd = open_image_ro(CR_FD_VMAS, pid);
-	if (fd < 0)
-		return fd;
-
 	*nr_vmas = 0;
+
+	/* Skip errors, because a zombie doesn't have an image of vmas */
+	fd = open_image_ro(CR_FD_VMAS, pid);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return fd;
+	}
+
 	while (1) {
 		struct vma_area *vma;
 		VmaEntry *e;
