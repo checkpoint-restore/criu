@@ -54,6 +54,21 @@ static int tcp_repair_on(int fd)
 static int refresh_inet_sk(struct inet_sk_desc *sk)
 {
 	int size;
+	struct tcp_info info;
+
+	if (dump_opt(sk->rfd, SOL_TCP, TCP_INFO, &info)) {
+		pr_perror("Failt to obtain TCP_INFO");
+		return -1;
+	}
+
+	switch (info.tcpi_state) {
+	case TCP_ESTABLISHED:
+	case TCP_CLOSE:
+		break;
+	default:
+		pr_err("Unknown state %d\n", sk->state);
+		return -1;
+	}
 
 	if (ioctl(sk->rfd, SIOCOUTQ, &size) == -1) {
 		pr_perror("Unable to get size of snd queue");
