@@ -176,7 +176,7 @@ err:
 	return ret;
 }
 
-static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
+static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 {
 	int fd, ret = -1;
 
@@ -209,7 +209,18 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 
 		vma->vma = *e;
 		vma_entry__free_unpacked(e, NULL);
+	}
 
+	close(fd);
+	return ret;
+}
+
+static int open_vmas(int pid, struct list_head *vmas)
+{
+	struct vma_area *vma;
+	int ret = 0;
+
+	list_for_each_entry(vma, vmas, list) {
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
@@ -238,8 +249,7 @@ static int read_and_open_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		vma->vma.fd = ret;
 	}
 
-	close(fd);
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static int prepare_and_sigreturn(int pid, CoreEntry *core)
@@ -247,7 +257,11 @@ static int prepare_and_sigreturn(int pid, CoreEntry *core)
 	int err, nr_vmas;
 	LIST_HEAD(vma_list);
 
-	err = read_and_open_vmas(pid, &vma_list, &nr_vmas);
+	err = read_vmas(pid, &vma_list, &nr_vmas);
+	if (err)
+		return err;
+
+	err = open_vmas(pid, &vma_list);
 	if (err)
 		return err;
 
