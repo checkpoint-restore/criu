@@ -178,17 +178,19 @@ err:
 
 static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 {
-	int fd, ret = -1;
+	int fd, ret = 0;
+	LIST_HEAD(old);
+	struct vma_area *vma;
 
 	*nr_vmas = 0;
+	list_replace_init(vmas, &old);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
 	fd = open_image_ro(CR_FD_VMAS, pid);
 	if (fd < 0) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return fd;
+		if (errno != ENOENT)
+			ret = fd;
+		goto out;
 	}
 
 	while (1) {
@@ -219,6 +221,14 @@ static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 	}
 
 	close(fd);
+
+out:
+	while (!list_empty(&old)) {
+		vma = list_first_entry(&old, struct vma_area, list);
+		list_del(&vma->list);
+		xfree(vma);
+	}
+
 	return ret;
 }
 
