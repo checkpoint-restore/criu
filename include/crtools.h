@@ -216,6 +216,8 @@ struct vma_area {
 		int		vm_file_fd;
 		int		vm_socket_id;
 	};
+	unsigned long		*page_bitmap;  /* existent pages */
+	unsigned long		*ppage_bitmap; /* parent's existent pages */
 };
 
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)

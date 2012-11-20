@@ -187,6 +187,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 {
 	int ret;
 	void *addr, *paddr = NULL;
+	unsigned long nr_pages;
 	struct vma_area *p = *pvma;
 
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE)) {
@@ -199,6 +200,11 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		/* shmid will be used for a temporary address */
 		vma->vma.shmid = 0;
 	}
+
+	nr_pages = vma_entry_len(&vma->vma) / PAGE_SIZE;
+	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
+	if (vma->page_bitmap == NULL)
+		return -1;
 
 	list_for_each_entry_continue(p, pvma_list, list) {
 		if (p->vma.start > vma->vma.start)
@@ -230,6 +236,8 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 			return -1;
 		}
 	} else {
+		vma->ppage_bitmap = p->page_bitmap;
+
 		addr = mremap(paddr, vma_area_len(vma), vma_area_len(vma),
 				MREMAP_FIXED | MREMAP_MAYMOVE, tgt_addr);
 		if (addr != tgt_addr) {
@@ -262,7 +270,7 @@ static int restore_priv_vma_content(pid_t pid)
 	 * Read page contents.
 	 */
 	while (1) {
-		u64 va;
+		u64 va, page_offset;
 		char buf[PAGE_SIZE];
 		void *p;
 
@@ -282,6 +290,12 @@ static int restore_priv_vma_content(pid_t pid)
 			vma = list_entry(vma->list.next, struct vma_area, list);
 		}
 
+		page_offset = (va - vma->vma.start) / PAGE_SIZE;
+
+		set_bit(page_offset, vma->page_bitmap);
+		if (vma->ppage_bitmap)
+			clear_bit(page_offset, vma->ppage_bitmap);
+
 		ret = read(fd, buf, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
 			pr_err("Can'r read mapping page %d\n", ret);
@@ -296,6 +310,32 @@ static int restore_priv_vma_content(pid_t pid)
 		memcpy(p, buf, PAGE_SIZE);
 	}
 	close(fd);
+
+	/* Remove pages, which were not shared with a child */
+	list_for_each_entry(vma, &rst_vma_list, list) {
+		unsigned long size, i = 0;
+		void *addr = (void *) vma_premmaped_start(&vma->vma);
+
+		if (vma->ppage_bitmap == NULL)
+			continue;
+
+		size = vma_entry_len(&vma->vma) / PAGE_SIZE;
+		while (1) {
+			/* Find all pages, which are not shared with this child */
+			i = find_next_bit(vma->ppage_bitmap, size, i);
+
+			if ( i >= size)
+				break;
+
+			ret = madvise(addr + PAGE_SIZE * i,
+						PAGE_SIZE, MADV_DONTNEED);
+			if (ret < 0) {
+				pr_perror("madvise failed\n");
+				return -1;
+			}
+			i++;
+		}
+	}
 
 	return 0;
 }
