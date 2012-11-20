@@ -51,6 +51,27 @@ static int tcp_repair_on(int fd)
 	return ret;
 }
 
+static int refresh_inet_sk(struct inet_sk_desc *sk)
+{
+	int size;
+
+	if (ioctl(sk->rfd, SIOCOUTQ, &size) == -1) {
+		pr_perror("Unable to get size of snd queue");
+		return -1;
+	}
+
+	sk->wqlen = size;
+
+	if (ioctl(sk->rfd, SIOCINQ, &size) == -1) {
+		pr_perror("Unable to get size of recv queue");
+		return -1;
+	}
+
+	sk->rqlen = size;
+
+	return 0;
+}
+
 static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 {
 	int ret;
@@ -78,6 +99,11 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 		goto err3;
 
 	list_add_tail(&sk->rlist, &cpt_tcp_repair_sockets);
+
+	ret = refresh_inet_sk(sk);
+	if (ret < 0)
+		goto err1;
+
 	return 0;
 
 err3:
