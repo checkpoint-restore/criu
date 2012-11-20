@@ -733,8 +733,13 @@ static int tty_find_restoring_task(struct tty_info *info)
 				return 0;
 		}
 
+		/*
+		 * Find out the task which is session leader
+		 * and it can restore the controlling terminal
+		 * for us.
+		 */
 		item = find_first_sid(info->tie->sid);
-		if (item) {
+		if (item && item->pid.virt == item->sid) {
 			pr_info("Set a control terminal %x to %d\n",
 				info->tfe->id, info->tie->sid);
 			return prepare_ctl_tty(item->pid.virt,
