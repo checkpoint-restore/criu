@@ -104,6 +104,7 @@ TST_FILE	=				\
 		unlink_fifo			\
 		unlink_fifo_wronly		\
 		file_shared			\
+		cow01				\
 
 TST_DIR		=				\
 		cwd00				\

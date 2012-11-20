@@ -32,8 +32,12 @@ extern void test_waitsig(void);
 
 /* generate data with crc32 at the end of the buffer */
 extern void datagen(uint8_t *buffer, unsigned length, uint32_t *crc);
+/* generate data without crc32 at the end of the buffer */
+extern void datagen2(uint8_t *buffer, unsigned length, uint32_t *crc);
 /* check the data buffer against its crc32 */
 extern int datachk(const uint8_t *buffer, unsigned length, uint32_t *crc);
+/* calculate crc for the data buffer*/
+extern int datasum(const uint8_t *buffer, unsigned length, uint32_t *crc);
 
 /* streaming helpers */
 extern int set_nonblock(int fd, int on);

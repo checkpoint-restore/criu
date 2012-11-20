@@ -37,6 +37,23 @@ void datagen(uint8_t *buffer, unsigned length, uint32_t *crc)
 	}
 }
 
+void datagen2(uint8_t *buffer, unsigned length, uint32_t *crc)
+{
+	uint32_t rnd = 0;
+	unsigned shift;
+
+	for (shift = 0; length-- > 0; buffer++, shift--, rnd >>= 8) {
+		if (!shift) {
+			shift = 4;
+			rnd = mrand48();
+		}
+
+		*buffer = rnd;
+		if (crc)
+			*crc = crc32_le8(*crc, *buffer);
+	}
+}
+
 int datachk(const uint8_t *buffer, unsigned length, uint32_t *crc)
 {
 	uint32_t read_crc;
@@ -52,5 +69,13 @@ int datachk(const uint8_t *buffer, unsigned length, uint32_t *crc)
 		test_msg("Read: %x, Expected: %x\n", read_crc, *crc);
 		return 1;
 	}
+	return 0;
+}
+
+int datasum(const uint8_t *buffer, unsigned length, uint32_t *crc)
+{
+	for (; length-- > 0; buffer++)
+		*crc = crc32_le8(*crc, *buffer);
+
 	return 0;
 }
