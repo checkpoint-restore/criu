@@ -333,6 +333,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	long ret = -1;
 	VmaEntry *vma_entry;
 	u64 va;
+	unsigned long premmapped_end = args->premmapped_addr + args->premmapped_len;
 
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp;
@@ -350,12 +351,33 @@ long __export_restore_task(struct task_restore_core_args *args)
 	pr_info("Switched to the restorer %d\n", my_pid);
 
 	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
+		unsigned long addr = vma_entry->start;
+		unsigned long len;
+
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		if (sys_munmap((void *)vma_entry->start, vma_entry_len(vma_entry))) {
-			pr_err("Munmap fail for %lx\n", vma_entry->start);
-			goto core_restore_end;
+		pr_debug("Examine %lx-%lx\n", vma_entry->start, vma_entry->end);
+
+		if (addr < args->premmapped_addr) {
+			if (vma_entry->end >= args->premmapped_addr)
+				len = args->premmapped_addr - addr;
+			else
+				len = vma_entry->end - vma_entry->start;
+			if (sys_munmap((void *) addr, len)) {
+				pr_err("munmap fail for %lx - %lx\n", addr, addr + len);
+				goto core_restore_end;
+			}
+		}
+
+		if (vma_entry->end > premmapped_end) {
+			if (vma_entry->start < premmapped_end)
+				addr = premmapped_end;
+			len = vma_entry->end - addr;
+			if (sys_munmap((void *) addr, len)) {
+				pr_err("munmap fail for %lx - %lx\n", addr, addr + len);
+				goto core_restore_end;
+			}
 		}
 	}
 
