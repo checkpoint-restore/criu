@@ -1588,6 +1588,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	mem += self_vmas_len;
 	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vma_list);
+	task_args->nr_vmas = rst_nr_vmas;
 	task_args->premmapped_addr = (unsigned long) premmapped_addr;
 	task_args->premmapped_len = premmapped_len;
 	if (!task_args->tgt_vmas)

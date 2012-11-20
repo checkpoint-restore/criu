@@ -99,6 +99,7 @@ struct task_restore_core_args {
 	struct task_entries		*task_entries;
 	VmaEntry			*self_vmas;
 	VmaEntry			*tgt_vmas;
+	unsigned int			nr_vmas;
 	unsigned long			premmapped_addr;
 	unsigned long			premmapped_len;
 	rt_sigaction_t			sigchld_act;

@@ -321,6 +321,82 @@ static void rst_tcp_socks_all(int *arr, int size)
 	sys_munmap(arr, size);
 }
 
+static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
+{
+	unsigned long guard = 0, tmp;
+
+	pr_info("Remap %lx->%lx len %lx\n", src, dst, len);
+
+	if (src - dst < len)
+		guard = dst;
+	else if (dst - src < len)
+		guard = dst + len - PAGE_SIZE;
+
+	if (src == dst)
+		return 0;
+
+	if (guard != 0) {
+		/*
+		 * mremap() returns an error if a target and source vma-s are
+		 * overlapped. In this case the source vma are remapped in
+		 * a temporary place and then remapped to the target address.
+		 * Here is one hack to find non-ovelapped temporary place.
+		 *
+		 * 1. initial placement. We need to move src -> tgt.
+		 * |       |+++++src+++++|
+		 * |-----tgt-----|       |
+		 *
+		 * 2. map a guard page at the non-ovelapped border of a target vma.
+		 * |       |+++++src+++++|
+		 * |G|----tgt----|       |
+		 *
+		 * 3. remap src to any other place.
+		 *    G prevents src from being remaped on tgt again
+		 * |       |-------------| -> |+++++src+++++|
+		 * |G|---tgt-----|                          |
+		 *
+		 * 4. remap src to tgt, no overlapping any longer
+		 * |+++++src+++++|   <----    |-------------|
+		 * |G|---tgt-----|                          |
+		 */
+
+		unsigned long addr;
+
+		/* Map guard page (step 2) */
+		tmp = sys_mmap((void *) guard, PAGE_SIZE, PROT_NONE,
+					MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if (tmp != guard) {
+			pr_err("Unable to map a guard page %lx (%lx)\n", guard, tmp);
+			return -1;
+		}
+
+		/* Move src to non-overlapping place (step 3) */
+		addr = sys_mmap(NULL, len, PROT_NONE,
+					MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if (addr == (unsigned long) MAP_FAILED) {
+			pr_err("Unable to reserve memory (%lx)\n", addr);
+			return -1;
+		}
+
+		tmp = sys_mremap(src, len, len,
+					MREMAP_MAYMOVE | MREMAP_FIXED, addr);
+		if (tmp != addr) {
+			pr_err("Unable to remap %lx -> %lx (%lx)\n", src, addr, tmp);
+			return -1;
+		}
+
+		src = addr;
+	}
+
+	tmp = sys_mremap(src, len, len, MREMAP_MAYMOVE | MREMAP_FIXED, dst);
+	if (tmp != dst) {
+		pr_err("Unable to remap %lx -> %lx\n", src, dst);
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -384,11 +460,47 @@ long __export_restore_task(struct task_restore_core_args *args)
 	sys_munmap(args->self_vmas,
 			((void *)(vma_entry + 1) - ((void *)args->self_vmas)));
 
+	/* Shift private vma-s to the left */
+	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
+		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
+			continue;
+
+		if (!vma_priv(vma_entry))
+			continue;
+
+		if (vma_entry->start > vma_entry->shmid)
+			break;
+
+		if (vma_remap(vma_premmaped_start(vma_entry),
+				vma_entry->start, vma_entry_len(vma_entry)))
+			goto core_restore_end;
+	}
+
+	/* Shift private vma-s to the right */
+	for (vma_entry = args->tgt_vmas + args->nr_vmas -1;
+				vma_entry >= args->tgt_vmas; vma_entry--) {
+		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
+			continue;
+
+		if (!vma_priv(vma_entry))
+			continue;
+
+		if (vma_entry->start < vma_entry->shmid)
+			break;
+
+		if (vma_remap(vma_premmaped_start(vma_entry),
+				vma_entry->start, vma_entry_len(vma_entry)))
+			goto core_restore_end;
+	}
+
 	/*
 	 * OK, lets try to map new one.
 	 */
 	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
+			continue;
+
+		if (vma_priv(vma_entry))
 			continue;
 
 		va = restore_mapping(vma_entry);
