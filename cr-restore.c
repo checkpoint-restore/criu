@@ -274,14 +274,9 @@ static int open_vmas(int pid, struct list_head *vmas)
 
 static int prepare_and_sigreturn(int pid, CoreEntry *core)
 {
-	int err, nr_vmas;
-	LIST_HEAD(vma_list);
+	int err;
 
-	err = read_vmas(pid, &vma_list, &nr_vmas);
-	if (err)
-		return err;
-
-	err = open_vmas(pid, &vma_list);
+	err = open_vmas(pid, &rst_vma_list);
 	if (err)
 		return err;
 
@@ -839,6 +834,9 @@ static int restore_task_with_children(void *_arg)
 		pr_perror("%d: Can't block signals", current->pid.virt);
 		exit(1);
 	}
+
+	if (read_vmas(pid))
+		exit(1);
 
 	pr_info("Restoring children:\n");
 	list_for_each_entry(child, &current->children, sibling) {
