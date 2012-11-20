@@ -67,6 +67,8 @@ static int prepare_restorer_blob(void);
 
 static LIST_HEAD(rst_vma_list);
 static int rst_nr_vmas;
+static void *premmapped_addr;
+static unsigned long premmapped_len;
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -179,11 +181,67 @@ err:
 	return ret;
 }
 
+/* Map a private vma, if it is not mapped by a parrent yet */
+static int map_private_vma(struct vma_area *vma, void *tgt_addr,
+			struct vma_area **pvma, struct list_head *pvma_list)
+{
+	void *addr, *paddr = NULL;
+	struct vma_area *p = *pvma;
+
+	list_for_each_entry_continue(p, pvma_list, list) {
+		if (p->vma.start > vma->vma.start)
+			 break;
+
+		if (p->vma.end == vma->vma.end &&
+		    p->vma.start == vma->vma.start) {
+			pr_info("COW 0x%016lx-0x%016lx 0x%016lx vma\n",
+				vma->vma.start, vma->vma.end, vma->vma.pgoff);
+			paddr = (void *) vma_premmaped_start(&p->vma);
+			break;
+		}
+
+	}
+
+	*pvma = p;
+
+	if (paddr == NULL) {
+		pr_info("Map 0x%016lx-0x%016lx 0x%016lx vma\n",
+			vma->vma.start, vma->vma.end, vma->vma.pgoff);
+
+		addr = mmap(tgt_addr, vma_entry_len(&vma->vma),
+				vma->vma.prot | PROT_WRITE,
+				vma->vma.flags | MAP_FIXED,
+				vma->vma.fd, vma->vma.pgoff);
+
+		if (addr == MAP_FAILED) {
+			pr_perror("Unable to map ANON_VMA");
+			return -1;
+		}
+	} else {
+		addr = mremap(paddr, vma_area_len(vma), vma_area_len(vma),
+				MREMAP_FIXED | MREMAP_MAYMOVE, tgt_addr);
+		if (addr != tgt_addr) {
+			pr_perror("Unable to remap a private vma");
+			return -1;
+		}
+
+	}
+
+	vma_premmaped_start(&(vma->vma)) = (unsigned long) addr;
+
+	return 0;
+}
+
 static int read_vmas(int pid)
 {
 	int fd, ret = 0;
 	LIST_HEAD(old);
-	struct vma_area *vma;
+	struct vma_area *pvma, *vma;
+	unsigned long priv_size = 0;
+	void *addr;
+
+	void *old_premmapped_addr = NULL;
+	unsigned long old_premmapped_len, pstart = 0;
 
 	rst_nr_vmas = 0;
 	list_replace_init(&rst_vma_list, &old);
@@ -221,6 +279,43 @@ static int read_vmas(int pid)
 
 		vma->vma = *e;
 		vma_entry__free_unpacked(e, NULL);
+
+		if (!vma_priv(&vma->vma))
+			continue;
+
+		priv_size += vma_area_len(vma);
+	}
+
+	/* Reserve a place for mapping private vma-s one by one */
+	addr = mmap(NULL, priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	if (addr == MAP_FAILED) {
+		pr_perror("Unable to reserve memory");
+		return -1;
+	}
+
+	old_premmapped_addr = premmapped_addr;
+	old_premmapped_len = premmapped_len;
+	premmapped_addr = addr;
+	premmapped_len = priv_size;
+
+	pvma = list_entry(&old, struct vma_area, list);
+
+	list_for_each_entry(vma, &rst_vma_list, list) {
+		if (pstart > vma->vma.start) {
+			ret = -1;
+			pr_err("VMA-s are not sorted in the image file\n");
+			break;
+		}
+		pstart = vma->vma.start;
+
+		if (!vma_priv(&vma->vma))
+			continue;
+
+		ret = map_private_vma(vma, addr, &pvma, &old);
+		if (ret < 0)
+			break;
+
+		addr += vma_area_len(vma);
 	}
 
 	close(fd);
@@ -231,6 +326,14 @@ out:
 		list_del(&vma->list);
 		xfree(vma);
 	}
+
+	if (old_premmapped_addr &&
+	    munmap(old_premmapped_addr, old_premmapped_len)) {
+		pr_perror("Unable to unmap %p(%lx)",
+				old_premmapped_addr, old_premmapped_len);
+		return -1;
+	}
+
 
 	return ret;
 }
