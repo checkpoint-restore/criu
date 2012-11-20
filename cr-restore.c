@@ -194,11 +194,12 @@ static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (!vma)
 			break;
 
-		(*nr_vmas)++;
-		list_add_tail(&vma->list, vmas);
 		ret = pb_read_one_eof(fd, &e, PB_VMAS);
 		if (ret <= 0)
 			break;
+
+		(*nr_vmas)++;
+		list_add_tail(&vma->list, vmas);
 
 		if (e->fd != -1) {
 			ret = -1;
