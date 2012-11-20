@@ -62,8 +62,11 @@
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
-static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *vmas, int nr_vmas);
+static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
+
+static LIST_HEAD(rst_vma_list);
+static int rst_nr_vmas;
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -176,14 +179,14 @@ err:
 	return ret;
 }
 
-static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
+static int read_vmas(int pid)
 {
 	int fd, ret = 0;
 	LIST_HEAD(old);
 	struct vma_area *vma;
 
-	*nr_vmas = 0;
-	list_replace_init(vmas, &old);
+	rst_nr_vmas = 0;
+	list_replace_init(&rst_vma_list, &old);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
 	fd = open_image_ro(CR_FD_VMAS, pid);
@@ -206,8 +209,8 @@ static int read_vmas(int pid, struct list_head *vmas, int *nr_vmas)
 		if (ret <= 0)
 			break;
 
-		(*nr_vmas)++;
-		list_add_tail(&vma->list, vmas);
+		rst_nr_vmas++;
+		list_add_tail(&vma->list, &rst_vma_list);
 
 		if (e->fd != -1) {
 			ret = -1;
@@ -282,7 +285,7 @@ static int prepare_and_sigreturn(int pid, CoreEntry *core)
 	if (err)
 		return err;
 
-	return sigreturn_restore(pid, core, &vma_list, nr_vmas);
+	return sigreturn_restore(pid, core);
 }
 
 static rt_sigaction_t sigchld_act;
@@ -1348,7 +1351,7 @@ static int prep_sched_info(struct rst_sched_param *sp, ThreadCoreEntry *tc)
 	return 0;
 }
 
-static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_vmas, int nr_vmas)
+static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
 	long restore_task_vma_len;
 	long restore_thread_vma_len, self_vmas_len, vmas_len;
@@ -1382,7 +1385,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 	mark_stack_vma((long) &self_vma_list, &self_vma_list);
 
 	self_vmas_len = round_up((ret + 1) * sizeof(VmaEntry), PAGE_SIZE);
-	vmas_len = round_up((nr_vmas + 1) * sizeof(VmaEntry), PAGE_SIZE);
+	vmas_len = round_up((rst_nr_vmas + 1) * sizeof(VmaEntry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -1410,7 +1413,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
 				self_vmas_len + vmas_len +
 				rst_tcp_socks_size;
-	exec_mem_hint = restorer_get_vma_hint(pid, tgt_vmas, &self_vma_list,
+	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vma_list, &self_vma_list,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
@@ -1483,7 +1486,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core, struct list_head *tgt_v
 		goto err;
 
 	mem += self_vmas_len;
-	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, tgt_vmas);
+	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vma_list);
 	if (!task_args->tgt_vmas)
 		goto err;
 
