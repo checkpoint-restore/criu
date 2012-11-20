@@ -247,6 +247,59 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	return 0;
 }
 
+static int restore_priv_vma_content(pid_t pid)
+{
+	struct vma_area *vma;
+	int fd, ret = 0;
+
+	vma = list_first_entry(&rst_vma_list, struct vma_area, list);
+
+	fd = open_image_ro(CR_FD_PAGES, pid);
+	if (fd < 0)
+		return -1;
+
+	/*
+	 * Read page contents.
+	 */
+	while (1) {
+		u64 va;
+		char buf[PAGE_SIZE];
+		void *p;
+
+		ret = read(fd, &va, sizeof(va));
+		if (!ret)
+			break;
+
+		if (ret != sizeof(va)) {
+			pr_err("Bad mapping page size %d\n", ret);
+			return -1;
+		}
+
+		BUG_ON(va < vma->vma.start);
+
+		while (va >= vma->vma.end) {
+			BUG_ON(vma->list.next == &rst_vma_list);
+			vma = list_entry(vma->list.next, struct vma_area, list);
+		}
+
+		ret = read(fd, buf, PAGE_SIZE);
+		if (ret != PAGE_SIZE) {
+			pr_err("Can'r read mapping page %d\n", ret);
+			return -1;
+		}
+
+		p = (void *) (va - vma->vma.start +
+					vma_premmaped_start(&vma->vma));
+		if (memcmp(p, buf, PAGE_SIZE) == 0)
+			continue;
+
+		memcpy(p, buf, PAGE_SIZE);
+	}
+	close(fd);
+
+	return 0;
+}
+
 static int read_vmas(int pid)
 {
 	int fd, ret = 0;
@@ -333,6 +386,8 @@ static int read_vmas(int pid)
 		addr += vma_area_len(vma);
 	}
 
+	if (ret == 0)
+		ret = restore_priv_vma_content(pid);
 	close(fd);
 
 out:
