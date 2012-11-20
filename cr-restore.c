@@ -1538,7 +1538,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct thread_restore_args *thread_args;
 
 	LIST_HEAD(self_vma_list);
-	int fd_pages = -1;
 	int i;
 
 	pr_info("Restore via sigreturn\n");
@@ -1563,12 +1562,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
-
-	fd_pages = open_image_ro(CR_FD_PAGES, pid);
-	if (fd_pages < 0) {
-		pr_perror("Can't open pages-%d", pid);
-		goto free;
-	}
 
 	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
 	restore_thread_vma_len = round_up(sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
@@ -1679,7 +1672,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();
 	task_args->sigchld_act	= sigchld_act;
-	task_args->fd_pages	= fd_pages;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
@@ -1810,8 +1802,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
 
 err:
-	close_safe(&fd_pages);
-free:
 	free_mappings(&self_vma_list);
 
 	/* Just to be sure */

@@ -512,28 +512,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 	}
 
 	/*
-	 * Read page contents.
-	 */
-	while (1) {
-		ret = sys_read(args->fd_pages, &va, sizeof(va));
-		if (!ret)
-			break;
-
-		if (ret != sizeof(va)) {
-			pr_err("Bad mapping page size %ld\n", ret);
-			goto core_restore_end;
-		}
-
-		ret = sys_read(args->fd_pages, (void *)va, PAGE_SIZE);
-		if (ret != PAGE_SIZE) {
-			pr_err("Can'r read mapping page %ld\n", ret);
-			goto core_restore_end;
-		}
-	}
-
-	sys_close(args->fd_pages);
-
-	/*
 	 * Walk though all VMAs again to drop PROT_WRITE
 	 * if it was not there.
 	 */

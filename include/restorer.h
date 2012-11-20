@@ -85,7 +85,6 @@ struct task_restore_core_args {
 	struct thread_restore_args	t;			/* thread group leader */
 
 	int				fd_exe_link;		/* opened self->exe file */
-	int				fd_pages;		/* opened pages dump file */
 	int				logfd;
 	unsigned int			loglevel;
 
