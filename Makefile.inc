@@ -68,7 +68,7 @@ endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 MAKEFLAGS	:= --no-print-directory
-SYSCALL-LIB	= $(SRC_DIR)/syscall-x86-64.o
+SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH
