@@ -1,3 +1,7 @@
+include ../Makefile.inc
+
+CFLAGS		+= -I../include/ -I../protobuf/ -I../syscall/
+
 GEN-OFFSETS	:= gen-offsets.sh
 
 PASM-OBJS	+= parasite-head-x86-64.o
@@ -27,6 +31,8 @@ PIELDS		:= pie.lds.S
 PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
 ASMFLAGS	:= -D__ASSEMBLY__
 
+.DEFAULT_GOAL	:= pie
+
 $(PASM-OBJS): $(PASM-SRC) $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
@@ -35,7 +41,7 @@ $(POBJS): $(PSRCS) $(PASM-OBJS) $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
-parasite-util-net.o: util-net.c $(SYSCALL-LIB)
+parasite-util-net.o: $(SRC_DIR)/util-net.c $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
 
@@ -73,12 +79,13 @@ $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(RBLOB-NAME) > $@ || rm -f $@
 
-PIE-GEN	:= $(PBLOB-HDR) $(RBLOB-HDR)
+pie: $(PBLOB-HDR) $(RBLOB-HDR)
 
-cleanpie:
+clean:
 	$(E) "  CLEAN PIE"
 	$(Q) $(RM) -f ./$(PBLOB-HDR)
 	$(Q) $(RM) -f ./$(RBLOB-HDR)
+	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./*.bin.o
-.PHONY: cleanpie
+.PHONY: clean pie

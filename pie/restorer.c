@@ -25,7 +25,7 @@
 #include "lock.h"
 #include "restorer.h"
 
-#include "protobuf/creds.pb-c.h"
+#include "creds.pb-c.h"
 
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\

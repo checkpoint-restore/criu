@@ -46,8 +46,6 @@ OBJS		+= tty.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
-include Makefile.pie
-
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf x86
 
@@ -55,7 +53,7 @@ all: pie
 	$(Q) $(MAKE) $(PROGRAM)
 
 pie: protobuf $(ARCH)
-	$(Q) $(MAKE) $(PIE-GEN)
+	$(Q) $(MAKE) -C pie/
 
 protobuf:
 	$(Q) $(MAKE) -C protobuf/
@@ -97,7 +95,7 @@ rebuild:
 	$(Q) $(RM) -f ./protobuf/*.pb-c.h
 	$(Q) $(MAKE)
 
-clean: cleanpie
+clean:
 	$(E) "  CLEAN"
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
@@ -109,6 +107,7 @@ clean: cleanpie
 	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C arch/x86/ clean
+	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout
