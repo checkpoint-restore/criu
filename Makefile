@@ -44,11 +44,7 @@ OBJS		+= pstree.o
 OBJS		+= protobuf.o
 OBJS		+= tty.o
 
-PROTOBUF-LIB	:= protobuf/protobuf-lib.o
-
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
-
-MAKEFLAGS	+= --no-print-directory
 
 include Makefile.syscall
 include Makefile.pie
@@ -81,7 +77,7 @@ protobuf:
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) $(SYS-OBJ) $(PROTOBUF-LIB)
+$(PROGRAM): $(OBJS) $(SYSCALL-LIB) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 

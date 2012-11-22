@@ -8,8 +8,6 @@ SYS-PROTO	:= include/syscall.h
 SYS-ASM		:= syscall-x86-64.S
 SYS-GEN		:= syscalls-x86-64.sh
 
-SYS-OBJ		:= $(patsubst %.S,%.o,$(SYS-ASM))
-
 SYS-FLAGS	:= -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
 
 $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
@@ -23,7 +21,7 @@ $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
 		$(SYS-ASM-COMMON)	\
 		$(SYS-TYPES)
 
-$(SYS-OBJ): $(SYS-ASM)
+$(SYSCALL-LIB): $(SYS-ASM)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(SYS-FLAGS)  $< -o $@
 
@@ -32,3 +30,4 @@ cleansyscall:
 	$(Q) $(RM) -f ./$(SYS-ASM)
 	$(Q) $(RM) -f ./$(SYS-CODES)
 	$(Q) $(RM) -f ./$(SYS-PROTO)
+	$(Q) $(RM) -f ./$(SYSCALL-LIB)

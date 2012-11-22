@@ -27,19 +27,19 @@ PIELDS		:= pie.lds.S
 PIEFLAGS	:= -fpie  -Wa,--noexecstack -fno-strict-aliasing
 ASMFLAGS	:= -D__ASSEMBLY__
 
-$(PASM-OBJS): $(PASM-SRC) $(SYS-OBJ)
+$(PASM-OBJS): $(PASM-SRC) $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(ASMFLAGS) $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.S,$@) -o $@
 
-$(POBJS): $(PSRCS) $(PASM-OBJS) $(SYS-OBJ)
+$(POBJS): $(PSRCS) $(PASM-OBJS) $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
-parasite-util-net.o: util-net.c $(SYS-OBJ)
+parasite-util-net.o: util-net.c $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
 
-parasite-log.o: log-simple.c $(SYS-OBJ)
+parasite-log.o: log-simple.c $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $< -o $@
 
@@ -47,27 +47,27 @@ POBJS		+= parasite-util-net.o parasite-log.o
 
 $(PBLOB-BIN-O): $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(PBLOB-BIN).o $(POBJS) $(PASM-OBJS) $(SYSCALL-LIB)
 
 $(PBLOB-BIN): $(PBLOB-BIN-O) $(PIELDS) $(POBJS) $(PASM-OBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(PBLOB-BIN) $(POBJS) $(PASM-OBJS) $(SYSCALL-LIB)
 
 $(PBLOB-HDR): $(PBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(GEN-OFFSETS) $(PBLOB-NAME) > $@ || rm -f $@
 
-$(ROBJS): $(RSRCS) $(SYS-OBJ)
+$(ROBJS): $(RSRCS) $(SYSCALL-LIB)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $(PIEFLAGS) $(patsubst %.o,%.c,$@) -o $@
 
 $(RBLOB-BIN-O): $(PIELDS) $(ROBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $(RBLOB-BIN).o $(ROBJS) $(SYSCALL-LIB)
 
 $(RBLOB-BIN): $(RBLOB-BIN-O) $(PIELDS) $(ROBJS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(RBLOB-BIN) $(ROBJS) $(SYS-OBJ)
+	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $(RBLOB-BIN) $(ROBJS) $(SYSCALL-LIB)
 
 $(RBLOB-HDR): $(RBLOB-BIN) $(GEN-OFFSETS)
 	$(E) "  GEN     " $@

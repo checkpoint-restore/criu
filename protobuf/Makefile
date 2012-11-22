@@ -1,5 +1,3 @@
-include ../Makefile.inc
-
 PROTO_LIBRARY	:= protobuf-lib.o
 
 PROTO_FILES	+= inventory.proto
@@ -58,7 +56,7 @@ PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 
 $(PROTO_LIBRARY): $(PROTO_OBJS)
 	$(E) "  LINK     "$@
-	$(Q) ld -r -o $@ $(PROTO_OBJS)
+	$(Q) $(LD) -r -o $@ $(PROTO_OBJS)
 
 .PHONY: protobuf
 

@@ -9,7 +9,6 @@ else
 	E = @\#
 	Q =
 endif
-export E Q
 
 FIND		:= find
 CSCOPE		:= cscope
@@ -34,21 +33,23 @@ ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 uname_M      := $(shell uname -m | sed -e s/i.86/i386/)
 ifeq ($(uname_M),i386)
 	ARCH         := x86
-	DEFINES      += -DCONFIG_X86_32
+	DEFINES      := -DCONFIG_X86_32
 endif
 ifeq ($(uname_M),x86_64)
 	ARCH         := x86
-	DEFINES      += -DCONFIG_X86_64
+	DEFINES      := -DCONFIG_X86_64
 endif
 
-no-deps-targets := tags cscope clean cleanout cleandep realclean
+SRC_DIR		?= $(shell pwd)
 
-CFLAGS		+= -I./include -fno-strict-aliasing
+CFLAGS		= -I$(SRC_DIR)/include -fno-strict-aliasing
 
-LIBS		+= -lrt -lpthread -lprotobuf-c
+LIBS		:= -lrt -lpthread -lprotobuf-c
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
+
+WARNINGS	:= -Wall
 
 ifneq ($(WERROR),0)
 	WARNINGS += -Werror
@@ -65,7 +66,10 @@ else
 	CFLAGS	+= -O2
 endif
 
-WARNINGS	+= -Wall
 CFLAGS		+= $(WARNINGS) $(DEFINES)
+MAKEFLAGS	:= --no-print-directory
+SYSCALL-LIB	= $(SRC_DIR)/syscall-x86-64.o
+PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH
+
