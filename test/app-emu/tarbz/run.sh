@@ -45,14 +45,14 @@ pid=${!}
 echo "Started tar in $pid background"
 sleep 3
 
-${crtools} dump -D dump -o dump.log -v 4 -t ${pid} || {
+${crtools} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
 
 echo "Dump OK, restoring"
 
-${crtools} restore -D dump -o restore.log -v 4 -t ${pid} || {
+${crtools} restore --shell-job -D dump -o restore.log -v 4 -t ${pid} || {
 	echo "Restore failed"
 	exit 1
 }
