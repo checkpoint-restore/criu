@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../../functions.sh || exit 1
+
 crtools="../../../crtools"
 DEPTH=3
 SPAN=5
@@ -50,6 +52,7 @@ ${crtools} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 	exit 1
 }
 
+wait_tasks dump
 echo "Dump OK, restoring"
 
 ${crtools} restore --shell-job -D dump -o restore.log -v 4 -t ${pid} || {

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../../../functions.sh || exit 1
+
 crtools="../../../../crtools"
 
 cleanup_class() {
@@ -23,6 +25,8 @@ ${crtools} dump -D dump -o dump.log -v 4 --shell-job -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
+
+wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
