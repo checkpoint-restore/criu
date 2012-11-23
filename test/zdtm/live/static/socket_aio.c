@@ -17,6 +17,7 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 #include <stdlib.h>
 #include <aio.h>
 #include <wait.h>
+#include <netinet/tcp.h>
 
 static int port = 8880;
 
@@ -34,7 +35,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	if ((fd_s = tcp_init_server(&port)) < 0) {
+	if ((fd_s = tcp_init_server(AF_INET, &port)) < 0) {
 		err("initializing server failed");
 		return 1;
 	}
@@ -50,7 +51,7 @@ int main(int argc, char **argv)
 		 * Chiled is client of TCP connection
 		 */
 		close(fd_s);
-		fd = tcp_init_client("127.0.0.1", port);
+		fd = tcp_init_client(AF_INET, "127.0.0.1", port);
 		if (fd < 0)
 			return 1;
 

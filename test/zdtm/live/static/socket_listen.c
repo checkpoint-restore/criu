@@ -1,5 +1,11 @@
 #include "zdtmtst.h"
 
+#ifdef ZDTM_IPV6
+#define ZDTM_FAMILY AF_INET6
+#else
+#define ZDTM_FAMILY AF_INET
+#endif
+
 const char *test_doc = "static test for listening socket\n";
 const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 
@@ -14,6 +20,7 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 #include <errno.h>
 #include <stdlib.h>
 #include <wait.h>
+#include <netinet/tcp.h>
 
 static int port = 8880;
 
@@ -36,7 +43,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	if ((fd_s = tcp_init_server(&port)) < 0) {
+	if ((fd_s = tcp_init_server(ZDTM_FAMILY, &port)) < 0) {
 		err("initializing server failed");
 		return 1;
 	}
@@ -59,7 +66,7 @@ int main(int argc, char **argv)
 		 * Chiled is client of TCP connection
 		 */
 		close(fd_s);
-		fd = tcp_init_client("127.0.0.1", port);
+		fd = tcp_init_client(ZDTM_FAMILY, "localhost", port);
 		if (fd < 0)
 			return 1;
 

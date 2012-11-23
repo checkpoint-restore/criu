@@ -46,6 +46,7 @@ static/pstree
 static/caps00
 static/cmdlinenv00
 static/socket_listen
+static/socket_listen6
 static/packet_sock
 static/socket_udp
 static/sock_filter
@@ -80,8 +81,11 @@ TEST_LIST="$TEST_LIST
 static/file_fown
 static/socket-ext
 static/socket-tcp
+static/socket-tcp6
 streaming/socket-tcp
+streaming/socket-tcp6
 static/socket-tcpbuf
+static/socket-tcpbuf6
 static/pty03
 "
 

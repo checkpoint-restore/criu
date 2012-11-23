@@ -22,6 +22,7 @@ TST_NOFILE	=				\
 		sched_prio00			\
 		sched_policy00			\
 		socket_listen			\
+		socket_listen6			\
 		socket_udp			\
 		socket6_udp			\
 		socket_udplite			\
@@ -47,7 +48,9 @@ TST_NOFILE	=				\
 		socket_queues			\
 		socket_queues02			\
 		socket-tcp			\
+		socket-tcp6			\
 		socket-tcpbuf			\
+		socket-tcpbuf6			\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
@@ -209,6 +212,9 @@ shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
 sem:			override CFLAGS += -DNEW_IPC_NS
 posix_timers:		override LDLIBS += -lrt
+socket-tcp6: override CFLAGS += -D ZDTM_IPV6
+socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
+socket_listen6: override CFLAGS += -D ZDTM_IPV6
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

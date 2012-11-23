@@ -10,6 +10,7 @@ TST_NOFILE	=	\
 		netlink00	\
 		file_aio	\
 		socket-tcp	\
+		socket-tcp6	\
 
 TST_FILE	=	\
 		unix_sock	\
@@ -60,6 +61,7 @@ $(TST):	$(LIB)
 
 file_aio: override LDLIBS += -lrt -pthread
 socket-tcp: override CFLAGS += -D STREAM
+socket-tcp6: override CFLAGS += -D ZDTM_IPV6 -D STREAM
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)

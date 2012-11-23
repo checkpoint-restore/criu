@@ -4,16 +4,28 @@
 
 #include "zdtmtst.h"
 
-int tcp_init_server(int *port)
+union sockaddr_inet {
+	struct sockaddr_in v4;
+	struct sockaddr_in6 v6;
+};
+
+int tcp_init_server(int family, int *port)
 {
-	struct sockaddr_in addr;
+	union sockaddr_inet addr;
 	int sock;
 	int yes = 1, ret;
 
 	memset(&addr,0,sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr("0.0.0.0");
-	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (family == AF_INET) {
+		addr.v4.sin_family = family;
+		inet_pton(family, "0.0.0.0", &(addr.v4.sin_addr));
+	} else if (family == AF_INET6){
+		addr.v6.sin6_family = family;
+		inet_pton(family, "::0", &(addr.v6.sin6_addr));
+	} else
+		return -1;
+
+	sock = socket(family, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
 		err ("socket() failed %m");
 		return -1;
@@ -25,7 +37,11 @@ int tcp_init_server(int *port)
 	}
 
 	while (1) {
-		addr.sin_port = htons(*port);
+		if (family == AF_INET)
+			addr.v4.sin_port = htons(*port);
+		else if (family == AF_INET6)
+			addr.v6.sin6_port = htons(*port);
+
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 
 		/* crtools doesn't restore sock opts, so we need this hack */
@@ -71,20 +87,26 @@ int tcp_accept_server(int sock)
 	return sock2;
 }
 
-int tcp_init_client(char *servIP, unsigned short servPort)
+int tcp_init_client(int family, char *servIP, unsigned short servPort)
 {
 	int sock;
-	struct sockaddr_in servAddr;
+	union sockaddr_inet servAddr;
 
-	if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+	if ((sock = socket(family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		err("can't create socket %m");
 		return -1;
 	}
 	/* Construct the server address structure */
 	memset(&servAddr, 0, sizeof(servAddr));
-	servAddr.sin_family      = AF_INET;
-	servAddr.sin_addr.s_addr = inet_addr(servIP);
-	servAddr.sin_port        = htons(servPort);
+	if (family == AF_INET) {
+		servAddr.v4.sin_family      = AF_INET;
+		servAddr.v4.sin_port        = htons(servPort);
+		inet_pton(AF_INET, servIP, &servAddr.v4.sin_addr);
+	} else {
+		servAddr.v6.sin6_family      = AF_INET6;
+		servAddr.v6.sin6_port        = htons(servPort);
+		inet_pton(AF_INET6, servIP, &servAddr.v6.sin6_addr);
+	}
 	if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
 		err("can't connect to server %m");
 		return -1;
