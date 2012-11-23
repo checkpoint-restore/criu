@@ -297,7 +297,7 @@ static int check_fdinfo_eventpoll(void)
 	close(pfd[1]);
 
 	if (ret) {
-		pr_err("Error parsing proc fdinfo");
+		pr_err("Error parsing proc fdinfo\n");
 		return -1;
 	}
 

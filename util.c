@@ -206,7 +206,7 @@ int set_proc_mountpoint(char *path)
 	sfd = dup2(fd, sfd);
 	close(fd);
 	if (sfd < 0) {
-		pr_err("Can't set proc fd");
+		pr_err("Can't set proc fd\n");
 		return -1;
 	}
 

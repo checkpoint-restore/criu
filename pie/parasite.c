@@ -105,7 +105,7 @@ static int dump_pages_init()
 
 	fd_pagemap = sys_open("/proc/self/pagemap", O_RDONLY, 0);
 	if (fd_pagemap < 0) {
-		pr_err("Can't open self pagemap");
+		pr_err("Can't open self pagemap\n");
 		sys_close(fd_pages);
 		return fd_pagemap;
 	}
@@ -163,14 +163,14 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	off = pfn * sizeof(*map);
 	off = sys_lseek(fd_pagemap, off, SEEK_SET);
 	if (off != pfn * sizeof(*map)) {
-		pr_err("Can't seek pagemap");
+		pr_err("Can't seek pagemap\n");
 		ret = off;
 		goto err_free;
 	}
 
 	ret = sys_read(fd_pagemap, map, length);
 	if (ret != length) {
-		pr_err("Can't read self pagemap");
+		pr_err("Can't read self pagemap\n");
 		goto err_free;
 	}
 

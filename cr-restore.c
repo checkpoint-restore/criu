@@ -574,7 +574,7 @@ static int pstree_wait_helpers()
 			return -1;
 		}
 		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_err("%d exited with non-zero code (%d,%d)", pi->pid.virt,
+			pr_err("%d exited with non-zero code (%d,%d)\n", pi->pid.virt,
 				WEXITSTATUS(status), WTERMSIG(status));
 			return -1;
 		}
@@ -1512,7 +1512,7 @@ static int prepare_restorer_blob(void)
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (restorer == MAP_FAILED) {
-		pr_err("Can't map restorer code");
+		pr_perror("Can't map restorer code");
 		return -1;
 	}
 

@@ -190,7 +190,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino, file_path);
 		if (num < 10) {
-			pr_err("Can't parse: %s", buf);
+			pr_err("Can't parse: %s\n", buf);
 			goto err;
 		}
 
@@ -663,7 +663,7 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
 	while (1) {
 		end = strchr(str, ' ');
 		if (!end) {
-			pr_err("Error parsing mount options");
+			pr_err("Error parsing mount options\n");
 			return -1;
 		}
 

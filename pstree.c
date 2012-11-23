@@ -234,7 +234,7 @@ int prepare_pstree(void)
 				}
 
 				if (parent == NULL) {
-					pr_err("Can't find a parent for %d", pi->pid.virt);
+					pr_err("Can't find a parent for %d\n", pi->pid.virt);
 					pstree_entry__free_unpacked(e, NULL);
 					xfree(pi);
 					goto err;
