@@ -42,7 +42,7 @@ endif
 
 SRC_DIR		?= $(shell pwd)
 
-CFLAGS		= -I$(SRC_DIR)/include -fno-strict-aliasing
+CFLAGS		= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
