@@ -486,7 +486,7 @@ int collect_sockets(int pid)
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
 	req.r.i.idiag_ext	= 0;
 	/* Only listening sockets supported yet */
-	req.r.i.idiag_states	= 1 << TCP_LISTEN;
+	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
 	tmp = do_rtnl_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
 	if (tmp)
 		err = tmp;
