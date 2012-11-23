@@ -20,21 +20,37 @@ static char buf[512];
  * ANy brave soul to write it using xtables-devel?
  */
 
-static const char *nf_conn_cmd = "iptables -t filter %s INPUT --protocol tcp "
+static const char *nf_conn_cmd = "%s -t filter %s INPUT --protocol tcp "
 	"--source %s --sport %d --destination %s --dport %d -j DROP";
 
-static int nf_connection_switch_raw(u32 *src_addr, u16 src_port, u32 *dst_addr, u16 dst_port, int lock)
+static char iptable_cmd_ipv4[] = "iptables";
+static char iptable_cmd_ipv6[] = "ip6tables";
+
+static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port, u32 *dst_addr, u16 dst_port, int lock)
 {
 	char sip[INET_ADDR_LEN], dip[INET_ADDR_LEN];
+	char *cmd;
 	int ret;
 
-	if (!inet_ntop(PF_INET, (void *)src_addr, sip, INET_ADDR_LEN) ||
-			!inet_ntop(PF_INET, (void *)dst_addr, dip, INET_ADDR_LEN)) {
+	switch (family) {
+	case AF_INET:
+		cmd = iptable_cmd_ipv4;
+		break;
+	case AF_INET6:
+		cmd = iptable_cmd_ipv6;
+		break;
+	default:
+		pr_err("Unknown socket family %d\n", family);
+		return -1;
+	};
+
+	if (!inet_ntop(family, (void *)src_addr, sip, INET_ADDR_LEN) ||
+			!inet_ntop(family, (void *)dst_addr, dip, INET_ADDR_LEN)) {
 		pr_perror("nf: Can't translate ip addr\n");
 		return -1;
 	}
 
-	snprintf(buf, sizeof(buf), nf_conn_cmd, lock ? "-A" : "-D",
+	snprintf(buf, sizeof(buf), nf_conn_cmd, cmd, lock ? "-A" : "-D",
 			dip, (int)dst_port, sip, (int)src_port);
 
 	pr_debug("\tRunning iptables [%s]\n", buf);
@@ -51,12 +67,8 @@ static int nf_connection_switch_raw(u32 *src_addr, u16 src_port, u32 *dst_addr, 
 
 static int nf_connection_switch(struct inet_sk_desc *sk, int lock)
 {
-	if (sk->sd.family != PF_INET) {
-		pr_err("nf: Only IPv4 for now\n");
-		return -1;
-	}
-
-	return nf_connection_switch_raw(sk->src_addr, sk->src_port,
+	return nf_connection_switch_raw(sk->sd.family,
+			sk->src_addr, sk->src_port,
 			sk->dst_addr, sk->dst_port, lock);
 }
 
@@ -72,6 +84,7 @@ int nf_unlock_connection(struct inet_sk_desc *sk)
 
 int nf_unlock_connection_info(struct inet_sk_info *si)
 {
-	return nf_connection_switch_raw(si->ie->src_addr, si->ie->src_port,
+	return nf_connection_switch_raw(si->ie->family,
+			si->ie->src_addr, si->ie->src_port,
 			si->ie->dst_addr, si->ie->dst_port, 0);
 }
