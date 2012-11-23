@@ -48,7 +48,7 @@ static void *ch_thread_2(void *arg)
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
 	sigemptyset(&blk_sigset);
-	sigprocmask(SIG_SETMASK, NULL, &blk_sigset);
+	pthread_sigmask(SIG_SETMASK, NULL, &blk_sigset);
 	sigaddset(&blk_sigset, SIGFPE);
 	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
@@ -91,7 +91,7 @@ static void *ch_thread_1(void *arg)
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
 	sigemptyset(&blk_sigset);
-	sigprocmask(SIG_SETMASK, NULL, &blk_sigset);
+	pthread_sigmask(SIG_SETMASK, NULL, &blk_sigset);
 	sigaddset(&blk_sigset, SIGTRAP);
 	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
