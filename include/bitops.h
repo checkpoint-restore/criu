@@ -106,6 +106,11 @@ found_middle:
 	return result + __ffs(tmp);
 }
 
+#define for_each_bit(i, bitmask)				\
+	for (i = find_next_bit(bitmask, sizeof(bitmask), 0);	\
+	     i < sizeof(bitmask);				\
+	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
+
 #else /* CONFIG_X86_64 */
 # error x86-32 is not implemented yet
 #endif /* CONFIG_X86_64 */
