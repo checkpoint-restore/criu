@@ -164,11 +164,15 @@ static int tty_get_index(u32 id)
 /* Make sure the active pairs do exist */
 int tty_verify_active_pairs(void)
 {
-	int i, unpaired_slaves = 0;
+	unsigned long i, unpaired_slaves = 0;
 
-	for (i = 0; i < (MAX_TTYS << 1); i += 2) {
-		if (test_bit(i, tty_active_pairs) &&
-		    !test_bit(i + 1, tty_active_pairs)) {
+	for_each_bit(i, tty_active_pairs) {
+		if (is_log2(i)) {
+			if (test_bit(i + 1, tty_active_pairs)) {
+				i++;
+				continue;
+			}
+
 			if (!opts.shell_job) {
 				pr_err("Found slave peer index %d without "
 				       "correspond master peer\n",
