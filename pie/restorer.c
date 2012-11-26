@@ -36,6 +36,7 @@
 	})
 
 static struct task_entries *task_entries;
+static futex_t thread_inprogress;
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
@@ -237,6 +238,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
 	futex_dec_and_wake(&task_entries->nr_in_progress);
+	futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + 8;
 	asm volatile(
@@ -737,9 +740,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(rt_sigset_t));
 
+	futex_set_and_wake(&thread_inprogress, args->nr_threads);
+
 	futex_dec_and_wake(&args->task_entries->nr_in_progress);
 
 	futex_wait_while(&args->task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+
+	/* Wait until children stop to use args->task_entries */
+	futex_wait_while_gt(&thread_inprogress, 1);
 
 	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
 
