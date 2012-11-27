@@ -1256,12 +1256,6 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	end_vma.vma.start = end_vma.vma.end = TASK_SIZE_MAX;
 	prev_vma_end = PAGE_SIZE;
 
-	/*
-	 * Here we need some heuristics -- the VMA which restorer will
-	 * belong to should not be unmapped, so we need to gueess out
-	 * where to put it in.
-	 */
-
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
 
@@ -1628,6 +1622,18 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
 				self_vmas_len + vmas_len +
 				rst_tcp_socks_size;
+
+	/*
+	 * Restorer is a blob (code + args) that will get mapped in some
+	 * place, that should _not_ intersect with both -- current mappings
+	 * and mappings of the task we're restoring here. The subsequent
+	 * call finds the start address for the restorer.
+	 *
+	 * After the start address is found we populate it with the restorer
+	 * parts one by one (some are remap-ed, some are mmap-ed and copied
+	 * or inited from scratch).
+	 */
+
 	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vma_list, &self_vma_list,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
