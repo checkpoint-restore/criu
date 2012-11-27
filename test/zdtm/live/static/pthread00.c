@@ -64,12 +64,12 @@ static void *ff1(void *map)
 			if (ret) {
 				if (IS_STARTED(map, 4)) {
 					SET_FAILED(map, 4);
-					exit(4);
+					exit(0);
 				}
 			} else {
 				if (IS_STARTED(map, 4)) {
 					SET_PASSED(map, 4);
-					exit(4);
+					exit(0);
 				}
 			}
 			sleep(1);
@@ -127,12 +127,12 @@ static void *f1(void *map)
 			if (ret) {
 				if (IS_STARTED(map, 2)) {
 					SET_FAILED(map, 2);
-					exit(2);
+					exit(0);
 				}
 			} else {
 				if (IS_STARTED(map, 2)) {
 					SET_PASSED(map, 2);
-					exit(2);
+					exit(0);
 				}
 			}
 			sleep(1);
