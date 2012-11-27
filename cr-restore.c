@@ -702,13 +702,9 @@ static int restore_one_zombie(int pid, int exit_code)
 	return -1;
 }
 
-static int check_core(int pid, CoreEntry *core)
+static int check_core(CoreEntry *core)
 {
-	int fd = -1, ret = -1;
-
-	fd = open_image_ro(CR_FD_CORE, pid);
-	if (fd < 0)
-		return -1;
+	int ret = -1;
 
 	if (core->mtype != CORE_ENTRY__MARCH__X86_64) {
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
@@ -734,7 +730,6 @@ static int check_core(int pid, CoreEntry *core)
 
 	ret = 0;
 out:
-	close_safe(&fd);
 	return ret < 0 ? ret : 0;
 }
 
@@ -756,7 +751,7 @@ static int restore_one_task(int pid)
 	if (ret < 0)
 		return -1;
 
-	if (check_core(pid, core)) {
+	if (check_core(core)) {
 		ret = -1;
 		goto out;
 	}
