@@ -788,6 +788,21 @@ struct cr_clone_arg {
 	int fd;
 };
 
+static void write_pidfile(char *pfname, int pid)
+{
+	int fd;
+
+	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	if (fd == -1) {
+		pr_perror("Can't open %s", pfname);
+		kill(pid, SIGKILL);
+		return;
+	}
+
+	dprintf(fd, "%d", pid);
+	close(fd);
+}
+
 static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone_flags)
 {
 	int ret = -1;
@@ -840,18 +855,8 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	if (ca.clone_flags & CLONE_NEWPID)
 		item->pid.real = ret;
 
-	if (opts.pidfile && root_item == item) {
-		int fd;
-
-		fd = open(opts.pidfile, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-		if (fd == -1) {
-			pr_perror("Can't open %s", opts.pidfile);
-			kill(ret, SIGKILL);
-		} else {
-			dprintf(fd, "%d", ret);
-			close(fd);
-		}
-	}
+	if (opts.pidfile && root_item == item)
+		write_pidfile(opts.pidfile, ret);
 
 err_unlock:
 	if (ca.fd >= 0) {
