@@ -41,7 +41,7 @@ static __thread char tls_data[10];
 #define IS_PASSED(map, i)	(MAP(map, i) & TRANSITION_PASSED)
 #define IS_FAILED(map, i)	(MAP(map, i) & TRANSITION_FAILED)
 
-static void *ff1(void *map)
+static void *thread_subfunc_1(void *map)
 {
 	char __tls_data[10] = "1122334455";
 	pid_t pid;
@@ -95,7 +95,7 @@ static void *ff1(void *map)
 	return NULL;
 }
 
-static void *f1(void *map)
+static void *thread_func_1(void *map)
 {
 	char __tls_data[10] = "3122131212";
 	pthread_t th;
@@ -104,7 +104,7 @@ static void *f1(void *map)
 
 	memcpy(tls_data, __tls_data, sizeof(tls_data));
 
-	if (pthread_create(&th, NULL, &ff1, map))
+	if (pthread_create(&th, NULL, &thread_subfunc_1, map))
 		perror("Cant create thread");
 
 	pid = test_fork();
@@ -155,7 +155,7 @@ static void *f1(void *map)
 	return NULL;
 }
 
-static void *f2(void *map)
+static void *thread_func_2(void *map)
 {
 	char __tls_data[10] = "wasdfrdgdc";
 	pid_t pid;
@@ -225,8 +225,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	rc1 = pthread_create(&th1, NULL, &f1, map);
-	rc2 = pthread_create(&th2, NULL, &f2, map);
+	rc1 = pthread_create(&th1, NULL, &thread_func_1, map);
+	rc2 = pthread_create(&th2, NULL, &thread_func_2, map);
 
 	if (rc1 | rc2) {
 		fail("Can't pthread_create");
