@@ -27,16 +27,37 @@ static __thread struct tls_data_s {
 static task_waiter_t t1;
 static task_waiter_t t2;
 
-static void show_sigset(const sigset_t *s)
+static char *decode_signal(const sigset_t *s, char *buf)
 {
-	const char *p = (void *)s;
-	char buf[1024];
-	size_t i;
+	buf[0] = '\0';
 
-	for (i = 0; i < sizeof(*s); i++)
-		sprintf(&buf[i * 2], "%02x", p[i]);
-	test_msg("sigset: %s\n", buf);
+#define COLLECT(sig)						\
+	do {							\
+		if ((long)s->__val[0] & (long)sigmask(sig))	\
+			strcat(buf, #sig " ");			\
+	} while (0)
+
+	COLLECT(SIGHUP); COLLECT(SIGINT); COLLECT(SIGQUIT); COLLECT(SIGILL); COLLECT(SIGTRAP);
+	COLLECT(SIGABRT); COLLECT(SIGIOT); COLLECT(SIGBUS); COLLECT(SIGFPE); COLLECT(SIGKILL);
+	COLLECT(SIGUSR1); COLLECT(SIGSEGV); COLLECT(SIGUSR2); COLLECT(SIGPIPE); COLLECT(SIGALRM);
+	COLLECT(SIGTERM); COLLECT(SIGSTKFLT); COLLECT(SIGCHLD); COLLECT(SIGCONT); COLLECT(SIGSTOP);
+	COLLECT(SIGTSTP); COLLECT(SIGTTIN); COLLECT(SIGTTOU); COLLECT(SIGURG); COLLECT(SIGXCPU);
+	COLLECT(SIGXFSZ); COLLECT(SIGVTALRM); COLLECT(SIGPROF); COLLECT(SIGWINCH); COLLECT(SIGIO);
+	COLLECT(SIGPOLL); COLLECT(SIGPWR); COLLECT(SIGSYS); COLLECT(SIGUNUSED);
+#undef COLLECT
+
+	return buf;
 }
+
+static void __show_sigset(int line, const sigset_t *s)
+{
+	char buf[sizeof(sigset_t) * 2 + 1] = { };
+
+	decode_signal(s, buf);
+	test_msg("sigset at %4d: %s\n", line, buf);
+}
+
+#define show_sigset(set)	__show_sigset(__LINE__, set)
 
 static void *ch_thread_2(void *arg)
 {
@@ -52,6 +73,9 @@ static void *ch_thread_2(void *arg)
 	sigaddset(&blk_sigset, SIGFPE);
 	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
+
+	show_sigset(&blk_sigset);
+	show_sigset(&tls_data.blk_sigset);
 
 	task_waiter_complete(&t2, 1);
 	task_waiter_wait4(&t2, 2);
@@ -96,6 +120,9 @@ static void *ch_thread_1(void *arg)
 	sigaddset(&blk_sigset, SIGALRM);
 	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
+
+	show_sigset(&blk_sigset);
+	show_sigset(&tls_data.blk_sigset);
 
 	task_waiter_complete(&t1, 1);
 	task_waiter_wait4(&t1, 2);
