@@ -1335,8 +1335,8 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	}
 	core->thread_core->has_blk_sigset = true;
 
-	pr_info("%d: tid_address=%p sig_blocked=0x%lx\n", pid, taddr,
-		core->thread_core->blk_sigset);
+	pr_info("%d: virt_pid=%d tid_address=%p sig_blocked=0x%lx\n", pid,
+			tid->virt, taddr, core->thread_core->blk_sigset);
 	core->thread_info->clear_tid_addr = (u64) taddr;
 
 	ret = dump_sched_info(pid, core->thread_core);
@@ -1555,6 +1555,9 @@ static int dump_one_task(struct pstree_item *item)
 	item->pid.virt = misc.pid;
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;
+
+	pr_info("sid=%d pgid=%d pid=%d\n",
+		item->sid, item->pgid, item->pid.virt);
 
 	ret = -1;
 	cr_fdset = cr_task_fdset_open(item->pid.virt, O_DUMP);
