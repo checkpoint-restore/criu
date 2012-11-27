@@ -14,10 +14,12 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <syscall.h>
 
 #include "zdtmtst.h"
 
-#define gettid()	pthread_self()
+#define exit_group(code)	\
+	syscall(__NR_exit_group, code)
 
 const char *test_doc	= "Create a few pthreads/forks and compare TLS and mmap data on restore\n";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
@@ -57,7 +59,7 @@ static void *thread_subfunc_1(void *map)
 
 	pid = test_fork();
 	if (pid < 0) {
-		exit(1);
+		exit_group(1);
 	} else if (pid == 0) {
 		passage(0);
 		exit(0);
@@ -80,13 +82,15 @@ static void *thread_func_1(void *map)
 
 	memcpy(tls_data, __tls_data, sizeof(tls_data));
 
-	if (pthread_create(&th, NULL, &thread_subfunc_1, map))
-		perror("Cant create thread");
+	if (pthread_create(&th, NULL, &thread_subfunc_1, map)) {
+		fail("Can't pthread_create");
+		exit_group(1);
+	}
 
 	pid = test_fork();
 	if (pid < 0) {
 		fail("Failed to test_fork()\n");
-		exit(1);
+		exit_group(1);
 	} else if (pid == 0) {
 		passage(2);
 		exit(0);
@@ -112,7 +116,7 @@ static void *thread_func_2(void *map)
 	pid = test_fork();
 	if (pid < 0) {
 		fail("Failed to test_fork()\n");
-		exit(1);
+		exit_group(1);
 	} else if (pid == 0) {
 		passage(4);
 		exit(0);
