@@ -22,7 +22,6 @@
 const char *test_doc	= "Create a few pthreads/forks and compare TLS and mmap data on restore\n";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 
-static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static __thread char tls_data[10];
 
 #define TRANSITION_CREATED	1
@@ -57,10 +56,8 @@ static void *ff1(void *map)
 		SET_CREATED(map, 4);
 		while (1) {
 			int ret = 0;
-			pthread_mutex_lock(&mtx);
 			if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 				ret = 1;
-			pthread_mutex_unlock(&mtx);
 			if (ret) {
 				if (IS_STARTED(map, 4)) {
 					SET_FAILED(map, 4);
@@ -79,10 +76,8 @@ static void *ff1(void *map)
 	SET_CREATED(map, 5);
 	while (1) {
 		int ret = 0;
-		pthread_mutex_lock(&mtx);
 		if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 			ret = 1;
-		pthread_mutex_unlock(&mtx);
 		if (ret) {
 			if (IS_STARTED(map, 5))
 				SET_FAILED(map, 5);
@@ -120,10 +115,8 @@ static void *f1(void *map)
 		SET_CREATED(map, 2);
 		while (1) {
 			int ret = 0;
-			pthread_mutex_lock(&mtx);
 			if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 				ret = 1;
-			pthread_mutex_unlock(&mtx);
 			if (ret) {
 				if (IS_STARTED(map, 2)) {
 					SET_FAILED(map, 2);
@@ -142,10 +135,8 @@ static void *f1(void *map)
 	SET_CREATED(map, 3);
 	while (1) {
 		int ret = 0;
-		pthread_mutex_lock(&mtx);
 		if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 			ret = 1;
-		pthread_mutex_unlock(&mtx);
 		if (ret) {
 			if (IS_STARTED(map, 3))
 				SET_FAILED(map, 3);
@@ -180,10 +171,8 @@ static void *f2(void *map)
 		SET_CREATED(map, 0);
 		while (1) {
 			int ret = 0;
-			pthread_mutex_lock(&mtx);
 			if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 				ret = 1;
-			pthread_mutex_unlock(&mtx);
 			if (ret) {
 				if (IS_STARTED(map, 0)) {
 					SET_FAILED(map, 0);
@@ -202,10 +191,8 @@ static void *f2(void *map)
 	SET_CREATED(map, 1);
 	while (1) {
 		int ret = 0;
-		pthread_mutex_lock(&mtx);
 		if (memcmp(tls_data, __tls_data, sizeof(tls_data)))
 			ret = 1;
-		pthread_mutex_unlock(&mtx);
 		if (ret) {
 			if (IS_STARTED(map, 1))
 				SET_FAILED(map, 1);
