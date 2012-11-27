@@ -92,7 +92,8 @@ static void *ch_thread_1(void *arg)
 
 	sigemptyset(&blk_sigset);
 	pthread_sigmask(SIG_SETMASK, NULL, &blk_sigset);
-	sigaddset(&blk_sigset, SIGTRAP);
+	sigaddset(&blk_sigset, SIGWINCH);
+	sigaddset(&blk_sigset, SIGALRM);
 	pthread_sigmask(SIG_SETMASK, &blk_sigset, NULL);
 	memcpy(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset));
 
