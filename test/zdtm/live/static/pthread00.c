@@ -95,7 +95,7 @@ static void *ff1(void *map)
 	}
 
 	test_msg("Waiting for %d\n", pid);
-	waitpid(pid, &status, P_ALL);
+	waitpid(pid, &status, 0);
 
 	return NULL;
 }
@@ -159,7 +159,7 @@ static void *f1(void *map)
 
 	pthread_join(th, NULL);
 	test_msg("Waiting for %d\n", pid);
-	waitpid(pid, &status, P_ALL);
+	waitpid(pid, &status, 0);
 
 	return NULL;
 }
@@ -218,7 +218,7 @@ static void *f2(void *map)
 	}
 
 	test_msg("Waiting for %d\n", pid);
-	waitpid(pid, &status, P_ALL);
+	waitpid(pid, &status, 0);
 
 	return NULL;
 }
