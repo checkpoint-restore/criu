@@ -6,8 +6,6 @@
 #include <net/if_arp.h>
 #include <sys/wait.h>
 #include <sched.h>
-#include <linux/if.h>
-
 #include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"
@@ -19,8 +17,6 @@
 #include "protobuf/netdev.pb-c.h"
 
 static int ns_fd = -1;
-
-static int collect_one_netdev(int idx, char *name);
 
 void show_netdevices(int fd, struct cr_options *opt)
 {
@@ -275,9 +271,6 @@ static int restore_links(int pid)
 			break;
 
 		ret = restore_link(nde, nlsk);
-		if (!ret)
-			ret = collect_one_netdev(nde->ifindex, nde->name);
-
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
 			break;
@@ -409,70 +402,3 @@ void network_unlock(void)
 	run_scripts("network-unlock");
 }
 
-struct net_dev {
-	int idx;
-	char name[IFNAMSIZ];
-	struct net_dev *next;
-};
-
-static struct net_dev *net_devs;
-
-static int collect_one_netdev(int idx, char *name)
-{
-	struct net_dev *nd;
-
-	nd = xmalloc(sizeof(*nd));
-	if (!nd)
-		return -1;
-
-	nd->idx = idx;
-	strncpy(nd->name, name, IFNAMSIZ);
-	nd->next = net_devs;
-	net_devs = nd;
-
-	pr_debug("\tCollected %d:%s netdev\n", idx, name);
-
-	return 0;
-}
-
-static int collect_netdev(struct nlmsghdr *hdr, void *arg)
-{
-	struct ifinfomsg *ifi;
-	int len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-	struct rtattr *tb[IFLA_MAX + 1];
-
-	ifi = NLMSG_DATA(hdr);
-	if (len < 0) {
-		pr_err("No iflas for link %d\n", ifi->ifi_index);
-		return -1;
-	}
-
-	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-	if (!tb[IFLA_IFNAME]) {
-		pr_err("No name for device %d\n", ifi->ifi_index);
-		return -1;
-	}
-
-	return collect_one_netdev(ifi->ifi_index, RTA_DATA(tb[IFLA_IFNAME]));
-}
-
-int collect_net_devs(unsigned long flags)
-{
-	if (flags & CLONE_NEWNET)
-		/* restore_links() will collect them */
-		return 0;
-
-	pr_info("Collecting net devices\n");
-	return do_dump_links(collect_netdev, NULL);
-}
-
-char *resolve_dev_name(int index)
-{
-	struct net_dev *nd;
-
-	for (nd = net_devs; nd; nd = nd->next)
-		if (nd->idx == index)
-			return nd->name;
-
-	return NULL;
-}
