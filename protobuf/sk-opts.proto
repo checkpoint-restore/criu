@@ -16,7 +16,7 @@ message sk_opts_entry {
 	optional bool		so_dontroute	= 13;
 	optional bool		so_no_check	= 14;
 
-	optional uint32		so_bound_dev	= 15;
+	optional string		so_bound_dev	= 15;
 
 	repeated fixed64	so_filter	= 16;
 }

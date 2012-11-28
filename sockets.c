@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <linux/if.h>
 #include <linux/filter.h>
+#include <string.h>
 
 #include "libnetlink.h"
 #include "sockets.h"
@@ -39,39 +40,39 @@
 
 static int dump_bound_dev(int sk, SkOptsEntry *soe)
 {
-	int dev = 0, ret;
+	int ret;
+	char dev[IFNAMSIZ];
 	socklen_t len = sizeof(dev);
 
 	ret = getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, &dev, &len);
-	if (ret && errno != ENOPROTOOPT) {
+	if (ret) {
+		if (errno == ENOPROTOOPT) {
+			pr_warn("Bound device may be missing for socket\n");
+			return 0;
+		}
+
 		pr_perror("Can't get bound dev");
 		return ret;
 	}
 
-	if (dev == 0)
+	if (len == 0)
 		return 0;
 
-	pr_debug("\tDumping %d bound dev for sk\n", dev);
-	soe->has_so_bound_dev = true;
-	soe->so_bound_dev = dev;
+	pr_debug("\tDumping %s bound dev for sk\n", dev);
+	soe->so_bound_dev = xmalloc(len);
+	strcpy(soe->so_bound_dev, dev);
 	return 0;
 }
 
 static int restore_bound_dev(int sk, SkOptsEntry *soe)
 {
-	char *n;
+	char *n = soe->so_bound_dev;
 
-	if (!soe->has_so_bound_dev || !soe->so_bound_dev)
+	if (!n)
 		return 0;
 
-	pr_debug("\tBinding socket to %d dev\n", soe->so_bound_dev);
-	n = resolve_dev_name(soe->so_bound_dev);
-	if (!n) {
-		pr_err("Can't resolve netdev name for %d\n", soe->so_bound_dev);
-		return -1;
-	}
-
-	return do_restore_opt(sk, SOL_SOCKET, SO_BINDTODEVICE, n, IFNAMSIZ);
+	pr_debug("\tBinding socket to %s dev\n", n);
+	return do_restore_opt(sk, SOL_SOCKET, SO_BINDTODEVICE, n, strlen(n));
 }
 
 /*
@@ -362,6 +363,7 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 void release_skopts(SkOptsEntry *soe)
 {
 	xfree(soe->so_filter);
+	xfree(soe->so_bound_dev);
 }
 
 int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)

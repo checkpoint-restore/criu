@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -12,8 +13,9 @@ const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 
 int main(int argc, char ** argv)
 {
-	int sock, ret, dev, dev2;
-	socklen_t len = sizeof(dev);
+	int sock, ret;
+	char dev[IFNAMSIZ], dev2[IFNAMSIZ];
+	socklen_t len, len2;
 
 	test_init(argc, argv);
 
@@ -31,6 +33,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+	len = sizeof(dev);
 	ret = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &dev, &len);
 	if (ret < 0) {
 		err("can't get dev binding");
@@ -40,15 +43,14 @@ int main(int argc, char ** argv)
 	test_daemon();
 	test_waitsig();
 
-	ret = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &dev2, &len);
+	len2 = sizeof(dev);
+	ret = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &dev2, &len2);
 	if (ret < 0) {
 		fail("can't get dev binding2");
 		return 1;
 	}
 
-	if (!dev2)
-		fail("unbound sock restored");
-	else if (dev != dev2)
+	if ((len != len2) || strncmp(dev, dev2, len))
 		fail("wrong bound device");
 	else
 		pass();
