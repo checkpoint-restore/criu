@@ -111,8 +111,8 @@ int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 {
 	char path[32];
-	int mntfd, ret = -1;
-	int wd, target;
+	int mntfd = -1, ret = -1;
+	int wd, target = -1;
 	fh_t handle = { };
 
 	/* syscall waits for strict structure here */
@@ -133,7 +133,7 @@ static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 	if (target < 0) {
 		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
 			  iwe->s_dev, iwe->i_ino);
-		return -1;
+		goto err;
 	}
 
 	snprintf(path, sizeof(path), "/proc/self/fd/%d", target);
@@ -162,9 +162,9 @@ static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 		inotify_rm_watch(inotify_fd, wd);
 	}
 
-	close(mntfd);
-	close(target);
-
+err:
+	close_safe(&mntfd);
+	close_safe(&target);
 	return ret;
 }
 
