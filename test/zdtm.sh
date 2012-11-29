@@ -111,6 +111,19 @@ static/sem
 transition/ipc
 "
 
+TEST_CR_KERNEL="
+static/sock_opts01
+static/sockets01
+static/sock_filter
+static/socket-tcp6
+streaming/socket-tcp6
+static/socket-tcpbuf6
+static/eventfs00
+static/signalfd00
+static/inotify00
+$IPC_TEST_LIST
+"
+
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 TINIT=`pwd`/`dirname $0`/zdtm/lib/test_init
 test -x $CRTOOLS || exit 1
@@ -121,6 +134,32 @@ PID=""
 PIDNS=""
 
 ITERATIONS=1
+
+check_mainstream()
+{
+	local -a ver_arr
+	local ver_str=`uname -r`
+
+	$CRTOOLS check && return 0
+	MAINSTREAM_KERNEL=1
+
+	cat >&2 <<EOF
+============================= WARNING =============================
+Not all C/R features are commited in the meainstream kernel.
+Linux C/R can be cloned from:
+git://git.kernel.org/pub/scm/linux/kernel/git/gorcunov/linux-cr.git
+===================================================================
+EOF
+
+	ver_arr=(`echo ${ver_str//./ }`)
+
+	[ "${ver_arr[0]}" -gt 3 ] && return 0
+	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 7 ]] && return 0
+
+	echo "A version of kernel should be greater or equal to 3.7"
+
+	return 1;
+}
 
 umount_zdtm_root()
 {
@@ -214,6 +253,11 @@ diff_fds()
 run_test()
 {
 	local test=$1
+
+	[ -n "$MAINSTREAM_KERNEL" ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/} && {
+		echo "Skip $test"
+		return 0
+	}
 
 	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
 	test=${ZP}/${test#ns/}
@@ -346,6 +390,9 @@ while :; do
 done
 
 if [ $# -eq 0 ]; then
+
+	check_mainstream || exit 1
+
 	for t in $TEST_LIST; do
 		run_test $t || case_error $t
 	done
