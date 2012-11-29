@@ -262,12 +262,10 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	d->state = m->udiag_state;
 	INIT_LIST_HEAD(&d->list);
 
-	if (!tb[UNIX_DIAG_SHUTDOWN]) {
-		pr_err("No socket shutdown info\n");
-		goto err;
-	}
-
-	d->shutdown = *(u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
+	if (tb[UNIX_DIAG_SHUTDOWN])
+		d->shutdown = *(u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
+	else
+		pr_err_once("No socket shutdown info\n");
 
 	if (tb[UNIX_DIAG_PEER])
 		d->peer_ino = *(int *)RTA_DATA(tb[UNIX_DIAG_PEER]);

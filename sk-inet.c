@@ -345,11 +345,6 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
 		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
 
-	if (!tb[INET_DIAG_SHUTDOWN]) {
-		pr_err("Can't check shutdown state of inet socket\n");
-		return -1;
-	}
-
 	d = xzalloc(sizeof(*d));
 	if (!d)
 		return -1;
@@ -363,7 +358,11 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 	d->wqlen = m->idiag_wqueue;
 	memcpy(d->src_addr, m->id.idiag_src, sizeof(u32) * 4);
 	memcpy(d->dst_addr, m->id.idiag_dst, sizeof(u32) * 4);
-	d->shutdown = *(u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
+
+	if (tb[INET_DIAG_SHUTDOWN])
+		d->shutdown = *(u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
+	else
+		pr_err_once("Can't check shutdown state of inet socket\n");
 
 	ret = sk_collect_one(m->idiag_inode, family, &d->sd);
 
