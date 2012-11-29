@@ -56,30 +56,50 @@ void mark_stack_vma(unsigned long sp, struct list_head *vma_area_list)
 	BUG();
 }
 
+#define VMA_OPT_LEN	128
+
+static void vma_opt_str(const struct vma_area *v, char *opt)
+{
+	int p = 0;
+
+#define opt2s(_o, _s)	do {				\
+		if (v->vma.status & _o)			\
+			p += sprintf(opt + p, _s " ");	\
+	} while (0)
+
+	opt[p] = '\0';
+	opt2s(VMA_AREA_REGULAR, "reg");
+	opt2s(VMA_AREA_STACK, "stk");
+	opt2s(VMA_AREA_VSYSCALL, "vsys");
+	opt2s(VMA_AREA_VDSO, "vdso");
+	opt2s(VMA_FORCE_READ, "frd");
+	opt2s(VMA_AREA_HEAP, "heap");
+	opt2s(VMA_FILE_PRIVATE, "fp");
+	opt2s(VMA_FILE_SHARED, "fs");
+	opt2s(VMA_ANON_SHARED, "as");
+	opt2s(VMA_ANON_PRIVATE, "ap");
+	opt2s(VMA_AREA_SYSVIPC, "sysv");
+	opt2s(VMA_AREA_SOCKET, "sk");
+
+#undef opt2s
+}
+
 void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 {
+	char opt[VMA_OPT_LEN];
+
 	if (!vma_area)
 		return;
 
+	vma_opt_str(vma_area, opt);
 	print_on_level(loglevel, "%#lx-%#lx (%liK) prot %#x flags %#x off %#lx "
-		       "vf: %s st: %s spc: %-8s shmid: %#lx\n",
-		       vma_area->vma.start, vma_area->vma.end,
-		       KBYTES(vma_area_len(vma_area)),
-		       vma_area->vma.prot,
-		       vma_area->vma.flags,
-		       vma_area->vma.pgoff,
-		       vma_area->vm_file_fd < 0 ? "n" : "y",
-		       !vma_area->vma.status ? "--" :
-		       ((vma_area->vma.status & VMA_FILE_PRIVATE) ? "FP" :
-			((vma_area->vma.status & VMA_FILE_SHARED) ? "FS" :
-			 ((vma_area->vma.status & VMA_ANON_SHARED) ? "AS" :
-			  ((vma_area->vma.status & VMA_ANON_PRIVATE) ? "AP" : "--")))),
-		       !vma_area->vma.status ? "--" :
-		       ((vma_area->vma.status & VMA_AREA_STACK) ? "stack" :
-			((vma_area->vma.status & VMA_AREA_HEAP) ? "heap" :
-			 ((vma_area->vma.status & VMA_AREA_VSYSCALL) ? "vsyscall" :
-			  ((vma_area->vma.status & VMA_AREA_VDSO) ? "vdso" : "n")))),
-			vma_area->vma.shmid);
+			"%s shmid: %#lx\n",
+			vma_area->vma.start, vma_area->vma.end,
+			KBYTES(vma_area_len(vma_area)),
+			vma_area->vma.prot,
+			vma_area->vma.flags,
+			vma_area->vma.pgoff,
+			opt, vma_area->vma.shmid);
 }
 
 int close_safe(int *fd)
