@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
-
+#include <string.h>
 #include <sys/types.h>
 #include <sys/statfs.h>
 #include <dirent.h>
@@ -324,5 +324,10 @@ extern void shfree_last(void *ptr);
 extern int run_scripts(char *action);
 
 extern int cr_system(int in, int out, int err, char *cmd, char *const argv[]);
+
+static inline bool dir_dots(struct dirent *de)
+{
+	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
+}
 
 #endif /* UTIL_H_ */

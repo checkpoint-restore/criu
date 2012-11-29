@@ -308,9 +308,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 		return -1;
 
 	while ((de = readdir(fdir))) {
-		if (!strcmp(de->d_name, "."))
-			continue;
-		if (!strcmp(de->d_name, ".."))
+		if (dir_dots(de))
 			continue;
 		if (!strcmp(de->d_name, "register"))
 			continue;

@@ -507,9 +507,7 @@ static int close_old_fds(struct pstree_item *me)
 		return -1;
 
 	while ((de = readdir(dir))) {
-		if (!strcmp(de->d_name, "."))
-			continue;
-		if (!strcmp(de->d_name, ".."))
+		if (dir_dots(de))
 			continue;
 
 		ret = sscanf(de->d_name, "%d", &fd);

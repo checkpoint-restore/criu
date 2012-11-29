@@ -168,9 +168,7 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 
 	n = 0;
 	while ((de = readdir(fd_dir))) {
-		if (!strcmp(de->d_name, "."))
-			continue;
-		if (!strcmp(de->d_name, ".."))
+		if (dir_dots(de))
 			continue;
 
 		if (n > PARASITE_MAX_FDS - 1)
@@ -1029,9 +1027,7 @@ static int parse_children(pid_t pid, pid_t **_c, int *_n)
 		return -1;
 
 	while ((de = readdir(dir))) {
-		if (!strcmp(de->d_name, "."))
-			continue;
-		if (!strcmp(de->d_name, ".."))
+		if (dir_dots(de))
 			continue;
 
 		file = fopen_proc(pid, "task/%s/children", de->d_name);
