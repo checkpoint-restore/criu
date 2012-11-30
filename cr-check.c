@@ -405,6 +405,18 @@ static int check_so_get_filter(void)
 	return 0;
 }
 
+static int check_ipc(void)
+{
+	int ret;
+
+	ret = access("/proc/sys/kernel/sem_next_id", R_OK | W_OK);
+	if (!ret)
+		return 0;
+
+	pr_msg("/proc/sys/kernel/sem_next_id sysctl is missing.\n");
+	return -1;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -429,6 +441,7 @@ int cr_check(void)
 	ret |= check_unaligned_vmsplice();
 	ret |= check_tty();
 	ret |= check_so_get_filter();
+	ret |= check_ipc();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
