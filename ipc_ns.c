@@ -25,32 +25,12 @@
 #define KEY key
 #endif
 
-#ifndef IPC_PRESET
-#define IPC_PRESET		00040000
-#endif
-
-#ifndef SHM_SET
-#define SHM_SET			15
-#endif
-
 #ifndef MSGMAX
 #define MSGMAX			8192
 #endif
 
 #ifndef MSG_COPY
 #define MSG_COPY		040000
-#endif
-
-#ifndef MSG_SET
-#define MSG_SET			13
-#endif
-
-#ifndef MSG_SET_COPY
-#define MSG_SET_COPY		14
-#endif
-
-#ifndef SEM_SET
-#define SEM_SET			20
 #endif
 
 static void pr_ipc_desc_entry(unsigned int loglevel, const IpcDescEntry *desc)
@@ -574,33 +554,30 @@ out:
 static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *entry)
 {
 	int ret, id;
-	struct semid_ds ds;
+	struct sysctl_req req[] = {
+		{ "kernel/sem_next_id", &entry->desc->id, CTL_U32 },
+		{ },
+	};
 
-	id = semget(entry->desc->id, entry->nsems,
-		     entry->desc->mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	ret = sysctl_op(req, CTL_WRITE);
+	if (ret < 0) {
+		pr_err("Failed to set desired IPC sem ID\n");
+		return ret;
+	}
+
+	id = semget(entry->desc->key, entry->nsems,
+		     entry->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Failed to create sem set");
 		return -errno;
 	}
 
 	if (id != entry->desc->id) {
-		pr_err("Failed to preset id (%d instead of %d)\n",
+		pr_err("Failed to restore sem id (%d instead of %d)\n",
 							id, entry->desc->id);
 		return -EFAULT;
 	}
 
-	ret = semctl(id, 0, SEM_STAT, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to stat sem set");
-		return -errno;
-	}
-
-	ds.sem_perm.KEY = entry->desc->key;
-	ret = semctl(id, 0, SEM_SET, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to update sem key");
-		return -errno;
-	}
 	ret = prepare_ipc_sem_values(fd, entry);
 	if (ret < 0) {
 		pr_err("Failed to update sem pages\n");
@@ -695,34 +672,29 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
 static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *entry)
 {
 	int ret, id;
-	struct msqid_ds ds;
+	struct sysctl_req req[] = {
+		{ "kernel/msg_next_id", &entry->desc->id, CTL_U32 },
+		{ },
+	};
 
-	id = msgget(entry->desc->id,
-		     entry->desc->mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	ret = sysctl_op(req, CTL_WRITE);
+	if (ret < 0) {
+		pr_err("Failed to set desired IPC msg ID\n");
+		return ret;
+	}
+
+	id = msgget(entry->desc->key, entry->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
-		pr_perror("Failed to create message queue");
+		pr_perror("Failed to create msg set");
 		return -errno;
 	}
 
 	if (id != entry->desc->id) {
-		pr_err("Failed to preset id (%d instead of %d)\n",
+		pr_err("Failed to restore msg id (%d instead of %d)\n",
 							id, entry->desc->id);
 		return -EFAULT;
 	}
 
-	ret = msgctl(id, MSG_STAT, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to stat message queue");
-		return -errno;
-	}
-
-	ds.msg_perm.KEY = entry->desc->key;
-	ds.msg_qbytes = entry->qbytes;
-	ret = msgctl(id, MSG_SET, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to update message key");
-		return -errno;
-	}
 	ret = prepare_ipc_msg_queue_messages(fd, entry);
 	if (ret < 0) {
 		pr_err("Failed to update message queue messages\n");
@@ -793,33 +765,30 @@ static int prepare_ipc_shm_pages(int fd, const IpcShmEntry *shm)
 static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 {
 	int ret, id;
-	struct shmid_ds ds;
+	struct sysctl_req req[] = {
+		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32 },
+		{ },
+	};
 
-	id = shmget(shm->desc->id, shm->size,
-		     shm->desc->mode | IPC_CREAT | IPC_EXCL | IPC_PRESET);
+	ret = sysctl_op(req, CTL_WRITE);
+	if (ret < 0) {
+		pr_err("Failed to set desired IPC shm ID\n");
+		return ret;
+	}
+
+	id = shmget(shm->desc->key, shm->size,
+		    shm->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
-		pr_perror("Failed to create shm segment");
+		pr_perror("Failed to create shm set");
 		return -errno;
 	}
 
 	if (id != shm->desc->id) {
-		pr_err("Failed to preset id (%d instead of %d)\n",
+		pr_err("Failed to restore shm id (%d instead of %d)\n",
 							id, shm->desc->id);
 		return -EFAULT;
 	}
 
-	ret = shmctl(id, SHM_STAT, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to stat shm segment");
-		return -errno;
-	}
-
-	ds.shm_perm.KEY = shm->desc->key;
-	ret = shmctl(id, SHM_SET, &ds);
-	if (ret < 0) {
-		pr_perror("Failed to update shm key");
-		return -errno;
-	}
 	ret = prepare_ipc_shm_pages(fd, shm);
 	if (ret < 0) {
 		pr_err("Failed to update shm pages\n");
