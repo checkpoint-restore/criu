@@ -44,6 +44,29 @@ static void read_from_proc(const char *path, char *buf, size_t size)
 	close(fd);
 }
 
+static int cmp_auxv(const void *auxv_orig, const void *auxv, size_t size)
+{
+	const unsigned long long *new = auxv;
+	const unsigned int *old = auxv_orig;
+
+	if (!memcmp(auxv_orig, auxv, size))
+		return 0;
+
+	/*
+	 * File /proc/$pid/auxv does not has compat layer, this "array of long"
+	 * has different byte-representation between 32-bit and 64-bit host.
+	 * We can migrate tasks only in one direction, thus check is simple.
+	 */
+	while (size > 0) {
+		if (*new != *old)
+			return -1;
+		new++;
+		old++;
+		size -= sizeof(*new);
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	char cmdline_orig[4096];
@@ -89,7 +112,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (memcmp(auxv_orig, auxv, sizeof(auxv_orig))) {
+	if (cmp_auxv(auxv_orig, auxv, sizeof(auxv_orig))) {
 		fail("auxv corrupted on restore");
 		exit(1);
 	}
