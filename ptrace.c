@@ -140,55 +140,6 @@ err:
 	return -1;
 }
 
-int ptrace_show_area_r(pid_t pid, void *addr, long bytes)
-{
-	unsigned long w, i;
-	if (bytes & (sizeof(long) - 1))
-		return -1;
-	for (w = 0; w < bytes / sizeof(long); w++) {
-		unsigned long *a = addr;
-		unsigned long v;
-		v = ptrace(PTRACE_PEEKDATA, pid, a + w, NULL);
-		if (v == -1U && errno)
-			goto err;
-		else {
-			unsigned char *c = (unsigned char *)&v;
-			for (i = sizeof(v)/sizeof(*c); i > 0; i--)
-				pr_msg("0x%02x ", c[i - 1]);
-			pr_msg("  ");
-		}
-	}
-	pr_msg("\n");
-	return 0;
-err:
-	return -2;
-}
-
-int ptrace_show_area(pid_t pid, void *addr, long bytes)
-{
-	unsigned long w, i;
-	if (bytes & (sizeof(long) - 1))
-		return -1;
-	pr_msg("0x%016lx: ", (unsigned long)addr);
-	for (w = 0; w < bytes / sizeof(long); w++) {
-		unsigned long *a = addr;
-		unsigned long v;
-		v = ptrace(PTRACE_PEEKDATA, pid, a + w, NULL);
-		if (v == -1U && errno)
-			goto err;
-		else {
-			unsigned char *c = (unsigned char *)&v;
-			for (i = 0; i < sizeof(v)/sizeof(*c); i++)
-				pr_msg("0x%02x ", c[i]);
-			pr_msg("  ");
-		}
-	}
-	pr_msg("\n");
-	return 0;
-err:
-	return -2;
-}
-
 int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes)
 {
 	unsigned long w;
