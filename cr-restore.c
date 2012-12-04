@@ -743,9 +743,6 @@ static int restore_one_task(int pid)
 	int fd, ret;
 	CoreEntry *core;
 
-	if (current->state == TASK_HELPER)
-		return restore_one_fake();
-
 	fd = open_image_ro(CR_FD_CORE, pid);
 	if (fd < 0)
 		return -1;
@@ -1095,9 +1092,10 @@ static int restore_task_with_children(void *_arg)
 	if (current->pgid != current->pid.virt)
 		restore_pgid();
 
-	if (current->state != TASK_HELPER)
-		restore_finish_stage(CR_STATE_RESTORE_PGID);
+	if (current->state == TASK_HELPER)
+		return restore_one_fake();
 
+	restore_finish_stage(CR_STATE_RESTORE_PGID);
 	return restore_one_task(current->pid.virt);
 }
 
