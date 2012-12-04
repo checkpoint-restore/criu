@@ -1092,6 +1092,37 @@ static int restore_task_with_children(void *_arg)
 	return restore_one_task(current->pid.virt);
 }
 
+static inline int stage_participants(int next_stage)
+{
+	switch (next_stage) {
+	case CR_STATE_FORKING:
+		return task_entries->nr_tasks + task_entries->nr_helpers;
+	case CR_STATE_RESTORE_PGID:
+		return task_entries->nr_tasks;
+	case CR_STATE_RESTORE:
+	case CR_STATE_RESTORE_SIGCHLD:
+		return task_entries->nr_threads;
+	}
+
+	BUG();
+	return -1;
+}
+
+static int restore_switch_stage(int next_stage)
+{
+	int ret;
+	futex_t *np = &task_entries->nr_in_progress;
+
+	futex_wait_while_gt(np, 0);
+	ret = (int)futex_get(np);
+	if (ret < 0)
+		return ret;
+
+	futex_set_and_wake(np, stage_participants(next_stage));
+	futex_set_and_wake(&task_entries->start, next_stage);
+	return 0;
+}
+
 static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 {
 	int ret;
@@ -1132,38 +1163,28 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		return -1;
 	}
 
-	futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks + task_entries->nr_helpers);
+	futex_set(&task_entries->nr_in_progress, stage_participants(CR_STATE_FORKING));
 
 	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)
 		return -1;
 
 	pr_info("Wait until all tasks are forked\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_tasks);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_PGID);
 
 	pr_info("Wait until all tasks restored pgid\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE);
 	if (ret < 0)
 		goto out;
-
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_threads);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE);
 
 	pr_info("Wait until all tasks are restored\n");
-	futex_wait_while_gt(&task_entries->nr_in_progress, 0);
-	ret = (int)futex_get(&task_entries->nr_in_progress);
+	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_threads);
-	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_wait_until(&task_entries->nr_in_progress, 0);
 
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
