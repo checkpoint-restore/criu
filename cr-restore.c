@@ -1118,7 +1118,7 @@ static int restore_switch_stage(int next_stage)
 	if (ret < 0)
 		return ret;
 
-	futex_set_and_wake(np, stage_participants(next_stage));
+	futex_set(np, stage_participants(next_stage));
 	futex_set_and_wake(&task_entries->start, next_stage);
 	return 0;
 }
