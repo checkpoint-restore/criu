@@ -272,6 +272,12 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 	return NULL;
 }
 
+#define restore_finish_stage(__stage) do {				\
+		futex_dec_and_wake(&task_entries->nr_in_progress);	\
+		futex_wait_while(&task_entries->start, __stage);	\
+	} while (0)
+
+
 /* the restorer_blob_offset__ prefix is added by gen_offsets.sh */
 #define restorer_sym(rblob, name)	((void *)(rblob) + restorer_blob_offset__##name)
 

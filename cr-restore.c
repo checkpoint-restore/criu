@@ -671,13 +671,9 @@ static int restore_one_zombie(int pid, int exit_code)
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
 	if (task_entries != NULL) {
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE);
-
+		restore_finish_stage(CR_STATE_RESTORE);
 		zombie_prepare_signals();
-
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
+		restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 	}
 
 	if (exit_code & 0x7f) {
@@ -1085,16 +1081,13 @@ static int restore_task_with_children(void *_arg)
 	if (current->pgid == current->pid.virt)
 		restore_pgid();
 
-	futex_dec_and_wake(&task_entries->nr_in_progress);
-	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
+	restore_finish_stage(CR_STATE_FORKING);
 
 	if (current->pgid != current->pid.virt)
 		restore_pgid();
 
-	if (current->state != TASK_HELPER) {
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_wait_while(&task_entries->start, CR_STATE_RESTORE_PGID);
-	}
+	if (current->state != TASK_HELPER)
+		restore_finish_stage(CR_STATE_RESTORE_PGID);
 
 	return restore_one_task(current->pid.virt);
 }
