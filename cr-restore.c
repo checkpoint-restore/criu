@@ -1132,6 +1132,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		return -1;
 	}
 
+	futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks + task_entries->nr_helpers);
 
 	ret = fork_with_pid(init, opts->namespaces_flags);
 	if (ret < 0)
@@ -1229,8 +1230,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 
 	if (crtools_prepare_shared() < 0)
 		return -1;
-
-	futex_set(&task_entries->nr_in_progress, task_entries->nr_tasks + task_entries->nr_helpers);
 
 	return restore_root_task(root_item, opts);
 }
