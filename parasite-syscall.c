@@ -437,7 +437,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_sa_args *args;
-	int ret, i, fd;
+	int ret, sig, fd;
 	SaEntry se = SA_ENTRY__INIT;
 
 	args = parasite_args(ctl, struct parasite_dump_sa_args);
@@ -448,8 +448,10 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 
 	fd = fdset_fd(cr_fdset, CR_FD_SIGACT);
 
-	for (i = 1; i < SIGMAX; i++) {
-		if (i == SIGSTOP || i == SIGKILL)
+	for (sig = 1; sig <= SIGMAX; sig++) {
+		int i = sig - 1;
+
+		if (sig == SIGSTOP || sig == SIGKILL)
 			continue;
 
 		ASSIGN_TYPED(se.sigaction, args->sas[i].rt_sa_handler);

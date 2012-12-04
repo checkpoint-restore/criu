@@ -247,11 +247,13 @@ static int dump_sigact(struct parasite_dump_sa_args *da)
 {
 	int sig, ret = 0;
 
-	for (sig = 1; sig < SIGMAX; sig++) {
+	for (sig = 1; sig <= SIGMAX; sig++) {
+		int i = sig - 1;
+
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = sys_sigaction(sig, NULL, &da->sas[sig], sizeof(rt_sigset_t));
+		ret = sys_sigaction(sig, NULL, &da->sas[i], sizeof(rt_sigset_t));
 		if (ret < 0) {
 			pr_err("sys_sigaction failed\n");
 			break;

@@ -520,11 +520,20 @@ static int prepare_sigactions(int pid)
 	if (fd_sigact < 0)
 		return -1;
 
-	for (sig = 1; sig < SIGMAX; sig++) {
+	for (sig = 1; sig <= SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = pb_read_one(fd_sigact, &e, PB_SIGACT);
+		ret = pb_read_one_eof(fd_sigact, &e, PB_SIGACT);
+		if (ret == 0) {
+			if (sig != SIGMAX_OLD + 1) { /* backward compatibility */
+				pr_err("Unexpected EOF %d\n", sig);
+				ret = -1;
+				break;
+			}
+			pr_warn("This format of sigacts-%d.img is depricated\n", pid);
+			break;
+		}
 		if (ret < 0)
 			break;
 
@@ -618,7 +627,7 @@ static void zombie_prepare_signals(void)
 	memset(&act, 0, sizeof(act));
 	act.sa_handler = SIG_DFL;
 
-	for (sig = 1; sig < SIGMAX; sig++)
+	for (sig = 1; sig <= SIGMAX; sig++)
 		sigaction(sig, &act, NULL);
 }
 
@@ -653,7 +662,7 @@ static void zombie_prepare_signals(void)
 
 static inline int sig_fatal(int sig)
 {
-	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1 << sig));
+	return (sig > 0) && (sig < SIGMAX) && (SIG_FATAL_MASK & (1UL << sig));
 }
 
 struct task_entries *task_entries;

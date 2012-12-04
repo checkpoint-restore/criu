@@ -61,7 +61,8 @@
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 
-#define SIGMAX			32
+#define SIGMAX			64
+#define SIGMAX_OLD		31
 
 #define ERESTARTSYS		512
 #define ERESTARTNOINTR		513
