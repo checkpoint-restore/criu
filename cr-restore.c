@@ -667,7 +667,7 @@ static inline int sig_fatal(int sig)
 
 struct task_entries *task_entries;
 
-static int restore_one_fake(int pid)
+static int restore_one_fake(void)
 {
 	/* We should wait here, otherwise last_pid will be changed. */
 	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
@@ -744,7 +744,7 @@ static int restore_one_task(int pid)
 	CoreEntry *core;
 
 	if (current->state == TASK_HELPER)
-		return restore_one_fake(pid);
+		return restore_one_fake();
 
 	fd = open_image_ro(CR_FD_CORE, pid);
 	if (fd < 0)
