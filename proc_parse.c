@@ -900,9 +900,9 @@ int parse_fdinfo(int fd, int type,
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 			ret = sscanf(str,
-					"inotify wd: %8d ino: %16lx sdev: %8x "
-					"mask: %8x ignored_mask: %8x "
-					"fhandle-bytes: %8x fhandle-type: %8x "
+					"inotify wd:%x ino:%lx sdev:%x "
+					"mask:%x ignored_mask:%x "
+					"fhandle-bytes:%x fhandle-type:%x "
 					"f_handle: %n",
 					&entry.ify.wd, &entry.ify.i_ino, &entry.ify.s_dev,
 					&entry.ify.mask, &entry.ify.ignored_mask,
