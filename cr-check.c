@@ -7,6 +7,7 @@
 #include <sys/signalfd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <linux/if.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 
@@ -385,10 +386,11 @@ static int check_unaligned_vmsplice(void)
 #define SO_GET_FILTER           SO_ATTACH_FILTER
 #endif
 
-static int check_so_get_filter(void)
+static int check_so_gets(void)
 {
 	int sk;
 	socklen_t len;
+	char name[IFNAMSIZ];
 
 	sk = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sk < 0) {
@@ -399,6 +401,12 @@ static int check_so_get_filter(void)
 	len = 0;
 	if (getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len)) {
 		pr_perror("Can't get socket filter");
+		return 1;
+	}
+
+	len = sizeof(name);
+	if (getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, name, &len)) {
+		pr_perror("Can't get socket bound dev");
 		return 1;
 	}
 
@@ -440,7 +448,7 @@ int cr_check(void)
 	ret |= check_fdinfo_ext();
 	ret |= check_unaligned_vmsplice();
 	ret |= check_tty();
-	ret |= check_so_get_filter();
+	ret |= check_so_gets();
 	ret |= check_ipc();
 
 	if (!ret)
