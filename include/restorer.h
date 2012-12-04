@@ -252,7 +252,7 @@ enum {
 };
 
 struct task_entries {
-	int nr, nr_tasks, nr_helpers;
+	int nr_threads, nr_tasks, nr_helpers;
 	futex_t nr_in_progress;
 	futex_t start;
 };

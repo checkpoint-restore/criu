@@ -256,7 +256,7 @@ int prepare_pstree(void)
 		for (i = 0; i < e->n_threads; i++)
 			pi->threads[i].virt = e->threads[i];
 
-		task_entries->nr += e->n_threads;
+		task_entries->nr_threads += e->n_threads;
 		task_entries->nr_tasks++;
 
 		pstree_entry__free_unpacked(e, NULL);

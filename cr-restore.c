@@ -1153,7 +1153,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
+	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_threads);
 	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE);
 
 	pr_info("Wait until all tasks are restored\n");
@@ -1162,7 +1162,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	if (ret < 0)
 		goto out;
 
-	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr);
+	futex_set_and_wake(&task_entries->nr_in_progress, task_entries->nr_threads);
 	futex_set_and_wake(&task_entries->start, CR_STATE_RESTORE_SIGCHLD);
 	futex_wait_until(&task_entries->nr_in_progress, 0);
 
@@ -1206,7 +1206,7 @@ static int prepare_task_entries()
 		pr_perror("Can't map shmem");
 		return -1;
 	}
-	task_entries->nr = 0;
+	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_FORKING);
