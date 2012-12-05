@@ -209,7 +209,7 @@ tail:
 
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
-	int img, fd = -1;
+	int img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	char lpath[32];
 
@@ -227,6 +227,8 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 		return -1;
 
 	if (S_ISREG(st->st_mode)) {
+		int fd;
+
 		/*
 		 * Reopen file locally since it may have no read
 		 * permissions when drained
@@ -239,9 +241,10 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 		}
 		if (copy_file(fd, img, st->st_size))
 			return -1;
+
+		close(fd);
 	}
 
-	close_safe(&fd);
 	close(img);
 	return 0;
 }
