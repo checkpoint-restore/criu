@@ -968,9 +968,8 @@ static void restore_pgid(void)
 static int mount_proc(void)
 {
 	int ret;
-	char proc_mountpoint[PATH_MAX];
+	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
-	snprintf(proc_mountpoint, sizeof(proc_mountpoint), "crtools-proc.XXXXXX");
 	if (mkdtemp(proc_mountpoint) == NULL) {
 		pr_perror("mkdtemp failed %s", proc_mountpoint);
 		return -1;
