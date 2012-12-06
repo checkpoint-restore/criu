@@ -33,4 +33,7 @@ extern int prepare_shared_reg_files(void);
 extern int dump_reg_file(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset);
 extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 
+extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
+extern void remap_put(struct file_remap *remap);
+
 #endif /* FILES_REG_H__ */

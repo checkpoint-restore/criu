@@ -244,6 +244,33 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	return 0;
 }
 
+void remap_put(struct file_remap *remap)
+{
+	mutex_lock(ghost_file_mutex);
+	if (--remap->users == 0) {
+		pr_info("Unlink the ghost %s\n", remap->path);
+		unlink(remap->path);
+	}
+	mutex_unlock(ghost_file_mutex);
+}
+
+struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
+{
+	struct ghost_file *gf;
+
+	mutex_lock(ghost_file_mutex);
+	list_for_each_entry(gf, &ghost_files, list) {
+		if (gf->dev == dev && gf->ino == ino) {
+			gf->remap.users++;
+			mutex_unlock(ghost_file_mutex);
+			return &gf->remap;
+		}
+	}
+	mutex_unlock(ghost_file_mutex);
+
+	return NULL;
+}
+
 static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 {
 	struct ghost_file *gf;
