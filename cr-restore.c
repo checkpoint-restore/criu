@@ -878,7 +878,6 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	if (!current || status)
 		goto err;
 
-	/* Skip a helper if it was completed successfully */
 	while (pid) {
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
@@ -889,15 +888,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (status)
 			break;
 
-		list_for_each_entry(pi, &current->children, sibling) {
-			if (pi->state != TASK_HELPER)
-				continue;
+		/* Exited (with zero code) helpers are OK */
+		list_for_each_entry(pi, &current->children, sibling)
 			if (pi->pid.virt == siginfo->si_pid)
 				break;
-		}
 
-		if (&pi->sibling == &current->children)
-			break; /* The process is not a helper */
+		BUG_ON(&pi->sibling == &current->children);
+		if (pi->state != TASK_HELPER)
+			break;
 	}
 
 err:
