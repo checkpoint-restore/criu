@@ -229,39 +229,9 @@ void show_sigacts(int fd_sigacts, struct cr_options *o)
 	pb_show_plain(fd_sigacts, PB_SIGACT);
 }
 
-static void show_itimer(char *n, ItimerEntry *ie)
-{
-	pr_msg("%s: int %lu.%lu val %lu.%lu\n", n,
-	       (unsigned long)ie->isec, (unsigned long)ie->iusec,
-	       (unsigned long)ie->vsec, (unsigned long)ie->vusec);
-}
-
 void show_itimers(int fd, struct cr_options *o)
 {
-	ItimerEntry *ie;
-	int ret;
-
-	pr_img_head(CR_FD_ITIMERS);
-
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
-	if (ret < 0)
-		goto out;
-	show_itimer("real", ie);
-	itimer_entry__free_unpacked(ie, NULL);
-
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
-	if (ret < 0)
-		goto out;
-	show_itimer("virt", ie);
-	itimer_entry__free_unpacked(ie, NULL);
-
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
-	if (ret < 0)
-		goto out;
-	show_itimer("prof", ie);
-	itimer_entry__free_unpacked(ie, NULL);
-out:
-	pr_img_tail(CR_FD_ITIMERS);
+	pb_show_plain_pretty(fd, PB_ITIMERS, "1:%Lu 2:%Lu 3:%Lu 4:%Lu");
 }
 
 void show_creds(int fd, struct cr_options *o)
