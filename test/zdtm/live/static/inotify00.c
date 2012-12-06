@@ -18,12 +18,14 @@
 const char *test_doc	= "Check for inotify delivery";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
+const char path[] = "inotify-removed";
+
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
 int main (int argc, char *argv[])
 {
 	char buf[BUFF_SIZE];
-	int fd, wd;
+	int fd, wd, deleted, wd_deleted;
 
 	test_init(argc, argv);
 
@@ -37,6 +39,23 @@ int main (int argc, char *argv[])
 	wd |= inotify_add_watch(fd, "/", IN_ALL_EVENTS);
 	if (wd < 0) {
 		fail("inotify_add_watch failed");
+		exit(1);
+	}
+
+	deleted = open(path, O_CREAT | O_TRUNC);
+	if (deleted < 0) {
+		fail("inotify_init failed");
+		exit(1);
+	}
+
+	wd_deleted = inotify_add_watch(fd, path, IN_ALL_EVENTS);
+	if (wd_deleted < 0) {
+		fail("inotify_add_watch failed");
+		exit(1);
+	}
+
+	if (unlink(path)) {
+		fail("can't unlink %s\n", path);
 		exit(1);
 	}
 
