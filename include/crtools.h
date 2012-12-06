@@ -227,6 +227,9 @@ struct rst_info {
 	struct list_head	fds;
 	struct list_head	eventpoll;
 	struct list_head	tty_slaves;
+
+	void			*premmapped_addr;
+	unsigned long		premmapped_len;
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)

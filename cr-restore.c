@@ -67,8 +67,6 @@ static int prepare_restorer_blob(void);
 
 static LIST_HEAD(rst_vma_list);
 static int rst_nr_vmas;
-static void *premmapped_addr;
-static unsigned long premmapped_len;
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -413,10 +411,10 @@ static int read_vmas(int pid)
 		return -1;
 	}
 
-	old_premmapped_addr = premmapped_addr;
-	old_premmapped_len = premmapped_len;
-	premmapped_addr = addr;
-	premmapped_len = priv_size;
+	old_premmapped_addr = current->rst->premmapped_addr;
+	old_premmapped_len = current->rst->premmapped_len;
+	current->rst->premmapped_addr = addr;
+	current->rst->premmapped_len = priv_size;
 
 	pvma = list_entry(&old, struct vma_area, list);
 
@@ -1726,8 +1724,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	mem += self_vmas_len;
 	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vma_list);
 	task_args->nr_vmas = rst_nr_vmas;
-	task_args->premmapped_addr = (unsigned long) premmapped_addr;
-	task_args->premmapped_len = premmapped_len;
+	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
+	task_args->premmapped_len = current->rst->premmapped_len;
 	if (!task_args->tgt_vmas)
 		goto err;
 
