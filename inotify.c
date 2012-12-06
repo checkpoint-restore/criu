@@ -29,6 +29,7 @@
 #include "image.h"
 #include "util.h"
 #include "files.h"
+#include "files-reg.h"
 #include "file-ids.h"
 #include "log.h"
 #include "list.h"
@@ -43,6 +44,7 @@
 struct inotify_wd_info {
 	struct list_head		list;
 	InotifyWdEntry			*iwe;
+	struct file_remap 		*remap;
 };
 
 struct inotify_file_info {
@@ -108,9 +110,10 @@ int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 	return do_dump_gen_file(p, lfd, &inotify_ops, set);
 }
 
-static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
+static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 {
-	char path[32];
+	InotifyWdEntry *iwe = info->iwe;
+	char buf[32], *path = buf;
 	int mntfd = -1, ret = -1;
 	int wd, target = -1;
 	fh_t handle = { };
@@ -129,14 +132,17 @@ static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 		return -1;
 	}
 
-	target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
-	if (target < 0) {
-		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
-			  iwe->s_dev, iwe->i_ino);
-		goto err;
-	}
+	if (!info->remap) {
+		target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
+		if (target < 0) {
+			pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+				  iwe->s_dev, iwe->i_ino);
+			goto err;
+		}
+		snprintf(buf, sizeof(buf), "/proc/self/fd/%d", target);
+	} else
+		path = info->remap->path;
 
-	snprintf(path, sizeof(path), "/proc/self/fd/%d", target);
 	pr_debug("\t\tRestore watch for 0x%08x:0x%016lx\n", iwe->s_dev, iwe->i_ino);
 
 	/*
@@ -162,6 +168,9 @@ static int restore_one_inotify(int inotify_fd, InotifyWdEntry *iwe)
 		inotify_rm_watch(inotify_fd, wd);
 	}
 
+	if (info->remap)
+		remap_put(info->remap);
+
 err:
 	close_safe(&mntfd);
 	close_safe(&target);
@@ -184,7 +193,7 @@ static int open_inotify_fd(struct file_desc *d)
 
 	list_for_each_entry(wd_info, &info->marks, list) {
 		pr_info("\tRestore inotify for 0x%08x\n", wd_info->iwe->id);
-		if (restore_one_inotify(tmp, wd_info->iwe)) {
+		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
 			break;
 		}
@@ -208,6 +217,7 @@ static int collect_mark(struct inotify_wd_info *mark)
 	list_for_each_entry(p, &info_head, list) {
 		if (p->ife->id == mark->iwe->id) {
 			list_add(&mark->list, &p->marks);
+			mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
 			return 0;
 		}
 	}
