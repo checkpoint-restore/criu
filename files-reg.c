@@ -20,11 +20,6 @@
 
 #include "files-reg.h"
 
-struct file_remap {
-	char *path;
-	unsigned int users;
-};
-
 /*
  * Ghost files are those not visible from the FS. Dumping them is
  * nasty and the only way we have -- just carry its contents with

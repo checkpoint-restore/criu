@@ -11,7 +11,11 @@
 struct cr_fdset;
 struct fd_parms;
 
-struct file_remap;
+struct file_remap {
+	char *path;
+	unsigned int users;
+};
+
 struct reg_file_info {
 	struct file_desc	d;
 	RegFileEntry		*rfe;
