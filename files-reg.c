@@ -28,14 +28,11 @@
 struct ghost_file {
 	struct list_head	list;
 	u32			id;
-	union {
-		struct /* for dumping */ {
-			u32	dev;
-			u32	ino;
-		};
 
-		struct file_remap remap; /* for restoring */
-	};
+	u32			dev;
+	u32			ino;
+
+	struct file_remap	remap;
 };
 
 static u32 ghost_file_ids = 1;
@@ -82,6 +79,14 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
 		goto close_ifd;
+
+	/*
+	 * For old formats where optional has_[dev|ino] is
+	 * not present we will have zeros here which is quite
+	 * a sign for "absent" fields.
+	 */
+	gf->dev = gfe->dev;
+	gf->ino = gfe->ino;
 
 	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
@@ -217,6 +222,10 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	gfe.uid = st->st_uid;
 	gfe.gid = st->st_gid;
 	gfe.mode = st->st_mode;
+
+	gfe.has_dev = gfe.has_ino = true;
+	gfe.dev = MKKDEV(MAJOR(st->st_dev), MINOR(st->st_dev));
+	gfe.ino = st->st_ino;
 
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		return -1;
