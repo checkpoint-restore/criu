@@ -575,7 +575,7 @@ static int clean_mnt_ns(void)
 
 static int cr_pivot_root()
 {
-	char put_root[PATH_MAX] = "crtools-put-root.XXXXXX";
+	char put_root[] = "crtools-put-root.XXXXXX";
 
 	pr_info("Move the root to %s", opts.root);
 
