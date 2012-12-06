@@ -1161,8 +1161,10 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	if (init->pid.virt == INIT_PID) {
 		if (!(opts->namespaces_flags & CLONE_NEWPID)) {
-			pr_err("This process tree can be restored in a new pid namespace.\n");
-			pr_err("crtools should be re-executed with --namespace pid\n");
+			pr_err("This process tree can only be restored "
+				"in a new pid namespace.\n"
+				"crtools should be re-executed with the "
+				"\"--namespace pid\" option.\n");
 			return -1;
 		}
 	} else	if (opts->namespaces_flags & CLONE_NEWPID) {
