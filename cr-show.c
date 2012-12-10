@@ -85,12 +85,7 @@ void show_ghost_file(int fd, struct cr_options *o)
 static void pipe_data_handler(int fd, void *obj, int show_pages_content)
 {
 	PipeDataEntry *e = obj;
-
-	if (show_pages_content) {
-		pr_msg("\n");
-		print_image_data(fd, e->bytes);
-	} else
-		lseek(fd, e->bytes, SEEK_CUR);
+	print_image_data(fd, e->bytes, show_pages_content);
 }
 
 void show_pipes_data(int fd, struct cr_options *o)
@@ -171,10 +166,17 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-void print_image_data(int fd, unsigned int length)
+void print_image_data(int fd, unsigned int length, int show)
 {
 	void *data;
 	int ret;
+
+	if (!show) {
+		lseek(fd, length, SEEK_CUR);
+		return;
+	}
+
+	pr_msg("\n");
 
 	data = xmalloc(length);
 	if (!data)

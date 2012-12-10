@@ -173,12 +173,7 @@ err_brk:
 static void sk_queue_data_handler(int fd, void *obj, int show_pages_content)
 {
 	SkPacketEntry *e = obj;
-
-	if (show_pages_content) {
-		pr_msg("\n");
-		print_image_data(fd, e->length);
-	} else
-		lseek(fd, e->length, SEEK_CUR);
+	print_image_data(fd, e->length, show_pages_content);
 }
 
 void show_sk_queues(int fd, struct cr_options *o)

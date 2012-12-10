@@ -472,12 +472,7 @@ void show_ipc_sem(int fd, struct cr_options *o)
 static void ipc_msg_data_handler(int fd, void *obj, int show_pages_content)
 {
 	IpcMsg *e = obj;
-
-	if (show_pages_content) {
-		pr_msg("\n");
-		print_image_data(fd, round_up(e->msize, sizeof(u64)));
-	} else
-		lseek(fd, round_up(e->msize, sizeof(u64)), SEEK_CUR);
+	print_image_data(fd, round_up(e->msize, sizeof(u64)), show_pages_content);
 }
 
 static void ipc_msg_handler(int fd, void *obj, int show_pages_content)
@@ -500,12 +495,7 @@ void show_ipc_msg(int fd, struct cr_options *o)
 static void ipc_shm_handler(int fd, void *obj, int show_pages_content)
 {
 	IpcShmEntry *e = obj;
-
-	if (show_pages_content) {
-		pr_msg("\n");
-		print_image_data(fd, round_up(e->size, sizeof(u32)));
-	} else
-		lseek(fd, round_up(e->size, sizeof(u32)), SEEK_CUR);
+	print_image_data(fd, round_up(e->size, sizeof(u32)), show_pages_content);
 }
 
 void show_ipc_shm(int fd, struct cr_options *o)

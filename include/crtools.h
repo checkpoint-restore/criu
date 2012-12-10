@@ -160,7 +160,7 @@ int check_img_inventory(void);
 int write_img_inventory(void);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
-extern void print_image_data(int fd, unsigned int length);
+extern void print_image_data(int fd, unsigned int length, int show);
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
 extern int open_image_dir(void);
