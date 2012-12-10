@@ -126,7 +126,7 @@ err:
 
 static int max_pid = 0;
 
-static int prepare_pstree_for_shell_job(struct pstree_item *root)
+static int prepare_pstree_for_shell_job(void)
 {
 	pid_t current_sid = getsid(getpid());
 	pid_t current_gid = getpgid(getpid());
@@ -156,8 +156,8 @@ static int prepare_pstree_for_shell_job(struct pstree_item *root)
 	 * Not that clever solution but at least it works.
 	 */
 
-	old_sid = root->sid;
-	old_gid = root->pgid;
+	old_sid = root_item->sid;
+	old_gid = root_item->pgid;
 
 	pr_info("Migrating process tree (GID %d->%d SID %d->%d)\n",
 		old_gid, current_gid, old_sid, current_sid);
@@ -435,7 +435,7 @@ int prepare_pstree(void)
 		 * Shell job may inherit sid/pgid from the current
 		 * shell, not from image. Set things up for this.
 		 */
-		ret = prepare_pstree_for_shell_job(root_item);
+		ret = prepare_pstree_for_shell_job();
 	if (!ret)
 		/*
 		 * Session/Group leaders might be dead. Need to fix
