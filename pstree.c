@@ -175,7 +175,7 @@ static int prepare_pstree_for_shell_job(struct pstree_item *root)
 	return 0;
 }
 
-int prepare_pstree(void)
+static int read_pstree_image(void)
 {
 	int ret = 0, i, ps_fd;
 	struct pstree_item *pi, *parent = NULL;
@@ -261,14 +261,12 @@ int prepare_pstree(void)
 
 		pstree_entry__free_unpacked(e, NULL);
 	}
-
-	ret = prepare_pstree_for_shell_job(root_item);
 err:
 	close(ps_fd);
 	return ret;
 }
 
-int prepare_pstree_ids(void)
+static int prepare_pstree_ids(void)
 {
 	struct pstree_item *item, *child, *helper, *tmp;
 	LIST_HEAD(helpers);
@@ -425,6 +423,27 @@ int prepare_pstree_ids(void)
 	}
 
 	return 0;
+}
+
+int prepare_pstree(void)
+{
+	int ret;
+
+	ret = read_pstree_image();
+	if (!ret)
+		/*
+		 * Shell job may inherit sid/pgid from the current
+		 * shell, not from image. Set things up for this.
+		 */
+		ret = prepare_pstree_for_shell_job(root_item);
+	if (!ret)
+		/*
+		 * Session/Group leaders might be dead. Need to fix
+		 * pstree with properly injected helper tasks.
+		 */
+		ret = prepare_pstree_ids();
+
+	return ret;
 }
 
 bool restore_before_setsid(struct pstree_item *child)

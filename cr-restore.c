@@ -1250,9 +1250,6 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 	if (prepare_pstree() < 0)
 		return -1;
 
-	if (prepare_pstree_ids() < 0)
-		return -1;
-
 	if (crtools_prepare_shared() < 0)
 		return -1;
 
