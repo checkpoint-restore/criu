@@ -458,12 +458,12 @@ out:
 	return ret;
 }
 
-static int open_vmas(int pid, struct list_head *vmas)
+static int open_vmas(int pid)
 {
 	struct vma_area *vma;
 	int ret = 0;
 
-	list_for_each_entry(vma, vmas, list) {
+	list_for_each_entry(vma, &rst_vma_list, list) {
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
@@ -599,7 +599,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	log_closedir();
 
-	if (open_vmas(pid, &rst_vma_list))
+	if (open_vmas(pid))
 		return -1;
 
 	return sigreturn_restore(pid, core);
