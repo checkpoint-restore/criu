@@ -150,17 +150,17 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	for (i = 0; i < size; i += 16) {
 		pr_msg("%#0*lx: ", addr_len, addr + i);
 		for (j = 0; j < 8; j++)
-			pr_msg("0x%02x ", data[i +  j]);
+			pr_msg("%02x ", data[i +  j]);
 		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_msg("0x%02x ", data[i +  j]);
+			pr_msg("%02x ", data[i +  j]);
 
 		pr_msg(" |");
 		for (j = 0; j < 8; j++)
-			pr_msg("%c ", PR_SYMBOL(data[i + j]));
+			pr_msg("%c", PR_SYMBOL(data[i + j]));
 		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_msg("%c ", PR_SYMBOL(data[i + j]));
+			pr_msg("%c", PR_SYMBOL(data[i + j]));
 
 		pr_msg("|\n");
 	}
