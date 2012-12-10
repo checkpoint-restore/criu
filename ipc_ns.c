@@ -503,7 +503,7 @@ static void ipc_shm_handler(int fd, void *obj, int show_pages_content)
 
 	if (show_pages_content) {
 		pr_msg("\n");
-		print_image_data(fd, round_up(e->size, sizeof(u64)));
+		print_image_data(fd, round_up(e->size, sizeof(u32)));
 	} else
 		lseek(fd, round_up(e->size, sizeof(u32)), SEEK_CUR);
 }
