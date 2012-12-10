@@ -144,10 +144,25 @@ static int nice_width_for(unsigned long addr)
 void print_data(unsigned long addr, unsigned char *data, size_t size)
 {
 	int i, j, addr_len;
+	unsigned zero_line = 0;
 
 	addr_len = nice_width_for(addr + size);
 
 	for (i = 0; i < size; i += 16) {
+		if (*(u64 *)(data + i) == 0 && *(u64 *)(data + i + 8) == 0) {
+			if (zero_line == 0)
+				zero_line = 1;
+			else {
+				if (zero_line == 1) {
+					pr_msg("*\n");
+					zero_line = 2;
+				}
+
+				continue;
+			}
+		} else
+			zero_line = 0;
+
 		pr_msg("%#0*lx: ", addr_len, addr + i);
 		for (j = 0; j < 8; j++)
 			pr_msg("%02x ", data[i +  j]);
