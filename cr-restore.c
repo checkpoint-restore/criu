@@ -494,17 +494,6 @@ static int open_vmas(int pid, struct list_head *vmas)
 	return ret < 0 ? -1 : 0;
 }
 
-static int prepare_and_sigreturn(int pid, CoreEntry *core)
-{
-	int err;
-
-	err = open_vmas(pid, &rst_vma_list);
-	if (err)
-		return err;
-
-	return sigreturn_restore(pid, core);
-}
-
 static rt_sigaction_t sigchld_act;
 static int prepare_sigactions(int pid)
 {
@@ -610,7 +599,10 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	log_closedir();
 
-	return prepare_and_sigreturn(pid, core);
+	if (open_vmas(pid, &rst_vma_list))
+		return -1;
+
+	return sigreturn_restore(pid, core);
 }
 
 static void zombie_prepare_signals(void)
