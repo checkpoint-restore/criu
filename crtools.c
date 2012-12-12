@@ -294,6 +294,11 @@ usage:
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
 
+	if (argc < 2) {
+		pr_msg("\nTry -h|--help for more info\n");
+		return -1;
+	}
+
 	pr_msg("\nDump/Restore options:\n");
 
 	pr_msg("\n* Generic:\n");
