@@ -776,11 +776,10 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 	return ret;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
-	int ret, fd;
 
 	/*
 	 * Control block early setup.
@@ -822,26 +821,31 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err;
 	}
 
-	/*
-	 * Inject a parasite engine. Ie allocate memory inside alien
-	 * space and copy engine code there. Then re-map the engine
-	 * locally, so we will get an easy way to access engine memory
-	 * without using ptrace at all.
-	 */
+	return ctl;
+
+err:
+	xfree(ctl);
+	return NULL;
+}
+
+int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
+{
+	int fd;
+
 	ctl->remote_map = mmap_seized(ctl, NULL, (size_t)parasite_size,
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
-		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", pid);
-		goto err_restore;
+		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->pid);
+		return -1;
 	}
 
 	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
 
-	fd = open_proc_rw(pid, "map_files/%p-%p",
+	fd = open_proc_rw(ctl->pid, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0)
-		goto err_restore;
+		return -1;
 
 	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
 			      MAP_SHARED | MAP_FILE, fd, 0);
@@ -850,8 +854,31 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (ctl->local_map == MAP_FAILED) {
 		ctl->local_map = NULL;
 		pr_perror("Can't map remote parasite map");
-		goto err_restore;
+		return -1;
 	}
+
+	return 0;
+}
+
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct list_head *vma_area_list)
+{
+	int ret;
+	struct parasite_ctl *ctl;
+
+	ctl = parasite_prep_ctl(pid, vma_area_list);
+	if (!ctl)
+		return NULL;
+
+	/*
+	 * Inject a parasite engine. Ie allocate memory inside alien
+	 * space and copy engine code there. Then re-map the engine
+	 * locally, so we will get an easy way to access engine memory
+	 * without using ptrace at all.
+	 */
+
+	ret = parasite_map_exchange(ctl, parasite_size);
+	if (ret)
+		goto err_restore;
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
@@ -883,10 +910,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 err_restore:
 	parasite_cure_seized(ctl, item);
-	return NULL;
-
-err:
-	xfree(ctl);
 	return NULL;
 }
 

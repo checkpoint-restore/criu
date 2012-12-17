@@ -52,6 +52,8 @@ extern int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *it
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
 						   struct list_head *vma_area_list);
+extern struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_list);
+extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
 
