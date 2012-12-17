@@ -17,7 +17,7 @@ CFLAGS		+= -c -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdl
 $(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
 	$(Q) $(SH)			\
-		$(SYS-GEN)		\
+		$(SYS-GEN) --asm	\
 		$(SYS-DEF)		\
 		$(SYS-CODES)		\
 		$(SYS-PROTO)		\
