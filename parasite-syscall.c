@@ -244,50 +244,55 @@ static int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid);
 }
 
+int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+		unsigned long arg1,
+		unsigned long arg2,
+		unsigned long arg3,
+		unsigned long arg4,
+		unsigned long arg5,
+		unsigned long arg6)
+{
+	user_regs_struct_t regs = ctl->regs_orig;
+	int err;
+
+	regs.ax  = (unsigned long)nr;
+	regs.di  = arg1;
+	regs.si  = arg2;
+	regs.dx  = arg3;
+	regs.r10 = arg4;
+	regs.r8  = arg5;
+	regs.r9  = arg6;
+
+	parasite_setup_regs(ctl->syscall_ip, &regs);
+	err = __parasite_execute(ctl, ctl->pid, &regs);
+	if (err)
+		return err;
+
+	*ret = regs.ax;
+	return 0;
+}
+
 static void *mmap_seized(struct parasite_ctl *ctl,
 			 void *addr, size_t length, int prot,
 			 int flags, int fd, off_t offset)
 {
-	user_regs_struct_t regs = ctl->regs_orig;
-	void *map = NULL;
-	int ret;
+	unsigned long map;
+	int err;
 
-	regs.ax  = (unsigned long)__NR_mmap;	/* mmap		*/
-	regs.di  = (unsigned long)addr;		/* @addr	*/
-	regs.si  = (unsigned long)length;	/* @length	*/
-	regs.dx  = (unsigned long)prot;		/* @prot	*/
-	regs.r10 = (unsigned long)flags;	/* @flags	*/
-	regs.r8  = (unsigned long)fd;		/* @fd		*/
-	regs.r9  = (unsigned long)offset;	/* @offset	*/
+	err = syscall_seized(ctl, __NR_mmap, &map,
+			(unsigned long)addr, length, prot, flags, fd, offset);
+	if (err < 0 || (long)map < 0)
+		map = 0;
 
-	parasite_setup_regs(ctl->syscall_ip, &regs);
-
-	ret = __parasite_execute(ctl, ctl->pid, &regs);
-	if (ret)
-		goto err;
-
-	if ((long)regs.ax > 0)
-		map = (void *)regs.ax;
-err:
-	return map;
+	return (void *)map;
 }
 
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 {
-	user_regs_struct_t regs = ctl->regs_orig;
-	int ret;
+	unsigned long x;
 
-	regs.ax = (unsigned long)__NR_munmap;	/* mmap		*/
-	regs.di = (unsigned long)addr;		/* @addr	*/
-	regs.si = (unsigned long)length;	/* @length	*/
-
-	parasite_setup_regs(ctl->syscall_ip, &regs);
-
-	ret = __parasite_execute(ctl, ctl->pid, &regs);
-	if (!ret)
-		ret = (int)regs.ax;
-
-	return ret;
+	return syscall_seized(ctl, __NR_munmap, &x,
+			(unsigned long)addr, length, 0, 0, 0, 0);
 }
 
 static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
