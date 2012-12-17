@@ -81,7 +81,7 @@ void free_mappings(struct list_head *vma_area_list)
 	INIT_LIST_HEAD(vma_area_list);
 }
 
-static int collect_mappings(pid_t pid, struct list_head *vma_area_list)
+int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 {
 	int ret = -1;
 
