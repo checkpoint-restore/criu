@@ -252,7 +252,8 @@ int main(int argc, char *argv[])
 	if (strcmp(argv[optind], "dump") &&
 	    strcmp(argv[optind], "restore") &&
 	    strcmp(argv[optind], "show") &&
-	    strcmp(argv[optind], "check")) {
+	    strcmp(argv[optind], "check") &&
+	    strcmp(argv[optind], "exec")) {
 		pr_err("Unknown command %s\n", argv[optind]);
 		goto usage;
 	}
@@ -274,6 +275,11 @@ int main(int argc, char *argv[])
 	case 'c':
 		ret = cr_check();
 		break;
+	case 'e':
+		if (!pid)
+			goto opt_pid_missing;
+		ret = cr_exec(pid, argv + optind + 1);
+		break;
 	default:
 		goto usage;
 		break;
@@ -287,12 +293,14 @@ usage:
 	pr_msg("  %s restore -t pid [<options>]\n", argv[0]);
 	pr_msg("  %s show (-D dir)|(-f file) [<options>]\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
+	pr_msg("  %s exec -t pid <syscall-string>\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
 	pr_msg("  restore        restore a process/tree identified by pid\n");
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
+	pr_msg("  exec           execute a system call by other task\n");
 
 	if (argc < 2) {
 		pr_msg("\nTry -h|--help for more info\n");

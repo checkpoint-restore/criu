@@ -196,6 +196,7 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts);
 int cr_show(struct cr_options *opts);
 int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
+int cr_exec(int pid, char **opts);
 
 #define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
 #define O_SHOW	(O_RDONLY)

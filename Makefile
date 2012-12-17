@@ -116,6 +116,7 @@ OBJS		+= signalfd.o
 OBJS		+= pstree.o
 OBJS		+= protobuf.o
 OBJS		+= tty.o
+OBJS		+= cr-exec.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
