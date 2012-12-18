@@ -188,7 +188,7 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 
 static u32 make_gen_id(const struct fd_parms *p)
 {
-	return MAKE_FD_GENID(p->stat.st_dev, p->stat.st_ino, p->pos);
+	return ((u32)p->stat.st_dev) ^ ((u32)p->stat.st_ino) ^ ((u32)p->pos);
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
