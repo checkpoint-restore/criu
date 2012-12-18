@@ -12,7 +12,6 @@
 #include "../protobuf/vma.pb-c.h"
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
-#define CR_FD_PERM_DUMP		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 #define CRIU_VERSION_MAJOR	0
 #define CRIU_VERSION_MINOR	3

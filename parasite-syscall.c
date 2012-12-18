@@ -318,22 +318,6 @@ static int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 	return 0;
 }
 
-static int parasite_prep_file(int fd, struct parasite_ctl *ctl)
-{
-	int ret;
-
-	if (fchmod(fd, CR_FD_PERM_DUMP)) {
-		pr_perror("Can't change permissions on file");
-		return -1;
-	}
-
-	ret = parasite_send_fd(ctl, fd);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 {
 	int ret;
@@ -568,7 +552,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_prep_file(fdset_fd(cr_fdset, CR_FD_PAGES), ctl);
+	ret = parasite_send_fd(ctl, fdset_fd(cr_fdset, CR_FD_PAGES));
 	if (ret < 0)
 		goto out;
 
@@ -632,7 +616,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 out_fini:
 	parasite_execute(PARASITE_CMD_DUMPPAGES_FINI, ctl);
 out:
-	fchmod(fdset_fd(cr_fdset, CR_FD_PAGES), CR_FD_PERM);
 	pr_info("----------------------------------------\n");
 
 	return ret;
