@@ -755,7 +755,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 	}
 
 	if (ctl->local_map) {
-		if (munmap(ctl->local_map, parasite_size)) {
+		if (munmap(ctl->local_map, ctl->map_length)) {
 			pr_err("munmap failed (pid: %d)\n", ctl->pid);
 			ret = -1;
 		}
@@ -832,7 +832,7 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	int fd;
 
-	ctl->remote_map = mmap_seized(ctl, NULL, (size_t)parasite_size,
+	ctl->remote_map = mmap_seized(ctl, NULL, size,
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
@@ -840,14 +840,14 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return -1;
 	}
 
-	ctl->map_length = round_up(parasite_size, PAGE_SIZE);
+	ctl->map_length = round_up(size, PAGE_SIZE);
 
 	fd = open_proc_rw(ctl->pid, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0)
 		return -1;
 
-	ctl->local_map = mmap(NULL, parasite_size, PROT_READ | PROT_WRITE,
+	ctl->local_map = mmap(NULL, size, PROT_READ | PROT_WRITE,
 			      MAP_SHARED | MAP_FILE, fd, 0);
 	close(fd);
 
