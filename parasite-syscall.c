@@ -345,7 +345,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	args = parasite_args(ctl, struct parasite_init_args);
 
 	pr_info("Putting tsock into pid %d\n", pid);
-	args->h_addr_len = gen_parasite_saddr(&args->h_addr, 0);
+	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 	args->p_addr_len = gen_parasite_saddr(&args->p_addr, pid);
 	args->nr_threads = nr_threads;
 
