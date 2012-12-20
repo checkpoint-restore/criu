@@ -938,11 +938,8 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		goto err_free;
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
-	if (ret < 0) {
-		pr_info("ERROR\n");
+	if (ret < 0)
 		goto err_free;
-	} else
-		pr_info("OK\n");
 
 err_free:
 	core_entry_free(core);
@@ -1338,8 +1335,6 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	ret = dump_sched_info(pid, core->thread_core);
 	if (ret)
 		goto err_free;
-
-	pr_info("OK\n");
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (fd_core < 0)
