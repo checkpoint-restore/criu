@@ -1262,7 +1262,7 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	struct vma_area end_vma;
 
 	end_vma.vma.start = end_vma.vma.end = TASK_SIZE_MAX;
-	prev_vma_end = PAGE_SIZE;
+	prev_vma_end = PAGE_SIZE * 0x10; /* CONFIG_LSM_MMAP_MIN_ADDR=65536 */
 
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
