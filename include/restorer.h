@@ -93,7 +93,7 @@ struct thread_restore_args {
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
-	struct thread_restore_args	t;			/* thread group leader */
+	struct thread_restore_args	*t;			/* thread group leader */
 
 	int				fd_exe_link;		/* opened self->exe file */
 	int				logfd;

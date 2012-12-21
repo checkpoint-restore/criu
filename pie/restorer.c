@@ -627,9 +627,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * registers from the frame, set them up and
 	 * finally pass execution to the new IP.
 	 */
-	rt_sigframe = (void *)args->t.mem_zone.rt_sigframe + 8;
+	rt_sigframe = (void *)args->t->mem_zone.rt_sigframe + 8;
 
-	if (restore_thread_common(rt_sigframe, &args->t))
+	if (restore_thread_common(rt_sigframe, args->t))
 		goto core_restore_end;
 
 	/*
@@ -674,7 +674,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 			char last_pid_buf[16], *s;
 
 			/* skip self */
-			if (thread_args[i].pid == args->t.pid)
+			if (thread_args[i].pid == args->t->pid)
 				continue;
 
 			mutex_lock(&args->rst_lock);

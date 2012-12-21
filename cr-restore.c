@@ -1808,12 +1808,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	thread_args	= mem + restore_task_vma_len;
 
 	/*
-	 * Adjust stack.
-	 */
-	new_sp = RESTORE_ALIGN_STACK((long)task_args->t.mem_zone.stack,
-			sizeof(task_args->t.mem_zone.stack));
-
-	/*
 	 * Get a reference to shared memory area which is
 	 * used to signal if shmem restoration complete
 	 * from low-level restore code.
@@ -1861,7 +1855,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
 
-	task_args->t.pid	= pid;
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();
 	task_args->sigchld_act	= sigchld_act;
@@ -1874,23 +1867,26 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	for (i = 0; i < current->nr_threads; i++) {
 		int fd_core;
 		CoreEntry *tcore;
+
 		thread_args[i].pid = current->threads[i].virt;
 
 		/* skip self */
-		if (thread_args[i].pid == pid)
-			continue;
+		if (thread_args[i].pid == pid) {
+			task_args->t = thread_args + i;
+			tcore = core;
+		} else {
+			fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
+			if (fd_core < 0) {
+				pr_err("Can't open core data for thread %d\n",
+				       thread_args[i].pid);
+				goto err;
+			}
 
-		fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
-		if (fd_core < 0) {
-			pr_err("Can't open core data for thread %d\n",
-			       thread_args[i].pid);
-			goto err;
+			ret = pb_read_one(fd_core, &tcore, PB_CORE);
+			close(fd_core);
 		}
 
-		ret = pb_read_one(fd_core, &tcore, PB_CORE);
-		close(fd_core);
-
-		if (tcore->tc || tcore->ids) {
+		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
 			pr_err("Thread has optional fields present %d\n",
 			       thread_args[i].pid);
 			ret = -1;
@@ -1921,7 +1917,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		if (sigreturn_prep_xsave_frame(&thread_args[i], core))
 			goto err;
 
-		core_entry__free_unpacked(tcore, NULL);
+		if (thread_args[i].pid != pid)
+			core_entry__free_unpacked(tcore, NULL);
 
 		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
 				i, thread_args[i].mem_zone.stack,
@@ -1930,24 +1927,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	}
 
-	task_args->t.clear_tid_addr	= core->thread_info->clear_tid_addr;
+	task_args->t->blk_sigset	= core->tc->blk_sigset;
+	task_args->t->has_blk_sigset	= true;
+
+	/*
+	 * Adjust stack.
+	 */
+	new_sp = RESTORE_ALIGN_STACK((long)task_args->t->mem_zone.stack,
+			sizeof(task_args->t->mem_zone.stack));
+
 	task_args->ids			= *core->ids;
-	task_args->t.gpregs		= *core->thread_info->gpregs;
-	task_args->t.blk_sigset		= core->tc->blk_sigset;
-	task_args->t.has_blk_sigset	= true;
-
-	if (core->thread_core) {
-		task_args->t.has_futex		= true;
-		task_args->t.futex_rla		= core->thread_core->futex_rla;
-		task_args->t.futex_rla_len	= core->thread_core->futex_rla_len;
-
-		ret = prep_sched_info(&task_args->t.sp, core->thread_core);
-		if (ret)
-			goto err;
-	}
-
-	if (sigreturn_prep_xsave_frame(&task_args->t, core))
-		goto err;
 
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
@@ -1980,7 +1969,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
-		task_args, task_args->t.pid,
+		task_args, task_args->t->pid,
 		task_args->nr_threads,
 		task_args->clone_restore_fn,
 		task_args->thread_args);
