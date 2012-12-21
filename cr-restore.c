@@ -1868,6 +1868,68 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
+	/*
+	 * Fill up per-thread data.
+	 */
+	for (i = 0; i < current->nr_threads; i++) {
+		int fd_core;
+		CoreEntry *tcore;
+		thread_args[i].pid = current->threads[i].virt;
+
+		/* skip self */
+		if (thread_args[i].pid == pid)
+			continue;
+
+		fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
+		if (fd_core < 0) {
+			pr_err("Can't open core data for thread %d\n",
+			       thread_args[i].pid);
+			goto err;
+		}
+
+		ret = pb_read_one(fd_core, &tcore, PB_CORE);
+		close(fd_core);
+
+		if (tcore->tc || tcore->ids) {
+			pr_err("Thread has optional fields present %d\n",
+			       thread_args[i].pid);
+			ret = -1;
+		}
+
+		if (ret < 0) {
+			pr_err("Can't read core data for thread %d\n",
+			       thread_args[i].pid);
+			goto err;
+		}
+
+		thread_args[i].ta		= task_args;
+		thread_args[i].gpregs		= *tcore->thread_info->gpregs;
+		thread_args[i].clear_tid_addr	= tcore->thread_info->clear_tid_addr;
+
+		if (tcore->thread_core) {
+			thread_args[i].has_futex	= true;
+			thread_args[i].futex_rla	= tcore->thread_core->futex_rla;
+			thread_args[i].futex_rla_len	= tcore->thread_core->futex_rla_len;
+			thread_args[i].has_blk_sigset	= tcore->thread_core->has_blk_sigset;
+			thread_args[i].blk_sigset	= tcore->thread_core->blk_sigset;
+
+			ret = prep_sched_info(&thread_args[i].sp, tcore->thread_core);
+			if (ret)
+				goto err;
+		}
+
+		if (sigreturn_prep_xsave_frame(&thread_args[i], core))
+			goto err;
+
+		core_entry__free_unpacked(tcore, NULL);
+
+		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
+				i, thread_args[i].mem_zone.stack,
+				thread_args[i].mem_zone.heap,
+				thread_args[i].mem_zone.rt_sigframe);
+
+	}
+
 	task_args->t.clear_tid_addr	= core->thread_info->clear_tid_addr;
 	task_args->ids			= *core->ids;
 	task_args->t.gpregs		= *core->thread_info->gpregs;
@@ -1910,67 +1972,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->nr_threads		= current->nr_threads;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
-
-	/*
-	 * Fill up per-thread data.
-	 */
-	for (i = 0; i < current->nr_threads; i++) {
-		int fd_core;
-		thread_args[i].pid = current->threads[i].virt;
-
-		/* skip self */
-		if (thread_args[i].pid == pid)
-			continue;
-
-		fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
-		if (fd_core < 0) {
-			pr_err("Can't open core data for thread %d\n",
-			       thread_args[i].pid);
-			goto err;
-		}
-
-		ret = pb_read_one(fd_core, &core, PB_CORE);
-		close(fd_core);
-
-		if (core->tc || core->ids) {
-			pr_err("Thread has optional fields present %d\n",
-			       thread_args[i].pid);
-			ret = -1;
-		}
-
-		if (ret < 0) {
-			pr_err("Can't read core data for thread %d\n",
-			       thread_args[i].pid);
-			goto err;
-		}
-
-		thread_args[i].ta		= task_args;
-		thread_args[i].gpregs		= *core->thread_info->gpregs;
-		thread_args[i].clear_tid_addr	= core->thread_info->clear_tid_addr;
-
-		if (core->thread_core) {
-			thread_args[i].has_futex	= true;
-			thread_args[i].futex_rla	= core->thread_core->futex_rla;
-			thread_args[i].futex_rla_len	= core->thread_core->futex_rla_len;
-			thread_args[i].has_blk_sigset	= core->thread_core->has_blk_sigset;
-			thread_args[i].blk_sigset	= core->thread_core->blk_sigset;
-
-			ret = prep_sched_info(&thread_args[i].sp, core->thread_core);
-			if (ret)
-				goto err;
-		}
-
-		if (sigreturn_prep_xsave_frame(&thread_args[i], core))
-			goto err;
-
-		core_entry__free_unpacked(core, NULL);
-
-		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
-				i, thread_args[i].mem_zone.stack,
-				thread_args[i].mem_zone.heap,
-				thread_args[i].mem_zone.rt_sigframe);
-
-	}
 
 	close_image_dir();
 
