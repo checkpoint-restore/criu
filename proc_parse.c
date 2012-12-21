@@ -14,6 +14,7 @@
 #include "util.h"
 #include "crtools.h"
 #include "mount.h"
+#include "cpu.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"
@@ -30,6 +31,37 @@ static struct buffer __buf;
 static char *buf = __buf.buf;
 
 #define BUF_SIZE sizeof(__buf.buf)
+
+int parse_cpuinfo_features(void)
+{
+	FILE *cpuinfo;
+
+	cpuinfo = fopen("/proc/cpuinfo", "r");
+	if (!cpuinfo) {
+		pr_perror("Can't open cpuinfo file");
+		return -1;
+	}
+
+	while (fgets(buf, BUF_SIZE, cpuinfo)) {
+		char *tok;
+
+		if (strncmp(buf, "flags\t\t:", 8))
+			continue;
+
+		for (tok = strtok(buf, " \t\n"); tok;
+		     tok = strtok(NULL, " \t\n")) {
+			if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FXSR]))
+				cpu_set_feature(X86_FEATURE_FXSR);
+			else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_XSAVE]))
+				cpu_set_feature(X86_FEATURE_XSAVE);
+			else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FPU]))
+				cpu_set_feature(X86_FEATURE_FPU);
+		}
+	}
+
+	fclose(cpuinfo);
+	return 0;
+}
 
 /* check the @line starts with "%lx-%lx" format */
 static bool is_vma_range_fmt(char *line)

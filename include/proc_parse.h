@@ -138,5 +138,6 @@ union fdinfo_entries {
 
 extern int parse_fdinfo(int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
+extern int parse_cpuinfo_features(void);
 
 #endif /* PROC_PARSE_H__ */

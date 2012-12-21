@@ -117,6 +117,7 @@ OBJS		+= pstree.o
 OBJS		+= protobuf.o
 OBJS		+= tty.o
 OBJS		+= cr-exec.o
+OBJS		+= cpu.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
