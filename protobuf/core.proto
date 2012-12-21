@@ -39,6 +39,8 @@ message user_x86_fpregs_entry {
 	required uint32			mxcsr_mask	=  8;
 	repeated uint32			st_space	=  9;
 	repeated uint32			xmm_space	= 10;
+
+	/* Unused, but present for backward compatibility */
 	repeated uint32			padding		= 11;
 }
 

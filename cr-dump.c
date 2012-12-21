@@ -730,11 +730,9 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 	/* Make sure we have enough space */
 	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs.st_space));
 	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs.xmm_space));
-	BUG_ON(core->thread_info->fpregs->n_padding != ARRAY_SIZE(fpregs.padding));
 
 	assign_array(core->thread_info->fpregs, fpregs,	st_space);
 	assign_array(core->thread_info->fpregs, fpregs,	xmm_space);
-	assign_array(core->thread_info->fpregs, fpregs,	padding);
 
 	ret = 0;
 
@@ -853,13 +851,11 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 		/* These are numbers from kernel */
 		fpregs->n_st_space	= 32;
 		fpregs->n_xmm_space	= 64;
-		fpregs->n_padding	= 24;
 
 		fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
 		fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
-		fpregs->padding		= xzalloc(pb_repeated_size(fpregs, padding));
 
-		if (!fpregs->st_space || !fpregs->xmm_space || !fpregs->padding)
+		if (!fpregs->st_space || !fpregs->xmm_space)
 			goto err;
 
 	}
