@@ -28,7 +28,14 @@ message user_x86_regs_entry {
 	required uint64			gs		= 27;
 }
 
+message user_x86_xsave_entry {
+	required uint64			xstate_bv	=  1;
+	repeated uint32			ymmh_space	=  2;
+}
+
 message user_x86_fpregs_entry {
+
+	/* fxsave data */
 	required uint32			cwd		=  1;
 	required uint32			swd		=  2;
 	required uint32			twd		=  3;
@@ -42,6 +49,9 @@ message user_x86_fpregs_entry {
 
 	/* Unused, but present for backward compatibility */
 	repeated uint32			padding		= 11;
+
+	/* xsave extension */
+	optional user_x86_xsave_entry	xsave		= 13;
 }
 
 message task_core_entry {

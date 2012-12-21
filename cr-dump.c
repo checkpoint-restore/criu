@@ -61,6 +61,8 @@
 #include "net.h"
 #include "sk-packet.h"
 #include "cpu.h"
+#include "fpu.h"
+#include "elf.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -649,9 +651,10 @@ err:
 
 static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 {
-	user_fpregs_struct_t fpregs	= {-1};
+	struct xsave_struct xsave	= {  };
 	user_regs_struct_t regs		= {-1};
 
+	struct iovec iov;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers ... ");
@@ -663,11 +666,6 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 			pr_err("Can't obtain GP registers for %d\n", pid);
 			goto err;
 		}
-	}
-
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &fpregs)) {
-		pr_err("Can't obtain FPU registers for %d\n", pid);
-		goto err;
 	}
 
 	/* Did we come from a system call? */
@@ -718,25 +716,60 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 	assign_reg(core->thread_info->gpregs, regs, fs);
 	assign_reg(core->thread_info->gpregs, regs, gs);
 
-	assign_reg(core->thread_info->fpregs, fpregs, cwd);
-	assign_reg(core->thread_info->fpregs, fpregs, swd);
-	assign_reg(core->thread_info->fpregs, fpregs, twd);
-	assign_reg(core->thread_info->fpregs, fpregs, fop);
-	assign_reg(core->thread_info->fpregs, fpregs, rip);
-	assign_reg(core->thread_info->fpregs, fpregs, rdp);
-	assign_reg(core->thread_info->fpregs, fpregs, mxcsr);
-	assign_reg(core->thread_info->fpregs, fpregs, mxcsr_mask);
+#ifndef PTRACE_GETREGSET
+# define PTRACE_GETREGSET 0x4204
+#endif
+
+	if (!cpu_has_feature(X86_FEATURE_FPU))
+		goto out;
+
+	/*
+	 * FPU fetched either via fxsave or via xsave,
+	 * thus decode it accrodingly.
+	 */
+
+	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+		iov.iov_base = &xsave;
+		iov.iov_len = sizeof(xsave);
+
+		if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
+			pr_err("Can't obtain FPU registers for %d\n", pid);
+			goto err;
+		}
+	} else {
+		if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
+			pr_err("Can't obtain FPU registers for %d\n", pid);
+			goto err;
+		}
+	}
+
+	assign_reg(core->thread_info->fpregs, xsave.i387, cwd);
+	assign_reg(core->thread_info->fpregs, xsave.i387, swd);
+	assign_reg(core->thread_info->fpregs, xsave.i387, twd);
+	assign_reg(core->thread_info->fpregs, xsave.i387, fop);
+	assign_reg(core->thread_info->fpregs, xsave.i387, rip);
+	assign_reg(core->thread_info->fpregs, xsave.i387, rdp);
+	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr);
+	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr_mask);
 
 	/* Make sure we have enough space */
-	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs.st_space));
-	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs.xmm_space));
+	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(xsave.i387.st_space));
+	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(xsave.i387.xmm_space));
 
-	assign_array(core->thread_info->fpregs, fpregs,	st_space);
-	assign_array(core->thread_info->fpregs, fpregs,	xmm_space);
+	assign_array(core->thread_info->fpregs, xsave.i387, st_space);
+	assign_array(core->thread_info->fpregs, xsave.i387, xmm_space);
+
+	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(xsave.ymmh.ymmh_space));
+
+		assign_reg(core->thread_info->fpregs->xsave, xsave.xsave_hdr, xstate_bv);
+		assign_array(core->thread_info->fpregs->xsave, xsave.ymmh, ymmh_space);
+	}
 
 #undef assign_reg
 #undef assign_array
 
+out:
 	ret = 0;
 
 err:
@@ -793,6 +826,9 @@ static void core_entry_free(CoreEntry *core)
 	if (core) {
 		if (core->thread_info) {
 			if (core->thread_info->fpregs) {
+				if (core->thread_info->fpregs->xsave)
+					xfree(core->thread_info->fpregs->xsave->ymmh_space);
+				xfree(core->thread_info->fpregs->xsave);
 				xfree(core->thread_info->fpregs->st_space);
 				xfree(core->thread_info->fpregs->xmm_space);
 				xfree(core->thread_info->fpregs->padding);
@@ -845,22 +881,37 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 		user_x86_regs_entry__init(gpregs);
 		thread_info->gpregs = gpregs;
 
-		fpregs = xmalloc(sizeof(*fpregs));
-		if (!fpregs)
-			goto err;
-		user_x86_fpregs_entry__init(fpregs);
-		thread_info->fpregs = fpregs;
+		if (cpu_has_feature(X86_FEATURE_FPU)) {
+			fpregs = xmalloc(sizeof(*fpregs));
+			if (!fpregs)
+				goto err;
+			user_x86_fpregs_entry__init(fpregs);
+			thread_info->fpregs = fpregs;
 
-		/* These are numbers from kernel */
-		fpregs->n_st_space	= 32;
-		fpregs->n_xmm_space	= 64;
+			/* These are numbers from kernel */
+			fpregs->n_st_space	= 32;
+			fpregs->n_xmm_space	= 64;
 
-		fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
-		fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
+			fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
+			fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
 
-		if (!fpregs->st_space || !fpregs->xmm_space)
-			goto err;
+			if (!fpregs->st_space || !fpregs->xmm_space)
+				goto err;
 
+			if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+				UserX86XsaveEntry *xsave;
+				xsave = xmalloc(sizeof(*xsave));
+				if (!xsave)
+					goto err;
+				user_x86_xsave_entry__init(xsave);
+				thread_info->fpregs->xsave = xsave;
+
+				xsave->n_ymmh_space = 64;
+				xsave->ymmh_space = xzalloc(pb_repeated_size(xsave, ymmh_space));
+				if (!xsave->ymmh_space)
+					goto err;
+			}
+		}
 	}
 
 	if (alloc_tc) {
