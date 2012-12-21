@@ -1936,8 +1936,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	new_sp = RESTORE_ALIGN_STACK((long)task_args->t->mem_zone.stack,
 			sizeof(task_args->t->mem_zone.stack));
 
-	task_args->ids			= *core->ids;
-
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
 

@@ -126,7 +126,6 @@ struct task_restore_core_args {
 	u64				mm_saved_auxv[AT_VECTOR_SIZE];
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
-	TaskKobjIdsEntry		ids;
 
 	int				*rst_tcp_socks;
 	int				rst_tcp_socks_size;
