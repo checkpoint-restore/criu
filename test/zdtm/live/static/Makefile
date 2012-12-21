@@ -11,6 +11,7 @@ TST_NOFILE	=				\
 		wait00				\
 		zombie00			\
 		fpu00				\
+		fpu01				\
 		futex				\
 		futex-rl			\
 		mmx00				\
