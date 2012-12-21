@@ -53,6 +53,7 @@
 #include "pstree.h"
 #include "net.h"
 #include "tty.h"
+#include "cpu.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -1234,6 +1235,9 @@ static int prepare_task_entries()
 int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 {
 	if (check_img_inventory() < 0)
+		return -1;
+
+	if (cpu_init() < 0)
 		return -1;
 
 	if (prepare_task_entries() < 0)

@@ -60,6 +60,7 @@
 #include "tty.h"
 #include "net.h"
 #include "sk-packet.h"
+#include "cpu.h"
 
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
@@ -1639,6 +1640,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	if (cpu_init())
+		goto err;
 
 	if (network_lock())
 		goto err;
