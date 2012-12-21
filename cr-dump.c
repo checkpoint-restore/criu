@@ -536,9 +536,6 @@ static int dump_task_creds(struct parasite_ctl *ctl, const struct cr_fdset *fds)
 	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
 }
 
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
-
 static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 {
 	int fd, ret, i;
@@ -690,6 +687,9 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 		}
 	}
 
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
+
 	assign_reg(core->thread_info->gpregs, regs, r15);
 	assign_reg(core->thread_info->gpregs, regs, r14);
 	assign_reg(core->thread_info->gpregs, regs, r13);
@@ -733,6 +733,9 @@ static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *
 
 	assign_array(core->thread_info->fpregs, fpregs,	st_space);
 	assign_array(core->thread_info->fpregs, fpregs,	xmm_space);
+
+#undef assign_reg
+#undef assign_array
 
 	ret = 0;
 
