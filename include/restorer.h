@@ -10,6 +10,7 @@
 #include "lock.h"
 #include "util.h"
 #include "crtools.h"
+#include "fpu.h"
 
 #include "../protobuf/mm.pb-c.h"
 #include "../protobuf/vma.pb-c.h"
@@ -174,7 +175,7 @@ struct rt_sigcontext {
 	unsigned long			trapno;
 	unsigned long			oldmask;
 	unsigned long			cr2;
-	struct user_fpregs_entry	*fpstate;
+	void				*fpstate;;
 	unsigned long			reserved1[8];
 };
 
