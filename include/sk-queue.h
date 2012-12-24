@@ -1,5 +1,5 @@
-#ifndef SK_QUEUE_H__
-#define SK_QUEUE_H__
+#ifndef __CR_SK_QUEUE_H__
+#define __CR_SK_QUEUE_H__
 
 #include "types.h"
 #include "list.h"

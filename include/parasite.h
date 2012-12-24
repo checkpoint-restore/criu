@@ -1,5 +1,5 @@
-#ifndef CR_PARASITE_H_
-#define CR_PARASITE_H_
+#ifndef __CR_PARASITE_H__
+#define __CR_PARASITE_H__
 
 #define PARASITE_STACK_SIZE	(16 << 10)
 #define PARASITE_ARG_SIZE	8196

@@ -1,5 +1,5 @@
-#ifndef LINKAGE_H_
-#define LINKAGE_H_
+#ifndef __CR_LINKAGE_H__
+#define __CR_LINKAGE_H__
 
 #ifdef __ASSEMBLY__
 

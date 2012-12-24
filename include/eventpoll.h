@@ -1,5 +1,5 @@
-#ifndef EVENTPOLL_H__
-#define EVENTPOLL_H__
+#ifndef __CR_EVENTPOLL_H__
+#define __CR_EVENTPOLL_H__
 
 #include <sys/types.h>
 #include <unistd.h>

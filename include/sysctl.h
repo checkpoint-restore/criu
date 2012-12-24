@@ -1,5 +1,5 @@
-#ifndef CR_SYSCTL_H_
-#define CR_SYSCTL_H_
+#ifndef __CR_SYSCTL_H__
+#define __CR_SYSCTL_H__
 
 struct sysctl_req {
 	char	*name;

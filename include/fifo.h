@@ -1,5 +1,5 @@
-#ifndef FIFO_H__
-#define FIFO_H__
+#ifndef __CR_FIFO_H__
+#define __CR_FIFO_H__
 
 struct fd_parms;
 struct cr_fdset;

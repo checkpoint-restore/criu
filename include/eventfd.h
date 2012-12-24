@@ -1,5 +1,5 @@
-#ifndef EVENTFD_H__
-#define EVENTFD_H__
+#ifndef __CR_EVENTFD_H__
+#define __CR_EVENTFD_H__
 
 #include <sys/types.h>
 #include <unistd.h>

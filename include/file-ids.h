@@ -1,5 +1,5 @@
-#ifndef FILE_IDS_H__
-#define FILE_IDS_H__
+#ifndef __CR_FILE_IDS_H__
+#define __CR_FILE_IDS_H__
 
 #include "compiler.h"
 #include "types.h"

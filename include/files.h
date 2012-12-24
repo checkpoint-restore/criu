@@ -1,5 +1,5 @@
-#ifndef FILES_H_
-#define FILES_H_
+#ifndef __CR_FILES_H__
+#define __CR_FILES_H__
 
 #include "compiler.h"
 #include "types.h"

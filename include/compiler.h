@@ -1,5 +1,5 @@
-#ifndef CR_COMPILER_H_
-#define CR_COMPILER_H_
+#ifndef __CR_COMPILER_H__
+#define __CR_COMPILER_H__
 
 /*
  * Various definitions for success build,

@@ -1,5 +1,5 @@
-#ifndef CRTOOLS_H_
-#define CRTOOLS_H_
+#ifndef __CR_CRTOOLS_H__
+#define __CR_CRTOOLS_H__
 
 #include <sys/types.h>
 

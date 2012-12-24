@@ -1,5 +1,5 @@
-#ifndef CR_BITOPS_H_
-#define CR_BITOPS_H_
+#ifndef __CR_BITOPS_H__
+#define __CR_BITOPS_H__
 
 #ifdef CONFIG_X86_64
 

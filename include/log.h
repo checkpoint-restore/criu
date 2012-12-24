@@ -1,5 +1,5 @@
-#ifndef LOG_H__
-#define LOG_H__
+#ifndef __CR_LOG_H__
+#define __CR_LOG_H__
 
 #include "log-levels.h"
 

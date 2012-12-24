@@ -1,5 +1,5 @@
-#ifndef CR_TTY_H__
-#define CR_TTY_H__
+#ifndef __CR_TTY_H__
+#define __CR_TTY_H__
 
 #include "files.h"
 #include "crtools.h"

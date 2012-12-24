@@ -1,5 +1,5 @@
-#ifndef __KCMP_IDS_H__
-#define __KCMP_IDS_H__
+#ifndef __CR_KCMP_IDS_H__
+#define __CR_KCMP_IDS_H__
 
 struct kid_tree {
 	struct rb_root root;

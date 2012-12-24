@@ -1,5 +1,5 @@
-#ifndef CR_RESTORER_H__
-#define CR_RESTORER_H__
+#ifndef __CR_RESTORER_H__
+#define __CR_RESTORER_H__
 
 #include <signal.h>
 #include <limits.h>

@@ -1,5 +1,5 @@
-#ifndef SEIZE_H_
-#define SEIZE_H_
+#ifndef __CR_SEIZE_H__
+#define __CR_SEIZE_H__
 
 #include <sys/ptrace.h>
 

@@ -1,5 +1,5 @@
-#ifndef LOG_LEVELS_H__
-#define LOG_LEVELS_H__
+#ifndef __CR_LOG_LEVELS_H__
+#define __CR_LOG_LEVELS_H__
 
 #define LOG_MSG		(0) /* Print message regardless of log level */
 #define LOG_ERROR	(1) /* Errors only, when we're in trouble */

@@ -1,5 +1,5 @@
-#ifndef CR_IPC_NS_H_
-#define CR_IPC_NS_H_
+#ifndef __CR_IPC_NS_H__
+#define __CR_IPC_NS_H__
 
 #include "crtools.h"
 

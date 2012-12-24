@@ -1,5 +1,5 @@
-#ifndef UTIL_NET_H_
-#define UTIL_NET_H_
+#ifndef __CR_UTIL_NET_H__
+#define __CR_UTIL_NET_H__
 
 #include <sys/socket.h>
 #include <sys/un.h>

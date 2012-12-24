@@ -1,5 +1,5 @@
-#ifndef CR_LIST_H_
-#define CR_LIST_H_
+#ifndef __CR_LIST_H__
+#define __CR_LIST_H__
 
 /*
  * Double linked lists.

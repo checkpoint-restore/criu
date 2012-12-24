@@ -1,5 +1,5 @@
-#ifndef __MEMCPY_64_H__
-#define __MEMCPY_64_H__
+#ifndef __CR_MEMCPY_64_H__
+#define __CR_MEMCPY_64_H__
 
 #include "compiler.h"
 #include "types.h"

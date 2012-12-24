@@ -1,5 +1,5 @@
-#ifndef CR_IMAGE_H
-#define CR_IMAGE_H
+#ifndef __CR_IMAGE_H__
+#define __CR_IMAGE_H__
 
 #include "types.h"
 #include "compiler.h"

@@ -1,5 +1,5 @@
-#ifndef PROC_PARSE_H__
-#define PROC_PARSE_H__
+#ifndef __CR_PROC_PARSE_H__
+#define __CR_PROC_PARSE_H__
 
 #include <sys/types.h>
 #include "types.h"

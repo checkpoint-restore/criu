@@ -1,5 +1,5 @@
-#ifndef CR_TYPES_H_
-#define CR_TYPES_H_
+#ifndef __CR_TYPES_H__
+#define __CR_TYPES_H__
 
 #include <stdint.h>
 #include <stdbool.h>

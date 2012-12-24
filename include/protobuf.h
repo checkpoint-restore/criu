@@ -1,5 +1,5 @@
-#ifndef PROTOBUF_H__
-#define PROTOBUF_H__
+#ifndef __CR_PROTOBUF_H__
+#define __CR_PROTOBUF_H__
 
 #include "types.h"
 #include "compiler.h"

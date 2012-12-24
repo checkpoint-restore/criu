@@ -1,5 +1,5 @@
-#ifndef FPU_H__
-#define FPU_H__
+#ifndef __CR_FPU_H__
+#define __CR_FPU_H__
 
 #include <sys/types.h>
 

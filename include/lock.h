@@ -1,5 +1,5 @@
-#ifndef CR_LOCK_H_
-#define CR_LOCK_H_
+#ifndef __CR_LOCK_H__
+#define __CR_LOCK_H__
 
 #include <linux/futex.h>
 #include <sys/time.h>

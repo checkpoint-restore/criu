@@ -1,5 +1,5 @@
-#ifndef MOUNT_H__
-#define MOUNT_H__
+#ifndef __CR_MOUNT_H__
+#define __CR_MOUNT_H__
 
 extern int mntns_root;
 int mntns_collect_root(pid_t pid);

@@ -1,5 +1,5 @@
-#ifndef PSTREE_H__
-#define PSTREE_H__
+#ifndef __CR_PSTREE_H__
+#define __CR_PSTREE_H__
 #include "list.h"
 #include "crtools.h"
 

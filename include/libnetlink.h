@@ -1,5 +1,5 @@
-#ifndef LIBNETLINK_H__
-#define LIBNETLINK_H__
+#ifndef __CR_LIBNETLINK_H__
+#define __CR_LIBNETLINK_H__
 
 #define CR_NLMSG_SEQ		24680	/* arbitrary chosen */
 

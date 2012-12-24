@@ -1,5 +1,5 @@
-#ifndef UTIL_H_
-#define UTIL_H_
+#ifndef __CR_UTIL_H__
+#define __CR_UTIL_H__
 
 /*
  * Some bits are stolen from perf and kvm tools

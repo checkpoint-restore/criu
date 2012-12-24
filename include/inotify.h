@@ -1,5 +1,5 @@
-#ifndef INOTIFY_H__
-#define INOTIFY_H__
+#ifndef __CR_INOTIFY_H__
+#define __CR_INOTIFY_H__
 
 #include <sys/types.h>
 #include <unistd.h>

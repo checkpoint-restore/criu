@@ -1,5 +1,5 @@
-#ifndef UNIX_DIAG_H__
-#define UNIX_DIAG_H__
+#ifndef __CR_UNIX_DIAG_H__
+#define __CR_UNIX_DIAG_H__
 
 #include "types.h"
 

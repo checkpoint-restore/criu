@@ -1,5 +1,5 @@
-#ifndef CR_PROCESSOR_FLAGS_H__
-#define CR_PROCESSOR_FLAGS_H__
+#ifndef __CR_PROCESSOR_FLAGS_H__
+#define __CR_PROCESSOR_FLAGS_H__
 
 /* Taken from linux kernel headers */
 
