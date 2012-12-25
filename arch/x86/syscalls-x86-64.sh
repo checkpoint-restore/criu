@@ -1,6 +1,6 @@
 #!/bin/sh
 
-function gen_asm() {
+gen_asm() {
 	in=$1
 	codesout=$2
 	protosout=$3
@@ -33,7 +33,7 @@ function gen_asm() {
 	echo "#endif /* $protosdef */"		>> $protosout
 }
 
-function gen_exec() {
+gen_exec() {
 	in=$1
 	codecout=$2
 
