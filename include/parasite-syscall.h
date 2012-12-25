@@ -6,8 +6,8 @@
 /* parasite control block */
 struct parasite_ctl {
 	pid_t			pid;					/* process pid where we live in */
-	void			* remote_map;
-	void			* local_map;
+	void			*remote_map;
+	void			*local_map;
 	unsigned long		map_length;
 
 	unsigned long		parasite_ip;				/* service routine start ip */
@@ -17,8 +17,8 @@ struct parasite_ctl {
 
 	int			signals_blocked;
 
-	unsigned int		* addr_cmd;				/* addr for command */
-	void 			* addr_args;				/* address for arguments */
+	unsigned int		*addr_cmd;				/* addr for command */
+	void			*addr_args;				/* address for arguments */
 	int			tsock;					/* transport socket for transfering fds */
 };
 
