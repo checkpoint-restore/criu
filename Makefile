@@ -124,6 +124,10 @@ DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf x86
 
+ifeq ($(GCOV),1)
+%.o $(PROGRAM): override CFLAGS += --coverage
+endif
+
 all: pie
 	$(Q) $(MAKE) $(PROGRAM)
 
@@ -180,6 +184,8 @@ clean:
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./$(PROGRAM)
 	$(Q) $(RM) -rf ./test/dump/
+	$(Q) $(RM) -f ./*.gcov ./*.gcda ./*.gcno
+	$(Q) $(RM) -rf ./gcov
 	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C arch/x86/ clean
 	$(Q) $(MAKE) -C pie/ clean
@@ -217,6 +223,17 @@ help:
 	$(E) '      cscope          - Generate cscope database'
 	$(E) '      rebuild         - Force-rebuild of [*] targets'
 	$(E) '      test            - Run zdtm test-suite'
+
+gcov:
+	$(E) " GCOV"
+	$(Q) mkdir gcov && \
+	cd gcov && \
+	cp ../*.gcno ../*.c ../test/root/crtools/	&& \
+	geninfo --no-checksum  --output-filename tproxyd.l.info --no-recursion .. && \
+	geninfo --no-checksum  --output-filename tproxyd.ns.info --no-recursion ../test/root/crtools && \
+	sed -i 's#/test/root/crtools##' tproxyd.ns.info && \
+	lcov -a tproxyd.l.info -a tproxyd.ns.info -o tproxyd.info && \
+	genhtml -o html tproxyd.info
 
 deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM)
 

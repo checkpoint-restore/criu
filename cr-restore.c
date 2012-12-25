@@ -1702,6 +1702,9 @@ static int sigreturn_prep_xsave_frame(struct thread_restore_args *args, CoreEntr
 	return 0;
 }
 
+extern void __gcov_flush(void) __attribute__((weak));
+void __gcov_flush(void) {}
+
 static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
 	long restore_task_vma_len;
@@ -1961,6 +1964,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->thread_args		= thread_args;
 
 	close_image_dir();
+
+	__gcov_flush();
 
 	pr_info("task_args: %p\n"
 		"task_args->pid: %d\n"
