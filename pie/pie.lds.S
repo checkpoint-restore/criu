@@ -4,7 +4,7 @@ SECTIONS
 {
 	.crblob 0x0 : {
 		*(.head.text)
-		*(.text)
+		*(.text*)
 		. = ALIGN(32);
 		*(.data*)
 		. = ALIGN(32);
