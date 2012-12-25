@@ -25,4 +25,4 @@
 #define X86_EFLAGS_VIP	0x00100000 /* Virtual Interrupt Pending */
 #define X86_EFLAGS_ID	0x00200000 /* CPUID detection flag */
 
-#endif /* CR_PROCESSOR_FLAGS_H__ */
+#endif /* __CR_PROCESSOR_FLAGS_H__ */

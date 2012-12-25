@@ -245,4 +245,4 @@ typedef struct {
 # define MADV_DONTDUMP 16
 #endif
 
-#endif /* CR_TYPES_H_ */
+#endif /* __CR_TYPES_H__ */

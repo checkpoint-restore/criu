@@ -25,4 +25,4 @@ u32 kid_generate_gen(struct kid_tree *tree,
 		struct kid_elem *elem, int *new_id);
 void kid_show_tree(struct kid_tree *tree);
 
-#endif
+#endif /* __CR_KCMP_IDS_H__ */

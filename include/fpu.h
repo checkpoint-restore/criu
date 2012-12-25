@@ -81,4 +81,4 @@ struct xsave_struct {
 	struct ymmh_struct		ymmh;
 } __aligned(FP_MIN_ALIGN_BYTES) __packed;
 
-#endif /* FPU_H__ */
+#endif /* __CR_FPU_H__ */

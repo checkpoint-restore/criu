@@ -17,4 +17,5 @@ extern void show_mountpoints(int fd, struct cr_options *);
 int prepare_mnt_ns(int pid);
 
 extern int pivot_root(const char *new_root, const char *put_old);
-#endif /* MOUNT_H__ */
+
+#endif /* __CR_MOUNT_H__ */

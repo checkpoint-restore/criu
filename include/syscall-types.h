@@ -5,8 +5,8 @@
  * Anything else should go to plain type.h
  */
 
-#ifndef SYSCALL_TYPES_H__
-#define SYSCALL_TYPES_H__
+#ifndef __CR_SYSCALL_TYPES_H__
+#define __CR_SYSCALL_TYPES_H__
 
 #include <sys/time.h>
 #include <arpa/inet.h>
@@ -61,4 +61,4 @@ struct robust_list_head;
 
 #define setns	sys_setns
 
-#endif /* SYSCALL_TYPES_H__ */
+#endif /* __CR_SYSCALL_TYPES_H__ */

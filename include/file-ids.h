@@ -15,4 +15,4 @@ extern int fd_id_generate(pid_t pid, FdinfoEntry *fe);
 extern u32 fd_id_generate_special(void);
 extern void fd_id_show_tree(void);
 
-#endif /* FILE_IDS_H__ */
+#endif /* __CR_FILE_IDS_H__ */

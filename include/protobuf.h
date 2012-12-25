@@ -104,4 +104,5 @@ int collect_image(int fd_t, int obj_t, unsigned size,
 		int (*collect)(void *obj, ProtobufCMessage *msg));
 int collect_image_sh(int fd_t, int obj_t, unsigned size,
 		int (*collect)(void *obj, ProtobufCMessage *msg));
-#endif /* PROTOBUF_H__ */
+
+#endif /* __CR_PROTOBUF_H__ */

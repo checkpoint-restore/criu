@@ -21,4 +21,4 @@
 
 #endif  /* __ASSEMBLY__ */
 
-#endif /* LINKAGE_H_ */
+#endif /* __CR_LINKAGE_H__ */

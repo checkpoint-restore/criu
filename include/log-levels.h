@@ -9,4 +9,4 @@
 
 #define DEFAULT_LOGLEVEL	LOG_WARN
 
-#endif /* LOG_LEVELS_H__ */
+#endif /* __CR_LOG_LEVELS_H__ */

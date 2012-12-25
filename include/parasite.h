@@ -127,4 +127,5 @@ struct parasite_tty_args {
 #define parasite_sym(pblob, name) ((void *)(pblob) + parasite_blob_offset__##name)
 
 #endif /* !__ASSEMBLY__ */
-#endif /* CR_PARASITE_H_ */
+
+#endif /* __CR_PARASITE_H__ */

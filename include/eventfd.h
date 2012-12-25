@@ -14,4 +14,4 @@ extern int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 extern int collect_eventfd(void);
 extern void show_eventfds(int fd, struct cr_options *o);
 
-#endif /* EVENTFD_H__ */
+#endif /* __CR_EVENTFD_H__ */

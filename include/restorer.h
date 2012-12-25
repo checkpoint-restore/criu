@@ -295,4 +295,4 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 			(vma_entry_is(vma, VMA_ANON_PRIVATE) || \
 			vma_entry_is(vma, VMA_FILE_PRIVATE)))
 
-#endif /* CR_RESTORER_H__ */
+#endif /* __CR_RESTORER_H__ */

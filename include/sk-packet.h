@@ -37,4 +37,4 @@ struct tpacket_req3 {
 };
 #endif
 
-#endif
+#endif /* __CR_SK_PACKET_H__ */

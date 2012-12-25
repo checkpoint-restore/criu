@@ -1,5 +1,6 @@
 #ifndef __CR_PSTREE_H__
 #define __CR_PSTREE_H__
+
 #include "list.h"
 #include "crtools.h"
 
@@ -60,4 +61,5 @@ extern int dump_pstree(struct pstree_item *root_item);
 
 struct task_entries;
 extern struct task_entries *task_entries;
-#endif
+
+#endif /* __CR_PSTREE_H__ */

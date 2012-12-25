@@ -68,4 +68,4 @@
 
 #define is_log2(v)		(((v) & ((v) - 1)) == 0)
 
-#endif /* CR_COMPILER_H_ */
+#endif /* __CR_COMPILER_H__ */

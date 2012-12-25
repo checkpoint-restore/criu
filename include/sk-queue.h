@@ -11,4 +11,4 @@ extern int dump_sk_queue(int sock_fd, int sock_id);
 extern void show_sk_queues(int fd, struct cr_options *o);
 extern int restore_sk_queue(int fd, unsigned int peer_id);
 
-#endif /* SK_QUEUE_H__ */
+#endif /* __CR_SK_QUEUE_H__ */

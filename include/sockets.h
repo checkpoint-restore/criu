@@ -78,4 +78,4 @@ static inline int sk_decode_shutdown(int val)
 	return hows[val];
 }
 
-#endif /* CR_SOCKETS_H__ */
+#endif /* __CR_SOCKETS_H__ */

@@ -73,4 +73,4 @@ struct packet_diag_ring {
 	__u32   pdr_features;
 };
 
-#endif
+#endif /* __CR_PACKET_DIAG_H__ */

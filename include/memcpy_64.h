@@ -19,4 +19,4 @@ static always_inline void *builtin_memcpy(void *to, const void *from, unsigned i
 	return to;
 }
 
-#endif /* __MEMCPY_64_H__ */
+#endif /* __CR_MEMCPY_64_H__ */

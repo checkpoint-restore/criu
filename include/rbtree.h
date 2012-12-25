@@ -2,8 +2,8 @@
  * RBtree implementation adopted from the Linux kernel sources.
  */
 
-#ifndef RBTREE_H__
-#define RBTREE_H__
+#ifndef __CR_RBTREE_H__
+#define __CR_RBTREE_H__
 
 #include <stddef.h>
 
@@ -86,4 +86,4 @@ static inline void rb_link_and_balance(struct rb_root *root,
 	rb_insert_color(node, root);
 }
 
-#endif /* RBTREE_H__ */
+#endif /* __CR_RBTREE_H__ */

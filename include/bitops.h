@@ -115,4 +115,4 @@ found_middle:
 # error x86-32 is not implemented yet
 #endif /* CONFIG_X86_64 */
 
-#endif /* CR_BITOPS_H_ */
+#endif /* __CR_BITOPS_H__ */

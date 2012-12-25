@@ -283,4 +283,4 @@ static inline void list_splice_tail_init(struct list_head *list,
 #define list_safe_reset_next(pos, n, member)				\
 	n = list_entry(pos->member.next, typeof(*pos), member)
 
-#endif /* CR_LIST_H_ */
+#endif /* __CR_LIST_H__ */

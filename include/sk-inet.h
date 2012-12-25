@@ -69,4 +69,5 @@ int check_tcp_repair(void);
 
 extern int rst_tcp_socks_size;
 extern int rst_tcp_socks_remap(void *addr);
-#endif
+
+#endif /* __CR_SK_INET_H__ */

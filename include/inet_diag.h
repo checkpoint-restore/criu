@@ -133,4 +133,4 @@ struct tcpvegas_info {
 	__u32	tcpv_minrtt;
 };
 
-#endif /* _INET_DIAG_H_ */
+#endif /* __CR_INET_DIAG_H__ */

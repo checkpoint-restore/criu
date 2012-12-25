@@ -57,4 +57,4 @@ typedef struct {
 		ret__ != 0;					\
 	})
 
-#endif /* ATOMIC_H__ */
+#endif /* __CR_ATOMIC_H__ */

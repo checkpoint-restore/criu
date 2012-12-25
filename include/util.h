@@ -330,4 +330,4 @@ static inline bool dir_dots(struct dirent *de)
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
 }
 
-#endif /* UTIL_H_ */
+#endif /* __CR_UTIL_H__ */

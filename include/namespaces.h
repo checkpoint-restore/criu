@@ -10,4 +10,5 @@ struct cr_options;
 int try_show_namespaces(int pid, struct cr_options *);
 int switch_ns(int pid, int type, char *ns, int *rst);
 int restore_ns(int rst, int type);
-#endif
+
+#endif /* __CR_NS_H__ */

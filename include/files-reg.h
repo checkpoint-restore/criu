@@ -36,4 +36,4 @@ extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
 extern void remap_put(struct file_remap *remap);
 
-#endif /* FILES_REG_H__ */
+#endif /* __CR_FILES_REG_H__ */

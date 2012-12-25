@@ -64,4 +64,4 @@ struct unix_diag_rqlen {
 	u32	udiag_wqueue;
 };
 
-#endif /* UNIX_DIAG_H__ */
+#endif /* __CR_UNIX_DIAG_H__ */

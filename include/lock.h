@@ -121,4 +121,4 @@ static void inline mutex_unlock(mutex_t *m)
 	BUG_ON(sys_futex(&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
-#endif /* CR_LOCK_H_ */
+#endif /* __CR_LOCK_H__ */

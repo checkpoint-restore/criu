@@ -100,4 +100,4 @@ extern int set_fd_flags(int fd, int flags);
 
 #define LREMAP_PARAM	"link-remap"
 
-#endif /* FILES_H_ */
+#endif /* __CR_FILES_H__ */

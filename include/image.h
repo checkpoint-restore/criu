@@ -133,4 +133,4 @@ struct page_entry {
 #define GET_FILE_OFF(s, m)	(offsetof(s,m) + MAGIC_OFFSET)
 #define GET_FILE_OFF_AFTER(s)	(sizeof(s) + MAGIC_OFFSET)
 
-#endif /* CR_IMAGE_H */
+#endif /* __CR_IMAGE_H__ */

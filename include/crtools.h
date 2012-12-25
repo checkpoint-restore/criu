@@ -239,4 +239,4 @@ static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 		addr < (unsigned long)vma->vma.end;
 }
 
-#endif /* CRTOOLS_H_ */
+#endif /* __CR_CRTOOLS_H__ */

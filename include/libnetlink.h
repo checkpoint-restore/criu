@@ -16,4 +16,4 @@ extern int addattr_l(struct nlmsghdr *n, int maxlen, int type,
 	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
 
-#endif /* LIBNETLINK_H__ */
+#endif /* __CR_LIBNETLINK_H__ */

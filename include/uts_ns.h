@@ -8,4 +8,4 @@ struct cr_options;
 void show_utsns(int fd, struct cr_options *);
 int prepare_utsns(int pid);
 
-#endif /* CR_UTS_NS_H_ */
+#endif /* __CR_UTS_NS_H__ */

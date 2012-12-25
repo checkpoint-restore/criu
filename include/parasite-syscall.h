@@ -69,4 +69,4 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg5,
 		unsigned long arg6);
 
-#endif /* PARASITE_SYSCALL_H_ */
+#endif /* __CR_PARASITE_SYSCALL_H__ */

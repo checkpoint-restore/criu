@@ -49,4 +49,4 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 #define pr_perror(fmt, ...)	\
 	pr_err(fmt ": %m\n", ##__VA_ARGS__)
 
-#endif /* LOG_H__ */
+#endif /* __CR_LOG_H__ */

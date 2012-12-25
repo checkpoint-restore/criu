@@ -20,4 +20,4 @@ extern void cpu_set_feature(unsigned int feature);
 extern bool cpu_has_feature(unsigned int feature);
 extern int cpu_init(void);
 
-#endif /* CPU_H__ */
+#endif /* __CR_CPU_H__ */

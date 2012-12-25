@@ -15,4 +15,4 @@ extern int collect_eventpoll(void);
 extern void show_eventpoll(int fd, struct cr_options *o);
 extern void show_eventpoll_tfd(int fd, struct cr_options *o);
 
-#endif /* EVENTPOLL_H__ */
+#endif /* __CR_EVENTPOLL_H__ */

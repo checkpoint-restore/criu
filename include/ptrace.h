@@ -40,4 +40,4 @@ extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
 extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
 extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
 
-#endif /* SEIZE_H_ */
+#endif /* __CR_SEIZE_H__ */

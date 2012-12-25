@@ -11,4 +11,4 @@ extern void show_ipc_sem(int fd, struct cr_options *);
 extern int dump_ipc_ns(int ns_pid, struct cr_fdset *fdset);
 extern int prepare_ipc_ns(int pid);
 
-#endif /* CR_IPC_NS_H_ */
+#endif /* __CR_IPC_NS_H__ */
