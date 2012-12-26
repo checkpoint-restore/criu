@@ -229,11 +229,11 @@ gcov:
 	$(Q) mkdir gcov && \
 	cd gcov && \
 	cp ../*.gcno ../*.c ../test/root/crtools/	&& \
-	geninfo --no-checksum  --output-filename tproxyd.l.info --no-recursion .. && \
-	geninfo --no-checksum  --output-filename tproxyd.ns.info --no-recursion ../test/root/crtools && \
-	sed -i 's#/test/root/crtools##' tproxyd.ns.info && \
-	lcov -a tproxyd.l.info -a tproxyd.ns.info -o tproxyd.info && \
-	genhtml -o html tproxyd.info
+	geninfo --no-checksum  --output-filename crtools.l.info --no-recursion .. && \
+	geninfo --no-checksum  --output-filename crtools.ns.info --no-recursion ../test/root/crtools && \
+	sed -i 's#/test/root/crtools##' crtools.ns.info && \
+	lcov -a crtools.l.info -a crtools.ns.info -o crtools.info && \
+	genhtml -o html crtools.info
 
 deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM)
 
