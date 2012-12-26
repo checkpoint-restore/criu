@@ -92,6 +92,7 @@ done:
 		return 1;
 	}
 
+	unlink("/dev/null");
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
 
 	setup_outfile();
