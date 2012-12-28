@@ -27,14 +27,28 @@ struct cap_data {
 int capget(struct cap_hdr *hdrp, struct cap_data *datap);
 int capset(struct cap_hdr *hdrp, const struct cap_data *datap);
 
+static int cap_last_cap = 63;
+#define NORM_CAPS(v, cap) v[1].cap &= (1LL << (cap_last_cap + 1 - 32)) - 1;
+
 int main(int argc, char **argv)
 {
 	task_waiter_t t;
 	int pid, result_pipe[2];
 	char res = 'x';
+	FILE *f;
 
 	test_init(argc, argv);
 	task_waiter_init(&t);
+
+	f = fopen("/proc/sys/kernel/cap_last_cap", "r");
+	if (f) {
+		if (fscanf(f, "%d", &cap_last_cap) != 1) {
+			err("Unable to read cal_last_cap");
+			return 1;
+		}
+		fclose(f);
+	} else
+		test_msg("/proc/sys/kernel/cap_last_cap is not available\n");
 
 	if (pipe(result_pipe)) {
 		err("Can't create pipe\n");
@@ -67,6 +81,13 @@ int main(int argc, char **argv)
 		hdr.pid = 0;
 
 		capget(&hdr, data_2);
+
+		NORM_CAPS(data, eff);
+		NORM_CAPS(data, prm);
+		NORM_CAPS(data, inh);
+		NORM_CAPS(data_2, eff);
+		NORM_CAPS(data_2, prm);
+		NORM_CAPS(data_2, inh);
 
 		if (data[0].eff != data_2[0].eff) {
 			res = '1';
