@@ -245,4 +245,6 @@ typedef struct {
 # define MADV_DONTDUMP 16
 #endif
 
+#define TASK_SIZE ((1UL << 47) - 1)
+
 #endif /* __CR_ASM_TYPES_H__ */

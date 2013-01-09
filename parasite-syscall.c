@@ -591,6 +591,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 			continue;
 		}
 
+		if (vma_area->vma.end > TASK_SIZE)
+			continue;
+
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret) {
 			pr_err("Dumping pages failed with %d\n", ret);

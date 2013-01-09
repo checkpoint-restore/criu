@@ -466,6 +466,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 			}
 		}
 
+		if (vma_entry->end >= TASK_SIZE)
+			continue;
+
 		if (vma_entry->end > premmapped_end) {
 			if (vma_entry->start < premmapped_end)
 				addr = premmapped_end;
@@ -488,6 +491,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (!vma_priv(vma_entry))
 			continue;
 
+		if (vma_entry->end >= TASK_SIZE)
+			continue;
+
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
@@ -503,6 +509,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 			continue;
 
 		if (!vma_priv(vma_entry))
+			continue;
+
+		if (vma_entry->start > TASK_SIZE)
 			continue;
 
 		if (vma_entry->start < vma_entry->shmid)
