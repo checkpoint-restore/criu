@@ -81,15 +81,8 @@ struct thread_restore_args {
 
 	struct task_restore_core_args	*ta;
 
-	/*
-	 * The FPU xsave area must be continious and FP_MIN_ALIGN_BYTES
-	 * aligned, thus make sure the compiler won't insert any hole here.
-	 */
 	bool				has_fpu;
-	union {
-		struct xsave_struct	xsave;
-		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
-	};
+	fpu_state_t			fpu_state;
 
 	u32				tls;
 } __aligned(sizeof(long));

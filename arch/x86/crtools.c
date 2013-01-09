@@ -16,6 +16,7 @@
 #include "fpu.h"
 #include "elf.h"
 #include "parasite-syscall.h"
+#include "restorer.h"
 
 /*
  * Injected syscall instruction
@@ -281,4 +282,131 @@ void core_entry_free(CoreEntry *core)
 		xfree(core->tc);
 		xfree(core->ids);
 	}
+}
+
+static bool valid_xsave_frame(CoreEntry *core)
+{
+	struct xsave_struct *x = NULL;
+
+	if (core->thread_info->fpregs->n_st_space < ARRAY_SIZE(x->i387.st_space)) {
+		pr_err("Corruption in FPU st_space area "
+		       "(got %li but %li expected)\n",
+		       (long)core->thread_info->fpregs->n_st_space,
+		       (long)ARRAY_SIZE(x->i387.st_space));
+		return false;
+	}
+
+	if (core->thread_info->fpregs->n_xmm_space < ARRAY_SIZE(x->i387.xmm_space)) {
+		pr_err("Corruption in FPU xmm_space area "
+		       "(got %li but %li expected)\n",
+		       (long)core->thread_info->fpregs->n_st_space,
+		       (long)ARRAY_SIZE(x->i387.xmm_space));
+		return false;
+	}
+
+	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+		if (!core->thread_info->fpregs->xsave) {
+			pr_err("FPU xsave area is missing, "
+			       "but host cpu requires it\n");
+			return false;
+		}
+		if (core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
+			pr_err("Corruption in FPU ymmh_space area "
+			       "(got %li but %li expected)\n",
+			       (long)core->thread_info->fpregs->xsave->n_ymmh_space,
+			       (long)ARRAY_SIZE(x->ymmh.ymmh_space));
+			return false;
+		}
+	} else {
+		if (core->thread_info->fpregs->xsave) {
+			pr_err("FPU xsave area present, "
+			       "but host cpu doesn't support it\n");
+			return false;
+		}
+		return true;
+	}
+
+	return true;
+}
+
+static void show_rt_xsave_frame(struct xsave_struct *x)
+{
+	struct fpx_sw_bytes *fpx = (void *)&x->i387.sw_reserved;
+	struct xsave_hdr_struct *xsave_hdr = &x->xsave_hdr;
+	struct i387_fxsave_struct *i387 = &x->i387;
+
+	pr_debug("xsave runtime structure\n");
+	pr_debug("-----------------------\n");
+
+	pr_debug("cwd:%x swd:%x twd:%x fop:%x mxcsr:%x mxcsr_mask:%x\n",
+		 (int)i387->cwd, (int)i387->swd, (int)i387->twd,
+		 (int)i387->fop, (int)i387->mxcsr, (int)i387->mxcsr_mask);
+
+	pr_debug("magic1:%x extended_size:%x xstate_bv:%lx xstate_size:%x\n",
+		 fpx->magic1, fpx->extended_size, fpx->xstate_bv, fpx->xstate_size);
+
+	pr_debug("xstate_bv: %lx\n", xsave_hdr->xstate_bv);
+
+	pr_debug("-----------------------\n");
+}
+
+int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
+{
+	struct xsave_struct *x = &args->fpu_state.xsave;
+
+	/*
+	 * If no FPU information provided -- we're restoring
+	 * old image which has no FPU support, or the dump simply
+	 * has no FPU support at all.
+	 */
+	if (!core->thread_info->fpregs) {
+		args->has_fpu = false;
+		return 0;
+	}
+
+	if (!valid_xsave_frame(core))
+		return -1;
+
+	args->has_fpu = true;
+
+#define assign_reg(dst, src, e)		do { dst.e = (__typeof__(dst.e))src->e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst.e, (src)->e, sizeof(dst.e))
+
+	assign_reg(x->i387, core->thread_info->fpregs, cwd);
+	assign_reg(x->i387, core->thread_info->fpregs, swd);
+	assign_reg(x->i387, core->thread_info->fpregs, twd);
+	assign_reg(x->i387, core->thread_info->fpregs, fop);
+	assign_reg(x->i387, core->thread_info->fpregs, rip);
+	assign_reg(x->i387, core->thread_info->fpregs, rdp);
+	assign_reg(x->i387, core->thread_info->fpregs, mxcsr);
+	assign_reg(x->i387, core->thread_info->fpregs, mxcsr_mask);
+
+	assign_array(x->i387, core->thread_info->fpregs, st_space);
+	assign_array(x->i387, core->thread_info->fpregs, xmm_space);
+
+	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+		struct fpx_sw_bytes *fpx_sw = (void *)&x->i387.sw_reserved;
+		void *magic2;
+
+		x->xsave_hdr.xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
+		assign_array(x->ymmh, core->thread_info->fpregs->xsave, ymmh_space);
+
+		fpx_sw->magic1		= FP_XSTATE_MAGIC1;
+		fpx_sw->xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
+		fpx_sw->xstate_size	= sizeof(struct xsave_struct);
+		fpx_sw->extended_size	= sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE;
+
+		/*
+		 * This should be at the end of xsave frame.
+		 */
+		magic2 = args->fpu_state.__pad + sizeof(struct xsave_struct);
+		*(u32 *)magic2 = FP_XSTATE_MAGIC2;
+	}
+
+	show_rt_xsave_frame(x);
+
+#undef assign_reg
+#undef assign_array
+
+	return 0;
 }

@@ -17,4 +17,7 @@
 
 #define core_get_tls(pcore, ptls)
 
+
+int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core);
+
 #endif
