@@ -143,22 +143,6 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &parm);
 }
 
-static int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args)
-{
-	if (args->has_fpu) {
-		unsigned long addr = (unsigned long)(void *)&args->xsave;
-
-		if ((addr % 64ul) == 0ul) {
-			sigframe->uc.uc_mcontext.fpstate = &args->xsave;
-		} else {
-			pr_err("Unaligned address passed: %lx\n", addr);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {

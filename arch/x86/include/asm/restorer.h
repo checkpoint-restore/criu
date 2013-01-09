@@ -73,4 +73,6 @@ struct rt_sigframe {
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
+int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args);
+
 #endif
