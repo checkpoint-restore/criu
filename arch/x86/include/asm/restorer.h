@@ -71,6 +71,18 @@ struct rt_sigframe {
 	/* fp state follows here */
 };
 
+
+#define ARCH_RT_SIGRETURN(new_sp)					\
+	asm volatile(							\
+		     "movq %0, %%rax				    \n"	\
+		     "movq %%rax, %%rsp				    \n"	\
+		     "movl $"__stringify(__NR_rt_sigreturn)", %%eax \n" \
+		     "syscall					    \n"	\
+		     :							\
+		     : "r"(new_sp)					\
+		     : "rax","rsp","memory")
+
+
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
 int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args);

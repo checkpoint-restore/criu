@@ -198,14 +198,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + 8;
-	asm volatile(
-		"movq %0, %%rax					\n"
-		"movq %%rax, %%rsp				\n"
-		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-		"syscall					\n"
-		:
-		: "r"(new_sp)
-		: "rax","rsp","memory");
+	ARCH_RT_SIGRETURN(new_sp);
+
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
 	sys_exit_group(1);
@@ -746,14 +740,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
-	asm volatile(
-		"movq %0, %%rax					\n"
-		"movq %%rax, %%rsp				\n"
-		"movl $"__stringify(__NR_rt_sigreturn)", %%eax	\n"
-		"syscall					\n"
-		:
-		: "r"(new_sp)
-		: "rax","rsp","memory");
+	ARCH_RT_SIGRETURN(new_sp);
 
 core_restore_end:
 	pr_err("Restorer fail %ld\n", sys_getpid());
