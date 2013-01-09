@@ -64,6 +64,8 @@
 #include "fpu.h"
 #include "elf.h"
 
+#include "asm/dump.h"
+
 #ifndef CONFIG_X86_64
 # error No x86-32 support yet
 #endif
@@ -646,133 +648,6 @@ static int get_task_personality(pid_t pid, u32 *personality)
 err:
 	if (file)
 		fclose(file);
-	return ret;
-}
-
-static int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
-{
-	struct xsave_struct xsave	= {  };
-	user_regs_struct_t regs		= {-1};
-
-	struct iovec iov;
-	int ret = -1;
-
-	pr_info("Dumping GP/FPU registers ... ");
-
-	if (ctl)
-		regs = ctl->regs_orig;
-	else {
-		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-			pr_err("Can't obtain GP registers for %d\n", pid);
-			goto err;
-		}
-	}
-
-	/* Did we come from a system call? */
-	if ((int)regs.orig_ax >= 0) {
-		/* Restart the system call */
-		switch ((long)(int)regs.ax) {
-		case -ERESTARTNOHAND:
-		case -ERESTARTSYS:
-		case -ERESTARTNOINTR:
-			regs.ax = regs.orig_ax;
-			regs.ip -= 2;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			regs.ax = __NR_restart_syscall;
-			regs.ip -= 2;
-			break;
-		}
-	}
-
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
-
-	assign_reg(core->thread_info->gpregs, regs, r15);
-	assign_reg(core->thread_info->gpregs, regs, r14);
-	assign_reg(core->thread_info->gpregs, regs, r13);
-	assign_reg(core->thread_info->gpregs, regs, r12);
-	assign_reg(core->thread_info->gpregs, regs, bp);
-	assign_reg(core->thread_info->gpregs, regs, bx);
-	assign_reg(core->thread_info->gpregs, regs, r11);
-	assign_reg(core->thread_info->gpregs, regs, r10);
-	assign_reg(core->thread_info->gpregs, regs, r9);
-	assign_reg(core->thread_info->gpregs, regs, r8);
-	assign_reg(core->thread_info->gpregs, regs, ax);
-	assign_reg(core->thread_info->gpregs, regs, cx);
-	assign_reg(core->thread_info->gpregs, regs, dx);
-	assign_reg(core->thread_info->gpregs, regs, si);
-	assign_reg(core->thread_info->gpregs, regs, di);
-	assign_reg(core->thread_info->gpregs, regs, orig_ax);
-	assign_reg(core->thread_info->gpregs, regs, ip);
-	assign_reg(core->thread_info->gpregs, regs, cs);
-	assign_reg(core->thread_info->gpregs, regs, flags);
-	assign_reg(core->thread_info->gpregs, regs, sp);
-	assign_reg(core->thread_info->gpregs, regs, ss);
-	assign_reg(core->thread_info->gpregs, regs, fs_base);
-	assign_reg(core->thread_info->gpregs, regs, gs_base);
-	assign_reg(core->thread_info->gpregs, regs, ds);
-	assign_reg(core->thread_info->gpregs, regs, es);
-	assign_reg(core->thread_info->gpregs, regs, fs);
-	assign_reg(core->thread_info->gpregs, regs, gs);
-
-#ifndef PTRACE_GETREGSET
-# define PTRACE_GETREGSET 0x4204
-#endif
-
-	if (!cpu_has_feature(X86_FEATURE_FPU))
-		goto out;
-
-	/*
-	 * FPU fetched either via fxsave or via xsave,
-	 * thus decode it accrodingly.
-	 */
-
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
-		iov.iov_base = &xsave;
-		iov.iov_len = sizeof(xsave);
-
-		if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
-			pr_err("Can't obtain FPU registers for %d\n", pid);
-			goto err;
-		}
-	} else {
-		if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
-			pr_err("Can't obtain FPU registers for %d\n", pid);
-			goto err;
-		}
-	}
-
-	assign_reg(core->thread_info->fpregs, xsave.i387, cwd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, swd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, twd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, fop);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rip);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rdp);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr_mask);
-
-	/* Make sure we have enough space */
-	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(xsave.i387.st_space));
-	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(xsave.i387.xmm_space));
-
-	assign_array(core->thread_info->fpregs, xsave.i387, st_space);
-	assign_array(core->thread_info->fpregs, xsave.i387, xmm_space);
-
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
-		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(xsave.ymmh.ymmh_space));
-
-		assign_reg(core->thread_info->fpregs->xsave, xsave.xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, xsave.ymmh, ymmh_space);
-	}
-
-#undef assign_reg
-#undef assign_array
-
-out:
-	ret = 0;
-
-err:
 	return ret;
 }
 
