@@ -120,6 +120,15 @@ struct rt_sigframe {
 		       "g"(&thread_args[i])				\
 		     : "rax", "rdi", "rsi", "rdx", "r10", "memory")
 
+#define ARCH_FAIL_CORE_RESTORE					\
+	asm volatile(						\
+		     "movq %0, %%rsp			    \n"	\
+		     "movq 0, %%rax			    \n"	\
+		     "jmp *%%rax			    \n"	\
+		     :						\
+		     : "r"(ret)					\
+		     : "memory")
+
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 

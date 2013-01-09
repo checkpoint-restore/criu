@@ -715,12 +715,7 @@ core_restore_end:
 	return -1;
 
 core_restore_failed:
-	asm volatile(
-		"movq %0, %%rsp				\n"
-		"movq 0, %%rax				\n"
-		"jmp *%%rax				\n"
-		:
-		: "r"(ret)
-		: "memory");
+	ARCH_FAIL_CORE_RESTORE;
+
 	return ret;
 }
