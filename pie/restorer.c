@@ -638,41 +638,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 			 * thread will run with own stack and we must not
 			 * have any additional instructions... oh, dear...
 			 */
-			asm volatile(
-				"clone_emul:				\n"
-				"movq %2, %%rsi				\n"
-				"subq $16, %%rsi			\n"
-				"movq %6, %%rdi				\n"
-				"movq %%rdi, 8(%%rsi)			\n"
-				"movq %5, %%rdi				\n"
-				"movq %%rdi, 0(%%rsi)			\n"
-				"movq %1, %%rdi				\n"
-				"movq %3, %%rdx				\n"
-				"movq %4, %%r10				\n"
-				"movl $"__stringify(__NR_clone)", %%eax	\n"
-				"syscall				\n"
 
-				"testq %%rax,%%rax			\n"
-				"jz thread_run				\n"
-
-				"movq %%rax, %0				\n"
-				"jmp clone_end				\n"
-
-				"thread_run:				\n"	/* new stack here */
-				"xorq %%rbp, %%rbp			\n"	/* clear ABI frame pointer */
-				"popq %%rax				\n"	/* clone_restore_fn  -- restore_thread */
-				"popq %%rdi				\n"	/* arguments */
-				"callq *%%rax				\n"
-
-				"clone_end:				\n"
-				: "=r"(ret)
-				:	"g"(clone_flags),
-					"g"(new_sp),
-					"g"(&parent_tid),
-					"g"(&thread_args[i].pid),
-					"g"(args->clone_restore_fn),
-					"g"(&thread_args[i])
-				: "rax", "rdi", "rsi", "rdx", "r10", "memory");
+			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
 		}
 
 		ret = sys_flock(fd, LOCK_UN);
