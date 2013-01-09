@@ -198,3 +198,65 @@ out:
 err:
 	return ret;
 }
+
+int arch_alloc_thread_info(CoreEntry *core)
+{
+	ThreadInfoX86 *thread_info;
+	UserX86RegsEntry *gpregs;
+	UserX86FpregsEntry *fpregs;
+	ThreadCoreEntry *thread_core;
+
+	thread_info = xmalloc(sizeof(*thread_info));
+	if (!thread_info)
+		goto err;
+	thread_info_x86__init(thread_info);
+	core->thread_info = thread_info;
+
+	thread_core = xmalloc(sizeof(*thread_core));
+	if (!thread_core)
+		goto err;
+	thread_core_entry__init(thread_core);
+	core->thread_core = thread_core;
+
+	gpregs = xmalloc(sizeof(*gpregs));
+	if (!gpregs)
+		goto err;
+	user_x86_regs_entry__init(gpregs);
+	thread_info->gpregs = gpregs;
+
+	if (cpu_has_feature(X86_FEATURE_FPU)) {
+		fpregs = xmalloc(sizeof(*fpregs));
+		if (!fpregs)
+			goto err;
+		user_x86_fpregs_entry__init(fpregs);
+		thread_info->fpregs = fpregs;
+		/* These are numbers from kernel */
+		fpregs->n_st_space	= 32;
+		fpregs->n_xmm_space	= 64;
+
+		fpregs->st_space	= xzalloc(pb_repeated_size(fpregs, st_space));
+		fpregs->xmm_space	= xzalloc(pb_repeated_size(fpregs, xmm_space));
+
+		if (!fpregs->st_space || !fpregs->xmm_space)
+			goto err;
+
+		if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+			UserX86XsaveEntry *xsave;
+			xsave = xmalloc(sizeof(*xsave));
+			if (!xsave)
+				goto err;
+			user_x86_xsave_entry__init(xsave);
+			thread_info->fpregs->xsave = xsave;
+
+			xsave->n_ymmh_space = 64;
+			xsave->ymmh_space = xzalloc(pb_repeated_size(xsave, ymmh_space));
+			if (!xsave->ymmh_space)
+				goto err;
+		}
+	}
+
+	return 0;
+
+err:
+	return 1;
+}
