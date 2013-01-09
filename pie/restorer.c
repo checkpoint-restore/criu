@@ -693,7 +693,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {
-		ret = ((long)__LINE__ << 32) | -ret;
+		ret = ((long)__LINE__ << 16) | ((-ret) & 0xffff);
 		goto core_restore_failed;
 	}
 
