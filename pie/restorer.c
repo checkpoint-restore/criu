@@ -162,7 +162,12 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 	if (restore_fpu(sigframe, args))
 		return -1;
 
-	return restore_gpregs(sigframe, &args->gpregs);
+	if (restore_gpregs(sigframe, &args->gpregs))
+		return -1;
+
+	restore_tls(args->tls);
+
+	return 0;
 }
 
 /*

@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <inttypes.h>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -365,7 +366,8 @@ err:
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_addr, pid_t *tid,
-					void *blocked)
+					void *blocked,
+					u32 *tls)
 {
 	struct parasite_dump_thread *args;
 	int ret;
@@ -377,6 +379,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 	memcpy(blocked, &args->blocked, sizeof(args->blocked));
 	*tid_addr = args->tid_addr;
 	*tid = args->tid;
+	*tls = args->tls;
 
 	return ret;
 }

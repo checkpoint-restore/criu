@@ -38,7 +38,7 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 struct parasite_dump_thread;
 extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, pid_t pid,
 					unsigned int **tid_add, pid_t *tid,
-					void *blocked);
+					void *blocked, u32 *tls);
 
 struct parasite_drain_fd;
 struct fd_opts;

@@ -15,4 +15,6 @@
 		       "g"(task_args)					\
 		     : "rsp", "rdi", "rsi", "rbx", "rax", "memory")
 
+#define core_get_tls(pcore, ptls)
+
 #endif

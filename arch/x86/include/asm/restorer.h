@@ -134,4 +134,6 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
 int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args);
 
+static inline void restore_tls(u32 tls) { }
+
 #endif

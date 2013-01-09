@@ -12,6 +12,8 @@
 
 #include <string.h>
 
+#include "asm/parasite.h"
+
 #ifndef CONFIG_X86_64
 #error non-x86-64 mode not yet implemented
 #endif
@@ -287,6 +289,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
 	args->pgid = sys_getpgid(0);
+	args->tls = arch_get_tls();
 
 	return 0;
 }
@@ -372,6 +375,7 @@ static int dump_thread(struct parasite_dump_thread *args)
 
 	args->blocked = s->sig_blocked;
 	args->tid = tid;
+	args->tls = arch_get_tls();
 
 	return 0;
 }

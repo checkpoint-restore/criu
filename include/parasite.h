@@ -83,6 +83,7 @@ struct parasite_dump_misc {
 	u32 pid;
 	u32 sid;
 	u32 pgid;
+	u32 tls;
 };
 
 #define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int))
@@ -97,6 +98,7 @@ struct parasite_dump_thread {
 	unsigned int		*tid_addr;
 	pid_t			tid;
 	k_rtsigset_t		blocked;
+	u32			tls;
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))

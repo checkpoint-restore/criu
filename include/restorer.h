@@ -90,6 +90,8 @@ struct thread_restore_args {
 		struct xsave_struct	xsave;
 		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
 	};
+
+	u32				tls;
 } __aligned(sizeof(long));
 
 struct task_restore_core_args {
