@@ -4,4 +4,6 @@
 extern const char code_syscall[];
 extern const int code_syscall_size;
 
+void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs);
+
 #endif

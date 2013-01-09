@@ -55,18 +55,6 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
-/* Note it's destructive on @regs */
-static void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
-{
-	regs->ip = new_ip;
-
-	/* Avoid end of syscall processing */
-	regs->orig_ax = -1;
-
-	/* Make sure flags are in known state */
-	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
-}
-
 /* we run at @regs->ip */
 static int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs)
 {
