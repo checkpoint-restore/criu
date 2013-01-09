@@ -1,5 +1,3 @@
-OUTPUT_ARCH(i386:x86-64)
-
 SECTIONS
 {
 	.crblob 0x0 : {

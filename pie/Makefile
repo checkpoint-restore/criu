@@ -18,6 +18,11 @@ LIB-OBJS	= log-simple.o blob-util-net.o $(SYSCALL-LIB)
 $(PARASITE): $(LIB-OBJS) $(PASM-OBJS) $(PIELDS)
 $(RESTORER): $(LIB-OBJS) $(PIELDS)
 
+$(PIELDS): $(PIELDS).in
+	$(E) "  GEN     " $@
+	$(Q) $(SH) -c "echo 'OUTPUT_ARCH($(LDARCH))' > $(PIELDS)"
+	$(Q) $(SH) -c "cat $(PIELDS).in >> $(PIELDS)"
+
 blob-util-net.o: $(SRC_DIR)/util-net.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) $(CFLAGS) $< -o $@
@@ -32,11 +37,11 @@ blob-util-net.o: $(SRC_DIR)/util-net.c
 
 %.bin.o: %.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=elf64-x86-64 -T $(PIELDS) -o $@ $(^:$(PIELDS)=)
+	$(Q) $(LD) -T $(PIELDS) -o $@ $(^:$(PIELDS)=)
 
-%.bin: %.o
+%.bin: %.bin.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) --oformat=binary -T $(PIELDS) -o $@ $(^:$(PIELDS)=)
+	$(Q) $(OBJCOPY) -O binary $< $@
 
 %-blob.h: %.bin %.bin.o $(GEN-OFFSETS)
 	$(E) "  GEN     " $@
@@ -51,6 +56,7 @@ clean:
 	$(Q) $(RM) -f ./*.d
 	$(Q) $(RM) -f ./*.bin
 	$(Q) $(RM) -f ./*.bin.o
+	$(Q) $(RM) -f $(PIELDS)
 
 .PHONY: clean pie
 .SECONDARY:

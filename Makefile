@@ -22,6 +22,7 @@ NM		:= nm
 AWK		:= awk
 SH		:= sh
 MAKE		:= make
+OBJCOPY		:= objcopy
 
 # Additional ARCH settings for x86
 ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
@@ -38,6 +39,7 @@ endif
 ifeq ($(uname_M),x86_64)
 	ARCH         := x86
 	DEFINES      := -DCONFIG_X86_64
+	LDARCH       := i386:x86-64
 endif
 
 SRC_DIR		?= $(shell pwd)
@@ -71,7 +73,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
 
 
 PROGRAM		:= crtools
@@ -123,7 +125,7 @@ OBJS		+= cpu.o
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf x86
+	docs help pie protobuf $(ARCH)
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
@@ -138,8 +140,8 @@ pie: protobuf $(ARCH)
 protobuf:
 	$(Q) $(MAKE) -C protobuf/
 
-x86:
-	$(Q) $(MAKE) -C arch/x86/
+$(ARCH):
+	$(Q) $(MAKE) -C arch/$(ARCH)/
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -188,7 +190,7 @@ clean:
 	$(Q) $(RM) -f ./*.gcov ./*.gcda ./*.gcno
 	$(Q) $(RM) -rf ./gcov
 	$(Q) $(MAKE) -C protobuf/ clean
-	$(Q) $(MAKE) -C arch/x86/ clean
+	$(Q) $(MAKE) -C arch/$(ARCH)/ clean
 	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
