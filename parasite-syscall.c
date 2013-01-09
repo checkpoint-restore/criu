@@ -9,6 +9,7 @@
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/creds.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 #include "syscall.h"
 #include "ptrace.h"
@@ -25,6 +26,7 @@
 
 #ifdef CONFIG_X86_64
 #include "asm/parasite-syscall.h"
+#include "asm/dump.h"
 
 #define parasite_size		(round_up(sizeof(parasite_blob), sizeof(long)))
 
@@ -365,9 +367,7 @@ err:
 }
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, struct pid *tid,
-					unsigned int **tid_addr,
-					void *blocked,
-					u32 *tls)
+		CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
 	int ret;
@@ -376,10 +376,10 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, struct pid *tid,
 
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_THREAD, ctl, tid->real);
 
-	memcpy(blocked, &args->blocked, sizeof(args->blocked));
-	*tid_addr = args->tid_addr;
+	memcpy(&core->thread_core->blk_sigset, &args->blocked, sizeof(args->blocked));
+	core->thread_info->clear_tid_addr = (u64)args->tid_addr;
 	tid->virt = args->tid;
-	*tls = args->tls;
+	core_put_tls(core, args->tls);
 
 	return ret;
 }
