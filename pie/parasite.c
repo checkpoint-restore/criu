@@ -45,7 +45,7 @@ static int brk_init(void)
 	ret = sys_mmap(NULL, MAX_HEAP_SIZE,
 			    PROT_READ | PROT_WRITE,
 			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (ret < 0)
+	if (ret > TASK_SIZE)
 		return -ENOMEM;
 
 	brk_start = brk_tail = (void *)ret;
@@ -427,7 +427,7 @@ static int init(struct parasite_init_args *args)
 				     PROT_READ | PROT_WRITE,
 				     MAP_PRIVATE | MAP_ANONYMOUS,
 				     -1, 0);
-	if ((long)tid_state < 0)
+	if ((unsigned long)tid_state > TASK_SIZE)
 		return -ENOMEM;
 
 	nr_tid_state = args->nr_threads;

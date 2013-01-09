@@ -239,7 +239,7 @@ static void *mmap_seized(struct parasite_ctl *ctl,
 
 	err = syscall_seized(ctl, __NR_mmap, &map,
 			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0 || (long)map < 0)
+	if (err < 0 || map > TASK_SIZE)
 		map = 0;
 
 	return (void *)map;
