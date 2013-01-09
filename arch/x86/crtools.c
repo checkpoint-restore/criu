@@ -43,3 +43,31 @@ void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 	/* Make sure flags are in known state */
 	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
 }
+
+int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+		unsigned long arg1,
+		unsigned long arg2,
+		unsigned long arg3,
+		unsigned long arg4,
+		unsigned long arg5,
+		unsigned long arg6)
+{
+	user_regs_struct_t regs = ctl->regs_orig;
+	int err;
+
+	regs.ax  = (unsigned long)nr;
+	regs.di  = arg1;
+	regs.si  = arg2;
+	regs.dx  = arg3;
+	regs.r10 = arg4;
+	regs.r8  = arg5;
+	regs.r9  = arg6;
+
+	parasite_setup_regs(ctl->syscall_ip, &regs);
+	err = __parasite_execute(ctl, ctl->pid, &regs);
+	if (err)
+		return err;
+
+	*ret = regs.ax;
+	return 0;
+}

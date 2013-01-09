@@ -56,7 +56,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 }
 
 /* we run at @regs->ip */
-static int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs)
+int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs)
 {
 	siginfo_t siginfo;
 	int status;
@@ -228,34 +228,6 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 static int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
 {
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid);
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->regs_orig;
-	int err;
-
-	regs.ax  = (unsigned long)nr;
-	regs.di  = arg1;
-	regs.si  = arg2;
-	regs.dx  = arg3;
-	regs.r10 = arg4;
-	regs.r8  = arg5;
-	regs.r9  = arg6;
-
-	parasite_setup_regs(ctl->syscall_ip, &regs);
-	err = __parasite_execute(ctl, ctl->pid, &regs);
-	if (err)
-		return err;
-
-	*ret = regs.ax;
-	return 0;
 }
 
 static void *mmap_seized(struct parasite_ctl *ctl,
