@@ -121,6 +121,7 @@ OBJS		+= protobuf.o
 OBJS		+= tty.o
 OBJS		+= cr-exec.o
 OBJS		+= cpu.o
+OBJS		+= $(ARCH_DIR)/crtools.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 

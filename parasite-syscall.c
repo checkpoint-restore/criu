@@ -23,10 +23,8 @@
 #include <stdlib.h>
 
 #ifdef CONFIG_X86_64
-static const char code_syscall[] = {0x0f, 0x05, 0xcc, 0xcc,
-				    0xcc, 0xcc, 0xcc, 0xcc};
+#include "asm/parasite-syscall.h"
 
-#define code_syscall_size	(round_up(sizeof(code_syscall), sizeof(long)))
 #define parasite_size		(round_up(sizeof(parasite_blob), sizeof(long)))
 
 static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
@@ -797,9 +795,6 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_lis
 	 * Inject syscall instruction and remember original code,
 	 * we will need it to restore original program content.
 	 */
-	BUILD_BUG_ON(sizeof(code_syscall) != sizeof(ctl->code_orig));
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-
 	memcpy(ctl->code_orig, code_syscall, sizeof(ctl->code_orig));
 	if (ptrace_swap_area(ctl->pid, (void *)ctl->syscall_ip,
 			     (void *)ctl->code_orig, sizeof(ctl->code_orig))) {
