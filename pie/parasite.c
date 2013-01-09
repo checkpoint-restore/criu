@@ -286,7 +286,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
-	args->pgid = sys_getpgid();
+	args->pgid = sys_getpgid(0);
 
 	return 0;
 }
