@@ -4,6 +4,7 @@ CFLAGS		+=  -fpie  -Wa,--noexecstack -fno-strict-aliasing
 GEN-OFFSETS	:= gen-offsets.sh
 
 PASM-OBJS	+= $(ARCH_DIR)/parasite-head.o
+RESTORER-ARCH-OBJS := $(ARCH_DIR)/restorer.o
 
 PARASITE	+= parasite.bin.o parasite.bin
 RESTORER	:= restorer.bin.o restorer.bin
@@ -16,7 +17,7 @@ ASMFLAGS	:= -D__ASSEMBLY__
 LIB-OBJS	= log-simple.o blob-util-net.o $(SYSCALL-LIB)
 
 $(PARASITE): $(LIB-OBJS) $(PASM-OBJS) $(PIELDS)
-$(RESTORER): $(LIB-OBJS) $(PIELDS)
+$(RESTORER): $(LIB-OBJS) $(RESTORER-ARCH-OBJS) $(PIELDS)
 
 $(PIELDS): $(PIELDS).in
 	$(E) "  GEN     " $@

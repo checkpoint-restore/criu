@@ -71,4 +71,6 @@ struct rt_sigframe {
 	/* fp state follows here */
 };
 
+int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
+
 #endif
