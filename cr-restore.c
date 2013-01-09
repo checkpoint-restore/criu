@@ -61,6 +61,8 @@
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 
+#include "asm/restore.h"
+
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
@@ -1971,17 +1973,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * An indirect call to task_restore, note it never resturns
 	 * and restoreing core is extremely destructive.
 	 */
-	asm volatile(
-		"movq %0, %%rbx						\n"
-		"movq %1, %%rax						\n"
-		"movq %2, %%rdi						\n"
-		"movq %%rbx, %%rsp					\n"
-		"callq *%%rax						\n"
-		:
-		: "g"(new_sp),
-		  "g"(restore_task_exec_start),
-		  "g"(task_args)
-		: "rsp", "rdi", "rsi", "rbx", "rax", "memory");
+
+	JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start, task_args);
 
 err:
 	free_mappings(&self_vma_list);
