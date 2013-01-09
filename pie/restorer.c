@@ -27,6 +27,8 @@
 
 #include "creds.pb-c.h"
 
+#include "asm/restorer.h"
+
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
