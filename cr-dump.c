@@ -552,10 +552,10 @@ static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 
 	for (i = 0; i < AT_VECTOR_SIZE; i++) {
 		ret = read(fd, &mm->mm_saved_auxv[i],
-			   sizeof(mm->mm_saved_auxv[0]));
+			   sizeof(auxv_t));
 		if (ret == 0)
 			break;
-		else if (ret != sizeof(mm->mm_saved_auxv[0])) {
+		else if (ret != sizeof(auxv_t)) {
 			ret = -1;
 			pr_perror("Error readind %d's auxv[%d]",
 				  pid, i);

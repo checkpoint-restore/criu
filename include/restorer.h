@@ -123,7 +123,7 @@ struct task_restore_core_args {
 	uint32_t			cap_bnd[CR_CAP_SIZE];
 
 	MmEntry				mm;
-	u64				mm_saved_auxv[AT_VECTOR_SIZE];
+	auxv_t				mm_saved_auxv[AT_VECTOR_SIZE];
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
 

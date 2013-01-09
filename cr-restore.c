@@ -1453,7 +1453,7 @@ static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head 
 
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
-	int fd, exe_fd, ret = -1;
+	int fd, exe_fd, i, ret = -1;
 	MmEntry *mm;
 
 	fd = open_image_ro(CR_FD_MM, pid);
@@ -1474,9 +1474,10 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 		goto out;
 	}
 
-	args->mm_saved_auxv_size = pb_repeated_size(mm, mm_saved_auxv);
-	memcpy(args->mm_saved_auxv, mm->mm_saved_auxv,
-	       args->mm_saved_auxv_size);
+	args->mm_saved_auxv_size = mm->n_mm_saved_auxv*sizeof(auxv_t);
+	for (i = 0; i < mm->n_mm_saved_auxv; ++i) {
+		args->mm_saved_auxv[i] = (auxv_t)mm->mm_saved_auxv[i];
+	}
 
 	exe_fd = open_reg_by_id(args->mm.exe_file_id);
 	if (exe_fd < 0)

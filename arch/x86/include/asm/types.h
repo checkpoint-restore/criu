@@ -247,4 +247,6 @@ typedef struct {
 
 #define TASK_SIZE ((1UL << 47) - 1)
 
+typedef uint64_t auxv_t;
+
 #endif /* __CR_ASM_TYPES_H__ */
