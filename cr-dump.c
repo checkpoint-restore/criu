@@ -696,28 +696,6 @@ static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
 	return 0;
 }
 
-static void core_entry_free(CoreEntry *core)
-{
-	if (core) {
-		if (core->thread_info) {
-			if (core->thread_info->fpregs) {
-				if (core->thread_info->fpregs->xsave)
-					xfree(core->thread_info->fpregs->xsave->ymmh_space);
-				xfree(core->thread_info->fpregs->xsave);
-				xfree(core->thread_info->fpregs->st_space);
-				xfree(core->thread_info->fpregs->xmm_space);
-				xfree(core->thread_info->fpregs->padding);
-			}
-			xfree(core->thread_info->gpregs);
-			xfree(core->thread_info->fpregs);
-		}
-		xfree(core->thread_info);
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
-	}
-}
-
 static CoreEntry *core_entry_alloc(int alloc_thread_info,
 				   int alloc_tc,
 				   int alloc_ids)
