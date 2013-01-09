@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #include "list.h"
-#include "types.h"
+#include "asm/types.h"
 #include "list.h"
 #include "util.h"
 #include "image.h"

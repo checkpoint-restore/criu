@@ -25,7 +25,7 @@
 #include <sys/sendfile.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 
 #include "image.h"
 #include "util.h"

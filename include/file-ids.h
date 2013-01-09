@@ -2,7 +2,7 @@
 #define __CR_FILE_IDS_H__
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "rbtree.h"
 
 #include "../protobuf/fdinfo.pb-c.h"

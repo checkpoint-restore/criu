@@ -1,11 +1,11 @@
-#ifndef __CR_TYPES_H__
-#define __CR_TYPES_H__
+#ifndef __CR_ASM_TYPES_H__
+#define __CR_ASM_TYPES_H__
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
 
-#include "bitops.h"
+#include "asm/bitops.h"
 
 /* prctl */
 #define ARCH_SET_GS 0x1001
@@ -245,4 +245,4 @@ typedef struct {
 # define MADV_DONTDUMP 16
 #endif
 
-#endif /* __CR_TYPES_H__ */
+#endif /* __CR_ASM_TYPES_H__ */

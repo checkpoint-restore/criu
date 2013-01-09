@@ -5,7 +5,7 @@
 #include <wait.h>
 #include <stdlib.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "util.h"
 #include "list.h"
 #include "files.h"

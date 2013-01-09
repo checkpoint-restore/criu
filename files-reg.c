@@ -12,7 +12,7 @@
 #include "image.h"
 #include "list.h"
 #include "util.h"
-#include "atomic.h"
+#include "asm/atomic.h"
 
 #include "protobuf.h"
 #include "protobuf/regfile.pb-c.h"

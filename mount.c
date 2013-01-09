@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 
 #include "crtools.h"
-#include "types.h"
+#include "asm/types.h"
 #include "util.h"
 #include "log.h"
 #include "mount.h"

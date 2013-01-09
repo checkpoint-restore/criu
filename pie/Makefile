@@ -3,7 +3,7 @@ CFLAGS		+=  -fpie  -Wa,--noexecstack -fno-strict-aliasing
 
 GEN-OFFSETS	:= gen-offsets.sh
 
-PASM-OBJS	+= parasite-head-x86-64.o
+PASM-OBJS	+= $(ARCH_DIR)/parasite-head.o
 
 PARASITE	+= parasite.bin.o parasite.bin
 RESTORER	:= restorer.bin.o restorer.bin

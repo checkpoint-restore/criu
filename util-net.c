@@ -4,8 +4,8 @@
 #include <errno.h>
 
 #include "compiler.h"
-#include "memcpy_64.h"
-#include "types.h"
+#include "asm/memcpy_64.h"
+#include "asm/types.h"
 #include "syscall.h"
 
 #include "util-net.h"

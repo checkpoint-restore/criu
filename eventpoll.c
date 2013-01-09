@@ -13,7 +13,7 @@
 #include <sys/epoll.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "eventpoll.h"
 #include "proc_parse.h"
 #include "crtools.h"

@@ -9,7 +9,7 @@
 
 #include <sys/types.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "file-ids.h"
 #include "rbtree.h"
 #include "kcmp-ids.h"

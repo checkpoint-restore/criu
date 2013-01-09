@@ -1,7 +1,7 @@
 #ifndef __CR_CPU_H__
 #define __CR_CPU_H__
 
-#include "types.h"
+#include "asm/types.h"
 
 /*
  * Adopted from linux kernel.

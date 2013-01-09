@@ -5,7 +5,7 @@
 #include <limits.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "image.h"
 #include "lock.h"
 #include "util.h"

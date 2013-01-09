@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <sys/sendfile.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "list.h"
 #include "image.h"
 #include "crtools.h"

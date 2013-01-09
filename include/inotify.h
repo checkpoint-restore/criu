@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "files.h"
 #include "crtools.h"
 

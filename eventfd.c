@@ -13,7 +13,7 @@
 #include <sys/eventfd.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "eventfd.h"
 #include "proc_parse.h"
 #include "crtools.h"

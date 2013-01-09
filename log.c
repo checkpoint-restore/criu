@@ -13,7 +13,7 @@
 #include <fcntl.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "util.h"
 #include "crtools.h"
 

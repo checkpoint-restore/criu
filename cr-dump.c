@@ -30,7 +30,7 @@
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
 
-#include "types.h"
+#include "asm/types.h"
 #include "list.h"
 #include "file-ids.h"
 #include "kcmp-ids.h"

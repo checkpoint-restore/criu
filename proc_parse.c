@@ -9,7 +9,7 @@
 #include <string.h>
 #include <linux/fs.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "list.h"
 #include "util.h"
 #include "crtools.h"

@@ -1,4 +1,4 @@
-SYS-DEF		:= $(SRC_DIR)/include/syscall-x86-64.def
+SYS-DEF		:= $(ARCH_DIR)/syscall-x86-64.def
 SYS-ASM-COMMON	:= syscall-common-x86-64.S
 SYS-TYPES	:= $(SRC_DIR)/include/syscall-types.h
 
@@ -47,5 +47,6 @@ clean:
 	$(Q) $(RM) -f $(SYS-PROTO)
 	$(Q) $(RM) -f $(SYS-OBJ)
 	$(Q) $(RM) -f $(SYS-EXEC-TBL)
+	$(Q) $(RM) -f *.o *.d
 
 .PHONY: clean x86

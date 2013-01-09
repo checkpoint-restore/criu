@@ -10,7 +10,7 @@
 #include "util.h"
 #include "list.h"
 #include "log.h"
-#include "types.h"
+#include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
 #include "files.h"

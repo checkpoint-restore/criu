@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "sysctl.h"
 #include "util.h"
 

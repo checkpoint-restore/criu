@@ -6,8 +6,8 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "types.h"
-#include "atomic.h"
+#include "asm/types.h"
+#include "asm/atomic.h"
 #include "syscall.h"
 #include "util.h"
 

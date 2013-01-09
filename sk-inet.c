@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "libnetlink.h"
 #include "crtools.h"
 #include "inet_diag.h"

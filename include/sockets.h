@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-#include "types.h"
+#include "asm/types.h"
 
 #include "protobuf.h"
 #include "../protobuf/sk-opts.pb-c.h"

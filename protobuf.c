@@ -10,7 +10,7 @@
 
 #include "crtools.h"
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "log.h"
 #include "util.h"
 #include "string.h"

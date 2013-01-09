@@ -1,7 +1,7 @@
 #ifndef __CR_SK_QUEUE_H__
 #define __CR_SK_QUEUE_H__
 
-#include "types.h"
+#include "asm/types.h"
 #include "list.h"
 #include "crtools.h"
 #include "image.h"

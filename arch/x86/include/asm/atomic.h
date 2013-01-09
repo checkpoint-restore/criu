@@ -1,7 +1,7 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
-#include "types.h"
+#include "asm/types.h"
 
 typedef struct {
 	u32 counter;

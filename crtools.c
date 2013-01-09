@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "types.h"
+#include "asm/types.h"
 
 #include "compiler.h"
 #include "crtools.h"

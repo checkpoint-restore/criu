@@ -14,7 +14,7 @@
 #include <sys/resource.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "syscall.h"
 #include "log.h"
 #include "util.h"

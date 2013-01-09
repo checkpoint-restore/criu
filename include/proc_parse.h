@@ -2,7 +2,7 @@
 #define __CR_PROC_PARSE_H__
 
 #include <sys/types.h>
-#include "types.h"
+#include "asm/types.h"
 #include "image.h"
 #include "list.h"
 

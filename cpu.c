@@ -7,10 +7,10 @@
 #include <sys/types.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "log.h"
 #include "util.h"
-#include "bitops.h"
+#include "asm/bitops.h"
 
 #include "proc_parse.h"
 

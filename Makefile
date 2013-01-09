@@ -41,8 +41,9 @@ ifeq ($(uname_M),x86_64)
 endif
 
 SRC_DIR		?= $(shell pwd)
+ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
 
-CFLAGS		= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(SRC_DIR)/arch/$(ARCH)/ -fno-strict-aliasing
+CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -iquote $(ARCH_DIR)/include -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
@@ -70,7 +71,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR
 
 
 PROGRAM		:= crtools

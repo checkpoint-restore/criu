@@ -2,7 +2,7 @@
 #define __CR_MEMCPY_64_H__
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 
 static always_inline void *builtin_memcpy(void *to, const void *from, unsigned int n)
 {

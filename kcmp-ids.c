@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
-#include "types.h"
+#include "asm/types.h"
 #include "rbtree.h"
 #include "util.h"
 #include "syscall.h"

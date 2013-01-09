@@ -8,7 +8,7 @@
 #include <sys/un.h>
 #include <stdlib.h>
 
-#include "types.h"
+#include "asm/types.h"
 #include "libnetlink.h"
 #include "crtools.h"
 #include "unix_diag.h"

@@ -15,7 +15,7 @@
 
 #include "crtools.h"
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "util.h"
 #include "ptrace.h"
 #include "proc_parse.h"

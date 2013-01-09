@@ -13,7 +13,7 @@
 #include <linux/major.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 
 #include "syscall.h"
 #include "files.h"

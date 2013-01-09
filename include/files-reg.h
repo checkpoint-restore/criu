@@ -1,7 +1,7 @@
 #ifndef __CR_FILES_REG_H__
 #define __CR_FILES_REG_H__
 
-#include "types.h"
+#include "asm/types.h"
 #include "files.h"
 #include "image.h"
 

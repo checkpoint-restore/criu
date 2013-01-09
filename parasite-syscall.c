@@ -11,7 +11,7 @@
 
 #include "syscall.h"
 #include "ptrace.h"
-#include "processor-flags.h"
+#include "asm/processor-flags.h"
 #include "parasite-syscall.h"
 #include "parasite-blob.h"
 #include "parasite.h"

@@ -13,7 +13,7 @@
 #include <dirent.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "log.h"
 
 #include "../protobuf/vma.pb-c.h"

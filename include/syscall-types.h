@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 
-#include "types.h"
+#include "asm/types.h"
 
 #ifndef CONFIG_X86_64
 # error x86-32 bit mode not yet implemented

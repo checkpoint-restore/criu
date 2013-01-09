@@ -1,7 +1,7 @@
 #ifndef __CR_IMAGE_H__
 #define __CR_IMAGE_H__
 
-#include "types.h"
+#include "asm/types.h"
 #include "compiler.h"
 
 /*

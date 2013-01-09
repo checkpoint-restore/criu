@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "crtools.h"
-#include "types.h"
+#include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
 #include "libnetlink.h"

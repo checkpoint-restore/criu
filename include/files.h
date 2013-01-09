@@ -2,7 +2,7 @@
 #define __CR_FILES_H__
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "lock.h"
 #include "list.h"
 #include "image.h"

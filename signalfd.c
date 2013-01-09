@@ -3,7 +3,7 @@
 #include <sys/signalfd.h>
 
 #include "compiler.h"
-#include "types.h"
+#include "asm/types.h"
 #include "signalfd.h"
 #include "proc_parse.h"
 #include "crtools.h"

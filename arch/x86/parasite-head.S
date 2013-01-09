@@ -1,4 +1,4 @@
-#include "linkage.h"
+#include "asm/linkage.h"
 #include "parasite.h"
 
 	.section .head.text, "ax"
