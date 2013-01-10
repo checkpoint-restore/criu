@@ -66,6 +66,7 @@ static/fifo-ghost
 static/fifo
 static/fifo_wronly
 static/zombie00
+static/rlimits00
 transition/fork
 static/pty00
 static/pty01

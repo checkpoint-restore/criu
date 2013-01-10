@@ -68,6 +68,7 @@ TST_NOFILE	=				\
 		inotify00			\
 		uptime_grow			\
 		session00			\
+		rlimits00			\
 		pty00				\
 		pty01				\
 		pty02				\
