@@ -20,7 +20,7 @@ CC		:= gcc
 ECHO		:= echo
 NM		:= nm
 AWK		:= awk
-SH		:= sh
+SH		:= bash
 MAKE		:= make
 OBJCOPY		:= objcopy
 
@@ -190,6 +190,8 @@ clean:
 	$(Q) $(RM) -rf ./test/dump/
 	$(Q) $(RM) -f ./*.gcov ./*.gcda ./*.gcno
 	$(Q) $(RM) -rf ./gcov
+	$(Q) $(RM) -rf ./test/lib/
+	$(Q) $(RM) -rf ./test/lib64/
 	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C arch/$(ARCH)/ clean
 	$(Q) $(MAKE) -C pie/ clean

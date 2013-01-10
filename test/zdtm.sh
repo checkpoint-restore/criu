@@ -180,15 +180,18 @@ construct_root()
 {
 	local root=$1
 	local test_path=$2
-	local libdir=$root/lib64
+	local libdir=$root/lib
+	local libdir2=$root/lib64
 
-	mkdir $libdir
+	mkdir $libdir $libdir2
 	for i in `ldd $test_path | awk '{ print $1 }' | grep -v vdso`; do
 		local lib=`basename $i`
 		[ -f $libdir/$lib ] && continue ||
-		[ -f $i ] && cp $i $libdir && continue ||
-		[ -f /lib64/$i ] && cp /lib64/$i $libdir && continue ||
-		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir || return 1
+		[ -f $i ] && cp $i $libdir && cp $i $libdir2 && continue ||
+		[ -f /lib64/$i ] && cp /lib64/$i $libdir && cp /lib64/$i $libdir2 && continue ||
+		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir && cp /usr/lib64/$i $libdir2 && continue ||
+		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && cp /lib/x86_64-linux-gnu/$i $libdir2 && continue ||
+		[ -f /lib/arm-linux-gnueabi/$i ] && cp /lib/arm-linux-gnueabi/$i $libdir && cp /lib/arm-linux-gnueabi/$i $libdir2 && continue || echo "Failed at " $i && return 1
 	done
 }
 
