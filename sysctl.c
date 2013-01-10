@@ -177,7 +177,7 @@ static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 	int ret = -1;
 	int nr = 1;
 
-	if (dir > 0) {
+	if (dir >= 0) {
 		int flags;
 
 		if (op == CTL_READ)
