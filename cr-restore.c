@@ -60,6 +60,7 @@
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
+#include "protobuf/rlimit.pb-c.h"
 
 #include "asm/restore.h"
 
@@ -1568,6 +1569,58 @@ static int prep_sched_info(struct rst_sched_param *sp, ThreadCoreEntry *tc)
 	return 0;
 }
 
+static unsigned long decode_rlim(u_int64_t ival)
+{
+	return ival == -1 ? RLIM_INFINITY : ival;
+}
+
+static int prepare_rlimits(int pid, struct task_restore_core_args *ta)
+{
+	int fd, ret;
+
+	ta->nr_rlim = 0;
+
+	fd = open_image_ro(CR_FD_RLIMIT, pid);
+	if (fd < 0) {
+		if (errno == ENOENT) {
+			pr_info("Skip rlimits for %d\n", pid);
+			return 0;
+		}
+
+		return -1;
+	}
+
+	while (1) {
+		int l;
+		RlimitEntry *re;
+
+		ret = pb_read_one_eof(fd, &re, PB_RLIMIT);
+		if (ret <= 0)
+			break;
+
+		l = ta->nr_rlim;
+		if (l == RLIM_NLIMITS) {
+			pr_err("Too many rlimits in image for %d\n", pid);
+			ret = -1;
+			break;
+		}
+
+		ta->rlims[l].rlim_cur = decode_rlim(re->cur);
+		ta->rlims[l].rlim_max = decode_rlim(re->max);
+		if (ta->rlims[l].rlim_cur > ta->rlims[l].rlim_max) {
+			pr_err("Can't restore cur > max for %d.%d\n", pid, l);
+			ta->rlims[l].rlim_cur = ta->rlims[l].rlim_max;
+		}
+
+		rlimit_entry__free_unpacked(re, NULL);
+
+		ta->nr_rlim++;
+	}
+
+	close(fd);
+	return ret;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void) {}
 
@@ -1729,6 +1782,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->sigchld_act	= sigchld_act;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
+
+	if (prepare_rlimits(pid, task_args))
+		goto err;
 
 	/*
 	 * Fill up per-thread data.

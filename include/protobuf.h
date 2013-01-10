@@ -43,6 +43,7 @@ enum {
 	PB_INOTIFY_WD,
 	PB_TTY,
 	PB_TTY_INFO,
+	PB_RLIMIT,
 
 	PB_MAX
 };

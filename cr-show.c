@@ -129,6 +129,11 @@ void show_vmas(int fd_vma, struct cr_options *o)
 	pb_show_plain(fd_vma, PB_VMAS);
 }
 
+void show_rlimit(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_RLIMIT);
+}
+
 static int nice_width_for(unsigned long addr)
 {
 	int ret = 3;

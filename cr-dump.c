@@ -29,6 +29,7 @@
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
+#include "protobuf/rlimit.pb-c.h"
 
 #include "asm/types.h"
 #include "list.h"
@@ -440,6 +441,36 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 			fe.cwd_id, fe.root_id);
 
 	return pb_write_one(fdset_fd(fdset, CR_FD_FS), &fe, PB_FS);
+}
+
+static inline u_int64_t encode_rlim(unsigned long val)
+{
+	return val == RLIM_INFINITY ? -1 : val;
+}
+
+static int dump_task_rlims(int pid, struct cr_fdset *fds)
+{
+	int res, fd;
+
+	fd = fdset_fd(fds, CR_FD_RLIMIT);
+
+	for (res = 0; res < RLIM_NLIMITS; res++) {
+		struct rlimit lim;
+		RlimitEntry re = RLIMIT_ENTRY__INIT;
+
+		if (prlimit(pid, res, NULL, &lim)) {
+			pr_perror("Can't get rlimit %d", res);
+			return -1;
+		}
+
+		re.cur = encode_rlim(lim.rlim_cur);
+		re.max = encode_rlim(lim.rlim_max);
+
+		if (pb_write_one(fd, &re, PB_RLIMIT))
+			return -1;
+	}
+
+	return 0;
 }
 
 static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
@@ -1466,6 +1497,12 @@ static int dump_one_task(struct pstree_item *item)
 	ret = dump_task_fs(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = dump_task_rlims(pid, cr_fdset);
+	if (ret) {
+		pr_err("Dump %d rlimits failed %d\n", pid, ret);
 		goto err;
 	}
 

@@ -49,6 +49,7 @@
 #include "protobuf/netdev.pb-c.h"
 #include "protobuf/tcp-stream.pb-c.h"
 #include "protobuf/tty.pb-c.h"
+#include "protobuf/rlimit.pb-c.h"
 
 typedef size_t (*pb_getpksize_t)(void *obj);
 typedef size_t (*pb_pack_t)(void *obj, void *where);
@@ -125,6 +126,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(PACKETSK,		PacketSock,	packet_sock);
 	CR_PB_DESC(TTY,			TtyFile,	tty_file);
 	CR_PB_DESC(TTY_INFO,		TtyInfo,	tty_info);
+	CR_PB_DESC(RLIMIT,		Rlimit,		rlimit);
 }
 
 /*

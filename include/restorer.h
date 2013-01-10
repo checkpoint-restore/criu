@@ -3,6 +3,7 @@
 
 #include <signal.h>
 #include <limits.h>
+#include <sys/resource.h>
 
 #include "compiler.h"
 #include "asm/types.h"
@@ -121,6 +122,9 @@ struct task_restore_core_args {
 	auxv_t				mm_saved_auxv[AT_VECTOR_SIZE];
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
+
+	int				nr_rlim;
+	struct rlimit			rlims[RLIM_NLIMITS];
 
 	int				*rst_tcp_socks;
 	int				rst_tcp_socks_size;

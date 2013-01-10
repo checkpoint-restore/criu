@@ -143,6 +143,14 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &parm);
 }
 
+static void restore_rlims(struct task_restore_core_args *ta)
+{
+	int r;
+
+	for (r = 0; r < ta->nr_rlim; r++)
+		sys_setrlimit(r, &ta->rlims[r]);
+}
+
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {
@@ -655,6 +663,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		sys_close(fd);
 	}
+
+	restore_rlims(args);
 
 	/* 
 	 * Writing to last-pid is CAP_SYS_ADMIN protected, thus restore

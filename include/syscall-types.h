@@ -61,4 +61,6 @@ struct robust_list_head;
 
 #define setns	sys_setns
 
+struct rlimit;
+
 #endif /* __CR_SYSCALL_TYPES_H__ */
