@@ -87,8 +87,8 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
-	ptr = calloc(pagesize, NUM_MPROTS + 1);
-	if (!ptr) {
+	ptr = mmap(NULL, pagesize * (NUM_MPROTS + 1), PROT_NONE, MAP_PRIVATE | MAP_ANON, 0, 0);
+	if (ptr == MAP_FAILED) {
 		err("calloc failed: %m");
 		return -1;
 	}
@@ -100,7 +100,6 @@ int main(int argc, char ** argv)
 		if (mprotect(ptr_aligned + pagesize * i,
 			     pagesize / 2, prots[i]) < 0) {
 			err("mprotect failed: %m");
-			free(ptr);
 			exit(1);
 		}
 
@@ -113,6 +112,5 @@ int main(int argc, char ** argv)
 
 	pass();
 out:
-	free(ptr);
 	return 0;
 }
