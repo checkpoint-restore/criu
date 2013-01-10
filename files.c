@@ -599,6 +599,11 @@ int prepare_fs(int pid)
 	 * by path thus exposing this (yet unclean) logic here.
 	 */
 
+	if (fe->has_umask) {
+		pr_info("Restoring umask to %o\n", fe->umask);
+		umask(fe->umask);
+	}
+
 	ret = 0;
 close:
 	close_safe(&cwd);

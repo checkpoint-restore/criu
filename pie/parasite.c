@@ -290,6 +290,8 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->sid = sys_getsid();
 	args->pgid = sys_getpgid(0);
 	args->tls = arch_get_tls();
+	args->umask = sys_umask(0);
+	sys_umask(args->umask); /* never fails */
 
 	return 0;
 }

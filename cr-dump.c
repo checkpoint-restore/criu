@@ -393,11 +393,14 @@ err:
 	return ret;
 }
 
-static int dump_task_fs(pid_t pid, struct cr_fdset *fdset)
+static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fdset *fdset)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	FsEntry fe = FS_ENTRY__INIT;
 	int fd, ret;
+
+	fe.has_umask = true;
+	fe.umask = misc->umask;
 
 	fd = open_proc(pid, "cwd");
 	if (fd < 0)
@@ -1460,7 +1463,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_task_fs(pid, cr_fdset);
+	ret = dump_task_fs(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
 		goto err;

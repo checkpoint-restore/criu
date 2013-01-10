@@ -84,6 +84,7 @@ struct parasite_dump_misc {
 	u32 sid;
 	u32 pgid;
 	u32 tls;
+	u32 umask;
 };
 
 #define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int))
