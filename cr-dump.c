@@ -690,7 +690,7 @@ static DECLARE_KCMP_TREE(fs_tree, KCMP_FS);
 static DECLARE_KCMP_TREE(files_tree, KCMP_FILES);
 static DECLARE_KCMP_TREE(sighand_tree, KCMP_SIGHAND);
 
-static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
+static int dump_task_kobj_ids(pid_t pid, TaskKobjIdsEntry *ids)
 {
 	int new;
 	struct kid_elem elem;
@@ -700,29 +700,29 @@ static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
 	elem.genid = 0; /* FIXME optimize */
 
 	new = 0;
-	core->ids->vm_id = kid_generate_gen(&vm_tree, &elem, &new);
-	if (!core->ids->vm_id || !new) {
+	ids->vm_id = kid_generate_gen(&vm_tree, &elem, &new);
+	if (!ids->vm_id || !new) {
 		pr_err("Can't make VM id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids->fs_id = kid_generate_gen(&fs_tree, &elem, &new);
-	if (!core->ids->fs_id || !new) {
+	ids->fs_id = kid_generate_gen(&fs_tree, &elem, &new);
+	if (!ids->fs_id || !new) {
 		pr_err("Can't make FS id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids->files_id = kid_generate_gen(&files_tree, &elem, &new);
-	if (!core->ids->files_id || !new) {
+	ids->files_id = kid_generate_gen(&files_tree, &elem, &new);
+	if (!ids->files_id || !new) {
 		pr_err("Can't make FILES id for %d\n", pid);
 		return -1;
 	}
 
 	new = 0;
-	core->ids->sighand_id = kid_generate_gen(&sighand_tree, &elem, &new);
-	if (!core->ids->sighand_id || !new) {
+	ids->sighand_id = kid_generate_gen(&sighand_tree, &elem, &new);
+	if (!ids->sighand_id || !new) {
 		pr_err("Can't make IO id for %d\n", pid);
 		return -1;
 	}
@@ -731,12 +731,10 @@ static int dump_task_kobj_ids(pid_t pid, CoreEntry *core)
 }
 
 static CoreEntry *core_entry_alloc(int alloc_thread_info,
-				   int alloc_tc,
-				   int alloc_ids)
+				   int alloc_tc)
 {
 	CoreEntry *core;
 	TaskCoreEntry *tc;
-	TaskKobjIdsEntry *ids;
 
 	core = xmalloc(sizeof(*core));
 	if (!core)
@@ -759,18 +757,35 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 		core->tc = tc;
 	}
 
-	if (alloc_ids) {
-		ids = xmalloc(sizeof(*ids));
-		if (!ids)
-			goto err;
-		task_kobj_ids_entry__init(ids);
-		core->ids = ids;
-	}
-
 	return core;
 err:
 	core_entry_free(core);
 	return NULL;
+}
+
+static int dump_task_ids(pid_t pid, const struct cr_fdset *cr_fdset)
+{
+	int fd_ids = fdset_fd(cr_fdset, CR_FD_IDS);
+	TaskKobjIdsEntry *ids;
+	int ret;
+
+	ids = xmalloc(sizeof(*ids));
+	if (!ids)
+		return -1;
+	task_kobj_ids_entry__init(ids);
+
+	ret = dump_task_kobj_ids(pid, ids);
+	if (ret)
+		goto err_free;
+
+	ret = pb_write_one(fd_ids, ids, PB_IDS);
+	if (ret < 0)
+		goto err_free;
+
+err_free:
+	xfree(ids);
+
+	return ret;
 }
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
@@ -782,17 +797,13 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	CoreEntry *core;
 	int ret = -1;
 
-	core = core_entry_alloc(1, 1, 1);
+	core = core_entry_alloc(1, 1);
 	if (!core)
 		return -1;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
-
-	ret = dump_task_kobj_ids(pid, core);
-	if (ret)
-		goto err_free;
 
 	ret = dump_task_mm(pid, stat, misc, cr_fdset);
 	if (ret)
@@ -1196,7 +1207,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	core = core_entry_alloc(1, 0, 0);
+	core = core_entry_alloc(1, 0);
 	if (!core)
 		goto err;
 
@@ -1240,7 +1251,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	CoreEntry *core;
 	int ret = -1, fd_core;
 
-	core = core_entry_alloc(0, 1, 0);
+	core = core_entry_alloc(0, 1);
 	if (core == NULL)
 		goto err;
 
@@ -1467,6 +1478,12 @@ static int dump_one_task(struct pstree_item *item)
 					parasite_ctl, cr_fdset, &vma_area_list);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
+		goto err_cure;
+	}
+
+	ret = dump_task_ids(pid, cr_fdset);
+	if (ret) {
+		pr_err("Dump ids (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
 

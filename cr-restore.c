@@ -717,7 +717,7 @@ static int check_core(CoreEntry *core)
 	}
 
 	if (core->tc->task_state != TASK_DEAD) {
-		if (!core->ids) {
+		if (!core->ids && !current->ids) {
 			pr_err("Core IDS data missed for non-zombie\n");
 			goto out;
 		}

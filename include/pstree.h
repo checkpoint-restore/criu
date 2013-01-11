@@ -3,6 +3,7 @@
 
 #include "list.h"
 #include "crtools.h"
+#include "../protobuf/core.pb-c.h"
 
 /*
  * That's the init process which usually inherit
@@ -40,6 +41,7 @@ struct pstree_item {
 
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */
+	TaskKobjIdsEntry	*ids;
 
 	struct rst_info		rst[0];
 };

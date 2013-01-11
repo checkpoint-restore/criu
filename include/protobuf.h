@@ -44,6 +44,7 @@ enum {
 	PB_TTY,
 	PB_TTY_INFO,
 	PB_RLIMIT,
+	PB_IDS,
 
 	PB_MAX
 };

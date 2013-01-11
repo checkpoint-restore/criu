@@ -100,6 +100,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(INOTIFY,	"inotify",	 show_inotify),
 	FD_ENTRY(INOTIFY_WD,	"inotify-wd",	 show_inotify_wd),
 	FD_ENTRY(CORE,		"core-%d",	 show_core),
+	FD_ENTRY(IDS,		"ids-%d",	 show_ids),
 	FD_ENTRY(MM,		"mm-%d",	 show_mm),
 	FD_ENTRY(VMAS,		"vmas-%d",	 show_vmas),
 	FD_ENTRY(PIPES,		"pipes",	 show_pipes),

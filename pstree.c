@@ -177,7 +177,7 @@ static int prepare_pstree_for_shell_job(void)
 
 static int read_pstree_image(void)
 {
-	int ret = 0, i, ps_fd;
+	int ret = 0, i, ps_fd, fd;
 	struct pstree_item *pi, *parent = NULL;
 
 	pr_info("Reading image tree\n");
@@ -260,6 +260,18 @@ static int read_pstree_image(void)
 		task_entries->nr_tasks++;
 
 		pstree_entry__free_unpacked(e, NULL);
+
+		fd = open_image_ro(CR_FD_IDS, pi->pid.virt);
+		if (fd < 0) {
+			if (errno == ENOENT)
+				continue;
+			return -1;
+		}
+		ret = pb_read_one(fd, &pi->ids, PB_IDS);
+		close(fd);
+		if (ret != 1)
+			goto err;
+
 	}
 err:
 	close(ps_fd);

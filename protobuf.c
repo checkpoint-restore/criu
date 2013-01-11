@@ -98,6 +98,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(INOTIFY,		InotifyFile,	inotify_file);
 	CR_PB_DESC(INOTIFY_WD,		InotifyWd,	inotify_wd);
 	CR_PB_DESC(CORE,		Core,		core);
+	CR_PB_DESC(IDS,			TaskKobjIds,	task_kobj_ids);
 	CR_PB_DESC(MM,			Mm,		mm);
 	CR_PB_DESC(VMAS,		Vma,		vma);
 	CR_PB_DESC(PIPES,		Pipe,		pipe);

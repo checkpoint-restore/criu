@@ -28,6 +28,7 @@
 #define PAGES_MAGIC		0x56084025 /* Vladimir */
 #define SHMEM_PAGES_MAGIC	PAGES_MAGIC
 #define CORE_MAGIC		0x55053847 /* Kolomna */
+#define IDS_MAGIC		0x54432030 /* Konigsberg */
 #define VMAS_MAGIC		0x54123737 /* Tula */
 #define PIPES_MAGIC		0x56513555 /* Tver */
 #define PIPES_DATA_MAGIC	0x56453709 /* Dubna */

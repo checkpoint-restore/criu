@@ -356,6 +356,11 @@ void show_core(int fd_core, struct cr_options *o)
 	pb_show_vertical(fd_core, PB_CORE);
 }
 
+void show_ids(int fd_ids, struct cr_options *o)
+{
+	pb_show_vertical(fd_ids, PB_IDS);
+}
+
 void show_mm(int fd_mm, struct cr_options *o)
 {
 	pb_show_vertical(fd_mm, PB_MM);
