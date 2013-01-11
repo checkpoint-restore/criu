@@ -133,7 +133,8 @@ $IPC_TEST_LIST
 "
 
 CRTOOLS=$(readlink -f `dirname $0`/../crtools)
-TINIT=`pwd`/`dirname $0`/zdtm/lib/test_init
+CPT_CRTOOLS=$CRTOOLS
+TMP_TREE=""
 
 test -x $CRTOOLS || {
 	echo "$CRTOOLS is unavailable"

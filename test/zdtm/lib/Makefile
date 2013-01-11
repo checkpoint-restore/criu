@@ -15,10 +15,8 @@ install: all
 
 $(LIB):	$(LIB)(${LIBOBJ})
 
-test_init: test_init.c
-
 clean:
-	$(RM) $(LIBOBJ) $(LIB) test_init *~
+	$(RM) $(LIBOBJ) $(LIB) *~
 
 cleandep:
 	$(RM) $(LIBDEP)
