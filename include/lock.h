@@ -70,6 +70,13 @@ static inline void futex_dec_and_wake(futex_t *f)
 	BUG_ON(sys_futex(&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
+/* Increment futex @f value and wake up all waiters */
+static inline void futex_inc_and_wake(futex_t *f)
+{
+	atomic_inc(&f->raw);
+	BUG_ON(sys_futex(&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+}
+
 /* Plain increment futex @f value */
 static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
 
@@ -83,6 +90,10 @@ static inline void futex_wait_until(futex_t *f, u32 v)
 /* Wait while futex @f value is greater than @v */
 static inline void futex_wait_while_gt(futex_t *f, u32 v)
 { futex_wait_if_cond(f, v, <=); }
+
+/* Wait while futex @f value is less than @v */
+static inline void futex_wait_while_lt(futex_t *f, u32 v)
+{ futex_wait_if_cond(f, v, >=); }
 
 /* Wait while futex @f value is @v */
 static inline void futex_wait_while(futex_t *f, u32 v)
