@@ -94,6 +94,7 @@ extern int get_filemap_fd(int pid, VmaEntry *vma_entry);
 extern int prepare_fs(int pid);
 extern int set_fd_flags(int fd, int flags);
 
+extern int close_old_fds(struct pstree_item *me);
 #ifndef AT_EMPTY_PATH
 #define AT_EMPTY_PATH 0x1000
 #endif

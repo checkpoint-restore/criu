@@ -993,9 +993,12 @@ static int restore_task_with_children(void *_arg)
 	int ret;
 	sigset_t blockmask;
 
-	close_safe(&ca->fd);
-
 	current = ca->item;
+
+	close_safe(&ca->fd);
+	ret = close_old_fds(current);
+	if (ret)
+		exit(1);
 
 	pid = getpid();
 	if (current->pid.virt != pid) {

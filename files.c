@@ -496,7 +496,7 @@ static int open_fdinfos(int pid, struct list_head *list, int state)
 	return ret;
 }
 
-static int close_old_fds(struct pstree_item *me)
+int close_old_fds(struct pstree_item *me)
 {
 	DIR *dir;
 	struct dirent *de;
@@ -531,10 +531,6 @@ int prepare_fds(struct pstree_item *me)
 	u32 ret;
 	int state;
 
-	ret = close_old_fds(me);
-	if (ret)
-		goto err;
-
 	pr_info("Opening fdinfo-s\n");
 
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
@@ -560,7 +556,6 @@ int prepare_fds(struct pstree_item *me)
 			break;
 	}
 
-err:
 	tty_fini_fds();
 	return ret;
 }
