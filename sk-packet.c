@@ -497,6 +497,11 @@ static int collect_one_packet_sk(void *o, ProtobufCMessage *base)
 
 int collect_packet_sockets(void)
 {
-	return collect_image(CR_FD_PACKETSK, PB_PACKETSK,
+	int ret = collect_image(CR_FD_PACKETSK, PB_PACKETSK,
 			sizeof(struct packet_sock_info), collect_one_packet_sk);
+
+	if (ret < 0 && errno == ENOENT)
+		return 0;
+
+	return ret;
 }

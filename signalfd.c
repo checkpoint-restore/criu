@@ -129,6 +129,11 @@ static int collect_one_sigfd(void *o, ProtobufCMessage *msg)
 
 int collect_signalfd(void)
 {
-	return collect_image(CR_FD_SIGNALFD, PB_SIGNALFD,
+	int ret = collect_image(CR_FD_SIGNALFD, PB_SIGNALFD,
 			sizeof(struct signalfd_info), collect_one_sigfd);
+
+	if (ret < 0 && errno == ENOENT)
+		return 0;
+
+	return ret;
 }
