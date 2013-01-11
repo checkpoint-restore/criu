@@ -723,7 +723,7 @@ static int dump_task_kobj_ids(struct pstree_item *item)
 
 	new = 0;
 	ids->files_id = kid_generate_gen(&files_tree, &elem, &new);
-	if (!ids->files_id || !new) {
+	if (!ids->files_id || (!new && !shared_fdtable(item))) {
 		pr_err("Can't make FILES id for %d\n", pid);
 		return -1;
 	}
@@ -1465,10 +1465,12 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_files_seized(parasite_ctl, item, dfds);
-	if (ret) {
-		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
-		goto err_cure;
+	if (!shared_fdtable(item)) {
+		ret = dump_task_files_seized(parasite_ctl, item, dfds);
+		if (ret) {
+			pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
+			goto err_cure;
+		}
 	}
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list, cr_fdset);

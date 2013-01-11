@@ -806,6 +806,9 @@ static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone
 	ca.item = item;
 	ca.clone_flags = ns_clone_flags;
 
+	if (shared_fdtable(item))
+		ca.clone_flags |= CLONE_FILES;
+
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 
@@ -995,10 +998,18 @@ static int restore_task_with_children(void *_arg)
 
 	current = ca->item;
 
-	close_safe(&ca->fd);
-	ret = close_old_fds(current);
-	if (ret)
-		exit(1);
+	if ( !(ca->clone_flags & CLONE_FILES)) {
+		close_safe(&ca->fd);
+		ret = close_old_fds(current);
+		if (ret)
+			exit(1);
+	}
+
+	if (current->state != TASK_HELPER) {
+		ret = clone_service_fd(current->rst->service_fd_id);
+		if (ret)
+			exit(1);
+	}
 
 	pid = getpid();
 	if (current->pid.virt != pid) {

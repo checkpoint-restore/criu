@@ -250,6 +250,7 @@ struct rst_info {
 	void			*premmapped_addr;
 	unsigned long		premmapped_len;
 
+	int service_fd_id;
 	struct fdt		*fdt;
 };
 

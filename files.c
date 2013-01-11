@@ -541,10 +541,28 @@ int close_old_fds(struct pstree_item *me)
 
 int prepare_fds(struct pstree_item *me)
 {
-	u32 ret;
+	u32 ret = 0;
 	int state;
 
 	pr_info("Opening fdinfo-s\n");
+
+	if (me->rst->fdt) {
+		struct fdt *fdt = me->rst->fdt;
+
+		/*
+		 * Wait all tasks, who share a current fd table.
+		 * We should be sure, that nobody use any file
+		 * descriptor while fdtable is being restored.
+		 */
+		futex_inc_and_wake(&fdt->fdt_lock);
+		futex_wait_while_lt(&fdt->fdt_lock, fdt->nr);
+
+		if (fdt->pid != me->pid.virt) {
+			pr_info("File descriptor talbe is shared with %d\n", fdt->pid);
+			futex_wait_until(&fdt->fdt_lock, fdt->nr + 1);
+			goto out;
+		}
+	}
 
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
 		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
@@ -569,6 +587,9 @@ int prepare_fds(struct pstree_item *me)
 			break;
 	}
 
+	if (me->rst->fdt)
+		futex_inc_and_wake(&me->rst->fdt->fdt_lock);
+out:
 	tty_fini_fds();
 	return ret;
 }

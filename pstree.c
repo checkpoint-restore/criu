@@ -463,6 +463,7 @@ static int prepare_pstree_ids(void)
 			fdt = parent->rst->fdt;
 
 		item->rst->fdt = fdt;
+		item->rst->service_fd_id = fdt->nr;
 		fdt->nr++;
 		if (fdt->pid > item->pid.virt)
 			fdt->pid = item->pid.virt;
