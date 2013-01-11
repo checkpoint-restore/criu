@@ -690,10 +690,12 @@ static DECLARE_KCMP_TREE(fs_tree, KCMP_FS);
 static DECLARE_KCMP_TREE(files_tree, KCMP_FILES);
 static DECLARE_KCMP_TREE(sighand_tree, KCMP_SIGHAND);
 
-static int dump_task_kobj_ids(pid_t pid, TaskKobjIdsEntry *ids)
+static int dump_task_kobj_ids(struct pstree_item *item)
 {
 	int new;
 	struct kid_elem elem;
+	int pid = item->pid.real;
+	TaskKobjIdsEntry *ids = item->ids;
 
 	elem.pid = pid;
 	elem.idx = 0; /* really 0 for all */
@@ -763,29 +765,30 @@ err:
 	return NULL;
 }
 
-static int dump_task_ids(pid_t pid, const struct cr_fdset *cr_fdset)
+static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fdset)
 {
 	int fd_ids = fdset_fd(cr_fdset, CR_FD_IDS);
-	TaskKobjIdsEntry *ids;
 	int ret;
 
-	ids = xmalloc(sizeof(*ids));
-	if (!ids)
+	item->ids = xmalloc(sizeof(*item->ids));
+	if (!item->ids)
 		return -1;
-	task_kobj_ids_entry__init(ids);
+	task_kobj_ids_entry__init(item->ids);
 
-	ret = dump_task_kobj_ids(pid, ids);
+	ret = dump_task_kobj_ids(item);
 	if (ret)
 		goto err_free;
 
-	ret = pb_write_one(fd_ids, ids, PB_IDS);
+	ret = pb_write_one(fd_ids, item->ids, PB_IDS);
 	if (ret < 0)
 		goto err_free;
 
-err_free:
-	xfree(ids);
-
 	return ret;
+
+err_free:
+	xfree(item->ids);
+	item->ids = NULL;
+	return -1;
 }
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
@@ -1481,7 +1484,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_ids(pid, cr_fdset);
+	ret = dump_task_ids(item, cr_fdset);
 	if (ret) {
 		pr_err("Dump ids (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
