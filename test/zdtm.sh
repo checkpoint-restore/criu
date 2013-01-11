@@ -141,6 +141,8 @@ PID=""
 PIDNS=""
 
 ITERATIONS=1
+COMMIT=""
+HEAD=""
 
 check_mainstream()
 {
@@ -233,14 +235,7 @@ start_test()
 
 stop_test()
 {
-	local tdir=$1
-	local tname=$2
-
-	if [ -z "$PIDNS" ]; then
-		make -C $tdir $tname.out
-	else
-		kill `cat "$TPID"`
-	fi
+	kill $PID
 }
 
 save_fds()
@@ -278,6 +273,13 @@ run_test()
 	local tdir=`dirname $test`
 	DUMP_PATH=""
 
+	if [ -n "$COMMIT" ]; then
+		echo "The current HEAD is $HEAD"
+		git clean -fx --exclude=test `dirname "$CRTOOLS"`
+		git checkout $COMMIT &&
+		make -C `dirname "$CRTOOLS"` clean all || return 1
+	fi
+
 	echo "Execute $test"
 
 	start_test $tdir $tname || return 1
@@ -313,6 +315,13 @@ EOF
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
+
+	if [ -n "$COMMIT" ]; then
+		git clean -fx --exclude=test `dirname "$CRTOOLS"`
+		git checkout $HEAD &&
+		make -C `dirname "$CRTOOLS"` all || return 1
+	fi
+
 	if expr " $ARGS" : ' -s' > /dev/null; then
 		save_fds $PID  $ddump/dump.fd.after
 		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
@@ -379,6 +388,8 @@ case_error()
 	fi
 	[ -e "$test_log" ] &&
 		echo "Output file: $test_log"
+	[ -n "$HEAD" ] &&
+		echo "The initial HEAD was $HEAD"
 	exit 1
 }
 
@@ -393,6 +404,16 @@ while :; do
 	if [ "$1" = "-i" ]; then
 		shift
 		ITERATIONS=$1
+		shift
+		continue
+	fi
+	if [ "$1" = "-b" ]; then
+		shift
+		COMMIT=$1
+		HEAD=`git rev-parse --abbrev-ref HEAD` && [ HEAD != $HEAD ] || {
+			echo "Can't get a name of the current branch"
+			exit 1
+		}
 		shift
 		continue
 	fi
@@ -427,6 +448,7 @@ Options:
 	-l : Show list of tests.
 	-d : Dump a test process and check that this process can continue working.
 	-i : Number of ITERATIONS of dump/restore
+	-b <commit> : Check backward compatibility
 EOF
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
