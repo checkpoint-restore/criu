@@ -110,6 +110,7 @@ TST_FILE	=				\
 		unlink_fifo_wronly		\
 		file_shared			\
 		cow01				\
+		fdt_shared			\
 
 TST_DIR		=				\
 		cwd00				\

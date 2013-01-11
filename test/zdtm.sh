@@ -79,6 +79,7 @@ static/fpu01
 static/mmx00
 static/sse00
 static/sse20
+static/fdt_shared
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
