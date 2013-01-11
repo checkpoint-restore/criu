@@ -44,6 +44,11 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 
 static int pipe_data_read(int fd, struct pipe_data_rst *r)
 {
+	unsigned long bytes = r->pde->bytes;
+
+	if (!bytes)
+		return 0;
+
 	/*
 	 * We potentially allocate more memory than required for data,
 	 * but this is OK. Look at restore_pipe_data -- it vmsplice-s
@@ -53,14 +58,14 @@ static int pipe_data_read(int fd, struct pipe_data_rst *r)
 	 * anyway we don't increase memory consumption :)
 	 */
 
-	r->data = mmap(NULL, r->pde->bytes, PROT_READ | PROT_WRITE,
+	r->data = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
 	if (r->data == MAP_FAILED) {
 		pr_perror("Can't map mem for pipe buffers");
 		return -1;
 	}
 
-	return read_img_buf(fd, r->data, r->pde->bytes);
+	return read_img_buf(fd, r->data, bytes);
 }
 
 int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
@@ -160,6 +165,9 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 		pr_info("No data for pipe %#x\n", id);
 		return 0;
 	}
+
+	if (!pd->pde->bytes)
+		return 0;
 
 	if (!pd->data) {
 		pr_err("Double data restore occurred on %#x\n", id);
@@ -348,6 +356,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	int pipe_size, i, bytes;
 	int steal_pipe[2];
 	int ret = -1;
+	PipeDataEntry pde = PIPE_DATA_ENTRY__INIT;
 
 	if (p->flags & O_WRONLY)
 		return 0;
@@ -380,15 +389,23 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	}
 
 	bytes = tee(lfd, steal_pipe[1], pipe_size, SPLICE_F_NONBLOCK);
-	if (bytes > 0) {
-		PipeDataEntry pde = PIPE_DATA_ENTRY__INIT;
-		int wrote;
-
-		pde.pipe_id	= pipe_id(p);
-		pde.bytes	= bytes;
-
-		if (pb_write_one(img, &pde, PB_PIPES_DATA))
+	if (bytes < 0) {
+		if (errno != EAGAIN) {
+			pr_perror("Can't pick pipe data");
 			goto err_close;
+		}
+
+		bytes = 0;
+	}
+
+	pde.pipe_id	= pipe_id(p);
+	pde.bytes	= bytes;
+
+	if (pb_write_one(img, &pde, PB_PIPES_DATA))
+		goto err_close;
+
+	if (bytes) {
+		int wrote;
 
 		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
 		if (wrote < 0) {
@@ -397,11 +414,6 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 		} else if (wrote != bytes) {
 			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n",
 					pipe_id(p), bytes, wrote);
-			goto err_close;
-		}
-	} else if (bytes < 0) {
-		if (errno != EAGAIN) {
-			pr_perror("Can't pick pipe data");
 			goto err_close;
 		}
 	}
