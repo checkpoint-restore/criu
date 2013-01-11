@@ -688,6 +688,8 @@ int prepare_mnt_ns(int ns_pid)
 
 	pr_info("Restoring mount namespace\n");
 
+	close_proc();
+
 	/*
 	 * The new mount namespace is filled with the mountpoint
 	 * clones from the original one. We have to umount them
