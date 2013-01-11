@@ -280,6 +280,7 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 }
 
 static int service_fd_rlim_cur;
+static int service_fd_id = 0;
 
 int init_service_fd(void)
 {
@@ -301,21 +302,46 @@ int init_service_fd(void)
 	return 0;
 }
 
-static int __get_service_fd(enum sfd_type type)
+static int __get_service_fd(enum sfd_type type, int service_fd_id)
 {
-	return service_fd_rlim_cur - type;
+	return service_fd_rlim_cur - type - SERVICE_FD_MAX * service_fd_id;
 }
 
 int get_service_fd(enum sfd_type type)
 {
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
-	return __get_service_fd(type);
+	return __get_service_fd(type, service_fd_id);
+}
+
+int clone_service_fd(int id)
+{
+	int ret = -1, i;
+
+	if (service_fd_id == id)
+		return 0;
+
+	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
+		int old = __get_service_fd(i, service_fd_id);
+		int new = __get_service_fd(i, id);
+
+		ret = dup2(old, new);
+		if (ret == -1) {
+			if (errno == EBADF)
+				continue;
+			pr_perror("Unalbe to clone %d->%d\n", old, new);
+		}
+	}
+
+	service_fd_id = id;
+	ret = 0;
+
+	return ret;
 }
 
 bool is_any_service_fd(int fd)
 {
-	return fd > __get_service_fd(SERVICE_FD_MAX) &&
-		fd < __get_service_fd(SERVICE_FD_MIN);
+	return fd > __get_service_fd(SERVICE_FD_MAX, service_fd_id) &&
+		fd < __get_service_fd(SERVICE_FD_MIN, service_fd_id);
 }
 
 bool is_service_fd(int fd, enum sfd_type type)

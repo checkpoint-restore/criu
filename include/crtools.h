@@ -122,6 +122,7 @@ enum sfd_type {
 	SERVICE_FD_MAX
 };
 
+extern int clone_service_fd(int id);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
