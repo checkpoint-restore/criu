@@ -132,7 +132,7 @@ static/inotify00
 $IPC_TEST_LIST
 "
 
-CRTOOLS=`pwd`/`dirname $0`/../crtools
+CRTOOLS=$(readlink -f `dirname $0`/../crtools)
 TINIT=`pwd`/`dirname $0`/zdtm/lib/test_init
 
 test -x $CRTOOLS || {
