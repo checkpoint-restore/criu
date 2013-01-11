@@ -68,9 +68,9 @@ static const struct fdtype_ops fifo_ops = {
 	.dump		= dump_one_fifo,
 };
 
-int dump_fifo(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+int dump_fifo(struct fd_parms *p, int lfd, const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &fifo_ops, set);
+	return do_dump_gen_file(p, lfd, &fifo_ops, fdinfo);
 }
 
 static struct pipe_data_rst *pd_hash_fifo[PIPE_DATA_HASH_SIZE];

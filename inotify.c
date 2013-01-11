@@ -105,9 +105,9 @@ static const struct fdtype_ops inotify_ops = {
 	.dump		= dump_one_inotify,
 };
 
-int dump_inotify(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &inotify_ops, set);
+	return do_dump_gen_file(p, lfd, &inotify_ops, fdinfo);
 }
 
 static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)

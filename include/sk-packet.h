@@ -10,7 +10,7 @@ struct fd_parms;
 struct cr_options;
 struct vma_area;
 
-int dump_one_packet_sk(struct fd_parms *p, int lfd, const struct cr_fdset *fds);
+int dump_one_packet_sk(struct fd_parms *p, int lfd, const int fdinfo);
 int collect_packet_sockets(void);
 void show_packetsk(int fd, struct cr_options *);
 

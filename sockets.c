@@ -366,7 +366,7 @@ void release_skopts(SkOptsEntry *soe)
 	xfree(soe->so_bound_dev);
 }
 
-int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
+int dump_socket(struct fd_parms *p, int lfd, const int fdinfo)
 {
 	int family;
 
@@ -375,13 +375,13 @@ int dump_socket(struct fd_parms *p, int lfd, const struct cr_fdset *cr_fdset)
 
 	switch (family) {
 	case AF_UNIX:
-		return dump_one_unix(p, lfd, cr_fdset);
+		return dump_one_unix(p, lfd, fdinfo);
 	case AF_INET:
-		return dump_one_inet(p, lfd, cr_fdset);
+		return dump_one_inet(p, lfd, fdinfo);
 	case AF_INET6:
-		return dump_one_inet6(p, lfd, cr_fdset);
+		return dump_one_inet6(p, lfd, fdinfo);
 	case AF_PACKET:
-		return dump_one_packet_sk(p, lfd, cr_fdset);
+		return dump_one_packet_sk(p, lfd, fdinfo);
 	default:
 		pr_err("BUG! Unknown socket collected\n");
 		break;

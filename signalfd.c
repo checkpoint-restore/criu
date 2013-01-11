@@ -65,9 +65,9 @@ static const struct fdtype_ops signalfd_ops = {
 	.dump		= dump_one_signalfd,
 };
 
-int dump_signalfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+int dump_signalfd(struct fd_parms *p, int lfd, const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &signalfd_ops, set);
+	return do_dump_gen_file(p, lfd, &signalfd_ops, fdinfo);
 }
 
 static void sigset_fill(sigset_t *to, unsigned long long from)

@@ -1189,9 +1189,9 @@ static const struct fdtype_ops tty_ops = {
 	.dump	= dump_one_pty,
 };
 
-int dump_tty(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+int dump_tty(struct fd_parms *p, int lfd, const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &tty_ops, set);
+	return do_dump_gen_file(p, lfd, &tty_ops, fdinfo);
 }
 
 int tty_prep_fds(void)

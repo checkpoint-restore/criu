@@ -469,9 +469,9 @@ static const struct fdtype_ops regfile_ops = {
 };
 
 int dump_reg_file(struct fd_parms *p, int lfd,
-			     const struct cr_fdset *cr_fdset)
+			     const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &regfile_ops, cr_fdset);
+	return do_dump_gen_file(p, lfd, &regfile_ops, fdinfo);
 }
 
 static int open_path(struct file_desc *d,

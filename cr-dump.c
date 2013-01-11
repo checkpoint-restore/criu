@@ -198,7 +198,7 @@ static u32 make_gen_id(const struct fd_parms *p)
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, const struct cr_fdset *cr_fdset)
+		const struct fdtype_ops *ops, const int fdinfo)
 {
 	FdinfoEntry e = FDINFO_ENTRY__INIT;
 	int ret = -1;
@@ -218,7 +218,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8lx fd: %d\n",
 		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
 
-	return pb_write_one(fdset_fd(cr_fdset, CR_FD_FDINFO), &e, PB_FDINFO);
+	return pb_write_one(fdinfo, &e, PB_FDINFO);
 }
 
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
@@ -287,17 +287,17 @@ static int dump_unsupp_fd(const struct fd_parms *p)
 	return -1;
 }
 
-static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 {
 	int maj = major(p->stat.st_rdev);
 
 	switch (maj) {
 	case MEM_MAJOR:
-		return dump_reg_file(p, lfd, set);
+		return dump_reg_file(p, lfd, fdinfo);
 	case TTYAUX_MAJOR:
 	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
 	case UNIX98_PTY_SLAVE_MAJOR:
-		return dump_tty(p, lfd, set);
+		return dump_tty(p, lfd, fdinfo);
 	}
 
 	return dump_unsupp_fd(p);
@@ -308,7 +308,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const struct cr_fdset *set)
 #endif
 
 static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
-		       const struct cr_fdset *cr_fdset)
+		       const int fdinfo)
 {
 	struct fd_parms p;
 	struct statfs statfs;
@@ -319,10 +319,10 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	}
 
 	if (S_ISSOCK(p.stat.st_mode))
-		return dump_socket(&p, lfd, cr_fdset);
+		return dump_socket(&p, lfd, fdinfo);
 
 	if (S_ISCHR(p.stat.st_mode))
-		return dump_chrdev(&p, lfd, cr_fdset);
+		return dump_chrdev(&p, lfd, fdinfo);
 
 	if (fstatfs(lfd, &statfs)) {
 		pr_perror("Can't obtain statfs on fd %d\n", fd);
@@ -331,31 +331,31 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 
 	if (is_anon_inode(&statfs)) {
 		if (is_eventfd_link(lfd))
-			return dump_eventfd(&p, lfd, cr_fdset);
+			return dump_eventfd(&p, lfd, fdinfo);
 		else if (is_eventpoll_link(lfd))
-			return dump_eventpoll(&p, lfd, cr_fdset);
+			return dump_eventpoll(&p, lfd, fdinfo);
 		else if (is_inotify_link(lfd))
-			return dump_inotify(&p, lfd, cr_fdset);
+			return dump_inotify(&p, lfd, fdinfo);
 		else if (is_signalfd_link(lfd))
-			return dump_signalfd(&p, lfd, cr_fdset);
+			return dump_signalfd(&p, lfd, fdinfo);
 		else
 			return dump_unsupp_fd(&p);
 	}
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
-		return dump_reg_file(&p, lfd, cr_fdset);
+		return dump_reg_file(&p, lfd, fdinfo);
 
 	if (S_ISFIFO(p.stat.st_mode)) {
 		if (statfs.f_type == PIPEFS_MAGIC)
-			return dump_pipe(&p, lfd, cr_fdset);
+			return dump_pipe(&p, lfd, fdinfo);
 		else
-			return dump_fifo(&p, lfd, cr_fdset);
+			return dump_fifo(&p, lfd, fdinfo);
 	}
 
 	return dump_unsupp_fd(&p);
 }
 
-static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdset *cr_fdset,
+static int dump_task_files_seized(struct parasite_ctl *ctl, const int fdinfo,
 		struct parasite_drain_fd *dfds)
 {
 	int *lfds;
@@ -379,7 +379,7 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const struct cr_fdse
 		goto err2;
 
 	for (i = 0; i < dfds->nr_fds; i++) {
-		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, cr_fdset);
+		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, fdinfo);
 		close(lfds[i]);
 		if (ret)
 			goto err2;
@@ -1439,7 +1439,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (!cr_fdset)
 		goto err_cure;
 
-	ret = dump_task_files_seized(parasite_ctl, cr_fdset, dfds);
+	ret = dump_task_files_seized(parasite_ctl, fdset_fd(cr_fdset, CR_FD_FDINFO), dfds);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;

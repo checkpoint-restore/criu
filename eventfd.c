@@ -85,9 +85,9 @@ static const struct fdtype_ops eventfd_ops = {
 	.dump		= dump_one_eventfd,
 };
 
-int dump_eventfd(struct fd_parms *p, int lfd, const struct cr_fdset *set)
+int dump_eventfd(struct fd_parms *p, int lfd, const int fdinfo)
 {
-	return do_dump_gen_file(p, lfd, &eventfd_ops, set);
+	return do_dump_gen_file(p, lfd, &eventfd_ops, fdinfo);
 }
 
 static int eventfd_open(struct file_desc *d)
