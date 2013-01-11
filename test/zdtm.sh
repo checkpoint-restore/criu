@@ -133,7 +133,11 @@ $IPC_TEST_LIST
 
 CRTOOLS=`pwd`/`dirname $0`/../crtools
 TINIT=`pwd`/`dirname $0`/zdtm/lib/test_init
-test -x $CRTOOLS || exit 1
+
+test -x $CRTOOLS || {
+	echo "$CRTOOLS is unavailable"
+	exit 1
+}
 
 ARGS=""
 
