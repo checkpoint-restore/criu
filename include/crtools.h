@@ -8,6 +8,7 @@
 #include "list.h"
 #include "util.h"
 #include "image.h"
+#include "lock.h"
 
 #include "../protobuf/vma.pb-c.h"
 
@@ -231,6 +232,16 @@ struct vma_area {
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
 #define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
 
+struct fdt {
+	int			nr;		/* How many tasks share this fd table */
+	pid_t			pid;		/* Who should restore this fd table */
+	/*
+	 * The fd table is ready for restoing, if fdt_lock is equal to nr
+	 * The fdt table was restrored, if fdt_lock is equal to nr + 1
+	 */
+	futex_t			fdt_lock;
+};
+
 struct rst_info {
 	struct list_head	fds;
 	struct list_head	eventpoll;
@@ -238,6 +249,8 @@ struct rst_info {
 
 	void			*premmapped_addr;
 	unsigned long		premmapped_len;
+
+	struct fdt		*fdt;
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)

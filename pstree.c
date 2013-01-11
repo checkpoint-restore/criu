@@ -5,6 +5,7 @@
 #include "pstree.h"
 #include "restorer.h"
 #include "util.h"
+#include "lock.h"
 
 #include "protobuf.h"
 #include "protobuf/pstree.pb-c.h"
@@ -432,6 +433,39 @@ static int prepare_pstree_ids(void)
 
 		pr_info("Add a helper %d for restoring PGID %d\n",
 				helper->pid.virt, helper->pgid);
+	}
+
+	/* Find a process with minimal pid for shared fd tables */
+	for_each_pstree_item(item) {
+		struct pstree_item *parent = item->parent;
+		struct fdt *fdt;
+
+		if (item->state == TASK_HELPER)
+			continue;
+
+		if (parent == NULL)
+			continue;
+
+		if (!shared_fdtable(item))
+			continue;
+
+		if (!parent->rst->fdt) {
+			fdt = shmalloc(sizeof(*item->rst->fdt));
+			if (fdt == NULL)
+				return -1;
+
+			parent->rst->fdt = fdt;
+
+			futex_init(&fdt->fdt_lock);
+			fdt->nr = 1;
+			fdt->pid = parent->pid.virt;
+		} else
+			fdt = parent->rst->fdt;
+
+		item->rst->fdt = fdt;
+		fdt->nr++;
+		if (fdt->pid > item->pid.virt)
+			fdt->pid = item->pid.virt;
 	}
 
 	return 0;

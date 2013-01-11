@@ -46,6 +46,14 @@ struct pstree_item {
 	struct rst_info		rst[0];
 };
 
+static inline int shared_fdtable(struct pstree_item *item) {
+	return (item->parent && item->parent->state != TASK_HELPER &&
+		item->ids &&
+		item->parent->ids &&
+		item->ids->files_id &&
+		item->ids->files_id == item->parent->ids->files_id);
+}
+
 extern void free_pstree(struct pstree_item *root_item);
 extern struct pstree_item *__alloc_pstree_item(bool rst);
 #define alloc_pstree_item() __alloc_pstree_item(false)
