@@ -173,7 +173,6 @@ int move_img_fd(int *img_fd, int want_fd)
 
 static pid_t open_proc_pid = 0;
 static int open_proc_fd = -1;
-static int proc_dir_fd = -1;
 
 int close_pid_proc(void)
 {
@@ -191,30 +190,18 @@ int close_pid_proc(void)
 void close_proc()
 {
 	close_pid_proc();
-	if (proc_dir_fd > 0)
-		close(proc_dir_fd);
-	proc_dir_fd = -1;
+
+	close_service_fd(PROC_FD_OFF);
 }
 
 int set_proc_fd(int fd)
 {
-	int sfd = get_service_fd(PROC_FD_OFF);
-
-	sfd = dup2(fd, sfd);
-	if (sfd < 0) {
-		pr_perror("Can't set proc fd\n");
-		return -1;
-	}
-
-	proc_dir_fd = sfd;
-
-	return 0;
+	return install_service_fd(PROC_FD_OFF, fd);
 }
 
 int set_proc_mountpoint(char *path)
 {
-	int sfd = get_service_fd(PROC_FD_OFF), fd;
-
+	int fd, ret;
 	close_proc();
 
 	fd = open(path, O_DIRECTORY | O_RDONLY);
@@ -223,14 +210,10 @@ int set_proc_mountpoint(char *path)
 		return -1;
 	}
 
-	sfd = dup2(fd, sfd);
+	ret = install_service_fd(PROC_FD_OFF, fd);
 	close(fd);
-	if (sfd < 0) {
-		pr_err("Can't set proc fd\n");
+	if (ret < 0)
 		return -1;
-	}
-
-	proc_dir_fd = sfd;
 
 	return 0;
 }
@@ -239,20 +222,23 @@ inline int open_pid_proc(pid_t pid)
 {
 	char path[18];
 	int fd;
+	int dfd;
 
 	if (pid == open_proc_pid)
 		return open_proc_fd;
 
 	close_pid_proc();
 
-	if (proc_dir_fd == -1) {
-		fd = set_proc_mountpoint("/proc");
-		if (fd < 0)
-			return fd;
+	dfd = get_service_fd(PROC_FD_OFF);
+	if (dfd < 0) {
+		if (set_proc_mountpoint("/proc") < 0)
+			return -1;
+
+		dfd = get_service_fd(PROC_FD_OFF);
 	}
 
 	snprintf(path, sizeof(path), "%d", pid);
-	fd = openat(proc_dir_fd, path, O_RDONLY);
+	fd = openat(dfd, path, O_RDONLY);
 	if (fd < 0)
 		pr_perror("Can't open %s", path);
 	else {
@@ -307,10 +293,46 @@ static int __get_service_fd(enum sfd_type type, int service_fd_id)
 	return service_fd_rlim_cur - type - SERVICE_FD_MAX * service_fd_id;
 }
 
+static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
+
+int install_service_fd(enum sfd_type type, int fd)
+{
+	int sfd = __get_service_fd(type, service_fd_id);
+
+	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
+
+	if (dup2(fd, sfd) != sfd) {
+		pr_perror("Dup %d -> %d failed", fd, sfd);
+		return -1;
+	}
+
+	set_bit(type, sfd_map);
+	return sfd;
+}
+
 int get_service_fd(enum sfd_type type)
 {
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
+
+	if (!test_bit(type, sfd_map))
+		return -1;
+
 	return __get_service_fd(type, service_fd_id);
+}
+
+int close_service_fd(enum sfd_type type)
+{
+	int fd;
+
+	fd = get_service_fd(type);
+	if (fd < 0)
+		return 0;
+
+	if (close_safe(&fd))
+		return -1;
+
+	clear_bit(type, sfd_map);
+	return 0;
 }
 
 int clone_service_fd(int id)

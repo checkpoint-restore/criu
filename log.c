@@ -20,8 +20,6 @@
 #define DEFAULT_LOGFD		STDERR_FILENO
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
-static int current_logfd = DEFAULT_LOGFD;
-static int logdir = -1;
 
 static char buffer[PAGE_SIZE];
 static char buf_off = 0;
@@ -55,27 +53,22 @@ static void print_ts(void)
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
 }
 
-
-
 int log_get_fd(void)
 {
-	return current_logfd;
+	int fd = get_service_fd(LOG_FD_OFF);
+
+	return fd < 0 ? DEFAULT_LOGFD : fd;
 }
 
 int log_init(const char *output)
 {
-	int new_logfd, sfd, dfd;
+	int new_logfd, dfd, fd;
 
 	gettimeofday(&start, NULL);
 	buf_off = TS_BUF_OFF;
 
 	dfd = get_service_fd(LOG_DIR_FD_OFF);
 	if (dfd < 0) {
-		pr_msg("Can't obtain logfd");
-		goto err;
-	}
-
-	if (logdir < 0) {
 		int tmp;
 		tmp = open(".", O_RDONLY);
 		if (tmp == -1) {
@@ -83,40 +76,26 @@ int log_init(const char *output)
 			return -1;
 		}
 
-		if (reopen_fd_as(dfd, tmp) < 0)
+		dfd = install_service_fd(LOG_DIR_FD_OFF, tmp);
+		close(tmp);
+		if (dfd < 0)
 			return -1;
-
-		logdir = dfd;
-	}
-
-	sfd = get_service_fd(LOG_FD_OFF);
-	if (sfd < 0) {
-		pr_msg("Can't obtain logfd");
-		goto err;
 	}
 
 	if (output) {
-		new_logfd = openat(logdir, output,
+		new_logfd = openat(dfd, output,
 					O_CREAT | O_TRUNC | O_WRONLY | O_APPEND, 0600);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
+	} else
+		new_logfd = dup(DEFAULT_LOGFD);
 
-		if (sfd == current_logfd)
-			close(sfd);
-
-		if (reopen_fd_as(sfd, new_logfd) < 0)
-			goto err;
-	} else {
-		new_logfd = dup2(DEFAULT_LOGFD, sfd);
-		if (new_logfd < 0) {
-			pr_perror("Dup %d -> %d failed", DEFAULT_LOGFD, sfd);
-			goto err;
-		}
-	}
-
-	current_logfd = sfd;
+	fd = install_service_fd(LOG_FD_OFF, new_logfd);
+	close(new_logfd);
+	if (fd < 0)
+		goto err;
 
 	return 0;
 
@@ -151,15 +130,13 @@ int log_init_by_pid(void)
 
 void log_fini(void)
 {
-	if (current_logfd > 2)
-		close_safe(&current_logfd);
-
-	current_logfd = DEFAULT_LOGFD;
+	close_service_fd(LOG_FD_OFF);
+	log_closedir();
 }
 
 void log_closedir(void)
 {
-	close_safe(&logdir);
+	close_service_fd(LOG_DIR_FD_OFF);
 }
 
 void log_set_loglevel(unsigned int level)
@@ -186,7 +163,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	} else {
 		if (loglevel > current_loglevel)
 			return;
-		fd = current_logfd;
+		fd = log_get_fd();
 		print_ts();
 		off = 0;
 	}

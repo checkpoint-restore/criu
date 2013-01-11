@@ -94,7 +94,6 @@ struct tty_dump_info {
 
 static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
-static int self_stdin = -1;
 
 #define INHERIT_SID			(-1)
 
@@ -1196,15 +1195,12 @@ int dump_tty(struct fd_parms *p, int lfd, const int fdinfo)
 
 int tty_prep_fds(void)
 {
-	self_stdin = get_service_fd(SELF_STDIN_OFF);
-
 	if (!isatty(STDIN_FILENO)) {
 		pr_err("Standart stream is not a terminal, aborting\n");
 		return -1;
 	}
 
-	if (dup2(STDIN_FILENO, self_stdin) < 0) {
-		self_stdin = -1;
+	if (install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
 		pr_perror("Can't dup stdin to SELF_STDIN_OFF");
 		return -1;
 	}
@@ -1214,5 +1210,5 @@ int tty_prep_fds(void)
 
 void tty_fini_fds(void)
 {
-	close_safe(&self_stdin);
+	close_service_fd(SELF_STDIN_OFF);
 }

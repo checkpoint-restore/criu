@@ -228,10 +228,9 @@ struct cr_fdset *cr_glob_fdset_open(int mode)
 	return cr_fdset_open(-1 /* ignored */, _CR_FD_GLOB_FROM, _CR_FD_GLOB_TO, mode);
 }
 
-static int image_dir_fd = -1;
-
 int open_image(int type, unsigned long flags, ...)
 {
+	int dfd = get_service_fd(IMG_FD_OFF);
 	char path[PATH_MAX];
 	va_list args;
 	int ret;
@@ -241,14 +240,14 @@ int open_image(int type, unsigned long flags, ...)
 	va_end(args);
 
 	if (flags & O_EXCL) {
-		ret = unlinkat(image_dir_fd, path, 0);
+		ret = unlinkat(dfd, path, 0);
 		if (ret && errno != ENOENT) {
 			pr_perror("Unable to unlink %s", path);
 			goto err;
 		}
 	}
 
-	ret = openat(image_dir_fd, path, flags, CR_FD_PERM);
+	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
 		pr_perror("Unable to open %s", path);
 		goto err;
@@ -279,13 +278,7 @@ err:
 
 int open_image_dir(void)
 {
-	int fd;
-
-	image_dir_fd = get_service_fd(IMG_FD_OFF);
-	if (image_dir_fd < 0) {
-		pr_perror("Can't get image fd");
-		return -1;
-	}
+	int fd, ret;
 
 	fd = open(".", O_RDONLY);
 	if (fd < 0) {
@@ -293,13 +286,14 @@ int open_image_dir(void)
 		return -1;
 	}
 
-	pr_info("Image dir fd is %d\n", image_dir_fd);
+	ret = install_service_fd(IMG_FD_OFF, fd);
 
-	return reopen_fd_as(image_dir_fd, fd);
+	close(fd);
+
+	return ret;
 }
 
 void close_image_dir(void)
 {
-	close(image_dir_fd);
-	image_dir_fd = -1;
+	close_service_fd(IMG_FD_OFF);
 }
