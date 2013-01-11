@@ -167,7 +167,7 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 	}
 
 	if (!pd->pde->bytes)
-		return 0;
+		goto out;
 
 	if (!pd->data) {
 		pr_err("Double data restore occurred on %#x\n", id);
@@ -207,7 +207,17 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 
 	munmap(pd->data, pd->pde->bytes);
 	pd->data = NULL;
+out:
 	ret = 0;
+	if (pd->pde->has_size) {
+		pr_info("Restoring size %#x for %#x\n",
+				pd->pde->size, pd->pde->pipe_id);
+		ret = fcntl(pfd, F_SETPIPE_SZ, pd->pde->size);
+		if (ret < 0)
+			pr_perror("Can't restore pipe size");
+		else
+			ret = 0;
+	}
 err:
 	return ret;
 }
@@ -400,6 +410,8 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 
 	pde.pipe_id	= pipe_id(p);
 	pde.bytes	= bytes;
+	pde.has_size	= true;
+	pde.size	= pipe_size;
 
 	if (pb_write_one(img, &pde, PB_PIPES_DATA))
 		goto err_close;
