@@ -156,7 +156,7 @@ static int root_prepare_shared(void)
 		if (ret < 0)
 			break;
 
-		ret = prepare_fd_pid(pi->pid.virt, pi->rst);
+		ret = prepare_fd_pid(pi);
 		if (ret < 0)
 			break;
 	}

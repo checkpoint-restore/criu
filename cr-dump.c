@@ -355,10 +355,10 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	return dump_unsupp_fd(&p);
 }
 
-static int dump_task_files_seized(struct parasite_ctl *ctl, const int fdinfo,
+static int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds)
 {
-	int *lfds;
+	int *lfds, fdinfo;
 	struct fd_opts *opts;
 	int i, ret = -1;
 
@@ -378,12 +378,18 @@ static int dump_task_files_seized(struct parasite_ctl *ctl, const int fdinfo,
 	if (ret)
 		goto err2;
 
+	fdinfo = open_image(CR_FD_FDINFO, O_DUMP, item->ids->files_id);
+	if (fdinfo < 0)
+		goto err2;
+
 	for (i = 0; i < dfds->nr_fds; i++) {
 		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, fdinfo);
 		close(lfds[i]);
 		if (ret)
-			goto err2;
+			break;
 	}
+
+	close(fdinfo);
 
 	pr_info("----------------------------------------\n");
 err2:
@@ -1453,7 +1459,13 @@ static int dump_one_task(struct pstree_item *item)
 	if (!cr_fdset)
 		goto err_cure;
 
-	ret = dump_task_files_seized(parasite_ctl, fdset_fd(cr_fdset, CR_FD_FDINFO), dfds);
+	ret = dump_task_ids(item, cr_fdset);
+	if (ret) {
+		pr_err("Dump ids (pid: %d) failed with %d\n", pid, ret);
+		goto err_cure;
+	}
+
+	ret = dump_task_files_seized(parasite_ctl, item, dfds);
 	if (ret) {
 		pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
@@ -1481,12 +1493,6 @@ static int dump_one_task(struct pstree_item *item)
 					parasite_ctl, cr_fdset, &vma_area_list);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
-		goto err_cure;
-	}
-
-	ret = dump_task_ids(item, cr_fdset);
-	if (ret) {
-		pr_err("Dump ids (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
 

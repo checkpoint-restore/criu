@@ -1,3 +1,4 @@
 message inventory_entry {
 	required uint32	img_version = 1;
+	optional bool fdinfo_per_id = 2;
 }

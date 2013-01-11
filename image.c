@@ -15,6 +15,8 @@
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 
+bool fdinfo_per_id = false;
+
 int check_img_inventory(void)
 {
 	int fd, ret;
@@ -28,6 +30,8 @@ int check_img_inventory(void)
 	close(fd);
 	if (ret < 0)
 		return ret;
+
+	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
 
 	ret = he->img_version;
 	inventory_entry__free_unpacked(he, NULL);
@@ -52,6 +56,8 @@ int write_img_inventory(void)
 		return -1;
 
 	he.img_version = CRTOOLS_IMAGES_V1;
+	he.fdinfo_per_id = true;
+	he.has_fdinfo_per_id = true;
 
 	if (pb_write_one(fd, &he, PB_INVENTORY) < 0)
 		return -1;

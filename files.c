@@ -217,19 +217,32 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	return 0;
 }
 
-int prepare_fd_pid(int pid, struct rst_info *rst_info)
+int prepare_fd_pid(struct pstree_item *item)
 {
 	int fdinfo_fd, ret = 0;
+	pid_t pid = item->pid.virt;
+	struct rst_info *rst_info = item->rst;
 
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
-	fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
-	if (fdinfo_fd < 0) {
-		if (errno == ENOENT)
+	if (!fdinfo_per_id) {
+		fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
+		if (fdinfo_fd < 0) {
+			if (errno == ENOENT)
+				return 0;
+			return -1;
+		}
+	} else {
+		if (item->ids == NULL) /* zombie */
 			return 0;
-		else
+
+		if (item->rst->fdt && item->rst->fdt->pid != item->pid.virt)
+			return 0;
+
+		fdinfo_fd = open_image_ro(CR_FD_FDINFO, item->ids->files_id);
+		if (fdinfo_fd < 0)
 			return -1;
 	}
 
