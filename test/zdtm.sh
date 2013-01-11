@@ -454,6 +454,8 @@ Options:
 	-i : Number of ITERATIONS of dump/restore
 	-b <commit> : Check backward compatibility
 EOF
+elif [ "${1:0:1}" = '-' ]; then
+	echo "unrecognized option $1"
 else
 	if echo $UTS_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n uts || case_error $1
