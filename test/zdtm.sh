@@ -133,7 +133,7 @@ $IPC_TEST_LIST
 "
 
 CRTOOLS=$(readlink -f `dirname $0`/../crtools)
-CPT_CRTOOLS=$CRTOOLS
+CRTOOLS_CPT=$CRTOOLS
 TMP_TREE=""
 
 test -x $CRTOOLS || {
@@ -147,8 +147,6 @@ PID=""
 PIDNS=""
 
 ITERATIONS=1
-COMMIT=""
-HEAD=""
 
 check_mainstream()
 {
@@ -280,13 +278,6 @@ run_test()
 	local tdir=`dirname $test`
 	DUMP_PATH=""
 
-	if [ -n "$COMMIT" ]; then
-		echo "The current HEAD is $HEAD"
-		git clean -fx --exclude=test `dirname "$CRTOOLS"`
-		git checkout $COMMIT &&
-		make -C `dirname "$CRTOOLS"` clean all || return 1
-	fi
-
 	echo "Execute $test"
 
 	start_test $tdir $tname || return 1
@@ -318,16 +309,10 @@ EOF
 	mkdir -p $ddump
 
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS dump --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS_CPT dump --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
-
-	if [ -n "$COMMIT" ]; then
-		git clean -fx --exclude=test `dirname "$CRTOOLS"`
-		git checkout $HEAD &&
-		make -C `dirname "$CRTOOLS"` all || return 1
-	fi
 
 	if expr " $ARGS" : ' -s' > /dev/null; then
 		save_fds $PID  $ddump/dump.fd.after
@@ -400,6 +385,15 @@ case_error()
 	exit 1
 }
 
+checkout()
+{
+	local commit=`git describe $1` &&
+	TMP_TREE=`dirname $CRTOOLS`/crtools.$commit &&
+	mkdir -p $TMP_TREE &&
+	git --git-dir `dirname $CRTOOLS`/.git archive $commit . | tar -x -C $TMP_TREE &&
+	make -C $TMP_TREE -j 32
+}
+
 cd `dirname $0` || exit 1
 
 while :; do
@@ -416,11 +410,8 @@ while :; do
 	fi
 	if [ "$1" = "-b" ]; then
 		shift
-		COMMIT=$1
-		HEAD=`git rev-parse --abbrev-ref HEAD` && [ HEAD != $HEAD ] || {
-			echo "Can't get a name of the current branch"
-			exit 1
-		}
+		checkout $1 || exit 1
+		CRTOOLS_CPT=$TMP_TREE/crtools
 		shift
 		continue
 	fi
@@ -470,3 +461,5 @@ else
 		run_test $1 || case_error $1
 	fi
 fi
+
+[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE
