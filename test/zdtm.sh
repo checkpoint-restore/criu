@@ -415,6 +415,13 @@ while :; do
 		shift
 		continue
 	fi
+	if [ "$1" = "-c" ]; then
+		shift
+		checkout $1 || exit 1
+		shift
+		$TMP_TREE/test/zdtm.sh "$@"
+		exit
+	fi
 	break;
 done
 
