@@ -31,21 +31,19 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	print_on_level(LOG_INFO,						\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
-#define pr_err_once(fmt, ...)							\
-	do {									\
-		static bool __printed;						\
-		if (!__printed) {						\
-			print_on_level(LOG_ERROR,				\
-				       "Error (%s:%d): " LOG_PREFIX fmt,	\
-				       __FILE__, __LINE__, ##__VA_ARGS__);	\
-			__printed = 1;						\
-		}								\
-	} while (0)
-
 #define pr_err(fmt, ...)							\
 	print_on_level(LOG_ERROR,						\
 		       "Error (%s:%d): " LOG_PREFIX fmt,			\
 		       __FILE__, __LINE__, ##__VA_ARGS__)
+
+#define pr_err_once(fmt, ...)							\
+	do {									\
+		static bool __printed;						\
+		if (!__printed) {						\
+			pr_err(fmt, ##__VA_ARGS__);				\
+			__printed = 1;						\
+		}								\
+	} while (0)
 
 #define pr_warn(fmt, ...)							\
 	print_on_level(LOG_WARN,						\
