@@ -126,38 +126,60 @@ int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo)
 	return do_dump_gen_file(p, lfd, &inotify_ops, fdinfo);
 }
 
+static char *get_mark_path(const char *who, struct file_remap *remap,
+			   FhEntry *f_handle, unsigned long i_ino,
+			   unsigned int s_dev, char *buf, size_t size,
+			   int *target)
+{
+	char *path = NULL;
+	int mntfd = -1;
+	fh_t handle;
+
+	if (!remap) {
+		memzero(&handle, sizeof(handle));
+
+		handle.type	= f_handle->type;
+		handle.bytes	= f_handle->bytes;
+
+		memcpy(handle.__handle, f_handle->handle,
+		       min(pb_repeated_size(f_handle, handle),
+			   sizeof(handle.__handle)));
+
+		mntfd = open_mount(s_dev);
+		if (mntfd < 0) {
+			pr_err("Mount root for 0x%08x not found\n", s_dev);
+			goto err;
+		}
+
+		*target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
+		if (*target < 0) {
+			pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+				  s_dev, i_ino);
+			goto err;
+		}
+		snprintf(buf, size, "/proc/self/fd/%d", *target);
+		path = buf;
+	} else {
+		*target = -1;
+		path = remap->path;
+	}
+
+err:
+	close_safe(&mntfd);
+	return path;
+}
+
 static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 {
 	InotifyWdEntry *iwe = info->iwe;
-	char buf[32], *path = buf;
-	int mntfd = -1, ret = -1;
-	int wd, target = -1;
-	fh_t handle = { };
+	int ret = -1, wd, target = -1;
+	char buf[32], *path;
 
-	/* syscall waits for strict structure here */
-	handle.type	= iwe->f_handle->type;
-	handle.bytes	= iwe->f_handle->bytes;
-
-	memcpy(handle.__handle, iwe->f_handle->handle,
-	       min(pb_repeated_size(iwe->f_handle, handle),
-		   sizeof(handle.__handle)));
-
-	mntfd = open_mount(iwe->s_dev);
-	if (mntfd < 0) {
-		pr_err("Mount root for 0x%08x not found\n", iwe->s_dev);
-		return -1;
-	}
-
-	if (!info->remap) {
-		target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
-		if (target < 0) {
-			pr_perror("Can't open file handle for 0x%08x:0x%016lx",
-				  iwe->s_dev, iwe->i_ino);
-			goto err;
-		}
-		snprintf(buf, sizeof(buf), "/proc/self/fd/%d", target);
-	} else
-		path = info->remap->path;
+	path = get_mark_path("inotify", info->remap, iwe->f_handle,
+			     iwe->i_ino, iwe->s_dev, buf, sizeof(buf),
+			     &target);
+	if (!path)
+		goto err;
 
 	pr_debug("\t\tRestore watch for 0x%08x:0x%016lx\n", iwe->s_dev, iwe->i_ino);
 
@@ -188,7 +210,6 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 		remap_put(info->remap);
 
 err:
-	close_safe(&mntfd);
 	close_safe(&target);
 	return ret;
 }
