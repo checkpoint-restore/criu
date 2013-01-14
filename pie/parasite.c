@@ -14,10 +14,6 @@
 
 #include "asm/parasite.h"
 
-#ifndef CONFIG_X86_64
-#error non-x86-64 mode not yet implemented
-#endif
-
 static void *brk_start, *brk_end, *brk_tail;
 
 static int tsock = -1;

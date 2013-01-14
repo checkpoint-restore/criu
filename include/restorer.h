@@ -18,10 +18,6 @@
 #include "../protobuf/creds.pb-c.h"
 #include "../protobuf/core.pb-c.h"
 
-#ifndef CONFIG_X86_64
-# error Only x86-64 is supported
-#endif
-
 struct task_restore_core_args;
 struct thread_restore_args;
 

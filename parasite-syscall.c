@@ -24,7 +24,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef CONFIG_X86_64
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
 
@@ -857,6 +856,3 @@ err_restore:
 	return NULL;
 }
 
-#else /* CONFIG_X86_64 */
-# error x86-32 is not yet implemented
-#endif /* CONFIG_X86_64 */

@@ -107,8 +107,6 @@ struct page_entry {
 
 #define CR_CAP_SIZE	2
 
-#ifdef CONFIG_X86_64
-
 #define GDT_ENTRY_TLS_ENTRIES 3
 #define TASK_COMM_LEN 16
 
@@ -124,8 +122,6 @@ struct page_entry {
 #define TASK_DEAD		0x2
 #define TASK_STOPPED		0x3 /* FIXME - implement */
 #define TASK_HELPER		0x4
-
-#endif /* CONFIG_X86_64 */
 
 /*
  * There are always 4 magic bytes at the

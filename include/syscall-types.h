@@ -14,10 +14,6 @@
 
 #include "asm/types.h"
 
-#ifndef CONFIG_X86_64
-# error x86-32 bit mode not yet implemented
-#endif
-
 struct cap_header {
 	u32 version;
 	int pid;

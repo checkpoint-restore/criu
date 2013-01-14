@@ -67,10 +67,6 @@
 
 #include "asm/dump.h"
 
-#ifndef CONFIG_X86_64
-# error No x86-32 support yet
-#endif
-
 static char loc_buf[PAGE_SIZE];
 static int pidns_proc = -1;
 

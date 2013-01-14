@@ -45,10 +45,6 @@
 
 #define DEF_PAGES_PER_LINE	6
 
-#ifndef CONFIG_X86_64
-# error No x86-32 support yet
-#endif
-
 
 #define PR_SYMBOL(sym)			\
 	(isprint(sym) ? sym : '.')
