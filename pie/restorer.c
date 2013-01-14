@@ -274,15 +274,26 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 	return addr;
 }
 
-static void rst_tcp_socks_all(int *arr, int size)
+static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
+{
+	int aux;
+
+	tcp_repair_off(rts->sk);
+
+	aux = rts->reuseaddr;
+	if (sys_setsockopt(rts->sk, SOL_SOCKET, SO_REUSEADDR, &aux, sizeof(aux)) < 0)
+		pr_perror("Failed to restore of SO_REUSEADDR on socket");
+}
+
+static void rst_tcp_socks_all(struct rst_tcp_sock *arr, int size)
 {
 	int i;
 
 	if (size == 0)
 		return;
 
-	for (i =0; arr[i] >= 0; i++)
-		tcp_repair_off(arr[i]);
+	for (i =0; arr[i].sk >= 0; i++)
+		rst_tcp_repair_off(arr + i);
 
 	sys_munmap(arr, size);
 }

@@ -439,15 +439,18 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 
 	ii = container_of(d, struct inet_sk_info, d);
 
+	/*
+	 * TCP sockets are handled at the last moment
+	 * after unlocking connections.
+	 */
+	if (tcp_connection(ii->ie))
+		return 0;
+
 	/* SO_REUSEADDR is set for all sockets */
-	if (!tcp_connection(ii->ie) && ii->ie->opts->reuseaddr)
+	if (ii->ie->opts->reuseaddr)
 		return 0;
 
 	futex_wait_until(&ii->port->users, 0);
-
-	/* Disabling repair mode drops SO_REUSEADDR */
-	if (tcp_connection(ii->ie))
-		tcp_repair_off(sk);
 
 	val = ii->ie->opts->reuseaddr;
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))

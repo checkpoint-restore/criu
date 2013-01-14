@@ -122,7 +122,7 @@ struct task_restore_core_args {
 	int				nr_rlim;
 	struct rlimit			rlims[RLIM_NLIMITS];
 
-	int				*rst_tcp_socks;
+	struct rst_tcp_sock		*rst_tcp_socks;
 	int				rst_tcp_socks_size;
 } __aligned(sizeof(long));
 

@@ -45,6 +45,11 @@ struct inet_sk_info {
 int inet_bind(int sk, struct inet_sk_info *);
 int inet_connect(int sk, struct inet_sk_info *);
 
+struct rst_tcp_sock {
+	int	sk;
+	bool	reuseaddr;
+};
+
 static inline void tcp_repair_off(int fd)
 {
 	int aux = 0;
