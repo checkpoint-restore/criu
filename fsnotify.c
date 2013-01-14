@@ -254,7 +254,7 @@ static struct file_desc_ops inotify_desc_ops = {
 	.open = open_inotify_fd,
 };
 
-static int collect_mark(struct fsnotify_mark_info *mark)
+static int collect_inotify_mark(struct fsnotify_mark_info *mark)
 {
 	struct fsnotify_file_info *p;
 
@@ -288,7 +288,7 @@ static int collect_one_wd(void *o, ProtobufCMessage *msg)
 	struct fsnotify_mark_info *mark = o;
 
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
-	return collect_mark(mark);
+	return collect_inotify_mark(mark);
 }
 
 int collect_inotify(void)
