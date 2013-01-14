@@ -43,7 +43,10 @@
 
 struct fsnotify_mark_info {
 	struct list_head		list;
-	InotifyWdEntry			*iwe;
+	union {
+		InotifyWdEntry		*iwe;
+		FanotifyMarkEntry	*fme;
+	};
 	struct file_remap 		*remap;
 };
 
