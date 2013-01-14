@@ -131,6 +131,8 @@ struct rt_sigframe {
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
 
+#define SIGFRAME_OFFSET 8
+
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
