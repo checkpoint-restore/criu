@@ -249,7 +249,7 @@ static int open_inotify_fd(struct file_desc *d)
 	return tmp;
 }
 
-static struct file_desc_ops desc_ops = {
+static struct file_desc_ops inotify_desc_ops = {
 	.type = FD_TYPES__INOTIFY,
 	.open = open_inotify_fd,
 };
@@ -277,7 +277,7 @@ static int collect_one_ify(void *o, ProtobufCMessage *msg)
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &info_head);
-	file_desc_add(&info->d, info->ife->id, &desc_ops);
+	file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
 
 	return 0;
