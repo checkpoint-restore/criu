@@ -1566,6 +1566,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (collect_pstree(pid, opts))
 		goto err;
 
+	if (collect_mount_info())
+		goto err;
+
 	if (mntns_collect_root(root_item->pid.real))
 		goto err;
 
