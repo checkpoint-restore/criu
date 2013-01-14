@@ -58,6 +58,8 @@ int main(int argc, char **argv)
 	pid_t extpid;
 	uint32_t crc;
 	int pfd[2];
+	int val;
+	socklen_t optlen;
 
 	if (pipe(pfd)) {
 		err("pipe() failed");
@@ -136,6 +138,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	val = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))) {
+		err("setsockopt");
+		return 1;
+	}
+
 	test_daemon();
 #ifdef STREAM
 	while (test_go()) {
@@ -169,6 +177,16 @@ int main(int argc, char **argv)
 	if (datachk(buf, BUF_SIZE, &crc))
 		return 2;
 #endif
+	optlen = sizeof(val);
+	if (getsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, &optlen)) {
+		err("getsockopt");
+		return 1;
+	}
+	if (val != 1) {
+		fail("SO_REUSEADDR are not set for %d\n", fd);
+		return 1;
+	}
+
 	pass();
 	return 0;
 }
