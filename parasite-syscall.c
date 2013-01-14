@@ -100,7 +100,7 @@ again:
 			goto err;
 	}
 
-	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != SI_KERNEL) {
+	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != ARCH_SI_TRAP) {
 retry_signal:
 		pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code);
