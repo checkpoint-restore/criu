@@ -15,6 +15,7 @@
 #include "crtools.h"
 #include "mount.h"
 #include "cpu.h"
+#include "fsnotify.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"
@@ -915,6 +916,80 @@ int parse_fdinfo(int fd, int type,
 					(unsigned long long *)&entry.sfd.sigmask);
 			if (ret != 1)
 				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				return ret;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "fanotify flags")) {
+			struct fsnotify_params *p = arg;
+
+			if (type != FD_TYPES__FANOTIFY)
+				goto parse_err;
+
+			ret = sscanf(str, "fanotify flags:%x event-flags:%x",
+				     &p->faflags, &p->evflags);
+			if (ret != 2)
+				goto parse_err;
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "fanotify ino")) {
+			FhEntry f_handle = FH_ENTRY__INIT;
+			int hoff;
+
+			if (type != FD_TYPES__FANOTIFY)
+				goto parse_err;
+
+			fanotify_mark_entry__init(&entry.ffy);
+			entry.ffy.f_handle = &f_handle;
+
+			ret = sscanf(str,
+				     "fanotify ino:%lx sdev:%x mflags:%x mask:%x ignored_mask:%x "
+				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
+				     &entry.ffy.i_ino, &entry.ffy.s_dev,
+				     &entry.ffy.mflags, &entry.ffy.mask, &entry.ffy.ignored_mask,
+				     &entry.ffy.f_handle->bytes, &entry.ffy.f_handle->type,
+				     &hoff);
+			if (ret != 7)
+				goto parse_err;
+
+			f_handle.n_handle = FH_ENTRY_SIZES__min_entries;
+			f_handle.handle = xmalloc(pb_repeated_size(&f_handle, handle));
+			if (!f_handle.handle)
+				return -1;
+
+			parse_fhandle_encoded(str + hoff, entry.ffy.f_handle);
+
+			entry.ffy.has_mnt_id = false;
+			entry.ffy.type = MARK_TYPE__INODE;
+			ret = cb(&entry, arg);
+
+			xfree(f_handle.handle);
+
+			if (ret)
+				return ret;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "fanotify mnt_id")) {
+			if (type != FD_TYPES__FANOTIFY)
+				goto parse_err;
+
+			fanotify_mark_entry__init(&entry.ffy);
+
+			ret = sscanf(str,
+				     "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x",
+				     &entry.ffy.mnt_id, &entry.ffy.mflags,
+				     &entry.ffy.mask, &entry.ffy.ignored_mask);
+			if (ret != 4)
+				goto parse_err;
+
+			entry.ffy.has_mnt_id = true;
+			entry.ffy.type = MARK_TYPE__MOUNT;
 			ret = cb(&entry, arg);
 			if (ret)
 				return ret;

@@ -134,6 +134,7 @@ union fdinfo_entries {
 	EventpollTfdEntry epl;
 	SignalfdEntry sfd;
 	InotifyWdEntry ify;
+	FanotifyMarkEntry ffy;
 };
 
 extern int parse_fdinfo(int fd, int type,

@@ -9,6 +9,12 @@
 #include "files.h"
 #include "crtools.h"
 
+struct fsnotify_params {
+	u32	id;
+	u32	faflags;
+	u32	evflags;
+};
+
 extern int is_inotify_link(int lfd);
 extern int is_fanotify_link(int lfd);
 extern int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo);
