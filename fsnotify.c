@@ -21,7 +21,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
-#include "inotify.h"
+#include "fsnotify.h"
 #include "proc_parse.h"
 #include "syscall.h"
 #include "crtools.h"
@@ -36,7 +36,7 @@
 #include "lock.h"
 
 #include "protobuf.h"
-#include "protobuf/inotify.pb-c.h"
+#include "protobuf/fsnotify.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "fsnotify: "

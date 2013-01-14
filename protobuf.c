@@ -22,7 +22,7 @@
 #include "protobuf/eventfd.pb-c.h"
 #include "protobuf/eventpoll.pb-c.h"
 #include "protobuf/signalfd.pb-c.h"
-#include "protobuf/inotify.pb-c.h"
+#include "protobuf/fsnotify.pb-c.h"
 #include "protobuf/core.pb-c.h"
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/pipe.pb-c.h"

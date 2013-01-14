@@ -49,7 +49,7 @@
 #include "namespaces.h"
 #include "shmem.h"
 #include "mount.h"
-#include "inotify.h"
+#include "fsnotify.h"
 #include "pstree.h"
 #include "net.h"
 #include "tty.h"

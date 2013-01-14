@@ -4,7 +4,7 @@
 #include "image.h"
 #include "eventpoll.h"
 #include "signalfd.h"
-#include "inotify.h"
+#include "fsnotify.h"
 #include "sockets.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"

@@ -54,7 +54,7 @@
 #include "sk-inet.h"
 #include "eventfd.h"
 #include "eventpoll.h"
-#include "inotify.h"
+#include "fsnotify.h"
 #include "signalfd.h"
 #include "pstree.h"
 #include "mount.h"
