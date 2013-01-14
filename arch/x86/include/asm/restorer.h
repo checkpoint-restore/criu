@@ -129,6 +129,8 @@ struct rt_sigframe {
 		     : "r"(ret)					\
 		     : "memory")
 
+#define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
