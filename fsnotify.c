@@ -60,7 +60,7 @@ struct fsnotify_file_info {
 	struct file_desc		d;
 };
 
-static LIST_HEAD(info_head);
+static LIST_HEAD(inotify_info_head);
 
 /* Checks if file desciptor @lfd is inotify */
 int is_inotify_link(int lfd)
@@ -258,7 +258,7 @@ static int collect_inotify_mark(struct fsnotify_mark_info *mark)
 {
 	struct fsnotify_file_info *p;
 
-	list_for_each_entry(p, &info_head, list) {
+	list_for_each_entry(p, &inotify_info_head, list) {
 		if (p->ife->id == mark->iwe->id) {
 			list_add(&mark->list, &p->marks);
 			mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
@@ -276,7 +276,7 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
-	list_add(&info->list, &info_head);
+	list_add(&info->list, &inotify_info_head);
 	file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
 
