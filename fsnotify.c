@@ -62,6 +62,12 @@ int is_inotify_link(int lfd)
 	return is_anon_link_type(lfd, "inotify");
 }
 
+/* Checks if file desciptor @lfd is fanotify */
+int is_fanotify_link(int lfd)
+{
+	return is_anon_link_type(lfd, "[fanotify]");
+}
+
 void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
 {
 	pb_show_plain(fd_inotify_wd, PB_INOTIFY_WD);
