@@ -266,4 +266,6 @@ typedef struct {
 #define REG_RES(regs) ((regs).ax)
 #define REG_IP(regs)  ((regs).ip)
 
+#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
+
 #endif /* __CR_ASM_TYPES_H__ */

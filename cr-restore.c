@@ -706,7 +706,7 @@ static int check_core(CoreEntry *core)
 {
 	int ret = -1;
 
-	if (core->mtype != CORE_ENTRY__MARCH__X86_64) {
+	if (core->mtype != CORE_ENTRY__MARCH) {
 		pr_err("Core march mismatch %d\n", (int)core->mtype);
 		goto out;
 	}
@@ -1789,7 +1789,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Arguments for task restoration.
 	 */
 
-	BUG_ON(core->mtype != CORE_ENTRY__MARCH__X86_64);
+	BUG_ON(core->mtype != CORE_ENTRY__MARCH);
 
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();

@@ -745,7 +745,7 @@ static CoreEntry *core_entry_alloc(int alloc_thread_info,
 		return NULL;
 	core_entry__init(core);
 
-	core->mtype = CORE_ENTRY__MARCH__X86_64;
+	core->mtype = CORE_ENTRY__MARCH;
 
 	if (alloc_thread_info) {
 		if (arch_alloc_thread_info(core))
