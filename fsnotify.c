@@ -52,7 +52,10 @@ struct fsnotify_mark_info {
 
 struct fsnotify_file_info {
 	struct list_head		list;
-	InotifyFileEntry		*ife;
+	union {
+		InotifyFileEntry	*ife;
+		FanotifyFileEntry	*ffe;
+	};
 	struct list_head		marks;
 	struct file_desc		d;
 };
