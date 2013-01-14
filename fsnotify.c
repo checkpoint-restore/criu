@@ -41,7 +41,7 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "fsnotify: "
 
-struct inotify_wd_info {
+struct fsnotify_mark_info {
 	struct list_head		list;
 	InotifyWdEntry			*iwe;
 	struct file_remap 		*remap;
@@ -172,7 +172,7 @@ err:
 	return path;
 }
 
-static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
+static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 {
 	InotifyWdEntry *iwe = info->iwe;
 	int ret = -1, wd, target = -1;
@@ -207,10 +207,10 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 		inotify_rm_watch(inotify_fd, wd);
 	}
 
+err:
 	if (info->remap)
 		remap_put(info->remap);
 
-err:
 	close_safe(&target);
 	return ret;
 }
@@ -218,7 +218,7 @@ err:
 static int open_inotify_fd(struct file_desc *d)
 {
 	struct inotify_file_info *info;
-	struct inotify_wd_info *wd_info;
+	struct fsnotify_mark_info *wd_info;
 	int tmp;
 
 	info = container_of(d, struct inotify_file_info, d);
@@ -248,7 +248,7 @@ static struct file_desc_ops desc_ops = {
 	.open = open_inotify_fd,
 };
 
-static int collect_mark(struct inotify_wd_info *mark)
+static int collect_mark(struct fsnotify_mark_info *mark)
 {
 	struct inotify_file_info *p;
 
@@ -279,7 +279,7 @@ static int collect_one_ify(void *o, ProtobufCMessage *msg)
 
 static int collect_one_wd(void *o, ProtobufCMessage *msg)
 {
-	struct inotify_wd_info *mark = o;
+	struct fsnotify_mark_info *mark = o;
 
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
 	return collect_mark(mark);
@@ -293,7 +293,7 @@ int collect_inotify(void)
 			sizeof(struct inotify_file_info), collect_one_ify);
 	if (!ret)
 		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
-				sizeof(struct inotify_wd_info), collect_one_wd);
+				sizeof(struct fsnotify_mark_info), collect_one_wd);
 
 	return ret;
 }
