@@ -66,6 +66,7 @@ TST_NOFILE	=				\
 		eventfs00			\
 		signalfd00			\
 		inotify00			\
+		fanotify00			\
 		uptime_grow			\
 		session00			\
 		rlimits00			\

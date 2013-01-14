@@ -129,6 +129,7 @@ static/socket-tcpbuf6
 static/eventfs00
 static/signalfd00
 static/inotify00
+static/fanotify00
 $IPC_TEST_LIST
 "
 
