@@ -50,7 +50,7 @@ struct fsnotify_mark_info {
 	struct file_remap 		*remap;
 };
 
-struct inotify_file_info {
+struct fsnotify_file_info {
 	struct list_head		list;
 	InotifyFileEntry		*ife;
 	struct list_head		marks;
@@ -220,11 +220,11 @@ err:
 
 static int open_inotify_fd(struct file_desc *d)
 {
-	struct inotify_file_info *info;
+	struct fsnotify_file_info *info;
 	struct fsnotify_mark_info *wd_info;
 	int tmp;
 
-	info = container_of(d, struct inotify_file_info, d);
+	info = container_of(d, struct fsnotify_file_info, d);
 
 	tmp = inotify_init1(info->ife->flags);
 	if (tmp < 0) {
@@ -253,7 +253,7 @@ static struct file_desc_ops desc_ops = {
 
 static int collect_mark(struct fsnotify_mark_info *mark)
 {
-	struct inotify_file_info *p;
+	struct fsnotify_file_info *p;
 
 	list_for_each_entry(p, &info_head, list) {
 		if (p->ife->id == mark->iwe->id) {
@@ -269,7 +269,7 @@ static int collect_mark(struct fsnotify_mark_info *mark)
 
 static int collect_one_ify(void *o, ProtobufCMessage *msg)
 {
-	struct inotify_file_info *info = o;
+	struct fsnotify_file_info *info = o;
 
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
@@ -293,7 +293,7 @@ int collect_inotify(void)
 	int ret;
 
 	ret = collect_image(CR_FD_INOTIFY, PB_INOTIFY,
-			sizeof(struct inotify_file_info), collect_one_ify);
+			sizeof(struct fsnotify_file_info), collect_one_ify);
 	if (!ret)
 		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
 				sizeof(struct fsnotify_mark_info), collect_one_wd);
