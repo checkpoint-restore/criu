@@ -170,7 +170,7 @@ static int is_anon_shmem_map(dev_t dev)
 int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
-	u64 start, end, pgoff;
+	unsigned long start, end, pgoff;
 	unsigned long ino;
 	char r, w, x, s;
 	int dev_maj, dev_min;
