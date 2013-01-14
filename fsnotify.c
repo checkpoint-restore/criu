@@ -61,6 +61,7 @@ struct fsnotify_file_info {
 };
 
 static LIST_HEAD(inotify_info_head);
+static LIST_HEAD(fanotify_info_head);
 
 /* Checks if file desciptor @lfd is inotify */
 int is_inotify_link(int lfd)
@@ -249,9 +250,20 @@ static int open_inotify_fd(struct file_desc *d)
 	return tmp;
 }
 
+static int open_fanotify_fd(struct file_desc *d)
+{
+	/* Stub */
+	return -1;
+}
+
 static struct file_desc_ops inotify_desc_ops = {
 	.type = FD_TYPES__INOTIFY,
 	.open = open_inotify_fd,
+};
+
+static struct file_desc_ops fanotify_desc_ops = {
+	.type = FD_TYPES__FANOTIFY,
+	.open = open_fanotify_fd,
 };
 
 static int collect_inotify_mark(struct fsnotify_mark_info *mark)
@@ -270,6 +282,22 @@ static int collect_inotify_mark(struct fsnotify_mark_info *mark)
 	return -1;
 }
 
+static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
+{
+	struct fsnotify_file_info *p;
+
+	list_for_each_entry(p, &fanotify_info_head, list) {
+		if (p->ffe->id == mark->fme->id) {
+			list_add(&mark->list, &p->marks);
+			mark->remap = lookup_ghost_remap(mark->fme->s_dev, mark->fme->i_ino);
+			return 0;
+		}
+	}
+
+	pr_err("Can't find fanotify with id 0x%08x\n", mark->fme->id);
+	return -1;
+}
+
 static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_file_info *info = o;
@@ -283,12 +311,33 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 	return 0;
 }
 
+static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
+{
+	struct fsnotify_file_info *info = o;
+
+	info->ffe = pb_msg(msg, FanotifyFileEntry);
+	INIT_LIST_HEAD(&info->marks);
+	list_add(&info->list, &fanotify_info_head);
+	file_desc_add(&info->d, info->ffe->id, &fanotify_desc_ops);
+	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ffe->id, info->ffe->flags);
+
+	return 0;
+}
+
 static int collect_one_wd(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_mark_info *mark = o;
 
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
 	return collect_inotify_mark(mark);
+}
+
+static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg)
+{
+	struct fsnotify_mark_info *mark = o;
+
+	mark->iwe = pb_msg(msg, InotifyWdEntry);
+	return collect_fanotify_mark(mark);
 }
 
 int collect_inotify(void)
@@ -300,6 +349,13 @@ int collect_inotify(void)
 	if (!ret)
 		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
 				sizeof(struct fsnotify_mark_info), collect_one_wd);
-
+	if (!ret)
+		ret = collect_image(CR_FD_FANOTIFY, PB_FANOTIFY,
+				    sizeof(struct fsnotify_file_info),
+				    collect_one_fanotify);
+	if (!ret)
+		ret = collect_image(CR_FD_FANOTIFY_MARK, PB_FANOTIFY_MARK,
+				    sizeof(struct fsnotify_mark_info),
+				    collect_one_fanotify_mark);
 	return ret;
 }
