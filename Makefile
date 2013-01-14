@@ -45,6 +45,8 @@ endif
 SRC_DIR		?= $(shell pwd)
 ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
 
+$(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
+
 CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -iquote $(ARCH_DIR)/include -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
