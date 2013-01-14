@@ -722,7 +722,7 @@ static int check_core(CoreEntry *core)
 			goto out;
 		}
 
-		if (!core->thread_info) {
+		if (!CORE_THREAD_ARCH_INFO(core)) {
 			pr_err("Core info data missed for non-zombie\n");
 			goto out;
 		}
@@ -1838,8 +1838,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		}
 
 		thread_args[i].ta		= task_args;
-		thread_args[i].gpregs		= *tcore->thread_info->gpregs;
-		thread_args[i].clear_tid_addr	= tcore->thread_info->clear_tid_addr;
+		thread_args[i].gpregs		= *CORE_THREAD_ARCH_INFO(tcore)->gpregs;
+		thread_args[i].clear_tid_addr	= CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
 
 		if (tcore->thread_core) {

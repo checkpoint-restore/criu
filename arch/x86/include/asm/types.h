@@ -274,4 +274,6 @@ typedef struct {
 # define AT_VECTOR_SIZE 22             /* Not needed at moment */
 #endif
 
+#define CORE_THREAD_ARCH_INFO(core) core->thread_info
+
 #endif /* __CR_ASM_TYPES_H__ */

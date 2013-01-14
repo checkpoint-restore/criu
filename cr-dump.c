@@ -818,7 +818,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	mark_stack_vma(core->thread_info->gpregs->sp, vma_area_list);
+	mark_stack_vma(CORE_THREAD_ARCH_INFO(core)->gpregs->sp, vma_area_list);
 
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)

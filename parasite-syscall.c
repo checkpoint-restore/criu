@@ -361,7 +361,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, struct pid *tid,
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_THREAD, ctl, tid->real);
 
 	memcpy(&core->thread_core->blk_sigset, &args->blocked, sizeof(args->blocked));
-	core->thread_info->clear_tid_addr = (u64)args->tid_addr;
+	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = (u64)args->tid_addr;
 	tid->virt = args->tid;
 	core_put_tls(core, args->tls);
 
