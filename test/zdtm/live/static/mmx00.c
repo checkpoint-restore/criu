@@ -53,6 +53,7 @@ int chk_proc_mmx(void)
 
 int main(int argc, char **argv)
 {
+#if defined(__i386__) || defined(__x86_64__)
 	uint8_t	 bytes[16];
 	uint16_t words[8];
 	uint32_t rnd[8];
@@ -60,6 +61,7 @@ int main(int argc, char **argv)
 
 	uint8_t	 resbytes1[8], resbytes2[8];
 	uint16_t reswords1[4], reswords2[4];
+#endif
 
 	test_init(argc, argv);
 #if defined(__i386__) || defined(__x86_64__)

@@ -4,8 +4,11 @@
 
 #include <sys/types.h>
 
-#include "cpuid.h"
 #include "zdtmtst.h"
+
+#if defined(__i386__) || defined(__x86_64__)
+
+#include "cpuid.h"
 
 const char *test_doc	= "Test if FPU data in YMM registers do survive the c/r";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
@@ -103,3 +106,14 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
+#else
+
+int main(int argc, char *argv[])
+{
+	test_init(argc, argv);
+	skip("Unsupported arch");
+	return 0;
+}
+
+#endif

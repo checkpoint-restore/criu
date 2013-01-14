@@ -50,9 +50,11 @@ int chk_proc_sse2(void)
 
 int main(int argc, char **argv)
 {
+#if defined(__i386__) || defined(__x86_64__)
 	double input[4] __attribute__((aligned(16)));
 	double res1[4], res2[4];
 	int i;
+#endif
 
 	test_init(argc, argv);
 #if defined(__i386__) || defined(__x86_64__)

@@ -46,8 +46,10 @@ int chk_proc_fpu(void)
 
 int main(int argc, char ** argv)
 {
+#if defined(__i386__) || defined(__x86_64__)
 	float a, b, c, d;
 	float res1, res2;
+#endif
 
 	test_init(argc, argv);
 #if defined(__i386__) || defined(__x86_64__)
