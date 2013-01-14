@@ -263,4 +263,7 @@ typedef struct {
 	};
 } fpu_state_t;
 
+#define REG_RES(regs) ((regs).ax)
+#define REG_IP(regs)  ((regs).ip)
+
 #endif /* __CR_ASM_TYPES_H__ */

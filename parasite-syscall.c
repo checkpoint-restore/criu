@@ -213,7 +213,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 
 	ret = __parasite_execute(ctl, pid, &regs);
 	if (ret == 0)
-		ret = (int)regs.ax;
+		ret = (int)REG_RES(regs);
 
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
@@ -743,7 +743,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_lis
 		goto err;
 	}
 
-	vma_area = get_vma_by_ip(vma_area_list, ctl->regs_orig.ip);
+	vma_area = get_vma_by_ip(vma_area_list, REG_IP(ctl->regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
