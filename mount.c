@@ -50,12 +50,28 @@ int collect_mount_info(void)
 	return 0;
 }
 
-static struct mount_info *mnt_find_by_id(struct mount_info *list, int id)
+static struct mount_info *__lookup_mnt_id(struct mount_info *list, int id)
 {
 	struct mount_info *m;
 
 	for (m = list; m != NULL; m = m->next)
 		if (m->mnt_id == id)
+			return m;
+
+	return NULL;
+}
+
+struct mount_info *lookup_mnt_id(unsigned int id)
+{
+	return __lookup_mnt_id(mntinfo, id);
+}
+
+struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
+{
+	struct mount_info *m;
+
+	for (m = mntinfo; m != NULL; m = m->next)
+		if (m->s_dev == s_dev)
 			return m;
 
 	return NULL;
@@ -74,7 +90,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 		struct mount_info *p;
 
 		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
-		p = mnt_find_by_id(list, m->parent_mnt_id);
+		p = __lookup_mnt_id(list, m->parent_mnt_id);
 		if (!p) {
 			/* This should be / */
 			if (root == NULL && !strcmp(m->mountpoint, "/")) {
