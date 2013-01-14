@@ -410,3 +410,18 @@ int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
 
 	return 0;
 }
+
+void *mmap_seized(struct parasite_ctl *ctl,
+		  void *addr, size_t length, int prot,
+		  int flags, int fd, off_t offset)
+{
+	unsigned long map;
+	int err;
+
+	err = syscall_seized(ctl, __NR_mmap, &map,
+			(unsigned long)addr, length, prot, flags, fd, offset);
+	if (err < 0 || map > TASK_SIZE)
+		map = 0;
+
+	return (void *)map;
+}

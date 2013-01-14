@@ -232,21 +232,6 @@ static int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid);
 }
 
-static void *mmap_seized(struct parasite_ctl *ctl,
-			 void *addr, size_t length, int prot,
-			 int flags, int fd, off_t offset)
-{
-	unsigned long map;
-	int err;
-
-	err = syscall_seized(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0 || map > TASK_SIZE)
-		map = 0;
-
-	return (void *)map;
-}
-
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
 {
 	unsigned long x;
