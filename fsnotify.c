@@ -19,6 +19,8 @@
 #include <sys/mount.h>
 #include <aio.h>
 
+#include <linux/fanotify.h>
+
 #include "compiler.h"
 #include "asm/types.h"
 #include "fsnotify.h"
@@ -222,6 +224,62 @@ err:
 	return ret;
 }
 
+static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
+{
+	FanotifyMarkEntry *fme = mark->fme;
+	unsigned int flags = FAN_MARK_ADD;
+	int ret = -1, target = -1;
+	char buf[32], *path = NULL;
+
+	if (fme->type == MARK_TYPE__MOUNT) {
+		struct mount_info *m;
+
+		m = lookup_mnt_sdev(fme->s_dev);
+		if (!m) {
+			pr_err("Can't find mount s_dev %x\n", fme->s_dev);
+			return -1;
+		}
+
+		flags |= FAN_MARK_MOUNT;
+		path = m->mountpoint;
+	} else if (fme->type == MARK_TYPE__INODE) {
+		path = get_mark_path("fanotify", mark->remap,
+				     fme->f_handle, fme->i_ino,
+				     fme->s_dev, buf, sizeof(buf), &target);
+		if (!path)
+			goto err;
+	} else
+		BUG();
+
+	flags |= fme->mflags;
+
+	if (mark->fme->mask) {
+		ret = sys_fanotify_mark(fd, flags, fme->mask, AT_FDCWD, path);
+		if (ret) {
+			pr_err("Adding fanotify mask %x on %x/%s failed (%d)\n",
+			       fme->mask, fme->id, path, ret);
+			goto err;
+		}
+	}
+
+	if (fme->ignored_mask) {
+		ret = sys_fanotify_mark(fd, flags | FAN_MARK_IGNORED_MASK,
+					fme->ignored_mask, AT_FDCWD, path);
+		if (ret) {
+			pr_err("Adding fanotify ignored-mask %x on %x/%s failed (%d)\n",
+			       fme->ignored_mask, fme->id, path, ret);
+			goto err;
+		}
+	}
+
+	if (mark->remap)
+		remap_put(mark->remap);
+
+err:
+	close_safe(&target);
+	return ret;
+}
+
 static int open_inotify_fd(struct file_desc *d)
 {
 	struct fsnotify_file_info *info;
@@ -252,8 +310,37 @@ static int open_inotify_fd(struct file_desc *d)
 
 static int open_fanotify_fd(struct file_desc *d)
 {
-	/* Stub */
-	return -1;
+	struct fsnotify_file_info *info;
+	struct fsnotify_mark_info *mark;
+	unsigned int flags = 0;
+	int ret;
+
+	info = container_of(d, struct fsnotify_file_info, d);
+
+	if (info->ffe->flags & O_CLOEXEC)
+		flags |= FAN_CLOEXEC;
+	if (info->ffe->flags & O_NONBLOCK)
+		flags |= FAN_NONBLOCK;
+
+	ret = sys_fanotify_init(flags, info->ffe->evflags);
+	if (ret < 0) {
+		errno = -ret;
+		pr_perror("Can't init fanotify mark (%d)", ret);
+		return -1;
+	}
+
+	list_for_each_entry(mark, &info->marks, list) {
+		pr_info("\tRestore fanotify for 0x%08x\n", mark->fme->id);
+		if (restore_one_fanotify(ret, mark)) {
+			close_safe(&ret);
+			break;
+		}
+	}
+
+	if (restore_fown(ret, info->ffe->fown))
+		close_safe(&ret);
+
+	return ret;
 }
 
 static struct file_desc_ops inotify_desc_ops = {
