@@ -78,6 +78,16 @@ void show_inotify(int fd_inotify, struct cr_options *o)
 	pb_show_plain(fd_inotify, PB_INOTIFY);
 }
 
+void show_fanotify_mark(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_FANOTIFY_MARK);
+}
+
+void show_fanotify(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_FANOTIFY);
+}
+
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
 	InotifyWdEntry *we = &e->ify;

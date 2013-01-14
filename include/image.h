@@ -63,6 +63,8 @@
 #define TTY_MAGIC		0x59433025 /* Pushkin */
 #define TTY_INFO_MAGIC		0x59453036 /* Kolpino */
 #define RLIMIT_MAGIC		0x57113925 /* Rostov */
+#define FANOTIFY_MAGIC		0x55096122 /* Chelyabinsk */
+#define FANOTIFY_MARK_MAGIC	0x56506035 /* Yekaterinburg */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC

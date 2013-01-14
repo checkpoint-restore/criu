@@ -105,6 +105,8 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(SIGNALFD,	"signalfd",	 show_signalfd),
 	FD_ENTRY(INOTIFY,	"inotify",	 show_inotify),
 	FD_ENTRY(INOTIFY_WD,	"inotify-wd",	 show_inotify_wd),
+	FD_ENTRY(FANOTIFY,	"fanotify",	 show_fanotify),
+	FD_ENTRY(FANOTIFY_MARK,	"fanotify-mark", show_fanotify_mark),
 	FD_ENTRY(CORE,		"core-%d",	 show_core),
 	FD_ENTRY(IDS,		"ids-%d",	 show_ids),
 	FD_ENTRY(MM,		"mm-%d",	 show_mm),
