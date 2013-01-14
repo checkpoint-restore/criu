@@ -152,9 +152,8 @@ unsigned int log_get_loglevel(void)
 	return current_loglevel;
 }
 
-void print_on_level(unsigned int loglevel, const char *format, ...)
+static void __print_on_level(unsigned int loglevel, const char *format, va_list params)
 {
-	va_list params;
 	int fd, size, ret, off;
 
 	if (unlikely(loglevel == LOG_MSG)) {
@@ -168,10 +167,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 		off = 0;
 	}
 
-	va_start(params, format);
-	size = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
-	va_end(params);
-
+	size  = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
 	size += buf_off;
 
 	while (off < size) {
@@ -180,4 +176,13 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 			break;
 		off += ret;
 	}
+}
+
+void print_on_level(unsigned int loglevel, const char *format, ...)
+{
+	va_list params;
+
+	va_start(params, format);
+	__print_on_level(loglevel, format, params);
+	va_end(params);
 }
