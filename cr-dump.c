@@ -332,6 +332,8 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 			return dump_eventpoll(&p, lfd, fdinfo);
 		else if (is_inotify_link(lfd))
 			return dump_inotify(&p, lfd, fdinfo);
+		else if (is_fanotify_link(lfd))
+			return dump_fanotify(&p, lfd, fdinfo);
 		else if (is_signalfd_link(lfd))
 			return dump_signalfd(&p, lfd, fdinfo);
 		else

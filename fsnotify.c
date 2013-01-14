@@ -135,6 +135,66 @@ int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo)
 	return do_dump_gen_file(p, lfd, &inotify_ops, fdinfo);
 }
 
+static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
+{
+	struct fsnotify_params *fsn_params = arg;
+	FanotifyMarkEntry *fme = &e->ffy;
+
+	fme->id = fsn_params->id;
+
+	pr_info("mark: s_dev 0x%08x i_ino 0x%016lx mask 0x%08x\n",
+		fme->s_dev, fme->i_ino, fme->mask);
+
+	if (fme->type == MARK_TYPE__INODE)
+		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
+			fme->f_handle->bytes, fme->f_handle->type,
+			fme->f_handle->handle[0], fme->f_handle->handle[1]);
+
+	if (fme->type == MARK_TYPE__MOUNT) {
+		struct mount_info *m;
+
+		m = lookup_mnt_id(fme->mnt_id);
+		if (!m) {
+			pr_err("Can't find mnt_id %x\n", fme->mnt_id);
+			return -1;
+		}
+		fme->s_dev = m->s_dev;
+	}
+
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_MARK), fme, PB_FANOTIFY_MARK);
+}
+
+static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
+{
+	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
+	struct fsnotify_params fsn_params = { .id = id, };
+
+	fe.id = id;
+	fe.flags = p->flags;
+	fe.fown = (FownEntry *)&p->fown;
+
+	if (parse_fdinfo(lfd, FD_TYPES__FANOTIFY,
+			 dump_fanotify_entry, &fsn_params) < 0)
+		return -1;
+
+	pr_info("id 0x%08x flags 0x%08x\n", fe.id, fe.flags);
+
+	fe.faflags = fsn_params.faflags;
+	fe.evflags = fsn_params.evflags;
+
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY), &fe, PB_FANOTIFY);
+}
+
+static const struct fdtype_ops fanotify_ops = {
+	.type		= FD_TYPES__FANOTIFY,
+	.dump		= dump_one_fanotify,
+};
+
+int dump_fanotify(struct fd_parms *p, int lfd, const int fdinfo)
+{
+	return do_dump_gen_file(p, lfd, &fanotify_ops, fdinfo);
+}
+
 static char *get_mark_path(const char *who, struct file_remap *remap,
 			   FhEntry *f_handle, unsigned long i_ino,
 			   unsigned int s_dev, char *buf, size_t size,

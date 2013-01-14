@@ -18,6 +18,7 @@ struct fsnotify_params {
 extern int is_inotify_link(int lfd);
 extern int is_fanotify_link(int lfd);
 extern int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo);
+extern int dump_fanotify(struct fd_parms *p, int lfd, const int fdinfo);
 extern int collect_inotify(void);
 extern void show_inotify_wd(int fd_inotify_wd, struct cr_options *o);
 extern void show_inotify(int fd_inotify, struct cr_options *o);
