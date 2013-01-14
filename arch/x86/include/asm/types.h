@@ -268,4 +268,10 @@ typedef struct {
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 
+#if defined(CONFIG_X86_64)
+# define AT_VECTOR_SIZE 44
+#elif defined(CONFIG_ARM)
+# define AT_VECTOR_SIZE 22             /* Not needed at moment */
+#endif
+
 #endif /* __CR_ASM_TYPES_H__ */

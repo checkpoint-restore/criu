@@ -112,12 +112,6 @@ struct page_entry {
 
 #define TASK_PF_USED_MATH		0x00002000
 
-#ifdef CONFIG_X86_64
-# define AT_VECTOR_SIZE 44
-#else
-# define AT_VECTOR_SIZE 22		/* Not needed at moment */
-#endif
-
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2
 #define TASK_STOPPED		0x3 /* FIXME - implement */
