@@ -164,6 +164,9 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		path = remap->path;
 	}
 
+	pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
+		 who, s_dev, i_ino, path);
+
 err:
 	close_safe(&mntfd);
 	return path;
@@ -180,8 +183,6 @@ static int restore_one_inotify(int inotify_fd, struct inotify_wd_info *info)
 			     &target);
 	if (!path)
 		goto err;
-
-	pr_debug("\t\tRestore watch for 0x%08x:0x%016lx\n", iwe->s_dev, iwe->i_ino);
 
 	/*
 	 * FIXME The kernel allocates wd-s sequentially,
