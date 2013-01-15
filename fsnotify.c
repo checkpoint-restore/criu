@@ -142,23 +142,33 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 	fme->id = fsn_params->id;
 
-	pr_info("mark: s_dev 0x%08x i_ino 0x%016lx mask 0x%08x\n",
-		fme->s_dev, fme->i_ino, fme->mask);
+	if (fme->type == MARK_TYPE__INODE) {
 
-	if (fme->type == MARK_TYPE__INODE)
+		BUG_ON(!fme->ie);
+
+		pr_info("mark: s_dev 0x%08x i_ino 0x%016lx mask 0x%08x\n",
+			fme->s_dev, fme->ie->i_ino, fme->mask);
+
 		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
-			fme->f_handle->bytes, fme->f_handle->type,
-			fme->f_handle->handle[0], fme->f_handle->handle[1]);
+			fme->ie->f_handle->bytes, fme->ie->f_handle->type,
+			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
+	}
 
 	if (fme->type == MARK_TYPE__MOUNT) {
 		struct mount_info *m;
 
-		m = lookup_mnt_id(fme->mnt_id);
+		BUG_ON(!fme->me);
+
+		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
-			pr_err("Can't find mnt_id %x\n", fme->mnt_id);
+			pr_err("Can't find mnt_id %x\n", fme->me->mnt_id);
 			return -1;
 		}
 		fme->s_dev = m->s_dev;
+
+		pr_info("mark: s_dev 0x%08x mnt_id  0x%08x mask 0x%08x\n",
+			fme->s_dev, fme->me->mnt_id, fme->mask);
+
 	}
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_MARK), fme, PB_FANOTIFY_MARK);
@@ -304,7 +314,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 		path = m->mountpoint;
 	} else if (fme->type == MARK_TYPE__INODE) {
 		path = get_mark_path("fanotify", mark->remap,
-				     fme->f_handle, fme->i_ino,
+				     fme->ie->f_handle, fme->ie->i_ino,
 				     fme->s_dev, buf, sizeof(buf), &target);
 		if (!path)
 			goto err;
@@ -436,7 +446,9 @@ static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
 	list_for_each_entry(p, &fanotify_info_head, list) {
 		if (p->ffe->id == mark->fme->id) {
 			list_add(&mark->list, &p->marks);
-			mark->remap = lookup_ghost_remap(mark->fme->s_dev, mark->fme->i_ino);
+			if (mark->fme->type == MARK_TYPE__INODE)
+				mark->remap = lookup_ghost_remap(mark->fme->s_dev,
+								 mark->fme->ie->i_ino);
 			return 0;
 		}
 	}

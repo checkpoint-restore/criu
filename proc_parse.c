@@ -937,6 +937,7 @@ int parse_fdinfo(int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify ino")) {
+			FanotifyInodeMarkEntry ie = FANOTIFY_INODE_MARK_ENTRY__INIT;
 			FhEntry f_handle = FH_ENTRY__INIT;
 			int hoff;
 
@@ -944,14 +945,15 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 
 			fanotify_mark_entry__init(&entry.ffy);
-			entry.ffy.f_handle = &f_handle;
+			ie.f_handle = &f_handle;
+			entry.ffy.ie = &ie;
 
 			ret = sscanf(str,
 				     "fanotify ino:%lx sdev:%x mflags:%x mask:%x ignored_mask:%x "
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
-				     &entry.ffy.i_ino, &entry.ffy.s_dev,
+				     &ie.i_ino, &entry.ffy.s_dev,
 				     &entry.ffy.mflags, &entry.ffy.mask, &entry.ffy.ignored_mask,
-				     &entry.ffy.f_handle->bytes, &entry.ffy.f_handle->type,
+				     &f_handle.bytes, &f_handle.type,
 				     &hoff);
 			if (ret != 7)
 				goto parse_err;
@@ -961,9 +963,8 @@ int parse_fdinfo(int fd, int type,
 			if (!f_handle.handle)
 				return -1;
 
-			parse_fhandle_encoded(str + hoff, entry.ffy.f_handle);
+			parse_fhandle_encoded(str + hoff, &f_handle);
 
-			entry.ffy.has_mnt_id = false;
 			entry.ffy.type = MARK_TYPE__INODE;
 			ret = cb(&entry, arg);
 
@@ -976,19 +977,21 @@ int parse_fdinfo(int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify mnt_id")) {
+			FanotifyMountMarkEntry me = FANOTIFY_MOUNT_MARK_ENTRY__INIT;
+
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
 			fanotify_mark_entry__init(&entry.ffy);
+			entry.ffy.me = &me;
 
 			ret = sscanf(str,
 				     "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x",
-				     &entry.ffy.mnt_id, &entry.ffy.mflags,
+				     &me.mnt_id, &entry.ffy.mflags,
 				     &entry.ffy.mask, &entry.ffy.ignored_mask);
 			if (ret != 4)
 				goto parse_err;
 
-			entry.ffy.has_mnt_id = true;
 			entry.ffy.type = MARK_TYPE__MOUNT;
 			ret = cb(&entry, arg);
 			if (ret)
