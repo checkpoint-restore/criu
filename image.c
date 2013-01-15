@@ -68,13 +68,7 @@ int write_img_inventory(void)
 
 static void show_inventory(int fd, struct cr_options *o)
 {
-	InventoryEntry *he;
-
-	if (pb_read_one(fd, &he, PB_INVENTORY) < 0)
-		return;
-
-	pr_msg("Version: %u\n", he->img_version);
-	inventory_entry__free_unpacked(he, NULL);
+	pb_show_vertical(fd, PB_INVENTORY);
 }
 
 /*
