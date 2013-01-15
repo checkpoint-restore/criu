@@ -387,6 +387,7 @@ static int open_fanotify_fd(struct file_desc *d)
 
 	info = container_of(d, struct fsnotify_file_info, d);
 
+	flags = info->ffe->faflags;
 	if (info->ffe->flags & O_CLOEXEC)
 		flags |= FAN_CLOEXEC;
 	if (info->ffe->flags & O_NONBLOCK)
