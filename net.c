@@ -317,7 +317,7 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 	int fd, ret;
 
 	ret = fd = open_image_ro(type, pid);
-	if (fd > 0) {
+	if (fd >= 0) {
 		ret = run_ip_tool(cmd, "restore", fd, -1);
 		close(fd);
 	}
