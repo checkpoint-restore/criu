@@ -22,4 +22,6 @@ struct mount_info;
 extern struct mount_info *lookup_mnt_id(unsigned int id);
 extern struct mount_info *lookup_mnt_sdev(unsigned int s_dev);
 
+extern struct ns_desc mnt_ns_desc;
+
 #endif /* __CR_MOUNT_H__ */

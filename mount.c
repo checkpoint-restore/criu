@@ -19,7 +19,7 @@
 #include "mount.h"
 #include "proc_parse.h"
 #include "image.h"
-
+#include "namespaces.h"
 #include "protobuf.h"
 #include "protobuf/mnt.pb-c.h"
 
@@ -763,3 +763,8 @@ int mntns_collect_root(pid_t pid)
 
 	return 0;
 }
+
+struct ns_desc mnt_ns_desc = {
+	.cflag = CLONE_NEWNS,
+	.str = "mnt",
+};

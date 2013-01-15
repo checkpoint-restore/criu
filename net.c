@@ -339,7 +339,7 @@ int dump_net_ns(int pid, struct cr_fdset *fds)
 {
 	int ret;
 
-	ret = switch_ns(pid, CLONE_NEWNET, "net", NULL);
+	ret = switch_ns(pid, &net_ns_desc, NULL);
 	if (!ret)
 		ret = dump_links(fds);
 	if (!ret)
@@ -402,3 +402,7 @@ void network_unlock(void)
 	run_scripts("network-unlock");
 }
 
+struct ns_desc net_ns_desc = {
+	.cflag = CLONE_NEWNET,
+	.str = "net",
+};

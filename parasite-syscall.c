@@ -20,6 +20,7 @@
 #include "crtools.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "net.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -300,7 +301,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 		if (opts.namespaces_flags & CLONE_NEWNET) {
 			pr_info("Switching to %d's net for tsock creation\n", pid);
 
-			if (switch_ns(pid, CLONE_NEWNET, "net", &rst))
+			if (switch_ns(pid, &net_ns_desc, &rst))
 				return -1;
 		}
 
@@ -315,7 +316,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 			goto err;
 		}
 
-		if (rst > 0 && restore_ns(rst, CLONE_NEWNET) < 0)
+		if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
 			goto err;
 	} else {
 		struct sockaddr addr = { .sa_family = AF_UNSPEC, };

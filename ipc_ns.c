@@ -12,6 +12,7 @@
 #include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"
+#include "ipc_ns.h"
 
 #include "protobuf.h"
 #include "protobuf/ipc-var.pb-c.h"
@@ -436,7 +437,7 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 {
 	int ret;
 
-	ret = switch_ns(ns_pid, CLONE_NEWIPC, "ipc", NULL);
+	ret = switch_ns(ns_pid, &ipc_ns_desc, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -873,3 +874,8 @@ int prepare_ipc_ns(int pid)
 		return ret;
 	return 0;
 }
+
+struct ns_desc ipc_ns_desc = {
+	.cflag = CLONE_NEWIPC,
+	.str = "ipc",
+};

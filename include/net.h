@@ -20,4 +20,6 @@ struct veth_pair {
 extern int network_lock(void);
 extern void network_unlock(void);
 
+extern struct ns_desc net_ns_desc;
+
 #endif /* __CR_NET_H__ */

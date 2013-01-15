@@ -428,7 +428,7 @@ int collect_sockets(int pid)
 	if (opts.namespaces_flags & CLONE_NEWNET) {
 		pr_info("Switching to %d's net for collecting sockets\n", pid);
 
-		if (switch_ns(pid, CLONE_NEWNET, "net", &rst))
+		if (switch_ns(pid, &net_ns_desc, &rst))
 			return -1;
 	}
 
@@ -521,7 +521,7 @@ int collect_sockets(int pid)
 
 	close(nl);
 out:
-	if (rst > 0 && restore_ns(rst, CLONE_NEWNET) < 0)
+	if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
 		err = -1;
 	return err;
 }

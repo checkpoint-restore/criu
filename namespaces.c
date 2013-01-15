@@ -10,13 +10,13 @@
 #include "namespaces.h"
 #include "net.h"
 
-int switch_ns(int pid, int type, char *ns, int *rst)
+int switch_ns(int pid, struct ns_desc *nd, int *rst)
 {
 	char buf[32];
 	int nsfd;
 	int ret = -1;
 
-	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, ns);
+	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, nd->str);
 	nsfd = open(buf, O_RDONLY);
 	if (nsfd < 0) {
 		pr_perror("Can't open ipcns file");
@@ -24,7 +24,7 @@ int switch_ns(int pid, int type, char *ns, int *rst)
 	}
 
 	if (rst) {
-		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", ns);
+		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", nd->str);
 		*rst = open(buf, O_RDONLY);
 		if (*rst < 0) {
 			pr_perror("Can't open ns file");
@@ -32,9 +32,9 @@ int switch_ns(int pid, int type, char *ns, int *rst)
 		}
 	}
 
-	ret = setns(nsfd, type);
+	ret = setns(nsfd, nd->cflag);
 	if (ret < 0) {
-		pr_perror("Can't setns %d/%s", pid, ns);
+		pr_perror("Can't setns %d/%s", pid, nd->str);
 		goto err_set;
 	}
 
@@ -50,11 +50,11 @@ err_ns:
 	return -1;
 }
 
-int restore_ns(int rst, int type)
+int restore_ns(int rst, struct ns_desc *nd)
 {
 	int ret;
 
-	ret = setns(rst, type);
+	ret = setns(rst, nd->cflag);
 	if (ret < 0)
 		pr_perror("Can't restore ns back");
 
@@ -197,3 +197,8 @@ int try_show_namespaces(int ns_pid, struct cr_options *o)
 	close_cr_fdset(&fdset);
 	return 0;
 }
+
+struct ns_desc pid_ns_desc = {
+	.cflag = CLONE_NEWPID,
+	.str = "pid",
+};

@@ -8,6 +8,7 @@
 #include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"
+#include "uts_ns.h"
 
 #include "protobuf.h"
 #include "protobuf/utsns.pb-c.h"
@@ -18,7 +19,7 @@ int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
 	struct utsname ubuf;
 	UtsnsEntry ue = UTSNS_ENTRY__INIT;
 
-	ret = switch_ns(ns_pid, CLONE_NEWUTS, "uts", NULL);
+	ret = switch_ns(ns_pid, &uts_ns_desc, NULL);
 	if (ret < 0)
 		return ret;
 
@@ -68,3 +69,8 @@ void show_utsns(int fd, struct cr_options *o)
 {
 	pb_show_vertical(fd, PB_UTSNS);
 }
+
+struct ns_desc uts_ns_desc = {
+	.cflag = CLONE_NEWUTS,
+	.str = "uts",
+};
