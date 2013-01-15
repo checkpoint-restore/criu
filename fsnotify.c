@@ -49,7 +49,7 @@ struct fsnotify_mark_info {
 		InotifyWdEntry		*iwe;
 		FanotifyMarkEntry	*fme;
 	};
-	struct file_remap 		*remap;
+	struct file_remap		*remap;
 };
 
 struct fsnotify_file_info {
