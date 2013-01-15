@@ -831,6 +831,19 @@ static char nybble(const char n)
 	return 0;
 }
 
+static int alloc_fhandle(FhEntry *fh)
+{
+	fh->n_handle = FH_ENTRY_SIZES__min_entries;
+	fh->handle = xmalloc(pb_repeated_size(fh, handle));
+
+	return fh->handle == NULL ? -1 : 0;
+}
+
+static void free_fhandle(FhEntry *fh)
+{
+	xfree(fh->handle);
+}
+
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
 	char *d = (char *)fh->handle;
@@ -958,17 +971,14 @@ int parse_fdinfo(int fd, int type,
 			if (ret != 7)
 				goto parse_err;
 
-			f_handle.n_handle = FH_ENTRY_SIZES__min_entries;
-			f_handle.handle = xmalloc(pb_repeated_size(&f_handle, handle));
-			if (!f_handle.handle)
+			if (alloc_fhandle(&f_handle))
 				return -1;
-
 			parse_fhandle_encoded(str + hoff, &f_handle);
 
 			entry.ffy.type = MARK_TYPE__INODE;
 			ret = cb(&entry, arg);
 
-			xfree(f_handle.handle);
+			free_fhandle(&f_handle);
 
 			if (ret)
 				return ret;
@@ -1021,16 +1031,13 @@ int parse_fdinfo(int fd, int type,
 			if (ret != 7)
 				goto parse_err;
 
-			f_handle.n_handle = FH_ENTRY_SIZES__min_entries;
-			f_handle.handle = xmalloc(pb_repeated_size(&f_handle, handle));
-			if (!f_handle.handle)
+			if (alloc_fhandle(&f_handle))
 				return -1;
-
 			parse_fhandle_encoded(str + hoff, entry.ify.f_handle);
 
 			ret = cb(&entry, arg);
 
-			xfree(f_handle.handle);
+			free_fhandle(&f_handle);
 
 			if (ret)
 				return ret;
