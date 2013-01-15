@@ -469,4 +469,4 @@ else
 	fi
 fi
 
-[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE
+[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE || exit 0
