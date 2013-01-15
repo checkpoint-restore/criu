@@ -489,6 +489,9 @@ static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
 	struct fsnotify_mark_info *mark = o;
 
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
+	INIT_LIST_HEAD(&mark->list);
+	mark->remap = NULL;
+
 	return collect_inotify_mark(mark);
 }
 
