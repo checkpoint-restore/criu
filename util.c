@@ -532,13 +532,13 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[])
 		if (out == in)
 			out = DUP_SAFE(out, out_chld);
 
+		if (move_img_fd(&out, STDIN_FILENO) ||
+		    move_img_fd(&err, STDIN_FILENO))
+			goto out_chld;
+
 		if (in < 0) {
 			close(STDIN_FILENO);
 		} else {
-			if (move_img_fd(&out, STDIN_FILENO) ||
-			    move_img_fd(&err, STDIN_FILENO))
-				goto out_chld;
-
 			if (reopen_fd_as_nocheck(STDIN_FILENO, in))
 				goto out_chld;
 		}
