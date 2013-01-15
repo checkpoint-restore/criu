@@ -499,7 +499,10 @@ static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_mark_info *mark = o;
 
-	mark->iwe = pb_msg(msg, InotifyWdEntry);
+	mark->fme = pb_msg(msg, FanotifyMarkEntry);
+	INIT_LIST_HEAD(&mark->list);
+	mark->remap = NULL;
+
 	return collect_fanotify_mark(mark);
 }
 
