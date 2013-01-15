@@ -53,27 +53,27 @@ int main (int argc, char *argv[])
 			      FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
 			      0);
 	if (fa_fd < 0) {
-		fail("fanotify_init failed\n");
+		err("fanotify_init failed\n");
 		exit(1);
 	}
 
 	del_after = open(fanotify_path, O_CREAT | O_TRUNC);
 	if (del_after < 0) {
-		fail("open failed\n");
+		err("open failed\n");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD,
 			  FAN_MODIFY | FAN_ACCESS | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, fanotify_path)) {
-		fail("fanotify_mark failed\n");
+		err("fanotify_mark failed\n");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, "/")) {
-		fail("fanotify_mark failed\n");
+		err("fanotify_mark failed\n");
 		exit(1);
 	}
 
@@ -81,7 +81,7 @@ int main (int argc, char *argv[])
 			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
 			  FAN_MODIFY | FAN_ACCESS,
 			  AT_FDCWD, "/")) {
-		fail("fanotify_mark failed\n");
+		err("fanotify_mark failed\n");
 		exit(1);
 	}
 
