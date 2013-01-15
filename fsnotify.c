@@ -483,7 +483,7 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
 	return 0;
 }
 
-static int collect_one_wd(void *o, ProtobufCMessage *msg)
+static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_mark_info *mark = o;
 
@@ -507,7 +507,8 @@ int collect_inotify(void)
 			sizeof(struct fsnotify_file_info), collect_one_inotify);
 	if (!ret)
 		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
-				sizeof(struct fsnotify_mark_info), collect_one_wd);
+				sizeof(struct fsnotify_mark_info),
+				collect_one_inotify_mark);
 	if (!ret)
 		ret = collect_image(CR_FD_FANOTIFY, PB_FANOTIFY,
 				    sizeof(struct fsnotify_file_info),
