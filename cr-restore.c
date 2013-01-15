@@ -998,12 +998,8 @@ static int restore_task_with_children(void *_arg)
 
 	current = ca->item;
 
-	if ( !(ca->clone_flags & CLONE_FILES)) {
+	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
-		ret = close_old_fds(current);
-		if (ret)
-			exit(1);
-	}
 
 	if (current->state != TASK_HELPER) {
 		ret = clone_service_fd(current->rst->service_fd_id);
@@ -1056,6 +1052,12 @@ static int restore_task_with_children(void *_arg)
 
 	if (read_vmas(pid))
 		exit(1);
+
+	if ( !(ca->clone_flags & CLONE_FILES)) {
+		ret = close_old_fds(current);
+		if (ret)
+			exit(1);
+	}
 
 	pr_info("Restoring children:\n");
 	list_for_each_entry(child, &current->children, sibling) {
