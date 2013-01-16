@@ -59,4 +59,9 @@ struct robust_list_head;
 
 struct rlimit;
 
+struct krlimit {
+	unsigned long rlim_cur;
+	unsigned long rlim_max;
+};
+
 #endif /* __CR_SYSCALL_TYPES_H__ */

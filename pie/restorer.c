@@ -147,8 +147,13 @@ static void restore_rlims(struct task_restore_core_args *ta)
 {
 	int r;
 
-	for (r = 0; r < ta->nr_rlim; r++)
-		sys_setrlimit(r, &ta->rlims[r]);
+	for (r = 0; r < ta->nr_rlim; r++) {
+		struct krlimit krlim;
+
+		krlim.rlim_cur = ta->rlims[r].rlim_cur;
+		krlim.rlim_max = ta->rlims[r].rlim_max;
+		sys_setrlimit(r, &krlim);
+	}
 }
 
 static int restore_thread_common(struct rt_sigframe *sigframe,
