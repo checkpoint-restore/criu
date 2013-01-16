@@ -247,7 +247,7 @@ typedef struct {
 # define MADV_DONTDUMP 16
 #endif
 
-#define TASK_SIZE ((1UL << 47) - 1)
+#define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
 
 typedef uint64_t auxv_t;
 
