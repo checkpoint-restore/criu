@@ -64,7 +64,7 @@ struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
 	int				pid;
-	UserX86RegsEntry		gpregs;
+	UserRegsEntry		        gpregs;
 	u64				clear_tid_addr;
 
 	bool				has_futex;

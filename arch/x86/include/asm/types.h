@@ -7,6 +7,8 @@
 
 #include "asm/bitops.h"
 
+#include "../protobuf/core.pb-c.h"
+
 /* prctl */
 #define ARCH_SET_GS 0x1001
 #define ARCH_SET_FS 0x1002
@@ -275,5 +277,7 @@ typedef struct {
 #endif
 
 #define CORE_THREAD_ARCH_INFO(core) core->thread_info
+
+typedef UserX86RegsEntry UserRegsEntry;
 
 #endif /* __CR_ASM_TYPES_H__ */
