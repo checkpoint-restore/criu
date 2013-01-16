@@ -48,6 +48,7 @@ PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 %.pb-c.c %.pb-c.h: %.proto
 	$(E) "  PROTOBUF "$@
 	$(Q) protoc-c --c_out=./ $<
+	$(Q) sed -i 's/4294967295/0xFFFFFFFF/g' $@ $(patsubst %c,%h,$@)
 
 %.o: %.c %.h
 	$(E) "  CC       "$@
