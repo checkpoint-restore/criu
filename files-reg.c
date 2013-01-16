@@ -288,7 +288,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
 	if (st->st_size > MAX_GHOST_FILE_SIZE) {
-		pr_err("Can't dump ghost file %s of %lu size\n",
+		pr_err("Can't dump ghost file %s of %"PRIu64" size\n",
 				path, st->st_size);
 		return -1;
 	}

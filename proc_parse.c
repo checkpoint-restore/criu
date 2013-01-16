@@ -162,7 +162,7 @@ static int is_anon_shmem_map(dev_t dev)
 		munmap(map, PAGE_SIZE);
 
 		shmem_dev = buf.st_dev;
-		pr_info("Found anon-shmem piggie at %lx\n", shmem_dev);
+		pr_info("Found anon-shmem piggie at %"PRIx64"\n", shmem_dev);
 	}
 
 	return shmem_dev == dev;
@@ -197,7 +197,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 		if (!is_vma_range_fmt(buf)) {
 			if (!strncmp(buf, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
-				pr_err("Nonlinear mapping found %016lx-%016lx\n",
+				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
 				       vma_area->vma.start, vma_area->vma.end);
 				/*
 				 * VMA is already on list and will be
@@ -249,7 +249,7 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 					if (!S_ISSOCK(buf.st_mode))
 						goto err_bogus_mapfile;
 
-					pr_info("Found socket %lu mapping @%lx\n", buf.st_ino, start);
+					pr_info("Found socket %"PRIu64" mapping @%lx\n", buf.st_ino, start);
 					vma_area->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 					vma_area->vm_socket_id = buf.st_ino;
 				} else if (errno != ENOENT)
@@ -358,7 +358,7 @@ err:
 	return ret;
 
 err_bogus_mapping:
-	pr_err("Bogus mapping 0x%lx-0x%lx (flags: %#x vm_file_fd: %d)\n",
+	pr_err("Bogus mapping 0x%"PRIx64"-0x%"PRIx64" (flags: %#x vm_file_fd: %d)\n",
 	       vma_area->vma.start, vma_area->vma.end,
 	       vma_area->vma.flags, vma_area->vm_file_fd);
 	goto err;
@@ -893,7 +893,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (type != FD_TYPES__EVENTFD)
 				goto parse_err;
-			ret = sscanf(str, "eventfd-count: %lx",
+			ret = sscanf(str, "eventfd-count: %"PRIx64,
 					&entry.efd.counter);
 			if (ret != 1)
 				goto parse_err;
@@ -909,7 +909,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (type != FD_TYPES__EVENTPOLL)
 				goto parse_err;
-			ret = sscanf(str, "tfd: %d events: %x data: %lx",
+			ret = sscanf(str, "tfd: %d events: %x data: %"PRIx64,
 					&entry.epl.tfd, &entry.epl.events, &entry.epl.data);
 			if (ret != 3)
 				goto parse_err;
@@ -962,7 +962,7 @@ int parse_fdinfo(int fd, int type,
 			entry.ffy.ie = &ie;
 
 			ret = sscanf(str,
-				     "fanotify ino:%lx sdev:%x mflags:%x mask:%x ignored_mask:%x "
+				     "fanotify ino:%"PRIx64" sdev:%x mflags:%x mask:%x ignored_mask:%x "
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
 				     &ie.i_ino, &entry.ffy.s_dev,
 				     &entry.ffy.mflags, &entry.ffy.mask, &entry.ffy.ignored_mask,
@@ -1020,7 +1020,7 @@ int parse_fdinfo(int fd, int type,
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 			ret = sscanf(str,
-					"inotify wd:%x ino:%lx sdev:%x "
+					"inotify wd:%x ino:%"PRIx64" sdev:%x "
 					"mask:%x ignored_mask:%x "
 					"fhandle-bytes:%x fhandle-type:%x "
 					"f_handle: %n",

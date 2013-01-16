@@ -156,7 +156,7 @@ static int dump_ipc_sem(int fd)
 
 static void pr_info_ipc_msg(int nr, const IpcMsg *msg)
 {
-	print_on_level(LOG_INFO, "  %-5d: type: %-20ld size: %-10d\n",
+	print_on_level(LOG_INFO, "  %-5d: type: %-20"PRId64" size: %-10d\n",
 		       nr++, msg->mtype, msg->msize);
 }
 
@@ -281,7 +281,7 @@ static int dump_ipc_msg(int fd)
 static void pr_info_ipc_shm(const IpcShmEntry *shm)
 {
 	pr_ipc_desc_entry(LOG_INFO, shm->desc);
-	print_on_level(LOG_INFO, "size: %-10lu\n", shm->size);
+	print_on_level(LOG_INFO, "size: %-10"PRIu64"\n", shm->size);
 }
 
 static int ipc_sysctl_req(IpcVarEntry *e, int op)

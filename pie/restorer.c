@@ -259,7 +259,7 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
 		prot |= PROT_WRITE;
 
-	pr_debug("\tmmap(%lx -> %lx, %x %x %d\n",
+	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d\n",
 			vma_entry->start, vma_entry->end,
 			prot, flags, (int)vma_entry->fd);
 	/*
@@ -415,7 +415,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		pr_debug("Examine %lx-%lx\n", vma_entry->start, vma_entry->end);
+		pr_debug("Examine %"PRIx64"-%"PRIx64"\n", vma_entry->start, vma_entry->end);
 
 		if (addr < args->premmapped_addr) {
 			if (vma_entry->end >= args->premmapped_addr)
@@ -497,7 +497,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		va = restore_mapping(vma_entry);
 
 		if (va != vma_entry->start) {
-			pr_err("Can't restore %lx mapping with %lx\n", vma_entry->start, va);
+			pr_err("Can't restore %"PRIx64" mapping with %"PRIx64"\n", vma_entry->start, va);
 			goto core_restore_end;
 		}
 	}
@@ -542,7 +542,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 						  vma_entry_len(vma_entry),
 						  i);
 				if (ret) {
-					pr_err("madvise(%lx, %ld, %ld) "
+					pr_err("madvise(%"PRIx64", %"PRIu64", %ld) "
 					       "failed with %ld\n",
 						vma_entry->start,
 						vma_entry_len(vma_entry),

@@ -47,7 +47,7 @@ int is_eventpoll_link(int lfd)
 
 static void pr_info_eventpoll_tfd(char *action, EventpollTfdEntry *e)
 {
-	pr_info("%seventpoll-tfd: id %#08x tfd %#08x events %#08x data %#016lx\n",
+	pr_info("%seventpoll-tfd: id %#08x tfd %#08x events %#08x data %#016"PRIx64"\n",
 		action, e->id, e->tfd, e->events, e->data);
 }
 

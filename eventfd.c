@@ -40,7 +40,7 @@ int is_eventfd_link(int lfd)
 
 static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 {
-	pr_info("%s: id %#08x flags %#04x counter %#016lx\n",
+	pr_info("%s: id %#08x flags %#04x counter %#016"PRIx64"\n",
 		action, efe->id, efe->flags, efe->counter);
 }
 

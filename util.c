@@ -87,13 +87,14 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 {
 	char opt[VMA_OPT_LEN];
+	memset(opt, 0, VMA_OPT_LEN);
 
 	if (!vma_area)
 		return;
 
 	vma_opt_str(vma_area, opt);
-	print_on_level(loglevel, "%#lx-%#lx (%liK) prot %#x flags %#x off %#lx "
-			"%s shmid: %#lx\n",
+	print_on_level(loglevel, "%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x off %#"PRIx64" "
+			"%s shmid: %#"PRIx64"\n",
 			vma_area->vma.start, vma_area->vma.end,
 			KBYTES(vma_area_len(vma_area)),
 			vma_area->vma.prot,

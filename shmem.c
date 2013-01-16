@@ -58,7 +58,7 @@ static int collect_shmem(int pid, VmaEntry *vi)
 		return -1;
 	}
 
-	pr_info("Add new shmem 0x%lx (0x0160x%lx-0x0160x%lx)",
+	pr_info("Add new shmem 0x%"PRIx64" (0x0160x%"PRIx64"-0x0160x%"PRIx64")",
 				vi->shmid, vi->start, vi->end);
 
 	si = &rst_shmems->entries[nr_shmems];
@@ -94,7 +94,7 @@ int prepare_shmem_pid(int pid)
 		if (ret <= 0)
 			break;
 
-		pr_info("vma 0x%lx 0x%lx\n", vi->start, vi->end);
+		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vi->start, vi->end);
 
 		if (!vma_entry_is(vi, VMA_ANON_SHARED) ||
 		    vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
@@ -167,9 +167,9 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	int f;
 
 	si = find_shmem(rst_shmems, vi->shmid);
-	pr_info("Search for 0x%016lx shmem 0x%lx %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
+	pr_info("Search for 0x%016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
-		pr_err("Can't find my shmem 0x%016lx\n", vi->start);
+		pr_err("Can't find my shmem 0x%016"PRIx64"\n", vi->start);
 		return -1;
 	}
 
@@ -190,7 +190,7 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 			PROT_WRITE | PROT_READ,
 			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
-		pr_err("Can't mmap shmid=0x%lx size=%ld\n",
+		pr_err("Can't mmap shmid=0x%"PRIx64" size=%ld\n",
 				vi->shmid, si->size);
 		return -1;
 	}

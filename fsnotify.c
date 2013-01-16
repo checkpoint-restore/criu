@@ -102,9 +102,9 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	InotifyWdEntry *we = &e->ify;
 
 	we->id = *(u32 *)arg;
-	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16lx mask 0x%08x\n",
+	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
-	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
+	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
@@ -146,10 +146,10 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 		BUG_ON(!fme->ie);
 
-		pr_info("mark: s_dev 0x%08x i_ino 0x%016lx mask 0x%08x\n",
+		pr_info("mark: s_dev 0x%08x i_ino 0x%016"PRIx64" mask 0x%08x\n",
 			fme->s_dev, fme->ie->i_ino, fme->mask);
 
-		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016lx:0x%016lx\n",
+		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			fme->ie->f_handle->bytes, fme->ie->f_handle->type,
 			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
 	}

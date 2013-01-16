@@ -215,7 +215,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 
 		if (p->vma.end == vma->vma.end &&
 		    p->vma.start == vma->vma.start) {
-			pr_info("COW 0x%016lx-0x%016lx 0x%016lx vma\n",
+			pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 				vma->vma.start, vma->vma.end, vma->vma.pgoff);
 			paddr = (void *) vma_premmaped_start(&p->vma);
 			break;
@@ -226,7 +226,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	*pvma = p;
 
 	if (paddr == NULL) {
-		pr_info("Map 0x%016lx-0x%016lx 0x%016lx vma\n",
+		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
 		addr = mmap(tgt_addr, vma_entry_len(&vma->vma),
@@ -472,7 +472,7 @@ static int open_vmas(int pid)
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
-		pr_info("Opening 0x%016lx-0x%016lx 0x%016lx (%x) vma\n",
+		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
 				vma->vma.start, vma->vma.end,
 				vma->vma.pgoff, vma->vma.status);
 

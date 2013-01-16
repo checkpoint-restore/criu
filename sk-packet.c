@@ -228,7 +228,7 @@ int dump_socket_map(struct vma_area *vma)
 		return -1;
 	}
 
-	pr_info("Dumping socket map %x -> %lx\n", sd->file_id, vma->vma.start);
+	pr_info("Dumping socket map %x -> %"PRIx64"\n", sd->file_id, vma->vma.start);
 	vma->vma.shmid = sd->file_id;
 	return 0;
 }
