@@ -909,13 +909,15 @@ int get_task_ids(struct pstree_item *item)
 
 	task_kobj_ids_entry__init(item->ids);
 
-	ret = dump_task_kobj_ids(item);
-	if (ret)
-		goto err_free;
+	if (item->state != TASK_DEAD) {
+		ret = dump_task_kobj_ids(item);
+		if (ret)
+			goto err_free;
 
-	ret = dump_task_ns_ids(item);
-	if (ret)
-		goto err_free;
+		ret = dump_task_ns_ids(item);
+		if (ret)
+			goto err_free;
+	}
 
 	return 0;
 
@@ -928,25 +930,7 @@ err:
 
 static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fdset)
 {
-	int fd_ids;
-	int ret;
-
-	ret = get_task_ids(item);
-	if (ret)
-		goto err;
-
-	fd_ids = fdset_fd(cr_fdset, CR_FD_IDS);
-	ret = pb_write_one(fd_ids, item->ids, PB_IDS);
-	if (ret < 0)
-		goto err_free;
-
-	return ret;
-
-err_free:
-	xfree(item->ids);
-	item->ids = NULL;
-err:
-	return -1;
+	return pb_write_one(fdset_fd(cr_fdset, CR_FD_IDS), item->ids, PB_IDS);
 }
 
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
@@ -1314,6 +1298,17 @@ static int collect_subtree(struct pstree_item *item)
 	return 0;
 }
 
+static int collect_pstree_ids(void)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item)
+		if (get_task_ids(item))
+			return -1;
+
+	return 0;
+}
+
 static int collect_pstree(pid_t pid, const struct cr_options *opts)
 {
 	int ret, attempts = 5;
@@ -1355,7 +1350,7 @@ try_again:
 		free_pstree(root_item);
 	}
 
-	return ret;
+	return collect_pstree_ids();
 }
 
 static int collect_file_locks(const struct cr_options *opts)
