@@ -648,6 +648,134 @@ out:
 	return ret;
 }
 
+static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
+			const char *fl_type, const char *fl_option)
+{
+	if (!strcmp(fl_flag, "POSIX")) {
+		fle->flag |= FL_POSIX;
+	} else if (!strcmp(fl_flag, "FLOCK")) {
+		fle->flag |= FL_FLOCK;
+	} else {
+		pr_err("Unknow file lock!\n");
+		goto err;
+	}
+
+	if (!strcmp(fl_type, "MSNFS")) {
+		fle->type |= LOCK_MAND;
+
+		if (!strcmp(fl_option, "READ")) {
+			fle->type |= LOCK_READ;
+		} else if (!strcmp(fl_option, "RW")) {
+			fle->type |= LOCK_RW;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fle->type |= LOCK_WRITE;
+		} else {
+			pr_err("Unknow lock option!\n");
+			goto err;
+		}
+	} else {
+		if (!strcmp(fl_option, "UNLCK")) {
+			fle->type |= F_UNLCK;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fle->type |= F_WRLCK;
+		} else if (!strcmp(fl_option, "READ")) {
+			fle->type |= F_RDLCK;
+		} else {
+			pr_err("Unknow lock option!\n");
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
+static int get_fd_by_ino(unsigned long i_no, struct parasite_drain_fd *dfds,
+			pid_t pid)
+{
+	int  i, ret = -1;
+	char path[PATH_MAX];
+	char buf[40];
+	struct stat fd_stat;
+
+	i = 0;
+	while (i < dfds->nr_fds) {
+		snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid,
+			dfds->fds[i]);
+		buf[39] = '\0';
+
+		memset(path, 0, sizeof(path));
+		ret = readlink(buf, path, sizeof(path));
+		if (ret < 0) {
+			pr_err("Read link %s failed!\n", buf);
+			goto err;
+		}
+
+		if (stat(path, &fd_stat) == -1) {
+			i++;
+			pr_msg("Could not get %s stat!\n", path);
+			continue;
+		}
+
+		if (fd_stat.st_ino == i_no)
+			return dfds->fds[i];
+		i++;
+	}
+
+err:
+	return -1;
+}
+
+static int dump_task_file_locks(struct parasite_ctl *ctl,
+			struct cr_fdset *fdset,	struct parasite_drain_fd *dfds)
+{
+	FileLockEntry	 fle;
+	struct file_lock *fl;
+
+	pid_t	pid = ctl->pid;
+	int	ret = 0;
+
+	list_for_each_entry(fl, &file_lock_list, list) {
+		if (fl->fl_owner != pid)
+			continue;
+		pr_info("lockinfo: %lld:%s %s %s %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			fl->fl_owner, fl->maj, fl->min, fl->i_no,
+			fl->start, fl->end);
+
+		file_lock_entry__init(&fle);
+		fle.pid = fl->fl_owner;
+
+		ret = fill_flock_entry(&fle, fl->fl_flag, fl->fl_type,
+				fl->fl_option);
+		if (ret)
+			goto err;
+
+		fle.fd = get_fd_by_ino(fl->i_no, dfds, pid);
+		if (fle.fd < 0) {
+			ret = -1;
+			goto err;
+		}
+
+		fle.start = fl->start;
+
+		if (!strncmp(fl->end, "EOF", 3))
+			fle.len = 0;
+		else
+			fle.len = (atoll(fl->end) + 1) - fl->start;
+
+		ret = dump_one_file_lock(&fle, fdset);
+		if (ret) {
+			pr_err("Dump file lock failed!\n");
+			goto err;
+		}
+	}
+
+err:
+	return ret;
+}
+
 static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 {
 	struct robust_list_head *head = NULL;
@@ -1213,7 +1341,7 @@ static int collect_file_locks(const struct cr_options *opts)
 
 	if (opts->handle_file_locks)
 		/*
-		 * If the handle file locks option is set,
+		 * If the handle file locks option(-l) is set,
 		 * collect work is over.
 		 */
 		return 0;
@@ -1503,6 +1631,15 @@ static int dump_one_task(struct pstree_item *item)
 		ret = dump_task_files_seized(parasite_ctl, item, dfds);
 		if (ret) {
 			pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
+			goto err_cure;
+		}
+	}
+
+	if (opts.handle_file_locks) {
+		ret = dump_task_file_locks(parasite_ctl, cr_fdset, dfds);
+		if (ret) {
+			pr_err("Dump file locks (pid: %d) failed with %d\n",
+				pid, ret);
 			goto err_cure;
 		}
 	}
