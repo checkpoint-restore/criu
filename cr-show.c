@@ -115,6 +115,11 @@ void show_tty_info(int fd, struct cr_options *o)
 	pb_show_plain(fd, PB_TTY_INFO);
 }
 
+void show_file_locks(int fd, struct cr_options *o)
+{
+	pb_show_plain(fd, PB_FILE_LOCK);
+}
+
 void show_fs(int fd_fs, struct cr_options *o)
 {
 	pb_show_vertical(fd_fs, PB_FS);
