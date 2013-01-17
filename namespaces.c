@@ -284,6 +284,11 @@ int check_ns_ids(struct pstree_item *item)
 	struct pstree_item *p = item->parent;
 
 	if (!p) {
+		if (!root_ids) {
+			current_ns_mask = opts.rst_namespaces_flags;
+			return 0;
+		}
+
 		current_ns_mask = get_clone_mask(item->ids, root_ids);
 		pr_info("Will restore in %lx namespaces\n", current_ns_mask);
 		return 0;
