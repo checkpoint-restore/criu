@@ -55,6 +55,7 @@
 #include "tty.h"
 #include "cpu.h"
 #include "fpu.h"
+#include "file-lock.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -597,6 +598,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_fs(pid))
+		return -1;
+
+	if (prepare_file_locks(pid))
 		return -1;
 
 	if (prepare_sigactions(pid))

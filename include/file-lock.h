@@ -16,6 +16,12 @@
 #endif
 
 /* operations for bsd flock(), also used by the kernel implementation */
+#define LOCK_SH		1	/* shared lock */
+#define LOCK_EX		2	/* exclusive lock */
+#define LOCK_NB		4	/* or'd with one of the above to prevent
+				   blocking */
+#define LOCK_UN		8	/* remove lock */
+
 #define LOCK_MAND	32	/* This is a mandatory flock ... */
 #define LOCK_READ	64	/* which allows concurrent read operations */
 #define LOCK_WRITE	128	/* which allows concurrent write operations */
@@ -41,5 +47,7 @@ extern struct list_head file_lock_list;
 extern struct file_lock *alloc_file_lock(void);
 extern void free_file_locks(void);
 extern int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset);
+
+extern int prepare_file_locks(int pid);
 
 #endif /* __FILE_LOCK_H__ */
