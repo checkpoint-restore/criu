@@ -69,25 +69,25 @@ static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 	print_on_level(LOG_INFO, "nsems: %-10d\n", sem->nsems);
 }
 
-static int dump_ipc_sem_set(int fd, const IpcSemEntry *entry)
+static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
 {
 	int ret, size;
 	u16 *values;
 
-	size = sizeof(u16) * entry->nsems;
+	size = sizeof(u16) * sem->nsems;
 	values = xmalloc(size);
 	if (values == NULL) {
 		pr_err("Failed to allocate memory for semaphore set values\n");
 		ret = -ENOMEM;
 		goto out;
 	}
-	ret = semctl(entry->desc->id, 0, GETALL, values);
+	ret = semctl(sem->desc->id, 0, GETALL, values);
 	if (ret < 0) {
 		pr_perror("Failed to get semaphore set values");
 		ret = -errno;
 		goto out;
 	}
-	pr_info_ipc_sem_array(entry->nsems, values);
+	pr_info_ipc_sem_array(sem->nsems, values);
 
 	ret = write_img_buf(fd, values, round_up(size, sizeof(u64)));
 	if (ret < 0) {
@@ -167,7 +167,7 @@ static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 		       msg->qbytes, msg->qnum);
 }
 
-static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry,
+static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 				       unsigned int msg_nr)
 {
 	struct msgbuf *message = NULL;
@@ -194,7 +194,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry,
 	for (msg_cnt = 0; msg_cnt < msg_nr; msg_cnt++) {
 		IpcMsg msg = IPC_MSG__INIT;
 
-		ret = msgrcv(entry->desc->id, message, msgmax, msg_cnt, IPC_NOWAIT | MSG_COPY);
+		ret = msgrcv(msq->desc->id, message, msgmax, msg_cnt, IPC_NOWAIT | MSG_COPY);
 		if (ret < 0) {
 			pr_perror("Failed to copy IPC message");
 			goto err;
@@ -510,12 +510,12 @@ void show_ipc_var(int fd, struct cr_options *o)
 	pb_show_vertical(fd, PB_IPCNS_VAR);
 }
 
-static int prepare_ipc_sem_values(int fd, const IpcSemEntry *entry)
+static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
 {
 	int ret, size;
 	u16 *values;
 
-	size = sizeof(u16) * entry->nsems;
+	size = sizeof(u16) * sem->nsems;
 	values = xmalloc(size);
 	if (values == NULL) {
 		pr_err("Failed to allocate memory for semaphores set values\n");
@@ -530,9 +530,9 @@ static int prepare_ipc_sem_values(int fd, const IpcSemEntry *entry)
 		goto out;
 	}
 
-	pr_info_ipc_sem_array(entry->nsems, values);
+	pr_info_ipc_sem_array(sem->nsems, values);
 
-	ret = semctl(entry->desc->id, 0, SETALL, values);
+	ret = semctl(sem->desc->id, 0, SETALL, values);
 	if (ret < 0) {
 		pr_perror("Failed to set semaphores set values");
 		ret = -errno;
@@ -542,11 +542,11 @@ out:
 	return ret;
 }
 
-static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *entry)
+static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
-		{ "kernel/sem_next_id", &entry->desc->id, CTL_U32 },
+		{ "kernel/sem_next_id", &sem->desc->id, CTL_U32 },
 		{ },
 	};
 
@@ -556,20 +556,20 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *entry)
 		return ret;
 	}
 
-	id = semget(entry->desc->key, entry->nsems,
-		     entry->desc->mode | IPC_CREAT | IPC_EXCL);
+	id = semget(sem->desc->key, sem->nsems,
+		     sem->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Failed to create sem set");
 		return -errno;
 	}
 
-	if (id != entry->desc->id) {
+	if (id != sem->desc->id) {
 		pr_err("Failed to restore sem id (%d instead of %d)\n",
-							id, entry->desc->id);
+							id, sem->desc->id);
 		return -EFAULT;
 	}
 
-	ret = prepare_ipc_sem_values(fd, entry);
+	ret = prepare_ipc_sem_values(fd, sem);
 	if (ret < 0) {
 		pr_err("Failed to update sem pages\n");
 		return ret;
@@ -587,9 +587,9 @@ static int prepare_ipc_sem(int pid)
 		return -1;
 
 	while (1) {
-		IpcSemEntry *entry;
+		IpcSemEntry *sem;
 
-		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_SEM);
+		ret = pb_read_one_eof(fd, &sem, PB_IPCNS_SEM);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err;
@@ -597,10 +597,10 @@ static int prepare_ipc_sem(int pid)
 		if (ret == 0)
 			break;
 
-		pr_info_ipc_sem_entry(entry);
+		pr_info_ipc_sem_entry(sem);
 
-		ret = prepare_ipc_sem_desc(fd, entry);
-		ipc_sem_entry__free_unpacked(entry, NULL);
+		ret = prepare_ipc_sem_desc(fd, sem);
+		ipc_sem_entry__free_unpacked(sem, NULL);
 
 		if (ret < 0) {
 			pr_err("Failed to prepare semaphores set\n");
@@ -614,13 +614,13 @@ err:
 	return ret;
 }
 
-static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
+static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq)
 {
 	IpcMsg *msg = NULL;
 	int msg_nr = 0;
 	int ret = 0;
 
-	while (msg_nr < entry->qnum) {
+	while (msg_nr < msq->qnum) {
 		struct msgbuf {
 			long mtype;
 			char mtext[MSGMAX];
@@ -646,7 +646,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
 		}
 
 		data.mtype = msg->mtype;
-		ret = msgsnd(entry->desc->id, &data, msg->msize, IPC_NOWAIT);
+		ret = msgsnd(msq->desc->id, &data, msg->msize, IPC_NOWAIT);
 		if (ret < 0) {
 			pr_perror("Failed to send IPC message");
 			ret = -errno;
@@ -660,11 +660,11 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *entry)
 	return ret;
 }
 
-static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *entry)
+static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
-		{ "kernel/msg_next_id", &entry->desc->id, CTL_U32 },
+		{ "kernel/msg_next_id", &msq->desc->id, CTL_U32 },
 		{ },
 	};
 
@@ -674,19 +674,19 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *entry)
 		return ret;
 	}
 
-	id = msgget(entry->desc->key, entry->desc->mode | IPC_CREAT | IPC_EXCL);
+	id = msgget(msq->desc->key, msq->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Failed to create msg set");
 		return -errno;
 	}
 
-	if (id != entry->desc->id) {
+	if (id != msq->desc->id) {
 		pr_err("Failed to restore msg id (%d instead of %d)\n",
-							id, entry->desc->id);
+							id, msq->desc->id);
 		return -EFAULT;
 	}
 
-	ret = prepare_ipc_msg_queue_messages(fd, entry);
+	ret = prepare_ipc_msg_queue_messages(fd, msq);
 	if (ret < 0) {
 		pr_err("Failed to update message queue messages\n");
 		return ret;
@@ -704,9 +704,9 @@ static int prepare_ipc_msg(int pid)
 		return -1;
 
 	while (1) {
-		IpcMsgEntry *entry;
+		IpcMsgEntry *msq;
 
-		ret = pb_read_one_eof(fd, &entry, PB_IPCNS_MSG_ENT);
+		ret = pb_read_one_eof(fd, &msq, PB_IPCNS_MSG_ENT);
 		if (ret < 0) {
 			pr_err("Failed to read IPC messages queue\n");
 			ret = -EIO;
@@ -715,10 +715,10 @@ static int prepare_ipc_msg(int pid)
 		if (ret == 0)
 			break;
 
-		pr_info_ipc_msg_entry(entry);
+		pr_info_ipc_msg_entry(msq);
 
-		ret = prepare_ipc_msg_queue(fd, entry);
-		ipc_msg_entry__free_unpacked(entry, NULL);
+		ret = prepare_ipc_msg_queue(fd, msq);
+		ipc_msg_entry__free_unpacked(msq, NULL);
 
 		if (ret < 0) {
 			pr_err("Failed to prepare messages queue\n");
