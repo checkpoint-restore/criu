@@ -1162,21 +1162,21 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	 */
 
 	if (init->pid.virt == INIT_PID) {
-		if (!(opts->namespaces_flags & CLONE_NEWPID)) {
+		if (!(current_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
 				"in a new pid namespace.\n"
 				"crtools should be re-executed with the "
 				"\"--namespace pid\" option.\n");
 			return -1;
 		}
-	} else	if (opts->namespaces_flags & CLONE_NEWPID) {
+	} else	if (current_ns_mask & CLONE_NEWPID) {
 		pr_err("Can't restore pid namespace without the process init\n");
 		return -1;
 	}
 
 	futex_set(&task_entries->nr_in_progress, stage_participants(CR_STATE_FORKING));
 
-	ret = fork_with_pid(init, opts->namespaces_flags);
+	ret = fork_with_pid(init, current_ns_mask);
 	if (ret < 0)
 		return -1;
 
@@ -1211,7 +1211,7 @@ out:
 		struct pstree_item *pi;
 		pr_err("Someone can't be restored\n");
 
-		if (opts->namespaces_flags & CLONE_NEWPID) {
+		if (current_ns_mask & CLONE_NEWPID) {
 			/* Kill init */
 			if (root_item->pid.real > 0)
 				kill(root_item->pid.real, SIGKILL);

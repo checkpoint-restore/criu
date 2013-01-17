@@ -229,7 +229,7 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 
 	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->virt, ns_pid->real);
 
-	if ((opts.namespaces_flags & CLONE_NEWPID) && ns_pid->virt != 1) {
+	if ((ns_flags & CLONE_NEWPID) && ns_pid->virt != 1) {
 		pr_err("Can't dump a pid namespace without the process init\n");
 		return -1;
 	}

@@ -17,6 +17,7 @@
 #include "sk-inet.h"
 #include "netfilter.h"
 #include "image.h"
+#include "namespaces.h"
 
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
@@ -103,7 +104,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 		goto err1;
 	}
 
-	if (!(opts.namespaces_flags & CLONE_NEWNET)) {
+	if (!(current_ns_mask & CLONE_NEWNET)) {
 		ret = nf_lock_connection(sk);
 		if (ret < 0)
 			goto err2;
@@ -122,7 +123,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 	return 0;
 
 err3:
-	if (!(opts.namespaces_flags & CLONE_NEWNET))
+	if (!(current_ns_mask & CLONE_NEWNET))
 		nf_unlock_connection(sk);
 err2:
 	close(sk->rfd);

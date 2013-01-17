@@ -1326,9 +1326,8 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 			 * Some tasks could have been reparented to
 			 * namespaces' reaper. Check this.
 			 */
-			if (opts->namespaces_flags & CLONE_NEWPID)
-				if (check_subtree(root_item))
-					goto try_again;
+			if (check_subtree(root_item))
+				goto try_again;
 
 			break;
 		}
@@ -1522,7 +1521,7 @@ static int dump_zombies()
 {
 	struct pstree_item *item;
 	int oldfd, ret = -1;
-	int pidns = opts.namespaces_flags & CLONE_NEWPID;
+	int pidns = current_ns_mask & CLONE_NEWPID;
 
 	if (pidns) {
 		oldfd = set_proc_fd(pidns_proc);
@@ -1614,7 +1613,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	if (opts.namespaces_flags & CLONE_NEWPID && root_item == item) {
+	if (current_ns_mask & CLONE_NEWPID && root_item == item) {
 		pidns_proc = parasite_get_proc_fd_seized(parasite_ctl);
 		if (pidns_proc < 0) {
 			pr_err("Can't get proc fd (pid: %d)\n", pid);
@@ -1751,13 +1750,13 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (cpu_init())
 		goto err;
 
-	if (network_lock())
-		goto err;
-
 	if (write_img_inventory())
 		goto err;
 
 	if (collect_pstree(pid, opts))
+		goto err;
+
+	if (network_lock())
 		goto err;
 
 	if (collect_file_locks(opts))
@@ -1775,7 +1774,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	 * If netns isn't dumped, crtools will fail only
 	 * if an unsupported socket will be really dumped.
 	 */
-	if ((opts->namespaces_flags & CLONE_NEWNET) && ret)
+	if ((current_ns_mask & CLONE_NEWNET) && ret)
 		goto err;
 
 	ret = -1;
@@ -1798,8 +1797,8 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (dump_pstree(root_item))
 		goto err;
 
-	if (opts->namespaces_flags)
-		if (dump_namespaces(&root_item->pid, opts->namespaces_flags) < 0)
+	if (current_ns_mask)
+		if (dump_namespaces(&root_item->pid, current_ns_mask) < 0)
 			goto err;
 
 	ret = cr_dump_shmem();

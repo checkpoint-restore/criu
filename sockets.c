@@ -425,7 +425,7 @@ int collect_sockets(int pid)
 		} r;
 	} req;
 
-	if (opts.namespaces_flags & CLONE_NEWNET) {
+	if (current_ns_mask & CLONE_NEWNET) {
 		pr_info("Switching to %d's net for collecting sockets\n", pid);
 
 		if (switch_ns(pid, &net_ns_desc, &rst))

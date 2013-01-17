@@ -298,7 +298,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	if (sock == -1) {
 		int rst = -1;
 
-		if (opts.namespaces_flags & CLONE_NEWNET) {
+		if (current_ns_mask & CLONE_NEWNET) {
 			pr_info("Switching to %d's net for tsock creation\n", pid);
 
 			if (switch_ns(pid, &net_ns_desc, &rst))

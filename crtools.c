@@ -32,15 +32,15 @@ static int parse_ns_string(const char *ptr)
 		if (ptr[3] != ',' && ptr[3] != '\0')
 			goto bad_ns;
 		if (!strncmp(ptr, "uts", 3))
-			opts.namespaces_flags |= CLONE_NEWUTS;
+			opts.rst_namespaces_flags |= CLONE_NEWUTS;
 		else if (!strncmp(ptr, "ipc", 3))
-			opts.namespaces_flags |= CLONE_NEWIPC;
+			opts.rst_namespaces_flags |= CLONE_NEWIPC;
 		else if (!strncmp(ptr, "mnt", 3))
-			opts.namespaces_flags |= CLONE_NEWNS;
+			opts.rst_namespaces_flags |= CLONE_NEWNS;
 		else if (!strncmp(ptr, "pid", 3))
-			opts.namespaces_flags |= CLONE_NEWPID;
+			opts.rst_namespaces_flags |= CLONE_NEWPID;
 		else if (!strncmp(ptr, "net", 3))
-			opts.namespaces_flags |= CLONE_NEWNET;
+			opts.rst_namespaces_flags |= CLONE_NEWNET;
 		else
 			goto bad_ns;
 		ptr += 4;

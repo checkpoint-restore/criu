@@ -103,7 +103,7 @@ struct cr_options {
 	bool			tcp_established_ok;
 	bool			evasive_devices;
 	bool			link_remap_ok;
-	unsigned int		namespaces_flags;
+	unsigned int		rst_namespaces_flags;
 	bool			log_file_per_pid;
 	char			*output;
 	char			*root;
