@@ -512,6 +512,8 @@ int collect_inotify(void)
 
 	ret = collect_image(CR_FD_INOTIFY, PB_INOTIFY,
 			sizeof(struct fsnotify_file_info), collect_one_inotify);
+	if (ret && errno == ENOENT)
+		return 0;
 	if (!ret)
 		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
 				sizeof(struct fsnotify_mark_info),
@@ -520,6 +522,8 @@ int collect_inotify(void)
 		ret = collect_image(CR_FD_FANOTIFY, PB_FANOTIFY,
 				    sizeof(struct fsnotify_file_info),
 				    collect_one_fanotify);
+	if (ret && errno == ENOENT)
+		return 0;
 	if (!ret)
 		ret = collect_image(CR_FD_FANOTIFY_MARK, PB_FANOTIFY_MARK,
 				    sizeof(struct fsnotify_mark_info),
