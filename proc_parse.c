@@ -303,7 +303,9 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 				pr_perror("Failed fstat on %d's map %lu", pid, start);
 				goto err;
 			}
-			if (!S_ISREG(st_buf.st_mode)) {
+
+			if (!S_ISREG(st_buf.st_mode) &&
+			    !(S_ISCHR(st_buf.st_mode) && st_buf.st_rdev == DEVZERO)) {
 				pr_err("Can't handle non-regular mapping on %d's map %lu\n", pid, start);
 				goto err;
 			}

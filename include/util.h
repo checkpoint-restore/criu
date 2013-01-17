@@ -263,6 +263,8 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 #define pr_img_head(type, ...)	pr_msg("\n"#type __VA_ARGS__ "\n----------------\n")
 #define pr_img_tail(type)	pr_msg("----------------\n")
 
+#define DEVZERO		(makedev(1, 5))
+
 #define KDEV_MINORBITS	20
 #define KDEV_MINORMASK	((1UL << KDEV_MINORBITS) - 1)
 #define MKKDEV(ma, mi)	(((ma) << KDEV_MINORBITS) | (mi))
