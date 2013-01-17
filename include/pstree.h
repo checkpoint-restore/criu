@@ -68,6 +68,7 @@ extern bool restore_before_setsid(struct pstree_item *child);
 extern int prepare_pstree(void);
 
 extern int dump_pstree(struct pstree_item *root_item);
+extern bool pid_in_pstree(pid_t pid);
 
 struct task_entries;
 extern struct task_entries *task_entries;

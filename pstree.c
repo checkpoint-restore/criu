@@ -502,3 +502,15 @@ bool restore_before_setsid(struct pstree_item *child)
 
 	return false;
 }
+
+bool pid_in_pstree(pid_t pid)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		if (item->pid.real == pid)
+			return true;
+	}
+
+	return false;
+}
