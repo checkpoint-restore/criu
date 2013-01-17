@@ -549,6 +549,7 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
 		{ "kernel/sem_next_id", &sem->desc->id, CTL_U32 },
 		{ },
 	};
+	struct semid_ds semid;
 
 	ret = sysctl_op(req, CTL_WRITE);
 	if (ret < 0) {
@@ -566,6 +567,21 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
 	if (id != sem->desc->id) {
 		pr_err("Failed to restore sem id (%d instead of %d)\n",
 							id, sem->desc->id);
+		return -EFAULT;
+	}
+
+	ret = semctl(id, sem->nsems, IPC_STAT, &semid);
+	if (ret == -1) {
+		pr_err("Failed to get sem stat structure\n");
+		return -EFAULT;
+	}
+
+	semid.sem_perm.uid = sem->desc->uid;
+	semid.sem_perm.gid = sem->desc->gid;
+
+	ret = semctl(id, sem->nsems, IPC_SET, &semid);
+	if (ret == -1) {
+		pr_err("Failed to set sem uid and gid\n");
 		return -EFAULT;
 	}
 
@@ -667,6 +683,7 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
 		{ "kernel/msg_next_id", &msq->desc->id, CTL_U32 },
 		{ },
 	};
+	struct msqid_ds msqid;
 
 	ret = sysctl_op(req, CTL_WRITE);
 	if (ret < 0) {
@@ -683,6 +700,21 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
 	if (id != msq->desc->id) {
 		pr_err("Failed to restore msg id (%d instead of %d)\n",
 							id, msq->desc->id);
+		return -EFAULT;
+	}
+
+	ret = msgctl(id, IPC_STAT, &msqid);
+	if (ret == -1) {
+		pr_err("Failed to get msq stat structure\n");
+		return -EFAULT;
+	}
+
+	msqid.msg_perm.uid = msq->desc->uid;
+	msqid.msg_perm.gid = msq->desc->gid;
+
+	ret = msgctl(id, IPC_SET, &msqid);
+	if (ret == -1) {
+		pr_err("Failed to set msq queue uid and gid\n");
 		return -EFAULT;
 	}
 
@@ -760,6 +792,7 @@ static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32 },
 		{ },
 	};
+	struct shmid_ds shmid;
 
 	ret = sysctl_op(req, CTL_WRITE);
 	if (ret < 0) {
@@ -777,6 +810,21 @@ static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 	if (id != shm->desc->id) {
 		pr_err("Failed to restore shm id (%d instead of %d)\n",
 							id, shm->desc->id);
+		return -EFAULT;
+	}
+
+	ret = shmctl(id, IPC_STAT, &shmid);
+	if (ret == -1) {
+		pr_err("Failed to get shm stat structure\n");
+		return -EFAULT;
+	}
+
+	shmid.shm_perm.uid = shm->desc->uid;
+	shmid.shm_perm.gid = shm->desc->gid;
+
+	ret = shmctl(id, IPC_SET, &shmid);
+	if (ret == -1) {
+		pr_err("Failed to set shm uid and gid\n");
 		return -EFAULT;
 	}
 
