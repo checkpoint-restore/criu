@@ -12,6 +12,7 @@
 #include "sk-packet.h"
 #include "mount.h"
 #include "net.h"
+#include "pstree.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 
@@ -48,6 +49,7 @@ int write_img_inventory(void)
 {
 	int fd;
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
+	struct pstree_item crt = { };
 
 	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
@@ -59,9 +61,16 @@ int write_img_inventory(void)
 	he.fdinfo_per_id = true;
 	he.has_fdinfo_per_id = true;
 
+	crt.pid.real = getpid();
+	if (get_task_ids(&crt))
+		return -1;
+
+	he.root_ids = crt.ids;
+
 	if (pb_write_one(fd, &he, PB_INVENTORY) < 0)
 		return -1;
 
+	xfree(crt.ids);
 	close(fd);
 	return 0;
 }

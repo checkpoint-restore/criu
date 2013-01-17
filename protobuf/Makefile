@@ -1,5 +1,6 @@
 PROTO_LIBRARY	:= protobuf-lib.o
 
+PROTO_FILES	+= core.proto
 PROTO_FILES	+= inventory.proto
 PROTO_FILES	+= fdinfo.proto
 PROTO_FILES	+= fown.proto
@@ -34,7 +35,6 @@ PROTO_FILES	+= ipc-sem.proto
 PROTO_FILES	+= utsns.proto
 PROTO_FILES	+= creds.proto
 PROTO_FILES	+= vma.proto
-PROTO_FILES	+= core.proto
 PROTO_FILES	+= netdev.proto
 PROTO_FILES	+= tty.proto
 PROTO_FILES	+= file-lock.proto
