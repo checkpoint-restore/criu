@@ -74,5 +74,6 @@ struct task_entries;
 extern struct task_entries *task_entries;
 
 int get_task_ids(struct pstree_item *);
+extern struct _TaskKobjIdsEntry *root_ids;
 
 #endif /* __CR_PSTREE_H__ */

@@ -70,14 +70,27 @@ struct ns_id {
 
 static struct ns_id *ns_ids;
 static unsigned int ns_next_id = 1;
+unsigned long current_ns_mask = 0;
 
-static unsigned int generate_ns_id(unsigned int kid, struct ns_desc *nd)
+static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next)
 		if (nsid->kid == kid && nsid->nd == nd)
 			return nsid->id;
+
+	if (pid != getpid()) {
+		if (pid == root_item->pid.real) {
+			BUG_ON(current_ns_mask & nd->cflag);
+			pr_info("Will take %s namespace in the image\n", nd->str);
+			current_ns_mask |= nd->cflag;
+		} else {
+			pr_err("Can't dump nested %s namespace for %d\n",
+					nd->str, pid);
+			return 0;
+		}
+	}
 
 	nsid = xmalloc(sizeof(*nsid));
 	if (!nsid)
@@ -113,7 +126,7 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 
 	/* XXX: Does it make sence to validate kernel links to <name>:[<id>]? */
 	kid = strtoul(ns_id + strlen(nd->str) + 2, &end, 10);
-	return generate_ns_id(kid, nd);
+	return generate_ns_id(pid, kid, nd);
 }
 
 int dump_task_ns_ids(struct pstree_item *item)
@@ -244,6 +257,51 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	}
 
 	pr_info("Namespaces dump complete\n");
+	return 0;
+}
+
+static unsigned long get_clone_mask(TaskKobjIdsEntry *i,
+		TaskKobjIdsEntry *p)
+{
+	unsigned long mask = 0;
+
+	if (i->pid_ns_id != p->pid_ns_id)
+		mask |= CLONE_NEWPID;
+	if (i->net_ns_id != p->net_ns_id)
+		mask |= CLONE_NEWNET;
+	if (i->ipc_ns_id != p->ipc_ns_id)
+		mask |= CLONE_NEWIPC;
+	if (i->uts_ns_id != p->uts_ns_id)
+		mask |= CLONE_NEWUTS;
+	if (i->mnt_ns_id != p->mnt_ns_id)
+		mask |= CLONE_NEWNS;
+
+	return mask;
+}
+
+int check_ns_ids(struct pstree_item *item)
+{
+	struct pstree_item *p = item->parent;
+
+	if (!p) {
+		current_ns_mask = get_clone_mask(item->ids, root_ids);
+		pr_info("Will restore in %lx namespaces\n", current_ns_mask);
+		return 0;
+	}
+
+	if (!item->ids)
+		return 0;
+
+	while (!p->ids) {
+		p = p->parent;
+		BUG_ON(!p); /* must meet the root_item */
+	}
+
+	if (get_clone_mask(item->ids, p->ids)) {
+		pr_err("Task in sub namespace\n");
+		return -1;
+	}
+
 	return 0;
 }
 

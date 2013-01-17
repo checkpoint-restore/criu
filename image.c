@@ -17,6 +17,7 @@
 #include "protobuf/inventory.pb-c.h"
 
 bool fdinfo_per_id = false;
+TaskKobjIdsEntry *root_ids;
 
 int check_img_inventory(void)
 {
@@ -35,6 +36,11 @@ int check_img_inventory(void)
 	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
 
 	ret = he->img_version;
+	root_ids = xmalloc(sizeof(*root_ids));
+	if (!root_ids)
+		return -1;
+
+	memcpy(root_ids, he->root_ids, sizeof(*root_ids));
 	inventory_entry__free_unpacked(he, NULL);
 
 	if (ret != CRTOOLS_IMAGES_V1) {

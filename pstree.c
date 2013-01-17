@@ -6,6 +6,7 @@
 #include "restorer.h"
 #include "util.h"
 #include "lock.h"
+#include "namespaces.h"
 
 #include "protobuf.h"
 #include "protobuf/pstree.pb-c.h"
@@ -442,6 +443,9 @@ static int prepare_pstree_ids(void)
 
 		if (item->state == TASK_HELPER)
 			continue;
+
+		if (check_ns_ids(item))
+			return -1;
 
 		if (parent == NULL)
 			continue;
