@@ -1,0 +1,141 @@
+#define _GNU_SOURCE
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/file.h>
+#include <string.h>
+
+#include "zdtmtst.h"
+
+const char *test_doc	= "Check that flock locks are restored";
+const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
+
+char file0[] = "/tmp/zdtm_file_locks_XXXXXX";
+char file1[] = "/tmp/zdtm_file_locks_XXXXXX";
+char file2[] = "/tmp/zdtm_file_locks_XXXXXX";
+
+static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
+{
+	*fd_0 = mkstemp(file0);
+	if (*fd_0 < 0) {
+		err("Unable to open file %s", file0);
+		return -1;
+	}
+
+	*fd_1 = mkstemp(file1);
+	if (*fd_1 < 0) {
+		close(*fd_0);
+		unlink(file0);
+		err("Unable to open file %s", file1);
+		return -1;
+	}
+
+	*fd_2 = mkstemp(file2);
+	if (*fd_2 < 0) {
+		close(*fd_0);
+		close(*fd_1);
+		unlink(file0);
+		unlink(file1);
+		err("Unable to open file %s", file1);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int check_file_locks()
+{
+	FILE		*fp_locks = NULL;
+	char		buf[100];
+
+	long long	fl_id = 0;
+	char		fl_flag[10], fl_type[15], fl_option[10];
+	pid_t		fl_owner;
+	int		maj, min;
+	unsigned long	i_no;
+	long long	start;
+	char		end[32];
+
+	int		num;
+	int		count = 3;
+	pid_t		pid = getpid();
+
+	fp_locks = fopen("/proc/locks", "r");
+	if (!fp_locks)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), fp_locks)) {
+		if (strstr(buf, "->"))
+			continue;
+
+		num = sscanf(buf,
+			"%lld:%s %s %s %d %02x:%02x:%ld %lld %s",
+			&fl_id, fl_flag, fl_type, fl_option,
+			&fl_owner, &maj, &min, &i_no, &start, end);
+
+		if (num < 10) {
+			err("Invalid lock info.\n");
+			break;
+		}
+
+		if (fl_owner != pid)
+			continue;
+
+		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
+			if (!strcmp(fl_option, "READ"))
+				count--;
+			else if (!strcmp(fl_option, "WRITE"))
+				count--;
+		}
+
+		if (!strcmp(fl_flag, "FLOCK") &&
+		    !strcmp(fl_type, "MSNFS") &&
+		    !strcmp(fl_option, "READ"))
+			count--;
+
+		memset(fl_flag, 0, sizeof(fl_flag));
+		memset(fl_type, 0, sizeof(fl_type));
+		memset(fl_option, 0, sizeof(fl_option));
+	}
+
+	fclose(fp_locks);
+
+	/*
+	 * If we find all three matched file locks, count would be 0,
+	 * return 0 for success.
+	 */
+	return count;
+}
+
+int main(int argc, char **argv)
+{
+	int fd_0, fd_1, fd_2;
+
+	test_init(argc, argv);
+
+	if (open_all_files(&fd_0, &fd_1, &fd_2))
+		return -1;
+
+	flock(fd_0, LOCK_SH);
+	flock(fd_1, LOCK_EX);
+	flock(fd_2, LOCK_MAND | LOCK_READ);
+
+	test_daemon();
+	test_waitsig();
+
+	if (check_file_locks())
+		fail("Flock file locks check failed");
+	else
+		pass();
+
+	close(fd_0);
+	close(fd_1);
+	close(fd_2);
+	unlink(file0);
+	unlink(file1);
+	unlink(file2);
+
+	return 0;
+}

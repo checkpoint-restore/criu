@@ -121,6 +121,7 @@ transition/ipc
 
 FILE_LOCK_TEST_LIST="
 static/file_locks00
+static/file_locks01
 "
 
 TEST_CR_KERNEL="

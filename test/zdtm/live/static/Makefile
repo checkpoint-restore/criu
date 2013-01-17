@@ -86,6 +86,7 @@ TST_NOFILE	=				\
 		child_opened_proc		\
 		posix_timers			\
 		file_locks00		\
+		file_locks01		\
 #		jobctl00			\
 
 TST_FILE	=				\
