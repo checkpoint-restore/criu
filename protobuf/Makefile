@@ -37,6 +37,7 @@ PROTO_FILES	+= vma.proto
 PROTO_FILES	+= core.proto
 PROTO_FILES	+= netdev.proto
 PROTO_FILES	+= tty.proto
+PROTO_FILES	+= file-lock.proto
 PROTO_FILES	+= rlimit.proto
 
 PROTO_HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
