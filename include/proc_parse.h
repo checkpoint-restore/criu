@@ -140,5 +140,6 @@ union fdinfo_entries {
 extern int parse_fdinfo(int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
 extern int parse_cpuinfo_features(void);
+extern int parse_file_locks(void);
 
 #endif /* __CR_PROC_PARSE_H__ */

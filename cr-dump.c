@@ -29,6 +29,7 @@
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
+#include "protobuf/file-lock.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
 
 #include "asm/types.h"
@@ -64,6 +65,7 @@
 #include "cpu.h"
 #include "fpu.h"
 #include "elf.h"
+#include "file-lock.h"
 
 #include "asm/dump.h"
 
@@ -1204,6 +1206,40 @@ try_again:
 	return ret;
 }
 
+static int collect_file_locks(const struct cr_options *opts)
+{
+	if (parse_file_locks())
+		return -1;
+
+	if (opts->handle_file_locks)
+		/*
+		 * If the handle file locks option is set,
+		 * collect work is over.
+		 */
+		return 0;
+
+	/*
+	 * If the handle file locks option is not set, we need to do
+	 * the check, any file locks hold by tasks in our pstree is
+	 * not allowed.
+	 *
+	 * It's hard to do it carefully, there might be some other
+	 * issues like tasks beyond pstree would use flocks hold by
+	 * dumping tasks, but we can't know it in dumping time.
+	 * We need to make sure these flocks only used by dumping tasks.
+	 * We might have to do the check that this option would only
+	 * be used by container dumping.
+	 */
+	if (!list_empty(&file_lock_list)) {
+		pr_perror("Some file locks are hold by dumping tasks!"
+			  "You can try -l to dump them.");
+		return -1;
+	}
+
+	return 0;
+
+}
+
 static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 {
 	CoreEntry *core;
@@ -1568,6 +1604,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (collect_pstree(pid, opts))
 		goto err;
 
+	if (collect_file_locks(opts))
+		goto err;
+
 	if (collect_mount_info())
 		goto err;
 
@@ -1633,6 +1672,7 @@ err:
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts->final_state);
 	free_pstree(root_item);
+	free_file_locks();
 
 	close_safe(&pidns_proc);
 

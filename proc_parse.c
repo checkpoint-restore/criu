@@ -15,6 +15,8 @@
 #include "crtools.h"
 #include "mount.h"
 #include "cpu.h"
+#include "file-lock.h"
+#include "pstree.h"
 #include "fsnotify.h"
 
 #include "proc_parse.h"
@@ -1062,4 +1064,97 @@ int parse_fdinfo(int fd, int type,
 parse_err:
 	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
 	return -1;
+}
+
+static int parse_file_lock_buf(char *buf, struct file_lock *fl,
+				bool is_blocked)
+{
+	int  num;
+
+	if (is_blocked) {
+		num = sscanf(buf, "%lld: -> %s %s %s %d %02x:%02x:%ld %lld %s",
+			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
+			&fl->start, fl->end);
+	} else {
+		num = sscanf(buf, "%lld:%s %s %s %d %02x:%02x:%ld %lld %s",
+			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
+			&fl->start, fl->end);
+	}
+
+	if (num < 10) {
+		pr_perror("Invalid file lock info!");
+		return -1;
+	}
+
+	return 0;
+}
+
+int parse_file_locks(void)
+{
+	struct file_lock *fl;
+
+	FILE	*fl_locks;
+	int	ret = 0;
+	bool	is_blocked = false;
+
+	fl_locks = fopen("/proc/locks", "r");
+	if (!fl_locks) {
+		pr_perror("Can't open file locks file!");
+		return -1;
+	}
+
+	while (fgets(buf, BUF_SIZE, fl_locks)) {
+		if (strstr(buf, "->"))
+			is_blocked = true;
+
+		fl = alloc_file_lock();
+		if (!fl) {
+			pr_perror("Alloc file lock failed!");
+			ret = -1;
+			goto err;
+		}
+
+		if (parse_file_lock_buf(buf, fl, is_blocked)) {
+			xfree(fl);
+			ret = -1;
+			goto err;
+		}
+
+		if (!pid_in_pstree(fl->fl_owner)) {
+			/*
+			 * We only care about tasks which are taken
+			 * into dump, so we only collect file locks
+			 * belong to these tasks.
+			 */
+			xfree(fl);
+			continue;
+		}
+
+		if (is_blocked) {
+			/*
+			 * Here the task is in the pstree.
+			 * If it is blocked on a flock, when we try to
+			 * ptrace-seize it, the kernel will unblock task
+			 * from flock and will stop it in another place.
+			 * So in dumping, a blocked file lock should never
+			 * be here.
+			 */
+			pr_perror("We have a blocked file lock!");
+			ret = -1;
+			goto err;
+		}
+
+		pr_info("lockinfo: %lld:%s %s %s %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			fl->fl_owner, fl->maj, fl->min, fl->i_no,
+			fl->start, fl->end);
+
+		list_add_tail(&fl->list, &file_lock_list);
+	}
+
+err:
+	fclose(fl_locks);
+	return ret;
 }
