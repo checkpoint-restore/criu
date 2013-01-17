@@ -98,6 +98,7 @@ struct cr_options {
 	bool			restore_detach;
 	bool			ext_unix_sk;
 	bool			shell_job;
+	bool			handle_file_locks;
 	bool			tcp_established_ok;
 	bool			evasive_devices;
 	bool			link_remap_ok;
