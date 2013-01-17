@@ -119,6 +119,10 @@ static/sem
 transition/ipc
 "
 
+FILE_LOCK_TEST_LIST="
+static/file_locks00
+"
+
 TEST_CR_KERNEL="
 static/sock_opts01
 static/sockets01
@@ -442,8 +446,11 @@ if [ $# -eq 0 ]; then
 	for t in $IPC_TEST_LIST; do
 		run_test $t -n ipc || case_error $t
 	done
+	for t in $FILE_LOCK_TEST_LIST; do
+		run_test $t -l || case_error $t
+	done
 elif [ "$1" = "-l" ]; then
-	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
+	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST $FILE_LOCK_TEST_LIST | tr ' ' '\n'
 elif [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
@@ -465,6 +472,8 @@ else
 		run_test $1 -n mnt || case_error $1
 	elif echo $IPC_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n ipc || case_error $1
+	elif echo $FILE_LOCK_TEST_LIST | fgrep -qw $1; then
+		run_test $1 -l || case_error $1
 	else
 		run_test $1 || case_error $1
 	fi
