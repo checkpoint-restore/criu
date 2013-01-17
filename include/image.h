@@ -62,6 +62,7 @@
 #define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
 #define TTY_MAGIC		0x59433025 /* Pushkin */
 #define TTY_INFO_MAGIC		0x59453036 /* Kolpino */
+#define FILE_LOCKS_MAGIC	0x54323616 /* Kaluga */
 #define RLIMIT_MAGIC		0x57113925 /* Rostov */
 #define FANOTIFY_MAGIC		0x55096122 /* Chelyabinsk */
 #define FANOTIFY_MARK_MAGIC	0x56506035 /* Yekaterinburg */

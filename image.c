@@ -133,6 +133,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TMPFS,		"tmpfs-%d.tar.gz", show_raw_image),
 	FD_ENTRY(TTY,		"tty",		 show_tty),
 	FD_ENTRY(TTY_INFO,	"tty-info",	 show_tty_info),
+	FD_ENTRY(FILE_LOCKS,	"filelocks-%d",	 show_file_locks),
 	FD_ENTRY(RLIMIT,	"rlimit",	 show_rlimit),
 };
 

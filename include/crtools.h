@@ -24,6 +24,7 @@ enum {
 	 */
 
 	_CR_FD_TASK_FROM,
+	CR_FD_FILE_LOCKS,
 	CR_FD_PAGES,
 	CR_FD_CORE,
 	CR_FD_IDS,
