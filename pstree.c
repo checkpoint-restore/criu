@@ -436,6 +436,13 @@ static int prepare_pstree_ids(void)
 				helper->pid.virt, helper->pgid);
 	}
 
+	return 0;
+}
+
+static int prepare_pstree_kobj_ids(void)
+{
+	struct pstree_item *item;
+
 	/* Find a process with minimal pid for shared fd tables */
 	for_each_pstree_item(item) {
 		struct pstree_item *parent = item->parent;
@@ -487,6 +494,12 @@ int prepare_pstree(void)
 		 * shell, not from image. Set things up for this.
 		 */
 		ret = prepare_pstree_for_shell_job();
+	if (!ret)
+		/*
+		 * Walk the collected tree and prepare for restoring
+		 * of shared objects at clone time
+		 */
+		ret = prepare_pstree_kobj_ids();
 	if (!ret)
 		/*
 		 * Session/Group leaders might be dead. Need to fix
