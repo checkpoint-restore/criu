@@ -913,6 +913,10 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 	if (ret)
 		goto err_free;
 
+	ret = dump_task_ns_ids(item);
+	if (ret)
+		goto err_free;
+
 	ret = pb_write_one(fd_ids, item->ids, PB_IDS);
 	if (ret < 0)
 		goto err_free;

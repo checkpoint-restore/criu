@@ -18,4 +18,7 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst);
 int restore_ns(int rst, struct ns_desc *nd);
 extern struct ns_desc pid_ns_desc;
 
+struct pstree_item;
+int dump_task_ns_ids(struct pstree_item *);
+
 #endif /* __CR_NS_H__ */

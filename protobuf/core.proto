@@ -70,6 +70,12 @@ message task_kobj_ids_entry {
 	required uint32			files_id	= 2;
 	required uint32			fs_id		= 3;
 	required uint32			sighand_id	= 4;
+
+	optional uint32			pid_ns_id	= 5;
+	optional uint32			net_ns_id	= 6;
+	optional uint32			ipc_ns_id	= 7;
+	optional uint32			uts_ns_id	= 8;
+	optional uint32			mnt_ns_id	= 9;
 }
 
 message thread_info_x86 {
