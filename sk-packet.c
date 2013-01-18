@@ -344,7 +344,7 @@ static int restore_mreqs(int sk, PacketSockEntry *pse)
 		pr_info("Restoring mreq type %d\n", ml->type);
 
 		if (ml->addr.len > sizeof(mreq.mr_address)) {
-			pr_err("To big mcaddr %lu\n", ml->addr.len);
+			pr_err("To big mcaddr %zu\n", ml->addr.len);
 			return -1;
 		}
 

@@ -185,7 +185,7 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 		}
 
 		if (ret == 0 || ret > iov.iov_len /* sanity */) {
-			pr_err("%#x: Wanted to restore %lu bytes, but got %d\n", id,
+			pr_err("%#x: Wanted to restore %zu bytes, but got %d\n", id,
 					iov.iov_len, ret);
 			ret = -1;
 			goto err;
