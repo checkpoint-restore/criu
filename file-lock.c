@@ -34,7 +34,7 @@ void free_file_locks(void)
 
 int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset)
 {
-	pr_info("flag: %d,type: %d,pid: %d,fd: %d,start: %8lx,len: %8lx\n",
+	pr_info("flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
 		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
 
 	return pb_write_one(fdset_fd(fdset, CR_FD_FILE_LOCKS),
@@ -79,7 +79,7 @@ static int restore_file_lock(FileLockEntry *fle)
 		flk.l_type   = fle->type;
 
 		pr_info("(posix)flag: %d, type: %d, pid: %d, fd: %d, "
-			"start: %8lx, len: %8lx\n",
+			"start: %8"PRIx64", len: %8"PRIx64"\n",
 			fle->flag, fle->type, fle->pid, fle->fd,
 			fle->start, fle->len);
 
