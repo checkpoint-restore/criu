@@ -80,6 +80,8 @@ static/mmx00
 static/sse00
 static/sse20
 static/fdt_shared
+static/file_locks00
+static/file_locks01
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
@@ -117,11 +119,6 @@ static/shm
 static/msgque
 static/sem
 transition/ipc
-"
-
-FILE_LOCK_TEST_LIST="
-static/file_locks00
-static/file_locks01
 "
 
 TEST_CR_KERNEL="
@@ -315,7 +312,7 @@ EOF
 	mkdir -p $ddump
 
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS_CPT dump --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS_CPT dump --file-locks --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -340,7 +337,7 @@ EOF
 		done
 
 		echo Restore $PID
-		setsid $CRTOOLS restore --tcp-established -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
+		setsid $CRTOOLS restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd
@@ -447,11 +444,8 @@ if [ $# -eq 0 ]; then
 	for t in $IPC_TEST_LIST; do
 		run_test $t -n ipc || case_error $t
 	done
-	for t in $FILE_LOCK_TEST_LIST; do
-		run_test $t -l || case_error $t
-	done
 elif [ "$1" = "-l" ]; then
-	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST $FILE_LOCK_TEST_LIST | tr ' ' '\n'
+	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
 elif [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
