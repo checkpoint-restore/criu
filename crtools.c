@@ -334,7 +334,7 @@ usage:
 	pr_msg("			* network-lock - lock network in a target network namespace\n");
 	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
 	pr_msg("  -j|--shell-job        allow to dump and restore shell jobs\n");
-	pr_msg("  -l|--file_locks	handle file locks, for safety, only used for container\n");
+	pr_msg("  -l|--file-locks	handle file locks, for safety, only used for container\n");
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
