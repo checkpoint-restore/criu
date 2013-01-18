@@ -83,8 +83,6 @@ TST_NOFILE	=				\
 		cow00				\
 		child_opened_proc		\
 		posix_timers			\
-		file_locks00		\
-		file_locks01		\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -114,6 +112,8 @@ TST_FILE	=				\
 		fdt_shared			\
 		sockets00			\
 		sockets_dgram			\
+		file_locks00			\
+		file_locks01			\
 
 TST_DIR		=				\
 		cwd00				\

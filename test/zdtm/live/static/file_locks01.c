@@ -6,25 +6,32 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <string.h>
+#include <linux/limits.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check that flock locks are restored";
 const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
 
-char file0[] = "/tmp/zdtm_file_locks_XXXXXX";
-char file1[] = "/tmp/zdtm_file_locks_XXXXXX";
-char file2[] = "/tmp/zdtm_file_locks_XXXXXX";
+char *filename;
+TEST_OPTION(filename, string, "file name", 1);
+
+char file0[PATH_MAX];
+char file1[PATH_MAX];
+char file2[PATH_MAX];
 
 static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 {
-	*fd_0 = mkstemp(file0);
+	snprintf(file0, sizeof(file0), "%s.0", filename);
+	snprintf(file1, sizeof(file0), "%s.1", filename);
+	snprintf(file2, sizeof(file0), "%s.2", filename);
+	*fd_0 = open(file0, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_0 < 0) {
 		err("Unable to open file %s", file0);
 		return -1;
 	}
 
-	*fd_1 = mkstemp(file1);
+	*fd_1 = open(file1, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_1 < 0) {
 		close(*fd_0);
 		unlink(file0);
@@ -32,7 +39,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		return -1;
 	}
 
-	*fd_2 = mkstemp(file2);
+	*fd_2 = open(file2, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_2 < 0) {
 		close(*fd_0);
 		close(*fd_1);

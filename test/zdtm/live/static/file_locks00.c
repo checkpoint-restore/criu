@@ -8,14 +8,18 @@
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <linux/limits.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check that posix flocks are restored";
 const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
 
-char file0[] = "/tmp/zdtm_file_locks_XXXXXX";
-char file1[] = "/tmp/zdtm_file_locks_XXXXXX";
+char *filename;
+TEST_OPTION(filename, string, "file name", 1);
+
+char file0[PATH_MAX];
+char file1[PATH_MAX];
 
 static int lock_reg(int fd, int cmd, int type, int whence,
 		off_t offset, off_t len)
@@ -130,13 +134,15 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	fd_0 = mkstemp(file0);
+	snprintf(file0, sizeof(file0), "%s.0", filename);
+	snprintf(file1, sizeof(file0), "%s.1", filename);
+	fd_0 = open(file0, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (fd_0 < 0) {
 		err("Unable to open file %s", file0);
 		return -1;
 	}
 
-	fd_1 = mkstemp(file1);
+	fd_1 = open(file1, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (fd_1 < 0) {
 		close(fd_0);
 		unlink(file0);
