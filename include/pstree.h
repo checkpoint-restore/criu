@@ -73,4 +73,6 @@ extern bool pid_in_pstree(pid_t pid);
 struct task_entries;
 extern struct task_entries *task_entries;
 
+int get_task_ids(struct pstree_item *);
+
 #endif /* __CR_PSTREE_H__ */

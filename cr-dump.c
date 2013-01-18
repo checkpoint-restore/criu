@@ -899,14 +899,14 @@ err:
 	return NULL;
 }
 
-static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fdset)
+int get_task_ids(struct pstree_item *item)
 {
-	int fd_ids = fdset_fd(cr_fdset, CR_FD_IDS);
 	int ret;
 
 	item->ids = xmalloc(sizeof(*item->ids));
 	if (!item->ids)
-		return -1;
+		goto err;
+
 	task_kobj_ids_entry__init(item->ids);
 
 	ret = dump_task_kobj_ids(item);
@@ -917,6 +917,25 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 	if (ret)
 		goto err_free;
 
+	return 0;
+
+err_free:
+	xfree(item->ids);
+	item->ids = NULL;
+err:
+	return -1;
+}
+
+static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fdset)
+{
+	int fd_ids;
+	int ret;
+
+	ret = get_task_ids(item);
+	if (ret)
+		goto err;
+
+	fd_ids = fdset_fd(cr_fdset, CR_FD_IDS);
 	ret = pb_write_one(fd_ids, item->ids, PB_IDS);
 	if (ret < 0)
 		goto err_free;
@@ -926,6 +945,7 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 err_free:
 	xfree(item->ids);
 	item->ids = NULL;
+err:
 	return -1;
 }
 
