@@ -799,19 +799,17 @@ static void write_pidfile(char *pfname, int pid)
 	close(fd);
 }
 
-static inline int fork_with_pid(struct pstree_item *item, unsigned long ns_clone_flags)
+static inline int fork_with_pid(struct pstree_item *item)
 {
 	int ret = -1;
 	struct cr_clone_arg ca;
 	pid_t pid = item->pid.virt;
 
-	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ns_clone_flags);
 
 	ca.item = item;
-	ca.clone_flags = ns_clone_flags;
+	ca.clone_flags = item->rst->clone_flags;
 
-	if (shared_fdtable(item))
-		ca.clone_flags |= CLONE_FILES;
+	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
@@ -1070,7 +1068,7 @@ static int restore_task_with_children(void *_arg)
 
 		BUG_ON(child->born_sid != -1 && getsid(getpid()) != child->born_sid);
 
-		ret = fork_with_pid(child, 0);
+		ret = fork_with_pid(child);
 		if (ret < 0)
 			exit(1);
 	}
@@ -1081,7 +1079,7 @@ static int restore_task_with_children(void *_arg)
 	list_for_each_entry(child, &current->children, sibling) {
 		if (restore_before_setsid(child))
 			continue;
-		ret = fork_with_pid(child, 0);
+		ret = fork_with_pid(child);
 		if (ret < 0)
 			exit(1);
 	}
@@ -1176,7 +1174,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	futex_set(&task_entries->nr_in_progress, stage_participants(CR_STATE_FORKING));
 
-	ret = fork_with_pid(init, current_ns_mask);
+	ret = fork_with_pid(init);
 	if (ret < 0)
 		return -1;
 

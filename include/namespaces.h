@@ -22,6 +22,5 @@ struct pstree_item;
 int dump_task_ns_ids(struct pstree_item *);
 
 extern unsigned long current_ns_mask;
-int check_ns_ids(struct pstree_item *);
 
 #endif /* __CR_NS_H__ */

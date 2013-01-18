@@ -304,7 +304,7 @@ static int prepare_pstree_ids(void)
 		if (item->sid == root_item->sid || item->sid == item->pid.virt)
 			continue;
 
-		helper = alloc_pstree_item();
+		helper = alloc_pstree_item_with_rst();
 		if (helper == NULL)
 			return -1;
 		helper->sid = item->sid;
@@ -422,7 +422,7 @@ static int prepare_pstree_ids(void)
 		if (current_pgid == item->pgid)
 			continue;
 
-		helper = alloc_pstree_item();
+		helper = alloc_pstree_item_with_rst();
 		if (helper == NULL)
 			return -1;
 		helper->sid = item->sid;
@@ -440,6 +440,27 @@ static int prepare_pstree_ids(void)
 	return 0;
 }
 
+static unsigned long get_clone_mask(TaskKobjIdsEntry *i,
+		TaskKobjIdsEntry *p)
+{
+	unsigned long mask = 0;
+
+	if (i->files_id == p->files_id)
+		mask |= CLONE_FILES;
+	if (i->pid_ns_id != p->pid_ns_id)
+		mask |= CLONE_NEWPID;
+	if (i->net_ns_id != p->net_ns_id)
+		mask |= CLONE_NEWNET;
+	if (i->ipc_ns_id != p->ipc_ns_id)
+		mask |= CLONE_NEWIPC;
+	if (i->uts_ns_id != p->uts_ns_id)
+		mask |= CLONE_NEWUTS;
+	if (i->mnt_ns_id != p->mnt_ns_id)
+		mask |= CLONE_NEWNS;
+
+	return mask;
+}
+
 static int prepare_pstree_kobj_ids(void)
 {
 	struct pstree_item *item;
@@ -447,22 +468,48 @@ static int prepare_pstree_kobj_ids(void)
 	/* Find a process with minimal pid for shared fd tables */
 	for_each_pstree_item(item) {
 		struct pstree_item *parent = item->parent;
+		TaskKobjIdsEntry *ids;
+		unsigned long cflags;
 
-		if (item->state == TASK_HELPER)
+		if (!item->ids) {
+			if (item == root_item) {
+				cflags = opts.rst_namespaces_flags;
+				goto set_mask;
+			}
+
 			continue;
+		}
 
-		if (check_ns_ids(item))
-			return -1;
+		if (parent)
+			ids = parent->ids;
+		else
+			ids = root_ids;
 
-		if (parent == NULL)
-			continue;
+		cflags = get_clone_mask(item->ids, ids);
 
-		if (shared_fdtable(item)) {
+		if (cflags & CLONE_FILES) {
 			int ret;
 
 			ret = shared_fdt_prepare(item);
 			if (ret)
 				return ret;
+		}
+
+set_mask:
+		item->rst->clone_flags = cflags;
+
+		/*
+		 * Workaround for current namespaces model --
+		 * all tasks should be in one namespace. And
+		 * this namespace is either inherited from the
+		 * crtools or is created for the init task (only)
+		 */
+		if (item == root_item) {
+			pr_info("Will restore in %lx namespaces\n", cflags);
+			current_ns_mask = cflags & CLONE_ALLNS;
+		} else if (cflags & CLONE_ALLNS) {
+			pr_err("Can't restore sub-task in NS\n");
+			return -1;
 		}
 	}
 

@@ -55,6 +55,8 @@ struct robust_list_head;
 #define CLONE_NEWNET	0x40000000
 #endif
 
+#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS)
+
 #define setns	sys_setns
 
 struct rlimit;

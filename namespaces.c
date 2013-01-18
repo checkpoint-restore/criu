@@ -260,56 +260,6 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	return 0;
 }
 
-static unsigned long get_clone_mask(TaskKobjIdsEntry *i,
-		TaskKobjIdsEntry *p)
-{
-	unsigned long mask = 0;
-
-	if (i->pid_ns_id != p->pid_ns_id)
-		mask |= CLONE_NEWPID;
-	if (i->net_ns_id != p->net_ns_id)
-		mask |= CLONE_NEWNET;
-	if (i->ipc_ns_id != p->ipc_ns_id)
-		mask |= CLONE_NEWIPC;
-	if (i->uts_ns_id != p->uts_ns_id)
-		mask |= CLONE_NEWUTS;
-	if (i->mnt_ns_id != p->mnt_ns_id)
-		mask |= CLONE_NEWNS;
-
-	return mask;
-}
-
-int check_ns_ids(struct pstree_item *item)
-{
-	struct pstree_item *p = item->parent;
-
-	if (!p) {
-		if (!root_ids) {
-			current_ns_mask = opts.rst_namespaces_flags;
-			return 0;
-		}
-
-		current_ns_mask = get_clone_mask(item->ids, root_ids);
-		pr_info("Will restore in %lx namespaces\n", current_ns_mask);
-		return 0;
-	}
-
-	if (!item->ids)
-		return 0;
-
-	while (!p->ids) {
-		p = p->parent;
-		BUG_ON(!p); /* must meet the root_item */
-	}
-
-	if (get_clone_mask(item->ids, p->ids)) {
-		pr_err("Task in sub namespace\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 int prepare_namespace(int pid, unsigned long clone_flags)
 {
 	pr_info("Restoring namespaces %d flags 0x%lx\n",

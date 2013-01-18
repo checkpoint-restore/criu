@@ -254,9 +254,11 @@ struct rst_info {
 
 	void			*premmapped_addr;
 	unsigned long		premmapped_len;
+	unsigned long		clone_flags;
 
 	int service_fd_id;
 	struct fdt		*fdt;
+
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
