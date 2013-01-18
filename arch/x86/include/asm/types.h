@@ -280,4 +280,6 @@ typedef struct {
 
 typedef UserX86RegsEntry UserRegsEntry;
 
+#define BITS_PER_ULONG 64
+
 #endif /* __CR_ASM_TYPES_H__ */
