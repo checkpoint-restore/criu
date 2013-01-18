@@ -190,7 +190,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	ret = 0;
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		unsigned long vaddr;
+		uint64_t vaddr;
 
 		if (should_dump_page(&args->vma_entry, map[pfn])) {
 			/*

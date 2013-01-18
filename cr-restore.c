@@ -278,7 +278,7 @@ static int restore_priv_vma_content(pid_t pid)
 	 * Read page contents.
 	 */
 	while (1) {
-		unsigned long va, page_offset;
+		uint64_t va, page_offset;
 		char buf[PAGE_SIZE];
 		void *p;
 
