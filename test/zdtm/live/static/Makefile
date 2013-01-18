@@ -234,6 +234,9 @@ cleandep:	clean
 cleanout:
 	$(RM) -r *.pid *.out* *.test* *.state
 
+%.cleanout: %
+	$(RM) -r $<.pid $<.out* $<.test* $<.*.test $<.state
+
 realclean:	cleandep cleanout
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
