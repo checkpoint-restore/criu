@@ -136,6 +136,7 @@ static void print_hex_l(unsigned long num)
 	hexdigit(num >> 24, &buf[11], &z);
 	hexdigit(num >> 28, &buf[10], &z);
 
+#if BITS_PER_ULONG == 64
 	hexdigit(num >> 32, &buf[9], &z);
 	hexdigit(num >> 36, &buf[8], &z);
 	hexdigit(num >> 40, &buf[7], &z);
@@ -144,6 +145,7 @@ static void print_hex_l(unsigned long num)
 	hexdigit(num >> 52, &buf[4], &z);
 	hexdigit(num >> 56, &buf[3], &z);
 	hexdigit(num >> 60, &buf[2], &z);
+#endif
 
 	z -= 2;
 	z[0] = '0';
