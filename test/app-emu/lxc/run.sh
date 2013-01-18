@@ -35,6 +35,7 @@ mkdir data
 echo "Dump the CT $name ($pid)"
 ${crtools} dump --evasive-devices						\
 		--tcp-established						\
+		--file-locks							\
 		-n net -n mnt -n ipc -n pid					\
 		--action-script "`pwd`/network-script.sh dump $pid $name"	\
 		-vvvv -D data -o dump.log -t $pid || exit 1
@@ -46,6 +47,7 @@ read
 echo "Restore the CT $name ($pid)"
 ${crtools} restore 	--evasive-devices					\
 			--tcp-established					\
+			--file-locks						\
 			-n net -n mnt -n ipc -n pid				\
 			--action-script "`pwd`/network-script.sh restore $name.0" \
 			--veth-pair eth0=$name.0				\
