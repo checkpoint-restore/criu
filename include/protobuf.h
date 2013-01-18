@@ -78,7 +78,7 @@ extern int pb_write_one(int fd, void *obj, int type);
 	(__proto_message_name ##__get_packed_size(__obj) + sizeof(u32))
 
 #define pb_repeated_size(__obj, __member)						\
-	(sizeof(*(__obj)->__member) * (__obj)->n_ ##__member)
+	((size_t)(sizeof(*(__obj)->__member) * (__obj)->n_ ##__member))
 
 #define pb_msg(__base, __type)			\
 	container_of(__base, __type, base)
