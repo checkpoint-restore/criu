@@ -7,6 +7,7 @@
 #include "util.h"
 #include "lock.h"
 #include "namespaces.h"
+#include "files.h"
 
 #include "protobuf.h"
 #include "protobuf/pstree.pb-c.h"
@@ -446,7 +447,6 @@ static int prepare_pstree_kobj_ids(void)
 	/* Find a process with minimal pid for shared fd tables */
 	for_each_pstree_item(item) {
 		struct pstree_item *parent = item->parent;
-		struct fdt *fdt;
 
 		if (item->state == TASK_HELPER)
 			continue;
@@ -457,27 +457,13 @@ static int prepare_pstree_kobj_ids(void)
 		if (parent == NULL)
 			continue;
 
-		if (!shared_fdtable(item))
-			continue;
+		if (shared_fdtable(item)) {
+			int ret;
 
-		if (!parent->rst->fdt) {
-			fdt = shmalloc(sizeof(*item->rst->fdt));
-			if (fdt == NULL)
-				return -1;
-
-			parent->rst->fdt = fdt;
-
-			futex_init(&fdt->fdt_lock);
-			fdt->nr = 1;
-			fdt->pid = parent->pid.virt;
-		} else
-			fdt = parent->rst->fdt;
-
-		item->rst->fdt = fdt;
-		item->rst->service_fd_id = fdt->nr;
-		fdt->nr++;
-		if (fdt->pid > item->pid.virt)
-			fdt->pid = item->pid.virt;
+			ret = shared_fdt_prepare(item);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;

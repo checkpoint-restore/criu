@@ -646,3 +646,30 @@ int get_filemap_fd(int pid, VmaEntry *vma_entry)
 {
 	return open_reg_by_id(vma_entry->shmid);
 }
+
+int shared_fdt_prepare(struct pstree_item *item)
+{
+	struct pstree_item *parent = item->parent;
+	struct fdt *fdt;
+
+	if (!parent->rst->fdt) {
+		fdt = shmalloc(sizeof(*item->rst->fdt));
+		if (fdt == NULL)
+			return -1;
+
+		parent->rst->fdt = fdt;
+
+		futex_init(&fdt->fdt_lock);
+		fdt->nr = 1;
+		fdt->pid = parent->pid.virt;
+	} else
+		fdt = parent->rst->fdt;
+
+	item->rst->fdt = fdt;
+	item->rst->service_fd_id = fdt->nr;
+	fdt->nr++;
+	if (fdt->pid > item->pid.virt)
+		fdt->pid = item->pid.virt;
+
+	return 0;
+}
