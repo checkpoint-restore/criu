@@ -1517,7 +1517,7 @@ static int fill_zombies_pids(struct pstree_item *item)
 	return 0;
 }
 
-static int dump_zombies()
+static int dump_zombies(void)
 {
 	struct pstree_item *item;
 	int oldfd, ret = -1;
