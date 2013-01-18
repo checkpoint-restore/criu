@@ -212,7 +212,7 @@ start_test()
 	TPID=`readlink -f $tdir`/$tname.init.pid
 
 	killall -9 $tname > /dev/null 2>&1
-	make -C $tdir cleanout
+	make -C $tdir $tname.cleanout
 
 	if [ -z "$PIDNS" ]; then
 		make -C $tdir $tname.pid
