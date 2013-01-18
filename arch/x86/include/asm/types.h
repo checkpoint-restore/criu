@@ -282,4 +282,7 @@ typedef UserX86RegsEntry UserRegsEntry;
 
 #define BITS_PER_ULONG 64
 
+static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
+static inline void *decode_pointer(uint64_t v) { return (void*)v; }
+
 #endif /* __CR_ASM_TYPES_H__ */

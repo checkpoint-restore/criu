@@ -362,7 +362,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, struct pid *tid,
 	ret = parasite_execute_by_pid(PARASITE_CMD_DUMP_THREAD, ctl, tid->real);
 
 	memcpy(&core->thread_core->blk_sigset, &args->blocked, sizeof(args->blocked));
-	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = (u64)args->tid_addr;
+	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
 	tid->virt = args->tid;
 	core_put_tls(core, args->tls);
 
@@ -389,9 +389,9 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 		if (sig == SIGSTOP || sig == SIGKILL)
 			continue;
 
-		ASSIGN_TYPED(se.sigaction, args->sas[i].rt_sa_handler);
+		ASSIGN_TYPED(se.sigaction, encode_pointer(args->sas[i].rt_sa_handler));
 		ASSIGN_TYPED(se.flags, args->sas[i].rt_sa_flags);
-		ASSIGN_TYPED(se.restorer, args->sas[i].rt_sa_restorer);
+		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
 		ASSIGN_TYPED(se.mask, args->sas[i].rt_sa_mask.sig[0]);
 
 		if (pb_write_one(fd, &se, PB_SIGACT) < 0)

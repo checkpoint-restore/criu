@@ -218,7 +218,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		    p->vma.start == vma->vma.start) {
 			pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 				vma->vma.start, vma->vma.end, vma->vma.pgoff);
-			paddr = (void *) vma_premmaped_start(&p->vma);
+			paddr = decode_pointer(vma_premmaped_start(&p->vma));
 			break;
 		}
 
@@ -310,7 +310,7 @@ static int restore_priv_vma_content(pid_t pid)
 			return -1;
 		}
 
-		p = (void *) (va - vma->vma.start +
+		p = decode_pointer(va - vma->vma.start +
 					vma_premmaped_start(&vma->vma));
 		if (memcmp(p, buf, PAGE_SIZE) == 0) {
 			nr_shared++;
@@ -325,7 +325,7 @@ static int restore_priv_vma_content(pid_t pid)
 	/* Remove pages, which were not shared with a child */
 	list_for_each_entry(vma, &rst_vma_list, list) {
 		unsigned long size, i = 0;
-		void *addr = (void *) vma_premmaped_start(&vma->vma);
+		void *addr = decode_pointer(vma_premmaped_start(&vma->vma));
 
 		if (vma->ppage_bitmap == NULL)
 			continue;
@@ -530,9 +530,9 @@ static int prepare_sigactions(int pid)
 		if (ret < 0)
 			break;
 
-		ASSIGN_TYPED(act.rt_sa_handler, e->sigaction);
+		ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
 		ASSIGN_TYPED(act.rt_sa_flags, e->flags);
-		ASSIGN_TYPED(act.rt_sa_restorer, e->restorer);
+		ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
 		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e->mask);
 
 		sa_entry__free_unpacked(e, NULL);

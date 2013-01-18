@@ -159,10 +159,10 @@ static void restore_rlims(struct task_restore_core_args *ta)
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {
-	sys_set_tid_address((int *)args->clear_tid_addr);
+	sys_set_tid_address((int *)decode_pointer(args->clear_tid_addr));
 
 	if (args->has_futex) {
-		if (sys_set_robust_list((void *)args->futex_rla, args->futex_rla_len)) {
+		if (sys_set_robust_list(decode_pointer(args->futex_rla), args->futex_rla_len)) {
 			pr_err("Robust list err\n");
 			return -1;
 		}
@@ -243,7 +243,7 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 	u64 addr;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
-		return sys_shmat(vma_entry->fd, (void *)vma_entry->start,
+		return sys_shmat(vma_entry->fd, decode_pointer(vma_entry->start),
 				 (vma_entry->prot & PROT_WRITE) ? 0 : SHM_RDONLY);
 
 	/*
@@ -267,7 +267,7 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 	 * writable since we're going to restore page
 	 * contents.
 	 */
-	addr = sys_mmap((void *)vma_entry->start,
+	addr = sys_mmap(decode_pointer(vma_entry->start),
 			vma_entry_len(vma_entry),
 			prot, flags,
 			vma_entry->fd,
@@ -523,7 +523,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (vma_entry->prot & PROT_WRITE)
 			continue;
 
-		sys_mprotect((void *)vma_entry->start,
+		sys_mprotect(decode_pointer(vma_entry->start),
 			     vma_entry_len(vma_entry),
 			     vma_entry->prot);
 	}

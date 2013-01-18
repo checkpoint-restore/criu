@@ -179,7 +179,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	if (!(args->vma_entry.prot & PROT_READ)) {
 		prot_old = (unsigned long)args->vma_entry.prot;
 		prot_new = prot_old | PROT_READ;
-		ret = sys_mprotect((void *)args->vma_entry.start,
+		ret = sys_mprotect(decode_pointer(args->vma_entry.start),
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_new);
 		if (ret) {
@@ -202,7 +202,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 			ret = sys_write_safe(fd_pages, &vaddr, sizeof(vaddr));
 			if (ret)
 				return ret;
-			ret = sys_write_safe(fd_pages, (void *)vaddr, PAGE_SIZE);
+			ret = sys_write_safe(fd_pages, decode_pointer(vaddr), PAGE_SIZE);
 			if (ret)
 				return ret;
 
@@ -215,7 +215,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 * Don't left pages readable if they were not.
 	 */
 	if (prot_old != prot_new) {
-		ret = sys_mprotect((void *)args->vma_entry.start,
+		ret = sys_mprotect(decode_pointer(args->vma_entry.start),
 				   (unsigned long)vma_entry_len(&args->vma_entry),
 				   prot_old);
 		if (ret) {
