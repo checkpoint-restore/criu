@@ -22,6 +22,9 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 #define SK_DATA_CONN		"data-packet-conn"
 #define SK_DATA_BOUND_CONN	"data-packet-bound-conn"
 
+char *filename;
+TEST_OPTION(filename, string, "socket file name", 1);
+
 int main(int argc, char *argv[])
 {
 	struct sockaddr_un name_bound;
@@ -48,7 +51,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	snprintf(path, sizeof(path), "%s/test-socket", cwd);
+	snprintf(path, sizeof(path), "%s/%s", cwd, filename);
 	unlink(path);
 
 	sk_dgram_bound_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -68,19 +71,19 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	snprintf(path, sizeof(path), "%s/test-socket-bound", cwd);
+	snprintf(path, sizeof(path), "%s/%s.bound", cwd, filename);
 	unlink(path);
 
 	name_bound.sun_family = AF_UNIX;
 	strncpy(name_bound.sun_path, path, sizeof(name_bound.sun_path));
 
-	snprintf(path, sizeof(path), "%s/test-socket-conn", cwd);
+	snprintf(path, sizeof(path), "%s/%s.conn", cwd, filename);
 	unlink(path);
 
 	name_conn.sun_family = AF_UNIX;
 	strncpy(name_conn.sun_path, path, sizeof(name_conn.sun_path));
 
-	snprintf(path, sizeof(path), "%s/test-socket-bound-conn", cwd);
+	snprintf(path, sizeof(path), "%s/%s.bound-conn", cwd, filename);
 	unlink(path);
 
 	name_bound_conn.sun_family = AF_UNIX;

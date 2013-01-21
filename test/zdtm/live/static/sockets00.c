@@ -21,6 +21,9 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 
 #define SK_DATA "packet"
 
+char *filename;
+TEST_OPTION(filename, string, "socket file name", 1);
+
 int main(int argc, char *argv[])
 {
 	int ssk_icon[4];
@@ -41,7 +44,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	snprintf(path, sizeof(path), "%s/test-socket", cwd);
+	snprintf(path, sizeof(path), "%s/%s", cwd, filename);
 	unlink(path);
 
 	addr.sun_family = AF_UNIX;

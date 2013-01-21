@@ -42,10 +42,8 @@ TST_NOFILE	=				\
 		vdso00				\
 		utsname				\
 		pstree				\
-		sockets00			\
 		sockets01			\
 		sockets_spair			\
-		sockets_dgram			\
 		socket_queues			\
 		socket_queues02			\
 		socket-tcp			\
@@ -114,6 +112,8 @@ TST_FILE	=				\
 		file_shared			\
 		cow01				\
 		fdt_shared			\
+		sockets00			\
+		sockets_dgram			\
 
 TST_DIR		=				\
 		cwd00				\
