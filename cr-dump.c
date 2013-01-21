@@ -694,36 +694,23 @@ err:
 static int get_fd_by_ino(unsigned long i_no, struct parasite_drain_fd *dfds,
 			pid_t pid)
 {
-	int  i, ret = -1;
-	char path[PATH_MAX];
-	char buf[40];
+	int  i;
+	char buf[PATH_MAX];
 	struct stat fd_stat;
 
-	i = 0;
-	while (i < dfds->nr_fds) {
+	for (i = 0; i < dfds->nr_fds; i++) {
 		snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid,
 			dfds->fds[i]);
-		buf[39] = '\0';
 
-		memset(path, 0, sizeof(path));
-		ret = readlink(buf, path, sizeof(path));
-		if (ret < 0) {
-			pr_err("Read link %s failed!\n", buf);
-			goto err;
-		}
-
-		if (stat(path, &fd_stat) == -1) {
-			i++;
-			pr_msg("Could not get %s stat!\n", path);
+		if (stat(buf, &fd_stat) == -1) {
+			pr_msg("Could not get %s stat!\n", buf);
 			continue;
 		}
 
 		if (fd_stat.st_ino == i_no)
 			return dfds->fds[i];
-		i++;
 	}
 
-err:
 	return -1;
 }
 
