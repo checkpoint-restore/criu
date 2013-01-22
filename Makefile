@@ -42,6 +42,13 @@ ifeq ($(uname_M),x86_64)
 	LDARCH       := i386:x86-64
 endif
 
+ifeq ($(findstring arm,$(uname_M)),arm)
+	ARCH         := arm
+	ARCH_DEFINES := -DCONFIG_ARM
+	LDARCH       := arm
+	CFLAGS       += -march=armv7-a
+endif
+
 SRC_DIR		?= $(shell pwd)
 ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
 
