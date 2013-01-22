@@ -86,8 +86,6 @@ typedef signed char		s8;
 #define _LINUX_CAPABILITY_VERSION_3	0x20080522
 #define _LINUX_CAPABILITY_U32S_3	2
 
-#ifdef CONFIG_X86_64
-
 typedef struct {
 	unsigned long sig[1];
 } rt_sigset_t;
@@ -178,10 +176,6 @@ typedef struct {
 	u32		xmm_space[64];	/* 16*16 bytes for each XMM-reg = 256 bytes */
 	u32		padding[24];
 } user_fpregs_struct_t;
-
-#else /* CONFIG_X86_64 */
-# error x86-32 bit mode not yet implemented
-#endif /* CONFIG_X86_64 */
 
 #define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
 #define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)

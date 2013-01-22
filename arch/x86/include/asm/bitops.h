@@ -1,8 +1,6 @@
 #ifndef __CR_BITOPS_H__
 #define __CR_BITOPS_H__
 
-#ifdef CONFIG_X86_64
-
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #define BITS_PER_LONG		(8 * sizeof(long))
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
@@ -110,9 +108,5 @@ found_middle:
 	for (i = find_next_bit(bitmask, sizeof(bitmask), 0);	\
 	     i < sizeof(bitmask);				\
 	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
-
-#else /* CONFIG_X86_64 */
-# error x86-32 is not implemented yet
-#endif /* CONFIG_X86_64 */
 
 #endif /* __CR_BITOPS_H__ */
