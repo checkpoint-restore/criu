@@ -6,7 +6,7 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <errno.h>
-#include <atomic.h>
+#include "asm/atomic.h"
 
 #define BUG_ON(condition)						\
 	do {								\

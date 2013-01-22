@@ -1,6 +1,6 @@
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
-override CPPFLAGS += -I$(LIBDIR)
+override CPPFLAGS += -I$(LIBDIR) -iquote $(LIBDIR)/arch/$(ARCH)/include
 CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 TST_NOFILE	=				\
