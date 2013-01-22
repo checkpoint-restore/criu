@@ -1,3 +1,5 @@
+// x86-specific
+
 message user_x86_regs_entry {
 	required uint64			r15		=  1;
 	required uint64			r14		=  2;
@@ -54,6 +56,54 @@ message user_x86_fpregs_entry {
 	optional user_x86_xsave_entry	xsave		= 13;
 }
 
+message thread_info_x86 {
+	required uint64			clear_tid_addr	= 1;
+	required user_x86_regs_entry	gpregs		= 2;
+	required user_x86_fpregs_entry	fpregs		= 3;
+}
+
+// --------------------------------------------------------------------------------
+
+// ARM-specific
+
+message user_arm_regs_entry {
+	required uint32 r0      = 1;
+	required uint32 r1      = 2;
+	required uint32 r2      = 3;
+	required uint32 r3      = 4;
+	required uint32 r4      = 5;
+	required uint32 r5      = 6;
+	required uint32 r6      = 7;
+	required uint32 r7      = 8;
+	required uint32 r8      = 9;
+	required uint32 r9      = 10;
+	required uint32 r10     = 11;
+	required uint32 fp      = 12;
+	required uint32 ip      = 13;
+	required uint32 sp      = 14;
+	required uint32 lr      = 15;
+	required uint32 pc      = 16;
+	required uint32 cpsr    = 17;
+	required uint32 orig_r0 = 18;
+}
+
+message user_arm_vfpstate_entry {
+	repeated uint64 vfp_regs = 1;
+	required uint32 fpscr    = 2;
+	required uint32 fpexc    = 3;
+	required uint32 fpinst   = 4;
+	required uint32 fpinst2  = 5;
+}
+
+message thread_info_arm {
+	required uint64			 clear_tid_addr	= 1;
+	required uint32                  tls            = 2;
+	required user_arm_regs_entry	 gpregs		= 3;
+	required user_arm_vfpstate_entry fpstate	= 4;
+}
+
+// --------------------------------------------------------------------------------
+
 message task_core_entry {
 	required uint32			task_state	= 1;
 	required uint32			exit_code	= 2;
@@ -78,12 +128,6 @@ message task_kobj_ids_entry {
 	optional uint32			mnt_ns_id	= 9;
 }
 
-message thread_info_x86 {
-	required uint64			clear_tid_addr	= 1;
-	required user_x86_regs_entry	gpregs		= 2;
-	required user_x86_fpregs_entry	fpregs		= 3;
-}
-
 message thread_core_entry {
 	required uint64			futex_rla	= 1;
 	required uint32			futex_rla_len	= 2;
@@ -97,10 +141,12 @@ message core_entry {
 	enum march {
 		UNKNOWN		= 0;
 		X86_64		= 1;
+		ARM             = 2;
 	}
 
 	required march			mtype		= 1;
 	optional thread_info_x86	thread_info	= 2;
+	optional thread_info_arm	ti_arm		= 6;
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
