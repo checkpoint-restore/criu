@@ -1193,8 +1193,11 @@ int dump_tty(struct fd_parms *p, int lfd, const int fdinfo)
 	return do_dump_gen_file(p, lfd, &tty_ops, fdinfo);
 }
 
-int tty_prep_fds(void)
+int tty_prep_fds(struct cr_options *opts)
 {
+	if (!opts->shell_job)
+		return 0;
+
 	if (!isatty(STDIN_FILENO)) {
 		pr_err("Standart stream is not a terminal, aborting\n");
 		return -1;

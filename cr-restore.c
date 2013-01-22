@@ -88,7 +88,7 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
-static int crtools_prepare_shared(void)
+static int crtools_prepare_shared(struct cr_options *opts)
 {
 	if (prepare_shared_fdinfo())
 		return -1;
@@ -97,7 +97,7 @@ static int crtools_prepare_shared(void)
 	if (collect_inet_sockets())
 		return -1;
 
-	if (tty_prep_fds())
+	if (tty_prep_fds(opts))
 		return -1;
 
 	return 0;
@@ -1258,7 +1258,7 @@ int cr_restore_tasks(pid_t pid, struct cr_options *opts)
 	if (prepare_pstree() < 0)
 		return -1;
 
-	if (crtools_prepare_shared() < 0)
+	if (crtools_prepare_shared(opts) < 0)
 		return -1;
 
 	return restore_root_task(root_item, opts);

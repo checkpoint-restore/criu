@@ -21,7 +21,7 @@ extern int tty_setup_slavery(void);
 
 extern int tty_verify_active_pairs(void);
 
-extern int tty_prep_fds(void);
+extern int tty_prep_fds(struct cr_options *opts);
 extern void tty_fini_fds(void);
 
 #endif /* __CR_TTY_H__ */
