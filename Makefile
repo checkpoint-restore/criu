@@ -33,7 +33,7 @@ ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 
 uname_M      := $(shell uname -m | sed -e s/i.86/i386/)
 ifeq ($(uname_M),i386)
-	ARCH         := x86
+	ARCH         := x86-32
 	DEFINES      := -DCONFIG_X86_32
 endif
 ifeq ($(uname_M),x86_64)
