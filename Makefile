@@ -54,7 +54,8 @@ ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
-CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -iquote $(ARCH_DIR)/include -fno-strict-aliasing
+CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR)
+CFLAGS		+= -iquote $(ARCH_DIR)/include -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
@@ -82,8 +83,8 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 
-export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
-
+export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
+export SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
 
 PROGRAM		:= crtools
 
