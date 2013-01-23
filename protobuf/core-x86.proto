@@ -1,0 +1,61 @@
+message user_x86_regs_entry {
+	required uint64			r15		=  1;
+	required uint64			r14		=  2;
+	required uint64			r13		=  3;
+	required uint64			r12		=  4;
+	required uint64			bp		=  5;
+	required uint64			bx		=  6;
+	required uint64			r11		=  7;
+	required uint64			r10		=  8;
+	required uint64			r9		=  9;
+	required uint64			r8		= 10;
+	required uint64			ax		= 11;
+	required uint64			cx		= 12;
+	required uint64			dx		= 13;
+	required uint64			si		= 14;
+	required uint64			di		= 15;
+	required uint64			orig_ax	 	= 16;
+	required uint64			ip	 	= 17;
+	required uint64			cs		= 18;
+	required uint64			flags		= 19;
+	required uint64			sp		= 20;
+	required uint64			ss		= 21;
+	required uint64			fs_base		= 22;
+	required uint64			gs_base		= 23;
+	required uint64			ds		= 24;
+	required uint64			es		= 25;
+	required uint64			fs		= 26;
+	required uint64			gs		= 27;
+}
+
+message user_x86_xsave_entry {
+	required uint64			xstate_bv	=  1;
+	repeated uint32			ymmh_space	=  2;
+}
+
+message user_x86_fpregs_entry {
+
+	/* fxsave data */
+	required uint32			cwd		=  1;
+	required uint32			swd		=  2;
+	required uint32			twd		=  3;
+	required uint32			fop		=  4;
+	required uint64			rip		=  5;
+	required uint64			rdp		=  6;
+	required uint32			mxcsr		=  7;
+	required uint32			mxcsr_mask	=  8;
+	repeated uint32			st_space	=  9;
+	repeated uint32			xmm_space	= 10;
+
+	/* Unused, but present for backward compatibility */
+	repeated uint32			padding		= 11;
+
+	/* xsave extension */
+	optional user_x86_xsave_entry	xsave		= 13;
+}
+
+message thread_info_x86 {
+	required uint64			clear_tid_addr	= 1;
+	required user_x86_regs_entry	gpregs		= 2;
+	required user_x86_fpregs_entry	fpregs		= 3;
+}

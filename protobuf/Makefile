@@ -1,5 +1,7 @@
 PROTO_LIBRARY	:= protobuf-lib.o
 
+PROTO_FILES	+= core-x86.proto
+PROTO_FILES	+= core-arm.proto
 PROTO_FILES	+= core.proto
 PROTO_FILES	+= inventory.proto
 PROTO_FILES	+= fdinfo.proto
