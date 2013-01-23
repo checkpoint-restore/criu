@@ -43,6 +43,7 @@ PROTO_FILES	+= file-lock.proto
 PROTO_FILES	+= rlimit.proto
 
 PROTO_DEPS	:= $(patsubst %.proto,%.proto.d,$(PROTO_FILES))
+PROTO_CDEP	:= $(patsubst %.proto,%.d,$(PROTO_FILES))
 PROTO_HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 PROTO_SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
 PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
@@ -55,6 +56,15 @@ PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 		sed -e 's/^import//' 	| \
 		sed -e 's/[\";]//g'	| \
 		sed -e 's/.*/$^:&/' 	| \
+		uniq > $@
+
+%.d: %.proto
+	$(E) "  PROTOBUF ORDS "$@
+	$(Q) grep "import" $^ | sed	  			  \
+		-e 's/^import//'	  			  \
+		-e 's/.proto/.pb-c.c/'	  			  \
+		-e 's/[\";]//g'		  			  \
+		-e 's/.*/$(subst .proto,.pb-c.c,$^):&/'		| \
 		uniq > $@
 
 %.pb-c.c %.pb-c.h: %.proto %.proto.d
@@ -81,8 +91,9 @@ protobuf: $(PROTO_LIBRARY) $(PROTO_SRCS) $(PROTO_HDRS)
 clean:
 	$(E) "  CLEAN PROTOBUF"
 	$(Q) rm -f $(PROTO_SRCS) $(PROTO_HDRS) $(PROTO_OBJS) $(PROTO_LIBRARY)
-	$(Q) rm -f $(PROTO_DEPS)
+	$(Q) rm -f $(PROTO_DEPS) $(PROTO_CDEP)
 
 ifneq ($(MAKECMDGOALS),clean)
 -include $(PROTO_DEPS)
+-include $(PROTO_CDEP)
 endif
