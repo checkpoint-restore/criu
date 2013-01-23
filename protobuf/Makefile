@@ -42,13 +42,22 @@ PROTO_FILES	+= tty.proto
 PROTO_FILES	+= file-lock.proto
 PROTO_FILES	+= rlimit.proto
 
+PROTO_DEPS	:= $(patsubst %.proto,%.proto.d,$(PROTO_FILES))
 PROTO_HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
 PROTO_SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
 PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 
 .DEFAULT_GOAL	:= protobuf
 
-%.pb-c.c %.pb-c.h: %.proto
+%.proto.d: %.proto
+	$(E) "  PROTOBUF DEPS "$@
+	$(Q) grep "import" $^ 		| \
+		sed -e 's/^import//' 	| \
+		sed -e 's/[\";]//g'	| \
+		sed -e 's/.*/$^:&/' 	| \
+		uniq > $@
+
+%.pb-c.c %.pb-c.h: %.proto %.proto.d
 	$(E) "  PROTOBUF "$@
 	$(Q) protoc-c --c_out=./ $<
 ifeq ($(ARCH),arm)
@@ -72,3 +81,8 @@ protobuf: $(PROTO_LIBRARY) $(PROTO_SRCS) $(PROTO_HDRS)
 clean:
 	$(E) "  CLEAN PROTOBUF"
 	$(Q) rm -f $(PROTO_SRCS) $(PROTO_HDRS) $(PROTO_OBJS) $(PROTO_LIBRARY)
+	$(Q) rm -f $(PROTO_DEPS)
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(PROTO_DEPS)
+endif
