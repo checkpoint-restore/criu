@@ -1,3 +1,5 @@
+include ../../Makefile.inc
+
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
