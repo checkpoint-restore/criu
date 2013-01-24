@@ -24,25 +24,31 @@ SH		:= bash
 MAKE		:= make
 OBJCOPY		:= objcopy
 
-# Additional ARCH settings for x86
-ARCH ?= $(shell echo $(uname_M) | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
-                  -e s/arm.*/arm/ -e s/sa110/arm/ \
-                  -e s/s390x/s390/ -e s/parisc64/parisc/ \
-                  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
-                  -e s/sh[234].*/sh/ )
+#
+# Fetch ARCH from the uname if not yet set
+#
+ARCH ?= $(shell uname -m | sed		\
+		-e s/i.86/i386/		\
+		-e s/sun4u/sparc64/	\
+		-e s/arm.*/arm/		\
+		-e s/sa110/arm/		\
+		-e s/s390x/s390/	\
+		-e s/parisc64/parisc/	\
+		-e s/ppc.*/powerpc/	\
+		-e s/mips.*/mips/	\
+		-e s/sh[234].*/sh/)
 
-uname_M      := $(shell uname -m | sed -e s/i.86/i386/)
-ifeq ($(uname_M),i386)
+ifeq ($(ARCH),i386)
 	ARCH         := x86-32
 	DEFINES      := -DCONFIG_X86_32
 endif
-ifeq ($(uname_M),x86_64)
+ifeq ($(ARCH),x86_64)
 	ARCH         := x86
 	DEFINES      := -DCONFIG_X86_64
 	LDARCH       := i386:x86-64
 endif
 
-ifeq ($(findstring arm,$(uname_M)),arm)
+ifeq ($(ARCH),arm)
 	ARCH         := arm
 	ARCH_DEFINES := -DCONFIG_ARM
 	LDARCH       := arm
