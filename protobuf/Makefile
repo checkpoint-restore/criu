@@ -52,10 +52,10 @@ PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
 
 %.proto.d: %.proto
 	$(E) "  PROTOBUF DEPS "$@
-	$(Q) grep "import" $^ 		| \
-		sed -e 's/^import//' 	| \
-		sed -e 's/[\";]//g'	| \
-		sed -e 's/.*/$^:&/' 	| \
+	$(Q) grep "import" $^ | sed	  			  \
+		-e 's/^import//' 				  \
+		-e 's/[\";]//g'					  \
+		-e 's/.*/$^:&/'					| \
 		uniq > $@
 
 %.d: %.proto
