@@ -1755,16 +1755,8 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (mntns_collect_root(root_item->pid.real))
 		goto err;
 
-	ret = collect_sockets(pid);
-
-	/*
-	 * If netns isn't dumped, crtools will fail only
-	 * if an unsupported socket will be really dumped.
-	 */
-	if ((current_ns_mask & CLONE_NEWNET) && ret)
+	if (collect_sockets(pid))
 		goto err;
-
-	ret = -1;
 
 	glob_fdset = cr_glob_fdset_open(O_DUMP);
 	if (!glob_fdset)

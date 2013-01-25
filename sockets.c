@@ -521,8 +521,18 @@ int collect_sockets(int pid)
 
 	close(nl);
 out:
-	if (rst >= 0 && restore_ns(rst, &net_ns_desc) < 0)
-		err = -1;
+	if (rst >= 0) {
+		if (restore_ns(rst, &net_ns_desc) < 0)
+			err = -1;
+	} else {
+		/*
+		 * If netns isn't dumped, crtools will fail only
+		 * if an unsupported socket will be really dumped.
+		 */
+		pr_info("Uncollected sockets! Will probably fail later.\n");
+		err = 0;
+	}
+
 	return err;
 }
 
