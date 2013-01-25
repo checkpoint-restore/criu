@@ -32,7 +32,7 @@ OPTIONS
                 to test whether the kernel support is up-to-date
 
 	* 'exec'
-		to execute a system call from other task's context
+		to execute a system call from other task\'s context
 
 -c::
     In case of 'show' command the dumped pages content will be shown in hex format.
@@ -107,8 +107,8 @@ OPTIONS
     words this option allows to migrate such application as 'top' and friends.
 
 -l|--file-locks::
-	Allow to dump and restore file locks. It's necessary to make sure that
-	all file lock users are taken into dump. So it's only safe to use this
+	Allow to dump and restore file locks. It\'s necessary to make sure that
+	all file lock users are taken into dump. So it\'s only safe to use this
 	for a container dump/restore.
 
 -V|--version::
@@ -120,7 +120,7 @@ OPTIONS
 SYSCALLS EXECUTION
 ------------------
 
-To run a system call from another task's context use
+To run a system call from another task\'s context use
 
     crtools exec -t <pid> <syscall-string>
 
@@ -131,11 +131,11 @@ command. The syscall string should look like
 Each command line argument is transformed into the system call argument by
 the following rules:
 
-* If one starts with '&', the rest of it gets copied to the target task's
+* If one starts with '&', the rest of it gets copied to the target task\'s
   address space and the respective syscall argument is the pointer to this
   string;
 
-* Otherwise it's treated as a number (converted with strtol) and is directly
+* Otherwise it\'s treated as a number (converted with strtol) and is directly
   passed into the system call.
 
 EXAMPLES
