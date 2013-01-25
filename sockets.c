@@ -521,7 +521,7 @@ int collect_sockets(int pid)
 
 	close(nl);
 out:
-	if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
+	if (rst >= 0 && restore_ns(rst, &net_ns_desc) < 0)
 		err = -1;
 	return err;
 }
