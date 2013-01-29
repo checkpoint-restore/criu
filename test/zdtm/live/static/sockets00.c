@@ -24,12 +24,15 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 char *filename;
 TEST_OPTION(filename, string, "socket file name", 1);
 
+#define TEST_MODE 0640
+
 int main(int argc, char *argv[])
 {
 	int ssk_icon[4];
 	struct sockaddr_un addr;
 	unsigned int addrlen;
 
+	struct stat st_b, st_a;
 	char path[PATH_MAX];
 	char buf[64];
 	char *cwd;
@@ -65,6 +68,12 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	ret = chmod(path, TEST_MODE);
+	if (ret) {
+		err("chmod");
+		exit(1);
+	}
+
 	ret = listen(ssk_icon[0], 16);
 	if (ret) {
 		fail("bind\n");
@@ -89,8 +98,26 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	ret = stat(path, &st_b);
+	if (ret) {
+		fail("stat");
+		exit(1);
+	}
+
 	test_daemon();
 	test_waitsig();
+
+	ret = stat(path, &st_a);
+	if (ret) {
+		fail("stat");
+		exit(1);
+	}
+
+	if (st_b.st_mode != st_a.st_mode) {
+		fail("The file permissions for %s were changed %o %o\n",
+					path, st_b.st_mode, st_a.st_mode);
+		exit(1);
+	}
 
 	ret = accept(ssk_icon[0], NULL, NULL);
 	if (ret < 0) {
