@@ -1,6 +1,12 @@
 import "fown.proto";
 import "sk-opts.proto";
 
+message file_perms_entry {
+	required uint32			mode		= 1;
+	required uint32			uid		= 2;
+	required uint32			gid		= 3;
+}
+
 message unix_sk_entry {
 	/*
 	 * Few words about why we need both -- id and ino.
@@ -31,4 +37,6 @@ message unix_sk_entry {
 	required bytes			name		= 11;
 
 	optional sk_shutdown		shutdown	= 12;
+
+	optional file_perms_entry	file_perms	= 13;
 }

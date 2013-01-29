@@ -37,6 +37,11 @@ struct unix_sk_desc {
 	unsigned int		nr_icons;
 	unsigned int		*icons;
 	unsigned char		shutdown;
+
+	mode_t			mode;
+	uid_t			uid;
+	gid_t			gid;
+
 	struct list_head	list;
 };
 
@@ -108,6 +113,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	struct unix_sk_desc *sk;
 	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
+	FilePermsEntry perms = FILE_PERMS_ENTRY__INIT;
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX);
 	if (!sk)
@@ -131,6 +137,14 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue.fown		= (FownEntry *)&p->fown;
 	ue.opts		= &skopts;
 	ue.uflags	= 0;
+
+	if (sk->namelen && *sk->name) {
+		ue.file_perms = &perms;
+
+		perms.mode	= sk->mode;
+		perms.uid	= sk->uid;
+		perms.gid	= sk->gid;
+	}
 
 	sk_encode_shutdown(&ue, sk->shutdown);
 
@@ -323,6 +337,10 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 				len = 0;
 				name = NULL;
 			}
+
+			d->mode = st.st_mode;
+			d->uid	= st.st_uid;
+			d->gid	= st.st_gid;
 		}
 
 		d->namelen = len;
@@ -562,6 +580,29 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 				sizeof(addr.sun_family) + ui->ue->name.len)) {
 		pr_perror("Can't bind socket");
 		return -1;
+	}
+
+	if (ui->ue->name.len && *ui->name && ui->ue->file_perms) {
+		FilePermsEntry *perms = ui->ue->file_perms;
+		char fname[PATH_MAX];
+
+		if (ui->ue->name.len >= sizeof(fname)) {
+			pr_err("The file name is too long\n");
+			return -1;
+		}
+
+		memcpy(fname, ui->name, ui->ue->name.len);
+		fname[ui->ue->name.len] = '\0';
+
+		if (chown(fname, perms->uid, perms->gid) == -1) {
+			pr_perror("Unable to change file owner and group");
+			return -1;
+		}
+
+		if (chmod(fname, perms->mode) == -1) {
+			pr_perror("Unable to change file mode bits");
+			return -1;
+		}
 	}
 
 	futex_set_and_wake(&ui->bound, 1);
