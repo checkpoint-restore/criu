@@ -777,7 +777,7 @@ out:
 
 /* All arguments should be above stack, because it grows down */
 struct cr_clone_arg {
-	char stack[PAGE_SIZE];
+	char stack[PAGE_SIZE] __attribute__((aligned (8)));
 	char stack_ptr[0];
 	struct pstree_item *item;
 	unsigned long clone_flags;
