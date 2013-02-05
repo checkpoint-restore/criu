@@ -69,16 +69,16 @@ $(LIB):	force
 	$(MAKE) -C $(LIBDIR)
 
 clean:
-	$(RM) $(OBJ) $(TST) *~
+	$(RM) -f $(OBJ) $(TST) *~
 
 cleandep:	clean
-	$(RM) $(DEP)
+	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(RM) -r $<.pid $<.out* $<.test
+	$(RM) -f -r $<.pid $<.out* $<.test
 
 cleanout:
-	$(RM) *.pid *.out* *.test*
+	$(RM) -f *.pid *.out* *.test*
 
 realclean:	cleandep cleanout
 

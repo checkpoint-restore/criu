@@ -18,10 +18,10 @@ install: all
 $(LIB):	$(LIB)(${LIBOBJ})
 
 clean:
-	$(RM) $(LIBOBJ) $(LIB) *~
+	$(RM) -f $(LIBOBJ) $(LIB) *~
 
 cleandep:
-	$(RM) $(LIBDEP)
+	$(RM) -f $(LIBDEP)
 
 realclean:	clean cleandep
 
