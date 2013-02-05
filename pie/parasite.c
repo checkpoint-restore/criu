@@ -137,6 +137,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 {
 	unsigned long nrpages, pfn, length;
 	unsigned long prot_old, prot_new;
+	bool bigmap = false;
 	u64 *map, off;
 	int ret = -1;
 
@@ -154,8 +155,19 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	 */
 	map = brk_alloc(length);
 	if (!map) {
-		ret = -ENOMEM;
-		goto err;
+		/*
+		 * Lets try allocate the bitmap inplace. If the VMA
+		 * is that big we assume the node has enough physical
+		 * memory.
+		 */
+		map = (u64 *)sys_mmap(NULL, length,
+				      PROT_READ | PROT_WRITE,
+				      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if ((long)(void *)map > TASK_SIZE) {
+			ret = -ENOMEM;
+			goto err;
+		}
+		bigmap = true;
 	}
 
 	off = pfn * sizeof(*map);
@@ -226,7 +238,10 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 
 	ret = 0;
 err_free:
-	brk_free(length);
+	if (!bigmap)
+		brk_free(length);
+	else
+		sys_munmap(map, length);
 err:
 	return ret;
 }
