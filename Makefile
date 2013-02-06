@@ -13,7 +13,7 @@ endif
 FIND		:= find
 CSCOPE		:= cscope
 TAGS		:= ctags
-RM		:= rm
+RM		:= rm -f
 LD		:= ld
 CC		:= gcc
 ECHO		:= echo
