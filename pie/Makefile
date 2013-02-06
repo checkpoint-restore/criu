@@ -14,7 +14,9 @@ ASMFLAGS	:= -D__ASSEMBLY__
 
 .DEFAULT_GOAL	:= pie
 
-LIB-OBJS	= log-simple.o blob-util-net.o $(SYSCALL-LIB)
+LIB-OBJS	:= log-simple.o blob-util-net.o
+DEPS		:= $(RESTORER-ARCH-OBJS:.o=.d) $(LIB-OBJS:.o=.d)
+LIB-OBJS	+= $(SYSCALL-LIB)
 
 $(PARASITE): $(LIB-OBJS) $(PASM-OBJS) $(PIELDS)
 $(RESTORER): $(LIB-OBJS) $(RESTORER-ARCH-OBJS) $(PIELDS)
@@ -23,6 +25,11 @@ $(PIELDS): $(PIELDS).in
 	$(E) "  GEN     " $@
 	$(Q) $(SH) -c "echo 'OUTPUT_ARCH($(LDARCH))' > $(PIELDS)"
 	$(Q) $(SH) -c "cat $(PIELDS).in >> $(PIELDS)"
+
+blob-util-net.d: $(SRC_DIR)/util-net.c
+%.d: %.c
+	$(E) "  DEP     " $@
+	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
 blob-util-net.o: $(SRC_DIR)/util-net.c
 	$(E) "  CC      " $@
@@ -49,6 +56,10 @@ blob-util-net.o: $(SRC_DIR)/util-net.c
 	$(Q) $(SH) $(GEN-OFFSETS) $(@:-blob.h=) > $@ || rm -f $@
 
 pie: $(BLOBS)
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif
 
 clean:
 	$(E) "  CLEAN PIE"
