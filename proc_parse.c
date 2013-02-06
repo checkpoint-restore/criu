@@ -1086,7 +1086,7 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 	}
 
 	if (num < 10) {
-		pr_perror("Invalid file lock info!");
+		pr_perror("Invalid file lock info: %s", buf);
 		return -1;
 	}
 
@@ -1099,7 +1099,7 @@ int parse_file_locks(void)
 
 	FILE	*fl_locks;
 	int	ret = 0;
-	bool	is_blocked = false;
+	bool	is_blocked;
 
 	fl_locks = fopen("/proc/locks", "r");
 	if (!fl_locks) {
@@ -1108,8 +1108,7 @@ int parse_file_locks(void)
 	}
 
 	while (fgets(buf, BUF_SIZE, fl_locks)) {
-		if (strstr(buf, "->"))
-			is_blocked = true;
+		is_blocked = strstr(buf, "->") != NULL;
 
 		fl = alloc_file_lock();
 		if (!fl) {
