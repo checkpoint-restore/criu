@@ -266,6 +266,13 @@ diff_fds()
 run_test()
 {
 	local test=$1
+	local linkremap=
+
+	#
+	# add option for unlinked files test
+	if [[ $1 =~ "unlink_" ]]; then
+		linkremap="--link-remap"
+	fi
 
 	[ -n "$MAINSTREAM_KERNEL" ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/} && {
 		echo "Skip $test"
@@ -312,7 +319,8 @@ EOF
 	mkdir -p $ddump
 
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS_CPT dump --file-locks --tcp-established --link-remap -x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+	setsid $CRTOOLS_CPT dump $opts --file-locks --tcp-established $linkremap \
+		-x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -321,6 +329,10 @@ EOF
 		save_fds $PID  $ddump/dump.fd.after
 		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 		killall -CONT $tname
+		if [[ $linkremap ]]; then
+			echo "remove ./$tdir/link_remap.*"
+			rm -f ./$tdir/link_remap.*
+		fi
 	else
 		# Wait while tasks are dying, otherwise PIDs would be busy.
 		for i in $ddump/core-*.img; do
