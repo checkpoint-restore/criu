@@ -15,7 +15,6 @@ CSCOPE		:= cscope
 TAGS		:= ctags
 RM		:= rm
 LD		:= ld
-HEXDUMP		:= hexdump
 CC		:= gcc
 ECHO		:= echo
 NM		:= nm
