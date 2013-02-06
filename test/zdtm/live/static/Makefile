@@ -60,6 +60,7 @@ TST_NOFILE	=				\
 		sem				\
 		maps01				\
 		maps02				\
+		maps03				\
 		xids00				\
 		groups				\
 		file_fown			\
