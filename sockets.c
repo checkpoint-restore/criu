@@ -383,7 +383,7 @@ int dump_socket(struct fd_parms *p, int lfd, const int fdinfo)
 	case AF_PACKET:
 		return dump_one_packet_sk(p, lfd, fdinfo);
 	default:
-		pr_err("BUG! Unknown socket collected\n");
+		pr_err("BUG! Unknown socket collected (family %d)\n", family);
 		break;
 	}
 
