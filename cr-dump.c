@@ -190,35 +190,6 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 	return 0;
 }
 
-static u32 make_gen_id(const struct fd_parms *p)
-{
-	return ((u32)p->stat.st_dev) ^ ((u32)p->stat.st_ino) ^ ((u32)p->pos);
-}
-
-int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, const int fdinfo)
-{
-	FdinfoEntry e = FDINFO_ENTRY__INIT;
-	int ret = -1;
-
-	e.type	= ops->type;
-	e.id	= make_gen_id(p);
-	e.fd	= p->fd;
-	e.flags = p->fd_flags;
-
-	ret = fd_id_generate(p->pid, &e);
-	if (ret == 1) /* new ID generated */
-		ret = ops->dump(lfd, e.id, p);
-
-	if (ret < 0)
-		return -1;
-
-	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8lx fd: %d\n",
-		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
-
-	return pb_write_one(fdinfo, &e, PB_FDINFO);
-}
-
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 {
 	struct fd_parms params = FD_PARMS_INIT;
