@@ -75,6 +75,9 @@ struct fdtype_ops {
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 			    const struct fdtype_ops *ops,
 			    const int fdinfo);
+struct parasite_drain_fd;
+int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
+		struct parasite_drain_fd *dfds);
 
 extern void file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);

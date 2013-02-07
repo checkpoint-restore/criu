@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include <linux/limits.h>
+#include <linux/major.h>
 
 #include <sys/types.h>
 #include <sys/prctl.h>
@@ -25,6 +26,15 @@
 #include "sockets.h"
 #include "pstree.h"
 #include "tty.h"
+#include "pipes.h"
+#include "fifo.h"
+#include "eventfd.h"
+#include "eventpoll.h"
+#include "fsnotify.h"
+#include "signalfd.h"
+
+#include "parasite.h"
+#include "parasite-syscall.h"
 
 #include "protobuf.h"
 #include "protobuf/fs.pb-c.h"
@@ -123,6 +133,165 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
 
 	return pb_write_one(fdinfo, &e, PB_FDINFO);
+}
+
+static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
+				struct fd_opts *opts, struct fd_parms *p)
+{
+	if (fstat(lfd, &p->stat) < 0) {
+		pr_perror("Can't stat fd %d\n", lfd);
+		return -1;
+	}
+
+	p->ctl		= ctl;
+	p->fd		= fd;
+	p->pos		= lseek(lfd, 0, SEEK_CUR);
+	p->flags	= fcntl(lfd, F_GETFL);
+	p->pid		= ctl->pid;
+	p->fd_flags	= opts->flags;
+
+	fown_entry__init(&p->fown);
+
+	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
+		ctl->pid, fd, p->pos, p->flags, (int)p->fd_flags);
+
+	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
+	if (p->fown.signum < 0) {
+		pr_perror("Can't get owner signum on %d\n", lfd);
+		return -1;
+	}
+
+	if (opts->fown.pid == 0)
+		return 0;
+
+	p->fown.pid	 = opts->fown.pid;
+	p->fown.pid_type = opts->fown.pid_type;
+	p->fown.uid	 = opts->fown.uid;
+	p->fown.euid	 = opts->fown.euid;
+
+	return 0;
+}
+
+static int dump_unsupp_fd(const struct fd_parms *p)
+{
+	pr_err("Can't dump file %d of that type [%#x]\n",
+			p->fd, p->stat.st_mode);
+	return -1;
+}
+
+static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
+{
+	int maj = major(p->stat.st_rdev);
+
+	switch (maj) {
+	case MEM_MAJOR:
+		return dump_reg_file(p, lfd, fdinfo);
+	case TTYAUX_MAJOR:
+	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
+	case UNIX98_PTY_SLAVE_MAJOR:
+		return dump_tty(p, lfd, fdinfo);
+	}
+
+	return dump_unsupp_fd(p);
+}
+
+#ifndef PIPEFS_MAGIC
+#define PIPEFS_MAGIC	0x50495045
+#endif
+
+static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
+		       const int fdinfo)
+{
+	struct fd_parms p;
+	struct statfs statfs;
+
+	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
+		pr_perror("Can't get stat on %d", fd);
+		return -1;
+	}
+
+	if (S_ISSOCK(p.stat.st_mode))
+		return dump_socket(&p, lfd, fdinfo);
+
+	if (S_ISCHR(p.stat.st_mode))
+		return dump_chrdev(&p, lfd, fdinfo);
+
+	if (fstatfs(lfd, &statfs)) {
+		pr_perror("Can't obtain statfs on fd %d\n", fd);
+		return -1;
+	}
+
+	if (is_anon_inode(&statfs)) {
+		if (is_eventfd_link(lfd))
+			return dump_eventfd(&p, lfd, fdinfo);
+		else if (is_eventpoll_link(lfd))
+			return dump_eventpoll(&p, lfd, fdinfo);
+		else if (is_inotify_link(lfd))
+			return dump_inotify(&p, lfd, fdinfo);
+		else if (is_fanotify_link(lfd))
+			return dump_fanotify(&p, lfd, fdinfo);
+		else if (is_signalfd_link(lfd))
+			return dump_signalfd(&p, lfd, fdinfo);
+		else
+			return dump_unsupp_fd(&p);
+	}
+
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
+		return dump_reg_file(&p, lfd, fdinfo);
+
+	if (S_ISFIFO(p.stat.st_mode)) {
+		if (statfs.f_type == PIPEFS_MAGIC)
+			return dump_pipe(&p, lfd, fdinfo);
+		else
+			return dump_fifo(&p, lfd, fdinfo);
+	}
+
+	return dump_unsupp_fd(&p);
+}
+
+int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
+		struct parasite_drain_fd *dfds)
+{
+	int *lfds, fdinfo;
+	struct fd_opts *opts;
+	int i, ret = -1;
+
+	pr_info("\n");
+	pr_info("Dumping opened files (pid: %d)\n", ctl->pid);
+	pr_info("----------------------------------------\n");
+
+	lfds = xmalloc(dfds->nr_fds * sizeof(int));
+	if (!lfds)
+		goto err;
+
+	opts = xmalloc(dfds->nr_fds * sizeof(struct fd_opts));
+	if (!opts)
+		goto err1;
+
+	ret = parasite_drain_fds_seized(ctl, dfds, lfds, opts);
+	if (ret)
+		goto err2;
+
+	fdinfo = open_image(CR_FD_FDINFO, O_DUMP, item->ids->files_id);
+	if (fdinfo < 0)
+		goto err2;
+
+	for (i = 0; i < dfds->nr_fds; i++) {
+		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, fdinfo);
+		close(lfds[i]);
+		if (ret)
+			break;
+	}
+
+	close(fdinfo);
+
+	pr_info("----------------------------------------\n");
+err2:
+	xfree(opts);
+err1:
+	xfree(lfds);
+err:
+	return ret;
 }
 
 int restore_fown(int fd, FownEntry *fown)
