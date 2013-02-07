@@ -3,8 +3,12 @@
 #include <sys/file.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "file-lock.h"
+#include "parasite.h"
+#include "parasite-syscall.h"
 
 struct list_head file_lock_list = LIST_HEAD_INIT(file_lock_list);
 
@@ -32,13 +36,128 @@ void free_file_locks(void)
 	INIT_LIST_HEAD(&file_lock_list);
 }
 
-int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset)
+static int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset)
 {
 	pr_info("flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
 		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
 
 	return pb_write_one(fdset_fd(fdset, CR_FD_FILE_LOCKS),
 			fle, PB_FILE_LOCK);
+}
+
+static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
+			const char *fl_type, const char *fl_option)
+{
+	if (!strcmp(fl_flag, "POSIX")) {
+		fle->flag |= FL_POSIX;
+	} else if (!strcmp(fl_flag, "FLOCK")) {
+		fle->flag |= FL_FLOCK;
+	} else {
+		pr_err("Unknow file lock!\n");
+		goto err;
+	}
+
+	if (!strcmp(fl_type, "MSNFS")) {
+		fle->type |= LOCK_MAND;
+
+		if (!strcmp(fl_option, "READ")) {
+			fle->type |= LOCK_READ;
+		} else if (!strcmp(fl_option, "RW")) {
+			fle->type |= LOCK_RW;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fle->type |= LOCK_WRITE;
+		} else {
+			pr_err("Unknow lock option!\n");
+			goto err;
+		}
+	} else {
+		if (!strcmp(fl_option, "UNLCK")) {
+			fle->type |= F_UNLCK;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fle->type |= F_WRLCK;
+		} else if (!strcmp(fl_option, "READ")) {
+			fle->type |= F_RDLCK;
+		} else {
+			pr_err("Unknow lock option!\n");
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	return -1;
+}
+
+static int get_fd_by_ino(unsigned long i_no, struct parasite_drain_fd *dfds,
+			pid_t pid)
+{
+	int  i;
+	char buf[PATH_MAX];
+	struct stat fd_stat;
+
+	for (i = 0; i < dfds->nr_fds; i++) {
+		snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid,
+			dfds->fds[i]);
+
+		if (stat(buf, &fd_stat) == -1) {
+			pr_msg("Could not get %s stat!\n", buf);
+			continue;
+		}
+
+		if (fd_stat.st_ino == i_no)
+			return dfds->fds[i];
+	}
+
+	return -1;
+}
+
+int dump_task_file_locks(struct parasite_ctl *ctl,
+			struct cr_fdset *fdset,	struct parasite_drain_fd *dfds)
+{
+	FileLockEntry	 fle;
+	struct file_lock *fl;
+
+	pid_t	pid = ctl->pid;
+	int	ret = 0;
+
+	list_for_each_entry(fl, &file_lock_list, list) {
+		if (fl->fl_owner != pid)
+			continue;
+		pr_info("lockinfo: %lld:%s %s %s %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			fl->fl_owner, fl->maj, fl->min, fl->i_no,
+			fl->start, fl->end);
+
+		file_lock_entry__init(&fle);
+		fle.pid = fl->fl_owner;
+
+		ret = fill_flock_entry(&fle, fl->fl_flag, fl->fl_type,
+				fl->fl_option);
+		if (ret)
+			goto err;
+
+		fle.fd = get_fd_by_ino(fl->i_no, dfds, pid);
+		if (fle.fd < 0) {
+			ret = -1;
+			goto err;
+		}
+
+		fle.start = fl->start;
+
+		if (!strncmp(fl->end, "EOF", 3))
+			fle.len = 0;
+		else
+			fle.len = (atoll(fl->end) + 1) - fl->start;
+
+		ret = dump_one_file_lock(&fle, fdset);
+		if (ret) {
+			pr_err("Dump file lock failed!\n");
+			goto err;
+		}
+	}
+
+err:
+	return ret;
 }
 
 static int restore_file_lock(FileLockEntry *fle)
