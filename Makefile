@@ -87,6 +87,8 @@ PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
 
+include scripts/Makefile.version
+
 PROGRAM		:= crtools
 
 OBJS		+= parasite-syscall.o
@@ -144,7 +146,7 @@ ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: pie
+all: pie $(VERSION_HEADER)
 	$(Q) $(MAKE) $(PROGRAM)
 
 pie: protobuf $(ARCH)
@@ -192,6 +194,7 @@ rebuild:
 
 clean:
 	$(E) "  CLEAN"
+	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) -f ./*.o
 	$(Q) $(RM) -f ./*.d
 	$(Q) $(RM) -f ./*.i

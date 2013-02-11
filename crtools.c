@@ -21,6 +21,7 @@
 #include "files.h"
 #include "sk-inet.h"
 #include "net.h"
+#include "version.h"
 
 struct cr_options opts;
 
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
 			opts.handle_file_locks = true;
 			break;
 		case 'V':
-			pr_msg("Version: %d.%d\n", CRIU_VERSION_MAJOR, CRIU_VERSION_MINOR);
+			pr_msg("Version: %s\n", version);
 			return 0;
 		case 'h':
 		default:

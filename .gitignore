@@ -17,3 +17,4 @@ include/syscall.h
 include/syscall-codes.h
 protobuf/*.c
 protobuf/*.h
+include/version.h

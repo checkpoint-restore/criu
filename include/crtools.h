@@ -14,9 +14,6 @@
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 
-#define CRIU_VERSION_MAJOR	0
-#define CRIU_VERSION_MINOR	3
-
 enum {
 	CR_FD_INVENTORY,
 	/*
