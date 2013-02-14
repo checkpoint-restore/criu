@@ -34,6 +34,10 @@ enum {
 	TCP_QUEUES_NR,
 };
 
+#ifndef TCP_TIMESTAMP
+#define TCP_TIMESTAMP	24
+#endif
+
 #ifndef TCPOPT_SACK_PERM
 #define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
 #endif
@@ -234,6 +238,7 @@ static int tcp_stream_get_options(int sk, TcpStreamEntry *tse)
 	int ret;
 	socklen_t auxl;
 	struct tcp_info ti;
+	int val;
 
 	auxl = sizeof(ti);
 	ret = getsockopt(sk, SOL_TCP, TCP_INFO, &ti, &auxl);
@@ -250,6 +255,21 @@ static int tcp_stream_get_options(int sk, TcpStreamEntry *tse)
 		tse->snd_wscale = ti.tcpi_snd_wscale;
 		tse->rcv_wscale = ti.tcpi_rcv_wscale;
 		tse->has_rcv_wscale = true;
+	}
+
+	if (ti.tcpi_options & TCPI_OPT_TIMESTAMPS) {
+		auxl = sizeof(val);
+		ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &auxl);
+		if (ret < 0) {
+			if (errno == ENOPROTOOPT)
+				pr_warn("The kernel doesn't support "
+					"the socket option TCP_TIMESTAMP\n");
+			else
+				goto err_sopt;
+		} else {
+			tse->has_timestamp = true;
+			tse->timestamp = val;
+		}
 	}
 
 	pr_info("\toptions: mss_clamp %x wscale %x tstamp %d sack %d\n",
@@ -472,6 +492,14 @@ static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
 				opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
 		pr_perror("Can't repair options");
 		return -1;
+	}
+
+	if (tse->has_timestamp) {
+		if (setsockopt(sk, SOL_TCP, TCP_TIMESTAMP,
+				&tse->timestamp, sizeof(tse->timestamp)) < 0) {
+			pr_perror("Can't set timestamp");
+			return -1;
+		}
 	}
 
 	return 0;
