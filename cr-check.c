@@ -444,7 +444,7 @@ int cr_check(void)
 	ret |= check_prctl();
 	ret |= check_fcntl();
 	ret |= check_proc_stat();
-	ret |= check_tcp_repair();
+	ret |= check_tcp();
 	ret |= check_fdinfo_ext();
 	ret |= check_unaligned_vmsplice();
 	ret |= check_tty();

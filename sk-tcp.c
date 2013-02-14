@@ -671,9 +671,11 @@ out:
 	pr_img_tail(CR_FD_TCP_STREAM);
 }
 
-int check_tcp_repair(void)
+int check_tcp(void)
 {
+	socklen_t optlen;
 	int sk, ret;
+	int val;
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
@@ -682,6 +684,15 @@ int check_tcp_repair(void)
 	}
 
 	ret = tcp_repair_on(sk);
+	if (ret)
+		goto out;
+
+	optlen = sizeof(val);
+	ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &optlen);
+	if (ret)
+		pr_perror("Can't get TCP_TIMESTAMP");
+
+out:
 	close(sk);
 
 	return ret;
