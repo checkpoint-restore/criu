@@ -71,5 +71,6 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg6);
 
 extern int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs);
+extern int task_in_compat_mode(pid_t pid);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */

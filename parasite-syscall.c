@@ -713,6 +713,11 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_lis
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
 
+	if (task_in_compat_mode(pid)) {
+		pr_err("Can't checkpoint task running in compat mode\n");
+		goto err;
+	}
+
 	/*
 	 * Control block early setup.
 	 */

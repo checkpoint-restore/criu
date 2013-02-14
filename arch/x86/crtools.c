@@ -45,6 +45,28 @@ void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
 }
 
+int task_in_compat_mode(pid_t pid)
+{
+	unsigned long cs, ds;
+
+	errno = 0;
+	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, cs), 0);
+	if (errno != 0) {
+		perror("Can't get CS register");
+		return -1;
+	}
+
+	errno = 0;
+	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, ds), 0);
+	if (errno != 0) {
+		perror("Can't get DS register");
+		return -1;
+	}
+
+	/* It's x86-32 or x32 */
+	return cs != 0x33 || ds == 0x2b;
+}
+
 int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg1,
 		unsigned long arg2,
