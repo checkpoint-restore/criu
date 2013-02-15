@@ -54,7 +54,7 @@ ifeq ($(ARCH),arm)
 	CFLAGS       += -march=armv7-a
 endif
 
-SRC_DIR		?= $(shell pwd)
+SRC_DIR		?= $(CURDIR)
 ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
