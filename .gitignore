@@ -20,3 +20,4 @@ protobuf/*.h
 include/version.h
 arch/x86/sys-exec-tbl.c
 arch/x86/syscalls.S
+pie/pie.lds.S

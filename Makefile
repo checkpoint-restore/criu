@@ -105,7 +105,6 @@ OBJS		+= cr-dump.o
 OBJS		+= cr-show.o
 OBJS		+= cr-check.o
 OBJS		+= util.o
-OBJS		+= util-net.o
 OBJS		+= sysctl.o
 OBJS		+= ptrace.o
 OBJS		+= kcmp-ids.o
@@ -162,8 +161,10 @@ arch/$(ARCH)/%:: protobuf
 arch/$(ARCH): protobuf
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) all
 
-pie: arch/$(ARCH) protobuf
-	$(Q) $(MAKE) -C pie/
+pie/%:: arch/$(ARCH)
+	$(Q) $(MAKE) $(build)=pie $@
+pie: arch/$(ARCH)
+	$(Q) $(MAKE) $(build)=pie all
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -181,7 +182,7 @@ pie: arch/$(ARCH) protobuf
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) protobuf/built-in.o $(OBJS)
+$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) pie/util-net.o protobuf/built-in.o $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
@@ -204,6 +205,7 @@ clean:
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
+	$(Q) $(MAKE) $(build)=pie clean
 	$(Q) $(RM) ./*.o
 	$(Q) $(RM) ./*.d
 	$(Q) $(RM) ./*.i
@@ -216,7 +218,6 @@ clean:
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) -r ./test/lib/
 	$(Q) $(RM) -r ./test/lib64/
-	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout

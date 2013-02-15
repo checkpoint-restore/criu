@@ -3,12 +3,13 @@
 set -e
 set -u
 
-NAME=$1
+FILE=$1
+NAME=$2
 INC_GUARD=__${NAME}_h__
 PREFIX=${NAME}_blob_offset__
 BLOB=${NAME}_blob
-OBJNAME=${NAME}.bin.o
-BINARY=${NAME}.bin
+OBJNAME=${FILE}.built-in.bin.o
+BINARY=${FILE}.built-in.bin
 
 AWK_CMD='$2 ~ /^[tT]$/ { print "#define '$PREFIX'" $3 " 0x" $1; }'
 
