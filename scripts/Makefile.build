@@ -1,0 +1,184 @@
+##
+## General helpers for simplified Makefiles.
+##
+MAKEFLAGS := -r -R --no-print-directory
+
+targets		:=
+deps		:=
+all-objs	:=
+incdeps		:=
+_all		:=
+
+include scripts/Makefile.rules
+include $(obj)/$(makefile)
+
+##
+##
+## Generate a bundle of rules for C files
+define gen-target-c-bundle
+$(eval $(call gen-rule-o-from-c-by-name,$(1),$(2)))
+$(eval $(call gen-rule-i-from-c-by-name,$(1),$(2)))
+$(eval $(call gen-rule-d-from-c-by-name,$(1),$(2)))
+$(eval $(call gen-rule-s-from-c-by-name,$(1),$(2)))
+endef
+
+##
+##
+## Generate a bundle of rules for S files
+define gen-target-S-bundle
+$(eval $(call gen-rule-o-from-S-by-name,$(1),$(2)))
+$(eval $(call gen-rule-d-from-S-by-name,$(1),$(2)))
+$(eval $(call gen-rule-i-from-S-by-name,$(1),$(2)))
+endef
+
+##
+##
+## Shared or standalone targets
+ifneq ($(obj-y),)
+obj-y := $(addprefix $(obj)/, $(obj-y))
+$(foreach file,						\
+	$(obj-y),					\
+	$(eval						\
+		$(call gen-target-c-bundle,		\
+			$(file:.o=))))
+all-objs += $(obj-y)
+deps += $(obj-y:.o=.d)
+endif
+
+ifneq ($(obj-e),)
+$(foreach file,						\
+	$(obj-e),					\
+	$(eval						\
+		$(call gen-target-c-bundle,		\
+			$(file:.o=))))
+all-objs += $(obj-e)
+deps += $(obj-e:.o=.d)
+endif
+
+ifneq ($(asm-y),)
+asm-y := $(addprefix $(obj)/, $(asm-y))
+$(foreach file,						\
+	$(asm-y),					\
+	$(eval						\
+		$(call gen-target-S-bundle,		\
+			$(file:.o=))))
+all-objs += $(asm-y)
+deps += $(asm-y:.o=.d)
+endif
+
+ifneq ($(asm-e),)
+$(foreach file,						\
+	$(asm-e),					\
+	$(eval						\
+		$(call gen-target-S-bundle,		\
+			$(file:.o=))))
+all-objs += $(asm-e)
+deps += $(asm-e:.o=.d)
+endif
+
+##
+##
+## Generate rules for a target
+define gen-target-rules
+
+$(1)-all-objs :=
+
+ifneq ($($(1)-obj-y),)
+	$(foreach file,						\
+		$($(1)-obj-y),					\
+		$(eval						\
+			$(call gen-target-c-bundle,		\
+				$(obj)/$(file:.o=),		\
+				$($(1)-obj-y-cflags))))
+	$(1)-all-objs += $$(addprefix $(obj)/, $($(1)-obj-y))
+	deps += $$(addprefix $(obj)/, $($(1)-obj-y:.o=.d))
+endif
+
+ifneq ($($(1)-obj-e),)
+	$(foreach file,						\
+		$($(1)-obj-e),					\
+		$(eval						\
+			$(call gen-target-c-bundle,		\
+				$(file:.o=),			\
+				$($(1)-obj-e-cflags))))
+	$(1)-all-objs += $$($(1)-obj-e)
+	deps += $$($(1)-obj-e:.o=.d)
+endif
+
+ifneq ($($(1)-asm-y),)
+	$(foreach file,						\
+		$($(1)-asm-y),					\
+		$(eval						\
+			$(call gen-target-S-bundle,		\
+				$(obj)/$(file:.o=),		\
+				$($(1)-asm-y-asmflags))))
+	$(1)-all-objs += $$(addprefix $(obj)/, $($(1)-asm-y))
+	deps += $$($(1)-asm-y:.o=.d)
+endif
+
+ifneq ($($(1)-asm-e),)
+	$(foreach file,						\
+		$($(1)-asm-e),					\
+		$(eval						\
+			$(call gen-target-S-bundle,		\
+				$(file:.o=),			\
+				$($(1)-asm-e-asmflags))))
+	$(1)-all-objs += $$($(1)-asm-e)
+	deps += $$($(1)-asm-e:.o=.d)
+endif
+
+$(1)-all-objs += $(all-objs)
+
+$$(obj)/$(1).built-in.o: $$($(1)-all-objs) $$($(1)-libs-e) $(libs-e)
+	$$(E) "  LINK    " $$@
+	$$(Q) $$(LD) -r -o $$@ $$^
+
+_all += $$(obj)/$(1).built-in.o
+endef
+
+##
+##
+## Walk over all targets and generate rules they require
+$(foreach target,					\
+	$(targets),					\
+	$(eval						\
+		$(call gen-target-rules,$(target))))
+
+##
+##
+## No targets -- just builtin default one
+ifeq ($(targets),)
+ifneq ($(all-objs),)
+$(obj)/built-in.o: $(all-objs) $(libs-e)
+	$(E) "  LINK    " $@
+	$(Q) $(LD) -r -o $@ $^
+
+_all += $(obj)/built-in.o
+endif
+endif
+
+##
+##
+## Include deps if requested
+ifneq ($(incdeps),)
+-include $(deps)
+endif
+
+##
+##
+## Autocomplete cleanups
+cleanup-y += $(obj)/*.o $(obj)/*.d
+cleanup-y += $(obj)/*.i $(obj)/*.s
+cleanup-y += $(obj)/*.built-in.o
+cleanup-y += $(obj)/built-in.o
+
+##
+## Predefined .PHONY targets
+.PHONY: all clean
+
+all: $(_all)
+	@echo > /dev/null
+
+clean:
+	$(E) "  CLEANUP " $(obj)
+	$(Q) $(RM) $(cleanup-y)
