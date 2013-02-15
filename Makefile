@@ -81,13 +81,18 @@ else
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
-SYSCALL-LIB	= $(SRC_DIR)/arch/$(ARCH)/syscalls.o
 PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
+SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
+ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
 
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
-export SRC_DIR SYSCALL-LIB SH ARCH_DIR OBJCOPY LDARCH
+export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 
 include scripts/Makefile.version
+include scripts/Makefile.rules
+#
+# shorthand
+build := -s -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile obj
 
 PROGRAM		:= crtools
 
@@ -135,12 +140,11 @@ OBJS		+= tty.o
 OBJS		+= cr-exec.o
 OBJS		+= cpu.o
 OBJS		+= file-lock.o
-OBJS		+= $(ARCH_DIR)/crtools.o
 
 DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf $(ARCH)
+	docs help pie protobuf arch/$(ARCH)
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
@@ -149,14 +153,16 @@ endif
 all: pie $(VERSION_HEADER)
 	$(Q) $(MAKE) $(PROGRAM)
 
-pie: protobuf $(ARCH)
+arch/$(ARCH)/%:: protobuf
+	$(Q) $(MAKE) $(build)=arch/$(ARCH) $@
+arch/$(ARCH): protobuf
+	$(Q) $(MAKE) $(build)=arch/$(ARCH) all
+
+pie: arch/$(ARCH) protobuf
 	$(Q) $(MAKE) -C pie/
 
 protobuf:
 	$(Q) $(MAKE) -C protobuf/
-
-$(ARCH):
-	$(Q) $(MAKE) -C arch/$(ARCH)/
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -174,7 +180,7 @@ $(ARCH):
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) $(SYSCALL-LIB) $(PROTOBUF-LIB)
+$(PROGRAM): $(OBJS) $(SYSCALL-LIB) $(ARCH-LIB) $(PROTOBUF-LIB)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
@@ -195,6 +201,7 @@ rebuild:
 clean:
 	$(E) "  CLEAN"
 	$(Q) $(RM) $(VERSION_HEADER)
+	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
 	$(Q) $(RM) ./*.o
 	$(Q) $(RM) ./*.d
 	$(Q) $(RM) ./*.i
@@ -208,7 +215,6 @@ clean:
 	$(Q) $(RM) -r ./test/lib/
 	$(Q) $(RM) -r ./test/lib64/
 	$(Q) $(MAKE) -C protobuf/ clean
-	$(Q) $(MAKE) -C arch/$(ARCH)/ clean
 	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean

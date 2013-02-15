@@ -16,7 +16,6 @@ ASMFLAGS	:= -D__ASSEMBLY__
 
 LIB-OBJS	:= log-simple.o blob-util-net.o
 DEPS		:= $(RESTORER-ARCH-OBJS:.o=.d) $(LIB-OBJS:.o=.d)
-LIB-OBJS	+= $(SYSCALL-LIB)
 
 $(PARASITE): $(LIB-OBJS) $(PASM-OBJS) $(PIELDS)
 $(RESTORER): $(LIB-OBJS) $(RESTORER-ARCH-OBJS) $(PIELDS)
@@ -45,7 +44,7 @@ blob-util-net.o: $(SRC_DIR)/util-net.c
 
 %.bin.o: %.o
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(PIELDS) -o $@ $(^:$(PIELDS)=)
+	$(Q) $(LD) -T $(PIELDS) -o $@ $(^:$(PIELDS)=) ../$(SYSCALL-LIB)
 
 %.bin: %.bin.o
 	$(E) "  GEN     " $@

@@ -1,52 +1,52 @@
-SYS-DEF		:= $(ARCH_DIR)/syscall-x86-64.def
-SYS-ASM-COMMON	:= syscall-common-x86-64.S
-SYS-TYPES	:= $(SRC_DIR)/include/syscall-types.h
-
-SYS-CODES	:= $(SRC_DIR)/include/syscall-codes.h
-SYS-PROTO	:= $(SRC_DIR)/include/syscall.h
+targets		+= syscalls
+targets		+= crtools
 
 SYS-ASM		:= syscalls.S
-SYS-GEN		:= syscalls-x86-64.sh
 
-SYS-OBJ		:= syscalls.o
+syscalls-asm-y	+= $(SYS-ASM:.S=).o
+crtools-obj-y	+= crtools.o
+
+SYS-DEF		:= syscall-x86-64.def
+SYS-ASM-COMMON	:= syscall-common-x86-64.S
+
+SYS-TYPES	:= include/syscall-types.h
+SYS-CODES	:= include/syscall-codes.h
+SYS-PROTO	:= include/syscall.h
+
+SYS-GEN		:= syscalls-x86-64.sh
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
-CFLAGS		+= -c -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer -I$(shell pwd)
+CFLAGS		+= -fpie -Wstrict-prototypes -Wa,--noexecstack
+CFLAGS		+= -nostdlib -fomit-frame-pointer -I$(obj)
+ASMFLAGS	+= -D__ASSEMBLY__
 
-.DEFAULT_GOAL	:= x86
-
-$(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
+$(obj)/$(SYS-ASM): $(obj)/$(SYS-GEN) $(obj)/$(SYS-DEF) $(obj)/$(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
-	$(Q) $(SH)			\
-		$(SYS-GEN) --asm	\
-		$(SYS-DEF)		\
-		$(SYS-CODES)		\
-		$(SYS-PROTO)		\
-		$(SYS-ASM)		\
-		$(SYS-ASM-COMMON)	\
+	$(Q) $(SH)				\
+		$(obj)/$(SYS-GEN) --asm		\
+		$(obj)/$(SYS-DEF)		\
+		$(SYS-CODES)			\
+		$(SYS-PROTO)			\
+		$(obj)/$(SYS-ASM)		\
+		$(SYS-ASM-COMMON)		\
 		$(SYS-TYPES)
 
-$(SYS-EXEC-TBL): $(SYS-GEN) $(SYS-DEF)
+$(obj)/syscalls.o: $(obj)/$(SYS-ASM)
+
+$(obj)/$(SYS-EXEC-TBL): $(obj)/$(SYS-GEN) $(obj)/$(SYS-DEF)
 	$(E) "  GEN     " $@
-	$(Q) $(SH)			\
-		$(SYS-GEN) --exec	\
-		$(SYS-DEF)		\
-		$(SYS-EXEC-TBL)
+	$(Q) $(SH)				\
+		$(obj)/$(SYS-GEN) --exec	\
+		$(obj)/$(SYS-DEF)		\
+		$(obj)/$(SYS-EXEC-TBL)
 
-%.o: %.S
-	$(E) "  CC      " $@
-	$(Q) $(CC) $(CFLAGS)  $^ -o $@
+_all += $(obj)/$(SYS-EXEC-TBL)
 
-x86: $(SYS-OBJ) $(SYS-EXEC-TBL)
+cleanup-y += $(obj)/$(SYS-EXEC-TBL) $(obj)/$(SYS-ASM)
+cleanup-y += $(SYS-CODES)
+cleanup-y += $(SYS-PROTO)
 
-clean:
-	$(E) "  CLEAN SYSCALLS"
-	$(Q) $(RM) -f $(SYS-ASM)
-	$(Q) $(RM) -f $(SYS-CODES)
-	$(Q) $(RM) -f $(SYS-PROTO)
-	$(Q) $(RM) -f $(SYS-OBJ)
-	$(Q) $(RM) -f $(SYS-EXEC-TBL)
-	$(Q) $(RM) -f *.o *.d
-
-.PHONY: clean x86
+ifneq ($(MAKECMDGOALS),clean)
+incdeps := y
+endif

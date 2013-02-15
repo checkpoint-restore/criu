@@ -1,57 +1,57 @@
-SYS-DEF		:= $(ARCH_DIR)/syscall.def
-SYS-ASM-COMMON	:= syscall-common.S
-SYS-TYPES	:= $(SRC_DIR)/include/syscall-types.h
-
-SYS-CODES	:= $(SRC_DIR)/include/syscall-codes.h
-SYS-PROTO	:= $(SRC_DIR)/include/syscall.h
+targets		+= syscalls
+targets		+= crtools
 
 SYS-ASM		:= syscalls.S
-SYS-GEN		:= $(ARCH_DIR)/gen-syscalls.pl
-SYS-GEN-TBL	:= $(ARCH_DIR)/gen-sys-exec-tbl.pl
 
-SYS-OBJ		:= syscalls.o
+syscalls-asm-y	+= $(SYS-ASM:.S=).o
+crtools-obj-y	+= crtools.o
+
+SYS-DEF		:= syscall.def
+SYS-ASM-COMMON	:= syscall-common.S
+SYS-TYPES	:= include/syscall-types.h
+
+SYS-CODES	:= include/syscall-codes.h
+SYS-PROTO	:= include/syscall.h
+
+SYS-GEN		:= gen-syscalls.pl
+SYS-GEN-TBL	:= gen-sys-exec-tbl.pl
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
-CFLAGS		+= -c -fpie -Wstrict-prototypes -Wa,--noexecstack -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer -I$(shell pwd)
+CFLAGS		+= -fpie -Wstrict-prototypes -Wa,--noexecstack
+CFLAGS		+= -nostdlib -fomit-frame-pointer -I$(obj)
+ASMFLAGS	+= -D__ASSEMBLY__
 
 ARCH_BITS	:= 32
 
-.DEFAULT_GOAL	:= arm
-
-$(SYS-ASM): $(SYS-GEN) $(SYS-DEF) $(SYS-ASM-COMMON) $(SYS-TYPES)
+$(obj)/$(SYS-ASM): $(obj)/$(SYS-GEN) $(obj)/$(SYS-DEF) $(obj)/$(SYS-ASM-COMMON) $(SYS-TYPES)
 	$(E) "  GEN     " $@
 	$(Q) perl			\
-		$(SYS-GEN)		\
-		$(SYS-DEF)		\
+		$(obj)/$(SYS-GEN)	\
+		$(obj)/$(SYS-DEF)	\
 		$(SYS-CODES)		\
 		$(SYS-PROTO)		\
-		$(SYS-ASM)		\
+		$(obj)/$(SYS-ASM)	\
 		$(SYS-ASM-COMMON)	\
 		$(SYS-TYPES)		\
 		$(ARCH_BITS)
 
+$(obj)/syscalls.o: $(obj)/$(SYS-ASM)
+
 $(SYS-EXEC-TBL): $(SYS-GEN-TBL) $(SYS-DEF)
 	$(E) "  GEN     " $@
 	$(Q) perl			\
-		$(SYS-GEN-TBL)		\
-		$(SYS-DEF)		\
-		$(SYS-EXEC-TBL)		\
+		$(obj)/$(SYS-GEN-TBL)	\
+		$(obj)/$(SYS-DEF)	\
+		$(obj)/$(SYS-EXEC-TBL)	\
 		$(ARCH_BITS)
 
-%.o: %.S
-	$(E) "  CC      " $@
-	$(Q) $(CC) $(CFLAGS)  $^ -o $@
+_all += $(obj)/$(SYS-EXEC-TBL)
 
-arm: $(SYS-OBJ) $(SYS-EXEC-TBL)
+cleanup-y += $(obj)/$(SYS-EXEC-TBL) $(obj)/$(SYS-ASM)
+cleanup-y += $(SYS-CODES)
+cleanup-y += $(SYS-PROTO)
 
-clean:
-	$(E) "  CLEAN SYSCALLS"
-	$(Q) $(RM) -f $(SYS-ASM)
-	$(Q) $(RM) -f $(SYS-CODES)
-	$(Q) $(RM) -f $(SYS-PROTO)
-	$(Q) $(RM) -f $(SYS-OBJ)
-	$(Q) $(RM) -f $(SYS-EXEC-TBL)
-	$(Q) $(RM) -f *.o *.d
-
-.PHONY: clean arm
+ifneq ($(MAKECMDGOALS),clean)
+incdeps := y
+endif
