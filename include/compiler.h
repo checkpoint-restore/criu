@@ -13,7 +13,7 @@
 #define __stringify_1(x...)	#x
 #define __stringify(x...)	__stringify_1(x)
 
-#define NORETURN 		__attribute__((__noreturn__))
+#define NORETURN		__attribute__((__noreturn__))
 #define __packed		__attribute__((__packed__))
 #define __used			__attribute__((__used__))
 #define __maybe_unused		__attribute__((unused))
@@ -25,8 +25,8 @@
 # define __always_inline	inline __attribute__((always_inline))
 #endif
 
-#define likely(x)	__builtin_expect(!!(x), 1)
-#define unlikely(x)	__builtin_expect(!!(x), 0)
+#define likely(x)		__builtin_expect(!!(x), 1)
+#define unlikely(x)		__builtin_expect(!!(x), 0)
 
 #ifndef always_inline
 # define always_inline		__always_inline
