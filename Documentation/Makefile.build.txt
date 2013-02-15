@@ -1,0 +1,182 @@
+Makefile.build(1)
+=================
+:doctype:       manpage
+:man source:    CRtools
+:man version:   0.0.2
+:man manual:    CRtools Manual
+
+NAME
+----
+Makefile.build - a bunch of helpers for simplified Makefiles
+
+
+SYNOPSIS
+--------
+'make' -f scripts/Makefile.build obj=<dir>
+
+
+DESCRIPTION
+-----------
+
+This is main build helpers script we use. Basically the idea is to minimize hand
+work and describe Makefiles with somewhat simplified grammar.
+
+The script may work in two modes
+
+	- *Default mode*
+
+	- *Target mode*
+
+Following keywords are reserved and must not be used for anything else --
+'targets', 'deps', 'all-obj', 'incdeps', 'obj-y', 'obj-e', 'asm-y', 'asm-e',
+'file', 'libs-e', '<x>-obj-y', '<x>-obj-e', '<x>-asm-y', '<x>-asm-e',
+'<x>-obj-y-cflags', '<x>-obj-e-cflags', '<x>-asm-y-asmflags', '<x>-asm-e-asmflags',
+'<x>-libs-e'. Where '<x>' is a prefix of the target, will be explained below.
+That said, do not use such names for other purposes as stated here.
+
+OBJ=
+----
+
+Parameter *obj=* states for passing directory where simplified Makefile lays in.
+Note the directory name must not end up with a slash, it is mandatory.
+
+In your simplifiled Makefile you still can refer to it as '$(obj)' variable. If
+you need an ending slash, just type it explicitly as '$(obj)/'.
+
+DEFAULT MODE
+------------
+
+In *default* mode the script builds '$(obj)/built-in.o' relocatable file. To use
+*default* mode do not ever mention '<x>-' and 'targets' variables in a Makefile.
+This done for simplicity, otherwise more complex logic will be needed in the
+script which slows down built procedure.
+
+Thus in *default* mode the following variables may and should be referred
+
+obj-y::
+	Source code C file. Typically refered as *obj-y += 'some-file.o'*.
+	This implies you have real 'some-file.c' in '$(obj)' directory.
+
+obj-e::
+	Same as 'obj-y' but implies that source code file lays in directory
+	other than '$(obj)'. The postfix '-e' came from word 'external'.
+
+asm-y::
+	Source code S file. Same as 'obj-y' but for assembly language.
+
+asm-e::
+	Same as 'obj-e' but for assembly language.
+
+lib-e::
+	Some extarnal library the 'built-in.o' should link with.
+
+incdeps::
+	A flag which tells the script to generate dependency (that named '*.d'
+	files)	for source code C files. To turn this functionality on just
+	type 'incdeps := y' somewhere in your Makefile.
+
+For example a simplified Makefile may look like
+
+	obj-y += file1.o
+	obj-y += file2.o
+	obj-y += file3.o
+
+	ifneq ($(MAKECMDGOALS),clean)
+	incdeps := y
+	endif
+
+TARGET MODE
+-----------
+
+In *target* mode the script builds all targets declared in a Makefile. Thus the
+final built relocatable files will have a name as '<x>.built-in.o', where '<x>'
+is a name of a target (I will continue using '<x>' to refer the target name).
+The following variables may be used for *target* mode.
+
+targets::
+	This one defines a target name to built.
+
+<x>-obj-y::
+	Same as 'obj-y' but per target.
+
+<x>-obj-y-cflags::
+	Additional compiler flags for this target and object files
+	in '<x>-obj-y'.
+
+<x>-obj-e::
+	Same as 'obj-e' but per target.
+
+<x>-obj-e-cflags::
+	Additional compiler flags for this target and object files
+	in '<x>-obj-e'.
+
+<x>-asm-y::
+	Same as 'asm-y' but per target.
+
+<x>-asm-y-asmflags::
+	Additional compiler flags for this target and object files
+	in '<x>-asm-y'.
+
+<x>-asm-e::
+	Same as 'asm-e' but per target.
+
+<x>-asm-e-asmflags::
+	Additional compiler flags for this target and object files
+	in '<x>-asm-e'.
+
+<x>-libs-e::
+	Same as 'libs-e' but per-target.
+
+There might be a situation where we have several targets and each of them need
+some object file to be linked in. In this case we need to use variables from
+*default* mode. Better to explain with example.
+
+Lets say we need to built two targets 'one' and 'two' (thus 'one.built-in.o' and
+'two.built-in.o' relocatable files will be generated). For 'one' we need to use
+files 'a.o', 'b.o', and for 'two' we need to use 'c.o' and 'd.o'. But both
+targets need functionality from file 'e.o'. To force the script share the 'e.o'
+we describe it as plain 'obj-y'.
+
+	targets += one
+	targets += two
+
+	one-obj-y += a.o
+	one-obj-y += b.o
+
+	two-obj-y += c.o
+	two-obj-y += d.o
+
+	obj-y += e.o
+
+The script will compile all files and link 'one.built-in.o' from files 'one-obj-y'
+plus 'obj-y'. The same applies to the target 'two' ('obj-y' file will be linked
+in as well).
+
+Thus if you refer variables from *default* mode but have 'targets' defined, the
+script will treat such variables as a sign to share the productions at moment
+when targets get linked.
+
+INVISIBLE RULES
+---------------
+
+If the script is used for build procedure then a couple of additional rules are
+generated on the fly. Better to explain with example again.
+
+Lets say we have a Makefile with the following contents
+
+	obj-y += file.o
+
+where $(obj) is a directory named 'dir'. So once we use the script we can
+generate the following files.
+
+make dir/file.o::
+	To compile the file.
+
+make dir/file.s::
+	To generate assembly file from C file.
+
+make dir/file.d::
+	To generate dependency file.
+
+make dir/file.i::
+	To generate C file with preprocessor only.
