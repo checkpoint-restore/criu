@@ -81,7 +81,6 @@ else
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
-PROTOBUF-LIB	= $(SRC_DIR)/protobuf/protobuf-lib.o
 SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
 ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
 
@@ -153,6 +152,11 @@ endif
 all: pie $(VERSION_HEADER)
 	$(Q) $(MAKE) $(PROGRAM)
 
+protobuf/%::
+	$(Q) $(MAKE) $(build)=protobuf $@
+protobuf:
+	$(Q) $(MAKE) $(build)=protobuf all
+
 arch/$(ARCH)/%:: protobuf
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) $@
 arch/$(ARCH): protobuf
@@ -160,9 +164,6 @@ arch/$(ARCH): protobuf
 
 pie: arch/$(ARCH) protobuf
 	$(Q) $(MAKE) -C pie/
-
-protobuf:
-	$(Q) $(MAKE) -C protobuf/
 
 %.o: %.c
 	$(E) "  CC      " $@
@@ -180,7 +181,7 @@ protobuf:
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROGRAM): $(OBJS) $(SYSCALL-LIB) $(ARCH-LIB) $(PROTOBUF-LIB)
+$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) protobuf/built-in.o $(OBJS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
@@ -202,6 +203,7 @@ clean:
 	$(E) "  CLEAN"
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
+	$(Q) $(MAKE) $(build)=protobuf clean
 	$(Q) $(RM) ./*.o
 	$(Q) $(RM) ./*.d
 	$(Q) $(RM) ./*.i
@@ -214,7 +216,6 @@ clean:
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) -r ./test/lib/
 	$(Q) $(RM) -r ./test/lib64/
-	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C pie/ clean
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean

@@ -1,99 +1,107 @@
-PROTO_LIBRARY	:= protobuf-lib.o
+##
+##
+## Unfortunately protobuf-c compiler is extremely dumb
+## one, and I'm that ->.<- close to rewrite it on plain
+## C language.
+##
+## Meanwhile, we need to carry own rules instead of reusing
+## our build farm.
 
-PROTO_FILES	+= core-x86.proto
-PROTO_FILES	+= core-arm.proto
-PROTO_FILES	+= core.proto
-PROTO_FILES	+= inventory.proto
-PROTO_FILES	+= fdinfo.proto
-PROTO_FILES	+= fown.proto
-PROTO_FILES	+= regfile.proto
-PROTO_FILES	+= ghost-file.proto
-PROTO_FILES	+= fifo.proto
-PROTO_FILES	+= remap-file-path.proto
-PROTO_FILES	+= eventfd.proto
-PROTO_FILES	+= eventpoll.proto
-PROTO_FILES	+= fh.proto
-PROTO_FILES	+= fsnotify.proto
-PROTO_FILES	+= signalfd.proto
-PROTO_FILES	+= fs.proto
-PROTO_FILES	+= pstree.proto
-PROTO_FILES	+= pipe.proto
-PROTO_FILES	+= tcp-stream.proto
-PROTO_FILES	+= sk-packet.proto
-PROTO_FILES	+= mnt.proto
-PROTO_FILES	+= pipe-data.proto
-PROTO_FILES	+= sa.proto
-PROTO_FILES	+= itimer.proto
-PROTO_FILES	+= mm.proto
-PROTO_FILES	+= sk-opts.proto
-PROTO_FILES	+= sk-unix.proto
-PROTO_FILES	+= sk-inet.proto
-PROTO_FILES	+= packet-sock.proto
-PROTO_FILES	+= ipc-var.proto
-PROTO_FILES	+= ipc-desc.proto
-PROTO_FILES	+= ipc-shm.proto
-PROTO_FILES	+= ipc-msg.proto
-PROTO_FILES	+= ipc-sem.proto
-PROTO_FILES	+= utsns.proto
-PROTO_FILES	+= creds.proto
-PROTO_FILES	+= vma.proto
-PROTO_FILES	+= netdev.proto
-PROTO_FILES	+= tty.proto
-PROTO_FILES	+= file-lock.proto
-PROTO_FILES	+= rlimit.proto
+CFLAGS		+= -I$(obj)/
 
-PROTO_DEPS	:= $(patsubst %.proto,%.proto.d,$(PROTO_FILES))
-PROTO_CDEP	:= $(patsubst %.proto,%.d,$(PROTO_FILES))
-PROTO_HDRS	:= $(patsubst %.proto,%.pb-c.h,$(PROTO_FILES))
-PROTO_SRCS	:= $(patsubst %.proto,%.pb-c.c,$(PROTO_FILES))
-PROTO_OBJS	:= $(patsubst %.c,%.o,$(PROTO_SRCS))
+proto-obj-y	+= core.o
+proto-obj-y	+= core-x86.o
+proto-obj-y	+= core-arm.o
+proto-obj-y	+= inventory.o
+proto-obj-y	+= fdinfo.o
+proto-obj-y	+= fown.o
+proto-obj-y	+= regfile.o
+proto-obj-y	+= ghost-file.o
+proto-obj-y	+= fifo.o
+proto-obj-y	+= remap-file-path.o
+proto-obj-y	+= eventfd.o
+proto-obj-y	+= eventpoll.o
+proto-obj-y	+= fh.o
+proto-obj-y	+= fsnotify.o
+proto-obj-y	+= signalfd.o
+proto-obj-y	+= fs.o
+proto-obj-y	+= pstree.o
+proto-obj-y	+= pipe.o
+proto-obj-y	+= tcp-stream.o
+proto-obj-y	+= sk-packet.o
+proto-obj-y	+= mnt.o
+proto-obj-y	+= pipe-data.o
+proto-obj-y	+= sa.o
+proto-obj-y	+= itimer.o
+proto-obj-y	+= mm.o
+proto-obj-y	+= sk-opts.o
+proto-obj-y	+= sk-unix.o
+proto-obj-y	+= sk-inet.o
+proto-obj-y	+= packet-sock.o
+proto-obj-y	+= ipc-var.o
+proto-obj-y	+= ipc-desc.o
+proto-obj-y	+= ipc-shm.o
+proto-obj-y	+= ipc-msg.o
+proto-obj-y	+= ipc-sem.o
+proto-obj-y	+= utsns.o
+proto-obj-y	+= creds.o
+proto-obj-y	+= vma.o
+proto-obj-y	+= netdev.o
+proto-obj-y	+= tty.o
+proto-obj-y	+= file-lock.o
+proto-obj-y	+= rlimit.o
 
-.DEFAULT_GOAL	:= protobuf
+proto		:= $(proto-obj-y:.o=)
+proto-c		:= $(proto-obj-y:.o=.pb-c.c)
+proto-h		:= $(proto-obj-y:.o=.pb-c.h)
 
-%.proto.d: %.proto
-	$(E) "  PROTOBUF DEPS "$@
-	$(Q) grep "import" $^ | sed	  			  \
-		-e 's/^import//' 				  \
-		-e 's/[\";]//g'					  \
-		-e 's/.*/$^:&/'					| \
+.SECONDARY:
+
+$(obj)/%.proto.d: $(obj)/%.proto
+	$(E) "  PB DDEP " $@
+	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $^ | sed	  		  \
+		-e 's/[[:blank:]]*import[[:blank:]]*//' 			  \
+		-e 's/[\";]//g'							  \
+		-e 's/.*/$(subst /,\/,$^):$(obj)\/&/'				| \
 		uniq > $@
 
-%.d: %.proto
-	$(E) "  PROTOBUF ORDS "$@
-	$(Q) grep "import" $^ | sed	  			  \
-		-e 's/^import//'	  			  \
-		-e 's/.proto/.pb-c.c/'	  			  \
-		-e 's/[\";]//g'		  			  \
-		-e 's/.*/$(subst .proto,.pb-c.c,$^):&/'		| \
+$(obj)/%.proto.c.d: $(obj)/%.proto | $(obj)/%.proto.d
+	$(E) "  PB DEP  " $@
+	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $< | sed	  		  \
+		-e 's/[[:blank:]]*import[[:blank:]]*//' 			  \
+		-e 's/.proto/.pb-c.c/'	  					  \
+		-e 's/[\";]//g'		  					  \
+		-e 's/.*/$(subst .proto,.pb-c.c,$(subst /,\/,$<)):$(obj)\/&/'	| \
 		uniq > $@
 
-%.pb-c.c %.pb-c.h: %.proto %.proto.d
-	$(E) "  PROTOBUF "$@
-	$(Q) protoc-c --c_out=./ $<
+$(obj)/%.pb-c.c $(obj)/%.pb-c.h: $(obj)/%.proto $(obj)/%.proto.c.d
+	$(E) "  PBCC    " $@
+	$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $<
 ifeq ($(ARCH),arm)
 	$(Q) sed -i 's/4294967295/0xFFFFFFFF/g' $@ $(patsubst %c,%h,$@)
 endif
 
-%.o: %.c %.h
-	$(E) "  CC       "$@
+$(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-.SECONDARY:
+$(obj)/%.d: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+	$(E) "  DEP     " $@
+	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(PROTO_LIBRARY): $(PROTO_OBJS)
-	$(E) "  LINK     "$@
-	$(Q) $(LD) -r -o $@ $(PROTO_OBJS)
+$(obj)/%.i: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+	$(E) "  CC      " $@
+	$(Q) $(CC) -E $(CFLAGS) $< -o $@
 
-.PHONY: protobuf
+$(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
+	$(E) "  LINK    " $@
+	$(Q) $(LD) -r -o $@ $^
 
-protobuf: $(PROTO_LIBRARY) $(PROTO_SRCS) $(PROTO_HDRS)
-
-clean:
-	$(E) "  CLEAN PROTOBUF"
-	$(Q) rm -f $(PROTO_SRCS) $(PROTO_HDRS) $(PROTO_OBJS) $(PROTO_LIBRARY)
-	$(Q) rm -f $(PROTO_DEPS) $(PROTO_CDEP)
+_all += $(obj)/built-in.o
 
 ifneq ($(MAKECMDGOALS),clean)
--include $(PROTO_DEPS)
--include $(PROTO_CDEP)
+-include $(addprefix $(obj)/,$(obj-y:.o=.proto.d))
+-include $(addprefix $(obj)/,$(obj-y:.o=.proto.c.d))
 endif
+
+cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
