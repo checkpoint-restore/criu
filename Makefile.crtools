@@ -1,0 +1,47 @@
+obj-y	+= parasite-syscall.o
+obj-y	+= cr-restore.o
+obj-y	+= crtools.o
+obj-y	+= image.o
+obj-y	+= net.o
+obj-y	+= proc_parse.o
+obj-y	+= cr-dump.o
+obj-y	+= cr-show.o
+obj-y	+= cr-check.o
+obj-y	+= util.o
+obj-y	+= sysctl.o
+obj-y	+= ptrace.o
+obj-y	+= kcmp-ids.o
+obj-y	+= rbtree.o
+obj-y	+= log.o
+obj-y	+= libnetlink.o
+obj-y	+= sockets.o
+obj-y	+= sk-inet.o
+obj-y	+= sk-tcp.o
+obj-y	+= sk-unix.o
+obj-y	+= sk-packet.o
+obj-y	+= sk-queue.o
+obj-y	+= files.o
+obj-y	+= files-reg.o
+obj-y	+= pipes.o
+obj-y	+= fifo.o
+obj-y	+= file-ids.o
+obj-y	+= namespaces.o
+obj-y	+= uts_ns.o
+obj-y	+= ipc_ns.o
+obj-y	+= netfilter.o
+obj-y	+= shmem.o
+obj-y	+= eventfd.o
+obj-y	+= eventpoll.o
+obj-y	+= mount.o
+obj-y	+= fsnotify.o
+obj-y	+= signalfd.o
+obj-y	+= pstree.o
+obj-y	+= protobuf.o
+obj-y	+= tty.o
+obj-y	+= cr-exec.o
+obj-y	+= cpu.o
+obj-y	+= file-lock.o
+
+ifneq ($(MAKECMDGOALS),clean)
+incdeps := y
+endif

@@ -1,7 +1,16 @@
 #
+# FIXME zdtm building procedure requires implicit rules
+# so I can't use strict make file mode and drop completely
+# all of implicit rules, so I tuned only .SUFFIXES:
+#
+# In future zdtm makefiles need to be fixed and the line below
+# may be uncommented.
+#
+#MAKEFLAGS := -r -R --no-print-directory
+
+#
 # Common definitions
 #
-
 ifeq ($(strip $(V)),)
 	E = @echo
 	Q = @
@@ -89,57 +98,15 @@ export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 
 include scripts/Makefile.version
 include scripts/Makefile.rules
+
+.SUFFIXES:
+
 #
 # shorthand
-build := -s -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile obj
+build := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile obj
+build-crtools := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile.crtools obj
 
 PROGRAM		:= crtools
-
-OBJS		+= parasite-syscall.o
-OBJS		+= cr-restore.o
-OBJS		+= crtools.o
-OBJS		+= image.o
-OBJS		+= net.o
-OBJS		+= proc_parse.o
-OBJS		+= cr-dump.o
-OBJS		+= cr-show.o
-OBJS		+= cr-check.o
-OBJS		+= util.o
-OBJS		+= sysctl.o
-OBJS		+= ptrace.o
-OBJS		+= kcmp-ids.o
-OBJS		+= rbtree.o
-OBJS		+= log.o
-OBJS		+= libnetlink.o
-OBJS		+= sockets.o
-OBJS		+= sk-inet.o
-OBJS		+= sk-tcp.o
-OBJS		+= sk-unix.o
-OBJS		+= sk-packet.o
-OBJS		+= sk-queue.o
-OBJS		+= files.o
-OBJS		+= files-reg.o
-OBJS		+= pipes.o
-OBJS		+= fifo.o
-OBJS		+= file-ids.o
-OBJS		+= namespaces.o
-OBJS		+= uts_ns.o
-OBJS		+= ipc_ns.o
-OBJS		+= netfilter.o
-OBJS		+= shmem.o
-OBJS		+= eventfd.o
-OBJS		+= eventpoll.o
-OBJS		+= mount.o
-OBJS		+= fsnotify.o
-OBJS		+= signalfd.o
-OBJS		+= pstree.o
-OBJS		+= protobuf.o
-OBJS		+= tty.o
-OBJS		+= cr-exec.o
-OBJS		+= cpu.o
-OBJS		+= file-lock.o
-
-DEPS		:= $(patsubst %.o,%.d,$(OBJS))
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf arch/$(ARCH)
@@ -166,23 +133,12 @@ pie/%:: arch/$(ARCH)
 pie: arch/$(ARCH)
 	$(Q) $(MAKE) $(build)=pie all
 
-%.o: %.c
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) $< -o $@
+%.o %.i %.s %.d: $(VERSION_HEADER) pie
+	$(Q) $(MAKE) $(build-crtools)=. $@
+built-in.o: $(VERSION_HEADER) pie
+	$(Q) $(MAKE) $(build-crtools)=. $@
 
-%.i: %.c
-	$(E) "  CC      " $@
-	$(Q) $(CC) -E $(CFLAGS) $< -o $@
-
-%.s: %.c
-	$(E) "  CC      " $@
-	$(Q) $(CC) -S $(CFLAGS) -fverbose-asm $< -o $@
-
-%.d: %.c
-	$(E) "  DEP     " $@
-	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
-
-$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) pie/util-net.o protobuf/built-in.o $(OBJS)
+$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) pie/util-net.o protobuf/built-in.o built-in.o
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
@@ -206,9 +162,7 @@ clean:
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
 	$(Q) $(MAKE) $(build)=pie clean
-	$(Q) $(RM) ./*.o
-	$(Q) $(RM) ./*.d
-	$(Q) $(RM) ./*.i
+	$(Q) $(MAKE) $(build-crtools)=. clean
 	$(Q) $(RM) ./*.img
 	$(Q) $(RM) ./*.out
 	$(Q) $(RM) ./*.bin
@@ -264,14 +218,4 @@ gcov:
 	lcov -a crtools.l.info -a crtools.ns.info -o crtools.info && \
 	genhtml -o html crtools.info
 
-deps-targets := $(OBJS) $(patsubst %.o,%.s,$(OBJS)) $(patsubst %.o,%.i,$(OBJS)) $(PROGRAM)
-
 .DEFAULT_GOAL	:= all
-
-ifneq ($(filter $(deps-targets), $(MAKECMDGOALS)),)
-	INCDEPS := 1
-endif
-
-ifeq ($(INCDEPS),1)
--include $(DEPS)
-endif
