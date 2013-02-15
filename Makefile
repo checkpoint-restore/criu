@@ -55,11 +55,11 @@ ifeq ($(ARCH),arm)
 endif
 
 SRC_DIR		?= $(CURDIR)
-ARCH_DIR	:= $(SRC_DIR)/arch/$(ARCH)
+ARCH_DIR	:= arch/$(ARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
-CFLAGS		+= -I$(SRC_DIR)/include -I$(SRC_DIR)/pie -I$(ARCH_DIR) -I$(SRC_DIR)
+CFLAGS		+= -Iinclude -Ipie -I. -I$(ARCH_DIR)
 CFLAGS		+= -iquote $(ARCH_DIR)/include -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
