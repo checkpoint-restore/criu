@@ -186,27 +186,27 @@ test: zdtm
 
 rebuild:
 	$(E) "  FORCE-REBUILD"
-	$(Q) $(RM) -f ./*.o
-	$(Q) $(RM) -f ./*.d
-	$(Q) $(RM) -f ./protobuf/*.pb-c.c
-	$(Q) $(RM) -f ./protobuf/*.pb-c.h
+	$(Q) $(RM) ./*.o
+	$(Q) $(RM) ./*.d
+	$(Q) $(RM) ./protobuf/*.pb-c.c
+	$(Q) $(RM) ./protobuf/*.pb-c.h
 	$(Q) $(MAKE)
 
 clean:
 	$(E) "  CLEAN"
 	$(Q) $(RM) $(VERSION_HEADER)
-	$(Q) $(RM) -f ./*.o
-	$(Q) $(RM) -f ./*.d
-	$(Q) $(RM) -f ./*.i
-	$(Q) $(RM) -f ./*.img
-	$(Q) $(RM) -f ./*.out
-	$(Q) $(RM) -f ./*.bin
-	$(Q) $(RM) -f ./$(PROGRAM)
-	$(Q) $(RM) -rf ./test/dump/
-	$(Q) $(RM) -f ./*.gcov ./*.gcda ./*.gcno
-	$(Q) $(RM) -rf ./gcov
-	$(Q) $(RM) -rf ./test/lib/
-	$(Q) $(RM) -rf ./test/lib64/
+	$(Q) $(RM) ./*.o
+	$(Q) $(RM) ./*.d
+	$(Q) $(RM) ./*.i
+	$(Q) $(RM) ./*.img
+	$(Q) $(RM) ./*.out
+	$(Q) $(RM) ./*.bin
+	$(Q) $(RM) ./$(PROGRAM)
+	$(Q) $(RM) -r ./test/dump/
+	$(Q) $(RM) ./*.gcov ./*.gcda ./*.gcno
+	$(Q) $(RM) -r ./gcov
+	$(Q) $(RM) -r ./test/lib/
+	$(Q) $(RM) -r ./test/lib64/
 	$(Q) $(MAKE) -C protobuf/ clean
 	$(Q) $(MAKE) -C arch/$(ARCH)/ clean
 	$(Q) $(MAKE) -C pie/ clean
@@ -217,12 +217,12 @@ clean:
 
 distclean: clean
 	$(E) "  DISTCLEAN"
-	$(Q) $(RM) -f ./tags
-	$(Q) $(RM) -f ./cscope*
+	$(Q) $(RM) ./tags
+	$(Q) $(RM) ./cscope*
 
 tags:
 	$(E) "  GEN" $@
-	$(Q) $(RM) -f tags
+	$(Q) $(RM) tags
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' -print | xargs ctags -a
 
 cscope:
