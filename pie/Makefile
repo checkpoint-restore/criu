@@ -1,4 +1,4 @@
-CFLAGS		+= -c -I$(SRC_DIR)/protobuf/ -I$(SRC_DIR)/syscall/
+CFLAGS		+= -c -I$(SRC_DIR)/syscall/
 CFLAGS		+=  -fpie  -Wa,--noexecstack -fno-strict-aliasing
 
 GEN-OFFSETS	:= gen-offsets.sh

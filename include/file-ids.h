@@ -5,7 +5,7 @@
 #include "asm/types.h"
 #include "rbtree.h"
 
-#include "../protobuf/fdinfo.pb-c.h"
+#include "protobuf/fdinfo.pb-c.h"
 
 #define FD_PID_INVALID		(-2U)
 #define FD_DESC_INVALID		(-3U)

@@ -2,7 +2,7 @@
 #define __CR_ASM_RESTORER_H__
 
 #include "asm/types.h"
-#include "../protobuf/core.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 /* Copied from the Linux kernel header arch/arm/include/asm/sigcontext.h */
 

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
-#include "../protobuf/core.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 #include "asm/bitops.h"
 

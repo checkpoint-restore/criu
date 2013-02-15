@@ -9,7 +9,7 @@
 #include "asm/types.h"
 
 #include "protobuf.h"
-#include "../protobuf/sk-opts.pb-c.h"
+#include "protobuf/sk-opts.pb-c.h"
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;

@@ -7,9 +7,9 @@
 #include "list.h"
 #include "image.h"
 
-#include "../protobuf/fdinfo.pb-c.h"
-#include "../protobuf/fown.pb-c.h"
-#include "../protobuf/vma.pb-c.h"
+#include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/fown.pb-c.h"
+#include "protobuf/vma.pb-c.h"
 
 struct pstree_item;
 struct file_desc;

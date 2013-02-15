@@ -13,10 +13,10 @@
 #include "crtools.h"
 #include "fpu.h"
 
-#include "../protobuf/mm.pb-c.h"
-#include "../protobuf/vma.pb-c.h"
-#include "../protobuf/creds.pb-c.h"
-#include "../protobuf/core.pb-c.h"
+#include "protobuf/mm.pb-c.h"
+#include "protobuf/vma.pb-c.h"
+#include "protobuf/creds.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 struct task_restore_core_args;
 struct thread_restore_args;

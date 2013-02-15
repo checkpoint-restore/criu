@@ -25,7 +25,7 @@
 #include "lock.h"
 #include "restorer.h"
 
-#include "creds.pb-c.h"
+#include "protobuf/creds.pb-c.h"
 
 #include "asm/restorer.h"
 

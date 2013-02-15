@@ -7,7 +7,7 @@
 
 #include "asm/bitops.h"
 
-#include "../protobuf/core.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 /* prctl */
 #define ARCH_SET_GS 0x1001

@@ -3,7 +3,7 @@
 
 #include "list.h"
 #include "crtools.h"
-#include "../protobuf/core.pb-c.h"
+#include "protobuf/core.pb-c.h"
 
 /*
  * That's the init process which usually inherit

@@ -6,10 +6,10 @@
 #include "image.h"
 #include "list.h"
 
-#include "../protobuf/eventfd.pb-c.h"
-#include "../protobuf/eventpoll.pb-c.h"
-#include "../protobuf/signalfd.pb-c.h"
-#include "../protobuf/fsnotify.pb-c.h"
+#include "protobuf/eventfd.pb-c.h"
+#include "protobuf/eventpoll.pb-c.h"
+#include "protobuf/signalfd.pb-c.h"
+#include "protobuf/fsnotify.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"

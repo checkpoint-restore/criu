@@ -3,7 +3,7 @@
 
 #include "crtools.h"
 #include "protobuf.h"
-#include "../protobuf/file-lock.pb-c.h"
+#include "protobuf/file-lock.pb-c.h"
 
 #define FL_POSIX	1
 #define FL_FLOCK	2

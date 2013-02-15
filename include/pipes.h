@@ -1,7 +1,7 @@
 #ifndef __CR_PIPES_H__
 #define __CR_PIPES_H__
 
-#include "../protobuf/pipe-data.pb-c.h"
+#include "protobuf/pipe-data.pb-c.h"
 
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);

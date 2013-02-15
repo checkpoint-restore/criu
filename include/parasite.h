@@ -13,7 +13,7 @@
 #include "image.h"
 #include "util-net.h"
 
-#include "../protobuf/vma.pb-c.h"
+#include "protobuf/vma.pb-c.h"
 
 #define __head __used __section(.head.text)
 
