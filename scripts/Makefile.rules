@@ -1,0 +1,52 @@
+##
+##
+## These are per-file generators.
+##
+define gen-rule-o-from-c-by-name
+$(1).o: $(1).c
+	$$(E) "  CC      " $$@
+	$$(Q) $$(CC) -c $$(CFLAGS) $(2) $$< -o $$@
+endef
+
+define gen-rule-i-from-c-by-name
+$(1).i: $(1).c
+	$$(E) "  CC      " $$@
+	$$(Q) $$(CC) -E $$(CFLAGS) $(2) $$< -o $$@
+endef
+
+define gen-rule-s-from-c-by-name
+$(1).s: $(1).c
+	$$(E) "  CC      " $$@
+	$$(Q) $$(CC) -S $$(CFLAGS) $(2) -fverbose-asm $$< -o $$@
+endef
+
+define gen-rule-o-from-S-by-name
+$(1).o: $(1).S
+	$$(E) "  CC      " $$@
+	$$(Q) $$(CC) -c $$(CFLAGS) $(2) $$(ASMFLAGS) $(3) $$< -o $$@
+endef
+
+define gen-rule-d-from-c-by-name
+$(1).d: $(1).c
+	$$(E) "  DEP     " $$@
+	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(CFLAGS) $(2) $$< -o $$@
+endef
+
+define gen-rule-d-from-S-by-name
+$(1).d: $(1).S
+	$$(E) "  DEP     " $$@
+	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(CFLAGS) $(2) $$< -o $$@
+endef
+
+define gen-rule-i-from-S-by-name
+$(1).i: $(1).S
+	$$(E) "  CC      " $$@
+	$$(Q) $$(CC) -E $$(CFLAGS) $(2) $$< -o $$@
+endef
+
+##
+## In case if someone add last resort rule
+## together with .SUFFIXES not cleaned, this
+## will slow down the build procedure
+scripts/Makefile.rules::
+	@echo > /dev/null
