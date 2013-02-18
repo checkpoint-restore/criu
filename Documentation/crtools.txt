@@ -59,7 +59,7 @@ OPTIONS
 
 -n|--namespaces <ns>::
     Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: uts, ipc, mnt, pid, net.
+    Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
 
 -r|--root <path>::
     Change the root filesystem (when run in mount namespace).
@@ -88,8 +88,8 @@ OPTIONS
     Write logging messages to 'file'.
 
 -v <num>::
-    Set logging level to 'num'. Valid options are: 0 - (silent, error messages
-    only), 1 - informative (default), 2 - debug messages.
+    Set logging level to 'num'. Valid options are: *0* - (silent, error messages
+    only), *1* - informative (default), *2* - debug messages.
 
 --log-pid::
     Write separate logging files per each pid.
