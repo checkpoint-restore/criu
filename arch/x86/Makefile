@@ -18,8 +18,9 @@ SYS-GEN		:= syscalls-x86-64.sh
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
-CFLAGS		+= -fpie -Wstrict-prototypes -Wa,--noexecstack
-CFLAGS		+= -nostdlib -fomit-frame-pointer -I$(obj)
+syscalls-asm-y-asmflags	:= -fpie -Wstrict-prototypes -Wa,--noexecstack
+syscalls-asm-y-asmflags += -nostdlib -fomit-frame-pointer -I$(obj)
+
 ASMFLAGS	+= -D__ASSEMBLY__
 
 $(obj)/$(SYS-ASM): $(obj)/$(SYS-GEN) $(obj)/$(SYS-DEF) $(obj)/$(SYS-ASM-COMMON) $(SYS-TYPES)
