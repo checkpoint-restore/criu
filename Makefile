@@ -109,7 +109,7 @@ build-crtools := -r -R --no-print-directory -f scripts/Makefile.build makefile=M
 PROGRAM		:= crtools
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf arch/$(ARCH)
+	docs help pie protobuf arch/$(ARCH) clean-built
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
@@ -148,25 +148,24 @@ zdtm: all
 test: zdtm
 	$(Q) $(SH) test/zdtm.sh
 
-rebuild:
-	$(E) "  FORCE-REBUILD"
-	$(Q) $(RM) ./*.o
-	$(Q) $(RM) ./*.d
-	$(Q) $(RM) ./protobuf/*.pb-c.c
-	$(Q) $(RM) ./protobuf/*.pb-c.h
-	$(Q) $(MAKE)
-
-clean:
-	$(E) "  CLEAN"
+clean-built:
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
 	$(Q) $(MAKE) $(build)=pie clean
 	$(Q) $(MAKE) $(build-crtools)=. clean
+	$(Q) $(MAKE) -C Documentation clean
+	$(Q) $(RM) ./$(PROGRAM)
+
+rebuild: clean-built
+	$(E) "  FORCE-REBUILD"
+	$(Q) $(MAKE)
+
+clean: clean-built
+	$(E) "  CLEAN"
 	$(Q) $(RM) ./*.img
 	$(Q) $(RM) ./*.out
 	$(Q) $(RM) ./*.bin
-	$(Q) $(RM) ./$(PROGRAM)
 	$(Q) $(RM) -r ./test/dump/
 	$(Q) $(RM) ./*.gcov ./*.gcda ./*.gcno
 	$(Q) $(RM) -r ./gcov
@@ -175,7 +174,6 @@ clean:
 	$(Q) $(MAKE) -C test/zdtm cleandep
 	$(Q) $(MAKE) -C test/zdtm clean
 	$(Q) $(MAKE) -C test/zdtm cleanout
-	$(Q) $(MAKE) -C Documentation clean
 
 distclean: clean
 	$(E) "  DISTCLEAN"
