@@ -39,7 +39,6 @@ obj-y	+= pstree.o
 obj-y	+= protobuf.o
 obj-y	+= tty.o
 obj-y	+= cr-exec.o
-obj-y	+= cpu.o
 obj-y	+= file-lock.o
 
 ifneq ($(MAKECMDGOALS),clean)

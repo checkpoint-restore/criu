@@ -35,7 +35,7 @@ static char *buf = __buf.buf;
 
 #define BUF_SIZE sizeof(__buf.buf)
 
-int parse_cpuinfo_features(void)
+int parse_cpuinfo_features(int (*handler)(char *tok))
 {
 	FILE *cpuinfo;
 
@@ -53,12 +53,8 @@ int parse_cpuinfo_features(void)
 
 		for (tok = strtok(buf, " \t\n"); tok;
 		     tok = strtok(NULL, " \t\n")) {
-			if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FXSR]))
-				cpu_set_feature(X86_FEATURE_FXSR);
-			else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_XSAVE]))
-				cpu_set_feature(X86_FEATURE_XSAVE);
-			else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FPU]))
-				cpu_set_feature(X86_FEATURE_FPU);
+			if (handler(tok) < 0)
+				break;
 		}
 	}
 

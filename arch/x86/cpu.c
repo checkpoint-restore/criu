@@ -6,13 +6,15 @@
 
 #include <sys/types.h>
 
-#include "compiler.h"
-#include "asm/types.h"
-#include "log.h"
-#include "util.h"
 #include "asm/bitops.h"
+#include "asm/types.h"
+#include "asm/cpu.h"
+
+#include "compiler.h"
 
 #include "proc_parse.h"
+#include "util.h"
+#include "log.h"
 
 #include "fpu.h"
 #include "cpu.h"
@@ -42,9 +44,20 @@ bool cpu_has_feature(unsigned int feature)
 	return false;
 }
 
+static int proc_cpuinfo_match(char *tok)
+{
+	if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FXSR]))
+		cpu_set_feature(X86_FEATURE_FXSR);
+	else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_XSAVE]))
+		cpu_set_feature(X86_FEATURE_XSAVE);
+	else if (!strcmp(tok, x86_cap_flags[X86_FEATURE_FPU]))
+		cpu_set_feature(X86_FEATURE_FPU);
+	return 0;
+}
+
 int cpu_init(void)
 {
-	if (parse_cpuinfo_features())
+	if (parse_cpuinfo_features(proc_cpuinfo_match))
 		return -1;
 
 	BUILD_BUG_ON(sizeof(struct xsave_struct) != XSAVE_SIZE);
