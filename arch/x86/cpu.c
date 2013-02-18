@@ -9,6 +9,7 @@
 #include "asm/bitops.h"
 #include "asm/types.h"
 #include "asm/cpu.h"
+#include "asm/fpu.h"
 
 #include "compiler.h"
 
@@ -16,7 +17,6 @@
 #include "util.h"
 #include "log.h"
 
-#include "fpu.h"
 #include "cpu.h"
 
 #undef	LOG_PREFIX

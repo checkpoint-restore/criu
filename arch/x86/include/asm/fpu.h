@@ -1,5 +1,5 @@
-#ifndef __CR_FPU_H__
-#define __CR_FPU_H__
+#ifndef __CR_ASM_FPU_H__
+#define __CR_ASM_FPU_H__
 
 #include <sys/types.h>
 
@@ -81,4 +81,19 @@ struct xsave_struct {
 	struct ymmh_struct		ymmh;
 } __aligned(FP_MIN_ALIGN_BYTES) __packed;
 
-#endif /* __CR_FPU_H__ */
+/*
+ * This one is used in restorer.
+ */
+typedef struct {
+	/*
+	 * The FPU xsave area must be continious and FP_MIN_ALIGN_BYTES
+	 * aligned, thus make sure the compiler won't insert any hole here.
+	 */
+
+	union {
+		struct xsave_struct	xsave;
+		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
+	};
+} fpu_state_t;
+
+#endif /* __CR_ASM_FPU_H__ */

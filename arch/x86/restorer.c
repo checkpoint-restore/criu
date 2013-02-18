@@ -2,10 +2,10 @@
 
 #include "restorer.h"
 #include "asm/restorer.h"
+#include "asm/fpu.h"
 
 #include "syscall.h"
 #include "log.h"
-#include "fpu.h"
 #include "cpu.h"
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)

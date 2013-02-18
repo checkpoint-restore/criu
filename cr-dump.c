@@ -55,7 +55,6 @@
 #include "net.h"
 #include "sk-packet.h"
 #include "cpu.h"
-#include "fpu.h"
 #include "elf.h"
 #include "file-lock.h"
 

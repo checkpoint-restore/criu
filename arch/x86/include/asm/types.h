@@ -245,20 +245,6 @@ typedef struct {
 
 typedef uint64_t auxv_t;
 
-#include "fpu.h"
-
-typedef struct {
-	/*
-	 * The FPU xsave area must be continious and FP_MIN_ALIGN_BYTES
-	 * aligned, thus make sure the compiler won't insert any hole here.
-	 */
-
-	union {
-		struct xsave_struct	xsave;
-		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
-	};
-} fpu_state_t;
-
 #define REG_RES(regs) ((regs).ax)
 #define REG_IP(regs)  ((regs).ip)
 

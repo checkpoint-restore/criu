@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include "asm/types.h"
+#include "asm/fpu.h"
 #include "compiler.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
@@ -13,7 +14,6 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "fpu.h"
 #include "elf.h"
 #include "parasite-syscall.h"
 #include "restorer.h"

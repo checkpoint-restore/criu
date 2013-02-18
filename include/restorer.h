@@ -7,11 +7,11 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "asm/fpu.h"
 #include "image.h"
 #include "lock.h"
 #include "util.h"
 #include "crtools.h"
-#include "fpu.h"
 
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/vma.pb-c.h"

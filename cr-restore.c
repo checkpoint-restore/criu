@@ -54,7 +54,6 @@
 #include "net.h"
 #include "tty.h"
 #include "cpu.h"
-#include "fpu.h"
 #include "file-lock.h"
 
 #include "protobuf.h"
