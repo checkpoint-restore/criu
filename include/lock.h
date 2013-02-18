@@ -108,13 +108,13 @@ typedef struct {
 	atomic_t	raw;
 } mutex_t;
 
-static void inline mutex_init(mutex_t *m)
+static inline void mutex_init(mutex_t *m)
 {
 	u32 c = 0;
 	atomic_set(&m->raw, c);
 }
 
-static void inline mutex_lock(mutex_t *m)
+static inline void mutex_lock(mutex_t *m)
 {
 	u32 c;
 	int ret;
@@ -125,7 +125,7 @@ static void inline mutex_lock(mutex_t *m)
 	}
 }
 
-static void inline mutex_unlock(mutex_t *m)
+static inline void mutex_unlock(mutex_t *m)
 {
 	u32 c = 0;
 	atomic_set(&m->raw, c);
