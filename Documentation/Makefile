@@ -4,8 +4,8 @@ ASCIIDOC	:= asciidoc
 A2X		:= a2x
 XMLTO		:= xmlto
 
-SRC		:= crtools.txt
-SRC		:= Makefile.build.txt
+SRC		+= crtools.txt
+SRC		+= Makefile.build.txt
 MANS		:= $(patsubst %.txt,%.1,$(SRC))
 
 all: $(MANS)
