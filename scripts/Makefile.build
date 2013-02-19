@@ -5,6 +5,7 @@ MAKEFLAGS := -r -R --no-print-directory
 
 targets		:=
 deps		:=
+deps-after	:=
 all-objs	:=
 incdeps		:=
 _all		:=
@@ -161,6 +162,9 @@ endif
 ##
 ## Include deps if requested
 ifneq ($(incdeps),)
+ifneq ($(deps-after),)
+$(deps): | $(deps-after)
+endif
 -include $(deps)
 endif
 
