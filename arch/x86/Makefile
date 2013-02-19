@@ -50,5 +50,6 @@ cleanup-y += $(SYS-CODES)
 cleanup-y += $(SYS-PROTO)
 
 ifneq ($(MAKECMDGOALS),clean)
+deps-after := $(obj)/$(SYS-ASM)
 incdeps := y
 endif
