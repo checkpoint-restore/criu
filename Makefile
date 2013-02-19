@@ -1,3 +1,11 @@
+VERSION_MAJOR		:= 0
+VERSION_MINOR		:= 3
+VERSION_SUBLEVEL	:=
+VERSION_EXTRA		:=
+VERSION_NAME		:=
+
+export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
+
 #
 # FIXME zdtm building procedure requires implicit rules
 # so I can't use strict make file mode and drop completely
