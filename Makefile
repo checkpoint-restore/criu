@@ -68,7 +68,7 @@ ARCH_DIR	:= arch/$(ARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
-CFLAGS		+= -Iinclude -Ipie -I. -I$(ARCH_DIR)
+CFLAGS		+= -iquote include -iquote pie -iquote . -iquote $(ARCH_DIR)
 CFLAGS		+= -iquote $(ARCH_DIR)/include -fno-strict-aliasing
 
 LIBS		:= -lrt -lpthread -lprotobuf-c

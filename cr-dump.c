@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <parasite.h>
 
 #include <fcntl.h>
 
