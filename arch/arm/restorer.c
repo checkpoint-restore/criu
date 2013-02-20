@@ -6,7 +6,7 @@
 
 #include "syscall.h"
 #include "log.h"
-#include "fpu.h"
+#include "asm/fpu.h"
 #include "cpu.h"
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)

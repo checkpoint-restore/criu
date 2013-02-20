@@ -1,6 +1,8 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
+#include "cpu.h"
+
 void cpu_set_feature(unsigned int feature)
 {
 }

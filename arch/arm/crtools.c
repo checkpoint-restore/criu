@@ -13,7 +13,6 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "fpu.h"
 #include "elf.h"
 #include "parasite-syscall.h"
 #include "restorer.h"
