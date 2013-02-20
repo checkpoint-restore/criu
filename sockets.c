@@ -46,11 +46,6 @@ static int dump_bound_dev(int sk, SkOptsEntry *soe)
 
 	ret = getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, &dev, &len);
 	if (ret) {
-		if (errno == ENOPROTOOPT) {
-			pr_warn("Bound device may be missing for socket\n");
-			return 0;
-		}
-
 		pr_perror("Can't get bound dev");
 		return ret;
 	}
@@ -113,7 +108,7 @@ static int dump_socket_filter(int sk, SkOptsEntry *soe)
 	struct sock_filter *flt;
 
 	ret = getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len);
-	if (ret && errno != ENOPROTOOPT) {
+	if (ret) {
 		pr_perror("Can't get socket filter len");
 		return ret;
 	}
