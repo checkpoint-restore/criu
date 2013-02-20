@@ -1,22 +1,23 @@
 #include <string.h>
 #include <unistd.h>
+#include <elf.h>
 
+#include "asm/processor-flags.h"
 #include "asm/types.h"
 #include "asm/fpu.h"
+
 #include "compiler.h"
 #include "ptrace.h"
-#include "asm/processor-flags.h"
-#include "protobuf.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/creds.pb-c.h"
 #include "parasite-syscall.h"
+#include "restorer.h"
 #include "syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "elf.h"
-#include "parasite-syscall.h"
-#include "restorer.h"
+
+#include "protobuf.h"
+#include "protobuf/core.pb-c.h"
+#include "protobuf/creds.pb-c.h"
 
 /*
  * Injected syscall instruction
