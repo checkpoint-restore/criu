@@ -39,7 +39,7 @@ $(obj)/$(SYS-ASM): $(obj)/$(SYS-GEN) $(obj)/$(SYS-DEF) $(obj)/$(SYS-ASM-COMMON) 
 
 $(obj)/syscalls.o: $(obj)/$(SYS-ASM)
 
-$(SYS-EXEC-TBL): $(SYS-GEN-TBL) $(SYS-DEF)
+$(obj)/$(SYS-EXEC-TBL): $(obj)/$(SYS-GEN-TBL) $(obj)/$(SYS-DEF)
 	$(E) "  GEN     " $@
 	$(Q) perl			\
 		$(obj)/$(SYS-GEN-TBL)	\
