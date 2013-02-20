@@ -122,17 +122,6 @@ transition/ipc
 "
 
 TEST_CR_KERNEL="
-static/sock_opts01
-static/sockets01
-static/sock_filter
-static/socket-tcp6
-streaming/socket-tcp6
-static/socket-tcpbuf6
-static/eventfs00
-static/signalfd00
-static/inotify00
-static/fanotify00
-$IPC_TEST_LIST
 "
 
 CRTOOLS=$(readlink -f `dirname $0`/../crtools)
@@ -170,9 +159,9 @@ EOF
 	ver_arr=(`echo ${ver_str//./ }`)
 
 	[ "${ver_arr[0]}" -gt 3 ] && return 0
-	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 7 ]] && return 0
+	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 8 ]] && return 0
 
-	echo "A version of kernel should be greater or equal to 3.7"
+	echo "A version of kernel should be greater or equal to 3.8"
 
 	return 1;
 }
