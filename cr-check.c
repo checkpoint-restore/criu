@@ -369,7 +369,11 @@ static int check_unaligned_vmsplice(void)
 	char buf; /* :) */
 	struct iovec iov;
 
-	pipe(p);
+	ret = pipe(p);
+	if (ret < 0) {
+		pr_perror("Can't create pipe");
+		return -1;
+	}
 	iov.iov_base = &buf;
 	iov.iov_len = sizeof(buf);
 	ret = vmsplice(p[1], &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
