@@ -192,22 +192,17 @@ err:
 	return 0;
 }
 
-void core_entry_free(CoreEntry *core)
+void arch_free_thread_info(CoreEntry *core)
 {
-	if (core) {
-		if (CORE_THREAD_ARCH_INFO(core)) {
-			if (CORE_THREAD_ARCH_INFO(core)->fpstate) {
-				xfree(CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs);
-				xfree(CORE_THREAD_ARCH_INFO(core)->fpstate);
-			}
-			xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
+	if (CORE_THREAD_ARCH_INFO(core)) {
+		if (CORE_THREAD_ARCH_INFO(core)->fpstate) {
+			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs);
+			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate);
 		}
+		xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
 		xfree(CORE_THREAD_ARCH_INFO(core));
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
+		CORE_THREAD_ARCH_INFO(core) = NULL;
 	}
-
 }
 
 int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)

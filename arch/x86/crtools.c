@@ -285,25 +285,21 @@ err:
 	return 1;
 }
 
-void core_entry_free(CoreEntry *core)
+void arch_free_thread_info(CoreEntry *core)
 {
-	if (core) {
-		if (core->thread_info) {
-			if (core->thread_info->fpregs) {
-				if (core->thread_info->fpregs->xsave)
-					xfree(core->thread_info->fpregs->xsave->ymmh_space);
-				xfree(core->thread_info->fpregs->xsave);
-				xfree(core->thread_info->fpregs->st_space);
-				xfree(core->thread_info->fpregs->xmm_space);
-				xfree(core->thread_info->fpregs->padding);
-			}
-			xfree(core->thread_info->gpregs);
-			xfree(core->thread_info->fpregs);
+	if (core->thread_info) {
+		if (core->thread_info->fpregs) {
+			if (core->thread_info->fpregs->xsave)
+				xfree(core->thread_info->fpregs->xsave->ymmh_space);
+			xfree(core->thread_info->fpregs->xsave);
+			xfree(core->thread_info->fpregs->st_space);
+			xfree(core->thread_info->fpregs->xmm_space);
+			xfree(core->thread_info->fpregs->padding);
 		}
+		xfree(core->thread_info->gpregs);
+		xfree(core->thread_info->fpregs);
 		xfree(core->thread_info);
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
+		core->thread_info = NULL;
 	}
 }
 

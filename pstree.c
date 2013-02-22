@@ -9,10 +9,22 @@
 #include "namespaces.h"
 #include "files.h"
 
+#include "asm/dump.h"
+
 #include "protobuf.h"
 #include "protobuf/pstree.pb-c.h"
 
 struct pstree_item *root_item;
+
+void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		arch_free_thread_info(core);
+		xfree(core->thread_core);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
+}
 
 void free_pstree(struct pstree_item *root_item)
 {
