@@ -12,7 +12,7 @@ restorer-obj-y		+= restorer.o
 restorer-obj-e		+= $(ARCH_DIR)/restorer.o
 restorer-libs-e		+= $(SYSCALL-LIB)
 
-cflags-y		+= -fpie  -Wa,--noexecstack
+cflags-y		+= -fpie  -Wa,--noexecstack -fno-stack-protector
 ASMFLAGS		+= -D__ASSEMBLY__
 
 GEN-OFFSETS		:= gen-offsets.sh
