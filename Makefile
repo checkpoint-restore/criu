@@ -76,8 +76,10 @@ ARCH_DIR	:= arch/$(ARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
-CFLAGS		+= -iquote include -iquote pie -iquote . -iquote $(ARCH_DIR)
-CFLAGS		+= -iquote $(ARCH_DIR)/include -fno-strict-aliasing
+cflags-y		+= -iquote include -iquote pie -iquote .
+cflags-y		+= -iquote $(ARCH_DIR) -iquote $(ARCH_DIR)/include
+cflags-y		+= -fno-strict-aliasing
+export cflags-y
 
 LIBS		:= -lrt -lpthread -lprotobuf-c
 
@@ -103,6 +105,7 @@ ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
 
 export E Q CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
+export cflags-y
 
 include scripts/Makefile.version
 include scripts/Makefile.rules
