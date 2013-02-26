@@ -654,6 +654,6 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return parasite_dump_tty(args);
 	}
 
-	pr_err("Unknown command to parasite\n");
+	pr_err("Unknown command to parasite: %d\n", cmd);
 	return -EINVAL;
 }
