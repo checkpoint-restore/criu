@@ -9,7 +9,7 @@
 #include "asm/types.h"
 #include "asm/atomic.h"
 #include "syscall.h"
-#include "util.h"
+#include "bug.h"
 
 typedef struct {
 	atomic_t raw;
