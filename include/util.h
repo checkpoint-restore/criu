@@ -14,6 +14,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "bug.h"
 #include "log.h"
 
 #include "protobuf/vma.pb-c.h"
@@ -30,36 +31,6 @@
 #define KILO(size)	PREF_SHIFT_OP(K, <<, size)
 #define MEGA(size)	PREF_SHIFT_OP(K, <<, size)
 #define GIGA(size)	PREF_SHIFT_OP(K, <<, size)
-
-#ifndef BUG_ON_HANDLER
-
-#ifdef CR_NOGLIBC
-
-#define BUG_ON_HANDLER(condition)					\
-	do {								\
-		if ((condition)) {					\
-			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);	\
-			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;	\
-		}							\
-	} while (0)
-
-#else /* CR_NOGLIBC */
-
-# define BUG_ON_HANDLER(condition)					\
-	do {								\
-		if ((condition)) {					\
-			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);	\
-			raise(SIGABRT);					\
-			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__; \
-		}							\
-	} while (0)
-
-#endif /* CR_NOGLIBC */
-
-#endif /* BUG_ON_HANDLER */
-
-#define BUG_ON(condition)	BUG_ON_HANDLER((condition))
-#define BUG()			BUG_ON(true)
 
 /*
  * Write buffer @ptr of @size bytes into @fd file
