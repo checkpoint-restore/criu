@@ -1,4 +1,3 @@
-#define CR_NOGLIBC
 #include <stdio.h>
 #include <stdlib.h>
 
