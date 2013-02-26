@@ -67,7 +67,7 @@ int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *
 
 again:
 	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
-		pr_err("Can't set registers (pid: %d)\n", pid);
+		pr_perror("Can't set registers (pid: %d)", pid);
 		goto err;
 	}
 
@@ -77,12 +77,12 @@ again:
 	 */
 
 	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
-		pr_err("Can't continue (pid: %d)\n", pid);
+		pr_perror("Can't continue (pid: %d)", pid);
 		goto err;
 	}
 
 	if (wait4(pid, &status, __WALL, NULL) != pid) {
-		pr_err("Waited pid mismatch (pid: %d)\n", pid);
+		pr_perror("Waited pid mismatch (pid: %d)", pid);
 		goto err;
 	}
 
@@ -92,12 +92,12 @@ again:
 	}
 
 	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
-		pr_err("Can't get siginfo (pid: %d)\n", pid);
+		pr_perror("Can't get siginfo (pid: %d)", pid);
 		goto err;
 	}
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, regs)) {
-		pr_err("Can't obtain registers (pid: %d)\n", pid);
+		pr_perror("Can't obtain registers (pid: %d)", pid);
 			goto err;
 	}
 
@@ -125,22 +125,22 @@ retry_signal:
 		 */
 
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
-			pr_err("Can't set registers (pid: %d)\n", pid);
+			pr_perror("Can't set registers (pid: %d)", pid);
 			goto err;
 		}
 
 		if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-			pr_err("Can't interrupt (pid: %d)\n", pid);
+			pr_perror("Can't interrupt (pid: %d)", pid);
 			goto err;
 		}
 
 		if (ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo)) {
-			pr_err("Can't continue (pid: %d)\n", pid);
+			pr_perror("Can't continue (pid: %d)", pid);
 			goto err;
 		}
 
 		if (wait4(pid, &status, __WALL, NULL) != pid) {
-			pr_err("Waited pid mismatch (pid: %d)\n", pid);
+			pr_perror("Waited pid mismatch (pid: %d)", pid);
 			goto err;
 		}
 
@@ -150,7 +150,7 @@ retry_signal:
 		}
 
 		if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
-			pr_err("Can't get siginfo (pid: %d)\n", pid);
+			pr_perror("Can't get siginfo (pid: %d)", pid);
 			goto err;
 		}
 
@@ -164,7 +164,7 @@ retry_signal:
 		{
 			user_regs_struct_t r;
 			if (ptrace(PTRACE_GETREGS, pid, NULL, &r)) {
-				pr_err("Can't obtain registers (pid: %d)\n", pid);
+				pr_perror("Can't obtain registers (pid: %d)", pid);
 				goto err;
 			}
 			ctl->regs_orig = r;
@@ -202,7 +202,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 		regs = ctl->regs_orig;
 	else {
 		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig)) {
-			pr_err("Can't obtain registers (pid: %d)\n", pid);
+			pr_perror("Can't obtain registers (pid: %d)", pid);
 			return -1;
 		}
 		regs = regs_orig;
@@ -221,7 +221,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 
 	if (ctl->pid != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
-			pr_err("Can't restore registers (pid: %d)\n", ctl->pid);
+			pr_perror("Can't restore registers (pid: %d)", ctl->pid);
 			return -1;
 		}
 
