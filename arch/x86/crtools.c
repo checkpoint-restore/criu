@@ -104,7 +104,7 @@ int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 	struct iovec iov;
 	int ret = -1;
 
-	pr_info("Dumping GP/FPU registers ... ");
+	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
 	if (ctl)
 		regs = ctl->regs_orig;
