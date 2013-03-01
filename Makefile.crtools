@@ -40,6 +40,7 @@ obj-y	+= protobuf.o
 obj-y	+= tty.o
 obj-y	+= cr-exec.o
 obj-y	+= file-lock.o
+obj-y	+= page-pipe.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
