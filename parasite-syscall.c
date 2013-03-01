@@ -482,6 +482,11 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 	return 0;
 }
 
+static unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
+{
+	return 0;
+}
+
 /*
  * This routine drives parasite code (been previously injected into a victim
  * process) and tells it to dump pages into the file.
@@ -770,11 +775,12 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
-static unsigned long parasite_args_size(struct parasite_drain_fd *dfds)
+static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasite_drain_fd *dfds)
 {
 	unsigned long size = PARASITE_ARG_SIZE_MIN;
 
 	size = max(size, (unsigned long)drain_fds_size(dfds));
+	size = max(size, (unsigned long)vmas_pagemap_size(vmas));
 
 	return size;
 }
@@ -796,7 +802,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
-	ctl->args_size = parasite_args_size(dfds);
+	ctl->args_size = parasite_args_size(vma_area_list, dfds);
 	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size);
 	if (ret)
 		goto err_restore;
