@@ -61,6 +61,7 @@ TST_NOFILE	=				\
 		maps01				\
 		maps02				\
 		maps03				\
+		maps04				\
 		xids00				\
 		groups				\
 		file_fown			\
