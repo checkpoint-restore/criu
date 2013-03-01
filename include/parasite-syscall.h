@@ -30,11 +30,12 @@ extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdse
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
 struct parasite_dump_misc;
+struct vm_area_list;
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 struct _CredsEntry;
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-				      struct list_head *vma_area_list,
+				      struct vm_area_list *vma_area_list,
 				      struct cr_fdset *cr_fdset);
 struct parasite_dump_thread;
 struct pid;
@@ -53,9 +54,9 @@ struct pstree_item;
 extern int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
-						   struct list_head *vma_area_list,
+						   struct vm_area_list *vma_area_list,
 						   struct parasite_drain_fd *dfds);
-extern struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_list);
+extern struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);

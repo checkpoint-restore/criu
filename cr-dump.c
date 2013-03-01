@@ -62,20 +62,21 @@
 static char loc_buf[PAGE_SIZE];
 static int pidns_proc = -1;
 
-void free_mappings(struct list_head *vma_area_list)
+void free_mappings(struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
 
-	list_for_each_entry_safe(vma_area, p, vma_area_list, list) {
+	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list) {
 		if (vma_area->vm_file_fd > 0)
 			close(vma_area->vm_file_fd);
 		free(vma_area);
 	}
 
-	INIT_LIST_HEAD(vma_area_list);
+	INIT_LIST_HEAD(&vma_area_list->h);
+	vma_area_list->nr = 0;
 }
 
-int collect_mappings(pid_t pid, struct list_head *vma_area_list)
+int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	int ret = -1;
 
@@ -87,11 +88,9 @@ int collect_mappings(pid_t pid, struct list_head *vma_area_list)
 	if (ret < 0)
 		goto err;
 
-	pr_info_vma_list(vma_area_list);
+	pr_info_vma_list(&vma_area_list->h);
 
 	pr_info("----------------------------------------\n");
-	ret = 0;
-
 err:
 	return ret;
 }
@@ -300,7 +299,7 @@ static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
 	return dump_one_reg_file(file_fd, vma->shmid, &p);
 }
 
-static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
+static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
 	struct vma_area *vma_area;
@@ -312,7 +311,7 @@ static int dump_task_mappings(pid_t pid, const struct list_head *vma_area_list,
 
 	fd = fdset_fd(cr_fdset, CR_FD_VMAS);
 
-	list_for_each_entry(vma_area, vma_area_list, list) {
+	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		VmaEntry *vma = &vma_area->vma;
 
 		pr_info_vma(vma_area);
@@ -610,7 +609,7 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
 		const struct cr_fdset *cr_fdset,
-		struct list_head *vma_area_list)
+		struct vm_area_list *vma_area_list)
 {
 	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
 	CoreEntry *core;
@@ -632,7 +631,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	if (ret)
 		goto err_free;
 
-	mark_stack_vma(CORE_THREAD_ARCH_INFO(core)->gpregs->sp, vma_area_list);
+	mark_stack_vma(CORE_THREAD_ARCH_INFO(core)->gpregs->sp, &vma_area_list->h);
 
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
@@ -1240,7 +1239,7 @@ err:
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
-	LIST_HEAD(vma_area_list);
+	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	struct parasite_dump_misc misc;
@@ -1268,7 +1267,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err;
 
-	ret = collect_mappings(pid, &vma_area_list);
+	ret = collect_mappings(pid, &vmas);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1281,7 +1280,7 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vma_area_list, dfds);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
@@ -1336,7 +1335,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vma_area_list, cr_fdset);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump pages (pid: %d) with parasite\n", pid);
 		goto err_cure;
@@ -1355,7 +1354,7 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	ret = dump_task_core_all(pid, &pps_buf, &misc,
-					parasite_ctl, cr_fdset, &vma_area_list);
+					parasite_ctl, cr_fdset, &vmas);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
@@ -1379,7 +1378,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_task_mappings(pid, &vma_area_list, cr_fdset);
+	ret = dump_task_mappings(pid, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
@@ -1401,7 +1400,7 @@ static int dump_one_task(struct pstree_item *item)
 err:
 	close_pid_proc();
 err_free:
-	free_mappings(&vma_area_list);
+	free_mappings(&vmas);
 	xfree(dfds);
 	return ret;
 

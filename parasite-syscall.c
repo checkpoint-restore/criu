@@ -486,7 +486,7 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
  * This routine drives parasite code (been previously injected into a victim
  * process) and tells it to dump pages into the file.
  */
-int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_area_list,
+int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list,
 			       struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args *parasite_dumppages;
@@ -510,7 +510,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct list_head *vma_a
 
 	parasite_dumppages = parasite_args(ctl, struct parasite_dump_pages_args);
 
-	list_for_each_entry(vma_area, vma_area_list, list) {
+	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 
 		/*
 		 * The special areas are not dumped.
@@ -708,7 +708,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 	return ret;
 }
 
-struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
@@ -734,7 +734,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct list_head *vma_area_lis
 		goto err;
 	}
 
-	vma_area = get_vma_by_ip(vma_area_list, REG_IP(ctl->regs_orig));
+	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
@@ -804,7 +804,7 @@ static unsigned long parasite_args_size(struct parasite_drain_fd *dfds)
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
-		struct list_head *vma_area_list, struct parasite_drain_fd *dfds)
+		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds)
 {
 	int ret;
 	struct parasite_ctl *ctl;

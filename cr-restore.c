@@ -70,8 +70,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 
-static LIST_HEAD(rst_vma_list);
-static int rst_nr_vmas;
+static VM_AREA_LIST(rst_vmas);
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
@@ -267,7 +266,7 @@ static int restore_priv_vma_content(pid_t pid)
 	unsigned int nr_shared = 0;
 	unsigned int nr_droped = 0;
 
-	vma = list_first_entry(&rst_vma_list, struct vma_area, list);
+	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
 
 	fd = open_image_ro(CR_FD_PAGES, pid);
 	if (fd < 0)
@@ -293,7 +292,7 @@ static int restore_priv_vma_content(pid_t pid)
 		BUG_ON(va < vma->vma.start);
 
 		while (va >= vma->vma.end) {
-			BUG_ON(vma->list.next == &rst_vma_list);
+			BUG_ON(vma->list.next == &rst_vmas.h);
 			vma = list_entry(vma->list.next, struct vma_area, list);
 		}
 
@@ -322,7 +321,7 @@ static int restore_priv_vma_content(pid_t pid)
 	close(fd);
 
 	/* Remove pages, which were not shared with a child */
-	list_for_each_entry(vma, &rst_vma_list, list) {
+	list_for_each_entry(vma, &rst_vmas.h, list) {
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma_premmaped_start(&vma->vma));
 
@@ -366,8 +365,8 @@ static int read_vmas(int pid)
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len, pstart = 0;
 
-	rst_nr_vmas = 0;
-	list_replace_init(&rst_vma_list, &old);
+	rst_vmas.nr = 0;
+	list_replace_init(&rst_vmas.h, &old);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
 	fd = open_image_ro(CR_FD_VMAS, pid);
@@ -390,8 +389,8 @@ static int read_vmas(int pid)
 		if (ret <= 0)
 			break;
 
-		rst_nr_vmas++;
-		list_add_tail(&vma->list, &rst_vma_list);
+		rst_vmas.nr++;
+		list_add_tail(&vma->list, &rst_vmas.h);
 
 		if (e->fd != -1) {
 			ret = -1;
@@ -423,7 +422,7 @@ static int read_vmas(int pid)
 
 	pvma = list_entry(&old, struct vma_area, list);
 
-	list_for_each_entry(vma, &rst_vma_list, list) {
+	list_for_each_entry(vma, &rst_vmas.h, list) {
 		if (pstart > vma->vma.start) {
 			ret = -1;
 			pr_err("VMA-s are not sorted in the image file\n");
@@ -468,7 +467,7 @@ static int open_vmas(int pid)
 	struct vma_area *vma;
 	int ret = 0;
 
-	list_for_each_entry(vma, &rst_vma_list, list) {
+	list_for_each_entry(vma, &rst_vmas.h, list) {
 		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
 			continue;
 
@@ -1445,7 +1444,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return 0;
 }
 
-static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head *vmas)
+static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct vm_area_list *vmas)
 {
 	VmaEntry *vma, *ret;
 	struct vma_area *vma_area;
@@ -1457,7 +1456,7 @@ static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct list_head 
 		return NULL;
 	}
 
-	list_for_each_entry(vma_area, vmas, list) {
+	list_for_each_entry(vma_area, &vmas->h, list) {
 		*vma = vma_area->vma;
 		vma++;
 	}
@@ -1656,7 +1655,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
 
-	LIST_HEAD(self_vma_list);
+	struct vm_area_list self_vmas;
 	int i;
 
 	pr_info("Restore via sigreturn\n");
@@ -1664,16 +1663,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	restore_task_vma_len	= 0;
 	restore_thread_vma_len	= 0;
 
-	ret = parse_smaps(pid, &self_vma_list, false);
+	ret = parse_smaps(pid, &self_vmas, false);
 	close_proc();
 	if (ret < 0)
 		goto err;
 
 	/* required to unmap stack _with_ guard page */
-	mark_stack_vma((long) &self_vma_list, &self_vma_list);
+	mark_stack_vma((long) &self_vmas, &self_vmas.h);
 
-	self_vmas_len = round_up((ret + 1) * sizeof(VmaEntry), PAGE_SIZE);
-	vmas_len = round_up((rst_nr_vmas + 1) * sizeof(VmaEntry), PAGE_SIZE);
+	self_vmas_len = round_up((self_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
+	vmas_len = round_up((rst_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -1707,7 +1706,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * or inited from scratch).
 	 */
 
-	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vma_list, &self_vma_list,
+	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vmas.h, &self_vmas.h,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
@@ -1769,13 +1768,13 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->task_entries = mem;
 
 	mem += TASK_ENTRIES_SIZE;
-	task_args->self_vmas = vma_list_remap(mem, self_vmas_len, &self_vma_list);
+	task_args->self_vmas = vma_list_remap(mem, self_vmas_len, &self_vmas);
 	if (!task_args->self_vmas)
 		goto err;
 
 	mem += self_vmas_len;
-	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vma_list);
-	task_args->nr_vmas = rst_nr_vmas;
+	task_args->nr_vmas = rst_vmas.nr;
+	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vmas);
 	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
 	task_args->premmapped_len = current->rst->premmapped_len;
 	if (!task_args->tgt_vmas)
@@ -1924,7 +1923,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start, task_args);
 
 err:
-	free_mappings(&self_vma_list);
+	free_mappings(&self_vmas);
 
 	/* Just to be sure */
 	exit(1);

@@ -216,8 +216,15 @@ struct cr_fdset *cr_glob_fdset_open(int mode);
 
 void close_cr_fdset(struct cr_fdset **cr_fdset);
 
-int collect_mappings(pid_t pid, struct list_head *vma_area_list);
-void free_mappings(struct list_head *vma_area_list);
+struct vm_area_list {
+	struct list_head	h;
+	unsigned		nr;
+};
+
+#define VM_AREA_LIST(name)	struct vm_area_list name = { .h = LIST_HEAD_INIT(name.h), .nr = 0, }
+
+int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
+void free_mappings(struct vm_area_list *vma_area_list);
 
 struct vma_area {
 	struct list_head	list;

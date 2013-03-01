@@ -84,7 +84,7 @@ int cr_exec(int pid, char **opt)
 	char *sys_name = opt[0];
 	struct syscall_exec_desc *si;
 	struct parasite_ctl *ctl;
-	LIST_HEAD(vma_area_list);
+	struct vm_area_list vmas;
 	int ret = -1, prev_state;
 
 	if (!sys_name) {
@@ -104,13 +104,13 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	ret = collect_mappings(pid, &vma_area_list);
+	ret = collect_mappings(pid, &vmas);
 	if (ret) {
 		pr_err("Can't collect vmas for %d\n", pid);
 		goto out_unseize;
 	}
 
-	ctl = parasite_prep_ctl(pid, &vma_area_list);
+	ctl = parasite_prep_ctl(pid, &vmas);
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;

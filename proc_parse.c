@@ -166,17 +166,20 @@ static int is_anon_shmem_map(dev_t dev)
 	return shmem_dev == dev;
 }
 
-int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
+int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
 	unsigned long start, end, pgoff;
 	unsigned long ino;
 	char r, w, x, s;
 	int dev_maj, dev_min;
-	int ret = -1, nr = 0;
+	int ret = -1;
 
 	DIR *map_files_dir = NULL;
 	FILE *smaps = NULL;
+
+	vma_area_list->nr = 0;
+	INIT_LIST_HEAD(&vma_area_list->h);
 
 	smaps = fopen_proc(pid, "smaps");
 	if (!smaps)
@@ -340,12 +343,12 @@ int parse_smaps(pid_t pid, struct list_head *vma_area_list, bool use_map_files)
 			vma_area->vma.flags  |= MAP_ANONYMOUS;
 		}
 done:
-		list_add_tail(&vma_area->list, vma_area_list);
-		nr++;
+		list_add_tail(&vma_area->list, &vma_area_list->h);
+		vma_area_list->nr++;
 	}
 
 	vma_area = NULL;
-	ret = nr;
+	ret = 0;
 
 err:
 	if (smaps)
