@@ -794,12 +794,17 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
-static unsigned long parasite_args_size(void)
+static unsigned long parasite_args_size(struct parasite_drain_fd *dfds)
 {
-	return PARASITE_ARG_SIZE_MIN;
+	unsigned long size = PARASITE_ARG_SIZE_MIN;
+
+	size = max(size, (unsigned long)drain_fds_size(dfds));
+
+	return size;
 }
 
-struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct list_head *vma_area_list)
+struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
+		struct list_head *vma_area_list, struct parasite_drain_fd *dfds)
 {
 	int ret;
 	struct parasite_ctl *ctl;
@@ -815,7 +820,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
-	ctl->args_size = parasite_args_size();
+	ctl->args_size = parasite_args_size(dfds);
 	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size);
 	if (ret)
 		goto err_restore;

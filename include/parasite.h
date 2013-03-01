@@ -2,7 +2,7 @@
 #define __CR_PARASITE_H__
 
 #define PARASITE_STACK_SIZE	(16 << 10)
-#define PARASITE_ARG_SIZE_MIN	( 1 << 13)
+#define PARASITE_ARG_SIZE_MIN	( 1 << 12)
 
 #define PARASITE_MAX_SIZE	(64 << 10)
 
@@ -87,7 +87,7 @@ struct parasite_dump_misc {
 	u32 umask;
 };
 
-#define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int))
+#define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int) - 2 * sizeof(unsigned))
 
 struct parasite_dump_creds {
 	unsigned int		secbits;
