@@ -24,9 +24,7 @@ enum {
 	PARASITE_CMD_FINI,
 	PARASITE_CMD_FINI_THREAD,
 
-	PARASITE_CMD_DUMPPAGES_INIT,
 	PARASITE_CMD_DUMPPAGES,
-	PARASITE_CMD_DUMPPAGES_FINI,
 
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
@@ -55,10 +53,10 @@ struct parasite_log_args {
 };
 
 struct parasite_dump_pages_args {
-	VmaEntry		vma_entry;
-	unsigned long		nrpages_dumped;	/* how many pages are dumped */
-	unsigned long		nrpages_skipped;
-	unsigned long		nrpages_total;
+	unsigned int	off;
+	unsigned int	nr;
+	unsigned int	nr_pages;
+	struct iovec	iovs[0];
 };
 
 struct parasite_dump_sa_args {

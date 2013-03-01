@@ -14,8 +14,6 @@
 
 #include "asm/parasite.h"
 
-static void *brk_start, *brk_end, *brk_tail;
-
 static int tsock = -1;
 
 static struct tid_state_s {
@@ -32,228 +30,28 @@ static unsigned int next_tid_state;
 
 #define thread_leader	(&tid_state[0])
 
-#define MAX_HEAP_SIZE	(10 << 20)	/* Hope 10MB will be enough...  */
+#ifndef SPLICE_F_GIFT
+#define SPLICE_F_GIFT	0x08
+#endif
 
-static int brk_init(void)
-{
-	unsigned long ret;
-	/*
-	 *  Map 10 MB. Hope this will be enough for unix skb's...
-	 */
-	ret = sys_mmap(NULL, MAX_HEAP_SIZE,
-			    PROT_READ | PROT_WRITE,
-			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (ret > TASK_SIZE)
-		return -ENOMEM;
-
-	brk_start = brk_tail = (void *)ret;
-	brk_end = brk_start + MAX_HEAP_SIZE;
-	return 0;
-}
-
-static void brk_fini(void)
-{
-	sys_munmap(brk_start, MAX_HEAP_SIZE);
-}
-
-static void *brk_alloc(unsigned long bytes)
-{
-	void *addr = NULL;
-	if (brk_end >= (brk_tail + bytes)) {
-		addr	= brk_tail;
-		brk_tail+= bytes;
-	}
-	return addr;
-}
-
-static void brk_free(unsigned long bytes)
-{
-	if (brk_start >= (brk_tail - bytes))
-		brk_tail -= bytes;
-}
-
-#define PME_PRESENT	(1ULL << 63)
-#define PME_SWAP	(1ULL << 62)
-#define PME_FILE	(1ULL << 61)
-
-static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
-{
-	if (vma_entry_is(vmae, VMA_AREA_VDSO))
-		return true;
-	/*
-	 * Optimisation for private mapping pages, that haven't
-	 * yet being COW-ed
-	 */
-	if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
-		return false;
-	if (pme & (PME_PRESENT | PME_SWAP))
-		return true;
-
-	return false;
-}
-
-static int fd_pages = -1;
-static int fd_pagemap = -1;
-
-static int dump_pages_init()
-{
-	fd_pages = recv_fd(tsock);
-	if (fd_pages < 0)
-		return fd_pages;
-
-	fd_pagemap = sys_open("/proc/self/pagemap", O_RDONLY, 0);
-	if (fd_pagemap < 0) {
-		pr_err("Can't open self pagemap\n");
-		sys_close(fd_pages);
-		return fd_pagemap;
-	}
-
-	return 0;
-}
-
-static int sys_write_safe(int fd, void *buf, int size)
-{
-	int ret;
-
-	ret = sys_write(fd, buf, size);
-	if (ret < 0) {
-		pr_err("sys_write failed\n");
-		return ret;
-	}
-
-	if (ret != size) {
-		pr_err("not all data was written\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-
-/*
- * This is the main page dumping routine, it's executed
- * inside a victim process space.
- */
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
-	unsigned long nrpages, pfn, length;
-	unsigned long prot_old, prot_new;
-	bool bigmap = false;
-	u64 *map, off;
-	int ret = -1;
+	int p, ret;
 
-	args->nrpages_dumped = 0;
-	args->nrpages_skipped = 0;
-	prot_old = prot_new = 0;
+	p = recv_fd(tsock);
+	if (p < 0)
+		return -1;
 
-	pfn = args->vma_entry.start / PAGE_SIZE;
-	nrpages	= (args->vma_entry.end - args->vma_entry.start) / PAGE_SIZE;
-	args->nrpages_total = nrpages;
-	length = nrpages * sizeof(*map);
-
-	/*
-	 * Up to 10M of pagemap will handle 5G mapping.
-	 */
-	map = brk_alloc(length);
-	if (!map) {
-		/*
-		 * Lets try allocate the bitmap inplace. If the VMA
-		 * is that big we assume the node has enough physical
-		 * memory.
-		 */
-		map = (u64 *)sys_mmap(NULL, length,
-				      PROT_READ | PROT_WRITE,
-				      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if ((long)(void *)map > TASK_SIZE) {
-			ret = -ENOMEM;
-			goto err;
-		}
-		bigmap = true;
+	ret = sys_vmsplice(p, &args->iovs[args->off], args->nr,
+				SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+	if (ret != PAGE_SIZE * args->nr_pages) {
+		sys_close(p);
+		pr_err("Can't splice pages ti pipe (%d/%d)", ret, args->nr_pages);
+		return -1;
 	}
 
-	off = pfn * sizeof(*map);
-	off = sys_lseek(fd_pagemap, off, SEEK_SET);
-	if (off != pfn * sizeof(*map)) {
-		pr_err("Can't seek pagemap\n");
-		ret = off;
-		goto err_free;
-	}
-
-	ret = sys_read(fd_pagemap, map, length);
-	if (ret != length) {
-		pr_err("Can't read self pagemap\n");
-		goto err_free;
-	}
-
-	/*
-	 * Try to change page protection if needed so we would
-	 * be able to dump contents.
-	 */
-	if (!(args->vma_entry.prot & PROT_READ)) {
-		prot_old = (unsigned long)args->vma_entry.prot;
-		prot_new = prot_old | PROT_READ;
-		ret = sys_mprotect(decode_pointer(args->vma_entry.start),
-				   (unsigned long)vma_entry_len(&args->vma_entry),
-				   prot_new);
-		if (ret) {
-			pr_err("sys_mprotect failed\n");
-			goto err_free;
-		}
-	}
-
-	ret = 0;
-	for (pfn = 0; pfn < nrpages; pfn++) {
-		uint64_t vaddr;
-
-		if (should_dump_page(&args->vma_entry, map[pfn])) {
-			/*
-			 * That's the optimized write of
-			 * page_entry structure, see image.h
-			 */
-			vaddr = (unsigned long)args->vma_entry.start + pfn * PAGE_SIZE;
-
-			ret = sys_write_safe(fd_pages, &vaddr, sizeof(vaddr));
-			if (ret)
-				return ret;
-			ret = sys_write_safe(fd_pages, decode_pointer(vaddr), PAGE_SIZE);
-			if (ret)
-				return ret;
-
-			args->nrpages_dumped++;
-		} else if (map[pfn] & PME_PRESENT)
-			args->nrpages_skipped++;
-	}
-
-	/*
-	 * Don't left pages readable if they were not.
-	 */
-	if (prot_old != prot_new) {
-		ret = sys_mprotect(decode_pointer(args->vma_entry.start),
-				   (unsigned long)vma_entry_len(&args->vma_entry),
-				   prot_old);
-		if (ret) {
-			pr_err("PANIC: Ouch! sys_mprotect failed on restore\n");
-			goto err_free;
-		}
-	}
-
-	ret = 0;
-err_free:
-	if (!bigmap)
-		brk_free(length);
-	else
-		sys_munmap(map, length);
-err:
-	return ret;
-}
-
-static int dump_pages_fini(void)
-{
-	int ret;
-
-	ret = sys_close(fd_pagemap);
-	ret |= sys_close(fd_pages);
-
-	return ret;
+	sys_close(p);
+	return 0;
 }
 
 static int dump_sigact(struct parasite_dump_sa_args *da)
@@ -436,10 +234,6 @@ static int init(struct parasite_init_args *args)
 	if (!args->nr_threads)
 		return -EINVAL;
 
-	ret = brk_init();
-	if (ret < 0)
-		return ret;
-
 	tid_state = (void *)sys_mmap(NULL, TID_STATE_SIZE(args->nr_threads),
 				     PROT_READ | PROT_WRITE,
 				     MAP_PRIVATE | MAP_ANONYMOUS,
@@ -610,7 +404,6 @@ static int fini(void)
 	sys_munmap(tid_state, TID_STATE_SIZE(nr_tid_state));
 	log_set_fd(-1);
 	sys_close(tsock);
-	brk_fini();
 
 	return ret;
 }
@@ -630,10 +423,6 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return fini_thread();
 	case PARASITE_CMD_CFG_LOG:
 		return parasite_cfg_log(args);
-	case PARASITE_CMD_DUMPPAGES_INIT:
-		return dump_pages_init();
-	case PARASITE_CMD_DUMPPAGES_FINI:
-		return dump_pages_fini();
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages(args);
 	case PARASITE_CMD_DUMP_SIGACTS:
