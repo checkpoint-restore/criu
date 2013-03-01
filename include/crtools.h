@@ -225,6 +225,7 @@ struct vm_area_list {
 
 int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
 void free_mappings(struct vm_area_list *vma_area_list);
+bool privately_dump_vma(struct vma_area *vma);
 
 struct vma_area {
 	struct list_head	list;

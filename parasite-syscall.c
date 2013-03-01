@@ -511,33 +511,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct vm_area_list *vm
 	parasite_dumppages = parasite_args(ctl, struct parasite_dump_pages_args);
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
-
-		/*
-		 * The special areas are not dumped.
-		 */
-		if (!(vma_area->vma.status & VMA_AREA_REGULAR))
-			continue;
-
-		/* No dumps for file-shared mappings */
-		if (vma_area->vma.status & VMA_FILE_SHARED)
-			continue;
-
-		/* No dumps for SYSV IPC mappings */
-		if (vma_area->vma.status & VMA_AREA_SYSVIPC)
-			continue;
-
-		if (vma_area_is(vma_area, VMA_ANON_SHARED))
-			continue;
-
 		parasite_dumppages->vma_entry = vma_area->vma;
 
-		if (!vma_area_is(vma_area, VMA_ANON_PRIVATE) &&
-		    !vma_area_is(vma_area, VMA_FILE_PRIVATE)) {
-			pr_warn("Unexpected VMA area found\n");
-			continue;
-		}
-
-		if (vma_area->vma.end > TASK_SIZE)
+		if (!privately_dump_vma(vma_area))
 			continue;
 
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl);

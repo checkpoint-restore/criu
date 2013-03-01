@@ -62,6 +62,37 @@
 static char loc_buf[PAGE_SIZE];
 static int pidns_proc = -1;
 
+bool privately_dump_vma(struct vma_area *vma)
+{
+	/*
+	 * The special areas are not dumped.
+	 */
+	if (!(vma->vma.status & VMA_AREA_REGULAR))
+		return false;
+
+	/* No dumps for file-shared mappings */
+	if (vma->vma.status & VMA_FILE_SHARED)
+		return false;
+
+	/* No dumps for SYSV IPC mappings */
+	if (vma->vma.status & VMA_AREA_SYSVIPC)
+		return false;
+
+	if (vma_area_is(vma, VMA_ANON_SHARED))
+		return false;
+
+	if (!vma_area_is(vma, VMA_ANON_PRIVATE) &&
+			!vma_area_is(vma, VMA_FILE_PRIVATE)) {
+		pr_warn("Unexpected VMA area found\n");
+		return false;
+	}
+
+	if (vma->vma.end > TASK_SIZE)
+		return false;
+
+	return true;
+}
+
 void free_mappings(struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
