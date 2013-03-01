@@ -21,3 +21,5 @@ SECTIONS
 		*(*)
 	}
 }
+
+__export_parasite_args = .;

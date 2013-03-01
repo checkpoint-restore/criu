@@ -15,9 +15,6 @@ ENTRY(__export_parasite_head_start)
 	.align 8
 __export_parasite_cmd:
 	.long 0
-__export_parasite_args:
-	.long 0
-	.space PARASITE_ARG_SIZE,0
 	.space PARASITE_STACK_SIZE,0
 __export_parasite_stack:
 	.long 0

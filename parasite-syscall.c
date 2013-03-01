@@ -184,12 +184,12 @@ err:
 
 static void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 {
-	BUG_ON(args_size > PARASITE_ARG_SIZE);
+	BUG_ON(args_size > ctl->args_size);
 	return ctl->addr_args;
 }
 
 #define parasite_args(ctl, type) ({				\
-		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE);	\
+		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);\
 		ctl->addr_args;					\
 	})
 
@@ -794,6 +794,11 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
+static unsigned long parasite_args_size(void)
+{
+	return PARASITE_ARG_SIZE_MIN;
+}
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item, struct list_head *vma_area_list)
 {
 	int ret;
@@ -810,7 +815,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
-	ret = parasite_map_exchange(ctl, parasite_size);
+	ctl->args_size = parasite_args_size();
+	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size);
 	if (ret)
 		goto err_restore;
 

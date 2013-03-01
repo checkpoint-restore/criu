@@ -2,7 +2,7 @@
 #define __CR_PARASITE_H__
 
 #define PARASITE_STACK_SIZE	(16 << 10)
-#define PARASITE_ARG_SIZE	8196
+#define PARASITE_ARG_SIZE_MIN	( 1 << 13)
 
 #define PARASITE_MAX_SIZE	(64 << 10)
 
