@@ -219,6 +219,8 @@ void close_cr_fdset(struct cr_fdset **cr_fdset);
 struct vm_area_list {
 	struct list_head	h;
 	unsigned		nr;
+	unsigned long		priv_size; /* nr of pages in private VMAs */
+	unsigned long		longest; /* nr of pages in longest VMA */
 };
 
 #define VM_AREA_LIST(name)	struct vm_area_list name = { .h = LIST_HEAD_INIT(name.h), .nr = 0, }

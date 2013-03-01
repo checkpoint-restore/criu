@@ -70,7 +70,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 
-static VM_AREA_LIST(rst_vmas);
+static VM_AREA_LIST(rst_vmas); /* XXX .longest is NOT tracked for this guy */
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {

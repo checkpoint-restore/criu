@@ -179,6 +179,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	FILE *smaps = NULL;
 
 	vma_area_list->nr = 0;
+	vma_area_list->longest = 0;
+	vma_area_list->priv_size = 0;
 	INIT_LIST_HEAD(&vma_area_list->h);
 
 	smaps = fopen_proc(pid, "smaps");
@@ -345,6 +347,13 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 done:
 		list_add_tail(&vma_area->list, &vma_area_list->h);
 		vma_area_list->nr++;
+		if (privately_dump_vma(vma_area)) {
+			unsigned long pages;
+
+			pages = vma_area_len(vma_area) / PAGE_SIZE;
+			vma_area_list->priv_size += pages;
+			vma_area_list->longest = max(vma_area_list->longest, pages);
+		}
 	}
 
 	vma_area = NULL;
