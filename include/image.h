@@ -120,14 +120,6 @@ struct page_entry {
 #define TASK_STOPPED		0x3 /* FIXME - implement */
 #define TASK_HELPER		0x4
 
-/*
- * There are always 4 magic bytes at the
- * beginning of the every file.
- */
-#define MAGIC_OFFSET		(sizeof(u32))
-#define GET_FILE_OFF(s, m)	(offsetof(s,m) + MAGIC_OFFSET)
-#define GET_FILE_OFF_AFTER(s)	(sizeof(s) + MAGIC_OFFSET)
-
 extern bool fdinfo_per_id;
 
 #endif /* __CR_IMAGE_H__ */
