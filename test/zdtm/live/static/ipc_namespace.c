@@ -265,7 +265,7 @@ static int rand_ipc_ns(void)
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/queues_max", (((unsigned)lrand48()) % 1023) + 1);
 	if (!ret)
-		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", (unsigned)lrand48() & (32768 * sizeof(void)/4 - 1));
+		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", ((unsigned)lrand48() % 65536) + 1);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", ((unsigned)lrand48() & (8192 * 128 - 1)) | 128);
 
