@@ -15,13 +15,14 @@
 #include <string.h>
 
 #include "zdtmtst.h"
+#include "lock.h"
 #include "ns.h"
 
-volatile sig_atomic_t sig_received = 0;
+futex_t sig_received;
 
 static void sig_hand(int signo)
 {
-	sig_received = signo;
+	futex_set_and_wake(&sig_received, signo);
 }
 
 static char *outfile;
@@ -153,7 +154,7 @@ void test_init(int argc, char **argv)
 	if (pid) {	/* parent will exit when the child is ready */
 		test_waitsig();
 
-		if (sig_received == SIGCHLD) {
+		if (futex_get(&sig_received) == SIGCHLD) {
 			int ret;
 			waitpid(pid, &ret, 0);
 
@@ -290,7 +291,7 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 	/* parent will exit when the child is ready */
 	test_waitsig();
 
-	if (sig_received == SIGCHLD) {
+	if (futex_get(&sig_received) == SIGCHLD) {
 		int ret;
 		waitpid(pid, &ret, 0);
 
@@ -330,21 +331,10 @@ out:
 
 int test_go(void)
 {
-	return !sig_received;
+	return !futex_get(&sig_received);
 }
 
 void test_waitsig(void)
 {
-	sigset_t mask, oldmask;
-
-	/* Set up the mask of signals to temporarily block. */
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGTERM);
-	sigaddset(&mask, SIGCHLD);
-
-	/* Wait for a signal to arrive. */
-	sigprocmask(SIG_BLOCK, &mask, &oldmask);
-	while (!sig_received)
-		sigsuspend (&oldmask);
-	sigprocmask (SIG_UNBLOCK, &mask, NULL);
+	futex_wait_while(&sig_received, 0);
 }

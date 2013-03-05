@@ -103,7 +103,7 @@ static void ns_sig_hand(int signo)
 	char buf[128] = "";
 
 	if (signo == SIGTERM) {
-		sig_received = signo;
+		futex_set_and_wake(&sig_received, signo);
 		len = snprintf(buf, sizeof(buf), "Time to stop and check\n");
 		goto write_out;
 	}
@@ -114,9 +114,9 @@ static void ns_sig_hand(int signo)
 			return;
 		if (pid == -1) {
 			if (errno == ECHILD) {
-				if (sig_received)
+				if (futex_get(&sig_received))
 					return;
-				sig_received = signo;
+				futex_set_and_wake(&sig_received, signo);
 				len = snprintf(buf, sizeof(buf),
 						"All test processes exited\n");
 			} else {

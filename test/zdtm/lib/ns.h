@@ -1,7 +1,9 @@
 #ifndef __ZDTM_NS__
 #define __ZDTM_NS__
 
-extern volatile sig_atomic_t sig_received;
+#include "lock.h"
+
+extern futex_t sig_received;
 extern char *pidfile;
 
 extern void ns_create(int argc, char **argv);

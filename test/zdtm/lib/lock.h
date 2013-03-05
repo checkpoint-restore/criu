@@ -1,6 +1,7 @@
 #ifndef CR_LOCK_H_
 #define CR_LOCK_H_
 
+#include <stdint.h>
 #include <linux/futex.h>
 #include <linux/unistd.h>
 #include <sys/time.h>
