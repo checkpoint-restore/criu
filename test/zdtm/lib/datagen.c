@@ -1,6 +1,59 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "zdtmtst.h"
+
+/*
+ * Generate random data only for buffers with sizes less than FAST_SIZE
+ * If a size of buffer is more than FAST_SIZE, the first FAST_SIZE bytes
+ * are filled by random generator and then this chunk is used as pattern
+ * for all other chunks.
+ */
+
+#define FAST_SIZE 99971 /* Prime number */
+
+static void datagen_fast(uint8_t *buffer, unsigned length, uint32_t *crc)
+{
+	uint8_t *p;
+
+	datagen(buffer, FAST_SIZE, crc);
+	p = buffer + FAST_SIZE;
+
+	while (p < buffer + length) {
+		unsigned long size = FAST_SIZE;
+
+		if (p + FAST_SIZE > buffer + length)
+			size = buffer + length - p;
+		memcpy(p, buffer, size);
+
+		p += FAST_SIZE;
+	}
+}
+
+static int datachk_fast(const uint8_t *buffer, unsigned length, uint32_t *crc)
+{
+	const uint8_t *p;
+
+	if (datachk(buffer, FAST_SIZE, crc))
+		return 1;
+
+	p = buffer + FAST_SIZE;
+
+	while (p < buffer + length) {
+		unsigned long size = FAST_SIZE;
+
+		if (p + FAST_SIZE > buffer + length)
+			size = buffer + length - p;
+
+		if (memcmp(p, buffer, size)) {
+			test_msg("Memory corruption [%p, %p]\n", p, p + size);
+			return 1;
+		}
+		p += FAST_SIZE;
+	}
+
+	return 0;
+}
 
 /* update CRC-32 */
 #define CRCPOLY 0xedb88320
@@ -17,6 +70,9 @@ void datagen(uint8_t *buffer, unsigned length, uint32_t *crc)
 {
 	uint32_t rnd = 0;
 	unsigned shift;
+
+	if (length > FAST_SIZE)
+		return datagen_fast(buffer, length, crc);
 
 	for (shift = 0; length-- > 4; buffer++, shift--, rnd >>= 8) {
 		if (!shift) {
@@ -57,6 +113,9 @@ void datagen2(uint8_t *buffer, unsigned length, uint32_t *crc)
 int datachk(const uint8_t *buffer, unsigned length, uint32_t *crc)
 {
 	uint32_t read_crc;
+
+	if (length > FAST_SIZE)
+		return datachk_fast(buffer, length, crc);
 
 	for (; length-- > 4; buffer++)
 		*crc = crc32_le8(*crc, *buffer);
