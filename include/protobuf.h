@@ -48,6 +48,8 @@ enum {
 	PB_FILE_LOCK,
 	PB_RLIMIT,
 	PB_IDS,
+	PB_PAGEMAP_HEAD,
+	PB_PAGEMAP,
 
 	PB_MAX
 };

@@ -42,6 +42,7 @@
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
 #include "protobuf/tty.pb-c.h"
+#include "protobuf/pagemap.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -211,40 +212,15 @@ void print_image_data(int fd, unsigned int length, int show)
 	xfree(data);
 }
 
-void show_pages(int fd_pages, struct cr_options *o)
+void show_pagemap(int fd, struct cr_options *o)
 {
-	pr_img_head(CR_FD_PAGES);
+	PagemapHead *h;
 
-	if (o->show_pages_content) {
-		while (1) {
-			struct page_entry e;
-
-			if (read_img_eof(fd_pages, &e) <= 0)
-				break;
-
-			print_data(e.va, e.data, PAGE_IMAGE_SIZE);
-			pr_msg("\n                  --- End of page ---\n\n");
-		}
-	} else {
-		while (1) {
-			struct page_entry e;
-			int i;
-
-			pr_msg("\t");
-			for (i = 0; i < DEF_PAGES_PER_LINE; i++) {
-				if (read_img_eof(fd_pages, &e) <= 0) {
-					pr_msg("\n");
-					goto out;
-				}
-
-				pr_msg("0x%16"PRIx64" ", e.va);
-			}
-			pr_msg("\n");
-		}
-	}
-
-out:
-	pr_img_tail(CR_FD_PAGES);
+	if (pb_read_one(fd, &h, PB_PAGEMAP_HEAD) < 0)
+		return;
+	pr_msg("Pages id: %u\n", h->pages_id);
+	pagemap_head__free_unpacked(h, NULL);
+	return pb_show_plain(fd, PB_PAGEMAP);
 }
 
 void show_sigacts(int fd_sigacts, struct cr_options *o)

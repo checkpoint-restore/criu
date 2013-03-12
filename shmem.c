@@ -6,8 +6,8 @@
 #include "image.h"
 #include "crtools.h"
 #include "restorer.h"
-
 #include "protobuf.h"
+#include "protobuf/pagemap.pb-c.h"
 
 struct shmems *rst_shmems;
 
@@ -134,30 +134,44 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 
 static int restore_shmem_content(void *addr, struct shmem_info *si)
 {
-	u64 offset;
-	int fd, ret = 0;
+	int fd, fd_pg, ret = 0;
 
-	fd = open_image_ro(CR_FD_SHMEM_PAGES, si->shmid);
-	if (fd < 0) {
-		munmap(addr,  si->size);
-		return -1;
-	}
+	fd = open_image_ro(CR_FD_SHMEM_PAGEMAP, si->shmid);
+	if (fd < 0)
+		goto err_unmap;
+
+	fd_pg = open_pages_image(O_RSTR, fd);
+	if (fd_pg < 0)
+		goto out_close;
 
 	while (1) {
-		ret = read_img_buf_eof(fd, &offset, sizeof(offset));
+		PagemapEntry *pe;
+
+		ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
 		if (ret <= 0)
 			break;
 
-		if (offset + PAGE_SIZE > si->size)
+		if (pe->vaddr + pe->nr_pages * PAGE_SIZE > si->size)
 			break;
 
-		ret = read_img_buf(fd, addr + offset, PAGE_SIZE);
-		if (ret < 0)
+		ret = read(fd_pg, addr + pe->vaddr, pe->nr_pages * PAGE_SIZE);
+		if (ret != pe->nr_pages * PAGE_SIZE) {
+			ret = -1;
 			break;
+		}
+
+		pagemap_entry__free_unpacked(pe, NULL);
 	}
 
+	close(fd_pg);
 	close(fd);
 	return ret;
+
+out_close:
+	close(fd);
+err_unmap:
+	munmap(addr,  si->size);
+	return -1;
 }
 
 int get_shmem_fd(int pid, VmaEntry *vi)
@@ -283,13 +297,15 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 
 int cr_dump_shmem(void)
 {
-	int i, err, fd;
+	int i, err, fd, fd_pg;
 	unsigned char *map = NULL;
 	void *addr = NULL;
 	struct shmem_info_dump *si;
 	unsigned long pfn, nrpages;
 
 	for_each_shmem_dump (i, si) {
+		PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+
 		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
 
 		nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -320,25 +336,42 @@ int cr_dump_shmem(void)
 		if (err)
 			goto err_unmap;
 
-		fd = open_image(CR_FD_SHMEM_PAGES, O_DUMP, si->shmid);
+		fd = open_image(CR_FD_SHMEM_PAGEMAP, O_DUMP, si->shmid);
 		if (fd < 0)
 			goto err_unmap;
 
+		fd_pg = open_pages_image(O_DUMP, fd);
+		if (fd_pg < 0)
+			goto err_close;
+
+		pe.nr_pages = 0;
 		for (pfn = 0; pfn < nrpages; pfn++) {
 			u64 offset = pfn * PAGE_SIZE;
 
-			if (!(map[pfn] & PAGE_RSS))
+			if (map[pfn] & PAGE_RSS) {
+				if (!pe.nr_pages)
+					pe.vaddr = offset;
+				pe.nr_pages++;
+				if (pfn + 1 < nrpages)
+					continue;
+			}
+
+			if (!pe.nr_pages)
 				continue;
 
-			if (write_img_buf(fd, &offset, sizeof(offset)))
+			if (pb_write_one(fd, &pe, PB_PAGEMAP))
 				break;
-			if (write_img_buf(fd, addr + offset, PAGE_SIZE))
+			if (write(fd_pg, addr + pe.vaddr, pe.nr_pages * PAGE_SIZE) !=
+					pe.nr_pages * PAGE_SIZE)
 				break;
+
+			pe.nr_pages = 0;
 		}
 
 		if (pfn != nrpages)
-			goto err_close;
+			goto err_close2;
 
+		close(fd_pg);
 		close(fd);
 		munmap(addr,  si->size);
 		xfree(map);
@@ -346,6 +379,8 @@ int cr_dump_shmem(void)
 
 	return 0;
 
+err_close2:
+	close(fd_pg);
 err_close:
 	close(fd);
 err_unmap:

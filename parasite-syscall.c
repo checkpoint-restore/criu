@@ -10,6 +10,7 @@
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/core.pb-c.h"
+#include "protobuf/pagemap.pb-c.h"
 
 #include "syscall.h"
 #include "ptrace.h"
@@ -543,38 +544,12 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	return 0;
 }
 
-static int dump_one_page(int pipe, unsigned long addr, void *arg)
-{
-	int fd = *(int *)arg;
-	u64 iaddr;
-
-	iaddr = encode_pointer((void *)addr);
-	if (write_img(fd, &iaddr))
-		return -1;
-
-	if (splice(pipe, NULL, fd, NULL, PAGE_SIZE,
-				SPLICE_F_MOVE | SPLICE_F_NONBLOCK) != PAGE_SIZE) {
-		pr_perror("Can't splice page from page-pipe");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int dump_pages_to_image(struct page_pipe *pp, struct cr_fdset *fds)
-{
-	int fd;
-
-	fd = fdset_fd(fds, CR_FD_PAGES);
-	return page_pipe_iterate_pages(pp, dump_one_page, &fd);
-}
-
-int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list,
-			       struct cr_fdset *cr_fdset)
+int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
+		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args *args;
 	u64 *map;
-	int pagemap;
+	int pagemap, fd, fd_pg;
 	struct page_pipe *pp;
 	struct page_pipe_buf *ppb;
 	struct vma_area *vma_area;
@@ -629,8 +604,44 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, struct vm_area_list *vm
 		args->off += args->nr;
 	}
 
-	ret = dump_pages_to_image(pp, cr_fdset);
+	fd = open_image(CR_FD_PAGEMAP, O_DUMP, (long)vpid);
+	if (fd < 0)
+		goto out_pp;
+	fd_pg = open_pages_image(O_DUMP, fd);
+	if (fd_pg < 0)
+		goto out_fd;
 
+	ret = -1;
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		int i;
+
+		pr_debug("Dump pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
+
+		for (i = 0; i < ppb->nr_segs; i++) {
+			PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+			struct iovec *iov = &ppb->iov[i];
+
+			pe.vaddr = encode_pointer(iov->iov_base);
+			pe.nr_pages = iov->iov_len / PAGE_SIZE;
+
+			pr_debug("\t%p [%u]\n", iov->iov_base,
+					(unsigned int)(iov->iov_len / PAGE_SIZE));
+
+			if (pb_write_one(fd, &pe, PB_PAGEMAP) < 0)
+				break;
+			if (splice(ppb->p[0], NULL, fd_pg, NULL, iov->iov_len,
+						SPLICE_F_MOVE) != iov->iov_len)
+				break;
+		}
+
+		if (i != ppb->nr_segs)
+			goto out_fds;
+	}
+	ret = 0;
+out_fds:
+	close(fd_pg);
+out_fd:
+	close(fd);
 out_pp:
 	destroy_page_pipe(pp);
 out_close:

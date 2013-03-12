@@ -23,6 +23,4 @@ struct page_pipe {
 struct page_pipe *create_page_pipe(unsigned int nr, struct iovec *);
 void destroy_page_pipe(struct page_pipe *p);
 int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
-int page_pipe_iterate_pages(struct page_pipe *p,
-		int (*fn)(int rpipe, unsigned long addr, void *), void *);
 #endif

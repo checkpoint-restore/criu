@@ -50,6 +50,7 @@ proto-obj-y	+= netdev.o
 proto-obj-y	+= tty.o
 proto-obj-y	+= file-lock.o
 proto-obj-y	+= rlimit.o
+proto-obj-y	+= pagemap.o
 
 proto		:= $(proto-obj-y:.o=)
 proto-c		:= $(proto-obj-y:.o=.pb-c.c)

@@ -61,6 +61,7 @@
 #include "protobuf/itimer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
+#include "protobuf/pagemap.pb-c.h"
 
 #include "asm/restore.h"
 
@@ -260,7 +261,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 static int restore_priv_vma_content(pid_t pid)
 {
 	struct vma_area *vma;
-	int fd, ret = 0;
+	int fd, fd_pg, ret = 0;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -268,26 +269,29 @@ static int restore_priv_vma_content(pid_t pid)
 
 	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
 
-	fd = open_image_ro(CR_FD_PAGES, pid);
+	fd = open_image_ro(CR_FD_PAGEMAP, (long)pid);
 	if (fd < 0)
 		return -1;
+
+	fd_pg = open_pages_image(O_RSTR, fd);
+	if (fd_pg < 0) {
+		close(fd);
+		return -1;
+	}
 
 	/*
 	 * Read page contents.
 	 */
 	while (1) {
-		uint64_t va, page_offset;
-		char buf[PAGE_SIZE];
-		void *p;
+		PagemapEntry *pe;
+		unsigned long off, i;
+		unsigned long va;
 
-		ret = read(fd, &va, sizeof(va));
-		if (!ret)
+		ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
+		if (ret <= 0)
 			break;
 
-		if (ret != sizeof(va)) {
-			pr_err("Bad mapping page size %d\n", ret);
-			return -1;
-		}
+		va = (unsigned long)decode_pointer(pe->vaddr);
 
 		BUG_ON(va < vma->vma.start);
 
@@ -296,29 +300,38 @@ static int restore_priv_vma_content(pid_t pid)
 			vma = list_entry(vma->list.next, struct vma_area, list);
 		}
 
-		page_offset = (va - vma->vma.start) / PAGE_SIZE;
+		off = (va - vma->vma.start) / PAGE_SIZE;
+		for (i = 0; i < pe->nr_pages; i++) {
+			unsigned char buf[PAGE_SIZE];
+			void *p;
 
-		set_bit(page_offset, vma->page_bitmap);
-		if (vma->ppage_bitmap)
-			clear_bit(page_offset, vma->ppage_bitmap);
+			set_bit(off + i, vma->page_bitmap);
+			if (vma->ppage_bitmap)
+				clear_bit(off + i, vma->ppage_bitmap);
 
-		ret = read(fd, buf, PAGE_SIZE);
-		if (ret != PAGE_SIZE) {
-			pr_err("Can'r read mapping page %d\n", ret);
-			return -1;
-		}
+			ret = read(fd_pg, buf, PAGE_SIZE);
+			if (ret != PAGE_SIZE) {
+				pr_err("Can'r read mapping page %d\n", ret);
+				return -1;
+			}
 
-		p = decode_pointer(va - vma->vma.start +
+			p = (void *)((off + i) * PAGE_SIZE +
 					vma_premmaped_start(&vma->vma));
-		if (memcmp(p, buf, PAGE_SIZE) == 0) {
-			nr_shared++;
-			continue;
+			if (memcmp(p, buf, PAGE_SIZE) == 0) {
+				nr_shared++;
+				continue;
+			}
+
+			memcpy(p, buf, PAGE_SIZE);
+			nr_restored++;
 		}
 
-		memcpy(p, buf, PAGE_SIZE);
-		nr_restored++;
+		pagemap_entry__free_unpacked(pe, NULL);
 	}
+	close(fd_pg);
 	close(fd);
+	if (ret < 0)
+		return ret;
 
 	/* Remove pages, which were not shared with a child */
 	list_for_each_entry(vma, &rst_vmas.h, list) {

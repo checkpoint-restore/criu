@@ -15,6 +15,7 @@
 #include "pstree.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
+#include "protobuf/pagemap.pb-c.h"
 
 bool fdinfo_per_id = false;
 TaskKobjIdsEntry *root_ids;
@@ -108,8 +109,8 @@ static void show_raw_image(int fd, struct cr_options *opt) {};
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(INVENTORY,	"inventory",	 show_inventory),
 	FD_ENTRY(FDINFO,	"fdinfo-%d",	 show_files),
-	FD_ENTRY(PAGES,		"pages-%d",	 show_pages),
-	FD_ENTRY(SHMEM_PAGES,	"pages-shmem-%ld", show_pages),
+	FD_ENTRY(PAGEMAP,	"pagemap-%ld",	 show_pagemap),
+	FD_ENTRY(SHMEM_PAGEMAP,	"pagemap-shmem-%ld", show_pagemap),
 	FD_ENTRY(REG_FILES,	"reg-files",	 show_reg_files),
 	FD_ENTRY(EVENTFD,	"eventfd",	 show_eventfds),
 	FD_ENTRY(EVENTPOLL,	"eventpoll",	 show_eventpoll),
@@ -153,6 +154,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TTY_INFO,	"tty-info",	 show_tty_info),
 	FD_ENTRY(FILE_LOCKS,	"filelocks-%d",	 show_file_locks),
 	FD_ENTRY(RLIMIT,	"rlimit",	 show_rlimit),
+	FD_ENTRY(PAGES,		"pages-%u",	 NULL),
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)
@@ -318,4 +320,26 @@ int open_image_dir(void)
 void close_image_dir(void)
 {
 	close_service_fd(IMG_FD_OFF);
+}
+
+static unsigned long page_ids = 1;
+
+int open_pages_image(unsigned long flags, int pm_fd)
+{
+	unsigned id;
+
+	if (flags == O_RDONLY) {
+		PagemapHead *h;
+		if (pb_read_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
+			return -1;
+		id = h->pages_id;
+		pagemap_head__free_unpacked(h, NULL);
+	} else {
+		PagemapHead h = PAGEMAP_HEAD__INIT;
+		id = h.pages_id = page_ids++;
+		if (pb_write_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
+			return -1;
+	}
+
+	return open_image(CR_FD_PAGES, flags, id);
 }

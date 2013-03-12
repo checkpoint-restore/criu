@@ -1367,7 +1367,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, cr_fdset);
+	ret = parasite_dump_pages_seized(parasite_ctl, item->pid.virt, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump pages (pid: %d) with parasite\n", pid);
 		goto err_cure;

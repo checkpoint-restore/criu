@@ -22,7 +22,6 @@ enum {
 
 	_CR_FD_TASK_FROM,
 	CR_FD_FILE_LOCKS,
-	CR_FD_PAGES,
 	CR_FD_CORE,
 	CR_FD_IDS,
 	CR_FD_MM,
@@ -33,6 +32,8 @@ enum {
 	CR_FD_FS,
 	CR_FD_RLIMIT,
 	_CR_FD_TASK_TO,
+
+	CR_FD_PAGEMAP,
 
 	/*
 	 * NS entries
@@ -51,7 +52,7 @@ enum {
 	_CR_FD_NS_TO,
 
 	CR_FD_PSTREE,
-	CR_FD_SHMEM_PAGES,
+	CR_FD_SHMEM_PAGEMAP,
 	CR_FD_GHOST_FILE,
 	CR_FD_TCP_STREAM,
 	CR_FD_FDINFO,
@@ -80,6 +81,7 @@ enum {
 	_CR_FD_GLOB_TO,
 
 	CR_FD_TMPFS,
+	CR_FD_PAGES,
 
 	CR_FD_MAX
 };
@@ -141,7 +143,7 @@ struct cr_fd_desc_tmpl {
 };
 
 void show_files(int fd_files, struct cr_options *o);
-void show_pages(int fd_pages, struct cr_options *o);
+void show_pagemap(int fd, struct cr_options *o);
 void show_reg_files(int fd_reg_files, struct cr_options *o);
 void show_core(int fd_core, struct cr_options *o);
 void show_ids(int fd_ids, struct cr_options *o);
@@ -177,6 +179,7 @@ extern void close_image_dir(void);
 
 int open_image(int type, unsigned long flags, ...);
 #define open_image_ro(type, ...) open_image(type, O_RDONLY, ##__VA_ARGS__)
+int open_pages_image(unsigned long flags, int pm_fd);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 #define LAST_PID_PERM		0666
@@ -209,6 +212,7 @@ int cr_exec(int pid, char **opts);
 
 #define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
 #define O_SHOW	(O_RDONLY)
+#define O_RSTR	(O_RDONLY)
 
 struct cr_fdset *cr_task_fdset_open(int pid, int mode);
 struct cr_fdset *cr_ns_fdset_open(int pid, int mode);
