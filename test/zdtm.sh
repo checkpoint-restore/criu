@@ -140,6 +140,8 @@ PID=""
 PIDNS=""
 
 ITERATIONS=1
+PAGE_SERVER=0
+PS_PORT=12345
 
 check_mainstream()
 {
@@ -308,12 +310,23 @@ EOF
 	echo Dump $PID
 	mkdir -p $ddump
 
+	if [ $PAGE_SERVER -eq 1 ]; then
+		$CRTOOLS page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT &
+		PS_PID=$!
+		opts="--page-server --address 127.0.0.1 --port $PS_PORT"
+	fi
+
+
 	save_fds $PID  $ddump/dump.fd
 	setsid $CRTOOLS_CPT dump $opts --file-locks --tcp-established $linkremap \
 		-x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
+
+	if [ $PAGE_SERVER -eq 1 ]; then
+		wait $PS_PID
+	fi
 
 	if expr " $ARGS" : ' -s' > /dev/null; then
 		save_fds $PID  $ddump/dump.fd.after
@@ -426,6 +439,11 @@ while :; do
 		shift
 		$TMP_TREE/test/zdtm.sh "$@"
 		exit
+	fi
+	if [ "$1" = "-p" ]; then
+		shift
+		PAGE_SERVER=1
+		continue;
 	fi
 	break;
 done
