@@ -109,6 +109,8 @@ struct cr_options {
 	char			*pidfile;
 	struct list_head	veth_pairs;
 	struct list_head	scripts;
+	bool			use_page_server;
+	struct sockaddr_in	ps_addr;
 };
 
 extern struct cr_options opts;

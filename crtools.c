@@ -12,6 +12,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "asm/types.h"
 
 #include "compiler.h"
@@ -22,6 +26,7 @@
 #include "sk-inet.h"
 #include "net.h"
 #include "version.h"
+#include "page-xfer.h"
 
 struct cr_options opts;
 
@@ -102,6 +107,9 @@ int main(int argc, char *argv[])
 			{ LREMAP_PARAM, no_argument, 0, 41},
 			{ "shell-job", no_argument, 0, 'j'},
 			{ "file-locks", no_argument, 0, 'l'},
+			{ "page-server", no_argument, 0, 50},
+			{ "address", required_argument, 0, 51},
+			{ "port", required_argument, 0, 52},
 			{ },
 		};
 
@@ -220,6 +228,22 @@ int main(int argc, char *argv[])
 				list_add(&script->node, &opts.scripts);
 			}
 			break;
+		case 50:
+			opts.use_page_server = true;
+			break;
+		case 51:
+			if (!inet_aton(optarg, &opts.ps_addr.sin_addr)) {
+				pr_perror("Bad address");
+				return -1;
+			}
+			break;
+		case 52:
+			opts.ps_addr.sin_port = htons(atoi(optarg));
+			if (!opts.ps_addr.sin_port) {
+				pr_err("Bad port\n");
+				return -1;
+			}
+			break;
 		case 'j':
 			opts.shell_job = true;
 			break;
@@ -258,6 +282,7 @@ int main(int argc, char *argv[])
 	    strcmp(argv[optind], "restore") &&
 	    strcmp(argv[optind], "show") &&
 	    strcmp(argv[optind], "check") &&
+	    strcmp(argv[optind], "page-server") &&
 	    strcmp(argv[optind], "exec")) {
 		pr_err("Unknown command %s\n", argv[optind]);
 		goto usage;
@@ -285,6 +310,9 @@ int main(int argc, char *argv[])
 			goto opt_pid_missing;
 		ret = cr_exec(pid, argv + optind + 1);
 		break;
+	case 'p':
+		ret = cr_page_server();
+		break;
 	default:
 		goto usage;
 		break;
@@ -306,6 +334,7 @@ usage:
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
 	pr_msg("  exec           execute a system call by other task\n");
+	pr_msg("  page-server    launch page server\n");
 
 	if (argc < 2) {
 		pr_msg("\nTry -h|--help for more info\n");
@@ -351,6 +380,11 @@ usage:
 	pr_msg("  -vv            same as -v 2\n");
 	pr_msg("  -vvv           same as -v 3\n");
 	pr_msg("  -vvvv          same as -v 4\n");
+
+	pr_msg("\nPage server options\n");
+	pr_msg("  --page-server         send pages to page server\n");
+	pr_msg("  --address [ADDR]      address of page server\n");
+	pr_msg("  --port [PORT]         port of page server\n");
 
 	pr_msg("\nShow options:\n");
 	pr_msg("  -f|--file             show contents of a checkpoint file\n");

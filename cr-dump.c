@@ -56,6 +56,7 @@
 #include "cpu.h"
 #include "elf.h"
 #include "file-lock.h"
+#include "page-xfer.h"
 
 #include "asm/dump.h"
 
@@ -1456,6 +1457,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 		goto err;
 
 	if (write_img_inventory())
+		goto err;
+
+	if (connect_to_page_server())
 		goto err;
 
 	if (collect_pstree(pid, opts))
