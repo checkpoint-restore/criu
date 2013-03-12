@@ -23,6 +23,7 @@
 #include "pstree.h"
 #include "net.h"
 #include "page-pipe.h"
+#include "page-xfer.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -549,11 +550,12 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 {
 	struct parasite_dump_pages_args *args;
 	u64 *map;
-	int pagemap, fd, fd_pg;
+	int pagemap;
 	struct page_pipe *pp;
 	struct page_pipe_buf *ppb;
 	struct vma_area *vma_area;
 	int ret = -1;
+	struct page_xfer xfer;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
@@ -604,12 +606,9 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 		args->off += args->nr;
 	}
 
-	fd = open_image(CR_FD_PAGEMAP, O_DUMP, (long)vpid);
-	if (fd < 0)
+	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, vpid);
+	if (ret < 0)
 		goto out_pp;
-	fd_pg = open_pages_image(O_DUMP, fd);
-	if (fd_pg < 0)
-		goto out_fd;
 
 	ret = -1;
 	list_for_each_entry(ppb, &pp->bufs, l) {
@@ -618,30 +617,19 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 		pr_debug("Dump pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
-			PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 			struct iovec *iov = &ppb->iov[i];
-
-			pe.vaddr = encode_pointer(iov->iov_base);
-			pe.nr_pages = iov->iov_len / PAGE_SIZE;
 
 			pr_debug("\t%p [%u]\n", iov->iov_base,
 					(unsigned int)(iov->iov_len / PAGE_SIZE));
 
-			if (pb_write_one(fd, &pe, PB_PAGEMAP) < 0)
-				break;
-			if (splice(ppb->p[0], NULL, fd_pg, NULL, iov->iov_len,
-						SPLICE_F_MOVE) != iov->iov_len)
-				break;
+			if (xfer.write_pagemap(&xfer, iov, ppb->p[0]))
+				goto out_xfer;
 		}
-
-		if (i != ppb->nr_segs)
-			goto out_fds;
 	}
+
 	ret = 0;
-out_fds:
-	close(fd_pg);
-out_fd:
-	close(fd);
+out_xfer:
+	xfer.close(&xfer);
 out_pp:
 	destroy_page_pipe(pp);
 out_close:
