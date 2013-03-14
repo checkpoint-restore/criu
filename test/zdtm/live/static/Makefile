@@ -39,6 +39,7 @@ TST_NOFILE	=				\
 		ptrace_sig			\
 		pipe00				\
 		pipe01				\
+		pipe02				\
 		pthread00			\
 		pthread01			\
 		vdso00				\
