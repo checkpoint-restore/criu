@@ -324,6 +324,20 @@ void close_image_dir(void)
 
 static unsigned long page_ids = 1;
 
+void up_page_ids_base(void)
+{
+	/*
+	 * When page server and crtools dump work on
+	 * the same dir, the shmem pagemaps and regular
+	 * pagemaps may have IDs conflicts. Fix this by
+	 * making page server produce page images with
+	 * higher IDs.
+	 */
+
+	BUG_ON(page_ids != 1);
+	page_ids += 0x10000;
+}
+
 int open_pages_image(unsigned long flags, int pm_fd)
 {
 	unsigned id;

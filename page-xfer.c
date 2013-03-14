@@ -150,6 +150,8 @@ int cr_page_server(void)
 	struct sockaddr_in caddr;
 	socklen_t clen = sizeof(caddr);
 
+	up_page_ids_base();
+
 	pr_info("Starting page server on port %u\n",
 			(int)ntohs(opts.ps_addr.sin_port));
 
