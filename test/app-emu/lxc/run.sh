@@ -27,6 +27,7 @@ pid=$2
 echo "The CT's \"init\" process has PID of $pid"
 kill -0 $pid || exit 1
 
+mkdir -p /var/run/netns/
 ln -sf /proc/$pid/ns/net /var/run/netns/$name
 $CR_IP_TOOL netns exec $name ip a || exit 1
 
