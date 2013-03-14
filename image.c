@@ -22,37 +22,37 @@ TaskKobjIdsEntry *root_ids;
 
 int check_img_inventory(void)
 {
-	int fd, ret;
+	int fd, ret = -1;
 	InventoryEntry *he;
 
 	fd = open_image_ro(CR_FD_INVENTORY);
 	if (fd < 0)
 		return -1;
 
-	ret = pb_read_one(fd, &he, PB_INVENTORY);
-	close(fd);
-	if (ret < 0)
-		return ret;
+	if (pb_read_one(fd, &he, PB_INVENTORY) < 0)
+		goto out_close;
 
 	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
-
-	ret = he->img_version;
 
 	if (he->root_ids) {
 		root_ids = xmalloc(sizeof(*root_ids));
 		if (!root_ids)
-			return -1;
+			goto out_err;
 
 		memcpy(root_ids, he->root_ids, sizeof(*root_ids));
-		inventory_entry__free_unpacked(he, NULL);
 	}
 
-	if (ret != CRTOOLS_IMAGES_V1) {
-		pr_err("Not supported images version %u\n", ret);
-		return -1;
+	if (he->img_version != CRTOOLS_IMAGES_V1) {
+		pr_err("Not supported images version %u\n", he->img_version);
+		goto out_err;
 	}
+	ret = 0;
 
-	return 0;
+out_err:
+	inventory_entry__free_unpacked(he, NULL);
+out_close:
+	close(fd);
+	return ret;
 }
 
 int write_img_inventory(void)
