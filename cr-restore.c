@@ -424,7 +424,7 @@ static int read_vmas(int pid)
 	/* Reserve a place for mapping private vma-s one by one */
 	addr = mmap(NULL, priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
-		pr_perror("Unable to reserve memory");
+		pr_perror("Unable to reserve memory (%lu bytes)", priv_size);
 		return -1;
 	}
 
