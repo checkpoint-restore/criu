@@ -71,6 +71,7 @@ int write_img_inventory(void)
 	he.fdinfo_per_id = true;
 	he.has_fdinfo_per_id = true;
 
+	crt.state = TASK_ALIVE;
 	crt.pid.real = getpid();
 	if (get_task_ids(&crt))
 		return -1;
