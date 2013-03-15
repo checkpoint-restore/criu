@@ -294,7 +294,7 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 static int dump_one_shmem(struct shmem_info_dump *si)
 {
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
-	int err, fd, fd_pg;
+	int err, fd, fd_pg, ret = -1;
 	unsigned char *map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
@@ -353,22 +353,14 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 			continue;
 
 		if (pb_write_one(fd, &pe, PB_PAGEMAP))
-			break;
+			goto err_close2;
 		if (write(fd_pg, addr + pe.vaddr, pe.nr_pages * PAGE_SIZE) !=
 				pe.nr_pages * PAGE_SIZE)
-			break;
+			goto err_close2;
 
 		pe.nr_pages = 0;
 	}
-
-	if (pfn != nrpages)
-		goto err_close2;
-
-	close(fd_pg);
-	close(fd);
-	munmap(addr,  si->size);
-	xfree(map);
-	return 0;
+	ret = 0;
 
 err_close2:
 	close(fd_pg);
@@ -378,7 +370,7 @@ err_unmap:
 	munmap(addr,  si->size);
 err:
 	xfree(map);
-	return -1;
+	return ret;
 }
 
 #define for_each_shmem_dump(_i, _si)				\
