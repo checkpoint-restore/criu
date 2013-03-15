@@ -6,6 +6,8 @@
 #include "image.h"
 #include "crtools.h"
 #include "restorer.h"
+#include "page-pipe.h"
+#include "page-xfer.h"
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
@@ -293,8 +295,11 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 
 static int dump_one_shmem(struct shmem_info_dump *si)
 {
-	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
-	int err, fd, fd_pg, ret = -1;
+	struct iovec *iovs;
+	struct page_pipe *pp;
+	struct page_pipe_buf *ppb;
+	struct page_xfer xfer;
+	int err, ret = -1, fd;
 	unsigned char *map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
@@ -329,43 +334,60 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 	if (err)
 		goto err_unmap;
 
-	fd = open_image(CR_FD_SHMEM_PAGEMAP, O_DUMP, si->shmid);
-	if (fd < 0)
+	iovs = xmalloc((nrpages / 2) * sizeof(struct iovec));
+	if (!iovs)
 		goto err_unmap;
 
-	fd_pg = open_pages_image(O_DUMP, fd);
-	if (fd_pg < 0)
-		goto err_close;
+	pp = create_page_pipe(nrpages / 2, iovs);
+	if (!pp)
+		goto err_iovs;
 
-	pe.nr_pages = 0;
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		u64 offset = pfn * PAGE_SIZE;
-
-		if (map[pfn] & PAGE_RSS) {
-			if (!pe.nr_pages)
-				pe.vaddr = offset;
-			pe.nr_pages++;
-			if (pfn + 1 < nrpages)
-				continue;
-		}
-
-		if (!pe.nr_pages)
+		if (!(map[pfn] & PAGE_RSS))
 			continue;
 
-		if (pb_write_one(fd, &pe, PB_PAGEMAP))
-			goto err_close2;
-		if (write(fd_pg, addr + pe.vaddr, pe.nr_pages * PAGE_SIZE) !=
-				pe.nr_pages * PAGE_SIZE)
-			goto err_close2;
-
-		pe.nr_pages = 0;
+		if (page_pipe_add_page(pp, (unsigned long)addr + pfn * PAGE_SIZE))
+			goto err_pp;
 	}
+
+	list_for_each_entry(ppb, &pp->bufs, l)
+		if (vmsplice(ppb->p[1], ppb->iov, ppb->nr_segs,
+					SPLICE_F_GIFT | SPLICE_F_NONBLOCK) !=
+				ppb->pages_in * PAGE_SIZE) {
+			pr_perror("Can't get shmem into page-pipe");
+			goto err_pp;
+		}
+
+	err = open_page_xfer(&xfer, CR_FD_SHMEM_PAGEMAP, si->shmid);
+	if (err)
+		goto err_pp;
+
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		int i;
+
+		pr_debug("Dump shmem pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
+
+		for (i = 0; i < ppb->nr_segs; i++) {
+			struct iovec *iov = &ppb->iov[i];
+
+			BUG_ON(iov->iov_base < addr);
+			iov->iov_base -= (unsigned long)addr;
+			pr_debug("\t%p [%u]\n", iov->iov_base,
+					(unsigned int)(iov->iov_len / PAGE_SIZE));
+
+			if (xfer.write_pagemap(&xfer, iov, ppb->p[0]))
+				goto out_xfer;
+		}
+	}
+
 	ret = 0;
 
-err_close2:
-	close(fd_pg);
-err_close:
-	close(fd);
+out_xfer:
+	xfer.close(&xfer);
+err_pp:
+	destroy_page_pipe(pp);
+err_iovs:
+	xfree(iovs);
 err_unmap:
 	munmap(addr,  si->size);
 err:
