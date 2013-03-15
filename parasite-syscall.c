@@ -610,25 +610,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 	if (ret < 0)
 		goto out_pp;
 
-	ret = -1;
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		int i;
+	ret = page_xfer_dump_pages(&xfer, pp, 0);
 
-		pr_debug("Dump pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
-
-		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec *iov = &ppb->iov[i];
-
-			pr_debug("\t%p [%u]\n", iov->iov_base,
-					(unsigned int)(iov->iov_len / PAGE_SIZE));
-
-			if (xfer.write_pagemap(&xfer, iov, ppb->p[0]))
-				goto out_xfer;
-		}
-	}
-
-	ret = 0;
-out_xfer:
 	xfer.close(&xfer);
 out_pp:
 	destroy_page_pipe(pp);

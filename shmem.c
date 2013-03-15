@@ -362,27 +362,8 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 	if (err)
 		goto err_pp;
 
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		int i;
+	ret = page_xfer_dump_pages(&xfer, pp, (unsigned long)addr);
 
-		pr_debug("Dump shmem pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
-
-		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec *iov = &ppb->iov[i];
-
-			BUG_ON(iov->iov_base < addr);
-			iov->iov_base -= (unsigned long)addr;
-			pr_debug("\t%p [%u]\n", iov->iov_base,
-					(unsigned int)(iov->iov_len / PAGE_SIZE));
-
-			if (xfer.write_pagemap(&xfer, iov, ppb->p[0]))
-				goto out_xfer;
-		}
-	}
-
-	ret = 0;
-
-out_xfer:
 	xfer.close(&xfer);
 err_pp:
 	destroy_page_pipe(pp);

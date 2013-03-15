@@ -5,6 +5,7 @@
 
 #include "crtools.h"
 #include "page-xfer.h"
+#include "page-pipe.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -276,6 +277,32 @@ static void close_page_xfer(struct page_xfer *xfer)
 {
 	close(xfer->fd_pg);
 	close(xfer->fd);
+}
+
+int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
+		unsigned long off)
+{
+	struct page_pipe_buf *ppb;
+
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		int i;
+
+		pr_debug("Dump shmem pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
+
+		for (i = 0; i < ppb->nr_segs; i++) {
+			struct iovec *iov = &ppb->iov[i];
+
+			BUG_ON(iov->iov_base < (void *)off);
+			iov->iov_base -= off;
+			pr_debug("\t%p [%u]\n", iov->iov_base,
+					(unsigned int)(iov->iov_len / PAGE_SIZE));
+
+			if (xfer->write_pagemap(xfer, iov, ppb->p[0]))
+				return -1;
+		}
+	}
+
+	return 0;
 }
 
 int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
