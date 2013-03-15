@@ -533,6 +533,15 @@ void do_pb_show_plain(int fd, int type, int single_entry,
 	}
 }
 
+static char *image_name(int fd)
+{
+	static char image_path[PATH_MAX];
+
+	if (read_fd_link(fd, image_path, sizeof(image_path)) == 0)
+		return image_path;
+	return NULL;
+}
+
 /*
  * Reads PB record (header + packed object) from file @fd and unpack
  * it with @unpack procedure to the pointer @pobj
@@ -552,7 +561,8 @@ int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 	int ret;
 
 	if (!cr_pb_descs[type].pb_desc) {
-		pr_err("Wrong object requested %d\n", type);
+		pr_err("Wrong object requested %d on %s\n",
+			type, image_name(fd));
 		return -1;
 	}
 
@@ -563,12 +573,14 @@ int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 		if (eof) {
 			return 0;
 		} else {
-			pr_err("Unexpected EOF\n");
+			pr_err("Unexpected EOF on %s\n",
+			       image_name(fd));
 			return -1;
 		}
 	} else if (ret < sizeof(size)) {
-		pr_perror("Read %d bytes while %d expected",
-			  ret, (int)sizeof(size));
+		pr_perror("Read %d bytes while %d expected on %s",
+			  ret, (int)sizeof(size),
+			  image_name(fd));
 		return -1;
 	}
 
@@ -581,10 +593,12 @@ int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 
 	ret = read(fd, buf, size);
 	if (ret < 0) {
-		pr_perror("Can't read %d bytes from file", size);
+		pr_perror("Can't read %d bytes from file %s",
+			  size, image_name(fd));
 		goto err;
 	} else if (ret != size) {
-		pr_perror("Read %d bytes while %d expected", ret, size);
+		pr_perror("Read %d bytes while %d expected from %s",
+			  ret, size, image_name(fd));
 		ret = -1;
 		goto err;
 	}
@@ -592,7 +606,8 @@ int do_pb_read_one(int fd, void **pobj, int type, bool eof)
 	*pobj = cr_pb_descs[type].unpack(NULL, size, buf);
 	if (!*pobj) {
 		ret = -1;
-		pr_err("Failed unpacking object %p\n", pobj);
+		pr_err("Failed unpacking object %p from %s\n",
+		       pobj, image_name(fd));
 		goto err;
 	}
 
