@@ -334,11 +334,11 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 	if (err)
 		goto err_unmap;
 
-	iovs = xmalloc((nrpages / 2) * sizeof(struct iovec));
+	iovs = xmalloc(((nrpages + 1) / 2) * sizeof(struct iovec));
 	if (!iovs)
 		goto err_unmap;
 
-	pp = create_page_pipe(nrpages / 2, iovs);
+	pp = create_page_pipe((nrpages + 1) / 2, iovs);
 	if (!pp)
 		goto err_iovs;
 

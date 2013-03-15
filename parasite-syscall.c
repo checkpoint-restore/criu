@@ -493,7 +493,7 @@ static unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
 	 */
 
 	return sizeof(struct parasite_dump_pages_args) +
-		vmas->priv_size * sizeof(struct iovec) / 2;
+		(vmas->priv_size + 1) * sizeof(struct iovec) / 2;
 }
 
 #define PME_PRESENT	(1ULL << 63)
