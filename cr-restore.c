@@ -295,19 +295,21 @@ static int restore_priv_vma_content(pid_t pid)
 
 		BUG_ON(va < vma->vma.start);
 
-		while (va >= vma->vma.end) {
-			BUG_ON(vma->list.next == &rst_vmas.h);
-			vma = list_entry(vma->list.next, struct vma_area, list);
-		}
-
-		off = (va - vma->vma.start) / PAGE_SIZE;
 		for (i = 0; i < pe->nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
 			void *p;
 
-			set_bit(off + i, vma->page_bitmap);
+			while (va >= vma->vma.end) {
+				BUG_ON(vma->list.next == &rst_vmas.h);
+				vma = list_entry(vma->list.next, struct vma_area, list);
+			}
+
+			off = (va - vma->vma.start) / PAGE_SIZE;
+			va += PAGE_SIZE;
+
+			set_bit(off, vma->page_bitmap);
 			if (vma->ppage_bitmap)
-				clear_bit(off + i, vma->ppage_bitmap);
+				clear_bit(off, vma->ppage_bitmap);
 
 			ret = read(fd_pg, buf, PAGE_SIZE);
 			if (ret != PAGE_SIZE) {
@@ -315,8 +317,9 @@ static int restore_priv_vma_content(pid_t pid)
 				return -1;
 			}
 
-			p = (void *)((off + i) * PAGE_SIZE +
+			p = (void *)((off) * PAGE_SIZE +
 					vma_premmaped_start(&vma->vma));
+
 			if (memcmp(p, buf, PAGE_SIZE) == 0) {
 				nr_shared++;
 				continue;
