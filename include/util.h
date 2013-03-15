@@ -303,4 +303,6 @@ static inline bool dir_dots(struct dirent *de)
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
 }
 
+extern int read_fd_link(int lfd, char *buf, size_t size);
+
 #endif /* __CR_UTIL_H__ */

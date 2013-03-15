@@ -420,6 +420,22 @@ bool is_anon_inode(struct statfs *statfs)
 	return statfs->f_type == ANON_INODE_FS_MAGIC;
 }
 
+int read_fd_link(int lfd, char *buf, size_t size)
+{
+	char t[32];
+	ssize_t ret;
+
+	snprintf(t, sizeof(t), "/proc/self/fd/%d", lfd);
+	ret = readlink(t, buf, size);
+	if (ret < 0) {
+		pr_perror("Can't read link of fd %d\n", lfd);
+		return -1;
+	}
+	buf[ret] = 0;
+
+	return 0;
+}
+
 int is_anon_link_type(int lfd, char *type)
 {
 	char link[32], aux[32];
