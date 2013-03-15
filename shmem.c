@@ -291,92 +291,83 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 	return 0;
 }
 
-#define for_each_shmem_dump(_i, _si)				\
-	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
-		for (si = shmems_hash[i]; si; si = si->next)
-
-int cr_dump_shmem(void)
+static int dump_one_shmem(struct shmem_info_dump *si)
 {
-	int i, err, fd, fd_pg;
+	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+	int err, fd, fd_pg;
 	unsigned char *map = NULL;
 	void *addr = NULL;
-	struct shmem_info_dump *si;
 	unsigned long pfn, nrpages;
 
-	for_each_shmem_dump (i, si) {
-		PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+	pr_info("Dumping shared memory 0x%lx\n", si->shmid);
 
-		pr_info("Dumping shared memory 0x%lx\n", si->shmid);
+	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
+	map = xmalloc(nrpages * sizeof(*map));
+	if (!map)
+		goto err;
 
-		nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
-		map = xmalloc(nrpages * sizeof(*map));
-		if (!map)
-			goto err;
+	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
+	if (fd < 0)
+		goto err;
 
-		fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
-		if (fd < 0)
-			goto err;
-
-		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
-		close(fd);
-		if (addr == MAP_FAILED) {
-			pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
-					si->shmid, si->start, si->end);
-			goto err;
-		}
-
-		/*
-		 * We can't use pagemap here, because this vma is
-		 * not mapped to us at all, but mincore reports the
-		 * pagecache status of a file, which is correct in
-		 * this case.
-		 */
-
-		err = mincore(addr, si->size, map);
-		if (err)
-			goto err_unmap;
-
-		fd = open_image(CR_FD_SHMEM_PAGEMAP, O_DUMP, si->shmid);
-		if (fd < 0)
-			goto err_unmap;
-
-		fd_pg = open_pages_image(O_DUMP, fd);
-		if (fd_pg < 0)
-			goto err_close;
-
-		pe.nr_pages = 0;
-		for (pfn = 0; pfn < nrpages; pfn++) {
-			u64 offset = pfn * PAGE_SIZE;
-
-			if (map[pfn] & PAGE_RSS) {
-				if (!pe.nr_pages)
-					pe.vaddr = offset;
-				pe.nr_pages++;
-				if (pfn + 1 < nrpages)
-					continue;
-			}
-
-			if (!pe.nr_pages)
-				continue;
-
-			if (pb_write_one(fd, &pe, PB_PAGEMAP))
-				break;
-			if (write(fd_pg, addr + pe.vaddr, pe.nr_pages * PAGE_SIZE) !=
-					pe.nr_pages * PAGE_SIZE)
-				break;
-
-			pe.nr_pages = 0;
-		}
-
-		if (pfn != nrpages)
-			goto err_close2;
-
-		close(fd_pg);
-		close(fd);
-		munmap(addr,  si->size);
-		xfree(map);
+	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
+	close(fd);
+	if (addr == MAP_FAILED) {
+		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
+				si->shmid, si->start, si->end);
+		goto err;
 	}
 
+	/*
+	 * We can't use pagemap here, because this vma is
+	 * not mapped to us at all, but mincore reports the
+	 * pagecache status of a file, which is correct in
+	 * this case.
+	 */
+
+	err = mincore(addr, si->size, map);
+	if (err)
+		goto err_unmap;
+
+	fd = open_image(CR_FD_SHMEM_PAGEMAP, O_DUMP, si->shmid);
+	if (fd < 0)
+		goto err_unmap;
+
+	fd_pg = open_pages_image(O_DUMP, fd);
+	if (fd_pg < 0)
+		goto err_close;
+
+	pe.nr_pages = 0;
+	for (pfn = 0; pfn < nrpages; pfn++) {
+		u64 offset = pfn * PAGE_SIZE;
+
+		if (map[pfn] & PAGE_RSS) {
+			if (!pe.nr_pages)
+				pe.vaddr = offset;
+			pe.nr_pages++;
+			if (pfn + 1 < nrpages)
+				continue;
+		}
+
+		if (!pe.nr_pages)
+			continue;
+
+		if (pb_write_one(fd, &pe, PB_PAGEMAP))
+			break;
+		if (write(fd_pg, addr + pe.vaddr, pe.nr_pages * PAGE_SIZE) !=
+				pe.nr_pages * PAGE_SIZE)
+			break;
+
+		pe.nr_pages = 0;
+	}
+
+	if (pfn != nrpages)
+		goto err_close2;
+
+	close(fd_pg);
+	close(fd);
+	munmap(addr,  si->size);
+	xfree(map);
 	return 0;
 
 err_close2:
@@ -388,4 +379,22 @@ err_unmap:
 err:
 	xfree(map);
 	return -1;
+}
+
+#define for_each_shmem_dump(_i, _si)				\
+	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
+		for (si = shmems_hash[i]; si; si = si->next)
+
+int cr_dump_shmem(void)
+{
+	int ret = 0, i;
+	struct shmem_info_dump *si;
+
+	for_each_shmem_dump (i, si) {
+		ret = dump_one_shmem(si);
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
