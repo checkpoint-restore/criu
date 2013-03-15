@@ -398,9 +398,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	rt_sigaction_t act;
 
 	task_entries = args->task_entries;
-	sys_sigaction(SIGCHLD, NULL, &act, sizeof(rt_sigset_t));
+	sys_sigaction(SIGCHLD, NULL, &act, sizeof(k_rtsigset_t));
 	act.rt_sa_handler = sigchld_handler;
-	sys_sigaction(SIGCHLD, &act, NULL, sizeof(rt_sigset_t));
+	sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
 
 	log_set_fd(args->logfd);
 	log_set_loglevel(args->loglevel);
@@ -692,7 +692,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_finish_stage(CR_STATE_RESTORE);
 
-	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(rt_sigset_t));
+	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 

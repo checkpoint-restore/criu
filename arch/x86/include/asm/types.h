@@ -86,22 +86,11 @@ typedef signed char		s8;
 #define _LINUX_CAPABILITY_VERSION_3	0x20080522
 #define _LINUX_CAPABILITY_U32S_3	2
 
-typedef struct {
-	unsigned long sig[1];
-} rt_sigset_t;
-
 typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 
 typedef void rt_restorefn_t(void);
 typedef rt_restorefn_t *rt_sigrestore_t;
-
-typedef struct {
-	rt_sighandler_t	rt_sa_handler;
-	unsigned long	rt_sa_flags;
-	rt_sigrestore_t	rt_sa_restorer;
-	rt_sigset_t	rt_sa_mask;
-} rt_sigaction_t;
 
 #define _KNSIG           64
 # define _NSIG_BPW      64
@@ -118,6 +107,13 @@ static inline void ksigfillset(k_rtsigset_t *set)
 	for (i = 0; i < _KNSIG_WORDS; i++)
 		set->sig[i] = (unsigned long)-1;
 }
+
+typedef struct {
+	rt_sighandler_t	rt_sa_handler;
+	unsigned long	rt_sa_flags;
+	rt_sigrestore_t	rt_sa_restorer;
+	k_rtsigset_t	rt_sa_mask;
+} rt_sigaction_t;
 
 typedef struct {
 	unsigned int	entry_number;

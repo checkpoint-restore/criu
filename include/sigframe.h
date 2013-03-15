@@ -30,8 +30,8 @@ struct rt_ucontext {
 	struct rt_ucontext	*uc_link;
 	rt_stack_t		uc_stack;
 	struct rt_sigcontext	uc_mcontext;
-	rt_sigset_t		uc_sigmask;	/* mask last for extensibility */
-	int                     __unused[32 - (sizeof (rt_sigset_t) / sizeof (int))];
+	k_rtsigset_t		uc_sigmask;	/* mask last for extensibility */
+	int                     __unused[32 - (sizeof (k_rtsigset_t) / sizeof (int))];
 	unsigned long           uc_regspace[128] __attribute__((__aligned__(8)));
 };
 

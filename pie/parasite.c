@@ -64,7 +64,7 @@ static int dump_sigact(struct parasite_dump_sa_args *da)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = sys_sigaction(sig, NULL, &da->sas[i], sizeof(rt_sigset_t));
+		ret = sys_sigaction(sig, NULL, &da->sas[i], sizeof(k_rtsigset_t));
 		if (ret < 0) {
 			pr_err("sys_sigaction failed\n");
 			break;
