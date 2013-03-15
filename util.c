@@ -439,15 +439,10 @@ int read_fd_link(int lfd, char *buf, size_t size)
 int is_anon_link_type(int lfd, char *type)
 {
 	char link[32], aux[32];
-	ssize_t ret;
 
-	snprintf(aux, sizeof(aux), "/proc/self/fd/%d", lfd);
-	ret = readlink(aux, link, sizeof(link));
-	if (ret < 0) {
-		pr_perror("Can't read link of fd %d\n", lfd);
-		return 0;
-	}
-	link[ret] = 0;
+	if (read_fd_link(lfd, link, sizeof(link)))
+		return -1;
+
 	snprintf(aux, sizeof(aux), "anon_inode:%s", type);
 	return !strcmp(link, aux);
 }
