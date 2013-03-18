@@ -671,7 +671,7 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
 		return -1;
 
-	fcntl(tmp, F_SETFD, fle->fe->flags);
+	fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
 	return 0;
 }
 
