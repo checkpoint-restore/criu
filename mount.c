@@ -342,13 +342,13 @@ out:
 }
 
 static struct fstype fstypes[] = {
-	{ "unsupported" },
-	{ "proc" },
-	{ "sysfs" },
-	{ "devtmpfs" },
-	{ "binfmt_misc", binfmt_misc_dump },
-	{ "tmpfs", tmpfs_dump, tmpfs_restore },
-	{ "devpts" },
+	[FSTYPE__UNSUPPORTED]	= { "unsupported" },
+	[FSTYPE__PROC]		= { "proc" },
+	[FSTYPE__SYSFS]		= { "sysfs" },
+	[FSTYPE__DEVTMPFS]	= { "devtmpfs" },
+	[FSTYPE__BINFMT_MISC]	= { "binfmt_misc", binfmt_misc_dump },
+	[FSTYPE__TMPFS]		= { "tmpfs", tmpfs_dump, tmpfs_restore },
+	[FSTYPE__DEVPTS]	= { "devpts" },
 };
 
 struct fstype *find_fstype_by_name(char *fst)

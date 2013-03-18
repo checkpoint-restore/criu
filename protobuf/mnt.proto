@@ -1,3 +1,13 @@
+enum fstype {
+	UNSUPPORTED		= 0;
+	PROC			= 1;
+	SYSFS			= 2;
+	DEVTMPFS		= 3;
+	BINFMT_MISC		= 4;
+	TMPFS			= 5;
+	DEVPTS			= 6;
+};
+
 message mnt_entry {
 	required uint32		fstype			= 1;
 	required uint32		mnt_id			= 2;
