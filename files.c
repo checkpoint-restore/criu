@@ -405,7 +405,7 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	fdinfo_entry__init(e);
 
 	e->id		= ctl_tty_id;
-	e->fd		= get_service_fd(CTL_TTY_OFF);
+	e->fd		= reserve_service_fd(CTL_TTY_OFF);
 	e->type		= FD_TYPES__TTY;
 
 	if (collect_fd(pid, e, rst_info)) {
