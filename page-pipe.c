@@ -62,6 +62,7 @@ void destroy_page_pipe(struct page_pipe *pp)
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l) {
 		close(ppb->p[0]);
 		close(ppb->p[1]);
+		xfree(ppb);
 	}
 
 	xfree(pp);
