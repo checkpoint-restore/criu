@@ -519,7 +519,7 @@ int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void
 
 	fd = find_file_desc_raw(FD_TYPES__REG, id);
 	if (fd == NULL) {
-		pr_perror("Can't find regfile for %#x\n", id);
+		pr_err("Can't find regfile for %#x\n", id);
 		return -1;
 	}
 
