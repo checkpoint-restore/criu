@@ -580,7 +580,11 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 		return -1;
 	}
 
-	fcntl(dfd, F_SETFD, fle->fe->flags);
+	if (fcntl(dfd, F_SETFD, fle->fe->flags) == -1) {
+		pr_perror("Unable to set file descriptor flags");
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -645,7 +649,10 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 	if (reopen_fd_as(fle->fe->fd, new_fd))
 		return -1;
 
-	fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
+	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
+		pr_perror("Unable to set file descriptor flags");
+		return -1;
+	}
 
 	return serve_out_fd(pid, fle->fe->fd, d);
 }
@@ -671,7 +678,11 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
 		return -1;
 
-	fcntl(fle->fe->fd, F_SETFD, fle->fe->flags);
+	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
+		pr_perror("Unable to set file descriptor flags");
+		return -1;
+	}
+
 	return 0;
 }
 
