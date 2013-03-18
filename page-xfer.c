@@ -54,7 +54,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
-	pr_debug("Adding %lx/%u\n", pi->vaddr, pi->nr_pages);
+	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
 
 	if (cxfer.dst_id != pi->dst_id) {
 		if (cxfer.dst_id != ~0)
@@ -94,7 +94,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 			return -1;
 		}
 		if (ret != chunk) {
-			pr_perror("Partial image write %ld/%ld\n", ret, chunk);
+			pr_perror("Partial image write %zd/%zd\n", ret, chunk);
 			return -1;
 		}
 
@@ -230,7 +230,7 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 		return -1;
 	}
 
-	pr_debug("Splicing %lu bytes / %u pages into socket\n", iov->iov_len, pi.nr_pages);
+	pr_debug("Splicing %zu bytes / %u pages into socket\n", iov->iov_len, pi.nr_pages);
 	if (splice(p, NULL, xfer->fd, NULL, iov->iov_len,
 				SPLICE_F_MOVE) != iov->iov_len) {
 		pr_perror("Can't write pages to socket");
