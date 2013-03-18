@@ -497,6 +497,14 @@ static int prepare_pstree_kobj_ids(void)
 		else
 			ids = root_ids;
 
+		/*
+		 * Add some sanity check on image data.
+		 */
+		if (unlikely(!ids)) {
+			pr_err("No kIDs provided, image corruption\n");
+			return -1;
+		}
+
 		cflags = get_clone_mask(item->ids, ids);
 
 		if (cflags & CLONE_FILES) {
