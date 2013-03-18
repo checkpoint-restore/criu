@@ -510,6 +510,17 @@ static int prepare_pstree_kobj_ids(void)
 		if (cflags & CLONE_FILES) {
 			int ret;
 
+			/*
+			 * There might be a case when kIDs for
+			 * root task are the same as in root_ids,
+			 * thus it's image corruption and we should
+			 * exit out.
+			 */
+			if (unlikely(!item->parent)) {
+				pr_err("Image corruption on kIDs data\n");
+				return -1;
+			}
+
 			ret = shared_fdt_prepare(item);
 			if (ret)
 				return ret;
