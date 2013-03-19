@@ -40,16 +40,6 @@ static void fill_pipe_params(struct params *p, int *pipes)
 	p->pipe_flags[0] = fcntl(pipes[0], F_GETFL);
 	p->pipe_flags[1] = fcntl(pipes[1], F_GETFL);
 
-	/*
-	 * The kernel's O_LARGEFILE set automatically
-	 * on open() in x86-64, so unmask it explicitly
-	 * we restore pipes via open call while the former
-	 * pipes are created with pipe() and have no O_LARGEFILE
-	 * set.
-	 */
-	p->pipe_flags[0] &= ~00100000;
-	p->pipe_flags[1] &= ~00100000;
-
 	test_msg("pipe_flags0 %08o\n", p->pipe_flags[0]);
 	test_msg("pipe_flags1 %08o\n", p->pipe_flags[1]);
 
