@@ -80,6 +80,7 @@ TST_NOFILE	=				\
 		pty04				\
 		tty00				\
 		tty02				\
+		tty03				\
 		mountpoints			\
 		netns				\
 		session01			\
