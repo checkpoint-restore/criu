@@ -731,9 +731,11 @@ static int tty_find_restoring_task(struct tty_info *info)
 	}
 
 	if (info->tie->sid) {
-		if (pty_is_master(info)) {
+		if (!pty_is_master(info)) {
 			if (tty_has_active_pair(info))
 				return 0;
+			else
+				goto shell_job;
 		}
 
 		/*
@@ -750,8 +752,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 					       info->tfe->id);
 		}
 
-		if (pty_is_master(info))
-			goto notask;
+		goto notask;
 	} else {
 		if (pty_is_master(info))
 			return 0;
@@ -759,6 +760,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 			return 0;
 	}
 
+shell_job:
 	if (opts.shell_job) {
 		pr_info("Inherit terminal for id %x\n", info->tfe->id);
 		info->tie->sid = info->tie->pgrp = INHERIT_SID;

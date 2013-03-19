@@ -73,6 +73,7 @@ static/pty00
 static/pty01
 static/pty04
 static/tty02
+static/tty03
 static/child_opened_proc
 static/cow01
 static/fpu00
