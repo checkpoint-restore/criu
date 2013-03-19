@@ -247,14 +247,15 @@ err:
 	return ret;
 }
 
-static int reopen_pipe(int fd, int flags, struct pipe_info *pi)
+static int reopen_pipe(int fd, int flags)
 {
 	int ret;
 	char path[32];
 
-	pr_err("%s %p %d\n", __func__, pi, fd);
 	snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
 	ret = open(path, flags);
+	if (ret < 0)
+		pr_perror("Unable to reopen the pipe %s", path);
 	close(fd);
 
 	return ret;
@@ -278,7 +279,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	close(fd);
 
 	if (pi->reopen)
-		fd = reopen_pipe(tmp, pi->pe->flags, pi);
+		fd = reopen_pipe(tmp, pi->pe->flags);
 	else
 		fd = tmp;
 	if (fd >= 0) {
@@ -340,10 +341,11 @@ static int open_pipe(struct file_desc *d)
 	tmp = pfd[pi->pe->flags & O_WRONLY];
 
 	if (pi->reopen)
-		tmp = reopen_pipe(tmp, pi->pe->flags, pi);
+		tmp = reopen_pipe(tmp, pi->pe->flags);
 
-	if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
-		return -1;
+	if (tmp >= 0)
+		if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
+			return -1;
 
 	return tmp;
 }
