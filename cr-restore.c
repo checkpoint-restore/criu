@@ -317,7 +317,7 @@ static int restore_priv_vma_content(pid_t pid)
 				return -1;
 			}
 
-			p = (void *)((off) * PAGE_SIZE +
+			p = decode_pointer((off) * PAGE_SIZE +
 					vma_premmaped_start(&vma->vma));
 
 			if (memcmp(p, buf, PAGE_SIZE) == 0) {
