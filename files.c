@@ -360,7 +360,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	struct fdinfo_list_entry *le, *new_le;
 	struct file_desc *fdesc;
 
-	pr_info("Collect fdinfo pid=%d fd=%d id=0x%16x\n",
+	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
 		pid, e->fd, e->id);
 
 	new_le = shmalloc(sizeof(*new_le));
