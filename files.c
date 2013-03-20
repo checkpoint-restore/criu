@@ -820,6 +820,7 @@ int prepare_fs(int pid)
 
 	cwd = open_reg_by_id(fe->cwd_id);
 	if (cwd < 0) {
+		pr_err("Can't open root %#x\n", fe->cwd_id);
 		close_safe(&ifd);
 		goto err;
 	}
