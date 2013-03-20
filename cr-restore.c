@@ -196,7 +196,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE)) {
 		ret = get_filemap_fd(pid, &vma->vma);
 		if (ret < 0) {
-			pr_err("Can't fixup fd\n");
+			pr_err("Can't fixup VMA's fd\n");
 			return -1;
 		}
 		vma->vma.fd = ret;
