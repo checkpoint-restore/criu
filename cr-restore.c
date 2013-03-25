@@ -251,6 +251,8 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	}
 
 	vma_premmaped_start(&(vma->vma)) = (unsigned long) addr;
+	pr_debug("\tpremap 0x%016"PRIx64"-0x%016"PRIx64" -> %016lx\n",
+		vma->vma.start, vma->vma.end, (unsigned long)addr);
 
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE))
 		close(vma->vma.fd);
