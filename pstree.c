@@ -544,6 +544,7 @@ set_mask:
 		}
 	}
 
+	pr_debug("NS mask to use %lx\n", current_ns_mask);
 	return 0;
 }
 
