@@ -5,6 +5,8 @@
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <linux/if.h>
@@ -22,6 +24,7 @@
 #include "proc_parse.h"
 #include "mount.h"
 #include "tty.h"
+#include "ptrace.h"
 
 static int check_tty(void)
 {
@@ -429,6 +432,54 @@ static int check_ipc(void)
 	return -1;
 }
 
+int check_sigqueuinfo()
+{
+	siginfo_t info = { .si_code = 1 };
+
+	signal(SIGUSR1, SIG_IGN);
+
+	if (sys_rt_sigqueueinfo(getpid(), SIGUSR1, &info)) {
+		pr_perror("Unable to send siginfo with positive si_code to itself");
+		return 1;
+	}
+
+	return 0;
+}
+
+int check_ptrace_peeksiginfo()
+{
+	struct ptrace_peeksiginfo_args arg;
+	siginfo_t siginfo;
+	pid_t pid, ret = 0;
+
+	pid = fork();
+	if (pid < 0)
+		pr_perror("fork");
+	else if (pid == 0) {
+		while (1)
+			sleep(1000);
+		exit(1);
+	}
+
+	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1)
+		return 1;
+
+	waitpid(pid, NULL, 0);
+
+	arg.flags = 0;
+	arg.off = 0;
+	arg.nr = 1;
+
+	if (ptrace(PTRACE_PEEKSIGINFO, pid, &arg, &siginfo) != 0) {
+		pr_perror("Unable to dump pending signals\n");
+		ret = 1;
+	}
+
+	ptrace(PTRACE_KILL, pid, NULL, NULL);
+
+	return ret;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -454,6 +505,8 @@ int cr_check(void)
 	ret |= check_tty();
 	ret |= check_so_gets();
 	ret |= check_ipc();
+	ret |= check_sigqueuinfo();
+	ret |= check_ptrace_peeksiginfo();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
