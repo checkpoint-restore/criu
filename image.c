@@ -134,6 +134,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(UNIXSK,	"unixsk",	 show_unixsk),
 	FD_ENTRY(INETSK,	"inetsk",	 show_inetsk),
 	FD_ENTRY(PACKETSK,	"packetsk",	 show_packetsk),
+	FD_ENTRY(NETLINKSK,	"netlinksk",	 show_netlinksk),
 	FD_ENTRY(SK_QUEUES,	"sk-queues",	 show_sk_queues),
 	FD_ENTRY(ITIMERS,	"itimers-%d",	 show_itimers),
 	FD_ENTRY(CREDS,		"creds-%d",	 show_creds),
