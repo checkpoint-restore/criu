@@ -89,6 +89,7 @@ TST_NOFILE	=				\
 		cow00				\
 		child_opened_proc		\
 		posix_timers			\
+		sigpending			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -220,6 +221,7 @@ unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURC
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
 pthread01:		override LDLIBS += -pthread
+sigpending:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
 sem:			override CFLAGS += -DNEW_IPC_NS
@@ -227,6 +229,7 @@ posix_timers:		override LDLIBS += -lrt
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
+sigpending:		override LDLIBS += -lrt
 
 $(LIB):	force
 	$(MAKE) -C $(LIBDIR)
