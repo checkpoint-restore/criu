@@ -85,6 +85,7 @@ static/fdt_shared
 static/file_locks00
 static/file_locks01
 static/sigpending
+static/sk-netlink
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')

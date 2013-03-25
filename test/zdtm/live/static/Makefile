@@ -90,6 +90,7 @@ TST_NOFILE	=				\
 		child_opened_proc		\
 		posix_timers			\
 		sigpending			\
+		sk-netlink			\
 #		jobctl00			\
 
 TST_FILE	=				\
