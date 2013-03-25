@@ -134,6 +134,9 @@ static int root_prepare_shared(void)
 	if (collect_packet_sockets())
 		return -1;
 
+	if (collect_netlink_sockets())
+		return -1;
+
 	if (collect_eventfd())
 		return -1;
 

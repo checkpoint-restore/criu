@@ -161,3 +161,91 @@ int dump_one_netlink(struct fd_parms *p, int lfd, const int fdinfo)
 {
 	return do_dump_gen_file(p, lfd, &netlink_dump_ops, fdinfo);
 }
+
+struct netlink_sock_info {
+	NetlinkSkEntry *nse;
+	struct file_desc d;
+};
+
+static int open_netlink_sk(struct file_desc *d)
+{
+	struct netlink_sock_info *nsi;
+	NetlinkSkEntry *nse;
+	struct sockaddr_nl addr;
+	int sk = -1;
+
+	nsi = container_of(d, struct netlink_sock_info, d);
+	nse = nsi->nse;
+
+	pr_info("Opening netlink socket id %#x\n", nse->id);
+
+	sk = socket(PF_NETLINK, SOCK_RAW, nse->protocol);
+	if (sk < 0) {
+		pr_perror("Can't create netlink sock");
+		goto err;
+	}
+
+	if (nse->portid) {
+		memset(&addr, 0, sizeof(addr));
+		addr.nl_family = AF_NETLINK;
+		if (nse->n_groups > 1) {
+			pr_err("Groups above 32 are not supported yet\n");
+			goto err;
+		}
+		if (nse->n_groups)
+			addr.nl_groups = nse->groups[0];
+		addr.nl_pid = nse->portid;
+
+		if (bind(sk, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+			pr_perror("Can't bind netlink socket");
+			goto err;
+		}
+	}
+
+	if (nse->state == NETLINK_CONNECTED) {
+		addr.nl_family = AF_NETLINK;
+		addr.nl_groups = 1 << (nse->dst_group - 1);
+		addr.nl_pid = nse->dst_portid;
+		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+			pr_perror("Can't connect netlink socket");
+			goto err;
+		}
+	}
+
+	if (rst_file_params(sk, nse->fown, nse->flags))
+		goto err;
+
+	if (restore_socket_opts(sk, nse->opts))
+		goto err;
+
+	return sk;
+err:
+	close(sk);
+	return -1;
+}
+
+static struct file_desc_ops netlink_sock_desc_ops = {
+	.type = FD_TYPES__NETLINKSK,
+	.open = open_netlink_sk,
+};
+
+static int collect_one_netlink_sk(void *o, ProtobufCMessage *base)
+{
+	struct netlink_sock_info *si = o;
+
+	si->nse = pb_msg(base, NetlinkSkEntry);
+	file_desc_add(&si->d, si->nse->id, &netlink_sock_desc_ops);
+
+	return 0;
+}
+
+int collect_netlink_sockets(void)
+{
+	int ret = collect_image(CR_FD_NETLINKSK, PB_NETLINKSK,
+			sizeof(struct netlink_sock_info), collect_one_netlink_sk);
+
+	if (ret < 0 && errno == ENOENT)
+		return 0;
+
+	return ret;
+}
