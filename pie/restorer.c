@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <sys/resource.h>
+#include <signal.h>
 
 #include "compiler.h"
 #include "asm/types.h"
@@ -38,6 +39,9 @@
 
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
+
+extern void cr_restore_rt (void) asm ("__cr_restore_rt")
+			__attribute__ ((visibility ("hidden")));
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
@@ -433,8 +437,11 @@ long __export_restore_task(struct task_restore_core_args *args)
 	rt_sigaction_t act;
 
 	task_entries = args->task_entries;
-	sys_sigaction(SIGCHLD, NULL, &act, sizeof(k_rtsigset_t));
+
+	ksigfillset(&act.rt_sa_mask);
 	act.rt_sa_handler = sigchld_handler;
+	act.rt_sa_flags = SA_SIGINFO | SA_RESTORER | SA_RESTART;
+	act.rt_sa_restorer = cr_restore_rt;
 	sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
 
 	log_set_fd(args->logfd);

@@ -14,3 +14,8 @@ ENTRY(__syscall_common)
 	syscall
 	ret
 END(__syscall_common)
+
+ENTRY(__cr_restore_rt)
+	movq $__NR_rt_sigreturn, %rax
+	syscall
+END(__cr_restore_rt)

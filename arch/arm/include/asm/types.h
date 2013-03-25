@@ -99,6 +99,8 @@ static inline void ksigfillset(k_rtsigset_t *set)
 		set->sig[i] = (unsigned long)-1;
 }
 
+#define SA_RESTORER	0x04000000
+
 typedef struct {
 	rt_sighandler_t	rt_sa_handler;
 	unsigned long	rt_sa_flags;
