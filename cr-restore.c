@@ -775,20 +775,9 @@ out:
 	return ret < 0 ? ret : 0;
 }
 
-static int restore_one_task(int pid)
+static int restore_one_task(int pid, CoreEntry *core)
 {
-	int fd, ret;
-	CoreEntry *core;
-
-	fd = open_image_ro(CR_FD_CORE, pid);
-	if (fd < 0)
-		return -1;
-
-	ret = pb_read_one(fd, &core, PB_CORE);
-	close(fd);
-
-	if (ret < 0)
-		return -1;
+	int ret;
 
 	if (check_core(core)) {
 		ret = -1;
@@ -820,6 +809,8 @@ struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
 	int fd;
+
+	CoreEntry *core;
 };
 
 static void write_pidfile(char *pfname, int pid)
@@ -839,10 +830,25 @@ static void write_pidfile(char *pfname, int pid)
 
 static inline int fork_with_pid(struct pstree_item *item)
 {
-	int ret = -1;
+	int ret = -1, fd;
 	struct cr_clone_arg ca;
 	pid_t pid = item->pid.virt;
 
+	if (item->state != TASK_HELPER) {
+		fd = open_image_ro(CR_FD_CORE, pid);
+		if (fd < 0)
+			return -1;
+
+		ret = pb_read_one(fd, &ca.core, PB_CORE);
+		close(fd);
+
+		if (ret < 0)
+			return -1;
+
+		if (ca.core->tc->task_state == TASK_DEAD)
+			item->parent->rst->nr_zombies++;
+	} else
+		ca.core = NULL;
 
 	ca.item = item;
 	ca.clone_flags = item->rst->clone_flags;
@@ -901,6 +907,8 @@ err_unlock:
 		close(ca.fd);
 	}
 err:
+	if (ca.core)
+		core_entry__free_unpacked(ca.core, NULL);
 	return ret;
 }
 
@@ -1134,7 +1142,7 @@ static int restore_task_with_children(void *_arg)
 		return restore_one_fake();
 
 	restore_finish_stage(CR_STATE_RESTORE_PGID);
-	return restore_one_task(current->pid.virt);
+	return restore_one_task(current->pid.virt, ca->core);
 }
 
 static inline int stage_participants(int next_stage)
