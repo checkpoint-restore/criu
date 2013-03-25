@@ -532,7 +532,7 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 
 	fd = open(rfi->path, rfi->rfe->flags);
 	if (fd < 0) {
-		pr_perror("Can't open file on restore");
+		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;
 	}
 
