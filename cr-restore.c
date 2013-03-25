@@ -268,6 +268,7 @@ static int restore_priv_vma_content(pid_t pid)
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
 	unsigned int nr_droped = 0;
+	unsigned long va;
 
 	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
 
@@ -287,22 +288,22 @@ static int restore_priv_vma_content(pid_t pid)
 	while (1) {
 		PagemapEntry *pe;
 		unsigned long off, i;
-		unsigned long va;
 
 		ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
 		if (ret <= 0)
 			break;
 
 		va = (unsigned long)decode_pointer(pe->vaddr);
-
-		BUG_ON(va < vma->vma.start);
+		if (va < vma->vma.start)
+			goto err_addr;
 
 		for (i = 0; i < pe->nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
 			void *p;
 
 			while (va >= vma->vma.end) {
-				BUG_ON(vma->list.next == &rst_vmas.h);
+				if (vma->list.next == &rst_vmas.h)
+					goto err_addr;
 				vma = list_entry(vma->list.next, struct vma_area, list);
 			}
 
@@ -370,6 +371,11 @@ static int restore_priv_vma_content(pid_t pid)
 	pr_info("nr_droped_pages:   %d\n", nr_droped);
 
 	return 0;
+
+err_addr:
+	pr_err("Page entry address %lx outside of VMA %lx-%lx\n",
+	       va, (long)vma->vma.start, (long)vma->vma.end);
+	return -1;
 }
 
 static int read_vmas(int pid)
