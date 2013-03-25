@@ -12,6 +12,7 @@ enum fd_types {
 	PACKETSK	= 10;
 	TTY		= 11;
 	FANOTIFY	= 12;
+	NETLINKSK	= 13;
 }
 
 message fdinfo_entry {

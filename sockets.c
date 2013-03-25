@@ -378,6 +378,8 @@ int dump_socket(struct fd_parms *p, int lfd, const int fdinfo)
 		return dump_one_inet6(p, lfd, fdinfo);
 	case AF_PACKET:
 		return dump_one_packet_sk(p, lfd, fdinfo);
+	case AF_NETLINK:
+		return dump_one_netlink(p, lfd, fdinfo);
 	default:
 		pr_err("BUG! Unknown socket collected (family %d)\n", family);
 		break;
