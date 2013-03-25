@@ -19,6 +19,7 @@ obj-y	+= sk-inet.o
 obj-y	+= sk-tcp.o
 obj-y	+= sk-unix.o
 obj-y	+= sk-packet.o
+obj-y	+= sk-netlink.o
 obj-y	+= sk-queue.o
 obj-y	+= files.o
 obj-y	+= files-reg.o
