@@ -13,6 +13,7 @@
 #include "unix_diag.h"
 #include "inet_diag.h"
 #include "packet_diag.h"
+#include "netlink_diag.h"
 #include "files.h"
 #include "util-net.h"
 #include "sk-packet.h"
@@ -417,6 +418,7 @@ int collect_sockets(int pid)
 			struct unix_diag_req	u;
 			struct inet_diag_req_v2	i;
 			struct packet_diag_req	p;
+			struct netlink_diag_req n;
 		} r;
 	} req;
 
@@ -511,6 +513,13 @@ int collect_sockets(int pid)
 	req.r.p.pdiag_show	= PACKET_SHOW_INFO | PACKET_SHOW_MCLIST |
 					PACKET_SHOW_FANOUT | PACKET_SHOW_RING_CFG;
 	tmp = do_rtnl_req(nl, &req, sizeof(req), packet_receive_one, NULL);
+	if (tmp)
+		err = tmp;
+
+	req.r.n.sdiag_family	= AF_NETLINK;
+	req.r.n.sdiag_protocol	= NDIAG_PROTO_ALL;
+	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
+	tmp = do_rtnl_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
 	if (tmp)
 		err = tmp;
 
