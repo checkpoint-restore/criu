@@ -62,6 +62,7 @@
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
+#include "protobuf/siginfo.pb-c.h"
 
 #include "asm/restore.h"
 
@@ -1675,6 +1676,60 @@ static int prepare_rlimits(int pid, struct task_restore_core_args *ta)
 	return ret;
 }
 
+static int open_signal_image(int type, pid_t pid, siginfo_t **ptr,
+					unsigned long *size, int *nr)
+{
+	int fd, ret, n;
+
+	fd = open_image_ro(type, pid);
+	if (fd < 0)
+		return -1;
+
+	n = 0;
+
+	while (1) {
+		SiginfoEntry *sie;
+		siginfo_t *info;
+
+		ret = pb_read_one_eof(fd, &sie, PB_SIGINFO);
+		if (ret <= 0)
+			break;
+		if (sie->siginfo.len != sizeof(siginfo_t)) {
+			pr_err("Unknown image format");
+			ret = -1;
+			break;
+		}
+		info = (siginfo_t *) sie->siginfo.data;
+
+		if ((*nr + 1) * sizeof(siginfo_t) > *size) {
+			unsigned long new_size = *size + PAGE_SIZE;
+
+			if (*ptr == NULL)
+				*ptr = mmap(NULL, new_size, PROT_READ | PROT_WRITE,
+							MAP_PRIVATE | MAP_ANON, 0, 0);
+			else
+				*ptr = mremap(*ptr, *size, new_size, MREMAP_MAYMOVE);
+			if (*ptr == MAP_FAILED) {
+				pr_perror("Can't allocate memory for siginfo-s\n");
+				ret = -1;
+				break;
+			}
+
+			*size = new_size;
+		}
+
+		memcpy(*ptr + *nr, info, sizeof(*info));
+		(*nr)++;
+		n++;
+
+		siginfo_entry__free_unpacked(sie, NULL);
+	}
+
+	close(fd);
+
+	return ret ? : n;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void) {}
 
@@ -1693,6 +1748,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
+	siginfo_t *siginfo_chunk = NULL;
+	int siginfo_nr = 0;
+	int siginfo_shared_nr = 0;
+	int *siginfo_priv_nr;
+	unsigned long siginfo_size = 0;
 
 	struct vm_area_list self_vmas;
 	int i;
@@ -1727,12 +1787,38 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
+	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
+	if (siginfo_priv_nr == NULL)
+		goto err;
+
+	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_chunk,
+					&siginfo_size, &siginfo_nr);
+	if (ret < 0) {
+		if (errno != ENOENT) /* backward compatiblity */
+			goto err;
+		ret = 0;
+	}
+	siginfo_shared_nr = ret;
+
+	for (i = 0; i < current->nr_threads; i++) {
+		ret = open_signal_image(CR_FD_PSIGNAL,
+					current->threads[i].virt, &siginfo_chunk,
+					&siginfo_size, &siginfo_nr);
+		if (ret < 0) {
+			if (errno != ENOENT) /* backward compatiblity */
+				goto err;
+			ret = 0;
+		}
+		siginfo_priv_nr[i] = ret;
+	}
+
 	restore_bootstrap_len = restorer_len +
 				restore_task_vma_len +
 				restore_thread_vma_len +
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
 				self_vmas_len + vmas_len +
-				rst_tcp_socks_size;
+				rst_tcp_socks_size +
+				siginfo_size;
 
 	/*
 	 * Restorer is a blob (code + args) that will get mapped in some
@@ -1783,6 +1869,21 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args	= mem;
 	thread_args	= mem + restore_task_vma_len;
 
+	mem += restore_task_vma_len + restore_thread_vma_len;
+	if (siginfo_chunk) {
+		siginfo_chunk = mremap(siginfo_chunk, siginfo_size, siginfo_size,
+					MREMAP_FIXED | MREMAP_MAYMOVE, mem);
+		if (siginfo_chunk == MAP_FAILED) {
+			pr_perror("mremap");
+			goto err;
+		}
+	}
+
+	task_args->siginfo_size = siginfo_size;
+	task_args->siginfo_nr = siginfo_shared_nr;
+	task_args->siginfo = siginfo_chunk;
+	siginfo_chunk += task_args->siginfo_nr;
+
 	/*
 	 * Get a reference to shared memory area which is
 	 * used to signal if shmem restoration complete
@@ -1794,7 +1895,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * address.
 	 */
 
-	mem += restore_task_vma_len + restore_thread_vma_len;
+	mem += siginfo_size;
 	ret = shmem_remap(rst_shmems, mem, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
@@ -1848,6 +1949,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		CoreEntry *tcore;
 
 		thread_args[i].pid = current->threads[i].virt;
+		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
+		thread_args[i].siginfo = siginfo_chunk;
+		siginfo_chunk += thread_args[i].siginfo_nr;
 
 		/* skip self */
 		if (thread_args[i].pid == pid) {

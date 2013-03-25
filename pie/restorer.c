@@ -155,6 +155,37 @@ static void restore_rlims(struct task_restore_core_args *ta)
 	}
 }
 
+static int restore_signals(siginfo_t *ptr, int nr, bool group)
+{
+	int ret, i;
+	k_rtsigset_t to_block;
+
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
+	if (ret) {
+		pr_err("Unable to block signals %d", ret);
+		return -1;
+	}
+
+	for (i = 0; i < nr; i++) {
+		siginfo_t *info = ptr + i;
+
+		pr_info("Restore signal %d group %d\n", info->si_signo, group);
+		if (group)
+			ret = sys_rt_sigqueueinfo(sys_getpid(), info->si_signo, info);
+		else
+			ret = sys_rt_tgsigqueueinfo(sys_getpid(),
+						sys_gettid(), info->si_signo, info);
+		if (ret) {
+			pr_err("Unable to send siginfo %d %x with code %d\n",
+					info->si_signo, info->si_code, ret);
+			return -1;;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {
@@ -210,8 +241,11 @@ long __export_restore_thread(struct thread_restore_args *args)
 	pr_info("%ld: Restored\n", sys_gettid());
 
 	restore_finish_stage(CR_STATE_RESTORE);
-	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 
+	if (restore_signals(args->siginfo, args->siginfo_nr, false))
+		goto core_restore_end;
+
+	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
@@ -219,6 +253,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
+	futex_abort_and_wake(&task_entries->nr_in_progress);
 	sys_exit_group(1);
 	return -1;
 }
@@ -694,12 +729,28 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 
+	ret = restore_signals(args->siginfo, args->siginfo_nr, true);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_signals(args->t->siginfo, args->t->siginfo_nr, false);
+	if (ret)
+		goto core_restore_end;
+
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);
+
+	if (args->siginfo_size) {
+		ret = sys_munmap(args->siginfo, args->siginfo_size);
+		if (ret < 0) {
+			pr_err("Can't unmap signals %ld\n", ret);
+			goto core_restore_failed;
+		}
+	}
 
 	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
 
@@ -740,6 +791,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	ARCH_RT_SIGRETURN(new_sp);
 
 core_restore_end:
+	futex_abort_and_wake(&task_entries->nr_in_progress);
 	pr_err("Restorer fail %ld\n", sys_getpid());
 	sys_exit_group(1);
 	return -1;
