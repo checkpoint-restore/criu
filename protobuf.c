@@ -52,6 +52,7 @@
 #include "protobuf/file-lock.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
+#include "protobuf/siginfo.pb-c.h"
 
 typedef size_t (*pb_getpksize_t)(void *obj);
 typedef size_t (*pb_pack_t)(void *obj, void *where);
@@ -135,6 +136,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(RLIMIT,		Rlimit,		rlimit);
 	CR_PB_MDESC_INIT(cr_pb_descs[PB_PAGEMAP_HEAD],	PagemapHead,	pagemap_head);
 	CR_PB_DESC(PAGEMAP,		Pagemap,	pagemap);
+	CR_PB_DESC(SIGINFO,		Siginfo,	siginfo);
 }
 
 /*

@@ -50,6 +50,7 @@ enum {
 	PB_IDS,
 	PB_PAGEMAP_HEAD,
 	PB_PAGEMAP,
+	PB_SIGINFO,
 
 	PB_MAX
 };

@@ -1,0 +1,3 @@
+message siginfo_entry {
+	required bytes siginfo = 1;
+}
