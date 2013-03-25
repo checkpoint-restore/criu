@@ -1,6 +1,7 @@
 #ifndef __CR_SEIZE_H__
 #define __CR_SEIZE_H__
 
+#include <linux/types.h>
 #include <sys/ptrace.h>
 
 /* some constants for ptrace */
@@ -13,6 +14,18 @@
 #endif
 
 #define PTRACE_LISTEN		0x4208
+
+#ifndef PTRACE_PEEKSIGINFO
+#define PTRACE_PEEKSIGINFO      0x4209
+struct ptrace_peeksiginfo_args {
+        __u64 off;	/* from which siginfo to start */
+        __u32 flags;
+        __u32 nr;	/* how may siginfos to take */
+};
+
+/* Read signals from a shared (process wide) queue */
+#define PTRACE_PEEKSIGINFO_SHARED       (1 << 0)
+#endif
 
 #define PTRACE_SEIZE_DEVEL	0x80000000
 

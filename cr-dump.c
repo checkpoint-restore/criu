@@ -28,6 +28,7 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/file-lock.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
+#include "protobuf/siginfo.pb-c.h"
 
 #include "asm/types.h"
 #include "list.h"
@@ -1165,6 +1166,63 @@ err:
 	return ret;
 }
 
+static int dump_signal_queue(pid_t tid, int fd, bool group)
+{
+	struct ptrace_peeksiginfo_args arg;
+	siginfo_t siginfo[32]; /* One page or all non-rt signals */
+	int ret, i = 0, j, nr;
+
+	arg.nr = sizeof(siginfo) / sizeof(siginfo_t);
+	arg.flags = 0;
+	if (group)
+		arg.flags |= PTRACE_PEEKSIGINFO_SHARED;
+
+	for (; ; ) {
+		arg.off = i;
+
+		ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, siginfo);
+		if (ret < 0) {
+			if (errno == EIO) {
+				pr_warn("ptrace doesn't support PTRACE_PEEKSIGINFO\n");
+				ret = 0;
+			} else
+				pr_perror("ptrace");
+			break;
+		}
+
+		if (ret == 0)
+			break;
+		nr = ret;
+
+		for (j = 0; j < nr; j++) {
+			SiginfoEntry sie = SIGINFO_ENTRY__INIT;
+
+			sie.siginfo.len = sizeof(siginfo_t);
+			sie.siginfo.data = (void *) (siginfo + j);
+
+			ret = pb_write_one(fd, &sie, PB_SIGINFO);
+			if (ret < 0)
+				break;
+			i++;
+		}
+	}
+
+	return ret;
+}
+
+static int dump_thread_signals(struct pid *tid)
+{
+	int fd, ret;
+
+	fd = open_image(CR_FD_PSIGNAL, O_DUMP, tid->virt);
+	if (fd < 0)
+		return -1;
+	ret = dump_signal_queue(tid->real, fd, false);
+	close(fd);
+
+	return ret;
+}
+
 static struct proc_pid_stat pps_buf;
 
 static int dump_task_threads(struct parasite_ctl *parasite_ctl,
@@ -1174,12 +1232,14 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
-		if (item->pid.real == item->threads[i].real) {
+		if (item->pid.real == item->threads[i].real)
 			item->threads[i].virt = item->pid.virt;
-			continue;
+		else {
+			if (dump_task_thread(parasite_ctl, &item->threads[i]))
+				return -1;
 		}
 
-		if (dump_task_thread(parasite_ctl, &item->threads[i]))
+		if (dump_thread_signals(&item->threads[i]))
 			return -1;
 	}
 
@@ -1427,6 +1487,12 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret) {
 		pr_err("Dump %d rlimits failed %d\n", pid, ret);
 		goto err;
+	}
+
+	ret = dump_signal_queue(pid, fdset_fd(cr_fdset, CR_FD_SIGNAL), true);
+	if (ret) {
+		pr_err("Can't dump pending signals (pid: %d)\n", pid);
+		goto err_cure;
 	}
 
 	close_cr_fdset(&cr_fdset);
