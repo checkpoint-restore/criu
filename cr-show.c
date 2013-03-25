@@ -43,6 +43,7 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/tty.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
+#include "protobuf/siginfo.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 
@@ -221,6 +222,28 @@ void show_pagemap(int fd, struct cr_options *o)
 	pr_msg("Pages id: %u\n", h->pages_id);
 	pagemap_head__free_unpacked(h, NULL);
 	return pb_show_plain(fd, PB_PAGEMAP);
+}
+
+void show_siginfo(int fd, struct cr_options *o)
+{
+	int ret;
+
+	pr_img_head(CR_FD_SIGNAL);
+	while (1) {
+		SiginfoEntry *sie;
+		siginfo_t *info;
+
+		ret = pb_read_one_eof(fd, &sie, PB_SIGINFO);
+		if (ret <= 0)
+			break;
+
+		info = (siginfo_t *) sie->siginfo.data;
+		pr_msg("signal: si_signo=%d si_code=%x\n",
+				info->si_signo, info->si_code);
+		siginfo_entry__free_unpacked(sie, NULL);
+
+	}
+	pr_img_tail(CR_FD_SIGNAL);
 }
 
 void show_sigacts(int fd_sigacts, struct cr_options *o)

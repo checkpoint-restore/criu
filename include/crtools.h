@@ -158,6 +158,7 @@ void show_fifo(int fd, struct cr_options *o);
 void show_fifo_data(int fd_pipes, struct cr_options *o);
 void show_pstree(int fd_pstree, struct cr_options *o);
 void show_sigacts(int fd_sigacts, struct cr_options *o);
+void show_siginfo(int fd, struct cr_options *o);
 void show_itimers(int fd, struct cr_options *o);
 void show_creds(int fd, struct cr_options *o);
 void show_fs(int fd, struct cr_options *o);
