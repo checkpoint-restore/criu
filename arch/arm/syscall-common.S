@@ -50,3 +50,7 @@
         bx      %lr
         END(\name)
         .endm
+
+ENTRY(__cr_restore_rt)
+	do_sys __NR_rt_sigreturn
+END(__cr_restore_rt)
