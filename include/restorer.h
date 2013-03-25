@@ -98,6 +98,7 @@ struct task_restore_core_args {
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
+	int				nr_zombies;
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
@@ -170,6 +171,7 @@ struct task_entries {
 	int nr_threads, nr_tasks, nr_helpers;
 	futex_t nr_in_progress;
 	futex_t start;
+	mutex_t	zombie_lock;
 };
 
 static always_inline struct shmem_info *

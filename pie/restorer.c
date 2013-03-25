@@ -39,6 +39,7 @@
 
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
+static futex_t zombies_inprogress;
 
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
@@ -46,6 +47,15 @@ extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
 	char *r;
+
+	if (futex_get(&task_entries->start) == CR_STATE_RESTORE_SIGCHLD) {
+		pr_debug("%ld: Collect a zombie with (pid %d, %d)\n",
+			sys_getpid(), siginfo->si_pid, siginfo->si_pid);
+		futex_dec_and_wake(&task_entries->nr_in_progress);
+		futex_dec_and_wake(&zombies_inprogress);
+		mutex_unlock(&task_entries->zombie_lock);
+		return;
+	}
 
 	if (siginfo->si_code & CLD_EXITED)
 		r = " exited, status=";
@@ -732,7 +742,11 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	pr_info("%ld: Restored\n", sys_getpid());
 
+	futex_set(&zombies_inprogress, args->nr_zombies);
+
 	restore_finish_stage(CR_STATE_RESTORE);
+
+	futex_wait_while_gt(&zombies_inprogress, 0);
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 

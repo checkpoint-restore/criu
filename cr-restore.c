@@ -719,7 +719,7 @@ static int restore_one_zombie(int pid, int exit_code)
 	if (task_entries != NULL) {
 		restore_finish_stage(CR_STATE_RESTORE);
 		zombie_prepare_signals();
-		restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+		mutex_lock(&task_entries->zombie_lock);
 	}
 
 	if (exit_code & 0x7f) {
@@ -1286,6 +1286,7 @@ static int prepare_task_entries()
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_FORKING);
+	mutex_init(&task_entries->zombie_lock);
 
 	return 0;
 }
@@ -2049,6 +2050,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Now prepare run-time data for threads restore.
 	 */
 	task_args->nr_threads		= current->nr_threads;
+	task_args->nr_zombies		= current->rst->nr_zombies;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
 
