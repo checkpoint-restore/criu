@@ -31,6 +31,7 @@ enum {
 	CR_FD_CREDS,
 	CR_FD_FS,
 	CR_FD_RLIMIT,
+	CR_FD_SIGNAL,
 	_CR_FD_TASK_TO,
 
 	CR_FD_PAGEMAP,
@@ -82,6 +83,7 @@ enum {
 
 	CR_FD_TMPFS,
 	CR_FD_PAGES,
+	CR_FD_PSIGNAL,
 
 	CR_FD_MAX
 };
