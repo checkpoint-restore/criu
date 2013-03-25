@@ -294,17 +294,32 @@ static int restore_priv_vma_content(pid_t pid)
 			break;
 
 		va = (unsigned long)decode_pointer(pe->vaddr);
-		if (va < vma->vma.start)
-			goto err_addr;
 
 		for (i = 0; i < pe->nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
 			void *p;
 
+			/*
+			 * The lookup is over *all* possible VMAs
+			 * read from image file.
+			 */
 			while (va >= vma->vma.end) {
 				if (vma->list.next == &rst_vmas.h)
 					goto err_addr;
 				vma = list_entry(vma->list.next, struct vma_area, list);
+			}
+
+			/*
+			 * Make sure the page address is inside existing VMA
+			 * and the VMA it refers to still private one, since
+			 * there is no guarantee that the data from pagemap is
+			 * valid.
+			 */
+			if (va < vma->vma.start)
+				goto err_addr;
+			else if (unlikely(!vma_priv(&vma->vma))) {
+				pr_err("Trying to restore page for non-private VMA\n");
+				goto err_addr;
 			}
 
 			off = (va - vma->vma.start) / PAGE_SIZE;
