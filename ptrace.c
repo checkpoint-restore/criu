@@ -48,10 +48,11 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 {
 	siginfo_t si;
 	int status;
-	int ret, ret2;
+	int ret, ret2, ptrace_errno;
 	struct proc_pid_stat_small ps;
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
+	ptrace_errno = errno;
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -71,8 +72,8 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 
 	if (ret < 0) {
 		if (ps.state != 'Z') {
-			pr_err("Unseizeable non-zombie %d found, state %c\n",
-					pid, ps.state);
+			pr_err("Unseizeable non-zombie %d found, state %c, err %d/%d\n",
+					pid, ps.state, ret, ptrace_errno);
 			return -1;
 		}
 
