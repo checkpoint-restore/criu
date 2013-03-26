@@ -50,7 +50,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 			if (err->error == 0)
 				return 0;
 
-			pr_err("ERROR %d reported by netlink\n", -err->error);
+			pr_err("ERROR %d reported by netlink\n", err->error);
 			return -1;
 		}
 		if (cb(hdr, arg))
