@@ -126,6 +126,8 @@ transition/ipc
 "
 
 TEST_CR_KERNEL="
+static/sigpending
+static/sk-netlink
 "
 
 CRTOOLS=$(readlink -f `dirname $0`/../crtools)
