@@ -88,11 +88,14 @@ static int check_sock_diag(void)
 {
 	int ret;
 
-	ret = collect_sockets(getpid());
+	ret = collect_sockets(0);
 	if (!ret)
 		return 0;
 
-	pr_msg("sock diag infrastructure is incomplete.\n");
+	pr_msg("The sock diag infrastructure is incomplete.\n");
+	pr_msg("Make sure you have:\n");
+	pr_msg(" 1. *_DIAG kernel config options turned on;\n");
+	pr_msg(" 2. *_diag.ko modules loaded (if compiled as modules).\n");
 	return -1;
 }
 

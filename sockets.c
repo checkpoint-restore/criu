@@ -530,7 +530,7 @@ out:
 	if (rst >= 0) {
 		if (restore_ns(rst, &net_ns_desc) < 0)
 			err = -1;
-	} else {
+	} else if (pid != 0) {
 		/*
 		 * If netns isn't dumped, crtools will fail only
 		 * if an unsupported socket will be really dumped.
