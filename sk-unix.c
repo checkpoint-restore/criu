@@ -433,11 +433,14 @@ int fix_external_unix_sockets(void)
 
 		if (!opts.ext_unix_sk) {
 			show_one_unix("Runaway socket", sk);
+			pr_err("External socket is used. "
+					"Consider using --" USK_EXT_PARAM " option.\n");
 			goto err;
 		}
 
 		if (sk->type != SOCK_DGRAM) {
 			show_one_unix("Ext stream not supported", sk);
+			pr_err("Can't dump half of stream unix connection.\n");
 			goto err;
 		}
 
