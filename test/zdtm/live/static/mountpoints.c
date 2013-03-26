@@ -19,6 +19,10 @@ static int test_fn(int argc, char **argv)
 	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
 
+	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
+		err("Can't remount root with MS_PRIVATE");
+		return -1;
+	}
 again:
 	fs_cnt = 0;
 	f = fopen("/proc/self/mountinfo", "r");

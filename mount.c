@@ -574,6 +574,11 @@ static int clean_mnt_ns(void)
 	 * Mountinfos were collected at prepare stage
 	 */
 
+	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
+		return -1;
+	}
+
 	pm = mnt_build_tree(mntinfo);
 	if (!pm)
 		return -1;
