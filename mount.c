@@ -593,7 +593,7 @@ static int cr_pivot_root()
 {
 	char put_root[] = "crtools-put-root.XXXXXX";
 
-	pr_info("Move the root to %s", opts.root);
+	pr_info("Move the root to %s\n", opts.root);
 
 	if (chdir(opts.root)) {
 		pr_perror("chdir(%s) failed", opts.root);
