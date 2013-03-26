@@ -72,8 +72,11 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 
 	if (ret < 0) {
 		if (ps.state != 'Z') {
-			pr_err("Unseizeable non-zombie %d found, state %c, err %d/%d\n",
-					pid, ps.state, ret, ptrace_errno);
+			if (pid == getpid())
+				pr_err("The crtools itself is withing dumped tree.\n");
+			else
+				pr_err("Unseizeable non-zombie %d found, state %c, err %d/%d\n",
+						pid, ps.state, ret, ptrace_errno);
 			return -1;
 		}
 
