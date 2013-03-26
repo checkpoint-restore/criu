@@ -1084,7 +1084,7 @@ static int collect_file_locks(const struct cr_options *opts)
 	 * be used by container dumping.
 	 */
 	if (!list_empty(&file_lock_list)) {
-		pr_perror("Some file locks are hold by dumping tasks!"
+		pr_err("Some file locks are hold by dumping tasks!"
 			  "You can try -l to dump them.");
 		return -1;
 	}
