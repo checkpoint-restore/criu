@@ -351,9 +351,7 @@ usage:
 	pr_msg("     --pidfile [FILE]	write a pid of a root task in this file\n");
 
 	pr_msg("\n* Special resources support:\n");
-	pr_msg("  -n|--namespaces       checkpoint/restore namespaces - values must be separated by comma\n");
-	pr_msg("                        supported: uts, ipc, mnt, pid, net\n");
-	pr_msg("  -x|--ext-unix-sk      allow external unix connections\n");
+	pr_msg("  -x|--%s      allow external unix connections\n", USK_EXT_PARAM);
 	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
 	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
 	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
