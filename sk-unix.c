@@ -819,18 +819,21 @@ int resolve_unix_peers(void)
 
 		peer = find_unix_sk_by_ino(ui->ue->peer);
 
+		if (!peer) {
+			pr_err("FATAL: Peer %#x unresolved for %#x\n",
+					ui->ue->peer, ui->ue->ino);
+			return -1;
+		}
+
 		/*
 		 * Connect to external sockets requires
 		 * special option to be passed.
 		 */
-		if (peer &&
-		    (peer->ue->uflags & USK_EXTERN) &&
-		    !(opts.ext_unix_sk))
-			peer = NULL;
-
-		if (!peer) {
-			pr_err("FATAL: Peer %#x unresolved for %#x\n",
-					ui->ue->peer, ui->ue->ino);
+		if ((peer->ue->uflags & USK_EXTERN) &&
+				!(opts.ext_unix_sk)) {
+			pr_err("External socket found in image. "
+					"Consider using the --" USK_EXT_PARAM " option "
+					"to allow restoring it.\n");
 			return -1;
 		}
 

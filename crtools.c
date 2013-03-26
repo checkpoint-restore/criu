@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 			{ "log-file", required_argument, 0, 'o' },
 			{ "namespaces", required_argument, 0, 'n' },
 			{ "root", required_argument, 0, 'r' },
-			{ "ext-unix-sk", no_argument, 0, 'x' },
+			{ USK_EXT_PARAM, no_argument, 0, 'x' },
 			{ "help", no_argument, 0, 'h' },
 			{ SK_EST_PARAM, no_argument, 0, 42 },
 			{ "close", required_argument, 0, 43 },

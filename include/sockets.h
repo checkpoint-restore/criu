@@ -83,4 +83,6 @@ static inline int sk_decode_shutdown(int val)
 	return hows[val];
 }
 
+#define USK_EXT_PARAM "ext-unix-sk"
+
 #endif /* __CR_SOCKETS_H__ */
