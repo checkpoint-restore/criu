@@ -1085,7 +1085,7 @@ static int collect_file_locks(const struct cr_options *opts)
 	 */
 	if (!list_empty(&file_lock_list)) {
 		pr_err("Some file locks are hold by dumping tasks!"
-			  "You can try -l to dump them.");
+			  "You can try -l to dump them.\n");
 		return -1;
 	}
 
