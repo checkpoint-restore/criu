@@ -603,6 +603,12 @@ static int cr_pivot_root()
 		pr_perror("Can't create a temparary directory");
 		return -1;
 	}
+
+	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
+		return -1;
+	}
+
 	if (pivot_root(".", put_root)) {
 		pr_perror("pivot_root(., %s) failed", put_root);
 		if (rmdir(put_root))

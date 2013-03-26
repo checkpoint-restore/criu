@@ -42,6 +42,12 @@ static int prepare_mntns()
 			fprintf(stderr, "mkdir(old) failed: %m\n");
 			return -1;
 		}
+
+		if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
+			fprintf(stderr, "Can't remount root with MS_PRIVATE: %m\n");
+			return -1;
+		}
+
 		if (pivot_root(".", "./old")) {
 			fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
 			return -1;
