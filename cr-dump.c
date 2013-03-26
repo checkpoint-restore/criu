@@ -1046,8 +1046,10 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 		 * rather than trying to chase them.
 		 */
 try_again:
-		if (attempts == 0)
-			break;
+		if (attempts == 0) {
+			pr_err("Can't freeze the tree\n");
+			return -1;
+		}
 
 		attempts--;
 		pr_info("Trying to suspend tasks again\n");
