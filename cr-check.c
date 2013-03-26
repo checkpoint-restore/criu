@@ -402,19 +402,19 @@ static int check_so_gets(void)
 	sk = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sk < 0) {
 		pr_perror("No socket");
-		return 1;
+		return -1;
 	}
 
 	len = 0;
 	if (getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len)) {
 		pr_perror("Can't get socket filter");
-		return 1;
+		return -1;
 	}
 
 	len = sizeof(name);
 	if (getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, name, &len)) {
 		pr_perror("Can't get socket bound dev");
-		return 1;
+		return -1;
 	}
 
 	return 0;
@@ -440,7 +440,7 @@ int check_sigqueuinfo()
 
 	if (sys_rt_sigqueueinfo(getpid(), SIGUSR1, &info)) {
 		pr_perror("Unable to send siginfo with positive si_code to itself");
-		return 1;
+		return -1;
 	}
 
 	return 0;
@@ -462,7 +462,7 @@ int check_ptrace_peeksiginfo()
 	}
 
 	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1)
-		return 1;
+		return -1;
 
 	waitpid(pid, NULL, 0);
 
@@ -472,7 +472,7 @@ int check_ptrace_peeksiginfo()
 
 	if (ptrace(PTRACE_PEEKSIGINFO, pid, &arg, &siginfo) != 0) {
 		pr_perror("Unable to dump pending signals\n");
-		ret = 1;
+		ret = -1;
 	}
 
 	ptrace(PTRACE_KILL, pid, NULL, NULL);
