@@ -10,6 +10,8 @@ SECTIONS
 		. = ALIGN(32);
 		*(.bss*)
 		. = ALIGN(32);
+		*(.got*)
+		. = ALIGN(32);
 	} =0x00000000
 
 	/DISCARD/ : {
