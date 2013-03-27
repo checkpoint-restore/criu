@@ -179,6 +179,7 @@ void show_rlimit(int fd, struct cr_options *o);
 
 int check_img_inventory(void);
 int write_img_inventory(void);
+void kill_inventory(void);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern void print_image_data(int fd, unsigned int length, int show);

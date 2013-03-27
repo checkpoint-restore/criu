@@ -1600,9 +1600,10 @@ err:
 
 	close_safe(&pidns_proc);
 
-	if (ret)
+	if (ret) {
+		kill_inventory();
 		pr_err("Dumping FAILED.\n");
-	else
+	} else
 		pr_info("Dumping finished successfully\n");
 
 	return ret;

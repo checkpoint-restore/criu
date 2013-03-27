@@ -86,6 +86,12 @@ int write_img_inventory(void)
 	return 0;
 }
 
+void kill_inventory(void)
+{
+	unlinkat(get_service_fd(IMG_FD_OFF),
+			fdset_template[CR_FD_INVENTORY].fmt, 0);
+}
+
 static void show_inventory(int fd, struct cr_options *o)
 {
 	pb_show_vertical(fd, PB_INVENTORY);
