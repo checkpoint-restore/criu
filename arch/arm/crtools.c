@@ -46,12 +46,12 @@ void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | PSR_T_BIT | MODE32_BIT;
 }
 
-int task_in_compat_mode(pid_t pid)
+bool arch_can_dump_task(pid_t pid)
 {
 	/*
 	 * TODO: Add proper check here
 	 */
-	return 0;
+	return true;
 }
 
 int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
