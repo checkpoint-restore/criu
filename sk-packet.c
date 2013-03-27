@@ -152,7 +152,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	int i, ret;
 
 	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET);
-	if (sd < 0)
+	if (sd == NULL)
 		return -1;
 
 	pr_info("Dumping packet socket fd %d id %#x\n", lfd, id);
