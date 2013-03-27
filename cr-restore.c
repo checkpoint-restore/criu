@@ -1481,8 +1481,12 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 
 	if (ret < 0)
 		return ret;
-	if (!verify_cap_size(ce))
+	if (!verify_cap_size(ce)) {
+		pr_err("Caps size mismatch %d %d %d %d\n",
+		       (int)ce->n_cap_inh, (int)ce->n_cap_eff,
+		       (int)ce->n_cap_prm, (int)ce->n_cap_bnd);
 		return -1;
+	}
 
 	args->creds = *ce;
 	args->creds.cap_inh = args->cap_inh;
