@@ -139,30 +139,51 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	int fd, fd_pg, ret = 0;
 
 	fd = open_image_ro(CR_FD_SHMEM_PAGEMAP, si->shmid);
-	if (fd < 0)
-		goto err_unmap;
-
-	fd_pg = open_pages_image(O_RSTR, fd);
-	if (fd_pg < 0)
-		goto out_close;
+	if (fd < 0) {
+		fd_pg = open_image_ro(CR_FD_SHM_PAGES_OLD, si->shmid);
+		if (fd_pg < 0)
+			goto err_unmap;
+	} else {
+		fd_pg = open_pages_image(O_RSTR, fd);
+		if (fd_pg < 0)
+			goto out_close;
+	}
 
 	while (1) {
-		PagemapEntry *pe;
+		unsigned long vaddr;
+		unsigned nr_pages;
 
-		ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
-		if (ret <= 0)
+		if (fd >= 0) {
+			PagemapEntry *pe;
+
+			ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
+			if (ret <= 0)
+				break;
+
+			vaddr = (unsigned long)decode_pointer(pe->vaddr);
+			nr_pages = pe->nr_pages;
+
+			pagemap_entry__free_unpacked(pe, NULL);
+		} else {
+			__u64 img_vaddr;
+
+			ret = read_img_eof(fd_pg, &img_vaddr);
+			if (ret <= 0)
+				break;
+
+			vaddr = (unsigned long)decode_pointer(img_vaddr);
+			nr_pages = 1;
+		}
+
+		if (vaddr + nr_pages * PAGE_SIZE > si->size)
 			break;
 
-		if (pe->vaddr + pe->nr_pages * PAGE_SIZE > si->size)
-			break;
-
-		ret = read(fd_pg, addr + pe->vaddr, pe->nr_pages * PAGE_SIZE);
-		if (ret != pe->nr_pages * PAGE_SIZE) {
+		ret = read(fd_pg, addr + vaddr, nr_pages * PAGE_SIZE);
+		if (ret != nr_pages * PAGE_SIZE) {
 			ret = -1;
 			break;
 		}
 
-		pagemap_entry__free_unpacked(pe, NULL);
 	}
 
 	close(fd_pg);

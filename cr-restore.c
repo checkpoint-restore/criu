@@ -277,29 +277,47 @@ static int restore_priv_vma_content(pid_t pid)
 	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
 
 	fd = open_image_ro(CR_FD_PAGEMAP, (long)pid);
-	if (fd < 0)
-		return -1;
-
-	fd_pg = open_pages_image(O_RSTR, fd);
-	if (fd_pg < 0) {
-		close(fd);
-		return -1;
+	if (fd < 0) {
+		fd_pg = open_image_ro(CR_FD_PAGES_OLD, pid);
+		if (fd_pg < 0)
+			return -1;
+	} else {
+		fd_pg = open_pages_image(O_RSTR, fd);
+		if (fd_pg < 0) {
+			close(fd);
+			return -1;
+		}
 	}
 
 	/*
 	 * Read page contents.
 	 */
 	while (1) {
-		PagemapEntry *pe;
-		unsigned long off, i;
+		unsigned long off, i, nr_pages;;
 
-		ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
-		if (ret <= 0)
-			break;
+		if (fd >= 0) {
+			PagemapEntry *pe;
 
-		va = (unsigned long)decode_pointer(pe->vaddr);
+			ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
+			if (ret <= 0)
+				break;
 
-		for (i = 0; i < pe->nr_pages; i++) {
+			va = (unsigned long)decode_pointer(pe->vaddr);
+			nr_pages = pe->nr_pages;
+
+			pagemap_entry__free_unpacked(pe, NULL);
+		} else {
+			__u64 img_va;
+
+			ret = read_img_eof(fd_pg, &img_va);
+			if (ret <= 0)
+				break;
+
+			va = (unsigned long)decode_pointer(img_va);
+			nr_pages = 1;
+		}
+
+		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
 			void *p;
 
@@ -350,8 +368,6 @@ static int restore_priv_vma_content(pid_t pid)
 			memcpy(p, buf, PAGE_SIZE);
 			nr_restored++;
 		}
-
-		pagemap_entry__free_unpacked(pe, NULL);
 	}
 	close(fd_pg);
 	close(fd);
