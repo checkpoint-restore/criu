@@ -90,7 +90,9 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	NetlinkSkEntry ne = NETLINK_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
-	sk = (struct netlink_sk_desc *)lookup_socket(p->stat.st_ino, PF_NETLINK);
+	sk = (struct netlink_sk_desc *)lookup_socket(p->stat.st_ino, PF_NETLINK, 0);
+	if (IS_ERR_OR_NULL(sk))
+		goto err;
 
 	ne.id = id;
 	ne.ino = p->stat.st_ino;

@@ -32,6 +32,8 @@ extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);
 extern int restore_prepare_socket(int sk);
 
+extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
+
 extern int sk_collect_one(int ino, int family, struct socket_desc *d);
 extern int collect_sockets(int pid);
 extern int collect_inet_sockets(void);
@@ -51,7 +53,7 @@ extern char *sktype2s(u32 t);
 extern char *skproto2s(u32 p);
 extern char *skstate2s(u32 state);
 
-extern struct socket_desc *lookup_socket(int ino, int family);
+extern struct socket_desc *lookup_socket(int ino, int family, int proto);
 
 extern int dump_one_inet(struct fd_parms *p, int lfd, const int fdinfo);
 extern int dump_one_inet6(struct fd_parms *p, int lfd, const int fdinfo);

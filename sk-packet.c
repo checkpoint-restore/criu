@@ -151,8 +151,8 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	struct packet_sock_desc *sd;
 	int i, ret;
 
-	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET);
-	if (sd == NULL) {
+	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET, 0);
+	if (IS_ERR_OR_NULL(sd)) {
 		pr_err("Can't find packet socket %lu\n", p->stat.st_ino);
 		return -1;
 	}
@@ -219,8 +219,8 @@ int dump_socket_map(struct vma_area *vma)
 {
 	struct packet_sock_desc *sd;
 
-	sd = (struct packet_sock_desc *)lookup_socket(vma->vm_socket_id, PF_PACKET);
-	if (!sd) {
+	sd = (struct packet_sock_desc *)lookup_socket(vma->vm_socket_id, PF_PACKET, 0);
+	if (IS_ERR_OR_NULL(sd)) {
 		pr_err("Can't find packet socket %u to mmap\n", vma->vm_socket_id);
 		return -1;
 	}

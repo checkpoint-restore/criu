@@ -160,7 +160,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
-static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
+static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int proto)
 {
 	struct inet_sk_desc *sk;
 	char address;
@@ -188,9 +188,10 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p)
 
 	ret  = do_dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
 	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &sk->type, sizeof(sk->type));
-	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_PROTOCOL, &sk->proto, sizeof(sk->proto));
 	if (ret)
 		goto err;
+
+	sk->proto = proto;
 
 	if (sk->proto == IPPROTO_TCP) {
 		struct tcp_info info;
@@ -226,11 +227,18 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	struct inet_sk_desc *sk;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	int ret = -1, err = -1;
+	int ret = -1, err = -1, proto;
 
-	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family);
+	ret = do_dump_opt(lfd, SOL_SOCKET, SO_PROTOCOL,
+					&proto, sizeof(proto));
+	if (ret)
+		goto err;
+
+	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
+	if (IS_ERR(sk))
+		goto err;
 	if (!sk) {
-		sk = gen_uncon_sk(lfd, p);
+		sk = gen_uncon_sk(lfd, p, proto);
 		if (!sk)
 			goto err;
 	}
