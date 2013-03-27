@@ -515,15 +515,23 @@ int collect_sockets(int pid)
 	req.r.p.pdiag_show	= PACKET_SHOW_INFO | PACKET_SHOW_MCLIST |
 					PACKET_SHOW_FANOUT | PACKET_SHOW_RING_CFG;
 	tmp = do_rtnl_req(nl, &req, sizeof(req), packet_receive_one, NULL);
-	if (tmp)
-		err = tmp;
+	if (tmp) {
+		if (tmp == -ENOENT) /* Fedora 19 */
+			pr_warn("The currect kernel doesn't support packet_diag\n");
+		else
+			err = tmp;
+	}
 
 	req.r.n.sdiag_family	= AF_NETLINK;
 	req.r.n.sdiag_protocol	= NDIAG_PROTO_ALL;
 	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
 	tmp = do_rtnl_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
-	if (tmp)
-		err = tmp;
+	if (tmp) {
+		if (tmp == -ENOENT) /* Going to be in 3.10 */
+			pr_warn("The currect kernel doesn't support netlink_diag\n");
+		else
+			err = tmp;
+	}
 
 	close(nl);
 out:
