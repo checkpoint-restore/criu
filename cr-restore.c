@@ -1087,10 +1087,10 @@ static int restore_task_with_children(void *_arg)
 	/* Restore root task */
 	if (current->parent == NULL) {
 		if (collect_mount_info())
-			exit(-1);
+			exit(1);
 
 		if (prepare_namespace(current->pid.virt, ca->clone_flags))
-			exit(-1);
+			exit(1);
 
 		/*
 		 * We need non /proc proc mount for restoring pid and mount
@@ -1098,10 +1098,10 @@ static int restore_task_with_children(void *_arg)
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 		if (mount_proc())
-			exit(-1);
+			exit(1);
 
 		if (root_prepare_shared())
-			exit(-1);
+			exit(1);
 	}
 
 	/*
