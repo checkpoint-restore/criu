@@ -152,8 +152,10 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	int i, ret;
 
 	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET);
-	if (sd == NULL)
+	if (sd == NULL) {
+		pr_err("Can't find packet socket %lu\n", p->stat.st_ino);
 		return -1;
+	}
 
 	pr_info("Dumping packet socket fd %d id %#x\n", lfd, id);
 	BUG_ON(sd->sd.already_dumped);
