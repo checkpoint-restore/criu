@@ -34,7 +34,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 			if (*len < 0) {
 				pr_err("ERROR %d reported by netlink (%s)\n",
 					*len, strerror(-*len));
-				return -1;
+				return *len;
 			}
 
 			return 0;
@@ -51,7 +51,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 				return 0;
 
 			pr_err("ERROR %d reported by netlink\n", err->error);
-			return -1;
+			return err->error;
 		}
 		if (cb(hdr, arg))
 			return -1;
@@ -67,6 +67,7 @@ int do_rtnl_req(int nl, void *req, int size,
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
 	static char buf[4096];
+	int err;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name	= &nladdr;
@@ -81,6 +82,7 @@ int do_rtnl_req(int nl, void *req, int size,
 	iov.iov_len	= size;
 
 	if (sendmsg(nl, &msg, 0) < 0) {
+		err = -errno;
 		pr_perror("Can't send request message");
 		goto err;
 	}
@@ -89,7 +91,6 @@ int do_rtnl_req(int nl, void *req, int size,
 	iov.iov_len	= sizeof(buf);
 
 	while (1) {
-		int err;
 
 		memset(&msg, 0, sizeof(msg));
 		msg.msg_name	= &nladdr;
@@ -102,6 +103,7 @@ int do_rtnl_req(int nl, void *req, int size,
 			if (errno == EINTR)
 				continue;
 			else {
+				err = -errno;
 				pr_perror("Error receiving nl report");
 				goto err;
 			}
@@ -119,7 +121,7 @@ int do_rtnl_req(int nl, void *req, int size,
 	return 0;
 
 err:
-	return -1;
+	return err;
 }
 
 int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
