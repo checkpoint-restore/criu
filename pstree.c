@@ -8,7 +8,7 @@
 #include "lock.h"
 #include "namespaces.h"
 #include "files.h"
-
+#include "tty.h"
 #include "asm/dump.h"
 
 #include "protobuf.h"
@@ -99,8 +99,8 @@ int dump_pstree(struct pstree_item *root_item)
 	 */
 	if (root_item->pid.virt != root_item->sid) {
 		if (!opts.shell_job) {
-			pr_err("The root process %d is not a session leader,"
-			       "miss option?\n", item->pid.virt);
+			pr_err("The root process %d is not a session leader. "
+			       "Consider using --" OPT_SHELL_JOB " option\n", item->pid.virt);
 			return -1;
 		}
 	}

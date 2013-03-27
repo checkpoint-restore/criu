@@ -24,4 +24,6 @@ extern int tty_verify_active_pairs(void);
 extern int tty_prep_fds(struct cr_options *opts);
 extern void tty_fini_fds(void);
 
+#define OPT_SHELL_JOB	"shell-job"
+
 #endif /* __CR_TTY_H__ */

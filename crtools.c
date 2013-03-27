@@ -27,6 +27,7 @@
 #include "net.h"
 #include "version.h"
 #include "page-xfer.h"
+#include "tty.h"
 
 struct cr_options opts;
 
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
 			{ "veth-pair", required_argument, 0, 47},
 			{ "action-script", required_argument, 0, 49},
 			{ LREMAP_PARAM, no_argument, 0, 41},
-			{ "shell-job", no_argument, 0, 'j'},
+			{ OPT_SHELL_JOB, no_argument, 0, 'j'},
 			{ "file-locks", no_argument, 0, 'l'},
 			{ "page-server", no_argument, 0, 50},
 			{ "address", required_argument, 0, 51},
@@ -361,7 +362,7 @@ usage:
 	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
 	pr_msg("			* network-lock - lock network in a target network namespace\n");
 	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
-	pr_msg("  -j|--shell-job        allow to dump and restore shell jobs\n");
+	pr_msg("  -j|--%s        allow to dump and restore shell jobs\n", OPT_SHELL_JOB);
 	pr_msg("  -l|--file-locks	handle file locks, for safety, only used for container\n");
 
 	pr_msg("\n* Logging:\n");

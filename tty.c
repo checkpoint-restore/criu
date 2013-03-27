@@ -1015,8 +1015,8 @@ int dump_verify_tty_sids(void)
 
 			if (!item || item->pid.virt != dinfo->sid) {
 				if (!opts.shell_job) {
-					pr_err("Found sid %d pgid %d (%s) on peer fd %d. "
-					       "Missing option?\n",
+					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d. "
+					       "Consider using --" OPT_SHELL_JOB " option.\n",
 					       dinfo->sid, dinfo->pgrp,
 					       tty_type(dinfo->major),
 					       dinfo->fd);
