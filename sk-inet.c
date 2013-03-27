@@ -226,7 +226,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	struct inet_sk_desc *sk;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	int ret = -1;
+	int ret = -1, err = -1;
 
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family);
 	if (!sk) {
@@ -292,17 +292,17 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	switch (sk->proto) {
 	case IPPROTO_TCP:
-		ret = dump_one_tcp(lfd, sk);
+		err = dump_one_tcp(lfd, sk);
 		break;
 	default:
-		ret = 0;
+		err = 0;
 		break;
 	}
 err:
 	release_skopts(&skopts);
 	xfree(ie.src_addr);
 	xfree(ie.dst_addr);
-	return ret;
+	return err;
 }
 
 static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
