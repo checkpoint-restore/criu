@@ -938,7 +938,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	int status;
 	int exit;
 
-	exit = siginfo->si_code & CLD_EXITED;
+	exit = (siginfo->si_code == CLD_EXITED);
 	status = siginfo->si_status;
 	if (!current || status)
 		goto err;
