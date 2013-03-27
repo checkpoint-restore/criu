@@ -53,4 +53,6 @@ extern int dump_task_file_locks(struct parasite_ctl *ctl,
 
 extern int prepare_file_locks(int pid);
 
+#define OPT_FILE_LOCKS	"file-locks"
+
 #endif /* __FILE_LOCK_H__ */

@@ -28,6 +28,7 @@
 #include "version.h"
 #include "page-xfer.h"
 #include "tty.h"
+#include "file-lock.h"
 
 struct cr_options opts;
 
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
 			{ "action-script", required_argument, 0, 49},
 			{ LREMAP_PARAM, no_argument, 0, 41},
 			{ OPT_SHELL_JOB, no_argument, 0, 'j'},
-			{ "file-locks", no_argument, 0, 'l'},
+			{ OPT_FILE_LOCKS, no_argument, 0, 'l'},
 			{ "page-server", no_argument, 0, 50},
 			{ "address", required_argument, 0, 51},
 			{ "port", required_argument, 0, 52},
@@ -363,7 +364,7 @@ usage:
 	pr_msg("			* network-lock - lock network in a target network namespace\n");
 	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
 	pr_msg("  -j|--%s        allow to dump and restore shell jobs\n", OPT_SHELL_JOB);
-	pr_msg("  -l|--file-locks	handle file locks, for safety, only used for container\n");
+	pr_msg("  -l|--%s	handle file locks, for safety, only used for container\n", OPT_FILE_LOCKS);
 
 	pr_msg("\n* Logging:\n");
 	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
