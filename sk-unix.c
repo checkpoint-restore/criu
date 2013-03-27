@@ -806,7 +806,7 @@ int collect_unix_sockets(void)
 	if (!ret)
 		ret = read_sk_queues();
 
-	return 0;
+	return ret;
 }
 
 int resolve_unix_peers(void)
