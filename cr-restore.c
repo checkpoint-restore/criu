@@ -1272,7 +1272,6 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 out:
 	if (ret < 0) {
 		struct pstree_item *pi;
-		pr_err("Someone can't be restored\n");
 
 		if (current_ns_mask & CLONE_NEWPID) {
 			/* Kill init */
@@ -1283,10 +1282,12 @@ out:
 				if (pi->pid.virt > 0)
 					kill(pi->pid.virt, SIGKILL);
 		}
+
+		pr_err("Restoring FAILED.\n");
 		return 1;
 	}
 
-	pr_info("Go on!!!\n");
+	pr_info("Restore finised successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (!opts->restore_detach)

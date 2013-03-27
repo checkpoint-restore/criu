@@ -1600,5 +1600,10 @@ err:
 
 	close_safe(&pidns_proc);
 
+	if (ret)
+		pr_err("Dumping FAILED.\n");
+	else
+		pr_info("Dumping finished successfully\n");
+
 	return ret;
 }
