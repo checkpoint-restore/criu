@@ -53,14 +53,14 @@ static int task_in_compat_mode(pid_t pid)
 	errno = 0;
 	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, cs), 0);
 	if (errno != 0) {
-		perror("Can't get CS register");
+		pr_perror("Can't get CS register for %d", pid);
 		return -1;
 	}
 
 	errno = 0;
 	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, ds), 0);
 	if (errno != 0) {
-		perror("Can't get DS register");
+		pr_perror("Can't get DS register for %d", pid);
 		return -1;
 	}
 
