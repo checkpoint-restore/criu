@@ -210,6 +210,13 @@ int ns_init(int argc, char **argv)
 	ret = 1;
 	waitpid(pid, &ret, 0);
 
+
+	pid = fork();
+	if (pid == 0) {
+		execl("/bin/ps", "ps", "axf", "-o", "pid,sid,comm", NULL);
+	} else if (pid > 0)
+		waitpid(pid, NULL, 0);
+
 	/* Daemonize */
 	write(status_pipe, &ret, sizeof(ret));
 	close(status_pipe);
@@ -218,6 +225,12 @@ int ns_init(int argc, char **argv)
 
 	/* suspend/resume */
 	test_waitsig();
+
+	pid = fork();
+	if (pid == 0) {
+		execl("/bin/ps", "ps", "axf", "-o", "pid,sid,comm", NULL);
+	} else if (pid > 0)
+		waitpid(pid, NULL, 0);
 
 	fd = open(pidfile, O_RDONLY);
 	if (fd == -1) {

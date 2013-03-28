@@ -186,11 +186,15 @@ construct_root()
 {
 	local root=$1
 	local test_path=$2
+	local ps_path=`type -P ps`
 	local libdir=$root/lib
 	local libdir2=$root/lib64
 
+	mkdir $root/bin
+	cp $ps_path $root/bin
+
 	mkdir $libdir $libdir2
-	for i in `ldd $test_path | awk '{ print $1 }' | grep -v vdso`; do
+	for i in `ldd $test_path $ps_path | awk '/^\s/{ print $1 }' | grep -v vdso`; do
 		local lib=`basename $i`
 		[ -f $libdir/$lib ] && continue ||
 		[ -f $i ] && cp $i $libdir && cp $i $libdir2 && continue ||
