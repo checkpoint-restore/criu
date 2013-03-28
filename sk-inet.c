@@ -88,7 +88,7 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 		e->state, src_addr);
 }
 
-static int can_dump_inet_sk(const struct inet_sk_desc *sk)
+static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 {
 	if (sk->sd.family != AF_INET && sk->sd.family != AF_INET6) {
 		pr_err("Only IPv4/6 sockets for now\n");
@@ -146,14 +146,14 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	}
 
 	/* Make sure it's a proto we support */
-	switch (sk->proto) {
+	switch (proto) {
 	case IPPROTO_IP:
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
 		break;
 	default:
-		pr_err("Unsupported socket proto %d\n", sk->proto);
+		pr_err("Unsupported socket proto %d\n", proto);
 		return 0;
 	}
 
@@ -191,9 +191,7 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int 
 	if (ret)
 		goto err;
 
-	sk->proto = proto;
-
-	if (sk->proto == IPPROTO_TCP) {
+	if (proto == IPPROTO_TCP) {
 		struct tcp_info info;
 
 		aux = sizeof(info);
@@ -243,7 +241,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 			goto err;
 	}
 
-	if (!can_dump_inet_sk(sk))
+	if (!can_dump_inet_sk(sk, proto))
 		goto err;
 
 	BUG_ON(sk->sd.already_dumped);
@@ -251,8 +249,8 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	ie.id		= id;
 	ie.ino		= sk->sd.ino;
 	ie.family	= family;
+	ie.proto	= proto;
 	ie.type		= sk->type;
-	ie.proto	= sk->proto;
 	ie.state	= sk->state;
 	ie.src_port	= sk->src_port;
 	ie.dst_port	= sk->dst_port;
@@ -298,7 +296,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
 
-	switch (sk->proto) {
+	switch (proto) {
 	case IPPROTO_TCP:
 		err = dump_one_tcp(lfd, sk);
 		break;
@@ -343,7 +341,7 @@ int dump_one_inet6(struct fd_parms *p, int lfd, const int fdinfo)
 	return do_dump_gen_file(p, lfd, &inet6_dump_ops, fdinfo);
 }
 
-int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
+int inet_collect_one(struct nlmsghdr *h, int family, int type)
 {
 	struct inet_sk_desc *d;
 	struct inet_diag_msg *m = NLMSG_DATA(h);
@@ -358,7 +356,6 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto)
 		return -1;
 
 	d->type = type;
-	d->proto = proto;
 	d->src_port = ntohs(m->id.idiag_sport);
 	d->dst_port = ntohs(m->id.idiag_dport);
 	d->state = m->idiag_state;

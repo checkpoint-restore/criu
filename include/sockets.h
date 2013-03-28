@@ -60,7 +60,7 @@ extern int dump_one_inet6(struct fd_parms *p, int lfd, const int fdinfo);
 extern int dump_one_unix(struct fd_parms *p, int lfd, const int fdinfo);
 extern int dump_one_netlink(struct fd_parms *p, int lfd, const int fdinfo);
 
-extern int inet_collect_one(struct nlmsghdr *h, int family, int type, int proto);
+extern int inet_collect_one(struct nlmsghdr *h, int family, int type);
 extern int unix_receive_one(struct nlmsghdr *h, void *);
 extern int netlink_receive_one(struct nlmsghdr *hdr, void *arg);
 

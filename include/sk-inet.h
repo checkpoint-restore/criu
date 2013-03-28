@@ -20,7 +20,6 @@
 struct inet_sk_desc {
 	struct socket_desc	sd;
 	unsigned int		type;
-	unsigned int		proto;
 	unsigned int		src_port;
 	unsigned int		dst_port;
 	unsigned int		state;

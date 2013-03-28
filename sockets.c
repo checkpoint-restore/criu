@@ -477,7 +477,7 @@ static int inet_receive_one(struct nlmsghdr *h, void *arg)
 		return -1;
 	}
 
-	return inet_collect_one(h, i->sdiag_family, type, i->sdiag_protocol);
+	return inet_collect_one(h, i->sdiag_family, type);
 }
 
 struct sock_diag_req {
