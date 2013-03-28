@@ -206,8 +206,12 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 	sys_set_tid_address((int *)decode_pointer(args->clear_tid_addr));
 
 	if (args->has_futex) {
-		if (sys_set_robust_list(decode_pointer(args->futex_rla), args->futex_rla_len)) {
-			pr_err("Robust list err\n");
+		int ret;
+
+		ret = sys_set_robust_list(decode_pointer(args->futex_rla),
+					  args->futex_rla_len);
+		if (ret) {
+			pr_err("Failed to recover futex robust list: %d\n", ret);
 			return -1;
 		}
 	}
