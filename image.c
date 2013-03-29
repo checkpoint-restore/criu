@@ -161,7 +161,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TTY,		"tty",		 show_tty),
 	FD_ENTRY(TTY_INFO,	"tty-info",	 show_tty_info),
 	FD_ENTRY(FILE_LOCKS,	"filelocks-%d",	 show_file_locks),
-	FD_ENTRY(RLIMIT,	"rlimit",	 show_rlimit),
+	FD_ENTRY(RLIMIT,	"rlimit-%d",	 show_rlimit),
 	FD_ENTRY(PAGES,		"pages-%u",	 NULL),
 	FD_ENTRY(PAGES_OLD,	"pages-%d",	 NULL),
 	FD_ENTRY(SHM_PAGES_OLD, "pages-shmem-%ld", NULL),
