@@ -37,6 +37,9 @@ extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce)
 extern int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 				      struct vm_area_list *vma_area_list,
 				      struct cr_fdset *cr_fdset);
+extern int parasite_mprotect_seized(struct parasite_ctl *ctl,
+				    struct vm_area_list *vma_area_list,
+				    bool unprotect);
 struct parasite_dump_thread;
 struct pid;
 struct _CoreEntry;

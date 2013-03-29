@@ -485,6 +485,12 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 	return 0;
 }
 
+static unsigned int vmas_mprotect_size(struct vm_area_list *vmas)
+{
+	return sizeof(struct parasite_mprotect_args) +
+		(vmas->nr * sizeof(struct parasite_vma_entry));
+}
+
 static unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
 {
 	/*
@@ -545,7 +551,35 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	return 0;
 }
 
-int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
+int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list, bool unprotect)
+{
+	struct parasite_mprotect_args *args;
+	struct parasite_vma_entry *p_vma;
+	struct vma_area *vma;
+
+	args = parasite_args_s(ctl, vmas_pagemap_size(vma_area_list));
+
+	p_vma = args->vmas;
+	args->nr = 0;
+
+	list_for_each_entry(vma, &vma_area_list->h, list) {
+		if (!privately_dump_vma(vma))
+			continue;
+		if (vma->vma.prot & PROT_READ)
+			continue;
+		p_vma->start = vma->vma.start;
+		p_vma->len = vma_area_len(vma);
+		p_vma->prot = vma->vma.prot;
+		if (unprotect)
+			p_vma->prot |= PROT_READ;
+		args->nr++;
+		p_vma++;
+	}
+
+	return parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
+}
+
+static int __parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args *args;
@@ -621,6 +655,29 @@ out_free:
 	xfree(map);
 out:
 	pr_info("----------------------------------------\n");
+	return ret;
+}
+
+int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
+		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
+{
+	int ret;
+
+	ret = parasite_mprotect_seized(ctl, vma_area_list, true);
+	if (ret) {
+		pr_err("Can't dump unprotect vmas with parasite\n");
+		return ret;
+	}
+
+	ret = __parasite_dump_pages_seized(ctl, vpid, vma_area_list, cr_fdset);
+	if (ret)
+		pr_err("Can't dump page with parasite\n");
+
+	if (parasite_mprotect_seized(ctl, vma_area_list, false)) {
+		pr_err("Can't rollback unprotected vmas with parasite\n");
+		ret = -1;
+	}
+
 	return ret;
 }
 
@@ -852,6 +909,7 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 
 	size = max(size, (unsigned long)drain_fds_size(dfds));
 	size = max(size, (unsigned long)vmas_pagemap_size(vmas));
+	size = max(size, (unsigned long)vmas_mprotect_size(vmas));
 
 	return size;
 }

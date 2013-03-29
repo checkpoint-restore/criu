@@ -34,6 +34,24 @@ static unsigned int next_tid_state;
 #define SPLICE_F_GIFT	0x08
 #endif
 
+static int mprotect_vmas(struct parasite_mprotect_args *args)
+{
+	struct parasite_vma_entry *vma;
+	int ret = 0, i;
+
+	for (i = 0; i < args->nr; i++) {
+		vma = args->vmas + i;
+		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot);
+		if (ret) {
+			pr_err("mprotect(%08lx, %lu) failed with code %d\n",
+						vma->start, vma->len, ret);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
 	int p, ret;
@@ -425,6 +443,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return parasite_cfg_log(args);
 	case PARASITE_CMD_DUMPPAGES:
 		return dump_pages(args);
+	case PARASITE_CMD_MPROTECT_VMAS:
+		return mprotect_vmas(args);
 	case PARASITE_CMD_DUMP_SIGACTS:
 		return dump_sigact(args);
 	case PARASITE_CMD_DUMP_ITIMERS:

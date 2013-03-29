@@ -24,6 +24,7 @@ enum {
 	PARASITE_CMD_FINI,
 	PARASITE_CMD_FINI_THREAD,
 
+	PARASITE_CMD_MPROTECT_VMAS,
 	PARASITE_CMD_DUMPPAGES,
 
 	PARASITE_CMD_DUMP_SIGACTS,
@@ -50,6 +51,19 @@ struct parasite_init_args {
 
 struct parasite_log_args {
 	int log_level;
+};
+
+struct parasite_vma_entry
+{
+	unsigned long	start;
+	unsigned long	len;
+	int		prot;
+};
+
+struct parasite_mprotect_args
+{
+	unsigned int		  nr;
+	struct parasite_vma_entry vmas[0];
 };
 
 struct parasite_dump_pages_args {
