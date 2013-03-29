@@ -21,6 +21,7 @@ int main(int argc, char ** argv)
 {
 	void *m;
 	uint32_t crc;
+	int i;
 
 	test_init(argc, argv);
 
@@ -35,8 +36,17 @@ int main(int argc, char ** argv)
 	crc = ~0;
 	datagen(m, MEM_SIZE, &crc);
 
+	for (i = 0; i < MEM_SIZE / (1<<20); i++)
+		if (mprotect(m + (lrand48() * PAGE_SIZE % MEM_SIZE), PAGE_SIZE, PROT_NONE)) {
+			err("mprotect");
+			return 1;
+		}
+
 	test_daemon();
 	test_waitsig();
+
+	if (mprotect(m, MEM_SIZE, PROT_READ))
+		err("mprotect");
 
 	crc = ~0;
 	if (datachk(m, MEM_SIZE, &crc))
