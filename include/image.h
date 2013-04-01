@@ -1,9 +1,9 @@
 #ifndef __CR_IMAGE_H__
 #define __CR_IMAGE_H__
 
-#include "asm/types.h"
-#include "compiler.h"
+#include <stdbool.h>
 
+#include "compiler.h"
 #include "magic.h"
 
 #define PAGE_IMAGE_SIZE	4096
