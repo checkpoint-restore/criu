@@ -6,13 +6,13 @@ override CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror
 
 TST_NOFILE	=	\
-		file_read 	\
 		ipc	 	\
 		ptrace		\
 		epoll		\
 		fork		\
 
 TST_FILE	=	\
+		file_read 	\
 
 TST	= $(TST_NOFILE) $(TST_FILE)
 SRC	= $(TST:%=%.c)
@@ -74,7 +74,7 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(RM) -f -r $<.pid $<.out* $<.test
+	$(RM) -f -r $<.pid $<.out* $<.test chew_$<.test*
 
 cleanout:
 	$(RM) -f *.pid *.out* *.test chew*

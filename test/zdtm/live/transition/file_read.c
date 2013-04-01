@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <errno.h>
+#include <linux/limits.h>
 
 #include "zdtmtst.h"
 
@@ -43,6 +44,9 @@ static char *kids_fail_reasons[] = {
 
 int scale = 13;
 TEST_OPTION(scale, int, "How many children should perform testing", 0);
+
+char *filename;
+TEST_OPTION(filename, string, "file name", 1);
 
 static int pids[MAX_SCALE];
 static volatile int stop = 0;
@@ -113,8 +117,8 @@ static int check_file(int fd)
 
 static void chew_some_file(int num)
 {
-	char filename[10];
 	int fd, rv;
+	char chew_file[PATH_MAX];
 
 	buf = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
@@ -122,8 +126,8 @@ static void chew_some_file(int num)
 	if (buf == MAP_FAILED)
 		goto out_exit;
 
-	sprintf(filename, "chew%d", num);
-	fd = open(filename, O_CREAT | O_EXCL | O_RDWR, 0666);
+	sprintf(chew_file, "chew_%s.%d", filename, num);
+	fd = open(chew_file, O_CREAT | O_EXCL | O_RDWR, 0666);
 	rv = OPEN_FAILED;
 	if (fd == -1)
 		goto out_unmap;
@@ -156,9 +160,9 @@ static void chew_some_file(int num)
 		case 1:
 			rv = FILE_CORRUPTED;
 			int fd1;
-			char str[32];
+			char str[PATH_MAX];
 			// create standard file
-			sprintf(str, "standard_%s", filename);
+			sprintf(str, "standard_%s.%d", filename, num);
 			fd1 = open(str, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 			if (write(fd1, buf, FILE_SIZE) != FILE_SIZE)
 				err("can't write %s: %m\n", str);
@@ -168,7 +172,7 @@ static void chew_some_file(int num)
 	}
 	rv = SUCCESS;
 	close(fd);
-	unlink(filename);
+	unlink(chew_file);
 out_unmap:
 	munmap(buf, FILE_SIZE);
 out_exit:
