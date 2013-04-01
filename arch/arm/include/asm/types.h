@@ -7,6 +7,7 @@
 #include "protobuf/core.pb-c.h"
 
 #include "asm/bitops.h"
+#include "asm/int.h"
 
 /* prctl.h */
 #define PR_SET_NAME		15
@@ -60,15 +61,6 @@
 #define ERESTARTNOINTR		513
 #define ERESTARTNOHAND		514
 #define ERESTART_RESTARTBLOCK	516
-
-typedef uint64_t		u64;
-typedef int64_t			s64;
-typedef unsigned int		u32;
-typedef signed int		s32;
-typedef unsigned short		u16;
-typedef signed short		s16;
-typedef unsigned char		u8;
-typedef signed char		s8;
 
 #define MAJOR(dev)		((dev)>>8)
 #define MINOR(dev)		((dev) & 0xff)
