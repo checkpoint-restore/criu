@@ -258,8 +258,6 @@ typedef uint64_t auxv_t;
 
 typedef UserX86RegsEntry UserRegsEntry;
 
-#define BITS_PER_LONG 64
-
 static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
 static inline void *decode_pointer(uint64_t v) { return (void*)v; }
 

@@ -1,8 +1,9 @@
 #ifndef __CR_BITOPS_H__
 #define __CR_BITOPS_H__
 
+#include "asm/bitsperlong.h"
+
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
-#define BITS_PER_LONG		(8 * sizeof(long))
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
 
 #define DECLARE_BITMAP(name, bits)		\
