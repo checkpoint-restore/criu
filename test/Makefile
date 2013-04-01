@@ -6,7 +6,7 @@ EXP = '^ns/(?!.*(tty|pty))'
 zdtm: .FORCE
 	$(MAKE) zdtm_ns
 	for t in $(shell echo "$(TST)" | tr ' ' '\n' | grep -Pv $(EXP)); do \
-		$(MAKE) $$t;	\
+		$(MAKE) $$t || break;	\
 	done
 	
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
