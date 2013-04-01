@@ -38,17 +38,9 @@
 #define vma_entry_is(vma, s)	(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)	((vma)->end - (vma)->start)
 
-struct page_entry {
-	u64	va;
-	u8	data[PAGE_IMAGE_SIZE];
-} __packed;
-
 #define CR_CAP_SIZE	2
 
-#define GDT_ENTRY_TLS_ENTRIES 3
 #define TASK_COMM_LEN 16
-
-#define TASK_PF_USED_MATH		0x00002000
 
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2
