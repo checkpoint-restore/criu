@@ -1402,6 +1402,13 @@ static int dump_one_task(struct pstree_item *item)
 	pr_info("sid=%d pgid=%d pid=%d\n",
 		item->sid, item->pgid, item->pid.virt);
 
+	if (item->sid == 0) {
+		pr_err("A session leader of %d(%d) is outside of its pid namespace\n",
+			item->pid.real, item->pid.virt);
+		ret = -1;
+		goto err_cure;
+	}
+
 	ret = -1;
 	cr_fdset = cr_task_fdset_open(item->pid.virt, O_DUMP);
 	if (!cr_fdset)
