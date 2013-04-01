@@ -235,7 +235,7 @@ typedef uint32_t auxv_t;
 static inline void *decode_pointer(uint64_t v) { return (void*)(uint32_t)v; }
 static inline uint64_t encode_pointer(void *p) { return (uint32_t)p; }
 
-#define BITS_PER_ULONG 32
+#define BITS_PER_LONG 32
 
 typedef struct {
 	struct user_vfp		ufp;

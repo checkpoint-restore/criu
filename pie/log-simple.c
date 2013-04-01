@@ -178,7 +178,7 @@ static void print_hex_l(unsigned long num, struct simple_buf *b)
 	hexdigit(num >> 24, &buf[11], &z);
 	hexdigit(num >> 28, &buf[10], &z);
 
-#if BITS_PER_ULONG == 64
+#if BITS_PER_LONG == 64
 	hexdigit(num >> 32, &buf[9], &z);
 	hexdigit(num >> 36, &buf[8], &z);
 	hexdigit(num >> 40, &buf[7], &z);
