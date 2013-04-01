@@ -154,6 +154,9 @@ static int prepare_pstree_for_shell_job(void)
 	if (!opts.shell_job)
 		return 0;
 
+	if (root_item->sid == root_item->pid.virt)
+		return 0;
+
 	/*
 	 * Migration of a root task group leader is a bit tricky.
 	 * When a task yields SIGSTOP, the kernel notifies the parent
