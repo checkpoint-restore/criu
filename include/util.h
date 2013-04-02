@@ -14,6 +14,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "xmalloc.h"
 #include "bug.h"
 #include "log.h"
 #include "err.h"
@@ -100,9 +101,6 @@ static inline int read_img_buf(int fd, void *ptr, int size)
 }
 
 #define read_img(fd, ptr)	read_img_buf((fd), (ptr), sizeof(*(ptr)))
-
-#define memzero_p(p)		memset(p, 0, sizeof(*p))
-#define memzero(p, size)	memset(p, 0, size)
 
 struct vma_area;
 struct list_head;
@@ -201,35 +199,6 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 					__fd, pid, ##__VA_ARGS__);	\
 									\
 		__f;							\
-	 })
-
-#define __xalloc(op, size, ...)						\
-	({								\
-		void *___p = op( __VA_ARGS__ );				\
-		if (!___p)						\
-			pr_err("%s: Can't allocate %li bytes\n",	\
-			       __func__, (long)(size));			\
-		___p;							\
-	})
-
-#include <stdlib.h>
-
-#define xstrdup(str)		__xalloc(strdup, strlen(str) + 1, str)
-#define xmalloc(size)		__xalloc(malloc, size, size)
-#define xzalloc(size)		__xalloc(calloc, size, 1, size)
-#define xrealloc(p, size)	__xalloc(realloc, size, p, size)
-
-#define xfree(p)		do { if (p) free(p); } while (0)
-
-#define xrealloc_safe(pptr, size)					\
-	({								\
-		int __ret = -1;						\
-		void *new = xrealloc(*pptr, size);			\
-		if (new) {						\
-			*pptr = new;					\
-			__ret = 0;					\
-		}							\
-		__ret;							\
 	 })
 
 #define pr_img_head(type, ...)	pr_msg("\n"#type __VA_ARGS__ "\n----------------\n")
