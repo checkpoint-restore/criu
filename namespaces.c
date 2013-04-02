@@ -288,6 +288,8 @@ int try_show_namespaces(int ns_pid, struct cr_options *o)
 	struct cr_fdset *fdset;
 	int i;
 
+	pr_msg("Namespaces for %d:\n", ns_pid);
+	pr_msg("----------------------------------------\n");
 	fdset = cr_ns_fdset_open(ns_pid, O_SHOW);
 	if (!fdset)
 		return -1;
@@ -304,7 +306,7 @@ int try_show_namespaces(int ns_pid, struct cr_options *o)
 
 		fdset_template[i].show(fdset_fd(fdset, i), o);
 	}
-
+	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);
 	close_cr_fdset(&fdset);
 	return 0;
 }

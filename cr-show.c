@@ -458,6 +458,9 @@ static int cr_show_all(struct cr_options *opts)
 		if (!cr_fdset)
 			goto out;
 
+		pr_msg("Task %d:\n", item->pid.virt);
+		pr_msg("----------------------------------------\n");
+
 		show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts);
 
 		if (item->nr_threads > 1) {
@@ -472,21 +475,24 @@ static int cr_show_all(struct cr_options *opts)
 				if (fd_th < 0)
 					goto out;
 
-				pr_msg("\n");
-				pr_msg("Thread: %d\n", item->threads[i].virt);
+				pr_msg("Thread %d.%d:\n", item->pid.virt, item->threads[i].virt);
 				pr_msg("----------------------------------------\n");
 
 				show_core(fd_th, opts);
 				close_safe(&fd_th);
-
-				pr_msg("----------------------------------------\n");
-
 			}
 		}
 
+		pr_msg("Resources for %d:\n", item->pid.virt);
+		pr_msg("----------------------------------------\n");
 		for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
-			if (i != CR_FD_CORE && fdset_template[i].show)
+			if (i != CR_FD_CORE && fdset_template[i].show) {
+				pr_msg("* ");
+				pr_msg(fdset_template[i].fmt, item->pid.virt);
+				pr_msg(":\n");
 				fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
+			}
+		pr_msg("---[ end of task %d ]---\n", item->pid.virt);
 
 		close_cr_fdset(&cr_fdset);
 	}
