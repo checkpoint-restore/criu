@@ -62,13 +62,13 @@ bad_ns:
 
 int main(int argc, char *argv[])
 {
-	pid_t pid = 0;
+	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
 	int opt, idx;
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:t:hcD:o:n:vxVr:jl";
+	static const char short_opts[] = "dsf:t:p:hcD:o:n:vxVr:jl";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
 	while (1) {
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
+			{ "pid", required_argument, 0, 'p' },
 			{ "leave-stopped", no_argument, 0, 's' },
 			{ "restore-detached", no_argument, 0, 'd' },
 			{ "contents", no_argument, 0, 'c' },
@@ -126,8 +127,11 @@ int main(int argc, char *argv[])
 		case 'x':
 			opts.ext_unix_sk = true;
 			break;
-		case 't':
+		case 'p':
 			pid = atoi(optarg);
+			break;
+		case 't':
+			tree_id = atoi(optarg);
 			break;
 		case 'c':
 			opts.show_pages_content	= true;
@@ -292,22 +296,24 @@ int main(int argc, char *argv[])
 
 	switch (argv[optind][0]) {
 	case 'd':
-		if (!pid)
+		if (!tree_id)
 			goto opt_pid_missing;
-		ret = cr_dump_tasks(pid, &opts);
+		ret = cr_dump_tasks(tree_id, &opts);
 		break;
 	case 'r':
-		if (!pid)
+		if (!tree_id)
 			goto opt_pid_missing;
-		ret = cr_restore_tasks(pid, &opts);
+		ret = cr_restore_tasks(tree_id, &opts);
 		break;
 	case 's':
-		ret = cr_show(&opts);
+		ret = cr_show(&opts, pid);
 		break;
 	case 'c':
 		ret = cr_check();
 		break;
 	case 'e':
+		if (!pid)
+			pid = tree_id; /* old usage */
 		if (!pid)
 			goto opt_pid_missing;
 		ret = cr_exec(pid, argv + optind + 1);
@@ -328,7 +334,7 @@ usage:
 	pr_msg("  %s restore -t pid [<options>]\n", argv[0]);
 	pr_msg("  %s show (-D dir)|(-f file) [<options>]\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
-	pr_msg("  %s exec -t pid <syscall-string>\n", argv[0]);
+	pr_msg("  %s exec -p pid <syscall-string>\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
@@ -390,6 +396,7 @@ usage:
 	pr_msg("  -f|--file             show contents of a checkpoint file\n");
 	pr_msg("  -D|--images-dir       directory where to get images from\n");
 	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
+	pr_msg("  -p|--pid <pid>        show files relevant to pid (filter -D flood)\n");
 
 	pr_msg("\nOther options:\n");
 	pr_msg("  -h|--help             show this text\n");

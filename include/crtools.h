@@ -217,7 +217,7 @@ extern struct cr_options opts;
 
 int cr_dump_tasks(pid_t pid, const struct cr_options *opts);
 int cr_restore_tasks(pid_t pid, struct cr_options *opts);
-int cr_show(struct cr_options *opts);
+int cr_show(struct cr_options *opts, int pid);
 int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
 int cr_exec(int pid, char **opts);

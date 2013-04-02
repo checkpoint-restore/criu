@@ -261,11 +261,28 @@ void show_creds(int fd, struct cr_options *o)
 	pb_show_vertical(fd, PB_CREDS);
 }
 
+static int pstree_item_from_pb(PstreeEntry *e, struct pstree_item *item)
+{
+	int i;
+
+	item->pid.virt = e->pid;
+	item->nr_threads = e->n_threads;
+	item->threads = xzalloc(sizeof(struct pid) * e->n_threads);
+	if (!item->threads) {
+		xfree(item);
+		return -1;
+	}
+
+	for (i = 0; i < item->nr_threads; i++)
+		item->threads[i].virt = e->threads[i];
+
+	return 0;
+}
+
 static void pstree_handler(int fd, void *obj, int collect)
 {
 	PstreeEntry *e = obj;
 	struct pstree_item *item = NULL;
-	int i;
 
 	if (!collect)
 		return;
@@ -274,16 +291,10 @@ static void pstree_handler(int fd, void *obj, int collect)
 	if (!item)
 		return;
 
-	item->pid.virt = e->pid;
-	item->nr_threads = e->n_threads;
-	item->threads = xzalloc(sizeof(struct pid) * e->n_threads);
-	if (!item->threads) {
+	if (pstree_item_from_pb(e, item)) {
 		xfree(item);
 		return;
 	}
-
-	for (i = 0; i < item->nr_threads; i++)
-		item->threads[i].virt = e->threads[i];
 
 	list_add_tail(&item->sibling, &pstree_list);
 }
@@ -428,10 +439,92 @@ err:
 	return ret;
 }
 
+static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item)
+{
+	int ret = -1, i;
+	struct cr_fdset *cr_fdset = NULL;
+
+	cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
+	if (!cr_fdset)
+		goto out;
+
+	pr_msg("Task %d:\n", item->pid.virt);
+	pr_msg("----------------------------------------\n");
+
+	show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts);
+
+	if (item->nr_threads > 1) {
+		int fd_th;
+
+		for (i = 0; i < item->nr_threads; i++) {
+
+			if (item->threads[i].virt == item->pid.virt)
+				continue;
+
+			fd_th = open_image_ro(CR_FD_CORE, item->threads[i].virt);
+			if (fd_th < 0)
+				goto outc;
+
+			pr_msg("Thread %d.%d:\n", item->pid.virt, item->threads[i].virt);
+			pr_msg("----------------------------------------\n");
+
+			show_core(fd_th, opts);
+			close_safe(&fd_th);
+		}
+	}
+
+	pr_msg("Resources for %d:\n", item->pid.virt);
+	pr_msg("----------------------------------------\n");
+	for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
+		if (i != CR_FD_CORE && fdset_template[i].show) {
+			pr_msg("* ");
+			pr_msg(fdset_template[i].fmt, item->pid.virt);
+			pr_msg(":\n");
+			fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
+		}
+	pr_msg("---[ end of task %d ]---\n", item->pid.virt);
+
+	ret = 0;
+outc:
+	close_cr_fdset(&cr_fdset);
+out:
+	return ret;
+}
+
+static int cr_show_pid(struct cr_options *opts, int pid)
+{
+	int fd, ret;
+	struct pstree_item item;
+
+	fd = open_image_ro(CR_FD_PSTREE);
+	if (fd < 0)
+		return -1;
+
+	while (1) {
+		PstreeEntry *pe;
+
+		ret = pb_read_one_eof(fd, &pe, PB_PSTREE);
+		if (ret <= 0)
+			return ret;
+
+		if (pe->pid == pid) {
+			pstree_item_from_pb(pe, &item);
+			pstree_entry__free_unpacked(pe, NULL);
+			break;
+		}
+
+		pstree_entry__free_unpacked(pe, NULL);
+	}
+
+	close(fd);
+
+	return cr_show_pstree_item(opts, &item);
+}
+
 static int cr_show_all(struct cr_options *opts)
 {
 	struct pstree_item *item = NULL, *tmp;
-	int i, ret = -1, fd, pid;
+	int ret = -1, fd, pid;
 
 	fd = open_image_ro(CR_FD_PSTREE);
 	if (fd < 0)
@@ -451,51 +544,9 @@ static int cr_show_all(struct cr_options *opts)
 	if (ret)
 		goto out;
 
-	list_for_each_entry(item, &pstree_list, sibling) {
-		struct cr_fdset *cr_fdset = NULL;
-
-		cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
-		if (!cr_fdset)
-			goto out;
-
-		pr_msg("Task %d:\n", item->pid.virt);
-		pr_msg("----------------------------------------\n");
-
-		show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts);
-
-		if (item->nr_threads > 1) {
-			int fd_th;
-
-			for (i = 0; i < item->nr_threads; i++) {
-
-				if (item->threads[i].virt == item->pid.virt)
-					continue;
-
-				fd_th = open_image_ro(CR_FD_CORE, item->threads[i].virt);
-				if (fd_th < 0)
-					goto out;
-
-				pr_msg("Thread %d.%d:\n", item->pid.virt, item->threads[i].virt);
-				pr_msg("----------------------------------------\n");
-
-				show_core(fd_th, opts);
-				close_safe(&fd_th);
-			}
-		}
-
-		pr_msg("Resources for %d:\n", item->pid.virt);
-		pr_msg("----------------------------------------\n");
-		for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
-			if (i != CR_FD_CORE && fdset_template[i].show) {
-				pr_msg("* ");
-				pr_msg(fdset_template[i].fmt, item->pid.virt);
-				pr_msg(":\n");
-				fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
-			}
-		pr_msg("---[ end of task %d ]---\n", item->pid.virt);
-
-		close_cr_fdset(&cr_fdset);
-	}
+	list_for_each_entry(item, &pstree_list, sibling)
+		if (cr_show_pstree_item(opts, item))
+			break;
 
 out:
 	list_for_each_entry_safe(item, tmp, &pstree_list, sibling) {
@@ -506,10 +557,13 @@ out:
 	return ret;
 }
 
-int cr_show(struct cr_options *opts)
+int cr_show(struct cr_options *opts, int pid)
 {
 	if (opts->show_dump_file)
 		return cr_parse_file(opts);
+
+	if (pid)
+		return cr_show_pid(opts, pid);
 
 	return cr_show_all(opts);
 }
