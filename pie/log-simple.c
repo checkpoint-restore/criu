@@ -3,8 +3,46 @@
 #include "log.h"
 #include "log-levels.h"
 
+#define LOG_SIMPLE_CHUNK	72
+
+struct simple_buf {
+	char buf[LOG_SIMPLE_CHUNK];
+	char *bp;
+};
+
 static int logfd = -1;
 static int cur_loglevel = DEFAULT_LOGLEVEL;
+
+static void sbuf_init(struct simple_buf *b)
+{
+	b->buf[0] = 'p';
+	b->buf[1] = 'i';
+	b->buf[2] = 'e';
+	b->buf[3] = ':';
+	b->buf[4] = ' ';
+	b->bp = b->buf + 5;
+}
+
+static void sbuf_flush(struct simple_buf *b)
+{
+	if (b->bp == b->buf + 5)
+		return;
+
+	sys_write(logfd, b->buf, b->bp - b->buf);
+	sbuf_init(b);
+}
+
+static void sbuf_putc(struct simple_buf *b, char c)
+{
+	*b->bp = c;
+	b->bp++;
+	if (b->bp - b->buf >= LOG_SIMPLE_CHUNK - 2) {
+		b->bp[0] = '>';
+		b->bp[1] = '\n';
+		b->bp += 2;
+		sbuf_flush(b);
+	}
+}
 
 void log_set_fd(int fd)
 {
@@ -17,12 +55,12 @@ void log_set_loglevel(unsigned int level)
 	cur_loglevel = level;
 }
 
-static void print_string(const char *msg)
+static void print_string(const char *msg, struct simple_buf *b)
 {
-	int size = 0;
-	while (msg[size])
-		size++;
-	sys_write(logfd, msg, size);
+	while (*msg) {
+		sbuf_putc(b, *msg);
+		msg++;
+	}
 }
 
 int vprint_num(char *buf, int blen, int num, char **ps)
@@ -57,20 +95,22 @@ done:
 	return blen - (s - buf);
 }
 
-static void print_num(int num)
+static void print_num(int num, struct simple_buf *b)
 {
-	char buf[11], *s;
+	char buf[12], *s;
 	int len;
 
-	len = vprint_num(buf, sizeof(buf), num, &s);
-	sys_write(logfd, s, len);
+	buf[11] = '\0';
+	len = vprint_num(buf, sizeof(buf) - 1, num, &s);
+	print_string(buf + sizeof(buf) - len, b);
 }
 
-static void print_num_l(long num)
+static void print_num_l(long num, struct simple_buf *b)
 {
 	int neg = 0;
-	char buf[21], *s;
+	char buf[22], *s;
 
+	buf[21] = '\0';
 	s = &buf[20];
 
 	if (num < 0) {
@@ -94,7 +134,7 @@ static void print_num_l(long num)
 	}
 done:
 	s++;
-	sys_write(logfd, s, sizeof(buf) - (s - buf));
+	print_string(s, b);
 }
 
 static void hexdigit(unsigned int v, char *to, char **z)
@@ -104,10 +144,11 @@ static void hexdigit(unsigned int v, char *to, char **z)
 		*z = to;
 }
 
-static void print_hex(unsigned int num)
+static void print_hex(unsigned int num, struct simple_buf *b)
 {
-	char buf[10], *z = &buf[9];
+	char buf[11], *z = &buf[9];
 
+	buf[10] = '\0';
 	hexdigit(num >> 0, &buf[9], &z);
 	hexdigit(num >> 4, &buf[8], &z);
 	hexdigit(num >> 8, &buf[7], &z);
@@ -120,13 +161,14 @@ static void print_hex(unsigned int num)
 	z[0] = '0';
 	z[1] = 'x';
 
-	sys_write(logfd, z, sizeof(buf) - (z - buf));
+	print_string(z, b);
 }
 
-static void print_hex_l(unsigned long num)
+static void print_hex_l(unsigned long num, struct simple_buf *b)
 {
-	char buf[18], *z = &buf[17];
+	char buf[19], *z = &buf[17];
 
+	buf[18] = '\0';
 	hexdigit(num >> 0, &buf[17], &z);
 	hexdigit(num >> 4, &buf[16], &z);
 	hexdigit(num >> 8, &buf[15], &z);
@@ -151,30 +193,32 @@ static void print_hex_l(unsigned long num)
 	z[0] = '0';
 	z[1] = 'x';
 
-	sys_write(logfd, z, sizeof(buf) - (z - buf));
+	print_string(z, b);
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list args;
-	const char *s = format, *p;
+	const char *s = format;
+	struct simple_buf b;
 
 	if (loglevel > cur_loglevel)
 		return;
 
+	sbuf_init(&b);
+
 	va_start(args, format);
-	p = s;
 	while (1) {
 		int along = 0;
 
-		if (*s != '\0' && *s != '%') {
+		if (*s == '\0')
+			break;
+
+		if (*s != '%') {
+			sbuf_putc(&b, *s);
 			s++;
 			continue;
 		}
-
-		sys_write(logfd, p, s - p);
-		if (*s == '\0')
-			break;
 
 		s++;
 		if (*s == 'l') {
@@ -184,23 +228,24 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 		switch (*s) {
 		case 's':
-			print_string(va_arg(args, char *));
+			print_string(va_arg(args, char *), &b);
 			break;
 		case 'd':
 			if (along)
-				print_num_l(va_arg(args, long));
+				print_num_l(va_arg(args, long), &b);
 			else
-				print_num(va_arg(args, int));
+				print_num(va_arg(args, int), &b);
 			break;
 		case 'x':
 			if (along)
-				print_hex_l(va_arg(args, long));
+				print_hex_l(va_arg(args, long), &b);
 			else
-				print_hex(va_arg(args, unsigned int));
+				print_hex(va_arg(args, unsigned int), &b);
 			break;
 		}
 		s++;
-		p = s;
 	}
 	va_end(args);
+
+	sbuf_flush(&b);
 }
