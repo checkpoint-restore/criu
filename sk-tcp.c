@@ -623,52 +623,7 @@ void rst_unlock_tcp_connections(void)
 
 void show_tcp_stream(int fd, struct cr_options *opt)
 {
-	TcpStreamEntry *tse;
-	pr_img_head(CR_FD_TCP_STREAM);
-
-	if (pb_read_one_eof(fd, &tse, PB_TCP_STREAM) > 0) {
-		pr_msg("IN:   seq %10u len %10u\n", tse->inq_seq, tse->inq_len);
-		pr_msg("OUT:  seq %10u len %10u\n", tse->outq_seq, tse->outq_len);
-		pr_msg("OPTS: %#x\n", (int)tse->opt_mask);
-		pr_msg("\tmss_clamp %u\n", (int)tse->mss_clamp);
-		if (tse->opt_mask & TCPI_OPT_WSCALE)
-			pr_msg("\tsnd wscale %u\n", (int)tse->snd_wscale);
-			pr_msg("\trcv wscale %u\n", (int)tse->rcv_wscale);
-		if (tse->opt_mask & TCPI_OPT_TIMESTAMPS)
-			pr_msg("\ttimestamps\n");
-		if (tse->opt_mask & TCPI_OPT_SACK)
-			pr_msg("\tsack\n");
-
-		if (opt->show_pages_content) {
-			unsigned char *buf;
-
-			buf = xmalloc(max(tse->inq_len, tse->outq_len));
-			if (!buf)
-				goto out;
-
-			if (tse->inq_len && read_img_buf(fd,
-						buf, tse->inq_len) > 0) {
-				pr_msg("IN queue:\n");
-				print_data(0, buf, tse->inq_len);
-			}
-
-			if (tse->outq_len && read_img_buf(fd,
-						buf, tse->outq_len) > 0) {
-				pr_msg("OUT queue:\n");
-				print_data(0, buf, tse->outq_len);
-			}
-
-			xfree(buf);
-		}
-
-		tcp_stream_entry__free_unpacked(tse, NULL);
-		tse = NULL;
-	}
-
-out:
-	if (tse)
-		tcp_stream_entry__free_unpacked(tse, NULL);
-	pr_img_tail(CR_FD_TCP_STREAM);
+	pb_show_plain_pretty(fd, PB_TCP_STREAM, "1:%u 2:%u 3:%u 4:%u");
 }
 
 int check_tcp(void)
