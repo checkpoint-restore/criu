@@ -443,6 +443,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 {
 	int ret = -1, i;
 	struct cr_fdset *cr_fdset = NULL;
+	TaskKobjIdsEntry *ids;
 
 	cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
 	if (!cr_fdset)
@@ -476,12 +477,28 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 	pr_msg("Resources for %d:\n", item->pid.virt);
 	pr_msg("----------------------------------------\n");
 	for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
-		if (i != CR_FD_CORE && fdset_template[i].show) {
+		if ((i != CR_FD_CORE) && (i != CR_FD_IDS) &&
+				fdset_template[i].show) {
 			pr_msg("* ");
 			pr_msg(fdset_template[i].fmt, item->pid.virt);
 			pr_msg(":\n");
 			fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
 		}
+
+	if (pb_read_one(fdset_fd(cr_fdset, CR_FD_IDS), &ids, PB_IDS) > 0) {
+		i = open_image_ro(CR_FD_FDINFO, ids->files_id);
+		if (i >= 0) {
+			pr_msg("* ");
+			pr_msg(fdset_template[CR_FD_FDINFO].fmt, ids->files_id);
+			pr_msg(":\n");
+
+			show_files(i, opts);
+			close(i);
+		}
+
+		task_kobj_ids_entry__free_unpacked(ids, NULL);
+	}
+
 	pr_msg("---[ end of task %d ]---\n", item->pid.virt);
 
 	ret = 0;
