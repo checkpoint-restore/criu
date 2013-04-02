@@ -265,6 +265,7 @@ static void pstree_handler(int fd, void *obj, int collect)
 {
 	PstreeEntry *e = obj;
 	struct pstree_item *item = NULL;
+	int i;
 
 	if (!collect)
 		return;
@@ -275,11 +276,14 @@ static void pstree_handler(int fd, void *obj, int collect)
 
 	item->pid.virt = e->pid;
 	item->nr_threads = e->n_threads;
-	item->threads = xzalloc(sizeof(u32) * e->n_threads);
+	item->threads = xzalloc(sizeof(struct pid) * e->n_threads);
 	if (!item->threads) {
 		xfree(item);
 		return;
 	}
+
+	for (i = 0; i < item->nr_threads; i++)
+		item->threads[i].virt = e->threads[i];
 
 	list_add_tail(&item->sibling, &pstree_list);
 }
@@ -464,7 +468,7 @@ static int cr_show_all(struct cr_options *opts)
 				if (item->threads[i].virt == item->pid.virt)
 					continue;
 
-				fd_th = open_image_ro(CR_FD_CORE, item->threads[i]);
+				fd_th = open_image_ro(CR_FD_CORE, item->threads[i].virt);
 				if (fd_th < 0)
 					goto out;
 
