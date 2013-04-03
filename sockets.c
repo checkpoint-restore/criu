@@ -193,12 +193,15 @@ static int dump_socket_filter(int sk, SkOptsEntry *soe)
 	ret = getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, flt, &len);
 	if (ret) {
 		pr_perror("Can't get socket filter\n");
+		xfree(flt);
 		return ret;
 	}
 
 	soe->so_filter = xmalloc(len * sizeof(*soe->so_filter));
-	if (!soe->so_filter)
+	if (!soe->so_filter) {
+		xfree(flt);
 		return -1;
+	}
 
 	encode_filter(flt, soe->so_filter, len);
 	soe->n_so_filter = len;
