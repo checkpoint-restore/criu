@@ -153,7 +153,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET, 0);
 	if (IS_ERR_OR_NULL(sd)) {
-		pr_err("Can't find packet socket %lu\n", p->stat.st_ino);
+		pr_err("Can't find packet socket %"PRIu64"\n", p->stat.st_ino);
 		return -1;
 	}
 
