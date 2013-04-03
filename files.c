@@ -138,6 +138,8 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 				struct fd_opts *opts, struct fd_parms *p)
 {
+	int ret;
+
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d\n", lfd);
 		return -1;
@@ -146,7 +148,12 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	p->ctl		= ctl;
 	p->fd		= fd;
 	p->pos		= lseek(lfd, 0, SEEK_CUR);
-	p->flags	= fcntl(lfd, F_GETFL);
+	ret = fcntl(lfd, F_GETFL);
+	if (ret == -1) {
+		pr_perror("Unable to get fd %d flags", lfd);
+		return -1;
+	}
+	p->flags	= ret;
 	p->pid		= ctl->pid;
 	p->fd_flags	= opts->flags;
 
@@ -155,11 +162,12 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
 		ctl->pid, fd, p->pos, p->flags, (int)p->fd_flags);
 
-	p->fown.signum = fcntl(lfd, F_GETSIG, 0);
-	if (p->fown.signum < 0) {
+	ret = fcntl(lfd, F_GETSIG, 0);
+	if (ret < 0) {
 		pr_perror("Can't get owner signum on %d\n", lfd);
 		return -1;
 	}
+	p->fown.signum = ret;
 
 	if (opts->fown.pid == 0)
 		return 0;
