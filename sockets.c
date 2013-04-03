@@ -121,6 +121,8 @@ static int dump_bound_dev(int sk, SkOptsEntry *soe)
 
 	pr_debug("\tDumping %s bound dev for sk\n", dev);
 	soe->so_bound_dev = xmalloc(len);
+	if (soe->so_bound_dev == NULL)
+		return -1;
 	strcpy(soe->so_bound_dev, dev);
 	return 0;
 }
