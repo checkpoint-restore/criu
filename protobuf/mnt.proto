@@ -6,6 +6,7 @@ enum fstype {
 	BINFMT_MISC		= 4;
 	TMPFS			= 5;
 	DEVPTS			= 6;
+	SIMFS			= 7;
 };
 
 message mnt_entry {

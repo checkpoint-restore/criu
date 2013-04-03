@@ -349,6 +349,7 @@ static struct fstype fstypes[] = {
 	[FSTYPE__BINFMT_MISC]	= { "binfmt_misc", binfmt_misc_dump },
 	[FSTYPE__TMPFS]		= { "tmpfs", tmpfs_dump, tmpfs_restore },
 	[FSTYPE__DEVPTS]	= { "devpts" },
+	[FSTYPE__SIMFS]		= { "simfs" },
 };
 
 struct fstype *find_fstype_by_name(char *fst)
