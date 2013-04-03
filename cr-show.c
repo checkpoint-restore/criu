@@ -268,10 +268,8 @@ static int pstree_item_from_pb(PstreeEntry *e, struct pstree_item *item)
 	item->pid.virt = e->pid;
 	item->nr_threads = e->n_threads;
 	item->threads = xzalloc(sizeof(struct pid) * e->n_threads);
-	if (!item->threads) {
-		xfree(item);
+	if (!item->threads)
 		return -1;
-	}
 
 	for (i = 0; i < item->nr_threads; i++)
 		item->threads[i].virt = e->threads[i];
