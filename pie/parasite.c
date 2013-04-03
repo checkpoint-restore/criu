@@ -305,7 +305,6 @@ static int parasite_get_proc_fd()
 
 	if (sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
 		pr_err("mount failed\n");
-		ret = -1;
 		goto out_rmdir;
 	}
 
