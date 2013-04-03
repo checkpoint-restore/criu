@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #include "compiler.h"
-#include "asm/types.h"
+#include "asm/int.h"
 
 #define FP_MIN_ALIGN_BYTES		64
 
