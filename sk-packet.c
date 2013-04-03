@@ -275,6 +275,8 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	sd->file_id = 0;
 	sd->type = m->pdiag_type;
 	sd->proto = htons(m->pdiag_num);
+	sd->rx = NULL;
+	sd->tx = NULL;
 	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
 
 	if (packet_save_mreqs(sd, tb[PACKET_DIAG_MCLIST]))
@@ -287,17 +289,24 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 
 	if (tb[PACKET_DIAG_RX_RING]) {
 		sd->rx = xmalloc(sizeof(*sd->rx));
+		if (sd->rx == NULL)
+			goto err;
 		memcpy(sd->rx, RTA_DATA(tb[PACKET_DIAG_RX_RING]), sizeof(*sd->rx));
-	} else
-		sd->rx = NULL;
+	}
 
 	if (tb[PACKET_DIAG_TX_RING]) {
 		sd->tx = xmalloc(sizeof(*sd->tx));
+		if (sd->tx == NULL)
+			goto err;
 		memcpy(sd->tx, RTA_DATA(tb[PACKET_DIAG_TX_RING]), sizeof(*sd->tx));
-	} else
-		sd->tx = NULL;
+	}
 
 	return sk_collect_one(m->pdiag_ino, PF_PACKET, &sd->sd);
+err:
+	xfree(sd->tx);
+	xfree(sd->rx);
+	xfree(sd);
+	return -1;
 }
 
 int get_socket_fd(int pid, VmaEntry *vma)
