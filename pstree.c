@@ -270,7 +270,6 @@ static int read_pstree_image(void)
 		if (!pi->threads)
 			break;
 
-		ret = 0;
 		for (i = 0; i < e->n_threads; i++)
 			pi->threads[i].virt = e->threads[i];
 
@@ -283,7 +282,7 @@ static int read_pstree_image(void)
 		if (fd < 0) {
 			if (errno == ENOENT)
 				continue;
-			return -1;
+			goto err;
 		}
 		ret = pb_read_one(fd, &pi->ids, PB_IDS);
 		close(fd);
