@@ -653,10 +653,9 @@ static int populate_mnt_ns(int ns_pid)
 		if (ret <= 0)
 			break;
 
-		ret = -1;
 		pm = xmalloc(sizeof(*pm));
 		if (!pm)
-			break;
+			goto err;
 
 		mnt_entry_init(pm);
 
@@ -705,6 +704,11 @@ static int populate_mnt_ns(int ns_pid)
 
 	return mnt_tree_for_each(pms, do_mount_one);
 err:
+	while (pms) {
+		struct mount_info *pm = pms;
+		pms = pm->next;
+		xfree(pm);
+	}
 	close_safe(&img);
 	return -1;
 }
