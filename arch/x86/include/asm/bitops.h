@@ -21,12 +21,12 @@
 
 static inline void set_bit(int nr, volatile unsigned long *addr)
 {
-	asm volatile("bts %1,%0" : ADDR : "Ir" (nr) : "memory");
+	asm volatile("btsl %1,%0" : ADDR : "Ir" (nr) : "memory");
 }
 
 static inline void change_bit(int nr, volatile unsigned long *addr)
 {
-	asm volatile("btc %1,%0" : ADDR : "Ir" (nr));
+	asm volatile("btcl %1,%0" : ADDR : "Ir" (nr));
 }
 
 static inline int test_bit(int nr, volatile const unsigned long *addr)
@@ -43,7 +43,7 @@ static inline int test_bit(int nr, volatile const unsigned long *addr)
 
 static inline void clear_bit(int nr, volatile unsigned long *addr)
 {
-	asm volatile("btr %1,%0" : ADDR : "Ir" (nr));
+	asm volatile("btrl %1,%0" : ADDR : "Ir" (nr));
 }
 
 /**
