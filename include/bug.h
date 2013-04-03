@@ -13,6 +13,7 @@
 # define __raise() raise(SIGABRT)
 #endif
 
+#ifndef __clang_analyzer__
 # define BUG_ON_HANDLER(condition)							\
 	do {										\
 		if ((condition)) {							\
@@ -21,6 +22,12 @@
 			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;	\
 		}									\
 	} while (0)
+#else
+# define BUG_ON_HANDLER(condition)	\
+	do {				\
+		assert(!condition);	\
+	} while (0)
+#endif
 
 #endif /* BUG_ON_HANDLER */
 
