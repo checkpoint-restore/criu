@@ -1792,9 +1792,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	pr_info("Restore via sigreturn\n");
 
-	restore_task_vma_len	= 0;
-	restore_thread_vma_len	= 0;
-
 	ret = parse_smaps(pid, &self_vmas, false);
 	close_proc();
 	if (ret < 0)
