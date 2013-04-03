@@ -460,8 +460,10 @@ static void ipc_sem_handler(int fd, void *obj, int show_pages_content)
 	values = xmalloc(size);
 	if (values == NULL)
 		return;
-	if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0)
+	if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0) {
+		xfree(values);
 		return;
+	}
 	pr_msg_ipc_sem_array(e->nsems, values);
 }
 
