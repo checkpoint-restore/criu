@@ -58,6 +58,8 @@ int restore_ns(int rst, struct ns_desc *nd)
 	if (ret < 0)
 		pr_perror("Can't restore ns back");
 
+	close(rst);
+
 	return ret;
 }
 
