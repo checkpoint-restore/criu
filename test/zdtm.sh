@@ -194,7 +194,7 @@ construct_root()
 	cp $ps_path $root/bin
 
 	mkdir $libdir $libdir2
-	for i in `ldd $test_path $ps_path | awk '/^\s/{ print $1 }' | grep -v vdso`; do
+	for i in `ldd $test_path $ps_path | grep -P '^\s' | awk '{ print $1 }' | grep -v vdso`; do
 		local lib=`basename $i`
 		[ -f $libdir/$lib ] && continue ||
 		[ -f $i ] && cp $i $libdir && cp $i $libdir2 && continue ||
