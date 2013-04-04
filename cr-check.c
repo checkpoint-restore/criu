@@ -398,7 +398,7 @@ static int check_unaligned_vmsplice(void)
 
 static int check_so_gets(void)
 {
-	int sk;
+	int sk, ret = -1;
 	socklen_t len;
 	char name[IFNAMSIZ];
 
@@ -411,16 +411,19 @@ static int check_so_gets(void)
 	len = 0;
 	if (getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len)) {
 		pr_perror("Can't get socket filter");
-		return -1;
+		goto err;
 	}
 
 	len = sizeof(name);
 	if (getsockopt(sk, SOL_SOCKET, SO_BINDTODEVICE, name, &len)) {
 		pr_perror("Can't get socket bound dev");
-		return -1;
+		goto err;
 	}
 
-	return 0;
+	ret = 0;
+err:
+	close(sk);
+	return ret;
 }
 
 static int check_ipc(void)
