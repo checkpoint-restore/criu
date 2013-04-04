@@ -17,6 +17,7 @@ static int page_pipe_grow(struct page_pipe *pp)
 		return -1;
 
 	if (pipe(ppb->p)) {
+		xfree(ppb);
 		pr_perror("Can't make pipe for page-pipe");
 		return -1;
 	}
