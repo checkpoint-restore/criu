@@ -445,27 +445,32 @@ static int read_vmas(int pid)
 			break;
 
 		ret = pb_read_one_eof(fd, &e, PB_VMAS);
-		if (ret <= 0)
+		if (ret <= 0) {
+			xfree(vma);
 			break;
+		}
 
 		rst_vmas.nr++;
 		list_add_tail(&vma->list, &rst_vmas.h);
 
-		if (e->fd != -1) {
-			ret = -1;
-			pr_err("Error in vma->fd setting (%Ld)\n",
-					(unsigned long long)e->fd);
-			break;
-		}
-
 		vma->vma = *e;
 		vma_entry__free_unpacked(e, NULL);
+
+		if (vma->vma.fd != -1) {
+			ret = -1;
+			pr_err("Error in vma->fd setting (%Ld)\n",
+					(unsigned long long)vma->vma.fd);
+			break;
+		}
 
 		if (!vma_priv(&vma->vma))
 			continue;
 
 		priv_size += vma_area_len(vma);
 	}
+
+	if (ret < 0)
+		goto out;
 
 	/* Reserve a place for mapping private vma-s one by one */
 	addr = mmap(NULL, priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
