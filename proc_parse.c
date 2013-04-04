@@ -770,7 +770,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 	new->fstype = find_fstype_by_name(fstype);
 	free(fstype);
 
-	new->options = xmalloc(strlen(opt));
+	new->options = xmalloc(strlen(opt) + 1);
 	if (!new->options)
 		return -1;
 
