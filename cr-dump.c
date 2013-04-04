@@ -584,6 +584,16 @@ static int dump_task_kobj_ids(struct pstree_item *item)
 	return 0;
 }
 
+static void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		arch_free_thread_info(core);
+		xfree(core->thread_core);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
+}
+
 static CoreEntry *core_entry_alloc(int alloc_thread_info,
 				   int alloc_tc)
 {
