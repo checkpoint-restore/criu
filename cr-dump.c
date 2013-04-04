@@ -1304,6 +1304,8 @@ static int fill_zombies_pids(struct pstree_item *item)
 		BUG_ON(i == nr);
 	}
 
+	xfree(ch);
+
 	return 0;
 }
 
