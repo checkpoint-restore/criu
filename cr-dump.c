@@ -338,7 +338,7 @@ static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
 	if (current_ns_mask & CLONE_NEWIPC)
 		return 0;
 
-	pr_err("Task %d with SysVIPC shmem map @%lx doesn't live in IPC ns\n",
+	pr_err("Task %d with SysVIPC shmem map @%"PRIx64" doesn't live in IPC ns\n",
 			pid, vma->start);
 	return -1;
 }
