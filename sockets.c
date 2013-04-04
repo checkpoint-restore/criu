@@ -602,7 +602,7 @@ int collect_sockets(int pid)
 					PACKET_SHOW_FANOUT | PACKET_SHOW_RING_CFG;
 	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, NULL);
 	if (tmp) {
-		if (tmp == -ENOENT) /* Fedora 19 */
+		if (pid != 0 && tmp == -ENOENT) /* Fedora 19 */
 			pr_warn("The currect kernel doesn't support packet_diag\n");
 		else
 			err = tmp;
@@ -613,7 +613,7 @@ int collect_sockets(int pid)
 	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
 	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
 	if (tmp) {
-		if (tmp == -ENOENT) /* Going to be in 3.10 */
+		if (pid != 0 && tmp == -ENOENT) /* Going to be in 3.10 */
 			pr_warn("The currect kernel doesn't support netlink_diag\n");
 		else
 			err = tmp;
