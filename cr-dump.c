@@ -333,6 +333,16 @@ static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
 	return dump_one_reg_file(file_fd, vma->shmid, &p);
 }
 
+static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
+{
+	if (current_ns_mask & CLONE_NEWIPC)
+		return 0;
+
+	pr_err("Task %d with SysVIPC shmem map @%lx doesn't live in IPC ns\n",
+			pid, vma->start);
+	return -1;
+}
+
 static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_list,
 			      const struct cr_fdset *cr_fdset)
 {
@@ -350,9 +360,10 @@ static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_lis
 
 		pr_info_vma(vma_area);
 
-		if (!vma_entry_is(vma, VMA_AREA_REGULAR) ||
-				vma_entry_is(vma, VMA_AREA_SYSVIPC))
+		if (!vma_entry_is(vma, VMA_AREA_REGULAR))
 			ret = 0;
+		else if (vma_entry_is(vma, VMA_AREA_SYSVIPC))
+			ret = check_sysvipc_map_dump(pid, vma);
 		else if (vma_entry_is(vma, VMA_ANON_SHARED))
 			ret = add_shmem_area(pid, vma);
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
