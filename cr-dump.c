@@ -591,6 +591,7 @@ static void core_entry_free(CoreEntry *core)
 		xfree(core->thread_core);
 		xfree(core->tc);
 		xfree(core->ids);
+		xfree(core);
 	}
 }
 
