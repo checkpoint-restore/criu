@@ -231,7 +231,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 		return -1;
 
 	if (S_ISREG(st->st_mode)) {
-		int fd;
+		int fd, ret;
 
 		/*
 		 * Reopen file locally since it may have no read
@@ -243,10 +243,10 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 			pr_perror("Can't open ghost original file");
 			return -1;
 		}
-		if (copy_file(fd, img, st->st_size))
-			return -1;
-
+		ret = copy_file(fd, img, st->st_size);
 		close(fd);
+		if (ret)
+			return -1;
 	}
 
 	close(img);
@@ -538,6 +538,7 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 
 	if (lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
 		pr_perror("Can't restore file pos");
+		close(fd);
 		return -1;
 	}
 
