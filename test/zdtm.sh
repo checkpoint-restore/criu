@@ -61,6 +61,7 @@ static/unlink_fstat03
 static/eventfs00
 static/signalfd00
 static/inotify00
+static/fanotify00
 static/unbound_sock
 static/fifo-rowo-pair
 static/fifo-ghost
