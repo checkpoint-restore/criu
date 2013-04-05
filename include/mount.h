@@ -7,7 +7,7 @@ int mntns_collect_root(pid_t pid);
 struct proc_mountinfo;
 
 extern int open_mount(unsigned int s_dev);
-extern int collect_mount_info(void);
+extern int collect_mount_info(pid_t pid);
 extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;

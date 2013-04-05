@@ -1091,7 +1091,7 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
-		if (collect_mount_info())
+		if (collect_mount_info(getpid()))
 			exit(1);
 
 		if (prepare_namespace(current->pid.virt, ca->clone_flags))

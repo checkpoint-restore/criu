@@ -1570,7 +1570,7 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (collect_file_locks(opts))
 		goto err;
 
-	if (collect_mount_info())
+	if (collect_mount_info(pid))
 		goto err;
 
 	if (mntns_collect_root(root_item->pid.real))

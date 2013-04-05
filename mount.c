@@ -37,11 +37,11 @@ int open_mount(unsigned int s_dev)
 	return -ENOENT;
 }
 
-int collect_mount_info(void)
+int collect_mount_info(pid_t pid)
 {
 	pr_info("Collecting mountinfo\n");
 
-	mntinfo = parse_mountinfo(getpid());
+	mntinfo = parse_mountinfo(pid);
 	if (!mntinfo) {
 		pr_err("Parsing mountinfo %d failed\n", getpid());
 		return -1;
