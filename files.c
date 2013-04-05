@@ -381,7 +381,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
-		pr_err("No file for fd %d id %d\n", e->fd, e->id);
+		pr_err("No file for fd %d id %#x\n", e->fd, e->id);
 		return -1;
 	}
 
