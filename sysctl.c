@@ -209,8 +209,7 @@ static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 		break;
 	}
 
-	if (fd > 0)
-		close(fd);
+	close_safe(&fd);
 
 	return ret;
 }
@@ -235,7 +234,7 @@ int sysctl_op(struct sysctl_req *req, int op)
 		req++;
 	}
 
-	if (dir > 0)
-		close(dir);
+	close_safe(&dir);
+
 	return ret;
 }
