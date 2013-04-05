@@ -428,7 +428,7 @@ int read_fd_link(int lfd, char *buf, size_t size)
 	snprintf(t, sizeof(t), "/proc/self/fd/%d", lfd);
 	ret = readlink(t, buf, size);
 	if (ret < 0) {
-		pr_perror("Can't read link of fd %d\n", lfd);
+		pr_perror("Can't read link of fd %d", lfd);
 		return -1;
 	}
 	buf[ret] = 0;
