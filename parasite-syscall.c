@@ -185,7 +185,7 @@ err:
 	return ret;
 }
 
-static void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
+void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 {
 	BUG_ON(args_size > ctl->args_size);
 	return ctl->addr_args;
@@ -231,7 +231,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 	return ret;
 }
 
-static int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
+int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
 {
 	return parasite_execute_by_pid(cmd, ctl, ctl->pid);
 }
@@ -258,7 +258,7 @@ static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 	return sun_len;
 }
 
-static int parasite_send_fd(struct parasite_ctl *ctl, int fd)
+int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 {
 	if (send_fd(ctl->tsock, NULL, 0, fd) < 0) {
 		pr_perror("Can't send file descriptor");

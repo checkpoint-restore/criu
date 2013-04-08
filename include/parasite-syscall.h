@@ -29,6 +29,10 @@ struct list_head;
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
+void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
+int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl);
+int parasite_send_fd(struct parasite_ctl *ctl, int fd);
+
 struct parasite_dump_misc;
 struct vm_area_list;
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
