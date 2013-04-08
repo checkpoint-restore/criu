@@ -456,11 +456,12 @@ err:
 	return ret;
 }
 
-static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
+static int dump_task_mm(struct parasite_ctl *ctl, const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc, const struct cr_fdset *fdset)
 {
 	MmEntry mme = MM_ENTRY__INIT;
 	int ret = -1;
+	pid_t pid = ctl->pid.real;
 
 	mme.mm_start_code = stat->start_code;
 	mme.mm_end_code = stat->end_code;
@@ -662,14 +663,16 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 	return pb_write_one(fdset_fd(cr_fdset, CR_FD_IDS), item->ids, PB_IDS);
 }
 
-static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
-		const struct parasite_dump_misc *misc, const struct parasite_ctl *ctl,
-		const struct cr_fdset *cr_fdset,
-		struct vm_area_list *vma_area_list)
+static int dump_task_core_all(struct parasite_ctl *ctl,
+		const struct proc_pid_stat *stat,
+		const struct parasite_dump_misc *misc,
+		struct vm_area_list *vma_area_list,
+		const struct cr_fdset *cr_fdset)
 {
 	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
 	CoreEntry *core;
 	int ret = -1;
+	pid_t pid = ctl->pid.real;
 
 	core = core_entry_alloc(1, 1);
 	if (!core)
@@ -679,7 +682,7 @@ static int dump_task_core_all(pid_t pid, const struct proc_pid_stat *stat,
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = dump_task_mm(pid, stat, misc, cr_fdset);
+	ret = dump_task_mm(ctl, stat, misc, cr_fdset);
 	if (ret)
 		goto err_free;
 
@@ -1477,8 +1480,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(pid, &pps_buf, &misc,
-					parasite_ctl, cr_fdset, &vmas);
+	ret = dump_task_core_all(parasite_ctl, &pps_buf, &misc, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
