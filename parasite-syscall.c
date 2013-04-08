@@ -223,7 +223,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 
 	if (ctl->pid != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
-			pr_perror("Can't restore registers (pid: %d)", ctl->pid);
+			pr_perror("Can't restore registers (pid: %d)", pid);
 			return -1;
 		}
 
