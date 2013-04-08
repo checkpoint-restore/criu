@@ -117,7 +117,7 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 	FileLockEntry	 fle;
 	struct file_lock *fl;
 
-	pid_t	pid = ctl->pid;
+	pid_t	pid = ctl->pid.real;
 	int	ret = 0;
 
 	list_for_each_entry(fl, &file_lock_list, list) {

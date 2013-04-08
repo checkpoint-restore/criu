@@ -393,10 +393,10 @@ static int dump_task_creds(struct parasite_ctl *ctl, const struct cr_fdset *fds)
 	CredsEntry ce = CREDS_ENTRY__INIT;
 
 	pr_info("\n");
-	pr_info("Dumping creds for %d)\n", ctl->pid);
+	pr_info("Dumping creds for %d)\n", ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_pid_status(ctl->pid, &cr);
+	ret = parse_pid_status(ctl->pid.real, &cr);
 	if (ret < 0)
 		return ret;
 

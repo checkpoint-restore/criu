@@ -154,13 +154,13 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 		return -1;
 	}
 	p->flags	= ret;
-	p->pid		= ctl->pid;
+	p->pid		= ctl->pid.real;
 	p->fd_flags	= opts->flags;
 
 	fown_entry__init(&p->fown);
 
 	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
-		ctl->pid, fd, p->pos, p->flags, (int)p->fd_flags);
+		ctl->pid.real, fd, p->pos, p->flags, (int)p->fd_flags);
 
 	ret = fcntl(lfd, F_GETSIG, 0);
 	if (ret < 0) {
@@ -265,7 +265,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 	int i, ret = -1;
 
 	pr_info("\n");
-	pr_info("Dumping opened files (pid: %d)\n", ctl->pid);
+	pr_info("Dumping opened files (pid: %d)\n", ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
 	lfds = xmalloc(dfds->nr_fds * sizeof(int));

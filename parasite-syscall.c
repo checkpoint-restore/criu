@@ -200,7 +200,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 	int ret;
 	user_regs_struct_t regs_orig, regs;
 
-	if (ctl->pid == pid)
+	if (ctl->pid.real == pid)
 		regs = ctl->regs_orig;
 	else {
 		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig)) {
@@ -221,7 +221,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
 
-	if (ctl->pid != pid)
+	if (ctl->pid.real != pid)
 		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
 			pr_perror("Can't restore registers (pid: %d)", pid);
 			return -1;
@@ -232,7 +232,7 @@ static int parasite_execute_by_pid(unsigned int cmd, struct parasite_ctl *ctl, p
 
 int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
 {
-	return parasite_execute_by_pid(cmd, ctl, ctl->pid);
+	return parasite_execute_by_pid(cmd, ctl, ctl->pid.real);
 }
 
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
@@ -601,26 +601,26 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 
 	if (ctl->remote_map) {
 		if (munmap_seized(ctl, (void *)ctl->remote_map, ctl->map_length)) {
-			pr_err("munmap_seized failed (pid: %d)\n", ctl->pid);
+			pr_err("munmap_seized failed (pid: %d)\n", ctl->pid.real);
 			ret = -1;
 		}
 	}
 
 	if (ctl->local_map) {
 		if (munmap(ctl->local_map, ctl->map_length)) {
-			pr_err("munmap failed (pid: %d)\n", ctl->pid);
+			pr_err("munmap failed (pid: %d)\n", ctl->pid.real);
 			ret = -1;
 		}
 	}
 
-	if (ptrace_poke_area(ctl->pid, (void *)ctl->code_orig,
+	if (ptrace_poke_area(ctl->pid.real, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
-		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid);
+		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid.real);
 		ret = -1;
 	}
 
-	if (ptrace(PTRACE_SETREGS, ctl->pid, NULL, &ctl->regs_orig)) {
-		pr_err("Can't restore registers (pid: %d)\n", ctl->pid);
+	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->regs_orig)) {
+		pr_err("Can't restore registers (pid: %d)\n", ctl->pid.real);
 		ret = -1;
 	}
 
@@ -659,7 +659,8 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		goto err;
 	}
 
-	ctl->pid	= pid;
+	ctl->pid.real	= pid;
+	ctl->pid.virt	= 0;
 	ctl->syscall_ip	= vma_area->vma.start;
 
 	/*
@@ -667,7 +668,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	 * we will need it to restore original program content.
 	 */
 	memcpy(ctl->code_orig, code_syscall, sizeof(ctl->code_orig));
-	if (ptrace_swap_area(ctl->pid, (void *)ctl->syscall_ip,
+	if (ptrace_swap_area(pid, (void *)ctl->syscall_ip,
 			     (void *)ctl->code_orig, sizeof(ctl->code_orig))) {
 		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
 		goto err;
@@ -688,13 +689,13 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
-		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->pid);
+		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->pid.real);
 		return -1;
 	}
 
 	ctl->map_length = round_up(size, PAGE_SIZE);
 
-	fd = open_proc_rw(ctl->pid, "map_files/%p-%p",
+	fd = open_proc_rw(ctl->pid.real, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0)
 		return -1;

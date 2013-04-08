@@ -3,9 +3,11 @@
 
 #define BUILTIN_SYSCALL_SIZE	8
 
+#include "pstree.h"
+
 /* parasite control block */
 struct parasite_ctl {
-	pid_t			pid;					/* process pid where we live in */
+	struct pid		pid;
 	void			*remote_map;
 	void			*local_map;
 	unsigned long		map_length;

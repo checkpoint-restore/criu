@@ -111,7 +111,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 	struct page_xfer xfer;
 
 	pr_info("\n");
-	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid);
+	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
 	pr_debug("   Private vmas %lu/%lu pages\n",
@@ -123,7 +123,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 	if (!map)
 		goto out;
 
-	ret = pagemap = open_proc(ctl->pid, "pagemap");
+	ret = pagemap = open_proc(ctl->pid.real, "pagemap");
 	if (ret < 0)
 		goto out_free;
 
