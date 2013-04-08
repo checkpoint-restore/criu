@@ -1419,7 +1419,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_fdset;
 	}
 
-	item->pid.virt = misc.pid;
+	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;
 
@@ -1461,7 +1461,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, item->pid.virt, &vmas, cr_fdset);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, cr_fdset);
 	if (ret)
 		goto err_cure;
 

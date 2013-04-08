@@ -98,7 +98,7 @@ static int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_lis
 	return parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
 }
 
-static int __parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
+static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	struct parasite_dump_pages_args *args;
@@ -159,7 +159,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 		args->off += args->nr;
 	}
 
-	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, vpid);
+	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 	if (ret < 0)
 		goto out_pp;
 
@@ -177,7 +177,7 @@ out:
 	return ret;
 }
 
-int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
+int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
 {
 	int ret;
@@ -188,7 +188,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl, int vpid,
 		return ret;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, vpid, vma_area_list, cr_fdset);
+	ret = __parasite_dump_pages_seized(ctl, vma_area_list, cr_fdset);
 	if (ret)
 		pr_err("Can't dump page with parasite\n");
 
