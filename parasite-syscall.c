@@ -551,7 +551,7 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	return 0;
 }
 
-int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list, bool unprotect)
+static int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list, bool unprotect)
 {
 	struct parasite_mprotect_args *args;
 	struct parasite_vma_entry *p_vma;
