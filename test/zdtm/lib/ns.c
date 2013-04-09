@@ -214,6 +214,8 @@ int ns_init(int argc, char **argv)
 	pid = fork();
 	if (pid == 0) {
 		execl("/bin/ps", "ps", "axf", "-o", "pid,sid,comm", NULL);
+		fprintf(stderr, "Unable to execute ps: %m\n");
+		exit(1);
 	} else if (pid > 0)
 		waitpid(pid, NULL, 0);
 
@@ -229,6 +231,8 @@ int ns_init(int argc, char **argv)
 	pid = fork();
 	if (pid == 0) {
 		execl("/bin/ps", "ps", "axf", "-o", "pid,sid,comm", NULL);
+		fprintf(stderr, "Unable to execute ps: %m\n");
+		exit(1);
 	} else if (pid > 0)
 		waitpid(pid, NULL, 0);
 
