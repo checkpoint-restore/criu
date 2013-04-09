@@ -190,7 +190,7 @@ static int read_pstree_image(void)
 
 	pr_info("Reading image tree\n");
 
-	ps_fd = open_image_ro(CR_FD_PSTREE);
+	ps_fd = open_image(CR_FD_PSTREE, O_RSTR);
 	if (ps_fd < 0)
 		return ps_fd;
 
@@ -268,7 +268,7 @@ static int read_pstree_image(void)
 
 		pstree_entry__free_unpacked(e, NULL);
 
-		fd = open_image_ro(CR_FD_IDS, pi->pid.virt);
+		fd = open_image(CR_FD_IDS, O_RSTR, pi->pid.virt);
 		if (fd < 0) {
 			if (errno == ENOENT)
 				continue;

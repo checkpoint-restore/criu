@@ -684,7 +684,7 @@ static int __collect_image(int fd_t, int obj_t, unsigned size,
 {
 	int fd, ret;
 
-	fd = open_image_ro(fd_t);
+	fd = open_image(fd_t, O_RSTR);
 	if (fd < 0)
 		return -1;
 

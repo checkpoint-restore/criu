@@ -276,9 +276,9 @@ static int restore_priv_vma_content(pid_t pid)
 
 	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
 
-	fd = open_image_ro(CR_FD_PAGEMAP, (long)pid);
+	fd = open_image(CR_FD_PAGEMAP, O_RSTR, (long)pid);
 	if (fd < 0) {
-		fd_pg = open_image_ro(CR_FD_PAGES_OLD, pid);
+		fd_pg = open_image(CR_FD_PAGES_OLD, O_RSTR, pid);
 		if (fd_pg < 0)
 			return -1;
 	} else {
@@ -428,7 +428,7 @@ static int read_vmas(int pid)
 	list_replace_init(&rst_vmas.h, &old);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
-	fd = open_image_ro(CR_FD_VMAS, pid);
+	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno != ENOENT)
 			ret = fd;
@@ -571,7 +571,7 @@ static int prepare_sigactions(int pid)
 	int sig;
 	int ret = -1;
 
-	fd_sigact = open_image_ro(CR_FD_SIGACT, pid);
+	fd_sigact = open_image(CR_FD_SIGACT, O_RSTR, pid);
 	if (fd_sigact < 0)
 		return -1;
 
@@ -859,7 +859,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	pid_t pid = item->pid.virt;
 
 	if (item->state != TASK_HELPER) {
-		fd = open_image_ro(CR_FD_CORE, pid);
+		fd = open_image(CR_FD_CORE, O_RSTR, pid);
 		if (fd < 0)
 			return -1;
 
@@ -1434,7 +1434,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	int fd, ret = -1;
 	ItimerEntry *ie;
 
-	fd = open_image_ro(CR_FD_ITIMERS, pid);
+	fd = open_image(CR_FD_ITIMERS, O_RSTR, pid);
 	if (fd < 0)
 		return fd;
 
@@ -1477,7 +1477,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	int fd, ret;
 	CredsEntry *ce;
 
-	fd = open_image_ro(CR_FD_CREDS, pid);
+	fd = open_image(CR_FD_CREDS, O_RSTR, pid);
 	if (fd < 0)
 		return fd;
 
@@ -1550,7 +1550,7 @@ static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 	int fd, exe_fd, i, ret = -1;
 	MmEntry *mm;
 
-	fd = open_image_ro(CR_FD_MM, pid);
+	fd = open_image(CR_FD_MM, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -1673,7 +1673,7 @@ static int prepare_rlimits(int pid, struct task_restore_core_args *ta)
 
 	ta->nr_rlim = 0;
 
-	fd = open_image_ro(CR_FD_RLIMIT, pid);
+	fd = open_image(CR_FD_RLIMIT, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) {
 			pr_info("Skip rlimits for %d\n", pid);
@@ -1719,7 +1719,7 @@ static int open_signal_image(int type, pid_t pid, siginfo_t **ptr,
 {
 	int fd, ret, n;
 
-	fd = open_image_ro(type, pid);
+	fd = open_image(type, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -1993,7 +1993,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			task_args->t = thread_args + i;
 			tcore = core;
 		} else {
-			fd_core = open_image_ro(CR_FD_CORE, thread_args[i].pid);
+			fd_core = open_image(CR_FD_CORE, O_RSTR, thread_args[i].pid);
 			if (fd_core < 0) {
 				pr_err("Can't open core data for thread %d\n",
 				       thread_args[i].pid);

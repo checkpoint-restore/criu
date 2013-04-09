@@ -73,7 +73,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (!gf->remap.path)
 		goto err;
 
-	ifd = open_image_ro(CR_FD_GHOST_FILE, rfe->remap_id);
+	ifd = open_image(CR_FD_GHOST_FILE, O_RSTR, rfe->remap_id);
 	if (ifd < 0)
 		goto err;
 
@@ -169,7 +169,7 @@ static int collect_remaps(void)
 {
 	int fd, ret = 0;
 
-	fd = open_image_ro(CR_FD_REMAP_FPATH);
+	fd = open_image(CR_FD_REMAP_FPATH, O_RSTR);
 	if (fd < 0)
 		return -1;
 

@@ -38,7 +38,7 @@ int read_sk_queues(void)
 
 	pr_info("Trying to read socket queues image\n");
 
-	fd = open_image_ro(CR_FD_SK_QUEUES);
+	fd = open_image(CR_FD_SK_QUEUES, O_RSTR);
 	if (fd < 0)
 		return -1;
 
@@ -192,7 +192,7 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 	if (restore_prepare_socket(fd))
 		return -1;
 
-	img_fd = open_image_ro(CR_FD_SK_QUEUES);
+	img_fd = open_image(CR_FD_SK_QUEUES, O_RSTR);
 	if (img_fd < 0)
 		return -1;
 

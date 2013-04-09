@@ -460,7 +460,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 			if (item->threads[i].virt == item->pid.virt)
 				continue;
 
-			fd_th = open_image_ro(CR_FD_CORE, item->threads[i].virt);
+			fd_th = open_image(CR_FD_CORE, O_SHOW, item->threads[i].virt);
 			if (fd_th < 0)
 				goto outc;
 
@@ -484,7 +484,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 		}
 
 	if (pb_read_one(fdset_fd(cr_fdset, CR_FD_IDS), &ids, PB_IDS) > 0) {
-		i = open_image_ro(CR_FD_FDINFO, ids->files_id);
+		i = open_image(CR_FD_FDINFO, O_SHOW, ids->files_id);
 		if (i >= 0) {
 			pr_msg("* ");
 			pr_msg(fdset_template[CR_FD_FDINFO].fmt, ids->files_id);
@@ -511,7 +511,7 @@ static int cr_show_pid(struct cr_options *opts, int pid)
 	int fd, ret;
 	struct pstree_item item;
 
-	fd = open_image_ro(CR_FD_PSTREE);
+	fd = open_image(CR_FD_PSTREE, O_SHOW);
 	if (fd < 0)
 		return -1;
 
@@ -541,13 +541,13 @@ static int cr_show_all(struct cr_options *opts)
 	struct pstree_item *item = NULL, *tmp;
 	int ret = -1, fd, pid;
 
-	fd = open_image_ro(CR_FD_PSTREE);
+	fd = open_image(CR_FD_PSTREE, O_SHOW);
 	if (fd < 0)
 		goto out;
 	show_collect_pstree(fd, 1);
 	close(fd);
 
-	fd = open_image_ro(CR_FD_SK_QUEUES);
+	fd = open_image(CR_FD_SK_QUEUES, O_SHOW);
 	if (fd < 0)
 		goto out;
 

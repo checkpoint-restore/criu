@@ -25,7 +25,7 @@ int check_img_inventory(void)
 	int fd, ret = -1;
 	InventoryEntry *he;
 
-	fd = open_image_ro(CR_FD_INVENTORY);
+	fd = open_image(CR_FD_INVENTORY, O_RSTR);
 	if (fd < 0)
 		return -1;
 

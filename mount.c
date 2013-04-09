@@ -296,7 +296,7 @@ static int tmpfs_restore(struct mount_info *pm)
 	int ret;
 	int fd_img;
 
-	fd_img = open_image_ro(CR_FD_TMPFS, pm->mnt_id);
+	fd_img = open_image(CR_FD_TMPFS, O_RSTR, pm->mnt_id);
 	if (fd_img < 0)
 		return -1;
 
@@ -641,7 +641,7 @@ static int populate_mnt_ns(int ns_pid)
 
 	pr_info("Populating mount namespace\n");
 
-	img = open_image_ro(CR_FD_MOUNTPOINTS, ns_pid);
+	img = open_image(CR_FD_MOUNTPOINTS, O_RSTR, ns_pid);
 	if (img < 0)
 		return -1;
 

@@ -512,7 +512,7 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
 
-	ifd = open_image_ro(CR_FD_TCP_STREAM, ii->ie->ino);
+	ifd = open_image(CR_FD_TCP_STREAM, O_RSTR, ii->ie->ino);
 	if (ifd < 0)
 		goto err;
 

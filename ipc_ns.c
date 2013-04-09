@@ -600,7 +600,7 @@ static int prepare_ipc_sem(int pid)
 	int fd, ret;
 
 	pr_info("Restoring IPC semaphores sets\n");
-	fd = open_image_ro(CR_FD_IPCNS_SEM, pid);
+	fd = open_image(CR_FD_IPCNS_SEM, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -733,7 +733,7 @@ static int prepare_ipc_msg(int pid)
 	int fd, ret;
 
 	pr_info("Restoring IPC message queues\n");
-	fd = open_image_ro(CR_FD_IPCNS_MSG, pid);
+	fd = open_image(CR_FD_IPCNS_MSG, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -843,7 +843,7 @@ static int prepare_ipc_shm(int pid)
 	int fd, ret;
 
 	pr_info("Restoring IPC shared memory\n");
-	fd = open_image_ro(CR_FD_IPCNS_SHM, pid);
+	fd = open_image(CR_FD_IPCNS_SHM, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -881,7 +881,7 @@ static int prepare_ipc_var(int pid)
 	IpcVarEntry *var;
 
 	pr_info("Restoring IPC variables\n");
-	fd = open_image_ro(CR_FD_IPCNS_VAR, pid);
+	fd = open_image(CR_FD_IPCNS_VAR, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 

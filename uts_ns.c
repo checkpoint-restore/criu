@@ -45,7 +45,7 @@ int prepare_utsns(int pid)
 		{ },
 	};
 
-	fd = open_image_ro(CR_FD_UTSNS, pid);
+	fd = open_image(CR_FD_UTSNS, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 

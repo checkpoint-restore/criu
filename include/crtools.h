@@ -189,7 +189,6 @@ extern int open_image_dir(void);
 extern void close_image_dir(void);
 
 int open_image(int type, unsigned long flags, ...);
-#define open_image_ro(type, ...) open_image(type, O_RDONLY, ##__VA_ARGS__)
 int open_pages_image(unsigned long flags, int pm_fd);
 void up_page_ids_base(void);
 

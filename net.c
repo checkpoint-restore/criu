@@ -256,7 +256,7 @@ static int restore_links(int pid)
 	int fd, nlsk, ret;
 	NetDeviceEntry *nde;
 
-	fd = open_image_ro(CR_FD_NETDEV, pid);
+	fd = open_image(CR_FD_NETDEV, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 
@@ -318,7 +318,7 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 {
 	int fd, ret;
 
-	ret = fd = open_image_ro(type, pid);
+	ret = fd = open_image(type, O_RSTR, pid);
 	if (fd >= 0) {
 		ret = run_ip_tool(cmd, "restore", fd, -1);
 		close(fd);

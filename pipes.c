@@ -74,7 +74,7 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 	int fd, ret;
 	struct pipe_data_rst *r = NULL;
 
-	fd = open_image_ro(img_type);
+	fd = open_image(img_type, O_RSTR);
 	if (fd < 0)
 		return -1;
 

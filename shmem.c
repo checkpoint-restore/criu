@@ -83,7 +83,7 @@ int prepare_shmem_pid(int pid)
 	int fd, ret = -1;
 	VmaEntry *vi;
 
-	fd = open_image_ro(CR_FD_VMAS, pid);
+	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
@@ -138,9 +138,9 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 {
 	int fd, fd_pg, ret = 0;
 
-	fd = open_image_ro(CR_FD_SHMEM_PAGEMAP, si->shmid);
+	fd = open_image(CR_FD_SHMEM_PAGEMAP, O_RSTR, si->shmid);
 	if (fd < 0) {
-		fd_pg = open_image_ro(CR_FD_SHM_PAGES_OLD, si->shmid);
+		fd_pg = open_image(CR_FD_SHM_PAGES_OLD, O_RSTR, si->shmid);
 		if (fd_pg < 0)
 			goto err_unmap;
 	} else {

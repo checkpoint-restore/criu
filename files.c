@@ -435,7 +435,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
 	if (!fdinfo_per_id) {
-		fdinfo_fd = open_image_ro(CR_FD_FDINFO, pid);
+		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR, pid);
 		if (fdinfo_fd < 0) {
 			if (errno == ENOENT)
 				return 0;
@@ -448,7 +448,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (item->rst->fdt && item->rst->fdt->pid != item->pid.virt)
 			return 0;
 
-		fdinfo_fd = open_image_ro(CR_FD_FDINFO, item->ids->files_id);
+		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
 		if (fdinfo_fd < 0)
 			return -1;
 	}
@@ -817,7 +817,7 @@ int prepare_fs(int pid)
 	int ifd, cwd, ret = -1;
 	FsEntry *fe;
 
-	ifd = open_image_ro(CR_FD_FS, pid);
+	ifd = open_image(CR_FD_FS, O_RSTR, pid);
 	if (ifd < 0)
 		return -1;
 
