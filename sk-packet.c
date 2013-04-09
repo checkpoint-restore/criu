@@ -280,7 +280,7 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
 
 	if (packet_save_mreqs(sd, tb[PACKET_DIAG_MCLIST]))
-		return -1;
+		goto err;
 
 	if (tb[PACKET_DIAG_FANOUT])
 		sd->fanout = *(__u32 *)RTA_DATA(tb[PACKET_DIAG_FANOUT]);
