@@ -409,7 +409,7 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 
 static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 {
-	int ret;
+	int ret, err = -1;
 	char *buf;
 
 	pr_debug("\tRestoring TCP %d queue data %u bytes\n", queue, len);
@@ -424,19 +424,20 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 		return -1;
 
 	if (read_img_buf(imgfd, buf, len) < 0)
-		return -1;
+		goto err;
 
 	ret = send(sk, buf, len, 0);
-
-	xfree(buf);
-
 	if (ret != len) {
 		pr_perror("Can't restore %d queue data (%d), want %d",
 				queue, ret, len);
-		return -1;
+		goto err;
 	}
 
-	return 0;
+	err = 0;
+err:
+	xfree(buf);
+
+	return err;
 }
 
 static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
