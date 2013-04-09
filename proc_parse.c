@@ -799,11 +799,12 @@ struct mount_info *parse_mountinfo(pid_t pid)
 		struct mount_info *new;
 		int ret;
 
-		new = xmalloc(sizeof(*new));
+		new = mnt_entry_alloc();
 		if (!new)
 			goto err;
 
-		mnt_entry_init(new);
+		new->next = list;
+		list = new;
 
 		ret = parse_mountinfo_ent(str, new);
 		if (ret < 0) {
@@ -815,9 +816,6 @@ struct mount_info *parse_mountinfo(pid_t pid)
 				new->fstype->name, new->source,
 				new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
-
-		new->next = list;
-		list = new;
 	}
 out:
 	fclose(f);
@@ -826,7 +824,7 @@ out:
 err:
 	while (list) {
 		struct mount_info *next = list->next;
-		xfree(list);
+		mnt_entry_free(list);
 		list = next;
 	}
 	goto out;

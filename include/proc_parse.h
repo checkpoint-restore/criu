@@ -117,11 +117,8 @@ struct mount_info {
 	struct list_head siblings;
 };
 
-static inline void mnt_entry_init(struct mount_info *pm)
-{
-	pm->parent = NULL;
-	INIT_LIST_HEAD(&pm->children);
-}
+extern struct mount_info *mnt_entry_alloc();
+extern void mnt_entry_free(struct mount_info *mi);
 
 struct vm_area_list;
 

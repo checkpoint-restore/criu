@@ -633,6 +633,37 @@ static int cr_pivot_root()
 	return 0;
 }
 
+struct mount_info *mnt_entry_alloc()
+{
+	struct mount_info *new;
+
+	new = xmalloc(sizeof(struct mount_info));
+	if (new == NULL)
+		return NULL;
+
+	new->root	= NULL;
+	new->mountpoint	= NULL;
+	new->source	= NULL;
+	new->options	= NULL;
+
+	new->parent = NULL;
+	INIT_LIST_HEAD(&new->children);
+
+	return new;
+}
+
+void mnt_entry_free(struct mount_info *mi)
+{
+	if (mi == NULL)
+		return;
+
+	xfree(mi->root);
+	xfree(mi->mountpoint);
+	xfree(mi->source);
+	xfree(mi->options);
+	xfree(mi);
+}
+
 static int populate_mnt_ns(int ns_pid)
 {
 	MntEntry *me = NULL;
@@ -654,11 +685,12 @@ static int populate_mnt_ns(int ns_pid)
 		if (ret <= 0)
 			break;
 
-		pm = xmalloc(sizeof(*pm));
+		pm = mnt_entry_alloc();
 		if (!pm)
 			goto err;
 
-		mnt_entry_init(pm);
+		pm->next = pms;
+		pms = pm;
 
 		pm->mnt_id		= me->mnt_id;
 		pm->parent_mnt_id	= me->parent_mnt_id;
@@ -689,8 +721,6 @@ static int populate_mnt_ns(int ns_pid)
 			goto err;
 
 		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
-		pm->next = pms;
-		pms = pm;
 	}
 
 	if (me)
@@ -708,7 +738,7 @@ err:
 	while (pms) {
 		struct mount_info *pm = pms;
 		pms = pm->next;
-		xfree(pm);
+		mnt_entry_free(pm);
 	}
 	close_safe(&img);
 	return -1;
