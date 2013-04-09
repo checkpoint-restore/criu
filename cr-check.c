@@ -477,7 +477,7 @@ int check_ptrace_peeksiginfo()
 	arg.nr = 1;
 
 	if (ptrace(PTRACE_PEEKSIGINFO, pid, &arg, &siginfo) != 0) {
-		pr_perror("Unable to dump pending signals\n");
+		pr_perror("Unable to dump pending signals");
 		ret = -1;
 	}
 
