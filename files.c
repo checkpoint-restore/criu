@@ -182,7 +182,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 
 static int dump_unsupp_fd(const struct fd_parms *p)
 {
-	pr_err("Can't dump file %d of that type [%#x]\n",
+	pr_err("Can't dump file %d of that type [%o]\n",
 			p->fd, p->stat.st_mode);
 	return -1;
 }
