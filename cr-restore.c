@@ -55,6 +55,7 @@
 #include "tty.h"
 #include "cpu.h"
 #include "file-lock.h"
+#include "page-read.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -267,55 +268,32 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 static int restore_priv_vma_content(pid_t pid)
 {
 	struct vma_area *vma;
-	int fd, fd_pg, ret = 0;
+	int ret = 0;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
 	unsigned int nr_droped = 0;
 	unsigned long va;
+	struct page_read pr;
 
 	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
-
-	fd = open_image(CR_FD_PAGEMAP, O_RSTR, (long)pid);
-	if (fd < 0) {
-		fd_pg = open_image(CR_FD_PAGES_OLD, O_RSTR, pid);
-		if (fd_pg < 0)
-			return -1;
-	} else {
-		fd_pg = open_pages_image(O_RSTR, fd);
-		if (fd_pg < 0) {
-			close(fd);
-			return -1;
-		}
-	}
+	ret = open_page_read(pid, &pr);
+	if (ret)
+		return -1;
 
 	/*
 	 * Read page contents.
 	 */
 	while (1) {
 		unsigned long off, i, nr_pages;;
+		struct iovec iov;
 
-		if (fd >= 0) {
-			PagemapEntry *pe;
+		ret = pr.get_pagemap(&pr, &iov);
+		if (ret <= 0)
+			break;
 
-			ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
-			if (ret <= 0)
-				break;
-
-			va = (unsigned long)decode_pointer(pe->vaddr);
-			nr_pages = pe->nr_pages;
-
-			pagemap_entry__free_unpacked(pe, NULL);
-		} else {
-			__u64 img_va;
-
-			ret = read_img_eof(fd_pg, &img_va);
-			if (ret <= 0)
-				break;
-
-			va = (unsigned long)decode_pointer(img_va);
-			nr_pages = 1;
-		}
+		va = (unsigned long)iov.iov_base;
+		nr_pages = iov.iov_len / PAGE_SIZE;
 
 		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
@@ -345,17 +323,16 @@ static int restore_priv_vma_content(pid_t pid)
 			}
 
 			off = (va - vma->vma.start) / PAGE_SIZE;
-			va += PAGE_SIZE;
 
 			set_bit(off, vma->page_bitmap);
 			if (vma->ppage_bitmap)
 				clear_bit(off, vma->ppage_bitmap);
 
-			ret = read(fd_pg, buf, PAGE_SIZE);
-			if (ret != PAGE_SIZE) {
-				pr_err("Can'r read mapping page %d\n", ret);
-				return -1;
-			}
+			ret = pr.read_page(&pr, va, buf);
+			if (ret < 0)
+				break;
+
+			va += PAGE_SIZE;
 
 			p = decode_pointer((off) * PAGE_SIZE +
 					vma_premmaped_start(&vma->vma));
@@ -368,9 +345,12 @@ static int restore_priv_vma_content(pid_t pid)
 			memcpy(p, buf, PAGE_SIZE);
 			nr_restored++;
 		}
+
+		if (pr.put_pagemap)
+			pr.put_pagemap(&pr);
 	}
-	close(fd_pg);
-	close(fd);
+
+	pr.close(&pr);
 	if (ret < 0)
 		return ret;
 
