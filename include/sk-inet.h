@@ -51,10 +51,11 @@ struct rst_tcp_sock {
 
 static inline void tcp_repair_off(int fd)
 {
-	int aux = 0;
+	int aux = 0, ret;
 
-	if (sys_setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux)) < 0)
-		pr_perror("Failed to turn off repair mode on socket");
+	ret = sys_setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
+	if (ret < 0)
+		pr_perror("Failed to turn off repair mode on socket (%d)", ret);
 }
 
 void tcp_locked_conn_add(struct inet_sk_info *);

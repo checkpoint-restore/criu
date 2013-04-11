@@ -333,13 +333,15 @@ static u64 restore_mapping(const VmaEntry *vma_entry)
 
 static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 {
-	int aux;
-
-	tcp_repair_off(rts->sk);
+	int aux, ret;
 
 	aux = rts->reuseaddr;
-	if (sys_setsockopt(rts->sk, SOL_SOCKET, SO_REUSEADDR, &aux, sizeof(aux)) < 0)
-		pr_perror("Failed to restore of SO_REUSEADDR on socket");
+	pr_debug("pie: Turning repair off for %d (reuse %d)\n", rts->sk, aux);
+	tcp_repair_off(rts->sk);
+
+	ret = sys_setsockopt(rts->sk, SOL_SOCKET, SO_REUSEADDR, &aux, sizeof(aux));
+	if (ret < 0)
+		pr_perror("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
 }
 
 static void rst_tcp_socks_all(struct rst_tcp_sock *arr, int size)
