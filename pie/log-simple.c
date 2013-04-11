@@ -101,11 +101,10 @@ done:
 static void print_num(int num, struct simple_buf *b)
 {
 	char buf[12], *s;
-	int len;
 
 	buf[11] = '\0';
-	len = vprint_num(buf, sizeof(buf) - 1, num, &s);
-	print_string(buf + sizeof(buf) - len, b);
+	vprint_num(buf, sizeof(buf) - 1, num, &s);
+	print_string(s, b);
 }
 
 static void print_num_l(long num, struct simple_buf *b)
