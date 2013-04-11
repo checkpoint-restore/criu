@@ -89,8 +89,13 @@ int log_init(const char *output)
 			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
-	} else
+	} else {
 		new_logfd = dup(DEFAULT_LOGFD);
+		if (new_logfd < 0) {
+			pr_perror("Can't dup log file");
+			return -1;
+		}
+	}
 
 	fd = install_service_fd(LOG_FD_OFF, new_logfd);
 	close(new_logfd);
