@@ -264,9 +264,8 @@ struct cr_fdset *cr_glob_fdset_open(int mode)
 	return cr_fdset_open(-1 /* ignored */, _CR_FD_GLOB_FROM, _CR_FD_GLOB_TO, mode);
 }
 
-int open_image(int type, unsigned long flags, ...)
+int open_image_at(int dfd, int type, unsigned long flags, ...)
 {
-	int dfd = get_service_fd(IMG_FD_OFF);
 	char path[PATH_MAX];
 	va_list args;
 	int ret;
@@ -350,7 +349,7 @@ void up_page_ids_base(void)
 	page_ids += 0x10000;
 }
 
-int open_pages_image(unsigned long flags, int pm_fd)
+int open_pages_image_at(int dfd, unsigned long flags, int pm_fd)
 {
 	unsigned id;
 
@@ -367,5 +366,10 @@ int open_pages_image(unsigned long flags, int pm_fd)
 			return -1;
 	}
 
-	return open_image(CR_FD_PAGES, flags, id);
+	return open_image_at(dfd, CR_FD_PAGES, flags, id);
+}
+
+int open_pages_image(unsigned long flags, int pm_fd)
+{
+	return open_pages_image_at(get_service_fd(IMG_FD_OFF), flags, pm_fd);
 }
