@@ -587,6 +587,7 @@ static int rst_tcp_socks_add(int fd, bool reuseaddr)
 			return -1;
 	}
 
+	pr_debug("Schedule %d socket for repair off\n", fd);
 	rst_tcp_socks[rst_tcp_socks_num].sk = fd;
 	rst_tcp_socks[rst_tcp_socks_num].reuseaddr = reuseaddr;
 	rst_tcp_socks_num++;
