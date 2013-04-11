@@ -109,6 +109,30 @@ static void copy_fhandle(char *tok, struct fanotify_mark_inode *inode)
 	inode->fhandle[off] = '\0';
 }
 
+static int cmp_fanotify_obj(struct fanotify_obj *old, struct fanotify_obj *new)
+{
+	if ((old->glob.faflags != new->glob.faflags)			||
+	    (old->glob.evflags != new->glob.evflags)			||
+	    (old->inode.i_ino != new->inode.i_ino)			||
+	    (old->inode.s_dev != new->inode.s_dev)			||
+	    (old->inode.mflags != new->inode.mflags)			||
+	    (old->inode.mask != new->inode.mask)			||
+	    (old->inode.ignored_mask != new->inode.ignored_mask))
+		return -1;
+
+	if (memcmp(old->inode.fhandle, new->inode.fhandle,
+		   sizeof(new->inode.fhandle)))
+		return -2;
+
+	/* mnt_id may change, exclude it */
+	if ((old->mount.mflags != new->mount.mflags)			||
+	    (old->mount.mask != new->mount.mask)			||
+	    (old->mount.ignored_mask != new->mount.ignored_mask))
+		return -3;
+
+	return 0;
+}
+
 int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expected_to_meet)
 {
 	unsigned int met = 0;
@@ -246,7 +270,7 @@ int main (int argc, char *argv[])
 
 	show_fanotify_obj(&new);
 
-	if (memcmp(&old, &new, sizeof(old))) {
+	if (cmp_fanotify_obj(&old, &new)) {
 		fail("fanotify mismatch on fdinfo level\n");
 		exit(1);
 	}
