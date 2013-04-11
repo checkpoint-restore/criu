@@ -186,12 +186,12 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 
 	}
 
-	close(fd_pg);
-	close(fd);
+	close_safe(&fd_pg);
+	close_safe(&fd);
 	return ret;
 
 out_close:
-	close(fd);
+	close_safe(&fd);
 err_unmap:
 	munmap(addr,  si->size);
 	return -1;
