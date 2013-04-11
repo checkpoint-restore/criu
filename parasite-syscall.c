@@ -308,18 +308,19 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 		}
 
 		sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-		if (sock < 0) {
+		if (sock < 0)
 			pr_perror("Can't create socket");
+
+		if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
 			return -1;
-		}
+		if (sock < 0)
+			return -1;
 
 		if (bind(sock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
 			pr_perror("Can't bind socket");
 			goto err;
 		}
 
-		if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
-			goto err;
 	} else {
 		struct sockaddr addr = { .sa_family = AF_UNSPEC, };
 
@@ -349,7 +350,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	ctl->tsock = sock;
 	return 0;
 err:
-	close(sock);
+	close_safe(&sock);
 	return -1;
 }
 
