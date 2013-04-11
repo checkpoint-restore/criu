@@ -739,13 +739,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_rlims(args);
 
-	/* 
-	 * Writing to last-pid is CAP_SYS_ADMIN protected, thus restore
-	 * creds _after_ all threads creation.
-	 */
-
-	restore_creds(&args->creds);
-
 	pr_info("%ld: Restored\n", sys_getpid());
 
 	futex_set(&zombies_inprogress, args->nr_zombies);
@@ -780,6 +773,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 	}
 
 	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
+
+	/* 
+	 * Writing to last-pid is CAP_SYS_ADMIN protected,
+	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
+	 * thus restore* creds _after_ all of the above.
+	 */
+
+	restore_creds(&args->creds);
 
 	log_set_fd(-1);
 
