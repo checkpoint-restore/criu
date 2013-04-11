@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <errno.h>
 
 #include "crtools.h"
 #include "mem.h"
@@ -10,9 +11,128 @@
 #include "page-xfer.h"
 #include "log.h"
 
+#include "protobuf.h"
+#include "protobuf/pagemap.pb-c.h"
+
 #define PME_PRESENT	(1ULL << 63)
 #define PME_SWAP	(1ULL << 62)
 #define PME_FILE	(1ULL << 61)
+#define PME_SOFT_DIRTY	(1Ull << 55)
+
+struct mem_snap_ctx {
+	unsigned long nr_iovs;
+	struct iovec *iovs;
+	unsigned long alloc;
+	unsigned long rover;
+};
+
+#define MEM_SNAP_BATCH	64
+
+static int task_reset_dirty_track(int pid)
+{
+	int fd, ret;
+	char cmd[] = "4";
+
+	if (!opts.mem_snapshot)
+		return 0;
+
+	pr_info("Reset %d's dirty tracking\n", pid);
+	fd = open_proc_rw(pid, "clear_refs");
+	if (fd < 0)
+		return -1;
+
+	ret = write(fd, cmd, sizeof(cmd));
+	close(fd);
+
+	if (ret < 0) {
+		pr_perror("Can't reset %d's dirty memory tracker", pid);
+		return -1;
+	}
+
+	pr_info(" ... done\n");
+	return 0;
+}
+
+static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
+{
+	struct mem_snap_ctx *ctx;
+	int p_fd, pm_fd;
+	PagemapHead *h;
+
+	if (!opts.mem_snapshot)
+		return NULL;
+
+	p_fd = get_service_fd(PARENT_FD_OFF);
+	if (p_fd < 0) {
+		pr_debug("Will do full memory dump\n");
+		return NULL;
+	}
+
+	pm_fd = open_image_at(p_fd, CR_FD_PAGEMAP, O_RSTR, ctl->pid.virt);
+	if (pm_fd < 0)
+		return ERR_PTR(pm_fd);
+
+	ctx = xmalloc(sizeof(*ctx));
+	if (!ctx)
+		goto err_cl;
+
+	ctx->nr_iovs = 0;
+	ctx->alloc = MEM_SNAP_BATCH;
+	ctx->rover = 0;
+	ctx->iovs = xmalloc(MEM_SNAP_BATCH * sizeof(struct iovec));
+	if (!ctx->iovs)
+		goto err_free;
+
+	if (pb_read_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
+		goto err_freei;
+
+	pagemap_head__free_unpacked(h, NULL);
+
+	while (1) {
+		int ret;
+		PagemapEntry *pe;
+
+		ret = pb_read_one_eof(pm_fd, &pe, PB_PAGEMAP);
+		if (ret == 0)
+			break;
+		if (ret < 0)
+			goto err_freei;
+
+		ctx->iovs[ctx->nr_iovs].iov_base = decode_pointer(pe->vaddr);
+		ctx->iovs[ctx->nr_iovs].iov_len = pe->nr_pages * PAGE_SIZE;
+		ctx->nr_iovs++;
+		pagemap_entry__free_unpacked(pe, NULL);
+
+		if (ctx->nr_iovs >= ctx->alloc) {
+			ctx->iovs = xrealloc(ctx->iovs,
+					(ctx->alloc + MEM_SNAP_BATCH) * sizeof(struct iovec));
+			if (!ctx->iovs)
+				goto err_freei;
+
+			ctx->alloc += MEM_SNAP_BATCH;
+		}
+	}
+
+	pr_info("Collected parent snap of %lu entries\n", ctx->nr_iovs);
+	close(pm_fd);
+	return ctx;
+
+err_freei:
+	xfree(ctx->iovs);
+err_free:
+	xfree(ctx);
+err_cl:
+	close(pm_fd);
+	return ERR_PTR(-1);
+}
+
+static void mem_snap_close(struct mem_snap_ctx *ctx)
+{
+	if (ctx) {
+		xfree(ctx->iovs);
+		xfree(ctx);
+	}
+}
 
 unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
 {
@@ -41,9 +161,45 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 	return false;
 }
 
-static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map)
+static int page_in_parent(unsigned long vaddr, u64 map, struct mem_snap_ctx *snap)
+{
+	/*
+	 * Soft-dirty pages should be dumped here
+	 */
+	if (map & PME_SOFT_DIRTY)
+		return 0;
+
+	/*
+	 * Non soft-dirty should be present in parent map.
+	 * Otherwise pagemap is screwed up.
+	 */
+
+	while (1) {
+		struct iovec *iov;
+
+		iov = &snap->iovs[snap->rover];
+		if ((unsigned long)iov->iov_base > vaddr)
+			break;
+
+		if ((unsigned long)iov->iov_base + iov->iov_len > vaddr)
+			return 1;
+
+		snap->rover++;
+		if (snap->rover >= snap->nr_iovs)
+			break;
+	}
+
+	pr_warn("Page %lx not in parent snap range (rover %lu).\n"
+			"Dumping one, but the pagemap is screwed up.\n",
+			vaddr, snap->rover);
+	return 0;
+}
+
+static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map,
+		struct mem_snap_ctx *snap)
 {
 	unsigned long pfn, nr_to_scan;
+	unsigned long pages[2] = {};
 	u64 aux;
 
 	aux = vma->vma.start / PAGE_SIZE * sizeof(*map);
@@ -60,13 +216,26 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	}
 
 	for (pfn = 0; pfn < nr_to_scan; pfn++) {
+		unsigned long vaddr;
+		int ret;
+
 		if (!should_dump_page(&vma->vma, map[pfn]))
 			continue;
 
-		if (page_pipe_add_page(pp, vma->vma.start + pfn * PAGE_SIZE))
+		vaddr = vma->vma.start + pfn * PAGE_SIZE;
+		if (snap && page_in_parent(vaddr, map[pfn], snap)) {
+			ret = page_pipe_add_hole(pp, vaddr);
+			pages[0]++;
+		} else {
+			ret = page_pipe_add_page(pp, vaddr);
+			pages[1]++;
+		}
+
+		if (ret)
 			return -1;
 	}
 
+	pr_info("Pagemap generated: %lu pages %lu holes\n", pages[1], pages[0]);
 	return 0;
 }
 
@@ -109,6 +278,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	struct vma_area *vma_area;
 	int ret = -1;
 	struct page_xfer xfer;
+	struct mem_snap_ctx *snap;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
@@ -117,13 +287,17 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_debug("   Private vmas %lu/%lu pages\n",
 			vma_area_list->longest, vma_area_list->priv_size);
 
+	snap = mem_snap_init(ctl);
+	if (IS_ERR(snap))
+		goto out;
+
 	args = parasite_args_s(ctl, vmas_pagemap_size(vma_area_list));
 
 	map = xmalloc(vma_area_list->longest * sizeof(*map));
 	if (!map)
-		goto out;
+		goto out_snap;
 
-	ret = pagemap = open_proc(ctl->pid.real, "pagemap");
+	ret = pagemap = open_proc(ctl->pid.real, "pagemap2");
 	if (ret < 0)
 		goto out_free;
 
@@ -136,7 +310,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (!privately_dump_vma(vma_area))
 			continue;
 
-		ret = generate_iovs(vma_area, pagemap, pp, map);
+		ret = generate_iovs(vma_area, pagemap, pp, map, snap);
 		if (ret < 0)
 			goto out_pp;
 	}
@@ -166,12 +340,15 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	ret = page_xfer_dump_pages(&xfer, pp, 0);
 
 	xfer.close(&xfer);
+	task_reset_dirty_track(ctl->pid.real);
 out_pp:
 	destroy_page_pipe(pp);
 out_close:
 	close(pagemap);
 out_free:
 	xfree(map);
+out_snap:
+	mem_snap_close(snap);
 out:
 	pr_info("----------------------------------------\n");
 	return ret;
