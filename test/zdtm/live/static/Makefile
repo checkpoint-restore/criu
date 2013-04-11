@@ -92,6 +92,7 @@ TST_NOFILE	=				\
 		posix_timers			\
 		sigpending			\
 		sk-netlink			\
+		mem-touch			\
 #		jobctl00			\
 
 TST_FILE	=				\
