@@ -18,9 +18,14 @@ struct page_pipe {
 	unsigned int nr_iovs;
 	unsigned int free_iov;
 	struct iovec *iovs;
+
+	unsigned int nr_holes;
+	unsigned int free_hole;
+	struct iovec *holes;
 };
 
 struct page_pipe *create_page_pipe(unsigned int nr, struct iovec *);
 void destroy_page_pipe(struct page_pipe *p);
 int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
+int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
 #endif

@@ -47,6 +47,10 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs)
 		pp->iovs = iovs;
 		pp->free_iov = 0;
 
+		pp->nr_holes = 0;
+		pp->free_hole = 0;
+		pp->holes = NULL;
+
 		if (page_pipe_grow(pp))
 			return NULL;
 	}
@@ -136,4 +140,35 @@ int page_pipe_add_page(struct page_pipe *pp, unsigned long addr)
 	ret = try_add_page(pp, addr);
 	BUG_ON(ret > 0);
 	return ret;
+}
+
+#define PP_HOLES_BATCH	32
+
+int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
+{
+	struct iovec *iov;
+
+	if (pp->free_hole >= pp->nr_holes) {
+		pp->holes = xrealloc(pp->holes,
+				(pp->nr_holes + PP_HOLES_BATCH) * sizeof(struct iovec));
+		if (!pp->holes)
+			return -1;
+
+		pp->nr_holes += PP_HOLES_BATCH;
+	}
+
+	if (pp->free_hole) {
+		iov = &pp->holes[pp->free_hole - 1];
+		if ((unsigned long)iov->iov_base + iov->iov_len == addr) {
+			iov->iov_len += PAGE_SIZE;
+			goto out;
+		}
+	}
+
+	iov = &pp->holes[pp->free_hole];
+	iov->iov_base = (void *)addr;
+	iov->iov_len = PAGE_SIZE;
+	pp->free_hole++;
+out:
+	return 0;
 }
