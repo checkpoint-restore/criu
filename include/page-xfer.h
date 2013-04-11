@@ -4,6 +4,7 @@ int cr_page_server(void);
 
 struct page_xfer {
 	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov, int pipe);
+	int (*write_hole)(struct page_xfer *self, struct iovec *iov);
 	void (*close)(struct page_xfer *self);
 	int fd;
 	union {

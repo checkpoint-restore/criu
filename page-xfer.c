@@ -240,6 +240,12 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 	return 0;
 }
 
+static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
+{
+	pr_err("Writing holes to server not implemented.\n");
+	return -1;
+}
+
 static void close_server_xfer(struct page_xfer *xfer)
 {
 	xfer->fd = -1;
@@ -249,6 +255,7 @@ int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	xfer->fd = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
+	xfer->write_hole = write_hole_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
 
@@ -273,6 +280,19 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 	return 0;
 }
 
+static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
+{
+	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+
+	pe.vaddr = encode_pointer(iov->iov_base);
+	pe.nr_pages = iov->iov_len / PAGE_SIZE;
+
+	if (pb_write_one(xfer->fd, &pe, PB_PAGEMAP) < 0)
+		return -1;
+
+	return 0;
+}
+
 static void close_page_xfer(struct page_xfer *xfer)
 {
 	close(xfer->fd_pg);
@@ -283,6 +303,10 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		unsigned long off)
 {
 	struct page_pipe_buf *ppb;
+	struct iovec *hole = NULL;
+
+	if (pp->free_hole)
+		hole = &pp->holes[0];
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		int i;
@@ -292,6 +316,17 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
 
+			while (hole && (hole->iov_base < iov->iov_base)) {
+				pr_debug("\th %p [%u]\n", hole->iov_base,
+						(unsigned int)(hole->iov_len / PAGE_SIZE));
+				if (xfer->write_hole(xfer, hole))
+					return -1;
+
+				hole++;
+				if (hole >= &pp->holes[pp->free_hole])
+					hole = NULL;
+			}
+
 			BUG_ON(iov->iov_base < (void *)off);
 			iov->iov_base -= off;
 			pr_debug("\t%p [%u]\n", iov->iov_base,
@@ -300,6 +335,17 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 			if (xfer->write_pagemap(xfer, iov, ppb->p[0]))
 				return -1;
 		}
+	}
+
+	while (hole) {
+		pr_debug("\th* %p [%u]\n", hole->iov_base,
+				(unsigned int)(hole->iov_len / PAGE_SIZE));
+		if (xfer->write_hole(xfer, hole))
+			return -1;
+
+		hole++;
+		if (hole >= &pp->holes[pp->free_hole])
+			hole = NULL;
 	}
 
 	return 0;
@@ -321,6 +367,7 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 	}
 
 	xfer->write_pagemap = write_pagemap_loc;
+	xfer->write_hole = write_pagehole_loc;
 	xfer->close = close_page_xfer;
 	return 0;
 }
