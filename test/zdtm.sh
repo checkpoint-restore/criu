@@ -221,7 +221,7 @@ start_test()
 	else
 		if [ -z "$ZDTM_ROOT" ]; then
 			mkdir dump
-			ZDTM_ROOT=`mktemp -d dump/crtools-root.XXXXXX`
+			ZDTM_ROOT=`mktemp -d /tmp/crtools-root.XXXXXX`
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --bind . $ZDTM_ROOT || return 1
 		fi
