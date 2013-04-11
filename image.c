@@ -325,7 +325,29 @@ int open_image_dir(void)
 
 	close(fd);
 
+	if (opts.snap_parent) {
+		ret = symlink(opts.snap_parent, CR_PARENT_LINK);
+		if (ret < 0) {
+			pr_perror("Can't link parent snapshot.");
+			goto err;
+		}
+
+		fd = open(CR_PARENT_LINK, O_RDONLY);
+		if (fd < 0) {
+			pr_perror("Can't open parent snapshot.");
+			goto err;
+		}
+
+		ret = install_service_fd(PARENT_FD_OFF, fd);
+
+		close(fd);
+	}
+
 	return ret;
+
+err:
+	close_image_dir();
+	return -1;
 }
 
 void close_image_dir(void)

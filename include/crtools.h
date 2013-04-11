@@ -117,6 +117,8 @@ struct cr_options {
 	struct list_head	scripts;
 	bool			use_page_server;
 	struct sockaddr_in	ps_addr;
+	bool			mem_snapshot;
+	char			*snap_parent;
 };
 
 extern struct cr_options opts;
@@ -131,9 +133,12 @@ enum sfd_type {
 	PROC_FD_OFF,
 	CTL_TTY_OFF,
 	SELF_STDIN_OFF,
+	PARENT_FD_OFF,
 
 	SERVICE_FD_MAX
 };
+
+#define CR_PARENT_LINK	"parent"
 
 extern int clone_service_fd(int id);
 extern int init_service_fd(void);

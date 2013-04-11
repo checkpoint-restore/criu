@@ -5,4 +5,5 @@ message pagemap_head {
 message pagemap_entry {
 	required uint64 vaddr = 1;
 	required uint32 nr_pages = 2;
+	optional bool	in_parent = 3;
 }

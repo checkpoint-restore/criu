@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsf:t:p:hcD:o:n:vxVr:jl";
+	static const char short_opts[] = "dsRf:t:p:hcD:o:n:vxVr:jl";
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -90,6 +90,7 @@ int main(int argc, char *argv[])
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
 			{ "leave-stopped", no_argument, 0, 's' },
+			{ "leave-running", no_argument, 0, 'R' },
 			{ "restore-detached", no_argument, 0, 'd' },
 			{ "contents", no_argument, 0, 'c' },
 			{ "file", required_argument, 0, 'f' },
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
 			{ "page-server", no_argument, 0, 50},
 			{ "address", required_argument, 0, 51},
 			{ "port", required_argument, 0, 52},
+			{ "snapshot", optional_argument, 0, 53},
 			{ },
 		};
 
@@ -123,6 +125,9 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 's':
 			opts.final_state = TASK_STOPPED;
+			break;
+		case 'R':
+			opts.final_state = TASK_ALIVE;
 			break;
 		case 'x':
 			opts.ext_unix_sk = true;
@@ -256,6 +261,10 @@ int main(int argc, char *argv[])
 		case 'l':
 			opts.handle_file_locks = true;
 			break;
+		case 53:
+			opts.mem_snapshot = true;
+			opts.snap_parent = optarg;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", version);
 			return 0;
@@ -274,6 +283,9 @@ int main(int argc, char *argv[])
 		if (ret)
 			return ret;
 	}
+
+	if (opts.mem_snapshot)
+		pr_info("Will do snapshot from %s\n", opts.snap_parent);
 
 	ret = open_image_dir();
 	if (ret < 0) {
@@ -355,8 +367,10 @@ usage:
 	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
 	pr_msg("  -d|--restore-detached detach after restore\n");
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
+	pr_msg("  -R|--leave-running    leave tasks in running state after checkpoint\n");
 	pr_msg("  -D|--images-dir       directory where to put images to\n");
 	pr_msg("     --pidfile [FILE]	write a pid of a root task in this file\n");
+	pr_msg("     --snapshot <[DIR]> create snapshot (relative to DIR images if given)\n");
 
 	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -x|--%s      allow external unix connections\n", USK_EXT_PARAM);
