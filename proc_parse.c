@@ -883,6 +883,7 @@ int parse_fdinfo(int fd, int type,
 	FILE *f;
 	char str[256];
 	bool entry_met = false;
+	int ret = -1;
 
 	sprintf(str, "/proc/self/fdinfo/%d", fd);
 	f = fopen(str, "r");
@@ -892,7 +893,6 @@ int parse_fdinfo(int fd, int type,
 	}
 
 	while (fgets(str, sizeof(str), f)) {
-		int ret;
 		union fdinfo_entries entry;
 
 		if (fdinfo_field(str, "pos") || fdinfo_field(str, "counter"))
@@ -909,7 +909,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -925,7 +925,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -941,7 +941,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -981,8 +981,10 @@ int parse_fdinfo(int fd, int type,
 			if (ret != 7)
 				goto parse_err;
 
-			if (alloc_fhandle(&f_handle))
-				return -1;
+			if (alloc_fhandle(&f_handle)) {
+				ret = -1;
+				goto errcode;
+			}
 			parse_fhandle_encoded(str + hoff, &f_handle);
 
 			entry.ffy.type = MARK_TYPE__INODE;
@@ -991,7 +993,7 @@ int parse_fdinfo(int fd, int type,
 			free_fhandle(&f_handle);
 
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -1015,7 +1017,7 @@ int parse_fdinfo(int fd, int type,
 			entry.ffy.type = MARK_TYPE__MOUNT;
 			ret = cb(&entry, arg);
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -1041,8 +1043,11 @@ int parse_fdinfo(int fd, int type,
 			if (ret != 7)
 				goto parse_err;
 
-			if (alloc_fhandle(&f_handle))
-				return -1;
+			if (alloc_fhandle(&f_handle)) {
+				ret = -1;
+				goto errcode;
+			}
+
 			parse_fhandle_encoded(str + hoff, entry.ify.f_handle);
 
 			ret = cb(&entry, arg);
@@ -1050,7 +1055,7 @@ int parse_fdinfo(int fd, int type,
 			free_fhandle(&f_handle);
 
 			if (ret)
-				return ret;
+				goto errcode;
 
 			entry_met = true;
 			continue;
@@ -1070,8 +1075,11 @@ int parse_fdinfo(int fd, int type,
 
 	pr_err("No records of type %d found in fdinfo file\n", type);
 parse_err:
+	ret = -1;
 	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
-	return -1;
+errcode:
+	fclose(f);
+	return ret;
 }
 
 static int parse_file_lock_buf(char *buf, struct file_lock *fl,
