@@ -47,32 +47,130 @@ static int get_pagemap(struct page_read *pr, struct iovec *iov)
 
 	iov->iov_base = decode_pointer(pe->vaddr);
 	iov->iov_len = pe->nr_pages * PAGE_SIZE;
-	pagemap_entry__free_unpacked(pe, NULL);
 
-	return 1;
-}
+	pr->pe = pe;
+	pr->cvaddr = (unsigned long)iov->iov_base;
 
-static void put_pagemap(struct page_read *pr)
-{
-}
-
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *buf)
-{
-	int ret;
-
-	ret = read(pr->fd_pg, buf, PAGE_SIZE);
-	if (ret != PAGE_SIZE) {
-		pr_err("Can'r read mapping page %d\n", ret);
+	if (pe->in_parent && !pr->parent) {
+		pr_err("No parent for snapshot pagemap\n");
 		return -1;
 	}
 
 	return 1;
 }
 
+static void put_pagemap(struct page_read *pr)
+{
+	pagemap_entry__free_unpacked(pr->pe, NULL);
+}
+
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *buf);
+
+static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
+{
+	if (!len)
+		return;
+
+	pr_debug("\tpr%u Skip %lx bytes from page-dump\n", pr->id, len);
+	if (!pr->pe->in_parent)
+		lseek(pr->fd_pg, len, SEEK_CUR);
+	pr->cvaddr += len;
+}
+
+static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vaddr, void *buf)
+{
+	int ret;
+	struct iovec iov;
+
+	if (pr->pe) {
+		iov.iov_base = decode_pointer(pr->pe->vaddr);
+		iov.iov_len = pr->pe->nr_pages * PAGE_SIZE;
+	} else
+		goto new_pagemap;
+
+	while (1) {
+		unsigned long iov_end;
+
+		BUG_ON(vaddr < pr->cvaddr);
+		iov_end = (unsigned long)iov.iov_base + iov.iov_len;
+
+		if (iov_end <= vaddr) {
+			skip_pagemap_pages(pr, iov_end - pr->cvaddr);
+			put_pagemap(pr);
+new_pagemap:
+			ret = get_pagemap(pr, &iov);
+			if (ret <= 0)
+				return -1;
+
+			continue;
+		}
+
+		skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+		return read_pagemap_page(pr, vaddr, buf);
+	}
+}
+
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *buf)
+{
+	int ret;
+
+	if (pr->pe->in_parent) {
+		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
+		ret = read_pagemap_page_from_parent(pr->parent, vaddr, buf);
+	} else {
+		pr_debug("\tpr%u Read page %lx from self %lx/%lx\n", pr->id,
+				vaddr, pr->cvaddr, lseek(pr->fd_pg, 0, SEEK_CUR));
+		ret = read(pr->fd_pg, buf, PAGE_SIZE);
+		if (ret != PAGE_SIZE) {
+			pr_err("Can'r read mapping page %d\n", ret);
+			return -1;
+		}
+	}
+
+	pr->cvaddr += PAGE_SIZE;
+
+	return 1;
+}
+
 static void close_page_read(struct page_read *pr)
 {
+	if (pr->parent) {
+		close_page_read(pr->parent);
+		xfree(pr->parent);
+	}
+
 	close(pr->fd_pg);
 	close(pr->fd);
+}
+
+static int open_page_read_at(int dfd, int pid, struct page_read *pr);
+
+static int try_open_parent(int dfd, int pid, struct page_read *pr)
+{
+	int pfd;
+	struct page_read *parent = NULL;
+
+	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	if (pfd < 0 && errno == ENOENT)
+		goto out;
+
+	parent = xmalloc(sizeof(*parent));
+	if (!parent)
+		goto err_cl;
+
+	if (open_page_read_at(pfd, pid, parent))
+		goto err_free;
+
+	close(pfd);
+out:
+	pr->parent = parent;
+	return 0;
+
+err_free:
+	xfree(parent);
+err_cl:
+	close(pfd);
+	return -1;
 }
 
 static int open_page_read_at(int dfd, int pid, struct page_read *pr)
@@ -83,10 +181,18 @@ static int open_page_read_at(int dfd, int pid, struct page_read *pr)
 		if (pr->fd_pg < 0)
 			return -1;
 
+		pr->parent = NULL;
 		pr->get_pagemap = get_page_vaddr;
 		pr->put_pagemap = NULL;
 		pr->read_page = read_page;
 	} else {
+		static unsigned ids = 1;
+
+		if (try_open_parent(dfd, pid, pr)) {
+			close(pr->fd);
+			return -1;
+		}
+
 		pr->fd_pg = open_pages_image_at(dfd, O_RSTR, pr->fd);
 		if (pr->fd_pg < 0) {
 			close_page_read(pr);
@@ -96,6 +202,10 @@ static int open_page_read_at(int dfd, int pid, struct page_read *pr)
 		pr->get_pagemap = get_pagemap;
 		pr->put_pagemap = put_pagemap;
 		pr->read_page = read_pagemap_page;
+		pr->id = ids++;
+
+		pr_debug("Opened page read %u (parent %u)\n",
+				pr->id, pr->parent ? pr->parent->id : 0);
 	}
 
 	pr->close = close_page_read;

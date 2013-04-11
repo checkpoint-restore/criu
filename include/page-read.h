@@ -10,6 +10,11 @@ struct page_read {
 
 	int fd;
 	int fd_pg;
+
+	PagemapEntry *pe;
+	struct page_read *parent;
+	unsigned long cvaddr;
+	unsigned id; /* for logging */
 };
 
 int open_page_read(int pid, struct page_read *);
