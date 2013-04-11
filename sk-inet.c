@@ -448,8 +448,12 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	 * TCP sockets are handled at the last moment
 	 * after unlocking connections.
 	 */
-	if (tcp_connection(ii->ie))
+	if (tcp_connection(ii->ie)) {
+		if (rst_tcp_socks_add(sk, ii->ie->opts->reuseaddr))
+			return -1;
+
 		return 0;
+	}
 
 	/* SO_REUSEADDR is set for all sockets */
 	if (ii->ie->opts->reuseaddr)

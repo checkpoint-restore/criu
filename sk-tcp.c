@@ -577,7 +577,7 @@ int rst_tcp_socks_remap(void *addr)
 	return 0;
 }
 
-static int rst_tcp_socks_add(int fd, bool reuseaddr)
+int rst_tcp_socks_add(int fd, bool reuseaddr)
 {
 	/* + 2 = ( new one + guard (-1) ) */
 	if ((rst_tcp_socks_num + 2) * sizeof(struct rst_tcp_sock) > rst_tcp_socks_size) {
@@ -599,9 +599,6 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 	pr_info("Restoring TCP connection\n");
 
 	if (tcp_repair_on(fd))
-		return -1;
-
-	if (rst_tcp_socks_add(fd, ii->ie->opts->reuseaddr))
 		return -1;
 
 	if (restore_tcp_conn_state(fd, ii))

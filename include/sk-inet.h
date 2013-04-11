@@ -74,5 +74,6 @@ int check_tcp(void);
 
 extern int rst_tcp_socks_size;
 extern int rst_tcp_socks_remap(void *addr);
+extern int rst_tcp_socks_add(int fd, bool reuseaddr);
 
 #endif /* __CR_SK_INET_H__ */
