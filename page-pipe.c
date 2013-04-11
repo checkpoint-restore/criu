@@ -172,3 +172,31 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
 out:
 	return 0;
 }
+
+void debug_show_page_pipe(struct page_pipe *pp)
+{
+	struct page_pipe_buf *ppb;
+	int i;
+	struct iovec *iov;
+
+	if (log_get_loglevel() < LOG_DEBUG)
+		return;
+
+	pr_debug("Page pipe:\n");
+	pr_debug("* %u pipes %u/%u iovs:\n",
+			pp->nr_pipes, pp->free_iov, pp->nr_iovs);
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		pr_debug("\tbuf %u pages, %u iovs:\n",
+				ppb->pages_in, ppb->nr_segs);
+		for (i = 0; i < ppb->nr_segs; i++) {
+			iov = &ppb->iov[i];
+			pr_debug("\t\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+		}
+	}
+
+	pr_debug("* %u holes:\n", pp->free_hole);
+	for (i = 0; i < pp->free_hole; i++) {
+		iov = &pp->holes[i];
+		pr_debug("\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+	}
+}

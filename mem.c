@@ -315,6 +315,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 			goto out_pp;
 	}
 
+	debug_show_page_pipe(pp);
+
 	args->off = 0;
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		ret = parasite_send_fd(ctl, ppb->p[1]);
