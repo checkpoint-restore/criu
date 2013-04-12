@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 						child_fail_reason[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
-				fail("Unknow exitcode from child: %d\n", rv);
+				fail("Unknown exitcode from child: %d\n", rv);
 				counter++;
 			}
 		}

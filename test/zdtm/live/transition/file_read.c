@@ -228,7 +228,7 @@ int main(int argc, char **argv)
 						kids_fail_reasons[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
-				fail("Unknow exitcode from kid: %d\n", rv);
+				fail("Unknown exitcode from kid: %d\n", rv);
 				counter++;
 			}
 		}

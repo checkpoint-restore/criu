@@ -40,7 +40,7 @@ int main(int argc, char ** argv)
 	waitpid(pid, NULL, 0);
 
 	if (getcwd(cwd1, sizeof(cwd1))) {
-		err("successfull getcwd: %s\n", cwd1);
+		err("successful getcwd: %s\n", cwd1);
 		exit(1);
 	} else if (errno != ENOENT) {
 		err("wrong errno: %m\n");
@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (getcwd(cwd2, sizeof(cwd2))) {
-		fail("successfull getcwd: %s\n", cwd2);
+		fail("successful getcwd: %s\n", cwd2);
 		exit(1);
 	} else if (errno != ENOENT) {
 		fail("wrong errno: %m\n");

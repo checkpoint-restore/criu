@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (sid_b != sid_a) {
-		fail("The tty is controlling for someon else");
+		fail("The tty is controlling for someone else");
 		goto out;
 	}
 

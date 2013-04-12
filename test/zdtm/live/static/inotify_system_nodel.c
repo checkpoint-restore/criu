@@ -270,7 +270,7 @@ int errors(int exp_len, int len, char *etalon_buf, char *buf) {
 		}
 
 		if (event->mask != exp_event->mask) {
-			fail("Handeled %s (%x mask), expected %s (%x mask)",
+			fail("Handled %s (%x mask), expected %s (%x mask)",
 				handle_event(event->mask), event->mask,
 				handle_event(exp_event->mask),
 				exp_event->mask);
@@ -282,7 +282,7 @@ int errors(int exp_len, int len, char *etalon_buf, char *buf) {
 			break;
 		}
 		else if (event->len && strncmp(event->name, exp_event->name, event->len)) {
-			fail("Handeled file name %s, expected %s",
+			fail("Handled file name %s, expected %s",
 				event->name,
 				exp_event->name);
 				error++;

@@ -52,7 +52,7 @@ void *thread_fn(void *arg)
 
 	if (head_orig != head_new || len_orig != len_new) {
 		args->result = -1;
-		fail("comparision failed");
+		fail("comparison failed");
 	}
 
 	args->result = 0;
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 	}
 
 	if (head_orig != head_new || len_orig != len_new) {
-		fail("comparision failed");
+		fail("comparison failed");
 		exit(1);
 	}
 
