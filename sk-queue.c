@@ -99,7 +99,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	size -= 32;
 
 	/*
-	 * Allocate data for a streem.
+	 * Allocate data for a stream.
 	 */
 	data = xmalloc(size);
 	if (!data)
@@ -135,7 +135,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		}
 		if (msg.msg_flags & MSG_TRUNC) {
 			/*
-			 * DGRAM thuncated. This should not happen. But we have
+			 * DGRAM truncated. This should not happen. But we have
 			 * to check...
 			 */
 			pr_err("sys_recvmsg failed: truncated\n");
@@ -208,9 +208,9 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 		/*
 		 * Don't try to use sendfile here, because it use sendpage() and
-		 * all data are splitted on pages and a new skb is allocated for
+		 * all data are split on pages and a new skb is allocated for
 		 * each page. It creates a big overhead on SNDBUF.
-		 * sendfile() isn't suatable for DGRAM sockets, because message
+		 * sendfile() isn't suitable for DGRAM sockets, because message
 		 * boundaries messages should be saved.
 		 */
 

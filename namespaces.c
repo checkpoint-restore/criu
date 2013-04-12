@@ -126,7 +126,7 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 		return 0;
 	}
 
-	/* XXX: Does it make sence to validate kernel links to <name>:[<id>]? */
+	/* XXX: Does it make sense to validate kernel links to <name>:[<id>]? */
 	kid = strtoul(ns_id + strlen(nd->str) + 2, &end, 10);
 	return generate_ns_id(pid, kid, nd);
 }
@@ -226,7 +226,7 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	 * parallel with task dumping routine.
 	 *
 	 * However, the question how to dump sockets from the target
-	 * net namesapce with this is still open
+	 * net namespace with this is still open
 	 */
 
 	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->virt, ns_pid->real);

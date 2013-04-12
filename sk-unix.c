@@ -330,7 +330,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						(int)uv->udiag_vfs_ino);
 				/*
 				 * When a socket is bound to unlinked file, we
-				 * just drop his name, since noone will access
+				 * just drop his name, since no one will access
 				 * it via one.
 				 */
 				xfree(name);

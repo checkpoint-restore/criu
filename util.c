@@ -274,7 +274,7 @@ int init_service_fd(void)
 	struct rlimit rlimit;
 
 	/*
-	 * Service FDs are thouse that most likely won't
+	 * Service FDs are those that most likely won't
 	 * conflict with any 'real-life' ones
 	 */
 

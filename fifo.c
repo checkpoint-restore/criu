@@ -19,11 +19,11 @@
 /*
  * FIFO checkpoint and restore is done in a bit unusual manner.
  * We use files-reg.c engine to save fifo path and flags,
- * thus regular files image will contain fifo descriptos which
+ * thus regular files image will contain fifo descriptors which
  * are useless for reg-files engine itself but needed for our fifo
  * engine.
  *
- * In particual we dump fifo-entry automatically and appropriate
+ * In particular we dump fifo-entry automatically and appropriate
  * reg-file entry manually, thus on restore we need to ask reg-file
  * engine to restore fifo path and flags via direct call.
  */

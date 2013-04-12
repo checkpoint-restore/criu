@@ -426,7 +426,7 @@ static int restore_tty_params(int fd, struct tty_info *info)
 	 * because it contain @c_cc array which
 	 * is bigger than TERMIOS_NCC. Same applies
 	 * to winsize usage, we can't guarantee the
-	 * structure taked from the system headers will
+	 * structure taken from the system headers will
 	 * never be extended.
 	 */
 
@@ -575,7 +575,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 *
 	 * Note, at this point the group/session should
 	 * be already restored properly thus we can simply
-	 * use syscalls intead of lookup via process tree.
+	 * use syscalls instead of lookup via process tree.
 	 */
 	if (likely(slave->tie->sid == INHERIT_SID)) {
 		if (tty_set_prgp(fd, getpgid(getppid())))
@@ -949,7 +949,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 		return -1;
 
 	/*
-	 * The tty peers which have no @termios are hunged up,
+	 * The tty peers which have no @termios are hung up,
 	 * so don't mark them as active, we create them with
 	 * faked master and they are rather a rudiment which
 	 * can't be used. Most likely they appear if a user has
@@ -1083,7 +1083,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	pty.index		= index;
 
 	/*
-	 * Nothing we can do on hangin up terminal,
+	 * Nothing we can do on hanging up terminal,
 	 * just write out minimum information we can
 	 * gather.
 	 */
@@ -1095,7 +1095,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 * the task might have slave peer assigned but no
 	 * master peer. Such "detached" master peers are
 	 * not yet supported by our tool and better to
-	 * inform a user about such situatio,
+	 * inform a user about such situation.
 	 */
 	tty_test_and_set(id, tty_active_pairs);
 

@@ -189,7 +189,7 @@ err:
 	return ret;
 }
 
-/* Map a private vma, if it is not mapped by a parrent yet */
+/* Map a private vma, if it is not mapped by a parent yet */
 static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 			struct vma_area **pvma, struct list_head *pvma_list)
 {
@@ -1090,7 +1090,7 @@ static int restore_task_with_children(void *_arg)
 	}
 
 	/*
-	 * The block mask will be restored in sigresturn.
+	 * The block mask will be restored in sigreturn.
 	 *
 	 * TODO: This code should be removed, when a freezer will be added.
 	 */
@@ -1809,7 +1809,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_chunk,
 					&siginfo_size, &siginfo_nr);
 	if (ret < 0) {
-		if (errno != ENOENT) /* backward compatiblity */
+		if (errno != ENOENT) /* backward compatibility */
 			goto err;
 		ret = 0;
 	}
@@ -1820,7 +1820,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 					current->threads[i].virt, &siginfo_chunk,
 					&siginfo_size, &siginfo_nr);
 		if (ret < 0) {
-			if (errno != ENOENT) /* backward compatiblity */
+			if (errno != ENOENT) /* backward compatibility */
 				goto err;
 			ret = 0;
 		}
@@ -2075,8 +2075,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		task_args->thread_args);
 
 	/*
-	 * An indirect call to task_restore, note it never resturns
-	 * and restoreing core is extremely destructive.
+	 * An indirect call to task_restore, note it never returns
+	 * and restoring core is extremely destructive.
 	 */
 
 	JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start, task_args);

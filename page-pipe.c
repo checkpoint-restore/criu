@@ -103,7 +103,7 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 		}
 
 		if (ppb->nr_segs == UIO_MAXIOV)
-			/* XXX -- shink pipe back? */
+			/* XXX -- shrink pipe back? */
 			return 1;
 	}
 

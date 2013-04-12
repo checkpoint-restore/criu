@@ -39,7 +39,7 @@ int unseize_task(pid_t pid, int st)
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
- * inteface, and finally we can detach ptrace out of
+ * interface, and finally we can detach ptrace out of
  * of it so the task would not know if it was saddled
  * up with someone else.
  */

@@ -32,7 +32,7 @@ struct eventfd_file_info {
 	struct file_desc		d;
 };
 
-/* Checks if file desciptor @lfd is eventfd */
+/* Checks if file descriptor @lfd is eventfd */
 int is_eventfd_link(int lfd)
 {
 	return is_anon_link_type(lfd, "[eventfd]");

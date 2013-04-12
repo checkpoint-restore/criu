@@ -176,7 +176,7 @@ retry_signal:
 	}
 
 	/*
-	 * We've reached this point iif int3 is triggered inside our
+	 * We've reached this point if int3 is triggered inside our
 	 * parasite code. So we're done.
 	 */
 	ret = 0;

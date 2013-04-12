@@ -65,13 +65,13 @@ struct fsnotify_file_info {
 static LIST_HEAD(inotify_info_head);
 static LIST_HEAD(fanotify_info_head);
 
-/* Checks if file desciptor @lfd is inotify */
+/* Checks if file descriptor @lfd is inotify */
 int is_inotify_link(int lfd)
 {
 	return is_anon_link_type(lfd, "inotify");
 }
 
-/* Checks if file desciptor @lfd is fanotify */
+/* Checks if file descriptor @lfd is fanotify */
 int is_fanotify_link(int lfd)
 {
 	return is_anon_link_type(lfd, "[fanotify]");
