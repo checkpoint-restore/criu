@@ -566,7 +566,7 @@ static int prepare_sigactions(int pid)
 				ret = -1;
 				break;
 			}
-			pr_warn("This format of sigacts-%d.img is depricated\n", pid);
+			pr_warn("This format of sigacts-%d.img is deprecated\n", pid);
 			break;
 		}
 		if (ret < 0)
@@ -1272,7 +1272,7 @@ out:
 		return 1;
 	}
 
-	pr_info("Restore finised successfully. Resuming tasks.\n");
+	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (!opts->restore_detach)

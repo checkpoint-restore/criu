@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 				n->outside = strchr(optarg, '=');
 				if (n->outside == NULL) {
 					xfree(n);
-					pr_err("Invalid agument for --veth-pair\n");
+					pr_err("Invalid argument for --veth-pair\n");
 					goto usage;
 				}
 
@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 
 	ret = open_image_dir();
 	if (ret < 0) {
-		pr_perror("can't open currect directory");
+		pr_perror("can't open current directory");
 		return -1;
 	}
 

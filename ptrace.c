@@ -22,7 +22,7 @@
 
 int unseize_task(pid_t pid, int st)
 {
-	pr_debug("\tUnseizeing %d into %d\n", pid, st);
+	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
 	if (st == TASK_DEAD)
 		kill(pid, SIGKILL);
@@ -73,9 +73,9 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 	if (ret < 0) {
 		if (ps.state != 'Z') {
 			if (pid == getpid())
-				pr_err("The crtools itself is withing dumped tree.\n");
+				pr_err("The crtools itself is within dumped tree.\n");
 			else
-				pr_err("Unseizeable non-zombie %d found, state %c, err %d/%d\n",
+				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
 						pid, ps.state, ret, ptrace_errno);
 			return -1;
 		}

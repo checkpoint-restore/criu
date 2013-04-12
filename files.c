@@ -776,7 +776,7 @@ int prepare_fds(struct pstree_item *me)
 		futex_wait_while_lt(&fdt->fdt_lock, fdt->nr);
 
 		if (fdt->pid != me->pid.virt) {
-			pr_info("File descriptor talbe is shared with %d\n", fdt->pid);
+			pr_info("File descriptor table is shared with %d\n", fdt->pid);
 			futex_wait_until(&fdt->fdt_lock, fdt->nr + 1);
 			goto out;
 		}

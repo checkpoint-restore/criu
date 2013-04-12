@@ -430,7 +430,7 @@ static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 {
 	int fd, ret, i;
 
-	pr_info("Obtainting task auvx ... ");
+	pr_info("Obtaining task auvx ... ");
 
 	fd = open_proc(pid, "auxv");
 	if (fd < 0)
@@ -443,7 +443,7 @@ static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 			break;
 		else if (ret != sizeof(auxv_t)) {
 			ret = -1;
-			pr_perror("Error readind %d's auxv[%d]",
+			pr_perror("Error reading %d's auxv[%d]",
 				  pid, i);
 			goto err;
 		}
@@ -518,7 +518,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 	FILE *file = NULL;
 	int ret = -1;
 
-	pr_info("Obtainting personality ... ");
+	pr_info("Obtaining personality ... ");
 
 	file = fopen_proc(pid, "personality");
 	if (!file)
@@ -1338,7 +1338,7 @@ static int dump_zombies(void)
 				goto err;
 		}
 
-		pr_info("Obtainting zombie stat ... ");
+		pr_info("Obtaining zombie stat ... ");
 		if (parse_pid_stat(item->pid.virt, &pps_buf) < 0)
 			goto err;
 
@@ -1384,7 +1384,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (!dfds)
 		goto err_free;
 
-	pr_info("Obtainting task stat ... ");
+	pr_info("Obtaining task stat ... ");
 	ret = parse_pid_stat(pid, &pps_buf);
 	if (ret < 0)
 		goto err;

@@ -278,7 +278,7 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 			ret = 0;
 			break;
 		} else if (wd > iwe->wd) {
-			pr_err("Usorted watch found for %d with %d\n", inotify_fd, iwe->wd);
+			pr_err("Unsorted watch found for %d with %d\n", inotify_fd, iwe->wd);
 			break;
 		}
 

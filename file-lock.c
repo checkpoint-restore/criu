@@ -53,7 +53,7 @@ static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
 	} else if (!strcmp(fl_flag, "FLOCK")) {
 		fle->flag |= FL_FLOCK;
 	} else {
-		pr_err("Unknow file lock!\n");
+		pr_err("Unknown file lock!\n");
 		goto err;
 	}
 
@@ -67,7 +67,7 @@ static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
 		} else if (!strcmp(fl_option, "WRITE")) {
 			fle->type |= LOCK_WRITE;
 		} else {
-			pr_err("Unknow lock option!\n");
+			pr_err("Unknown lock option!\n");
 			goto err;
 		}
 	} else {
@@ -78,7 +78,7 @@ static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
 		} else if (!strcmp(fl_option, "READ")) {
 			fle->type |= F_RDLCK;
 		} else {
-			pr_err("Unknow lock option!\n");
+			pr_err("Unknown lock option!\n");
 			goto err;
 		}
 	}
@@ -175,7 +175,7 @@ static int restore_file_lock(FileLockEntry *fle)
 		} else if (fle->type == F_UNLCK) {
 			cmd = LOCK_UN;
 		} else {
-			pr_err("Unknow flock type!\n");
+			pr_err("Unknown flock type!\n");
 			goto err;
 		}
 
@@ -208,7 +208,7 @@ static int restore_file_lock(FileLockEntry *fle)
 			goto err;
 		}
 	} else {
-		pr_err("Unknow file lock style!\n");
+		pr_err("Unknown file lock style!\n");
 		goto err;
 	}
 

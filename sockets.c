@@ -608,7 +608,7 @@ int collect_sockets(int pid)
 	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, NULL);
 	if (tmp) {
 		if (pid != 0 && tmp == -ENOENT) /* Fedora 19 */
-			pr_warn("The currect kernel doesn't support packet_diag\n");
+			pr_warn("The current kernel doesn't support packet_diag\n");
 		else
 			err = tmp;
 	}
@@ -619,7 +619,7 @@ int collect_sockets(int pid)
 	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
 	if (tmp) {
 		if (pid != 0 && tmp == -ENOENT) /* Going to be in 3.10 */
-			pr_warn("The currect kernel doesn't support netlink_diag\n");
+			pr_warn("The current kernel doesn't support netlink_diag\n");
 		else
 			err = tmp;
 	}

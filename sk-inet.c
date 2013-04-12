@@ -197,7 +197,7 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int 
 		aux = sizeof(info);
 		ret = getsockopt(lfd, SOL_TCP, TCP_INFO, &info, &aux);
 		if (ret) {
-			pr_perror("Failt to obtain TCP_INFO");
+			pr_perror("Failed to obtain TCP_INFO");
 			goto err;
 		}
 

@@ -146,7 +146,7 @@ static int dump_links(struct cr_fdset *fds)
 
 static int restore_link_cb(struct nlmsghdr *hdr, void *arg)
 {
-	pr_info("Got responce on SETLINK =)\n");
+	pr_info("Got response on SETLINK =)\n");
 	return 0;
 }
 

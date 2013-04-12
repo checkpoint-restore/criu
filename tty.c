@@ -1201,7 +1201,7 @@ int tty_prep_fds(struct cr_options *opts)
 		return 0;
 
 	if (!isatty(STDIN_FILENO)) {
-		pr_err("Standart stream is not a terminal, aborting\n");
+		pr_err("Standard stream is not a terminal, aborting\n");
 		return -1;
 	}
 

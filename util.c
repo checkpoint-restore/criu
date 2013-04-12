@@ -361,7 +361,7 @@ int clone_service_fd(int id)
 		if (ret == -1) {
 			if (errno == EBADF)
 				continue;
-			pr_perror("Unalbe to clone %d->%d\n", old, new);
+			pr_perror("Unable to clone %d->%d\n", old, new);
 		}
 	}
 

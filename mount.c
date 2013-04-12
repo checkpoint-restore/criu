@@ -606,7 +606,7 @@ static int cr_pivot_root()
 		return -1;
 	}
 	if (mkdtemp(put_root) == NULL) {
-		pr_perror("Can't create a temparary directory");
+		pr_perror("Can't create a temporary directory");
 		return -1;
 	}
 

@@ -118,7 +118,7 @@ int cr_exec(int pid, char **opt)
 
 	ret = execute_syscall(ctl, si, opt + 1);
 	if (ret < 0)
-		pr_err("Can't execure syscall remotely\n");
+		pr_err("Can't execute syscall remotely\n");
 
 	parasite_cure_seized(ctl, NULL);
 out_unseize:

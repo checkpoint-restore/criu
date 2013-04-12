@@ -62,7 +62,7 @@ static int refresh_inet_sk(struct inet_sk_desc *sk)
 	struct tcp_info info;
 
 	if (dump_opt(sk->rfd, SOL_TCP, TCP_INFO, &info)) {
-		pr_perror("Failt to obtain TCP_INFO");
+		pr_perror("Failed to obtain TCP_INFO");
 		return -1;
 	}
 
@@ -317,7 +317,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	 * Initial options
 	 */
 
-	pr_info("Reasing options for socket\n");
+	pr_info("Reading options for socket\n");
 	ret = tcp_stream_get_options(sk->rfd, &tse);
 	if (ret < 0)
 		goto err_opt;
