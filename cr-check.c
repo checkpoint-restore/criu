@@ -25,6 +25,7 @@
 #include "mount.h"
 #include "tty.h"
 #include "ptrace.h"
+#include "kerndat.h"
 
 static int check_tty(void)
 {
@@ -486,6 +487,16 @@ int check_ptrace_peeksiginfo()
 	return ret;
 }
 
+static int check_mem_dirty_track(void)
+{
+	if (kerndat_get_dirty_track() < 0)
+		return -1;
+
+	if (!kerndat_has_dirty_track)
+		pr_info("Dirty tracking is OFF. Memory snapshot will not work.\n");
+	return 0;
+}
+
 int cr_check(void)
 {
 	int ret = 0;
@@ -513,6 +524,7 @@ int cr_check(void)
 	ret |= check_ipc();
 	ret |= check_sigqueuinfo();
 	ret |= check_ptrace_peeksiginfo();
+	ret |= check_mem_dirty_track();
 
 	if (!ret)
 		pr_msg("Looks good.\n");

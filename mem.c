@@ -10,6 +10,7 @@
 #include "page-pipe.h"
 #include "page-xfer.h"
 #include "log.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -61,6 +62,12 @@ static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
 
 	if (!opts.mem_snapshot)
 		return NULL;
+
+	if (!kerndat_has_dirty_track) {
+		pr_err("Kernel doesn't support dirty tracking. "
+				"No snapshot available.\n");
+		return ERR_PTR(-1);
+	}
 
 	p_fd = get_service_fd(PARENT_FD_OFF);
 	if (p_fd < 0) {
