@@ -18,6 +18,7 @@
 #include "file-lock.h"
 #include "pstree.h"
 #include "fsnotify.h"
+#include "kerndat.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"
@@ -133,37 +134,9 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 	return 0;
 }
 
-static int is_anon_shmem_map(dev_t dev)
+static inline int is_anon_shmem_map(dev_t dev)
 {
-	static dev_t shmem_dev = 0;
-
-	if (!shmem_dev) {
-		void *map;
-		char maps[128];
-		struct stat buf;
-
-		map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-		if (map == MAP_FAILED) {
-			pr_perror("Can't mmap piggie");
-			return -1;
-		}
-
-		sprintf(maps, "/proc/%d/map_files/%lx-%lx",
-				getpid(), (unsigned long)map,
-				(unsigned long)map + PAGE_SIZE);
-		if (stat(maps, &buf) < 0) {
-			pr_perror("Can't stat piggie");
-			return -1;
-		}
-
-		munmap(map, PAGE_SIZE);
-
-		shmem_dev = buf.st_dev;
-		pr_info("Found anon-shmem piggie at %"PRIx64"\n", shmem_dev);
-	}
-
-	return shmem_dev == dev;
+	return kerndat_shmem_dev == dev;
 }
 
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)

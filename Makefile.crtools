@@ -45,6 +45,7 @@ obj-y	+= file-lock.o
 obj-y	+= page-pipe.o
 obj-y	+= page-xfer.o
 obj-y	+= page-read.o
+obj-y	+= kerndat.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y

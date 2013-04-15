@@ -58,6 +58,7 @@
 #include "elf.h"
 #include "file-lock.h"
 #include "page-xfer.h"
+#include "kerndat.h"
 
 #include "asm/dump.h"
 
@@ -1551,6 +1552,9 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	if (kerndat_init())
+		goto err;
 
 	if (cpu_init())
 		goto err;
