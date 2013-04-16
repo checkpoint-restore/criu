@@ -60,7 +60,7 @@ static int collect_shmem(int pid, VmaEntry *vi)
 		return -1;
 	}
 
-	pr_info("Add new shmem 0x%"PRIx64" (0x0160x%"PRIx64"-0x0160x%"PRIx64")",
+	pr_info("Add new shmem 0x%"PRIx64" (0x0160x%"PRIx64"-0x0160x%"PRIx64")\n",
 				vi->shmid, vi->start, vi->end);
 
 	si = &rst_shmems->entries[nr_shmems];
