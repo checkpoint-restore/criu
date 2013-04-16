@@ -357,11 +357,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 	return 0;
 }
 
-int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
+static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
-	if (opts.use_page_server)
-		return open_page_server_xfer(xfer, fd_type, id);
-
 	xfer->fd = open_image(fd_type, O_DUMP, id);
 	if (xfer->fd < 0)
 		return -1;
@@ -377,4 +374,12 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->write_hole = write_pagehole_loc;
 	xfer->close = close_page_xfer;
 	return 0;
+}
+
+int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
+{
+	if (opts.use_page_server)
+		return open_page_server_xfer(xfer, fd_type, id);
+	else
+		return open_page_local_xfer(xfer, fd_type, id);
 }
