@@ -9,8 +9,10 @@ int cr_page_server(void);
  */
 
 struct page_xfer {
-	/* transfers one vaddr:len entry with pages */
-	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov, int pipe);
+	/* transfers one vaddr:len entry */
+	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov);
+	/* transfers pages related to previous pagemap */
+	int (*write_pages)(struct page_xfer *self, int pipe, unsigned long len);
 	/* transfers one hole -- vaddr:len entry w/o pages */
 	int (*write_hole)(struct page_xfer *self, struct iovec *iov);
 	void (*close)(struct page_xfer *self);

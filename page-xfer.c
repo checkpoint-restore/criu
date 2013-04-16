@@ -216,7 +216,7 @@ int connect_to_page_server(void)
 }
 
 static int write_pagemap_to_server(struct page_xfer *xfer,
-		struct iovec *iov, int p)
+		struct iovec *iov)
 {
 	struct page_server_iov pi;
 
@@ -230,9 +230,15 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 		return -1;
 	}
 
-	pr_debug("Splicing %zu bytes / %u pages into socket\n", iov->iov_len, pi.nr_pages);
-	if (splice(p, NULL, xfer->fd, NULL, iov->iov_len,
-				SPLICE_F_MOVE) != iov->iov_len) {
+	return 0;
+}
+
+static int write_pages_to_server(struct page_xfer *xfer,
+		int p, unsigned long len)
+{
+	pr_debug("Splicing %zu bytes / %zu pages into socket\n", len, len / PAGE_SIZE);
+
+	if (splice(p, NULL, xfer->fd, NULL, len, SPLICE_F_MOVE) != len) {
 		pr_perror("Can't write pages to socket");
 		return -1;
 	}
@@ -255,6 +261,7 @@ int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	xfer->fd = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
+	xfer->write_pages = write_pages_to_server;
 	xfer->write_hole = write_hole_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
@@ -263,18 +270,20 @@ int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 }
 
 static int write_pagemap_loc(struct page_xfer *xfer,
-		struct iovec *iov, int p)
+		struct iovec *iov)
 {
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 
-	if (pb_write_one(xfer->fd, &pe, PB_PAGEMAP) < 0)
-		return -1;
+	return pb_write_one(xfer->fd, &pe, PB_PAGEMAP);
+}
 
-	if (splice(p, NULL, xfer->fd_pg, NULL, iov->iov_len,
-				SPLICE_F_MOVE) != iov->iov_len)
+static int write_pages_loc(struct page_xfer *xfer,
+		int p, unsigned long len)
+{
+	if (splice(p, NULL, xfer->fd_pg, NULL, len, SPLICE_F_MOVE) != len)
 		return -1;
 
 	return 0;
@@ -334,7 +343,9 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 			pr_debug("\t%p [%u]\n", iov->iov_base,
 					(unsigned int)(iov->iov_len / PAGE_SIZE));
 
-			if (xfer->write_pagemap(xfer, iov, ppb->p[0]))
+			if (xfer->write_pagemap(xfer, iov))
+				return -1;
+			if (xfer->write_pages(xfer, ppb->p[0], iov->iov_len))
 				return -1;
 		}
 	}
@@ -369,6 +380,7 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 	}
 
 	xfer->write_pagemap = write_pagemap_loc;
+	xfer->write_pages = write_pages_loc;
 	xfer->write_hole = write_pagehole_loc;
 	xfer->close = close_page_xfer;
 	return 0;
