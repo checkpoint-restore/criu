@@ -2,10 +2,20 @@
 #define __CR_PAGE_XFER__H__
 int cr_page_server(void);
 
+/*
+ * page_xfer -- transfer pages into image file.
+ * Two images backends are implemented -- local image file
+ * and page-server image file.
+ */
+
 struct page_xfer {
+	/* transfers one vaddr:len entry with pages */
 	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov, int pipe);
+	/* transfers one hole -- vaddr:len entry w/o pages */
 	int (*write_hole)(struct page_xfer *self, struct iovec *iov);
 	void (*close)(struct page_xfer *self);
+
+	/* private data for every page-xfer engine */
 	int fd;
 	union {
 		int fd_pg;
