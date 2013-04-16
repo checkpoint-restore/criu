@@ -99,8 +99,11 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 
 static int page_server_serve(int sk)
 {
+	int ret = -1;
+
 	if (pipe(cxfer.p)) {
 		pr_perror("Can't make pipe for xfer");
+		close(sk);
 		return -1;
 	}
 
@@ -108,7 +111,6 @@ static int page_server_serve(int sk)
 	pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 
 	while (1) {
-		int ret;
 		struct page_server_iov pi;
 
 		ret = read(sk, &pi, sizeof(pi));
@@ -117,7 +119,8 @@ static int page_server_serve(int sk)
 
 		if (ret != sizeof(pi)) {
 			pr_perror("Can't read pagemap from socket");
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		switch (pi.cmd) {
@@ -131,16 +134,18 @@ static int page_server_serve(int sk)
 		}
 
 		if (ret)
-			return -1;
+			break;
 	}
 
 	pr_info("Session over\n");
-	return 0;
+
+	close(sk);
+	return ret;
 }
 
 int cr_page_server(void)
 {
-	int sk, ask;
+	int sk, ask = -1;
 	struct sockaddr_in caddr;
 	socklen_t clen = sizeof(caddr);
 
@@ -158,21 +163,23 @@ int cr_page_server(void)
 	opts.ps_addr.sin_family = AF_INET;
 	if (bind(sk, (struct sockaddr *)&opts.ps_addr, sizeof(opts.ps_addr))) {
 		pr_perror("Can't bind page server\n");
-		return -1;
+		goto out;
 	}
 
 	if (listen(sk, 1)) {
 		pr_perror("Can't listen on page server socket");
-		return -1;
+		goto out;
 	}
 
 	ask = accept(sk, (struct sockaddr *)&caddr, &clen);
-	if (ask < 0) {
+	if (ask < 0)
 		pr_perror("Can't accept connection to server");
-		return -1;
-	}
 
+out:
 	close(sk);
+
+	if (ask < 0)
+		return -1;
 
 	pr_info("Accepted connection from %s:%u\n",
 			inet_ntoa(caddr.sin_addr),
