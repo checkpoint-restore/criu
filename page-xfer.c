@@ -52,7 +52,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 {
 	size_t len;
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
-	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+	struct iovec iov;
 
 	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
 
@@ -68,15 +68,15 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 		cxfer.dst_id = pi->dst_id;
 	}
 
-	pe.vaddr = pi->vaddr;
-	pe.nr_pages = pi->nr_pages;
+	iov.iov_base = decode_pointer(pi->vaddr);
+	iov.iov_len = pi->nr_pages * PAGE_SIZE;
 
-	if (pb_write_one(lxfer->fd, &pe, PB_PAGEMAP) < 0)
+	if (lxfer->write_pagemap(lxfer, &iov))
 		return -1;
 
-	len = pe.nr_pages * PAGE_SIZE;
+	len = iov.iov_len;
 	while (len > 0) {
-		ssize_t ret, chunk;
+		ssize_t chunk;
 
 		chunk = len;
 		if (chunk > cxfer.pipe_size)
@@ -88,15 +88,8 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 			return -1;
 		}
 
-		ret = splice(cxfer.p[0], NULL, lxfer->fd_pg, NULL, chunk, SPLICE_F_MOVE);
-		if (ret < 0) {
-			pr_perror("Can't put pages into file");
+		if (lxfer->write_pages(lxfer, cxfer.p[0], chunk))
 			return -1;
-		}
-		if (ret != chunk) {
-			pr_perror("Partial image write %zd/%zd\n", ret, chunk);
-			return -1;
-		}
 
 		len -= chunk;
 	}
