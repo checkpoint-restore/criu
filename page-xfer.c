@@ -309,13 +309,15 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 	struct page_pipe_buf *ppb;
 	struct iovec *hole = NULL;
 
+	pr_debug("Transfering pages:\n");
+
 	if (pp->free_hole)
 		hole = &pp->holes[0];
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		int i;
 
-		pr_debug("Dump shmem pages %d/%d\n", ppb->pages_in, ppb->nr_segs);
+		pr_debug("\tbuf %d/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec *iov = &ppb->iov[i];
@@ -333,7 +335,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 			BUG_ON(iov->iov_base < (void *)off);
 			iov->iov_base -= off;
-			pr_debug("\t%p [%u]\n", iov->iov_base,
+			pr_debug("\tp %p [%u]\n", iov->iov_base,
 					(unsigned int)(iov->iov_len / PAGE_SIZE));
 
 			if (xfer->write_pagemap(xfer, iov))
