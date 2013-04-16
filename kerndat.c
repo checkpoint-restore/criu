@@ -58,12 +58,13 @@ int kerndat_get_dirty_track(void)
 	char *map;
 	int pm2;
 	u64 pmap = 0;
+	int ret = -1;
 
 	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (map == MAP_FAILED) {
 		pr_perror("Can't mmap piggie2");
-		return -1;
+		return ret;
 	}
 
 	map[0] = '\0';
@@ -71,11 +72,15 @@ int kerndat_get_dirty_track(void)
 	pm2 = open("/proc/self/pagemap2", O_RDONLY);
 	if (pm2 < 0) {
 		pr_perror("Can't open pagemap2 file");
-		return -1;
+		return ret;
 	}
 
 	lseek(pm2, (unsigned long)map / PAGE_SIZE * sizeof(u64), SEEK_SET);
-	read(pm2, &pmap, sizeof(pmap));
+	ret = read(pm2, &pmap, sizeof(pmap));
+	if (ret < 0){
+		pr_perror("Read pmap err!");
+	}
+
 	close(pm2);
 	munmap(map, PAGE_SIZE);
 
