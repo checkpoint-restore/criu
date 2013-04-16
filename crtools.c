@@ -367,10 +367,10 @@ usage:
 	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
 	pr_msg("  -d|--restore-detached detach after restore\n");
 	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
-	pr_msg("  -R|--leave-running    leave tasks in running state after checkpoint\n");
+	pr_msg("  -R|--leave-running    leave tasks in running state after checkpoint (useful with --snapshot)\n");
 	pr_msg("  -D|--images-dir       directory where to put images to\n");
 	pr_msg("     --pidfile [FILE]	write a pid of a root task in this file\n");
-	pr_msg("     --snapshot <[DIR]> create snapshot (relative to DIR images if given)\n");
+	pr_msg("     --snapshot <[DIR]> create snapshot (relative to DIR images if given) (for 'dump' command)\n");
 
 	pr_msg("\n* Special resources support:\n");
 	pr_msg("  -x|--%s      allow external unix connections\n", USK_EXT_PARAM);
@@ -402,7 +402,7 @@ usage:
 	pr_msg("  -vvvv          same as -v 4\n");
 
 	pr_msg("\nPage server options\n");
-	pr_msg("  --page-server         send pages to page server\n");
+	pr_msg("  --page-server         send pages to page server (for 'dump' command)\n");
 	pr_msg("  --address [ADDR]      address of page server\n");
 	pr_msg("  --port [PORT]         port of page server\n");
 
