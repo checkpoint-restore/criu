@@ -68,8 +68,6 @@ int main(int argc, char *argv[])
 	int log_inited = 0;
 	int log_level = 0;
 
-	static const char short_opts[] = "dsRf:t:p:hcD:o:n:vxVr:jl";
-
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
 	cr_pb_init();
@@ -86,6 +84,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	while (1) {
+		static const char short_opts[] = "dsRf:t:p:hcD:o:n:vxVr:jl";
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
