@@ -20,6 +20,16 @@
 #define PME_FILE	(1ULL << 61)
 #define PME_SOFT_DIRTY	(1Ull << 55)
 
+/*
+ * On dump we suck in the whole parent pagemap. Then, when observing
+ * a page with soft-dirty bit cleared (i.e. -- not modified) we check
+ * this map for this page presense.
+ *
+ * Since we scan the address space from vaddr 0 to 0xF..F, we can do
+ * linear search in parent pagemap and the rover variables helps us
+ * do it.
+ */
+
 struct mem_snap_ctx {
 	unsigned long nr_iovs;
 	struct iovec *iovs;
