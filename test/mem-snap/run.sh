@@ -40,7 +40,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 		args="--snapshot=../$((SNAP - 1))/ -R"
 	fi
 
-	${CRTOOLS} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} $args || fail "Fail to dump"
+	${CRTOOLS} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v 4 $args || fail "Fail to dump"
 done
 
 echo "Restoring"
