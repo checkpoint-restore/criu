@@ -53,10 +53,28 @@ static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_
 }
 
 struct file_desc_ops {
+	/* fd_types from protobuf/fdinfo.proto */
 	unsigned int		type;
+	/*
+	 * Opens a file by whatever syscall is required for that.
+	 * The returned descriptor may be closed (dup2-ed to another)
+	 * so it shouldn't be saved for any post-actions.
+	 */
 	int			(*open)(struct file_desc *d);
+	/*
+	 * Called on a file when all files of that type are opened
+	 * and with the fd being the "restored" one.
+	 */
 	int			(*post_open)(struct file_desc *d, int fd);
+	/*
+	 * Report whether the fd in question wants a transport socket
+	 * in it instead of a real file.
+	 */
 	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
+	/*
+	 * Helps determining sequence of different file types restore.
+	 * See the prepare_fds for details.
+	 */
 	struct list_head *	(*select_ps_list)(struct file_desc *, struct rst_info *);
 };
 
