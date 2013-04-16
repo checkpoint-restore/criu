@@ -26,7 +26,6 @@ struct page_xfer {
 };
 
 int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
-int open_page_server_xfer(struct page_xfer *, int fd_type, long id);
 struct page_pipe;
 int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
 		unsigned long off);

@@ -250,7 +250,7 @@ static void close_server_xfer(struct page_xfer *xfer)
 	xfer->fd = -1;
 }
 
-int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
+static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	xfer->fd = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
