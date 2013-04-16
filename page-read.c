@@ -36,6 +36,12 @@ static int read_page(struct page_read *pr, unsigned long vaddr, void *buf)
 	return 1;
 }
 
+static inline void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
+{
+	iov->iov_base = decode_pointer(pe->vaddr);
+	iov->iov_len = pe->nr_pages * PAGE_SIZE;
+}
+
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
 	int ret;
@@ -45,8 +51,7 @@ static int get_pagemap(struct page_read *pr, struct iovec *iov)
 	if (ret <= 0)
 		return ret;
 
-	iov->iov_base = decode_pointer(pe->vaddr);
-	iov->iov_len = pe->nr_pages * PAGE_SIZE;
+	pagemap2iovec(pe, iov);
 
 	pr->pe = pe;
 	pr->cvaddr = (unsigned long)iov->iov_base;
@@ -82,10 +87,9 @@ static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vad
 	int ret;
 	struct iovec iov;
 
-	if (pr->pe) {
-		iov.iov_base = decode_pointer(pr->pe->vaddr);
-		iov.iov_len = pr->pe->nr_pages * PAGE_SIZE;
-	} else
+	if (pr->pe)
+		pagemap2iovec(pr->pe, &iov);
+	else
 		goto new_pagemap;
 
 	while (1) {
