@@ -221,7 +221,7 @@ void show_pagemap(int fd, struct cr_options *o)
 		return;
 	pr_msg("Pages id: %u\n", h->pages_id);
 	pagemap_head__free_unpacked(h, NULL);
-	return pb_show_plain(fd, PB_PAGEMAP);
+	return pb_show_plain_pretty(fd, PB_PAGEMAP, "2:%u");
 }
 
 void show_siginfo(int fd, struct cr_options *o)
