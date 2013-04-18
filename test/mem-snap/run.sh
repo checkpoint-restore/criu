@@ -1,7 +1,16 @@
 #!/bin/bash
 
+USEPS=0
+
+if [ "$1" = "-s" ]; then
+	echo "Will test via page-server"
+	USEPS=1
+	shift
+fi
+
 NRSNAP=${1:-3}
 SPAUSE=${2:-4}
+PORT=12345
 
 function fail {
 	echo "$@"
@@ -40,7 +49,18 @@ for SNAP in $(seq 1 $NRSNAP); do
 		args="--snapshot=../$((SNAP - 1))/ -R"
 	fi
 
-	${CRTOOLS} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v 4 $args || fail "Fail to dump"
+	if [ $USEPS -eq 1 ]; then
+		${CRTOOLS} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --port ${PORT} -v 4 &
+		PS_PID=$!
+		ps_args="--page-server --address 127.0.0.1 --port=${PORT}"
+	else
+		ps_args=""
+	fi
+
+	${CRTOOLS} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v 4 $args $ps_args || fail "Fail to dump"
+	if [ $USEPS -eq 1 ]; then
+		wait $PS_PID
+	fi
 done
 
 echo "Restoring"

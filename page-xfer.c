@@ -18,6 +18,7 @@ struct page_server_iov {
 };
 
 #define PS_IOV_ADD	1
+#define PS_IOV_HOLE	2
 
 #define PS_TYPE_BITS	4
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
@@ -48,14 +49,8 @@ static struct page_xfer_job cxfer = {
 	.dst_id = ~0,
 };
 
-static int page_server_add(int sk, struct page_server_iov *pi)
+static int prep_loc_xfer(struct page_server_iov *pi)
 {
-	size_t len;
-	struct page_xfer *lxfer = &cxfer.loc_xfer;
-	struct iovec iov;
-
-	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
-
 	if (cxfer.dst_id != pi->dst_id) {
 		if (cxfer.dst_id != ~0)
 			cxfer.loc_xfer.close(&cxfer.loc_xfer);
@@ -67,6 +62,20 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 
 		cxfer.dst_id = pi->dst_id;
 	}
+
+	return 0;
+}
+
+static int page_server_add(int sk, struct page_server_iov *pi)
+{
+	size_t len;
+	struct page_xfer *lxfer = &cxfer.loc_xfer;
+	struct iovec iov;
+
+	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
+
+	if (prep_loc_xfer(pi))
+		return -1;
 
 	iov.iov_base = decode_pointer(pi->vaddr);
 	iov.iov_len = pi->nr_pages * PAGE_SIZE;
@@ -93,6 +102,25 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 
 		len -= chunk;
 	}
+
+	return 0;
+}
+
+static int page_server_hole(int sk, struct page_server_iov *pi)
+{
+	struct page_xfer *lxfer = &cxfer.loc_xfer;
+	struct iovec iov;
+
+	pr_debug("Adding %"PRIx64"/%u hole\n", pi->vaddr, pi->nr_pages);
+
+	if (prep_loc_xfer(pi))
+		return -1;
+
+	iov.iov_base = decode_pointer(pi->vaddr);
+	iov.iov_len = pi->nr_pages * PAGE_SIZE;
+
+	if (lxfer->write_hole(lxfer, &iov))
+		return -1;
 
 	return 0;
 }
@@ -126,6 +154,9 @@ static int page_server_serve(int sk)
 		switch (pi.cmd) {
 		case PS_IOV_ADD:
 			ret = page_server_add(sk, &pi);
+			break;
+		case PS_IOV_HOLE:
+			ret = page_server_hole(sk, &pi);
 			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
@@ -248,8 +279,19 @@ static int write_pages_to_server(struct page_xfer *xfer,
 
 static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 {
-	pr_err("Writing holes to server not implemented.\n");
-	return -1;
+	struct page_server_iov pi;
+
+	pi.cmd = PS_IOV_HOLE;
+	pi.dst_id = xfer->dst_id;
+	pi.vaddr = encode_pointer(iov->iov_base);
+	pi.nr_pages = iov->iov_len / PAGE_SIZE;
+
+	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write pagehole to server\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
