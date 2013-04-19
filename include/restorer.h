@@ -164,6 +164,13 @@ enum {
 	CR_STATE_RESTORE_PGID,
 	CR_STATE_RESTORE,
 	CR_STATE_RESTORE_SIGCHLD,
+	/*
+	 * For security reason processes can be resumed only when all
+	 * credentials are restored. Otherwise someone can attach to a
+	 * process, which are not restored credentials yet and execute
+	 * some code.
+	 */
+	CR_STATE_RESTORE_CREDS,
 	CR_STATE_COMPLETE
 };
 

@@ -53,6 +53,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 			sys_getpid(), siginfo->si_pid, siginfo->si_pid);
 		futex_dec_and_wake(&task_entries->nr_in_progress);
 		futex_dec_and_wake(&zombies_inprogress);
+		task_entries->nr_threads--;
+		task_entries->nr_tasks--;
 		mutex_unlock(&task_entries->zombie_lock);
 		return;
 	}
@@ -264,6 +266,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
@@ -757,12 +760,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	if (ret)
 		goto core_restore_end;
 
-	futex_set_and_wake(&thread_inprogress, args->nr_threads);
-
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
-
-	/* Wait until children stop to use args->task_entries */
-	futex_wait_while_gt(&thread_inprogress, 1);
 
 	if (args->siginfo_size) {
 		ret = sys_munmap(args->siginfo, args->siginfo_size);
@@ -781,6 +779,13 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 */
 
 	restore_creds(&args->creds);
+
+	futex_set_and_wake(&thread_inprogress, args->nr_threads);
+
+	restore_finish_stage(CR_STATE_RESTORE_CREDS);
+
+	/* Wait until children stop to use args->task_entries */
+	futex_wait_while_gt(&thread_inprogress, 1);
 
 	log_set_fd(-1);
 

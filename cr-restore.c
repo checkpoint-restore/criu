@@ -1159,6 +1159,8 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_RESTORE:
 	case CR_STATE_RESTORE_SIGCHLD:
 		return task_entries->nr_threads;
+	case CR_STATE_RESTORE_CREDS:
+		return task_entries->nr_threads;
 	}
 
 	BUG();
@@ -1239,8 +1241,13 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	if (ret < 0)
 		goto out;
 
-	pr_info("Wait until all tasks are restored\n");
+	pr_info("Wait until all tasks restored sigchld handlers\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
+	if (ret < 0)
+		goto out;
+
+	pr_info("Wait until all tasks are restored\n");
+	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	if (ret < 0)
 		goto out;
 
