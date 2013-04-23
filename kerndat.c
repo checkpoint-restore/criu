@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <errno.h>
 
 #include "log.h"
 #include "kerndat.h"
@@ -71,6 +72,12 @@ int kerndat_get_dirty_track(void)
 
 	pm2 = open("/proc/self/pagemap2", O_RDONLY);
 	if (pm2 < 0) {
+		munmap(map, PAGE_SIZE);
+		if (errno == ENOENT) {
+			pr_info("No pagemap2 file\n");
+			return 0;
+		}
+
 		pr_perror("Can't open pagemap2 file");
 		return ret;
 	}
