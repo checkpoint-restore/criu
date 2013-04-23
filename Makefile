@@ -14,7 +14,7 @@ export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
 # In future zdtm makefiles need to be fixed and the line below
 # may be uncommented.
 #
-#MAKEFLAGS := -r -R --no-print-directory
+#MAKEFLAGS := -r -R
 
 include Makefile.inc
 
@@ -106,8 +106,8 @@ include scripts/Makefile.rules
 
 #
 # shorthand
-build := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile obj
-build-crtools := -r -R --no-print-directory -f scripts/Makefile.build makefile=Makefile.crtools obj
+build := -r -R -f scripts/Makefile.build makefile=Makefile obj
+build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 
 PROGRAM		:= crtools
 
