@@ -88,13 +88,14 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 				pid, ppid, ps.ppid);
 		goto err;
 	}
-try_again:
+
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
 		pr_perror("SEIZE %d: can't interrupt task", pid);
 		goto err;
 	}
 
+try_again:
 	ret = wait4(pid, &status, __WALL, NULL);
 	if (ret < 0) {
 		pr_perror("SEIZE %d: can't wait task", pid);
