@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 			{ "address", required_argument, 0, 51},
 			{ "port", required_argument, 0, 52},
 			{ "snapshot", optional_argument, 0, 53},
+			{ "ms", no_argument, 0, 54},
 			{ },
 		};
 
@@ -264,6 +265,9 @@ int main(int argc, char *argv[])
 			opts.mem_snapshot = true;
 			opts.snap_parent = optarg;
 			break;
+		case 54:
+			opts.check_ms_kernel = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", version);
 			return 0;
@@ -413,6 +417,7 @@ usage:
 	pr_msg("\nOther options:\n");
 	pr_msg("  -h|--help             show this text\n");
 	pr_msg("  -V|--version          show version\n");
+	pr_msg("     --ms               don't check not yet merged kernel features\n");
 
 	return -1;
 

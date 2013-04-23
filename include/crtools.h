@@ -100,6 +100,7 @@ struct script {
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
+	bool			check_ms_kernel;
 	bool			show_pages_content;
 	bool			restore_detach;
 	bool			ext_unix_sk;

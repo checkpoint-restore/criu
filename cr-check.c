@@ -459,6 +459,11 @@ int check_ptrace_peeksiginfo()
 	siginfo_t siginfo;
 	pid_t pid, ret = 0;
 
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping peeking siginfos check (not yet merged)\n");
+		return 0;
+	}
+
 	pid = fork();
 	if (pid < 0)
 		pr_perror("fork");
@@ -489,11 +494,16 @@ int check_ptrace_peeksiginfo()
 
 static int check_mem_dirty_track(void)
 {
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping dirty tracking check (not yet merged)\n");
+		return 0;
+	}
+
 	if (kerndat_get_dirty_track() < 0)
 		return -1;
 
 	if (!kerndat_has_dirty_track)
-		pr_info("Dirty tracking is OFF. Memory snapshot will not work.\n");
+		pr_warn("Dirty tracking is OFF. Memory snapshot will not work.\n");
 	return 0;
 }
 

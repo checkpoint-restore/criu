@@ -612,6 +612,11 @@ int collect_sockets(int pid)
 			err = tmp;
 	}
 
+	if (pid == 0 && opts.check_ms_kernel) {
+		pr_warn("Skipping netling diag check (not yet merged)\n");
+		goto skip;
+	}
+
 	req.r.n.sdiag_family	= AF_NETLINK;
 	req.r.n.sdiag_protocol	= NDIAG_PROTO_ALL;
 	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
@@ -621,7 +626,7 @@ int collect_sockets(int pid)
 		if (pid == 0 || tmp != -ENOENT) /* Going to be in 3.10 */
 			err = tmp;
 	}
-
+skip:
 	close(nl);
 out:
 	if (rst >= 0) {
