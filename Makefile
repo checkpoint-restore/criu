@@ -24,13 +24,10 @@ include Makefile.inc
 
 FIND		:= find
 CSCOPE		:= cscope
-TAGS		:= ctags
 RM		:= rm -f
 LD		:= ld
 CC		?= gcc
-ECHO		:= echo
 NM		:= nm
-AWK		:= awk
 SH		:= bash
 MAKE		:= make
 OBJCOPY		:= objcopy
@@ -98,7 +95,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
 ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
 
-export CC ECHO MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
+export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export cflags-y
 
