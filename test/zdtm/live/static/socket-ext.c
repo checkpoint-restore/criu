@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 			err("Can't bind socket to %s", path);
 			return 1;
 		}
+		chmod(path, 0777);
 		test_msg("The external socket %s\n", path);
 		task_waiter_complete(&lock, 1);
 		task_waiter_fini(&lock);
