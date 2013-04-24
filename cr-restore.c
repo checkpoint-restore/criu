@@ -2025,7 +2025,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			thread_args[i].futex_rla	= tcore->thread_core->futex_rla;
 			thread_args[i].futex_rla_len	= tcore->thread_core->futex_rla_len;
 			thread_args[i].has_blk_sigset	= tcore->thread_core->has_blk_sigset;
-			thread_args[i].blk_sigset	= tcore->thread_core->blk_sigset;
+			memcpy(&thread_args[i].blk_sigset,
+				&tcore->thread_core->blk_sigset, sizeof(k_rtsigset_t));
 
 			ret = prep_sched_info(&thread_args[i].sp, tcore->thread_core);
 			if (ret)
@@ -2045,7 +2046,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	}
 
-	task_args->t->blk_sigset	= core->tc->blk_sigset;
+	memcpy(&task_args->t->blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
 	task_args->t->has_blk_sigset	= true;
 
 	/*
