@@ -5,6 +5,8 @@
 #include <sys/syscall.h>
 #include <pthread.h>
 #include <string.h>
+#include <limits.h>
+
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check pending signals";
@@ -86,13 +88,18 @@ static int thread_id;
 
 static void *thread_fn(void *args)
 {
-	sigset_t blockmask;
+	sigset_t blockmask, oldset, newset;
 	struct sigaction act;
 
 	sigfillset(&blockmask);
 	sigdelset(&blockmask, SIGTERM);
 
 	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
+		err("sigprocmask");
+		return NULL;
+	}
+
+	if (sigprocmask(SIG_BLOCK, NULL, &oldset) == -1) {
 		err("sigprocmask");
 		return NULL;
 	}
@@ -113,9 +120,14 @@ static void *thread_fn(void *args)
 	pthread_mutex_unlock(&init_lock);
 	pthread_mutex_lock(&exit_lock);
 
-	if (sigprocmask(SIG_UNBLOCK, &blockmask, NULL) == -1) {
+	if (sigprocmask(SIG_UNBLOCK, &blockmask, &newset) == -1) {
 		err("sigprocmask");
 		return NULL;
+	}
+
+	if (!memcmp(&newset, &oldset, sizeof(newset))) {
+		fail("The signal blocking mask was changed");
+		numsig = INT_MAX;
 	}
 
 	return NULL;
@@ -144,7 +156,7 @@ int send_siginfo(int signo, pid_t pid, pid_t tid, int group, siginfo_t *info)
 
 int main(int argc, char ** argv)
 {
-	sigset_t blockmask;
+	sigset_t blockmask, oldset, newset;
 	struct sigaction act;
 	pthread_t pthrd;
 	int i;
@@ -166,6 +178,11 @@ int main(int argc, char ** argv)
 	sigdelset(&blockmask, SIGTERM);
 
 	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
+		err("sigprocmask");
+		return -1;
+	}
+
+	if (sigprocmask(SIG_BLOCK, &oldset, NULL) == -1) {
 		err("sigprocmask");
 		return -1;
 	}
@@ -218,12 +235,17 @@ int main(int argc, char ** argv)
 
 	test_waitsig();
 
-	if (sigprocmask(SIG_UNBLOCK, &blockmask, NULL) == -1) {
+	if (sigprocmask(SIG_UNBLOCK, &blockmask, &newset) == -1) {
 		err("sigprocmask");
 		return -1;
 	}
 	pthread_mutex_unlock(&exit_lock);
 	pthread_join(pthrd, NULL);
+
+	if (!memcmp(&newset, &oldset, sizeof(newset))) {
+		fail("The signal blocking mask was changed");
+		return 1;
+	}
 
 	if (numsig == sent_sigs)
 		pass();
