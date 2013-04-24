@@ -131,6 +131,21 @@ static/sigpending
 static/sk-netlink
 "
 
+TEST_SUID_LIST="
+pid00
+caps00
+maps01
+groups
+sched_prio00
+sched_policy00
+sock_opts00
+sock_opts01
+cmdlinenv00
+packet_sock
+fanotify00
+sk-netlink
+"
+
 CRTOOLS=$(readlink -f `dirname $0`/../crtools)
 CRTOOLS_CPT=$CRTOOLS
 TMP_TREE=""
@@ -215,6 +230,15 @@ start_test()
 
 	killall -9 $tname > /dev/null 2>&1
 	make -C $tdir $tname.cleanout
+
+	unset ZDTM_UID
+	unset ZDTM_GID
+
+	echo $TEST_SUID_LIST | grep $tname || {
+		export ZDTM_UID=18943
+		export ZDTM_GID=58467
+		chown $ZDTM_UID:$ZDTM_GID $tdir
+	}
 
 	if [ -z "$PIDNS" ]; then
 		make -C $tdir $tname.pid

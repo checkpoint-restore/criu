@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (setresuid(-1, 1, -1)) {
+	if (!getuid() && setresuid(-1, 1, -1)) {
 		fail("setresuid failed\n");
 		exit(1);
 	}

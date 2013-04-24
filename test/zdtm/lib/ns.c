@@ -72,6 +72,7 @@ static int prepare_mntns()
 			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
 			return -1;
 		}
+		chmod("/dev/ptmx", 0666);
 		if (mkdir("/dev/pts", 0755) && errno != EEXIST) {
 			fprintf(stderr, "mkdir(/dev/pts) failed: %m\n");
 			return -1;
@@ -88,6 +89,7 @@ static int prepare_mntns()
 
 	mkdir("/dev", 0777);
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
+	chmod("/dev/null", 0777);
 	return 0;
 }
 

@@ -58,14 +58,21 @@ int main(int argc, char ** argv)
 		mode = (fst.st_mode | S_IXOTH);
 	else
 		mode = (fst.st_mode ^ S_IXOTH);
+
 	if (fchmod(fd, mode) < 0) {
 		err("can't chmod %s: %m\n", filename);
 		goto failed;
 	}
-	/* Change uid, gid */
-	if (fchown(fd, (uid = fst.st_uid + 1), (gid = fst.st_gid + 1)) < 0) {
-		err("can't chown %s: %m\n", filename);
-		goto failed;
+
+	if (getuid()) {
+		uid = getuid();
+		gid = getgid();
+	} else {
+		/* Change uid, gid */
+		if (fchown(fd, (uid = fst.st_uid + 1), (gid = fst.st_gid + 1)) < 0) {
+			err("can't chown %s: %m\n", filename);
+			goto failed;
+		}
 	}
 
 	if (lseek(fd, 0, SEEK_SET) != 0) {

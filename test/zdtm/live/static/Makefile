@@ -248,7 +248,7 @@ cleanout:
 	$(RM) -f -r *.pid *.out* *.test* *.state
 
 %.cleanout: %
-	$(RM) -f -r $<.pid $<.out* $<.test* $<.*.test $<.state
+	$(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state
 
 realclean:	cleandep cleanout
 

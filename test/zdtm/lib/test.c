@@ -126,6 +126,18 @@ void test_init(int argc, char **argv)
 		exit(1);
 	}
 
+	val = getenv("ZDTM_GID");
+	if (val && (setgid(atoi(val)) == -1)) {
+		fprintf(stderr, "Can't set gid: %m");
+		exit(1);
+	}
+
+	val = getenv("ZDTM_UID");
+	if (val && (setuid(atoi(val)) == -1)) {
+		fprintf(stderr, "Can't set gid: %m");
+		exit(1);
+	}
+
 	if (sigaction(SIGTERM, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
 		exit(1);
