@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/prctl.h>
+#include <linux/capability.h>
 
 #include "zdtmtst.h"
 
@@ -61,6 +63,11 @@ int main(int argc, char **argv)
 		struct cap_data data[_LINUX_CAPABILITY_U32S_3];
 		struct cap_data data_2[_LINUX_CAPABILITY_U32S_3];
 
+		if (prctl(PR_CAPBSET_DROP, CAP_SETPCAP, 0, 0, 0)) {
+			err("PR_CAPBSET_DROP");
+			return -1;
+		}
+
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
 
@@ -111,6 +118,11 @@ int main(int argc, char **argv)
 		}
 		if (data[1].inh != data_2[1].inh) {
 			res = '4';
+			goto bad;
+		}
+
+		if (prctl(PR_CAPBSET_READ, CAP_SETPCAP, 0, 0, 0) != 0) {
+			res='5';
 			goto bad;
 		}
 
