@@ -379,18 +379,23 @@ static int check_unaligned_vmsplice(void)
 	ret = pipe(p);
 	if (ret < 0) {
 		pr_perror("Can't create pipe");
-		return -1;
+		return ret;
 	}
 	iov.iov_base = &buf;
 	iov.iov_len = sizeof(buf);
 	ret = vmsplice(p[1], &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 	if (ret < 0) {
 		pr_perror("Unaligned vmsplice doesn't work");
-		return -1;
+		goto err;
 	}
 
 	pr_info("Unaligned vmsplice works OK\n");
-	return 0;
+	ret = 0;
+err:
+	close(p[0]);
+	close(p[1]);
+
+	return ret;
 }
 
 #ifndef SO_GET_FILTER
