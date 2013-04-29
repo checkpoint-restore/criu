@@ -40,6 +40,7 @@
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
 static futex_t zombies_inprogress;
+static int cap_last_cap;
 
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
@@ -74,9 +75,9 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	sys_exit_group(1);
 }
 
-static void restore_creds(CredsEntry *ce)
+static int restore_creds(CredsEntry *ce)
 {
-	int b, i;
+	int b, i, ret;
 	struct cap_header hdr;
 	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
 
@@ -89,7 +90,11 @@ static void restore_creds(CredsEntry *ce)
 	 * lose caps bits when changing xids.
 	 */
 
-	sys_prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP, 0, 0, 0);
+	ret = sys_prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set SECURE_NO_SETUID_FIXUP: %d\n", ret);
+		return -1;
+	}
 
 	/*
 	 * Second -- restore xids. Since we still have the CAP_SETUID
@@ -97,17 +102,40 @@ static void restore_creds(CredsEntry *ce)
 	 * to override the setresXid settings.
 	 */
 
-	sys_setresuid(ce->uid, ce->euid, ce->suid);
+	ret = sys_setresuid(ce->uid, ce->euid, ce->suid);
+	if (ret) {
+		pr_err("Unable to set real, effective and saved user ID: %d\n", ret);
+		return -1;
+	}
+
 	sys_setfsuid(ce->fsuid);
-	sys_setresgid(ce->gid, ce->egid, ce->sgid);
+	if (sys_setfsuid(-1) != ce->fsuid) {
+		pr_err("Unable to set fsuid\n");
+		return -1;
+	}
+
+	ret = sys_setresgid(ce->gid, ce->egid, ce->sgid);
+	if (ret) {
+		pr_err("Unable to set real, effective and saved group ID: %d\n", ret);
+		return -1;
+	}
+
 	sys_setfsgid(ce->fsgid);
+	if (sys_setfsgid(-1) != ce->fsgid) {
+		pr_err("Unable to set fsgid\n");
+		return -1;
+	}
 
 	/*
 	 * Third -- restore securebits. We don't need them in any
 	 * special state any longer.
 	 */
 
-	sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
+	ret = sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set PR_SET_SECUREBITS: %d\n", ret);
+		return -1;
+	}
 
 	/*
 	 * Fourth -- trim bset. This can only be done while
@@ -116,11 +144,17 @@ static void restore_creds(CredsEntry *ce)
 
 	for (b = 0; b < CR_CAP_SIZE; b++) {
 		for (i = 0; i < 32; i++) {
+			if (b * 32 + i > cap_last_cap)
+				break;
 			if (ce->cap_bnd[b] & (1 << i))
 				/* already set */
 				continue;
-
-			sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
+			ret = sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
+			if (ret) {
+				pr_err("Unable to drop capability %d: %d\n",
+								i + b * 32, ret);
+				return -1;
+			}
 		}
 	}
 
@@ -140,7 +174,13 @@ static void restore_creds(CredsEntry *ce)
 		data[i].inh = ce->cap_inh[i];
 	}
 
-	sys_capset(&hdr, data);
+	ret = sys_capset(&hdr, data);
+	if (ret) {
+		pr_err("Unable to restore capabilities: %d\n", ret);
+		return -1;
+	}
+
+	return 0;
 }
 
 static void restore_sched_info(struct rst_sched_param *p)
@@ -242,6 +282,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp;
 	int my_pid = sys_gettid();
+	int ret;
 
 	if (my_pid != args->pid) {
 		pr_err("Thread pid mismatch %d/%d\n", my_pid, args->pid);
@@ -255,8 +296,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	mutex_unlock(&args->ta->rst_lock);
 
-	restore_creds(&args->ta->creds);
-
+	ret = restore_creds(&args->ta->creds);
+	if (ret)
+		goto core_restore_end;
 
 	pr_info("%ld: Restored\n", sys_gettid());
 
@@ -465,6 +507,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	log_set_fd(args->logfd);
 	log_set_loglevel(args->loglevel);
+
+	cap_last_cap = args->cap_last_cap;
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
@@ -778,11 +822,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * thus restore* creds _after_ all of the above.
 	 */
 
-	restore_creds(&args->creds);
+	ret = restore_creds(&args->creds);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
+
+	if (ret)
+		BUG();
 
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);
