@@ -2033,7 +2033,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				goto err;
 		}
 
-		if (sigreturn_prep_fpu_frame(&thread_args[i], core))
+		if (sigreturn_prep_fpu_frame(&thread_args[i], tcore))
 			goto err;
 
 		if (thread_args[i].pid != pid)
