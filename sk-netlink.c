@@ -51,7 +51,7 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 		sd->gsize = RTA_PAYLOAD(tb[NETLINK_DIAG_GROUPS]);
 		groups = RTA_DATA(tb[NETLINK_DIAG_GROUPS]);
 
-		sd->groups = xmalloc(sizeof(sd->gsize));
+		sd->groups = xmalloc(sd->gsize);
 		if (!sd->groups) {
 			xfree(sd);
 			return -1;
