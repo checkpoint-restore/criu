@@ -882,7 +882,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
@@ -898,7 +898,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
@@ -914,7 +914,7 @@ int parse_fdinfo(int fd, int type,
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
@@ -956,7 +956,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (alloc_fhandle(&f_handle)) {
 				ret = -1;
-				goto errcode;
+				goto out;
 			}
 			parse_fhandle_encoded(str + hoff, &f_handle);
 
@@ -966,7 +966,7 @@ int parse_fdinfo(int fd, int type,
 			free_fhandle(&f_handle);
 
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
@@ -990,7 +990,7 @@ int parse_fdinfo(int fd, int type,
 			entry.ffy.type = MARK_TYPE__MOUNT;
 			ret = cb(&entry, arg);
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
@@ -1018,7 +1018,7 @@ int parse_fdinfo(int fd, int type,
 
 			if (alloc_fhandle(&f_handle)) {
 				ret = -1;
-				goto errcode;
+				goto out;
 			}
 
 			parse_fhandle_encoded(str + hoff, entry.ify.f_handle);
@@ -1028,29 +1028,28 @@ int parse_fdinfo(int fd, int type,
 			free_fhandle(&f_handle);
 
 			if (ret)
-				goto errcode;
+				goto out;
 
 			entry_met = true;
 			continue;
 		}
 	}
 
-	fclose(f);
-
+	ret = 0;
 	if (entry_met)
-		return 0;
+		goto out;
 	/*
 	 * An eventpoll/inotify file may have no target fds set thus
 	 * resulting in no tfd: lines in proc. This is normal.
 	 */
 	if (type == FD_TYPES__EVENTPOLL || type == FD_TYPES__INOTIFY)
-		return 0;
+		goto out;
 
 	pr_err("No records of type %d found in fdinfo file\n", type);
 parse_err:
 	ret = -1;
 	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
-errcode:
+out:
 	fclose(f);
 	return ret;
 }
