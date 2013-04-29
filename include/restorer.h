@@ -72,7 +72,7 @@ struct thread_restore_args {
 	u32				futex_rla_len;
 
 	bool				has_blk_sigset;
-	u64				blk_sigset;
+	k_rtsigset_t			blk_sigset;
 
 	struct rst_sched_param		sp;
 
