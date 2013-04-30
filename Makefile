@@ -109,7 +109,7 @@ include scripts/Makefile.rules
 build := -r -R -f scripts/Makefile.build makefile=Makefile obj
 build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 
-PROGRAM		:= crtools
+PROGRAM		:= criu
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf arch/$(ARCH) clean-built

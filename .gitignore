@@ -8,7 +8,7 @@
 *.swo
 *-blob.h
 .git-ignore
-crtools
+criu
 cscope*
 tags
 TAGS
