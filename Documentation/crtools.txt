@@ -112,6 +112,10 @@ OPTIONS
 	all file lock users are taken into dump. So it\'s only safe to use this
 	for a container dump/restore.
 
+--ms::
+    In case of *check* command does not try to check for features which are
+    known to be not yet merged upstream.
+
 --page-server::
     In case of *dump* command sends pages to a page server.
 
