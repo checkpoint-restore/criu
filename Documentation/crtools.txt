@@ -30,7 +30,8 @@ OPTIONS
                 readable format
         * 'check'
                 to test whether the kernel support is up-to-date
-
+        * 'page-server'
+                to launch a page server
 	* 'exec'
 		to execute a system call from other task\'s context
 
@@ -110,6 +111,15 @@ OPTIONS
 	Allow to dump and restore file locks. It\'s necessary to make sure that
 	all file lock users are taken into dump. So it\'s only safe to use this
 	for a container dump/restore.
+
+--page-server::
+    In case of *dump* command sends pages to a page server.
+
+--address::
+    Page server address.
+
+--port::
+    Page server port number.
 
 -V|--version::
     Print program version.
