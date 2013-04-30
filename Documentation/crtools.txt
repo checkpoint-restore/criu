@@ -32,8 +32,8 @@ OPTIONS
                 to test whether the kernel support is up-to-date
         * 'page-server'
                 to launch a page server
-	* 'exec'
-		to execute a system call from other task\'s context
+        * 'exec'
+                to execute a system call from other task\'s context
 
 -c::
     In case of 'show' command the dumped pages content will be shown in hex format.
@@ -108,9 +108,9 @@ OPTIONS
     words this option allows to migrate such application as 'top' and friends.
 
 -l|--file-locks::
-	Allow to dump and restore file locks. It\'s necessary to make sure that
-	all file lock users are taken into dump. So it\'s only safe to use this
-	for a container dump/restore.
+    Allow to dump and restore file locks. It\'s necessary to make sure that
+    all file lock users are taken into dump. So it\'s only safe to use this
+    for a container dump/restore.
 
 --ms::
     In case of *check* command does not try to check for features which are
