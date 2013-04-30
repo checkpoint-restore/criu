@@ -18,3 +18,5 @@ clean:
 	$(E) "  CLEAN   "
 	$(Q) rm -f ./*.xml
 	$(Q) rm -f ./*.1
+
+.PHONY: clean
