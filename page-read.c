@@ -122,7 +122,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
 		ret = read_pagemap_page_from_parent(pr->parent, vaddr, buf);
 	} else {
-		pr_debug("\tpr%u Read page %lx from self %lx/%lx\n", pr->id,
+		pr_debug("\tpr%u Read page %lx from self %lx/%"PRIx64"\n", pr->id,
 				vaddr, pr->cvaddr, lseek(pr->fd_pg, 0, SEEK_CUR));
 		ret = read(pr->fd_pg, buf, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
