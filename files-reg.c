@@ -449,6 +449,14 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
 			p->fd, lfd, path);
 
+	/*
+	 * The regular path we can handle should start with slash.
+	 */
+	if (path[0] != '/') {
+		pr_err("The path [%s] is not supported\n", path);
+		return -1;
+	}
+
 	if (check_path_remap(rpath, len, &p->stat, lfd, id))
 		return -1;
 
