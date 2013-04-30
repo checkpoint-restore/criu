@@ -260,16 +260,11 @@ static int tcp_stream_get_options(int sk, TcpStreamEntry *tse)
 	if (ti.tcpi_options & TCPI_OPT_TIMESTAMPS) {
 		auxl = sizeof(val);
 		ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &auxl);
-		if (ret < 0) {
-			if (errno == ENOPROTOOPT)
-				pr_warn("The kernel doesn't support "
-					"the socket option TCP_TIMESTAMP\n");
-			else
-				goto err_sopt;
-		} else {
-			tse->has_timestamp = true;
-			tse->timestamp = val;
-		}
+		if (ret < 0)
+			goto err_sopt;
+
+		tse->has_timestamp = true;
+		tse->timestamp = val;
 	}
 
 	pr_info("\toptions: mss_clamp %x wscale %x tstamp %d sack %d\n",
