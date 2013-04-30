@@ -267,7 +267,7 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 static int write_pages_to_server(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
-	pr_debug("Splicing %zu bytes / %zu pages into socket\n", len, len / PAGE_SIZE);
+	pr_debug("Splicing %lu bytes / %lu pages into socket\n", len, len / PAGE_SIZE);
 
 	if (splice(p, NULL, xfer->fd, NULL, len, SPLICE_F_MOVE) != len) {
 		pr_perror("Can't write pages to socket");
