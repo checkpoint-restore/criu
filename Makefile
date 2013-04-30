@@ -196,6 +196,13 @@ cscope:
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
 
+dist: tar
+tar: criu-$(CRTOOLSVERSION).tar.bz2
+criu-$(CRTOOLSVERSION).tar.bz2:
+	git archive --format tar --prefix 'criu-$(CRTOOLSVERSION)/' \
+		v$(CRTOOLSVERSION) | bzip2 > $@
+.PHONY: dist tar
+
 help:
 	$(E) '    Targets:'
 	$(E) '      all             - Build all [*] targets'
