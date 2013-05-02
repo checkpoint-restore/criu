@@ -179,6 +179,6 @@ AUTHOR
 ------
 OpenVZ team.
 
-COPYING
--------
-Copyright \(C) 2011-2012, Parallels Inc.
+COPYRIGHT
+---------
+Copyright \(C) 2011-2013, Parallels Inc.
