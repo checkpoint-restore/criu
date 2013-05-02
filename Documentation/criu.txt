@@ -11,7 +11,7 @@ criu - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-*criu* 'command' -t 'pid'
+*criu* 'command' ['options']
 
 DESCRIPTION
 -----------
