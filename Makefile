@@ -204,16 +204,16 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 .PHONY: dist tar
 
 help:
-	$(E) '    Targets:'
-	$(E) '      all             - Build all [*] targets'
-	$(E) '    * crtools         - Build crtools'
-	$(E) '      zdtm            - Build zdtm test-suite'
-	$(E) '      docs            - Build documentation'
-	$(E) '      clean           - Clean everything'
-	$(E) '      tags            - Generate tags file (ctags)'
-	$(E) '      cscope          - Generate cscope database'
-	$(E) '      rebuild         - Force-rebuild of [*] targets'
-	$(E) '      test            - Run zdtm test-suite'
+	@echo '    Targets:'
+	@echo '      all             - Build all [*] targets'
+	@echo '    * crtools         - Build crtools'
+	@echo '      zdtm            - Build zdtm test-suite'
+	@echo '      docs            - Build documentation'
+	@echo '      clean           - Clean everything'
+	@echo '      tags            - Generate tags file (ctags)'
+	@echo '      cscope          - Generate cscope database'
+	@echo '      rebuild         - Force-rebuild of [*] targets'
+	@echo '      test            - Run zdtm test-suite'
 
 gcov:
 	$(E) " GCOV"
