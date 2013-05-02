@@ -11,91 +11,91 @@ criu - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-'criu' <command> -t <pid>
+*criu* 'command' -t 'pid'
 
 DESCRIPTION
 -----------
-'criu' is command line utility to steer checkpoint and restore procedure.
+*criu* is command line utility to steer checkpoint and restore procedure.
 
 OPTIONS
 -------
-<command>::
+'command'::
     One of the follwong commands
-        * 'dump'
+        * *dump*
                 to initiate checkpoint procedure
-        * 'restore'
+        * *restore*
                 to restore previously checkpointed processes
-        * 'show'
+        * *show*
                 to decode binary dump files and show their contents in human
                 readable format
-        * 'check'
+        * *check*
                 to test whether the kernel support is up-to-date
-        * 'page-server'
+        * *page-server*
                 to launch a page server
-        * 'exec'
+        * *exec*
                 to execute a system call from other task\'s context
 
 -c::
-    In case of 'show' command the dumped pages content will be shown in hex format.
+    In case of *show* command the dumped pages content will be shown in hex format.
 
--D|--images-dir <path>::
+-D|--images-dir 'path'::
     Use path 'path' as a base directory where to look for dump files set. This
-    commands allpies to any <command>.
+    commands allpies to any 'command'.
 
 -s|--leave-stopped::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
--f|--file <file>::
-    This option is valid for 'show' command only and allows to see content of
+-f|--file 'file'::
+    This option is valid for *show* command only and allows to see content of
     the <file> specified.
 
 -x|--ext-unix-sk::
     Dump external unix sockets.
 
--t|--tree <pid>::
+-t|--tree 'pid'::
     Checkpoint the whole process tree starting from 'pid'.
 
 -d|--restore-detached::
-    Detach 'criu' itself once restore is complete.
+    Detach *criu* itself once restore is complete.
 
--n|--namespaces <ns>::
+-n|--namespaces 'ns'[,'ns'...]::
     Checkpoint namespaces. Namespaces must be separated by comma.
     Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
 
--r|--root <path>::
+-r|--root 'path'::
     Change the root filesystem (when run in mount namespace).
 
 --evasive-devices::
     Use any path to a device file if the original one is inaccessible.
 
---veth-pair <IN=OUT>::
+--veth-pair 'IN'*=*'OUT'::
     Correspondence between outside and inside names of veth devices.
 
---action-script <SCR>::
+--action-script 'SCRIPT'::
     Add an external action script.
-    The environment variable 'CRTOOL_SCRIPT_ACTION' contains one of the
+    The environment variable *CRTOOL_SCRIPT_ACTION* contains one of the
     actions:
-        * 'network-lock'
+        * *network-lock*
                 lock network in a target network namespace
 
-        * 'network-unlock'
+        * *network-unlock*
                 unlock network in a target network namespace
 
 --link-remap::
     Allow to link unlinked files back when possible (modifies FS
     till restore).
 
--o|--log-file <file>::
+-o|--log-file 'file'::
     Write logging messages to 'file'.
 
--v <num>::
+-v 'num'::
     Set logging level to 'num'. Valid options are: *0* - (silent, error messages
     only), *1* - informative (default), *2* - debug messages.
 
 --log-pid::
     Write separate logging files per each pid.
 
---close <fd>::
+--close 'fd'::
     Close file with descriptor 'fd' before anything else.
 
 --tcp-established::
@@ -136,16 +136,16 @@ SYSCALLS EXECUTION
 
 To run a system call from another task\'s context use
 
-    criu exec -t <pid> <syscall-string>
+    criu exec -t pid syscall-string
 
-command. The syscall string should look like
+command. The 'syscall-string' should look like
 
-    <syscall-name> <syscall-arguments>...
+    syscall-name syscall-arguments ...
 
 Each command line argument is transformed into the system call argument by
 the following rules:
 
-* If one starts with '&', the rest of it gets copied to the target task\'s
+* If one starts with *&*, the rest of it gets copied to the target task\'s
   address space and the respective syscall argument is the pointer to this
   string;
 
@@ -155,8 +155,8 @@ the following rules:
 EXAMPLES
 --------
 
-To checkpoint a program with pid '1234' and write all image files into
-directory 'checkpoint' one should type
+To checkpoint a program with pid *1234* and write all image files into
+directory *checkpoint* one should type
 
     criu dump -D checkpoint -t 1234
 
@@ -165,12 +165,12 @@ To restore this program detaching criu itself, one should type
     criu restore -d -D checkpoint -t 1234
 
 
-To close a file descriptor number '1' in task with pid '1234' run
+To close a file descriptor number *1* in task with pid *1234* run
 
     criu exec -t 1234 close 1
 
-To open a file named '/foo/bar' for read-write in the task with pid
-'1234' run
+To open a file named */foo/bar* for read-write in the task with pid
+*1234* run
 
     criu exec -t 1234 open '&/foo/bar' 2
 
