@@ -364,60 +364,62 @@ usage:
 		return -1;
 	}
 
-	pr_msg("\nDump/Restore options:\n");
-
-	pr_msg("\n* Generic:\n");
-	pr_msg("  -t|--tree             checkpoint/restore the whole process tree identified by pid\n");
-	pr_msg("  -d|--restore-detached detach after restore\n");
-	pr_msg("  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n");
-	pr_msg("  -R|--leave-running    leave tasks in running state after checkpoint\n");
-	pr_msg("  -D|--images-dir       directory where to put images to\n");
-	pr_msg("     --pidfile [FILE]	write a pid of a root task in this file\n");
-
-	pr_msg("\n* Special resources support:\n");
-	pr_msg("  -x|--%s      allow external unix connections\n", USK_EXT_PARAM);
-	pr_msg("     --%s  checkpoint/restore established TCP connections\n", SK_EST_PARAM);
-	pr_msg("  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n");
-	pr_msg("  --evasive-devices	use any path to a device file if the original one is inaccessible\n");
-	pr_msg("  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n");
-	pr_msg("  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n");
-	pr_msg("  --action-script [SCR]	add an external action script\n");
-	pr_msg("			The environment variable CRTOOLS_SCRIPT_ACTION contains one of the actions:\n");
-	pr_msg("			* network-lock - lock network in a target network namespace\n");
-	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
-	pr_msg("  -j|--%s        allow to dump and restore shell jobs\n", OPT_SHELL_JOB);
-	pr_msg("  -l|--%s	handle file locks, for safety, only used for container\n", OPT_FILE_LOCKS);
-
-	pr_msg("\n* Logging:\n");
-	pr_msg("  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n");
-	pr_msg("     --log-pid		if the -o option is in effect, each restored processes is\n");
-	pr_msg("			written to the [NAME].pid file\n");
-	pr_msg("  -v [num]              set logging level\n");
-	pr_msg("                          0 - messages regardless of log level\n");
-	pr_msg("                          1 - errors, when we are in trouble\n");
-	pr_msg("                          2 - warnings (default)\n");
-	pr_msg("                          3 - informative, everything is fine\n");
-	pr_msg("                          4 - debug only\n");
-	pr_msg("  -v             same as -v 1\n");
-	pr_msg("  -vv            same as -v 2\n");
-	pr_msg("  -vvv           same as -v 3\n");
-	pr_msg("  -vvvv          same as -v 4\n");
-
-	pr_msg("\nPage server options\n");
-	pr_msg("  --page-server         send pages to page server (for 'dump' command)\n");
-	pr_msg("  --address [ADDR]      address of page server\n");
-	pr_msg("  --port [PORT]         port of page server\n");
-
-	pr_msg("\nShow options:\n");
-	pr_msg("  -f|--file             show contents of a checkpoint file\n");
-	pr_msg("  -D|--images-dir       directory where to get images from\n");
-	pr_msg("  -c|--contents         show contents of pages dumped in hexdump format\n");
-	pr_msg("  -p|--pid <pid>        show files relevant to pid (filter -D flood)\n");
-
-	pr_msg("\nOther options:\n");
-	pr_msg("  -h|--help             show this text\n");
-	pr_msg("  -V|--version          show version\n");
-	pr_msg("     --ms               don't check not yet merged kernel features\n");
+	pr_msg("\n"
+"Dump/Restore options:\n"
+"\n"
+"* Generic:\n"
+"  -t|--tree             checkpoint/restore the whole process tree identified by pid\n"
+"  -d|--restore-detached detach after restore\n"
+"  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n"
+"  -R|--leave-running    leave tasks in running state after checkpoint\n"
+"  -D|--images-dir       directory where to put images to\n"
+"     --pidfile [FILE]	write a pid of a root task in this file\n"
+"\n"
+"* Special resources support:\n"
+"  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
+"     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
+"  -r|--root [PATH]	change the root filesystem (when run in mount namespace)\n"
+"  --evasive-devices	use any path to a device file if the original one is inaccessible\n"
+"  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n"
+"  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n"
+"  --action-script [SCR]	add an external action script\n"
+"			The environment variable CRTOOLS_SCRIPT_ACTION contains one of the actions:\n"
+"			* network-lock - lock network in a target network namespace\n"
+"			* network-unlock - unlock network in a target network namespace\n"
+"  -j|--" OPT_SHELL_JOB "        allow to dump and restore shell jobs\n"
+"  -l|--" OPT_FILE_LOCKS "	handle file locks, for safety, only used for container\n"
+"\n"
+"* Logging:\n"
+"  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n"
+"     --log-pid		if the -o option is in effect, each restored processes is\n"
+"			written to the [NAME].pid file\n"
+"  -v [num]              set logging level\n"
+"                          0 - messages regardless of log level\n"
+"                          1 - errors, when we are in trouble\n"
+"                          2 - warnings (default)\n"
+"                          3 - informative, everything is fine\n"
+"                          4 - debug only\n"
+"  -v             same as -v 1\n"
+"  -vv            same as -v 2\n"
+"  -vvv           same as -v 3\n"
+"  -vvvv          same as -v 4\n"
+"\n"
+"Page server options\n"
+"  --page-server         send pages to page server (for 'dump' command)\n"
+"  --address [ADDR]      address of page server\n"
+"  --port [PORT]         port of page server\n"
+"\n"
+"Show options:\n"
+"  -f|--file             show contents of a checkpoint file\n"
+"  -D|--images-dir       directory where to get images from\n"
+"  -c|--contents         show contents of pages dumped in hexdump format\n"
+"  -p|--pid <pid>        show files relevant to pid (filter -D flood)\n"
+"\n"
+"Other options:\n"
+"  -h|--help             show this text\n"
+"  -V|--version          show version\n"
+"     --ms               don't check not yet merged kernel features\n"
+	);
 
 	return -1;
 
