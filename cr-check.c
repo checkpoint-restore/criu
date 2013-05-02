@@ -277,7 +277,7 @@ static int check_one_epoll(union fdinfo_entries *e, void *arg)
 
 static int check_fdinfo_eventpoll(void)
 {
-	int efd, pfd[2], proc_fd = 0, ret;
+	int efd, pfd[2], proc_fd = 0, ret = -1;
 	struct epoll_event ev;
 
 	if (pipe(pfd)) {
@@ -288,7 +288,7 @@ static int check_fdinfo_eventpoll(void)
 	efd = epoll_create(1);
 	if (efd < 0) {
 		pr_perror("Can't make epoll fd");
-		return -1;
+		goto pipe_err;
 	}
 
 	memset(&ev, 0, sizeof(ev));
@@ -296,27 +296,31 @@ static int check_fdinfo_eventpoll(void)
 
 	if (epoll_ctl(efd, EPOLL_CTL_ADD, pfd[0], &ev)) {
 		pr_perror("Can't add epoll tfd");
-		return -1;
+		goto epoll_err;
 	}
 
 	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, check_one_epoll, &proc_fd);
-	close(efd);
-	close(pfd[0]);
-	close(pfd[1]);
-
 	if (ret) {
 		pr_err("Error parsing proc fdinfo\n");
-		return -1;
+		goto epoll_err;
 	}
 
 	if (pfd[0] != proc_fd) {
 		pr_err("TFD mismatch (or not met) %d want %d\n",
 				proc_fd, pfd[0]);
-		return -1;
+		ret = -1;
+		goto epoll_err;
 	}
 
 	pr_info("Epoll fdinfo works OK (%d vs %d)\n", pfd[0], proc_fd);
-	return 0;
+
+epoll_err:
+	close(efd);
+pipe_err:
+	close(pfd[0]);
+	close(pfd[1]);
+
+	return ret;
 }
 
 static int check_one_inotify(union fdinfo_entries *e, void *arg)
