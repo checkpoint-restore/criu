@@ -206,7 +206,7 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 help:
 	@echo '    Targets:'
 	@echo '      all             - Build all [*] targets'
-	@echo '    * crtools         - Build crtools'
+	@echo '    * criu            - Build criu'
 	@echo '      zdtm            - Build zdtm test-suite'
 	@echo '      docs            - Build documentation'
 	@echo '      clean           - Clean everything'
