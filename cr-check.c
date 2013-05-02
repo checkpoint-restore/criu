@@ -342,6 +342,7 @@ static int check_fdinfo_inotify(void)
 	wd = inotify_add_watch(ifd, ".", IN_ALL_EVENTS);
 	if (wd < 0) {
 		pr_perror("Can't add watch");
+		close(ifd);
 		return -1;
 	}
 
