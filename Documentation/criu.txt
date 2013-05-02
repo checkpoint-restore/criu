@@ -51,7 +51,7 @@ OPTIONS
 
 *-f*, *--file* 'file'::
     This option is valid for *show* command only and allows to see content of
-    the <file> specified.
+    the 'file' specified.
 
 *-x*, *--ext-unix-sk*::
     Dump external unix sockets.
@@ -109,7 +109,7 @@ OPTIONS
     Allow to dump and restore shell jobs. This implies the restored task
     will inherit session and process group ID from the criu itself.
     Also this option allows to migrate a single external tty connection, in other
-    words this option allows to migrate such application as 'top' and friends.
+    words this option allows to migrate such application as *top* and friends.
 
 *-l*, *--file-locks*::
     Allow to dump and restore file locks. It\'s necessary to make sure that
