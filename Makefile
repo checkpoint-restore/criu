@@ -174,9 +174,7 @@ clean: clean-built
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) -r ./test/lib/
 	$(Q) $(RM) -r ./test/lib64/
-	$(Q) $(MAKE) -C test/zdtm cleandep
-	$(Q) $(MAKE) -C test/zdtm clean
-	$(Q) $(MAKE) -C test/zdtm cleanout
+	$(Q) $(MAKE) -C test/zdtm cleandep clean cleanout
 
 distclean: clean
 	$(E) "  DISTCLEAN"
