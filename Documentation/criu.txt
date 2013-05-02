@@ -1,21 +1,21 @@
-crtools(1)
-==========
+criu(1)
+=======
 :doctype:       manpage
-:man source:    CRtools
+:man source:    criu
 :man version:   0.0.2
-:man manual:    CRtools Manual
+:man manual:    CRIU Manual
 
 NAME
 ----
-crtools - checkpoint/restore in userspace
+criu - checkpoint/restore in userspace
 
 SYNOPSIS
 --------
-'crtools' <command> -t <pid>
+'criu' <command> -t <pid>
 
 DESCRIPTION
 -----------
-'crtools' is command line utility to steer checkpoint and restore procedure.
+'criu' is command line utility to steer checkpoint and restore procedure.
 
 OPTIONS
 -------
@@ -56,7 +56,7 @@ OPTIONS
     Checkpoint the whole process tree starting from 'pid'.
 
 -d|--restore-detached::
-    Detach 'crtools' itself once restore is complete.
+    Detach 'criu' itself once restore is complete.
 
 -n|--namespaces <ns>::
     Checkpoint namespaces. Namespaces must be separated by comma.
@@ -103,7 +103,7 @@ OPTIONS
 
 -j|--shell-job::
     Allow to dump and restore shell jobs. This implies the restored task
-    will inherit session and process group ID from the crtools itself.
+    will inherit session and process group ID from the criu itself.
     Also this option allows to migrate a single external tty connection, in other
     words this option allows to migrate such application as 'top' and friends.
 
@@ -136,7 +136,7 @@ SYSCALLS EXECUTION
 
 To run a system call from another task\'s context use
 
-    crtools exec -t <pid> <syscall-string>
+    criu exec -t <pid> <syscall-string>
 
 command. The syscall string should look like
 
@@ -158,21 +158,21 @@ EXAMPLES
 To checkpoint a program with pid '1234' and write all image files into
 directory 'checkpoint' one should type
 
-    crtools dump -D checkpoint -t 1234
+    criu dump -D checkpoint -t 1234
 
-To restore this program detaching crtools itself, one should type
+To restore this program detaching criu itself, one should type
 
-    crtools restore -d -D checkpoint -t 1234
+    criu restore -d -D checkpoint -t 1234
 
 
 To close a file descriptor number '1' in task with pid '1234' run
 
-    crtools exec -t 1234 close 1
+    criu exec -t 1234 close 1
 
 To open a file named '/foo/bar' for read-write in the task with pid
 '1234' run
 
-    crtools exec -t 1234 open '&/foo/bar' 2
+    criu exec -t 1234 open '&/foo/bar' 2
 
 
 AUTHOR

@@ -4,7 +4,7 @@ ASCIIDOC	:= asciidoc
 A2X		:= a2x
 XMLTO		:= xmlto
 
-SRC		+= crtools.txt
+SRC		+= criu.txt
 MANS		:= $(patsubst %.txt,%.1,$(SRC))
 
 all: $(MANS)
