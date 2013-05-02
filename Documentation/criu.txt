@@ -161,22 +161,22 @@ the following rules:
 EXAMPLES
 --------
 
-To checkpoint a program with pid *1234* and write all image files into
-directory *checkpoint* one should type
+To checkpoint a program with pid of *1234* and write all image files into
+directory *checkpoint*:
 
     criu dump -D checkpoint -t 1234
 
-To restore this program detaching criu itself, one should type
+To restore this program detaching criu itself:
 
     criu restore -d -D checkpoint -t 1234
 
 
-To close a file descriptor number *1* in task with pid *1234* run
+To close a file descriptor number *1* in task with pid *1234*:
 
     criu exec -t 1234 close 1
 
 To open a file named */foo/bar* for read-write in the task with pid
-*1234* run
+*1234*:
 
     criu exec -t 1234 open '&/foo/bar' 2
 
