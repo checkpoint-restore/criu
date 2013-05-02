@@ -348,7 +348,7 @@ usage:
 	pr_msg("  %s dump -t PID [<options>]\n", argv[0]);
 	pr_msg("  %s restore -t PID [<options>]\n", argv[0]);
 	pr_msg("  %s show (-D DIR)|(-f FILE) [<options>]\n", argv[0]);
-	pr_msg("  %s check\n", argv[0]);
+	pr_msg("  %s check [--ms]\n", argv[0]);
 	pr_msg("  %s exec -p PID <syscall-string>\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
