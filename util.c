@@ -361,7 +361,7 @@ int clone_service_fd(int id)
 		if (ret == -1) {
 			if (errno == EBADF)
 				continue;
-			pr_perror("Unable to clone %d->%d\n", old, new);
+			pr_perror("Unable to clone %d->%d", old, new);
 		}
 	}
 
@@ -495,7 +495,7 @@ int run_scripts(char *action)
 	int ret = 0;
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
-		pr_perror("Can't set CRTOOL_SCRIPT_ACTION=%s\n", action);
+		pr_perror("Can't set CRTOOL_SCRIPT_ACTION=%s", action);
 		return -1;
 	}
 
@@ -536,7 +536,7 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[])
 
 	pid = fork();
 	if (pid == -1) {
-		pr_perror("fork() failed\n");
+		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
 		if (out < 0)

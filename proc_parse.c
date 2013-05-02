@@ -1048,7 +1048,7 @@ int parse_fdinfo(int fd, int type,
 	pr_err("No records of type %d found in fdinfo file\n", type);
 parse_err:
 	ret = -1;
-	pr_perror("%s: error parsing [%s] for %d\n", __func__, str, type);
+	pr_perror("%s: error parsing [%s] for %d", __func__, str, type);
 out:
 	fclose(f);
 	return ret;

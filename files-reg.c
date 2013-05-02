@@ -92,7 +92,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	if (S_ISFIFO(gfe->mode)) {
 		if (mknod(gf->remap.path, gfe->mode, 0)) {
-			pr_perror("Can't create node for ghost file\n");
+			pr_perror("Can't create node for ghost file");
 			goto close_ifd;
 		}
 		ghost_flags = O_RDWR; /* To not block */
@@ -106,7 +106,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	}
 
 	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %#x\n", rfe->remap_id);
+		pr_perror("Can't reset user/group on ghost %#x", rfe->remap_id);
 		goto close_all;
 	}
 
@@ -493,7 +493,7 @@ static int open_path(struct file_desc *d,
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
 		if (link(rfi->remap->path, rfi->path) < 0) {
-			pr_perror("Can't link %s -> %s\n",
+			pr_perror("Can't link %s -> %s",
 					rfi->remap->path, rfi->path);
 			return -1;
 		}

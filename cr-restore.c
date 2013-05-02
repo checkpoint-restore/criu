@@ -374,7 +374,7 @@ static int restore_priv_vma_content(pid_t pid)
 			ret = madvise(addr + PAGE_SIZE * i,
 						PAGE_SIZE, MADV_DONTNEED);
 			if (ret < 0) {
-				pr_perror("madvise failed\n");
+				pr_perror("madvise failed");
 				return -1;
 			}
 			i++;
@@ -1190,7 +1190,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
-		pr_perror("sigaction() failed\n");
+		pr_perror("sigaction() failed");
 		return -1;
 	}
 
@@ -1201,7 +1201,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 
 	ret = sigaction(SIGCHLD, &act, &old_act);
 	if (ret < 0) {
-		pr_perror("sigaction() failed\n");
+		pr_perror("sigaction() failed");
 		return -1;
 	}
 
@@ -1257,7 +1257,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
-		pr_perror("sigaction() failed\n");
+		pr_perror("sigaction() failed");
 		goto out;
 	}
 
@@ -1747,7 +1747,7 @@ static int open_signal_image(int type, pid_t pid, siginfo_t **ptr,
 			else
 				*ptr = mremap(*ptr, *size, new_size, MREMAP_MAYMOVE);
 			if (*ptr == MAP_FAILED) {
-				pr_perror("Can't allocate memory for siginfo-s\n");
+				pr_perror("Can't allocate memory for siginfo-s");
 				ret = -1;
 				break;
 			}

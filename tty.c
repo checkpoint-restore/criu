@@ -200,7 +200,7 @@ static int parse_index(u32 id, int lfd, int major)
 	switch (major) {
 	case TTYAUX_MAJOR:
 		if (ioctl(lfd, TIOCGPTN, &index)) {
-			pr_perror("Can't obtain ptmx index\n");
+			pr_perror("Can't obtain ptmx index");
 			return -1;
 		}
 		break;
@@ -328,7 +328,7 @@ static int lock_pty(int fd)
 static int tty_set_sid(int fd)
 {
 	if (ioctl(fd, TIOCSCTTY, 1)) {
-		pr_perror("Can't set sid on terminal fd %d\n", fd);
+		pr_perror("Can't set sid on terminal fd %d", fd);
 		return -1;
 	}
 
@@ -338,7 +338,7 @@ static int tty_set_sid(int fd)
 static int tty_set_prgp(int fd, int group)
 {
 	if (ioctl(fd, TIOCSPGRP, &group)) {
-		pr_perror("Failed to set group %d on %d\n", group, fd);
+		pr_perror("Failed to set group %d on %d", group, fd);
 		return -1;
 	}
 	return 0;

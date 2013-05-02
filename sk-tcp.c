@@ -563,7 +563,7 @@ int rst_tcp_socks_remap(void *addr)
 			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
 	if (ret != addr) {
-		pr_perror("mmap() failed\n");
+		pr_perror("mmap() failed");
 		return -1;
 	}
 
@@ -628,7 +628,7 @@ int check_tcp(void)
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
-		pr_perror("Can't create TCP socket :(\n");
+		pr_perror("Can't create TCP socket :(");
 		return -1;
 	}
 

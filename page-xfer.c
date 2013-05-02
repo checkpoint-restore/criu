@@ -187,13 +187,13 @@ int cr_page_server(void)
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
-		pr_perror("Can't init page server\n");
+		pr_perror("Can't init page server");
 		return -1;
 	}
 
 	opts.ps_addr.sin_family = AF_INET;
 	if (bind(sk, (struct sockaddr *)&opts.ps_addr, sizeof(opts.ps_addr))) {
-		pr_perror("Can't bind page server\n");
+		pr_perror("Can't bind page server");
 		goto out;
 	}
 
@@ -232,14 +232,14 @@ int connect_to_page_server(void)
 
 	page_server_sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (page_server_sk < 0) {
-		pr_perror("Can't create socket\n");
+		pr_perror("Can't create socket");
 		return -1;
 	}
 
 	opts.ps_addr.sin_family = AF_INET;
 	if (connect(page_server_sk, (struct sockaddr *)&opts.ps_addr,
 				sizeof(opts.ps_addr)) < 0) {
-		pr_perror("Can't connect to server\n");
+		pr_perror("Can't connect to server");
 		return -1;
 	}
 
@@ -257,7 +257,7 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 	pi.nr_pages = iov->iov_len / PAGE_SIZE;
 
 	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write pagemap to server\n");
+		pr_perror("Can't write pagemap to server");
 		return -1;
 	}
 
@@ -287,7 +287,7 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 	pi.nr_pages = iov->iov_len / PAGE_SIZE;
 
 	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write pagehole to server\n");
+		pr_perror("Can't write pagehole to server");
 		return -1;
 	}
 

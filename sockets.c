@@ -192,7 +192,7 @@ static int dump_socket_filter(int sk, SkOptsEntry *soe)
 
 	ret = getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, flt, &len);
 	if (ret) {
-		pr_perror("Can't get socket filter\n");
+		pr_perror("Can't get socket filter");
 		xfree(flt);
 		return ret;
 	}

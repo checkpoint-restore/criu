@@ -81,7 +81,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	orig_peek_off = 0;
 	ret = getsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, &tmp);
 	if (ret < 0) {
-		pr_perror("getsockopt failed\n");
+		pr_perror("getsockopt failed");
 		return ret;
 	}
 	/*
@@ -91,7 +91,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	size = 0;
 	ret = getsockopt(sock_fd, SOL_SOCKET, SO_SNDBUF, &size, &tmp);
 	if (ret < 0) {
-		pr_perror("getsockopt failed\n");
+		pr_perror("getsockopt failed");
 		return ret;
 	}
 
@@ -110,7 +110,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	 */
 	ret = setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &ret, sizeof(int));
 	if (ret < 0) {
-		pr_perror("setsockopt fail\n");
+		pr_perror("setsockopt fail");
 		goto err_brk;
 	}
 
@@ -130,7 +130,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		if (ret < 0) {
 			if (errno == EAGAIN)
 				break; /* we're done */
-			pr_perror("recvmsg fail: error\n");
+			pr_perror("recvmsg fail: error");
 			goto err_set_sock;
 		}
 		if (msg.msg_flags & MSG_TRUNC) {
@@ -162,7 +162,7 @@ err_set_sock:
 	 * Restore original peek offset.
 	 */
 	if (setsockopt(sock_fd, SOL_SOCKET, SO_PEEK_OFF, &orig_peek_off, sizeof(int))) {
-		pr_perror("setsockopt failed on restore\n");
+		pr_perror("setsockopt failed on restore");
 		ret = -1;
 	}
 err_brk:

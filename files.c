@@ -141,7 +141,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	int ret;
 
 	if (fstat(lfd, &p->stat) < 0) {
-		pr_perror("Can't stat fd %d\n", lfd);
+		pr_perror("Can't stat fd %d", lfd);
 		return -1;
 	}
 
@@ -164,7 +164,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 
 	ret = fcntl(lfd, F_GETSIG, 0);
 	if (ret < 0) {
-		pr_perror("Can't get owner signum on %d\n", lfd);
+		pr_perror("Can't get owner signum on %d", lfd);
 		return -1;
 	}
 	p->fown.signum = ret;
@@ -225,7 +225,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		return dump_chrdev(&p, lfd, fdinfo);
 
 	if (fstatfs(lfd, &statfs)) {
-		pr_perror("Can't obtain statfs on fd %d\n", fd);
+		pr_perror("Can't obtain statfs on fd %d", fd);
 		return -1;
 	}
 
