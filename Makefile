@@ -223,5 +223,6 @@ gcov:
 	sed -i 's#/test/root/crtools##' crtools.ns.info && \
 	lcov -a crtools.l.info -a crtools.ns.info -o crtools.info && \
 	genhtml -o html crtools.info
+.PHONY: gcov
 
 .DEFAULT_GOAL	:= all
