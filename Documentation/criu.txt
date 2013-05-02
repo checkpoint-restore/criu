@@ -112,8 +112,8 @@ OPTIONS
     words this option allows to migrate such application as *top* and friends.
 
 *-l*, *--file-locks*::
-    Allow to dump and restore file locks. It\'s necessary to make sure that
-    all file lock users are taken into dump. So it\'s only safe to use this
+    Allow to dump and restore file locks. It is necessary to make sure that
+    all file lock users are taken into dump, so it is only safe to use this
     for a container dump/restore.
 
 *--ms*::
@@ -153,7 +153,7 @@ the following rules:
   address space and the respective syscall argument is the pointer to this
   string;
 
-* Otherwise it\'s treated as a number (converted with strtol) and is directly
+* Otherwise it is treated as a number (converted with strtol) and is directly
   passed into the system call.
 
 EXAMPLES
