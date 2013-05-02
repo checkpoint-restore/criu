@@ -17,24 +17,28 @@ DESCRIPTION
 -----------
 *criu* is command line utility to steer checkpoint and restore procedure.
 
+The 'command' can be one of the following:
+
+*dump*::
+Initiate checkpoint procedure.
+
+*restore*::
+Restore previously checkpointed processes.
+
+*show*::
+Decode own binary dump files and show their contents in human-readable form.
+
+*check*::
+Test whether the kernel support is up-to-date.
+
+*page-server*::
+Launch a page server.
+
+*exec*::
+Execute a system call from other task\'s context.
+
 OPTIONS
 -------
-'command'::
-    One of the follwong commands
-        * *dump*
-                to initiate checkpoint procedure
-        * *restore*
-                to restore previously checkpointed processes
-        * *show*
-                to decode binary dump files and show their contents in human
-                readable format
-        * *check*
-                to test whether the kernel support is up-to-date
-        * *page-server*
-                to launch a page server
-        * *exec*
-                to execute a system call from other task\'s context
-
 -c::
     In case of *show* command the dumped pages content will be shown in hex format.
 
