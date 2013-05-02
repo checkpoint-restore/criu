@@ -77,7 +77,7 @@ OPTIONS
 
 *--action-script* 'SCRIPT'::
     Add an external action script.
-    The environment variable *CRTOOL_SCRIPT_ACTION* contains one of the
+    The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the
     actions:
         * *network-lock*
                 lock network in a target network namespace

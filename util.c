@@ -495,7 +495,7 @@ int run_scripts(char *action)
 	int ret = 0;
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
-		pr_perror("Can't set CRTOOL_SCRIPT_ACTION=%s", action);
+		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
 		return -1;
 	}
 

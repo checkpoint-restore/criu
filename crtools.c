@@ -382,7 +382,7 @@ usage:
 	pr_msg("  --veth-pair [IN=OUT]	correspondence between outside and inside names of veth devices\n");
 	pr_msg("  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n");
 	pr_msg("  --action-script [SCR]	add an external action script\n");
-	pr_msg("			The environment variable CRTOOL_SCRIPT_ACTION contains one of the actions:\n");
+	pr_msg("			The environment variable CRTOOLS_SCRIPT_ACTION contains one of the actions:\n");
 	pr_msg("			* network-lock - lock network in a target network namespace\n");
 	pr_msg("			* network-unlock - unlock network in a target network namespace\n");
 	pr_msg("  -j|--%s        allow to dump and restore shell jobs\n", OPT_SHELL_JOB);
