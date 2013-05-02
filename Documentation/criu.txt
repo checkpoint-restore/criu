@@ -1,4 +1,4 @@
-criu(1)
+CRIU(1)
 =======
 :doctype:       manpage
 :man source:    criu
