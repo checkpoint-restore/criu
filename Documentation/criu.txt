@@ -44,7 +44,7 @@ OPTIONS
 
 *-D*, *--images-dir* 'path'::
     Use path 'path' as a base directory where to look for dump files set. This
-    commands allpies to any 'command'.
+    commands applies to any 'command'.
 
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint instead of killing them.
