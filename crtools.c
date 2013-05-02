@@ -345,11 +345,11 @@ int main(int argc, char *argv[])
 
 usage:
 	pr_msg("\nUsage:\n");
-	pr_msg("  %s dump -t pid [<options>]\n", argv[0]);
-	pr_msg("  %s restore -t pid [<options>]\n", argv[0]);
-	pr_msg("  %s show (-D dir)|(-f file) [<options>]\n", argv[0]);
+	pr_msg("  %s dump -t PID [<options>]\n", argv[0]);
+	pr_msg("  %s restore -t PID [<options>]\n", argv[0]);
+	pr_msg("  %s show (-D DIR)|(-f FILE) [<options>]\n", argv[0]);
 	pr_msg("  %s check\n", argv[0]);
-	pr_msg("  %s exec -p pid <syscall-string>\n", argv[0]);
+	pr_msg("  %s exec -p PID <syscall-string>\n", argv[0]);
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
@@ -368,21 +368,21 @@ usage:
 "Dump/Restore options:\n"
 "\n"
 "* Generic:\n"
-"  -t|--tree             checkpoint/restore the whole process tree identified by pid\n"
+"  -t|--tree PID         checkpoint/restore the whole process tree identified by PID\n"
 "  -d|--restore-detached detach after restore\n"
 "  -s|--leave-stopped    leave tasks in stopped state after checkpoint instead of killing them\n"
 "  -R|--leave-running    leave tasks in running state after checkpoint\n"
-"  -D|--images-dir       directory where to put images to\n"
-"     --pidfile [FILE]   write a pid of a root task in this file\n"
+"  -D|--images-dir DIR   directory where to put images to\n"
+"     --pidfile FILE     write a pid of a root task in this file\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
-"  -r|--root [PATH]      change the root filesystem (when run in mount namespace)\n"
+"  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"
 "  --evasive-devices     use any path to a device file if the original one is inaccessible\n"
-"  --veth-pair [IN=OUT]  correspondence between outside and inside names of veth devices\n"
+"  --veth-pair IN=OUT    correspondence between outside and inside names of veth devices\n"
 "  --link-remap          allow to link unlinked files back when possible (modifies FS till restore)\n"
-"  --action-script [SCR] add an external action script\n"
+"  --action-script FILE  add an external action script\n"
 "                        The environment variable CRTOOLS_SCRIPT_ACTION contains one of the actions:\n"
 "                        * network-lock - lock network in a target network namespace\n"
 "                        * network-unlock - unlock network in a target network namespace\n"
@@ -390,10 +390,10 @@ usage:
 "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 "\n"
 "* Logging:\n"
-"  -o|--log-file [NAME]  log file name (relative path is relative to --images-dir)\n"
+"  -o|--log-file FILE    log file name (relative path is relative to --images-dir)\n"
 "     --log-pid          if the -o option is in effect, each restored processes is\n"
-"                        written to the [NAME].pid file\n"
-"  -v [num]              set logging level\n"
+"                        written to the FILE.pid file\n"
+"  -v NUM                set logging level\n"
 "                          0 - messages regardless of log level\n"
 "                          1 - errors, when we are in trouble\n"
 "                          2 - warnings (default)\n"
@@ -406,14 +406,14 @@ usage:
 "\n"
 "Page server options\n"
 "  --page-server         send pages to page server (for 'dump' command)\n"
-"  --address [ADDR]      address of page server\n"
-"  --port [PORT]         port of page server\n"
+"  --address ADDR        address of page server\n"
+"  --port PORT           port of page server\n"
 "\n"
 "Show options:\n"
-"  -f|--file             show contents of a checkpoint file\n"
-"  -D|--images-dir       directory where to get images from\n"
+"  -f|--file FILE        show contents of a checkpoint file\n"
+"  -D|--images-dir DIR   directory where to get images from\n"
 "  -c|--contents         show contents of pages dumped in hexdump format\n"
-"  -p|--pid <pid>        show files relevant to pid (filter -D flood)\n"
+"  -p|--pid PID          show files relevant to PID (filter -D flood)\n"
 "\n"
 "Other options:\n"
 "  -h|--help             show this text\n"
