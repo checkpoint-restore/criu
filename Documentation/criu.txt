@@ -39,43 +39,43 @@ Execute a system call from other task\'s context.
 
 OPTIONS
 -------
--c::
+*-c*::
     In case of *show* command the dumped pages content will be shown in hex format.
 
--D|--images-dir 'path'::
+*-D*, *--images-dir* 'path'::
     Use path 'path' as a base directory where to look for dump files set. This
     commands allpies to any 'command'.
 
--s|--leave-stopped::
+*-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
--f|--file 'file'::
+*-f*, *--file* 'file'::
     This option is valid for *show* command only and allows to see content of
     the <file> specified.
 
--x|--ext-unix-sk::
+*-x*, *--ext-unix-sk*::
     Dump external unix sockets.
 
--t|--tree 'pid'::
+*-t*, *--tree* 'pid'::
     Checkpoint the whole process tree starting from 'pid'.
 
--d|--restore-detached::
+*-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
 
--n|--namespaces 'ns'[,'ns'...]::
+*-n*, *--namespaces* 'ns'[,'ns'...]::
     Checkpoint namespaces. Namespaces must be separated by comma.
     Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
 
--r|--root 'path'::
+*-r*, *--root* 'path'::
     Change the root filesystem (when run in mount namespace).
 
---evasive-devices::
+*--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
 
---veth-pair 'IN'*=*'OUT'::
+*--veth-pair* 'IN'*=*'OUT'::
     Correspondence between outside and inside names of veth devices.
 
---action-script 'SCRIPT'::
+*--action-script* 'SCRIPT'::
     Add an external action script.
     The environment variable *CRTOOL_SCRIPT_ACTION* contains one of the
     actions:
@@ -85,54 +85,54 @@ OPTIONS
         * *network-unlock*
                 unlock network in a target network namespace
 
---link-remap::
+*--link-remap*::
     Allow to link unlinked files back when possible (modifies FS
     till restore).
 
--o|--log-file 'file'::
+*-o*, *--log-file* 'file'::
     Write logging messages to 'file'.
 
--v 'num'::
+*-v* 'num'::
     Set logging level to 'num'. Valid options are: *0* - (silent, error messages
     only), *1* - informative (default), *2* - debug messages.
 
---log-pid::
+*--log-pid*::
     Write separate logging files per each pid.
 
---close 'fd'::
+*--close* 'fd'::
     Close file with descriptor 'fd' before anything else.
 
---tcp-established::
+*--tcp-established*::
     Checkpoint/restore established TCP connections.
 
--j|--shell-job::
+*-j*, *--shell-job*::
     Allow to dump and restore shell jobs. This implies the restored task
     will inherit session and process group ID from the criu itself.
     Also this option allows to migrate a single external tty connection, in other
     words this option allows to migrate such application as 'top' and friends.
 
--l|--file-locks::
+*-l*, *--file-locks*::
     Allow to dump and restore file locks. It\'s necessary to make sure that
     all file lock users are taken into dump. So it\'s only safe to use this
     for a container dump/restore.
 
---ms::
+*--ms*::
     In case of *check* command does not try to check for features which are
     known to be not yet merged upstream.
 
---page-server::
+*--page-server*::
     In case of *dump* command sends pages to a page server.
 
---address::
+*--address*::
     Page server address.
 
---port::
+*--port*::
     Page server port number.
 
--V|--version::
+*-V, *--version*::
     Print program version.
 
--h|--help::
+*-h*, *--help*::
     Print inline help.
 
 SYSCALLS EXECUTION
