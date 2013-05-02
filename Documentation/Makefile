@@ -6,6 +6,7 @@ XMLTO		:= xmlto
 
 SRC		+= criu.txt
 MANS		:= $(patsubst %.txt,%.8,$(SRC))
+MAN8DIR		:= $(MANDIR)/man8
 
 all: $(MANS)
 
@@ -19,4 +20,9 @@ clean:
 	$(Q) rm -f ./*.xml
 	$(Q) rm -f ./*.1
 
-.PHONY: clean
+install: $(MANS)
+	$(E) "  INSTALL " $(MANS)
+	$(Q) mkdir -p $(DESTDIR)$(MAN8DIR)
+	$(Q) install $(MANS) $(DESTDIR)$(MAN8DIR)
+
+.PHONY: clean install

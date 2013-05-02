@@ -201,12 +201,23 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 		v$(CRTOOLSVERSION) | bzip2 > $@
 .PHONY: dist tar
 
+install: $(PROGRAM) install-man
+	$(E) "  INSTALL " $(PROGRAM)
+	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
+	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
+
+install-man:
+	$(Q) $(MAKE) -C Documentation install
+
+.PHONY: install install-man
+
 help:
 	@echo '    Targets:'
 	@echo '      all             - Build all [*] targets'
 	@echo '    * criu            - Build criu'
 	@echo '      zdtm            - Build zdtm test-suite'
 	@echo '      docs            - Build documentation'
+	@echo '      install         - Install binary and man page'
 	@echo '      clean           - Clean everything'
 	@echo '      tags            - Generate tags file (ctags)'
 	@echo '      cscope          - Generate cscope database'
