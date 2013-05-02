@@ -218,6 +218,7 @@ help:
 	@echo '      zdtm            - Build zdtm test-suite'
 	@echo '      docs            - Build documentation'
 	@echo '      install         - Install binary and man page'
+	@echo '      dist            - Create a source tarball'
 	@echo '      clean           - Clean everything'
 	@echo '      tags            - Generate tags file (ctags)'
 	@echo '      cscope          - Generate cscope database'
