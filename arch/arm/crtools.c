@@ -84,6 +84,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.ARM_##e
 
+#define PTRACE_GETVFPREGS 27
 int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 {
 	user_regs_struct_t regs = {{-1}};
@@ -101,7 +102,7 @@ int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 		}
 	}
 
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &vfp)) {
+	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
 		pr_err("Can't obtain FPU registers for %d\n", pid);
 		goto err;
 	}
