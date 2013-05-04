@@ -34,6 +34,7 @@ static int kerndat_get_shmemdev(void)
 	sprintf(maps, "/proc/self/map_files/%lx-%lx",
 			(unsigned long)map, (unsigned long)map + PAGE_SIZE);
 	if (stat(maps, &buf) < 0) {
+		munmap(map, PAGE_SIZE);
 		pr_perror("Can't stat piggie");
 		return -1;
 	}
