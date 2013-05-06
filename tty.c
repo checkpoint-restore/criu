@@ -577,8 +577,19 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 * use syscalls instead of lookup via process tree.
 	 */
 	if (likely(slave->inherit)) {
-		if (tty_set_prgp(fd, getpgid(getppid())))
-			goto err;
+		/*
+		 * The restoration procedure only works if we're
+		 * migrating not a session leader, otherwise it's
+		 * not allowed to restore a group and one better to
+		 * checkpoint complete process tree together with
+		 * the process which keeps the master peer.
+		 */
+		if (root_item->sid != root_item->pid.virt) {
+			pr_debug("Restore inherited group %d\n",
+				 getpgid(getppid()));
+			if (tty_set_prgp(fd, getpgid(getppid())))
+				goto err;
+		}
 	}
 
 	if (pty_open_slaves(slave))
