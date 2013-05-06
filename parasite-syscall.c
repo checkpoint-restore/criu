@@ -411,7 +411,7 @@ static int dump_one_timer(struct itimerval *v, int fd)
 	ie.isec = v->it_interval.tv_sec;
 	ie.iusec = v->it_interval.tv_usec;
 	ie.vsec = v->it_value.tv_sec;
-	ie.vusec = v->it_value.tv_sec;
+	ie.vusec = v->it_value.tv_usec;
 
 	return pb_write_one(fd, &ie, PB_ITIMERS);
 }
