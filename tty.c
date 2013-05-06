@@ -80,6 +80,7 @@ struct tty_info {
 	int				major;
 
 	bool				create;
+	bool				inherit;
 };
 
 struct tty_dump_info {
@@ -94,8 +95,6 @@ struct tty_dump_info {
 
 static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
-
-#define INHERIT_SID			(-1)
 
 /*
  * Usually an application has not that many ttys opened.
@@ -411,9 +410,9 @@ static bool tty_has_active_pair(struct tty_info *info)
 
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
-	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d)\n",
+	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
 		prefix, tty_type(info->major), info->tfe->id, info->tie->pty->index,
-		pty_is_master(info), info->tie->sid, info->tie->pgrp);
+		pty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
 static int restore_tty_params(int fd, struct tty_info *info)
@@ -535,7 +534,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 * be inherited, either it requires a fake master.
 	 */
 
-	if (likely(slave->tie->sid == INHERIT_SID)) {
+	if (likely(slave->inherit)) {
 		fd = dup(get_service_fd(SELF_STDIN_OFF));
 		if (fd < 0) {
 			pr_perror("Can't dup SELF_STDIN_OFF");
@@ -577,7 +576,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 * be already restored properly thus we can simply
 	 * use syscalls instead of lookup via process tree.
 	 */
-	if (likely(slave->tie->sid == INHERIT_SID)) {
+	if (likely(slave->inherit)) {
 		if (tty_set_prgp(fd, getpgid(getppid())))
 			goto err;
 	}
@@ -763,7 +762,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 shell_job:
 	if (opts.shell_job) {
 		pr_info("Inherit terminal for id %x\n", info->tfe->id);
-		info->tie->sid = info->tie->pgrp = INHERIT_SID;
+		info->inherit = true;
 		return 0;
 	}
 
@@ -944,6 +943,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	INIT_LIST_HEAD(&info->sibling);
 	info->major = major(info->tie->rdev);
 	info->create = (info->major == TTYAUX_MAJOR);
+	info->inherit = false;
 
 	if (verify_info(info))
 		return -1;
