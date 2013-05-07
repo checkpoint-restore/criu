@@ -212,15 +212,14 @@ void print_image_data(int fd, unsigned int length, int show)
 	xfree(data);
 }
 
+static void show_pagemaps(int fd, void *obj)
+{
+	pb_show_plain_pretty(fd, PB_PAGEMAP, "2:%u");
+}
+
 void show_pagemap(int fd)
 {
-	PagemapHead *h;
-
-	if (pb_read_one(fd, &h, PB_PAGEMAP_HEAD) < 0)
-		return;
-	pr_msg("Pages id: %u\n", h->pages_id);
-	pagemap_head__free_unpacked(h, NULL);
-	return pb_show_plain_pretty(fd, PB_PAGEMAP, "2:%u");
+	do_pb_show_plain(fd, PB_PAGEMAP_HEAD, 1, show_pagemaps, NULL);
 }
 
 void show_siginfo(int fd)
