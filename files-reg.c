@@ -432,20 +432,17 @@ static int check_path_remap(char *rpath, int plen, const struct stat *ost, int l
 
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	char fd_str[128];
 	char rpath[PATH_MAX + 1] = ".", *path = rpath + 1;
 	int len, rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
-	snprintf(fd_str, sizeof(fd_str), "/proc/self/fd/%d", lfd);
-	len = readlink(fd_str, path, sizeof(rpath) - 2);
+	len = read_fd_link(lfd, path, sizeof(rpath) - 1);
 	if (len < 0) {
-		pr_perror("Can't readlink %s", fd_str);
+		pr_err("Can't read link\n");
 		return len;
 	}
 
-	path[len] = '\0';
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
 			p->fd, lfd, path);
 
