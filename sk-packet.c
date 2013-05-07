@@ -42,7 +42,7 @@ struct packet_sock_desc {
 
 #define NO_FANOUT	((unsigned int)-1)
 
-void show_packetsk(int fd, struct cr_options *o)
+void show_packetsk(int fd)
 {
 	pb_show_plain_pretty(fd, PB_PACKETSK, "5:%d");
 }

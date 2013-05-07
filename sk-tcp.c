@@ -615,7 +615,7 @@ void rst_unlock_tcp_connections(void)
 		nf_unlock_connection_info(ii);
 }
 
-void show_tcp_stream(int fd, struct cr_options *opt)
+void show_tcp_stream(int fd)
 {
 	pb_show_plain_pretty(fd, PB_TCP_STREAM, "1:%u 2:%u 3:%u 4:%u");
 }

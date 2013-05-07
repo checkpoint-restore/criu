@@ -77,22 +77,22 @@ int is_fanotify_link(int lfd)
 	return is_anon_link_type(lfd, "[fanotify]");
 }
 
-void show_inotify_wd(int fd_inotify_wd, struct cr_options *o)
+void show_inotify_wd(int fd_inotify_wd)
 {
 	pb_show_plain(fd_inotify_wd, PB_INOTIFY_WD);
 }
 
-void show_inotify(int fd_inotify, struct cr_options *o)
+void show_inotify(int fd_inotify)
 {
 	pb_show_plain(fd_inotify, PB_INOTIFY);
 }
 
-void show_fanotify_mark(int fd, struct cr_options *o)
+void show_fanotify_mark(int fd)
 {
 	pb_show_plain(fd, PB_FANOTIFY_MARK);
 }
 
-void show_fanotify(int fd, struct cr_options *o)
+void show_fanotify(int fd)
 {
 	pb_show_plain(fd, PB_FANOTIFY);
 }

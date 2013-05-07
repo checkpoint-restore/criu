@@ -12,6 +12,6 @@
 extern int is_eventfd_link(int lfd);
 extern int dump_eventfd(struct fd_parms *p, int lfd, const int fdinfo);
 extern int collect_eventfd(void);
-extern void show_eventfds(int fd, struct cr_options *o);
+extern void show_eventfds(int fd);
 
 #endif /* __CR_EVENTFD_H__ */

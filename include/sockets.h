@@ -43,10 +43,10 @@ extern int resolve_unix_peers(void);
 
 extern int collect_netlink_sockets(void);
 
-extern void show_unixsk(int fd, struct cr_options *o);
-extern void show_inetsk(int fd, struct cr_options *o);
-extern void show_sk_queues(int fd, struct cr_options *o);
-extern void show_netlinksk(int fd, struct cr_options *o);
+extern void show_unixsk(int fd);
+extern void show_inetsk(int fd);
+extern void show_sk_queues(int fd);
+extern void show_netlinksk(int fd);
 
 extern char *skfamily2s(u32 f);
 extern char *sktype2s(u32 t);

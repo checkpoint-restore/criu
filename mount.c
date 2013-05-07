@@ -769,7 +769,7 @@ int prepare_mnt_ns(int ns_pid)
 	return ret;
 }
 
-void show_mountpoints(int fd, struct cr_options *o)
+void show_mountpoints(int fd)
 {
 	pb_show_plain(fd, PB_MOUNTPOINTS);
 }

@@ -31,7 +31,7 @@ struct signalfd_dump_arg {
 	bool dumped;
 };
 
-void show_signalfd(int fd, struct cr_options *o)
+void show_signalfd(int fd)
 {
 	pb_show_plain(fd, PB_SIGNALFD);
 }

@@ -53,7 +53,7 @@
 
 static LIST_HEAD(pstree_list);
 
-void show_files(int fd_files, struct cr_options *o)
+void show_files(int fd_files)
 {
 	pb_show_plain_pretty(fd_files, PB_FDINFO, "2:%#o 4:%d");
 }
@@ -65,17 +65,17 @@ void show_fown_cont(void *p)
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
 }
 
-void show_reg_files(int fd_reg_files, struct cr_options *o)
+void show_reg_files(int fd_reg_files)
 {
 	pb_show_plain(fd_reg_files, PB_REG_FILES);
 }
 
-void show_remap_files(int fd, struct cr_options *o)
+void show_remap_files(int fd)
 {
 	pb_show_plain(fd, PB_REMAP_FPATH);
 }
 
-void show_ghost_file(int fd, struct cr_options *o)
+void show_ghost_file(int fd)
 {
 	pb_show_vertical(fd, PB_GHOST_FILE);
 }
@@ -86,52 +86,52 @@ static void pipe_data_handler(int fd, void *obj)
 	print_image_data(fd, e->bytes, opts.show_pages_content);
 }
 
-void show_pipes_data(int fd, struct cr_options *o)
+void show_pipes_data(int fd)
 {
 	pb_show_plain_payload(fd, PB_PIPES_DATA, pipe_data_handler);
 }
 
-void show_pipes(int fd_pipes, struct cr_options *o)
+void show_pipes(int fd_pipes)
 {
 	pb_show_plain(fd_pipes, PB_PIPES);
 }
 
-void show_fifo_data(int fd, struct cr_options *o)
+void show_fifo_data(int fd)
 {
-	show_pipes_data(fd, o);
+	show_pipes_data(fd);
 }
 
-void show_fifo(int fd, struct cr_options *o)
+void show_fifo(int fd)
 {
 	pb_show_plain(fd, PB_FIFO);
 }
 
-void show_tty(int fd, struct cr_options *o)
+void show_tty(int fd)
 {
 	pb_show_plain(fd, PB_TTY);
 }
 
-void show_tty_info(int fd, struct cr_options *o)
+void show_tty_info(int fd)
 {
 	pb_show_plain(fd, PB_TTY_INFO);
 }
 
-void show_file_locks(int fd, struct cr_options *o)
+void show_file_locks(int fd)
 {
 	pb_show_plain(fd, PB_FILE_LOCK);
 }
 
-void show_fs(int fd_fs, struct cr_options *o)
+void show_fs(int fd_fs)
 {
 	pb_show_vertical(fd_fs, PB_FS);
 }
 
-void show_vmas(int fd_vma, struct cr_options *o)
+void show_vmas(int fd_vma)
 {
 	pb_show_plain(fd_vma, PB_VMAS);
 }
 
-void show_rlimit(int fd, struct cr_options *o)
+void show_rlimit(int fd)
 {
 	pb_show_plain(fd, PB_RLIMIT);
 }
@@ -212,7 +212,7 @@ void print_image_data(int fd, unsigned int length, int show)
 	xfree(data);
 }
 
-void show_pagemap(int fd, struct cr_options *o)
+void show_pagemap(int fd)
 {
 	PagemapHead *h;
 
@@ -223,7 +223,7 @@ void show_pagemap(int fd, struct cr_options *o)
 	return pb_show_plain_pretty(fd, PB_PAGEMAP, "2:%u");
 }
 
-void show_siginfo(int fd, struct cr_options *o)
+void show_siginfo(int fd)
 {
 	int ret;
 
@@ -245,17 +245,17 @@ void show_siginfo(int fd, struct cr_options *o)
 	pr_img_tail(CR_FD_SIGNAL);
 }
 
-void show_sigacts(int fd_sigacts, struct cr_options *o)
+void show_sigacts(int fd_sigacts)
 {
 	pb_show_plain(fd_sigacts, PB_SIGACT);
 }
 
-void show_itimers(int fd, struct cr_options *o)
+void show_itimers(int fd)
 {
 	pb_show_plain_pretty(fd, PB_ITIMERS, "1:%Lu 2:%Lu 3:%Lu 4:%Lu");
 }
 
-void show_creds(int fd, struct cr_options *o)
+void show_creds(int fd)
 {
 	pb_show_vertical(fd, PB_CREDS);
 }
@@ -300,7 +300,7 @@ void show_collect_pstree(int fd, int collect)
 			"1:%d 2:%d 3:%d 4:%d 5:%d");
 }
 
-void show_pstree(int fd, struct cr_options *o)
+void show_pstree(int fd)
 {
 	show_collect_pstree(fd, 0);
 }
@@ -361,17 +361,17 @@ void show_thread_info(ThreadInfoX86 *thread_info)
 	show_core_regs(thread_info->gpregs);
 }
 
-void show_core(int fd_core, struct cr_options *o)
+void show_core(int fd_core)
 {
 	pb_show_vertical(fd_core, PB_CORE);
 }
 
-void show_ids(int fd_ids, struct cr_options *o)
+void show_ids(int fd_ids)
 {
 	pb_show_vertical(fd_ids, PB_IDS);
 }
 
-void show_mm(int fd_mm, struct cr_options *o)
+void show_mm(int fd_mm)
 {
 	pb_show_vertical(fd_mm, PB_MM);
 }
@@ -427,7 +427,7 @@ static int cr_parse_file(struct cr_options *opts)
 		goto err;
 	}
 
-	fdset_template[i].show(fd, opts);
+	fdset_template[i].show(fd);
 	ret = 0;
 err:
 	close_safe(&fd);
@@ -447,7 +447,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 	pr_msg("Task %d:\n", item->pid.virt);
 	pr_msg("----------------------------------------\n");
 
-	show_core(fdset_fd(cr_fdset, CR_FD_CORE), opts);
+	show_core(fdset_fd(cr_fdset, CR_FD_CORE));
 
 	if (item->nr_threads > 1) {
 		int fd_th;
@@ -464,7 +464,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 			pr_msg("Thread %d.%d:\n", item->pid.virt, item->threads[i].virt);
 			pr_msg("----------------------------------------\n");
 
-			show_core(fd_th, opts);
+			show_core(fd_th);
 			close_safe(&fd_th);
 		}
 	}
@@ -477,7 +477,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 			pr_msg("* ");
 			pr_msg(fdset_template[i].fmt, item->pid.virt);
 			pr_msg(":\n");
-			fdset_template[i].show(fdset_fd(cr_fdset, i), opts);
+			fdset_template[i].show(fdset_fd(cr_fdset, i));
 		}
 
 	if (pb_read_one(fdset_fd(cr_fdset, CR_FD_IDS), &ids, PB_IDS) > 0) {
@@ -487,7 +487,7 @@ static int cr_show_pstree_item(struct cr_options *opts, struct pstree_item *item
 			pr_msg(fdset_template[CR_FD_FDINFO].fmt, ids->files_id);
 			pr_msg(":\n");
 
-			show_files(i, opts);
+			show_files(i);
 			close(i);
 		}
 
@@ -548,7 +548,7 @@ static int cr_show_all(struct cr_options *opts)
 	if (fd < 0)
 		goto out;
 
-	show_sk_queues(fd, opts);
+	show_sk_queues(fd);
 	close(fd);
 
 	pid = list_first_entry(&pstree_list, struct pstree_item, sibling)->pid.virt;

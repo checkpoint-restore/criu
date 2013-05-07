@@ -306,7 +306,7 @@ int try_show_namespaces(int ns_pid, struct cr_options *o)
 		if (fd == -1)
 			continue;
 
-		fdset_template[i].show(fdset_fd(fdset, i), o);
+		fdset_template[i].show(fdset_fd(fdset, i));
 	}
 	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);
 	close_cr_fdset(&fdset);

@@ -176,7 +176,7 @@ static void sk_queue_data_handler(int fd, void *obj)
 	print_image_data(fd, e->length, opts.show_pages_content);
 }
 
-void show_sk_queues(int fd, struct cr_options *o)
+void show_sk_queues(int fd)
 {
 	pb_show_plain_payload(fd, PB_SK_QUEUES, sk_queue_data_handler);
 }

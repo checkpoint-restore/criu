@@ -44,7 +44,7 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 		action, efe->id, efe->flags, efe->counter);
 }
 
-void show_eventfds(int fd, struct cr_options *o)
+void show_eventfds(int fd)
 {
 	pb_show_plain(fd, PB_EVENTFD);
 }

@@ -92,7 +92,7 @@ void kill_inventory(void)
 			fdset_template[CR_FD_INVENTORY].fmt, 0);
 }
 
-static void show_inventory(int fd, struct cr_options *o)
+static void show_inventory(int fd)
 {
 	pb_show_vertical(fd, PB_INVENTORY);
 }
@@ -111,7 +111,7 @@ static void show_inventory(int fd, struct cr_options *o)
 		.show	= _show,		\
 	}
 
-static void show_raw_image(int fd, struct cr_options *opt) {};
+static void show_raw_image(int fd) {};
 
 struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(INVENTORY,	"inventory",	 show_inventory),

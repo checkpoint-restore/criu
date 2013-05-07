@@ -467,7 +467,7 @@ static void ipc_sem_handler(int fd, void *obj)
 	pr_msg_ipc_sem_array(e->nsems, values);
 }
 
-void show_ipc_sem(int fd, struct cr_options *o)
+void show_ipc_sem(int fd)
 {
 	pb_show_plain_payload(fd, PB_IPCNS_SEM, ipc_sem_handler);
 }
@@ -489,7 +489,7 @@ static void ipc_msg_handler(int fd, void *obj)
 
 }
 
-void show_ipc_msg(int fd, struct cr_options *o)
+void show_ipc_msg(int fd)
 {
 	pb_show_plain_payload(fd, PB_IPCNS_MSG_ENT, ipc_msg_handler);
 }
@@ -500,12 +500,12 @@ static void ipc_shm_handler(int fd, void *obj)
 	print_image_data(fd, round_up(e->size, sizeof(u32)), opts.show_pages_content);
 }
 
-void show_ipc_shm(int fd, struct cr_options *o)
+void show_ipc_shm(int fd)
 {
 	pb_show_plain_payload(fd, PB_IPCNS_SHM, ipc_shm_handler);
 }
 
-void show_ipc_var(int fd, struct cr_options *o)
+void show_ipc_var(int fd)
 {
 	pb_show_vertical(fd, PB_IPCNS_VAR);
 }

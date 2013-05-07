@@ -4,7 +4,7 @@
 #include "list.h"
 
 struct cr_options;
-void show_netdevices(int fd, struct cr_options *);
+void show_netdevices(int fd);
 
 struct cr_fdset;
 int dump_net_ns(int pid, struct cr_fdset *);

@@ -65,7 +65,7 @@ out:
 	return ret;
 }
 
-void show_utsns(int fd, struct cr_options *o)
+void show_utsns(int fd)
 {
 	pb_show_vertical(fd, PB_UTSNS);
 }

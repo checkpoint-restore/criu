@@ -65,7 +65,7 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 	return sk_collect_one(m->ndiag_ino, PF_NETLINK, &sd->sd);
 }
 
-void show_netlinksk(int fd, struct cr_options *o)
+void show_netlinksk(int fd)
 {
 	pb_show_plain(fd, PB_NETLINKSK);
 }

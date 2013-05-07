@@ -5,7 +5,7 @@
 
 int dump_uts_ns(int ns_pid, struct cr_fdset *fdset);
 struct cr_options;
-void show_utsns(int fd, struct cr_options *);
+void show_utsns(int fd);
 int prepare_utsns(int pid);
 
 extern struct ns_desc uts_ns_desc;

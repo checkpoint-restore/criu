@@ -12,7 +12,7 @@ struct vma_area;
 
 int dump_one_packet_sk(struct fd_parms *p, int lfd, const int fdinfo);
 int collect_packet_sockets(void);
-void show_packetsk(int fd, struct cr_options *);
+void show_packetsk(int fd);
 
 int dump_socket_map(struct vma_area *vma);
 int get_socket_fd(int pid, VmaEntry *vma);
