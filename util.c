@@ -436,14 +436,14 @@ int read_fd_link(int lfd, char *buf, size_t size)
 	}
 	buf[ret] = 0;
 
-	return 0;
+	return ret;
 }
 
 int is_anon_link_type(int lfd, char *type)
 {
 	char link[32], aux[32];
 
-	if (read_fd_link(lfd, link, sizeof(link)))
+	if (read_fd_link(lfd, link, sizeof(link)) < 0)
 		return -1;
 
 	snprintf(aux, sizeof(aux), "anon_inode:%s", type);

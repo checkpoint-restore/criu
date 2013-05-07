@@ -541,7 +541,7 @@ static char *image_name(int fd)
 {
 	static char image_path[PATH_MAX];
 
-	if (read_fd_link(fd, image_path, sizeof(image_path)) == 0)
+	if (read_fd_link(fd, image_path, sizeof(image_path)) > 0)
 		return image_path;
 	return NULL;
 }
