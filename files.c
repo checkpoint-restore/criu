@@ -210,7 +210,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
 		       const int fdinfo)
 {
-	struct fd_parms p;
+	struct fd_parms p = FD_PARMS_INIT;
 	struct statfs statfs;
 
 	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
