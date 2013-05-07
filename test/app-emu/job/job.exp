@@ -38,6 +38,12 @@ switch $current {
 		}
 
 		spawn ../../../crtools restore -v 4 -D ./dump -o restore.log -j -t $pid
+		#
+		# spawn doesn't wait for restore to complete, so
+		# add some sleep here. Still better would be to
+		# rewrite this test completely.
+		sleep 2
+		system kill -15 $pid
 
 		expect "ALIVE" {
 			puts "PASS"

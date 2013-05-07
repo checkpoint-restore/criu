@@ -14,15 +14,27 @@
 
 #include <dirent.h>
 
+static int stop = 0;
+
+void sighandler(int sig)
+{
+	stop = 1;
+}
+
 int main(int argc, char *argv[])
 {
 	int pid, gid, sid;
 	int tty_sid, tty_gid;
 	int fd = fileno(stdout);
 	char buf[32];
-	int c = 0;
 	struct dirent *de;
 	DIR *fd_dir;
+	sigset_t bmask, cmask;
+
+	if (signal(SIGTERM, sighandler)) {
+		printf("Unable to set a signal handler: %m\n");
+		return 1;
+	}
 
 	if (!isatty(fd)) {
 		printf("stdout is not tty\n");
@@ -70,21 +82,19 @@ int main(int argc, char *argv[])
 	}
 	printf("stdout gid = %d\n", tty_gid);
 
+	sigemptyset(&cmask);
+	sigemptyset(&bmask);
+	sigaddset(&bmask, SIGTERM);
+
+	sigprocmask(SIG_SETMASK, &bmask, NULL);
+
 	printf("READY\n");
 
-	c = 0;
-	while (1) {
-		sleep(1);
-		if (c++ > 10) {
-			printf("Too long for restore\n");
-			exit(-1);
-		}
+	while (!stop)
+		sigsuspend(&cmask);
 
-		if (getsid(pid) != sid) {
-			printf("ALIVE\n");
-			break;
-		}
-	}
+	if (getsid(pid) == sid)
+		printf("ALIVE\n");
 
 	return 0;
 }
