@@ -43,7 +43,7 @@ void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
 	regs->ARM_ORIG_r0 = -1;
 
 	/* Make sure flags are in known state */
-	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | PSR_T_BIT | MODE32_BIT;
+	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | MODE32_BIT;
 }
 
 bool arch_can_dump_task(pid_t pid)
