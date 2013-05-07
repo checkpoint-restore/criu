@@ -505,14 +505,14 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 	}
 }
 
-static inline void pb_no_payload(int fd, void *obj, int flags) { }
+static inline void pb_no_payload(int fd, void *obj) { }
 
 void do_pb_show_plain(int fd, int type, int single_entry,
-		void (*payload_hadler)(int fd, void *obj, int flags),
-		int flags, const char *pretty_fmt)
+		void (*payload_hadler)(int fd, void *obj),
+		const char *pretty_fmt)
 {
 	pb_pr_ctl_t ctl = {NULL, single_entry, pretty_fmt};
-	void (*handle_payload)(int fd, void *obj, int flags);
+	void (*handle_payload)(int fd, void *obj);
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d\n", type);
@@ -529,7 +529,7 @@ void do_pb_show_plain(int fd, int type, int single_entry,
 
 		ctl.arg = (void *)cr_pb_descs[type].pb_desc;
 		pb_show_msg(obj, &ctl);
-		handle_payload(fd, obj, flags);
+		handle_payload(fd, obj);
 		cr_pb_descs[type].free(obj, NULL);
 		if (single_entry)
 			break;

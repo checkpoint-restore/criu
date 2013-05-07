@@ -80,16 +80,15 @@ void show_ghost_file(int fd, struct cr_options *o)
 	pb_show_vertical(fd, PB_GHOST_FILE);
 }
 
-static void pipe_data_handler(int fd, void *obj, int show_pages_content)
+static void pipe_data_handler(int fd, void *obj)
 {
 	PipeDataEntry *e = obj;
-	print_image_data(fd, e->bytes, show_pages_content);
+	print_image_data(fd, e->bytes, opts.show_pages_content);
 }
 
 void show_pipes_data(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, PB_PIPES_DATA,
-			pipe_data_handler, o->show_pages_content);
+	pb_show_plain_payload(fd, PB_PIPES_DATA, pipe_data_handler);
 }
 
 void show_pipes(int fd_pipes, struct cr_options *o)
@@ -277,13 +276,10 @@ static int pstree_item_from_pb(PstreeEntry *e, struct pstree_item *item)
 	return 0;
 }
 
-static void pstree_handler(int fd, void *obj, int collect)
+static void pstree_handler(int fd, void *obj)
 {
 	PstreeEntry *e = obj;
 	struct pstree_item *item = NULL;
-
-	if (!collect)
-		return;
 
 	item = xzalloc(sizeof(struct pstree_item));
 	if (!item)
@@ -299,8 +295,9 @@ static void pstree_handler(int fd, void *obj, int collect)
 
 void show_collect_pstree(int fd, int collect)
 {
-	pb_show_plain_payload_pretty(fd, PB_PSTREE, pstree_handler,
-				     collect, "1:%d 2:%d 3:%d 4:%d 5:%d");
+	pb_show_plain_payload_pretty(fd, PB_PSTREE,
+			collect ? pstree_handler : NULL,
+			"1:%d 2:%d 3:%d 4:%d 5:%d");
 }
 
 void show_pstree(int fd, struct cr_options *o)

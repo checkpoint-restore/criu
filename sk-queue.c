@@ -170,16 +170,15 @@ err_brk:
 	return ret;
 }
 
-static void sk_queue_data_handler(int fd, void *obj, int show_pages_content)
+static void sk_queue_data_handler(int fd, void *obj)
 {
 	SkPacketEntry *e = obj;
-	print_image_data(fd, e->length, show_pages_content);
+	print_image_data(fd, e->length, opts.show_pages_content);
 }
 
 void show_sk_queues(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, PB_SK_QUEUES,
-			sk_queue_data_handler, o->show_pages_content);
+	pb_show_plain_payload(fd, PB_SK_QUEUES, sk_queue_data_handler);
 }
 
 int restore_sk_queue(int fd, unsigned int peer_id)

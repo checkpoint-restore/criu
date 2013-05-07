@@ -449,7 +449,7 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 	return 0;
 }
 
-static void ipc_sem_handler(int fd, void *obj, int show_pages_content)
+static void ipc_sem_handler(int fd, void *obj)
 {
 	IpcSemEntry *e = obj;
 	u16 *values;
@@ -469,42 +469,40 @@ static void ipc_sem_handler(int fd, void *obj, int show_pages_content)
 
 void show_ipc_sem(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, PB_IPCNS_SEM, ipc_sem_handler, 0);
+	pb_show_plain_payload(fd, PB_IPCNS_SEM, ipc_sem_handler);
 }
 
-static void ipc_msg_data_handler(int fd, void *obj, int show_pages_content)
+static void ipc_msg_data_handler(int fd, void *obj)
 {
 	IpcMsg *e = obj;
-	print_image_data(fd, round_up(e->msize, sizeof(u64)), show_pages_content);
+	print_image_data(fd, round_up(e->msize, sizeof(u64)), opts.show_pages_content);
 }
 
-static void ipc_msg_handler(int fd, void *obj, int show_pages_content)
+static void ipc_msg_handler(int fd, void *obj)
 {
 	IpcMsgEntry *e = obj;
 	int msg_nr = 0;
 
 	pr_msg("\n");
 	while (msg_nr++ < e->qnum)
-		pb_show_plain_payload(fd, PB_IPCNS_MSG, ipc_msg_data_handler,
-					show_pages_content);
+		pb_show_plain_payload(fd, PB_IPCNS_MSG, ipc_msg_data_handler);
 
 }
 
 void show_ipc_msg(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, PB_IPCNS_MSG_ENT, ipc_msg_handler, o->show_pages_content);
+	pb_show_plain_payload(fd, PB_IPCNS_MSG_ENT, ipc_msg_handler);
 }
 
-static void ipc_shm_handler(int fd, void *obj, int show_pages_content)
+static void ipc_shm_handler(int fd, void *obj)
 {
 	IpcShmEntry *e = obj;
-	print_image_data(fd, round_up(e->size, sizeof(u32)), show_pages_content);
+	print_image_data(fd, round_up(e->size, sizeof(u32)), opts.show_pages_content);
 }
 
 void show_ipc_shm(int fd, struct cr_options *o)
 {
-	pb_show_plain_payload(fd, PB_IPCNS_SHM, ipc_shm_handler,
-				o->show_pages_content);
+	pb_show_plain_payload(fd, PB_IPCNS_SHM, ipc_shm_handler);
 }
 
 void show_ipc_var(int fd, struct cr_options *o)
