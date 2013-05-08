@@ -1,0 +1,7 @@
+// This one contains statistics about dump/restore process
+message dump_stats_entry {
+}
+
+message stats_entry {
+	optional dump_stats_entry dump = 1;
+}

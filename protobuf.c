@@ -18,6 +18,7 @@
 
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
+#include "protobuf/stats.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
 #include "protobuf/eventfd.pb-c.h"
 #include "protobuf/eventpoll.pb-c.h"
@@ -93,6 +94,7 @@ static struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 void cr_pb_init(void)
 {
 	CR_PB_DESC(INVENTORY,		Inventory,	inventory);
+	CR_PB_DESC(STATS,		Stats,		stats);
 	CR_PB_DESC(FDINFO,		Fdinfo,		fdinfo);
 	CR_PB_DESC(REG_FILES,		RegFile,	reg_file);
 	CR_PB_DESC(EVENTFD,		EventfdFile,	eventfd_file);

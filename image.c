@@ -13,6 +13,7 @@
 #include "mount.h"
 #include "net.h"
 #include "pstree.h"
+#include "stats.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -167,6 +168,12 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(SHM_PAGES_OLD, "pages-shmem-%ld", NULL),
 	FD_ENTRY(SIGNAL,	"signal-s-%d",	 show_siginfo), /* shared signals */
 	FD_ENTRY(PSIGNAL,	"signal-p-%d",	 show_siginfo), /* private signals */
+
+	[CR_FD_STATS] = {
+		.fmt = "stats-%s",
+		.magic = STATS_MAGIC,
+		.show = show_stats,
+	},
 };
 
 static struct cr_fdset *alloc_cr_fdset(int nr)

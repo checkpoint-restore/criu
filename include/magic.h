@@ -21,6 +21,7 @@
 
 #define INVENTORY_MAGIC		0x58313116 /* Veliky Novgorod */
 #define PSTREE_MAGIC		0x50273030 /* Kyiv */
+#define STATS_MAGIC		0x57093306 /* Ostashkov */
 #define FDINFO_MAGIC		0x56213732 /* Dmitrov */
 #define PAGEMAP_MAGIC		0x56084025 /* Vladimir */
 #define SHMEM_PAGEMAP_MAGIC	PAGEMAP_MAGIC

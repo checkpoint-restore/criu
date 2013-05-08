@@ -7,6 +7,7 @@
 
 enum {
 	PB_INVENTORY,
+	PB_STATS,
 	PB_FDINFO,
 	PB_CORE,
 	PB_MM,

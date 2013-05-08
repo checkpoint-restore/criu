@@ -16,6 +16,7 @@
 
 enum {
 	CR_FD_INVENTORY,
+	CR_FD_STATS,
 	/*
 	 * Task entries
 	 */

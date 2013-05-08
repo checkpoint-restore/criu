@@ -9,6 +9,7 @@
 
 CFLAGS		+= -I$(obj)/
 
+proto-obj-y	+= stats.o
 proto-obj-y	+= core.o
 proto-obj-y	+= core-x86.o
 proto-obj-y	+= core-arm.o
