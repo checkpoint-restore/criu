@@ -33,6 +33,8 @@ __NR_setitimer		38		sys_setitimer		(int which, const struct itimerval *val, stru
 __NR_getpid		39		sys_getpid		(void)
 __NR_socket		41		sys_socket		(int domain, int type, int protocol)
 __NR_connect		42		sys_connect		(int sockfd, struct sockaddr *addr, int addrlen)
+__NR_sendto		44		sys_sendto		(int sockfd, void *buff, size_t len, unsigned int flags, struct sockaddr *addr, int addr_len)
+__NR_recvfrom		45		sys_recvfrom		(int sockfd, void *ubuf, size_t size, unsigned int flags, struct sockaddr *addr, int *addr_len)
 __NR_sendmsg		46		sys_sendmsg		(int sockfd, const struct msghdr *msg, int flags)
 __NR_recvmsg		47		sys_recvmsg		(int sockfd, struct msghdr *msg, int flags)
 __NR_bind		49		sys_bind		(int sockfd, const struct sockaddr *addr, int addrlen)
