@@ -299,50 +299,34 @@ int main(int argc, char *argv[])
 	if (optind >= argc)
 		goto usage;
 
-	if (strcmp(argv[optind], "dump") &&
-	    strcmp(argv[optind], "restore") &&
-	    strcmp(argv[optind], "show") &&
-	    strcmp(argv[optind], "check") &&
-	    strcmp(argv[optind], "page-server") &&
-	    strcmp(argv[optind], "exec")) {
-		pr_err("Unknown command %s\n", argv[optind]);
-		goto usage;
-	}
-
-	switch (argv[optind][0]) {
-	case 'd':
+	if (!strcmp(argv[optind], "dump")) {
 		if (!tree_id)
 			goto opt_pid_missing;
-		ret = cr_dump_tasks(tree_id, &opts);
-		break;
-	case 'r':
+		return cr_dump_tasks(tree_id, &opts);
+	}
+
+	if (!strcmp(argv[optind], "restore")) {
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
-		ret = cr_restore_tasks(&opts);
-		break;
-	case 's':
-		ret = cr_show(&opts, pid);
-		break;
-	case 'c':
-		ret = cr_check();
-		break;
-	case 'e':
+		return cr_restore_tasks(&opts);
+	}
+
+	if (!strcmp(argv[optind], "show"))
+		return cr_show(&opts, pid);
+
+	if (!strcmp(argv[optind], "check"))
+		return cr_check();
+
+	if (!strcmp(argv[optind], "exec")) {
 		if (!pid)
 			pid = tree_id; /* old usage */
 		if (!pid)
 			goto opt_pid_missing;
-		ret = cr_exec(pid, argv + optind + 1);
-		break;
-	case 'p':
-		ret = cr_page_server();
-		break;
-	default:
-		goto usage;
-		break;
+		return cr_exec(pid, argv + optind + 1);
 	}
 
-	return ret;
-
+	if (!strcmp(argv[optind], "page-server"))
+		return  cr_page_server();
 usage:
 	pr_msg("\nUsage:\n");
 	pr_msg("  %s dump -t PID [<options>]\n", argv[0]);
