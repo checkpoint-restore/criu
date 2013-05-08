@@ -316,9 +316,9 @@ int main(int argc, char *argv[])
 		ret = cr_dump_tasks(tree_id, &opts);
 		break;
 	case 'r':
-		if (!tree_id)
-			goto opt_pid_missing;
-		ret = cr_restore_tasks(tree_id, &opts);
+		if (tree_id)
+			pr_warn("Using -t with criu restore is obsoleted\n");
+		ret = cr_restore_tasks(&opts);
 		break;
 	case 's':
 		ret = cr_show(&opts, pid);
@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 usage:
 	pr_msg("\nUsage:\n");
 	pr_msg("  %s dump -t PID [<options>]\n", argv[0]);
-	pr_msg("  %s restore -t PID [<options>]\n", argv[0]);
+	pr_msg("  %s restore [<options>]\n", argv[0]);
 	pr_msg("  %s show (-D DIR)|(-f FILE) [<options>]\n", argv[0]);
 	pr_msg("  %s check [--ms]\n", argv[0]);
 	pr_msg("  %s exec -p PID <syscall-string>\n", argv[0]);

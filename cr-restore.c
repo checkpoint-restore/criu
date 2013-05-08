@@ -1304,7 +1304,7 @@ static int prepare_task_entries()
 	return 0;
 }
 
-int cr_restore_tasks(pid_t pid, struct cr_options *opts)
+int cr_restore_tasks(struct cr_options *opts)
 {
 	if (check_img_inventory() < 0)
 		return -1;
