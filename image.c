@@ -332,8 +332,8 @@ int open_image_dir(void)
 
 	close(fd);
 
-	if (opts.snap_parent) {
-		ret = symlink(opts.snap_parent, CR_PARENT_LINK);
+	if (opts.img_parent) {
+		ret = symlink(opts.img_parent, CR_PARENT_LINK);
 		if (ret < 0) {
 			pr_perror("Can't link parent snapshot.");
 			goto err;

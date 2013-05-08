@@ -40,13 +40,13 @@ for SNAP in $(seq 1 $NRSNAP); do
 	mkdir "$IMGDIR/$SNAP/"
 	if [ $SNAP -eq 1 ] ; then
 		# First snapshot -- no parent, keep running
-		args="--snapshot -R"
+		args="--track-mem -R"
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last snapshot -- has parent, kill afterwards
-		args="--snapshot=../$((SNAP - 1))/"
+		args="--prev-images-dir=../$((SNAP - 1))/"
 	else
 		# Other snapshots -- have parent, keep running
-		args="--snapshot=../$((SNAP - 1))/ -R"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"
 	fi
 
 	if [ $USEPS -eq 1 ]; then

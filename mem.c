@@ -45,8 +45,14 @@ static int task_reset_dirty_track(int pid)
 	int fd, ret;
 	char cmd[] = "4";
 
-	if (!opts.mem_snapshot)
+	if (!opts.track_mem)
 		return 0;
+
+	if (!kerndat_has_dirty_track) {
+		pr_err("Kernel doesn't support dirty tracking. "
+				"No snapshot available.\n");
+		return -1;
+	}
 
 	pr_info("Reset %d's dirty tracking\n", pid);
 	fd = open_proc_rw(pid, "clear_refs");
@@ -70,15 +76,6 @@ static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
 	struct mem_snap_ctx *ctx;
 	int p_fd, pm_fd;
 	PagemapHead *h;
-
-	if (!opts.mem_snapshot)
-		return NULL;
-
-	if (!kerndat_has_dirty_track) {
-		pr_err("Kernel doesn't support dirty tracking. "
-				"No snapshot available.\n");
-		return ERR_PTR(-1);
-	}
 
 	p_fd = get_service_fd(PARENT_FD_OFF);
 	if (p_fd < 0) {

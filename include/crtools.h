@@ -119,8 +119,8 @@ struct cr_options {
 	struct list_head	scripts;
 	bool			use_page_server;
 	struct sockaddr_in	ps_addr;
-	bool			mem_snapshot;
-	char			*snap_parent;
+	bool			track_mem;
+	char			*img_parent;
 };
 
 extern struct cr_options opts;

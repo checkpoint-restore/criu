@@ -113,8 +113,9 @@ int main(int argc, char *argv[])
 			{ "page-server", no_argument, 0, 50},
 			{ "address", required_argument, 0, 51},
 			{ "port", required_argument, 0, 52},
-			{ "snapshot", optional_argument, 0, 53},
+			{ "prev-images-dir", required_argument, 0, 53},
 			{ "ms", no_argument, 0, 54},
+			{ "track-mem", no_argument, 0, 55},
 			{ },
 		};
 
@@ -262,8 +263,10 @@ int main(int argc, char *argv[])
 			opts.handle_file_locks = true;
 			break;
 		case 53:
-			opts.mem_snapshot = true;
-			opts.snap_parent = optarg;
+			opts.img_parent = optarg;
+			break;
+		case 55:
+			opts.track_mem = true;
 			break;
 		case 54:
 			opts.check_ms_kernel = true;
@@ -287,8 +290,8 @@ int main(int argc, char *argv[])
 			return ret;
 	}
 
-	if (opts.mem_snapshot)
-		pr_info("Will do snapshot from %s\n", opts.snap_parent);
+	if (opts.img_parent)
+		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
 	ret = open_image_dir();
 	if (ret < 0) {
