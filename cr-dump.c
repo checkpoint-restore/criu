@@ -60,6 +60,7 @@
 #include "page-xfer.h"
 #include "kerndat.h"
 #include "stats.h"
+#include "mem.h"
 
 #include "asm/dump.h"
 
@@ -1471,7 +1472,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, cr_fdset);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas);
 	if (ret)
 		goto err_cure;
 

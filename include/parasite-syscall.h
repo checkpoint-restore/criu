@@ -40,9 +40,6 @@ struct vm_area_list;
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 struct _CredsEntry;
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
-extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-				      struct vm_area_list *vma_area_list,
-				      struct cr_fdset *cr_fdset);
 struct parasite_dump_thread;
 struct pid;
 struct _CoreEntry;

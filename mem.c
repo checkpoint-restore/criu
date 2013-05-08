@@ -286,7 +286,7 @@ static int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_lis
 }
 
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
+		struct vm_area_list *vma_area_list)
 {
 	struct parasite_dump_pages_args *args;
 	u64 *map;
@@ -385,7 +385,7 @@ out:
 }
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, struct cr_fdset *cr_fdset)
+		struct vm_area_list *vma_area_list)
 {
 	int ret;
 
@@ -395,7 +395,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return ret;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, vma_area_list, cr_fdset);
+	ret = __parasite_dump_pages_seized(ctl, vma_area_list);
 	if (ret)
 		pr_err("Can't dump page with parasite\n");
 
