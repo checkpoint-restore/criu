@@ -1043,7 +1043,7 @@ static int collect_pstree_ids(void)
 	return 0;
 }
 
-static int collect_pstree(pid_t pid, const struct cr_options *opts)
+static int collect_pstree(pid_t pid)
 {
 	int ret, attempts = 5;
 
@@ -1093,12 +1093,12 @@ try_again:
 	return collect_pstree_ids();
 }
 
-static int collect_file_locks(const struct cr_options *opts)
+static int collect_file_locks(void)
 {
 	if (parse_file_locks())
 		return -1;
 
-	if (opts->handle_file_locks)
+	if (opts.handle_file_locks)
 		/*
 		 * If the handle file locks option(-l) is set,
 		 * collect work is over.
@@ -1550,7 +1550,7 @@ err_cure_fdset:
 	goto err;
 }
 
-int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
+int cr_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
 	int ret = -1;
@@ -1571,13 +1571,13 @@ int cr_dump_tasks(pid_t pid, const struct cr_options *opts)
 	if (connect_to_page_server())
 		goto err;
 
-	if (collect_pstree(pid, opts))
+	if (collect_pstree(pid))
 		goto err;
 
 	if (network_lock())
 		goto err;
 
-	if (collect_file_locks(opts))
+	if (collect_file_locks())
 		goto err;
 
 	if (collect_mount_info(pid))
@@ -1635,7 +1635,7 @@ err:
 	if (ret)
 		network_unlock();
 	pstree_switch_state(root_item,
-			ret ? TASK_ALIVE : opts->final_state);
+			ret ? TASK_ALIVE : opts.final_state);
 	timing_stop(TIME_FROZEN);
 	free_pstree(root_item);
 	free_file_locks();
