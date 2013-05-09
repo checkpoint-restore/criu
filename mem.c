@@ -11,6 +11,7 @@
 #include "page-xfer.h"
 #include "log.h"
 #include "kerndat.h"
+#include "stats.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -301,6 +302,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
+	timing_start(TIME_MEMDUMP);
+
 	pr_debug("   Private vmas %lu/%lu pages\n",
 			vma_area_list->longest, vma_area_list->priv_size);
 
@@ -376,6 +379,8 @@ out_snap:
 	mem_snap_close(snap);
 out:
 	pr_info("----------------------------------------\n");
+	if (!ret)
+		timing_stop(TIME_MEMDUMP);
 	return ret;
 }
 

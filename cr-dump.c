@@ -1047,6 +1047,8 @@ static int collect_pstree(pid_t pid, const struct cr_options *opts)
 {
 	int ret, attempts = 5;
 
+	timing_start(TIME_FREEZING);
+
 	while (1) {
 		root_item = alloc_pstree_item();
 		if (root_item == NULL)
@@ -1084,6 +1086,9 @@ try_again:
 		pstree_switch_state(root_item, TASK_ALIVE);
 		free_pstree(root_item);
 	}
+
+	timing_stop(TIME_FREEZING);
+	timing_start(TIME_FROZEN);
 
 	return collect_pstree_ids();
 }
@@ -1631,6 +1636,7 @@ err:
 		network_unlock();
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts->final_state);
+	timing_stop(TIME_FROZEN);
 	free_pstree(root_item);
 	free_file_locks();
 
