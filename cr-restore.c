@@ -95,7 +95,7 @@ static int crtools_prepare_shared(struct cr_options *opts)
 	if (prepare_shared_fdinfo())
 		return -1;
 
-	/* Connections are unlocked from crtools */
+	/* Connections are unlocked from criu */
 	if (collect_inet_sockets())
 		return -1;
 
@@ -1591,7 +1591,7 @@ static int prepare_restorer_blob(void)
 {
 	/*
 	 * We map anonymous mapping, not mremap the restorer itself later.
-	 * Otherwise the restorer vma would be tied to crtools binary which
+	 * Otherwise the restorer vma would be tied to criu binary which
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 

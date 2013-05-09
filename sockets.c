@@ -634,7 +634,7 @@ out:
 			err = -1;
 	} else if (pid != 0) {
 		/*
-		 * If netns isn't dumped, crtools will fail only
+		 * If netns isn't dumped, criu will fail only
 		 * if an unsupported socket will be really dumped.
 		 */
 		pr_info("Uncollected sockets! Will probably fail later.\n");

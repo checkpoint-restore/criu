@@ -98,7 +98,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 
 	pr_info("\tTurning repair on for socket %x\n", sk->sd.ino);
 	/*
-	 * Keep the socket open in crtools till the very end. In
+	 * Keep the socket open in criu till the very end. In
 	 * case we close this fd after one task fd dumping and
 	 * fail we'll have to turn repair mode off
 	 */

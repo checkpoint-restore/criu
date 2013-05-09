@@ -525,7 +525,7 @@ set_mask:
 		 * Workaround for current namespaces model --
 		 * all tasks should be in one namespace. And
 		 * this namespace is either inherited from the
-		 * crtools or is created for the init task (only)
+		 * criu or is created for the init task (only)
 		 */
 		if (item == root_item) {
 			pr_info("Will restore in %lx namespaces\n", cflags);
