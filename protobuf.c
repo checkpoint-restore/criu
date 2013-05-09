@@ -357,10 +357,14 @@ static int pb_field_show_pretty(pb_pr_ctl_t *ctl)
 	char cookie[32];
 	const char *ptr;
 
-	if (!ctl->pretty_fmt || field->depth)
+	if (!ctl->pretty_fmt)
 		return 0;
 
-	sprintf(cookie, " %d:", field->number);
+	if (!field->depth)
+		sprintf(cookie, " %d:", field->number);
+	else
+		sprintf(cookie, " %d.%d:", field->depth, field->number);
+
 	if (!strncmp(ctl->pretty_fmt, &cookie[1], strlen(&cookie[1])))
 		ptr = ctl->pretty_fmt;
 	else {
@@ -368,7 +372,7 @@ static int pb_field_show_pretty(pb_pr_ctl_t *ctl)
 		if (!ptr)
 			return 0;
 	}
-	found = sscanf(ptr, "%*[ 1-9:]%s", field->fmt);
+	found = sscanf(ptr, "%*[ 1-9.:]%s", field->fmt);
 	BUG_ON(found > 1);
 	return found;
 }
