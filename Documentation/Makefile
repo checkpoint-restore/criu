@@ -18,7 +18,7 @@ all: $(MANS)
 clean:
 	$(E) "  CLEAN   "
 	$(Q) rm -f ./*.xml
-	$(Q) rm -f ./*.1
+	$(Q) rm -f ./*.8
 
 install: $(MANS)
 	$(E) "  INSTALL " $(MANS)
