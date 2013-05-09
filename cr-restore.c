@@ -1370,8 +1370,6 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	return -1;
 }
 
-#define USEC_PER_SEC	1000000L
-
 static inline int timeval_valid(struct timeval *tv)
 {
 	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
