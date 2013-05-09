@@ -1216,7 +1216,7 @@ static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
 		if (!(current_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
 				"in a new pid namespace.\n"
-				"crtools should be re-executed with the "
+				"criu should be re-executed with the "
 				"\"--namespace pid\" option.\n");
 			return -1;
 		}
