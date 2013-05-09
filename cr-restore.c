@@ -1591,7 +1591,7 @@ static int prepare_restorer_blob(void)
 {
 	/*
 	 * We map anonymous mapping, not mremap the restorer itself later.
-	 * Otherwise the resoter vma would be tied to crtools binary which 
+	 * Otherwise the restorer vma would be tied to crtools binary which
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 
