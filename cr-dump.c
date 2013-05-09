@@ -59,6 +59,7 @@
 #include "file-lock.h"
 #include "page-xfer.h"
 #include "kerndat.h"
+#include "stats.h"
 
 #include "asm/dump.h"
 
@@ -1638,8 +1639,10 @@ err:
 	if (ret) {
 		kill_inventory();
 		pr_err("Dumping FAILED.\n");
-	} else
+	} else {
+		write_stats(DUMP_STATS);
 		pr_info("Dumping finished successfully\n");
+	}
 
 	return ret;
 }
