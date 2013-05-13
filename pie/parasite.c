@@ -60,7 +60,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	if (p < 0)
 		return -1;
 
-	ret = sys_vmsplice(p, &args->iovs[args->off], args->nr,
+	ret = sys_vmsplice(p, &args->iovs[args->off], args->nr_segs,
 				SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 	if (ret != PAGE_SIZE * args->nr_pages) {
 		sys_close(p);

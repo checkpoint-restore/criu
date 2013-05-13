@@ -349,16 +349,16 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (ret)
 			goto out_pp;
 
-		args->nr = ppb->nr_segs;
+		args->nr_segs = ppb->nr_segs;
 		args->nr_pages = ppb->pages_in;
 		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
-				args->nr_pages, args->nr, ppb->pipe_size, args->off);
+				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
 
 		ret = parasite_execute(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			goto out_pp;
 
-		args->off += args->nr;
+		args->off += args->nr_segs;
 	}
 
 	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);

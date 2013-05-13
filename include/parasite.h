@@ -68,7 +68,7 @@ struct parasite_mprotect_args
 
 struct parasite_dump_pages_args {
 	unsigned int	off;
-	unsigned int	nr;
+	unsigned int	nr_segs;
 	unsigned int	nr_pages;
 	struct iovec	iovs[0];
 };
