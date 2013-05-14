@@ -380,7 +380,7 @@ usage:
 "  -d|--restore-detached detach after restore\n"
 "  -s|--leave-stopped    leave tasks in stopped state after checkpoint\n"
 "  -R|--leave-running    leave tasks in running state after checkpoint\n"
-"  -D|--images-dir DIR   directory where to put images to\n"
+"  -D|--images-dir DIR   directory for image files\n"
 "     --pidfile FILE     write a pid of a root task to this file\n"
 "\n"
 "* Special resources support:\n"
