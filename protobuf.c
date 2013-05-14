@@ -412,6 +412,10 @@ static int pb_field_show_pretty(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t 
 	if (pb_find_fmt(cookie, ctl))
 		return 1;
 
+	sprintf(cookie, "*:");
+	if (pb_find_fmt(cookie, ctl))
+		return 1;
+
 	return 0;
 }
 
