@@ -348,21 +348,23 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "page-server"))
 		return  cr_page_server();
 usage:
-	pr_msg("\nUsage:\n");
-	pr_msg("  %s dump -t PID [<options>]\n", argv[0]);
-	pr_msg("  %s restore [<options>]\n", argv[0]);
-	pr_msg("  %s show (-D DIR)|(-f FILE) [<options>]\n", argv[0]);
-	pr_msg("  %s check [--ms]\n", argv[0]);
-	pr_msg("  %s exec -p PID <syscall-string>\n", argv[0]);
-
-	pr_msg("\nCommands:\n");
-	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
-	pr_msg("  pre-dump       pre-dump task(s) minimizing their frozen time\n");
-	pr_msg("  restore        restore a process/tree identified by pid\n");
-	pr_msg("  show           show dump file(s) contents\n");
-	pr_msg("  check          checks whether the kernel support is up-to-date\n");
-	pr_msg("  exec           execute a system call by other task\n");
-	pr_msg("  page-server    launch page server\n");
+	pr_msg("\n"
+"Usage:\n"
+"  criu dump -t PID [<options>]\n"
+"  criu restore [<options>]\n"
+"  criu show (-D DIR)|(-f FILE) [<options>]\n"
+"  criu check [--ms]\n"
+"  criu exec -p PID <syscall-string>\n"
+"\n"
+"Commands:\n"
+"  dump           checkpoint a process/tree identified by pid\n"
+"  pre-dump       pre-dump task(s) minimizing their frozen time\n"
+"  restore        restore a process/tree identified by pid\n"
+"  show           show dump file(s) contents\n"
+"  check          checks whether the kernel support is up-to-date\n"
+"  exec           execute a system call by other task\n"
+"  page-server    launch page server\n"
+	);
 
 	if (argc < 2) {
 		pr_msg("\nTry -h|--help for more info\n");
