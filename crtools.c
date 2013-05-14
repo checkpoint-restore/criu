@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 usage:
 	pr_msg("\n"
 "Usage:\n"
-"  criu dump -t PID [<options>]\n"
+"  criu dump|pre-dump -t PID [<options>]\n"
 "  criu restore [<options>]\n"
 "  criu show (-D DIR)|(-f FILE) [<options>]\n"
 "  criu check [--ms]\n"
