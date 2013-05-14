@@ -357,6 +357,7 @@ usage:
 
 	pr_msg("\nCommands:\n");
 	pr_msg("  dump           checkpoint a process/tree identified by pid\n");
+	pr_msg("  pre-dump       pre-dump task(s) minimizing their frozen time\n");
 	pr_msg("  restore        restore a process/tree identified by pid\n");
 	pr_msg("  show           show dump file(s) contents\n");
 	pr_msg("  check          checks whether the kernel support is up-to-date\n");
@@ -400,6 +401,10 @@ usage:
 "                          -v 2, -vv   - warnings (default)\n"
 "                          -v 3, -vvv  - informative, everything is fine\n"
 "                          -v 4, -vvvv - debug only\n"
+"\n"
+"* Memory dumping options:\n"
+"  --track-mem           turn on memory changes tracker in kernel\n"
+"  --prev-images-dir DIR path to images from previous dump (relative to -D)\n"
 "\n"
 "Page server options\n"
 "  --page-server         send pages to page server (for 'dump' command)\n"
