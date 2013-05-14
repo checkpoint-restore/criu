@@ -582,7 +582,7 @@ int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	return ret;
 }
 
-int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
+int parasite_cure_remote(struct parasite_ctl *ctl, struct pstree_item *item)
 {
 	int ret = 0;
 
@@ -601,13 +601,6 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 		}
 	}
 
-	if (ctl->local_map) {
-		if (munmap(ctl->local_map, ctl->map_length)) {
-			pr_err("munmap failed (pid: %d)\n", ctl->pid.real);
-			ret = -1;
-		}
-	}
-
 	if (ptrace_poke_area(ctl->pid.real, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
 		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid.real);
@@ -619,7 +612,32 @@ int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 		ret = -1;
 	}
 
+	return ret;
+}
+
+int parasite_cure_local(struct parasite_ctl *ctl)
+{
+	int ret = 0;
+
+	if (ctl->local_map) {
+		if (munmap(ctl->local_map, ctl->map_length)) {
+			pr_err("munmap failed (pid: %d)\n", ctl->pid.real);
+			ret = -1;
+		}
+	}
+
 	free(ctl);
+	return ret;
+}
+
+int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item)
+{
+	int ret;
+
+	ret = parasite_cure_remote(ctl, item);
+	if (!ret)
+		ret = parasite_cure_local(ctl);
+
 	return ret;
 }
 
