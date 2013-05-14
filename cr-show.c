@@ -251,7 +251,7 @@ void show_sigacts(int fd_sigacts)
 
 void show_itimers(int fd)
 {
-	pb_show_plain_pretty(fd, PB_ITIMERS, "1:%Lu 2:%Lu 3:%Lu 4:%Lu");
+	pb_show_plain_pretty(fd, PB_ITIMERS, "*:%Lu");
 }
 
 void show_creds(int fd)
@@ -295,8 +295,7 @@ static void pstree_handler(int fd, void *obj)
 void show_collect_pstree(int fd, int collect)
 {
 	pb_show_plain_payload_pretty(fd, PB_PSTREE,
-			collect ? pstree_handler : NULL,
-			"1:%d 2:%d 3:%d 4:%d 5:%d");
+			collect ? pstree_handler : NULL, "*:%d");
 }
 
 void show_pstree(int fd)
