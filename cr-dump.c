@@ -1091,7 +1091,7 @@ try_again:
 	timing_stop(TIME_FREEZING);
 	timing_start(TIME_FROZEN);
 
-	return collect_pstree_ids();
+	return 0;
 }
 
 static int collect_file_locks(void)
@@ -1573,6 +1573,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (collect_pstree(pid))
+		goto err;
+
+	if (collect_pstree_ids())
 		goto err;
 
 	if (network_lock())
