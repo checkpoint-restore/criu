@@ -60,18 +60,23 @@ struct parasite_vma_entry
 	int		prot;
 };
 
-struct parasite_mprotect_args
-{
-	unsigned int		  nr;
-	struct parasite_vma_entry vmas[0];
-};
-
 struct parasite_dump_pages_args {
+	unsigned int	nr_vmas;
+	unsigned int	add_prot;
 	unsigned int	off;
 	unsigned int	nr_segs;
 	unsigned int	nr_pages;
-	struct iovec	iovs[0];
 };
+
+static inline struct parasite_vma_entry *pargs_vmas(struct parasite_dump_pages_args *a)
+{
+	return (struct parasite_vma_entry *)(a + 1);
+}
+
+static inline struct iovec *pargs_iovs(struct parasite_dump_pages_args *a)
+{
+	return (struct iovec *)(pargs_vmas(a) + a->nr_vmas);
+}
 
 struct parasite_dump_sa_args {
 	rt_sigaction_t sas[SIGMAX];

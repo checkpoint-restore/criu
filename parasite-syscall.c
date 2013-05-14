@@ -485,12 +485,6 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 	return 0;
 }
 
-static unsigned int vmas_mprotect_size(struct vm_area_list *vmas)
-{
-	return sizeof(struct parasite_mprotect_args) +
-		(vmas->nr * sizeof(struct parasite_vma_entry));
-}
-
 int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 		struct parasite_drain_fd *dfds, int *lfds, struct fd_opts *opts)
 {
@@ -719,8 +713,7 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 	unsigned long size = PARASITE_ARG_SIZE_MIN;
 
 	size = max(size, (unsigned long)drain_fds_size(dfds));
-	size = max(size, (unsigned long)vmas_pagemap_size(vmas));
-	size = max(size, (unsigned long)vmas_mprotect_size(vmas));
+	size = max(size, (unsigned long)dump_pages_args_size(vmas));
 
 	return size;
 }

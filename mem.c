@@ -152,7 +152,7 @@ static void mem_snap_close(struct mem_snap_ctx *ctx)
 	}
 }
 
-unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
+unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 {
 	/*
 	 * In the worst case I need one iovec for half of the
@@ -160,6 +160,7 @@ unsigned int vmas_pagemap_size(struct vm_area_list *vmas)
 	 */
 
 	return sizeof(struct parasite_dump_pages_args) +
+		vmas->nr * sizeof(struct parasite_vma_entry) +
 		(vmas->priv_size + 1) * sizeof(struct iovec) / 2;
 }
 
@@ -257,38 +258,39 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	return 0;
 }
 
-static int parasite_mprotect_seized(struct parasite_ctl *ctl, struct vm_area_list *vma_area_list, bool unprotect)
+static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl *ctl,
+		struct vm_area_list *vma_area_list)
 {
-	struct parasite_mprotect_args *args;
+	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
 	struct vma_area *vma;
 
-	args = parasite_args_s(ctl, vmas_pagemap_size(vma_area_list));
+	args = parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
 
-	p_vma = args->vmas;
-	args->nr = 0;
+	p_vma = pargs_vmas(args);
+	args->nr_vmas = 0;
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (!privately_dump_vma(vma))
 			continue;
 		if (vma->vma.prot & PROT_READ)
 			continue;
+
 		p_vma->start = vma->vma.start;
 		p_vma->len = vma_area_len(vma);
 		p_vma->prot = vma->vma.prot;
-		if (unprotect)
-			p_vma->prot |= PROT_READ;
-		args->nr++;
+
+		args->nr_vmas++;
 		p_vma++;
 	}
 
-	return parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
+	return args;
 }
 
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
+		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list)
 {
-	struct parasite_dump_pages_args *args;
 	u64 *map;
 	int pagemap;
 	struct page_pipe *pp;
@@ -311,8 +313,6 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	if (IS_ERR(snap))
 		goto out;
 
-	args = parasite_args_s(ctl, vmas_pagemap_size(vma_area_list));
-
 	map = xmalloc(vma_area_list->longest * sizeof(*map));
 	if (!map)
 		goto out_snap;
@@ -328,7 +328,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	}
 
 	ret = -1;
-	pp = create_page_pipe(vma_area_list->priv_size / 2, args->iovs);
+	pp = create_page_pipe(vma_area_list->priv_size / 2, pargs_iovs(args));
 	if (!pp)
 		goto out_close;
 
@@ -388,18 +388,24 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct vm_area_list *vma_area_list)
 {
 	int ret;
+	struct parasite_dump_pages_args *pargs;
 
-	ret = parasite_mprotect_seized(ctl, vma_area_list, true);
+	pargs = prep_dump_pages_args(ctl, vma_area_list);
+
+	pargs->add_prot = PROT_READ;
+	ret = parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
 	if (ret) {
 		pr_err("Can't dump unprotect vmas with parasite\n");
 		return ret;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, vma_area_list);
+	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list);
 	if (ret)
 		pr_err("Can't dump page with parasite\n");
 
-	if (parasite_mprotect_seized(ctl, vma_area_list, false)) {
+	pargs->add_prot = 0;
+	ret = parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
+	if (ret) {
 		pr_err("Can't rollback unprotected vmas with parasite\n");
 		ret = -1;
 	}

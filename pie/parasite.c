@@ -34,14 +34,15 @@ static unsigned int next_tid_state;
 #define SPLICE_F_GIFT	0x08
 #endif
 
-static int mprotect_vmas(struct parasite_mprotect_args *args)
+static int mprotect_vmas(struct parasite_dump_pages_args *args)
 {
-	struct parasite_vma_entry *vma;
+	struct parasite_vma_entry *vmas, *vma;
 	int ret = 0, i;
 
-	for (i = 0; i < args->nr; i++) {
-		vma = args->vmas + i;
-		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot);
+	vmas = pargs_vmas(args);
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma = vmas + i;
+		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot | args->add_prot);
 		if (ret) {
 			pr_err("mprotect(%08lx, %lu) failed with code %d\n",
 						vma->start, vma->len, ret);
@@ -55,12 +56,14 @@ static int mprotect_vmas(struct parasite_mprotect_args *args)
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
 	int p, ret;
+	struct iovec *iovs;
 
 	p = recv_fd(tsock);
 	if (p < 0)
 		return -1;
 
-	ret = sys_vmsplice(p, &args->iovs[args->off], args->nr_segs,
+	iovs = pargs_iovs(args);
+	ret = sys_vmsplice(p, &iovs[args->off], args->nr_segs,
 				SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 	if (ret != PAGE_SIZE * args->nr_pages) {
 		sys_close(p);
