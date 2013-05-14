@@ -46,7 +46,7 @@ void timing_stop(int t)
 
 void show_stats(int fd)
 {
-	do_pb_show_plain(fd, PB_STATS, 1, NULL, "1.1:%u 1.2:%u 1.3:%u");
+	do_pb_show_plain(fd, PB_STATS, 1, NULL, "1.1:%u 1.2:%u 1.3:%u 1.4:%u");
 }
 
 static void encode_time(int t, u_int32_t *to)
@@ -68,6 +68,7 @@ void write_stats(int what)
 		encode_time(TIME_FREEZING, &dstats.freezing_time);
 		encode_time(TIME_FROZEN, &dstats.frozen_time);
 		encode_time(TIME_MEMDUMP, &dstats.memdump_time);
+		encode_time(TIME_MEMWRITE, &dstats.memwrite_time);
 
 		name = "dump";
 	} else

@@ -358,6 +358,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		args->off += args->nr_segs;
 	}
 
+	timing_start(TIME_MEMWRITE);
 	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 	if (ret < 0)
 		goto out_pp;
@@ -365,6 +366,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	ret = page_xfer_dump_pages(&xfer, pp, 0);
 
 	xfer.close(&xfer);
+	timing_stop(TIME_MEMWRITE);
 	task_reset_dirty_track(ctl->pid.real);
 out_pp:
 	destroy_page_pipe(pp);

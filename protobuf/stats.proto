@@ -3,6 +3,7 @@ message dump_stats_entry {
 	required uint32 freezing_time = 1;
 	required uint32 frozen_time = 2;
 	required uint32 memdump_time = 3;
+	required uint32	memwrite_time = 4;
 }
 
 message stats_entry {
