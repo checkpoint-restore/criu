@@ -115,6 +115,7 @@ static int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned lo
 	unsigned long start = 0, end = 0;
 	FILE *smaps = NULL;
 	char buf[1024];
+	int found = 0;
 
 	if (!where)
 		return 0;
@@ -129,6 +130,7 @@ static int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned lo
 		is_vma_range_fmt(buf, &start, &end);
 
 		if (!strncmp(buf, "VmFlags: ", 9) && start == where) {
+			found = 1;
 			parse_vmflags(buf, flags, madv);
 			break;
 		}
@@ -136,7 +138,7 @@ static int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned lo
 
 	fclose(smaps);
 
-	if (start == end) {
+	if (!found) {
 		err("VmFlags not found for %lx\n", where);
 		return -1;
 	}
