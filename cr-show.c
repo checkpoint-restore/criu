@@ -55,7 +55,7 @@ static LIST_HEAD(pstree_list);
 
 void show_files(int fd_files)
 {
-	pb_show_plain_pretty(fd_files, PB_FDINFO, "2:%#o 4:%d");
+	pb_show_plain_pretty(fd_files, PB_FDINFO, "flags:%#o fd:%d");
 }
 
 void show_fown_cont(void *p)
@@ -214,7 +214,7 @@ void print_image_data(int fd, unsigned int length, int show)
 
 static void show_pagemaps(int fd, void *obj)
 {
-	pb_show_plain_pretty(fd, PB_PAGEMAP, "2:%u");
+	pb_show_plain_pretty(fd, PB_PAGEMAP, "nr_pages:%u");
 }
 
 void show_pagemap(int fd)
