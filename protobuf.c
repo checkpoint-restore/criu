@@ -350,31 +350,69 @@ static int pb_show_pretty(pb_pr_field_t *field)
 	return 0;
 }
 
-static int pb_field_show_pretty(pb_pr_ctl_t *ctl)
+static void pb_copy_fmt(const char *fmt, char *to)
 {
-	pb_pr_field_t *field = &ctl->cur;
-	int found;
+	while (*fmt != ' ') {
+		*to = *fmt;
+		to++;
+		fmt++;
+	}
+
+	*to = '\0';
+}
+
+static const char *pb_next_pretty(const char *pfmt)
+{
+	pfmt = strchr(pfmt, ' ');
+	if (pfmt) {
+		while (*pfmt == ' ')
+			pfmt++;
+
+		if (*pfmt == '\0')
+			pfmt = NULL;
+	}
+
+	return pfmt;
+}
+
+static int pb_find_fmt(char *what, pb_pr_ctl_t *ctl)
+{
+	int len;
+	const char *pretty = ctl->pretty_fmt;
+
+	len = strlen(what);
+	while (1) {
+		if (!strncmp(pretty, what, len)) {
+			pb_copy_fmt(pretty + len, ctl->cur.fmt);
+			return 1;
+		}
+
+		pretty = pb_next_pretty(pretty + len);
+		if (!pretty)
+			return 0;
+	}
+}
+
+static int pb_field_show_pretty(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl)
+{
 	char cookie[32];
-	const char *ptr;
 
 	if (!ctl->pretty_fmt)
 		return 0;
 
-	if (!field->depth)
-		sprintf(cookie, " %d:", field->number);
-	else
-		sprintf(cookie, " %d.%d:", field->depth, field->number);
+	sprintf(cookie, "%s:", fd->name);
+	if (pb_find_fmt(cookie, ctl))
+		return 1;
 
-	if (!strncmp(ctl->pretty_fmt, &cookie[1], strlen(&cookie[1])))
-		ptr = ctl->pretty_fmt;
-	else {
-		ptr = strstr(ctl->pretty_fmt, cookie);
-		if (!ptr)
-			return 0;
-	}
-	found = sscanf(ptr, "%*[ 1-9.:]%s", field->fmt);
-	BUG_ON(found > 1);
-	return found;
+	if (!ctl->cur.depth)
+		sprintf(cookie, "%d:", ctl->cur.number);
+	else
+		sprintf(cookie, "%d.%d:", ctl->cur.depth, ctl->cur.number);
+
+	if (pb_find_fmt(cookie, ctl))
+		return 1;
+
+	return 0;
 }
 
 static pb_pr_show_t get_pb_show_function(int type)
@@ -411,11 +449,11 @@ static pb_pr_show_t get_pb_show_function(int type)
 	return pb_msg_unk;
 }
 
-static pb_pr_show_t get_show_function(int type, pb_pr_ctl_t *ctl)
+static pb_pr_show_t get_show_function(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl)
 {
-	if (pb_field_show_pretty(ctl))
+	if (pb_field_show_pretty(fd, ctl))
 		return pb_show_pretty;
-	return get_pb_show_function(type);
+	return get_pb_show_function(fd->type);
 }
 
 static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
@@ -451,7 +489,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 	print_tabs(ctl);
 	pr_msg("%s: ", fd->name);
 
-	show = get_show_function(fd->type, ctl);
+	show = get_show_function(fd, ctl);
 
 	pb_show_repeated(ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
 
