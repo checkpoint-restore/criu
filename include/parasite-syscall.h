@@ -23,6 +23,9 @@ struct parasite_ctl {
 	void			*addr_args;				/* address for arguments */
 	unsigned long		args_size;
 	int			tsock;					/* transport socket for transfering fds */
+
+	struct list_head	pre_list;
+	struct page_pipe	*mem_pp;
 };
 
 struct cr_fdset;

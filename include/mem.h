@@ -3,6 +3,7 @@
 struct vm_area_list;
 unsigned int dump_pages_args_size(struct vm_area_list *vmas);
 struct parasite_ctl;
+struct page_pipe;
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list);
+		struct vm_area_list *vma_area_list, struct page_pipe **pp);
 #endif

@@ -286,7 +286,8 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct parasite_dump_pages_args *args,
-		struct vm_area_list *vma_area_list)
+		struct vm_area_list *vma_area_list,
+		struct page_pipe **pp_ret)
 {
 	u64 *map;
 	int pagemap;
@@ -294,7 +295,6 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	struct page_pipe_buf *ppb;
 	struct vma_area *vma_area;
 	int ret = -1;
-	struct page_xfer xfer;
 	struct mem_snap_ctx *snap;
 
 	pr_info("\n");
@@ -358,18 +358,26 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		args->off += args->nr_segs;
 	}
 
-	timing_start(TIME_MEMWRITE);
-	ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
-	if (ret < 0)
-		goto out_pp;
+	if (pp_ret)
+		*pp_ret = pp;
+	else {
+		struct page_xfer xfer;
 
-	ret = page_xfer_dump_pages(&xfer, pp, 0);
+		timing_start(TIME_MEMWRITE);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
+		if (ret < 0)
+			goto out_pp;
 
-	xfer.close(&xfer);
-	timing_stop(TIME_MEMWRITE);
+		ret = page_xfer_dump_pages(&xfer, pp, 0);
+
+		xfer.close(&xfer);
+		timing_stop(TIME_MEMWRITE);
+	}
+
 	task_reset_dirty_track(ctl->pid.real);
 out_pp:
-	destroy_page_pipe(pp);
+	if (ret || !pp_ret)
+		destroy_page_pipe(pp);
 out_close:
 	close(pagemap);
 out_free:
@@ -384,7 +392,7 @@ out:
 }
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list)
+		struct vm_area_list *vma_area_list, struct page_pipe **pp)
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
@@ -398,7 +406,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return ret;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list);
+	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list, pp);
 	if (ret)
 		pr_err("Can't dump page with parasite\n");
 

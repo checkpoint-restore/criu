@@ -730,7 +730,8 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 {
 	unsigned long size = PARASITE_ARG_SIZE_MIN;
 
-	size = max(size, (unsigned long)drain_fds_size(dfds));
+	if (dfds)
+		size = max(size, (unsigned long)drain_fds_size(dfds));
 	size = max(size, (unsigned long)dump_pages_args_size(vmas));
 
 	return size;

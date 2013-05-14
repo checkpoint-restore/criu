@@ -61,6 +61,7 @@
 #include "kerndat.h"
 #include "stats.h"
 #include "mem.h"
+#include "page-pipe.h"
 
 #include "asm/dump.h"
 
@@ -1366,6 +1367,65 @@ err:
 	return ret;
 }
 
+static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
+{
+	pid_t pid = item->pid.real;
+	struct vm_area_list vmas;
+	struct parasite_ctl *parasite_ctl;
+	int ret = -1;
+	struct parasite_dump_misc misc;
+
+	pr_info("========================================\n");
+	pr_info("Pre-dumping task (pid: %d)\n", pid);
+	pr_info("========================================\n");
+
+	if (item->state == TASK_STOPPED) {
+		pr_warn("Stopped tasks are not supported\n");
+		return 0;
+	}
+
+	if (item->state == TASK_DEAD)
+		return 0;
+
+	ret = collect_mappings(pid, &vmas);
+	if (ret) {
+		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = -1;
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, NULL);
+	if (!parasite_ctl) {
+		pr_err("Can't infect (pid: %d) with parasite\n", pid);
+		goto err_free;
+	}
+
+	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
+	if (ret) {
+		pr_err("Can't dump misc (pid: %d)\n", pid);
+		goto err_cure;
+	}
+
+	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
+
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &parasite_ctl->mem_pp);
+	if (ret)
+		goto err_cure;
+
+	if (parasite_cure_remote(parasite_ctl, item))
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
+	list_add_tail(&parasite_ctl->pre_list, ctls);
+err_free:
+	free_mappings(&vmas);
+err:
+	return ret;
+
+err_cure:
+	if (parasite_cure_seized(parasite_ctl, item))
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
+	goto err_free;
+}
+
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1472,7 +1532,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, NULL);
 	if (ret)
 		goto err_cure;
 
@@ -1549,6 +1609,64 @@ err_cure:
 err_cure_fdset:
 	parasite_cure_seized(parasite_ctl, item);
 	goto err;
+}
+
+int cr_pre_dump_tasks(pid_t pid)
+{
+	struct pstree_item *item;
+	int ret = -1;
+	LIST_HEAD(ctls);
+	struct parasite_ctl *ctl, *n;
+
+	if (kerndat_init())
+		goto err;
+
+	if (connect_to_page_server())
+		goto err;
+
+	if (collect_pstree(pid))
+		goto err;
+
+	for_each_pstree_item(item)
+		if (pre_dump_one_task(item, &ctls))
+			goto err;
+
+	ret = 0;
+err:
+	pstree_switch_state(root_item,
+			ret ? TASK_ALIVE : opts.final_state);
+	free_pstree(root_item);
+
+	timing_stop(TIME_FROZEN);
+
+	pr_info("Pre-dumping tasks' memory\n");
+	list_for_each_entry_safe(ctl, n, &ctls, pre_list) {
+		struct page_xfer xfer;
+
+		pr_info("\tPre-dumping %d\n", ctl->pid.virt);
+		timing_start(TIME_MEMWRITE);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
+		if (ret < 0)
+			break;
+
+		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
+
+		xfer.close(&xfer);
+		timing_stop(TIME_MEMWRITE);
+
+		destroy_page_pipe(ctl->mem_pp);
+		list_del(&ctl->pre_list);
+		parasite_cure_local(ctl);
+	}
+
+	if (ret)
+		pr_err("Pre-dumping FAILED.\n");
+	else {
+		write_stats(DUMP_STATS);
+		pr_info("Pre-dumping finished successfully\n");
+	}
+
+	return ret;
 }
 
 int cr_dump_tasks(pid_t pid)
