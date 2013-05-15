@@ -347,6 +347,8 @@ int main(int argc, char *argv[])
 
 	if (!strcmp(argv[optind], "page-server"))
 		return  cr_page_server();
+
+	pr_msg("Unknown command \"%s\"\n", argv[optind]);
 usage:
 	pr_msg("\n"
 "Usage:\n"
