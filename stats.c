@@ -12,6 +12,14 @@ struct timing {
 
 static struct timing timings[TIME_NR_STATS];
 
+static unsigned long counts[CNT_NR_STATS];
+
+void cnt_add(int c, unsigned long val)
+{
+	BUG_ON(c >= CNT_NR_STATS);
+	counts[c] += val;
+}
+
 static void timeval_accumulate(const struct timeval *from, const struct timeval *to,
 		struct timeval *res)
 {
@@ -46,7 +54,8 @@ void timing_stop(int t)
 
 void show_stats(int fd)
 {
-	do_pb_show_plain(fd, PB_STATS, 1, NULL, "1.1:%u 1.2:%u 1.3:%u 1.4:%u");
+	do_pb_show_plain(fd, PB_STATS, 1, NULL,
+			"1.1:%u 1.2:%u 1.3:%u 1.4:%u 1.5:%Lu 1.6:%Lu 1.7:%Lu");
 }
 
 static void encode_time(int t, u_int32_t *to)
@@ -69,6 +78,10 @@ void write_stats(int what)
 		encode_time(TIME_FROZEN, &dstats.frozen_time);
 		encode_time(TIME_MEMDUMP, &dstats.memdump_time);
 		encode_time(TIME_MEMWRITE, &dstats.memwrite_time);
+
+		dstats.pages_scanned = counts[CNT_PAGES_SCANNED];
+		dstats.pages_skipped_parent = counts[CNT_PAGES_SKIPPED_PARENT];
+		dstats.pages_written = counts[CNT_PAGES_WRITTEN];
 
 		name = "dump";
 	} else

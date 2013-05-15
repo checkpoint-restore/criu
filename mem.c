@@ -251,6 +251,10 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 			return -1;
 	}
 
+	cnt_add(CNT_PAGES_SCANNED, nr_to_scan);
+	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
+	cnt_add(CNT_PAGES_WRITTEN, pages[1]);
+
 	pr_info("Pagemap generated: %lu pages %lu holes\n", pages[1], pages[0]);
 	return 0;
 }

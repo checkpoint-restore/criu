@@ -14,6 +14,16 @@ enum {
 void timing_start(int t);
 void timing_stop(int t);
 
+enum {
+	CNT_PAGES_SCANNED,
+	CNT_PAGES_SKIPPED_PARENT,
+	CNT_PAGES_WRITTEN,
+
+	CNT_NR_STATS,
+};
+
+void cnt_add(int c, unsigned long val);
+
 #define DUMP_STATS	1
 void write_stats(int what);
 
