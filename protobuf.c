@@ -352,7 +352,7 @@ static int pb_show_pretty(pb_pr_field_t *field)
 
 static void pb_copy_fmt(const char *fmt, char *to)
 {
-	while (*fmt != ' ') {
+	while (*fmt != ' ' && *fmt != '\0') {
 		*to = *fmt;
 		to++;
 		fmt++;
