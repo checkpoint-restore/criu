@@ -362,6 +362,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		args->off += args->nr_segs;
 	}
 
+	timing_stop(TIME_MEMDUMP);
+
 	if (pp_ret)
 		*pp_ret = pp;
 	else {
@@ -390,8 +392,6 @@ out_snap:
 	mem_snap_close(snap);
 out:
 	pr_info("----------------------------------------\n");
-	if (!ret)
-		timing_stop(TIME_MEMDUMP);
 	return ret;
 }
 
