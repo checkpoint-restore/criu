@@ -211,6 +211,15 @@ static int page_in_parent(unsigned long vaddr, u64 map, struct mem_snap_ctx *sna
 	return 0;
 }
 
+/*
+ * This routine finds out what memory regions to grab from the
+ * dumpee. The iovs generated are then fed into vmsplice to
+ * put the memory into the page-pipe's pipe.
+ *
+ * "Holes" in page-pipe are regions, that should be dumped, but
+ * the memory contents is present in the pagent image set.
+ */
+
 static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map,
 		struct mem_snap_ctx *snap)
 {
@@ -310,6 +319,10 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_debug("   Private vmas %lu/%lu pages\n",
 			vma_area_list->longest, vma_area_list->priv_size);
 
+	/*
+	 * Step 0 -- prepare
+	 */
+
 	snap = mem_snap_init(ctl);
 	if (IS_ERR(snap))
 		goto out;
@@ -333,6 +346,10 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	if (!pp)
 		goto out_close;
 
+	/*
+	 * Step 1 -- generate the pagemap
+	 */
+
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		if (!privately_dump_vma(vma_area))
 			continue;
@@ -343,6 +360,10 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	}
 
 	debug_show_page_pipe(pp);
+	
+	/*
+	 * Step 2 -- grab pages into page-pipe
+	 */
 
 	args->off = 0;
 	list_for_each_entry(ppb, &pp->bufs, l) {
@@ -364,6 +385,11 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 
 	timing_stop(TIME_MEMDUMP);
 
+	/*
+	 * Step 3 -- write pages into image (or delay writing for
+	 *           pre-dump action (see pre_dump_one_task)
+	 */
+
 	if (pp_ret)
 		*pp_ret = pp;
 	else {
@@ -379,6 +405,10 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		xfer.close(&xfer);
 		timing_stop(TIME_MEMWRITE);
 	}
+
+	/*
+	 * Step 4 -- clean up
+	 */
 
 	task_reset_dirty_track(ctl->pid.real);
 out_pp:
@@ -402,6 +432,14 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	struct parasite_dump_pages_args *pargs;
 
 	pargs = prep_dump_pages_args(ctl, vma_area_list);
+
+	/*
+	 * Add PROT_READ protection for all VMAs we're about to
+	 * dump if they don't have one. Otherwise we'll not be
+	 * able to read the memory contents.
+	 *
+	 * Afterwards -- reprotect memory back.
+	 */
 
 	pargs->add_prot = PROT_READ;
 	ret = parasite_execute(PARASITE_CMD_MPROTECT_VMAS, ctl);
