@@ -355,7 +355,7 @@ usage:
 "  criu show (-D DIR)|(-f FILE) [<options>]\n"
 "  criu check [--ms]\n"
 "  criu exec -p PID <syscall-string>\n"
-"  criu page-server"
+"  criu page-server\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
