@@ -46,7 +46,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port, u32
 
 	if (!inet_ntop(family, (void *)src_addr, sip, INET_ADDR_LEN) ||
 			!inet_ntop(family, (void *)dst_addr, dip, INET_ADDR_LEN)) {
-		pr_perror("nf: Can't translate ip addr\n");
+		pr_perror("nf: Can't translate ip addr");
 		return -1;
 	}
 
