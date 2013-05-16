@@ -20,10 +20,10 @@ struct page_server_iov {
 #define PS_IOV_ADD	1
 #define PS_IOV_HOLE	2
 
-#define PS_TYPE_BITS	4
+#define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
 
-static inline u64 encode_pm_id(int type, int id)
+static inline u64 encode_pm_id(int type, long id)
 {
 	return ((u64)id) << PS_TYPE_BITS | type;
 }
