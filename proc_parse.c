@@ -1130,6 +1130,7 @@ int parse_file_locks(void)
 			 */
 			pr_perror("We have a blocked file lock!");
 			ret = -1;
+			xfree(fl);
 			goto err;
 		}
 
