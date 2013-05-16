@@ -325,7 +325,7 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
 
-	pr_info("Dumping shared memory 0x%lx\n", si->shmid);
+	pr_info("Dumping shared memory %ld\n", si->shmid);
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 	map = xmalloc(nrpages * sizeof(*map));
