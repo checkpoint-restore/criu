@@ -50,6 +50,12 @@ static struct page_xfer_job cxfer = {
 	.dst_id = ~0,
 };
 
+static void page_server_close(void)
+{
+	if (cxfer.dst_id != ~0)
+		cxfer.loc_xfer.close(&cxfer.loc_xfer);
+}
+
 static int page_server_open(struct page_server_iov *pi)
 {
 	int type;
@@ -59,8 +65,7 @@ static int page_server_open(struct page_server_iov *pi)
 	id = decode_pm_id(pi->dst_id);
 	pr_info("Opening %d/%ld\n", type, id);
 
-	if (cxfer.dst_id != ~0)
-		cxfer.loc_xfer.close(&cxfer.loc_xfer);
+	page_server_close();
 
 	if (open_page_xfer(&cxfer.loc_xfer, type, id))
 		return -1;
@@ -183,6 +188,7 @@ static int page_server_serve(int sk)
 			break;
 	}
 
+	page_server_close();
 	pr_info("Session over\n");
 
 	close(sk);
