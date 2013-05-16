@@ -30,7 +30,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${crtools} restore -D dump -o restore.log -v 4 --shell-job -t ${pid} || {
+${crtools} restore -D dump -o restore.log -v 4 --shell-job || {
 	echo "Restore failed"
 	exit 1
 }

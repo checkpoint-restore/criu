@@ -385,8 +385,8 @@ EOF
 			done
 		done
 
-		echo Restore $PID
-		setsid $CRTOOLS restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d -t $PID $args || return 2
+		echo Restore
+		setsid $CRTOOLS restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd

@@ -67,7 +67,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 done
 
 echo "Restoring"
-${CRTOOLS} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -t ${PID} -d -v 4 || fail "Fail to restore server"
+${CRTOOLS} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v 4 || fail "Fail to restore server"
 
 cd ../zdtm/live/static/
 make mem-touch.out

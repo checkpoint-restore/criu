@@ -45,7 +45,7 @@ echo "The CT $name was dumped successfully"
 echo Press Enter for restoring CT
 read
 
-echo "Restore the CT $name ($pid)"
+echo "Restore the CT $name"
 ${crtools} restore 	--evasive-devices					\
 			--tcp-established					\
 			--file-locks						\
@@ -54,7 +54,7 @@ ${crtools} restore 	--evasive-devices					\
 			--veth-pair eth0=$name.0				\
 			--root /root/test-lxc-root				\
 			--pidfile newpid.log					\
-			-vvvv -D data -d -o restore.log -t $pid || exit 1
+			-vvvv -D data -d -o restore.log || exit 1
 echo "The CT $name was restored successfully"
 
 pid=`cat data/newpid.log`;

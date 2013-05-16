@@ -17,7 +17,7 @@ $crtools dump -j --tcp-established -D data/ -o dump.log -v 4 -t $pid || {
 
 wait_tasks dump
 
-$crtools restore -j --tcp-established -D data/ -d -o restore.log -v 4 -t $pid || {
+$crtools restore -j --tcp-established -D data/ -d -o restore.log -v 4 || {
 	echo "Restore failed"
 	exit 1
 }

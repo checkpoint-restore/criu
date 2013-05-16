@@ -55,7 +55,7 @@ ${crtools} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 wait_tasks dump
 echo "Dump OK, restoring"
 
-${crtools} restore --shell-job -D dump -o restore.log -v 4 -t ${pid} || {
+${crtools} restore --shell-job -D dump -o restore.log -v 4 || {
 	echo "Restore failed"
 	exit 1
 }
