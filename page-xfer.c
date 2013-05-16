@@ -19,6 +19,7 @@ struct page_server_iov {
 
 #define PS_IOV_ADD	1
 #define PS_IOV_HOLE	2
+#define PS_IOV_OPEN	3
 
 #define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
@@ -49,21 +50,32 @@ static struct page_xfer_job cxfer = {
 	.dst_id = ~0,
 };
 
+static int page_server_open(struct page_server_iov *pi)
+{
+	int type;
+	long id;
+
+	type = decode_pm_type(pi->dst_id);
+	id = decode_pm_id(pi->dst_id);
+	pr_info("Opening %d/%ld\n", type, id);
+
+	if (cxfer.dst_id != ~0)
+		cxfer.loc_xfer.close(&cxfer.loc_xfer);
+
+	if (open_page_xfer(&cxfer.loc_xfer, type, id))
+		return -1;
+
+	cxfer.dst_id = pi->dst_id;
+	return 0;
+}
+
 static int prep_loc_xfer(struct page_server_iov *pi)
 {
 	if (cxfer.dst_id != pi->dst_id) {
-		if (cxfer.dst_id != ~0)
-			cxfer.loc_xfer.close(&cxfer.loc_xfer);
-
-		if (open_page_xfer(&cxfer.loc_xfer,
-					decode_pm_type(pi->dst_id),
-					decode_pm_id(pi->dst_id)))
-			return -1;
-
-		cxfer.dst_id = pi->dst_id;
-	}
-
-	return 0;
+		pr_warn("Deprecated IO w/o open\n");
+		return page_server_open(pi);
+	} else
+		return 0;
 }
 
 static int page_server_add(int sk, struct page_server_iov *pi)
@@ -152,6 +164,9 @@ static int page_server_serve(int sk)
 		}
 
 		switch (pi.cmd) {
+		case PS_IOV_OPEN:
+			ret = page_server_open(&pi);
+			break;
 		case PS_IOV_ADD:
 			ret = page_server_add(sk, &pi);
 			break;
@@ -301,12 +316,24 @@ static void close_server_xfer(struct page_xfer *xfer)
 
 static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
+	struct page_server_iov pi;
+
 	xfer->fd = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
 	xfer->write_hole = write_hole_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
+
+	pi.cmd = PS_IOV_OPEN;
+	pi.dst_id = xfer->dst_id;
+	pi.vaddr = 0;
+	pi.nr_pages = 0;
+
+	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write to page server");
+		return -1;
+	}
 
 	return 0;
 }
