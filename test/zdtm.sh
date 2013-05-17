@@ -510,6 +510,7 @@ Options:
 	-l : Show list of tests.
 	-d : Dump a test process and check that this process can continue working.
 	-i : Number of ITERATIONS of dump/restore
+	-p : Test page server
 	-b <commit> : Check backward compatibility
 EOF
 elif [ "${1:0:1}" = '-' ]; then
