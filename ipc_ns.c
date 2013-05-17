@@ -296,13 +296,28 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		{ "kernel/shmall",		&e->shm_ctlall,		CTL_U64 },
 		{ "kernel/shmmni",		&e->shm_ctlmni,		CTL_U32 },
 		{ "kernel/shm_rmid_forced",	&e->shm_rmid_forced,	CTL_U32 },
+		{ },
+	};
+
+	struct sysctl_req req_mq[] = {
 		{ "fs/mqueue/queues_max",	&e->mq_queues_max,	CTL_U32 },
 		{ "fs/mqueue/msg_max",		&e->mq_msg_max,		CTL_U32 },
 		{ "fs/mqueue/msgsize_max",	&e->mq_msgsize_max,	CTL_U32 },
 		{ },
 	};
 
-	return sysctl_op(req, op);
+	int ret;
+
+	ret = sysctl_op(req, op);
+	if (ret)
+		return ret;
+
+	if (access("/proc/sys/mqueue", X_OK)) {
+		pr_info("Mqueue sysctls are missing\n");
+		return 0;
+	}
+
+	return sysctl_op(req_mq, op);
 }
 
 /*
