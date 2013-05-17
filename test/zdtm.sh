@@ -162,6 +162,7 @@ PIDNS=""
 
 ITERATIONS=1
 EXCLUDE_PATTERN=""
+CLEANUP=0
 PAGE_SERVER=0
 PS_PORT=12345
 
@@ -413,6 +414,8 @@ EOF
 	done
 	cat $test.out
 	cat $test.out | grep -q PASS || return 2
+	[ "$CLEANUP" -ne 0 ] && rm -rf `dirname $ddump`
+	return 0
 }
 
 case_error()
@@ -482,6 +485,11 @@ while :; do
 		PAGE_SERVER=1
 		continue;
 	fi
+	if [ "$1" = "-C" ]; then
+		shift
+		CLEANUP=1
+		continue;
+	fi
 	if [ "$1" = "-x" ]; then
 		shift
 		EXCLUDE_PATTERN=$1
@@ -520,6 +528,7 @@ Options:
 	-d : Dump a test process and check that this process can continue working.
 	-i : Number of ITERATIONS of dump/restore
 	-p : Test page server
+	-C : Delete dump files if a test completed successfully
 	-b <commit> : Check backward compatibility
 	-x <PATTERN>: Exclude pattern
 EOF
