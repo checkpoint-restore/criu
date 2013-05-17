@@ -161,6 +161,7 @@ PID=""
 PIDNS=""
 
 ITERATIONS=1
+EXCLUDE_PATTERN=""
 PAGE_SERVER=0
 PS_PORT=12345
 
@@ -293,6 +294,8 @@ run_test()
 {
 	local test=$1
 	local linkremap=
+
+	[ -n "$EXCLUDE_PATTERN" ] && echo $test | grep "$EXCLUDE_PATTERN" && return 0
 
 	#
 	# add option for unlinked files test
@@ -479,6 +482,12 @@ while :; do
 		PAGE_SERVER=1
 		continue;
 	fi
+	if [ "$1" = "-x" ]; then
+		shift
+		EXCLUDE_PATTERN=$1
+		shift
+		continue;
+	fi
 	break;
 done
 
@@ -512,6 +521,7 @@ Options:
 	-i : Number of ITERATIONS of dump/restore
 	-p : Test page server
 	-b <commit> : Check backward compatibility
+	-x <PATTERN>: Exclude pattern
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
