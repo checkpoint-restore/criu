@@ -8,6 +8,7 @@
 
 #include "log.h"
 #include "kerndat.h"
+#include "mem.h"
 #include "asm/types.h"
 
 dev_t kerndat_shmem_dev;
@@ -69,9 +70,16 @@ int kerndat_get_dirty_track(void)
 		return ret;
 	}
 
-	map[0] = '\0';
-
 	pm2 = open("/proc/self/pagemap2", O_RDONLY);
+	if (pm2 < 0) {
+		/*
+		 * Kernel shows soft-dirty bits only if this soft-dirty
+		 * was at least once re-set. (this is to be removed in
+		 * a couple of kernel releases)
+		 */
+		do_task_reset_dirty_track(getpid());
+		pm2 = open("/proc/self/pagemap", O_RDONLY);
+	}
 	if (pm2 < 0) {
 		munmap(map, PAGE_SIZE);
 		if (errno == ENOENT) {
@@ -82,6 +90,8 @@ int kerndat_get_dirty_track(void)
 		pr_perror("Can't open pagemap2 file");
 		return ret;
 	}
+
+	map[0] = '\0';
 
 	lseek(pm2, (unsigned long)map / PAGE_SIZE * sizeof(u64), SEEK_SET);
 	ret = read(pm2, &pmap, sizeof(pmap));

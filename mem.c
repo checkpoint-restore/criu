@@ -42,9 +42,6 @@ struct mem_snap_ctx {
 
 static int task_reset_dirty_track(int pid)
 {
-	int fd, ret;
-	char cmd[] = "4";
-
 	if (!opts.track_mem)
 		return 0;
 
@@ -54,7 +51,16 @@ static int task_reset_dirty_track(int pid)
 		return -1;
 	}
 
+	return do_task_reset_dirty_track(pid);
+}
+
+int do_task_reset_dirty_track(int pid)
+{
+	int fd, ret;
+	char cmd[] = "4";
+
 	pr_info("Reset %d's dirty tracking\n", pid);
+
 	fd = open_proc_rw(pid, "clear_refs");
 	if (fd < 0)
 		return -1;
