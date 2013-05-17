@@ -312,7 +312,7 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 	if (ret)
 		return ret;
 
-	if (access("/proc/sys/mqueue", X_OK)) {
+	if (access("/proc/sys/fs/mqueue", X_OK)) {
 		pr_info("Mqueue sysctls are missing\n");
 		return 0;
 	}
