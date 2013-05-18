@@ -124,6 +124,9 @@ static int root_prepare_shared(void)
 	if (collect_reg_files())
 		return -1;
 
+	if (collect_ns_files())
+		return -1;
+
 	if (collect_pipes())
 		return -1;
 

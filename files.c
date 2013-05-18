@@ -32,6 +32,7 @@
 #include "eventpoll.h"
 #include "fsnotify.h"
 #include "signalfd.h"
+#include "namespaces.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -267,7 +268,13 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 			return -1;
 
 		p.link = &link;
-		return dump_reg_file(&p, lfd, fdinfo);
+		if (link.name[1] == '/')
+			return dump_reg_file(&p, lfd, fdinfo);
+
+		if (check_ns_proc(&link))
+			return dump_ns_file(&p, lfd, fdinfo);
+
+		return dump_unsupp_fd(&p);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {

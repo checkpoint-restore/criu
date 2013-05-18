@@ -10,6 +10,53 @@
 #include "namespaces.h"
 #include "net.h"
 
+#include "protobuf.h"
+#include "protobuf/ns.pb-c.h"
+
+struct ns_desc *ns_desc_array[] = {
+	&net_ns_desc,
+	&uts_ns_desc,
+	&ipc_ns_desc,
+	&pid_ns_desc,
+	&user_ns_desc,
+	&mnt_ns_desc,
+};
+
+static unsigned int parse_ns_link(char *link, size_t len, struct ns_desc *d)
+{
+	unsigned int kid = 0;
+	char *end;
+
+	if (len >= d->len + 2) {
+		if (link[d->len] == ':' && !memcmp(link, d->str, d->len)) {
+			kid = strtoul(&link[d->len + 2], &end, 10);
+			if (end && *end == ']')
+				BUG_ON(kid > UINT_MAX);
+			else
+				kid = 0;
+		}
+	}
+
+	return kid;
+}
+
+bool check_ns_proc(struct fd_link *link)
+{
+	unsigned int i, kid;
+
+	for (i = 0; i < ARRAY_SIZE(ns_desc_array); i++) {
+		kid = parse_ns_link(link->name + 1, link->len - 1, ns_desc_array[i]);
+		if (!kid)
+			continue;
+
+		link->ns_d = ns_desc_array[i];
+		link->ns_kid = kid;
+		return true;
+	}
+
+	return false;
+}
+
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
 {
 	char buf[32];
@@ -74,13 +121,25 @@ static struct ns_id *ns_ids;
 static unsigned int ns_next_id = 1;
 unsigned long current_ns_mask = 0;
 
-static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd)
+static unsigned int lookup_ns_id(unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next)
 		if (nsid->kid == kid && nsid->nd == nd)
 			return nsid->id;
+
+	return 0;
+}
+
+static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd)
+{
+	unsigned int id;
+	struct ns_id *nsid;
+
+	id = lookup_ns_id(kid, nd);
+	if (id)
+		return id;
 
 	if (pid != getpid()) {
 		if (pid == root_item->pid.real) {
@@ -113,7 +172,7 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 {
 	int proc_dir, ret;
 	unsigned int kid;
-	char ns_path[10], ns_id[32], *end;
+	char ns_path[10], ns_id[32];
 
 	proc_dir = open_pid_proc(pid);
 	if (proc_dir < 0)
@@ -126,9 +185,135 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 		return 0;
 	}
 
-	/* XXX: Does it make sense to validate kernel links to <name>:[<id>]? */
-	kid = strtoul(ns_id + strlen(nd->str) + 2, &end, 10);
+	kid = parse_ns_link(ns_id, ret, nd);
+	BUG_ON(!kid);
+
 	return generate_ns_id(pid, kid, nd);
+}
+
+int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
+{
+	int fd = fdset_fd(glob_fdset, CR_FD_NS_FILES);
+	NsFileEntry nfe = NS_FILE_ENTRY__INIT;
+	struct fd_link *link = p->link;
+	unsigned int nsid;
+
+	nsid = lookup_ns_id(link->ns_kid, link->ns_d);
+	if (!nsid) {
+		pr_err("No NS ID with kid %u\n", link->ns_kid);
+		return -1;
+	}
+
+	nfe.id		= id;
+	nfe.ns_id	= nsid;
+	nfe.ns_cflag	= link->ns_d->cflag;
+	nfe.flags	= p->flags;
+
+	return pb_write_one(fd, &nfe, PB_NS_FILES);
+}
+
+static const struct fdtype_ops nsfile_ops = {
+	.type		= FD_TYPES__NS,
+	.dump		= dump_one_ns_file,
+};
+
+int dump_ns_file(struct fd_parms *p, int lfd, const int fdinfo)
+{
+	return do_dump_gen_file(p, lfd, &nsfile_ops, fdinfo);
+}
+
+struct ns_file_info {
+	struct file_desc	d;
+	NsFileEntry		*nfe;
+};
+
+static int open_ns_fd(struct file_desc *d)
+{
+	struct ns_file_info *nfi = container_of(d, struct ns_file_info, d);
+	struct pstree_item *item, *t;
+	struct ns_desc *nd = NULL;
+	char path[64];
+	int fd;
+
+	/*
+	 * Find out who can open us.
+	 *
+	 * FIXME I need a hash or RBtree here.
+	 */
+	for_each_pstree_item(t) {
+		TaskKobjIdsEntry *ids = t->ids;
+
+		if (ids->pid_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &pid_ns_desc;
+			break;
+		} else if (ids->net_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &net_ns_desc;
+			break;
+		} else if (ids->ipc_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &ipc_ns_desc;
+			break;
+		} else if (ids->uts_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &uts_ns_desc;
+			break;
+		} else if (ids->mnt_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &mnt_ns_desc;
+			break;
+		}
+	}
+
+	if (!nd || !item) {
+		pr_err("Can't find suitable NS ID for %#x\n", nfi->nfe->ns_id);
+		return -1;
+	} 
+
+	if (nd->cflag != nfi->nfe->ns_cflag) {
+		pr_err("Clone flag mismatch for %#x\n", nfi->nfe->ns_id);
+		return -1;
+	}
+
+	snprintf(path, sizeof(path) - 1, "/proc/%d/ns/%s", item->pid.virt, nd->str);
+	path[sizeof(path) - 1] = '\0';
+
+	fd = open(path, nfi->nfe->flags);
+	if (fd < 0) {
+		pr_perror("Can't open file %s on restore", path);
+		return fd;
+	}
+
+	return fd;
+}
+
+static struct file_desc_ops ns_desc_ops = {
+	.type = FD_TYPES__NS,
+	.open = open_ns_fd,
+};
+
+static int collect_one_nsfile(void *o, ProtobufCMessage *base)
+{
+	struct ns_file_info *nfi = o;
+
+	nfi->nfe = pb_msg(base, NsFileEntry);
+
+	pr_info("Collected ns file ID %#x NS-ID %#x\n", nfi->nfe->id, nfi->nfe->ns_id);
+	file_desc_add(&nfi->d, nfi->nfe->id, &ns_desc_ops);
+
+	return 0;
+}
+
+int collect_ns_files(void)
+{
+	int ret;
+
+	ret = collect_image(CR_FD_NS_FILES, PB_NS_FILES,
+			sizeof(struct ns_file_info), collect_one_nsfile);
+	if (ret < 0 && errno == ENOENT)
+		ret = 0;
+	return ret;
 }
 
 int dump_task_ns_ids(struct pstree_item *item)

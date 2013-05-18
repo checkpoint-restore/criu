@@ -18,8 +18,19 @@ struct rst_info;
 struct parasite_ctl;
 
 struct fd_link {
-	char		name[PATH_MAX + 1];
-	size_t		len;
+	union {
+		/* Link info for generic file (path) */
+		struct {
+			char	name[PATH_MAX + 1];
+			size_t	len;
+		};
+
+		/* Link info for proc-ns file */
+		struct {
+			struct ns_desc *ns_d;
+			unsigned int ns_kid;
+		};
+	};
 };
 
 struct fd_parms {
