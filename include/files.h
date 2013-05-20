@@ -17,6 +17,11 @@ struct cr_fdset;
 struct rst_info;
 struct parasite_ctl;
 
+struct fd_link {
+	char		name[PATH_MAX + 1];
+	size_t		len;
+};
+
 struct fd_parms {
 	int		fd;
 	unsigned long	pos;
@@ -25,6 +30,7 @@ struct fd_parms {
 	struct stat	stat;
 	pid_t		pid;
 	FownEntry	fown;
+	struct fd_link	*link;
 
 	struct parasite_ctl *ctl;
 };
@@ -33,7 +39,10 @@ struct fd_parms {
 (struct fd_parms) {			\
 	.fd	= FD_DESC_INVALID,	\
 	.fown	= FOWN_ENTRY__INIT,	\
+	.link	= NULL,			\
 }
+
+extern int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link);
 
 struct file_desc;
 

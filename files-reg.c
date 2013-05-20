@@ -432,36 +432,37 @@ static int check_path_remap(char *rpath, int plen, const struct stat *ost, int l
 
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	char rpath[PATH_MAX + 1] = ".", *path = rpath + 1;
-	int len, rfd;
+	struct fd_link _link, *link;
+	int rfd;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
-	len = read_fd_link(lfd, path, sizeof(rpath) - 1);
-	if (len < 0) {
-		pr_err("Can't read link\n");
-		return len;
-	}
+	if (!p->link) {
+		if (fill_fdlink(lfd, p, &_link))
+			return -1;
+		link = &_link;
+	} else
+		link = p->link;
 
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
-			p->fd, lfd, path);
+			p->fd, lfd, &link->name[1]);
 
 	/*
 	 * The regular path we can handle should start with slash.
 	 */
-	if (path[0] != '/') {
-		pr_err("The path [%s] is not supported\n", path);
+	if (link->name[1] != '/') {
+		pr_err("The path [%s] is not supported\n", &link->name[1]);
 		return -1;
 	}
 
-	if (check_path_remap(rpath, len, &p->stat, lfd, id))
+	if (check_path_remap(link->name, link->len, &p->stat, lfd, id))
 		return -1;
 
 	rfe.id		= id;
 	rfe.flags	= p->flags;
 	rfe.pos		= p->pos;
 	rfe.fown	= (FownEntry *)&p->fown;
-	rfe.name	= path;
+	rfe.name	= &link->name[1];
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 

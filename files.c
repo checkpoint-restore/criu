@@ -135,6 +135,22 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	return pb_write_one(fdinfo, &e, PB_FDINFO);
 }
 
+int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
+{
+	size_t len;
+
+	link->name[0] = '.';
+
+	len = read_fd_link(lfd, &link->name[1], sizeof(link->name) - 1);
+	if (len < 0) {
+		pr_err("Can't read link for pid %d fd %d\n", p->pid, p->fd);
+		return -1;
+	}
+
+	link->len = len + 1;
+	return 0;
+}
+
 static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 				struct fd_opts *opts, struct fd_parms *p)
 {
@@ -244,8 +260,15 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 			return dump_unsupp_fd(&p);
 	}
 
-	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode))
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
+		struct fd_link link;
+
+		if (fill_fdlink(lfd, &p, &link))
+			return -1;
+
+		p.link = &link;
 		return dump_reg_file(&p, lfd, fdinfo);
+	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
 		if (statfs.f_type == PIPEFS_MAGIC)
