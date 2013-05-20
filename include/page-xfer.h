@@ -1,6 +1,6 @@
 #ifndef __CR_PAGE_XFER__H__
 #define __CR_PAGE_XFER__H__
-int cr_page_server(void);
+int cr_page_server(bool daemon_mode);
 
 /*
  * page_xfer -- transfer pages into image file.

@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(argv[optind], "page-server"))
-		return  cr_page_server();
+		return cr_page_server(opts.restore_detach);
 
 	pr_msg("Unknown command \"%s\"\n", argv[optind]);
 usage:
@@ -415,6 +415,7 @@ usage:
 "Page server options\n"
 "  --address ADDR        address of page server\n"
 "  --port PORT           port of page server\n"
+"  -d                    run in the background after creating socket\n"
 "\n"
 "Show options:\n"
 "  -f|--file FILE        show contents of a checkpoint file\n"

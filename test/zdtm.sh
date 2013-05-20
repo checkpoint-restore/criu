@@ -350,7 +350,7 @@ EOF
 	mkdir -p $ddump
 
 	if [ $PAGE_SERVER -eq 1 ]; then
-		$CRTOOLS page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT &
+		$CRTOOLS page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT -d
 		PS_PID=$!
 		opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 	fi

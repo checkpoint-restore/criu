@@ -195,7 +195,7 @@ static int page_server_serve(int sk)
 	return ret;
 }
 
-int cr_page_server(void)
+int cr_page_server(bool daemon_mode)
 {
 	int sk, ask = -1;
 	struct sockaddr_in caddr;
@@ -222,6 +222,9 @@ int cr_page_server(void)
 		pr_perror("Can't listen on page server socket");
 		goto out;
 	}
+
+	if (daemon_mode)
+		daemon(0, 0);
 
 	ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 	if (ask < 0)
