@@ -91,6 +91,7 @@ int main(int argc, char *argv[])
 			{ "leave-stopped", no_argument, 0, 's' },
 			{ "leave-running", no_argument, 0, 'R' },
 			{ "restore-detached", no_argument, 0, 'd' },
+			{ "daemon", no_argument, 0, 'd' },
 			{ "contents", no_argument, 0, 'c' },
 			{ "file", required_argument, 0, 'f' },
 			{ "images-dir", required_argument, 0, 'D' },
@@ -415,7 +416,7 @@ usage:
 "Page server options\n"
 "  --address ADDR        address of page server\n"
 "  --port PORT           port of page server\n"
-"  -d                    run in the background after creating socket\n"
+"  -d|--daemon           run in the background after creating socket\n"
 "\n"
 "Show options:\n"
 "  -f|--file FILE        show contents of a checkpoint file\n"
