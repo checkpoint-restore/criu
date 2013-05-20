@@ -30,7 +30,7 @@ struct fd_parms {
 };
 
 #define FD_PARMS_INIT			\
-{					\
+(struct fd_parms) {			\
 	.fd	= FD_DESC_INVALID,	\
 	.fown	= FOWN_ENTRY__INIT,	\
 }

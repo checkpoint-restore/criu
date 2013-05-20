@@ -269,6 +269,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 	if (fd < 0)
 		return -1;
 
+	p = FD_PARMS_INIT;
 	if (fstat(fd, &p.stat) < 0) {
 		pr_perror("Can't stat root");
 		return -1;
