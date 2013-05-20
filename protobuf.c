@@ -20,6 +20,7 @@
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/stats.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/ns.pb-c.h"
 #include "protobuf/eventfd.pb-c.h"
 #include "protobuf/eventpoll.pb-c.h"
 #include "protobuf/signalfd.pb-c.h"
@@ -97,6 +98,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(STATS,		Stats,		stats);
 	CR_PB_DESC(FDINFO,		Fdinfo,		fdinfo);
 	CR_PB_DESC(REG_FILES,		RegFile,	reg_file);
+	CR_PB_DESC(NS_FILES,		NsFile,		ns_file);
 	CR_PB_DESC(EVENTFD,		EventfdFile,	eventfd_file);
 	CR_PB_DESC(EVENTPOLL,		EventpollFile,	eventpoll_file);
 	CR_PB_DESC(EVENTPOLL_TFD,	EventpollTfd,	eventpoll_tfd);

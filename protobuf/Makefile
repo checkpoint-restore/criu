@@ -16,6 +16,7 @@ proto-obj-y	+= core-arm.o
 proto-obj-y	+= inventory.o
 proto-obj-y	+= fdinfo.o
 proto-obj-y	+= fown.o
+proto-obj-y	+= ns.o
 proto-obj-y	+= regfile.o
 proto-obj-y	+= ghost-file.o
 proto-obj-y	+= fifo.o

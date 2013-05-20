@@ -27,6 +27,7 @@
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/ns.pb-c.h"
 #include "protobuf/ghost-file.pb-c.h"
 #include "protobuf/fifo.pb-c.h"
 #include "protobuf/remap-file-path.pb-c.h"
@@ -63,6 +64,11 @@ void show_fown_cont(void *p)
 	FownEntry *fown = p;
 	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
 	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
+}
+
+void show_ns_files(int fd)
+{
+	pb_show_plain(fd, PB_NS_FILES);
 }
 
 void show_reg_files(int fd_reg_files)

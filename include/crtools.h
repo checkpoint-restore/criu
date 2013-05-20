@@ -62,6 +62,7 @@ enum {
 	_CR_FD_GLOB_FROM,
 	CR_FD_SK_QUEUES,
 	CR_FD_REG_FILES,
+	CR_FD_NS_FILES,
 	CR_FD_INETSK,
 	CR_FD_UNIXSK,
 	CR_FD_PACKETSK,
@@ -161,6 +162,7 @@ struct cr_fd_desc_tmpl {
 void show_files(int fd);
 void show_pagemap(int fd);
 void show_reg_files(int fd);
+void show_ns_files(int fd);
 void show_core(int fd);
 void show_ids(int fd);
 void show_mm(int fd);
