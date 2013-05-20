@@ -812,7 +812,4 @@ int mntns_collect_root(pid_t pid)
 	return 0;
 }
 
-struct ns_desc mnt_ns_desc = {
-	.cflag = CLONE_NEWNS,
-	.str = "mnt",
-};
+struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");

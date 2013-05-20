@@ -313,7 +313,5 @@ int try_show_namespaces(int ns_pid, struct cr_options *o)
 	return 0;
 }
 
-struct ns_desc pid_ns_desc = {
-	.cflag = CLONE_NEWPID,
-	.str = "pid",
-};
+struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");
+struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user");

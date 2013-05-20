@@ -9,9 +9,18 @@ struct cr_options;
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
+	size_t		len;
 };
 
+#define NS_DESC_ENTRY(_cflag, _str)			\
+	{						\
+		.cflag		= _cflag,		\
+		.str		= _str,			\
+		.len		= sizeof(_str) - 1,	\
+	}
+
 extern struct ns_desc pid_ns_desc;
+extern struct ns_desc user_ns_desc;
 extern unsigned long current_ns_mask;
 
 int dump_namespaces(struct pid *pid, unsigned int ns_flags);

@@ -404,7 +404,4 @@ void network_unlock(void)
 	run_scripts("network-unlock");
 }
 
-struct ns_desc net_ns_desc = {
-	.cflag = CLONE_NEWNET,
-	.str = "net",
-};
+struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
