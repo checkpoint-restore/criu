@@ -18,10 +18,19 @@
 #include "netfilter.h"
 #include "image.h"
 #include "namespaces.h"
+#include "config.h"
 
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
 
+#ifndef CONFIG_HAS_TCP_REPAIR
+/*
+ * It's been reported that both tcp_repair_opt
+ * and TCP_ enum already shipped in netinet/tcp.h
+ * system header by some distros thus we need a
+ * test if we can use predefined ones or provide
+ * our own.
+ */
 struct tcp_repair_opt {
 	u32	opt_code;
 	u32	opt_val;
@@ -33,6 +42,7 @@ enum {
 	TCP_SEND_QUEUE,
 	TCP_QUEUES_NR,
 };
+#endif
 
 #ifndef TCP_TIMESTAMP
 #define TCP_TIMESTAMP	24

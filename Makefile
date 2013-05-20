@@ -17,6 +17,7 @@ export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
 #MAKEFLAGS := -r -R
 
 include Makefile.inc
+include Makefile.config
 
 #
 # Common definitions
@@ -118,7 +119,7 @@ ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: pie $(VERSION_HEADER)
+all: config pie $(VERSION_HEADER)
 	$(Q) $(MAKE) $(PROGRAM)
 
 protobuf/%::
@@ -158,6 +159,7 @@ clean-built:
 	$(Q) $(MAKE) $(build)=pie clean
 	$(Q) $(MAKE) $(build-crtools)=. clean
 	$(Q) $(MAKE) -C Documentation clean
+	$(Q) $(RM) ./include/config.h
 	$(Q) $(RM) ./$(PROGRAM)
 
 rebuild: clean-built
