@@ -66,6 +66,7 @@ TST_NOFILE	=				\
 		xids00				\
 		groups				\
 		file_fown			\
+		proc-self			\
 		eventfs00			\
 		signalfd00			\
 		inotify00			\
