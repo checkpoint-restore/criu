@@ -224,7 +224,10 @@ int cr_page_server(bool daemon_mode)
 	}
 
 	if (daemon_mode)
-		daemon(0, 0);
+		if(daemon(0, 0) == -1){
+			pr_perror("Can't run in the background");
+			return -errno;
+		}
 
 	ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 	if (ask < 0)
