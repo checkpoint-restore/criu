@@ -166,11 +166,14 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			goto err;
 	}
 
-	while (fgets(buf, BUF_SIZE, smaps)) {
+	while (1) {
 		int num;
 		char file_path[6];
+		bool eof;
 
-		if (!is_vma_range_fmt(buf)) {
+		eof = (fgets(buf, BUF_SIZE, smaps) == NULL);
+
+		if (!eof && !is_vma_range_fmt(buf)) {
 			if (!strncmp(buf, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
 				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
@@ -189,6 +192,21 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			} else
 				continue;
 		}
+
+		if (vma_area) {
+			list_add_tail(&vma_area->list, &vma_area_list->h);
+			vma_area_list->nr++;
+			if (privately_dump_vma(vma_area)) {
+				unsigned long pages;
+
+				pages = vma_area_len(vma_area) / PAGE_SIZE;
+				vma_area_list->priv_size += pages;
+				vma_area_list->longest = max(vma_area_list->longest, pages);
+			}
+		}
+
+		if (eof)
+			break;
 
 		vma_area = alloc_vma_area();
 		if (!vma_area)
@@ -255,7 +273,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		}
 
 		if (vma_area->vma.status != 0) {
-			goto done;
+			continue;
 		} else if (strstr(buf, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
@@ -316,16 +334,6 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				vma_area->vma.status |= VMA_ANON_PRIVATE;
 			}
 			vma_area->vma.flags  |= MAP_ANONYMOUS;
-		}
-done:
-		list_add_tail(&vma_area->list, &vma_area_list->h);
-		vma_area_list->nr++;
-		if (privately_dump_vma(vma_area)) {
-			unsigned long pages;
-
-			pages = vma_area_len(vma_area) / PAGE_SIZE;
-			vma_area_list->priv_size += pages;
-			vma_area_list->longest = max(vma_area_list->longest, pages);
 		}
 	}
 
