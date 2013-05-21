@@ -204,9 +204,11 @@ void test_init(int argc, char **argv)
 	srand48(time(NULL));	/* just in case we need it */
 }
 
-#define STACK_SIZE	(8 * 4096)
+#define STACK_SIZE	4096
 
 struct zdtm_clone_arg {
+	char stack[STACK_SIZE];
+	char stack_ptr[0];
 	FILE *pidf;
 	int argc;
 	char **argv;
@@ -256,7 +258,6 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 		.sa_flags	= SA_RESTART,
 	};
 	struct zdtm_clone_arg ca;
-	void *stack;
 
 	sigemptyset(&sa.sa_mask);
 
@@ -283,18 +284,11 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 		exit(1);
 	}
 
-	stack = mmap(NULL, STACK_SIZE, PROT_WRITE | PROT_READ,
-			MAP_PRIVATE | MAP_GROWSDOWN | MAP_ANONYMOUS, -1, 0);
-	if (stack == MAP_FAILED) {
-		err("Can't map stack\n");
-		exit(1);
-	}
-
 	ca.pidf = pidf;
 	ca.fn = fn;
 	ca.argc = argc;
 	ca.argv = argv;
-	pid = clone(do_test_fn, stack + STACK_SIZE, clone_flags | SIGCHLD, &ca);
+	pid = clone(do_test_fn, ca.stack_ptr, clone_flags | SIGCHLD, &ca);
 	if (pid < 0) {
 		err("Daemonizing failed: %m\n");
 		exit(1);
