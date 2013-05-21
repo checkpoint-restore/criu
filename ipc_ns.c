@@ -530,7 +530,7 @@ static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
 	int ret, size;
 	u16 *values;
 
-	size = sizeof(u16) * sem->nsems;
+	size = round_up(sizeof(u16) * sem->nsems, sizeof(u64));
 	values = xmalloc(size);
 	if (values == NULL) {
 		pr_err("Failed to allocate memory for semaphores set values\n");
@@ -538,7 +538,7 @@ static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
 		goto out;
 	}
 
-	ret = read_img_buf(fd, values, round_up(size, sizeof(u64)));
+	ret = read_img_buf(fd, values, size);
 	if (ret < 0) {
 		pr_err("Failed to allocate memory for semaphores set values\n");
 		ret = -ENOMEM;
