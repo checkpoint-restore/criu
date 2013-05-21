@@ -695,8 +695,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	if (ret)
 		goto err_free;
 
-	mark_stack_vma(CORE_THREAD_ARCH_INFO(core)->gpregs->sp, &vma_area_list->h);
-
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
 		goto err_free;

@@ -96,9 +96,10 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 
 	do {
 		/* mmap() block */
-		if (_vmflag_match(tok, "gd"))
+		if (_vmflag_match(tok, "gd")) {
 			vma_area->vma.flags |= MAP_GROWSDOWN;
-		else if (_vmflag_match(tok, "lo"))
+			vma_area->vma.start -= PAGE_SIZE; /* Guard page */
+		} else if (_vmflag_match(tok, "lo"))
 			vma_area->vma.flags |= MAP_LOCKED;
 		else if (_vmflag_match(tok, "nr"))
 			vma_area->vma.flags |= MAP_NORESERVE;
