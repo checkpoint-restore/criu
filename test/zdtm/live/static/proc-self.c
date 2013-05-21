@@ -50,13 +50,13 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	test_daemon();
+	test_waitsig();
+
 	if (read_fd_link(fd_self, path_orig, sizeof(path_orig))) {
 		err("Can't fill original path");
 		return -1;
 	}
-
-	test_daemon();
-	test_waitsig();
 
 	fd_new = open(nspath, O_RDONLY);
 	if (fd_new < 0) {
