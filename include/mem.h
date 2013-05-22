@@ -11,4 +11,9 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				      struct vm_area_list *vma_area_list,
 				      struct page_pipe **pp);
 
+#define PME_PRESENT		(1ULL << 63)
+#define PME_SWAP		(1ULL << 62)
+#define PME_FILE		(1ULL << 61)
+#define PME_SOFT_DIRTY		(1ULL << 55)
+
 #endif /* __CR_MEM_H__ */

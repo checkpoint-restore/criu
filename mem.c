@@ -16,11 +16,6 @@
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
-#define PME_PRESENT	(1ULL << 63)
-#define PME_SWAP	(1ULL << 62)
-#define PME_FILE	(1ULL << 61)
-#define PME_SOFT_DIRTY	(1Ull << 55)
-
 /*
  * On dump we suck in the whole parent pagemap. Then, when observing
  * a page with soft-dirty bit cleared (i.e. -- not modified) we check

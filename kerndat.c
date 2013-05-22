@@ -52,8 +52,6 @@ static int kerndat_get_shmemdev(void)
  * this functionality under CONFIG_MEM_SOFT_DIRTY option.
  */
 
-#define PME_SOFT_DIRTY	(1Ull << 55)
-
 bool kerndat_has_dirty_track = false;
 
 int kerndat_get_dirty_track(void)
