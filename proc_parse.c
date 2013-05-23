@@ -19,6 +19,7 @@
 #include "pstree.h"
 #include "fsnotify.h"
 #include "kerndat.h"
+#include "vdso.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"
@@ -278,7 +279,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		} else if (strstr(buf, "[vsyscall]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
-			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
+			vma_area->vma.status |= VMA_AREA_REGULAR;
+			if ((vma_area->vma.prot & VDSO_PROT) == VDSO_PROT)
+				vma_area->vma.status |= VMA_AREA_VDSO;
 		} else if (strstr(buf, "[heap]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {
