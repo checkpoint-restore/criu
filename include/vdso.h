@@ -66,4 +66,7 @@ static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
 	return t->vma_end - t->vma_start;
 }
 
+extern struct vdso_symtable vdso_sym_rt;
+extern int vdso_init(void);
+
 #endif /* __CR_VDSO_H__ */

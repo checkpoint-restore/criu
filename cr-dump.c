@@ -62,6 +62,7 @@
 #include "stats.h"
 #include "mem.h"
 #include "page-pipe.h"
+#include "vdso.h"
 
 #include "asm/dump.h"
 
@@ -1681,6 +1682,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (cpu_init())
+		goto err;
+
+	if (vdso_init())
 		goto err;
 
 	if (write_img_inventory())

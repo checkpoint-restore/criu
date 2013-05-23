@@ -57,6 +57,7 @@
 #include "file-lock.h"
 #include "page-read.h"
 #include "sysctl.h"
+#include "vdso.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -1313,6 +1314,9 @@ int cr_restore_tasks(struct cr_options *opts)
 		return -1;
 
 	if (cpu_init() < 0)
+		return -1;
+
+	if (vdso_init())
 		return -1;
 
 	if (prepare_task_entries() < 0)
