@@ -24,3 +24,8 @@ int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
 {
 	return 0;
 }
+
+int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigned long vdso_rt_parked_at)
+{
+	return 0;
+}

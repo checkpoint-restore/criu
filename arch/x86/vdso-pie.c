@@ -240,3 +240,62 @@ int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
 
 	return 0;
 }
+
+int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigned long vdso_rt_parked_at)
+{
+	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
+	size_t size = vma_entry_len(vma);
+	bool remap_rt = true;
+	unsigned int i;
+
+	/*
+	 * Find symbols in dumpee vdso.
+	 */
+	if (vdso_fill_symtable((void *)vma->start, size, &s))
+		return -1;
+
+	if (size == vdso_vma_size(sym_rt)) {
+		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
+			if (s.symbols[i].offset != sym_rt->symbols[i].offset) {
+				remap_rt = false;
+				break;
+			}
+		}
+	} else
+		remap_rt = false;
+
+	/*
+	 * Easy case -- the vdso from image has same offsets and size
+	 * as runtime, so we simply remap runtime vdso to dumpee position
+	 * without generating any proxy.
+	 */
+	if (remap_rt) {
+		pr_debug("Runtime vdso matches dumpee, remap inplace\n");
+
+		if (sys_munmap((void *)vma->start, size)) {
+			pr_err("Failed to unmap %s\n", who);
+			return -1;
+		}
+
+		if (vdso_remap(who, vdso_rt_parked_at,
+			       vma->start, size))
+			return -1;
+		return 0;
+	}
+
+	/*
+	 * Now complex case -- we need to proxify calls. We redirect
+	 * calls from dumpee vdso to runtime vdso, making dumpee
+	 * to operate as proxy vdso.
+	 */
+	pr_debug("Runtime vdso mismatches dumpee, generate proxy\n");
+
+	if (vdso_redirect_calls((void *)vdso_rt_parked_at,
+				(void *)vma->start,
+				sym_rt, &s)) {
+		pr_err("Failed to proxify dumpee contents\n");
+		return -1;
+	}
+
+	return 0;
+}
