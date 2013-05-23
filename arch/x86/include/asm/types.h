@@ -6,6 +6,7 @@
 
 #include "asm/bitops.h"
 #include "asm/int.h"
+#include "asm/prlimit.h"
 
 #include "protobuf/core.pb-c.h"
 
