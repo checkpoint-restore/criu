@@ -142,7 +142,11 @@ pie: arch/$(ARCH)
 built-in.o: $(VERSION_HEADER) pie
 	$(Q) $(MAKE) $(build-crtools)=. $@
 
-$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) pie/util-net.o protobuf/built-in.o built-in.o
+PROGRAM-BUILTINS	+= pie/util-net.o
+PROGRAM-BUILTINS	+= protobuf/built-in.o
+PROGRAM-BUILTINS	+= built-in.o
+
+$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
 
