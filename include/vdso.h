@@ -4,6 +4,7 @@
 #include <sys/mman.h>
 
 #include "asm/vdso.h"
+#include "asm/int.h"
 
 #define VDSO_PROT		(PROT_READ | PROT_EXEC)
 
@@ -26,6 +27,7 @@ enum {
 #define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
 
 #define VDSO_BAD_ADDR		(-1ul)
+#define VDSO_BAD_PFN		(-1ull)
 
 struct vdso_symbol {
 	char		name[32];
@@ -67,6 +69,7 @@ static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
 }
 
 extern struct vdso_symtable vdso_sym_rt;
+extern u64 vdso_pfn;
 extern int vdso_init(void);
 
 #endif /* __CR_VDSO_H__ */

@@ -9,6 +9,7 @@
 #define LOG_PREFIX "vdso: "
 
 struct vdso_symtable vdso_sym_rt = VDSO_SYMTABLE_INIT;
+u64 vdso_pfn = VDSO_BAD_PFN;
 
 int vdso_init(void)
 {
