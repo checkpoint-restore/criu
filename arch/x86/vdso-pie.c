@@ -246,6 +246,7 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
 	size_t size = vma_entry_len(vma);
 	bool remap_rt = true;
+	struct vdso_mark *m;
 	unsigned int i;
 
 	/*
@@ -296,6 +297,15 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 		pr_err("Failed to proxify dumpee contents\n");
 		return -1;
 	}
+
+	/*
+	 * Put a special mark into runtime vdso, thus at next checkpoint
+	 * routine we could detect this vdso and do not dump it, since
+	 * it's auto-generated every new session if proxy required.
+	 */
+	m = (void *)vdso_rt_parked_at;
+	INIT_VDSO_MARK(m);
+	m->proxy_addr = vma->start;
 
 	return 0;
 }

@@ -68,6 +68,38 @@ static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
 	return t->vma_end - t->vma_start;
 }
 
+/*
+ * Special mark which allows to identify runtime vdso where
+ * calls from proxy vdso are redirected. This mark usually
+ * placed at the start of vdso area where Elf header lives.
+ * Since such runtime vdso is solevey used by proxy and
+ * nobody else is supposed to access it, it's more-less
+ * safe to screw the Elf header with @signature and
+ * @proxy_addr.
+ *
+ * The @proxy_addr deserves a few comments. When we redirect
+ * the calls from proxy to runtime vdso, on next checkpoint
+ * it won't be possible to find which VMA is proxy, thus
+ * we save its address in the member.
+ */
+struct vdso_mark {
+	u64			signature;
+	unsigned long		proxy_addr;
+};
+
+/* Magic number (criuvdso) */
+#define VDSO_MARK_SIGNATURE	(0x6f73647675697263ULL)
+
+#define VDSO_MARK_INIT						\
+	{							\
+		.signature	= VDSO_MARK_SIGNATURE,		\
+		.proxy_addr	= VDSO_BAD_ADDR,		\
+	}
+
+#define INIT_VDSO_MARK(m)					\
+	*(m) = (struct vdso_mark)VDSO_MARK_INIT
+
+
 extern struct vdso_symtable vdso_sym_rt;
 extern u64 vdso_pfn;
 extern int vdso_init(void);
