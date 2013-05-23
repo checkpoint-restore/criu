@@ -2,7 +2,7 @@
 
 #include "restorer.h"
 #include "asm/restorer.h"
-#include "asm/memcpy_64.h"
+#include "asm/string.h"
 
 #include "syscall.h"
 #include "log.h"

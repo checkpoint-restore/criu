@@ -1,8 +1,10 @@
-#ifndef __CR_MEMCPY_64_H__
-#define __CR_MEMCPY_64_H__
+#ifndef __CR_ASM_STRING_H__
+#define __CR_ASM_STRING_H__
+
+#define HAS_BUILTIN_MEMCPY
 
 #include "compiler.h"
-#include "asm/types.h"
+#include "asm-generic/string.h"
 
 static always_inline void *builtin_memcpy(void *to, const void *from, unsigned int n)
 {
@@ -19,4 +21,4 @@ static always_inline void *builtin_memcpy(void *to, const void *from, unsigned i
 	return to;
 }
 
-#endif /* __CR_MEMCPY_64_H__ */
+#endif /* __CR_ASM_STRING_H__ */

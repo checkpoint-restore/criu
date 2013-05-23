@@ -1,9 +1,9 @@
-#ifndef __MEMCPY_ARM_H__
-#define __MEMCPY_ARM_H__
+#ifndef __CR_ASM_GENERIC_STRING_H__
+#define __CR_ASM_GENERIC_STRING_H__
 
 #include "compiler.h"
-#include "types.h"
 
+#ifndef HAS_BUILTIN_MEMCPY
 static always_inline void *builtin_memcpy(void *to, const void *from, unsigned int n)
 {
 	int i;
@@ -16,5 +16,6 @@ static always_inline void *builtin_memcpy(void *to, const void *from, unsigned i
 
 	return to;
 }
-
 #endif
+
+#endif /* __CR_ASM_GENERIC_STRING_H__ */

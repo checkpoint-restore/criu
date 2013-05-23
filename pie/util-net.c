@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include "compiler.h"
-#include "asm/memcpy_64.h"
+#include "asm/string.h"
 #include "asm/types.h"
 #include "syscall.h"
 
