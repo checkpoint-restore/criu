@@ -35,6 +35,7 @@ enum {
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
 	PARASITE_CMD_DUMP_TTY,
+	PARASITE_CMD_CHECK_VDSO_MARK,
 
 	PARASITE_CMD_MAX,
 };
@@ -58,6 +59,13 @@ struct parasite_vma_entry
 	unsigned long	start;
 	unsigned long	len;
 	int		prot;
+};
+
+struct parasite_vdso_vma_entry {
+	unsigned long	start;
+	unsigned long	len;
+	unsigned long	proxy_addr;
+	int		is_marked;
 };
 
 struct parasite_dump_pages_args {

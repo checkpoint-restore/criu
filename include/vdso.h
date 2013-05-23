@@ -99,6 +99,13 @@ struct vdso_mark {
 #define INIT_VDSO_MARK(m)					\
 	*(m) = (struct vdso_mark)VDSO_MARK_INIT
 
+static inline bool is_vdso_mark(void *addr)
+{
+	struct vdso_mark *m = addr;
+
+	return m->signature == VDSO_MARK_SIGNATURE &&
+		m->proxy_addr != VDSO_BAD_ADDR;
+}
 
 extern struct vdso_symtable vdso_sym_rt;
 extern u64 vdso_pfn;

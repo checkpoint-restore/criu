@@ -8,6 +8,7 @@
 
 #include "syscall.h"
 #include "parasite.h"
+#include "vdso.h"
 #include "log.h"
 
 #include <string.h>
@@ -415,6 +416,21 @@ static int parasite_cfg_log(struct parasite_log_args *args)
 	return ret;
 }
 
+static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
+{
+	struct vdso_mark *m = (void *)args->start;
+
+	if (is_vdso_mark(m)) {
+		args->is_marked = 1;
+		args->proxy_addr = m->proxy_addr;
+	} else {
+		args->is_marked = 0;
+		args->proxy_addr = VDSO_BAD_ADDR;
+	}
+
+	return 0;
+}
+
 static int fini(void)
 {
 	int ret;
@@ -463,6 +479,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return parasite_get_proc_fd();
 	case PARASITE_CMD_DUMP_TTY:
 		return parasite_dump_tty(args);
+	case PARASITE_CMD_CHECK_VDSO_MARK:
+		return parasite_check_vdso_mark(args);
 	}
 
 	pr_err("Unknown command to parasite: %d\n", cmd);

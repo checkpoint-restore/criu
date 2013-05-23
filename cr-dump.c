@@ -61,6 +61,7 @@
 #include "kerndat.h"
 #include "stats.h"
 #include "mem.h"
+#include "vdso.h"
 #include "page-pipe.h"
 #include "vdso.h"
 
@@ -1482,6 +1483,12 @@ static int dump_one_task(struct pstree_item *item)
 			pr_err("Can't get proc fd (pid: %d)\n", pid);
 			goto err_cure_fdset;
 		}
+	}
+
+	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
+	if (ret) {
+		pr_err("Can't fixup vdso VMAs (pid: %d)\n", pid);
+		goto err_cure_fdset;
 	}
 
 	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
