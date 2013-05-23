@@ -1796,6 +1796,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	int *siginfo_priv_nr;
 	unsigned long siginfo_size = 0;
 
+	unsigned long vdso_rt_vma_size = 0;
+	unsigned long vdso_rt_size = 0;
+	unsigned long vdso_rt_delta = 0;
+
 	struct vm_area_list self_vmas;
 	int i;
 
@@ -1857,6 +1861,15 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				siginfo_size;
 
 	/*
+	 * Figure out how much memory runtime vdso will need.
+	 */
+	vdso_rt_vma_size = vdso_vma_size(&vdso_sym_rt);
+	if (vdso_rt_vma_size) {
+		vdso_rt_delta = ALIGN(restore_bootstrap_len, PAGE_SIZE) - restore_bootstrap_len;
+		vdso_rt_size = vdso_rt_vma_size + vdso_rt_delta;
+	}
+
+	/*
 	 * Restorer is a blob (code + args) that will get mapped in some
 	 * place, that should _not_ intersect with both -- current mappings
 	 * and mappings of the task we're restoring here. The subsequent
@@ -1868,15 +1881,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vmas.h, &self_vmas.h,
-					      restore_bootstrap_len);
+					      restore_bootstrap_len +
+					      vdso_rt_size);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
-		       restore_bootstrap_len);
+		       restore_bootstrap_len + vdso_rt_size);
 		goto err;
 	}
 
 	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
-			KBYTES(restore_bootstrap_len));
+			KBYTES(restore_bootstrap_len + vdso_rt_size));
 
 	ret = remap_restorer_blob((void *)exec_mem_hint);
 	if (ret < 0)
@@ -2050,6 +2064,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	memcpy(&task_args->t->blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
 	task_args->t->has_blk_sigset	= true;
+
+	/*
+	 * Restorer needs own copy of vdso parameters. Runtime
+	 * vdso must be kept non intersecting with anything else,
+	 * since we need it being accessible even when own
+	 * self-vmas are unmaped.
+	 */
+	mem += (unsigned long)rst_tcp_socks_size;
+	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
+	task_args->vdso_sym_rt = vdso_sym_rt;
 
 	/*
 	 * Adjust stack.

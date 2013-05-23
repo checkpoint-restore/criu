@@ -19,3 +19,8 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {
 	return 0;
 }
+
+int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
+{
+	return 0;
+}

@@ -224,3 +224,19 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 err:
 	return -1;
 }
+
+int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
+{
+	unsigned long addr;
+
+	pr_debug("Remap %s %lx -> %lx\n", who, from, to);
+
+	addr = sys_mremap(from, size, size, MREMAP_MAYMOVE | MREMAP_FIXED, to);
+	if (addr != to) {
+		pr_err("Unable to remap %lx -> %lx %lx\n",
+		       from, to, addr);
+		return -1;
+	}
+
+	return 0;
+}

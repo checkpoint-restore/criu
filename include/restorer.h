@@ -13,6 +13,8 @@
 #include "util.h"
 #include "crtools.h"
 
+#include "vdso.h"
+
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"
@@ -132,6 +134,9 @@ struct task_restore_core_args {
 
 	struct rst_tcp_sock		*rst_tcp_socks;
 	int				rst_tcp_socks_size;
+
+	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
+	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 } __aligned(sizeof(long));
 
 #define SHMEMS_SIZE	4096

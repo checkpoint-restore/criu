@@ -521,6 +521,24 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 		pr_debug("Examine %"PRIx64"-%"PRIx64"\n", vma_entry->start, vma_entry->end);
 
+		/*
+		 * Park runtime vdso at safe place, thus we can access it
+		 * during restore of targets vma, it's quite important to
+		 * remap it instead of copying to save page frame number
+		 * associated with vdso, we will use it if there is subsequent
+		 * checkpoint done on previously restored program.
+		 */
+		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
+			BUG_ON(vma_entry->start != args->vdso_sym_rt.vma_start);
+			BUG_ON(vma_entry_len(vma_entry) != vdso_vma_size(&args->vdso_sym_rt));
+
+			if (vdso_remap("rt-vdso", vma_entry->start,
+				       args->vdso_rt_parked_at,
+				       vdso_vma_size(&args->vdso_sym_rt)))
+				goto core_restore_end;
+			continue;
+		}
+
 		if (addr < args->premmapped_addr) {
 			if (vma_entry->end >= args->premmapped_addr)
 				len = args->premmapped_addr - addr;
