@@ -91,6 +91,9 @@ static void *thread_fn(void *args)
 	sigset_t blockmask, oldset, newset;
 	struct sigaction act;
 
+	memset(&oldset, 0, sizeof(oldset));
+	memset(&newset, 0, sizeof(oldset));
+
 	sigfillset(&blockmask);
 	sigdelset(&blockmask, SIGTERM);
 
@@ -99,7 +102,7 @@ static void *thread_fn(void *args)
 		return NULL;
 	}
 
-	if (sigprocmask(SIG_BLOCK, NULL, &oldset) == -1) {
+	if (sigprocmask(SIG_SETMASK, NULL, &oldset) == -1) {
 		err("sigprocmask");
 		return NULL;
 	}
@@ -125,7 +128,9 @@ static void *thread_fn(void *args)
 		return NULL;
 	}
 
-	if (!memcmp(&newset, &oldset, sizeof(newset))) {
+	sigdelset(&oldset, SIGTRAP);
+	sigdelset(&newset, SIGTRAP);
+	if (memcmp(&newset, &oldset, sizeof(newset))) {
 		fail("The signal blocking mask was changed");
 		numsig = INT_MAX;
 	}
@@ -161,6 +166,9 @@ int main(int argc, char ** argv)
 	pthread_t pthrd;
 	int i;
 
+	memset(&oldset, 0, sizeof(oldset));
+	memset(&newset, 0, sizeof(oldset));
+
 	test_init(argc, argv);
 	pthread_mutex_init(&exit_lock, NULL);
 	pthread_mutex_lock(&exit_lock);
@@ -182,7 +190,7 @@ int main(int argc, char ** argv)
 		return -1;
 	}
 
-	if (sigprocmask(SIG_BLOCK, &oldset, NULL) == -1) {
+	if (sigprocmask(SIG_BLOCK, NULL, &oldset) == -1) {
 		err("sigprocmask");
 		return -1;
 	}
@@ -242,7 +250,9 @@ int main(int argc, char ** argv)
 	pthread_mutex_unlock(&exit_lock);
 	pthread_join(pthrd, NULL);
 
-	if (!memcmp(&newset, &oldset, sizeof(newset))) {
+	sigdelset(&oldset, SIGTRAP);
+	sigdelset(&newset, SIGTRAP);
+	if (memcmp(&newset, &oldset, sizeof(newset))) {
 		fail("The signal blocking mask was changed");
 		return 1;
 	}
