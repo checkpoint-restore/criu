@@ -146,6 +146,10 @@ PROGRAM-BUILTINS	+= pie/util-net.o
 PROGRAM-BUILTINS	+= protobuf/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
 
+$(ARCH_DIR)/vdso-pie.o: pie
+	$(Q) $(MAKE) $(build)=pie $(ARCH_DIR)/vdso-pie.o
+PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
+
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@

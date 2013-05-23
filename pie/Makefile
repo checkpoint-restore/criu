@@ -10,6 +10,7 @@ parasite-libs-e		+= $(SYSCALL-LIB)
 
 restorer-obj-y		+= restorer.o
 restorer-obj-e		+= $(ARCH_DIR)/restorer.o
+restorer-obj-e		+= $(ARCH_DIR)/vdso-pie.o
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 cflags-y		+= -DCR_NOGLIBC -fpie  -Wa,--noexecstack -fno-stack-protector
