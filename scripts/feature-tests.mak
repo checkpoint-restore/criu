@@ -11,3 +11,21 @@ int main(void)
 	return opts.opt_val;
 }
 endef
+
+define PRLIMIT_TEST
+
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+
+int main(void)
+{
+	struct rlimit limit = {
+		.rlim_cur = RLIM_INFINITY,
+		.rlim_max = RLIM_INFINITY,
+	};
+
+	return prlimit(getpid(), RLIMIT_CPU, &limit, NULL);
+}
+endef
