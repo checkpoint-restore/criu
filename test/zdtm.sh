@@ -193,13 +193,16 @@ EOF
 	return 1;
 }
 
-umount_zdtm_root()
+exit_callback()
 {
-	[ -z "$ZDTM_ROOT" ] && return;
-	umount -l "$ZDTM_ROOT"
-	rmdir "$ZDTM_ROOT"
+	[ -n "$ZDTM_ROOT" ] && {
+		umount -l "$ZDTM_ROOT"
+		rmdir "$ZDTM_ROOT"
+	}
+	[ -n "$TMPFS_DUMP" ] &&
+		umount -l "$TMPFS_DUMP"
 }
-trap umount_zdtm_root EXIT
+trap exit_callback EXIT
 
 construct_root()
 {
@@ -497,6 +500,13 @@ while :; do
 		shift
 		continue;
 	fi
+	if [ "$1" = "-t" ]; then
+		shift
+		TMPFS_DUMP=dump
+		[ -d dump ] || mkdir $TMPFS_DUMP
+		mount -t tmpfs none $TMPFS_DUMP || exit 1
+		continue;
+	fi
 	break;
 done
 
@@ -532,6 +542,7 @@ Options:
 	-C : Delete dump files if a test completed successfully
 	-b <commit> : Check backward compatibility
 	-x <PATTERN>: Exclude pattern
+	-t : mount tmpfs for dump files
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
