@@ -195,10 +195,13 @@ EOF
 
 exit_callback()
 {
+	echo $@
 	[ -n "$ZDTM_ROOT" ] && {
 		umount -l "$ZDTM_ROOT"
 		rmdir "$ZDTM_ROOT"
 	}
+
+	[[ -n "$ZDTM_FAILED" && -n "$DUMP_ARCHIVE" ]] && tar -czf $DUMP_ARCHIVE dump
 	[ -n "$TMPFS_DUMP" ] &&
 		umount -l "$TMPFS_DUMP"
 }
@@ -427,6 +430,8 @@ case_error()
 	test=${ZP}/${1#ns/}
 	local test_log=`pwd`/$test.out
 
+	ZDTM_FAILED=1
+
 	echo "Test: $test"
 	echo "====================== ERROR ======================"
 
@@ -507,6 +512,12 @@ while :; do
 		mount -t tmpfs none $TMPFS_DUMP || exit 1
 		continue;
 	fi
+	if [ "$1" = "-a" ]; then
+		shift
+		DUMP_ARCHIVE=$1
+		shift
+		continue;
+	fi
 	break;
 done
 
@@ -543,6 +554,7 @@ Options:
 	-b <commit> : Check backward compatibility
 	-x <PATTERN>: Exclude pattern
 	-t : mount tmpfs for dump files
+	-a <FILE>.tar.gz : save archive with dump files and logs
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
