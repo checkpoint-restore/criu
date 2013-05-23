@@ -60,6 +60,7 @@ struct robust_list_head;
 #define setns	sys_setns
 
 struct rlimit;
+struct rlimit64;
 
 struct krlimit {
 	unsigned long rlim_cur;
