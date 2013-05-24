@@ -36,9 +36,11 @@ static inline void __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
-void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs)
+void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
 	regs->ip = new_ip;
+	if (stack)
+		regs->sp = (unsigned long) stack;
 
 	/* Avoid end of syscall processing */
 	regs->orig_ax = -1;
@@ -98,7 +100,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.r8  = arg5;
 	regs.r9  = arg6;
 
-	parasite_setup_regs(ctl->syscall_ip, &regs);
+	parasite_setup_regs(ctl->syscall_ip, 0, &regs);
 	err = __parasite_execute(ctl, ctl->pid.real, &regs);
 	if (err)
 		return err;

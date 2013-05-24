@@ -5,11 +5,6 @@
 ENTRY(__export_parasite_head_start)
 	sub	%r2, %pc, #8			@ get the address of this instruction
 
-	adr	%sp, parasite_stack_ptr
-	ldr	%sp, [%sp]
-	add	%sp, %sp, %r2			@ fixup __export_parasite_stack
-	bic	%sp, %sp, #7			@ align the stack
-
         adr     %r0, __export_parasite_cmd
 	ldr	%r0, [%r0]
 
@@ -23,14 +18,6 @@ ENTRY(__export_parasite_head_start)
 parasite_args_ptr:
 	.long __export_parasite_args
 
-parasite_stack_ptr:
-	.long __export_parasite_stack
-
 __export_parasite_cmd:
-	.long 0
-	.space PARASITE_STACK_SIZE,0
-
-.align 3
-__export_parasite_stack:
 	.long 0
 END(__export_parasite_head_start)

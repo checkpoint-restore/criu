@@ -9,6 +9,8 @@ struct parasite_thread_ctl
 {
 	pid_t			tid;
 	user_regs_struct_t	regs_orig;				/* original registers */
+
+	void			*rstack;
 };
 
 /* parasite control block */

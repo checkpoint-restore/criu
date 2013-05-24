@@ -3,7 +3,6 @@
 
 	.section .head.text, "ax"
 ENTRY(__export_parasite_head_start)
-	leaq	__export_parasite_stack(%rip), %rsp
 	subq	$16, %rsp
 	andq	$~15, %rsp
 	pushq	$0
@@ -14,8 +13,5 @@ ENTRY(__export_parasite_head_start)
 	int	$0x03
 	.align 8
 __export_parasite_cmd:
-	.long 0
-	.space PARASITE_STACK_SIZE,0
-__export_parasite_stack:
 	.long 0
 END(__export_parasite_head_start)

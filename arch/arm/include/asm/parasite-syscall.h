@@ -9,7 +9,7 @@ extern const char code_syscall[];
 extern const int code_syscall_size;
 
 
-void parasite_setup_regs(unsigned long new_ip, user_regs_struct_t *regs);
+void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs);
 
 void *mmap_seized(struct parasite_ctl *ctl,
 		  void *addr, size_t length, int prot,

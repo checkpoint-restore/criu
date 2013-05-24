@@ -206,7 +206,7 @@ static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, in
 
 	*ctl->addr_cmd = cmd;
 
-	parasite_setup_regs(ctl->parasite_ip, &regs);
+	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
 
 	ret = __parasite_execute(ctl, pid, &regs);
 	if (ret == 0)
@@ -883,8 +883,9 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds)
 {
-	int ret;
+	int ret, i;
 	struct parasite_ctl *ctl;
+	unsigned long p;
 
 	BUG_ON(item->threads[0].real != pid);
 
@@ -900,7 +901,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 */
 
 	ctl->args_size = parasite_args_size(vma_area_list, dfds);
-	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size);
+	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size +
+					 item->nr_threads * PARASITE_STACK_SIZE);
 	if (ret)
 		goto err_restore;
 
@@ -911,6 +913,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, __export_parasite_head_start);
 	ctl->addr_cmd		= parasite_sym(ctl->local_map, __export_parasite_cmd);
 	ctl->addr_args		= parasite_sym(ctl->local_map, __export_parasite_args);
+
+	p = parasite_size + ctl->args_size;
+	for (i = 0; i < item->nr_threads; i++) {
+		struct parasite_thread_ctl *thread = &ctl->threads[i];
+
+		thread->rstack = ctl->remote_map + p;
+		p += PARASITE_STACK_SIZE;
+	}
 
 	ret = parasite_init(ctl, pid, item->nr_threads);
 	if (ret) {
