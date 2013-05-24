@@ -110,20 +110,14 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return 0;
 }
 
-int get_task_regs(pid_t pid, CoreEntry *core)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	struct xsave_struct xsave	= {  };
-	user_regs_struct_t regs		= {-1};
 
 	struct iovec iov;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
-
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-		pr_err("Can't obtain GP registers for %d\n", pid);
-		goto err;
-	}
 
 	/* Did we come from a system call? */
 	if ((int)regs.orig_ax >= 0) {
@@ -190,12 +184,12 @@ int get_task_regs(pid_t pid, CoreEntry *core)
 		iov.iov_len = sizeof(xsave);
 
 		if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
-			pr_err("Can't obtain FPU registers for %d\n", pid);
+			pr_perror("Can't obtain FPU registers for %d", pid);
 			goto err;
 		}
 	} else {
 		if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
-			pr_err("Can't obtain FPU registers for %d\n", pid);
+			pr_perror("Can't obtain FPU registers for %d", pid);
 			goto err;
 		}
 	}

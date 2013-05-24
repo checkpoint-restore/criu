@@ -89,21 +89,15 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.ARM_##e
 
 #define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, CoreEntry *core)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
-	user_regs_struct_t regs = {{-1}};
 	struct user_vfp vfp;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-		pr_err("Can't obtain GP registers for %d\n", pid);
-		goto err;
-	}
-
 	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
-		pr_err("Can't obtain FPU registers for %d\n", pid);
+		pr_perror("Can't obtain FPU registers for %d", pid);
 		goto err;
 	}
 

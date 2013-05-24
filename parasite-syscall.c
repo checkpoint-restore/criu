@@ -675,6 +675,13 @@ int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 			       item->threads[i].real);
 			break;
 		}
+
+		ret = get_task_regs(tid, ctl->threads[i].regs_orig, item->core[i]);
+		if (ret) {
+			pr_err("Can't obtain regs for thread %d\n", tid);
+			break;
+		}
+
 	}
 
 	return ret;
@@ -891,6 +898,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	BUG_ON(item->threads[0].real != pid);
 
+	if (pstree_alloc_cores(item))
+		return NULL;
+
 	ctl = parasite_prep_ctl(pid, vma_area_list, item->nr_threads);
 	if (!ctl)
 		return NULL;
@@ -927,6 +937,12 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ret = parasite_init(ctl, pid, item->nr_threads);
 	if (ret) {
 		pr_err("%d: Can't create a transport socket\n", pid);
+		goto err_restore;
+	}
+
+	ret = get_task_regs(pid, ctl->threads[0].regs_orig, item->core[0]);
+	if (ret) {
+		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_restore;
 	}
 

@@ -1364,26 +1364,6 @@ err_cure:
 	goto err_free;
 }
 
-static int collect_regs_seized(struct pstree_item *item)
-{
-	unsigned int i;
-	int ret;
-
-	if (pstree_alloc_cores(item))
-		return -1;
-
-	for (i = 0; i < item->nr_threads; i++) {
-		pid_t pid = item->threads[i].real;
-		ret = get_task_regs(pid, item->core[i]);
-		if (ret) {
-			pr_err("Can't obtain regs for thread %d\n", pid);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1405,9 +1385,6 @@ static int dump_one_task(struct pstree_item *item)
 
 	if (item->state == TASK_DEAD)
 		return 0;
-
-	if (collect_regs_seized(item))
-		return -1;
 
 	dfds = xmalloc(sizeof(*dfds));
 	if (!dfds)
