@@ -1147,6 +1147,8 @@ static int dump_signal_queue(pid_t tid, int fd, bool group)
 	siginfo_t siginfo[32]; /* One page or all non-rt signals */
 	int ret, i = 0, j, nr;
 
+	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
+
 	arg.nr = sizeof(siginfo) / sizeof(siginfo_t);
 	arg.flags = 0;
 	if (group)
@@ -1207,14 +1209,11 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
-		if (item->pid.real == item->threads[i].real)
+		if (item->pid.real == item->threads[i].real) {
 			item->threads[i].virt = item->pid.virt;
-		else {
-			if (dump_task_thread(parasite_ctl, item, i))
-				return -1;
+			continue;
 		}
-
-		if (dump_thread_signals(&item->threads[i]))
+		if (dump_task_thread(parasite_ctl, item, i))
 			return -1;
 	}
 
@@ -1390,7 +1389,7 @@ static int dump_one_task(struct pstree_item *item)
 	pid_t pid = item->pid.real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
-	int ret = -1;
+	int i, ret = -1;
 	struct parasite_dump_misc misc;
 	struct cr_fdset *cr_fdset = NULL;
 	struct parasite_drain_fd *dfds;
@@ -1562,6 +1561,12 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret) {
 		pr_err("Can't dump pending signals (pid: %d)\n", pid);
 		goto err_cure;
+	}
+
+	for (i = 0; i < item->nr_threads; i++) {
+		ret = dump_thread_signals(&item->threads[i]);
+		if (ret)
+			goto err;
 	}
 
 	close_cr_fdset(&cr_fdset);
