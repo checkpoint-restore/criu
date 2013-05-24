@@ -95,6 +95,10 @@ static inline void futex_wait_while_gt(futex_t *f, u32 v)
 static inline void futex_wait_while_lt(futex_t *f, u32 v)
 { futex_wait_if_cond(f, v, >=); }
 
+/* Wait while futex @f value is equal to @v */
+static inline void futex_wait_while_eq(futex_t *f, u32 v)
+{ futex_wait_if_cond(f, v, !=); }
+
 /* Wait while futex @f value is @v */
 static inline void futex_wait_while(futex_t *f, u32 v)
 {
