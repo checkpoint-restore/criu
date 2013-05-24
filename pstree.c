@@ -67,10 +67,9 @@ int pstree_alloc_cores(struct pstree_item *item)
 		return -1;
 
 	for (i = 0; i < item->nr_threads; i++) {
-		if (item->threads[i].real == item->pid.real) {
+		if (item->threads[i].real == item->pid.real)
 			item->core[i] = core_entry_alloc(1, 1);
-			item->this_core = item->core[i];
-		} else
+		else
 			item->core[i] = core_entry_alloc(1, 0);
 
 		if (!item->core[i])

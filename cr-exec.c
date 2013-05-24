@@ -110,7 +110,7 @@ int cr_exec(int pid, char **opt)
 		goto out_unseize;
 	}
 
-	ctl = parasite_prep_ctl(pid, &vmas);
+	ctl = parasite_prep_ctl(pid, &vmas, 1);
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;
@@ -120,7 +120,7 @@ int cr_exec(int pid, char **opt)
 	if (ret < 0)
 		pr_err("Can't execute syscall remotely\n");
 
-	parasite_cure_seized(ctl, NULL);
+	parasite_cure_seized(ctl);
 out_unseize:
 	unseize_task(pid, prev_state);
 out:

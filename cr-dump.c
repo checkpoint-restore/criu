@@ -1078,9 +1078,11 @@ static int collect_file_locks(void)
 }
 
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
-			    struct pid *tid, CoreEntry *core)
+				const struct pstree_item *item, int id)
 {
 	int ret = -1, fd_core;
+	struct pid *tid = &item->threads[id];
+	CoreEntry *core = item->core[id];
 	pid_t pid = tid->real;
 
 	pr_info("\n");
@@ -1091,7 +1093,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	if (ret)
 		goto err;
 
-	ret = parasite_dump_thread_seized(parasite_ctl, tid, core);
+	ret = parasite_dump_thread_seized(parasite_ctl, id, tid, core);
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
@@ -1208,7 +1210,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 		if (item->pid.real == item->threads[i].real)
 			item->threads[i].virt = item->pid.virt;
 		else {
-			if (dump_task_thread(parasite_ctl, &item->threads[i], item->core[i]))
+			if (dump_task_thread(parasite_ctl, item, i))
 				return -1;
 		}
 
@@ -1349,7 +1351,7 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 	if (ret)
 		goto err_cure;
 
-	if (parasite_cure_remote(parasite_ctl, item))
+	if (parasite_cure_remote(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 	list_add_tail(&parasite_ctl->pre_list, ctls);
 err_free:
@@ -1358,7 +1360,7 @@ err:
 	return ret;
 
 err_cure:
-	if (parasite_cure_seized(parasite_ctl, item))
+	if (parasite_cure_seized(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 	goto err_free;
 }
@@ -1514,7 +1516,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(parasite_ctl, item->this_core, &pps_buf, &misc, &vmas, cr_fdset);
+	ret = dump_task_core_all(parasite_ctl, item->core[0], &pps_buf, &misc, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
@@ -1532,7 +1534,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = parasite_cure_seized(parasite_ctl, item);
+	ret = parasite_cure_seized(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
@@ -1573,7 +1575,7 @@ err_free:
 err_cure:
 	close_cr_fdset(&cr_fdset);
 err_cure_fdset:
-	parasite_cure_seized(parasite_ctl, item);
+	parasite_cure_seized(parasite_ctl);
 	goto err;
 }
 

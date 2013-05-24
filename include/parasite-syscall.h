@@ -5,6 +5,11 @@
 
 #include "pstree.h"
 
+struct parasite_thread_ctl
+{
+	pid_t			tid;
+};
+
 /* parasite control block */
 struct parasite_ctl {
 	struct pid		pid;
@@ -26,6 +31,9 @@ struct parasite_ctl {
 
 	struct list_head	pre_list;
 	struct page_pipe	*mem_pp;
+
+	int			nr_threads;
+	struct parasite_thread_ctl threads[0];
 };
 
 struct cr_fdset;
@@ -46,8 +54,8 @@ extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce)
 struct parasite_dump_thread;
 struct pid;
 struct _CoreEntry;
-extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, struct pid *tid,
-		struct _CoreEntry *core);
+extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
+					struct pid *tid, struct _CoreEntry *core);
 
 struct parasite_drain_fd;
 struct fd_opts;
@@ -57,21 +65,23 @@ extern int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
 struct pstree_item;
-extern int parasite_cure_remote(struct parasite_ctl *ctl, struct pstree_item *item);
+extern int parasite_cure_remote(struct parasite_ctl *ctl);
 extern int parasite_cure_local(struct parasite_ctl *ctl);
-extern int parasite_cure_seized(struct parasite_ctl *ctl, struct pstree_item *item);
+extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
 						   struct vm_area_list *vma_area_list,
 						   struct parasite_drain_fd *dfds);
-extern struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list);
+extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
+					      struct vm_area_list *vma_area_list,
+					      unsigned int nr_threads);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
 
 struct pstree_item;
 extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
-extern int parasite_fini_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
+extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
 
 int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg1,

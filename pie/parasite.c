@@ -18,7 +18,7 @@
 static int tsock = -1;
 
 static struct tid_state_s {
-	pid_t		tid;
+	int		id;
 	bool		use_sig_blocked;
 	k_rtsigset_t	sig_blocked;
 } *tid_state;
@@ -172,32 +172,11 @@ static int drain_fds(struct parasite_drain_fd *args)
 	return ret;
 }
 
-static struct tid_state_s *find_thread_state(pid_t tid)
-{
-	unsigned int i;
-
-	/*
-	 * FIXME
-	 *
-	 * We need a hash here rather
-	 */
-	for (i = 0; i < next_tid_state; i++) {
-		if (tid_state[i].tid == tid)
-			return &tid_state[i];
-	}
-
-	return NULL;
-}
-
 static int dump_thread(struct parasite_dump_thread *args)
 {
+	struct tid_state_s *s = &tid_state[args->id];
 	pid_t tid = sys_gettid();
-	struct tid_state_s *s;
 	int ret;
-
-	s = find_thread_state(tid);
-	if (!s)
-		return -ENOENT;
 
 	if (!s->use_sig_blocked)
 		return -EINVAL;
@@ -213,10 +192,13 @@ static int dump_thread(struct parasite_dump_thread *args)
 	return 0;
 }
 
-static int init_thread(void)
+static int init_thread(struct parasite_init_args *args)
 {
 	k_rtsigset_t to_block;
 	int ret;
+
+	if (args->id != next_tid_state)
+		return -EINVAL;
 
 	if (next_tid_state >= nr_tid_state)
 		return -ENOMEM;
@@ -227,20 +209,17 @@ static int init_thread(void)
 			      sizeof(k_rtsigset_t));
 	if (ret >= 0)
 		tid_state[next_tid_state].use_sig_blocked = true;
-	tid_state[next_tid_state].tid = sys_gettid();
+
+	tid_state[next_tid_state].id = next_tid_state;
 
 	next_tid_state++;
 
 	return ret;
 }
 
-static int fini_thread(void)
+static int fini_thread(struct parasite_init_args *args)
 {
-	struct tid_state_s *s;
-
-	s = find_thread_state(sys_gettid());
-	if (!s)
-		return -ENOENT;
+	struct tid_state_s *s = &tid_state[args->id];
 
 	if (s->use_sig_blocked)
 		return sys_sigprocmask(SIG_SETMASK, &s->sig_blocked,
@@ -265,7 +244,7 @@ static int init(struct parasite_init_args *args)
 
 	nr_tid_state = args->nr_threads;
 
-	ret = init_thread();
+	ret = init_thread(args);
 	if (ret < 0)
 		return ret;
 
@@ -431,11 +410,11 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 	return 0;
 }
 
-static int fini(void)
+static int fini(struct parasite_init_args *args)
 {
 	int ret;
 
-	ret = fini_thread();
+	ret = fini_thread(args);
 
 	sys_munmap(tid_state, TID_STATE_SIZE(nr_tid_state));
 	log_set_fd(-1);
@@ -452,11 +431,11 @@ int __used parasite_service(unsigned int cmd, void *args)
 	case PARASITE_CMD_INIT:
 		return init(args);
 	case PARASITE_CMD_INIT_THREAD:
-		return init_thread();
+		return init_thread(args);
 	case PARASITE_CMD_FINI:
-		return fini();
+		return fini(args);
 	case PARASITE_CMD_FINI_THREAD:
-		return fini_thread();
+		return fini_thread(args);
 	case PARASITE_CMD_CFG_LOG:
 		return parasite_cfg_log(args);
 	case PARASITE_CMD_DUMPPAGES:

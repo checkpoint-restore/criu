@@ -43,7 +43,6 @@ struct pstree_item {
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
-	CoreEntry		*this_core;	/* for fast access to a leader */
 
 	struct rst_info		rst[0];
 };
