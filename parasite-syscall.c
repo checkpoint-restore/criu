@@ -63,7 +63,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 }
 
 /* we run at @regs->ip */
-int __parasite_execute(struct parasite_ctl *ctl, pid_t pid,
+int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
 				user_regs_struct_t *regs_orig)
 {
@@ -199,7 +199,7 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 		ctl->addr_args;					\
 	})
 
-static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
+static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
 {
 	struct parasite_thread_ctl *thread = &ctl->threads[id];
 	user_regs_struct_t regs = thread->regs_orig;
@@ -210,7 +210,7 @@ static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, in
 
 	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
 
-	ret = __parasite_execute(ctl, pid, &regs, &thread->regs_orig);
+	ret = __parasite_execute_trap(ctl, pid, &regs, &thread->regs_orig);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -226,9 +226,9 @@ static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, in
 	return ret;
 }
 
-int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl)
+int parasite_execute_trap(unsigned int cmd, struct parasite_ctl *ctl)
 {
-	return parasite_execute_by_id(cmd, ctl, 0);
+	return parasite_execute_trap_by_id(cmd, ctl, 0);
 }
 
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
@@ -274,7 +274,7 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	a = parasite_args(ctl, struct parasite_log_args);
 	a->log_level = log_get_loglevel();
 
-	ret = parasite_execute(PARASITE_CMD_CFG_LOG, ctl);
+	ret = parasite_execute_trap(PARASITE_CMD_CFG_LOG, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -334,7 +334,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 		}
 	}
 
-	if (parasite_execute(PARASITE_CMD_INIT, ctl) < 0) {
+	if (parasite_execute_trap(PARASITE_CMD_INIT, ctl) < 0) {
 		pr_err("Can't init parasite\n");
 		goto err;
 	}
@@ -360,7 +360,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	args = parasite_args(ctl, struct parasite_dump_thread);
 	args->id = id;
 
-	ret = parasite_execute_by_id(PARASITE_CMD_DUMP_THREAD, ctl, id);
+	ret = parasite_execute_trap_by_id(PARASITE_CMD_DUMP_THREAD, ctl, id);
 
 	memcpy(&core->thread_core->blk_sigset, &args->blocked, sizeof(args->blocked));
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
@@ -378,7 +378,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 
 	args = parasite_args(ctl, struct parasite_dump_sa_args);
 
-	ret = parasite_execute(PARASITE_CMD_DUMP_SIGACTS, ctl);
+	ret = parasite_execute_trap(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -421,7 +421,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 
 	args = parasite_args(ctl, struct parasite_dump_itimers_args);
 
-	ret = parasite_execute(PARASITE_CMD_DUMP_ITIMERS, ctl);
+	ret = parasite_execute_trap(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -441,7 +441,7 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	struct parasite_dump_misc *ma;
 
 	ma = parasite_args(ctl, struct parasite_dump_misc);
-	if (parasite_execute(PARASITE_CMD_DUMP_MISC, ctl) < 0)
+	if (parasite_execute_trap(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
 	*misc = *ma;
@@ -455,7 +455,7 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd)
 	p = parasite_args(ctl, struct parasite_tty_args);
 	p->fd = fd;
 
-	if (parasite_execute(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+	if (parasite_execute_trap(PARASITE_CMD_DUMP_TTY, ctl) < 0)
 		return NULL;
 
 	return p;
@@ -466,7 +466,7 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 	struct parasite_dump_creds *pc;
 
 	pc = parasite_args(ctl, struct parasite_dump_creds);
-	if (parasite_execute(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
+	if (parasite_execute_trap(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
 		return -1;
 
 	ce->secbits = pc->secbits;
@@ -493,7 +493,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	args = parasite_args_s(ctl, size);
 	memcpy(args, dfds, size);
 
-	ret = parasite_execute(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret = parasite_execute_trap(PARASITE_CMD_DRAIN_FDS, ctl);
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
@@ -544,7 +544,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		args->start = vma->vma.start;
 		args->len = vma_area_len(vma);
 
-		if (parasite_execute(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
+		if (parasite_execute_trap(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
 			pr_err("vdso: Parasite failed to poke for mark\n");
 			ret = -1;
 			goto err;
@@ -632,7 +632,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 {
 	int ret = -1, fd;
 
-	ret = parasite_execute(PARASITE_CMD_GET_PROC_FD, ctl);
+	ret = parasite_execute_trap(PARASITE_CMD_GET_PROC_FD, ctl);
 	if (ret) {
 		pr_err("Parasite failed to get proc fd\n");
 		return ret;
@@ -669,7 +669,7 @@ int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 			break;
 		}
 
-		ret = parasite_execute_by_id(PARASITE_CMD_INIT_THREAD, ctl, i);
+		ret = parasite_execute_trap_by_id(PARASITE_CMD_INIT_THREAD, ctl, i);
 		if (ret) {
 			pr_err("Can't init thread in parasite %d\n",
 			       item->threads[i].real);
@@ -698,7 +698,7 @@ int parasite_fini_threads_seized(struct parasite_ctl *ctl)
 		pid_t tid = ctl->threads[i].tid;
 
 		args->id = i;
-		ret = parasite_execute_by_id(PARASITE_CMD_FINI_THREAD, ctl, i);
+		ret = parasite_execute_trap_by_id(PARASITE_CMD_FINI_THREAD, ctl, i);
 		/*
 		 * Note the thread's fini() can be called even when not
 		 * all threads were init()'ed, say we're rolling back from
@@ -727,7 +727,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	args = parasite_args(ctl, struct parasite_init_args);
 	args->id = 0;
 
-	return parasite_execute(PARASITE_CMD_FINI, ctl);
+	return parasite_execute_trap(PARASITE_CMD_FINI, ctl);
 }
 
 int parasite_cure_remote(struct parasite_ctl *ctl)

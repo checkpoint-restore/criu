@@ -45,7 +45,7 @@ extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdse
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
 void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
-int parasite_execute(unsigned int cmd, struct parasite_ctl *ctl);
+int parasite_execute_trap(unsigned int cmd, struct parasite_ctl *ctl);
 int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 
 struct parasite_dump_misc;
@@ -93,7 +93,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg5,
 		unsigned long arg6);
 
-extern int __parasite_execute(struct parasite_ctl *ctl, pid_t pid,
+extern int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 					user_regs_struct_t *regs,
 					user_regs_struct_t *regs_orig);
 extern bool arch_can_dump_task(pid_t pid);

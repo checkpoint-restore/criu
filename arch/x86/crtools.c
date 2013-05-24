@@ -101,7 +101,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.r9  = arg6;
 
 	parasite_setup_regs(ctl->syscall_ip, 0, &regs);
-	err = __parasite_execute(ctl, ctl->pid.real, &regs,
+	err = __parasite_execute_trap(ctl, ctl->pid.real, &regs,
 					&ctl->threads[0].regs_orig);
 	if (err)
 		return err;
