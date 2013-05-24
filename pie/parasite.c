@@ -120,7 +120,6 @@ static int dump_itimers(struct parasite_dump_itimers_args *args)
 static int dump_misc(struct parasite_dump_misc *args)
 {
 	args->brk = sys_brk(0);
-	args->blocked = thread_leader->sig_blocked;
 
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
@@ -179,18 +178,13 @@ static int drain_fds(struct parasite_drain_fd *args)
 
 static int dump_thread(struct parasite_dump_thread *args)
 {
-	struct tid_state_s *s = &tid_state[args->id];
 	pid_t tid = sys_gettid();
 	int ret;
-
-	if (!s->use_sig_blocked)
-		return -EINVAL;
 
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
 	if (ret)
 		return ret;
 
-	args->blocked = s->sig_blocked;
 	args->tid = tid;
 	args->tls = arch_get_tls();
 
@@ -212,8 +206,11 @@ static int init_thread(struct parasite_init_args *args)
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
 			      &tid_state[next_tid_state].sig_blocked,
 			      sizeof(k_rtsigset_t));
-	if (ret >= 0)
-		tid_state[next_tid_state].use_sig_blocked = true;
+	if (ret)
+		return -1;
+
+	tid_state[next_tid_state].use_sig_blocked = true;
+	args->sig_blocked = tid_state[next_tid_state].sig_blocked;
 
 	tid_state[next_tid_state].id = next_tid_state;
 

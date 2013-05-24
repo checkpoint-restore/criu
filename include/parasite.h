@@ -73,6 +73,8 @@ struct parasite_init_args {
 	struct sockaddr_un	p_addr;
 
 	int			nr_threads;
+
+	k_rtsigset_t		sig_blocked;
 };
 
 struct parasite_log_args {
@@ -128,7 +130,6 @@ struct parasite_dump_itimers_args {
 
 struct parasite_dump_misc {
 	unsigned long		brk;
-	k_rtsigset_t		blocked;
 
 	u32 pid;
 	u32 sid;

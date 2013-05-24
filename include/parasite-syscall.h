@@ -12,6 +12,9 @@ struct parasite_thread_ctl
 
 	bool			daemonized;
 
+	k_rtsigset_t		sig_blocked;
+	bool			use_sig_blocked;
+
 	void			*rstack;
 };
 
@@ -25,8 +28,6 @@ struct parasite_ctl {
 	unsigned long		parasite_ip;				/* service routine start ip */
 	unsigned long		syscall_ip;				/* entry point of infection */
 	u8			code_orig[BUILTIN_SYSCALL_SIZE];
-
-	int			signals_blocked;
 
 	unsigned int		*addr_cmd;				/* addr for command */
 	void			*addr_args;				/* address for arguments */
@@ -102,7 +103,8 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 
 extern int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 					user_regs_struct_t *regs,
-					user_regs_struct_t *regs_orig);
+					user_regs_struct_t *regs_orig,
+					bool signals_blocked);
 extern bool arch_can_dump_task(pid_t pid);
 
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,

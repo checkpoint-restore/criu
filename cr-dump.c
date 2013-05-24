@@ -655,8 +655,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
-	BUILD_BUG_ON(sizeof(core->tc->blk_sigset) != sizeof(k_rtsigset_t));
-	memcpy(&core->tc->blk_sigset, &misc->blocked, sizeof(k_rtsigset_t));
 
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
@@ -1080,10 +1078,10 @@ static int collect_file_locks(void)
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 				const struct pstree_item *item, int id)
 {
-	int ret = -1, fd_core;
 	struct pid *tid = &item->threads[id];
 	CoreEntry *core = item->core[id];
 	pid_t pid = tid->real;
+	int ret = -1, fd_core;
 
 	pr_info("\n");
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
@@ -1098,8 +1096,6 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
-
-	core->thread_core->has_blk_sigset = true;
 
 	ret = dump_sched_info(pid, core->thread_core);
 	if (ret)

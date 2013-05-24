@@ -65,7 +65,8 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 /* we run at @regs->ip */
 int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
-				user_regs_struct_t *regs_orig)
+				user_regs_struct_t *regs_orig,
+				bool signals_blocked)
 {
 	siginfo_t siginfo;
 	int status;
@@ -112,7 +113,7 @@ retry_signal:
 		pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code);
 
-		if (ctl->signals_blocked) {
+		if (signals_blocked) {
 			pr_err("Unexpected %d task interruption, aborting\n", pid);
 			goto err;
 		}
@@ -210,7 +211,8 @@ static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ct
 
 	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
 
-	ret = __parasite_execute_trap(ctl, pid, &regs, &thread->regs_orig);
+	ret = __parasite_execute_trap(ctl, pid, &regs, &thread->regs_orig,
+					thread->use_sig_blocked);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -432,6 +434,9 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 		goto err;
 	}
 
+	ctl->threads[0].sig_blocked = args->sig_blocked;
+	ctl->threads[0].use_sig_blocked = true;
+
 	if (connect(sock, (struct sockaddr *)&args->p_addr, args->p_addr_len) < 0) {
 		pr_perror("Can't connect a transport socket");
 		goto err;
@@ -498,7 +503,6 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	ret = parasite_execute_daemon_by_id(PARASITE_CMD_DUMP_THREAD, ctl, id);
 
-	memcpy(&core->thread_core->blk_sigset, &args->blocked, sizeof(args->blocked));
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
 	tid->virt = args->tid;
 	core_put_tls(core, args->tls);
@@ -820,6 +824,9 @@ int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 			goto err;
 		}
 
+		ctl->threads[i].sig_blocked = args->sig_blocked;
+		ctl->threads[i].use_sig_blocked = true;
+
 		if (parasite_daemonize(ctl, i))
 			goto err;
 	}
@@ -911,7 +918,6 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 	int ret = 0;
 
 	if (ctl->parasite_ip) {
-		ctl->signals_blocked = 0;
 		ret = parasite_fini_threads_seized(ctl);
 		parasite_fini_seized(ctl);
 	}
@@ -1122,8 +1128,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 	}
 
-	ctl->signals_blocked = 1;
-
 	ret = parasite_set_logfd(ctl, pid);
 	if (ret) {
 		pr_err("%d: Can't set a logging descriptor\n", pid);
@@ -1136,6 +1140,19 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ret = parasite_init_threads_seized(ctl, item);
 	if (ret)
 		goto err_restore;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		struct parasite_thread_ctl *thread = &ctl->threads[i];
+
+		if (i == 0)
+			memcpy(&item->core[i]->tc->blk_sigset,
+				&thread->sig_blocked, sizeof(k_rtsigset_t));
+		else {
+			memcpy(&item->core[i]->thread_core->blk_sigset,
+				&thread->sig_blocked, sizeof(k_rtsigset_t));
+			item->core[i]->thread_core->has_blk_sigset = true;
+		}
+	}
 
 	return ctl;
 
