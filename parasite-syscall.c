@@ -554,6 +554,17 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			goto err;
 		}
 
+		/*
+		 * Defer handling marked vdso.
+		 */
+		if (unlikely(args->is_marked)) {
+			BUG_ON(args->proxy_addr == VDSO_BAD_ADDR);
+			BUG_ON(marked);
+			marked = vma;
+			proxy_addr = args->proxy_addr;
+			continue;
+		}
+
 		off = (vma->vma.start / PAGE_SIZE) * sizeof(u64);
 		if (lseek(fd, off, SEEK_SET) != off) {
 			pr_perror("Failed to seek address %lx\n", vma->vma.start);
@@ -570,17 +581,6 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 
 		pfn = PME_PFRAME(pfn);
 		BUG_ON(!pfn);
-
-		/*
-		 * Defer handling marked vdso.
-		 */
-		if (unlikely(args->is_marked)) {
-			BUG_ON(args->proxy_addr == VDSO_BAD_ADDR);
-			BUG_ON(marked);
-			marked = vma;
-			proxy_addr = args->proxy_addr;
-			continue;
-		}
 
 		/*
 		 * Set proper VMA statuses.
