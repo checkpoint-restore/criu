@@ -38,6 +38,11 @@ int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)
 	return 0;
 }
 
+int restore_nonsigframe_gpregs(UserArmRegsEntry *r)
+{
+	return 0;
+}
+
 int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
 {
 	struct aux_sigframe *aux = (struct aux_sigframe *)&sigframe->sig.uc.uc_regspace;

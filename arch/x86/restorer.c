@@ -10,9 +10,6 @@
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
-	long ret;
-	unsigned long fsgs_base;
-
 #define CPREG1(d)	f->uc.uc_mcontext.d = r->d
 #define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
 
@@ -37,6 +34,14 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG1(cs);
 	CPREG1(gs);
 	CPREG1(fs);
+
+	return 0;
+}
+
+int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
+{
+	long ret;
+	unsigned long fsgs_base;
 
 	fsgs_base = r->fs_base;
 	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);

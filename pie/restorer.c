@@ -269,6 +269,9 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 	if (restore_gpregs(sigframe, &args->gpregs))
 		return -1;
 
+	if (restore_nonsigframe_gpregs(&args->gpregs))
+		return -1;
+
 	restore_tls(args->tls);
 
 	return 0;

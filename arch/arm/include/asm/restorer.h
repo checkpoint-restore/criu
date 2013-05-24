@@ -129,6 +129,7 @@ struct rt_sigframe {
 
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r);
+int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
 
 int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state);
 
