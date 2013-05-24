@@ -2,6 +2,7 @@
 #define __CR_ASM_RESTORER_H__
 
 #include "asm/types.h"
+#include "asm/fpu.h"
 #include "protobuf/core.pb-c.h"
 
 struct pt_regs {

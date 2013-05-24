@@ -26,6 +26,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "asm/restorer.h"
 
 #include "image.h"
 #include "util.h"
@@ -1997,6 +1998,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	for (i = 0; i < current->nr_threads; i++) {
 		int fd_core;
 		CoreEntry *tcore;
+		struct rt_sigframe *sigframe;
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
@@ -2040,16 +2042,15 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			thread_args[i].has_futex	= true;
 			thread_args[i].futex_rla	= tcore->thread_core->futex_rla;
 			thread_args[i].futex_rla_len	= tcore->thread_core->futex_rla_len;
-			thread_args[i].has_blk_sigset	= tcore->thread_core->has_blk_sigset;
-			memcpy(&thread_args[i].blk_sigset,
-				&tcore->thread_core->blk_sigset, sizeof(k_rtsigset_t));
 
 			ret = prep_sched_info(&thread_args[i].sp, tcore->thread_core);
 			if (ret)
 				goto err;
 		}
 
-		if (sigreturn_prep_fpu_frame(&thread_args[i].fpu_state, tcore))
+		sigframe = (struct rt_sigframe *)thread_args[i].mem_zone.rt_sigframe;
+
+		if (construct_sigframe(sigframe, sigframe, tcore))
 			goto err;
 
 		if (thread_args[i].pid != pid)
@@ -2061,9 +2062,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				thread_args[i].mem_zone.rt_sigframe);
 
 	}
-
-	memcpy(&task_args->t->blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
-	task_args->t->has_blk_sigset	= true;
 
 	/*
 	 * Restorer needs own copy of vdso parameters. Runtime

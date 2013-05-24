@@ -258,16 +258,7 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 		}
 	}
 
-	if (args->has_blk_sigset)
-		RT_SIGFRAME_UC(sigframe).uc_sigmask = args->blk_sigset;
-
 	restore_sched_info(&args->sp);
-
-	if (restore_fpu(sigframe, &args->fpu_state))
-		return -1;
-
-	if (restore_gpregs(sigframe, &args->gpregs))
-		return -1;
 
 	if (restore_nonsigframe_gpregs(&args->gpregs))
 		return -1;
@@ -293,7 +284,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	rt_sigframe = (void *)args->mem_zone.rt_sigframe + 8;
+	rt_sigframe = (void *)args->mem_zone.rt_sigframe;
 
 	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
@@ -736,7 +727,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * registers from the frame, set them up and
 	 * finally pass execution to the new IP.
 	 */
-	rt_sigframe = (void *)args->t->mem_zone.rt_sigframe + 8;
+	rt_sigframe = (void *)args->t->mem_zone.rt_sigframe;
 
 	if (restore_thread_common(rt_sigframe, args->t))
 		goto core_restore_end;

@@ -6,7 +6,7 @@
 
 #include "protobuf/core.pb-c.h"
 
-static inline int construct_sigframe(struct rt_sigframe *sigframe,
+int construct_sigframe(struct rt_sigframe *sigframe,
 				     struct rt_sigframe *rsigframe,
 				     CoreEntry *core)
 {
@@ -20,11 +20,13 @@ static inline int construct_sigframe(struct rt_sigframe *sigframe,
 	} else
 		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
 
+	sigframe->fpu_state.has_fpu = true;
 	if (sigreturn_prep_fpu_frame(&sigframe->fpu_state, core))
 		return -1;
 
-	if (restore_fpu(sigframe, &rsigframe->fpu_state))
-		return -1;
+	if (sigframe->fpu_state.has_fpu)
+		if (restore_fpu(sigframe, &rsigframe->fpu_state))
+			return -1;
 
 	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))
 		return -1;

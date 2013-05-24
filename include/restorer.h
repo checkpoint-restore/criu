@@ -73,14 +73,9 @@ struct thread_restore_args {
 	u64				futex_rla;
 	u32				futex_rla_len;
 
-	bool				has_blk_sigset;
-	k_rtsigset_t			blk_sigset;
-
 	struct rst_sched_param		sp;
 
 	struct task_restore_core_args	*ta;
-
-	fpu_state_t			fpu_state;
 
 	u32				tls;
 

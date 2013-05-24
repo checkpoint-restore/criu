@@ -35,4 +35,8 @@ struct rt_ucontext {
 	unsigned long           uc_regspace[128] __attribute__((__aligned__(8)));
 };
 
+struct rt_sigframe;
+int construct_sigframe(struct rt_sigframe *sigframe,
+				     struct rt_sigframe *rsigframe,
+				     CoreEntry *core);
 #endif
