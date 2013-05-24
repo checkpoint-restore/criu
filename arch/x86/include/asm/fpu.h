@@ -94,6 +94,8 @@ typedef struct {
 		struct xsave_struct	xsave;
 		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
 	};
+
+	bool has_fpu;
 } fpu_state_t;
 
 #endif /* __CR_ASM_FPU_H__ */

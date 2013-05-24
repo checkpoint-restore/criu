@@ -206,11 +206,11 @@ void arch_free_thread_info(CoreEntry *core)
 	}
 }
 
-int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
+int sigreturn_prep_fpu_frame(fpu_state_t *fpu_state, CoreEntry *core)
 {
-	memcpy(args->fpu_state.ufp.fpregs, CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs,
-		sizeof(args->fpu_state.ufp.fpregs));
-	args->fpu_state.ufp.fpscr = CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr;
+	memcpy(fpu_state->ufp.fpregs, CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs,
+		sizeof(fpu_state->ufp.fpregs));
+	fpu_state->ufp.fpscr = CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr;
 
 	return 0;
 }

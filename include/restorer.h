@@ -80,7 +80,6 @@ struct thread_restore_args {
 
 	struct task_restore_core_args	*ta;
 
-	bool				has_fpu;
 	fpu_state_t			fpu_state;
 
 	u32				tls;

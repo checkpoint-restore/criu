@@ -38,13 +38,13 @@ int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)
 	return 0;
 }
 
-int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args)
+int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
 {
 	struct aux_sigframe *aux = (struct aux_sigframe *)&sigframe->sig.uc.uc_regspace;
 
 	aux->vfp.magic = VFP_MAGIC;
 	aux->vfp.size = VFP_STORAGE_SIZE;
-	builtin_memcpy(&aux->vfp.ufp, &args->fpu_state.ufp, sizeof(aux->vfp.ufp));
+	builtin_memcpy(&aux->vfp.ufp, &fpu_state->ufp, sizeof(aux->vfp.ufp));
 
 	return 0;
 }

@@ -68,7 +68,7 @@ struct rt_sigframe {
 	struct rt_ucontext	uc;
 	struct rt_siginfo	info;
 
-	/* fp state follows here */
+	fpu_state_t		fpu_state;
 };
 
 
@@ -136,7 +136,7 @@ struct rt_sigframe {
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 
-int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args);
+int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state);
 
 static inline void restore_tls(u32 tls) { }
 

@@ -55,17 +55,18 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	return 0;
 }
 
-int restore_fpu(struct rt_sigframe *sigframe, struct thread_restore_args *args)
+int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
 {
-	if (args->has_fpu) {
-		unsigned long addr = (unsigned long)(void *)&args->fpu_state.xsave;
+	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
 
-		if ((addr % 64ul) == 0ul) {
-			sigframe->uc.uc_mcontext.fpstate = &args->fpu_state.xsave;
-		} else {
-			pr_err("Unaligned address passed: %lx\n", addr);
-			return -1;
-		}
+	if (!fpu_state->has_fpu)
+		return 0;
+
+	if ((addr % 64ul) == 0ul) {
+		sigframe->uc.uc_mcontext.fpstate = &fpu_state->xsave;
+	} else {
+		pr_err("Unaligned address passed: %lx\n", addr);
+		return -1;
 	}
 
 	return 0;

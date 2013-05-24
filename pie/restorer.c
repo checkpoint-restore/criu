@@ -262,7 +262,8 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 		RT_SIGFRAME_UC(sigframe).uc_sigmask = args->blk_sigset;
 
 	restore_sched_info(&args->sp);
-	if (restore_fpu(sigframe, args))
+
+	if (restore_fpu(sigframe, &args->fpu_state))
 		return -1;
 
 	if (restore_gpregs(sigframe, &args->gpregs))

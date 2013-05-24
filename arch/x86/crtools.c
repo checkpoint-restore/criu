@@ -379,9 +379,9 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 	pr_debug("-----------------------\n");
 }
 
-int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
+int sigreturn_prep_fpu_frame(fpu_state_t *fpu_state, CoreEntry *core)
 {
-	struct xsave_struct *x = &args->fpu_state.xsave;
+	struct xsave_struct *x = &fpu_state->xsave;
 
 	/*
 	 * If no FPU information provided -- we're restoring
@@ -389,14 +389,14 @@ int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
 	 * has no FPU support at all.
 	 */
 	if (!core->thread_info->fpregs) {
-		args->has_fpu = false;
+		fpu_state->has_fpu = false;
 		return 0;
 	}
 
 	if (!valid_xsave_frame(core))
 		return -1;
 
-	args->has_fpu = true;
+	fpu_state->has_fpu = true;
 
 #define assign_reg(dst, src, e)		do { dst.e = (__typeof__(dst.e))src->e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst.e, (src)->e, sizeof(dst.e))
@@ -428,7 +428,7 @@ int sigreturn_prep_fpu_frame(struct thread_restore_args *args, CoreEntry *core)
 		/*
 		 * This should be at the end of xsave frame.
 		 */
-		magic2 = args->fpu_state.__pad + sizeof(struct xsave_struct);
+		magic2 = fpu_state->__pad + sizeof(struct xsave_struct);
 		*(u32 *)magic2 = FP_XSTATE_MAGIC2;
 	}
 
