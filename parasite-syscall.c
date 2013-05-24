@@ -128,7 +128,7 @@ retry_signal:
 		 * and retry.
 		 */
 
-		if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
+		if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->threads[0].regs_orig)) {
 			pr_perror("Can't set registers (pid: %d)", pid);
 			goto err;
 		}
@@ -171,7 +171,7 @@ retry_signal:
 				pr_perror("Can't obtain registers (pid: %d)", pid);
 				goto err;
 			}
-			ctl->regs_orig = r;
+			ctl->threads[0].regs_orig = r;
 		}
 
 		goto again;
@@ -200,19 +200,9 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
 {
 	struct parasite_thread_ctl *thread = &ctl->threads[id];
+	user_regs_struct_t regs = thread->regs_orig;
 	pid_t pid = thread->tid;
 	int ret;
-	user_regs_struct_t regs_orig, regs;
-
-	if (ctl->pid.real == pid)
-		regs = ctl->regs_orig;
-	else {
-		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig)) {
-			pr_perror("Can't obtain registers (pid: %d)", pid);
-			return -1;
-		}
-		regs = regs_orig;
-	}
 
 	*ctl->addr_cmd = cmd;
 
@@ -226,7 +216,7 @@ static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, in
 		pr_err("Parasite exited with %d\n", ret);
 
 	if (ctl->pid.real != pid)
-		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
+		if (ptrace(PTRACE_SETREGS, pid, NULL, &thread->regs_orig)) {
 			pr_perror("Can't restore registers (pid: %d)", pid);
 			return -1;
 		}
@@ -664,12 +654,18 @@ int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *i
 
 	for (i = 1; i < item->nr_threads; i++) {
 		pid_t tid = item->threads[i].real;
+		user_regs_struct_t *regs_orig = &ctl->threads[i].regs_orig;
 
 		ctl->threads[i].tid = tid;
 		ctl->nr_threads++;
 
 		args->id = i;
 
+		ret = ptrace(PTRACE_GETREGS, tid, NULL, regs_orig);
+		if (ret) {
+			pr_perror("Can't obtain registers (pid: %d)", tid);
+			break;
+		}
 
 		ret = parasite_execute_by_id(PARASITE_CMD_INIT_THREAD, ctl, i);
 		if (ret) {
@@ -750,7 +746,7 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 		ret = -1;
 	}
 
-	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->regs_orig)) {
+	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->threads[0].regs_orig)) {
 		pr_err("Can't restore registers (pid: %d)\n", ctl->pid.real);
 		ret = -1;
 	}
@@ -807,12 +803,12 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	ctl->nr_threads = 1;
 	ctl->threads[0].tid = pid;
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->threads[0].regs_orig)) {
 		pr_err("Can't obtain registers (pid: %d)\n", pid);
 		goto err;
 	}
 
-	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->regs_orig));
+	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->threads[0].regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);

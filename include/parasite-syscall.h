@@ -8,6 +8,7 @@
 struct parasite_thread_ctl
 {
 	pid_t			tid;
+	user_regs_struct_t	regs_orig;				/* original registers */
 };
 
 /* parasite control block */
@@ -18,7 +19,6 @@ struct parasite_ctl {
 	unsigned long		map_length;
 
 	unsigned long		parasite_ip;				/* service routine start ip */
-	user_regs_struct_t	regs_orig;				/* original registers */
 	unsigned long		syscall_ip;				/* entry point of infection */
 	u8			code_orig[BUILTIN_SYSCALL_SIZE];
 
