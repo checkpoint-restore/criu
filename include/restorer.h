@@ -12,6 +12,7 @@
 #include "lock.h"
 #include "util.h"
 #include "crtools.h"
+#include "asm/restorer.h"
 
 #include "vdso.h"
 
@@ -36,7 +37,8 @@ typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
  */
 #define RESTORE_ARGS_SIZE		(512)
 #define RESTORE_STACK_REDZONE		(128)
-#define RESTORE_STACK_SIGFRAME		(KILO(16))
+/* sigframe should be aligned on 64 byte for x86 and 8 bytes for arm */
+#define RESTORE_STACK_SIGFRAME		ALIGN(sizeof(struct rt_sigframe) + SIGFRAME_OFFSET, 64)
 #define RESTORE_STACK_SIZE		(KILO(32))
 #define RESTORE_HEAP_SIZE		(KILO(16))
 
