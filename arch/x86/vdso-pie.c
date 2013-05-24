@@ -247,7 +247,6 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 	size_t size = vma_entry_len(vma);
 	bool remap_rt = true;
 	struct vdso_mark *m;
-	unsigned int i;
 
 	/*
 	 * Find symbols in dumpee vdso.
@@ -256,6 +255,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 		return -1;
 
 	if (size == vdso_vma_size(sym_rt)) {
+		int i;
+
 		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
 			if (s.symbols[i].offset != sym_rt->symbols[i].offset) {
 				remap_rt = false;
@@ -271,17 +272,14 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 	 * without generating any proxy.
 	 */
 	if (remap_rt) {
-		pr_debug("Runtime vdso matches dumpee, remap inplace\n");
+		pr_info("Runtime vdso matches dumpee, remap inplace\n");
 
 		if (sys_munmap((void *)vma->start, size)) {
 			pr_err("Failed to unmap %s\n", who);
 			return -1;
 		}
 
-		if (vdso_remap(who, vdso_rt_parked_at,
-			       vma->start, size))
-			return -1;
-		return 0;
+		return vdso_remap(who, vdso_rt_parked_at, vma->start, size);
 	}
 
 	/*
@@ -289,7 +287,7 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 	 * calls from dumpee vdso to runtime vdso, making dumpee
 	 * to operate as proxy vdso.
 	 */
-	pr_debug("Runtime vdso mismatches dumpee, generate proxy\n");
+	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
 
 	if (vdso_redirect_calls((void *)vdso_rt_parked_at,
 				(void *)vma->start,
