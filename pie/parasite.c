@@ -8,6 +8,7 @@
 
 #include "syscall.h"
 #include "parasite.h"
+#include "lock.h"
 #include "vdso.h"
 #include "log.h"
 
@@ -19,6 +20,10 @@ static int tsock = -1;
 
 static struct tid_state_s {
 	int		id;
+
+	futex_t		cmd;
+	int		ret;
+
 	bool		use_sig_blocked;
 	k_rtsigset_t	sig_blocked;
 } *tid_state;
@@ -211,6 +216,8 @@ static int init_thread(struct parasite_init_args *args)
 		tid_state[next_tid_state].use_sig_blocked = true;
 
 	tid_state[next_tid_state].id = next_tid_state;
+
+	futex_set(&tid_state[next_tid_state].cmd, PARASITE_CMD_IDLE);
 
 	next_tid_state++;
 

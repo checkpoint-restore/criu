@@ -18,8 +18,18 @@
 #define __head __used __section(.head.text)
 
 enum {
+	PARASITE_CMD_IDLE		= 0,
+	PARASITE_CMD_ACK,
+
 	PARASITE_CMD_INIT,
 	PARASITE_CMD_INIT_THREAD,
+
+	/*
+	 * These two must be greater than INITs.
+	 */
+	PARASITE_CMD_DAEMONIZE,
+	PARASITE_CMD_DAEMONIZED,
+
 	PARASITE_CMD_CFG_LOG,
 	PARASITE_CMD_FINI,
 	PARASITE_CMD_FINI_THREAD,
@@ -39,6 +49,19 @@ enum {
 
 	PARASITE_CMD_MAX,
 };
+
+struct ctl_msg {
+	unsigned int	id;			/* command recipient */
+	unsigned int	cmd;			/* command itself */
+	unsigned int	ack;			/* ack on command */
+	int		err;			/* error code on reply */
+};
+
+#define ctl_msg_cmd(_id, _cmd)		\
+	(struct ctl_msg){ .id = _id, .cmd = _cmd, }
+
+#define ctl_msg_ack(_id, _cmd, _err)	\
+	(struct ctl_msg){ .id = _id, .cmd = _cmd, .ack = _cmd, .err = _err, }
 
 struct parasite_init_args {
 	int			id;
