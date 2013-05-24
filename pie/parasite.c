@@ -26,6 +26,8 @@ static struct tid_state_s {
 
 	bool		use_sig_blocked;
 	k_rtsigset_t	sig_blocked;
+
+	struct rt_sigframe *sigframe;
 } *tid_state;
 
 static unsigned int nr_tid_state;
@@ -213,6 +215,7 @@ static int init_thread(struct parasite_init_args *args)
 	args->sig_blocked = tid_state[next_tid_state].sig_blocked;
 
 	tid_state[next_tid_state].id = next_tid_state;
+	tid_state[next_tid_state].sigframe = args->sigframe;
 
 	futex_set(&tid_state[next_tid_state].cmd, PARASITE_CMD_IDLE);
 

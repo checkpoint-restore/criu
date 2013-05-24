@@ -75,6 +75,8 @@ struct parasite_init_args {
 	int			nr_threads;
 
 	k_rtsigset_t		sig_blocked;
+
+	struct rt_sigframe	*sigframe;
 };
 
 struct parasite_log_args {

@@ -25,14 +25,16 @@
 #include "net.h"
 #include "mem.h"
 #include "vdso.h"
+#include "restorer.h"
 
 #include <string.h>
 #include <stdlib.h>
 
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
+#include "asm/restorer.h"
 
-#define parasite_size		(round_up(sizeof(parasite_blob), sizeof(long)))
+#define parasite_size		(round_up(sizeof(parasite_blob), PAGE_SIZE))
 
 static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 {
@@ -387,6 +389,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 	args->p_addr_len = gen_parasite_saddr(&args->p_addr, pid);
 	args->nr_threads = nr_threads;
+	args->sigframe = ctl->threads[0].rsigframe;
 	args->id = 0;
 
 	if (sock == -1) {
@@ -1068,7 +1071,7 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 		size = max(size, (unsigned long)drain_fds_size(dfds));
 	size = max(size, (unsigned long)dump_pages_args_size(vmas));
 
-	return size;
+	return round_up(size, PAGE_SIZE);
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
@@ -1096,6 +1099,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ctl->args_size = parasite_args_size(vma_area_list, dfds);
 	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size +
+					 item->nr_threads * RESTORE_STACK_SIGFRAME +
 					 item->nr_threads * PARASITE_STACK_SIZE);
 	if (ret)
 		goto err_restore;
@@ -1112,8 +1116,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	for (i = 0; i < item->nr_threads; i++) {
 		struct parasite_thread_ctl *thread = &ctl->threads[i];
 
-		thread->rstack = ctl->remote_map + p;
-		p += PARASITE_STACK_SIZE;
+		thread->rstack		= ctl->remote_map + p;
+		thread->rsigframe	= ctl->remote_map + p + PARASITE_STACK_SIZE;
+		thread->sigframe	= ctl->local_map  + p + PARASITE_STACK_SIZE;
+
+		p += PARASITE_STACK_SIZE + RESTORE_STACK_SIGFRAME;
 	}
 
 	ret = parasite_init(ctl, pid, item->nr_threads);
@@ -1152,6 +1159,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 				&thread->sig_blocked, sizeof(k_rtsigset_t));
 			item->core[i]->thread_core->has_blk_sigset = true;
 		}
+
+		if (construct_sigframe(thread->sigframe, thread->rsigframe, item->core[i]))
+			goto err_restore;
 	}
 
 	return ctl;

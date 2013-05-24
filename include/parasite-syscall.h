@@ -16,6 +16,8 @@ struct parasite_thread_ctl
 	bool			use_sig_blocked;
 
 	void			*rstack;
+	struct rt_sigframe	*sigframe;
+	struct rt_sigframe	*rsigframe;				/* address in a parasite */
 };
 
 /* parasite control block */
