@@ -16,6 +16,85 @@
 
 struct pstree_item *root_item;
 
+void core_entry_free(CoreEntry *core)
+{
+	if (core) {
+		arch_free_thread_info(core);
+		xfree(core->thread_core);
+		xfree(core->tc);
+		xfree(core->ids);
+	}
+}
+
+CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc)
+{
+	CoreEntry *core;
+	TaskCoreEntry *tc;
+
+	core = xmalloc(sizeof(*core));
+	if (!core)
+		return NULL;
+	core_entry__init(core);
+
+	core->mtype = CORE_ENTRY__MARCH;
+
+	if (alloc_thread_info) {
+		if (arch_alloc_thread_info(core))
+			goto err;
+	}
+
+	if (alloc_tc) {
+		tc = xzalloc(sizeof(*tc) + TASK_COMM_LEN);
+		if (!tc)
+			goto err;
+		task_core_entry__init(tc);
+		tc->comm = (void *)tc + sizeof(*tc);
+		core->tc = tc;
+	}
+
+	return core;
+err:
+	core_entry_free(core);
+	return NULL;
+}
+
+int pstree_alloc_cores(struct pstree_item *item)
+{
+	unsigned int i;
+
+	item->core = xzalloc(sizeof(*item->core) * item->nr_threads);
+	if (!item->core)
+		return -1;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (item->threads[i].real == item->pid.real) {
+			item->core[i] = core_entry_alloc(1, 1);
+			item->this_core = item->core[i];
+		} else
+			item->core[i] = core_entry_alloc(1, 0);
+
+		if (!item->core[i])
+			goto err;
+	}
+
+	return 0;
+err:
+	pstree_free_cores(item);
+	return -1;
+}
+
+void pstree_free_cores(struct pstree_item *item)
+{
+	unsigned int i;
+
+	if (item->core) {
+		for (i = 1; i < item->nr_threads; i++)
+			core_entry_free(item->core[i]);
+		xfree(item->core);
+		item->core = NULL;
+	}
+}
+
 void free_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item, *parent;
@@ -28,6 +107,7 @@ void free_pstree(struct pstree_item *root_item)
 
 		parent = item->parent;
 		list_del(&item->sibling);
+		pstree_free_cores(item);
 		xfree(item->threads);
 		xfree(item);
 		item = parent;

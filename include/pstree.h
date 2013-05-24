@@ -41,7 +41,9 @@ struct pstree_item {
 
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */
+	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
+	CoreEntry		*this_core;	/* for fast access to a leader */
 
 	struct rst_info		rst[0];
 };
@@ -75,5 +77,10 @@ extern struct task_entries *task_entries;
 
 int get_task_ids(struct pstree_item *);
 extern struct _TaskKobjIdsEntry *root_ids;
+
+extern void core_entry_free(CoreEntry *core);
+extern CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc);
+extern int pstree_alloc_cores(struct pstree_item *item);
+extern void pstree_free_cores(struct pstree_item *item);
 
 #endif /* __CR_PSTREE_H__ */

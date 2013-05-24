@@ -107,7 +107,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return 0;
 }
 
-int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
+int get_task_regs(pid_t pid, CoreEntry *core)
 {
 	struct xsave_struct xsave	= {  };
 	user_regs_struct_t regs		= {-1};
@@ -117,13 +117,9 @@ int get_task_regs(pid_t pid, CoreEntry *core, const struct parasite_ctl *ctl)
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (ctl)
-		regs = ctl->regs_orig;
-	else {
-		if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
-			pr_err("Can't obtain GP registers for %d\n", pid);
-			goto err;
-		}
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs)) {
+		pr_err("Can't obtain GP registers for %d\n", pid);
+		goto err;
 	}
 
 	/* Did we come from a system call? */

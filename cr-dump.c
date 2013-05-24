@@ -592,50 +592,6 @@ static int dump_task_kobj_ids(struct pstree_item *item)
 	return 0;
 }
 
-static void core_entry_free(CoreEntry *core)
-{
-	if (core) {
-		arch_free_thread_info(core);
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
-		xfree(core);
-	}
-}
-
-static CoreEntry *core_entry_alloc(int alloc_thread_info,
-				   int alloc_tc)
-{
-	CoreEntry *core;
-	TaskCoreEntry *tc;
-
-	core = xmalloc(sizeof(*core));
-	if (!core)
-		return NULL;
-	core_entry__init(core);
-
-	core->mtype = CORE_ENTRY__MARCH;
-
-	if (alloc_thread_info) {
-		if (arch_alloc_thread_info(core))
-			goto err;
-	}
-
-	if (alloc_tc) {
-		tc = xzalloc(sizeof(*tc) + TASK_COMM_LEN);
-		if (!tc)
-			goto err;
-		task_core_entry__init(tc);
-		tc->comm = (void *)tc + sizeof(*tc);
-		core->tc = tc;
-	}
-
-	return core;
-err:
-	core_entry_free(core);
-	return NULL;
-}
-
 int get_task_ids(struct pstree_item *item)
 {
 	int ret;
@@ -671,19 +627,15 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 }
 
 static int dump_task_core_all(struct parasite_ctl *ctl,
+		CoreEntry *core,
 		const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc,
 		struct vm_area_list *vma_area_list,
 		const struct cr_fdset *cr_fdset)
 {
 	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
-	CoreEntry *core;
 	int ret = -1;
 	pid_t pid = ctl->pid.real;
-
-	core = core_entry_alloc(1, 1);
-	if (!core)
-		return -1;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
@@ -691,19 +643,15 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	ret = dump_task_mm(ctl, stat, misc, cr_fdset);
 	if (ret)
-		goto err_free;
-
-	ret = get_task_regs(pid, core, ctl);
-	if (ret)
-		goto err_free;
+		goto err;
 
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
-		goto err_free;
+		goto err;
 
 	ret = get_task_personality(pid, &core->tc->personality);
 	if (ret)
-		goto err_free;
+		goto err;
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
@@ -715,16 +663,15 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	ret = dump_sched_info(pid, core->thread_core);
 	if (ret)
-		goto err_free;
+		goto err;
 
 	core_put_tls(core, misc->tls);
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0)
-		goto err_free;
+		goto err;
 
-err_free:
-	core_entry_free(core);
+err:
 	pr_info("----------------------------------------\n");
 
 	return ret;
@@ -1130,9 +1077,9 @@ static int collect_file_locks(void)
 
 }
 
-static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
+static int dump_task_thread(struct parasite_ctl *parasite_ctl,
+			    struct pid *tid, CoreEntry *core)
 {
-	CoreEntry *core;
 	int ret = -1, fd_core;
 	pid_t pid = tid->real;
 
@@ -1140,39 +1087,29 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, struct pid *tid)
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	core = core_entry_alloc(1, 0);
-	if (!core)
-		goto err;
-
-	ret = get_task_regs(pid, core, NULL);
-	if (ret)
-		goto err_free;
-
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
-		goto err_free;
+		goto err;
 
 	ret = parasite_dump_thread_seized(parasite_ctl, tid, core);
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
-		goto err_free;
+		goto err;
 	}
 
 	core->thread_core->has_blk_sigset = true;
 
 	ret = dump_sched_info(pid, core->thread_core);
 	if (ret)
-		goto err_free;
+		goto err;
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (fd_core < 0)
-		goto err_free;
+		goto err;
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
 
 	close(fd_core);
-err_free:
-	core_entry_free(core);
 err:
 	pr_info("----------------------------------------\n");
 	return ret;
@@ -1185,21 +1122,20 @@ static int dump_one_zombie(const struct pstree_item *item,
 	int ret = -1, fd_core;
 
 	core = core_entry_alloc(0, 1);
-	if (core == NULL)
-		goto err;
+	if (!core)
+		return -1;
 
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid.virt);
 	if (fd_core < 0)
-		goto err_free;
+		goto err;
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	close(fd_core);
-err_free:
-	core_entry_free(core);
 err:
+	core_entry_free(core);
 	return ret;
 }
 
@@ -1272,7 +1208,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 		if (item->pid.real == item->threads[i].real)
 			item->threads[i].virt = item->pid.virt;
 		else {
-			if (dump_task_thread(parasite_ctl, &item->threads[i]))
+			if (dump_task_thread(parasite_ctl, &item->threads[i], item->core[i]))
 				return -1;
 		}
 
@@ -1427,6 +1363,26 @@ err_cure:
 	goto err_free;
 }
 
+static int collect_regs_seized(struct pstree_item *item)
+{
+	unsigned int i;
+	int ret;
+
+	if (pstree_alloc_cores(item))
+		return -1;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		pid_t pid = item->threads[i].real;
+		ret = get_task_regs(pid, item->core[i]);
+		if (ret) {
+			pr_err("Can't obtain regs for thread %d\n", pid);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1448,6 +1404,9 @@ static int dump_one_task(struct pstree_item *item)
 
 	if (item->state == TASK_DEAD)
 		return 0;
+
+	if (collect_regs_seized(item))
+		return -1;
 
 	dfds = xmalloc(sizeof(*dfds));
 	if (!dfds)
@@ -1555,7 +1514,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(parasite_ctl, &pps_buf, &misc, &vmas, cr_fdset);
+	ret = dump_task_core_all(parasite_ctl, item->this_core, &pps_buf, &misc, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
