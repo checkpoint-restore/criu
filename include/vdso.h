@@ -90,21 +90,20 @@ struct vdso_mark {
 /* Magic number (criuvdso) */
 #define VDSO_MARK_SIGNATURE	(0x6f73647675697263ULL)
 
-#define VDSO_MARK_INIT						\
-	{							\
-		.signature	= VDSO_MARK_SIGNATURE,		\
-		.proxy_addr	= VDSO_BAD_ADDR,		\
-	}
-
-#define INIT_VDSO_MARK(m)					\
-	*(m) = (struct vdso_mark)VDSO_MARK_INIT
-
 static inline bool is_vdso_mark(void *addr)
 {
 	struct vdso_mark *m = addr;
 
 	return m->signature == VDSO_MARK_SIGNATURE &&
 		m->proxy_addr != VDSO_BAD_ADDR;
+}
+
+static inline void vdso_put_mark(void *where, unsigned long proxy_addr)
+{
+	struct vdso_mark *m = where;
+
+	m->signature = VDSO_MARK_SIGNATURE;
+	m->proxy_addr = proxy_addr;
 }
 
 extern struct vdso_symtable vdso_sym_rt;
