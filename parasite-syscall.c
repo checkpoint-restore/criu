@@ -63,7 +63,9 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 }
 
 /* we run at @regs->ip */
-int __parasite_execute(struct parasite_ctl *ctl, pid_t pid, user_regs_struct_t *regs)
+int __parasite_execute(struct parasite_ctl *ctl, pid_t pid,
+				user_regs_struct_t *regs,
+				user_regs_struct_t *regs_orig)
 {
 	siginfo_t siginfo;
 	int status;
@@ -171,7 +173,7 @@ retry_signal:
 				pr_perror("Can't obtain registers (pid: %d)", pid);
 				goto err;
 			}
-			ctl->threads[0].regs_orig = r;
+			*regs_orig = r;
 		}
 
 		goto again;
@@ -208,7 +210,7 @@ static int parasite_execute_by_id(unsigned int cmd, struct parasite_ctl *ctl, in
 
 	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
 
-	ret = __parasite_execute(ctl, pid, &regs);
+	ret = __parasite_execute(ctl, pid, &regs, &thread->regs_orig);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
