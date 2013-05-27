@@ -2,6 +2,7 @@
 #define __CR_ASM_FPU_H__
 
 #include <sys/types.h>
+#include <stdbool.h>
 
 #include "compiler.h"
 #include "asm/int.h"
