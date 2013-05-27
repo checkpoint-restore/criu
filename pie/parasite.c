@@ -192,7 +192,7 @@ static int dump_thread(struct parasite_dump_thread *args)
 	return 0;
 }
 
-static int init_thread(struct parasite_init_args *args)
+static int init_daemon_thread(struct parasite_init_args *args)
 {
 	k_rtsigset_t to_block;
 	int ret;
@@ -220,13 +220,47 @@ static int init_thread(struct parasite_init_args *args)
 	return ret;
 }
 
+static int init_thread(struct parasite_dump_thread *args)
+{
+	k_rtsigset_t to_block;
+	pid_t tid = sys_gettid();
+	int ret;
+
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
+			      &args->blocked,
+			      sizeof(k_rtsigset_t));
+	if (ret)
+		return -1;
+
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
+	if (ret)
+		goto err;
+
+	args->tid = tid;
+	args->tls = arch_get_tls();
+
+
+	return ret;
+err:
+	sys_sigprocmask(SIG_SETMASK, &args->blocked,
+				NULL, sizeof(k_rtsigset_t));
+	return ret;
+}
+
+static int fini_thread(struct parasite_dump_thread *args)
+{
+	return sys_sigprocmask(SIG_SETMASK, &args->blocked,
+				NULL, sizeof(k_rtsigset_t));
+}
+
 static void __parasite_daemon_thread_ack(struct tid_state_s *s, int ret)
 {
 	s->ret = ret;
 	futex_set_and_wake(&s->cmd, PARASITE_CMD_IDLE);
 }
 
-static int fini_thread(struct tid_state_s *s)
+static int fini_daemon_thread(struct tid_state_s *s)
 {
 	unsigned long new_sp;
 
@@ -259,7 +293,7 @@ static int init(struct parasite_init_args *args)
 
 	nr_tid_state = args->nr_threads;
 
-	ret = init_thread(args);
+	ret = init_daemon_thread(args);
 	if (ret < 0)
 		return ret;
 
@@ -494,7 +528,7 @@ __parasite_daemon_thread(void *args, struct tid_state_s *s)
 			ret = dump_thread(args);
 			break;
 		case PARASITE_CMD_FINI_THREAD:
-			fini_thread(s);
+			fini_daemon_thread(s);
 			return;
 		default:
 			pr_err("Unknown command in parasite daemon thread: %d\n", cmd);
@@ -652,6 +686,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return init(args);
 	case PARASITE_CMD_INIT_THREAD:
 		return init_thread(args);
+	case PARASITE_CMD_FINI_THREAD:
+		return fini_thread(args);
 	case PARASITE_CMD_CFG_LOG:
 		return parasite_cfg_log(args);
 	case PARASITE_CMD_DAEMONIZE:
