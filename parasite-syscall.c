@@ -133,7 +133,7 @@ retry_signal:
 		 * and retry.
 		 */
 
-		if (ptrace(PTRACE_SETREGS, pid, NULL, &regs_orig)) {
+		if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
 			pr_perror("Can't set registers (pid: %d)", pid);
 			goto err;
 		}
