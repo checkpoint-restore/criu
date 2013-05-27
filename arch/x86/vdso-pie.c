@@ -300,6 +300,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma, unsigne
 	 * routine we could detect this vdso and do not dump it, since
 	 * it's auto-generated every new session if proxy required.
 	 */
+	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), PROT_WRITE);
 	vdso_put_mark((void *)vdso_rt_parked_at, vma->start);
+	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), VDSO_PROT);
 	return 0;
 }
