@@ -202,19 +202,19 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 		ctl->addr_args;					\
 	})
 
-static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
+static int parasite_execute_trap_by_pid(unsigned int cmd,
+					struct parasite_ctl *ctl, pid_t pid,
+					user_regs_struct_t *regs_orig,
+					void *stack, bool use_sig_blocked)
 {
-	struct parasite_thread_ctl *thread = &ctl->threads[id];
-	user_regs_struct_t regs = thread->regs_orig;
-	pid_t pid = thread->tid;
+	user_regs_struct_t regs = *regs_orig;
 	int ret;
 
 	*ctl->addr_cmd = cmd;
 
-	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
+	parasite_setup_regs(ctl->parasite_ip, stack, &regs);
 
-	ret = __parasite_execute_trap(ctl, pid, &regs, &thread->regs_orig,
-					thread->use_sig_blocked);
+	ret = __parasite_execute_trap(ctl, pid, &regs, regs_orig, use_sig_blocked);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -222,10 +222,22 @@ static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ct
 		pr_err("Parasite exited with %d\n", ret);
 
 	if (ctl->pid.real != pid)
-		if (ptrace(PTRACE_SETREGS, pid, NULL, &thread->regs_orig)) {
+		if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
 			pr_perror("Can't restore registers (pid: %d)", pid);
 			return -1;
 		}
+
+	return ret;
+}
+
+static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
+{
+	struct parasite_thread_ctl *thread = &ctl->threads[id];
+	pid_t pid = thread->tid;
+	int ret;
+
+	ret = parasite_execute_trap_by_pid(cmd, ctl, pid, &thread->regs_orig,
+					thread->rstack, thread->use_sig_blocked);
 
 	return ret;
 }
