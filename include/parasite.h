@@ -63,15 +63,11 @@ struct ctl_msg {
 	(struct ctl_msg){.cmd = _cmd, .ack = _cmd, .err = _err, }
 
 struct parasite_init_args {
-	int			id;
-
 	int			h_addr_len;
 	struct sockaddr_un	h_addr;
 
 	int			p_addr_len;
 	struct sockaddr_un	p_addr;
-
-	int			nr_threads;
 
 	k_rtsigset_t		sig_blocked;
 

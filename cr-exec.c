@@ -110,7 +110,7 @@ int cr_exec(int pid, char **opt)
 		goto out_unseize;
 	}
 
-	ctl = parasite_prep_ctl(pid, &vmas, 1);
+	ctl = parasite_prep_ctl(pid, &vmas);
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;

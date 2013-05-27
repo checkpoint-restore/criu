@@ -5,19 +5,6 @@
 
 #include "pstree.h"
 
-struct parasite_thread_ctl
-{
-	pid_t			tid;
-	user_regs_struct_t	regs_orig;				/* original registers */
-
-	k_rtsigset_t		sig_blocked;
-	bool			use_sig_blocked;
-
-	void			*rstack;
-	struct rt_sigframe	*sigframe;
-	struct rt_sigframe	*rsigframe;				/* address in a parasite */
-};
-
 /* parasite control block */
 struct parasite_ctl {
 	struct pid		pid;
@@ -25,7 +12,18 @@ struct parasite_ctl {
 	void			*local_map;
 	unsigned long		map_length;
 
+	/* thread leader data */
 	bool			daemonized;
+	user_regs_struct_t	regs_orig;				/* original registers */
+
+	k_rtsigset_t		sig_blocked;
+	bool			use_sig_blocked;
+
+	void			*rstack;				/* thread leader stack*/
+	struct rt_sigframe	*sigframe;
+	struct rt_sigframe	*rsigframe;				/* address in a parasite */
+
+	void			*r_thread_stack;			/* stack for non-leader threads */
 
 	unsigned long		parasite_ip;				/* service routine start ip */
 	unsigned long		syscall_ip;				/* entry point of infection */
@@ -38,9 +36,6 @@ struct parasite_ctl {
 
 	struct list_head	pre_list;
 	struct page_pipe	*mem_pp;
-
-	int			nr_threads;
-	struct parasite_thread_ctl threads[0];
 };
 
 struct cr_fdset;
@@ -84,8 +79,7 @@ extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct vm_area_list *vma_area_list,
 						   struct parasite_drain_fd *dfds);
 extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
-					      struct vm_area_list *vma_area_list,
-					      unsigned int nr_threads);
+					      struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);

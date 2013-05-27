@@ -230,21 +230,10 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 	return ret;
 }
 
-static int parasite_execute_trap_by_id(unsigned int cmd, struct parasite_ctl *ctl, int id)
-{
-	struct parasite_thread_ctl *thread = &ctl->threads[id];
-	pid_t pid = thread->tid;
-	int ret;
-
-	ret = parasite_execute_trap_by_pid(cmd, ctl, pid, &thread->regs_orig,
-					thread->rstack, thread->use_sig_blocked);
-
-	return ret;
-}
-
 static int parasite_execute_trap(unsigned int cmd, struct parasite_ctl *ctl)
 {
-	return parasite_execute_trap_by_id(cmd, ctl, 0);
+	return parasite_execute_trap_by_pid(cmd, ctl, ctl->pid.real, &ctl->regs_orig,
+					ctl->rstack, ctl->use_sig_blocked);
 }
 
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
@@ -395,9 +384,7 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 	args->p_addr_len = gen_parasite_saddr(&args->p_addr, pid);
-	args->nr_threads = nr_threads;
-	args->sigframe = ctl->threads[0].rsigframe;
-	args->id = 0;
+	args->sigframe = ctl->rsigframe;
 
 	if (sock == -1) {
 		int rst = -1;
@@ -444,8 +431,8 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 		goto err;
 	}
 
-	ctl->threads[0].sig_blocked = args->sig_blocked;
-	ctl->threads[0].use_sig_blocked = true;
+	ctl->sig_blocked = args->sig_blocked;
+	ctl->use_sig_blocked = true;
 
 	if (connect(sock, (struct sockaddr *)&args->p_addr, args->p_addr_len) < 0) {
 		pr_perror("Can't connect a transport socket");
@@ -459,21 +446,16 @@ err:
 	return -1;
 }
 
-static int parasite_daemonize(struct parasite_ctl *ctl, int id)
+static int parasite_daemonize(struct parasite_ctl *ctl)
 {
-	struct parasite_thread_ctl *thread = &ctl->threads[id];
-	pid_t pid = thread->tid;
+	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
-	struct parasite_init_args *args;
 
 	*ctl->addr_cmd = PARASITE_CMD_DAEMONIZE;
 
-	args = parasite_args(ctl, struct parasite_init_args);
-	args->id = id;
-
-	regs = thread->regs_orig;
-	parasite_setup_regs(ctl->parasite_ip, thread->rstack, &regs);
+	regs = ctl->regs_orig;
+	parasite_setup_regs(ctl->parasite_ip, ctl->rstack, &regs);
 
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
 		pr_perror("Can't set registers (pid: %d)", pid);
@@ -482,7 +464,7 @@ static int parasite_daemonize(struct parasite_ctl *ctl, int id)
 
 	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
 		pr_perror("Can't continue (pid: %d)\n", pid);
-		ptrace(PTRACE_SETREGS, pid, NULL, thread->regs_orig);
+		ptrace(PTRACE_SETREGS, pid, NULL, ctl->regs_orig);
 		goto err;
 	}
 
@@ -525,7 +507,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 		ret = parasite_execute_trap_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
 						pid, &regs_orig,
-						ctl->threads[id].rstack, false);
+						ctl->r_thread_stack, false);
 		if (ret) {
 			pr_err("Can't init thread in parasite %d\n", pid);
 			return -1;
@@ -537,7 +519,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 		if (parasite_execute_trap_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
 						pid, &regs_orig,
-						ctl->threads[id].rstack, true)) {
+						ctl->r_thread_stack, true)) {
 			pr_err("Can't init thread in parasite %d\n", pid);
 			return -1;
 		}
@@ -834,53 +816,6 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
-int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item)
-{
-	struct parasite_init_args *args;
-	int ret = 0, i;
-
-	args = parasite_args(ctl, struct parasite_init_args);
-
-	for (i = 1; i < item->nr_threads; i++) {
-		pid_t tid = item->threads[i].real;
-		user_regs_struct_t *regs_orig = &ctl->threads[i].regs_orig;
-
-		ctl->threads[i].tid = tid;
-		ctl->nr_threads++;
-
-		args->id = i;
-		args->sigframe = ctl->threads[i].rsigframe;
-
-		ret = ptrace(PTRACE_GETREGS, tid, NULL, regs_orig);
-		if (ret) {
-			pr_perror("Can't obtain registers (pid: %d)", tid);
-			goto err;
-		}
-
-		ret = parasite_execute_trap_by_id(PARASITE_CMD_INIT_THREAD, ctl, i);
-		if (ret) {
-			pr_err("Can't init thread in parasite %d\n", tid);
-			goto err;
-		}
-
-		ret = get_task_regs(tid, *regs_orig, item->core[i]);
-		if (ret) {
-			pr_err("Can't obtain regs for thread %d\n", tid);
-			goto err;
-		}
-
-		ctl->threads[i].sig_blocked = args->sig_blocked;
-		ctl->threads[i].use_sig_blocked = true;
-
-		if (parasite_daemonize(ctl, i))
-			goto err;
-	}
-
-	return 0;
-err:
-	return -1 ;
-}
-
 static int parasite_fini_seized(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->pid.real;
@@ -949,7 +884,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		}
 	}
 
-	ctl->threads[0].use_sig_blocked = false;
+	ctl->use_sig_blocked = false;
 
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
@@ -994,7 +929,7 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 		ret = -1;
 	}
 
-	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->threads[0].regs_orig)) {
+	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->regs_orig)) {
 		pr_err("Can't restore registers (pid: %d)\n", ctl->pid.real);
 		ret = -1;
 	}
@@ -1028,12 +963,10 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 	return ret;
 }
 
-struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list, unsigned int nr_threads)
+struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
 	struct vma_area *vma_area;
-
-	BUG_ON(nr_threads == 0);
 
 	if (!arch_can_dump_task(pid))
 		goto err;
@@ -1041,22 +974,20 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	/*
 	 * Control block early setup.
 	 */
-	ctl = xzalloc(sizeof(*ctl) + nr_threads * sizeof(ctl->threads[0]));
+	ctl = xzalloc(sizeof(*ctl));
 	if (!ctl) {
 		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
 		goto err;
 	}
 
 	ctl->tsock = -1;
-	ctl->nr_threads = 1;
-	ctl->threads[0].tid = pid;
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->threads[0].regs_orig)) {
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
 		pr_err("Can't obtain registers (pid: %d)\n", pid);
 		goto err;
 	}
 
-	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->threads[0].regs_orig));
+	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
@@ -1131,16 +1062,16 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds)
 {
-	int ret, i;
+	int ret;
 	struct parasite_ctl *ctl;
-	unsigned long p;
+	unsigned long p, map_exchange_size;
 
 	BUG_ON(item->threads[0].real != pid);
 
 	if (pstree_alloc_cores(item))
 		return NULL;
 
-	ctl = parasite_prep_ctl(pid, vma_area_list, item->nr_threads);
+	ctl = parasite_prep_ctl(pid, vma_area_list);
 	if (!ctl)
 		return NULL;
 
@@ -1152,9 +1083,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 */
 
 	ctl->args_size = parasite_args_size(vma_area_list, dfds);
-	ret = parasite_map_exchange(ctl, parasite_size + ctl->args_size +
-					 item->nr_threads * RESTORE_STACK_SIGFRAME +
-					 item->nr_threads * PARASITE_STACK_SIZE);
+	map_exchange_size = parasite_size + ctl->args_size;
+	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
+	if (item->nr_threads > 1)
+		map_exchange_size += PARASITE_STACK_SIZE;
+	ret = parasite_map_exchange(ctl, map_exchange_size);
 	if (ret)
 		goto err_restore;
 
@@ -1167,14 +1100,18 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ctl->addr_args		= parasite_sym(ctl->local_map, __export_parasite_args);
 
 	p = parasite_size + ctl->args_size;
-	for (i = 0; i < item->nr_threads; i++) {
-		struct parasite_thread_ctl *thread = &ctl->threads[i];
 
-		thread->rstack		= ctl->remote_map + p;
-		thread->rsigframe	= ctl->remote_map + p + PARASITE_STACK_SIZE;
-		thread->sigframe	= ctl->local_map  + p + PARASITE_STACK_SIZE;
+	ctl->rsigframe	= ctl->remote_map + p;
+	ctl->sigframe	= ctl->local_map  + p;
 
-		p += PARASITE_STACK_SIZE + RESTORE_STACK_SIGFRAME;
+	p += RESTORE_STACK_SIGFRAME;
+
+	ctl->rstack = ctl->remote_map + p;
+	p += PARASITE_STACK_SIZE;
+
+	if (item->nr_threads > 1) {
+		ctl->r_thread_stack = ctl->remote_map + p;
+		p += PARASITE_STACK_SIZE;
 	}
 
 	ret = parasite_init(ctl, pid, item->nr_threads);
@@ -1183,7 +1120,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 	}
 
-	ret = get_task_regs(pid, ctl->threads[0].regs_orig, item->core[0]);
+	ret = get_task_regs(pid, ctl->regs_orig, item->core[0]);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_restore;
@@ -1195,24 +1132,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 	}
 
-	if (parasite_daemonize(ctl, 0))
+	memcpy(&item->core[0]->tc->blk_sigset,
+		&ctl->sig_blocked, sizeof(k_rtsigset_t));
+
+	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
 		goto err_restore;
 
-	for (i = 0; i < 1; i++) {
-		struct parasite_thread_ctl *thread = &ctl->threads[0];
-
-		if (i == 0)
-			memcpy(&item->core[i]->tc->blk_sigset,
-				&thread->sig_blocked, sizeof(k_rtsigset_t));
-		else {
-			memcpy(&item->core[i]->thread_core->blk_sigset,
-				&thread->sig_blocked, sizeof(k_rtsigset_t));
-			item->core[i]->thread_core->has_blk_sigset = true;
-		}
-
-		if (construct_sigframe(thread->sigframe, thread->rsigframe, item->core[i]))
-			goto err_restore;
-	}
+	if (parasite_daemonize(ctl))
+		goto err_restore;
 
 	return ctl;
 
