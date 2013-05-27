@@ -3,10 +3,9 @@
 
 #include <sys/types.h>
 
-struct vdso_symtable;
+#include "protobuf/vma.pb-c.h"
 
-struct  _VmaEntry;
-typedef struct _VmaEntry VmaEntry;
+struct vdso_symtable;
 
 extern int vdso_redirect_calls(void *base_to, void *base_from, struct vdso_symtable *to, struct vdso_symtable *from);
 extern int vdso_fill_symtable(char *mem, size_t size,struct vdso_symtable *t);
