@@ -20,22 +20,7 @@
 
 static int tsock = -1;
 
-static struct tid_state_s {
-	int		id;
-
-	futex_t		cmd;
-	int		ret;
-
-	struct rt_sigframe *sigframe;
-} *tid_state;
-
-static unsigned int nr_tid_state;
-static unsigned int next_tid_state;
-
-#define TID_STATE_SIZE(n)	\
-	(ALIGN(sizeof(struct tid_state_s) * n, PAGE_SIZE))
-
-#define thread_leader	(&tid_state[0])
+static struct rt_sigframe *sigframe;
 
 #ifndef SPLICE_F_GIFT
 #define SPLICE_F_GIFT	0x08
@@ -197,12 +182,6 @@ static int init_daemon_thread(struct parasite_init_args *args)
 	k_rtsigset_t to_block;
 	int ret;
 
-	if (args->id != next_tid_state)
-		return -EINVAL;
-
-	if (next_tid_state >= nr_tid_state)
-		return -ENOMEM;
-
 	ksigfillset(&to_block);
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
 			      &args->sig_blocked,
@@ -210,12 +189,7 @@ static int init_daemon_thread(struct parasite_init_args *args)
 	if (ret)
 		return -1;
 
-	tid_state[next_tid_state].id = next_tid_state;
-	tid_state[next_tid_state].sigframe = args->sigframe;
-
-	futex_set(&tid_state[next_tid_state].cmd, PARASITE_CMD_IDLE);
-
-	next_tid_state++;
+	sigframe = args->sigframe;
 
 	return ret;
 }
@@ -254,44 +228,9 @@ static int fini_thread(struct parasite_dump_thread *args)
 				NULL, sizeof(k_rtsigset_t));
 }
 
-static void __parasite_daemon_thread_ack(struct tid_state_s *s, int ret)
-{
-	s->ret = ret;
-	futex_set_and_wake(&s->cmd, PARASITE_CMD_IDLE);
-}
-
-static int fini_daemon_thread(struct tid_state_s *s)
-{
-	unsigned long new_sp;
-
-	new_sp = (long)s->sigframe + SIGFRAME_OFFSET;
-	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
-		 new_sp, s->sigframe->uc.uc_mcontext.rip);
-
-	__parasite_daemon_thread_ack(s, 0);
-
-	ARCH_RT_SIGRETURN(new_sp);
-
-	BUG();
-
-	return 0;
-}
-
 static int init(struct parasite_init_args *args)
 {
 	int ret;
-
-	if (!args->nr_threads)
-		return -EINVAL;
-
-	tid_state = (void *)sys_mmap(NULL, TID_STATE_SIZE(args->nr_threads),
-				     PROT_READ | PROT_WRITE,
-				     MAP_PRIVATE | MAP_ANONYMOUS,
-				     -1, 0);
-	if ((unsigned long)tid_state > TASK_SIZE)
-		return -ENOMEM;
-
-	nr_tid_state = args->nr_threads;
 
 	ret = init_daemon_thread(args);
 	if (ret < 0)
@@ -459,12 +398,12 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 	return 0;
 }
 
-static int __parasite_daemon_reply_ack(unsigned int id, unsigned int cmd, int err)
+static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 {
 	struct ctl_msg m;
 	int ret;
 
-	m = ctl_msg_ack(id, cmd, err);
+	m = ctl_msg_ack(cmd, err);
 	ret = sys_sendto(tsock, &m, sizeof(m), 0, NULL, 0);
 	if (ret != sizeof(m)) {
 		pr_err("Sent only %d bytes while %d expected\n",
@@ -472,8 +411,8 @@ static int __parasite_daemon_reply_ack(unsigned int id, unsigned int cmd, int er
 		return -1;
 	}
 
-	pr_debug("__sent ack msg: %d %d %d %d\n",
-		 m.id, m.cmd, m.ack, m.err);
+	pr_debug("__sent ack msg: %d %d %d\n",
+		 m.cmd, m.ack, m.err);
 
 	return 0;
 }
@@ -493,87 +432,24 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 			return 0;
 		}
 
-		pr_debug("__fetched msg: %d %d %d %d\n",
-			 m->id, m->cmd, m->ack, m->err);
+		pr_debug("__fetched msg: %d %d %d\n",
+			 m->cmd, m->ack, m->err);
 		return 0;
 	}
 
 	return -1;
 }
 
-static int __parasite_daemon_thread_wait_cmd(struct tid_state_s *s)
-{
-	futex_wait_while_eq(&s->cmd, PARASITE_CMD_IDLE);
-	return futex_get(&s->cmd);
-}
-
-static void noinline __used
-__parasite_daemon_thread(void *args, struct tid_state_s *s)
-{
-	pr_debug("Running daemon thread %d\n", s->id);
-
-	/* Reply we're alive */
-	if (__parasite_daemon_reply_ack(s->id, PARASITE_CMD_DAEMONIZE, 0))
-		return;
-
-	while (1) {
-		int ret, cmd;
-
-		cmd = __parasite_daemon_thread_wait_cmd(s);
-
-		pr_debug("Command %d in daemon thread %d\n", cmd, s->id);
-
-		switch (cmd) {
-		case PARASITE_CMD_DUMP_THREAD:
-			ret = dump_thread(args);
-			break;
-		case PARASITE_CMD_FINI_THREAD:
-			fini_daemon_thread(s);
-			return;
-		default:
-			pr_err("Unknown command in parasite daemon thread: %d\n", cmd);
-			ret = -1;
-			break;
-		}
-		__parasite_daemon_thread_ack(s, ret);
-	}
-
-	pr_err("The thread %d trys to escape!!!", s->id);
-	BUG();
-	return;
-}
-
-static int __parasite_execute_thread(struct ctl_msg *m)
-{
-	struct tid_state_s *s = &tid_state[m->id];
-
-	pr_debug("Wake thread %d daemon with command %d\n", s->id, m->cmd);
-	futex_set_and_wake(&s->cmd, m->cmd);
-
-	pr_debug("Wait thread %d for PARASITE_CMD_IDLE\n", s->id);
-	futex_wait_until(&s->cmd, PARASITE_CMD_IDLE);
-
-	return s->ret;
-}
-
-static int fini(struct tid_state_s *s)
+static int fini()
 {
 	unsigned long new_sp;
-	int i;
 
-	for (i = 1; i < next_tid_state; i++) {
-		struct ctl_msg m = {.cmd = PARASITE_CMD_FINI_THREAD, .id = i};
-		__parasite_execute_thread(&m);
-	}
-
-	new_sp = (long)s->sigframe + SIGFRAME_OFFSET;
+	new_sp = (long)sigframe + SIGFRAME_OFFSET;
 	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
-		  new_sp, s->sigframe->uc.uc_mcontext.rip);
+		  new_sp, sigframe->uc.uc_mcontext.rip);
 
 	sys_close(tsock);
 	log_set_fd(-1);
-
-	sys_munmap(tid_state, TID_STATE_SIZE(nr_tid_state));
 
 	ARCH_RT_SIGRETURN(new_sp);
 
@@ -582,8 +458,7 @@ static int fini(struct tid_state_s *s)
 	return -1;
 }
 
-static void noinline __used
-__parasite_daemon_thread_leader(void *args, struct tid_state_s *s)
+static noinline __used int noinline parasite_daemon(void *args)
 {
 	struct ctl_msg m = { };
 	int ret = -1;
@@ -591,7 +466,7 @@ __parasite_daemon_thread_leader(void *args, struct tid_state_s *s)
 	pr_debug("Running daemon thread leader\n");
 
 	/* Reply we're alive */
-	if (__parasite_daemon_reply_ack(0, PARASITE_CMD_DAEMONIZE, 0))
+	if (__parasite_daemon_reply_ack(PARASITE_CMD_DAEMONIZE, 0))
 		goto out;
 
 	while (1) {
@@ -600,17 +475,14 @@ __parasite_daemon_thread_leader(void *args, struct tid_state_s *s)
 
 		switch (m.cmd) {
 		case PARASITE_CMD_FINI:
-			ret = fini(s);
+			ret = fini();
 			sys_close(tsock);
 			/*
 			 * No ACK here since we're getting out.
 			 */
 			break;
-		case PARASITE_CMD_FINI_THREAD:
-			ret = __parasite_execute_thread(&m);
-			break;
 		case PARASITE_CMD_DUMP_THREAD:
-			ret = __parasite_execute_thread(&m);
+			ret = dump_thread(args);
 			break;
 		case PARASITE_CMD_DUMPPAGES:
 			ret = dump_pages(args);
@@ -648,31 +520,12 @@ __parasite_daemon_thread_leader(void *args, struct tid_state_s *s)
 			break;
 		}
 
-		if (__parasite_daemon_reply_ack(m.id, m.cmd, ret))
+		if (__parasite_daemon_reply_ack(m.cmd, ret))
 			break;
 	}
 
 out:
-	fini(&tid_state[0]);
-
-	return;
-}
-
-static int noinline parasite_daemon(struct parasite_init_args *args)
-{
-	struct tid_state_s *s;
-	bool is_leader = (args->id == 0);
-
-	s = &tid_state[args->id];
-
-	pr_info("Parasite entering daemon mode for %d\n", s->id);
-
-	if (is_leader)
-		__parasite_daemon_thread_leader(args, s);
-	else
-		__parasite_daemon_thread(args, s);
-
-	pr_info("Parasite leaving daemon mode for %d\n", s->id);
+	fini();
 
 	return 0;
 }

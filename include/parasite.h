@@ -51,17 +51,16 @@ enum {
 };
 
 struct ctl_msg {
-	unsigned int	id;			/* command recipient */
 	unsigned int	cmd;			/* command itself */
 	unsigned int	ack;			/* ack on command */
 	int		err;			/* error code on reply */
 };
 
-#define ctl_msg_cmd(_id, _cmd)		\
-	(struct ctl_msg){ .id = _id, .cmd = _cmd, }
+#define ctl_msg_cmd(_cmd)		\
+	(struct ctl_msg){.cmd = _cmd, }
 
-#define ctl_msg_ack(_id, _cmd, _err)	\
-	(struct ctl_msg){ .id = _id, .cmd = _cmd, .ack = _cmd, .err = _err, }
+#define ctl_msg_ack(_cmd, _err)	\
+	(struct ctl_msg){.cmd = _cmd, .ack = _cmd, .err = _err, }
 
 struct parasite_init_args {
 	int			id;

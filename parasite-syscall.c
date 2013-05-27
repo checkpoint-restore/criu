@@ -253,7 +253,7 @@ static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 
 	ret = send(sockfd, m, sizeof(*m), 0);
 	if (ret == -1) {
-		pr_perror("Failed to send command %d to daemon %d\n", m->cmd, m->id);
+		pr_perror("Failed to send command %d to daemon\n", m->cmd);
 		return -1;
 	} else if (ret != sizeof(*m)) {
 		pr_err("Message to daemon is trimmed (%d/%d)\n",
@@ -261,32 +261,32 @@ static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 		return -1;
 	}
 
-	pr_debug("Sent msg to daemon %d %d %d %d\n", m->id, m->cmd, m->ack, m->err);
+	pr_debug("Sent msg to daemon %d %d %d\n", m->cmd, m->ack, m->err);
 	return 0;
 }
 
-static int parasite_wait_ack(int sockfd, int id, unsigned int cmd, struct ctl_msg *m)
+static int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
 {
 	int ret;
 
-	pr_debug("Wait for ack %d-%d on daemon socket\n", id, cmd);
+	pr_debug("Wait for ack %d on daemon socket\n", cmd);
 
 	while (1) {
 		memzero(m, sizeof(*m));
 
 		ret = recv(sockfd, m, sizeof(*m), MSG_WAITALL);
 		if (ret == -1) {
-			pr_perror("Failed to read ack from %d", id);
+			pr_perror("Failed to read ack");
 			return -1;
 		} else if (ret != sizeof(*m)) {
 			pr_err("Message reply from daemon is trimmed (%d/%d)\n",
 			       (int)sizeof(*m), ret);
 			return -1;
 		}
-		pr_debug("Fetched ack: %d %d %d %d\n",
-			 m->id, m->cmd, m->ack, m->err);
+		pr_debug("Fetched ack: %d %d %d\n",
+			 m->cmd, m->ack, m->err);
 
-		if (m->id != id || m->cmd != cmd || m->ack != cmd) {
+		if (m->cmd != cmd || m->ack != cmd) {
 			pr_err("Communication error, this is not "
 			       "the ack we expected\n");
 			return -1;
@@ -298,46 +298,41 @@ static int parasite_wait_ack(int sockfd, int id, unsigned int cmd, struct ctl_ms
 }
 
 int __parasite_execute_daemon_wait_ack(unsigned int cmd,
-					struct parasite_ctl *ctl, int id)
+					struct parasite_ctl *ctl)
 {
 	struct ctl_msg m;
 
-	if (parasite_wait_ack(ctl->tsock, id, cmd, &m))
+	if (parasite_wait_ack(ctl->tsock, cmd, &m))
 		return -1;
 
 	if (m.err != 0) {
-		pr_err("Command %d for daemon %d failed with %d\n",
-		       cmd, id, m.err);
+		pr_err("Command %d for daemon failed with %d\n",
+		       cmd, m.err);
 		return -1;
 	}
 
 	return 0;
 }
 
-int __parasite_execute_daemon_by_id(unsigned int cmd,
-				struct parasite_ctl *ctl, int id, bool wait_ack)
+int __parasite_execute_daemon(unsigned int cmd,
+				struct parasite_ctl *ctl, bool wait_ack)
 {
 	struct ctl_msg m;
 
-	m = ctl_msg_cmd(id, cmd);
+	m = ctl_msg_cmd(cmd);
 	if (__parasite_send_cmd(ctl->tsock, &m))
 		return -1;
 
 	if (wait_ack)
-		return __parasite_execute_daemon_wait_ack(cmd, ctl, id);
+		return __parasite_execute_daemon_wait_ack(cmd, ctl);
 
 	return 0;
 }
 
-static int parasite_execute_daemon_by_id(unsigned int cmd,
-					struct parasite_ctl *ctl, int id)
+int parasite_execute_daemon(unsigned int cmd,
+					struct parasite_ctl *ctl)
 {
-	return __parasite_execute_daemon_by_id(cmd, ctl, id, true);
-}
-
-int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	return parasite_execute_daemon_by_id(cmd, ctl, 0);
+	return __parasite_execute_daemon(cmd, ctl, true);
 }
 
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
@@ -493,13 +488,13 @@ static int parasite_daemonize(struct parasite_ctl *ctl, int id)
 
 	pr_info("Wait for parasite being daemonized...\n");
 
-	if (parasite_wait_ack(ctl->tsock, id, PARASITE_CMD_DAEMONIZE, &m)) {
+	if (parasite_wait_ack(ctl->tsock, PARASITE_CMD_DAEMONIZE, &m)) {
 		pr_err("Can't switch parasite %d to daemon mode %d\n",
 		       pid, m.err);
 		goto err;
 	}
 
-	thread->daemonized = true;
+	ctl->daemonized = true;
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
 
@@ -684,8 +679,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	args = parasite_args_s(ctl, size);
 	memcpy(args, dfds, size);
 
-	ret = __parasite_execute_daemon_by_id(PARASITE_CMD_DRAIN_FDS, ctl,
-					       0, false);
+	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl, false);
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
@@ -695,7 +689,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 
-	ret |= __parasite_execute_daemon_wait_ack(PARASITE_CMD_DRAIN_FDS, ctl, 0);
+	ret |= __parasite_execute_daemon_wait_ack(PARASITE_CMD_DRAIN_FDS, ctl);
 err:
 	return ret;
 }
@@ -823,8 +817,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 {
 	int ret = -1, fd;
 
-	ret = __parasite_execute_daemon_by_id(PARASITE_CMD_GET_PROC_FD, ctl,
-					       0, false);
+	ret = __parasite_execute_daemon(PARASITE_CMD_GET_PROC_FD, ctl, false);
 	if (ret) {
 		pr_err("Parasite failed to get proc fd\n");
 		return ret;
@@ -833,7 +826,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	fd = recv_fd(ctl->tsock);
 	if (fd < 0)
 		pr_err("Can't retrieve FD from socket\n");
-	if (__parasite_execute_daemon_wait_ack(PARASITE_CMD_GET_PROC_FD, ctl, 0)) {
+	if (__parasite_execute_daemon_wait_ack(PARASITE_CMD_GET_PROC_FD, ctl)) {
 		close(fd);
 		return -1;
 	}
@@ -890,39 +883,34 @@ err:
 
 static int parasite_fini_seized(struct parasite_ctl *ctl)
 {
-	int status, ret = 0, i, nr = 0, nr_dmnz = 0;
+	pid_t pid = ctl->pid.real;
+	int status, ret = 0;;
+
+	if (!ctl->daemonized)
+		return 0;
 
 	/* Start to trace syscalls for each thread */
-	for (i = 0; i < ctl->nr_threads; i++) {
-		pid_t pid = ctl->threads[i].tid;
+	ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 
-		if (!ctl->threads[i].daemonized)
-			break;
-
-		ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
-
-		pr_debug("Waiting for %d to trap\n", pid);
-		if (wait4(pid, &status, __WALL, NULL) != pid) {
-			pr_perror("Waited pid mismatch (pid: %d)", pid);
-			return -1;
-		}
-
-		pr_debug("Daemon %d exited trapping\n", pid);
-		if (!WIFSTOPPED(status)) {
-			pr_err("Task is still running (pid: %d)\n", pid);
-			return -1;
-		}
-
-		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		if (ret) {
-			pr_perror("ptrace");
-			return -1;
-		}
-
-		nr_dmnz++;
+	pr_debug("Waiting for %d to trap\n", pid);
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_perror("Waited pid mismatch (pid: %d)", pid);
+		return -1;
 	}
 
-	ret = __parasite_execute_daemon_by_id(PARASITE_CMD_FINI, ctl, 0, false);
+	pr_debug("Daemon %d exited trapping\n", pid);
+	if (!WIFSTOPPED(status)) {
+		pr_err("Task is still running (pid: %d)\n", pid);
+		return -1;
+	}
+
+	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("ptrace");
+		return -1;
+	}
+
+	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl, false);
 	if (ret)
 		return -1;
 
@@ -950,11 +938,8 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 
 		pr_debug("%d is going to execute the syscall %lx\n", pid, regs.orig_ax);
 		if (regs.orig_ax == __NR_rt_sigreturn) {
-			nr++;
 			pr_debug("%d was stopped\n", pid);
-			if (nr == nr_dmnz)
-				break;
-			continue;
+			break;
 		}
 
 		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -964,31 +949,23 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		}
 	}
 
-	/* Stop all threads on the exit point from sys_rt_sigreturn */
-	for (i = 0; i < ctl->nr_threads; i++) {
-		pid_t pid = ctl->threads[i].tid;
+	ctl->threads[0].use_sig_blocked = false;
 
-		if (!ctl->threads[i].daemonized)
-			break;
+	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("ptrace");
+		return -1;
+	}
 
-		ctl->threads[i].use_sig_blocked = false;
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_perror("wait4 failed");
+		return -1;
+	}
 
-		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		if (ret) {
-			pr_perror("ptrace");
-			return -1;
-		}
-
-		if (wait4(pid, &status, __WALL, NULL) != pid) {
-			pr_perror("wait4 failed");
-			return -1;
-		}
-
-		pr_debug("Trap %d\n", pid);
-		if (!WIFSTOPPED(status)) {
-			pr_err("%d\n", status);
-			return -1;
-		}
+	pr_debug("Trap %d\n", pid);
+	if (!WIFSTOPPED(status)) {
+		pr_err("%d\n", status);
+		return -1;
 	}
 
 	return ret;

@@ -10,8 +10,6 @@ struct parasite_thread_ctl
 	pid_t			tid;
 	user_regs_struct_t	regs_orig;				/* original registers */
 
-	bool			daemonized;
-
 	k_rtsigset_t		sig_blocked;
 	bool			use_sig_blocked;
 
@@ -26,6 +24,8 @@ struct parasite_ctl {
 	void			*remote_map;
 	void			*local_map;
 	unsigned long		map_length;
+
+	bool			daemonized;
 
 	unsigned long		parasite_ip;				/* service routine start ip */
 	unsigned long		syscall_ip;				/* entry point of infection */
@@ -52,11 +52,10 @@ extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdse
 void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
 int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
 int parasite_send_fd(struct parasite_ctl *ctl, int fd);
-int __parasite_execute_daemon_by_id(unsigned int cmd,
-					struct parasite_ctl *ctl,
-					int id, bool wait_ack);
+int __parasite_execute_daemon(unsigned int cmd,
+				struct parasite_ctl *ctl, bool wait_ack);
 int __parasite_execute_daemon_wait_ack(unsigned int cmd,
-					struct parasite_ctl *ctl, int id);
+					struct parasite_ctl *ctl);
 
 struct parasite_dump_misc;
 struct vm_area_list;
