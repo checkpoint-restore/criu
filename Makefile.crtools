@@ -39,6 +39,7 @@ obj-y	+= fsnotify.o
 obj-y	+= signalfd.o
 obj-y	+= pstree.o
 obj-y	+= protobuf.o
+obj-y	+= protobuf-desc.o
 obj-y	+= tty.o
 obj-y	+= cr-exec.o
 obj-y	+= file-lock.o
