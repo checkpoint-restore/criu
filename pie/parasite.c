@@ -177,23 +177,6 @@ static int dump_thread(struct parasite_dump_thread *args)
 	return 0;
 }
 
-static int init_daemon_thread(struct parasite_init_args *args)
-{
-	k_rtsigset_t to_block;
-	int ret;
-
-	ksigfillset(&to_block);
-	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
-			      &args->sig_blocked,
-			      sizeof(k_rtsigset_t));
-	if (ret)
-		return -1;
-
-	sigframe = args->sigframe;
-
-	return ret;
-}
-
 static int init_thread(struct parasite_dump_thread *args)
 {
 	k_rtsigset_t to_block;
@@ -230,25 +213,37 @@ static int fini_thread(struct parasite_dump_thread *args)
 
 static int init(struct parasite_init_args *args)
 {
+	k_rtsigset_t to_block;
 	int ret;
 
-	ret = init_daemon_thread(args);
-	if (ret < 0)
-		return ret;
+	sigframe = args->sigframe;
+
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
+			      &args->sig_blocked,
+			      sizeof(k_rtsigset_t));
+	if (ret)
+		return -1;
 
 	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (tsock < 0)
-		return tsock;
+	if (tsock < 0) {
+		ret = tsock;
+		goto err;
+	}
 
 	ret = sys_bind(tsock, (struct sockaddr *) &args->p_addr, args->p_addr_len);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	return 0;
+err:
+	sys_sigprocmask(SIG_SETMASK, &args->sig_blocked,
+				NULL, sizeof(k_rtsigset_t));
+	return ret;
 }
 
 static char proc_mountpoint[] = "proc.crtools";
