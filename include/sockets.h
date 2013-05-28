@@ -13,7 +13,6 @@
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;
-struct cr_options;
 struct file_desc;
 struct fd_parms;
 struct cr_fdset;

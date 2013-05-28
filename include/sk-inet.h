@@ -67,7 +67,6 @@ int restore_one_tcp(int sk, struct inet_sk_info *si);
 
 #define SK_EST_PARAM	"tcp-established"
 
-struct cr_options;
 void show_tcp_stream(int fd);
 
 int check_tcp(void);

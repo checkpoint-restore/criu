@@ -92,7 +92,7 @@ static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 	return 0;
 }
 
-static int crtools_prepare_shared(struct cr_options *opts)
+static int crtools_prepare_shared(void)
 {
 	if (prepare_shared_fdinfo())
 		return -1;
@@ -101,7 +101,7 @@ static int crtools_prepare_shared(struct cr_options *opts)
 	if (collect_inet_sockets())
 		return -1;
 
-	if (tty_prep_fds(opts))
+	if (tty_prep_fds())
 		return -1;
 
 	return 0;
@@ -1188,7 +1188,7 @@ static int restore_switch_stage(int next_stage)
 	return 0;
 }
 
-static int restore_root_task(struct pstree_item *init, struct cr_options *opts)
+static int restore_root_task(struct pstree_item *init)
 {
 	int ret;
 	struct sigaction act, old_act;
@@ -1288,7 +1288,7 @@ out:
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
-	if (!opts->restore_detach)
+	if (!opts.restore_detach)
 		wait(NULL);
 	return 0;
 }
@@ -1309,7 +1309,7 @@ static int prepare_task_entries()
 	return 0;
 }
 
-int cr_restore_tasks(struct cr_options *opts)
+int cr_restore_tasks(void)
 {
 	if (check_img_inventory() < 0)
 		return -1;
@@ -1326,10 +1326,10 @@ int cr_restore_tasks(struct cr_options *opts)
 	if (prepare_pstree() < 0)
 		return -1;
 
-	if (crtools_prepare_shared(opts) < 0)
+	if (crtools_prepare_shared() < 0)
 		return -1;
 
-	return restore_root_task(root_item, opts);
+	return restore_root_task(root_item);
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,

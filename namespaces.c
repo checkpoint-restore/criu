@@ -470,7 +470,7 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	return 0;
 }
 
-int try_show_namespaces(int ns_pid, struct cr_options *o)
+int try_show_namespaces(int ns_pid)
 {
 	struct cr_fdset *fdset;
 	int i;

@@ -3,7 +3,6 @@
 
 #include "crtools.h"
 
-struct cr_options;
 extern void show_ipc_var(int fd);
 extern void show_ipc_shm(int fd);
 extern void show_ipc_msg(int fd);

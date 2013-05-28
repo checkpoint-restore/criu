@@ -329,11 +329,11 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "restore")) {
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
-		return cr_restore_tasks(&opts);
+		return cr_restore_tasks();
 	}
 
 	if (!strcmp(argv[optind], "show"))
-		return cr_show(&opts, pid);
+		return cr_show(pid);
 
 	if (!strcmp(argv[optind], "check"))
 		return cr_check();

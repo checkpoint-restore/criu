@@ -3,7 +3,6 @@
 
 #include "list.h"
 
-struct cr_options;
 void show_netdevices(int fd);
 
 struct cr_fdset;

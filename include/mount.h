@@ -12,7 +12,6 @@ extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
 extern int dump_mnt_ns(int pid, struct cr_fdset *);
-struct cr_options;
 extern void show_mountpoints(int fd);
 int prepare_mnt_ns(int pid);
 

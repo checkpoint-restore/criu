@@ -5,8 +5,6 @@
 #include "pstree.h"
 #include "files.h"
 
-struct cr_options;
-
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
@@ -31,7 +29,7 @@ extern int collect_ns_files(void);
 
 int dump_namespaces(struct pid *pid, unsigned int ns_flags);
 int prepare_namespace(int pid, unsigned long clone_flags);
-int try_show_namespaces(int pid, struct cr_options *o);
+int try_show_namespaces(int pid);
 
 int switch_ns(int pid, struct ns_desc *nd, int *rst);
 int restore_ns(int rst, struct ns_desc *nd);
