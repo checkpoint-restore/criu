@@ -90,4 +90,6 @@ struct cr_fd_desc_tmpl {
 	void		(*show)(int fd);
 };
 
+extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
+
 #endif /* __CR_IMAGE_DESC_H__ */
