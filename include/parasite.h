@@ -66,9 +66,6 @@ struct parasite_init_args {
 	int			h_addr_len;
 	struct sockaddr_un	h_addr;
 
-	int			p_addr_len;
-	struct sockaddr_un	p_addr;
-
 	k_rtsigset_t		sig_blocked;
 
 	struct rt_sigframe	*sigframe;

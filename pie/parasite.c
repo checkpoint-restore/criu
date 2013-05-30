@@ -225,15 +225,11 @@ static int init(struct parasite_init_args *args)
 	if (ret)
 		return -1;
 
-	tsock = sys_socket(PF_UNIX, SOCK_DGRAM, 0);
+	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
 	if (tsock < 0) {
 		ret = tsock;
 		goto err;
 	}
-
-	ret = sys_bind(tsock, (struct sockaddr *) &args->p_addr, args->p_addr_len);
-	if (ret < 0)
-		goto err;
 
 	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
 	if (ret < 0)

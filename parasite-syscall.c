@@ -376,17 +376,18 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 
 static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 {
+	static int ssock = -1;
+
 	struct parasite_init_args *args;
-	static int sock = -1;
+	int sock;
 
 	args = parasite_args(ctl, struct parasite_init_args);
 
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
-	args->p_addr_len = gen_parasite_saddr(&args->p_addr, pid);
 	args->sigframe = ctl->rsigframe;
 
-	if (sock == -1) {
+	if (ssock == -1) {
 		int rst = -1;
 
 		if (current_ns_mask & CLONE_NEWNET) {
@@ -396,32 +397,22 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 				return -1;
 		}
 
-		sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-		if (sock < 0)
+		ssock = socket(PF_UNIX, SOCK_STREAM, 0);
+		if (ssock < 0)
 			pr_perror("Can't create socket");
 
 		if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
 			return -1;
-		if (sock < 0)
+		if (ssock < 0)
 			return -1;
 
-		if (bind(sock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
+		if (bind(ssock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
 			pr_perror("Can't bind socket");
 			goto err;
 		}
 
-	} else {
-		struct sockaddr addr = { .sa_family = AF_UNSPEC, };
-
-		/*
-		 * When the peer of a dgram socket dies the original socket
-		 * remains in connected state, thus denying any connections
-		 * from "other" sources. Unconnect the socket by hands thus
-		 * allowing for parasite to connect back.
-		 */
-
-		if (connect(sock, &addr, sizeof(addr)) < 0) {
-			pr_perror("Can't unconnect");
+		if (listen(ssock, 1)) {
+			pr_perror("Can't listen on transport socket");
 			goto err;
 		}
 	}
@@ -434,15 +425,16 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 	ctl->sig_blocked = args->sig_blocked;
 	ctl->use_sig_blocked = true;
 
-	if (connect(sock, (struct sockaddr *)&args->p_addr, args->p_addr_len) < 0) {
-		pr_perror("Can't connect a transport socket");
+	sock = accept(ssock, NULL, 0);
+	if (sock < 0) {
+		pr_perror("Can't accept connection to the transport socket");
 		goto err;
 	}
 
 	ctl->tsock = sock;
 	return 0;
 err:
-	close_safe(&sock);
+	close_safe(&ssock);
 	return -1;
 }
 
