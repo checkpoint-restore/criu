@@ -26,12 +26,12 @@ include Makefile.config
 FIND		:= find
 CSCOPE		:= cscope
 RM		:= rm -f
-LD		:= ld
-CC		?= gcc
-NM		:= nm
+LD		:= $(CROSS_COMPILE)ld
+CC		:= $(CROSS_COMPILE)gcc
+NM		:= $(CROSS_COMPILE)nm
 SH		:= bash
 MAKE		:= make
-OBJCOPY		:= objcopy
+OBJCOPY		:= $(CROSS_COMPILE)objcopy
 
 #
 # Fetch ARCH from the uname if not yet set
