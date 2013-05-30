@@ -33,6 +33,8 @@ setitimer			38	104	(int which, const struct itimerval *val, struct itimerval *ol
 getpid				39	20	(void)
 socket				41	281	(int domain, int type, int protocol)
 connect				42	283	(int sockfd, struct sockaddr *addr, int addrlen)
+sendto				44	290	(int sockfd, void *buff, size_t len, unsigned int flags, struct sockaddr *addr, int addr_len)
+recvfrom			52	292	(int sockfd, void *ubuf, size_t size, unsigned int flags, struct sockaddr *addr, int *addr_len)
 sendmsg				46	296	(int sockfd, const struct msghdr *msg, int flags)
 recvmsg				47	297	(int sockfd, struct msghdr *msg, int flags)
 bind				49	282	(int sockfd, const struct sockaddr *addr, int addrlen)
