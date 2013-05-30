@@ -38,7 +38,7 @@ $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin $(obj)/$(GEN-OFFSETS)
 	$(E) "  GEN     " $@
-	$(Q) $(SH) $(obj)/$(GEN-OFFSETS) $(@:-blob.h=) $(notdir $(@:-blob.h=)) > $@
+	$(Q) $(SH) $(obj)/$(GEN-OFFSETS) $(@:-blob.h=) $(notdir $(@:-blob.h=)) $(CROSS_COMPILE) > $@
 
 $(BLOBS): $(obj)/$(PIELDS)
 _all += $(BLOBS)

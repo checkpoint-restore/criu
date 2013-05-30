@@ -5,6 +5,13 @@ set -u
 
 FILE=$1
 NAME=$2
+
+if test $# -ge 3; then
+CROSS_COMPILE=$3
+else
+CROSS_COMPILE=
+fi
+
 INC_GUARD=__${NAME}_h__
 PREFIX=${NAME}_blob_offset__
 BLOB=${NAME}_blob
@@ -20,7 +27,7 @@ cat << EOF
 
 EOF
 
-nm $OBJNAME | grep "__export_" | tr . _ | awk "$AWK_CMD"
+${CROSS_COMPILE}nm $OBJNAME | grep "__export_" | tr . _ | awk "$AWK_CMD"
 
 cat << EOF
 
