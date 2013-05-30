@@ -131,6 +131,7 @@ struct rt_sigframe {
 		     : "memory")
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+#define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->uc.uc_mcontext.rip
 
 #define SIGFRAME_OFFSET 8
 

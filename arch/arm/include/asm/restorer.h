@@ -124,6 +124,7 @@ struct rt_sigframe {
 
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->sig.uc
+#define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->sig.uc.uc_mcontext.arm_ip
 
 #define SIGFRAME_OFFSET 0
 

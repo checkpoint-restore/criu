@@ -441,7 +441,7 @@ static int fini()
 
 	new_sp = (long)sigframe + SIGFRAME_OFFSET;
 	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
-		  new_sp, sigframe->uc.uc_mcontext.rip);
+		  new_sp, RT_SIGFRAME_REGIP(sigframe));
 
 	sys_close(tsock);
 	log_set_fd(-1);
