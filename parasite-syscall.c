@@ -730,7 +730,8 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 
 		off = (vma->vma.start / PAGE_SIZE) * sizeof(u64);
 		if (lseek(fd, off, SEEK_SET) != off) {
-			pr_perror("Failed to seek address %lx\n", vma->vma.start);
+			pr_perror("Failed to seek address %lx\n",
+				  (long unsigned int)vma->vma.start);
 			ret = -1;
 			goto err;
 		}
