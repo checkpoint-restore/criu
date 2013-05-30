@@ -40,7 +40,7 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 {
 	regs->ARM_pc = new_ip;
 	if (stack)
-		regs->ARM_sp = stack;
+		regs->ARM_sp = (unsigned long)stack;
 
 	/* Avoid end of syscall processing */
 	regs->ARM_ORIG_r0 = -1;
