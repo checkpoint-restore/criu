@@ -209,6 +209,7 @@ typedef struct {
 
 #define REG_RES(regs) ((regs).ARM_r0)
 #define REG_IP(regs)  ((regs).ARM_pc)
+#define REG_SYSCALL_NR(regs) ((regs).ARM_r7)
 
 #define TASK_SIZE 0xbf000000
 

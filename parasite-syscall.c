@@ -739,8 +739,8 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 			return -1;
 		}
 
-		pr_debug("%d is going to execute the syscall %lx\n", pid, regs.orig_ax);
-		if (regs.orig_ax == __NR_rt_sigreturn) {
+		pr_debug("%d is going to execute the syscall %lx\n", pid, REG_SYSCALL_NR(regs));
+		if (REG_SYSCALL_NR(regs) == __NR_rt_sigreturn) {
 			pr_debug("%d was stopped\n", pid);
 			break;
 		}

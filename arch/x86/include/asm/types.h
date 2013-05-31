@@ -237,6 +237,7 @@ typedef uint64_t auxv_t;
 
 #define REG_RES(regs) ((regs).ax)
 #define REG_IP(regs)  ((regs).ip)
+#define REG_SYSCALL_NR(regs)	((regs).orig_ax)
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 
