@@ -162,6 +162,7 @@ struct shmems {
 #define TASK_ENTRIES_SIZE 4096
 
 enum {
+	CR_STATE_RESTORE_NS, /* is used for executing "setup-namespace" scripts */
 	CR_STATE_FORKING,
 	CR_STATE_RESTORE_PGID,
 	CR_STATE_RESTORE,

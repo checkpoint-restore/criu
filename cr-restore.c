@@ -931,6 +931,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 
 	exit = (siginfo->si_code == CLD_EXITED);
 	status = siginfo->si_status;
+
+	/* skip scripts */
+	if (!current && root_item->pid.real != pid) {
+		pid = waitpid(root_item->pid.real, &status, WNOHANG);
+		if (pid <= 0)
+			return;
+	}
+
 	if (!current || status)
 		goto err;
 
@@ -1091,6 +1099,8 @@ static int restore_task_with_children(void *_arg)
 		if (mount_proc())
 			exit(1);
 
+		restore_finish_stage(CR_STATE_RESTORE_NS);
+
 		if (root_prepare_shared())
 			exit(1);
 	}
@@ -1158,6 +1168,8 @@ static int restore_task_with_children(void *_arg)
 static inline int stage_participants(int next_stage)
 {
 	switch (next_stage) {
+	case CR_STATE_RESTORE_NS:
+		return 1;
 	case CR_STATE_FORKING:
 		return task_entries->nr_tasks + task_entries->nr_helpers;
 	case CR_STATE_RESTORE_PGID:
@@ -1173,7 +1185,7 @@ static inline int stage_participants(int next_stage)
 	return -1;
 }
 
-static int restore_switch_stage(int next_stage)
+static int restore_wait_inprogress_tasks()
 {
 	int ret;
 	futex_t *np = &task_entries->nr_in_progress;
@@ -1183,7 +1195,19 @@ static int restore_switch_stage(int next_stage)
 	if (ret < 0)
 		return ret;
 
-	futex_set(np, stage_participants(next_stage));
+	return 0;
+}
+
+static int restore_switch_stage(int next_stage)
+{
+	int ret;
+
+	ret = restore_wait_inprogress_tasks();
+	if (ret)
+		return ret;
+
+	futex_set(&task_entries->nr_in_progress,
+			stage_participants(next_stage));
 	futex_set_and_wake(&task_entries->start, next_stage);
 	return 0;
 }
@@ -1230,11 +1254,25 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 	}
 
-	futex_set(&task_entries->nr_in_progress, stage_participants(CR_STATE_FORKING));
+	futex_set(&task_entries->nr_in_progress,
+			stage_participants(CR_STATE_RESTORE_NS));
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
 		return -1;
+
+	pr_info("Wait until namespaces are created\n");
+	ret = restore_wait_inprogress_tasks();
+	if (ret)
+		goto out;
+
+	ret = run_scripts("setup-namespaces");
+	if (ret)
+		goto out;
+
+	ret = restore_switch_stage(CR_STATE_FORKING);
+	if (ret < 0)
+		goto out;
 
 	pr_info("Wait until all tasks are forked\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
@@ -1303,7 +1341,7 @@ static int prepare_task_entries()
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
-	futex_set(&task_entries->start, CR_STATE_FORKING);
+	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->zombie_lock);
 
 	return 0;
