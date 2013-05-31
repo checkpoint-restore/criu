@@ -5,6 +5,18 @@
 
 #include "pstree.h"
 
+struct parasite_dump_thread;
+struct parasite_dump_misc;
+struct parasite_drain_fd;
+struct vm_area_list;
+struct pstree_item;
+struct _CredsEntry;
+struct _CoreEntry;
+struct list_head;
+struct cr_fdset;
+struct fd_opts;
+struct pid;
+
 /* parasite control block */
 struct parasite_ctl {
 	struct pid		pid;
@@ -38,9 +50,6 @@ struct parasite_ctl {
 	struct page_pipe	*mem_pp;
 };
 
-struct cr_fdset;
-struct list_head;
-
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
@@ -50,33 +59,24 @@ extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdse
 		ctl->addr_args;						\
 	})
 
-void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
-int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
-int parasite_send_fd(struct parasite_ctl *ctl, int fd);
-int __parasite_execute_daemon(unsigned int cmd,
-				struct parasite_ctl *ctl, bool wait_ack);
-int __parasite_execute_daemon_wait_ack(unsigned int cmd,
-					struct parasite_ctl *ctl);
+extern void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
+extern int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
+extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
+extern int __parasite_execute_daemon(unsigned int cmd,
+				     struct parasite_ctl *ctl, bool wait_ack);
+extern int __parasite_execute_daemon_wait_ack(unsigned int cmd,
+					      struct parasite_ctl *ctl);
 
-struct parasite_dump_misc;
-struct vm_area_list;
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
-struct _CredsEntry;
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
-struct parasite_dump_thread;
-struct pid;
-struct _CoreEntry;
 extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 					struct pid *tid, struct _CoreEntry *core);
 
-struct parasite_drain_fd;
-struct fd_opts;
 extern int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 					struct parasite_drain_fd *dfds,
 					int *lfds, struct fd_opts *flags);
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
-struct pstree_item;
 extern int parasite_cure_remote(struct parasite_ctl *ctl);
 extern int parasite_cure_local(struct parasite_ctl *ctl);
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
@@ -90,22 +90,18 @@ extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
 
-struct pstree_item;
 extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
 
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6);
+extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+			  unsigned long arg1, unsigned long arg2,
+			  unsigned long arg3, unsigned long arg4,
+			  unsigned long arg5, unsigned long arg6);
 
 extern int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
-					user_regs_struct_t *regs,
-					user_regs_struct_t *regs_orig,
-					bool signals_blocked);
+				   user_regs_struct_t *regs,
+				   user_regs_struct_t *regs_orig,
+				   bool signals_blocked);
 extern bool arch_can_dump_task(pid_t pid);
 
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
