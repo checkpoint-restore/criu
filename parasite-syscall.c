@@ -197,11 +197,6 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 	return ctl->addr_args;
 }
 
-#define parasite_args(ctl, type) ({				\
-		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);\
-		ctl->addr_args;					\
-	})
-
 static int parasite_execute_trap_by_pid(unsigned int cmd,
 					struct parasite_ctl *ctl, pid_t pid,
 					user_regs_struct_t *regs_orig,

@@ -44,6 +44,12 @@ struct list_head;
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
+#define parasite_args(ctl, type)					\
+	({								\
+		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);	\
+		ctl->addr_args;						\
+	})
+
 void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
 int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
 int parasite_send_fd(struct parasite_ctl *ctl, int fd);
