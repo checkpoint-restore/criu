@@ -21,11 +21,11 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
 
 	sigframe->fpu_state.has_fpu = true;
-	if (sigreturn_prep_fpu_frame(&sigframe->fpu_state, core))
+	if (restore_fpu(&sigframe->fpu_state, core))
 		return -1;
 
 	if (sigframe->fpu_state.has_fpu)
-		if (restore_fpu(sigframe, &rsigframe->fpu_state))
+		if (sigreturn_prep_fpu_frame(sigframe, &rsigframe->fpu_state))
 			return -1;
 
 	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))

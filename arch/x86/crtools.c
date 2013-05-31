@@ -373,7 +373,7 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 	pr_debug("-----------------------\n");
 }
 
-int sigreturn_prep_fpu_frame(fpu_state_t *fpu_state, CoreEntry *core)
+int restore_fpu(fpu_state_t *fpu_state, CoreEntry *core)
 {
 	struct xsave_struct *x = &fpu_state->xsave;
 
@@ -479,7 +479,7 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	return 0;
 }
 
-int restore_fpu(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
+int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
 {
 	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
 
