@@ -42,9 +42,6 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 	if (stack)
 		regs->ARM_sp = (unsigned long)stack;
 
-	/* Avoid end of syscall processing */
-	regs->ARM_ORIG_r0 = -1;
-
 	/* Make sure flags are in known state */
 	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | MODE32_BIT;
 }
