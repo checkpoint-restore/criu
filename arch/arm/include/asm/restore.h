@@ -20,6 +20,6 @@ static inline void core_get_tls(CoreEntry *pcore, u32 *ptls)
 }
 
 
-int restore_fpu(fpu_state_t *fpu_state, CoreEntry *core);
+int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core);
 
 #endif

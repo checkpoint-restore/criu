@@ -373,8 +373,9 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 	pr_debug("-----------------------\n");
 }
 
-int restore_fpu(fpu_state_t *fpu_state, CoreEntry *core)
+int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
+	fpu_state_t *fpu_state = &sigframe->fpu_state;
 	struct xsave_struct *x = &fpu_state->xsave;
 
 	/*

@@ -21,7 +21,7 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
 
 	sigframe->fpu_state.has_fpu = true;
-	if (restore_fpu(&sigframe->fpu_state, core))
+	if (restore_fpu(sigframe, core))
 		return -1;
 
 	if (sigframe->fpu_state.has_fpu)

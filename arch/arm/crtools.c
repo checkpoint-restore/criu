@@ -197,10 +197,12 @@ void arch_free_thread_info(CoreEntry *core)
 	}
 }
 
-int restore_fpu(fpu_state_t *fpu_state, CoreEntry *core)
+int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
-	memcpy(fpu_state->ufp.fpregs, CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs,
-		sizeof(fpu_state->ufp.fpregs));
+	struct aux_sigframe *aux = (struct aux_sigframe *)&sigframe->sig.uc.uc_regspace;
+	fpu_state_t *fpu_state = &sigframe->fpu_state;
+
+	memcpy(&aux->vfp.ufp, CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs, sizeof(aux->vfp.ufp));
 	fpu_state->ufp.fpscr = CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr;
 
 	return 0;
@@ -259,7 +261,6 @@ int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_stat
 
 	aux->vfp.magic = VFP_MAGIC;
 	aux->vfp.size = VFP_STORAGE_SIZE;
-	builtin_memcpy(&aux->vfp.ufp, &fpu_state->ufp, sizeof(aux->vfp.ufp));
 
 	return 0;
 }
