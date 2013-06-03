@@ -147,12 +147,12 @@ fanotify00
 sk-netlink
 "
 
-CRTOOLS=$(readlink -f `dirname $0`/../crtools)
-CRTOOLS_CPT=$CRTOOLS
+CRIU=$(readlink -f `dirname $0`/../criu)
+CRIU_CPT=$CRIU
 TMP_TREE=""
 
-test -x $CRTOOLS || {
-	echo "$CRTOOLS is unavailable"
+test -x $CRIU || {
+	echo "$CRIU is unavailable"
 	exit 1
 }
 
@@ -172,7 +172,7 @@ check_mainstream()
 	local -a ver_arr
 	local ver_str=`uname -r`
 
-	$CRTOOLS check && return 0
+	$CRIU check && return 0
 	MAINSTREAM_KERNEL=1
 
 	cat >&2 <<EOF
@@ -255,7 +255,7 @@ start_test()
 	else
 		if [ -z "$ZDTM_ROOT" ]; then
 			mkdir dump
-			ZDTM_ROOT=`mktemp -d /tmp/crtools-root.XXXXXX`
+			ZDTM_ROOT=`mktemp -d /tmp/criu-root.XXXXXX`
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --bind . $ZDTM_ROOT || return 1
 		fi
@@ -356,14 +356,14 @@ EOF
 	mkdir -p $ddump
 
 	if [ $PAGE_SERVER -eq 1 ]; then
-		$CRTOOLS page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT --daemon
+		$CRIU page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT --daemon
 		PS_PID=$!
 		opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 	fi
 
 
 	save_fds $PID  $ddump/dump.fd
-	setsid $CRTOOLS_CPT dump $opts --file-locks --tcp-established $linkremap \
+	setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
 		-x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
@@ -397,7 +397,7 @@ EOF
 		done
 
 		echo Restore
-		setsid $CRTOOLS restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d $args || return 2
+		setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd
@@ -455,9 +455,9 @@ case_error()
 checkout()
 {
 	local commit=`git describe $1` &&
-	TMP_TREE=`dirname $CRTOOLS`/crtools.$commit &&
+	TMP_TREE=`dirname $CRIU`/criu.$commit &&
 	mkdir -p $TMP_TREE &&
-	git --git-dir `dirname $CRTOOLS`/.git archive $commit . | tar -x -C $TMP_TREE &&
+	git --git-dir `dirname $CRIU`/.git archive $commit . | tar -x -C $TMP_TREE &&
 	make -C $TMP_TREE -j 32
 }
 
@@ -478,7 +478,7 @@ while :; do
 	if [ "$1" = "-b" ]; then
 		shift
 		checkout $1 || exit 1
-		CRTOOLS_CPT=$TMP_TREE/crtools
+		CRIU_CPT=$TMP_TREE/criu
 		shift
 		continue
 	fi
