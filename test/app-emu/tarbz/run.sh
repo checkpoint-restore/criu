@@ -2,7 +2,7 @@
 
 source ../../functions.sh || exit 1
 
-crtools="../../../crtools"
+criu="../../../criu"
 DEPTH=3
 SPAN=5
 archref="arch-ref.tar.bz2"
@@ -47,7 +47,7 @@ pid=${!}
 echo "Started tar in $pid background"
 sleep 3
 
-${crtools} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
+${criu} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -55,7 +55,7 @@ ${crtools} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 wait_tasks dump
 echo "Dump OK, restoring"
 
-${crtools} restore --shell-job -D dump -o restore.log -v 4 || {
+${criu} restore --shell-job -D dump -o restore.log -v 4 || {
 	echo "Restore failed"
 	exit 1
 }

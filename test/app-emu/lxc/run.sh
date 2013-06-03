@@ -4,7 +4,7 @@
 
 cd `dirname $0`
 
-crtools="../../../crtools"
+criu="../../../criu"
 
 name=$1
 [ -z "$name" ] && { cat <<EOF
@@ -34,7 +34,7 @@ $CR_IP_TOOL netns exec $name ip a || exit 1
 mkdir data
 
 echo "Dump the CT $name ($pid)"
-${crtools} dump --evasive-devices						\
+${criu} dump --evasive-devices						\
 		--tcp-established						\
 		--file-locks							\
 		-n net -n mnt -n ipc -n pid					\
@@ -46,7 +46,7 @@ echo Press Enter for restoring CT
 read
 
 echo "Restore the CT $name"
-${crtools} restore 	--evasive-devices					\
+${criu} restore 	--evasive-devices					\
 			--tcp-established					\
 			--file-locks						\
 			-n net -n mnt -n ipc -n pid				\

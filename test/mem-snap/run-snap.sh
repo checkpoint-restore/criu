@@ -18,7 +18,7 @@ function fail {
 }
 set -x
 
-CRTOOLS="../../crtools"
+CRIU="../../criu"
 IMGDIR="dump/"
 
 rm -rf "$IMGDIR"
@@ -50,21 +50,21 @@ for SNAP in $(seq 1 $NRSNAP); do
 	fi
 
 	if [ $USEPS -eq 1 ]; then
-		${CRTOOLS} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --port ${PORT} -v 4 &
+		${CRIU} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --port ${PORT} -v 4 &
 		PS_PID=$!
 		ps_args="--page-server --address 127.0.0.1 --port=${PORT}"
 	else
 		ps_args=""
 	fi
 
-	${CRTOOLS} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v 4 $args $ps_args || fail "Fail to dump"
+	${CRIU} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v 4 $args $ps_args || fail "Fail to dump"
 	if [ $USEPS -eq 1 ]; then
 		wait $PS_PID
 	fi
 done
 
 echo "Restoring"
-${CRTOOLS} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v 4 || fail "Fail to restore server"
+${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v 4 || fail "Fail to restore server"
 
 cd ../zdtm/live/static/
 make mem-touch.out

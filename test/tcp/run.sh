@@ -7,7 +7,7 @@ CLN_PIPE="./clnt_pipe"
 SRV_LOG="./srv.log"
 CLN_LOG="./cln.log"
 DDIR="dump"
-CRTOOLS="../../crtools"
+CRIU="../../criu"
 
 TEXT=$(hexdump -C /dev/urandom | head -n 1)
 
@@ -41,10 +41,10 @@ function fail {
 }
 
 echo "Suspend server"
-${CRTOOLS} dump -D ${DDIR} -o dump.log -t ${SRV_PID} --tcp-established -vvvv || fail "Fail to dump server"
+${CRIU} dump -D ${DDIR} -o dump.log -t ${SRV_PID} --tcp-established -vvvv || fail "Fail to dump server"
 sleep 1
 echo "Resume server"
-${CRTOOLS} restore -D ${DDIR} -o restore.log -d --tcp-established -vvvv --close 3 || fail "Fail to restore server"
+${CRIU} restore -D ${DDIR} -o restore.log -d --tcp-established -vvvv --close 3 || fail "Fail to restore server"
 
 echo "Make client run again"
 echo "${TEXT}" >&3

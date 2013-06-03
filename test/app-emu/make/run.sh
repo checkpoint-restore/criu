@@ -2,7 +2,7 @@
 
 source ../../functions.sh || exit 1
 
-crtools="../../../crtools"
+criu="../../../criu"
 
 cleanup_wd() {
 	rm -f "ref-*"
@@ -32,7 +32,7 @@ pid=${!}
 echo Lanuched make in $pid background
 sleep 2
 
-${crtools} dump --shell-job -D dump -o dump.log -v 4  -t ${pid} || {
+${criu} dump --shell-job -D dump -o dump.log -v 4  -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -41,7 +41,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${crtools} restore --shell-job -D dump -o restore.log -v 4 || {
+${criu} restore --shell-job -D dump -o restore.log -v 4 || {
 	echo "Restore failed"
 	exit 1
 }

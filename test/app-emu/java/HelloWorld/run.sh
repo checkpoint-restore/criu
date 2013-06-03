@@ -2,7 +2,7 @@
 
 source ../../../functions.sh || exit 1
 
-crtools="../../../../crtools"
+criu="../../../../criu"
 
 cleanup_class() {
 	rm -f ./*.class
@@ -21,7 +21,7 @@ pid=${!}
 
 echo Lanuched java application with pid $pid in background
 
-${crtools} dump -D dump -o dump.log -v 4 --shell-job -t ${pid} || {
+${criu} dump -D dump -o dump.log -v 4 --shell-job -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -30,7 +30,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${crtools} restore -D dump -o restore.log -v 4 --shell-job || {
+${criu} restore -D dump -o restore.log -v 4 --shell-job || {
 	echo "Restore failed"
 	exit 1
 }

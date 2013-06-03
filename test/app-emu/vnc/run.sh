@@ -2,7 +2,7 @@ set -m
 
 source ../../functions.sh || exit 1
 
-crtools="../../../crtools"
+criu="../../../criu"
 
 mkdir data
 
@@ -10,14 +10,14 @@ mkdir data
 pid=`jobs -p %1`
 bg
 
-$crtools dump -j --tcp-established -D data/ -o dump.log -v 4 -t $pid || {
+$criu dump -j --tcp-established -D data/ -o dump.log -v 4 -t $pid || {
 	echo "Dump failed"
 	exit 1
 }
 
 wait_tasks dump
 
-$crtools restore -j --tcp-established -D data/ -d -o restore.log -v 4 || {
+$criu restore -j --tcp-established -D data/ -d -o restore.log -v 4 || {
 	echo "Restore failed"
 	exit 1
 }
