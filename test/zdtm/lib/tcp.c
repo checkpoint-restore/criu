@@ -44,7 +44,7 @@ int tcp_init_server(int family, int *port)
 
 		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
 
-		/* crtools doesn't restore sock opts, so we need this hack */
+		/* criu doesn't restore sock opts, so we need this hack */
 		if (ret == -1 && errno == EADDRINUSE) {
 			test_msg("The port %d is already in use.\n", *port);
 			(*port)++;

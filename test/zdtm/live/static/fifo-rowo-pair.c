@@ -17,7 +17,7 @@
 #include "zdtmtst.h"
 
 const char *test_doc	= "Test for fifo ro/wo with "
-			  "fake fifo needed on crtools side";
+			  "fake fifo needed on criu side";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *name_master;
