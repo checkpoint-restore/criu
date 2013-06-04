@@ -637,18 +637,11 @@ struct mount_info *mnt_entry_alloc()
 {
 	struct mount_info *new;
 
-	new = xmalloc(sizeof(struct mount_info));
-	if (new == NULL)
-		return NULL;
-
-	new->root	= NULL;
-	new->mountpoint	= NULL;
-	new->source	= NULL;
-	new->options	= NULL;
-
-	new->parent = NULL;
-	INIT_LIST_HEAD(&new->children);
-
+	new = xzalloc(sizeof(struct mount_info));
+	if (new) {
+		INIT_LIST_HEAD(&new->children);
+		INIT_LIST_HEAD(&new->siblings);
+	}
 	return new;
 }
 
