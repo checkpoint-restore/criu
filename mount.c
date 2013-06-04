@@ -395,6 +395,36 @@ static inline int is_root_mount(struct mount_info *mi)
 	return is_root(mi->mountpoint);
 }
 
+static int validate_shared(struct mount_info *info)
+{
+	struct mount_info *m, *t;
+
+	/*
+	 * If we have a shared mounts, both master
+	 * slave targets are to be present in mount
+	 * list, otherwise we can't be sure if we can
+	 * recreate the scheme later on restore.
+	 */
+	for (m = info; m; m = m->next) {
+		if (!m->master_id)
+			continue;
+
+		for (t = info; t; t = t->next) {
+			if (t->shared_id == m->master_id)
+				break;
+		}
+		if (t)
+			continue;
+
+		pr_err("Mount %d (master_id: %d shared_id: %d) "
+		       "has unreachable sharing\n", m->mnt_id,
+			m->master_id, m->shared_id);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int dump_one_mountpoint(struct mount_info *pm, int fd)
 {
 	MntEntry me = MNT_ENTRY__INIT;
@@ -435,6 +465,11 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 	pm = parse_mountinfo(ns_pid);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns_pid);
+		return -1;
+	}
+
+	if (validate_shared(mntinfo)) {
+		pr_err("Can't proceed %d's mountinfo\n", ns_pid);
 		return -1;
 	}
 
