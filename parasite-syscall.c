@@ -478,7 +478,6 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	int ret;
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
-	args->id = id;
 
 	if (id == 0)
 		ret = parasite_execute_daemon(PARASITE_CMD_DUMP_THREAD, ctl);
