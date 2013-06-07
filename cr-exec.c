@@ -34,13 +34,19 @@ static int execute_syscall(struct parasite_ctl *ctl,
 {
 	int i, err;
 	unsigned long args[MAX_ARGS] = {}, ret, r_mem_size = 0;
+	unsigned int ret_args[MAX_ARGS] = {};
 	void *r_mem = NULL;
 
 	for (i = 0; i < MAX_ARGS; i++) {
 		if (opt[i] == NULL)
 			break;
 
-		if (opt[i][0] == '&') {
+		/*
+		 * &foo -- argument string "foo"
+		 * @<size> -- ret-arg of size <size>
+		 */
+
+		if ((opt[i][0] == '&') || (opt[i][0] == '@')){
 			int len;
 
 			if (!r_mem) {
@@ -52,15 +58,26 @@ static int execute_syscall(struct parasite_ctl *ctl,
 				r_mem = ctl->local_map;
 			}
 
-			len = strlen(opt[i]);
-			if (r_mem_size < len) {
-				pr_err("Arg size overflow\n");
-				return -1;
+			if (opt[i][0] == '&') {
+				len = strlen(opt[i]);
+				if (r_mem_size < len) {
+					pr_err("Arg size overflow\n");
+					return -1;
+				}
+
+				memcpy(r_mem, opt[i] + 1, len);
+			} else {
+				len = strtol(opt[i] + 1, NULL, 0);
+				if (!len || (r_mem_size < len)) {
+					pr_err("Bad argument size %d\n", len);
+					return -1;
+				}
+
+				ret_args[i] = len;
 			}
 
-			memcpy(r_mem, opt[i] + 1, len);
 			args[i] = (unsigned long)ctl->remote_map + (r_mem - ctl->local_map);
-			pr_info("Pushing mem arg [%s]\n", (char *)r_mem);
+			pr_info("Pushing %c mem arg [%s]\n", opt[i][0], (char *)r_mem);
 			r_mem_size -= len;
 			r_mem += len;
 		} else
@@ -76,6 +93,17 @@ static int execute_syscall(struct parasite_ctl *ctl,
 		return err;
 
 	pr_msg("Syscall returned %lx(%d)\n", ret, (int)ret);
+	for (i = 0; i < MAX_ARGS; i++) {
+		unsigned long addr;
+
+		if (!ret_args[i])
+			continue;
+
+		pr_msg("Argument %d returns:\n", i);
+		addr = (unsigned long)ctl->local_map + (args[i] - (unsigned long)ctl->remote_map);
+		print_data(0, (unsigned char *)addr, ret_args[i]);
+	}
+
 	return 0;
 }
 
