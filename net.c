@@ -42,24 +42,33 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), &netdev, PB_NETDEV);
 }
 
-static int dump_one_ethernet(struct ifinfomsg *ifi,
-		struct rtattr **tb, struct cr_fdset *fds)
+static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
 {
 	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
-	char *kind;
 
 	if (!tb[IFLA_LINKINFO]) {
 		pr_err("No linkinfo for eth link %d\n", ifi->ifi_index);
-		return -1;
+		return NULL;
 	}
 
 	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
 	if (!linkinfo[IFLA_INFO_KIND]) {
 		pr_err("No kind for eth link %d\n", ifi->ifi_index);
-		return -1;
+		return NULL;
 	}
 
-	kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+	return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+}
+
+static int dump_one_ethernet(struct ifinfomsg *ifi,
+		struct rtattr **tb, struct cr_fdset *fds)
+{
+	char *kind;
+
+	kind = link_kind(ifi, tb);
+	if (!kind)
+		goto unk;
+
 	if (!strcmp(kind, "veth"))
 		/*
 		 * This is not correct. The peer of the veth device may
@@ -70,7 +79,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi,
 		 * connection to the outer world and just dump this end :(
 		 */
 		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds);
-
+unk:
 	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
 }
@@ -101,7 +110,8 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		ret = dump_one_ethernet(ifi, tb, fds);
 		break;
 	default:
-		pr_err("Unsupported link type %d\n", ifi->ifi_type);
+		pr_err("Unsupported link type %d, kind %s\n",
+				ifi->ifi_type, link_kind(ifi, tb));
 		ret = 0; /* just skip for now */
 		break;
 	}
