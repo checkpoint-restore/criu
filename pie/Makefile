@@ -14,6 +14,9 @@ restorer-obj-e		+= $(ARCH_DIR)/vdso-pie.o
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 cflags-y		+= -DCR_NOGLIBC -fpie  -Wa,--noexecstack -fno-stack-protector
+ifeq ($(ARCH), arm)
+	cflags-y	+= -marm
+endif
 ASMFLAGS		+= -D__ASSEMBLY__
 
 GEN-OFFSETS		:= gen-offsets.sh
