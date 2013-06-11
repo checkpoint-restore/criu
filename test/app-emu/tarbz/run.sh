@@ -47,7 +47,7 @@ pid=${!}
 echo "Started tar in $pid background"
 sleep 3
 
-${criu} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
+${criu} dump --shell-job -D dump -o dump.log -v4 -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -55,7 +55,7 @@ ${criu} dump --shell-job -D dump -o dump.log -v 4 -t ${pid} || {
 wait_tasks dump
 echo "Dump OK, restoring"
 
-${criu} restore --shell-job -D dump -o restore.log -v 4 || {
+${criu} restore --shell-job -D dump -o restore.log -v4 || {
 	echo "Restore failed"
 	exit 1
 }

@@ -356,7 +356,7 @@ EOF
 	mkdir -p $ddump
 
 	if [ $PAGE_SERVER -eq 1 ]; then
-		$CRIU page-server -D $ddump -o page_server.log -v 4 --port $PS_PORT --daemon
+		$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon
 		PS_PID=$!
 		opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 	fi
@@ -364,7 +364,7 @@ EOF
 
 	save_fds $PID  $ddump/dump.fd
 	setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
-		-x --evasive-devices -D $ddump -o dump.log -v 4 -t $PID $args $ARGS || {
+		-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS || {
 		echo WARNING: process $tname is left running for your debugging needs
 		return 1
 	}
@@ -397,7 +397,7 @@ EOF
 		done
 
 		echo Restore
-		setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v 4 -d $args || return 2
+		setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $args || return 2
 
 		for i in `seq 5`; do
 			save_fds $PID  $ddump/restore.fd

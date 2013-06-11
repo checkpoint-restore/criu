@@ -37,11 +37,11 @@ launch_test
 echo "Taking plain dump"
 
 mkdir "$IMGDIR/dump-1/"
-${CRIU} dump -D "$IMGDIR/dump-1/" -o dump.log -t ${PID} -v 4 || fail "Fail to dump"
+${CRIU} dump -D "$IMGDIR/dump-1/" -o dump.log -t ${PID} -v4 || fail "Fail to dump"
 
 sleep 1
 echo "Restore to check it works"
-${CRIU} restore -D "${IMGDIR}/dump-1/" -o restore.log -d -v 4 || fail "Fail to restore server"
+${CRIU} restore -D "${IMGDIR}/dump-1/" -o restore.log -d -v4 || fail "Fail to restore server"
 
 stop_test
 
@@ -53,14 +53,14 @@ echo "Taking pre and plain dumps"
 echo "Pre-dump"
 mkdir "$IMGDIR/dump-2/"
 mkdir "$IMGDIR/dump-2/pre/"
-${CRIU} pre-dump -D "$IMGDIR/dump-2/pre/" -o dump.log -t ${PID} -v 4 || fail "Fail to pre-dump"
+${CRIU} pre-dump -D "$IMGDIR/dump-2/pre/" -o dump.log -t ${PID} -v4 || fail "Fail to pre-dump"
 
 echo "Plain dump"
 mkdir "$IMGDIR/dump-2/plain/"
-${CRIU} dump -D "$IMGDIR/dump-2/plain/" -o dump.log -t ${PID} -v 4 --prev-images-dir=../pre/ || fail "Fail to dump"
+${CRIU} dump -D "$IMGDIR/dump-2/plain/" -o dump.log -t ${PID} -v4 --prev-images-dir=../pre/ || fail "Fail to dump"
 
 sleep 1
 echo "Restore"
-${CRIU} restore -D "${IMGDIR}/dump-2/plain/" -o restore.log -d -v 4 || fail "Fail to restore server"
+${CRIU} restore -D "${IMGDIR}/dump-2/plain/" -o restore.log -d -v4 || fail "Fail to restore server"
 
 stop_test

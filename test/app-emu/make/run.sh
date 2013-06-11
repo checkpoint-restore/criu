@@ -32,7 +32,7 @@ pid=${!}
 echo Lanuched make in $pid background
 sleep 2
 
-${criu} dump --shell-job -D dump -o dump.log -v 4  -t ${pid} || {
+${criu} dump --shell-job -D dump -o dump.log -v4  -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -41,7 +41,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${criu} restore --shell-job -D dump -o restore.log -v 4 || {
+${criu} restore --shell-job -D dump -o restore.log -v4 || {
 	echo "Restore failed"
 	exit 1
 }

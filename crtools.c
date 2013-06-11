@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	while (1) {
-		static const char short_opts[] = "dsRf:t:p:hcD:o:n:vxVr:jl";
+		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jl";
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
@@ -170,20 +170,10 @@ int main(int argc, char *argv[])
 				return -1;
 			break;
 		case 'v':
-			if (optind < argc) {
-				char *opt = argv[optind];
-
-				if (isdigit(*opt)) {
-					log_level = -atoi(opt);
-					optind++;
-				} else {
-					if (log_level >= 0)
-						log_level++;
-				}
-			} else {
-				if (log_level >= 0)
-					log_level++;
-			}
+			if (optarg)
+				log_level = atoi(optarg);
+			else
+				log_level++;
 			break;
 		case 41:
 			pr_info("Will allow link remaps on FS\n");
@@ -281,8 +271,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (log_level < 0)
-		log_level = -log_level;
 	log_set_loglevel(log_level);
 
 	if (!log_inited) {
@@ -402,11 +390,11 @@ usage:
 "  -o|--log-file FILE    log file name (path is relative to --images-dir)\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
 "  -v [NUM]              set logging level:\n"
-"                          -v 0        - messages regardless of log level\n"
-"                          -v 1, -v    - errors, when we are in trouble\n"
-"                          -v 2, -vv   - warnings (default)\n"
-"                          -v 3, -vvv  - informative, everything is fine\n"
-"                          -v 4, -vvvv - debug only\n"
+"                          -v0        - messages regardless of log level\n"
+"                          -v1, -v    - errors, when we are in trouble\n"
+"                          -v2, -vv   - warnings (default)\n"
+"                          -v3, -vvv  - informative, everything is fine\n"
+"                          -v4, -vvvv - debug only\n"
 "\n"
 "* Memory dumping options:\n"
 "  --track-mem           turn on memory changes tracker in kernel\n"
