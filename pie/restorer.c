@@ -328,11 +328,11 @@ static long restore_self_exe_late(struct task_restore_core_args *args)
 	return 0;
 }
 
-static u64 restore_mapping(const VmaEntry *vma_entry)
+static unsigned long restore_mapping(const VmaEntry *vma_entry)
 {
 	int prot	= vma_entry->prot;
 	int flags	= vma_entry->flags | MAP_FIXED;
-	u64 addr;
+	unsigned long addr;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
 		return sys_shmat(vma_entry->fd, decode_pointer(vma_entry->start),
@@ -484,7 +484,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
 	VmaEntry *vma_entry;
-	u64 va;
+	unsigned long va;
 	unsigned long premmapped_end = args->premmapped_addr + args->premmapped_len;
 
 	struct rt_sigframe *rt_sigframe;
@@ -626,7 +626,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		va = restore_mapping(vma_entry);
 
 		if (va != vma_entry->start) {
-			pr_err("Can't restore %"PRIx64" mapping with %"PRIx64"\n", vma_entry->start, va);
+			pr_err("Can't restore %"PRIx64" mapping with %lx\n", vma_entry->start, va);
 			goto core_restore_end;
 		}
 	}
