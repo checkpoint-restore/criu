@@ -152,7 +152,7 @@ PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
 
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -o $@
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
