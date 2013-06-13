@@ -310,6 +310,8 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 		return -1;
 
 dump_entry:
+	BUG_ON(gf->id & REMAP_GHOST);
+
 	rpe.orig_id = id;
 	rpe.remap_id = gf->id | REMAP_GHOST;
 
