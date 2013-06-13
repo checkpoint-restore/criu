@@ -207,17 +207,22 @@ static int dump_unsupp_fd(const struct fd_parms *p)
 static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 {
 	int maj = major(p->stat.st_rdev);
+	const struct fdtype_ops *ops;
 
 	switch (maj) {
 	case MEM_MAJOR:
-		return dump_reg_file(p, lfd, fdinfo);
+		ops = &regfile_dump_ops;
+		break;
 	case TTYAUX_MAJOR:
 	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
 	case UNIX98_PTY_SLAVE_MAJOR:
-		return dump_tty(p, lfd, fdinfo);
+		ops = &tty_dump_ops;
+		break;
+	default:
+		return dump_unsupp_fd(p);
 	}
 
-	return dump_unsupp_fd(p);
+	return do_dump_gen_file(p, lfd, ops, fdinfo);
 }
 
 #ifndef PIPEFS_MAGIC
@@ -229,6 +234,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	struct statfs statfs;
+	const struct fdtype_ops *ops;
 
 	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
 		pr_perror("Can't get stat on %d", fd);
@@ -248,17 +254,19 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 
 	if (is_anon_inode(&statfs)) {
 		if (is_eventfd_link(lfd))
-			return dump_eventfd(&p, lfd, fdinfo);
+			ops = &eventfd_dump_ops;
 		else if (is_eventpoll_link(lfd))
-			return dump_eventpoll(&p, lfd, fdinfo);
+			ops = &eventpoll_dump_ops;
 		else if (is_inotify_link(lfd))
-			return dump_inotify(&p, lfd, fdinfo);
+			ops = &inotify_dump_ops;
 		else if (is_fanotify_link(lfd))
-			return dump_fanotify(&p, lfd, fdinfo);
+			ops = &fanotify_dump_ops;
 		else if (is_signalfd_link(lfd))
-			return dump_signalfd(&p, lfd, fdinfo);
+			ops = &signalfd_dump_ops;
 		else
 			return dump_unsupp_fd(&p);
+
+		return do_dump_gen_file(&p, lfd, ops, fdinfo);
 	}
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
@@ -269,19 +277,21 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 
 		p.link = &link;
 		if (link.name[1] == '/')
-			return dump_reg_file(&p, lfd, fdinfo);
+			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, fdinfo);
 
 		if (check_ns_proc(&link))
-			return dump_ns_file(&p, lfd, fdinfo);
+			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, fdinfo);
 
 		return dump_unsupp_fd(&p);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
 		if (statfs.f_type == PIPEFS_MAGIC)
-			return dump_pipe(&p, lfd, fdinfo);
+			ops = &pipe_dump_ops;
 		else
-			return dump_fifo(&p, lfd, fdinfo);
+			ops = &fifo_dump_ops;
+
+		return do_dump_gen_file(&p, lfd, ops, fdinfo);
 	}
 
 	return dump_unsupp_fd(&p);

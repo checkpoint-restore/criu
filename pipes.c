@@ -507,12 +507,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	return dump_one_pipe_data(&pd_pipes, lfd, p);
 }
 
-static const struct fdtype_ops pipe_ops = {
+const struct fdtype_ops pipe_dump_ops = {
 	.type		= FD_TYPES__PIPE,
 	.dump		= dump_one_pipe,
 };
-
-int dump_pipe(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &pipe_ops, fdinfo);
-}

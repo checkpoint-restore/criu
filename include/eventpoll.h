@@ -10,7 +10,7 @@
 #include "crtools.h"
 
 extern int is_eventpoll_link(int lfd);
-extern int dump_eventpoll(struct fd_parms *p, int lfd, const int fdinfo);
+extern const struct fdtype_ops eventpoll_dump_ops;
 extern int collect_eventpoll(void);
 extern void show_eventpoll(int fd);
 extern void show_eventpoll_tfd(int fd);

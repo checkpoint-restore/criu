@@ -13,7 +13,7 @@
 #endif
 #define PTS_FMT		"/dev/pts/%d"
 
-extern int dump_tty(struct fd_parms *p, int lfd, const int fdinfo);
+extern const struct fdtype_ops tty_dump_ops;
 extern int dump_verify_tty_sids(void);
 extern int collect_tty(void);
 extern int prepare_shared_tty(void);

@@ -154,15 +154,10 @@ err:
 	return -1;
 }
 
-static const struct fdtype_ops netlink_dump_ops = {
+const struct fdtype_ops netlink_dump_ops = {
 	.type		= FD_TYPES__NETLINKSK,
 	.dump		= dump_one_netlink_fd,
 };
-
-int dump_one_netlink(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &netlink_dump_ops, fdinfo);
-}
 
 struct netlink_sock_info {
 	NetlinkSkEntry *nse;

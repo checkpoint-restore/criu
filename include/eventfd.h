@@ -10,7 +10,7 @@
 #include "crtools.h"
 
 extern int is_eventfd_link(int lfd);
-extern int dump_eventfd(struct fd_parms *p, int lfd, const int fdinfo);
+extern const struct fdtype_ops eventfd_dump_ops;
 extern int collect_eventfd(void);
 extern void show_eventfds(int fd);
 

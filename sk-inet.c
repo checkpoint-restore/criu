@@ -316,30 +316,20 @@ static int dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p)
 	return do_dump_one_inet_fd(lfd, id, p, PF_INET);
 }
 
-static const struct fdtype_ops inet_dump_ops = {
+const struct fdtype_ops inet_dump_ops = {
 	.type		= FD_TYPES__INETSK,
 	.dump		= dump_one_inet_fd,
 };
-
-int dump_one_inet(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &inet_dump_ops, fdinfo);
-}
 
 static int dump_one_inet6_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	return do_dump_one_inet_fd(lfd, id, p, PF_INET6);
 }
 
-static const struct fdtype_ops inet6_dump_ops = {
+const struct fdtype_ops inet6_dump_ops = {
 	.type		= FD_TYPES__INETSK,
 	.dump		= dump_one_inet6_fd,
 };
-
-int dump_one_inet6(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &inet6_dump_ops, fdinfo);
-}
 
 int inet_collect_one(struct nlmsghdr *h, int family, int type)
 {

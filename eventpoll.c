@@ -92,15 +92,10 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	return parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &id);
 }
 
-static const struct fdtype_ops eventpoll_ops = {
+const struct fdtype_ops eventpoll_dump_ops = {
 	.type		= FD_TYPES__EVENTPOLL,
 	.dump		= dump_one_eventpoll,
 };
-
-int dump_eventpoll(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &eventpoll_ops, fdinfo);
-}
 
 static int eventpoll_open(struct file_desc *d)
 {

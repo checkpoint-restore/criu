@@ -205,15 +205,10 @@ out:
 	return ret;
 }
 
-static const struct fdtype_ops packet_dump_ops = {
+const struct fdtype_ops packet_dump_ops = {
 	.type		= FD_TYPES__PACKETSK,
 	.dump		= dump_one_packet_fd,
 };
-
-int dump_one_packet_sk(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &packet_dump_ops, fdinfo);
-}
 
 int dump_socket_map(struct vma_area *vma)
 {

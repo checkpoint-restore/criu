@@ -5,8 +5,7 @@
 
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
-int dump_pipe(struct fd_parms *p, int lfd,
-			     const int fdinfo);
+extern const struct fdtype_ops pipe_dump_ops;
 
 static inline u32 pipe_id(const struct fd_parms *p)
 {

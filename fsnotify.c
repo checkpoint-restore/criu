@@ -125,15 +125,10 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);
 }
 
-static const struct fdtype_ops inotify_ops = {
+const struct fdtype_ops inotify_dump_ops = {
 	.type		= FD_TYPES__INOTIFY,
 	.dump		= dump_one_inotify,
 };
-
-int dump_inotify(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &inotify_ops, fdinfo);
-}
 
 static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 {
@@ -195,15 +190,10 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY), &fe, PB_FANOTIFY);
 }
 
-static const struct fdtype_ops fanotify_ops = {
+const struct fdtype_ops fanotify_dump_ops = {
 	.type		= FD_TYPES__FANOTIFY,
 	.dump		= dump_one_fanotify,
 };
-
-int dump_fanotify(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &fanotify_ops, fdinfo);
-}
 
 static char *get_mark_path(const char *who, struct file_remap *remap,
 			   FhEntry *f_handle, unsigned long i_ino,

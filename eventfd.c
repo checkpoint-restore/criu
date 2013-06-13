@@ -80,15 +80,10 @@ static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 	return parse_fdinfo(lfd, FD_TYPES__EVENTFD, dump_eventfd_entry, &da);
 }
 
-static const struct fdtype_ops eventfd_ops = {
+const struct fdtype_ops eventfd_dump_ops = {
 	.type		= FD_TYPES__EVENTFD,
 	.dump		= dump_one_eventfd,
 };
-
-int dump_eventfd(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &eventfd_ops, fdinfo);
-}
 
 static int eventfd_open(struct file_desc *d)
 {

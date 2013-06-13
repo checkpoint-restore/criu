@@ -251,15 +251,10 @@ err:
 	return -1;
 }
 
-static const struct fdtype_ops unix_dump_ops = {
+const struct fdtype_ops unix_dump_ops = {
 	.type		= FD_TYPES__UNIXSK,
 	.dump		= dump_one_unix_fd,
 };
-
-int dump_one_unix(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &unix_dump_ops, fdinfo);
-}
 
 static int unix_collect_one(const struct unix_diag_msg *m,
 		struct rtattr **tb)

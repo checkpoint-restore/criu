@@ -471,16 +471,10 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	return pb_write_one(rfd, &rfe, PB_REG_FILES);
 }
 
-static const struct fdtype_ops regfile_ops = {
+const struct fdtype_ops regfile_dump_ops = {
 	.type		= FD_TYPES__REG,
 	.dump		= dump_one_reg_file,
 };
-
-int dump_reg_file(struct fd_parms *p, int lfd,
-			     const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &regfile_ops, fdinfo);
-}
 
 static int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)

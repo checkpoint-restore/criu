@@ -60,15 +60,10 @@ static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 	return parse_fdinfo(lfd, FD_TYPES__SIGNALFD, dump_signalfd_entry, &da);
 }
 
-static const struct fdtype_ops signalfd_ops = {
+const struct fdtype_ops signalfd_dump_ops = {
 	.type		= FD_TYPES__SIGNALFD,
 	.dump		= dump_one_signalfd,
 };
-
-int dump_signalfd(struct fd_parms *p, int lfd, const int fdinfo)
-{
-	return do_dump_gen_file(p, lfd, &signalfd_ops, fdinfo);
-}
 
 static void sigset_fill(sigset_t *to, unsigned long long from)
 {

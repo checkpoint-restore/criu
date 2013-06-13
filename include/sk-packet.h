@@ -9,7 +9,6 @@ struct cr_fdset;
 struct fd_parms;
 struct vma_area;
 
-int dump_one_packet_sk(struct fd_parms *p, int lfd, const int fdinfo);
 int collect_packet_sockets(void);
 void show_packetsk(int fd);
 
