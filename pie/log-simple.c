@@ -226,6 +226,8 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 		if (*s == 'l') {
 			along = 1;
 			s++;
+			if (*s == 'l')
+				s++;
 		}
 
 		switch (*s) {
