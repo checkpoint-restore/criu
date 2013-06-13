@@ -2,10 +2,10 @@
 #define __CR_VDSO_H__
 
 #include <sys/mman.h>
+#include <stdbool.h>
 
 #include "asm/vdso.h"
 #include "asm/int.h"
-#include "asm/types.h"
 
 #define VDSO_PROT		(PROT_READ | PROT_EXEC)
 
