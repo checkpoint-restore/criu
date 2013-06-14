@@ -262,7 +262,7 @@ static int parasite_get_proc_fd()
 
 	if (sys_mkdir(proc_mountpoint, 0700)) {
 		pr_err("Can't create a directory\n");
-		return ret;
+		return -1;
 	}
 
 	if (sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
