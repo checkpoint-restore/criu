@@ -716,6 +716,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	}
 
 	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl, false);
+	close_safe(&ctl->tsock);
 	if (ret)
 		return -1;
 
@@ -784,7 +785,7 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 		if (parasite_fini_seized(ctl))
 			return -1;
 
-	ctl->tsock = -1;
+	close_safe(&ctl->tsock);
 
 	if (ctl->remote_map) {
 		if (munmap_seized(ctl, (void *)ctl->remote_map, ctl->map_length)) {
