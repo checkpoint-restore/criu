@@ -683,10 +683,19 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
+
+static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
+{
+	void *addr = (void *) REG_IP(*regs);
+	return addr >= ctl->remote_map &&
+		addr < ctl->remote_map + ctl->map_length;
+}
+
 static int parasite_fini_seized(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->pid.real;
-	int status, ret = 0;;
+	user_regs_struct_t regs;
+	int status, ret = 0;
 
 	if (!ctl->daemonized)
 		return 0;
@@ -709,6 +718,17 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 	}
 
+	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+	if (ret) {
+		pr_perror("Unable to get registers");
+		return -1;
+	}
+
+	if (!task_in_parasite(ctl, &regs)) {
+		pr_err("The task is not in parasite code\n");
+		return -1;
+	}
+
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
 		pr_perror("ptrace");
@@ -722,7 +742,6 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (1) {
-		user_regs_struct_t regs;
 		pid_t pid;
 
 		pid = wait4(-1, &status, __WALL, NULL);
