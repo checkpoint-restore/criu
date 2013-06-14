@@ -742,10 +742,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (1) {
-		pid_t pid;
-
-		pid = wait4(-1, &status, __WALL, NULL);
-		if (pid < 0) {
+		if (wait4(pid, &status, __WALL, NULL) < 0) {
 			pr_perror("wait4 failed");
 			return -1;
 		}
