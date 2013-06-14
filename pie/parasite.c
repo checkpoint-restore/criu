@@ -460,9 +460,16 @@ static noinline __used int noinline parasite_daemon(void *args)
 	if (__parasite_daemon_reply_ack(PARASITE_CMD_DAEMONIZE, 0))
 		goto out;
 
+	ret = 0;
+
 	while (1) {
 		if (__parasite_daemon_wait_msg(&m))
 			break;
+
+		if (ret && m.cmd != PARASITE_CMD_FINI) {
+			pr_err("Command rejected\n");
+			continue;
+		}
 
 		switch (m.cmd) {
 		case PARASITE_CMD_FINI:
@@ -513,6 +520,11 @@ static noinline __used int noinline parasite_daemon(void *args)
 
 		if (__parasite_daemon_reply_ack(m.cmd, ret))
 			break;
+
+		if (ret) {
+			pr_err("Close the control socket for writing\n");
+			sys_shutdown(tsock, SHUT_WR);
+		}
 	}
 
 out:
