@@ -692,7 +692,10 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return 0;
 
 	/* Start to trace syscalls for each thread */
-	ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
+		pr_perror("Unable to interrupt the process");
+		return -1;
+	}
 
 	pr_debug("Waiting for %d to trap\n", pid);
 	if (wait4(pid, &status, __WALL, NULL) != pid) {
