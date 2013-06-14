@@ -420,7 +420,7 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 		if (ret != sizeof(*m)) {
 			pr_err("Trimmed message received (%d/%d)\n",
 			       (int)sizeof(*m), ret);
-			return 0;
+			return -1;
 		}
 
 		pr_debug("__fetched msg: %d %d %d\n",
