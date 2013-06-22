@@ -22,6 +22,12 @@ static int tsock = -1;
 
 static struct rt_sigframe *sigframe;
 
+/*
+ * PARASITE_CMD_DUMPPAGES is called many times and the parasite args contains
+ * an array of VMAs at this time, so VMAs can be unprotected in any moment
+ */
+static struct parasite_dump_pages_args *mprotect_args = NULL;
+
 #ifndef SPLICE_F_GIFT
 #define SPLICE_F_GIFT	0x08
 #endif
@@ -41,6 +47,11 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 			break;
 		}
 	}
+
+	if (args->add_prot)
+		mprotect_args = args;
+	else
+		mprotect_args = NULL;
 
 	return ret;
 }
@@ -434,6 +445,11 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 static int fini()
 {
 	unsigned long new_sp;
+
+	if (mprotect_args) {
+		mprotect_args->add_prot = 0;
+		mprotect_vmas(mprotect_args);
+	}
 
 	new_sp = (long)sigframe + SIGFRAME_OFFSET;
 	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
