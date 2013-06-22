@@ -350,63 +350,63 @@ EOF
 
 	for i in `seq $ITERATIONS`; do
 
-	ddump=dump/$tname/$PID/$i
-	DUMP_PATH=`pwd`/$ddump
-	echo Dump $PID
-	mkdir -p $ddump
+		ddump=dump/$tname/$PID/$i
+		DUMP_PATH=`pwd`/$ddump
+		echo Dump $PID
+		mkdir -p $ddump
 
-	if [ $PAGE_SERVER -eq 1 ]; then
-		$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon
-		PS_PID=$!
-		opts="--page-server --address 127.0.0.1 --port $PS_PORT"
-	fi
-
-
-	save_fds $PID  $ddump/dump.fd
-	setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
-		-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS || {
-		echo WARNING: process $tname is left running for your debugging needs
-		return 1
-	}
-
-	if [ $PAGE_SERVER -eq 1 ]; then
-		wait $PS_PID
-	fi
-
-	if expr " $ARGS" : ' -s' > /dev/null; then
-		save_fds $PID  $ddump/dump.fd.after
-		diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
-		killall -CONT $tname
-		if [[ $linkremap ]]; then
-			echo "remove ./$tdir/link_remap.*"
-			rm -f ./$tdir/link_remap.*
+		if [ $PAGE_SERVER -eq 1 ]; then
+			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon
+			PS_PID=$!
+			opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 		fi
-	else
-		# Wait while tasks are dying, otherwise PIDs would be busy.
-		for i in $ddump/core-*.img; do
-			local pid
 
-			[ -n "$PIDNS" ] && break;
 
-			pid=`expr "$i" : '.*/core-\([0-9]*\).img'`
-			while :; do
-				kill -0 $pid > /dev/null 2>&1 || break;
-				echo Waiting the process $pid
-				sleep 0.1
+		save_fds $PID  $ddump/dump.fd
+		setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS || {
+			echo WARNING: process $tname is left running for your debugging needs
+			return 1
+		}
+
+		if [ $PAGE_SERVER -eq 1 ]; then
+			wait $PS_PID
+		fi
+
+		if expr " $ARGS" : ' -s' > /dev/null; then
+			save_fds $PID  $ddump/dump.fd.after
+			diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
+			killall -CONT $tname
+			if [[ $linkremap ]]; then
+				echo "remove ./$tdir/link_remap.*"
+				rm -f ./$tdir/link_remap.*
+			fi
+		else
+			# Wait while tasks are dying, otherwise PIDs would be busy.
+			for i in $ddump/core-*.img; do
+				local pid
+
+				[ -n "$PIDNS" ] && break;
+
+				pid=`expr "$i" : '.*/core-\([0-9]*\).img'`
+				while :; do
+					kill -0 $pid > /dev/null 2>&1 || break;
+					echo Waiting the process $pid
+					sleep 0.1
+				done
 			done
-		done
 
-		echo Restore
-		setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $args || return 2
+			echo Restore
+			setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $args || return 2
 
-		for i in `seq 5`; do
-			save_fds $PID  $ddump/restore.fd
-			diff_fds $ddump/dump.fd $ddump/restore.fd && break
-			sleep 0.2
-		done
-		[ $i -eq 5 ] && return 2;
-		[ -n "$PIDNS" ] && PID=`cat $TPID`
-	fi
+			for i in `seq 5`; do
+				save_fds $PID  $ddump/restore.fd
+				diff_fds $ddump/dump.fd $ddump/restore.fd && break
+				sleep 0.2
+			done
+			[ $i -eq 5 ] && return 2;
+			[ -n "$PIDNS" ] && PID=`cat $TPID`
+		fi
 
 	done
 
