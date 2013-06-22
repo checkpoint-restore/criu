@@ -20,22 +20,26 @@
 #define ADDR				BITOP_ADDR(addr)
 
 static inline void set_bit(int nr, volatile unsigned long *addr) {
-	*addr |= (1 << nr);
+	addr += nr / BITS_PER_LONG;
+	*addr |= (1 << (nr % BITS_PER_LONG));
 }
 
 static inline void change_bit(int nr, volatile unsigned long *addr)
 {
-	*addr ^= (1 << nr);
+	addr += nr / BITS_PER_LONG;
+	*addr ^= (1 << (nr % BITS_PER_LONG));
 }
 
 static inline int test_bit(int nr, volatile const unsigned long *addr)
 {
-	return (*addr & (1 << nr)) ? -1 : 0;
+	addr += nr / BITS_PER_LONG;
+	return (*addr & (1 << (nr % BITS_PER_LONG))) ? -1 : 0;
 }
 
 static inline void clear_bit(int nr, volatile unsigned long *addr)
 {
-	*addr &= ~(1 << nr);
+	addr += nr / BITS_PER_LONG;
+	*addr &= ~(1 << (nr % BITS_PER_LONG));
 }
 
 /**
