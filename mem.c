@@ -457,8 +457,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		pr_err("Can't dump page with parasite\n");
 
 	pargs->add_prot = 0;
-	ret = parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl);
-	if (ret) {
+	if (parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 		pr_err("Can't rollback unprotected vmas with parasite\n");
 		ret = -1;
 	}
