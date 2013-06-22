@@ -302,6 +302,8 @@ run_test()
 {
 	local test=$1
 	local linkremap=
+	local snapopt=
+	local snappdir=
 
 	[ -n "$EXCLUDE_PATTERN" ] && echo $test | grep "$EXCLUDE_PATTERN" && return 0
 
@@ -361,13 +363,23 @@ EOF
 			opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 		fi
 
+		if [ -n "$SNAPSHOT" ]; then
+			snapopt=""
+			[ "$i" -ne "$ITERATIONS" ] && snapopt="$snapopt -R --track-mem"
+			[ -n "$snappdir" ] && snapopt="$snapopt --prev-images-dir=$snappdir"
+		fi
 
 		save_fds $PID  $ddump/dump.fd
 		setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS || {
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt || {
 			echo WARNING: process $tname is left running for your debugging needs
 			return 1
 		}
+
+		if [ -n "$SNAPSHOT" ]; then
+			snappdir=../`basename $ddump`
+			[ "$i" -ne "$ITERATIONS" ] && continue
+		fi
 
 		if [ $PAGE_SERVER -eq 1 ]; then
 			wait $PS_PID
@@ -517,6 +529,11 @@ while :; do
 		DUMP_ARCHIVE=$1
 		shift
 		continue;
+	fi
+	if [ "$1" = "-s" ]; then
+		SNAPSHOT=1
+		shift
+		continue
 	fi
 	break;
 done
