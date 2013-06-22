@@ -179,6 +179,8 @@ err_cl:
 
 static int open_page_read_at(int dfd, int pid, struct page_read *pr)
 {
+	pr->pe = NULL;
+
 	pr->fd = open_image_at(dfd, CR_FD_PAGEMAP, O_RSTR, (long)pid);
 	if (pr->fd < 0) {
 		pr->fd_pg = open_image_at(dfd, CR_FD_PAGES_OLD, O_RSTR, pid);
