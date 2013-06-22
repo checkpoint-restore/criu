@@ -747,6 +747,11 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 			return -1;
 		}
 
+		if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
+			pr_err("Task is in unexpected state: %x\n", status);
+			return -1;
+		}
+
 		pr_debug("%d was trapped\n", pid);
 		if (!WIFSTOPPED(status)) {
 			pr_err("%d\n", status);
