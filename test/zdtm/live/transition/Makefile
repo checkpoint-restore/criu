@@ -10,6 +10,7 @@ TST_NOFILE	=	\
 		ptrace		\
 		epoll		\
 		fork		\
+		fork2		\
 
 TST_FILE	=	\
 		file_read 	\
@@ -59,6 +60,7 @@ $(TST):	$(LIB)
 ptrace.o:	override CFLAGS += -pthread
 ptrace:		override LDFLAGS += -pthread
 ipc:		override CFLAGS += -DNEW_IPC_NS
+fork2:		override CFLAGS += -D FORK2
 
 %: %.sh
 	cp $< $@

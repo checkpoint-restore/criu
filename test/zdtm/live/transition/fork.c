@@ -29,8 +29,12 @@ int main(int argc, char **argv)
 			goto out;
 		}
 
-		if (pid == 0)
+		if (pid == 0) {
+#ifdef FORK2
+			usleep(10000);
+#endif
 			exit(0);
+		}
 
 		while ((wpid = wait(&status)) == -1 && errno == EINTR);
 
