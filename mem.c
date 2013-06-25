@@ -85,8 +85,11 @@ static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
 	}
 
 	pm_fd = open_image_at(p_fd, CR_FD_PAGEMAP, O_RSTR, ctl->pid.virt);
-	if (pm_fd < 0)
+	if (pm_fd < 0) {
+		if (errno == ENOENT)
+			return NULL;
 		return ERR_PTR(pm_fd);
+	}
 
 	ctx = xmalloc(sizeof(*ctx));
 	if (!ctx)

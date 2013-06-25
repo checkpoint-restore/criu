@@ -162,8 +162,12 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_read_at(pfd, pid, parent))
-		goto err_free;
+	if (open_page_read_at(pfd, pid, parent)) {
+		if (errno != ENOENT)
+			goto err_free;
+		xfree(parent);
+		parent = NULL;
+	}
 
 	close(pfd);
 out:
