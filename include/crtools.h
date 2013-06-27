@@ -73,6 +73,7 @@ extern int close_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
 extern bool is_any_service_fd(int fd);
 
+void show_posix_timers(int fd);
 int check_img_inventory(void);
 int write_img_inventory(void);
 void kill_inventory(void);

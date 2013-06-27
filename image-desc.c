@@ -49,6 +49,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(NETLINKSK,	"netlinksk",		show_netlinksk),
 	FD_ENTRY(SK_QUEUES,	"sk-queues",		show_sk_queues),
 	FD_ENTRY(ITIMERS,	"itimers-%d",		show_itimers),
+	FD_ENTRY(POSIX_TIMERS,	"posix-timers-%d",	show_posix_timers),
 	FD_ENTRY(CREDS,		"creds-%d",		show_creds),
 	FD_ENTRY(UTSNS,		"utsns-%d",		show_utsns),
 	FD_ENTRY(IPCNS_VAR,	"ipcns-var-%d",		show_ipc_var),

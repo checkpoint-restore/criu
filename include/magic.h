@@ -38,6 +38,7 @@
 #define INETSK_MAGIC		0x56443851 /* Pereslavl */
 #define PACKETSK_MAGIC		0x60454618 /* Veliky Ustyug */
 #define ITIMERS_MAGIC		0x57464056 /* Kostroma */
+#define POSIX_TIMERS_MAGIC	0x52603957 /* Lipetsk */
 #define SK_QUEUES_MAGIC		0x56264026 /* Suzdal */
 #define UTSNS_MAGIC		0x54473203 /* Smolensk */
 #define CREDS_MAGIC		0x54023547 /* Kozelsk */

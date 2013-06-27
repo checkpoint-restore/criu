@@ -17,6 +17,7 @@ extern void show_pstree(int fd);
 extern void show_sigacts(int fd);
 extern void show_siginfo(int fd);
 extern void show_itimers(int fd);
+extern void show_posix_timers(int fd);
 extern void show_creds(int fd);
 extern void show_fs(int fd);
 extern void show_remap_files(int fd);

@@ -260,6 +260,11 @@ void show_itimers(int fd)
 	pb_show_plain_pretty(fd, PB_ITIMERS, "*:%Lu");
 }
 
+void show_posix_timers(int fd)
+{
+	pb_show_plain_pretty(fd, PB_POSIX_TIMERS, "*:%d 5:%Lu 7:%Lu 8:%lu 9:%Lu 10:%Lu");
+}
+
 void show_creds(int fd)
 {
 	pb_show_vertical(fd, PB_CREDS);
