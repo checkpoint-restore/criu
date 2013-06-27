@@ -473,6 +473,49 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 	return 0;
 }
 
+static int restore_posix_timers(struct task_restore_core_args *args)
+{
+	int ret, i;
+	timer_t next_id;
+	struct sigevent sev;
+
+	for (i = 0; i < args->timer_n; i++) {
+		sev.sigev_notify = args->posix_timers[i].spt.it_sigev_notify;
+		sev.sigev_signo = args->posix_timers[i].spt.si_signo;
+		sev.sigev_value.sival_ptr = args->posix_timers[i].spt.sival_ptr;
+
+		while (1) {
+			ret = sys_timer_create(args->posix_timers[i].spt.clock_id, &sev, &next_id);
+			if (ret < 0) {
+				pr_err("Can't create posix timer - %d\n", i);
+				return ret;
+			}
+
+			if ((long)next_id == args->posix_timers[i].spt.it_id)
+				break;
+
+			ret = sys_timer_delete(next_id);
+			if (ret < 0) {
+				pr_err("Can't remove temporaty posix timer %lx\n", (long) next_id);
+				return ret;
+			}
+
+			if ((long)next_id > args->posix_timers[i].spt.it_id) {
+				pr_err("Can't create timers, kernel don't give them consequently");
+				return -1;
+			}
+		}
+
+		ret = sys_timer_settime(next_id, 0, &args->posix_timers[i].val, NULL);
+		if (ret < 0) {
+			pr_err("Can't set posix timer %lx\n", (long) next_id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -837,6 +880,12 @@ long __export_restore_task(struct task_restore_core_args *args)
 			pr_err("Can't unmap signals %ld\n", ret);
 			goto core_restore_failed;
 		}
+	}
+
+	ret = restore_posix_timers(args);
+	if (ret < 0) {
+		pr_err("Can't restore posix timers %ld\n", ret);
+		goto core_restore_end;
 	}
 
 	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
