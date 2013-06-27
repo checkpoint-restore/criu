@@ -205,6 +205,8 @@ static void realtime_oneshot_handler(int sig, siginfo_t *si, void *uc)
 
 static int setup_timers(void)
 {
+	int i;
+	int ret;
 	struct posix_timers_info *info = posix_timers;
 	struct sigevent sev;
 	struct itimerspec its;
@@ -222,6 +224,21 @@ static int setup_timers(void)
 
 	info = posix_timers;
 	while(info->handler) {
+		/* Add and delete fake timers to test restoring 'with holes' */
+		timer_t timeridt;
+		for (i = 0; i < 10; i++) {
+			ret = timer_create(CLOCK_REALTIME, NULL, &timeridt);
+			if (ret < 0) {
+				err("Can't create temporary posix timer %lx\n", (long) timeridt);
+				return -errno;
+			}
+			ret = timer_delete(timeridt);
+			if (ret < 0) {
+				err("Can't remove temporaty posix timer %lx\n", (long) timeridt);
+				return -errno;
+			}
+		}
+
 		info->sa.sa_flags = SA_SIGINFO;
 		info->sa.sa_sigaction = info->handler;
 		sigemptyset(&info->sa.sa_mask);
