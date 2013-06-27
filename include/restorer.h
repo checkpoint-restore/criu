@@ -16,6 +16,8 @@
 
 #include "vdso.h"
 
+#include <time.h>
+
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"
@@ -69,6 +71,12 @@ struct str_posix_timer {
 	void * sival_ptr;
 };
 
+struct restore_posix_timer {
+	struct str_posix_timer spt;
+	struct itimerspec val;
+	int overrun;
+};
+
 struct task_restore_core_args;
 
 /* Make sure it's pow2 in size */
@@ -120,6 +128,9 @@ struct task_restore_core_args {
 	rt_sigaction_t			sigchld_act;
 
 	struct itimerval		itimers[3];
+
+	int timer_n;
+	struct restore_posix_timer 	*posix_timers;
 
 	CredsEntry			creds;
 	uint32_t			cap_inh[CR_CAP_SIZE];

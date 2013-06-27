@@ -274,5 +274,6 @@ static inline bool dir_dots(struct dirent *de)
 extern int read_fd_link(int lfd, char *buf, size_t size);
 
 #define USEC_PER_SEC	1000000L
+#define NSEC_PER_SEC    1000000000L
 
 #endif /* __CR_UTIL_H__ */
