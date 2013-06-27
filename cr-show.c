@@ -37,7 +37,7 @@
 #include "protobuf/pipe.pb-c.h"
 #include "protobuf/pipe-data.pb-c.h"
 #include "protobuf/sa.pb-c.h"
-#include "protobuf/itimer.pb-c.h"
+#include "protobuf/timer.pb-c.h"
 #include "protobuf/mm.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/creds.pb-c.h"

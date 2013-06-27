@@ -62,7 +62,7 @@
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
-#include "protobuf/itimer.pb-c.h"
+#include "protobuf/timer.pb-c.h"
 #include "protobuf/vma.pb-c.h"
 #include "protobuf/rlimit.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"

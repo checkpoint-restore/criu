@@ -1,6 +1,0 @@
-message itimer_entry {
-	required uint64		isec		= 1;
-	required uint64		iusec		= 2;
-	required uint64		vsec		= 3;
-	required uint64		vusec		= 4;
-}

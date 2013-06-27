@@ -36,7 +36,7 @@
 #include "protobuf/packet-sock.pb-c.h"
 #include "protobuf/sk-packet.pb-c.h"
 #include "protobuf/creds.pb-c.h"
-#include "protobuf/itimer.pb-c.h"
+#include "protobuf/timer.pb-c.h"
 #include "protobuf/utsns.pb-c.h"
 #include "protobuf/ipc-var.pb-c.h"
 #include "protobuf/ipc-shm.pb-c.h"
@@ -109,6 +109,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(INETSK,		InetSk,		inet_sk);
 	CR_PB_DESC(SK_QUEUES,		SkPacket,	sk_packet);
 	CR_PB_DESC(ITIMERS,		Itimer,		itimer);
+	CR_PB_DESC(POSIX_TIMERS,	PosixTimer,	posix_timer);
 	CR_PB_DESC(CREDS,		Creds,		creds);
 	CR_PB_DESC(UTSNS,		Utsns,		utsns);
 	CR_PB_DESC(IPCNS_VAR,		IpcVar,		ipc_var);
