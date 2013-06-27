@@ -31,6 +31,8 @@ struct rusage;
 struct file_handle;
 struct robust_list_head;
 
+struct itimerspec;
+
 #ifndef F_GETFD
 #define F_GETFD 1
 #endif
