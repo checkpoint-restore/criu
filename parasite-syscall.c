@@ -26,6 +26,7 @@
 #include "mem.h"
 #include "vdso.h"
 #include "restorer.h"
+#include "proc_parse.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -590,6 +591,65 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	return ret;
 }
 
+static int dump_one_posix_timer(struct posix_timer *v, struct proc_posix_timer *vp, int fd)
+{
+	PosixTimerEntry pte = POSIX_TIMER_ENTRY__INIT;
+
+	pte.it_id = vp->spt.it_id;
+	pte.clock_id = vp->spt.clock_id;
+	pte.si_signo = vp->spt.si_signo;
+	pte.it_sigev_notify = vp->spt.it_sigev_notify;
+	pte.sival_ptr = encode_pointer(vp->spt.sival_ptr);
+
+	pte.overrun = v->overrun;
+
+	pte.isec = v->val.it_interval.tv_sec;
+	pte.insec = v->val.it_interval.tv_nsec;
+	pte.vsec = v->val.it_value.tv_sec;
+	pte.vnsec = v->val.it_value.tv_nsec;
+
+	return pb_write_one(fd, &pte, PB_POSIX_TIMERS);
+}
+
+int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+{
+	struct parasite_dump_posix_timers_args * args;
+	struct proc_posix_timer *temp;
+	int i, fd;
+	int ret = 0;
+
+	args = parasite_args_s(ctl, posix_timers_dump_size(proc_args->timer_n));
+	args->timer_n = proc_args->timer_n;
+
+	i = 0;
+	list_for_each_entry(temp, &proc_args->timers, list) {
+		args->timer[i].it_id = temp->spt.it_id;
+		i++;
+	}
+
+	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_POSIX_TIMERS, ctl);
+	if (ret < 0)
+		goto end_posix;
+
+	fd = fdset_fd(cr_fdset, CR_FD_POSIX_TIMERS);
+
+	i = 0;
+	list_for_each_entry(temp, &proc_args->timers, list) {
+		ret = dump_one_posix_timer(&args->timer[i], temp, fd);
+		i++;
+		if (ret)
+			goto end_posix;
+	}
+
+end_posix:
+	while (!list_empty(&proc_args->timers)) {
+		temp = list_first_entry(&proc_args->timers, struct proc_posix_timer, list);
+		list_del(&temp->list);
+		xfree(temp);
+	}
+	return ret;
+}
+
 int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)
 {
 	struct parasite_dump_misc *ma;
@@ -940,19 +1000,22 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
-static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasite_drain_fd *dfds)
+static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasite_drain_fd *dfds, int timer_n)
 {
 	unsigned long size = PARASITE_ARG_SIZE_MIN;
 
 	if (dfds)
 		size = max(size, (unsigned long)drain_fds_size(dfds));
+	if (timer_n)
+		size = max(size, (unsigned long)posix_timers_dump_size(timer_n));
 	size = max(size, (unsigned long)dump_pages_args_size(vmas));
 
 	return round_up(size, PAGE_SIZE);
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
-		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds)
+		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds,
+		int timer_n)
 {
 	int ret;
 	struct parasite_ctl *ctl;
@@ -974,7 +1037,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
-	ctl->args_size = parasite_args_size(vma_area_list, dfds);
+	ctl->args_size = parasite_args_size(vma_area_list, dfds, timer_n);
 	map_exchange_size = parasite_size + ctl->args_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)

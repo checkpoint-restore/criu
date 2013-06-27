@@ -53,6 +53,9 @@ struct parasite_ctl {
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
 
+struct proc_posix_timers_stat;
+extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
+
 #define parasite_args(ctl, type)					\
 	({								\
 		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);	\
@@ -83,7 +86,8 @@ extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
 						   struct vm_area_list *vma_area_list,
-						   struct parasite_drain_fd *dfds);
+						   struct parasite_drain_fd *dfds,
+						   int timer_n);
 extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
 					      struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);

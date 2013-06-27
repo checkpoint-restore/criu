@@ -1328,7 +1328,7 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 	}
 
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas, NULL);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, NULL, 0);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err_free;
@@ -1369,6 +1369,7 @@ static int dump_one_task(struct pstree_item *item)
 	struct parasite_dump_misc misc;
 	struct cr_fdset *cr_fdset = NULL;
 	struct parasite_drain_fd *dfds;
+	struct proc_posix_timers_stat proc_args;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1403,8 +1404,14 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
+	ret = parse_posix_timers(pid, &proc_args);
+	if (ret < 0){
+		pr_err("Can't read posix timers file (pid: %d)\n", pid);
+		goto err;
+	}
+
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds, proc_args.timer_n);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
@@ -1485,6 +1492,12 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parasite_dump_itimers_seized(parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump itimers (pid: %d)\n", pid);
+		goto err_cure;
+	}
+
+	ret = parasite_dump_posix_timers_seized(&proc_args, parasite_ctl, cr_fdset);
+	if (ret) {
+		pr_err("Can't dump posix timers (pid: %d)\n", pid);
 		goto err_cure;
 	}
 
