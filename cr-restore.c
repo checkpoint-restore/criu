@@ -1498,6 +1498,47 @@ out:
 	return ret;
 }
 
+static inline int timespec_valid(struct timespec *ts)
+{
+	return (ts->tv_sec >= 0) && ((unsigned long)ts->tv_nsec < NSEC_PER_SEC);
+}
+
+static inline int posix_timer_restore_and_fix(PosixTimerEntry *pte,
+		struct restore_posix_timer *pt)
+{
+	pt->val.it_interval.tv_sec = pte->isec;
+	pt->val.it_interval.tv_nsec = pte->insec;
+
+	if (!timespec_valid(&pt->val.it_interval)) {
+		pr_err("Invalid timer interval(posix)\n");
+		return -1;
+	}
+
+	if (pte->vsec == 0 && pte->vnsec == 0) {
+		// Remaining time was too short. Set it to
+		// interval to make the timer armed and work.
+		pt->val.it_value.tv_sec = pte->isec;
+		pt->val.it_value.tv_nsec = pte->insec;
+	} else {
+		pt->val.it_value.tv_sec = pte->vsec;
+		pt->val.it_value.tv_nsec = pte->vnsec;
+	}
+
+	if (!timespec_valid(&pt->val.it_value)) {
+		pr_err("Invalid timer value(posix)\n");
+		return -1;
+	}
+
+	pt->spt.it_id = pte->it_id;
+	pt->spt.clock_id = pte->clock_id;
+	pt->spt.si_signo = pte->si_signo;
+	pt->spt.it_sigev_notify = pte->it_sigev_notify;
+	pt->spt.sival_ptr = decode_pointer(pte->sival_ptr);
+	pt->overrun = pte->overrun;
+
+	return 0;
+}
+
 static inline int verify_cap_size(CredsEntry *ce)
 {
 	return ((ce->n_cap_inh == CR_CAP_SIZE) && (ce->n_cap_eff == CR_CAP_SIZE) &&
