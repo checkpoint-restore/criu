@@ -61,6 +61,14 @@ struct rst_sched_param {
 	int prio;
 };
 
+struct str_posix_timer {
+	int it_id;
+	int clock_id;
+	int si_signo;
+	int it_sigev_notify;
+	void * sival_ptr;
+};
+
 struct task_restore_core_args;
 
 /* Make sure it's pow2 in size */
