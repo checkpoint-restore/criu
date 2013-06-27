@@ -18,15 +18,20 @@ sigset_t mask;
 #define FAIL_OVERRUN		4
 
 #define MAX_TIMER_DISPLACEMENT	10
+#define NO_PERIODIC
 
+#ifndef NO_PERIODIC
 static void realtime_periodic_handler(int sig, siginfo_t *si, void *uc);
 static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc);
+#endif
 static void realtime_oneshot_handler(int sig, siginfo_t *si, void *uc);
 static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc);
 
 enum {
+#ifndef NO_PERIODIC
 	REALTIME_PERIODIC_INFO,
 	MONOTONIC_PERIODIC_INFO,
+#endif
 	REALTIME_ONESHOT_INFO,
 	MONOTONIC_ONESHOT_INFO,
 };
@@ -45,10 +50,12 @@ static struct posix_timers_info {
 	int overrun;
 	struct timespec start, end;
 } posix_timers[] = {
+#ifndef NO_PERIODIC
 	[REALTIME_PERIODIC_INFO] = {CLOCK_REALTIME, "REALTIME (periodic)",
 				realtime_periodic_handler, SIGALRM, 0, 1},
 	[MONOTONIC_PERIODIC_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (periodic)",
 				monotonic_periodic_handler, SIGINT, 0, 3},
+#endif
 	[REALTIME_ONESHOT_INFO] = {CLOCK_REALTIME, "REALTIME (oneshot)",
 				realtime_oneshot_handler, SIGUSR1, 1, INT_MAX},
 	[MONOTONIC_ONESHOT_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (oneshot)",
@@ -179,11 +186,13 @@ static void generic_handler(struct posix_timers_info *info,
 	info->handler_cnt++;
 }
 
+#ifndef NO_PERIODIC
 static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc)
 {
 	generic_handler(si->si_value.sival_ptr,
 			&posix_timers[MONOTONIC_PERIODIC_INFO], sig);
 }
+#endif
 
 static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
@@ -191,11 +200,13 @@ static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc)
 			&posix_timers[MONOTONIC_ONESHOT_INFO], sig);
 }
 
+#ifndef NO_PERIODIC
 static void realtime_periodic_handler(int sig, siginfo_t *si, void *uc)
 {
 	generic_handler(si->si_value.sival_ptr,
 			&posix_timers[REALTIME_PERIODIC_INFO], sig);
 }
+#endif
 
 static void realtime_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
