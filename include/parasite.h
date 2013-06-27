@@ -9,6 +9,7 @@
 #ifndef __ASSEMBLY__
 
 #include <sys/un.h>
+#include <time.h>
 
 #include "image.h"
 #include "util-net.h"
@@ -39,6 +40,7 @@ enum {
 
 	PARASITE_CMD_DUMP_SIGACTS,
 	PARASITE_CMD_DUMP_ITIMERS,
+	PARASITE_CMD_DUMP_POSIX_TIMERS,
 	PARASITE_CMD_DUMP_MISC,
 	PARASITE_CMD_DUMP_CREDS,
 	PARASITE_CMD_DUMP_THREAD,
@@ -116,6 +118,22 @@ struct parasite_dump_itimers_args {
 	struct itimerval virt;
 	struct itimerval prof;
 };
+
+struct posix_timer {
+	int it_id;
+	struct itimerspec val;
+	int overrun;
+};
+
+struct parasite_dump_posix_timers_args {
+	int timer_n;
+	struct posix_timer timer[0];
+};
+
+static inline int posix_timers_dump_size(int timer_n)
+{
+	return sizeof(int) + sizeof(struct posix_timer) * timer_n;
+}
 
 /*
  * Misc sfuff, that is too small for separate file, but cannot

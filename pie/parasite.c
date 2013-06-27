@@ -114,6 +114,28 @@ static int dump_itimers(struct parasite_dump_itimers_args *args)
 	return ret;
 }
 
+static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
+{
+	int i;
+	int ret = 0;
+
+	for(i = 0; i < args->timer_n; i++){
+		ret = sys_timer_gettime(args->timer[i].it_id, &args->timer[i].val);
+		if (ret < 0) {
+			pr_err("sys_timer_gettime failed\n");
+			return ret;
+		}
+		args->timer[i].overrun = sys_timer_getoverrun(args->timer[i].it_id);
+		ret = args->timer[i].overrun;
+		if (ret < 0) {
+			pr_err("sys_timer_getoverrun failed\n");
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
 static int dump_misc(struct parasite_dump_misc *args)
 {
 	args->brk = sys_brk(0);
@@ -509,6 +531,9 @@ static noinline __used int noinline parasite_daemon(void *args)
 			break;
 		case PARASITE_CMD_DUMP_ITIMERS:
 			ret = dump_itimers(args);
+			break;
+		case PARASITE_CMD_DUMP_POSIX_TIMERS:
+			ret = dump_posix_timers(args);
 			break;
 		case PARASITE_CMD_DUMP_MISC:
 			ret = dump_misc(args);
