@@ -469,11 +469,6 @@ int check_ptrace_peeksiginfo()
 	siginfo_t siginfo;
 	pid_t pid, ret = 0;
 
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping peeking siginfos check (not yet merged)\n");
-		return 0;
-	}
-
 	pid = fork();
 	if (pid < 0)
 		pr_perror("fork");

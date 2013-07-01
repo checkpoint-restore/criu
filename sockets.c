@@ -618,21 +618,16 @@ int collect_sockets(int pid)
 			err = tmp;
 	}
 
-	if (pid == 0 && opts.check_ms_kernel) {
-		pr_warn("Skipping netling diag check (not yet merged)\n");
-		goto skip;
-	}
-
 	req.r.n.sdiag_family	= AF_NETLINK;
 	req.r.n.sdiag_protocol	= NDIAG_PROTO_ALL;
 	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
 	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support netlink_diag\n");
-		if (pid == 0 || tmp != -ENOENT) /* Going to be in 3.10 */
+		if (pid == 0 || tmp != -ENOENT) /* Fedora 19 */
 			err = tmp;
 	}
-skip:
+
 	close(nl);
 out:
 	if (rst >= 0) {
