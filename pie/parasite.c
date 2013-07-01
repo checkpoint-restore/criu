@@ -511,12 +511,7 @@ static noinline __used int noinline parasite_daemon(void *args)
 
 		switch (m.cmd) {
 		case PARASITE_CMD_FINI:
-			ret = fini();
-			sys_close(tsock);
-			/*
-			 * No ACK here since we're getting out.
-			 */
-			break;
+			goto out;
 		case PARASITE_CMD_DUMP_THREAD:
 			ret = dump_thread(args);
 			break;
