@@ -21,7 +21,7 @@ pid=${!}
 
 echo Lanuched java application with pid $pid in background
 
-${criu} dump -D dump -o dump.log -v 4 --shell-job -t ${pid} || {
+${criu} dump -D dump -o dump.log -v4 --shell-job -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -30,7 +30,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${criu} restore -D dump -o restore.log -v 4 --shell-job || {
+${criu} restore -D dump -o restore.log -v4 --shell-job || {
 	echo "Restore failed"
 	exit 1
 }

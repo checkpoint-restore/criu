@@ -14,7 +14,7 @@ echo PID=$pid
 
 mkdir dump
 
-${criu} dump -D dump -o dump.log -v 4  -t ${pid} || {
+${criu} dump -D dump -o dump.log -v4  -t ${pid} || {
 	echo "Dump failed"
 	exit 1
 }
@@ -23,7 +23,7 @@ wait_tasks dump
 
 echo "Dumped, restoring and waiting for completion"
 
-${criu} restore -d -D dump -o restore.log -v 4 || {
+${criu} restore -d -D dump -o restore.log -v4 || {
 	echo "Restore failed"
 	exit 1
 }
