@@ -519,6 +519,9 @@ static void restore_posix_timers(struct task_restore_core_args *args)
 		rt = &args->posix_timers[i];
 		sys_timer_settime((timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
+
+	if (args->timer_n)
+		sys_munmap(args->posix_timers, args->timers_sz);
 }
 
 /*

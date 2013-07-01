@@ -129,8 +129,9 @@ struct task_restore_core_args {
 
 	struct itimerval		itimers[3];
 
-	int timer_n;
+	int 				timer_n;
 	struct restore_posix_timer 	*posix_timers;
+	unsigned long			timers_sz;
 
 	CredsEntry			creds;
 	uint32_t			cap_inh[CR_CAP_SIZE];

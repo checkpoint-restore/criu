@@ -2094,6 +2094,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	}
 	task_args->timer_n = posix_timers_nr;
 	task_args->posix_timers = posix_timers_info_chunk;
+	task_args->timers_sz = posix_timers_size;
 
 	/*
 	 * Get a reference to shared memory area which is
