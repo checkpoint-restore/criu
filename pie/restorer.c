@@ -473,7 +473,7 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 	return 0;
 }
 
-static int restore_posix_timers(struct task_restore_core_args *args)
+static int create_posix_timers(struct task_restore_core_args *args)
 {
 	int ret, i;
 	timer_t next_id;
@@ -505,15 +505,20 @@ static int restore_posix_timers(struct task_restore_core_args *args)
 				return -1;
 			}
 		}
-
-		ret = sys_timer_settime(next_id, 0, &args->posix_timers[i].val, NULL);
-		if (ret < 0) {
-			pr_err("Can't set posix timer %lx\n", (long) next_id);
-			return ret;
-		}
 	}
 
 	return 0;
+}
+
+static void restore_posix_timers(struct task_restore_core_args *args)
+{
+	int i;
+	struct restore_posix_timer *rt;
+
+	for (i = 0; i < args->timer_n; i++) {
+		rt = &args->posix_timers[i];
+		sys_timer_settime((timer_t)rt->spt.it_id, 0, &rt->val, NULL);
+	}
 }
 
 /*
@@ -882,7 +887,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		}
 	}
 
-	ret = restore_posix_timers(args);
+	ret = create_posix_timers(args);
 	if (ret < 0) {
 		pr_err("Can't restore posix timers %ld\n", ret);
 		goto core_restore_end;
@@ -925,6 +930,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 		sys_setitimer(ITIMER_VIRTUAL, &args->itimers[1], NULL);
 	if (itimer_armed(args, 2))
 		sys_setitimer(ITIMER_PROF, &args->itimers[2], NULL);
+
+	restore_posix_timers(args);
 
 	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	if (ret < 0) {

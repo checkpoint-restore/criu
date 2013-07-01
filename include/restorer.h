@@ -64,7 +64,7 @@ struct rst_sched_param {
 };
 
 struct str_posix_timer {
-	int it_id;
+	long it_id;
 	int clock_id;
 	int si_signo;
 	int it_sigev_notify;

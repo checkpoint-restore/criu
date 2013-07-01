@@ -1210,7 +1210,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 
 		timer = xzalloc(sizeof(struct proc_posix_timer));
 
-		ret = sscanf(line1, "%s %d", str_name, &timer->spt.it_id);
+		ret = sscanf(line1, "%s %ld", str_name, &timer->spt.it_id);
 		if (ret != 2 || str_name[0] != 'I')
 			goto parse_err_posix;
 		ret = sscanf(line2, "%s %d%s", str_name, &timer->spt.si_signo, siginfo_tmp);
