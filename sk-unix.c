@@ -197,6 +197,23 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	} else if (ue.state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
 
+		e = lookup_unix_listen_icons(ue.ino);
+		if (!e) {
+			/*
+			 * ESTABLISHED socket without peer and without
+			 * anyone waiting for it should be semi-closed
+			 * connection.
+			 */
+
+			if (ue.shutdown == SK_SHUTDOWN__BOTH) {
+				pr_info("Dumping semi-closed connection\n");
+				goto dump;
+			}
+
+			pr_err("Dangling connection %#x\n", ue.ino);
+			goto err;
+		}
+
 		/*
 		 * If this is in-flight connection we need to figure
 		 * out where to connect it on restore. Thus, tune up peer
@@ -205,12 +222,6 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		 * Note the socket name will be found at restore stage,
 		 * not now, just to reduce size of dump files.
 		 */
-
-		e = lookup_unix_listen_icons(ue.ino);
-		if (!e) {
-			pr_err("Dangling in-flight connection %d\n", ue.ino);
-			goto err;
-		}
 
 		/* e->sk_desc is _never_ NULL */
 		if (e->sk_desc->state != TCP_LISTEN) {
@@ -224,7 +235,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		pr_debug("\t\tFixed inflight socket %#x peer %#x)\n",
 				ue.ino, ue.peer);
 	}
-
+dump:
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
@@ -710,10 +721,35 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
-	sk = socket(PF_UNIX, ui->ue->type, 0);
-	if (sk < 0) {
-		pr_perror("Can't make unix socket");
-		return -1;
+	if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer) {
+		int ret, sks[2];
+
+		if (ui->ue->type != SOCK_STREAM) {
+			pr_err("Non-stream socket %x in established state\n",
+					ui->ue->ino);
+			return -1;
+		}
+
+		if (ui->ue->shutdown != SK_SHUTDOWN__BOTH) {
+			pr_err("Wrong shutdown/peer state for %x\n",
+					ui->ue->ino);
+			return -1;
+		}
+
+		ret = socketpair(PF_UNIX, ui->ue->type, 0, sks);
+		if (ret < 0) {
+			pr_perror("Can't create socketpair");
+			return -1;
+		}
+
+		close(sks[1]);
+		sk = sks[0];
+	} else {
+		sk = socket(PF_UNIX, ui->ue->type, 0);
+		if (sk < 0) {
+			pr_perror("Can't make unix socket");
+			return -1;
+		}
 	}
 
 	if (bind_unix_sk(sk, ui))
