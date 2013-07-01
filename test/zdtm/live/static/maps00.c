@@ -107,6 +107,9 @@ static int make_map(struct map *map)
 		datagen(map->ptr, ONE_MAP_SIZE, &crc);
 	}
 
+	test_msg("map: ptr %p flag %8x prot %8x\n",
+		 map->ptr, map->flag, map->prot);
+
 	return 0;
 }
 
@@ -139,7 +142,8 @@ static int check_map(struct map *map)
 		if (datachk(map->ptr, ONE_MAP_SIZE, &crc))	/* perform read access */
 			if (!(map->flag & MAP_ANONYMOUS) ||
 					(map->prot & PROT_WRITE)) {	/* anon maps could only be filled when r/w */
-				fail("CRC mismatch\n");
+				fail("CRC mismatch: ptr %p flag %8x prot %8x\n",
+				     map->ptr, map->flag, map->prot);
 				return -1;
 			}
 		/* prot |= PROT_READ// 	need barrier before this line,
