@@ -1165,7 +1165,6 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	int ret = 0;
 	int get = 0;
 	int pid_t;
-	char path[128];
 
 	FILE * file;
 	char * line1 = NULL;
@@ -1188,8 +1187,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	INIT_LIST_HEAD(&args->timers);
 	args->timer_n = 0;
 
-	sprintf(path, "/proc/%d/timers", pid);
-	file = fopen(path, "r");
+	file = fopen_proc(pid, "timers");
 	if (file == NULL) {
 		pr_perror("Can't open posix timers file!");
 		ret = -1;
