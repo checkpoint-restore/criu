@@ -47,6 +47,7 @@ TST_NOFILE	=				\
 		utsname				\
 		pstree				\
 		sockets01			\
+		sockets02			\
 		sockets_spair			\
 		socket_queues			\
 		socket_queues02			\

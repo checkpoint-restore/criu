@@ -38,6 +38,7 @@ streaming/pipe_shared00
 transition/file_read
 static/sockets00
 static/sockets01
+static/sockets02
 static/sock_opts00
 static/sock_opts01
 static/sockets_spair
