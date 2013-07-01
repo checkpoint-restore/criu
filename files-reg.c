@@ -101,7 +101,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	gfd = open(gf->remap.path, ghost_flags, gfe->mode);
 	if (gfd < 0) {
-		pr_perror("Can't open ghost file");
+		pr_perror("Can't open ghost file %s", gf->remap.path);
 		goto close_ifd;
 	}
 
