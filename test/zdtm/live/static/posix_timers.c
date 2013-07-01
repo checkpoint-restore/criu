@@ -64,7 +64,7 @@ static struct posix_timers_info {
 };
 
 static int check_handler_status(struct posix_timers_info *info,
-				struct itimerspec *its, int ms_passed)
+				struct itimerspec *its, int ms_passed, int delta)
 {
 	int displacement;
 	int timer_ms;
@@ -119,9 +119,10 @@ static int check_handler_status(struct posix_timers_info *info,
 		timer_ms = info->ms_int - val;
 	} else
 		timer_ms = (info->overrun + info->handler_cnt) * info->ms_int;
-	displacement = abs(ms_passed - timer_ms) * 100 / ms_passed;
+	displacement = (abs(ms_passed - timer_ms) - delta) * 100 / ms_passed;
 
 	if (displacement > MAX_TIMER_DISPLACEMENT) {
+		test_msg("%s: cpt/rst : %d msec\n", info->name, delta);
 		test_msg("%s: Time passed (ms) : %d msec\n", info->name, ms_passed);
 		test_msg("%s: Timer results    : %d msec\n", info->name, timer_ms);
 		test_msg("%s: Handler count    : %d\n", info->name, info->handler_cnt);
@@ -131,7 +132,7 @@ static int check_handler_status(struct posix_timers_info *info,
 	return 0;
 }
 
-static int check_timers(void)
+static int check_timers(int delta)
 {
 	struct posix_timers_info *info = posix_timers;
 	int ms_passed;
@@ -158,7 +159,7 @@ static int check_timers(void)
 		ms_passed = (info->end.tv_sec - info->start.tv_sec) * 1000 +
 			(info->end.tv_nsec - info->start.tv_nsec) / (1000 * 1000);
 
-		if (check_handler_status(info, &oldval, ms_passed))
+		if (check_handler_status(info, &oldval, ms_passed, delta))
 			status--;
 		info++;
 	}
@@ -292,6 +293,7 @@ static int setup_timers(void)
 
 int main(int argc, char **argv)
 {
+	struct timespec start, end;
 	int err;
 
 	test_init(argc, argv);
@@ -303,9 +305,13 @@ int main(int argc, char **argv)
 	usleep(500 * 1000);
 
 	test_daemon();
-	test_waitsig();
 
-	err = check_timers();
+	clock_gettime(CLOCK_REALTIME, &start);
+	test_waitsig();
+	clock_gettime(CLOCK_REALTIME, &end);
+
+	err = check_timers((end.tv_sec - start.tv_sec) * 1000 +
+				(end.tv_nsec - start.tv_nsec) / 1000000);
 	if (err)
 		return err;
 
