@@ -417,7 +417,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	 * Step 4 -- clean up
 	 */
 
-	task_reset_dirty_track(ctl->pid.real);
+	ret = task_reset_dirty_track(ctl->pid.real);
 out_pp:
 	if (ret || !pp_ret)
 		destroy_page_pipe(pp);
