@@ -48,7 +48,7 @@ static int kerndat_get_shmemdev(void)
 }
 
 /*
- * Check whether pagemap2 reports soft dirty bit. Kernel has
+ * Check whether pagemap reports soft dirty bit. Kernel has
  * this functionality under CONFIG_MEM_SOFT_DIRTY option.
  */
 
@@ -68,24 +68,16 @@ int kerndat_get_dirty_track(void)
 		return ret;
 	}
 
-	pm2 = open("/proc/self/pagemap2", O_RDONLY);
+	/*
+	 * Kernel shows soft-dirty bits only if this soft-dirty
+	 * was at least once re-set. (this is to be removed in
+	 * a couple of kernel releases)
+	 */
+	do_task_reset_dirty_track(getpid());
+	pm2 = open("/proc/self/pagemap", O_RDONLY);
 	if (pm2 < 0) {
-		/*
-		 * Kernel shows soft-dirty bits only if this soft-dirty
-		 * was at least once re-set. (this is to be removed in
-		 * a couple of kernel releases)
-		 */
-		do_task_reset_dirty_track(getpid());
-		pm2 = open("/proc/self/pagemap", O_RDONLY);
-	}
-	if (pm2 < 0) {
+		pr_perror("Can't open pagemap file");
 		munmap(map, PAGE_SIZE);
-		if (errno == ENOENT) {
-			pr_info("No pagemap2 file\n");
-			return 0;
-		}
-
-		pr_perror("Can't open pagemap2 file");
 		return ret;
 	}
 

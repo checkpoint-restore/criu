@@ -335,15 +335,9 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	if (!map)
 		goto out_snap;
 
-	ret = pagemap = open_proc(ctl->pid.real, "pagemap2");
-	if (ret < 0) {
-		if (errno != ENOENT)
-			goto out_free;
-
-		ret = pagemap = open_proc(ctl->pid.real, "pagemap");
-		if (ret < 0)
-			goto out_free;
-	}
+	ret = pagemap = open_proc(ctl->pid.real, "pagemap");
+	if (ret < 0)
+		goto out_free;
 
 	ret = -1;
 	pp = create_page_pipe(vma_area_list->priv_size / 2, pargs_iovs(args));
