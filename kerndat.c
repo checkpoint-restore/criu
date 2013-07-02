@@ -104,7 +104,7 @@ int kerndat_get_dirty_track(void)
 		pr_info("Dirty track supported on kernel\n");
 		kerndat_has_dirty_track = true;
 	} else
-		pr_err("Dirty tracking support is OFF\n");
+		pr_info("Dirty tracking support is OFF\n");
 
 	return 0;
 }
