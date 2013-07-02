@@ -85,9 +85,8 @@ int kerndat_get_dirty_track(void)
 
 	lseek(pm2, (unsigned long)map / PAGE_SIZE * sizeof(u64), SEEK_SET);
 	ret = read(pm2, &pmap, sizeof(pmap));
-	if (ret < 0){
+	if (ret < 0)
 		pr_perror("Read pmap err!");
-	}
 
 	close(pm2);
 	munmap(map, PAGE_SIZE);
