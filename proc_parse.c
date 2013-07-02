@@ -1190,8 +1190,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	file = fopen_proc(pid, "timers");
 	if (file == NULL) {
 		pr_perror("Can't open posix timers file!");
-		ret = -1;
-		goto end_posix;
+		return -1;
 	}
 
 	while (1) {
