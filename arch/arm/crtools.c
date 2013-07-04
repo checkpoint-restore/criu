@@ -160,19 +160,21 @@ int arch_alloc_thread_info(CoreEntry *core)
 	if (!ti_arm)
 		goto err;
 	thread_info_arm__init(ti_arm);
+	core->ti_arm = ti_arm;
 
 	gpregs = xmalloc(sizeof(*gpregs));
 	user_arm_regs_entry__init(gpregs);
 	ti_arm->gpregs = gpregs;
 
 	fpstate = xmalloc(sizeof(*fpstate));
+	if (!fpstate)
+		goto err;
 	user_arm_vfpstate_entry__init(fpstate);
+	ti_arm->fpstate = fpstate;
 	fpstate->vfp_regs = xmalloc(32*sizeof(unsigned long long));
 	fpstate->n_vfp_regs = 32;
-	ti_arm->fpstate = fpstate;
-
-	core->ti_arm = ti_arm;
-
+	if (!fpstate->vfp_regs)
+		goto err;
 
 	thread_core = xmalloc(sizeof(*thread_core));
 	if (!thread_core)
@@ -180,8 +182,9 @@ int arch_alloc_thread_info(CoreEntry *core)
 	thread_core_entry__init(thread_core);
 	core->thread_core = thread_core;
 
-err:
 	return 0;
+err:
+	return -1;
 }
 
 void arch_free_thread_info(CoreEntry *core)
