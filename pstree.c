@@ -39,8 +39,16 @@ CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc)
 	core->mtype = CORE_ENTRY__MARCH;
 
 	if (alloc_thread_info) {
+		ThreadCoreEntry *thread_core;
+
 		if (arch_alloc_thread_info(core))
 			goto err;
+
+		thread_core = xmalloc(sizeof(*thread_core));
+		if (!thread_core)
+			goto err;
+		thread_core_entry__init(thread_core);
+		core->thread_core = thread_core;
 	}
 
 	if (alloc_tc) {

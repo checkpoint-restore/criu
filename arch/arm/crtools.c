@@ -154,7 +154,6 @@ int arch_alloc_thread_info(CoreEntry *core)
 	ThreadInfoArm *ti_arm;
 	UserArmRegsEntry *gpregs;
 	UserArmVfpstateEntry *fpstate;
-	ThreadCoreEntry *thread_core;
 
 	ti_arm = xmalloc(sizeof(*ti_arm));
 	if (!ti_arm)
@@ -175,12 +174,6 @@ int arch_alloc_thread_info(CoreEntry *core)
 	fpstate->n_vfp_regs = 32;
 	if (!fpstate->vfp_regs)
 		goto err;
-
-	thread_core = xmalloc(sizeof(*thread_core));
-	if (!thread_core)
-		goto err;
-	thread_core_entry__init(thread_core);
-	core->thread_core = thread_core;
 
 	return 0;
 err:

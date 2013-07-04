@@ -232,19 +232,12 @@ int arch_alloc_thread_info(CoreEntry *core)
 	ThreadInfoX86 *thread_info;
 	UserX86RegsEntry *gpregs;
 	UserX86FpregsEntry *fpregs;
-	ThreadCoreEntry *thread_core;
 
 	thread_info = xmalloc(sizeof(*thread_info));
 	if (!thread_info)
 		goto err;
 	thread_info_x86__init(thread_info);
 	core->thread_info = thread_info;
-
-	thread_core = xmalloc(sizeof(*thread_core));
-	if (!thread_core)
-		goto err;
-	thread_core_entry__init(thread_core);
-	core->thread_core = thread_core;
 
 	gpregs = xmalloc(sizeof(*gpregs));
 	if (!gpregs)
