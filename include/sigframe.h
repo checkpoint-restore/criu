@@ -1,7 +1,11 @@
+/*
+ * Generic sigframe bits.
+ */
+
 #ifndef __CR_SIGFRAME_H__
 #define __CR_SIGFRAME_H__
 
-// Generic sigframe bits
+struct rt_sigframe;
 
 #ifndef __ARCH_SI_PREAMBLE_SIZE
 #define __ARCH_SI_PREAMBLE_SIZE	(3 * sizeof(int))
@@ -35,8 +39,8 @@ struct rt_ucontext {
 	unsigned long           uc_regspace[128] __attribute__((__aligned__(8)));
 };
 
-struct rt_sigframe;
-int construct_sigframe(struct rt_sigframe *sigframe,
-				     struct rt_sigframe *rsigframe,
-				     CoreEntry *core);
-#endif
+extern int construct_sigframe(struct rt_sigframe *sigframe,
+			      struct rt_sigframe *rsigframe,
+			      CoreEntry *core);
+
+#endif /* __CR_SIGFRAME_H__ */
