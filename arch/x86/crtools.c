@@ -284,9 +284,8 @@ int arch_alloc_thread_info(CoreEntry *core)
 	}
 
 	return 0;
-
 err:
-	return 1;
+	return -1;
 }
 
 void arch_free_thread_info(CoreEntry *core)
