@@ -590,6 +590,11 @@ static int do_umount_one(struct mount_info *mi)
 	if (!mi->parent)
 		return 0;
 
+	if (mount("none", mi->parent->mountpoint, "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't mark %s as private", mi->parent->mountpoint);
+		return -1;
+	}
+
 	if (umount(mi->mountpoint)) {
 		pr_perror("Can't umount at %s", mi->mountpoint);
 		return -1;
