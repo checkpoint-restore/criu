@@ -879,14 +879,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 
-	if (args->siginfo_size) {
-		ret = sys_munmap(args->siginfo, args->siginfo_size);
-		if (ret < 0) {
-			pr_err("Can't unmap signals %ld\n", ret);
-			goto core_restore_failed;
-		}
-	}
-
 	ret = create_posix_timers(args);
 	if (ret < 0) {
 		pr_err("Can't restore posix timers %ld\n", ret);

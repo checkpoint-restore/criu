@@ -121,7 +121,6 @@ struct task_restore_core_args {
 	VmaEntry			*tgt_vmas;
 	siginfo_t			*siginfo;
 	unsigned int			siginfo_nr;
-	unsigned long			siginfo_size;
 	unsigned int			nr_vmas;
 	unsigned long			premmapped_addr;
 	unsigned long			premmapped_len;
