@@ -1370,6 +1370,103 @@ int cr_restore_tasks(void)
 	return restore_root_task(root_item);
 }
 
+/*
+ * Memory allocation for restorer blob.
+ *
+ * The mem should be visible from both contexts -- restorer
+ * and crtools (current).
+ *
+ * Memory is allocated as linear array of objects, that cannot
+ * be freed. This makes things very simple.
+ *
+ * After everything is allocated memory is mremap-ed into the
+ * new position (see comment near call to restorer_get_vma_hint)
+ */
+
+/*
+ * rst_mem -- pointer to the whole buffer
+ * rst_mem_c -- pointer to current free space
+ * rst_mem_r -- same as rst_mem, but after mremap
+ */
+
+static void *rst_mem, *rst_mem_c, *rst_mem_r;
+static unsigned long rst_mem_len;
+
+#define RST_MEM_BATCH	(2 * PAGE_SIZE)
+
+static int rst_mem_init(void)
+{
+	rst_mem = mmap(NULL, RST_MEM_BATCH, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON, 0, 0);
+	if (rst_mem == MAP_FAILED) {
+		pr_perror("Can't create rst mem");
+		return -1;
+	}
+
+	rst_mem_c = rst_mem;
+	rst_mem_len = RST_MEM_BATCH;
+
+	return 0;
+}
+
+static void *rst_mem_alloc(unsigned long size)
+{
+	void *aux;
+
+	if (rst_mem_c + size > rst_mem + rst_mem_len) {
+		aux = mremap(rst_mem, rst_mem_len,
+				rst_mem_len + RST_MEM_BATCH, MREMAP_MAYMOVE);
+		if (aux == MAP_FAILED) {
+			pr_perror("Can't grow rst mem");
+			return NULL;
+		}
+
+		rst_mem_c += (aux - rst_mem);
+		rst_mem = aux;
+		rst_mem_len += RST_MEM_BATCH;
+	}
+
+	aux = rst_mem_c;
+	rst_mem_c += size;
+
+	return aux;
+}
+
+static int rst_mem_remap(void *to)
+{
+	if (!rst_mem_len)
+		return 0;
+
+	pr_info("Remap %p/%lu rstmem into %p\n", rst_mem, rst_mem_len, to);
+
+	if (mremap(rst_mem, rst_mem_len, rst_mem_len,
+				MREMAP_FIXED | MREMAP_MAYMOVE, to) != to) {
+		pr_perror("Can't move restorer mem");
+		return -1;
+	}
+
+	rst_mem_r = to;
+	return 0;
+}
+
+/* Current position (not addrees, as it may change after eal _alloc) */
+static inline unsigned long rst_mem_cpos(void)
+{
+	return rst_mem_c - rst_mem;
+}
+
+/* Address as seen before remap */
+static inline void *rst_mem_caddr(unsigned long pos)
+{
+	return rst_mem + pos;
+}
+
+/* Address as seen after remap */
+static inline void *rst_mem_raddr(unsigned long pos)
+{
+	return rst_mem_r + pos;
+}
+
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
@@ -1944,6 +2041,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	pr_info("Restore via sigreturn\n");
 
+	if (rst_mem_init())
+		goto err;
+
 	ret = parse_smaps(pid, &self_vmas, false);
 	close_proc();
 	if (ret < 0)
@@ -2006,7 +2106,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				self_vmas_len + vmas_len +
 				rst_tcp_socks_size +
 				siginfo_size +
-				posix_timers_size;
+				posix_timers_size +
+				rst_mem_len;
 
 	/*
 	 * Figure out how much memory runtime vdso will need.
@@ -2138,6 +2239,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->rst_tcp_socks = mem;
 	task_args->rst_tcp_socks_size = rst_tcp_socks_size;
 
+	mem += rst_tcp_socks_size;
+	if (rst_mem_remap(mem))
+		goto err;
+
 	/*
 	 * Arguments for task restoration.
 	 */
@@ -2230,7 +2335,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * since we need it being accessible even when own
 	 * self-vmas are unmaped.
 	 */
-	mem += (unsigned long)rst_tcp_socks_size;
+	mem += rst_mem_len;
 	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
 	task_args->vdso_sym_rt = vdso_sym_rt;
 
