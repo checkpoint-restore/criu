@@ -2014,12 +2014,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	pr_info("Restore via sigreturn\n");
 
-	if (rst_mem_init())
-		goto err;
-
 	ret = parse_smaps(pid, &self_vmas, false);
 	close_proc();
 	if (ret < 0)
+		goto err;
+
+	if (rst_mem_init())
 		goto err;
 
 	self_vmas_len = round_up((self_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
