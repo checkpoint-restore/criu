@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -18,11 +19,8 @@ static int test_fn(int argc, char **argv)
 	FILE *f;
 	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
+	bool private = false;
 
-	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
-		err("Can't remount root with MS_PRIVATE");
-		return -1;
-	}
 again:
 	fs_cnt = 0;
 	f = fopen("/proc/self/mountinfo", "r");
@@ -41,17 +39,30 @@ again:
 		end = strchr(mp, ' ');
 		*end = '\0';
 
-		if (!strcmp(mp, "/"))
-			continue;
-		if (!strcmp(mp, "/proc"))
-			continue;
+		if (private) {
+			if (!strcmp(mp, "/"))
+				continue;
+			if (!strcmp(mp, "/proc"))
+				continue;
 
-		if (umount(mp))
-			test_msg("umount(`%s') failed: %m\n", mp);
+			if (umount(mp))
+				test_msg("umount(`%s') failed: %m\n", mp);
+		} else {
+			/* mount --make-rprivate / */
+			if (mount("none", mp, "none", MS_REC|MS_PRIVATE, NULL)) {
+				err("Can't remount %s with MS_PRIVATE", mp);
+				return -1;
+			}
+		}
 		fs_cnt++;
 	}
 
 	fclose(f);
+
+	if (!private) {
+		private = true;
+		goto again;
+	}
 
 	if (fs_cnt == 0)
 		goto done;
