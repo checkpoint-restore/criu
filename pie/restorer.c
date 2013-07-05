@@ -384,17 +384,12 @@ static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 		pr_perror("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
 }
 
-static void rst_tcp_socks_all(struct rst_tcp_sock *arr, int size)
+static void rst_tcp_socks_all(struct task_restore_core_args *ta)
 {
 	int i;
 
-	if (size == 0)
-		return;
-
-	for (i =0; arr[i].sk >= 0; i++)
-		rst_tcp_repair_off(arr + i);
-
-	sys_munmap(arr, size);
+	for (i = 0; i < ta->tcp_socks_nr; i++)
+		rst_tcp_repair_off(&ta->tcp_socks[i]);
 }
 
 static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
@@ -885,7 +880,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 	}
 
-	rst_tcp_socks_all(args->rst_tcp_socks, args->rst_tcp_socks_size);
+	rst_tcp_socks_all(args);
 
 	/* 
 	 * Writing to last-pid is CAP_SYS_ADMIN protected,

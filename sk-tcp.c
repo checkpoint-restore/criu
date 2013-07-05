@@ -18,6 +18,7 @@
 #include "netfilter.h"
 #include "image.h"
 #include "namespaces.h"
+#include "xmalloc.h"
 #include "config.h"
 
 #include "protobuf.h"
@@ -555,47 +556,23 @@ err:
  * rst_tcp_socks contains sockets in repair mode,
  * which will be off in restorer before resuming.
  */
-static struct rst_tcp_sock *rst_tcp_socks = NULL;
-static int rst_tcp_socks_num = 0;
-int rst_tcp_socks_size = 0;
-
-int rst_tcp_socks_remap(void *addr)
-{
-	void *ret;
-	if (!rst_tcp_socks) {
-		BUG_ON(rst_tcp_socks_size);
-		return 0;
-	}
-
-	rst_tcp_socks[rst_tcp_socks_num].sk = -1;
-
-	ret = mmap(addr, rst_tcp_socks_size, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-
-	if (ret != addr) {
-		pr_perror("mmap() failed");
-		return -1;
-	}
-
-	memcpy(addr, rst_tcp_socks, rst_tcp_socks_size);
-
-	return 0;
-}
+struct rst_tcp_sock *rst_tcp_socks = NULL;
+int rst_tcp_socks_nr = 0;
 
 int rst_tcp_socks_add(int fd, bool reuseaddr)
 {
-	/* + 2 = ( new one + guard (-1) ) */
-	if ((rst_tcp_socks_num + 2) * sizeof(struct rst_tcp_sock) > rst_tcp_socks_size) {
-		rst_tcp_socks_size += PAGE_SIZE;
-		rst_tcp_socks = xrealloc(rst_tcp_socks, rst_tcp_socks_size);
-		if (rst_tcp_socks == NULL)
-			return -1;
-	}
+	struct rst_tcp_sock *cur;
+
+	rst_tcp_socks_nr++;
+	rst_tcp_socks = xrealloc(rst_tcp_socks, rst_tcp_socks_len());
+	if (!rst_tcp_socks)
+		return -1;
 
 	pr_debug("Schedule %d socket for repair off\n", fd);
-	rst_tcp_socks[rst_tcp_socks_num].sk = fd;
-	rst_tcp_socks[rst_tcp_socks_num].reuseaddr = reuseaddr;
-	rst_tcp_socks_num++;
+	cur = &rst_tcp_socks[rst_tcp_socks_nr - 1];
+	cur->sk = fd;
+	cur->reuseaddr = reuseaddr;
+
 	return 0;
 }
 

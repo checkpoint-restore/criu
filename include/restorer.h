@@ -146,8 +146,8 @@ struct task_restore_core_args {
 	int				nr_rlim;
 	struct rlimit			rlims[RLIM_NLIMITS];
 
-	struct rst_tcp_sock		*rst_tcp_socks;
-	int				rst_tcp_socks_size;
+	struct rst_tcp_sock		*tcp_socks;
+	int				tcp_socks_nr;
 
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */

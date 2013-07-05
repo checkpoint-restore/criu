@@ -2002,6 +2002,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	int siginfo_nr = 0;
 	int *siginfo_priv_nr;
 
+	void *tcp_socks_mem;
+	unsigned long tcp_socks;
+
 
 	unsigned long vdso_rt_vma_size = 0;
 	unsigned long vdso_rt_size = 0;
@@ -2068,12 +2071,18 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		ret = 0;
 	}
 
+	tcp_socks = rst_mem_cpos();
+	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len());
+	if (!tcp_socks_mem)
+		goto err;
+
+	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
+
 	restore_bootstrap_len = restorer_len +
 				restore_task_vma_len +
 				restore_thread_vma_len +
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
 				self_vmas_len + vmas_len +
-				rst_tcp_socks_size +
 				rst_mem_len;
 
 	/*
@@ -2172,10 +2181,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	mem += vmas_len;
-	if (rst_tcp_socks_remap(mem))
+	if (rst_mem_remap(mem))
 		goto err;
-	task_args->rst_tcp_socks = mem;
-	task_args->rst_tcp_socks_size = rst_tcp_socks_size;
 
 	task_args->timer_n = posix_timers_nr;
 	task_args->posix_timers = rst_mem_raddr(posix_timers_info_chunk);
@@ -2183,9 +2190,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->siginfo_nr = siginfo_nr;
 	task_args->siginfo = rst_mem_raddr(siginfo_chunk);
 
-	mem += rst_tcp_socks_size;
-	if (rst_mem_remap(mem))
-		goto err;
+	task_args->tcp_socks_nr = rst_tcp_socks_nr;
+	task_args->tcp_socks = rst_mem_raddr(tcp_socks);
 
 	/*
 	 * Arguments for task restoration.
