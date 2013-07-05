@@ -1641,12 +1641,13 @@ static int cmp_posix_timer_proc_id(const void *p1, const void *p2)
 	return ((struct restore_posix_timer *)p1)->spt.it_id - ((struct restore_posix_timer *)p2)->spt.it_id;
 }
 
-static int open_posix_timers_image(int pid, struct restore_posix_timer **rpt,
-				unsigned long *size, int *nr)
+static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 {
 	int fd;
 	int ret = -1;
+	struct restore_posix_timer *t;
 
+	*rpt = rst_mem_cpos();
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (fd < 0)
 		return fd;
@@ -1659,24 +1660,11 @@ static int open_posix_timers_image(int pid, struct restore_posix_timer **rpt,
 			goto out;
 		}
 
-		if ((*nr + 1) * sizeof(struct restore_posix_timer) > *size) {
-			unsigned long new_size = *size + PAGE_SIZE;
+		t = rst_mem_alloc(sizeof(struct restore_posix_timer));
+		if (!t)
+			goto out;
 
-			if (*rpt == NULL)
-				*rpt = mmap(NULL, new_size, PROT_READ | PROT_WRITE,
-					MAP_PRIVATE | MAP_ANON, 0, 0);
-			else
-				*rpt = mremap(*rpt, *size, new_size, MREMAP_MAYMOVE);
-			if (*rpt == MAP_FAILED) {
-				pr_perror("Can't allocate memory for posix timers");
-				ret = -1;
-				goto out;
-			}
-
-			*size = new_size;
-		}
-
-		ret = posix_timer_restore_and_fix(pte, *rpt + *nr);
+		ret = posix_timer_restore_and_fix(pte, t);
 		if (ret < 0)
 			goto out;
 
@@ -1684,9 +1672,10 @@ static int open_posix_timers_image(int pid, struct restore_posix_timer **rpt,
 		(*nr)++;
 	}
 out:
-	if (*nr > 0) {
-		qsort(*rpt, *nr, sizeof(struct restore_posix_timer), cmp_posix_timer_proc_id);
-	}
+	if (*nr > 0)
+		qsort(rst_mem_caddr(*rpt), *nr, sizeof(struct restore_posix_timer),
+				cmp_posix_timer_proc_id);
+
 	close_safe(&fd);
 	return ret;
 }
@@ -2032,9 +2021,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
 
-	struct restore_posix_timer *posix_timers_info_chunk = NULL;
+	unsigned long posix_timers_info_chunk;
 	int posix_timers_nr = 0;
-	unsigned long posix_timers_size = 0;
 
 	struct vm_area_list self_vmas;
 	int i;
@@ -2091,8 +2079,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		siginfo_priv_nr[i] = ret;
 	}
 
-	ret = open_posix_timers_image(pid, &posix_timers_info_chunk,
-			&posix_timers_size, &posix_timers_nr);
+	ret = open_posix_timers_image(pid, &posix_timers_info_chunk, &posix_timers_nr);
 	if (ret < 0) {
 		if (errno != ENOENT) /* backward compatibility */
 			goto err;
@@ -2106,7 +2093,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				self_vmas_len + vmas_len +
 				rst_tcp_socks_size +
 				siginfo_size +
-				posix_timers_size +
 				rst_mem_len;
 
 	/*
@@ -2183,20 +2169,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->siginfo = siginfo_chunk;
 	siginfo_chunk += task_args->siginfo_nr;
 
-	mem += siginfo_size;
-	if (posix_timers_info_chunk) {
-		posix_timers_info_chunk = mremap(posix_timers_info_chunk,
-			posix_timers_size, posix_timers_size,
-			MREMAP_FIXED | MREMAP_MAYMOVE, mem);
-		if (posix_timers_info_chunk == MAP_FAILED) {
-			pr_perror("mremap");
-			goto err;
-		}
-	}
-	task_args->timer_n = posix_timers_nr;
-	task_args->posix_timers = posix_timers_info_chunk;
-	task_args->timers_sz = posix_timers_size;
-
 	/*
 	 * Get a reference to shared memory area which is
 	 * used to signal if shmem restoration complete
@@ -2208,7 +2180,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * address.
 	 */
 
-	mem += posix_timers_size;
+	mem += restore_task_vma_len + restore_thread_vma_len;
 	ret = shmem_remap(rst_shmems, mem, SHMEMS_SIZE);
 	if (ret < 0)
 		goto err;
@@ -2238,6 +2210,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	task_args->rst_tcp_socks = mem;
 	task_args->rst_tcp_socks_size = rst_tcp_socks_size;
+
+	task_args->timer_n = posix_timers_nr;
+	task_args->posix_timers = rst_mem_raddr(posix_timers_info_chunk);
 
 	mem += rst_tcp_socks_size;
 	if (rst_mem_remap(mem))
