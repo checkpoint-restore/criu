@@ -926,6 +926,8 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_failed;
 	}
 
+	sys_munmap(args->rst_mem, args->rst_mem_size);
+
 	/*
 	 * Sigframe stack.
 	 */

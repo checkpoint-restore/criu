@@ -117,6 +117,8 @@ struct task_restore_core_args {
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct shmems			*shmems;
 	struct task_entries		*task_entries;
+	void				*rst_mem;
+	unsigned long			rst_mem_size;
 	VmaEntry			*self_vmas;
 	VmaEntry			*tgt_vmas;
 	siginfo_t			*siginfo;

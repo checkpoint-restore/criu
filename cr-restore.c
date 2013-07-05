@@ -1432,7 +1432,7 @@ static void *rst_mem_alloc(unsigned long size)
 	return aux;
 }
 
-static int rst_mem_remap(void *to)
+static int rst_mem_remap(struct task_restore_core_args *ta, void *to)
 {
 	if (!rst_mem_len)
 		return 0;
@@ -1446,6 +1446,8 @@ static int rst_mem_remap(void *to)
 	}
 
 	rst_mem_r = to;
+	ta->rst_mem = to;
+	ta->rst_mem_size = rst_mem_len;
 	return 0;
 }
 
@@ -2181,7 +2183,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	mem += vmas_len;
-	if (rst_mem_remap(mem))
+	if (rst_mem_remap(task_args, mem))
 		goto err;
 
 	task_args->timer_n = posix_timers_nr;
