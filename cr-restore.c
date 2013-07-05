@@ -1386,10 +1386,9 @@ int cr_restore_tasks(void)
 /*
  * rst_mem -- pointer to the whole buffer
  * rst_mem_c -- pointer to current free space
- * rst_mem_r -- same as rst_mem, but after mremap
  */
 
-static void *rst_mem, *rst_mem_c, *rst_mem_r;
+static void *rst_mem, *rst_mem_c;
 static unsigned long rst_mem_len;
 
 #define RST_MEM_BATCH	(2 * PAGE_SIZE)
@@ -1445,7 +1444,8 @@ static int rst_mem_remap(struct task_restore_core_args *ta, void *to)
 		return -1;
 	}
 
-	rst_mem_r = to;
+	rst_mem_c += (to - rst_mem);
+	rst_mem = to;
 	ta->rst_mem = to;
 	ta->rst_mem_size = rst_mem_len;
 	return 0;
@@ -1457,16 +1457,10 @@ static inline unsigned long rst_mem_cpos(void)
 	return rst_mem_c - rst_mem;
 }
 
-/* Address as seen before remap */
-static inline void *rst_mem_caddr(unsigned long pos)
+/* Address int memory at any given time */
+static inline void *rst_mem_addr(unsigned long pos)
 {
 	return rst_mem + pos;
-}
-
-/* Address as seen after remap */
-static inline void *rst_mem_raddr(unsigned long pos)
-{
-	return rst_mem_r + pos;
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
@@ -1675,7 +1669,7 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 	}
 out:
 	if (*nr > 0)
-		qsort(rst_mem_caddr(*rpt), *nr, sizeof(struct restore_posix_timer),
+		qsort(rst_mem_addr(*rpt), *nr, sizeof(struct restore_posix_timer),
 				cmp_posix_timer_proc_id);
 
 	close_safe(&fd);
@@ -2187,13 +2181,13 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	task_args->timer_n = posix_timers_nr;
-	task_args->posix_timers = rst_mem_raddr(posix_timers_info_chunk);
+	task_args->posix_timers = rst_mem_addr(posix_timers_info_chunk);
 
 	task_args->siginfo_nr = siginfo_nr;
-	task_args->siginfo = rst_mem_raddr(siginfo_chunk);
+	task_args->siginfo = rst_mem_addr(siginfo_chunk);
 
 	task_args->tcp_socks_nr = rst_tcp_socks_nr;
-	task_args->tcp_socks = rst_mem_raddr(tcp_socks);
+	task_args->tcp_socks = rst_mem_addr(tcp_socks);
 
 	/*
 	 * Arguments for task restoration.
@@ -2220,7 +2214,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
-		thread_args[i].siginfo = rst_mem_raddr(siginfo_chunk);
+		thread_args[i].siginfo = rst_mem_addr(siginfo_chunk);
 		thread_args[i].siginfo += siginfo_nr;
 		siginfo_nr += thread_args[i].siginfo_nr;
 
