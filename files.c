@@ -138,7 +138,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 
 int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
 {
-	size_t len;
+	int len;
 
 	link->name[0] = '.';
 
