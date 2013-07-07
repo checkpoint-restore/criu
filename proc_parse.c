@@ -1195,6 +1195,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 				&timer->spt.clock_id);
 		if (ret != 7) {
 			ret = 0;
+			xfree(timer);
 			if (feof(file))
 				goto out;
 			goto err;
@@ -1221,7 +1222,6 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		args->timer_n++;
 	}
 err:
-	xfree(timer);
 	while (!list_empty(&args->timers)) {
 		timer = list_first_entry(&args->timers, struct proc_posix_timer, list);
 		list_del(&timer->list);
