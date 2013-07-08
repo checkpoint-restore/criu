@@ -1888,11 +1888,13 @@ static unsigned long decode_rlim(u_int64_t ival)
 	return ival == -1 ? RLIM_INFINITY : ival;
 }
 
-static int prepare_rlimits(int pid, struct task_restore_core_args *ta)
+static int prepare_rlimits(int pid, unsigned long *addr)
 {
+	struct rlimit *r;
 	int fd, ret;
+	int nr_rlim = 0;
 
-	ta->nr_rlim = 0;
+	*addr = rst_mem_cpos();
 
 	fd = open_image(CR_FD_RLIMIT, O_RSTR, pid);
 	if (fd < 0) {
@@ -1905,34 +1907,33 @@ static int prepare_rlimits(int pid, struct task_restore_core_args *ta)
 	}
 
 	while (1) {
-		int l;
 		RlimitEntry *re;
 
 		ret = pb_read_one_eof(fd, &re, PB_RLIMIT);
 		if (ret <= 0)
 			break;
 
-		l = ta->nr_rlim;
-		if (l == RLIM_NLIMITS) {
-			pr_err("Too many rlimits in image for %d\n", pid);
-			ret = -1;
-			break;
+		r = rst_mem_alloc(sizeof(*r));
+		if (!r) {
+			pr_err("Can't allocate memory for resource %d\n",
+			       nr_rlim);
+			return -1;
 		}
 
-		ta->rlims[l].rlim_cur = decode_rlim(re->cur);
-		ta->rlims[l].rlim_max = decode_rlim(re->max);
-		if (ta->rlims[l].rlim_cur > ta->rlims[l].rlim_max) {
-			pr_err("Can't restore cur > max for %d.%d\n", pid, l);
-			ta->rlims[l].rlim_cur = ta->rlims[l].rlim_max;
+		r->rlim_cur = decode_rlim(re->cur);
+		r->rlim_max = decode_rlim(re->max);
+		if (r->rlim_cur > r->rlim_max) {
+			pr_err("Can't restore cur > max for %d.%d\n", pid, nr_rlim);
+			r->rlim_cur = r->rlim_max;
 		}
 
 		rlimit_entry__free_unpacked(re, NULL);
 
-		ta->nr_rlim++;
+		nr_rlim++;
 	}
 
 	close(fd);
-	return ret;
+	return nr_rlim;
 }
 
 static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
@@ -2001,6 +2002,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	void *tcp_socks_mem;
 	unsigned long tcp_socks;
 
+	unsigned long rlimits_rst_addr;
+	int nr_rlim;
 
 	unsigned long vdso_rt_vma_size = 0;
 	unsigned long vdso_rt_size = 0;
@@ -2073,6 +2076,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
+
+	nr_rlim = prepare_rlimits(pid, &rlimits_rst_addr);
+	if (nr_rlim < 0) {
+		pr_err("Failed preparing rlimits for pid %d\n", pid);
+		goto err;
+	}
 
 	restore_bootstrap_len = restorer_len +
 				restore_task_vma_len +
@@ -2201,8 +2210,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	if (prepare_rlimits(pid, task_args))
-		goto err;
+	task_args->nr_rlim = nr_rlim;
+	if (nr_rlim)
+		task_args->rlims = rst_mem_raddr(rlimits_rst_addr);
 
 	/*
 	 * Fill up per-thread data.

@@ -146,7 +146,7 @@ struct task_restore_core_args {
 	char				comm[TASK_COMM_LEN];
 
 	int				nr_rlim;
-	struct rlimit			rlims[RLIM_NLIMITS];
+	struct rlimit			*rlims;
 
 	struct rst_tcp_sock		*tcp_socks;
 	int				tcp_socks_nr;
