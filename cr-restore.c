@@ -782,7 +782,7 @@ static int check_core(CoreEntry *core)
 
 	ret = 0;
 out:
-	return ret < 0 ? ret : 0;
+	return ret;
 }
 
 static int restore_one_task(int pid, CoreEntry *core)
