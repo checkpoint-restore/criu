@@ -2212,7 +2212,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->nr_rlim = nr_rlim;
 	if (nr_rlim)
-		task_args->rlims = rst_mem_raddr(rlimits_rst_addr);
+		task_args->rlims = rst_mem_addr(rlimits_rst_addr);
 
 	/*
 	 * Fill up per-thread data.
