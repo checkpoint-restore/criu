@@ -276,6 +276,7 @@ static int tmpfs_dump(struct mount_info *pm)
 	ret = cr_system(-1, fd_img, -1, "tar", (char *[])
 			{ "tar", "--create",
 			"--gzip",
+			"--one-file-system",
 			"--check-links",
 			"--preserve-permissions",
 			"--sparse",
