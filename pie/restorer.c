@@ -187,9 +187,6 @@ static void restore_sched_info(struct rst_sched_param *p)
 {
 	struct sched_param parm;
 
-	if ((p->policy == SCHED_OTHER) && (p->nice == 0))
-		return;
-
 	pr_info("Restoring scheduler params %d.%d.%d\n",
 			p->policy, p->nice, p->prio);
 
