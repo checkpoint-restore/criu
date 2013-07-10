@@ -72,21 +72,7 @@ for (<IN>) {
 
 	if ($+{$code} ne "!") {
 		print CODESOUT "#define $code_macro $+{$code}\n";
-
-		my $nargs;
-
-		if ($+{args} eq "void") {
-			$nargs = 0;
-		} else {
-			my $tmp = $+{args};
-			$nargs = 1 + ($tmp =~ tr/\,/\,/);
-
-			if ($nargs <= 4) {
-			$nargs = 0;
-		}
-	}
-
-	print ASMOUT "syscall$nargs $sys_name, $code_macro\n";
+		print ASMOUT "syscall $sys_name, $code_macro\n";
 
 	} else {
 		$need_aux = 1;

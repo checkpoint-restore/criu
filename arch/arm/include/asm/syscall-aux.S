@@ -1,9 +1,13 @@
-        ENTRY(sys_mmap)
-        push    { %r4, %r5, %r7 }
-        ldr     %r4, [%sp, #12]
-        ldr     %r5, [%sp, #16]
-	lsr	%r5, #12
-        do_sys  192
-        pop     { %r4, %r5, %r7 }
-        bx      %lr
-        END(sys_mmap)
+nr_sys_mmap:
+	.long	192
+
+ENTRY(sys_mmap)
+	push	{%r4, %r5, %r7, %lr}
+	ldr		%r4, [%sp, #16]
+	ldr		%r5, [%sp, #20]
+	lsr		%r5, #12
+	adr		%r7, nr_sys_mmap
+	ldr		%r7, [%r7]
+	svc		0x00000000
+	pop		{%r4, %r5, %r7, %pc}
+END(sys_mmap)
