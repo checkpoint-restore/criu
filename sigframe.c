@@ -31,5 +31,7 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))
 		return -1;
 
+	setup_sas(sigframe, core->thread_core->sas);
+
 	return 0;
 }
