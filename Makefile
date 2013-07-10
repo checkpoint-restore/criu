@@ -39,8 +39,6 @@ OBJCOPY		:= $(CROSS_COMPILE)objcopy
 ARCH ?= $(shell uname -m | sed		\
 		-e s/i.86/i386/		\
 		-e s/sun4u/sparc64/	\
-		-e s/arm.*/arm/		\
-		-e s/sa110/arm/		\
 		-e s/s390x/s390/	\
 		-e s/parisc64/parisc/	\
 		-e s/ppc.*/powerpc/	\
@@ -57,11 +55,19 @@ ifeq ($(ARCH),x86_64)
 	LDARCH       := i386:x86-64
 endif
 
-ifeq ($(ARCH),arm)
+ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
+	ARMV         := $(shell echo $(ARCH) | sed -r -e 's/armv([[:digit:]]).*/\1/')
 	ARCH         := arm
-	ARCH_DEFINES := -DCONFIG_ARM
+	DEFINES      := -DCONFIG_ARM -DCONFIG_ARMV$(ARMV)
 	LDARCH       := arm
-	CFLAGS       += -march=armv7-a
+
+	ifeq ($(ARMV),6)
+		CFLAGS += -march=armv6
+	endif
+
+	ifeq ($(ARMV),7)
+		CFLAGS += -march=armv7-a
+	endif
 endif
 
 SRC_DIR		?= $(CURDIR)
