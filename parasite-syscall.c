@@ -486,50 +486,47 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 				struct pid *tid, CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
+	pid_t pid = tid->real;
+	user_regs_struct_t regs_orig;
 	int ret;
+
+	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
 
-	if (id == 0)
-		ret = parasite_execute_daemon(PARASITE_CMD_DUMP_THREAD, ctl);
-	else {
-		pid_t pid = tid->real;
-		user_regs_struct_t regs_orig;
-
-		ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig);
-		if (ret) {
-			pr_perror("Can't obtain registers (pid: %d)", pid);
-			return -1;
-		}
-
-		ret = parasite_execute_trap_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
-						pid, &regs_orig,
-						ctl->r_thread_stack, false);
-		if (ret) {
-			pr_err("Can't init thread in parasite %d\n", pid);
-			return -1;
-		}
-
-		ret = get_task_regs(pid, regs_orig, core);
-		if (ret)
-			pr_err("Can't obtain regs for thread %d\n", pid);
-
-		if (parasite_execute_trap_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
-						pid, &regs_orig,
-						ctl->r_thread_stack, true)) {
-			pr_err("Can't init thread in parasite %d\n", pid);
-			return -1;
-		}
-		if (ret)
-			return -1;
-
-		memcpy(&core->thread_core->blk_sigset,
-			&args->blocked, sizeof(k_rtsigset_t));
-		core->thread_core->has_blk_sigset = true;
-
-		BUG_ON(!core->thread_core->sas);
-		copy_sas(core->thread_core->sas, &args->sas);
+	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig);
+	if (ret) {
+		pr_perror("Can't obtain registers (pid: %d)", pid);
+		return -1;
 	}
+
+	ret = parasite_execute_trap_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
+					pid, &regs_orig,
+					ctl->r_thread_stack, false);
+	if (ret) {
+		pr_err("Can't init thread in parasite %d\n", pid);
+		return -1;
+	}
+
+	ret = get_task_regs(pid, regs_orig, core);
+	if (ret)
+		pr_err("Can't obtain regs for thread %d\n", pid);
+
+	if (parasite_execute_trap_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
+					pid, &regs_orig,
+					ctl->r_thread_stack, true)) {
+		pr_err("Can't init thread in parasite %d\n", pid);
+		return -1;
+	}
+	if (ret)
+		return -1;
+
+	memcpy(&core->thread_core->blk_sigset,
+		&args->blocked, sizeof(k_rtsigset_t));
+	core->thread_core->has_blk_sigset = true;
+
+	BUG_ON(!core->thread_core->sas);
+	copy_sas(core->thread_core->sas, &args->sas);
 
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
 	tid->virt = args->tid;
