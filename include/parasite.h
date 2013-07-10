@@ -10,6 +10,7 @@
 
 #include <sys/un.h>
 #include <time.h>
+#include <signal.h>
 
 #include "image.h"
 #include "util-net.h"
@@ -71,6 +72,7 @@ struct parasite_init_args {
 	k_rtsigset_t		sig_blocked;
 
 	struct rt_sigframe	*sigframe;
+	stack_t			sas;
 };
 
 struct parasite_log_args {
@@ -163,6 +165,7 @@ struct parasite_dump_thread {
 	pid_t			tid;
 	k_rtsigset_t		blocked;
 	u32			tls;
+	stack_t			sas;
 };
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))

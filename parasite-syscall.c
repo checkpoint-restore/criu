@@ -370,7 +370,14 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
+static void copy_sas(ThreadSasEntry *dst, stack_t *src)
+{
+	dst->ss_sp = encode_pointer(src->ss_sp);
+	dst->ss_size = (u64)src->ss_size;
+	dst->ss_flags = src->ss_flags;
+}
+
+static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item *item)
 {
 	static int ssock = -1;
 
@@ -420,6 +427,9 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, int nr_threads)
 
 	ctl->sig_blocked = args->sig_blocked;
 	ctl->use_sig_blocked = true;
+
+	BUG_ON(!item->core[0]->thread_core->sas);
+	copy_sas(item->core[0]->thread_core->sas, &args->sas);
 
 	sock = accept(ssock, NULL, 0);
 	if (sock < 0) {
@@ -516,6 +526,9 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		memcpy(&core->thread_core->blk_sigset,
 			&args->blocked, sizeof(k_rtsigset_t));
 		core->thread_core->has_blk_sigset = true;
+
+		BUG_ON(!core->thread_core->sas);
+		copy_sas(core->thread_core->sas, &args->sas);
 	}
 
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
@@ -1069,7 +1082,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		p += PARASITE_STACK_SIZE;
 	}
 
-	ret = parasite_init(ctl, pid, item->nr_threads);
+	ret = parasite_init(ctl, pid, item);
 	if (ret) {
 		pr_err("%d: Can't create a transport socket\n", pid);
 		goto err_restore;

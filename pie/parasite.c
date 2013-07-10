@@ -230,6 +230,9 @@ static int init_thread(struct parasite_dump_thread *args)
 	args->tid = tid;
 	args->tls = arch_get_tls();
 
+	ret = sys_sigaltstack(NULL, &args->sas);
+	if (ret)
+		goto err;
 
 	return ret;
 err:
@@ -257,6 +260,10 @@ static int init(struct parasite_init_args *args)
 			      sizeof(k_rtsigset_t));
 	if (ret)
 		return -1;
+
+	ret = sys_sigaltstack(NULL, &args->sas);
+	if (ret)
+		goto err;
 
 	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
 	if (tsock < 0) {
