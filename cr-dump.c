@@ -641,10 +641,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = dump_task_mm(ctl, stat, misc, cr_fdset);
-	if (ret)
-		goto err;
-
 	ret = get_task_futex_robust_list(pid, core->thread_core);
 	if (ret)
 		goto err;
@@ -1498,6 +1494,12 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parasite_dump_posix_timers_seized(&proc_args, parasite_ctl, cr_fdset);
 	if (ret) {
 		pr_err("Can't dump posix timers (pid: %d)\n", pid);
+		goto err_cure;
+	}
+
+	ret = dump_task_mm(parasite_ctl, &pps_buf, &misc, cr_fdset);
+	if (ret) {
+		pr_err("Dump mm (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
 
