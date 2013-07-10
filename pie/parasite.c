@@ -138,6 +138,8 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 
 static int dump_misc(struct parasite_dump_misc *args)
 {
+	int ret;
+
 	args->brk = sys_brk(0);
 
 	args->pid = sys_getpid();
@@ -147,7 +149,9 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->umask = sys_umask(0);
 	sys_umask(args->umask); /* never fails */
 
-	return 0;
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
+
+	return ret;
 }
 
 static int dump_creds(struct parasite_dump_creds *args)

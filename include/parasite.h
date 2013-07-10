@@ -144,6 +144,7 @@ static inline int posix_timers_dump_size(int timer_n)
 
 struct parasite_dump_misc {
 	unsigned long		brk;
+	unsigned int		*tid_addr;
 
 	u32 pid;
 	u32 sid;
