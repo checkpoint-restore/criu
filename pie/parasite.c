@@ -199,21 +199,6 @@ static int drain_fds(struct parasite_drain_fd *args)
 	return ret;
 }
 
-static int dump_thread(struct parasite_dump_thread *args)
-{
-	pid_t tid = sys_gettid();
-	int ret;
-
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
-	if (ret)
-		return ret;
-
-	args->tid = tid;
-	args->tls = arch_get_tls();
-
-	return 0;
-}
-
 static int init_thread(struct parasite_dump_thread *args)
 {
 	k_rtsigset_t to_block;
@@ -523,9 +508,6 @@ static noinline __used int noinline parasite_daemon(void *args)
 		switch (m.cmd) {
 		case PARASITE_CMD_FINI:
 			goto out;
-		case PARASITE_CMD_DUMP_THREAD:
-			ret = dump_thread(args);
-			break;
 		case PARASITE_CMD_DUMPPAGES:
 			ret = dump_pages(args);
 			break;
