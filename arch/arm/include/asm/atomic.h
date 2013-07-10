@@ -8,7 +8,16 @@ typedef struct {
 
 /* Copied from the Linux kernel header arch/arm/include/asm/atomic.h */
 
+#if defined(CONFIG_ARMV7)
+
 #define smp_mb() __asm__ __volatile__ ("dmb" : : : "memory")
+
+#elif defined(CONFIG_ARMV6)
+
+#define smp_mb() __asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 5"	: : "r" (0) : "memory")
+
+#endif
+
 
 #define atomic_set(mem,v) ((mem)->counter = (v))
 #define atomic_get(v)	(*(volatile u32 *)&(v)->counter)
