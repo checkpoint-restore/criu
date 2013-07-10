@@ -25,6 +25,12 @@ message task_kobj_ids_entry {
 	optional uint32			mnt_ns_id	= 9;
 }
 
+message thread_sas_entry {
+	required uint64			ss_sp		= 1;
+	required uint64			ss_size		= 2;
+	required uint32			ss_flags	= 3;
+}
+
 message thread_core_entry {
 	required uint64			futex_rla	= 1;
 	required uint32			futex_rla_len	= 2;
@@ -32,6 +38,7 @@ message thread_core_entry {
 	optional uint32			sched_policy	= 4;
 	optional uint32			sched_prio	= 5;
 	optional uint64			blk_sigset	= 6;
+	optional thread_sas_entry	sas		= 7;
 }
 
 message core_entry {
