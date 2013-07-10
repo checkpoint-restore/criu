@@ -626,6 +626,17 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 	return pb_write_one(fdset_fd(cr_fdset, CR_FD_IDS), item->ids, PB_IDS);
 }
 
+static int dump_thread_core(int pid, ThreadCoreEntry *tc)
+{
+	int ret;
+
+	ret = get_task_futex_robust_list(pid, tc);
+	if (!ret)
+		ret = dump_sched_info(pid, tc);
+
+	return ret;
+}
+
 static int dump_task_core_all(struct parasite_ctl *ctl,
 		CoreEntry *core,
 		const struct proc_pid_stat *stat,
@@ -640,10 +651,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	pr_info("Dumping core (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = get_task_futex_robust_list(pid, core->thread_core);
-	if (ret)
-		goto err;
-
 	ret = get_task_personality(pid, &core->tc->personality);
 	if (ret)
 		goto err;
@@ -654,7 +661,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
 
-	ret = dump_sched_info(pid, core->thread_core);
+	ret = dump_thread_core(pid, core->thread_core);
 	if (ret)
 		goto err;
 
@@ -1082,17 +1089,13 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = get_task_futex_robust_list(pid, core->thread_core);
-	if (ret)
-		goto err;
-
 	ret = parasite_dump_thread_seized(parasite_ctl, id, tid, core);
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
 
-	ret = dump_sched_info(pid, core->thread_core);
+	ret = dump_thread_core(pid, core->thread_core);
 	if (ret)
 		goto err;
 
