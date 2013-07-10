@@ -630,7 +630,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 		CoreEntry *core,
 		const struct proc_pid_stat *stat,
 		const struct parasite_dump_misc *misc,
-		struct vm_area_list *vma_area_list,
 		const struct cr_fdset *cr_fdset)
 {
 	int fd_core = fdset_fd(cr_fdset, CR_FD_CORE);
@@ -1503,7 +1502,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(parasite_ctl, item->core[0], &pps_buf, &misc, &vmas, cr_fdset);
+	ret = dump_task_core_all(parasite_ctl, item->core[0], &pps_buf, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
