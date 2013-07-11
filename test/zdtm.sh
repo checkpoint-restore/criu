@@ -218,10 +218,10 @@ construct_root()
 	local libdir=$root/lib
 	local libdir2=$root/lib64
 
-	mkdir $root/bin
+	mkdir -p $root/bin
 	cp $ps_path $root/bin
 
-	mkdir $libdir $libdir2
+	mkdir -p $libdir $libdir2
 	for i in `ldd $test_path $ps_path | grep -P '^\s' | awk '{ print $1 }' | grep -v vdso`; do
 		local lib=`basename $i`
 		[ -f $libdir/$lib ] && continue ||
