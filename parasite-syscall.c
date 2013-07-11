@@ -370,13 +370,6 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-static void copy_sas(ThreadSasEntry *dst, stack_t *src)
-{
-	dst->ss_sp = encode_pointer(src->ss_sp);
-	dst->ss_size = (u64)src->ss_size;
-	dst->ss_flags = src->ss_flags;
-}
-
 static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item *item)
 {
 	static int ssock = -1;
@@ -427,9 +420,6 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item
 
 	ctl->sig_blocked = args->sig_blocked;
 	ctl->use_sig_blocked = true;
-
-	BUG_ON(!item->core[0]->thread_core->sas);
-	copy_sas(item->core[0]->thread_core->sas, &args->sas);
 
 	sock = accept(ssock, NULL, 0);
 	if (sock < 0) {

@@ -149,6 +149,10 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->umask = sys_umask(0);
 	sys_umask(args->umask); /* never fails */
 
+	ret = sys_sigaltstack(NULL, &args->sas);
+	if (ret)
+		return ret;
+
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
 
 	return ret;
@@ -249,10 +253,6 @@ static int init(struct parasite_init_args *args)
 			      sizeof(k_rtsigset_t));
 	if (ret)
 		return -1;
-
-	ret = sys_sigaltstack(NULL, &args->sas);
-	if (ret)
-		goto err;
 
 	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
 	if (tsock < 0) {

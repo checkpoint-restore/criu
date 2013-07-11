@@ -668,6 +668,9 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	core_put_tls(core, misc->tls);
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(misc->tid_addr);
 
+	BUG_ON(!core->thread_core->sas);
+	copy_sas(core->thread_core->sas, &misc->sas);
+
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0)
 		goto err;

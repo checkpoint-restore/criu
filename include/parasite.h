@@ -71,7 +71,6 @@ struct parasite_init_args {
 	k_rtsigset_t		sig_blocked;
 
 	struct rt_sigframe	*sigframe;
-	stack_t			sas;
 };
 
 struct parasite_log_args {
@@ -150,6 +149,8 @@ struct parasite_dump_misc {
 	u32 pgid;
 	u32 tls;
 	u32 umask;
+
+	stack_t			sas;
 };
 
 #define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int) - 2 * sizeof(unsigned))
@@ -167,6 +168,13 @@ struct parasite_dump_thread {
 	u32			tls;
 	stack_t			sas;
 };
+
+static inline void copy_sas(ThreadSasEntry *dst, const stack_t *src)
+{
+	dst->ss_sp = encode_pointer(src->ss_sp);
+	dst->ss_size = (u64)src->ss_size;
+	dst->ss_flags = src->ss_flags;
+}
 
 #define PARASITE_MAX_FDS	(PAGE_SIZE / sizeof(int))
 
