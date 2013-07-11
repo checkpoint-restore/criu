@@ -819,7 +819,9 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	futex_init(&ui->bound);
 	ui->peer = NULL;
 	ui->flags = 0;
-	pr_info(" `- Got %#x peer %#x\n", ui->ue->ino, ui->ue->peer);
+	pr_info(" `- Got %#x peer %#x (name %s)\n",
+		ui->ue->ino, ui->ue->peer,
+		ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-");
 	file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 	list_add_tail(&ui->list, &unix_sockets);
 
