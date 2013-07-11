@@ -24,7 +24,7 @@ enum {
 	PARASITE_CMD_ACK,
 
 	PARASITE_CMD_INIT,
-	PARASITE_CMD_INIT_THREAD,
+	PARASITE_CMD_DUMP_THREAD,
 
 	/*
 	 * These two must be greater than INITs.
@@ -34,7 +34,6 @@ enum {
 
 	PARASITE_CMD_CFG_LOG,
 	PARASITE_CMD_FINI,
-	PARASITE_CMD_FINI_THREAD,
 
 	PARASITE_CMD_MPROTECT_VMAS,
 	PARASITE_CMD_DUMPPAGES,
@@ -164,7 +163,6 @@ struct parasite_dump_creds {
 struct parasite_dump_thread {
 	unsigned int		*tid_addr;
 	pid_t			tid;
-	k_rtsigset_t		blocked;
 	u32			tls;
 	stack_t			sas;
 };

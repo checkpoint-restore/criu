@@ -506,7 +506,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	ret = parasite_execute_trap_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
+	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
 					pid, &regs_orig,
 					ctl->r_thread_stack,
 			(k_rtsigset_t *) &core->thread_core->blk_sigset);
@@ -516,18 +516,10 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	}
 
 	ret = get_task_regs(pid, regs_orig, core);
-	if (ret)
+	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
-
-	if (parasite_execute_trap_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
-					pid, &regs_orig,
-					ctl->r_thread_stack,
-			(k_rtsigset_t *) &core->thread_core->blk_sigset)) {
-		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
 	}
-	if (ret)
-		return -1;
 
 	BUG_ON(!core->thread_core->sas);
 	copy_sas(core->thread_core->sas, &args->sas);
@@ -536,7 +528,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	tid->virt = args->tid;
 	core_put_tls(core, args->tls);
 
-	return ret;
+	return 0;
 }
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
