@@ -84,7 +84,7 @@ int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 
 	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
 		pr_perror("Can't set registers (pid: %d)", pid);
-		goto err;
+		goto err_sigmask;
 	}
 
 	/*
@@ -130,7 +130,13 @@ int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 	 * parasite code. So we're done.
 	 */
 	ret = 0;
+
 err:
+	if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
+		pr_perror("Can't restore registers (pid: %d)", pid);
+		ret = -1;
+	}
+err_sigmask:
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &sigmask)) {
 		pr_perror("Can't block signals");
 		ret = -1;
@@ -163,12 +169,6 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
-
-	if (ctl->pid.real != pid)
-		if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
-			pr_perror("Can't restore registers (pid: %d)", pid);
-			return -1;
-		}
 
 	return ret;
 }
@@ -861,11 +861,6 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 	if (ptrace_poke_area(ctl->pid.real, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
 		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid.real);
-		ret = -1;
-	}
-
-	if (ptrace(PTRACE_SETREGS, ctl->pid.real, NULL, &ctl->regs_orig)) {
-		pr_err("Can't restore registers (pid: %d)\n", ctl->pid.real);
 		ret = -1;
 	}
 
