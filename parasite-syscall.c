@@ -370,18 +370,13 @@ static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
 	return 0;
 }
 
-static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item *item)
+static int ssock = -1;
+
+static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
+				struct parasite_init_args *args)
 {
-	static int ssock = -1;
-
-	struct parasite_init_args *args;
-	int sock;
-
-	args = parasite_args(ctl, struct parasite_init_args);
-
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
-	args->sigframe = ctl->rsigframe;
 
 	if (ssock == -1) {
 		int rst = -1;
@@ -413,6 +408,37 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item
 		}
 	}
 
+	return 0;
+err:
+	close_safe(&ssock);
+	return -1;
+}
+
+static int accept_tsock()
+{
+	int sock;
+
+	sock = accept(ssock, NULL, 0);
+	if (sock < 0) {
+		pr_perror("Can't accept connection to the transport socket");
+		close_safe(&ssock);
+	}
+
+	return sock;
+}
+
+static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item *item)
+{
+	struct parasite_init_args *args;
+	int sock;
+
+	args = parasite_args(ctl, struct parasite_init_args);
+
+	args->sigframe = ctl->rsigframe;
+
+	if (prepare_tsock(ctl, pid, args))
+		goto err;
+
 	if (parasite_execute_trap(PARASITE_CMD_INIT, ctl) < 0) {
 		pr_err("Can't init parasite\n");
 		goto err;
@@ -421,16 +447,13 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item
 	ctl->sig_blocked = args->sig_blocked;
 	ctl->use_sig_blocked = true;
 
-	sock = accept(ssock, NULL, 0);
-	if (sock < 0) {
-		pr_perror("Can't accept connection to the transport socket");
+	sock = accept_tsock();
+	if (sock < 0)
 		goto err;
-	}
 
 	ctl->tsock = sock;
 	return 0;
 err:
-	close_safe(&ssock);
 	return -1;
 }
 
