@@ -88,6 +88,7 @@ static/fdt_shared
 static/file_locks00
 static/file_locks01
 static/sigpending
+static/sigaltstack
 static/sk-netlink
 static/proc-self
 "
