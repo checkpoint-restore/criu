@@ -101,10 +101,8 @@ extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 			  unsigned long arg3, unsigned long arg4,
 			  unsigned long arg5, unsigned long arg6);
 
-extern int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
-				   user_regs_struct_t *regs,
-				   user_regs_struct_t *regs_orig,
-				   k_rtsigset_t *sigmask);
+extern int __parasite_execute_syscall(struct parasite_ctl *ctl,
+				user_regs_struct_t *regs);
 extern bool arch_can_dump_task(pid_t pid);
 
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,

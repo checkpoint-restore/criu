@@ -73,14 +73,10 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.ARM_r4 = arg5;
 	regs.ARM_r5 = arg6;
 
-	parasite_setup_regs(ctl->syscall_ip, 0, &regs);
-	err = __parasite_execute_trap(ctl, ctl->pid.real, &regs,
-					&ctl->regs_orig, &ctl->sig_blocked);
-	if (err)
-		return err;
+	err = __parasite_execute_syscall(ctl, &regs);
 
 	*ret = regs.ARM_r0;
-	return 0;
+	return err;
 }
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.ARM_##e
