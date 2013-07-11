@@ -248,7 +248,7 @@ start_test()
 	unset ZDTM_UID
 	unset ZDTM_GID
 
-	echo $TEST_SUID_LIST | grep $tname || {
+	echo $TEST_SUID_LIST | grep -q $tname || {
 		export ZDTM_UID=18943
 		export ZDTM_GID=58467
 		chown $ZDTM_UID:$ZDTM_GID $tdir
