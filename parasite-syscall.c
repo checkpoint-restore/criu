@@ -69,13 +69,19 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
 				user_regs_struct_t *regs_orig,
-				bool signals_blocked)
+				k_rtsigset_t *sigmask)
 {
+	k_rtsigset_t blockall;
 	siginfo_t siginfo;
 	int status;
 	int ret = -1;
 
-again:
+	ksigfillset(&blockall);
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &blockall)) {
+		pr_perror("Can't block signals");
+		return -1;
+	}
+
 	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
 		pr_perror("Can't set registers (pid: %d)", pid);
 		goto err;
@@ -112,75 +118,11 @@ again:
 	}
 
 	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != ARCH_SI_TRAP) {
-retry_signal:
 		pr_debug("** delivering signal %d si_code=%d\n",
 			 siginfo.si_signo, siginfo.si_code);
 
-		if (signals_blocked) {
-			pr_err("Unexpected %d task interruption, aborting\n", pid);
-			goto err;
-		}
-
-		/* FIXME: jerr(siginfo.si_code > 0, err_restore); */
-
-		/*
-		 * This requires some explanation. If a signal from original
-		 * program delivered while we're trying to execute our
-		 * injected blob -- we need to setup original registers back
-		 * so the kernel would make sigframe for us and update the
-		 * former registers.
-		 *
-		 * Then we should swap registers back to our modified copy
-		 * and retry.
-		 */
-
-		if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
-			pr_perror("Can't set registers (pid: %d)", pid);
-			goto err;
-		}
-
-		if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-			pr_perror("Can't interrupt (pid: %d)", pid);
-			goto err;
-		}
-
-		if (ptrace(PTRACE_CONT, pid, NULL, (void *)(unsigned long)siginfo.si_signo)) {
-			pr_perror("Can't continue (pid: %d)", pid);
-			goto err;
-		}
-
-		if (wait4(pid, &status, __WALL, NULL) != pid) {
-			pr_perror("Waited pid mismatch (pid: %d)", pid);
-			goto err;
-		}
-
-		if (!WIFSTOPPED(status)) {
-			pr_err("Task is still running (pid: %d)\n", pid);
-			goto err;
-		}
-
-		if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
-			pr_perror("Can't get siginfo (pid: %d)", pid);
-			goto err;
-		}
-
-		if (SI_EVENT(siginfo.si_code) != PTRACE_EVENT_STOP)
-			goto retry_signal;
-
-		/*
-		 * Signal is delivered, so we should update
-		 * original registers.
-		 */
-		{
-			user_regs_struct_t r;
-			if (ptrace(PTRACE_GETREGS, pid, NULL, &r)) {
-				pr_perror("Can't obtain registers (pid: %d)", pid);
-				goto err;
-			}
-			*regs_orig = r;
-		}
-
-		goto again;
+		pr_err("Unexpected %d task interruption, aborting\n", pid);
+		goto err;
 	}
 
 	/*
@@ -189,6 +131,10 @@ retry_signal:
 	 */
 	ret = 0;
 err:
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &sigmask)) {
+		pr_perror("Can't block signals");
+		ret = -1;
+	}
 	return ret;
 }
 
@@ -201,7 +147,8 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 static int parasite_execute_trap_by_pid(unsigned int cmd,
 					struct parasite_ctl *ctl, pid_t pid,
 					user_regs_struct_t *regs_orig,
-					void *stack, bool use_sig_blocked)
+					void *stack,
+					k_rtsigset_t *sigmask)
 {
 	user_regs_struct_t regs = *regs_orig;
 	int ret;
@@ -210,7 +157,7 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 
 	parasite_setup_regs(ctl->parasite_ip, stack, &regs);
 
-	ret = __parasite_execute_trap(ctl, pid, &regs, regs_orig, use_sig_blocked);
+	ret = __parasite_execute_trap(ctl, pid, &regs, regs_orig, sigmask);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -228,8 +175,9 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 
 static int parasite_execute_trap(unsigned int cmd, struct parasite_ctl *ctl)
 {
-	return parasite_execute_trap_by_pid(cmd, ctl, ctl->pid.real, &ctl->regs_orig,
-					ctl->rstack, ctl->use_sig_blocked);
+	return parasite_execute_trap_by_pid(cmd, ctl, ctl->pid.real,
+						&ctl->regs_orig, ctl->rstack,
+						&ctl->sig_blocked);
 }
 
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
@@ -444,9 +392,6 @@ static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item
 		goto err;
 	}
 
-	ctl->sig_blocked = args->sig_blocked;
-	ctl->use_sig_blocked = true;
-
 	sock = accept_tsock();
 	if (sock < 0)
 		goto err;
@@ -462,6 +407,9 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
+	k_rtsigset_t blockall;
+
+	ksigfillset(&blockall);
 
 	*ctl->addr_cmd = PARASITE_CMD_DAEMONIZE;
 
@@ -470,6 +418,11 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
 		pr_perror("Can't set registers (pid: %d)", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &blockall)) {
+		pr_perror("Can't block signals");
 		goto err;
 	}
 
@@ -492,6 +445,9 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 	return 0;
 
 err:
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), ctl->sig_blocked))
+		pr_perror("Can't block signals");
+
 	return -1;
 }
 
@@ -507,6 +463,14 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
 
+	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t),
+					&core->thread_core->blk_sigset);
+	if (ret) {
+		pr_perror("ptrace can't get signal blocking mask for %d", pid);
+		return -1;
+	}
+	core->thread_core->has_blk_sigset = true;
+
 	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig);
 	if (ret) {
 		pr_perror("Can't obtain registers (pid: %d)", pid);
@@ -515,7 +479,8 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	ret = parasite_execute_trap_by_pid(PARASITE_CMD_INIT_THREAD, ctl,
 					pid, &regs_orig,
-					ctl->r_thread_stack, false);
+					ctl->r_thread_stack,
+			(k_rtsigset_t *) &core->thread_core->blk_sigset);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
@@ -527,16 +492,13 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	if (parasite_execute_trap_by_pid(PARASITE_CMD_FINI_THREAD, ctl,
 					pid, &regs_orig,
-					ctl->r_thread_stack, true)) {
+					ctl->r_thread_stack,
+			(k_rtsigset_t *) &core->thread_core->blk_sigset)) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
 	}
 	if (ret)
 		return -1;
-
-	memcpy(&core->thread_core->blk_sigset,
-		&args->blocked, sizeof(k_rtsigset_t));
-	core->thread_core->has_blk_sigset = true;
 
 	BUG_ON(!core->thread_core->sas);
 	copy_sas(core->thread_core->sas, &args->sas);
@@ -859,8 +821,6 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		}
 	}
 
-	ctl->use_sig_blocked = false;
-
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
 		pr_perror("ptrace");
@@ -956,6 +916,11 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	}
 
 	ctl->tsock = -1;
+
+	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->sig_blocked)) {
+		pr_perror("ptrace doesn't support PTRACE_GETSIGMASK\n");
+		goto err;
+	}
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
 		pr_err("Can't obtain registers (pid: %d)\n", pid);
@@ -1065,6 +1030,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
+
+	memcpy(&item->core[0]->tc->blk_sigset, &ctl->sig_blocked, sizeof(k_rtsigset_t));
+
 	ret = parasite_map_exchange(ctl, map_exchange_size);
 	if (ret)
 		goto err_restore;
@@ -1109,9 +1077,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		pr_err("%d: Can't set a logging descriptor\n", pid);
 		goto err_restore;
 	}
-
-	memcpy(&item->core[0]->tc->blk_sigset,
-		&ctl->sig_blocked, sizeof(k_rtsigset_t));
 
 	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
 		goto err_restore;

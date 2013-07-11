@@ -29,7 +29,6 @@ struct parasite_ctl {
 	user_regs_struct_t	regs_orig;				/* original registers */
 
 	k_rtsigset_t		sig_blocked;
-	bool			use_sig_blocked;
 
 	void			*rstack;				/* thread leader stack*/
 	struct rt_sigframe	*sigframe;
@@ -105,7 +104,7 @@ extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 extern int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
 				   user_regs_struct_t *regs,
 				   user_regs_struct_t *regs_orig,
-				   bool signals_blocked);
+				   k_rtsigset_t *sigmask);
 extern bool arch_can_dump_task(pid_t pid);
 
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
