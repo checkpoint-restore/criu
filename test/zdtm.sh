@@ -222,7 +222,20 @@ construct_root()
 	cp $ps_path $root/bin
 
 	mkdir -p $libdir $libdir2
-	for i in `ldd $test_path $ps_path | grep -P '^\s' | awk '{ print $1 }' | grep -v vdso`; do
+
+	# $ ldd /bin/ps test/zdtm/live/static/env00
+	# /bin/ps:
+	#	/usr/lib/arm-linux-gnueabihf/libcofi_rpi.so (0xb6f39000)
+	#	libprocps.so.0 => /lib/arm-linux-gnueabihf/libprocps.so.0 (0xb6f04000)
+	#	libgcc_s.so.1 => /lib/arm-linux-gnueabihf/libgcc_s.so.1 (0xb6edc000)
+	#	libc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0xb6dad000)
+	#	/lib/ld-linux-armhf.so.3 (0xb6f46000)
+	# test/zdtm/live/static/env00:
+	#	/usr/lib/arm-linux-gnueabihf/libcofi_rpi.so (0xb6efe000)
+	#	libc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0xb6dc5000)
+	#	/lib/ld-linux-armhf.so.3 (0xb6f0b000)
+
+	for i in `ldd $test_path $ps_path | grep -P '^\s' | sed "s/.*=> //" | awk '{ print $1 }' | grep -v vdso`; do
 		local lib=`basename $i`
 		[ -f $libdir/$lib ] && continue ||
 		[ -f $i ] && cp $i $libdir && cp $i $libdir2 && continue ||
