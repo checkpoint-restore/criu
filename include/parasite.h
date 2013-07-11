@@ -23,16 +23,14 @@ enum {
 	PARASITE_CMD_IDLE		= 0,
 	PARASITE_CMD_ACK,
 
-	PARASITE_CMD_INIT,
+	PARASITE_CMD_INIT_DAEMON,
 	PARASITE_CMD_DUMP_THREAD,
 
 	/*
 	 * These two must be greater than INITs.
 	 */
-	PARASITE_CMD_DAEMONIZE,
 	PARASITE_CMD_DAEMONIZED,
 
-	PARASITE_CMD_CFG_LOG,
 	PARASITE_CMD_FINI,
 
 	PARASITE_CMD_MPROTECT_VMAS,
@@ -67,13 +65,9 @@ struct parasite_init_args {
 	int			h_addr_len;
 	struct sockaddr_un	h_addr;
 
-	k_rtsigset_t		sig_blocked;
+	int			log_level;
 
 	struct rt_sigframe	*sigframe;
-};
-
-struct parasite_log_args {
-	int log_level;
 };
 
 struct parasite_vma_entry

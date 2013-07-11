@@ -220,37 +220,6 @@ static int dump_thread(struct parasite_dump_thread *args)
 	return ret;
 }
 
-static int init(struct parasite_init_args *args)
-{
-	k_rtsigset_t to_block;
-	int ret;
-
-	sigframe = args->sigframe;
-
-	ksigfillset(&to_block);
-	ret = sys_sigprocmask(SIG_SETMASK, &to_block,
-			      &args->sig_blocked,
-			      sizeof(k_rtsigset_t));
-	if (ret)
-		return -1;
-
-	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
-	if (tsock < 0) {
-		ret = tsock;
-		goto err;
-	}
-
-	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
-	if (ret < 0)
-		goto err;
-
-	return 0;
-err:
-	sys_sigprocmask(SIG_SETMASK, &args->sig_blocked,
-				NULL, sizeof(k_rtsigset_t));
-	return ret;
-}
-
 static char proc_mountpoint[] = "proc.crtools";
 static int parasite_get_proc_fd()
 {
@@ -369,20 +338,6 @@ err:
 	return 0;
 }
 
-static int parasite_cfg_log(struct parasite_log_args *args)
-{
-	int ret;
-
-	ret = recv_fd(tsock);
-	if (ret >= 0) {
-		log_set_fd(ret);
-		log_set_loglevel(args->log_level);
-		ret = 0;
-	}
-
-	return ret;
-}
-
 static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 {
 	struct vdso_mark *m = (void *)args->start;
@@ -471,7 +426,7 @@ static noinline __used int noinline parasite_daemon(void *args)
 	pr_debug("Running daemon thread leader\n");
 
 	/* Reply we're alive */
-	if (__parasite_daemon_reply_ack(PARASITE_CMD_DAEMONIZE, 0))
+	if (__parasite_daemon_reply_ack(PARASITE_CMD_INIT_DAEMON, 0))
 		goto out;
 
 	ret = 0;
@@ -542,19 +497,51 @@ out:
 	return 0;
 }
 
+static noinline __used int parasite_init_daemon(void *data)
+{
+	struct parasite_init_args *args = data;
+	int ret;
+
+	sigframe = args->sigframe;
+
+	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
+	if (tsock < 0) {
+		pr_err("Can't create socket: %d\n", tsock);
+		goto err;
+	}
+
+	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
+	if (ret < 0) {
+		pr_err("Can't connect the control socket\n");
+		goto err;
+	}
+
+	ret = recv_fd(tsock);
+	if (ret >= 0) {
+		log_set_fd(ret);
+		log_set_loglevel(args->log_level);
+		ret = 0;
+	} else
+		goto err;
+
+	parasite_daemon(data);
+
+err:
+	fini();
+	BUG();
+
+	return -1;
+}
+
 int __used parasite_service(unsigned int cmd, void *args)
 {
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	switch (cmd) {
-	case PARASITE_CMD_INIT:
-		return init(args);
 	case PARASITE_CMD_DUMP_THREAD:
 		return dump_thread(args);
-	case PARASITE_CMD_CFG_LOG:
-		return parasite_cfg_log(args);
-	case PARASITE_CMD_DAEMONIZE:
-		return parasite_daemon(args);
+	case PARASITE_CMD_INIT_DAEMON:
+		return parasite_init_daemon(args);
 	}
 
 	pr_err("Unknown command to parasite: %d\n", cmd);

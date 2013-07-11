@@ -202,13 +202,6 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 	return ret;
 }
 
-static int parasite_execute_trap(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	return parasite_execute_trap_by_pid(cmd, ctl, ctl->pid.real,
-						&ctl->regs_orig, ctl->rstack,
-						&ctl->sig_blocked);
-}
-
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 {
 	int ret;
@@ -328,25 +321,6 @@ int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 	return 0;
 }
 
-static int parasite_set_logfd(struct parasite_ctl *ctl, pid_t pid)
-{
-	int ret;
-	struct parasite_log_args *a;
-
-	ret = parasite_send_fd(ctl, log_get_fd());
-	if (ret)
-		return ret;
-
-	a = parasite_args(ctl, struct parasite_log_args);
-	a->log_level = log_get_loglevel();
-
-	ret = parasite_execute_trap(PARASITE_CMD_CFG_LOG, ctl);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
 static int ssock = -1;
 
 static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
@@ -404,35 +378,9 @@ static int accept_tsock()
 	return sock;
 }
 
-static int parasite_init(struct parasite_ctl *ctl, pid_t pid, struct pstree_item *item)
+static int parasite_init_daemon(struct parasite_ctl *ctl)
 {
 	struct parasite_init_args *args;
-	int sock;
-
-	args = parasite_args(ctl, struct parasite_init_args);
-
-	args->sigframe = ctl->rsigframe;
-
-	if (prepare_tsock(ctl, pid, args))
-		goto err;
-
-	if (parasite_execute_trap(PARASITE_CMD_INIT, ctl) < 0) {
-		pr_err("Can't init parasite\n");
-		goto err;
-	}
-
-	sock = accept_tsock();
-	if (sock < 0)
-		goto err;
-
-	ctl->tsock = sock;
-	return 0;
-err:
-	return -1;
-}
-
-static int parasite_daemonize(struct parasite_ctl *ctl)
-{
 	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
@@ -440,7 +388,15 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 
 	ksigfillset(&blockall);
 
-	*ctl->addr_cmd = PARASITE_CMD_DAEMONIZE;
+	*ctl->addr_cmd = PARASITE_CMD_INIT_DAEMON;
+
+	args = parasite_args(ctl, struct parasite_init_args);
+
+	args->sigframe = ctl->rsigframe;
+	args->log_level = log_get_loglevel();
+
+	if (prepare_tsock(ctl, pid, args))
+		goto err;;
 
 	regs = ctl->regs_orig;
 	parasite_setup_regs(ctl->parasite_ip, ctl->rstack, &regs);
@@ -452,18 +408,24 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &blockall)) {
 		pr_perror("Can't block signals");
-		goto err;
+		goto err_regs;
 	}
 
 	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
 		pr_perror("Can't continue (pid: %d)\n", pid);
-		ptrace(PTRACE_SETREGS, pid, NULL, ctl->regs_orig);
-		goto err;
+		goto err_mask;
 	}
+
+	ctl->tsock = accept_tsock();
+	if (ctl->tsock < 0)
+		goto err;
+
+	if (parasite_send_fd(ctl, log_get_fd()))
+		goto err;
 
 	pr_info("Wait for parasite being daemonized...\n");
 
-	if (parasite_wait_ack(ctl->tsock, PARASITE_CMD_DAEMONIZE, &m)) {
+	if (parasite_wait_ack(ctl->tsock, PARASITE_CMD_INIT_DAEMON, &m)) {
 		pr_err("Can't switch parasite %d to daemon mode %d\n",
 		       pid, m.err);
 		goto err;
@@ -473,10 +435,12 @@ static int parasite_daemonize(struct parasite_ctl *ctl)
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
 
+err_mask:
+	ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t),
+				&RT_SIGFRAME_UC(ctl->sigframe).uc_sigmask);
+err_regs:
+	ptrace(PTRACE_SETREGS, pid, NULL, ctl->regs_orig);
 err:
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), ctl->sig_blocked))
-		pr_perror("Can't block signals");
-
 	return -1;
 }
 
@@ -1000,6 +964,24 @@ static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasi
 	return round_up(size, PAGE_SIZE);
 }
 
+static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *item)
+{
+	pid_t pid = ctl->pid.real;
+
+	if (get_task_regs(pid, ctl->regs_orig, item->core[0])) {
+		pr_err("Can't obtain regs for thread %d\n", pid);
+		return -1;
+	}
+
+	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
+		return -1;
+
+	if (parasite_init_daemon(ctl))
+		return -1;;
+
+	return 0;
+}
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds,
 		int timer_n)
@@ -1059,28 +1041,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		p += PARASITE_STACK_SIZE;
 	}
 
-	ret = parasite_init(ctl, pid, item);
-	if (ret) {
-		pr_err("%d: Can't create a transport socket\n", pid);
-		goto err_restore;
-	}
-
-	ret = get_task_regs(pid, ctl->regs_orig, item->core[0]);
-	if (ret) {
-		pr_err("Can't obtain regs for thread %d\n", pid);
-		goto err_restore;
-	}
-
-	ret = parasite_set_logfd(ctl, pid);
-	if (ret) {
-		pr_err("%d: Can't set a logging descriptor\n", pid);
-		goto err_restore;
-	}
-
-	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
-		goto err_restore;
-
-	if (parasite_daemonize(ctl))
+	if (parasite_start_daemon(ctl, item))
 		goto err_restore;
 
 	return ctl;
@@ -1089,4 +1050,3 @@ err_restore:
 	parasite_cure_seized(ctl);
 	return NULL;
 }
-
