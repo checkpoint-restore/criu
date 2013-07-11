@@ -233,6 +233,8 @@ construct_root()
 	done
 }
 
+export MAKEFLAGS=--no-print-directory
+
 start_test()
 {
 	local tdir=$1
