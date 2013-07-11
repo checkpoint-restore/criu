@@ -18,3 +18,13 @@ ifeq ($(ARCH),x86_64)
 endif
 
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include
+
+ifeq ($(strip $(V)),)
+	E = @echo
+	Q = @
+else
+	E = @\#
+	Q =
+endif
+
+export E Q

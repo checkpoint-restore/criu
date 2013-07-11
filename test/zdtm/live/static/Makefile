@@ -241,7 +241,7 @@ socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
 
 $(LIB):	force
-	$(MAKE) -C $(LIBDIR)
+	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean:
 	$(RM) -f $(OBJ) $(TST) *~
@@ -253,7 +253,7 @@ cleanout:
 	$(RM) -f -r *.pid *.out* *.test* *.state
 
 %.cleanout: %
-	$(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state
+	$(Q) $(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state
 
 realclean:	cleandep cleanout
 

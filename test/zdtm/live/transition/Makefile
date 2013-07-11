@@ -67,7 +67,7 @@ fork2:		override CFLAGS += -D FORK2
 	chmod +x $@
 
 $(LIB):	force
-	$(MAKE) -C $(LIBDIR)
+	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean:
 	$(RM) -f $(OBJ) $(TST) *~
@@ -76,7 +76,7 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(RM) -f -r $<.pid $<.out* $<.test chew_$<.test*
+	$(Q) $(RM) -f -r $<.pid $<.out* $<.test chew_$<.test*
 
 cleanout:
 	$(RM) -f *.pid *.out* *.test chew*

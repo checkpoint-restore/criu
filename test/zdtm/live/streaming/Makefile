@@ -66,7 +66,7 @@ socket-tcp: override CFLAGS += -D STREAM
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6 -D STREAM
 
 $(LIB):	force
-	$(MAKE) -C $(LIBDIR)
+	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean:
 	$(RM) -f $(OBJ) $(TST) *~
@@ -75,7 +75,7 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(RM) -f -r $<.pid $<.out* $<.test
+	$(Q) $(RM) -f -r $<.pid $<.out* $<.test
 
 cleanout:
 	$(RM) -f *.pid *.out* *.test*
