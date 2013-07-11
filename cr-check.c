@@ -468,6 +468,7 @@ int check_ptrace_peeksiginfo()
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo;
 	pid_t pid, ret = 0;
+	k_rtsigset_t mask;
 
 	pid = fork();
 	if (pid < 0)
@@ -489,6 +490,11 @@ int check_ptrace_peeksiginfo()
 
 	if (ptrace(PTRACE_PEEKSIGINFO, pid, &arg, &siginfo) != 0) {
 		pr_perror("Unable to dump pending signals");
+		ret = -1;
+	}
+
+	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(mask), &mask) != 0) {
+		pr_perror("Unable to dump signal blocking mask");
 		ret = -1;
 	}
 

@@ -27,6 +27,9 @@ struct ptrace_peeksiginfo_args {
 #define PTRACE_PEEKSIGINFO_SHARED       (1 << 0)
 #endif
 
+#define PTRACE_GETSIGMASK	0x420a
+#define PTRACE_SETSIGMASK	0x420b
+
 #define PTRACE_SEIZE_DEVEL	0x80000000
 
 #define PTRACE_EVENT_FORK	1
