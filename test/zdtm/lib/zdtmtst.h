@@ -3,6 +3,10 @@
 
 #include <sys/types.h>
 
+#ifndef PAGE_SIZE
+# define PAGE_SIZE 4096
+#endif
+
 /* set up test */
 extern void test_ext_init(int argc, char **argv);
 extern void test_init(int argc, char **argv);

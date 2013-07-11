@@ -11,7 +11,6 @@ const char *test_doc	= "Check changing memory";
 const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 
 #define MEM_PAGES	16
-#define PAGE_SIZE	4096
 
 int main(int argc, char **argv)
 {

@@ -11,7 +11,6 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-#define PAGE_SIZE 4096
 #define MEM_SIZE (1L << 29)
 
 const char *test_doc	= "Test big mappings";

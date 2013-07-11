@@ -11,7 +11,6 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-#define PAGE_SIZE 4096
 #define MEM_SIZE (1L << 30)
 #define MEM_OFFSET (1L << 29)
 #define MEM_OFFSET2 (MEM_SIZE - PAGE_SIZE)
