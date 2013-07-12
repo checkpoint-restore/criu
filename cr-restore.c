@@ -737,7 +737,12 @@ static int restore_one_zombie(int pid, CoreEntry *core)
 	}
 
 	if (exit_code & 0x7f) {
+		struct rlimit rlim = {0, 0};
 		int signr;
+
+		/* prevent generating core files */
+		if (setrlimit(RLIMIT_CORE, &rlim))
+			pr_perror("Can't set the zero limit for core files");
 
 		signr = exit_code & 0x7F;
 		if (!sig_fatal(signr)) {
