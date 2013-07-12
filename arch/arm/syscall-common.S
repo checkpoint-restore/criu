@@ -22,5 +22,7 @@ syscall_common:
 
 
 ENTRY(__cr_restore_rt)
-	b	sys_rt_sigreturn
+	adr	%r7, .nr_sys_rt_sigreturn
+	ldr	%r7, [%r7]
+	svc	#0
 END(__cr_restore_rt)
