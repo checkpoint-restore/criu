@@ -222,7 +222,7 @@ int main(int argc, char **argv)
 	rcv_size = clean_sk_buf(fd);
 
 	if (ret != rcv_size) {
-		fail("The child sent %d bytes, but the parent received %d bytes\n", rcv_size, ret);
+		fail("The child sent %d bytes, but the parent received %d bytes\n", ret, rcv_size);
 		return 1;
 	}
 
