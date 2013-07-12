@@ -88,7 +88,7 @@ static void *thread_func(void *arg)
 		exit_group(-1);
 	}
 
-	kill(gettid(), SIGUSR2);
+	syscall(__NR_tkill, gettid(), SIGUSR2);
 
 	return NULL;
 }
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
 	test_msg("Thread may leave SAS\n");
 	task_waiter_complete(&t, 3);
 
-	kill(gettid(), SIGUSR1);
+	syscall(__NR_tkill, gettid(), SIGUSR1);
 
 	if (pthread_join(thread, NULL)) {
 		fail("Error joining thread");
