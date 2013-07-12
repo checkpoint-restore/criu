@@ -722,9 +722,13 @@ static int restore_one_fake(void)
 	return 0;
 }
 
-static int restore_one_zombie(int pid, int exit_code)
+static int restore_one_zombie(int pid, CoreEntry *core)
 {
+	int exit_code = core->tc->exit_code;
+
 	pr_info("Restoring zombie with %d code\n", exit_code);
+
+	sys_prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
 
 	if (task_entries != NULL) {
 		restore_finish_stage(CR_STATE_RESTORE);
@@ -799,7 +803,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_alive_task(pid, core);
 		break;
 	case TASK_DEAD:
-		ret = restore_one_zombie(pid, core->tc->exit_code);
+		ret = restore_one_zombie(pid, core);
 		break;
 	default:
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);

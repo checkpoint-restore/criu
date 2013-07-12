@@ -1122,6 +1122,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	if (!core)
 		return -1;
 
+	strncpy((char *)core->tc->comm, pps->comm, TASK_COMM_LEN);
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
