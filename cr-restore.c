@@ -1207,6 +1207,13 @@ static int restore_wait_inprogress_tasks()
 	return 0;
 }
 
+static void __restore_switch_stage(int next_stage)
+{
+	futex_set(&task_entries->nr_in_progress,
+			stage_participants(next_stage));
+	futex_set_and_wake(&task_entries->start, next_stage);
+}
+
 static int restore_switch_stage(int next_stage)
 {
 	int ret;
@@ -1215,9 +1222,8 @@ static int restore_switch_stage(int next_stage)
 	if (ret)
 		return ret;
 
-	futex_set(&task_entries->nr_in_progress,
-			stage_participants(next_stage));
-	futex_set_and_wake(&task_entries->start, next_stage);
+	__restore_switch_stage(next_stage);
+
 	return 0;
 }
 
@@ -1279,9 +1285,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out;
 
-	ret = restore_switch_stage(CR_STATE_FORKING);
-	if (ret < 0)
-		goto out;
+	__restore_switch_stage(CR_STATE_FORKING);
 
 	pr_info("Wait until all tasks are forked\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
