@@ -64,7 +64,7 @@ int do_task_reset_dirty_track(int pid)
 	close(fd);
 
 	if (ret < 0) {
-		pr_warn("Can't reset %d's dirty memory tracker (%d)", pid, errno);
+		pr_warn("Can't reset %d's dirty memory tracker (%d)\n", pid, errno);
 		return -1;
 	}
 
