@@ -1304,11 +1304,9 @@ static int restore_root_task(struct pstree_item *init)
 		goto out;
 
 	pr_info("Wait until all tasks are restored\n");
-	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
+	ret = restore_wait_inprogress_tasks();
 	if (ret < 0)
 		goto out;
-
-	futex_wait_until(&task_entries->nr_in_progress, 0);
 
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
 	ret = sigaction(SIGCHLD, &old_act, NULL);
@@ -1317,7 +1315,18 @@ static int restore_root_task(struct pstree_item *init)
 		goto out;
 	}
 
+	/* Unlock network before disabling repair mode on sockets */
 	network_unlock();
+
+	/*
+	 * -------------------------------------------------------------
+	 * Below this line nothing can fail, because network is unlocked
+	 */
+
+	__restore_switch_stage(CR_STATE_RESTORE_CREDS);
+
+	futex_wait_until(&task_entries->nr_in_progress, 0);
+
 out:
 	if (ret < 0) {
 		struct pstree_item *pi;
