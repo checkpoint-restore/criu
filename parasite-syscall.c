@@ -137,7 +137,7 @@ err:
 		ret = -1;
 	}
 err_sigmask:
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &sigmask)) {
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), sigmask)) {
 		pr_perror("Can't block signals");
 		ret = -1;
 	}
