@@ -448,19 +448,19 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
 	user_regs_struct_t regs_orig;
+	ThreadCoreEntry *tc = core->thread_core;
 	int ret;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
 
-	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t),
-					&core->thread_core->blk_sigset);
+	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &tc->blk_sigset);
 	if (ret) {
 		pr_perror("ptrace can't get signal blocking mask for %d", pid);
 		return -1;
 	}
-	core->thread_core->has_blk_sigset = true;
+	tc->has_blk_sigset = true;
 
 	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig);
 	if (ret) {
@@ -469,9 +469,8 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	}
 
 	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
-					pid, &regs_orig,
-					ctl->r_thread_stack,
-			(k_rtsigset_t *) &core->thread_core->blk_sigset);
+			pid, &regs_orig, ctl->r_thread_stack,
+			(k_rtsigset_t *)&tc->blk_sigset);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
@@ -483,8 +482,8 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	BUG_ON(!core->thread_core->sas);
-	copy_sas(core->thread_core->sas, &args->sas);
+	BUG_ON(!tc->sas);
+	copy_sas(tc->sas, &args->sas);
 
 	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
 	tid->virt = args->tid;
