@@ -959,6 +959,12 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 {
 	pid_t pid = ctl->pid.real;
 
+	/*
+	 * Get task registers before going daemon, since the
+	 * get_task_regs needs to call ptrace on _stopped_ task,
+	 * while in daemon it is not such.
+	 */
+
 	if (get_task_regs(pid, ctl->regs_orig, item->core[0])) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
