@@ -65,37 +65,55 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
+static int parasite_run(pid_t pid, unsigned long ip, void *stack,
+		user_regs_struct_t *regs, user_regs_struct_t *oregs,
+		k_rtsigset_t *omask)
+{
+	k_rtsigset_t block;
+
+	ksigfillset(&block);
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
+		pr_perror("Can't block signals for %d", pid);
+		goto err_sig;
+	}
+
+	parasite_setup_regs(ip, stack, regs);
+	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
+		pr_perror("Can't set registers for %d", pid);
+		goto err_regs;
+	}
+
+	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
+		pr_perror("Can't run parasite at %d", pid);
+		goto err_cont;
+	}
+
+	return 0;
+
+err_cont:
+	if (ptrace(PTRACE_SETREGS, pid, NULL, oregs))
+		pr_perror("Can't restore regs for %d", pid);
+err_regs:
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), omask))
+		pr_perror("Can't restore sigmask for %d", pid);
+err_sig:
+	return -1;
+}
+
 /* we run at @regs->ip */
-static int __parasite_execute_trap(struct parasite_ctl *ctl, pid_t pid,
+static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
 				user_regs_struct_t *regs_orig,
 				k_rtsigset_t *sigmask)
 {
-	k_rtsigset_t blockall;
 	siginfo_t siginfo;
 	int status;
 	int ret = -1;
-
-	ksigfillset(&blockall);
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &blockall)) {
-		pr_perror("Can't block signals");
-		return -1;
-	}
-
-	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
-		pr_perror("Can't set registers (pid: %d)", pid);
-		goto err_sigmask;
-	}
 
 	/*
 	 * Most ideas are taken from Tejun Heo's parasite thread
 	 * https://code.google.com/p/ptrace-parasite/
 	 */
-
-	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
-		pr_perror("Can't continue (pid: %d)", pid);
-		goto err;
-	}
 
 	if (wait4(pid, &status, __WALL, NULL) != pid) {
 		pr_perror("Waited pid mismatch (pid: %d)", pid);
@@ -136,7 +154,6 @@ err:
 		pr_perror("Can't restore registers (pid: %d)", pid);
 		ret = -1;
 	}
-err_sigmask:
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), sigmask)) {
 		pr_perror("Can't block signals");
 		ret = -1;
@@ -160,9 +177,11 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 		return -1;
 	}
 
-	parasite_setup_regs(ctl->syscall_ip, 0, regs);
-	err = __parasite_execute_trap(ctl, pid, regs, &ctl->regs_orig,
-							&ctl->sig_blocked);
+	err = parasite_run(pid, ctl->syscall_ip, 0, regs,
+			&ctl->regs_orig, &ctl->sig_blocked);
+	if (!err)
+		err = parasite_trap(ctl, pid, regs,
+				&ctl->regs_orig, &ctl->sig_blocked);
 
 	if (ptrace_poke_area(pid, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
@@ -190,9 +209,9 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 
 	*ctl->addr_cmd = cmd;
 
-	parasite_setup_regs(ctl->parasite_ip, stack, &regs);
-
-	ret = __parasite_execute_trap(ctl, pid, &regs, regs_orig, sigmask);
+	ret = parasite_run(pid, ctl->parasite_ip, stack, &regs, regs_orig, sigmask);
+	if (ret == 0)
+		ret = parasite_trap(ctl, pid, &regs, regs_orig, sigmask);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -384,9 +403,6 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
-	k_rtsigset_t blockall;
-
-	ksigfillset(&blockall);
 
 	*ctl->addr_cmd = PARASITE_CMD_INIT_DAEMON;
 
@@ -399,22 +415,10 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;;
 
 	regs = ctl->regs_orig;
-	parasite_setup_regs(ctl->parasite_ip, ctl->rstack, &regs);
-
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
-		pr_perror("Can't set registers (pid: %d)", pid);
+	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack,
+				&regs, &ctl->regs_orig,
+				&RT_SIGFRAME_UC(ctl->sigframe).uc_sigmask))
 		goto err;
-	}
-
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &blockall)) {
-		pr_perror("Can't block signals");
-		goto err_regs;
-	}
-
-	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
-		pr_perror("Can't continue (pid: %d)\n", pid);
-		goto err_mask;
-	}
 
 	ctl->tsock = accept_tsock();
 	if (ctl->tsock < 0)
@@ -434,12 +438,6 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	ctl->daemonized = true;
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
-
-err_mask:
-	ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t),
-				&RT_SIGFRAME_UC(ctl->sigframe).uc_sigmask);
-err_regs:
-	ptrace(PTRACE_SETREGS, pid, NULL, ctl->regs_orig);
 err:
 	return -1;
 }
