@@ -482,14 +482,8 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	BUG_ON(!tc->sas);
-	copy_sas(tc->sas, &args->sas);
-
-	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(args->tid_addr);
 	tid->virt = args->tid;
-	core_put_tls(core, args->tls);
-
-	return 0;
+	return dump_thread_core(pid, core, args);
 }
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)

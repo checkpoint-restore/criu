@@ -626,13 +626,20 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_fdset *cr_fds
 	return pb_write_one(fdset_fd(cr_fdset, CR_FD_IDS), item->ids, PB_IDS);
 }
 
-static int dump_thread_core(int pid, ThreadCoreEntry *tc)
+int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread *ti)
 {
 	int ret;
+	ThreadCoreEntry *tc = core->thread_core;
 
 	ret = get_task_futex_robust_list(pid, tc);
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
+	if (!ret) {
+		core_put_tls(core, ti->tls);
+		CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(ti->tid_addr);
+		BUG_ON(!tc->sas);
+		copy_sas(tc->sas, &ti->sas);
+	}
 
 	return ret;
 }
@@ -657,19 +664,12 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
-
 	core->tc->task_state = TASK_ALIVE;
 	core->tc->exit_code = 0;
 
-	ret = dump_thread_core(pid, core->thread_core);
+	ret = dump_thread_core(pid, core, &misc->ti);
 	if (ret)
 		goto err;
-
-	core_put_tls(core, misc->tls);
-	CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(misc->tid_addr);
-
-	BUG_ON(!core->thread_core->sas);
-	copy_sas(core->thread_core->sas, &misc->sas);
 
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0)
@@ -1098,10 +1098,6 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
-
-	ret = dump_thread_core(pid, core->thread_core);
-	if (ret)
-		goto err;
 
 	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (fd_core < 0)

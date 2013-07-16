@@ -128,6 +128,13 @@ static inline int posix_timers_dump_size(int timer_n)
 	return sizeof(int) + sizeof(struct posix_timer) * timer_n;
 }
 
+struct parasite_dump_thread {
+	unsigned int		*tid_addr;
+	pid_t			tid;
+	u32			tls;
+	stack_t			sas;
+};
+
 /*
  * Misc sfuff, that is too small for separate file, but cannot
  * be read w/o using parasite
@@ -135,15 +142,13 @@ static inline int posix_timers_dump_size(int timer_n)
 
 struct parasite_dump_misc {
 	unsigned long		brk;
-	unsigned int		*tid_addr;
 
 	u32 pid;
 	u32 sid;
 	u32 pgid;
-	u32 tls;
 	u32 umask;
 
-	stack_t			sas;
+	struct parasite_dump_thread	ti;
 };
 
 #define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int) - 2 * sizeof(unsigned))
@@ -152,13 +157,6 @@ struct parasite_dump_creds {
 	unsigned int		secbits;
 	unsigned int		ngroups;
 	unsigned int		groups[PARASITE_MAX_GROUPS];
-};
-
-struct parasite_dump_thread {
-	unsigned int		*tid_addr;
-	pid_t			tid;
-	u32			tls;
-	stack_t			sas;
 };
 
 static inline void copy_sas(ThreadSasEntry *dst, const stack_t *src)

@@ -136,26 +136,29 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 	return ret;
 }
 
-static int dump_misc(struct parasite_dump_misc *args)
+static int dump_thread_common(struct parasite_dump_thread *ti)
 {
 	int ret;
 
+	ti->tls = arch_get_tls();
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &ti->tid_addr, 0, 0, 0);
+	if (ret == 0)
+		ret = sys_sigaltstack(NULL, &ti->sas);
+
+	return ret;
+}
+
+static int dump_misc(struct parasite_dump_misc *args)
+{
 	args->brk = sys_brk(0);
 
 	args->pid = sys_getpid();
 	args->sid = sys_getsid();
 	args->pgid = sys_getpgid(0);
-	args->tls = arch_get_tls();
 	args->umask = sys_umask(0);
 	sys_umask(args->umask); /* never fails */
 
-	ret = sys_sigaltstack(NULL, &args->sas);
-	if (ret)
-		return ret;
-
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
-
-	return ret;
+	return dump_thread_common(&args->ti);
 }
 
 static int dump_creds(struct parasite_dump_creds *args)
@@ -205,19 +208,8 @@ static int drain_fds(struct parasite_drain_fd *args)
 
 static int dump_thread(struct parasite_dump_thread *args)
 {
-	pid_t tid = sys_gettid();
-	int ret;
-
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &args->tid_addr, 0, 0, 0);
-	if (ret)
-		return ret;
-
-	args->tid = tid;
-	args->tls = arch_get_tls();
-
-	ret = sys_sigaltstack(NULL, &args->sas);
-
-	return ret;
+	args->tid = sys_gettid();
+	return dump_thread_common(args);
 }
 
 static char proc_mountpoint[] = "proc.crtools";
