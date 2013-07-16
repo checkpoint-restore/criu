@@ -295,6 +295,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
 	sk->sd.already_dumped = 1;
+	sk->cpt_reuseaddr = skopts.reuseaddr;
 
 	switch (proto) {
 	case IPPROTO_TCP:

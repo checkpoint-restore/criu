@@ -30,6 +30,7 @@ struct inet_sk_desc {
 	unsigned short		shutdown;
 
 	int rfd;
+	int cpt_reuseaddr;
 	struct list_head rlist;
 };
 
