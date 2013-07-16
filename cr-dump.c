@@ -1192,6 +1192,26 @@ static int dump_thread_signals(struct pid *tid)
 	return ret;
 }
 
+static int dump_task_signals(pid_t pid, struct pstree_item *item,
+		struct cr_fdset *cr_fdset)
+{
+	int i, ret;
+
+	ret = dump_signal_queue(pid, fdset_fd(cr_fdset, CR_FD_SIGNAL), true);
+	if (ret) {
+		pr_err("Can't dump pending signals (pid: %d)\n", pid);
+		return -1;
+	}
+
+	for (i = 0; i < item->nr_threads; i++) {
+		ret = dump_thread_signals(&item->threads[i]);
+		if (ret)
+			return -1;
+	}
+
+	return 0;
+}
+
 static struct proc_pid_stat pps_buf;
 
 static int dump_task_threads(struct parasite_ctl *parasite_ctl,
@@ -1361,7 +1381,7 @@ static int dump_one_task(struct pstree_item *item)
 	pid_t pid = item->pid.real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
-	int i, ret = -1;
+	int ret = -1;
 	struct parasite_dump_misc misc;
 	struct cr_fdset *cr_fdset = NULL;
 	struct parasite_drain_fd *dfds;
@@ -1545,16 +1565,10 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_signal_queue(pid, fdset_fd(cr_fdset, CR_FD_SIGNAL), true);
+	ret = dump_task_signals(pid, item, cr_fdset);
 	if (ret) {
-		pr_err("Can't dump pending signals (pid: %d)\n", pid);
-		goto err_cure;
-	}
-
-	for (i = 0; i < item->nr_threads; i++) {
-		ret = dump_thread_signals(&item->threads[i]);
-		if (ret)
-			goto err;
+		pr_err("Dump %d signals failed %d\n", pid, ret);
+		goto err;
 	}
 
 	close_cr_fdset(&cr_fdset);
