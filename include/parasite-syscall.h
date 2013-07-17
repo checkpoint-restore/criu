@@ -71,7 +71,7 @@ extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 extern int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
 extern int __parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
 
-extern int __parasite_execute_daemon_wait_ack(unsigned int cmd,
+extern int __parasite_wait_daemon_ack(unsigned int cmd,
 					      struct parasite_ctl *ctl);
 
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);

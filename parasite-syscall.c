@@ -271,7 +271,7 @@ static int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
 	return -1;
 }
 
-int __parasite_execute_daemon_wait_ack(unsigned int cmd,
+int __parasite_wait_daemon_ack(unsigned int cmd,
 					struct parasite_ctl *ctl)
 {
 	struct ctl_msg m;
@@ -302,7 +302,7 @@ int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
 
 	ret = __parasite_execute_daemon(cmd, ctl);
 	if (!ret)
-		ret = __parasite_execute_daemon_wait_ack(cmd, ctl);
+		ret = __parasite_wait_daemon_ack(cmd, ctl);
 
 	return ret;
 }
@@ -676,7 +676,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 
-	ret |= __parasite_execute_daemon_wait_ack(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret |= __parasite_wait_daemon_ack(PARASITE_CMD_DRAIN_FDS, ctl);
 err:
 	return ret;
 }
@@ -694,7 +694,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	fd = recv_fd(ctl->tsock);
 	if (fd < 0)
 		pr_err("Can't retrieve FD from socket\n");
-	if (__parasite_execute_daemon_wait_ack(PARASITE_CMD_GET_PROC_FD, ctl)) {
+	if (__parasite_wait_daemon_ack(PARASITE_CMD_GET_PROC_FD, ctl)) {
 		close(fd);
 		return -1;
 	}

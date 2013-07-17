@@ -377,7 +377,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (ret)
 			goto out_pp;
 
-		ret = __parasite_execute_daemon_wait_ack(PARASITE_CMD_DUMPPAGES, ctl);
+		ret = __parasite_wait_daemon_ack(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			goto out_pp;
 
