@@ -288,25 +288,23 @@ int __parasite_execute_daemon_wait_ack(unsigned int cmd,
 	return 0;
 }
 
-int __parasite_execute_daemon(unsigned int cmd,
-				struct parasite_ctl *ctl, bool wait_ack)
+int __parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
 {
 	struct ctl_msg m;
 
 	m = ctl_msg_cmd(cmd);
-	if (__parasite_send_cmd(ctl->tsock, &m))
-		return -1;
-
-	if (wait_ack)
-		return __parasite_execute_daemon_wait_ack(cmd, ctl);
-
-	return 0;
+	return __parasite_send_cmd(ctl->tsock, &m);
 }
 
-int parasite_execute_daemon(unsigned int cmd,
-					struct parasite_ctl *ctl)
+int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
 {
-	return __parasite_execute_daemon(cmd, ctl, true);
+	int ret;
+
+	ret = __parasite_execute_daemon(cmd, ctl);
+	if (!ret)
+		ret = __parasite_execute_daemon_wait_ack(cmd, ctl);
+
+	return ret;
 }
 
 static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
@@ -668,7 +666,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	args = parasite_args_s(ctl, size);
 	memcpy(args, dfds, size);
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl, false);
+	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl);
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
@@ -687,7 +685,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 {
 	int ret = -1, fd;
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_GET_PROC_FD, ctl, false);
+	ret = __parasite_execute_daemon(PARASITE_CMD_GET_PROC_FD, ctl);
 	if (ret) {
 		pr_err("Parasite failed to get proc fd\n");
 		return ret;
@@ -756,7 +754,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 	}
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl, false);
+	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl);
 	close_safe(&ctl->tsock);
 	if (ret)
 		return -1;

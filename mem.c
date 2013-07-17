@@ -370,7 +370,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
 				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
 
-		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl, false);
+		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			goto out_pp;
 		ret = parasite_send_fd(ctl, ppb->p[1]);
