@@ -101,6 +101,7 @@ endif
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
 ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
+CRIU-LIB	:= lib/libcriu.so
 
 export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
@@ -119,14 +120,17 @@ build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 PROGRAM		:= criu
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf arch/$(ARCH) clean-built
+	docs help pie protobuf arch/$(ARCH) clean-built lib
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: config pie $(VERSION_HEADER)
+all: config pie $(VERSION_HEADER) lib
 	$(Q) $(MAKE) $(PROGRAM)
+
+lib: $(VERSION_HEADER)
+	$(Q) $(MAKE) -C lib all
 
 protobuf/%::
 	$(Q) $(MAKE) $(build)=protobuf $@
@@ -175,6 +179,7 @@ clean-built:
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(RM) ./include/config.h
 	$(Q) $(RM) ./$(PROGRAM)
+	$(Q) $(MAKE) -C lib clean
 
 rebuild: clean-built
 	$(E) "  FORCE-REBUILD"
