@@ -153,6 +153,8 @@ sk-netlink
 CRIU=$(readlink -f `dirname $0`/../criu)
 CRIU_CPT=$CRIU
 TMP_TREE=""
+SCRIPTDIR=`dirname $CRIU`/test
+POSTDUMP="--action-script $SCRIPTDIR/post-dump.sh"
 
 test -x $CRIU || {
 	echo "$CRIU is unavailable"
@@ -378,11 +380,14 @@ EOF
 	}
 
 	for i in `seq $ITERATIONS`; do
-
+		local dump_only=
+		local postdump=
 		ddump=dump/$tname/$PID/$i
 		DUMP_PATH=`pwd`/$ddump
 		echo Dump $PID
 		mkdir -p $ddump
+
+		[ -n "$DUMP_ONLY" ] && dump_only=1
 
 		if [ $PAGE_SERVER -eq 1 ]; then
 			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon
@@ -392,16 +397,28 @@ EOF
 
 		if [ -n "$SNAPSHOT" ]; then
 			snapopt=""
-			[ "$i" -ne "$ITERATIONS" ] && snapopt="$snapopt -R --track-mem"
+			[ "$i" -ne "$ITERATIONS" ] && {
+				snapopt="$snapopt -R --track-mem"
+				dump_only=1
+			}
 			[ -n "$snappdir" ] && snapopt="$snapopt --prev-images-dir=$snappdir"
 		fi
 
+		[ -n "$dump_only" ] && postdump=$POSTDUMP
+
 		save_fds $PID  $ddump/dump.fd
 		setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt || {
-			echo WARNING: process $tname is left running for your debugging needs
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt $postdump
+		retcode=$?
+
+		#
+		# Here we may have two cases: either checkpoint is failed
+		# with some error code, or checkpoint is complete but return
+		# code is non-zero because of post dump action.
+		if [ "$retcode" -ne 0 ] && [[ "$retcode" -ne 32 || -z "$dump_only" ]]; then
+			echo WARNING: $tname returned $retcode and left running for debug needs
 			return 1
-		}
+		fi
 
 		if [ -n "$SNAPSHOT" ]; then
 			snappdir=../`basename $ddump`
@@ -412,10 +429,9 @@ EOF
 			wait $PS_PID
 		fi
 
-		if expr " $ARGS" : ' -s' > /dev/null; then
+		if [ -n "$dump_only" ]; then
 			save_fds $PID  $ddump/dump.fd.after
 			diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
-			killall -CONT $tname
 			if [[ $linkremap ]]; then
 				echo "remove ./$tdir/link_remap.*"
 				rm -f ./$tdir/link_remap.*
@@ -512,7 +528,7 @@ cd `dirname $0` || exit 1
 
 while :; do
 	if [ "$1" = "-d" ]; then
-		ARGS="-s"
+		DUMP_ONLY=1
 		shift
 		continue
 	fi
