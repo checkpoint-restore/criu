@@ -328,6 +328,7 @@ run_test()
 	local linkremap=
 	local snapopt=
 	local snappdir=
+	local ps_pid=
 
 	[ -n "$EXCLUDE_PATTERN" ] && echo $test | grep "$EXCLUDE_PATTERN" && return 0
 
@@ -390,8 +391,12 @@ EOF
 		[ -n "$DUMP_ONLY" ] && dump_only=1
 
 		if [ $PAGE_SERVER -eq 1 ]; then
-			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon
-			PS_PID=$!
+			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon || return 1
+			ps_pid=`lsof -s TCP:LISTEN -i :$PS_PORT -t`
+			ps -p "$ps_pid" -o cmd h | grep -q page-server || {
+				echo "Unable to determing PID of page-server"
+				return 1
+			}
 			opts="--page-server --address 127.0.0.1 --port $PS_PORT"
 		fi
 
@@ -426,7 +431,11 @@ EOF
 		fi
 
 		if [ $PAGE_SERVER -eq 1 ]; then
-			wait $PS_PID
+			while :; do
+				kill -0 $ps_pid > /dev/null 2>&1 || break;
+				echo Waiting the process $ps_pid
+				sleep 0.1
+			done
 		fi
 
 		if [ -n "$dump_only" ]; then
