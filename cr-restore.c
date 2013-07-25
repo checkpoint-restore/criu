@@ -402,7 +402,7 @@ err_addr:
 static int read_vmas(int pid)
 {
 	int fd, ret = 0;
-	LIST_HEAD(old);
+	LIST_HEAD(parent_vmas);
 	struct vma_area *pvma, *vma;
 	unsigned long priv_size = 0;
 	void *addr;
@@ -411,7 +411,7 @@ static int read_vmas(int pid)
 	unsigned long old_premmapped_len, pstart = 0;
 
 	rst_vmas.nr = 0;
-	list_replace_init(&rst_vmas.h, &old);
+	list_replace_init(&rst_vmas.h, &parent_vmas);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
 	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
@@ -470,7 +470,7 @@ static int read_vmas(int pid)
 	current->rst->premmapped_addr = addr;
 	current->rst->premmapped_len = priv_size;
 
-	pvma = list_entry(&old, struct vma_area, list);
+	pvma = list_entry(&parent_vmas, struct vma_area, list);
 
 	list_for_each_entry(vma, &rst_vmas.h, list) {
 		if (pstart > vma->vma.start) {
@@ -483,7 +483,7 @@ static int read_vmas(int pid)
 		if (!vma_priv(&vma->vma))
 			continue;
 
-		ret = map_private_vma(pid, vma, addr, &pvma, &old);
+		ret = map_private_vma(pid, vma, addr, &pvma, &parent_vmas);
 		if (ret < 0)
 			break;
 
@@ -495,8 +495,8 @@ static int read_vmas(int pid)
 	close(fd);
 
 out:
-	while (!list_empty(&old)) {
-		vma = list_first_entry(&old, struct vma_area, list);
+	while (!list_empty(&parent_vmas)) {
+		vma = list_first_entry(&parent_vmas, struct vma_area, list);
 		list_del(&vma->list);
 		xfree(vma);
 	}
