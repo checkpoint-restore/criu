@@ -237,6 +237,10 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	*pvma = p;
 
 	if (paddr == NULL) {
+		/*
+		 * The respective memory area was NOT found in the parent.
+		 * Map a new one.
+		 */
 		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
@@ -250,6 +254,10 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 			return -1;
 		}
 	} else {
+		/*
+		 * This region was found in parent -- remap it to inherit physical
+		 * pages (if any) from it (and COW them later if required).
+		 */
 		vma->ppage_bitmap = p->page_bitmap;
 
 		addr = mremap(paddr, vma_area_len(vma), vma_area_len(vma),
@@ -411,6 +419,10 @@ static int read_vmas(int pid)
 	unsigned long old_premmapped_len, pstart = 0;
 
 	rst_vmas.nr = 0;
+	/*
+	 * Keep parent vmas at hands to check whether we can "inherit" them.
+	 * See comments in map_private_vma.
+	 */
 	list_replace_init(&rst_vmas.h, &parent_vmas);
 
 	/* Skip errors, because a zombie doesn't have an image of vmas */
