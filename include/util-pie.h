@@ -59,4 +59,5 @@ static inline int recv_fd(int sock)
 	return fd;
 }
 
+int open_detach_mount(char *dir);
 #endif /* __CR_UTIL_NET_H__ */

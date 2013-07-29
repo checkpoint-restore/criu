@@ -15,6 +15,7 @@
 #include "crtools.h"
 #include "asm/types.h"
 #include "util.h"
+#include "util-pie.h"
 #include "log.h"
 #include "mount.h"
 #include "proc_parse.h"
@@ -289,20 +290,7 @@ static DIR *open_mountpoint(struct mount_info *pm)
 		goto out;
 	}
 
-	fd = open(mnt_path, O_RDONLY | O_DIRECTORY);
-	if (fd < 0)
-		pr_perror("Can't open %s\n", mnt_path);
-
-	if (umount2(mnt_path, MNT_DETACH)) {
-		pr_perror("Can't umount %s", mnt_path);
-		goto out;
-	}
-
-	if (rmdir(mnt_path)) {
-		pr_perror("Can't remove the directory %s", mnt_path);
-		goto out;
-	}
-
+	fd = open_detach_mount(mnt_path);
 	if (fd < 0)
 		goto out;
 

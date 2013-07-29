@@ -237,22 +237,11 @@ static int parasite_get_proc_fd()
 
 	if (sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
 		pr_err("mount failed\n");
-		goto out_rmdir;
-	}
-
-	fd = sys_open(proc_mountpoint, O_RDONLY, 0);
-
-	if (sys_umount2(proc_mountpoint, MNT_DETACH)) {
-		pr_err("Can't umount procfs\n");
+		sys_rmdir(proc_mountpoint);
 		return -1;
 	}
 
-out_rmdir:
-	if (sys_rmdir(proc_mountpoint)) {
-		pr_err("Can't remove directory\n");
-		return -1;
-	}
-
+	fd = open_detach_mount(proc_mountpoint);
 out_send_fd:
 	if (fd < 0)
 		return fd;
