@@ -152,7 +152,7 @@ pie: arch/$(ARCH)
 built-in.o: $(VERSION_HEADER) pie
 	$(Q) $(MAKE) $(build-crtools)=. $@
 
-PROGRAM-BUILTINS	+= pie/util-net.o
+PROGRAM-BUILTINS	+= pie/util.o
 PROGRAM-BUILTINS	+= protobuf/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
 

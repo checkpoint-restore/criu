@@ -17,7 +17,7 @@
 #include "image.h"
 #include "log.h"
 #include "util.h"
-#include "util-net.h"
+#include "util-pie.h"
 #include "sockets.h"
 #include "sk-queue.h"
 #include "mount.h"

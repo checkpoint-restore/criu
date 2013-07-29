@@ -21,7 +21,7 @@
 #include "image.h"
 #include "list.h"
 #include "util.h"
-#include "util-net.h"
+#include "util-pie.h"
 #include "lock.h"
 #include "sockets.h"
 #include "pstree.h"

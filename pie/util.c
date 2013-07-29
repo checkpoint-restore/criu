@@ -8,7 +8,7 @@
 #include "asm/types.h"
 #include "syscall.h"
 
-#include "util-net.h"
+#include "util-pie.h"
 
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
 {
