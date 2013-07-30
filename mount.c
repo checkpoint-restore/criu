@@ -27,6 +27,21 @@
 static struct mount_info *mntinfo;
 int mntns_root = -1;
 
+static inline int is_root(char *p)
+{
+	return p[0] == '/' && p[1] == '\0';
+}
+
+static inline int is_root_mount(struct mount_info *mi)
+{
+	return is_root(mi->mountpoint);
+}
+
+static inline int fsroot_mounted(struct mount_info *mi)
+{
+	return is_root(mi->root);
+}
+
 int open_mount(unsigned int s_dev)
 {
 	struct mount_info *i;
@@ -442,16 +457,6 @@ static struct fstype *decode_fstype(u32 fst)
 	return &fstypes[fst];
 }
 
-static inline int is_root(char *p)
-{
-	return p[0] == '/' && p[1] == '\0';
-}
-
-static inline int is_root_mount(struct mount_info *mi)
-{
-	return is_root(mi->mountpoint);
-}
-
 static int validate_shared(struct mount_info *info)
 {
 	struct mount_info *m, *t;
@@ -631,11 +636,6 @@ static int do_bind_mount(struct mount_info *mi)
 {
 	pr_err("No bind mounts at %s\n", mi->mountpoint);
 	return -1;
-}
-
-static inline int fsroot_mounted(struct mount_info *mi)
-{
-	return is_root(mi->root);
 }
 
 static int do_mount_one(struct mount_info *mi)
