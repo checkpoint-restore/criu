@@ -611,7 +611,7 @@ void rst_unlock_tcp_connections(void)
 
 void show_tcp_stream(int fd)
 {
-	pb_show_plain_pretty(fd, PB_TCP_STREAM, "1:%u 2:%u 3:%u 4:%u");
+	do_pb_show_plain(fd, PB_TCP_STREAM, 1, NULL, "1:%u 2:%u 3:%u 4:%u");
 }
 
 int check_tcp(void)
