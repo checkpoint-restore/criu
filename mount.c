@@ -197,47 +197,48 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	return tree;
 }
 
-static DIR *open_mountpoint(struct mount_info *pm)
+/*
+ * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
+ * If mnt_fd is -1, the mountpoint will be opened by this function.
+ */
+static DIR *__open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
-	int fd, ret;
 	char path[PATH_MAX + 1];
 	struct stat st;
 	DIR *fdir;
+	int ret;
 
-	if (!list_empty(&pm->children)) {
-		pr_err("Something is mounted on top of %s\n", pm->fstype->name);
-		return NULL;
+	if (mnt_fd == -1) {
+		snprintf(path, sizeof(path), ".%s", pm->mountpoint);
+		mnt_fd = openat(mntns_root, path, O_RDONLY);
+		if (mnt_fd < 0) {
+			pr_perror("Can't open %s", pm->mountpoint);
+			return NULL;
+		}
 	}
 
-	snprintf(path, sizeof(path), ".%s", pm->mountpoint);
-	fd = openat(mntns_root, path, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Can't open %s", pm->mountpoint);
-		return NULL;
-	}
-
-	ret = fstat(fd, &st);
+	ret = fstat(mnt_fd, &st);
 	if (ret < 0) {
 		pr_perror("fstat(%s) failed", path);
-		close(fd);
-		return NULL;
+		goto err;
 	}
 
 	if (st.st_dev != pm->s_dev) {
 		pr_err("The file system %#x %s %s is inaccessible\n",
 				pm->s_dev, pm->fstype->name, pm->mountpoint);
-		close(fd);
-		return NULL;
+		goto err;
 	}
 
-	fdir = fdopendir(fd);
+	fdir = fdopendir(mnt_fd);
 	if (fdir == NULL) {
-		close(fd);
 		pr_perror("Can't open %s", pm->mountpoint);
-		return NULL;
+		goto err;
 	}
 
 	return fdir;
+err:
+	close(mnt_fd);
+	return NULL;
 }
 
 static int close_mountpoint(DIR *dfd)
@@ -247,6 +248,73 @@ static int close_mountpoint(DIR *dfd)
 		return -1;
 	}
 	return 0;
+}
+
+static DIR *open_mountpoint(struct mount_info *pm)
+{
+	int fd = -1, ns_old = -1;
+	char buf[PATH_MAX];
+	char mnt_path[] = "/tmp/cr-tmpfs.XXXXXX";
+
+	/*
+	 * If a mount doesn't have children, we can open a mount point,
+	 * otherwise we need to create a "private" copy.
+	 */
+	if (list_empty(&pm->children))
+		return __open_mountpoint(pm, -1);
+
+	pr_info("Something is mounted on top of %s\n", pm->mountpoint);
+
+	/*
+	 * To create a "private" copy, the target mount is bind-mounted
+	 * in a temporary place w/o MS_REC (non-recursively).
+	 * A mount point can't be bind-mounted in criu's namespace, it will be
+	 * mounted in a target namespace. The sequence of actions is
+	 * mkdtemp, setns(tgt), mount, open, detach, setns(old).
+	 */
+
+	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0)
+		return NULL;
+
+	if (mkdtemp(mnt_path) == NULL) {
+		pr_perror("Can't create a temporary directory");
+		goto out;
+	}
+
+	snprintf(buf, sizeof(buf), "/proc/self/root/%s", pm->mountpoint);
+	if (mount(buf, mnt_path, NULL, MS_BIND, NULL)) {
+		pr_perror("Can't bind-mount %d:%s to %s",
+				pm->mnt_id, pm->mountpoint, mnt_path);
+		rmdir(mnt_path);
+		goto out;
+	}
+
+	fd = open(mnt_path, O_RDONLY | O_DIRECTORY);
+	if (fd < 0)
+		pr_perror("Can't open %s\n", mnt_path);
+
+	if (umount2(mnt_path, MNT_DETACH)) {
+		pr_perror("Can't umount %s", mnt_path);
+		goto out;
+	}
+
+	if (rmdir(mnt_path)) {
+		pr_perror("Can't remove the directory %s", mnt_path);
+		goto out;
+	}
+
+	if (fd < 0)
+		goto out;
+
+	if (restore_ns(ns_old, &mnt_ns_desc))
+		goto out;
+
+	return __open_mountpoint(pm, fd);;
+out:
+	if (ns_old >= 0)
+		 restore_ns(ns_old, &mnt_ns_desc);
+	close_safe(&fd);
+	return NULL;
 }
 
 static int tmpfs_dump(struct mount_info *pm)
