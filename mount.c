@@ -469,6 +469,9 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 		return -1;
 	}
 
+	if (mnt_build_tree(pm) == NULL)
+		return -1;
+
 	if (validate_shared(mntinfo)) {
 		pr_err("Can't proceed %d's mountinfo\n", ns_pid);
 		return -1;
