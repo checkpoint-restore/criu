@@ -97,6 +97,19 @@ done:
 		return 1;
 	}
 
+	/* Check that over-mounted files are restored on tmpfs */
+	mkdir(MPTS_ROOT"/dev/overmount", 0600);
+	fd = open(MPTS_ROOT"/dev/overmount/test.over", O_WRONLY | O_CREAT);
+	if (fd == -1) {
+		err("Unable to open "MPTS_ROOT"/dev/overmount\n");
+		return -1;
+	}
+	close(fd);
+	if (mount("none", MPTS_ROOT"/dev/overmount", "tmpfs", 0, "") < 0) {
+		err("Can't mount "MPTS_ROOT"/dev/overmount\n");
+		return 1;
+	}
+
 	if (mount("none", MPTS_ROOT"/kernel", "proc", 0, "") < 0) {
 		fail("Can't mount proc");
 		return 1;
@@ -123,6 +136,15 @@ done:
 	if (access(MPTS_ROOT"/kernel/meminfo", F_OK)) {
 		fail("No proc after restore");
 		return 1;
+	}
+
+	if (umount(MPTS_ROOT"/dev/overmount") == -1) {
+		err("Can't umount "MPTS_ROOT"/dev/overmount\n");
+		return -1;
+	}
+	if (access(MPTS_ROOT"/dev/overmount/test.over", F_OK)) {
+		fail(MPTS_ROOT"/dev/overmount/test.over");
+		return -1;
 	}
 
 	pass();
