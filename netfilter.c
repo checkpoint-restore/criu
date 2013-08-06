@@ -67,9 +67,22 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port, u32
 
 static int nf_connection_switch(struct inet_sk_desc *sk, int lock)
 {
-	return nf_connection_switch_raw(sk->sd.family,
+	int ret = 0;
+
+	ret = nf_connection_switch_raw(sk->sd.family,
 			sk->src_addr, sk->src_port,
 			sk->dst_addr, sk->dst_port, lock);
+	if (ret)
+		return -1;
+
+	ret = nf_connection_switch_raw(sk->sd.family,
+			sk->dst_addr, sk->dst_port,
+			sk->src_addr, sk->src_port, lock);
+	if (ret) /* rollback */
+		nf_connection_switch_raw(sk->sd.family,
+			sk->src_addr, sk->src_port,
+			sk->dst_addr, sk->dst_port, !lock);
+	return ret;
 }
 
 int nf_lock_connection(struct inet_sk_desc *sk)
@@ -84,7 +97,18 @@ int nf_unlock_connection(struct inet_sk_desc *sk)
 
 int nf_unlock_connection_info(struct inet_sk_info *si)
 {
-	return nf_connection_switch_raw(si->ie->family,
+	int ret = 0;
+
+	ret |= nf_connection_switch_raw(si->ie->family,
 			si->ie->src_addr, si->ie->src_port,
 			si->ie->dst_addr, si->ie->dst_port, 0);
+	ret |= nf_connection_switch_raw(si->ie->family,
+			si->ie->dst_addr, si->ie->dst_port,
+			si->ie->src_addr, si->ie->src_port, 0);
+	/*
+	 * rollback nothing in case of any error,
+	 * because nobody checks errors of this function
+	 */
+
+	return ret;
 }
