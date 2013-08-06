@@ -20,6 +20,7 @@ static int test_fn(int argc, char **argv)
 	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
 	bool private = false;
+	mode_t old_mask;
 
 again:
 	fs_cnt = 0;
@@ -121,7 +122,15 @@ done:
 	}
 
 	unlink("/dev/null");
+	/*
+	 * Clear umask first, create readable & writeable /dev/null,
+	 * and change it back. This is done to ensure that file mode
+	 * creation mask will not impede it to create file that grants
+	 * read and write permission to all users.
+	 */
+	old_mask = umask(0);
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
+	umask(old_mask);
 
 	setup_outfile();
 
