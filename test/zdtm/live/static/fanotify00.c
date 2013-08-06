@@ -84,7 +84,7 @@ static void show_fanotify_obj(struct fanotify_obj *obj)
 	test_msg(" inode\n");
 	test_msg("  i_ino: %lx s_dev: %x mflags: %x "
 		 "mask: %x ignored_mask: %x "
-		 "fhandle_bytes: %x fhandle_type: %x"
+		 "fhandle_bytes: %x fhandle_type: %x "
 		 "fhandle: %s",
 		 obj->inode.i_ino, obj->inode.s_dev,
 		 obj->inode.mflags, obj->inode.mask,
