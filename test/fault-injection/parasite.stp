@@ -1,0 +1,44 @@
+global i, n, fini_cmd = -1, last_cmd
+
+probe process("../../criu").begin
+{
+	i = 0;
+	/* randint() returns numbers multiple of 5 */
+	n = randint(20 * 5) / 5
+	printf("The %d command will be replaced on -1\n", n);
+}
+
+probe process("../../criu").function("__parasite_execute_daemon")
+{
+	printf("%s\n", $$parms);
+	last_cmd = $cmd;
+	if (++i > n) {
+		printf("Send invalid command to parasite\n");
+		$cmd = -1;
+	}
+}
+
+probe process("../../criu").function("__parasite_execute_daemon").return
+{
+	printf("%d\n", $return);
+}
+
+probe process("../../criu").function("main").return
+{
+	printf("CRIU exits with code %d\n", $return);
+	if  ( i > n) {
+		if ($return)
+			$return = 0;
+		else {
+			printf("CRIU exited with zero code\n");
+			if (fini_cmd < 0 || fini_cmd == last_cmd) {
+				printf("%d looks like FINI command\n", n);
+				fini_cmd = last_cmd
+			} else {
+				printf("This is the second FINI command %d (%d)",
+								n, fini_cmd);
+				$return = 1;
+			}
+		}
+	}
+}
