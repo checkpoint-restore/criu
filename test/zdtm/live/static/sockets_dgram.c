@@ -73,18 +73,30 @@ int main(int argc, char *argv[])
 
 	snprintf(path, sizeof(path), "%s/%s.bound", cwd, filename);
 	unlink(path);
+	if (strlen(path) >= sizeof(name_bound.sun_path)) {
+		fail("too long path");
+		exit(1);
+	}
 
 	name_bound.sun_family = AF_UNIX;
 	strncpy(name_bound.sun_path, path, sizeof(name_bound.sun_path));
 
 	snprintf(path, sizeof(path), "%s/%s.conn", cwd, filename);
 	unlink(path);
+	if (strlen(path) >= sizeof(name_conn.sun_path)) {
+		fail("too long path");
+		exit(1);
+	}
 
 	name_conn.sun_family = AF_UNIX;
 	strncpy(name_conn.sun_path, path, sizeof(name_conn.sun_path));
 
 	snprintf(path, sizeof(path), "%s/%s.bound-conn", cwd, filename);
 	unlink(path);
+       if (strlen(path) >= sizeof(name_bound_conn.sun_path)) {
+               fail("too long path");
+               exit(1);
+       }
 
 	name_bound_conn.sun_family = AF_UNIX;
 	strncpy(name_bound_conn.sun_path, path, sizeof(name_bound_conn.sun_path));
