@@ -51,7 +51,14 @@ int main(int argc, char **argv)
 	else
 		pass();
 cleanup:
-	chdir(cwd0);	/* return to the initial dir before writing out results */
-	rmdir(dirname);
+	/* return to the initial dir before writing out results */
+	if (chdir(cwd0)) {
+		err("can't change directory to %s: %m\n", cwd0);
+		exit(1);
+	}
+	if (rmdir(dirname)) {
+		err("can't remove directory %s: %m\n", dirname);
+		exit(1);
+	}
 	return 0;
 }
