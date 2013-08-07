@@ -39,19 +39,22 @@ int main(int argc, char *argv[])
 
 	char path[PATH_MAX];
 	char buf[64];
-	char *cwd;
+	/*
+	 * The original code makes dir to be current working
+	 * directory. But it may be too long in google environment
+	 * for path to be fit into struct sockaddr_un.
+	 * One alternate way to resolve it is to use relative path
+	 * for sockaddr_un, but criu has not supported relative
+	 * bind path yet.
+	 * We change it to "/tmp" to ensure its short length.
+	 */
+	char *dirname = "/tmp";
 
 	int ret;
 
 	test_init(argc, argv);
 
-	cwd = get_current_dir_name();
-	if (!cwd) {
-		fail("getcwd\n");
-		exit(1);
-	}
-
-	snprintf(path, sizeof(path), "%s/%s", cwd, filename);
+	snprintf(path, sizeof(path), "%s/%s", dirname, filename);
 	unlink(path);
 
 	sk_dgram_bound_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -71,7 +74,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	snprintf(path, sizeof(path), "%s/%s.bound", cwd, filename);
+	snprintf(path, sizeof(path), "%s/%s.bound", dirname, filename);
 	unlink(path);
 	if (strlen(path) >= sizeof(name_bound.sun_path)) {
 		fail("too long path");
@@ -81,7 +84,7 @@ int main(int argc, char *argv[])
 	name_bound.sun_family = AF_UNIX;
 	strncpy(name_bound.sun_path, path, sizeof(name_bound.sun_path));
 
-	snprintf(path, sizeof(path), "%s/%s.conn", cwd, filename);
+	snprintf(path, sizeof(path), "%s/%s.conn", dirname, filename);
 	unlink(path);
 	if (strlen(path) >= sizeof(name_conn.sun_path)) {
 		fail("too long path");
@@ -91,7 +94,7 @@ int main(int argc, char *argv[])
 	name_conn.sun_family = AF_UNIX;
 	strncpy(name_conn.sun_path, path, sizeof(name_conn.sun_path));
 
-	snprintf(path, sizeof(path), "%s/%s.bound-conn", cwd, filename);
+	snprintf(path, sizeof(path), "%s/%s.bound-conn", dirname, filename);
 	unlink(path);
        if (strlen(path) >= sizeof(name_bound_conn.sun_path)) {
                fail("too long path");
@@ -198,5 +201,12 @@ int main(int argc, char *argv[])
 	test_msg("dgram-bound-conn  : '%s'\n", buf);
 
 	pass();
+
+	/*
+	 * Do cleanup work
+	 */
+	unlink(name_bound.sun_path);
+	unlink(name_conn.sun_path);
+	unlink(name_bound_conn.sun_path);
 	return 0;
 }

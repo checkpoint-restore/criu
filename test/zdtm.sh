@@ -223,6 +223,7 @@ construct_root()
 	local ps_path=`type -P ps`
 	local libdir=$root/lib
 	local libdir2=$root/lib64
+	local tmpdir=$root/tmp
 
 	mkdir -p $root/bin
 	cp $ps_path $root/bin
@@ -250,6 +251,10 @@ construct_root()
 		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && cp /lib/x86_64-linux-gnu/$i $libdir2 && continue ||
 		[ -f /lib/arm-linux-gnueabi/$i ] && cp /lib/arm-linux-gnueabi/$i $libdir && cp /lib/arm-linux-gnueabi/$i $libdir2 && continue || echo "Failed at " $i && return 1
 	done
+
+	# make 'tmp' dir under new root
+	mkdir $tmpdir
+	chmod 0777 $tmpdir
 }
 
 export MAKEFLAGS=--no-print-directory
