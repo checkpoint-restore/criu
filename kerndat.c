@@ -28,7 +28,7 @@ static int kerndat_get_shmemdev(void)
 	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (map == MAP_FAILED) {
-		pr_perror("Can't mmap piggie");
+		pr_perror("Can't mmap memory for shmemdev test");
 		return -1;
 	}
 
@@ -36,14 +36,14 @@ static int kerndat_get_shmemdev(void)
 			(unsigned long)map, (unsigned long)map + PAGE_SIZE);
 	if (stat(maps, &buf) < 0) {
 		munmap(map, PAGE_SIZE);
-		pr_perror("Can't stat piggie");
+		pr_perror("Can't stat self map_files");
 		return -1;
 	}
 
 	munmap(map, PAGE_SIZE);
 
 	kerndat_shmem_dev = buf.st_dev;
-	pr_info("Found anon-shmem piggie at %"PRIx64"\n", kerndat_shmem_dev);
+	pr_info("Found anon-shmem device at %"PRIx64"\n", kerndat_shmem_dev);
 	return 0;
 }
 
@@ -64,7 +64,7 @@ int kerndat_get_dirty_track(void)
 	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (map == MAP_FAILED) {
-		pr_perror("Can't mmap piggie2");
+		pr_perror("Can't mmap memory for pagemap test");
 		return ret;
 	}
 
