@@ -30,4 +30,5 @@ struct page_pipe;
 int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
 		unsigned long off);
 int connect_to_page_server(void);
+int disconnect_from_page_server(void);
 #endif

@@ -1608,6 +1608,9 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	ret = 0;
 err:
+	if (disconnect_from_page_server())
+		ret = -1;
+
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts.final_state);
 	free_pstree(root_item);
@@ -1726,6 +1729,9 @@ int cr_dump_tasks(pid_t pid)
 
 	fd_id_show_tree();
 err:
+	if (disconnect_from_page_server())
+		ret = -1;
+
 	close_cr_fdset(&glob_fdset);
 
 	if (!ret) {

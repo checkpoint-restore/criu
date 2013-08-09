@@ -21,6 +21,8 @@ struct page_server_iov {
 #define PS_IOV_HOLE	2
 #define PS_IOV_OPEN	3
 
+#define PS_IOV_FLUSH		0x1023
+
 #define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
 
@@ -145,6 +147,7 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 static int page_server_serve(int sk)
 {
 	int ret = -1;
+	bool flushed = false;
 
 	if (pipe(cxfer.p)) {
 		pr_perror("Can't make pipe for xfer");
@@ -168,6 +171,8 @@ static int page_server_serve(int sk)
 			break;
 		}
 
+		flushed = false;
+
 		switch (pi.cmd) {
 		case PS_IOV_OPEN:
 			ret = page_server_open(&pi);
@@ -178,6 +183,22 @@ static int page_server_serve(int sk)
 		case PS_IOV_HOLE:
 			ret = page_server_hole(sk, &pi);
 			break;
+		case PS_IOV_FLUSH:
+		{
+			int32_t status = 0;
+
+			/*
+			 * An answer must be sent back to inform another side,
+			 * that all data were received
+			 */
+			if (write(sk, &status, sizeof(status)) != sizeof(status)) {
+				pr_perror("Can't send the final package");
+				ret = -1;
+			}
+
+			flushed = true;
+			break;
+		}
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
 			ret = -1;
@@ -186,6 +207,11 @@ static int page_server_serve(int sk)
 
 		if (ret)
 			break;
+	}
+
+	if (!flushed) {
+		pr_err("The data were not flushed");
+		ret = -1;
 	}
 
 	page_server_close();
@@ -271,6 +297,37 @@ int connect_to_page_server(void)
 	}
 
 	return 0;
+}
+
+int disconnect_from_page_server(void)
+{
+	struct page_server_iov pi = { .cmd = PS_IOV_FLUSH };
+	int32_t status = -1;
+	int ret = -1;
+
+	if (!opts.use_page_server)
+		return 0;
+
+	if (page_server_sk == -1)
+		return 0;
+
+	pr_info("Disconnect from the page server %s:%u\n",
+			inet_ntoa(opts.ps_addr.sin_addr),
+			(int)ntohs(opts.ps_addr.sin_port));
+	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write the fini command to server");
+		goto out;
+	}
+
+	if (read(page_server_sk, &status, sizeof(status)) != sizeof(status)) {
+		pr_perror("The page server doesn't answer");
+		goto out;
+	}
+
+	ret = 0;
+out:
+	close_safe(&page_server_sk);
+	return ret ? : status;
 }
 
 static int write_pagemap_to_server(struct page_xfer *xfer,
