@@ -98,6 +98,7 @@ TST_NOFILE	=				\
 		sigaltstack			\
 		sk-netlink			\
 		mem-touch			\
+		grow_map			\
 #		jobctl00			\
 
 TST_FILE	=				\
