@@ -197,6 +197,7 @@ static int page_server_serve(int sk)
 			}
 
 			flushed = true;
+			ret = 0;
 			break;
 		}
 		default:
