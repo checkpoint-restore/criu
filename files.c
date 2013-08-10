@@ -41,14 +41,14 @@
 #include "protobuf/fs.pb-c.h"
 
 #define FDESC_HASH_SIZE	64
-static struct list_head file_desc_hash[FDESC_HASH_SIZE];
+static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 
 int prepare_shared_fdinfo(void)
 {
 	int i;
 
 	for (i = 0; i < FDESC_HASH_SIZE; i++)
-		INIT_LIST_HEAD(&file_desc_hash[i]);
+		INIT_HLIST_HEAD(&file_desc_hash[i]);
 
 	return 0;
 }
@@ -59,16 +59,16 @@ void file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 	d->ops = ops;
 	INIT_LIST_HEAD(&d->fd_info_head);
 
-	list_add_tail(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
+	hlist_add_head(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
 }
 
 struct file_desc *find_file_desc_raw(int type, u32 id)
 {
 	struct file_desc *d;
-	struct list_head *chain;
+	struct hlist_head *chain;
 
 	chain = &file_desc_hash[id % FDESC_HASH_SIZE];
-	list_for_each_entry(d, chain, hash)
+	hlist_for_each_entry(d, chain, hash)
 		if (d->ops->type == type && d->id == id)
 			return d;
 
@@ -98,7 +98,7 @@ void show_saved_files(void)
 
 	pr_info("File descs:\n");
 	for (i = 0; i < FDESC_HASH_SIZE; i++)
-		list_for_each_entry(fd, &file_desc_hash[i], hash) {
+		hlist_for_each_entry(fd, &file_desc_hash[i], hash) {
 			struct fdinfo_list_entry *le;
 
 			pr_info(" `- type %d ID %#x\n", fd->ops->type, fd->id);

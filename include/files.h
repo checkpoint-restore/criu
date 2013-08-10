@@ -100,7 +100,7 @@ struct file_desc_ops {
 
 struct file_desc {
 	u32			id;		/* File descriptor id, unique */
-	struct list_head	hash;		/* Descriptor hashing and lookup */
+	struct hlist_node	hash;		/* Descriptor hashing and lookup */
 	struct list_head	fd_info_head;	/* Chain of fdinfo_list_entry-s with same ID and type but different pids */
 	struct file_desc_ops	*ops;		/* Associated operations */
 };
