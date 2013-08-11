@@ -12,6 +12,8 @@ enum {
 };
 
 enum {
+	TIME_FORK,
+
 	RESTORE_TIME_NS_STATS,
 };
 

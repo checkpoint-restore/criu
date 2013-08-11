@@ -1324,13 +1324,18 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out;
 
+	timing_start(TIME_FORK);
+
 	__restore_switch_stage(CR_STATE_FORKING);
 
 	pr_info("Wait until all tasks are forked\n");
-	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
-	if (ret < 0)
+	ret = restore_wait_inprogress_tasks();
+	if (ret)
 		goto out;
 
+	timing_stop(TIME_FORK);
+
+	__restore_switch_stage(CR_STATE_RESTORE_PGID);
 
 	pr_info("Wait until all tasks restored pgid\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE);

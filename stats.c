@@ -97,7 +97,10 @@ void show_stats(int fd)
 
 static void encode_time(int t, u_int32_t *to)
 {
-	*to = dstats->timings[t].total.tv_sec * USEC_PER_SEC + dstats->timings[t].total.tv_usec;
+	struct timing *tm;
+
+	tm = get_timing(t);
+	*to = tm->total.tv_sec * USEC_PER_SEC + tm->total.tv_usec;
 }
 
 void write_stats(int what)
@@ -127,6 +130,8 @@ void write_stats(int what)
 
 		rs_entry.pages_compared = atomic_get(&rstats->counts[CNT_PAGES_COMPARED]);
 		rs_entry.pages_skipped_cow = atomic_get(&rstats->counts[CNT_PAGES_SKIPPED_COW]);
+
+		encode_time(TIME_FORK, &rs_entry.forking_time);
 
 		name = "restore";
 	} else
