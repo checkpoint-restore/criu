@@ -1078,10 +1078,47 @@ static int mount_proc(void)
 	return ret;
 }
 
+/*
+ * Tasks cannot change sid (session id) arbitrary, but can either
+ * inherit one from ancestor, or create a new one with id equal to
+ * their pid. Thus sid-s restore is tied with children creation.
+ */
+
+static int create_children_and_session(void)
+{
+	int ret;
+	struct pstree_item *child;
+
+	pr_info("Restoring children in alien sessions:\n");
+	list_for_each_entry(child, &current->children, sibling) {
+		if (!restore_before_setsid(child))
+			continue;
+
+		BUG_ON(child->born_sid != -1 && getsid(getpid()) != child->born_sid);
+
+		ret = fork_with_pid(child);
+		if (ret < 0)
+			return ret;
+	}
+
+	restore_sid();
+
+	pr_info("Restoring children in our session:\n");
+	list_for_each_entry(child, &current->children, sibling) {
+		if (restore_before_setsid(child))
+			continue;
+
+		ret = fork_with_pid(child);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
-	struct pstree_item *child;
 	pid_t pid;
 	int ret;
 	sigset_t blockmask;
@@ -1151,28 +1188,8 @@ static int restore_task_with_children(void *_arg)
 			exit(1);
 	}
 
-	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &current->children, sibling) {
-		if (!restore_before_setsid(child))
-			continue;
-
-		BUG_ON(child->born_sid != -1 && getsid(getpid()) != child->born_sid);
-
-		ret = fork_with_pid(child);
-		if (ret < 0)
-			exit(1);
-	}
-
-	restore_sid();
-
-	pr_info("Restoring children:\n");
-	list_for_each_entry(child, &current->children, sibling) {
-		if (restore_before_setsid(child))
-			continue;
-		ret = fork_with_pid(child);
-		if (ret < 0)
-			exit(1);
-	}
+	if (create_children_and_session())
+		exit(1);
 
 	if (current->pgid == current->pid.virt)
 		restore_pgid();
