@@ -477,6 +477,7 @@ static int prepare_mappings(int pid)
 
 		priv_size += vma_area_len(vma);
 	}
+	close(fd);
 
 	if (ret < 0)
 		goto out;
@@ -515,7 +516,6 @@ static int prepare_mappings(int pid)
 
 	if (ret == 0)
 		ret = restore_priv_vma_content(pid);
-	close(fd);
 
 out:
 	while (!list_empty(&parent_vmas)) {
