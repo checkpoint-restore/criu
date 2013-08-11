@@ -13,6 +13,7 @@ enum {
 
 enum {
 	TIME_FORK,
+	TIME_RESTORE,
 
 	RESTORE_TIME_NS_STATS,
 };

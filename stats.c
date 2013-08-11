@@ -132,6 +132,7 @@ void write_stats(int what)
 		rs_entry.pages_skipped_cow = atomic_get(&rstats->counts[CNT_PAGES_SKIPPED_COW]);
 
 		encode_time(TIME_FORK, &rs_entry.forking_time);
+		encode_time(TIME_RESTORE, &rs_entry.restore_time);
 
 		name = "restore";
 	} else

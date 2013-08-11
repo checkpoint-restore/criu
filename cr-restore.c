@@ -1389,6 +1389,8 @@ out:
 		return 1;
 	}
 
+	timing_stop(TIME_RESTORE);
+
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
@@ -1422,6 +1424,8 @@ int cr_restore_tasks(void)
 
 	if (init_stats(RESTORE_STATS))
 		return -1;
+
+	timing_start(TIME_RESTORE);
 
 	if (cpu_init() < 0)
 		return -1;
