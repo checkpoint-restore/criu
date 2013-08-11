@@ -10,6 +10,10 @@ message dump_stats_entry {
 	required uint64	pages_written = 7;
 }
 
+message restore_stats_entry {
+}
+
 message stats_entry {
 	optional dump_stats_entry dump = 1;
+	optional restore_stats_entry restore = 2;
 }

@@ -81,6 +81,7 @@ void write_stats(int what)
 {
 	StatsEntry stats = STATS_ENTRY__INIT;
 	DumpStatsEntry ds_entry = DUMP_STATS_ENTRY__INIT;
+	RestoreStatsEntry rs_entry = RESTORE_STATS_ENTRY__INIT;
 	char *name;
 	int fd;
 
@@ -98,6 +99,10 @@ void write_stats(int what)
 		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
 
 		name = "dump";
+	} else if (what == RESTORE_STATS) {
+		stats.restore = &rs_entry;
+
+		name = "restore";
 	} else
 		return;
 
