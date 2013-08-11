@@ -1593,6 +1593,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	LIST_HEAD(ctls);
 	struct parasite_ctl *ctl, *n;
 
+	if (init_stats(DUMP_STATS))
+		goto err;
+
 	if (kerndat_init())
 		goto err;
 
@@ -1656,6 +1659,9 @@ int cr_dump_tasks(pid_t pid)
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	if (init_stats(DUMP_STATS))
+		goto err;
 
 	if (kerndat_init())
 		goto err;

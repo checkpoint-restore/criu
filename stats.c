@@ -93,3 +93,11 @@ void write_stats(int what)
 		close(fd);
 	}
 }
+
+int init_stats(int what)
+{
+	if (what == DUMP_STATS)
+		return 0;
+
+	return 0;
+}

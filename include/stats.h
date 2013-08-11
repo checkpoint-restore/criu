@@ -25,6 +25,9 @@ enum {
 void cnt_add(int c, unsigned long val);
 
 #define DUMP_STATS	1
+#define RESTORE_STATS	2
+
+int init_stats(int what);
 void write_stats(int what);
 
 #endif

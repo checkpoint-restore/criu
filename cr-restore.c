@@ -60,6 +60,7 @@
 #include "page-read.h"
 #include "sysctl.h"
 #include "vdso.h"
+#include "stats.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -1360,6 +1361,8 @@ out:
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
+	write_stats(RESTORE_STATS);
+
 	if (!opts.restore_detach)
 		wait(NULL);
 	return 0;
@@ -1384,6 +1387,9 @@ static int prepare_task_entries()
 int cr_restore_tasks(void)
 {
 	if (check_img_inventory() < 0)
+		return -1;
+
+	if (init_stats(RESTORE_STATS))
 		return -1;
 
 	if (cpu_init() < 0)
