@@ -22,6 +22,10 @@ enum {
 	DUMP_CNT_NR_STATS,
 };
 
+enum {
+	RESTORE_CNT_NR_STATS = 1,
+};
+
 void cnt_add(int c, unsigned long val);
 
 #define DUMP_STATS	1

@@ -15,12 +15,23 @@ struct dump_stats {
 	unsigned long	counts[DUMP_CNT_NR_STATS];
 };
 
+struct restore_stats {
+	atomic_t	counts[RESTORE_CNT_NR_STATS];
+};
+
 struct dump_stats *dstats;
+struct restore_stats *rstats;
 
 void cnt_add(int c, unsigned long val)
 {
-	BUG_ON(c >= DUMP_CNT_NR_STATS);
-	dstats->counts[c] += val;
+	if (dstats != NULL) {
+		BUG_ON(c >= DUMP_CNT_NR_STATS);
+		dstats->counts[c] += val;
+	} else if (rstats != NULL) {
+		BUG_ON(c >= RESTORE_CNT_NR_STATS);
+		atomic_add(&rstats->counts[c], val);
+	} else
+		BUG();
 }
 
 static void timeval_accumulate(const struct timeval *from, const struct timeval *to,
@@ -104,5 +115,6 @@ int init_stats(int what)
 		return dstats ? 0 : -1;
 	}
 
-	return 0;
+	rstats = shmalloc(sizeof(struct restore_stats));
+	return rstats ? 0 : -1;
 }
