@@ -423,13 +423,13 @@ static int prepare_mappings(int pid)
 	int fd, ret = 0;
 	LIST_HEAD(parent_vmas);
 	struct vma_area *pvma, *vma;
-	unsigned long priv_size = 0;
 	void *addr;
 
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len, pstart = 0;
 
 	rst_vmas.nr = 0;
+	rst_vmas.priv_size = 0;
 	/*
 	 * Keep parent vmas at hands to check whether we can "inherit" them.
 	 * See comments in map_private_vma.
@@ -472,10 +472,8 @@ static int prepare_mappings(int pid)
 			break;
 		}
 
-		if (!vma_priv(&vma->vma))
-			continue;
-
-		priv_size += vma_area_len(vma);
+		if (vma_priv(&vma->vma))
+			rst_vmas.priv_size += vma_area_len(vma);
 	}
 	close(fd);
 
@@ -483,16 +481,16 @@ static int prepare_mappings(int pid)
 		goto out;
 
 	/* Reserve a place for mapping private vma-s one by one */
-	addr = mmap(NULL, priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	addr = mmap(NULL, rst_vmas.priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
-		pr_perror("Unable to reserve memory (%lu bytes)", priv_size);
+		pr_perror("Unable to reserve memory (%lu bytes)", rst_vmas.priv_size);
 		return -1;
 	}
 
 	old_premmapped_addr = current->rst->premmapped_addr;
 	old_premmapped_len = current->rst->premmapped_len;
 	current->rst->premmapped_addr = addr;
-	current->rst->premmapped_len = priv_size;
+	current->rst->premmapped_len = rst_vmas.priv_size;
 
 	pvma = list_entry(&parent_vmas, struct vma_area, list);
 
