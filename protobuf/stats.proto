@@ -11,6 +11,8 @@ message dump_stats_entry {
 }
 
 message restore_stats_entry {
+	required uint64	pages_compared = 1;
+	required uint64	pages_skipped_cow = 2;
 }
 
 message stats_entry {

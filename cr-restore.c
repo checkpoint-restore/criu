@@ -397,6 +397,9 @@ static int restore_priv_vma_content(pid_t pid)
 		}
 	}
 
+	cnt_add(CNT_PAGES_COMPARED, nr_restored + nr_shared);
+	cnt_add(CNT_PAGES_SKIPPED_COW, nr_shared);
+
 	pr_info("nr_restored_pages: %d\n", nr_restored);
 	pr_info("nr_shared_pages:   %d\n", nr_shared);
 	pr_info("nr_droped_pages:   %d\n", nr_droped);

@@ -23,7 +23,10 @@ enum {
 };
 
 enum {
-	RESTORE_CNT_NR_STATS = 1,
+	CNT_PAGES_COMPARED,
+	CNT_PAGES_SKIPPED_COW,
+
+	RESTORE_CNT_NR_STATS,
 };
 
 void cnt_add(int c, unsigned long val);
