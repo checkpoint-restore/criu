@@ -31,6 +31,7 @@
 
 #include "image.h"
 #include "util.h"
+#include "util-pie.h"
 #include "log.h"
 #include "syscall.h"
 #include "restorer.h"
@@ -1053,7 +1054,7 @@ static void restore_pgid(void)
 
 static int mount_proc(void)
 {
-	int ret;
+	int fd, ret;
 	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
 	if (mkdtemp(proc_mountpoint) == NULL) {
@@ -1064,21 +1065,14 @@ static int mount_proc(void)
 	pr_info("Mount procfs in %s\n", proc_mountpoint);
 	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
 		pr_perror("mount failed");
-		ret = -1;
-		goto out_rmdir;
-	}
-
-	ret = set_proc_mountpoint(proc_mountpoint);
-
-	if (umount2(proc_mountpoint, MNT_DETACH) == -1) {
-		pr_perror("Can't umount %s", proc_mountpoint);
+		rmdir(proc_mountpoint);
 		return -1;
 	}
 
-out_rmdir:
-	if (rmdir(proc_mountpoint) == -1) {
-		pr_perror("Can't remove %s", proc_mountpoint);
-		return -1;
+	ret = fd = open_detach_mount(proc_mountpoint);
+	if (fd >= 0) {
+		ret = set_proc_fd(fd);
+		close(fd);
 	}
 
 	return ret;
