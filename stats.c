@@ -16,6 +16,7 @@ struct dump_stats {
 };
 
 struct restore_stats {
+	struct timing	timings[RESTORE_TIME_NS_STATS];
 	atomic_t	counts[RESTORE_CNT_NR_STATS];
 };
 
@@ -52,18 +53,40 @@ static void timeval_accumulate(const struct timeval *from, const struct timeval 
 	}
 }
 
+static struct timing *get_timing(int t)
+{
+	if (dstats != NULL) {
+		BUG_ON(t >= DUMP_TIME_NR_STATS);
+		return &dstats->timings[t];
+	} else if (rstats != NULL) {
+		/*
+		 * FIXME -- this does _NOT_ work when called
+		 * from different tasks.
+		 */
+		BUG_ON(t >= RESTORE_TIME_NS_STATS);
+		return &rstats->timings[t];
+	}
+
+	BUG();
+	return NULL;
+}
+
 void timing_start(int t)
 {
-	BUG_ON(t >= DUMP_TIME_NR_STATS);
-	gettimeofday(&dstats->timings[t].start, NULL);
+	struct timing *tm;
+
+	tm = get_timing(t);
+	gettimeofday(&tm->start, NULL);
 }
 
 void timing_stop(int t)
 {
+	struct timing *tm;
 	struct timeval now;
 
+	tm = get_timing(t);
 	gettimeofday(&now, NULL);
-	timeval_accumulate(&dstats->timings[t].start, &now, &dstats->timings[t].total);
+	timeval_accumulate(&tm->start, &now, &tm->total);
 }
 
 void show_stats(int fd)

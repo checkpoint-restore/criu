@@ -11,6 +11,10 @@ enum {
 	DUMP_TIME_NR_STATS,
 };
 
+enum {
+	RESTORE_TIME_NS_STATS,
+};
+
 void timing_start(int t);
 void timing_stop(int t);
 
