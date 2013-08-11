@@ -418,7 +418,7 @@ err_addr:
 	return -1;
 }
 
-static int read_vmas(int pid)
+static int prepare_mappings(int pid)
 {
 	int fd, ret = 0;
 	LIST_HEAD(parent_vmas);
@@ -1142,7 +1142,7 @@ static int restore_task_with_children(void *_arg)
 		exit(1);
 	}
 
-	if (read_vmas(pid))
+	if (prepare_mappings(pid))
 		exit(1);
 
 	if ( !(ca->clone_flags & CLONE_FILES)) {
