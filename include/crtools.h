@@ -40,7 +40,8 @@ struct cr_options {
 	struct list_head	veth_pairs;
 	struct list_head	scripts;
 	bool			use_page_server;
-	struct sockaddr_in	ps_addr;
+	unsigned short		ps_port;
+	char			*addr;
 	bool			track_mem;
 	char			*img_parent;
 };

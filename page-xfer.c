@@ -222,16 +222,31 @@ static int page_server_serve(int sk)
 	return ret;
 }
 
+static int get_sockaddr_in(struct sockaddr_in *addr)
+{
+	memset(addr, 0, sizeof(*addr));
+	addr->sin_family = AF_INET;
+
+	if (!opts.addr)
+		addr->sin_addr.s_addr = INADDR_ANY;
+	else if (!inet_aton(opts.addr, &addr->sin_addr)) {
+		pr_perror("Bad page server address");
+		return -1;
+	}
+
+	addr->sin_port = opts.ps_port;
+	return 0;
+}
+
 int cr_page_server(bool daemon_mode)
 {
 	int sk, ask = -1;
-	struct sockaddr_in caddr;
+	struct sockaddr_in saddr, caddr;
 	socklen_t clen = sizeof(caddr);
 
 	up_page_ids_base();
 
-	pr_info("Starting page server on port %u\n",
-			(int)ntohs(opts.ps_addr.sin_port));
+	pr_info("Starting page server on port %u\n", (int)ntohs(opts.ps_port));
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
@@ -239,8 +254,10 @@ int cr_page_server(bool daemon_mode)
 		return -1;
 	}
 
-	opts.ps_addr.sin_family = AF_INET;
-	if (bind(sk, (struct sockaddr *)&opts.ps_addr, sizeof(opts.ps_addr))) {
+	if (get_sockaddr_in(&saddr))
+		goto out;
+
+	if (bind(sk, (struct sockaddr *)&saddr, sizeof(saddr))) {
 		pr_perror("Can't bind page server");
 		goto out;
 	}
@@ -277,12 +294,13 @@ static int page_server_sk = -1;
 
 int connect_to_page_server(void)
 {
+	struct sockaddr_in saddr;
+
 	if (!opts.use_page_server)
 		return 0;
 
 	pr_info("Connecting to server %s:%u\n",
-			inet_ntoa(opts.ps_addr.sin_addr),
-			(int)ntohs(opts.ps_addr.sin_port));
+			opts.addr, (int)ntohs(opts.ps_port));
 
 	page_server_sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (page_server_sk < 0) {
@@ -290,9 +308,10 @@ int connect_to_page_server(void)
 		return -1;
 	}
 
-	opts.ps_addr.sin_family = AF_INET;
-	if (connect(page_server_sk, (struct sockaddr *)&opts.ps_addr,
-				sizeof(opts.ps_addr)) < 0) {
+	if (get_sockaddr_in(&saddr))
+		return -1;
+
+	if (connect(page_server_sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
 		pr_perror("Can't connect to server");
 		return -1;
 	}
@@ -313,8 +332,8 @@ int disconnect_from_page_server(void)
 		return 0;
 
 	pr_info("Disconnect from the page server %s:%u\n",
-			inet_ntoa(opts.ps_addr.sin_addr),
-			(int)ntohs(opts.ps_addr.sin_port));
+			opts.addr, (int)ntohs(opts.ps_port));
+
 	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write the fini command to server");
 		goto out;

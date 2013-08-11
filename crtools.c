@@ -235,14 +235,11 @@ int main(int argc, char *argv[])
 			opts.use_page_server = true;
 			break;
 		case 51:
-			if (!inet_aton(optarg, &opts.ps_addr.sin_addr)) {
-				pr_perror("Bad address");
-				return -1;
-			}
+			opts.addr = optarg;
 			break;
 		case 52:
-			opts.ps_addr.sin_port = htons(atoi(optarg));
-			if (!opts.ps_addr.sin_port) {
+			opts.ps_port = htons(atoi(optarg));
+			if (!opts.ps_port) {
 				pr_err("Bad port\n");
 				return -1;
 			}
