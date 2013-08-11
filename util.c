@@ -179,7 +179,9 @@ void close_proc()
 
 int set_proc_fd(int fd)
 {
-	return install_service_fd(PROC_FD_OFF, fd);
+	if (install_service_fd(PROC_FD_OFF, fd) < 0)
+		return -1;
+	return 0;
 }
 
 int set_proc_mountpoint(char *path)

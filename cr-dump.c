@@ -1274,14 +1274,11 @@ static int fill_zombies_pids(struct pstree_item *item)
 static int dump_zombies(void)
 {
 	struct pstree_item *item;
-	int oldfd, ret = -1;
+	int ret = -1;
 	int pidns = current_ns_mask & CLONE_NEWPID;
 
-	if (pidns) {
-		oldfd = set_proc_fd(pidns_proc);
-		if (oldfd < 0)
-			return -1;
-	}
+	if (pidns && set_proc_fd(pidns_proc))
+		return -1;
 
 	for_each_pstree_item(item) {
 		if (item->state != TASK_DEAD)
