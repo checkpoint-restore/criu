@@ -1191,6 +1191,15 @@ static int restore_task_with_children(void *_arg)
 	if (create_children_and_session())
 		exit(1);
 
+	/*
+	 * Unlike sessions, process groups (a.k.a. pgids) can be joined
+	 * by any task, provided the task with pid == pgid (group leader)
+	 * exists. Thus, in order to restore pgid we must make sure that
+	 * group leader was born (stage barrier below), created the group
+	 * (the 1st restore_pgid below) and then join one (the 2nd call
+	 * to restore_pgid).
+	 */
+
 	if (current->pgid == current->pid.virt)
 		restore_pgid();
 
