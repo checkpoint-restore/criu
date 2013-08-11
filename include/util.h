@@ -140,7 +140,6 @@ extern int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool 
 #define reopen_fd_as(new_fd, old_fd)		reopen_fd_as_safe(__FILE__, __LINE__, new_fd, old_fd, false)
 #define reopen_fd_as_nocheck(new_fd, old_fd)	reopen_fd_as_safe(__FILE__, __LINE__, new_fd, old_fd, true)
 
-int set_proc_mountpoint(char *path);
 void close_proc(void);
 int open_pid_proc(pid_t pid);
 int close_pid_proc(void);

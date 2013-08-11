@@ -184,7 +184,7 @@ int set_proc_fd(int fd)
 	return 0;
 }
 
-int set_proc_mountpoint(char *path)
+static int open_proc_sfd(char *path)
 {
 	int fd, ret;
 	close_proc();
@@ -216,7 +216,7 @@ inline int open_pid_proc(pid_t pid)
 
 	dfd = get_service_fd(PROC_FD_OFF);
 	if (dfd < 0) {
-		if (set_proc_mountpoint("/proc") < 0)
+		if (open_proc_sfd("/proc") < 0)
 			return -1;
 
 		dfd = get_service_fd(PROC_FD_OFF);
