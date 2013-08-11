@@ -8,7 +8,7 @@ enum {
 	TIME_MEMDUMP,
 	TIME_MEMWRITE,
 
-	TIME_NR_STATS,
+	DUMP_TIME_NR_STATS,
 };
 
 void timing_start(int t);
@@ -19,7 +19,7 @@ enum {
 	CNT_PAGES_SKIPPED_PARENT,
 	CNT_PAGES_WRITTEN,
 
-	CNT_NR_STATS,
+	DUMP_CNT_NR_STATS,
 };
 
 void cnt_add(int c, unsigned long val);

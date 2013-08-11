@@ -11,15 +11,15 @@ struct timing {
 };
 
 struct dump_stats {
-	struct timing	timings[TIME_NR_STATS];
-	unsigned long	counts[CNT_NR_STATS];
+	struct timing	timings[DUMP_TIME_NR_STATS];
+	unsigned long	counts[DUMP_CNT_NR_STATS];
 };
 
 struct dump_stats *dstats;
 
 void cnt_add(int c, unsigned long val)
 {
-	BUG_ON(c >= CNT_NR_STATS);
+	BUG_ON(c >= DUMP_CNT_NR_STATS);
 	dstats->counts[c] += val;
 }
 
@@ -43,7 +43,7 @@ static void timeval_accumulate(const struct timeval *from, const struct timeval 
 
 void timing_start(int t)
 {
-	BUG_ON(t >= TIME_NR_STATS);
+	BUG_ON(t >= DUMP_TIME_NR_STATS);
 	gettimeofday(&dstats->timings[t].start, NULL);
 }
 
