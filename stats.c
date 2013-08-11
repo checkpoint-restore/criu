@@ -10,14 +10,17 @@ struct timing {
 	struct timeval total;
 };
 
-static struct timing timings[TIME_NR_STATS];
+struct dump_stats {
+	struct timing	timings[TIME_NR_STATS];
+	unsigned long	counts[CNT_NR_STATS];
+};
 
-static unsigned long counts[CNT_NR_STATS];
+struct dump_stats *dstats;
 
 void cnt_add(int c, unsigned long val)
 {
 	BUG_ON(c >= CNT_NR_STATS);
-	counts[c] += val;
+	dstats->counts[c] += val;
 }
 
 static void timeval_accumulate(const struct timeval *from, const struct timeval *to,
@@ -41,7 +44,7 @@ static void timeval_accumulate(const struct timeval *from, const struct timeval 
 void timing_start(int t)
 {
 	BUG_ON(t >= TIME_NR_STATS);
-	gettimeofday(&timings[t].start, NULL);
+	gettimeofday(&dstats->timings[t].start, NULL);
 }
 
 void timing_stop(int t)
@@ -49,7 +52,7 @@ void timing_stop(int t)
 	struct timeval now;
 
 	gettimeofday(&now, NULL);
-	timeval_accumulate(&timings[t].start, &now, &timings[t].total);
+	timeval_accumulate(&dstats->timings[t].start, &now, &dstats->timings[t].total);
 }
 
 void show_stats(int fd)
@@ -60,28 +63,28 @@ void show_stats(int fd)
 
 static void encode_time(int t, u_int32_t *to)
 {
-	*to = timings[t].total.tv_sec * USEC_PER_SEC + timings[t].total.tv_usec;
+	*to = dstats->timings[t].total.tv_sec * USEC_PER_SEC + dstats->timings[t].total.tv_usec;
 }
 
 void write_stats(int what)
 {
 	StatsEntry stats = STATS_ENTRY__INIT;
-	DumpStatsEntry dstats = DUMP_STATS_ENTRY__INIT;
+	DumpStatsEntry ds_entry = DUMP_STATS_ENTRY__INIT;
 	char *name;
 	int fd;
 
 	pr_info("Writing stats\n");
 	if (what == DUMP_STATS) {
-		stats.dump = &dstats;
+		stats.dump = &ds_entry;
 
-		encode_time(TIME_FREEZING, &dstats.freezing_time);
-		encode_time(TIME_FROZEN, &dstats.frozen_time);
-		encode_time(TIME_MEMDUMP, &dstats.memdump_time);
-		encode_time(TIME_MEMWRITE, &dstats.memwrite_time);
+		encode_time(TIME_FREEZING, &ds_entry.freezing_time);
+		encode_time(TIME_FROZEN, &ds_entry.frozen_time);
+		encode_time(TIME_MEMDUMP, &ds_entry.memdump_time);
+		encode_time(TIME_MEMWRITE, &ds_entry.memwrite_time);
 
-		dstats.pages_scanned = counts[CNT_PAGES_SCANNED];
-		dstats.pages_skipped_parent = counts[CNT_PAGES_SKIPPED_PARENT];
-		dstats.pages_written = counts[CNT_PAGES_WRITTEN];
+		ds_entry.pages_scanned = dstats->counts[CNT_PAGES_SCANNED];
+		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
+		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
 
 		name = "dump";
 	} else
@@ -96,8 +99,10 @@ void write_stats(int what)
 
 int init_stats(int what)
 {
-	if (what == DUMP_STATS)
-		return 0;
+	if (what == DUMP_STATS) {
+		dstats = xmalloc(sizeof(*dstats));
+		return dstats ? 0 : -1;
+	}
 
 	return 0;
 }
