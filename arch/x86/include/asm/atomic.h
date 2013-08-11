@@ -26,15 +26,17 @@ typedef struct {
 		ret__;						\
 	})
 
-#define atomic_inc(mem)						\
+#define atomic_add(mem, val)					\
 	({							\
-		u32 ret__ = 1;					\
+		u32 ret__ = (val);				\
 		asm volatile ("lock xadd %0, %1\n"		\
 				: "+r" (ret__),	"+m" ((mem)->counter)	\
 				:				\
 				: "cc", "memory");		\
 		ret__;						\
 	})
+
+#define atomic_inc(mem)	atomic_add(mem, 1)
 
 #define atomic_dec(mem)						\
 	({							\
