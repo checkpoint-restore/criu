@@ -1354,23 +1354,6 @@ static int restore_root_task(struct pstree_item *init)
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	BUG_ON(ret);
-out:
-	if (ret < 0) {
-		struct pstree_item *pi;
-
-		if (current_ns_mask & CLONE_NEWPID) {
-			/* Kill init */
-			if (root_item->pid.real > 0)
-				kill(root_item->pid.real, SIGKILL);
-		} else {
-			for_each_pstree_item(pi)
-				if (pi->pid.virt > 0)
-					kill(pi->pid.virt, SIGKILL);
-		}
-
-		pr_err("Restoring FAILED.\n");
-		return 1;
-	}
 
 	timing_stop(TIME_RESTORE);
 
@@ -1381,7 +1364,24 @@ out:
 
 	if (!opts.restore_detach)
 		wait(NULL);
+
 	return 0;
+
+out:
+	if (current_ns_mask & CLONE_NEWPID) {
+		/* Kill init */
+		if (root_item->pid.real > 0)
+			kill(root_item->pid.real, SIGKILL);
+	} else {
+		struct pstree_item *pi;
+
+		for_each_pstree_item(pi)
+			if (pi->pid.virt > 0)
+				kill(pi->pid.virt, SIGKILL);
+	}
+
+	pr_err("Restoring FAILED.\n");
+	return 1;
 }
 
 static int prepare_task_entries()
