@@ -286,8 +286,6 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
 
-	mutex_unlock(&args->ta->rst_lock);
-
 	ret = restore_creds(&args->ta->creds);
 	if (ret)
 		goto core_restore_end;
@@ -816,8 +814,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 			/* skip self */
 			if (thread_args[i].pid == args->t->pid)
 				continue;
-
-			mutex_lock(&args->rst_lock);
 
 			new_sp =
 				RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,

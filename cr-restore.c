@@ -2372,8 +2372,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	mutex_init(&task_args->rst_lock);
-
 	/*
 	 * Now prepare run-time data for threads restore.
 	 */

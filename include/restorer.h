@@ -108,8 +108,6 @@ struct task_restore_core_args {
 	int				logfd;
 	unsigned int			loglevel;
 
-	mutex_t				rst_lock;
-
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
 	int				nr_zombies;
