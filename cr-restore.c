@@ -1352,10 +1352,8 @@ static int restore_root_task(struct pstree_item *init)
 	 * Below this line nothing can fail, because network is unlocked
 	 */
 
-	__restore_switch_stage(CR_STATE_RESTORE_CREDS);
-
-	futex_wait_until(&task_entries->nr_in_progress, 0);
-
+	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
+	BUG_ON(ret);
 out:
 	if (ret < 0) {
 		struct pstree_item *pi;
