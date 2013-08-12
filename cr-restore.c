@@ -783,7 +783,7 @@ static int restore_one_zombie(int pid, CoreEntry *core)
 	return -1;
 }
 
-static int check_core(CoreEntry *core)
+static int check_core(CoreEntry *core, struct pstree_item *me)
 {
 	int ret = -1;
 
@@ -798,7 +798,7 @@ static int check_core(CoreEntry *core)
 	}
 
 	if (core->tc->task_state != TASK_DEAD) {
-		if (!core->ids && !current->ids) {
+		if (!core->ids && !me->ids) {
 			pr_err("Core IDS data missed for non-zombie\n");
 			goto out;
 		}
@@ -818,11 +818,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 {
 	int ret;
 
-	if (check_core(core)) {
-		ret = -1;
-		goto out;
-	}
-
 	switch ((int)core->tc->task_state) {
 	case TASK_ALIVE:
 		ret = restore_one_alive_task(pid, core);
@@ -836,7 +831,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 		break;
 	}
 
-out:
 	core_entry__free_unpacked(core, NULL);
 	return ret;
 }
@@ -882,6 +876,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		close(fd);
 
 		if (ret < 0)
+			return -1;
+
+		if (check_core(ca.core, item))
 			return -1;
 
 		if (ca.core->tc->task_state == TASK_DEAD)
