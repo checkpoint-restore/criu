@@ -1255,15 +1255,8 @@ static void __restore_switch_stage(int next_stage)
 
 static int restore_switch_stage(int next_stage)
 {
-	int ret;
-
-	ret = restore_wait_inprogress_tasks();
-	if (ret)
-		return ret;
-
 	__restore_switch_stage(next_stage);
-
-	return 0;
+	return restore_wait_inprogress_tasks();
 }
 
 static int restore_root_task(struct pstree_item *init)
@@ -1326,29 +1319,21 @@ static int restore_root_task(struct pstree_item *init)
 
 	timing_start(TIME_FORK);
 
-	__restore_switch_stage(CR_STATE_FORKING);
-
-	pr_info("Wait until all tasks are forked\n");
-	ret = restore_wait_inprogress_tasks();
-	if (ret)
+	ret = restore_switch_stage(CR_STATE_FORKING);
+	if (ret < 0)
 		goto out;
 
 	timing_stop(TIME_FORK);
 
-	__restore_switch_stage(CR_STATE_RESTORE_PGID);
+	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
+	if (ret < 0)
+		goto out;
 
-	pr_info("Wait until all tasks restored pgid\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE);
 	if (ret < 0)
 		goto out;
 
-	pr_info("Wait until all tasks restored sigchld handlers\n");
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
-	if (ret < 0)
-		goto out;
-
-	pr_info("Wait until all tasks are restored\n");
-	ret = restore_wait_inprogress_tasks();
 	if (ret < 0)
 		goto out;
 
