@@ -111,6 +111,83 @@ done:
 		return 1;
 	}
 
+	mkdir(MPTS_ROOT"/dev/non-root", 0600);
+	if (mount(MPTS_ROOT"/dev/non-root", MPTS_ROOT"/module", NULL, MS_BIND, NULL) < 0) {
+		err("Can't bind-mount %s -> %s", MPTS_ROOT"/dev/tdir", MPTS_ROOT"/module");
+	}
+	mkdir(MPTS_ROOT"/dev/non-root/test", 0600);
+
+	mkdir(MPTS_ROOT"/dev/share-1", 0600);
+	if (mount("none", MPTS_ROOT"/dev/share-1/", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	if (mount("none", MPTS_ROOT"/dev/share-1/", NULL, MS_SHARED, NULL) < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+
+//#define CR_NEXT
+#ifdef CR_NEXT
+	mkdir(MPTS_ROOT"/dev/share-1/alone", 0600);
+	if (mount("none", MPTS_ROOT"/dev/share-1/alone", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+#endif
+
+	mkdir(MPTS_ROOT"/dev/share-2", 0600);
+	if (mount(MPTS_ROOT"/dev/share-1", MPTS_ROOT"/dev/share-2", NULL, MS_BIND, NULL) < 0) {
+		fail("Can't bind mount a tmpfs directory");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/share-3", 0600);
+	if (mount(MPTS_ROOT"/dev/share-1", MPTS_ROOT"/dev/share-3", NULL, MS_BIND, NULL) < 0) {
+		fail("Can't bind mount a tmpfs directory");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/slave", 0600);
+	if (mount(MPTS_ROOT"/dev/share-1", MPTS_ROOT"/dev/slave", NULL, MS_BIND, NULL) < 0) {
+		fail("Can't bind mount a tmpfs directory");
+		return 1;
+	}
+	if (mount("none", MPTS_ROOT"/dev/slave", NULL, MS_SLAVE, NULL) < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/slave2", 0600);
+	if (mount(MPTS_ROOT"/dev/share-3", MPTS_ROOT"/dev/slave2", NULL, MS_BIND, NULL) < 0) {
+		fail("Can't bind mount a tmpfs directory");
+		return 1;
+	}
+	if (mount("none", MPTS_ROOT"/dev/slave2", NULL, MS_SLAVE, NULL) < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/share-1/test.mnt.share", 0600);
+	if (mount("none", MPTS_ROOT"/dev/share-1/test.mnt.share", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/share-1/test.mnt.share/test.share", 0600);
+	if (umount(MPTS_ROOT"/dev/slave2/test.mnt.share")) {
+		err("Can't umount "MPTS_ROOT"/dev/slave2/test.mnt.share: %m");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/slave/test.mnt.slave", 0600);
+	if (mount("none", MPTS_ROOT"/dev/slave/test.mnt.slave", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	mkdir(MPTS_ROOT"/dev/slave/test.mnt.slave/test.slave", 0600);
+
+
 	if (mount("none", MPTS_ROOT"/kernel", "proc", 0, "") < 0) {
 		fail("Can't mount proc");
 		return 1;
@@ -154,6 +231,42 @@ done:
 	if (access(MPTS_ROOT"/dev/overmount/test.over", F_OK)) {
 		fail(MPTS_ROOT"/dev/overmount/test.over");
 		return -1;
+	}
+
+	{
+		struct stat st1, st2;
+		if (stat(MPTS_ROOT"/dev/share-1/test.mnt.share/test.share", &st1)) {
+			err("Can't stat /dev/share-1/test.share/test.share");
+			return 1;
+		}
+		if (stat(MPTS_ROOT"/dev/share-2/test.mnt.share/test.share", &st2)) {
+			err("Can't stat /dev/share-2/test.mnt.share/test.share");
+			return 1;
+		}
+		if (st1.st_ino != st2.st_ino) {
+			fail("/dev/share-1 and /dev/share-1 is not shared");
+			return 1;
+		}
+		if (stat(MPTS_ROOT"/dev/slave/test.mnt.share/test.share", &st2)) {
+			err("Can't stat /dev/slave/test.mnt.share/test.share");
+			return 1;
+		}
+		if (st1.st_ino != st2.st_ino) {
+			fail("/dev/slave is not slave of /dev/share-1");
+			return 1;
+		}
+		if (stat(MPTS_ROOT"/dev/share-1/test.mnt.slave/test.slave", &st1) != -1 || errno != ENOENT) {
+			err("/dev/share-1/test.mnt.slave/test.slave exists");
+			return 1;
+		}
+		if (stat(MPTS_ROOT"/dev/slave/test.mnt.slave/test.slave", &st2)) {
+			err("Can't stat /dev/slave/test.mnt.slave/test.slave");
+			return 1;
+		}
+		if (stat(MPTS_ROOT"/dev/non-root/test", &st1)) {
+			err("Can't stat /dev/non-root/test");
+			return 1;
+		}
 	}
 
 	pass();
