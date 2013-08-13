@@ -256,6 +256,18 @@ static int collect_shared(struct mount_info *info)
 				m->master_id, m->shared_id);
 			return -1;
 		}
+
+		/* Search bind-mounts */
+		if (list_empty(&m->mnt_bind)) {
+			/*
+			 * A first mounted point will be set up as a source point
+			 * for others. Look at propagate_mount()
+			 */
+			for (t = m->next; t; t = t->next) {
+				if (mounts_equal(m, t, true))
+					list_add(&t->mnt_bind, &m->mnt_bind);
+			}
+		}
 	}
 
 	return 0;
@@ -793,6 +805,19 @@ static int propagate_mount(struct mount_info *mi)
 			}
 		}
 	}
+
+	/*
+	 * FIXME Currently non-root mounts can be restored
+	 * only if a proper root mount exists
+	 */
+	if (fsroot_mounted(mi))
+		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
+			if (t->bind)
+				continue;
+			if (t->master_id)
+				continue;
+			t->bind = mi;
+		}
 
 	return 0;
 }
