@@ -647,8 +647,6 @@ else
 		run_test $1 -n mnt || case_error $1
 	elif echo $IPC_TEST_LIST | fgrep -qw $1; then
 		run_test $1 -n ipc || case_error $1
-	elif echo $FILE_LOCK_TEST_LIST | fgrep -qw $1; then
-		run_test $1 -l || case_error $1
 	else
 		run_test $1 || case_error $1
 	fi
