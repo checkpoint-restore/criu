@@ -156,11 +156,6 @@ TMP_TREE=""
 SCRIPTDIR=`dirname $CRIU`/test
 POSTDUMP="--action-script $SCRIPTDIR/post-dump.sh"
 
-test -x $CRIU || {
-	echo "$CRIU is unavailable"
-	exit 1
-}
-
 ARGS=""
 
 PID=""
@@ -172,6 +167,15 @@ CLEANUP=0
 PAGE_SERVER=0
 PS_PORT=12345
 TCPDUMP_PID=
+COMPILE_ONLY=0
+
+check_criu()
+{
+	if [ ! -x $CRIU ]; then
+		echo "$CRIU is unavailable"
+		return 1
+	fi
+}
 
 check_mainstream()
 {
@@ -343,7 +347,7 @@ run_test()
 		linkremap="--link-remap"
 	fi
 
-	[ -n "$MAINSTREAM_KERNEL" ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/} && {
+	[ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/} && {
 		echo "Skip $test"
 		return 0
 	}
@@ -356,6 +360,11 @@ run_test()
 	local tname=`basename $test`
 	local tdir=`dirname $test`
 	DUMP_PATH=""
+
+	if [ $COMPILE_ONLY -eq 1 ]; then
+		echo "Compile $test"
+		make -C $tdir $tname && return 0 || return 1
+	fi
 
 	echo "Execute $test"
 
@@ -600,12 +609,23 @@ while :; do
 		shift
 		continue
 	fi
+	if [ "$1" = "-g" ]; then
+		COMPILE_ONLY=1
+		shift
+		continue
+	fi
 	break;
 done
 
+if [ $COMPILE_ONLY -eq 0 ]; then
+	check_criu || exit 1
+fi
+
 if [ $# -eq 0 ]; then
 
-	check_mainstream || exit 1
+	if [ $COMPILE_ONLY -eq 0 ]; then
+		check_mainstream || exit 1
+	fi
 
 	for t in $TEST_LIST; do
 		run_test $t || case_error $t
@@ -637,6 +657,7 @@ Options:
 	-x <PATTERN>: Exclude pattern
 	-t : mount tmpfs for dump files
 	-a <FILE>.tar.gz : save archive with dump files and logs
+	-g : Generate executables only
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
