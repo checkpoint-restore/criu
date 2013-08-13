@@ -27,6 +27,9 @@
 static struct mount_info *mntinfo;
 int mntns_root = -1;
 
+static DIR *open_mountpoint(struct mount_info *pm);
+static int close_mountpoint(DIR *dfd);
+
 static inline int is_root(char *p)
 {
 	return p[0] == '/' && p[1] == '\0';
@@ -214,6 +217,68 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 		mnt_tree_show(m, off + 1);
 
 	pr_info("%*s<--\n", off, "");
+}
+
+static int validate_mounts(struct mount_info *info)
+{
+	struct mount_info *m, *t;
+
+	for (m = info; m; m = m->next) {
+		if (m->parent && m->parent->shared_id) {
+			struct mount_info *ct;
+			if (list_empty(&m->parent->mnt_share))
+				continue;
+			t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
+
+			list_for_each_entry(ct, &t->children, siblings) {
+				if (mounts_equal(m, ct, false))
+					break;
+			}
+			if (&ct->siblings == &t->children) {
+				pr_err("Two shared mounts %d, %d have different sets of children\n",
+					m->parent->mnt_id, t->mnt_id);
+				pr_err("%d:%s doesn't have a proper point for %d:%s\n",
+					t->mnt_id, t->mountpoint,
+					m->mnt_id, m->mountpoint);
+				return -1;
+			}
+		}
+
+		if (m->parent && !fsroot_mounted(m)) {
+			list_for_each_entry(t, &m->mnt_bind, mnt_bind) {
+				if (fsroot_mounted(t))
+					break;
+			}
+			if (&t->mnt_bind == &m->mnt_bind) {
+				pr_err("%d:%s doesn't have a proper root mount\n",
+					t->mnt_id, t->mountpoint);
+				return -1;
+			}
+		}
+
+		if (m->parent == NULL)
+			continue;
+
+		list_for_each_entry(t, &m->parent->children, siblings) {
+			int tlen, mlen;
+
+			if (m == t)
+				continue;
+
+			tlen = strlen(t->mountpoint);
+			mlen = strlen(m->mountpoint);
+			if (mlen < tlen)
+				continue;
+			if (strncmp(t->mountpoint, m->mountpoint, tlen))
+				continue;
+			if (mlen > tlen && m->mountpoint[tlen] != '/')
+				continue;
+			pr_err("%d:%s is overmounted", m->mnt_id, m->mountpoint);
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 static int collect_shared(struct mount_info *info)
@@ -586,6 +651,9 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 	}
 
 	if (mnt_build_tree(pm) == NULL)
+		return -1;
+
+	if (validate_mounts(pm))
 		return -1;
 
 	pr_info("Dumping mountpoints\n");
@@ -1108,6 +1176,9 @@ static int populate_mnt_ns(int ns_pid)
 
 	pms = mnt_build_tree(pms);
 	if (!pms)
+		return -1;
+
+	if (validate_mounts(pms))
 		return -1;
 
 	return mnt_tree_for_each(pms, do_mount_one);
