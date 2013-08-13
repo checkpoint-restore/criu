@@ -730,6 +730,9 @@ static int umount_from_slaves(struct mount_info *mi)
 	char mpath[PATH_MAX];
 
 	list_for_each_entry(t, &mi->parent->mnt_slave_list, mnt_slave) {
+		if (!t->mounted)
+			continue;
+
 		snprintf(mpath, sizeof(mpath), "%s/%s",
 				t->mountpoint, basename(mi->mountpoint));
 		pr_debug("\t\tUmount %s\n", mpath);
@@ -798,19 +801,38 @@ static int do_new_mount(struct mount_info *mi)
 {
 	char *src;
 	struct fstype *tp = mi->fstype;
+	struct mount_info *t;
 
 	src = resolve_source(mi);
 	if (!src)
 		return -1;
 
+	/*
+	 * Wait while all parent are not mounted
+	 *
+	 * FIXME a child is shared only between parents,
+	 * who was present in a moment of birth
+	 */
+	if (mi->parent->flags & MS_SHARED) {
+		list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
+			if (!t->mounted) {
+				pr_debug("\t\tPostpone %s due to %s\n",
+						mi->mountpoint, t->mountpoint);
+				return 1;
+			}
+		}
+	}
+
 	if (mount(src, mi->mountpoint, tp->name,
-				mi->flags, mi->options) < 0) {
+			mi->flags & (~MS_SHARED), mi->options) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
 
 	if (restore_shared_options(mi, 0, mi->shared_id, 0))
 		return -1;
+
+	mi->mounted = true;
 
 	if (tp->restore && tp->restore(mi))
 		return -1;
@@ -820,8 +842,31 @@ static int do_new_mount(struct mount_info *mi)
 
 static int do_bind_mount(struct mount_info *mi)
 {
-	pr_err("No bind mounts at %s\n", mi->mountpoint);
-	return -1;
+	char rpath[PATH_MAX];
+	bool shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
+
+	snprintf(rpath, sizeof(rpath), "%s%s", mi->bind->mountpoint, mi->root);
+
+	pr_info("\tBind %s to %s\n", rpath, mi->mountpoint);
+
+	if (mount(rpath, mi->mountpoint, NULL,
+				MS_BIND, NULL) < 0) {
+		pr_perror("Can't mount at %s", mi->mountpoint);
+		return -1;
+	}
+
+	/*
+	 * shared - the mount is in the same shared group with mi->bind
+	 * mi->shared_id && !shared - create a new shared group
+	 */
+	if (restore_shared_options(mi, !shared,
+					mi->shared_id && !shared,
+					mi->master_id))
+		return -1;
+
+	mi->mounted = true;
+
+	return 0;
 }
 
 static int do_mount_one(struct mount_info *mi)
@@ -834,9 +879,14 @@ static int do_mount_one(struct mount_info *mi)
 	if (mi->mounted)
 		return 0;
 
+	if ((mi->master_id || !fsroot_mounted(mi)) && mi->bind == NULL) {
+		pr_debug("Postpone slave %s\n", mi->mountpoint);
+		return 1;
+	}
+
 	pr_debug("\tMounting %s @%s\n", mi->fstype->name, mi->mountpoint);
 
-	if (fsroot_mounted(mi))
+	if (!mi->bind)
 		ret = do_new_mount(mi);
 	else
 		ret = do_bind_mount(mi);
