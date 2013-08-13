@@ -699,6 +699,27 @@ static char *resolve_source(struct mount_info *mi)
 	return NULL;
 }
 
+static int restore_shared_options(struct mount_info *mi, bool private, bool shared, bool slave)
+{
+	pr_debug("%d:%s private %d shared %d slave %d\n",
+			mi->mnt_id, mi->mountpoint, private, shared, slave);
+
+	if (private && mount(NULL, mi->mountpoint, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Unable to make %s private", mi->mountpoint);
+		return -1;
+	}
+	if (shared && mount(NULL, mi->mountpoint, NULL, MS_SHARED, NULL)) {
+		pr_perror("Unable to make %s shared", mi->mountpoint);
+		return -1;
+	}
+	if (slave && mount(NULL, mi->mountpoint, NULL, MS_SLAVE, NULL)) {
+		pr_perror("Unable to make %s slave", mi->mountpoint);
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Umount points, which are propagated in slave parents, because
  * we can't be sure, that they were inherited in a real life.
@@ -787,6 +808,9 @@ static int do_new_mount(struct mount_info *mi)
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
+
+	if (restore_shared_options(mi, 0, mi->shared_id, 0))
+		return -1;
 
 	if (tp->restore && tp->restore(mi))
 		return -1;
