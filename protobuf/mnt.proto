@@ -20,4 +20,7 @@ message mnt_entry {
 	required string		mountpoint		= 7;
 	required string		source			= 8;
 	required string		options			= 9;
+
+	optional uint32		shared_id		= 10;
+	optional uint32		master_id		= 11;
 }
