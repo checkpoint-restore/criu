@@ -621,32 +621,14 @@ if [ $COMPILE_ONLY -eq 0 ]; then
 	check_criu || exit 1
 fi
 
-if [ $# -eq 0 ]; then
-
-	if [ $COMPILE_ONLY -eq 0 ]; then
-		check_mainstream || exit 1
-	fi
-
-	for t in $TEST_LIST; do
-		run_test $t || case_error $t
-	done
-	for t in $UTS_TEST_LIST; do
-		run_test $t -n uts || case_error $t
-	done
-	for t in $MNT_TEST_LIST; do
-		run_test $t -n mnt || case_error $t
-	done
-	for t in $IPC_TEST_LIST; do
-		run_test $t -n ipc || case_error $t
-	done
-elif [ "$1" = "-l" ]; then
+if [ "$1" = "-l" ]; then
 	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
 elif [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
 Usage:
 zdtm.sh [OPTIONS]
-zdtm.sh [OPTIONS] [TEST NAME]
+zdtm.sh [OPTIONS] [TEST PATTERN]
 Options:
 	-l : Show list of tests.
 	-d : Dump a test process and check that this process can continue working.
@@ -662,15 +644,28 @@ EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
 else
-	if echo $UTS_TEST_LIST | fgrep -qw $1; then
-		run_test $1 -n uts || case_error $1
-	elif echo $MNT_TEST_LIST | fgrep -qw $1; then
-		run_test $1 -n mnt || case_error $1
-	elif echo $IPC_TEST_LIST | fgrep -qw $1; then
-		run_test $1 -n ipc || case_error $1
-	else
-		run_test $1 || case_error $1
+	if [ $COMPILE_ONLY -eq 0 ]; then
+		check_mainstream || exit 1
 	fi
+
+	if [ $# -eq 0 ]; then
+		pattern='.*'
+	else
+		pattern=$1
+	fi
+
+	for t in $(echo "$TEST_LIST" | grep -x "$pattern"); do
+		run_test $t || case_error $t
+	done
+	for t in $(echo "$UTS_TEST_LIST" | grep -x "$pattern"); do
+		run_test $t -n uts || case_error $t
+	done
+	for t in $(echo "$MNT_TEST_LIST" | grep -x "$pattern"); do
+		run_test $t -n mnt || case_error $t
+	done
+	for t in $(echo "$IPC_TEST_LIST" | grep -x "$pattern"); do
+		run_test $t -n ipc || case_error $t
+	done
 fi
 
 [ -n "$TMP_TREE" ] && rm -rf $TMP_TREE || exit 0
