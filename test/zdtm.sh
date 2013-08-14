@@ -182,6 +182,10 @@ check_mainstream()
 	local -a ver_arr
 	local ver_str=`uname -r`
 
+	cat >&2 <<EOF
+========================== CRIU CHECK =============================
+EOF
+
 	$CRIU check && return 0
 	MAINSTREAM_KERNEL=1
 
@@ -198,7 +202,7 @@ EOF
 	[ "${ver_arr[0]}" -gt 3 ] && return 0
 	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 8 ]] && return 0
 
-	echo "A version of kernel should be greater or equal to 3.8"
+	echo "A version of kernel should be greater or equal to 3.8" >&2
 
 	return 1;
 }
@@ -257,7 +261,7 @@ construct_root()
 	done
 
 	# make 'tmp' dir under new root
-	mkdir $tmpdir
+	mkdir -p $tmpdir
 	chmod 0777 $tmpdir
 }
 
@@ -287,7 +291,7 @@ start_test()
 		PID=`cat $test.pid` || return 1
 	else
 		if [ -z "$ZDTM_ROOT" ]; then
-			mkdir dump
+			mkdir -p dump
 			ZDTM_ROOT=`mktemp -d /tmp/criu-root.XXXXXX`
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --bind . $ZDTM_ROOT || return 1
@@ -508,6 +512,7 @@ EOF
 	cat $test.out
 	cat $test.out | grep -q PASS || return 2
 	[ "$CLEANUP" -ne 0 ] && rm -rf `dirname $ddump`
+	echo "Test: $test, Result: PASS"
 	return 0
 }
 
@@ -516,25 +521,59 @@ case_error()
 	test=${ZP}/${1#ns/}
 	local test_log=`pwd`/$test.out
 
+	echo "Test: $test, Result: FAIL"
 	ZDTM_FAILED=1
 
-	echo "Test: $test"
-	echo "====================== ERROR ======================"
+(	exec >&2
+
+	cat <<EOF
+============================= ERROR ===============================
+EOF
+
+	echo "Test: $test, Namespace: $PIDNS"
+	cat <<EOF
+-------------------------------------------------------------------
+EOF
 
 	if [ -n "$DUMP_PATH" ]; then
 		[ -e "$DUMP_PATH/dump.log" ] && {
 			echo "Dump log   : $DUMP_PATH/dump.log"
 			cat $DUMP_PATH/dump.log* | grep Error
+			cat <<EOF
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+EOF
+			tail -n 40 $DUMP_PATH/dump.log*
+			cat <<EOF
+-------------------------------------------------------------------
+EOF
 		}
 		[ -e "$DUMP_PATH/restore.log" ] && {
 			echo "Restore log: $DUMP_PATH/restore.log"
 			cat $DUMP_PATH/restore.log* | grep Error
+			cat <<EOF
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+EOF
+			tail -n 40 $DUMP_PATH/restore.log*
+			cat <<EOF
+-------------------------------------------------------------------
+EOF
 		}
 	fi
-	[ -e "$test_log" ] &&
+	[ -e "$test_log" ] && {
 		echo "Output file: $test_log"
+		cat $test_log*
+		cat <<EOF
+-------------------------------------------------------------------
+EOF
+	}
+
 	[ -n "$HEAD" ] &&
 		echo "The initial HEAD was $HEAD"
+
+	cat <<EOF
+=========================== ERROR OVER ============================
+EOF
+)
 	exit 1
 }
 
@@ -594,7 +633,7 @@ while :; do
 	if [ "$1" = "-t" ]; then
 		shift
 		TMPFS_DUMP=dump
-		[ -d dump ] || mkdir $TMPFS_DUMP
+		[ -d dump ] || mkdir -p $TMPFS_DUMP
 		mount -t tmpfs none $TMPFS_DUMP || exit 1
 		continue;
 	fi
