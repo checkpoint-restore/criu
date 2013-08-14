@@ -168,6 +168,7 @@ PAGE_SERVER=0
 PS_PORT=12345
 TCPDUMP_PID=
 COMPILE_ONLY=0
+BATCH_TEST=0
 
 check_criu()
 {
@@ -439,7 +440,11 @@ EOF
 		# with some error code, or checkpoint is complete but return
 		# code is non-zero because of post dump action.
 		if [ "$retcode" -ne 0 ] && [[ "$retcode" -ne 32 || -z "$dump_only" ]]; then
-			echo WARNING: $tname returned $retcode and left running for debug needs
+			if [ $BATCH_TEST -eq 0 ]; then
+				echo WARNING: $tname returned $retcode and left running for debug needs
+			else
+				echo WARNING: $tname failed and returned $retcode
+			fi
 			return 1
 		fi
 
@@ -574,7 +579,13 @@ EOF
 =========================== ERROR OVER ============================
 EOF
 )
-	exit 1
+	if [ $BATCH_TEST -eq 0 ]; then
+		exit 1
+	else
+		# kill failed test
+		local tname=`basename $test`
+		killall -9 $tname > /dev/null 2>&1
+	fi
 }
 
 checkout()
@@ -653,6 +664,11 @@ while :; do
 		shift
 		continue
 	fi
+	if [ "$1" = "-n" ]; then
+		BATCH_TEST=1
+		shift
+		continue
+	fi
 	break;
 done
 
@@ -679,6 +695,7 @@ Options:
 	-t : mount tmpfs for dump files
 	-a <FILE>.tar.gz : save archive with dump files and logs
 	-g : Generate executables only
+	-n : Batch test
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
@@ -705,6 +722,15 @@ else
 	for t in $(echo "$IPC_TEST_LIST" | grep -x "$pattern"); do
 		run_test $t -n ipc || case_error $t
 	done
+
+	if [ $COMPILE_ONLY -eq 0 ]; then
+		if [ -n "$ZDTM_FAILED" ]; then
+			echo ZDTM tests FAIL.
+		else
+			echo ZDTM tests PASS.
+		fi
+	fi
 fi
 
-[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE || exit 0
+[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE
+[ -n "$ZDTM_FAILED" ] && exit 1
