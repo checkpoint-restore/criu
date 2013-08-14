@@ -733,4 +733,4 @@ else
 fi
 
 [ -n "$TMP_TREE" ] && rm -rf $TMP_TREE
-[ -n "$ZDTM_FAILED" ] && exit 1
+[ -n "$ZDTM_FAILED" ] && exit 1 || exit 0
