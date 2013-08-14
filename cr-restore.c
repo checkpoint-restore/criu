@@ -339,26 +339,31 @@ static int restore_priv_vma_content(pid_t pid)
 			}
 
 			off = (va - vma->vma.start) / PAGE_SIZE;
-
-			set_bit(off, vma->page_bitmap);
-			if (vma->ppage_bitmap)
-				clear_bit(off, vma->ppage_bitmap);
-
-			ret = pr.read_page(&pr, va, buf);
-			if (ret < 0)
-				break;
-
-			va += PAGE_SIZE;
-
 			p = decode_pointer((off) * PAGE_SIZE +
 					vma_premmaped_start(&vma->vma));
 
-			if (memcmp(p, buf, PAGE_SIZE) == 0) {
-				nr_shared++;
-				continue;
+			set_bit(off, vma->page_bitmap);
+			if (vma->ppage_bitmap) { /* inherited vma */
+				clear_bit(off, vma->ppage_bitmap);
+
+				ret = pr.read_page(&pr, va, buf);
+				if (ret < 0)
+					break;
+				va += PAGE_SIZE;
+
+				if (memcmp(p, buf, PAGE_SIZE) == 0) {
+					nr_shared++; /* the page is cowed */
+					continue;
+				}
+
+				memcpy(p, buf, PAGE_SIZE);
+			} else {
+				ret = pr.read_page(&pr, va, p);
+				if (ret < 0)
+					break;
+				va += PAGE_SIZE;
 			}
 
-			memcpy(p, buf, PAGE_SIZE);
 			nr_restored++;
 		}
 
