@@ -21,4 +21,7 @@ extern void network_unlock(void);
 
 extern struct ns_desc net_ns_desc;
 
+#include "protobuf/netdev.pb-c.h"
+int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds);
+
 #endif /* __CR_NET_H__ */

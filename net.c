@@ -23,8 +23,14 @@ void show_netdevices(int fd)
 	pb_show_plain_pretty(fd, PB_NETDEV, "2:%d");
 }
 
+int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds)
+{
+	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), nde, PB_NETDEV);
+}
+
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,
-		struct rtattr **tb, struct cr_fdset *fds)
+		struct rtattr **tb, struct cr_fdset *fds,
+		int (*dump)(NetDeviceEntry *, struct cr_fdset *))
 {
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
 
@@ -39,7 +45,10 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	netdev.flags = ifi->ifi_flags;
 	netdev.name = RTA_DATA(tb[IFLA_IFNAME]);
 
-	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), &netdev, PB_NETDEV);
+	if (!dump)
+		dump = write_netdev_img;
+
+	return dump(&netdev, fds);
 }
 
 static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
@@ -78,7 +87,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi,
 		 * Sigh... we have to assume, that the veth device is a
 		 * connection to the outer world and just dump this end :(
 		 */
-		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds);
+		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds, NULL);
 unk:
 	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
@@ -104,7 +113,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 
 	switch (ifi->ifi_type) {
 	case ARPHRD_LOOPBACK:
-		ret = dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds);
+		ret = dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds, NULL);
 		break;
 	case ARPHRD_ETHER:
 		ret = dump_one_ethernet(ifi, tb, fds);
