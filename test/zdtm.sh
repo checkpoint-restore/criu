@@ -108,7 +108,7 @@ static/socket-tcpbuf6
 static/pty03
 "
 
-MNT_TEST_LIST="
+TEST_LIST="$TEST_LIST
 static/mountpoints
 "
 
@@ -118,11 +118,11 @@ ns/static/session00
 ns/static/session01
 "
 
-UTS_TEST_LIST="
+TEST_LIST="$TEST_LIST
 static/utsname
 "
 
-IPC_TEST_LIST="
+TEST_LIST="$TEST_LIST
 static/ipc_namespace
 static/shm
 static/msgque
@@ -677,7 +677,7 @@ if [ $COMPILE_ONLY -eq 0 ]; then
 fi
 
 if [ "$1" = "-l" ]; then
-	echo $TEST_LIST $UTS_TEST_LIST $MNT_TEST_LIST $IPC_TEST_LIST | tr ' ' '\n'
+	echo $TEST_LIST | tr ' ' '\n'
 elif [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
@@ -712,15 +712,6 @@ else
 
 	for t in $(echo "$TEST_LIST" | grep -x "$pattern"); do
 		run_test $t || case_error $t
-	done
-	for t in $(echo "$UTS_TEST_LIST" | grep -x "$pattern"); do
-		run_test $t -n uts || case_error $t
-	done
-	for t in $(echo "$MNT_TEST_LIST" | grep -x "$pattern"); do
-		run_test $t -n mnt || case_error $t
-	done
-	for t in $(echo "$IPC_TEST_LIST" | grep -x "$pattern"); do
-		run_test $t -n ipc || case_error $t
 	done
 
 	if [ $COMPILE_ONLY -eq 0 ]; then
