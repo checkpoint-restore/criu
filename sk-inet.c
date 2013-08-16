@@ -485,7 +485,7 @@ static int open_inet_sk(struct file_desc *d)
 
 	sk = socket(ie->family, ie->type, ie->proto);
 	if (sk < 0) {
-		pr_perror("Can't create unix socket");
+		pr_perror("Can't create inet socket");
 		return -1;
 	}
 
