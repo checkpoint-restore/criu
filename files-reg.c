@@ -529,7 +529,8 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 		return fd;
 	}
 
-	if (lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
+	if ((rfi->rfe->pos != -1ULL) &&
+			lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
 		pr_perror("Can't restore file pos");
 		close(fd);
 		return -1;
