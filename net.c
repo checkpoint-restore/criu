@@ -6,17 +6,21 @@
 #include <net/if_arp.h>
 #include <sys/wait.h>
 #include <sched.h>
+#include <sys/mount.h>
+
 #include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"
 #include "libnetlink.h"
 #include "crtools.h"
 #include "sk-inet.h"
+#include "util-pie.h"
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
 static int ns_fd = -1;
+static int ns_sysfs_fd = -1;
 
 void show_netdevices(int fd)
 {
@@ -356,17 +360,48 @@ static inline int restore_route(int pid)
 	return restore_ip_dump(CR_FD_ROUTE, pid, "route");
 }
 
+static int mount_ns_sysfs(void)
+{
+	char sys_mount[] = "crtools-sys.XXXXXX";
+
+	BUG_ON(ns_sysfs_fd != -1);
+
+	if (mkdtemp(sys_mount) == NULL) {
+		pr_perror("mkdtemp failed %s", sys_mount);
+		return -1;
+	}
+
+	/*
+	 * The setns() is called, so we're in proper context,
+	 * no need in pulling the mountpoint from parasite.
+	 */
+	pr_info("Mount ns' sysfs in %s\n", sys_mount);
+	if (mount("sysfs", sys_mount, "sysfs", MS_MGC_VAL, NULL)) {
+		pr_perror("mount failed");
+		rmdir(sys_mount);
+		return -1;
+	}
+
+	ns_sysfs_fd = open_detach_mount(sys_mount);
+	return ns_sysfs_fd >= 0 ? 0 : -1;
+}
+
 int dump_net_ns(int pid, struct cr_fdset *fds)
 {
 	int ret;
 
 	ret = switch_ns(pid, &net_ns_desc, NULL);
 	if (!ret)
+		ret = mount_ns_sysfs();
+	if (!ret)
 		ret = dump_links(fds);
 	if (!ret)
 		ret = dump_ifaddr(fds);
 	if (!ret)
 		ret = dump_route(fds);
+
+	close(ns_sysfs_fd);
+	ns_sysfs_fd = -1;
 
 	return ret;
 }
