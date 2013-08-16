@@ -22,6 +22,27 @@
 static int ns_fd = -1;
 static int ns_sysfs_fd = -1;
 
+int read_ns_sys_file(char *path, char *buf, int len)
+{
+	int fd, rlen;
+
+	BUG_ON(ns_sysfs_fd == -1);
+
+	fd = openat(ns_sysfs_fd, path, O_RDONLY, 0);
+	if (fd < 0) {
+		pr_perror("Can't open ns' %s", path);
+		return -1;
+	}
+
+	rlen = read(fd, buf, len);
+	close(fd);
+
+	if (rlen >= 0)
+		buf[rlen] = '\0';
+
+	return rlen;
+}
+
 void show_netdevices(int fd)
 {
 	pb_show_plain_pretty(fd, PB_NETDEV, "2:%d");
