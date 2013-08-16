@@ -735,14 +735,6 @@ static inline int sig_fatal(int sig)
 
 struct task_entries *task_entries;
 
-static int restore_one_fake(void)
-{
-	/* We should wait here, otherwise last_pid will be changed. */
-	futex_wait_while(&task_entries->start, CR_STATE_FORKING);
-	futex_wait_while(&task_entries->start, CR_STATE_RESTORE_PGID);
-	return 0;
-}
-
 static int restore_one_zombie(int pid, CoreEntry *core)
 {
 	int exit_code = core->tc->exit_code;
@@ -1203,10 +1195,11 @@ static int restore_task_with_children(void *_arg)
 	if (current->pgid != current->pid.virt)
 		restore_pgid();
 
-	if (current->state == TASK_HELPER)
-		return restore_one_fake();
-
 	restore_finish_stage(CR_STATE_RESTORE_PGID);
+
+	if (current->state == TASK_HELPER)
+		return 0;
+
 	return restore_one_task(current->pid.virt, ca->core);
 }
 
@@ -1216,9 +1209,8 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_RESTORE_NS:
 		return 1;
 	case CR_STATE_FORKING:
-		return task_entries->nr_tasks + task_entries->nr_helpers;
 	case CR_STATE_RESTORE_PGID:
-		return task_entries->nr_tasks;
+		return task_entries->nr_tasks + task_entries->nr_helpers;
 	case CR_STATE_RESTORE:
 	case CR_STATE_RESTORE_SIGCHLD:
 		return task_entries->nr_threads;
