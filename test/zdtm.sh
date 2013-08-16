@@ -391,7 +391,7 @@ to ip is written in \$CR_IP_TOOL.
 EOF
 			exit 1;
 		}
-		args="-n uts -n ipc -n net -n pid -n mnt --root $ZDTM_ROOT --pidfile $TPID $args"
+		args="--root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
 	echo $tname | grep -q tcpbuf && {
