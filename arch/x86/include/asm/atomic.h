@@ -16,11 +16,6 @@ static inline int atomic_read(const atomic_t *v)
 	return (*(volatile int *)&(v)->counter);
 }
 
-/*
- * FIXME Use atomic_read instead of atomic_get all over the code
- */
-#define atomic_get atomic_read
-
 static inline void atomic_set(atomic_t *v, int i)
 {
 	v->counter = i;

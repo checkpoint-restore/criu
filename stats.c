@@ -128,8 +128,8 @@ void write_stats(int what)
 	} else if (what == RESTORE_STATS) {
 		stats.restore = &rs_entry;
 
-		rs_entry.pages_compared = atomic_get(&rstats->counts[CNT_PAGES_COMPARED]);
-		rs_entry.pages_skipped_cow = atomic_get(&rstats->counts[CNT_PAGES_SKIPPED_COW]);
+		rs_entry.pages_compared = atomic_read(&rstats->counts[CNT_PAGES_COMPARED]);
+		rs_entry.pages_skipped_cow = atomic_read(&rstats->counts[CNT_PAGES_SKIPPED_COW]);
 
 		encode_time(TIME_FORK, &rs_entry.forking_time);
 		encode_time(TIME_RESTORE, &rs_entry.restore_time);

@@ -21,7 +21,7 @@ typedef struct {
 /* Get current futex @f value */
 static inline u32 futex_get(futex_t *f)
 {
-	return atomic_get(&f->raw);
+	return atomic_read(&f->raw);
 }
 
 /* Set futex @f value to @v */
@@ -39,7 +39,7 @@ static inline void futex_set(futex_t *f, u32 v)
 		u32 tmp;					\
 								\
 		while (1) {					\
-			tmp = (u32)atomic_get(&(__f)->raw);	\
+			tmp = (u32)atomic_read(&(__f)->raw);	\
 			if ((tmp & FUTEX_ABORT_FLAG) ||		\
 			    (tmp __cond (__v)))			\
 				break;				\
@@ -102,7 +102,7 @@ static inline void futex_wait_while_eq(futex_t *f, u32 v)
 /* Wait while futex @f value is @v */
 static inline void futex_wait_while(futex_t *f, u32 v)
 {
-	while ((u32)atomic_get(&f->raw) == v) {
+	while ((u32)atomic_read(&f->raw) == v) {
 		int ret = sys_futex((u32 *)&f->raw.counter, FUTEX_WAIT, v, NULL, NULL, 0);
 		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
