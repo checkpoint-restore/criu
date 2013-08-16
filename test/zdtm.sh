@@ -106,23 +106,10 @@ streaming/socket-tcp6
 static/socket-tcpbuf
 static/socket-tcpbuf6
 static/pty03
-"
-
-TEST_LIST="$TEST_LIST
 static/mountpoints
-"
-
-# These ones are in ns
-TEST_LIST="$TEST_LIST
 ns/static/session00
 ns/static/session01
-"
-
-TEST_LIST="$TEST_LIST
 static/utsname
-"
-
-TEST_LIST="$TEST_LIST
 static/ipc_namespace
 static/shm
 static/msgque
