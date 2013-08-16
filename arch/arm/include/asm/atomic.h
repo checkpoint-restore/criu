@@ -18,9 +18,17 @@ typedef struct {
 
 #endif
 
+static inline int atomic_read(const atomic_t *v)
+{
+	return (*(volatile int *)&(v)->counter);
+}
 
-#define atomic_set(mem,v) ((mem)->counter = (v))
-#define atomic_get(v)	(*(volatile int *)&(v)->counter)
+static inline void atomic_set(atomic_t *v, int i)
+{
+	v->counter = i;
+}
+
+#define atomic_get atomic_read
 
 static inline int atomic_add_return(int i, atomic_t *v)
 {
