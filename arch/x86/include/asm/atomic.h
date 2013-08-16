@@ -1,62 +1,78 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
-#include "asm/types.h"
+#include "asm/cmpxchg.h"
+
+#define LOCK_PREFIX "\n\tlock; "
 
 typedef struct {
-	u32 counter;
+	int counter;
 } atomic_t;
 
-#define atomic_set(mem, v)					\
-	({							\
-		u32 ret__ = v;					\
-		asm volatile ("lock xchg %0, %1\n"		\
-				: "+r" (ret__), "+m" ((mem)->counter)	\
-				:				\
-				: "cc", "memory");		\
-	})
+#define ATOMIC_INIT(i)	{ (i) }
 
-#define atomic_get(mem)						\
-	({							\
-		u32 ret__ = 0;					\
-		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" ((mem)->counter)	\
-				:				\
-				: "cc", "memory");		\
-		ret__;						\
-	})
+static inline int atomic_read(const atomic_t *v)
+{
+	return (*(volatile int *)&(v)->counter);
+}
 
-#define atomic_add(mem, val)					\
-	({							\
-		u32 ret__ = (val);				\
-		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" ((mem)->counter)	\
-				:				\
-				: "cc", "memory");		\
-		ret__;						\
-	})
+/*
+ * FIXME Use atomic_read instead of atomic_get all over the code
+ */
+#define atomic_get atomic_read
 
-#define atomic_inc(mem)	atomic_add(mem, 1)
+static inline void atomic_set(atomic_t *v, int i)
+{
+	v->counter = i;
+}
 
-#define atomic_dec(mem)						\
-	({							\
-		u32 ret__ = -1;					\
-		asm volatile ("lock xadd %0, %1\n"		\
-				: "+r" (ret__),	"+m" ((mem)->counter)	\
-				:				\
-				: "cc", "memory");		\
-		ret__;						\
-	})
+static inline void atomic_add(int i, atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "addl %1,%0"
+		     : "+m" (v->counter)
+		     : "ir" (i));
+}
 
-/* true if the result is 0, or false for all other cases. */
-#define atomic_dec_and_test(mem)				\
-	({							\
-		unsigned char ret__;				\
-		asm volatile ("lock decl %0; sete %1\n"		\
-				: "+m" ((mem)->counter), "=qm" (ret__)	\
-				:				\
-				: "cc", "memory");		\
-		ret__ != 0;					\
-	})
+static inline void atomic_sub(int i, atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "subl %1,%0"
+		     : "+m" (v->counter)
+		     : "ir" (i));
+}
+
+static inline void atomic_inc(atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "incl %0"
+		     : "+m" (v->counter));
+}
+
+static inline void atomic_dec(atomic_t *v)
+{
+	asm volatile(LOCK_PREFIX "decl %0"
+		     : "+m" (v->counter));
+}
+
+static inline int atomic_dec_and_test(atomic_t *v)
+{
+	unsigned char c;
+
+	asm volatile(LOCK_PREFIX "decl %0; sete %1"
+		     : "+m" (v->counter), "=qm" (c)
+		     : : "memory");
+	return c != 0;
+}
+
+static inline int atomic_add_return(int i, atomic_t *v)
+{
+	return i + xadd(&v->counter, i);
+}
+
+static inline int atomic_sub_return(int i, atomic_t *v)
+{
+	return atomic_add_return(-i, v);
+}
+
+#define atomic_inc_return(v)  (atomic_add_return(1, v))
+#define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 #endif /* __CR_ATOMIC_H__ */

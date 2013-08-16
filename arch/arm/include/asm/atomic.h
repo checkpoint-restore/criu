@@ -2,7 +2,7 @@
 #define __CR_ATOMIC_H__
 
 typedef struct {
-	u32 counter;
+	int counter;
 } atomic_t;
 
 
@@ -20,7 +20,7 @@ typedef struct {
 
 
 #define atomic_set(mem,v) ((mem)->counter = (v))
-#define atomic_get(v)	(*(volatile u32 *)&(v)->counter)
+#define atomic_get(v)	(*(volatile int *)&(v)->counter)
 
 static inline int atomic_add_return(int i, atomic_t *v)
 {
@@ -68,11 +68,13 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 static inline int atomic_inc(atomic_t *v) { return atomic_add_return(1, v) - 1; }
 
-static inline int atomic_add(atomic_t *v, int val) { return atomic_add_return(val, v) - val; }
+static inline int atomic_add(int val, atomic_t *v) { return atomic_add_return(val, v) - val; }
 
 static inline int atomic_dec(atomic_t *v) { return atomic_sub_return(1, v) + 1; }
 
 /* true if the result is 0, or false for all other cases. */
 #define atomic_dec_and_test(v) (atomic_sub_return(1, v) == 0)
+
+#define atomic_inc_return(v)	(atomic_add_return(1, v))
 
 #endif /* __CR_ATOMIC_H__ */
