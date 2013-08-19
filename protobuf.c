@@ -635,6 +635,9 @@ static int __collect_image(int fd_t, int obj_t, unsigned size,
 			cr_pb_descs[obj_t].free(msg, NULL);
 			break;
 		}
+
+		if (!size)
+			cr_pb_descs[obj_t].free(msg, NULL);
 	}
 
 	close(fd);
