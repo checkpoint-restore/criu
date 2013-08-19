@@ -165,45 +165,30 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	return 0;
 }
 
-static int collect_remaps(void)
+static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 {
-	int fd, ret = 0;
+	int ret = -1;
+	RemapFilePathEntry *rfe;
+	struct file_desc *fdesc;
+	struct reg_file_info *rfi;
 
-	fd = open_image(CR_FD_REMAP_FPATH, O_RSTR);
-	if (fd < 0)
-		return -1;
+	rfe = pb_msg(msg, RemapFilePathEntry);
 
-	while (1) {
-		RemapFilePathEntry *rfe = NULL;
-		struct file_desc *fdesc;
-		struct reg_file_info *rfi;
-
-		ret = pb_read_one_eof(fd, &rfe, PB_REMAP_FPATH);
-		if (ret <= 0)
-			break;
-
-		ret = -1;
-		fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
-		if (fdesc == NULL) {
-			pr_err("Remap for non existing file %#x\n",
-					rfe->orig_id);
-			goto tail;
-		}
-
-		rfi = container_of(fdesc, struct reg_file_info, d);
-		pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
-
-		if (rfe->remap_id & REMAP_GHOST)
-			ret = open_remap_ghost(rfi, rfe);
-		else
-			ret = open_remap_linked(rfi, rfe);
-tail:
-		remap_file_path_entry__free_unpacked(rfe, NULL);
-		if (ret)
-			break;
+	fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
+	if (fdesc == NULL) {
+		pr_err("Remap for non existing file %#x\n",
+				rfe->orig_id);
+		goto out;
 	}
 
-	close(fd);
+	rfi = container_of(fdesc, struct reg_file_info, d);
+	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
+
+	if (rfe->remap_id & REMAP_GHOST)
+		ret = open_remap_ghost(rfi, rfe);
+	else
+		ret = open_remap_linked(rfi, rfe);
+out:
 	return ret;
 }
 
@@ -593,7 +578,8 @@ int collect_reg_files(void)
 	ret = collect_image(CR_FD_REG_FILES, PB_REG_FILES,
 			sizeof(struct reg_file_info), collect_one_regfile);
 	if (!ret)
-		ret = collect_remaps();
+		ret = collect_image(CR_FD_REMAP_FPATH, PB_REMAP_FPATH,
+				0, collect_one_remap);
 
 	return ret;
 }
