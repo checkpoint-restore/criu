@@ -386,7 +386,6 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 	struct inet_sk_info *ii = o;
 
 	ii->ie = pb_msg(base, InetSkEntry);
-	file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 	if (tcp_connection(ii->ie))
 		tcp_locked_conn_add(ii);
 
@@ -399,7 +398,7 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 	if (ii->port == NULL)
 		return -1;
 
-	return 0;
+	return file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 }
 
 int collect_inet_sockets(void)

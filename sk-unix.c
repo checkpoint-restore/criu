@@ -822,10 +822,8 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	pr_info(" `- Got %#x peer %#x (name %s)\n",
 		ui->ue->ino, ui->ue->peer,
 		ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-");
-	file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 	list_add_tail(&ui->list, &unix_sockets);
-
-	return 0;
+	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
 
 int collect_unix_sockets(void)

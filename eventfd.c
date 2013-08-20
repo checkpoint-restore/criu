@@ -122,10 +122,8 @@ static int collect_one_efd(void *obj, ProtobufCMessage *msg)
 	struct eventfd_file_info *info = obj;
 
 	info->efe = pb_msg(msg, EventfdFileEntry);
-	file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
 	pr_info_eventfd("Collected ", info->efe);
-
-	return 0;
+	return file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
 }
 
 int collect_eventfd(void)

@@ -117,9 +117,7 @@ static int collect_one_sigfd(void *o, ProtobufCMessage *msg)
 	struct signalfd_info *info = o;
 
 	info->sfe = pb_msg(msg, SignalfdEntry);
-	file_desc_add(&info->d, info->sfe->id, &signalfd_desc_ops);
-
-	return 0;
+	return file_desc_add(&info->d, info->sfe->id, &signalfd_desc_ops);
 }
 
 int collect_signalfd(void)

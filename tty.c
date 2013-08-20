@@ -972,9 +972,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	pr_info("Collected tty ID %#x\n", info->tfe->id);
 
 	list_add(&info->list, &all_ttys);
-	file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
-
-	return 0;
+	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
 }
 
 int collect_tty(void)

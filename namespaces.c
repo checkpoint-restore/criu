@@ -293,11 +293,8 @@ static int collect_one_nsfile(void *o, ProtobufCMessage *base)
 	struct ns_file_info *nfi = o;
 
 	nfi->nfe = pb_msg(base, NsFileEntry);
-
 	pr_info("Collected ns file ID %#x NS-ID %#x\n", nfi->nfe->id, nfi->nfe->ns_id);
-	file_desc_add(&nfi->d, nfi->nfe->id, &ns_desc_ops);
-
-	return 0;
+	return file_desc_add(&nfi->d, nfi->nfe->id, &ns_desc_ops);
 }
 
 int collect_ns_files(void)

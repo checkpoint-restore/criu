@@ -455,10 +455,8 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &inotify_info_head);
-	file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
-
-	return 0;
+	return file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 }
 
 static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
@@ -468,10 +466,8 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
 	info->ffe = pb_msg(msg, FanotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &fanotify_info_head);
-	file_desc_add(&info->d, info->ffe->id, &fanotify_desc_ops);
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ffe->id, info->ffe->flags);
-
-	return 0;
+	return file_desc_add(&info->d, info->ffe->id, &fanotify_desc_ops);
 }
 
 static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)

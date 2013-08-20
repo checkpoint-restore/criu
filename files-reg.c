@@ -556,9 +556,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 	rfi->remap = NULL;
 
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
-	file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
-
-	return 0;
+	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 }
 
 int prepare_shared_reg_files(void)

@@ -496,9 +496,7 @@ static int collect_one_packet_sk(void *o, ProtobufCMessage *base)
 	struct packet_sock_info *si = o;
 
 	si->pse = pb_msg(base, PacketSockEntry);
-	file_desc_add(&si->d, si->pse->id, &packet_sock_desc_ops);
-
-	return 0;
+	return file_desc_add(&si->d, si->pse->id, &packet_sock_desc_ops);
 }
 
 int collect_packet_sockets(void)

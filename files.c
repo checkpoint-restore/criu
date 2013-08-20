@@ -53,13 +53,15 @@ int prepare_shared_fdinfo(void)
 	return 0;
 }
 
-void file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
+int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 {
 	d->id = id;
 	d->ops = ops;
 	INIT_LIST_HEAD(&d->fd_info_head);
 
 	hlist_add_head(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
+
+	return 0; /* this is to make tail-calls in collect_one_foo look nice */
 }
 
 struct file_desc *find_file_desc_raw(int type, u32 id)

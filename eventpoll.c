@@ -181,10 +181,8 @@ static int collect_one_epoll(void *o, ProtobufCMessage *msg)
 	struct eventpoll_file_info *info = o;
 
 	info->efe = pb_msg(msg, EventpollFileEntry);
-	file_desc_add(&info->d, info->efe->id, &desc_ops);
 	pr_info_eventpoll("Collected ", info->efe);
-
-	return 0;
+	return file_desc_add(&info->d, info->efe->id, &desc_ops);
 }
 
 int collect_eventpoll(void)

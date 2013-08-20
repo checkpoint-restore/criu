@@ -231,9 +231,7 @@ static int collect_one_netlink_sk(void *o, ProtobufCMessage *base)
 	struct netlink_sock_info *si = o;
 
 	si->nse = pb_msg(base, NetlinkSkEntry);
-	file_desc_add(&si->d, si->nse->id, &netlink_sock_desc_ops);
-
-	return 0;
+	return file_desc_add(&si->d, si->nse->id, &netlink_sock_desc_ops);
 }
 
 int collect_netlink_sockets(void)
