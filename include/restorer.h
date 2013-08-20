@@ -180,7 +180,8 @@ struct shmems {
 #define TASK_ENTRIES_SIZE 4096
 
 enum {
-	CR_STATE_RESTORE_NS, /* is used for executing "setup-namespace" scripts */
+	CR_STATE_FAIL		= -1,
+	CR_STATE_RESTORE_NS	= 0, /* is used for executing "setup-namespace" scripts */
 	CR_STATE_FORKING,
 	CR_STATE_RESTORE_PGID,
 	CR_STATE_RESTORE,
@@ -217,10 +218,11 @@ find_shmem(struct shmems *shmems, unsigned long shmid)
 	return NULL;
 }
 
-#define restore_finish_stage(__stage) do {				\
+#define restore_finish_stage(__stage) ({				\
 		futex_dec_and_wake(&task_entries->nr_in_progress);	\
 		futex_wait_while(&task_entries->start, __stage);	\
-	} while (0)
+		(s32) futex_get(&task_entries->start);			\
+	})
 
 
 /* the restorer_blob_offset__ prefix is added by gen_offsets.sh */

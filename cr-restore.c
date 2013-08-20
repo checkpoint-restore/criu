@@ -1147,7 +1147,8 @@ static int restore_task_with_children(void *_arg)
 		if (mount_proc())
 			exit(1);
 
-		restore_finish_stage(CR_STATE_RESTORE_NS);
+		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
+			exit(1);
 
 		if (root_prepare_shared())
 			exit(1);
@@ -1190,7 +1191,8 @@ static int restore_task_with_children(void *_arg)
 	if (current->pgid == current->pid.virt)
 		restore_pgid();
 
-	restore_finish_stage(CR_STATE_FORKING);
+	if (restore_finish_stage(CR_STATE_FORKING) < 0)
+		exit(1);
 
 	if (current->pgid != current->pid.virt)
 		restore_pgid();
@@ -1206,6 +1208,8 @@ static int restore_task_with_children(void *_arg)
 static inline int stage_participants(int next_stage)
 {
 	switch (next_stage) {
+	case CR_STATE_FAIL:
+		return 0;
 	case CR_STATE_RESTORE_NS:
 		return 1;
 	case CR_STATE_FORKING:
@@ -1316,21 +1320,21 @@ static int restore_root_task(struct pstree_item *init)
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
 	if (ret < 0)
-		goto out;
+		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_RESTORE);
 	if (ret < 0)
-		goto out;
+		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
 	if (ret < 0)
-		goto out;
+		goto out_kill;
 
 	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
 	ret = sigaction(SIGCHLD, &old_act, NULL);
 	if (ret < 0) {
 		pr_perror("sigaction() failed");
-		goto out;
+		goto out_kill;
 	}
 
 	/* Unlock network before disabling repair mode on sockets */
@@ -1356,7 +1360,11 @@ static int restore_root_task(struct pstree_item *init)
 
 	return 0;
 
-out:
+out_kill:
+	/*
+	 * The processes can be killed only when all of them have been created,
+	 * otherwise an external proccesses can be killed.
+	 */
 	if (current_ns_mask & CLONE_NEWPID) {
 		/* Kill init */
 		if (root_item->pid.real > 0)
@@ -1369,6 +1377,8 @@ out:
 				kill(pi->pid.virt, SIGKILL);
 	}
 
+out:
+	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");
 	return 1;
 }
