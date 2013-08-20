@@ -96,6 +96,10 @@ int main(int argc, char **argv)
 	int sk_bsize;
 	int ret, snd_size, rcv_size;
 
+#ifdef ZDTM_TCP_LOCAL
+	test_init(argc, argv);
+#endif
+
 	if (pipe(pfd)) {
 		err("pipe() failed");
 		return 1;
@@ -109,7 +113,9 @@ int main(int argc, char **argv)
 		int size;
 		char c;
 
+#ifndef ZDTM_TCP_LOCAL
 		test_ext_init(argc, argv);
+#endif
 
 		close(pfd[1]);
 		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
@@ -154,7 +160,9 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+#ifndef ZDTM_TCP_LOCAL
 	test_init(argc, argv);
+#endif
 
 	if ((fd_s = tcp_init_server(ZDTM_FAMILY, &port)) < 0) {
 		err("initializing server failed");

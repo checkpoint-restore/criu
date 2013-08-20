@@ -54,6 +54,7 @@ TST_NOFILE	=				\
 		socket-tcp			\
 		socket-tcp6			\
 		socket-tcpbuf			\
+		socket-tcpbuf-local		\
 		socket-tcpbuf6			\
 		sock_opts00			\
 		sock_opts01			\
@@ -238,6 +239,7 @@ sem:			override CFLAGS += -DNEW_IPC_NS
 posix_timers:		override LDLIBS += -lrt
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
+socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
 

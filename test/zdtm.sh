@@ -104,6 +104,7 @@ static/socket-tcp6
 streaming/socket-tcp
 streaming/socket-tcp6
 static/socket-tcpbuf
+static/socket-tcpbuf-local
 static/socket-tcpbuf6
 static/pty03
 static/mountpoints
