@@ -389,12 +389,18 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base)
 
 }
 
+struct collect_image_info pipe_cinfo = {
+	.fd_type = CR_FD_PIPES,
+	.pb_type = PB_PIPES,
+	.priv_size = sizeof(struct pipe_info),
+	.collect = collect_one_pipe,
+};
+
 int collect_pipes(void)
 {
 	int ret;
 
-	ret = collect_image(CR_FD_PIPES, PB_PIPES,
-			sizeof(struct pipe_info), collect_one_pipe);
+	ret = collect_image(&pipe_cinfo);
 	if (!ret)
 		ret = collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
 

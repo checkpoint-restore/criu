@@ -120,13 +120,15 @@ static int collect_one_sigfd(void *o, ProtobufCMessage *msg)
 	return file_desc_add(&info->d, info->sfe->id, &signalfd_desc_ops);
 }
 
+struct collect_image_info signalfd_cinfo = {
+	.fd_type = CR_FD_SIGNALFD,
+	.pb_type = PB_SIGNALFD,
+	.priv_size = sizeof(struct signalfd_info),
+	.collect = collect_one_sigfd,
+	.flags = COLLECT_OPTIONAL,
+};
+
 int collect_signalfd(void)
 {
-	int ret = collect_image(CR_FD_SIGNALFD, PB_SIGNALFD,
-			sizeof(struct signalfd_info), collect_one_sigfd);
-
-	if (ret < 0 && errno == ENOENT)
-		return 0;
-
-	return ret;
+	return collect_image(&signalfd_cinfo);
 }

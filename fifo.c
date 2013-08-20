@@ -142,12 +142,18 @@ static int collect_one_fifo(void *o, ProtobufCMessage *base)
 
 }
 
+struct collect_image_info fifo_cinfo = {
+	.fd_type = CR_FD_FIFO,
+	.pb_type = PB_FIFO,
+	.priv_size = sizeof(struct fifo_info),
+	.collect = collect_one_fifo,
+};
+
 int collect_fifo(void)
 {
 	int ret;
 
-	ret = collect_image(CR_FD_FIFO, PB_FIFO,
-			sizeof(struct fifo_info), collect_one_fifo);
+	ret = collect_image(&fifo_cinfo);
 	if (!ret)
 		ret = collect_pipe_data(CR_FD_FIFO_DATA, pd_hash_fifo);
 

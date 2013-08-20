@@ -826,14 +826,21 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
 
+struct collect_image_info unix_sk_cinfo = {
+	.fd_type = CR_FD_UNIXSK,
+	.pb_type = PB_UNIXSK,
+	.priv_size = sizeof(struct unix_sk_info),
+	.collect = collect_one_unixsk,
+	.flags = COLLECT_SHARED,
+};
+
 int collect_unix_sockets(void)
 {
 	int ret;
 
 	pr_info("Reading unix sockets in\n");
 
-	ret = collect_image_sh(CR_FD_UNIXSK, PB_UNIXSK,
-			sizeof(struct unix_sk_info), collect_one_unixsk);
+	ret = collect_image(&unix_sk_cinfo);
 	if (!ret)
 		ret = read_sk_queues();
 

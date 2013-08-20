@@ -600,58 +600,58 @@ err:
 	return ret;
 }
 
-static int __collect_image(int fd_t, int obj_t, unsigned size,
-		int (*collect)(void *obj, ProtobufCMessage *msg),
-		void * (*alloc)(size_t size),
-		void (*free)(void *ptr))
+int collect_image(struct collect_image_info *cinfo)
 {
 	int fd, ret;
+	void *(*o_alloc)(size_t size) = malloc;
+	void (*o_free)(void *ptr) = free;
 
-	fd = open_image(fd_t, O_RSTR);
-	if (fd < 0)
-		return -1;
+	pr_info("Collecting %d/%d (flags %x)\n",
+			cinfo->fd_type, cinfo->pb_type, cinfo->flags);
+
+	fd = open_image(cinfo->fd_type, O_RSTR);
+	if (fd < 0) {
+		if ((cinfo->flags & COLLECT_OPTIONAL) && (errno == ENOENT))
+			return 0;
+		else
+			return -1;
+	}
+
+	if (cinfo->flags & COLLECT_SHARED) {
+		o_alloc = shmalloc;
+		o_free = shfree_last;
+	}
 
 	while (1) {
 		void *obj;
 		ProtobufCMessage *msg;
 
-		if (size) {
+		if (cinfo->priv_size) {
 			ret = -1;
-			obj = alloc(size);
+			obj = o_alloc(cinfo->priv_size);
 			if (!obj)
 				break;
 		} else
 			obj = NULL;
 
-		ret = pb_read_one_eof(fd, &msg, obj_t);
+		ret = pb_read_one_eof(fd, &msg, cinfo->pb_type);
 		if (ret <= 0) {
-			free(obj);
+			o_free(obj);
 			break;
 		}
 
-		ret = collect(obj, msg);
+		ret = cinfo->collect(obj, msg);
 		if (ret < 0) {
-			free(obj);
-			cr_pb_descs[obj_t].free(msg, NULL);
+			o_free(obj);
+			cr_pb_descs[cinfo->pb_type].free(msg, NULL);
 			break;
 		}
 
-		if (!size)
-			cr_pb_descs[obj_t].free(msg, NULL);
+		if (!cinfo->priv_size)
+			cr_pb_descs[cinfo->pb_type].free(msg, NULL);
 	}
 
 	close(fd);
+	pr_debug(" `- ... done\n");
 	return ret;
-}
-
-int collect_image(int fd_t, int obj_t, unsigned size,
-		int (*collect)(void *obj, ProtobufCMessage *msg))
-{
-	return __collect_image(fd_t, obj_t, size, collect, malloc, free);
-}
-
-int collect_image_sh(int fd_t, int obj_t, unsigned size,
-		int (*collect)(void *obj, ProtobufCMessage *msg))
-{
-	return __collect_image(fd_t, obj_t, size, collect, shmalloc, shfree_last);
 }

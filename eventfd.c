@@ -126,8 +126,14 @@ static int collect_one_efd(void *obj, ProtobufCMessage *msg)
 	return file_desc_add(&info->d, info->efe->id, &eventfd_desc_ops);
 }
 
+struct collect_image_info eventfd_cinfo = {
+	.fd_type = CR_FD_EVENTFD,
+	.pb_type = PB_EVENTFD,
+	.priv_size = sizeof(struct eventfd_file_info),
+	.collect = collect_one_efd,
+};
+
 int collect_eventfd(void)
 {
-	return collect_image(CR_FD_EVENTFD, PB_EVENTFD,
-			sizeof(struct eventfd_file_info), collect_one_efd);
+	return collect_image(&eventfd_cinfo);
 }

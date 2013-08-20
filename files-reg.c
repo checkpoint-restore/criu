@@ -192,6 +192,12 @@ out:
 	return ret;
 }
 
+struct collect_image_info remap_cinfo = {
+	.fd_type = CR_FD_REMAP_FPATH,
+	.pb_type = PB_REMAP_FPATH,
+	.collect = collect_one_remap,
+};
+
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
 	int img;
@@ -559,6 +565,13 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 }
 
+struct collect_image_info reg_file_cinfo = {
+	.fd_type = CR_FD_REG_FILES,
+	.pb_type = PB_REG_FILES,
+	.priv_size = sizeof(struct reg_file_info),
+	.collect = collect_one_regfile,
+};
+
 int prepare_shared_reg_files(void)
 {
 	ghost_file_mutex = shmalloc(sizeof(*ghost_file_mutex));
@@ -573,11 +586,9 @@ int collect_reg_files(void)
 {
 	int ret;
 
-	ret = collect_image(CR_FD_REG_FILES, PB_REG_FILES,
-			sizeof(struct reg_file_info), collect_one_regfile);
+	ret = collect_image(&reg_file_cinfo);
 	if (!ret)
-		ret = collect_image(CR_FD_REMAP_FPATH, PB_REMAP_FPATH,
-				0, collect_one_remap);
+		ret = collect_image(&remap_cinfo);
 
 	return ret;
 }

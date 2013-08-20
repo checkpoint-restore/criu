@@ -499,13 +499,15 @@ static int collect_one_packet_sk(void *o, ProtobufCMessage *base)
 	return file_desc_add(&si->d, si->pse->id, &packet_sock_desc_ops);
 }
 
+struct collect_image_info packet_sk_cinfo = {
+	.fd_type = CR_FD_PACKETSK,
+	.pb_type = PB_PACKETSK,
+	.priv_size = sizeof(struct packet_sock_info),
+	.collect = collect_one_packet_sk,
+	.flags = COLLECT_OPTIONAL,
+};
+
 int collect_packet_sockets(void)
 {
-	int ret = collect_image(CR_FD_PACKETSK, PB_PACKETSK,
-			sizeof(struct packet_sock_info), collect_one_packet_sk);
-
-	if (ret < 0 && errno == ENOENT)
-		return 0;
-
-	return ret;
+	return collect_image(&packet_sk_cinfo);
 }

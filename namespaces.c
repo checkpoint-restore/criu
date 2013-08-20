@@ -297,15 +297,17 @@ static int collect_one_nsfile(void *o, ProtobufCMessage *base)
 	return file_desc_add(&nfi->d, nfi->nfe->id, &ns_desc_ops);
 }
 
+struct collect_image_info nsfile_cinfo = {
+	.fd_type = CR_FD_NS_FILES,
+	.pb_type = PB_NS_FILES,
+	.priv_size = sizeof(struct ns_file_info),
+	.collect = collect_one_nsfile,
+	.flags = COLLECT_OPTIONAL,
+};
+
 int collect_ns_files(void)
 {
-	int ret;
-
-	ret = collect_image(CR_FD_NS_FILES, PB_NS_FILES,
-			sizeof(struct ns_file_info), collect_one_nsfile);
-	if (ret < 0 && errno == ENOENT)
-		ret = 0;
-	return ret;
+	return collect_image(&nsfile_cinfo);
 }
 
 int dump_task_ns_ids(struct pstree_item *item)

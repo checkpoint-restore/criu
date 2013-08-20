@@ -401,10 +401,16 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 	return file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 }
 
+struct collect_image_info inet_sk_cinfo = {
+	.fd_type = CR_FD_INETSK,
+	.pb_type = PB_INETSK,
+	.priv_size = sizeof(struct inet_sk_info),
+	.collect = collect_one_inetsk,
+};
+
 int collect_inet_sockets(void)
 {
-	return collect_image(CR_FD_INETSK, PB_INETSK,
-			sizeof(struct inet_sk_info), collect_one_inetsk);
+	return collect_image(&inet_sk_cinfo);
 }
 
 static int inet_validate_address(InetSkEntry *ie)

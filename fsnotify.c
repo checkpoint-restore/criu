@@ -459,6 +459,14 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 	return file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 }
 
+struct collect_image_info inotify_cinfo = {
+	.fd_type = CR_FD_INOTIFY,
+	.pb_type = PB_INOTIFY,
+	.priv_size = sizeof(struct fsnotify_file_info),
+	.collect = collect_one_inotify,
+	.flags = COLLECT_OPTIONAL,
+};
+
 static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_file_info *info = o;
@@ -469,6 +477,14 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ffe->id, info->ffe->flags);
 	return file_desc_add(&info->d, info->ffe->id, &fanotify_desc_ops);
 }
+
+struct collect_image_info fanotify_cinfo = {
+	.fd_type = CR_FD_FANOTIFY,
+	.pb_type = PB_FANOTIFY,
+	.priv_size = sizeof(struct fsnotify_file_info),
+	.collect = collect_one_fanotify,
+	.flags = COLLECT_OPTIONAL,
+};
 
 static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
 {
@@ -481,6 +497,14 @@ static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
 	return collect_inotify_mark(mark);
 }
 
+struct collect_image_info inotify_mark_cinfo = {
+	.fd_type = CR_FD_INOTIFY_WD,
+	.pb_type = PB_INOTIFY_WD,
+	.priv_size = sizeof(struct fsnotify_mark_info),
+	.collect = collect_one_inotify_mark,
+	.flags = COLLECT_OPTIONAL,
+};
+
 static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_mark_info *mark = o;
@@ -492,27 +516,25 @@ static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg)
 	return collect_fanotify_mark(mark);
 }
 
+struct collect_image_info fanotify_mark_cinfo = {
+	.fd_type = CR_FD_FANOTIFY_MARK,
+	.pb_type = PB_FANOTIFY_MARK,
+	.priv_size = sizeof(struct fsnotify_mark_info),
+	.collect = collect_one_fanotify_mark,
+	.flags = COLLECT_OPTIONAL,
+};
+
 int collect_inotify(void)
 {
 	int ret;
 
-	ret = collect_image(CR_FD_INOTIFY, PB_INOTIFY,
-			sizeof(struct fsnotify_file_info), collect_one_inotify);
-	if (ret && errno == ENOENT)
-		return 0;
+	ret = collect_image(&inotify_cinfo);
 	if (!ret)
-		ret = collect_image(CR_FD_INOTIFY_WD, PB_INOTIFY_WD,
-				sizeof(struct fsnotify_mark_info),
-				collect_one_inotify_mark);
+		ret = collect_image(&inotify_mark_cinfo);
 	if (!ret)
-		ret = collect_image(CR_FD_FANOTIFY, PB_FANOTIFY,
-				    sizeof(struct fsnotify_file_info),
-				    collect_one_fanotify);
-	if (ret && errno == ENOENT)
-		return 0;
+		ret = collect_image(&fanotify_cinfo);
 	if (!ret)
-		ret = collect_image(CR_FD_FANOTIFY_MARK, PB_FANOTIFY_MARK,
-				    sizeof(struct fsnotify_mark_info),
-				    collect_one_fanotify_mark);
+		ret = collect_image(&fanotify_mark_cinfo);
+
 	return ret;
 }

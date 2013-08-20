@@ -234,13 +234,15 @@ static int collect_one_netlink_sk(void *o, ProtobufCMessage *base)
 	return file_desc_add(&si->d, si->nse->id, &netlink_sock_desc_ops);
 }
 
+struct collect_image_info netlink_sk_cinfo = {
+	.fd_type = CR_FD_NETLINKSK,
+	.pb_type = PB_NETLINKSK,
+	.priv_size = sizeof(struct netlink_sock_info),
+	.collect = collect_one_netlink_sk,
+	.flags = COLLECT_OPTIONAL,
+};
+
 int collect_netlink_sockets(void)
 {
-	int ret = collect_image(CR_FD_NETLINKSK, PB_NETLINKSK,
-			sizeof(struct netlink_sock_info), collect_one_netlink_sk);
-
-	if (ret < 0 && errno == ENOENT)
-		return 0;
-
-	return ret;
+	return collect_image(&netlink_sk_cinfo);
 }
