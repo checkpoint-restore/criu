@@ -506,8 +506,3 @@ struct collect_image_info packet_sk_cinfo = {
 	.collect = collect_one_packet_sk,
 	.flags = COLLECT_OPTIONAL,
 };
-
-int collect_packet_sockets(void)
-{
-	return collect_image(&packet_sk_cinfo);
-}

@@ -991,19 +991,6 @@ struct collect_image_info tty_cinfo = {
 	.flags = COLLECT_OPTIONAL,
 };
 
-int collect_tty(void)
-{
-	int ret;
-
-	ret = collect_image(&tty_info_cinfo);
-	if (!ret)
-		ret = collect_image(&tty_cinfo);
-	if (!ret)
-		ret = tty_verify_active_pairs();
-
-	return ret;
-}
-
 /* Make sure the ttys we're dumping do belong our process tree */
 int dump_verify_tty_sids(void)
 {

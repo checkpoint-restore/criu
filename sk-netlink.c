@@ -241,8 +241,3 @@ struct collect_image_info netlink_sk_cinfo = {
 	.collect = collect_one_netlink_sk,
 	.flags = COLLECT_OPTIONAL,
 };
-
-int collect_netlink_sockets(void)
-{
-	return collect_image(&netlink_sk_cinfo);
-}

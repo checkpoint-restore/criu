@@ -11,7 +11,7 @@
 
 extern int is_eventfd_link(int lfd);
 extern const struct fdtype_ops eventfd_dump_ops;
-extern int collect_eventfd(void);
+extern struct collect_image_info eventfd_cinfo;
 extern void show_eventfds(int fd);
 
 #endif /* __CR_EVENTFD_H__ */

@@ -398,13 +398,7 @@ struct collect_image_info pipe_cinfo = {
 
 int collect_pipes(void)
 {
-	int ret;
-
-	ret = collect_image(&pipe_cinfo);
-	if (!ret)
-		ret = collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
-
-	return ret;
+	return collect_pipe_data(CR_FD_PIPES_DATA, pd_hash_pipes);
 }
 
 int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p)

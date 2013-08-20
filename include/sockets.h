@@ -36,11 +36,12 @@ extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
 extern int sk_collect_one(int ino, int family, struct socket_desc *d);
 extern int collect_sockets(int pid);
 extern int collect_inet_sockets(void);
+extern struct collect_image_info unix_sk_cinfo;
 extern int collect_unix_sockets(void);
 extern int fix_external_unix_sockets(void);
 extern int resolve_unix_peers(void);
 
-extern int collect_netlink_sockets(void);
+extern struct collect_image_info netlink_sk_cinfo;
 
 extern void show_unixsk(int fd);
 extern void show_inetsk(int fd);

@@ -6,6 +6,6 @@ struct fd_parms;
 extern int is_signalfd_link(int lfd);
 extern const struct fdtype_ops signalfd_dump_ops;
 extern void show_signalfd(int fd);
-extern int collect_signalfd(void);
+extern struct collect_image_info signalfd_cinfo;
 
 #endif /* __CR_SIGNALFD_H__ */

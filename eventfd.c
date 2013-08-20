@@ -132,8 +132,3 @@ struct collect_image_info eventfd_cinfo = {
 	.priv_size = sizeof(struct eventfd_file_info),
 	.collect = collect_one_efd,
 };
-
-int collect_eventfd(void)
-{
-	return collect_image(&eventfd_cinfo);
-}

@@ -198,14 +198,3 @@ struct collect_image_info epoll_cinfo = {
 	.priv_size = sizeof(struct eventpoll_file_info),
 	.collect = collect_one_epoll,
 };
-
-int collect_eventpoll(void)
-{
-	int ret;
-
-	ret = collect_image(&epoll_tfd_cinfo);
-	if (!ret)
-		ret = collect_image(&epoll_cinfo);
-
-	return ret;
-}

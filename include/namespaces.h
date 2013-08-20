@@ -25,7 +25,7 @@ extern struct ns_desc user_ns_desc;
 extern unsigned long current_ns_mask;
 
 extern const struct fdtype_ops nsfile_dump_ops;
-extern int collect_ns_files(void);
+extern struct collect_image_info nsfile_cinfo;
 
 int dump_namespaces(struct pid *pid, unsigned int ns_flags);
 int prepare_namespace(int pid, unsigned long clone_flags);

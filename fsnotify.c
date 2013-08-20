@@ -523,18 +523,3 @@ struct collect_image_info fanotify_mark_cinfo = {
 	.collect = collect_one_fanotify_mark,
 	.flags = COLLECT_OPTIONAL,
 };
-
-int collect_inotify(void)
-{
-	int ret;
-
-	ret = collect_image(&inotify_cinfo);
-	if (!ret)
-		ret = collect_image(&inotify_mark_cinfo);
-	if (!ret)
-		ret = collect_image(&fanotify_cinfo);
-	if (!ret)
-		ret = collect_image(&fanotify_mark_cinfo);
-
-	return ret;
-}

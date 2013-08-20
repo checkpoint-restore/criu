@@ -9,7 +9,7 @@ struct cr_fdset;
 struct fd_parms;
 struct vma_area;
 
-int collect_packet_sockets(void);
+extern struct collect_image_info packet_sk_cinfo;
 void show_packetsk(int fd);
 
 int dump_socket_map(struct vma_area *vma);

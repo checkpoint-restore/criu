@@ -15,7 +15,8 @@
 
 extern const struct fdtype_ops tty_dump_ops;
 extern int dump_verify_tty_sids(void);
-extern int collect_tty(void);
+extern struct collect_image_info tty_info_cinfo;
+extern struct collect_image_info tty_cinfo;
 extern int prepare_shared_tty(void);
 extern int tty_setup_slavery(void);
 

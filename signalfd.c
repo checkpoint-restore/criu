@@ -127,8 +127,3 @@ struct collect_image_info signalfd_cinfo = {
 	.collect = collect_one_sigfd,
 	.flags = COLLECT_OPTIONAL,
 };
-
-int collect_signalfd(void)
-{
-	return collect_image(&signalfd_cinfo);
-}

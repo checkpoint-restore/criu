@@ -151,11 +151,5 @@ struct collect_image_info fifo_cinfo = {
 
 int collect_fifo(void)
 {
-	int ret;
-
-	ret = collect_image(&fifo_cinfo);
-	if (!ret)
-		ret = collect_pipe_data(CR_FD_FIFO_DATA, pd_hash_fifo);
-
-	return ret;
+	return collect_pipe_data(CR_FD_FIFO_DATA, pd_hash_fifo);
 }

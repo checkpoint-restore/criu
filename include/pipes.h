@@ -3,6 +3,7 @@
 
 #include "protobuf/pipe-data.pb-c.h"
 
+extern struct collect_image_info pipe_cinfo;
 extern int collect_pipes(void);
 extern void mark_pipe_master(void);
 extern const struct fdtype_ops pipe_dump_ops;

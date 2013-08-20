@@ -836,15 +836,7 @@ struct collect_image_info unix_sk_cinfo = {
 
 int collect_unix_sockets(void)
 {
-	int ret;
-
-	pr_info("Reading unix sockets in\n");
-
-	ret = collect_image(&unix_sk_cinfo);
-	if (!ret)
-		ret = read_sk_queues();
-
-	return ret;
+	return read_sk_queues();
 }
 
 int resolve_unix_peers(void)

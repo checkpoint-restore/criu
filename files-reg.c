@@ -581,14 +581,3 @@ int prepare_shared_reg_files(void)
 	mutex_init(ghost_file_mutex);
 	return 0;
 }
-
-int collect_reg_files(void)
-{
-	int ret;
-
-	ret = collect_image(&reg_file_cinfo);
-	if (!ret)
-		ret = collect_image(&remap_cinfo);
-
-	return ret;
-}

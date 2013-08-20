@@ -305,11 +305,6 @@ struct collect_image_info nsfile_cinfo = {
 	.flags = COLLECT_OPTIONAL,
 };
 
-int collect_ns_files(void)
-{
-	return collect_image(&nsfile_cinfo);
-}
-
 int dump_task_ns_ids(struct pstree_item *item)
 {
 	int pid = item->pid.real;

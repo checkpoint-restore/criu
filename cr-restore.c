@@ -110,9 +110,30 @@ static int crtools_prepare_shared(void)
 	return 0;
 }
 
+static struct collect_image_info *cinfos[] = {
+	&reg_file_cinfo,
+	&remap_cinfo,
+	&nsfile_cinfo,
+	&pipe_cinfo,
+	&fifo_cinfo,
+	&unix_sk_cinfo,
+	&packet_sk_cinfo,
+	&netlink_sk_cinfo,
+	&eventfd_cinfo,
+	&epoll_tfd_cinfo,
+	&epoll_cinfo,
+	&signalfd_cinfo,
+	&inotify_cinfo,
+	&inotify_mark_cinfo,
+	&fanotify_cinfo,
+	&fanotify_mark_cinfo,
+	&tty_info_cinfo,
+	&tty_cinfo,
+};
+
 static int root_prepare_shared(void)
 {
-	int ret = 0;
+	int ret = 0, i;
 	struct pstree_item *pi;
 
 	pr_info("Preparing info about shared resources\n");
@@ -126,40 +147,20 @@ static int root_prepare_shared(void)
 	if (prepare_shared_reg_files())
 		return -1;
 
-	if (collect_reg_files())
-		return -1;
-
-	if (collect_ns_files())
-		return -1;
+	for (i = 0; i < ARRAY_SIZE(cinfos); i++) {
+		ret = collect_image(cinfos[i]);
+		if (ret)
+			return -1;
+	}
 
 	if (collect_pipes())
 		return -1;
-
 	if (collect_fifo())
 		return -1;
-
 	if (collect_unix_sockets())
 		return -1;
 
-	if (collect_packet_sockets())
-		return -1;
-
-	if (collect_netlink_sockets())
-		return -1;
-
-	if (collect_eventfd())
-		return -1;
-
-	if (collect_eventpoll())
-		return -1;
-
-	if (collect_signalfd())
-		return -1;
-
-	if (collect_inotify())
-		return -1;
-
-	if (collect_tty())
+	if (tty_verify_active_pairs())
 		return -1;
 
 	for_each_pstree_item(pi) {
