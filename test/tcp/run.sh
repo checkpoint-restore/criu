@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../env.sh || exit 1
+
 set -x
 
 PORT=12345
@@ -7,7 +9,6 @@ CLN_PIPE="./clnt_pipe"
 SRV_LOG="./srv.log"
 CLN_LOG="./cln.log"
 DDIR="dump"
-CRIU="../../criu"
 
 TEXT=$(hexdump -C /dev/urandom | head -n 1)
 

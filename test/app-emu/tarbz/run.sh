@@ -1,8 +1,8 @@
 #!/bin/bash
 
 source ../../functions.sh || exit 1
+source ../../env.sh || exit 1
 
-criu="../../../criu"
 DEPTH=3
 SPAN=5
 archref="arch-ref.tar.bz2"

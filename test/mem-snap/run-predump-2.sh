@@ -1,12 +1,13 @@
 #!/bin/bash
 
+source ../env.sh || exit 1
+
 function fail {
 	echo "$@"
 	exit 1
 }
 set -x
 
-CRIU="../../criu"
 IMGDIR="dump/"
 
 rm -rf "$IMGDIR"

@@ -1,8 +1,7 @@
 set -m
 
 source ../../functions.sh || exit 1
-
-criu="../../../criu"
+source ../../env.sh || exit 1
 
 mkdir data
 

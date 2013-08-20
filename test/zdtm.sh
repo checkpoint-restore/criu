@@ -137,7 +137,8 @@ fanotify00
 sk-netlink
 "
 
-CRIU=$(readlink -f `dirname $0`/../criu)
+source $(readlink -f `dirname $0`/env.sh) || exit 1
+
 CRIU_CPT=$CRIU
 TMP_TREE=""
 SCRIPTDIR=`dirname $CRIU`/test

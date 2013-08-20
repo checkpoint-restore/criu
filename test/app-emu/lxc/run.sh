@@ -1,10 +1,10 @@
 #!/bin/bash
 
+source ../../env.sh || exit 1
+
 [ -z "$CR_IP_TOOL" ] && CR_IP_TOOL=ip
 
 cd `dirname $0`
-
-criu="../../../criu"
 
 name=$1
 [ -z "$name" ] && { cat <<EOF

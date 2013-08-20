@@ -1,5 +1,7 @@
 #!/usr/bin/expect
 
+source ../../env.sh || exit 1
+
 exec rm -rf ./dump
 exec mkdir ./dump
 
@@ -21,7 +23,7 @@ switch $current {
 			puts "FAIL: Timed out on ready"
 			exit -1
 		}
-		system ../../../criu dump -v4 -D ./dump -o dump.log -j -t $pid
+		system $criu dump -v4 -D ./dump -o dump.log -j -t $pid
 		system echo "$pid" > ./dump/pid.pid
 		exit 0
 	}
@@ -37,7 +39,7 @@ switch $current {
 			exit -1
 		}
 
-		spawn ../../../criu restore -v4 -D ./dump -o restore.log -j
+		spawn $criu restore -v4 -D ./dump -o restore.log -j
 		#
 		# spawn doesn't wait for restore to complete, so
 		# add some sleep here. Still better would be to

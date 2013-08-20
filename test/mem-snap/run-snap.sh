@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ../env.sh || exit 1
+
 USEPS=0
 
 if [ "$1" = "-s" ]; then
@@ -18,7 +20,6 @@ function fail {
 }
 set -x
 
-CRIU="../../criu"
 IMGDIR="dump/"
 
 rm -rf "$IMGDIR"
