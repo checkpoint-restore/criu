@@ -158,6 +158,7 @@ PS_PORT=12345
 TCPDUMP_PID=
 COMPILE_ONLY=0
 BATCH_TEST=0
+SPECIFIED_NAME_USED=0
 
 check_criu()
 {
@@ -658,6 +659,11 @@ while :; do
 		shift
 		continue
 	fi
+	if [ "$1" = "-r" ]; then
+		SPECIFIED_NAME_USED=1
+		shift
+		continue
+	fi
 	break;
 done
 
@@ -685,9 +691,16 @@ Options:
 	-a <FILE>.tar.gz : save archive with dump files and logs
 	-g : Generate executables only
 	-n : Batch test
+	-r : Run test with specified name directly without match or check
 EOF
 elif [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
+elif [ $SPECIFIED_NAME_USED -eq 1 ]; then
+	if [ $# -eq 0 ]; then
+		echo "test name should be provided"
+		exit 1
+	fi
+	run_test $1 || case_error $t
 else
 	if [ $COMPILE_ONLY -eq 0 ]; then
 		check_mainstream || exit 1
