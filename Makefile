@@ -195,6 +195,7 @@ clean: clean-built
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) -r ./test/lib/
 	$(Q) $(RM) -r ./test/lib64/
+	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test/zdtm cleandep clean cleanout
 
 distclean: clean

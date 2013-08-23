@@ -513,7 +513,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 		return -1;
 	}
 
-	if (pb_write_one(fd, &me, PB_MOUNTPOINTS))
+	if (pb_write_one(fd, &me, PB_MNT))
 		return -1;
 
 	return 0;
@@ -780,7 +780,7 @@ static int populate_mnt_ns(int ns_pid)
 	while (1) {
 		struct mount_info *pm;
 
-		ret = pb_read_one_eof(img, &me, PB_MOUNTPOINTS);
+		ret = pb_read_one_eof(img, &me, PB_MNT);
 		if (ret <= 0)
 			break;
 
@@ -870,7 +870,7 @@ int prepare_mnt_ns(int ns_pid)
 
 void show_mountpoints(int fd)
 {
-	pb_show_plain(fd, PB_MOUNTPOINTS);
+	pb_show_plain(fd, PB_MNT);
 }
 
 int mntns_collect_root(pid_t pid)

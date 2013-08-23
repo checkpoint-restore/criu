@@ -353,7 +353,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 		return -1;
 	}
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILES);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
 }
 
 static int dump_linked_remap(char *path, int len, const struct stat *ost, int lfd, u32 id)
@@ -459,7 +459,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 
-	return pb_write_one(rfd, &rfe, PB_REG_FILES);
+	return pb_write_one(rfd, &rfe, PB_REG_FILE);
 }
 
 const struct fdtype_ops regfile_dump_ops = {
@@ -568,7 +568,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 
 struct collect_image_info reg_file_cinfo = {
 	.fd_type = CR_FD_REG_FILES,
-	.pb_type = PB_REG_FILES,
+	.pb_type = PB_REG_FILE,
 	.priv_size = sizeof(struct reg_file_info),
 	.collect = collect_one_regfile,
 };

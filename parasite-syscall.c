@@ -525,7 +525,7 @@ static int dump_one_timer(struct itimerval *v, int fd)
 	ie.vsec = v->it_value.tv_sec;
 	ie.vusec = v->it_value.tv_usec;
 
-	return pb_write_one(fd, &ie, PB_ITIMERS);
+	return pb_write_one(fd, &ie, PB_ITIMER);
 }
 
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
@@ -567,7 +567,7 @@ static int dump_one_posix_timer(struct posix_timer *v, struct proc_posix_timer *
 	pte.vsec = v->val.it_value.tv_sec;
 	pte.vnsec = v->val.it_value.tv_nsec;
 
-	return pb_write_one(fd, &pte, PB_POSIX_TIMERS);
+	return pb_write_one(fd, &pte, PB_POSIX_TIMER);
 }
 
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)

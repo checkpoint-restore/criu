@@ -92,7 +92,7 @@ int prepare_shmem_pid(int pid)
 	}
 
 	while (1) {
-		ret = pb_read_one_eof(fd, &vi, PB_VMAS);
+		ret = pb_read_one_eof(fd, &vi, PB_VMA);
 		if (ret <= 0)
 			break;
 

@@ -84,7 +84,7 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		if (!r)
 			break;
 
-		ret = pb_read_one_eof(fd, &r->pde, PB_PIPES_DATA);
+		ret = pb_read_one_eof(fd, &r->pde, PB_PIPE_DATA);
 		if (ret <= 0)
 			break;
 
@@ -391,7 +391,7 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base)
 
 struct collect_image_info pipe_cinfo = {
 	.fd_type = CR_FD_PIPES,
-	.pb_type = PB_PIPES,
+	.pb_type = PB_PIPE,
 	.priv_size = sizeof(struct pipe_info),
 	.collect = collect_one_pipe,
 };
@@ -454,7 +454,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	pde.has_size	= true;
 	pde.size	= pipe_size;
 
-	if (pb_write_one(img, &pde, PB_PIPES_DATA))
+	if (pb_write_one(img, &pde, PB_PIPE_DATA))
 		goto err_close;
 
 	if (bytes) {
@@ -499,7 +499,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	pe.flags	= p->flags;
 	pe.fown		= (FownEntry *)&p->fown;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, PB_PIPES))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, PB_PIPE))
 		return -1;
 
 	return dump_one_pipe_data(&pd_pipes, lfd, p);

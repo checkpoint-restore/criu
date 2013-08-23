@@ -288,7 +288,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, PB_INETSK))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, PB_INET_SK))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", p->fd);
@@ -403,7 +403,7 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base)
 
 struct collect_image_info inet_sk_cinfo = {
 	.fd_type = CR_FD_INETSK,
-	.pb_type = PB_INETSK,
+	.pb_type = PB_INET_SK,
 	.priv_size = sizeof(struct inet_sk_info),
 	.collect = collect_one_inetsk,
 };
@@ -624,5 +624,5 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 void show_inetsk(int fd)
 {
-	pb_show_plain_pretty(fd, PB_INETSK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 9:%2x 11:A 12:A");
+	pb_show_plain_pretty(fd, PB_INET_SK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 9:%2x 11:A 12:A");
 }

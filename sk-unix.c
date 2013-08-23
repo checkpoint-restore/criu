@@ -239,7 +239,7 @@ dump:
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, PB_UNIXSK))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, PB_UNIX_SK))
 		goto err;
 
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
@@ -461,7 +461,7 @@ int fix_external_unix_sockets(void)
 		e.fown		= &fown;
 		e.opts		= &skopts;
 
-		if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, PB_UNIXSK))
+		if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, PB_UNIX_SK))
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);
@@ -499,7 +499,7 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 
 void show_unixsk(int fd)
 {
-	pb_show_plain_pretty(fd, PB_UNIXSK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%#x 11:S");
+	pb_show_plain_pretty(fd, PB_UNIX_SK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%#x 11:S");
 }
 
 static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
@@ -828,7 +828,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 
 struct collect_image_info unix_sk_cinfo = {
 	.fd_type = CR_FD_UNIXSK,
-	.pb_type = PB_UNIXSK,
+	.pb_type = PB_UNIX_SK,
 	.priv_size = sizeof(struct unix_sk_info),
 	.collect = collect_one_unixsk,
 	.flags = COLLECT_SHARED,

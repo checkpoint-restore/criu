@@ -456,7 +456,7 @@ static int prepare_mappings(int pid)
 		if (!vma)
 			break;
 
-		ret = pb_read_one_eof(fd, &e, PB_VMAS);
+		ret = pb_read_one_eof(fd, &e, PB_VMA);
 		if (ret <= 0) {
 			xfree(vma);
 			break;
@@ -1623,7 +1623,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (fd < 0)
 		return fd;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
+	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("real", ie, &args->itimers[0]);
@@ -1631,7 +1631,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
+	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("virt", ie, &args->itimers[1]);
@@ -1639,7 +1639,7 @@ static int prepare_itimers(int pid, struct task_restore_core_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMERS);
+	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = itimer_restore_and_fix("prof", ie, &args->itimers[2]);
@@ -1711,7 +1711,7 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 	while (1) {
 		PosixTimerEntry *pte;
 
-		ret = pb_read_one_eof(fd, &pte, PB_POSIX_TIMERS);
+		ret = pb_read_one_eof(fd, &pte, PB_POSIX_TIMER);
 		if (ret <= 0) {
 			goto out;
 		}

@@ -209,7 +209,7 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	nfe.ns_cflag	= link->ns_d->cflag;
 	nfe.flags	= p->flags;
 
-	return pb_write_one(fd, &nfe, PB_NS_FILES);
+	return pb_write_one(fd, &nfe, PB_NS_FILE);
 }
 
 const struct fdtype_ops nsfile_dump_ops = {
@@ -299,7 +299,7 @@ static int collect_one_nsfile(void *o, ProtobufCMessage *base)
 
 struct collect_image_info nsfile_cinfo = {
 	.fd_type = CR_FD_NS_FILES,
-	.pb_type = PB_NS_FILES,
+	.pb_type = PB_NS_FILE,
 	.priv_size = sizeof(struct ns_file_info),
 	.collect = collect_one_nsfile,
 	.flags = COLLECT_OPTIONAL,

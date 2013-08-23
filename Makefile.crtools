@@ -56,3 +56,11 @@ obj-y	+= arch/$(ARCH)/vdso.o
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
 endif
+
+PROTOBUF_GEN := protobuf-gen.sh
+
+protobuf-desc.c: protobuf-desc-gen.h
+
+protobuf-desc-gen.h: $(PROTOBUF_GEN) include/protobuf-desc.h
+	$(E) "  GEN     " $@
+	$(Q) $(SH) $(obj)/$(PROTOBUF_GEN) > $@

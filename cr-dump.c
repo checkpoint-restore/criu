@@ -382,7 +382,7 @@ static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_lis
 			ret = 0;
 
 		if (!ret)
-			ret = pb_write_one(fd, vma, PB_VMAS);
+			ret = pb_write_one(fd, vma, PB_VMA);
 		if (ret)
 			goto err;
 	}

@@ -68,12 +68,12 @@ void show_fown_cont(void *p)
 
 void show_ns_files(int fd)
 {
-	pb_show_plain(fd, PB_NS_FILES);
+	pb_show_plain(fd, PB_NS_FILE);
 }
 
 void show_reg_files(int fd_reg_files)
 {
-	pb_show_plain(fd_reg_files, PB_REG_FILES);
+	pb_show_plain(fd_reg_files, PB_REG_FILE);
 }
 
 void show_remap_files(int fd)
@@ -94,12 +94,12 @@ static void pipe_data_handler(int fd, void *obj)
 
 void show_pipes_data(int fd)
 {
-	pb_show_plain_payload(fd, PB_PIPES_DATA, pipe_data_handler);
+	pb_show_plain_payload(fd, PB_PIPE_DATA, pipe_data_handler);
 }
 
 void show_pipes(int fd_pipes)
 {
-	pb_show_plain(fd_pipes, PB_PIPES);
+	pb_show_plain(fd_pipes, PB_PIPE);
 }
 
 void show_fifo_data(int fd)
@@ -114,7 +114,7 @@ void show_fifo(int fd)
 
 void show_tty(int fd)
 {
-	pb_show_plain(fd, PB_TTY);
+	pb_show_plain(fd, PB_TTY_FILE);
 }
 
 void show_tty_info(int fd)
@@ -134,7 +134,7 @@ void show_fs(int fd_fs)
 
 void show_vmas(int fd_vma)
 {
-	pb_show_plain(fd_vma, PB_VMAS);
+	pb_show_plain(fd_vma, PB_VMA);
 }
 
 void show_rlimit(int fd)
@@ -257,12 +257,12 @@ void show_sigacts(int fd_sigacts)
 
 void show_itimers(int fd)
 {
-	pb_show_plain_pretty(fd, PB_ITIMERS, "*:%Lu");
+	pb_show_plain_pretty(fd, PB_ITIMER, "*:%Lu");
 }
 
 void show_posix_timers(int fd)
 {
-	pb_show_plain_pretty(fd, PB_POSIX_TIMERS, "*:%d 5:%Lu 7:%Lu 8:%lu 9:%Lu 10:%Lu");
+	pb_show_plain_pretty(fd, PB_POSIX_TIMER, "*:%d 5:%Lu 7:%Lu 8:%lu 9:%Lu 10:%Lu");
 }
 
 void show_creds(int fd)

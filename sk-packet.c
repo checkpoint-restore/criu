@@ -44,7 +44,7 @@ struct packet_sock_desc {
 
 void show_packetsk(int fd)
 {
-	pb_show_plain_pretty(fd, PB_PACKETSK, "5:%d");
+	pb_show_plain_pretty(fd, PB_PACKET_SOCK, "5:%d");
 }
 
 static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
@@ -194,7 +194,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ret)
 		goto out;
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKETSK);
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKET_SOCK);
 out:
 	release_skopts(&skopts);
 	xfree(psk.rx_ring);
@@ -501,7 +501,7 @@ static int collect_one_packet_sk(void *o, ProtobufCMessage *base)
 
 struct collect_image_info packet_sk_cinfo = {
 	.fd_type = CR_FD_PACKETSK,
-	.pb_type = PB_PACKETSK,
+	.pb_type = PB_PACKET_SOCK,
 	.priv_size = sizeof(struct packet_sock_info),
 	.collect = collect_one_packet_sk,
 	.flags = COLLECT_OPTIONAL,

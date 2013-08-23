@@ -84,7 +84,7 @@ void show_inotify_wd(int fd_inotify_wd)
 
 void show_inotify(int fd_inotify)
 {
-	pb_show_plain(fd_inotify, PB_INOTIFY);
+	pb_show_plain(fd_inotify, PB_INOTIFY_FILE);
 }
 
 void show_fanotify_mark(int fd)
@@ -94,7 +94,7 @@ void show_fanotify_mark(int fd)
 
 void show_fanotify(int fd)
 {
-	pb_show_plain(fd, PB_FANOTIFY);
+	pb_show_plain(fd, PB_FANOTIFY_FILE);
 }
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
@@ -119,7 +119,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.fown = (FownEntry *)&p->fown;
 
 	pr_info("id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, PB_INOTIFY))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY), &ie, PB_INOTIFY_FILE))
 		return -1;
 
 	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);
@@ -187,7 +187,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.faflags = fsn_params.faflags;
 	fe.evflags = fsn_params.evflags;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY), &fe, PB_FANOTIFY);
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY), &fe, PB_FANOTIFY_FILE);
 }
 
 const struct fdtype_ops fanotify_dump_ops = {
@@ -461,7 +461,7 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 
 struct collect_image_info inotify_cinfo = {
 	.fd_type = CR_FD_INOTIFY,
-	.pb_type = PB_INOTIFY,
+	.pb_type = PB_INOTIFY_FILE,
 	.priv_size = sizeof(struct fsnotify_file_info),
 	.collect = collect_one_inotify,
 	.flags = COLLECT_OPTIONAL,
@@ -480,7 +480,7 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
 
 struct collect_image_info fanotify_cinfo = {
 	.fd_type = CR_FD_FANOTIFY,
-	.pb_type = PB_FANOTIFY,
+	.pb_type = PB_FANOTIFY_FILE,
 	.priv_size = sizeof(struct fsnotify_file_info),
 	.collect = collect_one_fanotify,
 	.flags = COLLECT_OPTIONAL,
