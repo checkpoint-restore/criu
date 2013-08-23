@@ -1,0 +1,15 @@
+import "fown.proto";
+
+message tunfile_entry {
+	required uint32		id		= 1;
+	optional string		netdev		= 2;
+	optional bool		detached	= 3;
+};
+
+message tun_link_entry {
+	required uint32		flags = 1;
+	required int32		owner = 2;
+	required int32		group = 3;
+	required uint32		vnethdr = 4;
+	required uint32		sndbuf = 5;
+};

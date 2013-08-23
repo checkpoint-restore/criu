@@ -39,6 +39,7 @@ proto-obj-y	+= mm.o
 proto-obj-y	+= sk-opts.o
 proto-obj-y	+= sk-unix.o
 proto-obj-y	+= sk-inet.o
+proto-obj-y	+= tun.o
 proto-obj-y	+= sk-netlink.o
 proto-obj-y	+= packet-sock.o
 proto-obj-y	+= ipc-var.o

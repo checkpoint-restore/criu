@@ -74,6 +74,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(SHM_PAGES_OLD, "pages-shmem-%ld",	NULL),
 	FD_ENTRY(SIGNAL,	"signal-s-%d",		show_siginfo), /* shared signals */
 	FD_ENTRY(PSIGNAL,	"signal-p-%d",		show_siginfo), /* private signals */
+	FD_ENTRY(TUNFILE,	"tunfile",		show_tunfile),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",

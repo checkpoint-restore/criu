@@ -51,5 +51,6 @@ extern void show_tcp_stream(int fd);
 extern void show_mountpoints(int fd);
 extern void show_netdevices(int fd);
 extern void show_stats(int fd);
+extern void show_tunfile(int fd);
 
 #endif /* __CR_SHOW_H__ */

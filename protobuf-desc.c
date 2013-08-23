@@ -55,6 +55,7 @@
 #include "protobuf/siginfo.pb-c.h"
 #include "protobuf/sk-netlink.pb-c.h"
 #include "protobuf/vma.pb-c.h"
+#include "protobuf/tun.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 
@@ -137,4 +138,6 @@ void cr_pb_init(void)
 	CR_PB_DESC(PAGEMAP,		Pagemap,	pagemap);
 	CR_PB_DESC(SIGINFO,		Siginfo,	siginfo);
 	CR_PB_DESC(NETLINKSK,		NetlinkSk,	netlink_sk);
+
+	CR_PB_DESC(TUNFILE,		Tunfile,	tunfile);
 }

@@ -14,6 +14,7 @@ enum fd_types {
 	FANOTIFY	= 12;
 	NETLINKSK	= 13;
 	NS		= 14;
+	TUN		= 15;
 }
 
 message fdinfo_entry {

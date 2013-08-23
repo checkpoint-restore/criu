@@ -5,6 +5,7 @@ obj-y	+= crtools.o
 obj-y	+= image.o
 obj-y	+= image-desc.o
 obj-y	+= net.o
+obj-y	+= tun.o
 obj-y	+= proc_parse.o
 obj-y	+= cr-dump.o
 obj-y	+= cr-show.o

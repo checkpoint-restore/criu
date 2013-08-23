@@ -1,6 +1,9 @@
+import "tun.proto";
+
 enum nd_type {
 	LOOPBACK	= 1;
 	VETH		= 2;
+	TUN		= 3;
 }
 
 message net_device_entry {
@@ -9,4 +12,6 @@ message net_device_entry {
 	required uint32  mtu		= 3;
 	required uint32  flags		= 4;
 	required string  name		= 5;
+
+	optional tun_link_entry tun	= 6;
 }
