@@ -550,6 +550,36 @@ err:
 	return -1;
 }
 
+struct fd_open_state {
+	char *name;
+	int (*cb)(int, struct fdinfo_list_entry *);
+
+	/*
+	 * Two last stages -- receive fds and post-open them -- are
+	 * not required always. E.g. if no fd sharing takes place
+	 * or task doens't have any files that need to be post-opened.
+	 *
+	 * Thus, in order not to scan through fdinfo-s lists in vain
+	 * and speed things up a little bit, we may want to skeep these.
+	 */
+	bool required;
+};
+
+static int open_transport_fd(int pid, struct fdinfo_list_entry *fle);
+static int open_fd(int pid, struct fdinfo_list_entry *fle);
+static int receive_fd(int pid, struct fdinfo_list_entry *fle);
+static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
+
+static struct fd_open_state states[] = {
+	{ "prepare",		open_transport_fd,	true,},
+	{ "create",		open_fd,		true,},
+	{ "receive",		receive_fd,		false,},
+	{ "post_create",	post_open_fd,		false,},
+};
+
+#define want_recv_stage()	do { states[2].required = true; } while (0)
+#define want_post_open_stage()	do { states[3].required = true; } while (0)
+
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, int fd)
 {
@@ -613,6 +643,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 
 	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
 	futex_set_and_wake(&fle->real_pid, getpid());
+	want_recv_stage();
 
 	return 0;
 }
@@ -705,6 +736,9 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 	struct file_desc *d = fle->desc;
 	int new_fd;
 
+	if (d->ops->post_open)
+		want_post_open_stage();
+
 	if (fle != file_master(d))
 		return 0;
 
@@ -751,18 +785,6 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 
 	return 0;
 }
-
-struct fd_open_state {
-	char *name;
-	int (*cb)(int, struct fdinfo_list_entry *);
-};
-
-static struct fd_open_state states[] = {
-	{ "prepare",		open_transport_fd, },
-	{ "create",		open_fd, },
-	{ "receive",		receive_fd, },
-	{ "post_create",	post_open_fd, },
-};
 
 static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 {
@@ -841,6 +863,11 @@ int prepare_fds(struct pstree_item *me)
 	}
 
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
+		if (!states[state].required) {
+			pr_debug("Skipping %s fd stage\n", states[state].name);
+			continue;
+		}
+
 		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
 		if (ret)
 			break;
