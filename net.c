@@ -200,7 +200,7 @@ struct newlink_req {
 	char buf[1024];
 };
 
-static int restore_one_link(NetDeviceEntry *nde, int nlsk,
+static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
 {
 	struct newlink_req req;
@@ -209,7 +209,7 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk,
 
 	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
-	req.h.nlmsg_type = RTM_NEWLINK;
+	req.h.nlmsg_type = msg_type;
 	req.h.nlmsg_seq = CR_NLMSG_SEQ;
 	req.i.ifi_family = AF_PACKET;
 	req.i.ifi_index = nde->ifindex;
@@ -232,8 +232,19 @@ static int restore_one_link(NetDeviceEntry *nde, int nlsk,
 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.h) - (void *)linkinfo;
 	}
 
-	pr_info("Restoring netdev idx %d\n", nde->ifindex);
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
+}
+
+int restore_link_parms(NetDeviceEntry *nde, int nlsk)
+{
+	return do_rtm_link_req(RTM_SETLINK, nde, nlsk, NULL);
+}
+
+static int restore_one_link(NetDeviceEntry *nde, int nlsk,
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
+{
+	pr_info("Restoring netdev idx %d\n", nde->ifindex);
+	return do_rtm_link_req(RTM_NEWLINK, nde, nlsk, link_info);
 }
 
 #ifndef VETH_INFO_MAX

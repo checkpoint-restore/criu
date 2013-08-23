@@ -24,5 +24,6 @@ extern struct ns_desc net_ns_desc;
 #include "protobuf/netdev.pb-c.h"
 int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds);
 int read_ns_sys_file(char *path, char *buf, int len);
+int restore_link_parms(NetDeviceEntry *nde, int nlsk);
 
 #endif /* __CR_NET_H__ */
