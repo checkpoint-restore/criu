@@ -116,7 +116,6 @@ static/shm
 static/msgque
 static/sem
 transition/ipc
-ns/static/tun
 "
 
 TEST_CR_KERNEL="
