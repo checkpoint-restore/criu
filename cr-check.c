@@ -26,6 +26,7 @@
 #include "tty.h"
 #include "ptrace.h"
 #include "kerndat.h"
+#include "tun.h"
 
 static int check_tty(void)
 {
@@ -559,6 +560,7 @@ int cr_check(void)
 	ret |= check_ptrace_peeksiginfo();
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
+	ret |= check_tun();
 
 	if (!ret)
 		pr_msg("Looks good.\n");

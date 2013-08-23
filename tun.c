@@ -44,6 +44,29 @@
 
 #define TUN_DEV_GEN_PATH	"/dev/net/tun"
 
+int check_tun(void)
+{
+	int fd, idx = 13, ret;
+
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping tun support check\n");
+		return 0;
+	}
+
+	fd = open(TUN_DEV_GEN_PATH, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Can't check tun support");
+		return 0;
+	}
+
+	ret = ioctl(fd, TUNSETIFINDEX, &idx);
+	if (ret < 0)
+		pr_perror("No proper support for tun dump/restore");
+
+	close(fd);
+	return ret;
+}
+
 static LIST_HEAD(tun_links);
 
 struct tun_link {
