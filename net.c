@@ -14,6 +14,7 @@
 #include "libnetlink.h"
 #include "crtools.h"
 #include "sk-inet.h"
+#include "tun.h"
 #include "util-pie.h"
 
 #include "protobuf.h"
@@ -113,8 +114,27 @@ static int dump_one_ethernet(struct ifinfomsg *ifi,
 		 * connection to the outer world and just dump this end :(
 		 */
 		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds, NULL);
+	if (!strcmp(kind, "tun"))
+		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
 unk:
 	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
+	return -1;
+}
+
+static int dump_one_gendev(struct ifinfomsg *ifi,
+		struct rtattr **tb, struct cr_fdset *fds)
+{
+	char *kind;
+
+	kind = link_kind(ifi, tb);
+	if (!kind)
+		goto unk;
+
+	if (!strcmp(kind, "tun"))
+		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
+
+unk:
+	pr_err("Unknown ARPHRD_NONE kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
 }
 
@@ -142,6 +162,9 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		break;
 	case ARPHRD_ETHER:
 		ret = dump_one_ethernet(ifi, tb, fds);
+		break;
+	case ARPHRD_NONE:
+		ret = dump_one_gendev(ifi, tb, fds);
 		break;
 	default:
 		pr_err("Unsupported link type %d, kind %s\n",

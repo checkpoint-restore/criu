@@ -33,6 +33,7 @@
 #include "fsnotify.h"
 #include "signalfd.h"
 #include "namespaces.h"
+#include "tun.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -206,6 +207,16 @@ static int dump_unsupp_fd(const struct fd_parms *p)
 	return -1;
 }
 
+static const struct fdtype_ops *get_misc_dev_ops(int minor)
+{
+	switch (minor) {
+	case TUN_MINOR:
+		return &tunfile_dump_ops;
+	};
+
+	return NULL;
+}
+
 static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 {
 	int maj = major(p->stat.st_rdev);
@@ -220,6 +231,11 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 	case UNIX98_PTY_SLAVE_MAJOR:
 		ops = &tty_dump_ops;
 		break;
+	case MISC_MAJOR:
+		ops = get_misc_dev_ops(minor(p->stat.st_rdev));
+		if (ops)
+			break;
+		/* fallthrough */
 	default:
 		return dump_unsupp_fd(p);
 	}

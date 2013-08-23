@@ -44,7 +44,253 @@
 
 #define TUN_DEV_GEN_PATH	"/dev/net/tun"
 
+static LIST_HEAD(tun_links);
+
+struct tun_link {
+	char name[IFNAMSIZ];
+	struct list_head l;
+	union {
+		struct {
+			unsigned sndbuf;
+			unsigned vnethdr;
+		} dmp;
+	};
+};
+
+static struct tun_link *find_tun_link(char *name)
+{
+	struct tun_link *tl;
+
+	list_for_each_entry(tl, &tun_links, l)
+		if (!strcmp(tl->name, name))
+			return tl;
+
+	return NULL;
+}
+
+static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned flags)
+{
+	struct tun_link *tl;
+	struct sock_fprog flt;
+
+	tl = xmalloc(sizeof(*tl));
+	strcpy(tl->name, name);
+
+	if (ioctl(fd, TUNGETVNETHDRSZ, &tl->dmp.vnethdr) < 0) {
+		pr_perror("Can't dump vnethdr size for %s", name);
+		goto err;
+	}
+
+	if (ioctl(fd, TUNGETSNDBUF, &tl->dmp.sndbuf) < 0) {
+		pr_perror("Can't dump sndbuf for %s", name);
+		goto err;
+	}
+
+	if (flags & IFF_TAP) {
+		pr_debug("Checking filter for tap %s\n", name);
+		if (ioctl(fd, TUNGETFILTER, &flt) < 0) {
+			pr_perror("Can't get tun filter for %s", name);
+			goto err;
+		}
+
+		/*
+		 * TUN filters are tricky -- the program itself is 'somewhere'
+		 * in the task's memory, so we can't get one for unattached
+		 * persistent device. The only way for doing it is opening the
+		 * device with IFF_NOFILTER and attaching some fake one :(
+		 */
+
+		if (flt.len != 0) {
+			pr_err("Can't dump %s with filter on-board\n", name);
+			goto err;
+		}
+	} else if (!(flags & IFF_NOFILTER)) {
+		pr_err("No info about %s filter, kernel is too old\n", name);
+		goto err;
+	}
+
+	return tl;
+
+err:
+	xfree(tl);
+	return NULL;
+}
+
+static struct tun_link *dump_tun_link_fd(int fd, char *name, unsigned flags)
+{
+	struct tun_link *tl;
+
+	tl = find_tun_link(name);
+	if (tl)
+		return tl;
+
+	tl = __dump_tun_link_fd(fd, name, flags);
+	if (tl)
+		/*
+		 * Keep this in list till links dumping code starts.
+		 * We can't let it dump all this stuff itself, since
+		 * multiple attaches to one tun device is limited and
+		 * we may not be able to it that late.
+		 *
+		 * For persistent detached devices the get_tun_link_fd
+		 * will attach to the device and get the needed stuff.
+		 */
+		list_add(&tl->l, &tun_links);
+
+	return tl;
+}
+
+static int open_tun_dev(char *name, unsigned int idx, unsigned flags)
+{
+	int fd;
+	struct ifreq ifr;
+
+	fd = open(TUN_DEV_GEN_PATH, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Can't open tun device");
+		return -1;
+	}
+
+	if (idx) {
+		pr_debug("  restoring %u for %s tun\n", idx, name);
+		if (ioctl(fd, TUNSETIFINDEX, &idx) < 0) {
+			pr_perror("Can't restore tun's index");
+			goto err;
+		}
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, name);
+	ifr.ifr_flags = flags;
+
+	if (ioctl(fd, TUNSETIFF, &ifr)) {
+		pr_perror("Can't create tun device\n");
+		goto err;
+	}
+
+	return fd;
+
+err:
+	close(fd);
+	return -1;
+}
+
+static struct tun_link *get_tun_link_fd(char *name, unsigned flags)
+{
+	struct tun_link *tl;
+	int fd;
+
+	tl = find_tun_link(name);
+	if (tl)
+		return tl;
+
+	/*
+	 * If we haven't found this thing, then the
+	 * device we see via netlink exists w/o any fds
+	 * attached, i.e. -- it's persistent
+	 */
+
+	if (!(flags & IFF_PERSIST)) {
+		pr_err("No fd infor for non persistent tun device %s\n", name);
+		return NULL;
+	}
+
+	/*
+	 * Kernel will try to attach filter (if it exists) to our memory,
+	 * avoid this.
+	 */
+
+	flags |= IFF_NOFILTER;
+
+	fd = open_tun_dev(name, 0, flags);
+	if (fd < 0)
+		return NULL;
+
+	tl = __dump_tun_link_fd(fd, name, flags);
+	close(fd);
+
+	return tl;
+}
+
+static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
+{
+	int ret, img = fdset_fd(glob_fdset, CR_FD_TUNFILE);
+	TunfileEntry tfe = TUNFILE_ENTRY__INIT;
+	struct ifreq ifr;
+
+	if (dump_one_reg_file(lfd, id, p))
+		return -1;
+
+	pr_info("Dumping tun-file %d with id %#x\n", lfd, id);
+
+	tfe.id		= id;
+	ret = ioctl(lfd, TUNGETIFF, &ifr);
+	if (ret < 0) {
+		if (errno != EBADFD) {
+			pr_perror("Can't dump tun-file device");
+			return -1;
+		}
+
+		/*
+		 * Otherwise this is just opened file with not yet attached
+		 * tun device. Go agead an write the respective entry.
+		 */
+	} else {
+		tfe.netdev = ifr.ifr_ifrn.ifrn_name;
+		pr_info("`- attached to device %s (flags %x)\n", tfe.netdev, ifr.ifr_flags);
+
+		if (ifr.ifr_flags & IFF_DETACH_QUEUE) {
+			tfe.has_detached = true;
+			tfe.detached = true;
+		}
+
+		if (dump_tun_link_fd(lfd, tfe.netdev, ifr.ifr_flags) == NULL)
+			return -1;
+	}
+
+	return pb_write_one(img, &tfe, PB_TUNFILE);
+}
+
+const struct fdtype_ops tunfile_dump_ops = {
+	.type = FD_TYPES__TUN,
+	.dump = dump_tunfile,
+};
+
 void show_tunfile(int fd)
 {
 	pb_show_plain(fd, PB_TUNFILE);
+}
+
+int dump_tun_link(NetDeviceEntry *nde, struct cr_fdset *fds)
+{
+	TunLinkEntry tle = TUN_LINK_ENTRY__INIT;
+	char spath[64];
+	char buf[64];
+	int ret = 0;
+	struct tun_link *tl;
+
+	sprintf(spath, "class/net/%s/tun_flags", nde->name);
+	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	tle.flags = strtol(buf, NULL, 0);
+
+	sprintf(spath, "class/net/%s/owner", nde->name);
+	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	tle.owner = strtol(buf, NULL, 10);
+
+	sprintf(spath, "class/net/%s/group", nde->name);
+	ret |= read_ns_sys_file(spath, buf, sizeof(buf));
+	tle.group = strtol(buf, NULL, 10);
+
+	if (ret < 0)
+		return ret;
+
+	tl = get_tun_link_fd(nde->name, tle.flags);
+	if (!tl)
+		return ret;
+
+	tle.vnethdr = tl->dmp.vnethdr;
+	tle.sndbuf = tl->dmp.sndbuf;
+
+	nde->tun = &tle;
+	return write_netdev_img(nde, fds);
 }
