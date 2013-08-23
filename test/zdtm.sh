@@ -116,6 +116,7 @@ static/shm
 static/msgque
 static/sem
 transition/ipc
+ns/static/tun
 "
 
 TEST_CR_KERNEL="
@@ -136,6 +137,7 @@ cmdlinenv00
 packet_sock
 fanotify00
 sk-netlink
+tun
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1

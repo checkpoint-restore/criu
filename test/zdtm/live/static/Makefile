@@ -100,6 +100,7 @@ TST_NOFILE	=				\
 		sk-netlink			\
 		mem-touch			\
 		grow_map			\
+		tun				\
 #		jobctl00			\
 
 TST_FILE	=				\
