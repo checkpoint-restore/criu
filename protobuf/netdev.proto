@@ -14,4 +14,6 @@ message net_device_entry {
 	required string  name		= 5;
 
 	optional tun_link_entry tun	= 6;
+
+	optional bytes address		= 7;
 }

@@ -71,6 +71,15 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	netdev.flags = ifi->ifi_flags;
 	netdev.name = RTA_DATA(tb[IFLA_IFNAME]);
 
+	if (tb[IFLA_ADDRESS] && (type != ND_TYPE__LOOPBACK)) {
+		netdev.has_address = true;
+		netdev.address.data = RTA_DATA(tb[IFLA_ADDRESS]);
+		netdev.address.len = RTA_PAYLOAD(tb[IFLA_ADDRESS]);
+		pr_info("Found ll addr (%02x:../%d) for %s\n",
+				(int)netdev.address.data[0],
+				(int)netdev.address.len, netdev.name);
+	}
+
 	if (!dump)
 		dump = write_netdev_img;
 
@@ -240,6 +249,13 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 
 	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde->name, strlen(nde->name));
 	addattr_l(&req.h, sizeof(req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
+
+	if (nde->has_address) {
+		pr_debug("Restore ll addr (%02x:../%d) for device\n",
+				(int)nde->address.data[0], (int)nde->address.len);
+		addattr_l(&req.h, sizeof(req), IFLA_ADDRESS,
+				nde->address.data, nde->address.len);
+	}
 
 	if (link_info) {
 		struct rtattr *linkinfo;
