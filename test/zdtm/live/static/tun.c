@@ -99,9 +99,23 @@ static void check_tun(int fd, char *name, unsigned flags)
 	}
 }
 
+static int dev_get_hwaddr(int fd, char *a)
+{
+	struct ifreq ifr;
+
+	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
+		err("Can't get hwaddr");
+		return -1;
+	}
+
+	memcpy(a, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int fds[5], ret;
+	char addr[ETH_ALEN], a2[ETH_ALEN];
 
 	test_init(argc, argv);
 
@@ -155,6 +169,11 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	if (dev_get_hwaddr(fds[4], addr) < 0) {
+		err("No hwaddr for tap?");
+		return -1;
+	}
+
 	close(ret);
 
 	test_daemon();
@@ -200,6 +219,15 @@ int main(int argc, char **argv)
 	}
 
 	check_tun(fds[4], "tapx0", IFF_TAP);
+	if (dev_get_hwaddr(fds[4], a2) < 0) {
+		err("No hwaddr for tap? (2)");
+		any_fail = 1;
+	} else if (memcmp(addr, a2, sizeof(addr))) {
+		fail("Address mismatch on tap %x:%x -> %x:%x",
+				(int)addr[0], (int)addr[1],
+				(int)a2[0], (int)a2[1]);
+		any_fail = 1;
+	}
 
 	if (!any_fail)
 		pass();
