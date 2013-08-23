@@ -62,6 +62,7 @@
 #include "sysctl.h"
 #include "vdso.h"
 #include "stats.h"
+#include "tun.h"
 
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
@@ -129,6 +130,7 @@ static struct collect_image_info *cinfos[] = {
 	&fanotify_mark_cinfo,
 	&tty_info_cinfo,
 	&tty_cinfo,
+	&tunfile_cinfo,
 };
 
 static int root_prepare_shared(void)

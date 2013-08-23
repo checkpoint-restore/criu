@@ -51,11 +51,35 @@ struct tun_link {
 	struct list_head l;
 	union {
 		struct {
+			unsigned flags;
+		} rst;
+
+		struct {
 			unsigned sndbuf;
 			unsigned vnethdr;
 		} dmp;
 	};
 };
+
+static int list_tun_link(NetDeviceEntry *nde)
+{
+	struct tun_link *tl;
+
+	tl = xmalloc(sizeof(*tl));
+	if (!tl)
+		return -1;
+
+	strcpy(tl->name, nde->name);
+	/*
+	 * Keep tun-flags not only for persistency fixup (see
+	 * commend below), but also for TUNSETIFF -- we must
+	 * open the device with the same flags it should live
+	 * with (i.e. -- with which it was created.
+	 */
+	tl->rst.flags = nde->tun->flags;
+	list_add_tail(&tl->l, &tun_links);
+	return 0;
+}
 
 static struct tun_link *find_tun_link(char *name)
 {
@@ -256,6 +280,91 @@ const struct fdtype_ops tunfile_dump_ops = {
 	.dump = dump_tunfile,
 };
 
+struct tunfile_info {
+	struct file_desc d;
+	TunfileEntry *tfe;
+};
+
+static int tunfile_open(struct file_desc *d)
+{
+	int fd;
+	struct tunfile_info *ti;
+	struct ifreq ifr;
+	struct tun_link *tl;
+
+	ti = container_of(d, struct tunfile_info, d);
+	fd = open_reg_by_id(ti->tfe->id);
+	if (fd < 0)
+		return -1;
+
+	if (!ti->tfe->netdev)
+		/* just-opened tun file */
+		return fd;
+
+	tl = find_tun_link(ti->tfe->netdev);
+	if (!tl) {
+		pr_err("No tun device for file %s\n", ti->tfe->netdev);
+		return -1;
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, tl->name);
+	ifr.ifr_flags = tl->rst.flags;
+
+	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
+		pr_perror("Can't attach tunfile to device");
+		goto err;
+	}
+
+	if (ti->tfe->has_detached && ti->tfe->detached) {
+		pr_info("Detaching from %s queue\n", ti->tfe->netdev);
+		ifr.ifr_flags = IFF_DETACH_QUEUE;
+		if (ioctl(fd, TUNSETQUEUE, &ifr) < 0) {
+			pr_perror("Can't detach queue");
+			goto err;
+		}
+	}
+
+	if (!(tl->rst.flags & IFF_PERSIST)) {
+		pr_info("Dropping persistency for %s\n", tl->name);
+		if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
+			pr_perror("Error dropping persistency");
+			goto err;
+		}
+	}
+
+	return fd;
+
+err:
+	close(fd);
+	return -1;
+}
+
+static struct file_desc_ops tunfile_desc_ops = {
+	.type = FD_TYPES__TUN,
+	.open = tunfile_open,
+};
+
+static int collect_one_tunfile(void *o, ProtobufCMessage *base)
+{
+	struct tunfile_info *ti = o;
+
+	ti->tfe = pb_msg(base, TunfileEntry);
+	file_desc_add(&ti->d, ti->tfe->id, &tunfile_desc_ops);
+
+	pr_info("Collected %s tunfile\n", ti->tfe->netdev);
+
+	return 0;
+}
+
+struct collect_image_info tunfile_cinfo = {
+	.fd_type = CR_FD_TUNFILE,
+	.pb_type = PB_TUNFILE,
+	.priv_size = sizeof(struct tunfile_info),
+	.collect = collect_one_tunfile,
+	.flags = COLLECT_OPTIONAL,
+};
+
 void show_tunfile(int fd)
 {
 	pb_show_plain(fd, PB_TUNFILE);
@@ -293,4 +402,65 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_fdset *fds)
 
 	nde->tun = &tle;
 	return write_netdev_img(nde, fds);
+}
+
+int restore_one_tun(NetDeviceEntry *nde, int nlsk)
+{
+	int fd, ret = -1, aux;
+
+	if (!nde->tun) {
+		pr_err("Corrupted TUN link entry %x\n", nde->ifindex);
+		return -1;
+	}
+
+	pr_info("Restoring tun device %s\n", nde->name);
+
+	fd = open_tun_dev(nde->name, nde->ifindex, nde->tun->flags);
+	if (fd < 0)
+		return -1;
+
+	aux = nde->tun->owner;
+	if ((aux != -1) && ioctl(fd, TUNSETOWNER, aux) < 0) {
+		pr_perror("Can't set owner\n");
+		goto out;
+	}
+
+	aux = nde->tun->group;
+	if ((aux != -1) && ioctl(fd, TUNSETGROUP, aux) < 0) {
+		pr_perror("Can't set group\n");
+		goto out;
+	}
+
+	aux = nde->tun->sndbuf;
+	if (ioctl(fd, TUNSETSNDBUF, &aux) < 0) {
+		pr_perror("Can't set sndbuf");
+		goto out;
+	}
+
+	aux = nde->tun->vnethdr;
+	if (ioctl(fd, TUNSETVNETHDRSZ, &aux) < 0) {
+		pr_perror("Can't set vnethdr");
+		goto out;
+	}
+
+	/*
+	 * Set this device persistent anyway and schedule
+	 * the persistence drop if it should not be such.
+	 * The first _real_ opener will do it.
+	 */
+
+	if (ioctl(fd, TUNSETPERSIST, 1)) {
+		pr_perror("Can't make tun device persistent\n");
+		goto out;
+	}
+
+	if (restore_link_parms(nde, nlsk)) {
+		pr_err("Error restoring %s link params\n", nde->name);
+		goto out;
+	}
+
+	ret = list_tun_link(nde);
+out:
+	close(fd);
+	return ret;
 }

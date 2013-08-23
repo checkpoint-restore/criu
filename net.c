@@ -321,6 +321,8 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 		return restore_one_link(nde, nlsk, NULL);
 	case ND_TYPE__VETH:
 		return restore_one_link(nde, nlsk, veth_link_info);
+	case ND_TYPE__TUN:
+		return restore_one_tun(nde, nlsk);
 	default:
 		pr_err("Unsupported link type %d\n", nde->type);
 		break;
