@@ -54,13 +54,6 @@
 
 static LIST_HEAD(pstree_list);
 
-void show_fown_cont(void *p)
-{
-	FownEntry *fown = p;
-	pr_msg("fown: uid: %#x euid: %#x signum: %#x pid_type: %#x pid: %u",
-	       fown->uid, fown->euid, fown->signum, fown->pid_type, fown->pid);
-}
-
 static void pipe_data_handler(int fd, void *obj)
 {
 	PipeDataEntry *e = obj;

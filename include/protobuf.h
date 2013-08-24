@@ -39,12 +39,6 @@ extern void do_pb_show_plain(int fd, int type, int single_entry,
 #define pb_show_plain_pretty(__fd, __proto_message_name, __pretty)		\
 	pb_show_plain_payload_pretty(__fd, __proto_message_name, NULL, __pretty)
 
-#define pb_show_plain(__fd, __type)							\
-	pb_show_plain_payload(__fd, __type, NULL)
-
-#define pb_show_vertical(__fd, __type)							\
-	do_pb_show_plain(__fd, __type, 1, NULL, NULL)
-
 struct collect_image_info {
 	int fd_type;
 	int pb_type;

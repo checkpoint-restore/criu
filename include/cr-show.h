@@ -11,7 +11,6 @@ struct show_image_info {
 };
 
 extern void show_siginfo(int fd);
-extern void show_fown_cont(void *p);
 extern void sk_queue_data_handler(int fd, void *obj);
 extern void ipc_shm_handler(int fd, void *obj);
 extern void ipc_msg_handler(int fd, void *obj);
