@@ -64,3 +64,5 @@ protobuf-desc.c: protobuf-desc-gen.h
 protobuf-desc-gen.h: $(PROTOBUF_GEN) include/protobuf-desc.h
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(obj)/$(PROTOBUF_GEN) > $@
+
+cleanup-y += protobuf-desc-gen.h
