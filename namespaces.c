@@ -13,7 +13,7 @@
 #include "protobuf.h"
 #include "protobuf/ns.pb-c.h"
 
-struct ns_desc *ns_desc_array[] = {
+static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
 	&uts_ns_desc,
 	&ipc_ns_desc,
