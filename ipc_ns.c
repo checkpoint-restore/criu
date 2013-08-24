@@ -433,7 +433,7 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 {
 	int ret;
 
-	ret = dump_ipc_var(fdset_fd(fdset, CR_FD_IPCNS_VAR));
+	ret = dump_ipc_var(fdset_fd(fdset, CR_FD_IPC_VAR));
 	if (ret < 0)
 		return ret;
 	ret = dump_ipc_shm(fdset_fd(fdset, CR_FD_IPCNS_SHM));
@@ -464,7 +464,7 @@ int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
 	return 0;
 }
 
-static void ipc_sem_handler(int fd, void *obj)
+void ipc_sem_handler(int fd, void *obj)
 {
 	IpcSemEntry *e = obj;
 	u16 *values;
@@ -482,18 +482,13 @@ static void ipc_sem_handler(int fd, void *obj)
 	pr_msg_ipc_sem_array(e->nsems, values);
 }
 
-void show_ipc_sem(int fd)
-{
-	pb_show_plain_payload(fd, PB_IPC_SEM, ipc_sem_handler);
-}
-
 static void ipc_msg_data_handler(int fd, void *obj)
 {
 	IpcMsg *e = obj;
 	print_image_data(fd, round_up(e->msize, sizeof(u64)), opts.show_pages_content);
 }
 
-static void ipc_msg_handler(int fd, void *obj)
+void ipc_msg_handler(int fd, void *obj)
 {
 	IpcMsgEntry *e = obj;
 	int msg_nr = 0;
@@ -504,25 +499,10 @@ static void ipc_msg_handler(int fd, void *obj)
 
 }
 
-void show_ipc_msg(int fd)
-{
-	pb_show_plain_payload(fd, PB_IPCNS_MSG_ENT, ipc_msg_handler);
-}
-
-static void ipc_shm_handler(int fd, void *obj)
+void ipc_shm_handler(int fd, void *obj)
 {
 	IpcShmEntry *e = obj;
 	print_image_data(fd, round_up(e->size, sizeof(u32)), opts.show_pages_content);
-}
-
-void show_ipc_shm(int fd)
-{
-	pb_show_plain_payload(fd, PB_IPC_SHM, ipc_shm_handler);
-}
-
-void show_ipc_var(int fd)
-{
-	pb_show_vertical(fd, PB_IPC_VAR);
 }
 
 static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
@@ -894,7 +874,7 @@ static int prepare_ipc_var(int pid)
 	IpcVarEntry *var;
 
 	pr_info("Restoring IPC variables\n");
-	fd = open_image(CR_FD_IPCNS_VAR, O_RSTR, pid);
+	fd = open_image(CR_FD_IPC_VAR, O_RSTR, pid);
 	if (fd < 0)
 		return -1;
 

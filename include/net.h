@@ -3,8 +3,6 @@
 
 #include "list.h"
 
-void show_netdevices(int fd);
-
 struct cr_fdset;
 int dump_net_ns(int pid, struct cr_fdset *);
 int prepare_net_ns(int pid);

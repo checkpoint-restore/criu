@@ -170,15 +170,10 @@ err_brk:
 	return ret;
 }
 
-static void sk_queue_data_handler(int fd, void *obj)
+void sk_queue_data_handler(int fd, void *obj)
 {
 	SkPacketEntry *e = obj;
 	print_image_data(fd, e->length, opts.show_pages_content);
-}
-
-void show_sk_queues(int fd)
-{
-	pb_show_plain_payload(fd, PB_SK_QUEUES, sk_queue_data_handler);
 }
 
 int restore_sk_queue(int fd, unsigned int peer_id)

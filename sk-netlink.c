@@ -65,11 +65,6 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 	return sk_collect_one(m->ndiag_ino, PF_NETLINK, &sd->sd);
 }
 
-void show_netlinksk(int fd)
-{
-	pb_show_plain(fd, PB_NETLINK_SK);
-}
-
 static bool can_dump_netlink_sk(int lfd)
 {
 	struct pollfd pfd = {lfd, POLLIN, 0};
@@ -146,7 +141,7 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_NETLINKSK), &ne, PB_NETLINK_SK))
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_NETLINK_SK), &ne, PB_NETLINK_SK))
 		goto err;
 
 	return 0;
@@ -235,7 +230,7 @@ static int collect_one_netlink_sk(void *o, ProtobufCMessage *base)
 }
 
 struct collect_image_info netlink_sk_cinfo = {
-	.fd_type = CR_FD_NETLINKSK,
+	.fd_type = CR_FD_NETLINK_SK,
 	.pb_type = PB_NETLINK_SK,
 	.priv_size = sizeof(struct netlink_sock_info),
 	.collect = collect_one_netlink_sk,

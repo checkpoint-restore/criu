@@ -65,9 +65,4 @@ out:
 	return ret;
 }
 
-void show_utsns(int fd)
-{
-	pb_show_vertical(fd, PB_UTSNS);
-}
-
 struct ns_desc uts_ns_desc = NS_DESC_ENTRY(CLONE_NEWUTS, "uts");

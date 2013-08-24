@@ -540,7 +540,7 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 
 	pr_info("Dumping mountpoints\n");
 
-	img_fd = fdset_fd(fdset, CR_FD_MOUNTPOINTS);
+	img_fd = fdset_fd(fdset, CR_FD_MNTS);
 	do {
 		struct mount_info *n = pm->next;
 
@@ -771,7 +771,7 @@ static int populate_mnt_ns(int ns_pid)
 
 	pr_info("Populating mount namespace\n");
 
-	img = open_image(CR_FD_MOUNTPOINTS, O_RSTR, ns_pid);
+	img = open_image(CR_FD_MNTS, O_RSTR, ns_pid);
 	if (img < 0)
 		return -1;
 
@@ -866,11 +866,6 @@ int prepare_mnt_ns(int ns_pid)
 		ret = populate_mnt_ns(ns_pid);
 
 	return ret;
-}
-
-void show_mountpoints(int fd)
-{
-	pb_show_plain(fd, PB_MNT);
 }
 
 int mntns_collect_root(pid_t pid)

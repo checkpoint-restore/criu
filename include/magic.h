@@ -42,7 +42,7 @@
 #define SK_QUEUES_MAGIC		0x56264026 /* Suzdal */
 #define UTSNS_MAGIC		0x54473203 /* Smolensk */
 #define CREDS_MAGIC		0x54023547 /* Kozelsk */
-#define IPCNS_VAR_MAGIC		0x53115007 /* Samara */
+#define IPC_VAR_MAGIC		0x53115007 /* Samara */
 #define IPCNS_SHM_MAGIC		0x46283044 /* Odessa */
 #define IPCNS_MSG_MAGIC		0x55453737 /* Moscow */
 #define IPCNS_SEM_MAGIC		0x59573019 /* St. Petersburg */
@@ -52,23 +52,23 @@
 #define REMAP_FPATH_MAGIC	0x59133954 /* Vologda */
 #define GHOST_FILE_MAGIC	0x52583605 /* Oryol */
 #define TCP_STREAM_MAGIC	0x51465506 /* Orenburg */
-#define EVENTFD_MAGIC		0x44523722 /* Anapa */
-#define EVENTPOLL_MAGIC		0x45023858 /* Krasnodar */
+#define EVENTFD_FILE_MAGIC	0x44523722 /* Anapa */
+#define EVENTPOLL_FILE_MAGIC	0x45023858 /* Krasnodar */
 #define EVENTPOLL_TFD_MAGIC	0x44433746 /* Novorossiysk */
 #define SIGNALFD_MAGIC		0x57323820 /* Uglich */
-#define INOTIFY_MAGIC		0x48424431 /* Volgograd */
+#define INOTIFY_FILE_MAGIC	0x48424431 /* Volgograd */
 #define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
-#define MOUNTPOINTS_MAGIC	0x55563928 /* Petushki */
+#define MNTS_MAGIC		0x55563928 /* Petushki */
 #define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
-#define TTY_MAGIC		0x59433025 /* Pushkin */
+#define TTY_FILES_MAGIC		0x59433025 /* Pushkin */
 #define TTY_INFO_MAGIC		0x59453036 /* Kolpino */
 #define FILE_LOCKS_MAGIC	0x54323616 /* Kaluga */
 #define RLIMIT_MAGIC		0x57113925 /* Rostov */
-#define FANOTIFY_MAGIC		0x55096122 /* Chelyabinsk */
+#define FANOTIFY_FILE_MAGIC	0x55096122 /* Chelyabinsk */
 #define FANOTIFY_MARK_MAGIC	0x56506035 /* Yekaterinburg */
 #define SIGNAL_MAGIC		0x59255647 /* Berezniki */
 #define PSIGNAL_MAGIC		SIGNAL_MAGIC
-#define NETLINKSK_MAGIC		0x58005614 /* Perm */
+#define NETLINK_SK_MAGIC	0x58005614 /* Perm */
 #define NS_FILES_MAGIC		0x61394011 /* Nyandoma */
 #define TUNFILE_MAGIC		0x57143751 /* Kalyazin */
 

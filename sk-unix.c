@@ -497,11 +497,6 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 	return NULL;
 }
 
-void show_unixsk(int fd)
-{
-	pb_show_plain_pretty(fd, PB_UNIX_SK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%#x 11:S");
-}
-
 static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	int how;

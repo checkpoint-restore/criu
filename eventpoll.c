@@ -56,16 +56,6 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
-void show_eventpoll_tfd(int fd)
-{
-	pb_show_plain(fd, PB_EVENTPOLL_TFD);
-}
-
-void show_eventpoll(int fd)
-{
-	pb_show_plain(fd, PB_EVENTPOLL_FILE);
-}
-
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 {
 	EventpollTfdEntry *efd = &e->epl;
@@ -85,7 +75,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	e.fown = (FownEntry *)&p->fown;
 
 	pr_info_eventpoll("Dumping ", &e);
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL),
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_FILE),
 		     &e, PB_EVENTPOLL_FILE))
 		return -1;
 
@@ -193,7 +183,7 @@ static int collect_one_epoll(void *o, ProtobufCMessage *msg)
 }
 
 struct collect_image_info epoll_cinfo = {
-	.fd_type = CR_FD_EVENTPOLL,
+	.fd_type = CR_FD_EVENTPOLL_FILE,
 	.pb_type = PB_EVENTPOLL_FILE,
 	.priv_size = sizeof(struct eventpoll_file_info),
 	.collect = collect_one_epoll,

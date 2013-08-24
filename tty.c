@@ -984,7 +984,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 }
 
 struct collect_image_info tty_cinfo = {
-	.fd_type = CR_FD_TTY,
+	.fd_type = CR_FD_TTY_FILES,
 	.pb_type = PB_TTY_FILE,
 	.priv_size = sizeof(struct tty_info),
 	.collect = collect_one_tty,
@@ -1187,7 +1187,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 		ret = dump_pty_info(lfd, e.tty_info_id, p, major, index);
 
 	if (!ret)
-		ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY), &e, PB_TTY_FILE);
+		ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
 	return ret;
 }
 

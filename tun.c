@@ -388,11 +388,6 @@ struct collect_image_info tunfile_cinfo = {
 	.flags = COLLECT_OPTIONAL,
 };
 
-void show_tunfile(int fd)
-{
-	pb_show_plain(fd, PB_TUNFILE);
-}
-
 int dump_tun_link(NetDeviceEntry *nde, struct cr_fdset *fds)
 {
 	TunLinkEntry tle = TUN_LINK_ENTRY__INIT;

@@ -44,11 +44,6 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
-void show_netdevices(int fd)
-{
-	pb_show_plain_pretty(fd, PB_NETDEV, "2:%d");
-}
-
 int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds)
 {
 	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), nde, PB_NETDEV);

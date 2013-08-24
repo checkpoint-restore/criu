@@ -95,13 +95,6 @@ void kill_inventory(void)
 			fdset_template[CR_FD_INVENTORY].fmt, 0);
 }
 
-void show_inventory(int fd)
-{
-	pb_show_vertical(fd, PB_INVENTORY);
-}
-
-void show_raw_image(int fd) {};
-
 static struct cr_fdset *alloc_cr_fdset(int nr)
 {
 	struct cr_fdset *cr_fdset;

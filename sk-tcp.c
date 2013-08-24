@@ -609,11 +609,6 @@ void rst_unlock_tcp_connections(void)
 		nf_unlock_connection_info(ii);
 }
 
-void show_tcp_stream(int fd)
-{
-	do_pb_show_plain(fd, PB_TCP_STREAM, 1, NULL, "1:%u 2:%u 3:%u 4:%u");
-}
-
 int check_tcp(void)
 {
 	socklen_t optlen;

@@ -33,11 +33,11 @@ enum {
 
 	_CR_FD_NS_FROM,
 	CR_FD_UTSNS,
-	CR_FD_IPCNS_VAR,
+	CR_FD_IPC_VAR,
 	CR_FD_IPCNS_SHM,
 	CR_FD_IPCNS_MSG,
 	CR_FD_IPCNS_SEM,
-	CR_FD_MOUNTPOINTS,
+	CR_FD_MNTS,
 	CR_FD_NETDEV,
 	CR_FD_IFADDR,
 	CR_FD_ROUTE,
@@ -56,21 +56,21 @@ enum {
 	CR_FD_INETSK,
 	CR_FD_UNIXSK,
 	CR_FD_PACKETSK,
-	CR_FD_NETLINKSK,
+	CR_FD_NETLINK_SK,
 	CR_FD_PIPES,
 	CR_FD_PIPES_DATA,
 	CR_FD_FIFO,
 	CR_FD_FIFO_DATA,
-	CR_FD_TTY,
+	CR_FD_TTY_FILES,
 	CR_FD_TTY_INFO,
 	CR_FD_REMAP_FPATH,
-	CR_FD_EVENTFD,
-	CR_FD_EVENTPOLL,
+	CR_FD_EVENTFD_FILE,
+	CR_FD_EVENTPOLL_FILE,
 	CR_FD_EVENTPOLL_TFD,
 	CR_FD_SIGNALFD,
-	CR_FD_INOTIFY,
+	CR_FD_INOTIFY_FILE,
 	CR_FD_INOTIFY_WD,
-	CR_FD_FANOTIFY,
+	CR_FD_FANOTIFY_FILE,
 	CR_FD_FANOTIFY_MARK,
 	CR_FD_TUNFILE,
 	_CR_FD_GLOB_TO,
@@ -89,7 +89,6 @@ enum {
 struct cr_fd_desc_tmpl {
 	const char	*fmt;			/* format for the name */
 	u32		magic;			/* magic in the header */
-	void		(*show)(int fd);
 };
 
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];

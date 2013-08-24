@@ -473,14 +473,11 @@ int try_show_namespaces(int ns_pid)
 	for (i = _CR_FD_NS_FROM + 1; i < _CR_FD_NS_TO; i++) {
 		int fd;
 
-		if (!fdset_template[i].show)
-			continue;
-
 		fd = fdset_fd(fdset, i);
 		if (fd == -1)
 			continue;
 
-		fdset_template[i].show(fdset_fd(fdset, i));
+		cr_parse_fd(fd, fdset_template[i].magic);
 	}
 	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);
 	close_cr_fdset(&fdset);

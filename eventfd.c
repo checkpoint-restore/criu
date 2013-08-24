@@ -44,11 +44,6 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 		action, efe->id, efe->flags, efe->counter);
 }
 
-void show_eventfds(int fd)
-{
-	pb_show_plain(fd, PB_EVENTFD_FILE);
-}
-
 struct eventfd_dump_arg {
 	u32 id;
 	const struct fd_parms *p;
@@ -70,7 +65,7 @@ static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 	e->efd.fown = (FownEntry *)&da->p->fown;
 
 	pr_info_eventfd("Dumping ", &e->efd);
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTFD),
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTFD_FILE),
 			&e->efd, PB_EVENTFD_FILE);
 }
 
@@ -127,7 +122,7 @@ static int collect_one_efd(void *obj, ProtobufCMessage *msg)
 }
 
 struct collect_image_info eventfd_cinfo = {
-	.fd_type = CR_FD_EVENTFD,
+	.fd_type = CR_FD_EVENTFD_FILE,
 	.pb_type = PB_EVENTFD_FILE,
 	.priv_size = sizeof(struct eventfd_file_info),
 	.collect = collect_one_efd,

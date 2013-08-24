@@ -621,8 +621,3 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 
 	return 0;
 }
-
-void show_inetsk(int fd)
-{
-	pb_show_plain_pretty(fd, PB_INET_SK, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 9:%2x 11:A 12:A");
-}

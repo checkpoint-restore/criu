@@ -43,11 +43,6 @@ extern int resolve_unix_peers(void);
 
 extern struct collect_image_info netlink_sk_cinfo;
 
-extern void show_unixsk(int fd);
-extern void show_inetsk(int fd);
-extern void show_sk_queues(int fd);
-extern void show_netlinksk(int fd);
-
 extern char *skfamily2s(u32 f);
 extern char *sktype2s(u32 t);
 extern char *skproto2s(u32 p);

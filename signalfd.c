@@ -31,11 +31,6 @@ struct signalfd_dump_arg {
 	bool dumped;
 };
 
-void show_signalfd(int fd)
-{
-	pb_show_plain(fd, PB_SIGNALFD);
-}
-
 static int dump_signalfd_entry(union fdinfo_entries *e, void *arg)
 {
 	struct signalfd_dump_arg *da = arg;

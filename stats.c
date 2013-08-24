@@ -89,12 +89,6 @@ void timing_stop(int t)
 	timeval_accumulate(&tm->start, &now, &tm->total);
 }
 
-void show_stats(int fd)
-{
-	do_pb_show_plain(fd, PB_STATS, 1, NULL,
-			"1.1:%u 1.2:%u 1.3:%u 1.4:%u 1.5:%Lu 1.6:%Lu 1.7:%Lu");
-}
-
 static void encode_time(int t, u_int32_t *to)
 {
 	struct timing *tm;
