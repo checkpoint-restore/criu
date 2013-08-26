@@ -207,7 +207,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 {
 	int ret;
 	void *addr, *paddr = NULL;
-	unsigned long nr_pages;
+	unsigned long nr_pages, size;
 	struct vma_area *p = *pvma;
 
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE)) {
@@ -242,6 +242,17 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 
 	*pvma = p;
 
+	/*
+	 * A grow-down VMA has a guard page, which protect a VMA below it.
+	 * So one more page is mapped here to restore content of the first page
+	 */
+	if (vma->vma.flags & MAP_GROWSDOWN) {
+		vma->vma.start -= PAGE_SIZE;
+		if (paddr)
+			paddr -= PAGE_SIZE;
+	}
+
+	size = vma_entry_len(&vma->vma);
 	if (paddr == NULL) {
 		/*
 		 * The respective memory area was NOT found in the parent.
@@ -250,7 +261,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->vma.start, vma->vma.end, vma->vma.pgoff);
 
-		addr = mmap(tgt_addr, vma_entry_len(&vma->vma),
+		addr = mmap(tgt_addr, size,
 				vma->vma.prot | PROT_WRITE,
 				vma->vma.flags | MAP_FIXED,
 				vma->vma.fd, vma->vma.pgoff);
@@ -266,7 +277,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		 */
 		vma->ppage_bitmap = p->page_bitmap;
 
-		addr = mremap(paddr, vma_area_len(vma), vma_area_len(vma),
+		addr = mremap(paddr, size, size,
 				MREMAP_FIXED | MREMAP_MAYMOVE, tgt_addr);
 		if (addr != tgt_addr) {
 			pr_perror("Unable to remap a private vma");
@@ -279,10 +290,15 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	pr_debug("\tpremap 0x%016"PRIx64"-0x%016"PRIx64" -> %016lx\n",
 		vma->vma.start, vma->vma.end, (unsigned long)addr);
 
+	if (vma->vma.flags & MAP_GROWSDOWN) { /* Skip gurad page */
+		vma->vma.start += PAGE_SIZE;
+		vma_premmaped_start(&vma->vma) += PAGE_SIZE;
+	}
+
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE))
 		close(vma->vma.fd);
 
-	return 0;
+	return size;
 }
 
 static int restore_priv_vma_content(pid_t pid)
@@ -475,8 +491,11 @@ static int prepare_mappings(int pid)
 			break;
 		}
 
-		if (vma_priv(&vma->vma))
+		if (vma_priv(&vma->vma)) {
 			rst_vmas.priv_size += vma_area_len(vma);
+			if (vma->vma.flags & MAP_GROWSDOWN)
+				rst_vmas.priv_size += PAGE_SIZE;
+		}
 	}
 	close(fd);
 
@@ -512,10 +531,10 @@ static int prepare_mappings(int pid)
 		if (ret < 0)
 			break;
 
-		addr += vma_area_len(vma);
+		addr += ret;
 	}
 
-	if (ret == 0)
+	if (ret >= 0)
 		ret = restore_priv_vma_content(pid);
 
 out:
@@ -534,6 +553,31 @@ out:
 
 
 	return ret;
+}
+
+/*
+ * A gard page must be unmapped after restoring content and
+ * forking children to restore COW memory.
+ */
+static int unmap_guard_pages()
+{
+	struct vma_area *vma;
+
+	list_for_each_entry(vma, &rst_vmas.h, list) {
+		if (!vma_priv(&vma->vma))
+			continue;
+
+		if (vma->vma.flags & MAP_GROWSDOWN) {
+			void *addr = (void *) vma_premmaped_start(&vma->vma);
+
+			if (munmap(addr - PAGE_SIZE, PAGE_SIZE)) {
+				pr_perror("Can't unmap guard page\n");
+				return -1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 static int open_vmas(int pid)
@@ -1184,6 +1228,8 @@ static int restore_task_with_children(void *_arg)
 	if (create_children_and_session())
 		exit(1);
 
+	if (unmap_guard_pages())
+		exit(1);
 	/*
 	 * Unlike sessions, process groups (a.k.a. pgids) can be joined
 	 * by any task, provided the task with pid == pgid (group leader)
