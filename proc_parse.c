@@ -97,10 +97,9 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 
 	do {
 		/* mmap() block */
-		if (_vmflag_match(tok, "gd")) {
+		if (_vmflag_match(tok, "gd"))
 			vma_area->vma.flags |= MAP_GROWSDOWN;
-			vma_area->vma.start -= PAGE_SIZE; /* Guard page */
-		} else if (_vmflag_match(tok, "lo"))
+		else if (_vmflag_match(tok, "lo"))
 			vma_area->vma.flags |= MAP_LOCKED;
 		else if (_vmflag_match(tok, "nr"))
 			vma_area->vma.flags |= MAP_NORESERVE;
@@ -145,6 +144,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 {
 	struct vma_area *vma_area = NULL;
 	unsigned long start, end, pgoff;
+	bool prev_growsdown = false;
 	unsigned long ino;
 	char r, w, x, s;
 	int dev_maj, dev_min;
@@ -196,6 +196,11 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		}
 
 		if (vma_area) {
+			/* If we've split the stack vma, only the lowest one has the guard page. */
+			if ((vma_area->vma.flags & MAP_GROWSDOWN) && !prev_growsdown)
+				vma_area->vma.start -= PAGE_SIZE; /* Guard page */
+			prev_growsdown = (bool)(vma_area->vma.flags & MAP_GROWSDOWN);
+
 			list_add_tail(&vma_area->list, &vma_area_list->h);
 			vma_area_list->nr++;
 			if (privately_dump_vma(vma_area)) {
