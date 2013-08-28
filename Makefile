@@ -126,11 +126,8 @@ ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: config pie $(VERSION_HEADER) lib
+all: config pie $(VERSION_HEADER) $(CRIU-LIB)
 	$(Q) $(MAKE) $(PROGRAM)
-
-lib: $(VERSION_HEADER)
-	$(Q) $(MAKE) -C lib all
 
 protobuf/%::
 	$(Q) $(MAKE) $(build)=protobuf $@
@@ -151,6 +148,11 @@ pie: arch/$(ARCH)
 	$(Q) $(MAKE) $(build-crtools)=. $@
 built-in.o: $(VERSION_HEADER) pie
 	$(Q) $(MAKE) $(build-crtools)=. $@
+
+lib/%:: $(VERSION_HEADER) config built-in.o
+	$(Q) $(MAKE) $(build)=lib $@
+lib: $(VERSION_HEADER) config built-in.o
+	$(Q) $(MAKE) $(build)=lib all
 
 PROGRAM-BUILTINS	+= pie/util-fd.o
 PROGRAM-BUILTINS	+= pie/util.o
@@ -176,11 +178,11 @@ clean-built:
 	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
 	$(Q) $(MAKE) $(build)=pie clean
+	$(Q) $(MAKE) $(build)=lib clean
 	$(Q) $(MAKE) $(build-crtools)=. clean
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(RM) ./include/config.h
 	$(Q) $(RM) ./$(PROGRAM)
-	$(Q) $(MAKE) -C lib clean
 
 rebuild: clean-built
 	$(E) "  FORCE-REBUILD"
