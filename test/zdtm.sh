@@ -156,7 +156,6 @@ EXCLUDE_PATTERN=""
 CLEANUP=0
 PAGE_SERVER=0
 PS_PORT=12345
-TCPDUMP_PID=
 COMPILE_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
@@ -210,9 +209,6 @@ exit_callback()
 	[[ -n "$ZDTM_FAILED" && -n "$DUMP_ARCHIVE" ]] && tar -czf $DUMP_ARCHIVE dump
 	[ -n "$TMPFS_DUMP" ] &&
 		umount -l "$TMPFS_DUMP"
-
-	[ -n "$TCPDUMP_PID" ] &&
-		kill $TCPDUMP_PID
 }
 trap exit_callback EXIT
 
@@ -385,11 +381,6 @@ EOF
 		args="--root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
-	echo $tname | grep -q tcpbuf && {
-		tcpdump -w dump/$tname/$PID/tcpdump.data -i lo &
-		TCPDUMP_PID=$!
-	}
-
 	for i in `seq $ITERATIONS`; do
 		local dump_only=
 		local postdump=
@@ -502,9 +493,6 @@ EOF
 		[ $sltime -lt 9 ] && sltime=$((sltime+1))
 	done
 
-	[ -n "$TCPDUMP_PID" ] && kill $TCPDUMP_PID
-	TCPDUMP_PID=""
-	
 	cat $test.out
 	cat $test.out | grep -q PASS || return 2
 	[ "$CLEANUP" -ne 0 ] && rm -rf `dirname $ddump`
