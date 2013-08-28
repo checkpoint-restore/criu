@@ -121,6 +121,8 @@ static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned flags)
 	struct sock_fprog flt;
 
 	tl = xmalloc(sizeof(*tl));
+	if (!tl)
+		goto err;
 	strcpy(tl->name, name);
 
 	if (ioctl(fd, TUNGETVNETHDRSZ, &tl->dmp.vnethdr) < 0) {
