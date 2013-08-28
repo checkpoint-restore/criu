@@ -7,6 +7,7 @@
 *.swp
 *.swo
 *-blob.h
+*.so
 .git-ignore
 criu
 cscope*
