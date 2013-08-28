@@ -12,6 +12,7 @@
 #include "files-reg.h"
 #include "tun.h"
 #include "net.h"
+#include "namespaces.h"
 
 #include "protobuf/tun.pb-c.h"
 
@@ -267,6 +268,11 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 	int ret, img = fdset_fd(glob_fdset, CR_FD_TUNFILE);
 	TunfileEntry tfe = TUNFILE_ENTRY__INIT;
 	struct ifreq ifr;
+
+	if (!(current_ns_mask & CLONE_NEWNET)) {
+		pr_err("Net namespace is required to dump tun link\n");
+		return -1;
+	}
 
 	if (dump_one_reg_file(lfd, id, p))
 		return -1;
