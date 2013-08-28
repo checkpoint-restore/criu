@@ -127,7 +127,13 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		};
 
 		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
-		if (ret < 0) {
+		if (!ret)
+			/*
+			 * It means, that peer has performed an
+			 * orderly shutdown, so we're done.
+			 */
+			break;
+		else if (ret < 0) {
 			if (errno == EAGAIN)
 				break; /* we're done */
 			pr_perror("recvmsg fail: error");

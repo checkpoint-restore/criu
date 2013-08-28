@@ -737,6 +737,15 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
+		/*
+		 * Restore queue at the one end,
+		 * before closing the second one.
+		 */
+		if (restore_sk_queue(sks[1], ui->ue->id)) {
+			pr_perror("Can't restore socket queue");
+			return -1;
+		}
+
 		close(sks[1]);
 		sk = sks[0];
 	} else {
