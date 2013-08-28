@@ -13,6 +13,7 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <sys/prctl.h>
 
 #include "zdtmtst.h"
 #include "lock.h"
@@ -127,6 +128,11 @@ void test_init(int argc, char **argv)
 	val = getenv("ZDTM_UID");
 	if (val && (setuid(atoi(val)) == -1)) {
 		fprintf(stderr, "Can't set gid: %m");
+		exit(1);
+	}
+
+	if (prctl(PR_SET_DUMPABLE, 1)) {
+		fprintf(stderr, "Can't set the dumpable flag");
 		exit(1);
 	}
 
