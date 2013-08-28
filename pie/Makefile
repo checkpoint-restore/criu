@@ -3,6 +3,7 @@ targets 		+= restorer
 
 obj-y			+= log-simple.o
 obj-y			+= util.o
+obj-y			+= util-fd.o
 
 parasite-obj-y		+= parasite.o
 parasite-asm-e		+= $(ARCH_DIR)/parasite-head.o
