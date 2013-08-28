@@ -958,6 +958,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		pid = waitpid(root_item->pid.real, &status, WNOHANG);
 		if (pid <= 0)
 			return;
+		exit = WIFEXITED(status);
+		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
 	}
 
 	if (!current || status)
