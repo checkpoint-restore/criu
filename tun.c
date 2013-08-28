@@ -7,6 +7,7 @@
 #include "crtools.h"
 #include "protobuf.h"
 #include "cr-show.h"
+#include "string.h"
 #include "files.h"
 #include "files-reg.h"
 #include "tun.h"
@@ -92,7 +93,7 @@ static int list_tun_link(NetDeviceEntry *nde)
 	if (!tl)
 		return -1;
 
-	strcpy(tl->name, nde->name);
+	strlcpy(tl->name, nde->name, sizeof(tl->name));
 	/*
 	 * Keep tun-flags not only for persistency fixup (see
 	 * commend below), but also for TUNSETIFF -- we must
@@ -123,7 +124,7 @@ static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned flags)
 	tl = xmalloc(sizeof(*tl));
 	if (!tl)
 		goto err;
-	strcpy(tl->name, name);
+	strlcpy(tl->name, name, sizeof(tl->name));
 
 	if (ioctl(fd, TUNGETVNETHDRSZ, &tl->dmp.vnethdr) < 0) {
 		pr_perror("Can't dump vnethdr size for %s", name);
@@ -209,7 +210,7 @@ static int open_tun_dev(char *name, unsigned int idx, unsigned flags)
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, name);
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_flags = flags;
 
 	if (ioctl(fd, TUNSETIFF, &ifr)) {
@@ -333,7 +334,7 @@ static int tunfile_open(struct file_desc *d)
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, tl->name);
+	strlcpy(ifr.ifr_name, tl->name, sizeof(ifr.ifr_name));
 	ifr.ifr_flags = tl->rst.flags;
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
