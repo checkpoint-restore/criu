@@ -43,6 +43,7 @@ struct test_cases {
 };
 
 static int init_cow(struct test_cases *);
+static int init_cow_gd(struct test_cases *tcs);
 static int init_sep(struct test_cases *);
 static int init_file(struct test_cases *);
 
@@ -52,13 +53,15 @@ static pid_t child_pid;
 	int __ret = 0;			\
 	__ret += func(&sep_tcs);	\
 	__ret += func(&cow_tcs);	\
+	__ret += func(&cow_gd_tcs);	\
 	__ret += func(&file_tcs);	\
 	__ret;				\
 })
 
 struct test_cases cow_tcs = {.init = init_cow},
 		  sep_tcs = {.init = init_sep},
-		  file_tcs = {.init = init_file};
+		  file_tcs = {.init = init_file},
+		  cow_gd_tcs = {.init = init_cow_gd};
 
 uint32_t zero_crc = ~1;
 
@@ -236,7 +239,7 @@ static int parent_check(struct test_cases *test_cases)
 	return ret;
 }
 
-static int init_cow(struct test_cases *tcs)
+static int __init_cow(struct test_cases *tcs, int flags)
 {
 	int i;
 	void *addr;
@@ -259,7 +262,7 @@ static int init_cow(struct test_cases *tcs)
 	addr += PAGE_SIZE;
 	tcs->addr = addr;
 	mmap(addr + PAGE_SIZE * TEST_CASES, PAGE_SIZE, PROT_NONE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | flags, -1, 0);
 
 	test_msg("cow_addr=%p\n", addr);
 	for (i = 0; i < TEST_CASES; i++) {
@@ -269,6 +272,16 @@ static int init_cow(struct test_cases *tcs)
 	}
 
 	return 0;
+}
+
+static int init_cow(struct test_cases *tcs)
+{
+	return __init_cow(tcs, 0);
+}
+
+static int init_cow_gd(struct test_cases *tcs)
+{
+	return __init_cow(tcs, MAP_GROWSDOWN);
 }
 
 static int init_sep(struct test_cases *tcs)
