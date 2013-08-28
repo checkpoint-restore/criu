@@ -29,3 +29,16 @@ int main(void)
 	return prlimit(getpid(), RLIMIT_CPU, &limit, NULL);
 }
 endef
+
+define STRLCPY_TEST
+
+#include <string.h>
+
+int main(void)
+{
+	char src[32] = "strlcpy";
+	char dst[32];
+
+	return strlcpy(dst, src, sizeof(dst));
+}
+endef

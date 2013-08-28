@@ -50,6 +50,7 @@ obj-y	+= page-xfer.o
 obj-y	+= page-read.o
 obj-y	+= kerndat.o
 obj-y	+= stats.o
+obj-y	+= string.o
 obj-y	+= sigframe.o
 obj-y	+= arch/$(ARCH)/vdso.o
 
