@@ -126,7 +126,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 				vaddr, pr->cvaddr, lseek(pr->fd_pg, 0, SEEK_CUR));
 		ret = read(pr->fd_pg, buf, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
-			pr_err("Can't read mapping page %d\n", ret);
+			pr_perror("Can't read mapping page %d", ret);
 			return -1;
 		}
 	}
