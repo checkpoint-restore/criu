@@ -75,6 +75,9 @@ incdeps::
 	files)	for source code C files. To turn this functionality on just
 	type 'incdeps := y' somewhere in your Makefile.
 
+cleanup-y::
+	List of files to be cleaned up when 'clean' target is called.
+
 For example a simplified Makefile may look like
 
 	obj-y += file1.o
