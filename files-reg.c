@@ -388,7 +388,7 @@ static int check_path_remap(char *rpath, int plen, const struct stat *ost, int l
 	ret = fstatat(mntns_root, rpath, &pst, 0);
 	if (ret < 0) {
 		/*
-		 * FIXME linked file, but path is not accessible (unless any
+		 * Linked file, but path is not accessible (unless any
 		 * other error occurred). We can create a temporary link to it
 		 * uning linkat with AT_EMPTY_PATH flag and remap it to this
 		 * name.
