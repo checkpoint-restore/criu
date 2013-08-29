@@ -570,12 +570,30 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 	return 0;
 }
 
-#define MNT_TREE_WALK(_r, _el, _fn_f, _fn_r) do {				\
+/*
+ * _fn_f  - pre-order traversal function
+ * _fn_f  - post-order traversal function
+ * _plist - a postpone list. _el is added to this list, if _fn_f returns
+ *	    a positive value, and all lower elements are not enumirated.
+ */
+#define MNT_TREE_WALK(_r, _el, _fn_f, _fn_r, _plist, _prgs) do {		\
 		struct mount_info *_mi = _r;					\
 										\
 		while (1) {							\
-			if (_fn_f(_mi))						\
+			int ret;						\
+										\
+			list_del_init(&_mi->postpone);				\
+										\
+			ret = _fn_f(_mi);					\
+			if (ret < 0)						\
 				return -1;					\
+			else if (ret > 0) {					\
+				list_add_tail(&_mi->postpone, _plist);		\
+				goto up;					\
+			}							\
+										\
+			_prgs++;					\
+										\
 			if (!list_empty(&_mi->children)) {			\
 				_mi = list_entry(_mi->children._el,		\
 						struct mount_info, siblings);	\
@@ -598,18 +616,50 @@ int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
 #define MNT_WALK_NONE	0 &&
 
 
-static int mnt_tree_for_each(struct mount_info *m,
+static int mnt_tree_for_each(struct mount_info *start,
 		int (*fn)(struct mount_info *))
 {
-	MNT_TREE_WALK(m, next, fn, MNT_WALK_NONE);
+	struct mount_info *tmp;
+	LIST_HEAD(postpone);
+	LIST_HEAD(postpone2);
+	int progress;
+
+	pr_debug("Start with %d:%s\n", start->mnt_id, start->mountpoint);
+	list_add(&start->postpone, &postpone);
+
+again:
+	progress = 0;
+
+	list_for_each_entry_safe(start, tmp, &postpone, postpone)
+		MNT_TREE_WALK(start, next, fn, MNT_WALK_NONE, &postpone2, progress);
+
+	if (!progress) {
+		struct mount_info *m;
+
+		pr_err("A few mount points can't be mounted");
+		list_for_each_entry(m, &postpone2, postpone) {
+			pr_err("%d:%d %s %s %s\n", m->mnt_id,
+				m->parent_mnt_id, m->root,
+				m->mountpoint, m->source);
+		}
+		return -1;
+	}
+
+	list_splice_init(&postpone2, &postpone);
+
+	if (!list_empty(&postpone))
+		goto again;
 
 	return 0;
+
 }
 
 static int mnt_tree_for_each_reverse(struct mount_info *m,
 		int (*fn)(struct mount_info *))
 {
-	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn);
+	int progress;
+
+	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn, (struct list_head *) NULL, progress);
 
 	return 0;
 }
@@ -765,6 +815,7 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->siblings);
 		INIT_LIST_HEAD(&new->mnt_slave_list);
 		INIT_LIST_HEAD(&new->mnt_share);
+		INIT_LIST_HEAD(&new->postpone);
 		new->mnt_master = NULL;
 	}
 	return new;
