@@ -434,6 +434,20 @@ static int mount_ns_sysfs(void)
 
 	BUG_ON(ns_sysfs_fd != -1);
 
+	/*
+	 * A new mntns is required to avoid the race between
+	 * open_detach_mount and creating mntns.
+	 */
+	if (unshare(CLONE_NEWNS)) {
+		pr_perror("Can't create new mount namespace");
+		return -1;
+	}
+
+	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+		pr_perror("Can't mark the root mount as private");
+		return -1;
+	}
+
 	if (mkdtemp(sys_mount) == NULL) {
 		pr_perror("mkdtemp failed %s", sys_mount);
 		return -1;
