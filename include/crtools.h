@@ -189,4 +189,14 @@ static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 		addr < (unsigned long)vma->vma.end;
 }
 
+/*
+ * When we have to restore a shared resource, we mush select which
+ * task should do it, and make other(s) wait for it. In order to
+ * avoid deadlocks, always make task with lower pid be the restorer.
+ */
+static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
+{
+	return pid_a < pid_b;
+}
+
 #endif /* __CR_CRTOOLS_H__ */

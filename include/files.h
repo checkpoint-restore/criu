@@ -6,6 +6,7 @@
 #include "lock.h"
 #include "list.h"
 #include "image.h"
+#include "crtools.h"
 
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fown.pb-c.h"
@@ -69,7 +70,8 @@ struct fdinfo_list_entry {
 /* reports whether fd_a takes prio over fd_b */
 static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_list_entry *fd_b)
 {
-	return (fd_a->pid < fd_b->pid) || ((fd_a->pid == fd_b->pid) && (fd_a->fe->fd < fd_b->fe->fd));
+	return pid_rst_prio(fd_a->pid, fd_b->pid) ||
+		((fd_a->pid == fd_b->pid) && (fd_a->fe->fd < fd_b->fe->fd));
 }
 
 struct file_desc_ops {

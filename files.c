@@ -443,10 +443,9 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 		return -1;
 	}
 
-	list_for_each_entry(le, &fdesc->fd_info_head, desc_list) {
-		if (le->pid > new_le->pid)
+	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
+		if (pid_rst_prio(new_le->pid, le->pid))
 			break;
-	}
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
@@ -972,7 +971,7 @@ int shared_fdt_prepare(struct pstree_item *item)
 	item->rst->fdt = fdt;
 	item->rst->service_fd_id = fdt->nr;
 	fdt->nr++;
-	if (fdt->pid > item->pid.virt)
+	if (pid_rst_prio(item->pid.virt, fdt->pid))
 		fdt->pid = item->pid.virt;
 
 	return 0;
