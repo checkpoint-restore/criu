@@ -133,7 +133,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	if (ret < 0)
 		return -1;
 
-	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8lx fd: %d\n",
+	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8"PRIx64" fd: %d\n",
 		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
 
 	return pb_write_one(fdinfo, &e, PB_FDINFO);
@@ -179,7 +179,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 
 	fown_entry__init(&p->fown);
 
-	pr_info("%d fdinfo %d: pos: 0x%16lx flags: %16o/%#x\n",
+	pr_info("%d fdinfo %d: pos: 0x%16"PRIx64" flags: %16o/%#x\n",
 		ctl->pid.real, fd, p->pos, p->flags, (int)p->fd_flags);
 
 	ret = fcntl(lfd, F_GETSIG, 0);

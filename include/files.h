@@ -35,7 +35,7 @@ struct fd_link {
 
 struct fd_parms {
 	int		fd;
-	unsigned long	pos;
+	off_t		pos;
 	unsigned int	flags;
 	char		fd_flags;
 	struct stat	stat;
