@@ -93,6 +93,28 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 	return NULL;
 }
 
+/*
+ * Comparer two mounts. Return true if only mount points are differ.
+ * Don't care about root and mountpoints, if bind is true.
+ */
+static bool mounts_equal(struct mount_info* mi, struct mount_info *c, bool bind)
+{
+	if (mi->s_dev != c->s_dev ||
+	    c->fstype != mi->fstype ||
+	    strcmp(c->source, mi->source) ||
+	    strcmp(c->options, mi->options))
+		return false;
+
+	if (bind)
+		return true;
+
+	if (strcmp(c->root, mi->root))
+		return false;
+	if (strcmp(basename(c->mountpoint), basename(mi->mountpoint)))
+		return false;
+	return true;
+}
+
 static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 {
 	struct mount_info *m, *root = NULL;
@@ -677,6 +699,80 @@ static char *resolve_source(struct mount_info *mi)
 	return NULL;
 }
 
+/*
+ * Umount points, which are propagated in slave parents, because
+ * we can't be sure, that they were inherited in a real life.
+ */
+static int umount_from_slaves(struct mount_info *mi)
+{
+	struct mount_info *t;
+	char mpath[PATH_MAX];
+
+	list_for_each_entry(t, &mi->parent->mnt_slave_list, mnt_slave) {
+		snprintf(mpath, sizeof(mpath), "%s/%s",
+				t->mountpoint, basename(mi->mountpoint));
+		pr_debug("\t\tUmount %s\n", mpath);
+		if (umount(mpath) == -1) {
+			pr_perror("Can't umount %s", mpath);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * If something is mounted in one shared point, it will be spread in
+ * all other points from this shared group.
+ *
+ * Look at Documentation/filesystems/sharedsubtree.txt for more details
+ */
+static int propagate_siblings(struct mount_info *mi)
+{
+	struct mount_info *t;
+
+	/*
+	 * Find all mounts, which must be bind-mounted from this one
+	 * to inherite shared group or master id
+	 */
+	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
+		pr_debug("\t\tBind %s\n", t->mountpoint);
+		t->bind = mi;
+	}
+
+	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
+		pr_debug("\t\tBind %s\n", t->mountpoint);
+		t->bind = mi;
+	}
+
+	return 0;
+}
+
+static int propagate_mount(struct mount_info *mi)
+{
+	struct mount_info *t;
+
+	propagate_siblings(mi);
+	umount_from_slaves(mi);
+
+	/* Propagate this mount to everyone from a parent group */
+
+	list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
+		struct mount_info *c;
+
+		list_for_each_entry(c, &t->children, siblings) {
+			if (mounts_equal(mi, c, false)) {
+				pr_debug("\t\tPropogate %s\n", c->mountpoint);
+				c->mounted = true;
+				propagate_siblings(c);
+				umount_from_slaves(c);
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int do_new_mount(struct mount_info *mi)
 {
 	char *src;
@@ -706,15 +802,25 @@ static int do_bind_mount(struct mount_info *mi)
 
 static int do_mount_one(struct mount_info *mi)
 {
+	int ret;
+
 	if (!mi->parent)
+		return 0;
+
+	if (mi->mounted)
 		return 0;
 
 	pr_debug("\tMounting %s @%s\n", mi->fstype->name, mi->mountpoint);
 
 	if (fsroot_mounted(mi))
-		return do_new_mount(mi);
+		ret = do_new_mount(mi);
 	else
-		return do_bind_mount(mi);
+		ret = do_bind_mount(mi);
+
+	if (ret == 0 && propagate_mount(mi))
+		return -1;
+
+	return ret;
 }
 
 static int do_umount_one(struct mount_info *mi)
@@ -815,6 +921,7 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->siblings);
 		INIT_LIST_HEAD(&new->mnt_slave_list);
 		INIT_LIST_HEAD(&new->mnt_share);
+		INIT_LIST_HEAD(&new->mnt_bind);
 		INIT_LIST_HEAD(&new->postpone);
 		new->mnt_master = NULL;
 	}
