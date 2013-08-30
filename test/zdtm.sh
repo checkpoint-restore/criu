@@ -223,6 +223,7 @@ construct_root()
 	local libdir=$root/lib
 	local libdir2=$root/lib64
 	local tmpdir=$root/tmp
+	local lname, tname
 
 	mkdir -p $root/bin
 	cp $ps_path $root/bin
@@ -242,13 +243,34 @@ construct_root()
 	#	/lib/ld-linux-armhf.so.3 (0xb6f0b000)
 
 	for i in `ldd $test_path $ps_path | grep -P '^\s' | grep -v vdso | sed "s/.*=> //" | awk '{ print $1 }'`; do
-		local lib=`basename $i`
-		[ -f $libdir/$lib ] && continue ||
-		[ -f $i ] && cp $i $libdir && cp $i $libdir2 && continue ||
-		[ -f /lib64/$i ] && cp /lib64/$i $libdir && cp /lib64/$i $libdir2 && continue ||
-		[ -f /usr/lib64/$i ] && cp /usr/lib64/$i $libdir && cp /usr/lib64/$i $libdir2 && continue ||
-		[ -f /lib/x86_64-linux-gnu/$i ] && cp /lib/x86_64-linux-gnu/$i $libdir && cp /lib/x86_64-linux-gnu/$i $libdir2 && continue ||
-		[ -f /lib/arm-linux-gnueabi/$i ] && cp /lib/arm-linux-gnueabi/$i $libdir && cp /lib/arm-linux-gnueabi/$i $libdir2 && continue || echo "Failed at " $i && return 1
+		local ldir, lib=`basename $i`
+
+		[ -f $libdir2/$lib ] && continue # fast path
+
+		if [ -f $i ]; then
+			lname=$i
+		elif [ -f /lib64/$i ]; then
+			lname=/lib64/$i
+		elif [ -f /usr/lib64/$i ]; then
+			lname=/usr/lib64/$i
+		elif [ -f /lib/x86_64-linux-gnu/$i ]; then
+			lname=/lib/x86_64-linux-gnu/$i
+		elif [ -f /lib/arm-linux-gnueabi/$i ]; then
+			lname=/lib/arm-linux-gnueabi/$i
+		else 
+			echo "Failed at " $i;
+			return 1
+		fi
+
+		# When tests are executed concurrently all of them use the same root,
+		# so libraries must be copied atomically.
+
+		for ldir in "$libdir" "$libdir2"; do
+			tname=$(mktemp $ldir/lib.XXXXXX)
+			cp -pf $lname $tname &&
+			mv -n $tname $ldir/$lib || return 1
+			[ -f $tname ] && unlink $tname
+		done
 	done
 
 	# make 'tmp' dir under new root
