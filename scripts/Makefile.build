@@ -17,19 +17,19 @@ include $(obj)/$(makefile)
 ##
 ## Generate a bundle of rules for C files
 define gen-target-c-bundle
-$(eval $(call gen-rule-o-from-c-by-name,$(1),$(2)))
-$(eval $(call gen-rule-i-from-c-by-name,$(1),$(2)))
-$(eval $(call gen-rule-d-from-c-by-name,$(1),$(2)))
-$(eval $(call gen-rule-s-from-c-by-name,$(1),$(2)))
+$(eval $(call gen-rule-o-from-c-by-name,$(1),$(2),$(3)))
+$(eval $(call gen-rule-i-from-c-by-name,$(1),$(2),$(3)))
+$(eval $(call gen-rule-d-from-c-by-name,$(1),$(2),$(3)))
+$(eval $(call gen-rule-s-from-c-by-name,$(1),$(2),$(3)))
 endef
 
 ##
 ##
 ## Generate a bundle of rules for S files
 define gen-target-S-bundle
-$(eval $(call gen-rule-o-from-S-by-name,$(1),$(2)))
-$(eval $(call gen-rule-d-from-S-by-name,$(1),$(2)))
-$(eval $(call gen-rule-i-from-S-by-name,$(1),$(2)))
+$(eval $(call gen-rule-o-from-S-by-name,$(1),$(2),$(3)))
+$(eval $(call gen-rule-d-from-S-by-name,$(1),$(2),$(3)))
+$(eval $(call gen-rule-i-from-S-by-name,$(1),$(2),$(3)))
 endef
 
 ##
@@ -41,7 +41,7 @@ $(foreach file,						\
 	$(obj-y),					\
 	$(eval						\
 		$(call gen-target-c-bundle,		\
-			$(file:.o=))))
+			$(file:.o=),$(file:.o=))))
 all-objs += $(obj-y)
 deps += $(obj-y:.o=.d)
 endif
@@ -51,7 +51,7 @@ $(foreach file,						\
 	$(obj-e),					\
 	$(eval						\
 		$(call gen-target-c-bundle,		\
-			$(file:.o=))))
+			$(file:.o=),$(file:.o=))))
 all-objs += $(obj-e)
 deps += $(obj-e:.o=.d)
 endif
@@ -62,7 +62,7 @@ $(foreach file,						\
 	$(asm-y),					\
 	$(eval						\
 		$(call gen-target-S-bundle,		\
-			$(file:.o=))))
+			$(file:.o=),$(file:.o=))))
 all-objs += $(asm-y)
 deps += $(asm-y:.o=.d)
 endif
@@ -72,7 +72,7 @@ $(foreach file,						\
 	$(asm-e),					\
 	$(eval						\
 		$(call gen-target-S-bundle,		\
-			$(file:.o=))))
+			$(file:.o=),$(file:.o=))))
 all-objs += $(asm-e)
 deps += $(asm-e:.o=.d)
 endif
@@ -90,6 +90,7 @@ ifneq ($($(1)-obj-y),)
 		$(eval						\
 			$(call gen-target-c-bundle,		\
 				$(obj)/$(file:.o=),		\
+				$(obj)/$(file:.o=),		\
 				$($(1)-obj-y-cflags))))
 	$(1)-all-objs += $$(addprefix $(obj)/, $($(1)-obj-y))
 	deps += $$(addprefix $(obj)/, $($(1)-obj-y:.o=.d))
@@ -100,6 +101,7 @@ ifneq ($($(1)-obj-e),)
 		$($(1)-obj-e),					\
 		$(eval						\
 			$(call gen-target-c-bundle,		\
+				$(file:.o=),			\
 				$(file:.o=),			\
 				$($(1)-obj-e-cflags))))
 	$(1)-all-objs += $$($(1)-obj-e)
@@ -112,6 +114,7 @@ ifneq ($($(1)-asm-y),)
 		$(eval						\
 			$(call gen-target-S-bundle,		\
 				$(obj)/$(file:.o=),		\
+				$(obj)/$(file:.o=),		\
 				$($(1)-asm-y-asmflags))))
 	$(1)-all-objs += $$(addprefix $(obj)/, $($(1)-asm-y))
 	deps += $$($(1)-asm-y:.o=.d)
@@ -122,6 +125,7 @@ ifneq ($($(1)-asm-e),)
 		$($(1)-asm-e),					\
 		$(eval						\
 			$(call gen-target-S-bundle,		\
+				$(file:.o=),			\
 				$(file:.o=),			\
 				$($(1)-asm-e-asmflags))))
 	$(1)-all-objs += $$($(1)-asm-e)
