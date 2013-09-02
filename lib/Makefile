@@ -1,7 +1,8 @@
+lib-so			+= libcriu
 obj-y			+= criu.o
 
-cflags-y		+= -shared -fPIC -Wa,--noexecstack -fno-stack-protector
-LDFLAGS			+= --export-dynamic
+cflags-y		+= -fPIC -Wa,--noexecstack -fno-stack-protector
+cflags-so		+= -rdynamic
 includes		+= -iquote $(obj)/../arch/$(ARCH)/include -iquote $(obj)/../include -iquote $(obj)/..
 
 .SECONDARY:
@@ -14,15 +15,6 @@ includes		+= -iquote $(obj)/../arch/$(ARCH)/include -iquote $(obj)/../include -i
 $(obj)/util-fd.o: $(obj)/../pie/util-fd.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(cflags-y) $(CFLAGS) $(includes) $< -o $@
-
-$(obj)/built-in.o: $(obj)/util-fd.o
-
-$(obj)/libcriu.so: $(obj)/built-in.o
-	$(E) "  GEN     " $@
-	$(Q) $(CC) $(CFLAGS) -shared $^ -o $@
-
-_all += $(obj)/built-in.o
-cleanup-y += $(obj)/*.so
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
