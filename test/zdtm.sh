@@ -714,7 +714,7 @@ elif [ $SPECIFIED_NAME_USED -eq 1 ]; then
 		echo "test name should be provided"
 		exit 1
 	fi
-	run_test $1 || case_error $t
+	run_test $1 || case_error $1
 else
 	if [ $COMPILE_ONLY -eq 0 ]; then
 		check_mainstream || exit 1
