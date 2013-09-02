@@ -61,6 +61,12 @@ obj-e::
 	Same as 'obj-y' but implies that source code file lays in directory
 	other than '$(obj)'. The postfix '-e' came from word 'external'.
 
+obj-ext-src-y::
+	Same as 'obj-y' but implies that source code file lays in directory
+	other than '$(obj)', while compiled object file pushed into '$(obj)' directory.
+	Consider using this variable if you need to compile same source file with
+	different flags.
+
 asm-y::
 	Source code S file. Same as 'obj-y' but for assembly language.
 
