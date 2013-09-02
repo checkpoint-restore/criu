@@ -79,6 +79,23 @@ endif
 
 ##
 ##
+## Standalone files where sources are kept in external
+## directories. Usually needed when same source files
+## are compiled with different flags.
+ifneq ($(obj-ext-src-y),)
+__obj-ext-src-y := $(addprefix $(obj)/, $(notdir $(obj-ext-src-y)))
+$(foreach file,						\
+	$(obj-ext-src-y),				\
+	$(eval						\
+		$(call gen-target-c-bundle,		\
+			$(file:.o=),			\
+			$(addprefix $(obj)/,$(notdir $(file:.o=))))))
+all-objs += $(__obj-ext-src-y)
+deps += $(__obj-ext-src-y:.o=.d)
+endif
+
+##
+##
 ## Generate rules for a target
 define gen-target-rules
 
