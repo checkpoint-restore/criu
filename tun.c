@@ -215,7 +215,7 @@ static int open_tun_dev(char *name, unsigned int idx, unsigned flags)
 	ifr.ifr_flags = flags;
 
 	if (ioctl(fd, TUNSETIFF, &ifr)) {
-		pr_perror("Can't create tun device\n");
+		pr_perror("Can't create tun device");
 		goto err;
 	}
 
@@ -448,13 +448,13 @@ int restore_one_tun(NetDeviceEntry *nde, int nlsk)
 
 	aux = nde->tun->owner;
 	if ((aux != -1) && ioctl(fd, TUNSETOWNER, aux) < 0) {
-		pr_perror("Can't set owner\n");
+		pr_perror("Can't set owner");
 		goto out;
 	}
 
 	aux = nde->tun->group;
 	if ((aux != -1) && ioctl(fd, TUNSETGROUP, aux) < 0) {
-		pr_perror("Can't set group\n");
+		pr_perror("Can't set group");
 		goto out;
 	}
 
@@ -477,7 +477,7 @@ int restore_one_tun(NetDeviceEntry *nde, int nlsk)
 	 */
 
 	if (ioctl(fd, TUNSETPERSIST, 1)) {
-		pr_perror("Can't make tun device persistent\n");
+		pr_perror("Can't make tun device persistent");
 		goto out;
 	}
 
