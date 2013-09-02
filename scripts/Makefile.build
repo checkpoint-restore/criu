@@ -159,6 +159,16 @@ endif
 endif
 
 ##
+## A rule for building library.
+ifneq ($(lib-so),)
+$(obj)/$(lib-so).so: $(all-objs) $(libs-e)
+	$(E) "  LINK    " $@
+	$(Q) $(CC) -shared $(cflags-so) -o $@ $^
+
+_all += $(obj)/$(lib-so).so
+endif
+
+##
 ##
 ## Include deps if requested
 ifneq ($(incdeps),)
@@ -175,6 +185,7 @@ cleanup-y += $(obj)/*.o $(obj)/*.d
 cleanup-y += $(obj)/*.i $(obj)/*.s
 cleanup-y += $(obj)/*.built-in.o
 cleanup-y += $(obj)/built-in.o
+cleanup-y += $(obj)/*.so
 
 ##
 ## Predefined .PHONY targets
