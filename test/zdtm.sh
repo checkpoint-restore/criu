@@ -122,8 +122,7 @@ ns/static/tun
 "
 
 TEST_CR_KERNEL="
-static/sigpending
-static/sk-netlink
+ns/static/tun
 "
 
 TEST_SUID_LIST="
@@ -194,9 +193,9 @@ EOF
 	ver_arr=(`echo ${ver_str//./ }`)
 
 	[ "${ver_arr[0]}" -gt 3 ] && return 0
-	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 8 ]] && return 0
+	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 11 ]] && return 0
 
-	echo "A version of kernel should be greater or equal to 3.8" >&2
+	echo "A version of kernel should be greater or equal to 3.11" >&2
 
 	return 1;
 }
