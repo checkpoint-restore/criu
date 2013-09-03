@@ -360,7 +360,7 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 		if (ssock < 0)
 			pr_perror("Can't create socket");
 
-		if (rst > 0 && restore_ns(rst, &net_ns_desc) < 0)
+		if (rst >= 0 && restore_ns(rst, &net_ns_desc) < 0)
 			return -1;
 		if (ssock < 0)
 			return -1;
