@@ -506,11 +506,6 @@ int check_ptrace_peeksiginfo()
 
 static int check_mem_dirty_track(void)
 {
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping dirty tracking check (not yet merged)\n");
-		return 0;
-	}
-
 	if (kerndat_get_dirty_track() < 0)
 		return -1;
 
