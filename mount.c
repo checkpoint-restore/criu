@@ -455,8 +455,10 @@ static DIR *open_mountpoint(struct mount_info *pm)
 	if (fd < 0)
 		goto out;
 
-	if (restore_ns(ns_old, &mnt_ns_desc))
+	if (restore_ns(ns_old, &mnt_ns_desc)) {
+		ns_old = -1;
 		goto out;
+	}
 
 	return __open_mountpoint(pm, fd);;
 out:
