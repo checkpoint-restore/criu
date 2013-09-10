@@ -242,6 +242,12 @@ dump:
 	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, PB_UNIX_SK))
 		goto err;
 
+	/*
+	 * If a stream listening socket has non-zero rqueue, this
+	 * means there are in-flight connections waiting to get
+	 * accept()-ed. We handle them separately with the "icons"
+	 * (i stands for in-flight, cons -- for connections) things.
+	 */
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
 				sk->state == TCP_LISTEN))
 		if (dump_sk_queue(lfd, ue.id))
