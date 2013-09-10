@@ -90,7 +90,7 @@ struct file_desc_ops {
 	int			(*post_open)(struct file_desc *d, int fd);
 	/*
 	 * Report whether the fd in question wants a transport socket
-	 * in it instead of a real file.
+	 * in it instead of a real file. See file_master for details.
 	 */
 	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
 	/*
@@ -101,7 +101,7 @@ struct file_desc_ops {
 };
 
 struct file_desc {
-	u32			id;		/* File descriptor id, unique */
+	u32			id;		/* File id, unique */
 	struct hlist_node	hash;		/* Descriptor hashing and lookup */
 	struct list_head	fd_info_head;	/* Chain of fdinfo_list_entry-s with same ID and type but different pids */
 	struct file_desc_ops	*ops;		/* Associated operations */

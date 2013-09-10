@@ -83,6 +83,39 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 	return find_file_desc_raw(fe->type, fe->id);
 }
 
+/*
+ * A file may be shared between several file descriptors. E.g
+ * when doing a fork() every fd of a forker and respective fds
+ * of the child have such. Another way of getting shared files
+ * is by dup()-ing them or sending them via unix sockets in
+ * SCM_RIGHTS message.
+ *
+ * We restore this type of things in 3 steps (states[] below)
+ *
+ * 1. Prepare step.
+ *    Select which task will create the file (open() one, or
+ *    call any other syscall for than (socket, pipe, etc.). All
+ *    the others, that share one, create unix sockets under the
+ *    respective file descriptor (transport socket).
+ * 2. Open step.
+ *    The one who creates the file (the 'master') creates one,
+ *    then creates one more unix socket (transport) and sends the
+ *    created file over this socket to the other recepients.
+ * 3. Receive step.
+ *    Those, who wait for the file to appear, receive one via
+ *    the transport socket, then close the socket and dup() the
+ *    received file descriptor into its place.
+ *
+ * There's the 4th step in the states[] array -- the post_open
+ * one. This one is not about file-sharing resolving, but about
+ * doing something with a file using it's 'desired' fd. The
+ * thing is that while going the 3-step process above, the file
+ * may appear in variuos places in the task's fd table, and if
+ * we want to do something with it's _final_ descriptor value,
+ * we should wait for it to appear there. So the post_open is
+ * called when the file is finally set into its place.
+ */
+
 struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
 	if (list_empty(&d->fd_info_head)) {
@@ -109,6 +142,14 @@ void show_saved_files(void)
 				pr_info("   `- FD %d pid %d\n", le->fe->fd, le->pid);
 		}
 }
+
+/*
+ * The gen_id thing is used to optimize the comparison of shared files.
+ * If two files have different gen_ids, then they are different for sure.
+ * If it matches, we don't know it and have to call sys_kcmp(). 
+ *
+ * The kcmp-ids.c engine does this trick, see comments in it for more info.
+ */
 
 static u32 make_gen_id(const struct fd_parms *p)
 {
