@@ -292,7 +292,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 		 * tun device. Go agead an write the respective entry.
 		 */
 	} else {
-		tfe.netdev = ifr.ifr_ifrn.ifrn_name;
+		tfe.netdev = ifr.ifr_name;
 		pr_info("`- attached to device %s (flags %x)\n", tfe.netdev, ifr.ifr_flags);
 
 		if (ifr.ifr_flags & IFF_DETACH_QUEUE) {
