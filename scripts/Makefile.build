@@ -187,6 +187,7 @@ $(obj)/$(lib-so).so: $(all-objs) $(libs-e)
 	$(Q) $(CC) -shared $(cflags-so) -o $@ $^
 
 _all += $(obj)/$(lib-so).so
+cleanup-y += $(obj)/$(lib-so).so
 endif
 
 ##
@@ -206,7 +207,6 @@ cleanup-y += $(obj)/*.o $(obj)/*.d
 cleanup-y += $(obj)/*.i $(obj)/*.s
 cleanup-y += $(obj)/*.built-in.o
 cleanup-y += $(obj)/built-in.o
-cleanup-y += $(obj)/*.so
 
 ##
 ## Predefined .PHONY targets
