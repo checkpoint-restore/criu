@@ -603,81 +603,73 @@ checkout()
 cd `dirname $0` || exit 1
 
 while :; do
-	if [ "$1" = "-d" ]; then
+	case $1 in
+	  -d)
 		DUMP_ONLY=1
 		shift
-		continue
-	fi
-	if [ "$1" = "-i" ]; then
+		;;
+	  -i)
 		shift
 		ITERATIONS=$1
 		shift
-		continue
-	fi
-	if [ "$1" = "-b" ]; then
+		;;
+	  -b)
 		shift
 		checkout $1 || exit 1
 		CRIU_CPT=$TMP_TREE/criu
 		shift
-		continue
-	fi
-	if [ "$1" = "-c" ]; then
+		;;
+	  -c)
 		shift
 		checkout $1 || exit 1
 		shift
 		$TMP_TREE/test/zdtm.sh "$@"
 		exit
-	fi
-	if [ "$1" = "-p" ]; then
+		;;
+	  -p)
 		shift
 		PAGE_SERVER=1
-		continue
-	fi
-	if [ "$1" = "-C" ]; then
+		;;
+	  -C)
 		shift
 		CLEANUP=1
-		continue
-	fi
-	if [ "$1" = "-x" ]; then
+		;;
+	  -x)
 		shift
 		EXCLUDE_PATTERN=$1
 		shift
-		continue
-	fi
-	if [ "$1" = "-t" ]; then
+		;;
+	  -t)
 		shift
 		TMPFS_DUMP=dump
 		[ -d dump ] || mkdir -p $TMPFS_DUMP
 		mount -t tmpfs none $TMPFS_DUMP || exit 1
-		continue
-	fi
-	if [ "$1" = "-a" ]; then
+		;;
+	  -a)
 		shift
 		DUMP_ARCHIVE=$1
 		shift
-		continue
-	fi
-	if [ "$1" = "-s" ]; then
+		;;
+	  -s)
 		SNAPSHOT=1
 		shift
-		continue
-	fi
-	if [ "$1" = "-g" ]; then
+		;;
+	  -g)
 		COMPILE_ONLY=1
 		shift
-		continue
-	fi
-	if [ "$1" = "-n" ]; then
+		;;
+	  -n)
 		BATCH_TEST=1
 		shift
-		continue
-	fi
-	if [ "$1" = "-r" ]; then
+		;;
+	  -r)
 		SPECIFIED_NAME_USED=1
 		shift
-		continue
-	fi
-	break
+		;;
+	  *)
+		break
+		;;
+	esac
 done
 
 if [ $COMPILE_ONLY -eq 0 ]; then
