@@ -388,7 +388,7 @@ run_test()
 
 	local ddump
 	if ! kill -s 0 "$PID"; then
-		echo "Get a wrong pid '$PID'"
+		echo "Got a wrong pid '$PID'"
 		return 1
 	fi
 
