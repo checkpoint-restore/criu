@@ -707,6 +707,11 @@ while :; do
 	esac
 done
 
+if [ $# -gt 1 ]; then
+	echo "Too many arguments: $*" 1>&2
+	exit 1
+fi
+
 if [ $COMPILE_ONLY -eq 0 ]; then
 	check_criu || exit 1
 fi
