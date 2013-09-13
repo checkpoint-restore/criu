@@ -203,10 +203,10 @@ EOF
 exit_callback()
 {
 	echo $@
-	[ -n "$ZDTM_ROOT" ] && {
+	if [ -n "$ZDTM_ROOT" ]; then
 		umount -l "$ZDTM_ROOT"
 		rmdir "$ZDTM_ROOT"
-	}
+	fi
 
 	[[ -n "$ZDTM_FAILED" && -n "$DUMP_ARCHIVE" ]] && tar -czf $DUMP_ARCHIVE dump
 	[ -n "$TMPFS_DUMP" ] &&
@@ -292,11 +292,11 @@ start_test()
 	unset ZDTM_UID
 	unset ZDTM_GID
 
-	echo $TEST_SUID_LIST | grep -q $tname || {
+	if ! echo $TEST_SUID_LIST | grep -q $tname; then
 		export ZDTM_UID=18943
 		export ZDTM_GID=58467
 		chown $ZDTM_UID:$ZDTM_GID $tdir
-	}
+	fi
 
 	if [ -z "$PIDNS" ]; then
 		make -C $tdir $tname.pid || return 1
@@ -314,10 +314,10 @@ start_test()
 		export ZDTM_PIDFILE=$TPID
 		cd $ZDTM_ROOT
 		rm -f $ZDTM_PIDFILE
-		make -C $tdir $tname.pid || {
+		if ! make -C $tdir $tname.pid; then
 			echo ERROR: fail to start $tdir/$tname
 			return 1
-		}
+		fi
 	)
 
 		PID=`cat "$TPID"`
@@ -363,10 +363,10 @@ run_test()
 		linkremap="--link-remap"
 	fi
 
-	[ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/} && {
+	if [ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/}; then
 		echo "Skip $test"
 		return 0
-	}
+	fi
 
 	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
 	test=${ZP}/${test#ns/}
@@ -387,21 +387,21 @@ run_test()
 	start_test $tdir $tname || return 1
 
 	local ddump
-	kill -s 0 "$PID" || {
+	if ! kill -s 0 "$PID"; then
 		echo "Get a wrong pid '$PID'"
 		return 1
-	}
+	fi
 
 	if [ -n "$PIDNS" ]; then
 		[ -z "$CR_IP_TOOL" ] && CR_IP_TOOL=ip
-		$CR_IP_TOOL a help 2>&1 | grep -q showdump || {
+		if ! $CR_IP_TOOL a help 2>&1 | grep -q showdump; then
 			cat >&2 <<EOF
 The util "ip" is incompatible. The good one can be cloned from
 git://git.criu.org/iproute2. It should be compiled and a path
 to ip is written in \$CR_IP_TOOL.
 EOF
 			exit 1
-		}
+		fi
 		args="--root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
 
@@ -427,10 +427,10 @@ EOF
 
 		if [ -n "$SNAPSHOT" ]; then
 			snapopt=""
-			[ "$i" -ne "$ITERATIONS" ] && {
+			if [ "$i" -ne "$ITERATIONS" ]; then
 				snapopt="$snapopt -R --track-mem"
 				dump_only=1
-			}
+			fi
 			[ -n "$snappdir" ] && snapopt="$snapopt --prev-images-dir=$snappdir"
 		fi
 
@@ -504,10 +504,10 @@ EOF
 	done
 
 	echo Check results $PID
-	stop_test $tdir $tname || {
+	if ! stop_test $tdir $tname; then
 		echo "Unable to stop $tname ($PID)"
 		return 2
-	}
+	fi
 
 	sltime=1
 	for i in `seq 50`; do
@@ -544,7 +544,7 @@ EOF
 EOF
 
 	if [ -n "$DUMP_PATH" ]; then
-		[ -e "$DUMP_PATH/dump.log" ] && {
+		if [ -e "$DUMP_PATH/dump.log" ]; then
 			echo "Dump log   : $DUMP_PATH/dump.log"
 			cat $DUMP_PATH/dump.log* | grep Error
 			cat <<EOF
@@ -554,8 +554,8 @@ EOF
 			cat <<EOF
 -------------------------------------------------------------------
 EOF
-		}
-		[ -e "$DUMP_PATH/restore.log" ] && {
+		fi
+		if [ -e "$DUMP_PATH/restore.log" ]; then
 			echo "Restore log: $DUMP_PATH/restore.log"
 			cat $DUMP_PATH/restore.log* | grep Error
 			cat <<EOF
@@ -565,15 +565,15 @@ EOF
 			cat <<EOF
 -------------------------------------------------------------------
 EOF
-		}
+		fi
 	fi
-	[ -e "$test_log" ] && {
+	if [ -e "$test_log" ]; then
 		echo "Output file: $test_log"
 		cat $test_log*
 		cat <<EOF
 -------------------------------------------------------------------
 EOF
-	}
+	fi
 
 	[ -n "$HEAD" ] &&
 		echo "The initial HEAD was $HEAD"
