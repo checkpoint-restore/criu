@@ -696,6 +696,10 @@ while :; do
 		usage
 		exit 0
 		;;
+	  -*)
+		echo "Unrecognized option $1, aborting!" 1>&2
+		exit 1
+		;;
 	  *)
 		break
 		;;
@@ -706,9 +710,7 @@ if [ $COMPILE_ONLY -eq 0 ]; then
 	check_criu || exit 1
 fi
 
-if [ "${1:0:1}" = '-' ]; then
-	echo "unrecognized option $1"
-elif [ $SPECIFIED_NAME_USED -eq 1 ]; then
+if [ $SPECIFIED_NAME_USED -eq 1 ]; then
 	if [ $# -eq 0 ]; then
 		echo "test name should be provided"
 		exit 1
