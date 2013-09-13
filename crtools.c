@@ -29,6 +29,7 @@
 #include "page-xfer.h"
 #include "tty.h"
 #include "file-lock.h"
+#include "cr-service.h"
 
 struct cr_options opts;
 
@@ -333,6 +334,9 @@ int main(int argc, char *argv[])
 
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.restore_detach);
+
+	if (!strcmp(argv[optind], "service"))
+		return cr_service();
 
 	pr_msg("Unknown command \"%s\"\n", argv[optind]);
 usage:
