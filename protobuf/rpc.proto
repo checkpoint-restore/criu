@@ -1,0 +1,29 @@
+message criu_dump_req {
+	required int32 pid		= 1; //if not set, will dump requesting process
+	required bool leave_running	= 2;
+	required bool ext_unix_sk	= 3;
+	required bool tcp_established	= 4;
+	required bool evasive_devices	= 5;
+	required bool shell_job		= 6;
+	required bool file_locks	= 7;
+	required int32 images_dir_fd	= 8;
+	required int32 log_level	= 9 [default = 2];
+}
+
+message criu_dump_resp {
+	required bool success		= 1;
+	required bool restored		= 2;
+}
+
+message criu_msg {
+	enum Type {
+		EMPTY		= 0;
+		DUMPREQ		= 1;
+		DUMPRESP	= 2;
+	}
+
+	required Type type			= 1;
+
+	optional criu_dump_req dump_req		= 2;
+	optional criu_dump_resp	dump_resp	= 3;
+}

@@ -56,6 +56,7 @@ proto-obj-y	+= file-lock.o
 proto-obj-y	+= rlimit.o
 proto-obj-y	+= pagemap.o
 proto-obj-y	+= siginfo.o
+proto-obj-y	+= rpc.o
 
 proto		:= $(proto-obj-y:.o=)
 proto-c		:= $(proto-obj-y:.o=.pb-c.c)
