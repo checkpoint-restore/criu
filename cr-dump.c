@@ -64,6 +64,7 @@
 #include "vdso.h"
 #include "page-pipe.h"
 #include "vdso.h"
+#include "cr-service.h"
 
 #include "asm/dump.h"
 
@@ -393,39 +394,35 @@ err:
 	return ret;
 }
 
-static int dump_task_creds(struct parasite_ctl *ctl, const struct cr_fdset *fds)
+static int dump_task_creds(struct parasite_ctl *ctl,
+			   const struct cr_fdset *fds,
+			   struct proc_status_creds *cr)
 {
-	int ret;
-	struct proc_status_creds cr;
 	CredsEntry ce = CREDS_ENTRY__INIT;
 
 	pr_info("\n");
 	pr_info("Dumping creds for %d)\n", ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
-	ret = parse_pid_status(ctl->pid.real, &cr);
-	if (ret < 0)
-		return ret;
-
-	ce.uid   = cr.uids[0];
-	ce.gid   = cr.gids[0];
-	ce.euid  = cr.uids[1];
-	ce.egid  = cr.gids[1];
-	ce.suid  = cr.uids[2];
-	ce.sgid  = cr.gids[2];
-	ce.fsuid = cr.uids[3];
-	ce.fsgid = cr.gids[3];
+	ce.uid   = cr->uids[0];
+	ce.gid   = cr->gids[0];
+	ce.euid  = cr->uids[1];
+	ce.egid  = cr->gids[1];
+	ce.suid  = cr->uids[2];
+	ce.sgid  = cr->gids[2];
+	ce.fsuid = cr->uids[3];
+	ce.fsgid = cr->gids[3];
 
 	BUILD_BUG_ON(CR_CAP_SIZE != PROC_CAP_SIZE);
 
 	ce.n_cap_inh = CR_CAP_SIZE;
-	ce.cap_inh = cr.cap_inh;
+	ce.cap_inh = cr->cap_inh;
 	ce.n_cap_prm = CR_CAP_SIZE;
-	ce.cap_prm = cr.cap_prm;
+	ce.cap_prm = cr->cap_prm;
 	ce.n_cap_eff = CR_CAP_SIZE;
-	ce.cap_eff = cr.cap_eff;
+	ce.cap_eff = cr->cap_eff;
 	ce.n_cap_bnd = CR_CAP_SIZE;
-	ce.cap_bnd = cr.cap_bnd;
+	ce.cap_bnd = cr->cap_bnd;
 
 	if (parasite_dump_creds(ctl, &ce) < 0)
 		return -1;
@@ -1373,6 +1370,19 @@ err_cure:
 	goto err_free;
 }
 
+static int check_uid(uid)
+{
+	if (cr_service_client)
+		if ((cr_service_client->uid != uid) &&
+				(cr_service_client->uid != 0)) {
+			pr_err("UID (%d) != client's UID(%d)\n",
+				uid, cr_service_client->uid);
+			return -1;
+		}
+
+	return 0;
+}
+
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1383,6 +1393,7 @@ static int dump_one_task(struct pstree_item *item)
 	struct cr_fdset *cr_fdset = NULL;
 	struct parasite_drain_fd *dfds;
 	struct proc_posix_timers_stat proc_args;
+	struct proc_status_creds cr;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
@@ -1404,6 +1415,16 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parse_pid_stat(pid, &pps_buf);
 	if (ret < 0)
 		goto err;
+
+	ret = parse_pid_status(pid, &cr);
+	if (ret)
+		goto err;
+
+	ret = check_uid(cr.uids[0]);
+	if (ret) {
+		pr_err("Check uid (pid: %d) failed\n", pid);
+		goto err;
+	}
 
 	ret = collect_mappings(pid, &vmas);
 	if (ret) {
@@ -1532,7 +1553,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_creds(parasite_ctl, cr_fdset);
+	ret = dump_task_creds(parasite_ctl, cr_fdset, &cr);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;
