@@ -184,8 +184,8 @@ EOF
 
 	cat >&2 <<EOF
 ============================= WARNING =============================
-Not all C/R features are commited in the meainstream kernel.
-Linux C/R can be cloned from:
+Not all features needed for CRIU are merged to upstream kernel yet,
+so for now we maintain our own branch which can be cloned from:
 git://git.kernel.org/pub/scm/linux/kernel/git/gorcunov/linux-cr.git
 ===================================================================
 EOF
