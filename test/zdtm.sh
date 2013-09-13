@@ -600,6 +600,28 @@ checkout()
 	make -C $TMP_TREE -j 32
 }
 
+usage() {
+	cat << EOF
+This script is used for executing unit tests.
+Usage:
+zdtm.sh [OPTIONS]
+zdtm.sh [OPTIONS] [TEST PATTERN]
+Options:
+	-l : Show list of tests.
+	-d : Dump a test process and check that this process can continue working.
+	-i : Number of ITERATIONS of dump/restore
+	-p : Test page server
+	-C : Delete dump files if a test completed successfully
+	-b <commit> : Check backward compatibility
+	-x <PATTERN>: Exclude pattern
+	-t : mount tmpfs for dump files
+	-a <FILE>.tar.gz : save archive with dump files and logs
+	-g : Generate executables only
+	-n : Batch test
+	-r : Run test with specified name directly without match or check
+EOF
+}
+
 cd `dirname $0` || exit 1
 
 while :; do
@@ -670,6 +692,10 @@ while :; do
 		echo $TEST_LIST | tr ' ' '\n'
 		exit 0
 		;;
+	  -h)
+		usage
+		exit 0
+		;;
 	  *)
 		break
 		;;
@@ -680,27 +706,7 @@ if [ $COMPILE_ONLY -eq 0 ]; then
 	check_criu || exit 1
 fi
 
-if [ "$1" = "-h" ]; then
-	cat >&2 <<EOF
-This script is used for executing unit tests.
-Usage:
-zdtm.sh [OPTIONS]
-zdtm.sh [OPTIONS] [TEST PATTERN]
-Options:
-	-l : Show list of tests.
-	-d : Dump a test process and check that this process can continue working.
-	-i : Number of ITERATIONS of dump/restore
-	-p : Test page server
-	-C : Delete dump files if a test completed successfully
-	-b <commit> : Check backward compatibility
-	-x <PATTERN>: Exclude pattern
-	-t : mount tmpfs for dump files
-	-a <FILE>.tar.gz : save archive with dump files and logs
-	-g : Generate executables only
-	-n : Batch test
-	-r : Run test with specified name directly without match or check
-EOF
-elif [ "${1:0:1}" = '-' ]; then
+if [ "${1:0:1}" = '-' ]; then
 	echo "unrecognized option $1"
 elif [ $SPECIFIED_NAME_USED -eq 1 ]; then
 	if [ $# -eq 0 ]; then
