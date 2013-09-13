@@ -666,6 +666,10 @@ while :; do
 		SPECIFIED_NAME_USED=1
 		shift
 		;;
+	  -l)
+		echo $TEST_LIST | tr ' ' '\n'
+		exit 0
+		;;
 	  *)
 		break
 		;;
@@ -676,9 +680,7 @@ if [ $COMPILE_ONLY -eq 0 ]; then
 	check_criu || exit 1
 fi
 
-if [ "$1" = "-l" ]; then
-	echo $TEST_LIST | tr ' ' '\n'
-elif [ "$1" = "-h" ]; then
+if [ "$1" = "-h" ]; then
 	cat >&2 <<EOF
 This script is used for executing unit tests.
 Usage:
