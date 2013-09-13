@@ -21,6 +21,7 @@
 #include "sockets.h"
 #include "sk-queue.h"
 #include "mount.h"
+#include "cr-service.h"
 
 #include "protobuf.h"
 #include "protobuf/sk-unix.pb-c.h"
@@ -89,8 +90,14 @@ static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 {
+	/*
+	 * The last case in this "if" is seqpacket socket,
+	 * that is connected to cr_service. We will dump
+	 * it properly below.
+	 */
 	if (sk->type != SOCK_STREAM &&
-	    sk->type != SOCK_DGRAM) {
+	    sk->type != SOCK_DGRAM &&
+	    sk->peer_ino != cr_service_client->sk_ino) {
 		pr_err("Only stream/dgram sockets for now\n");
 		return 0;
 	}
@@ -137,6 +144,16 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue.fown		= (FownEntry *)&p->fown;
 	ue.opts		= &skopts;
 	ue.uflags	= 0;
+
+	/*
+	 * Check if this socket is connected to criu service.
+	 * Dump it like closed one and mark it for restore.
+	 */
+	if (ue.peer == cr_service_client->sk_ino) {
+		ue.state = TCP_CLOSE;
+		ue.peer = 0;
+		ue.uflags |= USK_SERVICE;
+	}
 
 	if (sk->namelen && *sk->name) {
 		ue.file_perms = &perms;
@@ -722,7 +739,29 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
-	if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer) {
+	/*
+	 * Check if this socket was connected to criu service.
+	 * If so, put response, that dumping and restoring
+	 * was successful.
+	 */
+	if (ui->ue->uflags & USK_SERVICE) {
+		int sks[2];
+		CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
+
+		resp.success = true;
+		resp.restored = true;
+
+		if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
+			pr_perror("Can't create socketpair");
+			return -1;
+		}
+
+		if (send_criu_dump_resp(sks[1], &resp) == -1)
+			return -1;
+
+		close(sks[1]);
+		sk = sks[0];
+	} else if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer) {
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {

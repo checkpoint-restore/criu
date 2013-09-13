@@ -31,6 +31,7 @@
  */
 
 #define USK_EXTERN	(1 << 0)
+#define USK_SERVICE	(1 << 1)
 
 #define VMA_AREA_NONE		(0 <<  0)
 #define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
