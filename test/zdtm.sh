@@ -340,7 +340,7 @@ diff_fds()
 {
 	test -n "$PIDNS" && return 0
 	if ! diff -up $1 $2; then
-		echo ERROR: Sets of descriptors are differ:
+		echo ERROR: Sets of descriptors differ:
 		echo $1
 		echo $2
 		return 1
