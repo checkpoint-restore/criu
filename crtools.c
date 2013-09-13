@@ -336,7 +336,7 @@ int main(int argc, char *argv[])
 		return cr_page_server(opts.restore_detach);
 
 	if (!strcmp(argv[optind], "service"))
-		return cr_service();
+		return cr_service(opts.restore_detach);
 
 	pr_msg("Unknown command \"%s\"\n", argv[optind]);
 usage:
@@ -348,6 +348,7 @@ usage:
 "  criu check [--ms]\n"
 "  criu exec -p PID <syscall-string>\n"
 "  criu page-server\n"
+"  criu service [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -357,6 +358,7 @@ usage:
 "  check          checks whether the kernel support is up-to-date\n"
 "  exec           execute a system call by other task\n"
 "  page-server    launch page server\n"
+"  service        launch service\n"
 	);
 
 	if (argc < 2) {
@@ -402,8 +404,8 @@ usage:
 "  --prev-images-dir DIR path to images from previous dump (relative to -D)\n"
 "  --page-server         send pages to page server (see options below as well)\n"
 "\n"
-"Page server options\n"
-"  --address ADDR        address of page server\n"
+"Page/Service server options\n"
+"  --address ADDR        address of server or service\n"
 "  --port PORT           port of page server\n"
 "  -d|--daemon           run in the background after creating socket\n"
 "\n"
