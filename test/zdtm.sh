@@ -197,7 +197,7 @@ EOF
 
 	echo "A version of kernel should be greater or equal to 3.11" >&2
 
-	return 1;
+	return 1
 }
 
 exit_callback()
@@ -256,8 +256,8 @@ construct_root()
 			lname=/lib/x86_64-linux-gnu/$i
 		elif [ -f /lib/arm-linux-gnueabi/$i ]; then
 			lname=/lib/arm-linux-gnueabi/$i
-		else 
-			echo "Failed at " $i;
+		else
+			echo "Failed at " $i
 			return 1
 		fi
 
@@ -316,7 +316,7 @@ start_test()
 		rm -f $ZDTM_PIDFILE
 		make -C $tdir $tname.pid || {
 			echo ERROR: fail to start $tdir/$tname
-			return 1;
+			return 1
 		}
 	)
 
@@ -400,7 +400,7 @@ The util "ip" is incompatible. The good one can be cloned from
 git://git.criu.org/iproute2. It should be compiled and a path
 to ip is written in \$CR_IP_TOOL.
 EOF
-			exit 1;
+			exit 1
 		}
 		args="--root $ZDTM_ROOT --pidfile $TPID $args"
 	fi
@@ -461,7 +461,7 @@ EOF
 
 		if [ $PAGE_SERVER -eq 1 ]; then
 			while :; do
-				kill -0 $ps_pid > /dev/null 2>&1 || break;
+				kill -0 $ps_pid > /dev/null 2>&1 || break
 				echo Waiting the process $ps_pid
 				sleep 0.1
 			done
@@ -479,11 +479,11 @@ EOF
 			for i in $ddump/core-*.img; do
 				local pid
 
-				[ -n "$PIDNS" ] && break;
+				[ -n "$PIDNS" ] && break
 
 				pid=`expr "$i" : '.*/core-\([0-9]*\).img'`
 				while :; do
-					kill -0 $pid > /dev/null 2>&1 || break;
+					kill -0 $pid > /dev/null 2>&1 || break
 					echo Waiting the process $pid
 					sleep 0.1
 				done
@@ -497,7 +497,7 @@ EOF
 				diff_fds $ddump/dump.fd $ddump/restore.fd && break
 				sleep 0.2
 			done
-			[ $i -eq 5 ] && return 2;
+			[ $i -eq 5 ] && return 2
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 		fi
 
@@ -511,7 +511,7 @@ EOF
 
 	sltime=1
 	for i in `seq 50`; do
-		kill -0 $PID > /dev/null 2>&1 || break;
+		kill -0 $PID > /dev/null 2>&1 || break
 		echo Waiting...
 		sleep 0.$sltime
 		[ $sltime -lt 9 ] && sltime=$((sltime+1))
@@ -631,31 +631,31 @@ while :; do
 	if [ "$1" = "-p" ]; then
 		shift
 		PAGE_SERVER=1
-		continue;
+		continue
 	fi
 	if [ "$1" = "-C" ]; then
 		shift
 		CLEANUP=1
-		continue;
+		continue
 	fi
 	if [ "$1" = "-x" ]; then
 		shift
 		EXCLUDE_PATTERN=$1
 		shift
-		continue;
+		continue
 	fi
 	if [ "$1" = "-t" ]; then
 		shift
 		TMPFS_DUMP=dump
 		[ -d dump ] || mkdir -p $TMPFS_DUMP
 		mount -t tmpfs none $TMPFS_DUMP || exit 1
-		continue;
+		continue
 	fi
 	if [ "$1" = "-a" ]; then
 		shift
 		DUMP_ARCHIVE=$1
 		shift
-		continue;
+		continue
 	fi
 	if [ "$1" = "-s" ]; then
 		SNAPSHOT=1
@@ -677,7 +677,7 @@ while :; do
 		shift
 		continue
 	fi
-	break;
+	break
 done
 
 if [ $COMPILE_ONLY -eq 0 ]; then
