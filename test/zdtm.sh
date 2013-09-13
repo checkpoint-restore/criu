@@ -698,6 +698,7 @@ while :; do
 		;;
 	  -*)
 		echo "Unrecognized option $1, aborting!" 1>&2
+		usage
 		exit 1
 		;;
 	  *)
