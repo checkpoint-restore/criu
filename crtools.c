@@ -266,6 +266,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
+			if (strcmp(CRIU_GITID, "0"))
+				pr_msg("GitID: %s\n", CRIU_GITID);
 			return 0;
 		case 'h':
 		default:

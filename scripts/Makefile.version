@@ -1,6 +1,10 @@
 CRTOOLSVERSION		:= $(VERSION_MAJOR)$(if $(VERSION_MINOR),.$(VERSION_MINOR))$(if $(VERSION_SUBLEVEL),.$(VERSION_SUBLEVEL))
 
 VERSION_HEADER := include/version.h
+GITID := $(shell if [ -d ".git" ]; then git reflog -n 1 | cut -f1 -d' '; fi)
+ifeq ($(GITID),)
+	GITID := 0
+endif
 
 $(VERSION_HEADER): Makefile scripts/Makefile.version
 	$(E) "  GEN     " $@
@@ -10,6 +14,7 @@ $(VERSION_HEADER): Makefile scripts/Makefile.version
 	$(Q) echo "#define CRIU_VERSION \"$(CRTOOLSVERSION)\""		>> $(VERSION_HEADER)
 	$(Q) echo "#define CRIU_VERSION_MAJOR " $(VERSION_MAJOR)	>> $(VERSION_HEADER)
 	$(Q) echo "#define CRIU_VERSION_MINOR " $(VERSION_MINOR)	>> $(VERSION_HEADER)
+	$(Q) echo "#define CRIU_GITID \"$(GITID)\""			>> $(VERSION_HEADER)
 	$(Q) echo "#endif /* __CR_VERSION_H__ */"			>> $(VERSION_HEADER)
 
 ##
