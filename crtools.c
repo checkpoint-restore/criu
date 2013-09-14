@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 			opts.check_ms_kernel = true;
 			break;
 		case 'V':
-			pr_msg("Version: %s\n", version);
+			pr_msg("Version: %s\n", CRIU_VERSION);
 			return 0;
 		case 'h':
 		default:
