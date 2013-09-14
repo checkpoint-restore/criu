@@ -171,9 +171,13 @@ int main(int argc, char *argv[])
 				return -1;
 			break;
 		case 'v':
-			if (optarg)
-				log_level = atoi(optarg);
-			else
+			if (optarg) {
+				if (optarg[0] == 'v')
+					/* handle -vvvvv */
+					log_level += strlen(optarg) + 1;
+				else
+					log_level = atoi(optarg);
+			} else
 				log_level++;
 			break;
 		case 41:
@@ -392,7 +396,7 @@ usage:
 "* Logging:\n"
 "  -o|--log-file FILE    log file name (path is relative to --images-dir)\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
-"  -v [NUM]              set logging level:\n"
+"  -v[NUM]               set logging level:\n"
 "                          -v0        - messages regardless of log level\n"
 "                          -v1, -v    - errors, when we are in trouble\n"
 "                          -v2, -vv   - warnings (default)\n"
