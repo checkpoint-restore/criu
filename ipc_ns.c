@@ -75,7 +75,7 @@ static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
 	u16 *values;
 
 	size = sizeof(u16) * sem->nsems;
-	values = xmalloc(size);
+	values = xmalloc(round_up(size, sizeof(u64)));
 	if (values == NULL) {
 		pr_err("Failed to allocate memory for semaphore set values\n");
 		ret = -ENOMEM;
@@ -185,7 +185,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 	}
 
 	msgmax += sizeof(struct msgbuf);
-	message = xmalloc(msgmax);
+	message = xmalloc(round_up(msgmax, sizeof(u64)));
 	if (message == NULL) {
 		pr_err("Failed to allocate memory for IPC message\n");
 		return -ENOMEM;
@@ -471,11 +471,11 @@ void ipc_sem_handler(int fd, void *obj)
 	int size;
 
 	pr_msg("\n");
-	size = sizeof(u16) * e->nsems;
+	size = round_up(sizeof(u16) * e->nsems, sizeof(u64));
 	values = xmalloc(size);
 	if (values == NULL)
 		return;
-	if (read_img_buf(fd, values, round_up(size, sizeof(u64))) <= 0) {
+	if (read_img_buf(fd, values, size) <= 0) {
 		xfree(values);
 		return;
 	}
