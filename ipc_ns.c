@@ -71,11 +71,13 @@ static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 
 static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
 {
+	size_t rounded;
 	int ret, size;
 	u16 *values;
 
 	size = sizeof(u16) * sem->nsems;
-	values = xmalloc(round_up(size, sizeof(u64)));
+	rounded = round_up(size, sizeof(u64));
+	values = xmalloc(rounded);
 	if (values == NULL) {
 		pr_err("Failed to allocate memory for semaphore set values\n");
 		ret = -ENOMEM;
@@ -89,7 +91,8 @@ static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
 	}
 	pr_info_ipc_sem_array(sem->nsems, values);
 
-	ret = write_img_buf(fd, values, round_up(size, sizeof(u64)));
+	memzero((void *)values + size, rounded - size);
+	ret = write_img_buf(fd, values, rounded);
 	if (ret < 0) {
 		pr_err("Failed to write IPC message data\n");
 		goto out;
