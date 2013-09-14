@@ -193,6 +193,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 
 	for (msg_cnt = 0; msg_cnt < msg_nr; msg_cnt++) {
 		IpcMsg msg = IPC_MSG__INIT;
+		size_t rounded;
 
 		ret = msgrcv(msq->desc->id, message, msgmax, msg_cnt, IPC_NOWAIT | MSG_COPY);
 		if (ret < 0) {
@@ -210,7 +211,10 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 			pr_err("Failed to write IPC message header\n");
 			break;
 		}
-		ret = write_img_buf(fd, message->mtext, round_up(msg.msize, sizeof(u64)));
+
+		rounded = round_up(msg.msize, sizeof(u64));
+		memzero(((void *)message->mtext + msg.msize), rounded - msg.msize);
+		ret = write_img_buf(fd, message->mtext, rounded);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message data\n");
 			break;
