@@ -753,8 +753,9 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		int sks[2];
 		CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 
-		resp.success = true;
-		resp.restored = true;
+		resp.success		= true;
+		resp.has_restored	= true;
+		resp.restored		= true;
 
 		if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
 			pr_perror("Can't create socketpair");

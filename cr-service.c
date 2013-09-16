@@ -86,9 +86,6 @@ static int setup_dump_from_req(CriuDumpReq *req)
 	cr_service_client->pid = ids.pid;
 	cr_service_client->uid = ids.uid;
 
-	if (req->pid == 0)
-		req->pid = ids.pid;
-
 	if (fstat(cr_service_client->sk_fd, &st)) {
 		pr_perror("Can't get socket stat");
 		return -1;
@@ -120,14 +117,28 @@ static int setup_dump_from_req(CriuDumpReq *req)
 	}
 
 	/* checking dump flags from client */
-	if (req->leave_running)
+	if (req->has_leave_running && req->leave_running)
 		opts.final_state = TASK_ALIVE;
 
-	opts.ext_unix_sk	= req->ext_unix_sk;
-	opts.tcp_established_ok	= req->tcp_established;
-	opts.evasive_devices	= req->evasive_devices;
-	opts.shell_job		= req->shell_job;
-	opts.handle_file_locks	= req->file_locks;
+	if (!req->has_pid) {
+		req->has_pid = true;
+		req->pid = ids.pid;
+	}
+
+	if (req->has_ext_unix_sk)
+		opts.ext_unix_sk = req->ext_unix_sk;
+
+	if (req->has_tcp_established)
+		opts.tcp_established_ok = req->tcp_established;
+
+	if (req->has_evasive_devices)
+		opts.evasive_devices = req->evasive_devices;
+
+	if (req->has_shell_job)
+		opts.shell_job = req->shell_job;
+
+	if (req->has_file_locks)
+		opts.handle_file_locks = req->file_locks;
 
 	return 0;
 }
@@ -149,7 +160,7 @@ static int dump_using_req(CriuDumpReq *req)
 	resp.success = true;
 
 exit:
-	if (req->leave_running) {
+	if (req->has_leave_running && req->leave_running) {
 		if (send_criu_dump_resp(cr_service_client->sk_fd,
 							&resp) == -1) {
 			pr_perror("Can't send response");
