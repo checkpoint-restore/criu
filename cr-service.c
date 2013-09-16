@@ -69,6 +69,7 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	msg.success = success;
 	msg.dump = &resp;
 
+	resp.has_restored = true;
 	resp.restored = restored;
 
 	return send_criu_msg(socket_fd, &msg);
