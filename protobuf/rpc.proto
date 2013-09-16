@@ -1,12 +1,13 @@
 message criu_dump_req {
-	optional int32 pid		= 1; //if not set, will dump requesting process
-	optional bool leave_running	= 2;
-	optional bool ext_unix_sk	= 3;
-	optional bool tcp_established	= 4;
-	optional bool evasive_devices	= 5;
-	optional bool shell_job		= 6;
-	optional bool file_locks	= 7;
-	required int32 images_dir_fd	= 8;
+	required int32 images_dir_fd	= 1;
+	optional int32 pid		= 2; //if not set, will dump requesting process
+
+	optional bool leave_running	= 3;
+	optional bool ext_unix_sk	= 4;
+	optional bool tcp_established	= 5;
+	optional bool evasive_devices	= 6;
+	optional bool shell_job		= 7;
+	optional bool file_locks	= 8;
 	optional int32 log_level	= 9 [default = 2];
 }
 
