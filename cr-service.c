@@ -20,7 +20,7 @@
 
 struct _cr_service_client *cr_service_client;
 
-static int recv_criu_msg(int socket_fd, CriuMsg **msg)
+static int recv_criu_msg(int socket_fd, CriuReq **msg)
 {
 	unsigned char buf[MAX_MSG_SIZE];
 	int len;
@@ -31,7 +31,7 @@ static int recv_criu_msg(int socket_fd, CriuMsg **msg)
 		return -1;
 	}
 
-	*msg = criu_msg__unpack(NULL, len, buf);
+	*msg = criu_req__unpack(NULL, len, buf);
 	if (!*msg) {
 		puts("Failed unpacking request");
 		return -1;
@@ -40,14 +40,14 @@ static int recv_criu_msg(int socket_fd, CriuMsg **msg)
 	return 0;
 }
 
-static int send_criu_msg(int socket_fd, CriuMsg *msg)
+static int send_criu_msg(int socket_fd, CriuResp *msg)
 {
 	unsigned char buf[MAX_MSG_SIZE];
 	int len;
 
-	len = criu_msg__get_packed_size(msg);
+	len = criu_resp__get_packed_size(msg);
 
-	if (criu_msg__pack(msg, buf) != len) {
+	if (criu_resp__pack(msg, buf) != len) {
 		pr_perror("Failed packing response");
 		return -1;
 	}
@@ -60,12 +60,13 @@ static int send_criu_msg(int socket_fd, CriuMsg *msg)
 	return 0;
 }
 
-int send_criu_dump_resp(int socket_fd, CriuDumpResp *resp)
+int send_criu_dump_resp(int socket_fd, bool success, CriuDumpResp *resp)
 {
-	CriuMsg msg = CRIU_MSG__INIT;
+	CriuResp msg = CRIU_RESP__INIT;
 
-	msg.type = CRIU_MSG__TYPE__DUMPRESP;
-	msg.dump_resp = resp;
+	msg.type = CRIU_REQ_TYPE__DUMP;
+	msg.success = success;
+	msg.dump = resp;
 
 	return send_criu_msg(socket_fd, &msg);
 }
@@ -146,6 +147,7 @@ static int setup_dump_from_req(CriuDumpReq *req)
 static int dump_using_req(CriuDumpReq *req)
 {
 	CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
+	bool success = false;
 
 	if (setup_dump_from_req(req) == -1) {
 		pr_perror("Arguments treating fail");
@@ -157,19 +159,19 @@ static int dump_using_req(CriuDumpReq *req)
 		goto exit;
 	}
 
-	resp.success = true;
+	success = true;
 
 exit:
 	if (req->has_leave_running && req->leave_running) {
 		if (send_criu_dump_resp(cr_service_client->sk_fd,
-							&resp) == -1) {
+					success, &resp) == -1) {
 			pr_perror("Can't send response");
-			resp.success = false;
+			success = false;
 		}
 	}
 
 	close(cr_service_client->sk_fd);
-	return resp.success ? 0 : 1;
+	return success ? 0 : 1;
 }
 
 int cr_service(bool daemon_mode)
@@ -183,7 +185,7 @@ int cr_service(bool daemon_mode)
 	socklen_t server_addr_len;
 	socklen_t client_addr_len;
 
-	CriuMsg *msg = 0;
+	CriuReq *msg = 0;
 	CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 
 	cr_service_client = malloc(sizeof(struct _cr_service_client));
@@ -264,12 +266,8 @@ int cr_service(bool daemon_mode)
 			}
 
 			switch (msg->type) {
-			case CRIU_MSG__TYPE__EMPTY:
-				pr_perror("Empty msg");
-				goto err;
-
-			case CRIU_MSG__TYPE__DUMPREQ:
-				exit(dump_using_req(msg->dump_req));
+				case CRIU_REQ_TYPE__DUMP:
+				exit(dump_using_req(msg->dump));
 
 			default:
 				pr_perror("Invalid request");
@@ -285,7 +283,7 @@ err:
 			 * and extend it where needed.
 			 */
 			if (send_criu_dump_resp(cr_service_client->sk_fd,
-								&resp) == -1)
+						false, &resp) == -1)
 				pr_perror("Can't send responce");
 
 			close(cr_service_client->sk_fd);

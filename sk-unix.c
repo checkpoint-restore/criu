@@ -753,7 +753,6 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		int sks[2];
 		CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 
-		resp.success		= true;
 		resp.has_restored	= true;
 		resp.restored		= true;
 
@@ -762,7 +761,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
-		if (send_criu_dump_resp(sks[1], &resp) == -1)
+		if (send_criu_dump_resp(sks[1], true, &resp) == -1)
 			return -1;
 
 		close(sks[1]);

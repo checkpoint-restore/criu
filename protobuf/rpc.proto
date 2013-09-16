@@ -12,19 +12,33 @@ message criu_dump_req {
 }
 
 message criu_dump_resp {
-	required bool success		= 1;
-	optional bool restored		= 2;
+	optional bool restored		= 1;
 }
 
-message criu_msg {
-	enum Type {
-		EMPTY		= 0;
-		DUMPREQ		= 1;
-		DUMPRESP	= 2;
-	}
+enum criu_req_type {
+	EMPTY		= 0;
+	DUMP		= 1;
+}
 
-	required Type type			= 1;
+/*
+ * Request -- each type corresponds to must-be-there
+ * request arguments of respective type
+ */
 
-	optional criu_dump_req dump_req		= 2;
-	optional criu_dump_resp	dump_resp	= 3;
+message criu_req {
+	required criu_req_type type	= 1;
+
+	optional criu_dump_req dump	= 2;
+}
+
+/*
+ * Responce -- it states whether the request was served
+ * and additional request-specific informarion
+ */
+
+message criu_resp {
+	required criu_req_type type	= 1;
+	required bool success		= 2;
+
+	optional criu_dump_resp	dump	= 3;
 }
