@@ -8,7 +8,7 @@
 
 int cr_service(bool deamon_mode);
 
-int send_criu_dump_resp(int socket_fd, bool success, CriuDumpResp *resp);
+int send_criu_dump_resp(int socket_fd, bool success, bool restored);
 
 struct _cr_service_client {
 	int sk_ino;

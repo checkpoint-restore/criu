@@ -60,13 +60,16 @@ static int send_criu_msg(int socket_fd, CriuResp *msg)
 	return 0;
 }
 
-int send_criu_dump_resp(int socket_fd, bool success, CriuDumpResp *resp)
+int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 {
 	CriuResp msg = CRIU_RESP__INIT;
+	CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 
 	msg.type = CRIU_REQ_TYPE__DUMP;
 	msg.success = success;
-	msg.dump = resp;
+	msg.dump = &resp;
+
+	resp.restored = restored;
 
 	return send_criu_msg(socket_fd, &msg);
 }
@@ -146,7 +149,6 @@ static int setup_dump_from_req(CriuDumpReq *req)
 
 static int dump_using_req(CriuDumpReq *req)
 {
-	CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 	bool success = false;
 
 	if (setup_dump_from_req(req) == -1) {
@@ -160,11 +162,10 @@ static int dump_using_req(CriuDumpReq *req)
 	}
 
 	success = true;
-
 exit:
 	if (req->has_leave_running && req->leave_running) {
 		if (send_criu_dump_resp(cr_service_client->sk_fd,
-					success, &resp) == -1) {
+					success, false) == -1) {
 			pr_perror("Can't send response");
 			success = false;
 		}
@@ -186,7 +187,6 @@ int cr_service(bool daemon_mode)
 	socklen_t client_addr_len;
 
 	CriuReq *msg = 0;
-	CriuDumpResp resp = CRIU_DUMP_RESP__INIT;
 
 	cr_service_client = malloc(sizeof(struct _cr_service_client));
 
@@ -276,15 +276,8 @@ int cr_service(bool daemon_mode)
 
 err:
 			/*
-			 * FIXME We're using CriuDumpResp here for now,
-			 * but, when more requests will be added,
-			 * they might require some special response,
-			 * so we will need to use here some atomic resp,
-			 * and extend it where needed.
+			 * FIXME -- add generic error report
 			 */
-			if (send_criu_dump_resp(cr_service_client->sk_fd,
-						false, &resp) == -1)
-				pr_perror("Can't send responce");
 
 			close(cr_service_client->sk_fd);
 			exit(-1);
