@@ -161,9 +161,9 @@ static int dump_using_req(CriuDumpReq *req)
 		goto exit;
 	}
 
-	success = true;
-exit:
 	if (req->has_leave_running && req->leave_running) {
+		success = true;
+exit:
 		if (send_criu_dump_resp(cr_service_client->sk_fd,
 					success, false) == -1) {
 			pr_perror("Can't send response");
@@ -266,7 +266,7 @@ int cr_service(bool daemon_mode)
 			}
 
 			switch (msg->type) {
-				case CRIU_REQ_TYPE__DUMP:
+			case CRIU_REQ_TYPE__DUMP:
 				exit(dump_using_req(msg->dump));
 
 			default:
