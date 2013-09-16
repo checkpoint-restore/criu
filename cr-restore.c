@@ -885,21 +885,6 @@ struct cr_clone_arg {
 	CoreEntry *core;
 };
 
-static void write_pidfile(char *pfname, int pid)
-{
-	int fd;
-
-	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-	if (fd == -1) {
-		pr_perror("Can't open %s", pfname);
-		kill(pid, SIGKILL);
-		return;
-	}
-
-	dprintf(fd, "%d", pid);
-	close(fd);
-}
-
 static inline int fork_with_pid(struct pstree_item *item)
 {
 	int ret = -1, fd;
@@ -971,8 +956,11 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (ca.clone_flags & CLONE_NEWPID)
 		item->pid.real = ret;
 
-	if (opts.pidfile && root_item == item)
-		write_pidfile(opts.pidfile, ret);
+	if (opts.pidfile && root_item == item) {
+		ret = write_pidfile(opts.pidfile, ret);
+		if (ret < 0)
+			pr_perror("Can't write pidfile");
+	}
 
 err_unlock:
 	if (ca.fd >= 0) {

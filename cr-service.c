@@ -231,9 +231,16 @@ int cr_service(bool daemon_mode)
 	}
 
 	if (daemon_mode) {
-		if (daemon(0, 0) == -1) {
+		if (daemon(1, 1) == -1) {
 			pr_perror("Can't run service server in the background");
 			return -errno;
+		}
+	}
+
+	if (opts.pidfile) {
+		if (write_pidfile(opts.pidfile, getpid()) == -1) {
+			pr_perror("Can't write pidfile");
+			return -1;
 		}
 	}
 

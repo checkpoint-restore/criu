@@ -19,6 +19,8 @@ extern int vprint_num(char *buf, int blen, int num, char **ps);
 extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 
+extern int write_pidfile(char *pfname, int pid);
+
 #ifndef LOG_PREFIX
 # define LOG_PREFIX
 #endif

@@ -191,3 +191,19 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	__print_on_level(loglevel, format, params);
 	va_end(params);
 }
+
+int write_pidfile(char *pfname, int pid)
+{
+	int fd;
+
+	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	if (fd == -1) {
+		pr_perror("Can't open %s", pfname);
+		kill(pid, SIGKILL);
+		return -1;
+	}
+
+	dprintf(fd, "%d", pid);
+	close(fd);
+	return 0;
+}

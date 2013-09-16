@@ -273,6 +273,13 @@ int cr_page_server(bool daemon_mode)
 			return -errno;
 		}
 
+	if (opts.pidfile) {
+		if (write_pidfile(opts.pidfile, getpid()) == -1) {
+			pr_perror("Can't write pidfile");
+			return -1;
+		}
+	}
+
 	ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 	if (ask < 0)
 		pr_perror("Can't accept connection to server");
