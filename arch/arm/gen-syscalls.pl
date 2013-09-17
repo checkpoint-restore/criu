@@ -5,16 +5,21 @@ use warnings;
 
 my $in         = $ARGV[0];
 my $codesout   = $ARGV[1];
-my $codes      = $ARGV[1] =~ s/.*include\///gr;
+my $codes      = $ARGV[1];
+$codes         =~ s/.*include\///g;
 my $protosout  = $ARGV[2];
-my $protos     = $ARGV[2] =~ s/.*include\///gr;
+my $protos     = $ARGV[2];
+$protos        =~ s/.*include\///g;
 my $asmout     = $ARGV[3];
 my $asmcommon  = $ARGV[4];
-my $prototypes = $ARGV[5] =~ s/.*include\///gr;
+my $prototypes = $ARGV[5];
+$prototypes    =~ s/.*include\///g;
 my $bits       = $ARGV[6];
 
-my $codesdef   = $codes =~ tr/.-/_/r;
-my $protosdef  = $protos =~ tr/.-/_/r;
+my $codesdef   = $codes;
+$codesdef      =~ tr/.-/_/;
+my $protosdef  = $protos;
+$protosdef     =~ tr/.-/_/;
 my $code       = "code$bits";
 my $need_aux   = 0;
 
