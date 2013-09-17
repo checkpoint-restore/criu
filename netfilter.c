@@ -69,7 +69,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 	return 0;
 }
 
-static int nf_connection_switch(struct inet_sk_desc *sk, int lock)
+static int nf_connection_switch(struct inet_sk_desc *sk, bool lock)
 {
 	int ret = 0;
 
@@ -91,12 +91,12 @@ static int nf_connection_switch(struct inet_sk_desc *sk, int lock)
 
 int nf_lock_connection(struct inet_sk_desc *sk)
 {
-	return nf_connection_switch(sk, 1);
+	return nf_connection_switch(sk, true);
 }
 
 int nf_unlock_connection(struct inet_sk_desc *sk)
 {
-	return nf_connection_switch(sk, 0);
+	return nf_connection_switch(sk, false);
 }
 
 int nf_unlock_connection_info(struct inet_sk_info *si)
@@ -105,10 +105,10 @@ int nf_unlock_connection_info(struct inet_sk_info *si)
 
 	ret |= nf_connection_switch_raw(si->ie->family,
 			si->ie->src_addr, si->ie->src_port,
-			si->ie->dst_addr, si->ie->dst_port, true, 0);
+			si->ie->dst_addr, si->ie->dst_port, true, false);
 	ret |= nf_connection_switch_raw(si->ie->family,
 			si->ie->dst_addr, si->ie->dst_port,
-			si->ie->src_addr, si->ie->src_port, false, 0);
+			si->ie->src_addr, si->ie->src_port, false, false);
 	/*
 	 * rollback nothing in case of any error,
 	 * because nobody checks errors of this function
