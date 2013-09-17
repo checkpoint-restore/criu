@@ -20,13 +20,15 @@ static char buf[512];
  * ANy brave soul to write it using xtables-devel?
  */
 
-static const char *nf_conn_cmd = "%s -t filter %s INPUT --protocol tcp "
+static const char *nf_conn_cmd = "%s -t filter %s %s --protocol tcp "
 	"--source %s --sport %d --destination %s --dport %d -j DROP";
 
 static char iptable_cmd_ipv4[] = "iptables";
 static char iptable_cmd_ipv6[] = "ip6tables";
 
-static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port, u32 *dst_addr, u16 dst_port, int lock)
+static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
+						u32 *dst_addr, u16 dst_port,
+						bool input, bool lock)
 {
 	char sip[INET_ADDR_LEN], dip[INET_ADDR_LEN];
 	char *cmd;
@@ -50,7 +52,9 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port, u32
 		return -1;
 	}
 
-	snprintf(buf, sizeof(buf), nf_conn_cmd, cmd, lock ? "-A" : "-D",
+	snprintf(buf, sizeof(buf), nf_conn_cmd, cmd,
+			lock ? "-A" : "-D",
+			input ? "INPUT" : "OUTPUT",
 			dip, (int)dst_port, sip, (int)src_port);
 
 	pr_debug("\tRunning iptables [%s]\n", buf);
@@ -71,17 +75,17 @@ static int nf_connection_switch(struct inet_sk_desc *sk, int lock)
 
 	ret = nf_connection_switch_raw(sk->sd.family,
 			sk->src_addr, sk->src_port,
-			sk->dst_addr, sk->dst_port, lock);
+			sk->dst_addr, sk->dst_port, true, lock);
 	if (ret)
 		return -1;
 
 	ret = nf_connection_switch_raw(sk->sd.family,
 			sk->dst_addr, sk->dst_port,
-			sk->src_addr, sk->src_port, lock);
+			sk->src_addr, sk->src_port, false, lock);
 	if (ret) /* rollback */
 		nf_connection_switch_raw(sk->sd.family,
 			sk->src_addr, sk->src_port,
-			sk->dst_addr, sk->dst_port, !lock);
+			sk->dst_addr, sk->dst_port, true, !lock);
 	return ret;
 }
 
@@ -101,10 +105,10 @@ int nf_unlock_connection_info(struct inet_sk_info *si)
 
 	ret |= nf_connection_switch_raw(si->ie->family,
 			si->ie->src_addr, si->ie->src_port,
-			si->ie->dst_addr, si->ie->dst_port, 0);
+			si->ie->dst_addr, si->ie->dst_port, true, 0);
 	ret |= nf_connection_switch_raw(si->ie->family,
 			si->ie->dst_addr, si->ie->dst_port,
-			si->ie->src_addr, si->ie->src_port, 0);
+			si->ie->src_addr, si->ie->src_port, false, 0);
 	/*
 	 * rollback nothing in case of any error,
 	 * because nobody checks errors of this function
