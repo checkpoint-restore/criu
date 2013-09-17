@@ -315,8 +315,13 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	struct timeval tv;
 
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
-	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &soe->so_sndbuf);
-	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &soe->so_rcvbuf);
+
+	/* setsockopt() multiplies the input values by 2 */
+	val = soe->so_sndbuf / 2;
+	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &val);
+	val = soe->so_rcvbuf / 2;
+	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &val);
+
 	if (soe->has_so_priority) {
 		pr_debug("\trestore priority %d for socket\n", soe->so_priority);
 		ret |= restore_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
