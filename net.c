@@ -272,7 +272,7 @@ int restore_link_parms(NetDeviceEntry *nde, int nlsk)
 static int restore_one_link(NetDeviceEntry *nde, int nlsk,
 		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
 {
-	pr_info("Restoring netdev idx %d\n", nde->ifindex);
+	pr_info("Restoring netdev %s idx %d\n", nde->name, nde->ifindex);
 	return do_rtm_link_req(RTM_NEWLINK, nde, nlsk, link_info);
 }
 
@@ -320,7 +320,7 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 
 static int restore_link(NetDeviceEntry *nde, int nlsk)
 {
-	pr_info("Restoring link type %d\n", nde->type);
+	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK:
