@@ -33,9 +33,6 @@
 #define DEF_PAGES_PER_LINE	6
 
 
-#define PR_SYMBOL(sym)			\
-	(isprint(sym) ? sym : '.')
-
 static LIST_HEAD(pstree_list);
 
 static void pipe_data_handler(int fd, void *obj)
@@ -54,6 +51,19 @@ static int nice_width_for(unsigned long addr)
 	}
 
 	return ret;
+}
+
+static inline void pr_xdigi(unsigned char *data, size_t len, int pos)
+{
+	pr_msg("%02x ", data[pos]);
+}
+
+static inline void pr_xsym(unsigned char *data, size_t len, int pos)
+{
+	char sym;
+
+	sym = data[pos];
+	pr_msg("%c", isprint(sym) ? sym : '.');
 }
 
 void print_data(unsigned long addr, unsigned char *data, size_t size)
@@ -80,17 +90,17 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 
 		pr_msg("%#0*lx: ", addr_len, addr + i);
 		for (j = 0; j < 8; j++)
-			pr_msg("%02x ", data[i +  j]);
+			pr_xdigi(data, size, i + j);
 		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_msg("%02x ", data[i +  j]);
+			pr_xdigi(data, size, i + j);
 
 		pr_msg(" |");
 		for (j = 0; j < 8; j++)
-			pr_msg("%c", PR_SYMBOL(data[i + j]));
+			pr_xsym(data, size, i + j);
 		pr_msg(" ");
 		for (j = 8; j < 16; j++)
-			pr_msg("%c", PR_SYMBOL(data[i + j]));
+			pr_xsym(data, size, i + j);
 
 		pr_msg("|\n");
 	}
