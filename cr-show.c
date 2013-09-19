@@ -55,14 +55,21 @@ static int nice_width_for(unsigned long addr)
 
 static inline void pr_xdigi(unsigned char *data, size_t len, int pos)
 {
-	pr_msg("%02x ", data[pos]);
+	if (pos < len)
+		pr_msg("%02x ", data[pos]);
+	else
+		pr_msg("   ");
 }
 
 static inline void pr_xsym(unsigned char *data, size_t len, int pos)
 {
 	char sym;
 
-	sym = data[pos];
+	if (pos < len)
+		sym = data[pos];
+	else
+		sym = ' ';
+
 	pr_msg("%c", isprint(sym) ? sym : '.');
 }
 
