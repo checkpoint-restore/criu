@@ -16,4 +16,5 @@ extern void ipc_shm_handler(int fd, void *obj);
 extern void ipc_msg_handler(int fd, void *obj);
 extern void ipc_sem_handler(int fd, void *obj);
 extern int cr_parse_fd(int fd, u32 magic);
+extern void show_tcp_stream(int fd, void *obj);
 #endif /* __CR_SHOW_H__ */

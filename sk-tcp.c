@@ -20,6 +20,7 @@
 #include "namespaces.h"
 #include "xmalloc.h"
 #include "config.h"
+#include "cr-show.h"
 
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
@@ -634,4 +635,15 @@ out:
 	close(sk);
 
 	return ret;
+}
+
+void show_tcp_stream(int fd, void *obj)
+{
+	TcpStreamEntry *e = obj;
+	if (opts.show_pages_content) {
+		pr_msg("In-queue:");
+		print_image_data(fd, e->inq_len, 1);
+		pr_msg("Out-queue:");
+		print_image_data(fd, e->outq_len, 1);
+	}
 }
