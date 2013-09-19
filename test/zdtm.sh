@@ -24,6 +24,7 @@ static/vdso00
 static/sched_prio00
 static/sched_policy00
 static/file_shared
+static/file_append
 static/timers
 static/posix_timers
 static/futex

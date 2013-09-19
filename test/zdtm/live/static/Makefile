@@ -127,6 +127,7 @@ TST_FILE	=				\
 		unlink_fifo			\
 		unlink_fifo_wronly		\
 		file_shared			\
+		file_append			\
 		cow01				\
 		fdt_shared			\
 		sockets00			\
