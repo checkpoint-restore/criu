@@ -1,0 +1,171 @@
+#include "rpc.pb-c.h"
+#include <stdbool.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/fcntl.h>
+#include <stdio.h>
+#include <dirent.h>
+
+#define MAX_MSG_SIZE 1024
+
+static CriuResp *recv_resp(int socket_fd)
+{
+	unsigned char buf[MAX_MSG_SIZE];
+	int len;
+	CriuResp *msg = 0;
+
+	len = read(socket_fd, buf, MAX_MSG_SIZE);
+	if (len == -1) {
+		perror("Can't read response");
+		return NULL;
+	}
+
+	msg = criu_resp__unpack(NULL, len, buf);
+	if (!msg) {
+		perror("Failed unpacking response");
+		return NULL;
+	}
+
+	return msg;
+}
+
+static int send_req(int socket_fd, CriuReq *req)
+{
+	unsigned char buf[MAX_MSG_SIZE];
+	int len;
+
+	len = criu_req__get_packed_size(req);
+
+	if (criu_req__pack(req, buf) != len) {
+		perror("Failed packing request");
+		return -1;
+	}
+
+	if (write(socket_fd, buf, len)  == -1) {
+		perror("Can't send request");
+		return -1;
+	}
+
+	return 0;
+}
+
+int main()
+{
+	CriuReq req		= CRIU_REQ__INIT;
+	CriuResp *resp		= NULL;
+	int fd, dir_fd;
+	int ret = 0;
+	struct sockaddr_un addr;
+	socklen_t addr_len;
+	struct stat st = {0};
+
+	/*
+	 * Open a directory, in which criu will
+	 * put images
+	 */
+	umask(0);
+
+	if (stat("imgs_c", &st)) {
+		if (mkdir("imgs_c", 0666)) {
+			perror("Can't create dir");
+			return -1;
+		}
+	}
+
+	dir_fd = open("imgs_c", O_DIRECTORY);
+	if (dir_fd == -1) {
+		perror("Can't open dir");
+		return -1;
+	}
+
+	/*
+	 * Set "DUMP" type of request.
+	 * Allocate CriuDumpReq.
+	 */
+	req.type			= CRIU_REQ_TYPE__DUMP;
+	req.dump			= malloc(sizeof(CriuDumpReq));
+	if (!req.dump) {
+			perror("Can't allocate memory for dump request");
+			return -1;
+	}
+
+	criu_dump_req__init(req.dump);
+
+	/*
+	 * Set dump options.
+	 * Checkout more in protobuf/rpc.proto.
+	 */
+	req.dump->has_leave_running	= true;
+	req.dump->leave_running		= true;
+	req.dump->images_dir_fd		= dir_fd;
+	req.dump->has_shell_job		= true;
+	req.dump->shell_job		= true;
+	req.dump->log_level		= 4;
+
+	/*
+	 * Connect to service socket
+	 */
+	fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
+	if (fd == -1) {
+		perror("Can't create socket");
+		return -1;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_LOCAL;
+
+	strcpy(addr.sun_path, "criu_service.socket");
+
+	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
+
+	ret = connect(fd, (struct sockaddr *) &addr, addr_len);
+	if (ret == -1) {
+		perror("Cant connect to socket");
+		goto exit;
+	}
+
+	/*
+	 * Send request
+	 */
+	ret = send_req(fd, &req);
+	if (ret == -1) {
+		perror("Can't send request");
+		goto exit;
+	}
+
+	/*
+	 * Recv response
+	 */
+	resp = recv_resp(fd);
+	if (!resp) {
+		perror("Can't recv response");
+		ret = -1;
+		goto exit;
+	}
+
+	if (resp->type != CRIU_REQ_TYPE__DUMP) {
+		perror("Unexpected response type");
+		ret = -1;
+		goto exit;
+	}
+
+	/*
+	 * Check response.
+	 */
+	if (resp->success)
+		puts("Success");
+	else {
+		puts("Fail");
+		ret = -1;
+		goto exit;
+	}
+
+	if (resp->dump->has_restored && resp->dump->restored)
+		puts("Restored");
+
+exit:
+	close(fd);
+	close(dir_fd);
+	criu_resp__free_unpacked(resp, NULL);
+	return ret;
+}
