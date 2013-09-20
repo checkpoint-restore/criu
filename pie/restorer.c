@@ -211,14 +211,6 @@ static void restore_rlims(struct task_restore_core_args *ta)
 static int restore_signals(siginfo_t *ptr, int nr, bool group)
 {
 	int ret, i;
-	k_rtsigset_t to_block;
-
-	ksigfillset(&to_block);
-	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
-	if (ret) {
-		pr_err("Unable to block signals %d", ret);
-		return -1;
-	}
 
 	for (i = 0; i < nr; i++) {
 		siginfo_t *info = ptr + i;
@@ -272,12 +264,21 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 long __export_restore_thread(struct thread_restore_args *args)
 {
 	struct rt_sigframe *rt_sigframe;
+	k_rtsigset_t to_block;
 	unsigned long new_sp;
 	int my_pid = sys_gettid();
 	int ret;
 
 	if (my_pid != args->pid) {
 		pr_err("Thread pid mismatch %d/%d\n", my_pid, args->pid);
+		goto core_restore_end;
+	}
+
+	/* All signals must be handled by thread leader */
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
+	if (ret) {
+		pr_err("Unable to block signals %d", ret);
 		goto core_restore_end;
 	}
 
@@ -527,6 +528,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp;
+	k_rtsigset_t to_block;
 	pid_t my_pid = sys_getpid();
 	rt_sigaction_t act;
 
@@ -854,6 +856,13 @@ long __export_restore_task(struct task_restore_core_args *args)
 	restore_finish_stage(CR_STATE_RESTORE);
 
 	futex_wait_while_gt(&zombies_inprogress, 0);
+
+	ksigfillset(&to_block);
+	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
+	if (ret) {
+		pr_err("Unable to block signals %ld", ret);
+		goto core_restore_end;
+	}
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 
