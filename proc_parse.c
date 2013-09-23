@@ -281,7 +281,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 		if (vma_area->vma.status != 0) {
 			continue;
-		} else if (strstr(buf, "[vsyscall]")) {
+		} else if (strstr(buf, "[vsyscall]") || strstr(buf, "[vectors]")) {
 			vma_area->vma.status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
 			vma_area->vma.status |= VMA_AREA_REGULAR;
