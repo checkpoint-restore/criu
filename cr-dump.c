@@ -675,46 +675,9 @@ err:
 	return ret;
 }
 
-static int parse_threads(const struct pstree_item *item, struct pid **_t, int *_n)
-{
-	struct dirent *de;
-	DIR *dir;
-	struct pid *t = NULL;
-	int nr = 1;
-
-	dir = opendir_proc(item->pid.real, "task");
-	if (!dir)
-		return -1;
-
-	while ((de = readdir(dir))) {
-		struct pid *tmp;
-
-		/* We expect numbers only here */
-		if (de->d_name[0] == '.')
-			continue;
-
-		tmp = xrealloc(t, nr * sizeof(struct pid));
-		if (!tmp) {
-			xfree(t);
-			return -1;
-		}
-		t = tmp;
-		t[nr - 1].real = atoi(de->d_name);
-		t[nr - 1].virt = -1;
-		nr++;
-	}
-
-	closedir(dir);
-
-	*_t = t;
-	*_n = nr - 1;
-
-	return 0;
-}
-
 static int get_threads(struct pstree_item *item)
 {
-	return parse_threads(item, &item->threads, &item->nr_threads);
+	return parse_threads(item->pid.real, &item->threads, &item->nr_threads);
 }
 
 static int check_threads(const struct pstree_item *item)
@@ -722,7 +685,7 @@ static int check_threads(const struct pstree_item *item)
 	struct pid *t;
 	int nr, ret;
 
-	ret = parse_threads(item, &t, &nr);
+	ret = parse_threads(item->pid.real, &t, &nr);
 	if (ret)
 		return ret;
 

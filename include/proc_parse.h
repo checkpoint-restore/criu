@@ -164,4 +164,7 @@ extern int parse_file_locks(void);
 
 extern int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat * args);
 
+struct pid;
+extern int parse_threads(int pid, struct pid **_t, int *_n);
+
 #endif /* __CR_PROC_PARSE_H__ */
