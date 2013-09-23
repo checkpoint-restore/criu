@@ -307,14 +307,6 @@ int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
 	return ret;
 }
 
-static int munmap_seized(struct parasite_ctl *ctl, void *addr, size_t length)
-{
-	unsigned long x;
-
-	return syscall_seized(ctl, __NR_munmap, &x,
-			(unsigned long)addr, length, 0, 0, 0, 0);
-}
-
 static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 {
 	int sun_len;
@@ -850,10 +842,15 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 	close_safe(&ctl->tsock);
 
 	if (ctl->remote_map) {
-		if (munmap_seized(ctl, (void *)ctl->remote_map, ctl->map_length)) {
-			pr_err("munmap_seized failed (pid: %d)\n", ctl->pid.real);
+		struct parasite_unmap_args *args;
+
+		*ctl->addr_cmd = PARASITE_CMD_UNMAP;
+
+		args = parasite_args(ctl, struct parasite_unmap_args);
+		args->parasite_start = ctl->remote_map;
+		args->parasite_len = ctl->map_length;
+		if (parasite_unmap(ctl, ctl->parasite_ip))
 			ret = -1;
-		}
 	}
 
 	return ret;

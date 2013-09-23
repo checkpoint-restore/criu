@@ -478,6 +478,20 @@ out:
 	return 0;
 }
 
+static noinline int unmap_itself(void *data)
+{
+	struct parasite_unmap_args *args = data;
+
+	sys_munmap(args->parasite_start, args->parasite_len);
+	/*
+	 * sys_munmap never return back. The controll process must
+	 * trap us on the exit from munmap
+	 */
+
+	BUG();
+	return -1;
+}
+
 static noinline __used int parasite_init_daemon(void *data)
 {
 	struct parasite_init_args *args = data;
@@ -523,6 +537,8 @@ int __used parasite_service(unsigned int cmd, void *args)
 		return dump_thread(args);
 	case PARASITE_CMD_INIT_DAEMON:
 		return parasite_init_daemon(args);
+	case PARASITE_CMD_UNMAP:
+		return unmap_itself(args);
 	}
 
 	pr_err("Unknown command to parasite: %d\n", cmd);

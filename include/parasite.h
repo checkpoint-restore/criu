@@ -25,6 +25,7 @@ enum {
 
 	PARASITE_CMD_INIT_DAEMON,
 	PARASITE_CMD_DUMP_THREAD,
+	PARASITE_CMD_UNMAP,
 
 	/*
 	 * These two must be greater than INITs.
@@ -68,6 +69,11 @@ struct parasite_init_args {
 	int			log_level;
 
 	struct rt_sigframe	*sigframe;
+};
+
+struct parasite_unmap_args {
+	void			*parasite_start;
+	unsigned long		parasite_len;
 };
 
 struct parasite_vma_entry
