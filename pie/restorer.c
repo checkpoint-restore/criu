@@ -511,6 +511,17 @@ static void restore_posix_timers(struct task_restore_core_args *args)
 		sys_timer_settime((timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
 }
+static void *bootstrap_start;
+static unsigned int bootstrap_len;
+
+void __export_unmap(void)
+{
+	sys_munmap(bootstrap_start, bootstrap_len);
+	/*
+	 * sys_munmap must not return here. The controll process must
+	 * trap us on the exit from sys_munmap.
+	 */
+}
 
 /*
  * The main routine to restore task via sigreturn.
@@ -531,6 +542,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	k_rtsigset_t to_block;
 	pid_t my_pid = sys_getpid();
 	rt_sigaction_t act;
+
+	bootstrap_start = args->bootstrap_start;
+	bootstrap_len	= args->bootstrap_len;
 
 	task_entries = args->task_entries;
 

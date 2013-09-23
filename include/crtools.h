@@ -177,6 +177,8 @@ struct rst_info {
 	unsigned long		premmapped_len;
 	unsigned long		clone_flags;
 
+	void			*munmap_restorer;
+
 	int			nr_zombies;
 
 	int service_fd_id;

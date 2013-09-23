@@ -126,6 +126,9 @@ struct task_restore_core_args {
 	unsigned long			premmapped_len;
 	rt_sigaction_t			sigchld_act;
 
+	void				*bootstrap_start;
+	unsigned long			bootstrap_len;
+
 	struct itimerval		itimers[3];
 
 	int 				timer_n;

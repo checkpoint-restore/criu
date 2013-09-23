@@ -1362,6 +1362,7 @@ static void finalize_restore(int status)
 
 	for_each_pstree_item(item) {
 		pid_t pid = item->pid.real;
+		struct parasite_ctl *ctl;
 		int i;
 
 		if (item->state == TASK_DEAD)
@@ -1373,7 +1374,16 @@ static void finalize_restore(int status)
 		if (status  < 0)
 			goto detach;
 
-		/* TODO Unmap the restorer blob and restore the process state */
+		/* Unmap the restorer blob */
+		ctl = parasite_prep_ctl(pid, NULL);
+		if (ctl == NULL)
+			goto detach;
+
+		parasite_unmap(ctl, (unsigned long) item->rst->munmap_restorer);
+
+		xfree(ctl);
+
+		/* TODO restore the process state */
 detach:
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
@@ -2206,6 +2216,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	long new_sp, exec_mem_hint;
 	long ret;
+
+	void *bootstrap_start;
 	long restore_bootstrap_len;
 
 	struct task_restore_core_args *task_args;
@@ -2314,6 +2326,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		vdso_rt_size = vdso_rt_vma_size + vdso_rt_delta;
 	}
 
+	restore_bootstrap_len += vdso_rt_size;
+
 	/*
 	 * Restorer is a blob (code + args) that will get mapped in some
 	 * place, that should _not_ intersect with both -- current mappings
@@ -2326,16 +2340,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vmas.h, &self_vmas.h,
-					      restore_bootstrap_len +
-					      vdso_rt_size);
+					      restore_bootstrap_len);
+	bootstrap_start = (void *) exec_mem_hint;
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
-		       restore_bootstrap_len + vdso_rt_size);
+		       restore_bootstrap_len);
 		goto err;
 	}
 
 	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
-			KBYTES(restore_bootstrap_len + vdso_rt_size));
+			KBYTES(restore_bootstrap_len));
 
 	ret = remap_restorer_blob((void *)exec_mem_hint);
 	if (ret < 0)
@@ -2347,6 +2361,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 	restore_thread_exec_start	= restorer_sym(exec_mem_hint, __export_restore_thread);
 	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task);
+	current->rst->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap);
 
 	exec_mem_hint += restorer_len;
 
@@ -2363,6 +2378,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	memzero(mem, restore_task_vma_len + restore_thread_vma_len);
 	task_args	= mem;
 	thread_args	= mem + restore_task_vma_len;
+
+	task_args->bootstrap_start = bootstrap_start;
+	task_args->bootstrap_len = restore_bootstrap_len;
 
 	/*
 	 * Get a reference to shared memory area which is
