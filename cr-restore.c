@@ -2208,7 +2208,7 @@ void __gcov_flush(void) {}
 static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
 	long restore_task_vma_len;
-	long restore_thread_vma_len, self_vmas_len, vmas_len;
+	long restore_thread_vma_len, vmas_len;
 
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -2252,7 +2252,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (rst_mem_init())
 		goto err;
 
-	self_vmas_len = round_up((self_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
 	vmas_len = round_up((rst_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
 
 	/* pr_info_vma_list(&self_vma_list); */
@@ -2314,7 +2313,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				restore_task_vma_len +
 				restore_thread_vma_len +
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
-				self_vmas_len + vmas_len +
+				vmas_len +
 				rst_mem_len;
 
 	/*
@@ -2406,11 +2405,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->task_entries = mem;
 
 	mem += TASK_ENTRIES_SIZE;
-	task_args->self_vmas = vma_list_remap(mem, self_vmas_len, &self_vmas);
-	if (!task_args->self_vmas)
-		goto err;
 
-	mem += self_vmas_len;
 	task_args->nr_vmas = rst_vmas.nr;
 	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vmas);
 	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;

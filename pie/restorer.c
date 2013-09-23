@@ -524,6 +524,51 @@ void __export_unmap(void)
 }
 
 /*
+ * This function unmaps all VMAs, which don't belong to
+ * the restored process or the restorer
+ */
+static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
+		      void *bootstrap_start, unsigned long bootstrap_len)
+{
+	unsigned long s1, s2;
+	void *p1, *p2;
+	int ret;
+
+	if ((void *) premmapped_addr < bootstrap_start) {
+		p1 = premmapped_addr;
+		s1 = premmapped_len;
+		p2 = bootstrap_start;
+		s2 = bootstrap_len;
+	} else {
+		p2 = premmapped_addr;
+		s2 = premmapped_len;
+		p1 = bootstrap_start;
+		s1 = bootstrap_len;
+	}
+
+	ret = sys_munmap(NULL, p1 - NULL);
+	if (ret) {
+		pr_err("Unable to unmap (%p-%p): %d\n", NULL, p1, ret);
+		return -1;
+	}
+
+	ret = sys_munmap(p1 + s1, p2 - (p1 + s1));
+	if (ret) {
+		pr_err("Unable to unmap (%p-%p): %d\n", p1 + s1, p2, ret);
+		return -1;
+	}
+
+	ret = sys_munmap(p2 + s2, (void *) TASK_SIZE - (p2 + s2));
+	if (ret) {
+		pr_err("Unable to unmap (%p-%p): %d\n",
+				p2 + s2, (void *)TASK_SIZE, ret);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
  * but use sigreturn facility to restore core registers
@@ -535,7 +580,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 	long ret = -1;
 	VmaEntry *vma_entry;
 	unsigned long va;
-	unsigned long premmapped_end = args->premmapped_addr + args->premmapped_len;
 
 	struct rt_sigframe *rt_sigframe;
 	unsigned long new_sp;
@@ -561,60 +605,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
-	for (vma_entry = args->self_vmas; vma_entry->start != 0; vma_entry++) {
-		unsigned long addr = vma_entry->start;
-		unsigned long len;
+	if (vdso_remap("rt-vdso", args->vdso_sym_rt.vma_start,
+		       args->vdso_rt_parked_at,
+		       vdso_vma_size(&args->vdso_sym_rt)))
+		goto core_restore_end;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
-			continue;
-
-		pr_debug("Examine %"PRIx64"-%"PRIx64"\n", vma_entry->start, vma_entry->end);
-
-		/*
-		 * Park runtime vdso at safe place, thus we can access it
-		 * during restore of targets vma, it's quite important to
-		 * remap it instead of copying to save page frame number
-		 * associated with vdso, we will use it if there is subsequent
-		 * checkpoint done on previously restored program.
-		 */
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
-			BUG_ON(vma_entry->start != args->vdso_sym_rt.vma_start);
-			BUG_ON(vma_entry_len(vma_entry) != vdso_vma_size(&args->vdso_sym_rt));
-
-			if (vdso_remap("rt-vdso", vma_entry->start,
-				       args->vdso_rt_parked_at,
-				       vdso_vma_size(&args->vdso_sym_rt)))
-				goto core_restore_end;
-			continue;
-		}
-
-		if (addr < args->premmapped_addr) {
-			if (vma_entry->end >= args->premmapped_addr)
-				len = args->premmapped_addr - addr;
-			else
-				len = vma_entry->end - vma_entry->start;
-			if (sys_munmap((void *) addr, len)) {
-				pr_err("munmap fail for %lx - %lx\n", addr, addr + len);
-				goto core_restore_end;
-			}
-		}
-
-		if (vma_entry->end >= TASK_SIZE)
-			continue;
-
-		if (vma_entry->end > premmapped_end) {
-			if (vma_entry->start < premmapped_end)
-				addr = premmapped_end;
-			len = vma_entry->end - addr;
-			if (sys_munmap((void *) addr, len)) {
-				pr_err("munmap fail for %lx - %lx\n", addr, addr + len);
-				goto core_restore_end;
-			}
-		}
-	}
-
-	sys_munmap(args->self_vmas,
-			((void *)(vma_entry + 1) - ((void *)args->self_vmas)));
+	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
+				bootstrap_start, bootstrap_len))
+		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
 	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
