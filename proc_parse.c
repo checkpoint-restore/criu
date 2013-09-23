@@ -1246,6 +1246,9 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 	struct pid *t = NULL;
 	int nr = 1;
 
+	if (*_t)
+		t = *_t;
+
 	dir = opendir_proc(pid, "task");
 	if (!dir)
 		return -1;
@@ -1257,21 +1260,26 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 		if (de->d_name[0] == '.')
 			continue;
 
-		tmp = xrealloc(t, nr * sizeof(struct pid));
-		if (!tmp) {
-			xfree(t);
-			return -1;
+		if (*_t == NULL) {
+			tmp = xrealloc(t, nr * sizeof(struct pid));
+			if (!tmp) {
+				xfree(t);
+				return -1;
+			}
+			t = tmp;
+			t[nr - 1].virt = -1;
 		}
-		t = tmp;
 		t[nr - 1].real = atoi(de->d_name);
-		t[nr - 1].virt = -1;
 		nr++;
 	}
 
 	closedir(dir);
 
-	*_t = t;
-	*_n = nr - 1;
+	if (*_t == NULL) {
+		*_t = t;
+		*_n = nr - 1;
+	} else
+		BUG_ON(nr - 1 != *_n);
 
 	return 0;
 }

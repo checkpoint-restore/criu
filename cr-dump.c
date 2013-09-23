@@ -682,7 +682,7 @@ static int get_threads(struct pstree_item *item)
 
 static int check_threads(const struct pstree_item *item)
 {
-	struct pid *t;
+	struct pid *t = NULL;
 	int nr, ret;
 
 	ret = parse_threads(item->pid.real, &t, &nr);
