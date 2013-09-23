@@ -37,6 +37,11 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 
 	test_msg("signo=%d si_code=%x\n", signal, info->si_code);
 
+	if (test_go()) {
+		err("The signal is received before unlocking");
+		return;
+	}
+
 	switch (signal) {
 	case SIGCHLD:
 		if ((info->si_code & CLD_EXITED) &&
