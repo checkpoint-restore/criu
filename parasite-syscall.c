@@ -886,8 +886,53 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 }
 
 /*
- * If vma_area_list is NULL, a place for injecting syscall will not be set.
+ * parasite_unmap() is used for unmapping parasite and restorer blobs.
+ * A blob can contain code for unmapping itself, so the porcess is
+ * trapped on the exit from the munmap syscall.
  */
+int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
+{
+	user_regs_struct_t regs;
+	pid_t pid = ctl->pid.real;
+	k_rtsigset_t block;
+	int ret = -1;
+
+	ksigfillset(&block);
+
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
+		pr_perror("Can't block signals for %d", pid);
+		goto err;
+	}
+
+	regs = ctl->regs_orig;
+	parasite_setup_regs(addr, 0, &regs);
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
+		pr_perror("Can't set registers for %d", pid);
+		goto err_sig;
+	}
+
+	if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
+		pr_perror("ptrace");
+		goto err_regs;
+	}
+
+	ret = parasite_stop_on_syscall(1, __NR_munmap);
+
+err_regs:
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
+		pr_perror("Can't restore regs for %d", pid);
+		ret = -1;
+	}
+err_sig:
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->sig_blocked)) {
+		pr_perror("Can't restore sigmask for %d", pid);
+		ret = -1;
+	}
+err:
+	return ret;
+}
+
+/* If vma_area_list is NULL, a place for injecting syscall will not be set. */
 struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;

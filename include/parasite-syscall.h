@@ -115,4 +115,5 @@ extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
 
 extern int parasite_stop_on_syscall(int tasks, int sys_nr);
+extern int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr);
 #endif /* __CR_PARASITE_SYSCALL_H__ */
