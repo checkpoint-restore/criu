@@ -134,9 +134,16 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 {
 	struct pstree_item *item;
 
-	item = xzalloc(sizeof(*item) + (rst ? sizeof(item->rst[0]) : 0));
-	if (!item)
-		return NULL;
+	if (!rst) {
+		item = xzalloc(sizeof(*item));
+		if (!item)
+			return NULL;
+	} else {
+		item = shmalloc(sizeof(*item) + sizeof(item->rst[0]));
+		if (!item)
+			return NULL;
+		memset(item, 0, sizeof(*item) + sizeof(item->rst[0]));
+	}
 
 	INIT_LIST_HEAD(&item->children);
 	INIT_LIST_HEAD(&item->sibling);
