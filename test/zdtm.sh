@@ -336,6 +336,21 @@ save_fds()
 	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | awk '{ print $9,$10,$11; }' > $2
 }
 
+save_maps()
+{
+	cat /proc/$1/maps | python maps.py > $2
+}
+
+diff_maps()
+{
+	if ! diff -up $1 $2; then
+		echo ERROR: Sets of mappings differ:
+		echo $1
+		echo $2
+		return 1
+	fi
+}
+
 diff_fds()
 {
 	test -n "$PIDNS" && return 0
@@ -437,6 +452,7 @@ EOF
 		[ -n "$dump_only" ] && postdump=$POSTDUMP
 
 		save_fds $PID  $ddump/dump.fd
+		save_maps $PID  $ddump/dump.maps
 		setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
 			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt $postdump
 		retcode=$?
@@ -470,6 +486,10 @@ EOF
 		if [ -n "$dump_only" ]; then
 			save_fds $PID  $ddump/dump.fd.after
 			diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
+
+			save_maps $PID  $ddump/dump.maps.after
+			diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
+
 			if [[ $linkremap ]]; then
 				echo "remove ./$tdir/link_remap.*"
 				rm -f ./$tdir/link_remap.*
@@ -492,13 +512,16 @@ EOF
 			echo Restore
 			setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $args || return 2
 
+			[ -n "$PIDNS" ] && PID=`cat $TPID`
 			for i in `seq 5`; do
 				save_fds $PID  $ddump/restore.fd
 				diff_fds $ddump/dump.fd $ddump/restore.fd && break
 				sleep 0.2
 			done
 			[ $i -eq 5 ] && return 2
-			[ -n "$PIDNS" ] && PID=`cat $TPID`
+
+			save_maps $PID $ddump/restore.maps
+			diff_maps $ddump/dump.maps $ddump/restore.maps || return 2
 		fi
 
 	done
