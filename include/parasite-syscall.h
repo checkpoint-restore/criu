@@ -114,4 +114,5 @@ extern bool arch_can_dump_task(pid_t pid);
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
 
+extern int parasite_stop_on_syscall(pid_t pid, int sys_nr);
 #endif /* __CR_PARASITE_SYSCALL_H__ */

@@ -759,6 +759,17 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (ret)
 		return -1;
 
+	if (parasite_stop_on_syscall(pid, __NR_rt_sigreturn))
+		return -1;
+
+	return 0;
+}
+
+int parasite_stop_on_syscall(pid_t pid, const int sys_nr)
+{
+	user_regs_struct_t regs;
+	int status, ret;
+
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (1) {
 		if (wait4(pid, &status, __WALL, NULL) < 0) {
@@ -783,7 +794,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		}
 
 		pr_debug("%d is going to execute the syscall %lx\n", pid, REG_SYSCALL_NR(regs));
-		if (REG_SYSCALL_NR(regs) == __NR_rt_sigreturn) {
+		if (REG_SYSCALL_NR(regs) == sys_nr) {
 			pr_debug("%d was stopped\n", pid);
 			break;
 		}
@@ -812,7 +823,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 	}
 
-	return ret;
+	return 0;
 }
 
 int parasite_cure_remote(struct parasite_ctl *ctl)
