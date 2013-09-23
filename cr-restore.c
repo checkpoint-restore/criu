@@ -905,7 +905,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		if (check_core(ca.core, item))
 			return -1;
 
-		if (ca.core->tc->task_state == TASK_DEAD)
+		item->state = ca.core->tc->task_state;
+
+		if (item->state == TASK_DEAD)
 			item->parent->rst->nr_zombies++;
 	} else
 		ca.core = NULL;
