@@ -64,6 +64,8 @@
 #include "stats.h"
 #include "tun.h"
 
+#include "parasite-syscall.h"
+
 #include "protobuf.h"
 #include "protobuf/sa.pb-c.h"
 #include "protobuf/timer.pb-c.h"
@@ -1314,6 +1316,78 @@ static int restore_switch_stage(int next_stage)
 	return restore_wait_inprogress_tasks();
 }
 
+static int attach_to_tasks()
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		pid_t pid = item->pid.real;
+		int status, i;
+
+		if (item->state == TASK_DEAD)
+			continue;
+
+		if (item->state == TASK_HELPER)
+			continue;
+
+		if (parse_threads(item->pid.real, &item->threads, &item->nr_threads))
+			return -1;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			pid = item->threads[i].real;
+
+			if (ptrace(PTRACE_ATTACH, pid, 0, 0)) {
+				pr_perror("Can't attach to %d", pid);
+				return -1;
+			}
+
+			if (wait4(pid, &status, __WALL, NULL) != pid) {
+				pr_perror("waitpid() failed");
+				return -1;
+			}
+
+			if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
+				pr_perror("Unable to start %d", pid);
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static void finalize_restore(int status)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		pid_t pid = item->pid.real;
+		int i;
+
+		if (item->state == TASK_DEAD)
+			continue;
+
+		if (item->state == TASK_HELPER)
+			continue;
+
+		if (status  < 0)
+			goto detach;
+
+		/* TODO Unmap the restorer blob and restore the process state */
+detach:
+		for (i = 0; i < item->nr_threads; i++) {
+			pid = item->threads[i].real;
+			if (pid < 0) {
+				BUG_ON(status >= 0);
+				break;
+			}
+
+			if (ptrace(PTRACE_DETACH, pid, NULL, 0))
+				pr_perror("Unable to execute %d", pid);
+		}
+	}
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	int ret, fd;
@@ -1423,8 +1497,19 @@ static int restore_root_task(struct pstree_item *init)
 
 	timing_stop(TIME_RESTORE);
 
+	ret = attach_to_tasks();
+
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
+
+	if (ret == 0)
+		ret = parasite_stop_on_syscall(task_entries->nr_threads, __NR_rt_sigreturn);
+
+	/*
+	 * finalize_restore() always detaches from processes and
+	 * they continue run through sigreturn.
+	 */
+	finalize_restore(ret);
 
 	write_stats(RESTORE_STATS);
 
