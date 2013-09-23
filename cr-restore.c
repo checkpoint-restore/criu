@@ -953,7 +953,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (ret < 0)
 		pr_perror("Can't fork for %d", pid);
 
-	if (ca.clone_flags & CLONE_NEWPID)
+	if (item == root_item)
 		item->pid.real = ret;
 
 	if (opts.pidfile && root_item == item) {
@@ -1149,6 +1149,27 @@ static int restore_task_with_children(void *_arg)
 
 	current = ca->item;
 
+	if (current != root_item) {
+		char buf[PATH_MAX];
+		int fd;
+
+		/* Determine PID in CRIU's namespace */
+		fd = get_service_fd(CR_PROC_FD_OFF);
+		if (fd < 0)
+			exit(1);
+
+		ret = readlinkat(fd, "self", buf, sizeof(buf) - 1);
+		if (ret < 0) {
+			pr_perror("Unable to read the /proc/self link");
+			exit(1);
+		}
+		buf[ret] = '\0';
+
+		current->pid.real = atoi(buf);
+		pr_debug("PID: real %d virt %d\n",
+				current->pid.real, current->pid.virt);
+	}
+
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
 
@@ -1293,8 +1314,19 @@ static int restore_switch_stage(int next_stage)
 
 static int restore_root_task(struct pstree_item *init)
 {
-	int ret;
+	int ret, fd;
 	struct sigaction act, old_act;
+
+	fd = open("/proc", O_DIRECTORY | O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Unable to open /proc");
+		return -1;
+	}
+
+	ret = install_service_fd(CR_PROC_FD_OFF, fd);
+	close(fd);
+	if (ret < 0)
+		return -1;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {

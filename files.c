@@ -933,6 +933,7 @@ int prepare_fds(struct pstree_item *me)
 	if (me->rst->fdt)
 		futex_inc_and_wake(&me->rst->fdt->fdt_lock);
 out:
+	close_service_fd(CR_PROC_FD_OFF);
 	tty_fini_fds();
 	return ret;
 }
