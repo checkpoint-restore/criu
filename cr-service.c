@@ -176,6 +176,34 @@ exit:
 	return success ? 0 : 1;
 }
 
+static int cr_service_work(void)
+{
+	CriuReq *msg = 0;
+
+	if (recv_criu_msg(cr_service_client->sk_fd,
+					&msg) == -1) {
+		pr_perror("Can't recv request");
+		goto err;
+	}
+
+	switch (msg->type) {
+	case CRIU_REQ_TYPE__DUMP:
+		return dump_using_req(msg->dump);
+
+	default:
+		pr_perror("Invalid request");
+		goto err;
+	}
+
+err:
+	/*
+	 * FIXME -- add generic error report
+	 */
+
+	close(cr_service_client->sk_fd);
+	return -1;
+}
+
 int cr_service(bool daemon_mode)
 {
 	int server_fd;
@@ -186,8 +214,6 @@ int cr_service(bool daemon_mode)
 
 	socklen_t server_addr_len;
 	socklen_t client_addr_len;
-
-	CriuReq *msg = 0;
 
 	cr_service_client = malloc(sizeof(struct _cr_service_client));
 
@@ -267,29 +293,7 @@ int cr_service(bool daemon_mode)
 			continue;
 
 		case 0:
-			if (recv_criu_msg(cr_service_client->sk_fd,
-							&msg) == -1) {
-				pr_perror("Can't recv request");
-				goto err;
-			}
-
-			switch (msg->type) {
-			case CRIU_REQ_TYPE__DUMP:
-				exit(dump_using_req(msg->dump));
-
-			default:
-				pr_perror("Invalid request");
-				goto err;
-			}
-
-err:
-			/*
-			 * FIXME -- add generic error report
-			 */
-
-			close(cr_service_client->sk_fd);
-			exit(-1);
-
+			exit(cr_service_work());
 		default:
 			close(cr_service_client->sk_fd);
 		}
