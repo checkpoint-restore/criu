@@ -885,6 +885,9 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 	return ret;
 }
 
+/*
+ * If vma_area_list is NULL, a place for injecting syscall will not be set.
+ */
 struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
@@ -914,6 +917,13 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		goto err;
 	}
 
+	ctl->pid.real	= pid;
+	ctl->pid.virt	= 0;
+
+	if (vma_area_list == NULL)
+		return ctl;
+
+	/* Search a place for injecting syscall */
 	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->regs_orig));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
@@ -921,8 +931,6 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		goto err;
 	}
 
-	ctl->pid.real	= pid;
-	ctl->pid.virt	= 0;
 	ctl->syscall_ip	= vma_area->vma.start;
 
 	return ctl;
