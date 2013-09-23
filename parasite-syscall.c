@@ -759,20 +759,28 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (ret)
 		return -1;
 
-	if (parasite_stop_on_syscall(pid, __NR_rt_sigreturn))
+	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn))
 		return -1;
 
 	return 0;
 }
 
-int parasite_stop_on_syscall(pid_t pid, const int sys_nr)
+/*
+ * Trap tasks on the exit from the specified syscall
+ *
+ * tasks - number of processes, which should be trapped
+ * sys_nr - the required syscall number
+ */
+int parasite_stop_on_syscall(int tasks, const int sys_nr)
 {
 	user_regs_struct_t regs;
 	int status, ret;
+	pid_t pid;
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
-	while (1) {
-		if (wait4(pid, &status, __WALL, NULL) < 0) {
+	while (tasks) {
+		pid = wait4(-1, &status, __WALL, NULL);
+		if (pid == -1) {
 			pr_perror("wait4 failed");
 			return -1;
 		}
@@ -795,8 +803,30 @@ int parasite_stop_on_syscall(pid_t pid, const int sys_nr)
 
 		pr_debug("%d is going to execute the syscall %lx\n", pid, REG_SYSCALL_NR(regs));
 		if (REG_SYSCALL_NR(regs) == sys_nr) {
+			/*
+			 * The process is going to execute the required syscall,
+			 * the next stop will be on the exit from this syscall
+			 */
+			ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+			if (ret) {
+				pr_perror("ptrace");
+				return -1;
+			}
+
+			pid = wait4(pid, &status, __WALL, NULL);
+			if (pid == -1) {
+				pr_perror("wait4 failed");
+				return -1;
+			}
+
+			if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
+				pr_err("Task is in unexpected state: %x\n", status);
+				return -1;
+			}
+
 			pr_debug("%d was stopped\n", pid);
-			break;
+			tasks--;
+			continue;
 		}
 
 		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
@@ -804,23 +834,6 @@ int parasite_stop_on_syscall(pid_t pid, const int sys_nr)
 			pr_perror("ptrace");
 			return -1;
 		}
-	}
-
-	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-	if (ret) {
-		pr_perror("ptrace");
-		return -1;
-	}
-
-	if (wait4(pid, &status, __WALL, NULL) != pid) {
-		pr_perror("wait4 failed");
-		return -1;
-	}
-
-	pr_debug("Trap %d\n", pid);
-	if (!WIFSTOPPED(status)) {
-		pr_err("%d\n", status);
-		return -1;
 	}
 
 	return 0;
