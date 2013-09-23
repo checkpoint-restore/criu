@@ -27,13 +27,13 @@ static int recv_criu_msg(int socket_fd, CriuReq **msg)
 
 	len = read(socket_fd, buf, MAX_MSG_SIZE);
 	if (len == -1) {
-		puts("Can't read request");
+		pr_perror("Can't read request");
 		return -1;
 	}
 
 	*msg = criu_req__unpack(NULL, len, buf);
 	if (!*msg) {
-		puts("Failed unpacking request");
+		pr_perror("Failed unpacking request");
 		return -1;
 	}
 
