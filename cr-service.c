@@ -288,12 +288,11 @@ int cr_service(bool daemon_mode)
 		pr_info("Connected.\n");
 
 		switch (child_pid = fork()) {
-		case -1:
-			pr_perror("Can't fork a child.");
-			continue;
-
 		case 0:
 			exit(cr_service_work());
+		case -1:
+			pr_perror("Can't fork a child.");
+			/* fall through */
 		default:
 			close(cr_service_client->sk_fd);
 		}
