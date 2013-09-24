@@ -282,7 +282,7 @@ int cr_service(bool daemon_mode)
 						  &client_addr_len);
 		if (cr_service_client->sk_fd == -1) {
 			pr_perror("Can't accept connection.");
-			continue;
+			goto err;
 		}
 
 		pr_info("Connected.\n");
