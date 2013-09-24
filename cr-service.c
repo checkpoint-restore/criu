@@ -215,7 +215,9 @@ int cr_service(bool daemon_mode)
 	socklen_t server_addr_len;
 	socklen_t client_addr_len;
 
-	cr_service_client = malloc(sizeof(struct _cr_service_client));
+	cr_service_client = xmalloc(sizeof(struct _cr_service_client));
+	if (cr_service_client == NULL)
+		goto err;
 
 	server_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (server_fd == -1) {
