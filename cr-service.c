@@ -206,7 +206,7 @@ err:
 
 int cr_service(bool daemon_mode)
 {
-	int server_fd;
+	int server_fd = -1;
 	int child_pid;
 
 	struct sockaddr_un server_addr;
@@ -220,7 +220,7 @@ int cr_service(bool daemon_mode)
 	server_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (server_fd == -1) {
 		pr_perror("Can't initialize service socket.");
-		return -1;
+		goto err;
 	}
 
 	memset(&server_addr, 0, sizeof(server_addr));
@@ -241,7 +241,7 @@ int cr_service(bool daemon_mode)
 	if (bind(server_fd, (struct sockaddr *) &server_addr,
 					server_addr_len) == -1) {
 		pr_perror("Can't bind.");
-		return -1;
+		goto err;
 	}
 
 	pr_info("The service socket is bound to %s\n", server_addr.sun_path);
@@ -249,18 +249,18 @@ int cr_service(bool daemon_mode)
 	/* change service socket permissions, so anyone can connect to it */
 	if (chmod(server_addr.sun_path, 0666)) {
 		pr_perror("Can't change permissions of the service socket.");
-		return -1;
+		goto err;
 	}
 
 	if (listen(server_fd, 16) == -1) {
 		pr_perror("Can't listen for socket connections.");
-		return -1;
+		goto err;
 	}
 
 	if (daemon_mode) {
 		if (daemon(1, 1) == -1) {
 			pr_perror("Can't run service server in the background");
-			return -errno;
+			goto err;
 		}
 	}
 
@@ -299,5 +299,8 @@ int cr_service(bool daemon_mode)
 		}
 	}
 
-	return 0;
+err:
+	close_safe(&server_fd);
+
+	return 1;
 }
