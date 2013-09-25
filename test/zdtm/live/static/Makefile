@@ -143,7 +143,8 @@ TST_DIR		=				\
 		overmount_sock			\
 
 TST_DIR_FILE	=				\
-		chroot
+		chroot				\
+		chroot-file
 
 TST		=				\
 		$(TST_NOFILE)			\
