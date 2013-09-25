@@ -940,28 +940,27 @@ out:
 
 int prepare_fs(int pid)
 {
-	int ifd, cwd, ret = -1;
+	int ifd, dd, ret = -1;
 	FsEntry *fe;
 
 	ifd = open_image(CR_FD_FS, O_RSTR, pid);
 	if (ifd < 0)
-		return -1;
+		goto out;
 
-	if (pb_read_one(ifd, &fe, PB_FS) < 0) {
-		close_safe(&ifd);
-		return -1;
-	}
+	if (pb_read_one(ifd, &fe, PB_FS) < 0)
+		goto out_i;
 
-	cwd = open_reg_by_id(fe->cwd_id);
-	if (cwd < 0) {
-		pr_err("Can't open root %#x\n", fe->cwd_id);
-		close_safe(&ifd);
+	dd = open_reg_by_id(fe->cwd_id);
+	if (dd < 0) {
+		pr_err("Can't open cwd %#x\n", fe->cwd_id);
 		goto err;
 	}
 
-	if (fchdir(cwd) < 0) {
-		pr_perror("Can't change root");
-		goto close;
+	ret = fchdir(dd);
+	close(dd);
+	if (ret < 0) {
+		pr_perror("Can't change cwd");
+		goto err;
 	}
 
 	/*
@@ -979,11 +978,11 @@ int prepare_fs(int pid)
 	}
 
 	ret = 0;
-close:
-	close_safe(&cwd);
-	close_safe(&ifd);
 err:
 	fs_entry__free_unpacked(fe, NULL);
+out_i:
+	close_safe(&ifd);
+out:
 	return ret;
 }
 
