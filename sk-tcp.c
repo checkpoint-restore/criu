@@ -301,7 +301,7 @@ err_sopt:
 
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
-	int ret, img_fd;
+	int ret, img_fd, aux;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
 
@@ -335,6 +335,26 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	ret = tcp_stream_get_options(sk->rfd, &tse);
 	if (ret < 0)
 		goto err_opt;
+
+	/*
+	 * TCP socket options
+	 */
+
+	if (dump_opt(sk->rfd, SOL_TCP, TCP_NODELAY, &aux))
+		goto err_opt;
+
+	if (aux) {
+		tse.has_nodelay = true;
+		tse.nodelay = true;
+	}
+
+	if (dump_opt(sk->rfd, SOL_TCP, TCP_CORK, &aux))
+		goto err_opt;
+
+	if (aux) {
+		tse.has_cork = true;
+		tse.cork = true;
+	}
 
 	/*
 	 * Push the stuff to image
@@ -522,7 +542,7 @@ static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
 
 static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 {
-	int ifd;
+	int ifd, aux;
 	TcpStreamEntry *tse;
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
@@ -548,6 +568,18 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 
 	if (restore_tcp_queues(sk, tse, ifd))
 		goto err_c;
+
+	if (tse->has_nodelay && tse->nodelay) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_NODELAY, &aux))
+			goto err_c;
+	}
+
+	if (tse->has_cork && tse->cork) {
+		aux = 1;
+		if (restore_opt(sk, SOL_TCP, TCP_CORK, &aux))
+			goto err_c;
+	}
 
 	tcp_stream_entry__free_unpacked(tse, NULL);
 	close(ifd);

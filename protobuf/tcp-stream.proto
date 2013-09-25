@@ -9,4 +9,7 @@ message tcp_stream_entry {
 	required uint32		mss_clamp	= 7;
 	optional uint32		rcv_wscale	= 8;
 	optional uint32		timestamp	= 9;
+
+	optional bool		cork		= 10;
+	optional bool		nodelay		= 11;
 }
