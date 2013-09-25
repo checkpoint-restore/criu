@@ -94,6 +94,7 @@ static/sk-netlink
 static/proc-self
 static/grow_map
 static/grow_map02
+static/chroot
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
@@ -140,6 +141,7 @@ packet_sock
 fanotify00
 sk-netlink
 tun
+chroot
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1

@@ -142,10 +142,14 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 
+TST_DIR_FILE	=				\
+		chroot
+
 TST		=				\
 		$(TST_NOFILE)			\
 		$(TST_FILE)			\
 		$(TST_DIR)			\
+		$(TST_DIR_FILE)			\
 		env00				\
 		fifo-rowo-pair			\
 		umask00				\
@@ -182,6 +186,9 @@ $(TST_FILE:%=%.pid):	%.pid:	%
 
 $(TST_DIR:%=%.pid):	%.pid:	%
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.test
+
+$(TST_DIR_FILE:%=%.pid):	%.pid:	%
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --dirname=$<.dir.test --filename=$<.test
 
 cmdlinenv00.pid: cmdlinenv00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
