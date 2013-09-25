@@ -810,12 +810,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		long parent_tid;
 		int i, fd;
 
-		fd = sys_open(LAST_PID_PATH, O_RDWR, LAST_PID_PERM);
-		if (fd < 0) {
-			pr_err("Can't open last_pid %d\n", fd);
-			goto core_restore_end;
-		}
-
+		fd = args->fd_last_pid;
 		ret = sys_flock(fd, LOCK_EX);
 		if (ret) {
 			pr_err("Can't lock last_pid %d\n", fd);
@@ -856,8 +851,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 			goto core_restore_end;
 		}
 
-		sys_close(fd);
 	}
+
+	sys_close(args->fd_last_pid);
 
 	restore_rlims(args);
 

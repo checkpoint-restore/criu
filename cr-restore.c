@@ -2546,6 +2546,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	/*
+	 * Open the last_pid syscl early, since restorer (maybe) lives
+	 * in chroot and has no access to "/proc/..." paths.
+	 */
+	task_args->fd_last_pid = open(LAST_PID_PATH, O_RDWR);
+	if (task_args->fd_last_pid < 0) {
+		pr_perror("Can't open sys.ns_last_pid");
+		goto err;
+	}
+
+	/*
 	 * Now prepare run-time data for threads restore.
 	 */
 	task_args->nr_threads		= current->nr_threads;

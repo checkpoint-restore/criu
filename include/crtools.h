@@ -92,7 +92,6 @@ int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
 void up_page_ids_base(void);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
-#define LAST_PID_PERM		0666
 
 struct cr_fdset {
 	int fd_off;

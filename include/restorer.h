@@ -151,6 +151,8 @@ struct task_restore_core_args {
 	struct rst_tcp_sock		*tcp_socks;
 	int				tcp_socks_nr;
 
+	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
+
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 } __aligned(sizeof(long));
