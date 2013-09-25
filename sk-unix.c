@@ -342,7 +342,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			}
 
 			if (!tb[UNIX_DIAG_VFS]) {
-				pr_err("Bound socket w/o inode %d\n",
+				pr_err("Bound socket w/o inode %#x\n",
 						m->udiag_ino);
 				goto skip;
 			}
@@ -350,7 +350,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			snprintf(rpath, sizeof(rpath), ".%s", name);
 			if (fstatat(mntns_root, rpath, &st, 0)) {
-				pr_perror("Can't stat socket %d(%s)",
+				pr_perror("Can't stat socket %#x(%s)",
 						m->udiag_ino, rpath);
 				goto skip;
 			}
