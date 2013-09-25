@@ -938,6 +938,20 @@ out:
 	return ret;
 }
 
+static int fchroot(int fd)
+{
+	char fd_path[32];
+
+	/*
+	 * There's no such thing in syscalls. We can emulate
+	 * it using the /proc/self/fd/ :)
+	 */
+
+	sprintf(fd_path, "/proc/self/fd/%d", fd);
+	pr_debug("Going to chroot into %s\n", fd_path);
+	return chroot(fd_path);
+}
+
 int prepare_fs(int pid)
 {
 	int ifd, dd, ret = -1;
@@ -949,6 +963,10 @@ int prepare_fs(int pid)
 
 	if (pb_read_one(ifd, &fe, PB_FS) < 0)
 		goto out_i;
+
+	/*
+	 * Restore CWD
+	 */
 
 	dd = open_reg_by_id(fe->cwd_id);
 	if (dd < 0) {
@@ -964,13 +982,21 @@ int prepare_fs(int pid)
 	}
 
 	/*
-	 * FIXME: restore task's root. Don't want to do it now, since
-	 * it's not yet clean how we're going to resolve tasks' paths
-	 * relative to the dumper/restorer and all this logic is likely
-	 * to be hidden in a couple of calls (open_fe_fd is one od them)
-	 * but for chroot there's no fchroot call, we have to chroot
-	 * by path thus exposing this (yet unclean) logic here.
+	 * Restore root
 	 */
+
+	dd = open_reg_by_id(fe->root_id);
+	if (dd < 0) {
+		pr_err("Can't open root %#x\n", fe->root_id);
+		goto err;
+	}
+
+	ret = fchroot(dd);
+	close(dd);
+	if (ret < 0) {
+		pr_perror("Can't change root");
+		goto err;
+	}
 
 	if (fe->has_umask) {
 		pr_info("Restoring umask to %o\n", fe->umask);

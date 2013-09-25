@@ -715,9 +715,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_fds(current))
 		return -1;
 
-	if (prepare_fs(pid))
-		return -1;
-
 	if (prepare_file_locks(pid))
 		return -1;
 
@@ -2562,6 +2559,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->nr_zombies		= current->rst->nr_zombies;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
+
+	/*
+	 * Make root and cwd restore _that_ late not to break any
+	 * attempts to open files by paths above (e.g. /proc).
+	 */
+
+	if (prepare_fs(pid))
+		goto err;
 
 	close_image_dir();
 
