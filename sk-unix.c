@@ -128,8 +128,10 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	FilePermsEntry perms = FILE_PERMS_ENTRY__INIT;
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX, 0);
-	if (IS_ERR_OR_NULL(sk))
+	if (IS_ERR_OR_NULL(sk)) {
+		pr_err("Unix socket %#x not found\n", (int)p->stat.st_ino);
 		goto err;
+	}
 
 	if (!can_dump_unix_sk(sk))
 		goto err;
