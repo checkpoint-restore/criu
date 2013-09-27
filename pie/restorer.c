@@ -857,6 +857,12 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_rlims(args);
 
+	ret = create_posix_timers(args);
+	if (ret < 0) {
+		pr_err("Can't restore posix timers %ld\n", ret);
+		goto core_restore_end;
+	}
+
 	pr_info("%ld: Restored\n", sys_getpid());
 
 	futex_set(&zombies_inprogress, args->nr_zombies);
@@ -883,12 +889,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
-
-	ret = create_posix_timers(args);
-	if (ret < 0) {
-		pr_err("Can't restore posix timers %ld\n", ret);
-		goto core_restore_end;
-	}
 
 	rst_tcp_socks_all(args);
 
