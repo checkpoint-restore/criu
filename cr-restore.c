@@ -1062,19 +1062,48 @@ static void restore_sid(void)
 
 static void restore_pgid(void)
 {
-	pid_t pgid;
+	/*
+	 * Unlike sessions, process groups (a.k.a. pgids) can be joined
+	 * by any task, provided the task with pid == pgid (group leader)
+	 * exists. Thus, in order to restore pgid we must make sure that
+	 * group leader was born and created the group, then join one.
+	 *
+	 * We do this _before_ finishing the forking stage to make sure
+	 * helpers are still with us.
+	 */
 
-	pr_info("Restoring %d to %d pgid\n", current->pid.virt, current->pgid);
+	pid_t pgid, my_pgid = current->pgid;
+
+	pr_info("Restoring %d to %d pgid\n", current->pid.virt, my_pgid);
 
 	pgid = getpgrp();
-	if (current->pgid == pgid)
+	if (my_pgid == pgid)
 		return;
 
+	if (my_pgid != current->pid.virt) {
+		struct pstree_item *leader;
+
+		/*
+		 * Wait for leader to become such.
+		 * Missing leader means we're going to crtools
+		 * group (-j option).
+		 */
+
+		leader = current->rst->pgrp_leader;
+		if (leader) {
+			BUG_ON(my_pgid != leader->pid.virt);
+			futex_wait_until(&leader->rst->pgrp_set, 1);
+		}
+	}
+
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
-	if (setpgid(0, current->pgid) != 0) {
+	if (setpgid(0, my_pgid) != 0) {
 		pr_perror("Can't restore pgid (%d/%d->%d)", current->pid.virt, pgid, current->pgid);
 		exit(1);
 	}
+
+	if (my_pgid == current->pid.virt)
+		futex_set_and_wake(&current->rst->pgrp_set, 1);
 }
 
 static int mount_proc(void)
@@ -1240,25 +1269,11 @@ static int restore_task_with_children(void *_arg)
 
 	if (unmap_guard_pages())
 		exit(1);
-	/*
-	 * Unlike sessions, process groups (a.k.a. pgids) can be joined
-	 * by any task, provided the task with pid == pgid (group leader)
-	 * exists. Thus, in order to restore pgid we must make sure that
-	 * group leader was born (stage barrier below), created the group
-	 * (the 1st restore_pgid below) and then join one (the 2nd call
-	 * to restore_pgid).
-	 */
 
-	if (current->pgid == current->pid.virt)
-		restore_pgid();
+	restore_pgid();
 
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
 		exit(1);
-
-	if (current->pgid != current->pid.virt)
-		restore_pgid();
-
-	restore_finish_stage(CR_STATE_RESTORE_PGID);
 
 	if (current->state == TASK_HELPER)
 		return 0;
@@ -1274,7 +1289,6 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_RESTORE_NS:
 		return 1;
 	case CR_STATE_FORKING:
-	case CR_STATE_RESTORE_PGID:
 		return task_entries->nr_tasks + task_entries->nr_helpers;
 	case CR_STATE_RESTORE:
 	case CR_STATE_RESTORE_SIGCHLD:
@@ -1471,10 +1485,6 @@ static int restore_root_task(struct pstree_item *init)
 		goto out;
 
 	timing_stop(TIME_FORK);
-
-	ret = restore_switch_stage(CR_STATE_RESTORE_PGID);
-	if (ret < 0)
-		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_RESTORE);
 	if (ret < 0)

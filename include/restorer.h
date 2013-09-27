@@ -187,7 +187,6 @@ enum {
 	CR_STATE_FAIL		= -1,
 	CR_STATE_RESTORE_NS	= 0, /* is used for executing "setup-namespace" scripts */
 	CR_STATE_FORKING,
-	CR_STATE_RESTORE_PGID,
 	CR_STATE_RESTORE,
 	CR_STATE_RESTORE_SIGCHLD,
 	/*

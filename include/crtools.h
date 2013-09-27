@@ -182,6 +182,11 @@ struct rst_info {
 
 	int service_fd_id;
 	struct fdt		*fdt;
+
+	union {
+		struct pstree_item	*pgrp_leader;
+		futex_t			pgrp_set;
+	};
 };
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)

@@ -520,8 +520,10 @@ static int prepare_pstree_ids(void)
 				break;
 		}
 
-		if (gleader)
+		if (gleader) {
+			item->rst->pgrp_leader = gleader;
 			continue;
+		}
 
 		/*
 		 * If the PGID is eq to current one -- this
@@ -541,6 +543,7 @@ static int prepare_pstree_ids(void)
 		helper->parent = item;
 		list_add(&helper->sibling, &item->children);
 		task_entries->nr_helpers++;
+		item->rst->pgrp_leader = helper;
 
 		pr_info("Add a helper %d for restoring PGID %d\n",
 				helper->pid.virt, helper->pgid);
