@@ -1225,6 +1225,23 @@ int mntns_collect_root(pid_t pid)
 	int ret;
 	char path[PATH_MAX + 1];
 
+	if (!(current_ns_mask & CLONE_NEWNS)) {
+		/*
+		 * If criu and tasks we dump live in the same mount
+		 * namespace, we can just open the root directory.
+		 * All paths resolution would occur relative to criu's
+		 * root. Even if it is not namespace's root, provided
+		 * file paths are resolved, we'd get consistent dump.
+		 */
+		fd = open("/", O_RDONLY | O_DIRECTORY);
+		if (fd < 0) {
+			pr_perror("Can't open root\n");
+			return -1;
+		}
+
+		goto set_root;
+	}
+
 	/*
 	 * If /proc/pid/root links on '/', it signs that a root of the task
 	 * and a root of mntns is the same.
@@ -1252,8 +1269,8 @@ int mntns_collect_root(pid_t pid)
 		return -1;
 	}
 
+set_root:
 	mntns_root = fd;
-
 	return 0;
 }
 
