@@ -930,12 +930,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	restore_posix_timers(args);
 
-	ret = sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
-	if (ret < 0) {
-		ret = ((long)__LINE__ << 16) | ((-ret) & 0xffff);
-		goto core_restore_failed;
-	}
-
+	sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	sys_munmap(args->rst_mem, args->rst_mem_size);
 
 	/*
@@ -955,9 +950,4 @@ core_restore_end:
 	pr_err("Restorer fail %ld\n", sys_getpid());
 	sys_exit_group(1);
 	return -1;
-
-core_restore_failed:
-	ARCH_FAIL_CORE_RESTORE;
-
-	return ret;
 }
