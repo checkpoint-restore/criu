@@ -88,7 +88,6 @@ static int setup_dump_from_req(CriuDumpReq *req)
 		return -1;
 	}
 
-	cr_service_client->pid = ids.pid;
 	cr_service_client->uid = ids.uid;
 
 	if (fstat(cr_service_client->sk_fd, &st)) {
@@ -99,8 +98,7 @@ static int setup_dump_from_req(CriuDumpReq *req)
 	cr_service_client->sk_ino = st.st_ino;
 
 	/* going to dir, where to place images*/
-	sprintf(images_dir_path, "/proc/%d/fd/%d",
-		cr_service_client->pid, req->images_dir_fd);
+	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
 	if (chdir(images_dir_path)) {
 		pr_perror("Can't chdir to images directory");

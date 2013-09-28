@@ -13,7 +13,6 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored);
 struct _cr_service_client {
 	int sk_ino;
 	int uid;
-	int pid;
 	int sk_fd;
 };
 
