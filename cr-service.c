@@ -190,16 +190,21 @@ static int cr_service_work(void)
 	case CRIU_REQ_TYPE__DUMP:
 		return dump_using_req(msg->dump);
 
-	default:
+	default: {
+		CriuResp resp = CRIU_RESP__INIT;
+
+		resp.type = CRIU_REQ_TYPE__EMPTY;
+		resp.success = false;
+		/* XXX -- add optional error code to CriuResp */
+
 		pr_perror("Invalid request");
+		send_criu_msg(cr_service_client->sk_fd, &resp);
+
 		goto err;
+	}
 	}
 
 err:
-	/*
-	 * FIXME -- add generic error report
-	 */
-
 	close(cr_service_client->sk_fd);
 	return -1;
 }
