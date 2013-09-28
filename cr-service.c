@@ -75,22 +75,21 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-static int setup_dump_from_req(CriuDumpReq *req)
+static int setup_dump_from_req(int sk, CriuDumpReq *req)
 {
 	struct ucred ids;
 	struct stat st;
 	socklen_t ids_len = sizeof(struct ucred);
 	char images_dir_path[PATH_MAX];
 
-	if (getsockopt(cr_service_client->sk_fd, SOL_SOCKET, SO_PEERCRED,
-							  &ids, &ids_len)) {
+	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options.");
 		return -1;
 	}
 
 	cr_service_client->uid = ids.uid;
 
-	if (fstat(cr_service_client->sk_fd, &st)) {
+	if (fstat(sk, &st)) {
 		pr_perror("Can't get socket stat");
 		return -1;
 	}
@@ -146,11 +145,11 @@ static int setup_dump_from_req(CriuDumpReq *req)
 	return 0;
 }
 
-static int dump_using_req(CriuDumpReq *req)
+static int dump_using_req(int sk, CriuDumpReq *req)
 {
 	bool success = false;
 
-	if (setup_dump_from_req(req) == -1) {
+	if (setup_dump_from_req(sk, req) == -1) {
 		pr_perror("Arguments treating fail");
 		goto exit;
 	}
@@ -163,30 +162,28 @@ static int dump_using_req(CriuDumpReq *req)
 	if (req->has_leave_running && req->leave_running) {
 		success = true;
 exit:
-		if (send_criu_dump_resp(cr_service_client->sk_fd,
-					success, false) == -1) {
+		if (send_criu_dump_resp(sk, success, false) == -1) {
 			pr_perror("Can't send response");
 			success = false;
 		}
 	}
 
-	close(cr_service_client->sk_fd);
+	close(sk);
 	return success ? 0 : 1;
 }
 
-static int cr_service_work(void)
+static int cr_service_work(int sk)
 {
 	CriuReq *msg = 0;
 
-	if (recv_criu_msg(cr_service_client->sk_fd,
-					&msg) == -1) {
+	if (recv_criu_msg(sk, &msg) == -1) {
 		pr_perror("Can't recv request");
 		goto err;
 	}
 
 	switch (msg->type) {
 	case CRIU_REQ_TYPE__DUMP:
-		return dump_using_req(msg->dump);
+		return dump_using_req(sk, msg->dump);
 
 	default: {
 		CriuResp resp = CRIU_RESP__INIT;
@@ -196,14 +193,14 @@ static int cr_service_work(void)
 		/* XXX -- add optional error code to CriuResp */
 
 		pr_perror("Invalid request");
-		send_criu_msg(cr_service_client->sk_fd, &resp);
+		send_criu_msg(sk, &resp);
 
 		goto err;
 	}
 	}
 
 err:
-	close(cr_service_client->sk_fd);
+	close(sk);
 	return -1;
 }
 
@@ -280,12 +277,12 @@ int cr_service(bool daemon_mode)
 	signal(SIGCHLD, SIG_IGN);
 
 	while (1) {
+		int sk;
+
 		pr_info("Waiting for connection...\n");
 
-		cr_service_client->sk_fd = accept(server_fd,
-						  &client_addr,
-						  &client_addr_len);
-		if (cr_service_client->sk_fd == -1) {
+		sk = accept(server_fd, &client_addr, &client_addr_len);
+		if (sk == -1) {
 			pr_perror("Can't accept connection.");
 			goto err;
 		}
@@ -294,12 +291,12 @@ int cr_service(bool daemon_mode)
 
 		switch (child_pid = fork()) {
 		case 0:
-			exit(cr_service_work());
+			exit(cr_service_work(sk));
 		case -1:
 			pr_perror("Can't fork a child.");
 			/* fall through */
 		default:
-			close(cr_service_client->sk_fd);
+			close(sk);
 		}
 	}
 
