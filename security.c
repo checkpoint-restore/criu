@@ -22,34 +22,25 @@ void restrict_uid(unsigned int uid, unsigned int gid)
 	cr_gid = gid;
 }
 
-static bool check_uid(unsigned int uid)
+static bool check_ids(unsigned int crid, unsigned int rid, unsigned int eid, unsigned int sid)
 {
-	if (cr_uid == 0)
+	if (crid == 0)
 		return true;
-	if (cr_uid == uid)
+	if (crid == rid && crid == eid && crid == sid)
 		return true;
 
+	pr_err("UID/GID mismatch %u != (%u,%u,%u)\n", crid, rid, eid, sid);
 	return false;
 }
 
 bool may_dump(struct proc_status_creds *creds)
 {
-	unsigned int uid = creds->uids[0];
-
-	if (check_uid(uid))
-		return true;
-
-	pr_err("UID (%u) != dumper's UID(%u)\n", uid, cr_uid);
-	return false;
+	return check_ids(cr_uid, creds->uids[0], creds->uids[1], creds->uids[2]) &&
+		check_ids(cr_gid, creds->gids[0], creds->gids[1], creds->gids[2]);
 }
 
 bool may_restore(CredsEntry *creds)
 {
-	unsigned int uid = creds->uid;
-
-	if (check_uid(uid))
-		return true;
-
-	pr_err("UID (%u) != restorer's UID(%u)\n", uid, cr_uid);
-	return false;
+	return check_ids(cr_uid, creds->uid, creds->euid, creds->suid) &&
+		check_ids(cr_gid, creds->gid, creds->egid, creds->sgid);
 }
