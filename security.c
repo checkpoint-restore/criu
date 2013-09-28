@@ -3,7 +3,10 @@
 #include "proc_parse.h"
 #include "log.h"
 
-static unsigned int cr_uid; /* UID which user can C/R */
+/*
+ * UID and GID of user requesting for C/R
+ */
+static unsigned int cr_uid, cr_gid;
 
 /*
  * Setup what user is requesting for dump (via rpc or using 
@@ -12,10 +15,11 @@ static unsigned int cr_uid; /* UID which user can C/R */
  * access to. (Or implement some trickier security policy).
  */
 
-void restrict_uid(unsigned int uid)
+void restrict_uid(unsigned int uid, unsigned int gid)
 {
-	pr_info("Restrict C/R with %u uid\n", uid);
+	pr_info("Restrict C/R with %u:%u uid\n", uid, gid);
 	cr_uid = uid;
+	cr_gid = gid;
 }
 
 static bool check_uid(unsigned int uid)

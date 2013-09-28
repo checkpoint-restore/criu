@@ -208,7 +208,7 @@ static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
 	return pid_a < pid_b;
 }
 
-void restrict_uid(unsigned int uid);
+void restrict_uid(unsigned int uid, unsigned int gid);
 struct proc_status_creds;
 bool may_dump(struct proc_status_creds *);
 struct _CredsEntry;
