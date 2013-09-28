@@ -168,7 +168,6 @@ exit:
 		}
 	}
 
-	close(sk);
 	return success ? 0 : 1;
 }
 
@@ -200,7 +199,6 @@ static int cr_service_work(int sk)
 	}
 
 err:
-	close(sk);
 	return -1;
 }
 
@@ -288,16 +286,20 @@ int cr_service(bool daemon_mode)
 		}
 
 		pr_info("Connected.\n");
+		child_pid = fork();
+		if (child_pid == 0) {
+			int ret;
 
-		switch (child_pid = fork()) {
-		case 0:
-			exit(cr_service_work(sk));
-		case -1:
-			pr_perror("Can't fork a child.");
-			/* fall through */
-		default:
+			close(server_fd);
+			ret = cr_service_work(sk);
 			close(sk);
+			exit(ret);
 		}
+
+		if (child_pid < 0)
+			pr_perror("Can't fork a child");
+
+		close(sk);
 	}
 
 err:
