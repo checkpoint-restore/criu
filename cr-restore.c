@@ -1957,7 +1957,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 		return -1;
 	}
 
-	if (!may_restore_uid(ce->uid))
+	if (!may_restore(ce))
 		return -1;
 
 	args->creds = *ce;

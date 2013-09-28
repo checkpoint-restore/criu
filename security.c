@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include "crtools.h"
+#include "proc_parse.h"
 #include "log.h"
 
 static unsigned int cr_uid; /* UID which user can C/R */
@@ -27,8 +28,10 @@ static bool check_uid(unsigned int uid)
 	return false;
 }
 
-bool may_dump_uid(unsigned int uid)
+bool may_dump(struct proc_status_creds *creds)
 {
+	unsigned int uid = creds->uids[0];
+
 	if (check_uid(uid))
 		return true;
 
@@ -36,8 +39,10 @@ bool may_dump_uid(unsigned int uid)
 	return false;
 }
 
-bool may_restore_uid(unsigned int uid)
+bool may_restore(CredsEntry *creds)
 {
+	unsigned int uid = creds->uid;
+
 	if (check_uid(uid))
 		return true;
 

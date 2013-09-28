@@ -209,7 +209,9 @@ static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
 }
 
 void restrict_uid(unsigned int uid);
-bool may_dump_uid(unsigned int uid);
-bool may_restore_uid(unsigned int uid);
+struct proc_status_creds;
+bool may_dump(struct proc_status_creds *);
+struct _CredsEntry;
+bool may_restore(struct _CredsEntry *);
 
 #endif /* __CR_CRTOOLS_H__ */

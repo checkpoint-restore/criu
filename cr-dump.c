@@ -1388,7 +1388,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret)
 		goto err;
 
-	if (!may_dump_uid(cr.uids[0])) {
+	if (!may_dump(&cr)) {
 		ret = -1;
 		pr_err("Check uid (pid: %d) failed\n", pid);
 		goto err;
