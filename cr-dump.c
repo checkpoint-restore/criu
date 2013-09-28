@@ -939,6 +939,12 @@ static int collect_subtree(struct pstree_item *item)
 			return -1;
 	}
 
+	/*
+	 * Tasks may clone() with the CLONE_PARENT flag while we collect
+	 * them, making more kids to their parent. So before proceeding
+	 * check that the parent we're working on has no more kids born.
+	 */
+
 	if (check_subtree(item))
 		return -1;
 
@@ -1651,6 +1657,12 @@ int cr_dump_tasks(pid_t pid)
 
 	if (connect_to_page_server())
 		goto err;
+
+	/*
+	 * The collect_pstree will also stop (PTRACE_SEIZE) the tasks
+	 * thus ensuring that they don't modify anything we collect
+	 * afterwards.
+	 */
 
 	if (collect_pstree(pid))
 		goto err;
