@@ -18,7 +18,7 @@
 #include "log.h"
 #include "cr-service.h"
 
-unsigned int service_sk_ino = 0;
+unsigned int service_sk_ino = -1;
 
 static int recv_criu_msg(int socket_fd, CriuReq **msg)
 {
@@ -94,7 +94,7 @@ static int setup_dump_from_req(int sk, CriuDumpReq *req)
 		return -1;
 	}
 
-	BUG_ON(st.st_ino == 0);
+	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
 
 	/* going to dir, where to place images*/
