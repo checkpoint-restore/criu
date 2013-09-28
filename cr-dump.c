@@ -1341,19 +1341,6 @@ err_cure:
 	goto err_free;
 }
 
-static int check_uid(uid)
-{
-	if (cr_service_client)
-		if ((cr_service_client->uid != uid) &&
-				(cr_service_client->uid != 0)) {
-			pr_err("UID (%d) != client's UID(%d)\n",
-				uid, cr_service_client->uid);
-			return -1;
-		}
-
-	return 0;
-}
-
 static int dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
@@ -1389,8 +1376,8 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret)
 		goto err;
 
-	ret = check_uid(cr.uids[0]);
-	if (ret) {
+	if (!may_dump_uid(cr.uids[0])) {
+		ret = -1;
 		pr_err("Check uid (pid: %d) failed\n", pid);
 		goto err;
 	}

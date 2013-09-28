@@ -208,4 +208,7 @@ static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
 	return pid_a < pid_b;
 }
 
+void restrict_uid(unsigned int uid);
+bool may_dump_uid(unsigned int uid);
+
 #endif /* __CR_CRTOOLS_H__ */

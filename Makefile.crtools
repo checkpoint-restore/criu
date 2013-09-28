@@ -2,6 +2,7 @@ obj-y	+= parasite-syscall.o
 obj-y	+= mem.o
 obj-y	+= cr-restore.o
 obj-y	+= crtools.o
+obj-y	+= security.o
 obj-y	+= image.o
 obj-y	+= image-desc.o
 obj-y	+= net.o
