@@ -359,19 +359,23 @@ static int do_dump_namespaces(struct ns_id *ns)
 		ret = 0;
 		break;
 	case CLONE_NEWUTS:
-		pr_info("Dump UTS namespace\n");
+		pr_info("Dump UTS namespace %d via %d\n",
+				ns->id, ns->pid);
 		ret = dump_uts_ns(ns->pid, ns->id);
 		break;
 	case CLONE_NEWIPC:
-		pr_info("Dump IPC namespace\n");
+		pr_info("Dump IPC namespace %d via %d\n",
+				ns->id, ns->pid);
 		ret = dump_ipc_ns(ns->pid, ns->id);
 		break;
 	case CLONE_NEWNS:
-		pr_info("Dump MNT namespace (mountpoints)\n");
+		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
+				ns->id, ns->pid);
 		ret = dump_mnt_ns(ns->pid, ns->id);
 		break;
 	case CLONE_NEWNET:
-		pr_info("Dump NET namespace info\n");
+		pr_info("Dump NET namespace info %d via %d\n",
+				ns->id, ns->pid);
 		ret = dump_net_ns(ns->pid, ns->id);
 		break;
 	default:
