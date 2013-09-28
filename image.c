@@ -147,7 +147,7 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 	*cr_fdset = NULL;
 }
 
-struct cr_fdset *cr_fdset_open(int pid, int from, int to,
+struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
 			       unsigned long flags)
 {
 	struct cr_fdset *fdset;
@@ -181,12 +181,12 @@ err:
 
 struct cr_fdset *cr_task_fdset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, _CR_FD_TASK_FROM, _CR_FD_TASK_TO, mode);
+	return cr_fdset_open(pid, TASK, mode);
 }
 
 struct cr_fdset *cr_glob_fdset_open(int mode)
 {
-	return cr_fdset_open(-1 /* ignored */, _CR_FD_GLOB_FROM, _CR_FD_GLOB_TO, mode);
+	return cr_fdset_open(-1 /* ignored */, GLOB, mode);
 }
 
 int open_image_at(int dfd, int type, unsigned long flags, ...)

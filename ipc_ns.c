@@ -460,7 +460,7 @@ int dump_ipc_ns(int ns_pid, int ns_id)
 	int ret;
 	struct cr_fdset *fdset;
 
-	fdset = cr_fdset_open(ns_id, _CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_DUMP);
+	fdset = cr_fdset_open(ns_id, IPCNS, O_DUMP);
 	if (fdset == NULL)
 		return -1;
 

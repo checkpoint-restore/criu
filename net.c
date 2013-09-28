@@ -468,7 +468,7 @@ int dump_net_ns(int pid, int ns_id)
 	struct cr_fdset *fds;
 	int ret;
 
-	fds = cr_fdset_open(ns_id, _CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_DUMP);
+	fds = cr_fdset_open(ns_id, NETNS, O_DUMP);
 	if (fds == NULL)
 		return -1;
 

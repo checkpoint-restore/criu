@@ -495,8 +495,7 @@ int try_show_namespaces(int ns_pid)
 	if (ret < 0)
 		return -1;
 
-	fdset = cr_fdset_open(ids->net_ns_id,
-				_CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_SHOW);
+	fdset = cr_fdset_open(ids->net_ns_id, NETNS, O_SHOW);
 	if (fdset) {
 		pr_msg("-------------------NETNS---------------------\n");
 		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
@@ -511,8 +510,7 @@ int try_show_namespaces(int ns_pid)
 		close_cr_fdset(&fdset);
 	}
 
-	fdset = cr_fdset_open(ids->ipc_ns_id,
-				_CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_SHOW);
+	fdset = cr_fdset_open(ids->ipc_ns_id, IPCNS, O_SHOW);
 	if (fdset) {
 		pr_msg("-------------------IPCNS---------------------\n");
 		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
