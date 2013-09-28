@@ -11,10 +11,10 @@ int cr_service(bool deamon_mode);
 int send_criu_dump_resp(int socket_fd, bool success, bool restored);
 
 struct _cr_service_client {
-	int sk_ino;
 	int uid;
 };
 
 extern struct _cr_service_client *cr_service_client;
+extern unsigned int service_sk_ino;
 
 #endif

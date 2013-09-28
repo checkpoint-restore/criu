@@ -88,11 +88,6 @@ static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
-static bool service_socket(unsigned int sk_ino)
-{
-	return cr_service_client && (cr_service_client->sk_ino == sk_ino);
-}
-
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 {
 	/*
@@ -156,7 +151,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	 * Check if this socket is connected to criu service.
 	 * Dump it like closed one and mark it for restore.
 	 */
-	if (service_socket(ue.peer)) {
+	if (unlikely(ue.peer == service_sk_ino)) {
 		ue.state = TCP_CLOSE;
 		ue.peer = 0;
 		ue.uflags |= USK_SERVICE;

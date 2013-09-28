@@ -19,6 +19,7 @@
 #include "cr-service.h"
 
 struct _cr_service_client *cr_service_client;
+unsigned int service_sk_ino = 0;
 
 static int recv_criu_msg(int socket_fd, CriuReq **msg)
 {
@@ -94,7 +95,8 @@ static int setup_dump_from_req(int sk, CriuDumpReq *req)
 		return -1;
 	}
 
-	cr_service_client->sk_ino = st.st_ino;
+	BUG_ON(st.st_ino == 0);
+	service_sk_ino = st.st_ino;
 
 	/* going to dir, where to place images*/
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
