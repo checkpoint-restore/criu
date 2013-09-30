@@ -143,7 +143,7 @@ void close_cr_fdset(struct cr_fdset **cr_fdset)
 	*cr_fdset = NULL;
 }
 
-static struct cr_fdset *cr_fdset_open(int pid, int from, int to,
+struct cr_fdset *cr_fdset_open(int pid, int from, int to,
 			       unsigned long flags)
 {
 	struct cr_fdset *fdset;

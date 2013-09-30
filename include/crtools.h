@@ -125,6 +125,8 @@ int cr_exec(int pid, char **opts);
 
 struct cr_fdset *cr_task_fdset_open(int pid, int mode);
 struct cr_fdset *cr_ns_fdset_open(int pid, int mode);
+struct cr_fdset *cr_fdset_open(int pid, int from, int to,
+			       unsigned long flags);
 struct cr_fdset *cr_glob_fdset_open(int mode);
 
 void close_cr_fdset(struct cr_fdset **cr_fdset);
