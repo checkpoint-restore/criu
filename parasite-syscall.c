@@ -754,6 +754,12 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn))
 		return -1;
 
+	/*
+	 * All signals are unblocked now. The kernel notifies about leaving
+	 * syscall before starting to deliver signals. All parasite code are
+	 * executed with blocked signals, so we can sefly unmap a parasite blob.
+	 */
+
 	return 0;
 }
 
