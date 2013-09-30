@@ -462,25 +462,53 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 int try_show_namespaces(int ns_pid)
 {
 	struct cr_fdset *fdset;
-	int i;
+	int i, fd;
 
 	pr_msg("Namespaces for %d:\n", ns_pid);
-	pr_msg("----------------------------------------\n");
-	fdset = cr_ns_fdset_open(ns_pid, O_SHOW);
-	if (!fdset)
-		return -1;
 
-	for (i = _CR_FD_NS_FROM + 1; i < _CR_FD_NS_TO; i++) {
-		int fd;
+	fdset = cr_fdset_open(ns_pid, _CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_SHOW);
+	if (fdset) {
+		pr_msg("-------------------NETNS---------------------\n");
+		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
+			int fd;
 
-		fd = fdset_fd(fdset, i);
-		if (fd == -1)
-			continue;
+			fd = fdset_fd(fdset, i);
+			if (fd == -1)
+				continue;
 
-		cr_parse_fd(fd, fdset_template[i].magic);
+			cr_parse_fd(fd, fdset_template[i].magic);
+		}
+		close_cr_fdset(&fdset);
 	}
+
+	fdset = cr_fdset_open(ns_pid, _CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_SHOW);
+	if (fdset) {
+		pr_msg("-------------------IPCNS---------------------\n");
+		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
+			fd = fdset_fd(fdset, i);
+			if (fd == -1)
+				continue;
+
+			cr_parse_fd(fd, fdset_template[i].magic);
+		}
+		close_cr_fdset(&fdset);
+	}
+
+	fd = open_image(CR_FD_UTSNS, O_SHOW, ns_pid);
+	if (fd >= 0) {
+		pr_msg("-------------------UTSNS---------------------\n");
+		cr_parse_fd(fd, fdset_template[CR_FD_UTSNS].magic);
+		close(fd);
+	}
+
+	fd = open_image(CR_FD_MNTS, O_SHOW, ns_pid);
+	if (fd > 0) {
+		pr_msg("-------------------MNTNS---------------------\n");
+		cr_parse_fd(fd, fdset_template[CR_FD_MNTS].magic);
+		close(fd);
+	}
+
 	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);
-	close_cr_fdset(&fdset);
 	return 0;
 }
 
