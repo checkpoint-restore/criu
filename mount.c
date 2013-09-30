@@ -641,37 +641,43 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	return 0;
 }
 
-int dump_mnt_ns(int ns_pid, struct cr_fdset *fdset)
+int dump_mnt_ns(int ns_pid, int ns_id)
 {
 	struct mount_info *pm;
-	int img_fd;
+	int img_fd, ret = -1;
+
+	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
+	if (img_fd < 0)
+		return -1;
 
 	pm = parse_mountinfo(ns_pid);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns_pid);
-		return -1;
+		goto err;
 	}
 
 	if (mnt_build_tree(pm) == NULL)
-		return -1;
+		goto err;
 
 	if (validate_mounts(pm))
-		return -1;
+		goto err;
 
 	pr_info("Dumping mountpoints\n");
 
-	img_fd = fdset_fd(fdset, CR_FD_MNTS);
 	do {
 		struct mount_info *n = pm->next;
 
 		if (dump_one_mountpoint(pm, img_fd))
-			return -1;
+			goto err;
 
 		xfree(pm);
 		pm = n;
 	} while (pm);
 
-	return 0;
+	ret = 0;
+err:
+	close(img_fd);
+	return ret;
 }
 
 /*

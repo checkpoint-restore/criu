@@ -11,7 +11,7 @@ extern int collect_mount_info(pid_t pid);
 extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
-extern int dump_mnt_ns(int pid, struct cr_fdset *);
+extern int dump_mnt_ns(int pid, int ns_id);
 int prepare_mnt_ns(int pid);
 
 extern int pivot_root(const char *new_root, const char *put_old);

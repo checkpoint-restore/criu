@@ -372,7 +372,7 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	}
 	if (ns_flags & CLONE_NEWNS) {
 		pr_info("Dump MNT namespace (mountpoints)\n");
-		ret = dump_mnt_ns(ns_pid->real, fdset);
+		ret = dump_mnt_ns(ns_pid->real, ns_id);
 		if (ret < 0)
 			goto err;
 	}
