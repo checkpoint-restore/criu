@@ -455,20 +455,28 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 	return 0;
 }
 
-int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset)
+int dump_ipc_ns(int ns_pid, int ns_id)
 {
 	int ret;
+	struct cr_fdset *fdset;
+
+	fdset = cr_fdset_open(ns_id, _CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_DUMP);
+	if (fdset == NULL)
+		return -1;
 
 	ret = switch_ns(ns_pid, &ipc_ns_desc, NULL);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	ret = dump_ipc_data(fdset);
 	if (ret < 0) {
 		pr_err("Failed to write IPC namespace data\n");
-		return ret;
+		goto err;
 	}
-	return 0;
+
+err:
+	close_cr_fdset(&fdset);
+	return ret < 0 ? -1 : 0;
 }
 
 void ipc_sem_handler(int fd, void *obj)

@@ -3,7 +3,7 @@
 
 #include "crtools.h"
 
-extern int dump_ipc_ns(int ns_pid, const struct cr_fdset *fdset);
+extern int dump_ipc_ns(int ns_pid, int ns_id);
 extern int prepare_ipc_ns(int pid);
 
 extern struct ns_desc ipc_ns_desc;
