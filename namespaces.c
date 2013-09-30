@@ -350,36 +350,35 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
-static int do_dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
+static int do_dump_namespaces(struct ns_id *ns)
 {
-	struct pid *ns_pid = &item->pid;
-	int ret = 0;
+	int ret = -1;
 
-	if (ns_flags & CLONE_NEWUTS) {
+	switch (ns->nd->cflag) {
+	case CLONE_NEWPID:
+		ret = 0;
+		break;
+	case CLONE_NEWUTS:
 		pr_info("Dump UTS namespace\n");
-		ret = dump_uts_ns(ns_pid->real, item->ids->uts_ns_id);
-		if (ret < 0)
-			goto err;
-	}
-	if (ns_flags & CLONE_NEWIPC) {
+		ret = dump_uts_ns(ns->pid, ns->id);
+		break;
+	case CLONE_NEWIPC:
 		pr_info("Dump IPC namespace\n");
-		ret = dump_ipc_ns(ns_pid->real, item->ids->ipc_ns_id);
-		if (ret < 0)
-			goto err;
-	}
-	if (ns_flags & CLONE_NEWNS) {
+		ret = dump_ipc_ns(ns->pid, ns->id);
+		break;
+	case CLONE_NEWNS:
 		pr_info("Dump MNT namespace (mountpoints)\n");
-		ret = dump_mnt_ns(ns_pid->real, item->ids->mnt_ns_id);
-		if (ret < 0)
-			goto err;
-	}
-	if (ns_flags & CLONE_NEWNET) {
+		ret = dump_mnt_ns(ns->pid, ns->id);
+		break;
+	case CLONE_NEWNET:
 		pr_info("Dump NET namespace info\n");
-		ret = dump_net_ns(ns_pid->real, item->ids->net_ns_id);
-		if (ret < 0)
-			goto err;
+		ret = dump_net_ns(ns->pid, ns->id);
+		break;
+	default:
+		pr_err("Unknown namespace flag %x", ns->nd->cflag);
+		break;
 	}
-err:
+
 	return ret;
 
 }
@@ -387,6 +386,7 @@ err:
 int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 {
 	struct pid *ns_pid = &item->pid;
+	struct ns_id *ns;
 	int pid, status;
 	int ret = 0;
 
@@ -408,26 +408,37 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		return -1;
 	}
 
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("Can't fork ns dumper");
-		return -1;
-	}
+	ns = ns_ids;
 
-	if (pid == 0) {
-		ret = do_dump_namespaces(item, ns_flags);
-		exit(ret);
-	}
+	while (ns) {
+		/* Skip current namespaces, which are in the list too  */
+		if (ns->pid == getpid()) {
+			ns = ns->next;
+			continue;
+		}
 
-	ret = waitpid(pid, &status, 0);
-	if (ret != pid) {
-		pr_perror("Can't wait ns dumper");
-		return -1;
-	}
+		pid = fork();
+		if (pid < 0) {
+			pr_perror("Can't fork ns dumper");
+			return -1;
+		}
 
-	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-		pr_err("Namespaces dumping finished with error %d\n", status);
-		return -1;
+		if (pid == 0) {
+			ret = do_dump_namespaces(ns);
+			exit(ret);
+		}
+
+		ret = waitpid(pid, &status, 0);
+		if (ret != pid) {
+			pr_perror("Can't wait ns dumper");
+			return -1;
+		}
+
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+			pr_err("Namespaces dumping finished with error %d\n", status);
+			return -1;
+		}
+		ns = ns->next;
 	}
 
 	pr_info("Namespaces dump complete\n");
