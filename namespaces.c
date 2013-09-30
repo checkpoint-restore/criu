@@ -113,6 +113,7 @@ int restore_ns(int rst, struct ns_desc *nd)
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;
+	pid_t pid;
 	struct ns_desc *nd;
 	struct ns_id *next;
 };
@@ -161,6 +162,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	nsid->kid = kid;
 	nsid->nd = nd;
 	nsid->next = ns_ids;
+	nsid->pid = pid;
 	ns_ids = nsid;
 
 	pr_info("Collected %u.%s namespace\n", nsid->id, nd->str);
