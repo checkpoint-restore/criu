@@ -102,8 +102,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	 */
 	if (sk->type != SOCK_STREAM &&
 	    sk->type != SOCK_DGRAM &&
-	    !service_socket(sk->peer_ino)) {
-		pr_err("Only stream/dgram sockets for now\n");
+	    sk->type != SOCK_SEQPACKET) {
+		pr_err("Only stream/dgram/seqpacket sockets for now\n");
 		return 0;
 	}
 
