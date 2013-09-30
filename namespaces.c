@@ -360,7 +360,7 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 
 	if (ns_flags & CLONE_NEWUTS) {
 		pr_info("Dump UTS namespace\n");
-		ret = dump_uts_ns(ns_pid->real, fdset);
+		ret = dump_uts_ns(ns_pid->real, ns_id);
 		if (ret < 0)
 			goto err;
 	}

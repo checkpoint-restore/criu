@@ -13,26 +13,33 @@
 #include "protobuf.h"
 #include "protobuf/utsns.pb-c.h"
 
-int dump_uts_ns(int ns_pid, struct cr_fdset *fdset)
+int dump_uts_ns(int ns_pid, int ns_id)
 {
-	int ret;
+	int ret, img_fd;
 	struct utsname ubuf;
 	UtsnsEntry ue = UTSNS_ENTRY__INIT;
 
+	img_fd = open_image(CR_FD_UTSNS, O_DUMP, ns_id);
+	if (img_fd < 0)
+		return -1;
+
 	ret = switch_ns(ns_pid, &uts_ns_desc, NULL);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	ret = uname(&ubuf);
 	if (ret < 0) {
 		pr_perror("Error calling uname");
-		return ret;
+		goto err;
 	}
 
 	ue.nodename = ubuf.nodename;
 	ue.domainname = ubuf.domainname;
 
-	return pb_write_one(fdset_fd(fdset, CR_FD_UTSNS), &ue, PB_UTSNS);
+	ret = pb_write_one(img_fd, &ue, PB_UTSNS);
+err:
+	close(img_fd);
+	return ret < 0 ? -1 : 0;
 }
 
 int prepare_utsns(int pid)
