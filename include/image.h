@@ -63,5 +63,6 @@
 #define TASK_HELPER		0x4
 
 extern bool fdinfo_per_id;
+extern bool ns_per_id;
 
 #endif /* __CR_IMAGE_H__ */

@@ -1705,7 +1705,7 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (current_ns_mask)
-		if (dump_namespaces(&root_item->pid, current_ns_mask) < 0)
+		if (dump_namespaces(root_item, current_ns_mask) < 0)
 			goto err;
 
 	ret = cr_dump_shmem();

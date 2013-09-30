@@ -1234,7 +1234,7 @@ static int restore_task_with_children(void *_arg)
 		if (collect_mount_info(getpid()))
 			exit(1);
 
-		if (prepare_namespace(current->pid.virt, ca->clone_flags))
+		if (prepare_namespace(current, ca->clone_flags))
 			exit(1);
 
 		/*

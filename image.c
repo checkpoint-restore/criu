@@ -19,6 +19,7 @@
 #include "protobuf/pagemap.pb-c.h"
 
 bool fdinfo_per_id = false;
+bool ns_per_id = false;
 TaskKobjIdsEntry *root_ids;
 
 int check_img_inventory(void)
@@ -34,6 +35,7 @@ int check_img_inventory(void)
 		goto out_close;
 
 	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
+	ns_per_id = he->has_ns_per_id ? he->ns_per_id : false;
 
 	if (he->root_ids) {
 		root_ids = xmalloc(sizeof(*root_ids));
@@ -71,6 +73,8 @@ int write_img_inventory(void)
 	he.img_version = CRTOOLS_IMAGES_V1;
 	he.fdinfo_per_id = true;
 	he.has_fdinfo_per_id = true;
+	he.ns_per_id = true;
+	he.has_ns_per_id = true;
 
 	crt.state = TASK_ALIVE;
 	crt.pid.real = getpid();

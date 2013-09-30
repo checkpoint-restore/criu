@@ -27,8 +27,8 @@ extern unsigned long current_ns_mask;
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;
 
-int dump_namespaces(struct pid *pid, unsigned int ns_flags);
-int prepare_namespace(int pid, unsigned long clone_flags);
+int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
+int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
 int try_show_namespaces(int pid);
 
 int switch_ns(int pid, struct ns_desc *nd, int *rst);

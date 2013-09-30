@@ -348,32 +348,32 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
-static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
+static int do_dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 {
-	pid_t ns_id = ns_pid->virt;
+	struct pid *ns_pid = &item->pid;
 	int ret = 0;
 
 	if (ns_flags & CLONE_NEWUTS) {
 		pr_info("Dump UTS namespace\n");
-		ret = dump_uts_ns(ns_pid->real, ns_id);
+		ret = dump_uts_ns(ns_pid->real, item->ids->uts_ns_id);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWIPC) {
 		pr_info("Dump IPC namespace\n");
-		ret = dump_ipc_ns(ns_pid->real, ns_id);
+		ret = dump_ipc_ns(ns_pid->real, item->ids->ipc_ns_id);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWNS) {
 		pr_info("Dump MNT namespace (mountpoints)\n");
-		ret = dump_mnt_ns(ns_pid->real, ns_id);
+		ret = dump_mnt_ns(ns_pid->real, item->ids->mnt_ns_id);
 		if (ret < 0)
 			goto err;
 	}
 	if (ns_flags & CLONE_NEWNET) {
 		pr_info("Dump NET namespace info\n");
-		ret = dump_net_ns(ns_pid->real, ns_id);
+		ret = dump_net_ns(ns_pid->real, item->ids->net_ns_id);
 		if (ret < 0)
 			goto err;
 	}
@@ -382,8 +382,9 @@ err:
 
 }
 
-int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
+int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 {
+	struct pid *ns_pid = &item->pid;
 	int pid, status;
 	int ret = 0;
 
@@ -412,7 +413,7 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	}
 
 	if (pid == 0) {
-		ret = do_dump_namespaces(ns_pid, ns_flags);
+		ret = do_dump_namespaces(item, ns_flags);
 		exit(ret);
 	}
 
@@ -431,10 +432,13 @@ int dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	return 0;
 }
 
-int prepare_namespace(int pid, unsigned long clone_flags)
+int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
+	pid_t pid = item->pid.virt;
+	int id;
+
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
-			pid, clone_flags);
+			item->pid.virt, clone_flags);
 
 	/*
 	 * On netns restore we launch an IP tool, thus we
@@ -442,13 +446,17 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 	 * tree (i.e. -- mnt_ns restoring)
 	 */
 
-	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(pid))
+	id = ns_per_id ? item->ids->net_ns_id : pid;
+	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(id))
 		return -1;
-	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(pid))
+	id = ns_per_id ? item->ids->uts_ns_id : pid;
+	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
 		return -1;
-	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(pid))
+	id = ns_per_id ? item->ids->ipc_ns_id : pid;
+	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
 		return -1;
-	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns(pid))
+	id = ns_per_id ? item->ids->mnt_ns_id : pid;
+	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns(id))
 		return -1;
 
 	return 0;
@@ -457,11 +465,21 @@ int prepare_namespace(int pid, unsigned long clone_flags)
 int try_show_namespaces(int ns_pid)
 {
 	struct cr_fdset *fdset;
-	int i, fd;
+	int i, fd, ret;
+	TaskKobjIdsEntry *ids;
 
 	pr_msg("Namespaces for %d:\n", ns_pid);
 
-	fdset = cr_fdset_open(ns_pid, _CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_SHOW);
+	fd = open_image(CR_FD_IDS, O_RSTR, ns_pid);
+	if (fd < 0)
+		return -1;
+	ret = pb_read_one(fd, &ids, PB_IDS);
+	close(fd);
+	if (ret < 0)
+		return -1;
+
+	fdset = cr_fdset_open(ids->net_ns_id,
+				_CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_SHOW);
 	if (fdset) {
 		pr_msg("-------------------NETNS---------------------\n");
 		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
@@ -476,7 +494,8 @@ int try_show_namespaces(int ns_pid)
 		close_cr_fdset(&fdset);
 	}
 
-	fdset = cr_fdset_open(ns_pid, _CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_SHOW);
+	fdset = cr_fdset_open(ids->ipc_ns_id,
+				_CR_FD_IPCNS_FROM, _CR_FD_IPCNS_TO, O_SHOW);
 	if (fdset) {
 		pr_msg("-------------------IPCNS---------------------\n");
 		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
@@ -489,14 +508,14 @@ int try_show_namespaces(int ns_pid)
 		close_cr_fdset(&fdset);
 	}
 
-	fd = open_image(CR_FD_UTSNS, O_SHOW, ns_pid);
+	fd = open_image(CR_FD_UTSNS, O_SHOW, ids->uts_ns_id);
 	if (fd >= 0) {
 		pr_msg("-------------------UTSNS---------------------\n");
 		cr_parse_fd(fd, fdset_template[CR_FD_UTSNS].magic);
 		close(fd);
 	}
 
-	fd = open_image(CR_FD_MNTS, O_SHOW, ns_pid);
+	fd = open_image(CR_FD_MNTS, O_SHOW, ids->mnt_ns_id);
 	if (fd > 0) {
 		pr_msg("-------------------MNTNS---------------------\n");
 		cr_parse_fd(fd, fdset_template[CR_FD_MNTS].magic);
