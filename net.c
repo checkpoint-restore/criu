@@ -463,9 +463,14 @@ static int mount_ns_sysfs(void)
 	return ns_sysfs_fd >= 0 ? 0 : -1;
 }
 
-int dump_net_ns(int pid, struct cr_fdset *fds)
+int dump_net_ns(int pid, int ns_id)
 {
+	struct cr_fdset *fds;
 	int ret;
+
+	fds = cr_fdset_open(ns_id, _CR_FD_NETNS_FROM, _CR_FD_NETNS_TO, O_DUMP);
+	if (fds == NULL)
+		return -1;
 
 	ret = switch_ns(pid, &net_ns_desc, NULL);
 	if (!ret)
@@ -480,6 +485,7 @@ int dump_net_ns(int pid, struct cr_fdset *fds)
 	close(ns_sysfs_fd);
 	ns_sysfs_fd = -1;
 
+	close_cr_fdset(&fds);
 	return ret;
 }
 

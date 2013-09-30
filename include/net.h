@@ -4,7 +4,7 @@
 #include "list.h"
 
 struct cr_fdset;
-int dump_net_ns(int pid, struct cr_fdset *);
+int dump_net_ns(int pid, int ns_id);
 int prepare_net_ns(int pid);
 int netns_pre_create(void);
 

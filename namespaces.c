@@ -351,6 +351,7 @@ int dump_task_ns_ids(struct pstree_item *item)
 static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 {
 	struct cr_fdset *fdset;
+	pid_t ns_id = ns_pid->virt;
 	int ret = 0;
 
 	fdset = cr_ns_fdset_open(ns_pid->virt, O_DUMP);
@@ -377,7 +378,7 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 	}
 	if (ns_flags & CLONE_NEWNET) {
 		pr_info("Dump NET namespace info\n");
-		ret = dump_net_ns(ns_pid->real, fdset);
+		ret = dump_net_ns(ns_pid->real, ns_id);
 		if (ret < 0)
 			goto err;
 	}
