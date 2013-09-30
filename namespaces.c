@@ -350,13 +350,8 @@ int dump_task_ns_ids(struct pstree_item *item)
 
 static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 {
-	struct cr_fdset *fdset;
 	pid_t ns_id = ns_pid->virt;
 	int ret = 0;
-
-	fdset = cr_ns_fdset_open(ns_pid->virt, O_DUMP);
-	if (fdset == NULL)
-		return -1;
 
 	if (ns_flags & CLONE_NEWUTS) {
 		pr_info("Dump UTS namespace\n");
@@ -383,7 +378,6 @@ static int do_dump_namespaces(struct pid *ns_pid, unsigned int ns_flags)
 			goto err;
 	}
 err:
-	close_cr_fdset(&fdset);
 	return ret;
 
 }

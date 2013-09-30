@@ -180,11 +180,6 @@ struct cr_fdset *cr_task_fdset_open(int pid, int mode)
 	return cr_fdset_open(pid, _CR_FD_TASK_FROM, _CR_FD_TASK_TO, mode);
 }
 
-struct cr_fdset *cr_ns_fdset_open(int pid, int mode)
-{
-	return cr_fdset_open(pid, _CR_FD_NS_FROM, _CR_FD_NS_TO, mode);
-}
-
 struct cr_fdset *cr_glob_fdset_open(int mode)
 {
 	return cr_fdset_open(-1 /* ignored */, _CR_FD_GLOB_FROM, _CR_FD_GLOB_TO, mode);
