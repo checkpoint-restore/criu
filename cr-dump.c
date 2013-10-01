@@ -1242,6 +1242,12 @@ static int dump_zombies(void)
 	if (pidns && set_proc_fd(pidns_proc))
 		return -1;
 
+	/*
+	 * We dump zombies separately becase for pid-ns case
+	 * we'd have to resolve their pids w/o parasite via
+	 * target ns' proc.
+	 */
+
 	for_each_pstree_item(item) {
 		if (item->state != TASK_DEAD)
 			continue;
@@ -1370,6 +1376,9 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	if (item->state == TASK_DEAD)
+		/*
+		 * zombies are dumped separately in dump_zombies()
+		 */
 		return 0;
 
 	dfds = xmalloc(sizeof(*dfds));
