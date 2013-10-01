@@ -102,6 +102,7 @@ TST_NOFILE	=				\
 		grow_map			\
 		grow_map02			\
 		tun				\
+		stopped				\
 #		jobctl00			\
 
 TST_FILE	=				\
