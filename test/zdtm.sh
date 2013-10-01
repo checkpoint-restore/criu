@@ -228,7 +228,7 @@ construct_root()
 	local libdir=$root/lib
 	local libdir2=$root/lib64
 	local tmpdir=$root/tmp
-	local lname, tname
+	local lname tname
 
 	mkdir -p $root/bin
 	cp $ps_path $root/bin
@@ -248,7 +248,7 @@ construct_root()
 	#	/lib/ld-linux-armhf.so.3 (0xb6f0b000)
 
 	for i in `ldd $test_path $ps_path | grep -P '^\s' | grep -v vdso | sed "s/.*=> //" | awk '{ print $1 }'`; do
-		local ldir, lib=`basename $i`
+		local ldir lib=`basename $i`
 
 		[ -f $libdir2/$lib ] && continue # fast path
 
