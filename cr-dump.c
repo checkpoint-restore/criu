@@ -660,7 +660,7 @@ static int dump_task_core_all(struct pstree_item *item,
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
-	core->tc->task_state = TASK_ALIVE;
+	core->tc->task_state = item->state;
 	core->tc->exit_code = 0;
 
 	ret = dump_thread_core(pid, core, &misc->ti);
@@ -1369,11 +1369,6 @@ static int dump_one_task(struct pstree_item *item)
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
-
-	if (item->state == TASK_STOPPED) {
-		pr_err("Stopped tasks are not supported\n");
-		return -1;
-	}
 
 	if (item->state == TASK_DEAD)
 		/*

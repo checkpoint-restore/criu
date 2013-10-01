@@ -136,8 +136,37 @@ try_again:
 
 	if (si.si_signo == SIGTRAP)
 		return TASK_ALIVE;
-	else if (si.si_signo == SIGSTOP)
+	else if (si.si_signo == SIGSTOP) {
+		/*
+		 * PTRACE_SEIZE doesn't affect signal or group stop state.
+		 * Currently ptrace reported that task is in stopped state.
+		 * We need to start task again, and it will be trapped
+		 * immediately, because we sent PTRACE_INTERRUPT to it.
+		 */
+		ret = ptrace(PTRACE_CONT, pid, 0, 0);
+		if (ret) {
+			pr_perror("Unable to start process");
+			goto err;
+		}
+
+		ret = wait4(pid, &status, __WALL, NULL);
+		if (ret < 0) {
+			pr_perror("SEIZE %d: can't wait task", pid);
+			goto err;
+		}
+
+		if (ret != pid) {
+			pr_err("SEIZE %d: wrong task attached (%d)\n", pid, ret);
+			goto err;
+		}
+
+		if (!WIFSTOPPED(status)) {
+			pr_err("SEIZE %d: task not stopped after seize\n", pid);
+			goto err;
+		}
+
 		return TASK_STOPPED;
+	}
 
 	pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
 err:

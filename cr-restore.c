@@ -858,6 +858,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 	switch ((int)core->tc->task_state) {
 	case TASK_ALIVE:
+	case TASK_STOPPED:
 		ret = restore_one_alive_task(pid, core);
 		break;
 	case TASK_DEAD:
@@ -906,8 +907,17 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		item->state = ca.core->tc->task_state;
 
-		if (item->state == TASK_DEAD)
+		switch (item->state) {
+		case TASK_ALIVE:
+		case TASK_STOPPED:
+			break;
+		case TASK_DEAD:
 			item->parent->rst->nr_zombies++;
+			break;
+		default:
+			pr_err("Unknown task state %d\n", item->state);
+			return -1;
+		}
 	} else
 		ca.core = NULL;
 
@@ -1394,7 +1404,8 @@ static void finalize_restore(int status)
 
 		xfree(ctl);
 
-		/* TODO restore the process state */
+		if (item->state == TASK_STOPPED)
+			kill(item->pid.real, SIGSTOP);
 detach:
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
