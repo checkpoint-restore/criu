@@ -9,6 +9,7 @@ message criu_dump_req {
 	optional bool shell_job		= 7;
 	optional bool file_locks	= 8;
 	optional int32 log_level	= 9 [default = 2];
+	optional string log_file	= 10;
 }
 
 message criu_dump_resp {

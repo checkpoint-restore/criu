@@ -59,4 +59,7 @@ extern int write_pidfile(char *pfname, int pid);
 #define pr_perror(fmt, ...)							\
 	pr_err(fmt ": %m\n", ##__VA_ARGS__)
 
+#define DEFAULT_DUMP_LOG_FILENAME "dump.log"
+#define DEFAULT_RESTORE_LOG_FILENAME "restore.log"
+
 #endif /* __CR_LOG_H__ */

@@ -111,7 +111,10 @@ static int setup_dump_from_req(int sk, CriuDumpReq *req)
 	log_closedir();
 
 	/* initiate log file in imgs dir */
-	opts.output = "./dump.log";
+	if (req->log_file)
+		opts.output = req->log_file;
+	else
+		opts.output = DEFAULT_DUMP_LOG_FILENAME;
 
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
