@@ -75,7 +75,7 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-static int setup_dump_from_req(int sk, CriuDumpReq *req)
+static int setup_dump_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
 	struct stat st;
@@ -149,7 +149,7 @@ static int setup_dump_from_req(int sk, CriuDumpReq *req)
 	return 0;
 }
 
-static int dump_using_req(int sk, CriuDumpReq *req)
+static int dump_using_req(int sk, CriuOpts *req)
 {
 	bool success = false;
 
@@ -186,7 +186,7 @@ static int cr_service_work(int sk)
 
 	switch (msg->type) {
 	case CRIU_REQ_TYPE__DUMP:
-		return dump_using_req(sk, msg->dump);
+		return dump_using_req(sk, msg->opts);
 
 	default: {
 		CriuResp resp = CRIU_RESP__INIT;

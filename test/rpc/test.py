@@ -14,13 +14,13 @@ s.connect('criu_service.socket')
 # and set dump options. Checkout more options in protobuf/rpc.proto
 req			= rpc.criu_req()
 req.type		= rpc.DUMP
-req.dump.leave_running	= True
-req.dump.shell_job	= True
+req.opts.leave_running	= True
+req.opts.shell_job	= True
 
 if not os.path.exists('imgs_py'):
 	os.makedirs('imgs_py')
 
-req.dump.images_dir_fd	= os.open('imgs_py', os.O_DIRECTORY)
+req.opts.images_dir_fd	= os.open('imgs_py', os.O_DIRECTORY)
 
 # Send request
 s.send(req.SerializeToString())

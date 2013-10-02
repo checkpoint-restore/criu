@@ -83,24 +83,24 @@ int main()
 	 * Allocate CriuDumpReq.
 	 */
 	req.type			= CRIU_REQ_TYPE__DUMP;
-	req.dump			= malloc(sizeof(CriuDumpReq));
-	if (!req.dump) {
+	req.opts			= malloc(sizeof(CriuOpts));
+	if (!req.opts) {
 			perror("Can't allocate memory for dump request");
 			return -1;
 	}
 
-	criu_dump_req__init(req.dump);
+	criu_opts__init(req.opts);
 
 	/*
 	 * Set dump options.
 	 * Checkout more in protobuf/rpc.proto.
 	 */
-	req.dump->has_leave_running	= true;
-	req.dump->leave_running		= true;
-	req.dump->images_dir_fd		= dir_fd;
-	req.dump->has_shell_job		= true;
-	req.dump->shell_job		= true;
-	req.dump->log_level		= 4;
+	req.opts->has_leave_running	= true;
+	req.opts->leave_running		= true;
+	req.opts->images_dir_fd		= dir_fd;
+	req.opts->has_shell_job		= true;
+	req.opts->shell_job		= true;
+	req.opts->log_level		= 4;
 
 	/*
 	 * Connect to service socket
