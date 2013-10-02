@@ -16,9 +16,14 @@ message criu_dump_resp {
 	optional bool restored		= 1;
 }
 
+message criu_restore_resp {
+	required int32 pid		= 1;
+}
+
 enum criu_req_type {
 	EMPTY		= 0;
 	DUMP		= 1;
+	RESTORE		= 2;
 }
 
 /*
@@ -42,4 +47,5 @@ message criu_resp {
 	required bool success		= 2;
 
 	optional criu_dump_resp	dump	= 3;
+	optional criu_restore_resp restore = 4;
 }
