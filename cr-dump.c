@@ -1296,6 +1296,9 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 	int ret = -1;
 	struct parasite_dump_misc misc;
 
+	INIT_LIST_HEAD(&vmas.h);
+	vmas.nr = 0;
+
 	pr_info("========================================\n");
 	pr_info("Pre-dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
@@ -1358,6 +1361,9 @@ static int dump_one_task(struct pstree_item *item)
 	struct parasite_drain_fd *dfds;
 	struct proc_posix_timers_stat proc_args;
 	struct proc_status_creds cr;
+
+	INIT_LIST_HEAD(&vmas.h);
+	vmas.nr = 0;
 
 	pr_info("========================================\n");
 	pr_info("Dumping task (pid: %d)\n", pid);
