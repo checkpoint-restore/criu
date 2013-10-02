@@ -348,7 +348,7 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 				return -1;
 		}
 
-		ssock = socket(PF_UNIX, SOCK_STREAM, 0);
+		ssock = socket(PF_UNIX, SOCK_SEQPACKET, 0);
 		if (ssock < 0)
 			pr_perror("Can't create socket");
 

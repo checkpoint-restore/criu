@@ -499,7 +499,7 @@ static noinline __used int parasite_init_daemon(void *data)
 
 	sigframe = args->sigframe;
 
-	tsock = sys_socket(PF_UNIX, SOCK_STREAM, 0);
+	tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (tsock < 0) {
 		pr_err("Can't create socket: %d\n", tsock);
 		goto err;
