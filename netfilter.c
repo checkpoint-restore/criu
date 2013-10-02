@@ -32,6 +32,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 {
 	char sip[INET_ADDR_LEN], dip[INET_ADDR_LEN];
 	char *cmd;
+	char *argv[4] = { "sh", "-c", buf, NULL };
 	int ret;
 
 	switch (family) {
@@ -58,7 +59,12 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 			dip, (int)dst_port, sip, (int)src_port);
 
 	pr_debug("\tRunning iptables [%s]\n", buf);
-	ret = system(buf);
+
+	/*
+	 * cr_system is used here, because it blocks SIGCHLD before waiting
+	 * a child and the child can't be waited from SIGCHLD handler.
+	 */
+	ret = cr_system(-1, -1, -1, "sh", argv);
 	if (ret < 0 || !WIFEXITED(ret) || WEXITSTATUS(ret)) {
 		pr_perror("Iptables configuration failed");
 		return -1;
