@@ -114,7 +114,7 @@ static int setup_dump_from_req(int sk, CriuOpts *req)
 	if (req->log_file)
 		opts.output = req->log_file;
 	else
-		opts.output = DEFAULT_DUMP_LOG_FILENAME;
+		opts.output = DEFAULT_LOG_FILENAME;
 
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
