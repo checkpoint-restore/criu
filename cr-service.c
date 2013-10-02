@@ -192,6 +192,12 @@ static int restore_using_req(int sk, CriuOpts *req)
 {
 	bool success = false;
 
+	/*
+	 * We can't restore processes under arbitrary task yet.
+	 * Thus for now we force the detached restore under the
+	 * cr service task.
+	 */
+
 	opts.restore_detach = true;
 
 	if (setup_opts_from_req(sk, req) == -1) {
