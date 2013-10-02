@@ -16,6 +16,7 @@
 #include "crtools.h"
 #include "util-pie.h"
 #include "log.h"
+#include "pstree.h"
 #include "cr-service.h"
 
 unsigned int service_sk_ino = -1;
@@ -75,7 +76,21 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-static int setup_dump_from_req(int sk, CriuOpts *req)
+int send_criu_restore_resp(int socket_fd, bool success, int pid)
+{
+	CriuResp msg = CRIU_RESP__INIT;
+	CriuRestoreResp resp = CRIU_RESTORE_RESP__INIT;
+
+	msg.type = CRIU_REQ_TYPE__RESTORE;
+	msg.success = success;
+	msg.restore = &resp;
+
+	resp.pid = pid;
+
+	return send_criu_msg(socket_fd, &msg);
+}
+
+static int setup_opts_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
 	struct stat st;
@@ -97,7 +112,7 @@ static int setup_dump_from_req(int sk, CriuOpts *req)
 	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
 
-	/* going to dir, where to place images*/
+	/* going to dir, where to place/get images*/
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
 	if (chdir(images_dir_path)) {
@@ -122,7 +137,7 @@ static int setup_dump_from_req(int sk, CriuOpts *req)
 		return -1;
 	}
 
-	/* checking dump flags from client */
+	/* checking flags from client */
 	if (req->has_leave_running && req->leave_running)
 		opts.final_state = TASK_ALIVE;
 
@@ -153,15 +168,13 @@ static int dump_using_req(int sk, CriuOpts *req)
 {
 	bool success = false;
 
-	if (setup_dump_from_req(sk, req) == -1) {
+	if (setup_opts_from_req(sk, req) == -1) {
 		pr_perror("Arguments treating fail");
 		goto exit;
 	}
 
-	if (cr_dump_tasks(req->pid) == -1) {
-		pr_perror("Dump fail");
+	if (cr_dump_tasks(req->pid) == -1)
 		goto exit;
-	}
 
 	if (req->has_leave_running && req->leave_running) {
 		success = true;
@@ -170,6 +183,30 @@ exit:
 			pr_perror("Can't send response");
 			success = false;
 		}
+	}
+
+	return success ? 0 : 1;
+}
+
+static int restore_using_req(int sk, CriuOpts *req)
+{
+	bool success = false;
+
+	opts.restore_detach = true;
+
+	if (setup_opts_from_req(sk, req) == -1) {
+		pr_perror("Arguments treating fail");
+		goto exit;
+	}
+
+	if (cr_restore_tasks())
+		goto exit;
+
+	success = true;
+exit:
+	if (send_criu_restore_resp(sk, success, root_item->pid.real) == -1) {
+		pr_perror("Can't send response");
+		success = false;
 	}
 
 	return success ? 0 : 1;
@@ -187,6 +224,8 @@ static int cr_service_work(int sk)
 	switch (msg->type) {
 	case CRIU_REQ_TYPE__DUMP:
 		return dump_using_req(sk, msg->opts);
+	case CRIU_REQ_TYPE__RESTORE:
+		return restore_using_req(sk, msg->opts);
 
 	default: {
 		CriuResp resp = CRIU_RESP__INIT;
