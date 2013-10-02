@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
 	cr_pb_init();
+	restrict_uid(getuid());
 
 	if (argc < 2)
 		goto usage;

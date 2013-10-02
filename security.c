@@ -2,7 +2,7 @@
 #include "crtools.h"
 #include "log.h"
 
-static unsigned int dumper_uid = 0;
+static unsigned int cr_uid; /* UID which user can C/R */
 
 /*
  * Setup what user is requesting for dump (via rpc or using 
@@ -14,16 +14,33 @@ static unsigned int dumper_uid = 0;
 void restrict_uid(unsigned int uid)
 {
 	pr_info("Restrict C/R with %u uid\n", uid);
-	dumper_uid = uid;
+	cr_uid = uid;
+}
+
+static bool check_uid(unsigned int uid)
+{
+	if (cr_uid == 0)
+		return true;
+	if (cr_uid == uid)
+		return true;
+
+	return false;
 }
 
 bool may_dump_uid(unsigned int uid)
 {
-	if (dumper_uid == 0)
-		return true;
-	if (dumper_uid == uid)
+	if (check_uid(uid))
 		return true;
 
-	pr_err("UID (%u) != dumper's UID(%u)\n", uid, dumper_uid);
+	pr_err("UID (%u) != dumper's UID(%u)\n", uid, cr_uid);
+	return false;
+}
+
+bool may_restore_uid(unsigned int uid)
+{
+	if (check_uid(uid))
+		return true;
+
+	pr_err("UID (%u) != restorer's UID(%u)\n", uid, cr_uid);
 	return false;
 }

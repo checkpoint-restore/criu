@@ -1957,6 +1957,9 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 		return -1;
 	}
 
+	if (!may_restore_uid(ce->uid))
+		return -1;
+
 	args->creds = *ce;
 	args->creds.cap_inh = args->cap_inh;
 	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
