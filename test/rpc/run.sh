@@ -24,6 +24,12 @@ function _exit {
 	exit $1
 }
 
+function check_and_term {
+	title_print "Check and term $1"
+	ps -C $1
+	pkill $1
+}
+
 title_print "Build programs"
 make clean
 mkdir build
@@ -44,5 +50,18 @@ ${CRIU} restore -v4 -o restore-c.log -D imgs_c --shell-job || _exit $?
 
 title_print "Restore test-py"
 ${CRIU} restore -v4 -o restore-py.log -D imgs_py --shell-job || _exit $?
+
+title_print "Run loop.sh"
+setsid ../loop.sh < /dev/null &> loop.log &
+P=${!}
+echo "pid ${P}"
+
+title_print "Dump loop.sh"
+mkdir imgs_loop
+${CRIU} dump -v4 -o dump-loop.log -D imgs_loop -t ${P} || _exit $?
+
+title_print "Run restore-loop"
+../restore-loop.py || _exit $?
+kill -SIGTERM ${P}
 
 _exit 0
