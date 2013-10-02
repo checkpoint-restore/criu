@@ -330,6 +330,70 @@ int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 	return 0;
 }
 
+/*
+ * We need to detect parasite crashes not to hang on socket operations.
+ * Since CRIU holds parasite with ptrace, it will receive SIGCHLD if the
+ * latter would crash.
+ *
+ * This puts a restriction on how to execute a sub-process on dump stage.
+ * One should use the cr_system helper, that blocks sigcild and waits
+ * for the spawned program to finish.
+ */
+static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
+{
+	int pid, status;
+
+	pr_err("si_code=%d si_pid=%d si_status=%d\n",
+		siginfo->si_code, siginfo->si_pid, siginfo->si_status);
+
+	pid = waitpid(0, &status, WNOHANG);
+	if (pid <= 0)
+		return;
+
+	if (WIFEXITED(status))
+		pr_err("%d exited with %d unexpectedly\n", pid, WEXITSTATUS(status));
+	else if (WIFSIGNALED(status))
+		pr_err("%d was killed by %d unexpectedly\n", pid, WTERMSIG(status));
+	else if (WIFSTOPPED(status))
+		pr_err("%d was stopped by %d unexpectedly\n", pid, WSTOPSIG(status));
+
+	exit(1);
+}
+
+static int setup_child_handler()
+{
+	struct sigaction sa = {
+		.sa_sigaction	= sigchld_handler,
+		.sa_flags	= SA_SIGINFO | SA_RESTART,
+	};
+
+	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGCHLD);
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		pr_perror("Unable to setup SIGCHLD handler");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_child_handler()
+{
+	struct sigaction sa = {
+		.sa_handler	= SIG_DFL,
+		.sa_flags	= SA_SIGINFO | SA_RESTART,
+	};
+
+	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGCHLD);
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		pr_perror("Unable to setup SIGCHLD handler");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int ssock = -1;
 
 static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
@@ -403,6 +467,10 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 
 	if (prepare_tsock(ctl, pid, args))
 		goto err;;
+
+	/* after this we can catch parasite errors in chld handler */
+	if (setup_child_handler())
+		goto err;
 
 	regs = ctl->regs_orig;
 	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack,
@@ -707,6 +775,10 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	int status, ret = 0;
+
+	/* stop getting chld from parasite -- we're about to step-by-step it */
+	if (restore_child_handler())
+		return -1;
 
 	if (!ctl->daemonized)
 		return 0;
