@@ -135,6 +135,7 @@ TST_FILE	=				\
 		sockets_dgram			\
 		file_locks00			\
 		file_locks01			\
+		netns-nf			\
 
 TST_DIR		=				\
 		cwd00				\

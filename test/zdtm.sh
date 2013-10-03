@@ -123,6 +123,7 @@ static/msgque
 static/sem
 transition/ipc
 ns/static/tun
+static/netns-nf
 "
 
 TEST_CR_KERNEL="
