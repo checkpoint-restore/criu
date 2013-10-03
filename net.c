@@ -390,6 +390,22 @@ static int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
 	return 0;
 }
 
+static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
+{
+	int ret;
+	char *cmd;
+
+	cmd = getenv("CR_IPTABLES");
+	if (!cmd)
+		cmd = def_cmd;
+	pr_debug("\tRunning %s for %s\n", cmd, def_cmd);
+	ret = cr_system(fdin, fdout, -1, "sh", (char *[]) { "sh", "-c", cmd, NULL });
+	if (ret)
+		pr_err("%s failed\n", def_cmd);
+
+	return ret;
+}
+
 static inline int dump_ifaddr(struct cr_fdset *fds)
 {
 	return run_ip_tool("addr", "save", -1, fdset_fd(fds, CR_FD_IFADDR));
@@ -398,6 +414,11 @@ static inline int dump_ifaddr(struct cr_fdset *fds)
 static inline int dump_route(struct cr_fdset *fds)
 {
 	return run_ip_tool("route", "save", -1, fdset_fd(fds, CR_FD_ROUTE));
+}
+
+static inline int dump_iptables(struct cr_fdset *fds)
+{
+	return run_iptables_tool("iptables-save", -1, fdset_fd(fds, CR_FD_IPTABLES));
 }
 
 static int restore_ip_dump(int type, int pid, char *cmd)
@@ -421,6 +442,19 @@ static inline int restore_ifaddr(int pid)
 static inline int restore_route(int pid)
 {
 	return restore_ip_dump(CR_FD_ROUTE, pid, "route");
+}
+
+static inline int restore_iptables(int pid)
+{
+	int ret, fd;
+
+	ret = fd = open_image(CR_FD_IPTABLES, O_RSTR, pid);
+	if (fd >= 0) {
+		ret = run_iptables_tool("iptables-restore", fd, -1);
+		close(fd);
+	}
+
+	return ret;
 }
 
 static int mount_ns_sysfs(void)
@@ -481,6 +515,8 @@ int dump_net_ns(int pid, int ns_id)
 		ret = dump_ifaddr(fds);
 	if (!ret)
 		ret = dump_route(fds);
+	if (!ret)
+		ret = dump_iptables(fds);
 
 	close(ns_sysfs_fd);
 	ns_sysfs_fd = -1;
@@ -498,6 +534,8 @@ int prepare_net_ns(int pid)
 		ret = restore_ifaddr(pid);
 	if (!ret)
 		ret = restore_route(pid);
+	if (!ret)
+		ret = restore_iptables(pid);
 
 	close(ns_fd);
 
