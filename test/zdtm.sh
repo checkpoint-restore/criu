@@ -124,6 +124,7 @@ static/sem
 transition/ipc
 ns/static/tun
 static/netns-nf
+static/netns
 "
 
 TEST_CR_KERNEL="
