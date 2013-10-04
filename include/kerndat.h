@@ -13,4 +13,7 @@ int kerndat_get_dirty_track(void);
 
 extern dev_t kerndat_shmem_dev;
 extern bool kerndat_has_dirty_track;
+
+extern int tcp_max_wshare;
+extern int tcp_max_rshare;
 #endif

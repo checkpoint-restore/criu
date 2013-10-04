@@ -9,6 +9,8 @@
 #include "log.h"
 #include "kerndat.h"
 #include "mem.h"
+#include "compiler.h"
+#include "sysctl.h"
 #include "asm/types.h"
 
 dev_t kerndat_shmem_dev;
@@ -100,6 +102,47 @@ int kerndat_get_dirty_track(void)
 	return 0;
 }
 
+/*
+ * Strictly speaking, if there is a machine with huge amount
+ * of memory, we're allowed to send up to 4M and read up to
+ * 6M of tcp data at once. But we will figure out precise size
+ * of a limit a bit later when restore starts.
+ *
+ * Meanwhile set it up to 2M and 3M, which is safe enough to
+ * proceed without errors.
+ */
+int tcp_max_wshare = 2U << 20;
+int tcp_max_rshare = 3U << 20;
+
+static int tcp_read_sysctl_limits(void)
+{
+	u32 vect[2][3] = { };
+	int ret;
+
+	struct sysctl_req req[] = {
+		{ "net/ipv4/tcp_wmem", &vect[0], CTL_U32A(ARRAY_SIZE(vect[0])) },
+		{ "net/ipv4/tcp_rmem", &vect[1], CTL_U32A(ARRAY_SIZE(vect[1])) },
+		{ },
+	};
+
+	/*
+	 * Lets figure out which exactly amount of memory is
+	 * availabe for send/read queues on restore.
+	 */
+	ret = sysctl_op(req, CTL_READ);
+	if (ret)
+		return ret;
+
+	tcp_max_wshare = min(tcp_max_wshare, (int)vect[0][2]);
+	tcp_max_rshare = min(tcp_max_rshare, (int)vect[1][2]);
+
+	if (tcp_max_wshare < 128 || tcp_max_rshare < 128)
+		pr_warn("The memory limits for TCP queues are suspiciously small\n");
+
+	pr_debug("TCP queue memory limits are %d:%d\n", tcp_max_wshare, tcp_max_rshare);
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -107,6 +150,13 @@ int kerndat_init(void)
 	ret = kerndat_get_shmemdev();
 	if (!ret)
 		ret = kerndat_get_dirty_track();
+	if (!ret)
+		/*
+		 * Read TCP sysctls before anything else,
+		 * since the limits we're interested in are
+		 * not available inside namespaces.
+		 */
+		ret = tcp_read_sysctl_limits();
 
 	return ret;
 }

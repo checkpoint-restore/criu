@@ -21,6 +21,7 @@
 #include "xmalloc.h"
 #include "config.h"
 #include "cr-show.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
@@ -444,6 +445,7 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 {
 	int ret, err = -1;
+	int off, max;
 	char *buf;
 
 	pr_debug("\tRestoring TCP %d queue data %u bytes\n", queue, len);
@@ -460,11 +462,19 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 	if (read_img_buf(imgfd, buf, len) < 0)
 		goto err;
 
-	ret = send(sk, buf, len, 0);
-	if (ret != len) {
-		pr_perror("Can't restore %d queue data (%d), want %d",
-				queue, ret, len);
-		goto err;
+	max = (queue == TCP_SEND_QUEUE) ? tcp_max_wshare : tcp_max_rshare;
+	off = 0;
+	while (len) {
+		int chunk = (len > max ? max : len);
+
+		ret = send(sk, buf + off, chunk, 0);
+		if (ret != chunk) {
+			pr_perror("Can't restore %d queue data (%d), want (%d:%d)",
+				  queue, ret, chunk, len);
+			goto err;
+		}
+		off += chunk;
+		len -= chunk;
 	}
 
 	err = 0;
