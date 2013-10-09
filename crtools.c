@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 
 	ret = open_image_dir();
 	if (ret < 0) {
-		pr_perror("can't open current directory");
+		pr_perror("Can't open current directory");
 		return -1;
 	}
 
