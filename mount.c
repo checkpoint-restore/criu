@@ -273,7 +273,7 @@ static int validate_mounts(struct mount_info *info)
 				continue;
 			if (mlen > tlen && m->mountpoint[tlen] != '/')
 				continue;
-			pr_err("%d:%s is overmounted", m->mnt_id, m->mountpoint);
+			pr_err("%d:%s is overmounted\n", m->mnt_id, m->mountpoint);
 			return -1;
 		}
 	}
