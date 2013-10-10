@@ -1613,9 +1613,6 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	ret = 0;
 err:
-	if (disconnect_from_page_server())
-		ret = -1;
-
 	pstree_switch_state(root_item,
 			ret ? TASK_ALIVE : opts.final_state);
 	free_pstree(root_item);
@@ -1641,6 +1638,9 @@ err:
 		list_del(&ctl->pre_list);
 		parasite_cure_local(ctl);
 	}
+
+	if (disconnect_from_page_server())
+		ret = -1;
 
 	if (ret)
 		pr_err("Pre-dumping FAILED.\n");
