@@ -1199,6 +1199,16 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	return 0;
 }
 
+/*
+ * What this routine does is just reads pid-s of dead
+ * tasks in item's children list from item's ns proc.
+ *
+ * It does *not* find wihch real pid corresponds to
+ * which virtual one, but it's not required -- all we
+ * need to dump for zombie can be found in the same
+ * ns proc.
+ */
+
 static int fill_zombies_pids(struct pstree_item *item)
 {
 	struct pstree_item *child;
