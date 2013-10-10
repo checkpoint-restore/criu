@@ -242,13 +242,13 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	while (wd >= 0) {
 		wd = inotify_add_watch(inotify_fd, path, iwe->mask);
 		if (wd < 0) {
-			pr_err("Can't add watch for %d with %d\n", inotify_fd, iwe->wd);
+			pr_perror("Can't add watch for %d with %d", inotify_fd, iwe->wd);
 			break;
 		} else if (wd == iwe->wd) {
 			ret = 0;
 			break;
 		} else if (wd > iwe->wd) {
-			pr_err("Unsorted watch found for %d with %d\n", inotify_fd, iwe->wd);
+			pr_err("Unsorted watch %d found for %d with %d", wd, inotify_fd, iwe->wd);
 			break;
 		}
 
