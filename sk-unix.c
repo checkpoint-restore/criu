@@ -98,7 +98,9 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	if (sk->type != SOCK_STREAM &&
 	    sk->type != SOCK_DGRAM &&
 	    sk->type != SOCK_SEQPACKET) {
-		pr_err("Only stream/dgram/seqpacket sockets for now\n");
+		pr_err("Unsupported type (%d) on socket %x.\n"
+				"Only stream/dgram/seqpacket are supported.\n",
+				sk->type, sk->sd.ino);
 		return 0;
 	}
 
@@ -108,7 +110,8 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	case TCP_CLOSE:
 		break;
 	default:
-		pr_err("Unknown state %d\n", sk->state);
+		pr_err("Unknown state %d for unix socket %x\n",
+				sk->state, sk->sd.ino);
 		return 0;
 	}
 
