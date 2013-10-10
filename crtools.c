@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'o':
-			opts.output = strdup(optarg);
+			opts.output = optarg;
 			if (log_init(optarg))
 				return -1;
 			log_inited = 1;
