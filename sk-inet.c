@@ -90,19 +90,18 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 
 static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 {
-	if (sk->sd.family != AF_INET && sk->sd.family != AF_INET6) {
-		pr_err("Only IPv4/6 sockets for now\n");
-		return 0;
-	}
+	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
 	if (sk->shutdown) {
-		pr_err("Can't dump shutdown inet socket\n");
+		pr_err("Can't dump shutdown inet socket %x\n",
+				sk->sd.ino);
 		return 0;
 	}
 
 	if (sk->type == SOCK_DGRAM) {
 		if (sk->wqlen != 0) {
-			pr_err("Can't dump corked dgram socket\n");
+			pr_err("Can't dump corked dgram socket %x\n",
+					sk->sd.ino);
 			return 0;
 		}
 
@@ -114,7 +113,9 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 	}
 
 	if (sk->type != SOCK_STREAM) {
-		pr_err("Only stream and dgram inet sockets for now\n");
+		pr_err("Can't dump %d inet socket %x. "
+				"Only can stream and dgram.\n",
+				sk->type, sk->sd.ino);
 		return 0;
 	}
 
@@ -126,7 +127,8 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 			 * requests for listen sockets. Need to pick
 			 * those up and fix the connect job respectively
 			 */
-			pr_err("In-flight connection (l)\n");
+			pr_err("In-flight connection (l) for %x\n",
+					sk->sd.ino);
 			return 0;
 		}
 		break;
@@ -141,7 +143,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 		/* Trivial case, we just need to create a socket on restore */
 		break;
 	default:
-		pr_err("Unknown state %d\n", sk->state);
+		pr_err("Unknown inet socket %x state %d\n", sk->sd.ino, sk->state);
 		return 0;
 	}
 
@@ -153,7 +155,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 	case IPPROTO_UDPLITE:
 		break;
 	default:
-		pr_err("Unsupported socket proto %d\n", proto);
+		pr_err("Unsupported proto %d for socket %x\n", proto, sk->sd.ino);
 		return 0;
 	}
 
