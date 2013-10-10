@@ -69,7 +69,6 @@
 #include "asm/dump.h"
 
 static char loc_buf[PAGE_SIZE];
-static int pidns_proc = -1;
 
 bool privately_dump_vma(struct vma_area *vma)
 {
@@ -1245,7 +1244,7 @@ static int dump_zombies(void)
 	int ret = -1;
 	int pidns = current_ns_mask & CLONE_NEWPID;
 
-	if (pidns && set_proc_fd(pidns_proc))
+	if (pidns && set_proc_fd(get_service_fd(CR_PROC_FD_OFF)))
 		return -1;
 
 	/*
@@ -1420,11 +1419,18 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	if (current_ns_mask & CLONE_NEWPID && root_item == item) {
-		pidns_proc = parasite_get_proc_fd_seized(parasite_ctl);
-		if (pidns_proc < 0) {
+		int pfd;
+
+		pfd = parasite_get_proc_fd_seized(parasite_ctl);
+		if (pfd < 0) {
 			pr_err("Can't get proc fd (pid: %d)\n", pid);
 			goto err_cure_fdset;
 		}
+
+		if (install_service_fd(CR_PROC_FD_OFF, pfd) < 0)
+			goto err_cure_fdset;
+
+		close(pfd);
 	}
 
 	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
@@ -1764,7 +1770,7 @@ err:
 	free_pstree(root_item);
 	free_file_locks();
 
-	close_safe(&pidns_proc);
+	close_service_fd(CR_PROC_FD_OFF);
 
 	if (ret) {
 		kill_inventory();

@@ -54,11 +54,14 @@ enum sfd_type {
 	LOG_FD_OFF,
 	LOG_DIR_FD_OFF,
 	IMG_FD_OFF,
-	PROC_FD_OFF,	/* /proc in the restored pidns */
+	PROC_FD_OFF,	/* fd with /proc for all proc_ calls */
 	CTL_TTY_OFF,
 	SELF_STDIN_OFF,
 	PARENT_FD_OFF,
-	CR_PROC_FD_OFF, /* /proc in criu's pidns */
+	CR_PROC_FD_OFF, /* some other's proc fd.
+			 *  For dump -- target ns' proc
+			 *  For restore -- CRIU ns' proc
+			 */
 
 	SERVICE_FD_MAX
 };
