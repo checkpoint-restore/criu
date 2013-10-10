@@ -148,6 +148,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	struct ifinfomsg *ifi;
 	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	struct rtattr *tb[IFLA_MAX + 1];
+	char *kind;
 
 	ifi = NLMSG_DATA(hdr);
 
@@ -170,6 +171,18 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	case ARPHRD_NONE:
 		ret = dump_one_gendev(ifi, tb, fds);
 		break;
+	case ARPHRD_VOID:
+		/*
+		 * If we meet a link we know about, such as
+		 * OpenVZ's venet, save general parameters of
+		 * it as external link.
+		 */
+		kind = link_kind(ifi, tb);
+		if (kind && !strcmp(kind, "venet")) {
+			ret = dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
+			break;
+		}
+		/* Fall through otherwise! */
 	default:
 		pr_err("Unsupported link type %d, kind %s\n",
 				ifi->ifi_type, link_kind(ifi, tb));
