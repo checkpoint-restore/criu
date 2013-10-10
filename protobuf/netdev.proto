@@ -4,6 +4,13 @@ enum nd_type {
 	LOOPBACK	= 1;
 	VETH		= 2;
 	TUN		= 3;
+	/*
+	 * External link -- for those CRIU only dumps and restores
+	 * link parameters such as flags, address, MTU, etc. The
+	 * existence of the link on restore should be provided
+	 * by the setup-namespaces script.
+	 */
+	EXTLINK		= 4;
 }
 
 message net_device_entry {
