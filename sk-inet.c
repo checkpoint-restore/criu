@@ -90,10 +90,7 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 
 static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 {
-	if (sk->sd.family != AF_INET && sk->sd.family != AF_INET6) {
-		pr_err("Only IPv4/6 sockets for now\n");
-		return 0;
-	}
+	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
 	if (sk->shutdown) {
 		pr_err("Can't dump shutdown inet socket\n");
