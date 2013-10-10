@@ -325,6 +325,9 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK:
 		return restore_one_link(nde, nlsk, NULL);
+	case ND_TYPE__EXTLINK:
+		/* see comment in protobuf/netdev.proto */
+		return restore_link_parms(nde, nlsk);
 	case ND_TYPE__VETH:
 		return restore_one_link(nde, nlsk, veth_link_info);
 	case ND_TYPE__TUN:
