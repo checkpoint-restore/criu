@@ -130,15 +130,17 @@ static int tcp_read_sysctl_limits(void)
 	 * availabe for send/read queues on restore.
 	 */
 	ret = sysctl_op(req, CTL_READ);
-	if (ret)
-		return ret;
+	if (ret) {
+		pr_warn("TCP mem sysctls are not available. Using defaults.\n");
+		goto out;
+	}
 
 	tcp_max_wshare = min(tcp_max_wshare, (int)vect[0][2]);
 	tcp_max_rshare = min(tcp_max_rshare, (int)vect[1][2]);
 
 	if (tcp_max_wshare < 128 || tcp_max_rshare < 128)
 		pr_warn("The memory limits for TCP queues are suspiciously small\n");
-
+out:
 	pr_debug("TCP queue memory limits are %d:%d\n", tcp_max_wshare, tcp_max_rshare);
 	return 0;
 }
