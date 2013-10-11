@@ -17,4 +17,6 @@ extern bool kerndat_has_dirty_track;
 
 extern int tcp_max_wshare;
 extern int tcp_max_rshare;
+
+extern int kern_last_cap;
 #endif

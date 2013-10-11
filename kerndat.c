@@ -156,13 +156,31 @@ int kerndat_init(void)
 	return ret;
 }
 
+int kern_last_cap;
+
+int get_last_cap(void)
+{
+	struct sysctl_req req[] = {
+		{ "kernel/cap_last_cap", &kern_last_cap, CTL_U32 },
+		{ },
+	};
+
+	return sysctl_op(req, CTL_READ);
+}
+
 int kerndat_init_rst(void)
 {
+	int ret;
+
 	/*
 	 * Read TCP sysctls before anything else,
 	 * since the limits we're interested in are
 	 * not available inside namespaces.
 	 */
 
-	return tcp_read_sysctl_limits();
+	ret = tcp_read_sysctl_limits();
+	if (!ret)
+		ret = get_last_cap();
+
+	return ret;
 }

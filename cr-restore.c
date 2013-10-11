@@ -59,7 +59,6 @@
 #include "cpu.h"
 #include "file-lock.h"
 #include "page-read.h"
-#include "sysctl.h"
 #include "vdso.h"
 #include "stats.h"
 #include "tun.h"
@@ -1934,17 +1933,6 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	int fd, ret;
 	CredsEntry *ce;
 
-	struct sysctl_req req[] = {
-		{ "kernel/cap_last_cap", &args->cap_last_cap, CTL_U32 },
-		{ },
-	};
-
-	ret = sysctl_op(req, CTL_READ);
-	if (ret < 0) {
-		pr_err("Failed to read max IPC message size\n");
-		return -1;
-	}
-
 	fd = open_image(CR_FD_CREDS, O_RSTR, pid);
 	if (fd < 0)
 		return fd;
@@ -1987,6 +1975,8 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	}
 
 	creds_entry__free_unpacked(ce, NULL);
+
+	args->cap_last_cap = kern_last_cap;
 
 	/* XXX -- validate creds here? */
 
