@@ -70,6 +70,8 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	endif
 endif
 
+LDARCH		?= $(ARCH)
+
 SRC_DIR		?= $(CURDIR)
 ARCH_DIR	:= arch/$(ARCH)
 
