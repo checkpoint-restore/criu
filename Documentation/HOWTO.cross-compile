@@ -1,0 +1,31 @@
+This HOWTO explains how to cross-compile CRIU on x86
+
+ 1. Download the protobuf sources.
+ 2. Apply the patch http://16918.selcdn.ru/crtools/aarch64/0001-protobuf-added-the-support-for-the-acrchitecture-AAr.patch
+ 3. Configure protobuf to be compiled for the target architecture:
+
+     ./configure --prefix=$X86_PREFIX --disable-shared --enable-static
+
+ 4. Compile protobuf.
+ 5. Download protobuf-c sources.
+ 6. Configure protobuf-c for the architecture x86:
+
+     export PATH=$PATH:$X86_PREFIX/bin
+     export PKG_CONFIG_PATH=$X86_PREFIX/lib/pkgconfig
+     CPPFLAGS=`pkg-config --cflags protobuf` LDFLAGS=`pkg-config --libs protobuf` ./configure --prefix=$X86_PREFIX --disable-shared --enable-static
+
+ 7. Compile and install protobuf-c.
+ 8. Configure protobuf to be compiled for the target architecture:
+
+     ./configure --prefix=$ARCH_PREFIX --disable-shared --enable-static --with-protoc=protoc --host=$TARGET
+
+ 9. Compile and install protobuf.
+10. Let PKG_CONFIG_PATH=$ARCH_PREFIX/lib/pkgconfig.
+11. Configure protobuf-c to be compiled for the target architecture:
+
+     CPPFLAGS=`pkg-config --cflags protobuf` LDFLAGS=`pkg-config --libs protobuf` ./configure --prefix=$ARCH_PREFIX --disable-shared --enable-static --disable-protoc --host=$TARGET
+
+12. Compile and install protobuf-c.
+13. Compile CRIU:
+
+     ARCH=<target arch> CROSS_COMPILE=$TARGET- CFLAGS=`pkg-config --cflags libprotobuf-c` LDFLAGS="`pkg-config --libs libprotobuf-c` --static" make
