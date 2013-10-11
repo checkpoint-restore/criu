@@ -1077,19 +1077,19 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 	int  num;
 
 	if (is_blocked) {
-		num = sscanf(buf, "%lld: -> %s %s %s %d %02x:%02x:%ld %lld %s",
+		num = sscanf(buf, "%lld: -> %s %s %s %d %x:%x:%ld %lld %s",
 			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	} else {
-		num = sscanf(buf, "%lld:%s %s %s %d %02x:%02x:%ld %lld %s",
+		num = sscanf(buf, "%lld:%s %s %s %d %x:%x:%ld %lld %s",
 			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	}
 
 	if (num < 10) {
-		pr_perror("Invalid file lock info: %s", buf);
+		pr_err("Invalid file lock info (%d): %s", num, buf);
 		return -1;
 	}
 
