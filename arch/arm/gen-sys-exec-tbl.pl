@@ -22,9 +22,9 @@ for (<IN>) {
 	my $sys_name;
 	my $sys_num;
 
-	if (/(?<name>\S+)\s+(?<alias>\S+)\s+(?<code64>\d+)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
+	if (/(?<name>\S+)\s+(?<alias>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$sys_name = $+{alias};
-	} elsif (/(?<name>\S+)\s+(?<code64>\d+)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
+	} elsif (/(?<name>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$sys_name = $+{name};
 	} else {
 		unlink $tblout;

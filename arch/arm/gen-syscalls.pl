@@ -61,10 +61,10 @@ for (<IN>) {
 	my $code_macro;
 	my $sys_name;
 
-	if (/(?<name>\S+)\s+(?<alias>\S+)\s+(?<code64>\d+)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
+	if (/(?<name>\S+)\s+(?<alias>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$code_macro = "__NR_$+{name}";
 		$sys_name   = "sys_$+{alias}";
-	} elsif (/(?<name>\S+)\s+(?<code64>\d+)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
+	} elsif (/(?<name>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$code_macro = "__NR_$+{name}";
 		$sys_name   = "sys_$+{name}";
 	} else {
