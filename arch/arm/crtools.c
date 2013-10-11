@@ -195,7 +195,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 	memcpy(&aux->vfp.ufp.fpregs, CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs, sizeof(aux->vfp.ufp.fpregs));
 	aux->vfp.ufp.fpscr = CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr;
-
+	aux->vfp.magic = VFP_MAGIC;
+	aux->vfp.size = VFP_STORAGE_SIZE;
 	return 0;
 }
 
@@ -242,16 +243,6 @@ int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)
 
 #undef CPREG1
 #undef CPREG2
-
-	return 0;
-}
-
-int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
-{
-	struct aux_sigframe *aux = (struct aux_sigframe *)&sigframe->sig.uc.uc_regspace;
-
-	aux->vfp.magic = VFP_MAGIC;
-	aux->vfp.size = VFP_STORAGE_SIZE;
 
 	return 0;
 }
