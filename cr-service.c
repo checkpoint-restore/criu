@@ -303,7 +303,7 @@ int cr_service(bool daemon_mode)
 	}
 
 	if (daemon_mode) {
-		if (daemon(1, 1) == -1) {
+		if (daemon(0, 0) == -1) {
 			pr_perror("Can't run service server in the background");
 			goto err;
 		}
