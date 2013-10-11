@@ -9,6 +9,7 @@
  */
 
 int kerndat_init(void);
+int kerndat_init_rst(void);
 int kerndat_get_dirty_track(void);
 
 extern dev_t kerndat_shmem_dev;

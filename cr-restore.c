@@ -63,6 +63,7 @@
 #include "vdso.h"
 #include "stats.h"
 #include "tun.h"
+#include "kerndat.h"
 
 #include "parasite-syscall.h"
 
@@ -1591,6 +1592,9 @@ int cr_restore_tasks(void)
 		return -1;
 
 	if (init_stats(RESTORE_STATS))
+		return -1;
+
+	if (kerndat_init_rst())
 		return -1;
 
 	timing_start(TIME_RESTORE);

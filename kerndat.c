@@ -152,13 +152,17 @@ int kerndat_init(void)
 	ret = kerndat_get_shmemdev();
 	if (!ret)
 		ret = kerndat_get_dirty_track();
-	if (!ret)
-		/*
-		 * Read TCP sysctls before anything else,
-		 * since the limits we're interested in are
-		 * not available inside namespaces.
-		 */
-		ret = tcp_read_sysctl_limits();
 
 	return ret;
+}
+
+int kerndat_init_rst(void)
+{
+	/*
+	 * Read TCP sysctls before anything else,
+	 * since the limits we're interested in are
+	 * not available inside namespaces.
+	 */
+
+	return tcp_read_sysctl_limits();
 }
