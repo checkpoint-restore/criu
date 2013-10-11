@@ -42,6 +42,8 @@ struct vfp_sigframe {
 	struct user_vfp_exc     ufp_exc;
 };
 
+typedef struct vfp_sigframe fpu_state_t;
+
 struct aux_sigframe {
 	/*
 	struct crunch_sigframe  crunch;
@@ -62,8 +64,6 @@ struct sigframe {
 struct rt_sigframe {
 	struct rt_siginfo info;
 	struct sigframe sig;
-
-	fpu_state_t fpu_state;
 };
 
 
