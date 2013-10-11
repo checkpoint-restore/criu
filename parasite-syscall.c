@@ -30,6 +30,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <elf.h>
 
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
@@ -67,12 +68,20 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 
 static inline int ptrace_get_regs(int pid, user_regs_struct_t *regs)
 {
-	return ptrace(PTRACE_GETREGS, pid, NULL, regs);
+	struct iovec iov;
+
+	iov.iov_base = regs;
+	iov.iov_len = sizeof(user_regs_struct_t);
+	return ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
 static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
 {
-	return ptrace(PTRACE_SETREGS, pid, NULL, regs);
+	struct iovec iov;
+
+	iov.iov_base = regs;
+	iov.iov_len = sizeof(user_regs_struct_t);
+	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
 static int get_thread_ctx(int pid, struct thread_ctx *ctx)

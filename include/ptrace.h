@@ -27,6 +27,11 @@ struct ptrace_peeksiginfo_args {
 #define PTRACE_PEEKSIGINFO_SHARED       (1 << 0)
 #endif
 
+#ifndef PTRACE_GETREGSET
+# define PTRACE_GETREGSET	0x4204
+# define PTRACE_SETREGSET	0x4205
+#endif
+
 #define PTRACE_GETSIGMASK	0x420a
 #define PTRACE_SETSIGMASK	0x420b
 
