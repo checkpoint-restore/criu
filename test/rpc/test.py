@@ -16,6 +16,7 @@ req			= rpc.criu_req()
 req.type		= rpc.DUMP
 req.opts.leave_running	= True
 req.opts.shell_job	= True
+req.opts.log_level	= 4
 
 if not os.path.exists('imgs_py'):
 	os.makedirs('imgs_py')
