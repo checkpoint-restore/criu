@@ -220,7 +220,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			goto err;
 
 		memset(file_path, 0, 6);
-		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %02x:%02x %lu %5s",
+		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %x:%x %lu %5s",
 			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
 			     &dev_min, &ino, file_path);
 		if (num < 10) {
