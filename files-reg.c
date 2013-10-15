@@ -202,7 +202,6 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 {
 	int img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
-	char lpath[32];
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
@@ -223,6 +222,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 
 	if (S_ISREG(st->st_mode)) {
 		int fd, ret;
+		char lpath[32];
 
 		/*
 		 * Reopen file locally since it may have no read
