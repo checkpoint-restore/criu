@@ -420,10 +420,23 @@ static struct file_desc_ops fanotify_desc_ops = {
 static struct fsnotify_file_info *find_inotify_info(unsigned id)
 {
 	struct fsnotify_file_info *p;
+	static struct fsnotify_file_info *last = NULL;
+
+	if (last && last->ife->id == id) {
+		/*
+		 * An optimization for clean dump image -- criu puts 
+		 * wd-s for one inotify in one row, thus sometimes 
+		 * we can avoid scanning the inotify_info_head.
+		 */
+		pr_debug("\t\tlast ify for %u found\n", id);
+		return last;
+	}
 
 	list_for_each_entry(p, &inotify_info_head, list)
-		if (p->ife->id == id)
+		if (p->ife->id == id) {
+			last = p;
 			return p;
+		}
 
 	pr_err("Can't find inotify with id 0x%08x\n", id);
 	return NULL;
