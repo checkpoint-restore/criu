@@ -20,7 +20,7 @@ ifeq ($(ARCH), arm)
 endif
 ASMFLAGS		+= -D__ASSEMBLY__
 
-GEN-OFFSETS		:= gen-offsets.sh
+GEN-OFFSETS		:= ../scripts/gen-offsets.sh
 BLOBS			:= $(obj)/parasite-blob.h $(obj)/restorer-blob.h
 
 PIELDS			:= pie.lds.S
