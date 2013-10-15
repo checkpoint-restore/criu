@@ -245,7 +245,7 @@ err:
 static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 {
 	InotifyWdEntry *iwe = info->iwe;
-	int ret = -1, wd, target = -1;
+	int ret = -1, target = -1;
 	char buf[32], *path;
 
 	path = get_mark_path("inotify", info->remap, iwe->f_handle,
@@ -259,8 +259,9 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	 * this is suboptimal, but the kernel doesn't
 	 * provide and API for this yet :(
 	 */
-	wd = 1;
-	while (wd >= 0) {
+	while (1) {
+		int wd;
+
 		wd = inotify_add_watch(inotify_fd, path, iwe->mask);
 		if (wd < 0) {
 			pr_perror("Can't add watch for %d with %d", inotify_fd, iwe->wd);
