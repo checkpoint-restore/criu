@@ -175,6 +175,18 @@ const struct fdtype_ops fanotify_dump_ops = {
 	.dump		= dump_one_fanotify,
 };
 
+static void decode_handle(fh_t *handle, FhEntry *img)
+{
+	memzero(handle, sizeof(*handle));
+
+	handle->type	= img->type;
+	handle->bytes	= img->bytes;
+
+	memcpy(handle->__handle, img->handle,
+			min(pb_repeated_size(img, handle),
+				sizeof(handle->__handle)));
+}
+
 static char *get_mark_path(const char *who, struct file_remap *remap,
 			   FhEntry *f_handle, unsigned long i_ino,
 			   unsigned int s_dev, char *buf, size_t size,
@@ -190,14 +202,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		return remap->path;
 	}
 
-	memzero(&handle, sizeof(handle));
-
-	handle.type	= f_handle->type;
-	handle.bytes	= f_handle->bytes;
-
-	memcpy(handle.__handle, f_handle->handle,
-			min(pb_repeated_size(f_handle, handle),
-				sizeof(handle.__handle)));
+	decode_handle(&handle, f_handle);
 
 	mntfd = open_mount(s_dev);
 	if (mntfd < 0) {
