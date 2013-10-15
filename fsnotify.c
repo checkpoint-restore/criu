@@ -184,48 +184,45 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 	int mntfd = -1;
 	fh_t handle;
 
-	if (!remap) {
-		memzero(&handle, sizeof(handle));
-
-		handle.type	= f_handle->type;
-		handle.bytes	= f_handle->bytes;
-
-		memcpy(handle.__handle, f_handle->handle,
-		       min(pb_repeated_size(f_handle, handle),
-			   sizeof(handle.__handle)));
-
-		mntfd = open_mount(s_dev);
-		if (mntfd < 0) {
-			pr_err("Mount root for 0x%08x not found\n", s_dev);
-			goto err;
-		}
-
-		*target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
-		if (*target < 0) {
-			pr_perror("Can't open file handle for 0x%08x:0x%016lx",
-				  s_dev, i_ino);
-			goto err;
-		}
-		snprintf(buf, size, "/proc/self/fd/%d", *target);
-		path = buf;
-
-		if (log_get_loglevel() >= LOG_DEBUG) {
-			char link[PATH_MAX];
-
-			if (read_fd_link(*target, link, sizeof(link)) < 0)
-				link[0] = '\0';
-
-			pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s -> %s)\n",
-				 who, s_dev, i_ino, path, link);
-		}
-	} else {
-		*target = -1;
-		path = remap->path;
-
+	if (remap) {
 		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
 			 who, s_dev, i_ino, path);
+		return remap->path;
 	}
 
+	memzero(&handle, sizeof(handle));
+
+	handle.type	= f_handle->type;
+	handle.bytes	= f_handle->bytes;
+
+	memcpy(handle.__handle, f_handle->handle,
+			min(pb_repeated_size(f_handle, handle),
+				sizeof(handle.__handle)));
+
+	mntfd = open_mount(s_dev);
+	if (mntfd < 0) {
+		pr_err("Mount root for 0x%08x not found\n", s_dev);
+		goto err;
+	}
+
+	*target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
+	if (*target < 0) {
+		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+				s_dev, i_ino);
+		goto err;
+	}
+	snprintf(buf, size, "/proc/self/fd/%d", *target);
+	path = buf;
+
+	if (log_get_loglevel() >= LOG_DEBUG) {
+		char link[PATH_MAX];
+
+		if (read_fd_link(*target, link, sizeof(link)) < 0)
+			link[0] = '\0';
+
+		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s -> %s)\n",
+				who, s_dev, i_ino, path, link);
+	}
 err:
 	close_safe(&mntfd);
 	return path;
