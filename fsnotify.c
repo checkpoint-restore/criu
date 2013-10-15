@@ -417,20 +417,38 @@ static struct file_desc_ops fanotify_desc_ops = {
 	.open = open_fanotify_fd,
 };
 
-static int collect_inotify_mark(struct fsnotify_mark_info *mark)
+static struct fsnotify_file_info *find_inotify_info(unsigned id)
 {
 	struct fsnotify_file_info *p;
 
-	list_for_each_entry(p, &inotify_info_head, list) {
-		if (p->ife->id == mark->iwe->id) {
-			list_add(&mark->list, &p->marks);
-			mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
-			return 0;
-		}
-	}
+	list_for_each_entry(p, &inotify_info_head, list)
+		if (p->ife->id == id)
+			return p;
 
-	pr_err("Can't find inotify with id 0x%08x\n", mark->iwe->id);
-	return -1;
+	pr_err("Can't find inotify with id 0x%08x\n", id);
+	return NULL;
+}
+
+static int collect_inotify_mark(struct fsnotify_mark_info *mark)
+{
+	struct fsnotify_file_info *p;
+	struct fsnotify_mark_info *m;
+
+	p = find_inotify_info(mark->iwe->id);
+	if (!p)
+		return -1;
+
+	/*
+	 * We should put marks in wd ascending order. See comment
+	 * in restore_one_inotify() for explanation.
+	 */
+	list_for_each_entry(m, &p->marks, list)
+		if (m->iwe->wd > mark->iwe->wd)
+			break;
+
+	list_add_tail(&mark->list, &m->list);
+	mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
+	return 0;
 }
 
 static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
