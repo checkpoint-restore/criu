@@ -295,8 +295,10 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 				     fme->s_dev, buf, sizeof(buf), &target);
 		if (!path)
 			goto err;
-	} else
-		BUG();
+	} else {
+		pr_err("Bad fsnotify mark type %d\n", fme->type);
+		goto err;
+	}
 
 	flags |= fme->mflags;
 
