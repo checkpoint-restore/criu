@@ -216,6 +216,15 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 				s_dev, i_ino);
 		goto err;
 	}
+
+	/*
+	 * fanotify/inotify open syscalls want path to attach
+	 * watch to. But the only thing we have is an FD obtained
+	 * via fhandle. Fortunatelly, when trying to attach the
+	 * /proc/pid/fd/ link, we will watch the inode the link
+	 * points to, i.e. -- just what we want.
+	 */
+
 	snprintf(buf, size, "/proc/self/fd/%d", *target);
 	path = buf;
 
