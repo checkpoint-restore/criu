@@ -60,7 +60,7 @@ ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
 endif
 
-PROTOBUF_GEN := protobuf-gen.sh
+PROTOBUF_GEN := scripts/protobuf-gen.sh
 
 protobuf-desc.c: protobuf-desc-gen.h
 
