@@ -358,7 +358,7 @@ static int open_inotify_fd(struct file_desc *d)
 	}
 
 	list_for_each_entry(wd_info, &info->marks, list) {
-		pr_info("\tRestore inotify for 0x%08x\n", wd_info->iwe->id);
+		pr_info("\tRestore %d wd for 0x%08x\n", wd_info->iwe->wd, wd_info->iwe->id);
 		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
 			break;
