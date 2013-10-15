@@ -471,7 +471,7 @@ out:
 static int tmpfs_dump(struct mount_info *pm)
 {
 	int ret = -1;
-	char tmpfs_path[PATH_MAX];
+	char tmpfs_path[PSFDS];
 	int fd, fd_img = -1;
 	DIR *fdir = NULL;
 
@@ -489,8 +489,7 @@ static int tmpfs_dump(struct mount_info *pm)
 	if (fd_img < 0)
 		goto out;
 
-	snprintf(tmpfs_path, sizeof(tmpfs_path),
-				       "/proc/self/fd/%d", fd);
+	sprintf(tmpfs_path, "/proc/self/fd/%d", fd);
 
 	ret = cr_system(-1, fd_img, -1, "tar", (char *[])
 			{ "tar", "--create",

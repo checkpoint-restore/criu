@@ -250,9 +250,9 @@ err:
 static int reopen_pipe(int fd, int flags)
 {
 	int ret;
-	char path[32];
+	char path[PSFDS];
 
-	snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
+	sprintf(path, "/proc/self/fd/%d", fd);
 	ret = open(path, flags);
 	if (ret < 0)
 		pr_perror("Unable to reopen the pipe %s", path);

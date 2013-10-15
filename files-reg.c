@@ -222,13 +222,13 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 
 	if (S_ISREG(st->st_mode)) {
 		int fd, ret;
-		char lpath[32];
+		char lpath[PSFDS];
 
 		/*
 		 * Reopen file locally since it may have no read
 		 * permissions when drained
 		 */
-		snprintf(lpath, sizeof(lpath), "/proc/self/fd/%d", _fd);
+		sprintf(lpath, "/proc/self/fd/%d", _fd);
 		fd = open(lpath, O_RDONLY);
 		if (fd < 0) {
 			pr_perror("Can't open ghost original file");

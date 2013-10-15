@@ -270,6 +270,12 @@ static inline bool dir_dots(struct dirent *de)
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
 }
 
+/*
+ * Size of buffer to carry the worst case or /proc/self/fd/N
+ * path. Since fd is an integer, we can easily estimate one :)
+ */
+#define PSFDS	(sizeof("/proc/self/fd/2147483647"))
+
 extern int read_fd_link(int lfd, char *buf, size_t size);
 
 #define USEC_PER_SEC	1000000L

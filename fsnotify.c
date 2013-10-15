@@ -189,8 +189,7 @@ static void decode_handle(fh_t *handle, FhEntry *img)
 
 static char *get_mark_path(const char *who, struct file_remap *remap,
 			   FhEntry *f_handle, unsigned long i_ino,
-			   unsigned int s_dev, char *buf, size_t size,
-			   int *target)
+			   unsigned int s_dev, char *buf, int *target)
 {
 	char *path = NULL;
 	int mntfd = -1;
@@ -225,7 +224,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 	 * points to, i.e. -- just what we want.
 	 */
 
-	snprintf(buf, size, "/proc/self/fd/%d", *target);
+	sprintf(buf, "/proc/self/fd/%d", *target);
 	path = buf;
 
 	if (log_get_loglevel() >= LOG_DEBUG) {
@@ -246,11 +245,10 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 {
 	InotifyWdEntry *iwe = info->iwe;
 	int ret = -1, target = -1;
-	char buf[32], *path;
+	char buf[PSFDS], *path;
 
 	path = get_mark_path("inotify", info->remap, iwe->f_handle,
-			     iwe->i_ino, iwe->s_dev, buf, sizeof(buf),
-			     &target);
+			     iwe->i_ino, iwe->s_dev, buf, &target);
 	if (!path)
 		goto err;
 
@@ -291,7 +289,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	FanotifyMarkEntry *fme = mark->fme;
 	unsigned int flags = FAN_MARK_ADD;
 	int ret = -1, target = -1;
-	char buf[32], *path = NULL;
+	char buf[PSFDS], *path = NULL;
 
 	if (fme->type == MARK_TYPE__MOUNT) {
 		struct mount_info *m;
@@ -307,7 +305,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	} else if (fme->type == MARK_TYPE__INODE) {
 		path = get_mark_path("fanotify", mark->remap,
 				     fme->ie->f_handle, fme->ie->i_ino,
-				     fme->s_dev, buf, sizeof(buf), &target);
+				     fme->s_dev, buf, &target);
 		if (!path)
 			goto err;
 	} else {

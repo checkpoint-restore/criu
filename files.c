@@ -940,7 +940,7 @@ out:
 
 static int fchroot(int fd)
 {
-	char fd_path[32];
+	char fd_path[PSFDS];
 
 	/*
 	 * There's no such thing in syscalls. We can emulate
