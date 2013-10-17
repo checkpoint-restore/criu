@@ -59,6 +59,16 @@ static int pb_msg_int64x(pb_pr_field_t *field)
 	return 0;
 }
 
+static int pb_msg_int64x_r(pb_pr_field_t *field)
+{
+	long val = *(long *)field->data;
+	if (val)
+		pr_msg("%#016lx", val);
+	else
+		pr_msg("0");
+	return 0;
+}
+
 static int pb_msg_string(pb_pr_field_t *field)
 {
 	pr_msg("\"%s\"",	*(char **)field->data);
@@ -294,7 +304,7 @@ static int pb_field_show_pretty(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t 
 	return 0;
 }
 
-static pb_pr_show_t get_pb_show_function(int type)
+static pb_pr_show_t get_pb_show_function(int type, int label)
 {
 	switch (type) {
 	case PROTOBUF_C_TYPE_INT32:
@@ -308,7 +318,8 @@ static pb_pr_show_t get_pb_show_function(int type)
 	case PROTOBUF_C_TYPE_FIXED32:
 	case PROTOBUF_C_TYPE_UINT64:
 	case PROTOBUF_C_TYPE_FIXED64:
-		return pb_msg_int64x;
+		return (label == PROTOBUF_C_LABEL_REPEATED ?
+				pb_msg_int64x_r : pb_msg_int64x);
 	case PROTOBUF_C_TYPE_STRING:
 		return pb_msg_string;
 	case PROTOBUF_C_TYPE_MESSAGE:
@@ -332,7 +343,7 @@ static pb_pr_show_t get_show_function(const ProtobufCFieldDescriptor *fd, pb_pr_
 {
 	if (pb_field_show_pretty(fd, ctl))
 		return pb_show_pretty;
-	return get_pb_show_function(fd->type);
+	return get_pb_show_function(fd->type, fd->label);
 }
 
 static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
