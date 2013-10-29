@@ -48,6 +48,8 @@ struct cr_options {
 
 extern struct cr_options opts;
 
+extern void init_opts(void);
+
 enum sfd_type {
 	SERVICE_FD_MIN,
 

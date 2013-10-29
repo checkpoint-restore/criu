@@ -33,6 +33,16 @@
 
 struct cr_options opts;
 
+void init_opts(void)
+{
+	memset(&opts, 0, sizeof(opts));
+
+	/* Default options */
+	opts.final_state = TASK_DEAD;
+	INIT_LIST_HEAD(&opts.veth_pairs);
+	INIT_LIST_HEAD(&opts.scripts);
+}
+
 static int parse_ns_string(const char *ptr)
 {
 	const char *end = ptr + strlen(ptr);
@@ -77,10 +87,7 @@ int main(int argc, char *argv[])
 	if (argc < 2)
 		goto usage;
 
-	/* Default options */
-	opts.final_state = TASK_DEAD;
-	INIT_LIST_HEAD(&opts.veth_pairs);
-	INIT_LIST_HEAD(&opts.scripts);
+	init_opts();
 
 	if (init_service_fd())
 		return -1;
