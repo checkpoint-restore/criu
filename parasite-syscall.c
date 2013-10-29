@@ -474,8 +474,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 
 	regs = ctl->regs_orig;
 	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack,
-				&regs, &ctl->regs_orig,
-				&RT_SIGFRAME_UC(ctl->sigframe).uc_sigmask))
+				&regs, &ctl->regs_orig, &ctl->sig_blocked))
 		goto err;
 
 	ctl->tsock = accept_tsock();
