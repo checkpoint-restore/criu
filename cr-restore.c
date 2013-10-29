@@ -1891,8 +1891,12 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 
 	*rpt = rst_mem_cpos();
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
-	if (fd < 0)
-		return fd;
+	if (fd < 0) {
+		if (errno == ENOENT) /* backward compatibility */
+			return 0;
+		else
+			return fd;
+	}
 
 	while (1) {
 		PosixTimerEntry *pte;
@@ -2160,8 +2164,12 @@ static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
 	if (ptr)
 		*ptr = rst_mem_cpos();
 	fd = open_image(type, O_RSTR, pid);
-	if (fd < 0)
-		return -1;
+	if (fd < 0) {
+		if (errno == ENOENT) /* backward compatibility */
+			return 0;
+		else
+			return -1;
+	}
 
 	*nr = 0;
 	while (1) {
@@ -2277,28 +2285,19 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_chunk, &siginfo_nr);
-	if (ret < 0) {
-		if (errno != ENOENT) /* backward compatibility */
-			goto err;
-		ret = 0;
-	}
+	if (ret < 0)
+		goto err;
 
 	for (i = 0; i < current->nr_threads; i++) {
 		ret = open_signal_image(CR_FD_PSIGNAL,
 				current->threads[i].virt, NULL, &siginfo_priv_nr[i]);
-		if (ret < 0) {
-			if (errno != ENOENT) /* backward compatibility */
-				goto err;
-			ret = 0;
-		}
+		if (ret < 0)
+			goto err;
 	}
 
 	ret = open_posix_timers_image(pid, &posix_timers_info_chunk, &posix_timers_nr);
-	if (ret < 0) {
-		if (errno != ENOENT) /* backward compatibility */
-			goto err;
-		ret = 0;
-	}
+	if (ret < 0)
+		goto err;
 
 	tcp_socks = rst_mem_cpos();
 	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len());
