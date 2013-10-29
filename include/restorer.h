@@ -43,9 +43,6 @@ typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
 #define RESTORE_STACK_SIGFRAME		ALIGN(sizeof(struct rt_sigframe) + SIGFRAME_OFFSET, 64)
 #define RESTORE_STACK_SIZE		(KILO(32))
 
-#define RESTORE_ALIGN_STACK(start, size)	\
-	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))
-
 struct restore_mem_zone {
 	u8				redzone[RESTORE_STACK_REDZONE];
 	u8				stack[RESTORE_STACK_SIZE];
@@ -153,6 +150,14 @@ struct task_restore_core_args {
 } __aligned(sizeof(long));
 
 #define SHMEMS_SIZE	4096
+
+#define RESTORE_ALIGN_STACK(start, size)	\
+	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))
+
+static inline unsigned long restorer_stack(struct thread_restore_args *a)
+{
+	return RESTORE_ALIGN_STACK((long)a->mem_zone.stack, RESTORE_STACK_SIZE);
+}
 
 /*
  * pid is a pid of a creater

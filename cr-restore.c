@@ -2538,11 +2538,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
 	task_args->vdso_sym_rt = vdso_sym_rt;
 
-	/*
-	 * Adjust stack.
-	 */
-	new_sp = RESTORE_ALIGN_STACK((long)task_args->t->mem_zone.stack,
-			sizeof(task_args->t->mem_zone.stack));
+	new_sp = restorer_stack(task_args->t);
 
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);

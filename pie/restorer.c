@@ -824,10 +824,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 			if (thread_args[i].pid == args->t->pid)
 				continue;
 
-			new_sp =
-				RESTORE_ALIGN_STACK((long)thread_args[i].mem_zone.stack,
-						    sizeof(thread_args[i].mem_zone.stack));
-
+			new_sp = restorer_stack(thread_args + i);
 			last_pid_len = vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
 			ret = sys_write(fd, s, last_pid_len);
 			if (ret < 0) {
