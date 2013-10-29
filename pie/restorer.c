@@ -744,8 +744,6 @@ long __export_restore_task(struct task_restore_core_args *args)
 		}
 	}
 
-	sys_munmap(args->tgt_vmas, args->nr_vmas * sizeof(VmaEntry));
-
 	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
 	if (ret < 0) {
 		pr_err("Can't unmap shmem %ld\n", ret);

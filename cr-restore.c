@@ -1983,29 +1983,6 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return 0;
 }
 
-static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct vm_area_list *vmas)
-{
-	VmaEntry *vma, *ret;
-	struct vma_area *vma_area;
-
-	ret = vma = mmap(addr, len, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-	if (vma != addr) {
-		pr_perror("Can't remap vma area");
-		return NULL;
-	}
-
-	list_for_each_entry(vma_area, &vmas->h, list) {
-		*vma = vma_area->vma;
-		vma++;
-	}
-
-	vma->start = 1;
-	free_mappings(vmas);
-
-	return ret;
-}
-
 static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
 {
 	int fd, exe_fd, i, ret = -1;
@@ -2223,7 +2200,7 @@ void __gcov_flush(void) {}
 static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
 	long restore_task_vma_len;
-	long restore_thread_vma_len, vmas_len;
+	long restore_thread_vma_len;
 
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -2240,6 +2217,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long siginfo_chunk;
 	int siginfo_nr = 0;
 	int *siginfo_priv_nr;
+
+	struct vma_area *vma;
+	unsigned long tgt_vmas;
 
 	void *tcp_socks_mem;
 	unsigned long tcp_socks;
@@ -2267,8 +2247,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (rst_mem_init())
 		goto err;
 
-	vmas_len = round_up((rst_vmas.nr + 1) * sizeof(VmaEntry), PAGE_SIZE);
-
 	/* pr_info_vma_list(&self_vma_list); */
 
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
@@ -2282,6 +2260,17 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	pr_info("%d threads require %ldK of memory\n",
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
+
+	tgt_vmas = rst_mem_cpos();
+	list_for_each_entry(vma, &rst_vmas.h, list) {
+		VmaEntry *vme;
+
+		vme = rst_mem_alloc(sizeof(*vme));
+		if (!vme)
+			goto err;
+
+		*vme = vma->vma;
+	}
 
 	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
 	if (siginfo_priv_nr == NULL)
@@ -2328,7 +2317,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				restore_task_vma_len +
 				restore_thread_vma_len +
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
-				vmas_len +
 				rst_mem_len;
 
 	/*
@@ -2421,16 +2409,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	mem += TASK_ENTRIES_SIZE;
 
-	task_args->nr_vmas = rst_vmas.nr;
-	task_args->tgt_vmas = vma_list_remap(mem, vmas_len, &rst_vmas);
 	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
 	task_args->premmapped_len = current->rst->premmapped_len;
-	if (!task_args->tgt_vmas)
-		goto err;
 
-	mem += vmas_len;
 	if (rst_mem_remap(task_args, mem))
 		goto err;
+
+	task_args->nr_vmas = rst_vmas.nr;
+	task_args->tgt_vmas = rst_mem_addr(tgt_vmas);
 
 	task_args->timer_n = posix_timers_nr;
 	task_args->posix_timers = rst_mem_addr(posix_timers_info_chunk);
