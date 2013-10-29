@@ -791,14 +791,14 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 *
 	 * | <-- low addresses                                          high addresses --> |
 	 * +-------------------------------------------------------+-----------------------+
-	 * | this proc body | own stack | heap | rt_sigframe space | thread restore zone   |
+	 * | this proc body | own stack | rt_sigframe space | thread restore zone   |
 	 * +-------------------------------------------------------+-----------------------+
 	 *
 	 * where each thread restore zone is the following
 	 *
 	 * | <-- low addresses                                     high addresses --> |
 	 * +--------------------------------------------------------------------------+
-	 * | thread restore proc | thread1 stack | thread1 heap | thread1 rt_sigframe |
+	 * | thread restore proc | thread1 stack | thread1 rt_sigframe |
 	 * +--------------------------------------------------------------------------+
 	 */
 

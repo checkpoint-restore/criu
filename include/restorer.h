@@ -42,7 +42,6 @@ typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
 /* sigframe should be aligned on 64 byte for x86 and 8 bytes for arm */
 #define RESTORE_STACK_SIGFRAME		ALIGN(sizeof(struct rt_sigframe) + SIGFRAME_OFFSET, 64)
 #define RESTORE_STACK_SIZE		(KILO(32))
-#define RESTORE_HEAP_SIZE		(KILO(16))
 
 #define RESTORE_ALIGN_STACK(start, size)	\
 	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))
@@ -51,11 +50,7 @@ struct restore_mem_zone {
 	u8				redzone[RESTORE_STACK_REDZONE];
 	u8				stack[RESTORE_STACK_SIZE];
 	u8				rt_sigframe[RESTORE_STACK_SIGFRAME];
-	u8				heap[RESTORE_HEAP_SIZE];
 } __aligned(sizeof(long));
-
-#define first_on_heap(ptr, heap)	((typeof(ptr))heap)
-#define next_on_heap(ptr, prev)		((typeof(ptr))((long)(prev) + sizeof(*(prev))))
 
 struct rst_sched_param {
 	int policy;

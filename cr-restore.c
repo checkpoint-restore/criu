@@ -2522,9 +2522,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		if (thread_args[i].pid != pid)
 			core_entry__free_unpacked(tcore, NULL);
 
-		pr_info("Thread %4d stack %8p heap %8p rt_sigframe %8p\n",
+		pr_info("Thread %4d stack %8p rt_sigframe %8p\n",
 				i, thread_args[i].mem_zone.stack,
-				thread_args[i].mem_zone.heap,
 				thread_args[i].mem_zone.rt_sigframe);
 
 	}
