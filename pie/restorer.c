@@ -578,6 +578,7 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
 long __export_restore_task(struct task_restore_core_args *args)
 {
 	long ret = -1;
+	int i;
 	VmaEntry *vma_entry;
 	unsigned long va;
 
@@ -615,7 +616,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
-	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma_entry = args->tgt_vmas + i;
+
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
@@ -640,8 +643,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	}
 
 	/* Shift private vma-s to the right */
-	for (vma_entry = args->tgt_vmas + args->nr_vmas -1;
-				vma_entry >= args->tgt_vmas; vma_entry--) {
+	for (i = args->nr_vmas - 1; i >= 0; i--) {
+		vma_entry = args->tgt_vmas + i;
+
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
@@ -668,7 +672,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	/*
 	 * OK, lets try to map new one.
 	 */
-	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma_entry = args->tgt_vmas + i;
+
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
@@ -687,7 +693,9 @@ long __export_restore_task(struct task_restore_core_args *args)
 	 * Walk though all VMAs again to drop PROT_WRITE
 	 * if it was not there.
 	 */
-	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
+	for (i = 0; i < args->nr_vmas; i++) {
+		vma_entry = args->tgt_vmas + i;
+
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
 
@@ -712,30 +720,31 @@ long __export_restore_task(struct task_restore_core_args *args)
 	/*
 	 * Finally restore madivse() bits
 	 */
-	for (vma_entry = args->tgt_vmas; vma_entry->start != 0; vma_entry++) {
-		unsigned long i;
+	for (i = 0; i < args->nr_vmas; i++) {
+		unsigned long m;
 
+		vma_entry = args->tgt_vmas + i;
 		if (!vma_entry->has_madv || !vma_entry->madv)
 			continue;
-		for (i = 0; i < sizeof(vma_entry->madv) * 8; i++) {
-			if (vma_entry->madv & (1ul << i)) {
+
+		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {
+			if (vma_entry->madv & (1ul << m)) {
 				ret = sys_madvise(vma_entry->start,
 						  vma_entry_len(vma_entry),
-						  i);
+						  m);
 				if (ret) {
 					pr_err("madvise(%"PRIx64", %"PRIu64", %ld) "
 					       "failed with %ld\n",
 						vma_entry->start,
 						vma_entry_len(vma_entry),
-						i, ret);
+						m, ret);
 					goto core_restore_end;
 				}
 			}
 		}
 	}
 
-	sys_munmap(args->tgt_vmas,
-			((void *)(vma_entry + 1) - ((void *)args->tgt_vmas)));
+	sys_munmap(args->tgt_vmas, args->nr_vmas * sizeof(VmaEntry));
 
 	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
 	if (ret < 0) {

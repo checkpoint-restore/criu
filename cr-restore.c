@@ -2000,7 +2000,7 @@ static VmaEntry *vma_list_remap(void *addr, unsigned long len, struct vm_area_li
 		vma++;
 	}
 
-	vma->start = 0;
+	vma->start = 1;
 	free_mappings(vmas);
 
 	return ret;
