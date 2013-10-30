@@ -178,10 +178,10 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 	}
 
 	err = parasite_run(pid, ctl->syscall_ip, 0, regs,
-			&ctl->regs_orig, &ctl->sig_blocked);
+			&ctl->orig.regs, &ctl->orig.sigmask);
 	if (!err)
 		err = parasite_trap(ctl, pid, regs,
-				&ctl->regs_orig, &ctl->sig_blocked);
+				&ctl->orig.regs, &ctl->orig.sigmask);
 
 	if (ptrace_poke_area(pid, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
@@ -472,9 +472,9 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	if (setup_child_handler())
 		goto err;
 
-	regs = ctl->regs_orig;
+	regs = ctl->orig.regs;
 	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack,
-				&regs, &ctl->regs_orig, &ctl->sig_blocked))
+				&regs, &ctl->orig.regs, &ctl->orig.sigmask))
 		goto err;
 
 	ctl->tsock = accept_tsock();
@@ -978,7 +978,7 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 		goto err;
 	}
 
-	regs = ctl->regs_orig;
+	regs = ctl->orig.regs;
 	parasite_setup_regs(addr, 0, &regs);
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
 		pr_perror("Can't set registers for %d", pid);
@@ -993,12 +993,12 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	ret = parasite_stop_on_syscall(1, __NR_munmap);
 
 err_regs:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->regs_orig)) {
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->orig.regs)) {
 		pr_perror("Can't restore regs for %d", pid);
 		ret = -1;
 	}
 err_sig:
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->sig_blocked)) {
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->orig.sigmask)) {
 		pr_perror("Can't restore sigmask for %d", pid);
 		ret = -1;
 	}
@@ -1026,12 +1026,12 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 
 	ctl->tsock = -1;
 
-	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->sig_blocked)) {
+	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->orig.sigmask)) {
 		pr_perror("ptrace doesn't support PTRACE_GETSIGMASK\n");
 		goto err;
 	}
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->regs_orig)) {
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->orig.regs)) {
 		pr_err("Can't obtain registers (pid: %d)\n", pid);
 		goto err;
 	}
@@ -1043,7 +1043,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		return ctl;
 
 	/* Search a place for injecting syscall */
-	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->regs_orig));
+	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->orig.regs));
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
@@ -1114,7 +1114,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 	 * while in daemon it is not such.
 	 */
 
-	if (get_task_regs(pid, ctl->regs_orig, item->core[0])) {
+	if (get_task_regs(pid, ctl->orig.regs, item->core[0])) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}
@@ -1158,7 +1158,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (item->nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
 
-	memcpy(&item->core[0]->tc->blk_sigset, &ctl->sig_blocked, sizeof(k_rtsigset_t));
+	memcpy(&item->core[0]->tc->blk_sigset, &ctl->orig.sigmask, sizeof(k_rtsigset_t));
 
 	ret = parasite_map_exchange(ctl, map_exchange_size);
 	if (ret)

@@ -17,6 +17,11 @@ struct cr_fdset;
 struct fd_opts;
 struct pid;
 
+struct thread_ctx {
+	k_rtsigset_t		sigmask;
+	user_regs_struct_t	regs;
+};
+
 /* parasite control block */
 struct parasite_ctl {
 	struct pid		pid;
@@ -26,9 +31,8 @@ struct parasite_ctl {
 
 	/* thread leader data */
 	bool			daemonized;
-	user_regs_struct_t	regs_orig;				/* original registers */
 
-	k_rtsigset_t		sig_blocked;
+	struct thread_ctx	orig;
 
 	void			*rstack;				/* thread leader stack*/
 	struct rt_sigframe	*sigframe;

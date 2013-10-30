@@ -89,7 +89,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg5,
 		unsigned long arg6)
 {
-	user_regs_struct_t regs = ctl->regs_orig;
+	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
 	regs.ax  = (unsigned long)nr;
