@@ -65,6 +65,21 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
+static int get_thread_ctx(int pid, struct thread_ctx *ctx)
+{
+	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
+		pr_perror("can't get signal blocking mask for %d", pid);
+		return -1;
+	}
+
+	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctx->regs)) {
+		pr_perror("Can't obtain registers (pid: %d)", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int parasite_run(pid_t pid, unsigned long ip, void *stack,
 		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
@@ -506,19 +521,12 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
 
-	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &octx.sigmask);
-	if (ret) {
-		pr_perror("ptrace can't get signal blocking mask for %d", pid);
+	ret = get_thread_ctx(pid, &octx);
+	if (ret)
 		return -1;
-	}
+
 	tc->has_blk_sigset = true;
 	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
-
-	ret = ptrace(PTRACE_GETREGS, pid, NULL, &octx.regs);
-	if (ret) {
-		pr_perror("Can't obtain registers (pid: %d)", pid);
-		return -1;
-	}
 
 	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
 			pid, ctl->r_thread_stack, &octx);
@@ -1020,15 +1028,8 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 
 	ctl->tsock = -1;
 
-	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->orig.sigmask)) {
-		pr_perror("ptrace doesn't support PTRACE_GETSIGMASK\n");
+	if (get_thread_ctx(pid, &ctl->orig))
 		goto err;
-	}
-
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctl->orig.regs)) {
-		pr_err("Can't obtain registers (pid: %d)\n", pid);
-		goto err;
-	}
 
 	ctl->pid.real	= pid;
 	ctl->pid.virt	= 0;
