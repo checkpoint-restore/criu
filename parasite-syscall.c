@@ -80,7 +80,7 @@ static int get_thread_ctx(int pid, struct thread_ctx *ctx)
 	return 0;
 }
 
-static int parasite_run(pid_t pid, unsigned long ip, void *stack,
+static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
 	k_rtsigset_t block;
@@ -97,7 +97,7 @@ static int parasite_run(pid_t pid, unsigned long ip, void *stack,
 		goto err_regs;
 	}
 
-	if (ptrace(PTRACE_CONT, pid, NULL, NULL)) {
+	if (ptrace(cmd, pid, NULL, NULL)) {
 		pr_perror("Can't run parasite at %d", pid);
 		goto err_cont;
 	}
@@ -190,7 +190,7 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 		return -1;
 	}
 
-	err = parasite_run(pid, ctl->syscall_ip, 0, regs, &ctl->orig);
+	err = parasite_run(pid, PTRACE_CONT, ctl->syscall_ip, 0, regs, &ctl->orig);
 	if (!err)
 		err = parasite_trap(ctl, pid, regs, &ctl->orig);
 
@@ -219,7 +219,7 @@ static int parasite_execute_trap_by_pid(unsigned int cmd,
 
 	*ctl->addr_cmd = cmd;
 
-	ret = parasite_run(pid, ctl->parasite_ip, stack, &regs, octx);
+	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
 	if (ret == 0)
 		ret = parasite_trap(ctl, pid, &regs, octx);
 	if (ret == 0)
@@ -483,7 +483,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;
 
 	regs = ctl->orig.regs;
-	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
+	if (parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
 		goto err;
 
 	ctl->tsock = accept_tsock();
@@ -968,38 +968,21 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
  */
 int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 {
-	user_regs_struct_t regs;
+	user_regs_struct_t regs = ctl->orig.regs;
 	pid_t pid = ctl->pid.real;
-	k_rtsigset_t block;
 	int ret = -1;
 
-	ksigfillset(&block);
-
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
-		pr_perror("Can't block signals for %d", pid);
+	ret = parasite_run(pid, PTRACE_SYSCALL, addr, NULL, &regs, &ctl->orig);
+	if (ret)
 		goto err;
-	}
-
-	regs = ctl->orig.regs;
-	parasite_setup_regs(addr, 0, &regs);
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &regs)) {
-		pr_perror("Can't set registers for %d", pid);
-		goto err_sig;
-	}
-
-	if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
-		pr_perror("ptrace");
-		goto err_regs;
-	}
 
 	ret = parasite_stop_on_syscall(1, __NR_munmap);
 
-err_regs:
 	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->orig.regs)) {
 		pr_perror("Can't restore regs for %d", pid);
 		ret = -1;
 	}
-err_sig:
+
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->orig.sigmask)) {
 		pr_perror("Can't restore sigmask for %d", pid);
 		ret = -1;
