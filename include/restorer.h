@@ -119,6 +119,7 @@ struct task_restore_core_args {
 
 	void				*bootstrap_start;
 	unsigned long			bootstrap_len;
+	unsigned long			vdso_rt_size;
 
 	struct itimerval		itimers[3];
 

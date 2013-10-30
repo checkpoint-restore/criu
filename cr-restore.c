@@ -2382,6 +2382,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->bootstrap_start = bootstrap_start;
 	task_args->bootstrap_len = restore_bootstrap_len;
+	task_args->vdso_rt_size = vdso_rt_size;
 
 	/*
 	 * Get a reference to shared memory area which is

@@ -513,10 +513,11 @@ static void restore_posix_timers(struct task_restore_core_args *args)
 }
 static void *bootstrap_start;
 static unsigned int bootstrap_len;
+static unsigned long vdso_rt_size;
 
 void __export_unmap(void)
 {
-	sys_munmap(bootstrap_start, bootstrap_len);
+	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 	/*
 	 * sys_munmap must not return here. The controll process must
 	 * trap us on the exit from sys_munmap.
@@ -590,6 +591,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 
 	bootstrap_start = args->bootstrap_start;
 	bootstrap_len	= args->bootstrap_len;
+	vdso_rt_size	= args->vdso_rt_size;
 
 	task_entries = args->task_entries;
 
