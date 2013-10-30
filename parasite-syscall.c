@@ -66,8 +66,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 }
 
 static int parasite_run(pid_t pid, unsigned long ip, void *stack,
-		user_regs_struct_t *regs, user_regs_struct_t *oregs,
-		k_rtsigset_t *omask)
+		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
 	k_rtsigset_t block;
 
@@ -91,10 +90,10 @@ static int parasite_run(pid_t pid, unsigned long ip, void *stack,
 	return 0;
 
 err_cont:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, oregs))
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &octx->regs))
 		pr_perror("Can't restore regs for %d", pid);
 err_regs:
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), omask))
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &octx->sigmask))
 		pr_perror("Can't restore sigmask for %d", pid);
 err_sig:
 	return -1;
@@ -103,8 +102,7 @@ err_sig:
 /* we run at @regs->ip */
 static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
-				user_regs_struct_t *regs_orig,
-				k_rtsigset_t *sigmask)
+				struct thread_ctx *octx)
 {
 	siginfo_t siginfo;
 	int status;
@@ -150,11 +148,11 @@ static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 	ret = 0;
 
 err:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, regs_orig)) {
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &octx->regs)) {
 		pr_perror("Can't restore registers (pid: %d)", pid);
 		ret = -1;
 	}
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), sigmask)) {
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &octx->sigmask)) {
 		pr_perror("Can't block signals");
 		ret = -1;
 	}
@@ -177,11 +175,9 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 		return -1;
 	}
 
-	err = parasite_run(pid, ctl->syscall_ip, 0, regs,
-			&ctl->orig.regs, &ctl->orig.sigmask);
+	err = parasite_run(pid, ctl->syscall_ip, 0, regs, &ctl->orig);
 	if (!err)
-		err = parasite_trap(ctl, pid, regs,
-				&ctl->orig.regs, &ctl->orig.sigmask);
+		err = parasite_trap(ctl, pid, regs, &ctl->orig);
 
 	if (ptrace_poke_area(pid, (void *)ctl->code_orig,
 			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
@@ -200,18 +196,17 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 
 static int parasite_execute_trap_by_pid(unsigned int cmd,
 					struct parasite_ctl *ctl, pid_t pid,
-					user_regs_struct_t *regs_orig,
 					void *stack,
-					k_rtsigset_t *sigmask)
+					struct thread_ctx *octx)
 {
-	user_regs_struct_t regs = *regs_orig;
+	user_regs_struct_t regs = octx->regs;
 	int ret;
 
 	*ctl->addr_cmd = cmd;
 
-	ret = parasite_run(pid, ctl->parasite_ip, stack, &regs, regs_orig, sigmask);
+	ret = parasite_run(pid, ctl->parasite_ip, stack, &regs, octx);
 	if (ret == 0)
-		ret = parasite_trap(ctl, pid, &regs, regs_orig, sigmask);
+		ret = parasite_trap(ctl, pid, &regs, octx);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -473,8 +468,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;
 
 	regs = ctl->orig.regs;
-	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack,
-				&regs, &ctl->orig.regs, &ctl->orig.sigmask))
+	if (parasite_run(pid, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
 		goto err;
 
 	ctl->tsock = accept_tsock();
@@ -527,7 +521,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	}
 
 	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
-			pid, &octx.regs, ctl->r_thread_stack, &octx.sigmask);
+			pid, ctl->r_thread_stack, &octx);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
