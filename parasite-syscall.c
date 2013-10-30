@@ -504,36 +504,36 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 {
 	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
-	user_regs_struct_t regs_orig;
 	ThreadCoreEntry *tc = core->thread_core;
 	int ret;
+	struct thread_ctx octx;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
 
-	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &tc->blk_sigset);
+	ret = ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &octx.sigmask);
 	if (ret) {
 		pr_perror("ptrace can't get signal blocking mask for %d", pid);
 		return -1;
 	}
 	tc->has_blk_sigset = true;
+	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
 
-	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs_orig);
+	ret = ptrace(PTRACE_GETREGS, pid, NULL, &octx.regs);
 	if (ret) {
 		pr_perror("Can't obtain registers (pid: %d)", pid);
 		return -1;
 	}
 
 	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
-			pid, &regs_orig, ctl->r_thread_stack,
-			(k_rtsigset_t *)&tc->blk_sigset);
+			pid, &octx.regs, ctl->r_thread_stack, &octx.sigmask);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
 	}
 
-	ret = get_task_regs(pid, regs_orig, core);
+	ret = get_task_regs(pid, octx.regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
