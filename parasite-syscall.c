@@ -80,6 +80,22 @@ static int get_thread_ctx(int pid, struct thread_ctx *ctx)
 	return 0;
 }
 
+static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
+{
+	int ret = 0;
+
+	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctx->regs)) {
+		pr_perror("Can't restore registers (pid: %d)", pid);
+		ret = -1;
+	}
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
+		pr_perror("Can't block signals");
+		ret = -1;
+	}
+
+	return ret;
+}
+
 static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
@@ -161,16 +177,10 @@ static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 	 * parasite code. So we're done.
 	 */
 	ret = 0;
-
 err:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &octx->regs)) {
-		pr_perror("Can't restore registers (pid: %d)", pid);
+	if (restore_thread_ctx(pid, octx))
 		ret = -1;
-	}
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &octx->sigmask)) {
-		pr_perror("Can't block signals");
-		ret = -1;
-	}
+
 	return ret;
 }
 
@@ -978,15 +988,8 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 
 	ret = parasite_stop_on_syscall(1, __NR_munmap);
 
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctl->orig.regs)) {
-		pr_perror("Can't restore regs for %d", pid);
+	if (restore_thread_ctx(pid, &ctl->orig))
 		ret = -1;
-	}
-
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctl->orig.sigmask)) {
-		pr_perror("Can't restore sigmask for %d", pid);
-		ret = -1;
-	}
 err:
 	return ret;
 }
