@@ -49,6 +49,17 @@ OPTIONS
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
+*-R*, *--leave-running*::
+    Leave tasks in running state after checkpoint instead of killing them. This
+    option is pretty dangerous and should be used if and only if you understand
+    what you are doing.
+    If task is about to run after been checkpointed it can modify TCP connections,
+    delete files and do other dangerous actions. So that *criu* itself can not
+    guarantee that the next *restore* action will not fail. Most likely if a user
+    starts *criu* with this option passed at least the file system snapshot must be
+    done with help of 'post-dump' script.
+    In other words, do not use it until really needed.
+
 *-f*, *--file* 'file'::
     This option is valid for *show* command only and allows to see content of
     the 'file' specified.
