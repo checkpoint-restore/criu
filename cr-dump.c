@@ -1789,6 +1789,7 @@ err:
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
 		network_unlock();
+		delete_link_remaps();
 	}
 	pstree_switch_state(root_item,
 			    (ret || post_dump_ret) ?
@@ -1796,6 +1797,7 @@ err:
 	timing_stop(TIME_FROZEN);
 	free_pstree(root_item);
 	free_file_locks();
+	free_link_remaps();
 
 	close_service_fd(CR_PROC_FD_OFF);
 

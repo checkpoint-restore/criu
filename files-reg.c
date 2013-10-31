@@ -41,6 +41,15 @@ static LIST_HEAD(ghost_files);
 static mutex_t *ghost_file_mutex;
 
 /*
+ * To rollback link remaps.
+ */
+struct link_remap_rlb {
+	struct list_head	list;
+	char			*path;
+};
+static LIST_HEAD(link_remaps);
+
+/*
  * This constant is selected without any calculations. Just do not
  * want to pick up too big files with us in the image.
  */
@@ -310,11 +319,31 @@ dump_entry:
 			&rpe, PB_REMAP_FPATH);
 }
 
+static void __rollback_link_remaps(bool do_unlink)
+{
+	struct link_remap_rlb *rlb, *tmp;
+
+	if (!opts.link_remap_ok)
+		return;
+
+	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
+		list_del(&rlb->list);
+		if (do_unlink)
+			unlinkat(mntns_root, rlb->path, 0);
+		xfree(rlb->path);
+		xfree(rlb);
+	}
+}
+
+void delete_link_remaps(void) { __rollback_link_remaps(true); }
+void free_link_remaps(void) { __rollback_link_remaps(false); }
+
 static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 {
 	char link_name[PATH_MAX], *tmp;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
+	struct link_remap_rlb *rlb;
 
 	if (!opts.link_remap_ok) {
 		pr_err("Can't create link remap for %s. "
@@ -352,6 +381,24 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 		pr_perror("Can't link remap to %s", path);
 		return -1;
 	}
+
+	/*
+	 * Remember the name to delete it if needed on error or
+	 * rollback action. Note we don't expect that there will
+	 * be a HUGE number of link remaps, so in a sake of speed
+	 * we keep all data in memory.
+	 */
+	rlb = xmalloc(sizeof(*rlb));
+	if (rlb)
+		rlb->path = strdup(link_name);
+
+	if (!rlb || !rlb->path) {
+		pr_perror("Can't register rollback for %s", path);
+		xfree(rlb ? rlb->path : NULL);
+		xfree(rlb);
+		return -1;
+	}
+	list_add(&rlb->list, &link_remaps);
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
 }

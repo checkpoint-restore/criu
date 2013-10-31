@@ -38,4 +38,7 @@ extern void remap_put(struct file_remap *remap);
 extern struct collect_image_info reg_file_cinfo;
 extern struct collect_image_info remap_cinfo;
 
+extern void delete_link_remaps(void);
+extern void free_link_remaps(void);
+
 #endif /* __CR_FILES_REG_H__ */
