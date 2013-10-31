@@ -347,7 +347,7 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
 	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
 		prot |= PROT_WRITE;
 
-	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d\n",
+	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d)\n",
 			vma_entry->start, vma_entry->end,
 			prot, flags, (int)vma_entry->fd);
 	/*
