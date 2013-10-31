@@ -585,14 +585,11 @@ void network_unlock(void)
 {
 	pr_info("Unlock network\n");
 
-	if  (!(current_ns_mask & CLONE_NEWNET)) {
-		cpt_unlock_tcp_connections();
-		rst_unlock_tcp_connections();
+	cpt_unlock_tcp_connections();
+	rst_unlock_tcp_connections();
 
-		return;
-	}
-
-	run_scripts("network-unlock");
+	if (current_ns_mask & CLONE_NEWNET)
+		run_scripts("network-unlock");
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");

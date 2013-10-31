@@ -154,9 +154,11 @@ static void tcp_unlock_one(struct inet_sk_desc *sk)
 
 	list_del(&sk->rlist);
 
-	ret = nf_unlock_connection(sk);
-	if (ret < 0)
-		pr_perror("Failed to unlock TCP connection");
+	if (!(current_ns_mask & CLONE_NEWNET)) {
+		ret = nf_unlock_connection(sk);
+		if (ret < 0)
+			pr_perror("Failed to unlock TCP connection");
+	}
 
 	tcp_repair_off(sk->rfd);
 
@@ -647,6 +649,10 @@ void tcp_locked_conn_add(struct inet_sk_info *ii)
 void rst_unlock_tcp_connections(void)
 {
 	struct inet_sk_info *ii;
+
+	/* Network will be unlocked by network-unlock scripts */
+	if (current_ns_mask & CLONE_NEWNET)
+		return;
 
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)
 		nf_unlock_connection_info(ii);
