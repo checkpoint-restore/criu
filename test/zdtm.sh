@@ -171,6 +171,20 @@ COMPILE_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 
+zdtm_sep()
+{
+	local msg=$1
+	[ -n "$msg" ] && msg=" $msg "
+	awk -v m=${2:-=} -v "msg=$msg" '
+		BEGIN {
+			l=length(msg);
+			s=int((79-l)/2);
+			sep = sprintf("%"s"s", " ")
+			gsub(/ /, m, sep);
+			printf("%s%s%s\n",sep,msg,sep);
+		}' < /dev/null
+}
+
 check_criu()
 {
 	if [ ! -x $CRIU ]; then
@@ -184,9 +198,7 @@ check_mainstream()
 	local -a ver_arr
 	local ver_str=`uname -r`
 
-	cat >&2 <<EOF
-========================== CRIU CHECK =============================
-EOF
+	zdtm_sep "CRIU CHECK"
 
 	$CRIU check && return 0
 	MAINSTREAM_KERNEL=1
@@ -566,57 +578,43 @@ case_error()
 
 (	exec >&2
 
-	cat <<EOF
-============================= ERROR ===============================
-EOF
+	zdtm_sep ERROR
 
 	echo "Test: $test, Namespace: $PIDNS"
-	cat <<EOF
--------------------------------------------------------------------
-EOF
 
 	if [ -n "$DUMP_PATH" ]; then
 		if [ -e "$DUMP_PATH/dump.log" ]; then
 			echo "Dump log   : $DUMP_PATH/dump.log"
+			zdtm_sep "grep Error" "-"
 			cat $DUMP_PATH/dump.log* | grep Error
 			if [ $VERBOSE -gt 0 ]; then
-				cat <<EOF
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-EOF
+				zdtm_sep "" "-"
 				tail -n 40 $DUMP_PATH/dump.log*
 			fi
-			cat <<EOF
--------------------------------------------------------------------
-EOF
+			zdtm_sep "END" "-"
 		fi
 		if [ -e "$DUMP_PATH/restore.log" ]; then
 			echo "Restore log: $DUMP_PATH/restore.log"
+			zdtm_sep "grep Error" "-"
 			cat $DUMP_PATH/restore.log* | grep Error
 			if [ $VERBOSE -gt 0 ]; then
-				cat <<EOF
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-EOF
+				zdtm_sep "" "-"
 				tail -n 40 $DUMP_PATH/restore.log*
 			fi
-			cat <<EOF
--------------------------------------------------------------------
-EOF
+			zdtm_sep "END" "-"
 		fi
 	fi
 	if [ -e "$test_log" ]; then
 		echo "Output file: $test_log"
+		zdtm_sep "" "-"
 		cat $test_log*
-		cat <<EOF
--------------------------------------------------------------------
-EOF
+		zdtm_sep "END" "-"
 	fi
 
 	[ -n "$HEAD" ] &&
 		echo "The initial HEAD was $HEAD"
 
-	cat <<EOF
-=========================== ERROR OVER ============================
-EOF
+	zdtm_sep "ERROR OVER"
 )
 	if [ $BATCH_TEST -eq 0 ]; then
 		exit 1
