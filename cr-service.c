@@ -253,6 +253,69 @@ err:
 	return -1;
 }
 
+static void reap_worker(int signo)
+{
+	int saved_errno;
+	int status;
+	pid_t pid;
+
+	saved_errno = errno;
+
+	/*
+	 * As we block SIGCHLD, lets wait for every child that has
+	 * already changed state.
+	 */
+	while (1) {
+		pid = waitpid(-1, &status, WNOHANG);
+
+		if (pid <= 0) {
+			errno = saved_errno;
+			return;
+		}
+
+		if (WIFEXITED(status))
+			pr_info("Worker(pid %d) exited with %d\n",
+				pid, WEXITSTATUS(status));
+		else if (WIFSIGNALED(status))
+			pr_info("Worker(pid %d) was killed by %d\n",
+				pid, WTERMSIG(status));
+	}
+}
+
+static int setup_sigchld_handler()
+{
+	struct sigaction action;
+
+	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGCHLD);
+	action.sa_handler	= reap_worker;
+	action.sa_flags		= SA_RESTART;
+
+	if (sigaction(SIGCHLD, &action, NULL)) {
+		pr_perror("Can't setup SIGCHLD handler");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_sigchld_handler()
+{
+	struct sigaction action;
+
+	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGCHLD);
+	action.sa_handler	= SIG_DFL;
+	action.sa_flags		= SA_RESTART;
+
+	if (sigaction(SIGCHLD, &action, NULL)) {
+		pr_perror("Can't restore SIGCHLD handler");
+		return -1;
+	}
+
+	return 0;
+}
+
 int cr_service(bool daemon_mode)
 {
 	int server_fd = -1;
@@ -318,8 +381,8 @@ int cr_service(bool daemon_mode)
 		}
 	}
 
-	/* FIXME Do not ignore children's return values */
-	signal(SIGCHLD, SIG_IGN);
+	if (setup_sigchld_handler())
+		goto err;
 
 	while (1) {
 		int sk;
@@ -336,6 +399,9 @@ int cr_service(bool daemon_mode)
 		child_pid = fork();
 		if (child_pid == 0) {
 			int ret;
+
+			if (restore_sigchld_handler())
+				exit(1);
 
 			close(server_fd);
 			ret = cr_service_work(sk);
