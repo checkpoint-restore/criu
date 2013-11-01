@@ -155,6 +155,7 @@ CRIU_CPT=$CRIU
 TMP_TREE=""
 SCRIPTDIR=`dirname $CRIU`/test
 POSTDUMP="--action-script $SCRIPTDIR/post-dump.sh"
+VERBOSE=0
 
 ARGS=""
 
@@ -578,10 +579,12 @@ EOF
 		if [ -e "$DUMP_PATH/dump.log" ]; then
 			echo "Dump log   : $DUMP_PATH/dump.log"
 			cat $DUMP_PATH/dump.log* | grep Error
-			cat <<EOF
+			if [ $VERBOSE -gt 0 ]; then
+				cat <<EOF
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
-			tail -n 40 $DUMP_PATH/dump.log*
+				tail -n 40 $DUMP_PATH/dump.log*
+			fi
 			cat <<EOF
 -------------------------------------------------------------------
 EOF
@@ -589,10 +592,12 @@ EOF
 		if [ -e "$DUMP_PATH/restore.log" ]; then
 			echo "Restore log: $DUMP_PATH/restore.log"
 			cat $DUMP_PATH/restore.log* | grep Error
-			cat <<EOF
+			if [ $VERBOSE -gt 0 ]; then
+				cat <<EOF
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
-			tail -n 40 $DUMP_PATH/restore.log*
+				tail -n 40 $DUMP_PATH/restore.log*
+			fi
 			cat <<EOF
 -------------------------------------------------------------------
 EOF
@@ -650,6 +655,7 @@ Options:
 	-g : Generate executables only
 	-n : Batch test
 	-r : Run test with specified name directly without match or check
+	-v : Verbose mode 
 EOF
 }
 
@@ -722,6 +728,10 @@ while :; do
 	  -l)
 		echo $TEST_LIST | tr ' ' '\n'
 		exit 0
+		;;
+	  -v)
+		VERBOSE=1
+		shift
 		;;
 	  -h)
 		usage
