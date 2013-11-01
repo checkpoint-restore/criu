@@ -35,6 +35,7 @@
 #include "asm/types.h"
 #include "list.h"
 #include "util.h"
+#include "rst-malloc.h"
 
 #include "crtools.h"
 
@@ -434,46 +435,15 @@ int is_anon_link_type(int lfd, char *type)
 	return !strcmp(link, aux);
 }
 
-static void *sh_buf;
-static unsigned int sh_bytes_left;
-static size_t sh_last_size;
-#define SH_BUF_CHUNK	4096
-
 void *shmalloc(size_t bytes)
 {
-	void *ret;
-
-	if (bytes > SH_BUF_CHUNK) {
-		pr_err("Too big shared buffer requested %zu\n", bytes);
-		return NULL;
-	}
-
-	if (sh_bytes_left < bytes) {
-		sh_buf = mmap(NULL, SH_BUF_CHUNK, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANON, 0, 0);
-		if (sh_buf == MAP_FAILED) {
-			pr_perror("Can't alloc shared buffer");
-			return NULL;
-		}
-
-		sh_bytes_left = SH_BUF_CHUNK;
-	}
-
-	ret = sh_buf;
-	sh_buf += bytes;
-	sh_bytes_left -= bytes;
-	sh_last_size = bytes;
-
-	return ret;
+	return rst_mem_alloc(bytes, RM_SHARED);
 }
 
 /* Only last chunk can be released */
 void shfree_last(void *ptr)
 {
-	BUG_ON(sh_buf - sh_last_size != ptr);
-	sh_buf -= sh_last_size;
-	sh_bytes_left += sh_last_size;
-	sh_last_size = 0;
+	rst_mem_free_last(RM_SHARED);
 }
 
 int run_scripts(char *action)
