@@ -63,6 +63,7 @@
 #include "stats.h"
 #include "tun.h"
 #include "kerndat.h"
+#include "rst-malloc.h"
 
 #include "parasite-syscall.h"
 
@@ -1616,99 +1617,6 @@ int cr_restore_tasks(void)
 	return restore_root_task(root_item);
 }
 
-/*
- * Memory allocation for restorer blob.
- *
- * The mem should be visible from both contexts -- restorer
- * and crtools (current).
- *
- * Memory is allocated as linear array of objects, that cannot
- * be freed. This makes things very simple.
- *
- * After everything is allocated memory is mremap-ed into the
- * new position (see comment near call to restorer_get_vma_hint)
- */
-
-/*
- * rst_mem -- pointer to the whole buffer
- * rst_mem_c -- pointer to current free space
- */
-
-static void *rst_mem, *rst_mem_c;
-static unsigned long rst_mem_len;
-
-#define RST_MEM_BATCH	(2 * PAGE_SIZE)
-
-static int rst_mem_init(void)
-{
-	rst_mem = mmap(NULL, RST_MEM_BATCH, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON, 0, 0);
-	if (rst_mem == MAP_FAILED) {
-		pr_perror("Can't create rst mem");
-		return -1;
-	}
-
-	rst_mem_c = rst_mem;
-	rst_mem_len = RST_MEM_BATCH;
-
-	return 0;
-}
-
-static void *rst_mem_alloc(unsigned long size)
-{
-	void *aux;
-
-	if (rst_mem_c + size > rst_mem + rst_mem_len) {
-		aux = mremap(rst_mem, rst_mem_len,
-				rst_mem_len + RST_MEM_BATCH, MREMAP_MAYMOVE);
-		if (aux == MAP_FAILED) {
-			pr_perror("Can't grow rst mem");
-			return NULL;
-		}
-
-		rst_mem_c += (aux - rst_mem);
-		rst_mem = aux;
-		rst_mem_len += RST_MEM_BATCH;
-	}
-
-	aux = rst_mem_c;
-	rst_mem_c += size;
-
-	return aux;
-}
-
-static int rst_mem_remap(struct task_restore_core_args *ta, void *to)
-{
-	if (!rst_mem_len)
-		return 0;
-
-	pr_info("Remap %p/%lu rstmem into %p\n", rst_mem, rst_mem_len, to);
-
-	if (mremap(rst_mem, rst_mem_len, rst_mem_len,
-				MREMAP_FIXED | MREMAP_MAYMOVE, to) != to) {
-		pr_perror("Can't move restorer mem");
-		return -1;
-	}
-
-	rst_mem_c += (to - rst_mem);
-	rst_mem = to;
-	ta->rst_mem = to;
-	ta->rst_mem_size = rst_mem_len;
-	return 0;
-}
-
-/* Current position (not addrees, as it may change after eal _alloc) */
-static inline unsigned long rst_mem_cpos(void)
-{
-	return rst_mem_c - rst_mem;
-}
-
-/* Address int memory at any given time */
-static inline void *rst_mem_addr(unsigned long pos)
-{
-	return rst_mem + pos;
-}
-
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
@@ -1889,7 +1797,7 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 	int ret = -1;
 	struct restore_posix_timer *t;
 
-	*rpt = rst_mem_cpos();
+	*rpt = rst_mem_cpos(RM_PRIVATE);
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) /* backward compatibility */
@@ -1906,7 +1814,7 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 			goto out;
 		}
 
-		t = rst_mem_alloc(sizeof(struct restore_posix_timer));
+		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			goto out;
 
@@ -1919,8 +1827,8 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 	}
 out:
 	if (*nr > 0)
-		qsort(rst_mem_addr(*rpt), *nr, sizeof(struct restore_posix_timer),
-				cmp_posix_timer_proc_id);
+		qsort(rst_mem_remap_ptr(*rpt, RM_PRIVATE), *nr,
+				sizeof(struct restore_posix_timer), cmp_posix_timer_proc_id);
 
 	close_safe(&fd);
 	return ret;
@@ -2115,7 +2023,7 @@ static int prepare_rlimits(int pid, unsigned long *addr)
 	int fd, ret;
 	int nr_rlim = 0;
 
-	*addr = rst_mem_cpos();
+	*addr = rst_mem_cpos(RM_PRIVATE);
 
 	fd = open_image(CR_FD_RLIMIT, O_RSTR, pid);
 	if (fd < 0) {
@@ -2134,7 +2042,7 @@ static int prepare_rlimits(int pid, unsigned long *addr)
 		if (ret <= 0)
 			break;
 
-		r = rst_mem_alloc(sizeof(*r));
+		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n",
 			       nr_rlim);
@@ -2162,7 +2070,7 @@ static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
 	int fd, ret;
 
 	if (ptr)
-		*ptr = rst_mem_cpos();
+		*ptr = rst_mem_cpos(RM_PRIVATE);
 	fd = open_image(type, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) /* backward compatibility */
@@ -2185,7 +2093,7 @@ static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
 			break;
 		}
 		info = (siginfo_t *) sie->siginfo.data;
-		t = rst_mem_alloc(sizeof(siginfo_t));
+		t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
 		if (!t) {
 			ret = -1;
 			break;
@@ -2252,8 +2160,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	if (rst_mem_init())
-		goto err;
+	rst_mem_switch_to_private();
 
 	/* pr_info_vma_list(&self_vma_list); */
 
@@ -2269,11 +2176,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
-	tgt_vmas = rst_mem_cpos();
+	tgt_vmas = rst_mem_cpos(RM_PRIVATE);
 	list_for_each_entry(vma, &rst_vmas.h, list) {
 		VmaEntry *vme;
 
-		vme = rst_mem_alloc(sizeof(*vme));
+		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
 		if (!vme)
 			goto err;
 
@@ -2299,8 +2206,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	tcp_socks = rst_mem_cpos();
-	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len());
+	tcp_socks = rst_mem_cpos(RM_PRIVATE);
+	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len(), RM_PRIVATE);
 	if (!tcp_socks_mem)
 		goto err;
 
@@ -2316,7 +2223,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				restore_task_vma_len +
 				restore_thread_vma_len +
 				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
-				rst_mem_len;
+				rst_mem_remap_size();
 
 	/*
 	 * Figure out how much memory runtime vdso will need.
@@ -2412,20 +2319,22 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
 	task_args->premmapped_len = current->rst->premmapped_len;
 
-	if (rst_mem_remap(task_args, mem))
+	task_args->rst_mem = mem;
+	task_args->rst_mem_size = rst_mem_remap_size();
+	if (rst_mem_remap(mem))
 		goto err;
 
 	task_args->nr_vmas = rst_vmas.nr;
-	task_args->tgt_vmas = rst_mem_addr(tgt_vmas);
+	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);
 
 	task_args->timer_n = posix_timers_nr;
-	task_args->posix_timers = rst_mem_addr(posix_timers_info_chunk);
+	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_info_chunk, RM_PRIVATE);
 
 	task_args->siginfo_nr = siginfo_nr;
-	task_args->siginfo = rst_mem_addr(siginfo_chunk);
+	task_args->siginfo = rst_mem_remap_ptr(siginfo_chunk, RM_PRIVATE);
 
 	task_args->tcp_socks_nr = rst_tcp_socks_nr;
-	task_args->tcp_socks = rst_mem_addr(tcp_socks);
+	task_args->tcp_socks = rst_mem_remap_ptr(tcp_socks, RM_PRIVATE);
 
 	/*
 	 * Arguments for task restoration.
@@ -2441,7 +2350,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->nr_rlim = nr_rlim;
 	if (nr_rlim)
-		task_args->rlims = rst_mem_addr(rlimits_rst_addr);
+		task_args->rlims = rst_mem_remap_ptr(rlimits_rst_addr, RM_PRIVATE);
 
 	/*
 	 * Fill up per-thread data.
@@ -2453,7 +2362,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
-		thread_args[i].siginfo = rst_mem_addr(siginfo_chunk);
+		thread_args[i].siginfo = rst_mem_remap_ptr(siginfo_chunk, RM_PRIVATE);
 		thread_args[i].siginfo += siginfo_nr;
 		siginfo_nr += thread_args[i].siginfo_nr;
 
@@ -2520,7 +2429,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * since we need it being accessible even when own
 	 * self-vmas are unmaped.
 	 */
-	mem += rst_mem_len;
+	mem += rst_mem_remap_size();
 	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
 	task_args->vdso_sym_rt = vdso_sym_rt;
 
