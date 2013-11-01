@@ -14,6 +14,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 	$(DEPEND.c) $(OUTPUT_OPTION) $<
 
 all:	$(LIB)
+	@echo > /dev/null
 install: all
 
 $(LIB):	$(LIB)(${LIBOBJ})
