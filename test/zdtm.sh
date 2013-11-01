@@ -431,8 +431,8 @@ EOF
 	for i in `seq $ITERATIONS`; do
 		local dump_only=
 		local postdump=
-		ddump=dump/$tname/$PID/$i
-		DUMP_PATH=`pwd`/$ddump
+		ddump=`readlink -fm dump/$tname/$PID/$i`
+		DUMP_PATH=$ddump
 		echo Dump $PID
 		mkdir -p $ddump
 
