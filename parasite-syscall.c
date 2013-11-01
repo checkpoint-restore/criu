@@ -65,6 +65,16 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	return NULL;
 }
 
+static inline int ptrace_get_regs(int pid, user_regs_struct_t *regs)
+{
+	return ptrace(PTRACE_GETREGS, pid, NULL, regs);
+}
+
+static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
+{
+	return ptrace(PTRACE_SETREGS, pid, NULL, regs);
+}
+
 static int get_thread_ctx(int pid, struct thread_ctx *ctx)
 {
 	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
@@ -72,7 +82,7 @@ static int get_thread_ctx(int pid, struct thread_ctx *ctx)
 		return -1;
 	}
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, &ctx->regs)) {
+	if (ptrace_get_regs(pid, &ctx->regs)) {
 		pr_perror("Can't obtain registers (pid: %d)", pid);
 		return -1;
 	}
@@ -84,7 +94,7 @@ static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 {
 	int ret = 0;
 
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &ctx->regs)) {
+	if (ptrace_set_regs(pid, &ctx->regs)) {
 		pr_perror("Can't restore registers (pid: %d)", pid);
 		ret = -1;
 	}
@@ -108,7 +118,7 @@ static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 	}
 
 	parasite_setup_regs(ip, stack, regs);
-	if (ptrace(PTRACE_SETREGS, pid, NULL, regs)) {
+	if (ptrace_set_regs(pid, regs)) {
 		pr_perror("Can't set registers for %d", pid);
 		goto err_regs;
 	}
@@ -121,7 +131,7 @@ static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 	return 0;
 
 err_cont:
-	if (ptrace(PTRACE_SETREGS, pid, NULL, &octx->regs))
+	if (ptrace_set_regs(pid, &octx->regs))
 		pr_perror("Can't restore regs for %d", pid);
 err_regs:
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &octx->sigmask))
@@ -159,7 +169,7 @@ static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 		goto err;
 	}
 
-	if (ptrace(PTRACE_GETREGS, pid, NULL, regs)) {
+	if (ptrace_get_regs(pid, regs)) {
 		pr_perror("Can't obtain registers (pid: %d)", pid);
 			goto err;
 	}
@@ -812,7 +822,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 	}
 
-	ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+	ret = ptrace_get_regs(pid, &regs);
 	if (ret) {
 		pr_perror("Unable to get registers");
 		return -1;
@@ -876,7 +886,7 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr)
 			pr_err("%d\n", status);
 			return -1;
 		}
-		ret = ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+		ret = ptrace_get_regs(pid, &regs);
 		if (ret) {
 			pr_perror("ptrace");
 			return -1;
