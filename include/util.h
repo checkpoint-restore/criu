@@ -220,9 +220,17 @@ static inline u32 kdev_minor(u32 kdev)
 static inline dev_t kdev_to_odev(u32 kdev)
 {
 	/*
-	 * New kernels envcode devices in a new form
+	 * New kernels encode devices in a new form.
+	 * See kernel's fs/stat.c for details, there
+	 * choose_32_64 helpers which are the key.
 	 */
-	return (kdev_major(kdev) << 8) | kdev_minor(kdev);
+	unsigned major = kdev_major(kdev);
+	unsigned minor = kdev_minor(kdev);
+#if BITS_PER_LONG == 32
+	return (major << 8) | minor;
+#else
+	return (minor & 0xff) | (major << 8) | ((minor & ~0xff) << 12);
+#endif
 }
 
 int copy_file(int fd_in, int fd_out, size_t bytes);
