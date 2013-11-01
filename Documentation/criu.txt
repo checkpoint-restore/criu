@@ -37,6 +37,9 @@ Launch a page server.
 *exec*::
 Execute a system call from other task\'s context.
 
+*service*::
+Start RPC service.
+
 OPTIONS
 -------
 *-c*::
