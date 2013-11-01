@@ -8,8 +8,8 @@ int prepare_shmem_restore(void);
 void show_saved_shmems(void);
 int get_shmem_fd(int pid, VmaEntry *vi);
 
-struct shmems;
-extern struct shmems *rst_shmems;
+extern unsigned long nr_shmems;
+extern unsigned int rst_shmems;
 
 int cr_dump_shmem(void);
 int add_shmem_area(pid_t pid, VmaEntry *vma);

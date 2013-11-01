@@ -704,7 +704,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
 			struct shmem_info *entry;
 
-			entry = find_shmem(args->shmems,
+			entry = find_shmem(args->shmems, args->nr_shmems,
 						  vma_entry->shmid);
 			if (entry && entry->pid == my_pid &&
 			    entry->start == vma_entry->start)
@@ -746,11 +746,7 @@ long __export_restore_task(struct task_restore_core_args *args)
 		}
 	}
 
-	ret = sys_munmap(args->shmems, SHMEMS_SIZE);
-	if (ret < 0) {
-		pr_err("Can't unmap shmem %ld\n", ret);
-		goto core_restore_end;
-	}
+	ret = 0;
 
 	/*
 	 * Tune up the task fields.

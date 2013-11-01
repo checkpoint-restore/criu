@@ -143,9 +143,6 @@ static int root_prepare_shared(void)
 
 	pr_info("Preparing info about shared resources\n");
 
-	if (prepare_shmem_restore())
-		return -1;
-
 	if (prepare_shared_tty())
 		return -1;
 
@@ -2166,7 +2163,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
-	BUILD_BUG_ON(SHMEMS_SIZE % PAGE_SIZE);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 
 	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
@@ -2222,7 +2218,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	restore_bootstrap_len = restorer_len +
 				restore_task_vma_len +
 				restore_thread_vma_len +
-				SHMEMS_SIZE + TASK_ENTRIES_SIZE +
+				TASK_ENTRIES_SIZE +
 				rst_mem_remap_size();
 
 	/*
@@ -2303,12 +2299,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	mem += restore_task_vma_len + restore_thread_vma_len;
-	ret = shmem_remap(rst_shmems, mem, SHMEMS_SIZE);
-	if (ret < 0)
-		goto err;
-	task_args->shmems = mem;
-
-	mem += SHMEMS_SIZE;
 	ret = shmem_remap(task_entries, mem, TASK_ENTRIES_SIZE);
 	if (ret < 0)
 		goto err;
@@ -2323,6 +2313,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->rst_mem_size = rst_mem_remap_size();
 	if (rst_mem_remap(mem))
 		goto err;
+
+	task_args->shmems = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
+	task_args->nr_shmems = nr_shmems;
 
 	task_args->nr_vmas = rst_vmas.nr;
 	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);

@@ -105,7 +105,8 @@ struct task_restore_core_args {
 	int				nr_zombies;
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
-	struct shmems			*shmems;
+	struct shmem_info		*shmems;
+	unsigned int			nr_shmems;
 	struct task_entries		*task_entries;
 	void				*rst_mem;
 	unsigned long			rst_mem_size;
@@ -150,8 +151,6 @@ struct task_restore_core_args {
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 } __aligned(sizeof(long));
 
-#define SHMEMS_SIZE	4096
-
 #define RESTORE_ALIGN_STACK(start, size)	\
 	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))
 
@@ -175,11 +174,6 @@ struct shmem_info {
 	int		pid;
 	int		fd;
 	futex_t		lock;
-};
-
-struct shmems {
-	int			nr_shmems;
-	struct shmem_info	entries[0];
 };
 
 #define TASK_ENTRIES_SIZE 4096
@@ -208,16 +202,14 @@ struct task_entries {
 };
 
 static always_inline struct shmem_info *
-find_shmem(struct shmems *shmems, unsigned long shmid)
+find_shmem(struct shmem_info *shmems, int nr, unsigned long shmid)
 {
 	struct shmem_info *si;
 	int i;
 
-	for (i = 0; i < shmems->nr_shmems; i++) {
-		si = &shmems->entries[i];
+	for (i = 0, si = shmems; i < nr; i++, si++)
 		if (si->shmid == shmid)
 			return si;
-	}
 
 	return NULL;
 }

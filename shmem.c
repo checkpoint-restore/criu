@@ -8,31 +8,40 @@
 #include "restorer.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
+#include "rst-malloc.h"
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
-struct shmems *rst_shmems;
+unsigned long nr_shmems;
+unsigned int rst_shmems;
 
 void show_saved_shmems(void)
 {
 	int i;
+	struct shmem_info *si;
 
 	pr_info("\tSaved shmems:\n");
-
-	for (i = 0; i < rst_shmems->nr_shmems; i++)
+	si = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
+	for (i = 0; i < nr_shmems; i++, si++)
 		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
-			rst_shmems->entries[i].start,
-			rst_shmems->entries[i].shmid,
-			rst_shmems->entries[i].pid);
+				si->start, si->shmid, si->pid);
+}
+
+
+static struct shmem_info *find_shmem_by_id(unsigned long id)
+{
+	struct shmem_info *si;
+
+	si = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
+	return find_shmem(si, nr_shmems, id);
 }
 
 static int collect_shmem(int pid, VmaEntry *vi)
 {
-	int nr_shmems = rst_shmems->nr_shmems;
 	unsigned long size = vi->pgoff + vi->end - vi->start;
 	struct shmem_info *si;
 
-	si = find_shmem(rst_shmems, vi->shmid);
+	si = find_shmem_by_id(vi->shmid);
 	if (si) {
 
 		if (si->size < size)
@@ -54,17 +63,12 @@ static int collect_shmem(int pid, VmaEntry *vi)
 		return 0;
 	}
 
-	if ((nr_shmems + 1) * sizeof(struct shmem_info) +
-					sizeof (struct shmems) >= SHMEMS_SIZE) {
-		pr_err("OOM storing shmems\n");
+	si = rst_mem_alloc(sizeof(struct shmem_info), RM_SHREMAP);
+	if (!si)
 		return -1;
-	}
 
 	pr_info("Add new shmem 0x%"PRIx64" (0x0160x%"PRIx64"-0x0160x%"PRIx64")\n",
 				vi->shmid, vi->start, vi->end);
-
-	si = &rst_shmems->entries[nr_shmems];
-	rst_shmems->nr_shmems++;
 
 	si->start = vi->start;
 	si->end	  = vi->end;
@@ -73,6 +77,7 @@ static int collect_shmem(int pid, VmaEntry *vi)
 	si->size  = size;
 	si->fd    = -1;
 
+	nr_shmems++;
 	futex_init(&si->lock);
 
 	return 0;
@@ -203,7 +208,7 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	void *addr;
 	int f;
 
-	si = find_shmem(rst_shmems, vi->shmid);
+	si = find_shmem_by_id(vi->shmid);
 	pr_info("Search for 0x%016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
 		pr_err("Can't find my shmem 0x%016"PRIx64"\n", vi->start);
@@ -246,18 +251,6 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 
 	si->fd = f;
 	return f;
-}
-
-int prepare_shmem_restore(void)
-{
-	rst_shmems = mmap(NULL, SHMEMS_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (rst_shmems == MAP_FAILED) {
-		pr_perror("Can't map shmem");
-		return -1;
-	}
-
-	rst_shmems->nr_shmems = 0;
-	return 0;
 }
 
 struct shmem_info_dump {
