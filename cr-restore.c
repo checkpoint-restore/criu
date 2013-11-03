@@ -83,6 +83,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid);
+static int prepare_posix_timers(int pid);
 
 static VM_AREA_LIST(rst_vmas); /* XXX .longest is NOT tracked for this guy */
 
@@ -723,6 +724,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (open_vmas(pid))
+		return -1;
+
+	if (prepare_posix_timers(pid))
 		return -1;
 
 	if (prepare_rlimits(pid) < 0)
@@ -1801,13 +1805,16 @@ static int cmp_posix_timer_proc_id(const void *p1, const void *p2)
 	return ((struct restore_posix_timer *)p1)->spt.it_id - ((struct restore_posix_timer *)p2)->spt.it_id;
 }
 
-static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
+static unsigned long posix_timers_cpos;
+static unsigned int posix_timers_nr;
+
+static int prepare_posix_timers(int pid)
 {
 	int fd;
 	int ret = -1;
 	struct restore_posix_timer *t;
 
-	*rpt = rst_mem_cpos(RM_PRIVATE);
+	posix_timers_cpos = rst_mem_cpos(RM_PRIVATE);
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) /* backward compatibility */
@@ -1833,12 +1840,14 @@ static int open_posix_timers_image(int pid, unsigned long *rpt, int *nr)
 			goto out;
 
 		posix_timer_entry__free_unpacked(pte, NULL);
-		(*nr)++;
+		posix_timers_nr++;
 	}
 out:
-	if (*nr > 0)
-		qsort(rst_mem_remap_ptr(*rpt, RM_PRIVATE), *nr,
-				sizeof(struct restore_posix_timer), cmp_posix_timer_proc_id);
+	if (posix_timers_nr > 0)
+		qsort(rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE),
+				posix_timers_nr,
+				sizeof(struct restore_posix_timer),
+				cmp_posix_timer_proc_id);
 
 	close_safe(&fd);
 	return ret;
@@ -2158,9 +2167,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
 
-	unsigned long posix_timers_info_chunk;
-	int posix_timers_nr = 0;
-
 	struct vm_area_list self_vmas;
 	int i;
 
@@ -2204,10 +2210,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		if (ret < 0)
 			goto err_nv;
 	}
-
-	ret = open_posix_timers_image(pid, &posix_timers_info_chunk, &posix_timers_nr);
-	if (ret < 0)
-		goto err_nv;
 
 	tcp_socks = rst_mem_cpos(RM_PRIVATE);
 	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len(), RM_PRIVATE);
@@ -2333,7 +2335,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);
 
 	task_args->timer_n = posix_timers_nr;
-	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_info_chunk, RM_PRIVATE);
+	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE);
 
 	task_args->siginfo_nr = siginfo_nr;
 	task_args->siginfo = rst_mem_remap_ptr(siginfo_chunk, RM_PRIVATE);
