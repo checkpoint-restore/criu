@@ -2176,7 +2176,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	long new_sp, exec_mem_hint;
 	long ret;
 
-	void *bootstrap_start;
 	long restore_bootstrap_len;
 
 	struct task_restore_core_args *task_args;
@@ -2279,7 +2278,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vmas.h, &self_vmas.h,
 					      restore_bootstrap_len);
-	bootstrap_start = (void *) exec_mem_hint;
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
 		       restore_bootstrap_len);
@@ -2317,7 +2315,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args	= mem;
 	thread_args	= mem + restore_task_vma_len;
 
-	task_args->bootstrap_start = bootstrap_start;
+	task_args->bootstrap_start = (void *)exec_mem_hint - restorer_len;
 	task_args->bootstrap_len = restore_bootstrap_len;
 	task_args->vdso_rt_size = vdso_rt_size;
 
