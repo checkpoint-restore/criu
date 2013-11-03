@@ -719,8 +719,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_sigactions(pid))
 		return -1;
 
-	log_closedir();
-
 	if (open_vmas(pid))
 		return -1;
 
@@ -853,6 +851,9 @@ out:
 static int restore_one_task(int pid, CoreEntry *core)
 {
 	int ret;
+
+	/* No more fork()-s => no more per-pid logs */
+	log_closedir();
 
 	switch ((int)core->tc->task_state) {
 	case TASK_ALIVE:
