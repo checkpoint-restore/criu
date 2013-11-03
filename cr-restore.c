@@ -2210,6 +2210,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			current->nr_threads,
 			KBYTES(restore_thread_vma_len));
 
+	/*
+	 * Copy VMAs to private rst memory so that it's able to
+	 * walk them and m(un|re)map.
+	 */
+
 	tgt_vmas = rst_mem_cpos(RM_PRIVATE);
 	list_for_each_entry(vma, &rst_vmas.h, list) {
 		VmaEntry *vme;
@@ -2220,6 +2225,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		*vme = vma->vma;
 	}
+
+	/*
+	 * Copy tcp sockets fds to rst memory -- restorer will
+	 * turn repair off before going sigreturn
+	 */
 
 	tcp_socks = rst_mem_cpos(RM_PRIVATE);
 	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len(), RM_PRIVATE);
