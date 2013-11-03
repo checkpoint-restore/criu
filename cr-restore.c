@@ -2158,11 +2158,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	pr_info("Restore via sigreturn\n");
 
-	ret = parse_smaps(pid, &self_vmas, false);
-	close_proc();
-	if (ret < 0)
-		goto err;
-
 	rst_mem_switch_to_private();
 
 	/* pr_info_vma_list(&self_vma_list); */
@@ -2184,42 +2179,53 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
 		if (!vme)
-			goto err;
+			goto err_nv;
 
 		*vme = vma->vma;
 	}
 
 	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
 	if (siginfo_priv_nr == NULL)
-		goto err;
+		goto err_nv;
 
 	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_chunk, &siginfo_nr);
 	if (ret < 0)
-		goto err;
+		goto err_nv;
 
 	for (i = 0; i < current->nr_threads; i++) {
 		ret = open_signal_image(CR_FD_PSIGNAL,
 				current->threads[i].virt, NULL, &siginfo_priv_nr[i]);
 		if (ret < 0)
-			goto err;
+			goto err_nv;
 	}
 
 	ret = open_posix_timers_image(pid, &posix_timers_info_chunk, &posix_timers_nr);
 	if (ret < 0)
-		goto err;
+		goto err_nv;
 
 	tcp_socks = rst_mem_cpos(RM_PRIVATE);
 	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len(), RM_PRIVATE);
 	if (!tcp_socks_mem)
-		goto err;
+		goto err_nv;
 
 	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
 
 	nr_rlim = prepare_rlimits(pid, &rlimits_rst_addr);
 	if (nr_rlim < 0) {
 		pr_err("Failed preparing rlimits for pid %d\n", pid);
-		goto err;
+		goto err_nv;
 	}
+
+	/*
+	 * We're about to search for free VM area and inject the restorer blob
+	 * into it. No irrelevent mmaps/mremaps beyond this point, otherwise
+	 * this unwanted mapping might get overlapped by the restorer.
+	 */
+
+	ret = parse_smaps(pid, &self_vmas, false);
+	close_proc();
+	if (ret < 0)
+		goto err;
 
 	restore_bootstrap_len = restorer_len +
 				restore_task_vma_len +
@@ -2498,7 +2504,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 err:
 	free_mappings(&self_vmas);
-
+err_nv:
 	/* Just to be sure */
 	exit(1);
 	return -1;
