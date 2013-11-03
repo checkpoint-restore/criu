@@ -82,6 +82,7 @@ static struct pstree_item *current;
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
+static int prepare_rlimits(int pid);
 
 static VM_AREA_LIST(rst_vmas); /* XXX .longest is NOT tracked for this guy */
 
@@ -722,6 +723,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (open_vmas(pid))
+		return -1;
+
+	if (prepare_rlimits(pid) < 0)
 		return -1;
 
 	return sigreturn_restore(pid, core);
@@ -2023,13 +2027,15 @@ static unsigned long decode_rlim(u_int64_t ival)
 	return ival == -1 ? RLIM_INFINITY : ival;
 }
 
-static int prepare_rlimits(int pid, unsigned long *addr)
+static unsigned long rlims_cpos;
+static unsigned int rlims_nr;
+
+static int prepare_rlimits(int pid)
 {
 	struct rlimit *r;
 	int fd, ret;
-	int nr_rlim = 0;
 
-	*addr = rst_mem_cpos(RM_PRIVATE);
+	rlims_cpos = rst_mem_cpos(RM_PRIVATE);
 
 	fd = open_image(CR_FD_RLIMIT, O_RSTR, pid);
 	if (fd < 0) {
@@ -2051,24 +2057,26 @@ static int prepare_rlimits(int pid, unsigned long *addr)
 		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n",
-			       nr_rlim);
+			       rlims_nr);
 			return -1;
 		}
 
 		r->rlim_cur = decode_rlim(re->cur);
 		r->rlim_max = decode_rlim(re->max);
 		if (r->rlim_cur > r->rlim_max) {
-			pr_err("Can't restore cur > max for %d.%d\n", pid, nr_rlim);
+			pr_err("Can't restore cur > max for %d.%d\n",
+					pid, rlims_nr);
 			r->rlim_cur = r->rlim_max;
 		}
 
 		rlimit_entry__free_unpacked(re, NULL);
 
-		nr_rlim++;
+		rlims_nr++;
 	}
 
 	close(fd);
-	return nr_rlim;
+
+	return 0;
 }
 
 static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
@@ -2146,9 +2154,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	void *tcp_socks_mem;
 	unsigned long tcp_socks;
 
-	unsigned long rlimits_rst_addr;
-	int nr_rlim;
-
 	unsigned long vdso_rt_vma_size = 0;
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
@@ -2210,12 +2215,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err_nv;
 
 	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
-
-	nr_rlim = prepare_rlimits(pid, &rlimits_rst_addr);
-	if (nr_rlim < 0) {
-		pr_err("Failed preparing rlimits for pid %d\n", pid);
-		goto err_nv;
-	}
 
 	/*
 	 * We're about to search for free VM area and inject the restorer blob
@@ -2354,9 +2353,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	task_args->nr_rlim = nr_rlim;
-	if (nr_rlim)
-		task_args->rlims = rst_mem_remap_ptr(rlimits_rst_addr, RM_PRIVATE);
+	task_args->nr_rlim = rlims_nr;
+	if (rlims_nr)
+		task_args->rlims = rst_mem_remap_ptr(rlims_cpos, RM_PRIVATE);
 
 	/*
 	 * Fill up per-thread data.
