@@ -707,6 +707,8 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 {
 	pr_info("Restoring resources\n");
 
+	rst_mem_switch_to_private();
+
 	if (pstree_wait_helpers())
 		return -1;
 
@@ -2158,8 +2160,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	int i;
 
 	pr_info("Restore via sigreturn\n");
-
-	rst_mem_switch_to_private();
 
 	/* pr_info_vma_list(&self_vma_list); */
 
