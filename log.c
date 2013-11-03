@@ -199,7 +199,6 @@ int write_pidfile(char *pfname, int pid)
 	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
 	if (fd == -1) {
 		pr_perror("Can't open %s", pfname);
-		kill(pid, SIGKILL);
 		return -1;
 	}
 

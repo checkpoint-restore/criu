@@ -966,9 +966,15 @@ static inline int fork_with_pid(struct pstree_item *item)
 		item->pid.real = ret;
 
 	if (opts.pidfile && root_item == item) {
-		ret = write_pidfile(opts.pidfile, ret);
-		if (ret < 0)
+		int pid;
+
+		pid = ret;
+
+		ret = write_pidfile(opts.pidfile, pid);
+		if (ret < 0) {
 			pr_perror("Can't write pidfile");
+			kill(pid, SIGKILL);
+		}
 	}
 
 err_unlock:
