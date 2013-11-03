@@ -84,6 +84,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid);
 static int prepare_posix_timers(int pid);
+static int prepare_signals(int pid);
 
 static VM_AREA_LIST(rst_vmas); /* XXX .longest is NOT tracked for this guy */
 
@@ -724,6 +725,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (open_vmas(pid))
+		return -1;
+
+	if (prepare_signals(pid))
 		return -1;
 
 	if (prepare_posix_timers(pid))
@@ -2088,12 +2092,10 @@ static int prepare_rlimits(int pid)
 	return 0;
 }
 
-static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
+static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 {
 	int fd, ret;
 
-	if (ptr)
-		*ptr = rst_mem_cpos(RM_PRIVATE);
 	fd = open_image(type, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) /* backward compatibility */
@@ -2133,6 +2135,32 @@ static int open_signal_image(int type, pid_t pid, unsigned long *ptr, int *nr)
 	return ret ? : 0;
 }
 
+static unsigned long siginfo_cpos;
+static unsigned int siginfo_nr, *siginfo_priv_nr;
+
+static int prepare_signals(int pid)
+{
+	int ret = -1, i;
+
+	siginfo_cpos = rst_mem_cpos(RM_PRIVATE);
+	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
+	if (siginfo_priv_nr == NULL)
+		goto out;
+
+	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_nr);
+	if (ret < 0)
+		goto out;
+
+	for (i = 0; i < current->nr_threads; i++) {
+		ret = open_signal_image(CR_FD_PSIGNAL,
+				current->threads[i].virt, &siginfo_priv_nr[i]);
+		if (ret < 0)
+			goto out;
+	}
+out:
+	return ret;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void) {}
 
@@ -2153,9 +2181,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
-	unsigned long siginfo_chunk;
-	int siginfo_nr = 0;
-	int *siginfo_priv_nr;
 
 	struct vma_area *vma;
 	unsigned long tgt_vmas;
@@ -2194,21 +2219,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			goto err_nv;
 
 		*vme = vma->vma;
-	}
-
-	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
-	if (siginfo_priv_nr == NULL)
-		goto err_nv;
-
-	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_chunk, &siginfo_nr);
-	if (ret < 0)
-		goto err_nv;
-
-	for (i = 0; i < current->nr_threads; i++) {
-		ret = open_signal_image(CR_FD_PSIGNAL,
-				current->threads[i].virt, NULL, &siginfo_priv_nr[i]);
-		if (ret < 0)
-			goto err_nv;
 	}
 
 	tcp_socks = rst_mem_cpos(RM_PRIVATE);
@@ -2338,7 +2348,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE);
 
 	task_args->siginfo_nr = siginfo_nr;
-	task_args->siginfo = rst_mem_remap_ptr(siginfo_chunk, RM_PRIVATE);
+	task_args->siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);
 
 	task_args->tcp_socks_nr = rst_tcp_socks_nr;
 	task_args->tcp_socks = rst_mem_remap_ptr(tcp_socks, RM_PRIVATE);
@@ -2369,7 +2379,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
-		thread_args[i].siginfo = rst_mem_remap_ptr(siginfo_chunk, RM_PRIVATE);
+		thread_args[i].siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);
 		thread_args[i].siginfo += siginfo_nr;
 		siginfo_nr += thread_args[i].siginfo_nr;
 
