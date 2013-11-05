@@ -3,6 +3,8 @@
 #include "proc_parse.h"
 #include "log.h"
 
+#include "protobuf/creds.pb-c.h"
+
 /*
  * UID and GID of user requesting for C/R
  */

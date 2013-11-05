@@ -18,6 +18,7 @@
 #include "file-lock.h"
 #include "pstree.h"
 #include "fsnotify.h"
+#include "posix-timer.h"
 #include "kerndat.h"
 #include "vdso.h"
 

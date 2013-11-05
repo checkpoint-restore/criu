@@ -3,7 +3,6 @@
 
 #include <sys/types.h>
 #include "asm/types.h"
-#include "restorer.h"
 #include "image.h"
 #include "list.h"
 
@@ -128,16 +127,6 @@ struct mount_info {
 	struct list_head postpone;
 };
 
-struct proc_posix_timer {
-	struct list_head list;
-	struct str_posix_timer spt;
-};
-
-struct proc_posix_timers_stat {
-	int timer_n;
-	struct list_head timers;
-};
-
 extern struct mount_info *mnt_entry_alloc();
 extern void mnt_entry_free(struct mount_info *mi);
 
@@ -161,8 +150,6 @@ extern int parse_fdinfo(int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
 extern int parse_cpuinfo_features(int (*handler)(char *tok));
 extern int parse_file_locks(void);
-
-extern int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat * args);
 
 struct pid;
 extern int parse_threads(int pid, struct pid **_t, int *_n);

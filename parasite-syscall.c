@@ -22,6 +22,7 @@
 #include "namespaces.h"
 #include "kerndat.h"
 #include "pstree.h"
+#include "posix-timer.h"
 #include "net.h"
 #include "mem.h"
 #include "restorer.h"

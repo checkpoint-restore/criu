@@ -14,6 +14,7 @@
 #include "crtools.h"
 #include "asm/restorer.h"
 
+#include "posix-timer.h"
 #include "vdso.h"
 
 #include <time.h>
@@ -53,14 +54,6 @@ struct rst_sched_param {
 	int policy;
 	int nice;
 	int prio;
-};
-
-struct str_posix_timer {
-	long it_id;
-	int clock_id;
-	int si_signo;
-	int it_sigev_notify;
-	void * sival_ptr;
 };
 
 struct restore_posix_timer {
