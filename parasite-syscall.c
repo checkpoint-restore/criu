@@ -24,7 +24,6 @@
 #include "pstree.h"
 #include "net.h"
 #include "mem.h"
-#include "vdso.h"
 #include "restorer.h"
 #include "proc_parse.h"
 
