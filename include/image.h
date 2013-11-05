@@ -58,6 +58,8 @@
 #define TASK_STOPPED		0x3 /* FIXME - implement */
 #define TASK_HELPER		0x4
 
+#define CR_PARENT_LINK "parent"
+
 extern bool fdinfo_per_id;
 extern bool ns_per_id;
 

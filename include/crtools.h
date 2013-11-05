@@ -51,8 +51,6 @@ extern struct cr_options opts;
 
 extern void init_opts(void);
 
-#define CR_PARENT_LINK "parent"
-
 int check_img_inventory(void);
 int write_img_inventory(void);
 void kill_inventory(void);
