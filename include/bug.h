@@ -3,6 +3,7 @@
 
 #include <signal.h>
 
+#include "compiler.h"
 #include "log.h"
 
 #ifndef BUG_ON_HANDLER
