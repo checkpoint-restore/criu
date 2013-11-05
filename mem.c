@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include "crtools.h"
+#include "servicefd.h"
 #include "mem.h"
 #include "parasite-syscall.h"
 #include "parasite.h"

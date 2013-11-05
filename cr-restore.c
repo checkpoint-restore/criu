@@ -29,6 +29,7 @@
 #include "asm/types.h"
 #include "asm/restorer.h"
 
+#include "servicefd.h"
 #include "image.h"
 #include "util.h"
 #include "util-pie.h"
