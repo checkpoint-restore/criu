@@ -2,7 +2,6 @@
 #define __CR_NS_H__
 
 #include "crtools.h"
-#include "pstree.h"
 #include "files.h"
 
 struct ns_desc {

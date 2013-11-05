@@ -18,6 +18,7 @@
 #include "util-pie.h"
 #include "log.h"
 #include "mount.h"
+#include "pstree.h"
 #include "proc_parse.h"
 #include "image.h"
 #include "namespaces.h"

@@ -7,6 +7,7 @@
 #include "uts_ns.h"
 #include "ipc_ns.h"
 #include "mount.h"
+#include "pstree.h"
 #include "namespaces.h"
 #include "net.h"
 
