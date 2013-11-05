@@ -15,6 +15,7 @@
 #include "compiler.h"
 #include "crtools.h"
 #include "vdso.h"
+#include "vma.h"
 #include "log.h"
 
 #ifdef LOG_PREFIX

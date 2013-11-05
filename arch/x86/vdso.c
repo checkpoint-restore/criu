@@ -15,12 +15,12 @@
 #include "parasite-syscall.h"
 #include "parasite.h"
 #include "compiler.h"
-#include "crtools.h"
 #include "kerndat.h"
 #include "vdso.h"
 #include "util.h"
 #include "log.h"
 #include "mem.h"
+#include "vma.h"
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX

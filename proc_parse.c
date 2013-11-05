@@ -21,6 +21,7 @@
 #include "posix-timer.h"
 #include "kerndat.h"
 #include "vdso.h"
+#include "vma.h"
 
 #include "proc_parse.h"
 #include "protobuf.h"

@@ -63,6 +63,7 @@
 #include "vdso.h"
 #include "stats.h"
 #include "tun.h"
+#include "vma.h"
 #include "kerndat.h"
 #include "rst-malloc.h"
 

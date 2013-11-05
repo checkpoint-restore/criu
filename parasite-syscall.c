@@ -25,6 +25,7 @@
 #include "posix-timer.h"
 #include "net.h"
 #include "mem.h"
+#include "vma.h"
 #include "proc_parse.h"
 
 #include <string.h>

@@ -66,6 +66,7 @@
 #include "page-pipe.h"
 #include "posix-timer.h"
 #include "vdso.h"
+#include "vma.h"
 #include "cr-service.h"
 
 #include "asm/dump.h"

@@ -8,6 +8,8 @@
 #include "page-pipe.h"
 #include "page-xfer.h"
 #include "rst-malloc.h"
+#include "vma.h"
+
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 

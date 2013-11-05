@@ -3,6 +3,7 @@
 #include "crtools.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
+#include "vma.h"
 
 struct syscall_exec_desc {
 	char *name;

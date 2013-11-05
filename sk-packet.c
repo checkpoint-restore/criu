@@ -4,13 +4,13 @@
 #include <linux/rtnetlink.h>
 #include <unistd.h>
 #include <string.h>
-#include "crtools.h"
 #include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
 #include "libnetlink.h"
 #include "sk-packet.h"
 #include "packet_diag.h"
+#include "vma.h"
 
 #include "protobuf.h"
 #include "protobuf/packet-sock.pb-c.h"

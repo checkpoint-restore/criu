@@ -13,6 +13,7 @@
 #include "log.h"
 #include "kerndat.h"
 #include "stats.h"
+#include "vma.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
