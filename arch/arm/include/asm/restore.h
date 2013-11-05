@@ -1,6 +1,10 @@
 #ifndef __CR_ASM_RESTORE_H__
 #define __CR_ASM_RESTORE_H__
 
+#include "asm/restorer.h"
+
+#include "protobuf/core.pb-c.h"
+
 #define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,          \
 			      task_args)				\
 	asm volatile(							\

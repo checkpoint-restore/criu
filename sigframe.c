@@ -1,6 +1,6 @@
 #include <unistd.h>
+#include <string.h>
 
-#include "restorer.h"
 #include "asm/restore.h"
 #include "asm/restorer.h"
 
