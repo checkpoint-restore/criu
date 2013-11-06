@@ -5,8 +5,6 @@
 
 #include "list.h"
 #include "asm/types.h"
-#include "list.h"
-#include "cr-show.h"
 #include "servicefd.h"
 
 #include "protobuf/vma.pb-c.h"

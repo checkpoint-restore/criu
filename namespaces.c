@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include "cr-show.h"
 #include "util.h"
 #include "fdset.h"
 #include "syscall.h"

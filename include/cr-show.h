@@ -1,6 +1,7 @@
 #ifndef __CR_SHOW_H__
 #define __CR_SHOW_H__
 #include <stdbool.h>
+#include "asm/types.h"
 
 struct show_image_info {
 	u32	magic;
