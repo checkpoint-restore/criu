@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "crtools.h"
+#include "image.h"
 #include "page-xfer.h"
 #include "page-pipe.h"
 

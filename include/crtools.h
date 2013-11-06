@@ -7,7 +7,6 @@
 #include "asm/types.h"
 #include "list.h"
 #include "util.h"
-#include "image.h"
 #include "lock.h"
 #include "cr-show.h"
 #include "servicefd.h"
@@ -58,15 +57,6 @@ void kill_inventory(void);
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern void print_image_data(int fd, unsigned int length, int show);
 
-extern int open_image_dir(void);
-extern void close_image_dir(void);
-
-int open_image_at(int dfd, int type, unsigned long flags, ...);
-#define open_image(typ, flags, ...) open_image_at(get_service_fd(IMG_FD_OFF), typ, flags, ##__VA_ARGS__)
-int open_pages_image(unsigned long flags, int pm_fd);
-int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
-void up_page_ids_base(void);
-
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 
 int cr_dump_tasks(pid_t pid);
@@ -76,10 +66,6 @@ int cr_show(int pid);
 int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
 int cr_exec(int pid, char **opts);
-
-#define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
-#define O_SHOW	(O_RDONLY)
-#define O_RSTR	(O_RDONLY)
 
 /*
  * When we have to restore a shared resource, we mush select which

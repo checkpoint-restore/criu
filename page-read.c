@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "crtools.h"
+#include "image.h"
 #include "servicefd.h"
 #include "page-read.h"
 
@@ -12,7 +12,7 @@
 static int get_page_vaddr(struct page_read *pr, struct iovec *iov)
 {
 	int ret;
-	__u64 img_va;
+	u64 img_va;
 
 	ret = read_img_eof(pr->fd_pg, &img_va);
 	if (ret <= 0)

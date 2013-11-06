@@ -3,6 +3,7 @@
 #include "protobuf.h"
 #include "stats.h"
 #include "crtools.h"
+#include "image.h"
 #include "protobuf/stats.pb-c.h"
 
 struct timing {
