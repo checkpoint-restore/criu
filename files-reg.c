@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "crtools.h"
+#include "cr_options.h"
 #include "fdset.h"
 #include "file-ids.h"
 #include "mount.h"

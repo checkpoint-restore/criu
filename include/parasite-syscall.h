@@ -1,6 +1,7 @@
 #ifndef __CR_PARASITE_SYSCALL_H__
 #define __CR_PARASITE_SYSCALL_H__
 
+#include "asm/types.h"
 #include "pid.h"
 #include "list.h"
 

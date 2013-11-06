@@ -39,7 +39,7 @@
 #include "image.h"
 #include "vma.h"
 
-#include "crtools.h"
+#include "cr_options.h"
 #include "servicefd.h"
 
 #define VMA_OPT_LEN	128

@@ -20,6 +20,7 @@
 
 #include "compiler.h"
 #include "crtools.h"
+#include "cr_options.h"
 #include "sockets.h"
 #include "syscall.h"
 #include "files.h"

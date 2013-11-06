@@ -4,7 +4,7 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 
-#include "crtools.h"
+#include "cr_options.h"
 #include "fdset.h"
 #include "protobuf.h"
 #include "cr-show.h"

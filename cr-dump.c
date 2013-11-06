@@ -37,6 +37,7 @@
 #include "kcmp-ids.h"
 #include "compiler.h"
 #include "crtools.h"
+#include "cr_options.h"
 #include "servicefd.h"
 #include "syscall.h"
 #include "ptrace.h"

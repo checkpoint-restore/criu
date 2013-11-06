@@ -8,7 +8,7 @@
 #include <sys/shm.h>
 
 #include "util.h"
-#include "crtools.h"
+#include "cr_options.h"
 #include "fdset.h"
 #include "syscall.h"
 #include "namespaces.h"

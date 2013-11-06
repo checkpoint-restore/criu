@@ -17,7 +17,7 @@
 #include "fdset.h"
 #include "namespaces.h"
 #include "compiler.h"
-#include "crtools.h"
+#include "cr_options.h"
 #include "util.h"
 #include "sockets.h"
 #include "image.h"

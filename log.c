@@ -15,7 +15,7 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "util.h"
-#include "crtools.h"
+#include "cr_options.h"
 #include "servicefd.h"
 
 #define DEFAULT_LOGFD		STDERR_FILENO

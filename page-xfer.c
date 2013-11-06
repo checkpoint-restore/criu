@@ -3,7 +3,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#include "crtools.h"
+#include "cr_options.h"
+#include "servicefd.h"
 #include "image.h"
 #include "page-xfer.h"
 #include "page-pipe.h"

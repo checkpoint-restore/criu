@@ -29,6 +29,7 @@
 #include "asm/types.h"
 #include "asm/restorer.h"
 
+#include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"
 #include "util.h"

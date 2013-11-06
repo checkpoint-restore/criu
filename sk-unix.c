@@ -10,7 +10,7 @@
 
 #include "asm/types.h"
 #include "libnetlink.h"
-#include "crtools.h"
+#include "cr_options.h"
 #include "fdset.h"
 #include "unix_diag.h"
 #include "files.h"

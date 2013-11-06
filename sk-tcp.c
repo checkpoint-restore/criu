@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <string.h>
 
-#include "crtools.h"
+#include "cr_options.h"
 #include "util.h"
 #include "list.h"
 #include "log.h"
