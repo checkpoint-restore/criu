@@ -13,7 +13,6 @@
 #include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
-#include "files.h"
 #include "sk-inet.h"
 #include "netfilter.h"
 #include "image.h"

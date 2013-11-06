@@ -30,7 +30,6 @@
 
 #include "protobuf.h"
 #include "protobuf/tty.pb-c.h"
-#include "protobuf/creds.pb-c.h"
 
 #include "parasite-syscall.h"
 #include "parasite.h"

@@ -15,7 +15,6 @@
 
 #include "crtools.h"
 #include "cr_options.h"
-#include "util-pie.h"
 #include "util.h"
 #include "log.h"
 #include "pstree.h"
