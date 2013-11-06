@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/time.h>
+#include "asm/atomic.h"
 #include "protobuf.h"
 #include "stats.h"
 #include "crtools.h"
