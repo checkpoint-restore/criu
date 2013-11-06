@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "asm/types.h"
+#include "fdset.h"
 #include "files.h"
 #include "sockets.h"
 #include "libnetlink.h"

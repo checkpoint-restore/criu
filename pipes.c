@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 
 #include "crtools.h"
+#include "fdset.h"
 #include "image.h"
 #include "files.h"
 #include "pipes.h"

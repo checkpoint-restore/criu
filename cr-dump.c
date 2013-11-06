@@ -32,6 +32,7 @@
 
 #include "asm/types.h"
 #include "list.h"
+#include "fdset.h"
 #include "file-ids.h"
 #include "kcmp-ids.h"
 #include "compiler.h"

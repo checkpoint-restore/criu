@@ -12,6 +12,7 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
 
+#include "fdset.h"
 #include "syscall.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"

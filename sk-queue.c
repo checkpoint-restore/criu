@@ -12,6 +12,7 @@
 
 #include "asm/types.h"
 #include "list.h"
+#include "fdset.h"
 #include "image.h"
 #include "crtools.h"
 #include "util.h"

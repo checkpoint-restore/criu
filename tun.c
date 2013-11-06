@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 
 #include "crtools.h"
+#include "fdset.h"
 #include "protobuf.h"
 #include "cr-show.h"
 #include "string.h"

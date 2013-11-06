@@ -4,6 +4,7 @@
 #include <poll.h>
 
 #include "crtools.h"
+#include "fdset.h"
 #include "files.h"
 #include "sockets.h"
 #include "util.h"

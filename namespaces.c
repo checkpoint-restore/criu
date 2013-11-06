@@ -3,6 +3,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include "util.h"
+#include "fdset.h"
 #include "syscall.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"

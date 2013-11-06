@@ -57,7 +57,6 @@ void kill_inventory(void);
 
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern void print_image_data(int fd, unsigned int length, int show);
-extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
 extern int open_image_dir(void);
 extern void close_image_dir(void);
@@ -70,24 +69,6 @@ void up_page_ids_base(void);
 
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 
-struct cr_fdset {
-	int fd_off;
-	int fd_nr;
-	int *_fds;
-};
-
-static inline int fdset_fd(const struct cr_fdset *fdset, int type)
-{
-	int idx;
-
-	idx = type - fdset->fd_off;
-	BUG_ON(idx > fdset->fd_nr);
-
-	return fdset->_fds[idx];
-}
-
-extern struct cr_fdset *glob_fdset;
-
 int cr_dump_tasks(pid_t pid);
 int cr_pre_dump_tasks(pid_t pid);
 int cr_restore_tasks(void);
@@ -99,15 +80,6 @@ int cr_exec(int pid, char **opts);
 #define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
 #define O_SHOW	(O_RDONLY)
 #define O_RSTR	(O_RDONLY)
-
-struct cr_fdset *cr_task_fdset_open(int pid, int mode);
-struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
-			       unsigned long flags);
-#define cr_fdset_open(pid, type, flags) cr_fdset_open_range(pid, \
-		_CR_FD_##type##_FROM, _CR_FD_##type##_TO, flags)
-struct cr_fdset *cr_glob_fdset_open(int mode);
-
-void close_cr_fdset(struct cr_fdset **cr_fdset);
 
 struct fdt {
 	int			nr;		/* How many tasks share this fd table */

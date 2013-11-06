@@ -9,6 +9,7 @@
 
 #include "util.h"
 #include "crtools.h"
+#include "fdset.h"
 #include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"

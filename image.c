@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include "crtools.h"
+#include "fdset.h"
 #include "image.h"
 #include "eventpoll.h"
 #include "signalfd.h"

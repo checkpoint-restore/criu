@@ -23,6 +23,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "fdset.h"
 #include "fsnotify.h"
 #include "proc_parse.h"
 #include "syscall.h"

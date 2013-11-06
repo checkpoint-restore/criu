@@ -8,6 +8,7 @@
 #include <sched.h>
 #include <sys/mount.h>
 
+#include "fdset.h"
 #include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"

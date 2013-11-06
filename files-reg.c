@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include "crtools.h"
+#include "fdset.h"
 #include "file-ids.h"
 #include "mount.h"
 #include "files.h"

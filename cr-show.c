@@ -14,6 +14,7 @@
 
 #include "asm/types.h"
 #include "list.h"
+#include "fdset.h"
 #include "namespaces.h"
 #include "compiler.h"
 #include "crtools.h"

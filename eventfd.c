@@ -14,6 +14,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "fdset.h"
 #include "eventfd.h"
 #include "proc_parse.h"
 #include "crtools.h"
