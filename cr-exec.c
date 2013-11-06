@@ -1,9 +1,11 @@
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 #include "crtools.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
 #include "vma.h"
+#include "log.h"
 
 struct syscall_exec_desc {
 	char *name;
