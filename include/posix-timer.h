@@ -1,6 +1,8 @@
 #ifndef __CR_PROC_POSIX_TIMER_H__
 #define __CR_PROC_POSIX_TIMER_H__
 
+#include "list.h"
+
 struct str_posix_timer {
 	long it_id;
 	int clock_id;

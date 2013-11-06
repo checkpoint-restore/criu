@@ -6,7 +6,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "crtools.h"
 #include "fdset.h"
+#include "image.h"
+#include "servicefd.h"
 #include "file-lock.h"
 #include "parasite.h"
 #include "parasite-syscall.h"

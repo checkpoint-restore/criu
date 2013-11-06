@@ -7,7 +7,6 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "files.h"
-#include "crtools.h"
 
 extern int is_eventfd_link(int lfd);
 extern const struct fdtype_ops eventfd_dump_ops;

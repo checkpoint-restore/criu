@@ -2,7 +2,6 @@
 #define __CR_TTY_H__
 
 #include "files.h"
-#include "crtools.h"
 
 /* Kernel's limit */
 #define TERMIOS_NCC	19

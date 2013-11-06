@@ -11,7 +11,6 @@
 #include "image.h"
 #include "lock.h"
 #include "util.h"
-#include "crtools.h"
 #include "asm/restorer.h"
 
 #include "posix-timer.h"

@@ -7,7 +7,6 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "files.h"
-#include "crtools.h"
 
 struct fsnotify_params {
 	u32	id;
