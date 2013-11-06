@@ -7,8 +7,6 @@
 #include "asm/types.h"
 #include "servicefd.h"
 
-#include "protobuf/vma.pb-c.h"
-
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 
 struct script {

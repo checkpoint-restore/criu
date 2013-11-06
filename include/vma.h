@@ -2,6 +2,7 @@
 #define __CR_VMA_H__
 
 #include "list.h"
+#include "protobuf/vma.pb-c.h"
 
 struct vm_area_list {
 	struct list_head	h;
