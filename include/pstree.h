@@ -3,7 +3,8 @@
 
 #include "list.h"
 #include "pid.h"
-#include "crtools.h"
+#include "image.h"
+#include "rst_info.h"
 #include "protobuf/core.pb-c.h"
 
 /*
@@ -11,7 +12,6 @@
  * all orphaned children in the system.
  */
 #define INIT_PID	(1)
-
 struct pstree_item {
 	struct pstree_item	*parent;
 	struct list_head	children;	/* list of my children */
