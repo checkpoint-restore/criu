@@ -1,10 +1,6 @@
 #ifndef __CR_FSNOTIFY_H__
 #define __CR_FSNOTIFY_H__
 
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "compiler.h"
 #include "asm/types.h"
 #include "files.h"
 

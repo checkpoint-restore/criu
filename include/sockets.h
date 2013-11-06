@@ -1,9 +1,6 @@
 #ifndef __CR_SOCKETS_H__
 #define __CR_SOCKETS_H__
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <stdbool.h>
 
 #include "asm/types.h"
