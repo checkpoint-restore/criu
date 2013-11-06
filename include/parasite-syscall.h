@@ -1,9 +1,10 @@
 #ifndef __CR_PARASITE_SYSCALL_H__
 #define __CR_PARASITE_SYSCALL_H__
 
-#define BUILTIN_SYSCALL_SIZE	8
+#include "pid.h"
+#include "list.h"
 
-#include "pstree.h"
+#define BUILTIN_SYSCALL_SIZE	8
 
 struct parasite_dump_thread;
 struct parasite_dump_misc;
