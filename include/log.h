@@ -61,4 +61,7 @@ extern int write_pidfile(char *pfname, int pid);
 
 #define DEFAULT_LOG_FILENAME "criu.log"
 
+extern void print_data(unsigned long addr, unsigned char *data, size_t size);
+extern void print_image_data(int fd, unsigned int length, int show);
+
 #endif /* __CR_LOG_H__ */

@@ -13,9 +13,6 @@ int check_img_inventory(void);
 int write_img_inventory(void);
 void kill_inventory(void);
 
-extern void print_data(unsigned long addr, unsigned char *data, size_t size);
-extern void print_image_data(int fd, unsigned int length, int show);
-
 #define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
 
 int cr_dump_tasks(pid_t pid);
