@@ -1178,13 +1178,12 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ctl->sigframe	= ctl->local_map  + p;
 
 	p += RESTORE_STACK_SIGFRAME;
-
-	ctl->rstack = ctl->remote_map + p;
 	p += PARASITE_STACK_SIZE;
+	ctl->rstack = ctl->remote_map + p;
 
 	if (item->nr_threads > 1) {
-		ctl->r_thread_stack = ctl->remote_map + p;
 		p += PARASITE_STACK_SIZE;
+		ctl->r_thread_stack = ctl->remote_map + p;
 	}
 
 	if (parasite_start_daemon(ctl, item))
