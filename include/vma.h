@@ -1,6 +1,8 @@
 #ifndef __CR_VMA_H__
 #define __CR_VMA_H__
 
+#include "list.h"
+
 struct vm_area_list {
 	struct list_head	h;
 	unsigned		nr;
