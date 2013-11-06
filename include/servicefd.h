@@ -1,6 +1,8 @@
 #ifndef __CR_SERVICE_FD_H__
 #define __CR_SERVICE_FD_H__
 
+#include <stdbool.h>
+
 enum sfd_type {
 	SERVICE_FD_MIN,
 

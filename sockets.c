@@ -18,7 +18,6 @@
 #include "util-pie.h"
 #include "sk-packet.h"
 #include "namespaces.h"
-#include "crtools.h"
 #include "net.h"
 
 #ifndef NETLINK_SOCK_DIAG

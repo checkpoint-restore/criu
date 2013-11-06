@@ -12,7 +12,6 @@
 #include "asm/types.h"
 #include "list.h"
 #include "util.h"
-#include "crtools.h"
 #include "mount.h"
 #include "cpu.h"
 #include "file-lock.h"

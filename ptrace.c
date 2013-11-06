@@ -13,7 +13,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include "crtools.h"
 #include "compiler.h"
 #include "asm/types.h"
 #include "util.h"

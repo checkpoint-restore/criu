@@ -15,7 +15,6 @@
 #include "fdset.h"
 #include "image.h"
 #include "servicefd.h"
-#include "crtools.h"
 #include "cr_options.h"
 #include "util.h"
 #include "util-pie.h"

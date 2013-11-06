@@ -25,6 +25,7 @@
 #include "ipc_ns.h"
 #include "pstree.h"
 #include "cr-show.h"
+#include "crtools.h"
 
 #include "protobuf.h"
 #include "protobuf/pstree.pb-c.h"

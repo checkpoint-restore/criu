@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#include "crtools.h"
 #include "fdset.h"
 #include "image.h"
 #include "files.h"

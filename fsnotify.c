@@ -27,7 +27,6 @@
 #include "fsnotify.h"
 #include "proc_parse.h"
 #include "syscall.h"
-#include "crtools.h"
 #include "mount.h"
 #include "image.h"
 #include "util.h"

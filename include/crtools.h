@@ -23,16 +23,6 @@ int convert_to_elf(char *elf_path, int fd_core);
 int cr_check(void);
 int cr_exec(int pid, char **opts);
 
-/*
- * When we have to restore a shared resource, we mush select which
- * task should do it, and make other(s) wait for it. In order to
- * avoid deadlocks, always make task with lower pid be the restorer.
- */
-static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
-{
-	return pid_a < pid_b;
-}
-
 void restrict_uid(unsigned int uid, unsigned int gid);
 struct proc_status_creds;
 bool may_dump(struct proc_status_creds *);

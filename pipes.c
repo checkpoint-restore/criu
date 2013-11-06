@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
-#include "crtools.h"
 #include "fdset.h"
 #include "image.h"
 #include "files.h"

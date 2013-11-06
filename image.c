@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdarg.h>
+#include "crtools.h"
 #include "cr_options.h"
 #include "fdset.h"
 #include "image.h"

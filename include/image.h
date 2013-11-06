@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "compiler.h"
+#include "servicefd.h"
 #include "image-desc.h"
 #include "magic.h"
 
