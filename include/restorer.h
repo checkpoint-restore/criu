@@ -83,7 +83,7 @@ struct thread_restore_args {
 
 	struct rst_sched_param		sp;
 
-	struct task_restore_core_args	*ta;
+	struct task_restore_args	*ta;
 
 	u32				tls;
 
@@ -91,7 +91,7 @@ struct thread_restore_args {
 	unsigned int			siginfo_nr;
 } __aligned(64);
 
-struct task_restore_core_args {
+struct task_restore_args {
 	struct thread_restore_args	*t;			/* thread group leader */
 
 	int				fd_exe_link;		/* opened self->exe file */

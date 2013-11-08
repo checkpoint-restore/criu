@@ -1729,7 +1729,7 @@ static inline int itimer_restore_and_fix(char *n, ItimerEntry *ie,
 	return 0;
 }
 
-static int prepare_itimers(int pid, struct task_restore_core_args *args)
+static int prepare_itimers(int pid, struct task_restore_args *args)
 {
 	int fd, ret = -1;
 	ItimerEntry *ie;
@@ -1866,7 +1866,7 @@ static inline int verify_cap_size(CredsEntry *ce)
 		(ce->n_cap_prm == CR_CAP_SIZE) && (ce->n_cap_bnd == CR_CAP_SIZE));
 }
 
-static int prepare_creds(int pid, struct task_restore_core_args *args)
+static int prepare_creds(int pid, struct task_restore_args *args)
 {
 	int fd, ret;
 	CredsEntry *ce;
@@ -1921,7 +1921,7 @@ static int prepare_creds(int pid, struct task_restore_core_args *args)
 	return 0;
 }
 
-static int prepare_mm(pid_t pid, struct task_restore_core_args *args)
+static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
 	int fd, exe_fd, i, ret = -1;
 	MmEntry *mm;
@@ -2178,7 +2178,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	long restore_bootstrap_len;
 
-	struct task_restore_core_args *task_args;
+	struct task_restore_args *task_args;
 	struct thread_restore_args *thread_args;
 	long args_len;
 
@@ -2199,7 +2199,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	/* pr_info_vma_list(&self_vma_list); */
 
-	BUILD_BUG_ON(sizeof(struct task_restore_core_args) & 1);
+	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 

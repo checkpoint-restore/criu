@@ -196,7 +196,7 @@ static void restore_sched_info(struct rst_sched_param *p)
 	sys_sched_setscheduler(0, p->policy, &parm);
 }
 
-static void restore_rlims(struct task_restore_core_args *ta)
+static void restore_rlims(struct task_restore_args *ta)
 {
 	int r;
 
@@ -313,7 +313,7 @@ core_restore_end:
 	return -1;
 }
 
-static long restore_self_exe_late(struct task_restore_core_args *args)
+static long restore_self_exe_late(struct task_restore_args *args)
 {
 	int fd = args->fd_exe_link;
 
@@ -381,7 +381,7 @@ static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 		pr_perror("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
 }
 
-static void rst_tcp_socks_all(struct task_restore_core_args *ta)
+static void rst_tcp_socks_all(struct task_restore_args *ta)
 {
 	int i;
 
@@ -465,7 +465,7 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 	return 0;
 }
 
-static int create_posix_timers(struct task_restore_core_args *args)
+static int create_posix_timers(struct task_restore_args *args)
 {
 	int ret, i;
 	timer_t next_id;
@@ -502,7 +502,7 @@ static int create_posix_timers(struct task_restore_core_args *args)
 	return 0;
 }
 
-static void restore_posix_timers(struct task_restore_core_args *args)
+static void restore_posix_timers(struct task_restore_args *args)
 {
 	int i;
 	struct restore_posix_timer *rt;
@@ -577,7 +577,7 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
  * and jump execution to some predefined ip read from
  * core file.
  */
-long __export_restore_task(struct task_restore_core_args *args)
+long __export_restore_task(struct task_restore_args *args)
 {
 	long ret = -1;
 	int i;
