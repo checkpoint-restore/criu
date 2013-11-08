@@ -2306,13 +2306,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	}
 
+	exec_mem_hint -= restorer_len;
+
 	memzero(mem, args_len);
 	task_args	= mem;
 	thread_args	= (struct thread_restore_args *)(task_args + 1);
-
-	task_args->bootstrap_start = (void *)exec_mem_hint - restorer_len;
-	task_args->bootstrap_len = restore_bootstrap_len;
-	task_args->vdso_rt_size = vdso_rt_size;
 
 	/*
 	 * Get a reference to shared memory area which is
@@ -2329,17 +2327,22 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	ret = shmem_remap(task_entries, mem, TASK_ENTRIES_SIZE);
 	if (ret < 0)
 		goto err;
-	task_args->task_entries = mem;
-
 	mem += TASK_ENTRIES_SIZE;
 
-	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
-	task_args->premmapped_len = current->rst->premmapped_len;
+	if (rst_mem_remap(mem))
+		goto err;
+
+	task_args->task_entries = mem - TASK_ENTRIES_SIZE;
 
 	task_args->rst_mem = mem;
 	task_args->rst_mem_size = rst_mem_remap_size();
-	if (rst_mem_remap(mem))
-		goto err;
+
+	task_args->bootstrap_start = (void *)exec_mem_hint;
+	task_args->bootstrap_len = restore_bootstrap_len;
+	task_args->vdso_rt_size = vdso_rt_size;
+
+	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
+	task_args->premmapped_len = current->rst->premmapped_len;
 
 	task_args->shmems = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
 	task_args->nr_shmems = nr_shmems;
