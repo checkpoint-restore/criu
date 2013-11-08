@@ -64,7 +64,12 @@ struct restore_posix_timer {
 
 struct task_restore_core_args;
 
-/* Make sure it's pow2 in size */
+/*
+ * We should be able to construct fpu sigframe in sigreturn_prep_fpu_frame,
+ * so the mem_zone.rt_sigframe should be 64-bytes aligned. To make things
+ * simpler, force both _args alignment be 64 bytes.
+ */
+
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
@@ -84,7 +89,7 @@ struct thread_restore_args {
 
 	siginfo_t			*siginfo;
 	unsigned int			siginfo_nr;
-} __aligned(sizeof(long));
+} __aligned(64);
 
 struct task_restore_core_args {
 	struct thread_restore_args	*t;			/* thread group leader */
@@ -142,7 +147,7 @@ struct task_restore_core_args {
 
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
-} __aligned(sizeof(long));
+} __aligned(64);
 
 #define RESTORE_ALIGN_STACK(start, size)	\
 	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))

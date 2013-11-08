@@ -2169,9 +2169,6 @@ void __gcov_flush(void) {}
 
 static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
-	long restore_task_vma_len;
-	long restore_thread_vma_len;
-
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
@@ -2183,6 +2180,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	struct task_restore_core_args *task_args;
 	struct thread_restore_args *thread_args;
+	long args_len;
 
 	struct vma_area *vma;
 	unsigned long tgt_vmas;
@@ -2205,12 +2203,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 
-	restore_task_vma_len   = round_up(sizeof(*task_args), PAGE_SIZE);
-	restore_thread_vma_len = round_up(sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
-
+	args_len = round_up(sizeof(*task_args) + sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
 	pr_info("%d threads require %ldK of memory\n",
-			current->nr_threads,
-			KBYTES(restore_thread_vma_len));
+			current->nr_threads, KBYTES(args_len));
 
 	/*
 	 * Copy VMAs to private rst memory so that it's able to
@@ -2251,9 +2246,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	restore_bootstrap_len = restorer_len +
-				restore_task_vma_len +
-				restore_thread_vma_len +
+	restore_bootstrap_len = restorer_len + args_len +
 				TASK_ENTRIES_SIZE +
 				rst_mem_remap_size();
 
@@ -2305,8 +2298,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	exec_mem_hint += restorer_len;
 
 	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint,
-			restore_task_vma_len + restore_thread_vma_len,
+	mem = mmap((void *)exec_mem_hint, args_len,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
 	if (mem != (void *)exec_mem_hint) {
@@ -2314,9 +2306,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	}
 
-	memzero(mem, restore_task_vma_len + restore_thread_vma_len);
+	memzero(mem, args_len);
 	task_args	= mem;
-	thread_args	= mem + restore_task_vma_len;
+	thread_args	= (struct thread_restore_args *)(task_args + 1);
 
 	task_args->bootstrap_start = (void *)exec_mem_hint - restorer_len;
 	task_args->bootstrap_len = restore_bootstrap_len;
@@ -2333,7 +2325,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * address.
 	 */
 
-	mem += restore_task_vma_len + restore_thread_vma_len;
+	mem += args_len;
 	ret = shmem_remap(task_entries, mem, TASK_ENTRIES_SIZE);
 	if (ret < 0)
 		goto err;
