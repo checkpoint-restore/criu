@@ -337,10 +337,8 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
 	switch (nde->type) {
-	case ND_TYPE__LOOPBACK:
-		return restore_one_link(nde, nlsk, NULL);
-	case ND_TYPE__EXTLINK:
-		/* see comment in protobuf/netdev.proto */
+	case ND_TYPE__LOOPBACK: /* fallthrough */
+	case ND_TYPE__EXTLINK:  /* see comment in protobuf/netdev.proto */
 		return restore_link_parms(nde, nlsk);
 	case ND_TYPE__VETH:
 		return restore_one_link(nde, nlsk, veth_link_info);
