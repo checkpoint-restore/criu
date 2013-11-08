@@ -11,7 +11,7 @@ struct rst_mem_type_s {
 	bool enabled;
 	unsigned long free_bytes;
 	void *free_mem;
-	int (*grow)(struct rst_mem_type_s *);
+	int (*grow)(struct rst_mem_type_s *, unsigned long size);
 	unsigned long last;
 
 	void *buf;
@@ -20,9 +20,21 @@ struct rst_mem_type_s {
 
 #define RST_MEM_BATCH	(2 * PAGE_SIZE)
 
-static int grow_shared(struct rst_mem_type_s *t)
+static inline unsigned long rst_mem_grow(unsigned long need_size)
+{
+	need_size = round_up(need_size, PAGE_SIZE);
+	if (likely(need_size < RST_MEM_BATCH))
+		need_size = RST_MEM_BATCH;
+	else
+		pr_debug("Growing rst memory %lu pages\n", need_size / PAGE_SIZE);
+	return need_size;
+}
+
+static int grow_shared(struct rst_mem_type_s *t, unsigned long size)
 {
 	void *aux;
+
+	size = rst_mem_grow(size);
 
 	/*
 	 * This buffer will not get remapped into
@@ -30,27 +42,29 @@ static int grow_shared(struct rst_mem_type_s *t)
 	 * previous chunk location and allocate a
 	 * new one
 	 */
-	aux = mmap(NULL, RST_MEM_BATCH, PROT_READ | PROT_WRITE,
+	aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
 	if (aux == MAP_FAILED)
 		return -1;
 
 	t->free_mem = aux;
-	t->free_bytes = RST_MEM_BATCH;
+	t->free_bytes = size;
 	t->last = 0;
 
 	return 0;
 }
 
-static int grow_remap(struct rst_mem_type_s *t, int flag)
+static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 {
 	void *aux;
+
+	size = rst_mem_grow(size);
 
 	if (!t->buf)
 		/*
 		 * Can't call mremap with NULL address :(
 		 */
-		aux = mmap(NULL, RST_MEM_BATCH, PROT_READ | PROT_WRITE,
+		aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
 				flag | MAP_ANON, 0, 0);
 	else
 		/*
@@ -63,26 +77,26 @@ static int grow_remap(struct rst_mem_type_s *t, int flag)
 		 * cpos-s.
 		 */
 		aux = mremap(t->buf, t->size,
-				t->size + RST_MEM_BATCH, MREMAP_MAYMOVE);
+				t->size + size, MREMAP_MAYMOVE);
 	if (aux == MAP_FAILED)
 		return -1;
 
 	t->free_mem += (aux - t->buf);
-	t->free_bytes += RST_MEM_BATCH;
-	t->size += RST_MEM_BATCH;
+	t->free_bytes += size;
+	t->size += size;
 	t->buf = aux;
 
 	return 0;
 }
 
-static int grow_shremap(struct rst_mem_type_s *t)
+static int grow_shremap(struct rst_mem_type_s *t, unsigned long size)
 {
-	return grow_remap(t, MAP_SHARED);
+	return grow_remap(t, MAP_SHARED, size);
 }
 
-static int grow_private(struct rst_mem_type_s *t)
+static int grow_private(struct rst_mem_type_s *t, unsigned long size)
 {
-	return grow_remap(t, MAP_PRIVATE);
+	return grow_remap(t, MAP_PRIVATE, size);
 }
 
 static struct rst_mem_type_s rst_mems[RST_MEM_TYPES] = {
@@ -131,7 +145,7 @@ void *rst_mem_alloc(unsigned long size, int type)
 
 	BUG_ON(!t->enabled);
 
-	if ((t->free_bytes < size) && t->grow(t)) {
+	if ((t->free_bytes < size) && t->grow(t, size)) {
 		pr_perror("Can't grow rst mem");
 		return NULL;
 	}
