@@ -12,6 +12,7 @@
 #include "lock.h"
 #include "util.h"
 #include "asm/restorer.h"
+#include "rst_info.h"
 
 #include "posix-timer.h"
 #include "shmem.h"
@@ -167,13 +168,6 @@ enum {
 	 */
 	CR_STATE_RESTORE_CREDS,
 	CR_STATE_COMPLETE
-};
-
-struct task_entries {
-	int nr_threads, nr_tasks, nr_helpers;
-	futex_t nr_in_progress;
-	futex_t start;
-	mutex_t	zombie_lock;
 };
 
 #define restore_finish_stage(__stage) ({				\

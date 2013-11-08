@@ -4,6 +4,13 @@
 #include "lock.h"
 #include "list.h"
 
+struct task_entries {
+	int nr_threads, nr_tasks, nr_helpers;
+	futex_t nr_in_progress;
+	futex_t start;
+	mutex_t	zombie_lock;
+};
+
 struct fdt {
 	int			nr;		/* How many tasks share this fd table */
 	pid_t			pid;		/* Who should restore this fd table */
