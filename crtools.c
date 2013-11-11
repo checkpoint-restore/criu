@@ -77,7 +77,6 @@ int main(int argc, char *argv[])
 	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
 	int opt, idx;
-	int log_inited = 0;
 	int log_level = 0;
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
@@ -171,9 +170,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'o':
 			opts.output = optarg;
-			if (log_init(optarg))
-				return -1;
-			log_inited = 1;
 			break;
 		case 'n':
 			if (parse_ns_string(optarg))
@@ -286,11 +282,8 @@ int main(int argc, char *argv[])
 
 	log_set_loglevel(log_level);
 
-	if (!log_inited) {
-		ret = log_init(NULL);
-		if (ret)
-			return ret;
-	}
+	if (log_init(opts.output))
+		return -1;
 
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
