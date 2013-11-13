@@ -452,18 +452,11 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 	return 0;
 }
 
-static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
+static int __send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 {
 	int ret, err = -1;
 	int off, max;
 	char *buf;
-
-	pr_debug("\tRestoring TCP %d queue data %u bytes\n", queue, len);
-
-	if (setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
-		pr_perror("Can't set repair queue");
-		return -1;
-	}
 
 	buf = xmalloc(len);
 	if (!buf)
@@ -494,16 +487,49 @@ err:
 	return err;
 }
 
+static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
+{
+	pr_debug("\tRestoring TCP %d queue data %u bytes\n", queue, len);
+
+	if (setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
+		pr_perror("Can't set repair queue");
+		return -1;
+	}
+
+	return __send_tcp_queue(sk, queue, len, imgfd);
+}
+
 static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 {
+	u32 len;
+
 	if (restore_prepare_socket(sk))
 		return -1;
 
-	if (tse->inq_len &&
-			send_tcp_queue(sk, TCP_RECV_QUEUE, tse->inq_len, fd))
+	len = tse->inq_len;
+	if (len && send_tcp_queue(sk, TCP_RECV_QUEUE, len, fd))
 		return -1;
-	if (tse->outq_len &&
-			send_tcp_queue(sk, TCP_SEND_QUEUE, tse->outq_len, fd))
+
+	/*
+	 * All data in a write buffer can be divided on two parts sent
+	 * but not yet acknowledged data and unsent data.
+	 * The TCP stack must know which data have been sent, because
+	 * acknowledgment can be received for them. These data must be
+	 * restored in repair mode.
+	 */
+	len = tse->outq_len - tse->unsq_len;
+	if (len && send_tcp_queue(sk, TCP_SEND_QUEUE, len, fd))
+		return -1;
+
+	/*
+	 * The second part of data have never been sent to outside, so
+	 * they can be restored without any tricks.
+	 */
+	len = tse->unsq_len;
+	tcp_repair_off(sk);
+	if (len && __send_tcp_queue(sk, TCP_SEND_QUEUE, len, fd))
+		return -1;
+	if (tcp_repair_on(sk))
 		return -1;
 
 	return 0;
