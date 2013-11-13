@@ -94,6 +94,13 @@ static int refresh_inet_sk(struct inet_sk_desc *sk)
 
 	sk->wqlen = size;
 
+	if (ioctl(sk->rfd, SIOCOUTQNSD, &size) == -1) {
+		pr_perror("Unable to get size of unsent data");
+		return -1;
+	}
+
+	sk->uwqlen = size;
+
 	if (ioctl(sk->rfd, SIOCINQ, &size) == -1) {
 		pr_perror("Unable to get size of recv queue");
 		return -1;
@@ -324,6 +331,8 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 
 	pr_info("Reading outq for socket\n");
 	tse.outq_len = sk->wqlen;
+	tse.unsq_len = sk->uwqlen;
+	tse.has_unsq_len = true;
 	ret = tcp_stream_get_queue(sk->rfd, TCP_SEND_QUEUE,
 			&tse.outq_seq, tse.outq_len, &out_buf);
 	if (ret < 0)
