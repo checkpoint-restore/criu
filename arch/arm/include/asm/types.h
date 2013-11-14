@@ -139,19 +139,6 @@ struct user_vfp_exc {
 # define PAGE_MASK	(~(PAGE_SIZE - 1))
 #endif
 
-/* For sys_kcmp */
-enum kcmp_type {
-	KCMP_FILE,
-	KCMP_VM,
-	KCMP_FILES,
-	KCMP_FS,
-	KCMP_SIGHAND,
-	KCMP_IO,
-	KCMP_SYSVSEM,
-
-	KCMP_TYPES,
-};
-
 #ifndef MAP_HUGETLB
 # define MAP_HUGETLB 0x40000
 #endif

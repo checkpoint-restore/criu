@@ -1,6 +1,8 @@
 #ifndef __CR_KCMP_IDS_H__
 #define __CR_KCMP_IDS_H__
 
+#include "kcmp.h"
+
 struct kid_tree {
 	struct rb_root root;
 	unsigned kcmp_type;
