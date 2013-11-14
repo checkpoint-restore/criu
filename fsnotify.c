@@ -62,6 +62,13 @@ struct fsnotify_file_info {
 	struct file_desc		d;
 };
 
+/* File handle */
+typedef struct {
+	u32 bytes;
+	u32 type;
+	u64 __handle[16];
+} fh_t;
+
 static LIST_HEAD(inotify_info_head);
 static LIST_HEAD(fanotify_info_head);
 

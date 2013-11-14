@@ -152,13 +152,6 @@ enum kcmp_type {
 	KCMP_TYPES,
 };
 
-/* File handle */
-typedef struct {
-	u32 bytes;
-	u32 type;
-	u64 __handle[16];
-} fh_t;
-
 #ifndef MAP_HUGETLB
 # define MAP_HUGETLB 0x40000
 #endif
