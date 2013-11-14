@@ -33,7 +33,6 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
 {
 	struct cmsghdr *cmsg;
 
-	BUILD_BUG_ON(CR_SCM_MAX_FD > SCM_MAX_FD);
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
 	fdset->iov.iov_base		= fdset->opts;
