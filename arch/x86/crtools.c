@@ -15,6 +15,7 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
+#include "errno.h"
 
 #include "protobuf.h"
 #include "protobuf/core.pb-c.h"

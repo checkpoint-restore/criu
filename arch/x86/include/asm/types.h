@@ -13,11 +13,6 @@
 #define SIGMAX			64
 #define SIGMAX_OLD		31
 
-#define ERESTARTSYS		512
-#define ERESTARTNOINTR		513
-#define ERESTARTNOHAND		514
-#define ERESTART_RESTARTBLOCK	516
-
 #define MAJOR(dev)		((dev)>>8)
 #define MINOR(dev)		((dev) & 0xff)
 
