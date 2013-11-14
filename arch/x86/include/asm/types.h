@@ -13,8 +13,6 @@
 #define FS_TLS 0
 #define GS_TLS 1
 
-#define SECURE_NO_SETUID_FIXUP	2
-
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 

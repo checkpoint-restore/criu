@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <linux/securebits.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

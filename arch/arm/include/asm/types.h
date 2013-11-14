@@ -9,8 +9,6 @@
 #include "asm/bitops.h"
 #include "asm/int.h"
 
-#define SECURE_NO_SETUID_FIXUP	2
-
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 
