@@ -10,8 +10,6 @@
 
 #include "protobuf/core.pb-c.h"
 
-#define CLONE_VFORK		0x00004000
-
 #define SIGMAX			64
 #define SIGMAX_OLD		31
 
