@@ -9,32 +9,7 @@
 #include "asm/bitops.h"
 #include "asm/int.h"
 
-/* prctl.h */
-#define PR_SET_NAME		15
-#define PR_GET_NAME		16
-
-#define PR_CAPBSET_DROP		24
-#define PR_GET_SECUREBITS	27
-#define PR_SET_SECUREBITS	28
-
 #define SECURE_NO_SETUID_FIXUP	2
-
-#define PR_SET_MM		35
-# define PR_SET_MM_START_CODE		1
-# define PR_SET_MM_END_CODE		2
-# define PR_SET_MM_START_DATA		3
-# define PR_SET_MM_END_DATA		4
-# define PR_SET_MM_START_STACK		5
-# define PR_SET_MM_START_BRK		6
-# define PR_SET_MM_BRK			7
-# define PR_SET_MM_ARG_START		8
-# define PR_SET_MM_ARG_END		9
-# define PR_SET_MM_ENV_START		10
-# define PR_SET_MM_ENV_END		11
-# define PR_SET_MM_AUXV			12
-# define PR_SET_MM_EXE_FILE		13
-
-#define PR_GET_TID_ADDRESS     40
 
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000

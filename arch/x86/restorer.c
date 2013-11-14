@@ -1,3 +1,4 @@
+#include <asm/prctl.h>
 #include <unistd.h>
 
 #include "restorer.h"

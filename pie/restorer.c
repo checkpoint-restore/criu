@@ -16,6 +16,7 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "syscall.h"
+#include "prctl.h"
 #include "log.h"
 #include "util.h"
 #include "image.h"

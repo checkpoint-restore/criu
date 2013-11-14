@@ -19,6 +19,7 @@
 #include "log.h"
 #include "util-pie.h"
 #include "syscall.h"
+#include "prctl.h"
 #include "files.h"
 #include "sk-inet.h"
 #include "proc_parse.h"
