@@ -56,7 +56,7 @@
 
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2
-#define TASK_STOPPED		0x3 /* FIXME - implement */
+#define TASK_STOPPED		0x3
 #define TASK_HELPER		0x4
 
 #define CR_PARENT_LINK "parent"
