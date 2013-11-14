@@ -456,7 +456,13 @@ static int check_path_remap(char *rpath, int plen, const struct stat *ost, int l
 			return 0;
 		/*
 		 * FIXME linked file, but the name we see it by is reused
-		 * by somebody else.
+		 * by somebody else. We can dump it with linked remaps, but
+		 * we'll have difficulties on restore -- we will have to
+		 * move the exisint file aside, then restore this one,
+		 * unlink, then move the original file back. It's fairly
+		 * easy to do, but we don't do it now, since unlinked files
+		 * have the "(deleted)" suffix in proc and name conflict
+		 * is unlikely :)
 		 */
 		pr_err("Unaccessible path opened %u:%u, need %u:%u\n",
 				(int)pst.st_dev, (int)pst.st_ino,
