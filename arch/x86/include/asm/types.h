@@ -119,22 +119,6 @@ typedef struct {
 # define PAGE_MASK	(~(PAGE_SIZE - 1))
 #endif
 
-#ifndef MAP_HUGETLB
-# define MAP_HUGETLB 0x40000
-#endif
-
-#ifndef MADV_HUGEPAGE
-# define MADV_HUGEPAGE 14
-#endif
-
-#ifndef MADV_NOHUGEPAGE
-# define MADV_NOHUGEPAGE 15
-#endif
-
-#ifndef MADV_DONTDUMP
-# define MADV_DONTDUMP 16
-#endif
-
 #define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
 
 typedef uint64_t auxv_t;
