@@ -46,21 +46,6 @@
 
 #define PR_GET_TID_ADDRESS     40
 
-/* fcntl */
-#ifndef F_LINUX_SPECIFIC_BASE
-#define F_LINUX_SPECIFIC_BASE	1024
-#endif
-#ifndef F_SETPIPE_SZ
-# define F_SETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 7)
-#endif
-#ifndef F_GETPIPE_SZ
-# define F_GETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 8)
-#endif
-
-#ifndef F_GETOWNER_UIDS
-#define F_GETOWNER_UIDS	17
-#endif
-
 #define CLONE_CHILD_USEPID      0x02000000
 #define CLONE_VFORK		0x00004000
 
@@ -194,18 +179,6 @@ enum kcmp_type {
 /* For UNIX sockets data */
 #ifndef SCM_MAX_FD
 # define SCM_MAX_FD	253
-#endif
-
-#include <fcntl.h>
-
-#ifndef F_SETOWN_EX
-#define F_SETOWN_EX	15
-#define F_GETOWN_EX	16
-
-struct f_owner_ex {
-	int	type;
-	pid_t	pid;
-};
 #endif
 
 /* File handle */

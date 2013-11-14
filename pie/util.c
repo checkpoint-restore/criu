@@ -8,6 +8,7 @@
 #include "asm/string.h"
 #include "asm/types.h"
 #include "syscall.h"
+#include "fcntl.h"
 #include "log.h"
 #include "util-pie.h"
 

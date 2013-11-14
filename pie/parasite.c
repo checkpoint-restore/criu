@@ -8,6 +8,7 @@
 
 #include "syscall.h"
 #include "parasite.h"
+#include "fcntl.h"
 #include "lock.h"
 #include "vdso.h"
 #include "log.h"

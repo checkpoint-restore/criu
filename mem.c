@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "cr_options.h"
 #include "servicefd.h"

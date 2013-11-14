@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <fcntl.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "

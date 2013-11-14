@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include "asm/atomic.h"
 #include "protobuf.h"

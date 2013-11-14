@@ -3,6 +3,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
+#include "fcntl.h"
 #include "lock.h"
 #include "list.h"
 #include "image.h"

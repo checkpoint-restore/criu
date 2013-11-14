@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include "pid.h"
 #include "shmem.h"
