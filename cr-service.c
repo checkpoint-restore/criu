@@ -124,8 +124,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (open_image_dir(".") < 0)
 		return -1;
 
-	log_closedir();
-
 	/* initiate log file in imgs dir */
 	if (req->log_file)
 		opts.output = req->log_file;

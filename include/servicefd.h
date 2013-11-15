@@ -7,7 +7,6 @@ enum sfd_type {
 	SERVICE_FD_MIN,
 
 	LOG_FD_OFF,
-	LOG_DIR_FD_OFF,
 	IMG_FD_OFF,
 	PROC_FD_OFF,	/* fd with /proc for all proc_ calls */
 	CTL_TTY_OFF,

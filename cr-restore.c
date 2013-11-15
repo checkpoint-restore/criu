@@ -870,7 +870,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 	int ret;
 
 	/* No more fork()-s => no more per-pid logs */
-	log_closedir();
 
 	switch ((int)core->tc->task_state) {
 	case TASK_ALIVE:

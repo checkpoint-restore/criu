@@ -63,29 +63,13 @@ int log_get_fd(void)
 
 int log_init(const char *output)
 {
-	int new_logfd, dfd, fd;
+	int new_logfd, fd;
 
 	gettimeofday(&start, NULL);
 	buf_off = TS_BUF_OFF;
 
-	dfd = get_service_fd(LOG_DIR_FD_OFF);
-	if (dfd < 0) {
-		int tmp;
-		tmp = open(".", O_RDONLY);
-		if (tmp == -1) {
-			pr_perror("Can't open a current directory");
-			return -1;
-		}
-
-		dfd = install_service_fd(LOG_DIR_FD_OFF, tmp);
-		close(tmp);
-		if (dfd < 0)
-			return -1;
-	}
-
 	if (output) {
-		new_logfd = openat(dfd, output,
-					O_CREAT | O_TRUNC | O_WRONLY | O_APPEND, 0600);
+		new_logfd = open(output, O_CREAT|O_TRUNC|O_WRONLY|O_APPEND, 0600);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
 			return -1;
@@ -137,12 +121,6 @@ int log_init_by_pid(void)
 void log_fini(void)
 {
 	close_service_fd(LOG_FD_OFF);
-	log_closedir();
-}
-
-void log_closedir(void)
-{
-	close_service_fd(LOG_DIR_FD_OFF);
 }
 
 void log_set_loglevel(unsigned int level)
