@@ -1,7 +1,7 @@
 #ifndef __CR_PAGE_XFER__H__
 #define __CR_PAGE_XFER__H__
 
-int cr_page_server(bool daemon_mode);
+extern int cr_page_server(bool daemon_mode);
 
 /*
  * page_xfer -- transfer pages into image file.
@@ -26,11 +26,11 @@ struct page_xfer {
 	};
 };
 
-int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
+extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
 struct page_pipe;
-int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
-		unsigned long off);
-int connect_to_page_server(void);
-int disconnect_from_page_server(void);
+extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
+				unsigned long off);
+extern int connect_to_page_server(void);
+extern int disconnect_from_page_server(void);
 
 #endif /* __CR_PAGE_XFER__H__ */

@@ -50,6 +50,6 @@ struct collect_image_info {
 #define COLLECT_SHARED		0x1	/* use shared memory for obj-s */
 #define COLLECT_OPTIONAL	0x2	/* image file may be missing */
 
-int collect_image(struct collect_image_info *);
+extern int collect_image(struct collect_image_info *);
 
 #endif /* __CR_PROTOBUF_H__ */

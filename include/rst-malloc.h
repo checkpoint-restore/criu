@@ -44,25 +44,25 @@ enum {
 /*
  * Disables SHARED and SHREMAP allocations, turns on PRIVATE
  */
-void rst_mem_switch_to_private(void);
+extern void rst_mem_switch_to_private(void);
 /* 
  * Reports a cookie of a current shared buffer position, that
  * can later be used in rst_mem_cpos() to find out the object
  * pointer.
  */
-unsigned long rst_mem_cpos(int type);
-void *rst_mem_remap_ptr(unsigned long pos, int type);
+extern unsigned long rst_mem_cpos(int type);
+extern void *rst_mem_remap_ptr(unsigned long pos, int type);
 /*
  * Allocate and free objects. We don't need to free arbitrary
  * object, thus allocation is simple (linear) and only the
  * last object can be freed (pop-ed from buffer).
  */
-void *rst_mem_alloc(unsigned long size, int type);
-void rst_mem_free_last(int type);
+extern void *rst_mem_alloc(unsigned long size, int type);
+extern void rst_mem_free_last(int type);
 /*
  * Routines to remap SHREMAP and PRIVATE into restorer address space
  */
-unsigned long rst_mem_remap_size(void);
-int rst_mem_remap(void *to);
+extern unsigned long rst_mem_remap_size(void);
+extern int rst_mem_remap(void *to);
 
 #endif /* __CR_RST_MALLOC__H__ */

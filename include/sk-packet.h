@@ -11,8 +11,8 @@ struct vma_area;
 
 extern struct collect_image_info packet_sk_cinfo;
 
-int dump_socket_map(struct vma_area *vma);
-int get_socket_fd(int pid, VmaEntry *vma);
+extern int dump_socket_map(struct vma_area *vma);
+extern int get_socket_fd(int pid, VmaEntry *vma);
 
 extern int packet_receive_one(struct nlmsghdr *h, void *arg);
 

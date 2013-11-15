@@ -25,13 +25,13 @@ extern unsigned long current_ns_mask;
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;
 
-int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
-int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
-int try_show_namespaces(int pid);
+extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
+extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
+extern int try_show_namespaces(int pid);
 
-int switch_ns(int pid, struct ns_desc *nd, int *rst);
-int restore_ns(int rst, struct ns_desc *nd);
+extern int switch_ns(int pid, struct ns_desc *nd, int *rst);
+extern int restore_ns(int rst, struct ns_desc *nd);
 
-int dump_task_ns_ids(struct pstree_item *);
+extern int dump_task_ns_ids(struct pstree_item *);
 
 #endif /* __CR_NS_H__ */

@@ -71,10 +71,10 @@ extern bool ns_per_id;
 extern int open_image_dir(void);
 extern void close_image_dir(void);
 
-int open_image_at(int dfd, int type, unsigned long flags, ...);
+extern int open_image_at(int dfd, int type, unsigned long flags, ...);
 #define open_image(typ, flags, ...) open_image_at(get_service_fd(IMG_FD_OFF), typ, flags, ##__VA_ARGS__)
-int open_pages_image(unsigned long flags, int pm_fd);
-int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
-void up_page_ids_base(void);
+extern int open_pages_image(unsigned long flags, int pm_fd);
+extern int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
+extern void up_page_ids_base(void);
 
 #endif /* __CR_IMAGE_H__ */

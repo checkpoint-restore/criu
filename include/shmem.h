@@ -21,16 +21,16 @@ struct shmem_info {
 	futex_t		lock;
 };
 
-int prepare_shmem_pid(int pid);
-int prepare_shmem_restore(void);
-void show_saved_shmems(void);
-int get_shmem_fd(int pid, VmaEntry *vi);
+extern int prepare_shmem_pid(int pid);
+extern int prepare_shmem_restore(void);
+extern void show_saved_shmems(void);
+extern int get_shmem_fd(int pid, VmaEntry *vi);
 
 extern unsigned long nr_shmems;
 extern unsigned int rst_shmems;
 
-int cr_dump_shmem(void);
-int add_shmem_area(pid_t pid, VmaEntry *vma);
+extern int cr_dump_shmem(void);
+extern int add_shmem_area(pid_t pid, VmaEntry *vma);
 
 static always_inline struct shmem_info *
 find_shmem(struct shmem_info *shmems, int nr, unsigned long shmid)

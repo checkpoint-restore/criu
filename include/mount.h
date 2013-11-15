@@ -2,7 +2,7 @@
 #define __CR_MOUNT_H__
 
 extern int mntns_root;
-int mntns_collect_root(pid_t pid);
+extern int mntns_collect_root(pid_t pid);
 
 struct proc_mountinfo;
 
@@ -12,7 +12,7 @@ extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
 extern int dump_mnt_ns(int pid, int ns_id);
-int prepare_mnt_ns(int pid);
+extern int prepare_mnt_ns(int pid);
 
 extern int pivot_root(const char *new_root, const char *put_old);
 

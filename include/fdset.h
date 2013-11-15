@@ -24,13 +24,13 @@ extern struct cr_fdset *glob_fdset;
 
 extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
 
-struct cr_fdset *cr_task_fdset_open(int pid, int mode);
-struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
-			       unsigned long flags);
+extern struct cr_fdset *cr_task_fdset_open(int pid, int mode);
+extern struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
+					    unsigned long flags);
 #define cr_fdset_open(pid, type, flags) cr_fdset_open_range(pid, \
 		_CR_FD_##type##_FROM, _CR_FD_##type##_TO, flags)
-struct cr_fdset *cr_glob_fdset_open(int mode);
+extern struct cr_fdset *cr_glob_fdset_open(int mode);
 
-void close_cr_fdset(struct cr_fdset **cr_fdset);
+extern void close_cr_fdset(struct cr_fdset **cr_fdset);
 
 #endif /* __CR_FDSET_H__ */

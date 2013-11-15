@@ -25,9 +25,9 @@ struct vma_area {
 	unsigned long		*ppage_bitmap; /* parent's existent pages */
 };
 
-int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
-void free_mappings(struct vm_area_list *vma_area_list);
-bool privately_dump_vma(struct vma_area *vma);
+extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
+extern void free_mappings(struct vm_area_list *vma_area_list);
+extern bool privately_dump_vma(struct vma_area *vma);
 
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
 #define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))

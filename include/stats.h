@@ -17,8 +17,8 @@ enum {
 	RESTORE_TIME_NS_STATS,
 };
 
-void timing_start(int t);
-void timing_stop(int t);
+extern void timing_start(int t);
+extern void timing_stop(int t);
 
 enum {
 	CNT_PAGES_SCANNED,
@@ -35,12 +35,12 @@ enum {
 	RESTORE_CNT_NR_STATS,
 };
 
-void cnt_add(int c, unsigned long val);
+extern void cnt_add(int c, unsigned long val);
 
 #define DUMP_STATS	1
 #define RESTORE_STATS	2
 
-int init_stats(int what);
-void write_stats(int what);
+extern int init_stats(int what);
+extern void write_stats(int what);
 
 #endif /* __CR_STATS_H__ */

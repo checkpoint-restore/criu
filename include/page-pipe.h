@@ -91,11 +91,11 @@ struct page_pipe {
 	struct iovec *holes;	/* holes */
 };
 
-struct page_pipe *create_page_pipe(unsigned int nr, struct iovec *);
-void destroy_page_pipe(struct page_pipe *p);
-int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
-int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
+extern struct page_pipe *create_page_pipe(unsigned int nr, struct iovec *);
+extern void destroy_page_pipe(struct page_pipe *p);
+extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
+extern int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
 
-void debug_show_page_pipe(struct page_pipe *pp);
+extern void debug_show_page_pipe(struct page_pipe *pp);
 
 #endif /* __CR_PAGE_PIPE_H__ */
