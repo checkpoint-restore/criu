@@ -25,25 +25,31 @@ int main(int argc, char *argv[])
 {
 	char path_before[PATH_MAX];
 	char path_after[PATH_MAX];
+	int ret;
 
 	test_init(argc, argv);
 
 	test_msg("%s pid %d\n", argv[0], getpid());
-	if (readlink("/proc/self/exe", path_before, sizeof(path_before)) < 0) {
+	ret = readlink("/proc/self/exe", path_before, sizeof(path_before) - 1);
+	if (ret < 0) {
 		err("Can't read selflink\n");
 		fail();
 		exit(1);
 	}
-
+	path_before[ret] = 0;
+	err("%s\n", path_before);
 
 	test_daemon();
 	test_waitsig();
 
-	if (readlink("/proc/self/exe", path_after, sizeof(path_after)) < 0) {
+	ret = readlink("/proc/self/exe", path_after, sizeof(path_after) - 1);
+	if (ret < 0) {
 		err("Can't read selflink\n");
 		fail();
 		exit(1);
 	}
+	path_after[ret] = 0;
+	err("%s\n", path_after);
 
 	if (!strcmp(path_before, path_after))
 		pass();
