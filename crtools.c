@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	while (1) {
-		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jl";
+		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jlW:";
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
@@ -104,6 +104,7 @@ int main(int argc, char *argv[])
 			{ "contents", no_argument, 0, 'c' },
 			{ "file", required_argument, 0, 'f' },
 			{ "images-dir", required_argument, 0, 'D' },
+			{ "work-dir", required_argument, 0, 'W' },
 			{ "log-file", required_argument, 0, 'o' },
 			{ "namespaces", required_argument, 0, 'n' },
 			{ "root", required_argument, 0, 'r' },
@@ -167,6 +168,8 @@ int main(int argc, char *argv[])
 						optarg);
 				return -1;
 			}
+			break;
+		case 'W':
 			break;
 		case 'o':
 			opts.output = optarg;
@@ -385,6 +388,7 @@ usage:
 "  -D|--images-dir DIR   directory for image files\n"
 "     --pidfile FILE     write a pid of a root task, service or page-server\n"
 "                        to this file\n"
+"  -W|--work-dir DIR     directory for logs/pidfiles/stats and for criu process itself\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
