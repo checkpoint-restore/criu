@@ -15,10 +15,6 @@
 #define MAJOR(dev)		((dev)>>8)
 #define MINOR(dev)		((dev) & 0xff)
 
-#define _LINUX_CAPABILITY_VERSION_3	0x20080522
-#define _LINUX_CAPABILITY_U32S_3	2
-
-
 typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 
