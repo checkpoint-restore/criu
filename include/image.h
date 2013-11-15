@@ -68,7 +68,7 @@ extern bool ns_per_id;
 #define O_SHOW	(O_RDONLY)
 #define O_RSTR	(O_RDONLY)
 
-extern int open_image_dir(void);
+extern int open_image_dir(char *dir);
 extern void close_image_dir(void);
 
 extern int open_image_at(int dfd, int type, unsigned long flags, ...);

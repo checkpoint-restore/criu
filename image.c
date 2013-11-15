@@ -229,13 +229,13 @@ err:
 	return -1;
 }
 
-int open_image_dir(void)
+int open_image_dir(char *dir)
 {
 	int fd, ret;
 
-	fd = open(".", O_RDONLY);
+	fd = open(dir, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open cwd");
+		pr_perror("Can't open dir %s", dir);
 		return -1;
 	}
 

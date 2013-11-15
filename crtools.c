@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
-	ret = open_image_dir();
+	ret = open_image_dir(".");
 	if (ret < 0) {
 		pr_perror("Can't open current directory");
 		return -1;

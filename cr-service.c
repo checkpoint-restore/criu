@@ -121,7 +121,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		return -1;
 	}
 
-	if (open_image_dir() < 0)
+	if (open_image_dir(".") < 0)
 		return -1;
 
 	log_closedir();
