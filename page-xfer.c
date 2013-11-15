@@ -271,7 +271,7 @@ int cr_page_server(bool daemon_mode)
 	}
 
 	if (daemon_mode)
-		if(daemon(0, 0) == -1){
+		if (daemon(1, 0) == -1) {
 			pr_perror("Can't run in the background");
 			return -errno;
 		}
