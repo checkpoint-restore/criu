@@ -1,5 +1,5 @@
-#ifndef __CR_SEIZE_H__
-#define __CR_SEIZE_H__
+#ifndef __CR_PTRACE_H__
+#define __CR_PTRACE_H__
 
 #include <linux/types.h>
 #include <sys/ptrace.h>
@@ -61,4 +61,4 @@ extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
 extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
 extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
 
-#endif /* __CR_SEIZE_H__ */
+#endif /* __CR_PTRACE_H__ */
