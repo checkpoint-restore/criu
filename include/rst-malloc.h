@@ -64,4 +64,4 @@ void rst_mem_free_last(int type);
  */
 unsigned long rst_mem_remap_size(void);
 int rst_mem_remap(void *to);
-#endif
+#endif /* __CR_RST_MALLOC__H__ */

@@ -29,4 +29,4 @@ static inline bool pid_rst_prio(unsigned pid_a, unsigned pid_b)
 	return pid_a < pid_b;
 }
 
-#endif
+#endif /* __CR_PID_H__ */

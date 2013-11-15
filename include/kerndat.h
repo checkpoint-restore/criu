@@ -19,4 +19,4 @@ extern int tcp_max_wshare;
 extern int tcp_max_rshare;
 
 extern int kern_last_cap;
-#endif
+#endif /* __CR_KERNDAT_H__ */

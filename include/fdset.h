@@ -33,4 +33,4 @@ struct cr_fdset *cr_glob_fdset_open(int mode);
 
 void close_cr_fdset(struct cr_fdset **cr_fdset);
 
-#endif
+#endif /* __CR_FDSET_H__ */

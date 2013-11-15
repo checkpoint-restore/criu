@@ -66,4 +66,4 @@ struct page_read {
 };
 
 int open_page_read(int pid, struct page_read *);
-#endif
+#endif /* __CR_PAGE_READ_H__ */

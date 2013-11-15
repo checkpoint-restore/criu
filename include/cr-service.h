@@ -13,4 +13,4 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored);
 extern struct _cr_service_client *cr_service_client;
 extern unsigned int service_sk_ino;
 
-#endif
+#endif /* __CR_SERVICE_H__ */

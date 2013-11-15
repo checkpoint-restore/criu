@@ -43,4 +43,4 @@ struct rst_info {
 	};
 };
 
-#endif
+#endif /* __CR_RST_INFO_H__ */

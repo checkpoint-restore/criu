@@ -30,4 +30,4 @@ extern int close_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
 extern bool is_any_service_fd(int fd);
 
-#endif
+#endif /* __CR_SERVICE_FD_H__ */

@@ -40,4 +40,4 @@ extern struct cr_options opts;
 
 extern void init_opts(void);
 
-#endif
+#endif /* __CR_OPTIONS_H__ */

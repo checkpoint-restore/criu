@@ -41,4 +41,4 @@ static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 		addr < (unsigned long)vma->vma.end;
 }
 
-#endif
+#endif /* __CR_VMA_H__ */

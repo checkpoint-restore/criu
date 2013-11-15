@@ -43,4 +43,4 @@ void cnt_add(int c, unsigned long val);
 int init_stats(int what);
 void write_stats(int what);
 
-#endif
+#endif /* __CR_STATS_H__ */
