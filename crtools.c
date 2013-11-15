@@ -78,6 +78,8 @@ int main(int argc, char *argv[])
 	int ret = -1;
 	int opt, idx;
 	int log_level = 0;
+	char *imgs_dir = ".";
+	char *work_dir = NULL;
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 
@@ -163,13 +165,10 @@ int main(int argc, char *argv[])
 			opts.restore_detach = true;
 			break;
 		case 'D':
-			if (chdir(optarg)) {
-				pr_perror("Can't change directory to %s",
-						optarg);
-				return -1;
-			}
+			imgs_dir = optarg;
 			break;
 		case 'W':
+			work_dir = optarg;
 			break;
 		case 'o':
 			opts.output = optarg;
@@ -283,6 +282,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (work_dir == NULL)
+		work_dir = imgs_dir;
+
 	log_set_loglevel(log_level);
 
 	if (log_init(opts.output))
@@ -291,14 +293,22 @@ int main(int argc, char *argv[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
-	ret = open_image_dir(".");
-	if (ret < 0) {
-		pr_perror("Can't open current directory");
-		return -1;
-	}
-
 	if (optind >= argc)
 		goto usage;
+
+	/* We must not open imgs dir, if service is called */
+	if (strcmp(argv[optind], "service")) {
+		ret = open_image_dir(imgs_dir);
+		if (ret < 0) {
+			pr_perror("Can't open imgs directory");
+			return -1;
+		}
+	}
+
+	if (chdir(work_dir)) {
+		pr_perror("Can't change directory to %s", work_dir);
+		return -1;
+	}
 
 	if (!strcmp(argv[optind], "dump")) {
 		if (!tree_id)
