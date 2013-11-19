@@ -24,6 +24,7 @@ enum criu_req_type {
 	EMPTY		= 0;
 	DUMP		= 1;
 	RESTORE		= 2;
+	CHECK		= 3;
 }
 
 /*

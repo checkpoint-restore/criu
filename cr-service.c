@@ -217,6 +217,16 @@ exit:
 	return success ? 0 : 1;
 }
 
+static int check(int sk)
+{
+	CriuResp resp = CRIU_RESP__INIT;
+
+	if (!cr_check())
+		resp.success = true;
+
+	return send_criu_msg(sk, &resp);
+}
+
 static int cr_service_work(int sk)
 {
 	CriuReq *msg = 0;
@@ -233,6 +243,8 @@ static int cr_service_work(int sk)
 		return dump_using_req(sk, msg->opts);
 	case CRIU_REQ_TYPE__RESTORE:
 		return restore_using_req(sk, msg->opts);
+	case CRIU_REQ_TYPE__CHECK:
+		return check(sk);
 
 	default: {
 		CriuResp resp = CRIU_RESP__INIT;
