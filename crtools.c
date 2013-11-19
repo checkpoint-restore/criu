@@ -285,14 +285,6 @@ int main(int argc, char *argv[])
 	if (work_dir == NULL)
 		work_dir = imgs_dir;
 
-	log_set_loglevel(log_level);
-
-	if (log_init(opts.output))
-		return -1;
-
-	if (opts.img_parent)
-		pr_info("Will do snapshot from %s\n", opts.img_parent);
-
 	if (optind >= argc)
 		goto usage;
 
@@ -309,6 +301,14 @@ int main(int argc, char *argv[])
 		pr_perror("Can't change directory to %s", work_dir);
 		return -1;
 	}
+
+	log_set_loglevel(log_level);
+
+	if (log_init(opts.output))
+		return -1;
+
+	if (opts.img_parent)
+		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
 	if (!strcmp(argv[optind], "dump")) {
 		if (!tree_id)
