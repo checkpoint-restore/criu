@@ -530,7 +530,19 @@ void __export_unmap(void)
 
 /*
  * This function unmaps all VMAs, which don't belong to
- * the restored process or the restorer
+ * the restored process or the restorer.
+ *
+ * The restorer memory is two regions -- area with restorer, its stack
+ * and arguments and the one with private vmas of the tasks we restore
+ * (a.k.a. premmaped area):
+ *
+ * 0                       TASK_SIZE
+ * +----+====+----+====+---+
+ *
+ * Thus to unmap old memory we have to do 3 unmaps:
+ * [ 0 -- 1st area start ]
+ * [ 1st end -- 2nd start ]
+ * [ 2nd start -- TASK_SIZE ]
  */
 static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
 		      void *bootstrap_start, unsigned long bootstrap_len)
