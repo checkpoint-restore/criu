@@ -171,13 +171,13 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	va_end(params);
 }
 
-int write_pidfile(char *pfname, int pid)
+int write_pidfile(int pid)
 {
 	int fd;
 
-	fd = open(pfname, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	fd = open(opts.pidfile, O_WRONLY | O_TRUNC | O_CREAT, 0600);
 	if (fd == -1) {
-		pr_perror("Can't open %s", pfname);
+		pr_perror("Can't open %s", opts.pidfile);
 		return -1;
 	}
 

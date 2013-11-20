@@ -277,7 +277,7 @@ int cr_page_server(bool daemon_mode)
 		}
 
 	if (opts.pidfile) {
-		if (write_pidfile(opts.pidfile, getpid()) == -1) {
+		if (write_pidfile(getpid()) == -1) {
 			pr_perror("Can't write pidfile");
 			return -1;
 		}

@@ -987,7 +987,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		pid = ret;
 
-		ret = write_pidfile(opts.pidfile, pid);
+		ret = write_pidfile(pid);
 		if (ret < 0) {
 			pr_perror("Can't write pidfile");
 			kill(pid, SIGKILL);
