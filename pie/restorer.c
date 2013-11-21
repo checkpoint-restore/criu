@@ -318,14 +318,15 @@ core_restore_end:
 
 static long restore_self_exe_late(struct task_restore_args *args)
 {
-	int fd = args->fd_exe_link;
+	int fd = args->fd_exe_link, ret;
 
 	pr_info("Restoring EXE link\n");
-	sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
+	ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0);
+	if (ret)
+		pr_err("Can't restore EXE link (%d)\n", ret);
 	sys_close(fd);
 
-	/* FIXME Once kernel side stabilized -- fix error reporting */
-	return 0;
+	return ret;
 }
 
 static unsigned long restore_mapping(const VmaEntry *vma_entry)
