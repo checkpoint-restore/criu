@@ -172,13 +172,13 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 		int __fd = open_proc(pid, fmt, ##__VA_ARGS__);		\
 		DIR *__d = NULL;					\
 									\
-		if (__fd >= 0)						\
+		if (__fd >= 0) {					\
 			__d = fdopendir(__fd);				\
 			if (__d == NULL)				\
 				pr_perror("Can't fdopendir %d "		\
 					"(/proc/%d/" fmt ")",		\
 					__fd, pid, ##__VA_ARGS__);	\
-									\
+		}							\
 		__d;							\
 	 })
 
@@ -188,13 +188,13 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 		int __fd = open_proc(pid,  fmt, ##__VA_ARGS__);		\
 		FILE *__f = NULL;					\
 									\
-		if (__fd >= 0)						\
+		if (__fd >= 0) {					\
 			__f = fdopen(__fd, "r");			\
 			if (__f == NULL)				\
 				pr_perror("Can't fdopen %d "		\
 					"(/proc/%d/" fmt ")",		\
 					__fd, pid, ##__VA_ARGS__);	\
-									\
+		}							\
 		__f;							\
 	 })
 
