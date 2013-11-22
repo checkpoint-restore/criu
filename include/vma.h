@@ -23,6 +23,8 @@ struct vma_area {
 	};
 	unsigned long		*page_bitmap;  /* existent pages */
 	unsigned long		*ppage_bitmap; /* parent's existent pages */
+
+	unsigned long		premmaped_addr;
 };
 
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
@@ -31,9 +33,16 @@ extern bool privately_dump_vma(struct vma_area *vma);
 
 #define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
 #define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
-#define vma_premmaped_start(vma)	((vma)->shmid)
 #define vma_entry_is(vma, s)		(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)		((vma)->end - (vma)->start)
+
+/*
+ * vma_premmaped_start() can be used only in restorer.
+ * In other cases vma_area->premmaped_addr must be used.
+ * This hack is required, because vma_area isn't tranfered in restorer and
+ * shmid is used to determing which vma-s are cowed.
+ */
+#define vma_premmaped_start(vma)	((vma)->shmid)
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {

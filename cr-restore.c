@@ -223,8 +223,6 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 			return -1;
 		}
 		vma->vma.fd = ret;
-		/* shmid will be used for a temporary address */
-		vma->vma.shmid = 0;
 	}
 
 	nr_pages = vma_entry_len(&vma->vma) / PAGE_SIZE;
@@ -240,7 +238,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		    p->vma.start == vma->vma.start) {
 			pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 				vma->vma.start, vma->vma.end, vma->vma.pgoff);
-			paddr = decode_pointer(vma_premmaped_start(&p->vma));
+			paddr = decode_pointer(vma->premmaped_addr);
 			break;
 		}
 
@@ -292,13 +290,13 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 
 	}
 
-	vma_premmaped_start(&(vma->vma)) = (unsigned long) addr;
+	vma->premmaped_addr = (unsigned long) addr;
 	pr_debug("\tpremap 0x%016"PRIx64"-0x%016"PRIx64" -> %016lx\n",
 		vma->vma.start, vma->vma.end, (unsigned long)addr);
 
 	if (vma->vma.flags & MAP_GROWSDOWN) { /* Skip gurad page */
 		vma->vma.start += PAGE_SIZE;
-		vma_premmaped_start(&vma->vma) += PAGE_SIZE;
+		vma->premmaped_addr += PAGE_SIZE;
 	}
 
 	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE))
@@ -366,7 +364,7 @@ static int restore_priv_vma_content(pid_t pid)
 
 			off = (va - vma->vma.start) / PAGE_SIZE;
 			p = decode_pointer((off) * PAGE_SIZE +
-					vma_premmaped_start(&vma->vma));
+					vma->premmaped_addr);
 
 			set_bit(off, vma->page_bitmap);
 			if (vma->ppage_bitmap) { /* inherited vma */
@@ -404,7 +402,7 @@ static int restore_priv_vma_content(pid_t pid)
 	/* Remove pages, which were not shared with a child */
 	list_for_each_entry(vma, &rst_vmas.h, list) {
 		unsigned long size, i = 0;
-		void *addr = decode_pointer(vma_premmaped_start(&vma->vma));
+		void *addr = decode_pointer(vma->premmaped_addr);
 
 		if (vma->ppage_bitmap == NULL)
 			continue;
@@ -574,7 +572,7 @@ static int unmap_guard_pages()
 			continue;
 
 		if (vma->vma.flags & MAP_GROWSDOWN) {
-			void *addr = decode_pointer(vma_premmaped_start(&vma->vma));
+			void *addr = decode_pointer(vma->premmaped_addr);
 
 			if (munmap(addr - PAGE_SIZE, PAGE_SIZE)) {
 				pr_perror("Can't unmap guard page\n");
@@ -2220,6 +2218,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			goto err_nv;
 
 		*vme = vma->vma;
+
+		if (vma_priv(&vma->vma))
+			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
 	/*
