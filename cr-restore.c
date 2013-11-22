@@ -234,14 +234,24 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		if (p->vma.start > vma->vma.start)
 			 break;
 
-		if (p->vma.end == vma->vma.end &&
-		    p->vma.start == vma->vma.start) {
-			pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
-				vma->vma.start, vma->vma.end, vma->vma.pgoff);
-			paddr = decode_pointer(vma->premmaped_addr);
-			break;
-		}
+		if (!vma_priv(&p->vma))
+			continue;
 
+		 if (p->vma.end != vma->vma.end ||
+		     p->vma.start != vma->vma.start)
+			continue;
+
+		/* Check flags, which must be identical for both vma-s */
+		if ((vma->vma.flags ^ p->vma.flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
+			break;
+
+		if (!(vma->vma.flags & MAP_ANONYMOUS) &&
+		    vma->vma.shmid != p->vma.shmid)
+			break;
+
+		pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
+			vma->vma.start, vma->vma.end, vma->vma.pgoff);
+		paddr = decode_pointer(vma->premmaped_addr);
 	}
 
 	*pvma = p;
