@@ -221,6 +221,8 @@ static int check(int sk)
 {
 	CriuResp resp = CRIU_RESP__INIT;
 
+	resp.type = CRIU_REQ_TYPE__CHECK;
+
 	if (!cr_check())
 		resp.success = true;
 
