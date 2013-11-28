@@ -135,7 +135,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 		p = __lookup_mnt_id(list, m->parent_mnt_id);
 		if (!p) {
 			/* This should be / */
-			if (root == NULL && !strcmp(m->mountpoint, "/")) {
+			if (root == NULL && is_root_mount(m)) {
 				root = m;
 				continue;
 			}
