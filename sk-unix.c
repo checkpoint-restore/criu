@@ -349,8 +349,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			snprintf(rpath, sizeof(rpath), ".%s", name);
 			if (fstatat(mntns_root, rpath, &st, 0)) {
-				pr_perror("Can't stat socket %#x(%s)",
-						m->udiag_ino, rpath);
+				pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n",
+					m->udiag_ino, rpath, errno);
 				goto skip;
 			}
 
