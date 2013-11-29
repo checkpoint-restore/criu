@@ -759,19 +759,21 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 	if (ret != 3)
 		return -1;
 
+	ret = 0;
 	new->fstype = find_fstype_by_name(fstype);
-	free(fstype);
 
 	new->options = xmalloc(strlen(opt) + 1);
 	if (!new->options)
-		return -1;
+		goto err;
 
 	if (parse_sb_opt(opt, &new->flags, new->options))
-		return -1;
+		goto err;
 
+	ret = 0;
+err:
 	free(opt);
-
-	return 0;
+	free(fstype);
+	return ret;
 }
 
 struct mount_info *parse_mountinfo(pid_t pid)
