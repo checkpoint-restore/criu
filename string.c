@@ -30,3 +30,31 @@ size_t strlcpy(char *dest, const char *src, size_t size)
 	return ret;
 }
 #endif
+
+#ifndef CONFIG_HAS_STRLCAT
+/**
+ * strlcat - Append a length-limited, %NUL-terminated string to another
+ * @dest: The string to be appended to
+ * @src: The string to append to it
+ * @count: The size of the destination buffer.
+ */
+size_t strlcat(char *dest, const char *src, size_t count)
+{
+	size_t dsize = strlen(dest);
+	size_t len = strlen(src);
+	size_t res = dsize + len;
+
+	/*
+	 * It's assumed that @dsize strictly
+	 * less than count. Otherwise it's
+	 * a bug. But we left it to a caller.
+	 */
+	dest += dsize;
+	count -= dsize;
+	if (len >= count)
+		len = count-1;
+	memcpy(dest, src, len);
+	dest[len] = 0;
+	return res;
+}
+#endif
