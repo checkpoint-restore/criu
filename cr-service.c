@@ -166,6 +166,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 static int dump_using_req(int sk, CriuOpts *req)
 {
 	bool success = false;
+	bool self_dump = !req->pid;
 
 	if (setup_opts_from_req(sk, req) == -1) {
 		pr_perror("Arguments treating fail");
@@ -175,7 +176,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 	if (cr_dump_tasks(req->pid) == -1)
 		goto exit;
 
-	if (req->has_leave_running && req->leave_running) {
+	if (req->leave_running || !self_dump) {
 		success = true;
 exit:
 		if (send_criu_dump_resp(sk, success, false) == -1) {
