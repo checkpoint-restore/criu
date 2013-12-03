@@ -1022,11 +1022,18 @@ int dump_verify_tty_sids(void)
 
 			if (!item || item->pid.virt != dinfo->sid) {
 				if (!opts.shell_job) {
-					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d. "
-					       "Consider using --" OPT_SHELL_JOB " option.\n",
+					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d.\n",
 					       dinfo->sid, dinfo->pgrp,
 					       tty_type(dinfo->major),
 					       dinfo->fd);
+					/*
+					 * First thing people do with criu is dump smth
+					 * run from shell. This is typical pitfall, warn
+					 * user about it explicitly.
+					 */
+					pr_msg("Task attached to shell terminal. "
+						"Consider using --" OPT_SHELL_JOB " option. "
+						"More details on http://criu.org/Simple_loop\n");
 					ret = -1;
 				}
 			}
