@@ -1098,7 +1098,6 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->mnt_share);
 		INIT_LIST_HEAD(&new->mnt_bind);
 		INIT_LIST_HEAD(&new->postpone);
-		new->mnt_master = NULL;
 	}
 	return new;
 }
