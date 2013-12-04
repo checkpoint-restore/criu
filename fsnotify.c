@@ -204,7 +204,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 
 	if (remap) {
 		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
-			 who, s_dev, i_ino, path);
+			 who, s_dev, i_ino, remap->path);
 		return remap->path;
 	}
 
