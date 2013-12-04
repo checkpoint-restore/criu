@@ -576,14 +576,34 @@ out:
 }
 
 static struct fstype fstypes[] = {
-	[FSTYPE__UNSUPPORTED]	= { "unsupported" },
-	[FSTYPE__PROC]		= { "proc" },
-	[FSTYPE__SYSFS]		= { "sysfs" },
-	[FSTYPE__DEVTMPFS]	= { "devtmpfs" },
-	[FSTYPE__BINFMT_MISC]	= { "binfmt_misc", binfmt_misc_dump },
-	[FSTYPE__TMPFS]		= { "tmpfs", tmpfs_dump, tmpfs_restore },
-	[FSTYPE__DEVPTS]	= { "devpts" },
-	[FSTYPE__SIMFS]		= { "simfs" },
+	{ 
+		.name = "unsupported",
+		.code = FSTYPE__UNSUPPORTED,
+	}, {
+		.name = "proc",
+		.code = FSTYPE__PROC,
+	}, {
+		.name = "sysfs",
+		.code = FSTYPE__SYSFS,
+	}, {
+		.name = "devtmpfs",
+		.code = FSTYPE__DEVTMPFS,
+	}, {
+		.name = "binfmt_misc",
+		.code = FSTYPE__BINFMT_MISC,
+		.dump = binfmt_misc_dump,
+	}, {
+		.name = "tmpfs",
+		.code = FSTYPE__TMPFS,
+		.dump = tmpfs_dump,
+		.restore = tmpfs_restore,
+	}, {
+		.name = "devpts",
+		.code = FSTYPE__DEVPTS,
+	}, {
+		.name = "simfs",
+		.code = FSTYPE__SIMFS,
+	}
 };
 
 struct fstype *find_fstype_by_name(char *fst)
@@ -605,18 +625,18 @@ struct fstype *find_fstype_by_name(char *fst)
 	return &fstypes[0];
 }
 
-static u32 encode_fstype(struct fstype *fst)
-{
-	return fst - fstypes;
-}
-
 static struct fstype *decode_fstype(u32 fst)
 {
+	int i;
 
-	if (fst >= ARRAY_SIZE(fstypes))
-		return &fstypes[0];
+	if (fst == FSTYPE__UNSUPPORTED)
+		goto uns;
 
-	return &fstypes[fst];
+	for (i = 0; i < ARRAY_SIZE(fstypes); i++)
+		if (fstypes[i].code == fst)
+			return fstypes + i;
+uns:
+	return &fstypes[0];
 }
 
 static int dump_one_mountpoint(struct mount_info *pm, int fd)
@@ -626,8 +646,14 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev,
 			pm->root, pm->mountpoint);
 
-	me.fstype		= encode_fstype(pm->fstype);
-	if (fstypes[me.fstype].dump && fstypes[me.fstype].dump(pm))
+	me.fstype		= pm->fstype->code;
+	if ((me.fstype == FSTYPE__UNSUPPORTED) && !is_root_mount(pm)) {
+		pr_err("FS mnt %s dev %#x root %s unsupported\n",
+				pm->mountpoint, pm->s_dev, pm->root);
+		return -1;
+	}
+
+	if (pm->fstype->dump && pm->fstype->dump(pm))
 		return -1;
 
 	me.mnt_id		= pm->mnt_id;
@@ -642,12 +668,6 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.has_shared_id	= true;
 	me.master_id		= pm->master_id;
 	me.has_master_id	= true;
-
-	if (!me.fstype && !is_root_mount(pm)) {
-		pr_err("FS mnt %s dev %#x root %s unsupported\n",
-				pm->mountpoint, pm->s_dev, pm->root);
-		return -1;
-	}
 
 	if (pb_write_one(fd, &me, PB_MNT))
 		return -1;

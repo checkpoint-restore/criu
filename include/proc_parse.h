@@ -93,6 +93,7 @@ struct proc_status_creds {
 struct mount_info;
 struct fstype {
 	char *name;
+	int code;
 	int (*dump)(struct mount_info *pm);
 	int (*restore)(struct mount_info *pm);
 };
