@@ -126,6 +126,8 @@ struct mount_info {
 	struct mount_info *mnt_master;	/* slave is on master->mnt_slave_list */
 
 	struct list_head postpone;
+
+	void		*private;	/* associated filesystem data */
 };
 
 extern struct mount_info *mnt_entry_alloc();
