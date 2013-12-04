@@ -487,8 +487,6 @@ err:
 
 int btrfs_parse_mountinfo(struct mount_info *m)
 {
-	if (strcmp(m->kfstype, "btrfs"))
-		return 0;
 	return btrfs_parse_volume(m) ? 0 : -1;
 }
 

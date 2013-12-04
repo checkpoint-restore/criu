@@ -96,6 +96,7 @@ struct fstype {
 	int code;
 	int (*dump)(struct mount_info *pm);
 	int (*restore)(struct mount_info *pm);
+	int (*parse)(struct mount_info *pm);
 };
 
 struct mount_info {
@@ -108,7 +109,6 @@ struct mount_info {
 	int		master_id;
 	int		shared_id;
 	struct fstype	*fstype;
-	char		*kfstype;
 	char		*source;
 	char		*options;
 	bool		mounted;

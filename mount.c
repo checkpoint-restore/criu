@@ -603,6 +603,10 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,
+	}, {
+		.name = "btrfs",
+		.code = FSTYPE__UNSUPPORTED,
+		.parse = btrfs_parse_mountinfo,
 	}
 };
 
@@ -1143,7 +1147,6 @@ void mnt_entry_free(struct mount_info *mi)
 
 	xfree(mi->root);
 	xfree(mi->mountpoint);
-	xfree(mi->kfstype);
 	xfree(mi->source);
 	xfree(mi->options);
 	xfree(mi);
