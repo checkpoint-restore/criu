@@ -760,6 +760,9 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 		return -1;
 
 	ret = -1;
+	new->kfstype = xstrdup(fstype);
+	if (!new->kfstype)
+		goto err;
 	new->fstype = find_fstype_by_name(fstype);
 
 	new->options = xmalloc(strlen(opt) + 1);
@@ -806,8 +809,8 @@ struct mount_info *parse_mountinfo(pid_t pid)
 			goto err;
 		}
 
-		pr_info("\ttype %s source %s %x %s @ %s flags %x options %s\n",
-				new->fstype->name, new->source,
+		pr_info("\ttype %s (%s) source %s %x %s @ %s flags %x options %s\n",
+				new->fstype->name, new->kfstype, new->source,
 				new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
 	}

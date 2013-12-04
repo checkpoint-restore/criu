@@ -1109,6 +1109,7 @@ void mnt_entry_free(struct mount_info *mi)
 
 	xfree(mi->root);
 	xfree(mi->mountpoint);
+	xfree(mi->kfstype);
 	xfree(mi->source);
 	xfree(mi->options);
 	xfree(mi);

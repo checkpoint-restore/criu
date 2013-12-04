@@ -107,6 +107,7 @@ struct mount_info {
 	int		master_id;
 	int		shared_id;
 	struct fstype	*fstype;
+	char		*kfstype;
 	char		*source;
 	char		*options;
 	bool		mounted;
