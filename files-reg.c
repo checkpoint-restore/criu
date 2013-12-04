@@ -270,7 +270,7 @@ struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
 
 	mutex_lock(ghost_file_mutex);
 	list_for_each_entry(gf, &ghost_files, list) {
-		if (gf->dev == dev && gf->ino == ino) {
+		if (phys_stat_dev_match(gf->dev, dev) && gf->ino == ino) {
 			gf->remap.users++;
 			mutex_unlock(ghost_file_mutex);
 			return &gf->remap;
