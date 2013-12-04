@@ -13,6 +13,7 @@
 #include "list.h"
 #include "util.h"
 #include "mount.h"
+#include "mount-btrfs.h"
 #include "mman.h"
 #include "cpu.h"
 #include "file-lock.h"
@@ -813,6 +814,15 @@ struct mount_info *parse_mountinfo(pid_t pid)
 				new->fstype->name, new->kfstype, new->source,
 				new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
+
+		/*
+		 * BTRFS requires subvolumes parsing.
+		 */
+		if (btrfs_parse_mountinfo(new)) {
+			pr_err("Failed to parse FS specific data on %s\n",
+			       new->mountpoint);
+			goto err;
+		}
 	}
 out:
 	fclose(f);
