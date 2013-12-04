@@ -18,6 +18,7 @@
 #include "util-pie.h"
 #include "log.h"
 #include "mount.h"
+#include "mount-btrfs.h"
 #include "pstree.h"
 #include "proc_parse.h"
 #include "image.h"
@@ -95,6 +96,19 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 			return m;
 
 	return NULL;
+}
+
+bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev)
+{
+	if (st_dev == phys_dev)
+		return true;
+
+	/*
+	 * BTRFS returns subvolume dev-id instead of
+	 * superblock dev-id so we might need additional
+	 * tests here.
+	 */
+	return is_btrfs_subvol(phys_dev, st_dev);
 }
 
 /*
