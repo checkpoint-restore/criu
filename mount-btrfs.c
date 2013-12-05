@@ -49,6 +49,7 @@ struct btrfs_subvol_root {
 	struct mount_info const         *m;
 
 	u64				tree_id;
+	dev_t				st_dev;
 };
 
 struct btrfs_subvol_node {
@@ -177,7 +178,7 @@ static struct btrfs_subvol_node *btrfs_create_node(void)
 	return n;
 }
 
-static struct btrfs_subvol_root *btrfs_create_root(int fd, struct mount_info *m)
+static struct btrfs_subvol_root *btrfs_create_root(int fd, struct mount_info *m, struct stat *st)
 {
 	struct btrfs_ioctl_ino_lookup_args args = { };
 	struct btrfs_subvol_root *r;
@@ -195,6 +196,7 @@ static struct btrfs_subvol_root *btrfs_create_root(int fd, struct mount_info *m)
 		return NULL;
 	}
 
+	r->st_dev = st->st_dev;
 	r->tree_id = args.treeid;
 	r->m = m;
 	return r;
@@ -405,6 +407,7 @@ static void *btrfs_parse_volume(struct mount_info *m)
 
 	unsigned long off, i;
 	int ret = -1, fd = -1;
+	struct stat st;
 
 	memzero(&tree_args, sizeof(tree_args));
 
@@ -423,7 +426,12 @@ static void *btrfs_parse_volume(struct mount_info *m)
 		goto err;
 	}
 
-	r = btrfs_create_root(fd, m);
+	if (stat(m->mountpoint, &st)) {
+		pr_perror("Can't get stat on %s", m->mountpoint);
+		goto err;
+	}
+
+	r = btrfs_create_root(fd, m, &st);
 	if (!r) {
 		pr_err("Can't create btrfs root for %s\n", m->mountpoint);
 		goto err;
@@ -495,5 +503,12 @@ bool is_btrfs_subvol(dev_t vol_id, dev_t dev_id)
 	struct btrfs_subvol_root *r;
 
 	r = btrfs_vol_lookup_dev(vol_id);
-	return r ? btrfs_node_lookup_dev(r, dev_id) != NULL : false;
+	if (r) {
+		if (r->st_dev == dev_id)
+			return true;
+		else
+			return btrfs_node_lookup_dev(r, dev_id) != NULL;
+	}
+
+	return false;
 }
