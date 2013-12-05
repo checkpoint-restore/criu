@@ -397,13 +397,14 @@ static void btrfs_show_subvolumes(struct btrfs_subvol_root *r)
 	}
 }
 
-static void *btrfs_parse_volume(struct mount_info *m)
+static int btrfs_parse_volume(struct mount_info *m)
 {
 	struct btrfs_ioctl_search_args tree_args;
 	struct btrfs_ioctl_search_header sh;
 	struct btrfs_ioctl_search_key *sk = &tree_args.key;
 
-	struct btrfs_subvol_root *r, *result = NULL;
+	struct btrfs_subvol_root *r;
+	int result = -1;
 
 	unsigned long off, i;
 	int ret = -1, fd = -1;
@@ -426,8 +427,16 @@ static void *btrfs_parse_volume(struct mount_info *m)
 		goto err;
 	}
 
-	if (stat(m->mountpoint, &st)) {
+	if (fstat(fd, &st)) {
 		pr_perror("Can't get stat on %s", m->mountpoint);
+		goto err;
+	}
+
+	/*
+	 * It is not a subvolume, nothing to do yet.
+	 */
+	if (st.st_ino != BTRFS_FIRST_FREE_OBJECTID) {
+		result = 0;
 		goto err;
 	}
 
@@ -485,17 +494,17 @@ static void *btrfs_parse_volume(struct mount_info *m)
 		goto err;
 
 	BUG_ON(m->private);
-	m->private = (void *)result;
+	m->private = (void *)r;
 	btrfs_show_subvolumes(r);
-	result = r;
+	result = 0;
 err:
 	close_safe(&fd);
-	return (void *)result;
+	return result;
 }
 
 int btrfs_parse_mountinfo(struct mount_info *m)
 {
-	return btrfs_parse_volume(m) ? 0 : -1;
+	return btrfs_parse_volume(m);
 }
 
 bool is_btrfs_subvol(dev_t vol_id, dev_t dev_id)
