@@ -27,6 +27,7 @@
 #include "protobuf/mnt.pb-c.h"
 
 static struct mount_info *mntinfo;
+static struct mount_info *mntinfo_tree;
 int mntns_root = -1;
 
 static DIR *open_mountpoint(struct mount_info *pm);
@@ -1071,6 +1072,7 @@ static int clean_mnt_ns(void)
 		return -1;
 	}
 
+	mntinfo_tree = NULL;
 	pm = mnt_build_tree(mntinfo);
 	if (!pm)
 		return -1;
@@ -1217,6 +1219,7 @@ static int populate_mnt_ns(int ns_pid)
 		mnt_entry__free_unpacked(me, NULL);
 
 	close(img);
+	mntinfo_tree = NULL;
 	mntinfo = pms;
 
 	pms = mnt_build_tree(pms);
@@ -1226,6 +1229,7 @@ static int populate_mnt_ns(int ns_pid)
 	if (validate_mounts(pms))
 		return -1;
 
+	mntinfo_tree = pms;
 	return mnt_tree_for_each(pms, do_mount_one);
 err:
 	while (pms) {
