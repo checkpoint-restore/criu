@@ -33,6 +33,9 @@ int mntns_root = -1;
 static DIR *open_mountpoint(struct mount_info *pm);
 static int close_mountpoint(DIR *dfd);
 
+static struct mount_info *mnt_build_tree(struct mount_info *list);
+static int validate_mounts(struct mount_info *info);
+
 static inline int is_root(char *p)
 {
 	return p[0] == '/' && p[1] == '\0';
@@ -59,7 +62,7 @@ int open_mount(unsigned int s_dev)
 	return -ENOENT;
 }
 
-int collect_mount_info(pid_t pid)
+int collect_mount_info(pid_t pid, bool parse)
 {
 	pr_info("Collecting mountinfo\n");
 
@@ -67,6 +70,25 @@ int collect_mount_info(pid_t pid)
 	if (!mntinfo) {
 		pr_err("Parsing mountinfo %d failed\n", getpid());
 		return -1;
+	}
+
+	/*
+	 * WARN: Don't ever parse already parsed mount tree,
+	 * this will corrupt mount lists leading to weird
+	 * errors.
+	 */
+	if (parse) {
+		mntinfo_tree = mnt_build_tree(mntinfo);
+		if (!mntinfo_tree) {
+			pr_err("Building mount tree %d failed\n", getpid());
+			return -1;
+		}
+
+		if (validate_mounts(mntinfo_tree)) {
+			mntinfo_tree = NULL;
+			pr_err("Validating mount tree %d failed\n", getpid());
+			return -1;
+		}
 	}
 
 	return 0;
