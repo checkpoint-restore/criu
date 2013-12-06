@@ -270,7 +270,7 @@ struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
 
 	mutex_lock(ghost_file_mutex);
 	list_for_each_entry(gf, &ghost_files, list) {
-		if (phys_stat_dev_match(gf->dev, dev) && gf->ino == ino) {
+		if (gf->ino == ino && phys_stat_dev_match(gf->dev, dev, gf->remap.path)) {
 			gf->remap.users++;
 			mutex_unlock(ghost_file_mutex);
 			return &gf->remap;
@@ -285,6 +285,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 {
 	struct ghost_file *gf;
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
+	dev_t phys_dev = phys_stat_resolve_dev(st->st_dev, path);
 
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
@@ -295,14 +296,14 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 	}
 
 	list_for_each_entry(gf, &ghost_files, list)
-		if ((gf->dev == st->st_dev) && (gf->ino == st->st_ino))
+		if ((gf->dev == phys_dev) && (gf->ino == st->st_ino))
 			goto dump_entry;
 
 	gf = xmalloc(sizeof(*gf));
 	if (gf == NULL)
 		return -1;
 
-	gf->dev = st->st_dev;
+	gf->dev = phys_dev;
 	gf->ino = st->st_ino;
 	gf->id = ghost_file_ids++;
 	list_add_tail(&gf->list, &ghost_files);

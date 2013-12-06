@@ -159,17 +159,11 @@ dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
 	return strcmp(m->fstype->name, "btrfs") ? st_dev : m->s_dev;
 }
 
-bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev)
+bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, const char *path)
 {
 	if (st_dev == phys_dev)
 		return true;
-
-	/*
-	 * BTRFS returns subvolume dev-id instead of
-	 * superblock dev-id so we might need additional
-	 * tests here.
-	 */
-	return is_btrfs_subvol(phys_dev, st_dev);
+	return phys_dev == phys_stat_resolve_dev(st_dev, path);
 }
 
 /*
