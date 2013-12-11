@@ -25,7 +25,16 @@
 #include "protobuf.h"
 #include "protobuf/mnt.pb-c.h"
 
+/*
+ * Single linked list of mount points get from proc/images
+ */
 static struct mount_info *mntinfo;
+/*
+ * Tree of mount points. When required is generated from
+ * the mntinfo list. Tree elements are sorted, so that it
+ * represents the real FS visibility and is thus suitable
+ * for umounting or path resolution.
+ */
 static struct mount_info *mntinfo_tree;
 int mntns_root = -1;
 
