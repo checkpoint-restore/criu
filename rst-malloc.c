@@ -100,7 +100,7 @@ static int grow_private(struct rst_mem_type_s *t, unsigned long size)
 }
 
 static struct rst_mem_type_s rst_mems[RST_MEM_TYPES] = {
-	[RM_SHARED] = { 
+	[RM_SHARED] = {
 		.grow = grow_shared,
 		.remapable = false,
 		.enabled = true,

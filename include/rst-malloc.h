@@ -45,7 +45,7 @@ enum {
  * Disables SHARED and SHREMAP allocations, turns on PRIVATE
  */
 extern void rst_mem_switch_to_private(void);
-/* 
+/*
  * Reports a cookie of a current shared buffer position, that
  * can later be used in rst_mem_cpos() to find out the object
  * pointer.

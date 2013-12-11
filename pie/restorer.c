@@ -911,7 +911,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	rst_tcp_socks_all(args);
 
-	/* 
+	/*
 	 * Writing to last-pid is CAP_SYS_ADMIN protected,
 	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
 	 * thus restore* creds _after_ all of the above.

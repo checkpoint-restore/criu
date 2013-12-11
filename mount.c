@@ -643,7 +643,7 @@ out:
 }
 
 static struct fstype fstypes[] = {
-	{ 
+	{
 		.name = "unsupported",
 		.code = FSTYPE__UNSUPPORTED,
 	}, {

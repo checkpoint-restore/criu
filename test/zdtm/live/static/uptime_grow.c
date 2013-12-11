@@ -10,7 +10,7 @@ const char *test_author = "Evgeny Antysev <eantyshev@parallels.com>";
   (((a)->tv_sec == (b)->tv_sec) ? \
    ((a)->tv_nsec >= (b)->tv_nsec) : \
    ((a)->tv_sec > (b)->tv_sec))
- 
+
 int main(int argc, char **argv)
 {
 	struct timespec tm_old, tm, ts;

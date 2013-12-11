@@ -269,7 +269,7 @@ static int open_ns_fd(struct file_desc *d)
 	if (!nd || !item) {
 		pr_err("Can't find suitable NS ID for %#x\n", nfi->nfe->ns_id);
 		return -1;
-	} 
+	}
 
 	if (nd->cflag != nfi->nfe->ns_cflag) {
 		pr_err("Clone flag mismatch for %#x\n", nfi->nfe->ns_id);

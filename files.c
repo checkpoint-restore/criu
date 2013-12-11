@@ -144,7 +144,7 @@ void show_saved_files(void)
 /*
  * The gen_id thing is used to optimize the comparison of shared files.
  * If two files have different gen_ids, then they are different for sure.
- * If it matches, we don't know it and have to call sys_kcmp(). 
+ * If it matches, we don't know it and have to call sys_kcmp().
  *
  * The kcmp-ids.c engine does this trick, see comments in it for more info.
  */

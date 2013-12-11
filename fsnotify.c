@@ -430,8 +430,8 @@ static struct fsnotify_file_info *find_inotify_info(unsigned id)
 
 	if (last && last->ife->id == id) {
 		/*
-		 * An optimization for clean dump image -- criu puts 
-		 * wd-s for one inotify in one row, thus sometimes 
+		 * An optimization for clean dump image -- criu puts
+		 * wd-s for one inotify in one row, thus sometimes
 		 * we can avoid scanning the inotify_info_head.
 		 */
 		pr_debug("\t\tlast ify for %u found\n", id);

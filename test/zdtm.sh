@@ -653,7 +653,7 @@ Options:
 	-g : Generate executables only
 	-n : Batch test
 	-r : Run test with specified name directly without match or check
-	-v : Verbose mode 
+	-v : Verbose mode
 EOF
 }
 

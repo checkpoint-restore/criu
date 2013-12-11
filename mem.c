@@ -361,7 +361,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	}
 
 	debug_show_page_pipe(pp);
-	
+
 	/*
 	 * Step 2 -- grab pages into page-pipe
 	 */

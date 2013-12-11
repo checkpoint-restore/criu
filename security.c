@@ -11,9 +11,9 @@
 static unsigned int cr_uid, cr_gid;
 
 /*
- * Setup what user is requesting for dump (via rpc or using 
- * suid bit on crtools). Later we would deny to dump/restore 
- * a task, to which the original user doesn't have the direct 
+ * Setup what user is requesting for dump (via rpc or using
+ * suid bit on crtools). Later we would deny to dump/restore
+ * a task, to which the original user doesn't have the direct
  * access to. (Or implement some trickier security policy).
  */
 
