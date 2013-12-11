@@ -56,6 +56,7 @@ obj-y	+= string.o
 obj-y	+= sigframe.o
 obj-y	+= arch/$(ARCH)/vdso.o
 obj-y	+= cr-service.o
+obj-y	+= sd-daemon.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y

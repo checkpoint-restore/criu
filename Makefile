@@ -232,6 +232,9 @@ install: $(PROGRAM) install-man
 	$(E) "  INSTALL " $(PROGRAM)
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
+	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
+	$(Q) install -m 644 scripts/sd/criu.socket $(DESTDIR)$(SYSTEMDUNITDIR)
+	$(Q) install -m 644 scripts/sd/criu.service $(DESTDIR)$(SYSTEMDUNITDIR)
 
 install-man:
 	$(Q) $(MAKE) -C Documentation install

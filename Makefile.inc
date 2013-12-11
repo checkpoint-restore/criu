@@ -14,3 +14,4 @@ export E Q
 PREFIX		:= /usr/local
 SBINDIR		:= $(PREFIX)/sbin
 MANDIR		:= $(PREFIX)/share/man
+SYSTEMDUNITDIR	:= $(PREFIX)/lib/systemd/system/

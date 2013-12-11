@@ -19,6 +19,7 @@
 #include "log.h"
 #include "pstree.h"
 #include "cr-service.h"
+#include "sd-daemon.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -332,53 +333,61 @@ static int restore_sigchld_handler()
 
 int cr_service(bool daemon_mode)
 {
-	int server_fd = -1;
+	int server_fd = -1, n;
 	int child_pid;
 
-	struct sockaddr_un server_addr;
 	struct sockaddr_un client_addr;
-
-	socklen_t server_addr_len;
 	socklen_t client_addr_len;
 
-	server_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
-	if (server_fd == -1) {
-		pr_perror("Can't initialize service socket.");
+	n = sd_listen_fds(0);
+	if (n > 1) {
+		pr_perror("Too many file descriptors (%d) recieved.", n);
 		goto err;
-	}
+	} else if (n == 1)
+		server_fd = SD_LISTEN_FDS_START + 0;
+	else {
+		struct sockaddr_un server_addr;
+		socklen_t server_addr_len;
 
-	memset(&server_addr, 0, sizeof(server_addr));
-	memset(&client_addr, 0, sizeof(client_addr));
-	server_addr.sun_family = AF_LOCAL;
+		server_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
+		if (server_fd == -1) {
+			pr_perror("Can't initialize service socket.");
+			goto err;
+		}
 
-	if (opts.addr == NULL)
-		opts.addr = CR_DEFAULT_SERVICE_ADDRESS;
+		memset(&server_addr, 0, sizeof(server_addr));
+		memset(&client_addr, 0, sizeof(client_addr));
+		server_addr.sun_family = AF_LOCAL;
 
-	strcpy(server_addr.sun_path, opts.addr);
+		if (opts.addr == NULL)
+			opts.addr = CR_DEFAULT_SERVICE_ADDRESS;
 
-	server_addr_len = strlen(server_addr.sun_path)
-			+ sizeof(server_addr.sun_family);
-	client_addr_len = sizeof(client_addr);
+		strcpy(server_addr.sun_path, opts.addr);
 
-	unlink(server_addr.sun_path);
+		server_addr_len = strlen(server_addr.sun_path)
+				+ sizeof(server_addr.sun_family);
+		client_addr_len = sizeof(client_addr);
 
-	if (bind(server_fd, (struct sockaddr *) &server_addr,
-					server_addr_len) == -1) {
-		pr_perror("Can't bind.");
-		goto err;
-	}
+		unlink(server_addr.sun_path);
 
-	pr_info("The service socket is bound to %s\n", server_addr.sun_path);
+		if (bind(server_fd, (struct sockaddr *) &server_addr,
+						server_addr_len) == -1) {
+			pr_perror("Can't bind.");
+			goto err;
+		}
 
-	/* change service socket permissions, so anyone can connect to it */
-	if (chmod(server_addr.sun_path, 0666)) {
-		pr_perror("Can't change permissions of the service socket.");
-		goto err;
-	}
+		pr_info("The service socket is bound to %s\n", server_addr.sun_path);
 
-	if (listen(server_fd, 16) == -1) {
-		pr_perror("Can't listen for socket connections.");
-		goto err;
+		/* change service socket permissions, so anyone can connect to it */
+		if (chmod(server_addr.sun_path, 0666)) {
+			pr_perror("Can't change permissions of the service socket.");
+			goto err;
+		}
+
+		if (listen(server_fd, 16) == -1) {
+			pr_perror("Can't listen for socket connections.");
+			goto err;
+		}
 	}
 
 	if (daemon_mode) {
