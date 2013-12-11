@@ -39,7 +39,6 @@ obj-y	+= shmem.o
 obj-y	+= eventfd.o
 obj-y	+= eventpoll.o
 obj-y	+= mount.o
-obj-y	+= mount-btrfs.o
 obj-y	+= fsnotify.o
 obj-y	+= signalfd.o
 obj-y	+= pstree.o

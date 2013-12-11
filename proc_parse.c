@@ -13,7 +13,6 @@
 #include "list.h"
 #include "util.h"
 #include "mount.h"
-#include "mount-btrfs.h"
 #include "mman.h"
 #include "cpu.h"
 #include "file-lock.h"

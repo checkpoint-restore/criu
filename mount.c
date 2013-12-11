@@ -18,7 +18,6 @@
 #include "util-pie.h"
 #include "log.h"
 #include "mount.h"
-#include "mount-btrfs.h"
 #include "pstree.h"
 #include "proc_parse.h"
 #include "image.h"
@@ -658,10 +657,6 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,
-	}, {
-		.name = "btrfs",
-		.code = FSTYPE__UNSUPPORTED,
-		.parse = btrfs_parse_mountinfo,
 	}
 };
 
