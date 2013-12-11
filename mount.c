@@ -669,6 +669,9 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,
+	}, {
+		.name = "btrfs",
+		.code = FSTYPE__UNSUPPORTED,
 	}
 };
 
