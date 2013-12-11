@@ -121,6 +121,44 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 	return NULL;
 }
 
+static struct mount_info *mount_resolve_path(const char *path)
+{
+	size_t pathlen = strlen(path);
+	struct mount_info *m = mntinfo_tree, *c;
+
+	while (1) {
+		list_for_each_entry(c, &m->children, siblings) {
+			size_t n;
+
+			n = strlen(c->mountpoint);
+			if (n > pathlen)
+				continue;
+
+			if (strncmp(c->mountpoint, path, min(n, pathlen)))
+				continue;
+
+			m = c;
+			break;
+		}
+		if (&c->siblings == &m->children)
+			break;
+	}
+
+	pr_debug("Path `%s' resolved to `%s' mountpoint\n", path, m->mountpoint);
+	return m;
+}
+
+dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
+{
+	struct mount_info *m = mount_resolve_path(path);
+	/*
+	 * BTRFS returns subvolume dev-id instead of
+	 * superblock dev-id, in such case return device
+	 * obtained from mountinfo (ie subvolume0).
+	 */
+	return strcmp(m->fstype->name, "btrfs") ? st_dev : m->s_dev;
+}
+
 bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev)
 {
 	if (st_dev == phys_dev)
