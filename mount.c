@@ -149,7 +149,9 @@ static struct mount_info *mount_resolve_path(const char *path)
 
 dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
 {
-	struct mount_info *m = mount_resolve_path(path);
+	struct mount_info *m;
+	
+	m = mount_resolve_path(path);
 	/*
 	 * BTRFS returns subvolume dev-id instead of
 	 * superblock dev-id, in such case return device
@@ -162,6 +164,7 @@ bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, const char *path)
 {
 	if (st_dev == phys_dev)
 		return true;
+
 	return phys_dev == phys_stat_resolve_dev(st_dev, path);
 }
 

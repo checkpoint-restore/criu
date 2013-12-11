@@ -285,8 +285,8 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 {
 	struct ghost_file *gf;
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
-	dev_t phys_dev = phys_stat_resolve_dev(st->st_dev, path);
-
+	dev_t phys_dev;
+	
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
 	if (st->st_size > MAX_GHOST_FILE_SIZE) {
@@ -295,6 +295,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 		return -1;
 	}
 
+	phys_dev = phys_stat_resolve_dev(st->st_dev, path);
 	list_for_each_entry(gf, &ghost_files, list)
 		if ((gf->dev == phys_dev) && (gf->ino == st->st_ino))
 			goto dump_entry;
