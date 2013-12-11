@@ -328,7 +328,7 @@ static struct show_image_info show_infos[] = {
 	{ PACKETSK_MAGIC,	PB_PACKET_SOCK,		false,	NULL, "5:%d", },
 	{ ITIMERS_MAGIC,	PB_ITIMER,		false,	NULL, "*:%Lu", },
 	{ POSIX_TIMERS_MAGIC,	PB_POSIX_TIMER,		false,	NULL, "*:%d 5:%Lu 7:%Lu 8:%lu 9:%Lu 10:%Lu", },
-	{ NETDEV_MAGIC,		PB_NETDEV, 		false,	NULL, "2:%d", },
+	{ NETDEV_MAGIC,		PB_NETDEV,		false,	NULL, "2:%d", },
 
 	{ PAGEMAP_MAGIC,	PB_PAGEMAP_HEAD,	true,	show_pagemaps,		NULL, },
 	{ PIPES_DATA_MAGIC,	PB_PIPE_DATA,		false,	pipe_data_handler,	NULL, },

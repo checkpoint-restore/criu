@@ -61,7 +61,7 @@ struct long_opt {
 
 extern void __push_opt(struct long_opt *opt);
 
-#define TEST_OPTION(name, type, doc, is_required) 				\
+#define TEST_OPTION(name, type, doc, is_required)				\
 	param_check_##type(name, &(name));					\
 	static struct long_opt __long_opt_##name = {				\
 		#name, #type, doc, is_required, parse_opt_##type, &name };	\

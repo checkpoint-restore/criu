@@ -146,7 +146,7 @@ static int check_map(struct map *map)
 				     map->ptr, map->flag, map->prot);
 				return -1;
 			}
-		/* prot |= PROT_READ// 	need barrier before this line,
+		/* prot |= PROT_READ//	need barrier before this line,
 					because compiler change order commands.
 					I finded one method: look at next lines*/
 	} else

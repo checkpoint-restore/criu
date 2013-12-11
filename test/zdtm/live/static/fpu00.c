@@ -65,7 +65,7 @@ int main(int argc, char ** argv)
 
 
 	start(a, b, c, d);
-	res1 = 	finish();
+	res1 = finish();
 
 	start(a, b, c, d);
 

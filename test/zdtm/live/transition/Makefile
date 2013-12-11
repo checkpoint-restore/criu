@@ -6,14 +6,14 @@ override CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror
 
 TST_NOFILE	=	\
-		ipc	 	\
+		ipc		\
 		ptrace		\
 		epoll		\
 		fork		\
 		fork2		\
 
 TST_FILE	=	\
-		file_read 	\
+		file_read	\
 
 TST	= $(TST_NOFILE) $(TST_FILE)
 SRC	= $(TST:%=%.c)

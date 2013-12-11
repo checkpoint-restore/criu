@@ -63,10 +63,10 @@ extern int do_restore_opt(int sk, int level, int name, void *val, int len);
 #define restore_opt(s, l, n, f)	do_restore_opt(s, l, n, f, sizeof(*f))
 
 #define sk_encode_shutdown(img, mask) do {			\
-		/* 						\
+		/*						\
 		 * protobuf SK_SHUTDOWN__ bits match those	\
 		 * reported by kernel				\
-		 */ 						\
+		 */						\
 		(img)->shutdown = mask;				\
 		if ((img)->shutdown != SK_SHUTDOWN__NONE)	\
 			(img)->has_shutdown = true;		\

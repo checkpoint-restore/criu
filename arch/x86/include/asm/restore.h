@@ -5,13 +5,13 @@
 
 #include "protobuf/core.pb-c.h"
 
-#define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,          \
+#define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,		\
 			      task_args)				\
 	asm volatile(							\
 		     "movq %0, %%rbx				    \n" \
 		     "movq %1, %%rax				    \n" \
 		     "movq %2, %%rdi				    \n" \
-		     "movq %%rbx, %%rsp			       	    \n"	\
+		     "movq %%rbx, %%rsp				    \n"	\
 		     "callq *%%rax				    \n" \
 		     :							\
 		     : "g"(new_sp),					\

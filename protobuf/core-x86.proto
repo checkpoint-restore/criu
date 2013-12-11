@@ -14,8 +14,8 @@ message user_x86_regs_entry {
 	required uint64			dx		= 13;
 	required uint64			si		= 14;
 	required uint64			di		= 15;
-	required uint64			orig_ax	 	= 16;
-	required uint64			ip	 	= 17;
+	required uint64			orig_ax		= 16;
+	required uint64			ip		= 17;
 	required uint64			cs		= 18;
 	required uint64			flags		= 19;
 	required uint64			sp		= 20;

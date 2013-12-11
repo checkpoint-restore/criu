@@ -76,32 +76,32 @@ struct rt_sigframe {
 		     : "r"(new_sp)					\
 		     : "sp","memory")
 
-#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, 	\
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
 		     "clone_emul:				\n"	\
 		     "ldr %%r1, %2				\n"	\
-		     "sub %%r1, #16			        \n"	\
+		     "sub %%r1, #16				\n"	\
 		     "mov %%r0, %%%6				\n"	\
 		     "str %%r0, [%%r1, #4]			\n"	\
 		     "mov %%r0, %%%5				\n"	\
-		     "str %%r0, [%%r1]			        \n"	\
+		     "str %%r0, [%%r1]				\n"	\
 		     "mov %%r0, %%%1				\n"	\
 		     "mov %%r2, %%%3				\n"	\
 		     "mov %%r3, %%%4				\n"	\
 		     "mov %%r7, #"__stringify(__NR_clone)"	\n"	\
-		     "svc #0				        \n"	\
+		     "svc #0					\n"	\
 									\
-		     "cmp %%r0, #0			        \n"	\
+		     "cmp %%r0, #0				\n"	\
 		     "beq thread_run				\n"	\
 									\
 		     "mov %%%0, %%r0				\n"	\
 		     "b   clone_end				\n"	\
 									\
 		     "thread_run:				\n"	\
-		     "pop { %%r1 }			        \n"	\
-		     "pop { %%r0 }			        \n"	\
-		     "bx  %%r1				        \n"	\
+		     "pop { %%r1 }				\n"	\
+		     "pop { %%r0 }				\n"	\
+		     "bx  %%r1					\n"	\
 									\
 		     "clone_end:				\n"	\
 		     : "=r"(ret)					\
@@ -117,7 +117,7 @@ struct rt_sigframe {
 	asm volatile(						\
 		     "mov %%sp, %0			    \n"	\
 		     "mov %%r0, #0			    \n"	\
-		     "bx  %%r0			            \n"	\
+		     "bx  %%r0				    \n"	\
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")

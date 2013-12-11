@@ -6,9 +6,9 @@ message itimer_entry {
 }
 
 message posix_timer_entry {
-	required uint32 	it_id 		= 1;
+	required uint32		it_id		= 1;
 	required uint32		clock_id	= 2;
-	required uint32 	si_signo	= 3;
+	required uint32		si_signo	= 3;
 	required uint32		it_sigev_notify = 4;
 	required uint64		sival_ptr	= 5;
 	required uint32		overrun		= 6;

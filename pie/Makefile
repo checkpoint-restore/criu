@@ -1,5 +1,5 @@
 targets			+= parasite
-targets 		+= restorer
+targets			+= restorer
 
 obj-y			+= log-simple.o
 obj-y			+= util.o

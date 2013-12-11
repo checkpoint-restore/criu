@@ -66,18 +66,18 @@ proto-h		:= $(proto-obj-y:.o=.pb-c.h)
 
 $(obj)/%.proto.d: $(obj)/%.proto
 	$(E) "  PB DDEP " $@
-	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $^ | sed	  				  \
-		-e 's/[[:blank:]]*import[[:blank:]]*//' 					  \
+	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $^ | sed					  \
+		-e 's/[[:blank:]]*import[[:blank:]]*//'						  \
 		-e 's/[\";]//g'									  \
 		-e 's/.*/$(subst /,\/,$^):$(subst /,\/,$(obj))\/&/'				| \
 		uniq > $@
 
 $(obj)/%.proto.c.d: $(obj)/%.proto | $(obj)/%.proto.d
 	$(E) "  PB DEP  " $@
-	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $< | sed	  				  \
-		-e 's/[[:blank:]]*import[[:blank:]]*//' 					  \
-		-e 's/.proto/.pb-c.c/'	  							  \
-		-e 's/[\";]//g'		  							  \
+	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $< | sed					  \
+		-e 's/[[:blank:]]*import[[:blank:]]*//'						  \
+		-e 's/.proto/.pb-c.c/'								  \
+		-e 's/[\";]//g'									  \
 		-e 's/.*/$(subst .proto,.pb-c.c,$(subst /,\/,$<)):$(subst /,\/,$(obj))\/&/'	| \
 		uniq > $@
 

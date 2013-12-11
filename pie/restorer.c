@@ -36,7 +36,7 @@
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
-		if (__ret) 						\
+		if (__ret)						\
 			 pr_err("prctl failed @%d with %ld\n", __LINE__, __ret);\
 		__ret;							\
 	})

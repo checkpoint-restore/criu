@@ -46,7 +46,7 @@ echo Press Enter for restoring CT
 read
 
 echo "Restore the CT $name"
-${criu} restore 	--evasive-devices					\
+${criu} restore		--evasive-devices					\
 			--tcp-established					\
 			--file-locks						\
 			-n net -n mnt -n ipc -n pid				\
