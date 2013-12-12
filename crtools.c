@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	init_opts();
 
 	if (init_service_fd())
-		return -1;
+		return 1;
 
 	while (1) {
 		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jlW:";
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'n':
 			if (parse_ns_string(optarg))
-				return -1;
+				return 1;
 			break;
 		case 'v':
 			if (optarg) {
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 
 				n = xmalloc(sizeof(*n));
 				if (n == NULL)
-					return -1;
+					return 1;
 				n->outside = strchr(optarg, '=');
 				if (n->outside == NULL) {
 					xfree(n);
@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
 
 				script = xmalloc(sizeof(struct script));
 				if (script == NULL)
-					return -1;
+					return 1;
 
 				script->path = optarg;
 				list_add(&script->node, &opts.scripts);
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
 			opts.ps_port = htons(atoi(optarg));
 			if (!opts.ps_port) {
 				pr_err("Bad port\n");
-				return -1;
+				return 1;
 			}
 			break;
 		case 'j':
@@ -293,19 +293,19 @@ int main(int argc, char *argv[])
 		ret = open_image_dir(imgs_dir);
 		if (ret < 0) {
 			pr_perror("Can't open imgs directory");
-			return -1;
+			return 1;
 		}
 	}
 
 	if (chdir(work_dir)) {
 		pr_perror("Can't change directory to %s", work_dir);
-		return -1;
+		return 1;
 	}
 
 	log_set_loglevel(log_level);
 
 	if (log_init(opts.output))
-		return -1;
+		return 1;
 
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
@@ -384,7 +384,7 @@ usage:
 
 	if (argc < 2) {
 		pr_msg("\nTry -h|--help for more info\n");
-		return -1;
+		return 1;
 	}
 
 	pr_msg("\n"
@@ -445,9 +445,9 @@ usage:
 "     --ms               don't check not yet merged kernel features\n"
 	);
 
-	return -1;
+	return 1;
 
 opt_pid_missing:
 	pr_msg("No pid specified (-t option missing)\n");
-	return -1;
+	return 1;
 }
