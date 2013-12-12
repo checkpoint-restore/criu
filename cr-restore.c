@@ -1260,14 +1260,7 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
-		/*
-		 * For ghost file path resolving on BTRFS we will need
-		 * parsed mount tree, but IIF we're not restoring task
-		 * with mount namespace cloned, in this case we don't parse
-		 * mount tree early because we will be reading mount points
-		 * from image later and generate new mount tree.
-		 */
-		if (collect_mount_info(getpid(), !(ca->clone_flags & CLONE_NEWNS)))
+		if (collect_mount_info(getpid()))
 			exit(1);
 
 		if (prepare_namespace(current, ca->clone_flags))

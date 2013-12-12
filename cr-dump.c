@@ -1703,7 +1703,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_file_locks())
 		goto err;
 
-	if (collect_mount_info(pid, true))
+	if (collect_mount_info(pid))
 		goto err;
 
 	if (mntns_collect_root(root_item->pid.real))

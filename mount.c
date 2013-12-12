@@ -70,7 +70,7 @@ int open_mount(unsigned int s_dev)
 	return -ENOENT;
 }
 
-int collect_mount_info(pid_t pid, bool parse)
+int collect_mount_info(pid_t pid)
 {
 	pr_info("Collecting mountinfo\n");
 
@@ -81,16 +81,15 @@ int collect_mount_info(pid_t pid, bool parse)
 	}
 
 	/*
-	 * WARN: Don't ever parse already parsed mount tree,
-	 * this will corrupt mount lists leading to weird
-	 * errors.
+	 * Build proper tree in any case -- for NEWNS one we'll use
+	 * it for old NS clean, otherwise we'll use the tree for
+	 * path resolution (btrfs stat workaround).
 	 */
-	if (parse) {
-		mntinfo_tree = mnt_build_tree(mntinfo);
-		if (!mntinfo_tree) {
-			pr_err("Building mount tree %d failed\n", getpid());
-			return -1;
-		}
+
+	mntinfo_tree = mnt_build_tree(mntinfo);
+	if (!mntinfo_tree) {
+		pr_err("Building mount tree %d failed\n", getpid());
+		return -1;
 	}
 
 	return 0;
@@ -1117,8 +1116,6 @@ static int do_umount_one(struct mount_info *mi)
 
 static int clean_mnt_ns(void)
 {
-	struct mount_info *pm;
-
 	pr_info("Cleaning mount namespace\n");
 
 	/*
@@ -1130,11 +1127,7 @@ static int clean_mnt_ns(void)
 		return -1;
 	}
 
-	pm = mnt_build_tree(mntinfo);
-	if (!pm)
-		return -1;
-
-	return mnt_tree_for_each_reverse(pm, do_umount_one);
+	return mnt_tree_for_each_reverse(mntinfo_tree, do_umount_one);
 }
 
 static int cr_pivot_root()
