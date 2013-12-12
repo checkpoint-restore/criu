@@ -91,12 +91,6 @@ int collect_mount_info(pid_t pid, bool parse)
 			pr_err("Building mount tree %d failed\n", getpid());
 			return -1;
 		}
-
-		if (validate_mounts(mntinfo_tree)) {
-			mntinfo_tree = NULL;
-			pr_err("Validating mount tree %d failed\n", getpid());
-			return -1;
-		}
 	}
 
 	return 0;
