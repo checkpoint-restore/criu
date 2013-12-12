@@ -400,7 +400,7 @@ int cr_service(bool daemon_mode)
 	if (opts.pidfile) {
 		if (write_pidfile(getpid()) == -1) {
 			pr_perror("Can't write pidfile");
-			return -1;
+			goto err;
 		}
 	}
 
