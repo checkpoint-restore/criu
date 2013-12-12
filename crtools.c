@@ -427,7 +427,7 @@ usage:
 "  --prev-images-dir DIR path to images from previous dump (relative to -D)\n"
 "  --page-server         send pages to page server (see options below as well)\n"
 "\n"
-"Page/Service server options\n"
+"Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
 "  --port PORT           port of page server\n"
 "  -d|--daemon           run in the background after creating socket\n"
