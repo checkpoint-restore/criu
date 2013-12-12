@@ -429,7 +429,7 @@ int cr_service(bool daemon_mode)
 			close(server_fd);
 			ret = cr_service_work(sk);
 			close(sk);
-			exit(ret);
+			exit(ret != 0);
 		}
 
 		if (child_pid < 0)
