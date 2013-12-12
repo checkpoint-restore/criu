@@ -398,7 +398,7 @@ usage:
 "  -D|--images-dir DIR   directory for image files\n"
 "     --pidfile FILE     write root task, service or page-server pid to FILE\n"
 "  -W|--work-dir DIR     directory to cd and write logs/pidfiles/stats to\n"
-"                        if not specified, the --images-dir is used\n"
+"                        (if not specified, value of --images-dir is used)\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
