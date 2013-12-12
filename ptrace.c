@@ -126,7 +126,7 @@ try_again:
 
 		if (ptrace(PTRACE_CONT, pid, NULL,
 					(void *)(unsigned long)si.si_signo)) {
-			pr_perror("Can't continue signal handling. Aborting.");
+			pr_perror("Can't continue signal handling, aborting");
 			goto err;
 		}
 

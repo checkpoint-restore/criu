@@ -100,7 +100,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	char images_dir_path[PATH_MAX];
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
-		pr_perror("Can't get socket options.");
+		pr_perror("Can't get socket options");
 		return -1;
 	}
 
@@ -133,7 +133,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
-		pr_perror("Can't initiate log.");
+		pr_perror("Can't initiate log");
 		return -1;
 	}
 
@@ -351,7 +351,7 @@ int cr_service(bool daemon_mode)
 
 		server_fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 		if (server_fd == -1) {
-			pr_perror("Can't initialize service socket.");
+			pr_perror("Can't initialize service socket");
 			goto err;
 		}
 
@@ -372,7 +372,7 @@ int cr_service(bool daemon_mode)
 
 		if (bind(server_fd, (struct sockaddr *) &server_addr,
 						server_addr_len) == -1) {
-			pr_perror("Can't bind.");
+			pr_perror("Can't bind");
 			goto err;
 		}
 
@@ -380,12 +380,12 @@ int cr_service(bool daemon_mode)
 
 		/* change service socket permissions, so anyone can connect to it */
 		if (chmod(server_addr.sun_path, 0666)) {
-			pr_perror("Can't change permissions of the service socket.");
+			pr_perror("Can't change permissions of the service socket");
 			goto err;
 		}
 
 		if (listen(server_fd, 16) == -1) {
-			pr_perror("Can't listen for socket connections.");
+			pr_perror("Can't listen for socket connections");
 			goto err;
 		}
 	}
@@ -414,7 +414,7 @@ int cr_service(bool daemon_mode)
 
 		sk = accept(server_fd, &client_addr, &client_addr_len);
 		if (sk == -1) {
-			pr_perror("Can't accept connection.");
+			pr_perror("Can't accept connection");
 			goto err;
 		}
 
