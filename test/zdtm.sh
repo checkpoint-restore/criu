@@ -693,7 +693,11 @@ while :; do
 		;;
 	  -x)
 		shift
-		EXCLUDE_PATTERN=$1
+		if [ -z "$EXCLUDE_PATTERN" ]; then
+			EXCLUDE_PATTERN=$1
+		else
+			EXCLUDE_PATTERN="${EXCLUDE_PATTERN}\|$1"
+		fi
 		shift
 		;;
 	  -t)
