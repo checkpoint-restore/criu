@@ -166,7 +166,8 @@ dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
 	 * superblock dev-id, in such case return device
 	 * obtained from mountinfo (ie subvolume0).
 	 */
-	return strcmp(m->fstype->name, "btrfs") ? st_dev : m->s_dev;
+	return strcmp(m->fstype->name, "btrfs") ?
+		MKKDEV(MAJOR(st_dev), MINOR(st_dev)) : m->s_dev;
 }
 
 bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, const char *path)

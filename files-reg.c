@@ -208,7 +208,7 @@ struct collect_image_info remap_cinfo = {
 	.collect = collect_one_remap,
 };
 
-static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
+static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_dev)
 {
 	int img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
@@ -224,7 +224,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st)
 	gfe.mode = st->st_mode;
 
 	gfe.has_dev = gfe.has_ino = true;
-	gfe.dev = MKKDEV(MAJOR(st->st_dev), MINOR(st->st_dev));
+	gfe.dev = phys_dev;
 	gfe.ino = st->st_ino;
 
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
@@ -270,7 +270,7 @@ struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
 
 	mutex_lock(ghost_file_mutex);
 	list_for_each_entry(gf, &ghost_files, list) {
-		if (gf->ino == ino && phys_stat_dev_match(gf->dev, dev, gf->remap.path)) {
+		if (gf->ino == ino && (gf->dev == dev)) {
 			gf->remap.users++;
 			mutex_unlock(ghost_file_mutex);
 			return &gf->remap;
@@ -309,7 +309,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 	gf->id = ghost_file_ids++;
 	list_add_tail(&gf->list, &ghost_files);
 
-	if (dump_ghost_file(lfd, gf->id, st))
+	if (dump_ghost_file(lfd, gf->id, st, phys_dev))
 		return -1;
 
 dump_entry:
