@@ -398,7 +398,7 @@ usage:
 "  -D|--images-dir DIR   directory for image files\n"
 "     --pidfile FILE     write a pid of a root task, service or page-server\n"
 "                        to this file\n"
-"  -W|--work-dir DIR     directory for logs/pidfiles/stats and for criu process itself\n"
+"  -W|--work-dir DIR     directory to cd and write logs/pidfiles/stats to\n"
 "                        if not specified, the --images-dir is used\n"
 "\n"
 "* Special resources support:\n"
