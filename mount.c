@@ -1117,7 +1117,6 @@ static int do_umount_one(struct mount_info *mi)
 
 static int clean_mnt_ns(void)
 {
-	int ret;
 	struct mount_info *pm;
 
 	pr_info("Cleaning mount namespace\n");
@@ -1131,20 +1130,11 @@ static int clean_mnt_ns(void)
 		return -1;
 	}
 
-	mntinfo_tree = NULL;
 	pm = mnt_build_tree(mntinfo);
 	if (!pm)
 		return -1;
 
-	ret = mnt_tree_for_each_reverse(pm, do_umount_one);
-
-	while (mntinfo) {
-		pm = mntinfo->next;
-		xfree(mntinfo);
-		mntinfo = pm;
-	}
-
-	return ret;
+	return mnt_tree_for_each_reverse(pm, do_umount_one);
 }
 
 static int cr_pivot_root()
@@ -1211,6 +1201,19 @@ void mnt_entry_free(struct mount_info *mi)
 	xfree(mi->source);
 	xfree(mi->options);
 	xfree(mi);
+}
+
+static void free_mounts(void)
+{
+	mntinfo_tree = NULL;
+
+	while (mntinfo) {
+		struct mount_info *pm;
+
+		pm = mntinfo->next;
+		mnt_entry_free(mntinfo);
+		mntinfo = pm;
+	}
 }
 
 static int populate_mnt_ns(int ns_pid)
@@ -1318,6 +1321,8 @@ int prepare_mnt_ns(int ns_pid)
 		ret = cr_pivot_root();
 	else
 		ret = clean_mnt_ns();
+
+	free_mounts();
 
 	if (!ret)
 		ret = populate_mnt_ns(ns_pid);
