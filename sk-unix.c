@@ -355,7 +355,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			}
 
 			if ((st.st_ino != uv->udiag_vfs_ino) ||
-			    !phys_stat_dev_match(st.st_dev, kdev_to_odev(uv->udiag_vfs_dev), name)) {
+			    !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, name)) {
 				pr_info("unix: Dropping path %s for "
 						"unlinked bound "
 						"sk %#x.%#x real %#x.%#x\n",

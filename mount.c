@@ -172,7 +172,7 @@ dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
 
 bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, const char *path)
 {
-	if (st_dev == phys_dev)
+	if (st_dev == kdev_to_odev(phys_dev))
 		return true;
 
 	return phys_dev == phys_stat_resolve_dev(st_dev, path);
