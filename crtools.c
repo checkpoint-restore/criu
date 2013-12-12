@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "dump")) {
 		if (!tree_id)
 			goto opt_pid_missing;
-		return cr_dump_tasks(tree_id);
+		return cr_dump_tasks(tree_id) != 0;
 	}
 
 	if (!strcmp(argv[optind], "pre-dump")) {
@@ -330,31 +330,31 @@ int main(int argc, char *argv[])
 			opts.final_state = TASK_ALIVE;
 		}
 
-		return cr_pre_dump_tasks(tree_id);
+		return cr_pre_dump_tasks(tree_id) != 0;
 	}
 
 	if (!strcmp(argv[optind], "restore")) {
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
-		return cr_restore_tasks();
+		return cr_restore_tasks() != 0;
 	}
 
 	if (!strcmp(argv[optind], "show"))
-		return cr_show(pid);
+		return cr_show(pid) != 0;
 
 	if (!strcmp(argv[optind], "check"))
-		return cr_check();
+		return cr_check() != 0;
 
 	if (!strcmp(argv[optind], "exec")) {
 		if (!pid)
 			pid = tree_id; /* old usage */
 		if (!pid)
 			goto opt_pid_missing;
-		return cr_exec(pid, argv + optind + 1);
+		return cr_exec(pid, argv + optind + 1) != 0;
 	}
 
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.restore_detach);
+		return cr_page_server(opts.restore_detach) != 0;
 
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.restore_detach);
