@@ -84,10 +84,10 @@ struct proc_status_creds {
 	unsigned int uids[4];
 	unsigned int gids[4];
 
-	uint32_t cap_inh[PROC_CAP_SIZE];
-	uint32_t cap_prm[PROC_CAP_SIZE];
-	uint32_t cap_eff[PROC_CAP_SIZE];
-	uint32_t cap_bnd[PROC_CAP_SIZE];
+	u32 cap_inh[PROC_CAP_SIZE];
+	u32 cap_prm[PROC_CAP_SIZE];
+	u32 cap_eff[PROC_CAP_SIZE];
+	u32 cap_bnd[PROC_CAP_SIZE];
 };
 
 struct mount_info;

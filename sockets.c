@@ -143,20 +143,20 @@ static int restore_bound_dev(int sk, SkOptsEntry *soe)
  * to move socket image across architectures.
  */
 
-static void encode_filter(struct sock_filter *f, uint64_t *img, int n)
+static void encode_filter(struct sock_filter *f, u64 *img, int n)
 {
 	int i;
 
 	BUILD_BUG_ON(sizeof(*f) != sizeof(*img));
 
 	for (i = 0; i < n; i++)
-		img[i] = ((uint64_t)f[i].code << 48) |
-			 ((uint64_t)f[i].jt << 40) |
-			 ((uint64_t)f[i].jf << 32) |
-			 ((uint64_t)f[i].k << 0);
+		img[i] = ((u64)f[i].code << 48) |
+			 ((u64)f[i].jt << 40) |
+			 ((u64)f[i].jf << 32) |
+			 ((u64)f[i].k << 0);
 }
 
-static void decode_filter(uint64_t *img, struct sock_filter *f, int n)
+static void decode_filter(u64 *img, struct sock_filter *f, int n)
 {
 	int i;
 

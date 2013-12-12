@@ -26,11 +26,11 @@
 struct fd_opts {
 	char flags;
 	struct {
-		uint32_t uid;
-		uint32_t euid;
-		uint32_t signum;
-		uint32_t pid_type;
-		uint32_t pid;
+		u32 uid;
+		u32 euid;
+		u32 signum;
+		u32 pid_type;
+		u32 pid;
 	} fown;
 };
 

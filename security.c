@@ -35,7 +35,7 @@ static bool check_ids(unsigned int crid, unsigned int rid, unsigned int eid, uns
 	return false;
 }
 
-static bool check_caps(uint32_t *inh, uint32_t *eff, uint32_t *prm)
+static bool check_caps(u32 *inh, u32 *eff, u32 *prm)
 {
 	int i;
 

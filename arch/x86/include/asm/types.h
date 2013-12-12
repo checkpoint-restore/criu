@@ -118,7 +118,7 @@ typedef struct {
 
 #define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
 
-typedef uint64_t auxv_t;
+typedef u64 auxv_t;
 
 #define REG_RES(regs) ((regs).ax)
 #define REG_IP(regs)  ((regs).ip)
@@ -136,7 +136,7 @@ typedef uint64_t auxv_t;
 
 typedef UserX86RegsEntry UserRegsEntry;
 
-static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
-static inline void *decode_pointer(uint64_t v) { return (void*)v; }
+static inline u64 encode_pointer(void *p) { return (u64)p; }
+static inline void *decode_pointer(u64 v) { return (void*)v; }
 
 #endif /* __CR_ASM_TYPES_H__ */

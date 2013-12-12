@@ -2,7 +2,7 @@
 #define __ASM_PARASITE_H__
 
 static inline u32 arch_get_tls(void) {
-	uint32_t res;
+	u32 res;
 
 	asm (
 	     "adr %%r1, 1f              \n"

@@ -116,9 +116,9 @@ typedef UserArmRegsEntry UserRegsEntry;
 
 #define TI_SP(core) ((core)->ti_arm->gpregs->sp)
 
-typedef uint32_t auxv_t;
+typedef u32 auxv_t;
 
-static inline void *decode_pointer(uint64_t v) { return (void*)(uint32_t)v; }
-static inline uint64_t encode_pointer(void *p) { return (uint32_t)p; }
+static inline void *decode_pointer(u64 v) { return (void*)(u32)v; }
+static inline u64 encode_pointer(void *p) { return (u32)p; }
 
 #endif /* __CR_ASM_TYPES_H__ */

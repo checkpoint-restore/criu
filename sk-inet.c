@@ -568,10 +568,10 @@ union sockaddr_inet {
 };
 
 static int restore_sockaddr(union sockaddr_inet *sa,
-		int family, uint32_t pb_port, uint32_t *pb_addr)
+		int family, u32 pb_port, u32 *pb_addr)
 {
-	BUILD_BUG_ON(sizeof(sa->v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(uint32_t));
-	BUILD_BUG_ON(sizeof(sa->v6.sin6_addr.s6_addr) > PB_ALEN_INET6 * sizeof(uint32_t));
+	BUILD_BUG_ON(sizeof(sa->v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(u32));
+	BUILD_BUG_ON(sizeof(sa->v6.sin6_addr.s6_addr) > PB_ALEN_INET6 * sizeof(u32));
 
 	memzero(sa, sizeof(*sa));
 
