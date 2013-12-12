@@ -571,3 +571,13 @@ out:
 
 	return ret;
 }
+
+int is_root_user()
+{
+	if (geteuid() != 0) {
+		pr_err("You need to be root to run this command\n");
+		return 0;
+	}
+
+	return 1;
+}
