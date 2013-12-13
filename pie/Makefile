@@ -50,6 +50,8 @@ _all += $(BLOBS)
 cleanup-y += $(obj)/$(PIELDS)
 cleanup-y += $(obj)/*.bin
 cleanup-y += $(BLOBS)
+cleanup-y += $(obj)/*.built-in.bin.o
+cleanup-y += $(obj)/*.built-in.bin
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
