@@ -9,9 +9,25 @@ deps-after	:=
 all-objs	:=
 incdeps		:=
 _all		:=
+_cleanup-y	:=
 
 include scripts/Makefile.rules
 include $(obj)/$(makefile)
+
+##
+## Append targets to be auto-cleanuped
+define add-cleanup-obj-c-by-name
+_cleanup-y+= $(1).o
+_cleanup-y+= $(1).i
+_cleanup-y+= $(1).d
+_cleanup-y+= $(1).s
+endef
+
+define add-cleanup-obj-S-by-name
+_cleanup-y+= $(1).o
+_cleanup-y+= $(1).d
+_cleanup-y+= $(1).i
+endef
 
 ##
 ##
@@ -21,6 +37,7 @@ $(eval $(call gen-rule-o-from-c-by-name,$(1),$(2),$(3)))
 $(eval $(call gen-rule-i-from-c-by-name,$(1),$(2),$(3)))
 $(eval $(call gen-rule-d-from-c-by-name,$(1),$(2),$(3)))
 $(eval $(call gen-rule-s-from-c-by-name,$(1),$(2),$(3)))
+$(eval $(call add-cleanup-obj-c-by-name,$(1)))
 endef
 
 ##
@@ -30,6 +47,7 @@ define gen-target-S-bundle
 $(eval $(call gen-rule-o-from-S-by-name,$(1),$(2),$(3)))
 $(eval $(call gen-rule-d-from-S-by-name,$(1),$(2),$(3)))
 $(eval $(call gen-rule-i-from-S-by-name,$(1),$(2),$(3)))
+$(eval $(call add-cleanup-obj-S-by-name,$(1)))
 endef
 
 ##
@@ -156,6 +174,7 @@ $$(obj)/$(1).built-in.o: $$($(1)-all-objs) $$($(1)-libs-e) $(libs-e)
 	$$(Q) $$(LD) $$(LDFLAGS) -r -o $$@ $$^
 
 _all += $$(obj)/$(1).built-in.o
+cleanup-y += $$(obj)/$(1).built-in.o
 endef
 
 ##
@@ -176,6 +195,7 @@ $(obj)/built-in.o: $(all-objs) $(libs-e)
 	$(Q) $(LD) $(LDFLAGS) -r -o $@ $^
 
 _all += $(obj)/built-in.o
+cleanup-y += $(obj)/built-in.o
 endif
 endif
 
@@ -203,10 +223,7 @@ endif
 ##
 ##
 ## Autocomplete cleanups
-cleanup-y += $(obj)/*.o $(obj)/*.d
-cleanup-y += $(obj)/*.i $(obj)/*.s
-cleanup-y += $(obj)/*.built-in.o
-cleanup-y += $(obj)/built-in.o
+cleanup-y += $(_cleanup-y)
 
 ##
 ## Predefined .PHONY targets
