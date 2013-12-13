@@ -112,3 +112,4 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
+cleanup-y += $(obj)/*.d $(obj)/*.i $(obj)/*.s $(obj)/*.o
