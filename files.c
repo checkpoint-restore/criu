@@ -327,7 +327,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		else {
 			char more[64];
 
-			if (read_fd_link(fd, more, sizeof(more)))
+			if (read_fd_link(fd, more, sizeof(more)) < 0)
 				more[0] = '\0';
 
 			return dump_unsupp_fd(&p, "anon", more);
