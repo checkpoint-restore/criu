@@ -1814,5 +1814,5 @@ err:
 		pr_info("Dumping finished successfully\n");
 	}
 
-	return post_dump_ret ? : ret;
+	return post_dump_ret ? : (ret != 0);
 }

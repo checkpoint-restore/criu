@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "dump")) {
 		if (!tree_id)
 			goto opt_pid_missing;
-		return cr_dump_tasks(tree_id) != 0;
+		return cr_dump_tasks(tree_id);
 	}
 
 	if (!strcmp(argv[optind], "pre-dump")) {
