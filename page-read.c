@@ -83,7 +83,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn)
+int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn)
 {
 	int ret;
 	struct iovec iov;
