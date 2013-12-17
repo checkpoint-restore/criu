@@ -163,9 +163,9 @@ static void close_page_read(struct page_read *pr)
 	close(pr->fd);
 }
 
-static int open_page_read_at(int dfd, int pid, struct page_read *pr);
+static int open_page_at(int dfd, int pid, struct page_read *pr, int flags);
 
-static int try_open_parent(int dfd, int pid, struct page_read *pr)
+static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
 {
 	int pfd;
 	struct page_read *parent = NULL;
@@ -178,7 +178,7 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_read_at(pfd, pid, parent)) {
+	if (open_page_at(pfd, pid, parent, flags)) {
 		if (errno != ENOENT)
 			goto err_free;
 		xfree(parent);
@@ -197,13 +197,13 @@ err_cl:
 	return -1;
 }
 
-static int open_page_read_at(int dfd, int pid, struct page_read *pr)
+static int open_page_at(int dfd, int pid, struct page_read *pr, int flags)
 {
 	pr->pe = NULL;
 
 	pr->fd = open_image_at(dfd, CR_FD_PAGEMAP, O_RSTR, (long)pid);
 	if (pr->fd < 0) {
-		pr->fd_pg = open_image_at(dfd, CR_FD_PAGES_OLD, O_RSTR, pid);
+		pr->fd_pg = open_image_at(dfd, CR_FD_PAGES_OLD, flags, pid);
 		if (pr->fd_pg < 0)
 			return -1;
 
@@ -214,12 +214,12 @@ static int open_page_read_at(int dfd, int pid, struct page_read *pr)
 	} else {
 		static unsigned ids = 1;
 
-		if (try_open_parent(dfd, pid, pr)) {
+		if (try_open_parent(dfd, pid, pr, flags)) {
 			close(pr->fd);
 			return -1;
 		}
 
-		pr->fd_pg = open_pages_image_at(dfd, O_RSTR, pr->fd);
+		pr->fd_pg = open_pages_image_at(dfd, flags, pr->fd);
 		if (pr->fd_pg < 0) {
 			close_page_read(pr);
 			return -1;
@@ -239,7 +239,17 @@ static int open_page_read_at(int dfd, int pid, struct page_read *pr)
 	return 0;
 }
 
+static int open_page_read_at(int dfd, int pid, struct page_read *pr)
+{
+	return open_page_at(dfd, pid, pr, O_RSTR);
+}
+
 int open_page_read(int pid, struct page_read *pr)
 {
 	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr);
+}
+
+int open_page_rw(int pid, struct page_read *pr)
+{
+	return open_page_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RDWR);
 }
