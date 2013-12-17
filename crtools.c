@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
 			{ "prev-images-dir", required_argument, 0, 53},
 			{ "ms", no_argument, 0, 54},
 			{ "track-mem", no_argument, 0, 55},
+			{ "auto-dedup", no_argument, 0, 56},
 			{ },
 		};
 
@@ -267,6 +268,9 @@ int main(int argc, char *argv[])
 			break;
 		case 55:
 			opts.track_mem = true;
+			break;
+		case 56:
+			opts.auto_dedup = true;
 			break;
 		case 54:
 			opts.check_ms_kernel = true;

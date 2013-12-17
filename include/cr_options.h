@@ -34,6 +34,7 @@ struct cr_options {
 	char			*addr;
 	bool			track_mem;
 	char			*img_parent;
+	bool			auto_dedup;
 };
 
 extern struct cr_options opts;
