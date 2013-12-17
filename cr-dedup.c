@@ -1,4 +1,6 @@
 #include <sys/uio.h>
+#include <fcntl.h>
+#include <linux/falloc.h>
 #include <unistd.h>
 
 #include "crtools.h"
@@ -102,6 +104,7 @@ exit:
 int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 {
 	unsigned long off;
+	unsigned long off_real;
 	unsigned long iov_end;
 
 	iov_end = (unsigned long)iov->iov_base + iov->iov_len;
@@ -125,6 +128,16 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 			return -1;
 		pagemap2iovec(pr->pe, &piov);
 		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
+		off_real = lseek(pr->fd_pg, 0, SEEK_CUR);
+		if (!pr->pe->in_parent) {
+			pr_debug("Punch!/%lu/%lu/\n", off_real, min(piov_end, iov_end) - off);
+			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+					off_real, min(piov_end, iov_end) - off);
+			if (ret != 0) {
+				pr_perror("Error punching hole : %d", errno);
+				return -1;
+			}
+		}
 
 		if (piov_end < iov_end) {
 			off = piov_end;
