@@ -125,8 +125,13 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 		if (ret == -1)
 			return ret;
 	} else {
+		off_t current_vaddr = lseek(pr->fd_pg, 0, SEEK_CUR);
 		pr_debug("\tpr%u Read page %lx from self %lx/%"PRIx64"\n", pr->id,
-				vaddr, pr->cvaddr, lseek(pr->fd_pg, 0, SEEK_CUR));
+				vaddr, pr->cvaddr, current_vaddr);
+		if (current_vaddr != lseek(pr->fd_pg, current_vaddr, SEEK_DATA)) {
+			pr_perror("Can't read page because of hole /%"PRIx64, current_vaddr);
+			return -1;
+		}
 		ret = read(pr->fd_pg, buf, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
 			pr_perror("Can't read mapping page %d", ret);
