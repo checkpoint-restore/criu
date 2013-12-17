@@ -83,7 +83,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vaddr, void *buf)
+static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vaddr, void *buf, bool warn)
 {
 	int ret;
 	struct iovec iov;
@@ -96,7 +96,12 @@ static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vad
 	while (1) {
 		unsigned long iov_end;
 
-		BUG_ON(vaddr < pr->cvaddr);
+		if (vaddr < pr->cvaddr) {
+			if (warn)
+				pr_err("Missing %lu in parent pagemap, current iov: base=%lu,len=%lu\n",
+					vaddr, (unsigned long)iov.iov_base, iov.iov_len);
+			return -1;
+		}
 		iov_end = (unsigned long)iov.iov_base + iov.iov_len;
 
 		if (iov_end <= vaddr) {
@@ -121,7 +126,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 
 	if (pr->pe->in_parent) {
 		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
-		ret = read_pagemap_page_from_parent(pr->parent, vaddr, buf);
+		ret = read_pagemap_page_from_parent(pr->parent, vaddr, buf, true);
 		if (ret == -1)
 			return ret;
 	} else {
