@@ -37,7 +37,7 @@ static int read_page(struct page_read *pr, unsigned long vaddr, void *buf)
 	return 1;
 }
 
-static inline void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
+void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
 {
 	iov->iov_base = decode_pointer(pe->vaddr);
 	iov->iov_len = pe->nr_pages * PAGE_SIZE;
