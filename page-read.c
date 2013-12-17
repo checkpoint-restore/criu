@@ -83,7 +83,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-static int read_pagemap_page_from_parent(struct page_read *pr, unsigned long vaddr, void *buf, bool warn)
+static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn)
 {
 	int ret;
 	struct iovec iov;
@@ -116,7 +116,7 @@ new_pagemap:
 		}
 
 		skip_pagemap_pages(pr, vaddr - pr->cvaddr);
-		return read_pagemap_page(pr, vaddr, buf);
+		return 0;
 	}
 }
 
@@ -126,7 +126,10 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 
 	if (pr->pe->in_parent) {
 		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
-		ret = read_pagemap_page_from_parent(pr->parent, vaddr, buf, true);
+		ret = seek_pagemap_page(pr->parent, vaddr, true);
+		if (ret == -1)
+			return ret;
+		ret = read_pagemap_page(pr->parent, vaddr, buf);
 		if (ret == -1)
 			return ret;
 	} else {
