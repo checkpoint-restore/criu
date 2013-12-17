@@ -22,6 +22,7 @@ extern int cr_show(int pid);
 extern int convert_to_elf(char *elf_path, int fd_core);
 extern int cr_check(void);
 extern int cr_exec(int pid, char **opts);
+extern int cr_dedup(void);
 
 extern void restrict_uid(unsigned int uid, unsigned int gid);
 struct proc_status_creds;

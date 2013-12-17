@@ -359,6 +359,9 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.restore_detach);
 
+	if (!strcmp(argv[optind], "dedup"))
+		return cr_dedup() != 0;
+
 	pr_msg("Unknown command \"%s\"\n", argv[optind]);
 usage:
 	pr_msg("\n"
@@ -370,6 +373,7 @@ usage:
 "  criu exec -p PID <syscall-string>\n"
 "  criu page-server\n"
 "  criu service [<options>]\n"
+"  criu dedup\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -380,6 +384,7 @@ usage:
 "  exec           execute a system call by other task\n"
 "  page-server    launch page server\n"
 "  service        launch service\n"
+"  dedup          remove duplicates in memory dump\n"
 	);
 
 	if (argc < 2) {

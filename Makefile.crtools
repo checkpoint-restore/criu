@@ -12,6 +12,7 @@ obj-y	+= proc_parse.o
 obj-y	+= cr-dump.o
 obj-y	+= cr-show.o
 obj-y	+= cr-check.o
+obj-y	+= cr-dedup.o
 obj-y	+= util.o
 obj-y	+= sysctl.o
 obj-y	+= ptrace.o
