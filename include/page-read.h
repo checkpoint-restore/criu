@@ -70,4 +70,6 @@ extern int open_page_read(int pid, struct page_read *);
 extern int open_page_rw(int pid, struct page_read *);
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);
+
+extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
 #endif /* __CR_PAGE_READ_H__ */
