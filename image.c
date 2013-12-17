@@ -295,7 +295,7 @@ int open_pages_image_at(int dfd, unsigned long flags, int pm_fd)
 {
 	unsigned id;
 
-	if (flags == O_RDONLY) {
+	if (flags == O_RDONLY || flags == O_RDWR) {
 		PagemapHead *h;
 		if (pb_read_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
 			return -1;
