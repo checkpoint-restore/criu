@@ -19,16 +19,17 @@
 #include "log.h"
 #include "pstree.h"
 #include "cr-service.h"
+#include "cr-service-const.h"
 #include "sd-daemon.h"
 
 unsigned int service_sk_ino = -1;
 
 static int recv_criu_msg(int socket_fd, CriuReq **msg)
 {
-	unsigned char buf[MAX_MSG_SIZE];
+	unsigned char buf[CR_MAX_MSG_SIZE];
 	int len;
 
-	len = read(socket_fd, buf, MAX_MSG_SIZE);
+	len = read(socket_fd, buf, CR_MAX_MSG_SIZE);
 	if (len == -1) {
 		pr_perror("Can't read request");
 		return -1;
@@ -45,7 +46,7 @@ static int recv_criu_msg(int socket_fd, CriuReq **msg)
 
 static int send_criu_msg(int socket_fd, CriuResp *msg)
 {
-	unsigned char buf[MAX_MSG_SIZE];
+	unsigned char buf[CR_MAX_MSG_SIZE];
 	int len;
 
 	len = criu_resp__get_packed_size(msg);
