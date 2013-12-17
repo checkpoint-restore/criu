@@ -382,7 +382,7 @@ static int restore_priv_vma_content(pid_t pid)
 
 				ret = pr.read_page(&pr, va, buf);
 				if (ret < 0)
-					break;
+					goto err_read;
 				va += PAGE_SIZE;
 
 				if (memcmp(p, buf, PAGE_SIZE) == 0) {
@@ -394,7 +394,7 @@ static int restore_priv_vma_content(pid_t pid)
 			} else {
 				ret = pr.read_page(&pr, va, p);
 				if (ret < 0)
-					break;
+					goto err_read;
 				va += PAGE_SIZE;
 			}
 
@@ -405,6 +405,7 @@ static int restore_priv_vma_content(pid_t pid)
 			pr.put_pagemap(&pr);
 	}
 
+err_read:
 	pr.close(&pr);
 	if (ret < 0)
 		return ret;
