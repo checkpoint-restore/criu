@@ -202,6 +202,7 @@ clean: clean-built
 	$(Q) $(RM) -r ./test/lib64/
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test/zdtm cleandep clean cleanout
+	$(Q) $(MAKE) -C test/libcriu clean
 
 distclean: clean
 	$(E) "  DISTCLEAN"
