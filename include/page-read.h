@@ -67,6 +67,7 @@ struct page_read {
 };
 
 extern int open_page_read(int pid, struct page_read *);
+extern int open_page_at(int dfd, int pid, struct page_read *pr, int flags);
 extern int open_page_rw(int pid, struct page_read *);
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);

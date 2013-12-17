@@ -1,5 +1,6 @@
 #ifndef __CR_PAGE_XFER__H__
 #define __CR_PAGE_XFER__H__
+#include "page-read.h"
 
 extern int cr_page_server(bool daemon_mode);
 
@@ -24,6 +25,7 @@ struct page_xfer {
 		int fd_pg;
 		u64 dst_id;
 	};
+	struct page_read *parent;
 };
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);

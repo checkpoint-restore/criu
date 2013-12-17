@@ -163,8 +163,6 @@ static void close_page_read(struct page_read *pr)
 	close(pr->fd);
 }
 
-static int open_page_at(int dfd, int pid, struct page_read *pr, int flags);
-
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
 {
 	int pfd;
@@ -197,7 +195,7 @@ err_cl:
 	return -1;
 }
 
-static int open_page_at(int dfd, int pid, struct page_read *pr, int flags)
+int open_page_at(int dfd, int pid, struct page_read *pr, int flags)
 {
 	pr->pe = NULL;
 

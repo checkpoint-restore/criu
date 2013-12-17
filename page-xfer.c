@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <linux/falloc.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -440,11 +441,19 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 static int write_pagemap_loc(struct page_xfer *xfer,
 		struct iovec *iov)
 {
+	int ret;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 
+	if (opts.auto_dedup && !opts.use_page_server && xfer->parent != NULL) {
+		ret = dedup_one_iovec(xfer->parent, iov);
+		if (ret == -1) {
+			pr_perror("Auto-deduplication failed");
+			return ret;
+		}
+	}
 	return pb_write_one(xfer->fd, &pe, PB_PAGEMAP);
 }
 
@@ -546,6 +555,31 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 		return -1;
 	}
 
+	if (opts.auto_dedup && !opts.use_page_server) {
+		int ret;
+		int pfd;
+		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+		if (pfd < 0 && errno == ENOENT)
+			goto out;
+
+		xfer->parent = xmalloc(sizeof(*xfer->parent));
+		if (!xfer->parent) {
+			close(pfd);
+			return -1;
+		}
+
+		ret = open_page_at(pfd, id, xfer->parent, O_RDWR);
+		if (ret) {
+			pr_perror("Can't dedup old image format");
+			xfree(xfer->parent);
+			xfer->parent = NULL;
+			close(pfd);
+			goto out;
+		}
+		close(pfd);
+	}
+
+out:
 	xfer->write_pagemap = write_pagemap_loc;
 	xfer->write_pages = write_pages_loc;
 	xfer->write_hole = write_pagehole_loc;
