@@ -204,7 +204,7 @@ endif
 ifneq ($(lib-so),)
 $(obj)/$(lib-so).so: $(all-objs) $(libs-e)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) -shared $(cflags-so) -o $@ $^
+	$(Q) $(CC) -shared $(cflags-so) -o $@ $^ $(ldflags-so)
 
 _all += $(obj)/$(lib-so).so
 cleanup-y += $(obj)/$(lib-so).so
