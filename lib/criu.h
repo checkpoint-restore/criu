@@ -45,20 +45,20 @@ void criu_set_log_file(char *log_file);
  *
  * Return value  errno                Description
  * ----------------------------------------------------------------------------
- * 0             0                    Success.
+ * 0             undefined            Success.
  *
- * >0            0                    Success(criu_restore() only).
+ * >0            undefined            Success(criu_restore() only).
  *
- * -1            0                    RPC has returned fail.
+ * -BADE         rpc err  (0 for now) RPC has returned fail.
  *
- * -ECONNREFUSED from failed syscall  Unable to connect to CRIU.
+ * -ECONNREFUSED errno                Unable to connect to CRIU.
  *
- * -ECOMM        from failed syscall  Unable to send/recv msg to/from CRIU.
+ * -ECOMM        errno                Unable to send/recv msg to/from CRIU.
  *
- * -EINVAL       0                    CRIU doesn't support this type of request.
+ * -EINVAL       undefined            CRIU doesn't support this type of request.
  *                                    You should probably update CRIU.
  *
- * -EBADMSG      0                    Unexpected response from CRIU.
+ * -EBADMSG      undefined            Unexpected response from CRIU.
  *                                    You should probably update CRIU.
  */
 int criu_check(void);

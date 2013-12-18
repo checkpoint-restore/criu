@@ -231,7 +231,7 @@ int criu_check(void)
 	if (ret)
 		goto exit;
 
-	ret = resp->success ? 0 : -1;
+	ret = resp->success ? 0 : -EBADE;
 
 exit:
 	if (resp)
@@ -263,7 +263,7 @@ int criu_dump(void)
 		else
 			ret = 0;
 	} else
-		ret = -1;
+		ret = -EBADE;
 
 exit:
 	if (resp)
@@ -292,7 +292,7 @@ int criu_restore(void)
 	if (resp->success)
 		ret = resp->restore->pid;
 	else
-		ret = -1;
+		ret = -EBADE;
 
 exit:
 	if (resp)
