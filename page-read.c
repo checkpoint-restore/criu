@@ -181,7 +181,7 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_at(pfd, pid, parent, flags)) {
+	if (open_page_read_at(pfd, pid, parent, flags)) {
 		if (errno != ENOENT)
 			goto err_free;
 		xfree(parent);
@@ -200,7 +200,7 @@ err_cl:
 	return -1;
 }
 
-int open_page_at(int dfd, int pid, struct page_read *pr, int flags)
+int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
 {
 	pr->pe = NULL;
 
@@ -242,17 +242,12 @@ int open_page_at(int dfd, int pid, struct page_read *pr, int flags)
 	return 0;
 }
 
-static int open_page_read_at(int dfd, int pid, struct page_read *pr)
-{
-	return open_page_at(dfd, pid, pr, O_RSTR);
-}
-
 int open_page_read(int pid, struct page_read *pr)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RSTR);
 }
 
 int open_page_rw(int pid, struct page_read *pr)
 {
-	return open_page_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RDWR);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RDWR);
 }
