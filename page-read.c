@@ -9,6 +9,11 @@
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
+#ifndef SEEK_DATA
+#define SEEK_DATA	3
+#define SEEK_HOLE	4
+#endif
+
 static int get_page_vaddr(struct page_read *pr, struct iovec *iov)
 {
 	int ret;
