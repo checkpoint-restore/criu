@@ -4,7 +4,6 @@
 
 #include "syscall.h"
 #include "log.h"
-#include "log-levels.h"
 
 #define LOG_SIMPLE_CHUNK	72
 
