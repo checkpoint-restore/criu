@@ -7,7 +7,7 @@
 #include "page-read.h"
 #include "restorer.h"
 
-int cr_dedup_one_pagemap(int pid);
+static int cr_dedup_one_pagemap(int pid);
 
 int cr_dedup(void)
 {
@@ -58,7 +58,7 @@ err:
 	return 0;
 }
 
-int cr_dedup_one_pagemap(int pid)
+static int cr_dedup_one_pagemap(int pid)
 {
 	int ret;
 	struct page_read pr;
