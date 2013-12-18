@@ -175,7 +175,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 		goto exit;
 	}
 
-	if (cr_dump_tasks(req->pid) == -1)
+	if (cr_dump_tasks(req->pid))
 		goto exit;
 
 	success = true;
