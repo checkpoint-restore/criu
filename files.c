@@ -239,7 +239,8 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	return 0;
 }
 
-static int dump_unsupp_fd(const struct fd_parms *p, char *more, char *info)
+static int dump_unsupp_fd(const struct fd_parms *p, int lfd,
+			  const int fdinfo, char *more, char *info)
 {
 	pr_err("Can't dump file %d of that type [%o] (%s %s)\n",
 			p->fd, p->stat.st_mode, more, info);
@@ -279,7 +280,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 		char more[32];
 
 		sprintf(more, "%d:%d", maj, minor(p->stat.st_dev));
-		return dump_unsupp_fd(p, "chr", more);
+		return dump_unsupp_fd(p, lfd, fdinfo, "chr", more);
 	}
 	}
 
@@ -330,7 +331,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 			if (read_fd_link(fd, more, sizeof(more)) < 0)
 				more[0] = '\0';
 
-			return dump_unsupp_fd(&p, "anon", more);
+			return dump_unsupp_fd(&p, lfd, fdinfo, "anon", more);
 		}
 
 		return do_dump_gen_file(&p, lfd, ops, fdinfo);
@@ -349,7 +350,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		if (check_ns_proc(&link))
 			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, fdinfo);
 
-		return dump_unsupp_fd(&p, "reg", link.name + 1);
+		return dump_unsupp_fd(&p, lfd, fdinfo, "reg", link.name + 1);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
@@ -361,7 +362,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		return do_dump_gen_file(&p, lfd, ops, fdinfo);
 	}
 
-	return dump_unsupp_fd(&p, "unknown", NULL);
+	return dump_unsupp_fd(&p, lfd, fdinfo, "unknown", NULL);
 }
 
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
