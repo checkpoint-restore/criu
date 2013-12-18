@@ -212,7 +212,8 @@ static int restore_using_req(int sk, CriuOpts *req)
 
 	success = true;
 exit:
-	if (send_criu_restore_resp(sk, success, root_item->pid.real) == -1) {
+	if (send_criu_restore_resp(sk, success,
+				   root_item ? root_item->pid.real : -1) == -1) {
 		pr_perror("Can't send response");
 		success = false;
 	}
