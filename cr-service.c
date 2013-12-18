@@ -175,6 +175,12 @@ static int dump_using_req(int sk, CriuOpts *req)
 		goto exit;
 	}
 
+	/*
+	 * FIXME -- cr_dump_tasks() may return code from custom
+	 * scripts, that can be positive. However, right now we
+	 * don't have ability to push scripts via RPC, so psitive
+	 * ret values are impossible here.
+	 */
 	if (cr_dump_tasks(req->pid))
 		goto exit;
 
