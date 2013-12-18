@@ -7,7 +7,7 @@ static void what_err_ret_mean(ret)
 {
 	/* NOTE: errno is set by libcriu */
 	switch (ret) {
-	case -1:
+	case -EBADE:
 		perror("RPC has returned fail");
 		break;
 	case -ECONNREFUSED:
