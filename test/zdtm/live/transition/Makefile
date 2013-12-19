@@ -11,6 +11,7 @@ TST_NOFILE	=	\
 		epoll		\
 		fork		\
 		fork2		\
+		thread-bomb	\
 
 TST_FILE	=	\
 		file_read	\
@@ -61,6 +62,8 @@ ptrace.o:	override CFLAGS += -pthread
 ptrace:		override LDFLAGS += -pthread
 ipc:		override CFLAGS += -DNEW_IPC_NS
 fork2:		override CFLAGS += -D FORK2
+thread-bomb.o:		override CFLAGS += -pthread
+thread-bomb:		override LDFLAGS += -pthread
 
 %: %.sh
 	cp $< $@

@@ -73,6 +73,7 @@ static/fifo_wronly
 static/zombie00
 static/rlimits00
 transition/fork
+transition/thread-bomb
 static/pty00
 static/pty01
 static/pty04
@@ -509,7 +510,9 @@ EOF
 			diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 
 			save_maps $PID  $ddump/dump.maps.after
-			diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
+			expr $tname : "static" > /dev/null && {
+				diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
+			}
 
 			if [[ $linkremap ]]; then
 				echo "remove ./$tdir/link_remap.*"
@@ -542,7 +545,9 @@ EOF
 			[ $i -eq 5 ] && return 2
 
 			save_maps $PID $ddump/restore.maps
-			diff_maps $ddump/dump.maps $ddump/restore.maps || return 2
+			expr $tname : "static" > /dev/null && {
+				diff_maps $ddump/dump.maps $ddump/restore.maps || return 2
+			}
 		fi
 
 	done
