@@ -1,0 +1,4 @@
+message unix_test {
+	required uint32 val = 1;
+	required bytes name = 2;
+}
