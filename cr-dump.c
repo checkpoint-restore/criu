@@ -789,6 +789,11 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 	if (item->state == TASK_DEAD)
 		return;
 
+	/*
+	 * The st is the state we want to switch tasks into,
+	 * the item->state is the state task was in when we seized one.
+	 */
+
 	if (st == TASK_ALIVE)
 		unseize_task(item->pid.real, item->state);
 	else
