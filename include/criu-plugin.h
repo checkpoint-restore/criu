@@ -20,8 +20,13 @@
 #ifndef __CRIU_PLUGIN_H__
 #define __CRIU_PLUGIN_H__
 
+#include <limits.h>
+
 typedef int (cr_plugin_init_t)(void);
 typedef void (cr_plugin_fini_t)(void);
+
+typedef int (cr_plugin_dump_unix_sk_t)(int fd, int id);
+typedef int (cr_plugin_restore_unix_sk_t)(int id);
 
 /* Public API */
 extern int criu_get_image_dir(void);
