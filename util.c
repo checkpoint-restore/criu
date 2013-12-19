@@ -319,6 +319,11 @@ int get_service_fd(enum sfd_type type)
 	return __get_service_fd(type, service_fd_id);
 }
 
+int criu_get_image_dir(void)
+{
+	return get_service_fd(IMG_FD_OFF);
+}
+
 int close_service_fd(enum sfd_type type)
 {
 	int fd;

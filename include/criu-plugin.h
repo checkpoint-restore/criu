@@ -23,4 +23,7 @@
 typedef int (cr_plugin_init_t)(void);
 typedef void (cr_plugin_fini_t)(void);
 
+/* Public API */
+extern int criu_get_image_dir(void);
+
 #endif
