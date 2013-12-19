@@ -70,6 +70,7 @@
 #include "vdso.h"
 #include "vma.h"
 #include "cr-service.h"
+#include "plugin.h"
 
 #include "asm/dump.h"
 
@@ -1670,6 +1671,9 @@ int cr_dump_tasks(pid_t pid)
 	if (init_stats(DUMP_STATS))
 		goto err;
 
+	if (cr_plugin_init())
+		goto err;
+
 	if (kerndat_init())
 		goto err;
 
@@ -1752,6 +1756,8 @@ err:
 		ret = -1;
 
 	close_cr_fdset(&glob_fdset);
+
+	cr_plugin_fini();
 
 	if (!ret) {
 		/*

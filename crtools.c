@@ -16,6 +16,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <dlfcn.h>
+
 #include "asm/types.h"
 
 #include "compiler.h"
@@ -31,6 +33,7 @@
 #include "tty.h"
 #include "file-lock.h"
 #include "cr-service.h"
+#include "plugin.h"
 
 struct cr_options opts;
 
@@ -95,7 +98,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	while (1) {
-		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jlW:";
+		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jlW:L:";
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
@@ -130,6 +133,7 @@ int main(int argc, char *argv[])
 			{ "ms", no_argument, 0, 54},
 			{ "track-mem", no_argument, 0, 55},
 			{ "auto-dedup", no_argument, 0, 56},
+			{ "libdir", required_argument, 0, 'L'},
 			{ },
 		};
 
@@ -274,6 +278,13 @@ int main(int argc, char *argv[])
 			break;
 		case 54:
 			opts.check_ms_kernel = true;
+			break;
+		case 'L':
+			opts.libdir = strdup(optarg);
+			if (opts.libdir == NULL) {
+				pr_perror("Can't allocate memory");
+				return -1;
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -420,6 +431,7 @@ usage:
 "  --action-script FILE  add an external action script\n"
 "  -j|--" OPT_SHELL_JOB "        allow to dump and restore shell jobs\n"
 "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
+"  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

@@ -82,7 +82,7 @@ cflags-y		+= -iquote $(ARCH_DIR) -iquote $(ARCH_DIR)/include
 cflags-y		+= -fno-strict-aliasing
 export cflags-y
 
-LIBS		:= -lrt -lpthread -lprotobuf-c
+LIBS		:= -lrt -lpthread -lprotobuf-c -ldl
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
@@ -167,7 +167,7 @@ PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
 
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -rdynamic -o $@
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all

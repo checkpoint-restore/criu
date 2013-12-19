@@ -67,6 +67,7 @@
 #include "vma.h"
 #include "kerndat.h"
 #include "rst-malloc.h"
+#include "plugin.h"
 
 #include "parasite-syscall.h"
 
@@ -1617,33 +1618,41 @@ static int prepare_task_entries()
 
 int cr_restore_tasks(void)
 {
-	if (check_img_inventory() < 0)
+	int ret = -1;
+
+	if (cr_plugin_init())
 		return -1;
+
+	if (check_img_inventory() < 0)
+		goto err;
 
 	if (init_stats(RESTORE_STATS))
-		return -1;
+		goto err;
 
 	if (kerndat_init_rst())
-		return -1;
+		goto err;
 
 	timing_start(TIME_RESTORE);
 
 	if (cpu_init() < 0)
-		return -1;
+		goto err;
 
 	if (vdso_init())
-		return -1;
+		goto err;
 
 	if (prepare_task_entries() < 0)
-		return -1;
+		goto err;
 
 	if (prepare_pstree() < 0)
-		return -1;
+		goto err;
 
 	if (crtools_prepare_shared() < 0)
-		return -1;
+		goto err;
 
-	return restore_root_task(root_item);
+	ret = restore_root_task(root_item);
+err:
+	cr_plugin_fini();
+	return ret;
 }
 
 static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,

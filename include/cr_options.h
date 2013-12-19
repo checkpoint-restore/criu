@@ -29,6 +29,7 @@ struct cr_options {
 	char			*pidfile;
 	struct list_head	veth_pairs;
 	struct list_head	scripts;
+	char			*libdir;
 	bool			use_page_server;
 	unsigned short		ps_port;
 	char			*addr;
