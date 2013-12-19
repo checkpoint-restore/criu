@@ -786,7 +786,13 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 {
 	int i;
 
-	unseize_task(item->pid.real, st); /* item->pid will be here */
+	if (item->state == TASK_DEAD)
+		return;
+
+	if (st == TASK_ALIVE)
+		unseize_task(item->pid.real, item->state);
+	else
+		unseize_task(item->pid.real, st); /* item->pid will be here */
 
 	for (i = 1; i < item->nr_threads; i++)
 		ptrace(PTRACE_DETACH, item->threads[i].real, NULL, NULL);
