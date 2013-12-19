@@ -45,6 +45,10 @@ struct unix_sk_desc {
 	gid_t			gid;
 
 	struct list_head	list;
+
+	int			fd;
+	struct list_head	peer_list;
+	struct list_head	peer_node;
 };
 
 static LIST_HEAD(unix_sockets);
@@ -121,7 +125,7 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct unix_sk_desc *sk;
+	struct unix_sk_desc *sk, *peer;
 	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	FilePermsEntry perms = FILE_PERMS_ENTRY__INIT;
@@ -172,8 +176,6 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	sk_encode_shutdown(&ue, sk->shutdown);
 
 	if (ue.peer) {
-		struct unix_sk_desc *peer;
-
 		peer = (struct unix_sk_desc *)lookup_socket(ue.peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
 			pr_err("Unix socket %#x without peer %#x\n",
@@ -197,9 +199,18 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		 * It can be external socket, so we defer dumping
 		 * until all sockets the program owns are processed.
 		 */
-		if (!peer->sd.already_dumped && list_empty(&peer->list)) {
-			show_one_unix("Add a peer", peer);
-			list_add_tail(&peer->list, &unix_sockets);
+		if (!peer->sd.already_dumped) {
+			if (list_empty(&peer->list)) {
+				show_one_unix("Add a peer", peer);
+				list_add_tail(&peer->list, &unix_sockets);
+			}
+
+			list_add(&sk->peer_node, &peer->peer_list);
+			sk->fd = dup(lfd);
+			if (sk->fd < 0) {
+				pr_perror("Unable to dup(%d)", lfd);
+				goto err;
+			}
 		}
 
 		if ((ue.type != SOCK_DGRAM) && (
@@ -284,6 +295,13 @@ dump:
 	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
 
+	while (!list_empty(&sk->peer_list)) {
+		struct unix_sk_desc *psk;
+		psk = list_first_entry(&sk->peer_list, struct unix_sk_desc, peer_node);
+		close_safe(&psk->fd);
+		list_del_init(&psk->peer_node);
+	}
+
 	return 0;
 
 err:
@@ -310,6 +328,10 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	d->type	 = m->udiag_type;
 	d->state = m->udiag_state;
 	INIT_LIST_HEAD(&d->list);
+
+	INIT_LIST_HEAD(&d->peer_list);
+	INIT_LIST_HEAD(&d->peer_node);
+	d->fd = -1;
 
 	if (tb[UNIX_DIAG_SHUTDOWN])
 		d->shutdown = *(u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
@@ -495,6 +517,13 @@ int fix_external_unix_sockets(void)
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);
+
+		while (!list_empty(&sk->peer_list)) {
+			struct unix_sk_desc *psk;
+			psk = list_first_entry(&sk->peer_list, struct unix_sk_desc, peer_node);
+			close_safe(&psk->fd);
+			list_del_init(&psk->peer_node);
+		}
 	}
 
 	return 0;
