@@ -152,7 +152,7 @@ static struct mount_info *mount_resolve_path(const char *path)
 dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path)
 {
 	struct mount_info *m;
-	
+
 	m = mount_resolve_path(path);
 	/*
 	 * BTRFS returns subvolume dev-id instead of

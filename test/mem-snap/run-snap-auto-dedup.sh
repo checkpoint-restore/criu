@@ -69,7 +69,7 @@ size_last=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
 
 dedup_ok=1
 if [ $size_first -gt $size_last ]; then
-	dedup_ok=0	
+	dedup_ok=0
 fi
 
 echo "Restoring"

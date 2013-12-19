@@ -287,7 +287,7 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id)
 	struct ghost_file *gf;
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
 	dev_t phys_dev;
-	
+
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
 	if (st->st_size > MAX_GHOST_FILE_SIZE) {
