@@ -864,7 +864,7 @@ again:
 static int mnt_tree_for_each_reverse(struct mount_info *m,
 		int (*fn)(struct mount_info *))
 {
-	int progress;
+	int progress = 0;
 
 	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn, (struct list_head *) NULL, progress);
 
