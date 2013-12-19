@@ -786,8 +786,10 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 {
 	int i;
 
-	for (i = 0; i < item->nr_threads; i++)
-		unseize_task(item->threads[i].real, st); /* item->pid will be here */
+	unseize_task(item->pid.real, st); /* item->pid will be here */
+
+	for (i = 1; i < item->nr_threads; i++)
+		ptrace(PTRACE_DETACH, item->threads[i].real, NULL, NULL);
 }
 
 static void pstree_switch_state(struct pstree_item *root_item, int st)
