@@ -49,6 +49,8 @@ struct unix_sk_desc {
 	int			fd;
 	struct list_head	peer_list;
 	struct list_head	peer_node;
+
+	UnixSkEntry		*ue;
 };
 
 static LIST_HEAD(unix_sockets);
@@ -123,12 +125,46 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	return 1;
 }
 
+static int write_unix_entry(struct unix_sk_desc *sk)
+{
+	int ret;
+
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), sk->ue, PB_UNIX_SK);
+
+	show_one_unix_img("Dumped", sk->ue);
+
+	release_skopts(sk->ue->opts);
+	xfree(sk->ue);
+
+	sk->ue = NULL;
+
+	return ret;
+}
+
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
-	UnixSkEntry ue = UNIX_SK_ENTRY__INIT;
-	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	FilePermsEntry perms = FILE_PERMS_ENTRY__INIT;
+	UnixSkEntry *ue;
+	SkOptsEntry *skopts;
+	FilePermsEntry *perms;
+	FownEntry *fown;
+
+	ue = xmalloc(sizeof(UnixSkEntry) +
+			sizeof(SkOptsEntry) +
+			sizeof(FilePermsEntry) +
+			sizeof(FownEntry));
+	if (ue == NULL)
+		return -1;
+
+	skopts = (SkOptsEntry *) ue + sizeof(UnixSkEntry);
+	perms = (FilePermsEntry *) skopts + sizeof(SkOptsEntry);
+	fown = (FownEntry *) perms + sizeof(FilePermsEntry);
+
+	unix_sk_entry__init(ue);
+	sk_opts_entry__init(skopts);
+	file_perms_entry__init(perms);
+
+	*fown = p->fown;
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX, 0);
 	if (IS_ERR_OR_NULL(sk)) {
@@ -141,45 +177,45 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	BUG_ON(sk->sd.already_dumped);
 
-	ue.name.len	= (size_t)sk->namelen;
-	ue.name.data	= (void *)sk->name;
+	ue->name.len	= (size_t)sk->namelen;
+	ue->name.data	= (void *)sk->name;
 
-	ue.id		= id;
-	ue.ino		= sk->sd.ino;
-	ue.type		= sk->type;
-	ue.state	= sk->state;
-	ue.flags	= p->flags;
-	ue.backlog	= sk->wqlen;
-	ue.peer		= sk->peer_ino;
-	ue.fown		= (FownEntry *)&p->fown;
-	ue.opts		= &skopts;
-	ue.uflags	= 0;
+	ue->id		= id;
+	ue->ino		= sk->sd.ino;
+	ue->type	= sk->type;
+	ue->state	= sk->state;
+	ue->flags	= p->flags;
+	ue->backlog	= sk->wqlen;
+	ue->peer	= sk->peer_ino;
+	ue->fown	= fown;
+	ue->opts	= skopts;
+	ue->uflags	= 0;
 
 	/*
 	 * Check if this socket is connected to criu service.
 	 * Dump it like closed one and mark it for restore.
 	 */
-	if (unlikely(ue.peer == service_sk_ino)) {
-		ue.state = TCP_CLOSE;
-		ue.peer = 0;
-		ue.uflags |= USK_SERVICE;
+	if (unlikely(ue->peer == service_sk_ino)) {
+		ue->state = TCP_CLOSE;
+		ue->peer = 0;
+		ue->uflags |= USK_SERVICE;
 	}
 
 	if (sk->namelen && *sk->name) {
-		ue.file_perms = &perms;
+		ue->file_perms = perms;
 
-		perms.mode	= sk->mode;
-		perms.uid	= sk->uid;
-		perms.gid	= sk->gid;
+		perms->mode	= sk->mode;
+		perms->uid	= sk->uid;
+		perms->gid	= sk->gid;
 	}
 
-	sk_encode_shutdown(&ue, sk->shutdown);
+	sk_encode_shutdown(ue, sk->shutdown);
 
-	if (ue.peer) {
-		peer = (struct unix_sk_desc *)lookup_socket(ue.peer, PF_UNIX, 0);
+	if (ue->peer) {
+		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
 			pr_err("Unix socket %#x without peer %#x\n",
-					ue.ino, ue.peer);
+					ue->ino, ue->peer);
 			goto err;
 		}
 
@@ -187,10 +223,10 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		 * Peer should have us as peer or have a name by which
 		 * we can access one.
 		 */
-		if (peer->peer_ino != ue.ino) {
+		if (peer->peer_ino != ue->ino) {
 			if (!peer->name) {
 				pr_err("Unix socket %#x with unreachable peer %#x (%#x/%s)\n",
-				       ue.ino, ue.peer, peer->peer_ino, peer->name);
+				       ue->ino, ue->peer, peer->peer_ino, peer->name);
 				goto err;
 			}
 		}
@@ -213,25 +249,25 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			}
 		}
 
-		if ((ue.type != SOCK_DGRAM) && (
-				((ue.shutdown == SK_SHUTDOWN__READ)  &&
+		if ((ue->type != SOCK_DGRAM) && (
+				((ue->shutdown == SK_SHUTDOWN__READ)  &&
 				 (peer->shutdown != SK_SHUTDOWN__WRITE)) ||
-				((ue.shutdown == SK_SHUTDOWN__WRITE) &&
+				((ue->shutdown == SK_SHUTDOWN__WRITE) &&
 				 (peer->shutdown != SK_SHUTDOWN__READ))  ||
-				((ue.shutdown == SK_SHUTDOWN__BOTH)  &&
+				((ue->shutdown == SK_SHUTDOWN__BOTH)  &&
 				 (peer->shutdown != SK_SHUTDOWN__BOTH)) )) {
 			/*
 			 * On restore we assume, that stream pairs must
 			 * be shut down from one end only
 			 */
 			pr_err("Shutdown mismatch %u:%d -> %u:%d\n",
-					ue.ino, ue.shutdown, peer->sd.ino, peer->shutdown);
+					ue->ino, ue->shutdown, peer->sd.ino, peer->shutdown);
 			goto err;
 		}
-	} else if (ue.state == TCP_ESTABLISHED) {
+	} else if (ue->state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
 
-		e = lookup_unix_listen_icons(ue.ino);
+		e = lookup_unix_listen_icons(ue->ino);
 		if (!e) {
 			/*
 			 * ESTABLISHED socket without peer and without
@@ -239,12 +275,12 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			 * connection.
 			 */
 
-			if (ue.shutdown == SK_SHUTDOWN__BOTH) {
+			if (ue->shutdown == SK_SHUTDOWN__BOTH) {
 				pr_info("Dumping semi-closed connection\n");
 				goto dump;
 			}
 
-			pr_err("Dangling connection %#x\n", ue.ino);
+			pr_err("Dangling connection %#x\n", ue->ino);
 			goto err;
 		}
 
@@ -260,22 +296,20 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		/* e->sk_desc is _never_ NULL */
 		if (e->sk_desc->state != TCP_LISTEN) {
 			pr_err("In-flight connection on "
-				"non-listening socket %d\n", ue.ino);
+				"non-listening socket %d\n", ue->ino);
 			goto err;
 		}
 
-		ue.peer = e->sk_desc->sd.ino;
+		ue->peer = e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %#x peer %#x)\n",
-				ue.ino, ue.peer);
+				ue->ino, ue->peer);
 	}
 dump:
-	if (dump_socket_opts(lfd, &skopts))
+	if (dump_socket_opts(lfd, skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &ue, PB_UNIX_SK))
-		goto err;
-
+	sk->ue = ue;
 	/*
 	 * If a stream listening socket has non-zero rqueue, this
 	 * means there are in-flight connections waiting to get
@@ -284,13 +318,14 @@ dump:
 	 */
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
 				sk->state == TCP_LISTEN))
-		if (dump_sk_queue(lfd, ue.id))
+		if (dump_sk_queue(lfd, ue->id))
 			goto err;
 
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
-	show_one_unix_img("Dumped", &ue);
-	release_skopts(&skopts);
+
+	if (write_unix_entry(sk))
+		goto err;
 
 	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
@@ -305,7 +340,8 @@ dump:
 	return 0;
 
 err:
-	release_skopts(&skopts);
+	release_skopts(skopts);
+	xfree(ue);
 	return -1;
 }
 
