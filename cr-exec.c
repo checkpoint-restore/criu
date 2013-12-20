@@ -153,7 +153,7 @@ int cr_exec(int pid, char **opt)
 
 	parasite_cure_seized(ctl);
 out_unseize:
-	unseize_task(pid, prev_state);
+	unseize_task(pid, prev_state, prev_state);
 out:
 	return ret;
 }

@@ -19,13 +19,13 @@
 #include "ptrace.h"
 #include "proc_parse.h"
 
-int unseize_task(pid_t pid, int st)
+int unseize_task(pid_t pid, int orig_st, int st)
 {
 	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
 	if (st == TASK_DEAD)
 		kill(pid, SIGKILL);
-	else if (st == TASK_STOPPED)
+	else if (st == TASK_STOPPED && orig_st == TASK_ALIVE)
 		kill(pid, SIGSTOP);
 	else if (st == TASK_ALIVE)
 		/* do nothing */ ;
