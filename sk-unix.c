@@ -158,9 +158,9 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ue == NULL)
 		return -1;
 
-	skopts = (SkOptsEntry *) ue + sizeof(UnixSkEntry);
-	perms = (FilePermsEntry *) skopts + sizeof(SkOptsEntry);
-	fown = (FownEntry *) perms + sizeof(FilePermsEntry);
+	skopts = (void *) ue + sizeof(UnixSkEntry);
+	perms = (void *) skopts + sizeof(SkOptsEntry);
+	fown = (void *) perms + sizeof(FilePermsEntry);
 
 	unix_sk_entry__init(ue);
 	sk_opts_entry__init(skopts);
