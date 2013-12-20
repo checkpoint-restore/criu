@@ -103,6 +103,7 @@ TST_NOFILE	=				\
 		grow_map02			\
 		tun				\
 		stopped				\
+		rtc				\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -175,7 +176,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 %.d:	%.c
 	$(DEPEND.c) $(OUTPUT_OPTION) $<
 
-all:	$(TST)
+all:	$(TST) criu-rtc.so
 install: all
 
 inotify_system_nodel.c: inotify_system.c
@@ -260,7 +261,7 @@ $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean:
-	$(RM) -f $(OBJ) $(TST) *~
+	$(RM) -f $(OBJ) $(TST) *~ criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h
 
 cleandep:	clean
 	$(RM) -f $(DEP)
@@ -272,6 +273,14 @@ cleanout:
 	$(Q) $(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state
 
 realclean:	cleandep cleanout
+
+rtc.c: criu-rtc.so
+
+criu-rtc.pb-c.c: criu-rtc.proto
+	protoc-c --proto_path=. --c_out=. criu-rtc.proto
+
+criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
+	gcc -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../../include -fPIC
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
 

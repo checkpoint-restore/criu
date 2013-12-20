@@ -93,6 +93,8 @@ static int prepare_mntns()
 	mkdir("/dev/net", 0777);
 	mknod("/dev/net/tun", 0777 | S_IFCHR, makedev(10, 200));
 	chmod("/dev/net/tun", 0777);
+	mknod("/dev/rtc", 0777 | S_IFCHR, makedev(254, 0));
+	chmod("/dev/rtc", 0777);
 	return 0;
 }
 

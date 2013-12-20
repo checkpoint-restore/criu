@@ -98,6 +98,7 @@ static/grow_map02
 static/stopped
 static/chroot
 static/chroot-file
+static/rtc
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
@@ -148,6 +149,7 @@ sk-netlink
 tun
 chroot
 chroot-file
+rtc
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
@@ -440,6 +442,10 @@ EOF
 			exit 1
 		fi
 		args="--root $ZDTM_ROOT --pidfile $TPID $args"
+	fi
+
+	if [ $tname = "rtc" ]; then
+		args="$args -L `pwd`/$tdir/lib"
 	fi
 
 	for i in `seq $ITERATIONS`; do
