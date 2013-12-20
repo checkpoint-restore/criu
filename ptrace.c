@@ -25,9 +25,10 @@ int unseize_task(pid_t pid, int orig_st, int st)
 
 	if (st == TASK_DEAD)
 		kill(pid, SIGKILL);
-	else if (st == TASK_STOPPED && orig_st == TASK_ALIVE)
-		kill(pid, SIGSTOP);
-	else if (st == TASK_ALIVE)
+	else if (st == TASK_STOPPED) {
+		if (orig_st == TASK_ALIVE)
+			kill(pid, SIGSTOP);
+	} else if (st == TASK_ALIVE)
 		/* do nothing */ ;
 	else
 		pr_err("Unknown final state %d\n", st);
