@@ -349,7 +349,7 @@ int cr_service(bool daemon_mode)
 
 	n = sd_listen_fds(0);
 	if (n > 1) {
-		pr_perror("Too many file descriptors (%d) recieved.", n);
+		pr_err("Too many file descriptors (%d) recieved", n);
 		goto err;
 	} else if (n == 1)
 		server_fd = SD_LISTEN_FDS_START + 0;
