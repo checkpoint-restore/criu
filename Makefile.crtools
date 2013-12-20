@@ -29,6 +29,7 @@ obj-y	+= sk-netlink.o
 obj-y	+= sk-queue.o
 obj-y	+= files.o
 obj-y	+= files-reg.o
+obj-y	+= files-ext.o
 obj-y	+= pipes.o
 obj-y	+= fifo.o
 obj-y	+= file-ids.o

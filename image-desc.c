@@ -23,6 +23,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(PAGEMAP,	"pagemap-%ld"),
 	FD_ENTRY(SHMEM_PAGEMAP,	"pagemap-shmem-%ld"),
 	FD_ENTRY(REG_FILES,	"reg-files"),
+	FD_ENTRY(EXT_FILES,	"ext-files"),
 	FD_ENTRY(NS_FILES,	"ns-files"),
 	FD_ENTRY(EVENTFD_FILE,	"eventfd"),
 	FD_ENTRY(EVENTPOLL_FILE,"eventpoll"),

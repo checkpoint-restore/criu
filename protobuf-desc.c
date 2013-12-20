@@ -18,6 +18,7 @@
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/stats.pb-c.h"
 #include "protobuf/regfile.pb-c.h"
+#include "protobuf/ext-file.pb-c.h"
 #include "protobuf/ns.pb-c.h"
 #include "protobuf/eventfd.pb-c.h"
 #include "protobuf/eventpoll.pb-c.h"

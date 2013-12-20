@@ -47,6 +47,7 @@
 #define IPCNS_MSG_MAGIC		0x55453737 /* Moscow */
 #define IPCNS_SEM_MAGIC		0x59573019 /* St. Petersburg */
 #define REG_FILES_MAGIC		0x50363636 /* Belgorod */
+#define EXT_FILES_MAGIC		0x59255641 /* Usolye */
 #define FS_MAGIC		0x51403912 /* Voronezh */
 #define MM_MAGIC		0x57492820 /* Pskov */
 #define REMAP_FPATH_MAGIC	0x59133954 /* Vologda */

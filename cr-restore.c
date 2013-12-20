@@ -141,6 +141,7 @@ static struct collect_image_info *cinfos[] = {
 	&tty_info_cinfo,
 	&tty_cinfo,
 	&tunfile_cinfo,
+	&ext_file_cinfo,
 };
 
 static int root_prepare_shared(void)

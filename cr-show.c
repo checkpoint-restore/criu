@@ -319,6 +319,7 @@ static struct show_image_info show_infos[] = {
 	SHOW_PLAINS(FILE_LOCK),
 	SHOW_PLAIN(RLIMIT),
 	SHOW_PLAIN(TUNFILE),
+	SHOW_PLAINS(EXT_FILE),
 
 	{ TCP_STREAM_MAGIC,	PB_TCP_STREAM,		true,	show_tcp_stream, "1:%u 2:%u 3:%u 4:%u 12:%u", },
 	{ STATS_MAGIC,		PB_STATS,		true,	NULL, "1.1:%u 1.2:%u 1.3:%u 1.4:%u 1.5:%Lu 1.6:%Lu 1.7:%Lu", },

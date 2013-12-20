@@ -1,0 +1,6 @@
+import "fown.proto";
+
+message ext_file_entry {
+	required uint32		id	= 1;
+	required fown_entry	fown	= 5;
+}

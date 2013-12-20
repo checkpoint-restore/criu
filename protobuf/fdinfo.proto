@@ -15,6 +15,7 @@ enum fd_types {
 	NETLINKSK	= 13;
 	NS		= 14;
 	TUN		= 15;
+	EXT		= 16;
 }
 
 message fdinfo_entry {

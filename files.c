@@ -32,12 +32,16 @@
 #include "signalfd.h"
 #include "namespaces.h"
 #include "tun.h"
+#include "fdset.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
 
 #include "protobuf.h"
 #include "protobuf/fs.pb-c.h"
+#include "protobuf/ext-file.pb-c.h"
+
+#include "plugin.h"
 
 #define FDESC_HASH_SIZE	64
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
@@ -170,7 +174,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 		ret = ops->dump(lfd, e.id, p);
 
 	if (ret < 0)
-		return -1;
+		return ret;
 
 	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8"PRIx64" fd: %d\n",
 		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
@@ -237,14 +241,6 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	p->fown.euid	 = opts->fown.euid;
 
 	return 0;
-}
-
-static int dump_unsupp_fd(const struct fd_parms *p, int lfd,
-			  const int fdinfo, char *more, char *info)
-{
-	pr_err("Can't dump file %d of that type [%o] (%s %s)\n",
-			p->fd, p->stat.st_mode, more, info);
-	return -1;
 }
 
 static const struct fdtype_ops *get_misc_dev_ops(int minor)

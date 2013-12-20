@@ -17,6 +17,8 @@ struct cr_plugin_entry {
 
 		cr_plugin_dump_unix_sk_t *cr_plugin_dump_unix_sk;
 		cr_plugin_restore_unix_sk_t *cr_plugin_restore_unix_sk;
+		cr_plugin_dump_file_t *cr_plugin_dump_file;
+		cr_plugin_restore_file_t *cr_plugin_restore_file;
 	};
 
 	struct cr_plugin_entry *next;
@@ -27,6 +29,8 @@ struct cr_plugins {
 
 	struct cr_plugin_entry *cr_plugin_dump_unix_sk;
 	struct cr_plugin_entry *cr_plugin_restore_unix_sk;
+	struct cr_plugin_entry *cr_plugin_dump_file;
+	struct cr_plugin_entry *cr_plugin_restore_file;
 };
 
 struct cr_plugins cr_plugins;
@@ -73,6 +77,16 @@ int cr_plugin_restore_unix_sk(int id)
 	return run_plugin_funcs(cr_plugin_restore_unix_sk, id);
 }
 
+int cr_plugin_dump_file(int fd, int id)
+{
+	return run_plugin_funcs(cr_plugin_dump_file, fd, id);
+}
+
+int cr_plugin_restore_file(int id)
+{
+	return run_plugin_funcs(cr_plugin_restore_file, id);
+}
+
 static int cr_lib_load(char *path)
 {
 	struct cr_plugin_entry *ce;
@@ -88,6 +102,9 @@ static int cr_lib_load(char *path)
 
 	add_plugin_func(cr_plugin_dump_unix_sk);
 	add_plugin_func(cr_plugin_restore_unix_sk);
+
+	add_plugin_func(cr_plugin_dump_file);
+	add_plugin_func(cr_plugin_restore_file);
 
 	ce = NULL;
 	f_fini = dlsym(h, "cr_plugin_fini");
@@ -126,6 +143,9 @@ void cr_plugin_fini(void)
 
 	cr_plugin_free(cr_plugin_dump_unix_sk);
 	cr_plugin_free(cr_plugin_restore_unix_sk);
+
+	cr_plugin_free(cr_plugin_dump_file);
+	cr_plugin_free(cr_plugin_restore_file);
 
 	while (cr_plugins.cr_fini) {
 		ce = cr_plugins.cr_fini;

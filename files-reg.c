@@ -20,6 +20,7 @@
 #include "protobuf/remap-file-path.pb-c.h"
 
 #include "files-reg.h"
+#include "plugin.h"
 
 /*
  * Ghost files are those not visible from the FS. Dumping them is
