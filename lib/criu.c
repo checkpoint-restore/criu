@@ -211,7 +211,7 @@ static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
 	}
 
 exit:
-	if (fd > 0)
+	if (fd >= 0)
 		close(fd);
 
 	return -ret;
