@@ -769,7 +769,13 @@ static int get_children(struct pstree_item *item)
 
 		ret = seize_task(pid, item->pid.real, &item->pgid, &item->sid);
 		if (ret < 0) {
-			/* Don't worry, will try again on the next attempt */
+			/*
+			 * Here is a race window between parse_children() and seize(),
+			 * so the task could die for these time.
+			 * Don't worry, will try again on the next attempt. The number
+			 * of attempts is restricted, so it will exit if something
+			 * really wrong.
+			 */
 			ret = 0;
 			xfree(c);
 			continue;
@@ -866,8 +872,11 @@ static int seize_threads(struct pstree_item *item,
 		ret = seize_task(pid, item_ppid(item), NULL, NULL);
 		if (ret < 0) {
 			/*
-			 * Skip an error, we will try to freeze it again
-			 * on the next attempt.
+			 * Here is a race window between parse_threads() and seize(),
+			 * so the task could die for these time.
+			 * Don't worry, will try again on the next attempt. The number
+			 * of attempts is restricted, so it will exit if something
+			 * really wrong.
 			 */
 			continue;
 		}
