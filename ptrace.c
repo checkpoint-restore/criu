@@ -53,7 +53,15 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
 	ptrace_errno = errno;
 	if (ret == 0) {
-		/* Stop task before determing its state */
+		/*
+		 * If we SEIZE-d the task stop it before going
+		 * and reading its stat from proc. Otherwise task
+		 * may die _while_ we're doing it and we'll have
+		 * inconsistent seize/state pair.
+		 *
+		 * If task dies after we seize it but before we
+		 * do this interrupt, we'll notice it via proc.
+		 */
 		ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 		if (ret < 0) {
 			pr_perror("SEIZE %d: can't interrupt task", pid);
