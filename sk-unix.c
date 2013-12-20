@@ -324,7 +324,13 @@ dump:
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
 
-	if (write_unix_entry(sk))
+	/*
+	 *  Postpone writing the entry if a peer isn't found yet.
+	 *  It's required, because we may need to modify the entry.
+	 *  For example, if a socket is external and is dumped by
+	 *  a callback, the USK_CALLBACK flag must be set.
+	 */
+	if (list_empty(&sk->peer_node) && write_unix_entry(sk))
 		goto err;
 
 	list_del_init(&sk->list);
@@ -335,6 +341,9 @@ dump:
 		psk = list_first_entry(&sk->peer_list, struct unix_sk_desc, peer_node);
 		close_safe(&psk->fd);
 		list_del_init(&psk->peer_node);
+
+		if (write_unix_entry(psk))
+			goto err;
 	}
 
 	return 0;
@@ -559,6 +568,9 @@ int fix_external_unix_sockets(void)
 			psk = list_first_entry(&sk->peer_list, struct unix_sk_desc, peer_node);
 			close_safe(&psk->fd);
 			list_del_init(&psk->peer_node);
+
+			if (write_unix_entry(psk))
+				goto err;
 		}
 	}
 
