@@ -74,6 +74,8 @@
 
 #include "asm/dump.h"
 
+#define NR_ATTEMPTS 5
+
 static char loc_buf[PAGE_SIZE];
 
 bool privately_dump_vma(struct vma_area *vma)
@@ -682,31 +684,6 @@ err:
 	return ret;
 }
 
-static int get_threads(struct pstree_item *item)
-{
-	return parse_threads(item->pid.real, &item->threads, &item->nr_threads);
-}
-
-static int check_threads(const struct pstree_item *item)
-{
-	struct pid *t = NULL;
-	int nr, ret;
-
-	ret = parse_threads(item->pid.real, &t, &nr);
-	if (ret)
-		return ret;
-
-	ret = ((nr == item->nr_threads) && !memcmp(t, item->threads, nr));
-	xfree(t);
-
-	if (!ret) {
-		pr_info("Threads set has changed while suspending\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int parse_children(pid_t pid, pid_t **_c, int *_n)
 {
 	FILE *file;
@@ -818,25 +795,55 @@ static pid_t item_ppid(const struct pstree_item *item)
 	return item ? item->pid.real : -1;
 }
 
-static int seize_threads(const struct pstree_item *item)
+static int seize_threads(struct pstree_item *item,
+				struct pid *threads, int nr_threads)
 {
-	int i = 0, ret;
+	int i = 0, ret, j, nr_inprogress;
 
-	if ((item->state == TASK_DEAD) && (item->nr_threads > 1)) {
+	if ((item->state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
 		goto err;
 	}
 
-	for (i = 0; i < item->nr_threads; i++) {
-		pid_t pid = item->threads[i].real;
+	/* The number of threads can't be less than allready frozen */
+	item->threads = xrealloc(item->threads, nr_threads * sizeof(struct pid));
+	if (item->threads == NULL)
+		return -1;
+
+	if (item->nr_threads == 0) {
+		item->threads[0].real = item->pid.real;
+		item->nr_threads = 1;
+	}
+
+	nr_inprogress = 0;
+	for (i = 0; i < nr_threads; i++) {
+		pid_t pid = threads[i].real;
 		if (item->pid.real == pid)
 			continue;
 
+		for (j = 0; j < item->nr_threads; j++)
+			if (pid == item->threads[j].real)
+				break;
+
+		if (j != item->nr_threads)
+			continue;
+		nr_inprogress++;
+
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid.real, pid);
+
 		ret = seize_task(pid, item_ppid(item), NULL, NULL);
-		if (ret < 0)
-			goto err;
+		if (ret < 0) {
+			/*
+			 * Skip an error, we will try to freeze it again
+			 * on the next attempt.
+			 */
+			continue;
+		}
+
+		BUG_ON(item->nr_threads + 1 > nr_threads);
+		item->threads[item->nr_threads].real = pid;
+		item->nr_threads++;
 
 		if (ret == TASK_DEAD) {
 			pr_err("Zombie thread not supported\n");
@@ -849,30 +856,39 @@ static int seize_threads(const struct pstree_item *item)
 		}
 	}
 
-	return 0;
-
+	return nr_inprogress;
 err:
-	for (i--; i >= 0; i--) {
-		if (item->pid.real == item->threads[i].real)
-			continue;
-
-		unseize_task(item->threads[i].real, TASK_ALIVE);
-	}
-
 	return -1;
 }
 
 static int collect_threads(struct pstree_item *item)
 {
-	int ret;
+	int ret, attempts = NR_ATTEMPTS;
+	struct pid *t;
+	int nr, nr_inprogress;
 
-	ret = get_threads(item);
-	if (!ret)
-		ret = seize_threads(item);
-	if (!ret)
-		ret = check_threads(item);
+	nr_inprogress = 1;
+	while (nr_inprogress > 0 && attempts) {
+		attempts--;
 
-	return ret;
+		t = NULL;
+		nr = 0;
+
+		ret = parse_threads(item->pid.real, &t, &nr);
+		if (ret < 0)
+			break;
+
+		nr_inprogress = seize_threads(item, t, nr);
+		xfree(t);
+		if (nr_inprogress < 0)
+			break;
+
+	}
+
+	if (nr_inprogress && attempts)
+		return -1;
+
+	return 0;
 }
 
 static int collect_task(struct pstree_item *item)
@@ -907,7 +923,7 @@ static int collect_task(struct pstree_item *item)
 
 err_close:
 	close_pid_proc();
-	unseize_task(pid, item->state);
+	unseize_task_and_threads(item, item->state);
 err:
 	return -1;
 }
@@ -982,7 +998,7 @@ static int collect_pstree_ids(void)
 
 static int collect_pstree(pid_t pid)
 {
-	int ret, attempts = 5;
+	int ret, attempts = NR_ATTEMPTS;
 
 	timing_start(TIME_FREEZING);
 
