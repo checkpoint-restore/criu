@@ -311,7 +311,6 @@ dump:
 	if (dump_socket_opts(lfd, skopts))
 		goto err;
 
-	sk->ue = ue;
 	/*
 	 * If a stream listening socket has non-zero rqueue, this
 	 * means there are in-flight connections waiting to get
@@ -320,12 +319,13 @@ dump:
 	 */
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
 				sk->state == TCP_LISTEN))
-		if (dump_sk_queue(lfd, ue->id))
+		if (dump_sk_queue(lfd, id))
 			goto err;
 
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
 
+	sk->ue = ue;
 	/*
 	 *  Postpone writing the entry if a peer isn't found yet.
 	 *  It's required, because we may need to modify the entry.
@@ -333,7 +333,7 @@ dump:
 	 *  a callback, the USK_CALLBACK flag must be set.
 	 */
 	if (list_empty(&sk->peer_node) && write_unix_entry(sk))
-		goto err;
+		return -1;
 
 	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
@@ -345,7 +345,7 @@ dump:
 		list_del_init(&psk->peer_node);
 
 		if (write_unix_entry(psk))
-			goto err;
+			return -1;
 	}
 
 	return 0;
