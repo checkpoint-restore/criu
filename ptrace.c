@@ -52,6 +52,15 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
 	ptrace_errno = errno;
+	if (ret == 0) {
+		/* Stop task before determing its state */
+		ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+		if (ret < 0) {
+			pr_perror("SEIZE %d: can't interrupt task", pid);
+			ptrace(PTRACE_DETACH, pid, NULL, NULL);
+			goto err;
+		}
+	}
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -85,12 +94,6 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 	if ((ppid != -1) && (ps.ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
 				pid, ppid, ps.ppid);
-		goto err;
-	}
-
-	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
-	if (ret < 0) {
-		pr_perror("SEIZE %d: can't interrupt task", pid);
 		goto err;
 	}
 
@@ -145,31 +148,35 @@ try_again:
 		ret = ptrace(PTRACE_CONT, pid, 0, 0);
 		if (ret) {
 			pr_perror("Unable to start process");
-			goto err;
+			goto err_stop;
 		}
 
 		ret = wait4(pid, &status, __WALL, NULL);
 		if (ret < 0) {
 			pr_perror("SEIZE %d: can't wait task", pid);
-			goto err;
+			goto err_stop;
 		}
 
 		if (ret != pid) {
 			pr_err("SEIZE %d: wrong task attached (%d)\n", pid, ret);
-			goto err;
+			goto err_stop;
 		}
 
 		if (!WIFSTOPPED(status)) {
 			pr_err("SEIZE %d: task not stopped after seize\n", pid);
-			goto err;
+			goto err_stop;
 		}
 
 		return TASK_STOPPED;
+	} else {
+		pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
+		goto err;
 	}
 
-	pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
+err_stop:
+	kill(pid, SIGSTOP);
 err:
-	unseize_task(pid, TASK_STOPPED);
+	ptrace(PTRACE_DETACH, pid, NULL, NULL);
 	return -1;
 }
 
