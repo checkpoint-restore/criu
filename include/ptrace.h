@@ -13,7 +13,9 @@
 # define PTRACE_INTERRUPT	0x4207
 #endif
 
+#ifndef PTRACE_LISTEN
 #define PTRACE_LISTEN		0x4208
+#endif
 
 #ifndef PTRACE_PEEKSIGINFO
 #define PTRACE_PEEKSIGINFO      0x4209
