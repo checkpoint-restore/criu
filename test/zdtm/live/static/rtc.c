@@ -11,7 +11,7 @@
 #include "zdtmtst.h"
 
 #define TEST_HZ 4
-#define NR_FAILS 5
+#define NR_FAILS 10
 
 int main(int argc, char **argv)
 {
