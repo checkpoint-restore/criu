@@ -161,7 +161,7 @@ static int criu_connect(void)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
 
-	strcpy(addr.sun_path, service_address);
+	strncpy(addr.sun_path, service_address, sizeof(addr.sun_path));
 
 	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
 
