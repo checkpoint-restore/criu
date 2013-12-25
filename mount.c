@@ -1209,7 +1209,7 @@ static void free_mounts(void)
 	}
 }
 
-static int read_mnt_ns_img(int ns_pid)
+static struct mount_info *read_mnt_ns_img(int ns_pid)
 {
 	MntEntry *me = NULL;
 	int img, ret;
@@ -1219,7 +1219,7 @@ static int read_mnt_ns_img(int ns_pid)
 
 	img = open_image(CR_FD_MNTS, O_RSTR, ns_pid);
 	if (img < 0)
-		return -1;
+		return NULL;
 
 	pr_debug("Reading mountpoint images\n");
 
@@ -1274,10 +1274,7 @@ static int read_mnt_ns_img(int ns_pid)
 		mnt_entry__free_unpacked(me, NULL);
 
 	close(img);
-	mntinfo_tree = NULL;
-	mntinfo = pms;
-
-	return 0;
+	return pms;
 
 err:
 	while (pms) {
@@ -1286,14 +1283,16 @@ err:
 		mnt_entry_free(pm);
 	}
 	close_safe(&img);
-	return -1;
+	return NULL;
 }
 
 static int populate_mnt_ns(int ns_pid)
 {
 	struct mount_info *pms;
 
-	if (read_mnt_ns_img(ns_pid))
+	mntinfo_tree = NULL;
+	mntinfo = read_mnt_ns_img(ns_pid);
+	if (mntinfo == NULL)
 		return -1;
 
 	pms = mnt_build_tree(mntinfo);
