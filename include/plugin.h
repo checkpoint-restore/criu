@@ -15,5 +15,6 @@ int cr_plugin_dump_file(int fd, int id);
 int cr_plugin_restore_file(int id);
 
 int cr_plugin_dump_ext_mount(char *mountpoint, int id);
+int cr_plugin_restore_ext_mount(int id, char *mountpoint, char *old_root, int *is_file);
 
 #endif
