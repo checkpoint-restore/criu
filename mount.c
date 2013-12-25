@@ -326,7 +326,7 @@ static int validate_mounts(struct mount_info *info)
 			}
 			if (&t->mnt_bind == &m->mnt_bind) {
 				pr_err("%d:%s doesn't have a proper root mount\n",
-					t->mnt_id, t->mountpoint);
+					m->mnt_id, m->mountpoint);
 				return -1;
 			}
 		}
