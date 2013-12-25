@@ -1209,7 +1209,7 @@ static void free_mounts(void)
 	}
 }
 
-static int populate_mnt_ns(int ns_pid)
+static int read_mnt_ns_img(int ns_pid)
 {
 	MntEntry *me = NULL;
 	int img, ret;
@@ -1277,15 +1277,8 @@ static int populate_mnt_ns(int ns_pid)
 	mntinfo_tree = NULL;
 	mntinfo = pms;
 
-	pms = mnt_build_tree(pms);
-	if (!pms)
-		return -1;
+	return 0;
 
-	if (validate_mounts(pms))
-		return -1;
-
-	mntinfo_tree = pms;
-	return mnt_tree_for_each(pms, do_mount_one);
 err:
 	while (pms) {
 		struct mount_info *pm = pms;
@@ -1294,6 +1287,24 @@ err:
 	}
 	close_safe(&img);
 	return -1;
+}
+
+static int populate_mnt_ns(int ns_pid)
+{
+	struct mount_info *pms;
+
+	if (read_mnt_ns_img(ns_pid))
+		return -1;
+
+	pms = mnt_build_tree(mntinfo);
+	if (!pms)
+		return -1;
+
+	if (validate_mounts(pms))
+		return -1;
+
+	mntinfo_tree = pms;
+	return mnt_tree_for_each(pms, do_mount_one);
 }
 
 int prepare_mnt_ns(int ns_pid)
