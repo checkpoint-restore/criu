@@ -112,6 +112,7 @@ struct mount_info {
 	char		*source;
 	char		*options;
 	bool		mounted;
+	bool		need_plugin;
 	struct mount_info *next;
 
 	/* tree linkage */

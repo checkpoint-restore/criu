@@ -14,4 +14,6 @@ int cr_plugin_restore_unix_sk(int id);
 int cr_plugin_dump_file(int fd, int id);
 int cr_plugin_restore_file(int id);
 
+int cr_plugin_dump_ext_mount(char *mountpoint, int id);
+
 #endif

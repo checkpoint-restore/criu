@@ -17,6 +17,7 @@
 #include "util.h"
 #include "util-pie.h"
 #include "log.h"
+#include "plugin.h"
 #include "mount.h"
 #include "pstree.h"
 #include "proc_parse.h"
@@ -42,7 +43,7 @@ static DIR *open_mountpoint(struct mount_info *pm);
 static int close_mountpoint(DIR *dfd);
 
 static struct mount_info *mnt_build_tree(struct mount_info *list);
-static int validate_mounts(struct mount_info *info);
+static int validate_mounts(struct mount_info *info, bool call_plugins);
 
 static inline int is_root(char *p)
 {
@@ -294,7 +295,7 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 	pr_info("%*s<--\n", off, "");
 }
 
-static int validate_mounts(struct mount_info *info)
+static int validate_mounts(struct mount_info *info, bool call_plugins)
 {
 	struct mount_info *m, *t;
 
@@ -325,9 +326,19 @@ static int validate_mounts(struct mount_info *info)
 					break;
 			}
 			if (&t->mnt_bind == &m->mnt_bind) {
-				pr_err("%d:%s doesn't have a proper root mount\n",
-					m->mnt_id, m->mountpoint);
-				return -1;
+				int ret = -ENOTSUP;
+
+				if (call_plugins) {
+					ret = cr_plugin_dump_ext_mount(m->mountpoint, m->mnt_id);
+					if (ret == 0)
+						m->need_plugin = true;
+				}
+				if (ret < 0) {
+					if (ret == -ENOTSUP)
+						pr_err("%d:%s doesn't have a proper root mount\n",
+								m->mnt_id, m->mountpoint);
+					return -1;
+				}
 			}
 		}
 
@@ -716,7 +727,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 		return -1;
 	}
 
-	if (pm->fstype->dump && pm->fstype->dump(pm))
+	if (!pm->need_plugin && pm->fstype->dump && pm->fstype->dump(pm))
 		return -1;
 
 	me.mnt_id		= pm->mnt_id;
@@ -731,6 +742,10 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.has_shared_id	= true;
 	me.master_id		= pm->master_id;
 	me.has_master_id	= true;
+	if (pm->need_plugin) {
+		me.has_with_plugin = true;
+		me.with_plugin = true;
+	}
 
 	if (pb_write_one(fd, &me, PB_MNT))
 		return -1;
@@ -756,7 +771,7 @@ int dump_mnt_ns(int ns_pid, int ns_id)
 	if (mnt_build_tree(pm) == NULL)
 		goto err;
 
-	if (validate_mounts(pm))
+	if (validate_mounts(pm, true))
 		goto err;
 
 	pr_info("Dumping mountpoints\n");
@@ -1297,7 +1312,7 @@ static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 	if (!pms)
 		return -1;
 
-	if (validate_mounts(pms))
+	if (validate_mounts(pms, false))
 		return -1;
 
 	mntinfo_tree = pms;
