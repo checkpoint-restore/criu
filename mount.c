@@ -1286,14 +1286,12 @@ err:
 	return NULL;
 }
 
-static int populate_mnt_ns(int ns_pid)
+static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 {
 	struct mount_info *pms;
 
 	mntinfo_tree = NULL;
-	mntinfo = read_mnt_ns_img(ns_pid);
-	if (mntinfo == NULL)
-		return -1;
+	mntinfo = mis;
 
 	pms = mnt_build_tree(mntinfo);
 	if (!pms)
@@ -1308,11 +1306,16 @@ static int populate_mnt_ns(int ns_pid)
 
 int prepare_mnt_ns(int ns_pid)
 {
-	int ret;
+	int ret = -1;
+	struct mount_info *mis;
 
 	pr_info("Restoring mount namespace\n");
 
 	close_proc();
+
+	mis = read_mnt_ns_img(ns_pid);
+	if (!mis)
+		goto out;
 
 	/*
 	 * The new mount namespace is filled with the mountpoint
@@ -1328,8 +1331,8 @@ int prepare_mnt_ns(int ns_pid)
 	free_mounts();
 
 	if (!ret)
-		ret = populate_mnt_ns(ns_pid);
-
+		ret = populate_mnt_ns(ns_pid, mis);
+out:
 	return ret;
 }
 
