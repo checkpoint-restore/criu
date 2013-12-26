@@ -100,6 +100,14 @@ static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
 	return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 }
 
+static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
+		struct rtattr **tb, struct cr_fdset *fds)
+{
+	pr_err("Unsupported link %d (type %d kind %s)\n",
+			ifi->ifi_index, ifi->ifi_type, kind);
+	return -1;
+}
+
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_fdset *fds)
 {
@@ -116,8 +124,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
 
-	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
-	return -1;
+	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
 static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
@@ -126,8 +133,7 @@ static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
 
-	pr_err("Unknown ARPHRD_NONE kind %s link %d\n", kind, ifi->ifi_index);
-	return -1;
+	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
 static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
@@ -141,8 +147,7 @@ static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 		 */
 		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
 
-	pr_err("Unknown VOID kind %s link %d\n", kind, ifi->ifi_index);
-	return -1;
+	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)
@@ -167,11 +172,8 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		return dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds, NULL);
 
 	kind = link_kind(ifi, tb);
-	if (!kind) {
-		pr_err("Empty kind dev type %d link %d\n",
-				ifi->ifi_type, ifi->ifi_index);
-		return -1;
-	}
+	if (!kind)
+		goto unk;
 
 	switch (ifi->ifi_type) {
 	case ARPHRD_ETHER:
@@ -184,9 +186,8 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		ret = dump_one_voiddev(ifi, kind, tb, fds);
 		break;
 	default:
-		pr_err("Unsupported link type %d, kind %s\n",
-				ifi->ifi_type, link_kind(ifi, tb));
-		ret = 0; /* just skip for now */
+unk:
+		ret = dump_unknown_device(ifi, kind, tb, fds);
 		break;
 	}
 
