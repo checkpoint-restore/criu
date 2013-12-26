@@ -1134,6 +1134,25 @@ static int do_bind_mount(struct mount_info *mi)
 	return 0;
 }
 
+static bool can_mount_now(struct mount_info *mi)
+{
+	/*
+	 * Private root mounts can be mounted at any time
+	 */
+	if (!mi->master_id && fsroot_mounted(mi))
+		return true;
+
+	/*
+	 * Other mounts can be mounted only if they have
+	 * the master mount (see propagate_mount) or if we
+	 * expect a plugin to help us.
+	 */
+	if (mi->bind || mi->need_plugin)
+		return true;
+
+	return false;
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	int ret;
@@ -1144,8 +1163,7 @@ static int do_mount_one(struct mount_info *mi)
 	if (mi->mounted)
 		return 0;
 
-	if ((mi->master_id || !fsroot_mounted(mi)) &&
-			(mi->bind == NULL && !mi->need_plugin)) {
+	if (!can_mount_now(mi)) {
 		pr_debug("Postpone slave %s\n", mi->mountpoint);
 		return 1;
 	}
