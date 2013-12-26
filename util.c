@@ -459,13 +459,17 @@ int run_scripts(char *action)
 	struct script *script;
 	int ret = 0;
 
+	pr_debug("Running %s scripts\n", action);
+
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
 		return -1;
 	}
 
-	list_for_each_entry(script, &opts.scripts, node)
+	list_for_each_entry(script, &opts.scripts, node) {
+		pr_debug("\t[%s]\n", script->path);
 		ret |= system(script->path);
+	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
 	return ret;
