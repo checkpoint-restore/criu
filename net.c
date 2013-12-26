@@ -100,15 +100,9 @@ static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
 	return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 }
 
-static int dump_one_ethernet(struct ifinfomsg *ifi,
+static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_fdset *fds)
 {
-	char *kind;
-
-	kind = link_kind(ifi, tb);
-	if (!kind)
-		goto unk;
-
 	if (!strcmp(kind, "veth"))
 		/*
 		 * This is not correct. The peer of the veth device may
@@ -121,37 +115,24 @@ static int dump_one_ethernet(struct ifinfomsg *ifi,
 		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds, NULL);
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
-unk:
+
 	pr_err("Unknown eth kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
 }
 
-static int dump_one_gendev(struct ifinfomsg *ifi,
+static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_fdset *fds)
 {
-	char *kind;
-
-	kind = link_kind(ifi, tb);
-	if (!kind)
-		goto unk;
-
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
 
-unk:
 	pr_err("Unknown ARPHRD_NONE kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
 }
 
-static int dump_one_voiddev(struct ifinfomsg *ifi,
+static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_fdset *fds)
 {
-	char *kind;
-
-	kind = link_kind(ifi, tb);
-	if (!kind)
-		goto unk;
-
 	if (!strcmp(kind, "venet"))
 		/*
 		 * If we meet a link we know about, such as
@@ -160,7 +141,6 @@ static int dump_one_voiddev(struct ifinfomsg *ifi,
 		 */
 		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
 
-unk:
 	pr_err("Unknown VOID kind %s link %d\n", kind, ifi->ifi_index);
 	return -1;
 }
@@ -171,6 +151,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	struct ifinfomsg *ifi;
 	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	struct rtattr *tb[IFLA_MAX + 1];
+	char *kind;
 
 	ifi = NLMSG_DATA(hdr);
 
@@ -180,21 +161,27 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	}
 
 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-
 	pr_info("\tLD: Got link %d, type %d\n", ifi->ifi_index, ifi->ifi_type);
 
+	if (ifi->ifi_type == ARPHRD_LOOPBACK) 
+		return dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds, NULL);
+
+	kind = link_kind(ifi, tb);
+	if (!kind) {
+		pr_err("Empty kind dev type %d link %d\n",
+				ifi->ifi_type, ifi->ifi_index);
+		return -1;
+	}
+
 	switch (ifi->ifi_type) {
-	case ARPHRD_LOOPBACK:
-		ret = dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, fds, NULL);
-		break;
 	case ARPHRD_ETHER:
-		ret = dump_one_ethernet(ifi, tb, fds);
+		ret = dump_one_ethernet(ifi, kind, tb, fds);
 		break;
 	case ARPHRD_NONE:
-		ret = dump_one_gendev(ifi, tb, fds);
+		ret = dump_one_gendev(ifi, kind, tb, fds);
 		break;
 	case ARPHRD_VOID:
-		ret = dump_one_voiddev(ifi, tb, fds);
+		ret = dump_one_voiddev(ifi, kind, tb, fds);
 		break;
 	default:
 		pr_err("Unsupported link type %d, kind %s\n",
