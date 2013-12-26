@@ -80,7 +80,7 @@ static int cr_dedup_one_pagemap(int pid)
 		goto exit;
 
 	while (1) {
-		pr_debug("dedup iovec base=%lu, len=%lu\n", (unsigned long)iov.iov_base, iov.iov_len);
+		pr_debug("dedup iovec base=%lu, len=%zu\n", (unsigned long)iov.iov_base, iov.iov_len);
 		if (!pr.pe->in_parent) {
 			ret = dedup_one_iovec(prp, &iov);
 			if (ret)
