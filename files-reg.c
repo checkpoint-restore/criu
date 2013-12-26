@@ -379,7 +379,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 	rfe.name	= link_name + 1;
 
 	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
-	sprintf(tmp + 1, "link_remap.%d", rfe.id);
+	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name - 1), "link_remap.%d", rfe.id);
 
 	if (linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH) < 0) {
 		pr_perror("Can't link remap to %s", path);
