@@ -183,16 +183,13 @@ int cr_plugin_init(void)
 
 	if (opts.libdir == NULL) {
 		path = getenv("CRIU_LIBS_DIR");
-		if (path) {
-			opts.libdir = strdup(path);
-		} else {
+		if (path)
+			opts.libdir = path;
+		else {
 			if (access(CR_PLUGIN_DEFAULT, F_OK))
 				return 0;
-			opts.libdir = strdup(CR_PLUGIN_DEFAULT);
-		}
-		if (opts.libdir == NULL) {
-			pr_perror("Can't allocate memory");
-			return -1;
+
+			opts.libdir = CR_PLUGIN_DEFAULT;
 		}
 	}
 

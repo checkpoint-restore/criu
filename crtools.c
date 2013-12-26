@@ -280,11 +280,7 @@ int main(int argc, char *argv[])
 			opts.check_ms_kernel = true;
 			break;
 		case 'L':
-			opts.libdir = strdup(optarg);
-			if (opts.libdir == NULL) {
-				pr_perror("Can't allocate memory");
-				return -1;
-			}
+			opts.libdir = optarg;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
