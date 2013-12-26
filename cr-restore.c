@@ -1263,6 +1263,9 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
+		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
+			exit(1);
+
 		if (collect_mount_info(getpid()))
 			exit(1);
 
@@ -1275,9 +1278,6 @@ static int restore_task_with_children(void *_arg)
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 		if (mount_proc())
-			exit(1);
-
-		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
 			exit(1);
 
 		if (root_prepare_shared())
