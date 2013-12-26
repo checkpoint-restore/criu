@@ -47,7 +47,7 @@ struct cr_plugins cr_plugins;
 			struct cr_plugin_entry *__ce;			\
 			__ce = xmalloc(sizeof(struct cr_plugin_entry));	\
 			if (__ce == NULL)				\
-				return -1;				\
+				goto nomem;				\
 			__ce->name = name;				\
 			__ce->next = cr_plugins.name;			\
 			cr_plugins.name = __ce;				\
@@ -128,7 +128,7 @@ static int cr_lib_load(char *path)
 	if (f_fini) {
 		ce = xmalloc(sizeof(struct cr_plugin_entry));
 		if (ce == NULL)
-			return -1;
+			goto nomem;
 		ce->cr_fini = f_fini;
 	}
 
@@ -144,6 +144,9 @@ static int cr_lib_load(char *path)
 	}
 
 	return 0;
+
+nomem:
+	return -1;
 }
 
 #define cr_plugin_free(name) do {				\
