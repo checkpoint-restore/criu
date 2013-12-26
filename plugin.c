@@ -21,6 +21,7 @@ struct cr_plugin_entry {
 		cr_plugin_restore_file_t *cr_plugin_restore_file;
 		cr_plugin_dump_ext_mount_t *cr_plugin_dump_ext_mount;
 		cr_plugin_restore_ext_mount_t *cr_plugin_restore_ext_mount;
+		cr_plugin_dump_ext_link_t *cr_plugin_dump_ext_link;
 	};
 
 	struct cr_plugin_entry *next;
@@ -35,6 +36,7 @@ struct cr_plugins {
 	struct cr_plugin_entry *cr_plugin_restore_file;
 	struct cr_plugin_entry *cr_plugin_dump_ext_mount;
 	struct cr_plugin_entry *cr_plugin_restore_ext_mount;
+	struct cr_plugin_entry *cr_plugin_dump_ext_link;
 };
 
 struct cr_plugins cr_plugins;
@@ -101,6 +103,11 @@ int cr_plugin_restore_ext_mount(int id, char *mountpoint, char *old_root, int *i
 	return run_plugin_funcs(cr_plugin_restore_ext_mount, id, mountpoint, old_root, is_file);
 }
 
+int cr_plugin_dump_ext_link(int index, int type, char *kind)
+{
+	return run_plugin_funcs(cr_plugin_dump_ext_link, index, type, kind);
+}
+
 static int cr_lib_load(char *path)
 {
 	struct cr_plugin_entry *ce;
@@ -122,6 +129,8 @@ static int cr_lib_load(char *path)
 
 	add_plugin_func(cr_plugin_dump_ext_mount);
 	add_plugin_func(cr_plugin_restore_ext_mount);
+
+	add_plugin_func(cr_plugin_dump_ext_link);
 
 	ce = NULL;
 	f_fini = dlsym(h, "cr_plugin_fini");

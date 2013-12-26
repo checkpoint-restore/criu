@@ -35,6 +35,8 @@ typedef int (cr_plugin_restore_file_t)(int id);
 typedef int (cr_plugin_dump_ext_mount_t)(char *mountpoint, int id);
 typedef int (cr_plugin_restore_ext_mount_t)(int id, char *mountpoint, char *old_root, int *is_file);
 
+typedef int (cr_plugin_dump_ext_link_t)(int index, int type, char *kind);
+
 /* Public API */
 extern int criu_get_image_dir(void);
 

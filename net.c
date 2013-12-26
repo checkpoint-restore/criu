@@ -17,6 +17,7 @@
 #include "sk-inet.h"
 #include "tun.h"
 #include "util-pie.h"
+#include "plugin.h"
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
@@ -103,8 +104,15 @@ static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
 static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_fdset *fds)
 {
-	pr_err("Unsupported link %d (type %d kind %s)\n",
-			ifi->ifi_index, ifi->ifi_type, kind);
+	int ret;
+
+	ret = cr_plugin_dump_ext_link(ifi->ifi_index, ifi->ifi_type, kind);
+	if (ret == 0)
+		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
+
+	if (ret == -ENOTSUP)
+		pr_err("Unsupported link %d (type %d kind %s)\n",
+				ifi->ifi_index, ifi->ifi_type, kind);
 	return -1;
 }
 
