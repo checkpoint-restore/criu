@@ -16,6 +16,7 @@
 #include "util.h"
 #include "string.h"
 #include "sockets.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 
@@ -408,6 +409,29 @@ static int pb_optional_field_present(const ProtobufCFieldDescriptor *field,
 	return 1;
 }
 
+static bool should_show_field(const char *name)
+{
+	char *s, *e;
+	int len;
+
+	if (!opts.show_fmt)
+		return true;
+
+	len = strlen(name);
+	s = opts.show_fmt;
+
+	while (1) {
+		e = strchrnul(s, ',');
+		if (e - s == len) {
+			if (!strncmp(name, s, len))
+				return true;
+		}
+		if (*e == '\0')
+			return false;
+		s = e + 1;
+	}
+}
+
 static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 {
 	int i;
@@ -427,6 +451,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 			if (!pb_optional_field_present(&fd, msg))
 				continue;
 		}
+
+		if (!should_show_field(fd.name))
+			continue;
 
 		if (fd.label == PROTOBUF_C_LABEL_REPEATED) {
 			nr_fields = *(size_t *)(msg + fd.quantifier_offset);

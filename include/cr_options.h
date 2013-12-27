@@ -13,6 +13,7 @@ struct script {
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
+	char			*show_fmt;
 	bool			check_ms_kernel;
 	bool			show_pages_content;
 	bool			restore_detach;

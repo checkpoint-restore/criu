@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	while (1) {
-		static const char short_opts[] = "dsRf:t:p:hcD:o:n:v::xVr:jlW:L:";
+		static const char short_opts[] = "dsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:";
 		static struct option long_opts[] = {
 			{ "tree", required_argument, 0, 't' },
 			{ "pid", required_argument, 0, 'p' },
@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
 			{ "daemon", no_argument, 0, 'd' },
 			{ "contents", no_argument, 0, 'c' },
 			{ "file", required_argument, 0, 'f' },
+			{ "fields", required_argument, 0, 'F' },
 			{ "images-dir", required_argument, 0, 'D' },
 			{ "work-dir", required_argument, 0, 'W' },
 			{ "log-file", required_argument, 0, 'o' },
@@ -162,6 +163,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			opts.show_dump_file = optarg;
+			break;
+		case 'F':
+			opts.show_fmt = optarg;
 			break;
 		case 'r':
 			opts.root = optarg;
@@ -451,6 +455,7 @@ usage:
 "\n"
 "Show options:\n"
 "  -f|--file FILE        show contents of a checkpoint file\n"
+"  -F|--fields FIELDS    show specified fields (comma separated)\n"
 "  -D|--images-dir DIR   directory where to get images from\n"
 "  -c|--contents         show contents of pages dumped in hexdump format\n"
 "  -p|--pid PID          show files relevant to PID (filter -D flood)\n"
