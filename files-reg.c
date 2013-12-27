@@ -4,6 +4,16 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
+#include <ctype.h>
+
+#ifndef NFS_SUPER_MAGIC
+#define NFS_SUPER_MAGIC 0x6969
+#endif
+
+/* Stolen from kernel/fs/nfs/unlink.c */
+#define SILLYNAME_PREF ".nfs"
+#define SILLYNAME_SUFF_LEN (((unsigned)sizeof(u64) << 1) + ((unsigned)sizeof(unsigned int) << 1))
 
 #include "cr_options.h"
 #include "fdset.h"
@@ -422,6 +432,40 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost, int lf
 			&rpe, PB_REMAP_FPATH);
 }
 
+static bool is_sillyrename_name(char *name)
+{
+	int i;
+
+	name = strrchr(name, '/');
+	BUG_ON(name == NULL); /* see check in dump_one_reg_file */
+	name++;
+
+	/*
+	 * Strictly speaking this check is not bullet-proof. User
+	 * can create file with this name by hands and we have no
+	 * API to distinguish really-silly-renamed files from those
+	 * fake names :(
+	 *
+	 * But since NFS people expect .nfsXXX files to be unstable,
+	 * we treat them as such too.
+	 */
+
+	if (strncmp(name, SILLYNAME_PREF, sizeof(SILLYNAME_PREF) - 1))
+		return false;
+
+	name += sizeof(SILLYNAME_PREF) - 1;
+	for (i = 0; i < SILLYNAME_SUFF_LEN; i++)
+		if (!isxdigit(name[i]))
+			return false;
+
+	return true;
+}
+
+static inline bool nfs_silly_rename(char *rpath, const struct fd_parms *parms)
+{
+	return (parms->fs_type == NFS_SUPER_MAGIC) && is_sillyrename_name(rpath);
+}
+
 static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms, int lfd, u32 id)
 {
 	int ret;
@@ -436,6 +480,18 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 		 * also open.
 		 */
 		return dump_ghost_remap(rpath + 1, ost, lfd, id);
+
+	if (nfs_silly_rename(rpath, parms)) {
+		/*
+		 * If this is NFS silly-rename file the path we have at hands
+		 * will be accessible by fstat(), but once we kill the dumping
+		 * tasks it will disappear. So we just go ahead an dump it as
+		 * linked-remap file (NFS will allow us to create more hard
+		 * links on it) to have some persistent name at hands.
+		 */
+		pr_debug("Dump silly-rename linked remap for %x\n", id);
+		return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id);
+	}
 
 	ret = fstatat(mntns_root, rpath, &pst, 0);
 	if (ret < 0) {
