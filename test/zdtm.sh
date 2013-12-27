@@ -357,7 +357,7 @@ stop_test()
 save_fds()
 {
 	test -n "$PIDNS" && return 0
-	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | awk '{ print $9,$10,$11; }' > $2
+	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | sed -e 's/\/.nfs[0-9a-zA-Z]*/.nfs-silly-rename/' | awk '{ print $9,$10,$11; }' > $2
 }
 
 save_maps()
@@ -399,6 +399,9 @@ run_test()
 	#
 	# add option for unlinked files test
 	if [[ $1 =~ "unlink_" ]]; then
+		linkremap="--link-remap"
+	fi
+	if [[ $1 =~ "write_read10" ]]; then
 		linkremap="--link-remap"
 	fi
 
