@@ -256,6 +256,11 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 	req.h.nlmsg_type = msg_type;
 	req.h.nlmsg_seq = CR_NLMSG_SEQ;
 	req.i.ifi_family = AF_PACKET;
+	/*
+	 * SETLINK is called for external devices which may
+	 * have ifindex changed. Thus configure them by their
+	 * name only.
+	 */
 	if (msg_type == RTM_NEWLINK)
 		req.i.ifi_index = nde->ifindex;
 	req.i.ifi_flags = nde->flags;
