@@ -422,10 +422,11 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost, int lf
 			&rpe, PB_REMAP_FPATH);
 }
 
-static int check_path_remap(char *rpath, int plen, const struct stat *ost, int lfd, u32 id)
+static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms, int lfd, u32 id)
 {
 	int ret;
 	struct stat pst;
+	const struct stat *ost = &parms->stat;
 
 	if (ost->st_nlink == 0)
 		/*
@@ -505,7 +506,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (check_path_remap(link->name, link->len, &p->stat, lfd, id))
+	if (check_path_remap(link->name, link->len, p, lfd, id))
 		return -1;
 
 	rfe.id		= id;
