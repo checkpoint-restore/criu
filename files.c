@@ -202,12 +202,19 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 				struct fd_opts *opts, struct fd_parms *p)
 {
 	int ret;
+	struct statfs fsbuf;
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
 		return -1;
 	}
 
+	if (fstatfs(lfd, &fsbuf) < 0) {
+		pr_perror("Can't statfs fd %d", lfd);
+		return -1;
+	}
+
+	p->fs_type	= fsbuf.f_type;
 	p->ctl		= ctl;
 	p->fd		= fd;
 	p->pos		= lseek(lfd, 0, SEEK_CUR);

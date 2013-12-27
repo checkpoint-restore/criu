@@ -44,6 +44,7 @@ struct fd_parms {
 	pid_t		pid;
 	FownEntry	fown;
 	struct fd_link	*link;
+	long		fs_type;
 
 	struct parasite_ctl *ctl;
 };
