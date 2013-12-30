@@ -1,6 +1,8 @@
 TST = $(shell ./zdtm.sh -l)
 EXP = '^ns/(?!.*(tty|pty))'
 
+ZDTM_ARGS ?= -C
+
 .FORCE:
 
 all: .FORCE
@@ -17,4 +19,4 @@ fault-injection: .FORCE
 
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
 $(TST):
-	./zdtm.sh $(@) &> $(subst /,_,$@).log
+	./zdtm.sh ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log
