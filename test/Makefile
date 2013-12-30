@@ -19,4 +19,5 @@ fault-injection: .FORCE
 
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
 $(TST):
-	./zdtm.sh ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log
+	./zdtm.sh ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
+	{ flock Makefile cat $(subst /,_,$@).log; exit 1; }
