@@ -921,12 +921,12 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 		pr_perror("Unable to make %s private", mi->mountpoint);
 		return -1;
 	}
-	if (shared && mount(NULL, mi->mountpoint, NULL, MS_SHARED, NULL)) {
-		pr_perror("Unable to make %s shared", mi->mountpoint);
-		return -1;
-	}
 	if (slave && mount(NULL, mi->mountpoint, NULL, MS_SLAVE, NULL)) {
 		pr_perror("Unable to make %s slave", mi->mountpoint);
+		return -1;
+	}
+	if (shared && mount(NULL, mi->mountpoint, NULL, MS_SHARED, NULL)) {
+		pr_perror("Unable to make %s shared", mi->mountpoint);
 		return -1;
 	}
 
@@ -1124,7 +1124,7 @@ static int do_bind_mount(struct mount_info *mi)
 	 * shared - the mount is in the same shared group with mi->bind
 	 * mi->shared_id && !shared - create a new shared group
 	 */
-	if (restore_shared_options(mi, !shared,
+	if (restore_shared_options(mi, !shared && !mi->master_id,
 					mi->shared_id && !shared,
 					mi->master_id))
 		return -1;
