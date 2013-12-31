@@ -18,7 +18,7 @@ mount --make-rprivate "/"
 # Clean previous stuff
 rm -rf "$tempd" "$finf" "$outf" "/$odir"
 mkdir "$tempd"
-touch "$tdir/$dfile"
+touch "$tdir/$cur/$tdir/$dfile"
 
 # Create source file. Make it on a new mountpoint to "hide"
 # it in the target mount tree (see below)
