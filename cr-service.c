@@ -233,6 +233,9 @@ static int check(int sk)
 
 	resp.type = CRIU_REQ_TYPE__CHECK;
 
+	/* Check only minimal kernel support */
+	opts.check_ms_kernel = true;
+
 	if (!cr_check())
 		resp.success = true;
 
