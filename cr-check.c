@@ -541,6 +541,11 @@ int cr_check(void)
 		return -1;
 	}
 
+	if (collect_mount_info(getpid())) {
+		pr_err("Can't collect mount infos\n");
+		return -1;
+	}
+
 	ret |= check_map_files();
 	ret |= check_sock_diag();
 	ret |= check_ns_last_pid();
