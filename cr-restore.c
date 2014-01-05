@@ -947,6 +947,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	} else
 		ca.core = NULL;
 
+	ret = -1;
+
 	ca.item = item;
 	ca.clone_flags = item->rst->clone_flags;
 
