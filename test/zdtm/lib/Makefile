@@ -16,6 +16,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 all:	$(LIB)
 	@echo > /dev/null
 install: all
+.PHONY: all install
 
 $(LIB):	$(LIB)(${LIBOBJ})
 
