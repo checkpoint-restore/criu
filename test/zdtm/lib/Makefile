@@ -26,9 +26,12 @@ clean:
 cleandep:
 	$(RM) -f $(LIBDEP)
 
+cleanout:
+	@true
+
 realclean:	clean cleandep
 
-.PHONY:	clean cleandep realclean
+.PHONY:	clean cleandep cleanout realclean
 
 ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
 -include $(LIBDEP)
