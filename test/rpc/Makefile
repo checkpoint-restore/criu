@@ -1,4 +1,5 @@
 all: test-c rpc_pb2.py
+.PHONY: all
 
 test-c: rpc.pb-c.o test.o
 	gcc $^ -o $@ -lprotobuf-c
@@ -14,3 +15,4 @@ rpc.pb-c.c: rpc.proto
 
 clean:
 	rm -rf build rpc.pb-c.o test.o test-c rpc.pb-c.c rpc.pb-c.h rpc_pb2.py
+.PHONY: clean

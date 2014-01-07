@@ -1,4 +1,5 @@
 all: build/test
+.PHONY: all
 
 build/test: build/test.o
 	gcc $^ -L ../../lib -lcriu -o $@
@@ -8,3 +9,4 @@ build/test.o: test.c
 
 clean:
 	rm -rf build
+.PHONY: clean

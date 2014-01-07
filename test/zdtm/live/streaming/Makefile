@@ -32,6 +32,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 
 all:	$(TST)
 install: all
+PHONY: all install
 
 $(TST_NOFILE:%=%.pid):	%.pid:	%
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out

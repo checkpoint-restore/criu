@@ -178,6 +178,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 
 all:	$(TST) criu-rtc.so
 install: all
+.PHONY: all install
 
 inotify_system_nodel.c: inotify_system.c
 	ln -s inotify_system.c inotify_system_nodel.c
