@@ -230,7 +230,7 @@ cleanup-y += $(_cleanup-y)
 .PHONY: all clean
 
 all: $(_all)
-	@echo > /dev/null
+	@true
 
 clean:
 	$(E) "  CLEANUP " $(obj)

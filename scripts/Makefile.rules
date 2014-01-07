@@ -49,4 +49,4 @@ endef
 ## together with .SUFFIXES not cleaned, this
 ## will slow down the build procedure
 scripts/Makefile.rules::
-	@echo > /dev/null
+	@true

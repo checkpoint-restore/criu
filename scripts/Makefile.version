@@ -22,4 +22,4 @@ $(VERSION_HEADER): Makefile scripts/Makefile.version
 ## together with .SUFFIXES not cleaned, this
 ## will slow down the build procedure
 scripts/Makefile.version::
-	@echo > /dev/null
+	@true

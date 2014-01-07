@@ -14,7 +14,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 	$(DEPEND.c) $(OUTPUT_OPTION) $<
 
 all:	$(LIB)
-	@echo > /dev/null
+	@true
 install: all
 .PHONY: all install
 
