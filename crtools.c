@@ -443,7 +443,7 @@ usage:
 "  -v[NUM]               set logging level (higher level means more output):\n"
 "                          -v1|-v    - only errors and messages\n"
 "                          -v2|-vv   - also warnings (default level)\n"
-"                          -v3|-vvv  - also information messages\n"
+"                          -v3|-vvv  - also information messages and timestamps\n"
 "                          -v4|-vvvv - lots of debug\n"
 "\n"
 "* Memory dumping options:\n"

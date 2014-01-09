@@ -19,6 +19,8 @@
 #include "servicefd.h"
 
 #define DEFAULT_LOGFD		STDERR_FILENO
+/* Enable timestamps if verbosity is increased from default */
+#define LOG_TIMESTAMP		(DEFAULT_LOGLEVEL + 1)
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 
@@ -61,12 +63,21 @@ int log_get_fd(void)
 	return fd < 0 ? DEFAULT_LOGFD : fd;
 }
 
+static void reset_buf_off(void)
+{
+	if (current_loglevel >= LOG_TIMESTAMP)
+		/* reserve space for a timestamp */
+		buf_off = TS_BUF_OFF;
+	else
+		buf_off = 0;
+}
+
 int log_init(const char *output)
 {
 	int new_logfd, fd;
 
 	gettimeofday(&start, NULL);
-	buf_off = TS_BUF_OFF;
+	reset_buf_off();
 
 	if (output) {
 		new_logfd = open(output, O_CREAT|O_TRUNC|O_WRONLY|O_APPEND, 0600);
@@ -102,8 +113,7 @@ int log_init_by_pid(void)
 	 * reset buf_off as this fn is called on each fork while
 	 * restoring process tree
 	 */
-
-	buf_off = TS_BUF_OFF;
+	reset_buf_off();
 
 	if (!opts.log_file_per_pid) {
 		buf_off += snprintf(buffer + buf_off, PAGE_SIZE - buf_off, "%6d: ", getpid());
@@ -147,7 +157,8 @@ static void __print_on_level(unsigned int loglevel, const char *format, va_list 
 		if (loglevel > current_loglevel)
 			return;
 		fd = log_get_fd();
-		print_ts();
+		if (current_loglevel >= LOG_TIMESTAMP)
+			print_ts();
 	}
 
 	size  = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);

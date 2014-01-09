@@ -112,7 +112,7 @@ OPTIONS
     The following levels are available:
         * *-v1*, *-v*    - only messages and errors;
         * *-v2*, *-vv*   - also warnings (default level);
-        * *-v3*, *-vvv*  - also information messages;
+        * *-v3*, *-vvv*  - also information messages and timestamps;
         * *-v4*, *-vvvv* - lots of debug.
 
 *--log-pid*::
