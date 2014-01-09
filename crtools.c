@@ -71,7 +71,7 @@ static int parse_ns_string(const char *ptr)
 	return 0;
 
 bad_ns:
-	pr_err("Unknown namespace '%s'\n", ptr);
+	pr_msg("Error: unknown namespace: %s\n", ptr);
 	return -1;
 }
 
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "dedup"))
 		return cr_dedup() != 0;
 
-	pr_msg("Unknown command \"%s\"\n", argv[optind]);
+	pr_msg("Error: unknown command: %s\n", argv[optind]);
 usage:
 	pr_msg("\n"
 "Usage:\n"
@@ -468,7 +468,7 @@ usage:
 	return 1;
 
 opt_pid_missing:
-	pr_msg("No pid specified (-t option missing)\n");
+	pr_msg("Error: pid not specified\n");
 	return 1;
 
 bad_arg:
