@@ -138,17 +138,16 @@ unsigned int log_get_loglevel(void)
 
 static void __print_on_level(unsigned int loglevel, const char *format, va_list params)
 {
-	int fd, size, ret, off;
+	int fd, size, ret, off = 0;
 
 	if (unlikely(loglevel == LOG_MSG)) {
 		fd = STDOUT_FILENO;
-		off = buf_off;
+		off = buf_off; /* skip dangling timestamp */
 	} else {
 		if (loglevel > current_loglevel)
 			return;
 		fd = log_get_fd();
 		print_ts();
-		off = 0;
 	}
 
 	size  = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
