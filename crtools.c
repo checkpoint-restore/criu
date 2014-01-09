@@ -306,10 +306,8 @@ int main(int argc, char *argv[])
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(imgs_dir);
-		if (ret < 0) {
-			pr_perror("Can't open imgs directory");
+		if (ret < 0)
 			return 1;
-		}
 	}
 
 	if (chdir(work_dir)) {
