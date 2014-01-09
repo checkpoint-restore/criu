@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
 {
 	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
+	bool usage_error = true;
 	int opt, idx;
 	int log_level = 0;
 	char *imgs_dir = ".";
@@ -293,6 +294,8 @@ int main(int argc, char *argv[])
 				pr_msg("GitID: %s\n", CRIU_GITID);
 			return 0;
 		case 'h':
+			usage_error = false;
+			goto usage;
 		default:
 			goto usage;
 		}
@@ -301,8 +304,10 @@ int main(int argc, char *argv[])
 	if (work_dir == NULL)
 		work_dir = imgs_dir;
 
-	if (optind >= argc)
+	if (optind >= argc) {
+		pr_msg("Error: command is required\n");
 		goto usage;
+	}
 
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
@@ -401,7 +406,7 @@ usage:
 "  dedup          remove duplicates in memory dump\n"
 	);
 
-	if (argc < 2) {
+	if (usage_error) {
 		pr_msg("\nTry -h|--help for more info\n");
 		return 1;
 	}
@@ -465,7 +470,7 @@ usage:
 "     --ms               don't check not yet merged kernel features\n"
 	);
 
-	return 1;
+	return 0;
 
 opt_pid_missing:
 	pr_msg("Error: pid not specified\n");
