@@ -5,6 +5,7 @@ A2X		:= a2x
 XMLTO		:= xmlto
 
 SRC		+= criu.txt
+XMLS		:= $(patsubst %.txt,%.xml,$(SRC))
 MANS		:= $(patsubst %.txt,%.8,$(SRC))
 MAN8DIR		:= $(MANDIR)/man8
 
@@ -17,8 +18,7 @@ all: $(MANS)
 
 clean:
 	$(E) "  CLEAN   "
-	$(Q) rm -f ./*.xml
-	$(Q) rm -f ./*.8
+	$(Q) rm -f $(XMLS) $(MANS)
 
 install: $(MANS)
 	$(E) "  INSTALL " $(MANS)
