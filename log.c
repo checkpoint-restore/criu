@@ -27,8 +27,8 @@ static char buf_off = 0;
 
 static struct timeval start;
 /*
- * Manual buf len as sprintf will _always_ put '\0' at the
- * and, but we want a "constant" pid to be there on restore
+ * Manual buf len as sprintf will _always_ put '\0' at the end,
+ * but we want a "constant" pid to be there on restore
  */
 #define TS_BUF_OFF	12
 
