@@ -106,11 +106,14 @@ OPTIONS
 *-o*, *--log-file* 'file'::
     Write logging messages to 'file'.
 
-*-v* 'num'::
-    Set logging level to 'num'. Valid arguments are:
-        * *0* - (silent, error messages only);
-        * *1* - informative (default);
-        * *2* - debug messages.
+*-v*['num'|*v*...]::
+    Set logging level to 'num'. The higer the level, the more output
+    is produced. Either numeric values or multiple *v* can be used.
+    The following levels are available:
+        * *-v1*, *-v*    - only messages and errors;
+        * *-v2*, *-vv*   - also warnings (default level);
+        * *-v3*, *-vvv*  - also information messages;
+        * *-v4*, *-vvvv* - lots of debug.
 
 *--log-pid*::
     Write separate logging files per each pid.
