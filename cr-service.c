@@ -35,6 +35,12 @@ static int recv_criu_msg(int socket_fd, CriuReq **msg)
 		return -1;
 	}
 
+	if (len == 0) {
+		pr_info("Client exited unexpectedly\n");
+		errno = ECONNRESET;
+		return -1;
+	}
+
 	*msg = criu_req__unpack(NULL, len, buf);
 	if (!*msg) {
 		pr_perror("Failed unpacking request");
