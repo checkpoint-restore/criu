@@ -186,7 +186,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 
 	success = true;
 exit:
-	if (req->leave_running  || !self_dump) {
+	if (req->leave_running  || !self_dump || !success) {
 		if (send_criu_dump_resp(sk, success, false) == -1) {
 			pr_perror("Can't send response");
 			success = false;
