@@ -215,7 +215,7 @@ static int page_server_serve(int sk)
 	}
 
 	if (!flushed) {
-		pr_err("The data were not flushed");
+		pr_err("The data were not flushed\n");
 		ret = -1;
 	}
 
