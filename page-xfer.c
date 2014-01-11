@@ -21,6 +21,8 @@ struct page_server_iov {
 	u64	dst_id;
 };
 
+static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
+
 #define PS_IOV_ADD	1
 #define PS_IOV_HOLE	2
 #define PS_IOV_OPEN	3
@@ -73,7 +75,7 @@ static int page_server_open(struct page_server_iov *pi)
 
 	page_server_close();
 
-	if (open_page_xfer(&cxfer.loc_xfer, type, id))
+	if (open_page_local_xfer(&cxfer.loc_xfer, type, id))
 		return -1;
 
 	cxfer.dst_id = pi->dst_id;
