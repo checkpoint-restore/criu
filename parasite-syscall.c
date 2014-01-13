@@ -445,12 +445,9 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 	if (ssock == -1) {
 		int rst = -1;
 
-		if (current_ns_mask & CLONE_NEWNET) {
-			pr_info("Switching to %d's net for tsock creation\n", pid);
-
-			if (switch_ns(pid, &net_ns_desc, &rst))
-				return -1;
-		}
+		pr_info("Switching to %d's net for tsock creation\n", pid);
+		if (switch_ns(pid, &net_ns_desc, &rst))
+			return -1;
 
 		ssock = socket(PF_UNIX, SOCK_SEQPACKET, 0);
 		if (ssock < 0)
