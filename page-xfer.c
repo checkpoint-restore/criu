@@ -468,9 +468,62 @@ static int write_pages_loc(struct page_xfer *xfer,
 	return 0;
 }
 
+static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
+{
+	int ret;
+	unsigned long off, end;
+
+	/*
+	 * Try to find pagemap entry in parent, from which
+	 * the data will be read on restore.
+	 *
+	 * This is the optimized version of the page-by-page
+	 * read_pagemap_page routine.
+	 */
+
+	pr_debug("Checking %p/%lu hole\n", iov->iov_base, iov->iov_len);
+	off = (unsigned long)iov->iov_base;
+	end = off + iov->iov_len;
+	while (1) {
+		struct iovec piov;
+		unsigned long pend;
+
+		ret = seek_pagemap_page(p, off, true);
+		if (ret <= 0 || !p->pe)
+			return -1;
+
+		pagemap2iovec(p->pe, &piov);
+		pr_debug("\tFound %p/%lu\n", piov.iov_base, piov.iov_len);
+
+		/*
+		 * The pagemap entry in parent may heppen to be
+		 * shorter, than the hole we write. In this case
+		 * we should go ahead and check the remainder.
+		 */
+
+		pend = (unsigned long)piov.iov_base + piov.iov_len;
+		if (end <= pend)
+			return 0;
+
+		pr_debug("\t\tcontinue on %lx\n", pend);
+		off = pend;
+	}
+}
+
 static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
 {
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+
+	if (xfer->parent != NULL) {
+		int ret;
+
+		ret = check_pagehole_in_parent(xfer->parent, iov);
+		if (ret) {
+			pr_err("Hole %p/%lu not found in parent\n",
+					iov->iov_base, iov->iov_len);
+			return -1;
+		}
+	}
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
@@ -557,7 +610,14 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 		return -1;
 	}
 
-	if (opts.auto_dedup && !opts.use_page_server) {
+	/*
+	 * Open page-read for parent images (if it exists). It will
+	 * be used for two things:
+	 * 1) when writing a page, those from parent will be dedup-ed
+	 * 2) when writing a hole, the respective place would be checked
+	 *    to exist in parent (either pagemap or hole)
+	 */
+	{
 		int ret;
 		int pfd;
 

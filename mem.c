@@ -19,25 +19,6 @@
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
-/*
- * On dump we suck in the whole parent pagemap. Then, when observing
- * a page with soft-dirty bit cleared (i.e. -- not modified) we check
- * this map for this page presense.
- *
- * Since we scan the address space from vaddr 0 to 0xF..F, we can do
- * linear search in parent pagemap and the rover variables helps us
- * do it.
- */
-
-struct mem_snap_ctx {
-	unsigned long nr_iovs;
-	struct iovec *iovs;
-	unsigned long alloc;
-	unsigned long rover;
-};
-
-#define MEM_SNAP_BATCH	64
-
 static int task_reset_dirty_track(int pid)
 {
 	if (!opts.track_mem)
@@ -71,98 +52,6 @@ int do_task_reset_dirty_track(int pid)
 	return 0;
 }
 
-static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
-{
-	struct mem_snap_ctx *ctx;
-	int p_fd, pm_fd;
-	PagemapHead *h;
-
-	/*
-	 * If we're not tracking memory changes, then it doesn't
-	 * matter whether we have parent images or not. Just
-	 * proceed with full memory dump.
-	 */
-
-	if (!opts.track_mem)
-		return NULL;
-
-	BUG_ON(!kerndat_has_dirty_track);
-
-	p_fd = get_service_fd(PARENT_FD_OFF);
-	if (p_fd < 0) {
-		pr_debug("Will do full memory dump\n");
-		return NULL;
-	}
-
-	pm_fd = open_image_at(p_fd, CR_FD_PAGEMAP, O_RSTR, ctl->pid.virt);
-	if (pm_fd < 0) {
-		if (errno == ENOENT)
-			return NULL;
-		return ERR_PTR(pm_fd);
-	}
-
-	ctx = xmalloc(sizeof(*ctx));
-	if (!ctx)
-		goto err_cl;
-
-	ctx->nr_iovs = 0;
-	ctx->alloc = MEM_SNAP_BATCH;
-	ctx->rover = 0;
-	ctx->iovs = xmalloc(MEM_SNAP_BATCH * sizeof(struct iovec));
-	if (!ctx->iovs)
-		goto err_free;
-
-	if (pb_read_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
-		goto err_freei;
-
-	pagemap_head__free_unpacked(h, NULL);
-
-	while (1) {
-		int ret;
-		PagemapEntry *pe;
-
-		ret = pb_read_one_eof(pm_fd, &pe, PB_PAGEMAP);
-		if (ret == 0)
-			break;
-		if (ret < 0)
-			goto err_freei;
-
-		ctx->iovs[ctx->nr_iovs].iov_base = decode_pointer(pe->vaddr);
-		ctx->iovs[ctx->nr_iovs].iov_len = pe->nr_pages * PAGE_SIZE;
-		ctx->nr_iovs++;
-		pagemap_entry__free_unpacked(pe, NULL);
-
-		if (ctx->nr_iovs >= ctx->alloc) {
-			ctx->iovs = xrealloc(ctx->iovs,
-					(ctx->alloc + MEM_SNAP_BATCH) * sizeof(struct iovec));
-			if (!ctx->iovs)
-				goto err_freei;
-
-			ctx->alloc += MEM_SNAP_BATCH;
-		}
-	}
-
-	pr_info("Collected parent snap of %lu entries\n", ctx->nr_iovs);
-	close(pm_fd);
-	return ctx;
-
-err_freei:
-	xfree(ctx->iovs);
-err_free:
-	xfree(ctx);
-err_cl:
-	close(pm_fd);
-	return ERR_PTR(-1);
-}
-
-static void mem_snap_close(struct mem_snap_ctx *ctx)
-{
-	if (ctx) {
-		xfree(ctx->iovs);
-		xfree(ctx);
-	}
-}
-
 unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 {
 	/*
@@ -191,38 +80,14 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 	return false;
 }
 
-static int page_in_parent(unsigned long vaddr, u64 map, struct mem_snap_ctx *snap)
+static inline bool page_in_parent(u64 pme)
 {
 	/*
-	 * Soft-dirty pages should be dumped here
-	 */
-	if (map & PME_SOFT_DIRTY)
-		return 0;
-
-	/*
-	 * Non soft-dirty should be present in parent map.
-	 * Otherwise pagemap is screwed up.
+	 * If we do memory tracking, but w/o parent images,
+	 * then we have to dump all memory
 	 */
 
-	while (1) {
-		struct iovec *iov;
-
-		iov = &snap->iovs[snap->rover];
-		if ((unsigned long)iov->iov_base > vaddr)
-			break;
-
-		if ((unsigned long)iov->iov_base + iov->iov_len > vaddr)
-			return 1;
-
-		snap->rover++;
-		if (snap->rover >= snap->nr_iovs)
-			break;
-	}
-
-	pr_warn("Page %lx not in parent snap range (rover %lu).\n"
-			"Dumping one, but the pagemap is screwed up.\n",
-			vaddr, snap->rover);
-	return 0;
+	return opts.track_mem && opts.img_parent && !(pme & PME_SOFT_DIRTY);
 }
 
 /*
@@ -234,8 +99,7 @@ static int page_in_parent(unsigned long vaddr, u64 map, struct mem_snap_ctx *sna
  * the memory contents is present in the pagent image set.
  */
 
-static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map,
-		struct mem_snap_ctx *snap)
+static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map)
 {
 	unsigned long pfn, nr_to_scan;
 	unsigned long pages[2] = {};
@@ -262,7 +126,15 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 			continue;
 
 		vaddr = vma->vma.start + pfn * PAGE_SIZE;
-		if (snap && page_in_parent(vaddr, map[pfn], snap)) {
+
+		/*
+		 * If we're doing incremental dump (parent images
+		 * specified) and page is not soft-dirty -- we dump
+		 * hole and expect the parent images to contain this
+		 * page. The latter would be checked in page-xfer.
+		 */
+
+		if (page_in_parent(map[pfn])) {
 			ret = page_pipe_add_hole(pp, vaddr);
 			pages[0]++;
 		} else {
@@ -322,7 +194,6 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	struct page_pipe_buf *ppb;
 	struct vma_area *vma_area;
 	int ret = -1;
-	struct mem_snap_ctx *snap;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
@@ -337,13 +208,9 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	 * Step 0 -- prepare
 	 */
 
-	snap = mem_snap_init(ctl);
-	if (IS_ERR(snap))
-		goto out;
-
 	map = xmalloc(vma_area_list->longest * sizeof(*map));
 	if (!map)
-		goto out_snap;
+		goto out;
 
 	ret = pagemap = open_proc(ctl->pid.real, "pagemap");
 	if (ret < 0)
@@ -362,7 +229,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (!privately_dump_vma(vma_area))
 			continue;
 
-		ret = generate_iovs(vma_area, pagemap, pp, map, snap);
+		ret = generate_iovs(vma_area, pagemap, pp, map);
 		if (ret < 0)
 			goto out_pp;
 	}
@@ -431,8 +298,6 @@ out_close:
 	close(pagemap);
 out_free:
 	xfree(map);
-out_snap:
-	mem_snap_close(snap);
 out:
 	pr_info("----------------------------------------\n");
 	return ret;
