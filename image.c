@@ -71,7 +71,7 @@ int write_img_inventory(void)
 
 	crt.state = TASK_ALIVE;
 	crt.pid.real = getpid();
-	if (get_task_ids(&crt)){
+	if (get_task_ids(&crt)) {
 		close(fd);
 		return -1;
 	}

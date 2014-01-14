@@ -121,7 +121,7 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 	int i;
 	int ret = 0;
 
-	for(i = 0; i < args->timer_n; i++){
+	for(i = 0; i < args->timer_n; i++) {
 		ret = sys_timer_gettime(args->timer[i].it_id, &args->timer[i].val);
 		if (ret < 0) {
 			pr_err("sys_timer_gettime failed (%d)\n", ret);

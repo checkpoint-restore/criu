@@ -115,8 +115,8 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		unsigned long  piov_end;
 		ret = seek_pagemap_page(pr, off, false);
 		if (ret == -1) {
-			if(off < pr->cvaddr) {
-				if(pr->cvaddr < iov_end)
+			if (off < pr->cvaddr) {
+				if (pr->cvaddr < iov_end)
 					off = pr->cvaddr;
 				else
 					return 0;

@@ -1417,7 +1417,7 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	ret = parse_posix_timers(pid, &proc_args);
-	if (ret < 0){
+	if (ret < 0) {
 		pr_err("Can't read posix timers file (pid: %d)\n", pid);
 		goto err;
 	}

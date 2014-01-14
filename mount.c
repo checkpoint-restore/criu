@@ -1507,7 +1507,7 @@ int mntns_collect_root(pid_t pid)
 
 	pfd = open_pid_proc(pid);
 	ret = readlinkat(pfd, "root", path, sizeof(path) - 1);
-	if (ret < 0){
+	if (ret < 0) {
 		close_pid_proc();
 		return ret;
 	}

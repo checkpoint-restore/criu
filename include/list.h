@@ -366,7 +366,7 @@ static inline void hlist_add_after(struct hlist_node *n,
 	n->next = next;
 	next->pprev = &n->next;
 
-	if(next->next)
+	if (next->next)
 		next->next->pprev  = &next->next;
 }
 

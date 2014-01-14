@@ -49,7 +49,7 @@ static int execute_syscall(struct parasite_ctl *ctl,
 		 * @<size> -- ret-arg of size <size>
 		 */
 
-		if ((opt[i][0] == '&') || (opt[i][0] == '@')){
+		if ((opt[i][0] == '&') || (opt[i][0] == '@')) {
 			int len;
 
 			if (!r_mem) {

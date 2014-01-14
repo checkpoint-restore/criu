@@ -560,6 +560,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 	if (opts.auto_dedup && !opts.use_page_server) {
 		int ret;
 		int pfd;
+
 		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (pfd < 0 && errno == ENOENT)
 			goto out;

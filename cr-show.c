@@ -478,7 +478,7 @@ static int cr_show_pid(int pid)
 		PstreeEntry *pe;
 
 		ret = pb_read_one_eof(fd, &pe, PB_PSTREE);
-		if (ret <= 0){
+		if (ret <= 0) {
 			close(fd);
 			return ret;
 		}
