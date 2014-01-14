@@ -244,26 +244,14 @@ int open_image_dir(char *dir)
 	fd = ret;
 
 	if (opts.img_parent) {
-		int pfd;
-
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
-		if (ret < 0) {
+		if (ret < 0 && errno != EEXIST) {
 			pr_perror("Can't link parent snapshot");
 			goto err;
 		}
-
-		pfd = openat(fd, CR_PARENT_LINK, O_RDONLY);
-		if (pfd < 0) {
-			pr_perror("Can't open parent snapshot");
-			goto err;
-		}
-
-		ret = install_service_fd(PARENT_FD_OFF, pfd);
-
-		close(pfd);
 	}
 
-	return ret;
+	return 0;
 
 err:
 	close_image_dir();

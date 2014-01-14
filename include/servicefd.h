@@ -11,7 +11,6 @@ enum sfd_type {
 	PROC_FD_OFF,	/* fd with /proc for all proc_ calls */
 	CTL_TTY_OFF,
 	SELF_STDIN_OFF,
-	PARENT_FD_OFF,
 	CR_PROC_FD_OFF, /* some other's proc fd.
 			 *  For dump -- target ns' proc
 			 *  For restore -- CRIU ns' proc
