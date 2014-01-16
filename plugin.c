@@ -13,15 +13,15 @@
 
 struct cr_plugin_entry {
 	union {
-		cr_plugin_fini_t *cr_fini;
+		cr_plugin_fini_t		*cr_fini;
 
-		cr_plugin_dump_unix_sk_t *cr_plugin_dump_unix_sk;
-		cr_plugin_restore_unix_sk_t *cr_plugin_restore_unix_sk;
-		cr_plugin_dump_file_t *cr_plugin_dump_file;
-		cr_plugin_restore_file_t *cr_plugin_restore_file;
-		cr_plugin_dump_ext_mount_t *cr_plugin_dump_ext_mount;
-		cr_plugin_restore_ext_mount_t *cr_plugin_restore_ext_mount;
-		cr_plugin_dump_ext_link_t *cr_plugin_dump_ext_link;
+		cr_plugin_dump_unix_sk_t	*cr_plugin_dump_unix_sk;
+		cr_plugin_restore_unix_sk_t	*cr_plugin_restore_unix_sk;
+		cr_plugin_dump_file_t		*cr_plugin_dump_file;
+		cr_plugin_restore_file_t	*cr_plugin_restore_file;
+		cr_plugin_dump_ext_mount_t	*cr_plugin_dump_ext_mount;
+		cr_plugin_restore_ext_mount_t	*cr_plugin_restore_ext_mount;
+		cr_plugin_dump_ext_link_t	*cr_plugin_dump_ext_link;
 	};
 
 	struct cr_plugin_entry *next;
