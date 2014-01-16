@@ -47,15 +47,14 @@ struct cr_plugins cr_plugins;
 		name = dlsym(h, #name);					\
 		if (name) {						\
 			struct cr_plugin_entry *__ce;			\
-			__ce = xmalloc(sizeof(struct cr_plugin_entry));	\
+			__ce = xmalloc(sizeof(*__ce));			\
 			if (__ce == NULL)				\
 				goto nomem;				\
 			__ce->name = name;				\
 			__ce->next = cr_plugins.name;			\
 			cr_plugins.name = __ce;				\
 		}							\
-	} while (0);							\
-
+	} while (0)
 
 #define run_plugin_funcs(name, ...) ({					\
 		struct cr_plugin_entry *__ce = cr_plugins.name;		\
