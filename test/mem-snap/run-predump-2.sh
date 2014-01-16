@@ -58,7 +58,7 @@ ${CRIU} pre-dump -D "$IMGDIR/dump-2/pre/" -o dump.log -t ${PID} -v4 || fail "Fai
 
 echo "Plain dump"
 mkdir "$IMGDIR/dump-2/plain/"
-${CRIU} dump -D "$IMGDIR/dump-2/plain/" -o dump.log -t ${PID} -v4 --prev-images-dir=../pre/ || fail "Fail to dump"
+${CRIU} dump -D "$IMGDIR/dump-2/plain/" -o dump.log -t ${PID} -v4 --prev-images-dir=../pre/ --track-mem || fail "Fail to dump"
 
 sleep 1
 echo "Restore"

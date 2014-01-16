@@ -44,7 +44,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 		args="--track-mem -R"
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last snapshot -- has parent, kill afterwards
-		args="--prev-images-dir=../$((SNAP - 1))/"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem"
 	else
 		# Other snapshots -- have parent, keep running
 		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"

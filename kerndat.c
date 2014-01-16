@@ -12,6 +12,7 @@
 #include "compiler.h"
 #include "sysctl.h"
 #include "asm/types.h"
+#include "cr_options.h"
 
 dev_t kerndat_shmem_dev;
 
@@ -96,8 +97,13 @@ int kerndat_get_dirty_track(void)
 	if (pmap & PME_SOFT_DIRTY) {
 		pr_info("Dirty track supported on kernel\n");
 		kerndat_has_dirty_track = true;
-	} else
+	} else {
 		pr_info("Dirty tracking support is OFF\n");
+		if (opts.track_mem) {
+			pr_err("Tracking memory is not available\n");
+			return -1;
+		}
+	}
 
 	return 0;
 }

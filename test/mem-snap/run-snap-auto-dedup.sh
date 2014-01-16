@@ -45,7 +45,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last snapshot -- has parent, kill afterwards
 		size_first=$(du -sh -BK  dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
-		args="--prev-images-dir=../$((SNAP - 1))/ --auto-dedup"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem --auto-dedup"
 	else
 		# Other snapshots -- have parent, keep running
 		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"

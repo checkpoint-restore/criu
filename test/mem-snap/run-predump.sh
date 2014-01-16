@@ -46,7 +46,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last dump
 		cmd="dump"
-		args="--prev-images-dir=../$((SNAP - 1))/"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem"
 	else
 		# Other pre-dumps
 		cmd="pre-dump"

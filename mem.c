@@ -43,11 +43,7 @@ static int task_reset_dirty_track(int pid)
 	if (!opts.track_mem)
 		return 0;
 
-	if (!kerndat_has_dirty_track) {
-		pr_err("Kernel doesn't support dirty tracking. "
-				"No snapshot available.\n");
-		return -1;
-	}
+	BUG_ON(!kerndat_has_dirty_track);
 
 	return do_task_reset_dirty_track(pid);
 }
@@ -80,6 +76,17 @@ static struct mem_snap_ctx *mem_snap_init(struct parasite_ctl *ctl)
 	struct mem_snap_ctx *ctx;
 	int p_fd, pm_fd;
 	PagemapHead *h;
+
+	/*
+	 * If we're not tracking memory changes, then it doesn't
+	 * matter whether we have parent images or not. Just
+	 * proceed with full memory dump.
+	 */
+
+	if (!opts.track_mem)
+		return NULL;
+
+	BUG_ON(!kerndat_has_dirty_track);
 
 	p_fd = get_service_fd(PARENT_FD_OFF);
 	if (p_fd < 0) {
