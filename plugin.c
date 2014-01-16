@@ -134,7 +134,7 @@ static int cr_lib_load(char *path)
 	ce = NULL;
 	f_fini = dlsym(h, "cr_plugin_fini");
 	if (f_fini) {
-		ce = xmalloc(sizeof(struct cr_plugin_entry));
+		ce = xmalloc(sizeof(*ce));
 		if (ce == NULL)
 			goto nomem;
 		ce->cr_fini = f_fini;
