@@ -454,6 +454,7 @@ EOF
 	for i in `seq $ITERATIONS`; do
 		local dump_only=
 		local postdump=
+		local dump_cmd="dump"
 		ddump=`readlink -fm dump/$tname/$PID/$i`
 		DUMP_PATH=$ddump
 		echo Dump $PID
@@ -476,6 +477,7 @@ EOF
 			if [ "$i" -ne "$ITERATIONS" ]; then
 				snapopt="$snapopt -R --track-mem"
 				dump_only=1
+				[ -n "$PRE_DUMP" ] && dump_cmd="pre-dump"
 			fi
 			[ -n "$snappdir" ] && snapopt="$snapopt --prev-images-dir=$snappdir"
 		fi
@@ -484,7 +486,7 @@ EOF
 
 		save_fds $PID  $ddump/dump.fd
 		save_maps $PID  $ddump/dump.maps
-		setsid $CRIU_CPT dump $opts --file-locks --tcp-established $linkremap \
+		setsid $CRIU_CPT $dump_cmd $opts --file-locks --tcp-established $linkremap \
 			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt $postdump
 		retcode=$?
 
@@ -668,6 +670,8 @@ Options:
 	-n : Batch test
 	-r : Run test with specified name directly without match or check
 	-v : Verbose mode
+	-P : Make pre-dump instead of dump on all iterations except the last one
+	-s : Make iterative snapshots. Only the last one will be checked.
 EOF
 }
 
@@ -726,6 +730,19 @@ while :; do
 		shift
 		;;
 	  -s)
+		if [ -n "$PRE_DUMP" ]; then
+			echo "-P and -s can not be used together"
+			exit 1
+		fi
+		SNAPSHOT=1
+		shift
+		;;
+	  -P)
+		if [ -n "$SNAPSHOT" ]; then
+			echo "-P and -s can not be used together"
+			exit 1
+		fi
+		PRE_DUMP=1
 		SNAPSHOT=1
 		shift
 		;;
