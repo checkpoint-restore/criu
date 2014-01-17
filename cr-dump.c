@@ -1608,6 +1608,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (kerndat_init())
 		goto err;
 
+	if (cpu_init())
+		goto err;
+
 	if (vdso_init())
 		goto err;
 
