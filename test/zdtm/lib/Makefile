@@ -18,7 +18,8 @@ all:	$(LIB)
 install: all
 .PHONY: all install
 
-$(LIB):	$(LIB)(${LIBOBJ})
+$(LIB):	$(LIBOBJ)
+	$(Q) ar rv $@ $^
 
 clean:
 	$(RM) -f $(LIBOBJ) $(LIB) *~
