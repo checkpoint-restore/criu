@@ -66,15 +66,23 @@ done
 
 echo "Dedup test"
 
-size_first=$(du -sh -BK  dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_first_2=$(du -sh -BK  dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_first_1=$(du -sh -BK  dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
 
 ${CRIU} dedup -D "${IMGDIR}/$NRSNAP/"
 
-size_last=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_last_2=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_last_1=$(du -sh -BK dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
 
-dedup_ok=1
-if [ $size_first -gt $size_last ]; then
-	dedup_ok=0
+dedup_ok_2=1
+dedup_ok_1=1
+
+if [ $size_first_2 -gt $size_last_2 ]; then
+	dedup_ok_2=0
+fi
+
+if [ $size_first_1 -gt $size_last_1 ]; then
+	dedup_ok_1=0
 fi
 
 echo "Restoring"
@@ -84,7 +92,7 @@ cd ../zdtm/live/static/
 make mem-touch.out
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
-if [ $dedup_ok -ne 0 ]; then
+if [[ $dedup_ok_2 -ne 0 || $dedup_ok_1 -ne 0 ]]; then
 	fail "Dedup test failed"
 fi
 
