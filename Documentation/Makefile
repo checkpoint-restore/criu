@@ -16,10 +16,15 @@ GROFF_OPTS	:= -Tps -t -dpaper=$(PAPER) -P-p$(PAPER) \
 PSS		:= $(MANS:%.8=%.ps)
 PDFS		:= $(MANS:%.8=%.pdf)
 
-all: $(MANS)
+all: check $(MANS)
 ps: $(PSS)
 pdf: $(PDFS)
-.PHONY: all ps pdf
+.PHONY: all ps pdf check
+
+check:
+	$(Q) for B in $(ASCIIDOC) $(A2X) $(XMLTO); do	\
+		$$B --version > /dev/null || exit 1;	\
+	done
 
 %.8: %.txt
 	$(E) "  GEN     " $@
