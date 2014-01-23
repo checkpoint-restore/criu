@@ -175,7 +175,8 @@ BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 
 zdtm_sep()
-{
+{ (
+	set +x
 	local msg=$1
 	[ -n "$msg" ] && msg=" $msg "
 	awk -v m=${2:-=} -v "msg=$msg" '
@@ -186,7 +187,7 @@ zdtm_sep()
 			gsub(/ /, m, sep);
 			printf("%s%s%s\n",sep,msg,sep);
 		}' < /dev/null
-}
+) }
 
 check_criu()
 {
