@@ -412,6 +412,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 			goto out_pp;
 
 		ret = page_xfer_dump_pages(&xfer, pp, 0);
+		if (ret < 0)
+			goto out_pp;
 
 		xfer.close(&xfer);
 		timing_stop(TIME_MEMWRITE);
