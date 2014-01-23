@@ -103,7 +103,7 @@ int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn)
 
 		if (vaddr < pr->cvaddr) {
 			if (warn)
-				pr_err("Missing %lu in parent pagemap, current iov: base=%lu,len=%zu\n",
+				pr_err("Missing %lu in parent pagemap, current iov: base=%lx,len=%zu\n",
 					vaddr, (unsigned long)iov.iov_base, iov.iov_len);
 			return -1;
 		}
