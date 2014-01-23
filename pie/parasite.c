@@ -72,7 +72,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 				SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 	if (ret != PAGE_SIZE * args->nr_pages) {
 		sys_close(p);
-		pr_err("Can't splice pages to pipe (%d/%d)", ret, args->nr_pages);
+		pr_err("Can't splice pages to pipe (%d/%d)\n", ret, args->nr_pages);
 		return -1;
 	}
 
