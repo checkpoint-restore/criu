@@ -1645,6 +1645,10 @@ err:
 		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
 
 		xfer.close(&xfer);
+
+		if (ret)
+			break;
+
 		timing_stop(TIME_MEMWRITE);
 
 		destroy_page_pipe(ctl->mem_pp);
