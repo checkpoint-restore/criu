@@ -1,15 +1,16 @@
 criu
 ====
 
-An utility to checkpoint/restore tasks.
+An utility to checkpoint/restore tasks. Using this tool, you can
+freeze a running application (or part of it) and checkpoint it to
+a hard drive as a collection of files. You can then use the files
+to restore and run the application from the point it was frozen
+at. The distinctive feature of the CRIU project is that it is
+mainly implemented in user space.
 
-Some code snippets are borrowed from
+The project home is at http://criu.org
 
- - Linux kernel (http://kernel.org/)
- - git (http://git-scm.com/)
- - kvm-tools (https://github.com/penberg/linux-kvm)
- - ptrace-parasite (https://code.google.com/p/ptrace-parasite/)
-
-Many thanks to these projects.
-
-Licensed under GPLv2 (http://www.gnu.org/licenses/gpl-2.0.txt)
+Pages worth starting with are
+* Kernel configuration, compilation, etc: http://criu.org/Installation
+* A simple example of usage: http://criu.org/Simple_loop
+* More sophisticated example with graphical app: http://criu.org/VNC
