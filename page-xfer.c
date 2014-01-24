@@ -481,7 +481,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	 * read_pagemap_page routine.
 	 */
 
-	pr_debug("Checking %p/%lu hole\n", iov->iov_base, iov->iov_len);
+	pr_debug("Checking %p/%zu hole\n", iov->iov_base, iov->iov_len);
 	off = (unsigned long)iov->iov_base;
 	end = off + iov->iov_len;
 	while (1) {
@@ -493,7 +493,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 			return -1;
 
 		pagemap2iovec(p->pe, &piov);
-		pr_debug("\tFound %p/%lu\n", piov.iov_base, piov.iov_len);
+		pr_debug("\tFound %p/%zu\n", piov.iov_base, piov.iov_len);
 
 		/*
 		 * The pagemap entry in parent may heppen to be
@@ -519,7 +519,7 @@ static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
 
 		ret = check_pagehole_in_parent(xfer->parent, iov);
 		if (ret) {
-			pr_err("Hole %p/%lu not found in parent\n",
+			pr_err("Hole %p/%zu not found in parent\n",
 					iov->iov_base, iov->iov_len);
 			return -1;
 		}
