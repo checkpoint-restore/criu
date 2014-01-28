@@ -339,16 +339,6 @@ int main(int argc, char *argv[])
 		if (!tree_id)
 			goto opt_pid_missing;
 
-		if (!opts.track_mem) {
-			pr_info("Enforcing memory tracking for pre-dump.\n");
-			opts.track_mem = true;
-		}
-
-		if (opts.final_state == TASK_DEAD) {
-			pr_info("Enforcing tasks run after pre-dump.\n");
-			opts.final_state = TASK_ALIVE;
-		}
-
 		return cr_pre_dump_tasks(tree_id) != 0;
 	}
 

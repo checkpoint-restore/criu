@@ -1602,6 +1602,16 @@ int cr_pre_dump_tasks(pid_t pid)
 	LIST_HEAD(ctls);
 	struct parasite_ctl *ctl, *n;
 
+	if (!opts.track_mem) {
+		pr_info("Enforcing memory tracking for pre-dump.\n");
+		opts.track_mem = true;
+	}
+
+	if (opts.final_state == TASK_DEAD) {
+		pr_info("Enforcing tasks run after pre-dump.\n");
+		opts.final_state = TASK_ALIVE;
+	}
+
 	if (init_stats(DUMP_STATS))
 		goto err;
 
