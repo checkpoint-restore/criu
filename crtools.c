@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.restore_detach) != 0;
+		return cr_page_server(opts.restore_detach) > 0 ? 0 : 1;
 
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.restore_detach);

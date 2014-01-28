@@ -246,7 +246,7 @@ static int get_sockaddr_in(struct sockaddr_in *addr)
 
 int cr_page_server(bool daemon_mode)
 {
-	int sk, ask = -1;
+	int sk, ask = -1, ret;
 	struct sockaddr_in saddr, caddr;
 	socklen_t clen = sizeof(caddr);
 
@@ -273,11 +273,15 @@ int cr_page_server(bool daemon_mode)
 		goto out;
 	}
 
-	if (daemon_mode)
-		if (daemon(1, 0) == -1) {
+	if (daemon_mode) {
+		ret = cr_daemon(1, 0);
+		if (ret == -1) {
 			pr_perror("Can't run in the background");
-			return -errno;
+			goto out;
 		}
+		if (ret > 0) /* parent task, daemon started */
+			return ret;
+	}
 
 	if (opts.pidfile) {
 		if (write_pidfile(getpid()) == -1) {
@@ -286,21 +290,28 @@ int cr_page_server(bool daemon_mode)
 		}
 	}
 
-	ask = accept(sk, (struct sockaddr *)&caddr, &clen);
+	ret = ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 	if (ask < 0)
 		pr_perror("Can't accept connection to server");
 
-out:
 	close(sk);
 
-	if (ask < 0)
-		return -1;
+	if (ask >= 0) {
+		pr_info("Accepted connection from %s:%u\n",
+				inet_ntoa(caddr.sin_addr),
+				(int)ntohs(caddr.sin_port));
 
-	pr_info("Accepted connection from %s:%u\n",
-			inet_ntoa(caddr.sin_addr),
-			(int)ntohs(caddr.sin_port));
+		ret = page_server_serve(ask);
+	}
 
-	return page_server_serve(ask);
+	if (daemon_mode)
+		exit(ret);
+
+	return ret;
+
+out:
+	close(sk);
+	return -1;
 }
 
 static int page_server_sk = -1;
