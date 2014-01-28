@@ -36,6 +36,7 @@
 #include "log.h"
 #include "list.h"
 #include "lock.h"
+#include "irmap.h"
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
@@ -127,6 +128,7 @@ static int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
 	int fd;
+	char *path;
 
 	fd = open_handle(s_dev, i_ino, f_handle);
 	if (fd >= 0) {
@@ -135,8 +137,16 @@ static int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		return 0;
 	}
 
-	pr_err("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
-	return -1;
+	pr_warn("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
+	path = irmap_lookup(s_dev, i_ino);
+	if (!path) {
+		pr_err("\tCan't dump that handle\n");
+		return -1;
+	}
+
+	pr_debug("\tDumping %s as path for handle\n", path);
+	f_handle->path = path;
+	return 0;
 }
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
@@ -254,6 +264,11 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
 			 who, s_dev, i_ino, remap->path);
 		return remap->path;
+	}
+
+	if (f_handle->path) {
+		pr_debug("\t\tRestore with path hint %s\n", f_handle->path);
+		return f_handle->path;
 	}
 
 	*target = open_handle(s_dev, i_ino, f_handle);

@@ -8,4 +8,5 @@ message fh_entry {
 
 	/* The minimum is fh_n_handle repetitions */
 	repeated uint64		handle	= 3;
+	optional string		path	= 4;
 }
