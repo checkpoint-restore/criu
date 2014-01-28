@@ -84,6 +84,45 @@ int is_fanotify_link(int lfd)
 	return is_anon_link_type(lfd, "[fanotify]");
 }
 
+static void decode_handle(fh_t *handle, FhEntry *img)
+{
+	memzero(handle, sizeof(*handle));
+
+	handle->type	= img->type;
+	handle->bytes	= img->bytes;
+
+	memcpy(handle->__handle, img->handle,
+			min(pb_repeated_size(img, handle),
+				sizeof(handle->__handle)));
+}
+
+static int open_handle(unsigned int s_dev, unsigned long i_ino,
+		FhEntry *f_handle)
+{
+	int mntfd, fd = -1;
+	fh_t handle;
+
+	decode_handle(&handle, f_handle);
+
+	pr_debug("Opening fhandle %x:%Lx...\n",
+			s_dev, (unsigned long long)handle.__handle[0]);
+
+	mntfd = open_mount(s_dev);
+	if (mntfd < 0) {
+		pr_perror("Mount root for 0x%08x not found\n", s_dev);
+		goto out;
+	}
+
+	fd = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
+	if (fd < 0)
+		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+				s_dev, i_ino);
+
+	close(mntfd);
+out:
+	return fd;
+}
+
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
 	InotifyWdEntry *we = &e->ify;
@@ -182,25 +221,11 @@ const struct fdtype_ops fanotify_dump_ops = {
 	.dump		= dump_one_fanotify,
 };
 
-static void decode_handle(fh_t *handle, FhEntry *img)
-{
-	memzero(handle, sizeof(*handle));
-
-	handle->type	= img->type;
-	handle->bytes	= img->bytes;
-
-	memcpy(handle->__handle, img->handle,
-			min(pb_repeated_size(img, handle),
-				sizeof(handle->__handle)));
-}
-
 static char *get_mark_path(const char *who, struct file_remap *remap,
 			   FhEntry *f_handle, unsigned long i_ino,
 			   unsigned int s_dev, char *buf, int *target)
 {
 	char *path = NULL;
-	int mntfd = -1;
-	fh_t handle;
 
 	if (remap) {
 		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
@@ -208,20 +233,9 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		return remap->path;
 	}
 
-	decode_handle(&handle, f_handle);
-
-	mntfd = open_mount(s_dev);
-	if (mntfd < 0) {
-		pr_err("Mount root for 0x%08x not found\n", s_dev);
+	*target = open_handle(s_dev, i_ino, f_handle);
+	if (*target < 0)
 		goto err;
-	}
-
-	*target = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
-	if (*target < 0) {
-		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
-				s_dev, i_ino);
-		goto err;
-	}
 
 	/*
 	 * fanotify/inotify open syscalls want path to attach
@@ -244,7 +258,6 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 				who, s_dev, i_ino, path, link);
 	}
 err:
-	close_safe(&mntfd);
 	return path;
 }
 
