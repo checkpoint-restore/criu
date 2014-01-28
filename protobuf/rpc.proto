@@ -1,3 +1,9 @@
+message criu_page_server_info {
+	optional string address = 1;
+	optional int32 port = 2;
+	optional int32 pid = 3;
+}
+
 message criu_opts {
 	required int32 images_dir_fd	= 1;
 	optional int32 pid		= 2; //if not set on dump, will dump requesting process
@@ -10,6 +16,12 @@ message criu_opts {
 	optional bool file_locks	= 8;
 	optional int32 log_level	= 9 [default = 2];
 	optional string log_file	= 10;
+
+	optional criu_page_server_info ps = 11;
+
+	optional string root		= 13;
+	optional string parent_img	= 14;
+	optional bool track_mem		= 15;
 }
 
 message criu_dump_resp {
@@ -25,6 +37,8 @@ enum criu_req_type {
 	DUMP		= 1;
 	RESTORE		= 2;
 	CHECK		= 3;
+	PRE_DUMP	= 4;
+	PAGE_SERVER	= 5;
 }
 
 /*
@@ -49,4 +63,5 @@ message criu_resp {
 
 	optional criu_dump_resp	dump	= 3;
 	optional criu_restore_resp restore = 4;
+	optional criu_page_server_info ps = 6;
 }

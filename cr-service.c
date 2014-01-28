@@ -137,6 +137,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	/* going to dir, where to place/get images*/
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
+	if (req->parent_img)
+		opts.img_parent = req->parent_img;
+
 	if (chdir(images_dir_path)) {
 		pr_perror("Can't chdir to images directory");
 		return -1;
@@ -169,6 +172,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_ext_unix_sk)
 		opts.ext_unix_sk = req->ext_unix_sk;
 
+	if (req->root)
+		opts.root = req->root;
+
 	if (req->has_tcp_established)
 		opts.tcp_established_ok = req->tcp_established;
 
@@ -180,6 +186,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_file_locks)
 		opts.handle_file_locks = req->file_locks;
+
+	if (req->has_track_mem)
+		opts.track_mem = req->track_mem;
+
+	if (req->ps) {
+		opts.use_page_server = true;
+		opts.addr = req->ps->address;
+		opts.ps_port = htons((short)req->ps->port);
+	}
 
 	return 0;
 }
