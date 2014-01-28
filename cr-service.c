@@ -318,6 +318,73 @@ static int check(int sk)
 	return send_criu_msg(sk, &resp);
 }
 
+static int pre_dump_using_req(int sk, CriuOpts *opts)
+{
+	int pid, status;
+	bool success = false;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		goto out;
+	}
+
+	if (pid == 0) {
+		int ret = 1;
+
+		if (setup_opts_from_req(sk, opts)) {
+			pr_perror("Bad options");
+			goto cout;
+		}
+
+		if (cr_pre_dump_tasks(opts->pid))
+			goto cout;
+
+		ret = 0;
+cout:
+		exit(ret);
+	}
+
+	wait(&status);
+	if (!WIFEXITED(status))
+		goto out;
+	if (WEXITSTATUS(status) != 0)
+		goto out;
+
+	success = true;
+out:
+	if (send_criu_dump_resp(sk, success, false) == -1) {
+		pr_perror("Can't send pre-dump resp");
+		success = false;
+	}
+
+	return success ? 0 : -1;
+}
+
+static int pre_dump_loop(int sk, CriuReq *msg)
+{
+	int ret;
+
+	do {
+		ret = pre_dump_using_req(sk, msg->opts);
+		if (ret < 0)
+			return ret;
+
+		criu_req__free_unpacked(msg, NULL);
+		if (recv_criu_msg(sk, &msg) == -1) {
+			pr_perror("Can't recv request");
+			return -1;
+		}
+	} while (msg->type == CRIU_REQ_TYPE__PRE_DUMP);
+
+	if (msg->type != CRIU_REQ_TYPE__DUMP) {
+		send_criu_err(sk, "Bad req seq");
+		return -1;
+	}
+
+	return dump_using_req(sk, msg->opts);
+}
+
 static int start_page_server_req(int sk, CriuOpts *opts)
 {
 	int ret;
@@ -368,6 +435,8 @@ static int cr_service_work(int sk)
 		return restore_using_req(sk, msg->opts);
 	case CRIU_REQ_TYPE__CHECK:
 		return check(sk);
+	case CRIU_REQ_TYPE__PRE_DUMP:
+		return pre_dump_loop(sk, msg);
 	case CRIU_REQ_TYPE__PAGE_SERVER:
 		return start_page_server_req(sk, msg->opts);
 
