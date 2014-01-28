@@ -42,6 +42,7 @@ obj-y	+= eventfd.o
 obj-y	+= eventpoll.o
 obj-y	+= mount.o
 obj-y	+= fsnotify.o
+obj-y	+= irmap.o
 obj-y	+= signalfd.o
 obj-y	+= pstree.o
 obj-y	+= protobuf.o
