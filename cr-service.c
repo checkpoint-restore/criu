@@ -70,6 +70,19 @@ static int send_criu_msg(int socket_fd, CriuResp *msg)
 	return 0;
 }
 
+static void send_criu_err(int sk, char *msg)
+{
+	CriuResp resp = CRIU_RESP__INIT;
+
+	pr_perror("RPC error: %s", msg);
+
+	resp.type = CRIU_REQ_TYPE__EMPTY;
+	resp.success = false;
+	/* XXX -- add optional error code to CriuResp */
+
+	send_criu_msg(sk, &resp);
+}
+
 int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 {
 	CriuResp msg = CRIU_RESP__INIT;
@@ -267,18 +280,9 @@ static int cr_service_work(int sk)
 	case CRIU_REQ_TYPE__CHECK:
 		return check(sk);
 
-	default: {
-		CriuResp resp = CRIU_RESP__INIT;
-
-		resp.type = CRIU_REQ_TYPE__EMPTY;
-		resp.success = false;
-		/* XXX -- add optional error code to CriuResp */
-
-		pr_perror("Invalid request");
-		send_criu_msg(sk, &resp);
-
+	default:
+		send_criu_err(sk, "Invalid req");
 		goto err;
-	}
 	}
 
 err:
