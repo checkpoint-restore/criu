@@ -112,6 +112,35 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	return send_criu_msg(socket_fd, &msg);
 }
 
+int send_criu_rpc_script(char *script, int fd)
+{
+	int ret;
+	CriuResp msg = CRIU_RESP__INIT;
+	CriuReq *req;
+	CriuNotify cn = CRIU_NOTIFY__INIT;
+
+	msg.type = CRIU_REQ_TYPE__NOTIFY;
+	msg.success = true;
+	msg.notify = &cn;
+	cn.script = script;
+
+	ret = send_criu_msg(fd, &msg);
+	if (ret < 0)
+		return ret;
+
+	ret = recv_criu_msg(fd, &req);
+	if (ret < 0)
+		return ret;
+
+	if (req->type != CRIU_REQ_TYPE__NOTIFY || !req->notify_success) {
+		pr_err("RPC client reported script error\n");
+		return -1;
+	}
+
+	criu_req__free_unpacked(req, NULL);
+	return 0;
+}
+
 static int setup_opts_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
@@ -194,6 +223,18 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;
 		opts.ps_port = htons((short)req->ps->port);
+	}
+
+	if (req->notify_scripts) {
+		struct script *script;
+
+		script = xmalloc(sizeof(struct script));
+		if (script == NULL)
+			return -1;
+
+		script->path = SCRIPT_RPC_NOTIFY;
+		script->arg = sk;
+		list_add(&script->node, &opts.scripts);
 	}
 
 	return 0;

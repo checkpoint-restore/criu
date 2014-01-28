@@ -41,6 +41,7 @@
 
 #include "cr_options.h"
 #include "servicefd.h"
+#include "cr-service.h"
 
 #define VMA_OPT_LEN	128
 
@@ -458,8 +459,13 @@ int run_scripts(char *action)
 	}
 
 	list_for_each_entry(script, &opts.scripts, node) {
-		pr_debug("\t[%s]\n", script->path);
-		ret |= system(script->path);
+		if (script->path == SCRIPT_RPC_NOTIFY) {
+			pr_debug("\tRPC\n");
+			ret |= send_criu_rpc_script(action, script->arg);
+		} else {
+			pr_debug("\t[%s]\n", script->path);
+			ret |= system(script->path);
+		}
 	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");

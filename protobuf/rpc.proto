@@ -19,6 +19,8 @@ message criu_opts {
 
 	optional criu_page_server_info ps = 11;
 
+	optional bool notify_scripts	= 12;
+
 	optional string root		= 13;
 	optional string parent_img	= 14;
 	optional bool track_mem		= 15;
@@ -32,6 +34,10 @@ message criu_restore_resp {
 	required int32 pid		= 1;
 }
 
+message criu_notify {
+	optional string script		= 1;
+}
+
 enum criu_req_type {
 	EMPTY		= 0;
 	DUMP		= 1;
@@ -39,6 +45,8 @@ enum criu_req_type {
 	CHECK		= 3;
 	PRE_DUMP	= 4;
 	PAGE_SERVER	= 5;
+
+	NOTIFY		= 6;
 }
 
 /*
@@ -50,6 +58,7 @@ message criu_req {
 	required criu_req_type type	= 1;
 
 	optional criu_opts opts	= 2;
+	optional bool notify_success = 3;
 }
 
 /*
@@ -63,5 +72,6 @@ message criu_resp {
 
 	optional criu_dump_resp	dump	= 3;
 	optional criu_restore_resp restore = 4;
+	optional criu_notify notify = 5;
 	optional criu_page_server_info ps = 6;
 }
