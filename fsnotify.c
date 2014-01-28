@@ -123,6 +123,22 @@ out:
 	return fd;
 }
 
+static int check_open_handle(unsigned int s_dev, unsigned long i_ino,
+		FhEntry *f_handle)
+{
+	int fd;
+
+	fd = open_handle(s_dev, i_ino, f_handle);
+	if (fd >= 0) {
+		close(fd);
+		pr_debug("\tHandle %x:%lx is openable\n", s_dev, i_ino);
+		return 0;
+	}
+
+	pr_err("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
+	return -1;
+}
+
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
 	InotifyWdEntry *we = &e->ify;
@@ -133,6 +149,10 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
+
+	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
+		return -1;
+
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
 }
 
@@ -173,6 +193,9 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			fme->ie->f_handle->bytes, fme->ie->f_handle->type,
 			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
+
+		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle))
+			return -1;
 	}
 
 	if (fme->type == MARK_TYPE__MOUNT) {

@@ -74,8 +74,18 @@ int open_mount(unsigned int s_dev)
 	struct mount_info *i;
 
 	for (i = mntinfo; i != NULL; i = i->next)
-		if (s_dev == i->s_dev)
-			return open(i->mountpoint, O_RDONLY);
+		if (s_dev == i->s_dev) {
+			if (mntns_root == -1) {
+				pr_debug("mpopen %s\n", i->mountpoint);
+				return open(i->mountpoint, O_RDONLY);
+			} else if (i->mountpoint[1] == '\0') {
+				pr_debug("mpopen root\n");
+				return dup(mntns_root);
+			} else {
+				pr_debug("mpopen %d:%s\n", mntns_root, i->mountpoint + 1);
+				return openat(mntns_root, i->mountpoint + 1, O_RDONLY);
+			}
+		}
 
 	return -ENOENT;
 }
