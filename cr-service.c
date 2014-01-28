@@ -21,6 +21,7 @@
 #include "cr-service.h"
 #include "cr-service-const.h"
 #include "sd-daemon.h"
+#include "page-xfer.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -317,6 +318,38 @@ static int check(int sk)
 	return send_criu_msg(sk, &resp);
 }
 
+static int start_page_server_req(int sk, CriuOpts *opts)
+{
+	int ret;
+	bool success = false;
+	CriuResp resp = CRIU_RESP__INIT;
+	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
+
+	if (!opts->ps) {
+		pr_err("No page server info in message\n");
+		goto out;
+	}
+
+	if (setup_opts_from_req(sk, opts))
+		goto out;
+
+	pr_debug("Starting page server\n");
+
+	ret = cr_page_server(true);
+	if (ret > 0) {
+		success = true;
+		ps.has_pid = true;
+		ps.pid = ret;
+		resp.ps = &ps;
+	}
+
+	pr_debug("Page server started\n");
+out:
+	resp.type = CRIU_REQ_TYPE__PAGE_SERVER;
+	resp.success = success;
+	return send_criu_msg(sk, &resp);
+}
+
 static int cr_service_work(int sk)
 {
 	CriuReq *msg = 0;
@@ -335,6 +368,8 @@ static int cr_service_work(int sk)
 		return restore_using_req(sk, msg->opts);
 	case CRIU_REQ_TYPE__CHECK:
 		return check(sk);
+	case CRIU_REQ_TYPE__PAGE_SERVER:
+		return start_page_server_req(sk, msg->opts);
 
 	default:
 		send_criu_err(sk, "Invalid req");
