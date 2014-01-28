@@ -572,6 +572,35 @@ out:
 	return ret;
 }
 
+int cr_daemon(int nochdir, int noclose)
+{
+	int pid;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		return -1;
+	}
+
+	if (pid > 0)
+		return pid;
+
+	setsid();
+	if (!nochdir)
+		chdir("/");
+	if (!noclose) {
+		int fd;
+
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		close(fd);
+	}
+
+	return 0;
+}
+
 int is_root_user()
 {
 	if (geteuid() != 0) {
