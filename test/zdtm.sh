@@ -150,6 +150,7 @@ tun
 chroot
 chroot-file
 rtc
+tempfs
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
