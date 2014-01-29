@@ -12,6 +12,7 @@ TST_NOFILE	=	\
 		fork		\
 		fork2		\
 		thread-bomb	\
+		maps007		\
 
 TST_FILE	=	\
 		file_read	\
