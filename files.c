@@ -294,11 +294,14 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 #define PIPEFS_MAGIC	0x50495045
 #endif
 
+#ifndef ANON_INODE_FS_MAGIC
+# define ANON_INODE_FS_MAGIC 0x09041934
+#endif
+
 static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
 		       const int fdinfo)
 {
 	struct fd_parms p = FD_PARMS_INIT;
-	struct statfs statfs;
 	const struct fdtype_ops *ops;
 
 	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
@@ -312,12 +315,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	if (S_ISCHR(p.stat.st_mode))
 		return dump_chrdev(&p, lfd, fdinfo);
 
-	if (fstatfs(lfd, &statfs)) {
-		pr_perror("Can't obtain statfs on fd %d", fd);
-		return -1;
-	}
-
-	if (is_anon_inode(&statfs)) {
+	if (p.fs_type == ANON_INODE_FS_MAGIC) {
 		if (is_eventfd_link(lfd))
 			ops = &eventfd_dump_ops;
 		else if (is_eventpoll_link(lfd))
@@ -357,7 +355,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
-		if (statfs.f_type == PIPEFS_MAGIC)
+		if (p.fs_type == PIPEFS_MAGIC)
 			ops = &pipe_dump_ops;
 		else
 			ops = &fifo_dump_ops;
