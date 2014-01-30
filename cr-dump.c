@@ -71,6 +71,7 @@
 #include "vma.h"
 #include "cr-service.h"
 #include "plugin.h"
+#include "irmap.h"
 
 #include "asm/dump.h"
 
@@ -1624,6 +1625,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (kerndat_init())
 		goto err;
 
+	if (irmap_load_cache())
+		goto err;
+
 	if (cpu_init())
 		goto err;
 
@@ -1681,6 +1685,9 @@ err:
 		parasite_cure_local(ctl);
 	}
 
+	if (irmap_predump_run())
+		ret = -1;
+
 	if (disconnect_from_page_server())
 		ret = -1;
 
@@ -1711,6 +1718,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (kerndat_init())
+		goto err;
+
+	if (irmap_load_cache())
 		goto err;
 
 	if (cpu_init())

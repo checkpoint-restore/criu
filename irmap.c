@@ -21,6 +21,11 @@
 #include "mount.h"
 #include "log.h"
 #include "util.h"
+#include "image.h"
+
+#include "protobuf.h"
+#include "protobuf/fsnotify.pb-c.h"
+#include "protobuf/fh.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "irmap: "
@@ -234,4 +239,140 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 
 out:
 	return path;
+}
+
+/*
+ * IRMAP pre-cache -- do early irmap scan on pre-dump to reduce
+ * the freeze time on dump
+ */
+
+struct irmap_predump {
+	unsigned int dev;
+	unsigned long ino;
+	FhEntry fh;
+	struct irmap_predump *next;
+};
+
+static struct irmap_predump *predump_queue;
+
+int irmap_queue_cache(unsigned int dev, unsigned long ino,
+		FhEntry *fh)
+{
+	struct irmap_predump *ip;
+
+	ip = xmalloc(sizeof(*ip));
+	if (!ip)
+		return -1;
+
+	ip->dev = dev;
+	ip->ino = ino;
+	ip->fh = *fh;
+
+	pr_debug("Queue %x:%lx for pre-dump\n", dev, ino);
+
+	ip->next = predump_queue;
+	predump_queue = ip;
+	return 0;
+}
+
+int irmap_predump_run(void)
+{
+	int ret = 0, fd;
+	struct irmap_predump *ip;
+
+	fd = open_image_at(AT_FDCWD, CR_FD_IRMAP_CACHE, O_DUMP);
+	if (fd < 0)
+		return -1;
+
+	pr_info("Running irmap pre-dump\n");
+
+	for (ip = predump_queue; ip; ip = ip->next) {
+		pr_debug("\tchecking %x:%lx\n", ip->dev, ip->ino);
+		ret = check_open_handle(ip->dev, ip->ino, &ip->fh);
+		if (ret)
+			break;
+
+		if (ip->fh.path) {
+			IrmapCacheEntry ic = IRMAP_CACHE_ENTRY__INIT;
+
+			pr_info("Irmap cache %x:%lx -> %s\n", ip->dev, ip->ino, ip->fh.path);
+			ic.dev = ip->dev;
+			ic.inode = ip->ino;
+			ic.path = ip->fh.path;
+
+			ret = pb_write_one(fd, &ic, PB_IRMAP_CACHE);
+			if (ret)
+				break;
+		}
+	}
+
+	close(fd);
+	return ret;
+}
+
+static int irmap_cache_one(IrmapCacheEntry *ie)
+{
+	struct irmap *ic;
+	unsigned hv;
+
+	ic = xmalloc(sizeof(*ic));
+	if (!ic)
+		return -1;
+
+	ic->dev = ie->dev;
+	ic->ino = ie->inode;
+	ic->path = xstrdup(ie->path);
+	if (!ie->path) {
+		xfree(ic);
+		return -1;
+	}
+
+	ic->nr_kids = 0;
+	/*
+	 * We've loaded entry from cache, thus we'll need to check
+	 * whether it's still valid when find it in cache.
+	 */
+	ic->revalidate = true;
+
+	pr_debug("Pre-cache %x:%lx -> %s\n", ic->dev, ic->ino, ic->path);
+
+	hv = irmap_hashfn(ic->dev, ic->ino);
+	ic->next = cache[hv];
+	cache[hv] = ic;
+
+	return 0;
+}
+
+int irmap_load_cache(void)
+{
+	int fd, ret;
+
+	fd = open_image_at(AT_FDCWD, CR_FD_IRMAP_CACHE, O_RSTR);
+	if (fd < 0) {
+		if (errno == ENOENT) {
+			pr_info("No irmap cache\n");
+			return 0;
+		}
+
+		return -1;
+	}
+
+	pr_info("Loading irmap cache\n");
+	while (1) {
+		IrmapCacheEntry *ic;
+
+		ret = pb_read_one_eof(fd, &ic, PB_IRMAP_CACHE);
+		if (ret <= 0)
+			break;
+
+		ret = irmap_cache_one(ic);
+		if (ret < 0)
+			break;
+
+		irmap_cache_entry__free_unpacked(ic, NULL);
+	}
+
+	close(fd);
+	return ret;
+
 }

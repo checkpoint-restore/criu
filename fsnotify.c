@@ -124,7 +124,7 @@ out:
 	return fd;
 }
 
-static int check_open_handle(unsigned int s_dev, unsigned long i_ino,
+int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
 	int fd;
@@ -183,7 +183,8 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 static int pre_dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-	return 0;
+	InotifyWdEntry *we = &e->ify;
+	return irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle);
 }
 
 static int pre_dump_one_inotify(int pid, int lfd)
@@ -262,7 +263,13 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 
 static int pre_dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 {
-	return 0;
+	FanotifyMarkEntry *fme = &e->ffy;
+
+	if (fme->type == MARK_TYPE__INODE)
+		return irmap_queue_cache(fme->s_dev, fme->ie->i_ino,
+				fme->ie->f_handle);
+	else
+		return 0;
 }
 
 static int pre_dump_one_fanotify(int pid, int lfd)
