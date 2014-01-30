@@ -81,4 +81,6 @@
 #define PAGES_OLD_MAGIC		PAGEMAP_MAGIC
 #define SHM_PAGES_OLD_MAGIC	PAGEMAP_MAGIC
 
+#define IRMAP_CACHE_MAGIC	0x57004059 /* Ivanovo */
+
 #endif /* __CR_MAGIC_H__ */

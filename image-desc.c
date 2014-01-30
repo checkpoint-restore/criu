@@ -81,4 +81,9 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 		.fmt	= "stats-%s",
 		.magic	= STATS_MAGIC,
 	},
+
+	[CR_FD_IRMAP_CACHE] = {
+		.fmt	= "irmap-cache",
+		.magic	= IRMAP_CACHE_MAGIC,
+	},
 };

@@ -87,6 +87,8 @@ enum {
 	CR_FD_PAGES_OLD,
 	CR_FD_SHM_PAGES_OLD,
 
+	CR_FD_IRMAP_CACHE,
+
 	CR_FD_MAX
 };
 
