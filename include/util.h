@@ -290,4 +290,6 @@ extern int read_fd_link(int lfd, char *buf, size_t size);
 #define USEC_PER_SEC	1000000L
 #define NSEC_PER_SEC    1000000000L
 
+int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
+
 #endif /* __CR_UTIL_H__ */

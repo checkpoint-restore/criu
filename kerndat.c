@@ -159,9 +159,7 @@ unsigned long zero_page_pfn;
 static int init_zero_page_pfn()
 {
 	void *addr;
-	loff_t off;
-	u64 pfn;
-	int fd = -1;
+	int ret;
 
 	addr = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
@@ -171,37 +169,16 @@ static int init_zero_page_pfn()
 
 	if (*((int *) addr) != 0) {
 		BUG();
-		goto err;
+		return -1;
 	}
 
-	fd = open("/proc/self/pagemap", O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Unable to open /proc/self/pagemap");
-		goto err;
-	}
-
-	off = (unsigned long) addr / PAGE_SIZE * 8;
-	if (lseek(fd, off, SEEK_SET) != off) {
-		pr_perror("Can't open pagemap file");
-		goto err;
-	}
-	if (read(fd, &pfn, sizeof(pfn)) != sizeof(pfn)) {
-		pr_perror("Can't read pagemap file");
-		goto err;
-	}
-
-	if (!(pfn & PME_PRESENT)) {
-		pr_err("The zero page isn't present");
-		goto err;
-	}
-
-	pfn &= PME_PFRAME_MASK;
-
-	zero_page_pfn = pfn;
-err:
+	ret = vaddr_to_pfn((unsigned long)addr, &zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
-	close_safe(&fd);
-	return zero_page_pfn ? 0 : -1;
+
+	if (zero_page_pfn == 0)
+		ret = -1;
+
+	return ret;
 }
 
 int kerndat_init(void)

@@ -616,3 +616,29 @@ int is_root_user()
 
 	return 1;
 }
+
+int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
+{
+	int fd, ret = -1;
+	off_t off;
+
+	fd = open_proc(getpid(), "pagemap");
+	if (fd < 0)
+		return -1;
+
+	off = (vaddr / PAGE_SIZE) * sizeof(u64);
+	if (lseek(fd, off, SEEK_SET) != off) {
+		pr_perror("Failed to seek address %lx\n", vaddr);
+		goto out;
+	}
+
+	ret = read(fd, pfn, sizeof(*pfn));
+	if (ret != sizeof(*pfn)) {
+		pr_perror("Can't read pme for pid %d", getpid());
+		ret = -1;
+	} else
+		ret = 0;
+out:
+	close(fd);
+	return ret;
+}
