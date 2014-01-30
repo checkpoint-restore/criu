@@ -353,6 +353,34 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
+static int gen_ns_ids(int pid)
+{
+	/* needed for mntns_collect_root */
+	if (!get_ns_id(pid, &mnt_ns_desc))
+		return -1;
+	return 0;
+}
+
+/*
+ * We use ns_mask in various places to check whether
+ * the tasks we dump live in namespaces or not. The
+ * mask generation is tied with dumping inventory and
+ * tasks' images, which is not needed for pre-dump.
+ * This routine generates a mask for pre-dump.
+ */
+int gen_predump_ns_mask(void)
+{
+	BUG_ON(current_ns_mask);
+
+	if (gen_ns_ids(getpid()))
+		return -1;
+	if (gen_ns_ids(root_item->pid.real))
+		return -1;
+
+	pr_info("NS mask generated: %lx\n", current_ns_mask);
+	return 0;
+}
+
 static int do_dump_namespaces(struct ns_id *ns)
 {
 	int ret = -1;

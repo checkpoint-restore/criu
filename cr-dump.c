@@ -1630,6 +1630,15 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (collect_pstree(pid))
 		goto err;
 
+	if (gen_predump_ns_mask())
+		goto err;
+
+	if (collect_mount_info(pid))
+		goto err;
+
+	if (mntns_collect_root(root_item->pid.real))
+		goto err;
+
 	for_each_pstree_item(item)
 		if (pre_dump_one_task(item, &ctls))
 			goto err;
