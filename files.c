@@ -411,6 +411,70 @@ err:
 	return ret;
 }
 
+static int predump_one_fd(int pid, int fd)
+{
+	int lfd, ret = 0;
+	struct statfs buf;
+	const struct fdtype_ops *ops;
+
+	/*
+	 * This should look like the dump_task_files_seized,
+	 * but since we pre-dump only *notify-s, we use the
+	 * enightened version without fds draining.
+	 */
+
+	lfd = open_proc(pid, "fd/%d", fd);
+	if (lfd < 0)
+		return 0; /* That's OK, it can be a socket */
+
+	if (fstatfs(lfd, &buf)) {
+		pr_perror("Can't fstatfs file");
+		return -1;
+	}
+
+	if (buf.f_type != ANON_INODE_FS_MAGIC)
+		goto out;
+
+	if (is_inotify_link(lfd))
+		ops = &inotify_dump_ops;
+	else if (is_fanotify_link(lfd))
+		ops = &fanotify_dump_ops;
+	else
+		goto out;
+
+	pr_debug("Pre-dumping %d's %d fd\n", pid, fd);
+	ret = ops->pre_dump(pid, fd);
+out:
+	close(lfd);
+	return ret;
+}
+
+int predump_task_files(int pid)
+{
+	struct dirent *de;
+	DIR *fd_dir;
+	int ret = -1;
+
+	pr_info("Pre-dump fds for %d)\n", pid);
+
+	fd_dir = opendir_proc(pid, "fd");
+	if (!fd_dir)
+		return -1;
+
+	while ((de = readdir(fd_dir))) {
+		if (dir_dots(de))
+			continue;
+
+		if (predump_one_fd(pid, atoi(de->d_name)))
+			goto out;
+	}
+
+	ret = 0;
+out:
+	closedir(fd_dir);
+	return ret;
+}
+
 int restore_fown(int fd, FownEntry *fown)
 {
 	struct f_owner_ex owner;

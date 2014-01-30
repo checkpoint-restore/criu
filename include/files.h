@@ -112,6 +112,7 @@ struct file_desc {
 struct fdtype_ops {
 	unsigned int		type;
 	int			(*dump)(int lfd, u32 id, const struct fd_parms *p);
+	int			(*pre_dump)(int pid, int lfd);
 };
 
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
@@ -120,6 +121,7 @@ extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 struct parasite_drain_fd;
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds);
+int predump_task_files(int pid);
 
 extern int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);

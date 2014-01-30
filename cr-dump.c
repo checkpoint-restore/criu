@@ -1346,6 +1346,12 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 		goto err_cure;
 	}
 
+	ret = predump_task_files(pid);
+	if (ret) {
+		pr_err("Pre-dumping files failed (pid: %d)\n", pid);
+		goto err_cure;
+	}
+
 	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &parasite_ctl->mem_pp);

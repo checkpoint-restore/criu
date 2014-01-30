@@ -181,9 +181,20 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);
 }
 
+static int pre_dump_inotify_entry(union fdinfo_entries *e, void *arg)
+{
+	return 0;
+}
+
+static int pre_dump_one_inotify(int pid, int lfd)
+{
+	return parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, pre_dump_inotify_entry, NULL);
+}
+
 const struct fdtype_ops inotify_dump_ops = {
 	.type		= FD_TYPES__INOTIFY,
 	.dump		= dump_one_inotify,
+	.pre_dump	= pre_dump_one_inotify,
 };
 
 static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
@@ -249,9 +260,20 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
 }
 
+static int pre_dump_fanotify_entry(union fdinfo_entries *e, void *arg)
+{
+	return 0;
+}
+
+static int pre_dump_one_fanotify(int pid, int lfd)
+{
+	return parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, pre_dump_fanotify_entry, NULL);
+}
+
 const struct fdtype_ops fanotify_dump_ops = {
 	.type		= FD_TYPES__FANOTIFY,
 	.dump		= dump_one_fanotify,
+	.pre_dump	= pre_dump_one_fanotify,
 };
 
 static char *get_mark_path(const char *who, struct file_remap *remap,
