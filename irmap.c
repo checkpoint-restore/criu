@@ -22,6 +22,7 @@
 #include "log.h"
 #include "util.h"
 #include "image.h"
+#include "stats.h"
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
@@ -213,6 +214,8 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 
 	pr_debug("Resolving %x:%lx path\n", s_dev, i_ino);
 
+	timing_start(TIME_IRMAP_RESOLVE);
+
 	hv = irmap_hashfn(s_dev, i_ino);
 	for (p = &cache[hv]; *p; p = &(*p)->next) {
 		c = *p;
@@ -238,6 +241,7 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	}
 
 out:
+	timing_stop(TIME_IRMAP_RESOLVE);
 	return path;
 }
 

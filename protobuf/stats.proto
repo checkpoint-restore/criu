@@ -8,6 +8,8 @@ message dump_stats_entry {
 	required uint64	pages_scanned = 5;
 	required uint64	pages_skipped_parent = 6;
 	required uint64	pages_written = 7;
+
+	optional uint32	irmap_resolve = 8;
 }
 
 message restore_stats_entry {

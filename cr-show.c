@@ -323,7 +323,7 @@ static struct show_image_info show_infos[] = {
 	SHOW_PLAIN(IRMAP_CACHE),
 
 	{ TCP_STREAM_MAGIC,	PB_TCP_STREAM,		true,	show_tcp_stream, "1:%u 2:%u 3:%u 4:%u 12:%u", },
-	{ STATS_MAGIC,		PB_STATS,		true,	NULL, "1.1:%u 1.2:%u 1.3:%u 1.4:%u 1.5:%Lu 1.6:%Lu 1.7:%Lu", },
+	{ STATS_MAGIC,		PB_STATS,		true,	NULL, "1.1:%u 1.2:%u 1.3:%u 1.4:%u 1.5:%Lu 1.6:%Lu 1.7:%Lu 1.8:%u", },
 	{ FDINFO_MAGIC,		PB_FDINFO,		false,	NULL, "flags:%#o fd:%d", },
 	{ UNIXSK_MAGIC,		PB_UNIX_SK,		false,	NULL, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%#x 11:S", },
 	{ INETSK_MAGIC,		PB_INET_SK,		false,	NULL, "1:%#x 2:%#x 3:%d 4:%d 5:%d 6:%d 7:%d 8:%d 9:%2x 11:A 12:A", },

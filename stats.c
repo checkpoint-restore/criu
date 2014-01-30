@@ -115,6 +115,8 @@ void write_stats(int what)
 		encode_time(TIME_FROZEN, &ds_entry.frozen_time);
 		encode_time(TIME_MEMDUMP, &ds_entry.memdump_time);
 		encode_time(TIME_MEMWRITE, &ds_entry.memwrite_time);
+		ds_entry.has_irmap_resolve = true;
+		encode_time(TIME_IRMAP_RESOLVE, &ds_entry.irmap_resolve);
 
 		ds_entry.pages_scanned = dstats->counts[CNT_PAGES_SCANNED];
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
