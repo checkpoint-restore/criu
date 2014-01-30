@@ -154,7 +154,7 @@ out:
 }
 
 /* The page frame number (PFN) is constant for the zero page */
-unsigned long zero_page_pfn;
+u64 zero_page_pfn;
 
 static int init_zero_page_pfn()
 {
