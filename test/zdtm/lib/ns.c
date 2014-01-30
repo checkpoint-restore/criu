@@ -216,7 +216,8 @@ int ns_init(int argc, char **argv)
 	}
 	ret = 1;
 	waitpid(pid, &ret, 0);
-
+	if (ret)
+		fprintf(stderr, "The test returned non-zero code %d\n", ret);
 
 	pid = fork();
 	if (pid == 0) {
@@ -293,11 +294,15 @@ void ns_create(int argc, char **argv)
 
 	status = 1;
 	ret = read(args.status_pipe[0], &status, sizeof(status));
-	if (ret != sizeof(status) || status)
+	if (ret != sizeof(status) || status) {
+		fprintf(stderr, "The test failed (%d, %d)\n", ret, status);
 		exit(1);
+	}
 	ret = read(args.status_pipe[0], &status, sizeof(status));
-	if (ret != 0)
+	if (ret != 0) {
+		fprintf(stderr, "Unexpected message from test\n");
 		exit(1);
+	}
 
 	pidfile = getenv("ZDTM_PIDFILE");
 	if (pidfile == NULL)
