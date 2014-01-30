@@ -7,6 +7,7 @@
 #include <errno.h>
 
 #include "log.h"
+#include "bug.h"
 #include "kerndat.h"
 #include "mem.h"
 #include "compiler.h"
@@ -151,6 +152,56 @@ out:
 	return 0;
 }
 
+/* The page frame number (PFN) is constant for the zero page */
+unsigned long zero_page_pfn;
+
+static int init_zero_page_pfn()
+{
+	void *addr;
+	loff_t off;
+	u64 pfn;
+	int fd;
+
+	addr = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (addr == MAP_FAILED) {
+		pr_perror("Unable to map zero page");
+		return 0;
+	}
+
+	if (*((int *) addr) != 0) {
+		BUG();
+		goto err;
+	}
+
+	fd = open("/proc/self/pagemap", O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Unable to open /proc/self/pagemap");
+		goto err;
+	}
+
+	off = (unsigned long) addr / PAGE_SIZE * 8;
+	if (lseek(fd, off, SEEK_SET) != off) {
+		pr_perror("Can't open pagemap file");
+		goto err;
+	}
+	if (read(fd, &pfn, sizeof(pfn)) != sizeof(pfn)) {
+		pr_perror("Can't read pagemap file");
+		goto err;
+	}
+
+	if (!(pfn & PME_PRESENT)) {
+		pr_err("The zero page isn't present");
+		goto err;
+	}
+
+	pfn &= PME_PFRAME_MASK;
+
+	zero_page_pfn = pfn;
+err:
+	munmap(addr, PAGE_SIZE);
+	return zero_page_pfn ? 0 : -1;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -158,6 +209,8 @@ int kerndat_init(void)
 	ret = kerndat_get_shmemdev();
 	if (!ret)
 		ret = kerndat_get_dirty_track();
+	if (!ret)
+		ret = init_zero_page_pfn();
 
 	return ret;
 }

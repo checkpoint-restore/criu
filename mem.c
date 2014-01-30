@@ -74,7 +74,9 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 	 */
 	if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
 		return false;
-	if (pme & (PME_PRESENT | PME_SWAP))
+	if (pme & PME_SWAP)
+		return true;
+	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != zero_page_pfn))
 		return true;
 
 	return false;
@@ -198,6 +200,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
 	pr_info("----------------------------------------\n");
+
+	BUG_ON(zero_page_pfn == 0);
 
 	timing_start(TIME_MEMDUMP);
 
