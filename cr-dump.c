@@ -110,13 +110,22 @@ bool privately_dump_vma(struct vma_area *vma)
 	return true;
 }
 
+static void close_vma_file(struct vma_area *vma)
+{
+	if (vma->vm_file_fd < 0)
+		return;
+	if (vma->vma.status & VMA_AREA_SOCKET)
+		return;
+
+	close(vma->vm_file_fd);
+}
+
 void free_mappings(struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area, *p;
 
 	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list) {
-		if (vma_area->vm_file_fd > 0)
-			close(vma_area->vm_file_fd);
+		close_vma_file(vma_area);
 		free(vma_area);
 	}
 
