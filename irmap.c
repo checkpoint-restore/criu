@@ -347,19 +347,42 @@ static int irmap_cache_one(IrmapCacheEntry *ie)
 	return 0;
 }
 
+static int open_irmap_cache(int *fd)
+{
+	int dir = AT_FDCWD;
+
+	pr_info("Searching irmap cache in work dir\n");
+in:
+	*fd = open_image_at(dir, CR_FD_IRMAP_CACHE, O_RSTR);
+	if (dir != AT_FDCWD)
+		close(dir);
+
+	if (*fd >= 0) {
+		pr_info("... done\n");
+		return 1;
+	}
+
+	if (errno == ENOENT && dir == AT_FDCWD) {
+		pr_info("Searching irmap cache in parent\n");
+		dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+		if (dir >= 0)
+			goto in;
+	}
+
+	if (errno != ENOENT)
+		return -1;
+
+	pr_info("No irmap cache\n");
+	return 0;
+}
+
 int irmap_load_cache(void)
 {
 	int fd, ret;
 
-	fd = open_image_at(AT_FDCWD, CR_FD_IRMAP_CACHE, O_RSTR);
-	if (fd < 0) {
-		if (errno == ENOENT) {
-			pr_info("No irmap cache\n");
-			return 0;
-		}
-
-		return -1;
-	}
+	ret = open_irmap_cache(&fd);
+	if (ret <= 0)
+		return ret;
 
 	pr_info("Loading irmap cache\n");
 	while (1) {
@@ -378,5 +401,4 @@ int irmap_load_cache(void)
 
 	close(fd);
 	return ret;
-
 }
