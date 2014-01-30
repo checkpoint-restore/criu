@@ -83,7 +83,8 @@ int main(int argc, char **argv)
 		} else {
 			if (!futex_get(&shm->stop))
 				/* MAX_DELTA steps behind the parent */
-				while (atomic_get(&shm->delta) < MAX_DELTA);
+				while (atomic_get(&shm->delta) < MAX_DELTA &&
+					!futex_get(&shm->stop));
 			else if (atomic_get(&shm->delta) == 0)
 				break;
 			atomic_dec(&shm->delta);
