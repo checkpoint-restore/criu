@@ -14,6 +14,7 @@
 #include "sysctl.h"
 #include "asm/types.h"
 #include "cr_options.h"
+#include "util.h"
 
 dev_t kerndat_shmem_dev;
 
@@ -160,7 +161,7 @@ static int init_zero_page_pfn()
 	void *addr;
 	loff_t off;
 	u64 pfn;
-	int fd;
+	int fd = -1;
 
 	addr = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
@@ -199,6 +200,7 @@ static int init_zero_page_pfn()
 	zero_page_pfn = pfn;
 err:
 	munmap(addr, PAGE_SIZE);
+	close_safe(&fd);
 	return zero_page_pfn ? 0 : -1;
 }
 
