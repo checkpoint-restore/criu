@@ -317,12 +317,8 @@ static bool valid_xsave_frame(CoreEntry *core)
 	}
 
 	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
-		if (!core->thread_info->fpregs->xsave) {
-			pr_err("FPU xsave area is missing, "
-			       "but host cpu requires it\n");
-			return false;
-		}
-		if (core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
+		if (core->thread_info->fpregs->xsave &&
+		    core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
 			pr_err("Corruption in FPU ymmh_space area "
 			       "(got %li but %li expected)\n",
 			       (long)core->thread_info->fpregs->xsave->n_ymmh_space,
@@ -402,7 +398,13 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		void *magic2;
 
 		x->xsave_hdr.xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
-		assign_array(x->ymmh, core->thread_info->fpregs->xsave, ymmh_space);
+
+		/*
+		 * fpregs->xsave pointer might not present on image so we
+		 * simply clear out all ymm registers.
+		 */
+		if (core->thread_info->fpregs->xsave)
+			assign_array(x->ymmh, core->thread_info->fpregs->xsave, ymmh_space);
 
 		fpx_sw->magic1		= FP_XSTATE_MAGIC1;
 		fpx_sw->xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
