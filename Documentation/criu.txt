@@ -77,6 +77,16 @@ OPTIONS
     done with help of 'post-dump' script.
     In other words, do not use it until really needed.
 
+*--cpu-cap* 'cap'[,'cap']::
+    When restore process require 'cap' CPU capability to be present. To inverse
+    capability prefix it with '^'.
+
+    - *fpu*. Requre the CPU to have comaptible FPU. For example the process
+             might be dumped with xsave capability but attempted to restore
+             without it present on target cpu. In such case we refuse to procceed.
+
+    - *all*. Require all capability. This is *default* mode.
+
 *-f*, *--file* 'file'::
     This option is valid for *show* command only and allows to see content of
     the 'file' specified.

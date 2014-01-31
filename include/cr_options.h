@@ -13,6 +13,12 @@ struct script {
 
 #define SCRIPT_RPC_NOTIFY	(char *)0x1
 
+/*
+ * CPU capability options.
+ */
+#define CPU_CAP_FPU		(1u)
+#define CPU_CAP_ALL		(-1u)
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -40,6 +46,7 @@ struct cr_options {
 	bool			track_mem;
 	char			*img_parent;
 	bool			auto_dedup;
+	unsigned int		cpu_cap;
 };
 
 extern struct cr_options opts;

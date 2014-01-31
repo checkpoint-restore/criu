@@ -45,6 +45,8 @@ void init_opts(void)
 	opts.final_state = TASK_DEAD;
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.scripts);
+
+	opts.cpu_cap = CPU_CAP_ALL;
 }
 
 static int parse_ns_string(const char *ptr)
@@ -72,6 +74,43 @@ static int parse_ns_string(const char *ptr)
 
 bad_ns:
 	pr_msg("Error: unknown namespace: %s\n", ptr);
+	return -1;
+}
+
+static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
+{
+	bool inverse = false;
+
+#define ____cpu_set_cap(__opts, __cap, __inverse)	\
+	do {						\
+		if ((__inverse))			\
+			(__opts)->cpu_cap &= ~(__cap);	\
+		else					\
+			(__opts)->cpu_cap |=  (__cap);	\
+	} while (0)
+
+	for (; *optarg; optarg++) {
+		if (optarg[0] == '^') {
+			inverse = !inverse;
+			continue;
+		} else if (optarg[0] == ',') {
+			inverse = false;
+			continue;
+		}
+
+		if (!strncmp(optarg, "fpu", 3))
+			____cpu_set_cap(opts, CPU_CAP_FPU, inverse);
+		if (!strncmp(optarg, "all", 3))
+			____cpu_set_cap(opts, CPU_CAP_ALL, inverse);
+		else
+			goto Esyntax;
+	}
+#undef ____cpu_set_cap
+
+	return 0;
+
+Esyntax:
+	pr_err("Unknown FPU mode `%s' selected\n", optarg);
 	return -1;
 }
 
@@ -121,6 +160,7 @@ int main(int argc, char *argv[])
 		{ "track-mem", no_argument, 0, 55},
 		{ "auto-dedup", no_argument, 0, 56},
 		{ "libdir", required_argument, 0, 'L'},
+		{ "cpu-cap", required_argument, 0, 57},
 		{ },
 	};
 
@@ -279,6 +319,10 @@ int main(int argc, char *argv[])
 		case 56:
 			opts.auto_dedup = true;
 			break;
+		case 57:
+			if (parse_cpu_cap(&opts, optarg))
+				goto usage;
+			break;
 		case 54:
 			opts.check_ms_kernel = true;
 			break;
@@ -410,6 +454,8 @@ usage:
 "     --pidfile FILE     write root task, service or page-server pid to FILE\n"
 "  -W|--work-dir DIR     directory to cd and write logs/pidfiles/stats to\n"
 "                        (if not specified, value of --images-dir is used)\n"
+"     --cpu-cap CAP      require certain cpu capability. CAP: may be one of:\n"
+"                        'fpu','all'. To disable capability, prefix it with '^'.\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
