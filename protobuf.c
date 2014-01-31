@@ -599,6 +599,7 @@ int pb_write_one(int fd, void *obj, int type)
 	void *buf = (void *)&local;
 	u32 size, packed;
 	int ret = -1;
+	struct iovec iov[2];
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d\n", type);
@@ -618,17 +619,14 @@ int pb_write_one(int fd, void *obj, int type)
 		goto err;
 	}
 
-	ret = write(fd, &size, sizeof(size));
-	if (ret != sizeof(size)) {
-		ret = -1;
-		pr_perror("Can't write %d bytes", (int)sizeof(size));
-		goto err;
-	}
+	iov[0].iov_base = &size;
+	iov[0].iov_len = sizeof(size);
+	iov[1].iov_base = buf;
+	iov[1].iov_len = size;
 
-	ret = write(fd, buf, size);
-	if (ret != size) {
-		ret = -1;
-		pr_perror("Can't write %d bytes", size);
+	ret = writev(fd, iov, 2);
+	if (ret != size + sizeof(size)) {
+		pr_perror("Can't write %d bytes", (int)(size + sizeof(size)));
 		goto err;
 	}
 
