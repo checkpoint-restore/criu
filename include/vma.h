@@ -31,6 +31,7 @@ struct vma_area {
 	struct stat		*st;
 };
 
+extern struct vma_area *alloc_vma_area(void);
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
 extern void free_mappings(struct vm_area_list *vma_area_list);
 extern bool privately_dump_vma(struct vma_area *vma);

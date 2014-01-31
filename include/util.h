@@ -118,21 +118,6 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 	} while (0)
 #define pr_info_vma_list(head)	pr_vma_list(LOG_INFO, head)
 
-/*
- * Note since VMA_AREA_NONE = 0 we can skip assignment
- * here and simply rely on xzalloc
- */
-#define alloc_vma_area()					\
-	({							\
-		struct vma_area *p__ = xzalloc(sizeof(*p__));	\
-		if (p__) {					\
-			vma_entry__init(&p__->vma);		\
-			p__->vm_file_fd = -1;			\
-			p__->vma.fd	= -1;			\
-		}						\
-		p__;						\
-	})
-
 extern int move_img_fd(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
 

@@ -642,3 +642,21 @@ out:
 	close(fd);
 	return ret;
 }
+
+/*
+ * Note since VMA_AREA_NONE = 0 we can skip assignment
+ * here and simply rely on xzalloc
+ */
+struct vma_area *alloc_vma_area(void)
+{
+	struct vma_area *p;
+
+	p = xzalloc(sizeof(*p));
+	if (p) {
+		vma_entry__init(&p->vma);
+		p->vm_file_fd = -1;
+		p->vma.fd = -1;
+	}
+
+	return p;
+}
