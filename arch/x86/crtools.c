@@ -7,6 +7,7 @@
 #include "asm/types.h"
 #include "asm/fpu.h"
 
+#include "cr_options.h"
 #include "compiler.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
@@ -326,12 +327,19 @@ static bool valid_xsave_frame(CoreEntry *core)
 			return false;
 		}
 	} else {
+		/*
+		 * If the image has xsave area present then CPU we're restoring
+		 * on must have X86_FEATURE_XSAVE feature until explicitly
+		 * stated in options.
+		 */
 		if (core->thread_info->fpregs->xsave) {
-			pr_err("FPU xsave area present, "
-			       "but host cpu doesn't support it\n");
-			return false;
+			if (opts.cpu_cap & CPU_CAP_FPU) {
+				pr_err("FPU xsave area present, "
+				       "but host cpu doesn't support it\n");
+				return false;
+			} else
+				pr_warn_once("FPU is about to restore ignoring ymm state!\n");
 		}
-		return true;
 	}
 
 	return true;
