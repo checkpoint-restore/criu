@@ -218,7 +218,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	unsigned long nr_pages, size;
 	struct vma_area *p = *pvma;
 
-	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE)) {
+	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
 		ret = get_filemap_fd(pid, &vma->vma);
 		if (ret < 0) {
 			pr_err("Can't fixup VMA's fd\n");
@@ -311,7 +311,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		vma->premmaped_addr += PAGE_SIZE;
 	}
 
-	if (vma_entry_is(&vma->vma, VMA_FILE_PRIVATE))
+	if (vma_area_is(vma, VMA_FILE_PRIVATE))
 		close(vma->vma.fd);
 
 	return size;
@@ -603,20 +603,20 @@ static int open_vmas(int pid)
 	int ret = 0;
 
 	list_for_each_entry(vma, &rst_vmas.h, list) {
-		if (!(vma_entry_is(&vma->vma, VMA_AREA_REGULAR)))
+		if (!(vma_area_is(vma, VMA_AREA_REGULAR)))
 			continue;
 
 		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
 				vma->vma.start, vma->vma.end,
 				vma->vma.pgoff, vma->vma.status);
 
-		if (vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
+		if (vma_area_is(vma, VMA_AREA_SYSVIPC))
 			ret = vma->vma.shmid;
-		else if (vma_entry_is(&vma->vma, VMA_ANON_SHARED))
+		else if (vma_area_is(vma, VMA_ANON_SHARED))
 			ret = get_shmem_fd(pid, &vma->vma);
-		else if (vma_entry_is(&vma->vma, VMA_FILE_SHARED))
+		else if (vma_area_is(vma, VMA_FILE_SHARED))
 			ret = get_filemap_fd(pid, &vma->vma);
-		else if (vma_entry_is(&vma->vma, VMA_AREA_SOCKET))
+		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = get_socket_fd(pid, &vma->vma);
 		else
 			continue;
