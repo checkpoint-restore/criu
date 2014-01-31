@@ -38,6 +38,7 @@
 #include "rst-malloc.h"
 #include "image.h"
 #include "vma.h"
+#include "mem.h"
 
 #include "cr_options.h"
 #include "servicefd.h"
@@ -636,8 +637,10 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 	if (ret != sizeof(*pfn)) {
 		pr_perror("Can't read pme for pid %d", getpid());
 		ret = -1;
-	} else
+	} else {
+		*pfn &= PME_PFRAME_MASK;
 		ret = 0;
+	}
 out:
 	close(fd);
 	return ret;
