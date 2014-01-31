@@ -25,6 +25,8 @@ struct vma_area {
 	unsigned long		*ppage_bitmap; /* parent's existent pages */
 
 	unsigned long		premmaped_addr;
+
+	bool			file_borrowed;
 };
 
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);

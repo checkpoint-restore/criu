@@ -142,12 +142,40 @@ static inline int is_anon_shmem_map(dev_t dev)
 	return kerndat_shmem_dev == dev;
 }
 
-static int vma_get_mapfile(struct vma_area *vma, DIR *mfd)
+struct vma_file_info {
+	int dev_maj;
+	int dev_min;
+	unsigned long ino;
+	struct vma_area *vma;
+};
+
+static inline int vfi_equal(struct vma_file_info *a, struct vma_file_info *b)
+{
+	return ((a->ino ^ b->ino) |
+			(a->dev_maj ^ b->dev_maj) |
+			(a->dev_min ^ b->dev_min)) == 0;
+}
+
+static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
+		struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
 	char path[32];
 
 	if (!mfd)
 		return 0;
+
+	if (prev_vfi->vma && vfi_equal(vfi, prev_vfi)) {
+		struct vma_area *prev = prev_vfi->vma;
+
+		pr_debug("vma %lx borrows vfi from previous %lx\n",
+				vma->vma.start, prev->vma.start);
+		vma->vm_file_fd = prev->vm_file_fd;
+		if (prev->vma.status & VMA_AREA_SOCKET)
+			vma->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+		vma->file_borrowed = true;
+
+		return 0;
+	}
 
 	/* Figure out if it's file mapping */
 	snprintf(path, sizeof(path), "%lx-%lx", vma->vma.start, vma->vma.end);
@@ -184,10 +212,10 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	struct vma_area *vma_area = NULL;
 	unsigned long start, end, pgoff;
 	bool prev_growsdown = false;
-	unsigned long ino;
 	char r, w, x, s;
-	int dev_maj, dev_min;
 	int ret = -1;
+	struct vma_file_info vfi;
+	struct vma_file_info prev_vfi = {};
 
 	DIR *map_files_dir = NULL;
 	FILE *smaps = NULL;
@@ -249,6 +277,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				vma_area_list->priv_size += pages;
 				vma_area_list->longest = max(vma_area_list->longest, pages);
 			}
+
+			prev_vfi = vfi;
+			prev_vfi.vma = vma_area;
 		}
 
 		if (eof)
@@ -260,8 +291,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 		memset(file_path, 0, 6);
 		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %x:%x %lu %5s",
-			     &start, &end, &r, &w, &x, &s, &pgoff, &dev_maj,
-			     &dev_min, &ino, file_path);
+			     &start, &end, &r, &w, &x, &s, &pgoff,
+			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, file_path);
 		if (num < 10) {
 			pr_err("Can't parse: %s\n", buf);
 			goto err;
@@ -272,7 +303,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		vma_area->vma.pgoff	= pgoff;
 		vma_area->vma.prot	= PROT_NONE;
 
-		if (vma_get_mapfile(vma_area, map_files_dir))
+		if (vma_get_mapfile(vma_area, map_files_dir, &vfi, &prev_vfi))
 			goto err_bogus_mapfile;
 
 		if (r == 'r')
@@ -309,7 +340,18 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		 * Some mapping hints for restore, we save this on
 		 * disk and restore might need to analyze it.
 		 */
-		if (vma_area->vm_file_fd >= 0) {
+		if (vma_area->file_borrowed) {
+			struct vma_area *prev = prev_vfi.vma;
+
+			/*
+			 * Pick-up flags that might be set in the branch below.
+			 * Status is copied as-is as it should be zero here,
+			 * and have full match with the previous.
+			 */
+			vma_area->vma.flags |= (prev->vma.flags & MAP_ANONYMOUS);
+			vma_area->vma.status = prev->vma.status;
+			vma_area->vma.shmid = prev->vma.shmid;
+		} else if (vma_area->vm_file_fd >= 0) {
 			struct stat st_buf;
 
 			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
@@ -350,7 +392,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			 */
 			if (vma_area->vma.flags & MAP_SHARED) {
 				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->vma.shmid = ino;
+				vma_area->vma.shmid = vfi.ino;
 			} else {
 				vma_area->vma.status |= VMA_ANON_PRIVATE;
 			}

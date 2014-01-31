@@ -116,6 +116,8 @@ static void close_vma_file(struct vma_area *vma)
 		return;
 	if (vma->vma.status & VMA_AREA_SOCKET)
 		return;
+	if (vma->file_borrowed)
+		return;
 
 	close(vma->vm_file_fd);
 }
