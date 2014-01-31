@@ -854,7 +854,8 @@ static int alloc_fhandle(FhEntry *fh)
 
 static void free_fhandle(FhEntry *fh)
 {
-	xfree(fh->handle);
+	if (fh->handle)
+		xfree(fh->handle);
 }
 
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)

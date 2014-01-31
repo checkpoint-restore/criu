@@ -271,6 +271,7 @@ int irmap_queue_cache(unsigned int dev, unsigned long ino,
 	ip->dev = dev;
 	ip->ino = ino;
 	ip->fh = *fh;
+	fh->handle = NULL; /* don't free in free_fhandle */
 
 	pr_debug("Queue %x:%lx for pre-dump\n", dev, ino);
 
