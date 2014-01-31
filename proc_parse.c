@@ -142,6 +142,43 @@ static inline int is_anon_shmem_map(dev_t dev)
 	return kerndat_shmem_dev == dev;
 }
 
+static int vma_get_mapfile(struct vma_area *vma, DIR *mfd)
+{
+	char path[32];
+
+	if (!mfd)
+		return 0;
+
+	/* Figure out if it's file mapping */
+	snprintf(path, sizeof(path), "%lx-%lx", vma->vma.start, vma->vma.end);
+
+	/*
+	 * Note that we "open" it in dumper process space
+	 * so later we might refer to it via /proc/self/fd/vm_file_fd
+	 * if needed.
+	 */
+	vma->vm_file_fd = openat(dirfd(mfd), path, O_RDONLY);
+	if (vma->vm_file_fd < 0) {
+		if (errno == ENXIO) {
+			struct stat buf;
+
+			if (fstatat(dirfd(mfd), path, &buf, 0))
+				return -1;
+
+			if (!S_ISSOCK(buf.st_mode))
+				return -1;
+
+			pr_info("Found socket %"PRIu64" mapping @%lx\n",
+					buf.st_ino, vma->vma.start);
+			vma->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+			vma->vm_socket_id = buf.st_ino;
+		} else if (errno != ENOENT)
+			return -1;
+	}
+
+	return 0;
+}
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
@@ -230,40 +267,13 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			goto err;
 		}
 
-		if (map_files_dir) {
-			char path[32];
-
-			/* Figure out if it's file mapping */
-			snprintf(path, sizeof(path), "%lx-%lx", start, end);
-
-			/*
-			 * Note that we "open" it in dumper process space
-			 * so later we might refer to it via /proc/self/fd/vm_file_fd
-			 * if needed.
-			 */
-			vma_area->vm_file_fd = openat(dirfd(map_files_dir), path, O_RDONLY);
-			if (vma_area->vm_file_fd < 0) {
-				if (errno == ENXIO) {
-					struct stat buf;
-
-					if (fstatat(dirfd(map_files_dir), path, &buf, 0))
-						goto err_bogus_mapfile;
-
-					if (!S_ISSOCK(buf.st_mode))
-						goto err_bogus_mapfile;
-
-					pr_info("Found socket %"PRIu64" mapping @%lx\n", buf.st_ino, start);
-					vma_area->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
-					vma_area->vm_socket_id = buf.st_ino;
-				} else if (errno != ENOENT)
-					goto err_bogus_mapfile;
-			}
-		}
-
 		vma_area->vma.start	= start;
 		vma_area->vma.end	= end;
 		vma_area->vma.pgoff	= pgoff;
 		vma_area->vma.prot	= PROT_NONE;
+
+		if (vma_get_mapfile(vma_area, map_files_dir))
+			goto err_bogus_mapfile;
 
 		if (r == 'r')
 			vma_area->vma.prot |= PROT_READ;
