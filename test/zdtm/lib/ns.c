@@ -214,9 +214,11 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "exec(%s) failed: %m\n", argv[0]);
 		return ret;
 	}
-	ret = 1;
-	waitpid(pid, &ret, 0);
-	if (ret)
+
+	ret = -1;
+	if (waitpid(pid, &ret, 0) < 0)
+		fprintf(stderr, "waitpid() failed: %m\n");
+	else if (ret)
 		fprintf(stderr, "The test returned non-zero code %d\n", ret);
 
 	pid = fork();
@@ -305,8 +307,10 @@ void ns_create(int argc, char **argv)
 	}
 
 	pidfile = getenv("ZDTM_PIDFILE");
-	if (pidfile == NULL)
+	if (pidfile == NULL) {
+		fprintf(stderr, "ZDTM_PIDFILE isn't defined");
 		exit(1);
+	}
 	fd = open(pidfile, O_CREAT | O_EXCL | O_WRONLY, 0666);
 	if (fd == -1) {
 		fprintf(stderr, "Can't create the file %s: %m\n", pidfile);
