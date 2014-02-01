@@ -12,7 +12,7 @@ message fh_entry {
 }
 
 message irmap_cache_entry {
-	required uint32		dev = 1;
-	required uint64		inode = 2;
-	required string		path = 3;
+	required uint32		dev	= 1;
+	required uint64		inode	= 2;
+	required string		path	= 3;
 }

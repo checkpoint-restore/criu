@@ -19,8 +19,8 @@ enum fd_types {
 }
 
 message fdinfo_entry {
-	required uint32	id	= 1;
-	required uint32	flags	= 2;
-	required fd_types type	= 3;
-	required uint32	fd	= 4;
+	required uint32		id	= 1;
+	required uint32		flags	= 2;
+	required fd_types	type	= 3;
+	required uint32		fd	= 4;
 }

@@ -1,8 +1,8 @@
 import "core.proto";
 
 message inventory_entry {
-	required uint32	img_version = 1;
-	optional bool fdinfo_per_id = 2;
-	optional task_kobj_ids_entry root_ids = 3;
-	optional bool ns_per_id = 4;
+	required uint32			img_version	= 1;
+	optional bool			fdinfo_per_id	= 2;
+	optional task_kobj_ids_entry	root_ids	= 3;
+	optional bool			ns_per_id	= 4;
 }

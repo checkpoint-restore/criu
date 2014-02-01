@@ -1,9 +1,9 @@
 message pagemap_head {
-	required uint32 pages_id = 1;
+	required uint32 pages_id	= 1;
 }
 
 message pagemap_entry {
-	required uint64 vaddr = 1;
-	required uint32 nr_pages = 2;
-	optional bool	in_parent = 3;
+	required uint64 vaddr		= 1;
+	required uint32 nr_pages	= 2;
+	optional bool	in_parent	= 3;
 }

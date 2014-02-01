@@ -1,31 +1,31 @@
 message criu_page_server_info {
-	optional string address = 1;
-	optional int32 port = 2;
-	optional int32 pid = 3;
+	optional string		address	= 1;
+	optional int32		port	= 2;
+	optional int32		pid	= 3;
 }
 
 message criu_opts {
-	required int32 images_dir_fd	= 1;
-	optional int32 pid		= 2; //if not set on dump, will dump requesting process
+	required int32			images_dir_fd	= 1;
+	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
 
-	optional bool leave_running	= 3;
-	optional bool ext_unix_sk	= 4;
-	optional bool tcp_established	= 5;
-	optional bool evasive_devices	= 6;
-	optional bool shell_job		= 7;
-	optional bool file_locks	= 8;
-	optional int32 log_level	= 9 [default = 2];
-	optional string log_file	= 10; // No subdirs are allowed. Consider using work-dir
+	optional bool			leave_running	= 3;
+	optional bool			ext_unix_sk	= 4;
+	optional bool			tcp_established	= 5;
+	optional bool			evasive_devices	= 6;
+	optional bool			shell_job	= 7;
+	optional bool			file_locks	= 8;
+	optional int32			log_level	= 9 [default = 2];
+	optional string			log_file	= 10; /* No subdirs are allowed. Consider using work-dir */
 
-	optional criu_page_server_info ps = 11;
+	optional criu_page_server_info	ps		= 11;
 
-	optional bool notify_scripts	= 12;
+	optional bool			notify_scripts	= 12;
 
-	optional string root		= 13;
-	optional string parent_img	= 14;
-	optional bool track_mem		= 15;
+	optional string			root		= 13;
+	optional string			parent_img	= 14;
+	optional bool			track_mem	= 15;
 
-	optional int32 work_dir_fd	= 16;
+	optional int32			work_dir_fd	= 16;
 }
 
 message criu_dump_resp {
@@ -57,10 +57,10 @@ enum criu_req_type {
  */
 
 message criu_req {
-	required criu_req_type type	= 1;
+	required criu_req_type		type		= 1;
 
-	optional criu_opts opts	= 2;
-	optional bool notify_success = 3;
+	optional criu_opts		opts		= 2;
+	optional bool			notify_success	= 3;
 }
 
 /*
@@ -69,11 +69,11 @@ message criu_req {
  */
 
 message criu_resp {
-	required criu_req_type type	= 1;
-	required bool success		= 2;
+	required criu_req_type		type		= 1;
+	required bool			success		= 2;
 
-	optional criu_dump_resp	dump	= 3;
-	optional criu_restore_resp restore = 4;
-	optional criu_notify notify = 5;
-	optional criu_page_server_info ps = 6;
+	optional criu_dump_resp		dump		= 3;
+	optional criu_restore_resp	restore		= 4;
+	optional criu_notify		notify		= 5;
+	optional criu_page_server_info	ps		= 6;
 }
