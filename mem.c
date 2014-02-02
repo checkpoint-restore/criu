@@ -105,17 +105,12 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 {
 	unsigned long pfn, nr_to_scan;
 	unsigned long pages[2] = {};
-	u64 aux;
-
-	aux = vma->vma.start / PAGE_SIZE * sizeof(*map);
-	if (lseek(pagemap, aux, SEEK_SET) != aux) {
-		pr_perror("Can't rewind pagemap file");
-		return -1;
-	}
+	u64 from, len;
 
 	nr_to_scan = vma_area_len(vma) / PAGE_SIZE;
-	aux = nr_to_scan * sizeof(*map);
-	if (read(pagemap, map, aux) != aux) {
+	from = vma->vma.start / PAGE_SIZE * sizeof(*map);
+	len = nr_to_scan * sizeof(*map);
+	if (pread(pagemap, map, len, from) != len) {
 		pr_perror("Can't read pagemap file");
 		return -1;
 	}
