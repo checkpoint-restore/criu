@@ -128,6 +128,8 @@ void free_mappings(struct vm_area_list *vma_area_list)
 
 	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list) {
 		close_vma_file(vma_area);
+		if (!vma_area->file_borrowed)
+			free(vma_area->st);
 		free(vma_area);
 	}
 
@@ -341,15 +343,14 @@ static int dump_task_rlims(int pid, struct cr_fdset *fds)
 	return 0;
 }
 
-static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
+static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		const struct cr_fdset *fdset)
 {
 	struct fd_parms p = FD_PARMS_INIT;
+	VmaEntry *vma = &vma_area->vma;
 
-	if (fstat(file_fd, &p.stat) < 0) {
-		pr_perror("Can't stat file for vma");
-		return -1;
-	}
+	BUG_ON(!vma_area->st);
+	p.stat = *vma_area->st;
 
 	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
 		p.flags = O_RDWR;
@@ -357,7 +358,7 @@ static int dump_filemap(pid_t pid, VmaEntry *vma, int file_fd,
 		p.flags = O_RDONLY;
 	vma->shmid = fd_id_generate_special();
 
-	return dump_one_reg_file(file_fd, vma->shmid, &p);
+	return dump_one_reg_file(vma_area->vm_file_fd, vma->shmid, &p);
 }
 
 static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
@@ -395,7 +396,7 @@ static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_lis
 			ret = add_shmem_area(pid, vma);
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED))
-			ret = dump_filemap(pid, vma, vma_area->vm_file_fd, cr_fdset);
+			ret = dump_filemap(pid, vma_area, cr_fdset);
 		else if (vma_entry_is(vma, VMA_AREA_SOCKET))
 			ret = dump_socket_map(vma_area);
 		else

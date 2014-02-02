@@ -351,16 +351,21 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			vma_area->vma.flags |= (prev->vma.flags & MAP_ANONYMOUS);
 			vma_area->vma.status = prev->vma.status;
 			vma_area->vma.shmid = prev->vma.shmid;
+			vma_area->st = prev->st;
 		} else if (vma_area->vm_file_fd >= 0) {
-			struct stat st_buf;
+			struct stat *st_buf;
 
-			if (fstat(vma_area->vm_file_fd, &st_buf) < 0) {
+			st_buf = vma_area->st = xmalloc(sizeof(*st_buf));
+			if (!st_buf)
+				goto err;
+
+			if (fstat(vma_area->vm_file_fd, st_buf) < 0) {
 				pr_perror("Failed fstat on %d's map %lu", pid, start);
 				goto err;
 			}
 
-			if (!S_ISREG(st_buf.st_mode) &&
-			    !(S_ISCHR(st_buf.st_mode) && st_buf.st_rdev == DEVZERO)) {
+			if (!S_ISREG(st_buf->st_mode) &&
+			    !(S_ISCHR(st_buf->st_mode) && st_buf->st_rdev == DEVZERO)) {
 				pr_err("Can't handle non-regular mapping on %d's map %lu\n", pid, start);
 				goto err;
 			}
@@ -369,12 +374,12 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			 * /dev/zero stands for anon-shared mapping
 			 * otherwise it's some file mapping.
 			 */
-			if (is_anon_shmem_map(st_buf.st_dev)) {
+			if (is_anon_shmem_map(st_buf->st_dev)) {
 				if (!(vma_area->vma.flags & MAP_SHARED))
 					goto err_bogus_mapping;
 				vma_area->vma.flags  |= MAP_ANONYMOUS;
 				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->vma.shmid = st_buf.st_ino;
+				vma_area->vma.shmid = st_buf->st_ino;
 
 				if (!strcmp(file_path, "/SYSV")) {
 					pr_info("path: %s\n", file_path);

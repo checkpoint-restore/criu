@@ -27,6 +27,8 @@ struct vma_area {
 	unsigned long		premmaped_addr;
 
 	bool			file_borrowed;
+
+	struct stat		*st;
 };
 
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
