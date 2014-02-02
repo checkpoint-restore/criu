@@ -33,9 +33,9 @@ struct eventfd_file_info {
 };
 
 /* Checks if file descriptor @lfd is eventfd */
-int is_eventfd_link(int lfd)
+int is_eventfd_link(char *link)
 {
-	return is_anon_link_type(lfd, "[eventfd]");
+	return is_anon_link_type(link, "[eventfd]");
 }
 
 static void pr_info_eventfd(char *action, EventfdFileEntry *efe)

@@ -3,7 +3,7 @@
 
 struct cr_fdset;
 struct fd_parms;
-extern int is_signalfd_link(int lfd);
+extern int is_signalfd_link(char *link);
 extern const struct fdtype_ops signalfd_dump_ops;
 extern struct collect_image_info signalfd_cinfo;
 

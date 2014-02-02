@@ -316,24 +316,23 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		return dump_chrdev(&p, lfd, fdinfo);
 
 	if (p.fs_type == ANON_INODE_FS_MAGIC) {
-		if (is_eventfd_link(lfd))
+		char link[32];
+
+		if (read_fd_link(lfd, link, sizeof(link)) < 0)
+			return -1;
+
+		if (is_eventfd_link(link))
 			ops = &eventfd_dump_ops;
-		else if (is_eventpoll_link(lfd))
+		else if (is_eventpoll_link(link))
 			ops = &eventpoll_dump_ops;
-		else if (is_inotify_link(lfd))
+		else if (is_inotify_link(link))
 			ops = &inotify_dump_ops;
-		else if (is_fanotify_link(lfd))
+		else if (is_fanotify_link(link))
 			ops = &fanotify_dump_ops;
-		else if (is_signalfd_link(lfd))
+		else if (is_signalfd_link(link))
 			ops = &signalfd_dump_ops;
-		else {
-			char more[64];
-
-			if (read_fd_link(fd, more, sizeof(more)) < 0)
-				more[0] = '\0';
-
-			return dump_unsupp_fd(&p, lfd, fdinfo, "anon", more);
-		}
+		else
+			return dump_unsupp_fd(&p, lfd, fdinfo, "anon", link);
 
 		return do_dump_gen_file(&p, lfd, ops, fdinfo);
 	}
@@ -416,6 +415,7 @@ static int predump_one_fd(int pid, int fd)
 	int lfd, ret = 0;
 	struct statfs buf;
 	const struct fdtype_ops *ops;
+	char link[32];
 
 	/*
 	 * This should look like the dump_task_files_seized,
@@ -435,9 +435,14 @@ static int predump_one_fd(int pid, int fd)
 	if (buf.f_type != ANON_INODE_FS_MAGIC)
 		goto out;
 
-	if (is_inotify_link(lfd))
+	if (read_fd_link(lfd, link, sizeof(link)) < 0) {
+		ret = -1;
+		goto out;
+	}
+
+	if (is_inotify_link(link))
 		ops = &inotify_dump_ops;
-	else if (is_fanotify_link(lfd))
+	else if (is_fanotify_link(link))
 		ops = &fanotify_dump_ops;
 	else
 		goto out;

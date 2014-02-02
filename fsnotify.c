@@ -74,15 +74,15 @@ static LIST_HEAD(inotify_info_head);
 static LIST_HEAD(fanotify_info_head);
 
 /* Checks if file descriptor @lfd is inotify */
-int is_inotify_link(int lfd)
+int is_inotify_link(char *link)
 {
-	return is_anon_link_type(lfd, "inotify");
+	return is_anon_link_type(link, "inotify");
 }
 
 /* Checks if file descriptor @lfd is fanotify */
-int is_fanotify_link(int lfd)
+int is_fanotify_link(char *link)
 {
-	return is_anon_link_type(lfd, "[fanotify]");
+	return is_anon_link_type(link, "[fanotify]");
 }
 
 static void decode_handle(fh_t *handle, FhEntry *img)

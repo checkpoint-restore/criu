@@ -20,9 +20,9 @@ struct signalfd_info {
 	struct file_desc	d;
 };
 
-int is_signalfd_link(int lfd)
+int is_signalfd_link(char *link)
 {
-	return is_anon_link_type(lfd, "[signalfd]");
+	return is_anon_link_type(link, "[signalfd]");
 }
 
 struct signalfd_dump_arg {

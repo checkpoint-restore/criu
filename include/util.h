@@ -234,7 +234,7 @@ static inline dev_t kdev_to_odev(u32 kdev)
 }
 
 extern int copy_file(int fd_in, int fd_out, size_t bytes);
-extern int is_anon_link_type(int lfd, char *type);
+extern int is_anon_link_type(char *link, char *type);
 
 #define is_hex_digit(c)				\
 	(((c) >= '0' && (c) <= '9')	||	\
