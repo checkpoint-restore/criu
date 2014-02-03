@@ -22,6 +22,8 @@ struct fdt {
 	futex_t			fdt_lock;
 };
 
+struct _MmEntry;
+
 struct rst_info {
 	struct list_head	fds;
 	struct list_head	eventpoll;
@@ -39,6 +41,7 @@ struct rst_info {
 	struct fdt		*fdt;
 
 	struct vm_area_list	vmas;
+	struct _MmEntry		*mm;
 
 	union {
 		struct pstree_item	*pgrp_leader;

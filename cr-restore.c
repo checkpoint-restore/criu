@@ -1900,17 +1900,8 @@ static int prepare_creds(int pid, struct task_restore_args *args)
 
 static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
-	int fd, exe_fd, i, ret = -1;
-	MmEntry *mm;
-
-	fd = open_image(CR_FD_MM, O_RSTR, pid);
-	if (fd < 0)
-		return -1;
-
-	if (pb_read_one(fd, &mm, PB_MM) < 0) {
-		close_safe(&fd);
-		return -1;
-	}
+	int exe_fd, i, ret = -1;
+	MmEntry *mm = current->rst->mm;
 
 	args->mm = *mm;
 	args->mm.n_mm_saved_auxv = 0;
@@ -1926,15 +1917,13 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args)
 		args->mm_saved_auxv[i] = (auxv_t)mm->mm_saved_auxv[i];
 	}
 
-	exe_fd = open_reg_by_id(args->mm.exe_file_id);
+	exe_fd = open_reg_by_id(mm->exe_file_id);
 	if (exe_fd < 0)
 		goto out;
 
 	args->fd_exe_link = exe_fd;
 	ret = 0;
 out:
-	mm_entry__free_unpacked(mm, NULL);
-	close(fd);
 	return ret;
 }
 

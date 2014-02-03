@@ -347,13 +347,21 @@ int prepare_mm_pid(struct pstree_item *i)
 	int fd, ret = -1;
 	struct rst_info *ri = i->rst;
 
-	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
+	fd = open_image(CR_FD_MM, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT)
 			return 0;
-		else
-			return -1;
+		return -1;
 	}
+
+	ret = pb_read_one(fd, &ri->mm, PB_MM);
+	close(fd);
+	if (ret < 0)
+		return -1;
+
+	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
+	if (fd < 0)
+		return -1;
 
 	while (1) {
 		struct vma_area *vma;
