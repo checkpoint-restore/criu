@@ -55,3 +55,16 @@ int main(void)
 	return strlcat(dst, src, sizeof(dst));
 }
 endef
+
+define PTRACE_PEEKSIGINFO_TEST
+
+#include <sys/ptrace.h>
+
+int main(void)
+{
+	struct ptrace_peeksiginfo_args args = {};
+
+	return 0;
+}
+
+endef
