@@ -69,19 +69,24 @@ int parse_cpuinfo_features(int (*handler)(char *tok))
 /* check the @line starts with "%lx-%lx" format */
 static bool is_vma_range_fmt(char *line)
 {
-	while (*line && is_hex_digit(*line))
+#define ____is_vma_addr_char(__c)		\
+	(((__c) <= '9' && (__c) >= '0') ||	\
+	((__c) <= 'f' && (__c) >= 'a'))
+
+	while (*line && ____is_vma_addr_char(*line))
 		line++;
 
 	if (*line++ != '-')
 		return false;
 
-	while (*line && is_hex_digit(*line))
+	while (*line && ____is_vma_addr_char(*line))
 		line++;
 
 	if (*line++ != ' ')
 		return false;
 
 	return true;
+#undef ____is_vma_addr_char
 }
 
 static int parse_vmflags(char *buf, struct vma_area *vma_area)
