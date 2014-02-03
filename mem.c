@@ -344,7 +344,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = i->pid.virt;
-	int fd, ret = -1;
+	int fd, ret = -1, vn = 0;
 	struct rst_info *ri = i->rst;
 
 	fd = open_image(CR_FD_MM, O_RSTR, pid);
@@ -359,27 +359,17 @@ int prepare_mm_pid(struct pstree_item *i)
 	if (ret < 0)
 		return -1;
 
-	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
-	if (fd < 0)
-		return -1;
-
-	while (1) {
+	while (vn < ri->mm->n_vmas) {
 		struct vma_area *vma;
-		VmaEntry *vi;
 
 		ret = -1;
 		vma = alloc_vma_area();
 		if (!vma)
 			break;
 
-		ret = pb_read_one_eof(fd, &vi, PB_VMA);
-		if (ret <= 0) {
-			xfree(vma);
-			break;
-		}
-
+		ret = 0;
 		ri->vmas.nr++;
-		vma->e = vi;
+		vma->e = ri->mm->vmas[vn++];
 		list_add_tail(&vma->list, &ri->vmas.h);
 
 		if (vma_priv(vma->e)) {
@@ -399,7 +389,6 @@ int prepare_mm_pid(struct pstree_item *i)
 			break;
 	}
 
-	close(fd);
 	return ret;
 }
 

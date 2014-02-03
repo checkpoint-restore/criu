@@ -1,3 +1,5 @@
+import "vma.proto";
+
 message mm_entry {
 	required uint64	mm_start_code	=  1;
 	required uint64	mm_end_code	=  2;
@@ -13,4 +15,6 @@ message mm_entry {
 	required uint32	exe_file_id	= 12;
 
 	repeated uint64	mm_saved_auxv	= 13;
+
+	repeated vma_entry vmas		= 14;
 }

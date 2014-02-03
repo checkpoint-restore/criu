@@ -408,13 +408,16 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 {
 	MmEntry mme = MM_ENTRY__INIT;
 	struct vma_area *vma_area;
-	int ret = -1, fd;
+	int ret = -1, i = 0;
 
 	pr_info("\n");
 	pr_info("Dumping mm (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	fd = fdset_fd(fdset, CR_FD_VMAS);
+	mme.n_vmas = vma_area_list->nr;
+	mme.vmas = xmalloc(mme.n_vmas * sizeof(VmaEntry *));
+	if (!mme.vmas)
+		goto err;
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		VmaEntry *vma = vma_area->e;
@@ -434,11 +437,10 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 			ret = dump_socket_map(vma_area);
 		else
 			ret = 0;
-
-		if (!ret)
-			ret = pb_write_one(fd, vma, PB_VMA);
 		if (ret)
 			goto err;
+
+		mme.vmas[i++] = vma;
 	}
 
 	mme.mm_start_code = stat->start_code;
