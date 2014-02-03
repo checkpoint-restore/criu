@@ -371,9 +371,8 @@ int prepare_mm_pid(struct pstree_item *i)
 		}
 
 		ri->vmas.nr++;
-		*vma->e = *vi;
+		vma->e = vi;
 		list_add_tail(&vma->list, &ri->vmas.h);
-		vma_entry__free_unpacked(vi, NULL);
 
 		if (vma_priv(vma->e)) {
 			ri->vmas.priv_size += vma_area_len(vma);
