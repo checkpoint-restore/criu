@@ -90,8 +90,6 @@ static int prepare_rlimits(int pid);
 static int prepare_posix_timers(int pid);
 static int prepare_signals(int pid);
 
-static VM_AREA_LIST(rst_vmas); /* XXX .longest is NOT tracked for this guy */
-
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
 {
 	void *ret;
@@ -321,6 +319,7 @@ static int restore_priv_vma_content(pid_t pid)
 {
 	struct vma_area *vma;
 	int ret = 0;
+	struct list_head *vmas = &current->rst->vmas.h;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -328,7 +327,7 @@ static int restore_priv_vma_content(pid_t pid)
 	unsigned long va;
 	struct page_read pr;
 
-	vma = list_first_entry(&rst_vmas.h, struct vma_area, list);
+	vma = list_first_entry(vmas, struct vma_area, list);
 	ret = open_page_read(pid, &pr);
 	if (ret)
 		return -1;
@@ -356,7 +355,7 @@ static int restore_priv_vma_content(pid_t pid)
 			 * read from image file.
 			 */
 			while (va >= vma->vma.end) {
-				if (vma->list.next == &rst_vmas.h)
+				if (vma->list.next == vmas)
 					goto err_addr;
 				vma = list_entry(vma->list.next, struct vma_area, list);
 			}
@@ -413,7 +412,7 @@ err_read:
 		return ret;
 
 	/* Remove pages, which were not shared with a child */
-	list_for_each_entry(vma, &rst_vmas.h, list) {
+	list_for_each_entry(vma, vmas, list) {
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma->premmaped_addr);
 
@@ -456,84 +455,44 @@ err_addr:
 
 static int prepare_mappings(int pid)
 {
-	int fd, ret = 0;
-	LIST_HEAD(parent_vmas);
+	int ret = 0;
 	struct vma_area *pvma, *vma;
 	void *addr;
+	struct vm_area_list *vmas;
+	struct list_head *parent_vmas = NULL;
+	LIST_HEAD(empty);
 
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len, pstart = 0;
 
-	rst_vmas.nr = 0;
-	rst_vmas.priv_size = 0;
+	vmas = &current->rst->vmas;
+	if (vmas->nr == 0) /* Zombie */
+		goto out;
+
 	/*
 	 * Keep parent vmas at hands to check whether we can "inherit" them.
 	 * See comments in map_private_vma.
 	 */
-	list_replace_init(&rst_vmas.h, &parent_vmas);
-
-	/* Skip errors, because a zombie doesn't have an image of vmas */
-	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
-	if (fd < 0) {
-		if (errno != ENOENT)
-			ret = fd;
-		goto out;
-	}
-
-	while (1) {
-		struct vma_area *vma;
-		VmaEntry *e;
-
-		ret = -1;
-		vma = alloc_vma_area();
-		if (!vma)
-			break;
-
-		ret = pb_read_one_eof(fd, &e, PB_VMA);
-		if (ret <= 0) {
-			xfree(vma);
-			break;
-		}
-
-		rst_vmas.nr++;
-		list_add_tail(&vma->list, &rst_vmas.h);
-
-		vma->vma = *e;
-		vma_entry__free_unpacked(e, NULL);
-
-		if (vma->vma.fd != -1) {
-			ret = -1;
-			pr_err("Error in vma->fd setting (%Ld)\n",
-					(unsigned long long)vma->vma.fd);
-			break;
-		}
-
-		if (vma_priv(&vma->vma)) {
-			rst_vmas.priv_size += vma_area_len(vma);
-			if (vma->vma.flags & MAP_GROWSDOWN)
-				rst_vmas.priv_size += PAGE_SIZE;
-		}
-	}
-	close(fd);
-
-	if (ret < 0)
-		goto out;
+	if (current->parent)
+		parent_vmas = &current->parent->rst->vmas.h;
+	else
+		parent_vmas = &empty;
 
 	/* Reserve a place for mapping private vma-s one by one */
-	addr = mmap(NULL, rst_vmas.priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	addr = mmap(NULL, vmas->priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
-		pr_perror("Unable to reserve memory (%lu bytes)", rst_vmas.priv_size);
+		pr_perror("Unable to reserve memory (%lu bytes)", vmas->priv_size);
 		return -1;
 	}
 
 	old_premmapped_addr = current->rst->premmapped_addr;
 	old_premmapped_len = current->rst->premmapped_len;
 	current->rst->premmapped_addr = addr;
-	current->rst->premmapped_len = rst_vmas.priv_size;
+	current->rst->premmapped_len = vmas->priv_size;
 
-	pvma = list_entry(&parent_vmas, struct vma_area, list);
+	pvma = list_entry(parent_vmas, struct vma_area, list);
 
-	list_for_each_entry(vma, &rst_vmas.h, list) {
+	list_for_each_entry(vma, &vmas->h, list) {
 		if (pstart > vma->vma.start) {
 			ret = -1;
 			pr_err("VMA-s are not sorted in the image file\n");
@@ -544,7 +503,7 @@ static int prepare_mappings(int pid)
 		if (!vma_priv(&vma->vma))
 			continue;
 
-		ret = map_private_vma(pid, vma, addr, &pvma, &parent_vmas);
+		ret = map_private_vma(pid, vma, addr, &pvma, parent_vmas);
 		if (ret < 0)
 			break;
 
@@ -555,12 +514,6 @@ static int prepare_mappings(int pid)
 		ret = restore_priv_vma_content(pid);
 
 out:
-	while (!list_empty(&parent_vmas)) {
-		vma = list_first_entry(&parent_vmas, struct vma_area, list);
-		list_del(&vma->list);
-		xfree(vma);
-	}
-
 	if (old_premmapped_addr &&
 	    munmap(old_premmapped_addr, old_premmapped_len)) {
 		pr_perror("Unable to unmap %p(%lx)",
@@ -579,8 +532,9 @@ out:
 static int unmap_guard_pages()
 {
 	struct vma_area *vma;
+	struct list_head *vmas = &current->rst->vmas.h;
 
-	list_for_each_entry(vma, &rst_vmas.h, list) {
+	list_for_each_entry(vma, vmas, list) {
 		if (!vma_priv(&vma->vma))
 			continue;
 
@@ -601,8 +555,9 @@ static int open_vmas(int pid)
 {
 	struct vma_area *vma;
 	int ret = 0;
+	struct list_head *vmas = &current->rst->vmas.h;
 
-	list_for_each_entry(vma, &rst_vmas.h, list) {
+	list_for_each_entry(vma, vmas, list) {
 		if (!(vma_area_is(vma, VMA_AREA_REGULAR)))
 			continue;
 
@@ -2213,6 +2168,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long vdso_rt_delta = 0;
 
 	struct vm_area_list self_vmas;
+	struct vm_area_list *vmas = &current->rst->vmas;
 	int i;
 
 	pr_info("Restore via sigreturn\n");
@@ -2233,7 +2189,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	tgt_vmas = rst_mem_cpos(RM_PRIVATE);
-	list_for_each_entry(vma, &rst_vmas.h, list) {
+	list_for_each_entry(vma, &vmas->h, list) {
 		VmaEntry *vme;
 
 		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
@@ -2295,7 +2251,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * or inited from scratch).
 	 */
 
-	exec_mem_hint = restorer_get_vma_hint(pid, &rst_vmas.h, &self_vmas.h,
+	exec_mem_hint = restorer_get_vma_hint(pid, &vmas->h, &self_vmas.h,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
@@ -2370,7 +2326,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->shmems = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
 	task_args->nr_shmems = nr_shmems;
 
-	task_args->nr_vmas = rst_vmas.nr;
+	task_args->nr_vmas = vmas->nr;
 	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);
 
 	task_args->timer_n = posix_timers_nr;

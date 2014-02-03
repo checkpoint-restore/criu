@@ -143,6 +143,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 		if (!item)
 			return NULL;
 		memset(item, 0, sizeof(*item) + sizeof(item->rst[0]));
+		vm_area_list_init(&item->rst[0].vmas);
 	}
 
 	INIT_LIST_HEAD(&item->children);

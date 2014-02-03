@@ -13,6 +13,14 @@ struct vm_area_list {
 
 #define VM_AREA_LIST(name)	struct vm_area_list name = { .h = LIST_HEAD_INIT(name.h), .nr = 0, }
 
+static inline void vm_area_list_init(struct vm_area_list *vml)
+{
+	INIT_LIST_HEAD(&vml->h);
+	vml->nr = 0;
+	vml->priv_size = 0;
+	vml->longest = 0;
+}
+
 struct vma_area {
 	struct list_head	list;
 	VmaEntry		vma;

@@ -17,6 +17,7 @@
 #include "vma.h"
 #include "shmem.h"
 #include "pstree.h"
+#include "restorer.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -344,7 +345,7 @@ int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = i->pid.virt;
 	int fd, ret = -1;
-	VmaEntry *vi;
+	struct rst_info *ri = i->rst;
 
 	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
 	if (fd < 0) {
@@ -355,21 +356,38 @@ int prepare_mm_pid(struct pstree_item *i)
 	}
 
 	while (1) {
-		ret = pb_read_one_eof(fd, &vi, PB_VMA);
-		if (ret <= 0)
+		struct vma_area *vma;
+		VmaEntry *vi;
+
+		ret = -1;
+		vma = alloc_vma_area();
+		if (!vma)
 			break;
 
-		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vi->start, vi->end);
-
-		if (!vma_entry_is(vi, VMA_ANON_SHARED) ||
-		    vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
-			vma_entry__free_unpacked(vi, NULL);
-			continue;
+		ret = pb_read_one_eof(fd, &vi, PB_VMA);
+		if (ret <= 0) {
+			xfree(vma);
+			break;
 		}
 
-		ret = collect_shmem(pid, vi);
+		ri->vmas.nr++;
+		vma->vma = *vi;
+		list_add_tail(&vma->list, &ri->vmas.h);
 		vma_entry__free_unpacked(vi, NULL);
 
+		if (vma_priv(&vma->vma)) {
+			ri->vmas.priv_size += vma_area_len(vma);
+			if (vma->vma.flags & MAP_GROWSDOWN)
+				ri->vmas.priv_size += PAGE_SIZE;
+		}
+
+		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->vma.start, vma->vma.end);
+
+		if (!vma_entry_is(&vma->vma, VMA_ANON_SHARED) ||
+		    vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
+			continue;
+
+		ret = collect_shmem(pid, &vma->vma);
 		if (ret)
 			break;
 	}
