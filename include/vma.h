@@ -23,7 +23,7 @@ static inline void vm_area_list_init(struct vm_area_list *vml)
 
 struct vma_area {
 	struct list_head	list;
-	VmaEntry		vma;
+	VmaEntry		*e;
 
 	union {
 		int		vm_file_fd;
@@ -44,8 +44,8 @@ extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
 extern void free_mappings(struct vm_area_list *vma_area_list);
 extern bool privately_dump_vma(struct vma_area *vma);
 
-#define vma_area_is(vma_area, s)	vma_entry_is(&((vma_area)->vma), s)
-#define vma_area_len(vma_area)		vma_entry_len(&((vma_area)->vma))
+#define vma_area_is(vma_area, s)	vma_entry_is((vma_area)->e, s)
+#define vma_area_len(vma_area)		vma_entry_len((vma_area)->e)
 #define vma_entry_is(vma, s)		(((vma)->status & (s)) == (s))
 #define vma_entry_len(vma)		((vma)->end - (vma)->start)
 
@@ -59,8 +59,8 @@ extern bool privately_dump_vma(struct vma_area *vma);
 
 static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
-	return addr >= (unsigned long)vma->vma.start &&
-		addr < (unsigned long)vma->vma.end;
+	return addr >= (unsigned long)vma->e->start &&
+		addr < (unsigned long)vma->e->end;
 }
 
 #endif /* __CR_VMA_H__ */

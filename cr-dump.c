@@ -84,15 +84,15 @@ bool privately_dump_vma(struct vma_area *vma)
 	/*
 	 * The special areas are not dumped.
 	 */
-	if (!(vma->vma.status & VMA_AREA_REGULAR))
+	if (!(vma->e->status & VMA_AREA_REGULAR))
 		return false;
 
 	/* No dumps for file-shared mappings */
-	if (vma->vma.status & VMA_FILE_SHARED)
+	if (vma->e->status & VMA_FILE_SHARED)
 		return false;
 
 	/* No dumps for SYSV IPC mappings */
-	if (vma->vma.status & VMA_AREA_SYSVIPC)
+	if (vma->e->status & VMA_AREA_SYSVIPC)
 		return false;
 
 	if (vma_area_is(vma, VMA_ANON_SHARED))
@@ -104,7 +104,7 @@ bool privately_dump_vma(struct vma_area *vma)
 		return false;
 	}
 
-	if (vma->vma.end > TASK_SIZE)
+	if (vma->e->end > TASK_SIZE)
 		return false;
 
 	return true;
@@ -114,7 +114,7 @@ static void close_vma_file(struct vma_area *vma)
 {
 	if (vma->vm_file_fd < 0)
 		return;
-	if (vma->vma.status & VMA_AREA_SOCKET)
+	if (vma->e->status & VMA_AREA_SOCKET)
 		return;
 	if (vma->file_borrowed)
 		return;
@@ -347,7 +347,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		const struct cr_fdset *fdset)
 {
 	struct fd_parms p = FD_PARMS_INIT;
-	VmaEntry *vma = &vma_area->vma;
+	VmaEntry *vma = vma_area->e;
 
 	BUG_ON(!vma_area->st);
 	p.stat = *vma_area->st;
@@ -417,7 +417,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	fd = fdset_fd(fdset, CR_FD_VMAS);
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
-		VmaEntry *vma = &vma_area->vma;
+		VmaEntry *vma = vma_area->e;
 
 		pr_info_vma(vma_area);
 

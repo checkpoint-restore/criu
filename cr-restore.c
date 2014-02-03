@@ -217,40 +217,40 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	struct vma_area *p = *pvma;
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		ret = get_filemap_fd(pid, &vma->vma);
+		ret = get_filemap_fd(pid, vma->e);
 		if (ret < 0) {
 			pr_err("Can't fixup VMA's fd\n");
 			return -1;
 		}
-		vma->vma.fd = ret;
+		vma->e->fd = ret;
 	}
 
-	nr_pages = vma_entry_len(&vma->vma) / PAGE_SIZE;
+	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
 	if (vma->page_bitmap == NULL)
 		return -1;
 
 	list_for_each_entry_continue(p, pvma_list, list) {
-		if (p->vma.start > vma->vma.start)
+		if (p->e->start > vma->e->start)
 			 break;
 
-		if (!vma_priv(&p->vma))
+		if (!vma_priv(p->e))
 			continue;
 
-		 if (p->vma.end != vma->vma.end ||
-		     p->vma.start != vma->vma.start)
+		 if (p->e->end != vma->e->end ||
+		     p->e->start != vma->e->start)
 			continue;
 
 		/* Check flags, which must be identical for both vma-s */
-		if ((vma->vma.flags ^ p->vma.flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
+		if ((vma->e->flags ^ p->e->flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
 			break;
 
-		if (!(vma->vma.flags & MAP_ANONYMOUS) &&
-		    vma->vma.shmid != p->vma.shmid)
+		if (!(vma->e->flags & MAP_ANONYMOUS) &&
+		    vma->e->shmid != p->e->shmid)
 			break;
 
 		pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
-			vma->vma.start, vma->vma.end, vma->vma.pgoff);
+			vma->e->start, vma->e->end, vma->e->pgoff);
 		paddr = decode_pointer(vma->premmaped_addr);
 	}
 
@@ -260,25 +260,25 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
 	 * So one more page is mapped here to restore content of the first page
 	 */
-	if (vma->vma.flags & MAP_GROWSDOWN) {
-		vma->vma.start -= PAGE_SIZE;
+	if (vma->e->flags & MAP_GROWSDOWN) {
+		vma->e->start -= PAGE_SIZE;
 		if (paddr)
 			paddr -= PAGE_SIZE;
 	}
 
-	size = vma_entry_len(&vma->vma);
+	size = vma_entry_len(vma->e);
 	if (paddr == NULL) {
 		/*
 		 * The respective memory area was NOT found in the parent.
 		 * Map a new one.
 		 */
 		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
-			vma->vma.start, vma->vma.end, vma->vma.pgoff);
+			vma->e->start, vma->e->end, vma->e->pgoff);
 
 		addr = mmap(tgt_addr, size,
-				vma->vma.prot | PROT_WRITE,
-				vma->vma.flags | MAP_FIXED,
-				vma->vma.fd, vma->vma.pgoff);
+				vma->e->prot | PROT_WRITE,
+				vma->e->flags | MAP_FIXED,
+				vma->e->fd, vma->e->pgoff);
 
 		if (addr == MAP_FAILED) {
 			pr_perror("Unable to map ANON_VMA");
@@ -302,15 +302,15 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 
 	vma->premmaped_addr = (unsigned long) addr;
 	pr_debug("\tpremap 0x%016"PRIx64"-0x%016"PRIx64" -> %016lx\n",
-		vma->vma.start, vma->vma.end, (unsigned long)addr);
+		vma->e->start, vma->e->end, (unsigned long)addr);
 
-	if (vma->vma.flags & MAP_GROWSDOWN) { /* Skip gurad page */
-		vma->vma.start += PAGE_SIZE;
+	if (vma->e->flags & MAP_GROWSDOWN) { /* Skip gurad page */
+		vma->e->start += PAGE_SIZE;
 		vma->premmaped_addr += PAGE_SIZE;
 	}
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE))
-		close(vma->vma.fd);
+		close(vma->e->fd);
 
 	return size;
 }
@@ -354,7 +354,7 @@ static int restore_priv_vma_content(pid_t pid)
 			 * The lookup is over *all* possible VMAs
 			 * read from image file.
 			 */
-			while (va >= vma->vma.end) {
+			while (va >= vma->e->end) {
 				if (vma->list.next == vmas)
 					goto err_addr;
 				vma = list_entry(vma->list.next, struct vma_area, list);
@@ -366,14 +366,14 @@ static int restore_priv_vma_content(pid_t pid)
 			 * there is no guarantee that the data from pagemap is
 			 * valid.
 			 */
-			if (va < vma->vma.start)
+			if (va < vma->e->start)
 				goto err_addr;
-			else if (unlikely(!vma_priv(&vma->vma))) {
+			else if (unlikely(!vma_priv(vma->e))) {
 				pr_err("Trying to restore page for non-private VMA\n");
 				goto err_addr;
 			}
 
-			off = (va - vma->vma.start) / PAGE_SIZE;
+			off = (va - vma->e->start) / PAGE_SIZE;
 			p = decode_pointer((off) * PAGE_SIZE +
 					vma->premmaped_addr);
 
@@ -419,7 +419,7 @@ err_read:
 		if (vma->ppage_bitmap == NULL)
 			continue;
 
-		size = vma_entry_len(&vma->vma) / PAGE_SIZE;
+		size = vma_entry_len(vma->e) / PAGE_SIZE;
 		while (1) {
 			/* Find all pages, which are not shared with this child */
 			i = find_next_bit(vma->ppage_bitmap, size, i);
@@ -449,7 +449,7 @@ err_read:
 
 err_addr:
 	pr_err("Page entry address %lx outside of VMA %lx-%lx\n",
-	       va, (long)vma->vma.start, (long)vma->vma.end);
+	       va, (long)vma->e->start, (long)vma->e->end);
 	return -1;
 }
 
@@ -493,14 +493,14 @@ static int prepare_mappings(int pid)
 	pvma = list_entry(parent_vmas, struct vma_area, list);
 
 	list_for_each_entry(vma, &vmas->h, list) {
-		if (pstart > vma->vma.start) {
+		if (pstart > vma->e->start) {
 			ret = -1;
 			pr_err("VMA-s are not sorted in the image file\n");
 			break;
 		}
-		pstart = vma->vma.start;
+		pstart = vma->e->start;
 
-		if (!vma_priv(&vma->vma))
+		if (!vma_priv(vma->e))
 			continue;
 
 		ret = map_private_vma(pid, vma, addr, &pvma, parent_vmas);
@@ -535,10 +535,10 @@ static int unmap_guard_pages()
 	struct list_head *vmas = &current->rst->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
-		if (!vma_priv(&vma->vma))
+		if (!vma_priv(vma->e))
 			continue;
 
-		if (vma->vma.flags & MAP_GROWSDOWN) {
+		if (vma->e->flags & MAP_GROWSDOWN) {
 			void *addr = decode_pointer(vma->premmaped_addr);
 
 			if (munmap(addr - PAGE_SIZE, PAGE_SIZE)) {
@@ -562,17 +562,17 @@ static int open_vmas(int pid)
 			continue;
 
 		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
-				vma->vma.start, vma->vma.end,
-				vma->vma.pgoff, vma->vma.status);
+				vma->e->start, vma->e->end,
+				vma->e->pgoff, vma->e->status);
 
 		if (vma_area_is(vma, VMA_AREA_SYSVIPC))
-			ret = vma->vma.shmid;
+			ret = vma->e->shmid;
 		else if (vma_area_is(vma, VMA_ANON_SHARED))
-			ret = get_shmem_fd(pid, &vma->vma);
+			ret = get_shmem_fd(pid, vma->e);
 		else if (vma_area_is(vma, VMA_FILE_SHARED))
-			ret = get_filemap_fd(pid, &vma->vma);
+			ret = get_filemap_fd(pid, vma->e);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
-			ret = get_socket_fd(pid, &vma->vma);
+			ret = get_socket_fd(pid, vma->e);
 		else
 			continue;
 
@@ -582,7 +582,7 @@ static int open_vmas(int pid)
 		}
 
 		pr_info("\t`- setting %d as mapping fd\n", ret);
-		vma->vma.fd = ret;
+		vma->e->fd = ret;
 	}
 
 	return ret < 0 ? -1 : 0;
@@ -1619,36 +1619,38 @@ static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
 	struct vma_area *t_vma, *s_vma;
 	long prev_vma_end = 0;
 	struct vma_area end_vma;
+	VmaEntry end_e;
 
-	end_vma.vma.start = end_vma.vma.end = TASK_SIZE;
+	end_vma.e = &end_e;
+	end_e.start = end_e.end = TASK_SIZE;
 	prev_vma_end = PAGE_SIZE * 0x10; /* CONFIG_LSM_MMAP_MIN_ADDR=65536 */
 
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
 
 	while (1) {
-		if (prev_vma_end + vma_len > s_vma->vma.start) {
+		if (prev_vma_end + vma_len > s_vma->e->start) {
 			if (s_vma->list.next == self_vma_list) {
 				s_vma = &end_vma;
 				continue;
 			}
 			if (s_vma == &end_vma)
 				break;
-			if (prev_vma_end < s_vma->vma.end)
-				prev_vma_end = s_vma->vma.end;
+			if (prev_vma_end < s_vma->e->end)
+				prev_vma_end = s_vma->e->end;
 			s_vma = list_entry(s_vma->list.next, struct vma_area, list);
 			continue;
 		}
 
-		if (prev_vma_end + vma_len > t_vma->vma.start) {
+		if (prev_vma_end + vma_len > t_vma->e->start) {
 			if (t_vma->list.next == tgt_vma_list) {
 				t_vma = &end_vma;
 				continue;
 			}
 			if (t_vma == &end_vma)
 				break;
-			if (prev_vma_end < t_vma->vma.end)
-				prev_vma_end = t_vma->vma.end;
+			if (prev_vma_end < t_vma->e->end)
+				prev_vma_end = t_vma->e->end;
 			t_vma = list_entry(t_vma->list.next, struct vma_area, list);
 			continue;
 		}
@@ -2196,9 +2198,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		if (!vme)
 			goto err_nv;
 
-		*vme = vma->vma;
+		*vme = *vma->e;
 
-		if (vma_priv(&vma->vma))
+		if (vma_priv(vma->e))
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 

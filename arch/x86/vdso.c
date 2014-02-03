@@ -100,10 +100,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (!vma_area_is(vma, VMA_AREA_REGULAR))
 			continue;
 
-		if ((vma->vma.prot & VDSO_PROT) != VDSO_PROT)
+		if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
 			continue;
 
-		if (vma->vma.start > TASK_SIZE)
+		if (vma->e->start > TASK_SIZE)
 			continue;
 
 		/*
@@ -111,7 +111,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * otherwise if task never called for vdso functions
 		 * page frame number won't be reported.
 		 */
-		args->start = vma->vma.start;
+		args->start = vma->e->start;
 		args->len = vma_area_len(vma);
 
 		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
@@ -131,10 +131,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			continue;
 		}
 
-		off = (vma->vma.start / PAGE_SIZE) * sizeof(u64);
+		off = (vma->e->start / PAGE_SIZE) * sizeof(u64);
 		if (lseek(fd, off, SEEK_SET) != off) {
 			pr_perror("Failed to seek address %lx\n",
-				  (long unsigned int)vma->vma.start);
+				  (long unsigned int)vma->e->start);
 			ret = -1;
 			goto err;
 		}
@@ -155,14 +155,14 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (pfn == vdso_pfn) {
 			if (!vma_area_is(vma, VMA_AREA_VDSO)) {
 				pr_debug("vdso: Restore status by pfn at %lx\n",
-					 (long)vma->vma.start);
-				vma->vma.status |= VMA_AREA_VDSO;
+					 (long)vma->e->start);
+				vma->e->status |= VMA_AREA_VDSO;
 			}
 		} else {
 			if (vma_area_is(vma, VMA_AREA_VDSO)) {
 				pr_debug("vdso: Drop mishinted status at %lx\n",
-					 (long)vma->vma.start);
-				vma->vma.status &= ~VMA_AREA_VDSO;
+					 (long)vma->e->start);
+				vma->e->status &= ~VMA_AREA_VDSO;
 			}
 		}
 	}
@@ -173,23 +173,23 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	 */
 	if (marked) {
 		pr_debug("vdso: Found marked at %lx (proxy at %lx)\n",
-			 (long)marked->vma.start, (long)proxy_addr);
+			 (long)marked->e->start, (long)proxy_addr);
 
 		/*
 		 * Don't forget to restore the proxy vdso status, since
 		 * it's being not recognized by the kernel as vdso.
 		 */
 		list_for_each_entry(vma, &vma_area_list->h, list) {
-			if (vma->vma.start == proxy_addr) {
-				vma->vma.status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
+			if (vma->e->start == proxy_addr) {
+				vma->e->status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
 				pr_debug("vdso: Restore proxy status at %lx\n",
-					 (long)vma->vma.start);
+					 (long)vma->e->start);
 				break;
 			}
 		}
 
 		pr_debug("vdso: Droppping marked vdso at %lx\n",
-			 (long)vma->vma.start);
+			 (long)vma->e->start);
 		list_del(&marked->list);
 		xfree(marked);
 	}

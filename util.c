@@ -51,7 +51,7 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 	int p = 0;
 
 #define opt2s(_o, _s)	do {				\
-		if (v->vma.status & _o)			\
+		if (v->e->status & _o)			\
 			p += sprintf(opt + p, _s " ");	\
 	} while (0)
 
@@ -83,12 +83,12 @@ void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 	vma_opt_str(vma_area, opt);
 	print_on_level(loglevel, "%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x off %#"PRIx64" "
 			"%s shmid: %#"PRIx64"\n",
-			vma_area->vma.start, vma_area->vma.end,
+			vma_area->e->start, vma_area->e->end,
 			KBYTES(vma_area_len(vma_area)),
-			vma_area->vma.prot,
-			vma_area->vma.flags,
-			vma_area->vma.pgoff,
-			opt, vma_area->vma.shmid);
+			vma_area->e->prot,
+			vma_area->e->flags,
+			vma_area->e->pgoff,
+			opt, vma_area->e->shmid);
 }
 
 int close_safe(int *fd)
@@ -651,11 +651,12 @@ struct vma_area *alloc_vma_area(void)
 {
 	struct vma_area *p;
 
-	p = xzalloc(sizeof(*p));
+	p = xzalloc(sizeof(*p) + sizeof(VmaEntry));
 	if (p) {
-		vma_entry__init(&p->vma);
+		p->e = (VmaEntry *)(p + 1);
+		vma_entry__init(p->e);
 		p->vm_file_fd = -1;
-		p->vma.fd = -1;
+		p->e->fd = -1;
 	}
 
 	return p;

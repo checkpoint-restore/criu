@@ -111,7 +111,7 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 	u64 from, len;
 
 	nr_to_scan = vma_area_len(vma) / PAGE_SIZE;
-	from = vma->vma.start / PAGE_SIZE * sizeof(*map);
+	from = vma->e->start / PAGE_SIZE * sizeof(*map);
 	len = nr_to_scan * sizeof(*map);
 	if (pread(pagemap, map, len, from) != len) {
 		pr_perror("Can't read pagemap file");
@@ -122,10 +122,10 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 		unsigned long vaddr;
 		int ret;
 
-		if (!should_dump_page(&vma->vma, map[pfn]))
+		if (!should_dump_page(vma->e, map[pfn]))
 			continue;
 
-		vaddr = vma->vma.start + pfn * PAGE_SIZE;
+		vaddr = vma->e->start + pfn * PAGE_SIZE;
 
 		/*
 		 * If we're doing incremental dump (parent images
@@ -169,12 +169,12 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (!privately_dump_vma(vma))
 			continue;
-		if (vma->vma.prot & PROT_READ)
+		if (vma->e->prot & PROT_READ)
 			continue;
 
-		p_vma->start = vma->vma.start;
+		p_vma->start = vma->e->start;
 		p_vma->len = vma_area_len(vma);
-		p_vma->prot = vma->vma.prot;
+		p_vma->prot = vma->e->prot;
 
 		args->nr_vmas++;
 		p_vma++;
@@ -371,23 +371,23 @@ int prepare_mm_pid(struct pstree_item *i)
 		}
 
 		ri->vmas.nr++;
-		vma->vma = *vi;
+		*vma->e = *vi;
 		list_add_tail(&vma->list, &ri->vmas.h);
 		vma_entry__free_unpacked(vi, NULL);
 
-		if (vma_priv(&vma->vma)) {
+		if (vma_priv(vma->e)) {
 			ri->vmas.priv_size += vma_area_len(vma);
-			if (vma->vma.flags & MAP_GROWSDOWN)
+			if (vma->e->flags & MAP_GROWSDOWN)
 				ri->vmas.priv_size += PAGE_SIZE;
 		}
 
-		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->vma.start, vma->vma.end);
+		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
 
 		if (!vma_area_is(vma, VMA_ANON_SHARED) ||
 				vma_area_is(vma, VMA_AREA_SYSVIPC))
 			continue;
 
-		ret = collect_shmem(pid, &vma->vma);
+		ret = collect_shmem(pid, vma->e);
 		if (ret)
 			break;
 	}

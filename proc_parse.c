@@ -105,29 +105,29 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 	do {
 		/* mmap() block */
 		if (_vmflag_match(tok, "gd"))
-			vma_area->vma.flags |= MAP_GROWSDOWN;
+			vma_area->e->flags |= MAP_GROWSDOWN;
 		else if (_vmflag_match(tok, "lo"))
-			vma_area->vma.flags |= MAP_LOCKED;
+			vma_area->e->flags |= MAP_LOCKED;
 		else if (_vmflag_match(tok, "nr"))
-			vma_area->vma.flags |= MAP_NORESERVE;
+			vma_area->e->flags |= MAP_NORESERVE;
 		else if (_vmflag_match(tok, "ht"))
-			vma_area->vma.flags |= MAP_HUGETLB;
+			vma_area->e->flags |= MAP_HUGETLB;
 
 		/* madvise() block */
 		if (_vmflag_match(tok, "sr"))
-			vma_area->vma.madv |= (1ul << MADV_SEQUENTIAL);
+			vma_area->e->madv |= (1ul << MADV_SEQUENTIAL);
 		else if (_vmflag_match(tok, "rr"))
-			vma_area->vma.madv |= (1ul << MADV_RANDOM);
+			vma_area->e->madv |= (1ul << MADV_RANDOM);
 		else if (_vmflag_match(tok, "dc"))
-			vma_area->vma.madv |= (1ul << MADV_DONTFORK);
+			vma_area->e->madv |= (1ul << MADV_DONTFORK);
 		else if (_vmflag_match(tok, "dd"))
-			vma_area->vma.madv |= (1ul << MADV_DONTDUMP);
+			vma_area->e->madv |= (1ul << MADV_DONTDUMP);
 		else if (_vmflag_match(tok, "mg"))
-			vma_area->vma.madv |= (1ul << MADV_MERGEABLE);
+			vma_area->e->madv |= (1ul << MADV_MERGEABLE);
 		else if (_vmflag_match(tok, "hg"))
-			vma_area->vma.madv |= (1ul << MADV_HUGEPAGE);
+			vma_area->e->madv |= (1ul << MADV_HUGEPAGE);
 		else if (_vmflag_match(tok, "nh"))
-			vma_area->vma.madv |= (1ul << MADV_NOHUGEPAGE);
+			vma_area->e->madv |= (1ul << MADV_NOHUGEPAGE);
 
 		/*
 		 * Anything else is just ignored.
@@ -136,8 +136,8 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 
 #undef _vmflag_match
 
-	if (vma_area->vma.madv)
-		vma_area->vma.has_madv = true;
+	if (vma_area->e->madv)
+		vma_area->e->has_madv = true;
 
 	return 0;
 }
@@ -173,17 +173,17 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 		struct vma_area *prev = prev_vfi->vma;
 
 		pr_debug("vma %lx borrows vfi from previous %lx\n",
-				vma->vma.start, prev->vma.start);
+				vma->e->start, prev->e->start);
 		vma->vm_file_fd = prev->vm_file_fd;
-		if (prev->vma.status & VMA_AREA_SOCKET)
-			vma->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+		if (prev->e->status & VMA_AREA_SOCKET)
+			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 		vma->file_borrowed = true;
 
 		return 0;
 	}
 
 	/* Figure out if it's file mapping */
-	snprintf(path, sizeof(path), "%lx-%lx", vma->vma.start, vma->vma.end);
+	snprintf(path, sizeof(path), "%lx-%lx", vma->e->start, vma->e->end);
 
 	/*
 	 * Note that we "open" it in dumper process space
@@ -202,8 +202,8 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 				return -1;
 
 			pr_info("Found socket %"PRIu64" mapping @%lx\n",
-					buf.st_ino, vma->vma.start);
-			vma->vma.status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+					buf.st_ino, vma->e->start);
+			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 			vma->vm_socket_id = buf.st_ino;
 		} else if (errno != ENOENT)
 			return -1;
@@ -251,7 +251,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			if (!strncmp(buf, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
 				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
-				       vma_area->vma.start, vma_area->vma.end);
+				       vma_area->e->start, vma_area->e->end);
 				/*
 				 * VMA is already on list and will be
 				 * freed later as list get destroyed.
@@ -269,9 +269,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 		if (vma_area) {
 			/* If we've split the stack vma, only the lowest one has the guard page. */
-			if ((vma_area->vma.flags & MAP_GROWSDOWN) && !prev_growsdown)
-				vma_area->vma.start -= PAGE_SIZE; /* Guard page */
-			prev_growsdown = (bool)(vma_area->vma.flags & MAP_GROWSDOWN);
+			if ((vma_area->e->flags & MAP_GROWSDOWN) && !prev_growsdown)
+				vma_area->e->start -= PAGE_SIZE; /* Guard page */
+			prev_growsdown = (bool)(vma_area->e->flags & MAP_GROWSDOWN);
 
 			list_add_tail(&vma_area->list, &vma_area_list->h);
 			vma_area_list->nr++;
@@ -303,42 +303,42 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			goto err;
 		}
 
-		vma_area->vma.start	= start;
-		vma_area->vma.end	= end;
-		vma_area->vma.pgoff	= pgoff;
-		vma_area->vma.prot	= PROT_NONE;
+		vma_area->e->start	= start;
+		vma_area->e->end	= end;
+		vma_area->e->pgoff	= pgoff;
+		vma_area->e->prot	= PROT_NONE;
 
 		if (vma_get_mapfile(vma_area, map_files_dir, &vfi, &prev_vfi))
 			goto err_bogus_mapfile;
 
 		if (r == 'r')
-			vma_area->vma.prot |= PROT_READ;
+			vma_area->e->prot |= PROT_READ;
 		if (w == 'w')
-			vma_area->vma.prot |= PROT_WRITE;
+			vma_area->e->prot |= PROT_WRITE;
 		if (x == 'x')
-			vma_area->vma.prot |= PROT_EXEC;
+			vma_area->e->prot |= PROT_EXEC;
 
 		if (s == 's')
-			vma_area->vma.flags = MAP_SHARED;
+			vma_area->e->flags = MAP_SHARED;
 		else if (s == 'p')
-			vma_area->vma.flags = MAP_PRIVATE;
+			vma_area->e->flags = MAP_PRIVATE;
 		else {
 			pr_err("Unexpected VMA met (%c)\n", s);
 			goto err;
 		}
 
-		if (vma_area->vma.status != 0) {
+		if (vma_area->e->status != 0) {
 			continue;
 		} else if (strstr(buf, "[vsyscall]") || strstr(buf, "[vectors]")) {
-			vma_area->vma.status |= VMA_AREA_VSYSCALL;
+			vma_area->e->status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
-			vma_area->vma.status |= VMA_AREA_REGULAR;
-			if ((vma_area->vma.prot & VDSO_PROT) == VDSO_PROT)
-				vma_area->vma.status |= VMA_AREA_VDSO;
+			vma_area->e->status |= VMA_AREA_REGULAR;
+			if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
+				vma_area->e->status |= VMA_AREA_VDSO;
 		} else if (strstr(buf, "[heap]")) {
-			vma_area->vma.status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
+			vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {
-			vma_area->vma.status = VMA_AREA_REGULAR;
+			vma_area->e->status = VMA_AREA_REGULAR;
 		}
 
 		/*
@@ -353,9 +353,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			 * Status is copied as-is as it should be zero here,
 			 * and have full match with the previous.
 			 */
-			vma_area->vma.flags |= (prev->vma.flags & MAP_ANONYMOUS);
-			vma_area->vma.status = prev->vma.status;
-			vma_area->vma.shmid = prev->vma.shmid;
+			vma_area->e->flags |= (prev->e->flags & MAP_ANONYMOUS);
+			vma_area->e->status = prev->e->status;
+			vma_area->e->shmid = prev->e->shmid;
 			vma_area->st = prev->st;
 		} else if (vma_area->vm_file_fd >= 0) {
 			struct stat *st_buf;
@@ -380,33 +380,33 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			 * otherwise it's some file mapping.
 			 */
 			if (is_anon_shmem_map(st_buf->st_dev)) {
-				if (!(vma_area->vma.flags & MAP_SHARED))
+				if (!(vma_area->e->flags & MAP_SHARED))
 					goto err_bogus_mapping;
-				vma_area->vma.flags  |= MAP_ANONYMOUS;
-				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->vma.shmid = st_buf->st_ino;
+				vma_area->e->flags  |= MAP_ANONYMOUS;
+				vma_area->e->status |= VMA_ANON_SHARED;
+				vma_area->e->shmid = st_buf->st_ino;
 
 				if (!strcmp(file_path, "/SYSV")) {
 					pr_info("path: %s\n", file_path);
-					vma_area->vma.status |= VMA_AREA_SYSVIPC;
+					vma_area->e->status |= VMA_AREA_SYSVIPC;
 				}
 			} else {
-				if (vma_area->vma.flags & MAP_PRIVATE)
-					vma_area->vma.status |= VMA_FILE_PRIVATE;
+				if (vma_area->e->flags & MAP_PRIVATE)
+					vma_area->e->status |= VMA_FILE_PRIVATE;
 				else
-					vma_area->vma.status |= VMA_FILE_SHARED;
+					vma_area->e->status |= VMA_FILE_SHARED;
 			}
 		} else {
 			/*
 			 * No file but mapping -- anonymous one.
 			 */
-			if (vma_area->vma.flags & MAP_SHARED) {
-				vma_area->vma.status |= VMA_ANON_SHARED;
-				vma_area->vma.shmid = vfi.ino;
+			if (vma_area->e->flags & MAP_SHARED) {
+				vma_area->e->status |= VMA_ANON_SHARED;
+				vma_area->e->shmid = vfi.ino;
 			} else {
-				vma_area->vma.status |= VMA_ANON_PRIVATE;
+				vma_area->e->status |= VMA_ANON_PRIVATE;
 			}
-			vma_area->vma.flags  |= MAP_ANONYMOUS;
+			vma_area->e->flags  |= MAP_ANONYMOUS;
 		}
 	}
 
@@ -425,8 +425,8 @@ err:
 
 err_bogus_mapping:
 	pr_err("Bogus mapping 0x%"PRIx64"-0x%"PRIx64" (flags: %#x vm_file_fd: %d)\n",
-	       vma_area->vma.start, vma_area->vma.end,
-	       vma_area->vma.flags, vma_area->vm_file_fd);
+	       vma_area->e->start, vma_area->e->end,
+	       vma_area->e->flags, vma_area->vm_file_fd);
 	goto err;
 
 err_bogus_mapfile:

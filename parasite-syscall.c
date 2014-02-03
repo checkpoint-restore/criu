@@ -46,9 +46,9 @@ static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long 
 
 static int syscall_fits_vma_area(struct vma_area *vma_area)
 {
-	return can_run_syscall((unsigned long)vma_area->vma.start,
-			       (unsigned long)vma_area->vma.start,
-			       (unsigned long)vma_area->vma.end);
+	return can_run_syscall((unsigned long)vma_area->e->start,
+			       (unsigned long)vma_area->e->start,
+			       (unsigned long)vma_area->e->end);
 }
 
 static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned long ip)
@@ -56,9 +56,9 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	struct vma_area *vma_area;
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-		if (vma_area->vma.start >= TASK_SIZE)
+		if (vma_area->e->start >= TASK_SIZE)
 			continue;
-		if (!(vma_area->vma.prot & PROT_EXEC))
+		if (!(vma_area->e->prot & PROT_EXEC))
 			continue;
 		if (syscall_fits_vma_area(vma_area))
 			return vma_area;
@@ -1048,7 +1048,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		goto err;
 	}
 
-	ctl->syscall_ip	= vma_area->vma.start;
+	ctl->syscall_ip	= vma_area->e->start;
 
 	return ctl;
 
