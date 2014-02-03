@@ -371,17 +371,50 @@ static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
 	return -1;
 }
 
-static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_list,
-			      const struct cr_fdset *cr_fdset)
+static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 {
+	int fd, ret, i;
+
+	pr_info("Obtaining task auvx ... ");
+
+	fd = open_proc(pid, "auxv");
+	if (fd < 0)
+		return -1;
+
+	for (i = 0; i < AT_VECTOR_SIZE; i++) {
+		ret = read(fd, &mm->mm_saved_auxv[i],
+			   sizeof(auxv_t));
+		if (ret == 0)
+			break;
+		else if (ret != sizeof(auxv_t)) {
+			ret = -1;
+			pr_perror("Error reading %d's auxv[%d]",
+				  pid, i);
+			goto err;
+		}
+	}
+
+	*size = i;
+	ret = 0;
+err:
+	close_safe(&fd);
+	return ret;
+}
+
+static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
+		const struct parasite_dump_misc *misc,
+		const struct vm_area_list *vma_area_list,
+		const struct cr_fdset *fdset)
+{
+	MmEntry mme = MM_ENTRY__INIT;
 	struct vma_area *vma_area;
 	int ret = -1, fd;
 
 	pr_info("\n");
-	pr_info("Dumping mappings (pid: %d)\n", pid);
+	pr_info("Dumping mm (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	fd = fdset_fd(cr_fdset, CR_FD_VMAS);
+	fd = fdset_fd(fdset, CR_FD_VMAS);
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		VmaEntry *vma = &vma_area->vma;
@@ -396,7 +429,7 @@ static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_lis
 			ret = add_shmem_area(pid, vma);
 		else if (vma_entry_is(vma, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma, VMA_FILE_SHARED))
-			ret = dump_filemap(pid, vma_area, cr_fdset);
+			ret = dump_filemap(pid, vma_area, fdset);
 		else if (vma_entry_is(vma, VMA_AREA_SOCKET))
 			ret = dump_socket_map(vma_area);
 		else
@@ -408,8 +441,33 @@ static int dump_task_mappings(pid_t pid, const struct vm_area_list *vma_area_lis
 			goto err;
 	}
 
-	ret = 0;
-	pr_info("----------------------------------------\n");
+	mme.mm_start_code = stat->start_code;
+	mme.mm_end_code = stat->end_code;
+	mme.mm_start_data = stat->start_data;
+	mme.mm_end_data = stat->end_data;
+	mme.mm_start_stack = stat->start_stack;
+	mme.mm_start_brk = stat->start_brk;
+
+	mme.mm_arg_start = stat->arg_start;
+	mme.mm_arg_end = stat->arg_end;
+	mme.mm_env_start = stat->env_start;
+	mme.mm_env_end = stat->env_end;
+
+	mme.mm_brk = misc->brk;
+
+	mme.n_mm_saved_auxv = AT_VECTOR_SIZE;
+	mme.mm_saved_auxv = xmalloc(pb_repeated_size(&mme, mm_saved_auxv));
+	if (!mme.mm_saved_auxv)
+		goto err;
+
+	if (get_task_auxv(pid, &mme, &mme.n_mm_saved_auxv))
+		goto err;
+
+	if (dump_task_exe_link(pid, &mme))
+		goto err;
+
+	ret = pb_write_one(fdset_fd(fdset, CR_FD_MM), &mme, PB_MM);
+	xfree(mme.mm_saved_auxv);
 err:
 	return ret;
 }
@@ -448,74 +506,6 @@ static int dump_task_creds(struct parasite_ctl *ctl,
 		return -1;
 
 	return pb_write_one(fdset_fd(fds, CR_FD_CREDS), &ce, PB_CREDS);
-}
-
-static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
-{
-	int fd, ret, i;
-
-	pr_info("Obtaining task auvx ... ");
-
-	fd = open_proc(pid, "auxv");
-	if (fd < 0)
-		return -1;
-
-	for (i = 0; i < AT_VECTOR_SIZE; i++) {
-		ret = read(fd, &mm->mm_saved_auxv[i],
-			   sizeof(auxv_t));
-		if (ret == 0)
-			break;
-		else if (ret != sizeof(auxv_t)) {
-			ret = -1;
-			pr_perror("Error reading %d's auxv[%d]",
-				  pid, i);
-			goto err;
-		}
-	}
-
-	*size = i;
-	ret = 0;
-err:
-	close_safe(&fd);
-	return ret;
-}
-
-static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
-		const struct parasite_dump_misc *misc, const struct cr_fdset *fdset)
-{
-	MmEntry mme = MM_ENTRY__INIT;
-	int ret = -1;
-
-	mme.mm_start_code = stat->start_code;
-	mme.mm_end_code = stat->end_code;
-	mme.mm_start_data = stat->start_data;
-	mme.mm_end_data = stat->end_data;
-	mme.mm_start_stack = stat->start_stack;
-	mme.mm_start_brk = stat->start_brk;
-
-	mme.mm_arg_start = stat->arg_start;
-	mme.mm_arg_end = stat->arg_end;
-	mme.mm_env_start = stat->env_start;
-	mme.mm_env_end = stat->env_end;
-
-	mme.mm_brk = misc->brk;
-
-	mme.n_mm_saved_auxv = AT_VECTOR_SIZE;
-	mme.mm_saved_auxv = xmalloc(pb_repeated_size(&mme, mm_saved_auxv));
-	if (!mme.mm_saved_auxv)
-		goto out;
-
-	if (get_task_auxv(pid, &mme, &mme.n_mm_saved_auxv))
-		goto out;
-	pr_info("OK\n");
-
-	if (dump_task_exe_link(pid, &mme))
-		goto out;
-
-	ret = pb_write_one(fdset_fd(fdset, CR_FD_MM), &mme, PB_MM);
-	xfree(mme.mm_saved_auxv);
-out:
-	return ret;
 }
 
 static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
@@ -1545,12 +1535,6 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_mm(pid, &pps_buf, &misc, cr_fdset);
-	if (ret) {
-		pr_err("Dump mm (pid: %d) failed with %d\n", pid, ret);
-		goto err_cure;
-	}
-
 	ret = dump_task_core_all(item, &pps_buf, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
@@ -1575,7 +1559,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = dump_task_mappings(pid, &vmas, cr_fdset);
+	ret = dump_task_mm(pid, &pps_buf, &misc, &vmas, cr_fdset);
 	if (ret) {
 		pr_err("Dump mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
