@@ -38,7 +38,7 @@ static struct shmem_info *find_shmem_by_id(unsigned long id)
 	return find_shmem(si, nr_shmems, id);
 }
 
-static int collect_shmem(int pid, VmaEntry *vi)
+int collect_shmem(int pid, VmaEntry *vi)
 {
 	unsigned long size = vi->pgoff + vi->end - vi->start;
 	struct shmem_info *si;
@@ -83,43 +83,6 @@ static int collect_shmem(int pid, VmaEntry *vi)
 	futex_init(&si->lock);
 
 	return 0;
-}
-
-int prepare_shmem_pid(int pid)
-{
-	int fd, ret = -1;
-	VmaEntry *vi;
-
-	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
-	if (fd < 0) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
-
-	while (1) {
-		ret = pb_read_one_eof(fd, &vi, PB_VMA);
-		if (ret <= 0)
-			break;
-
-		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vi->start, vi->end);
-
-		if (!vma_entry_is(vi, VMA_ANON_SHARED) ||
-		    vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
-			vma_entry__free_unpacked(vi, NULL);
-			continue;
-		}
-
-		ret = collect_shmem(pid, vi);
-		vma_entry__free_unpacked(vi, NULL);
-
-		if (ret)
-			break;
-	}
-
-	close(fd);
-	return ret;
 }
 
 static int shmem_wait_and_open(int pid, struct shmem_info *si)

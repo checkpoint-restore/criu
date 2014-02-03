@@ -52,7 +52,7 @@
 #include "restorer-blob.h"
 #include "crtools.h"
 #include "namespaces.h"
-#include "shmem.h"
+#include "mem.h"
 #include "mount.h"
 #include "fsnotify.h"
 #include "pstree.h"
@@ -177,7 +177,7 @@ static int root_prepare_shared(void)
 		if (pi->state == TASK_HELPER)
 			continue;
 
-		ret = prepare_shmem_pid(pi->pid.virt);
+		ret = prepare_mm_pid(pi);
 		if (ret < 0)
 			break;
 

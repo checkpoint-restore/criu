@@ -21,7 +21,8 @@ struct shmem_info {
 	futex_t		lock;
 };
 
-extern int prepare_shmem_pid(int pid);
+struct _VmaEntry;
+extern int collect_shmem(int pid, struct _VmaEntry *vi);
 extern int prepare_shmem_restore(void);
 extern void show_saved_shmems(void);
 extern int get_shmem_fd(int pid, VmaEntry *vi);

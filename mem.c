@@ -15,6 +15,8 @@
 #include "kerndat.h"
 #include "stats.h"
 #include "vma.h"
+#include "shmem.h"
+#include "pstree.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -335,6 +337,44 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		ret = -1;
 	}
 
+	return ret;
+}
+
+int prepare_mm_pid(struct pstree_item *i)
+{
+	pid_t pid = i->pid.virt;
+	int fd, ret = -1;
+	VmaEntry *vi;
+
+	fd = open_image(CR_FD_VMAS, O_RSTR, pid);
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
+
+	while (1) {
+		ret = pb_read_one_eof(fd, &vi, PB_VMA);
+		if (ret <= 0)
+			break;
+
+		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vi->start, vi->end);
+
+		if (!vma_entry_is(vi, VMA_ANON_SHARED) ||
+		    vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
+			vma_entry__free_unpacked(vi, NULL);
+			continue;
+		}
+
+		ret = collect_shmem(pid, vi);
+		vma_entry__free_unpacked(vi, NULL);
+
+		if (ret)
+			break;
+	}
+
+	close(fd);
 	return ret;
 }
 
