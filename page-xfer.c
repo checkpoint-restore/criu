@@ -473,8 +473,16 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 static int write_pages_loc(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
-	if (splice(p, NULL, xfer->fd_pg, NULL, len, SPLICE_F_MOVE) != len)
+	ssize_t ret;
+	ret = splice(p, NULL, xfer->fd_pg, NULL, len, SPLICE_F_MOVE);
+	if (ret == -1) {
+		pr_perror("Unable to spice data");
 		return -1;
+	}
+	if (ret != len) {
+		pr_err("Only %lu of %lu bytes have been spliced\n", ret, len);
+		return -1;
+	}
 
 	return 0;
 }
