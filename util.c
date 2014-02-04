@@ -591,7 +591,8 @@ int cr_daemon(int nochdir, int noclose)
 
 	setsid();
 	if (!nochdir)
-		chdir("/");
+		if (chdir("/") == -1)
+			pr_perror("Can't change directory");
 	if (!noclose) {
 		int fd;
 
