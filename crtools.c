@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	int ret = -1;
 	bool usage_error = true;
 	int opt, idx;
-	int log_level = 0;
+	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
 	static const char short_opts[] = "dsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:";
@@ -192,6 +192,8 @@ int main(int argc, char *argv[])
 				goto bad_arg;
 			break;
 		case 'v':
+			if (log_level == LOG_UNSET)
+				log_level = 0;
 			if (optarg) {
 				if (optarg[0] == 'v')
 					/* handle -vvvvv */

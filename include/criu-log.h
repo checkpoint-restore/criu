@@ -20,6 +20,7 @@
 #ifndef __CRIU_LOG_H__
 #define __CRIU_LOG_H__
 
+#define LOG_UNSET	(-1)
 #define LOG_MSG		(0) /* Print message regardless of log level */
 #define LOG_ERROR	(1) /* Errors only, when we're in trouble */
 #define LOG_WARN	(2) /* Warnings, dazen and confused but trying to continue */
