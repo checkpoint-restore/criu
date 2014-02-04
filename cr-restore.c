@@ -1518,6 +1518,13 @@ static int restore_root_task(struct pstree_item *init)
 
 	timing_stop(TIME_RESTORE);
 
+	ret = run_scripts("post-restore");
+	if (ret != 0) {
+		pr_warn("Aborting restore due to script ret code %d\n", ret);
+		write_stats(RESTORE_STATS);
+		goto out_kill;
+	}
+
 	ret = attach_to_tasks();
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
