@@ -383,8 +383,8 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->vma.start, vma->vma.end);
 
-		if (!vma_entry_is(&vma->vma, VMA_ANON_SHARED) ||
-		    vma_entry_is(&vma->vma, VMA_AREA_SYSVIPC))
+		if (!vma_area_is(vma, VMA_ANON_SHARED) ||
+				vma_area_is(vma, VMA_AREA_SYSVIPC))
 			continue;
 
 		ret = collect_shmem(pid, &vma->vma);
