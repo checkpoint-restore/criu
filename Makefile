@@ -104,6 +104,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
 ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
 CRIU-LIB	:= lib/libcriu.so
+CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
 
 export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
@@ -233,6 +234,10 @@ install: $(PROGRAM) install-man
 	$(E) "  INSTALL " $(PROGRAM)
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
+	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
+	$(Q) install -m 755 $(CRIU-LIB) $(DESTDIR)$(LIBDIR)
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	$(Q) install -m 644 $(CRIU-INC) $(DESTDIR)$(INCLUDEDIR)
 	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) install -m 644 scripts/sd/criu.socket $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) install -m 644 scripts/sd/criu.service $(DESTDIR)$(SYSTEMDUNITDIR)

@@ -15,3 +15,5 @@ PREFIX		:= /usr/local
 SBINDIR		:= $(PREFIX)/sbin
 MANDIR		:= $(PREFIX)/share/man
 SYSTEMDUNITDIR	:= $(PREFIX)/lib/systemd/system/
+LIBDIR		:= $(PREFIX)/lib
+INCLUDEDIR	:= $(PREFIX)/include/criu
