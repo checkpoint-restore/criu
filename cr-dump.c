@@ -375,7 +375,7 @@ static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 {
 	int fd, ret, i;
 
-	pr_info("Obtaining task auvx ... ");
+	pr_info("Obtaining task auvx ...\n");
 
 	fd = open_proc(pid, "auxv");
 	if (fd < 0)
