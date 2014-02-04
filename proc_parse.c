@@ -172,7 +172,7 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 	if (prev_vfi->vma && vfi_equal(vfi, prev_vfi)) {
 		struct vma_area *prev = prev_vfi->vma;
 
-		pr_debug("vma %lx borrows vfi from previous %lx\n",
+		pr_debug("vma %"PRIx64" borrows vfi from previous %"PRIx64"\n",
 				vma->e->start, prev->e->start);
 		vma->vm_file_fd = prev->vm_file_fd;
 		if (prev->e->status & VMA_AREA_SOCKET)
@@ -183,7 +183,7 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 	}
 
 	/* Figure out if it's file mapping */
-	snprintf(path, sizeof(path), "%lx-%lx", vma->e->start, vma->e->end);
+	snprintf(path, sizeof(path), "%"PRIx64"-%"PRIx64, vma->e->start, vma->e->end);
 
 	/*
 	 * Note that we "open" it in dumper process space
@@ -201,7 +201,7 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 			if (!S_ISSOCK(buf.st_mode))
 				return -1;
 
-			pr_info("Found socket %"PRIu64" mapping @%lx\n",
+			pr_info("Found socket %"PRIu64" mapping @%"PRIx64"\n",
 					buf.st_ino, vma->e->start);
 			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 			vma->vm_socket_id = buf.st_ino;
