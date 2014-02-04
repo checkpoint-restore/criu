@@ -184,7 +184,8 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 		break;
 	case PROTOBUF_C_TYPE_MESSAGE:
 		ctl->arg = (void *)fd->descriptor;
-		field->data = (void *)(*(long *)field->data);
+		if (field->data)
+			field->data = (void *)(*(long *)field->data);
 	case PROTOBUF_C_TYPE_STRING:
 		fsize = sizeof (void *);
 		break;
