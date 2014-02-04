@@ -188,9 +188,14 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* initiate log file in work dir */
-	if (req->log_file)
+	if (req->log_file) {
+		if (strchr(req->log_file, '/')) {
+			pr_perror("No subdirs are allowed in log_file name");
+			return -1;
+		}
+
 		opts.output = req->log_file;
-	else
+	} else
 		opts.output = DEFAULT_LOG_FILENAME;
 
 	log_set_loglevel(req->log_level);

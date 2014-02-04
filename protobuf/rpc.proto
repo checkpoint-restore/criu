@@ -15,7 +15,7 @@ message criu_opts {
 	optional bool shell_job		= 7;
 	optional bool file_locks	= 8;
 	optional int32 log_level	= 9 [default = 2];
-	optional string log_file	= 10;
+	optional string log_file	= 10; // No subdirs are allowed. Consider using work-dir
 
 	optional criu_page_server_info ps = 11;
 
