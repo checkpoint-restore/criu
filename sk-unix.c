@@ -581,7 +581,7 @@ int fix_external_unix_sockets(void)
 
 		BUG_ON(sk->sd.already_dumped);
 
-		e.id		= fd_id_generate_special(NULL);
+		fd_id_generate_special(NULL, &e.id);
 		e.ino		= sk->sd.ino;
 		e.type		= SOCK_DGRAM;
 		e.state		= TCP_LISTEN;

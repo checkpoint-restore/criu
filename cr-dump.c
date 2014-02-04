@@ -244,7 +244,7 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 {
 	struct fd_parms params = FD_PARMS_INIT;
-	int fd, ret;
+	int fd, ret = 0;
 
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
@@ -255,11 +255,10 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 		return -1;
 	}
 
-	mm->exe_file_id = fd_id_generate_special(&params.stat);
+	if (fd_id_generate_special(&params.stat, &mm->exe_file_id))
+		ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
 
-	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
 	close(fd);
-
 	return ret;
 }
 
@@ -281,11 +280,11 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 		return -1;
 	}
 
-	fe.cwd_id = fd_id_generate_special(&p.stat);
-
-	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
-	if (ret < 0)
-		return ret;
+	if (fd_id_generate_special(&p.stat, &fe.cwd_id)) {
+		ret = dump_one_reg_file(fd, fe.cwd_id, &p);
+		if (ret < 0)
+			return ret;
+	}
 
 	close(fd);
 
@@ -299,11 +298,11 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 		return -1;
 	}
 
-	fe.root_id = fd_id_generate_special(&p.stat);
-
-	ret = dump_one_reg_file(fd, fe.root_id, &p);
-	if (ret < 0)
-		return ret;
+	if (fd_id_generate_special(&p.stat, &fe.root_id)) {
+		ret = dump_one_reg_file(fd, fe.root_id, &p);
+		if (ret < 0)
+			return ret;
+	}
 
 	close(fd);
 
@@ -348,6 +347,8 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	VmaEntry *vma = vma_area->e;
+	int ret = 0;
+	u32 id;
 
 	BUG_ON(!vma_area->st);
 	p.stat = *vma_area->st;
@@ -356,9 +357,12 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		p.flags = O_RDWR;
 	else
 		p.flags = O_RDONLY;
-	vma->shmid = fd_id_generate_special(&p.stat);
 
-	return dump_one_reg_file(vma_area->vm_file_fd, vma->shmid, &p);
+	if (fd_id_generate_special(&p.stat, &id))
+		ret = dump_one_reg_file(vma_area->vm_file_fd, id, &p);
+
+	vma->shmid = id;
+	return ret;
 }
 
 static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)

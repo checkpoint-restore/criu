@@ -26,9 +26,10 @@ void fd_id_show_tree(void)
 	kid_show_tree(&fd_tree);
 }
 
-u32 fd_id_generate_special(struct stat *st)
+int fd_id_generate_special(struct stat *st, u32 *id)
 {
-	return fd_tree.subid++;
+	*id = fd_tree.subid++;
+	return 1;
 }
 
 int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct stat *st)
