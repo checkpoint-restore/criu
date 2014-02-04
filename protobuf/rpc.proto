@@ -24,6 +24,8 @@ message criu_opts {
 	optional string root		= 13;
 	optional string parent_img	= 14;
 	optional bool track_mem		= 15;
+
+	optional int32 work_dir_fd	= 16;
 }
 
 message criu_dump_resp {

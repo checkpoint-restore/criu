@@ -148,6 +148,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	struct stat st;
 	socklen_t ids_len = sizeof(struct ucred);
 	char images_dir_path[PATH_MAX];
+	char work_dir_path[PATH_MAX];
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options");
@@ -164,21 +165,29 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
 
-	/* going to dir, where to place/get images*/
+	/* open images_dir */
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
 	if (req->parent_img)
 		opts.img_parent = req->parent_img;
 
-	if (chdir(images_dir_path)) {
-		pr_perror("Can't chdir to images directory");
+	if (open_image_dir(images_dir_path) < 0) {
+		pr_perror("Can't open images directory");
 		return -1;
 	}
 
-	if (open_image_dir(".") < 0)
-		return -1;
+	/* chdir to work dir */
+	if (req->has_work_dir_fd)
+		sprintf(work_dir_path, "/proc/%d/fd/%d", ids.pid, req->work_dir_fd);
+	else
+		strcpy(work_dir_path, images_dir_path);
 
-	/* initiate log file in imgs dir */
+	if (chdir(work_dir_path)) {
+		pr_perror("Can't chdir to work_dir");
+		return -1;
+	}
+
+	/* initiate log file in work dir */
 	if (req->log_file)
 		opts.output = req->log_file;
 	else
