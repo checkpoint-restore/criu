@@ -31,6 +31,7 @@ int criu_init_opts(void);
 
 void criu_set_pid(int pid);
 void criu_set_images_dir_fd(int fd); /* must be set for dump/restore */
+void criu_set_work_dir_fd(int fd);
 void criu_set_leave_running(bool leave_running);
 void criu_set_ext_unix_sk(bool ext_unix_sk);
 void criu_set_tcp_established(bool tcp_established);

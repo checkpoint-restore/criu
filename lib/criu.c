@@ -51,6 +51,12 @@ void criu_set_images_dir_fd(int fd)
 	opts->images_dir_fd = fd;
 }
 
+void criu_set_work_dir_fd(int fd)
+{
+	opts->has_work_dir_fd	= true;
+	opts->work_dir_fd	= fd;
+}
+
 void criu_set_leave_running(bool leave_running)
 {
 	opts->has_leave_running	= true;
