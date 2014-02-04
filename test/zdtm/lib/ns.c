@@ -199,10 +199,6 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
 		exit(1);
 	}
-	if (sigaction(SIGCHLD, &sa, NULL)) {
-		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
-		exit(1);
-	}
 
 	/* Start test */
 	pid = fork();
@@ -228,6 +224,25 @@ int ns_init(int argc, char **argv)
 		exit(1);
 	} else if (pid > 0)
 		waitpid(pid, NULL, 0);
+
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
+		exit(1);
+	}
+
+	while (1) {
+		int status;
+
+		pid = waitpid(-1, &status, WNOHANG);
+		if (pid == 0)
+			break;
+		if (pid < 0) {
+			fprintf(stderr, "waitpid() failed: %m\n");
+			exit (1);
+		}
+		if (status)
+			fprintf(stderr, "%d return %d\n", pid, status);
+	}
 
 	/* Daemonize */
 	write(status_pipe, &ret, sizeof(ret));
