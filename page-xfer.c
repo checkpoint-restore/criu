@@ -480,7 +480,7 @@ static int write_pages_loc(struct page_xfer *xfer,
 		return -1;
 	}
 	if (ret != len) {
-		pr_err("Only %lu of %lu bytes have been spliced\n", ret, len);
+		pr_err("Only %zu of %lu bytes have been spliced\n", ret, len);
 		return -1;
 	}
 
