@@ -359,7 +359,19 @@ int prepare_mm_pid(struct pstree_item *i)
 	if (ret < 0)
 		return -1;
 
-	while (vn < ri->mm->n_vmas) {
+	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
+	fd = -1;
+	if (ri->mm->n_vmas == 0) {
+		/*
+		 * Old image. Read VMAs from vma-.img
+		 */
+		fd = open_image(CR_FD_VMAS, O_RSTR, pid);
+		if (fd < 0)
+			return -1;
+	}
+
+
+	while (vn < ri->mm->n_vmas || fd >= 0) {
 		struct vma_area *vma;
 
 		ret = -1;
@@ -369,7 +381,16 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		ret = 0;
 		ri->vmas.nr++;
-		vma->e = ri->mm->vmas[vn++];
+		if (fd == -1)
+			vma->e = ri->mm->vmas[vn++];
+		else {
+			ret = pb_read_one_eof(fd, &vma->e, PB_VMA);
+			if (ret <= 0) {
+				xfree(vma);
+				close(fd);
+				break;
+			}
+		}
 		list_add_tail(&vma->list, &ri->vmas.h);
 
 		if (vma_priv(vma->e)) {
