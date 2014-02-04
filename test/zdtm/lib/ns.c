@@ -145,7 +145,7 @@ static void ns_sig_hand(int signo)
 	return;
 write_out:
 	/* fprintf can't be used in a sighandler due to glibc locks */
-	write(STDERR_FILENO, buf, MAX(len, sizeof(buf)));
+	write(STDERR_FILENO, buf, MIN(len, sizeof(buf)));
 }
 
 #define STATUS_FD 255
