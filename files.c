@@ -169,7 +169,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	e.fd	= p->fd;
 	e.flags = p->fd_flags;
 
-	ret = fd_id_generate(p->pid, &e);
+	ret = fd_id_generate(p->pid, &e, &p->stat);
 	if (ret == 1) /* new ID generated */
 		ret = ops->dump(lfd, e.id, p);
 

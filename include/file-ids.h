@@ -13,7 +13,7 @@
 struct fdinfo_entry;
 struct stat;
 
-extern int fd_id_generate(pid_t pid, FdinfoEntry *fe);
+extern int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct stat *st);
 extern u32 fd_id_generate_special(struct stat *);
 extern void fd_id_show_tree(void);
 
