@@ -324,6 +324,7 @@ static int restore_priv_vma_content(pid_t pid)
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
 	unsigned int nr_droped = 0;
+	unsigned int nr_compared = 0;
 	unsigned long va;
 	struct page_read pr;
 
@@ -386,6 +387,8 @@ static int restore_priv_vma_content(pid_t pid)
 					goto err_read;
 				va += PAGE_SIZE;
 
+				nr_compared++;
+
 				if (memcmp(p, buf, PAGE_SIZE) == 0) {
 					nr_shared++; /* the page is cowed */
 					continue;
@@ -438,8 +441,9 @@ err_read:
 		}
 	}
 
-	cnt_add(CNT_PAGES_COMPARED, nr_restored + nr_shared);
+	cnt_add(CNT_PAGES_COMPARED, nr_compared);
 	cnt_add(CNT_PAGES_SKIPPED_COW, nr_shared);
+	cnt_add(CNT_PAGES_RESTORED, nr_restored);
 
 	pr_info("nr_restored_pages: %d\n", nr_restored);
 	pr_info("nr_shared_pages:   %d\n", nr_shared);

@@ -18,6 +18,8 @@ message restore_stats_entry {
 
 	required uint32	forking_time = 3;
 	required uint32	restore_time = 4;
+
+	optional uint64	pages_restored = 5;
 }
 
 message stats_entry {
