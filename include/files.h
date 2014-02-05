@@ -8,6 +8,7 @@
 #include "list.h"
 #include "image.h"
 #include "pid.h"
+#include "rst_info.h"
 
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fown.pb-c.h"
@@ -96,11 +97,18 @@ struct file_desc_ops {
 	 */
 	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
 	/*
-	 * Helps determining sequence of different file types restore.
-	 * See the prepare_fds for details.
+	 * Called to collect a new fd before adding it on desc. Clients
+	 * may chose to collect it to some specific rst_info list. See
+	 * prepare_fds() for details.
 	 */
-	struct list_head *	(*select_ps_list)(struct file_desc *, struct rst_info *);
+	void			(*collect_fd)(struct file_desc *, struct fdinfo_list_entry *,
+						struct rst_info *);
 };
+
+static inline void collect_gen_fd(struct fdinfo_list_entry *fle, struct rst_info *ri)
+{
+	list_add_tail(&fle->ps_list, &ri->fds);
+}
 
 struct file_desc {
 	u32			id;		/* File id, unique */

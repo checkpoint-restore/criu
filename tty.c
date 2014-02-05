@@ -667,17 +667,22 @@ static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
 	return !info->create;
 }
 
-static struct list_head *tty_select_pslist(struct file_desc *d, struct rst_info *ri)
+static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
+		struct rst_info *ri)
 {
+	struct list_head *tgt;
+
 	/*
 	 * Unix98 pty slave peers requires the master peers being
 	 * opened before them
 	 */
 
 	if (pty_is_master(container_of(d, struct tty_info, d)))
-		return &ri->fds;
+		tgt = &ri->fds;
 	else
-		return &ri->tty_slaves;
+		tgt = &ri->tty_slaves;
+
+	list_add_tail(&fle->ps_list, tgt);
 }
 
 static struct file_desc_ops tty_desc_ops = {
@@ -685,7 +690,7 @@ static struct file_desc_ops tty_desc_ops = {
 	.open		= tty_open,
 	.post_open	= tty_restore_ctl_terminal,
 	.want_transport = tty_transport,
-	.select_ps_list	= tty_select_pslist,
+	.collect_fd	= tty_collect_fd,
 };
 
 static struct pstree_item *find_first_sid(int sid)

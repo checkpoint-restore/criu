@@ -533,14 +533,6 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static struct list_head *select_ps_list(struct file_desc *desc, struct rst_info *ri)
-{
-	if (desc->ops->select_ps_list)
-		return desc->ops->select_ps_list(desc, ri);
-	else
-		return &ri->fds;
-}
-
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *le, *new_le;
@@ -567,9 +559,13 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 		if (pid_rst_prio(new_le->pid, le->pid))
 			break;
 
+	if (fdesc->ops->collect_fd)
+		fdesc->ops->collect_fd(fdesc, new_le, rst_info);
+	else
+		collect_gen_fd(new_le, rst_info);
+
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
-	list_add_tail(&new_le->ps_list, select_ps_list(fdesc, rst_info));
 
 	return 0;
 }
