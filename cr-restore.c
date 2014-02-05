@@ -119,6 +119,15 @@ static int crtools_prepare_shared(void)
 	return 0;
 }
 
+/*
+ * Collect order information:
+ * - reg_file should be before remap, as the latter needs
+ *   to find file_desc objects
+ * - per-pid collects (mm and fd) should be after remap and
+ *   reg_file since both per-pid ones need to get fdesc-s
+ *   and bump counters on remaps if they exist
+ */
+
 static struct collect_image_info *cinfos[] = {
 	&reg_file_cinfo,
 	&remap_cinfo,
