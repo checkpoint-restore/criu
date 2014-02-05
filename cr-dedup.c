@@ -144,7 +144,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		prp = pr->parent;
 		if (prp) {
 			/* recursively */
-			pr_debug("Go to next parent level");
+			pr_debug("Go to next parent level\n");
 			tiov.iov_base = (void*)off;
 			tiov.iov_len = min(piov_end, iov_end) - off;
 			ret = dedup_one_iovec(prp, &tiov);
