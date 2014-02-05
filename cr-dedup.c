@@ -112,7 +112,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 	while (1) {
 		int ret;
 		struct iovec piov;
-		unsigned long  piov_end;
+		unsigned long piov_end;
 		struct iovec tiov;
 		struct page_read * prp;
 
