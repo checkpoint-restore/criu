@@ -4,6 +4,8 @@
 #include <linux/types.h>
 #include <sys/ptrace.h>
 
+#include "config.h"
+
 /* some constants for ptrace */
 #ifndef PTRACE_SEIZE
 # define PTRACE_SEIZE		0x4206
