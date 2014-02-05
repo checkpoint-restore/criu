@@ -17,6 +17,7 @@
 #include "syscall.h"
 #include "image.h"
 #include "util.h"
+#include "irmap.h"
 
 static DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
 
@@ -25,7 +26,7 @@ void fd_id_show_tree(void)
 	kid_show_tree(&fd_tree);
 }
 
-u32 fd_id_generate_special(void)
+u32 fd_id_generate_special(struct stat *st)
 {
 	return fd_tree.subid++;
 }

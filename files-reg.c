@@ -382,7 +382,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 		tmp--;
 	}
 
-	rfe.id = *idp	= fd_id_generate_special();
+	rfe.id = *idp	= fd_id_generate_special(NULL);
 	rfe.flags	= 0;
 	rfe.pos		= 0;
 	rfe.fown	= &fwn;

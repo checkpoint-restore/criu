@@ -255,7 +255,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 		return -1;
 	}
 
-	mm->exe_file_id = fd_id_generate_special();
+	mm->exe_file_id = fd_id_generate_special(&params.stat);
 
 	ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
 	close(fd);
@@ -281,7 +281,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 		return -1;
 	}
 
-	fe.cwd_id = fd_id_generate_special();
+	fe.cwd_id = fd_id_generate_special(&p.stat);
 
 	ret = dump_one_reg_file(fd, fe.cwd_id, &p);
 	if (ret < 0)
@@ -299,7 +299,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 		return -1;
 	}
 
-	fe.root_id = fd_id_generate_special();
+	fe.root_id = fd_id_generate_special(&p.stat);
 
 	ret = dump_one_reg_file(fd, fe.root_id, &p);
 	if (ret < 0)
@@ -356,7 +356,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		p.flags = O_RDWR;
 	else
 		p.flags = O_RDONLY;
-	vma->shmid = fd_id_generate_special();
+	vma->shmid = fd_id_generate_special(&p.stat);
 
 	return dump_one_reg_file(vma_area->vm_file_fd, vma->shmid, &p);
 }

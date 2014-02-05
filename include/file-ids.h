@@ -11,8 +11,10 @@
 #define FD_DESC_INVALID		(-3U)
 
 struct fdinfo_entry;
+struct stat;
+
 extern int fd_id_generate(pid_t pid, FdinfoEntry *fe);
-extern u32 fd_id_generate_special(void);
+extern u32 fd_id_generate_special(struct stat *);
 extern void fd_id_show_tree(void);
 
 #endif /* __CR_FILE_IDS_H__ */
