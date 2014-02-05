@@ -3,8 +3,11 @@ VERSION_MINOR		:= 1
 VERSION_SUBLEVEL	:=
 VERSION_EXTRA		:=
 VERSION_NAME		:=
+VERSION_SO_MAJOR	:= 1
+VERSION_SO_MINOR	:= 0
 
 export VERSION_MAJOR VERSION_MINOR VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
+export VERSION_SO_MAJOR VERSION_SO_MINOR
 
 #
 # FIXME zdtm building procedure requires implicit rules
@@ -103,10 +106,11 @@ endif
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
 ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
-CRIU-LIB	:= lib/libcriu.so
+CRIU-SO		:= libcriu
+CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
 
-export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS
+export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export cflags-y
 
@@ -235,7 +239,12 @@ install: $(PROGRAM) install-man
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(Q) install -m 755 $(CRIU-LIB) $(DESTDIR)$(LIBDIR)
+	$(Q) install -m 755 $(CRIU-LIB) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
+	$(Q) ln -s $(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR)
+	$(Q) ln -s $(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	$(Q) install -m 644 $(CRIU-INC) $(DESTDIR)$(INCLUDEDIR)
 	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
