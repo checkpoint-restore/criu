@@ -128,6 +128,9 @@ TST_FILE	=				\
 		fifo_wronly			\
 		unlink_fifo			\
 		unlink_fifo_wronly		\
+		unlink_mmap00			\
+		unlink_mmap01			\
+		unlink_mmap02			\
 		file_shared			\
 		file_append			\
 		cow01				\
