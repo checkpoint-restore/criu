@@ -144,7 +144,6 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->remap.users = 0;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
-	gf->remap.users++;
 	rfi->remap = &gf->remap;
 	return 0;
 
@@ -664,10 +663,54 @@ int open_reg_by_id(u32 id)
 	return open_path_by_id(id, do_open_reg, NULL);
 }
 
+static void remap_get(struct file_desc *fdesc, char typ)
+{
+	struct reg_file_info *rfi;
+
+	rfi = container_of(fdesc, struct reg_file_info, d);
+	if (rfi->remap) {
+		pr_debug("One more remap user (%c) for %s\n",
+				typ, rfi->remap->path);
+		/* No lock, we're still sngle-process here */
+		rfi->remap->users++;
+	}
+}
+
+static void collect_reg_fd(struct file_desc *fdesc,
+		struct fdinfo_list_entry *fle, struct rst_info *ri)
+{
+	if (list_empty(&fdesc->fd_info_head))
+		remap_get(fdesc, 'f');
+
+	collect_gen_fd(fle, ri);
+}
+
 static struct file_desc_ops reg_desc_ops = {
 	.type = FD_TYPES__REG,
 	.open = open_fe_fd,
+	.collect_fd = collect_reg_fd,
 };
+
+int collect_special_file(u32 id)
+{
+	struct file_desc *fdesc;
+
+	/*
+	 * Files dumped for vmas/exe links can have remaps
+	 * configured. Need to bump-up users for them, otherwise
+	 * the open_path() would unlink the remap file after
+	 * the very first open.
+	 */
+
+	fdesc = find_file_desc_raw(FD_TYPES__REG, id);
+	if (fdesc == NULL) {
+		pr_err("No entry for reg-file-ID %#x\n", id);
+		return -1;
+	}
+
+	remap_get(fdesc, 's');
+	return 0;
+}
 
 static int collect_one_regfile(void *o, ProtobufCMessage *base)
 {

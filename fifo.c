@@ -112,9 +112,22 @@ static int open_fifo_fd(struct file_desc *d)
 	return open_path_by_id(info->fe->id, do_open_fifo, info);
 }
 
+static void collect_fifo_fd(struct file_desc *d,
+		struct fdinfo_list_entry *fle, struct rst_info *ri)
+{
+	struct fifo_info *info;
+
+	info = container_of(d, struct fifo_info, d);
+	if (collect_special_file(info->fe->id))
+		BUG();
+
+	collect_gen_fd(fle, ri);
+}
+
 static struct file_desc_ops fifo_desc_ops = {
 	.type		= FD_TYPES__FIFO,
 	.open		= open_fifo_fd,
+	.collect_fd	= collect_fifo_fd,
 };
 
 static int collect_one_fifo(void *o, ProtobufCMessage *base)

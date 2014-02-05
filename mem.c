@@ -18,6 +18,7 @@
 #include "shmem.h"
 #include "pstree.h"
 #include "restorer.h"
+#include "files-reg.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -341,6 +342,11 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	return ret;
 }
 
+static inline int collect_filemap(VmaEntry *vme)
+{
+	return collect_special_file(vme->shmid);
+}
+
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = i->pid.virt;
@@ -357,6 +363,9 @@ int prepare_mm_pid(struct pstree_item *i)
 	ret = pb_read_one(fd, &ri->mm, PB_MM);
 	close(fd);
 	if (ret < 0)
+		return -1;
+
+	if (collect_special_file(ri->mm->exe_file_id))
 		return -1;
 
 	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
@@ -401,11 +410,14 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
 
-		if (!vma_area_is(vma, VMA_ANON_SHARED) ||
-				vma_area_is(vma, VMA_AREA_SYSVIPC))
-			continue;
-
-		ret = collect_shmem(pid, vma->e);
+		if (vma_area_is(vma, VMA_ANON_SHARED) &&
+				!vma_area_is(vma, VMA_AREA_SYSVIPC))
+			ret = collect_shmem(pid, vma->e);
+		else if (vma_area_is(vma, VMA_FILE_PRIVATE) ||
+				vma_area_is(vma, VMA_FILE_SHARED))
+			ret = collect_filemap(vma->e);
+		else
+			ret = 0;
 		if (ret)
 			break;
 	}

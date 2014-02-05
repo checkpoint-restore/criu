@@ -34,6 +34,7 @@ extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 
 extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
 extern void remap_put(struct file_remap *remap);
+extern int collect_special_file(u32 id);
 
 extern struct collect_image_info reg_file_cinfo;
 extern struct collect_image_info remap_cinfo;
