@@ -260,10 +260,8 @@ static int dump_using_req(int sk, CriuOpts *req)
 	bool success = false;
 	bool self_dump = !req->pid;
 
-	if (setup_opts_from_req(sk, req) == -1) {
-		pr_perror("Arguments treating fail");
+	if (setup_opts_from_req(sk, req))
 		goto exit;
-	}
 
 	/*
 	 * FIXME -- cr_dump_tasks() may return code from custom
@@ -298,10 +296,8 @@ static int restore_using_req(int sk, CriuOpts *req)
 
 	opts.restore_detach = true;
 
-	if (setup_opts_from_req(sk, req) == -1) {
-		pr_perror("Arguments treating fail");
+	if (setup_opts_from_req(sk, req))
 		goto exit;
-	}
 
 	if (cr_restore_tasks())
 		goto exit;
@@ -346,10 +342,8 @@ static int pre_dump_using_req(int sk, CriuOpts *opts)
 	if (pid == 0) {
 		int ret = 1;
 
-		if (setup_opts_from_req(sk, opts)) {
-			pr_perror("Bad options");
+		if (setup_opts_from_req(sk, opts))
 			goto cout;
-		}
 
 		if (cr_pre_dump_tasks(opts->pid))
 			goto cout;
