@@ -180,7 +180,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	pr_info("Remapped %s -> %s\n", rfi->path, rrfi->path);
 
 	rm->path = rrfi->path;
-	rm->users = 1;
+	rm->users = 0;
 	rfi->remap = rm;
 	return 0;
 }
