@@ -102,6 +102,7 @@ static/stopped
 static/chroot
 static/chroot-file
 static/rtc
+transition/maps007
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
@@ -154,6 +155,7 @@ chroot
 chroot-file
 rtc
 tempfs
+maps007
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
