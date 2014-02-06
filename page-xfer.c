@@ -557,6 +557,11 @@ static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
 
 static void close_page_xfer(struct page_xfer *xfer)
 {
+	if (xfer->parent != NULL) {
+		xfer->parent->close(xfer->parent);
+		xfree(xfer->parent);
+		xfer->parent = NULL;
+	}
 	close(xfer->fd_pg);
 	close(xfer->fd);
 }
@@ -639,6 +644,8 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 	{
 		int ret;
 		int pfd;
+
+		xfer->parent = NULL;
 
 		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (pfd < 0 && errno == ENOENT)
