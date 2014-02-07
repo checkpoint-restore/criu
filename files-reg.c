@@ -581,7 +581,7 @@ const struct fdtype_ops regfile_dump_ops = {
 	.dump		= dump_one_reg_file,
 };
 
-static int open_path(struct file_desc *d,
+int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
@@ -620,7 +620,7 @@ static int open_path(struct file_desc *d,
 	return tmp;
 }
 
-int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void *arg)
+static int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct file_desc *fd;
 

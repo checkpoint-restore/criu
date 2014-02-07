@@ -33,6 +33,7 @@ struct fifo_info {
 	struct file_desc	d;
 	FifoEntry		*fe;
 	bool			restore_data;
+	struct file_desc	*reg_d;
 };
 
 static LIST_HEAD(fifo_head);
@@ -109,7 +110,7 @@ static int open_fifo_fd(struct file_desc *d)
 {
 	struct fifo_info *info = container_of(d, struct fifo_info, d);
 
-	return open_path_by_id(info->fe->id, do_open_fifo, info);
+	return open_path(info->reg_d, do_open_fifo, info);
 }
 
 static void collect_fifo_fd(struct file_desc *d,
@@ -118,9 +119,8 @@ static void collect_fifo_fd(struct file_desc *d,
 	struct fifo_info *info;
 
 	info = container_of(d, struct fifo_info, d);
-	if (collect_special_file(info->fe->id) == NULL)
-		BUG();
-
+	info->reg_d = collect_special_file(info->fe->id);
+	BUG_ON(info->reg_d == NULL);
 	collect_gen_fd(fle, ri);
 }
 
