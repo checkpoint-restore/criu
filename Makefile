@@ -101,8 +101,8 @@ else
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
-SYSCALL-LIB	:= arch/$(ARCH)/syscalls.built-in.o
-ARCH-LIB	:= arch/$(ARCH)/crtools.built-in.o
+SYSCALL-LIB	:= $(ARCH_DIR)/syscalls.built-in.o
+ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
 CRIU-SO		:= libcriu
 CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
@@ -126,7 +126,7 @@ build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 PROGRAM		:= criu
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf arch/$(ARCH) clean-built lib
+	docs help pie protobuf $(ARCH_DIR) clean-built lib
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
@@ -140,14 +140,14 @@ protobuf/%::
 protobuf:
 	$(Q) $(MAKE) $(build)=protobuf all
 
-arch/$(ARCH)/%:: protobuf
-	$(Q) $(MAKE) $(build)=arch/$(ARCH) $@
-arch/$(ARCH): protobuf
-	$(Q) $(MAKE) $(build)=arch/$(ARCH) all
+$(ARCH_DIR)/%:: protobuf
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) $@
+$(ARCH_DIR): protobuf
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
-pie/%:: arch/$(ARCH)
+pie/%:: $(ARCH_DIR)
 	$(Q) $(MAKE) $(build)=pie $@
-pie: arch/$(ARCH)
+pie: $(ARCH_DIR)
 	$(Q) $(MAKE) $(build)=pie all
 
 %.o %.i %.s %.d: $(VERSION_HEADER) pie
@@ -181,7 +181,7 @@ test: zdtm
 
 clean-built:
 	$(Q) $(RM) $(VERSION_HEADER)
-	$(Q) $(MAKE) $(build)=arch/$(ARCH) clean
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
 	$(Q) $(MAKE) $(build)=pie clean
 	$(Q) $(MAKE) $(build)=lib clean
