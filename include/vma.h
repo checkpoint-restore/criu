@@ -21,6 +21,8 @@ static inline void vm_area_list_init(struct vm_area_list *vml)
 	vml->longest = 0;
 }
 
+struct file_desc;
+
 struct vma_area {
 	struct list_head	list;
 	VmaEntry		*e;
@@ -28,6 +30,7 @@ struct vma_area {
 	union {
 		int		vm_file_fd;
 		int		vm_socket_id;
+		struct file_desc *fd;
 	};
 	unsigned long		*page_bitmap;  /* existent pages */
 	unsigned long		*ppage_bitmap; /* parent's existent pages */

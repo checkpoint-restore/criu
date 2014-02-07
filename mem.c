@@ -342,9 +342,16 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	return ret;
 }
 
-static inline int collect_filemap(VmaEntry *vme)
+static inline int collect_filemap(struct vma_area *vma)
 {
-	return collect_special_file(vme->shmid);
+	struct file_desc *fd;
+
+	fd = collect_special_file(vma->e->shmid);
+	if (!fd)
+		return -1;
+
+	vma->fd = fd;
+	return 0;
 }
 
 int prepare_mm_pid(struct pstree_item *i)
@@ -365,7 +372,7 @@ int prepare_mm_pid(struct pstree_item *i)
 	if (ret < 0)
 		return -1;
 
-	if (collect_special_file(ri->mm->exe_file_id))
+	if (collect_special_file(ri->mm->exe_file_id) == NULL)
 		return -1;
 
 	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
@@ -415,7 +422,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			ret = collect_shmem(pid, vma->e);
 		else if (vma_area_is(vma, VMA_FILE_PRIVATE) ||
 				vma_area_is(vma, VMA_FILE_SHARED))
-			ret = collect_filemap(vma->e);
+			ret = collect_filemap(vma);
 		else
 			ret = 0;
 		if (ret)

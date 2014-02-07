@@ -226,7 +226,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	struct vma_area *p = *pvma;
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		ret = get_filemap_fd(pid, vma->e);
+		ret = get_filemap_fd(vma);
 		if (ret < 0) {
 			pr_err("Can't fixup VMA's fd\n");
 			return -1;
@@ -583,7 +583,7 @@ static int open_vmas(int pid)
 		else if (vma_area_is(vma, VMA_ANON_SHARED))
 			ret = get_shmem_fd(pid, vma->e);
 		else if (vma_area_is(vma, VMA_FILE_SHARED))
-			ret = get_filemap_fd(pid, vma->e);
+			ret = get_filemap_fd(vma);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = get_socket_fd(pid, vma->e);
 		else

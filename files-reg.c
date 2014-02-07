@@ -672,12 +672,24 @@ static int open_fe_fd(struct file_desc *fd)
 int open_reg_by_id(u32 id)
 {
 	/*
-	 * This one gets called by exe link, chroot,
-	 * cwd and file vmas restoring code. No need
-	 * in calling lseek on either of them.
+	 * This one gets called by exe link, chroot and cwd
+	 * restoring code. No need in calling lseek on either
+	 * of them.
 	 */
 
 	return open_path_by_id(id, do_open_reg_noseek, NULL);
+}
+
+int get_filemap_fd(struct vma_area *vma)
+{
+	/*
+	 * Thevma->fd should have been assigned in collect_filemap
+	 *
+	 * We open file w/o lseek, as mappings don't care about it
+	 */
+
+	BUG_ON(vma->fd == NULL);
+	return open_path(vma->fd, do_open_reg_noseek, NULL);
 }
 
 static void remap_get(struct file_desc *fdesc, char typ)
@@ -708,7 +720,7 @@ static struct file_desc_ops reg_desc_ops = {
 	.collect_fd = collect_reg_fd,
 };
 
-int collect_special_file(u32 id)
+struct file_desc *collect_special_file(u32 id)
 {
 	struct file_desc *fdesc;
 
@@ -722,11 +734,11 @@ int collect_special_file(u32 id)
 	fdesc = find_file_desc_raw(FD_TYPES__REG, id);
 	if (fdesc == NULL) {
 		pr_err("No entry for reg-file-ID %#x\n", id);
-		return -1;
+		return NULL;
 	}
 
 	remap_get(fdesc, 's');
-	return 0;
+	return fdesc;
 }
 
 static int collect_one_regfile(void *o, ProtobufCMessage *base)

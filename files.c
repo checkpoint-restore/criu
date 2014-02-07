@@ -1087,11 +1087,6 @@ out:
 	return ret;
 }
 
-int get_filemap_fd(int pid, VmaEntry *vma_entry)
-{
-	return open_reg_by_id(vma_entry->shmid);
-}
-
 int shared_fdt_prepare(struct pstree_item *item)
 {
 	struct pstree_item *parent = item->parent;

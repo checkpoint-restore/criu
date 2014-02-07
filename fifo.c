@@ -118,7 +118,7 @@ static void collect_fifo_fd(struct file_desc *d,
 	struct fifo_info *info;
 
 	info = container_of(d, struct fifo_info, d);
-	if (collect_special_file(info->fe->id))
+	if (collect_special_file(info->fe->id) == NULL)
 		BUG();
 
 	collect_gen_fd(fle, ri);
