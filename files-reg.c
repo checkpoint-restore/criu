@@ -633,7 +633,7 @@ int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void
 	return open_path(fd, open_cb, arg);
 }
 
-static int do_open_reg(struct reg_file_info *rfi, void *arg)
+static int do_open_reg_noseek(struct reg_file_info *rfi, void *arg)
 {
 	int fd;
 
@@ -642,6 +642,17 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;
 	}
+
+	return fd;
+}
+
+static int do_open_reg(struct reg_file_info *rfi, void *arg)
+{
+	int fd;
+
+	fd = do_open_reg_noseek(rfi, arg);
+	if (fd < 0)
+		return fd;
 
 	if ((rfi->rfe->pos != -1ULL) &&
 			lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
@@ -660,7 +671,13 @@ static int open_fe_fd(struct file_desc *fd)
 
 int open_reg_by_id(u32 id)
 {
-	return open_path_by_id(id, do_open_reg, NULL);
+	/*
+	 * This one gets called by exe link, chroot,
+	 * cwd and file vmas restoring code. No need
+	 * in calling lseek on either of them.
+	 */
+
+	return open_path_by_id(id, do_open_reg_noseek, NULL);
 }
 
 static void remap_get(struct file_desc *fdesc, char typ)
