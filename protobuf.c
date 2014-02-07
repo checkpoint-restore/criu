@@ -160,7 +160,6 @@ static int show_bytes(pb_pr_field_t *field)
 static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 					  pb_pr_ctl_t *ctl)
 {
-	pb_pr_field_t *field = &ctl->cur;
 	size_t fsize = 0;
 
 	switch (fd->type) {
@@ -184,8 +183,6 @@ static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
 		break;
 	case PROTOBUF_C_TYPE_MESSAGE:
 		ctl->arg = (void *)fd->descriptor;
-		if (field->data)
-			field->data = (void *)(*(long *)field->data);
 	case PROTOBUF_C_TYPE_STRING:
 		fsize = sizeof (void *);
 		break;
@@ -349,7 +346,7 @@ static pb_pr_show_t get_show_function(const ProtobufCFieldDescriptor *fd, pb_pr_
 	return get_pb_show_function(fd->type, fd->label);
 }
 
-static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
+static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
 			  size_t fsize)
 {
 	pb_pr_field_t *field = &ctl->cur;
@@ -358,6 +355,23 @@ static void pb_show_repeated(pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
 
 	if (nr_fields == 0) {
 		pr_msg("<empty>");
+		return;
+	}
+
+	if (fd->type == PROTOBUF_C_TYPE_MESSAGE) {
+		void *p = field->data;
+
+		field->count = nr_fields;
+		field->data = (void *)(*(long *)p);
+		done = show(field);
+		if (done)
+			return;
+
+		for (p += fsize, counter = 0; counter < nr_fields - 1; counter++, p += fsize) {
+			pr_msg(":");
+			field->data = (void *)(*(long *)p);
+			show(field);
+		}
 		return;
 	}
 
@@ -384,7 +398,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 
 	show = get_show_function(fd, ctl);
 
-	pb_show_repeated(ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
+	pb_show_repeated(fd, ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
 
 	if (ctl->single_entry)
 		pr_msg("\n");
