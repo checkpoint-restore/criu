@@ -33,6 +33,8 @@ SH		:= bash
 MAKE		:= make
 OBJCOPY		:= $(CROSS_COMPILE)objcopy
 
+CFLAGS		+= $(USERCFLAGS)
+
 #
 # Fetch ARCH from the uname if not yet set
 #
