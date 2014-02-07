@@ -126,11 +126,7 @@ typedef u64 auxv_t;
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 
-#if defined(CONFIG_X86_64)
-# define AT_VECTOR_SIZE 44
-#elif defined(CONFIG_ARM)
-# define AT_VECTOR_SIZE 22             /* Not needed at moment */
-#endif
+#define AT_VECTOR_SIZE 44
 
 #define CORE_THREAD_ARCH_INFO(core) core->thread_info
 

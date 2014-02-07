@@ -58,7 +58,7 @@ endif
 ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ARMV         := $(shell echo $(ARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 	SRCARCH      := arm
-	DEFINES      := -DCONFIG_ARM -DCONFIG_ARMV$(ARMV)
+	DEFINES      := -DCONFIG_ARMV$(ARMV)
 
 	ifeq ($(ARMV),6)
 		CFLAGS += -march=armv6
