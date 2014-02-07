@@ -26,6 +26,7 @@ message criu_opts {
 	optional bool			track_mem	= 15;
 
 	optional int32			work_dir_fd	= 16;
+	optional bool			link_remap	= 17;
 }
 
 message criu_dump_resp {

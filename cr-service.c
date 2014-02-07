@@ -234,6 +234,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_track_mem)
 		opts.track_mem = req->track_mem;
 
+	if (req->has_link_remap)
+		opts.link_remap_ok = req->link_remap;
+
 	if (req->ps) {
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;
