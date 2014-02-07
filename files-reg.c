@@ -581,6 +581,12 @@ const struct fdtype_ops regfile_dump_ops = {
 	.dump		= dump_one_reg_file,
 };
 
+/*
+ * This routine properly resolves d's path handling ghost/link-remaps.
+ * The open_cb is a routine that does actual open, it differs for
+ * files, directories, fifos, etc.
+ */
+
 int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
