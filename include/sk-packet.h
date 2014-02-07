@@ -22,7 +22,9 @@ extern int packet_receive_one(struct nlmsghdr *h, void *arg);
 
 #ifndef PACKET_FANOUT
 #define PACKET_FANOUT	18
+#endif
 
+#ifndef TPACKET3_HDRLEN
 struct tpacket_req3 {
 	unsigned int tp_block_size;
 	unsigned int tp_block_nr;

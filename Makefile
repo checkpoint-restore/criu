@@ -19,9 +19,6 @@ export VERSION_SO_MAJOR VERSION_SO_MINOR
 #
 #MAKEFLAGS := -r -R
 
-include Makefile.inc
-include Makefile.config
-
 #
 # Common definitions
 #
@@ -114,6 +111,8 @@ export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export cflags-y
 
+include Makefile.inc
+include Makefile.config
 include scripts/Makefile.version
 include scripts/Makefile.rules
 
