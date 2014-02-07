@@ -63,11 +63,11 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	DEFINES      := -DCONFIG_ARMV$(ARMV)
 
 	ifeq ($(ARMV),6)
-		CFLAGS += -march=armv6
+		USERCFLAGS += -march=armv6
 	endif
 
 	ifeq ($(ARMV),7)
-		CFLAGS += -march=armv7-a
+		USERCFLAGS += -march=armv7-a
 	endif
 endif
 
