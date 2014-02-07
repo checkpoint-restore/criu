@@ -9,15 +9,17 @@ ARCH ?= $(shell uname -m | sed		\
 		-e s/mips.*/mips/	\
 		-e s/sh[234].*/sh/)
 
+SRCARCH := $(ARCH)
+
 ifeq ($(ARCH),i386)
-	ARCH := x86
+	SRCARCH := x86
 endif
 
 ifeq ($(ARCH),x86_64)
-	ARCH := x86
+	SRCARCH := x86
 endif
 
-CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include
+CPPFLAGS += -iquote $(LIBDIR)/arch/$(SRCARCH)/include
 
 ifeq ($(strip $(V)),)
 	E = @echo

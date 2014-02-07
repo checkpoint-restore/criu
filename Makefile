@@ -46,20 +46,19 @@ ARCH ?= $(shell uname -m | sed		\
 		-e s/sh[234].*/sh/)
 
 ifeq ($(ARCH),i386)
-	ARCH         := x86-32
+	SRCARCH      := x86-32
 	DEFINES      := -DCONFIG_X86_32
 endif
 ifeq ($(ARCH),x86_64)
-	ARCH         := x86
+	SRCARCH      := x86
 	DEFINES      := -DCONFIG_X86_64
 	LDARCH       := i386:x86-64
 endif
 
 ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ARMV         := $(shell echo $(ARCH) | sed -r -e 's/armv([[:digit:]]).*/\1/')
-	ARCH         := arm
+	SRCARCH      := arm
 	DEFINES      := -DCONFIG_ARM -DCONFIG_ARMV$(ARMV)
-	LDARCH       := arm
 
 	ifeq ($(ARMV),6)
 		CFLAGS += -march=armv6
@@ -70,10 +69,10 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	endif
 endif
 
-LDARCH		?= $(ARCH)
+LDARCH		?= $(SRCARCH)
 
 SRC_DIR		?= $(CURDIR)
-ARCH_DIR	:= arch/$(ARCH)
+ARCH_DIR	:= arch/$(SRCARCH)
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
