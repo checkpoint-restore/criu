@@ -620,19 +620,6 @@ int open_path(struct file_desc *d,
 	return tmp;
 }
 
-static int open_path_by_id(u32 id, int (*open_cb)(struct reg_file_info *, void *), void *arg)
-{
-	struct file_desc *fd;
-
-	fd = find_file_desc_raw(FD_TYPES__REG, id);
-	if (fd == NULL) {
-		pr_err("Can't find regfile for %#x\n", id);
-		return -1;
-	}
-
-	return open_path(fd, open_cb, arg);
-}
-
 static int do_open_reg_noseek(struct reg_file_info *rfi, void *arg)
 {
 	int fd;
@@ -664,20 +651,23 @@ static int do_open_reg(struct reg_file_info *rfi, void *arg)
 	return fd;
 }
 
-static int open_fe_fd(struct file_desc *fd)
-{
-	return open_path(fd, do_open_reg, NULL);
-}
-
 int open_reg_by_id(u32 id)
 {
+	struct file_desc *fd;
+
 	/*
 	 * This one gets called by exe link, chroot and cwd
 	 * restoring code. No need in calling lseek on either
 	 * of them.
 	 */
 
-	return open_path_by_id(id, do_open_reg_noseek, NULL);
+	fd = find_file_desc_raw(FD_TYPES__REG, id);
+	if (fd == NULL) {
+		pr_err("Can't find regfile for %#x\n", id);
+		return -1;
+	}
+
+	return open_path(fd, do_open_reg_noseek, NULL);
 }
 
 int get_filemap_fd(struct vma_area *vma)
@@ -712,6 +702,11 @@ static void collect_reg_fd(struct file_desc *fdesc,
 		remap_get(fdesc, 'f');
 
 	collect_gen_fd(fle, ri);
+}
+
+static int open_fe_fd(struct file_desc *fd)
+{
+	return open_path(fd, do_open_reg, NULL);
 }
 
 static struct file_desc_ops reg_desc_ops = {
