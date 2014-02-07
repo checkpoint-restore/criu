@@ -4,7 +4,7 @@ obj-ext-src-y		+= protobuf/rpc.pb-c.o
 
 includes		+= -iquote $(obj)/../arch/$(ARCH)/include -iquote $(obj)/../include -iquote $(obj)/.. -iquote $(obj)/../protobuf
 cflags-y		+= $(includes) -fPIC -Wa,--noexecstack -fno-stack-protector
-cflags-so		+= -rdynamic -Wl,-soname,$(lib-so).so.$(VERSION_SO_MAJOR)
+cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(VERSION_SO_MAJOR)
 ldflags-so		+= -lprotobuf-c
 
 .SECONDARY:
