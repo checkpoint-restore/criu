@@ -212,6 +212,40 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 	return 0;
 }
 
+int parse_self_maps_lite(struct vm_area_list *vms)
+{
+	FILE *maps;
+
+	vm_area_list_init(vms);
+
+	maps = fopen("/proc/self/maps", "r");
+	if (maps == NULL) {
+		pr_perror("Can't open self maps");
+		return -1;
+	}
+
+	while (fgets(buf, BUF_SIZE, maps) != NULL) {
+		struct vma_area *vma;
+		char *end;
+
+		vma = alloc_vma_area();
+		if (!vma) {
+			fclose(maps);
+			return -1;
+		}
+
+		vma->e->start = strtoul(buf, &end, 16);
+		vma->e->end = strtoul(end + 1, NULL, 16);
+		list_add_tail(&vma->list, &vms->h);
+		vms->nr++;
+
+		pr_debug("Parsed %lx-%lx vma\n", vma->e->start, vma->e->end);
+	}
+
+	fclose(maps);
+	return 0;
+}
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;

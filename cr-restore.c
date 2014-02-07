@@ -2231,7 +2231,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * this unwanted mapping might get overlapped by the restorer.
 	 */
 
-	ret = parse_smaps(pid, &self_vmas, false);
+	ret = parse_self_maps_lite(&self_vmas);
 	close_proc();
 	if (ret < 0)
 		goto err;
