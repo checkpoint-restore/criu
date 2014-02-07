@@ -598,8 +598,8 @@ int open_path(struct file_desc *d,
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
 		if (link(rfi->remap->path, rfi->path) < 0) {
-			pr_perror("Can't link %s -> %s",
-					rfi->remap->path, rfi->path);
+			pr_perror("Can't link %s -> %s", rfi->path,
+					rfi->remap->path);
 			return -1;
 		}
 	}
