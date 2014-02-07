@@ -102,6 +102,11 @@ else
 	CFLAGS	+= -O2
 endif
 
+ifeq ($(GMON),1)
+	CFLAGS	+= -pg
+	GMONLDOPT = -pg
+endif
+
 CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= $(ARCH_DIR)/syscalls.built-in.o
 ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
@@ -173,7 +178,7 @@ PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
 
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
