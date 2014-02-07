@@ -241,9 +241,9 @@ install: $(PROGRAM) install-man
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(Q) install -m 755 $(CRIU-LIB) \
 		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
-	$(Q) ln -s $(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+	$(Q) ln -s $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
 		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR)
-	$(Q) ln -s $(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+	$(Q) ln -s $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
 		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	$(Q) install -m 644 $(CRIU-INC) $(DESTDIR)$(INCLUDEDIR)

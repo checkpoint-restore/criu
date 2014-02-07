@@ -46,6 +46,6 @@ clean:
 install: $(MANS)
 	$(E) "  INSTALL " $(MANS)
 	$(Q) mkdir -p $(DESTDIR)$(MAN8DIR)
-	$(Q) install $(MANS) $(DESTDIR)$(MAN8DIR)
+	$(Q) install -m 644 $(MANS) $(DESTDIR)$(MAN8DIR)
 
 .PHONY: clean install
