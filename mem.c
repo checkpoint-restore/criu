@@ -105,14 +105,15 @@ static inline bool page_in_parent(u64 pme)
  * the memory contents is present in the pagent image set.
  */
 
-static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp, u64 *map)
+static int generate_iovs(struct vma_area *vma, int pagemap,
+			 struct page_pipe *pp, u64 *map, u64 *off)
 {
 	unsigned long pfn, nr_to_scan;
 	unsigned long pages[2] = {};
 	u64 from, len;
 
-	nr_to_scan = vma_area_len(vma) / PAGE_SIZE;
-	from = vma->e->start / PAGE_SIZE * sizeof(*map);
+	nr_to_scan = (vma_area_len(vma) - *off) / PAGE_SIZE;
+	from = (vma->e->start + *off) / PAGE_SIZE * sizeof(*map);
 	len = nr_to_scan * sizeof(*map);
 	if (pread(pagemap, map, len, from) != len) {
 		pr_perror("Can't read pagemap file");
@@ -126,7 +127,7 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 		if (!should_dump_page(vma->e, map[pfn]))
 			continue;
 
-		vaddr = vma->e->start + pfn * PAGE_SIZE;
+		vaddr = vma->e->start + *off + pfn * PAGE_SIZE;
 
 		/*
 		 * If we're doing incremental dump (parent images
@@ -143,9 +144,13 @@ static int generate_iovs(struct vma_area *vma, int pagemap, struct page_pipe *pp
 			pages[1]++;
 		}
 
-		if (ret)
-			return -1;
+		if (ret) {
+			*off += (pfn - 1) * PAGE_SIZE;
+			return ret;
+		}
 	}
+
+	*off += pfn * PAGE_SIZE;
 
 	cnt_add(CNT_PAGES_SCANNED, nr_to_scan);
 	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
@@ -262,7 +267,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		goto out_free;
 
 	ret = -1;
-	pp = create_page_pipe(vma_area_list->priv_size / 2, pargs_iovs(args), false);
+	pp = create_page_pipe(vma_area_list->priv_size / 2,
+				pargs_iovs(args), pp_ret == NULL);
 	if (!pp)
 		goto out_close;
 
@@ -270,7 +276,6 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
 			goto out_pp;
-
 	}
 
 	/*
@@ -278,10 +283,21 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	 */
 	args->off = 0;
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
+		u64 off = 0;
+
 		if (!privately_dump_vma(vma_area))
 			continue;
+again:
+		ret = generate_iovs(vma_area, pagemap, pp, map, &off);
+		if (ret == -EAGAIN) {
+			BUG_ON(pp_ret);
 
-		ret = generate_iovs(vma_area, pagemap, pp, map);
+			ret = fill_pages(pp, ctl, args, &xfer);
+			if (ret)
+				goto out_xfer;
+			page_pipe_reinit(pp);
+			goto again;
+		}
 		if (ret < 0)
 			goto out_xfer;
 	}
