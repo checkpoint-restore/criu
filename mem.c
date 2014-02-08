@@ -220,7 +220,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		goto out_free;
 
 	ret = -1;
-	pp = create_page_pipe(vma_area_list->priv_size / 2, pargs_iovs(args));
+	pp = create_page_pipe(vma_area_list->priv_size / 2, pargs_iovs(args), false);
 	if (!pp)
 		goto out_close;
 

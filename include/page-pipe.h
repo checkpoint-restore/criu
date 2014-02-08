@@ -81,6 +81,7 @@ struct page_pipe_buf {
 struct page_pipe {
 	unsigned int nr_pipes;	/* how many page_pipe_bufs in there */
 	struct list_head bufs;	/* list of bufs */
+	struct list_head free_bufs;	/* list of bufs */
 	unsigned int nr_iovs;	/* number of iovs */
 	unsigned int free_iov;	/* first free iov */
 	struct iovec *iovs;	/* iovs. They are provided into create_page_pipe
@@ -89,13 +90,18 @@ struct page_pipe {
 	unsigned int nr_holes;	/* number of holes allocated */
 	unsigned int free_hole;	/* number of holes in use */
 	struct iovec *holes;	/* holes */
+
+	bool chunk_mode;	/* Restrict the maximum buffer size of pipes
+				   and dump memory for a few iterations */
 };
 
-extern struct page_pipe *create_page_pipe(unsigned int nr, struct iovec *);
+extern struct page_pipe *create_page_pipe(unsigned int nr,
+					  struct iovec *, bool chunk_mode);
 extern void destroy_page_pipe(struct page_pipe *p);
 extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
 extern int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
 
 extern void debug_show_page_pipe(struct page_pipe *pp);
+void page_pipe_reinit(struct page_pipe *pp);
 
 #endif /* __CR_PAGE_PIPE_H__ */
