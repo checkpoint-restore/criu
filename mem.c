@@ -184,6 +184,48 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	return args;
 }
 
+static int fill_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
+			struct parasite_dump_pages_args *args, struct page_xfer *xfer)
+{
+	struct page_pipe_buf *ppb;
+	int ret = 0;
+
+	debug_show_page_pipe(pp);
+
+	/* Step 2 -- grab pages into page-pipe */
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		args->nr_segs = ppb->nr_segs;
+		args->nr_pages = ppb->pages_in;
+		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
+				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
+
+		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl);
+		if (ret < 0)
+			return -1;
+		ret = parasite_send_fd(ctl, ppb->p[1]);
+		if (ret)
+			return -1;
+
+		ret = __parasite_wait_daemon_ack(PARASITE_CMD_DUMPPAGES, ctl);
+		if (ret < 0)
+			return -1;
+
+		args->off += args->nr_segs;
+	}
+
+	/*
+	 * Step 3 -- write pages into image (or delay writing for
+	 *           pre-dump action (see pre_dump_one_task)
+	 */
+	if (xfer) {
+		timing_start(TIME_MEMWRITE);
+		ret = page_xfer_dump_pages(xfer, pp, 0);
+		timing_stop(TIME_MEMWRITE);
+	}
+
+	return ret;
+}
+
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
@@ -192,8 +234,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	u64 *map;
 	int pagemap;
 	struct page_pipe *pp;
-	struct page_pipe_buf *ppb;
 	struct vma_area *vma_area;
+	struct page_xfer xfer;
 	int ret = -1;
 
 	pr_info("\n");
@@ -224,76 +266,43 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	if (!pp)
 		goto out_close;
 
+	if (pp_ret == NULL) {
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
+		if (ret < 0)
+			goto out_pp;
+
+	}
+
 	/*
 	 * Step 1 -- generate the pagemap
 	 */
-
+	args->off = 0;
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		if (!privately_dump_vma(vma_area))
 			continue;
 
 		ret = generate_iovs(vma_area, pagemap, pp, map);
 		if (ret < 0)
-			goto out_pp;
+			goto out_xfer;
 	}
 
-	debug_show_page_pipe(pp);
-
-	/*
-	 * Step 2 -- grab pages into page-pipe
-	 */
-
-	args->off = 0;
-	list_for_each_entry(ppb, &pp->bufs, l) {
-		args->nr_segs = ppb->nr_segs;
-		args->nr_pages = ppb->pages_in;
-		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
-				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
-
-		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl);
-		if (ret < 0)
-			goto out_pp;
-		ret = parasite_send_fd(ctl, ppb->p[1]);
-		if (ret)
-			goto out_pp;
-
-		ret = __parasite_wait_daemon_ack(PARASITE_CMD_DUMPPAGES, ctl);
-		if (ret < 0)
-			goto out_pp;
-
-		args->off += args->nr_segs;
-	}
+	ret = fill_pages(pp, ctl, args, pp_ret ? NULL : &xfer);
+	if (ret)
+		goto out_xfer;
 
 	timing_stop(TIME_MEMDUMP);
 
-	/*
-	 * Step 3 -- write pages into image (or delay writing for
-	 *           pre-dump action (see pre_dump_one_task)
-	 */
-
 	if (pp_ret)
 		*pp_ret = pp;
-	else {
-		struct page_xfer xfer;
-
-		timing_start(TIME_MEMWRITE);
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
-		if (ret < 0)
-			goto out_pp;
-
-		ret = page_xfer_dump_pages(&xfer, pp, 0);
-		if (ret < 0)
-			goto out_pp;
-
-		xfer.close(&xfer);
-		timing_stop(TIME_MEMWRITE);
-	}
 
 	/*
 	 * Step 4 -- clean up
 	 */
 
 	ret = task_reset_dirty_track(ctl->pid.real);
+out_xfer:
+	if (pp_ret == NULL)
+		xfer.close(&xfer);
 out_pp:
 	if (ret || !pp_ret)
 		destroy_page_pipe(pp);
