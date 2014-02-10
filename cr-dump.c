@@ -375,9 +375,9 @@ static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
 	return -1;
 }
 
-static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
+static int get_task_auxv(pid_t pid, MmEntry *mm)
 {
-	int fd, ret, i;
+	int fd, ret;
 
 	pr_info("Obtaining task auvx ...\n");
 
@@ -385,20 +385,14 @@ static int get_task_auxv(pid_t pid, MmEntry *mm, size_t *size)
 	if (fd < 0)
 		return -1;
 
-	for (i = 0; i < AT_VECTOR_SIZE; i++) {
-		ret = read(fd, &mm->mm_saved_auxv[i],
-			   sizeof(auxv_t));
-		if (ret == 0)
-			break;
-		else if (ret != sizeof(auxv_t)) {
-			ret = -1;
-			pr_perror("Error reading %d's auxv[%d]",
-				  pid, i);
-			goto err;
-		}
-	}
+	ret = read(fd, mm->mm_saved_auxv, pb_repeated_size(mm, mm_saved_auxv));
+	if (ret < 0) {
+		ret = -1;
+		pr_perror("Error reading %d's auxv", pid);
+		goto err;
+	} else
+		mm->n_mm_saved_auxv = ret / sizeof(mm->mm_saved_auxv[0]);
 
-	*size = i;
 	ret = 0;
 err:
 	close_safe(&fd);
@@ -466,7 +460,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	if (!mme.mm_saved_auxv)
 		goto err;
 
-	if (get_task_auxv(pid, &mme, &mme.n_mm_saved_auxv))
+	if (get_task_auxv(pid, &mme))
 		goto err;
 
 	if (dump_task_exe_link(pid, &mme))
