@@ -481,6 +481,47 @@ int run_scripts(char *action)
 		ret__;						\
 	})
 
+static int fixup_env(void)
+{
+	char *ep, *nep;
+	int len;
+
+	/*
+	 * FIXME
+	 *
+	 * We sometimes call other tools inside namespace
+	 * we restore. Host system may not have PATH properly
+	 * reflecting where the tools are in other namespaces.
+	 *
+	 * E.g. when restoring Centos6 container from FC20
+	 * host we fail to find /bin/tar, as in FC20 /bin is
+	 * not in PATH.
+	 *
+	 * It's not cool at all, things we think we call might
+	 * not coincide with what is really called. Proper fix
+	 * will come a bit later.
+	 */
+
+	ep = getenv("PATH");
+	if (!ep)
+		return 0;
+
+	len = strlen(ep);
+	nep = xmalloc(len + sizeof("/bin:"));
+	if (!nep)
+		return -1;
+
+	sprintf(nep, "/bin:%s", ep);
+	if (setenv("PATH", nep, 1)) {
+		pr_perror("Failed to override PATH");
+		xfree(nep);
+		return -1;
+	}
+
+	xfree(nep);
+	return 0;
+}
+
 /*
  * If "in" is negative, stdin will be closed.
  * If "out" or "err" are negative, a log file descriptor will be used.
@@ -503,6 +544,9 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[])
 		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
+		if (fixup_env())
+			goto out_chld;
+
 		if (out < 0)
 			out = log_get_fd();
 		if (err < 0)
