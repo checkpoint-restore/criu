@@ -1,7 +1,19 @@
-for x in $(cat include/protobuf-desc.h | \
-		sed -n '/PB_AUTOGEN_START/,/PB_AUTOGEN_STOP/p' | \
-		fgrep -v 'PB_AUTOGEN_S' | sed -e 's/,.*$//' -e 's/PB_//'); do
-	x_la=$(echo $x | tr 'A-Z' 'a-z')
-	x_uf=$(echo $x_la | sed -e 's/^./\u&/' -e 's/_./\U&/g' -e 's/_//g')
+TR="y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/"
+
+for x in $(sed -n '/PB_AUTOGEN_START/,/PB_AUTOGEN_STOP/ {
+		/PB_AUTOGEN_ST/d;
+		s/,.*$//;
+		s/\tPB_//;
+		p;
+	   }' include/protobuf-desc.h); do
+	x_la=$(echo $x | sed $TR)
+	x_uf=$(echo $x | sed -nr 's/^./&#\\\
+/;
+		s/_(.)/\\\
+\1#\\\
+/g;
+		p;' | \
+		sed -r "/^[A-Z]#\\\\\$/!{ $TR; }" | \
+		sed -r ':loop; N; s/#?\\\n//; t loop')
 	echo "CR_PB_DESC($x, $x_uf, $x_la);"
 done
