@@ -587,20 +587,50 @@ const struct fdtype_ops regfile_dump_ops = {
  * files, directories, fifos, etc.
  */
 
+static inline int rfi_remap(struct reg_file_info *rfi)
+{
+	return link(rfi->remap->path, rfi->path);
+}
+
 int open_path(struct file_desc *d,
 		int(*open_cb)(struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
 	int tmp;
+	char *orig_path = NULL;
 
 	rfi = container_of(d, struct reg_file_info, d);
 
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
-		if (link(rfi->remap->path, rfi->path) < 0) {
-			pr_perror("Can't link %s -> %s", rfi->path,
-					rfi->remap->path);
-			return -1;
+		if (rfi_remap(rfi) < 0) {
+			static char tmp_path[PATH_MAX];
+
+			if (errno != EEXIST) {
+				pr_perror("Can't link %s -> %s", rfi->path,
+						rfi->remap->path);
+				return -1;
+			}
+
+			/*
+			 * The file whose name we're trying to create
+			 * exists. Need to pick some other one, we're
+			 * going to remove it anyway.
+			 *
+			 * Strictly speaking, this is cheating, file
+			 * name shouldn't change. But since NFS with
+			 * its silly-rename doesn't care, why should we?
+			 */
+
+			orig_path = rfi->path;
+			rfi->path = tmp_path;
+			snprintf(tmp_path, sizeof(tmp_path), "%s.cr_link", orig_path);
+			pr_debug("Fake %s -> %s link\n", rfi->path, rfi->remap->path);
+
+			if (rfi_remap(rfi) < 0) {
+				pr_perror("Can't create even fake link!");
+				return -1;
+			}
 		}
 	}
 
@@ -617,6 +647,9 @@ int open_path(struct file_desc *d,
 			pr_info("Unlink the ghost %s\n", rfi->remap->path);
 			unlink(rfi->remap->path);
 		}
+
+		if (orig_path)
+			rfi->path = orig_path;
 		mutex_unlock(ghost_file_mutex);
 	}
 
