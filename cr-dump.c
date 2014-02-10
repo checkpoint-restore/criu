@@ -377,7 +377,8 @@ static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
 
 static int get_task_auxv(pid_t pid, MmEntry *mm)
 {
-	int fd, ret;
+	auxv_t mm_saved_auxv[AT_VECTOR_SIZE];
+	int fd, i, ret;
 
 	pr_info("Obtaining task auvx ...\n");
 
@@ -385,13 +386,16 @@ static int get_task_auxv(pid_t pid, MmEntry *mm)
 	if (fd < 0)
 		return -1;
 
-	ret = read(fd, mm->mm_saved_auxv, pb_repeated_size(mm, mm_saved_auxv));
+	ret = read(fd, mm_saved_auxv, sizeof(mm_saved_auxv));
 	if (ret < 0) {
 		ret = -1;
 		pr_perror("Error reading %d's auxv", pid);
 		goto err;
-	} else
-		mm->n_mm_saved_auxv = ret / sizeof(mm->mm_saved_auxv[0]);
+	} else {
+		mm->n_mm_saved_auxv = ret / sizeof(auxv_t);
+		for (i = 0; i < mm->n_mm_saved_auxv; i++)
+			mm->mm_saved_auxv[i] = (u64)mm_saved_auxv[i];
+	}
 
 	ret = 0;
 err:
