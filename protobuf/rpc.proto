@@ -4,6 +4,11 @@ message criu_page_server_info {
 	optional int32		pid	= 3;
 }
 
+message criu_veth_pair {
+	required string		if_in	= 1;
+	required string		if_out	= 2;
+};
+
 message criu_opts {
 	required int32			images_dir_fd	= 1;
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
@@ -27,6 +32,7 @@ message criu_opts {
 
 	optional int32			work_dir_fd	= 16;
 	optional bool			link_remap	= 17;
+	repeated criu_veth_pair		veths		= 18;
 }
 
 message criu_dump_resp {

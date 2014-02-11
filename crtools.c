@@ -230,20 +230,15 @@ int main(int argc, char *argv[])
 			break;
 		case 47:
 			{
-				struct veth_pair *n;
+				char *aux;
 
-				n = xmalloc(sizeof(*n));
-				if (n == NULL)
-					return 1;
-				n->outside = strchr(optarg, '=');
-				if (n->outside == NULL) {
-					xfree(n);
+				aux = strchr(optarg, '=');
+				if (aux == NULL)
 					goto bad_arg;
-				}
 
-				*n->outside++ = '\0';
-				n->inside = optarg;
-				list_add(&n->node, &opts.veth_pairs);
+				*aux = '\0';
+				if (veth_pair_add(optarg, aux + 1))
+					return 1;
 			}
 			break;
 		case 49:

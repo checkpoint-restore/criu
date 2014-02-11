@@ -24,4 +24,6 @@ extern int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds);
 extern int read_ns_sys_file(char *path, char *buf, int len);
 extern int restore_link_parms(NetDeviceEntry *nde, int nlsk);
 
+extern int veth_pair_add(char *in, char *out);
+
 #endif /* __CR_NET_H__ */

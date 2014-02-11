@@ -605,4 +605,19 @@ void network_unlock(void)
 		run_scripts("network-unlock");
 }
 
+int veth_pair_add(char *in, char *out)
+{
+	struct veth_pair *n;
+
+	n = xmalloc(sizeof(*n));
+	if (n == NULL)
+		return -1;
+
+	n->inside = in;
+	n->outside = out;
+	list_add(&n->node, &opts.veth_pairs);
+	pr_debug("Added %s:%s veth map\n", in, out);
+	return 0;
+}
+
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");

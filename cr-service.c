@@ -22,6 +22,7 @@
 #include "cr-service-const.h"
 #include "sd-daemon.h"
 #include "page-xfer.h"
+#include "net.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -159,6 +160,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	socklen_t ids_len = sizeof(struct ucred);
 	char images_dir_path[PATH_MAX];
 	char work_dir_path[PATH_MAX];
+	int i;
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options");
@@ -263,6 +265,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		script->path = SCRIPT_RPC_NOTIFY;
 		script->arg = sk;
 		list_add(&script->node, &opts.scripts);
+	}
+
+	for (i = 0; i < req->n_veths; i++) {
+		if (veth_pair_add(req->veths[i]->if_in, req->veths[i]->if_out))
+			return -1;
 	}
 
 	return 0;
