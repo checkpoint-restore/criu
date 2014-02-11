@@ -125,6 +125,16 @@ int send_criu_rpc_script(char *script, int fd)
 	msg.notify = &cn;
 	cn.script = script;
 
+	if (!strcmp(script, "setup-namespaces")) {
+		/*
+		 * FIXME pid is required only once on
+		 * restore. Need some more sane way of
+		 * checking this.
+		 */
+		cn.has_pid = true;
+		cn.pid = root_item->pid.real;
+	}
+
 	ret = send_criu_msg(fd, &msg);
 	if (ret < 0)
 		return ret;

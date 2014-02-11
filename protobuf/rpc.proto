@@ -39,6 +39,7 @@ message criu_restore_resp {
 
 message criu_notify {
 	optional string script		= 1;
+	optional int32	pid		= 2;
 }
 
 enum criu_req_type {
