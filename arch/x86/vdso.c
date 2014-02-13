@@ -100,6 +100,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (!vma_area_is(vma, VMA_AREA_REGULAR))
 			continue;
 
+		if (vma_area_is(vma, VMA_FILE_SHARED) ||
+				vma_area_is(vma, VMA_FILE_PRIVATE))
+			continue;
+
 		if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
 			continue;
 
