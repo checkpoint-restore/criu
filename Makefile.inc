@@ -15,6 +15,7 @@ PREFIX		:= /usr/local
 SBINDIR		:= $(PREFIX)/sbin
 MANDIR		:= $(PREFIX)/share/man
 SYSTEMDUNITDIR	:= $(PREFIX)/lib/systemd/system/
+LOGROTATEDIR	:= $(PREFIX)/etc/logrotate.d/
 LIBDIR		:= $(PREFIX)/lib
 # For recent Debian/Ubuntu with multiarch support
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture \
