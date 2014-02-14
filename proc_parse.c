@@ -246,6 +246,8 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	return 0;
 }
 
+static char smaps_buf[PAGE_SIZE];
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
@@ -267,6 +269,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	smaps = fopen_proc(pid, "smaps");
 	if (!smaps)
 		goto err;
+
+	setvbuf(smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
 
 	if (use_map_files) {
 		map_files_dir = opendir_proc(pid, "map_files");
