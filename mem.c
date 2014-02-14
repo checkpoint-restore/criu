@@ -189,7 +189,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	return args;
 }
 
-static int fill_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
+static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 			struct parasite_dump_pages_args *args, struct page_xfer *xfer)
 {
 	struct page_pipe_buf *ppb;
@@ -292,7 +292,7 @@ again:
 		if (ret == -EAGAIN) {
 			BUG_ON(pp_ret);
 
-			ret = fill_pages(pp, ctl, args, &xfer);
+			ret = dump_pages(pp, ctl, args, &xfer);
 			if (ret)
 				goto out_xfer;
 			page_pipe_reinit(pp);
@@ -302,7 +302,7 @@ again:
 			goto out_xfer;
 	}
 
-	ret = fill_pages(pp, ctl, args, pp_ret ? NULL : &xfer);
+	ret = dump_pages(pp, ctl, args, pp_ret ? NULL : &xfer);
 	if (ret)
 		goto out_xfer;
 
