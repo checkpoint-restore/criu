@@ -4,11 +4,9 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "
 
+#include "config.h"
 #include "util.h"
 #include "page-pipe.h"
-
-/* The number of pipes for one chunk */
-#define NR_PIPES_PER_CHUNK 8
 
 static int page_pipe_grow(struct page_pipe *pp)
 {
@@ -109,25 +107,6 @@ void page_pipe_reinit(struct page_pipe *pp)
 	if (page_pipe_grow(pp))
 		BUG(); /* It can't fail, because ppb is in free_bufs */
 }
-
-#define PAGE_ALLOC_COSTLY_ORDER 3 /* from the kernel source code */
-struct kernel_pipe_buffer {
-        struct page *page;
-        unsigned int offset, len;
-        const struct pipe_buf_operations *ops;
-        unsigned int flags;
-        unsigned long private;
-};
-
-/*
- * The kernel allocates the linear chunk of memory for pipe buffers.
- * Allocation of chunks with size more than PAGE_ALLOC_COSTLY_ORDER
- * fails very often, so we need to restrict the pipe capacity to not
- * allocate big chunks.
- */
-#define PIPE_MAX_SIZE ((1 << PAGE_ALLOC_COSTLY_ORDER) * PAGE_SIZE /	\
-			sizeof(struct kernel_pipe_buffer))
-#define PPB_IOV_BATCH	8
 
 static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *ppb,
 		unsigned long addr)
