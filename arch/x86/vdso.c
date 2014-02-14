@@ -136,14 +136,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		}
 
 		off = (vma->e->start / PAGE_SIZE) * sizeof(u64);
-		if (lseek(fd, off, SEEK_SET) != off) {
-			pr_perror("Failed to seek address %lx\n",
-				  (long unsigned int)vma->e->start);
-			ret = -1;
-			goto err;
-		}
-
-		ret = read(fd, &pfn, sizeof(pfn));
+		ret = pread(fd, &pfn, sizeof(pfn), off);
 		if (ret < 0 || ret != sizeof(pfn)) {
 			pr_perror("Can't read pme for pid %d", pid);
 			ret = -1;
