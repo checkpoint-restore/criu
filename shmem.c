@@ -272,11 +272,25 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 	return 0;
 }
 
+static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
+{
+	struct page_pipe_buf *ppb;
+
+	list_for_each_entry(ppb, &pp->bufs, l)
+		if (vmsplice(ppb->p[1], ppb->iov, ppb->nr_segs,
+					SPLICE_F_GIFT | SPLICE_F_NONBLOCK) !=
+				ppb->pages_in * PAGE_SIZE) {
+			pr_perror("Can't get shmem into page-pipe");
+			return -1;
+		}
+
+	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr);
+}
+
 static int dump_one_shmem(struct shmem_info_dump *si)
 {
 	struct iovec *iovs;
 	struct page_pipe *pp;
-	struct page_pipe_buf *ppb;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
 	unsigned char *map = NULL;
@@ -317,32 +331,32 @@ static int dump_one_shmem(struct shmem_info_dump *si)
 	if (!iovs)
 		goto err_unmap;
 
-	pp = create_page_pipe((nrpages + 1) / 2, iovs, false);
+	pp = create_page_pipe((nrpages + 1) / 2, iovs, true);
 	if (!pp)
 		goto err_iovs;
-
-	for (pfn = 0; pfn < nrpages; pfn++) {
-		if (!(map[pfn] & PAGE_RSS))
-			continue;
-
-		if (page_pipe_add_page(pp, (unsigned long)addr + pfn * PAGE_SIZE))
-			goto err_pp;
-	}
-
-	list_for_each_entry(ppb, &pp->bufs, l)
-		if (vmsplice(ppb->p[1], ppb->iov, ppb->nr_segs,
-					SPLICE_F_GIFT | SPLICE_F_NONBLOCK) !=
-				ppb->pages_in * PAGE_SIZE) {
-			pr_perror("Can't get shmem into page-pipe");
-			goto err_pp;
-		}
 
 	err = open_page_xfer(&xfer, CR_FD_SHMEM_PAGEMAP, si->shmid);
 	if (err)
 		goto err_pp;
 
-	ret = page_xfer_dump_pages(&xfer, pp, (unsigned long)addr);
+	for (pfn = 0; pfn < nrpages; pfn++) {
+		if (!(map[pfn] & PAGE_RSS))
+			continue;
+again:
+		ret = page_pipe_add_page(pp, (unsigned long)addr + pfn * PAGE_SIZE);
+		if (ret == -EAGAIN) {
+			ret = dump_pages(pp, &xfer, addr);
+			if (ret)
+				goto err_xfer;
+			page_pipe_reinit(pp);
+			goto again;
+		} else if (ret)
+			goto err_xfer;
+	}
 
+	ret = dump_pages(pp, &xfer, addr);
+
+err_xfer:
 	xfer.close(&xfer);
 err_pp:
 	destroy_page_pipe(pp);
