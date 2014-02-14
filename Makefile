@@ -71,6 +71,7 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	endif
 endif
 
+SRCARCH		?= $(ARCH)
 LDARCH		?= $(SRCARCH)
 
 SRC_DIR		?= $(CURDIR)
@@ -108,7 +109,7 @@ CRIU-SO		:= libcriu
 CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
 
-export CC MAKE CFLAGS LIBS ARCH DEFINES MAKEFLAGS CRIU-SO
+export CC MAKE CFLAGS LIBS SRCARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export cflags-y
 

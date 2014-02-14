@@ -85,7 +85,7 @@ $(obj)/%.proto.c.d: $(obj)/%.proto | $(obj)/%.proto.d
 $(obj)/%.pb-c.c $(obj)/%.pb-c.h: $(obj)/%.proto $(obj)/%.proto.c.d
 	$(E) "  PBCC    " $@
 	$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $<
-ifeq ($(ARCH),arm)
+ifeq ($(SRCARCH),arm)
 	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $@
 	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $(patsubst %.c,%.h,$@)
 	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $(patsubst %.h,%.c,$@)

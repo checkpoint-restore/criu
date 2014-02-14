@@ -15,7 +15,7 @@ restorer-obj-e		+= $(ARCH_DIR)/vdso-pie.o
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 cflags-y		+= -DCR_NOGLIBC -fpie  -Wa,--noexecstack -fno-stack-protector
-ifeq ($(ARCH), arm)
+ifeq ($(SRCARCH), arm)
 	cflags-y	+= -marm
 endif
 ASMFLAGS		+= -D__ASSEMBLY__
