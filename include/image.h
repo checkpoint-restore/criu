@@ -65,7 +65,7 @@
 extern bool fdinfo_per_id;
 extern bool ns_per_id;
 
-#define O_DUMP	(O_RDWR | O_CREAT | O_EXCL)
+#define O_DUMP	(O_RDWR | O_CREAT | O_TRUNC)
 #define O_SHOW	(O_RDONLY)
 #define O_RSTR	(O_RDONLY)
 

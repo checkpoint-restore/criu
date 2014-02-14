@@ -192,14 +192,6 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 	vsnprintf(path, PATH_MAX, fdset_template[type].fmt, args);
 	va_end(args);
 
-	if (flags & O_EXCL) {
-		ret = unlinkat(dfd, path, 0);
-		if (ret && errno != ENOENT) {
-			pr_perror("Unable to unlink %s", path);
-			goto err;
-		}
-	}
-
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
 		pr_perror("Unable to open %s", path);
