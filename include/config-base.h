@@ -22,5 +22,4 @@ struct kernel_pipe_buffer {
 /* The number of pipes for one chunk */
 #define NR_PIPES_PER_CHUNK 8
 
-
-#endif
+#endif /* __CR_CONFIG_BASE_H__ */
