@@ -19,6 +19,7 @@
 #include "pstree.h"
 #include "restorer.h"
 #include "files-reg.h"
+#include "pagemap-cache.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -105,26 +106,19 @@ static inline bool page_in_parent(u64 pme)
  * the memory contents is present in the pagent image set.
  */
 
-static int generate_iovs(struct vma_area *vma, int pagemap,
-			 struct page_pipe *pp, u64 *map, u64 *off)
+static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off)
 {
+	u64 *at = &map[PAGEMAP_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
 	unsigned long pages[2] = {};
-	u64 from, len;
 
 	nr_to_scan = (vma_area_len(vma) - *off) / PAGE_SIZE;
-	from = (vma->e->start + *off) / PAGE_SIZE * sizeof(*map);
-	len = nr_to_scan * sizeof(*map);
-	if (pread(pagemap, map, len, from) != len) {
-		pr_perror("Can't read pagemap file");
-		return -1;
-	}
 
 	for (pfn = 0; pfn < nr_to_scan; pfn++) {
 		unsigned long vaddr;
 		int ret;
 
-		if (!should_dump_page(vma->e, map[pfn]))
+		if (!should_dump_page(vma->e, at[pfn]))
 			continue;
 
 		vaddr = vma->e->start + *off + pfn * PAGE_SIZE;
@@ -136,7 +130,7 @@ static int generate_iovs(struct vma_area *vma, int pagemap,
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (page_in_parent(map[pfn])) {
+		if (page_in_parent(at[pfn])) {
 			ret = page_pipe_add_hole(pp, vaddr);
 			pages[0]++;
 		} else {
@@ -236,8 +230,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct vm_area_list *vma_area_list,
 		struct page_pipe **pp_ret)
 {
-	u64 *map;
-	int pagemap;
+	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
 	struct vma_area *vma_area;
 	struct page_xfer xfer;
@@ -258,19 +251,15 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	 * Step 0 -- prepare
 	 */
 
-	map = xmalloc(vma_area_list->longest * sizeof(*map));
-	if (!map)
-		goto out;
-
-	ret = pagemap = open_proc(ctl->pid.real, "pagemap");
-	if (ret < 0)
-		goto out_free;
+	if (pmc_init(&pmc, ctl->pid.real, &vma_area_list->h,
+		     vma_area_list->longest * PAGE_SIZE))
+		return -1;
 
 	ret = -1;
 	pp = create_page_pipe(vma_area_list->priv_size / 2,
 				pargs_iovs(args), pp_ret == NULL);
 	if (!pp)
-		goto out_close;
+		goto out;
 
 	if (pp_ret == NULL) {
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
@@ -284,11 +273,16 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	args->off = 0;
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		u64 off = 0;
+		u64 *map;
 
 		if (!privately_dump_vma(vma_area))
 			continue;
+
+		map = pmc_get_map(&pmc, vma_area);
+		if (!map)
+			goto out_xfer;
 again:
-		ret = generate_iovs(vma_area, pagemap, pp, map, &off);
+		ret = generate_iovs(vma_area, pp, map, &off);
 		if (ret == -EAGAIN) {
 			BUG_ON(pp_ret);
 
@@ -322,11 +316,8 @@ out_xfer:
 out_pp:
 	if (ret || !pp_ret)
 		destroy_page_pipe(pp);
-out_close:
-	close(pagemap);
-out_free:
-	xfree(map);
 out:
+	pmc_fini(&pmc);
 	pr_info("----------------------------------------\n");
 	return ret;
 }
