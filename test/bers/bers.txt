@@ -1,0 +1,74 @@
+bers(8)
+=======
+:doctype:       manpage
+:man source:    bers
+:man version:   0.0.1
+:man manual:    bers manual
+
+NAME
+----
+bers - go berserk and eat computer resources
+
+SYNOPSIS
+--------
+*bers* ['options']
+
+DESCRIPTION
+-----------
+*bers* is a command line utility aimed to eat resources of the computer it runs on.
+Idea behind is to create a number of tasks which would trash computer resources
+eating cpu and i/o time.
+
+OPTIONS
+-------
+*-t*, *--tasks* 'num'::
+	Create 'num' number of forks.
+
+*-d*, *--dir* 'dir'::
+	Path to 'dir' directory where temporary files will be created to load
+	I/O subsystem.
+
+*-f*, *--files* 'num'::
+	Create 'num' files in each task.
+
+*-m*, *--memory* 'num'::
+	Allocate 'num' megabytes of memory for every task.
+
+*--mem-chunks* 'num'::
+	Allocate memory for each task not as one slab but split
+	it into 'num' equal parts.
+
+*--mem-fill* 'mode'::
+	Touch (write) into allocated memory once task is created. The
+	'mode' might be one of the following: 'all' -- write every
+	single byte of the memory, 'light' -- write into first bytes
+	of first page of the allocated memory chunk, 'dirtify' -- write
+	into every page of every allocated chunk.
+
+*--mem-cycle* 'mode'::
+	Same as *--mem-fill*, but 'mode' taken into account while
+	task is cycling. By default each cycle initiated per one second.
+
+*--refresh* 'second'::
+	Refresh load state of every task each 'second'. By refsresh
+	here means to dirtify memory and file contents.
+
+*--file-size* 'bytes'::
+	Write 'bytes' of data into each file on every refresh cycle.
+
+EXAMPLE
+-------
+
+bers -d test/bers/dump -t 256 -m 54 -c 4 -f 200 --mem-fill dirtify --mem-cycle dirtify
+
+We generate 256 tasks wit each allocating 54 megabytes of memory splitted
+equally into 4 memory areas. Each task opens 200 files. On creation and
+cycling we touch every page of every memory area.
+
+AUTHOR
+------
+OpenVZ team.
+
+COPYRIGHT
+---------
+Copyright \(C) 2014, Parallels Inc.
