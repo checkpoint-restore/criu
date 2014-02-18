@@ -1315,16 +1315,17 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	}
 
 	while (1) {
+		char pbuf[17]; /* 16 + eol */
 		timer = xzalloc(sizeof(struct proc_posix_timer));
 		if (timer == NULL)
 			goto err;
 
 		ret = fscanf(file, "ID: %ld\n"
-				   "signal: %d/%p\n"
+				   "signal: %d/%16s\n"
 				   "notify: %6[a-z]/%3[a-z].%d\n"
 				   "ClockID: %d\n",
 				&timer->spt.it_id,
-				&timer->spt.si_signo, &timer->spt.sival_ptr,
+				&timer->spt.si_signo, pbuf,
 				sigpid, tidpid, &pid_t,
 				&timer->spt.clock_id);
 		if (ret != 7) {
@@ -1332,6 +1333,14 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 			xfree(timer);
 			if (feof(file))
 				goto out;
+			goto err;
+		}
+
+		timer->spt.sival_ptr = NULL;
+		if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
+		    strcmp(pbuf, "(null)")) {
+			pr_err("Unable to parse '%s'\n", pbuf);
+			xfree(timer);
 			goto err;
 		}
 
