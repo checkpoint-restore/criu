@@ -32,7 +32,7 @@ static inline void pmc_zap(pmc_t *pmc)
 
 int pmc_init(pmc_t *pmc, pid_t pid, struct list_head *vma_head, size_t size)
 {
-	size_t map_size = max(size, PMC_SIZE);
+	size_t map_size = max(size, (size_t)PMC_SIZE);
 	pmc_reset(pmc);
 
 	BUG_ON(!vma_head);
@@ -69,8 +69,8 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 	pmc->start = vma->e->start;
 	pmc->end = vma->e->end;
 
-	pr_debug("filling VMA %lx-%lx (%luK) [l:%lx h:%lx]\n",
-		 vma->e->start, vma->e->end, len >> 10, low, high);
+	pr_debug("filling VMA %lx-%lx (%zuK) [l:%lx h:%lx]\n",
+		 (long)vma->e->start, (long)vma->e->end, len >> 10, low, high);
 
 	/*
 	 * If we meet a small VMA, lets try to fit 2M cache
@@ -87,7 +87,7 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 		size_t nr_vmas = 1;
 
 		pr_debug("\t%16lx-%-16lx nr:%-5zu cov:%zu\n",
-			 vma->e->start, vma->e->end, nr_vmas, size_cov);
+			 (long)vma->e->start, (long)vma->e->end, nr_vmas, size_cov);
 
 		list_for_each_entry_continue(vma, pmc->vma_head, list) {
 			if (vma->e->start > high || vma->e->end > high)
@@ -98,7 +98,7 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 			nr_vmas++;
 
 			pr_debug("\t%16lx-%-16lx nr:%-5zu cov:%zu\n",
-				 vma->e->start, vma->e->end, nr_vmas, size_cov);
+				 (long)vma->e->start, (long)vma->e->end, nr_vmas, size_cov);
 		}
 
 		if (nr_vmas > 1) {
@@ -134,7 +134,7 @@ u64 *pmc_get_map(pmc_t *pmc, struct vma_area *vma)
 	/* Miss, refill the cache */
 	if (pmc_fill_cache(pmc, vma)) {
 		pr_err("Failed to fill cache for %d (%lx-%lx)\n",
-		       pmc->pid, vma->e->start, vma->e->end);
+		       pmc->pid, (long)vma->e->start, (long)vma->e->end);
 		return NULL;
 	}
 
