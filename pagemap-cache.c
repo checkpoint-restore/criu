@@ -66,6 +66,9 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 	size_t len = vma_area_len(vma);
 	size_t size_map;
 
+	if (high > TASK_SIZE)
+		high = TASK_SIZE;
+
 	pmc->start = vma->e->start;
 	pmc->end = vma->e->end;
 
