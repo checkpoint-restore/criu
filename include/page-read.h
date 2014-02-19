@@ -73,4 +73,5 @@ extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);
 
 extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
+extern int punch_hole(int fd, unsigned long off, unsigned long len);
 #endif /* __CR_PAGE_READ_H__ */

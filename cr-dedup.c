@@ -101,6 +101,19 @@ exit:
 	return 0;
 }
 
+int punch_hole(int fd, unsigned long off, unsigned long len)
+{
+	int ret;
+	pr_debug("Punch!/%lu/%lu/\n", off, len);
+	ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+			off, len);
+	if (ret != 0) {
+		pr_perror("Error punching hole");
+		return -1;
+	}
+	return 0;
+}
+
 int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 {
 	unsigned long off;
@@ -133,14 +146,11 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
 		off_real = lseek(pr->fd_pg, 0, SEEK_CUR);
 		if (!pr->pe->in_parent) {
-			pr_debug("Punch!/%lu/%lu/\n", off_real, min(piov_end, iov_end) - off);
-			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-					off_real, min(piov_end, iov_end) - off);
-			if (ret != 0) {
-				pr_perror("Error punching hole : %d", errno);
-				return -1;
-			}
+			ret = punch_hole(pr->fd_pg, off_real, min(piov_end, iov_end) - off);
+			if (ret == -1)
+				return ret;
 		}
+
 		prp = pr->parent;
 		if (prp) {
 			/* recursively */
