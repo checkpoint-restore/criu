@@ -139,7 +139,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		}
 
 		if (ret) {
-			*off += (pfn - 1) * PAGE_SIZE;
+			*off += pfn * PAGE_SIZE;
 			return ret;
 		}
 	}
