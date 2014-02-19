@@ -641,11 +641,10 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 	 * 2) when writing a hole, the respective place would be checked
 	 *    to exist in parent (either pagemap or hole)
 	 */
-	{
+	xfer->parent = NULL;
+	if (fd_type == CR_FD_PAGEMAP) {
 		int ret;
 		int pfd;
-
-		xfer->parent = NULL;
 
 		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (pfd < 0 && errno == ENOENT)
