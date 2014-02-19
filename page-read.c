@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "image.h"
+#include "cr_options.h"
 #include "servicefd.h"
 #include "page-read.h"
 
@@ -145,6 +146,13 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 		if (ret != PAGE_SIZE) {
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
+		}
+
+		if (opts.auto_dedup) {
+			ret = punch_hole(pr->fd_pg, current_vaddr, (unsigned int)PAGE_SIZE);
+			if (ret == -1) {
+				return -1;
+			}
 		}
 	}
 
