@@ -358,7 +358,7 @@ static int check(int sk)
 	return send_criu_msg(sk, &resp);
 }
 
-static int pre_dump_using_req(int sk, CriuOpts *opts)
+static int pre_dump_using_req(int sk, CriuOpts *req)
 {
 	int pid, status;
 	bool success = false;
@@ -372,10 +372,10 @@ static int pre_dump_using_req(int sk, CriuOpts *opts)
 	if (pid == 0) {
 		int ret = 1;
 
-		if (setup_opts_from_req(sk, opts))
+		if (setup_opts_from_req(sk, req))
 			goto cout;
 
-		if (cr_pre_dump_tasks(opts->pid))
+		if (cr_pre_dump_tasks(req->pid))
 			goto cout;
 
 		ret = 0;
@@ -423,19 +423,19 @@ static int pre_dump_loop(int sk, CriuReq *msg)
 	return dump_using_req(sk, msg->opts);
 }
 
-static int start_page_server_req(int sk, CriuOpts *opts)
+static int start_page_server_req(int sk, CriuOpts *req)
 {
 	int ret;
 	bool success = false;
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
 
-	if (!opts->ps) {
+	if (!req->ps) {
 		pr_err("No page server info in message\n");
 		goto out;
 	}
 
-	if (setup_opts_from_req(sk, opts))
+	if (setup_opts_from_req(sk, req))
 		goto out;
 
 	pr_debug("Starting page server\n");
