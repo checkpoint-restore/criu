@@ -6,6 +6,7 @@
 #include <signal.h>
 #include "protobuf/core.pb-c.h"
 
+#include "asm-generic/page.h"
 #include "asm/bitops.h"
 #include "asm/int.h"
 
@@ -91,14 +92,6 @@ struct user_vfp_exc {
 
 #define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
 #define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
-
-#ifndef PAGE_SIZE
-# define PAGE_SIZE	4096
-#endif
-
-#ifndef PAGE_MASK
-# define PAGE_MASK	(~(PAGE_SIZE - 1))
-#endif
 
 #define REG_RES(regs) ((regs).ARM_r0)
 #define REG_IP(regs)  ((regs).ARM_pc)
