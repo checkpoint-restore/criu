@@ -108,7 +108,7 @@ static inline bool page_in_parent(u64 pme)
 
 static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off)
 {
-	u64 *at = &map[PAGEMAP_PFN(*off)];
+	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
 	unsigned long pages[2] = {};
 

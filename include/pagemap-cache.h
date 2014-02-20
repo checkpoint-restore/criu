@@ -2,14 +2,14 @@
 #define __CR_PAGEMAP_H__
 
 #include <sys/types.h>
-#include "asm/types.h"
+#include "asm-generic/page.h"
+#include "asm/int.h"
 
 #include "list.h"
 
 struct vma_area;
 
-#define	PAGEMAP_PFN(addr)	((addr) / PAGE_SIZE)
-#define PAGEMAP_PFN_OFF(addr)	(PAGEMAP_PFN(addr) * sizeof(u64))
+#define PAGEMAP_PFN_OFF(addr)	(PAGE_PFN(addr) * sizeof(u64))
 
 typedef struct {
 	pid_t			pid;		/* which process it belongs */

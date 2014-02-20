@@ -17,7 +17,7 @@
 #define PMC_MASK		(~(PMC_SIZE - 1))
 #define PMC_SIZE_GAP		(PMC_SIZE / 4)
 
-#define PAGEMAP_LEN(addr)	(PAGEMAP_PFN(addr) * sizeof(u64))
+#define PAGEMAP_LEN(addr)	(PAGE_PFN(addr) * sizeof(u64))
 
 static inline void pmc_reset(pmc_t *pmc)
 {
@@ -56,7 +56,7 @@ int pmc_init(pmc_t *pmc, pid_t pid, struct list_head *vma_head, size_t size)
 
 static inline u64 *__pmc_get_map(pmc_t *pmc, unsigned long addr)
 {
-	return &pmc->map[PAGEMAP_PFN(addr - pmc->start)];
+	return &pmc->map[PAGE_PFN(addr - pmc->start)];
 }
 
 static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
