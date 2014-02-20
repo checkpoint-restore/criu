@@ -2,6 +2,7 @@
 #define __CR_BUG_H__
 
 #include <signal.h>
+#include <stdbool.h>
 
 #include "compiler.h"
 #include "log.h"
