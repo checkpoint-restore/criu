@@ -227,13 +227,13 @@ void debug_show_page_pipe(struct page_pipe *pp)
 				ppb->pages_in, ppb->nr_segs);
 		for (i = 0; i < ppb->nr_segs; i++) {
 			iov = &ppb->iov[i];
-			pr_debug("\t\t%p %zu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+			pr_debug("\t\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
 		}
 	}
 
 	pr_debug("* %u holes:\n", pp->free_hole);
 	for (i = 0; i < pp->free_hole; i++) {
 		iov = &pp->holes[i];
-		pr_debug("\t%p %zu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
+		pr_debug("\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
 	}
 }
