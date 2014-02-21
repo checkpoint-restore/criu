@@ -19,6 +19,11 @@ DESCRIPTION
 
 The 'command' can be one of the following:
 
+*pre-dump*::
+Launch that named pre-dump procedure, where *criu* does snapshot of
+memory changes since previous pre-dump. Also *criu* forms fsnotify
+cache which speedup *restore* procedure.
+
 *dump*::
 Initiate checkpoint procedure.
 
