@@ -524,7 +524,6 @@ static int close_mountpoint(DIR *dfd)
 static DIR *open_mountpoint(struct mount_info *pm)
 {
 	int fd = -1, ns_old = -1;
-	char buf[PATH_MAX];
 	char mnt_path[] = "/tmp/cr-tmpfs.XXXXXX";
 
 	/*
@@ -552,8 +551,7 @@ static DIR *open_mountpoint(struct mount_info *pm)
 		goto out;
 	}
 
-	snprintf(buf, sizeof(buf), "/proc/self/root/%s", pm->mountpoint);
-	if (mount(buf, mnt_path, NULL, MS_BIND, NULL)) {
+	if (mount(pm->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
 		pr_perror("Can't bind-mount %d:%s to %s",
 				pm->mnt_id, pm->mountpoint, mnt_path);
 		rmdir(mnt_path);
