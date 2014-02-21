@@ -485,6 +485,8 @@ usage:
 "  --page-server         send pages to page server (see options below as well)\n"
 "  --auto-dedup          when used on dump it will deduplicate \"old\" data in\n"
 "                        pages images of previous dump\n"
+"                        when used on restore, as soon as page is restored, it\n"
+"                        will be punched from the image.\n"
 "\n"
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
