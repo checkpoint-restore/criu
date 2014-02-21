@@ -29,10 +29,11 @@ message criu_opts {
 	optional string			root		= 13;
 	optional string			parent_img	= 14;
 	optional bool			track_mem	= 15;
+	optional bool			auto_dedup	= 16;
 
-	optional int32			work_dir_fd	= 16;
-	optional bool			link_remap	= 17;
-	repeated criu_veth_pair		veths		= 18;
+	optional int32			work_dir_fd	= 17;
+	optional bool			link_remap	= 18;
+	repeated criu_veth_pair		veths		= 19;
 }
 
 message criu_dump_resp {

@@ -259,6 +259,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_link_remap)
 		opts.link_remap_ok = req->link_remap;
 
+	if (req->has_auto_dedup)
+		opts.auto_dedup = req->auto_dedup;
+
 	if (req->ps) {
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;
