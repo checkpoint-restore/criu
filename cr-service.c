@@ -100,6 +100,16 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	return send_criu_msg(socket_fd, &msg);
 }
 
+static int send_criu_pre_dump_resp(int socket_fd, bool success)
+{
+	CriuResp msg = CRIU_RESP__INIT;
+
+	msg.type = CRIU_REQ_TYPE__PRE_DUMP;
+	msg.success = success;
+
+	return send_criu_msg(socket_fd, &msg);
+}
+
 int send_criu_restore_resp(int socket_fd, bool success, int pid)
 {
 	CriuResp msg = CRIU_RESP__INIT;
@@ -381,7 +391,7 @@ cout:
 
 	success = true;
 out:
-	if (send_criu_dump_resp(sk, success, false) == -1) {
+	if (send_criu_pre_dump_resp(sk, success) == -1) {
 		pr_perror("Can't send pre-dump resp");
 		success = false;
 	}
