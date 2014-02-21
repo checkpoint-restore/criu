@@ -59,6 +59,10 @@ OPTIONS
     Use path 'path' as a base directory where to look for dump files set. This
     commands applies to any 'command'.
 
+*-W*, *--work-dir* 'dir'::
+    Use directory 'dir' for putting logs, pidfiles and statistics. If not
+    specified, 'path' from *-D* option is taken.
+
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
