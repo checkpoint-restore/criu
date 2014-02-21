@@ -40,6 +40,11 @@ Execute a system call from other task\'s context.
 *service*::
 Start RPC service.
 
+*dedup*::
+Starts pagemap data deduplication procedure, where *criu* scans over all
+pagemap files and tries to minimalize the number of pagemap entries by
+obtaining the references from a parent pagemap image.
+
 OPTIONS
 -------
 *-c*::
