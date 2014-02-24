@@ -115,9 +115,11 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 	}
 
 	fd = sys_open_by_handle_at(mntfd, (void *)&handle, 0);
-	if (fd < 0)
+	if (fd < 0) {
+		errno = -fd;
 		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
 				s_dev, i_ino);
+	}
 
 	close(mntfd);
 out:
