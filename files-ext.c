@@ -9,7 +9,7 @@
 #include "protobuf.h"
 #include "protobuf/ext-file.pb-c.h"
 
-int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	int rfd, ret;
 
