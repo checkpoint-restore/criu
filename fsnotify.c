@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/inotify.h>
 #include <sys/vfs.h>
+#include <linux/magic.h>
 #include <sys/wait.h>
 #include <sys/poll.h>
 #include <sys/mman.h>
@@ -40,6 +41,7 @@
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
+#include "protobuf/mnt.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "fsnotify: "
@@ -129,13 +131,40 @@ out:
 int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
-	int fd;
+	int fd = -1;
 	char *path;
 
 	fd = open_handle(s_dev, i_ino, f_handle);
 	if (fd >= 0) {
-		close(fd);
+		struct mount_info *mi;
+
 		pr_debug("\tHandle %x:%lx is openable\n", s_dev, i_ino);
+
+		mi = lookup_mnt_sdev(s_dev);
+		if (mi == NULL) {
+			pr_err("Unable to lookup a mount by dev %x\n", s_dev);
+			goto err;
+		}
+
+		/*
+		 * Inode numbers are not restored for tmpfs content, but we can
+		 * get file names, becasue tmpfs cache is not pruned.
+		 */
+		if (mi->fstype->code == FSTYPE__TMPFS) {
+			char p[PATH_MAX];
+
+			if (read_fd_link(fd, p, sizeof(p)) < 0)
+				goto err;
+			close_safe(&fd);
+
+			path = xstrdup(p);
+			if (path == NULL)
+				return -1;
+
+			goto out;
+		}
+
+		close(fd);
 		return 0;
 	}
 
@@ -146,9 +175,13 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		return -1;
 	}
 
+out:
 	pr_debug("\tDumping %s as path for handle\n", path);
 	f_handle->path = path;
 	return 0;
+err:
+	close_safe(&fd);
+	return -1;
 }
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
