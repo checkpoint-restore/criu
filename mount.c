@@ -592,7 +592,7 @@ static int tmpfs_dump(struct mount_info *pm)
 		goto out;
 	}
 
-	fd_img = open_image(CR_FD_TMPFS, O_DUMP, pm->mnt_id);
+	fd_img = open_image(CR_FD_TMPFS_IMG, O_DUMP, pm->mnt_id);
 	if (fd_img < 0)
 		goto out;
 
@@ -622,7 +622,7 @@ static int tmpfs_restore(struct mount_info *pm)
 	int ret;
 	int fd_img;
 
-	fd_img = open_image(CR_FD_TMPFS, O_RSTR, pm->mnt_id);
+	fd_img = open_image(CR_FD_TMPFS_IMG, O_RSTR, pm->mnt_id);
 	if (fd_img < 0)
 		return -1;
 
