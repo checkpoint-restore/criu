@@ -83,10 +83,10 @@ static inline void futex_dec_and_wake(futex_t *f)
 }
 
 /* Plain increment futex @f value */
-static inline void futex_inc(futex_t *f) { f->raw++; }
+static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
 
 /* Plain decrement futex @f value */
-static inline void futex_dec(futex_t *f) { f->raw--; }
+static inline void futex_dec(futex_t *f) { atomic_dec(&f->raw); }
 
 /* Wait until futex @f value become @v */
 static inline void futex_wait_until(futex_t *f, uint32_t v)
