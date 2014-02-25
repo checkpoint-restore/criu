@@ -160,6 +160,7 @@ int main(int argc, char **argv)
 
 	return 0;
 err:
-	kill(child, SIGKILL);
+	kill(child, SIGSEGV);
+	*((int *) 0) = 0;
 	return 1;
 }
