@@ -39,4 +39,11 @@
 		ret__;						\
 	})
 
+#define atomic_add(i, mem)					\
+({								\
+	asm volatile("lock addl %1,%0"				\
+		     : "+m" (*mem)				\
+		     : "ir" (i));				\
+})
+
 #endif /* ATOMIC_H__ */

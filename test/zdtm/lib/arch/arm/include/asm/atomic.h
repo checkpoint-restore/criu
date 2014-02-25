@@ -58,6 +58,8 @@ static inline unsigned int atomic_sub_return(int i, atomic_t *v)
 
 static inline unsigned int atomic_inc(atomic_t *v) { return atomic_add_return(1, v) - 1; }
 
+static inline unsigned int atomic_add(int val, atomic_t *v) { return atomic_add_return(val, v) - val; }
+
 static inline unsigned int atomic_dec(atomic_t *v) { return atomic_sub_return(1, v) + 1; }
 
 /* true if the result is 0, or false for all other cases. */
