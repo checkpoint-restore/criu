@@ -29,4 +29,8 @@ struct f_owner_ex {
 # define F_GETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 8)
 #endif
 
+#ifndef O_PATH
+# define O_PATH		010000000
+#endif
+
 #endif /* __CR_ASM_GENERIC_FCNTL_H__ */
