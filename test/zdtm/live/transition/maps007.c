@@ -80,13 +80,12 @@ int main(int argc, char **argv)
 
 		if (child) {
 			futex_wait_while_gt(&shm->delta, 2 * MAX_DELTA);
-			futex_inc(&shm->delta);
+			futex_inc_and_wake(&shm->delta);
 		} else {
 			if (!futex_get(&shm->stop))
-				/* MAX_DELTA steps behind the parent */
-				while (futex_get(&shm->delta) < MAX_DELTA &&
-					!futex_get(&shm->stop));
-			else if (atomic_get(&shm->delta) == 0)
+				futex_wait_while_lt(&shm->delta, MAX_DELTA);
+
+			if (futex_get(&shm->stop) && atomic_get(&shm->delta) == MAX_DELTA)
 				break;
 			futex_dec_and_wake(&shm->delta);
 		}
@@ -130,6 +129,7 @@ int main(int argc, char **argv)
 
 		/* stop the child */
 		futex_set(&shm->stop, 1);
+		futex_add_and_wake(&shm->delta, MAX_DELTA);
 		/* wait until the child will be in the same point */
 		futex_wait_until(&shm->stop, 2);
 
