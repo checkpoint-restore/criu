@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	void *start, *end, *p;
 	pid_t child;
 	struct {
-		uint32_t delta;
+		futex_t delta;
 		futex_t stop;
 	} *shm;
 	uint32_t v;
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	end = start + MEM_SIZE;
 
 	v = 0;
-	atomic_set(&shm->delta, v);
+	futex_set(&shm->delta, v);
 	futex_set(&shm->stop, 0);
 
 	child = fork();
@@ -79,15 +79,16 @@ int main(int argc, char **argv)
 		int prot = PROT_NONE;
 
 		if (child) {
-			atomic_inc(&shm->delta);
+			futex_wait_while_gt(&shm->delta, 2 * MAX_DELTA);
+			futex_inc(&shm->delta);
 		} else {
 			if (!futex_get(&shm->stop))
 				/* MAX_DELTA steps behind the parent */
-				while (atomic_get(&shm->delta) < MAX_DELTA &&
+				while (futex_get(&shm->delta) < MAX_DELTA &&
 					!futex_get(&shm->stop));
 			else if (atomic_get(&shm->delta) == 0)
 				break;
-			atomic_dec(&shm->delta);
+			futex_dec_and_wake(&shm->delta);
 		}
 
 		count++;
