@@ -33,6 +33,7 @@
 #include "namespaces.h"
 #include "tun.h"
 #include "fdset.h"
+#include "fs-magic.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -289,14 +290,6 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 
 	return do_dump_gen_file(p, lfd, ops, fdinfo);
 }
-
-#ifndef PIPEFS_MAGIC
-#define PIPEFS_MAGIC	0x50495045
-#endif
-
-#ifndef ANON_INODE_FS_MAGIC
-# define ANON_INODE_FS_MAGIC 0x09041934
-#endif
 
 static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
 		       const int fdinfo)

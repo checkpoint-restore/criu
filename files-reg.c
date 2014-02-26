@@ -7,10 +7,6 @@
 #include <sys/vfs.h>
 #include <ctype.h>
 
-#ifndef NFS_SUPER_MAGIC
-#define NFS_SUPER_MAGIC 0x6969
-#endif
-
 /* Stolen from kernel/fs/nfs/unlink.c */
 #define SILLYNAME_PREF ".nfs"
 #define SILLYNAME_SUFF_LEN (((unsigned)sizeof(u64) << 1) + ((unsigned)sizeof(unsigned int) << 1))
@@ -23,6 +19,7 @@
 #include "image.h"
 #include "list.h"
 #include "util.h"
+#include "fs-magic.h"
 #include "asm/atomic.h"
 
 #include "protobuf.h"
