@@ -15,7 +15,7 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 
 	ExtFileEntry xfe = EXT_FILE_ENTRY__INIT;
 
-	ret = cr_plugin_dump_file(lfd, id);
+	ret = run_plugins(DUMP_EXT_FILE, lfd, id);
 	if (ret < 0)
 		return ret;
 
@@ -44,7 +44,7 @@ static int open_fd(struct file_desc *d)
 
 	xfi = container_of(d, struct ext_file_info, d);
 
-	fd = cr_plugin_restore_file(xfi->xfe->id);
+	fd = run_plugins(RESTORE_EXT_FILE, xfi->xfe->id);
 	if (fd < 0) {
 		pr_err("Unable to restore %#x\n", xfi->xfe->id);
 		return -1;

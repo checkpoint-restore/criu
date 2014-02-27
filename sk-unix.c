@@ -550,7 +550,7 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 	while (!list_empty(&peer->peer_list)) {
 		sk = list_first_entry(&peer->peer_list, struct unix_sk_desc, peer_node);
 
-		ret = cr_plugin_dump_unix_sk(sk->fd, sk->sd.ino);
+		ret = run_plugins(DUMP_UNIX_SK, sk->fd, sk->sd.ino);
 		if (ret == -ENOTSUP) {
 			if (!opts.ext_unix_sk) {
 				show_one_unix("Runaway socket", peer);
@@ -917,7 +917,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		sk = sks[0];
 	} else {
 		if (ui->ue->uflags & USK_CALLBACK) {
-			sk = cr_plugin_restore_unix_sk(ui->ue->ino);
+			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
 			if (sk >= 0)
 				goto out;
 		}

@@ -106,7 +106,7 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 {
 	int ret;
 
-	ret = cr_plugin_dump_ext_link(ifi->ifi_index, ifi->ifi_type, kind);
+	ret = run_plugins(DUMP_EXT_LINK, ifi->ifi_index, ifi->ifi_type, kind);
 	if (ret == 0)
 		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
 

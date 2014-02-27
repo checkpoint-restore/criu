@@ -1,117 +1,97 @@
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
-#include <errno.h>
 #include <stdio.h>
+#include <errno.h>
 #include <dlfcn.h>
-#include <unistd.h>
 
 #include "cr_options.h"
-#include "plugin.h"
-#include "log.h"
+#include "compiler.h"
 #include "xmalloc.h"
+#include "plugin.h"
+#include "list.h"
+#include "log.h"
 
-struct cr_plugin_entry {
-	union {
-		cr_plugin_fini_t		*cr_fini;
+cr_plugin_ctl_t cr_plugin_ctl;
 
-		cr_plugin_dump_unix_sk_t	*cr_plugin_dump_unix_sk;
-		cr_plugin_restore_unix_sk_t	*cr_plugin_restore_unix_sk;
-		cr_plugin_dump_file_t		*cr_plugin_dump_file;
-		cr_plugin_restore_file_t	*cr_plugin_restore_file;
-		cr_plugin_dump_ext_mount_t	*cr_plugin_dump_ext_mount;
-		cr_plugin_restore_ext_mount_t	*cr_plugin_restore_ext_mount;
-		cr_plugin_dump_ext_link_t	*cr_plugin_dump_ext_link;
-	};
+/*
+ * If we met old version of a plugin, selfgenerate a plugin descriptor for it.
+ */
+static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
+{
+	cr_plugin_desc_t *d;
 
-	struct cr_plugin_entry *next;
-};
+	d = xzalloc(sizeof(*d));
+	if (!d)
+		return NULL;
 
-struct cr_plugins {
-	struct cr_plugin_entry *cr_fini;
+	d->name		= strdup(path);
+	d->max_hooks	= CR_PLUGIN_HOOK__MAX;
+	d->version	= CRIU_PLUGIN_VERSION_OLD;
 
-	struct cr_plugin_entry *cr_plugin_dump_unix_sk;
-	struct cr_plugin_entry *cr_plugin_restore_unix_sk;
-	struct cr_plugin_entry *cr_plugin_dump_file;
-	struct cr_plugin_entry *cr_plugin_restore_file;
-	struct cr_plugin_entry *cr_plugin_dump_ext_mount;
-	struct cr_plugin_entry *cr_plugin_restore_ext_mount;
-	struct cr_plugin_entry *cr_plugin_dump_ext_link;
-};
+	pr_warn("Generating dynamic descriptor for plugin `%s'."
+		"Won't work in next version of the program."
+		"Please update your plugin.\n", path);
 
-struct cr_plugins cr_plugins;
-
-#define add_plugin_func(name)						\
+#define __assign_hook(__hook, __name)					\
 	do {								\
-		name ## _t *name;					\
-		name = dlsym(h, #name);					\
-		if (name) {						\
-			struct cr_plugin_entry *__ce;			\
-			__ce = xmalloc(sizeof(*__ce));			\
-			if (__ce == NULL)				\
-				goto nomem;				\
-			__ce->name = name;				\
-			__ce->next = cr_plugins.name;			\
-			cr_plugins.name = __ce;				\
-		}							\
+		void *name;						\
+		name = dlsym(h, __name);				\
+		if (name)						\
+			d->hooks[CR_PLUGIN_HOOK__ ##__hook] = name;	\
 	} while (0)
 
-#define run_plugin_funcs(name, ...) ({					\
-		struct cr_plugin_entry *__ce = cr_plugins.name;		\
-		int __ret = -ENOTSUP;					\
-									\
-		while (__ce) {						\
-			__ret = __ce->name(__VA_ARGS__);		\
-			if (__ret == -ENOTSUP) {			\
-				__ce = __ce->next;			\
-				continue;				\
-			}						\
-			break;						\
-		}							\
-									\
-		__ret;							\
-	})								\
+	__assign_hook(DUMP_UNIX_SK,		"cr_plugin_dump_unix_sk");
+	__assign_hook(RESTORE_UNIX_SK,		"cr_plugin_restore_unix_sk");
+	__assign_hook(DUMP_EXT_FILE,		"cr_plugin_dump_file");
+	__assign_hook(RESTORE_EXT_FILE,		"cr_plugin_restore_file");
+	__assign_hook(DUMP_EXT_MOUNT,		"cr_plugin_dump_ext_mount");
+	__assign_hook(RESTORE_EXT_MOUNT,	"cr_plugin_restore_ext_mount");
+	__assign_hook(DUMP_EXT_LINK,		"cr_plugin_dump_ext_link");
 
-int cr_plugin_dump_unix_sk(int fd, int id)
-{
-	return run_plugin_funcs(cr_plugin_dump_unix_sk, fd, id);
+#undef __assign_hook
+
+	d->init = dlsym(h, "cr_plugin_init");
+	d->exit = dlsym(h, "cr_plugin_fini");
+
+	return d;
 }
 
-int cr_plugin_restore_unix_sk(int id)
+static void show_plugin_desc(cr_plugin_desc_t *d)
 {
-	return run_plugin_funcs(cr_plugin_restore_unix_sk, id);
+	size_t i;
+
+	pr_debug("Plugin \"%s\" (version %u hooks %u)\n",
+		 d->name, d->version, d->max_hooks);
+	for (i = 0; i < d->max_hooks; i++) {
+		if (d->hooks[i])
+			pr_debug("\t%4zu -> %p\n", i, d->hooks[i]);
+	}
 }
 
-int cr_plugin_dump_file(int fd, int id)
+static int verify_plugin(cr_plugin_desc_t *d)
 {
-	return run_plugin_funcs(cr_plugin_dump_file, fd, id);
+	if (d->version > CRIU_PLUGIN_VERSION) {
+		pr_debug("Plugin %s has version %x while max %x supported\n",
+			 d->name, d->version, CRIU_PLUGIN_VERSION);
+		return -1;
+	}
+
+	if (d->max_hooks > CR_PLUGIN_HOOK__MAX) {
+		pr_debug("Plugin %s has %u assigned while max %u supported\n",
+			 d->name, d->max_hooks, CR_PLUGIN_HOOK__MAX);
+		return -1;
+	}
+
+	return 0;
 }
 
-int cr_plugin_restore_file(int id)
+static int cr_lib_load(int stage, char *path)
 {
-	return run_plugin_funcs(cr_plugin_restore_file, id);
-}
-
-int cr_plugin_dump_ext_mount(char *mountpoint, int id)
-{
-	return run_plugin_funcs(cr_plugin_dump_ext_mount, mountpoint, id);
-}
-
-int cr_plugin_restore_ext_mount(int id, char *mountpoint, char *old_root, int *is_file)
-{
-	return run_plugin_funcs(cr_plugin_restore_ext_mount, id, mountpoint, old_root, is_file);
-}
-
-int cr_plugin_dump_ext_link(int index, int type, char *kind)
-{
-	return run_plugin_funcs(cr_plugin_dump_ext_link, index, type, kind);
-}
-
-static int cr_lib_load(char *path)
-{
-	struct cr_plugin_entry *ce;
-	cr_plugin_init_t *f_init;
-	cr_plugin_fini_t *f_fini;
+	cr_plugin_desc_t *d;
+	plugin_desc_t *this;
+	size_t i;
 	void *h;
 
 	h = dlopen(path, RTLD_LAZY);
@@ -120,77 +100,98 @@ static int cr_lib_load(char *path)
 		return -1;
 	}
 
-	add_plugin_func(cr_plugin_dump_unix_sk);
-	add_plugin_func(cr_plugin_restore_unix_sk);
-
-	add_plugin_func(cr_plugin_dump_file);
-	add_plugin_func(cr_plugin_restore_file);
-
-	add_plugin_func(cr_plugin_dump_ext_mount);
-	add_plugin_func(cr_plugin_restore_ext_mount);
-
-	add_plugin_func(cr_plugin_dump_ext_link);
-
-	ce = NULL;
-	f_fini = dlsym(h, "cr_plugin_fini");
-	if (f_fini) {
-		ce = xmalloc(sizeof(*ce));
-		if (ce == NULL)
-			goto nomem;
-		ce->cr_fini = f_fini;
-	}
-
-	f_init = dlsym(h, "cr_plugin_init");
-	if (f_init && f_init()) {
-		xfree(ce);
+	/*
+	 * Load plugin descriptor. If plugin is too old -- create
+	 * dynamic plugin descriptor. In most cases this won't
+	 * be a common operation and plugins are not supposed to
+	 * be changing own format frequently.
+	 */
+	d = dlsym(h, "CR_PLUGIN_DESC");
+	if (!d)
+		d = cr_gen_plugin_desc(h, path);
+	if (!d) {
+		pr_err("Can't load plugin %s\n", path);
+		dlclose(h);
 		return -1;
 	}
 
-	if (ce) {
-		ce->next = cr_plugins.cr_fini;
-		cr_plugins.cr_fini = ce;
+	this = xzalloc(sizeof(*this));
+	if (!this) {
+		dlclose(h);
+		return -1;
+	}
+
+	if (verify_plugin(d)) {
+		pr_err("Corrupted plugin %s\n", path);
+		xfree(this);
+		dlclose(h);
+		return -1;
+	}
+
+	this->d = d;
+	this->dlhandle = h;
+	INIT_LIST_HEAD(&this->list);
+
+	for (i = 0; i < d->max_hooks; i++)
+		INIT_LIST_HEAD(&this->link[i]);
+
+	list_add_tail(&this->list, &cr_plugin_ctl.head);
+	show_plugin_desc(d);
+
+	if (d->init && d->init(stage)) {
+		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
+		list_del(&this->list);
+		xfree(this);
+		dlclose(h);
+		return -1;
+	}
+
+	/*
+	 * Chain hooks into appropriate places for
+	 * fast handler access.
+	 */
+	for (i = 0; i < d->max_hooks; i++) {
+		if (!d->hooks[i])
+			continue;
+		list_add_tail(&this->link[i], &cr_plugin_ctl.hook_chain[i]);
 	}
 
 	return 0;
-
-nomem:
-	return -1;
 }
 
-#define cr_plugin_free(name) do {				\
-	while (cr_plugins.name) {				\
-		ce = cr_plugins.name;				\
-		cr_plugins.name = cr_plugins.name->next;	\
-		xfree(ce);					\
-	}							\
-} while (0)							\
-
-void cr_plugin_fini(void)
+void cr_plugin_fini(int stage, int ret)
 {
-	struct cr_plugin_entry *ce;
+	plugin_desc_t *this, *tmp;
 
-	cr_plugin_free(cr_plugin_dump_unix_sk);
-	cr_plugin_free(cr_plugin_restore_unix_sk);
+	list_for_each_entry_safe(this, tmp, &cr_plugin_ctl.head, list) {
+		void *h = this->dlhandle;
+		size_t i;
 
-	cr_plugin_free(cr_plugin_dump_file);
-	cr_plugin_free(cr_plugin_restore_file);
+		list_del(&this->list);
+		if (this->d->exit)
+			this->d->exit(stage, ret);
 
-	while (cr_plugins.cr_fini) {
-		ce = cr_plugins.cr_fini;
-		cr_plugins.cr_fini = cr_plugins.cr_fini->next;
+		for (i = 0; i < this->d->max_hooks; i++) {
+			if (!list_empty(&this->link[i]))
+				list_del(&this->link[i]);
+		}
 
-		ce->cr_fini();
-		xfree(ce);
+		if (this->d->version == CRIU_PLUGIN_VERSION_OLD)
+			xfree(this->d);
+		dlclose(h);
 	}
 }
 
-int cr_plugin_init(void)
+int cr_plugin_init(int stage)
 {
 	int exit_code = -1;
 	char *path;
+	size_t i;
 	DIR *d;
 
-	memset(&cr_plugins, 0, sizeof(cr_plugins));
+	INIT_LIST_HEAD(&cr_plugin_ctl.head);
+	for (i = 0; i < ARRAY_SIZE(cr_plugin_ctl.hook_chain); i++)
+		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
 
 	if (opts.libdir == NULL) {
 		path = getenv("CRIU_LIBS_DIR");
@@ -231,7 +232,7 @@ int cr_plugin_init(void)
 
 		snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name);
 
-		if (cr_lib_load(path))
+		if (cr_lib_load(stage, path))
 			goto err;
 	}
 
@@ -240,7 +241,7 @@ err:
 	closedir(d);
 
 	if (exit_code)
-		cr_plugin_fini();
+		cr_plugin_fini(stage, exit_code);
 
 	return exit_code;
 }

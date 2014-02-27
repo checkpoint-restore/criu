@@ -1759,7 +1759,7 @@ int cr_dump_tasks(pid_t pid)
 	if (init_stats(DUMP_STATS))
 		goto err;
 
-	if (cr_plugin_init())
+	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
 		goto err;
 
 	if (kerndat_init())
@@ -1859,7 +1859,7 @@ err:
 
 	close_cr_fdset(&glob_fdset);
 
-	cr_plugin_fini();
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 
 	if (!ret) {
 		/*

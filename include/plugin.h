@@ -2,21 +2,45 @@
 #define __CR_PLUGIN_H__
 
 #include "criu-plugin.h"
+#include "compiler.h"
+#include "list.h"
 
 #define CR_PLUGIN_DEFAULT "/var/lib/criu/"
 
-void cr_plugin_fini(void);
-int cr_plugin_init(void);
+void cr_plugin_fini(int stage, int err);
+int cr_plugin_init(int stage);
 
-int cr_plugin_dump_unix_sk(int fd, int id);
-int cr_plugin_restore_unix_sk(int id);
+typedef struct {
+	struct list_head	head;
+	struct list_head	hook_chain[CR_PLUGIN_HOOK__MAX];
+} cr_plugin_ctl_t;
 
-int cr_plugin_dump_file(int fd, int id);
-int cr_plugin_restore_file(int id);
+extern cr_plugin_ctl_t cr_plugin_ctl;
 
-int cr_plugin_dump_ext_mount(char *mountpoint, int id);
-int cr_plugin_restore_ext_mount(int id, char *mountpoint, char *old_root, int *is_file);
+typedef struct {
+	cr_plugin_desc_t	*d;
+	struct list_head	list;
+	void			*dlhandle;
+	struct list_head	link[CR_PLUGIN_HOOK__MAX];
+} plugin_desc_t;
 
-int cr_plugin_dump_ext_link(int index, int type, char *kind);
+#define run_plugins(__hook, ...)								\
+({												\
+	plugin_desc_t *this;									\
+	int __ret = -ENOTSUP;									\
+												\
+	list_for_each_entry(this, &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__ ##__hook],		\
+			    link[CR_PLUGIN_HOOK__ ##__hook]) {					\
+		pr_debug("plugin: `%s' hook %u -> %p\n",					\
+			 this->d->name, CR_PLUGIN_HOOK__ ##__hook,				\
+			 this->d->hooks[CR_PLUGIN_HOOK__ ##__hook]);				\
+		__ret = ((CR_PLUGIN_HOOK__ ##__hook ##_t *)					\
+			 this->d->hooks[CR_PLUGIN_HOOK__ ##__hook])(__VA_ARGS__);		\
+		if (__ret == -ENOTSUP)								\
+			continue;								\
+		break;										\
+	}											\
+	__ret;											\
+})
 
 #endif

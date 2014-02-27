@@ -426,7 +426,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				int ret;
 
 				if (for_dump) {
-					ret = cr_plugin_dump_ext_mount(m->mountpoint + 1, m->mnt_id);
+					ret = run_plugins(DUMP_EXT_MOUNT, m->mountpoint, m->mnt_id);
 					if (ret == 0)
 						m->need_plugin = true;
 					else if (ret == -ENOTSUP)
@@ -1302,7 +1302,7 @@ static int restore_ext_mount(struct mount_info *mi)
 	int ret;
 
 	pr_debug("Restoring external bind mount %s\n", mi->mountpoint);
-	ret = cr_plugin_restore_ext_mount(mi->mnt_id, mi->mountpoint, "/", NULL);
+	ret = run_plugins(RESTORE_EXT_MOUNT, mi->mnt_id, mi->mountpoint, "/", NULL);
 	if (ret)
 		pr_err("Can't restore ext mount (%d)\n", ret);
 	return ret;
