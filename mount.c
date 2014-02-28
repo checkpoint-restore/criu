@@ -45,9 +45,10 @@ static int close_mountpoint(DIR *dfd);
 static struct mount_info *mnt_build_tree(struct mount_info *list);
 static int validate_mounts(struct mount_info *info, bool call_plugins);
 
+/* Asolute paths are used on dump and relative paths are used on restore */
 static inline int is_root(char *p)
 {
-	return p[0] == '/' && p[1] == '\0';
+	return (!strcmp(p, "/") || !strcmp(p, "./"));
 }
 
 /* True for the root mount (the topmost one) */
@@ -78,7 +79,7 @@ int open_mount(unsigned int s_dev)
 			if (mntns_root == -1) {
 				pr_debug("mpopen %s\n", i->mountpoint);
 				return open(i->mountpoint, O_RDONLY);
-			} else if (i->mountpoint[1] == '\0') {
+			} else if (is_root_mount(i)) {
 				pr_debug("mpopen root\n");
 				return dup(mntns_root);
 			} else {
@@ -1369,6 +1370,7 @@ static struct mount_info *read_mnt_ns_img(int ns_pid)
 
 	while (1) {
 		struct mount_info *pm;
+		int len;
 
 		ret = pb_read_one_eof(img, &me, PB_MNT);
 		if (ret <= 0)
@@ -1397,10 +1399,20 @@ static struct mount_info *read_mnt_ns_img(int ns_pid)
 		if (!pm->root)
 			goto err;
 
-		pr_debug("\t\tGetting mpt for %d\n", pm->mnt_id);
-		pm->mountpoint = xstrdup(me->mountpoint);
+		pr_debug("\t\tGetting mpt for %d:%s\n", pm->mnt_id, me->mountpoint);
+		len  = strlen(me->mountpoint) + 2;
+		pm->mountpoint = xmalloc(len);
 		if (!pm->mountpoint)
 			goto err;
+		/*
+		 * For bind-mounts we would also fix the root here
+		 * too, but bind-mounts restore merges mountpoint
+		 * and root paths together, so there's no need in
+		 * that.
+		 */
+
+		pm->mountpoint[0] = '.';
+		strcpy(pm->mountpoint + 1, me->mountpoint);
 
 		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
 		pm->source = xstrdup(me->source);
