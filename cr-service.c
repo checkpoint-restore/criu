@@ -285,6 +285,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			return -1;
 	}
 
+	if (req->has_cpu_cap)
+		opts.cpu_cap = req->cpu_cap;
+
 	return 0;
 }
 
