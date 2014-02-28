@@ -104,6 +104,12 @@ void criu_set_log_file(char *log_file)
 	opts->log_file = strdup(log_file);
 }
 
+void criu_set_cpu_cap(unsigned int cap)
+{
+	opts->has_cpu_cap	= true;
+	opts->cpu_cap		= cap;
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char buf[CR_MAX_MSG_SIZE];
