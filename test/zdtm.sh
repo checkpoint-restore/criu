@@ -122,6 +122,7 @@ static/pty03
 static/mountpoints
 ns/static/session00
 ns/static/session01
+ns/static/tempfs
 static/utsname
 static/ipc_namespace
 static/shm
@@ -156,6 +157,7 @@ chroot-file
 rtc
 tempfs
 maps007
+tempfs
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
