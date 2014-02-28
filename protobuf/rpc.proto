@@ -34,6 +34,8 @@ message criu_opts {
 	optional int32			work_dir_fd	= 17;
 	optional bool			link_remap	= 18;
 	repeated criu_veth_pair		veths		= 19;
+
+	optional uint32			cpu_cap		= 20 [default = 0xffffffff];
 }
 
 message criu_dump_resp {
