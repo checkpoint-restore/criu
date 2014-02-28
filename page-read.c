@@ -246,12 +246,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
 	return 0;
 }
 
-int open_page_read(int pid, struct page_read *pr)
+int open_page_read(int pid, struct page_read *pr, int flags)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RSTR);
-}
-
-int open_page_rw(int pid, struct page_read *pr)
-{
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, O_RDWR);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, flags);
 }

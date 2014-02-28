@@ -338,15 +338,11 @@ static int restore_priv_vma_content(pid_t pid)
 	struct page_read pr;
 
 	vma = list_first_entry(vmas, struct vma_area, list);
-	if (!opts.auto_dedup) {
-		ret = open_page_read(pid, &pr);
-		if (ret)
-			return -1;
-	} else {
-		ret = open_page_rw(pid, &pr);
-		if (ret)
-			return -1;
-	}
+
+	ret = open_page_read(pid, &pr,
+			opts.auto_dedup ? O_RDWR : O_RSTR);
+	if (ret)
+		return -1;
 
 	/*
 	 * Read page contents.
