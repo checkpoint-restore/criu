@@ -1079,30 +1079,6 @@ static int restore_ext_mount(struct mount_info *mi)
 {
 	int ret;
 
-	if (opts.root) {
-		char temp[32];
-
-		/*
-		 * The mount was created in premount_one, just move it
-		 * in the desired place, now it's available.
-		 */
-		sprintf(temp, "/crt-premount.%d", mi->mnt_id);
-		pr_debug("Moving mountpoint %s -> %s\n", temp, mi->mountpoint);
-		if (mount(temp, mi->mountpoint, NULL, MS_MOVE, NULL) < 0) {
-			pr_perror("Can't move mount %s", mi->mountpoint);
-			return -1;
-		}
-
-		if (mi->is_file)
-			ret = unlink(temp);
-		else
-			ret = rmdir(temp);
-		if (ret < 0)
-			pr_perror("Can't remove temp dir");
-
-		return 0;
-	}
-
 	pr_debug("Restoring external bind mount %s\n", mi->mountpoint);
 	ret = cr_plugin_restore_ext_mount(mi->mnt_id, mi->mountpoint, "/", NULL);
 	if (ret)
@@ -1225,52 +1201,7 @@ static int clean_mnt_ns(void)
 	return mnt_tree_for_each_reverse(mntinfo_tree, do_umount_one);
 }
 
-static int premount_one(struct mount_info *mi, char *old_root)
-{
-	int ret;
-	char temp[32];
-
-	if (!mi->need_plugin)
-		return 0;
-
-	/*
-	 * We can't mount the source to proper target yet (the
-	 * new tree is not yet ready. Instead, we ask plugin to
-	 * mount it on a temporary path, later (opts.root branch
-	 * of the restore_ext_mount) we will move the mountpoint
-	 * in the proper place.
-	 */
-	sprintf(temp, "/crt-premount.%d", mi->mnt_id);
-	pr_debug("Pre external %s -> %s\n", mi->mountpoint, temp);
-
-	/*
-	 * Don't create anything on that path here -- the plugin
-	 * might want to bind mount a file OR a directory and since
-	 * those cannot be binded to each other, the plugin itself
-	 * should create the target.
-	 *
-	 * BTW, the mi->is_file is about the same -- after we move
-	 * the mount in place, we will either rmdir or unlink this
-	 * temporary location.
-	 */
-	ret = cr_plugin_restore_ext_mount(mi->mnt_id, temp, old_root, &mi->is_file);
-	if (ret)
-		pr_perror("Can't premount ext mount (%d)", ret);
-	return ret;
-}
-
-static int premount_external(struct mount_info *mis, char *old_root)
-{
-	while (mis != 0) {
-		if (premount_one(mis, old_root))
-			return -1;
-		mis = mis->next;
-	}
-
-	return 0;
-}
-
-static int cr_pivot_root(struct mount_info *mis)
+static int cr_pivot_root(void)
 {
 	char put_root[] = "crtools-put-root.XXXXXX";
 
@@ -1292,14 +1223,6 @@ static int cr_pivot_root(struct mount_info *mis)
 			pr_perror("Can't remove the directory %s", put_root);
 		return -1;
 	}
-
-	/*
-	 * Before we get rid of the old FS view, call plugins
-	 * to let them bind-mount whatever is necessary into
-	 * the new tree (see comment in premount_one.
-	 */
-	if (premount_external(mis, put_root))
-		return -1;
 
 	if (umount2(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
@@ -1474,26 +1397,27 @@ int prepare_mnt_ns(int ns_pid)
 	if (!mis)
 		goto out;
 
-	/*
-	 * The new mount namespace is filled with the mountpoint
-	 * clones from the original one. We have to umount them
-	 * prior to recreating new ones.
-	 */
-
 	if (chdir(opts.root ? : "/")) {
 		pr_perror("chdir(%s) failed", opts.root ? : "/");
 		return -1;
 	}
 
-	if (opts.root)
-		ret = cr_pivot_root(mis);
-	else
-		ret = clean_mnt_ns();
+	/*
+	 * The new mount namespace is filled with the mountpoint
+	 * clones from the original one. We have to umount them
+	 * prior to recreating new ones.
+	 */
+	if (!opts.root && clean_mnt_ns())
+		return -1;
 
 	free_mounts();
 
-	if (!ret)
-		ret = populate_mnt_ns(ns_pid, mis);
+	ret = populate_mnt_ns(ns_pid, mis);
+	if (ret)
+		goto out;
+
+	if (opts.root)
+		ret = cr_pivot_root();
 out:
 	return ret;
 }
