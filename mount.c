@@ -1275,10 +1275,6 @@ static int cr_pivot_root(struct mount_info *mis)
 
 	pr_info("Move the root to %s\n", opts.root);
 
-	if (chdir(opts.root)) {
-		pr_perror("chdir(%s) failed", opts.root);
-		return -1;
-	}
 	if (mkdtemp(put_root) == NULL) {
 		pr_perror("Can't create a temporary directory");
 		return -1;
@@ -1471,6 +1467,11 @@ int prepare_mnt_ns(int ns_pid)
 	 * clones from the original one. We have to umount them
 	 * prior to recreating new ones.
 	 */
+
+	if (chdir(opts.root ? : "/")) {
+		pr_perror("chdir(%s) failed", opts.root ? : "/");
+		return -1;
+	}
 
 	if (opts.root)
 		ret = cr_pivot_root(mis);
