@@ -1193,11 +1193,6 @@ static int clean_mnt_ns(void)
 	 * Mountinfos were collected at prepare stage
 	 */
 
-	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
-		pr_perror("Can't remount root with MS_PRIVATE");
-		return -1;
-	}
-
 	return mnt_tree_for_each_reverse(mntinfo_tree, do_umount_one);
 }
 
@@ -1209,11 +1204,6 @@ static int cr_pivot_root(void)
 
 	if (mkdtemp(put_root) == NULL) {
 		pr_perror("Can't create a temporary directory");
-		return -1;
-	}
-
-	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
-		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
 
@@ -1396,6 +1386,11 @@ int prepare_mnt_ns(int ns_pid)
 	mis = read_mnt_ns_img(ns_pid);
 	if (!mis)
 		goto out;
+
+	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
+		return -1;
+	}
 
 	if (chdir(opts.root ? : "/")) {
 		pr_perror("chdir(%s) failed", opts.root ? : "/");
