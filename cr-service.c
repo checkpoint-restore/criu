@@ -262,6 +262,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_auto_dedup)
 		opts.auto_dedup = req->auto_dedup;
 
+	if (req->has_force_irmap)
+		opts.force_irmap = req->force_irmap;
+
 	if (req->ps) {
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;

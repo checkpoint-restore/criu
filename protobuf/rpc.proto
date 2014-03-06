@@ -36,6 +36,7 @@ message criu_opts {
 	repeated criu_veth_pair		veths		= 19;
 
 	optional uint32			cpu_cap		= 20 [default = 0xffffffff];
+	optional bool			force_irmap	= 21;
 }
 
 message criu_dump_resp {

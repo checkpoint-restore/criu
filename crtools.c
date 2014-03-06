@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
 		{ "auto-dedup", no_argument, 0, 56},
 		{ "libdir", required_argument, 0, 'L'},
 		{ "cpu-cap", required_argument, 0, 57},
+		{ "force-irmap", no_argument, 0, 58},
 		{ },
 	};
 
@@ -323,6 +324,9 @@ int main(int argc, char *argv[])
 			if (parse_cpu_cap(&opts, optarg))
 				goto usage;
 			break;
+		case 58:
+			opts.force_irmap = true;
+			break;
 		case 54:
 			opts.check_ms_kernel = true;
 			break;
@@ -469,6 +473,7 @@ usage:
 "  -j|--" OPT_SHELL_JOB "        allow to dump and restore shell jobs\n"
 "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
+"  --force-irmap         force resolving names for inotify/fsnotify watches\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

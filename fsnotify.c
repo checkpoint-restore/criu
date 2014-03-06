@@ -38,6 +38,7 @@
 #include "list.h"
 #include "lock.h"
 #include "irmap.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
@@ -134,6 +135,9 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 	int fd = -1;
 	char *path;
 
+	if (opts.force_irmap)
+		goto do_irmap;
+
 	fd = open_handle(s_dev, i_ino, f_handle);
 	if (fd >= 0) {
 		struct mount_info *mi;
@@ -168,6 +172,7 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		return 0;
 	}
 
+do_irmap:
 	pr_warn("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
 	path = irmap_lookup(s_dev, i_ino);
 	if (!path) {

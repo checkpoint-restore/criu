@@ -47,6 +47,7 @@ struct cr_options {
 	char			*img_parent;
 	bool			auto_dedup;
 	unsigned int		cpu_cap;
+	bool			force_irmap;
 };
 
 extern struct cr_options opts;
