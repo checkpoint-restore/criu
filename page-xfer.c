@@ -167,7 +167,7 @@ static int page_server_serve(int sk)
 	while (1) {
 		struct page_server_iov pi;
 
-		ret = read(sk, &pi, sizeof(pi));
+		ret = recv(sk, &pi, sizeof(pi), MSG_WAITALL);
 		if (!ret)
 			break;
 
