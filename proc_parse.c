@@ -172,6 +172,13 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 	if (prev_vfi->vma && vfi_equal(vfi, prev_vfi)) {
 		struct vma_area *prev = prev_vfi->vma;
 
+		/*
+		 * If vfi is equal (!) and negative @vm_file_fd --
+		 * we have nothing to borrow for sure.
+		 */
+		if (prev->vm_file_fd < 0)
+			return 0;
+
 		pr_debug("vma %"PRIx64" borrows vfi from previous %"PRIx64"\n",
 				vma->e->start, prev->e->start);
 		vma->vm_file_fd = prev->vm_file_fd;
