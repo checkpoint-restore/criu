@@ -212,6 +212,8 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	char *path = NULL;
 	int hv;
 
+	s_dev = kdev_to_odev(s_dev);
+
 	pr_debug("Resolving %x:%lx path\n", s_dev, i_ino);
 
 	timing_start(TIME_IRMAP_RESOLVE);
