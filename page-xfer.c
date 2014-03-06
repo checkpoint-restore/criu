@@ -460,7 +460,7 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 
-	if (opts.auto_dedup && !opts.use_page_server && xfer->parent != NULL) {
+	if (opts.auto_dedup && xfer->parent != NULL) {
 		ret = dedup_one_iovec(xfer->parent, iov);
 		if (ret == -1) {
 			pr_perror("Auto-deduplication failed");
