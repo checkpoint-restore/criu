@@ -63,6 +63,8 @@ struct page_read {
 					   read_pagemap_page */
 	unsigned long cvaddr;		/* vaddr we are on */
 
+	struct iovec bunch;		/* record consequent neighbour
+					   iovecs to punch together */
 	unsigned id; /* for logging */
 };
 
@@ -72,5 +74,5 @@ extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);
 
 extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
-extern int punch_hole(int fd, unsigned long off, unsigned long len);
+extern int punch_hole(struct page_read *pr, unsigned long off, unsigned long len, bool cleanup);
 #endif /* __CR_PAGE_READ_H__ */

@@ -149,7 +149,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 		}
 
 		if (opts.auto_dedup) {
-			ret = punch_hole(pr->fd_pg, current_vaddr, (unsigned int)PAGE_SIZE);
+			ret = punch_hole(pr, current_vaddr, (unsigned int)PAGE_SIZE, false);
 			if (ret == -1) {
 				return -1;
 			}
@@ -163,6 +163,16 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 
 static void close_page_read(struct page_read *pr)
 {
+	int ret;
+
+	if (pr->bunch.iov_len > 0) {
+		ret = punch_hole(pr, 0, 0, true);
+		if (ret == -1)
+			return;
+
+		pr->bunch.iov_len = 0;
+	}
+
 	if (pr->parent) {
 		close_page_read(pr->parent);
 		xfree(pr->parent);
@@ -207,6 +217,8 @@ err_cl:
 int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
 {
 	pr->pe = NULL;
+	pr->bunch.iov_len = 0;
+	pr->bunch.iov_base = NULL;
 
 	pr->fd = open_image_at(dfd, CR_FD_PAGEMAP, O_RSTR, (long)pid);
 	if (pr->fd < 0) {

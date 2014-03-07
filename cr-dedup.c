@@ -7,6 +7,8 @@
 #include "page-read.h"
 #include "restorer.h"
 
+#define MAX_BUNCH_SIZE 256
+
 static int cr_dedup_one_pagemap(int pid);
 
 int cr_dedup(void)
@@ -101,15 +103,32 @@ exit:
 	return 0;
 }
 
-int punch_hole(int fd, unsigned long off, unsigned long len)
+int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
+	       bool cleanup)
 {
 	int ret;
-	pr_debug("Punch!/%lu/%lu/\n", off, len);
-	ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-			off, len);
-	if (ret != 0) {
-		pr_perror("Error punching hole");
-		return -1;
+	struct iovec * bunch = &pr->bunch;
+
+	if ((unsigned long)bunch->iov_base + bunch->iov_len == off && !cleanup
+	    && (bunch->iov_len + len < MAX_BUNCH_SIZE * PAGE_SIZE
+	    || bunch->iov_len == 0)) {
+		pr_debug("pr%d:Extend bunch len from %lx to %lx\n", pr->id,
+			 bunch->iov_len, bunch->iov_len + len);
+		bunch->iov_len += len;
+	} else {
+		if (bunch->iov_len > 0) {
+			pr_debug("Punch!/%lx/%lx/\n", (unsigned long)bunch->iov_base, bunch->iov_len);
+			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+					(unsigned long)bunch->iov_base, bunch->iov_len);
+			if (ret != 0) {
+				pr_perror("Error punching hole");
+				return -1;
+			}
+		}
+		bunch->iov_base = (void *)off;
+		bunch->iov_len = len;
+		pr_debug("pr%d:New bunch/%lx/%lx/\n", pr->id,
+			 (unsigned long)bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
@@ -146,7 +165,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
 		off_real = lseek(pr->fd_pg, 0, SEEK_CUR);
 		if (!pr->pe->in_parent) {
-			ret = punch_hole(pr->fd_pg, off_real, min(piov_end, iov_end) - off);
+			ret = punch_hole(pr, off_real, min(piov_end, iov_end) - off, false);
 			if (ret == -1)
 				return ret;
 		}
