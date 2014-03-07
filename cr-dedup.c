@@ -82,7 +82,7 @@ static int cr_dedup_one_pagemap(int pid)
 		goto exit;
 
 	while (1) {
-		pr_debug("dedup iovec base=%lu, len=%zu\n", (unsigned long)iov.iov_base, iov.iov_len);
+		pr_debug("dedup iovec base=%p, len=%zu\n", iov.iov_base, iov.iov_len);
 		if (!pr.pe->in_parent) {
 			ret = dedup_one_iovec(prp, &iov);
 			if (ret)
@@ -124,7 +124,7 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 		bunch->iov_len += len;
 	} else {
 		if (bunch->iov_len > 0) {
-			pr_debug("Punch!/%lx/%lx/\n", (unsigned long)bunch->iov_base, bunch->iov_len);
+			pr_debug("Punch!/%p/%lx/\n", bunch->iov_base, bunch->iov_len);
 			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 					(unsigned long)bunch->iov_base, bunch->iov_len);
 			if (ret != 0) {
@@ -134,8 +134,7 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 		}
 		bunch->iov_base = (void *)off;
 		bunch->iov_len = len;
-		pr_debug("pr%d:New bunch/%lx/%lx/\n", pr->id,
-			 (unsigned long)bunch->iov_base, bunch->iov_len);
+		pr_debug("pr%d:New bunch/%p/%lx/\n", pr->id, bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
