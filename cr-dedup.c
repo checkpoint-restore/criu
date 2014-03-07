@@ -119,12 +119,12 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 	struct iovec * bunch = &pr->bunch;
 
 	if (!cleanup && can_extend_batch(bunch, off, len)) {
-		pr_debug("pr%d:Extend bunch len from %lx to %lx\n", pr->id,
+		pr_debug("pr%d:Extend bunch len from %zu to %zu\n", pr->id,
 			 bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
 	} else {
 		if (bunch->iov_len > 0) {
-			pr_debug("Punch!/%p/%lx/\n", bunch->iov_base, bunch->iov_len);
+			pr_debug("Punch!/%p/%zu/\n", bunch->iov_base, bunch->iov_len);
 			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 					(unsigned long)bunch->iov_base, bunch->iov_len);
 			if (ret != 0) {
@@ -134,7 +134,7 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 		}
 		bunch->iov_base = (void *)off;
 		bunch->iov_len = len;
-		pr_debug("pr%d:New bunch/%p/%lx/\n", pr->id, bunch->iov_base, bunch->iov_len);
+		pr_debug("pr%d:New bunch/%p/%zu/\n", pr->id, bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
