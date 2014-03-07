@@ -135,9 +135,6 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 	int fd = -1;
 	char *path;
 
-	if (opts.force_irmap)
-		goto do_irmap;
-
 	fd = open_handle(s_dev, i_ino, f_handle);
 	if (fd >= 0) {
 		struct mount_info *mi;
@@ -154,35 +151,44 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		 * Inode numbers are not restored for tmpfs content, but we can
 		 * get file names, becasue tmpfs cache is not pruned.
 		 */
-		if (mi->fstype->code == FSTYPE__TMPFS) {
+		if ((mi->fstype->code == FSTYPE__TMPFS) ||
+				(mi->fstype->code == FSTYPE__DEVTMPFS)) {
 			char p[PATH_MAX];
 
 			if (read_fd_link(fd, p, sizeof(p)) < 0)
 				goto err;
-			close_safe(&fd);
 
 			path = xstrdup(p);
 			if (path == NULL)
-				return -1;
+				goto err;
 
 			goto out;
 		}
 
-		close(fd);
-		return 0;
+		if (!opts.force_irmap)
+			/*
+			 * If we're not forced to do irmap, then
+			 * say we have no path for watch. Otherwise
+			 * do irmap scan even if the handle is
+			 * working.
+			 *
+			 * FIXME -- no need to open-by-handle if
+			 * we are in force-irmap and not on tempfs
+			 */
+			goto out_nopath;
 	}
 
-do_irmap:
 	pr_warn("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
 	path = irmap_lookup(s_dev, i_ino);
 	if (!path) {
 		pr_err("\tCan't dump that handle\n");
 		return -1;
 	}
-
 out:
 	pr_debug("\tDumping %s as path for handle\n", path);
 	f_handle->path = path;
+out_nopath:
+	close_safe(&fd);
 	return 0;
 err:
 	close_safe(&fd);
