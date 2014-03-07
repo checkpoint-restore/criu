@@ -119,7 +119,7 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 	struct iovec * bunch = &pr->bunch;
 
 	if (!cleanup && can_extend_batch(bunch, off, len)) {
-		pr_debug("pr%d:Extend bunch len from %zu to %zu\n", pr->id,
+		pr_debug("pr%d:Extend bunch len from %zu to %lu\n", pr->id,
 			 bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
 	} else {
