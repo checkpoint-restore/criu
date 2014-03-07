@@ -55,6 +55,8 @@ static struct irmap *cache[IRMAP_CACHE_SIZE];
 static struct irmap hints[] = {
 	{ .path = "/etc", .nr_kids = -1, },
 	{ .path = "/var/spool", .nr_kids = -1, },
+	{ .path = "/lib/udev", .nr_kids = -1, },
+	{ .path = "/no-such-path", .nr_kids = -1, },
 	{ },
 };
 
@@ -296,8 +298,10 @@ int irmap_predump_run(void)
 	for (ip = predump_queue; ip; ip = ip->next) {
 		pr_debug("\tchecking %x:%lx\n", ip->dev, ip->ino);
 		ret = check_open_handle(ip->dev, ip->ino, &ip->fh);
-		if (ret)
+		if (ret) {
+			pr_err("Failed to resolve %x:%lx\n", ip->dev, ip->ino);
 			break;
+		}
 
 		if (ip->fh.path) {
 			IrmapCacheEntry ic = IRMAP_CACHE_ENTRY__INIT;
