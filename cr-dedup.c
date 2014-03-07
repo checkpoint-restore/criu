@@ -103,15 +103,22 @@ exit:
 	return 0;
 }
 
+static inline bool can_extend_batch(struct iovec *bunch,
+		unsigned long off, unsigned long len)
+{
+	return  /* The next region is the continuation of the existing */
+		((unsigned long)bunch->iov_base + bunch->iov_len == off) &&
+		/* The resulting region is non empty and is small enough */
+		(bunch->iov_len == 0 || bunch->iov_len + len < MAX_BUNCH_SIZE * PAGE_SIZE);
+}
+
 int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 	       bool cleanup)
 {
 	int ret;
 	struct iovec * bunch = &pr->bunch;
 
-	if ((unsigned long)bunch->iov_base + bunch->iov_len == off && !cleanup
-	    && (bunch->iov_len + len < MAX_BUNCH_SIZE * PAGE_SIZE
-	    || bunch->iov_len == 0)) {
+	if (!cleanup && can_extend_batch(bunch, off, len)) {
 		pr_debug("pr%d:Extend bunch len from %lx to %lx\n", pr->id,
 			 bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
