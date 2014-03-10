@@ -14,8 +14,8 @@ SYS-TYPES	:= include/syscall-types.h
 SYS-CODES	:= include/syscall-codes.h
 SYS-PROTO	:= include/syscall.h
 
-SYS-GEN		:= gen-syscalls.pl
-SYS-GEN-TBL	:= gen-sys-exec-tbl.pl
+SYS-GEN		:= ../scripts/arm/gen-syscalls.pl
+SYS-GEN-TBL	:= ../scripts/arm/gen-sys-exec-tbl.pl
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
