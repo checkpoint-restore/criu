@@ -28,4 +28,4 @@ This HOWTO explains how to cross-compile CRIU on x86
 12. Compile and install protobuf-c.
 13. Compile CRIU:
 
-     ARCH=<target arch> CROSS_COMPILE=$TARGET- CFLAGS=`pkg-config --cflags libprotobuf-c` LDFLAGS="`pkg-config --libs libprotobuf-c` --static" make
+     ARCH=<target arch> CROSS_COMPILE=$TARGET- CFLAGS=`pkg-config --cflags libprotobuf-c` LDFLAGS="`pkg-config --libs libprotobuf-c`" make
