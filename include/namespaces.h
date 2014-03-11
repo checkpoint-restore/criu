@@ -9,6 +9,15 @@ struct ns_desc {
 	size_t		len;
 };
 
+struct ns_id {
+	unsigned int kid;
+	unsigned int id;
+	pid_t pid;
+	struct ns_desc *nd;
+	struct ns_id *next;
+};
+extern struct ns_id *ns_ids;
+
 #define NS_DESC_ENTRY(_cflag, _str)			\
 	{						\
 		.cflag		= _cflag,		\

@@ -113,15 +113,7 @@ int restore_ns(int rst, struct ns_desc *nd)
 	return ret;
 }
 
-struct ns_id {
-	unsigned int kid;
-	unsigned int id;
-	pid_t pid;
-	struct ns_desc *nd;
-	struct ns_id *next;
-};
-
-static struct ns_id *ns_ids;
+struct ns_id *ns_ids = NULL;
 static unsigned int ns_next_id = 1;
 unsigned long current_ns_mask = 0;
 
