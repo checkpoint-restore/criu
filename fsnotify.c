@@ -320,7 +320,8 @@ static int pre_dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 static int pre_dump_one_fanotify(int pid, int lfd)
 {
-	return parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, pre_dump_fanotify_entry, NULL);
+	struct fsnotify_params fsn_params = { };
+	return parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, pre_dump_fanotify_entry, &fsn_params);
 }
 
 const struct fdtype_ops fanotify_dump_ops = {
