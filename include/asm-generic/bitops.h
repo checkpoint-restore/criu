@@ -1,3 +1,10 @@
+/*
+ * Generic bits operations.
+ *
+ * Architectures that don't want their own implementation of those,
+ * should include this file into the arch/$ARCH/include/asm/bitops.h
+ */
+
 #ifndef __CR_GENERIC_BITOPS_H__
 #define __CR_GENERIC_BITOPS_H__
 
