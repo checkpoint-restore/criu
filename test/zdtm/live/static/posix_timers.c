@@ -171,6 +171,9 @@ static void generic_handler(struct posix_timers_info *info,
 {
 	int overrun;
 
+	if (info == NULL)
+		info = &posix_timers[MONOTONIC_ONESHOT_INFO];
+
 	if (info != real) {
 		real->handler_status |= WRONG_SI_PTR;
 		return;
@@ -262,7 +265,10 @@ static int setup_timers(void)
 
 		sev.sigev_notify = SIGEV_SIGNAL;
 		sev.sigev_signo = info->sig;
-		sev.sigev_value.sival_ptr = info;
+		if (&posix_timers[MONOTONIC_ONESHOT_INFO] == info)
+			sev.sigev_value.sival_ptr = NULL;
+		else
+			sev.sigev_value.sival_ptr = info;
 
 		if (timer_create(info->clock, &sev, &info->timerid) == -1) {
 			err("Can't create timer\n");
