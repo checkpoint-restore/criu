@@ -227,28 +227,37 @@ err:
 
 int arch_alloc_thread_info(CoreEntry *core)
 {
-	ThreadInfoX86 *thread_info;
-	UserX86RegsEntry *gpregs;
-	UserX86FpregsEntry *fpregs;
+	size_t sz;
+	bool with_fpu, with_xsave;
+	void *m;
+	ThreadInfoX86 *ti = NULL;
 
-	thread_info = xmalloc(sizeof(*thread_info));
-	if (!thread_info)
-		goto err;
-	thread_info_x86__init(thread_info);
-	core->thread_info = thread_info;
 
-	gpregs = xmalloc(sizeof(*gpregs));
-	if (!gpregs)
-		goto err;
-	user_x86_regs_entry__init(gpregs);
-	thread_info->gpregs = gpregs;
+	with_fpu = cpu_has_feature(X86_FEATURE_FPU);
 
-	if (cpu_has_feature(X86_FEATURE_FPU)) {
-		fpregs = xmalloc(sizeof(*fpregs));
-		if (!fpregs)
-			goto err;
+	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry);
+	if (with_fpu) {
+		sz += sizeof(UserX86FpregsEntry);
+		with_xsave = cpu_has_feature(X86_FEATURE_XSAVE);
+		if (with_xsave)
+			sz += sizeof(UserX86XsaveEntry);
+	}
+
+	m = xmalloc(sz);
+	if (!m)
+		return -1;
+
+	ti = core->thread_info = xptr_pull(&m, ThreadInfoX86);
+	thread_info_x86__init(ti);
+	ti->gpregs = xptr_pull(&m, UserX86RegsEntry);
+	user_x86_regs_entry__init(ti->gpregs);
+
+	if (with_fpu) {
+		UserX86FpregsEntry *fpregs;
+
+		fpregs = ti->fpregs = xptr_pull(&m, UserX86FpregsEntry);
 		user_x86_fpregs_entry__init(fpregs);
-		thread_info->fpregs = fpregs;
+
 		/* These are numbers from kernel */
 		fpregs->n_st_space	= 32;
 		fpregs->n_xmm_space	= 64;
@@ -259,13 +268,11 @@ int arch_alloc_thread_info(CoreEntry *core)
 		if (!fpregs->st_space || !fpregs->xmm_space)
 			goto err;
 
-		if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+		if (with_xsave) {
 			UserX86XsaveEntry *xsave;
-			xsave = xmalloc(sizeof(*xsave));
-			if (!xsave)
-				goto err;
+
+			xsave = fpregs->xsave = xptr_pull(&m, UserX86XsaveEntry);
 			user_x86_xsave_entry__init(xsave);
-			thread_info->fpregs->xsave = xsave;
 
 			xsave->n_ymmh_space = 64;
 			xsave->ymmh_space = xzalloc(pb_repeated_size(xsave, ymmh_space));
@@ -281,20 +288,11 @@ err:
 
 void arch_free_thread_info(CoreEntry *core)
 {
-	if (core->thread_info) {
-		if (core->thread_info->fpregs) {
-			if (core->thread_info->fpregs->xsave)
-				xfree(core->thread_info->fpregs->xsave->ymmh_space);
-			xfree(core->thread_info->fpregs->xsave);
-			xfree(core->thread_info->fpregs->st_space);
-			xfree(core->thread_info->fpregs->xmm_space);
-			xfree(core->thread_info->fpregs->padding);
-		}
-		xfree(core->thread_info->gpregs);
-		xfree(core->thread_info->fpregs);
-		xfree(core->thread_info);
-		core->thread_info = NULL;
-	}
+	if (core->thread_info->fpregs->xsave)
+		xfree(core->thread_info->fpregs->xsave->ymmh_space);
+	xfree(core->thread_info->fpregs->st_space);
+	xfree(core->thread_info->fpregs->xmm_space);
+	xfree(core->thread_info);
 }
 
 static bool valid_xsave_frame(CoreEntry *core)
