@@ -68,6 +68,7 @@ extern bool ns_per_id;
 #define O_DUMP	(O_RDWR | O_CREAT | O_TRUNC)
 #define O_SHOW	(O_RDONLY)
 #define O_RSTR	(O_RDONLY)
+#define O_OPT	(O_PATH)
 
 extern int open_image_dir(char *dir);
 extern void close_image_dir(void);
