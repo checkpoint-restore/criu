@@ -416,7 +416,7 @@ static int predump_one_fd(int pid, int fd)
 	 * enightened version without fds draining.
 	 */
 
-	lfd = open_proc(pid, "fd/%d", fd);
+	lfd = __open_proc(pid, O_PATH | O_RDONLY, "fd/%d", fd);
 	if (lfd < 0)
 		return 0; /* That's OK, it can be a socket */
 
