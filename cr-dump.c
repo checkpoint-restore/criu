@@ -317,6 +317,31 @@ static inline u_int64_t encode_rlim(unsigned long val)
 	return val == RLIM_INFINITY ? -1 : val;
 }
 
+static int __dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
+{
+	int res;
+
+	BUG_ON(rls->n_rlimits < RLIM_NLIMITS);
+
+	for (res = 0; res <rls->n_rlimits ; res++) {
+		RlimitEntry re = RLIMIT_ENTRY__INIT;
+		struct rlimit lim;
+
+		if (prlimit(pid, res, NULL, &lim)) {
+			pr_perror("Can't get rlimit %d", res);
+			return -1;
+		}
+
+		re.cur = encode_rlim(lim.rlim_cur);
+		re.max = encode_rlim(lim.rlim_max);
+
+		BUILD_BUG_ON(sizeof(*rls->rlimits[res]) != sizeof(re));
+		memcpy(rls->rlimits[res], &re, sizeof(re));
+	}
+
+	return 0;
+}
+
 static int dump_task_rlims(int pid, struct cr_fdset *fds)
 {
 	int res, fd;
@@ -678,6 +703,10 @@ static int dump_task_core_all(struct pstree_item *item,
 	core->tc->exit_code = 0;
 
 	ret = dump_thread_core(pid, core, &misc->ti);
+	if (ret)
+		goto err;
+
+	ret = __dump_task_rlimits(pid, core->rlimits);
 	if (ret)
 		goto err;
 
