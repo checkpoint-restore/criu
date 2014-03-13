@@ -317,7 +317,7 @@ static inline u_int64_t encode_rlim(unsigned long val)
 	return val == RLIM_INFINITY ? -1 : val;
 }
 
-static int __dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
+static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 {
 	int res;
 
@@ -337,31 +337,6 @@ static int __dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 
 		BUILD_BUG_ON(sizeof(*rls->rlimits[res]) != sizeof(re));
 		memcpy(rls->rlimits[res], &re, sizeof(re));
-	}
-
-	return 0;
-}
-
-static int dump_task_rlims(int pid, struct cr_fdset *fds)
-{
-	int res, fd;
-
-	fd = fdset_fd(fds, CR_FD_RLIMIT);
-
-	for (res = 0; res < RLIM_NLIMITS; res++) {
-		struct rlimit lim;
-		RlimitEntry re = RLIMIT_ENTRY__INIT;
-
-		if (prlimit(pid, res, NULL, &lim)) {
-			pr_perror("Can't get rlimit %d", res);
-			return -1;
-		}
-
-		re.cur = encode_rlim(lim.rlim_cur);
-		re.max = encode_rlim(lim.rlim_max);
-
-		if (pb_write_one(fd, &re, PB_RLIMIT))
-			return -1;
 	}
 
 	return 0;
@@ -706,7 +681,7 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret)
 		goto err;
 
-	ret = __dump_task_rlimits(pid, core->rlimits);
+	ret = dump_task_rlimits(pid, core->rlimits);
 	if (ret)
 		goto err;
 
@@ -1601,12 +1576,6 @@ static int dump_one_task(struct pstree_item *item)
 	ret = dump_task_fs(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
-	ret = dump_task_rlims(pid, cr_fdset);
-	if (ret) {
-		pr_err("Dump %d rlimits failed %d\n", pid, ret);
 		goto err;
 	}
 
