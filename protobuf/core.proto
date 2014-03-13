@@ -1,6 +1,8 @@
 import "core-x86.proto";
 import "core-arm.proto";
 
+import "rlimit.proto";
+
 message task_core_entry {
 	required uint32			task_state	= 1;
 	required uint32			exit_code	= 2;
@@ -41,6 +43,10 @@ message thread_core_entry {
 	optional thread_sas_entry	sas		= 7;
 }
 
+message task_rlimits_entry {
+	repeated rlimit_entry		rlimits		= 1;
+};
+
 message core_entry {
 	enum march {
 		UNKNOWN		= 0;
@@ -55,4 +61,6 @@ message core_entry {
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
 	optional thread_core_entry	thread_core	= 5;
+
+	optional task_rlimits_entry	rlimits		= 7;
 }
