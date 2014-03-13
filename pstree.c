@@ -18,61 +18,49 @@ struct pstree_item *root_item;
 
 void core_entry_free(CoreEntry *core)
 {
-	if (core) {
-		arch_free_thread_info(core);
-		if (core->thread_core)
-			xfree(core->thread_core->sas);
-		xfree(core->thread_core);
-		xfree(core->tc);
-		xfree(core->ids);
-	}
+	arch_free_thread_info(core);
+	xfree(core);
 }
 
-CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc)
+CoreEntry *core_entry_alloc(int th, int tsk)
 {
-	CoreEntry *core;
-	TaskCoreEntry *tc;
+	size_t sz;
+	CoreEntry *core = NULL;
+	void *m;
 
-	core = xmalloc(sizeof(*core));
-	if (!core)
-		return NULL;
-	core_entry__init(core);
+	sz = sizeof(CoreEntry);
+	if (tsk)
+		sz += sizeof(TaskCoreEntry) + TASK_COMM_LEN;
+	if (th)
+		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry);
 
-	core->mtype = CORE_ENTRY__MARCH;
+	m = xmalloc(sz);
+	if (m) {
+		core = xptr_pull(&m, CoreEntry);
+		core_entry__init(core);
+		core->mtype = CORE_ENTRY__MARCH;
 
-	if (alloc_thread_info) {
-		ThreadCoreEntry *thread_core;
-		ThreadSasEntry *sas;
+		if (tsk) {
+			core->tc = xptr_pull(&m, TaskCoreEntry);
+			task_core_entry__init(core->tc);
+			core->tc->comm = xptr_pull_s(&m, TASK_COMM_LEN);
+			memzero(core->tc->comm, TASK_COMM_LEN);
+		}
 
-		if (arch_alloc_thread_info(core))
-			goto err;
+		if (th) {
+			core->thread_core = xptr_pull(&m, ThreadCoreEntry);
+			thread_core_entry__init(core->thread_core);
+			core->thread_core->sas = xptr_pull(&m, ThreadSasEntry);
+			thread_sas_entry__init(core->thread_core->sas);
 
-		thread_core = xmalloc(sizeof(*thread_core));
-		if (!thread_core)
-			goto err;
-		thread_core_entry__init(thread_core);
-		core->thread_core = thread_core;
-
-		sas = xmalloc(sizeof(*sas));
-		if (!sas)
-			goto err;
-		thread_sas_entry__init(sas);
-		core->thread_core->sas = sas;
-	}
-
-	if (alloc_tc) {
-		tc = xzalloc(sizeof(*tc) + TASK_COMM_LEN);
-		if (!tc)
-			goto err;
-		task_core_entry__init(tc);
-		tc->comm = (void *)tc + sizeof(*tc);
-		core->tc = tc;
+			if (arch_alloc_thread_info(core)) {
+				xfree(core);
+				core = NULL;
+			}
+		}
 	}
 
 	return core;
-err:
-	core_entry_free(core);
-	return NULL;
 }
 
 int pstree_alloc_cores(struct pstree_item *item)

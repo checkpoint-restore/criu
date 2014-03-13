@@ -36,4 +36,24 @@
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
+/*
+ * Helper for allocating trees with single xmalloc.
+ * This one advances the void *pointer on s bytes and
+ * returns the previous value. Use like this
+ *
+ * m = xmalloc(total_size);
+ * a = xptr_pull(&m, tree_root_t);
+ * a->b = xptr_pull(&m, leaf_a_t);
+ * a->c = xptr_pull(&m, leaf_c_t);
+ * ...
+ */
+static inline void *xptr_pull_s(void **m, size_t s)
+{
+	void *ret = (*m);
+	(*m) += s;
+	return ret;
+}
+
+#define xptr_pull(m, type)	xptr_pull_s(m, sizeof(type))
+
 #endif /* __CR_XMALLOC_H__ */
