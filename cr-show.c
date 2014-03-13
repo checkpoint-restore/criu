@@ -443,6 +443,16 @@ static int cr_show_pstree_item(struct pstree_item *item)
 			cr_parse_fd(fdset_fd(cr_fdset, i), fdset_template[i].magic);
 		}
 
+	i = open_image(CR_FD_RLIMIT, O_SHOW | O_OPT, item->pid.virt);
+	if (i >= 0) {
+		pr_msg("* ");
+		pr_msg(fdset_template[CR_FD_RLIMIT].fmt, item->pid.virt);
+		pr_msg(":\n");
+
+		cr_parse_fd(i, RLIMIT_MAGIC);
+		close(i);
+	}
+
 	if (pb_read_one(fdset_fd(cr_fdset, CR_FD_IDS), &ids, PB_IDS) > 0) {
 		i = open_image(CR_FD_FDINFO, O_SHOW, ids->files_id);
 		if (i >= 0) {
