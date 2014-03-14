@@ -654,6 +654,7 @@ err:
 
 int collect_image(struct collect_image_info *cinfo)
 {
+	bool optional = !!(cinfo->flags & COLLECT_OPTIONAL);
 	int fd, ret;
 	void *(*o_alloc)(size_t size) = malloc;
 	void (*o_free)(void *ptr) = free;
@@ -661,9 +662,9 @@ int collect_image(struct collect_image_info *cinfo)
 	pr_info("Collecting %d/%d (flags %x)\n",
 			cinfo->fd_type, cinfo->pb_type, cinfo->flags);
 
-	fd = open_image(cinfo->fd_type, O_RSTR);
+	fd = open_image(cinfo->fd_type, O_RSTR | (optional ? O_OPT : 0));
 	if (fd < 0) {
-		if ((cinfo->flags & COLLECT_OPTIONAL) && (errno == ENOENT))
+		if (optional && fd == -ENOENT)
 			return 0;
 		else
 			return -1;

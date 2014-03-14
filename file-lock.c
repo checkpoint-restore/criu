@@ -226,9 +226,9 @@ static int restore_file_locks(int pid)
 	int fd, ret = -1;
 	FileLockEntry *fle;
 
-	fd = open_image(CR_FD_FILE_LOCKS, O_RSTR, pid);
+	fd = open_image(CR_FD_FILE_LOCKS, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (errno == ENOENT)
+		if (fd == -ENOENT)
 			return 0;
 		else
 			return -1;

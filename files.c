@@ -601,9 +601,9 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
 	if (!fdinfo_per_id) {
-		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR, pid);
+		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR | O_OPT, pid);
 		if (fdinfo_fd < 0) {
-			if (errno == ENOENT)
+			if (fdinfo_fd == -ENOENT)
 				return 0;
 			return -1;
 		}

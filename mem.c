@@ -376,9 +376,9 @@ int prepare_mm_pid(struct pstree_item *i)
 	int fd, ret = -1, vn = 0;
 	struct rst_info *ri = i->rst;
 
-	fd = open_image(CR_FD_MM, O_RSTR, pid);
+	fd = open_image(CR_FD_MM, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (errno == ENOENT)
+		if (fd == -ENOENT)
 			return 0;
 		return -1;
 	}

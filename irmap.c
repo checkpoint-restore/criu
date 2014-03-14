@@ -360,7 +360,7 @@ static int open_irmap_cache(int *fd)
 
 	pr_info("Searching irmap cache in work dir\n");
 in:
-	*fd = open_image_at(dir, CR_FD_IRMAP_CACHE, O_RSTR);
+	*fd = open_image_at(dir, CR_FD_IRMAP_CACHE, O_RSTR | O_OPT);
 	if (dir != AT_FDCWD)
 		close(dir);
 
@@ -369,14 +369,14 @@ in:
 		return 1;
 	}
 
-	if (errno == ENOENT && dir == AT_FDCWD) {
+	if (*fd == -ENOENT && dir == AT_FDCWD) {
 		pr_info("Searching irmap cache in parent\n");
 		dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (dir >= 0)
 			goto in;
 	}
 
-	if (errno != ENOENT)
+	if (*fd != -ENOENT)
 		return -1;
 
 	pr_info("No irmap cache\n");

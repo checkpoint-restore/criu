@@ -2070,9 +2070,9 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 	/*
 	 * Old image -- read from the file.
 	 */
-	fd = open_image(CR_FD_RLIMIT, O_RSTR, pid);
+	fd = open_image(CR_FD_RLIMIT, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (errno == ENOENT) {
+		if (fd == -ENOENT) {
 			pr_info("Skip rlimits for %d\n", pid);
 			return 0;
 		}
@@ -2116,9 +2116,9 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 {
 	int fd, ret;
 
-	fd = open_image(type, O_RSTR, pid);
+	fd = open_image(type, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (errno == ENOENT) /* backward compatibility */
+		if (fd == -ENOENT) /* backward compatibility */
 			return 0;
 		else
 			return -1;
