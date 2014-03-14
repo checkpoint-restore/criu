@@ -68,8 +68,8 @@ struct page_read {
 	unsigned id; /* for logging */
 };
 
-extern int open_page_read(int pid, struct page_read *, int flags);
-extern int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags);
+extern int open_page_read(int pid, struct page_read *, int flags, bool shmem);
+extern int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool shmem);
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);
 

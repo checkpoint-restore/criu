@@ -656,7 +656,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 			return -1;
 		}
 
-		ret = open_page_read_at(pfd, id, xfer->parent, O_RDWR);
+		ret = open_page_read_at(pfd, id, xfer->parent, O_RDWR, false);
 		if (ret) {
 			pr_perror("Can't dedup old image format");
 			xfree(xfer->parent);

@@ -195,7 +195,7 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_read_at(pfd, pid, parent, flags)) {
+	if (open_page_read_at(pfd, pid, parent, flags, false)) {
 		if (errno != ENOENT)
 			goto err_free;
 		xfree(parent);
@@ -214,15 +214,15 @@ err_cl:
 	return -1;
 }
 
-int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
+int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool shmem)
 {
 	pr->pe = NULL;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 
-	pr->fd = open_image_at(dfd, CR_FD_PAGEMAP, O_RSTR, (long)pid);
+	pr->fd = open_image_at(dfd, shmem ? CR_FD_SHMEM_PAGEMAP : CR_FD_PAGEMAP, O_RSTR, (long)pid);
 	if (pr->fd < 0) {
-		pr->fd_pg = open_image_at(dfd, CR_FD_PAGES_OLD, flags, pid);
+		pr->fd_pg = open_image_at(dfd, shmem ? CR_FD_SHM_PAGES_OLD : CR_FD_PAGES_OLD, flags, pid);
 		if (pr->fd_pg < 0)
 			return -1;
 
@@ -233,7 +233,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
 	} else {
 		static unsigned ids = 1;
 
-		if (try_open_parent(dfd, pid, pr, flags)) {
+		if (!shmem && try_open_parent(dfd, pid, pr, flags)) {
 			close(pr->fd);
 			return -1;
 		}
@@ -258,7 +258,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags)
 	return 0;
 }
 
-int open_page_read(int pid, struct page_read *pr, int flags)
+int open_page_read(int pid, struct page_read *pr, int flags, bool shmem)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, flags);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, flags, shmem);
 }
