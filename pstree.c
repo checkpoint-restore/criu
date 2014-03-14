@@ -22,6 +22,10 @@ void core_entry_free(CoreEntry *core)
 	xfree(core);
 }
 
+#ifndef RLIM_NLIMITS
+# define RLIM_NLIMITS 16
+#endif
+
 CoreEntry *core_entry_alloc(int th, int tsk)
 {
 	size_t sz;

@@ -321,8 +321,6 @@ static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 {
 	int res;
 
-	BUG_ON(rls->n_rlimits < RLIM_NLIMITS);
-
 	for (res = 0; res <rls->n_rlimits ; res++) {
 		struct rlimit lim;
 
