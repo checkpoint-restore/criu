@@ -6,6 +6,7 @@
 #include "pid.h"
 #include "shmem.h"
 #include "image.h"
+#include "cr_options.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
 #include "rst-malloc.h"
@@ -106,62 +107,50 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 
 static int restore_shmem_content(void *addr, struct shmem_info *si)
 {
-	int fd, fd_pg, ret = 0;
+	int ret = 0;
+	struct page_read pr;
+	unsigned long off_real;
 
-	fd = open_image(CR_FD_SHMEM_PAGEMAP, O_RSTR, si->shmid);
-	if (fd < 0) {
-		fd_pg = open_image(CR_FD_SHM_PAGES_OLD, O_RSTR, si->shmid);
-		if (fd_pg < 0)
-			goto err_unmap;
-	} else {
-		fd_pg = open_pages_image(O_RSTR, fd);
-		if (fd_pg < 0)
-			goto out_close;
-	}
+	ret = open_page_read(si->shmid, &pr, opts.auto_dedup ? O_RDWR : O_RSTR, true);
+	if (ret)
+		goto err_unmap;
 
 	while (1) {
 		unsigned long vaddr;
 		unsigned nr_pages;
+		struct iovec iov;
 
-		if (fd >= 0) {
-			PagemapEntry *pe;
+		ret = pr.get_pagemap(&pr, &iov);
+		if (ret <= 0)
+			break;
 
-			ret = pb_read_one_eof(fd, &pe, PB_PAGEMAP);
-			if (ret <= 0)
-				break;
-
-			vaddr = (unsigned long)decode_pointer(pe->vaddr);
-			nr_pages = pe->nr_pages;
-
-			pagemap_entry__free_unpacked(pe, NULL);
-		} else {
-			__u64 img_vaddr;
-
-			ret = read_img_eof(fd_pg, &img_vaddr);
-			if (ret <= 0)
-				break;
-
-			vaddr = (unsigned long)decode_pointer(img_vaddr);
-			nr_pages = 1;
-		}
+		vaddr = (unsigned long)iov.iov_base;
+		nr_pages = iov.iov_len / PAGE_SIZE;
 
 		if (vaddr + nr_pages * PAGE_SIZE > si->size)
 			break;
 
-		ret = read(fd_pg, addr + vaddr, nr_pages * PAGE_SIZE);
+		off_real = lseek(pr.fd_pg, 0, SEEK_CUR);
+
+		ret = read(pr.fd_pg, addr + vaddr, nr_pages * PAGE_SIZE);
 		if (ret != nr_pages * PAGE_SIZE) {
 			ret = -1;
 			break;
 		}
 
+		if (opts.auto_dedup) {
+			ret = punch_hole(&pr, off_real, nr_pages * PAGE_SIZE, false);
+			if (ret == -1) {
+				break;
+			}
+		}
+
+		if (pr.put_pagemap)
+			pr.put_pagemap(&pr);
 	}
 
-	close_safe(&fd_pg);
-	close_safe(&fd);
+	pr.close(&pr);
 	return ret;
-
-out_close:
-	close_safe(&fd);
 err_unmap:
 	munmap(addr,  si->size);
 	return -1;
