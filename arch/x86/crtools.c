@@ -288,6 +288,9 @@ err:
 
 void arch_free_thread_info(CoreEntry *core)
 {
+	if (!core->thread_info)
+		return;
+
 	if (core->thread_info->fpregs->xsave)
 		xfree(core->thread_info->fpregs->xsave->ymmh_space);
 	xfree(core->thread_info->fpregs->st_space);
