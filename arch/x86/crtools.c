@@ -228,7 +228,7 @@ err:
 int arch_alloc_thread_info(CoreEntry *core)
 {
 	size_t sz;
-	bool with_fpu, with_xsave;
+	bool with_fpu, with_xsave = false;
 	void *m;
 	ThreadInfoX86 *ti = NULL;
 
