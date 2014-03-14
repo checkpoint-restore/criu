@@ -6,6 +6,7 @@
 #include "compiler.h"
 #include "servicefd.h"
 #include "image-desc.h"
+#include "fcntl.h"
 #include "magic.h"
 
 #define PAGE_IMAGE_SIZE	4096
