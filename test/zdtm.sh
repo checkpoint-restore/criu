@@ -460,6 +460,11 @@ EOF
 		args="$args -L `pwd`/$tdir/lib"
 	fi
 
+	if [ -n "$AUTO_DEDUP" ]; then
+		args="$args --auto-dedup"
+		ps_args="--auto-dedup"
+	fi
+
 	for i in `seq $ITERATIONS`; do
 		local dump_only=
 		local postdump=
@@ -472,7 +477,7 @@ EOF
 		[ -n "$DUMP_ONLY" ] && dump_only=1
 
 		if [ $PAGE_SERVER -eq 1 ]; then
-			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT --daemon || return 1
+			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT $ps_args --daemon || return 1
 			ps_pid=`lsof -s TCP:LISTEN -i :$PS_PORT -t`
 			ps -p "$ps_pid" -o cmd h | grep -q page-server || {
 				echo "Unable to determing PID of page-server"
@@ -586,6 +591,18 @@ EOF
 		[ $sltime -lt 9 ] && sltime=$((sltime+1))
 	done
 
+	if [ -n "$AUTO_DEDUP" ]; then
+		for img in $ddump/pages-*.img; do
+			img_name="${img##*/}"
+			size=$(du -sh -BK "$img" | grep -Eo '[0-9]+' | head -1)
+			echo "Size of $img_name is $size"
+			if [ "$size" -ne 0 ]; then
+				echo "Check: $test, Auto-dedup: image size is more than 0"
+				return 2
+			fi
+		done
+	fi
+
 	cat $test.out
 	cat $test.out | grep -q PASS || return 2
 	[ "$CLEANUP" -ne 0 ] && rm -rf `dirname $ddump`
@@ -681,6 +698,7 @@ Options:
 	-v : Verbose mode
 	-P : Make pre-dump instead of dump on all iterations except the last one
 	-s : Make iterative snapshots. Only the last one will be checked.
+	--auto-dedup : Make auto-dedup on restore. Check sizes of pages imges, it must be zero.
 EOF
 }
 
@@ -753,6 +771,10 @@ while :; do
 		fi
 		PRE_DUMP=1
 		SNAPSHOT=1
+		shift
+		;;
+	  --auto-dedup)
+		AUTO_DEDUP=1
 		shift
 		;;
 	  -g)
