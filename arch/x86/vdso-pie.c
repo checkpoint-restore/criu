@@ -100,7 +100,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
 
-	char *vdso_x86_symbols[VDSO_SYMBOL_MAX] = {
+	char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
 		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
 		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
@@ -210,10 +210,10 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 			goto err;
 
 		k = get_symbol_index(&dynsymbol_names[sym->st_name],
-				     vdso_x86_symbols,
-				     ARRAY_SIZE(vdso_x86_symbols));
+				     vdso_symbols,
+				     ARRAY_SIZE(vdso_symbols));
 		if (k != VDSO_SYMBOL_MAX) {
-			builtin_memcpy(t->symbols[k].name, vdso_x86_symbols[k],
+			builtin_memcpy(t->symbols[k].name, vdso_symbols[k],
 				       sizeof(t->symbols[k].name));
 			t->symbols[k].offset = (unsigned long)sym->st_value - base;
 #if 0
