@@ -158,6 +158,8 @@ static struct mount_info *mount_resolve_path(const char *path)
 
 			if (strncmp(c->mountpoint, path, min(n, pathlen)))
 				continue;
+			if (n < pathlen && path[n] != '/')
+				continue;
 
 			m = c;
 			break;
