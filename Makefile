@@ -35,6 +35,8 @@ OBJCOPY		:= $(CROSS_COMPILE)objcopy
 
 CFLAGS		+= $(USERCFLAGS)
 
+VDSO_O		:= vdso.o
+
 #
 # Fetch ARCH from the uname if not yet set
 #
@@ -69,6 +71,8 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ifeq ($(ARMV),7)
 		USERCFLAGS += -march=armv7-a
 	endif
+
+	VDSO_O       := vdso-stub.o
 endif
 
 SRCARCH		?= $(ARCH)
@@ -117,6 +121,7 @@ CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.pro
 export CC MAKE CFLAGS LIBS SRCARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export cflags-y
+export VDSO_O
 
 include Makefile.inc
 include Makefile.config

@@ -62,6 +62,7 @@ obj-y	+= $(ARCH_DIR)/vdso.o
 obj-y	+= cr-service.o
 obj-y	+= sd-daemon.o
 obj-y	+= plugin.o
+obj-y	+= $(VDSO_O)
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
