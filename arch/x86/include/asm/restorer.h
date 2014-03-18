@@ -143,6 +143,6 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r);
 
 int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state);
 
-static inline void restore_tls(u32 tls) { }
+static inline void restore_tls(tls_t *ptls) { (void)ptls; }
 
 #endif

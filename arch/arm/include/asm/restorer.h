@@ -136,16 +136,16 @@ int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
 
 static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state) { return 0; }
 
-static inline void restore_tls(u32 tls) {
+static inline void restore_tls(tls_t *ptls) {
 	asm (
 	     "mov %%r7, #15  \n"
 	     "lsl %%r7, #16  \n"
 	     "mov %%r0, #5   \n"
 	     "add %%r7, %%r0 \n"	/* r7 = 0xF005 */
-	     "mov %%r0, %0   \n"
+	     "ldr %%r0, [%0] \n"
 	     "svc #0         \n"
 	     :
-	     : "r"(tls)
+	     : "r"(ptls)
 	     : "r0", "r7"
 	     );
 }

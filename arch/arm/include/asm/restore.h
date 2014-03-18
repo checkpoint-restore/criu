@@ -18,7 +18,7 @@
 		       "r"(task_args)					\
 		     : "sp", "r0", "r1", "memory")
 
-static inline void core_get_tls(CoreEntry *pcore, u32 *ptls)
+static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 {
 	*ptls = pcore->ti_arm->tls;
 }

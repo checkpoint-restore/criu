@@ -6,7 +6,7 @@ extern int arch_alloc_thread_info(CoreEntry *core);
 extern void arch_free_thread_info(CoreEntry *core);
 
 
-static inline void core_put_tls(CoreEntry *core, u32 tls)
+static inline void core_put_tls(CoreEntry *core, tls_t tls)
 {
 	core->ti_arm->tls = tls;
 }

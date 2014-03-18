@@ -1,9 +1,6 @@
 #ifndef __ASM_PARASITE_H__
 #define __ASM_PARASITE_H__
 
-static inline u32 arch_get_tls()
-{
-	return 0;
-}
+static inline void arch_get_tls(tls_t *ptls) { (void)ptls; }
 
 #endif

@@ -138,7 +138,7 @@ static inline int posix_timers_dump_size(int timer_n)
 struct parasite_dump_thread {
 	unsigned int		*tid_addr;
 	pid_t			tid;
-	u32			tls;
+	tls_t			tls;
 	stack_t			sas;
 };
 

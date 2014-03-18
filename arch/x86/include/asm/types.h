@@ -112,6 +112,7 @@ typedef struct {
 #define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
 
 typedef u64 auxv_t;
+typedef u32 tls_t;
 
 #define REG_RES(regs) ((regs).ax)
 #define REG_IP(regs)  ((regs).ip)

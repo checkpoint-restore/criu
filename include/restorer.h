@@ -85,7 +85,7 @@ struct thread_restore_args {
 
 	struct task_restore_args	*ta;
 
-	u32				tls;
+	tls_t				tls;
 
 	siginfo_t			*siginfo;
 	unsigned int			siginfo_nr;

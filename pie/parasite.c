@@ -142,7 +142,7 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 {
 	int ret;
 
-	ti->tls = arch_get_tls();
+	arch_get_tls(&ti->tls);
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &ti->tid_addr, 0, 0, 0);
 	if (ret == 0)
 		ret = sys_sigaltstack(NULL, &ti->sas);
