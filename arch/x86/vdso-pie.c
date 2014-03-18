@@ -91,21 +91,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	unsigned long base = VDSO_BAD_ADDR;
 	unsigned int i, j, k;
 
-	/*
-	 * Elf header bytes. For detailed
-	 * description see Elf specification.
-	 */
-	char vdso_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-
-	char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
-		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
-		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
-		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
-	};
+	DECLARE_VDSO(vdso_ident, vdso_symbols);
 
 	BUILD_BUG_ON(sizeof(vdso_ident) != sizeof(ehdr->e_ident));
 

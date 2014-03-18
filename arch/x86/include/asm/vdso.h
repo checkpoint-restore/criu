@@ -25,6 +25,21 @@ enum {
 #define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
 
 
+#define DECLARE_VDSO(ident_name, symtab_name)					\
+										\
+char ident_name[] = {								\
+	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,				\
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,				\
+};										\
+										\
+char *symtab_name[VDSO_SYMBOL_MAX] = {						\
+	[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,	\
+	[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,		\
+	[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,	\
+	[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,		\
+};
+
+
 struct vdso_symtable;
 struct parasite_ctl;
 struct vm_area_list;
