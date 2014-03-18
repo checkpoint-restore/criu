@@ -217,6 +217,7 @@ err_cl:
 int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool shmem)
 {
 	pr->pe = NULL;
+	pr->parent = NULL;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 
