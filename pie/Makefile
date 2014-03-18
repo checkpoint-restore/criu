@@ -4,6 +4,9 @@ targets			+= restorer
 obj-y			+= log-simple.o
 obj-y			+= util.o
 obj-y			+= util-fd.o
+obj-y			+= $(VDSO_O)
+
+obj-e			+= $(ARCH_DIR)/vdso-pie.o
 
 parasite-obj-y		+= parasite.o
 parasite-asm-e		+= $(ARCH_DIR)/parasite-head.o
@@ -11,7 +14,6 @@ parasite-libs-e		+= $(SYSCALL-LIB)
 
 restorer-obj-y		+= restorer.o
 restorer-obj-e		+= $(ARCH_DIR)/restorer.o
-restorer-obj-e		+= $(ARCH_DIR)/vdso-pie.o
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 #

@@ -93,5 +93,8 @@ static inline void vdso_put_mark(void *where, unsigned long proxy_addr)
 extern struct vdso_symtable vdso_sym_rt;
 extern u64 vdso_pfn;
 extern int vdso_init(void);
+extern int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size);
+extern int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t);
+extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma_entry, unsigned long vdso_rt_parked_at);
 
 #endif /* __CR_VDSO_H__ */

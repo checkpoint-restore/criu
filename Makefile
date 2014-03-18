@@ -180,6 +180,10 @@ PROGRAM-BUILTINS	+= built-in.o
 $(ARCH_DIR)/vdso-pie.o: pie
 	$(Q) $(MAKE) $(build)=pie $(ARCH_DIR)/vdso-pie.o
 PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
+pie/$(VDSO_O): pie
+	$(Q) $(MAKE) $(build)=pie pie/$(VDSO_O)
+PROGRAM-BUILTINS	+= pie/$(VDSO_O)
+
 
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
