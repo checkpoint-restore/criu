@@ -5,6 +5,26 @@
 
 #include "protobuf/vma.pb-c.h"
 
+
+/*
+ * This is a minimal amount of symbols
+ * we should support at the moment.
+ */
+enum {
+	VDSO_SYMBOL_GETTIMEOFDAY,
+	VDSO_SYMBOL_GETCPU,
+	VDSO_SYMBOL_CLOCK_GETTIME,
+	VDSO_SYMBOL_TIME,
+
+	VDSO_SYMBOL_MAX
+};
+
+#define VDSO_SYMBOL_GETTIMEOFDAY_NAME	"__vdso_gettimeofday"
+#define VDSO_SYMBOL_GETCPU_NAME		"__vdso_getcpu"
+#define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__vdso_clock_gettime"
+#define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
+
+
 struct vdso_symtable;
 struct parasite_ctl;
 struct vm_area_list;
