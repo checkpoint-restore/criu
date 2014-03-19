@@ -99,6 +99,11 @@ void criu_set_log_level(int log_level)
 	opts->log_level		= log_level;
 }
 
+void criu_set_root(char *root)
+{
+	opts->root = strdup(root);
+}
+
 void criu_set_log_file(char *log_file)
 {
 	opts->log_file = strdup(log_file);
