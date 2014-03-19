@@ -227,7 +227,6 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool sh
 		if (pr->fd_pg < 0)
 			return -1;
 
-		pr->parent = NULL;
 		pr->get_pagemap = get_page_vaddr;
 		pr->put_pagemap = NULL;
 		pr->read_page = read_page;
