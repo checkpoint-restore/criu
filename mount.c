@@ -427,7 +427,7 @@ static int collect_shared(struct mount_info *info)
 			}
 		}
 
-		if (need_master) {
+		if (need_master && m->parent) {
 			pr_err("Mount %d (master_id: %d shared_id: %d) "
 			       "has unreachable sharing\n", m->mnt_id,
 				m->master_id, m->shared_id);
@@ -1001,6 +1001,10 @@ static int propagate_mount(struct mount_info *mi)
 	struct mount_info *t;
 
 	propagate_siblings(mi);
+
+	if (!mi->parent)
+		goto skip_parent;
+
 	umount_from_slaves(mi);
 
 	/* Propagate this mount to everyone from a parent group */
@@ -1018,6 +1022,7 @@ static int propagate_mount(struct mount_info *mi)
 		}
 	}
 
+skip_parent:
 	/*
 	 * FIXME Currently non-root mounts can be restored
 	 * only if a proper root mount exists
@@ -1123,6 +1128,10 @@ static int do_bind_mount(struct mount_info *mi)
 
 static bool can_mount_now(struct mount_info *mi)
 {
+	/* The root mount */
+	if (!mi->parent)
+		return true;
+
 	/*
 	 * Private root mounts can be mounted at any time
 	 */
@@ -1140,12 +1149,20 @@ static bool can_mount_now(struct mount_info *mi)
 	return false;
 }
 
+static int do_mount_root(struct mount_info *mi)
+{
+	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id,
+						mi->shared_id, mi->master_id))
+		return -1;
+
+	mi->mounted = true;
+
+	return 0;
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	int ret;
-
-	if (!mi->parent)
-		return 0;
 
 	if (mi->mounted)
 		return 0;
@@ -1157,7 +1174,9 @@ static int do_mount_one(struct mount_info *mi)
 
 	pr_debug("\tMounting %s @%s (%d)\n", mi->fstype->name, mi->mountpoint, mi->need_plugin);
 
-	if (!mi->bind && !mi->need_plugin)
+	if (!mi->parent)
+		ret = do_mount_root(mi);
+	else if (!mi->bind && !mi->need_plugin)
 		ret = do_new_mount(mi);
 	else
 		ret = do_bind_mount(mi);
