@@ -1235,6 +1235,11 @@ static int cr_pivot_root(void)
 		return -1;
 	}
 
+	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
+		return -1;
+	}
+
 	if (umount2(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
 		return -1;
@@ -1408,11 +1413,6 @@ int prepare_mnt_ns(int ns_pid)
 	if (!mis)
 		goto out;
 
-	if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
-		pr_perror("Can't remount root with MS_PRIVATE");
-		return -1;
-	}
-
 	if (chdir(opts.root ? : "/")) {
 		pr_perror("chdir(%s) failed", opts.root ? : "/");
 		return -1;
@@ -1423,8 +1423,34 @@ int prepare_mnt_ns(int ns_pid)
 	 * clones from the original one. We have to umount them
 	 * prior to recreating new ones.
 	 */
-	if (!opts.root && clean_mnt_ns())
-		return -1;
+	if (!opts.root) {
+		if (clean_mnt_ns())
+			return -1;
+	} else {
+		struct mount_info *mi;
+
+		/* moving a mount residing under a shared mount is invalid. */
+		mi = mount_resolve_path(opts.root);
+		if (mi == NULL) {
+			pr_err("Unable to find mount point for %s\n", opts.root);
+			return -1;
+		}
+		if (mi->parent == NULL) {
+			pr_err("New root and old root are the same\n");
+			return -1;
+		}
+
+		/* Our root is mounted over the parent (in the same directory) */
+		if (!strcmp(mi->parent->mountpoint, mi->mountpoint)) {
+			pr_err("The parent of the new root is unreachable\n");
+			return -1;
+		}
+
+		if (mount("none", mi->parent->mountpoint, "none", MS_SLAVE, NULL)) {
+			pr_perror("Can't remount the parent of the new root with MS_SLAVE");
+			return -1;
+		}
+	}
 
 	free_mounts();
 
