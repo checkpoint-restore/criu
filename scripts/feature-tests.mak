@@ -36,10 +36,7 @@ define STRLCPY_TEST
 
 int main(void)
 {
-	char src[32] = "strlcpy";
-	char dst[32];
-
-	return strlcpy(dst, src, sizeof(dst));
+	return strlcpy(NULL, NULL, 0);
 }
 endef
 
@@ -49,10 +46,7 @@ define STRLCAT_TEST
 
 int main(void)
 {
-	char src[32] = "strlcat";
-	char dst[32];
-
-	return strlcat(dst, src, sizeof(dst));
+	return strlcat(NULL, NULL, 0);
 }
 endef
 
