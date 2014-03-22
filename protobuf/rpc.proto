@@ -37,6 +37,7 @@ message criu_opts {
 
 	optional uint32			cpu_cap		= 20 [default = 0xffffffff];
 	optional bool			force_irmap	= 21;
+	repeated string			exec_cmd	= 22;
 }
 
 message criu_dump_resp {

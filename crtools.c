@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
 	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
 	bool usage_error = true;
+	bool has_exec_cmd = false;
 	int opt, idx;
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
@@ -162,6 +163,7 @@ int main(int argc, char *argv[])
 		{ "libdir", required_argument, 0, 'L'},
 		{ "cpu-cap", required_argument, 0, 57},
 		{ "force-irmap", no_argument, 0, 58},
+		{ "exec-cmd", no_argument, 0, 59},
 		{ },
 	};
 
@@ -333,6 +335,9 @@ int main(int argc, char *argv[])
 		case 'L':
 			opts.libdir = optarg;
 			break;
+		case 59:
+			has_exec_cmd = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -352,6 +357,27 @@ int main(int argc, char *argv[])
 	if (optind >= argc) {
 		pr_msg("Error: command is required\n");
 		goto usage;
+	}
+
+	if (has_exec_cmd) {
+		if (argc - optind <= 1) {
+			pr_msg("Error: --exec-cmd requires a command\n");
+			goto usage;
+		}
+
+		if (strcmp(argv[optind], "restore")) {
+			pr_msg("Error: --exec-cmd is available for the restore command only\n");
+			goto usage;
+		}
+
+		if (opts.restore_detach) {
+			pr_msg("Error: --restore-detached and --exec-cmd cannot be used together\n");
+			goto usage;
+		}
+
+		opts.exec_cmd = xmalloc((argc - optind) * sizeof(char *));
+		memcpy(opts.exec_cmd, &argv[optind + 1], (argc - optind - 1) * sizeof(char *));
+		opts.exec_cmd[argc - optind - 1] = NULL;
 	}
 
 	/* We must not open imgs dir, if service is called */
@@ -390,7 +416,16 @@ int main(int argc, char *argv[])
 	if (!strcmp(argv[optind], "restore")) {
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
-		return cr_restore_tasks() != 0;
+
+		ret = cr_restore_tasks();
+		if (ret == 0 && opts.exec_cmd) {
+			close_pid_proc();
+			execvp(opts.exec_cmd[0], opts.exec_cmd);
+			pr_perror("Failed to exec command %s", opts.exec_cmd[0]);
+			ret = 1;
+		}
+
+		return ret != 0;
 	}
 
 	if (!strcmp(argv[optind], "show"))
@@ -460,6 +495,8 @@ usage:
 "                        (if not specified, value of --images-dir is used)\n"
 "     --cpu-cap CAP      require certain cpu capability. CAP: may be one of:\n"
 "                        'fpu','all'. To disable capability, prefix it with '^'.\n"
+"     --exec-cmd         execute the command specified after '--' on successful\n"
+"                        restore making it the parent of the restored process\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"

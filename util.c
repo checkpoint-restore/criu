@@ -302,7 +302,7 @@ int install_service_fd(enum sfd_type type, int fd)
 
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
 
-	if (dup2(fd, sfd) != sfd) {
+	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
 		return -1;
 	}

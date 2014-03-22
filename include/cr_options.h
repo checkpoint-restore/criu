@@ -48,6 +48,7 @@ struct cr_options {
 	bool			auto_dedup;
 	unsigned int		cpu_cap;
 	bool			force_irmap;
+	char			**exec_cmd;
 };
 
 extern struct cr_options opts;

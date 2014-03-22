@@ -573,7 +573,7 @@ int prepare_net_ns(int pid)
 
 int netns_pre_create(void)
 {
-	ns_fd = open("/proc/self/ns/net", O_RDONLY);
+	ns_fd = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
 	if (ns_fd < 0) {
 		pr_perror("Can't cache net fd");
 		return -1;

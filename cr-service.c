@@ -265,6 +265,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_force_irmap)
 		opts.force_irmap = req->force_irmap;
 
+	if (req->n_exec_cmd > 0) {
+		opts.exec_cmd = xmalloc((req->n_exec_cmd + 1) * sizeof(char *));
+		memcpy(opts.exec_cmd, req->exec_cmd, req->n_exec_cmd * sizeof(char *));
+		opts.exec_cmd[req->n_exec_cmd] = NULL;
+	}
+
 	if (req->ps) {
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;
@@ -346,6 +352,23 @@ exit:
 	if (send_criu_restore_resp(sk, success,
 				   root_item ? root_item->pid.real : -1) == -1) {
 		pr_perror("Can't send response");
+		success = false;
+	}
+
+	if (success && opts.exec_cmd) {
+		int logfd;
+
+		logfd = log_get_fd();
+		if (dup2(logfd, STDOUT_FILENO) == -1 || dup2(logfd, STDERR_FILENO) == -1) {
+			pr_perror("Failed to redirect stdout and stderr to the logfile");
+			return 1;
+		}
+
+		close_pid_proc();
+		close(sk);
+
+		execvp(opts.exec_cmd[0], opts.exec_cmd);
+		pr_perror("Failed to exec cmd %s", opts.exec_cmd[0]);
 		success = false;
 	}
 
