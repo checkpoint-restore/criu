@@ -4,6 +4,10 @@
 #include <sys/types.h>
 #include <string.h>
 
+#ifdef CONFIG_HAS_LIBBSD
+# include <bsd/string.h>
+#endif
+
 #include "config.h"
 
 #ifndef CONFIG_HAS_STRLCPY

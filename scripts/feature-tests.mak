@@ -30,9 +30,22 @@ int main(void)
 }
 endef
 
+define LIBBSD_DEV_TEST
+#include <bsd/string.h>
+
+int main(void)
+{
+	return 0;
+}
+endef
+
 define STRLCPY_TEST
 
 #include <string.h>
+
+#ifdef CONFIG_HAS_LIBBSD
+# include <bsd/string.h>
+#endif
 
 int main(void)
 {
@@ -43,6 +56,10 @@ endef
 define STRLCAT_TEST
 
 #include <string.h>
+
+#ifdef CONFIG_HAS_LIBBSD
+# include <bsd/string.h>
+#endif
 
 int main(void)
 {
