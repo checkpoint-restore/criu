@@ -115,13 +115,30 @@ void criu_set_cpu_cap(unsigned int cap)
 	opts->cpu_cap		= cap;
 }
 
-void criu_set_exec_cmd(int argc, char *argv[])
+int criu_set_exec_cmd(int argc, char *argv[])
 {
 	int i;
+
 	opts->n_exec_cmd = argc;
 	opts->exec_cmd = malloc((argc) * sizeof(char *));
-	for (i = 0; i < argc; i++)
-		opts->exec_cmd[i] = strdup(argv[i]);
+
+	if (opts->exec_cmd) {
+		for (i = 0; i < argc; i++) {
+			opts->exec_cmd[i] = strdup(argv[i]);
+			if (!opts->exec_cmd[i]) {
+				while (i > 0)
+					free(opts->exec_cmd[i--]);
+				free(opts->exec_cmd);
+				opts->n_exec_cmd = 0;
+				opts->exec_cmd = NULL;
+				goto out;
+			}
+		}
+		return 0;
+	}
+
+out:
+	return -ENOMEM;
 }
 
 static CriuResp *recv_resp(int socket_fd)
