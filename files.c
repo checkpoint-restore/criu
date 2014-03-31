@@ -405,34 +405,22 @@ err:
 
 static int predump_one_fd(int pid, int fd)
 {
-	int lfd, ret = 0;
-	struct statfs buf;
 	const struct fdtype_ops *ops;
-	char link[32];
+	char link[PATH_MAX], t[32];
+	int ret = 0;
 
-	/*
-	 * This should look like the dump_task_files_seized,
-	 * but since we pre-dump only *notify-s, we use the
-	 * enightened version without fds draining.
-	 */
-
-	lfd = __open_proc(pid, O_PATH | O_RDONLY, "fd/%d", fd);
-	if (lfd < 0)
-		return 0; /* That's OK, it can be a socket */
-
-	if (fstatfs(lfd, &buf)) {
-		pr_perror("Can't fstatfs file");
+	snprintf(t, sizeof(t), "/proc/%d/fd/%d", pid, fd);
+	ret = readlink(t, link, sizeof(link));
+	if (ret < 0) {
+		pr_perror("Can't read link of fd %d", fd);
+		return -1;
+	} else if ((size_t)ret == sizeof(link)) {
+		pr_err("Buffer for read link of fd %d is too small\n", fd);
 		return -1;
 	}
+	link[ret] = 0;
 
-	if (buf.f_type != ANON_INODE_FS_MAGIC)
-		goto out;
-
-	if (read_fd_link(lfd, link, sizeof(link)) < 0) {
-		ret = -1;
-		goto out;
-	}
-
+	ret = 0;
 	if (is_inotify_link(link))
 		ops = &inotify_dump_ops;
 	else if (is_fanotify_link(link))
@@ -443,7 +431,6 @@ static int predump_one_fd(int pid, int fd)
 	pr_debug("Pre-dumping %d's %d fd\n", pid, fd);
 	ret = ops->pre_dump(pid, fd);
 out:
-	close(lfd);
 	return ret;
 }
 
