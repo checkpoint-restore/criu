@@ -1516,6 +1516,14 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 	}
 
+	ret = run_scripts("post-restore");
+	if (ret != 0) {
+		pr_err("Aborting restore due to script ret code %d\n", ret);
+		timing_stop(TIME_RESTORE);
+		write_stats(RESTORE_STATS);
+		goto out_kill;
+	}
+
 	/* Unlock network before disabling repair mode on sockets */
 	network_unlock();
 
@@ -1528,13 +1536,6 @@ static int restore_root_task(struct pstree_item *init)
 	BUG_ON(ret);
 
 	timing_stop(TIME_RESTORE);
-
-	ret = run_scripts("post-restore");
-	if (ret != 0) {
-		pr_warn("Aborting restore due to script ret code %d\n", ret);
-		write_stats(RESTORE_STATS);
-		goto out_kill;
-	}
 
 	ret = attach_to_tasks();
 
