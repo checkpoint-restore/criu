@@ -217,7 +217,7 @@ err:
 }
 
 /* Map a private vma, if it is not mapped by a parent yet */
-static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
+static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 			struct vma_area **pvma, struct list_head *pvma_list)
 {
 	int ret;
@@ -284,7 +284,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->e->start, vma->e->end, vma->e->pgoff);
 
-		addr = mmap(tgt_addr, size,
+		addr = mmap(*tgt_addr, size,
 				vma->e->prot | PROT_WRITE,
 				vma->e->flags | MAP_FIXED,
 				vma->e->fd, vma->e->pgoff);
@@ -301,8 +301,8 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 		vma->ppage_bitmap = p->page_bitmap;
 
 		addr = mremap(paddr, size, size,
-				MREMAP_FIXED | MREMAP_MAYMOVE, tgt_addr);
-		if (addr != tgt_addr) {
+				MREMAP_FIXED | MREMAP_MAYMOVE, *tgt_addr);
+		if (addr != *tgt_addr) {
 			pr_perror("Unable to remap a private vma");
 			return -1;
 		}
@@ -321,7 +321,8 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void *tgt_addr,
 	if (vma_area_is(vma, VMA_FILE_PRIVATE))
 		close(vma->e->fd);
 
-	return size;
+	*tgt_addr += size;
+	return 0;
 }
 
 static int restore_priv_vma_content(pid_t pid)
@@ -518,11 +519,9 @@ static int prepare_mappings(int pid)
 		if (!vma_priv(vma->e))
 			continue;
 
-		ret = map_private_vma(pid, vma, addr, &pvma, parent_vmas);
+		ret = map_private_vma(pid, vma, &addr, &pvma, parent_vmas);
 		if (ret < 0)
 			break;
-
-		addr += ret;
 	}
 
 	if (ret >= 0)
