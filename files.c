@@ -283,7 +283,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 	default: {
 		char more[32];
 
-		sprintf(more, "%d:%d", maj, minor(p->stat.st_dev));
+		sprintf(more, "%d:%d", maj, minor(p->stat.st_rdev));
 		return dump_unsupp_fd(p, lfd, fdinfo, "chr", more);
 	}
 	}
