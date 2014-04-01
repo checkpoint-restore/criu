@@ -68,16 +68,16 @@ static int prepare_mntns()
 			fprintf(stderr, "mkdir(/dev) failed: %m\n");
 			return -1;
 		}
-		if (mknod("/dev/ptmx", 0666 | S_IFCHR, makedev(5, 2)) && errno != EEXIST) {
-			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
-			return -1;
-		}
-		chmod("/dev/ptmx", 0666);
 		if (mkdir("/dev/pts", 0755) && errno != EEXIST) {
 			fprintf(stderr, "mkdir(/dev/pts) failed: %m\n");
 			return -1;
 		}
-		if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, NULL)) {
+		if (symlink("/dev/pts/ptmx", "/dev/ptmx") && errno != EEXIST) {
+			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
+			return -1;
+		}
+		chmod("/dev/ptmx", 0666);
+		if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, "mode=666,ptmxmode=666,newinstance")) {
 			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
 			return -1;
 		}
