@@ -9,6 +9,7 @@
 #include "log.h"
 #include "bug.h"
 #include "kerndat.h"
+#include "fs-magic.h"
 #include "mem.h"
 #include "compiler.h"
 #include "sysctl.h"
@@ -50,6 +51,32 @@ static int kerndat_get_shmemdev(void)
 	kerndat_shmem_dev = buf.st_dev;
 	pr_info("Found anon-shmem device at %"PRIx64"\n", kerndat_shmem_dev);
 	return 0;
+}
+
+struct stat *kerndat_get_devpts_stat()
+{
+	static struct stat st = {};
+	struct statfs fst;
+
+	if (st.st_dev != 0)
+		return &st;
+
+	if (statfs("/dev/pts", &fst)) {
+		pr_perror("Unable to statefs /dev/pts");
+		return NULL;
+	}
+	if (fst.f_type != DEVPTS_SUPER_MAGIC) {
+		pr_err("devpts isn't mount on the host\n");
+		return NULL;
+	}
+
+	/* The root /dev/pts is mounted w/o newinstance, isn't it? */
+	if (stat("/dev/pts", &st)) {
+		pr_perror("Unable to stat /dev/pts");
+		return NULL;
+	}
+
+	return &st;
 }
 
 /*

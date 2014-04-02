@@ -24,6 +24,7 @@
 #include "image.h"
 #include "namespaces.h"
 #include "protobuf.h"
+#include "kerndat.h"
 #include "protobuf/mnt.pb-c.h"
 
 /*
@@ -578,6 +579,46 @@ out:
 	return NULL;
 }
 
+/* Is it mounted w or w/o the newinstance option */
+static int devpts_dump(struct mount_info *pm)
+{
+	static const char newinstance[] = ",newinstance";
+	struct stat *host_st;
+	struct stat st;
+	DIR *fdir = NULL;
+	char *buf;
+	int len;
+
+	host_st = kerndat_get_devpts_stat();
+	if (host_st == NULL)
+		return -1;
+
+	fdir = open_mountpoint(pm);
+	if (fdir == NULL)
+		return -1;
+
+	if (fstat(dirfd(fdir), &st)) {
+		pr_perror("Unable to statfs %d:%s",
+				pm->mnt_id, pm->mountpoint);
+		close_mountpoint(fdir);
+		return -1;
+	}
+	close_mountpoint(fdir);
+
+	if (host_st->st_dev == st.st_dev)
+		return 0;
+
+	len = strlen(pm->options);
+	buf = xrealloc(pm->options, len + sizeof(newinstance));
+	if (buf == NULL)
+		return -1;
+	memcpy(buf, newinstance, sizeof(newinstance));
+
+	pm->options = buf;
+
+	return 0;
+}
+
 static int tmpfs_dump(struct mount_info *pm)
 {
 	int ret = -1;
@@ -694,6 +735,7 @@ static struct fstype fstypes[] = {
 		.restore = tmpfs_restore,
 	}, {
 		.name = "devpts",
+		.dump = devpts_dump,
 		.code = FSTYPE__DEVPTS,
 	}, {
 		.name = "simfs",

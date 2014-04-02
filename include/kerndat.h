@@ -21,4 +21,7 @@ extern int tcp_max_rshare;
 extern int kern_last_cap;
 extern u64 zero_page_pfn;
 
+struct stat;
+extern struct stat *kerndat_get_devpts_stat(void);
+
 #endif /* __CR_KERNDAT_H__ */
