@@ -140,6 +140,7 @@ TST_FILE	=				\
 		file_locks00			\
 		file_locks01			\
 		netns-nf			\
+		maps_file_prot			\
 
 TST_DIR		=				\
 		cwd00				\
