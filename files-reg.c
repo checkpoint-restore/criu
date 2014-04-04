@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/vfs.h>
@@ -656,17 +657,23 @@ int open_path(struct file_desc *d,
 	return tmp;
 }
 
-static int do_open_reg_noseek(struct reg_file_info *rfi, void *arg)
+static int do_open_reg_noseek_flags(struct reg_file_info *rfi, void *arg)
 {
+	u32 flags = *(u32 *)arg;
 	int fd;
 
-	fd = open(rfi->path, rfi->rfe->flags);
+	fd = open(rfi->path, flags);
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;
 	}
 
 	return fd;
+}
+
+static int do_open_reg_noseek(struct reg_file_info *rfi, void *arg)
+{
+	return do_open_reg_noseek_flags(rfi, &rfi->rfe->flags);
 }
 
 static int do_open_reg(struct reg_file_info *rfi, void *arg)
@@ -708,7 +715,7 @@ int open_reg_by_id(u32 id)
 
 int get_filemap_fd(struct vma_area *vma)
 {
-	struct reg_file_info *rfi;
+	u32 flags;
 
 	/*
 	 * Thevma->fd should have been assigned in collect_filemap
@@ -717,14 +724,15 @@ int get_filemap_fd(struct vma_area *vma)
 	 */
 
 	BUG_ON(vma->fd == NULL);
-	rfi = container_of(vma->fd, struct reg_file_info, d);
 	if (vma->e->has_fdflags)
-		rfi->rfe->flags = vma->e->fdflags;
-	else {
-		pr_err("vma %#lx missing fdflags", vma->e->start);
-		return -1;
-	}
-	return open_path(vma->fd, do_open_reg_noseek, NULL);
+		flags = vma->e->fdflags;
+	else if ((vma->e->prot & PROT_WRITE) &&
+			vma_area_is(vma, VMA_FILE_SHARED))
+		flags = O_RDWR;
+	else
+		flags = O_RDONLY;
+
+	return open_path(vma->fd, do_open_reg_noseek_flags, &flags);
 }
 
 static void remap_get(struct file_desc *fdesc, char typ)
