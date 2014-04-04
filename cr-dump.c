@@ -15,7 +15,6 @@
 #include <sys/vfs.h>
 
 #include <sys/sendfile.h>
-#include <sys/mman.h>
 
 #include <sched.h>
 #include <sys/resource.h>
@@ -347,10 +346,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 	BUG_ON(!vma_area->st);
 	p.stat = *vma_area->st;
 
-	if ((vma->prot & PROT_WRITE) && vma_entry_is(vma, VMA_FILE_SHARED))
-		p.flags = O_RDWR;
-	else
-		p.flags = O_RDONLY;
+	/* Flags will be set during restore in get_filemap_fd() */
 
 	if (fd_id_generate_special(&p.stat, &id))
 		ret = dump_one_reg_file(vma_area->vm_file_fd, id, &p);

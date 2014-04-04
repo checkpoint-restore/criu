@@ -15,4 +15,7 @@ message vma_entry {
 
 	/* madvise flags bitmap */
 	optional uint64		madv	= 9;
+
+	/* file status flags */
+	optional uint32		fdflags	= 10;
 }

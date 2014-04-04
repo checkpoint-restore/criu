@@ -92,6 +92,8 @@ static bool is_vma_range_fmt(char *line)
 static int parse_vmflags(char *buf, struct vma_area *vma_area)
 {
 	char *tok;
+	bool shared = false;
+	bool maywrite = false;
 
 	if (!buf[0])
 		return 0;
@@ -103,6 +105,12 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 #define _vmflag_match(_t, _s) (_t[0] == _s[0] && _t[1] == _s[1])
 
 	do {
+		/* open() block */
+		if (_vmflag_match(tok, "sh"))
+			shared = true;
+		else if (_vmflag_match(tok, "mw"))
+			maywrite = true;
+
 		/* mmap() block */
 		if (_vmflag_match(tok, "gd"))
 			vma_area->e->flags |= MAP_GROWSDOWN;
@@ -135,6 +143,12 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 	} while ((tok = strtok(NULL, " \n")));
 
 #undef _vmflag_match
+
+	if (shared && maywrite)
+		vma_area->e->fdflags = O_RDWR;
+	else
+		vma_area->e->fdflags = O_RDONLY;
+	vma_area->e->has_fdflags = true;
 
 	if (vma_area->e->madv)
 		vma_area->e->has_madv = true;
