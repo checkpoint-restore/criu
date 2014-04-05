@@ -1,7 +1,6 @@
 #ifndef __CR_ASM_TYPES_H__
 #define __CR_ASM_TYPES_H__
 
-#include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
 #include "protobuf/core.pb-c.h"
