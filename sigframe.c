@@ -10,7 +10,7 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 				     struct rt_sigframe *rsigframe,
 				     CoreEntry *core)
 {
-	k_rtsigset_t *blk_sigset = &RT_SIGFRAME_UC(sigframe).uc_sigmask;
+	k_rtsigset_t *blk_sigset = (k_rtsigset_t*)&RT_SIGFRAME_UC(sigframe).uc_sigmask;
 
 	if (core->tc)
 		memcpy(blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
