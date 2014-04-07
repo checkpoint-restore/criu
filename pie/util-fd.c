@@ -5,6 +5,7 @@
 #include <errno.h>
 
 #include "compiler.h"
+#include "log.h"
 #include "asm/string.h"
 #include "asm/types.h"
 
@@ -77,13 +78,18 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 				u32 v[2];
 
 				flags = __sys(fcntl)(fd, F_GETFD, 0);
-				if (flags < 0)
+				if (flags < 0) {
+					pr_err("fcntl(%d, F_GETFD) -> %d\n", fd, flags);
 					return -1;
+				}
 
 				p->flags = (char)flags;
 
-				if (__sys(fcntl)(fd, F_GETOWN_EX, (long)&owner_ex))
+				ret = __sys(fcntl)(fd, F_GETOWN_EX, (long)&owner_ex);
+				if (ret) {
+					pr_err("fcntl(%d, F_GETOWN_EX) -> %d\n", fd, ret);
 					return -1;
+				}
 
 				/*
 				 * Simple case -- nothing is changed.
@@ -93,8 +99,11 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 					continue;
 				}
 
-				if (__sys(fcntl)(fd, F_GETOWNER_UIDS, (long)&v))
+				ret = __sys(fcntl)(fd, F_GETOWNER_UIDS, (long)&v);
+				if (ret) {
+					pr_err("fcntl(%d, F_GETOWNER_UIDS) -> %d\n", fd, ret);
 					return -1;
+				}
 
 				p->fown.uid	 = v[0];
 				p->fown.euid	 = v[1];
