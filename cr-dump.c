@@ -1381,7 +1381,7 @@ static int dump_one_task(struct pstree_item *item)
 	int ret = -1;
 	struct parasite_dump_misc misc;
 	struct cr_fdset *cr_fdset = NULL;
-	struct parasite_drain_fd *dfds;
+	struct parasite_drain_fd *dfds = NULL;
 	struct proc_posix_timers_stat proc_args;
 	struct proc_status_creds cr;
 
@@ -1397,10 +1397,6 @@ static int dump_one_task(struct pstree_item *item)
 		 * zombies are dumped separately in dump_zombies()
 		 */
 		return 0;
-
-	dfds = xmalloc(sizeof(*dfds));
-	if (!dfds)
-		goto err_free;
 
 	pr_info("Obtaining task stat ... ");
 	ret = parse_pid_stat(pid, &pps_buf);
@@ -1422,6 +1418,10 @@ static int dump_one_task(struct pstree_item *item)
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
+
+	dfds = xmalloc(sizeof(*dfds));
+	if (!dfds)
+		goto err;
 
 	ret = collect_fds(pid, dfds);
 	if (ret) {
@@ -1578,7 +1578,6 @@ static int dump_one_task(struct pstree_item *item)
 	close_cr_fdset(&cr_fdset);
 err:
 	close_pid_proc();
-err_free:
 	free_mappings(&vmas);
 	xfree(dfds);
 	return ret;
