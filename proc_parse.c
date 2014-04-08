@@ -1020,7 +1020,27 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 	while (fgets(str, sizeof(str), f)) {
 		union fdinfo_entries entry;
 
-		if (fdinfo_field(str, "pos") || fdinfo_field(str, "counter"))
+		if (fdinfo_field(str, "pos") ||
+		    fdinfo_field(str, "flags")) {
+			unsigned long long val;
+			struct fdinfo_common *fdinfo = arg;
+
+			if (type != FD_TYPES__UND)
+				continue;
+			ret = sscanf(str, "%*s %lli", &val);
+			if (ret != 1)
+				goto parse_err;
+
+			if (fdinfo_field(str, "pos"))
+				fdinfo->pos = val;
+			else if (fdinfo_field(str, "flags"))
+				fdinfo->flags = val;
+
+			entry_met = true;
+			continue;
+		}
+
+		if (type == FD_TYPES__UND)
 			continue;
 
 		if (fdinfo_field(str, "eventfd-count")) {

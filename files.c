@@ -34,6 +34,7 @@
 #include "tun.h"
 #include "fdset.h"
 #include "fs-magic.h"
+#include "proc_parse.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -204,6 +205,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 {
 	int ret;
 	struct statfs fsbuf;
+	struct fdinfo_common fdinfo;
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
@@ -215,16 +217,14 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 		return -1;
 	}
 
+	if (parse_fdinfo(lfd, FD_TYPES__UND, NULL, &fdinfo))
+		return -1;
+
 	p->fs_type	= fsbuf.f_type;
 	p->ctl		= ctl;
 	p->fd		= fd;
-	p->pos		= lseek(lfd, 0, SEEK_CUR);
-	ret = fcntl(lfd, F_GETFL);
-	if (ret == -1) {
-		pr_perror("Unable to get fd %d flags", lfd);
-		return -1;
-	}
-	p->flags	= ret;
+	p->pos		= fdinfo.pos;
+	p->flags	= fdinfo.flags;
 	p->pid		= ctl->pid.real;
 	p->fd_flags	= opts->flags;
 
