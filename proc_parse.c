@@ -1021,7 +1021,8 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 		union fdinfo_entries entry;
 
 		if (fdinfo_field(str, "pos") ||
-		    fdinfo_field(str, "flags")) {
+		    fdinfo_field(str, "flags") ||
+		    fdinfo_field(str, "mnt_id")) {
 			unsigned long long val;
 			struct fdinfo_common *fdinfo = arg;
 
@@ -1035,6 +1036,8 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 				fdinfo->pos = val;
 			else if (fdinfo_field(str, "flags"))
 				fdinfo->flags = val;
+			else if (fdinfo_field(str, "mnt_id"))
+				fdinfo->mnt_id = val;
 
 			entry_met = true;
 			continue;

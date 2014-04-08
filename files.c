@@ -205,7 +205,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 {
 	int ret;
 	struct statfs fsbuf;
-	struct fdinfo_common fdinfo;
+	struct fdinfo_common fdinfo = { .mnt_id = -1 };
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
