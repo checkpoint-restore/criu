@@ -265,6 +265,7 @@ install: $(PROGRAM) install-man
 	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) install -m 644 scripts/sd/criu.socket $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) install -m 644 scripts/sd/criu.service $(DESTDIR)$(SYSTEMDUNITDIR)
+	$(Q) mkdir -p $(DESTDIR)$(LOGROTATEDIR)
 	$(Q) install -m 644 scripts/logrotate.d/criu-service $(DESTDIR)$(LOGROTATEDIR)
 
 install-man:
