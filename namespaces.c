@@ -27,7 +27,7 @@ static struct ns_desc *ns_desc_array[] = {
 
 static unsigned int parse_ns_link(char *link, size_t len, struct ns_desc *d)
 {
-	unsigned int kid = 0;
+	unsigned long kid = 0;
 	char *end;
 
 	if (len >= d->len + 2) {
@@ -40,7 +40,7 @@ static unsigned int parse_ns_link(char *link, size_t len, struct ns_desc *d)
 		}
 	}
 
-	return kid;
+	return (unsigned int)kid;
 }
 
 bool check_ns_proc(struct fd_link *link)
