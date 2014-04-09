@@ -490,9 +490,9 @@ EOF
 		fi
 
 		if [ -n "$SNAPSHOT" ]; then
-			snapopt=""
+			snapopt="--track-mem"
 			if [ "$i" -ne "$ITERATIONS" ]; then
-				snapopt="$snapopt -R --track-mem"
+				snapopt="$snapopt -R"
 				dump_only=1
 				[ -n "$PRE_DUMP" ] && dump_cmd="pre-dump"
 			fi
