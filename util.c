@@ -597,6 +597,10 @@ int cr_daemon(int nochdir, int noclose)
 		int fd;
 
 		fd = open("/dev/null", O_RDWR);
+		if (fd < 0) {
+			pr_perror("Can't open /dev/null");
+			return -1;
+		}
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
