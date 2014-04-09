@@ -833,7 +833,7 @@ static pid_t item_ppid(const struct pstree_item *item)
 static int seize_threads(struct pstree_item *item,
 				struct pid *threads, int nr_threads)
 {
-	int i = 0, ret, j, nr_inprogress;
+	int i = 0, ret, j, nr_inprogress, nr_stopped = 0;
 
 	if ((item->state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
@@ -889,9 +889,13 @@ static int seize_threads(struct pstree_item *item,
 		}
 
 		if (ret == TASK_STOPPED) {
-			pr_err("Stopped threads not supported\n");
-			goto err;
+			nr_stopped++;
 		}
+	}
+
+	if (nr_stopped && nr_stopped != nr_inprogress) {
+		pr_err("Individually stopped threads not supported\n");
+		goto err;
 	}
 
 	return nr_inprogress;
