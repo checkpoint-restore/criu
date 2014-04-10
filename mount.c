@@ -345,7 +345,7 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 
 		if (m->parent && !fsroot_mounted(m)) {
 			list_for_each_entry(t, &m->mnt_bind, mnt_bind) {
-				if (fsroot_mounted(t))
+				if (fsroot_mounted(t) || t->parent == NULL)
 					break;
 			}
 			if (&t->mnt_bind == &m->mnt_bind) {
@@ -788,9 +788,19 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 
 	me.fstype		= pm->fstype->code;
 	if ((me.fstype == FSTYPE__UNSUPPORTED) && !is_root_mount(pm)) {
-		pr_err("FS mnt %s dev %#x root %s unsupported\n",
-				pm->mountpoint, pm->s_dev, pm->root);
-		return -1;
+		struct mount_info *t;
+
+		/* Is it a bind-mount of the root mount */
+		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
+			if (t->parent == NULL)
+				break;
+
+		if (&t->mnt_bind == &pm->mnt_bind ||
+		    strlen(t->source) > strlen(pm->source)) {
+			pr_err("FS mnt %s dev %#x root %s unsupported\n",
+					pm->mountpoint, pm->s_dev, pm->root);
+			return -1;
+		}
 	}
 
 	if (!pm->need_plugin && pm->fstype->dump && pm->fstype->dump(pm))
@@ -1069,7 +1079,7 @@ skip_parent:
 	 * FIXME Currently non-root mounts can be restored
 	 * only if a proper root mount exists
 	 */
-	if (fsroot_mounted(mi))
+	if (fsroot_mounted(mi) || mi->parent == NULL)
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
 			if (t->bind)
 				continue;
