@@ -149,6 +149,7 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 		tempfs				\
+		bind-mount			\
 
 TST_DIR_FILE	=				\
 		chroot				\

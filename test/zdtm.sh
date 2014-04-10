@@ -124,6 +124,7 @@ static/mountpoints
 ns/static/session00
 ns/static/session01
 ns/static/tempfs
+ns/static/bind-mount
 static/utsname
 static/ipc_namespace
 static/shm
@@ -159,6 +160,7 @@ rtc
 tempfs
 maps007
 tempfs
+bind-mount
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
