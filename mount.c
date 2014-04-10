@@ -1137,11 +1137,26 @@ static int restore_ext_mount(struct mount_info *mi)
 
 static int do_bind_mount(struct mount_info *mi)
 {
-	char rpath[PATH_MAX];
 	bool shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
 
 	if (!mi->need_plugin) {
-		snprintf(rpath, sizeof(rpath), "%s%s", mi->bind->mountpoint, mi->root);
+		char rpath[PATH_MAX];
+		int tok = 0;
+
+		/*
+		 * Cut common part of root.
+		 * For non-root binds the source is always "/" (checked)
+		 * so this will result in this slash removal only.
+		 */
+		while (mi->root[tok] == mi->bind->root[tok]) {
+			tok++;
+			if (mi->bind->root[tok] == '\0')
+				break;
+			BUG_ON(mi->root[tok] == '\0');
+		}
+
+		snprintf(rpath, sizeof(rpath), "%s/%s",
+				mi->bind->mountpoint, mi->root + tok);
 		pr_info("\tBind %s to %s\n", rpath, mi->mountpoint);
 
 		if (mount(rpath, mi->mountpoint, NULL,
