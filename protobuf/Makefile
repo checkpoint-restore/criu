@@ -92,15 +92,19 @@ ifeq ($(SRCARCH),arm)
 	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $(patsubst %.h,%.c,$@)
 endif
 
-$(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+_first_stage := $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.c))
+_first_stage += $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.h))
+$(obj)/%.pb-c.d: $(_first_stage)
+
+$(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h $(obj)/%.pb-c.d
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-$(obj)/%.d: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+$(obj)/%.pb-c.d: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
 	$(E) "  DEP     " $@
 	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
 
-$(obj)/%.i: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
+$(obj)/%.pb-c.i: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
 	$(E) "  CC      " $@
 	$(Q) $(CC) -E $(CFLAGS) $< -o $@
 
@@ -111,8 +115,8 @@ $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 _all += $(obj)/built-in.o
 
 ifneq ($(MAKECMDGOALS),clean)
--include $(addprefix $(obj)/,$(obj-y:.o=.proto.d))
--include $(addprefix $(obj)/,$(obj-y:.o=.proto.c.d))
+-include $(addprefix $(obj)/,$(proto-obj-y:.o=.proto.d))
+-include $(addprefix $(obj)/,$(proto-obj-y:.o=.proto.c.d))
 endif
 
 cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
