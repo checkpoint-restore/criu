@@ -16,6 +16,7 @@ message task_core_entry {
 	required string			comm		= 6;
 
 	optional task_timers_entry	timers		= 7;
+	optional task_rlimits_entry	rlimits		= 8;
 }
 
 message task_kobj_ids_entry {
@@ -67,6 +68,4 @@ message core_entry {
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
 	optional thread_core_entry	thread_core	= 5;
-
-	optional task_rlimits_entry	rlimits		= 7;
 }

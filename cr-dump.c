@@ -671,7 +671,7 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret)
 		goto err;
 
-	ret = dump_task_rlimits(pid, core->rlimits);
+	ret = dump_task_rlimits(pid, core->tc->rlimits);
 	if (ret)
 		goto err;
 

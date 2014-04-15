@@ -65,9 +65,8 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 				TaskTimersEntry *tte;
 				int i;
 
-				rls = xptr_pull(&m, TaskRlimitsEntry);
+				rls = core->tc->rlimits = xptr_pull(&m, TaskRlimitsEntry);
 				task_rlimits_entry__init(rls);
-				core->rlimits = rls;
 
 				rls->n_rlimits = RLIM_NLIMITS;
 				rls->rlimits = xptr_pull_s(&m, sizeof(RlimitEntry *) * RLIM_NLIMITS);

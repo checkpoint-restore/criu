@@ -2110,8 +2110,8 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 	/*
 	 * New image format: rlimits are bound to the core entry.
 	 */
-	if (core->rlimits) {
-		TaskRlimitsEntry *rls = core->rlimits;
+	if (core->tc->rlimits) {
+		TaskRlimitsEntry *rls = core->tc->rlimits;
 		int i;
 
 		for (i = 0; i < rls->n_rlimits; i++) {
