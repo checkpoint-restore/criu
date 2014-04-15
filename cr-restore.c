@@ -1733,20 +1733,14 @@ static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 	return 0;
 }
 
-static int prepare_itimers(int pid, CoreEntry *core, struct task_restore_args *args)
+/*
+ * Legacy itimers restore from CR_FD_ITIMERS
+ */
+
+static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 {
 	int fd, ret = -1;
 	ItimerEntry *ie;
-
-	if (core->tc->timers) {
-		TaskTimersEntry *tte = core->tc->timers;
-
-		ret = decode_itimer("real", tte->real, &args->itimers[0]);
-		ret |= decode_itimer("virt", tte->virt, &args->itimers[1]);
-		ret |= decode_itimer("prof", tte->prof, &args->itimers[2]);
-
-		return ret;
-	}
 
 	fd = open_image(CR_FD_ITIMERS, O_RSTR, pid);
 	if (fd < 0)
@@ -1777,6 +1771,21 @@ static int prepare_itimers(int pid, CoreEntry *core, struct task_restore_args *a
 		goto out;
 out:
 	close_safe(&fd);
+	return ret;
+}
+
+static int prepare_itimers(int pid, CoreEntry *core, struct task_restore_args *args)
+{
+	int ret = 0;
+	TaskTimersEntry *tte = core->tc->timers;
+
+	if (!tte)
+		return prepare_itimers_from_fd(pid, args);
+
+	ret |= decode_itimer("real", tte->real, &args->itimers[0]);
+	ret |= decode_itimer("virt", tte->virt, &args->itimers[1]);
+	ret |= decode_itimer("prof", tte->prof, &args->itimers[2]);
+
 	return ret;
 }
 
@@ -1829,31 +1838,31 @@ static int cmp_posix_timer_proc_id(const void *p1, const void *p2)
 static unsigned long posix_timers_cpos;
 static unsigned int posix_timers_nr;
 
-static int prepare_posix_timers(int pid, CoreEntry *core)
+static void sort_posix_timers(void)
+{
+	/*
+	 * This is required for restorer's create_posix_timers(),
+	 * it will probe them one-by-one for the desired ID, since
+	 * kernel doesn't provide another API for timer creation
+	 * with given ID.
+	 */
+
+	if (posix_timers_nr > 0)
+		qsort(rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE),
+				posix_timers_nr,
+				sizeof(struct restore_posix_timer),
+				cmp_posix_timer_proc_id);
+}
+
+/*
+ * Legacy posix timers restoration from CR_FD_POSIX_TIMERS
+ */
+
+static int prepare_posix_timers_from_fd(int pid)
 {
 	int fd = -1;
 	int ret = -1;
 	struct restore_posix_timer *t;
-
-	posix_timers_cpos = rst_mem_cpos(RM_PRIVATE);
-
-	if (core->tc->timers) {
-		int i;
-		TaskTimersEntry *tte = core->tc->timers;
-
-		posix_timers_nr = tte->n_posix;
-		for (i = 0; i < posix_timers_nr; i++) {
-			t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
-			if (!t)
-				goto out;
-
-			if (decode_posix_timer(tte->posix[i], t))
-				goto out;
-		}
-
-		ret = 0;
-		goto out;
-	}
 
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (fd < 0) {
@@ -1883,13 +1892,36 @@ static int prepare_posix_timers(int pid, CoreEntry *core)
 	}
 
 	close_safe(&fd);
-out:
-	if (posix_timers_nr > 0)
-		qsort(rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE),
-				posix_timers_nr,
-				sizeof(struct restore_posix_timer),
-				cmp_posix_timer_proc_id);
+	if (!ret)
+		sort_posix_timers();
 
+	return ret;
+}
+
+static int prepare_posix_timers(int pid, CoreEntry *core)
+{
+	int i, ret = -1;
+	TaskTimersEntry *tte = core->tc->timers;
+	struct restore_posix_timer *t;
+
+	posix_timers_cpos = rst_mem_cpos(RM_PRIVATE);
+
+	if (!tte)
+		return prepare_posix_timers_from_fd(pid);
+
+	posix_timers_nr = tte->n_posix;
+	for (i = 0; i < posix_timers_nr; i++) {
+		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
+		if (!t)
+			goto out;
+
+		if (decode_posix_timer(tte->posix[i], t))
+			goto out;
+	}
+
+	ret = 0;
+	sort_posix_timers();
+out:
 	return ret;
 }
 
