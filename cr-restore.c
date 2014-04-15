@@ -2100,38 +2100,14 @@ static unsigned long decode_rlim(u_int64_t ival)
 static unsigned long rlims_cpos;
 static unsigned int rlims_nr;
 
-static int prepare_rlimits(int pid, CoreEntry *core)
+/*
+ * Legacy rlimits restore from CR_FD_RLIMIT
+ */
+
+static int prepare_rlimits_from_fd(int pid)
 {
 	struct rlimit *r;
 	int fd, ret;
-
-	rlims_cpos = rst_mem_cpos(RM_PRIVATE);
-
-	/*
-	 * New image format: rlimits are bound to the core entry.
-	 */
-	if (core->tc->rlimits) {
-		TaskRlimitsEntry *rls = core->tc->rlimits;
-		int i;
-
-		for (i = 0; i < rls->n_rlimits; i++) {
-			r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
-			if (!r) {
-				pr_err("Can't allocate memory for resource %d\n", i);
-				return -1;
-			}
-
-			r->rlim_cur = decode_rlim(rls->rlimits[i]->cur);
-			r->rlim_max = decode_rlim(rls->rlimits[i]->max);
-
-			if (r->rlim_cur > r->rlim_max) {
-				pr_warn("Can't restore cur > max for %d.%d\n", pid, i);
-				r->rlim_cur = r->rlim_max;
-			}
-		}
-		rlims_nr = rls->n_rlimits;
-		return 0;
-	}
 
 	/*
 	 * Old image -- read from the file.
@@ -2175,6 +2151,37 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 
 	close(fd);
 
+	return 0;
+}
+
+static int prepare_rlimits(int pid, CoreEntry *core)
+{
+	int i;
+	TaskRlimitsEntry *rls = core->tc->rlimits;
+	struct rlimit *r;
+
+	rlims_cpos = rst_mem_cpos(RM_PRIVATE);
+
+	if (!rls)
+		return prepare_rlimits_from_fd(pid);
+
+	for (i = 0; i < rls->n_rlimits; i++) {
+		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
+		if (!r) {
+			pr_err("Can't allocate memory for resource %d\n", i);
+			return -1;
+		}
+
+		r->rlim_cur = decode_rlim(rls->rlimits[i]->cur);
+		r->rlim_max = decode_rlim(rls->rlimits[i]->max);
+
+		if (r->rlim_cur > r->rlim_max) {
+			pr_warn("Can't restore cur > max for %d.%d\n", pid, i);
+			r->rlim_cur = r->rlim_max;
+		}
+	}
+
+	rlims_nr = rls->n_rlimits;
 	return 0;
 }
 
