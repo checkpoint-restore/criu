@@ -1337,6 +1337,16 @@ err:
 	return ret;
 }
 
+void free_posix_timers(struct proc_posix_timers_stat *st)
+{
+	while (!list_empty(&st->timers)) {
+		struct proc_posix_timer *timer;
+		timer = list_first_entry(&st->timers, struct proc_posix_timer, list);
+		list_del(&timer->list);
+		xfree(timer);
+	}
+}
+
 int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 {
 	int ret = 0;
@@ -1409,11 +1419,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		args->timer_n++;
 	}
 err:
-	while (!list_empty(&args->timers)) {
-		timer = list_first_entry(&args->timers, struct proc_posix_timer, list);
-		list_del(&timer->list);
-		xfree(timer);
-	}
+	free_posix_timers(args);
 	pr_perror("Parse error in posix timers proc file!");
 	ret = -1;
 out:

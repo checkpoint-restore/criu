@@ -22,5 +22,6 @@ struct proc_posix_timers_stat {
 };
 
 extern int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat * args);
+void free_posix_timers(struct proc_posix_timers_stat *st);
 
 #endif /* __CR_PROC_POSIX_TIMER_H__ */

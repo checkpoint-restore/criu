@@ -702,12 +702,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	}
 
 end_posix:
-	while (!list_empty(&proc_args->timers)) {
-		temp = list_first_entry(&proc_args->timers, struct proc_posix_timer, list);
-		list_del(&temp->list);
-		xfree(temp);
-	}
-
+	free_posix_timers(proc_args);
 	return ret;
 }
 
