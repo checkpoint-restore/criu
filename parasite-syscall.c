@@ -631,32 +631,54 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	return 0;
 }
 
-static int dump_one_posix_timer(struct posix_timer *v, struct proc_posix_timer *vp, int fd)
+static void encode_posix_timer(struct posix_timer *v, struct proc_posix_timer *vp, PosixTimerEntry *pte)
 {
-	PosixTimerEntry pte = POSIX_TIMER_ENTRY__INIT;
+	pte->it_id = vp->spt.it_id;
+	pte->clock_id = vp->spt.clock_id;
+	pte->si_signo = vp->spt.si_signo;
+	pte->it_sigev_notify = vp->spt.it_sigev_notify;
+	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
 
-	pte.it_id = vp->spt.it_id;
-	pte.clock_id = vp->spt.clock_id;
-	pte.si_signo = vp->spt.si_signo;
-	pte.it_sigev_notify = vp->spt.it_sigev_notify;
-	pte.sival_ptr = encode_pointer(vp->spt.sival_ptr);
+	pte->overrun = v->overrun;
 
-	pte.overrun = v->overrun;
-
-	pte.isec = v->val.it_interval.tv_sec;
-	pte.insec = v->val.it_interval.tv_nsec;
-	pte.vsec = v->val.it_value.tv_sec;
-	pte.vnsec = v->val.it_value.tv_nsec;
-
-	return pb_write_one(fd, &pte, PB_POSIX_TIMER);
+	pte->isec = v->val.it_interval.tv_sec;
+	pte->insec = v->val.it_interval.tv_nsec;
+	pte->vsec = v->val.it_value.tv_sec;
+	pte->vnsec = v->val.it_value.tv_nsec;
 }
 
-int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
+		PosixTimerEntry **pte)
 {
+	int sz;
+
+	/*
+	 * Will be free()-ed in core_entry_free()
+	 */
+
+	sz = n * (sizeof(PosixTimerEntry *) + sizeof(PosixTimerEntry));
+	tte->posix = xmalloc(sz);
+	if (!tte->posix)
+		return -1;
+
+	tte->n_posix = n;
+	*pte = (PosixTimerEntry *)(tte->posix + n);
+	return 0;
+}
+
+int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
+		struct parasite_ctl *ctl, struct pstree_item *item)
+{
+	CoreEntry *core = item->core[0];
+	TaskTimersEntry *tte = core->tc->timers;
+	PosixTimerEntry *pte;
 	struct parasite_dump_posix_timers_args * args;
 	struct proc_posix_timer *temp;
-	int i, fd;
+	int i;
 	int ret = 0;
+
+	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
+		return -1;
 
 	args = parasite_args_s(ctl, posix_timers_dump_size(proc_args->timer_n));
 	args->timer_n = proc_args->timer_n;
@@ -671,14 +693,12 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, 
 	if (ret < 0)
 		goto end_posix;
 
-	fd = fdset_fd(cr_fdset, CR_FD_POSIX_TIMERS);
-
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
-		ret = dump_one_posix_timer(&args->timer[i], temp, fd);
+		posix_timer_entry__init(&pte[i]);
+		encode_posix_timer(&args->timer[i], temp, &pte[i]);
+		tte->posix[i] = &pte[i];
 		i++;
-		if (ret)
-			goto end_posix;
 	}
 
 end_posix:
@@ -687,6 +707,7 @@ end_posix:
 		list_del(&temp->list);
 		xfree(temp);
 	}
+
 	return ret;
 }
 

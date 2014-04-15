@@ -23,4 +23,5 @@ message task_timers_entry {
 	required itimer_entry		real	= 1;
 	required itimer_entry		virt	= 2;
 	required itimer_entry		prof	= 3;
+	repeated posix_timer_entry	posix	= 4;
 }

@@ -18,6 +18,8 @@ struct pstree_item *root_item;
 
 void core_entry_free(CoreEntry *core)
 {
+	if (core->tc && core->tc->timers)
+		xfree(core->tc->timers->posix);
 	arch_free_thread_info(core);
 	xfree(core);
 }

@@ -87,7 +87,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, CoreEntry *core);
-static int prepare_posix_timers(int pid);
+static int prepare_posix_timers(int pid, CoreEntry *core);
 static int prepare_signals(int pid);
 
 static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
@@ -713,7 +713,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_signals(pid))
 		return -1;
 
-	if (prepare_posix_timers(pid))
+	if (prepare_posix_timers(pid, core))
 		return -1;
 
 	if (prepare_rlimits(pid, core) < 0)
@@ -1785,7 +1785,7 @@ static inline int timespec_valid(struct timespec *ts)
 	return (ts->tv_sec >= 0) && ((unsigned long)ts->tv_nsec < NSEC_PER_SEC);
 }
 
-static inline int posix_timer_restore_and_fix(PosixTimerEntry *pte,
+static inline int decode_posix_timer(PosixTimerEntry *pte,
 		struct restore_posix_timer *pt)
 {
 	pt->val.it_interval.tv_sec = pte->isec;
@@ -1829,13 +1829,32 @@ static int cmp_posix_timer_proc_id(const void *p1, const void *p2)
 static unsigned long posix_timers_cpos;
 static unsigned int posix_timers_nr;
 
-static int prepare_posix_timers(int pid)
+static int prepare_posix_timers(int pid, CoreEntry *core)
 {
-	int fd;
+	int fd = -1;
 	int ret = -1;
 	struct restore_posix_timer *t;
 
 	posix_timers_cpos = rst_mem_cpos(RM_PRIVATE);
+
+	if (core->tc->timers) {
+		int i;
+		TaskTimersEntry *tte = core->tc->timers;
+
+		posix_timers_nr = tte->n_posix;
+		for (i = 0; i < posix_timers_nr; i++) {
+			t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
+			if (!t)
+				goto out;
+
+			if (decode_posix_timer(tte->posix[i], t))
+				goto out;
+		}
+
+		ret = 0;
+		goto out;
+	}
+
 	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (fd < 0) {
 		if (errno == ENOENT) /* backward compatibility */
@@ -1856,7 +1875,7 @@ static int prepare_posix_timers(int pid)
 		if (!t)
 			goto out;
 
-		ret = posix_timer_restore_and_fix(pte, t);
+		ret = decode_posix_timer(pte, t);
 		if (ret < 0)
 			goto out;
 
