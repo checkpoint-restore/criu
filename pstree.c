@@ -39,6 +39,7 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			sz += sizeof(TaskRlimitsEntry);
 			sz += RLIM_NLIMITS * sizeof(RlimitEntry *);
 			sz += RLIM_NLIMITS * sizeof(RlimitEntry);
+			sz += sizeof(TaskTimersEntry);
 		}
 	}
 	if (th)
@@ -71,6 +72,9 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 					rls->rlimits[i] = xptr_pull(&m, RlimitEntry);
 					rlimit_entry__init(rls->rlimits[i]);
 				}
+
+				core->tc->timers = xptr_pull(&m, TaskTimersEntry);
+				task_timers_entry__init(core->tc->timers);
 			}
 		}
 

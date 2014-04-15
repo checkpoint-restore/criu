@@ -3,6 +3,7 @@ import "core-arm.proto";
 import "core-aarch64.proto";
 
 import "rlimit.proto";
+import "timer.proto";
 
 message task_core_entry {
 	required uint32			task_state	= 1;
@@ -13,6 +14,8 @@ message task_core_entry {
 	required uint64			blk_sigset	= 5;
 
 	required string			comm		= 6;
+
+	optional task_timers_entry	timers		= 7;
 }
 
 message task_kobj_ids_entry {
