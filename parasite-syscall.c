@@ -604,22 +604,19 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	return 0;
 }
 
-static int dump_one_timer(struct itimerval *v, int fd)
+static void encode_itimer(struct itimerval *v, ItimerEntry *ie)
 {
-	ItimerEntry ie = ITIMER_ENTRY__INIT;
-
-	ie.isec = v->it_interval.tv_sec;
-	ie.iusec = v->it_interval.tv_usec;
-	ie.vsec = v->it_value.tv_sec;
-	ie.vusec = v->it_value.tv_usec;
-
-	return pb_write_one(fd, &ie, PB_ITIMER);
+	ie->isec = v->it_interval.tv_sec;
+	ie->iusec = v->it_interval.tv_usec;
+	ie->vsec = v->it_value.tv_sec;
+	ie->vusec = v->it_value.tv_usec;
 }
 
-int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 {
+	CoreEntry *core = item->core[0];
 	struct parasite_dump_itimers_args *args;
-	int ret, fd;
+	int ret;
 
 	args = parasite_args(ctl, struct parasite_dump_itimers_args);
 
@@ -627,15 +624,11 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	if (ret < 0)
 		return ret;
 
-	fd = fdset_fd(cr_fdset, CR_FD_ITIMERS);
+	encode_itimer(&args->real, core->tc->timers->real);
+	encode_itimer(&args->virt, core->tc->timers->virt);
+	encode_itimer(&args->prof, core->tc->timers->prof);
 
-	ret = dump_one_timer(&args->real, fd);
-	if (!ret)
-		ret = dump_one_timer(&args->virt, fd);
-	if (!ret)
-		ret = dump_one_timer(&args->prof, fd);
-
-	return ret;
+	return 0;
 }
 
 static int dump_one_posix_timer(struct posix_timer *v, struct proc_posix_timer *vp, int fd)

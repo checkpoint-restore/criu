@@ -40,6 +40,7 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			sz += RLIM_NLIMITS * sizeof(RlimitEntry *);
 			sz += RLIM_NLIMITS * sizeof(RlimitEntry);
 			sz += sizeof(TaskTimersEntry);
+			sz += 3 * sizeof(ItimerEntry); /* 3 for real, virt and prof */
 		}
 	}
 	if (th)
@@ -59,6 +60,7 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 
 			if (th) {
 				TaskRlimitsEntry *rls;
+				TaskTimersEntry *tte;
 				int i;
 
 				rls = xptr_pull(&m, TaskRlimitsEntry);
@@ -73,8 +75,14 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 					rlimit_entry__init(rls->rlimits[i]);
 				}
 
-				core->tc->timers = xptr_pull(&m, TaskTimersEntry);
-				task_timers_entry__init(core->tc->timers);
+				tte = core->tc->timers = xptr_pull(&m, TaskTimersEntry);
+				task_timers_entry__init(tte);
+				tte->real = xptr_pull(&m, ItimerEntry);
+				itimer_entry__init(tte->real);
+				tte->virt = xptr_pull(&m, ItimerEntry);
+				itimer_entry__init(tte->virt);
+				tte->prof = xptr_pull(&m, ItimerEntry);
+				itimer_entry__init(tte->prof);
 			}
 		}
 

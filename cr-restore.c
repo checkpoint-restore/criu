@@ -1694,8 +1694,7 @@ static inline int timeval_valid(struct timeval *tv)
 	return (tv->tv_sec >= 0) && ((unsigned long)tv->tv_usec < USEC_PER_SEC);
 }
 
-static inline int itimer_restore_and_fix(char *n, ItimerEntry *ie,
-		struct itimerval *val)
+static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 {
 	if (ie->isec == 0 && ie->iusec == 0) {
 		memzero_p(val);
@@ -1734,10 +1733,20 @@ static inline int itimer_restore_and_fix(char *n, ItimerEntry *ie,
 	return 0;
 }
 
-static int prepare_itimers(int pid, struct task_restore_args *args)
+static int prepare_itimers(int pid, CoreEntry *core, struct task_restore_args *args)
 {
 	int fd, ret = -1;
 	ItimerEntry *ie;
+
+	if (core->tc->timers) {
+		TaskTimersEntry *tte = core->tc->timers;
+
+		ret = decode_itimer("real", tte->real, &args->itimers[0]);
+		ret |= decode_itimer("virt", tte->virt, &args->itimers[1]);
+		ret |= decode_itimer("prof", tte->prof, &args->itimers[2]);
+
+		return ret;
+	}
 
 	fd = open_image(CR_FD_ITIMERS, O_RSTR, pid);
 	if (fd < 0)
@@ -1746,7 +1755,7 @@ static int prepare_itimers(int pid, struct task_restore_args *args)
 	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
-	ret = itimer_restore_and_fix("real", ie, &args->itimers[0]);
+	ret = decode_itimer("real", ie, &args->itimers[0]);
 	itimer_entry__free_unpacked(ie, NULL);
 	if (ret < 0)
 		goto out;
@@ -1754,7 +1763,7 @@ static int prepare_itimers(int pid, struct task_restore_args *args)
 	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
-	ret = itimer_restore_and_fix("virt", ie, &args->itimers[1]);
+	ret = decode_itimer("virt", ie, &args->itimers[1]);
 	itimer_entry__free_unpacked(ie, NULL);
 	if (ret < 0)
 		goto out;
@@ -1762,7 +1771,7 @@ static int prepare_itimers(int pid, struct task_restore_args *args)
 	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
-	ret = itimer_restore_and_fix("prof", ie, &args->itimers[2]);
+	ret = decode_itimer("prof", ie, &args->itimers[2]);
 	itimer_entry__free_unpacked(ie, NULL);
 	if (ret < 0)
 		goto out;
@@ -2488,7 +2497,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
 
-	ret = prepare_itimers(pid, task_args);
+	ret = prepare_itimers(pid, core, task_args);
 	if (ret < 0)
 		goto err;
 

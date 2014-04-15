@@ -56,7 +56,7 @@ struct parasite_ctl {
 };
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
-extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
+extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *);
 
 struct proc_posix_timers_stat;
 extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args, struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
