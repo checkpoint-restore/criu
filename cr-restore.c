@@ -1867,21 +1867,22 @@ static int prepare_posix_timers(int pid, CoreEntry *core)
 		PosixTimerEntry *pte;
 
 		ret = pb_read_one_eof(fd, &pte, PB_POSIX_TIMER);
-		if (ret <= 0) {
-			goto out;
-		}
+		if (ret <= 0)
+			break;
 
 		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
-			goto out;
+			break;
 
 		ret = decode_posix_timer(pte, t);
 		if (ret < 0)
-			goto out;
+			break;
 
 		posix_timer_entry__free_unpacked(pte, NULL);
 		posix_timers_nr++;
 	}
+
+	close_safe(&fd);
 out:
 	if (posix_timers_nr > 0)
 		qsort(rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE),
@@ -1889,7 +1890,6 @@ out:
 				sizeof(struct restore_posix_timer),
 				cmp_posix_timer_proc_id);
 
-	close_safe(&fd);
 	return ret;
 }
 
