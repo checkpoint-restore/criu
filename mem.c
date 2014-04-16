@@ -106,7 +106,7 @@ static inline bool page_in_parent(u64 pme)
  * the memory contents is present in the pagent image set.
  */
 
-static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off)
+static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off, bool has_parent)
 {
 	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
@@ -130,7 +130,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (page_in_parent(at[pfn])) {
+		if (has_parent && page_in_parent(at[pfn])) {
 			ret = page_pipe_add_hole(pp, vaddr);
 			pages[0]++;
 		} else {
@@ -282,7 +282,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (!map)
 			goto out_xfer;
 again:
-		ret = generate_iovs(vma_area, pp, map, &off);
+		ret = generate_iovs(vma_area, pp, map, &off, xfer.parent);
 		if (ret == -EAGAIN) {
 			BUG_ON(pp_ret);
 
