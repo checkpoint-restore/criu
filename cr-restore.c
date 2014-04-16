@@ -1263,6 +1263,9 @@ static int restore_task_with_children(void *_arg)
 		if (close_old_fds(current))
 			exit(1);
 
+		if (mntns_collect_root(getpid()))
+			exit(1);
+
 		if (root_prepare_shared())
 			exit(1);
 	}
@@ -2594,6 +2597,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	close_image_dir();
+	close_service_fd(ROOT_FD_OFF);
 
 	__gcov_flush();
 
