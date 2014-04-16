@@ -47,13 +47,13 @@ static int validate_mounts(struct mount_info *info, bool call_plugins);
 /* Asolute paths are used on dump and relative paths are used on restore */
 static inline int is_root(char *p)
 {
-	return (!strcmp(p, "/") || !strcmp(p, "./"));
+	return (!strcmp(p, "/"));
 }
 
 /* True for the root mount (the topmost one) */
 static inline int is_root_mount(struct mount_info *mi)
 {
-	return is_root(mi->mountpoint);
+	return is_root(mi->mountpoint + 1);
 }
 
 /*
@@ -142,11 +142,11 @@ static struct mount_info *mount_resolve_path(const char *path)
 		list_for_each_entry(c, &m->children, siblings) {
 			size_t n;
 
-			n = strlen(c->mountpoint);
+			n = strlen(c->mountpoint + 1);
 			if (n > pathlen)
 				continue;
 
-			if (strncmp(c->mountpoint, path, min(n, pathlen)))
+			if (strncmp(c->mountpoint + 1, path, min(n, pathlen)))
 				continue;
 			if (n < pathlen && path[n] != '/')
 				continue;
@@ -341,7 +341,7 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 				int ret;
 
 				if (call_plugins) {
-					ret = cr_plugin_dump_ext_mount(m->mountpoint, m->mnt_id);
+					ret = cr_plugin_dump_ext_mount(m->mountpoint + 1, m->mnt_id);
 					if (ret == 0)
 						m->need_plugin = true;
 				} else if (m->need_plugin)
@@ -467,7 +467,6 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
  */
 static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
-	char path[PATH_MAX + 1];
 	struct stat st;
 	int ret;
 
@@ -476,9 +475,7 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 
 		mntns_root = get_service_fd(ROOT_FD_OFF);
 
-		/* paths starts from "." on restore and "/" on dump */
-		snprintf(path, sizeof(path), "./%s", pm->mountpoint);
-		mnt_fd = openat(mntns_root, path, O_RDONLY);
+		mnt_fd = openat(mntns_root, pm->mountpoint, O_RDONLY);
 		if (mnt_fd < 0) {
 			pr_perror("Can't open %s", pm->mountpoint);
 			return -1;
@@ -487,7 +484,7 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 
 	ret = fstat(mnt_fd, &st);
 	if (ret < 0) {
-		pr_perror("fstat(%s) failed", path);
+		pr_perror("fstat(%s) failed", pm->mountpoint);
 		goto err;
 	}
 
@@ -793,7 +790,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.parent_mnt_id	= pm->parent_mnt_id;
 	me.flags		= pm->flags;
 	me.root			= pm->root;
-	me.mountpoint		= pm->mountpoint;
+	me.mountpoint		= pm->mountpoint + 1;
 	me.source		= pm->source;
 	me.options		= pm->options;
 	me.shared_id		= pm->shared_id;
@@ -1495,7 +1492,7 @@ int prepare_mnt_ns(int ns_pid)
 			return -1;
 		}
 
-		if (mount("none", mi->parent->mountpoint, "none", MS_SLAVE, NULL)) {
+		if (mount("none", mi->parent->mountpoint + 1, "none", MS_SLAVE, NULL)) {
 			pr_perror("Can't remount the parent of the new root with MS_SLAVE");
 			return -1;
 		}

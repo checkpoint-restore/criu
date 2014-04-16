@@ -104,6 +104,11 @@ struct mount_info {
 	int		parent_mnt_id;
 	unsigned int	s_dev;
 	char		*root;
+	/*
+	 * mountpoint contains path with dot at the beginning.
+	 * It allows to use openat, statat, etc without creating
+	 * a temporary copy.
+	 */
 	char		*mountpoint;
 	unsigned	flags;
 	int		master_id;

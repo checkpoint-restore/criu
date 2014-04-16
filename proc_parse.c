@@ -857,12 +857,21 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 	char *opt;
 	char *fstype;
 
-	ret = sscanf(str, "%i %i %u:%u %ms %ms %ms %n",
-			&new->mnt_id, &new->parent_mnt_id,
-			&kmaj, &kmin, &new->root, &new->mountpoint,
-			&opt, &n);
-	if (ret != 7)
+	new->mountpoint = xmalloc(PATH_MAX);
+	if (new->mountpoint == NULL)
 		return -1;
+
+	new->mountpoint[0] = '.';
+	ret = sscanf(str, "%i %i %u:%u %ms %s %ms %n",
+			&new->mnt_id, &new->parent_mnt_id,
+			&kmaj, &kmin, &new->root, new->mountpoint + 1,
+			&opt, &n);
+	if (ret != 7) {
+		xfree(new->mountpoint);
+		return -1;
+	}
+
+	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 
 	new->s_dev = MKKDEV(kmaj, kmin);
 	new->flags = 0;
