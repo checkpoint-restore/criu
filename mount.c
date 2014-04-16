@@ -502,7 +502,7 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
-	if (st.st_dev != pm->s_dev) {
+	if (st.st_dev != kdev_to_odev(pm->s_dev)) {
 		pr_err("The file system %#x (%#x) %s %s is inaccessible\n",
 				pm->s_dev, (int)st.st_dev, pm->fstype->name, pm->mountpoint);
 		goto err;
