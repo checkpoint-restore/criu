@@ -403,6 +403,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			struct stat st;
 			char rpath[PATH_MAX];
 			bool drop_path = false;
+			int mntns_root;
 
 			if (name[0] != '/') {
 				pr_warn("Relative bind path '%s' "
@@ -415,6 +416,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						m->udiag_ino);
 				goto skip;
 			}
+
+			mntns_root = get_service_fd(ROOT_FD_OFF);
 
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			snprintf(rpath, sizeof(rpath), ".%s", name);

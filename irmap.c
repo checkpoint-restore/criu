@@ -66,10 +66,13 @@ static struct irmap hints[] = {
 static int irmap_update_stat(struct irmap *i)
 {
 	struct stat st;
+	int mntns_root;
 	unsigned hv;
 
 	if (i->ino)
 		return 0;
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	pr_debug("Refresh stat for %s\n", i->path);
 	if (fstatat(mntns_root, i->path + 1, &st, AT_SYMLINK_NOFOLLOW)) {
@@ -96,12 +99,14 @@ static int irmap_update_stat(struct irmap *i)
  */
 static int irmap_update_dir(struct irmap *t)
 {
-	int fd, nr = 0, dlen;
+	int fd, nr = 0, dlen, mntns_root;
 	DIR *dfd;
 	struct dirent *de;
 
 	if (t->nr_kids >= 0)
 		return 0;
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	pr_debug("Refilling %s dir\n", t->path);
 	fd = openat(mntns_root, t->path + 1, O_RDONLY);
@@ -184,6 +189,9 @@ static struct irmap *irmap_scan(struct irmap *t, unsigned int dev, unsigned long
 static int irmap_revalidate(struct irmap *c, struct irmap **p)
 {
 	struct stat st;
+	int mntns_root;
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	pr_debug("Revalidate stat for %s\n", c->path);
 	if (fstatat(mntns_root, c->path + 1, &st, AT_SYMLINK_NOFOLLOW)) {

@@ -38,7 +38,6 @@ static struct mount_info *mntinfo;
  * for umounting or path resolution.
  */
 static struct mount_info *mntinfo_tree;
-int mntns_root = -1;
 
 static DIR *open_mountpoint(struct mount_info *pm);
 static int close_mountpoint(DIR *dfd);
@@ -74,6 +73,9 @@ static inline int fsroot_mounted(struct mount_info *mi)
 int open_mount(unsigned int s_dev)
 {
 	struct mount_info *i;
+	int mntns_root;
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	for (i = mntinfo; i != NULL; i = i->next)
 		if (s_dev == i->s_dev) {
@@ -484,6 +486,10 @@ static DIR *__open_mountpoint(struct mount_info *pm, int mnt_fd)
 	int ret;
 
 	if (mnt_fd == -1) {
+		int mntns_root;
+
+		mntns_root = get_service_fd(ROOT_FD_OFF);
+
 		snprintf(path, sizeof(path), ".%s", pm->mountpoint);
 		mnt_fd = openat(mntns_root, path, O_RDONLY);
 		if (mnt_fd < 0) {
@@ -1582,8 +1588,9 @@ int mntns_collect_root(pid_t pid)
 	}
 
 set_root:
-	mntns_root = fd;
-	return 0;
+	ret = install_service_fd(ROOT_FD_OFF, fd);
+	close(fd);
+	return ret < 0 ? -1 : 0;
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");

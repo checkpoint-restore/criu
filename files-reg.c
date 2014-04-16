@@ -333,9 +333,12 @@ dump_entry:
 static void __rollback_link_remaps(bool do_unlink)
 {
 	struct link_remap_rlb *rlb, *tmp;
+	int mntns_root;
 
 	if (!opts.link_remap_ok)
 		return;
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
 		list_del(&rlb->list);
@@ -355,6 +358,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	struct link_remap_rlb *rlb;
+	int mntns_root;
 
 	if (!opts.link_remap_ok) {
 		pr_err("Can't create link remap for %s. "
@@ -388,6 +392,8 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp)
 
 	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
 	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name - 1), "link_remap.%d", rfe.id);
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	if (linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH) < 0) {
 		pr_perror("Can't link remap to %s", path);
@@ -466,7 +472,7 @@ static inline bool nfs_silly_rename(char *rpath, const struct fd_parms *parms)
 
 static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms, int lfd, u32 id)
 {
-	int ret;
+	int ret, mntns_root;
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
 
@@ -490,6 +496,8 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 		pr_debug("Dump silly-rename linked remap for %x\n", id);
 		return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id);
 	}
+
+	mntns_root = get_service_fd(ROOT_FD_OFF);
 
 	ret = fstatat(mntns_root, rpath, &pst, 0);
 	if (ret < 0) {
