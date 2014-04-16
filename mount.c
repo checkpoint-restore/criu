@@ -39,8 +39,7 @@ static struct mount_info *mntinfo;
  */
 static struct mount_info *mntinfo_tree;
 
-static DIR *open_mountpoint(struct mount_info *pm);
-static int close_mountpoint(DIR *dfd);
+static int open_mountpoint(struct mount_info *pm);
 
 static struct mount_info *mnt_build_tree(struct mount_info *list);
 static int validate_mounts(struct mount_info *info, bool call_plugins);
@@ -478,11 +477,10 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
  * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
  * If mnt_fd is -1, the mountpoint will be opened by this function.
  */
-static DIR *__open_mountpoint(struct mount_info *pm, int mnt_fd)
+static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
 	char path[PATH_MAX + 1];
 	struct stat st;
-	DIR *fdir;
 	int ret;
 
 	if (mnt_fd == -1) {
@@ -494,7 +492,7 @@ static DIR *__open_mountpoint(struct mount_info *pm, int mnt_fd)
 		mnt_fd = openat(mntns_root, path, O_RDONLY);
 		if (mnt_fd < 0) {
 			pr_perror("Can't open %s", pm->mountpoint);
-			return NULL;
+			return -1;
 		}
 	}
 
@@ -510,28 +508,13 @@ static DIR *__open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
-	fdir = fdopendir(mnt_fd);
-	if (fdir == NULL) {
-		pr_perror("Can't open %s", pm->mountpoint);
-		goto err;
-	}
-
-	return fdir;
+	return mnt_fd;
 err:
 	close(mnt_fd);
-	return NULL;
+	return -1;
 }
 
-static int close_mountpoint(DIR *dfd)
-{
-	if (closedir(dfd)) {
-		pr_perror("Unable to close directory");
-		return -1;
-	}
-	return 0;
-}
-
-static DIR *open_mountpoint(struct mount_info *pm)
+static int open_mountpoint(struct mount_info *pm)
 {
 	int fd = -1, ns_old = -1;
 	char mnt_path[] = "/tmp/cr-tmpfs.XXXXXX";
@@ -554,7 +537,7 @@ static DIR *open_mountpoint(struct mount_info *pm)
 	 */
 
 	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0)
-		return NULL;
+		return -1;
 
 	if (mkdtemp(mnt_path) == NULL) {
 		pr_perror("Can't create a temporary directory");
@@ -582,7 +565,7 @@ out:
 	if (ns_old >= 0)
 		 restore_ns(ns_old, &mnt_ns_desc);
 	close_safe(&fd);
-	return NULL;
+	return -1;
 }
 
 /* Is it mounted w or w/o the newinstance option */
@@ -591,7 +574,7 @@ static int devpts_dump(struct mount_info *pm)
 	static const char newinstance[] = ",newinstance";
 	struct stat *host_st;
 	struct stat st;
-	DIR *fdir = NULL;
+	int fdir;
 	char *buf;
 	int len;
 
@@ -600,16 +583,16 @@ static int devpts_dump(struct mount_info *pm)
 		return -1;
 
 	fdir = open_mountpoint(pm);
-	if (fdir == NULL)
+	if (fdir < 0)
 		return -1;
 
-	if (fstat(dirfd(fdir), &st)) {
+	if (fstat(fdir, &st)) {
 		pr_perror("Unable to statfs %d:%s",
 				pm->mnt_id, pm->mountpoint);
-		close_mountpoint(fdir);
+		close(fdir);
 		return -1;
 	}
-	close_mountpoint(fdir);
+	close(fdir);
 
 	if (host_st->st_dev == st.st_dev)
 		return 0;
@@ -629,14 +612,12 @@ static int tmpfs_dump(struct mount_info *pm)
 {
 	int ret = -1;
 	char tmpfs_path[PSFDS];
-	int fd, fd_img = -1;
-	DIR *fdir = NULL;
+	int fd = -1, fd_img = -1;
 
-	fdir = open_mountpoint(pm);
-	if (fdir == NULL)
+	fd = open_mountpoint(pm);
+	if (fd < 0)
 		return -1;
 
-	fd = dirfd(fdir);
 	if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {
 		pr_perror("Can not drop FD_CLOEXEC");
 		goto out;
@@ -663,7 +644,7 @@ static int tmpfs_dump(struct mount_info *pm)
 
 out:
 	close_safe(&fd_img);
-	close_mountpoint(fdir);
+	close_safe(&fd);
 	return ret;
 }
 
@@ -691,13 +672,19 @@ static int tmpfs_restore(struct mount_info *pm)
 
 static int binfmt_misc_dump(struct mount_info *pm)
 {
-	int ret = -1;
+	int fd, ret = -1;
 	struct dirent *de;
 	DIR *fdir = NULL;
 
-	fdir = open_mountpoint(pm);
-	if (fdir == NULL)
+	fd = open_mountpoint(pm);
+	if (fd < 0)
 		return -1;
+
+	fdir = fdopendir(fd);
+	if (fdir == NULL) {
+		close(fd);
+		return -1;
+	}
 
 	while ((de = readdir(fdir))) {
 		if (dir_dots(de))
@@ -713,7 +700,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 
 	ret = 0;
 out:
-	close_mountpoint(fdir);
+	closedir(fdir);
 	return ret;
 }
 
