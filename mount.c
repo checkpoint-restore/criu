@@ -25,6 +25,8 @@
 #include "namespaces.h"
 #include "protobuf.h"
 #include "kerndat.h"
+#include "fs-magic.h"
+
 #include "protobuf/mnt.pb-c.h"
 
 /*
@@ -1229,6 +1231,17 @@ static int do_mount_one(struct mount_info *mi)
 
 	if (ret == 0 && propagate_mount(mi))
 		return -1;
+
+	if (mi->fstype->code == FSTYPE__UNSUPPORTED) {
+		struct statfs st;
+
+		if (statfs(mi->mountpoint, &st)) {
+			pr_perror("Unable to statfs %s", mi->mountpoint);
+			return -1;
+		}
+		if (st.f_type == BTRFS_SUPER_MAGIC)
+			mi->fstype = find_fstype_by_name("btrfs");
+	}
 
 	return ret;
 }

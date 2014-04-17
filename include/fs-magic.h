@@ -33,4 +33,8 @@
 #define DEVPTS_SUPER_MAGIC	0x1cd1
 #endif
 
+#ifndef BTRFS_SUPER_MAGIC
+#define BTRFS_SUPER_MAGIC	0x9123683E
+#endif
+
 #endif /* __CR_FS_MAGIC_H__ */
