@@ -469,6 +469,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
  */
 static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
+	dev_t dev;
 	struct stat st;
 	int ret;
 
@@ -490,9 +491,10 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
-	if (st.st_dev != kdev_to_odev(pm->s_dev)) {
+	dev = phys_stat_resolve_dev(st.st_dev, pm->mountpoint + 1);
+	if (dev != pm->s_dev) {
 		pr_err("The file system %#x (%#x) %s %s is inaccessible\n",
-				pm->s_dev, (int)st.st_dev, pm->fstype->name, pm->mountpoint);
+				pm->s_dev, (int)dev, pm->fstype->name, pm->mountpoint);
 		goto err;
 	}
 
