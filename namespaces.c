@@ -435,14 +435,10 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		return -1;
 	}
 
-	ns = ns_ids;
-
-	while (ns) {
+	for (ns = ns_ids; ns; ns = ns->next) {
 		/* Skip current namespaces, which are in the list too  */
-		if (ns->pid == getpid()) {
-			ns = ns->next;
+		if (ns->pid == getpid())
 			continue;
-		}
 
 		pid = fork();
 		if (pid < 0) {
@@ -465,7 +461,6 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 			pr_err("Namespaces dumping finished with error %d\n", status);
 			return -1;
 		}
-		ns = ns->next;
 	}
 
 	pr_info("Namespaces dump complete\n");
