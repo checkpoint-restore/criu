@@ -1304,7 +1304,7 @@ static int do_umount_one(struct mount_info *mi)
 	return 0;
 }
 
-static int clean_mnt_ns(void)
+static int clean_mnt_ns(struct mount_info *mntinfo_tree)
 {
 	pr_info("Cleaning mount namespace\n");
 
@@ -1390,16 +1390,14 @@ void mnt_entry_free(struct mount_info *mi)
 	xfree(mi);
 }
 
-static void free_mounts(void)
+static void free_mntinfo(struct mount_info *pms)
 {
-	mntinfo_tree = NULL;
-
-	while (mntinfo) {
+	while (pms) {
 		struct mount_info *pm;
 
-		pm = mntinfo->next;
-		mnt_entry_free(mntinfo);
-		mntinfo = pm;
+		pm = pms->next;
+		mnt_entry_free(pms);
+		pms = pm;
 	}
 }
 
@@ -1721,9 +1719,14 @@ int fini_mnt_ns()
 int prepare_mnt_ns(int ns_pid)
 {
 	int ret = -1;
-	struct mount_info *mis;
+	struct mount_info *mis, *old;
+	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 
 	pr_info("Restoring mount namespace\n");
+
+	old = collect_mntinfo(&ns);
+	if (old == NULL)
+		return -1;
 
 	close_proc();
 
@@ -1742,7 +1745,7 @@ int prepare_mnt_ns(int ns_pid)
 	 * prior to recreating new ones.
 	 */
 	if (!opts.root) {
-		if (clean_mnt_ns())
+		if (clean_mnt_ns(ns.mnt.mntinfo_tree))
 			return -1;
 	} else {
 		struct mount_info *mi;
@@ -1770,7 +1773,7 @@ int prepare_mnt_ns(int ns_pid)
 		}
 	}
 
-	free_mounts();
+	free_mntinfo(old);
 
 	ret = populate_mnt_ns(ns_pid, mis);
 	if (ret)
