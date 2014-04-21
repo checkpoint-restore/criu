@@ -1662,6 +1662,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (mntns_collect_root(root_item->pid.real) < 0)
 		goto err;
 
+	if (collect_mnt_namespaces() < 0)
+		goto err;
+
 	for_each_pstree_item(item)
 		if (pre_dump_one_task(item, &ctls))
 			goto err;
@@ -1772,14 +1775,14 @@ int cr_dump_tasks(pid_t pid)
 	if (mntns_collect_root(root_item->pid.real) < 0)
 		goto err;
 
+	if (dump_mnt_namespaces() < 0)
+		goto err;
+
 	if (collect_sockets(pid))
 		goto err;
 
 	glob_fdset = cr_glob_fdset_open(O_DUMP);
 	if (!glob_fdset)
-		goto err;
-
-	if (dump_mnt_namespaces() < 0)
 		goto err;
 
 	for_each_pstree_item(item) {

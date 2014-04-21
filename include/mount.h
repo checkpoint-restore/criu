@@ -11,6 +11,7 @@ extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
 struct ns_id;
+extern struct mount_info * collect_mntinfo(struct ns_id *ns);
 extern int dump_mnt_ns(struct ns_id *ns);
 extern int prepare_mnt_ns(int pid);
 

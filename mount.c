@@ -827,43 +827,59 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	return 0;
 }
 
-int dump_mnt_ns(struct ns_id *ns)
+struct mount_info *collect_mntinfo(struct ns_id *ns)
 {
-	struct mount_info *pm;
-	int img_fd, ret = -1;
-	int ns_pid = ns->pid;
-	int ns_id = ns->id;
+	struct mount_info *pm, *p;
 
-	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
-	if (img_fd < 0)
-		return -1;
+	if (mntns_collect_root(ns->pid) < 0)
+		return NULL;
 
-	if (mntns_collect_root(ns_pid) < 0)
-		goto err;
-
-	pm = parse_mountinfo(ns_pid);
+	pm = parse_mountinfo(ns->pid);
 	if (!pm) {
-		pr_err("Can't parse %d's mountinfo\n", ns_pid);
-		goto err;
+		pr_err("Can't parse %d's mountinfo\n", ns->pid);
+		return NULL;
 	}
 
 	ns->mnt.mntinfo_tree = mnt_build_tree(pm);
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
 
-	if (validate_mounts(pm, true))
+	return pm;
+
+err:
+	while (pm) {
+		p = pm;
+		pm = pm->next;
+		xfree(p);
+	}
+
+	ns->mnt.mntinfo_tree = NULL;
+
+	return NULL;
+}
+
+int dump_mnt_ns(struct ns_id *ns)
+{
+	struct mount_info *pm, *pms;
+	int img_fd = -1, ret = -1;
+	int ns_id = ns->id;
+
+	pms = collect_mntinfo(ns);
+	if (pms == NULL)
+		goto err;
+
+	if (validate_mounts(pms, true))
 		goto err;
 
 	pr_info("Dumping mountpoints\n");
 
-	do {
-		struct mount_info *n = pm->next;
+	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
+	if (img_fd < 0)
+		goto err;
 
+	for (pm = pms; pm; pm = pm->next)
 		if (dump_one_mountpoint(pm, img_fd))
 			goto err;
-
-		pm = n;
-	} while (pm);
 
 	ret = 0;
 err:
@@ -1777,6 +1793,36 @@ set_root:
 	return ret;
 }
 
+int collect_mnt_namespaces(void)
+{
+	struct mount_info *pm;
+	struct ns_id *ns;
+	int ret = -1;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		if (ns->pid == getpid()) {
+			if (!(root_ns_mask & CLONE_NEWNS)) {
+				if (collect_mntinfo(ns) == NULL)
+					return -1;
+			}
+			/* Skip current namespaces, which are in the list too  */
+			continue;
+		}
+
+		if (!(ns->nd->cflag & CLONE_NEWNS))
+			continue;
+
+		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
+				ns->id, ns->pid);
+		pm = collect_mntinfo(ns);
+		if (pm == NULL)
+			goto err;
+	}
+	ret = 0;
+err:
+	return ret;
+}
+
 int dump_mnt_namespaces(void)
 {
 	struct ns_id *ns;
@@ -1784,8 +1830,12 @@ int dump_mnt_namespaces(void)
 
 	for (ns = ns_ids; ns; ns = ns->next) {
 		/* Skip current namespaces, which are in the list too  */
-		if (ns->pid == getpid())
+		if (ns->pid == getpid()) {
+			if (!(root_ns_mask & CLONE_NEWNS))
+				if (collect_mntinfo(ns) == NULL)
+					return -1;
 			continue;
+		}
 
 		if (!(ns->nd->cflag & CLONE_NEWNS))
 			continue;
