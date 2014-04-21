@@ -1,9 +1,13 @@
+#define _GNU_SOURCE
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sched.h>
+#include <sys/wait.h>
 
 #include "zdtmtst.h"
 
@@ -14,13 +18,56 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
 static char buf[1024];
 
+#define NS_STACK_SIZE	4096
+/* All arguments should be above stack, because it grows down */
+struct ns_exec_args {
+	char stack[NS_STACK_SIZE];
+	char stack_ptr[0];
+	int status_pipe[2];
+};
+
+int ns_child(void *_arg)
+{
+	struct stat st;
+	pid_t pid;
+
+	mkdir(MPTS_ROOT"/dev/mntns2", 0600);
+	if (mount("none", MPTS_ROOT"/dev/mntns2", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+
+	mkdir(MPTS_ROOT"/dev/mntns2/test", 0600);
+
+	pid = fork();
+
+	test_waitsig();
+
+	if (pid) {
+		int status = 1;;
+		kill(pid, SIGTERM);
+		wait(&status);
+		if (status)
+			return 1;
+	}
+
+	if (stat(MPTS_ROOT"/dev/mntns2/test", &st)) {
+		err("Can't stat /dev/share-1/test.share/test.share");
+		return 1;
+	}
+
+	return 0;
+}
+
 static int test_fn(int argc, char **argv)
 {
 	FILE *f;
 	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
+	struct ns_exec_args args;
 	bool private = false;
 	mode_t old_mask;
+	pid_t pid;
 
 again:
 	fs_cnt = 0;
@@ -147,7 +194,6 @@ done:
 		fail("Can't bind mount a tmpfs directory");
 		return 1;
 	}
-
 	mkdir(MPTS_ROOT"/dev/slave", 0600);
 	if (mount(MPTS_ROOT"/dev/share-1", MPTS_ROOT"/dev/slave", NULL, MS_BIND, NULL) < 0) {
 		fail("Can't bind mount a tmpfs directory");
@@ -192,6 +238,7 @@ done:
 		fail("Can't mount proc");
 		return 1;
 	}
+
 	if (mount("none", MPTS_ROOT"/kernel/sys/fs/binfmt_misc",
 					"binfmt_misc", 0, "") < 0) {
 		fail("Can't mount binfmt_misc");
@@ -214,6 +261,12 @@ done:
 	fd = open(MPTS_ROOT"/kernel/meminfo", O_RDONLY);
 	if (fd == -1)
 		return 1;
+
+	pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
+	if (pid < 0) {
+		err("Unable to fork child");
+		return 1;
+	}
 
 	test_daemon();
 	test_waitsig();
@@ -267,6 +320,14 @@ done:
 			err("Can't stat /dev/non-root/test");
 			return 1;
 		}
+	}
+
+	{
+		kill(pid, SIGTERM);
+		int status = 1;
+		wait(&status);
+		if (status)
+			return 1;
 	}
 
 	pass();
