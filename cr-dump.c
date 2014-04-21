@@ -1757,6 +1757,9 @@ int cr_dump_tasks(pid_t pid)
 	if (!glob_fdset)
 		goto err;
 
+	if (dump_mnt_namespaces() < 0)
+		goto err;
+
 	for_each_pstree_item(item) {
 		if (dump_one_task(item))
 			goto err;

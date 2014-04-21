@@ -419,6 +419,7 @@ static int do_dump_namespaces(struct ns_id *ns)
 
 	switch (ns->nd->cflag) {
 	case CLONE_NEWPID:
+	case CLONE_NEWNS:
 		ret = 0;
 		break;
 	case CLONE_NEWUTS:
@@ -430,11 +431,6 @@ static int do_dump_namespaces(struct ns_id *ns)
 		pr_info("Dump IPC namespace %d via %d\n",
 				ns->id, ns->pid);
 		ret = dump_ipc_ns(ns->pid, ns->id);
-		break;
-	case CLONE_NEWNS:
-		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
-				ns->id, ns->pid);
-		ret = dump_mnt_ns(ns->pid, ns->id);
 		break;
 	case CLONE_NEWNET:
 		pr_info("Dump NET namespace info %d via %d\n",
@@ -448,6 +444,29 @@ static int do_dump_namespaces(struct ns_id *ns)
 
 	return ret;
 
+}
+
+int dump_mnt_namespaces(void)
+{
+	struct ns_id *ns;
+	int ret = 0;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		/* Skip current namespaces, which are in the list too  */
+		if (ns->pid == getpid())
+			continue;
+
+		if (!(ns->nd->cflag & CLONE_NEWNS))
+			continue;
+
+		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
+				ns->id, ns->pid);
+		ret = dump_mnt_ns(ns->pid, ns->id);
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
 
 int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
