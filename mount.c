@@ -1433,6 +1433,30 @@ static int create_mnt_roots()
 	return 0;
 }
 
+int rst_collect_local_mntns()
+{
+	struct ns_id *nsid;
+
+	nsid = shmalloc(sizeof(struct ns_id));
+	if (nsid == NULL)
+		return -1;
+
+	nsid->nd = &mnt_ns_desc;
+	nsid->id = 0;
+	nsid->pid = getpid();
+	futex_set(&nsid->created, 1);
+
+	if (collect_mntinfo(nsid) == NULL)
+		return -1;
+
+	nsid->next = ns_ids;
+	ns_ids = nsid;
+
+	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
+
+	return 0;
+}
+
 static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
