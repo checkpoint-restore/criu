@@ -233,6 +233,12 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 					m->mnt_id, m->parent_mnt_id, m->mountpoint,
 					root ? "found" : "not found");
 			if (root && m->is_ns_root) {
+				if (!mounts_equal(root, m, true) ||
+						strcmp(root->root, m->root)) {
+					pr_err("Nested mount namespaces with different roots are not supported yet");
+					return NULL;
+				}
+
 				/*
 				 * A root of a sub mount namespace is
 				 * mounted in a temporary directory in the
