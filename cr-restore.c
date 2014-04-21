@@ -1237,9 +1237,6 @@ static int restore_task_with_children(void *_arg)
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
 			exit(1);
 
-		if (collect_mount_info(getpid()))
-			exit(1);
-
 		if (prepare_namespace(current, ca->clone_flags))
 			exit(1);
 

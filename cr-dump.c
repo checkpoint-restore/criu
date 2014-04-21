@@ -1656,12 +1656,6 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (gen_predump_ns_mask())
 		goto err;
 
-	if (collect_mount_info(pid))
-		goto err;
-
-	if (mntns_collect_root(root_item->pid.real) < 0)
-		goto err;
-
 	if (collect_mnt_namespaces() < 0)
 		goto err;
 
@@ -1767,12 +1761,6 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (collect_file_locks())
-		goto err;
-
-	if (collect_mount_info(pid))
-		goto err;
-
-	if (mntns_collect_root(root_item->pid.real) < 0)
 		goto err;
 
 	if (dump_mnt_namespaces() < 0)

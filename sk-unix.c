@@ -25,6 +25,8 @@
 #include "mount.h"
 #include "cr-service.h"
 #include "plugin.h"
+#include "namespaces.h"
+#include "pstree.h"
 
 #include "protobuf.h"
 #include "protobuf/sk-unix.pb-c.h"
@@ -366,7 +368,15 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 {
 	struct unix_sk_desc *d;
 	char *name = NULL;
+	struct ns_id *ns;
 	int ret = 0;
+
+	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+	if (ns == NULL)
+		return -1;
+
+	if (mntns_collect_root(ns->pid) < 0)
+		return -1;
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
@@ -432,7 +442,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						name, m->udiag_ino);
 				drop_path = true;
 			} else if ((st.st_ino != uv->udiag_vfs_ino) ||
-			    !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, name)) {
+			    !phys_stat_dev_match(ns->mnt.mntinfo_tree, st.st_dev,
+							uv->udiag_vfs_dev, name)) {
 				pr_info("unix: Dropping path %s for "
 						"unlinked bound "
 						"sk %#x.%#x real %#x.%#x\n",
