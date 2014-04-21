@@ -249,6 +249,23 @@ static int check_one_sfd(union fdinfo_entries *e, void *arg)
 	return 0;
 }
 
+static int check_mnt_id(void)
+{
+	struct fdinfo_common fdinfo = { .mnt_id = -1 };
+	int ret;
+
+	ret = parse_fdinfo(get_service_fd(LOG_FD_OFF), FD_TYPES__UND, NULL, &fdinfo);
+	if (ret < 0)
+		return -1;
+
+	if (fdinfo.mnt_id == -1) {
+		pr_err("fdinfo doesn't contain the mnt_id field\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_fdinfo_signalfd(void)
 {
 	int fd, ret;
@@ -573,6 +590,7 @@ int cr_check(void)
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
 	ret |= check_tun();
+	ret |= check_mnt_id();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
