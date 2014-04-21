@@ -1384,6 +1384,37 @@ static void free_mounts(void)
 	}
 }
 
+/*
+ * mnt_roots is a temporary directory for restoring sub-trees of
+ * non-root namespaces.
+ */
+static char *mnt_roots;
+
+static int create_mnt_roots()
+{
+	if (mnt_roots)
+		return 0;
+
+	if (chdir(opts.root ? : "/")) {
+		pr_perror("Unable to change working directory on %s", opts.root);
+		return -1;
+	}
+
+	mnt_roots = strdup(".criu.mntns.XXXXXX");
+	if (mnt_roots == NULL) {
+		pr_perror("Can't allocate memory");
+		return -1;
+	}
+
+	if (mkdtemp(mnt_roots) == NULL) {
+		pr_perror("Unable to create a temporary directory");
+		mnt_roots = NULL;
+		return -1;
+	}
+
+	return 0;
+}
+
 static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
@@ -1397,7 +1428,8 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 
 	while (1) {
 		struct mount_info *pm;
-		int len;
+		char root[PATH_MAX] = ".";
+		int len, root_len = 1;
 
 		ret = pb_read_one_eof(img, &me, PB_MNT);
 		if (ret <= 0)
@@ -1427,8 +1459,10 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		if (!pm->root)
 			goto err;
 
-		pr_debug("\t\tGetting mpt for %d:%s\n", pm->mnt_id, me->mountpoint);
-		len  = strlen(me->mountpoint) + 2;
+		if (nsid->id != root_item->ids->mnt_ns_id)
+			root_len = snprintf(root, sizeof(root), "%s/%d/",
+						mnt_roots, nsid->id);
+		len  = strlen(me->mountpoint) + root_len + 1;
 		pm->mountpoint = xmalloc(len);
 		if (!pm->mountpoint)
 			goto err;
@@ -1439,8 +1473,10 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		 * that.
 		 */
 
-		pm->mountpoint[0] = '.';
-		strcpy(pm->mountpoint + 1, me->mountpoint);
+		strcpy(pm->mountpoint, root);
+		strcpy(pm->mountpoint + root_len, me->mountpoint);
+
+		pr_debug("\t\tGetting mpt for %d %s\n", pm->mnt_id, pm->mountpoint);
 
 		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
 		pm->source = xstrdup(me->source);
@@ -1478,6 +1514,10 @@ static struct mount_info *read_mnt_ns_img()
 			continue;
 		}
 
+		if (nsid->id != root_item->ids->mnt_ns_id)
+			if (create_mnt_roots(true))
+				return NULL;
+
 		if (collect_mnt_from_image(&pms, nsid))
 			goto err;
 
@@ -1488,12 +1528,53 @@ err:
 	return NULL;
 }
 
+/*
+ * All nested mount namespaces are restore as sub-trees of the root namespace.
+ */
+static int prepare_roots_yard(void)
+{
+	char path[PATH_MAX];
+	struct ns_id *nsid;
+
+	if (mnt_roots == NULL)
+		return 0;
+
+	if (mount("none", mnt_roots, "tmpfs", 0, NULL)) {
+		pr_perror("Unable to mount tmpfs in %s", mnt_roots);
+		return -1;
+	}
+	if (mount("none", mnt_roots, NULL, MS_PRIVATE, NULL))
+		return -1;
+
+	nsid = ns_ids;
+	while (nsid) {
+		if (nsid->nd != &mnt_ns_desc) {
+			nsid = nsid->next;
+			continue;
+		}
+
+		snprintf(path, sizeof(path), "%s/%d",
+				mnt_roots, nsid->id);
+
+		if (mkdir(path, 0600)) {
+			pr_perror("Unable to create %s", path);
+			return -1;
+		}
+		nsid = nsid->next;
+	}
+
+	return 0;
+}
+
 static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 {
 	struct mount_info *pms;
 
 	mntinfo_tree = NULL;
 	mntinfo = mis;
+
+	if (prepare_roots_yard())
+		return -1;
 
 	pms = mnt_build_tree(mntinfo);
 	if (!pms)
@@ -1504,6 +1585,35 @@ static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 
 	mntinfo_tree = pms;
 	return mnt_tree_for_each(pms, do_mount_one);
+}
+
+int fini_mnt_ns()
+{
+	int ret = 0;
+
+	if (mnt_roots == NULL)
+		return 0;
+
+	if (mount("none", mnt_roots, "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
+		ret = 1;
+	}
+	/*
+	 * Don't exit after a first error, becuase this function
+	 * can be used to rollback in a error case.
+	 * Don't worry about MNT_DETACH, because files are restored after this
+	 * and nobody will not be restored from a wrong mount namespace.
+	 */
+	if (umount2(mnt_roots, MNT_DETACH)) {
+		pr_perror("Can't unmount %s", mnt_roots);
+		ret = 1;
+	}
+	if (rmdir(mnt_roots)) {
+		pr_perror("Can't remove the directory %s", mnt_roots);
+		ret = 1;
+	}
+
+	return ret;
 }
 
 int prepare_mnt_ns(int ns_pid)
