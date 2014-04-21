@@ -6,4 +6,5 @@ message reg_file_entry {
 	required uint64		pos	= 3;
 	required fown_entry	fown	= 5;
 	required string		name	= 6;
+	optional sint32		mnt_id	= 7 [default = -1];
 }
