@@ -827,10 +827,12 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	return 0;
 }
 
-int dump_mnt_ns(int ns_pid, int ns_id)
+int dump_mnt_ns(struct ns_id *ns)
 {
 	struct mount_info *pm;
 	int img_fd, ret = -1;
+	int ns_pid = ns->pid;
+	int ns_id = ns->id;
 
 	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
 	if (img_fd < 0)
@@ -845,7 +847,8 @@ int dump_mnt_ns(int ns_pid, int ns_id)
 		goto err;
 	}
 
-	if (mnt_build_tree(pm) == NULL)
+	ns->mnt.mntinfo_tree = mnt_build_tree(pm);
+	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
 
 	if (validate_mounts(pm, true))
@@ -859,7 +862,6 @@ int dump_mnt_ns(int ns_pid, int ns_id)
 		if (dump_one_mountpoint(pm, img_fd))
 			goto err;
 
-		xfree(pm);
 		pm = n;
 	} while (pm);
 

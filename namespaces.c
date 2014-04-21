@@ -461,7 +461,7 @@ int dump_mnt_namespaces(void)
 
 		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
 				ns->id, ns->pid);
-		ret = dump_mnt_ns(ns->pid, ns->id);
+		ret = dump_mnt_ns(ns);
 		if (ret)
 			break;
 	}
