@@ -77,6 +77,11 @@ again:
 		return -1;
 	}
 
+	if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
+		err("Can't remount / with MS_PRIVATE");
+		return -1;
+	}
+
 	while (fgets(buf, sizeof(buf), f) != NULL) {
 		char *mp = buf, *end;
 
@@ -87,21 +92,14 @@ again:
 		end = strchr(mp, ' ');
 		*end = '\0';
 
-		if (private) {
-			if (!strcmp(mp, "/"))
-				continue;
-			if (!strcmp(mp, "/proc"))
-				continue;
+		if (!strcmp(mp, "/"))
+			continue;
+		if (!strcmp(mp, "/proc"))
+			continue;
 
-			if (umount(mp))
-				test_msg("umount(`%s') failed: %m\n", mp);
-		} else {
-			/* mount --make-rprivate / */
-			if (mount("none", mp, "none", MS_REC|MS_PRIVATE, NULL)) {
-				err("Can't remount %s with MS_PRIVATE", mp);
-				return -1;
-			}
-		}
+		if (umount(mp))
+			test_msg("umount(`%s') failed: %m\n", mp);
+
 		fs_cnt++;
 	}
 
