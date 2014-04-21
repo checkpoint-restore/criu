@@ -119,6 +119,7 @@ struct mount_info {
 	bool		mounted;
 	bool		need_plugin;
 	int		is_file;
+	bool		is_ns_root;
 	struct mount_info *next;
 
 	/* tree linkage */

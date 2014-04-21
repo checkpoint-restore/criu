@@ -1405,6 +1405,7 @@ static struct mount_info *read_mnt_ns_img(int ns_pid)
 		pm->shared_id		= me->shared_id;
 		pm->master_id		= me->master_id;
 		pm->need_plugin		= me->with_plugin;
+		pm->is_ns_root		= is_root(me->mountpoint);
 
 		/* FIXME: abort unsupported early */
 		pm->fstype		= decode_fstype(me->fstype);
