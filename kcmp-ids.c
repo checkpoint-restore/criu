@@ -149,12 +149,18 @@ static u32 kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 				this->elem.idx, elem->idx);
 
 		parent = *new;
-		if (ret < 0)
+		if (ret == 1)
 			node = node->rb_left, new = &((*new)->rb_left);
-		else if (ret > 0)
+		else if (ret == 2)
 			node = node->rb_right, new = &((*new)->rb_right);
-		else
+		else if (ret == 0)
 			return this->subid;
+		else {
+			pr_err("kcmp failed: pid (%d %d) type %u idx (%u %u) ret %d\n",
+			       this->elem.pid, elem->pid, tree->kcmp_type,
+			       this->elem.idx, elem->idx, ret);
+			return 0;
+		}
 	}
 
 	sub = alloc_kid_entry(tree, elem);
