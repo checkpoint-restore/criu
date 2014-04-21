@@ -663,16 +663,22 @@ static int prepare_pstree_kobj_ids(void)
 set_mask:
 		item->rst->clone_flags = cflags;
 
-		/*
-		 * Workaround for current namespaces model --
-		 * all tasks should be in one namespace. And
-		 * this namespace is either inherited from the
-		 * criu or is created for the init task (only)
-		 */
+		cflags &= CLONE_ALLNS;
+
 		if (item == root_item) {
 			pr_info("Will restore in %lx namespaces\n", cflags);
-			current_ns_mask = cflags & CLONE_ALLNS;
-		} else if (cflags & CLONE_ALLNS) {
+			current_ns_mask = cflags;
+		} else if (cflags & ~(current_ns_mask & CLONE_SUBNS)) {
+			/*
+			 * Namespaces from CLONE_SUBNS can be nested, but in
+			 * this case nobody can't share external namespaces of
+			 * these types.
+			 *
+			 * Workaround for all other namespaces --
+			 * all tasks should be in one namespace. And
+			 * this namespace is either inherited from the
+			 * criu or is created for the init task (only)
+			 */
 			pr_err("Can't restore sub-task in NS\n");
 			return -1;
 		}

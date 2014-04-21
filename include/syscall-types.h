@@ -59,6 +59,9 @@ struct itimerspec;
 
 #define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS)
 
+/* Nested namespaces are supported only for these types */
+#define CLONE_SUBNS	(CLONE_NEWNS)
+
 #define setns	sys_setns
 
 struct rlimit;

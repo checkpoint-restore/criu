@@ -182,7 +182,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 			BUG_ON(current_ns_mask & nd->cflag);
 			pr_info("Will take %s namespace in the image\n", nd->str);
 			current_ns_mask |= nd->cflag;
-		} else {
+		} else if (nd->cflag & ~CLONE_SUBNS) {
 			pr_err("Can't dump nested %s namespace for %d\n",
 					nd->str, pid);
 			return 0;
