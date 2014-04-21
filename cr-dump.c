@@ -278,7 +278,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 	if (fill_fd_params_special(fd, &params))
 		return -1;
 
-	if (fd_id_generate_special(&params.stat, &mm->exe_file_id))
+	if (fd_id_generate_special(&params, &mm->exe_file_id))
 		ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
 
 	close(fd);
@@ -301,7 +301,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 	if (fill_fd_params_special(fd, &p))
 		return -1;
 
-	if (fd_id_generate_special(&p.stat, &fe.cwd_id)) {
+	if (fd_id_generate_special(&p, &fe.cwd_id)) {
 		ret = dump_one_reg_file(fd, fe.cwd_id, &p);
 		if (ret < 0)
 			return ret;
@@ -316,7 +316,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 	if (fill_fd_params_special(fd, &p))
 		return -1;
 
-	if (fd_id_generate_special(&p.stat, &fe.root_id)) {
+	if (fd_id_generate_special(&p, &fe.root_id)) {
 		ret = dump_one_reg_file(fd, fe.root_id, &p);
 		if (ret < 0)
 			return ret;
@@ -370,7 +370,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 
 	/* Flags will be set during restore in get_filemap_fd() */
 
-	if (fd_id_generate_special(&p.stat, &id))
+	if (fd_id_generate_special(&p, &id))
 		ret = dump_one_reg_file(vma_area->vm_file_fd, id, &p);
 
 	vma->shmid = id;

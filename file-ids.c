@@ -18,6 +18,7 @@
 #include "image.h"
 #include "util.h"
 #include "irmap.h"
+#include "files.h"
 
 static DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
 
@@ -36,6 +37,7 @@ static inline int fdid_hashfn(unsigned int s_dev, unsigned long i_ino)
 }
 
 struct fd_id {
+	int mnt_id;
 	unsigned int dev;
 	unsigned long ino;
 	u32 id;
@@ -44,41 +46,45 @@ struct fd_id {
 
 static struct fd_id *fd_id_cache[FDID_SIZE];
 
-static void fd_id_cache_one(u32 id, struct stat *st)
+static void fd_id_cache_one(u32 id, struct fd_parms *p)
 {
 	struct fd_id *fi;
 	unsigned hv;
 
 	fi = xmalloc(sizeof(*fi));
 	if (fi) {
-		fi->dev = st->st_dev;
-		fi->ino = st->st_ino;
+		fi->dev = p->stat.st_dev;
+		fi->ino = p->stat.st_ino;
+		fi->mnt_id = p->mnt_id;
 		fi->id = id;
 
-		hv = fdid_hashfn(st->st_dev, st->st_ino);
+		hv = fdid_hashfn(p->stat.st_dev, p->stat.st_ino);
 		fi->n = fd_id_cache[hv];
 		fd_id_cache[hv] = fi;
 	}
 }
 
-static struct fd_id *fd_id_cache_lookup(struct stat *st)
+static struct fd_id *fd_id_cache_lookup(struct fd_parms *p)
 {
+	struct stat *st = &p->stat;
 	struct fd_id *fi;
 
 	for (fi = fd_id_cache[fdid_hashfn(st->st_dev, st->st_ino)];
 			fi; fi = fi->n)
-		if (fi->dev == st->st_dev && fi->ino == st->st_ino)
+		if (fi->dev == st->st_dev &&
+		    fi->ino == st->st_ino &&
+		    fi->mnt_id == p->mnt_id)
 			return fi;
 
 	return NULL;
 }
 
-int fd_id_generate_special(struct stat *st, u32 *id)
+int fd_id_generate_special(struct fd_parms *p, u32 *id)
 {
-	if (st) {
+	if (p) {
 		struct fd_id *fi;
 
-		fi = fd_id_cache_lookup(st);
+		fi = fd_id_cache_lookup(p);
 		if (fi) {
 			*id = fi->id;
 			return 0;
@@ -86,12 +92,12 @@ int fd_id_generate_special(struct stat *st, u32 *id)
 	}
 
 	*id = fd_tree.subid++;
-	if (st)
-		fd_id_cache_one(*id, st);
+	if (p)
+		fd_id_cache_one(*id, p);
 	return 1;
 }
 
-int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct stat *st)
+int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct fd_parms *p)
 {
 	u32 id;
 	struct kid_elem e;
@@ -106,7 +112,7 @@ int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct stat *st)
 		return -ENOMEM;
 
 	if (new_id)
-		fd_id_cache_one(id, st);
+		fd_id_cache_one(id, p);
 
 	fe->id = id;
 	return new_id;
