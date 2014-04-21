@@ -46,6 +46,7 @@ struct fd_parms {
 	FownEntry	fown;
 	struct fd_link	*link;
 	long		fs_type;
+	int		mnt_id;
 
 	struct parasite_ctl *ctl;
 };
@@ -55,6 +56,7 @@ struct fd_parms {
 	.fd	= FD_DESC_INVALID,	\
 	.fown	= FOWN_ENTRY__INIT,	\
 	.link	= NULL,			\
+	.mnt_id = -1,			\
 }
 
 extern int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link);

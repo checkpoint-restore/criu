@@ -225,6 +225,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 	p->fd		= fd;
 	p->pos		= fdinfo.pos;
 	p->flags	= fdinfo.flags;
+	p->mnt_id	= fdinfo.mnt_id;
 	p->pid		= ctl->pid.real;
 	p->fd_flags	= opts->flags;
 

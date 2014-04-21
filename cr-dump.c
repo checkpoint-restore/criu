@@ -240,19 +240,43 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 	return 0;
 }
 
+static int get_fd_mntid(int fd, int *mnt_id)
+{
+	struct fdinfo_common fdinfo = { .mnt_id = -1};
+
+	if (parse_fdinfo(fd, FD_TYPES__UND, NULL, &fdinfo))
+		return -1;
+
+	*mnt_id = fdinfo.mnt_id;
+	return 0;
+}
+
+static int fill_fd_params_special(int fd, struct fd_parms *p)
+{
+	*p = FD_PARMS_INIT;
+
+	if (fstat(fd, &p->stat) < 0) {
+		pr_perror("Can't fstat exe link");
+		return -1;
+	}
+
+	if (get_fd_mntid(fd, &p->mnt_id))
+		return -1;
+
+	return 0;
+}
+
 static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 {
-	struct fd_parms params = FD_PARMS_INIT;
+	struct fd_parms params;
 	int fd, ret = 0;
 
 	fd = open_proc(pid, "exe");
 	if (fd < 0)
 		return -1;
 
-	if (fstat(fd, &params.stat) < 0) {
-		pr_perror("Can't fstat exe link");
+	if (fill_fd_params_special(fd, &params))
 		return -1;
-	}
 
 	if (fd_id_generate_special(&params.stat, &mm->exe_file_id))
 		ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
@@ -263,7 +287,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 
 static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fdset *fdset)
 {
-	struct fd_parms p = FD_PARMS_INIT;
+	struct fd_parms p;
 	FsEntry fe = FS_ENTRY__INIT;
 	int fd, ret;
 
@@ -274,10 +298,8 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 	if (fd < 0)
 		return -1;
 
-	if (fstat(fd, &p.stat) < 0) {
-		pr_perror("Can't stat cwd");
+	if (fill_fd_params_special(fd, &p))
 		return -1;
-	}
 
 	if (fd_id_generate_special(&p.stat, &fe.cwd_id)) {
 		ret = dump_one_reg_file(fd, fe.cwd_id, &p);
@@ -291,11 +313,8 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_fd
 	if (fd < 0)
 		return -1;
 
-	p = FD_PARMS_INIT;
-	if (fstat(fd, &p.stat) < 0) {
-		pr_perror("Can't stat root");
+	if (fill_fd_params_special(fd, &p))
 		return -1;
-	}
 
 	if (fd_id_generate_special(&p.stat, &fe.root_id)) {
 		ret = dump_one_reg_file(fd, fe.root_id, &p);
@@ -345,6 +364,9 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 
 	BUG_ON(!vma_area->st);
 	p.stat = *vma_area->st;
+
+	if (get_fd_mntid(vma_area->vm_file_fd, &p.mnt_id))
+		return -1;
 
 	/* Flags will be set during restore in get_filemap_fd() */
 
