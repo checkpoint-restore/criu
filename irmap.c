@@ -23,6 +23,7 @@
 #include "util.h"
 #include "image.h"
 #include "stats.h"
+#include "pstree.h"
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
@@ -225,6 +226,9 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	s_dev = kdev_to_odev(s_dev);
 
 	pr_debug("Resolving %x:%lx path\n", s_dev, i_ino);
+
+	if (mntns_collect_root(root_item->pid.real) < 0)
+		goto out;
 
 	timing_start(TIME_IRMAP_RESOLVE);
 
