@@ -1777,4 +1777,27 @@ set_root:
 	return ret;
 }
 
+int dump_mnt_namespaces(void)
+{
+	struct ns_id *ns;
+	int ret = 0;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		/* Skip current namespaces, which are in the list too  */
+		if (ns->pid == getpid())
+			continue;
+
+		if (!(ns->nd->cflag & CLONE_NEWNS))
+			continue;
+
+		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
+				ns->id, ns->pid);
+		ret = dump_mnt_ns(ns);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
