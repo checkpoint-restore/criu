@@ -906,7 +906,7 @@ err:
 	return ret;
 }
 
-struct mount_info *parse_mountinfo(pid_t pid)
+struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 {
 	struct mount_info *list = NULL;
 	FILE *f;
@@ -926,6 +926,8 @@ struct mount_info *parse_mountinfo(pid_t pid)
 		new = mnt_entry_alloc();
 		if (!new)
 			goto err;
+
+		new->nsid = nsid;
 
 		new->next = list;
 		list = new;

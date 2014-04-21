@@ -121,6 +121,7 @@ struct mount_info {
 	int		is_file;
 	bool		is_ns_root;
 	struct mount_info *next;
+	struct ns_id	*nsid;
 
 	/* tree linkage */
 	struct mount_info *parent;
@@ -144,7 +145,7 @@ extern void mnt_entry_free(struct mount_info *mi);
 
 struct vm_area_list;
 
-extern struct mount_info *parse_mountinfo(pid_t pid);
+extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
 extern int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s);
 extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files);
