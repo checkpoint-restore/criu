@@ -31,6 +31,7 @@ int ns_child(void *_arg)
 {
 	struct stat st;
 	pid_t pid;
+	int fd, ufd;
 
 	mkdir(MPTS_ROOT"/dev/mntns2", 0600);
 	if (mount("none", MPTS_ROOT"/dev/mntns2", "tmpfs", 0, "") < 0) {
@@ -39,6 +40,15 @@ int ns_child(void *_arg)
 	}
 
 	mkdir(MPTS_ROOT"/dev/mntns2/test", 0600);
+
+	fd = open(MPTS_ROOT"/dev/mntns2/test/test.file", O_WRONLY | O_CREAT, 0666);
+	if (fd < 0)
+		return 1;
+
+	ufd = open(MPTS_ROOT"/dev/mntns2/test/test.file.unlinked", O_WRONLY | O_CREAT, 0666);
+	if (ufd < 0)
+		return 1;
+	unlink(MPTS_ROOT"/dev/mntns2/test/test.file.unlinked");
 
 	pid = fork();
 
