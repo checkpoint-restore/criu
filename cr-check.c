@@ -249,7 +249,7 @@ static int check_one_sfd(union fdinfo_entries *e, void *arg)
 	return 0;
 }
 
-static int check_mnt_id(void)
+int check_mnt_id(void)
 {
 	struct fdinfo_common fdinfo = { .mnt_id = -1 };
 	int ret;

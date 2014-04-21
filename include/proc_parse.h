@@ -176,4 +176,6 @@ extern int parse_file_locks(void);
 struct pid;
 extern int parse_threads(int pid, struct pid **_t, int *_n);
 
+extern int check_mnt_id(void);
+
 #endif /* __CR_PROC_PARSE_H__ */
