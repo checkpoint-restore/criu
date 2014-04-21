@@ -536,7 +536,7 @@ int cr_check(void)
 	if (!is_root_user())
 		return -1;
 
-	if (mntns_collect_root(getpid())) {
+	if (mntns_collect_root(getpid()) < 0) {
 		pr_err("Can't collect root mount point\n");
 		return -1;
 	}

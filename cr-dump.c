@@ -1659,7 +1659,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (collect_mount_info(pid))
 		goto err;
 
-	if (mntns_collect_root(root_item->pid.real))
+	if (mntns_collect_root(root_item->pid.real) < 0)
 		goto err;
 
 	for_each_pstree_item(item)
@@ -1769,7 +1769,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_mount_info(pid))
 		goto err;
 
-	if (mntns_collect_root(root_item->pid.real))
+	if (mntns_collect_root(root_item->pid.real) < 0)
 		goto err;
 
 	if (collect_sockets(pid))

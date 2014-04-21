@@ -836,7 +836,7 @@ int dump_mnt_ns(int ns_pid, int ns_id)
 	if (img_fd < 0)
 		return -1;
 
-	if (mntns_collect_root(ns_pid))
+	if (mntns_collect_root(ns_pid) < 0)
 		goto err;
 
 	pm = parse_mountinfo(ns_pid);
@@ -1772,7 +1772,7 @@ int mntns_collect_root(pid_t pid)
 set_root:
 	ret = install_service_fd(ROOT_FD_OFF, fd);
 	close(fd);
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
