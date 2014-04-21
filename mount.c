@@ -1281,11 +1281,18 @@ static int clean_mnt_ns(void)
 	return mnt_tree_for_each_reverse(mntinfo_tree, do_umount_one);
 }
 
-static int cr_pivot_root(void)
+static int cr_pivot_root(char *root)
 {
 	char put_root[] = "crtools-put-root.XXXXXX";
 
-	pr_info("Move the root to %s\n", opts.root);
+	pr_info("Move the root to %s\n", root ? : ".");
+
+	if (root) {
+		if (chdir(root)) {
+			pr_perror("chdir(%s) failed", root);
+			return -1;
+		}
+	}
 
 	if (mkdtemp(put_root) == NULL) {
 		pr_perror("Can't create a temporary directory");
@@ -1296,6 +1303,11 @@ static int cr_pivot_root(void)
 		pr_perror("pivot_root(., %s) failed", put_root);
 		if (rmdir(put_root))
 			pr_perror("Can't remove the directory %s", put_root);
+		return -1;
+	}
+
+	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
 
@@ -1523,7 +1535,7 @@ int prepare_mnt_ns(int ns_pid)
 		goto out;
 
 	if (opts.root)
-		ret = cr_pivot_root();
+		ret = cr_pivot_root(NULL);
 out:
 	return ret;
 }
