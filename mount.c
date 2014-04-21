@@ -1572,6 +1572,27 @@ err:
 	return NULL;
 }
 
+char *rst_get_mnt_root(int mnt_id)
+{
+	struct mount_info *m;
+	static char path[PATH_MAX] = "/";
+
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return path;
+
+	m = lookup_mnt_id(mnt_id);
+	if (m == NULL)
+		return NULL;
+
+	if (m->nsid->pid == getpid())
+		return path;
+
+	snprintf(path, sizeof(path), "%s/%d/",
+			mnt_roots, m->nsid->id);
+
+	return path;
+}
+
 int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
 {
 	char path[PATH_MAX];

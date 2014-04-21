@@ -30,5 +30,6 @@ extern int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid);
 extern int fini_mnt_ns(void);
 
 int rst_collect_local_mntns();
+char *rst_get_mnt_root(int mnt_id);
 
 #endif /* __CR_MOUNT_H__ */
