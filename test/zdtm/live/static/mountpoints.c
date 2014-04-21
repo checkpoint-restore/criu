@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sched.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 
 #include "zdtmtst.h"
 
@@ -69,6 +70,13 @@ static int test_fn(int argc, char **argv)
 	mode_t old_mask;
 	pid_t pid;
 
+	if (!getenv("ZDTM_REEXEC")) {
+		setenv("ZDTM_REEXEC", "1", 0);
+		return execv(argv[0], argv);
+	} else
+		test_init(argc, argv);
+
+	close(0); /* /dev/null */
 again:
 	fs_cnt = 0;
 	f = fopen("/proc/self/mountinfo", "r");
@@ -254,8 +262,6 @@ done:
 	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
 	umask(old_mask);
 
-	setup_outfile();
-
 	fd = open(MPTS_ROOT"/kernel/meminfo", O_RDONLY);
 	if (fd == -1)
 		return 1;
@@ -336,6 +342,8 @@ done:
 
 int main(int argc, char **argv)
 {
+	if (getenv("ZDTM_REEXEC"))
+		return test_fn(argc, argv);
 	test_init_ns(argc, argv, CLONE_NEWNS, test_fn);
 	return 0;
 }

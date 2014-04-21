@@ -149,6 +149,9 @@ void test_init(int argc, char **argv)
 	setup_outfile();
 	redir_stdfds();
 
+	if (getenv("ZDTM_REEXEC"))
+		goto skip_pid;
+
 	pidf = fopen(pidfile, "wx");
 	if (!pidf) {
 		err("Can't create pid file %s: %m\n", pidfile);
@@ -183,19 +186,20 @@ void test_init(int argc, char **argv)
 		_exit(0);
 	}
 
+	fclose(pidf);
+
+	if (setsid() < 0) {
+		err("Can't become session group leader: %m\n");
+		exit(1);
+	}
+
+skip_pid:
 	/* record the test pid to remember the ownership of the pidfile */
 	master_pid = getpid();
-
-	fclose(pidf);
 
 	sa.sa_handler = SIG_DFL;
 	if (sigaction(SIGCHLD, &sa, NULL)) {
 		err("Can't reset SIGCHLD handler: %m\n");
-		exit(1);
-	}
-
-	if (setsid() < 0) {
-		err("Can't become session group leader: %m\n");
 		exit(1);
 	}
 

@@ -161,6 +161,7 @@ tempfs
 maps007
 tempfs
 bind-mount
+mountpoints
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
