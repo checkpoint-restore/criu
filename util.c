@@ -341,18 +341,6 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
-/* Close all unused service descriptors on a depth of nr. */
-void close_old_servie_fd(int nr)
-{
-	int level, i;
-	BUG_ON(service_fd_id != 0);
-	for (level = 1; level < nr; level++) {
-		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
-			close(__get_service_fd(i, level));
-		}
-	}
-}
-
 int clone_service_fd(int id)
 {
 	int ret = -1, i;

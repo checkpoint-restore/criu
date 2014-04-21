@@ -26,7 +26,6 @@ extern int get_service_fd(enum sfd_type type);
 extern int reserve_service_fd(enum sfd_type type);
 extern int install_service_fd(enum sfd_type type, int fd);
 extern int close_service_fd(enum sfd_type type);
-extern void close_old_servie_fd(int nr);
 extern bool is_service_fd(int fd, enum sfd_type type);
 extern bool is_any_service_fd(int fd);
 
