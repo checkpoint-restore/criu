@@ -1384,17 +1384,14 @@ static void free_mounts(void)
 	}
 }
 
-static struct mount_info *read_mnt_ns_img(int ns_pid)
+static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
 	int img, ret;
-	struct mount_info *pms = NULL;
 
-	pr_info("Populating mount namespace\n");
-
-	img = open_image(CR_FD_MNTS, O_RSTR, ns_pid);
+	img = open_image(CR_FD_MNTS, O_RSTR, nsid->id);
 	if (img < 0)
-		return NULL;
+		return -1;
 
 	pr_debug("Reading mountpoint images\n");
 
@@ -1410,8 +1407,8 @@ static struct mount_info *read_mnt_ns_img(int ns_pid)
 		if (!pm)
 			goto err;
 
-		pm->next = pms;
-		pms = pm;
+		pm->next = *pms;
+		*pms = pm;
 
 		pm->mnt_id		= me->mnt_id;
 		pm->parent_mnt_id	= me->parent_mnt_id;
@@ -1462,15 +1459,32 @@ static struct mount_info *read_mnt_ns_img(int ns_pid)
 		mnt_entry__free_unpacked(me, NULL);
 
 	close(img);
-	return pms;
 
+	return 0;
 err:
-	while (pms) {
-		struct mount_info *pm = pms;
-		pms = pm->next;
-		mnt_entry_free(pm);
-	}
 	close_safe(&img);
+	return -1;
+}
+
+static struct mount_info *read_mnt_ns_img()
+{
+	struct mount_info *pms = NULL;
+	struct ns_id *nsid;
+
+	nsid = ns_ids;
+	while (nsid) {
+		if (nsid->nd != &mnt_ns_desc) {
+			nsid = nsid->next;
+			continue;
+		}
+
+		if (collect_mnt_from_image(&pms, nsid))
+			goto err;
+
+		nsid = nsid->next;
+	}
+	return pms;
+err:
 	return NULL;
 }
 
