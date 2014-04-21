@@ -2356,7 +2356,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	ret = parse_self_maps_lite(&self_vmas);
-	close_proc();
 	if (ret < 0)
 		goto err;
 
@@ -2614,6 +2613,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	close_image_dir();
+	close_proc();
 	close_service_fd(ROOT_FD_OFF);
 
 	__gcov_flush();
