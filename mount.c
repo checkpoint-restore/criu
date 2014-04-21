@@ -1672,6 +1672,7 @@ static int prepare_roots_yard(void)
 static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 {
 	struct mount_info *pms;
+	struct ns_id *nsid;
 
 	mntinfo_tree = NULL;
 	mntinfo = mis;
@@ -1682,6 +1683,13 @@ static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 	pms = mnt_build_tree(mntinfo);
 	if (!pms)
 		return -1;
+
+	for (nsid = ns_ids; nsid; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+
+		nsid->mnt.mntinfo_tree = pms;
+	}
 
 	if (validate_mounts(mis, false))
 		return -1;
