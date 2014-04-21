@@ -117,6 +117,34 @@ struct ns_id *ns_ids = NULL;
 static unsigned int ns_next_id = 1;
 unsigned long current_ns_mask = 0;
 
+int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
+{
+	struct ns_id *nsid;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->id == id) {
+			if (pid_rst_prio(pid, nsid->pid))
+				nsid->pid = pid;
+			return 0;
+		}
+	}
+
+	nsid = shmalloc(sizeof(struct ns_id));
+	if (nsid == NULL)
+		return -1;
+
+	nsid->nd = nd;
+	nsid->id = id;
+	nsid->pid = pid;
+
+	nsid->next = ns_ids;
+	ns_ids = nsid;
+
+	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
+
+	return 0;
+}
+
 static unsigned int lookup_ns_id(unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
@@ -126,6 +154,17 @@ static unsigned int lookup_ns_id(unsigned int kid, struct ns_desc *nd)
 			return nsid->id;
 
 	return 0;
+}
+
+struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd)
+{
+	struct ns_id *nsid;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next)
+		if (nsid->id == id && nsid->nd == nd)
+			return nsid;
+
+	return NULL;
 }
 
 static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd)

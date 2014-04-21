@@ -9,6 +9,7 @@
 #include "namespaces.h"
 #include "files.h"
 #include "tty.h"
+#include "mount.h"
 #include "asm/dump.h"
 
 #include "protobuf.h"
@@ -413,6 +414,10 @@ static int read_pstree_image(void)
 		if (ret != 1)
 			goto err;
 
+		if (pi->ids->has_mnt_ns_id) {
+			if (rst_add_ns_id(pi->ids->mnt_ns_id, pi->pid.virt, &mnt_ns_desc))
+				goto err;
+		}
 	}
 err:
 	close(ps_fd);
