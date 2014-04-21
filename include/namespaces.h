@@ -15,6 +15,7 @@ struct ns_id {
 	pid_t pid;
 	struct ns_desc *nd;
 	struct ns_id *next;
+	futex_t created; /* boolean */
 };
 extern struct ns_id *ns_ids;
 

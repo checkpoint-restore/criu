@@ -136,6 +136,7 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 	nsid->nd = nd;
 	nsid->id = id;
 	nsid->pid = pid;
+	futex_set(&nsid->created, 0);
 
 	nsid->next = ns_ids;
 	ns_ids = nsid;

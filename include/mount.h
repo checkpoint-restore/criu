@@ -24,6 +24,8 @@ extern struct ns_desc mnt_ns_desc;
 extern dev_t phys_stat_resolve_dev(dev_t st_dev, const char *path);
 extern bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, const char *path);
 
+struct ns_id;
+extern int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid);
 extern int fini_mnt_ns(void);
 
 #endif /* __CR_MOUNT_H__ */

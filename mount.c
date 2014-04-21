@@ -1528,6 +1528,43 @@ err:
 	return NULL;
 }
 
+int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
+{
+	char path[PATH_MAX];
+
+	if (root_item->ids->mnt_ns_id == nsid->id)
+		return 0;
+
+	if (nsid->pid != getpid()) {
+		int fd;
+
+		futex_wait_while_eq(&nsid->created, 0);
+		fd = open_proc(nsid->pid, "ns/mnt");
+		if (fd < 0)
+			return -1;
+
+		if (setns(fd, CLONE_NEWNS)) {
+			pr_perror("Unable to change mount namespace");
+			return -1;
+		}
+		return 0;
+	}
+
+	if (unshare(CLONE_NEWNS)) {
+		pr_perror("Unable to unshare mount namespace");
+		return -1;
+	}
+
+	snprintf(path, sizeof(path), "%s/%d/", mnt_roots, nsid->id);
+
+	if (cr_pivot_root(path))
+		return -1;
+
+	futex_set_and_wake(&nsid->created, 1);
+
+	return 0;
+}
+
 /*
  * All nested mount namespaces are restore as sub-trees of the root namespace.
  */
