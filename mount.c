@@ -232,7 +232,16 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 			pr_err("Mountpoint %d w/o parent %d found @%s (root %s)\n",
 					m->mnt_id, m->parent_mnt_id, m->mountpoint,
 					root ? "found" : "not found");
-			return NULL;
+			if (root && m->is_ns_root) {
+				/*
+				 * A root of a sub mount namespace is
+				 * mounted in a temporary directory in the
+				 * root mount namespace, so its parent is
+				 * the main root.
+				 */
+				p = root;
+			} else
+				return NULL;
 		}
 
 		m->parent = p;
