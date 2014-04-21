@@ -30,7 +30,7 @@ extern bool check_ns_proc(struct fd_link *link);
 
 extern struct ns_desc pid_ns_desc;
 extern struct ns_desc user_ns_desc;
-extern unsigned long current_ns_mask;
+extern unsigned long root_ns_mask;
 
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;

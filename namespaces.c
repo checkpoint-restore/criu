@@ -115,7 +115,7 @@ int restore_ns(int rst, struct ns_desc *nd)
 
 struct ns_id *ns_ids = NULL;
 static unsigned int ns_next_id = 1;
-unsigned long current_ns_mask = 0;
+unsigned long root_ns_mask = 0;
 
 int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
@@ -179,9 +179,9 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 
 	if (pid != getpid()) {
 		if (pid == root_item->pid.real) {
-			BUG_ON(current_ns_mask & nd->cflag);
+			BUG_ON(root_ns_mask & nd->cflag);
 			pr_info("Will take %s namespace in the image\n", nd->str);
-			current_ns_mask |= nd->cflag;
+			root_ns_mask |= nd->cflag;
 		} else if (nd->cflag & ~CLONE_SUBNS) {
 			pr_err("Can't dump nested %s namespace for %d\n",
 					nd->str, pid);
@@ -402,14 +402,14 @@ static int gen_ns_ids(int pid)
  */
 int gen_predump_ns_mask(void)
 {
-	BUG_ON(current_ns_mask);
+	BUG_ON(root_ns_mask);
 
 	if (gen_ns_ids(getpid()))
 		return -1;
 	if (gen_ns_ids(root_item->pid.real))
 		return -1;
 
-	pr_info("NS mask generated: %lx\n", current_ns_mask);
+	pr_info("NS mask generated: %lx\n", root_ns_mask);
 	return 0;
 }
 

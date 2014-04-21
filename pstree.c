@@ -667,8 +667,8 @@ set_mask:
 
 		if (item == root_item) {
 			pr_info("Will restore in %lx namespaces\n", cflags);
-			current_ns_mask = cflags;
-		} else if (cflags & ~(current_ns_mask & CLONE_SUBNS)) {
+			root_ns_mask = cflags;
+		} else if (cflags & ~(root_ns_mask & CLONE_SUBNS)) {
 			/*
 			 * Namespaces from CLONE_SUBNS can be nested, but in
 			 * this case nobody can't share external namespaces of
@@ -684,7 +684,7 @@ set_mask:
 		}
 	}
 
-	pr_debug("NS mask to use %lx\n", current_ns_mask);
+	pr_debug("NS mask to use %lx\n", root_ns_mask);
 	return 0;
 }
 

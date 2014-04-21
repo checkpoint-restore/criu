@@ -1490,14 +1490,14 @@ static int restore_root_task(struct pstree_item *init)
 	 */
 
 	if (init->pid.virt == INIT_PID) {
-		if (!(current_ns_mask & CLONE_NEWPID)) {
+		if (!(root_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
 				"in a new pid namespace.\n"
 				"criu should be re-executed with the "
 				"\"--namespace pid\" option.\n");
 			return -1;
 		}
-	} else	if (current_ns_mask & CLONE_NEWPID) {
+	} else	if (root_ns_mask & CLONE_NEWPID) {
 		pr_err("Can't restore pid namespace without the process init\n");
 		return -1;
 	}
@@ -1588,7 +1588,7 @@ out_kill:
 	 * The processes can be killed only when all of them have been created,
 	 * otherwise an external proccesses can be killed.
 	 */
-	if (current_ns_mask & CLONE_NEWPID) {
+	if (root_ns_mask & CLONE_NEWPID) {
 		/* Kill init */
 		if (root_item->pid.real > 0)
 			kill(root_item->pid.real, SIGKILL);

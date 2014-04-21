@@ -588,7 +588,7 @@ int network_lock(void)
 	pr_info("Lock network\n");
 
 	/* Each connection will be locked on dump */
-	if  (!(current_ns_mask & CLONE_NEWNET))
+	if  (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
 
 	return run_scripts("network-lock");
@@ -601,7 +601,7 @@ void network_unlock(void)
 	cpt_unlock_tcp_connections();
 	rst_unlock_tcp_connections();
 
-	if (current_ns_mask & CLONE_NEWNET)
+	if (root_ns_mask & CLONE_NEWNET)
 		run_scripts("network-unlock");
 }
 

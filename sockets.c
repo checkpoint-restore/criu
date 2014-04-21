@@ -522,7 +522,7 @@ int collect_sockets(int pid)
 	int nl;
 	struct sock_diag_req req;
 
-	if (current_ns_mask & CLONE_NEWNET) {
+	if (root_ns_mask & CLONE_NEWNET) {
 		pr_info("Switching to %d's net for collecting sockets\n", pid);
 
 		if (switch_ns(pid, &net_ns_desc, &rst))

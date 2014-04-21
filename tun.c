@@ -270,7 +270,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 	TunfileEntry tfe = TUNFILE_ENTRY__INIT;
 	struct ifreq ifr;
 
-	if (!(current_ns_mask & CLONE_NEWNET)) {
+	if (!(root_ns_mask & CLONE_NEWNET)) {
 		pr_err("Net namespace is required to dump tun link\n");
 		return -1;
 	}

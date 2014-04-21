@@ -127,7 +127,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 		goto err1;
 	}
 
-	if (!(current_ns_mask & CLONE_NEWNET)) {
+	if (!(root_ns_mask & CLONE_NEWNET)) {
 		ret = nf_lock_connection(sk);
 		if (ret < 0)
 			goto err2;
@@ -146,7 +146,7 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 	return 0;
 
 err3:
-	if (!(current_ns_mask & CLONE_NEWNET))
+	if (!(root_ns_mask & CLONE_NEWNET))
 		nf_unlock_connection(sk);
 err2:
 	close(sk->rfd);
@@ -160,7 +160,7 @@ static void tcp_unlock_one(struct inet_sk_desc *sk)
 
 	list_del(&sk->rlist);
 
-	if (!(current_ns_mask & CLONE_NEWNET)) {
+	if (!(root_ns_mask & CLONE_NEWNET)) {
 		ret = nf_unlock_connection(sk);
 		if (ret < 0)
 			pr_perror("Failed to unlock TCP connection");
@@ -685,7 +685,7 @@ void rst_unlock_tcp_connections(void)
 	struct inet_sk_info *ii;
 
 	/* Network will be unlocked by network-unlock scripts */
-	if (current_ns_mask & CLONE_NEWNET)
+	if (root_ns_mask & CLONE_NEWNET)
 		return;
 
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)

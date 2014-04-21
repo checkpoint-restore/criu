@@ -357,7 +357,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 
 static int check_sysvipc_map_dump(pid_t pid, VmaEntry *vma)
 {
-	if (current_ns_mask & CLONE_NEWIPC)
+	if (root_ns_mask & CLONE_NEWIPC)
 		return 0;
 
 	pr_err("Task %d with SysVIPC shmem map @%"PRIx64" doesn't live in IPC ns\n",
@@ -1258,7 +1258,7 @@ static int dump_zombies(void)
 {
 	struct pstree_item *item;
 	int ret = -1;
-	int pidns = current_ns_mask & CLONE_NEWPID;
+	int pidns = root_ns_mask & CLONE_NEWPID;
 
 	if (pidns && set_proc_fd(get_service_fd(CR_PROC_FD_OFF)))
 		return -1;
@@ -1446,7 +1446,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	if (current_ns_mask & CLONE_NEWPID && root_item == item) {
+	if (root_ns_mask & CLONE_NEWPID && root_item == item) {
 		int pfd;
 
 		pfd = parasite_get_proc_fd_seized(parasite_ctl);
@@ -1771,8 +1771,8 @@ int cr_dump_tasks(pid_t pid)
 	if (dump_pstree(root_item))
 		goto err;
 
-	if (current_ns_mask)
-		if (dump_namespaces(root_item, current_ns_mask) < 0)
+	if (root_ns_mask)
+		if (dump_namespaces(root_item, root_ns_mask) < 0)
 			goto err;
 
 	ret = cr_dump_shmem();
