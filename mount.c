@@ -491,7 +491,9 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 	if (mnt_fd == -1) {
 		int mntns_root;
 
-		mntns_root = get_service_fd(ROOT_FD_OFF);
+		mntns_root = mntns_collect_root(pm->nsid->pid);
+		if (mntns_root < 0)
+			return -1;
 
 		mnt_fd = openat(mntns_root, pm->mountpoint, O_RDONLY);
 		if (mnt_fd < 0) {
