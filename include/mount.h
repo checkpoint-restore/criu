@@ -4,6 +4,7 @@
 extern struct mount_info *mntinfo;
 
 extern int mntns_collect_root(pid_t pid);
+extern struct ns_id *lookup_nsid_by_mnt_id(int mnt_id);
 
 struct proc_mountinfo;
 

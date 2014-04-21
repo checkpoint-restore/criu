@@ -1578,6 +1578,9 @@ char *rst_get_mnt_root(int mnt_id)
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return path;
 
+	if (mnt_id == -1)
+		return path;
+
 	m = lookup_mnt_id(mnt_id);
 	if (m == NULL)
 		return NULL;
@@ -1841,6 +1844,27 @@ set_root:
 	ret = install_service_fd(ROOT_FD_OFF, fd);
 	close(fd);
 	return ret;
+}
+
+struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
+{
+	struct mount_info *mi;
+
+	/*
+	 * Kernel before 3.15 doesn't show mnt_id for file descriptors.
+	 * mnt_id isn't saved for files, if mntns isn't dumped.
+	 * In both these cases we have only one root, so here
+	 * is not matter which mount will be restured.
+	 */
+	if (mnt_id == -1)
+		mi = mntinfo;
+	else
+		mi = lookup_mnt_id(mnt_id);
+
+	if (mi == NULL)
+		return NULL;
+
+	return mi->nsid;
 }
 
 int collect_mnt_namespaces(void)
