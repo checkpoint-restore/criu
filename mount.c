@@ -1683,7 +1683,7 @@ static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
 	if (!pms)
 		return -1;
 
-	if (validate_mounts(pms, false))
+	if (validate_mounts(mis, false))
 		return -1;
 
 	mntinfo_tree = pms;
