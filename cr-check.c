@@ -28,6 +28,8 @@
 #include "ptrace.h"
 #include "kerndat.h"
 #include "tun.h"
+#include "namespaces.h"
+#include "pstree.h"
 
 static int check_tty(void)
 {
@@ -529,6 +531,7 @@ static int check_posix_timers(void)
 
 int cr_check(void)
 {
+	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 	int ret = 0;
 
 	log_set_loglevel(LOG_WARN);
@@ -536,10 +539,20 @@ int cr_check(void)
 	if (!is_root_user())
 		return -1;
 
-	if (mntns_collect_root(getpid()) < 0) {
-		pr_err("Can't collect root mount point\n");
+	root_item = alloc_pstree_item();
+	if (root_item == NULL)
 		return -1;
-	}
+
+	root_item->pid.real = getpid();
+
+	if (collect_pstree_ids())
+		return -1;
+
+	ns.id = root_item->ids->mnt_ns_id;
+
+	mntinfo = collect_mntinfo(&ns);
+	if (mntinfo == NULL)
+		return -1;
 
 	if (collect_mount_info(getpid())) {
 		pr_err("Can't collect mount infos\n");

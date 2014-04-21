@@ -998,7 +998,7 @@ err_close:
 	return -1;
 }
 
-static int collect_pstree_ids(void)
+int collect_pstree_ids(void)
 {
 	struct pstree_item *item;
 

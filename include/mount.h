@@ -1,6 +1,8 @@
 #ifndef __CR_MOUNT_H__
 #define __CR_MOUNT_H__
 
+extern struct mount_info *mntinfo;
+
 extern int mntns_collect_root(pid_t pid);
 
 struct proc_mountinfo;

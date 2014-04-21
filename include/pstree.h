@@ -67,4 +67,6 @@ extern CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc);
 extern int pstree_alloc_cores(struct pstree_item *item);
 extern void pstree_free_cores(struct pstree_item *item);
 
+extern int collect_pstree_ids(void);
+
 #endif /* __CR_PSTREE_H__ */
