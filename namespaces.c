@@ -526,8 +526,12 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
 		return -1;
-	id = ns_per_id ? item->ids->mnt_ns_id : pid;
-	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns())
+
+	/*
+	 * This one is special -- there can be several mount
+	 * namespaces and prepare_mnt_ns handles them itself.
+	 */
+	if (prepare_mnt_ns())
 		return -1;
 
 	return 0;

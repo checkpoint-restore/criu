@@ -1710,6 +1710,9 @@ int prepare_mnt_ns(void)
 	struct mount_info *mis, *old;
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return 0;
+
 	pr_info("Restoring mount namespace\n");
 
 	old = collect_mntinfo(&ns);
