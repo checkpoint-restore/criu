@@ -34,6 +34,20 @@
  */
 struct mount_info *mntinfo;
 
+static void mntinfo_add_list(struct mount_info *new)
+{
+	if (!mntinfo)
+		mntinfo = new;
+	else {
+		struct mount_info *pm;
+
+		/* Add to the tail. (FIXME -- make O(1) ) */
+		for (pm = mntinfo; pm->next != NULL; pm = pm->next)
+			;
+		pm->next = new;
+	}
+}
+
 static int open_mountpoint(struct mount_info *pm);
 
 static struct mount_info *mnt_build_tree(struct mount_info *list);
@@ -852,13 +866,7 @@ int dump_mnt_ns(struct ns_id *ns)
 		if (dump_one_mountpoint(pm, img_fd))
 			goto err;
 
-	if (mntinfo == NULL)
-		mntinfo = pms;
-	else {
-		for (pm = mntinfo; pm->next != NULL; pm = pm->next);
-
-		pm->next = pms;
-	}
+	mntinfo_add_list(pms);
 	ret = 0;
 err:
 	close(img_fd);
@@ -1862,7 +1870,7 @@ struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
 
 int collect_mnt_namespaces(void)
 {
-	struct mount_info *pm, *pms;
+	struct mount_info *pms;
 	struct ns_id *ns;
 	int ret = -1;
 
@@ -1886,13 +1894,7 @@ int collect_mnt_namespaces(void)
 		if (pms == NULL)
 			goto err;
 
-		if (mntinfo == NULL)
-			mntinfo = pms;
-		else {
-			for (pm = mntinfo; pm->next != NULL; pm = pm->next);
-
-			pm->next = pms;
-		}
+		mntinfo_add_list(pms);
 	}
 	ret = 0;
 err:
