@@ -843,15 +843,11 @@ err:
 	return NULL;
 }
 
-static int dump_mnt_ns(struct ns_id *ns)
+static int dump_mnt_ns(struct ns_id *ns, struct mount_info *pms)
 {
-	struct mount_info *pm, *pms;
+	struct mount_info *pm;
 	int img_fd = -1, ret = -1;
 	int ns_id = ns->id;
-
-	pms = collect_mntinfo(ns);
-	if (pms == NULL)
-		goto err;
 
 	if (validate_mounts(pms, true))
 		goto err;
@@ -866,7 +862,6 @@ static int dump_mnt_ns(struct ns_id *ns)
 		if (dump_one_mountpoint(pm, img_fd))
 			goto err;
 
-	mntinfo_add_list(pms);
 	ret = 0;
 err:
 	close(img_fd);
@@ -1895,6 +1890,7 @@ err:
 
 int dump_mnt_namespaces(void)
 {
+	struct mount_info *pms;
 	struct ns_id *ns;
 	int ret = 0, n = 0;
 
@@ -1911,17 +1907,25 @@ int dump_mnt_namespaces(void)
 			continue;
 		}
 
+		pms = collect_mntinfo(ns);
+		if (pms == NULL)
+			return -1;
+
 		n++;
 		if (n == 2 && check_mnt_id()) {
 			pr_err("Nested mount namespaces are not supported "
 				"without mnt_id in fdinfo\n");
 			return -1;
 		}
+
 		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
 				ns->id, ns->pid);
-		ret = dump_mnt_ns(ns);
+		ret = dump_mnt_ns(ns, pms);
 		if (ret)
 			break;
+
+		mntinfo_add_list(pms);
+
 	}
 
 	return ret;
