@@ -1422,7 +1422,7 @@ static int create_mnt_roots(void)
 	return 0;
 }
 
-int rst_collect_local_mntns(void)
+static int rst_collect_local_mntns(void)
 {
 	struct ns_id *nsid;
 
@@ -1711,7 +1711,7 @@ int prepare_mnt_ns(void)
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 
 	if (!(root_ns_mask & CLONE_NEWNS))
-		return 0;
+		return rst_collect_local_mntns();
 
 	pr_info("Restoring mount namespace\n");
 

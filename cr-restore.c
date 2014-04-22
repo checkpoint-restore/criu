@@ -1240,10 +1240,6 @@ static int restore_task_with_children(void *_arg)
 		if (prepare_namespace(current, ca->clone_flags))
 			exit(1);
 
-		if (!(root_ns_mask & CLONE_NEWNS))
-			if (rst_collect_local_mntns())
-				exit(1);
-
 		/*
 		 * We need non /proc proc mount for restoring pid and mount
 		 * namespaces and do not care for the rest of the cases.
