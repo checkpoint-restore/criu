@@ -1659,7 +1659,7 @@ static int prepare_roots_yard(void)
 	return 0;
 }
 
-static int populate_mnt_ns(int ns_pid, struct mount_info *mis)
+static int populate_mnt_ns(struct mount_info *mis)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
@@ -1713,7 +1713,7 @@ int fini_mnt_ns()
 	return ret;
 }
 
-int prepare_mnt_ns(int ns_pid)
+int prepare_mnt_ns(void)
 {
 	int ret = -1;
 	struct mount_info *mis, *old;
@@ -1772,7 +1772,7 @@ int prepare_mnt_ns(int ns_pid)
 
 	free_mntinfo(old);
 
-	ret = populate_mnt_ns(ns_pid, mis);
+	ret = populate_mnt_ns(mis);
 	if (ret)
 		goto out;
 

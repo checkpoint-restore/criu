@@ -15,7 +15,7 @@ struct cr_fdset;
 struct ns_id;
 extern struct mount_info * collect_mntinfo(struct ns_id *ns);
 extern int dump_mnt_ns(struct ns_id *ns);
-extern int prepare_mnt_ns(int pid);
+extern int prepare_mnt_ns(void);
 
 extern int pivot_root(const char *new_root, const char *put_old);
 

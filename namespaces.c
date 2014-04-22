@@ -527,7 +527,7 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
 		return -1;
 	id = ns_per_id ? item->ids->mnt_ns_id : pid;
-	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns(id))
+	if ((clone_flags & CLONE_NEWNS)  && prepare_mnt_ns())
 		return -1;
 
 	return 0;
