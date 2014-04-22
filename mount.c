@@ -1530,7 +1530,7 @@ err:
 	return -1;
 }
 
-static struct mount_info *read_mnt_ns_img()
+static struct mount_info *read_mnt_ns_img(void)
 {
 	struct mount_info *pms = NULL;
 	struct ns_id *nsid;
@@ -1727,7 +1727,7 @@ int prepare_mnt_ns(int ns_pid)
 
 	close_proc();
 
-	mis = read_mnt_ns_img(ns_pid);
+	mis = read_mnt_ns_img();
 	if (!mis)
 		goto out;
 
