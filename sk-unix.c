@@ -369,13 +369,14 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	struct unix_sk_desc *d;
 	char *name = NULL;
 	struct ns_id *ns;
-	int ret = 0;
+	int ret = 0, mntns_root;
 
 	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
 	if (ns == NULL)
 		return -1;
 
-	if (mntns_get_root_fd(ns) < 0)
+	mntns_root = mntns_get_root_fd(ns);
+	if (mntns_root < 0)
 		return -1;
 
 	d = xzalloc(sizeof(*d));
@@ -413,7 +414,6 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			struct stat st;
 			char rpath[PATH_MAX];
 			bool drop_path = false;
-			int mntns_root;
 
 			if (name[0] != '/') {
 				pr_warn("Relative bind path '%s' "
@@ -426,8 +426,6 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						m->udiag_ino);
 				goto skip;
 			}
-
-			mntns_root = get_service_fd(ROOT_FD_OFF);
 
 			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 			snprintf(rpath, sizeof(rpath), ".%s", name);
