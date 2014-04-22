@@ -1422,7 +1422,7 @@ static int create_mnt_roots(void)
 	return 0;
 }
 
-static int rst_collect_local_mntns(void)
+static int rst_collect_local_mntns(struct mount_info *mi)
 {
 	struct ns_id *nsid;
 
@@ -1435,14 +1435,11 @@ static int rst_collect_local_mntns(void)
 	nsid->pid = getpid();
 	futex_set(&nsid->created, 1);
 
-	mntinfo = collect_mntinfo(nsid);
-	if (mntinfo == NULL)
-		return -1;
-
+	mntinfo = mi;
 	nsid->next = ns_ids;
 	ns_ids = nsid;
 
-	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
+	pr_info("Add local mntns %d pid %d\n", nsid->id, nsid->pid);
 
 	return 0;
 }
@@ -1710,14 +1707,14 @@ int prepare_mnt_ns(void)
 	struct mount_info *mis, *old;
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 
-	if (!(root_ns_mask & CLONE_NEWNS))
-		return rst_collect_local_mntns();
-
-	pr_info("Restoring mount namespace\n");
-
 	old = collect_mntinfo(&ns);
 	if (old == NULL)
 		return -1;
+
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return rst_collect_local_mntns(old);
+
+	pr_info("Restoring mount namespace\n");
 
 	close_proc();
 
