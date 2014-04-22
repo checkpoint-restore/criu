@@ -579,20 +579,15 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	} else
 		link = p->link;
 
-	if (p->mnt_id >= 0 && (root_ns_mask & CLONE_NEWNS)) {
-		if (lookup_mnt_id(p->mnt_id) == NULL) {
-			pr_err("No mount for the %d file in the namespaces\n", p->mnt_id);
-			return -1;
-		}
-
-		rfe.mnt_id = p->mnt_id;
-		rfe.has_mnt_id = true;
-	}
-
 	nsid = lookup_nsid_by_mnt_id(p->mnt_id);
 	if (nsid == NULL) {
 		pr_err("Unable to look up the %d mount\n", p->mnt_id);
 		return -1;
+	}
+
+	if (p->mnt_id >= 0 && (root_ns_mask & CLONE_NEWNS)) {
+		rfe.mnt_id = p->mnt_id;
+		rfe.has_mnt_id = true;
 	}
 
 	pr_info("Dumping path for %d fd via self %d [%s]\n",
