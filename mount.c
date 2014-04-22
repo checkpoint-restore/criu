@@ -1541,6 +1541,10 @@ static struct mount_info *read_mnt_ns_img(void)
 			continue;
 
 		if (nsid->id != root_item->ids->mnt_ns_id)
+			/*
+			 * If we have more than one (root) namespace,
+			 * then we'll need the roots yard.
+			 */
 			if (create_mnt_roots())
 				return NULL;
 
@@ -1680,6 +1684,11 @@ static int populate_mnt_ns(struct mount_info *mis)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
+		/*
+		 * Make trees of all namespaces look the
+		 * same, so that manual paths resolution
+		 * works on them.
+		 */
 		nsid->mnt.mntinfo_tree = pms;
 	}
 
