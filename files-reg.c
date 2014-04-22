@@ -57,7 +57,7 @@ static mutex_t *ghost_file_mutex;
  */
 struct link_remap_rlb {
 	struct list_head	list;
-	pid_t			pid;
+	struct ns_id		*mnt_ns;
 	char			*path;
 };
 static LIST_HEAD(link_remaps);
@@ -351,7 +351,7 @@ static void __rollback_link_remaps(bool do_unlink)
 		return;
 
 	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
-		mntns_root = mntns_get_root_fd(rlb->pid);
+		mntns_root = mntns_get_root_fd(rlb->mnt_ns->pid);
 		if (mntns_root < 0)
 			return;
 		list_del(&rlb->list);
@@ -424,7 +424,7 @@ static int create_link_remap(char *path, int len, int lfd,
 	if (rlb)
 		rlb->path = strdup(link_name);
 
-	rlb->pid = nsid->pid;
+	rlb->mnt_ns = nsid;
 
 	if (!rlb || !rlb->path) {
 		pr_perror("Can't register rollback for %s", path);
