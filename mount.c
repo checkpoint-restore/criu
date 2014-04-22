@@ -1395,7 +1395,7 @@ static void free_mntinfo(struct mount_info *pms)
  */
 static char *mnt_roots;
 
-static int create_mnt_roots()
+static int create_mnt_roots(void)
 {
 	if (mnt_roots)
 		return 0;
@@ -1543,7 +1543,7 @@ static struct mount_info *read_mnt_ns_img(void)
 			continue;
 
 		if (nsid->id != root_item->ids->mnt_ns_id)
-			if (create_mnt_roots(true))
+			if (create_mnt_roots())
 				return NULL;
 
 		if (collect_mnt_from_image(&pms, nsid))
