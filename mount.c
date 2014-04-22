@@ -843,7 +843,7 @@ err:
 	return NULL;
 }
 
-int dump_mnt_ns(struct ns_id *ns)
+static int dump_mnt_ns(struct ns_id *ns)
 {
 	struct mount_info *pm, *pms;
 	int img_fd = -1, ret = -1;
