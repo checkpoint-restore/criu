@@ -1899,6 +1899,9 @@ int dump_mnt_namespaces(void)
 	int ret = 0, n = 0;
 
 	for (ns = ns_ids; ns; ns = ns->next) {
+		if (!(ns->nd->cflag & CLONE_NEWNS))
+			continue;
+
 		/* Skip current namespaces, which are in the list too  */
 		if (ns->pid == getpid()) {
 			if (!(root_ns_mask & CLONE_NEWNS))
@@ -1908,11 +1911,7 @@ int dump_mnt_namespaces(void)
 			continue;
 		}
 
-		if (!(ns->nd->cflag & CLONE_NEWNS))
-			continue;
-
 		n++;
-
 		if (n == 2 && check_mnt_id()) {
 			pr_err("Nested mount namespaces are not supported "
 				"without mnt_id in fdinfo\n");
