@@ -1867,6 +1867,9 @@ int collect_mnt_namespaces(void)
 	int ret = -1;
 
 	for (ns = ns_ids; ns; ns = ns->next) {
+		if (!(ns->nd->cflag & CLONE_NEWNS))
+			continue;
+
 		if (ns->pid == getpid()) {
 			if (!(root_ns_mask & CLONE_NEWNS)) {
 				mntinfo = collect_mntinfo(ns);
@@ -1876,9 +1879,6 @@ int collect_mnt_namespaces(void)
 			/* Skip current namespaces, which are in the list too  */
 			continue;
 		}
-
-		if (!(ns->nd->cflag & CLONE_NEWNS))
-			continue;
 
 		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
 				ns->id, ns->pid);
