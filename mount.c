@@ -1682,7 +1682,7 @@ static int populate_mnt_ns(struct mount_info *mis)
 	return mnt_tree_for_each(pms, do_mount_one);
 }
 
-int fini_mnt_ns()
+int fini_mnt_ns(void)
 {
 	int ret = 0;
 
