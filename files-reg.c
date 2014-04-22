@@ -351,7 +351,7 @@ static void __rollback_link_remaps(bool do_unlink)
 		return;
 
 	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
-		mntns_root = mntns_collect_root(rlb->pid);
+		mntns_root = mntns_get_root_fd(rlb->pid);
 		if (mntns_root < 0)
 			return;
 		list_del(&rlb->list);
@@ -407,7 +407,7 @@ static int create_link_remap(char *path, int len, int lfd,
 	/* Any 'unique' name works here actually. Remap works by reg-file ids. */
 	snprintf(tmp + 1, sizeof(link_name) - (size_t)(tmp - link_name - 1), "link_remap.%d", rfe.id);
 
-	mntns_root = mntns_collect_root(nsid->pid);
+	mntns_root = mntns_get_root_fd(nsid->pid);
 
 	if (linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH) < 0) {
 		pr_perror("Can't link remap to %s", path);
@@ -515,7 +515,7 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 		return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id, nsid);
 	}
 
-	mntns_root = mntns_collect_root(nsid->pid);
+	mntns_root = mntns_get_root_fd(nsid->pid);
 	if (mntns_root < 0)
 		return -1;
 
@@ -713,7 +713,7 @@ static int do_open_reg_noseek_flags(struct reg_file_info *rfi, void *arg)
 	if (nsid == NULL)
 		return -1;
 
-	mntns_root = mntns_collect_root(nsid->pid);
+	mntns_root = mntns_get_root_fd(nsid->pid);
 
 	fd = openat(mntns_root, rfi->path, flags);
 	if (fd < 0) {

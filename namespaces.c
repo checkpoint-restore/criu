@@ -387,7 +387,7 @@ int dump_task_ns_ids(struct pstree_item *item)
 
 static int gen_ns_ids(int pid)
 {
-	/* needed for mntns_collect_root */
+	/* needed for mntns_get_root_fd */
 	if (!get_ns_id(pid, &mnt_ns_desc))
 		return -1;
 	return 0;

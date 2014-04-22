@@ -375,7 +375,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	if (ns == NULL)
 		return -1;
 
-	if (mntns_collect_root(ns->pid) < 0)
+	if (mntns_get_root_fd(ns->pid) < 0)
 		return -1;
 
 	d = xzalloc(sizeof(*d));
