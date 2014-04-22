@@ -475,7 +475,7 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 	if (mnt_fd == -1) {
 		int mntns_root;
 
-		mntns_root = mntns_get_root_fd(pm->nsid->pid);
+		mntns_root = mntns_get_root_fd(pm->nsid);
 		if (mntns_root < 0)
 			return -1;
 
@@ -1794,7 +1794,7 @@ out:
 	return ret;
 }
 
-int mntns_get_root_fd(pid_t pid)
+int __mntns_get_root_fd(pid_t pid)
 {
 	static int mntns_root_pid = -1;
 
@@ -1857,6 +1857,11 @@ set_root:
 		mntns_root_pid = pid;
 	close(fd);
 	return ret;
+}
+
+int mntns_get_root_fd(struct ns_id *mntns)
+{
+	return __mntns_get_root_fd(mntns->pid);
 }
 
 struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)

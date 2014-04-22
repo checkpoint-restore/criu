@@ -3,7 +3,9 @@
 
 extern struct mount_info *mntinfo;
 
-extern int mntns_get_root_fd(pid_t pid);
+struct ns_id;
+extern int __mntns_get_root_fd(pid_t pid);
+extern int mntns_get_root_fd(struct ns_id *ns);
 extern struct ns_id *lookup_nsid_by_mnt_id(int mnt_id);
 
 struct proc_mountinfo;
@@ -12,7 +14,6 @@ extern int open_mount(unsigned int s_dev);
 extern struct fstype *find_fstype_by_name(char *fst);
 
 struct cr_fdset;
-struct ns_id;
 extern struct mount_info * collect_mntinfo(struct ns_id *ns);
 extern int prepare_mnt_ns(void);
 

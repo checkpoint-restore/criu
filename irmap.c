@@ -227,7 +227,7 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 
 	pr_debug("Resolving %x:%lx path\n", s_dev, i_ino);
 
-	if (mntns_get_root_fd(root_item->pid.real) < 0)
+	if (__mntns_get_root_fd(root_item->pid.real) < 0)
 		goto out;
 
 	timing_start(TIME_IRMAP_RESOLVE);
