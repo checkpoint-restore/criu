@@ -1420,7 +1420,7 @@ static int create_mnt_roots()
 	return 0;
 }
 
-int rst_collect_local_mntns()
+int rst_collect_local_mntns(void)
 {
 	struct ns_id *nsid;
 
