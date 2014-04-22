@@ -1535,29 +1535,21 @@ static struct mount_info *read_mnt_ns_img(void)
 	struct mount_info *pms = NULL;
 	struct ns_id *nsid;
 
-	nsid = ns_ids;
-	while (nsid) {
-		if (nsid->nd != &mnt_ns_desc) {
-			nsid = nsid->next;
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
 			continue;
-		}
 
 		if (nsid->id != root_item->ids->mnt_ns_id)
 			if (create_mnt_roots(true))
 				return NULL;
 
 		if (collect_mnt_from_image(&pms, nsid))
-			goto err;
-
-		nsid = nsid->next;
+			return NULL;
 	}
 
-	/* Here is not matter where the mount list is saved */
+	/* Here it doesn't matter where the mount list is saved */
 	mntinfo = pms;
-
 	return pms;
-err:
-	return NULL;
 }
 
 char *rst_get_mnt_root(int mnt_id)
