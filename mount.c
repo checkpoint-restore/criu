@@ -813,9 +813,20 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	return 0;
 }
 
+static void free_mntinfo(struct mount_info *pms)
+{
+	while (pms) {
+		struct mount_info *pm;
+
+		pm = pms->next;
+		mnt_entry_free(pms);
+		pms = pm;
+	}
+}
+
 struct mount_info *collect_mntinfo(struct ns_id *ns)
 {
-	struct mount_info *pm, *p;
+	struct mount_info *pm;
 
 	if (mntns_collect_root(ns->pid) < 0)
 		return NULL;
@@ -832,14 +843,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns)
 
 	return pm;
 err:
-	while (pm) {
-		p = pm;
-		pm = pm->next;
-		xfree(p);
-	}
-
-	ns->mnt.mntinfo_tree = NULL;
-
+	free_mntinfo(pm);
 	return NULL;
 }
 
@@ -1376,17 +1380,6 @@ void mnt_entry_free(struct mount_info *mi)
 	xfree(mi->source);
 	xfree(mi->options);
 	xfree(mi);
-}
-
-static void free_mntinfo(struct mount_info *pms)
-{
-	while (pms) {
-		struct mount_info *pm;
-
-		pm = pms->next;
-		mnt_entry_free(pms);
-		pms = pm;
-	}
 }
 
 /*
