@@ -1395,6 +1395,15 @@ static void free_mntinfo(struct mount_info *pms)
  */
 static char *mnt_roots;
 
+/*
+ * Helper for getting a path to where the namespace's root
+ * is re-constructed.
+ */
+static inline int print_ns_root(struct ns_id *ns, char *buf, int bs)
+{
+	return snprintf(buf, bs, "%s/%d/", mnt_roots, ns->id);
+}
+
 static int create_mnt_roots(void)
 {
 	if (mnt_roots)
@@ -1491,8 +1500,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 			goto err;
 
 		if (nsid->id != root_item->ids->mnt_ns_id)
-			root_len = snprintf(root, sizeof(root), "%s/%d/",
-						mnt_roots, nsid->id);
+			root_len = print_ns_root(nsid, root, sizeof(root));
 		len  = strlen(me->mountpoint) + root_len + 1;
 		pm->mountpoint = xmalloc(len);
 		if (!pm->mountpoint)
@@ -1573,9 +1581,7 @@ char *rst_get_mnt_root(int mnt_id)
 	if (m->nsid->pid == getpid())
 		return path;
 
-	snprintf(path, sizeof(path), "%s/%d/",
-			mnt_roots, m->nsid->id);
-
+	print_ns_root(m->nsid, path, sizeof(path));
 	return path;
 }
 
@@ -1606,8 +1612,7 @@ int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
 		return -1;
 	}
 
-	snprintf(path, sizeof(path), "%s/%d/", mnt_roots, nsid->id);
-
+	print_ns_root(nsid, path, sizeof(path));
 	if (cr_pivot_root(path))
 		return -1;
 
@@ -1641,9 +1646,7 @@ static int prepare_roots_yard(void)
 			continue;
 		}
 
-		snprintf(path, sizeof(path), "%s/%d",
-				mnt_roots, nsid->id);
-
+		print_ns_root(nsid, path, sizeof(path));
 		if (mkdir(path, 0600)) {
 			pr_perror("Unable to create %s", path);
 			return -1;
