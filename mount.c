@@ -1594,6 +1594,8 @@ int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
 			pr_perror("Unable to change mount namespace");
 			return -1;
 		}
+
+		close(fd);
 		return 0;
 	}
 
