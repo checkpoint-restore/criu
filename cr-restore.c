@@ -1251,9 +1251,6 @@ static int restore_task_with_children(void *_arg)
 		if (close_old_fds(current))
 			exit(1);
 
-		if (mntns_collect_root(getpid()) < 0)
-			exit(1);
-
 		if (root_prepare_shared())
 			goto err;
 	}

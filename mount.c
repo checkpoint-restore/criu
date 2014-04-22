@@ -828,9 +828,6 @@ struct mount_info *collect_mntinfo(struct ns_id *ns)
 {
 	struct mount_info *pm;
 
-	if (mntns_collect_root(ns->pid) < 0)
-		return NULL;
-
 	pm = parse_mountinfo(ns->pid, ns);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns->pid);
