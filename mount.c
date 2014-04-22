@@ -1650,19 +1650,15 @@ static int prepare_roots_yard(void)
 	if (mount("none", mnt_roots, NULL, MS_PRIVATE, NULL))
 		return -1;
 
-	nsid = ns_ids;
-	while (nsid) {
-		if (nsid->nd != &mnt_ns_desc) {
-			nsid = nsid->next;
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
 			continue;
-		}
 
 		print_ns_root(nsid, path, sizeof(path));
 		if (mkdir(path, 0600)) {
 			pr_perror("Unable to create %s", path);
 			return -1;
 		}
-		nsid = nsid->next;
 	}
 
 	return 0;
