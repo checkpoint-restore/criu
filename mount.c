@@ -1575,7 +1575,7 @@ char *rst_get_mnt_root(int mnt_id)
 	return path;
 }
 
-int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
+static int do_restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
 {
 	char path[PATH_MAX];
 
@@ -1609,6 +1609,24 @@ int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid)
 		return -1;
 
 	futex_set_and_wake(&nsid->created, 1);
+
+	return 0;
+}
+
+int restore_task_mnt_ns(struct pstree_item *current)
+{
+	if (current->ids && current->ids->has_mnt_ns_id) {
+		struct ns_id *nsid;
+
+		nsid = lookup_ns_by_id(current->ids->mnt_ns_id, &mnt_ns_desc);
+		if (nsid == NULL) {
+			pr_err("Can't find mount namespace %d\n", current->ids->mnt_ns_id);
+			return -1;
+		}
+
+		if (do_restore_task_mnt_ns(nsid, current->pid.real))
+			return -1;
+	}
 
 	return 0;
 }

@@ -29,7 +29,8 @@ extern dev_t phys_stat_resolve_dev(struct mount_info *tree,
 extern bool phys_stat_dev_match(struct mount_info *tree, dev_t st_dev,
 					dev_t phys_dev, const char *path);
 
-extern int restore_task_mnt_ns(struct ns_id *nsid, pid_t pid);
+struct pstree_item;
+extern int restore_task_mnt_ns(struct pstree_item *);
 extern int fini_mnt_ns(void);
 
 char *rst_get_mnt_root(int mnt_id);
