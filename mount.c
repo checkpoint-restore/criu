@@ -1423,24 +1423,15 @@ static int rst_collect_local_mntns(void)
 {
 	struct ns_id *nsid;
 
-	nsid = shmalloc(sizeof(struct ns_id));
-	if (nsid == NULL)
+	nsid = rst_new_ns_id(0, getpid(), &mnt_ns_desc);
+	if (!nsid)
 		return -1;
-
-	nsid->nd = &mnt_ns_desc;
-	nsid->id = 0;
-	nsid->pid = getpid();
-	futex_set(&nsid->created, 1);
 
 	mntinfo = collect_mntinfo(nsid);
-	if (mntinfo == NULL)
+	if (!mntinfo)
 		return -1;
 
-	nsid->next = ns_ids;
-	ns_ids = nsid;
-
-	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
-
+	futex_set(&nsid->created, 1);
 	return 0;
 }
 
