@@ -147,7 +147,8 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 		}
 	}
 
-	if (rst_new_ns_id(id, pid, nd) == NULL)
+	nsid = rst_new_ns_id(id, pid, nd);
+	if (nsid == NULL)
 		return -1;
 
 	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
