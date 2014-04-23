@@ -1901,17 +1901,24 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 			continue;
 
 		if (ns->pid == getpid()) {
+			/*
+			 * Collect criu's mounts only if the target
+			 * task does NOT live in mount namespaces to
+			 * make smart paths resolution work.
+			 *
+			 * Otherwise, the necessary list of mounts
+			 * will be collected below.
+			 */
 			if (!(root_ns_mask & CLONE_NEWNS)) {
 				mntinfo = collect_mntinfo(ns);
 				if (mntinfo == NULL)
 					goto err;
 			}
-			/* Skip current namespaces, which are in the list too  */
+
 			continue;
 		}
 
-		pr_info("Dump MNT namespace (mountpoints) %d via %d\n",
-				ns->id, ns->pid);
+		pr_info("Dump MNT namespace (mountpoints) %d via %d\n", ns->id, ns->pid);
 		pms = collect_mntinfo(ns);
 		if (pms == NULL)
 			goto err;
