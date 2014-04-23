@@ -68,6 +68,7 @@ static/unlink_mmap02
 static/eventfs00
 static/signalfd00
 static/inotify00
+static/inotify_irmap
 static/fanotify00
 static/unbound_sock
 static/fifo-rowo-pair
@@ -162,6 +163,7 @@ maps007
 tempfs
 bind-mount
 mountpoints
+inotify_irmap
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
@@ -467,6 +469,10 @@ EOF
 	if [ -n "$AUTO_DEDUP" ]; then
 		args="$args --auto-dedup"
 		ps_args="--auto-dedup"
+	fi
+
+	if echo $tname | fgrep -q 'irmap'; then
+		args="$args --force-irmap"
 	fi
 
 	for i in `seq $ITERATIONS`; do
