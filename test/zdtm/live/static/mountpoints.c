@@ -78,7 +78,7 @@ static int test_fn(int argc, char **argv)
 	struct ns_exec_args args;
 	bool private = false;
 	mode_t old_mask;
-	pid_t pid;
+	pid_t pid = -1;
 
 	if (!getenv("ZDTM_REEXEC")) {
 		setenv("ZDTM_REEXEC", "1", 0);
@@ -276,10 +276,12 @@ done:
 	if (fd == -1)
 		return 1;
 
-	pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
-	if (pid < 0) {
-		err("Unable to fork child");
-		return 1;
+	if (getenv("ZDTM_NOSUBNS") == NULL) {
+		pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
+		if (pid < 0) {
+			err("Unable to fork child");
+			return 1;
+		}
 	}
 
 	test_daemon();
@@ -336,7 +338,7 @@ done:
 		}
 	}
 
-	{
+	if (pid > 0) {
 		kill(pid, SIGTERM);
 		int status = 1;
 		wait(&status);

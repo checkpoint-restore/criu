@@ -188,6 +188,8 @@ COMPILE_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 
+cat /proc/self/fdinfo/1 | grep -q mnt_id || export ZDTM_NOSUBNS=1
+
 zdtm_sep()
 { (
 	set +x
