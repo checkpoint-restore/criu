@@ -1438,18 +1438,21 @@ static int rst_collect_local_mntns(void)
 static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
-	int img, ret;
+	int img, ret, root_len = 1;
+	char root[PATH_MAX] = ".";
 
 	img = open_image(CR_FD_MNTS, O_RSTR, nsid->id);
 	if (img < 0)
 		return -1;
 
+	if (nsid->id != root_item->ids->mnt_ns_id)
+		root_len = print_ns_root(nsid, root, sizeof(root));
+
 	pr_debug("Reading mountpoint images\n");
 
 	while (1) {
 		struct mount_info *pm;
-		char root[PATH_MAX] = ".";
-		int len, root_len = 1;
+		int len;
 
 		ret = pb_read_one_eof(img, &me, PB_MNT);
 		if (ret <= 0)
@@ -1480,8 +1483,6 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		if (!pm->root)
 			goto err;
 
-		if (nsid->id != root_item->ids->mnt_ns_id)
-			root_len = print_ns_root(nsid, root, sizeof(root));
 		len  = strlen(me->mountpoint) + root_len + 1;
 		pm->mountpoint = xmalloc(len);
 		if (!pm->mountpoint)
