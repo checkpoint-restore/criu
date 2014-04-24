@@ -1,6 +1,8 @@
 #ifndef __CR_LOG_H__
 #define __CR_LOG_H__
 
+#include <inttypes.h>
+
 #include "criu-log.h"
 
 extern int log_init(const char *output);
