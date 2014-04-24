@@ -132,15 +132,15 @@ extern int set_proc_fd(int fd);
 
 extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 
-#define __open_proc(pid, flags, fmt, ...)			\
-	({							\
-		int __fd = do_open_proc(pid, flags,		\
-					fmt, ##__VA_ARGS__);	\
-		if (__fd < 0)					\
-			pr_perror("Can't open /proc/%d/" fmt,	\
-					pid, ##__VA_ARGS__);	\
-								\
-		__fd;						\
+#define __open_proc(pid, flags, fmt, ...)				\
+	({								\
+		int __fd = do_open_proc(pid, flags,			\
+					fmt, ##__VA_ARGS__);		\
+		if (__fd < 0)						\
+			pr_perror("Can't open %d/" fmt " on procfs",	\
+					pid, ##__VA_ARGS__);		\
+									\
+		__fd;							\
 	})
 
 /* int open_proc(pid_t pid, const char *fmt, ...); */
@@ -161,7 +161,7 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 			__d = fdopendir(__fd);				\
 			if (__d == NULL)				\
 				pr_perror("Can't fdopendir %d "		\
-					"(/proc/%d/" fmt ")",		\
+					"(%d/" fmt " on procfs)",	\
 					__fd, pid, ##__VA_ARGS__);	\
 		}							\
 		__d;							\
@@ -177,7 +177,7 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 			__f = fdopen(__fd, "r");			\
 			if (__f == NULL)				\
 				pr_perror("Can't fdopen %d "		\
-					"(/proc/%d/" fmt ")",		\
+					"(%d/" fmt " on procfs)",	\
 					__fd, pid, ##__VA_ARGS__);	\
 		}							\
 		__f;							\
