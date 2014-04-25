@@ -30,6 +30,7 @@
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "cr_options.h"
 
 static int check_tty(void)
 {
@@ -253,6 +254,11 @@ int check_mnt_id(void)
 {
 	struct fdinfo_common fdinfo = { .mnt_id = -1 };
 	int ret;
+
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping mnt_id support check\n");
+		return 0;
+	}
 
 	ret = parse_fdinfo(get_service_fd(LOG_FD_OFF), FD_TYPES__UND, NULL, &fdinfo);
 	if (ret < 0)
