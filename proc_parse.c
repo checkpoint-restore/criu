@@ -272,8 +272,7 @@ static char smaps_buf[PAGE_SIZE];
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
-	unsigned long start, end, pgoff;
-	bool prev_growsdown = false;
+	unsigned long start, end, pgoff, prev_end = 0;
 	char r, w, x, s;
 	int ret = -1;
 	struct vma_file_info vfi;
@@ -327,10 +326,11 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		}
 
 		if (vma_area) {
-			/* If we've split the stack vma, only the lowest one has the guard page. */
-			if ((vma_area->e->flags & MAP_GROWSDOWN) && !prev_growsdown)
+			/* Add a guard page only if here is enough space for it */
+			if ((vma_area->e->flags & MAP_GROWSDOWN) &&
+			    prev_end < vma_area->e->start)
 				vma_area->e->start -= PAGE_SIZE; /* Guard page */
-			prev_growsdown = (bool)(vma_area->e->flags & MAP_GROWSDOWN);
+			prev_end = vma_area->e->end;
 
 			list_add_tail(&vma_area->list, &vma_area_list->h);
 			vma_area_list->nr++;
