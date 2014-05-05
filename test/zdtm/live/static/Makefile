@@ -102,6 +102,7 @@ TST_NOFILE	=				\
 		mem-touch			\
 		grow_map			\
 		grow_map02			\
+		grow_map03			\
 		tun				\
 		stopped				\
 		rtc				\

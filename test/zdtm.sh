@@ -100,6 +100,7 @@ static/sk-netlink
 static/proc-self
 static/grow_map
 static/grow_map02
+static/grow_map03
 static/stopped
 static/chroot
 static/chroot-file
