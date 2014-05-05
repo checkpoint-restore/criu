@@ -158,7 +158,7 @@ dev_t phys_stat_resolve_dev(struct mount_info *tree,
 	 * obtained from mountinfo (ie subvolume0).
 	 */
 	return strcmp(m->fstype->name, "btrfs") ?
-		MKKDEV(MAJOR(st_dev), MINOR(st_dev)) : m->s_dev;
+		MKKDEV(major(st_dev), minor(st_dev)) : m->s_dev;
 }
 
 bool phys_stat_dev_match(struct mount_info *tree, dev_t st_dev,

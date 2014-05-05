@@ -13,9 +13,6 @@
 #define SIGMAX			64
 #define SIGMAX_OLD		31
 
-#define MAJOR(dev)		((dev)>>8)
-#define MINOR(dev)		((dev) & 0xff)
-
 typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 

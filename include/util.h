@@ -211,11 +211,8 @@ static inline dev_t kdev_to_odev(u32 kdev)
 	 */
 	unsigned major = kdev_major(kdev);
 	unsigned minor = kdev_minor(kdev);
-#if BITS_PER_LONG == 32
-	return (major << 8) | minor;
-#else
-	return (minor & 0xff) | (major << 8) | ((minor & ~0xff) << 12);
-#endif
+
+	return makedev(major, minor);
 }
 
 extern int copy_file(int fd_in, int fd_out, size_t bytes);
