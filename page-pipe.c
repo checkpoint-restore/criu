@@ -34,14 +34,13 @@ static int page_pipe_grow(struct page_pipe *pp)
 	}
 
 	ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
+	pp->nr_pipes++;
 
 	list_add_tail(&ppb->l, &pp->bufs);
 out:
 	ppb->pages_in = 0;
 	ppb->nr_segs = 0;
 	ppb->iov = &pp->iovs[pp->free_iov];
-
-	pp->nr_pipes++;
 
 	return 0;
 }
