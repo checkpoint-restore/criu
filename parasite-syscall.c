@@ -1058,6 +1058,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	}
 
 	ctl->syscall_ip	= vma_area->e->start;
+	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
 
 	return ctl;
 
