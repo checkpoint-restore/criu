@@ -59,14 +59,10 @@ int do_task_reset_dirty_track(int pid)
 
 unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 {
-	/*
-	 * In the worst case I need one iovec for half of the
-	 * pages (e.g. every odd/even)
-	 */
-
+	/* In the worst case I need one iovec for each page */
 	return sizeof(struct parasite_dump_pages_args) +
 		vmas->nr * sizeof(struct parasite_vma_entry) +
-		(vmas->priv_size + 1) * sizeof(struct iovec) / 2;
+		(vmas->priv_size + 1) * sizeof(struct iovec);
 }
 
 static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
@@ -256,8 +252,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 
 	ret = -1;
-	pp = create_page_pipe(vma_area_list->priv_size / 2,
-				pargs_iovs(args), pp_ret == NULL);
+	pp = create_page_pipe(vma_area_list->priv_size,
+			      pargs_iovs(args), pp_ret == NULL);
 	if (!pp)
 		goto out;
 
