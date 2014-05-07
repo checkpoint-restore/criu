@@ -61,6 +61,9 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (vma->e->start > TASK_SIZE)
 			continue;
 
+		if (vma->e->flags & MAP_GROWSDOWN)
+			continue;
+
 		/*
 		 * I need to poke every potentially marked vma,
 		 * otherwise if task never called for vdso functions
