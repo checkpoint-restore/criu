@@ -43,6 +43,8 @@ struct rst_info {
 	struct vm_area_list	vmas;
 	struct _MmEntry		*mm;
 
+	u32			cg_set;
+
 	union {
 		struct pstree_item	*pgrp_leader;
 		futex_t			pgrp_set;

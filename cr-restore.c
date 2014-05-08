@@ -117,6 +117,9 @@ static int crtools_prepare_shared(void)
 	if (tty_prep_fds())
 		return -1;
 
+	if (prepare_cgroup())
+		return -1;
+
 	return 0;
 }
 
@@ -905,6 +908,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 			return -1;
 
 		item->state = ca.core->tc->task_state;
+		item->rst->cg_set = ca.core->tc->cg_set;
 
 		switch (item->state) {
 		case TASK_ALIVE:
@@ -917,8 +921,14 @@ static inline int fork_with_pid(struct pstree_item *item)
 			pr_err("Unknown task state %d\n", item->state);
 			return -1;
 		}
-	} else
+	} else {
+		/*
+		 * Helper entry will not get moved around and thus
+		 * will live in the parent's cgset.
+		 */
+		item->rst->cg_set = item->parent->rst->cg_set;
 		ca.core = NULL;
+	}
 
 	ret = -1;
 
@@ -1280,6 +1290,15 @@ static int restore_task_with_children(void *_arg)
 		if (ret)
 			exit(1);
 	}
+
+	/*
+	 * Call this _before_ forking to optimize cgroups
+	 * restore -- if all tasks live in one set of cgroups
+	 * we will only move the root one there, others will
+	 * just have it inherited.
+	 */
+	if (prepare_task_cgroup(current) < 0)
+		return -1;
 
 	if (create_children_and_session())
 		goto err;
@@ -1645,6 +1664,8 @@ int cr_restore_tasks(void)
 		goto err;
 
 	ret = restore_root_task(root_item);
+
+	fini_cgroup();
 err:
 	cr_plugin_fini();
 	return ret;

@@ -16,6 +16,7 @@ enum sfd_type {
 			 *  For restore -- CRIU ns' proc
 			 */
 	ROOT_FD_OFF,	/* Root of the namespace we dump/restore */
+	CGROUP_YARD,
 
 	SERVICE_FD_MAX
 };

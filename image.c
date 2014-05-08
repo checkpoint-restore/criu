@@ -15,6 +15,7 @@
 bool fdinfo_per_id = false;
 bool ns_per_id = false;
 TaskKobjIdsEntry *root_ids;
+u32 root_cg_set;
 
 int check_img_inventory(void)
 {
@@ -37,6 +38,15 @@ int check_img_inventory(void)
 			goto out_err;
 
 		memcpy(root_ids, he->root_ids, sizeof(*root_ids));
+	}
+
+	if (he->has_root_cg_set) {
+		if (he->root_cg_set == 0) {
+			pr_err("Corrupted root cgset\n");
+			goto out_err;
+		}
+
+		root_cg_set = he->root_cg_set;
 	}
 
 	if (he->img_version != CRTOOLS_IMAGES_V1) {

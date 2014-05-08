@@ -30,9 +30,22 @@ struct cg_set {
 
 static LIST_HEAD(cg_sets);
 static unsigned int n_sets;
+static CgSetEntry **rst_sets;
+static char *cg_yard;
 static struct cg_set *root_cgset; /* Set root item lives in */
 static struct cg_set *criu_cgset; /* Set criu process lives in */
 static u32 cg_set_ids = 1;
+
+static CgSetEntry *find_rst_set_by_id(u32 id)
+{
+	int i;
+
+	for (i = 0; i < n_sets; i++)
+		if (rst_sets[i]->id == id)
+			return rst_sets[i];
+
+	return NULL;
+}
 
 #define CGCMP_MATCH	1	/* check for exact match */
 #define CGCMP_ISSUB	2	/* check set is subset of ctls */
@@ -232,4 +245,192 @@ int dump_cgroups(void)
 
 	pr_info("Writing CG image\n");
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_CGROUP), &cg, PB_CGROUP);
+}
+
+static int move_in_cgroup(CgSetEntry *se)
+{
+	int cg, i;
+
+	pr_info("Move into %d\n", se->id);
+	cg = get_service_fd(CGROUP_YARD);
+	for (i = 0; i < se->n_ctls; i++) {
+		char aux[1024];
+		int fd, err;
+		ControllerEntry *ce = se->ctls[i];
+
+		sprintf(aux, "%s/%s/tasks", ce->name, ce->path);
+		pr_debug("  `-> %s\n", aux);
+		err = fd = openat(cg, aux, O_WRONLY);
+		if (fd >= 0) {
+			/*
+			 * Writing zero into this file moves current
+			 * task w/o any permissions checks :)
+			 */
+			err = write(fd, "0", 1);
+			close(fd);
+		}
+
+		if (err < 0) {
+			pr_perror("Can't move into %s (%d/%d)\n",
+					aux, err, fd);
+			return -1;
+		}
+	}
+
+	close_service_fd(CGROUP_YARD);
+	return 0;
+}
+
+int prepare_task_cgroup(struct pstree_item *me)
+{
+	CgSetEntry *se;
+	u32 current_cgset;
+
+	if (!me->rst->cg_set)
+		return 0;
+
+	if (me->parent)
+		current_cgset = me->parent->rst->cg_set;
+	else
+		current_cgset = root_cg_set;
+
+	if (me->rst->cg_set == current_cgset) {
+		pr_info("Cgroups %d inherited from parent\n", current_cgset);
+		close_service_fd(CGROUP_YARD);
+		return 0;
+	}
+
+	se = find_rst_set_by_id(me->rst->cg_set);
+	if (!se) {
+		pr_err("No set %d found\n", me->rst->cg_set);
+		return -1;
+	}
+
+	return move_in_cgroup(se);
+}
+
+void fini_cgroup(void)
+{
+	if (!cg_yard)
+		return;
+
+	close_service_fd(CGROUP_YARD);
+	umount2(cg_yard, MNT_DETACH);
+	rmdir(cg_yard);
+	xfree(cg_yard);
+}
+
+/*
+ * Prepare the CGROUP_YARD service descriptor. This guy is
+ * tmpfs mount with the set of ctl->name directories each
+ * one having the respective cgroup mounted.
+ *
+ * It's required for two reasons.
+ *
+ * First, if we move more than one task into cgroups it's
+ * faster to have cgroup tree visible by them all in sime
+ * single place. Searching for this thing existing in the
+ * criu's space is not nice, as parsing /proc/mounts is not
+ * very fast, other than this not all cgroups may be mounted.
+ *
+ * Second, when we have user-namespaces support we will
+ * loose the ability to mount cgroups on-demand, so prepare
+ * them in advance.
+ */
+
+static int prepare_cgroup_sfd(CgSetEntry *root_set)
+{
+	int off, i;
+	char paux[PATH_MAX], aux[128];
+
+	pr_info("Preparing cgroups yard\n");
+
+	off = sprintf(paux, ".criu.cgyard.XXXXXX");
+	if (mkdtemp(paux) == NULL) {
+		pr_perror("Can't make temp cgyard dir");
+		return -1;
+	}
+
+	cg_yard = xstrdup(paux);
+	if (!cg_yard) {
+		rmdir(paux);
+		return -1;
+	}
+
+	if (mount("none", cg_yard, "tmpfs", 0, NULL)) {
+		pr_perror("Can't mount tmpfs in cgyard");
+		goto err;
+	}
+
+	for (i = 0; i < root_set->n_ctls; i++) {
+		ControllerEntry *ce = root_set->ctls[i];
+		char *opt = ce->name;
+
+		sprintf(paux + off, "/%s", ce->name);
+		if (strstartswith(ce->name, "name=")) {
+			sprintf(aux, "none,%s", ce->name);
+			opt = aux;
+		}
+
+		if (mkdir(paux, 0700)) {
+			pr_perror("Can't make cgyard subdir");
+			goto err;
+		}
+
+		if (mount("none", paux, "cgroup", 0, opt) < 0) {
+			pr_perror("Can't mount %s cgyard", ce->name);
+			goto err;
+		}
+	}
+
+	pr_debug("Opening %s as cg yard\n", cg_yard);
+	i = open(cg_yard, O_DIRECTORY);
+	if (i < 0) {
+		pr_perror("Can't open cgyard");
+		goto err;
+	}
+
+	off = install_service_fd(CGROUP_YARD, i);
+	close(i);
+	if (off < 0)
+		goto err;
+
+	return 0;
+
+err:
+	fini_cgroup();
+	return -1;
+}
+
+int prepare_cgroup(void)
+{
+	int fd, ret;
+	CgroupEntry *ce;
+
+	fd = open_image(CR_FD_CGROUP, O_RSTR | O_OPT);
+	if (fd < 0) {
+		if (errno == ENOENT) /* backward compatibility */
+			return 0;
+		else
+			return fd;
+	}
+
+	ret = pb_read_one_eof(fd, &ce, PB_CGROUP);
+	close(fd);
+	if (ret <= 0) /* Zero is OK -- no sets there. */
+		return ret;
+
+	n_sets = ce->n_sets;
+	rst_sets = ce->sets;
+	if (n_sets)
+		/*
+		 * We rely on the fact that all sets contain the same
+		 * set of controllers. This is checked during dump
+		 * with cg_set_compare(CGCMP_ISSUB) call.
+		 */
+		ret = prepare_cgroup_sfd(rst_sets[0]);
+	else
+		ret = 0;
+
+	return ret;
 }
