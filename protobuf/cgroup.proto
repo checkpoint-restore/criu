@@ -1,0 +1,13 @@
+message controller_entry {
+	required string name	= 1;
+	required string path	= 2;
+}
+
+message cg_set_entry {
+	required uint32			id	= 1;
+	repeated controller_entry	ctls	= 2;
+}
+
+message cgroup_entry {
+	repeated cg_set_entry	sets	= 1;
+}

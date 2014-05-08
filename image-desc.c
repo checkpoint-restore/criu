@@ -76,6 +76,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(SIGNAL,	"signal-s-%d"),
 	FD_ENTRY(PSIGNAL,	"signal-p-%d"),
 	FD_ENTRY(TUNFILE,	"tunfile"),
+	FD_ENTRY(CGROUP,	"cgroup"),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",

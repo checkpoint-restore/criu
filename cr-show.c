@@ -296,6 +296,7 @@ static struct show_image_info show_infos[] = {
 	SHOW_VERT(FS),
 	SHOW_VERT(GHOST_FILE),
 	SHOW_VERT(MM),
+	SHOW_VERT(CGROUP),
 
 	SHOW_PLAINS(REG_FILE),
 	SHOW_PLAINS(NS_FILE),

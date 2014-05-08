@@ -17,6 +17,8 @@ message task_core_entry {
 
 	optional task_timers_entry	timers		= 7;
 	optional task_rlimits_entry	rlimits		= 8;
+
+	optional uint32			cg_set		= 9;
 }
 
 message task_kobj_ids_entry {

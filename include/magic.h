@@ -72,6 +72,7 @@
 #define NETLINK_SK_MAGIC	0x58005614 /* Perm */
 #define NS_FILES_MAGIC		0x61394011 /* Nyandoma */
 #define TUNFILE_MAGIC		0x57143751 /* Kalyazin */
+#define CGROUP_MAGIC		0x59383330 /* Tikhvin */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
