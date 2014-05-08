@@ -1497,3 +1497,62 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 
 	return 0;
 }
+
+int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
+{
+	int ret = 0;
+	FILE *f;
+
+	f = fopen_proc(pid, "cgroup");
+	while (fgets(buf, BUF_SIZE, f)) {
+		struct cg_ctl *ncc, *cc;
+		char *name, *path, *e;
+
+		ret = -1;
+		ncc = xmalloc(sizeof(*cc));
+		if (!ncc)
+			goto err;
+
+		name = strchr(buf, ':') + 1;
+		path = strchr(name, ':');
+		e = strchr(name, '\n');
+		*path++ = '\0';
+		if (e)
+			*e = '\0';
+
+		ncc->name = xstrdup(name);
+		ncc->path = xstrdup(path);
+		if (!ncc->name || !ncc->name) {
+			xfree(ncc->name);
+			xfree(ncc->path);
+			xfree(ncc);
+			goto err;
+		}
+
+		list_for_each_entry(cc, retl, l)
+			if (strcmp(cc->name, name) >= 0)
+				break;
+
+		list_add_tail(&ncc->l, &cc->l);
+		(*n)++;
+	}
+
+	fclose(f);
+	return 0;
+
+err:
+	put_ctls(retl);
+	fclose(f);
+	return ret;
+}
+
+void put_ctls(struct list_head *l)
+{
+	struct cg_ctl *c, *n;
+
+	list_for_each_entry_safe(c, n, l, l) {
+		xfree(c->name);
+		xfree(c->path);
+		xfree(c);
+	}
+}
