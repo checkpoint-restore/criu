@@ -68,6 +68,7 @@
 #include "kerndat.h"
 #include "rst-malloc.h"
 #include "plugin.h"
+#include "cgroup.h"
 
 #include "parasite-syscall.h"
 

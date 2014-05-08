@@ -7,6 +7,7 @@
 #include "image.h"
 #include "pstree.h"
 #include "stats.h"
+#include "cgroup.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"

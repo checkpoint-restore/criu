@@ -58,6 +58,7 @@
 #include "sk-packet.h"
 #include "cpu.h"
 #include "elf.h"
+#include "cgroup.h"
 #include "file-lock.h"
 #include "page-xfer.h"
 #include "kerndat.h"
