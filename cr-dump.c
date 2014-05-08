@@ -700,6 +700,11 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret)
 		goto err;
 
+	core->tc->has_cg_set = true;
+	ret = dump_task_cgroup(item, &core->tc->cg_set);
+	if (ret)
+		goto err;
+
 	ret = pb_write_one(fd_core, core, PB_CORE);
 	if (ret < 0)
 		goto err;
@@ -1793,6 +1798,10 @@ int cr_dump_tasks(pid_t pid)
 	if (root_ns_mask)
 		if (dump_namespaces(root_item, root_ns_mask) < 0)
 			goto err;
+
+	ret = dump_cgroups();
+	if (ret)
+		goto err;
 
 	ret = cr_dump_shmem();
 	if (ret)

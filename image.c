@@ -77,6 +77,10 @@ int write_img_inventory(void)
 		return -1;
 	}
 
+	he.has_root_cg_set = true;
+	if (dump_task_cgroup(NULL, &he.root_cg_set))
+		return -1;
+
 	he.root_ids = crt.ids;
 
 	if (pb_write_one(fd, &he, PB_INVENTORY) < 0)
