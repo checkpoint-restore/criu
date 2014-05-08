@@ -137,6 +137,7 @@ transition/ipc
 ns/static/tun
 static/netns-nf
 static/netns
+static/cgroup00
 "
 
 TEST_CR_KERNEL="
@@ -166,6 +167,7 @@ tempfs
 bind-mount
 mountpoints
 inotify_irmap
+cgroup00
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
