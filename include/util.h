@@ -274,4 +274,22 @@ extern int read_fd_link(int lfd, char *buf, size_t size);
 
 int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
 
+/*
+ * Check whether @str starts with @sub
+ */
+static inline bool strstartswith(char *str, char *sub)
+{
+	while (1) {
+		if (*sub == '\0') /* end of sub -- match */
+			return true;
+		if (*str == '\0') /* end of str, sub is NOT ended -- miss */
+			return false;
+		if (*str != *sub)
+			return false;
+
+		str++;
+		sub++;
+	}
+}
+
 #endif /* __CR_UTIL_H__ */
