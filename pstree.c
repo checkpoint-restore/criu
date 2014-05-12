@@ -662,6 +662,14 @@ static int prepare_pstree_kobj_ids(void)
 
 set_mask:
 		item->rst->clone_flags = cflags;
+		if (parent)
+			/*
+			 * Mount namespaces are setns()-ed at
+			 * restore_task_mnt_ns() explicitly,
+			 * no need in creating it with its own
+			 * temporary namespace
+			 */
+			item->rst->clone_flags &= ~CLONE_NEWNS;
 
 		cflags &= CLONE_ALLNS;
 
