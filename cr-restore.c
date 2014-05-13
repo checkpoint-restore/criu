@@ -260,7 +260,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 
 		pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->e->start, vma->e->end, vma->e->pgoff);
-		paddr = decode_pointer(vma->premmaped_addr);
+		paddr = decode_pointer(p->premmaped_addr);
 	}
 
 	*pvma = p;
