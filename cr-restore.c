@@ -239,7 +239,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 	if (vma->page_bitmap == NULL)
 		return -1;
 
-	list_for_each_entry_continue(p, pvma_list, list) {
+	list_for_each_entry_from(p, pvma_list, list) {
 		if (p->e->start > vma->e->start)
 			 break;
 
@@ -264,8 +264,6 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 
 		break;
 	}
-
-	*pvma = p;
 
 	/*
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
@@ -295,6 +293,8 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 			pr_perror("Unable to map ANON_VMA");
 			return -1;
 		}
+
+		*pvma = p;
 	} else {
 		/*
 		 * This region was found in parent -- remap it to inherit physical
@@ -309,6 +309,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 			return -1;
 		}
 
+		*pvma = list_entry(p->list.next, struct vma_area, list);
 	}
 
 	vma->premmaped_addr = (unsigned long) addr;
@@ -508,7 +509,7 @@ static int prepare_mappings(int pid)
 	current->rst->premmapped_addr = addr;
 	current->rst->premmapped_len = vmas->priv_size;
 
-	pvma = list_entry(parent_vmas, struct vma_area, list);
+	pvma = list_first_entry(parent_vmas, struct vma_area, list);
 
 	list_for_each_entry(vma, &vmas->h, list) {
 		if (pstart > vma->e->start) {
