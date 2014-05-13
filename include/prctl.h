@@ -16,6 +16,12 @@
 #ifndef PR_SET_SECUREBITS
 # define PR_SET_SECUREBITS	28
 #endif
+#ifndef PR_GET_DUMPABLE
+# define PR_GET_DUMPABLE	3
+#endif
+#ifndef PR_SET_DUMPABLE
+# define PR_SET_DUMPABLE	4
+#endif
 
 #ifndef PR_SET_MM
 #define PR_SET_MM		35

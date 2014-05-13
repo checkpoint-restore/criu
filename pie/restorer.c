@@ -30,6 +30,7 @@
 #include "restorer.h"
 
 #include "protobuf/creds.pb-c.h"
+#include "protobuf/mm.pb-c.h"
 
 #include "asm/restorer.h"
 
@@ -187,6 +188,21 @@ static int restore_creds(CredsEntry *ce)
 	return 0;
 }
 
+static int restore_dumpable_flag(MmEntry *mme)
+{
+	int ret;
+
+	if (mme->has_dumpable) {
+		ret = sys_prctl(PR_SET_DUMPABLE, mme->dumpable, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to set PR_SET_DUMPABLE: %d\n", ret);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static void restore_sched_info(struct rst_sched_param *p)
 {
 	struct sched_param parm;
@@ -292,6 +308,10 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 
 	ret = restore_creds(&args->ta->creds);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_dumpable_flag(&args->ta->mm);
 	if (ret)
 		goto core_restore_end;
 
@@ -918,6 +938,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 */
 
 	ret = restore_creds(&args->creds);
+	ret = ret || restore_dumpable_flag(&args->mm);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 

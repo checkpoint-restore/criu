@@ -156,6 +156,8 @@ struct parasite_dump_misc {
 	u32 umask;
 
 	struct parasite_dump_thread	ti;
+
+	int dumpable;
 };
 
 #define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int) - 2 * sizeof(unsigned))

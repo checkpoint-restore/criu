@@ -17,4 +17,6 @@ message mm_entry {
 	repeated uint64	mm_saved_auxv	= 13;
 
 	repeated vma_entry vmas		= 14;
+
+	optional int32	dumpable	= 15;
 }

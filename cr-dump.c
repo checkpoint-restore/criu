@@ -471,6 +471,9 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 
 	mme.mm_brk = misc->brk;
 
+	mme.dumpable = misc->dumpable;
+	mme.has_dumpable = true;
+
 	mme.n_mm_saved_auxv = AT_VECTOR_SIZE;
 	mme.mm_saved_auxv = xmalloc(pb_repeated_size(&mme, mm_saved_auxv));
 	if (!mme.mm_saved_auxv)
