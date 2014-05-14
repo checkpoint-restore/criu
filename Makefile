@@ -193,7 +193,7 @@ zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
 
 test: zdtm
-	$(Q) $(SH) test/zdtm.sh -C
+	$(Q) $(MAKE) -C test
 
 clean-built:
 	$(Q) $(RM) $(VERSION_HEADER)
