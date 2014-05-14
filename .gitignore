@@ -9,6 +9,7 @@
 *-blob.h
 *.so
 .git-ignore
+*.patch
 criu
 cscope*
 tags
