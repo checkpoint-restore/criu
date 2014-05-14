@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
+	signal(SIGHUP, SIG_IGN);
 	task_waiter_complete(&t, 1);
 
 	ret = read(slave, buf, sizeof(teststr) - 1);
