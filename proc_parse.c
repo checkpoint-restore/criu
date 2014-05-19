@@ -137,6 +137,10 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 		else if (_vmflag_match(tok, "nh"))
 			vma_area->e->madv |= (1ul << MADV_NOHUGEPAGE);
 
+		/* vmsplice doesn't work for VM_IO and VM_PFNMAP mappings. */
+		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
+			vma_area->e->status |= VMA_UNSUPP;
+
 		/*
 		 * Anything else is just ignored.
 		 */
@@ -326,6 +330,12 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		}
 
 		if (vma_area) {
+			if (vma_area->e->status & VMA_UNSUPP) {
+				pr_err("Unsupported mapping found %016"PRIx64"-%016"PRIx64"\n",
+							vma_area->e->start, vma_area->e->end);
+				goto err;
+			}
+
 			/* Add a guard page only if here is enough space for it */
 			if ((vma_area->e->flags & MAP_GROWSDOWN) &&
 			    prev_end < vma_area->e->start)
