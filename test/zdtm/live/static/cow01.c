@@ -40,6 +40,7 @@ struct test_cases {
 	struct test_case tc[TEST_CASES];
 	void *addr;
 	int (*init)(struct test_cases *tcs);
+	char *tname;
 };
 
 static int init_cow(struct test_cases *);
@@ -49,40 +50,47 @@ static int init_file(struct test_cases *);
 
 static pid_t child_pid;
 
+/*
+ * A return code of -1 means an error running the test (e.g. error opening a
+ * file, etc.).  A return code of 1 means failure, it means criu was not able
+ * to checkpoint and/or restore the process properly.
+ */
 #define EXECUTE_ACTION(func) ({		\
 	int __ret = 0;			\
-	__ret += func(&sep_tcs);	\
-	__ret += func(&cow_tcs);	\
-	__ret += func(&cow_gd_tcs);	\
-	__ret += func(&file_tcs);	\
+	__ret |= func(&sep_tcs);	\
+	__ret |= func(&cow_tcs);	\
+	__ret |= func(&cow_gd_tcs);	\
+	__ret |= func(&file_tcs);	\
 	__ret;				\
 })
 
-struct test_cases cow_tcs = {.init = init_cow},
-		  sep_tcs = {.init = init_sep},
-		  file_tcs = {.init = init_file},
-		  cow_gd_tcs = {.init = init_cow_gd};
+struct test_cases cow_tcs = {.init = init_cow, .tname = "cow_tcs"},
+		  sep_tcs = {.init = init_sep, .tname = "sep_tcs"},
+		  file_tcs = {.init = init_file, .tname = "file_tcs"},
+		  cow_gd_tcs = {.init = init_cow_gd, .tname = "cow_gd_tcs"};
 
 uint32_t zero_crc = ~1;
 
-static int is_cow(void *addr, pid_t p1, pid_t p2)
+static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
+		  uint64_t *map_child_ret, uint64_t *map_parent_ret)
 {
 	char buf[PATH_MAX];
 	unsigned long pfn = (unsigned long) addr / PAGE_SIZE;
-	uint64_t map1, map2;
-	int fd1, fd2, ret, i;
+	uint64_t map_child, map_parent;
+	int fd_child, fd_parent, ret, i;
+	off_t lseek_ret;
 
-	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", p1);
-	fd1 = open(buf, O_RDONLY);
-	if (fd1 < 0) {
-		err("Unable to open file %s", buf);
+	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", pid_child);
+	fd_child = open(buf, O_RDONLY);
+	if (fd_child < 0) {
+		err("Unable to open child pagemap file %s", buf);
 		return -1;
 	}
 
-	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", p2);
-	fd2 = open(buf, O_RDONLY);
-	if (fd1 < 0) {
-		err("Unable to open file %s", buf);
+	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", pid_parent);
+	fd_parent = open(buf, O_RDONLY);
+	if (fd_parent < 0) {
+		err("Unable to open parent pagemap file %s", buf);
 		return -1;
 	}
 
@@ -91,29 +99,48 @@ static int is_cow(void *addr, pid_t p1, pid_t p2)
 	 * so we should do several iterations.
 	 */
 	for (i = 0; i < 10; i++) {
-		lseek(fd1, pfn * sizeof(map1), SEEK_SET);
-		lseek(fd2, pfn * sizeof(map2), SEEK_SET);
-
-		ret = read(fd1, &map1, sizeof(map1));
-		if (ret != sizeof(map1)) {
-			err("Unable to read data");
+		lseek_ret = lseek(fd_child, pfn * sizeof(map_child), SEEK_SET);
+		if (lseek_ret == (off_t) -1) {
+			err("Unable to seek child pagemap to virtual addr %#08lx",
+			    pfn * PAGE_SIZE);
 			return -1;
 		}
 
-		ret = read(fd2, &map2, sizeof(map2));
-		if (ret != sizeof(map2)) {
-			err("Unable to read data");
+		lseek_ret = lseek(fd_parent, pfn * sizeof(map_parent), SEEK_SET);
+		if (lseek_ret == (off_t) -1) {
+			err("Unable to seek parent pagemap to virtual addr %#08lx",
+			    pfn * PAGE_SIZE);
 			return -1;
 		}
 
-		if (map1 == map2)
+		ret = read(fd_child, &map_child, sizeof(map_child));
+		if (ret != sizeof(map_child)) {
+			err("Unable to read child pagemap at virtual addr %#08lx",
+			    pfn * PAGE_SIZE);
+			return -1;
+		}
+
+		ret = read(fd_parent, &map_parent, sizeof(map_parent));
+		if (ret != sizeof(map_parent)) {
+			err("Unable to read parent pagemap at virtual addr %#08lx",
+			    pfn * PAGE_SIZE);
+			return -1;
+		}
+
+		if (map_child == map_parent)
 			break;
 	}
 
-	close(fd1);
-	close(fd2);
+	close(fd_child);
+	close(fd_parent);
 
-	return map1 == map2;
+	if (map_child_ret)
+		*map_child_ret = map_child;
+	if (map_parent_ret)
+		*map_parent_ret = map_parent;
+
+	// Return 0 for success, 1 if the pages differ.
+	return map_child != map_parent;
 }
 
 static int child_prep(struct test_cases *test_cases)
@@ -148,8 +175,10 @@ static int child_check(struct test_cases *test_cases)
 
 		datasum(addr + i * PAGE_SIZE, PAGE_SIZE, &crc);
 		if (crc != tc->crc_child) {
-			fail("%d: %p data mismatch\n", i, addr + i * PAGE_SIZE);
-			ret++;
+			errno = 0;
+			fail("%s[%#x]: %p child data mismatch (expected [%04x] got [%04x])",
+			     test_cases->tname, i, addr + i * PAGE_SIZE, tc->crc_child, crc);
+			ret |= 1;
 		}
 	}
 
@@ -220,8 +249,10 @@ static int parent_check(struct test_cases *test_cases)
 
 		datasum(addr + i * PAGE_SIZE, PAGE_SIZE, &crc);
 		if (crc != tc->crc_parent) {
-			fail("%x: %p data mismatch\n", i, addr + i * PAGE_SIZE);
-			ret++;
+			errno = 0;
+			fail("%s[%#x]: %p parent data mismatch (expected [%04x] got [%04x])",
+			     test_cases->tname, i, addr + i * PAGE_SIZE, tc->crc_parent, crc);
+			ret |= 1;
 		}
 
 		if (test_cases == &sep_tcs)
@@ -229,11 +260,21 @@ static int parent_check(struct test_cases *test_cases)
 
 		if (!tc->a_f_write_child &&
 		    !tc->a_f_write_parent &&
-		     tc->b_f_write)
-			if (!is_cow(addr + i * PAGE_SIZE, child_pid, getpid())) {
-				fail("%x: %p is not COW-ed\n", i, addr + i * PAGE_SIZE);
-				ret++;
+		     tc->b_f_write) {
+			uint64_t map_child, map_parent;
+			int is_cow_ret;
+
+			is_cow_ret = is_cow(addr + i * PAGE_SIZE, child_pid, getpid(),
+					    &map_child, &map_parent);
+			ret |= is_cow_ret;
+			if (is_cow_ret == 1) {
+				errno = 0;
+				fail("%s[%#x]: %p is not COW-ed (pagemap of "
+				     "child=[%#08lx], parent=[%#08lx])",
+				     test_cases->tname, i, addr + i * PAGE_SIZE,
+				     map_child, map_parent);
 			}
+		}
 	}
 
 	return ret;
@@ -248,7 +289,7 @@ static int __init_cow(struct test_cases *tcs, int flags)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
-		err("Can't allocate memory\n");
+		err("Can't allocate memory");
 		return -1;
 	}
 
@@ -264,7 +305,7 @@ static int __init_cow(struct test_cases *tcs, int flags)
 	mmap(addr + PAGE_SIZE * TEST_CASES, PAGE_SIZE, PROT_NONE,
 			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | flags, -1, 0);
 
-	test_msg("cow_addr=%p\n", addr);
+	test_msg("addr[%s]=%p\n", tcs->tname, tcs->addr);
 	for (i = 0; i < TEST_CASES; i++) {
 		struct test_case *tc = tcs->tc + i;
 		tc->crc_parent = zero_crc;
@@ -292,11 +333,11 @@ static int init_sep(struct test_cases *tcs)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (tcs->addr == MAP_FAILED) {
-		err("Can't allocate memory\n");
-		return 1;
+		err("Can't allocate memory");
+		return -1;
 	}
 
-	test_msg("sep_addr=%p\n", tcs->addr);
+	test_msg("addr[%s]=%p\n", tcs->tname, tcs->addr);
 	for (i = 0; i < TEST_CASES; i++) {
 		struct test_case *tc = tcs->tc + i;
 		tc->crc_parent = zero_crc;
@@ -324,7 +365,7 @@ static int init_file(struct test_cases *tcs)
 		datagen2(buf, sizeof(buf), &crc);
 		ret = write(fd, buf, sizeof(buf));
 		if (ret != sizeof(buf)) {
-			err("Unable to write data in a test file");
+			err("Unable to write data in test file %s", filename);
 			return -1;
 		}
 
@@ -336,11 +377,11 @@ static int init_file(struct test_cases *tcs)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (tcs->addr == MAP_FAILED) {
-		err("Can't allocate memory\n");
-		return 1;
+		err("Can't allocate memory");
+		return -1;
 	}
 
-	test_msg("file_addr=%p\n", tcs->addr);
+	test_msg("addr[%s]=%p\n", tcs->tname, tcs->addr);
 	close(fd);
 
 	return 0;
@@ -354,8 +395,8 @@ static int child(task_waiter_t *child_waiter)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 	if (sep_tcs.addr == MAP_FAILED) {
-		err("Can't allocate memory\n");
-		return 1;
+		err("Can't allocate memory");
+		return -1;
 	}
 
 	EXECUTE_ACTION(child_prep);
@@ -364,15 +405,18 @@ static int child(task_waiter_t *child_waiter)
 
 	test_waitsig();
 
-	ret = EXECUTE_ACTION(child_check);
+	ret |= EXECUTE_ACTION(child_check);
 
-	return ret ? -1: 0;
+	// Exit code of child process, so return 2 for a test error, 1 for a
+	// test failure (child_check got mismatched checksums) and 0 for
+	// success.
+	return (ret < 0) ? 2 : (ret != 0);
 }
 
 int main(int argc, char ** argv)
 {
 	uint8_t zero_page[PAGE_SIZE];
-	int status, err = 0;
+	int status, ret = 0;
 	task_waiter_t child_waiter;
 
 	task_waiter_init(&child_waiter);
@@ -384,11 +428,13 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (EXECUTE_ACTION(parent_before_fork))
-		return 1;
+		return 2;
 
 	child_pid = test_fork();
-	if (child_pid < 0)
-		return -1;
+	if (child_pid < 0) {
+		err("Can't fork");
+		return 2;
+	}
 
 	if (child_pid == 0)
 		return child(&child_waiter);
@@ -401,18 +447,22 @@ int main(int argc, char ** argv)
 
 	test_waitsig();
 
-	err = EXECUTE_ACTION(parent_check);
+	ret |= EXECUTE_ACTION(parent_check);
 
 	kill(child_pid, SIGTERM);
 	wait(&status);
 
 	unlink(filename);
 
-	if (status)
-		return 1;
+	if (WIFEXITED(status) && WEXITSTATUS(status) != 2)
+		ret |= WEXITSTATUS(status);
+	else
+		ret |= -1;
 
-	if (err == 0)
+	if (ret == 0)
 		pass();
 
-	return 0;
+	// Exit code, so return 2 for a test error, 1 for a test failure and 0
+	// for success.
+	return (ret < 0) ? 2 : (ret != 0);
 }
