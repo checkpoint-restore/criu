@@ -428,9 +428,9 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	if (fme->type == MARK_TYPE__MOUNT) {
 		struct mount_info *m;
 
-		m = lookup_mnt_sdev(fme->s_dev);
+		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
-			pr_err("Can't find mount s_dev %x\n", fme->s_dev);
+			pr_err("Can't find mount mnt_id %x\n", fme->me->mnt_id);
 			return -1;
 		}
 
