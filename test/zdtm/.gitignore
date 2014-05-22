@@ -1,5 +1,6 @@
 /lib/libzdtmtst.a
 /live/static/arm-neon00
+/live/static/bind-mount
 /live/static/busyloop00
 /live/static/caps00
 /live/static/child_opened_proc
@@ -36,7 +37,9 @@
 /live/static/groups
 /live/static/grow_map
 /live/static/grow_map02
+/live/static/grow_map03
 /live/static/inotify00
+/live/static/inotify_irmap
 /live/static/inotify_system
 /live/static/inotify_system_nodel
 /live/static/ipc_namespace
@@ -46,6 +49,8 @@
 /live/static/maps02
 /live/static/maps03
 /live/static/maps04
+/live/static/maps05
+/live/static/maps_file_prot
 /live/static/mem-touch
 /live/static/mmx00
 /live/static/mountpoints
