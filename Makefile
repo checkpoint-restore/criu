@@ -184,6 +184,7 @@ pie/$(VDSO_O): pie
 	$(Q) $(MAKE) $(build)=pie pie/$(VDSO_O)
 PROGRAM-BUILTINS	+= pie/$(VDSO_O)
 
+$(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS): config
 
 $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
