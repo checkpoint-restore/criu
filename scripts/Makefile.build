@@ -110,6 +110,7 @@ $(foreach file,						\
 			$(addprefix $(obj)/,$(notdir $(file:.o=))))))
 all-objs += $(__obj-ext-src-y)
 deps += $(__obj-ext-src-y:.o=.d)
+cleanup-y += $(__obj-ext-src-y) $(__obj-ext-src-y:.o=.d)
 endif
 
 ##
