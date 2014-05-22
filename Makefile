@@ -120,6 +120,7 @@ CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.pro
 
 export CC MAKE CFLAGS LIBS SRCARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
+export USERCFLAGS
 export cflags-y
 export VDSO_O
 
