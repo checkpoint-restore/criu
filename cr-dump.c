@@ -63,7 +63,6 @@
 #include "kerndat.h"
 #include "stats.h"
 #include "mem.h"
-#include "vdso.h"
 #include "page-pipe.h"
 #include "posix-timer.h"
 #include "vdso.h"
