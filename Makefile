@@ -151,9 +151,9 @@ protobuf/%::
 protobuf:
 	$(Q) $(MAKE) $(build)=protobuf all
 
-$(ARCH_DIR)/%:: protobuf
+$(ARCH_DIR)/%:: protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) $@
-$(ARCH_DIR): protobuf
+$(ARCH_DIR): protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 pie/%:: $(ARCH_DIR)
