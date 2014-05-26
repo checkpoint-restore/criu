@@ -4,6 +4,7 @@
 #include "asm/types.h"
 #include "pid.h"
 #include "list.h"
+#include "config.h"
 
 #define BUILTIN_SYSCALL_SIZE	8
 
@@ -118,8 +119,10 @@ extern int __parasite_execute_syscall(struct parasite_ctl *ctl,
 				user_regs_struct_t *regs);
 extern bool arch_can_dump_task(pid_t pid);
 
+#ifdef CONFIG_VFDO
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
+#endif
 
 extern int parasite_stop_on_syscall(int tasks, int sys_nr);
 extern int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr);

@@ -8,6 +8,7 @@
 
 #include "syscall.h"
 #include "parasite.h"
+#include "config.h"
 #include "fcntl.h"
 #include "prctl.h"
 #include "lock.h"
@@ -324,6 +325,7 @@ err:
 	return 0;
 }
 
+#ifdef CONFIG_VDSO
 static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 {
 	struct vdso_mark *m = (void *)args->start;
@@ -338,6 +340,7 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 
 	return 0;
 }
+#endif
 
 static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 {
@@ -459,9 +462,11 @@ static noinline __used int noinline parasite_daemon(void *args)
 		case PARASITE_CMD_DUMP_TTY:
 			ret = parasite_dump_tty(args);
 			break;
+#ifdef CONFIG_VDSO
 		case PARASITE_CMD_CHECK_VDSO_MARK:
 			ret = parasite_check_vdso_mark(args);
 			break;
+#endif
 		default:
 			pr_err("Unknown command in parasite daemon thread leader: %d\n", m.cmd);
 			ret = -1;

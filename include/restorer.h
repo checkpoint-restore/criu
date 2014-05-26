@@ -13,6 +13,7 @@
 #include "util.h"
 #include "asm/restorer.h"
 #include "rst_info.h"
+#include "config.h"
 
 #include "posix-timer.h"
 #include "shmem.h"
@@ -118,7 +119,6 @@ struct task_restore_args {
 
 	void				*bootstrap_start;
 	unsigned long			bootstrap_len;
-	unsigned long			vdso_rt_size;
 
 	struct itimerval		itimers[3];
 
@@ -145,8 +145,11 @@ struct task_restore_args {
 
 	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
 
+#ifdef CONFIG_VDSO
+	unsigned long			vdso_rt_size;
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
+#endif
 } __aligned(64);
 
 #define RESTORE_ALIGN_STACK(start, size)	\

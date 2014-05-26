@@ -2286,9 +2286,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	void *tcp_socks_mem;
 	unsigned long tcp_socks;
 
+#ifdef CONFIG_VDSO
 	unsigned long vdso_rt_vma_size = 0;
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
+#endif
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &current->rst->vmas;
@@ -2351,6 +2353,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				TASK_ENTRIES_SIZE +
 				rst_mem_remap_size();
 
+#ifdef CONFIG_VDSO
 	/*
 	 * Figure out how much memory runtime vdso will need.
 	 */
@@ -2361,6 +2364,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	}
 
 	restore_bootstrap_len += vdso_rt_size;
+#endif
 
 	/*
 	 * Restorer is a blob (code + args) that will get mapped in some
@@ -2440,7 +2444,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->bootstrap_start = (void *)exec_mem_hint;
 	task_args->bootstrap_len = restore_bootstrap_len;
+#ifdef CONFIG_VDSO
 	task_args->vdso_rt_size = vdso_rt_size;
+#endif
 
 	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
 	task_args->premmapped_len = current->rst->premmapped_len;
@@ -2547,6 +2553,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	}
 
+#ifdef CONFIG_VDSO
 	/*
 	 * Restorer needs own copy of vdso parameters. Runtime
 	 * vdso must be kept non intersecting with anything else,
@@ -2556,6 +2563,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	mem += rst_mem_remap_size();
 	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
 	task_args->vdso_sym_rt = vdso_sym_rt;
+#endif
 
 	new_sp = restorer_stack(task_args->t);
 

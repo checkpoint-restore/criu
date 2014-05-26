@@ -18,6 +18,7 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "syscall.h"
+#include "config.h"
 #include "prctl.h"
 #include "log.h"
 #include "util.h"
@@ -538,16 +539,23 @@ static void restore_posix_timers(struct task_restore_args *args)
 }
 static void *bootstrap_start;
 static unsigned int bootstrap_len;
-static unsigned long vdso_rt_size;
 
+/*
+ * sys_munmap must not return here. The controll process must
+ * trap us on the exit from sys_munmap.
+ */
+#ifdef CONFIG_VDSO
+static unsigned long vdso_rt_size;
 void __export_unmap(void)
 {
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
-	/*
-	 * sys_munmap must not return here. The controll process must
-	 * trap us on the exit from sys_munmap.
-	 */
 }
+#else
+void __export_unmap(void)
+{
+	sys_munmap(bootstrap_start, bootstrap_len);
+}
+#endif
 
 /*
  * This function unmaps all VMAs, which don't belong to
@@ -628,7 +636,10 @@ long __export_restore_task(struct task_restore_args *args)
 
 	bootstrap_start = args->bootstrap_start;
 	bootstrap_len	= args->bootstrap_len;
+
+#ifdef CONFIG_VDSO
 	vdso_rt_size	= args->vdso_rt_size;
+#endif
 
 	task_entries = args->task_entries;
 
@@ -645,10 +656,12 @@ long __export_restore_task(struct task_restore_args *args)
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
+#ifdef CONFIG_VDSO
 	if (vdso_remap("rt-vdso", args->vdso_sym_rt.vma_start,
 		       args->vdso_rt_parked_at,
 		       vdso_vma_size(&args->vdso_sym_rt)))
 		goto core_restore_end;
+#endif
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
 				bootstrap_start, bootstrap_len))
@@ -673,12 +686,13 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_remap(vma_premmaped_start(vma_entry),
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
-
+#ifdef CONFIG_VDSO
 		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
 			if (vdso_proxify("left dumpee", &args->vdso_sym_rt,
 					 vma_entry, args->vdso_rt_parked_at))
 				goto core_restore_end;
 		}
+#endif
 	}
 
 	/* Shift private vma-s to the right */
@@ -700,12 +714,13 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_remap(vma_premmaped_start(vma_entry),
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
-
+#ifdef CONFIG_VDSO
 		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
 			if (vdso_proxify("right dumpee", &args->vdso_sym_rt,
 					 vma_entry, args->vdso_rt_parked_at))
 				goto core_restore_end;
 		}
+#endif
 	}
 
 	/*
