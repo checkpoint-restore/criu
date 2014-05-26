@@ -52,11 +52,13 @@ ARCH ?= $(shell uname -m | sed		\
 ifeq ($(ARCH),i386)
 	SRCARCH      := x86-32
 	DEFINES      := -DCONFIG_X86_32
+	VDSO         := y
 endif
 ifeq ($(ARCH),x86_64)
 	SRCARCH      := x86
 	DEFINES      := -DCONFIG_X86_64
 	LDARCH       := i386:x86-64
+	VDSO         := y
 endif
 
 ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
@@ -123,6 +125,7 @@ export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
 export USERCFLAGS
 export cflags-y
 export VDSO_O
+export VDSO
 
 include Makefile.inc
 include Makefile.config
