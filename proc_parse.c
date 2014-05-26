@@ -401,9 +401,14 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		} else if (strstr(buf, "[vsyscall]") || strstr(buf, "[vectors]")) {
 			vma_area->e->status |= VMA_AREA_VSYSCALL;
 		} else if (strstr(buf, "[vdso]")) {
+#ifdef CONFIG_VDSO
 			vma_area->e->status |= VMA_AREA_REGULAR;
 			if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
 				vma_area->e->status |= VMA_AREA_VDSO;
+#else
+			pr_warn_once("Found vDSO area without support\n");
+			goto err;
+#endif
 		} else if (strstr(buf, "[heap]")) {
 			vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {

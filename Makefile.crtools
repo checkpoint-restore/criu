@@ -58,11 +58,12 @@ obj-y	+= kerndat.o
 obj-y	+= stats.o
 obj-y	+= string.o
 obj-y	+= sigframe.o
+ifeq ($(VDSO),y)
 obj-y	+= $(ARCH_DIR)/vdso.o
+endif
 obj-y	+= cr-service.o
 obj-y	+= sd-daemon.o
 obj-y	+= plugin.o
-obj-y	+= $(VDSO_O)
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y

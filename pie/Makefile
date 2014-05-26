@@ -4,9 +4,10 @@ targets			+= restorer
 obj-y			+= log-simple.o
 obj-y			+= util.o
 obj-y			+= util-fd.o
-obj-y			+= $(VDSO_O)
 
+ifeq ($(VDSO),y)
 obj-e			+= $(ARCH_DIR)/vdso-pie.o
+endif
 
 parasite-obj-y		+= parasite.o
 parasite-asm-e		+= $(ARCH_DIR)/parasite-head.o
