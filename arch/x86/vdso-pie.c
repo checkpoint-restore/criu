@@ -90,9 +90,22 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	unsigned long base = VDSO_BAD_ADDR;
 	unsigned int i, j, k;
 
-	DECLARE_VDSO(vdso_ident, vdso_symbols);
+	/*
+	 * See Elf specification for this magic values.
+	 */
+	const char elf_ident[] = {
+		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
 
-	BUILD_BUG_ON(sizeof(vdso_ident) != sizeof(ehdr->e_ident));
+	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
+		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
+		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
+		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
+	};
+
+	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
 
 	pr_debug("Parsing at %lx %lx\n",
 		 (long)mem, (long)mem + (long)size);
@@ -100,7 +113,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	/*
 	 * Make sure it's a file we support.
 	 */
-	if (builtin_memcmp(ehdr->e_ident, vdso_ident, sizeof(vdso_ident))) {
+	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
 		pr_debug("Elf header magic mismatch\n");
 		goto err;
 	}
@@ -190,7 +203,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 			goto err;
 
 		k = get_symbol_index(&dynsymbol_names[sym->st_name],
-				     vdso_symbols,
+				     (char **)vdso_symbols,
 				     ARRAY_SIZE(vdso_symbols));
 		if (k != VDSO_SYMBOL_MAX) {
 			builtin_memcpy(t->symbols[k].name, vdso_symbols[k],
