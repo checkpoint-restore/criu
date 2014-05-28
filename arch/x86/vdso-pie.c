@@ -4,6 +4,7 @@
 #include <string.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,17 +57,6 @@ int vdso_redirect_calls(void *base_to, void *base_from,
 	return 0;
 }
 
-static unsigned int get_symbol_index(char *symbol, char *symbols[], size_t size)
-{
-	unsigned int i;
-
-	for (i = 0; symbol && i < size; i++) {
-		if (!builtin_strcmp(symbol, symbols[i]))
-			return i;
-	}
-
-	return VDSO_SYMBOL_MAX;
-}
 
 /* Check if pointer is out-of-bound */
 static bool __ptr_oob(void *ptr, void *start, size_t size)
@@ -75,20 +65,38 @@ static bool __ptr_oob(void *ptr, void *start, size_t size)
 	return ptr > end || ptr < start;
 }
 
+/*
+ * Elf hash, see format specification.
+ */
+static unsigned long elf_hash(const unsigned char *name)
+{
+	unsigned long h = 0, g;
+
+	while (*name) {
+		h = (h << 4) + *name++;
+		g = h & 0xf0000000ul;
+		if (g)
+			h ^= g >> 24;
+		h &= ~g;
+	}
+	return h;
+}
+
 int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {
+	Elf64_Phdr *dynamic = NULL, *load = NULL;
 	Elf64_Ehdr *ehdr = (void *)mem;
-	Elf64_Shdr *shdr, *shdr_strtab;
-	Elf64_Shdr *shdr_dynsym;
-	Elf64_Shdr *shdr_dynstr;
+	Elf64_Dyn *dyn_strtab = NULL;
+	Elf64_Dyn *dyn_symtab = NULL;
+	Elf64_Dyn *dyn_strsz = NULL;
+	Elf64_Dyn *dyn_syment = NULL;
+	Elf64_Dyn *dyn_hash = NULL;
+	Elf64_Word *hash = NULL;
 	Elf64_Phdr *phdr;
-	Elf64_Shdr *text;
-	Elf64_Sym *sym;
+	Elf64_Dyn *d;
 
-	char *section_names, *dynsymbol_names;
-
-	unsigned long base = VDSO_BAD_ADDR;
-	unsigned int i, j, k;
+	Elf64_Word *bucket, *chain;
+	Elf64_Word nbucket, nchain;
 
 	/*
 	 * See Elf specification for this magic values.
@@ -105,115 +113,136 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
 	};
 
+	char *dynsymbol_names;
+	unsigned int i, j, k;
+
 	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
 
-	pr_debug("Parsing at %lx %lx\n",
-		 (long)mem, (long)mem + (long)size);
+	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
 
 	/*
 	 * Make sure it's a file we support.
 	 */
 	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
-		pr_debug("Elf header magic mismatch\n");
-		goto err;
+		pr_err("Elf header magic mismatch\n");
+		return -EINVAL;
 	}
 
 	/*
-	 * Figure out base virtual address.
+	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
 	 */
 	phdr = (void *)&mem[ehdr->e_phoff];
 	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
 		if (__ptr_oob(phdr, mem, size))
-			goto err;
-		if (phdr->p_type == PT_LOAD) {
-			base = phdr->p_vaddr;
+			goto err_oob;
+		switch (phdr->p_type) {
+		case PT_DYNAMIC:
+			if (dynamic) {
+				pr_err("Second PT_DYNAMIC header\n");
+				return -EINVAL;
+			}
+			dynamic = phdr;
+			break;
+		case PT_LOAD:
+			if (load) {
+				pr_err("Second PT_LOAD header\n");
+				return -EINVAL;
+			}
+			load = phdr;
 			break;
 		}
 	}
-	if (base != VDSO_BAD_ADDR) {
-		pr_debug("Base address %lx\n", base);
-	} else {
-		pr_debug("No base address found\n");
-		goto err;
+
+	if (!load || !dynamic) {
+		pr_err("One of obligated program headers is missed\n");
+		return -EINVAL;
 	}
+
+	pr_debug("PT_LOAD p_vaddr: %lx\n", (unsigned long)load->p_vaddr);
 
 	/*
-	 * Where the section names lays.
+	 * Dynamic section tags should provide us the rest of information
+	 * needed. Note that we're interested in a small set of tags.
 	 */
-	if (ehdr->e_shstrndx == SHN_UNDEF) {
-		pr_err("Section names are not found\n");
-		goto err;
-	}
+	d = (void *)&mem[dynamic->p_offset];
+	for (i = 0; i < dynamic->p_filesz / sizeof(*d); i++, d++) {
+		if (__ptr_oob(d, mem, size))
+			goto err_oob;
 
-	shdr = (void *)&mem[ehdr->e_shoff];
-	shdr_strtab = &shdr[ehdr->e_shstrndx];
-	if (__ptr_oob(shdr_strtab, mem, size))
-		goto err;
-
-	section_names = (void *)&mem[shdr_strtab->sh_offset];
-	shdr_dynsym = shdr_dynstr = text = NULL;
-
-	for (i = 0; i < ehdr->e_shnum; i++, shdr++) {
-		if (__ptr_oob(shdr, mem, size))
-			goto err;
-		if (__ptr_oob(&section_names[shdr->sh_name], mem, size))
-			goto err;
-
-		if (shdr->sh_type == SHT_DYNSYM &&
-		    builtin_strcmp(&section_names[shdr->sh_name],
-				   ".dynsym") == 0) {
-			shdr_dynsym = shdr;
-		} else if (shdr->sh_type == SHT_STRTAB &&
-			   builtin_strcmp(&section_names[shdr->sh_name],
-					  ".dynstr") == 0) {
-			shdr_dynstr = shdr;
-		} else if (shdr->sh_type == SHT_PROGBITS &&
-			   builtin_strcmp(&section_names[shdr->sh_name],
-					  ".text") == 0) {
-			text = shdr;
+		if (d->d_tag == DT_NULL) {
+			break;
+		} else if (d->d_tag == DT_STRTAB) {
+			dyn_strtab = d;
+			pr_debug("DT_STRTAB: %p\n", (void *)d->d_un.d_ptr);
+		} else if (d->d_tag == DT_SYMTAB) {
+			dyn_symtab = d;
+			pr_debug("DT_SYMTAB: %p\n", (void *)d->d_un.d_ptr);
+		} else if (d->d_tag == DT_STRSZ) {
+			dyn_strsz = d;
+			pr_debug("DT_STRSZ: %lu\n", (unsigned long)d->d_un.d_val);
+		} else if (d->d_tag == DT_SYMENT) {
+			dyn_syment = d;
+			pr_debug("DT_SYMENT: %lu\n", (unsigned long)d->d_un.d_val);
+		} else if (d->d_tag == DT_HASH) {
+			dyn_hash = d;
+			pr_debug("DT_HASH: %p\n", (void *)d->d_un.d_ptr);
 		}
 	}
 
-	if (!shdr_dynsym || !shdr_dynstr || !text) {
-		pr_debug("No required sections found\n");
-		goto err;
+	if (!dyn_strtab || !dyn_symtab || !dyn_strsz || !dyn_syment || !dyn_hash) {
+		pr_err("Not all dynamic entries are present\n");
+		return -EINVAL;
 	}
 
-	dynsymbol_names = (void *)&mem[shdr_dynstr->sh_offset];
-	if (__ptr_oob(dynsymbol_names, mem, size)	||
-	    __ptr_oob(shdr_dynsym, mem, size)		||
-	    __ptr_oob(text, mem, size))
-		goto err;
+	dynsymbol_names = &mem[dyn_strtab->d_un.d_val - load->p_vaddr];
+	if (__ptr_oob(dynsymbol_names, mem, size))
+		goto err_oob;
 
-	/*
-	 * Walk over global symbols and choose ones we need.
-	 */
-	j = shdr_dynsym->sh_size / sizeof(*sym);
-	sym = (void *)&mem[shdr_dynsym->sh_offset];
+	hash = (void *)&mem[(unsigned long)dyn_hash->d_un.d_ptr - (unsigned long)load->p_vaddr];
+	if (__ptr_oob(hash, mem, size))
+		goto err_oob;
 
-	for (i = 0; i < j; i++, sym++) {
-		if (__ptr_oob(sym, mem, size))
-			goto err;
+	nbucket = hash[0];
+	nchain = hash[1];
+	bucket = &hash[2];
+	chain = &hash[nbucket + 2];
 
-		if (ELF64_ST_BIND(sym->st_info) != STB_GLOBAL ||
-		    ELF64_ST_TYPE(sym->st_info) != STT_FUNC)
-			continue;
+	pr_debug("nbucket %lu nchain %lu bucket %p chain %p\n",
+		 (long)nbucket, (long)nchain, bucket, chain);
 
-		if (__ptr_oob(&dynsymbol_names[sym->st_name], mem, size))
-			goto err;
+	for (i = 0; i < ARRAY_SIZE(vdso_symbols); i++) {
+		k = elf_hash((const unsigned char *)vdso_symbols[i]);
 
-		k = get_symbol_index(&dynsymbol_names[sym->st_name],
-				     (char **)vdso_symbols,
-				     ARRAY_SIZE(vdso_symbols));
-		if (k != VDSO_SYMBOL_MAX) {
-			builtin_memcpy(t->symbols[k].name, vdso_symbols[k],
-				       sizeof(t->symbols[k].name));
-			t->symbols[k].offset = (unsigned long)sym->st_value - base;
+		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
+			Elf64_Sym *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
+			char *name;
+
+			sym = &sym[j];
+			if (__ptr_oob(sym, mem, size))
+				continue;
+
+			if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC &&
+			    ELF64_ST_BIND(sym->st_info) != STB_GLOBAL)
+				continue;
+
+			name = &dynsymbol_names[sym->st_name];
+			if (__ptr_oob(name, mem, size))
+				continue;
+
+			if (builtin_strcmp(name, vdso_symbols[i]))
+				continue;
+
+			builtin_memcpy(t->symbols[i].name, name, sizeof(t->symbols[i].name));
+			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
+			break;
 		}
 	}
+
 	return 0;
-err:
-	return -1;
+
+err_oob:
+	pr_err("Corrupted Elf data\n");
+	return -EFAULT;
 }
 
 int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
