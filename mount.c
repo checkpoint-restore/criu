@@ -313,7 +313,11 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 	struct mount_info *m, *t;
 
 	for (m = info; m; m = m->next) {
-		if (m->parent && m->parent->shared_id) {
+		if (m->parent == NULL)
+			/* root mount can be any */
+			continue;
+
+		if (m->parent->shared_id) {
 			struct mount_info *ct;
 			if (list_empty(&m->parent->mnt_share))
 				continue;
@@ -333,7 +337,7 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 			}
 		}
 
-		if (m->parent && !fsroot_mounted(m)) {
+		if (!fsroot_mounted(m)) {
 			list_for_each_entry(t, &m->mnt_bind, mnt_bind) {
 				if (fsroot_mounted(t) || t->parent == NULL)
 					break;
@@ -358,9 +362,6 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 				}
 			}
 		}
-
-		if (m->parent == NULL)
-			continue;
 
 		list_for_each_entry(t, &m->parent->children, siblings) {
 			int tlen, mlen;
