@@ -313,7 +313,7 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 	struct mount_info *m, *t;
 
 	for (m = info; m; m = m->next) {
-		if (m->parent == NULL)
+		if (m->parent == NULL || m->is_ns_root)
 			/* root mount can be any */
 			continue;
 
@@ -337,11 +337,31 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 			}
 		}
 
-		if (!fsroot_mounted(m)) {
+		/*
+		 * Mountpoint can point to / of an FS. In that case this FS
+		 * should be of some known type so that we can just mount one.
+		 *
+		 * Otherwise it's a bindmount mountpoint and we try to find
+		 * what fsroot mountpoint it's bound to. If this point is the
+		 * root mount, the path to bindmount root should be accessible
+		 * form the rootmount path (the strstartswith check in the
+		 * else branch below).
+		 */
+
+		if (fsroot_mounted(m)) {
+			if (m->fstype->code == FSTYPE__UNSUPPORTED) {
+				pr_err("FS mnt %s dev %#x root %s unsupported id %x\n",
+						m->mountpoint, m->s_dev, m->root, m->mnt_id);
+				return -1;
+			}
+		} else {
 			list_for_each_entry(t, &m->mnt_bind, mnt_bind) {
-				if (fsroot_mounted(t) || t->parent == NULL)
+				if (fsroot_mounted(t) ||
+						(t->parent == NULL &&
+						 strstartswith(m->root, t->root)))
 					break;
 			}
+
 			if (&t->mnt_bind == &m->mnt_bind) {
 				int ret;
 
@@ -783,22 +803,6 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 			pm->root, pm->mountpoint);
 
 	me.fstype		= pm->fstype->code;
-	if ((me.fstype == FSTYPE__UNSUPPORTED) && !is_root_mount(pm)) {
-		struct mount_info *t;
-
-		/* Is it a bind-mount of the root mount */
-		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
-			if (t->parent == NULL)
-				break;
-
-		if (&t->mnt_bind == &pm->mnt_bind ||
-		    strlen(t->source) > strlen(pm->source)) {
-			pr_err("FS mnt %s dev %#x root %s unsupported\n",
-					pm->mountpoint, pm->s_dev, pm->root);
-			return -1;
-		}
-	}
-
 	if (!pm->need_plugin && pm->fstype->dump && pm->fstype->dump(pm))
 		return -1;
 
