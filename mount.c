@@ -559,15 +559,34 @@ out:
 	return -1;
 }
 
+static int attach_option(struct mount_info *pm, char *opt)
+{
+	char *buf;
+	int len, olen;
+
+	len = strlen(pm->options);
+	olen = strlen(opt);
+	buf = xrealloc(pm->options, len + olen + 2);
+	if (buf == NULL)
+		return -1;
+
+	if (len && buf[len - 1] != ',') {
+		buf[len] = ',';
+		len++;
+	}
+
+	memcpy(buf + len, opt, olen + 1);
+	pm->options = buf;
+
+	return 0;
+}
+
 /* Is it mounted w or w/o the newinstance option */
 static int devpts_dump(struct mount_info *pm)
 {
-	static const char newinstance[] = ",newinstance";
 	struct stat *host_st;
 	struct stat st;
 	int fdir;
-	char *buf;
-	int len;
 
 	host_st = kerndat_get_devpts_stat();
 	if (host_st == NULL)
@@ -588,15 +607,7 @@ static int devpts_dump(struct mount_info *pm)
 	if (host_st->st_dev == st.st_dev)
 		return 0;
 
-	len = strlen(pm->options);
-	buf = xrealloc(pm->options, len + sizeof(newinstance));
-	if (buf == NULL)
-		return -1;
-	memcpy(buf, newinstance, sizeof(newinstance));
-
-	pm->options = buf;
-
-	return 0;
+	return attach_option(pm, "newinstance");
 }
 
 static int tmpfs_dump(struct mount_info *pm)
