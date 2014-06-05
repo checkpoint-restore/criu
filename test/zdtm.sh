@@ -189,6 +189,7 @@ CLEANUP=0
 PAGE_SERVER=0
 PS_PORT=12345
 COMPILE_ONLY=0
+START_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 
@@ -448,6 +449,11 @@ run_test()
 	echo "Execute $test"
 
 	start_test $tdir $tname || return 1
+
+	if [ $START_ONLY -eq 1 ]; then
+		echo "Test is started"
+		return 0
+	fi
 
 	local ddump
 	if ! kill -s 0 "$PID"; then
@@ -709,6 +715,7 @@ Options:
 	-t : mount tmpfs for dump files
 	-a <FILE>.tar.gz : save archive with dump files and logs
 	-g : Generate executables only
+	-S : Only start the test
 	-n : Batch test
 	-r : Run test with specified name directly without match or check
 	-v : Verbose mode
@@ -795,6 +802,10 @@ while :; do
 		;;
 	  -g)
 		COMPILE_ONLY=1
+		shift
+		;;
+	  -S)
+	  	START_ONLY=1
 		shift
 		;;
 	  -n)
