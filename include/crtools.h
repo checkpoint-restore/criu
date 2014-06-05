@@ -13,7 +13,7 @@ extern int check_img_inventory(void);
 extern int write_img_inventory(void);
 extern void kill_inventory(void);
 
-#define LAST_PID_PATH		"/proc/sys/kernel/ns_last_pid"
+#define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 
 extern int cr_dump_tasks(pid_t pid);
 extern int cr_pre_dump_tasks(pid_t pid);

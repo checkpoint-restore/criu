@@ -109,7 +109,7 @@ static int check_ns_last_pid(void)
 {
 	int ret;
 
-	ret = access(LAST_PID_PATH, W_OK);
+	ret = access("/proc/" LAST_PID_PATH, W_OK);
 	if (!ret)
 		return 0;
 

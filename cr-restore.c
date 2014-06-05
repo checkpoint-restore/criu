@@ -940,7 +940,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 
-		ca.fd = open(LAST_PID_PATH, O_RDWR);
+		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 		if (ca.fd < 0) {
 			pr_perror("%d: Can't open %s", pid, LAST_PID_PATH);
 			goto err;
@@ -2608,7 +2608,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Open the last_pid syscl early, since restorer (maybe) lives
 	 * in chroot and has no access to "/proc/..." paths.
 	 */
-	task_args->fd_last_pid = open(LAST_PID_PATH, O_RDWR);
+	task_args->fd_last_pid = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 	if (task_args->fd_last_pid < 0) {
 		pr_perror("Can't open sys.ns_last_pid");
 		goto err;
