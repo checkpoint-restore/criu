@@ -108,6 +108,7 @@ TST_NOFILE	=				\
 		tun				\
 		stopped				\
 		rtc				\
+		clean_mntns			\
 #		jobctl00			\
 
 TST_FILE	=				\

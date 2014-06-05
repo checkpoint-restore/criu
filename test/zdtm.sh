@@ -138,6 +138,7 @@ ns/static/tun
 static/netns-nf
 static/netns
 static/cgroup00
+ns/static/clean_mntns
 "
 
 TEST_CR_KERNEL="
@@ -168,6 +169,7 @@ bind-mount
 mountpoints
 inotify_irmap
 cgroup00
+clean_mntns
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
