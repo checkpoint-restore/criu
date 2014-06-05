@@ -130,6 +130,17 @@ extern int open_pid_proc(pid_t pid);
 extern int close_pid_proc(void);
 extern int set_proc_fd(int fd);
 
+/*
+ * Values for pid argument of the proc opening routines below.
+ * SELF would open file under /proc/self
+ * GEN would open a file under /proc itself
+ * NONE is internal, don't use it ;)
+ */
+
+#define PROC_SELF	0
+#define PROC_GEN	-1
+#define PROC_NONE	-2
+
 extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 
 #define __open_proc(pid, flags, fmt, ...)				\

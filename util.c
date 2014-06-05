@@ -160,7 +160,7 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
-static pid_t open_proc_pid = 0;
+static pid_t open_proc_pid = PROC_NONE;
 static int open_proc_fd = -1;
 
 int close_pid_proc(void)
@@ -171,7 +171,7 @@ int close_pid_proc(void)
 		ret = close(open_proc_fd);
 
 	open_proc_fd = -1;
-	open_proc_pid = 0;
+	open_proc_pid = PROC_NONE;
 
 	return ret;
 }
@@ -228,7 +228,18 @@ inline int open_pid_proc(pid_t pid)
 		dfd = get_service_fd(PROC_FD_OFF);
 	}
 
-	snprintf(path, sizeof(path), "%d", pid);
+	if (pid == PROC_GEN)
+		/*
+		 * Don't cache it, close_pid_proc() would
+		 * close service descriptor otherwise.
+		 */
+		return dfd;
+
+	if (pid == PROC_SELF)
+		snprintf(path, sizeof(path), "self");
+	else
+		snprintf(path, sizeof(path), "%d", pid);
+
 	fd = openat(dfd, path, O_RDONLY);
 	if (fd < 0)
 		pr_perror("Can't open %s", path);
