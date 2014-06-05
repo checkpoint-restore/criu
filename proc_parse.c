@@ -243,7 +243,7 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 
 	vm_area_list_init(vms);
 
-	maps = fopen("/proc/self/maps", "r");
+	maps = fopen_proc(PROC_SELF, "maps");
 	if (maps == NULL) {
 		pr_perror("Can't open self maps");
 		return -1;
