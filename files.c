@@ -997,13 +997,23 @@ out:
 static int fchroot(int fd)
 {
 	char fd_path[PSFDS];
+	int proc;
 
 	/*
 	 * There's no such thing in syscalls. We can emulate
 	 * it using the /proc/self/fd/ :)
+	 *
+	 * But since there might be no /proc mount in our mount
+	 * namespace, we will have to ... workaround it.
 	 */
 
-	sprintf(fd_path, "/proc/self/fd/%d", fd);
+	proc = get_service_fd(PROC_FD_OFF);
+	if (fchdir(proc) < 0) {
+		pr_perror("Can't chdir to proc");
+		return -1;
+	}
+
+	sprintf(fd_path, "./self/fd/%d", fd);
 	pr_debug("Going to chroot into %s\n", fd_path);
 	return chroot(fd_path);
 }
@@ -1021,23 +1031,6 @@ int prepare_fs(int pid)
 		goto out_i;
 
 	/*
-	 * Restore CWD
-	 */
-
-	dd = open_reg_by_id(fe->cwd_id);
-	if (dd < 0) {
-		pr_err("Can't open cwd %#x\n", fe->cwd_id);
-		goto err;
-	}
-
-	ret = fchdir(dd);
-	close(dd);
-	if (ret < 0) {
-		pr_perror("Can't change cwd");
-		goto err;
-	}
-
-	/*
 	 * Restore root
 	 */
 
@@ -1051,6 +1044,23 @@ int prepare_fs(int pid)
 	close(dd);
 	if (ret < 0) {
 		pr_perror("Can't change root");
+		goto err;
+	}
+
+	/*
+	 * Restore CWD
+	 */
+
+	dd = open_reg_by_id(fe->cwd_id);
+	if (dd < 0) {
+		pr_err("Can't open cwd %#x\n", fe->cwd_id);
+		goto err;
+	}
+
+	ret = fchdir(dd);
+	close(dd);
+	if (ret < 0) {
+		pr_perror("Can't change cwd");
 		goto err;
 	}
 
