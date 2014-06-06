@@ -632,10 +632,11 @@ static inline int rfi_remap(struct reg_file_info *rfi)
 }
 
 int open_path(struct file_desc *d,
-		int(*open_cb)(struct reg_file_info *, void *), void *arg)
+		int(*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
-	int tmp;
+	struct ns_id *ns;
+	int tmp, mntns_root;
 	char *orig_path = NULL;
 
 	rfi = container_of(d, struct reg_file_info, d);
@@ -673,7 +674,13 @@ int open_path(struct file_desc *d,
 		}
 	}
 
-	tmp = open_cb(rfi, arg);
+	ns = lookup_nsid_by_mnt_id(rfi->rfe->mnt_id);
+	if (ns == NULL)
+		return -1;
+
+	mntns_root = mntns_get_root_fd(ns);
+
+	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		return -1;
@@ -698,19 +705,12 @@ int open_path(struct file_desc *d,
 	return tmp;
 }
 
-static int do_open_reg_noseek_flags(struct reg_file_info *rfi, void *arg)
+static int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	u32 flags = *(u32 *)arg;
-	int fd, mntns_root;
-	struct ns_id *nsid;
+	int fd;
 
-	nsid = lookup_nsid_by_mnt_id(rfi->rfe->mnt_id);
-	if (nsid == NULL)
-		return -1;
-
-	mntns_root = mntns_get_root_fd(nsid);
-
-	fd = openat(mntns_root, rfi->path, flags);
+	fd = openat(ns_root_fd, rfi->path, flags);
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;
@@ -719,16 +719,16 @@ static int do_open_reg_noseek_flags(struct reg_file_info *rfi, void *arg)
 	return fd;
 }
 
-static int do_open_reg_noseek(struct reg_file_info *rfi, void *arg)
+static int do_open_reg_noseek(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
-	return do_open_reg_noseek_flags(rfi, &rfi->rfe->flags);
+	return do_open_reg_noseek_flags(ns_root_fd, rfi, &rfi->rfe->flags);
 }
 
-static int do_open_reg(struct reg_file_info *rfi, void *arg)
+static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	int fd;
 
-	fd = do_open_reg_noseek(rfi, arg);
+	fd = do_open_reg_noseek(ns_root_fd, rfi, arg);
 	if (fd < 0)
 		return fd;
 

@@ -24,7 +24,8 @@ struct reg_file_info {
 };
 
 extern int open_reg_by_id(u32 id);
-extern int open_path(struct file_desc *, int (*open_cb)(struct reg_file_info *, void *), void *arg);
+extern int open_path(struct file_desc *, int (*open_cb)(int ns_root_fd,
+			struct reg_file_info *, void *), void *arg);
 extern void clear_ghost_files(void);
 
 extern int prepare_shared_reg_files(void);

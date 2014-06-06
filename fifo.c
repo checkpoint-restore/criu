@@ -71,7 +71,7 @@ const struct fdtype_ops fifo_dump_ops = {
 
 static struct pipe_data_rst *pd_hash_fifo[PIPE_DATA_HASH_SIZE];
 
-static int do_open_fifo(struct reg_file_info *rfi, void *arg)
+static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	struct fifo_info *info = arg;
 	int new_fifo, fake_fifo = -1;
@@ -82,13 +82,13 @@ static int do_open_fifo(struct reg_file_info *rfi, void *arg)
 	 * proceed the restoration procedure we open a fake
 	 * fifo here.
 	 */
-	fake_fifo = open(rfi->path, O_RDWR);
+	fake_fifo = openat(ns_root_fd, rfi->path, O_RDWR);
 	if (fake_fifo < 0) {
 		pr_perror("Can't open fake fifo %#x [%s]", info->fe->id, rfi->path);
 		return -1;
 	}
 
-	new_fifo = open(rfi->path, rfi->rfe->flags);
+	new_fifo = openat(ns_root_fd, rfi->path, rfi->rfe->flags);
 	if (new_fifo < 0) {
 		pr_perror("Can't open fifo %#x [%s]", info->fe->id, rfi->path);
 		goto out;
