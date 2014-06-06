@@ -169,7 +169,7 @@ int ns_exec(void *_arg)
 	if (prepare_mntns())
 		return -1;
 
-	setenv("ZDTM_EXE", "1", 0);
+	setenv("ZDTM_NEWNS", "2", 1);
 	execvp(args->argv[0], args->argv);
 	fprintf(stderr, "exec(%s) failed: %m\n", args->argv[0]);
 	return -1;
@@ -206,6 +206,7 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "fork() failed: %m\n");
 		exit(1);
 	} else if (pid == 0) {
+		setenv("ZDTM_NEWNS", "3", 1);
 		ret = execvp(argv[0], argv);
 		fprintf(stderr, "exec(%s) failed: %m\n", argv[0]);
 		return ret;

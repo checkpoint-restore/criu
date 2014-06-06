@@ -105,18 +105,19 @@ void test_init(int argc, char **argv)
 
 	val = getenv("ZDTM_NEWNS");
 	if (val) {
-		unsetenv("ZDTM_NEWNS");
-		ns_create(argc, argv);
-		exit(1);
-	}
+		if (!strcmp(val, "1")) {
+			ns_create(argc, argv);
+			exit(1);
+		}
 
-	val = getenv("ZDTM_EXE");
-	if (val) {
-		test_log_init(outfile, "ns");
-		redir_stdfds();
-		unsetenv("ZDTM_EXE");
-		ns_init(argc, argv);
-		exit(1);
+		if (!strcmp(val, "2")) {
+			test_log_init(outfile, "ns");
+			redir_stdfds();
+			ns_init(argc, argv);
+			exit(1);
+		}
+
+		/* "3" -- run the test */
 	}
 
 	val = getenv("ZDTM_GID");
