@@ -795,6 +795,19 @@ uns:
 	return &fstypes[0];
 }
 
+static char *strip(char *opt)
+{
+	int len;
+
+	len = strlen(opt);
+	if (len > 1 && opt[len - 1] == ',')
+		opt[len - 1] = '\0';
+	if (opt[0] == ',')
+		opt++;
+
+	return opt;
+}
+
 static int dump_one_mountpoint(struct mount_info *pm, int fd)
 {
 	MntEntry me = MNT_ENTRY__INIT;
@@ -813,7 +826,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.root			= pm->root;
 	me.mountpoint		= pm->mountpoint + 1;
 	me.source		= pm->source;
-	me.options		= pm->options;
+	me.options		= strip(pm->options);
 	me.shared_id		= pm->shared_id;
 	me.has_shared_id	= true;
 	me.master_id		= pm->master_id;
