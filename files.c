@@ -1020,7 +1020,7 @@ static int fchroot(int fd)
 
 int prepare_fs(int pid)
 {
-	int ifd, dd, ret = -1;
+	int ifd, dd, ret, err = -1;
 	FsEntry *fe;
 
 	ifd = open_image(CR_FD_FS, O_RSTR, pid);
@@ -1069,13 +1069,13 @@ int prepare_fs(int pid)
 		umask(fe->umask);
 	}
 
-	ret = 0;
+	err = 0;
 err:
 	fs_entry__free_unpacked(fe, NULL);
 out_i:
 	close_safe(&ifd);
 out:
-	return ret;
+	return err;
 }
 
 int shared_fdt_prepare(struct pstree_item *item)
