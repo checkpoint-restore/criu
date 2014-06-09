@@ -1020,7 +1020,7 @@ static int fchroot(int fd)
 
 int prepare_fs(int pid)
 {
-	int ifd, dd, ret, err = -1;
+	int ifd, dd_root, dd_cwd, ret, err = -1;
 	FsEntry *fe;
 
 	ifd = open_image(CR_FD_FS, O_RSTR, pid);
@@ -1031,34 +1031,37 @@ int prepare_fs(int pid)
 		goto out_i;
 
 	/*
-	 * Restore root
+	 * First -- open both descriptors. We will not
+	 * be able to open the cwd one after we chroot.
 	 */
 
-	dd = open_reg_by_id(fe->root_id);
-	if (dd < 0) {
+	dd_root = open_reg_by_id(fe->root_id);
+	if (dd_root < 0) {
 		pr_err("Can't open root %#x\n", fe->root_id);
 		goto err;
 	}
 
-	ret = fchroot(dd);
-	close(dd);
+	dd_cwd = open_reg_by_id(fe->cwd_id);
+	if (dd_cwd < 0) {
+		pr_err("Can't open cwd %#x\n", fe->cwd_id);
+		goto err;
+	}
+
+	/*
+	 * Now do chroot/chdir. Chroot goes first as it
+	 * calls chdir into proc service descriptor so
+	 * we'd need to fix chdir after it anyway.
+	 */
+
+	ret = fchroot(dd_root);
+	close(dd_root);
 	if (ret < 0) {
 		pr_perror("Can't change root");
 		goto err;
 	}
 
-	/*
-	 * Restore CWD
-	 */
-
-	dd = open_reg_by_id(fe->cwd_id);
-	if (dd < 0) {
-		pr_err("Can't open cwd %#x\n", fe->cwd_id);
-		goto err;
-	}
-
-	ret = fchdir(dd);
-	close(dd);
+	ret = fchdir(dd_cwd);
+	close(dd_cwd);
 	if (ret < 0) {
 		pr_perror("Can't change cwd");
 		goto err;
