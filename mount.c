@@ -63,6 +63,18 @@ int ext_mount_add(char *key, char *val)
 	return 0;
 }
 
+/* Lookup ext_mount by key field */
+static struct ext_mount *ext_mount_lookup(char *key)
+{
+	struct ext_mount *em;
+
+	list_for_each_entry(em, &opts.ext_mounts, l)
+		if (!strcmp(em->key, key))
+			return em;
+
+	return NULL;
+}
+
 /*
  * Single linked list of mount points get from proc/images
  */
@@ -342,6 +354,20 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 	pr_info("%*s<--\n", off, "");
 }
 
+static int try_resolve_ext_mount(struct mount_info *info)
+{
+	struct ext_mount *em;
+
+	em = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
+	if (em == NULL)
+		return -ENOTSUP;
+
+	pr_info("Found %s mapping for %s mountpoint\n",
+			em->val, info->mountpoint);
+	info->external = em;
+	return 0;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -403,11 +429,14 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 					ret = cr_plugin_dump_ext_mount(m->mountpoint + 1, m->mnt_id);
 					if (ret == 0)
 						m->need_plugin = true;
+					else if (ret == -ENOTSUP)
+						ret = try_resolve_ext_mount(m);
 				} else {
-					if (m->need_plugin)
+					if (m->need_plugin || m->external)
 						/*
 						 * plugin should take care of this one
-						 * in restore_ext_mount
+						 * in restore_ext_mount, or do_bind_mount
+						 * will mount it as external
 						 */
 						ret = 0;
 					else
@@ -908,7 +937,6 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	me.root_dev		= pm->s_dev;
 	me.parent_mnt_id	= pm->parent_mnt_id;
 	me.flags		= pm->flags;
-	me.root			= pm->root;
 	me.mountpoint		= pm->mountpoint + 1;
 	me.source		= pm->source;
 	me.options		= strip(pm->options);
@@ -920,6 +948,18 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 		me.has_with_plugin = true;
 		me.with_plugin = true;
 	}
+
+	if (pm->external) {
+		/*
+		 * For external mount points dump the mapping's
+		 * value instead of root. See collect_mnt_from_image
+		 * for reverse mapping details.
+		 */
+		me.root	= pm->external->val;
+		me.has_ext_mount = true;
+		me.ext_mount = true;
+	} else
+		me.root = pm->root;
 
 	if (pb_write_one(fd, &me, PB_MNT))
 		return -1;
@@ -1273,8 +1313,19 @@ static int do_bind_mount(struct mount_info *mi)
 	bool shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
 
 	if (!mi->need_plugin) {
-		char rpath[PATH_MAX];
+		char *root, rpath[PATH_MAX];
 		int tok = 0;
+
+		if (mi->external) {
+			/*
+			 * We have / pointing to criu's ns root still,
+			 * so just use the mapping's path. The mountpoint
+			 * is tuned in collect_mnt_from_image to refer
+			 * to proper location in the namespace we restore.
+			 */
+			root = mi->root;
+			goto do_bind;
+		}
 
 		/*
 		 * Cut common part of root.
@@ -1290,9 +1341,10 @@ static int do_bind_mount(struct mount_info *mi)
 
 		snprintf(rpath, sizeof(rpath), "%s/%s",
 				mi->bind->mountpoint, mi->root + tok);
-		pr_info("\tBind %s to %s\n", rpath, mi->mountpoint);
-
-		if (mount(rpath, mi->mountpoint, NULL,
+		root = rpath;
+do_bind:
+		pr_info("\tBind %s to %s\n", root, mi->mountpoint);
+		if (mount(root, mi->mountpoint, NULL,
 					MS_BIND, NULL) < 0) {
 			pr_perror("Can't mount at %s", mi->mountpoint);
 			return -1;
@@ -1592,10 +1644,31 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		/* FIXME: abort unsupported early */
 		pm->fstype		= decode_fstype(me->fstype);
 
-		pr_debug("\t\tGetting root for %d\n", pm->mnt_id);
-		pm->root = xstrdup(me->root);
-		if (!pm->root)
-			goto err;
+		if (me->ext_mount) {
+			struct ext_mount *em;
+
+			/*
+			 * External mount point -- get the reverse mapping
+			 * from the command line and put into root's place
+			 */
+
+			em = ext_mount_lookup(me->root);
+			if (!em) {
+				pr_err("No mapping for %s mountpoint\n", me->mountpoint);
+				goto err;
+			}
+
+			pm->external = em;
+			pm->root = em->val;
+			pr_debug("Mountpoint %s will have root from %s\n",
+					me->mountpoint, pm->root);
+
+		} else {
+			pr_debug("\t\tGetting root for %d\n", pm->mnt_id);
+			pm->root = xstrdup(me->root);
+			if (!pm->root)
+				goto err;
+		}
 
 		len  = strlen(me->mountpoint) + root_len + 1;
 		pm->mountpoint = xmalloc(len);
