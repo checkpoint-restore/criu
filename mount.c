@@ -51,7 +51,7 @@ static void mntinfo_add_list(struct mount_info *new)
 static int open_mountpoint(struct mount_info *pm);
 
 static struct mount_info *mnt_build_tree(struct mount_info *list);
-static int validate_mounts(struct mount_info *info, bool call_plugins);
+static int validate_mounts(struct mount_info *info, bool for_dump);
 
 /* Asolute paths are used on dump and relative paths are used on restore */
 static inline int is_root(char *p)
@@ -308,7 +308,7 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 	pr_info("%*s<--\n", off, "");
 }
 
-static int validate_mounts(struct mount_info *info, bool call_plugins)
+static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
 
@@ -365,15 +365,21 @@ static int validate_mounts(struct mount_info *info, bool call_plugins)
 			if (&t->mnt_bind == &m->mnt_bind) {
 				int ret;
 
-				if (call_plugins) {
+				if (for_dump) {
 					ret = cr_plugin_dump_ext_mount(m->mountpoint + 1, m->mnt_id);
 					if (ret == 0)
 						m->need_plugin = true;
-				} else if (m->need_plugin)
-					/* plugin should take care of this one */
-					ret = 0;
-				else
-					ret = -ENOTSUP;
+				} else {
+					if (m->need_plugin)
+						/*
+						 * plugin should take care of this one
+						 * in restore_ext_mount
+						 */
+						ret = 0;
+					else
+						ret = -ENOTSUP;
+				}
+
 				if (ret < 0) {
 					if (ret == -ENOTSUP)
 						pr_err("%d:%s doesn't have a proper root mount\n",
