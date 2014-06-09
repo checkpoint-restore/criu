@@ -35,5 +35,6 @@ extern int restore_task_mnt_ns(struct pstree_item *);
 extern int fini_mnt_ns(void);
 
 char *rst_get_mnt_root(int mnt_id);
+int ext_mount_add(char *key, char *val);
 
 #endif /* __CR_MOUNT_H__ */

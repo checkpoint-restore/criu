@@ -34,6 +34,7 @@
 #include "file-lock.h"
 #include "cr-service.h"
 #include "plugin.h"
+#include "mount.h"
 
 struct cr_options opts;
 
@@ -45,6 +46,7 @@ void init_opts(void)
 	opts.final_state = TASK_DEAD;
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.scripts);
+	INIT_LIST_HEAD(&opts.ext_mounts);
 
 	opts.cpu_cap = CPU_CAP_ALL;
 }
@@ -124,7 +126,7 @@ int main(int argc, char *argv[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:";
+	static const char short_opts[] = "dsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree", required_argument, 0, 't' },
 		{ "pid", required_argument, 0, 'p' },
@@ -163,6 +165,7 @@ int main(int argc, char *argv[])
 		{ "libdir", required_argument, 0, 'L'},
 		{ "cpu-cap", required_argument, 0, 57},
 		{ "force-irmap", no_argument, 0, 58},
+		{ "ext-mount-map", required_argument, 0, 'M'},
 		{ "exec-cmd", no_argument, 0, 59},
 		{ },
 	};
@@ -338,6 +341,19 @@ int main(int argc, char *argv[])
 		case 59:
 			has_exec_cmd = true;
 			break;
+		case 'M':
+			{
+				char *aux;
+
+				aux = strchr(optarg, ':');
+				if (aux == NULL)
+					goto bad_arg;
+
+				*aux = '\0';
+				if (ext_mount_add(optarg, aux + 1))
+					return 1;
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -511,6 +527,8 @@ usage:
 "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
 "  --force-irmap         force resolving names for inotify/fsnotify watches\n"
+"  -M|--ext-mount-map KEY:VALUE\n"
+"                        add external mount mapping\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

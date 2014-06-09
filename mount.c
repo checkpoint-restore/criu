@@ -30,6 +30,40 @@
 #include "protobuf/mnt.pb-c.h"
 
 /*
+ * Structure to keep external mount points resolving info.
+ *
+ * On dump the key is the mountpoint as seen from the mount
+ * namespace, the val is some name that will be put into image
+ * instead of the mount point's root path.
+ *
+ * On restore the key is the name from the image (the one 
+ * mentioned above) and the val is the path in criu's mount 
+ * namespace that will become the mount point's root, i.e. -- 
+ * be bind mounted to the respective mountpoint.
+ */
+
+struct ext_mount {
+	char *key;
+	char *val;
+	struct list_head l;
+};
+
+int ext_mount_add(char *key, char *val)
+{
+	struct ext_mount *em;
+
+	em = xmalloc(sizeof(*em));
+	if (!em)
+		return -1;
+
+	em->key = key;
+	em->val = val;
+	list_add_tail(&em->l, &opts.ext_mounts);
+	pr_info("Added %s:%s ext mount mapping\n", key, val);
+	return 0;
+}
+
+/*
  * Single linked list of mount points get from proc/images
  */
 struct mount_info *mntinfo;

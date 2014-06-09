@@ -23,6 +23,7 @@
 #include "sd-daemon.h"
 #include "page-xfer.h"
 #include "net.h"
+#include "mount.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -291,6 +292,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	for (i = 0; i < req->n_veths; i++) {
 		if (veth_pair_add(req->veths[i]->if_in, req->veths[i]->if_out))
+			return -1;
+	}
+
+	for (i = 0; i < req->n_ext_mnt; i++) {
+		if (ext_mount_add(req->ext_mnt[i]->key, req->ext_mnt[i]->val))
 			return -1;
 	}
 

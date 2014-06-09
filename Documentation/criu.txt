@@ -113,6 +113,17 @@ OPTIONS
 *--veth-pair* 'IN'*=*'OUT'::
     Correspondence between outside and inside names of veth devices.
 
+*-M*, *--ext-mount-map* 'KEY'*:*'VAL'::
+    Setup mapping for external mounts.
+
+    On dump, KEY is a mountpoint inside container and correspoding VAL 
+    is a string that will be written into the image as mountpoint's root
+    value
+
+    On restore KEY is the value from the image (VAL from dump) and the
+    VAL is the path on host that will be bind-mounted into container
+    (to the mountpoint path from image)
+
 *--action-script* 'SCRIPT'::
     Add an external action script.
     The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the

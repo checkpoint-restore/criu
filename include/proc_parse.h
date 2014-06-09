@@ -99,6 +99,7 @@ struct fstype {
 	int (*parse)(struct mount_info *pm);
 };
 
+struct ext_mount;
 struct mount_info {
 	int		mnt_id;
 	int		parent_mnt_id;
@@ -122,6 +123,8 @@ struct mount_info {
 	bool		is_ns_root;
 	struct mount_info *next;
 	struct ns_id	*nsid;
+
+	struct ext_mount *external;
 
 	/* tree linkage */
 	struct mount_info *parent;
