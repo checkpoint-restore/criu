@@ -727,6 +727,37 @@ out:
 	return ret;
 }
 
+
+static int dump_empty_fs(struct mount_info *pm)
+{
+	int fd, ret = -1;
+	struct dirent *de;
+	DIR *fdir = NULL;
+	fd = open_mountpoint(pm);
+
+	if (fd < 0)
+		return -1;
+
+	fdir = fdopendir(fd);
+	if (fdir == NULL) {
+		close(fd);
+		return -1;
+	}
+
+	while ((de = readdir(fdir))) {
+		if (dir_dots(de))
+			continue;
+
+		pr_err("%s isn't empty: %s\n", pm->fstype->name, de->d_name);
+		goto out;
+	}
+
+	ret = 0;
+out:
+	closedir(fdir);
+	return ret;
+}
+
 static struct fstype fstypes[] = {
 	{
 		.name = "unsupported",
@@ -759,6 +790,20 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "btrfs",
 		.code = FSTYPE__UNSUPPORTED,
+	}, {
+		.name = "pstore",
+		.dump = dump_empty_fs,
+		.code = FSTYPE__PSTORE,
+	}, {
+		.name = "securityfs",
+		.code = FSTYPE__SECURITYFS,
+	}, {
+		.name = "fusectl",
+		.dump = dump_empty_fs,
+		.code = FSTYPE__FUSECTL,
+	}, {
+		.name = "debugfs",
+		.code = FSTYPE__DEBUGFS,
 	}
 };
 
