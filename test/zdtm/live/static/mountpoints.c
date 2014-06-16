@@ -249,6 +249,24 @@ done:
 	}
 	mkdir(MPTS_ROOT"/dev/slave/test.mnt.slave/test.slave", 0600);
 
+	fd = open(MPTS_ROOT"/dev/bmfile", O_CREAT | O_WRONLY);
+	if (fd < 0) {
+		err("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
+		return 1;
+	}
+	close(fd);
+
+	fd = open(MPTS_ROOT"/dev/bmfile-mount", O_CREAT | O_WRONLY);
+	if (fd < 0) {
+		err("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
+		return 1;
+	}
+	close(fd);
+
+	if (mount(MPTS_ROOT"/dev/bmfile", MPTS_ROOT"/dev/bmfile-mount", NULL, MS_BIND, NULL) < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
 
 	if (mount("none", MPTS_ROOT"/kernel", "proc", 0, "") < 0) {
 		fail("Can't mount proc");
