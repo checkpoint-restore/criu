@@ -932,8 +932,17 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 			pm->root, pm->mountpoint);
 
 	me.fstype		= pm->fstype->code;
-	if (!pm->need_plugin && pm->fstype->dump && pm->fstype->dump(pm))
-		return -1;
+
+	if (pm->parent && !pm->dumped && !pm->need_plugin &&
+	    pm->fstype->dump && fsroot_mounted(pm)) {
+		struct mount_info *t;
+
+		if (pm->fstype->dump(pm))
+			return -1;
+
+		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
+			t->dumped = true;
+	}
 
 	me.mnt_id		= pm->mnt_id;
 	me.root_dev		= pm->s_dev;

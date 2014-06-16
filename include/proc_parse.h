@@ -117,7 +117,10 @@ struct mount_info {
 	struct fstype	*fstype;
 	char		*source;
 	char		*options;
-	bool		mounted;
+	union {
+		bool		mounted;
+		bool		dumped;
+	};
 	bool		need_plugin;
 	int		is_file;
 	bool		is_ns_root;
