@@ -66,6 +66,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(ROUTE,		"route-%d"),
 	FD_ENTRY(IPTABLES,	"iptables-%d"),
 	FD_ENTRY(TMPFS_IMG,	"tmpfs-%d.tar.gz"),
+	FD_ENTRY(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz"),
 	FD_ENTRY(TTY_FILES,	"tty"),
 	FD_ENTRY(TTY_INFO,	"tty-info"),
 	FD_ENTRY(FILE_LOCKS,	"filelocks-%d"),
