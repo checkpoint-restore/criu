@@ -493,11 +493,9 @@ out:
 	return send_criu_msg(sk, &resp);
 }
 
-static int cr_service_work(int sk)
+int cr_service_work(int sk)
 {
 	CriuReq *msg = 0;
-
-	init_opts();
 
 	if (recv_criu_msg(sk, &msg) == -1) {
 		pr_perror("Can't recv request");
@@ -684,6 +682,7 @@ int cr_service(bool daemon_mode)
 				exit(1);
 
 			close(server_fd);
+			init_opts();
 			ret = cr_service_work(sk);
 			close(sk);
 			exit(ret != 0);
