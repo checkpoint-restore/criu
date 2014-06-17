@@ -318,17 +318,9 @@ static int criu_connect(void)
 	return fd;
 }
 
-static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
+static int send_req_and_recv_resp_sk(int fd, CriuReq *req, CriuResp **resp)
 {
-	int fd;
-	int ret	= 0;
-
-	fd = criu_connect();
-	if (fd < 0) {
-		perror("Can't connect to criu");
-		ret = ECONNREFUSED;
-		goto exit;
-	}
+	int ret = 0;
 
 	if (send_req(fd, req) < 0) {
 		ret = ECOMM;
@@ -353,10 +345,24 @@ static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
 	}
 
 exit:
-	if (fd >= 0)
-		close(fd);
-
 	return -ret;
+}
+
+static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
+{
+	int fd;
+	int ret	= 0;
+
+	fd = criu_connect();
+	if (fd < 0) {
+		perror("Can't connect to criu");
+		ret = ECONNREFUSED;
+	} else {
+		ret = send_req_and_recv_resp_sk(fd, req, resp);
+		close(fd);
+	}
+
+	return ret;
 }
 
 int criu_check(void)
