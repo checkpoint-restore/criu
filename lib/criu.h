@@ -75,5 +75,6 @@ int criu_add_veth_pair(char *in, char *out);
 int criu_check(void);
 int criu_dump(void);
 int criu_restore(void);
+int criu_restore_child(void);
 
 #endif /* __CRIU_LIB_H__ */

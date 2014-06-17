@@ -1,4 +1,7 @@
 #include "version.h"
+#include <sys/prctl.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <limits.h>
@@ -6,6 +9,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "criu.h"
 #include "rpc.pb-c.h"
@@ -449,4 +453,81 @@ exit:
 	errno = saved_errno;
 
 	return ret;
+}
+
+int criu_restore_child(void)
+{
+	int sks[2], pid, ret = -1;
+	CriuReq req	= CRIU_REQ__INIT;
+	CriuResp *resp	= NULL;
+
+	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sks))
+		goto out;
+
+	/*
+	 * Set us as child subreaper so that after the swrk
+	 * finishes restore and exits the restored subtree
+	 * gets reparented to us.
+	 */
+
+	if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0))
+		goto err;
+
+	pid = fork();
+	if (pid < 0)
+		goto err;
+
+	if (pid == 0) {
+		sigset_t mask;
+		char fds[11];
+
+		/*
+		 * Unblock SIGCHLD.
+		 *
+		 * The caller of this function is supposed to have
+		 * this signal blocked. Otherwise it risks to get
+		 * into situation, when this routine is not yet
+		 * returned, but the restore subtree exits and
+		 * emits the SIGCHLD.
+		 *
+		 * In turn, unblocked SIGCHLD is required to make
+		 * criu restoration process work -- it catches
+		 * subtasks restore errors in this handler.
+		 */
+
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGCHLD);
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
+		close(sks[0]);
+		sprintf(fds, "%d", sks[1]);
+
+		execlp("criu", "criu", "swrk", fds, NULL);
+		exit(1);
+	}
+
+	close(sks[1]);
+
+	req.type	= CRIU_REQ_TYPE__RESTORE;
+	req.opts	= opts;
+
+	ret = send_req_and_recv_resp_sk(sks[0], &req, &resp);
+
+	close(sks[0]);
+	waitpid(pid, NULL, 0);
+	/* Drop the subreaper role _after_ swrk exits */
+	prctl(PR_SET_CHILD_SUBREAPER, 0, 0, 0);
+
+	if (!ret) {
+		ret = resp->success ? resp->restore->pid : -EBADE;
+		criu_resp__free_unpacked(resp, NULL);
+	}
+
+out:
+	return ret;
+
+err:
+	close(sks[1]);
+	close(sks[0]);
+	goto out;
 }
