@@ -23,17 +23,21 @@ sigset_t mask;
 #ifndef NO_PERIODIC
 static void realtime_periodic_handler(int sig, siginfo_t *si, void *uc);
 static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc);
+static void boottime_periodic_handler(int sig, siginfo_t *si, void *uc);
 #endif
 static void realtime_oneshot_handler(int sig, siginfo_t *si, void *uc);
 static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc);
+static void boottime_oneshot_handler(int sig, siginfo_t *si, void *uc);
 
 enum {
 #ifndef NO_PERIODIC
 	REALTIME_PERIODIC_INFO,
 	MONOTONIC_PERIODIC_INFO,
+	BOOTTIME_PERIODIC_INFO,
 #endif
 	REALTIME_ONESHOT_INFO,
 	MONOTONIC_ONESHOT_INFO,
+	BOOTTIME_ONESHOT_INFO,
 };
 
 static struct posix_timers_info {
@@ -55,11 +59,15 @@ static struct posix_timers_info {
 				realtime_periodic_handler, SIGALRM, 0, 1},
 	[MONOTONIC_PERIODIC_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (periodic)",
 				monotonic_periodic_handler, SIGINT, 0, 3},
+	[BOOTTIME_PERIODIC_INFO] = {CLOCK_BOOTTIME, "BOOTTIME (periodic)",
+				boottime_periodic_handler, SIGWINCH, 0, 3},
 #endif
 	[REALTIME_ONESHOT_INFO] = {CLOCK_REALTIME, "REALTIME (oneshot)",
 				realtime_oneshot_handler, SIGUSR1, 1, INT_MAX},
 	[MONOTONIC_ONESHOT_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (oneshot)",
 				monotonic_oneshot_handler, SIGUSR2, 1, INT_MAX},
+	[BOOTTIME_ONESHOT_INFO] = {CLOCK_BOOTTIME, "BOOTTIME (oneshot)",
+				boottime_oneshot_handler, SIGPROF, 1, INT_MAX },
 	{ }
 };
 
@@ -196,12 +204,24 @@ static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc)
 	generic_handler(si->si_value.sival_ptr,
 			&posix_timers[MONOTONIC_PERIODIC_INFO], sig);
 }
+
+static void boottime_periodic_handler(int sig, siginfo_t *si, void *uc)
+{
+	generic_handler(si->si_value.sival_ptr,
+			&posix_timers[BOOTTIME_PERIODIC_INFO], sig);
+}
 #endif
 
 static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
 	generic_handler(si->si_value.sival_ptr,
 			&posix_timers[MONOTONIC_ONESHOT_INFO], sig);
+}
+
+static void boottime_oneshot_handler(int sig, siginfo_t *si, void *uc)
+{
+	generic_handler(si->si_value.sival_ptr,
+			&posix_timers[BOOTTIME_ONESHOT_INFO], sig);
 }
 
 #ifndef NO_PERIODIC
