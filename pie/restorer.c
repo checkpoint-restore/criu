@@ -191,16 +191,41 @@ static int restore_creds(CredsEntry *ce)
 
 static int restore_dumpable_flag(MmEntry *mme)
 {
+	int current_dumpable;
 	int ret;
 
-	if (mme->has_dumpable) {
+	if (!mme->has_dumpable) {
+		pr_warn("Dumpable flag not present in criu dump.\n");
+		return 0;
+	}
+
+	if (mme->dumpable == 0 || mme->dumpable == 1) {
 		ret = sys_prctl(PR_SET_DUMPABLE, mme->dumpable, 0, 0, 0);
 		if (ret) {
 			pr_err("Unable to set PR_SET_DUMPABLE: %d\n", ret);
 			return -1;
 		}
+		return 0;
 	}
 
+	/*
+	 * If dumpable flag is present but it is not 0 or 1, then we can not
+	 * use prctl to set it back.  Try to see if it is already correct
+	 * (which is likely if sysctl fs.suid_dumpable is the same when dump
+	 * and restore are run), in which case there is nothing to do.
+	 * Otherwise, set dumpable to 0 which should be a secure fallback.
+	 */
+	current_dumpable = sys_prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+	if (mme->dumpable != current_dumpable) {
+		pr_warn("Dumpable flag [%d] does not match current [%d]. "
+			"Will fallback to setting it to 0 to disable it.\n",
+			mme->dumpable, current_dumpable);
+		ret = sys_prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to set PR_SET_DUMPABLE: %d\n", ret);
+			return -1;
+		}
+	}
 	return 0;
 }
 
