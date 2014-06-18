@@ -3,9 +3,11 @@
 /live/static/bind-mount
 /live/static/busyloop00
 /live/static/caps00
+/live/static/cgroup00
 /live/static/child_opened_proc
 /live/static/chroot
 /live/static/chroot-file
+/live/static/clean_mntns
 /live/static/cmdlinenv00
 /live/static/cow00
 /live/static/cow01
