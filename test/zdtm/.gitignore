@@ -15,6 +15,7 @@
 /live/static/cwd01
 /live/static/deleted_dev
 /live/static/deleted_unix_sock
+/live/static/dumpable01
 /live/static/env00
 /live/static/eventfs00
 /live/static/fanotify00

@@ -109,6 +109,7 @@ TST_NOFILE	=				\
 		stopped				\
 		rtc				\
 		clean_mntns			\
+		dumpable01			\
 #		jobctl00			\
 
 TST_FILE	=				\
