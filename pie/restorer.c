@@ -194,11 +194,7 @@ static int restore_dumpable_flag(MmEntry *mme)
 	int ret;
 
 	if (mme->has_dumpable) {
-               /*
-                * Allowed values for PR_SET_DUMPABLE are only
-                * SUID_DUMP_DISABLE (0) and SUID_DUMP_USER (1).
-                */
-               ret = sys_prctl(PR_SET_DUMPABLE, mme->dumpable == 1 ? 1 : 0, 0, 0, 0);
+		ret = sys_prctl(PR_SET_DUMPABLE, mme->dumpable, 0, 0, 0);
 		if (ret) {
 			pr_err("Unable to set PR_SET_DUMPABLE: %d\n", ret);
 			return -1;
