@@ -108,6 +108,7 @@ static/chroot-file
 static/rtc
 transition/maps007
 static/dumpable01
+static/dumpable02
 "
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
