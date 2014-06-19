@@ -21,6 +21,18 @@ struct page_server_iov {
 	u64	dst_id;
 };
 
+static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
+{
+	iov->iov_base = decode_pointer(ps->vaddr);
+	iov->iov_len = ps->nr_pages * PAGE_SIZE;
+}
+
+static void iovec2psi(struct iovec *iov, struct page_server_iov *ps)
+{
+	ps->vaddr = encode_pointer(iov->iov_base);
+	ps->nr_pages = iov->iov_len / PAGE_SIZE;
+}
+
 static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
 
 #define PS_IOV_ADD	1
@@ -102,9 +114,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 	if (prep_loc_xfer(pi))
 		return -1;
 
-	iov.iov_base = decode_pointer(pi->vaddr);
-	iov.iov_len = pi->nr_pages * PAGE_SIZE;
-
+	psi2iovec(pi, &iov);
 	if (lxfer->write_pagemap(lxfer, &iov))
 		return -1;
 
@@ -141,9 +151,7 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 	if (prep_loc_xfer(pi))
 		return -1;
 
-	iov.iov_base = decode_pointer(pi->vaddr);
-	iov.iov_len = pi->nr_pages * PAGE_SIZE;
-
+	psi2iovec(pi, &iov);
 	if (lxfer->write_hole(lxfer, &iov))
 		return -1;
 
@@ -381,8 +389,7 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 
 	pi.cmd = PS_IOV_ADD;
 	pi.dst_id = xfer->dst_id;
-	pi.vaddr = encode_pointer(iov->iov_base);
-	pi.nr_pages = iov->iov_len / PAGE_SIZE;
+	iovec2psi(iov, &pi);
 
 	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write pagemap to server");
@@ -411,8 +418,7 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 
 	pi.cmd = PS_IOV_HOLE;
 	pi.dst_id = xfer->dst_id;
-	pi.vaddr = encode_pointer(iov->iov_base);
-	pi.nr_pages = iov->iov_len / PAGE_SIZE;
+	iovec2psi(iov, &pi);
 
 	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write pagehole to server");
