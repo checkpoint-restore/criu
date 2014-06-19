@@ -49,6 +49,12 @@ void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
 	iov->iov_len = pe->nr_pages * PAGE_SIZE;
 }
 
+void iovec2pagemap(struct iovec *iov, PagemapEntry *pe)
+{
+	pe->vaddr = encode_pointer(iov->iov_base);
+	pe->nr_pages = iov->iov_len / PAGE_SIZE;
+}
+
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
 	int ret;

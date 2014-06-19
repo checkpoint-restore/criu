@@ -71,6 +71,7 @@ struct page_read {
 extern int open_page_read(int pid, struct page_read *, int flags, bool shmem);
 extern int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool shmem);
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
+extern void iovec2pagemap(struct iovec *iov, PagemapEntry *pe);
 extern int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn);
 
 extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);

@@ -457,9 +457,7 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 	int ret;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
-	pe.vaddr = encode_pointer(iov->iov_base);
-	pe.nr_pages = iov->iov_len / PAGE_SIZE;
-
+	iovec2pagemap(iov, &pe);
 	if (opts.auto_dedup && xfer->parent != NULL) {
 		ret = dedup_one_iovec(xfer->parent, iov);
 		if (ret == -1) {
@@ -544,8 +542,7 @@ static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
 		}
 	}
 
-	pe.vaddr = encode_pointer(iov->iov_base);
-	pe.nr_pages = iov->iov_len / PAGE_SIZE;
+	iovec2pagemap(iov, &pe);
 	pe.has_in_parent = true;
 	pe.in_parent = true;
 
