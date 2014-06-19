@@ -8,6 +8,17 @@
 #include "util.h"
 #include "page-pipe.h"
 
+/* can existing iov accumulate the page? */
+static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
+{
+	if ((unsigned long)iov->iov_base + iov->iov_len == addr) {
+		iov->iov_len += PAGE_SIZE;
+		return true;
+	}
+
+	return false;
+}
+
 static int page_pipe_grow(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
@@ -110,8 +121,6 @@ void page_pipe_reinit(struct page_pipe *pp)
 static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *ppb,
 		unsigned long addr)
 {
-	struct iovec *iov;
-
 	if (ppb->pages_in == ppb->pipe_size) {
 		unsigned long new_size = ppb->pipe_size << 1;
 		int ret;
@@ -131,12 +140,8 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	}
 
 	if (ppb->nr_segs) {
-		/* can existing iov accumulate the page? */
-		iov = &ppb->iov[ppb->nr_segs - 1];
-		if ((unsigned long)iov->iov_base + iov->iov_len == addr) {
-			iov->iov_len += PAGE_SIZE;
+		if (iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 			goto out;
-		}
 
 		if (ppb->nr_segs == UIO_MAXIOV)
 			/* XXX -- shrink pipe back? */
@@ -193,13 +198,9 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
 		pp->nr_holes += PP_HOLES_BATCH;
 	}
 
-	if (pp->free_hole) {
-		iov = &pp->holes[pp->free_hole - 1];
-		if ((unsigned long)iov->iov_base + iov->iov_len == addr) {
-			iov->iov_len += PAGE_SIZE;
-			goto out;
-		}
-	}
+	if (pp->free_hole &&
+			iov_grow_page(&pp->holes[pp->free_hole - 1], addr))
+		goto out;
 
 	iov = &pp->holes[pp->free_hole];
 	iov->iov_base = (void *)addr;
