@@ -60,6 +60,7 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 	opt2s(VMA_AREA_STACK, "stk");
 	opt2s(VMA_AREA_VSYSCALL, "vsys");
 	opt2s(VMA_AREA_VDSO, "vdso");
+	opt2s(VMA_AREA_VVAR, "vvar");
 	opt2s(VMA_FORCE_READ, "frd");
 	opt2s(VMA_AREA_HEAP, "heap");
 	opt2s(VMA_FILE_PRIVATE, "fp");
