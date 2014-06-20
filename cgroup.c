@@ -362,6 +362,11 @@ static int prepare_cgroup_sfd(CgSetEntry *root_set)
 		goto err;
 	}
 
+	if (mount("none", cg_yard, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Can't make cgyard private");
+		goto err;
+	}
+
 	for (i = 0; i < root_set->n_ctls; i++) {
 		ControllerEntry *ce = root_set->ctls[i];
 		char *opt = ce->name;
