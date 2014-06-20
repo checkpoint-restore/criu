@@ -686,6 +686,12 @@ long __export_restore_task(struct task_restore_args *args)
 		       args->vdso_rt_parked_at,
 		       vdso_vma_size(&args->vdso_sym_rt)))
 		goto core_restore_end;
+	if (args->vdso_sym_rt.vvar_start != VVAR_BAD_ADDR) {
+		if (vdso_remap("rt-vvar", args->vdso_sym_rt.vvar_start,
+			       args->vdso_rt_parked_at + vdso_vma_size(&args->vdso_sym_rt),
+			       vvar_vma_size(&args->vdso_sym_rt)))
+			goto core_restore_end;
+	}
 #endif
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
@@ -713,8 +719,17 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 #ifdef CONFIG_VDSO
 		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
+			VmaEntry *vma_vvar;
+
+			if (i + 1 < args->nr_vmas) {
+				vma_vvar = args->tgt_vmas + i + 1;
+				if (!vma_entry_is(vma_entry, VMA_AREA_VVAR))
+					vma_vvar = NULL;
+			} else
+				vma_vvar = NULL;
 			if (vdso_proxify("left dumpee", &args->vdso_sym_rt,
-					 vma_entry, args->vdso_rt_parked_at))
+					 vma_entry, vma_vvar,
+					 args->vdso_rt_parked_at))
 				goto core_restore_end;
 		}
 #endif
@@ -741,8 +756,17 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 #ifdef CONFIG_VDSO
 		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
+			VmaEntry *vma_vvar;
+
+			if (i + 1 < args->nr_vmas) {
+				vma_vvar = args->tgt_vmas + i + 1;
+				if (!vma_entry_is(vma_entry, VMA_AREA_VVAR))
+					vma_vvar = NULL;
+			} else
+				vma_vvar = NULL;
 			if (vdso_proxify("right dumpee", &args->vdso_sym_rt,
-					 vma_entry, args->vdso_rt_parked_at))
+					 vma_entry, vma_vvar,
+					 args->vdso_rt_parked_at))
 				goto core_restore_end;
 		}
 #endif

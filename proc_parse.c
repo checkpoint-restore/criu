@@ -138,8 +138,16 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 			vma_area->e->madv |= (1ul << MADV_NOHUGEPAGE);
 
 		/* vmsplice doesn't work for VM_IO and VM_PFNMAP mappings. */
-		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
-			vma_area->e->status |= VMA_UNSUPP;
+		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf")) {
+#ifdef CONFIG_VDSO
+			/*
+			 * VVAR area mapped by the kernel as
+			 * VM_IO | VM_PFNMAP| VM_DONTEXPAND | VM_DONTDUMP
+			 */
+			if (!vma_area_is(vma_area, VMA_AREA_VVAR))
+#endif
+				vma_area->e->status |= VMA_UNSUPP;
+		}
 
 		/*
 		 * Anything else is just ignored.
@@ -407,6 +415,15 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				vma_area->e->status |= VMA_AREA_VDSO;
 #else
 			pr_warn_once("Found vDSO area without support\n");
+			goto err;
+#endif
+		} else if (strstr(buf, "[vvar]")) {
+#ifdef CONFIG_VDSO
+			vma_area->e->status |= VMA_AREA_REGULAR;
+			if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
+				vma_area->e->status |= VMA_AREA_VVAR;
+#else
+			pr_warn_once("Found VVAR area without support\n");
 			goto err;
 #endif
 		} else if (strstr(buf, "[heap]")) {

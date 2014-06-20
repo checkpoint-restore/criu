@@ -2377,12 +2377,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 #ifdef CONFIG_VDSO
 	/*
-	 * Figure out how much memory runtime vdso will need.
+	 * Figure out how much memory runtime vdso and vvar will need.
 	 */
 	vdso_rt_vma_size = vdso_vma_size(&vdso_sym_rt);
 	if (vdso_rt_vma_size) {
 		vdso_rt_delta = ALIGN(restore_bootstrap_len, PAGE_SIZE) - restore_bootstrap_len;
 		vdso_rt_size = vdso_rt_vma_size + vdso_rt_delta;
+		if (vvar_vma_size(&vdso_sym_rt))
+			vdso_rt_size += ALIGN(vvar_vma_size(&vdso_sym_rt), PAGE_SIZE);
 	}
 
 	restore_bootstrap_len += vdso_rt_size;

@@ -10,6 +10,7 @@ struct parasite_ctl;
 struct vm_area_list;
 
 #define VDSO_PROT		(PROT_READ | PROT_EXEC)
+#define VVAR_PROT		(PROT_READ)
 
 #define VDSO_BAD_ADDR		(-1ul)
 #define VVAR_BAD_ADDR		VDSO_BAD_ADDR
@@ -68,6 +69,10 @@ static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
 	return t->vma_end - t->vma_start;
 }
 
+static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
+{
+	return t->vvar_end - t->vvar_start;
+}
 /*
  * Special mark which allows to identify runtime vdso where
  * calls from proxy vdso are redirected. This mark usually
@@ -142,7 +147,9 @@ extern u64 vdso_pfn;
 extern int vdso_init(void);
 extern int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size);
 extern int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t);
-extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt, VmaEntry *vma_entry, unsigned long vdso_rt_parked_at);
+extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
+			VmaEntry *vdso_vma, VmaEntry *vvar_vma,
+			unsigned long vdso_rt_parked_at);
 
 extern int vdso_redirect_calls(void *base_to, void *base_from, struct vdso_symtable *to, struct vdso_symtable *from);
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
