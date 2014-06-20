@@ -51,8 +51,9 @@
 
 #define VMA_AREA_SYSVIPC	(1 <<  10)
 #define VMA_AREA_SOCKET		(1 <<  11)
+#define VMA_AREA_VVAR		(1 <<  12)
 
-#define VMA_UNSUPP		(1 <<  12)	/* Unsupported VMA */
+#define VMA_UNSUPP		(1 <<  31)	/* Unsupported VMA */
 
 #define CR_CAP_SIZE	2
 
