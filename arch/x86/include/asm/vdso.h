@@ -12,7 +12,9 @@ struct vm_area_list;
 #define VDSO_PROT		(PROT_READ | PROT_EXEC)
 
 #define VDSO_BAD_ADDR		(-1ul)
+#define VVAR_BAD_ADDR		VDSO_BAD_ADDR
 #define VDSO_BAD_PFN		(-1ull)
+#define VVAR_BAD_PFN		VDSO_BAD_PFN
 
 struct vdso_symbol {
 	char			name[32];
@@ -43,6 +45,8 @@ enum {
 struct vdso_symtable {
 	unsigned long		vma_start;
 	unsigned long		vma_end;
+	unsigned long		vvar_start;
+	unsigned long		vvar_end;
 	struct vdso_symbol	symbols[VDSO_SYMBOL_MAX];
 };
 
@@ -50,6 +54,8 @@ struct vdso_symtable {
 	{								\
 		.vma_start	= VDSO_BAD_ADDR,			\
 		.vma_end	= VDSO_BAD_ADDR,			\
+		.vvar_start	= VVAR_BAD_ADDR,			\
+		.vvar_end	= VVAR_BAD_ADDR,			\
 		.symbols		= {				\
 			[0 ... VDSO_SYMBOL_MAX - 1] =			\
 				(struct vdso_symbol)VDSO_SYMBOL_INIT,	\
@@ -78,26 +84,49 @@ static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
  */
 struct vdso_mark {
 	u64			signature;
-	unsigned long		proxy_addr;
+	unsigned long		proxy_vdso_addr;
+
+	unsigned long		version;
+
+	/*
+	 * In case of new vDSO format the VVAR area address
+	 * neeed for easier discovering where it lives without
+	 * relying on procfs output.
+	 */
+	unsigned long		proxy_vvar_addr;
 };
 
-/* Magic number (criuvdso) */
-#define VDSO_MARK_SIGNATURE	(0x6f73647675697263ULL)
+#define VDSO_MARK_SIGNATURE	(0x6f73647675697263ULL)	/* Magic number (criuvdso) */
+#define VDSO_MARK_SIGNATURE_V2	(0x4f53447675697263ULL)	/* Magic number (criuvDSO) */
+
+static inline void vdso_put_mark(void *where, unsigned long proxy_vdso_addr, unsigned long proxy_vvar_addr)
+{
+	struct vdso_mark *m = where;
+
+	m->signature		= VDSO_MARK_SIGNATURE_V2;
+	m->proxy_vdso_addr	= proxy_vdso_addr;
+	m->version		= 2;
+	m->proxy_vvar_addr	= proxy_vvar_addr;
+}
 
 static inline bool is_vdso_mark(void *addr)
 {
 	struct vdso_mark *m = addr;
 
-	return m->signature == VDSO_MARK_SIGNATURE &&
-		m->proxy_addr != VDSO_BAD_ADDR;
-}
-
-static inline void vdso_put_mark(void *where, unsigned long proxy_addr)
-{
-	struct vdso_mark *m = where;
-
-	m->signature = VDSO_MARK_SIGNATURE;
-	m->proxy_addr = proxy_addr;
+	if (m->signature == VDSO_MARK_SIGNATURE_V2) {
+		/*
+		 * New format
+		 */
+		return m->version == 2;
+	} else if (m->signature == VDSO_MARK_SIGNATURE) {
+		/*
+		 * Old format -- simply extend the mark up
+		 * to the version we support.
+		 */
+		vdso_put_mark(m, m->proxy_vdso_addr, VVAR_BAD_ADDR);
+		return true;
+	}
+	return false;
 }
 
 #define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__vdso_clock_gettime"

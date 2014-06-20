@@ -87,7 +87,8 @@ struct parasite_vma_entry
 struct parasite_vdso_vma_entry {
 	unsigned long	start;
 	unsigned long	len;
-	unsigned long	proxy_addr;
+	unsigned long	proxy_vdso_addr;
+	unsigned long	proxy_vvar_addr;
 	int		is_marked;
 };
 

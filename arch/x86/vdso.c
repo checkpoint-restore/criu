@@ -84,10 +84,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * Defer handling marked vdso.
 		 */
 		if (unlikely(args->is_marked)) {
-			BUG_ON(args->proxy_addr == VDSO_BAD_ADDR);
+			BUG_ON(args->proxy_vdso_addr == VDSO_BAD_ADDR);
 			BUG_ON(marked);
 			marked = vma;
-			proxy_addr = args->proxy_addr;
+			proxy_addr = args->proxy_vdso_addr;
 			continue;
 		}
 

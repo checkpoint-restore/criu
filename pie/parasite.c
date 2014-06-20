@@ -332,10 +332,12 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 
 	if (is_vdso_mark(m)) {
 		args->is_marked = 1;
-		args->proxy_addr = m->proxy_addr;
+		args->proxy_vdso_addr = m->proxy_vdso_addr;
+		args->proxy_vvar_addr = m->proxy_vvar_addr;
 	} else {
 		args->is_marked = 0;
-		args->proxy_addr = VDSO_BAD_ADDR;
+		args->proxy_vdso_addr = VDSO_BAD_ADDR;
+		args->proxy_vvar_addr = VVAR_BAD_ADDR;
 	}
 
 	return 0;
