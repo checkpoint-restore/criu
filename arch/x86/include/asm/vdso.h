@@ -103,6 +103,7 @@ struct vdso_mark {
 
 #define VDSO_MARK_SIGNATURE	(0x6f73647675697263ULL)	/* Magic number (criuvdso) */
 #define VDSO_MARK_SIGNATURE_V2	(0x4f53447675697263ULL)	/* Magic number (criuvDSO) */
+#define VDSO_MARK_CUR_VERSION	(2)
 
 static inline void vdso_put_mark(void *where, unsigned long proxy_vdso_addr, unsigned long proxy_vvar_addr)
 {
@@ -110,7 +111,7 @@ static inline void vdso_put_mark(void *where, unsigned long proxy_vdso_addr, uns
 
 	m->signature		= VDSO_MARK_SIGNATURE_V2;
 	m->proxy_vdso_addr	= proxy_vdso_addr;
-	m->version		= 2;
+	m->version		= VDSO_MARK_CUR_VERSION;
 	m->proxy_vvar_addr	= proxy_vvar_addr;
 }
 
@@ -122,7 +123,7 @@ static inline bool is_vdso_mark(void *addr)
 		/*
 		 * New format
 		 */
-		return m->version == 2;
+		return true;
 	} else if (m->signature == VDSO_MARK_SIGNATURE) {
 		/*
 		 * Old format -- simply extend the mark up
