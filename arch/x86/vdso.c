@@ -145,6 +145,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			 (long)vma->e->start);
 		list_del(&marked->list);
 		xfree(marked);
+		vma_area_list->nr--;
 	}
 	ret = 0;
 err:
