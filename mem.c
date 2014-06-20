@@ -67,8 +67,23 @@ unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 
 static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
+#ifdef CONFIG_VDSO
+	/*
+	 * vDSO area must be always dumped because on restore
+	 * we might need to generate a proxy.
+	 */
 	if (vma_entry_is(vmae, VMA_AREA_VDSO))
 		return true;
+	/*
+	 * In turn VVAR area is special and referenced from
+	 * vDSO area by IP addressing (at least on x86) thus
+	 * never ever dump its content but always use one provided
+	 * by the kernel on restore, ie runtime VVAR area must
+	 * be remapped into proper place..
+	 */
+	if (vma_entry_is(vmae, VMA_AREA_VVAR))
+		return false;
+#endif
 	/*
 	 * Optimisation for private mapping pages, that haven't
 	 * yet being COW-ed
