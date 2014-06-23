@@ -887,6 +887,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 			new_sp = restorer_stack(thread_args + i);
 			last_pid_len = vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
+			sys_lseek(fd, 0, SEEK_SET);
 			ret = sys_write(fd, s, last_pid_len);
 			if (ret < 0) {
 				pr_err("Can't set last_pid %ld/%s\n", ret, last_pid_buf);
