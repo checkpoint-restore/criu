@@ -45,6 +45,7 @@ TST_NOFILE	=				\
 		pthread00			\
 		pthread01			\
 		vdso00				\
+		vdso01				\
 		utsname				\
 		pstree				\
 		sockets01			\
