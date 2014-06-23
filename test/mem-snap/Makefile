@@ -1,0 +1,2 @@
+run: all
+	./run.sh

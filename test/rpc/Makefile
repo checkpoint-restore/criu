@@ -1,6 +1,9 @@
 all: test-c rpc_pb2.py
 .PHONY: all
 
+run: all
+	./run.sh
+
 test-c: rpc.pb-c.o test.o
 	gcc $^ -o $@ -lprotobuf-c
 

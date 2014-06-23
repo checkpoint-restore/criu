@@ -1,5 +1,8 @@
 all: unix-lib.so unix-server unix-client syslog-lib.so
 
+run: all
+	./run.sh
+
 unix.pb-c.c: unix.proto
 	protoc-c --proto_path=. --c_out=. unix.proto
 

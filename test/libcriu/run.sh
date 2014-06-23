@@ -53,7 +53,8 @@ LOOP_PID=${!}
 echo "pid ${LOOP_PID}"
 
 title_print "Run test.c"
-LD_LIBRARY_PATH=../../../lib
+ln -s ../../../lib/libcriu.so libcriu.so.1
+LD_LIBRARY_PATH=.
 export LD_LIBRARY_PATH
 ./test ${LOOP_PID} || _exit $?
 

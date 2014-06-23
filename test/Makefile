@@ -9,6 +9,13 @@ all: .FORCE
 	$(MAKE) zdtm
 .PHONY: all
 
+TESTS = unix-callback mem-snap rpc libcriu
+
+other: .FORCE
+	for t in $(TESTS); do			\
+		$(MAKE) -C $$t run || break;	\
+	done					\
+
 zdtm: .FORCE
 	$(MAKE) zdtm_ns
 	for t in $(shell echo "$(TST)" | tr ' ' '\n' | grep -Pv $(EXP)); do \

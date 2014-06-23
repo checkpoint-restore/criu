@@ -1,6 +1,9 @@
 all: build/test
 .PHONY: all
 
+run: all
+	./run.sh
+
 build/test: build/test.o
 	gcc $^ -L ../../lib -lcriu -o $@
 
