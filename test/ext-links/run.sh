@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ip=${CR_IP_TOOL:-xip}
+ip=${CR_IP_TOOL:-ip}
 mvln="mv0"
 finf="finish"
 outf="ns_output"
