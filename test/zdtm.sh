@@ -1,5 +1,14 @@
 #!/bin/bash
 
+ARCH=`uname -m | sed			\
+		-e s/i.86/i386/		\
+		-e s/sun4u/sparc64/	\
+		-e s/s390x/s390/	\
+		-e s/parisc64/parisc/	\
+		-e s/ppc.*/powerpc/	\
+		-e s/mips.*/mips/	\
+		-e s/sh[234].*/sh/`
+
 ZP="zdtm/live"
 
 TEST_LIST="
@@ -110,6 +119,15 @@ transition/maps007
 static/dumpable01
 static/dumpable02
 "
+
+#
+# Arch specific tests
+if [ $ARCH = "x86_64" ]; then
+	TEST_LIST_ARCH="static/vdso01"
+fi
+
+TEST_LIST=$TEST_LIST$TEST_LIST_ARCH
+
 # Duplicate list with ns/ prefix
 TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 
