@@ -1539,7 +1539,7 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 
 		ncc->name = xstrdup(name);
 		ncc->path = xstrdup(path);
-		if (!ncc->name || !ncc->name) {
+		if (!ncc->name || !ncc->path) {
 			xfree(ncc->name);
 			xfree(ncc->path);
 			xfree(ncc);
