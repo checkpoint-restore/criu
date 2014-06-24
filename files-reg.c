@@ -610,6 +610,11 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	rfe.fown	= (FownEntry *)&p->fown;
 	rfe.name	= &link->name[1];
 
+	if (S_ISREG(p->stat.st_mode)) {
+		rfe.has_size = true;
+		rfe.size = p->stat.st_size;
+	}
+
 	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
 
 	return pb_write_one(rfd, &rfe, PB_REG_FILE);
@@ -684,6 +689,29 @@ int open_path(struct file_desc *d,
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		return -1;
+	}
+
+	if (rfi->rfe->has_size && !rfi->size_checked) {
+		struct stat st;
+
+		if (fstat(tmp, &st) < 0) {
+			pr_perror("Can't fstat opened file");
+			return -1;
+		}
+
+		if (st.st_size != rfi->rfe->size) {
+			pr_err("File %s has bad size %lu (expect %lu)\n",
+					rfi->path, st.st_size,
+					(unsigned long)rfi->rfe->size);
+			return -1;
+		}
+
+		/*
+		 * This is only visible in the current process, so
+		 * change w/o locks. Other tasks sharing the same
+		 * file will get one via unix sockets.
+		 */
+		rfi->size_checked = true;
 	}
 
 	if (rfi->remap) {
@@ -844,6 +872,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 	rfi->rfe = pb_msg(base, RegFileEntry);
 	rfi->path = rfi->rfe->name;
 	rfi->remap = NULL;
+	rfi->size_checked = false;
 
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
 	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);

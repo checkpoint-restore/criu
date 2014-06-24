@@ -20,6 +20,7 @@ struct reg_file_info {
 	struct file_desc	d;
 	RegFileEntry		*rfe;
 	struct file_remap	*remap;
+	bool			size_checked;
 	char			*path;
 };
 
