@@ -172,8 +172,11 @@ lib: $(VERSION_HEADER) config built-in.o
 	$(Q) $(MAKE) $(build)=lib all
 
 ifeq ($(VDSO),y)
+$(ARCH_DIR)/vdso-pie.o: pie
+	$(Q) $(MAKE) $(build)=pie $(ARCH_DIR)/vdso-pie.o
 PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
 endif
+
 PROGRAM-BUILTINS	+= pie/util-fd.o
 PROGRAM-BUILTINS	+= pie/util.o
 PROGRAM-BUILTINS	+= protobuf/built-in.o
