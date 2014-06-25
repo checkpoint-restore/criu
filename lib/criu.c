@@ -205,6 +205,41 @@ er:
 	return -ENOMEM;
 }
 
+int criu_add_veth_pair(char *in, char *out)
+{
+	int nr;
+	CriuVethPair **a, *p;
+
+	p = malloc(sizeof(*p));
+	if (!p)
+		goto er;
+	p->if_in = strdup(in);
+	if (!p->if_in)
+		goto er_p;
+	p->if_out = strdup(out);
+	if (!p->if_out)
+		goto er_i;
+
+	nr = opts->n_veths + 1;
+	a = realloc(opts->veths, nr * sizeof(p));
+	if (!a)
+		goto er_o;
+
+	a[nr - 1] = p;
+	opts->veths = a;
+	opts->n_veths = nr;
+	return 0;
+
+er_o:
+	free(p->if_out);
+er_i:
+	free(p->if_in);
+er_p:
+	free(p);
+er:
+	return -ENOMEM;
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char buf[CR_MAX_MSG_SIZE];
