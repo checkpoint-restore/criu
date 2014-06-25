@@ -539,15 +539,35 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 	int ret;
 
 	ret = sys_get_robust_list(pid, &head, &len);
-	if (ret) {
-		pr_err("Failed obtaining futex robust list on %d\n", pid);
-		return -1;
+	if (ret == -ENOSYS) {
+		/*
+		 * If the kernel says get_robust_list is not implemented, then
+		 * check whether set_robust_list is also not implemented, in
+		 * that case we can assume it is empty, since set_robust_list
+		 * is the only way to populate it. This case is possible when
+		 * "futex_cmpxchg_enabled" is unset in the kernel.
+		 *
+		 * The following system call should always fail, even if it is
+		 * implemented, in which case it will return -EINVAL because
+		 * len should be greater than zero.
+		 */
+		if (sys_set_robust_list(NULL, 0) != -ENOSYS)
+			goto err;
+
+		head = NULL;
+		len = 0;
+	} else if (ret) {
+		goto err;
 	}
 
 	info->futex_rla		= encode_pointer(head);
 	info->futex_rla_len	= (u32)len;
 
 	return 0;
+
+err:
+	pr_err("Failed obtaining futex robust list on %d\n", pid);
+	return -1;
 }
 
 static int get_task_personality(pid_t pid, u32 *personality)
