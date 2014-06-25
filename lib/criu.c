@@ -19,6 +19,7 @@ const char *criu_lib_version = CRIU_VERSION;
 
 static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
 static CriuOpts *opts;
+static int (*notify)(char *action);
 static int saved_errno;
 
 void criu_set_service_address(char *path)
@@ -31,8 +32,10 @@ void criu_set_service_address(char *path)
 
 int criu_init_opts(void)
 {
-	if (opts)
+	if (opts) {
+		notify = NULL;
 		criu_opts__free_unpacked(opts, NULL);
+	}
 
 	opts = malloc(sizeof(CriuOpts));
 	if (opts == NULL) {
@@ -42,6 +45,13 @@ int criu_init_opts(void)
 
 	criu_opts__init(opts);
 	return 0;
+}
+
+void criu_set_notify_cb(int (*cb)(char *action))
+{
+	notify = cb;
+	opts->has_notify_scripts = true;
+	opts->notify_scripts = true;
 }
 
 void criu_set_pid(int pid)
@@ -291,6 +301,29 @@ err:
 	return -1;
 }
 
+static int send_notify_ack(int socket_fd, int ret)
+{
+	int send_ret;
+	CriuReq req = CRIU_REQ__INIT;
+
+	req.type = CRIU_REQ_TYPE__NOTIFY;
+	req.has_notify_success = true;
+	req.notify_success = (ret == 0);
+
+	send_ret = send_req(socket_fd, &req);
+
+	/*
+	 * If we're failing the notification then report
+	 * back the original error code (and it will be
+	 * propagated back to user).
+	 *
+	 * If the notification was OK, then report the
+	 * result of acking it.
+	 */
+
+	return ret ? : send_ret;
+}
+
 static int criu_connect(void)
 {
 	int fd, ret;
@@ -327,29 +360,41 @@ static int send_req_and_recv_resp_sk(int fd, CriuReq *req, CriuResp **resp)
 	int ret = 0;
 
 	if (send_req(fd, req) < 0) {
-		ret = ECOMM;
+		ret = -ECOMM;
 		goto exit;
 	}
 
+again:
 	*resp = recv_resp(fd);
 	if (!*resp) {
 		perror("Can't receive response");
-		ret = ECOMM;
+		ret = -ECOMM;
 		goto exit;
+	}
+
+	if ((*resp)->type == CRIU_REQ_TYPE__NOTIFY) {
+		if (notify)
+			ret = notify((*resp)->notify->script);
+
+		ret = send_notify_ack(fd, ret);
+		if (!ret)
+			goto again;
+		else
+			goto exit;
 	}
 
 	if ((*resp)->type != req->type) {
 		if ((*resp)->type == CRIU_REQ_TYPE__EMPTY &&
 		    (*resp)->success == false)
-			ret = EINVAL;
+			ret = -EINVAL;
 		else {
 			perror("Unexpected response type");
-			ret = EBADMSG;
+			ret = -EBADMSG;
 		}
 	}
 
 exit:
-	return -ret;
+	return ret;
 }
 
 static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
