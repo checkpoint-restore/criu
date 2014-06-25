@@ -702,7 +702,7 @@ int open_path(struct file_desc *d,
 		if (st.st_size != rfi->rfe->size) {
 			pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
 					rfi->path, st.st_size,
-					(unsigned long)rfi->rfe->size);
+					rfi->rfe->size);
 			return -1;
 		}
 
