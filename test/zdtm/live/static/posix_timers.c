@@ -20,6 +20,10 @@ sigset_t mask;
 #define MAX_TIMER_DISPLACEMENT	10
 #define NO_PERIODIC
 
+#ifndef CLOCK_BOOTTIME
+# define CLOCK_BOOTTIME		7
+#endif
+
 #ifndef NO_PERIODIC
 static void realtime_periodic_handler(int sig, siginfo_t *si, void *uc);
 static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc);
