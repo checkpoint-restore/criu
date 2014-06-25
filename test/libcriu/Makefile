@@ -4,16 +4,19 @@ all: test_sub test_self
 run: all
 	./run.sh
 
-test_sub: test_sub.o
+test_sub: test_sub.o lib.o
 	gcc $^ -L ../../lib -lcriu -o $@
 
 test_sub.o: test_sub.c
 	gcc -c $^ -I ../../lib -o $@
 
-test_self: test_self.o
+test_self: test_self.o lib.o
 	gcc $^ -L ../../lib -lcriu -o $@
 
 test_self.o: test_self.c
+	gcc -c $^ -I ../../lib -o $@
+
+lib.o: lib.c
 	gcc -c $^ -I ../../lib -o $@
 
 clean:
