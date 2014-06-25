@@ -672,7 +672,7 @@ static int attach_option(struct mount_info *pm, char *opt)
 }
 
 /* Is it mounted w or w/o the newinstance option */
-static int devpts_dump(struct mount_info *pm)
+static int devpts_parse(struct mount_info *pm)
 {
 	struct stat *host_st;
 
@@ -839,7 +839,7 @@ static struct fstype fstypes[] = {
 		.restore = tmpfs_restore,
 	}, {
 		.name = "devpts",
-		.dump = devpts_dump,
+		.parse = devpts_parse,
 		.code = FSTYPE__DEVPTS,
 	}, {
 		.name = "simfs",

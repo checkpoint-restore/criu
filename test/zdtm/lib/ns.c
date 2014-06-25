@@ -81,6 +81,10 @@ static int prepare_mntns()
 			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
 			return -1;
 		}
+		if (mount("/dev/pts/ptmx", "/dev/ptmx", NULL, MS_BIND, NULL)) {
+			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
+			return -1;
+		}
 		if (fchdir(dfd)) {
 			fprintf(stderr, "fchdir() failed: %m\n");
 			return -1;
