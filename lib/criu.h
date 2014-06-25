@@ -31,6 +31,7 @@ int criu_init_opts(void);
 
 void criu_set_pid(int pid);
 void criu_set_images_dir_fd(int fd); /* must be set for dump/restore */
+void criu_set_parent_images(char *path);
 void criu_set_work_dir_fd(int fd);
 void criu_set_leave_running(bool leave_running);
 void criu_set_ext_unix_sk(bool ext_unix_sk);
@@ -38,6 +39,10 @@ void criu_set_tcp_established(bool tcp_established);
 void criu_set_evasive_devices(bool evasive_devices);
 void criu_set_shell_job(bool shell_job);
 void criu_set_file_locks(bool file_locks);
+void criu_set_track_mem(bool track_mem);
+void criu_set_auto_dedup(bool auto_dedup);
+void criu_set_force_irmap(bool force_irmap);
+void criu_set_link_remap(bool link_remap);
 void criu_set_log_level(int log_level);
 void criu_set_log_file(char *log_file);
 void criu_set_cpu_cap(unsigned int cap);

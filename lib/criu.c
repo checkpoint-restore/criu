@@ -51,6 +51,35 @@ void criu_set_images_dir_fd(int fd)
 	opts->images_dir_fd = fd;
 }
 
+void criu_set_parent_images(char *path)
+{
+	opts->parent_img = strdup(path);
+}
+
+void criu_set_track_mem(bool track_mem)
+{
+	opts->has_track_mem = true;
+	opts->track_mem = track_mem;
+}
+
+void criu_set_auto_dedup(bool auto_dedup)
+{
+	opts->has_auto_dedup = true;
+	opts->auto_dedup = auto_dedup;
+}
+
+void criu_set_force_irmap(bool force_irmap)
+{
+	opts->has_force_irmap = true;
+	opts->force_irmap = force_irmap;
+}
+
+void criu_set_link_remap(bool link_remap)
+{
+	opts->has_link_remap = true;
+	opts->link_remap = link_remap;
+}
+
 void criu_set_work_dir_fd(int fd)
 {
 	opts->has_work_dir_fd	= true;
