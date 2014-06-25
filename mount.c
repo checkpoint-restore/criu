@@ -675,26 +675,12 @@ static int attach_option(struct mount_info *pm, char *opt)
 static int devpts_dump(struct mount_info *pm)
 {
 	struct stat *host_st;
-	struct stat st;
-	int fdir;
 
 	host_st = kerndat_get_devpts_stat();
 	if (host_st == NULL)
 		return -1;
 
-	fdir = open_mountpoint(pm);
-	if (fdir < 0)
-		return -1;
-
-	if (fstat(fdir, &st)) {
-		pr_perror("Unable to statfs %d:%s",
-				pm->mnt_id, pm->mountpoint);
-		close(fdir);
-		return -1;
-	}
-	close(fdir);
-
-	if (host_st->st_dev == st.st_dev)
+	if (host_st->st_dev == kdev_to_odev(pm->s_dev))
 		return 0;
 
 	return attach_option(pm, "newinstance");
