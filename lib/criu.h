@@ -41,6 +41,7 @@ void criu_set_file_locks(bool file_locks);
 void criu_set_log_level(int log_level);
 void criu_set_log_file(char *log_file);
 void criu_set_cpu_cap(unsigned int cap);
+void criu_set_root(char *root);
 int criu_set_exec_cmd(int argc, char *argv[]);
 
 /* Here is a table of return values and errno's of functions
