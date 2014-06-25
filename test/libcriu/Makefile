@@ -1,4 +1,4 @@
-all: build/test test_sub
+all: build/test test_sub test_self
 .PHONY: all
 
 run: all
@@ -10,6 +10,12 @@ test_sub: test_sub.o
 test_sub.o: test_sub.c
 	gcc -c $^ -I ../../lib -o $@
 
+test_self: test_self.o
+	gcc $^ -L ../../lib -lcriu -o $@
+
+test_self.o: test_self.c
+	gcc -c $^ -I ../../lib -o $@
+
 build/test: build/test.o
 	gcc $^ -L ../../lib -lcriu -o $@
 
@@ -17,5 +23,5 @@ build/test.o: test.c
 	gcc -c $^ -I ../../lib -o $@
 
 clean:
-	rm -rf build test_sub test_sub.o
+	rm -rf build test_sub test_sub.o test_self test_sub.o
 .PHONY: clean
