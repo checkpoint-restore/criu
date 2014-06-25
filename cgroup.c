@@ -258,7 +258,10 @@ static int move_in_cgroup(CgSetEntry *se)
 		int fd, err;
 		ControllerEntry *ce = se->ctls[i];
 
-		sprintf(aux, "%s/%s/tasks", ce->name, ce->path);
+		if (strstartswith(ce->name, "name="))
+			sprintf(aux, "%s/%s/tasks", ce->name + 5, ce->path);
+		else
+			sprintf(aux, "%s/%s/tasks", ce->name, ce->path);
 		pr_debug("  `-> %s\n", aux);
 		err = fd = openat(cg, aux, O_WRONLY);
 		if (fd >= 0) {
@@ -371,11 +374,12 @@ static int prepare_cgroup_sfd(CgSetEntry *root_set)
 		ControllerEntry *ce = root_set->ctls[i];
 		char *opt = ce->name;
 
-		sprintf(paux + off, "/%s", ce->name);
 		if (strstartswith(ce->name, "name=")) {
+			sprintf(paux + off, "/%s", ce->name + 5);
 			sprintf(aux, "none,%s", ce->name);
 			opt = aux;
-		}
+		} else
+			sprintf(paux + off, "/%s", ce->name);
 
 		if (mkdir(paux, 0700)) {
 			pr_perror("Can't make cgyard subdir");
