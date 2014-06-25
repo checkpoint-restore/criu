@@ -32,6 +32,21 @@ static void what_err_ret_mean(ret)
 	}
 }
 
+static inline int chk_exit(int status, int want)
+{
+	if (WIFEXITED(status)) {
+		if (WEXITSTATUS(status) == want)
+			return 0;
+
+		printf("   `- FAIL (exit %d)\n", WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status))
+		printf("   `- FAIL (die %d)\n", WTERMSIG(status));
+	else
+		printf("   `- FAIL (%#x)\n", status);
+
+	return 1;
+}
+
 static int stop = 0;
 static void sh(int sig)
 {
@@ -126,15 +141,5 @@ err:
 		return -1;
 	}
 
-	if (WIFEXITED(ret)) {
-		if (WEXITSTATUS(ret) == SUCC_ECODE)
-			printf("   `- Success\n");
-		else
-			printf("   `- FAIL ec is %d\n", WEXITSTATUS(ret));
-	} else if (WIFSIGNALED(ret))
-		printf("   `- FAIL killed %d\n", WTERMSIG(ret));
-	else
-		printf("   `- FAIL bs %#x\n", ret);
-
-	return 0;
+	return chk_exit(ret, SUCC_ECODE);
 }
