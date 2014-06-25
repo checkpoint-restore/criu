@@ -48,6 +48,7 @@ void criu_set_log_file(char *log_file);
 void criu_set_cpu_cap(unsigned int cap);
 void criu_set_root(char *root);
 int criu_set_exec_cmd(int argc, char *argv[]);
+int criu_add_ext_mount(char *key, char *val);
 
 /* Here is a table of return values and errno's of functions
  * from the list down below.

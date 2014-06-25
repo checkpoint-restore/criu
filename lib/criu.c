@@ -170,6 +170,41 @@ out:
 	return -ENOMEM;
 }
 
+int criu_add_ext_mount(char *key, char *val)
+{
+	int nr;
+	ExtMountMap **a, *m;
+
+	m = malloc(sizeof(*m));
+	if (!m)
+		goto er;
+	m->key = strdup(key);
+	if (!m->key)
+		goto er_n;
+	m->val = strdup(val);
+	if (!m->val)
+		goto er_k;
+
+	nr = opts->n_ext_mnt + 1;
+	a = realloc(opts->ext_mnt, nr * sizeof(m));
+	if (!a)
+		goto er_v;
+
+	a[nr - 1] = m;
+	opts->ext_mnt = a;
+	opts->n_ext_mnt = nr;
+	return 0;
+
+er_v:
+	free(m->val);
+er_k:
+	free(m->key);
+er_n:
+	free(m);
+er:
+	return -ENOMEM;
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char buf[CR_MAX_MSG_SIZE];
