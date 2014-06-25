@@ -123,7 +123,9 @@ static/dumpable02
 #
 # Arch specific tests
 if [ $ARCH = "x86_64" ]; then
-	TEST_LIST_ARCH="static/vdso01"
+	TEST_LIST_ARCH="
+static/vdso01
+"
 fi
 
 TEST_LIST=$TEST_LIST$TEST_LIST_ARCH
