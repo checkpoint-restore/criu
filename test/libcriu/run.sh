@@ -37,6 +37,7 @@ function run_test {
 
 run_test test_sub
 run_test test_self
+run_test test_notify
 
 echo "== Stopping service"
 kill -TERM $(cat wdir/s/pidfile)
