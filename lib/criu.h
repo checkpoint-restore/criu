@@ -91,4 +91,19 @@ int criu_dump(void);
 int criu_restore(void);
 int criu_restore_child(void);
 
+/*
+ * Perform dumping but with preliminary iterations. Each
+ * time an iteration ends the ->more callback is called.
+ * The callback's return value is
+ *   - positive -- one more iteration starts
+ *   - zero     -- final dump is performed and call exits
+ *   - negative -- dump is aborted, the value is returned
+ *     back from criu_dump_iters
+ *
+ * The @pi argument is an opaque value that caller may
+ * use to request pre-dump statistics (not yet implemented).
+ */
+typedef void *criu_predump_info;
+int criu_dump_iters(int (*more)(criu_predump_info pi));
+
 #endif /* __CRIU_LIB_H__ */

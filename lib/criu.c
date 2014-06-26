@@ -476,6 +476,70 @@ exit:
 	return ret;
 }
 
+int criu_dump_iters(int (*more)(criu_predump_info pi))
+{
+	int ret = -1, fd = -1, uret;
+	CriuReq req	= CRIU_REQ__INIT;
+	CriuResp *resp	= NULL;
+
+	saved_errno = 0;
+
+	req.type	= CRIU_REQ_TYPE__PRE_DUMP;
+	req.opts	= opts;
+
+	ret = -EINVAL;
+	/*
+	 * Self-dump in iterable manner is tricky and
+	 * not supported for the moment.
+	 *
+	 * Calls w/o iteration callback is, well, not
+	 * allowed either.
+	 */
+	if (!opts->has_pid || !more)
+		goto exit;
+
+	ret = -ECONNREFUSED;
+	fd = criu_connect();
+	if (fd < 0)
+		goto exit;
+
+	while (1) {
+		ret = send_req_and_recv_resp_sk(fd, &req, &resp);
+		if (ret)
+			goto exit;
+
+		if (!resp->success) {
+			ret = -EBADE;
+			goto exit;
+		}
+
+		uret = more(NULL);
+		if (uret < 0) {
+			ret = uret;
+			goto exit;
+		}
+
+		criu_resp__free_unpacked(resp, NULL);
+
+		if (uret == 0)
+			break;
+	}
+
+	req.type = CRIU_REQ_TYPE__DUMP;
+	ret = send_req_and_recv_resp_sk(fd, &req, &resp);
+	if (!ret)
+		ret = (resp->success ? 0 : -EBADE);
+exit:
+	if (fd >= 0)
+		close(fd);
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
+
+	errno = saved_errno;
+
+	return ret;
+}
+
 int criu_restore(void)
 {
 	int ret = -1;
