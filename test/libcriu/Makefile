@@ -1,6 +1,7 @@
 TESTS += test_sub 
 TESTS += test_self
 TESTS += test_notify
+TESTS += test_iters
 
 all: $(TESTS)
 
