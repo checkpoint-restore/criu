@@ -19,7 +19,7 @@ const char *criu_lib_version = CRIU_VERSION;
 
 static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
 static CriuOpts *opts;
-static int (*notify)(char *action);
+static int (*notify)(char *action, criu_notify_arg_t na);
 static int saved_errno;
 
 void criu_set_service_address(char *path)
@@ -47,11 +47,16 @@ int criu_init_opts(void)
 	return 0;
 }
 
-void criu_set_notify_cb(int (*cb)(char *action))
+void criu_set_notify_cb(int (*cb)(char *action, criu_notify_arg_t na))
 {
 	notify = cb;
 	opts->has_notify_scripts = true;
 	opts->notify_scripts = true;
+}
+
+int criu_notify_pid(criu_notify_arg_t na)
+{
+	return na->has_pid ? na->pid : 0;
 }
 
 void criu_set_pid(int pid)
@@ -374,7 +379,7 @@ again:
 
 	if ((*resp)->type == CRIU_REQ_TYPE__NOTIFY) {
 		if (notify)
-			ret = notify((*resp)->notify->script);
+			ret = notify((*resp)->notify->script, (*resp)->notify);
 
 		ret = send_notify_ack(fd, ret);
 		if (!ret)

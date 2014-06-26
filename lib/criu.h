@@ -50,7 +50,20 @@ void criu_set_root(char *root);
 int criu_set_exec_cmd(int argc, char *argv[]);
 int criu_add_ext_mount(char *key, char *val);
 int criu_add_veth_pair(char *in, char *out);
-void criu_set_notify_cb(int (*cb)(char *action));
+
+/*
+ * The criu_notify_arg_t na argument is an opaque
+ * value that callbacks (cb-s) should pass into
+ * criu_notify_xxx() calls to fetch arbitrary values
+ * from notification. If the value is not available
+ * some non-existing one is reported.
+ */
+
+typedef struct _CriuNotify *criu_notify_arg_t;
+void criu_set_notify_cb(int (*cb)(char *action, criu_notify_arg_t na));
+
+/* Get pid of root task. 0 if not available */
+int criu_notify_pid(criu_notify_arg_t na);
 
 /* Here is a table of return values and errno's of functions
  * from the list down below.
