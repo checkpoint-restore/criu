@@ -90,6 +90,7 @@ struct thread_restore_args {
 
 	siginfo_t			*siginfo;
 	unsigned int			siginfo_nr;
+	int				pdeath_sig;
 } __aligned(64);
 
 struct task_restore_args {

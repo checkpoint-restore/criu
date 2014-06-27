@@ -689,6 +689,10 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 		CORE_THREAD_ARCH_INFO(core)->clear_tid_addr = encode_pointer(ti->tid_addr);
 		BUG_ON(!tc->sas);
 		copy_sas(tc->sas, &ti->sas);
+		if (ti->pdeath_sig) {
+			tc->has_pdeath_sig = true;
+			tc->pdeath_sig = ti->pdeath_sig;
+		}
 	}
 
 	return ret;

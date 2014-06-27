@@ -48,6 +48,7 @@ message thread_core_entry {
 	optional uint32			sched_prio	= 5;
 	optional uint64			blk_sigset	= 6;
 	optional thread_sas_entry	sas		= 7;
+	optional uint32			pdeath_sig	= 8;
 }
 
 message task_rlimits_entry {

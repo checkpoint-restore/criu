@@ -35,6 +35,10 @@ static struct parasite_dump_pages_args *mprotect_args = NULL;
 #define SPLICE_F_GIFT	0x08
 #endif
 
+#ifndef PR_GET_PDEATHSIG
+#define PR_GET_PDEATHSIG  2
+#endif
+
 static int mprotect_vmas(struct parasite_dump_pages_args *args)
 {
 	struct parasite_vma_entry *vmas, *vma;
@@ -145,9 +149,15 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 
 	arch_get_tls(&ti->tls);
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &ti->tid_addr, 0, 0, 0);
-	if (ret == 0)
-		ret = sys_sigaltstack(NULL, &ti->sas);
+	if (ret)
+		goto out;
 
+	ret = sys_sigaltstack(NULL, &ti->sas);
+	if (ret)
+		goto out;
+
+	ret = sys_prctl(PR_GET_PDEATHSIG, (unsigned long)&ti->pdeath_sig, 0, 0, 0);
+out:
 	return ret;
 }
 

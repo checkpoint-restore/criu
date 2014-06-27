@@ -141,6 +141,7 @@ struct parasite_dump_thread {
 	pid_t			tid;
 	tls_t			tls;
 	stack_t			sas;
+	int			pdeath_sig;
 };
 
 /*

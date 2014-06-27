@@ -35,6 +35,10 @@
 
 #include "asm/restorer.h"
 
+#ifndef PR_SET_PDEATHSIG
+#define PR_SET_PDEATHSIG 1
+#endif
+
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
@@ -187,6 +191,20 @@ static int restore_creds(CredsEntry *ce)
 	}
 
 	return 0;
+}
+
+/*
+ * This should be done after creds restore, as
+ * some creds changes might drop the value back
+ * to zero.
+ */
+
+static inline int restore_pdeath_sig(struct thread_restore_args *ta)
+{
+	if (ta->pdeath_sig)
+		return sys_prctl(PR_SET_PDEATHSIG, ta->pdeath_sig, 0, 0, 0);
+	else
+		return 0;
 }
 
 static int restore_dumpable_flag(MmEntry *mme)
@@ -349,6 +367,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+	restore_pdeath_sig(args);
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 	futex_dec_and_wake(&thread_inprogress);
 
@@ -1004,6 +1023,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	ret = restore_creds(&args->creds);
 	ret = ret || restore_dumpable_flag(&args->mm);
+	ret = ret || restore_pdeath_sig(args->t);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
