@@ -101,6 +101,7 @@ static/fpu01
 static/mmx00
 static/sse00
 static/sse20
+static/pdeath_sig
 static/fdt_shared
 static/file_locks00
 static/file_locks01

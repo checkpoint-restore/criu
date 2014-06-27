@@ -71,6 +71,7 @@ TST_NOFILE	=				\
 		maps05				\
 		xids00				\
 		groups				\
+		pdeath_sig			\
 		file_fown			\
 		proc-self			\
 		eventfs00			\
