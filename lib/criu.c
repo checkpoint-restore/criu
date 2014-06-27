@@ -15,6 +15,10 @@
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
 
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
+
 const char *criu_lib_version = CRIU_VERSION;
 
 static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
