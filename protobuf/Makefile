@@ -36,6 +36,7 @@ proto-obj-y	+= mnt.o
 proto-obj-y	+= pipe-data.o
 proto-obj-y	+= sa.o
 proto-obj-y	+= timer.o
+proto-obj-y	+= timerfd.o
 proto-obj-y	+= mm.o
 proto-obj-y	+= sk-opts.o
 proto-obj-y	+= sk-unix.o
