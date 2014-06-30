@@ -32,6 +32,7 @@
 #include "signalfd.h"
 #include "namespaces.h"
 #include "tun.h"
+#include "timerfd.h"
 #include "fdset.h"
 #include "fs-magic.h"
 #include "proc_parse.h"
@@ -325,6 +326,8 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 			ops = &fanotify_dump_ops;
 		else if (is_signalfd_link(link))
 			ops = &signalfd_dump_ops;
+		else if (is_timerfd_link(link))
+			ops = &timerfd_dump_ops;
 		else
 			return dump_unsupp_fd(&p, lfd, fdinfo, "anon", link);
 

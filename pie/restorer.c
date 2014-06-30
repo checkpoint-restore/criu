@@ -534,6 +534,49 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 	return 0;
 }
 
+static int timerfd_arm(struct task_restore_args *args)
+{
+	int i;
+
+	for (i = 0; i < args->timerfd_n; i++) {
+		struct restore_timerfd *t = &args->timerfd[i];
+		int ret;
+
+		pr_debug("timerfd: arm for fd %d (%d)\n", t->fd, i);
+
+		if (t->settime_flags & TFD_TIMER_ABSTIME) {
+			struct timespec ts = { };
+
+			/*
+			 * We might need to adjust value because the checkpoint
+			 * and restore procedure takes some time itself. Note
+			 * we don't adjust nanoseconds, since the result may
+			 * overflow the limit NSEC_PER_SEC FIXME
+			 */
+			if (sys_clock_gettime(t->clockid, &ts)) {
+				pr_err("Can't get current time");
+				return -1;
+			}
+
+			t->val.it_value.tv_sec += (time_t)ts.tv_sec;
+
+			pr_debug("Ajust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n",
+				 t->id, (unsigned long long)ts.tv_sec,
+				 (unsigned long long)ts.tv_nsec,
+				 (unsigned long long)t->val.it_value.tv_sec,
+				 (unsigned long long)t->val.it_value.tv_nsec);
+		}
+
+		ret  = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+		ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
+		if (ret) {
+			pr_err("Can't restore ticks/time for timerfd - %d\n", i);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int create_posix_timers(struct task_restore_args *args)
 {
 	int ret, i;
@@ -959,6 +1002,12 @@ long __export_restore_task(struct task_restore_args *args)
 	ret = create_posix_timers(args);
 	if (ret < 0) {
 		pr_err("Can't restore posix timers %ld\n", ret);
+		goto core_restore_end;
+	}
+
+	ret = timerfd_arm(args);
+	if (ret < 0) {
+		pr_err("Can't restore timerfd %ld\n", ret);
 		goto core_restore_end;
 	}
 

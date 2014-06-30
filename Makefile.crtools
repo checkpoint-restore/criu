@@ -57,6 +57,7 @@ obj-y	+= pagemap-cache.o
 obj-y	+= kerndat.o
 obj-y	+= stats.o
 obj-y	+= cgroup.o
+obj-y	+= timerfd.o
 obj-y	+= string.o
 obj-y	+= sigframe.o
 ifeq ($(VDSO),y)

@@ -69,6 +69,7 @@
 #include "rst-malloc.h"
 #include "plugin.h"
 #include "cgroup.h"
+#include "timerfd.h"
 
 #include "parasite-syscall.h"
 
@@ -153,6 +154,7 @@ static struct collect_image_info *cinfos[] = {
 	&tty_cinfo,
 	&tunfile_cinfo,
 	&ext_file_cinfo,
+	&timerfd_cinfo,
 };
 
 static int root_prepare_shared(void)
@@ -2358,6 +2360,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	void *tcp_socks_mem;
 	unsigned long tcp_socks;
 
+	void *timerfd_mem;
+	unsigned long timerfd_mem_cpos;
+
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
@@ -2409,6 +2414,16 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err_nv;
 
 	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
+
+	/*
+	 * Copy timerfd params for restorer args, we need to proceed
+	 * timer setting at the very late.
+	 */
+	timerfd_mem_cpos = rst_mem_cpos(RM_PRIVATE);
+	timerfd_mem = rst_mem_alloc(rst_timerfd_len(), RM_PRIVATE);
+	if (!timerfd_mem)
+		goto err_nv;
+	memcpy(timerfd_mem, rst_timerfd, rst_timerfd_len());
 
 	/*
 	 * We're about to search for free VM area and inject the restorer blob
@@ -2532,6 +2547,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->timer_n = posix_timers_nr;
 	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE);
+
+	task_args->timerfd_n = rst_timerfd_nr;
+	task_args->timerfd = rst_mem_remap_ptr(timerfd_mem_cpos, RM_PRIVATE);
 
 	task_args->siginfo_nr = siginfo_nr;
 	task_args->siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);

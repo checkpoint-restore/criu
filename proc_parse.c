@@ -1043,6 +1043,51 @@ static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 	}
 }
 
+static int parse_timerfd(FILE *f, char *buf, size_t size, TimerfdEntry *tfy)
+{
+	/*
+	 * Format is
+	 * clockid: 0
+	 * ticks: 0
+	 * settime flags: 01
+	 * it_value: (0, 49406829)
+	 * it_interval: (1, 0)
+	 */
+	if (sscanf(buf, "clockid: %d", &tfy->clockid) != 1)
+		goto parse_err;
+
+	if (!fgets(buf, size, f))
+		goto nodata;
+	if (sscanf(buf, "ticks: %llu", (unsigned long long *)&tfy->ticks) != 1)
+		goto parse_err;
+
+	if (!fgets(buf, size, f))
+		goto nodata;
+	if (sscanf(buf, "settime flags: 0%o", &tfy->settime_flags) != 1)
+		goto parse_err;
+
+	if (!fgets(buf, size, f))
+		goto nodata;
+	if (sscanf(buf, "it_value: (%llu, %llu)",
+		   (unsigned long long *)&tfy->vsec,
+		   (unsigned long long *)&tfy->vnsec) != 2)
+		goto parse_err;
+
+	if (!fgets(buf, size, f))
+		goto nodata;
+	if (sscanf(buf, "it_interval: (%llu, %llu)",
+		   (unsigned long long *)&tfy->isec,
+		   (unsigned long long *)&tfy->insec) != 2)
+		goto parse_err;
+	return 0;
+
+parse_err:
+	return -1;
+nodata:
+	pr_err("No data left in proc file while parsing timerfd\n");
+	goto parse_err;
+}
+
 #define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
 
 static int parse_fdinfo_pid_s(char *pid, int fd, int type,
@@ -1097,6 +1142,21 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 			ret = sscanf(str, "eventfd-count: %"PRIx64,
 					&entry.efd.counter);
 			if (ret != 1)
+				goto parse_err;
+			ret = cb(&entry, arg);
+			if (ret)
+				goto out;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "clockid")) {
+			timerfd_entry__init(&entry.tfy);
+
+			if (type != FD_TYPES__TIMERFD)
+				goto parse_err;
+			ret = parse_timerfd(f, str, sizeof(str), &entry.tfy);
+			if (ret)
 				goto parse_err;
 			ret = cb(&entry, arg);
 			if (ret)

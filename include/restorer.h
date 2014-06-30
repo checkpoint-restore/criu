@@ -16,6 +16,7 @@
 #include "config.h"
 
 #include "posix-timer.h"
+#include "timerfd.h"
 #include "shmem.h"
 #include "sigframe.h"
 #include "vdso.h"
@@ -125,6 +126,9 @@ struct task_restore_args {
 
 	int				timer_n;
 	struct restore_posix_timer	*posix_timers;
+
+	int				timerfd_n;
+	struct restore_timerfd		*timerfd;
 
 	CredsEntry			creds;
 	u32				cap_inh[CR_CAP_SIZE];

@@ -11,6 +11,7 @@
 #include "protobuf/eventpoll.pb-c.h"
 #include "protobuf/signalfd.pb-c.h"
 #include "protobuf/fsnotify.pb-c.h"
+#include "protobuf/timerfd.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
@@ -171,6 +172,7 @@ union fdinfo_entries {
 	SignalfdEntry sfd;
 	InotifyWdEntry ify;
 	FanotifyMarkEntry ffy;
+	TimerfdEntry tfy;
 };
 
 struct fdinfo_common {
