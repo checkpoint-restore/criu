@@ -41,6 +41,7 @@ static/file_shared
 static/file_append
 static/timers
 static/posix_timers
+static/timerfd
 static/futex
 static/futex-rl
 static/xids00

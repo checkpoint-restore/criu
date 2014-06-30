@@ -23,6 +23,7 @@ TST_NOFILE	=				\
 		sse20				\
 		mprotect00			\
 		timers				\
+		timerfd				\
 		unbound_sock			\
 		sched_prio00			\
 		sched_policy00			\
