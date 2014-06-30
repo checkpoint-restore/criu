@@ -183,14 +183,16 @@ int main(int argc, char *argv[])
 	if (init_service_fd())
 		return 1;
 
-	if (!strcmp(argv[1], "swrk"))
+	if (!strcmp(argv[1], "swrk")) {
 		/*
 		 * This is to start criu service worker from libcriu calls.
 		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
 		 * The arguments semantics can change at any tyme with the
 		 * corresponding lib call change.
 		 */
+		opts.swrk_restore = true;
 		return cr_service_work(atoi(argv[2]));
+	}
 
 	while (1) {
 		idx = -1;

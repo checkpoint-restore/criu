@@ -1374,7 +1374,7 @@ static int restore_switch_stage(int next_stage)
 	return restore_wait_inprogress_tasks();
 }
 
-static int attach_to_tasks()
+static int attach_to_tasks(bool root_seized)
 {
 	struct pstree_item *item;
 
@@ -1394,9 +1394,21 @@ static int attach_to_tasks()
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 
-			if (ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-				pr_perror("Can't attach to %d", pid);
-				return -1;
+			if (item != root_item || !root_seized) {
+				if (ptrace(PTRACE_ATTACH, pid, 0, 0)) {
+					pr_perror("Can't attach to %d", pid);
+					return -1;
+				}
+			} else {
+				/*
+				 * Root item is SEIZE-d, so we only need
+				 * to stop one (INTERRUPT) to make wait4
+				 * and SYSCALL below work.
+				 */
+				if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
+					pr_perror("Can't interrupt task");
+					return -1;
+				}
 			}
 
 			if (wait4(pid, &status, __WALL, NULL) != pid) {
@@ -1513,9 +1525,42 @@ static int restore_root_task(struct pstree_item *init)
 	futex_set(&task_entries->nr_in_progress,
 			stage_participants(CR_STATE_RESTORE_NS));
 
+	/*
+	 * This means we're called from lib's criu_restore_child().
+	 * In that case create the root task as the child one to+
+	 * the caller. This is the only way to correctly restore the
+	 * pdeath_sig of the root task. But also looks nice.
+	 */
+	if (opts.swrk_restore)
+		init->rst->clone_flags |= CLONE_PARENT;
+
 	ret = fork_with_pid(init);
 	if (ret < 0)
 		return -1;
+
+	if (opts.swrk_restore) {
+		/*
+		 * Root task is not our sibling. This means, that
+		 * we will not notice when (if) it dies in SIGCHLD
+		 * handler, but we should. To do this -- attach to
+		 * the guy with ptrace and (!) make the kernel
+		 * deliver us the signal when it will get stopped.
+		 * It will in case of e.g. segfault before handling
+		 * the signal.
+		 */
+
+		act.sa_flags &= ~SA_NOCLDSTOP;
+		ret = sigaction(SIGCHLD, &act, NULL);
+		if (ret < 0) {
+			pr_perror("sigaction() failed");
+			goto out;
+		}
+
+		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
+			pr_perror("Can't attach to init");
+			goto out;
+		}
+	}
 
 	pr_info("Wait until namespaces are created\n");
 	ret = restore_wait_inprogress_tasks();
@@ -1570,7 +1615,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	timing_stop(TIME_RESTORE);
 
-	ret = attach_to_tasks();
+	ret = attach_to_tasks(opts.swrk_restore);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);

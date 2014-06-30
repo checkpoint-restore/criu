@@ -34,6 +34,7 @@ struct cr_options {
 	bool			link_remap_ok;
 	unsigned int		rst_namespaces_flags;
 	bool			log_file_per_pid;
+	bool			swrk_restore;
 	char			*output;
 	char			*root;
 	char			*pidfile;

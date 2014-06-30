@@ -15,10 +15,6 @@
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
 
-#ifndef PR_SET_CHILD_SUBREAPER
-#define PR_SET_CHILD_SUBREAPER 36
-#endif
-
 const char *criu_lib_version = CRIU_VERSION;
 
 static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
@@ -582,15 +578,6 @@ int criu_restore_child(void)
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sks))
 		goto out;
 
-	/*
-	 * Set us as child subreaper so that after the swrk
-	 * finishes restore and exits the restored subtree
-	 * gets reparented to us.
-	 */
-
-	if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0))
-		goto err;
-
 	pid = fork();
 	if (pid < 0)
 		goto err;
@@ -633,8 +620,6 @@ int criu_restore_child(void)
 
 	close(sks[0]);
 	waitpid(pid, NULL, 0);
-	/* Drop the subreaper role _after_ swrk exits */
-	prctl(PR_SET_CHILD_SUBREAPER, 0, 0, 0);
 
 	if (!ret) {
 		ret = resp->success ? resp->restore->pid : -EBADE;
