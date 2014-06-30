@@ -16,6 +16,7 @@ enum fd_types {
 	NS		= 14;
 	TUN		= 15;
 	EXT		= 16;
+	TIMERFD		= 17;
 }
 
 message fdinfo_entry {
