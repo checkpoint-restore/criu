@@ -146,6 +146,7 @@
 /live/static/uptime_grow
 /live/static/utsname
 /live/static/vdso00
+/live/static/vdso01
 /live/static/wait00
 /live/static/write_read00
 /live/static/write_read01
@@ -171,6 +172,7 @@
 /live/transition/maps007
 /live/transition/ptrace
 /live/transition/thread-bomb
+/live/static/pdeath_sig
 
 *.pid
 *.out
