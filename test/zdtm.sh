@@ -353,7 +353,6 @@ start_test()
 	local tdir=$1
 	local tname=$2
 	export ZDTM_ROOT
-	TPID=`readlink -f $tdir`/$tname.init.pid
 
 	killall -9 $tname > /dev/null 2>&1
 	make -C $tdir $tname.cleanout
@@ -368,9 +367,10 @@ start_test()
 	fi
 
 	if [ -z "$PIDNS" ]; then
+		TPID="$test.pid"
 		make -C $tdir $tname.pid || return 1
-		PID=`cat $test.pid` || return 1
 	else
+		TPID=$(readlink -f $tdir)/$tname.init.pid
 		if [ -z "$ZDTM_ROOT" ]; then
 			mkdir -p dump
 			ZDTM_ROOT=`mktemp -d /tmp/criu-root.XXXXXX`
@@ -388,9 +388,12 @@ start_test()
 			return 1
 		fi
 	)
+	fi
 
-		PID=`cat "$TPID"`
-		ps -p $PID || return 1
+	PID=`cat "$TPID"` || return 1
+	if ! ps -p $PID ; then
+		echo "Test failed to start"
+		return 1
 	fi
 }
 
@@ -468,10 +471,6 @@ run_test()
 	fi
 
 	local ddump
-	if ! kill -s 0 "$PID"; then
-		echo "Got a wrong pid '$PID'"
-		return 1
-	fi
 
 	if [ -f "${test}.opts" ]; then
 		gen_args="$gen_args $(cat "${test}.opts")"
