@@ -459,7 +459,7 @@ run_test()
 	test=${ZP}/${test#ns/}
 
 	shift
-	local args=$*
+	local gen_args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
 	DUMP_PATH=""
@@ -494,20 +494,20 @@ to ip is written in \$CR_IP_TOOL.
 EOF
 			exit 1
 		fi
-		args="--root $ZDTM_ROOT --pidfile $TPID $args"
+		gen_args="--root $ZDTM_ROOT --pidfile $TPID $gen_args"
 	fi
 
 	if [ $tname = "rtc" ]; then
-		args="$args -L `pwd`/$tdir/lib"
+		gen_args="$gen_args -L `pwd`/$tdir/lib"
 	fi
 
 	if [ -n "$AUTO_DEDUP" ]; then
-		args="$args --auto-dedup"
+		gen_args="$gen_args --auto-dedup"
 		ps_args="--auto-dedup"
 	fi
 
 	if echo $tname | fgrep -q 'irmap'; then
-		args="$args --force-irmap"
+		gen_args="$gen_args --force-irmap"
 	fi
 
 	for i in `seq $ITERATIONS`; do
@@ -546,7 +546,7 @@ EOF
 		save_fds $PID  $ddump/dump.fd
 		save_maps $PID  $ddump/dump.maps
 		setsid $CRIU_CPT $dump_cmd $opts --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $snapopt $postdump
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $gen_args $snapopt $postdump
 		retcode=$?
 
 		#
@@ -604,7 +604,7 @@ EOF
 			done
 
 			echo Restore
-			setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $args || return 2
+			setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $gen_args || return 2
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 			for i in `seq 5`; do
