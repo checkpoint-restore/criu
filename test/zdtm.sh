@@ -14,6 +14,7 @@ ZP="zdtm/live"
 TEST_LIST="
 static/pipe00
 static/pipe01
+static/pipe02
 static/busyloop00
 static/cwd00
 static/env00
@@ -69,7 +70,9 @@ static/sock_filter
 static/socket6_udp
 static/socket_udplite
 static/selfexe00
+static/link10
 static/unlink_fstat00
+static/unlink_fstat01
 static/unlink_fstat02
 static/unlink_fstat03
 static/unlink_mmap00
@@ -85,6 +88,9 @@ static/fifo-rowo-pair
 static/fifo-ghost
 static/fifo
 static/fifo_wronly
+static/fifo_ro
+static/unlink_fifo
+static/unlink_fifo_wronly
 static/zombie00
 static/rlimits00
 transition/fork
