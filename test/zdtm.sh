@@ -368,7 +368,7 @@ start_test()
 
 	if [ -z "$PIDNS" ]; then
 		TPID="$test.pid"
-		make -C $tdir $tname.pid || return 1
+		unset ZDTM_NEWNS
 	else
 		TPID=$(readlink -f $tdir)/$tname.init.pid
 		if [ -z "$ZDTM_ROOT" ]; then
@@ -378,16 +378,18 @@ start_test()
 			mount --bind . $ZDTM_ROOT || return 1
 		fi
 		construct_root $ZDTM_ROOT $tdir/$tname || return 1
-	(	export ZDTM_NEWNS=1
+		export ZDTM_NEWNS=1
 		export ZDTM_PIDFILE=$TPID
 		cd $ZDTM_ROOT
 		rm -f $ZDTM_PIDFILE
-		if ! make -C $tdir $tname.pid; then
-			echo ERROR: fail to start $tdir/$tname
-			return 1
-		fi
-	)
 	fi
+
+	if ! make -C $tdir $tname.pid; then
+		echo ERROR: fail to start $tdir/$tname
+		return 1
+	fi
+
+	[ -z "$ZDTM_ROOT" ] || cd -
 
 	PID=`cat "$TPID"` || return 1
 	if ! ps -p $PID ; then
