@@ -203,8 +203,6 @@ SCRIPTDIR=`dirname $CRIU`/test
 POSTDUMP="--action-script $SCRIPTDIR/post-dump.sh"
 VERBOSE=0
 
-ARGS=""
-
 PID=""
 PIDNS=""
 
@@ -548,7 +546,7 @@ EOF
 		save_fds $PID  $ddump/dump.fd
 		save_maps $PID  $ddump/dump.maps
 		setsid $CRIU_CPT $dump_cmd $opts --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $ARGS $snapopt $postdump
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $args $snapopt $postdump
 		retcode=$?
 
 		#
