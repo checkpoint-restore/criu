@@ -435,7 +435,6 @@ run_test()
 {
 	local test=$1
 	local linkremap=
-	local snapopt=
 	local snappdir=
 	local ps_pid=
 
@@ -511,8 +510,8 @@ EOF
 	fi
 
 	for i in `seq $ITERATIONS`; do
+		local cpt_args=
 		local dump_only=
-		local postdump=
 		local dump_cmd="dump"
 		ddump=`readlink -fm dump/$tname/$PID/$i`
 		DUMP_PATH=$ddump
@@ -528,25 +527,25 @@ EOF
 				echo "Unable to determing PID of page-server"
 				return 1
 			}
-			opts="--page-server --address 127.0.0.1 --port $PS_PORT"
+			cpt_args="$cpt_args --page-server --address 127.0.0.1 --port $PS_PORT"
 		fi
 
 		if [ -n "$SNAPSHOT" ]; then
-			snapopt="--track-mem"
+			cpt_args="$cpt_args --track-mem"
 			if [ "$i" -ne "$ITERATIONS" ]; then
-				snapopt="$snapopt -R"
+				cpt_args="$cpt_args -R"
 				dump_only=1
 				[ -n "$PRE_DUMP" ] && dump_cmd="pre-dump"
 			fi
-			[ -n "$snappdir" ] && snapopt="$snapopt --prev-images-dir=$snappdir"
+			[ -n "$snappdir" ] && cpt_args="$cpt_args --prev-images-dir=$snappdir"
 		fi
 
-		[ -n "$dump_only" ] && postdump=$POSTDUMP
+		[ -n "$dump_only" ] && cpt_args="$cpt_args $POSTDUMP"
 
 		save_fds $PID  $ddump/dump.fd
 		save_maps $PID  $ddump/dump.maps
-		setsid $CRIU_CPT $dump_cmd $opts --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $gen_args $snapopt $postdump
+		setsid $CRIU_CPT $dump_cmd --file-locks --tcp-established $linkremap \
+			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $gen_args $cpt_args
 		retcode=$?
 
 		#
