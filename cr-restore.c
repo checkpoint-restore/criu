@@ -14,7 +14,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/vfs.h>
-#include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/shm.h>
@@ -25,6 +24,7 @@
 
 #include <sys/sendfile.h>
 
+#include "ptrace.h"
 #include "compiler.h"
 #include "asm/types.h"
 #include "asm/restorer.h"
