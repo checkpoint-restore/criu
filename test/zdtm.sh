@@ -434,20 +434,10 @@ diff_fds()
 run_test()
 {
 	local test=$1
-	local linkremap=
 	local snappdir=
 	local ps_pid=
 
 	[ -n "$EXCLUDE_PATTERN" ] && echo $test | grep "$EXCLUDE_PATTERN" && return 0
-
-	#
-	# add option for unlinked files test
-	if [[ $1 =~ "unlink_" ]]; then
-		linkremap="--link-remap"
-	fi
-	if [[ $1 =~ "write_read10" ]]; then
-		linkremap="--link-remap"
-	fi
 
 	if [ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/}; then
 		echo "Skip $test"
@@ -481,6 +471,10 @@ run_test()
 	if ! kill -s 0 "$PID"; then
 		echo "Got a wrong pid '$PID'"
 		return 1
+	fi
+
+	if [ -f "${test}.opts" ]; then
+		gen_args="$gen_args $(cat "${test}.opts")"
 	fi
 
 	if [ -n "$PIDNS" ]; then
@@ -544,8 +538,7 @@ EOF
 
 		save_fds $PID  $ddump/dump.fd
 		save_maps $PID  $ddump/dump.maps
-		setsid $CRIU_CPT $dump_cmd --file-locks --tcp-established $linkremap \
-			-x --evasive-devices -D $ddump -o dump.log -v4 -t $PID $gen_args $cpt_args
+		setsid $CRIU_CPT $dump_cmd -D $ddump -o dump.log -v4 -t $PID $gen_args $cpt_args
 		retcode=$?
 
 		#
@@ -583,10 +576,7 @@ EOF
 				diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
 			}
 
-			if [[ $linkremap ]]; then
-				echo "remove ./$tdir/link_remap.*"
-				rm -f ./$tdir/link_remap.*
-			fi
+			rm -f ./$tdir/link_remap.*
 		else
 			# Wait while tasks are dying, otherwise PIDs would be busy.
 			for i in $ddump/core-*.img; do
@@ -603,7 +593,7 @@ EOF
 			done
 
 			echo Restore
-			setsid $CRIU restore --file-locks --tcp-established -x -D $ddump -o restore.log -v4 -d $gen_args || return 2
+			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args || return 2
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 			for i in `seq 5`; do
