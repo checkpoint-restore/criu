@@ -377,7 +377,6 @@ start_test()
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --bind . $ZDTM_ROOT || return 1
 		fi
-		make -C $tdir $tname || return 1
 		construct_root $ZDTM_ROOT $tdir/$tname || return 1
 	(	export ZDTM_NEWNS=1
 		export ZDTM_PIDFILE=$TPID
