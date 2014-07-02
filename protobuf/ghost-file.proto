@@ -5,4 +5,5 @@ message ghost_file_entry {
 
 	optional uint32		dev		= 4;
 	optional uint64		ino		= 5;
+	optional uint32		rdev		= 6;
 }

@@ -79,6 +79,17 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 			goto err;
 		}
 		ghost_flags = O_RDWR; /* To not block */
+	} else if (S_ISCHR(gfe->mode) || S_ISBLK(gfe->mode)) {
+		if (!gfe->has_rdev) {
+			pr_err("No rdev for ghost device\n");
+			goto err;
+		}
+
+		if (mknod(gf->remap.path, gfe->mode, gfe->rdev)) {
+			pr_perror("Can't create node for ghost dev");
+			goto err;
+		}
+		ghost_flags = O_WRONLY;
 	} else
 		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
 
@@ -257,6 +268,11 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	gfe.has_dev = gfe.has_ino = true;
 	gfe.dev = phys_dev;
 	gfe.ino = st->st_ino;
+
+	if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode)) {
+		gfe.has_rdev = true;
+		gfe.rdev = st->st_rdev;
+	}
 
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		return -1;
