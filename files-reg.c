@@ -68,13 +68,51 @@ static LIST_HEAD(link_remaps);
  */
 #define MAX_GHOST_FILE_SIZE	(1 * 1024 * 1024)
 
+static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, int ifd)
+{
+	int gfd, ghost_flags, ret = -1;
+	char path[PATH_MAX];
+
+	if (S_ISFIFO(gfe->mode)) {
+		if (mknod(gf->remap.path, gfe->mode, 0)) {
+			pr_perror("Can't create node for ghost file");
+			goto err;
+		}
+		ghost_flags = O_RDWR; /* To not block */
+	} else
+		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
+
+	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.path);
+	gfd = open(path, ghost_flags, gfe->mode);
+	if (gfd < 0) {
+		pr_perror("Can't open ghost file %s", path);
+		goto err;
+	}
+
+	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
+		pr_perror("Can't reset user/group on ghost %s", path);
+		goto err_c;
+	}
+
+	if (S_ISREG(gfe->mode)) {
+		if (copy_file(ifd, gfd, 0) < 0)
+			goto err_c;
+	}
+
+	ret = 0;
+err_c:
+	close(gfd);
+err:
+	return ret;
+}
+
 static int open_remap_ghost(struct reg_file_info *rfi,
 		RemapFilePathEntry *rfe)
 {
 	struct ghost_file *gf;
 	GhostFileEntry *gfe = NULL;
-	int gfd, ifd, ghost_flags;
-	char *root, path[PATH_MAX];
+	int ifd;
+	char *root;
 
 	rfe->remap_id &= ~REMAP_GHOST;
 	list_for_each_entry(gf, &ghost_files, list)
@@ -119,35 +157,11 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
-	if (S_ISFIFO(gfe->mode)) {
-		if (mknod(gf->remap.path, gfe->mode, 0)) {
-			pr_perror("Can't create node for ghost file");
-			goto close_ifd;
-		}
-		ghost_flags = O_RDWR; /* To not block */
-	} else
-		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
-
-	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.path);
-	gfd = open(path, ghost_flags, gfe->mode);
-	if (gfd < 0) {
-		pr_perror("Can't open ghost file %s", path);
+	if (create_ghost(gf, gfe, root, ifd))
 		goto close_ifd;
-	}
-
-	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %#x", rfe->remap_id);
-		goto close_all;
-	}
-
-	if (S_ISREG(gfe->mode)) {
-		if (copy_file(ifd, gfd, 0) < 0)
-			goto close_all;
-	}
 
 	ghost_file_entry__free_unpacked(gfe, NULL);
 	close(ifd);
-	close(gfd);
 
 	gf->id = rfe->remap_id;
 	gf->remap.users = 0;
@@ -156,8 +170,6 @@ gf_found:
 	rfi->remap = &gf->remap;
 	return 0;
 
-close_all:
-	close_safe(&gfd);
 close_ifd:
 	close_safe(&ifd);
 err:
