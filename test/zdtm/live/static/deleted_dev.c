@@ -50,6 +50,8 @@ int main(int argc, char **argv)
 
 	if (st.st_mode != mode || st.st_rdev != dev) {
 		fail("%s is no longer the device file we had", filename);
+		test_msg("mode %x want %x, dev %x want %x\n",
+				st.st_mode, mode, st.st_rdev, dev);
 		goto out;
 	}
 
