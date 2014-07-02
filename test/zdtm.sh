@@ -125,6 +125,7 @@ static/rtc
 transition/maps007
 static/dumpable01
 static/dumpable02
+static/deleted_dev
 "
 
 #
@@ -199,6 +200,7 @@ mountpoints
 inotify_irmap
 cgroup00
 clean_mntns
+deleted_dev
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
