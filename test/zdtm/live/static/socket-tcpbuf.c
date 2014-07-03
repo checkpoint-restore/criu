@@ -25,6 +25,22 @@ static int port = 8880;
 #define BUF_SIZE 4096
 #define TCP_MAX_BUF (100 << 20)
 
+static void read_safe(int fd, void *buf, size_t size)
+{
+	if (read(fd, buf, size) != size) {
+		err("Unable to read from %d", fd);
+		exit(1);
+	}
+}
+
+static void write_safe(int fd, void *buf, size_t size)
+{
+	if (write(fd, buf, size) != size) {
+		err("Unable to write from %d", fd);
+		exit(1);
+	}
+}
+
 static int fill_sock_buf(int fd)
 {
 	int flags;
@@ -118,10 +134,7 @@ int main(int argc, char **argv)
 #endif
 
 		close(pfd[1]);
-		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
-			err("Can't read port\n");
-			return 1;
-		}
+		read_safe(pfd[0], &port, sizeof(port));
 
 		fd = tcp_init_client(ZDTM_FAMILY, "127.0.0.1", port);
 		if (fd < 0)
@@ -135,10 +148,7 @@ int main(int argc, char **argv)
 		if (size <= 0)
 			return 1;
 
-		if (write(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
-			err("write");
-			return 1;
-		}
+		write_safe(ctl_fd, &size, sizeof(size));
 
 		if (read(ctl_fd, &c, 1) != 0) {
 			err("read");
@@ -170,10 +180,9 @@ int main(int argc, char **argv)
 	}
 
 	close(pfd[0]);
-	if (write(pfd[1], &port, sizeof(port)) != sizeof(port)) {
-		err("Can't send port");
-		return 1;
-	}
+
+	write_safe(pfd[1], &port, sizeof(port));
+
 	close(pfd[1]);
 
 	/*
@@ -209,10 +218,7 @@ int main(int argc, char **argv)
 	if (snd_size <= 0)
 		return 1;
 
-	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		err("read");
-		return 1;
-	}
+	read_safe(ctl_fd, &ret, sizeof(ret));
 
 	test_daemon();
 	test_waitsig();
@@ -234,10 +240,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		err("read");
-		return 1;
-	}
+	read_safe(ctl_fd, &ret, sizeof(ret));
 
 	if (ret != snd_size) {
 		fail("The parent sent %d bytes, but the child received %d bytes\n", snd_size, ret);
