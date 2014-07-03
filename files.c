@@ -1018,33 +1018,26 @@ static int fchroot(int fd)
 	return chroot(fd_path);
 }
 
-int restore_fs(int pid)
+int restore_fs(struct pstree_item *me)
 {
-	int ifd, dd_root, dd_cwd, ret, err = -1;
-	FsEntry *fe;
-
-	ifd = open_image(CR_FD_FS, O_RSTR, pid);
-	if (ifd < 0)
-		goto out;
-
-	if (pb_read_one(ifd, &fe, PB_FS) < 0)
-		goto out_i;
+	int dd_root, dd_cwd, ret, err = -1;
+	struct rst_info *ri = me->rst;
 
 	/*
 	 * First -- open both descriptors. We will not
 	 * be able to open the cwd one after we chroot.
 	 */
 
-	dd_root = open_reg_by_id(fe->root_id);
+	dd_root = open_reg_by_id(ri->root_id);
 	if (dd_root < 0) {
-		pr_err("Can't open root %#x\n", fe->root_id);
-		goto err;
+		pr_err("Can't open root %#x\n", ri->root_id);
+		goto out;
 	}
 
-	dd_cwd = open_reg_by_id(fe->cwd_id);
+	dd_cwd = open_reg_by_id(ri->cwd_id);
 	if (dd_cwd < 0) {
-		pr_err("Can't open cwd %#x\n", fe->cwd_id);
-		goto err;
+		pr_err("Can't open cwd %#x\n", ri->cwd_id);
+		goto out;
 	}
 
 	/*
@@ -1057,28 +1050,54 @@ int restore_fs(int pid)
 	close(dd_root);
 	if (ret < 0) {
 		pr_perror("Can't change root");
-		goto err;
+		goto out;
 	}
 
 	ret = fchdir(dd_cwd);
 	close(dd_cwd);
 	if (ret < 0) {
 		pr_perror("Can't change cwd");
-		goto err;
+		goto out;
 	}
 
-	if (fe->has_umask) {
-		pr_info("Restoring umask to %o\n", fe->umask);
-		umask(fe->umask);
+	if (ri->has_umask) {
+		pr_info("Restoring umask to %o\n", ri->umask);
+		umask(ri->umask);
 	}
 
 	err = 0;
-err:
-	fs_entry__free_unpacked(fe, NULL);
-out_i:
-	close_safe(&ifd);
 out:
 	return err;
+}
+
+int prepare_fs_pid(struct pstree_item *item)
+{
+	pid_t pid = item->pid.virt;
+	struct rst_info *ri = item->rst;
+	int ifd;
+	FsEntry *fe;
+
+	ifd = open_image(CR_FD_FS, O_RSTR, pid);
+	if (ifd < 0)
+		goto out;
+
+	if (pb_read_one(ifd, &fe, PB_FS) < 0)
+		goto out_i;
+
+	close(ifd);
+
+	ri->cwd_id = fe->cwd_id;
+	ri->root_id = fe->root_id;
+	ri->has_umask = fe->has_umask;
+	ri->umask = fe->umask;
+
+	fs_entry__free_unpacked(fe, NULL);
+	return 0;
+
+out_i:
+	close(ifd);
+out:
+	return -1;
 }
 
 int shared_fdt_prepare(struct pstree_item *item)

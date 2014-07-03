@@ -148,7 +148,8 @@ extern int prepare_fd_pid(struct pstree_item *me);
 extern int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id);
 extern int prepare_shared_fdinfo(void);
 extern int get_filemap_fd(struct vma_area *);
-extern int restore_fs(int pid);
+extern int restore_fs(struct pstree_item *);
+extern int prepare_fs_pid(struct pstree_item *);
 extern int set_fd_flags(int fd, int flags);
 
 extern int close_old_fds(struct pstree_item *me);

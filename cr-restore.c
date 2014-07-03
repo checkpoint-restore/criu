@@ -195,6 +195,10 @@ static int root_prepare_shared(void)
 		ret = prepare_fd_pid(pi);
 		if (ret < 0)
 			break;
+
+		ret = prepare_fs_pid(pi);
+		if (ret < 0)
+			break;
 	}
 
 	if (ret < 0)
@@ -2679,7 +2683,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * attempts to open files by paths above (e.g. /proc).
 	 */
 
-	if (restore_fs(pid))
+	if (restore_fs(current))
 		goto err;
 
 	close_image_dir();
