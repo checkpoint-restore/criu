@@ -815,6 +815,11 @@ static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	return fd;
 }
 
+int open_reg_fd(struct file_desc *fd)
+{
+	return open_path(fd, do_open_reg_noseek, NULL);
+}
+
 int open_reg_by_id(u32 id)
 {
 	struct file_desc *fd;
@@ -831,7 +836,7 @@ int open_reg_by_id(u32 id)
 		return -1;
 	}
 
-	return open_path(fd, do_open_reg_noseek, NULL);
+	return open_reg_fd(fd);
 }
 
 int get_filemap_fd(struct vma_area *vma)
