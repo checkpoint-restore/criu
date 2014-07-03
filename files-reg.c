@@ -90,6 +90,12 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 			goto err;
 		}
 		ghost_flags = O_WRONLY;
+	} else if (S_ISDIR(gfe->mode)) {
+		if (mkdir(gf->remap.path, gfe->mode)) {
+			pr_perror("Can't make ghost dir");
+			goto err;
+		}
+		ghost_flags = O_DIRECTORY;
 	} else
 		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
 
@@ -176,6 +182,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	gf->id = rfe->remap_id;
 	gf->remap.users = 0;
+	gf->remap.is_dir = S_ISDIR(gfe->mode);
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
 	rfi->remap = &gf->remap;
@@ -676,7 +683,14 @@ int open_path(struct file_desc *d,
 
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
-		if (rfi_remap(rfi) < 0) {
+		if (rfi->remap->is_dir) {
+			/*
+			 * FIXME Can't make directory under new name.
+			 * Will have to open it under the ghost one :(
+			 */
+			orig_path = rfi->path;
+			rfi->path = rfi->remap->path;
+		} else if (rfi_remap(rfi) < 0) {
 			static char tmp_path[PATH_MAX];
 
 			if (errno != EEXIST) {
@@ -747,7 +761,10 @@ int open_path(struct file_desc *d,
 		BUG_ON(!rfi->remap->users);
 		if (--rfi->remap->users == 0) {
 			pr_info("Unlink the ghost %s\n", rfi->remap->path);
-			unlink(rfi->remap->path);
+			if (rfi->remap->is_dir)
+				rmdir(rfi->remap->path);
+			else
+				unlink(rfi->remap->path);
 		}
 
 		if (orig_path)
