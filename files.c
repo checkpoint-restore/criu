@@ -1018,7 +1018,7 @@ static int fchroot(int fd)
 	return chroot(fd_path);
 }
 
-int prepare_fs(int pid)
+int restore_fs(int pid)
 {
 	int ifd, dd_root, dd_cwd, ret, err = -1;
 	FsEntry *fe;

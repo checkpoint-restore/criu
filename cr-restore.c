@@ -2679,7 +2679,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * attempts to open files by paths above (e.g. /proc).
 	 */
 
-	if (prepare_fs(pid))
+	if (restore_fs(pid))
 		goto err;
 
 	close_image_dir();
