@@ -1,11 +1,11 @@
-message controller_entry {
+message cg_member_entry {
 	required string name	= 1;
 	required string path	= 2;
 }
 
 message cg_set_entry {
 	required uint32			id	= 1;
-	repeated controller_entry	ctls	= 2;
+	repeated cg_member_entry	ctls	= 2;
 }
 
 message cgroup_entry {
