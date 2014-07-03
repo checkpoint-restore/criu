@@ -153,6 +153,7 @@ TST_FILE	=				\
 
 TST_DIR		=				\
 		cwd00				\
+		cwd01				\
 		overmount_dev			\
 		overmount_file			\
 		overmount_fifo			\

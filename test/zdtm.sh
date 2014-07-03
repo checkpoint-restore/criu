@@ -17,6 +17,7 @@ static/pipe01
 static/pipe02
 static/busyloop00
 static/cwd00
+static/cwd01
 static/env00
 static/maps00
 static/maps01
