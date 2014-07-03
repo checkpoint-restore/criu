@@ -143,6 +143,7 @@
 /live/static/unlink_mmap00
 /live/static/unlink_mmap01
 /live/static/unlink_mmap02
+/live/static/rmdir_open
 /live/static/uptime_grow
 /live/static/utsname
 /live/static/vdso00

@@ -78,6 +78,7 @@ static/unlink_fstat03
 static/unlink_mmap00
 static/unlink_mmap01
 static/unlink_mmap02
+static/rmdir_open
 static/eventfs00
 static/signalfd00
 static/inotify00
