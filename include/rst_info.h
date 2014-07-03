@@ -50,8 +50,8 @@ struct rst_info {
 		futex_t			pgrp_set;
 	};
 
-	u32			cwd_id;
-	u32			root_id;
+	struct file_desc	*cwd;
+	struct file_desc	*root;
 	bool			has_umask;
 	u32			umask;
 };

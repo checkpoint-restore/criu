@@ -1028,15 +1028,15 @@ int restore_fs(struct pstree_item *me)
 	 * be able to open the cwd one after we chroot.
 	 */
 
-	dd_root = open_reg_by_id(ri->root_id);
+	dd_root = open_reg_fd(ri->root);
 	if (dd_root < 0) {
-		pr_err("Can't open root %#x\n", ri->root_id);
+		pr_err("Can't open root\n");
 		goto out;
 	}
 
-	dd_cwd = open_reg_by_id(ri->cwd_id);
+	dd_cwd = open_reg_fd(ri->cwd);
 	if (dd_cwd < 0) {
-		pr_err("Can't open cwd %#x\n", ri->cwd_id);
+		pr_err("Can't open cwd\n");
 		goto out;
 	}
 
@@ -1086,14 +1086,26 @@ int prepare_fs_pid(struct pstree_item *item)
 
 	close(ifd);
 
-	ri->cwd_id = fe->cwd_id;
-	ri->root_id = fe->root_id;
+	ri->cwd = collect_special_file(fe->cwd_id);
+	if (!ri->cwd) {
+		pr_err("Can't find task cwd file\n");
+		goto out_f;
+	}
+
+	ri->root = collect_special_file(fe->root_id);
+	if (!ri->root) {
+		pr_err("Can't find task root file\n");
+		goto out_f;
+	}
+
 	ri->has_umask = fe->has_umask;
 	ri->umask = fe->umask;
 
 	fs_entry__free_unpacked(fe, NULL);
 	return 0;
 
+out_f:
+	fs_entry__free_unpacked(fe, NULL);
 out_i:
 	close(ifd);
 out:
