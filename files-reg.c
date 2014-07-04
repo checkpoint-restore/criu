@@ -220,6 +220,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 
 	rm->path = rrfi->path;
 	rm->users = 0;
+	rm->is_dir = false;
 	rfi->remap = rm;
 	return 0;
 }
