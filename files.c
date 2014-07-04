@@ -1077,9 +1077,13 @@ int prepare_fs_pid(struct pstree_item *item)
 	int ifd;
 	FsEntry *fe;
 
-	ifd = open_image(CR_FD_FS, O_RSTR, pid);
-	if (ifd < 0)
-		goto out;
+	ifd = open_image(CR_FD_FS, O_RSTR | O_OPT, pid);
+	if (ifd < 0) {
+		if (ifd == -ENOENT)
+			goto ok;
+		else
+			goto out;
+	}
 
 	if (pb_read_one(ifd, &fe, PB_FS) < 0)
 		goto out_i;
@@ -1102,6 +1106,7 @@ int prepare_fs_pid(struct pstree_item *item)
 	ri->umask = fe->umask;
 
 	fs_entry__free_unpacked(fe, NULL);
+ok:
 	return 0;
 
 out_f:
