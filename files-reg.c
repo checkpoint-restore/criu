@@ -758,7 +758,9 @@ int open_path(struct file_desc *d,
 	}
 
 	if (rfi->remap) {
-		unlink(rfi->path);
+		if (!rfi->remap->is_dir)
+			unlink(rfi->path);
+
 		BUG_ON(!rfi->remap->users);
 		if (--rfi->remap->users == 0) {
 			pr_info("Unlink the ghost %s\n", rfi->remap->path);
