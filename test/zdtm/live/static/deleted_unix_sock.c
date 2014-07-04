@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -19,11 +20,14 @@ TEST_OPTION(filename, string, "file name", 1);
 
 static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 {
-	if (strlen(filename) >= sizeof(name->sun_path))
+	char *cwd;
+
+	cwd = get_current_dir_name();
+	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path))
 		return -1;
 
 	name->sun_family = AF_LOCAL;
-	strcpy(name->sun_path, filename);
+	sprintf(name->sun_path, "%s/%s", cwd, filename);
 	return 0;
 }
 

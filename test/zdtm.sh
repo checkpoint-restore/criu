@@ -59,6 +59,7 @@ static/sock_opts01
 static/sockets_spair
 static/sockets_dgram
 static/socket_queues
+static/deleted_unix_sock
 static/sk-unix-unconn
 static/pid00
 static/pstree
