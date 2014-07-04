@@ -127,7 +127,11 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		}
 
 		pfn = PME_PFRAME(pfn);
-		BUG_ON(!pfn);
+		if (!pfn) {
+			pr_err("Unexpected page fram number 0 for pid %d\n", pid);
+			ret = -1;
+			goto err;
+		}
 
 		/*
 		 * Setup proper VMA status. Note starting with 3.16
