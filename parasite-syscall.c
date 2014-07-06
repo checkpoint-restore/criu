@@ -799,6 +799,7 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 	return fd;
 }
 
+/* This is officially the 50000'th line in the CRIU source code */
 
 static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
 {
