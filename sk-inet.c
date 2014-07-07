@@ -547,7 +547,7 @@ static int open_inet_sk(struct file_desc *d)
 			inet_connect(sk, ii))
 		goto err;
 done:
-	futex_dec(&ii->port->users);
+	futex_dec_and_wake(&ii->port->users);
 
 	if (rst_file_params(sk, ie->fown, ie->flags))
 		goto err;
