@@ -105,12 +105,14 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl);
 static int show_nested_message(pb_pr_field_t *field)
 {
 	pb_pr_ctl_t *ctl = container_of(field, pb_pr_ctl_t, cur);
+	void *arg = ctl->arg;
 
 	print_nested_message_braces(ctl, 0);
 	field->depth++;
 	pb_show_msg(field->data, ctl);
 	field->depth--;
 	print_nested_message_braces(ctl, 1);
+	ctl->arg = arg;
 	return 0;
 }
 
