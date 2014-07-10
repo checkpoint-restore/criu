@@ -7,6 +7,10 @@
 # define PAGE_SIZE 4096
 #endif
 
+#ifndef PR_SET_CHILD_SUBREAPER
+# define PR_SET_CHILD_SUBREAPER 36
+#endif
+
 /* set up test */
 extern void test_ext_init(int argc, char **argv);
 extern void test_init(int argc, char **argv);

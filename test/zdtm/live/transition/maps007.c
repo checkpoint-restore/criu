@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 			if (!futex_get(&shm->stop))
 				futex_wait_while_lt(&shm->delta, MAX_DELTA);
 
-			if (futex_get(&shm->stop) && atomic_get(&shm->delta) == MAX_DELTA)
+			if (futex_get(&shm->stop) && atomic_get(&shm->delta.raw) == MAX_DELTA)
 				break;
 			futex_dec_and_wake(&shm->delta);
 		}

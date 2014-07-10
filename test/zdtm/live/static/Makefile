@@ -277,6 +277,7 @@ socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
+vdso01:			override LDLIBS += -lrt
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
@@ -301,7 +302,7 @@ criu-rtc.pb-c.c: criu-rtc.proto
 	protoc-c --proto_path=. --c_out=. criu-rtc.proto
 
 criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
-	gcc -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../../include -fPIC $(USERCFLAGS)
+	$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../../include -fPIC $(USERCFLAGS)
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
 

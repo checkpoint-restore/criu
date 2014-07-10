@@ -94,7 +94,7 @@ out_th:
 		}
 
 		if (WIFSTOPPED(status)) {
-			if (ptrace(PTRACE_GETREGS, stopped, NULL, regs)) {
+			if (ptrace(PTRACE_GETSIGINFO, stopped, NULL, regs)) {
 				/* FAIL */
 				fail("Ptrace won't work");
 				break;
