@@ -385,7 +385,7 @@ static int collect_cgroups(struct list_head *ctls)
 			strcpy(mount_point, prefix);
 		}
 
-		snprintf(path, PATH_MAX, "%s/%s", mount_point, cc->path);
+		snprintf(path, PATH_MAX, "%s%s", mount_point, cc->path);
 
 		current_controller = NULL;
 
