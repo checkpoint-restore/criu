@@ -351,7 +351,6 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 {
 	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
-	int done;
 
 	if (nr_fields == 0) {
 		pr_msg("<empty>");
@@ -362,29 +361,21 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 		void *p = field->data;
 
 		field->count = nr_fields;
-		field->data = (void *)(*(long *)p);
-		done = show(field);
-		if (done)
-			return;
-
-		for (p += fsize, counter = 0; counter < nr_fields - 1; counter++, p += fsize) {
-			pr_msg(":");
+		for (counter = 0; counter < nr_fields; counter++) {
 			field->data = (void *)(*(long *)p);
 			show(field);
+			p += fsize;
 		}
+
 		return;
 	}
 
 	field->count = nr_fields;
-	done = show(field);
-	if (done)
-		return;
-
-	field->data += fsize;
-
-	for (counter = 0; counter < nr_fields - 1; counter++, field->data += fsize) {
-		pr_msg(":");
+	for (counter = 0; counter < nr_fields; counter++) {
+		if (counter)
+			pr_msg(":");
 		show(field);
+		field->data += fsize;
 	}
 }
 
