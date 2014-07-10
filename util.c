@@ -678,3 +678,80 @@ struct vma_area *alloc_vma_area(void)
 
 	return p;
 }
+
+int mkdirp(const char *path)
+{
+	size_t i;
+	char made_path[PATH_MAX], *pos;
+
+	if (strlen(path) >= PATH_MAX) {
+		pr_err("path %s is longer than PATH_MAX", path);
+		return -1;
+	}
+
+	strcpy(made_path, path);
+
+	i = 0;
+	if (made_path[0] == '/')
+		i++;
+
+	for (; i < strlen(made_path); i++) {
+		pos = strchr(made_path + i, '/');
+		if (pos)
+			*pos = '\0';
+		if (mkdir(made_path, 0755) < 0 && errno != EEXIST) {
+			pr_perror("couldn't mkdirpat directory\n");
+			return -1;
+		}
+		if (pos) {
+			*pos = '/';
+			i = pos - made_path;
+		} else
+			break;
+	}
+
+	return 0;
+}
+
+bool is_path_prefix(const char *path, const char *prefix)
+{
+	if (strstartswith(path, prefix)) {
+		size_t len = strlen(prefix);
+		switch (path[len]) {
+		case '\0':
+		case '/':
+			return true;
+		}
+	}
+
+	return false;
+}
+
+FILE *fopenat(int dirfd, char *path, char *cflags)
+{
+	int tmp, flags = 0;
+	char *iter;
+
+	for (iter = cflags; *iter; iter++) {
+		switch (*iter) {
+		case 'r':
+			flags |= O_RDONLY;
+			break;
+		case 'a':
+			flags |= O_APPEND;
+			break;
+		case 'w':
+			flags |= O_WRONLY | O_CREAT;
+			break;
+		case '+':
+			flags = O_RDWR | O_CREAT;
+			break;
+		}
+	}
+
+	tmp = openat(dirfd, path, flags, S_IRUSR | S_IWUSR);
+	if (tmp < 0)
+		return NULL;
+
+	return fdopen(tmp, cflags);
+}

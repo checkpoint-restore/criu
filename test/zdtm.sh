@@ -172,6 +172,7 @@ ns/static/tun
 static/netns-nf
 static/netns
 static/cgroup00
+static/cgroup01
 ns/static/clean_mntns
 "
 
@@ -203,6 +204,7 @@ bind-mount
 mountpoints
 inotify_irmap
 cgroup00
+cgroup01
 clean_mntns
 deleted_dev
 "

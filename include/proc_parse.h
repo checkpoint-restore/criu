@@ -5,6 +5,7 @@
 #include "asm/types.h"
 #include "image.h"
 #include "list.h"
+#include "cgroup.h"
 
 #include "protobuf/eventfd.pb-c.h"
 #include "protobuf/eventpoll.pb-c.h"
@@ -202,5 +203,7 @@ struct cg_ctl {
 
 extern int parse_task_cgroup(int pid, struct list_head *l, unsigned int *n);
 extern void put_ctls(struct list_head *);
+
+int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups);
 
 #endif /* __CR_PROC_PARSE_H__ */

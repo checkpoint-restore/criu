@@ -288,7 +288,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
 /*
  * Check whether @str starts with @sub
  */
-static inline bool strstartswith(char *str, char *sub)
+static inline bool strstartswith(const char *str, const char *sub)
 {
 	while (1) {
 		if (*sub == '\0') /* end of sub -- match */
@@ -303,4 +303,16 @@ static inline bool strstartswith(char *str, char *sub)
 	}
 }
 
+/*
+ * mkdir -p
+ */
+int mkdirp(const char *path);
+
+/*
+ * Tests whether a path is a prefix of another path. This is different than
+ * strstartswith because "/foo" is _not_ a path prefix of "/foobar", since they
+ * refer to different directories.
+ */
+bool is_path_prefix(const char *path, const char *prefix);
+FILE *fopenat(int dirfd, char *path, char *cflags);
 #endif /* __CR_UTIL_H__ */

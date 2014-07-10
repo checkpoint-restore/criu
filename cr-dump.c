@@ -1776,6 +1776,9 @@ int cr_dump_tasks(pid_t pid)
 	if (vdso_init())
 		goto err;
 
+	if (parse_cg_info())
+		goto err;
+
 	if (write_img_inventory())
 		goto err;
 

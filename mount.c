@@ -861,6 +861,9 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "debugfs",
 		.code = FSTYPE__DEBUGFS,
+	}, {
+		.name = "cgroup",
+		.code = FSTYPE__CGROUP,
 	}
 };
 

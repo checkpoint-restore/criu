@@ -1547,7 +1547,7 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 		}
 
 		list_for_each_entry(cc, retl, l)
-			if (strcmp(cc->name, name) >= 0)
+			if (strcmp(cc->name, name) >= 0 && strcmp(cc->path, path) >= 0)
 				break;
 
 		list_add_tail(&ncc->l, &cc->l);
@@ -1572,4 +1572,77 @@ void put_ctls(struct list_head *l)
 		xfree(c->path);
 		xfree(c);
 	}
+}
+
+
+/* Parse and create all the real controllers. This does not include things with
+ * the "name=" prefix, e.g. systemd.
+ */
+int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
+{
+	FILE *f;
+	char buf[1024], name[1024];
+	int heirarchy, ret = 0;
+	struct cg_controller *cur = NULL;
+
+	f = fopen("/proc/cgroups", "r");
+	if (!f) {
+		pr_perror("failed opening /proc/cgroups");
+		return -1;
+	}
+
+	/* throw away the header */
+	if (!fgets(buf, 1024, f)) {
+		ret = -1;
+		goto out;
+	}
+
+	while (fgets(buf, 1024, f)) {
+		char *n;
+		char found = 0;
+
+		sscanf(buf, "%s %d", name, &heirarchy);
+		list_for_each_entry(cur, cgroups, l) {
+			if (cur->heirarchy == heirarchy) {
+				void *m;
+
+				found = 1;
+				cur->n_controllers++;
+				m = xrealloc(cur->controllers, sizeof(char *) * cur->n_controllers);
+				if (!m) {
+					ret = -1;
+					goto out;
+				}
+
+				cur->controllers = m;
+				if (!cur->controllers) {
+					ret = -1;
+					goto out;
+				}
+
+				n = xstrdup(name);
+				if (!n) {
+					ret = -1;
+					goto out;
+				}
+
+				cur->controllers[cur->n_controllers-1] = n;
+				break;
+			}
+		}
+
+		if (!found) {
+			struct cg_controller *nc = new_controller(name, heirarchy);
+			if (!nc) {
+				ret = -1;
+				goto out;
+			}
+			list_add_tail(&nc->l, &cur->l);
+			(*n_cgroups)++;
+		}
+	}
+
+out:
+	fclose(f);
+	return ret;
 }

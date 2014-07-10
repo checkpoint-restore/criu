@@ -163,6 +163,7 @@ TST_DIR		=				\
 		bind-mount			\
 		cgroup00			\
 		rmdir_open			\
+		cgroup01			\
 
 TST_DIR_FILE	=				\
 		chroot				\

@@ -1,3 +1,14 @@
+message cgroup_dir_entry {
+	required string 		path		= 1;
+	repeated cgroup_dir_entry	children 	= 4;
+}
+
+message cg_controller_entry {
+	required uint32			id		= 1;
+	repeated string			controllers	= 2;
+	repeated cgroup_dir_entry	dirs		= 3;
+}
+
 message cg_member_entry {
 	required string name	= 1;
 	required string path	= 2;
@@ -9,5 +20,6 @@ message cg_set_entry {
 }
 
 message cgroup_entry {
-	repeated cg_set_entry	sets	= 1;
+	repeated cg_set_entry		sets		= 1;
+	repeated cg_controller_entry	controllers	= 2;
 }
