@@ -364,7 +364,8 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd,
 	for (i = 0; i < nr_fields; i++) {
 		if (i)
 			pr_msg(":");
-		sh->show(field);
+		if (sh->show(field))
+			break;
 		field->data += sh->fsize;
 	}
 }
