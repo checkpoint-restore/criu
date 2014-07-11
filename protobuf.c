@@ -49,6 +49,16 @@ struct pb_pr_ctrl_s {
 typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
 typedef int (*pb_pr_show_t)(pb_pr_field_t *field);
 
+/*
+ * This one describes how fields should be shown
+ * @fsize is the size of the field entry
+ * @show is the callback to print the entry
+ */
+struct pb_shower {
+	size_t fsize;
+	pb_pr_show_t show;
+};
+
 static int pb_msg_int32x(pb_pr_field_t *field)
 {
 	pr_msg("%#x", *(int *)field->data);
@@ -158,47 +168,6 @@ static int show_bytes(pb_pr_field_t *field)
 	return 0;
 }
 
-static size_t pb_show_prepare_field_context(const ProtobufCFieldDescriptor *fd,
-					  pb_pr_ctl_t *ctl)
-{
-	size_t fsize = 0;
-
-	switch (fd->type) {
-	case PROTOBUF_C_TYPE_ENUM:
-		ctl->arg = (void *)fd->descriptor;
-	case PROTOBUF_C_TYPE_INT32:
-	case PROTOBUF_C_TYPE_SINT32:
-	case PROTOBUF_C_TYPE_UINT32:
-	case PROTOBUF_C_TYPE_SFIXED32:
-	case PROTOBUF_C_TYPE_FLOAT:
-		fsize = 4;
-		break;
-	case PROTOBUF_C_TYPE_INT64:
-	case PROTOBUF_C_TYPE_SINT64:
-	case PROTOBUF_C_TYPE_SFIXED64:
-	case PROTOBUF_C_TYPE_FIXED32:
-	case PROTOBUF_C_TYPE_UINT64:
-	case PROTOBUF_C_TYPE_FIXED64:
-	case PROTOBUF_C_TYPE_DOUBLE:
-		fsize = 8;
-		break;
-	case PROTOBUF_C_TYPE_MESSAGE:
-		ctl->arg = (void *)fd->descriptor;
-	case PROTOBUF_C_TYPE_STRING:
-		fsize = sizeof (void *);
-		break;
-	case PROTOBUF_C_TYPE_BOOL:
-		fsize = sizeof (protobuf_c_boolean);
-		break;
-	case PROTOBUF_C_TYPE_BYTES:
-		fsize = sizeof (ProtobufCBinaryData);
-		break;
-	default:
-		BUG();
-	}
-	return fsize;
-}
-
 static int pb_show_pretty(pb_pr_field_t *field)
 {
 	switch (field->fmt[0]) {
@@ -305,50 +274,72 @@ static int pb_field_show_pretty(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t 
 	return 0;
 }
 
-static pb_pr_show_t get_pb_show_function(int type, int label)
+static void pb_prepare_shower(const ProtobufCFieldDescriptor *fd,
+		pb_pr_ctl_t *ctl, struct pb_shower *sh)
 {
-	switch (type) {
+	sh->fsize = 0;
+	sh->show = pb_msg_unk;
+
+	switch (fd->type) {
 	case PROTOBUF_C_TYPE_INT32:
 	case PROTOBUF_C_TYPE_SINT32:
 	case PROTOBUF_C_TYPE_UINT32:
 	case PROTOBUF_C_TYPE_SFIXED32:
-		return pb_msg_int32x;
+		sh->fsize = 4;
+		sh->show = pb_msg_int32x;
+		break;
+
 	case PROTOBUF_C_TYPE_INT64:
 	case PROTOBUF_C_TYPE_SINT64:
 	case PROTOBUF_C_TYPE_SFIXED64:
 	case PROTOBUF_C_TYPE_FIXED32:
 	case PROTOBUF_C_TYPE_UINT64:
 	case PROTOBUF_C_TYPE_FIXED64:
-		return (label == PROTOBUF_C_LABEL_REPEATED ?
+		sh->fsize = 8;
+		sh->show = (fd->label == PROTOBUF_C_LABEL_REPEATED ?
 				pb_msg_int64x_r : pb_msg_int64x);
-	case PROTOBUF_C_TYPE_STRING:
-		return pb_msg_string;
-	case PROTOBUF_C_TYPE_MESSAGE:
-		return show_nested_message;
-	case PROTOBUF_C_TYPE_ENUM:
-		return show_enum;
-	case PROTOBUF_C_TYPE_BOOL:
-		return show_bool;
-	case PROTOBUF_C_TYPE_BYTES:
-		return show_bytes;
-	case PROTOBUF_C_TYPE_FLOAT:
-	case PROTOBUF_C_TYPE_DOUBLE:
 		break;
+
+	case PROTOBUF_C_TYPE_STRING:
+		sh->fsize = sizeof (void *);
+		sh->show = pb_msg_string;
+		break;
+	case PROTOBUF_C_TYPE_MESSAGE:
+		sh->fsize = sizeof (void *);
+		sh->show = show_nested_message;
+		ctl->arg = (void *)fd->descriptor;
+		break;
+	case PROTOBUF_C_TYPE_ENUM:
+		sh->fsize = 4;
+		sh->show = show_enum;
+		ctl->arg = (void *)fd->descriptor;
+		break;
+
+	case PROTOBUF_C_TYPE_BOOL:
+		sh->fsize = sizeof (protobuf_c_boolean);
+		sh->show = show_bool;
+		break;
+	case PROTOBUF_C_TYPE_BYTES:
+		sh->fsize = sizeof (ProtobufCBinaryData);
+		sh->show = show_bytes;
+		break;
+	case PROTOBUF_C_TYPE_FLOAT:
+		sh->fsize = 4;
+		break;
+	case PROTOBUF_C_TYPE_DOUBLE:
+		sh->fsize = 8;
+		break;
+
 	default:
 		BUG();
 	}
-	return pb_msg_unk;
-}
 
-static pb_pr_show_t get_show_function(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl)
-{
 	if (pb_field_show_pretty(fd, ctl))
-		return pb_show_pretty;
-	return get_pb_show_function(fd->type, fd->label);
+		sh->show = pb_show_pretty;
 }
 
-static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl, int nr_fields, pb_pr_show_t show,
-			  size_t fsize)
+static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl,
+		int nr_fields, struct pb_shower *sh)
 {
 	pb_pr_field_t *field = &ctl->cur;
 	unsigned long counter;
@@ -364,8 +355,8 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 		field->count = nr_fields;
 		for (counter = 0; counter < nr_fields; counter++) {
 			field->data = (void *)(*(long *)p);
-			show(field);
-			p += fsize;
+			sh->show(field);
+			p += sh->fsize;
 		}
 
 		return;
@@ -375,22 +366,21 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 	for (counter = 0; counter < nr_fields; counter++) {
 		if (counter)
 			pr_msg(":");
-		show(field);
-		field->data += fsize;
+		sh->show(field);
+		field->data += sh->fsize;
 	}
 }
 
 static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 			  int nr_fields, pb_pr_ctl_t *ctl)
 {
-	pb_pr_show_t show;
+	struct pb_shower sh;
 
 	print_tabs(ctl);
 	pr_msg("%s: ", fd->name);
 
-	show = get_show_function(fd, ctl);
-
-	pb_show_repeated(fd, ctl, nr_fields, show, pb_show_prepare_field_context(fd, ctl));
+	pb_prepare_shower(fd, ctl, &sh);
+	pb_show_repeated(fd, ctl, nr_fields, &sh);
 
 	if (ctl->single_entry)
 		pr_msg("\n");
