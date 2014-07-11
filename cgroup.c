@@ -518,8 +518,8 @@ static int dump_controllers(CgroupEntry *cg)
 	list_for_each_entry(cur, &cgroups, l) {
 		cg_controller_entry__init(ce);
 
-		ce->controllers = cur->controllers;
-		ce->n_controllers = cur->n_controllers;
+		ce->cnames = cur->controllers;
+		ce->n_cnames = cur->n_controllers;
 		ce->n_dirs = cur->n_heads;
 		if (ce->n_dirs > 0)
 			if (dump_cg_dirs(&cur->heads, cur->n_heads, &ce->dirs) < 0) {
@@ -644,7 +644,7 @@ static int move_in_cgroup(CgSetEntry *se)
 
 		for (j = 0; j < n_controllers; j++) {
 			CgControllerEntry *cur = controllers[j];
-			if (cgroup_contains(cur->controllers, cur->n_controllers, ce->name)) {
+			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name)) {
 				ctrl = cur;
 				break;
 			}
@@ -656,12 +656,12 @@ static int move_in_cgroup(CgSetEntry *se)
 		}
 
 		aux_off = 0;
-		for (j = 0; j < ctrl->n_controllers; j++) {
+		for (j = 0; j < ctrl->n_cnames; j++) {
 			char *name;
 			if (strstartswith(ce->name, "name="))
-				name = ctrl->controllers[j] + 5;
+				name = ctrl->cnames[j] + 5;
 			else
-				name = ctrl->controllers[j];
+				name = ctrl->cnames[j];
 			aux_off += sprintf(aux + aux_off, "%s,", name);
 		}
 
@@ -804,24 +804,24 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		int j, name_off, opt_off;
 		char name[1024], opt[1024];
 
-		if (ctrl->n_controllers < 1) {
+		if (ctrl->n_cnames < 1) {
 			pr_err("Each cg_controller_entry must have at least 1 controller");
 			goto err;
 		}
 
 		opt_off = 0;
-		if (strstartswith(ctrl->controllers[0], "name="))
+		if (strstartswith(ctrl->cnames[0], "name="))
 			opt_off = sprintf(opt, "none,");
 
 		name_off = 0;
-		for (j = 0; j < ctrl->n_controllers; j++) {
-			char *n = ctrl->controllers[j];
+		for (j = 0; j < ctrl->n_cnames; j++) {
+			char *n = ctrl->cnames[j];
 
-			if (strstartswith(ctrl->controllers[j], "name="))
+			if (strstartswith(ctrl->cnames[j], "name="))
 				n += 5;
 
 			name_off += sprintf(name + name_off, "%s,", n);
-			opt_off += sprintf(opt + opt_off, "%s,", ctrl->controllers[j]);
+			opt_off += sprintf(opt + opt_off, "%s,", ctrl->cnames[j]);
 		}
 
 		/* Chop off the last ',' to keep mount() happy. */

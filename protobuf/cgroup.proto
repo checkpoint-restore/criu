@@ -4,7 +4,7 @@ message cgroup_dir_entry {
 }
 
 message cg_controller_entry {
-	repeated string			controllers	= 1;
+	repeated string			cnames		= 1;
 	repeated cgroup_dir_entry	dirs		= 2;
 }
 
