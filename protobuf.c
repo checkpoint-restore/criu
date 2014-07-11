@@ -338,11 +338,11 @@ static void pb_prepare_shower(const ProtobufCFieldDescriptor *fd,
 		sh->show = pb_show_pretty;
 }
 
-static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl,
-		int nr_fields, struct pb_shower *sh)
+static void pb_show_repeated(const ProtobufCFieldDescriptor *fd,
+		pb_pr_ctl_t *ctl, struct pb_shower *sh)
 {
 	pb_pr_field_t *field = &ctl->cur;
-	unsigned long counter;
+	unsigned long counter, nr_fields = field->count;
 
 	if (nr_fields == 0) {
 		pr_msg("<empty>");
@@ -352,7 +352,6 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 	if (fd->type == PROTOBUF_C_TYPE_MESSAGE) {
 		void *p = field->data;
 
-		field->count = nr_fields;
 		for (counter = 0; counter < nr_fields; counter++) {
 			field->data = (void *)(*(long *)p);
 			sh->show(field);
@@ -362,7 +361,6 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 		return;
 	}
 
-	field->count = nr_fields;
 	for (counter = 0; counter < nr_fields; counter++) {
 		if (counter)
 			pr_msg(":");
@@ -371,8 +369,7 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ct
 	}
 }
 
-static void pb_show_field(const ProtobufCFieldDescriptor *fd,
-			  int nr_fields, pb_pr_ctl_t *ctl)
+static void pb_show_field(const ProtobufCFieldDescriptor *fd, pb_pr_ctl_t *ctl)
 {
 	struct pb_shower sh;
 
@@ -380,7 +377,7 @@ static void pb_show_field(const ProtobufCFieldDescriptor *fd,
 	pr_msg("%s: ", fd->name);
 
 	pb_prepare_shower(fd, ctl, &sh);
-	pb_show_repeated(fd, ctl, nr_fields, &sh);
+	pb_show_repeated(fd, ctl, &sh);
 
 	if (ctl->single_entry)
 		pr_msg("\n");
@@ -459,8 +456,9 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 
 		ctl->cur.data = data;
 		ctl->cur.number = i + 1;
+		ctl->cur.count = nr_fields;
 
-		pb_show_field(&fd, nr_fields, ctl);
+		pb_show_field(&fd, ctl);
 	}
 }
 
