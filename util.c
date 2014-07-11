@@ -755,3 +755,50 @@ FILE *fopenat(int dirfd, char *path, char *cflags)
 
 	return fdopen(tmp, cflags);
 }
+
+void split(char *str, char token, char ***out, int *n)
+{
+	int i;
+	char *cur;
+
+	*n = 0;
+	for (cur = str; cur != NULL; cur = strchr(cur, token)) {
+		(*n)++;
+		cur++;
+	}
+
+
+	*out = xmalloc((*n) * sizeof(char *));
+	if (!*out) {
+		*n = -1;
+		return;
+
+	}
+
+	cur = str;
+	i = 0;
+	do {
+		char *prev = cur;
+		cur = strchr(cur, token);
+
+		if (cur)
+			*cur = '\0';
+		(*out)[i] = xstrdup(prev);
+		if (cur) {
+			*cur = token;
+			cur++;
+		}
+
+		if (!(*out)[i]) {
+			int j;
+			for (j = 0; j < i; j++)
+				xfree((*out)[j]);
+			xfree(out);
+			*out = NULL;
+			*n = -1;
+			return;
+		}
+
+		i++;
+	} while(cur);
+}

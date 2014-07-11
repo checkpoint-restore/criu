@@ -168,48 +168,10 @@ int parse_cg_info(void)
 	return 0;
 }
 
-static int get_cgroup_mount_point(const char *controller, char *path)
-{
-	struct mount_info *m;
-	char name[1024];
-
-	for (m = cg_mntinfo; m != NULL; m = m->next) {
-		if (strcmp(m->fstype->name, "cgroup") == 0) {
-			char *start, *end;
-
-			start = strstr(m->options, "name=");
-			if (start) {
-				/* strlen("name=") == 5 */
-				start = start + 5;
-
-				end = strstr(start, ",");
-				if (end) {
-					strncpy(name, start, end - start);
-					name[end - start] = '\0';
-				} else
-					strcpy(name, start);
-			} else {
-				start = strrchr(m->mountpoint, '/');
-				if (!start) {
-					pr_err("bad path %s\n", m->mountpoint);
-					return -1;
-				}
-				strcpy(name, start+1);
-			}
-
-			if (strcmp(name, controller) == 0) {
-				/* skip the leading '.' in mountpoint */
-				strcpy(path, m->mountpoint + 1);
-				return 0;
-			}
-		}
-	}
-
-	return -1;
-}
 
 /* Check that co-mounted controllers from /proc/cgroups (e.g. cpu and cpuacct)
- * are contained in a name from /proc/self/cgroup (e.g. cpu,cpuacct). */
+ * are contained in a comma separated string (e.g. from /proc/self/cgroup or
+ * mount options). */
 bool cgroup_contains(char **controllers, unsigned int n_controllers, char *name)
 {
 	unsigned int i;
@@ -233,6 +195,33 @@ bool cgroup_contains(char **controllers, unsigned int n_controllers, char *name)
 	}
 
 	return all_match && n_controllers > 0;
+}
+
+static int get_cgroup_mount_point(char *controller, char *path)
+{
+	struct mount_info *m;
+	char **names;
+	int n_names, i, ret = -1;
+
+	split(controller, ',', &names, &n_names);
+	if (!names)
+		return -1;
+
+	for (m = cg_mntinfo; m != NULL; m = m->next) {
+		if (strcmp(m->fstype->name, "cgroup") == 0 &&
+				cgroup_contains(names, n_names, m->options)) {
+			/* skip the leading '.' in mountpoint */
+			strcpy(path, m->mountpoint + 1);
+			ret = 0;
+			goto out;
+		}
+	}
+
+out:
+	for (i = 0; i < n_names; i++)
+		xfree(names[i]);
+	xfree(names);
+	return ret;
 }
 
 /* This is for use in add_cgroup() as additional arguments for the ftw()
@@ -365,6 +354,8 @@ static int collect_cgroups(struct list_head *ctls)
 			 */
 			char opts[1024];
 			temp_mount = true;
+
+			pr_info("Couldn't find mount point for %s mounting..\n", name);
 
 			if (mkdtemp(prefix) == NULL) {
 				pr_perror("can't make dir for cg mounts\n");
