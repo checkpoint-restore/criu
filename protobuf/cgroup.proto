@@ -4,9 +4,8 @@ message cgroup_dir_entry {
 }
 
 message cg_controller_entry {
-	required uint32			id		= 1;
-	repeated string			controllers	= 2;
-	repeated cgroup_dir_entry	dirs		= 3;
+	repeated string			controllers	= 1;
+	repeated cgroup_dir_entry	dirs		= 2;
 }
 
 message cg_member_entry {
