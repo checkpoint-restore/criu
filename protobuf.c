@@ -342,7 +342,7 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd,
 		pb_pr_ctl_t *ctl, struct pb_shower *sh)
 {
 	pb_pr_field_t *field = &ctl->cur;
-	unsigned long counter, nr_fields = field->count;
+	unsigned long i, nr_fields = field->count;
 
 	if (nr_fields == 0) {
 		pr_msg("<empty>");
@@ -352,7 +352,7 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd,
 	if (fd->type == PROTOBUF_C_TYPE_MESSAGE) {
 		void *p = field->data;
 
-		for (counter = 0; counter < nr_fields; counter++) {
+		for (i = 0; i < nr_fields; i++) {
 			field->data = (void *)(*(long *)p);
 			sh->show(field);
 			p += sh->fsize;
@@ -361,8 +361,8 @@ static void pb_show_repeated(const ProtobufCFieldDescriptor *fd,
 		return;
 	}
 
-	for (counter = 0; counter < nr_fields; counter++) {
-		if (counter)
+	for (i = 0; i < nr_fields; i++) {
+		if (i)
 			pr_msg(":");
 		sh->show(field);
 		field->data += sh->fsize;
