@@ -9,7 +9,7 @@ all: .FORCE
 	$(MAKE) zdtm
 .PHONY: all
 
-TESTS = unix-callback mem-snap rpc libcriu mounts/ext
+TESTS = unix-callback mem-snap rpc libcriu mounts/ext security
 
 other: .FORCE
 	for t in $(TESTS); do			\
