@@ -14,6 +14,7 @@
 #include "proc_parse.h"
 #include "util.h"
 #include "fdset.h"
+#include "string.h"
 #include "protobuf.h"
 #include "protobuf/core.pb-c.h"
 #include "protobuf/cgroup.pb-c.h"
@@ -338,7 +339,7 @@ static int collect_cgroups(struct list_head *ctls)
 
 	list_for_each_entry(cc, ctls, l) {
 		char path[PATH_MAX];
-		char *name, mount_point[PATH_MAX], prefix[] = ".criu.cgmounts.XXXXXX";
+		char *name, prefix[] = ".criu.cgmounts.XXXXXX";
 		bool temp_mount = false;
 		struct cg_controller *cg;
 
@@ -347,7 +348,7 @@ static int collect_cgroups(struct list_head *ctls)
 		else
 			name = cc->name;
 
-		if (get_cgroup_mount_point(name, mount_point) < 0) {
+		if (get_cgroup_mount_point(name, path) < 0) {
 			/* Someone is trying to dump a process that is in
 			 * a controller that isn't mounted, so we mount it for
 			 * them.
@@ -373,10 +374,10 @@ static int collect_cgroups(struct list_head *ctls)
 				return -1;
 			}
 
-			strcpy(mount_point, prefix);
+			strcpy(path, prefix);
 		}
 
-		snprintf(path, PATH_MAX, "%s%s", mount_point, cc->path);
+		strlcat(path, cc->path, PATH_MAX);
 
 		current_controller = NULL;
 
