@@ -29,24 +29,21 @@
 
 #define INET_ADDR_LEN		40
 
-struct pb_pr_field_s {
-	void *data;
-	int number;
-	int depth;
-	int count;
-	char fmt[32];
-};
+typedef struct {
+	void		*data;
+	int		number;
+	int		depth;
+	int		count;
+	char		fmt[32];
+} pb_pr_field_t;
 
-typedef struct pb_pr_field_s pb_pr_field_t;
+typedef struct {
+	void		*arg;
+	int		single_entry;
+	const char	*pretty_fmt;
+	pb_pr_field_t	cur;
+} pb_pr_ctl_t;
 
-struct pb_pr_ctrl_s {
-	void *arg;
-	int single_entry;
-	const char *pretty_fmt;
-	pb_pr_field_t cur;
-};
-
-typedef struct pb_pr_ctrl_s pb_pr_ctl_t;
 typedef int (*pb_pr_show_t)(pb_pr_field_t *field);
 
 /*
