@@ -23,8 +23,6 @@ struct cgroup_dir {
 	/* more cgroup_dirs */
 	struct list_head	children;
 	unsigned int		n_children;
-
-	struct cg_controller	*controller;
 };
 
 /* This describes a particular cgroup controller, e.g. blkio or cpuset.

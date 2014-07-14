@@ -318,7 +318,6 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 
 		INIT_LIST_HEAD(&ncd->children);
 		ncd->n_children = 0;
-		ncd->controller = current_controller;
 		return 0;
 	}
 
