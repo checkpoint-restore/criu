@@ -58,14 +58,14 @@ int restrict_uid(unsigned int uid, unsigned int gid)
 	return 0;
 }
 
-static bool check_ids(unsigned int crid, unsigned int rid, unsigned int eid, unsigned int sid)
+static bool check_uids(unsigned int rid, unsigned int eid, unsigned int sid)
 {
-	if (crid == 0)
+	if (cr_uid == 0)
 		return true;
-	if (crid == rid && crid == eid && crid == sid)
+	if (cr_uid == rid && cr_uid == eid && cr_uid == sid)
 		return true;
 
-	pr_err("UID/GID mismatch %u != (%u,%u,%u)\n", crid, rid, eid, sid);
+	pr_err("UID mismatch %u != (%u,%u,%u)\n", cr_uid, rid, eid, sid);
 	return false;
 }
 
@@ -148,14 +148,14 @@ static bool check_caps(u32 *inh, u32 *eff, u32 *prm)
 
 bool may_dump(struct proc_status_creds *creds)
 {
-	return check_ids(cr_uid, creds->uids[0], creds->uids[1], creds->uids[2]) &&
+	return check_uids(creds->uids[0], creds->uids[1], creds->uids[2]) &&
 		check_gids(creds->gids[0], creds->gids[1], creds->gids[2]) &&
 		check_caps(creds->cap_inh, creds->cap_eff, creds->cap_prm);
 }
 
 bool may_restore(CredsEntry *creds)
 {
-	return check_ids(cr_uid, creds->uid, creds->euid, creds->suid) &&
+	return check_uids(creds->uid, creds->euid, creds->suid) &&
 		check_gids(creds->gid, creds->egid, creds->sgid) &&
 		check_groups(creds->groups, creds->n_groups) &&
 		check_caps(creds->cap_inh, creds->cap_eff, creds->cap_prm);
