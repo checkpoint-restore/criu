@@ -24,7 +24,7 @@ extern int cr_check(void);
 extern int cr_exec(int pid, char **opts);
 extern int cr_dedup(void);
 
-extern void restrict_uid(unsigned int uid, unsigned int gid);
+extern int restrict_uid(unsigned int uid, unsigned int gid);
 struct proc_status_creds;
 extern bool may_dump(struct proc_status_creds *);
 struct _CredsEntry;

@@ -1,14 +1,23 @@
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "crtools.h"
 #include "proc_parse.h"
 #include "log.h"
+#include "xmalloc.h"
+#include "bug.h"
 
 #include "protobuf/creds.pb-c.h"
 
 /*
- * UID and GID of user requesting for C/R
+ * UID, GID and groups of user requesting for C/R
  */
 static unsigned int cr_uid, cr_gid;
+static unsigned int cr_ngroups, *cr_groups;
 
 /*
  * Setup what user is requesting for dump (via rpc or using
@@ -17,11 +26,36 @@ static unsigned int cr_uid, cr_gid;
  * access to. (Or implement some trickier security policy).
  */
 
-void restrict_uid(unsigned int uid, unsigned int gid)
+int restrict_uid(unsigned int uid, unsigned int gid)
 {
-	pr_info("Restrict C/R with %u:%u uid\n", uid, gid);
+	struct passwd *pwd;
+	unsigned int buf[NGROUPS_MAX];
+	int nbuf;
+
+	pr_info("Restrict C/R with %u:%u uid:gid\n", uid, gid);
 	cr_uid = uid;
 	cr_gid = gid;
+
+	pwd = getpwuid(uid);
+	if (!pwd) {
+		pr_perror("Can't get password file entry");
+		return -1;
+	}
+
+	nbuf = NGROUPS_MAX;
+	if (getgrouplist(pwd->pw_name, pwd->pw_gid, buf, &nbuf) < 0) {
+		pr_perror("Can't get group list");
+		return -1;
+	}
+
+	cr_ngroups = nbuf;
+	cr_groups = xmalloc(cr_ngroups*sizeof(*cr_groups));
+	if (!cr_groups)
+		return -1;
+
+	memcpy(cr_groups, buf, cr_ngroups*sizeof(*cr_groups));
+
+	return 0;
 }
 
 static bool check_ids(unsigned int crid, unsigned int rid, unsigned int eid, unsigned int sid)
@@ -33,6 +67,59 @@ static bool check_ids(unsigned int crid, unsigned int rid, unsigned int eid, uns
 
 	pr_err("UID/GID mismatch %u != (%u,%u,%u)\n", crid, rid, eid, sid);
 	return false;
+}
+
+static bool contains(unsigned int *crgids, unsigned int crgids_num, unsigned int gid)
+{
+	int i;
+
+	for (i = 0; i < crgids_num; ++i) {
+		if (crgids[i] == gid)
+			return true;
+	}
+
+	return false;
+}
+
+static bool check_gids(unsigned int rid, unsigned int eid, unsigned int sid)
+{
+	if (cr_gid == 0)
+		return true;
+
+	if ((contains(cr_groups, cr_ngroups, rid) || cr_gid == rid) &&
+	    (contains(cr_groups, cr_ngroups, eid) || cr_gid == eid) &&
+	    (contains(cr_groups, cr_ngroups, sid) || cr_gid == sid))
+		return true;
+
+	pr_err("GID mismatch. User is absent in (%u,%u,%u)\n", rid, eid, sid);
+	return false;
+}
+
+/*
+ * There is no need to check groups on dump, because if uids and gids match
+ * then groups will match too. Btw, getting groups on dump is problematic.
+ * We can't parse proc, as it contains only first 32 groups. And we can't use
+ * getgrouplist, as it reads /etc/group which depends on the namespace.
+ *
+ * On restore we're getting groups from imgs and can check if user didn't add
+ * wrong groups by modifying images.
+ */
+static bool check_groups(unsigned int *groups, unsigned int ngroups)
+{
+	int i;
+
+	if (cr_gid == 0)
+		return true;
+
+	for (i = 0; i < ngroups; ++i) {
+		if (!contains(cr_groups, cr_ngroups, groups[i])) {
+			pr_err("GID mismatch. User is absent in %u group\n",
+								groups[i]);
+			return false;
+		}
+	}
+
+	return true;
 }
 
 static bool check_caps(u32 *inh, u32 *eff, u32 *prm)
@@ -62,13 +149,14 @@ static bool check_caps(u32 *inh, u32 *eff, u32 *prm)
 bool may_dump(struct proc_status_creds *creds)
 {
 	return check_ids(cr_uid, creds->uids[0], creds->uids[1], creds->uids[2]) &&
-		check_ids(cr_gid, creds->gids[0], creds->gids[1], creds->gids[2]) &&
+		check_gids(creds->gids[0], creds->gids[1], creds->gids[2]) &&
 		check_caps(creds->cap_inh, creds->cap_eff, creds->cap_prm);
 }
 
 bool may_restore(CredsEntry *creds)
 {
 	return check_ids(cr_uid, creds->uid, creds->euid, creds->suid) &&
-		check_ids(cr_gid, creds->gid, creds->egid, creds->sgid) &&
+		check_gids(creds->gid, creds->egid, creds->sgid) &&
+		check_groups(creds->groups, creds->n_groups) &&
 		check_caps(creds->cap_inh, creds->cap_eff, creds->cap_prm);
 }

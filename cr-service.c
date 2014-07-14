@@ -178,7 +178,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		return -1;
 	}
 
-	restrict_uid(ids.uid, ids.gid);
+	if (restrict_uid(ids.uid, ids.gid))
+		return -1;
 
 	if (fstat(sk, &st)) {
 		pr_perror("Can't get socket stat");
