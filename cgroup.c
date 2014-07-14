@@ -172,7 +172,7 @@ int parse_cg_info(void)
 /* Check that co-mounted controllers from /proc/cgroups (e.g. cpu and cpuacct)
  * are contained in a comma separated string (e.g. from /proc/self/cgroup or
  * mount options). */
-bool cgroup_contains(char **controllers, unsigned int n_controllers, char *name)
+static bool cgroup_contains(char **controllers, unsigned int n_controllers, char *name)
 {
 	unsigned int i;
 	bool all_match = true;
