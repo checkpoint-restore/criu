@@ -1530,8 +1530,20 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 		if (!ncc)
 			goto err;
 
+		/*
+		 * Typical output (':' is a separator here)
+		 *
+		 * 4:cpu,cpuacct:/
+		 * 3:cpuset:/
+		 * 2:name=systemd:/user.slice/user-1000.slice/session-1.scope
+		 */
 		name = strchr(buf, ':') + 1;
 		path = strchr(name, ':');
+		if (!name || !path) {
+			pr_err("Failed parsing cgroup %s\n", buf);
+			xfree(ncc);
+			goto err;
+		}
 		e = strchr(name, '\n');
 		*path++ = '\0';
 		if (e)
