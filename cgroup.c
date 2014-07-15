@@ -439,9 +439,6 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 	if (parse_task_cgroup(pid, &ctls, &n_ctls))
 		return -1;
 
-	if (item == root_item && collect_cgroups(&ctls) < 0)
-		return -1;
-
 	cs = get_cg_set(&ctls, n_ctls);
 	if (!cs)
 		return -1;
@@ -454,6 +451,13 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 		BUG_ON(root_cgset);
 		root_cgset = cs;
 		pr_info("Set %d is root one\n", cs->id);
+
+		/*
+		 * The on-stack ctls is moved into cs inside
+		 * the get_cg_set routine.
+		 */
+		if (cs != criu_cgset && collect_cgroups(&cs->ctls))
+			return -1;
 	}
 
 	*cg_id = cs->id;
