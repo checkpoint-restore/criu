@@ -296,20 +296,18 @@ static int collect_cgroups(struct list_head *ctls)
 		char *name, prefix[] = ".criu.cgmounts.XXXXXX";
 		struct cg_controller *cg;
 
-		if (strstartswith(cc->name, "name="))
+		if (strstartswith(cc->name, "name=")) {
 			name = cc->name + 5;
-		else
+			sprintf(opts, "none,%s", cc->name);
+		} else {
 			name = cc->name;
+			sprintf(opts, "%s", name);
+		}
 
 		if (mkdtemp(prefix) == NULL) {
 			pr_perror("can't make dir for cg mounts\n");
 			return -1;
 		}
-
-		if (name == cc->name)
-			sprintf(opts, "%s", name);
-		else
-			sprintf(opts, "none,%s", cc->name);
 
 		if (mount("none", prefix, "cgroup", 0, opts) < 0) {
 			pr_perror("couldn't mount %s\n", opts);
