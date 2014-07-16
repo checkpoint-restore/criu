@@ -195,6 +195,7 @@ static bool cgroup_contains(char **controllers, unsigned int n_controllers, char
 /* This is for use in add_cgroup() as additional arguments for the ftw()
  * callback */
 static struct cg_controller	*current_controller;
+static unsigned int		path_pref_len;
 
 #define EXACT_MATCH	0
 #define PARENT_MATCH	1
@@ -242,8 +243,8 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 			goto out;
 		}
 
-		/* chop off the first strlen(".criu.cgmounts.XXXXXX") */
-		ncd->path = xstrdup(fpath + 21);
+		/* chop off the first "/proc/self/fd/N" str */
+		ncd->path = xstrdup(fpath + path_pref_len);
 		if (!ncd->path) {
 			ret = -1;
 			goto out;
@@ -316,7 +317,8 @@ static int collect_cgroups(struct list_head *ctls)
 		if (fd < 0)
 			return -1;
 
-		snprintf(path, PATH_MAX, "/proc/self/fd/%d/%s", fd, cc->path);
+		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
+		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", cc->path);
 
 		current_controller = NULL;
 
