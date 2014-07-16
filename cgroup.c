@@ -244,7 +244,11 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		}
 
 		/* chop off the first "/proc/self/fd/N" str */
-		ncd->path = xstrdup(fpath + path_pref_len);
+		if (fpath[path_pref_len] == '\0')
+			ncd->path = xstrdup("/");
+		else
+			ncd->path = xstrdup(fpath + path_pref_len);
+
 		if (!ncd->path) {
 			ret = -1;
 			goto out;
