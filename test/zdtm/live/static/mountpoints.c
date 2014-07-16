@@ -76,7 +76,6 @@ static int test_fn(int argc, char **argv)
 	int fd, tmpfs_fd;
 	unsigned fs_cnt, fs_cnt_last = 0;
 	struct ns_exec_args args;
-	bool private = false;
 	mode_t old_mask;
 	pid_t pid = -1;
 
@@ -122,11 +121,6 @@ again:
 	}
 
 	fclose(f);
-
-	if (!private) {
-		private = true;
-		goto again;
-	}
 
 	if (fs_cnt == 0)
 		goto done;
