@@ -14,7 +14,7 @@
 #include "proc_parse.h"
 #include "util.h"
 #include "fdset.h"
-#include "string.h"
+#include "util-pie.h"
 #include "protobuf.h"
 #include "protobuf/core.pb-c.h"
 #include "protobuf/cgroup.pb-c.h"
@@ -45,7 +45,6 @@ static u32 cg_set_ids = 1;
 
 static LIST_HEAD(cgroups);
 static unsigned int n_cgroups;
-static struct mount_info *cg_mntinfo;
 
 static CgSetEntry *find_rst_set_by_id(u32 id)
 {
@@ -162,13 +161,8 @@ int parse_cg_info(void)
 	if (parse_cgroups(&cgroups, &n_cgroups) < 0)
 		return -1;
 
-	cg_mntinfo = parse_mountinfo(getpid(), NULL);
-
-	if (!cg_mntinfo)
-		return -1;
 	return 0;
 }
-
 
 /* Check that co-mounted controllers from /proc/cgroups (e.g. cpu and cpuacct)
  * are contained in a comma separated string (e.g. from /proc/self/cgroup or
@@ -196,33 +190,6 @@ static bool cgroup_contains(char **controllers, unsigned int n_controllers, char
 	}
 
 	return all_match && n_controllers > 0;
-}
-
-static int get_cgroup_mount_point(char *controller, char *path)
-{
-	struct mount_info *m;
-	char **names;
-	int n_names, i, ret = -1;
-
-	split(controller, ',', &names, &n_names);
-	if (!names)
-		return -1;
-
-	for (m = cg_mntinfo; m != NULL; m = m->next) {
-		if (strcmp(m->fstype->name, "cgroup") == 0 &&
-				cgroup_contains(names, n_names, m->options)) {
-			/* skip the leading '.' in mountpoint */
-			strcpy(path, m->mountpoint + 1);
-			ret = 0;
-			goto out;
-		}
-	}
-
-out:
-	for (i = 0; i < n_names; i++)
-		xfree(names[i]);
-	xfree(names);
-	return ret;
 }
 
 /* This is for use in add_cgroup() as additional arguments for the ftw()
@@ -264,7 +231,6 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 
 	if (typeflag == FTW_D) {
 		int mtype;
-		struct mount_info *mi;
 
 		strncpy(pbuf, fpath, PATH_MAX);
 
@@ -275,29 +241,12 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 			ret = -1;
 			goto out;
 		}
-		ncd->path = NULL;
 
-		for (mi = cg_mntinfo; mi != NULL; mi = mi->next) {
-			if (is_path_prefix(fpath, mi->mountpoint + 1)) {
-				ncd->path = xstrdup(fpath + strlen(mi->mountpoint));
-				if (!ncd->path) {
-					ret = -1;
-					goto out;
-				}
-				break;
-			}
-		}
-
+		/* chop off the first strlen(".criu.cgmounts.XXXXXX") */
+		ncd->path = xstrdup(fpath + 21);
 		if (!ncd->path) {
-			/* We couldn't find fpath in mountinfo, which means we
-			 * mounted it ourselves, so we just chop off the first
-			 * strlen(".criu.cgmounts.XXXXXX").
-			 */
-			ncd->path = xstrdup(fpath + 21);
-			if (!ncd->path) {
-				ret = -1;
-				goto out;
-			}
+			ret = -1;
+			goto out;
 		}
 
 		mtype = find_dir(ncd->path, &current_controller->heads, &match);
@@ -335,11 +284,11 @@ static int collect_cgroups(struct list_head *ctls)
 {
 	struct cg_ctl *cc;
 	int ret = 0;
+	int fd = -1;
 
 	list_for_each_entry(cc, ctls, l) {
-		char path[PATH_MAX];
+		char path[PATH_MAX], opts[1024];
 		char *name, prefix[] = ".criu.cgmounts.XXXXXX";
-		bool temp_mount = false;
 		struct cg_controller *cg;
 
 		if (strstartswith(cc->name, "name="))
@@ -347,36 +296,27 @@ static int collect_cgroups(struct list_head *ctls)
 		else
 			name = cc->name;
 
-		if (get_cgroup_mount_point(name, path) < 0) {
-			/* Someone is trying to dump a process that is in
-			 * a controller that isn't mounted, so we mount it for
-			 * them.
-			 */
-			char opts[1024];
-			temp_mount = true;
-
-			pr_info("Couldn't find mount point for %s mounting..\n", name);
-
-			if (mkdtemp(prefix) == NULL) {
-				pr_perror("can't make dir for cg mounts\n");
-				return -1;
-			}
-
-			if (name == cc->name)
-				sprintf(opts, "%s", name);
-			else
-				sprintf(opts, "none,%s", cc->name);
-
-			if (mount("none", prefix, "cgroup", 0, opts) < 0) {
-				pr_perror("couldn't mount %s\n", opts);
-				rmdir(prefix);
-				return -1;
-			}
-
-			strcpy(path, prefix);
+		if (mkdtemp(prefix) == NULL) {
+			pr_perror("can't make dir for cg mounts\n");
+			return -1;
 		}
 
-		strlcat(path, cc->path, PATH_MAX);
+		if (name == cc->name)
+			sprintf(opts, "%s", name);
+		else
+			sprintf(opts, "none,%s", cc->name);
+
+		if (mount("none", prefix, "cgroup", 0, opts) < 0) {
+			pr_perror("couldn't mount %s\n", opts);
+			rmdir(prefix);
+			return -1;
+		}
+
+		fd = open_detach_mount(prefix);
+		if (fd < 0)
+			return -1;
+
+		snprintf(path, PATH_MAX, "/proc/self/fd/%d/%s", fd, cc->path);
 
 		current_controller = NULL;
 
@@ -411,10 +351,7 @@ static int collect_cgroups(struct list_head *ctls)
 		}
 
 out:
-		if (temp_mount) {
-			umount(prefix);
-			rmdir(prefix);
-		}
+		close_safe(&fd);
 
 		if (ret < 0)
 			return ret;
