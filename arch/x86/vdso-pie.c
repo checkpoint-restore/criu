@@ -288,7 +288,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	 * instead of one in image.
 	 *
 	 * In case if VVAR area is present at least it must have same
-	 * size as dumped one for inplace remap.
+	 * size as dumped one for inplace remap, also the order of zones
+	 * must be matching.
 	 */
 	if (size == vdso_vma_size(sym_rt)) {
 		size_t i;
@@ -300,8 +301,15 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 		if (i == ARRAY_SIZE(s.symbols)) {
 			remap_rt = true;
 
-			if (vvar_vma && sym_rt->vvar_start != VVAR_BAD_ADDR)
+			if (vvar_vma && sym_rt->vvar_start != VVAR_BAD_ADDR) {
 				remap_rt = (vvar_vma_size(sym_rt) == vma_entry_len(vvar_vma));
+				if (remap_rt) {
+					long delta_rt = sym_rt->vvar_start - sym_rt->vma_start;
+					long delta_this = vvar_vma->start - vdso_vma->start;
+
+					remap_rt = (delta_rt ^ delta_this) < 0 ? false : true;
+				}
+			}
 		}
 	}
 
