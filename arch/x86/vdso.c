@@ -263,11 +263,18 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 	 *
 	 * 7fff1f5fd000-7fff1f5fe000 r-xp 00000000 00:00 0 [vdso]
 	 * 7fff1f5fe000-7fff1f600000 r--p 00000000 00:00 0 [vvar]
+	 *
+	 * The areas may be in reverse order.
+	 *
+	 * 7fffc3502000-7fffc3504000 r--p 00000000 00:00 0 [vvar]
+	 * 7fffc3504000-7fffc3506000 r-xp 00000000 00:00 0 [vdso]
+	 *
 	 */
 	ret = 0;
 	if (s->vma_start != VDSO_BAD_ADDR) {
 		if (s->vvar_start != VVAR_BAD_ADDR) {
-			if (s->vma_end != s->vvar_start) {
+			if (s->vma_end != s->vvar_start &&
+			    s->vvar_end != s->vma_start) {
 				ret = -1;
 				pr_err("Unexpected rt vDSO area bounds\n");
 				goto err;
