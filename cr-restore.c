@@ -2358,7 +2358,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long tcp_socks;
 
 #ifdef CONFIG_VDSO
-	unsigned long vdso_rt_vma_size = 0;
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
 #endif
@@ -2428,10 +2427,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
 	 */
-	vdso_rt_vma_size = vdso_vma_size(&vdso_sym_rt);
-	if (vdso_rt_vma_size) {
+	vdso_rt_size = vdso_vma_size(&vdso_sym_rt);
+	if (vdso_rt_size) {
 		vdso_rt_delta = ALIGN(restore_bootstrap_len, PAGE_SIZE) - restore_bootstrap_len;
-		vdso_rt_size = vdso_rt_vma_size + vdso_rt_delta;
+		vdso_rt_size += vdso_rt_delta;
 		if (vvar_vma_size(&vdso_sym_rt))
 			vdso_rt_size += ALIGN(vvar_vma_size(&vdso_sym_rt), PAGE_SIZE);
 	}
