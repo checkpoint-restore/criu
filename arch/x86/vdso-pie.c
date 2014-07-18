@@ -291,12 +291,32 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 }
 
 int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
-		 VmaEntry *vdso_vma, VmaEntry *vvar_vma,
-		 unsigned long vdso_rt_parked_at)
+		 unsigned long vdso_rt_parked_at, size_t index,
+		 VmaEntry *vmas, size_t nr_vmas)
 {
+	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
-	size_t size = vma_entry_len(vdso_vma);
 	bool remap_rt = false;
+
+	/*
+	 * Figue out which kind of vdso tuple we get.
+	 */
+	if (vma_entry_is(&vmas[index], VMA_AREA_VDSO))
+		vma_vdso = &vmas[index];
+	else if (vma_entry_is(&vmas[index], VMA_AREA_VVAR))
+		vma_vvar = &vmas[index];
+
+	if (index < (nr_vmas - 1)) {
+		if (vma_entry_is(&vmas[index + 1], VMA_AREA_VDSO))
+			vma_vdso = &vmas[index + 1];
+		else if (vma_entry_is(&vmas[index + 1], VMA_AREA_VVAR))
+			vma_vvar = &vmas[index + 1];
+	}
+
+	if (!vma_vdso) {
+		pr_err("Can't find vDSO area in image\n");
+		return -1;
+	}
 
 	/*
 	 * vDSO mark overwrites Elf program header of proxy vDSO thus
@@ -305,35 +325,35 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	BUILD_BUG_ON(sizeof(struct vdso_mark) > sizeof(Elf64_Phdr));
 
 	/*
-	 * Find symbols in dumpee vdso.
+	 * Find symbols in vDSO zone read from image.
 	 */
-	if (vdso_fill_symtable((void *)vdso_vma->start, size, &s))
+	if (vdso_fill_symtable((void *)vma_vdso->start, vma_entry_len(vma_vdso), &s))
 		return -1;
 
 	/*
-	 * Try to figure out if the vDSO in image has the same symbols
-	 * as run time vDSO, if yes we might try to reuse runtime vDSO
-	 * instead of one in image.
+	 * Proxification strategy
 	 *
-	 * In case if VVAR area is present at least it must have same
-	 * size as dumped one for inplace remap, also the order of zones
-	 * must be matching.
+	 *  - There might be two vDSO zones: vdso code and optionally vvar data
+	 *  - To be able to use in-place remapping we need
+	 *
+	 *    a) Size and order of vDSO zones are to match
+	 *    b) Symbols offsets must match
+	 *    c) Have same number of vDSO zones
 	 */
-	if (size == vdso_vma_size(sym_rt)) {
+	if (vma_entry_len(vma_vdso) == vdso_vma_size(sym_rt)) {
 		size_t i;
 
 		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
 			if (s.symbols[i].offset != sym_rt->symbols[i].offset)
 				break;
-			}
-		if (i == ARRAY_SIZE(s.symbols)) {
-			remap_rt = true;
+		}
 
-			if (vvar_vma && sym_rt->vvar_start != VVAR_BAD_ADDR) {
-				remap_rt = (vvar_vma_size(sym_rt) == vma_entry_len(vvar_vma));
+		if (i == ARRAY_SIZE(s.symbols)) {
+			if (vma_vvar && sym_rt->vvar_start != VVAR_BAD_ADDR) {
+				remap_rt = (vvar_vma_size(sym_rt) == vma_entry_len(vma_vvar));
 				if (remap_rt) {
 					long delta_rt = sym_rt->vvar_start - sym_rt->vma_start;
-					long delta_this = vvar_vma->start - vdso_vma->start;
+					long delta_this = vma_vvar->start - vma_vdso->start;
 
 					remap_rt = (delta_rt ^ delta_this) < 0 ? false : true;
 				}
@@ -341,39 +361,49 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 		}
 	}
 
+	pr_debug("image [vdso] %lx-%lx [vvar] %lx-%lx\n",
+		 vma_vdso->start, vma_vdso->end,
+		 vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR,
+		 vma_vvar ? vma_vvar->end : VVAR_BAD_ADDR);
+
 	/*
-	 * Easy case -- the vdso from image has same offsets and size
+	 * Easy case -- the vdso from image has same offsets, order and size
 	 * as runtime, so we simply remap runtime vdso to dumpee position
-	 * without generating any proxy. Note we may remap VVAR vdso as
-	 * well which might not yet been mapped by a caller code. So
-	 * drop VMA_AREA_REGULAR from it and caller would not touch it
-	 * anymore.
+	 * without generating any proxy.
+	 *
+	 * Note we may remap VVAR vdso as well which might not yet been mapped
+	 * by a caller code. So drop VMA_AREA_REGULAR from it and caller would
+	 * not touch it anymore.
 	 */
 	if (remap_rt) {
-		unsigned long vvar_rt_parked_at = VVAR_BAD_ADDR;
 		int ret = 0;
 
 		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
 
-		if (sys_munmap((void *)vdso_vma->start, vma_entry_len(vdso_vma))) {
+		if (sys_munmap((void *)vma_vdso->start, vma_entry_len(vma_vdso))) {
 			pr_err("Failed to unmap %s\n", who);
 			return -1;
 		}
 
-		if (vvar_vma) {
-			if (sys_munmap((void *)vvar_vma->start, vma_entry_len(vvar_vma))) {
+		if (vma_vvar) {
+			if (sys_munmap((void *)vma_vvar->start, vma_entry_len(vma_vvar))) {
 				pr_err("Failed to unmap %s\n", who);
 				return -1;
 			}
-
-			vvar_rt_parked_at = ALIGN(vvar_vma_size(sym_rt), PAGE_SIZE);
-			vvar_rt_parked_at+= vdso_rt_parked_at;
-
-			ret = vdso_remap(who, vvar_rt_parked_at, vvar_vma->start, vma_entry_len(vvar_vma));
-			vvar_vma->status &= ~VMA_AREA_REGULAR;
 		}
 
-		ret |= vdso_remap(who, vdso_rt_parked_at, vdso_vma->start, vma_entry_len(vdso_vma));
+		if (vma_vvar) {
+			if (vma_vdso->start < vma_vvar->start) {
+				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				vdso_rt_parked_at += vdso_vma_size(sym_rt);
+				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+			} else {
+				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				vdso_rt_parked_at += vvar_vma_size(sym_rt);
+				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+			}
+		} else
+			ret = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 
 		return ret;
 	}
@@ -385,8 +415,15 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	 */
 	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
 
+	/*
+	 * Don't forget to shift if vvar is before vdso.
+	 */
+	if (sym_rt->vvar_start != VDSO_BAD_ADDR &&
+	    sym_rt->vvar_start < sym_rt->vma_start)
+		vdso_rt_parked_at += vvar_vma_size(sym_rt);
+
 	if (vdso_redirect_calls((void *)vdso_rt_parked_at,
-				(void *)vdso_vma->start,
+				(void *)vma_vdso->start,
 				sym_rt, &s)) {
 		pr_err("Failed to proxify dumpee contents\n");
 		return -1;
@@ -398,7 +435,7 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	 * it's auto-generated every new session if proxy required.
 	 */
 	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), PROT_WRITE);
-	vdso_put_mark((void *)vdso_rt_parked_at, vdso_vma->start, vvar_vma ? vvar_vma->start : VVAR_BAD_ADDR);
+	vdso_put_mark((void *)vdso_rt_parked_at, vma_vdso->start, vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR);
 	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), VDSO_PROT);
 	return 0;
 }

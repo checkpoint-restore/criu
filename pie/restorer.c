@@ -729,18 +729,11 @@ long __export_restore_task(struct task_restore_args *args)
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
 #ifdef CONFIG_VDSO
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
-			VmaEntry *vma_vvar;
-
-			if (i + 1 < args->nr_vmas) {
-				vma_vvar = args->tgt_vmas + i + 1;
-				if (!vma_entry_is(vma_entry, VMA_AREA_VVAR))
-					vma_vvar = NULL;
-			} else
-				vma_vvar = NULL;
+		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
+		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
 			if (vdso_proxify("left dumpee", &args->vdso_sym_rt,
-					 vma_entry, vma_vvar,
-					 args->vdso_rt_parked_at))
+					 args->vdso_rt_parked_at,
+					 i, args->tgt_vmas, args->nr_vmas))
 				goto core_restore_end;
 		}
 #endif
@@ -766,18 +759,11 @@ long __export_restore_task(struct task_restore_args *args)
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
 #ifdef CONFIG_VDSO
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO)) {
-			VmaEntry *vma_vvar;
-
-			if (i + 1 < args->nr_vmas) {
-				vma_vvar = args->tgt_vmas + i + 1;
-				if (!vma_entry_is(vma_entry, VMA_AREA_VVAR))
-					vma_vvar = NULL;
-			} else
-				vma_vvar = NULL;
+		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
+		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
 			if (vdso_proxify("right dumpee", &args->vdso_sym_rt,
-					 vma_entry, vma_vvar,
-					 args->vdso_rt_parked_at))
+					 args->vdso_rt_parked_at,
+					 i, args->tgt_vmas, args->nr_vmas))
 				goto core_restore_end;
 		}
 #endif
