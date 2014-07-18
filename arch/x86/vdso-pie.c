@@ -19,6 +19,7 @@
 #include "vdso.h"
 #include "vma.h"
 #include "log.h"
+#include "bug.h"
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -246,7 +247,7 @@ err_oob:
 	return -EFAULT;
 }
 
-int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
+static int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
 {
 	unsigned long addr;
 
@@ -260,6 +261,33 @@ int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
 	}
 
 	return 0;
+}
+
+/* Park runtime vDSO in some safe place where it can be accessible from restorer */
+int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size)
+{
+	int ret;
+
+	BUG_ON((vdso_vma_size(sym_rt) + vvar_vma_size(sym_rt)) < park_size);
+
+	if (sym_rt->vvar_start != VDSO_BAD_ADDR) {
+		if (sym_rt->vma_start < sym_rt->vvar_start) {
+			ret  = vdso_remap("rt-vdso", sym_rt->vma_start,
+					  park_at, vdso_vma_size(sym_rt));
+			park_at += vdso_vma_size(sym_rt);
+			ret |= vdso_remap("rt-vvar", sym_rt->vvar_start,
+					  park_at, vvar_vma_size(sym_rt));
+		} else {
+			ret  = vdso_remap("rt-vvar", sym_rt->vvar_start,
+					  park_at, vvar_vma_size(sym_rt));
+			park_at += vvar_vma_size(sym_rt);
+			ret |= vdso_remap("rt-vdso", sym_rt->vma_start,
+					  park_at, vdso_vma_size(sym_rt));
+		}
+	} else
+		ret = vdso_remap("rt-vdso", sym_rt->vma_start,
+				 park_at, vdso_vma_size(sym_rt));
+	return ret;
 }
 
 int vdso_proxify(char *who, struct vdso_symtable *sym_rt,

@@ -146,7 +146,7 @@ extern struct vdso_symtable vdso_sym_rt;
 extern u64 vdso_pfn;
 
 extern int vdso_init(void);
-extern int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size);
+extern int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size);
 extern int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t);
 extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 			VmaEntry *vdso_vma, VmaEntry *vvar_vma,

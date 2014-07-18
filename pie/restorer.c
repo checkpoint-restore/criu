@@ -701,16 +701,8 @@ long __export_restore_task(struct task_restore_args *args)
 	pr_info("Switched to the restorer %d\n", my_pid);
 
 #ifdef CONFIG_VDSO
-	if (vdso_remap("rt-vdso", args->vdso_sym_rt.vma_start,
-		       args->vdso_rt_parked_at,
-		       vdso_vma_size(&args->vdso_sym_rt)))
+	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
 		goto core_restore_end;
-	if (args->vdso_sym_rt.vvar_start != VVAR_BAD_ADDR) {
-		if (vdso_remap("rt-vvar", args->vdso_sym_rt.vvar_start,
-			       args->vdso_rt_parked_at + vdso_vma_size(&args->vdso_sym_rt),
-			       vvar_vma_size(&args->vdso_sym_rt)))
-			goto core_restore_end;
-	}
 #endif
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
