@@ -591,13 +591,13 @@ static int move_in_cgroup(CgSetEntry *se)
 				name = ctrl->cnames[j] + 5;
 			else
 				name = ctrl->cnames[j];
-			aux_off += sprintf(aux + aux_off, "%s,", name);
+			aux_off += snprintf(aux + aux_off, sizeof(aux) - aux_off, "%s,", name);
 		}
 
 		/* Chop off the last ','. */
 		aux_off -= 1;
 
-		sprintf(aux + aux_off, "/%s/tasks", ce->path);
+		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 
 		pr_debug("  `-> %s\n", aux);
 		err = fd = openat(cg, aux, O_WRONLY);
