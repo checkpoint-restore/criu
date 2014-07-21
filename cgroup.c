@@ -677,6 +677,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 
 		sprintf(paux + off, "/%s", e->path);
 
+		pr_debug("\t`- %s\n", paux);
 		if (mkdirp(paux)) {
 			pr_perror("Can't make cgroup dir %s", paux);
 			return -1;
@@ -766,6 +767,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 
 		name_off = sprintf(paux + off, "/%s", name);
 
+		pr_debug("\tMaking subdir %s\n", paux);
 		if (mkdir(paux, 0700)) {
 			pr_perror("Can't make cgyard subdir %s", paux);
 			goto err;
