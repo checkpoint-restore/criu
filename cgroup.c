@@ -291,10 +291,10 @@ static int collect_cgroups(struct list_head *ctls)
 
 		if (strstartswith(cc->name, "name=")) {
 			name = cc->name + 5;
-			sprintf(opts, "none,%s", cc->name);
+			snprintf(opts, sizeof(opts), "none,%s", cc->name);
 		} else {
 			name = cc->name;
-			sprintf(opts, "%s", name);
+			snprintf(opts, sizeof(opts), "%s", name);
 		}
 
 		if (mkdtemp(prefix) == NULL) {
