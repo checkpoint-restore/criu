@@ -227,7 +227,6 @@ static int find_dir(const char *path, struct list_head *dirs, struct cgroup_dir 
 static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 {
 	struct cgroup_dir *ncd = NULL, *match;
-	int ret = 0;
 	char pbuf[PATH_MAX];
 
 	if (typeflag == FTW_D) {
@@ -238,10 +237,8 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		pr_info("adding cgroup %s\n", fpath);
 
 		ncd = xmalloc(sizeof(*ncd));
-		if (!ncd) {
-			ret = -1;
+		if (!ncd)
 			goto out;
-		}
 
 		/* chop off the first "/proc/self/fd/N" str */
 		if (fpath[path_pref_len] == '\0')
@@ -249,10 +246,8 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		else
 			ncd->path = xstrdup(fpath + path_pref_len);
 
-		if (!ncd->path) {
-			ret = -1;
+		if (!ncd->path)
 			goto out;
-		}
 
 		mtype = find_dir(ncd->path, &current_controller->heads, &match);
 
@@ -273,16 +268,14 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		INIT_LIST_HEAD(&ncd->children);
 		ncd->n_children = 0;
 		return 0;
-	}
+	} else
+		return 0;
 
 out:
-	if (ncd) {
-		if (ncd->path)
-			xfree(ncd->path);
-		xfree(ncd);
-	}
-
-	return ret;
+	if (ncd)
+		xfree(ncd->path);
+	xfree(ncd);
+	return -1;
 }
 
 static int collect_cgroups(struct list_head *ctls)
