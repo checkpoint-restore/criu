@@ -414,7 +414,7 @@ static int send_req_and_recv_resp(CriuReq *req, CriuResp **resp)
 	fd = criu_connect();
 	if (fd < 0) {
 		perror("Can't connect to criu");
-		ret = ECONNREFUSED;
+		ret = -ECONNREFUSED;
 	} else {
 		ret = send_req_and_recv_resp_sk(fd, req, resp);
 		close(fd);
