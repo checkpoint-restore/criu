@@ -2645,9 +2645,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	new_sp = restorer_stack(task_args->t);
 
-	/* No longer need it */
-	core_entry__free_unpacked(core, NULL);
-
 	ret = prepare_itimers(pid, core, task_args);
 	if (ret < 0)
 		goto err;
@@ -2659,6 +2656,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	ret = prepare_mm(pid, task_args);
 	if (ret < 0)
 		goto err;
+
+	/* No longer need it */
+	core_entry__free_unpacked(core, NULL);
 
 	/*
 	 * Open the last_pid syscl early, since restorer (maybe) lives
