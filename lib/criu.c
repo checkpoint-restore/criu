@@ -197,6 +197,8 @@ int criu_add_ext_mount(char *key, char *val)
 	m = malloc(sizeof(*m));
 	if (!m)
 		goto er;
+	ext_mount_map__init(m);
+
 	m->key = strdup(key);
 	if (!m->key)
 		goto er_n;
@@ -232,6 +234,8 @@ int criu_add_veth_pair(char *in, char *out)
 	p = malloc(sizeof(*p));
 	if (!p)
 		goto er;
+	criu_veth_pair__init(p);
+
 	p->if_in = strdup(in);
 	if (!p->if_in)
 		goto er_p;
