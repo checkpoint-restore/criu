@@ -88,8 +88,8 @@ OPTIONS
     - *all*. Require all capability. This is *default* mode.
 
 *-f*, *--file* 'file'::
-    This option is valid for *show* command only and allows to see content of
-    the 'file' specified.
+    This option is valid for the *show* command only and allows one to see the
+    content of the 'file' specified.
 
 *-x*, *--ext-unix-sk*::
     Dump external unix sockets.
@@ -116,7 +116,7 @@ OPTIONS
 *-M*, *--ext-mount-map* 'KEY'*:*'VAL'::
     Setup mapping for external mounts.
 
-    On dump, KEY is a mountpoint inside container and correspoding VAL 
+    On dump, KEY is a mountpoint inside container and corresponding VAL 
     is a string that will be written into the image as mountpoint's root
     value
 
@@ -162,8 +162,8 @@ OPTIONS
 *-j*, *--shell-job*::
     Allow to dump and restore shell jobs. This implies the restored task
     will inherit session and process group ID from the criu itself.
-    Also this option allows to migrate a single external tty connection, in other
-    words this option allows to migrate such application as *top* and friends.
+    Also this option allows one to migrate a single external tty connection, in other
+    words this option allows one to migrate such application as *top* and friends.
 
 *-l*, *--file-locks*::
     Allow to dump and restore file locks. It is necessary to make sure that
