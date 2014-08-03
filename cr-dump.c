@@ -1803,7 +1803,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_file_locks())
 		goto err;
 
-	if (dump_mnt_namespaces() < 0)
+	if (collect_mnt_namespaces() < 0)
 		goto err;
 
 	if (collect_sockets(pid))
@@ -1817,6 +1817,10 @@ int cr_dump_tasks(pid_t pid)
 		if (dump_one_task(item))
 			goto err;
 	}
+
+	/* MNT namespaces are dumped after files to save remapped links */
+	if (dump_mnt_namespaces() < 0)
+		goto err;
 
 	if (dump_verify_tty_sids())
 		goto err;
