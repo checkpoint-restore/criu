@@ -2062,6 +2062,16 @@ struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
 	return mi->nsid;
 }
 
+int mntns_get_root_by_mnt_id(int mnt_id)
+{
+	struct ns_id *mntns;
+
+	mntns = lookup_nsid_by_mnt_id(mnt_id);
+	BUG_ON(mntns == NULL);
+
+	return mntns_get_root_fd(mntns);
+}
+
 static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), void *arg)
 {
 	struct mount_info *pms;

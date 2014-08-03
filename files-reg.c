@@ -676,7 +676,6 @@ int open_path(struct file_desc *d,
 		int(*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
 	struct reg_file_info *rfi;
-	struct ns_id *ns;
 	int tmp, mntns_root;
 	char *orig_path = NULL;
 
@@ -722,12 +721,7 @@ int open_path(struct file_desc *d,
 		}
 	}
 
-	ns = lookup_nsid_by_mnt_id(rfi->rfe->mnt_id);
-	if (ns == NULL)
-		return -1;
-
-	mntns_root = mntns_get_root_fd(ns);
-
+	mntns_root = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
 	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
