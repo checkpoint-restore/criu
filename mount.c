@@ -545,8 +545,6 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 		return NULL;
 
 	mnt_resort_siblings(tree);
-	if (collect_shared(list))
-		return NULL;
 	pr_info("Done:\n");
 	mnt_tree_show(tree, 0);
 	return tree;
@@ -1859,6 +1857,9 @@ static int populate_mnt_ns(struct mount_info *mis)
 	if (!pms)
 		return -1;
 
+	if (collect_shared(mis))
+		return -1;
+
 	for (nsid = ns_ids; nsid; nsid = nsid->next) {
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
@@ -2107,6 +2108,8 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 
 		mntinfo_add_list(pms);
 	}
+	if (collect_shared(mntinfo))
+		goto err;
 	ret = 0;
 err:
 	return ret;
