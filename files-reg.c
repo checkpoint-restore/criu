@@ -915,9 +915,14 @@ struct file_desc *collect_special_file(u32 id)
 static int collect_one_regfile(void *o, ProtobufCMessage *base)
 {
 	struct reg_file_info *rfi = o;
+	static char dot[] = ".";
 
 	rfi->rfe = pb_msg(base, RegFileEntry);
-	rfi->path = rfi->rfe->name;
+	/* change "/foo" into "foo" and "/" into "." */
+	if (rfi->rfe->name[1] == '\0')
+		rfi->path = dot;
+	else
+		rfi->path = rfi->rfe->name + 1;
 	rfi->remap = NULL;
 	rfi->size_checked = false;
 
