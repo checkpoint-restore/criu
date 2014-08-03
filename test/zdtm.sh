@@ -403,7 +403,7 @@ start_test()
 		return 1
 	fi
 
-	[ -z "$ZDTM_ROOT" ] || cd -
+	[ -z "$PIDNS" ] || cd -
 
 	PID=`cat "$TPID"` || return 1
 	if ! ps -p $PID ; then
