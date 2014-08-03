@@ -73,8 +73,9 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 	int gfd, ghost_flags, ret = -1;
 	char path[PATH_MAX];
 
+	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.path);
 	if (S_ISFIFO(gfe->mode)) {
-		if (mknod(gf->remap.path, gfe->mode, 0)) {
+		if (mknod(path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file");
 			goto err;
 		}
@@ -85,13 +86,13 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 			goto err;
 		}
 
-		if (mknod(gf->remap.path, gfe->mode, gfe->rdev)) {
+		if (mknod(path, gfe->mode, gfe->rdev)) {
 			pr_perror("Can't create node for ghost dev");
 			goto err;
 		}
 		ghost_flags = O_WRONLY;
 	} else if (S_ISDIR(gfe->mode)) {
-		if (mkdir(gf->remap.path, gfe->mode)) {
+		if (mkdir(path, gfe->mode)) {
 			pr_perror("Can't make ghost dir");
 			goto err;
 		}
@@ -99,7 +100,6 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 	} else
 		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
 
-	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.path);
 	gfd = open(path, ghost_flags, gfe->mode);
 	if (gfd < 0) {
 		pr_perror("Can't open ghost file %s", path);
