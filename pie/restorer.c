@@ -728,15 +728,6 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_remap(vma_premmaped_start(vma_entry),
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
-#ifdef CONFIG_VDSO
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
-		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
-			if (vdso_proxify("left dumpee", &args->vdso_sym_rt,
-					 args->vdso_rt_parked_at,
-					 i, args->tgt_vmas, args->nr_vmas))
-				goto core_restore_end;
-		}
-#endif
 	}
 
 	/* Shift private vma-s to the right */
@@ -758,15 +749,6 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_remap(vma_premmaped_start(vma_entry),
 				vma_entry->start, vma_entry_len(vma_entry)))
 			goto core_restore_end;
-#ifdef CONFIG_VDSO
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
-		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
-			if (vdso_proxify("right dumpee", &args->vdso_sym_rt,
-					 args->vdso_rt_parked_at,
-					 i, args->tgt_vmas, args->nr_vmas))
-				goto core_restore_end;
-		}
-#endif
 	}
 
 	/*
@@ -788,6 +770,22 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 		}
 	}
+
+#ifdef CONFIG_VDSO
+	/*
+	 * Proxify vDSO.
+	 */
+	for (i = 0; i < args->nr_vmas; i++) {
+		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
+		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
+			if (vdso_proxify("dumpee", &args->vdso_sym_rt,
+					 args->vdso_rt_parked_at,
+					 i, args->tgt_vmas, args->nr_vmas))
+				goto core_restore_end;
+			break;
+		}
+	}
+#endif
 
 	/*
 	 * Walk though all VMAs again to drop PROT_WRITE
