@@ -222,6 +222,7 @@ clean: clean-built
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test/zdtm cleandep clean cleanout
 	$(Q) $(MAKE) -C test/libcriu clean
+	$(Q) $(MAKE) -C test/rpc clean
 
 distclean: clean
 	$(E) "  DISTCLEAN"
