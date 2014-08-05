@@ -1111,6 +1111,8 @@ ok:
 
 out_f:
 	fs_entry__free_unpacked(fe, NULL);
+	return -1;
+
 out_i:
 	close(ifd);
 out:
