@@ -357,7 +357,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 
 					remap_rt = (delta_rt ^ delta_this) < 0 ? false : true;
 				}
-			}
+			} else
+				remap_rt = true;
 		}
 	}
 
