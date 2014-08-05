@@ -390,9 +390,7 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 				pr_err("Failed to unmap %s\n", who);
 				return -1;
 			}
-		}
 
-		if (vma_vvar) {
 			if (vma_vdso->start < vma_vvar->start) {
 				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 				vdso_rt_parked_at += vdso_vma_size(sym_rt);
