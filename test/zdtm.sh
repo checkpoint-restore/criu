@@ -175,6 +175,8 @@ static/cgroup00
 static/cgroup01
 ns/static/clean_mntns
 ns/static/mntns_open
+ns/static/mntns_link_remap
+ns/static/mntns_link_ghost
 "
 
 TEST_CR_KERNEL="
@@ -209,6 +211,8 @@ cgroup01
 clean_mntns
 deleted_dev
 mntns_open
+mntns_link_remap
+mntns_link_ghost
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
