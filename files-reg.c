@@ -457,20 +457,23 @@ static int create_link_remap(char *path, int len, int lfd,
 	 * we keep all data in memory.
 	 */
 	rlb = xmalloc(sizeof(*rlb));
-	if (rlb)
-		rlb->path = strdup(link_name);
+	if (!rlb)
+		goto err1;
 
-	if (!rlb || !rlb->path) {
-		pr_perror("Can't register rollback for %s", path);
-		xfree(rlb ? rlb->path : NULL);
-		xfree(rlb);
-		return -1;
-	}
+	rlb->path = strdup(link_name);
+	if (!rlb->path)
+		goto err2;
 
 	rlb->mnt_ns = nsid;
 	list_add(&rlb->list, &link_remaps);
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
+
+err2:
+	xfree(rlb);
+err1:
+	pr_perror("Can't register rollback for %s", path);
+	return -1;
 }
 
 static int dump_linked_remap(char *path, int len, const struct stat *ost,
