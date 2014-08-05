@@ -114,8 +114,10 @@ struct mount_info {
 	 * On restore mountpoint is prepended with so called ns
 	 * root path -- it's a place in fs where the namespace
 	 * mount tree is constructed. Check mnt_roots for details.
+	 * The ns_mountpoint contains path w/o this prefix.
 	 */
 	char		*mountpoint;
+	char		*ns_mountpoint;
 	unsigned	flags;
 	int		master_id;
 	int		shared_id;

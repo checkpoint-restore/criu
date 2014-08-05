@@ -1669,6 +1669,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->mountpoint = xmalloc(len);
 		if (!pm->mountpoint)
 			goto err;
+		pm->ns_mountpoint = pm->mountpoint + root_len;
 		/*
 		 * For bind-mounts we would also fix the root here
 		 * too, but bind-mounts restore merges mountpoint
