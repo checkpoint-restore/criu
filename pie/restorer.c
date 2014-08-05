@@ -776,8 +776,8 @@ long __export_restore_task(struct task_restore_args *args)
 	 * Proxify vDSO.
 	 */
 	for (i = 0; i < args->nr_vmas; i++) {
-		if (vma_entry_is(vma_entry, VMA_AREA_VDSO) ||
-		    vma_entry_is(vma_entry, VMA_AREA_VVAR)) {
+		if (vma_entry_is(&args->tgt_vmas[i], VMA_AREA_VDSO) ||
+		    vma_entry_is(&args->tgt_vmas[i], VMA_AREA_VVAR)) {
 			if (vdso_proxify("dumpee", &args->vdso_sym_rt,
 					 args->vdso_rt_parked_at,
 					 i, args->tgt_vmas, args->nr_vmas))
