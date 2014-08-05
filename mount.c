@@ -1188,11 +1188,15 @@ static int propagate_siblings(struct mount_info *mi)
 	 * to inherite shared group or master id
 	 */
 	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
+		if (t->mounted)
+			continue;
 		pr_debug("\t\tBind %s\n", t->mountpoint);
 		t->bind = mi;
 	}
 
 	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
+		if (t->mounted)
+			continue;
 		pr_debug("\t\tBind %s\n", t->mountpoint);
 		t->bind = mi;
 	}
@@ -1233,6 +1237,8 @@ skip_parent:
 	 */
 	if (fsroot_mounted(mi) || mi->parent == NULL)
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
+			if (t->mounted)
+				continue;
 			if (t->bind)
 				continue;
 			if (t->master_id)
