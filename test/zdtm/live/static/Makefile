@@ -164,6 +164,7 @@ TST_DIR		=				\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\
+		mntns_open			\
 
 TST_DIR_FILE	=				\
 		chroot				\
