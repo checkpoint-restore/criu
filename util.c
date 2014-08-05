@@ -793,7 +793,7 @@ void split(char *str, char token, char ***out, int *n)
 			int j;
 			for (j = 0; j < i; j++)
 				xfree((*out)[j]);
-			xfree(out);
+			xfree(*out);
 			*out = NULL;
 			*n = -1;
 			return;
