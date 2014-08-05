@@ -862,7 +862,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 	/* No more fork()-s => no more per-pid logs */
 
-	switch ((int)core->tc->task_state) {
+	switch (current->state) {
 	case TASK_ALIVE:
 	case TASK_STOPPED:
 		ret = restore_one_alive_task(pid, core);
@@ -870,13 +870,17 @@ static int restore_one_task(int pid, CoreEntry *core)
 	case TASK_DEAD:
 		ret = restore_one_zombie(pid, core);
 		break;
+	case TASK_HELPER:
+		ret = 0;
+		break;
 	default:
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
 		break;
 	}
 
-	core_entry__free_unpacked(core, NULL);
+	if (core)
+		core_entry__free_unpacked(core, NULL);
 	return ret;
 }
 
@@ -1320,9 +1324,6 @@ static int restore_task_with_children(void *_arg)
 
 	if (current->parent == NULL && fini_mnt_ns())
 		exit (1);
-
-	if (current->state == TASK_HELPER)
-		return 0;
 
 	return restore_one_task(current->pid.virt, ca->core);
 err:
