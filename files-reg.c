@@ -460,14 +460,14 @@ static int create_link_remap(char *path, int len, int lfd,
 	if (rlb)
 		rlb->path = strdup(link_name);
 
-	rlb->mnt_ns = nsid;
-
 	if (!rlb || !rlb->path) {
 		pr_perror("Can't register rollback for %s", path);
 		xfree(rlb ? rlb->path : NULL);
 		xfree(rlb);
 		return -1;
 	}
+
+	rlb->mnt_ns = nsid;
 	list_add(&rlb->list, &link_remaps);
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
