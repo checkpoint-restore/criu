@@ -81,6 +81,12 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
 			continue;
 
+		if (vma->e->prot != VDSO_PROT) {
+			pr_debug("Dropping %lx using extra protection test\n",
+				 vma->e->start);
+			continue;
+		}
+
 		if (vma->e->start > TASK_SIZE)
 			continue;
 

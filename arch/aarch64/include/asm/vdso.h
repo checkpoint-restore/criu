@@ -35,10 +35,10 @@ static inline bool vdso_symbol_empty(struct vdso_symbol *s)
  * we should support at the moment.
  */
 enum {
+	VDSO_SYMBOL_CLOCK_GETRES,
 	VDSO_SYMBOL_CLOCK_GETTIME,
-	VDSO_SYMBOL_GETCPU,
 	VDSO_SYMBOL_GETTIMEOFDAY,
-	VDSO_SYMBOL_TIME,
+	VDSO_SYMBOL_RT_SIGRETURN,
 
 	VDSO_SYMBOL_MAX
 };
@@ -135,12 +135,10 @@ static inline bool is_vdso_mark(void *addr)
 	return false;
 }
 
-#define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__vdso_clock_gettime"
-#define VDSO_SYMBOL_GETCPU_NAME		"__vdso_getcpu"
-#define VDSO_SYMBOL_GETTIMEOFDAY_NAME	"__vdso_gettimeofday"
-#define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
-
-
+#define VDSO_SYMBOL_CLOCK_GETRES_NAME	"__kernel_clock_getres"
+#define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__kernel_clock_gettime"
+#define VDSO_SYMBOL_GETTIMEOFDAY_NAME	"__kernel_gettimeofday"
+#define VDSO_SYMBOL_RT_SIGRETURN_NAME	"__kernel_rt_sigreturn"
 
 extern struct vdso_symtable vdso_sym_rt;
 extern u64 vdso_pfn;
@@ -155,5 +153,6 @@ extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 extern int vdso_redirect_calls(void *base_to, void *base_from, struct vdso_symtable *to, struct vdso_symtable *from);
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
+extern void write_intraprocedure_branch(void *to, void *from);
 
 #endif /* __CR_ASM_VDSO_H__ */

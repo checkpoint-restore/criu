@@ -26,34 +26,22 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
-typedef struct {
-	u16	movabs;
-	u64	imm64;
-	u16	jmp_rax;
-	u32	guards;
-} __packed jmp_t;
-
 int vdso_redirect_calls(void *base_to, void *base_from,
 			struct vdso_symtable *to,
 			struct vdso_symtable *from)
 {
-	jmp_t jmp = {
-		.movabs		= 0xb848,
-		.jmp_rax	= 0xe0ff,
-		.guards		= 0xcccccccc,
-	};
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(to->symbols); i++) {
 		if (vdso_symbol_empty(&from->symbols[i]))
 			continue;
 
-		pr_debug("jmp: %lx/%lx -> %lx/%lx (index %d)\n",
+		pr_debug("br: %lx/%lx -> %lx/%lx (index %d)\n",
 			 (unsigned long)base_from, from->symbols[i].offset,
 			 (unsigned long)base_to, to->symbols[i].offset, i);
 
-		jmp.imm64 = (unsigned long)base_to + to->symbols[i].offset;
-		builtin_memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
+		write_intraprocedure_branch(base_to + to->symbols[i].offset,
+					    base_from + from->symbols[i].offset);
 	}
 
 	return 0;
@@ -109,10 +97,10 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	};
 
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+		[VDSO_SYMBOL_CLOCK_GETRES]	= VDSO_SYMBOL_CLOCK_GETRES_NAME,
 		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
-		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
 		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
-		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
+		[VDSO_SYMBOL_RT_SIGRETURN]	= VDSO_SYMBOL_RT_SIGRETURN_NAME,
 	};
 
 	char *dynsymbol_names;

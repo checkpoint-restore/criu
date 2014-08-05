@@ -7,6 +7,9 @@ obj-y			+= util-fd.o
 
 ifeq ($(VDSO),y)
 obj-e			+= $(ARCH_DIR)/vdso-pie.o
+ifeq ($(SRCARCH),aarch64)
+asm-e			+= $(ARCH_DIR)/intraprocedure.o
+endif
 endif
 
 parasite-obj-y		+= parasite.o

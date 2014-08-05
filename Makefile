@@ -72,6 +72,9 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 		USERCFLAGS += -march=armv7-a
 	endif
 endif
+ifeq ($(ARCH),aarch64)
+	VDSO         := y
+endif
 
 SRCARCH		?= $(ARCH)
 LDARCH		?= $(SRCARCH)
@@ -175,6 +178,9 @@ ifeq ($(VDSO),y)
 $(ARCH_DIR)/vdso-pie.o: pie
 	$(Q) $(MAKE) $(build)=pie $(ARCH_DIR)/vdso-pie.o
 PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
+ifeq ($(SRCARCH),aarch64)
+PROGRAM-BUILTINS	+= $(ARCH_DIR)/intraprocedure.o
+endif
 endif
 
 PROGRAM-BUILTINS	+= pie/util-fd.o
