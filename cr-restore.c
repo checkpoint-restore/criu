@@ -1068,6 +1068,43 @@ err:
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
+static int criu_signals_setup(void)
+{
+	int ret;
+	struct sigaction act;
+
+	ret = sigaction(SIGCHLD, NULL, &act);
+	if (ret < 0) {
+		pr_perror("sigaction() failed");
+		return -1;
+	}
+
+	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
+	if (opts.swrk_restore)
+		/*
+		 * Root task will be our sibling. This means, that
+		 * we will not notice when (if) it dies in SIGCHLD
+		 * handler, but we should. To do this -- attach to
+		 * the guy with ptrace (below) and (!) make the kernel
+		 * deliver us the signal when it will get stopped.
+		 * It will in case of e.g. segfault before handling
+		 * the signal.
+		 */
+		act.sa_flags &= ~SA_NOCLDSTOP;
+
+	act.sa_sigaction = sigchld_handler;
+	sigemptyset(&act.sa_mask);
+	sigaddset(&act.sa_mask, SIGCHLD);
+
+	ret = sigaction(SIGCHLD, &act, NULL);
+	if (ret < 0) {
+		pr_perror("sigaction() failed");
+		return -1;
+	}
+
+	return 0;
+}
+
 static void restore_sid(void)
 {
 	pid_t sid;
@@ -1491,7 +1528,6 @@ static void ignore_kids(void)
 static int restore_root_task(struct pstree_item *init)
 {
 	int ret, fd;
-	struct sigaction act;
 
 	fd = open("/proc", O_DIRECTORY | O_RDONLY);
 	if (fd < 0) {
@@ -1503,35 +1539,6 @@ static int restore_root_task(struct pstree_item *init)
 	close(fd);
 	if (ret < 0)
 		return -1;
-
-	ret = sigaction(SIGCHLD, NULL, &act);
-	if (ret < 0) {
-		pr_perror("sigaction() failed");
-		return -1;
-	}
-
-	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
-	if (opts.swrk_restore)
-		/*
-		 * Root task will be our sibling. This means, that
-		 * we will not notice when (if) it dies in SIGCHLD
-		 * handler, but we should. To do this -- attach to
-		 * the guy with ptrace (below) and (!) make the kernel
-		 * deliver us the signal when it will get stopped.
-		 * It will in case of e.g. segfault before handling
-		 * the signal.
-		 */
-		act.sa_flags &= ~SA_NOCLDSTOP;
-
-	act.sa_sigaction = sigchld_handler;
-	sigemptyset(&act.sa_mask);
-	sigaddset(&act.sa_mask, SIGCHLD);
-
-	ret = sigaction(SIGCHLD, &act, NULL);
-	if (ret < 0) {
-		pr_perror("sigaction() failed");
-		return -1;
-	}
 
 	/*
 	 * FIXME -- currently we assume that all the tasks live
@@ -1719,6 +1726,9 @@ int cr_restore_tasks(void)
 		goto err;
 
 	if (crtools_prepare_shared() < 0)
+		goto err;
+
+	if (criu_signals_setup() < 0)
 		goto err;
 
 	ret = restore_root_task(root_item);
