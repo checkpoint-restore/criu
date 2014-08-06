@@ -26,6 +26,8 @@
 #include "mount.h"
 #include "cgroup.h"
 
+#include "setproctitle.h"
+
 unsigned int service_sk_ino = -1;
 
 static int recv_criu_msg(int socket_fd, CriuReq **msg)
@@ -165,6 +167,8 @@ int send_criu_rpc_script(char *script, int fd)
 	return 0;
 }
 
+static char images_dir[PATH_MAX];
+
 static int setup_opts_from_req(int sk, CriuOpts *req)
 {
 	struct ucred ids;
@@ -198,6 +202,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (open_image_dir(images_dir_path) < 0) {
 		pr_perror("Can't open images directory");
+		return -1;
+	}
+
+	/* get full path to images_dir to use in process title */
+	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
+		pr_perror("Can't readlink %s", images_dir_path);
 		return -1;
 	}
 
@@ -325,6 +335,8 @@ static int dump_using_req(int sk, CriuOpts *req)
 	if (setup_opts_from_req(sk, req))
 		goto exit;
 
+	setproctitle("dump --rpc -t %d -D %s", req->pid, images_dir);
+
 	/*
 	 * FIXME -- cr_dump_tasks() may return code from custom
 	 * scripts, that can be positive. However, right now we
@@ -360,6 +372,8 @@ static int restore_using_req(int sk, CriuOpts *req)
 
 	if (setup_opts_from_req(sk, req))
 		goto exit;
+
+	setproctitle("restore --rpc -D %s", images_dir);
 
 	if (cr_restore_tasks())
 		goto exit;
@@ -398,6 +412,8 @@ static int check(int sk)
 
 	resp.type = CRIU_REQ_TYPE__CHECK;
 
+	setproctitle("check --rpc");
+
 	/* Check only minimal kernel support */
 	opts.check_ms_kernel = true;
 
@@ -423,6 +439,8 @@ static int pre_dump_using_req(int sk, CriuOpts *req)
 
 		if (setup_opts_from_req(sk, req))
 			goto cout;
+
+		setproctitle("pre-dump --rpc -t %d -D %s", req->pid, images_dir);
 
 		if (cr_pre_dump_tasks(req->pid))
 			goto cout;
@@ -486,6 +504,8 @@ static int start_page_server_req(int sk, CriuOpts *req)
 
 	if (setup_opts_from_req(sk, req))
 		goto out;
+
+	setproctitle("page-server --rpc --address %s --port %hu", opts.addr, opts.ps_port);
 
 	pr_debug("Starting page server\n");
 

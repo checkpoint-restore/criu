@@ -37,6 +37,8 @@
 #include "mount.h"
 #include "cgroup.h"
 
+#include "setproctitle.h"
+
 struct cr_options opts;
 
 void init_opts(void)
@@ -119,7 +121,7 @@ Esyntax:
 	return -1;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char *envp[])
 {
 	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
@@ -180,6 +182,8 @@ int main(int argc, char *argv[])
 	cr_pb_init();
 	if (restrict_uid(getuid(), getgid()))
 		return 1;
+
+	setproctitle_init(argc, argv, envp);
 
 	if (argc < 2)
 		goto usage;
