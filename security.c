@@ -36,6 +36,10 @@ int restrict_uid(unsigned int uid, unsigned int gid)
 	cr_uid = uid;
 	cr_gid = gid;
 
+	/* skip obtaining additional groups for root, as they don't matter */
+	if (cr_uid == 0 && cr_gid == 0)
+		return 0;
+
 	pwd = getpwuid(uid);
 	if (!pwd) {
 		pr_perror("Can't get password file entry");
