@@ -152,6 +152,12 @@ void criu_set_root(char *root)
 	opts->root = strdup(root);
 }
 
+void criu_set_manage_cgroups(bool manage)
+{
+	opts->has_manage_cgroups = true;
+	opts->manage_cgroups = manage;
+}
+
 void criu_set_log_file(char *log_file)
 {
 	opts->log_file = strdup(log_file);

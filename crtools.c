@@ -49,6 +49,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.ext_mounts);
 
 	opts.cpu_cap = CPU_CAP_ALL;
+	opts.manage_cgroups = false;
 }
 
 static int parse_ns_string(const char *ptr)
@@ -167,6 +168,7 @@ int main(int argc, char *argv[])
 		{ "force-irmap", no_argument, 0, 58},
 		{ "ext-mount-map", required_argument, 0, 'M'},
 		{ "exec-cmd", no_argument, 0, 59},
+		{ "manage-cgroups", no_argument, 0, 60},
 		{ },
 	};
 
@@ -352,6 +354,9 @@ int main(int argc, char *argv[])
 			break;
 		case 59:
 			has_exec_cmd = true;
+			break;
+		case 60:
+			opts.manage_cgroups = true;
 			break;
 		case 'M':
 			{
@@ -541,6 +546,7 @@ usage:
 "  --force-irmap         force resolving names for inotify/fsnotify watches\n"
 "  -M|--ext-mount-map KEY:VALUE\n"
 "                        add external mount mapping\n"
+"  --manage-cgroups      dump or restore cgroups the process is in\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

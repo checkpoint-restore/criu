@@ -45,6 +45,7 @@ message criu_opts {
 	repeated string			exec_cmd	= 22;
 
 	repeated ext_mount_map		ext_mnt		= 23;
+	optional bool			manage_cgroups	= 24;
 }
 
 message criu_dump_resp {

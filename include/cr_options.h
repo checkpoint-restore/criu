@@ -51,6 +51,7 @@ struct cr_options {
 	unsigned int		cpu_cap;
 	bool			force_irmap;
 	char			**exec_cmd;
+	bool			manage_cgroups;
 };
 
 extern struct cr_options opts;

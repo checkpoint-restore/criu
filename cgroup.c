@@ -10,6 +10,7 @@
 #include "list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
+#include "cr_options.h"
 #include "pstree.h"
 #include "proc_parse.h"
 #include "util.h"
@@ -583,7 +584,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 		 * The on-stack ctls is moved into cs inside
 		 * the get_cg_set routine.
 		 */
-		if (cs != criu_cgset && collect_cgroups(&cs->ctls))
+		if (cs != criu_cgset && opts.manage_cgroups && collect_cgroups(&cs->ctls))
 			return -1;
 	}
 
@@ -1148,7 +1149,8 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			goto err;
 		}
 
-		if (prepare_cgroup_dirs(paux, off + name_off, ctrl->dirs, ctrl->n_dirs))
+		if (opts.manage_cgroups &&
+		    prepare_cgroup_dirs(paux, off + name_off, ctrl->dirs, ctrl->n_dirs))
 			goto err;
 
 	}
