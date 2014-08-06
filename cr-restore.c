@@ -1503,6 +1503,18 @@ static int restore_root_task(struct pstree_item *init)
 	}
 
 	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
+	if (opts.swrk_restore)
+		/*
+		 * Root task will be our sibling. This means, that
+		 * we will not notice when (if) it dies in SIGCHLD
+		 * handler, but we should. To do this -- attach to
+		 * the guy with ptrace (below) and (!) make the kernel
+		 * deliver us the signal when it will get stopped.
+		 * It will in case of e.g. segfault before handling
+		 * the signal.
+		 */
+		act.sa_flags &= ~SA_NOCLDSTOP;
+
 	act.sa_sigaction = sigchld_handler;
 	sigemptyset(&act.sa_mask);
 	sigaddset(&act.sa_mask, SIGCHLD);
@@ -1550,23 +1562,6 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 
 	if (opts.swrk_restore) {
-		/*
-		 * Root task is not our sibling. This means, that
-		 * we will not notice when (if) it dies in SIGCHLD
-		 * handler, but we should. To do this -- attach to
-		 * the guy with ptrace and (!) make the kernel
-		 * deliver us the signal when it will get stopped.
-		 * It will in case of e.g. segfault before handling
-		 * the signal.
-		 */
-
-		act.sa_flags &= ~SA_NOCLDSTOP;
-		ret = sigaction(SIGCHLD, &act, NULL);
-		if (ret < 0) {
-			pr_perror("sigaction() failed");
-			goto out;
-		}
-
 		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
 			pr_perror("Can't attach to init");
 			goto out;
