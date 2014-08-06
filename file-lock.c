@@ -241,14 +241,10 @@ static int restore_file_locks(int pid)
 
 		ret = restore_file_lock(fle);
 		file_lock_entry__free_unpacked(fle, NULL);
-
 		if (ret)
-			goto err;
+			break;
 	}
 
-	close_safe(&fd);
-	return 0;
-err:
 	close_safe(&fd);
 	return ret;
 }
