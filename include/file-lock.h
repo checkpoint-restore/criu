@@ -53,6 +53,7 @@ extern int dump_task_file_locks(struct parasite_ctl *ctl,
 			struct cr_fdset *fdset,	struct parasite_drain_fd *dfds);
 
 extern int prepare_file_locks(int pid);
+extern struct collect_image_info file_locks_cinfo;
 
 #define OPT_FILE_LOCKS	"file-locks"
 

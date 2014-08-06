@@ -70,6 +70,7 @@
 #include "plugin.h"
 #include "cgroup.h"
 #include "timerfd.h"
+#include "file-lock.h"
 
 #include "parasite-syscall.h"
 
@@ -155,6 +156,7 @@ static struct collect_image_info *cinfos[] = {
 	&tunfile_cinfo,
 	&ext_file_cinfo,
 	&timerfd_cinfo,
+	&file_locks_cinfo,
 };
 
 static int root_prepare_shared(void)

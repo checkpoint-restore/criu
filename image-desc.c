@@ -69,7 +69,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	FD_ENTRY(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz"),
 	FD_ENTRY(TTY_FILES,	"tty"),
 	FD_ENTRY(TTY_INFO,	"tty-info"),
-	FD_ENTRY(FILE_LOCKS,	"filelocks-%d"),
+	FD_ENTRY(FILE_LOCKS,	"filelocks"),
 	FD_ENTRY(RLIMIT,	"rlimit-%d"),
 	FD_ENTRY(PAGES,		"pages-%u"),
 	FD_ENTRY(PAGES_OLD,	"pages-%d"),
@@ -88,5 +88,10 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	[CR_FD_IRMAP_CACHE] = {
 		.fmt	= "irmap-cache",
 		.magic	= IRMAP_CACHE_MAGIC,
+	},
+
+	[CR_FD_FILE_LOCKS_PID] = {
+		.fmt	= "filelocks-%d",
+		.magic	= FILE_LOCKS_MAGIC,
 	},
 };

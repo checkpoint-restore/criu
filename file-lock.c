@@ -14,7 +14,30 @@
 #include "parasite.h"
 #include "parasite-syscall.h"
 
+struct file_lock_rst {
+	FileLockEntry *fle;
+	struct list_head l;
+};
+
 struct list_head file_lock_list = LIST_HEAD_INIT(file_lock_list);
+
+static int collect_one_file_lock(void *o, ProtobufCMessage *m)
+{
+	struct file_lock_rst *lr = o;
+
+	lr->fle = pb_msg(m, FileLockEntry);
+	list_add_tail(&lr->l, &file_lock_list);
+
+	return 0;
+}
+
+struct collect_image_info file_locks_cinfo = {
+	.fd_type = CR_FD_FILE_LOCKS,
+	.pb_type = PB_FILE_LOCK,
+	.priv_size = sizeof(struct file_lock_rst),
+	.collect = collect_one_file_lock,
+	.flags = COLLECT_OPTIONAL,
+};
 
 struct file_lock *alloc_file_lock(void)
 {
@@ -45,7 +68,7 @@ static int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset)
 	pr_info("flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
 		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
 
-	return pb_write_one(fdset_fd(fdset, CR_FD_FILE_LOCKS),
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FILE_LOCKS),
 			fle, PB_FILE_LOCK);
 }
 
@@ -223,6 +246,22 @@ err:
 
 static int restore_file_locks(int pid)
 {
+	int ret = 0;
+	struct file_lock_rst *lr;
+
+	list_for_each_entry(lr, &file_lock_list, l) {
+		if (lr->fle->pid == pid) {
+			ret = restore_file_lock(lr->fle);
+			if (ret)
+				break;
+		}
+	}
+
+	return ret;
+}
+
+static int restore_file_locks_legacy(int pid)
+{
 	int fd, ret = -1;
 	FileLockEntry *fle;
 
@@ -255,6 +294,8 @@ int prepare_file_locks(int pid)
 		return 0;
 
 	pr_info("Restore file locks.\n");
+	if (file_locks_cinfo.flags & COLLECT_HAPPENED)
+		return restore_file_locks(pid);
 
-	return restore_file_locks(pid);
+	return restore_file_locks_legacy(pid);
 }
