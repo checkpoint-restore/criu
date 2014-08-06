@@ -207,13 +207,13 @@ dev_t phys_stat_resolve_dev(struct mount_info *tree,
 		MKKDEV(major(st_dev), minor(st_dev)) : m->s_dev;
 }
 
-bool phys_stat_dev_match(struct mount_info *tree, dev_t st_dev,
-				dev_t phys_dev, const char *path)
+bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev,
+		struct ns_id *ns, const char *path)
 {
 	if (st_dev == kdev_to_odev(phys_dev))
 		return true;
 
-	return phys_dev == phys_stat_resolve_dev(tree, st_dev, path);
+	return phys_dev == phys_stat_resolve_dev(ns->mnt.mntinfo_tree, st_dev, path);
 }
 
 /*

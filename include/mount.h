@@ -28,8 +28,8 @@ extern struct ns_desc mnt_ns_desc;
 
 extern dev_t phys_stat_resolve_dev(struct mount_info *tree,
 					dev_t st_dev, const char *path);
-extern bool phys_stat_dev_match(struct mount_info *tree, dev_t st_dev,
-					dev_t phys_dev, const char *path);
+extern bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev,
+		struct ns_id *, const char *path);
 
 struct pstree_item;
 extern int restore_task_mnt_ns(struct pstree_item *);

@@ -440,8 +440,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 						name, m->udiag_ino);
 				drop_path = true;
 			} else if ((st.st_ino != uv->udiag_vfs_ino) ||
-			    !phys_stat_dev_match(ns->mnt.mntinfo_tree, st.st_dev,
-							uv->udiag_vfs_dev, name)) {
+					!phys_stat_dev_match(st.st_dev,
+						uv->udiag_vfs_dev, ns, name)) {
 				pr_info("unix: Dropping path %s for "
 						"unlinked bound "
 						"sk %#x.%#x real %#x.%#x\n",
