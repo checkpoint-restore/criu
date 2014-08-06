@@ -148,7 +148,7 @@ void write_stats(int what)
 int init_stats(int what)
 {
 	if (what == DUMP_STATS) {
-		dstats = xmalloc(sizeof(*dstats));
+		dstats = xzalloc(sizeof(*dstats));
 		return dstats ? 0 : -1;
 	}
 
