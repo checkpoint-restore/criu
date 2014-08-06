@@ -79,3 +79,16 @@ int main(void)
 }
 
 endef
+
+define SETPROCTITLE_INIT_TEST
+
+#include <bsd/unistd.h>
+
+int main(int argc, char *argv[], char *envp[])
+{
+	setproctitle_init(argc, argv, envp);
+
+	return 0;
+}
+
+endef
