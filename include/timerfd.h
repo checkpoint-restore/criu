@@ -26,6 +26,7 @@ static inline unsigned long rst_timerfd_len(void)
 	return sizeof(*rst_timerfd) * rst_timerfd_nr;
 }
 
+extern int check_timerfd(void);
 extern int is_timerfd_link(char *link);
 
 #ifndef TFD_TIMER_ABSTIME

@@ -10,6 +10,7 @@
 
 #include "proc_parse.h"
 #include "rst-malloc.h"
+#include "cr_options.h"
 #include "restorer.h"
 #include "timerfd.h"
 #include "pstree.h"
@@ -34,6 +35,33 @@ struct timerfd_info {
 
 struct restore_timerfd *rst_timerfd;
 unsigned int rst_timerfd_nr;
+
+int check_timerfd(void)
+{
+	int fd, ret = -1;
+
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping timerfd support check\n");
+		return 0;
+	}
+
+	fd = timerfd_create(CLOCK_MONOTONIC, 0);
+	if (fd < 0) {
+		pr_perror("timerfd_create failed");
+		return -1;
+	} else {
+		ret = ioctl(fd, TFD_IOC_SET_TICKS, NULL);
+		if (ret < 0) {
+			if (errno != EFAULT)
+				pr_perror("No timerfd support for c/r");
+			else
+				ret = 0;
+		}
+	}
+
+	close(fd);
+	return ret;
+}
 
 int is_timerfd_link(char *link)
 {

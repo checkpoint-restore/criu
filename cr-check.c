@@ -27,6 +27,7 @@
 #include "tty.h"
 #include "ptrace.h"
 #include "kerndat.h"
+#include "timerfd.h"
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"
@@ -596,6 +597,7 @@ int cr_check(void)
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
 	ret |= check_tun();
+	ret |= check_timerfd();
 	ret |= check_mnt_id();
 
 	if (!ret)
