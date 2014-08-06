@@ -271,9 +271,6 @@ check_criu()
 
 check_mainstream()
 {
-	local -a ver_arr
-	local ver_str=`uname -r`
-
 	zdtm_sep "CRIU CHECK"
 
 	$CRIU check && return 0
@@ -287,12 +284,12 @@ git://git.kernel.org/pub/scm/linux/kernel/git/gorcunov/linux-cr.git
 ===================================================================
 EOF
 
-	ver_arr=(`echo ${ver_str//./ }`)
+	set -- `uname -r | sed 's/\./ /g'`
 
-	[ "${ver_arr[0]}" -gt 3 ] && return 0
-	[[ "${ver_arr[0]}" -eq 3 && "${ver_arr[1]}" -ge 11 ]] && return 0
+	[ $1 -gt 3 ] && return 0
+	[ $1 -eq 3 -a $2 -ge 11 ] && return 0
 
-	echo "A version of kernel should be greater or equal to 3.11" >&2
+	echo "Kernel version should be greater than or equal to 3.11" >&2
 
 	return 1
 }
