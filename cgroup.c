@@ -263,6 +263,8 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 			list_add_tail(&ncd->siblings, &current_controller->heads);
 			current_controller->n_heads++;
 			break;
+		default:
+			BUG();
 		}
 
 		INIT_LIST_HEAD(&ncd->children);
