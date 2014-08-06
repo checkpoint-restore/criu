@@ -618,7 +618,7 @@ static int open_vmas(int pid)
 static rt_sigaction_t sigchld_act;
 static int prepare_sigactions(int pid)
 {
-	rt_sigaction_t act, oact;
+	rt_sigaction_t act;
 	int fd_sigact;
 	SaEntry *e;
 	int sig;
@@ -660,7 +660,7 @@ static int prepare_sigactions(int pid)
 		 * A pure syscall is used, because glibc
 		 * sigaction overwrites se_restorer.
 		 */
-		ret = sys_sigaction(sig, &act, &oact, sizeof(k_rtsigset_t));
+		ret = sys_sigaction(sig, &act, NULL, sizeof(k_rtsigset_t));
 		if (ret == -1) {
 			pr_err("%d: Can't restore sigaction: %m\n", pid);
 			goto err;
