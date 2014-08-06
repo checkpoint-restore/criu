@@ -1072,6 +1072,7 @@ static int criu_signals_setup(void)
 {
 	int ret;
 	struct sigaction act;
+	sigset_t blockmask;
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
@@ -1099,6 +1100,19 @@ static int criu_signals_setup(void)
 	ret = sigaction(SIGCHLD, &act, NULL);
 	if (ret < 0) {
 		pr_perror("sigaction() failed");
+		return -1;
+	}
+
+	/*
+	 * The block mask will be restored in sigreturn.
+	 *
+	 * TODO: This code should be removed, when a freezer will be added.
+	 */
+	sigfillset(&blockmask);
+	sigdelset(&blockmask, SIGCHLD);
+	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
+	if (ret < 0) {
+		pr_perror("Can't block signals");
 		return -1;
 	}
 
@@ -1253,7 +1267,6 @@ static int restore_task_with_children(void *_arg)
 	struct cr_clone_arg *ca = _arg;
 	pid_t pid;
 	int ret;
-	sigset_t blockmask;
 
 	current = ca->item;
 
@@ -1318,19 +1331,6 @@ static int restore_task_with_children(void *_arg)
 
 		if (root_prepare_shared())
 			goto err;
-	}
-
-	/*
-	 * The block mask will be restored in sigreturn.
-	 *
-	 * TODO: This code should be removed, when a freezer will be added.
-	 */
-	sigfillset(&blockmask);
-	sigdelset(&blockmask, SIGCHLD);
-	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
-	if (ret) {
-		pr_perror("%d: Can't block signals", current->pid.virt);
-		goto err;
 	}
 
 	if (prepare_mappings(pid))
