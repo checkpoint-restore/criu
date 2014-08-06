@@ -616,6 +616,22 @@ static int open_vmas(int pid)
 }
 
 static rt_sigaction_t sigchld_act;
+static rt_sigaction_t parent_act[SIGMAX];
+
+static bool sa_inherited(int sig, rt_sigaction_t *sa)
+{
+	rt_sigaction_t *pa;
+
+	if (current == root_item)
+		return false; /* XXX -- inherit from CRIU? */
+
+	pa = &parent_act[sig];
+	return pa->rt_sa_handler == sa->rt_sa_handler &&
+		pa->rt_sa_flags == sa->rt_sa_flags &&
+		pa->rt_sa_restorer == sa->rt_sa_restorer &&
+		pa->rt_sa_mask.sig[0] == sa->rt_sa_mask.sig[0];
+}
+
 static int prepare_sigactions(void)
 {
 	int pid = current->pid.virt;
@@ -623,7 +639,7 @@ static int prepare_sigactions(void)
 	int fd_sigact;
 	SaEntry *e;
 	int sig;
-	int ret = -1;
+	int ret = 0;
 
 	fd_sigact = open_image(CR_FD_SIGACT, O_RSTR, pid);
 	if (fd_sigact < 0)
@@ -657,6 +673,10 @@ static int prepare_sigactions(void)
 			sigchld_act = act;
 			continue;
 		}
+
+		if (sa_inherited(sig, &act))
+			continue;
+
 		/*
 		 * A pure syscall is used, because glibc
 		 * sigaction overwrites se_restorer.
@@ -666,6 +686,8 @@ static int prepare_sigactions(void)
 			pr_err("%d: Can't restore sigaction: %m\n", pid);
 			goto err;
 		}
+
+		parent_act[sig] = act;
 	}
 
 err:
@@ -716,9 +738,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_file_locks(pid))
-		return -1;
-
-	if (prepare_sigactions())
 		return -1;
 
 	if (open_vmas(pid))
@@ -1349,6 +1368,9 @@ static int restore_task_with_children(void *_arg)
 	 * just have it inherited.
 	 */
 	if (prepare_task_cgroup(current) < 0)
+		return -1;
+
+	if (prepare_sigactions() < 0)
 		return -1;
 
 	if (create_children_and_session())
