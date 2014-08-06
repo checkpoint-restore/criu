@@ -1480,10 +1480,18 @@ detach:
 	}
 }
 
+static void ignore_kids(void)
+{
+	struct sigaction sa = { .sa_handler = SIG_DFL };
+
+	if (sigaction(SIGCHLD, &sa, NULL) < 0)
+		pr_perror("Restoring CHLD sigaction failed");
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	int ret, fd;
-	struct sigaction act, old_act;
+	struct sigaction act;
 
 	fd = open("/proc", O_DIRECTORY | O_RDONLY);
 	if (fd < 0) {
@@ -1519,7 +1527,7 @@ static int restore_root_task(struct pstree_item *init)
 	sigemptyset(&act.sa_mask);
 	sigaddset(&act.sa_mask, SIGCHLD);
 
-	ret = sigaction(SIGCHLD, &act, &old_act);
+	ret = sigaction(SIGCHLD, &act, NULL);
 	if (ret < 0) {
 		pr_perror("sigaction() failed");
 		return -1;
@@ -1593,13 +1601,6 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
-	/* Restore SIGCHLD here to skip SIGCHLD from a network sctip */
-	ret = sigaction(SIGCHLD, &old_act, NULL);
-	if (ret < 0) {
-		pr_perror("sigaction() failed");
-		goto out_kill;
-	}
-
 	ret = run_scripts("post-restore");
 	if (ret != 0) {
 		pr_err("Aborting restore due to script ret code %d\n", ret);
@@ -1610,6 +1611,12 @@ static int restore_root_task(struct pstree_item *init)
 
 	/* Unlock network before disabling repair mode on sockets */
 	network_unlock();
+
+	/*
+	 * Stop getting sigchld, after we resume the tasks they
+	 * may start to exit poking criu in vain.
+	 */
+	ignore_kids();
 
 	/*
 	 * -------------------------------------------------------------
