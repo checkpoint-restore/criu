@@ -107,9 +107,13 @@ struct mount_info {
 	unsigned int	s_dev;
 	char		*root;
 	/*
-	 * mountpoint contains path with dot at the beginning.
-	 * It allows to use openat, statat, etc without creating
-	 * a temporary copy.
+	 * During dump mountpoint contains path with dot at the 
+	 * beginning. It allows to use openat, statat, etc without 
+	 * creating a temporary copy of the path.
+	 *
+	 * On restore mountpoint is prepended with so called ns
+	 * root path -- it's a place in fs where the namespace
+	 * mount tree is constructed. Check mnt_roots for details.
 	 */
 	char		*mountpoint;
 	unsigned	flags;
