@@ -154,6 +154,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (!gf)
 		return -1;
 	gf->remap.path = xmalloc(PATH_MAX);
+	gf->remap.mnt_id = rfi->rfe->mnt_id;
 	if (!gf->remap.path)
 		goto err;
 
@@ -221,6 +222,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	rm->path = rrfi->path;
 	rm->users = 0;
 	rm->is_dir = false;
+	rm->mnt_id = rfi->rfe->mnt_id;
 	rfi->remap = rm;
 	return 0;
 }
@@ -313,8 +315,12 @@ void remap_put(struct file_remap *remap)
 {
 	mutex_lock(ghost_file_mutex);
 	if (--remap->users == 0) {
+		int mntns_root;
+
 		pr_info("Unlink the ghost %s\n", remap->path);
-		unlink(remap->path);
+
+		mntns_root = mntns_get_root_by_mnt_id(remap->mnt_id);
+		unlinkat(mntns_root, remap->path, 0);
 	}
 	mutex_unlock(ghost_file_mutex);
 }
@@ -664,15 +670,84 @@ const struct fdtype_ops regfile_dump_ops = {
 	.dump		= dump_one_reg_file,
 };
 
+static void convert_path_from_another_mp(char *src, char *dst, int dlen,
+					struct mount_info *smi,
+					struct mount_info *dmi)
+{
+	int off;
+
+	/*
+	 * mi->mountpoint	./foo/bar
+	 * mi->ns_mountpoint	/foo/bar
+	 * rfi->path		foo/bar/baz
+	 */
+	off = strlen(smi->ns_mountpoint + 1);
+	BUG_ON(strlen(smi->root) < strlen(dmi->root));
+
+	/*
+	 * Create paths relative to this mount.
+	 * Absolute path to the mount point + difference between source
+	 * and destination roots + path relative to the mountpoint.
+	 */
+	snprintf(dst, dlen, "%s/%s/%s",
+				dmi->ns_mountpoint + 1,
+				smi->root + strlen(dmi->root),
+				src + off);
+}
+
 /*
  * This routine properly resolves d's path handling ghost/link-remaps.
  * The open_cb is a routine that does actual open, it differs for
  * files, directories, fifos, etc.
  */
 
-static inline int rfi_remap(struct reg_file_info *rfi)
+static int rfi_remap(struct reg_file_info *rfi)
 {
-	return link(rfi->remap->path, rfi->path);
+	struct mount_info *mi, *rmi, *tmi;
+	char _path[PATH_MAX], *path = _path;
+	char _rpath[PATH_MAX], *rpath = _rpath;
+	int mntns_root;
+
+	if (rfi->rfe->mnt_id == -1) {
+		/* Know nothing about mountpoints */
+		mntns_root = mntns_get_root_by_mnt_id(-1);
+		path = rfi->path;
+		rpath = rfi->remap->path;
+		goto out_root;
+	}
+
+	mi = lookup_mnt_id(rfi->rfe->mnt_id);
+	if (rfi->rfe->mnt_id == rfi->remap->mnt_id) {
+		/* Both links on the same mount point */
+		tmi = mi;
+		path = rfi->path;
+		rpath = rfi->remap->path;
+		goto out;
+	}
+
+	rmi = lookup_mnt_id(rfi->remap->mnt_id);
+
+	/*
+	 * Find the common bind-mount. We know that one mount point was
+	 * really mounted and all other were bind-mounted from it, so the
+	 * lowest mount must contains all bind-mounts.
+	 */
+	for (tmi = mi; tmi->bind; tmi = tmi->bind)
+		;
+
+	BUG_ON(tmi->s_dev != rmi->s_dev);
+	BUG_ON(tmi->s_dev != mi->s_dev);
+
+	/* Calcalate paths on the device (root mount) */
+	convert_path_from_another_mp(rfi->path, path, sizeof(_path), mi, tmi);
+	convert_path_from_another_mp(rfi->remap->path, rpath, sizeof(_rpath), rmi, tmi);
+
+out:
+	pr_debug("%d: Link %s -> %s\n", tmi->mnt_id, rpath, path);
+	mntns_root = mntns_get_root_fd(tmi->nsid);
+
+out_root:
+	return linkat(mntns_root, rpath, mntns_root, path, 0);
 }
 
 int open_path(struct file_desc *d,
@@ -755,16 +830,15 @@ int open_path(struct file_desc *d,
 	}
 
 	if (rfi->remap) {
-		if (!rfi->remap->is_dir)
-			unlink(rfi->path);
+		if (!rfi->remap->is_dir) {
+			unlinkat(mntns_root, rfi->path, 0);
+		}
 
 		BUG_ON(!rfi->remap->users);
 		if (--rfi->remap->users == 0) {
 			pr_info("Unlink the ghost %s\n", rfi->remap->path);
-			if (rfi->remap->is_dir)
-				rmdir(rfi->remap->path);
-			else
-				unlink(rfi->remap->path);
+			mntns_root = mntns_get_root_by_mnt_id(rfi->remap->mnt_id);
+			unlinkat(mntns_root, rfi->remap->path, rfi->remap->is_dir ? AT_REMOVEDIR : 0);
 		}
 
 		if (orig_path)

@@ -14,6 +14,7 @@ struct fd_parms;
 struct file_remap {
 	char *path;
 	bool is_dir;
+	int  mnt_id;
 	unsigned int users;
 };
 
