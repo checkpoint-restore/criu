@@ -638,8 +638,10 @@ static int prepare_sigactions(void)
 	rt_sigaction_t act;
 	int fd_sigact;
 	SaEntry *e;
-	int sig;
+	int sig, rst = 0;
 	int ret = 0;
+
+	pr_info("Restore sigacts for %d\n", pid);
 
 	fd_sigact = open_image(CR_FD_SIGACT, O_RSTR, pid);
 	if (fd_sigact < 0)
@@ -688,7 +690,11 @@ static int prepare_sigactions(void)
 		}
 
 		parent_act[sig] = act;
+		rst++;
 	}
+
+	pr_info("Restored %d/%d sigacts\n", rst,
+			SIGMAX - 3 /* KILL, STOP and CHLD */);
 
 err:
 	close_safe(&fd_sigact);
