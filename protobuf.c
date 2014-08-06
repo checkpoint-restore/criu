@@ -648,6 +648,7 @@ int collect_image(struct collect_image_info *cinfo)
 			return -1;
 	}
 
+	cinfo->flags |= COLLECT_HAPPENED;
 	if (cinfo->flags & COLLECT_SHARED) {
 		o_alloc = shmalloc;
 		o_free = shfree_last;

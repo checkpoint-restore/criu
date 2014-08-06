@@ -49,6 +49,7 @@ struct collect_image_info {
 
 #define COLLECT_SHARED		0x1	/* use shared memory for obj-s */
 #define COLLECT_OPTIONAL	0x2	/* image file may be missing */
+#define COLLECT_HAPPENED	0x4	/* image was opened and collected */
 
 extern int collect_image(struct collect_image_info *);
 
