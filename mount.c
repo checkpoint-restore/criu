@@ -1305,7 +1305,7 @@ static int restore_ext_mount(struct mount_info *mi)
 
 static int do_bind_mount(struct mount_info *mi)
 {
-	bool shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
+	bool shared = 0;
 
 	if (!mi->need_plugin) {
 		char *root, rpath[PATH_MAX];
@@ -1321,6 +1321,8 @@ static int do_bind_mount(struct mount_info *mi)
 			root = mi->root;
 			goto do_bind;
 		}
+
+		shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
 
 		/*
 		 * Cut common part of root.
