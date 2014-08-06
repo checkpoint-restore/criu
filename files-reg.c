@@ -351,7 +351,7 @@ static int dump_ghost_remap(char *path, const struct stat *st,
 		return -1;
 	}
 
-	phys_dev = phys_stat_resolve_dev(nsid->mnt.mntinfo_tree, st->st_dev, path);
+	phys_dev = phys_stat_resolve_dev(nsid, st->st_dev, path);
 	list_for_each_entry(gf, &ghost_files, list)
 		if ((gf->dev == phys_dev) && (gf->ino == st->st_ino))
 			goto dump_entry;

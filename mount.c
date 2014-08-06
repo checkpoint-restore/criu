@@ -192,12 +192,11 @@ static struct mount_info *mount_resolve_path(struct mount_info *mntinfo_tree, co
 	return m;
 }
 
-dev_t phys_stat_resolve_dev(struct mount_info *tree,
-				dev_t st_dev, const char *path)
+dev_t phys_stat_resolve_dev(struct ns_id *ns, dev_t st_dev, const char *path)
 {
 	struct mount_info *m;
 
-	m = mount_resolve_path(tree, path);
+	m = mount_resolve_path(ns->mnt.mntinfo_tree, path);
 	/*
 	 * BTRFS returns subvolume dev-id instead of
 	 * superblock dev-id, in such case return device
@@ -213,7 +212,7 @@ bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev,
 	if (st_dev == kdev_to_odev(phys_dev))
 		return true;
 
-	return phys_dev == phys_stat_resolve_dev(ns->mnt.mntinfo_tree, st_dev, path);
+	return phys_dev == phys_stat_resolve_dev(ns, st_dev, path);
 }
 
 /*
@@ -580,7 +579,7 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
-	dev = phys_stat_resolve_dev(pm->nsid->mnt.mntinfo_tree, st.st_dev, pm->mountpoint + 1);
+	dev = phys_stat_resolve_dev(pm->nsid, st.st_dev, pm->mountpoint + 1);
 	if (dev != pm->s_dev) {
 		pr_err("The file system %#x (%#x) %s %s is inaccessible\n",
 				pm->s_dev, (int)dev, pm->fstype->name, pm->mountpoint);
