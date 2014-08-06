@@ -247,13 +247,14 @@ static int parse_mem_mode(int *mode, char *opt)
 int main(int argc, char *argv[])
 {
 	/* a - 97, z - 122, A - 65, 90 */
-	static const char short_opts[] = "t:d:f:m:c:";
+	static const char short_opts[] = "t:d:f:m:c:h";
 	static struct option long_opts[] = {
 		{"tasks",	required_argument, 0,	't'},
 		{"dir",		required_argument, 0,	'd'},
 		{"files",	required_argument, 0,	'f'},
 		{"memory",	required_argument, 0,	'm'},
 		{"mem-chunks",	required_argument, 0,	'c'},
+		{"help",	no_argument,       0,	'h'},
 		{"mem-fill",	required_argument, 0,	 10},
 		{"mem-cycle",	required_argument, 0,	 11},
 		{"refresh",	required_argument, 0,	 12},
@@ -310,6 +311,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			shared->opt_work_dir = optarg;
+			break;
+		case 'h':
+			goto usage;
 			break;
 		case 10:
 			if (parse_mem_mode(&shared->opt_mem_fill_mode, optarg))
@@ -396,4 +400,21 @@ err_child:
 	pr_err("Child %d exited with %d\n",
 	       shared->err_pid, shared->err_no);
 	return shared->err_no;
+
+usage:
+	pr_msg("bers [options]\n");
+	pr_msg("    -t|--tasks <num>         create <num> of tasks\n");
+	pr_msg("    -d|--dir <dir>           use directory <dir> for temporary files\n");
+	pr_msg("    -f|--files <num>         create <num> files for each task\n");
+	pr_msg("    -m|--memory <num>        allocate <num> megabytes for each task\n");
+	pr_msg("    --memory-chunks <num>    split memory to <num> equal parts\n");
+	pr_msg("    --mem-fill <mode>        fill memory with data dependin on <mode>:\n");
+	pr_msg("                all          fill every byte of memory\n");
+	pr_msg("                light        fill first bytes of every page\n");
+	pr_msg("                dirtify      fill every page\n");
+	pr_msg("    --mem-cycle <mode>       same as --mem-fill but for cycling\n");
+	pr_msg("    --refresh <second>       refresh loading of every task each <second>\n");
+	pr_msg("    --file-size <bytes>      write <bytes> of data into each file on every refresh cycle\n");
+
+	return 1;
 }
