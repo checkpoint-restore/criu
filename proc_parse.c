@@ -1213,7 +1213,7 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 		if (fdinfo_field(str, "fanotify ino")) {
 			FanotifyInodeMarkEntry ie = FANOTIFY_INODE_MARK_ENTRY__INIT;
 			FhEntry f_handle = FH_ENTRY__INIT;
-			int hoff;
+			int hoff = 0;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
@@ -1229,7 +1229,7 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 				     &entry.ffy.mflags, &entry.ffy.mask, &entry.ffy.ignored_mask,
 				     &f_handle.bytes, &f_handle.type,
 				     &hoff);
-			if (ret != 7)
+			if (ret != 7 || hoff == 0)
 				goto parse_err;
 
 			if (alloc_fhandle(&f_handle)) {
