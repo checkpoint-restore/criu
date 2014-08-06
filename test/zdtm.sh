@@ -420,7 +420,7 @@ start_test()
 	[ -z "$PIDNS" ] || cd -
 
 	PID=`cat "$TPID"` || return 1
-	if ! ps -p $PID ; then
+	if ! kill -0 $PID ; then
 		echo "Test failed to start"
 		return 1
 	fi
