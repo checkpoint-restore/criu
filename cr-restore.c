@@ -616,8 +616,9 @@ static int open_vmas(int pid)
 }
 
 static rt_sigaction_t sigchld_act;
-static int prepare_sigactions(int pid)
+static int prepare_sigactions(void)
 {
+	int pid = current->pid.virt;
 	rt_sigaction_t act;
 	int fd_sigact;
 	SaEntry *e;
@@ -717,7 +718,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_file_locks(pid))
 		return -1;
 
-	if (prepare_sigactions(pid))
+	if (prepare_sigactions())
 		return -1;
 
 	if (open_vmas(pid))
