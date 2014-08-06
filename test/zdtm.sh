@@ -380,6 +380,7 @@ start_test()
 {
 	local tdir=$1
 	local tname=$2
+	local test=$(readlink -f $tdir)/$tname
 	export ZDTM_ROOT
 
 	killall -9 $tname > /dev/null 2>&1
@@ -398,14 +399,14 @@ start_test()
 		TPID="$test.pid"
 		unset ZDTM_NEWNS
 	else
-		TPID=$(readlink -f $tdir)/$tname.init.pid
+		TPID=$test.init.pid
 		if [ -z "$ZDTM_ROOT" ]; then
 			mkdir -p dump
 			ZDTM_ROOT=`mktemp -d /tmp/criu-root.XXXXXX`
 			ZDTM_ROOT=`readlink -f $ZDTM_ROOT`
 			mount --make-private --bind . $ZDTM_ROOT || return 1
 		fi
-		construct_root $ZDTM_ROOT $tdir/$tname || return 1
+		construct_root $ZDTM_ROOT $test || return 1
 		export ZDTM_NEWNS=1
 		export ZDTM_PIDFILE=$TPID
 		cd $ZDTM_ROOT
@@ -413,7 +414,7 @@ start_test()
 	fi
 
 	if ! make -C $tdir $tname.pid; then
-		echo ERROR: fail to start $tdir/$tname
+		echo ERROR: fail to start $test
 		return 1
 	fi
 
@@ -674,7 +675,7 @@ EOF
 
 case_error()
 {
-	test=${ZP}/${1#ns/}
+	local test=${ZP}/${1#ns/}
 	local test_log=`pwd`/$test.out
 
 	echo "Test: $test, Result: FAIL"
