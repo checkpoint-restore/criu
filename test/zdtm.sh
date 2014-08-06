@@ -41,7 +41,6 @@ static/file_shared
 static/file_append
 static/timers
 static/posix_timers
-static/timerfd
 static/futex
 static/futex-rl
 static/xids00
@@ -182,6 +181,7 @@ ns/static/mntns_link_ghost
 
 TEST_CR_KERNEL="
 ns/static/tun
+static/timerfd
 "
 
 TEST_SUID_LIST="
