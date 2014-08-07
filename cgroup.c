@@ -29,11 +29,48 @@
 
 static const char *cpu_props[] = {
 	"cpu.shares",
+	"cpu.cfs_period_us",
+	"cpu.cfs_quota_us",
+	"cpu.rt_period_us",
+	"cpu.rt_runtime_us",
+	"notify_on_release",
 	NULL
 };
 
 static const char *memory_props[] = {
+	/* limit_in_bytes and memsw.limit_in_bytes must be set in this order */
 	"memory.limit_in_bytes",
+	"memory.memsw.limit_in_bytes",
+	"memory.use_hierarchy",
+	"notify_on_release",
+	NULL
+};
+
+static const char *cpuset_props[] = {
+	/*
+	 * cpuset.cpus and cpuset.mems must be set before the process moves
+	 * into its cgroup and hence can't be done here
+	 */
+	"cpuset.memory_migrate",
+	"cpuset.cpu_exclusive",
+	"cpuset.mem_exclusive",
+	"cpuset.mem_hardwall",
+	"cpuset.memory_spread_page",
+	"cpuset.memory_spread_slab",
+	"cpuset.sched_load_balance",
+	"cpuset.sched_relax_domain_level",
+	"notify_on_release",
+	NULL
+};
+
+static const char *blkio_props[] = {
+	"blkio.weight",
+	"notify_on_release",
+	NULL
+};
+
+static const char *freezer_props[] = {
+	"notify_on_release",
 	NULL
 };
 
@@ -329,6 +366,12 @@ static const char **get_known_properties(char *controller)
 		prop_arr = cpu_props;
 	else if (!strcmp(controller, "memory"))
 		prop_arr = memory_props;
+	else if (!strcmp(controller, "cpuset"))
+		prop_arr = cpuset_props;
+	else if (!strcmp(controller, "blkio"))
+		prop_arr = blkio_props;
+	else if (!strcmp(controller, "freezer"))
+		prop_arr = freezer_props;
 
 	return prop_arr;
 }
