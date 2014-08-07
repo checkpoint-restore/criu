@@ -682,7 +682,7 @@ static int prepare_sigactions(void)
 			continue;
 		}
 
-		if (sa_inherited(sig, &act))
+		if (sa_inherited(sig - 1, &act))
 			continue;
 
 		/*
@@ -695,7 +695,7 @@ static int prepare_sigactions(void)
 			goto err;
 		}
 
-		parent_act[sig] = act;
+		parent_act[sig - 1] = act;
 		rst++;
 	}
 
