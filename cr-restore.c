@@ -895,21 +895,15 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 	/* No more fork()-s => no more per-pid logs */
 
-	switch (current->state) {
-	case TASK_ALIVE:
-	case TASK_STOPPED:
+	if (task_alive(current))
 		ret = restore_one_alive_task(pid, core);
-		break;
-	case TASK_DEAD:
+	else if (current->state == TASK_DEAD)
 		ret = restore_one_zombie(pid, core);
-		break;
-	case TASK_HELPER:
+	else if (current->state == TASK_HELPER)
 		ret = 0;
-		break;
-	default:
+	else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
-		break;
 	}
 
 	if (core)
@@ -951,14 +945,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		item->state = ca.core->tc->task_state;
 		item->rst->cg_set = ca.core->tc->cg_set;
 
-		switch (item->state) {
-		case TASK_ALIVE:
-		case TASK_STOPPED:
-			break;
-		case TASK_DEAD:
+		if (item->state == TASK_DEAD)
 			item->parent->rst->nr_zombies++;
-			break;
-		default:
+		else if (!task_alive(item)) {
 			pr_err("Unknown task state %d\n", item->state);
 			return -1;
 		}
