@@ -20,6 +20,24 @@
 #include "protobuf/cgroup.pb-c.h"
 
 /*
+ * These string arrays have the names of all the properties that will be
+ * restored. To add a property for a cgroup type, add it to the
+ * corresponding char array above the NULL terminator. If you are adding
+ * a new cgroup family all together, you must also edit get_known_properties()
+ * Currently the code only supports properties with 1 value
+ */
+
+static const char *cpu_props[] = {
+	"cpu.shares",
+	NULL
+};
+
+static const char *memory_props[] = {
+	"memory.limit_in_bytes",
+	NULL
+};
+
+/*
  * This structure describes set of controller groups
  * a task lives in. The cg_ctl entries are stored in
  * the @ctls list sorted by the .name field and then
@@ -224,9 +242,131 @@ static int find_dir(const char *path, struct list_head *dirs, struct cgroup_dir 
 	return NO_MATCH;
 }
 
+/*
+ * Currently this function only supports properties that have 1 value, under 100
+ * chars
+ */
+static int read_cgroup_prop(struct cgroup_prop *property, const char *fpath)
+{
+	char pbuf[PATH_MAX], buf[100];
+	FILE *f;
+
+	if (snprintf(pbuf, PATH_MAX, "%s/%s", fpath, property->name) >= PATH_MAX) {
+		pr_err("snprintf output was truncated");
+		return -1;
+	}
+
+	f = fopen(pbuf, "r");
+	if (!f) {
+		pr_err("Failed opening %s\n", pbuf);
+		property->value = NULL;
+		return -1;
+	}
+
+	memset(buf, 0, sizeof(buf));
+	if (fread(buf, sizeof(buf), 1, f) != 1) {
+		if (!feof(f)) {
+			pr_err("Failed scanning %s\n", pbuf);
+			fclose(f);
+			return -1;
+		}
+	}
+
+	if (fclose(f) != 0) {
+		pr_err("Failed closing %s\n", pbuf);
+		return -1;
+	}
+
+	property->value = xstrdup(buf);
+	if (!property->value)
+		return -1;
+
+	return 0;
+}
+
+static struct cgroup_prop *create_cgroup_prop(const char *name)
+{
+	struct cgroup_prop *property;
+
+	property = xmalloc(sizeof(*property));
+	if (!property)
+		return NULL;
+
+	property->name = xstrdup(name);
+	if (!property->name) {
+		xfree(property);
+		return NULL;
+	}
+
+	property->value = NULL;
+	return property;
+}
+
+static void free_cgroup_prop(struct cgroup_prop *prop)
+{
+	xfree(prop->name);
+	xfree(prop->value);
+	xfree(prop);
+}
+
+static void free_all_cgroup_props(struct cgroup_dir *ncd)
+{
+	struct cgroup_prop *prop;
+
+	list_for_each_entry(prop, &ncd->properties, list) {
+		free_cgroup_prop(prop);
+	}
+
+	INIT_LIST_HEAD(&ncd->properties);
+	ncd->n_properties = 0;
+}
+
+static const char **get_known_properties(char *controller)
+{
+	const char **prop_arr = NULL;
+
+	if (!strcmp(controller, "cpu"))
+		prop_arr = cpu_props;
+	else if (!strcmp(controller, "memory"))
+		prop_arr = memory_props;
+
+	return prop_arr;
+}
+
+static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
+				 struct cg_controller *controller)
+{
+	int i, j;
+	struct cgroup_prop *prop;
+
+	for (i = 0; i < controller->n_controllers; ++i) {
+
+		const char **prop_arr = get_known_properties(controller->controllers[i]);
+
+		for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
+			prop = create_cgroup_prop(prop_arr[j]);
+			if (!prop) {
+				free_all_cgroup_props(ncd);
+				return -1;
+			}
+			if (read_cgroup_prop(prop, fpath) < 0) {
+				free_cgroup_prop(prop);
+				free_all_cgroup_props(ncd);
+				return -1;
+			}
+			pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
+			list_add_tail(&prop->list, &ncd->properties);
+			ncd->n_properties++;
+		}
+	}
+
+	return 0;
+}
+
 static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 {
 	struct cgroup_dir *ncd = NULL, *match;
+	int ret = 0;
 	char pbuf[PATH_MAX];
 
 	if (typeflag == FTW_D) {
@@ -269,6 +409,14 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 
 		INIT_LIST_HEAD(&ncd->children);
 		ncd->n_children = 0;
+
+		INIT_LIST_HEAD(&ncd->properties);
+		ncd->n_properties = 0;
+		if (add_cgroup_properties(fpath, ncd, current_controller) < 0) {
+			ret = -1;
+			goto out;
+		}
+
 		return 0;
 	} else
 		return 0;
@@ -277,7 +425,7 @@ out:
 	if (ncd)
 		xfree(ncd->path);
 	xfree(ncd);
-	return -1;
+	return ret;
 }
 
 static int collect_cgroups(struct list_head *ctls)
@@ -400,6 +548,44 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 	return 0;
 }
 
+static int dump_cg_dir_props(struct list_head *props, size_t n_props,
+			     CgroupPropEntry ***ents)
+{
+	struct cgroup_prop *prop_cur;
+	CgroupPropEntry *cpe;
+	void *m;
+	int i = 0;
+
+	m = xmalloc(n_props * (sizeof(CgroupPropEntry *) + sizeof(CgroupPropEntry)));
+	*ents = m;
+	if (!m)
+		return -1;
+
+	cpe = m + n_props * sizeof(CgroupPropEntry *);
+
+	list_for_each_entry(prop_cur, props, list) {
+		cgroup_prop_entry__init(cpe);
+		cpe->name = xstrdup(prop_cur->name);
+		cpe->value = xstrdup(prop_cur->value);
+		if (!cpe->name || !cpe->value)
+			goto error;
+		(*ents)[i++] = cpe++;
+	}
+
+	return 0;
+
+error:
+	while (i >= 0) {
+		xfree(cpe->name);
+		xfree(cpe->value);
+		--cpe;
+		--i;
+	}
+
+	xfree(*ents);
+	return -1;
+}
+
 static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry ***ents)
 {
 	struct cgroup_dir *cur;
@@ -425,6 +611,16 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 				xfree(*ents);
 				return -1;
 			}
+
+		cde->n_properties = cur->n_properties;
+		if (cde->n_properties > 0) {
+			if (dump_cg_dir_props(&cur->properties,
+					      cde->n_properties, &cde->properties) < 0) {
+				xfree(*ents);
+				return -1;
+			}
+		}
+
 		(*ents)[i++] = cde++;
 	}
 
@@ -661,6 +857,128 @@ void fini_cgroup(void)
 	xfree(cg_yard);
 }
 
+static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
+			       const char *cname, const char *dir, const int cg)
+{
+	char path[PATH_MAX];
+	FILE *f;
+
+	if (!cg_prop_entry_p->value) {
+		pr_err("cg_prop_entry->value was empty when should have had a value");
+		return -1;
+	}
+
+	if (snprintf(path, PATH_MAX, "%s/%s/%s", cname, dir, cg_prop_entry_p->name) >= PATH_MAX) {
+		pr_err("snprintf output was truncated for %s\n", cg_prop_entry_p->name);
+		return -1;
+	}
+
+	f = fopenat(cg, path, "w+");
+	if (!f) {
+		pr_perror("Failed opening %s for writing\n", path);
+		return -1;
+	}
+
+	if (fprintf(f, "%s", cg_prop_entry_p->value) < 0) {
+		fclose(f);
+		pr_err("Failed writing %s to %s\n", cg_prop_entry_p->value, path);
+		return -1;
+	}
+
+	if (fclose(f) != 0) {
+		pr_perror("Failed closing %s\n", path);
+		return -1;
+	}
+
+	pr_info("Restored cgroup property value %s to %s\n", cg_prop_entry_p->value, path);
+	return 0;
+}
+
+static int prepare_cgroup_dir_properties(char *controller, CgroupDirEntry **ents,
+					 unsigned int n_ents)
+{
+	unsigned int i, j;
+	int cg;
+
+	cg = get_service_fd(CGROUP_YARD);
+
+	for (i = 0; i < n_ents; i++) {
+		CgroupDirEntry *e = ents[i];
+
+		/*
+		 * Check to see if we made e->properties NULL during restore
+		 * because directory already existed and as such we don't want to
+		 * change its properties
+		 */
+		if (e->properties) {
+			for (j = 0; j < e->n_properties; ++j) {
+				if (restore_cgroup_prop(e->properties[j], controller, e->path, cg) < 0)
+					return -1;
+			}
+		}
+
+		if (prepare_cgroup_dir_properties(controller, e->children, e->n_children) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+static int get_controller_path(char *cname_path, int size, CgControllerEntry *c)
+{
+	int i;
+	int cnt = 0;
+	int n = strlen(c->cnames[0]);
+
+	if (n >= size - cnt) {
+		pr_err("Ran out of room for cname_path\n");
+		return -1;
+	}
+	strcpy(&cname_path[cnt], c->cnames[0]);
+	cnt += n;
+
+	/*
+	 * Co-Mounted Case
+	 * adds on other controllers for full path, ie. "cpu,cpuacct"
+	 */
+	for (i = 1; i < c->n_cnames; ++i) {
+		n = strlen(c->cnames[i]);
+		/* +1 for comma */
+		if (n + 1 >= size - cnt) {
+			pr_err("Ran out of room for cname_path\n");
+			return -1;
+		}
+		cname_path[cnt++] = ',';
+		strcpy(&cname_path[cnt], c->cnames[i]);
+		cnt += n;
+	}
+
+	return 0;
+}
+
+int prepare_cgroup_properties(void)
+{
+	char cname_path[PATH_MAX];
+	unsigned int i;
+
+	for (i = 0; i < n_controllers; i++) {
+		CgControllerEntry *c = controllers[i];
+
+		if (c->n_cnames < 1) {
+			pr_err("Each CgControllerEntry should have at least 1 cname\n");
+			return -1;
+		}
+
+		if (get_controller_path(cname_path, PATH_MAX, c) < 0)
+			return -1;
+
+		if (prepare_cgroup_dir_properties(cname_path, c->dirs, c->n_dirs) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, size_t n_ents)
 {
 	size_t i;
@@ -671,13 +989,28 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 
 		sprintf(paux + off, "/%s", e->path);
 
-		pr_debug("\t`- %s\n", paux);
-		if (mkdirp(paux)) {
-			pr_perror("Can't make cgroup dir %s", paux);
-			return -1;
+		/*
+		 * Checking to see if file already exists. If not, create it. If
+		 * it does exist, prevent us from overwriting the properties
+		 * later by setting the CgroupDirEntry's properties pointer to NULL
+		 */
+		if (access(paux, F_OK) < 0) {
+			if (errno != ENOENT) {
+				pr_perror("Failed accessing file %s\n", paux);
+				return -1;
+			}
+			if (mkdirp(paux)) {
+				pr_perror("Can't make cgroup dir %s", paux);
+				return -1;
+			}
+			pr_info("Created dir %s\n", paux);
+		} else {
+			e->properties = NULL;
+			pr_info("Determined dir %s already existed\n", paux);
 		}
 
-		prepare_cgroup_dirs(paux, off, e->children, e->n_children);
+		if (prepare_cgroup_dirs(paux, off, e->children, e->n_children) < 0)
+			return -1;
 	}
 
 	return 0;

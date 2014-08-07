@@ -7,15 +7,26 @@ int dump_task_cgroup(struct pstree_item *, u32 *);
 int dump_cgroups(void);
 int prepare_task_cgroup(struct pstree_item *);
 int prepare_cgroup(void);
+/* Restore things like cpu_limit in known cgroups. */
+int prepare_cgroup_properties(void);
 void fini_cgroup(void);
 
 struct cg_controller;
+
+struct cgroup_prop {
+	char			*name;
+	char			*value;
+	struct list_head	list;
+};
 
 /* This describes a particular cgroup path, e.g. the '/lxc/u1' part of
  * 'blkio/lxc/u1' and any properties it has.
  */
 struct cgroup_dir {
 	char			*path;
+
+	struct list_head	properties;
+	unsigned int		n_properties;
 
 	/* this is how children are linked together */
 	struct list_head	siblings;

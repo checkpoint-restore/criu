@@ -1775,6 +1775,9 @@ int cr_restore_tasks(void)
 
 	ret = restore_root_task(root_item);
 
+	if (prepare_cgroup_properties() < 0)
+		goto err;
+
 	fini_cgroup();
 err:
 	cr_plugin_fini();

@@ -1,6 +1,12 @@
+message cgroup_prop_entry {
+	required string			name		= 1;
+	required string			value		= 2;
+}
+
 message cgroup_dir_entry {
 	required string 		path		= 1;
 	repeated cgroup_dir_entry	children 	= 2;
+	repeated cgroup_prop_entry	properties	= 3;
 }
 
 message cg_controller_entry {
