@@ -641,6 +641,12 @@ static int prepare_sigactions(void)
 	int sig, rst = 0;
 	int ret = 0;
 
+	switch (current->state) {
+	case TASK_HELPER:
+	case TASK_DEAD:
+		return 0;
+	}
+
 	pr_info("Restore sigacts for %d\n", pid);
 
 	fd_sigact = open_image(CR_FD_SIGACT, O_RSTR, pid);
