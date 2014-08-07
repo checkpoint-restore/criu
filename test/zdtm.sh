@@ -174,15 +174,24 @@ static/netns
 static/cgroup00
 static/cgroup01
 ns/static/clean_mntns
-ns/static/mntns_open
-ns/static/mntns_link_remap
-ns/static/mntns_link_ghost
 "
 
 TEST_CR_KERNEL="
 ns/static/tun
 static/timerfd
 "
+
+cat /proc/self/fdinfo/1 | grep -q mnt_id
+if [ $? -eq 0 ]; then
+	TEST_LIST="$TEST_LIST
+ns/static/mntns_open
+ns/static/mntns_link_remap
+ns/static/mntns_link_ghost
+"
+else
+	export ZDTM_NOSUBNS=1
+fi
+
 
 TEST_SUID_LIST="
 pid00
@@ -236,8 +245,6 @@ COMPILE_ONLY=0
 START_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
-
-cat /proc/self/fdinfo/1 | grep -q mnt_id || export ZDTM_NOSUBNS=1
 
 zdtm_sep()
 { (
