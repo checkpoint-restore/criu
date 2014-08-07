@@ -40,6 +40,11 @@ static inline int shared_fdtable(struct pstree_item *item) {
 		item->ids->files_id == item->parent->ids->files_id);
 }
 
+static inline bool task_alive(struct pstree_item *i)
+{
+	return (i->state == TASK_ALIVE) || (i->state == TASK_STOPPED);
+}
+
 extern void free_pstree(struct pstree_item *root_item);
 extern struct pstree_item *__alloc_pstree_item(bool rst);
 #define alloc_pstree_item() __alloc_pstree_item(false)

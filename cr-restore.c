@@ -643,11 +643,8 @@ static int prepare_sigactions(void)
 	int sig, rst = 0;
 	int ret = 0;
 
-	switch (current->state) {
-	case TASK_HELPER:
-	case TASK_DEAD:
+	if (!task_alive(current))
 		return 0;
-	}
 
 	pr_info("Restore sigacts for %d\n", pid);
 
@@ -1474,10 +1471,7 @@ static int attach_to_tasks(bool root_seized)
 		pid_t pid = item->pid.real;
 		int status, i;
 
-		if (item->state == TASK_DEAD)
-			continue;
-
-		if (item->state == TASK_HELPER)
+		if (!task_alive(item))
 			continue;
 
 		if (parse_threads(item->pid.real, &item->threads, &item->nr_threads))
@@ -1527,10 +1521,7 @@ static void finalize_restore(int status)
 		struct parasite_ctl *ctl;
 		int i;
 
-		if (item->state == TASK_DEAD)
-			continue;
-
-		if (item->state == TASK_HELPER)
+		if (!task_alive(item))
 			continue;
 
 		if (status  < 0)
