@@ -1583,7 +1583,7 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 	f = fopen_proc(pid, "cgroup");
 	while (fgets(buf, BUF_SIZE, f)) {
 		struct cg_ctl *ncc, *cc;
-		char *name, *path, *e;
+		char *name, *path = NULL, *e;
 
 		ret = -1;
 		ncc = xmalloc(sizeof(*cc));
