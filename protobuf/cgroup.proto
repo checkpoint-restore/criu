@@ -1,6 +1,6 @@
 message cgroup_dir_entry {
 	required string 		path		= 1;
-	repeated cgroup_dir_entry	children 	= 4;
+	repeated cgroup_dir_entry	children 	= 2;
 }
 
 message cg_controller_entry {
