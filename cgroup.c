@@ -619,7 +619,6 @@ static int move_in_cgroup(CgSetEntry *se)
 		}
 	}
 
-	close_service_fd(CGROUP_YARD);
 	return 0;
 }
 

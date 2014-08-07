@@ -1388,6 +1388,14 @@ static int restore_task_with_children(void *_arg)
 	if (create_children_and_session())
 		goto err;
 
+	/*
+	 * This must be done after forking to allow child
+	 * to get the cgroup fd so it can move into the
+	 * correct /tasks file if it is in a different cgroup
+	 * set than its parent
+	 */
+	close_service_fd(CGROUP_YARD);
+
 	if (restore_task_mnt_ns(current))
 		goto err;
 
