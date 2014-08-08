@@ -877,7 +877,6 @@ int prepare_task_cgroup(struct pstree_item *me)
 
 	if (me->rst->cg_set == current_cgset) {
 		pr_info("Cgroups %d inherited from parent\n", current_cgset);
-		close_service_fd(CGROUP_YARD);
 		return 0;
 	}
 
