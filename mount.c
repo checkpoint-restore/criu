@@ -1380,9 +1380,9 @@ static bool can_mount_now(struct mount_info *mi)
 	/*
 	 * Other mounts can be mounted only if they have
 	 * the master mount (see propagate_mount) or if we
-	 * expect a plugin to help us.
+	 * expect a plugin/ext-mount-map to help us.
 	 */
-	if (mi->bind || mi->need_plugin)
+	if (mi->bind || mi->need_plugin || mi->external)
 		return true;
 
 	return false;
@@ -1415,7 +1415,7 @@ static int do_mount_one(struct mount_info *mi)
 
 	if (!mi->parent)
 		ret = do_mount_root(mi);
-	else if (!mi->bind && !mi->need_plugin)
+	else if (!mi->bind && !mi->need_plugin && !mi->external)
 		ret = do_new_mount(mi);
 	else
 		ret = do_bind_mount(mi);
