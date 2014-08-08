@@ -16,11 +16,9 @@ other: .FORCE
 		$(MAKE) -C $$t run || break;	\
 	done					\
 
-zdtm: .FORCE
+zdtm: .FORCE 
 	$(MAKE) zdtm_ns
-	for t in $(shell echo "$(TST)" | tr ' ' '\n' | grep -Pv $(EXP)); do \
-		$(MAKE) $$t || break;	\
-	done
+	$(MAKE) zdtm_nons
 .PHONY: zdtm
 
 fault-injection: .FORCE
@@ -28,7 +26,9 @@ fault-injection: .FORCE
 .PHONY: fault-injection
 
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
+zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | grep -vP $(EXP))
+
 $(TST):
-	./zdtm.sh ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
+	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
 	{ flock Makefile cat $(subst /,_,$@).log; exit 1; }
 .PHONY: zdtm_ns

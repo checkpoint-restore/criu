@@ -763,6 +763,7 @@ Options:
 	-P : Make pre-dump instead of dump on all iterations except the last one
 	-s : Make iterative snapshots. Only the last one will be checked.
 	--auto-dedup : Make auto-dedup on restore. Check sizes of pages imges, it must be zero.
+	--ct : re-execute $0 in a container
 EOF
 }
 
@@ -868,6 +869,26 @@ while :; do
 	  -h)
 		usage
 		exit 0
+		;;
+	  --ct)
+		[ -z "$ZDTM_SH_IN_CT" ] && {
+			export ZDTM_SH_IN_CT=1
+			shift
+			args="$@"
+			# pidns is used to avoid conflicts
+			# mntns is used to mount /proc
+			# net is used to avoid conflicts of parasite sockets
+			unshare --pid --mount --ipc --net -- bash -c "
+				(
+					ip link set up dev lo &&
+					mount --make-rprivate / &&
+					umount -l /proc &&
+					mount -t proc proc /proc/ &&
+					./zdtm.sh $args
+				)"
+			exit
+		}
+		shift
 		;;
 	  -*)
 		echo "Unrecognized option $1, aborting!" 1>&2
