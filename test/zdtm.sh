@@ -536,7 +536,7 @@ EOF
 		local cpt_args=
 		local dump_only=
 		local dump_cmd="dump"
-		ddump=`readlink -fm dump/$tname/$PID/$i`
+		ddump=`readlink -fm dump/$(basename $tdir)/$tname/$PID/$i`
 		DUMP_PATH=$ddump
 		echo Dump $PID
 		mkdir -p $ddump
