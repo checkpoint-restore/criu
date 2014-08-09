@@ -735,6 +735,8 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 {
 	struct parasite_dump_creds *pc;
 
+	BUILD_BUG_ON(sizeof(*pc) > PAGE_SIZE);
+
 	pc = parasite_args(ctl, struct parasite_dump_creds);
 	if (parasite_execute_daemon(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
 		return -1;

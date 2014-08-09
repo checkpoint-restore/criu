@@ -162,7 +162,12 @@ struct parasite_dump_misc {
 	int dumpable;
 };
 
-#define PARASITE_MAX_GROUPS	(PAGE_SIZE / sizeof(unsigned int) - 2 * sizeof(unsigned))
+/*
+ * Calculate how long we can make the groups array in parasite_dump_creds
+ * and still fit the struct in one page
+ */
+#define PARASITE_MAX_GROUPS	\
+	((PAGE_SIZE - 2 * sizeof(unsigned int)) / sizeof(unsigned int))
 
 struct parasite_dump_creds {
 	unsigned int		secbits;
