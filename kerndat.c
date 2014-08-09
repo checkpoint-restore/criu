@@ -208,6 +208,18 @@ static int init_zero_page_pfn()
 	return ret;
 }
 
+int kern_last_cap;
+
+int get_last_cap(void)
+{
+	struct sysctl_req req[] = {
+		{ "kernel/cap_last_cap", &kern_last_cap, CTL_U32 },
+		{ },
+	};
+
+	return sysctl_op(req, CTL_READ);
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -219,18 +231,6 @@ int kerndat_init(void)
 		ret = init_zero_page_pfn();
 
 	return ret;
-}
-
-int kern_last_cap;
-
-int get_last_cap(void)
-{
-	struct sysctl_req req[] = {
-		{ "kernel/cap_last_cap", &kern_last_cap, CTL_U32 },
-		{ },
-	};
-
-	return sysctl_op(req, CTL_READ);
 }
 
 int kerndat_init_rst(void)
