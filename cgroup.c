@@ -930,10 +930,11 @@ void fini_cgroup(void)
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
-			       const char *cname, const char *dir, const int cg)
+			       const char *cname, const char *dir)
 {
 	char path[PATH_MAX];
 	FILE *f;
+	int cg;
 
 	if (!cg_prop_entry_p->value) {
 		pr_err("cg_prop_entry->value was empty when should have had a value");
@@ -945,6 +946,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
+	cg = get_service_fd(CGROUP_YARD);
 	f = fopenat(cg, path, "w+");
 	if (!f) {
 		pr_perror("Failed opening %s for writing\n", path);
@@ -970,9 +972,6 @@ static int prepare_cgroup_dir_properties(char *controller, CgroupDirEntry **ents
 					 unsigned int n_ents)
 {
 	unsigned int i, j;
-	int cg;
-
-	cg = get_service_fd(CGROUP_YARD);
 
 	for (i = 0; i < n_ents; i++) {
 		CgroupDirEntry *e = ents[i];
@@ -984,7 +983,7 @@ static int prepare_cgroup_dir_properties(char *controller, CgroupDirEntry **ents
 		 */
 		if (e->properties) {
 			for (j = 0; j < e->n_properties; ++j) {
-				if (restore_cgroup_prop(e->properties[j], controller, e->path, cg) < 0)
+				if (restore_cgroup_prop(e->properties[j], controller, e->path) < 0)
 					return -1;
 			}
 		}
