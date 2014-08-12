@@ -930,9 +930,8 @@ void fini_cgroup(void)
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
-			       const char *cname, const char *dir)
+			       char *path, int off, const char *dir)
 {
-	char path[PATH_MAX];
 	FILE *f;
 	int cg;
 
@@ -941,7 +940,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
-	if (snprintf(path, PATH_MAX, "%s/%s/%s", cname, dir, cg_prop_entry_p->name) >= PATH_MAX) {
+	if (snprintf(path + off, PATH_MAX - off, "/%s/%s", dir, cg_prop_entry_p->name) >= PATH_MAX) {
 		pr_err("snprintf output was truncated for %s\n", cg_prop_entry_p->name);
 		return -1;
 	}
@@ -968,7 +967,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	return 0;
 }
 
-static int prepare_cgroup_dir_properties(char *controller, CgroupDirEntry **ents,
+static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
 	unsigned int i, j;
@@ -983,45 +982,13 @@ static int prepare_cgroup_dir_properties(char *controller, CgroupDirEntry **ents
 		 */
 		if (e->properties) {
 			for (j = 0; j < e->n_properties; ++j) {
-				if (restore_cgroup_prop(e->properties[j], controller, e->path) < 0)
+				if (restore_cgroup_prop(e->properties[j], path, off, e->path) < 0)
 					return -1;
 			}
 		}
 
-		if (prepare_cgroup_dir_properties(controller, e->children, e->n_children) < 0)
+		if (prepare_cgroup_dir_properties(path, off, e->children, e->n_children) < 0)
 			return -1;
-	}
-
-	return 0;
-}
-
-static int get_controller_path(char *cname_path, int size, CgControllerEntry *c)
-{
-	int i;
-	int cnt = 0;
-	int n = strlen(c->cnames[0]);
-
-	if (n >= size - cnt) {
-		pr_err("Ran out of room for cname_path\n");
-		return -1;
-	}
-	strcpy(&cname_path[cnt], c->cnames[0]);
-	cnt += n;
-
-	/*
-	 * Co-Mounted Case
-	 * adds on other controllers for full path, ie. "cpu,cpuacct"
-	 */
-	for (i = 1; i < c->n_cnames; ++i) {
-		n = strlen(c->cnames[i]);
-		/* +1 for comma */
-		if (n + 1 >= size - cnt) {
-			pr_err("Ran out of room for cname_path\n");
-			return -1;
-		}
-		cname_path[cnt++] = ',';
-		strcpy(&cname_path[cnt], c->cnames[i]);
-		cnt += n;
 	}
 
 	return 0;
@@ -1030,7 +997,7 @@ static int get_controller_path(char *cname_path, int size, CgControllerEntry *c)
 int prepare_cgroup_properties(void)
 {
 	char cname_path[PATH_MAX];
-	unsigned int i;
+	unsigned int i, off;
 
 	for (i = 0; i < n_controllers; i++) {
 		CgControllerEntry *c = controllers[i];
@@ -1040,10 +1007,8 @@ int prepare_cgroup_properties(void)
 			return -1;
 		}
 
-		if (get_controller_path(cname_path, PATH_MAX, c) < 0)
-			return -1;
-
-		if (prepare_cgroup_dir_properties(cname_path, c->dirs, c->n_dirs) < 0)
+		off = ctrl_dir_and_opt(c, cname_path, sizeof(cname_path), NULL, 0);
+		if (prepare_cgroup_dir_properties(cname_path, off, c->dirs, c->n_dirs) < 0)
 			return -1;
 	}
 
