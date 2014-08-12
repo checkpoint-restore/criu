@@ -281,6 +281,20 @@ static int find_dir(const char *path, struct list_head *dirs, struct cgroup_dir 
 }
 
 /*
+ * Strips trailing '\n' from the string
+ */
+static inline char *strip(char *str)
+{
+	char *e;
+
+	e = strchr(str, '\0');
+	if (e != str && *(e - 1) == '\n')
+		*(e - 1) = '\0';
+
+	return str;
+}
+
+/*
  * Currently this function only supports properties that have 1 value, under 100
  * chars
  */
@@ -315,7 +329,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fpath)
 		return -1;
 	}
 
-	property->value = xstrdup(buf);
+	property->value = xstrdup(strip(buf));
 	if (!property->value)
 		return -1;
 
