@@ -460,11 +460,18 @@ int run_scripts(char *action)
 {
 	struct script *script;
 	int ret = 0;
+	char image_dir[PATH_MAX];
 
 	pr_debug("Running %s scripts\n", action);
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
+		return -1;
+	}
+
+	sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
+	if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
+		pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
 		return -1;
 	}
 
