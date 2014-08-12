@@ -411,12 +411,9 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 {
 	struct cgroup_dir *ncd = NULL, *match;
 	int ret = 0;
-	char pbuf[PATH_MAX];
 
 	if (typeflag == FTW_D) {
 		int mtype;
-
-		strncpy(pbuf, fpath, PATH_MAX);
 
 		pr_info("adding cgroup %s\n", fpath);
 
