@@ -812,6 +812,37 @@ int dump_cgroups(void)
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_CGROUP), &cg, PB_CGROUP);
 }
 
+static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,
+		char *opt, int os)
+{
+	int i, doff = 0, ooff = 0;
+	bool none_opt = false;
+
+	for (i = 0; i < ctl->n_cnames; i++) {
+		char *n;
+
+		n = ctl->cnames[i];
+		if (strstartswith(n, "name=")) {
+			n += 5;
+			if (opt && !none_opt) {
+				ooff += snprintf(opt + ooff, os - ooff, "none,");
+				none_opt = true;
+			}
+		}
+
+		doff += snprintf(dir + doff, ds - doff, "%s,", n);
+		if (opt)
+			ooff += snprintf(opt + ooff, os - ooff, "%s,", ctl->cnames[i]);
+	}
+
+	/* Chop the trailing ','-s */
+	dir[--doff] = '\0';
+	if (opt)
+		opt[ooff - 1] = '\0';
+
+	return doff;
+}
+
 static int move_in_cgroup(CgSetEntry *se)
 {
 	int cg, i;
@@ -837,21 +868,8 @@ static int move_in_cgroup(CgSetEntry *se)
 			return -1;
 		}
 
-		aux_off = 0;
-		for (j = 0; j < ctrl->n_cnames; j++) {
-			char *name;
-			if (strstartswith(ctrl->cnames[j], "name="))
-				name = ctrl->cnames[j] + 5;
-			else
-				name = ctrl->cnames[j];
-			aux_off += snprintf(aux + aux_off, sizeof(aux) - aux_off, "%s,", name);
-		}
-
-		/* Chop off the last ','. */
-		aux_off -= 1;
-
+		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
 		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
-
 		pr_debug("  `-> %s\n", aux);
 		err = fd = openat(cg, aux, O_WRONLY);
 		if (fd >= 0) {
@@ -1117,38 +1135,23 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		goto err;
 	}
 
+	paux[off++] = '/';
+
 	for (i = 0; i < ce->n_controllers; i++) {
+		int ctl_off = off;
+		char opt[128];
 		CgControllerEntry *ctrl = ce->controllers[i];
-		int j, name_off, opt_off;
-		char name[1024], opt[1024];
 
 		if (ctrl->n_cnames < 1) {
 			pr_err("Each cg_controller_entry must have at least 1 controller");
 			goto err;
 		}
 
-		opt_off = 0;
-		if (strstartswith(ctrl->cnames[0], "name="))
-			opt_off = sprintf(opt, "none,");
+		ctl_off += ctrl_dir_and_opt(ctrl,
+				paux + ctl_off, sizeof(paux) - ctl_off,
+				opt, sizeof(opt));
 
-		name_off = 0;
-		for (j = 0; j < ctrl->n_cnames; j++) {
-			char *n = ctrl->cnames[j];
-
-			if (strstartswith(ctrl->cnames[j], "name="))
-				n += 5;
-
-			name_off += sprintf(name + name_off, "%s,", n);
-			opt_off += sprintf(opt + opt_off, "%s,", ctrl->cnames[j]);
-		}
-
-		/* Chop off the last ',' to keep mount() happy. */
-		opt[strlen(opt) - 1] = '\0';
-		name[strlen(name) - 1] = '\0';
-
-		name_off = sprintf(paux + off, "/%s", name);
-
-		pr_debug("\tMaking subdir %s\n", paux);
+		pr_debug("\tMaking subdir %s (%s)\n", paux, opt);
 		if (mkdir(paux, 0700)) {
 			pr_perror("Can't make cgyard subdir %s", paux);
 			goto err;
@@ -1160,7 +1163,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		}
 
 		if (opts.manage_cgroups &&
-		    prepare_cgroup_dirs(paux, off + name_off, ctrl->dirs, ctrl->n_dirs))
+		    prepare_cgroup_dirs(paux, ctl_off, ctrl->dirs, ctrl->n_dirs))
 			goto err;
 
 	}
