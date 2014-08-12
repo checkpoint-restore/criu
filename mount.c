@@ -1911,7 +1911,7 @@ int prepare_mnt_ns(void)
 {
 	int ret = -1;
 	struct mount_info *mis, *old;
-	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
+	struct ns_id ns = { .pid = PROC_SELF, .nd = &mnt_ns_desc };
 
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return rst_collect_local_mntns();

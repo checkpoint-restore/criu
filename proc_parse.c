@@ -944,8 +944,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 	FILE *f;
 	char str[1024];
 
-	snprintf(str, sizeof(str), "/proc/%d/mountinfo", pid);
-	f = fopen(str, "r");
+	f = fopen_proc(pid, "mountinfo");
 	if (!f) {
 		pr_perror("Can't open %d mountinfo", pid);
 		return NULL;
