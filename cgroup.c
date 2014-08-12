@@ -840,7 +840,7 @@ static int move_in_cgroup(CgSetEntry *se)
 		aux_off = 0;
 		for (j = 0; j < ctrl->n_cnames; j++) {
 			char *name;
-			if (strstartswith(ce->name, "name="))
+			if (strstartswith(ctrl->cnames[j], "name="))
 				name = ctrl->cnames[j] + 5;
 			else
 				name = ctrl->cnames[j];
