@@ -97,12 +97,7 @@ int main(int argc, char **argv)
 
 out_close:
 	fclose(cgf);
-
-	sprintf(paux, "%s/%s/%s", dirname, subname, empty);
-	rmdir(paux);
 out_rs:
-	sprintf(paux, "%s/%s", dirname, subname);
-	rmdir(paux);
 	umount(dirname);
 out_rd:
 	rmdir(dirname);

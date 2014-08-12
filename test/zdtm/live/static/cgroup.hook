@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -e
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+
+echo "Cleaning $tname"
+
+set +e
+rmdir "$tname/subcg/subsubcg/"
+rmdir "$tname/subcg/empty/"
+rmdir "$tname/subcg/"
+set -e
+
+echo "Left there is:"
+ls "$tname"
+umount "$tname"
+rmdir "$tname"

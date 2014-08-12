@@ -618,6 +618,11 @@ EOF
 				done
 			done
 
+			if [ -x "${test}.hook" ]; then
+				echo "Executing pre-restore hook"
+				"${test}.hook" --pre-restore || return 2
+			fi
+
 			echo Restore
 			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args || return 2
 
@@ -650,6 +655,11 @@ EOF
 		sleep 0.$sltime
 		[ $sltime -lt 9 ] && sltime=$((sltime+1))
 	done
+
+	if [ -x "${test}.hook" ]; then
+		echo "Executing cleanup hook"
+		"${test}.hook" --clean
+	fi
 
 	if [ -n "$AUTO_DEDUP" ]; then
 		for img in $ddump/pages-*.img; do

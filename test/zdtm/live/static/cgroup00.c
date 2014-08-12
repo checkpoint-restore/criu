@@ -70,14 +70,6 @@ static int cg_check(char *name)
 	return found ? 0 : -1;
 }
 
-static void cg_cleanup(void)
-{
-	char paux[256];
-
-	sprintf(paux, "%s/%s", dirname, SUBNAME);
-	rmdir(paux);
-}
-
 int main(int argc, char **argv)
 {
 	char aux[64];
@@ -200,7 +192,6 @@ int main(int argc, char **argv)
 	pass();
 
 out_rs:
-	cg_cleanup();
 	umount(dirname);
 out_rd:
 	rmdir(dirname);
