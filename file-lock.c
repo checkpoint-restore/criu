@@ -156,7 +156,7 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 			fl->start, fl->end);
 
 		file_lock_entry__init(&fle);
-		fle.pid = fl->fl_owner;
+		fle.pid = ctl->pid.virt;
 
 		ret = fill_flock_entry(&fle, fl->fl_flag, fl->fl_type,
 				fl->fl_option);
