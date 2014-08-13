@@ -881,18 +881,11 @@ while :; do
 		[ -z "$ZDTM_SH_IN_CT" ] && {
 			export ZDTM_SH_IN_CT=1
 			shift
-			args="$@"
 			# pidns is used to avoid conflicts
 			# mntns is used to mount /proc
 			# net is used to avoid conflicts of parasite sockets
-			unshare --pid --mount --ipc --net -- bash -c "
-				(
-					ip link set up dev lo &&
-					mount --make-rprivate / &&
-					umount -l /proc &&
-					mount -t proc proc /proc/ &&
-					./zdtm.sh $args
-				)"
+			make zdtm_ct &&
+			./zdtm_ct ./zdtm.sh "$@"
 			exit
 		}
 		shift

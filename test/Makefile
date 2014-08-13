@@ -28,7 +28,13 @@ fault-injection: .FORCE
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
 zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | grep -vP $(EXP))
 
-$(TST):
+zdtm_ct: zdtm_ct.c
+
+clean:
+	rm -rf zdtm_ct
+	$(MAKE) -C zdtm $@
+
+$(TST): zdtm_ct
 	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
 	{ flock Makefile cat $(subst /,_,$@).log; exit 1; }
 .PHONY: zdtm_ns
