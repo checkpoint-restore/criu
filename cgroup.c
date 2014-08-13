@@ -302,6 +302,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 {
 	char buf[100];
 	FILE *f;
+	char *endptr;
 
 	f = fopen(fullpath, "r");
 	if (!f) {
@@ -321,6 +322,14 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 
 	if (fclose(f) != 0) {
 		pr_err("Failed closing %s\n", fullpath);
+		return -1;
+	}
+
+	if (strtoll(buf, &endptr, 10) == LLONG_MAX)
+		strcpy(buf, "-1");
+
+	if (strcmp(endptr, "\n")) {
+		pr_perror("Failed parsing %s, with strtoll\n", buf);
 		return -1;
 	}
 
