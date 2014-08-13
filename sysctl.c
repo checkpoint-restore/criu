@@ -106,11 +106,12 @@ static int sysctl_print_##__type(int fd,				\
 				 __type *arg,				\
 				 int nr)				\
 {									\
-	int i;								\
-	pr_info("sysctl: <%s> = <", req->name);				\
+	char msg[PAGE_SIZE];						\
+	int i, off = 0;							\
 	for (i = 0; i < nr; i++)					\
-		pr_info(__fmt, arg[i]);					\
-	pr_info(">\n");							\
+		off += snprintf(msg + off, sizeof(msg) - off,		\
+				__fmt, arg[i]);				\
+	pr_info("sysctl: <%s> = <%s>\n", req->name, msg);		\
 									\
 	return 0;							\
 }
