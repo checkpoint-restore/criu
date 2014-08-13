@@ -1100,7 +1100,7 @@ static int criu_signals_setup(void)
 	}
 
 	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
-	if (opts.swrk_restore)
+	if (opts.swrk_restore || opts.restore_detach)
 		/*
 		 * Root task will be our sibling. This means, that
 		 * we will not notice when (if) it dies in SIGCHLD
@@ -1592,15 +1592,19 @@ static int restore_root_task(struct pstree_item *init)
 	 * In that case create the root task as the child one to+
 	 * the caller. This is the only way to correctly restore the
 	 * pdeath_sig of the root task. But also looks nice.
+	 *
+	 * Alternatively, if we are --restore-detached, a similar trick is
+	 * needed to correctly restore pdeath_sig and prevent processes from
+	 * dying once restored.
 	 */
-	if (opts.swrk_restore)
+	if (opts.swrk_restore || opts.restore_detach)
 		init->rst->clone_flags |= CLONE_PARENT;
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
 		return -1;
 
-	if (opts.swrk_restore) {
+	if (opts.swrk_restore || opts.restore_detach) {
 		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
 			pr_perror("Can't attach to init");
 			goto out;
