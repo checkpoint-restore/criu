@@ -207,7 +207,7 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 		return fd;
 	}
 	sprintf(buf, "%d\n", val);
-	ret = write(fd, buf, 32);
+	ret = write(fd, buf, strlen(buf));
 	if (ret < 0) {
 		err("Can't write %u into %s\n", val, name);
 		return -errno;
