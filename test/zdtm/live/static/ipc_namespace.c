@@ -251,7 +251,7 @@ static int rand_ipc_ns(void)
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/msgmni", (unsigned)lrand48());
 	if (!ret)
-		ret = rand_ipc_sysctl("/proc/sys/kernel/auto_msgmni", (unsigned)lrand48() & 1);
+		ret = rand_ipc_sysctl("/proc/sys/kernel/auto_msgmni", 0);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/shmmax", (unsigned)lrand48());
 	if (!ret)
