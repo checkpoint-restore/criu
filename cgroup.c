@@ -490,35 +490,9 @@ static int collect_cgroups(struct list_head *ctls)
 	int fd = -1;
 
 	list_for_each_entry(cc, ctls, l) {
-		char path[PATH_MAX], opts[1024];
+		char path[PATH_MAX], mopts[1024];
 		char *name, prefix[] = ".criu.cgmounts.XXXXXX";
 		struct cg_controller *cg;
-
-		if (strstartswith(cc->name, "name=")) {
-			name = cc->name + 5;
-			snprintf(opts, sizeof(opts), "none,%s", cc->name);
-		} else {
-			name = cc->name;
-			snprintf(opts, sizeof(opts), "%s", name);
-		}
-
-		if (mkdtemp(prefix) == NULL) {
-			pr_perror("can't make dir for cg mounts\n");
-			return -1;
-		}
-
-		if (mount("none", prefix, "cgroup", 0, opts) < 0) {
-			pr_perror("couldn't mount %s\n", opts);
-			rmdir(prefix);
-			return -1;
-		}
-
-		fd = open_detach_mount(prefix);
-		if (fd < 0)
-			return -1;
-
-		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
-		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", cc->path);
 
 		current_controller = NULL;
 
@@ -545,6 +519,35 @@ static int collect_cgroups(struct list_head *ctls)
 				current_controller = nc;
 			}
 		}
+
+		if (!opts.manage_cgroups)
+			continue;
+
+		if (strstartswith(cc->name, "name=")) {
+			name = cc->name + 5;
+			snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
+		} else {
+			name = cc->name;
+			snprintf(mopts, sizeof(mopts), "%s", name);
+		}
+
+		if (mkdtemp(prefix) == NULL) {
+			pr_perror("can't make dir for cg mounts\n");
+			return -1;
+		}
+
+		if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
+			pr_perror("couldn't mount %s\n", mopts);
+			rmdir(prefix);
+			return -1;
+		}
+
+		fd = open_detach_mount(prefix);
+		if (fd < 0)
+			return -1;
+
+		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
+		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", cc->path);
 
 		ret = ftw(path, add_cgroup, 4);
 		if (ret < 0) {
@@ -595,7 +598,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 		 * The on-stack ctls is moved into cs inside
 		 * the get_cg_set routine.
 		 */
-		if (cs != criu_cgset && opts.manage_cgroups && collect_cgroups(&cs->ctls))
+		if (cs != criu_cgset && collect_cgroups(&cs->ctls))
 			return -1;
 	}
 
