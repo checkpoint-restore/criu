@@ -4,7 +4,7 @@ message cgroup_prop_entry {
 }
 
 message cgroup_dir_entry {
-	required string 		path		= 1;
+	required string 		dir_name	= 1;
 	repeated cgroup_dir_entry	children 	= 2;
 	repeated cgroup_prop_entry	properties	= 3;
 }

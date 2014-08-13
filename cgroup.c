@@ -644,7 +644,7 @@ error:
 	return -1;
 }
 
-static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry ***ents)
+static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry ***ents, int poff)
 {
 	struct cgroup_dir *cur;
 	CgroupDirEntry *cde;
@@ -660,12 +660,10 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 
 	list_for_each_entry(cur, dirs, siblings) {
 		cgroup_dir_entry__init(cde);
-
-		cde->path = cur->path;
-
+		cde->dir_name = cur->path + poff + 1 /* leading / */;
 		cde->n_children = cur->n_children;
 		if (cur->n_children > 0)
-			if (dump_cg_dirs(&cur->children, cur->n_children, &cde->children) < 0) {
+			if (dump_cg_dirs(&cur->children, cur->n_children, &cde->children, strlen(cur->path)) < 0) {
 				xfree(*ents);
 				return -1;
 			}
@@ -707,7 +705,7 @@ static int dump_controllers(CgroupEntry *cg)
 		ce->n_cnames = cur->n_controllers;
 		ce->n_dirs = cur->n_heads;
 		if (ce->n_dirs > 0)
-			if (dump_cg_dirs(&cur->heads, cur->n_heads, &ce->dirs) < 0) {
+			if (dump_cg_dirs(&cur->heads, cur->n_heads, &ce->dirs, 0) < 0) {
 				xfree(cg->controllers);
 				return -1;
 			}
@@ -933,7 +931,7 @@ void fini_cgroup(void)
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
-			       char *path, int off, const char *dir)
+			       char *path, int off)
 {
 	FILE *f;
 	int cg;
@@ -943,7 +941,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
-	if (snprintf(path + off, PATH_MAX - off, "/%s/%s", dir, cg_prop_entry_p->name) >= PATH_MAX) {
+	if (snprintf(path + off, PATH_MAX - off, "/%s", cg_prop_entry_p->name) >= PATH_MAX) {
 		pr_err("snprintf output was truncated for %s\n", cg_prop_entry_p->name);
 		return -1;
 	}
@@ -978,6 +976,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 	for (i = 0; i < n_ents; i++) {
 		CgroupDirEntry *e = ents[i];
 
+		off += sprintf(path + off, "/%s", e->dir_name);
 		/*
 		 * Check to see if we made e->properties NULL during restore
 		 * because directory already existed and as such we don't want to
@@ -985,7 +984,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		 */
 		if (e->properties) {
 			for (j = 0; j < e->n_properties; ++j) {
-				if (restore_cgroup_prop(e->properties[j], path, off, e->path) < 0)
+				if (restore_cgroup_prop(e->properties[j], path, off) < 0)
 					return -1;
 			}
 		}
@@ -1026,7 +1025,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 	for (i = 0; i < n_ents; i++) {
 		e = ents[i];
 
-		sprintf(paux + off, "/%s", e->path);
+		off += sprintf(paux + off, "/%s", e->dir_name);
 
 		/*
 		 * Checking to see if file already exists. If not, create it. If
