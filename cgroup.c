@@ -859,7 +859,7 @@ static int move_in_cgroup(CgSetEntry *se)
 	pr_info("Move into %d\n", se->id);
 	cg = get_service_fd(CGROUP_YARD);
 	for (i = 0; i < se->n_ctls; i++) {
-		char aux[1024];
+		char aux[PATH_MAX];
 		int fd, err, j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
 		CgControllerEntry *ctrl = NULL;
