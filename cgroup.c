@@ -298,34 +298,29 @@ static inline char *strip(char *str)
  * Currently this function only supports properties that have 1 value, under 100
  * chars
  */
-static int read_cgroup_prop(struct cgroup_prop *property, const char *fpath)
+static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 {
-	char pbuf[PATH_MAX], buf[100];
+	char buf[100];
 	FILE *f;
 
-	if (snprintf(pbuf, PATH_MAX, "%s/%s", fpath, property->name) >= PATH_MAX) {
-		pr_err("snprintf output was truncated");
-		return -1;
-	}
-
-	f = fopen(pbuf, "r");
+	f = fopen(fullpath, "r");
 	if (!f) {
-		pr_err("Failed opening %s\n", pbuf);
 		property->value = NULL;
+		pr_perror("Failed opening %s\n", fullpath);
 		return -1;
 	}
 
 	memset(buf, 0, sizeof(buf));
 	if (fread(buf, sizeof(buf), 1, f) != 1) {
 		if (!feof(f)) {
-			pr_err("Failed scanning %s\n", pbuf);
+			pr_err("Failed scanning %s\n", fullpath);
 			fclose(f);
 			return -1;
 		}
 	}
 
 	if (fclose(f) != 0) {
-		pr_err("Failed closing %s\n", pbuf);
+		pr_err("Failed closing %s\n", fullpath);
 		return -1;
 	}
 
@@ -395,6 +390,7 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 				 struct cg_controller *controller)
 {
 	int i, j;
+	char buf[PATH_MAX];
 	struct cgroup_prop *prop;
 
 	for (i = 0; i < controller->n_controllers; ++i) {
@@ -402,16 +398,28 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 		const char **prop_arr = get_known_properties(controller->controllers[i]);
 
 		for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
+			if (snprintf(buf, PATH_MAX, "%s/%s", fpath, prop_arr[j]) >= PATH_MAX) {
+				pr_err("snprintf output was truncated");
+				return -1;
+			}
+
+			if (access(buf, F_OK) < 0 && errno == ENOENT) {
+				pr_info("Couldn't open %s. This cgroup property may not exist on this kernel\n", buf);
+				continue;
+			}
+
 			prop = create_cgroup_prop(prop_arr[j]);
 			if (!prop) {
 				free_all_cgroup_props(ncd);
 				return -1;
 			}
-			if (read_cgroup_prop(prop, fpath) < 0) {
+
+			if (read_cgroup_prop(prop, buf) < 0) {
 				free_cgroup_prop(prop);
 				free_all_cgroup_props(ncd);
 				return -1;
 			}
+
 			pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
 			list_add_tail(&prop->list, &ncd->properties);
 			ncd->n_properties++;
