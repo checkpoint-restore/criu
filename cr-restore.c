@@ -1055,6 +1055,13 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
 	}
 
+	if (!current && siginfo->si_code == CLD_TRAPPED &&
+				siginfo->si_status == SIGCHLD) {
+		/* The root task is ptraced. Allow it to handle SIGCHLD */
+		ptrace(PTRACE_CONT, siginfo->si_pid, 0, SIGCHLD);
+		return;
+	}
+
 	if (!current || status)
 		goto err;
 
