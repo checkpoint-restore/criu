@@ -166,10 +166,21 @@ struct parasite_dump_misc {
  * Calculate how long we can make the groups array in parasite_dump_creds
  * and still fit the struct in one page
  */
-#define PARASITE_MAX_GROUPS	\
-	((PAGE_SIZE - 2 * sizeof(unsigned int)) / sizeof(unsigned int))
+#define PARASITE_MAX_GROUPS							\
+	(PAGE_SIZE								\
+	 - sizeof(unsigned int)			/* cap_last_cap */		\
+	 - 4 * CR_CAP_SIZE * sizeof(u32)	/* cap_{inh,prm,eff,bnd} */ 	\
+	 - 2 * sizeof(unsigned int)		/* secbits, ngroups*/		\
+	) / sizeof(unsigned int)		/* groups */
 
 struct parasite_dump_creds {
+	unsigned int		cap_last_cap;
+
+	u32			cap_inh[CR_CAP_SIZE];
+	u32			cap_prm[CR_CAP_SIZE];
+	u32			cap_eff[CR_CAP_SIZE];
+	u32			cap_bnd[CR_CAP_SIZE];
+
 	unsigned int		secbits;
 	unsigned int		ngroups;
 	unsigned int		groups[PARASITE_MAX_GROUPS];

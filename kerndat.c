@@ -229,6 +229,8 @@ int kerndat_init(void)
 		ret = kerndat_get_dirty_track();
 	if (!ret)
 		ret = init_zero_page_pfn();
+	if (!ret)
+		ret = get_last_cap();
 
 	return ret;
 }

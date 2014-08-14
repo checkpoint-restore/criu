@@ -7,6 +7,9 @@
 #ifndef PR_GET_NAME
 # define PR_GET_NAME		16
 #endif
+#ifndef PR_CAPBSET_READ
+# define PR_CAPBSET_READ	23
+#endif
 #ifndef PR_CAPBSET_DROP
 # define PR_CAPBSET_DROP	24
 #endif

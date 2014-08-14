@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <linux/limits.h>
+#include <linux/capability.h>
 #include <sys/mount.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
@@ -177,7 +178,40 @@ static int dump_misc(struct parasite_dump_misc *args)
 
 static int dump_creds(struct parasite_dump_creds *args)
 {
-	int ret;
+	int ret, i, j;
+	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
+	struct cap_header hdr = {_LINUX_CAPABILITY_VERSION_3, 0};
+
+	ret = sys_capget(&hdr, data);
+	if (ret < 0) {
+		pr_err("Unable to get capabilities: %d\n", ret);
+		return -1;
+	}
+
+	/*
+	 * Loop through the capability constants until we reach cap_last_cap.
+	 * The cap_bnd set is stored as a bitmask comprised of CR_CAP_SIZE number of
+	 * 32-bit uints, hence the inner loop from 0 to 32.
+	 */
+	for (i = 0; i < CR_CAP_SIZE; i++) {
+		args->cap_eff[i] = data[i].eff;
+		args->cap_prm[i] = data[i].prm;
+		args->cap_inh[i] = data[i].inh;
+		args->cap_bnd[i] = 0;
+
+		for (j = 0; j < 32; j++) {
+			if (j + i * 32 > args->cap_last_cap)
+				break;
+			ret = sys_prctl(PR_CAPBSET_READ, j + i * 32, 0, 0, 0);
+			if (ret < 0) {
+				pr_err("Unable to read capability %d: %d\n",
+					j + i * 32, ret);
+				return -1;
+			}
+			if (ret)
+				args->cap_bnd[i] |= (1 << j);
+		}
+	}
 
 	args->secbits = sys_prctl(PR_GET_SECUREBITS, 0, 0, 0, 0);
 

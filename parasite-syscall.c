@@ -738,8 +738,19 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 	BUILD_BUG_ON(sizeof(*pc) > PAGE_SIZE);
 
 	pc = parasite_args(ctl, struct parasite_dump_creds);
+	pc->cap_last_cap = kern_last_cap;
+
 	if (parasite_execute_daemon(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
 		return -1;
+
+	ce->n_cap_inh = CR_CAP_SIZE;
+	ce->cap_inh = pc->cap_inh;
+	ce->n_cap_prm = CR_CAP_SIZE;
+	ce->cap_prm = pc->cap_prm;
+	ce->n_cap_eff = CR_CAP_SIZE;
+	ce->cap_eff = pc->cap_eff;
+	ce->n_cap_bnd = CR_CAP_SIZE;
+	ce->cap_bnd = pc->cap_bnd;
 
 	ce->secbits = pc->secbits;
 	ce->n_groups = pc->ngroups;

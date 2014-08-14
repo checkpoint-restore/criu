@@ -502,10 +502,6 @@ static int dump_task_creds(struct parasite_ctl *ctl,
 {
 	CredsEntry ce = CREDS_ENTRY__INIT;
 
-	pr_info("\n");
-	pr_info("Dumping creds for %d)\n", ctl->pid.real);
-	pr_info("----------------------------------------\n");
-
 	ce.uid   = cr->uids[0];
 	ce.gid   = cr->gids[0];
 	ce.euid  = cr->uids[1];
@@ -515,16 +511,9 @@ static int dump_task_creds(struct parasite_ctl *ctl,
 	ce.fsuid = cr->uids[3];
 	ce.fsgid = cr->gids[3];
 
-	BUILD_BUG_ON(CR_CAP_SIZE != PROC_CAP_SIZE);
-
-	ce.n_cap_inh = CR_CAP_SIZE;
-	ce.cap_inh = cr->cap_inh;
-	ce.n_cap_prm = CR_CAP_SIZE;
-	ce.cap_prm = cr->cap_prm;
-	ce.n_cap_eff = CR_CAP_SIZE;
-	ce.cap_eff = cr->cap_eff;
-	ce.n_cap_bnd = CR_CAP_SIZE;
-	ce.cap_bnd = cr->cap_bnd;
+	pr_info("\n");
+	pr_info("Dumping creds for %d)\n", ctl->pid.real);
+	pr_info("----------------------------------------\n");
 
 	if (parasite_dump_creds(ctl, &ce) < 0)
 		return -1;
