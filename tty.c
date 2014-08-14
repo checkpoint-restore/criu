@@ -557,7 +557,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 
 		unlock_pty(master);
 
-		fd = open(pts_name, slave->tfe->flags);
+		fd = open(pts_name, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", pts_name);
 			goto err;
