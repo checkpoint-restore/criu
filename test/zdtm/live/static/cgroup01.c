@@ -12,7 +12,7 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
 static const char *cgname = "zdtmtst";
-static const char *subname = "subcg";
+static const char *subname = "subcg01";
 static const char *empty = "empty";
 
 int main(int argc, char **argv)
