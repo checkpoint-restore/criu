@@ -532,12 +532,12 @@ static int collect_cgroups(struct list_head *ctls)
 		}
 
 		if (mkdtemp(prefix) == NULL) {
-			pr_perror("can't make dir for cg mounts\n");
+			pr_perror("can't make dir for cg mounts");
 			return -1;
 		}
 
 		if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
-			pr_perror("couldn't mount %s\n", mopts);
+			pr_perror("couldn't mount %s", mopts);
 			rmdir(prefix);
 			return -1;
 		}
@@ -551,7 +551,7 @@ static int collect_cgroups(struct list_head *ctls)
 
 		ret = ftw(path, add_cgroup, 4);
 		if (ret < 0) {
-			pr_perror("failed walking %s for empty cgroups\n", path);
+			pr_perror("failed walking %s for empty cgroups", path);
 			goto out;
 		}
 
@@ -883,8 +883,7 @@ static int move_in_cgroup(CgSetEntry *se)
 		}
 
 		if (err < 0) {
-			pr_perror("Can't move into %s (%d/%d)\n",
-					aux, err, fd);
+			pr_perror("Can't move into %s (%d/%d)", aux, err, fd);
 			return -1;
 		}
 	}
@@ -949,7 +948,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	cg = get_service_fd(CGROUP_YARD);
 	f = fopenat(cg, path, "w+");
 	if (!f) {
-		pr_perror("Failed opening %s for writing\n", path);
+		pr_perror("Failed opening %s for writing", path);
 		return -1;
 	}
 
@@ -960,7 +959,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	}
 
 	if (fclose(f) != 0) {
-		pr_perror("Failed closing %s\n", path);
+		pr_perror("Failed closing %s", path);
 		return -1;
 	}
 
@@ -1034,7 +1033,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 		 */
 		if (access(paux, F_OK) < 0) {
 			if (errno != ENOENT) {
-				pr_perror("Failed accessing file %s\n", paux);
+				pr_perror("Failed accessing file %s", paux);
 				return -1;
 			}
 			if (mkdirp(paux)) {
