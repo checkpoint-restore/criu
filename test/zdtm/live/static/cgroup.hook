@@ -9,7 +9,8 @@ echo "Cleaning $tname"
 
 set +e
 rmdir "$tname/subcg/subsubcg/"
-rmdir "$tname/subcg/empty/"
+rmdir "$tname/subcg/empty.0/"
+rmdir "$tname/subcg/empty.1/"
 rmdir "$tname/subcg/"
 set -e
 

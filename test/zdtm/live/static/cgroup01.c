@@ -17,7 +17,7 @@ static const char *empty = "empty";
 
 int main(int argc, char **argv)
 {
-	int cgfd, l, ret = 1;
+	int cgfd, l, ret = 1, i;
 	char aux[1024], paux[1024];
 	FILE *cgf;
 	struct stat st;
@@ -55,8 +55,13 @@ int main(int argc, char **argv)
 		goto out_rs;
 	}
 
-	sprintf(paux, "%s/%s/%s", dirname, subname, empty);
-	mkdir(paux, 0600);
+	for (i = 0; i < 2; i++) {
+		sprintf(paux, "%s/%s/%s.%d", dirname, subname, empty, i);
+		if (mkdir(paux, 0600)) {
+			err("mkdir %s", paux);
+			return 1;
+		}
+	}
 
 	test_daemon();
 	test_waitsig();
@@ -71,10 +76,14 @@ int main(int argc, char **argv)
 		char *s;
 
 		s = strstr(paux, cgname);
-		if (s) {
-			sscanf(paux, "%*d %*d %*d:%*d %*s %s", aux);
-			test_msg("found cgroup at %s\n", aux);
-			sprintf(paux, "%s/%s/%s", aux, subname, empty);
+		if (!s)
+			continue;
+
+		sscanf(paux, "%*d %*d %*d:%*d %*s %s", aux);
+		test_msg("found cgroup at %s\n", aux);
+
+		for (i = 0; i < 2; i++) {
+			sprintf(paux, "%s/%s/%s.%d", aux, subname, empty, i);
 			if (stat(paux, &st)) {
 				fail("couldn't stat %s\n", paux);
 				ret = -1;
@@ -86,11 +95,11 @@ int main(int argc, char **argv)
 				ret = -1;
 				goto out_close;
 			}
-
-			pass();
-			ret = 0;
-			goto out_close;
 		}
+
+		pass();
+		ret = 0;
+		goto out_close;
 	}
 
 	fail("empty cgroup not found!\n");
