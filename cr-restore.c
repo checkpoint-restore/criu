@@ -726,6 +726,42 @@ static int pstree_wait_helpers()
 	return 0;
 }
 
+static int open_cores(int pid, CoreEntry *leader_core)
+{
+	int fd = -1, i, tpid;
+	CoreEntry **cores = NULL;
+
+	cores = xmalloc(sizeof(*cores)*current->nr_threads);
+	if (!cores)
+		goto err;
+
+	for (i = 0; i < current->nr_threads; i++) {
+		tpid = current->threads[i].virt;
+
+		if (tpid == pid)
+			cores[i] = leader_core;
+		else {
+			fd = open_image(CR_FD_CORE, O_RSTR, tpid);
+			if (fd < 0) {
+				pr_err("Can't open core data for thread %d\n", tpid);
+				goto err;
+			}
+
+			if (pb_read_one(fd, cores[i], PB_CORE) <= 0)
+				goto err;
+
+			close(fd);
+		}
+	}
+
+	current->core = cores;
+
+	return 0;
+err:
+	xfree(cores);
+	close_safe(&fd);
+	return -1;
+}
 
 static int restore_one_alive_task(int pid, CoreEntry *core)
 {
@@ -743,6 +779,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (open_vmas(pid))
+		return -1;
+
+	if (open_cores(pid, core))
 		return -1;
 
 	if (prepare_signals(pid))
@@ -2636,7 +2675,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Fill up per-thread data.
 	 */
 	for (i = 0; i < current->nr_threads; i++) {
-		int fd_core;
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
 
@@ -2650,17 +2688,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		if (thread_args[i].pid == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
-		} else {
-			fd_core = open_image(CR_FD_CORE, O_RSTR, thread_args[i].pid);
-			if (fd_core < 0) {
-				pr_err("Can't open core data for thread %d\n",
-				       thread_args[i].pid);
-				goto err;
-			}
-
-			ret = pb_read_one(fd_core, &tcore, PB_CORE);
-			close(fd_core);
-		}
+		} else
+			tcore = current->core[i];
 
 		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
 			pr_err("Thread has optional fields present %d\n",
@@ -2736,6 +2765,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
+	xfree(current->core);
 
 	/*
 	 * Open the last_pid syscl early, since restorer (maybe) lives
