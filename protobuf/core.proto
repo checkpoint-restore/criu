@@ -5,6 +5,8 @@ import "core-aarch64.proto";
 import "rlimit.proto";
 import "timer.proto";
 
+import "siginfo.proto";
+
 message task_core_entry {
 	required uint32			task_state	= 1;
 	required uint32			exit_code	= 2;
@@ -19,6 +21,8 @@ message task_core_entry {
 	optional task_rlimits_entry	rlimits		= 8;
 
 	optional uint32			cg_set		= 9;
+
+	optional signal_queue_entry	signals_s	= 10;
 }
 
 message task_kobj_ids_entry {
@@ -49,6 +53,8 @@ message thread_core_entry {
 	optional uint64			blk_sigset	= 6;
 	optional thread_sas_entry	sas		= 7;
 	optional uint32			pdeath_sig	= 8;
+
+	optional signal_queue_entry	signals_p	= 9;
 }
 
 message task_rlimits_entry {
