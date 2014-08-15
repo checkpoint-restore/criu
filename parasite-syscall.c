@@ -1160,9 +1160,6 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	BUG_ON(item->threads[0].real != pid);
 
-	if (pstree_alloc_cores(item))
-		return NULL;
-
 	ctl = parasite_prep_ctl(pid, vma_area_list);
 	if (!ctl)
 		return NULL;
