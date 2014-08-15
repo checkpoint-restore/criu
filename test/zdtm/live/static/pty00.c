@@ -12,6 +12,13 @@
 const char *test_doc	= "Check, that pseudoterminals are restored";
 const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
 
+static unsigned int nr_sighups;
+
+static void signal_handler_sighup(int signum)
+{
+	nr_sighups++;
+}
+
 int main(int argc, char ** argv)
 {
 	int fdm, fds, ret;
@@ -19,7 +26,21 @@ int main(int argc, char ** argv)
 	char buf[10];
 	const char teststr[] = "hello\n";
 
+	struct sigaction sa = {
+		.sa_handler = signal_handler_sighup,
+		.sa_flags = 0,
+	};
+
 	test_init(argc, argv);
+
+	/*
+	 * On closing control terminal we're expecting to
+	 * receive SIGHUP, so make sure it's delivered.
+	 */
+	if (sigaction(SIGHUP, &sa, 0)) {
+		fail("sigaction failed\n");
+		return 1;
+	}
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
@@ -54,8 +75,6 @@ int main(int argc, char ** argv)
 
 	test_waitsig();
 
-	signal(SIGHUP, SIG_IGN);
-
 	/* Check connectivity */
 	ret = write(fdm, teststr, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
@@ -74,10 +93,19 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+	if (nr_sighups != 0) {
+		fail("Expected 0 SIGHUP before closing control terminal but got %d", nr_sighups);
+		return 1;
+	}
+
 	close(fdm);
 	close(fds);
 
-	pass();
+	if (nr_sighups != 1) {
+		fail("Expected 1 SIGHUP after closing control terminal but got %d", nr_sighups);
+		return 1;
+	} else
+		pass();
 
 	return 0;
 }
