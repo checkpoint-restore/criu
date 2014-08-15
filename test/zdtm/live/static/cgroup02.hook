@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+
+rmroots() {
+	echo "Cleaning $tname"
+
+	set +e
+	rmdir "$tname/oldroot"
+	rmdir "$tname/newroot"
+	rmdir "$tname/zdtmtstroot"
+	set -e
+
+	echo "Left there is:"
+	ls "$tname"
+	umount "$tname"
+	rmdir "$tname"
+}
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "none,name=zdtmtst"
+rmroots
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "none,name=defaultroot"
+rmroots
+
