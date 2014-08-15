@@ -1157,11 +1157,12 @@ err:
 	return ret;
 }
 
-static int dump_signal_queue(pid_t tid, int fd, bool group)
+static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 {
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo[32]; /* One page or all non-rt signals */
 	int ret, i = 0, j, nr;
+	SignalQueueEntry *queue = NULL;
 
 	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
 
@@ -1169,6 +1170,12 @@ static int dump_signal_queue(pid_t tid, int fd, bool group)
 	arg.flags = 0;
 	if (group)
 		arg.flags |= PTRACE_PEEKSIGINFO_SHARED;
+
+	queue = xmalloc(sizeof(*queue));
+	if (!queue)
+		return -1;
+
+	signal_queue_entry__init(queue);
 
 	for (; ; ) {
 		arg.off = i;
@@ -1187,50 +1194,44 @@ static int dump_signal_queue(pid_t tid, int fd, bool group)
 			break;
 		nr = ret;
 
-		for (j = 0; j < nr; j++) {
-			SiginfoEntry sie = SIGINFO_ENTRY__INIT;
+		queue->n_signals += nr;
+		queue->signals = xrealloc(queue->signals, sizeof(*queue->signals) * queue->n_signals);
+		if (!queue->signals) {
+			ret = -1;
+			break;
+		}
 
-			sie.siginfo.len = sizeof(siginfo_t);
-			sie.siginfo.data = (void *) (siginfo + j);
+		for (j = queue->n_signals - nr; j < queue->n_signals; j++) {
+			queue->signals[j]->siginfo.len = sizeof(siginfo_t);
+			queue->signals[j]->siginfo.data = (void *) (siginfo + j);
 
-			ret = pb_write_one(fd, &sie, PB_SIGINFO);
-			if (ret < 0)
-				break;
 			i++;
 		}
 	}
 
-	return ret;
-}
-
-static int dump_thread_signals(struct pid *tid)
-{
-	int fd, ret;
-
-	fd = open_image(CR_FD_PSIGNAL, O_DUMP, tid->virt);
-	if (fd < 0)
-		return -1;
-	ret = dump_signal_queue(tid->real, fd, false);
-	close(fd);
+	*sqe = queue;
 
 	return ret;
 }
 
-static int dump_task_signals(pid_t pid, struct pstree_item *item,
-		struct cr_fdset *cr_fdset)
+static int dump_task_signals(pid_t pid, struct pstree_item *item)
 {
 	int i, ret;
 
-	ret = dump_signal_queue(pid, fdset_fd(cr_fdset, CR_FD_SIGNAL), true);
-	if (ret) {
-		pr_err("Can't dump pending signals (pid: %d)\n", pid);
-		return -1;
+	/* Dump private signals for each thread */
+	for (i = 0; i < item->nr_threads; i++) {
+		ret = dump_signal_queue(item->threads[i].real, &item->core[i]->thread_core->signals_p, false);
+		if (ret) {
+			pr_err("Can't dump private signals for thread %d\n", item->threads[i].real);
+			return -1;
+		}
 	}
 
-	for (i = 0; i < item->nr_threads; i++) {
-		ret = dump_thread_signals(&item->threads[i]);
-		if (ret)
-			return -1;
+	/* Dump shared signals */
+	ret = dump_signal_queue(pid, &item->core[0]->tc->signals_s, true);
+	if (ret) {
+		pr_err("Can't dump shared signals (pid: %d)\n", pid);
+		return -1;
 	}
 
 	return 0;
@@ -1490,6 +1491,12 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
+	ret = dump_task_signals(pid, item);
+	if (ret) {
+		pr_err("Dump %d signals failed %d\n", pid, ret);
+		goto err;
+	}
+
 	ret = -1;
 	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds, proc_args.timer_n);
 	if (!parasite_ctl) {
@@ -1621,12 +1628,6 @@ static int dump_one_task(struct pstree_item *item)
 	ret = dump_task_fs(pid, &misc, cr_fdset);
 	if (ret) {
 		pr_err("Dump fs (pid: %d) failed with %d\n", pid, ret);
-		goto err;
-	}
-
-	ret = dump_task_signals(pid, item, cr_fdset);
-	if (ret) {
-		pr_err("Dump %d signals failed %d\n", pid, ret);
 		goto err;
 	}
 
