@@ -91,7 +91,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, CoreEntry *core);
 static int prepare_posix_timers(int pid, CoreEntry *core);
-static int prepare_signals(int pid);
+static int prepare_signals(int pid, CoreEntry *core);
 
 static int root_as_sibling;
 
@@ -784,7 +784,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (open_cores(pid, core))
 		return -1;
 
-	if (prepare_signals(pid))
+	if (prepare_signals(pid, core))
 		return -1;
 
 	if (prepare_posix_timers(pid, core))
@@ -2372,6 +2372,20 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 	return 0;
 }
 
+static int signal_to_mem(SiginfoEntry *sie)
+{
+	siginfo_t *info, *t;
+
+	info = (siginfo_t *) sie->siginfo.data;
+	t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
+	if (!t)
+		return -1;
+
+	memcpy(t, info, sizeof(*info));
+
+	return 0;
+}
+
 static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 {
 	int fd, ret;
@@ -2387,7 +2401,6 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 	*nr = 0;
 	while (1) {
 		SiginfoEntry *sie;
-		siginfo_t *info, *t;
 
 		ret = pb_read_one_eof(fd, &sie, PB_SIGINFO);
 		if (ret <= 0)
@@ -2397,14 +2410,11 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 			ret = -1;
 			break;
 		}
-		info = (siginfo_t *) sie->siginfo.data;
-		t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
-		if (!t) {
-			ret = -1;
-			break;
-		}
 
-		memcpy(t, info, sizeof(*info));
+		ret = signal_to_mem(sie);
+		if (ret)
+			break;
+
 		(*nr)++;
 
 		siginfo_entry__free_unpacked(sie, NULL);
@@ -2415,10 +2425,23 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 	return ret ? : 0;
 }
 
+static int prepare_one_signal_queue(SignalQueueEntry *sqe, unsigned int *nr)
+{
+	int i;
+
+	for (i = 0; i < sqe->n_signals; i++)
+		if (signal_to_mem(sqe->signals[i]))
+			return -1;
+
+	*nr = sqe->n_signals;
+
+	return 0;
+}
+
 static unsigned long siginfo_cpos;
 static unsigned int siginfo_nr, *siginfo_priv_nr;
 
-static int prepare_signals(int pid)
+static int prepare_signals(int pid, CoreEntry *leader_core)
 {
 	int ret = -1, i;
 
@@ -2427,13 +2450,22 @@ static int prepare_signals(int pid)
 	if (siginfo_priv_nr == NULL)
 		goto out;
 
-	ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_nr);
+	/* Prepare shared signals */
+	if (!leader_core->tc->signals_s)/*backward compatibility*/
+		ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_nr);
+	else
+		ret = prepare_one_signal_queue(leader_core->tc->signals_s, &siginfo_nr);
+
 	if (ret < 0)
 		goto out;
 
 	for (i = 0; i < current->nr_threads; i++) {
-		ret = open_signal_image(CR_FD_PSIGNAL,
-				current->threads[i].virt, &siginfo_priv_nr[i]);
+		if (!current->core[i]->thread_core->signals_p)/*backward compatibility*/
+			ret = open_signal_image(CR_FD_PSIGNAL,
+					current->threads[i].virt, &siginfo_priv_nr[i]);
+		else
+			ret = prepare_one_signal_queue(current->core[i]->thread_core->signals_p,
+										&siginfo_priv_nr[i]);
 		if (ret < 0)
 			goto out;
 	}
