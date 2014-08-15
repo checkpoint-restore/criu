@@ -55,5 +55,5 @@ struct cg_controller *new_controller(const char *name, int heirarchy);
 
 /* parse all global cgroup information into structures */
 int parse_cg_info(void);
-
+int new_cg_root_add(char *controller, char *newroot);
 #endif /* __CR_CGROUP_H__ */

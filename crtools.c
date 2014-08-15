@@ -35,6 +35,7 @@
 #include "cr-service.h"
 #include "plugin.h"
 #include "mount.h"
+#include "cgroup.h"
 
 struct cr_options opts;
 
@@ -47,6 +48,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.scripts);
 	INIT_LIST_HEAD(&opts.ext_mounts);
+	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 
 	opts.cpu_cap = CPU_CAP_ALL;
 	opts.manage_cgroups = false;
@@ -169,6 +171,7 @@ int main(int argc, char *argv[])
 		{ "ext-mount-map", required_argument, 0, 'M'},
 		{ "exec-cmd", no_argument, 0, 59},
 		{ "manage-cgroups", no_argument, 0, 60},
+		{ "cgroup-root", required_argument, 0, 61},
 		{ },
 	};
 
@@ -357,6 +360,21 @@ int main(int argc, char *argv[])
 			break;
 		case 60:
 			opts.manage_cgroups = true;
+			break;
+		case 61:
+			{
+				char *aux;
+
+				aux = strchr(optarg, ':');
+				if (!aux) {
+					opts.new_global_cg_root = optarg;
+				} else {
+					*aux = '\0';
+					if (new_cg_root_add(optarg, aux + 1))
+						return -1;
+				}
+
+			}
 			break;
 		case 'M':
 			{
@@ -547,6 +565,10 @@ usage:
 "  -M|--ext-mount-map KEY:VALUE\n"
 "                        add external mount mapping\n"
 "  --manage-cgroups      dump or restore cgroups the process is in\n"
+"  --cgroup-root [controller:]/newroot\n"
+"                        change the root cgroup the controller will be\n"
+"                        installed into. No controller means that root is the\n"
+"                        default for all controllers not specified.\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

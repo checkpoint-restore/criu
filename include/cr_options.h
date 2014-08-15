@@ -19,6 +19,12 @@ struct script {
 #define CPU_CAP_FPU		(1u)
 #define CPU_CAP_ALL		(-1u)
 
+struct cg_root_opt {
+	struct list_head node;
+	char *controller;
+	char *newroot;
+};
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -52,6 +58,8 @@ struct cr_options {
 	bool			force_irmap;
 	char			**exec_cmd;
 	bool			manage_cgroups;
+	char			*new_global_cg_root;
+	struct list_head	new_cgroup_roots;
 };
 
 extern struct cr_options opts;

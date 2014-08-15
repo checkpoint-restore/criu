@@ -1171,6 +1171,77 @@ err:
 	return -1;
 }
 
+static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controllers,
+			  char *from, char *to)
+{
+	int i, j;
+	for (i = 0; i < cge->n_sets; i++) {
+		CgSetEntry *set = cge->sets[i];
+		for (j = 0; j < set->n_ctls; j++) {
+			CgMemberEntry *cg = set->ctls[j];
+			if (cgroup_contains(controllers, n_controllers, cg->name) &&
+					/* +1 to get rid of leading / */
+					strstartswith(cg->path + 1, from)) {
+
+				/* +1 to get rid of leading /, again */
+				int off = strlen(from) + 1;
+
+				/* +1 for trailing NULL */
+				int newlen = strlen(to) + strlen(cg->path + off) + 1;
+				char *m = malloc(newlen * sizeof(char*));
+				if (!m)
+					return -1;
+
+				sprintf(m, "%s%s", to, cg->path + off);
+				free(cg->path);
+				cg->path = m;
+			}
+		}
+
+	}
+	return 0;
+}
+
+static int rewrite_cgroup_roots(CgroupEntry *cge)
+{
+	int i, j;
+	struct cg_root_opt *o;
+	char *newroot = NULL;
+
+	for (i = 0; i < cge->n_controllers; i++) {
+		CgControllerEntry *ctrl = cge->controllers[i];
+		newroot = opts.new_global_cg_root;
+
+		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
+			if (cgroup_contains(ctrl->cnames, ctrl->n_cnames, o->controller)) {
+				newroot = o->newroot;
+				break;
+			}
+
+		}
+
+		if (newroot) {
+			for (j = 0; j < ctrl->n_dirs; j++) {
+				CgroupDirEntry *cgde = ctrl->dirs[j];
+				char *m;
+
+				pr_info("rewriting %s to %s\n", cgde->dir_name, newroot);
+				if (rewrite_cgsets(cge, ctrl->cnames, ctrl->n_cnames, cgde->dir_name, newroot))
+					return -1;
+
+				m = xstrdup(newroot);
+				if (!m)
+					return -1;
+
+				free(cgde->dir_name);
+				cgde->dir_name = m;
+			}
+		}
+	}
+
+	return 0;
+}
+
 int prepare_cgroup(void)
 {
 	int fd, ret;
@@ -1189,6 +1260,9 @@ int prepare_cgroup(void)
 	if (ret <= 0) /* Zero is OK -- no sets there. */
 		return ret;
 
+	if (rewrite_cgroup_roots(ce))
+		return -1;
+
 	n_sets = ce->n_sets;
 	rst_sets = ce->sets;
 	n_controllers = ce->n_controllers;
@@ -1205,4 +1279,18 @@ int prepare_cgroup(void)
 		ret = 0;
 
 	return ret;
+}
+
+int new_cg_root_add(char *controller, char *newroot)
+{
+	struct cg_root_opt *o;
+
+	o = xmalloc(sizeof(*o));
+	if (!o)
+		return -1;
+
+	o->controller = controller;
+	o->newroot = newroot;
+	list_add(&o->node, &opts.new_cgroup_roots);
+	return 0;
 }
