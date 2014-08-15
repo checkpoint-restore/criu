@@ -974,8 +974,9 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 
 	for (i = 0; i < n_ents; i++) {
 		CgroupDirEntry *e = ents[i];
+		size_t off2 = off;
 
-		off += sprintf(path + off, "/%s", e->dir_name);
+		off2 += sprintf(path + off, "/%s", e->dir_name);
 		/*
 		 * Check to see if we made e->properties NULL during restore
 		 * because directory already existed and as such we don't want to
@@ -988,7 +989,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			}
 		}
 
-		if (prepare_cgroup_dir_properties(path, off, e->children, e->n_children) < 0)
+		if (prepare_cgroup_dir_properties(path, off2, e->children, e->n_children) < 0)
 			return -1;
 	}
 
@@ -1022,9 +1023,10 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 	CgroupDirEntry *e;
 
 	for (i = 0; i < n_ents; i++) {
+		size_t off2 = off;
 		e = ents[i];
 
-		off += sprintf(paux + off, "/%s", e->dir_name);
+		off2 += sprintf(paux + off, "/%s", e->dir_name);
 
 		/*
 		 * Checking to see if file already exists. If not, create it. If
@@ -1046,7 +1048,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 			pr_info("Determined dir %s already existed\n", paux);
 		}
 
-		if (prepare_cgroup_dirs(paux, off, e->children, e->n_children) < 0)
+		if (prepare_cgroup_dirs(paux, off2, e->children, e->n_children) < 0)
 			return -1;
 	}
 
