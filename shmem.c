@@ -16,7 +16,13 @@
 #include "protobuf/pagemap.pb-c.h"
 
 unsigned long nr_shmems;
-unsigned int rst_shmems;
+unsigned long rst_shmems;
+
+int prepare_shmem_restore(void)
+{
+	rst_shmems = rst_mem_cpos(RM_SHREMAP);
+	return 0;
+}
 
 void show_saved_shmems(void)
 {

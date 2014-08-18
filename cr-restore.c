@@ -174,6 +174,9 @@ static int root_prepare_shared(void)
 	if (prepare_shared_reg_files())
 		return -1;
 
+	if (prepare_shmem_restore())
+		return -1;
+
 	for (i = 0; i < ARRAY_SIZE(cinfos); i++) {
 		ret = collect_image(cinfos[i]);
 		if (ret)

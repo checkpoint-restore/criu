@@ -28,7 +28,7 @@ extern void show_saved_shmems(void);
 extern int get_shmem_fd(int pid, VmaEntry *vi);
 
 extern unsigned long nr_shmems;
-extern unsigned int rst_shmems;
+extern unsigned long rst_shmems;
 
 extern int cr_dump_shmem(void);
 extern int add_shmem_area(pid_t pid, VmaEntry *vma);
