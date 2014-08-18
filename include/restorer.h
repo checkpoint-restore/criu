@@ -165,8 +165,6 @@ static inline unsigned long restorer_stack(struct thread_restore_args *a)
 	return RESTORE_ALIGN_STACK((long)a->mem_zone.stack, RESTORE_STACK_SIZE);
 }
 
-#define TASK_ENTRIES_SIZE 4096
-
 enum {
 	CR_STATE_FAIL		= -1,
 	CR_STATE_RESTORE_NS	= 0, /* is used for executing "setup-namespace" scripts */

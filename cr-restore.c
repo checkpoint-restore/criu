@@ -95,20 +95,6 @@ static int prepare_signals(int pid);
 
 static int root_as_sibling;
 
-static int shmem_remap(void *old_addr, void *new_addr, unsigned long size)
-{
-	void *ret;
-
-	ret = mremap(old_addr, size, size,
-			MREMAP_FIXED | MREMAP_MAYMOVE, new_addr);
-	if (new_addr != ret) {
-		pr_perror("mremap failed");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int crtools_prepare_shared(void)
 {
 	if (prepare_shared_fdinfo())
@@ -822,6 +808,7 @@ static inline int sig_fatal(int sig)
 }
 
 struct task_entries *task_entries;
+static unsigned long task_entries_pos;
 
 static int restore_one_zombie(int pid, CoreEntry *core)
 {
@@ -1737,13 +1724,15 @@ out:
 	return 1;
 }
 
-static int prepare_task_entries()
+static int prepare_task_entries(void)
 {
-	task_entries = mmap(NULL, TASK_ENTRIES_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, 0, 0);
-	if (task_entries == MAP_FAILED) {
+	task_entries_pos = rst_mem_cpos(RM_SHREMAP);
+	task_entries = rst_mem_alloc(sizeof(*task_entries), RM_SHREMAP);
+	if (!task_entries) {
 		pr_perror("Can't map shmem");
 		return -1;
 	}
+
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
@@ -2455,7 +2444,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
-	BUILD_BUG_ON(TASK_ENTRIES_SIZE % PAGE_SIZE);
 
 	args_len = round_up(sizeof(*task_args) + sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
 	pr_info("%d threads require %ldK of memory\n",
@@ -2513,7 +2501,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	restore_bootstrap_len = restorer_len + args_len +
-				TASK_ENTRIES_SIZE +
 				rst_mem_remap_size();
 
 #ifdef CONFIG_VDSO
@@ -2594,15 +2581,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 
 	mem += args_len;
-	ret = shmem_remap(task_entries, mem, TASK_ENTRIES_SIZE);
-	if (ret < 0)
-		goto err;
-	mem += TASK_ENTRIES_SIZE;
-
 	if (rst_mem_remap(mem))
 		goto err;
 
-	task_args->task_entries = mem - TASK_ENTRIES_SIZE;
+	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
 	task_args->rst_mem = mem;
 	task_args->rst_mem_size = rst_mem_remap_size();

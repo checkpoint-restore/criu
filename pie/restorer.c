@@ -1080,7 +1080,6 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_posix_timers(args);
 
-	sys_munmap(args->task_entries, TASK_ENTRIES_SIZE);
 	sys_munmap(args->rst_mem, args->rst_mem_size);
 
 	/*
