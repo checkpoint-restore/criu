@@ -76,7 +76,7 @@ int collect_shmem(int pid, VmaEntry *vi)
 	if (!si)
 		return -1;
 
-	pr_info("Add new shmem 0x%"PRIx64" (0x0160x%"PRIx64"-0x0160x%"PRIx64")\n",
+	pr_info("Add new shmem 0x%"PRIx64" (0x%016"PRIx64"-0x%016"PRIx64")\n",
 				vi->shmid, vi->start, vi->end);
 
 	si->start = vi->start;
