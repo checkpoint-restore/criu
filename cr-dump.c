@@ -1202,9 +1202,22 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		}
 
 		for (j = queue->n_signals - nr; j < queue->n_signals; j++) {
-			queue->signals[j]->siginfo.len = sizeof(siginfo_t);
-			queue->signals[j]->siginfo.data = (void *) (siginfo + j);
+			SiginfoEntry *se;
+
+			se = xmalloc(sizeof(*se));
+			if (!se) {
+				ret = -1;
+				break;
+			}
+
+			siginfo_entry__init(se);
+			se->siginfo.len = sizeof(siginfo_t);
+			se->siginfo.data = (void *) (siginfo + j);
+			queue->signals[j] = se;
 		}
+
+		if (ret < 0)
+			break;
 
 		arg.off += nr;
 	}
