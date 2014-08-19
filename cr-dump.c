@@ -1179,7 +1179,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 	signal_queue_entry__init(queue);
 
-	for (; ; ) {
+	while (1) {
 		int nr, si_pos;
 		siginfo_t *si;
 
@@ -1191,7 +1191,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, si);
 		if (ret == 0)
-			break;
+			break; /* Finished */
 
 		if (ret < 0) {
 			if (errno == EIO) {
@@ -1199,6 +1199,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 				ret = 0;
 			} else
 				pr_perror("ptrace");
+
 			break;
 		}
 
@@ -1234,7 +1235,6 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	}
 
 	*sqe = queue;
-
 	return ret;
 }
 
