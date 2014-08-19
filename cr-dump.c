@@ -1157,16 +1157,17 @@ err:
 	return ret;
 }
 
+#define SI_BATCH	32
+
 static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 {
 	struct ptrace_peeksiginfo_args arg;
-	siginfo_t siginfo[32]; /* One page or all non-rt signals */
 	int ret, j;
 	SignalQueueEntry *queue = NULL;
 
 	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
 
-	arg.nr = sizeof(siginfo) / sizeof(siginfo_t);
+	arg.nr = SI_BATCH;
 	arg.flags = 0;
 	if (group)
 		arg.flags |= PTRACE_PEEKSIGINFO_SHARED;
@@ -1180,8 +1181,15 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 	for (; ; ) {
 		int nr;
+		siginfo_t *si;
 
-		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, siginfo);
+		si = xmalloc(SI_BATCH * sizeof(*si));
+		if (!si) {
+			ret = -1;
+			break;
+		}
+
+		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, si);
 		if (ret == 0)
 			break;
 
@@ -1212,7 +1220,9 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 			siginfo_entry__init(se);
 			se->siginfo.len = sizeof(siginfo_t);
-			se->siginfo.data = (void *) (siginfo + j);
+			se->siginfo.data = (void *)si++; /* XXX we don't free cores, but when
+							  * we will, this would cause problems
+							  */
 			queue->signals[j] = se;
 		}
 
