@@ -1161,7 +1161,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 {
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo[32]; /* One page or all non-rt signals */
-	int ret, j, nr;
+	int ret, j;
 	SignalQueueEntry *queue = NULL;
 
 	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
@@ -1179,7 +1179,12 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	signal_queue_entry__init(queue);
 
 	for (; ; ) {
-		ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, siginfo);
+		int nr;
+
+		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, siginfo);
+		if (ret == 0)
+			break;
+
 		if (ret < 0) {
 			if (errno == EIO) {
 				pr_warn("ptrace doesn't support PTRACE_PEEKSIGINFO\n");
@@ -1188,11 +1193,6 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 				pr_perror("ptrace");
 			break;
 		}
-
-		if (ret == 0)
-			break;
-
-		nr = ret;
 
 		queue->n_signals += nr;
 		queue->signals = xrealloc(queue->signals, sizeof(*queue->signals) * queue->n_signals);
