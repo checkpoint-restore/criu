@@ -433,7 +433,7 @@ static int create_link_remap(char *path, int len, int lfd,
 
 	link_name[0] = '.';
 	memcpy(link_name + 1, path, len);
-	tmp = link_name + len + 1;
+	tmp = link_name + len;
 	while (*tmp != '/') {
 		BUG_ON(tmp == link_name);
 		tmp--;
