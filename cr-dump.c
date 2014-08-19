@@ -1161,7 +1161,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 {
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo[32]; /* One page or all non-rt signals */
-	int ret, i = 0, j, nr;
+	int ret, j, nr;
 	SignalQueueEntry *queue = NULL;
 
 	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
@@ -1170,6 +1170,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	arg.flags = 0;
 	if (group)
 		arg.flags |= PTRACE_PEEKSIGINFO_SHARED;
+	arg.off = 0;
 
 	queue = xmalloc(sizeof(*queue));
 	if (!queue)
@@ -1178,8 +1179,6 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	signal_queue_entry__init(queue);
 
 	for (; ; ) {
-		arg.off = i;
-
 		ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, siginfo);
 		if (ret < 0) {
 			if (errno == EIO) {
@@ -1192,6 +1191,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 
 		if (ret == 0)
 			break;
+
 		nr = ret;
 
 		queue->n_signals += nr;
@@ -1204,9 +1204,9 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		for (j = queue->n_signals - nr; j < queue->n_signals; j++) {
 			queue->signals[j]->siginfo.len = sizeof(siginfo_t);
 			queue->signals[j]->siginfo.data = (void *) (siginfo + j);
-
-			i++;
 		}
+
+		arg.off += nr;
 	}
 
 	*sqe = queue;
