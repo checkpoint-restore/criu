@@ -1162,7 +1162,7 @@ err:
 static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 {
 	struct ptrace_peeksiginfo_args arg;
-	int ret, j;
+	int ret;
 	SignalQueueEntry *queue = NULL;
 
 	pr_debug("Dump %s signals of %d\n", group ? "shared" : "private", tid);
@@ -1180,7 +1180,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 	signal_queue_entry__init(queue);
 
 	for (; ; ) {
-		int nr;
+		int nr, si_pos;
 		siginfo_t *si;
 
 		si = xmalloc(SI_BATCH * sizeof(*si));
@@ -1209,7 +1209,8 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 			break;
 		}
 
-		for (j = queue->n_signals - nr; j < queue->n_signals; j++) {
+		for (si_pos = queue->n_signals - nr;
+				si_pos < queue->n_signals; si_pos++) {
 			SiginfoEntry *se;
 
 			se = xmalloc(sizeof(*se));
@@ -1223,7 +1224,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 			se->siginfo.data = (void *)si++; /* XXX we don't free cores, but when
 							  * we will, this would cause problems
 							  */
-			queue->signals[j] = se;
+			queue->signals[si_pos] = se;
 		}
 
 		if (ret < 0)
