@@ -28,6 +28,7 @@ fault-injection: .FORCE
 zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
 zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | grep -vP $(EXP))
 
+override CFLAGS += -D_GNU_SOURCE
 zdtm_ct: zdtm_ct.c
 
 clean:

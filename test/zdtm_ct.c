@@ -1,10 +1,10 @@
-#define _GNU_SOURCE
 #include <sched.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 int main(int argc, char **argv)
 {
