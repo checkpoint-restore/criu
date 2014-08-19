@@ -747,7 +747,7 @@ static int open_cores(int pid, CoreEntry *leader_core)
 				goto err;
 			}
 
-			if (pb_read_one(fd, cores[i], PB_CORE) <= 0)
+			if (pb_read_one(fd, &cores[i], PB_CORE) <= 0)
 				goto err;
 
 			close(fd);
