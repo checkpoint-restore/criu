@@ -267,7 +267,7 @@ static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 
 	ret = send(sockfd, m, sizeof(*m), 0);
 	if (ret == -1) {
-		pr_perror("Failed to send command %d to daemon\n", m->cmd);
+		pr_perror("Failed to send command %d to daemon", m->cmd);
 		return -1;
 	} else if (ret != sizeof(*m)) {
 		pr_err("Message to daemon is trimmed (%d/%d)\n",

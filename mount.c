@@ -1304,7 +1304,7 @@ static int restore_ext_mount(struct mount_info *mi)
 	pr_debug("Restoring external bind mount %s\n", mi->mountpoint);
 	ret = cr_plugin_restore_ext_mount(mi->mnt_id, mi->mountpoint, "/", NULL);
 	if (ret)
-		pr_perror("Can't restore ext mount (%d)\n", ret);
+		pr_err("Can't restore ext mount (%d)\n", ret);
 	return ret;
 }
 
@@ -2007,7 +2007,7 @@ int __mntns_get_root_fd(pid_t pid)
 		 */
 		fd = open("/", O_RDONLY | O_DIRECTORY);
 		if (fd < 0) {
-			pr_perror("Can't open root\n");
+			pr_perror("Can't open root");
 			return -1;
 		}
 

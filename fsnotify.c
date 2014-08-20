@@ -115,7 +115,7 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 
 	mntfd = open_mount(s_dev);
 	if (mntfd < 0) {
-		pr_perror("Mount root for 0x%08x not found\n", s_dev);
+		pr_err("Mount root for 0x%08x not found\n", s_dev);
 		goto out;
 	}
 

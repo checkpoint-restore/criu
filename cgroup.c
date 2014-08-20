@@ -311,7 +311,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 	f = fopen(fullpath, "r");
 	if (!f) {
 		property->value = NULL;
-		pr_perror("Failed opening %s\n", fullpath);
+		pr_perror("Failed opening %s", fullpath);
 		return -1;
 	}
 

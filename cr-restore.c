@@ -562,7 +562,7 @@ static int unmap_guard_pages()
 			void *addr = decode_pointer(vma->premmaped_addr);
 
 			if (munmap(addr - PAGE_SIZE, PAGE_SIZE)) {
-				pr_perror("Can't unmap guard page\n");
+				pr_perror("Can't unmap guard page");
 				return -1;
 			}
 		}

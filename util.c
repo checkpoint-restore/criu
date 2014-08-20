@@ -650,7 +650,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 
 	off = (vaddr / PAGE_SIZE) * sizeof(u64);
 	if (lseek(fd, off, SEEK_SET) != off) {
-		pr_perror("Failed to seek address %lx\n", vaddr);
+		pr_perror("Failed to seek address %lx", vaddr);
 		goto out;
 	}
 
@@ -707,7 +707,7 @@ int mkdirp(const char *path)
 		if (pos)
 			*pos = '\0';
 		if (mkdir(made_path, 0755) < 0 && errno != EEXIST) {
-			pr_perror("couldn't mkdirpat directory\n");
+			pr_perror("couldn't mkdirpat directory");
 			return -1;
 		}
 		if (pos) {

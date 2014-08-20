@@ -143,7 +143,7 @@ static int timerfd_open(struct file_desc *d)
 
 	tmp = timerfd_create(tfe->clockid, 0);
 	if (tmp < 0) {
-		pr_perror("Can't create for %#x\n", tfe->id);
+		pr_perror("Can't create for %#x", tfe->id);
 		return -1;
 	}
 
