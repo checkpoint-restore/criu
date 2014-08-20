@@ -26,6 +26,7 @@
 #include "protobuf.h"
 #include "kerndat.h"
 #include "fs-magic.h"
+#include "sysfs_parse.h"
 
 #include "protobuf/mnt.pb-c.h"
 
@@ -861,7 +862,11 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "cgroup",
 		.code = FSTYPE__CGROUP,
-	}
+	}, {
+		.name = "aufs",
+		.code = FSTYPE__AUFS,
+		.parse = aufs_parse,
+	},
 };
 
 struct fstype *find_fstype_by_name(char *fst)

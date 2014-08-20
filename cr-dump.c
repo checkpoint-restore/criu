@@ -71,6 +71,7 @@
 #include "cr-service.h"
 #include "plugin.h"
 #include "irmap.h"
+#include "sysfs_parse.h"
 
 #include "asm/dump.h"
 
@@ -369,6 +370,22 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 
 	BUG_ON(!vma_area->st);
 	p.stat = *vma_area->st;
+
+	/*
+	 * AUFS support to compensate for the kernel bug
+	 * exposing branch pathnames in map_files.
+	 *
+	 * If the link found in vma_get_mapfile() pointed
+	 * inside a branch, we should use the pathname
+	 * from root that was saved in vma_area->aufs_rpath.
+	 */
+	if (vma_area->aufs_rpath) {
+		struct fd_link aufs_link;
+
+		strcpy(aufs_link.name, vma_area->aufs_rpath);
+		aufs_link.len = strlen(aufs_link.name);
+		p.link = &aufs_link;
+	}
 
 	if (get_fd_mntid(vma_area->vm_file_fd, &p.mnt_id))
 		return -1;
@@ -1927,6 +1944,7 @@ err:
 	free_pstree(root_item);
 	free_file_locks();
 	free_link_remaps();
+	free_aufs_branches();
 
 	close_service_fd(CR_PROC_FD_OFF);
 

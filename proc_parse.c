@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <ctype.h>
 #include <linux/fs.h>
 
 #include "asm/types.h"
@@ -24,8 +25,11 @@
 #include "vma.h"
 
 #include "proc_parse.h"
+#include "cr_options.h"
+#include "sysfs_parse.h"
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
+#include "protobuf/mnt.pb-c.h"
 
 #include <stdlib.h>
 
@@ -240,7 +244,8 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 			vma->vm_socket_id = buf.st_ino;
 		} else if (errno != ENOENT)
 			return -1;
-	}
+	} else if (opts.aufs && fixup_aufs_vma_fd(vma) < 0)
+		return -1;
 
 	return 0;
 }
@@ -455,7 +460,19 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			if (!st_buf)
 				goto err;
 
-			if (fstat(vma_area->vm_file_fd, st_buf) < 0) {
+			/*
+			 * For AUFS support, we cannot fstat() a file descriptor that
+			 * is a symbolic link to a branch (it would return different
+			 * dev/ino than the real file).  Instead, we stat() using the
+			 * full pathname that we saved before.
+			 */
+			if (vma_area->aufs_fpath) {
+				if (stat(vma_area->aufs_fpath, st_buf) < 0) {
+					pr_perror("Failed stat on %d's map %lu (%s)",
+						pid, start, vma_area->aufs_fpath);
+					goto err;
+				}
+			} else if (fstat(vma_area->vm_file_fd, st_buf) < 0) {
 				pr_perror("Failed fstat on %d's map %lu", pid, start);
 				goto err;
 			}
@@ -1717,4 +1734,33 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 out:
 	fclose(f);
 	return ret;
+}
+
+/*
+ * AUFS callback function to "fix up" the root pathname.
+ * See sysfs_parse.c for details.
+ */
+int aufs_parse(struct mount_info *new)
+{
+	char *cp;
+
+	opts.aufs = true;
+
+	if (!opts.aufs_root || strcmp(new->mountpoint, "./"))
+		return 0;
+
+	cp = malloc(strlen(opts.aufs_root) + 1);
+	if (!cp) {
+		pr_err("Cannot allocate memory for %s\n", opts.aufs_root);
+		return -1;
+	}
+	strcpy(cp, opts.aufs_root);
+
+	pr_debug("Replacing %s with %s\n", new->root, opts.aufs_root);
+	free(new->root);
+	new->root = cp;
+
+	parse_aufs_branches(new);
+
+	return 0;
 }

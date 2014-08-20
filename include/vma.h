@@ -32,8 +32,14 @@ struct vma_area {
 		int		vm_socket_id;
 		struct file_desc *fd;
 	};
-	unsigned long		*page_bitmap;  /* existent pages */
-	unsigned long		*ppage_bitmap; /* parent's existent pages */
+	union {
+		unsigned long	*page_bitmap;	/* existent pages, restore only */
+		char		*aufs_rpath;	/* path from aufs root, dump only */
+	};
+	union {
+		unsigned long	*ppage_bitmap;	/* parent's existent pages */
+		char		*aufs_fpath;	/* full path from global root, dump only */
+	};
 
 	unsigned long		premmaped_addr;
 
