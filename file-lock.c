@@ -265,7 +265,7 @@ static int restore_file_locks_legacy(int pid)
 	int fd, ret = -1;
 	FileLockEntry *fle;
 
-	fd = open_image(CR_FD_FILE_LOCKS, O_RSTR | O_OPT, pid);
+	fd = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
 		if (fd == -ENOENT)
 			return 0;

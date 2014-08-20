@@ -91,7 +91,7 @@ struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
 	},
 
 	[CR_FD_FILE_LOCKS_PID] = {
-		.fmt	= "filelocks-%d",
+		.fmt	= "filelocks-%d.img",
 		.magic	= FILE_LOCKS_MAGIC,
 	},
 };
