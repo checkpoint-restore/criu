@@ -1001,7 +1001,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		 */
 		if (e->properties) {
 			for (j = 0; j < e->n_properties; ++j) {
-				if (restore_cgroup_prop(e->properties[j], path, off) < 0)
+				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
 					return -1;
 			}
 		}
