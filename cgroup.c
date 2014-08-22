@@ -295,12 +295,12 @@ static inline char *strip(char *str)
 }
 
 /*
- * Currently this function only supports properties that have 1 value, under 100
- * chars
+ * Currently this function only supports properties that have a string value
+ * under 1024 chars.
  */
 static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 {
-	char buf[100];
+	char buf[1024];
 	FILE *f;
 	char *endptr;
 
@@ -327,11 +327,6 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 
 	if (strtoll(buf, &endptr, 10) == LLONG_MAX)
 		strcpy(buf, "-1");
-
-	if (strcmp(endptr, "\n")) {
-		pr_perror("Failed parsing %s, with strtoll\n", buf);
-		return -1;
-	}
 
 	property->value = xstrdup(strip(buf));
 	if (!property->value)
