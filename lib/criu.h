@@ -51,6 +51,7 @@ void criu_set_manage_cgroups(bool manage);
 int criu_set_exec_cmd(int argc, char *argv[]);
 int criu_add_ext_mount(char *key, char *val);
 int criu_add_veth_pair(char *in, char *out);
+int criu_add_cg_root(char *ctrl, char *path);
 
 /*
  * The criu_notify_arg_t na argument is an opaque

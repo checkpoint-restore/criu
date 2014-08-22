@@ -232,6 +232,46 @@ er:
 	return -ENOMEM;
 }
 
+int criu_add_cg_root(char *ctrl, char *path)
+{
+	int nr;
+	CgroupRoot **a, *root;
+
+	root = malloc(sizeof(*root));
+	if (!root)
+		goto er;
+	cgroup_root__init(root);
+
+	if (ctrl) {
+		root->ctrl = strdup(ctrl);
+		if (!root->ctrl)
+			goto er_r;
+	}
+
+	root->path = strdup(path);
+	if (!root->path)
+		goto er_c;
+
+	nr = opts->n_cg_root + 1;
+	a = realloc(opts->cg_root, nr * sizeof(root));
+	if (!a)
+		goto er_p;
+
+	a[nr - 1] = root;
+	opts->cg_root = a;
+	opts->n_cg_root = nr;
+	return 0;
+
+er_p:
+	free(root->path);
+er_c:
+	if (root->ctrl)
+		free(root->ctrl);
+er_r:
+	free(root);
+er:
+	return -ENOMEM;
+}
 int criu_add_veth_pair(char *in, char *out)
 {
 	int nr;
