@@ -24,6 +24,7 @@
 #include "page-xfer.h"
 #include "net.h"
 #include "mount.h"
+#include "cgroup.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -298,6 +299,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	for (i = 0; i < req->n_ext_mnt; i++) {
 		if (ext_mount_add(req->ext_mnt[i]->key, req->ext_mnt[i]->val))
+			return -1;
+	}
+
+	for (i = 0; i < req->n_cg_root; i++) {
+		if (new_cg_root_add(req->cg_root[i]->ctrl,
+					req->cg_root[i]->path))
 			return -1;
 	}
 

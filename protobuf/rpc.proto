@@ -14,6 +14,11 @@ message ext_mount_map {
 	required string		val	= 2;
 };
 
+message cgroup_root {
+	optional string		ctrl	= 1;
+	required string		path	= 2;
+};
+
 message criu_opts {
 	required int32			images_dir_fd	= 1;
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
@@ -46,6 +51,7 @@ message criu_opts {
 
 	repeated ext_mount_map		ext_mnt		= 23;
 	optional bool			manage_cgroups	= 24;
+	repeated cgroup_root		cg_root		= 25;
 }
 
 message criu_dump_resp {
