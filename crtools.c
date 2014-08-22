@@ -364,17 +364,20 @@ int main(int argc, char *argv[])
 			break;
 		case 61:
 			{
-				char *aux;
+				char *path, *ctl;
 
-				aux = strchr(optarg, ':');
-				if (!aux) {
-					opts.new_global_cg_root = optarg;
+				path = strchr(optarg, ':');
+				if (path) {
+					*path = '\0';
+					path++;
+					ctl = optarg;
 				} else {
-					*aux = '\0';
-					if (new_cg_root_add(optarg, aux + 1))
-						return -1;
+					path = optarg;
+					ctl = NULL;
 				}
 
+				if (new_cg_root_add(ctl, path))
+					return -1;
 			}
 			break;
 		case 'M':

@@ -1338,6 +1338,11 @@ int new_cg_root_add(char *controller, char *newroot)
 {
 	struct cg_root_opt *o;
 
+	if (!controller) {
+		opts.new_global_cg_root = newroot;
+		return 0;
+	}
+
 	o = xmalloc(sizeof(*o));
 	if (!o)
 		return -1;
