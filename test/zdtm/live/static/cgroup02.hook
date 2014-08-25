@@ -3,7 +3,9 @@
 set -e
 
 rmroots() {
-	echo "Cleaning $tname"
+	echo "Cleaning $tname ($1)"
+
+	mount -t cgroup none $tname -o "$1"
 
 	set +e
 	rmdir "$tname/oldroot"
@@ -14,14 +16,12 @@ rmroots() {
 	echo "Left there is:"
 	ls "$tname"
 	umount "$tname"
-	rmdir "$tname"
 }
 
 tname=$(mktemp -d cgclean.XXXXXX)
-mount -t cgroup none $tname -o "none,name=zdtmtst"
-rmroots
 
-tname=$(mktemp -d cgclean.XXXXXX)
-mount -t cgroup none $tname -o "none,name=defaultroot"
-rmroots
+for ctl in $(cat /proc/self/cgroup | cut -d: -f2); do
+	rmroots "$ctl"
+done
 
+rmdir $tname
