@@ -59,12 +59,16 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 {
-	EventpollTfdEntry *efd = &e->epl;
+	EventpollTfdEntry *efd = &e->epl.e;
+	int ret;
 
 	efd->id = *(u32 *)arg;
 	pr_info_eventpoll_tfd("Dumping: ", efd);
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
 			efd, PB_EVENTPOLL_TFD);
+
+	free_event_poll_entry(e);
+	return ret;
 }
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)

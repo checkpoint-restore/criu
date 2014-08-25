@@ -299,7 +299,8 @@ static int check_fdinfo_signalfd(void)
 
 static int check_one_epoll(union fdinfo_entries *e, void *arg)
 {
-	*(int *)arg = e->epl.tfd;
+	*(int *)arg = e->epl.e.tfd;
+	free_event_poll_entry(e);
 	return 0;
 }
 
