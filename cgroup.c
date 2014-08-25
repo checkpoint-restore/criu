@@ -676,7 +676,9 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 
 	list_for_each_entry(cur, dirs, siblings) {
 		cgroup_dir_entry__init(cde);
-		cde->dir_name = cur->path + poff + 1 /* leading / */;
+		cde->dir_name = cur->path + poff;
+		if (poff != 1) /* parent isn't "/" */
+			cde->dir_name++; /* leading / */
 		cde->n_children = cur->n_children;
 		if (cur->n_children > 0)
 			if (dump_cg_dirs(&cur->children, cur->n_children, &cde->children, strlen(cur->path)) < 0) {
