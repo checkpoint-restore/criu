@@ -199,7 +199,8 @@ err:
 
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-	InotifyWdEntry *we = &e->ify;
+	InotifyWdEntry *we = &e->ify.e;
+	int ret = -1;
 
 	we->id = *(u32 *)arg;
 	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",
@@ -209,9 +210,13 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 
 	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
-		return -1;
+		goto out;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
+	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD))
+		goto out;
+out:
+	free_inotify_wd_entry(e);
+	return ret;
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
@@ -231,8 +236,13 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 static int pre_dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-	InotifyWdEntry *we = &e->ify;
-	return irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle);
+	InotifyWdEntry *we = &e->ify.e;
+	int ret;
+
+	ret = irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle);
+	free_inotify_wd_entry(e);
+
+	return ret;
 }
 
 static int pre_dump_one_inotify(int pid, int lfd)

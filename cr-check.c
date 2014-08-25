@@ -353,7 +353,8 @@ pipe_err:
 
 static int check_one_inotify(union fdinfo_entries *e, void *arg)
 {
-	*(int *)arg = e->ify.wd;
+	*(int *)arg = e->ify.e.wd;
+	free_inotify_wd_entry(e);
 	return 0;
 }
 

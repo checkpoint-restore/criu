@@ -1038,6 +1038,12 @@ static void free_fhandle(FhEntry *fh)
 		xfree(fh->handle);
 }
 
+void free_inotify_wd_entry(union fdinfo_entries *e)
+{
+	free_fhandle(e->ify.e.f_handle);
+	xfree(e);
+}
+
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
 	char *d = (char *)fh->handle;
@@ -1290,36 +1296,45 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "inotify wd")) {
-			FhEntry f_handle = FH_ENTRY__INIT;
+			InotifyWdEntry *ify;
+			union fdinfo_entries *e;
 			int hoff;
-
-			inotify_wd_entry__init(&entry.ify);
-			entry.ify.f_handle = &f_handle;
 
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
+
+			e = xmalloc(sizeof(*e));
+			if (!e)
+				goto parse_err;
+			ify = &e->ify.e;
+
+			inotify_wd_entry__init(ify);
+			ify->f_handle = &e->ify.f_handle;
+			fh_entry__init(ify->f_handle);
+
 			ret = sscanf(str,
 					"inotify wd:%x ino:%"PRIx64" sdev:%x "
 					"mask:%x ignored_mask:%x "
 					"fhandle-bytes:%x fhandle-type:%x "
 					"f_handle: %n",
-					&entry.ify.wd, &entry.ify.i_ino, &entry.ify.s_dev,
-					&entry.ify.mask, &entry.ify.ignored_mask,
-					&entry.ify.f_handle->bytes, &entry.ify.f_handle->type,
+					&ify->wd, &ify->i_ino, &ify->s_dev,
+					&ify->mask, &ify->ignored_mask,
+					&ify->f_handle->bytes, &ify->f_handle->type,
 					&hoff);
-			if (ret != 7)
+			if (ret != 7) {
+				free_inotify_wd_entry(e);
 				goto parse_err;
+			}
 
-			if (alloc_fhandle(&f_handle)) {
+			if (alloc_fhandle(ify->f_handle)) {
+				free_inotify_wd_entry(e);
 				ret = -1;
 				goto out;
 			}
 
-			parse_fhandle_encoded(str + hoff, entry.ify.f_handle);
+			parse_fhandle_encoded(str + hoff, ify->f_handle);
 
-			ret = cb(&entry, arg);
-
-			free_fhandle(&f_handle);
+			ret = cb(e, arg);
 
 			if (ret)
 				goto out;

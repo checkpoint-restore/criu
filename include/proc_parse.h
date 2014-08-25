@@ -166,14 +166,22 @@ extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_m
 extern int parse_self_maps_lite(struct vm_area_list *vms);
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
 
+struct inotify_wd_entry {
+	InotifyWdEntry e;
+	FhEntry f_handle;
+	struct list_head node;
+};
+
 union fdinfo_entries {
 	EventfdFileEntry efd;
 	EventpollTfdEntry epl;
 	SignalfdEntry sfd;
-	InotifyWdEntry ify;
+	struct inotify_wd_entry ify;
 	FanotifyMarkEntry ffy;
 	TimerfdEntry tfy;
 };
+
+extern void free_inotify_wd_entry(union fdinfo_entries *e);
 
 struct fdinfo_common {
 	off64_t pos;
