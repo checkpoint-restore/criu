@@ -1044,6 +1044,13 @@ void free_inotify_wd_entry(union fdinfo_entries *e)
 	xfree(e);
 }
 
+void free_fanotify_mark_entry(union fdinfo_entries *e)
+{
+	if (e->ffy.e.ie)
+		free_fhandle(e->ffy.ie.f_handle);
+	xfree(e);
+}
+
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
 	char *d = (char *)fh->handle;
@@ -1233,37 +1240,44 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify ino")) {
-			FanotifyInodeMarkEntry ie = FANOTIFY_INODE_MARK_ENTRY__INIT;
-			FhEntry f_handle = FH_ENTRY__INIT;
+			union fdinfo_entries *e;
 			int hoff = 0;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
-			fanotify_mark_entry__init(&entry.ffy);
-			ie.f_handle = &f_handle;
-			entry.ffy.ie = &ie;
+			e = xmalloc(sizeof(*e));
+			if (!e)
+				goto parse_err;
+
+			fanotify_mark_entry__init(&e->ffy.e);
+			fanotify_inode_mark_entry__init(&e->ffy.ie);
+			fh_entry__init(&e->ffy.f_handle);
+			e->ffy.e.ie = &e->ffy.ie;
+			e->ffy.ie.f_handle = &e->ffy.f_handle;
 
 			ret = sscanf(str,
 				     "fanotify ino:%"PRIx64" sdev:%x mflags:%x mask:%x ignored_mask:%x "
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
-				     &ie.i_ino, &entry.ffy.s_dev,
-				     &entry.ffy.mflags, &entry.ffy.mask, &entry.ffy.ignored_mask,
-				     &f_handle.bytes, &f_handle.type,
+				     &e->ffy.ie.i_ino, &e->ffy.e.s_dev,
+				     &e->ffy.e.mflags, &e->ffy.e.mask, &e->ffy.e.ignored_mask,
+				     &e->ffy.f_handle.bytes, &e->ffy.f_handle.type,
 				     &hoff);
-			if (ret != 7 || hoff == 0)
+			if (ret != 7 || hoff == 0) {
+				free_fanotify_mark_entry(e);
 				goto parse_err;
+			}
 
-			if (alloc_fhandle(&f_handle)) {
+			if (alloc_fhandle(&e->ffy.f_handle)) {
+				free_fanotify_mark_entry(e);
 				ret = -1;
 				goto out;
 			}
-			parse_fhandle_encoded(str + hoff, &f_handle);
+			parse_fhandle_encoded(str + hoff, &e->ffy.f_handle);
 
-			entry.ffy.type = MARK_TYPE__INODE;
-			ret = cb(&entry, arg);
+			e->ffy.e.type = MARK_TYPE__INODE;
+			ret = cb(e, arg);
 
-			free_fhandle(&f_handle);
 
 			if (ret)
 				goto out;
@@ -1272,23 +1286,28 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify mnt_id")) {
-			FanotifyMountMarkEntry me = FANOTIFY_MOUNT_MARK_ENTRY__INIT;
+			union fdinfo_entries *e;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
-			fanotify_mark_entry__init(&entry.ffy);
-			entry.ffy.me = &me;
+			e = xmalloc(sizeof(*e));
+			if (!e)
+				goto parse_err;
+
+			fanotify_mark_entry__init(&e->ffy.e);
+			fanotify_mount_mark_entry__init(&e->ffy.me);
+			e->ffy.e.me = &e->ffy.me;
 
 			ret = sscanf(str,
 				     "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x",
-				     &me.mnt_id, &entry.ffy.mflags,
-				     &entry.ffy.mask, &entry.ffy.ignored_mask);
+				     &e->ffy.e.me->mnt_id, &e->ffy.e.mflags,
+				     &e->ffy.e.mask, &e->ffy.e.ignored_mask);
 			if (ret != 4)
 				goto parse_err;
 
-			entry.ffy.type = MARK_TYPE__MOUNT;
-			ret = cb(&entry, arg);
+			e->ffy.e.type = MARK_TYPE__MOUNT;
+			ret = cb(e, arg);
 			if (ret)
 				goto out;
 

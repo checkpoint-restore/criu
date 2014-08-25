@@ -259,7 +259,8 @@ const struct fdtype_ops inotify_dump_ops = {
 static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 {
 	struct fsnotify_params *fsn_params = arg;
-	FanotifyMarkEntry *fme = &e->ffy;
+	FanotifyMarkEntry *fme = &e->ffy.e;
+	int ret = -1;
 
 	fme->id = fsn_params->id;
 
@@ -275,7 +276,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
 
 		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle))
-			return -1;
+			goto out;
 	}
 
 	if (fme->type == MARK_TYPE__MOUNT) {
@@ -286,7 +287,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
 			pr_err("Can't find mnt_id %x\n", fme->me->mnt_id);
-			return -1;
+			goto out;
 		}
 		fme->s_dev = m->s_dev;
 
@@ -295,13 +296,18 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 	}
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_MARK), fme, PB_FANOTIFY_MARK);
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_MARK), fme, PB_FANOTIFY_MARK);
+
+out:
+	free_fanotify_mark_entry(e);
+	return ret;
 }
 
 static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 {
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
 	struct fsnotify_params fsn_params = { .id = id, };
+	int ret;
 
 	fe.id = id;
 	fe.flags = p->flags;
@@ -316,18 +322,22 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.faflags = fsn_params.faflags;
 	fe.evflags = fsn_params.evflags;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
+
+	return ret;
 }
 
 static int pre_dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 {
-	FanotifyMarkEntry *fme = &e->ffy;
+	FanotifyMarkEntry *fme = &e->ffy.e;
+	int ret = 0;
 
 	if (fme->type == MARK_TYPE__INODE)
-		return irmap_queue_cache(fme->s_dev, fme->ie->i_ino,
+		ret = irmap_queue_cache(fme->s_dev, fme->ie->i_ino,
 				fme->ie->f_handle);
-	else
-		return 0;
+
+	free_fanotify_mark_entry(e);
+	return ret;
 }
 
 static int pre_dump_one_fanotify(int pid, int lfd)

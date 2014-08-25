@@ -172,16 +172,27 @@ struct inotify_wd_entry {
 	struct list_head node;
 };
 
+struct fanotify_mark_entry {
+	FanotifyMarkEntry e;
+	FhEntry f_handle;
+	struct list_head node;
+	union {
+		FanotifyInodeMarkEntry ie;
+		FanotifyMountMarkEntry me;
+	};
+};
+
 union fdinfo_entries {
 	EventfdFileEntry efd;
 	EventpollTfdEntry epl;
 	SignalfdEntry sfd;
 	struct inotify_wd_entry ify;
-	FanotifyMarkEntry ffy;
+	struct fanotify_mark_entry ffy;
 	TimerfdEntry tfy;
 };
 
 extern void free_inotify_wd_entry(union fdinfo_entries *e);
+extern void free_fanotify_mark_entry(union fdinfo_entries *e);
 
 struct fdinfo_common {
 	off64_t pos;
