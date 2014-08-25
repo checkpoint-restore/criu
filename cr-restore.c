@@ -1822,8 +1822,8 @@ int cr_restore_tasks(void)
 	if (prepare_cgroup_properties() < 0)
 		goto err;
 
-	fini_cgroup();
 err:
+	fini_cgroup();
 	cr_plugin_fini();
 	return ret;
 }
