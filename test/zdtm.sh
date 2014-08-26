@@ -337,7 +337,15 @@ construct_root()
 	#	libc.so.6 => /lib/arm-linux-gnueabihf/libc.so.6 (0xb6dc5000)
 	#	/lib/ld-linux-armhf.so.3 (0xb6f0b000)
 
-	for i in `ldd $test_path $ps_path | grep -P '^\s' | grep -v vdso | sed "s/.*=> //" | awk '{ print $1 }'`; do
+	local libs=$(ldd $test_path $ps_path | awk '
+		!/^[ \t]/ { next }
+		/\<linux-vdso\.so\>/ { next }
+		/\<linux-gate\.so\>/ { next }
+		/\<not a dynamic executable$/ { next }
+		$2 ~ /^=>$/ { print $3; next }
+		{ print $1 }
+	')
+	for i in ${libs}; do
 		local ldir lib=`basename $i`
 
 		[ -f $libdir2/$lib ] && continue # fast path
