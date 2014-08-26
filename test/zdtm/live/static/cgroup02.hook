@@ -7,11 +7,9 @@ rmroots() {
 
 	mount -t cgroup none $tname -o "$1"
 
-	set +e
-	rmdir "$tname/oldroot"
-	rmdir "$tname/newroot"
-	rmdir "$tname/zdtmtstroot"
-	set -e
+	for d in "$tname/oldroot" "$tname/newroot" "$tname/zdtmtstroot"; do
+		test -d "$d" && rmdir "$d"
+	done
 
 	echo "Left there is:"
 	ls "$tname"
