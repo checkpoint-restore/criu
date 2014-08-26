@@ -149,6 +149,7 @@ TST_FILE	=				\
 		sockets_dgram			\
 		file_locks00			\
 		file_locks01			\
+		file_locks02			\
 		netns-nf			\
 		maps_file_prot			\
 
