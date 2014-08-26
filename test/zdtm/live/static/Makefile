@@ -151,6 +151,7 @@ TST_FILE	=				\
 		file_locks01			\
 		file_locks02			\
 		file_locks03			\
+		file_locks04			\
 		netns-nf			\
 		maps_file_prot			\
 
