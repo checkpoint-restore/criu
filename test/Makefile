@@ -1,5 +1,4 @@
 TST = $(shell ./zdtm.sh -l)
-EXP = '^ns/(?!.*(tty|pty))'
 
 ZDTM_ARGS ?= -C
 
@@ -25,8 +24,8 @@ fault-injection: .FORCE
 	$(MAKE) -C fault-injection
 .PHONY: fault-injection
 
-zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | grep -P $(EXP))
-zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | grep -vP $(EXP))
+zdtm_ns:   $(shell echo "$(TST)" | tr ' ' '\n' | awk '/^ns\// && !/tty|pty/ {print}')
+zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | awk '!/^ns\// || /tty|pty/ {print}')
 
 override CFLAGS += -D_GNU_SOURCE
 zdtm_ct: zdtm_ct.c
