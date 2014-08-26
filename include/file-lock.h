@@ -6,6 +6,7 @@
 #include "protobuf.h"
 #include "protobuf/file-lock.pb-c.h"
 
+#define FL_UNKNOWN	-1
 #define FL_POSIX	1
 #define FL_FLOCK	2
 
@@ -30,7 +31,7 @@
 
 struct file_lock {
 	long long	fl_id;
-	char		fl_flag[10];
+	int		fl_kind;
 	char		fl_type[15];
 	char		fl_option[10];
 

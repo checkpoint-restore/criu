@@ -72,17 +72,10 @@ static int dump_one_file_lock(FileLockEntry *fle)
 			fle, PB_FILE_LOCK);
 }
 
-static int fill_flock_entry(FileLockEntry *fle, const char *fl_flag,
+static int fill_flock_entry(FileLockEntry *fle, int fl_kind,
 			const char *fl_type, const char *fl_option)
 {
-	if (!strcmp(fl_flag, "POSIX")) {
-		fle->flag |= FL_POSIX;
-	} else if (!strcmp(fl_flag, "FLOCK")) {
-		fle->flag |= FL_FLOCK;
-	} else {
-		pr_err("Unknown file lock!\n");
-		goto err;
-	}
+	fle->flag |= fl_kind;
 
 	if (!strcmp(fl_type, "MSNFS")) {
 		fle->type |= LOCK_MAND;
@@ -150,15 +143,15 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 	list_for_each_entry(fl, &file_lock_list, list) {
 		if (fl->fl_owner != pid)
 			continue;
-		pr_info("lockinfo: %lld:%s %s %s %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+		pr_info("lockinfo: %lld:%d %s %s %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_type, fl->fl_option,
 			fl->fl_owner, fl->maj, fl->min, fl->i_no,
 			fl->start, fl->end);
 
 		file_lock_entry__init(&fle);
 		fle.pid = ctl->pid.virt;
 
-		ret = fill_flock_entry(&fle, fl->fl_flag, fl->fl_type,
+		ret = fill_flock_entry(&fle, fl->fl_kind, fl->fl_type,
 				fl->fl_option);
 		if (ret)
 			goto err;

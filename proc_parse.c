@@ -1415,15 +1415,16 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 				bool is_blocked)
 {
 	int  num;
+	char fl_flag[10];
 
 	if (is_blocked) {
 		num = sscanf(buf, "%lld: -> %s %s %s %d %x:%x:%ld %lld %s",
-			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_id, fl_flag, fl->fl_type, fl->fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	} else {
 		num = sscanf(buf, "%lld:%s %s %s %d %x:%x:%ld %lld %s",
-			&fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_id, fl_flag, fl->fl_type, fl->fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	}
@@ -1432,6 +1433,13 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		pr_err("Invalid file lock info (%d): %s", num, buf);
 		return -1;
 	}
+
+	if (!strcmp(fl_flag, "POSIX"))
+		fl->fl_kind = FL_POSIX;
+	else if (!strcmp(fl_flag, "FLOCK"))
+		fl->fl_kind = FL_FLOCK;
+	else
+		fl->fl_kind = FL_UNKNOWN;
 
 	return 0;
 }
@@ -1476,6 +1484,13 @@ int parse_file_locks(void)
 			continue;
 		}
 
+		if (fl->fl_kind == FL_UNKNOWN) {
+			pr_err("Unknown file lock!\n");
+			ret = -1;
+			xfree(fl);
+			goto err;
+		}
+
 		if (is_blocked) {
 			/*
 			 * Here the task is in the pstree.
@@ -1491,8 +1506,8 @@ int parse_file_locks(void)
 			goto err;
 		}
 
-		pr_info("lockinfo: %lld:%s %s %s %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_flag, fl->fl_type, fl->fl_option,
+		pr_info("lockinfo: %lld:%d %s %s %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_type, fl->fl_option,
 			fl->fl_owner, fl->maj, fl->min, fl->i_no,
 			fl->start, fl->end);
 
