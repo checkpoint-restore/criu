@@ -1742,25 +1742,12 @@ out:
  */
 int aufs_parse(struct mount_info *new)
 {
-	char *cp;
+	int ret = 0;
 
-	opts.aufs = true;
-
-	if (!opts.aufs_root || strcmp(new->mountpoint, "./"))
-		return 0;
-
-	cp = malloc(strlen(opts.aufs_root) + 1);
-	if (!cp) {
-		pr_err("Cannot allocate memory for %s\n", opts.aufs_root);
-		return -1;
+	if (!strcmp(new->mountpoint, "./")) {
+		opts.aufs = true;
+		ret = parse_aufs_branches(new);
 	}
-	strcpy(cp, opts.aufs_root);
 
-	pr_debug("Replacing %s with %s\n", new->root, opts.aufs_root);
-	free(new->root);
-	new->root = cp;
-
-	parse_aufs_branches(new);
-
-	return 0;
+	return ret;
 }

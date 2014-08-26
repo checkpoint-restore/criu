@@ -27,7 +27,7 @@
  * 90 61 0:33 / / rw,relatime - aufs none rw,si=4476a910a24617e6
  *
  * To handle this issue, the user has to specify the root of the AUFS
- * filesystem with the --aufs-root command line option.
+ * filesystem with the --root command line option.
  *
  * 2) /proc/<pid>/map_files: The symlinks are absolute pathnames of the
  * corresponding *physical* files in the branch they exist.  For example,
@@ -287,12 +287,12 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 		if (!vma->aufs_rpath)
 			return -1;
 		strcpy(vma->aufs_rpath, path);
-		if (opts.aufs_root) {
-			vma->aufs_fpath = xmalloc(strlen(opts.aufs_root) + 1 + len + 1);
+		if (opts.root) {
+			vma->aufs_fpath = xmalloc(strlen(opts.root) + 1 + len + 1);
 			if (!vma->aufs_fpath)
 				return -1;
 			/* skip ./ in path */
-			sprintf(vma->aufs_fpath, "%s/%s", opts.aufs_root, &path[2]);
+			sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
 		}
 		pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
 	}

@@ -172,7 +172,6 @@ int main(int argc, char *argv[])
 		{ "exec-cmd", no_argument, 0, 1059},
 		{ "manage-cgroups", no_argument, 0, 1060},
 		{ "cgroup-root", required_argument, 0, 1061},
-		{ "aufs-root", required_argument, 0, 1062},
 		{ },
 	};
 
@@ -401,9 +400,6 @@ int main(int argc, char *argv[])
 		case 'h':
 			usage_error = false;
 			goto usage;
-		case 1062:
-			opts.aufs_root = optarg;
-			break;
 		default:
 			goto usage;
 		}
@@ -555,9 +551,6 @@ usage:
 "                        'fpu','all'. To disable capability, prefix it with '^'.\n"
 "     --exec-cmd         execute the command specified after '--' on successful\n"
 "                        restore making it the parent of the restored process\n"
-"\n"
-"* AUFS support (applicable to dump only):\n"
-"     --aufs-root        root pathname of the AUFS filesystem\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
