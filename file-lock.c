@@ -63,9 +63,9 @@ void free_file_locks(void)
 	INIT_LIST_HEAD(&file_lock_list);
 }
 
-static int dump_one_file_lock(FileLockEntry *fle, const struct cr_fdset *fdset)
+static int dump_one_file_lock(FileLockEntry *fle)
 {
-	pr_info("flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
+	pr_info("LOCK flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
 		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FILE_LOCKS),
@@ -176,7 +176,7 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 		else
 			fle.len = (atoll(fl->end) + 1) - fl->start;
 
-		ret = dump_one_file_lock(&fle, fdset);
+		ret = dump_one_file_lock(&fle);
 		if (ret) {
 			pr_err("Dump file lock failed!\n");
 			goto err;
