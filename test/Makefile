@@ -31,8 +31,14 @@ override CFLAGS += -D_GNU_SOURCE
 zdtm_ct: zdtm_ct.c
 
 clean:
-	rm -rf zdtm_ct
-	$(MAKE) -C zdtm $@
+	$(RM) zdtm_ct
+	$(Q) $(RM) -r ./lib/
+	$(Q) $(RM) -r ./lib64/
+	$(Q) $(RM) -r ./dump/
+	$(Q) $(RM) *.log
+	$(Q) $(MAKE) -C zdtm cleandep clean cleanout
+	$(Q) $(MAKE) -C libcriu clean
+	$(Q) $(MAKE) -C rpc clean
 
 $(TST): zdtm_ct
 	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \

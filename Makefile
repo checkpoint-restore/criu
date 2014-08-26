@@ -220,15 +220,10 @@ clean: clean-built
 	$(Q) $(RM) ./*.img
 	$(Q) $(RM) ./*.out
 	$(Q) $(RM) ./*.bin
-	$(Q) $(RM) -r ./test/dump/
 	$(Q) $(RM) ./*.gcov ./*.gcda ./*.gcno
 	$(Q) $(RM) -r ./gcov
-	$(Q) $(RM) -r ./test/lib/
-	$(Q) $(RM) -r ./test/lib64/
 	$(Q) $(RM) protobuf-desc-gen.h
-	$(Q) $(MAKE) -C test/zdtm cleandep clean cleanout
-	$(Q) $(MAKE) -C test/libcriu clean
-	$(Q) $(MAKE) -C test/rpc clean
+	$(Q) $(MAKE) -C test $@
 
 distclean: clean
 	$(E) "  DISTCLEAN"
