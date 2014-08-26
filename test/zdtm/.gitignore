@@ -5,6 +5,7 @@
 /live/static/caps00
 /live/static/cgroup00
 /live/static/cgroup01
+/live/static/cgroup02
 /live/static/child_opened_proc
 /live/static/chroot
 /live/static/chroot-file
@@ -59,6 +60,9 @@
 /live/static/maps_file_prot
 /live/static/mem-touch
 /live/static/mmx00
+/live/static/mntns_link_ghost
+/live/static/mntns_link_remap
+/live/static/mntns_open
 /live/static/mountpoints
 /live/static/mprotect00
 /live/static/msgque
@@ -129,6 +133,7 @@
 /live/static/sse20
 /live/static/stopped
 /live/static/tempfs
+/live/static/timerfd
 /live/static/timers
 /live/static/tty00
 /live/static/tty02
