@@ -70,6 +70,7 @@
 /live/static/overmount_file
 /live/static/overmount_sock
 /live/static/packet_sock
+/live/static/pdeath_sig
 /live/static/pid00
 /live/static/pipe00
 /live/static/pipe01
@@ -86,6 +87,7 @@
 /live/static/pty03
 /live/static/pty04
 /live/static/rlimits00
+/live/static/rmdir_open
 /live/static/rtc
 /live/static/sched_policy00
 /live/static/sched_prio00
@@ -145,7 +147,6 @@
 /live/static/unlink_mmap00
 /live/static/unlink_mmap01
 /live/static/unlink_mmap02
-/live/static/rmdir_open
 /live/static/uptime_grow
 /live/static/utsname
 /live/static/vdso00
@@ -175,7 +176,6 @@
 /live/transition/maps007
 /live/transition/ptrace
 /live/transition/thread-bomb
-/live/static/pdeath_sig
 
 *.pid
 *.out
