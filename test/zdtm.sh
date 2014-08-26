@@ -686,7 +686,7 @@ EOF
 
 	cat $test.out
 	cat $test.out | grep -q PASS || return 2
-	[ "$CLEANUP" -ne 0 ] && rm -rf `dirname $ddump`
+	[ "$CLEANUP" -ne 0 ] && rm -rf --one-file-system `dirname $ddump`
 	echo "Test: $test, Result: PASS"
 	return 0
 }
@@ -951,5 +951,5 @@ else
 	fi
 fi
 
-[ -n "$TMP_TREE" ] && rm -rf $TMP_TREE
+[ -n "$TMP_TREE" ] && rm -rf --one-file-system $TMP_TREE
 [ -n "$ZDTM_FAILED" ] && exit 1 || exit 0

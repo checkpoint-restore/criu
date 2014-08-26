@@ -1,4 +1,5 @@
 TST = $(shell ./zdtm.sh -l)
+RM := rm -f --one-file-system
 
 ZDTM_ARGS ?= -C
 

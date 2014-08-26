@@ -29,4 +29,6 @@ else
 	Q =
 endif
 
-export E Q
+RM := rm -f --one-file-system
+
+export E Q RM
