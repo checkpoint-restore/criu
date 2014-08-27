@@ -1821,10 +1821,10 @@ int cr_restore_tasks(void)
 	if (criu_signals_setup() < 0)
 		goto err;
 
-	ret = restore_root_task(root_item);
-
-	if (prepare_cgroup_properties() < 0)
+	if (restore_root_task(root_item) < 0)
 		goto err;
+
+	ret = prepare_cgroup_properties();
 
 err:
 	fini_cgroup();
