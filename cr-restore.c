@@ -1365,12 +1365,12 @@ static int restore_task_with_children(void *_arg)
 		/* Determine PID in CRIU's namespace */
 		fd = get_service_fd(CR_PROC_FD_OFF);
 		if (fd < 0)
-			exit(1);
+			goto err;
 
 		ret = readlinkat(fd, "self", buf, sizeof(buf) - 1);
 		if (ret < 0) {
 			pr_perror("Unable to read the /proc/self link");
-			exit(1);
+			goto err;
 		}
 		buf[ret] = '\0';
 
@@ -1385,26 +1385,26 @@ static int restore_task_with_children(void *_arg)
 	if (current->state != TASK_HELPER) {
 		ret = clone_service_fd(current->rst->service_fd_id);
 		if (ret)
-			exit(1);
+			goto err;
 	}
 
 	pid = getpid();
 	if (current->pid.virt != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, current->pid.virt);
-		exit(-1);
+		goto err;
 	}
 
 	ret = log_init_by_pid();
 	if (ret < 0)
-		exit(1);
+		goto err;
 
 	/* Restore root task */
 	if (current->parent == NULL) {
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
-			exit(1);
+			goto err;
 
 		if (prepare_namespace(current, ca->clone_flags))
-			exit(1);
+			goto err_fini_mnt;
 
 		/*
 		 * We need non /proc proc mount for restoring pid and mount
@@ -1412,22 +1412,22 @@ static int restore_task_with_children(void *_arg)
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 		if (mount_proc())
-			goto err;
+			goto err_fini_mnt;
 
 		if (close_old_fds(current))
-			exit(1);
+			goto err_fini_mnt;
 
 		if (root_prepare_shared())
-			goto err;
+			goto err_fini_mnt;
 	}
 
 	if (prepare_mappings(pid))
-		goto err;
+		goto err_fini_mnt;
 
 	if (!(ca->clone_flags & CLONE_FILES)) {
 		ret = close_old_fds(current);
 		if (ret)
-			exit(1);
+			goto err_fini_mnt;
 	}
 
 	/*
@@ -1437,13 +1437,13 @@ static int restore_task_with_children(void *_arg)
 	 * just have it inherited.
 	 */
 	if (prepare_task_cgroup(current) < 0)
-		return -1;
+		goto err_fini_mnt;
 
 	if (prepare_sigactions() < 0)
-		return -1;
+		goto err_fini_mnt;
 
 	if (create_children_and_session())
-		goto err;
+		goto err_fini_mnt;
 
 	/*
 	 * This must be done after forking to allow child
@@ -1454,24 +1454,28 @@ static int restore_task_with_children(void *_arg)
 	close_service_fd(CGROUP_YARD);
 
 	if (restore_task_mnt_ns(current))
-		goto err;
+		goto err_fini_mnt;
 
 	if (unmap_guard_pages())
-		goto err;
+		goto err_fini_mnt;
 
 	restore_pgid();
 
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
-		goto err;
+		goto err_fini_mnt;
 
 	if (current->parent == NULL && fini_mnt_ns())
-		exit (1);
+		goto err_fini_mnt;
 
 	return restore_one_task(current->pid.virt, ca->core);
-err:
+
+err_fini_mnt:
 	if (current->parent == NULL)
 		fini_mnt_ns();
 
+err:
+	if (current->parent == NULL)
+		futex_abort_and_wake(&task_entries->nr_in_progress);
 	exit(1);
 }
 
