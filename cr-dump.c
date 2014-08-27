@@ -1516,14 +1516,16 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	dfds = xmalloc(sizeof(*dfds));
-	if (!dfds)
-		goto err;
+	if (!shared_fdtable(item)) {
+		dfds = xmalloc(sizeof(*dfds));
+		if (!dfds)
+			goto err;
 
-	ret = collect_fds(pid, dfds);
-	if (ret) {
-		pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
-		goto err;
+		ret = collect_fds(pid, dfds);
+		if (ret) {
+			pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
+			goto err;
+		}
 	}
 
 	ret = parse_posix_timers(pid, &proc_args);
@@ -1597,7 +1599,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	if (!shared_fdtable(item)) {
+	if (dfds) {
 		ret = dump_task_files_seized(parasite_ctl, item, dfds);
 		if (ret) {
 			pr_err("Dump files (pid: %d) failed with %d\n", pid, ret);
