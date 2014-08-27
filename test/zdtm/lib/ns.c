@@ -72,18 +72,27 @@ static int prepare_mntns()
 			fprintf(stderr, "mkdir(/dev/pts) failed: %m\n");
 			return -1;
 		}
-		if (symlink("/dev/pts/ptmx", "/dev/ptmx") && errno != EEXIST) {
-			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
-			return -1;
-		}
-		chmod("/dev/ptmx", 0666);
 		if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, "mode=666,ptmxmode=666,newinstance")) {
 			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
 			return -1;
 		}
-		if (mount("/dev/pts/ptmx", "/dev/ptmx", NULL, MS_BIND, NULL)) {
-			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
-			return -1;
+		/*
+		 * If CONFIG_DEVPTS_MULTIPLE_INSTANCES=n, then /dev/pts/ptmx
+		 * does not exist. Fall back to creating the device with
+		 * mknod() in that case.
+		 */
+		if (access("/dev/pts/ptmx", F_OK) == 0) {
+			if (symlink("pts/ptmx", "/dev/ptmx") && errno != EEXIST) {
+				fprintf(stderr, "symlink(/dev/ptmx) failed: %m\n");
+				return -1;
+			}
+		} else {
+			if (mknod("/dev/ptmx", 0666 | S_IFCHR, makedev(5, 2)) == 0) {
+				chmod("/dev/ptmx", 0666);
+			} else if (errno != EEXIST) {
+				fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
+				return -1;
+			}
 		}
 		if (fchdir(dfd)) {
 			fprintf(stderr, "fchdir() failed: %m\n");
