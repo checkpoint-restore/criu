@@ -225,6 +225,7 @@ deleted_dev
 mntns_open
 mntns_link_remap
 mntns_link_ghost
+sockets00
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1

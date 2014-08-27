@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 #include <limits.h>
 #include <fcntl.h>
 
@@ -36,6 +37,8 @@ int main(int argc, char *argv[])
 	char path[PATH_MAX];
 	char buf[64];
 	char *cwd;
+	uid_t uid = 18943;
+	gid_t gid = 58467;
 
 	int ret;
 
@@ -71,6 +74,12 @@ int main(int argc, char *argv[])
 	ret = chmod(path, TEST_MODE);
 	if (ret) {
 		err("chmod");
+		exit(1);
+	}
+
+	ret = chown(path, uid, gid);
+	if (ret) {
+		err("chown");
 		exit(1);
 	}
 
@@ -116,6 +125,12 @@ int main(int argc, char *argv[])
 	if (st_b.st_mode != st_a.st_mode) {
 		fail("The file permissions for %s were changed %o %o\n",
 					path, st_b.st_mode, st_a.st_mode);
+		exit(1);
+	}
+
+	if (st_b.st_uid != uid || st_b.st_gid != gid) {
+		fail("Owner user or group for %s corrupted, uid=%d, gid=%d",
+		    path, st_b.st_uid, st_b.st_gid);
 		exit(1);
 	}
 
