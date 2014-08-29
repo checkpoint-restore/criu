@@ -36,6 +36,7 @@ clean:
 	$(Q) $(RM) -r ./lib/
 	$(Q) $(RM) -r ./lib64/
 	$(Q) $(RM) -r ./dump/
+	$(Q) $(RM) -r ./tmp
 	$(Q) $(RM) *.log
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout
 	$(Q) $(MAKE) -C libcriu clean

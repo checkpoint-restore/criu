@@ -3,5 +3,6 @@
 /bin
 /dev
 /dump
+/tmp
 /*.log
 /zdtm_ct

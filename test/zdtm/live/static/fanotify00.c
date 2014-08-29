@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
@@ -202,9 +203,19 @@ int main (int argc, char *argv[])
 	int fa_fd, fd, del_after;
 	char buf[BUFF_SIZE];
 	ssize_t length;
-
+	int ns = getenv("ZDTM_NEWNS") != NULL;
 
 	test_init(argc, argv);
+
+	if (ns) {
+		if (mkdir("/tmp", 666) && errno != EEXIST) {
+			err("Unable to create the /tmp directory");
+			return -1;
+		}
+		if (mount("zdtm", "/tmp", "tmpfs", 0, NULL)) {
+			err("Unable to mount tmpfs into %s", "/tmp");
+		}
+	}
 
 	fa_fd = fanotify_init(FAN_NONBLOCK | O_RDONLY | O_LARGEFILE |
 			      FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
@@ -229,7 +240,7 @@ int main (int argc, char *argv[])
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
-			  AT_FDCWD, "/")) {
+			  AT_FDCWD, "/tmp")) {
 		err("fanotify_mark failed\n");
 		exit(1);
 	}
@@ -237,7 +248,7 @@ int main (int argc, char *argv[])
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT |
 			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
 			  FAN_MODIFY | FAN_ACCESS,
-			  AT_FDCWD, "/")) {
+			  AT_FDCWD, "/tmp")) {
 		err("fanotify_mark failed\n");
 		exit(1);
 	}
@@ -283,7 +294,7 @@ int main (int argc, char *argv[])
 
 	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
-			  AT_FDCWD, "/")) {
+			  AT_FDCWD, "/tmp")) {
 		err("fanotify_mark failed\n");
 		exit(1);
 	}
