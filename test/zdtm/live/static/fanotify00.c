@@ -281,6 +281,13 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
+	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT,
+			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
+			  AT_FDCWD, "/")) {
+		err("fanotify_mark failed\n");
+		exit(1);
+	}
+
 	pass();
 
 	return 0;
