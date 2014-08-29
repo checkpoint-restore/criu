@@ -456,6 +456,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 
 	if (fme->type == MARK_TYPE__MOUNT) {
 		struct mount_info *m;
+		int mntns_root;
 
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
@@ -463,8 +464,17 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 			return -1;
 		}
 
+		mntns_root = mntns_get_root_fd(m->nsid);
+
+		target = openat(mntns_root, m->mountpoint, O_PATH);
+		if (target == -1) {
+			pr_perror("Unable to open %s\n", m->mountpoint);
+			goto err;
+		}
+
 		flags |= FAN_MARK_MOUNT;
-		path = m->mountpoint;
+		snprintf(buf, sizeof(buf), "/proc/self/fd/%d", target);
+		path = buf;
 	} else if (fme->type == MARK_TYPE__INODE) {
 		path = get_mark_path("fanotify", mark->remap,
 				     fme->ie->f_handle, fme->ie->i_ino,
