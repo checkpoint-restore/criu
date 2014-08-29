@@ -1465,9 +1465,12 @@ static int restore_task_with_children(void *_arg)
 		goto err_fini_mnt;
 
 	if (current->parent == NULL && fini_mnt_ns())
-		goto err_fini_mnt;
+		goto err;
 
-	return restore_one_task(current->pid.virt, ca->core);
+	if (restore_one_task(current->pid.virt, ca->core))
+		goto err;
+
+	return 0;
 
 err_fini_mnt:
 	if (current->parent == NULL)
