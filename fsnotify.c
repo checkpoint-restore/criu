@@ -231,7 +231,15 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	struct watch_list wd_list = {.list = LIST_HEAD_INIT(wd_list.list), .n = 0};
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
 	union fdinfo_entries *we, *tmp;
-	int exit_code = -1, i;
+	int exit_code = -1, i, ret;
+
+	ret = fd_has_data(lfd);
+	if (ret < 0)
+		return -1;
+	else if (ret > 0) {
+		pr_err("The %d inotify has queued events\n", id);
+		return -1;
+	}
 
 	ie.id = id;
 	ie.flags = p->flags;
@@ -336,6 +344,15 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
 	union fdinfo_entries *we, *tmp;
 	int ret = -1, i;
+
+	ret = fd_has_data(lfd);
+	if (ret < 0)
+		return -1;
+	else if (ret > 0) {
+		pr_err("The %d inotify has queued events\n", id);
+		return -1;
+	}
+	ret = -1;
 
 	fe.id = id;
 	fe.flags = p->flags;
