@@ -40,6 +40,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
 #define PS_IOV_OPEN	3
 
 #define PS_IOV_FLUSH		0x1023
+#define PS_IOV_FLUSH_N_CLOSE	0x1024
 
 #define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
@@ -198,6 +199,7 @@ static int page_server_serve(int sk)
 			ret = page_server_hole(sk, &pi);
 			break;
 		case PS_IOV_FLUSH:
+		case PS_IOV_FLUSH_N_CLOSE:
 		{
 			int32_t status = 0;
 
@@ -220,7 +222,7 @@ static int page_server_serve(int sk)
 			break;
 		}
 
-		if (ret)
+		if (ret || (pi.cmd == PS_IOV_FLUSH_N_CLOSE))
 			break;
 	}
 
@@ -254,11 +256,18 @@ static int get_sockaddr_in(struct sockaddr_in *addr)
 
 int cr_page_server(bool daemon_mode)
 {
-	int sk, ask = -1, ret;
+	int sk = -1, ask = -1, ret;
 	struct sockaddr_in saddr, caddr;
 	socklen_t clen = sizeof(caddr);
 
 	up_page_ids_base();
+
+	if (opts.ps_socket != -1) {
+		ret = 0;
+		ask = opts.ps_socket;
+		pr_info("Re-using ps socket %d\n", ask);
+		goto no_server;
+	}
 
 	pr_info("Starting page server on port %u\n", (int)ntohs(opts.ps_port));
 
@@ -281,6 +290,7 @@ int cr_page_server(bool daemon_mode)
 		goto out;
 	}
 
+no_server:
 	if (daemon_mode) {
 		ret = cr_daemon(1, 0);
 		if (ret == -1) {
@@ -298,11 +308,13 @@ int cr_page_server(bool daemon_mode)
 		}
 	}
 
-	ret = ask = accept(sk, (struct sockaddr *)&caddr, &clen);
-	if (ask < 0)
-		pr_perror("Can't accept connection to server");
+	if (sk >= 0) {
+		ret = ask = accept(sk, (struct sockaddr *)&caddr, &clen);
+		if (ask < 0)
+			pr_perror("Can't accept connection to server");
 
-	close(sk);
+		close(sk);
+	}
 
 	if (ask >= 0) {
 		pr_info("Accepted connection from %s:%u\n",
@@ -331,6 +343,12 @@ int connect_to_page_server(void)
 	if (!opts.use_page_server)
 		return 0;
 
+	if (opts.ps_socket != -1) {
+		page_server_sk = opts.ps_socket;
+		pr_info("Re-using ps socket %d\n", page_server_sk);
+		return 0;
+	}
+
 	pr_info("Connecting to server %s:%u\n",
 			opts.addr, (int)ntohs(opts.ps_port));
 
@@ -353,7 +371,7 @@ int connect_to_page_server(void)
 
 int disconnect_from_page_server(void)
 {
-	struct page_server_iov pi = { .cmd = PS_IOV_FLUSH };
+	struct page_server_iov pi = { };
 	int32_t status = -1;
 	int ret = -1;
 
@@ -365,6 +383,16 @@ int disconnect_from_page_server(void)
 
 	pr_info("Disconnect from the page server %s:%u\n",
 			opts.addr, (int)ntohs(opts.ps_port));
+
+	if (opts.ps_socket != -1)
+		/*
+		 * The socket might not get closed (held by
+		 * the parent process) so we must order the
+		 * page-server to terminate itself.
+		 */
+		pi.cmd = PS_IOV_FLUSH_N_CLOSE;
+	else
+		pi.cmd = PS_IOV_FLUSH;
 
 	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write the fini command to server");

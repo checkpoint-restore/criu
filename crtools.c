@@ -54,6 +54,7 @@ void init_opts(void)
 
 	opts.cpu_cap = CPU_CAP_ALL;
 	opts.manage_cgroups = false;
+	opts.ps_socket = -1;
 }
 
 static int parse_ns_string(const char *ptr)

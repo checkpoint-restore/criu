@@ -2,6 +2,7 @@ message criu_page_server_info {
 	optional string		address	= 1;
 	optional int32		port	= 2;
 	optional int32		pid	= 3;
+	optional int32		fd	= 4;
 }
 
 message criu_veth_pair {

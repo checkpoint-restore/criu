@@ -51,6 +51,7 @@ struct cr_options {
 	bool			use_page_server;
 	unsigned short		ps_port;
 	char			*addr;
+	int			ps_socket;
 	bool			track_mem;
 	char			*img_parent;
 	bool			auto_dedup;
