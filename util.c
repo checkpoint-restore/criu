@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
+#include <poll.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -808,4 +809,17 @@ void split(char *str, char token, char ***out, int *n)
 
 		i++;
 	} while(cur);
+}
+
+int fd_has_data(int lfd)
+{
+	struct pollfd pfd = {lfd, POLLIN, 0};
+	int ret;
+
+	ret = poll(&pfd, 1, 0);
+	if (ret < 0) {
+		pr_perror("poll() failed");
+	}
+
+	return ret;
 }

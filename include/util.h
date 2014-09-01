@@ -316,4 +316,7 @@ int mkdirp(const char *path);
 bool is_path_prefix(const char *path, const char *prefix);
 FILE *fopenat(int dirfd, char *path, char *cflags);
 void split(char *str, char token, char ***out, int *n);
+
+int fd_has_data(int lfd);
+
 #endif /* __CR_UTIL_H__ */
