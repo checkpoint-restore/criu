@@ -212,8 +212,7 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
 		goto out;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD))
-		goto out;
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
 out:
 	free_inotify_wd_entry(e);
 	return ret;
