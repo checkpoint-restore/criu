@@ -177,7 +177,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls)
 		list_add_tail(&cs->l, &cg_sets);
 		n_sets++;
 
-		if (log_get_loglevel() >= LOG_DEBUG) {
+		if (!pr_quelled(LOG_DEBUG)) {
 			struct cg_ctl *ctl;
 
 			list_for_each_entry(ctl, &cs->ctls, l)

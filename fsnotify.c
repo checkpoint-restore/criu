@@ -431,7 +431,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 	sprintf(buf, "/proc/self/fd/%d", *target);
 	path = buf;
 
-	if (log_get_loglevel() >= LOG_DEBUG) {
+	if (!pr_quelled(LOG_DEBUG)) {
 		char link[PATH_MAX];
 
 		if (read_fd_link(*target, link, sizeof(link)) < 0)

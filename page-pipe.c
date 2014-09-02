@@ -215,7 +215,7 @@ void debug_show_page_pipe(struct page_pipe *pp)
 	int i;
 	struct iovec *iov;
 
-	if (log_get_loglevel() < LOG_DEBUG)
+	if (pr_quelled(LOG_DEBUG))
 		return;
 
 	pr_debug("Page pipe:\n");
