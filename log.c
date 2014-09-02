@@ -185,7 +185,7 @@ int write_pidfile(int pid)
 {
 	int fd;
 
-	fd = open(opts.pidfile, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	fd = open(opts.pidfile, O_WRONLY | O_EXCL | O_CREAT, 0600);
 	if (fd == -1) {
 		pr_perror("Can't open %s", opts.pidfile);
 		return -1;

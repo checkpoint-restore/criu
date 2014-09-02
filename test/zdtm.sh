@@ -638,6 +638,9 @@ EOF
 				"${test}.hook" --pre-restore || return 2
 			fi
 
+			# Restore fails if --pidfile exists, so remove it.
+			rm -f $TPID || true
+
 			echo Restore
 			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args || return 2
 
