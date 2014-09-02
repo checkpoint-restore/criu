@@ -127,7 +127,10 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 {
 	int ret;
 
-	ret = flock(lfd, LOCK_EX | LOCK_NB);
+	if (fl->fl_ltype & LOCK_MAND)
+		ret = flock(lfd, LOCK_MAND | LOCK_RW);
+	else
+		ret = flock(lfd, LOCK_EX | LOCK_NB);
 	pr_debug("   `- %d/%d\n", ret, errno);
 	if (ret != 0) {
 		if (errno != EAGAIN) {
@@ -145,7 +148,9 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 		 * on file pointed by fd.
 		 */
 		pr_debug("   `- downgrading lock back\n");
-		if (fl->fl_ltype == F_RDLCK)
+		if (fl->fl_ltype & LOCK_MAND)
+			flock(lfd, fl->fl_ltype);
+		else if (fl->fl_ltype == F_RDLCK)
 			flock(lfd, LOCK_SH);
 	}
 
