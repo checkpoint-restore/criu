@@ -197,40 +197,68 @@ err:
 	return -1;
 }
 
+struct watch_list {
+	struct list_head list;
+	int n;
+};
+
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
-	InotifyWdEntry *we = &e->ify.e;
-	int ret = -1;
+	struct watch_list *wd_list = (struct watch_list *) arg;
+	struct inotify_wd_entry *wd_entry = (struct inotify_wd_entry *) e;;
+	InotifyWdEntry *we = &wd_entry->e;
 
-	we->id = *(u32 *)arg;
 	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
 	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 
-	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
-		goto out;
+	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
+		free_inotify_wd_entry(e);
+		return -1;
+	}
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_WD), we, PB_INOTIFY_WD);
-out:
-	free_inotify_wd_entry(e);
-	return ret;
+	list_add_tail(&wd_entry->node, &wd_list->list);
+	wd_list->n++;
+
+	return 0;
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
+	struct watch_list wd_list = {LIST_HEAD_INIT(wd_list.list), 0};
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
+	union fdinfo_entries *we, *tmp;
+	int exit_code = -1, i;
 
 	ie.id = id;
 	ie.flags = p->flags;
 	ie.fown = (FownEntry *)&p->fown;
 
+	if (parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &wd_list))
+		goto free;
+
+	ie.wd = xmalloc(sizeof(*ie.wd) * wd_list.n);
+	if (!ie.wd)
+		goto free;
+
+	i = 0;
+	list_for_each_entry(we, &wd_list.list, ify.node)
+		ie.wd[i++] = &we->ify.e;
+	ie.n_wd = wd_list.n;
+
 	pr_info("id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
 	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
-		return -1;
+		goto free;
 
-	return parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &id);
+	exit_code = 0;
+free:
+	xfree(ie.wd);
+	list_for_each_entry_safe(we, tmp, &wd_list.list, ify.node)
+		free_inotify_wd_entry(we);
+
+	return exit_code;
 }
 
 static int pre_dump_inotify_entry(union fdinfo_entries *e, void *arg)
@@ -613,14 +641,9 @@ static struct fsnotify_file_info *find_inotify_info(unsigned id)
 	return NULL;
 }
 
-static int collect_inotify_mark(struct fsnotify_mark_info *mark)
+static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_mark_info *mark)
 {
-	struct fsnotify_file_info *p;
 	struct fsnotify_mark_info *m;
-
-	p = find_inotify_info(mark->iwe->id);
-	if (!p)
-		return -1;
 
 	/*
 	 * We should put marks in wd ascending order. See comment
@@ -633,6 +656,17 @@ static int collect_inotify_mark(struct fsnotify_mark_info *mark)
 	list_add_tail(&mark->list, &m->list);
 	mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
 	return 0;
+}
+
+static int collect_inotify_mark(struct fsnotify_mark_info *mark)
+{
+	struct fsnotify_file_info *p;
+
+	p = find_inotify_info(mark->iwe->id);
+	if (!p)
+		return -1;
+
+	return __collect_inotify_mark(p, mark);
 }
 
 static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
@@ -656,11 +690,28 @@ static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
 static int collect_one_inotify(void *o, ProtobufCMessage *msg)
 {
 	struct fsnotify_file_info *info = o;
+	int i;
 
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &inotify_info_head);
 	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
+
+	for (i = 0; i < info->ife->n_wd; i++) {
+		struct fsnotify_mark_info *mark;
+
+		mark = xmalloc(sizeof(*mark));
+		if (!mark)
+			return -1;
+
+		mark->iwe = info->ife->wd[i];
+		INIT_LIST_HEAD(&mark->list);
+		mark->remap = NULL;
+
+		if (__collect_inotify_mark(info, mark))
+			return -1;
+	}
+
 	return file_desc_add(&info->d, info->ife->id, &inotify_desc_ops);
 }
 

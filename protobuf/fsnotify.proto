@@ -15,6 +15,7 @@ message inotify_file_entry {
 	required uint32		id		= 1;
 	required uint32		flags		= 2;
 	required fown_entry	fown		= 4;
+	repeated inotify_wd_entry wd		= 5;
 }
 
 enum mark_type {
