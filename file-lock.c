@@ -91,9 +91,13 @@ int dump_file_locks(void)
 
 	list_for_each_entry(fl, &file_lock_list, list) {
 		if (fl->real_owner == -1) {
-			pr_err("Unresolved lock found pid %d ino %ld\n",
-					fl->fl_owner, fl->i_no);
-			return -1;
+			if (fl->fl_kind == FL_POSIX) {
+				pr_err("Unresolved lock found pid %d ino %ld\n",
+						fl->fl_owner, fl->i_no);
+				return -1;
+			}
+
+			continue;
 		}
 
 		file_lock_entry__init(&fle);

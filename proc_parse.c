@@ -1500,7 +1500,15 @@ int parse_file_locks(void)
 			goto err;
 		}
 
-		if (!pid_in_pstree(fl->fl_owner)) {
+		if (fl->fl_kind == FL_UNKNOWN) {
+			pr_err("Unknown file lock!\n");
+			ret = -1;
+			xfree(fl);
+			goto err;
+		}
+
+		if ((fl->fl_kind == FL_POSIX) &&
+				!pid_in_pstree(fl->fl_owner)) {
 			/*
 			 * We only care about tasks which are taken
 			 * into dump, so we only collect file locks
@@ -1508,13 +1516,6 @@ int parse_file_locks(void)
 			 */
 			xfree(fl);
 			continue;
-		}
-
-		if (fl->fl_kind == FL_UNKNOWN) {
-			pr_err("Unknown file lock!\n");
-			ret = -1;
-			xfree(fl);
-			goto err;
 		}
 
 		if (is_blocked) {
