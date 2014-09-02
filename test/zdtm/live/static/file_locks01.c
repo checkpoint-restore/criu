@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <linux/limits.h>
 
 #include "zdtmtst.h"
@@ -19,9 +20,12 @@ TEST_OPTION(filename, string, "file name", 1);
 char file0[PATH_MAX];
 char file1[PATH_MAX];
 char file2[PATH_MAX];
+unsigned int inodes[3];
 
 static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 {
+	struct stat buf;
+
 	snprintf(file0, sizeof(file0), "%s.0", filename);
 	snprintf(file1, sizeof(file0), "%s.1", filename);
 	snprintf(file2, sizeof(file0), "%s.2", filename);
@@ -31,6 +35,9 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		return -1;
 	}
 
+	fstat(*fd_0, &buf);
+	inodes[0] = buf.st_ino;
+
 	*fd_1 = open(file1, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_1 < 0) {
 		close(*fd_0);
@@ -38,6 +45,9 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		err("Unable to open file %s", file1);
 		return -1;
 	}
+
+	fstat(*fd_1, &buf);
+	inodes[1] = buf.st_ino;
 
 	*fd_2 = open(file2, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_2 < 0) {
@@ -48,6 +58,9 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		err("Unable to open file %s", file1);
 		return -1;
 	}
+
+	fstat(*fd_2, &buf);
+	inodes[2] = buf.st_ino;
 
 	return 0;
 }
@@ -67,7 +80,6 @@ static int check_file_locks()
 
 	int		num;
 	int		count = 3;
-	pid_t		pid = getpid();
 
 	fp_locks = fopen("/proc/locks", "r");
 	if (!fp_locks)
@@ -87,7 +99,7 @@ static int check_file_locks()
 			break;
 		}
 
-		if (fl_owner != pid)
+		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2])
 			continue;
 
 		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
