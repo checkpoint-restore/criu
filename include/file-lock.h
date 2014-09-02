@@ -32,8 +32,7 @@
 struct file_lock {
 	long long	fl_id;
 	int		fl_kind;
-	char		fl_type[15];
-	char		fl_option[10];
+	int		fl_ltype;
 
 	pid_t		fl_owner;
 	int		maj, min;

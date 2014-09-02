@@ -1415,16 +1415,16 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 				bool is_blocked)
 {
 	int  num;
-	char fl_flag[10];
+	char fl_flag[10], fl_type[15], fl_option[10];
 
 	if (is_blocked) {
 		num = sscanf(buf, "%lld: -> %s %s %s %d %x:%x:%ld %lld %s",
-			&fl->fl_id, fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_id, fl_flag, fl_type, fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	} else {
 		num = sscanf(buf, "%lld:%s %s %s %d %x:%x:%ld %lld %s",
-			&fl->fl_id, fl_flag, fl->fl_type, fl->fl_option,
+			&fl->fl_id, fl_flag, fl_type, fl_option,
 			&fl->fl_owner, &fl->maj, &fl->min, &fl->i_no,
 			&fl->start, fl->end);
 	}
@@ -1440,6 +1440,32 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		fl->fl_kind = FL_FLOCK;
 	else
 		fl->fl_kind = FL_UNKNOWN;
+
+	if (!strcmp(fl_type, "MSNFS")) {
+		fl->fl_ltype |= LOCK_MAND;
+
+		if (!strcmp(fl_option, "READ")) {
+			fl->fl_ltype |= LOCK_READ;
+		} else if (!strcmp(fl_option, "RW")) {
+			fl->fl_ltype |= LOCK_RW;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fl->fl_ltype |= LOCK_WRITE;
+		} else {
+			pr_err("Unknown lock option!\n");
+			return -1;
+		}
+	} else {
+		if (!strcmp(fl_option, "UNLCK")) {
+			fl->fl_ltype |= F_UNLCK;
+		} else if (!strcmp(fl_option, "WRITE")) {
+			fl->fl_ltype |= F_WRLCK;
+		} else if (!strcmp(fl_option, "READ")) {
+			fl->fl_ltype |= F_RDLCK;
+		} else {
+			pr_err("Unknown lock option!\n");
+			return -1;
+		}
+	}
 
 	return 0;
 }
@@ -1506,8 +1532,8 @@ int parse_file_locks(void)
 			goto err;
 		}
 
-		pr_info("lockinfo: %lld:%d %s %s %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_kind, fl->fl_type, fl->fl_option,
+		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_ltype,
 			fl->fl_owner, fl->maj, fl->min, fl->i_no,
 			fl->start, fl->end);
 

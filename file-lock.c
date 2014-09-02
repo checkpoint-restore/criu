@@ -72,40 +72,10 @@ static int dump_one_file_lock(FileLockEntry *fle)
 			fle, PB_FILE_LOCK);
 }
 
-static int fill_flock_entry(FileLockEntry *fle, int fl_kind,
-			const char *fl_type, const char *fl_option)
+static void fill_flock_entry(FileLockEntry *fle, int fl_kind, int fl_ltype)
 {
 	fle->flag |= fl_kind;
-
-	if (!strcmp(fl_type, "MSNFS")) {
-		fle->type |= LOCK_MAND;
-
-		if (!strcmp(fl_option, "READ")) {
-			fle->type |= LOCK_READ;
-		} else if (!strcmp(fl_option, "RW")) {
-			fle->type |= LOCK_RW;
-		} else if (!strcmp(fl_option, "WRITE")) {
-			fle->type |= LOCK_WRITE;
-		} else {
-			pr_err("Unknown lock option!\n");
-			goto err;
-		}
-	} else {
-		if (!strcmp(fl_option, "UNLCK")) {
-			fle->type |= F_UNLCK;
-		} else if (!strcmp(fl_option, "WRITE")) {
-			fle->type |= F_WRLCK;
-		} else if (!strcmp(fl_option, "READ")) {
-			fle->type |= F_RDLCK;
-		} else {
-			pr_err("Unknown lock option!\n");
-			goto err;
-		}
-	}
-
-	return 0;
-err:
-	return -1;
+	fle->type = fl_ltype;
 }
 
 static int get_fd_by_ino(unsigned long i_no, struct parasite_drain_fd *dfds,
@@ -143,19 +113,14 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 	list_for_each_entry(fl, &file_lock_list, list) {
 		if (fl->fl_owner != pid)
 			continue;
-		pr_info("lockinfo: %lld:%d %s %s %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_kind, fl->fl_type, fl->fl_option,
+		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_ltype,
 			fl->fl_owner, fl->maj, fl->min, fl->i_no,
 			fl->start, fl->end);
 
 		file_lock_entry__init(&fle);
 		fle.pid = ctl->pid.virt;
-
-		ret = fill_flock_entry(&fle, fl->fl_kind, fl->fl_type,
-				fl->fl_option);
-		if (ret)
-			goto err;
-
+		fill_flock_entry(&fle, fl->fl_kind, fl->fl_ltype);
 		fle.fd = get_fd_by_ino(fl->i_no, dfds, pid);
 		if (fle.fd < 0) {
 			ret = -1;
