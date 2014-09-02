@@ -169,6 +169,12 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 		if (!lock_file_match(fl, p))
 			continue;
 
+		if (!opts.handle_file_locks) {
+			pr_err("Some file locks are hold by dumping tasks!"
+					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
+			return -1;
+		}
+
 		if (fl->fl_kind == FL_POSIX) {
 			/*
 			 * POSIX locks cannot belong to anyone

@@ -1087,36 +1087,7 @@ err:
 
 static int collect_file_locks(void)
 {
-	if (parse_file_locks())
-		return -1;
-
-	if (opts.handle_file_locks)
-		/*
-		 * If the handle file locks option(-l) is set,
-		 * collect work is over.
-		 */
-		return 0;
-
-	/*
-	 * If the handle file locks option is not set, we need to do
-	 * the check, any file locks hold by tasks in our pstree is
-	 * not allowed.
-	 *
-	 * It's hard to do it carefully, there might be some other
-	 * issues like tasks beyond pstree would use flocks hold by
-	 * dumping tasks, but we can't know it in dumping time.
-	 * We need to make sure these flocks only used by dumping tasks.
-	 * We might have to do the check that this option would only
-	 * be used by container dumping.
-	 */
-	if (!list_empty(&file_lock_list)) {
-		pr_err("Some file locks are hold by dumping tasks!"
-			  "You can try --" OPT_FILE_LOCKS " to dump them.\n");
-		return -1;
-	}
-
-	return 0;
-
+	return parse_file_locks();
 }
 
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
