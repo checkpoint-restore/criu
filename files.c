@@ -16,6 +16,7 @@
 #include "files.h"
 #include "file-ids.h"
 #include "files-reg.h"
+#include "file-lock.h"
 #include "image.h"
 #include "list.h"
 #include "util.h"
@@ -303,6 +304,9 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		pr_perror("Can't get stat on %d", fd);
 		return -1;
 	}
+
+	if (note_file_lock(&ctl->pid, fd, lfd, &p))
+		return -1;
 
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, fdinfo);

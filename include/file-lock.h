@@ -41,19 +41,23 @@ struct file_lock {
 	char		end[32];
 
 	struct list_head list;		/* list of all file locks */
+
+	int		real_owner;
+	int		owners_fd;
 };
 
 extern struct list_head file_lock_list;
 
 extern struct file_lock *alloc_file_lock(void);
 extern void free_file_locks(void);
-struct parasite_ctl;
-struct parasite_drain_fd;
-extern int dump_task_file_locks(struct parasite_ctl *ctl,
-			struct cr_fdset *fdset,	struct parasite_drain_fd *dfds);
 
 extern int prepare_file_locks(int pid);
 extern struct collect_image_info file_locks_cinfo;
+
+struct pid;
+struct fd_parms;
+extern int note_file_lock(struct pid *, int fd, int lfd, struct fd_parms *);
+extern int dump_file_locks(void);
 
 #define OPT_FILE_LOCKS	"file-locks"
 

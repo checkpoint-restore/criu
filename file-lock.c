@@ -8,6 +8,7 @@
 
 #include "cr_options.h"
 #include "fdset.h"
+#include "files.h"
 #include "image.h"
 #include "servicefd.h"
 #include "file-lock.h"
@@ -48,6 +49,8 @@ struct file_lock *alloc_file_lock(void)
 		return NULL;
 
 	INIT_LIST_HEAD(&flock->list);
+	flock->real_owner = -1;
+	flock->owners_fd = -1;
 
 	return flock;
 }
@@ -78,57 +81,26 @@ static void fill_flock_entry(FileLockEntry *fle, int fl_kind, int fl_ltype)
 	fle->type = fl_ltype;
 }
 
-static int get_fd_by_ino(unsigned long i_no, struct parasite_drain_fd *dfds,
-			pid_t pid)
-{
-	int  i;
-	char buf[PATH_MAX];
-	struct stat fd_stat;
-
-	for (i = 0; i < dfds->nr_fds; i++) {
-		snprintf(buf, sizeof(buf), "/proc/%d/fd/%d", pid,
-			dfds->fds[i]);
-
-		if (stat(buf, &fd_stat) == -1) {
-			pr_msg("Could not get %s stat!\n", buf);
-			continue;
-		}
-
-		if (fd_stat.st_ino == i_no)
-			return dfds->fds[i];
-	}
-
-	return -1;
-}
-
-int dump_task_file_locks(struct parasite_ctl *ctl,
-			struct cr_fdset *fdset,	struct parasite_drain_fd *dfds)
+int dump_file_locks(void)
 {
 	FileLockEntry	 fle;
 	struct file_lock *fl;
-
-	pid_t	pid = ctl->pid.real;
 	int	ret = 0;
 
-	list_for_each_entry(fl, &file_lock_list, list) {
-		if (fl->fl_owner != pid)
-			continue;
-		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_kind, fl->fl_ltype,
-			fl->fl_owner, fl->maj, fl->min, fl->i_no,
-			fl->start, fl->end);
+	pr_info("Dumping file-locks\n");
 
-		file_lock_entry__init(&fle);
-		fle.pid = ctl->pid.virt;
-		fill_flock_entry(&fle, fl->fl_kind, fl->fl_ltype);
-		fle.fd = get_fd_by_ino(fl->i_no, dfds, pid);
-		if (fle.fd < 0) {
-			ret = -1;
-			goto err;
+	list_for_each_entry(fl, &file_lock_list, list) {
+		if (fl->real_owner == -1) {
+			pr_err("Unresolved lock found pid %d ino %ld\n",
+					fl->fl_owner, fl->i_no);
+			return -1;
 		}
 
+		file_lock_entry__init(&fle);
+		fle.pid = fl->real_owner;
+		fle.fd = fl->owners_fd;
+		fill_flock_entry(&fle, fl->fl_kind, fl->fl_ltype);
 		fle.start = fl->start;
-
 		if (!strncmp(fl->end, "EOF", 3))
 			fle.len = 0;
 		else
@@ -143,6 +115,76 @@ int dump_task_file_locks(struct parasite_ctl *ctl,
 
 err:
 	return ret;
+}
+
+static inline bool lock_file_match(struct file_lock *fl, struct fd_parms *p)
+{
+	return fl->i_no == p->stat.st_ino &&
+		makedev(fl->maj, fl->min) == p->stat.st_dev;
+}
+
+int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
+{
+	struct file_lock *fl;
+
+	list_for_each_entry(fl, &file_lock_list, list) {
+		if (!lock_file_match(fl, p))
+			continue;
+
+		if (fl->fl_kind == FL_POSIX) {
+			/*
+			 * POSIX locks cannot belong to anyone
+			 * but creator.
+			 */
+			if (fl->fl_owner != pid->real)
+				continue;
+		} else /* fl->fl_kind == FL_FLOCK */ {
+			int ret;
+
+			/*
+			 * FLOCKs can be inherited across fork,
+			 * thus we can have any task as lock
+			 * owner. But the creator is preferred
+			 * anyway.
+			 */
+
+			if (fl->fl_owner != pid->real &&
+					fl->real_owner != -1)
+				continue;
+
+			pr_debug("Checking lock holder %d:%d\n", pid->real, fd);
+			ret = flock(lfd, LOCK_EX | LOCK_NB);
+			pr_debug("   `- %d/%d\n", ret, errno);
+			if (ret != 0) {
+				if (errno != EAGAIN) {
+					pr_err("Bogus lock test result %d\n", ret);
+					return -1;
+				}
+
+				continue;
+			} else if (fl->fl_ltype == F_RDLCK) {
+				pr_debug("   `- downgrading lock back\n");
+				flock(lfd, LOCK_SH);
+			}
+
+			/*
+			 * The ret == 0 means, that new lock doesn't conflict
+			 * with any others on the file. But since we do know, 
+			 * that there should be some other one (file is found
+			 * in /proc/locks), it means that the lock is already
+			 * on file pointed by fd.
+			 */
+		}
+
+		fl->real_owner = pid->virt;
+		fl->owners_fd = fd;
+
+		pr_info("Found lock entry %d.%d %d vs %d\n",
+				pid->real, pid->virt, fd,
+				fl->fl_owner);
+	}
+
+	return 0;
 }
 
 static int restore_file_lock(FileLockEntry *fle)

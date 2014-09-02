@@ -1605,15 +1605,6 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	if (opts.handle_file_locks) {
-		ret = dump_task_file_locks(parasite_ctl, cr_fdset, dfds);
-		if (ret) {
-			pr_err("Dump file locks (pid: %d) failed with %d\n",
-				pid, ret);
-			goto err_cure;
-		}
-	}
-
 	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, NULL);
 	if (ret)
 		goto err_cure;
@@ -1854,6 +1845,9 @@ int cr_dump_tasks(pid_t pid)
 
 	/* MNT namespaces are dumped after files to save remapped links */
 	if (dump_mnt_namespaces() < 0)
+		goto err;
+
+	if (dump_file_locks())
 		goto err;
 
 	if (dump_verify_tty_sids())
