@@ -52,4 +52,5 @@ message fanotify_file_entry {
 
 	required uint32		faflags		= 4;
 	required uint32		evflags		= 5;
+	repeated fanotify_mark_entry mark	= 6;
 }
