@@ -11,4 +11,5 @@ message eventpoll_file_entry {
 	required uint32		id	= 1;
 	required uint32		flags	= 2;
 	required fown_entry	fown	= 3;
+	repeated eventpoll_tfd_entry tfd = 4;
 }

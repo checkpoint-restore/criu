@@ -57,34 +57,55 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
+struct eventpoll_list {
+	struct list_head list;
+	int n;
+};
+
 static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 {
+	struct eventpoll_list *ep_list = (struct eventpoll_list *) arg;
 	EventpollTfdEntry *efd = &e->epl.e;
-	int ret;
 
-	efd->id = *(u32 *)arg;
 	pr_info_eventpoll_tfd("Dumping: ", efd);
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_TFD),
-			efd, PB_EVENTPOLL_TFD);
 
-	free_event_poll_entry(e);
-	return ret;
+	list_add_tail(&e->epl.node, &ep_list->list);
+	ep_list->n++;
+
+	return 0;
 }
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
+	struct eventpoll_list ep_list = {LIST_HEAD_INIT(ep_list.list), 0};
+	union fdinfo_entries *te, *tmp;
+	int i, ret = -1;
 
 	e.id = id;
 	e.flags = p->flags;
 	e.fown = (FownEntry *)&p->fown;
 
-	pr_info_eventpoll("Dumping ", &e);
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_FILE),
-		     &e, PB_EVENTPOLL_FILE))
-		return -1;
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &ep_list))
+		goto out;
 
-	return parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &id);
+	e.tfd = xmalloc(sizeof(struct EventpollTfdEntry *) * ep_list.n);
+	if (!e.tfd)
+		goto out;
+
+	i = 0;
+	list_for_each_entry(te, &ep_list.list, epl.node)
+		e.tfd[i++] = &te->epl.e;
+	e.n_tfd = ep_list.n;
+
+	pr_info_eventpoll("Dumping ", &e);
+	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_FILE),
+		     &e, PB_EVENTPOLL_FILE);
+out:
+	list_for_each_entry_safe(te, tmp, &ep_list.list, epl.node)
+		free_event_poll_entry(te);
+
+	return ret;
 }
 
 const struct fdtype_ops eventpoll_dump_ops = {
@@ -119,30 +140,42 @@ err_close:
 	close(tmp);
 	return -1;
 }
+static int eventpoll_retore_tfd(int fd, int id, EventpollTfdEntry *tdefe)
+{
+	struct epoll_event event;
+
+	pr_info_eventpoll_tfd("Restore ", tdefe);
+
+	event.events	= tdefe->events;
+	event.data.u64	= tdefe->data;
+	if (epoll_ctl(fd, EPOLL_CTL_ADD, tdefe->tfd, &event)) {
+		pr_perror("Can't add event on %#08x", id);
+		return -1;
+	}
+
+	return 0;
+}
 
 static int eventpoll_post_open(struct file_desc *d, int fd)
 {
-	int ret;
 	struct eventpoll_tfd_file_info *td_info;
 	struct eventpoll_file_info *info;
+	int i;
 
 	info = container_of(d, struct eventpoll_file_info, d);
 
-	list_for_each_entry(td_info, &eventpoll_tfds, list) {
-		struct epoll_event event;
+	for (i = 0; i < info->efe->n_tfd; i++) {
+		if (eventpoll_retore_tfd(fd, info->efe->id, info->efe->tfd[i]))
+			return -1;
+	}
 
+	list_for_each_entry(td_info, &eventpoll_tfds, list) {
 		if (td_info->tdefe->id != info->efe->id)
 			continue;
 
-		pr_info_eventpoll_tfd("Restore ", td_info->tdefe);
-
-		event.events	= td_info->tdefe->events;
-		event.data.u64	= td_info->tdefe->data;
-		ret = epoll_ctl(fd, EPOLL_CTL_ADD, td_info->tdefe->tfd, &event);
-		if (ret) {
-			pr_perror("Can't add event on %#08x", info->efe->id);
+		if (eventpoll_retore_tfd(fd, info->efe->id, td_info->tdefe))
 			return -1;
-		}
+
 	}
 
 	return 0;
@@ -177,6 +210,7 @@ struct collect_image_info epoll_tfd_cinfo = {
 	.pb_type = PB_EVENTPOLL_TFD,
 	.priv_size = sizeof(struct eventpoll_tfd_file_info),
 	.collect = collect_one_epoll_tfd,
+	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_epoll(void *o, ProtobufCMessage *msg)
