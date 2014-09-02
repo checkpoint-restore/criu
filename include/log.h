@@ -27,4 +27,9 @@ extern int write_pidfile(int pid);
 extern void print_data(unsigned long addr, unsigned char *data, size_t size);
 extern void print_image_data(int fd, unsigned int length, int show);
 
+static inline int pr_quelled(unsigned int loglevel)
+{
+	return log_get_loglevel() < loglevel && loglevel != LOG_MSG;
+}
+
 #endif /* __CR_LOG_H__ */
