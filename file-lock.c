@@ -123,6 +123,35 @@ static inline bool lock_file_match(struct file_lock *fl, struct fd_parms *p)
 		makedev(fl->maj, fl->min) == p->stat.st_dev;
 }
 
+static int lock_check_fd(int lfd, struct file_lock *fl)
+{
+	int ret;
+
+	ret = flock(lfd, LOCK_EX | LOCK_NB);
+	pr_debug("   `- %d/%d\n", ret, errno);
+	if (ret != 0) {
+		if (errno != EAGAIN) {
+			pr_err("Bogus lock test result %d\n", ret);
+			return -1;
+		}
+
+		return 0;
+	} else {
+		/*
+		 * The ret == 0 means, that new lock doesn't conflict
+		 * with any others on the file. But since we do know, 
+		 * that there should be some other one (file is found
+		 * in /proc/locks), it means that the lock is already
+		 * on file pointed by fd.
+		 */
+		pr_debug("   `- downgrading lock back\n");
+		if (fl->fl_ltype == F_RDLCK)
+			flock(lfd, LOCK_SH);
+	}
+
+	return 1;
+}
+
 int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 {
 	struct file_lock *fl;
@@ -153,27 +182,11 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 				continue;
 
 			pr_debug("Checking lock holder %d:%d\n", pid->real, fd);
-			ret = flock(lfd, LOCK_EX | LOCK_NB);
-			pr_debug("   `- %d/%d\n", ret, errno);
-			if (ret != 0) {
-				if (errno != EAGAIN) {
-					pr_err("Bogus lock test result %d\n", ret);
-					return -1;
-				}
-
+			ret = lock_check_fd(lfd, fl);
+			if (ret < 0)
+				return ret;
+			if (ret == 0)
 				continue;
-			} else if (fl->fl_ltype == F_RDLCK) {
-				pr_debug("   `- downgrading lock back\n");
-				flock(lfd, LOCK_SH);
-			}
-
-			/*
-			 * The ret == 0 means, that new lock doesn't conflict
-			 * with any others on the file. But since we do know, 
-			 * that there should be some other one (file is found
-			 * in /proc/locks), it means that the lock is already
-			 * on file pointed by fd.
-			 */
 		}
 
 		fl->real_owner = pid->virt;
