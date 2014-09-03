@@ -1,15 +1,12 @@
 #define _XOPEN_SOURCE
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <limits.h>
 #include <signal.h>
-#include <limits.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -455,39 +452,6 @@ void *shmalloc(size_t bytes)
 void shfree_last(void *ptr)
 {
 	rst_mem_free_last(RM_SHARED);
-}
-
-int run_scripts(char *action)
-{
-	struct script *script;
-	int ret = 0;
-	char image_dir[PATH_MAX];
-
-	pr_debug("Running %s scripts\n", action);
-
-	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
-		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
-		return -1;
-	}
-
-	sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
-	if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
-		pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
-		return -1;
-	}
-
-	list_for_each_entry(script, &opts.scripts, node) {
-		if (script->path == SCRIPT_RPC_NOTIFY) {
-			pr_debug("\tRPC\n");
-			ret |= send_criu_rpc_script(action, script->arg);
-		} else {
-			pr_debug("\t[%s]\n", script->path);
-			ret |= system(script->path);
-		}
-	}
-
-	unsetenv("CRTOOLS_SCRIPT_ACTION");
-	return ret;
 }
 
 #define DUP_SAFE(fd, out)						\

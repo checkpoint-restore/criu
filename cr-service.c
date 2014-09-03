@@ -25,6 +25,7 @@
 #include "net.h"
 #include "mount.h"
 #include "cgroup.h"
+#include "action-scripts.h"
 
 #include "setproctitle.h"
 
@@ -297,17 +298,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->notify_scripts) {
-		struct script *script;
-
-		script = xmalloc(sizeof(struct script));
-		if (script == NULL)
-			return -1;
-
-		script->path = SCRIPT_RPC_NOTIFY;
-		script->arg = sk;
-		list_add(&script->node, &opts.scripts);
-	}
+	if (req->notify_scripts &&
+			add_script(SCRIPT_RPC_NOTIFY, sk))
+		return -1;
 
 	for (i = 0; i < req->n_veths; i++) {
 		if (veth_pair_add(req->veths[i]->if_in, req->veths[i]->if_out))

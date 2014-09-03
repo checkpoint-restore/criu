@@ -36,6 +36,7 @@
 #include "plugin.h"
 #include "mount.h"
 #include "cgroup.h"
+#include "action-scripts.h"
 
 #include "setproctitle.h"
 
@@ -310,16 +311,9 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			break;
 		case 1049:
-			{
-				struct script *script;
+			if (add_script(optarg, 0))
+				return 1;
 
-				script = xmalloc(sizeof(struct script));
-				if (script == NULL)
-					return 1;
-
-				script->path = optarg;
-				list_add(&script->node, &opts.scripts);
-			}
 			break;
 		case 1050:
 			opts.use_page_server = true;

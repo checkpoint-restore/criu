@@ -5,14 +5,6 @@
 
 #include "list.h"
 
-struct script {
-	struct list_head node;
-	char *path;
-	int arg;
-};
-
-#define SCRIPT_RPC_NOTIFY	(char *)0x1
-
 /*
  * CPU capability options.
  */

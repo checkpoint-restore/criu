@@ -18,6 +18,7 @@
 #include "tun.h"
 #include "util-pie.h"
 #include "plugin.h"
+#include "action-scripts.h"
 
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"

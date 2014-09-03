@@ -71,6 +71,7 @@
 #include "cgroup.h"
 #include "timerfd.h"
 #include "file-lock.h"
+#include "action-scripts.h"
 
 #include "parasite-syscall.h"
 

@@ -261,7 +261,6 @@ static inline int read_img_str(int fd, char **pstr, int size)
 
 extern void *shmalloc(size_t bytes);
 extern void shfree_last(void *ptr);
-extern int run_scripts(char *action);
 
 extern int cr_system(int in, int out, int err, char *cmd, char *const argv[]);
 extern int cr_daemon(int nochdir, int noclose);

@@ -72,6 +72,7 @@
 #include "plugin.h"
 #include "irmap.h"
 #include "sysfs_parse.h"
+#include "action-scripts.h"
 
 #include "asm/dump.h"
 

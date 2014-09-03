@@ -15,6 +15,7 @@ obj-y	+= cr-show.o
 obj-y	+= cr-check.o
 obj-y	+= cr-dedup.o
 obj-y	+= util.o
+obj-y	+= action-scripts.o
 obj-y	+= sysctl.o
 obj-y	+= ptrace.o
 obj-y	+= kcmp-ids.o
