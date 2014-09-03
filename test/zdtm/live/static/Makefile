@@ -77,7 +77,6 @@ TST_NOFILE	=				\
 		proc-self			\
 		eventfs00			\
 		signalfd00			\
-		inotify00			\
 		inotify_irmap			\
 		fanotify00			\
 		uptime_grow			\
@@ -166,6 +165,7 @@ TST_DIR		=				\
 		overmount_sock			\
 		tempfs				\
 		bind-mount			\
+		inotify00			\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\

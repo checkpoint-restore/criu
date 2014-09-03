@@ -12,63 +12,212 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <dirent.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check for inotify delivery";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-const char path[] = "inotify-removed";
+char *dirname;
+TEST_OPTION(dirname, string, "directory name", 1);
+
+#define TEST_FILE	"inotify-removed"
+#define TEST_LINK	"inotify-hardlink"
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
+static void decode_event_mask(char *buf, size_t size, unsigned int mask)
+{
+	static const char *names[32] = {
+		[ 0]	= "IN_ACCESS",
+		[ 1]	= "IN_MODIFY",
+		[ 2]	= "IN_ATTRIB",
+		[ 3]	= "IN_CLOSE_WRITE",
+		[ 4]	= "IN_CLOSE_NOWRITE",
+		[ 5]	= "IN_OPEN",
+		[ 6]	= "IN_MOVED_FROM",
+		[ 7]	= "IN_MOVED_TO",
+		[ 8]	= "IN_CREATE",
+		[ 9]	= "IN_DELETE",
+		[10]	= "IN_DELETE_SELF",
+		[11]	= "IN_MOVE_SELF",
+
+		[13]	= "IN_UNMOUNT",
+		[14]	= "IN_Q_OVERFLOW",
+		[15]	= "IN_IGNORED",
+
+		[24]	= "IN_ONLYDIR",
+		[25]	= "IN_DONT_FOLLOW",
+		[26]	= "IN_EXCL_UNLINK",
+
+		[29]	= "IN_MASK_ADD",
+		[30]	= "IN_ISDIR",
+		[31]	= "IN_ONESHOT",
+	};
+
+	size_t i, j;
+
+	memset(buf, 0, size);
+	for (i = 0, j = 0; i < 32 && j < size; i++) {
+		if (!(mask & (1u << i)))
+			continue;
+		if (j)
+			j += snprintf(&buf[j], size - j, " | %s", names[i]);
+		else
+			j += snprintf(&buf[j], size - j, "%s", names[i]);
+	}
+}
+
+static int inotify_read_events(char *prefix, int inotify_fd, unsigned int *expected)
+{
+	struct inotify_event *event;
+	char buf[BUFF_SIZE * 8];
+	int ret, off, n = 0;
+
+	while (1) {
+		ret = read(inotify_fd, buf, sizeof(buf));
+		if (ret < 0) {
+			if (errno != EAGAIN) {
+				err("Can't read inotify queue");
+				return -1;
+			} else {
+				ret = 0;
+				goto out;
+			}
+		} else if (ret == 0)
+			break;
+
+		for (off = 0; off < ret; n++, off += sizeof(*event) + event->len) {
+			char emask[128];
+
+			event = (void *)(buf + off);
+			decode_event_mask(emask, sizeof(emask), event->mask);
+			test_msg("\t%-16s: event %#10x -> %s\n",
+				 prefix, event->mask, emask);
+			if (expected)
+				*expected &= ~event->mask;
+		}
+	}
+
+out:
+	test_msg("\t%-16s: read %2d events\n", prefix, n);
+	return ret;
+}
+
 int main (int argc, char *argv[])
 {
-	char buf[BUFF_SIZE];
-	int fd, wd, deleted, wd_deleted;
+	unsigned int mask = IN_DELETE | IN_CLOSE_WRITE | IN_DELETE_SELF;
+	char test_link_path[PATH_MAX], test_file_path[PATH_MAX];
+	int fd, link_fd, real_fd;
+	unsigned int emask;
 
 	test_init(argc, argv);
 
 	fd = inotify_init1(IN_NONBLOCK);
 	if (fd < 0) {
-		fail("inotify_init failed");
+		err("inotify_init failed");
 		exit(1);
 	}
 
-	wd  = 0;
-	wd |= inotify_add_watch(fd, "/", IN_ALL_EVENTS);
-	if (wd < 0) {
-		fail("inotify_add_watch failed");
+	if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
+		err("Can't create directory %s", dirname);
 		exit(1);
 	}
 
-	deleted = open(path, O_CREAT | O_TRUNC);
-	if (deleted < 0) {
-		fail("inotify_init failed");
+	snprintf(test_link_path, sizeof(test_link_path), "%s/%s", dirname, TEST_LINK);
+	snprintf(test_file_path, sizeof(test_file_path), "%s/%s", dirname, TEST_FILE);
+
+	if (chdir(dirname)) {
+		err("Can't step into %s", dirname);
 		exit(1);
 	}
 
-	wd_deleted = inotify_add_watch(fd, path, IN_ALL_EVENTS);
-	if (wd_deleted < 0) {
-		fail("inotify_add_watch failed");
+	if (open(TEST_FILE, O_CREAT | O_TRUNC | O_RDWR, 0644) < 0) {
+		err("inotify_init failed");
 		exit(1);
 	}
 
-	if (unlink(path)) {
-		fail("can't unlink %s\n", path);
+	if (link(TEST_FILE, TEST_LINK)) {
+		err("Can't link %s -> %s", TEST_FILE, TEST_LINK);
+		exit(1);
+	}
+
+	if (chdir("..")) {
+		err("Can't step into %s", "..");
+		exit(1);
+	}
+
+	if (inotify_add_watch(fd, dirname, mask) < 0) {
+		err("inotify_add_watch failed");
+		exit(1);
+	}
+
+	if (inotify_add_watch(fd, test_link_path, mask) < 0) {
+		err("inotify_add_watch failed");
+		exit(1);
+	}
+
+	if (inotify_add_watch(fd, test_file_path, mask) < 0) {
+		err("inotify_add_watch failed");
+		exit(1);
+	}
+
+	link_fd = open(test_link_path, O_RDWR);
+	if (link_fd < 0) {
+		err("Can't open link");
+		exit(1);
+	}
+
+	real_fd = open(test_file_path, O_RDWR);
+	if (real_fd < 0) {
+		err("Can't open real");
+		exit(1);
+	}
+
+	/*
+	 * At this moment we have a file inside testing
+	 * directory and a hardlink to it. The file and
+	 * hardlink are opened.
+	 */
+
+	if (unlink(test_link_path)) {
+		err("can't unlink %s\n", test_link_path);
+		exit(1);
+	}
+
+	if (unlink(test_file_path)) {
+		err("can't unlink %s\n", test_file_path);
+		exit(1);
+	}
+
+	close(link_fd);
+
+	emask = IN_CLOSE_WRITE | IN_DELETE_SELF;
+	inotify_read_events("unlink 02", fd, &emask);
+	if (emask) {
+		char emask_bits[128];
+		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
+		err("Unhandled events in emask %#x -> %s",
+		    emask, emask_bits);
 		exit(1);
 	}
 
 	test_daemon();
 	test_waitsig();
 
-	wd = open("/", O_RDONLY);
-	if (read(fd, buf, sizeof(buf)) > 0) {
+	close(real_fd);
+
+	emask = IN_DELETE | IN_CLOSE_WRITE;
+	inotify_read_events("after", fd, &emask);
+	if (emask) {
+		char emask_bits[128];
+		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
+		fail("Unhandled events in emask %#x -> %s",
+		    emask, emask_bits);
+		return 1;
+	} else
 		pass();
-	} else {
-		fail("No events in queue");
-		exit(1);
-	}
 
 	return 0;
 }
