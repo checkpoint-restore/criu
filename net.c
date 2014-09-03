@@ -592,7 +592,7 @@ int network_lock(void)
 	if  (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
 
-	return run_scripts("network-lock");
+	return run_scripts(ACT_NET_LOCK);
 }
 
 void network_unlock(void)
@@ -603,7 +603,7 @@ void network_unlock(void)
 	rst_unlock_tcp_connections();
 
 	if (root_ns_mask & CLONE_NEWNET)
-		run_scripts("network-unlock");
+		run_scripts(ACT_NET_UNLOCK);
 }
 
 int veth_pair_add(char *in, char *out)

@@ -11,11 +11,20 @@
 #include "cr-service.h"
 #include "action-scripts.h"
 
-int run_scripts(char *action)
+static char *action_names[] = {
+	[ ACT_POST_DUMP ]	= "post-dump",
+	[ ACT_POST_RESTORE ]	= "post-restore",
+	[ ACT_NET_LOCK ]	= "network-lock",
+	[ ACT_NET_UNLOCK ]	= "network-unlock",
+	[ ACT_SETUP_NS ]	= "setup-namespaces",
+};
+
+int run_scripts(enum script_actions act)
 {
 	struct script *script;
 	int ret = 0;
 	char image_dir[PATH_MAX];
+	char *action = action_names[act];
 
 	pr_debug("Running %s scripts\n", action);
 

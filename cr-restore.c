@@ -1680,7 +1680,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out;
 
-	ret = run_scripts("setup-namespaces");
+	ret = run_scripts(ACT_SETUP_NS);
 	if (ret)
 		goto out;
 
@@ -1700,7 +1700,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
-	ret = run_scripts("post-restore");
+	ret = run_scripts(ACT_POST_RESTORE);
 	if (ret != 0) {
 		pr_err("Aborting restore due to script ret code %d\n", ret);
 		timing_stop(TIME_RESTORE);

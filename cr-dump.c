@@ -1873,7 +1873,7 @@ err:
 		 * Thus ask user via script if we're to break
 		 * checkpoint.
 		 */
-		post_dump_ret = run_scripts("post-dump");
+		post_dump_ret = run_scripts(ACT_POST_DUMP);
 		if (post_dump_ret) {
 			post_dump_ret = WEXITSTATUS(post_dump_ret);
 			pr_info("Post dump script passed with %d\n", post_dump_ret);
