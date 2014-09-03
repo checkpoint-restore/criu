@@ -19,5 +19,6 @@ enum script_actions {
 
 extern int add_script(char *path, int arg);
 extern int run_scripts(enum script_actions);
+extern int send_criu_rpc_script(enum script_actions act, char *name, int arg);
 
 #endif /* __CR_ACTION_SCRIPTS_H__ */

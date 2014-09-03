@@ -129,7 +129,7 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-int send_criu_rpc_script(char *script, int fd)
+int send_criu_rpc_script(enum script_actions act, char *name, int fd)
 {
 	int ret;
 	CriuResp msg = CRIU_RESP__INIT;
@@ -139,9 +139,10 @@ int send_criu_rpc_script(char *script, int fd)
 	msg.type = CRIU_REQ_TYPE__NOTIFY;
 	msg.success = true;
 	msg.notify = &cn;
-	cn.script = script;
+	cn.script = name;
 
-	if (!strcmp(script, "setup-namespaces")) {
+	switch (act) {
+	case ACT_SETUP_NS:
 		/*
 		 * FIXME pid is required only once on
 		 * restore. Need some more sane way of
@@ -149,6 +150,9 @@ int send_criu_rpc_script(char *script, int fd)
 		 */
 		cn.has_pid = true;
 		cn.pid = root_item->pid.real;
+		break;
+	default:
+		break;
 	}
 
 	ret = send_criu_msg(fd, &msg);
