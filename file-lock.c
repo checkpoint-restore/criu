@@ -9,7 +9,10 @@
 #include "cr_options.h"
 #include "fdset.h"
 #include "files.h"
+#include "fs-magic.h"
 #include "image.h"
+#include "mount.h"
+#include "proc_parse.h"
 #include "servicefd.h"
 #include "file-lock.h"
 #include "parasite.h"
@@ -121,10 +124,51 @@ err:
 	return ret;
 }
 
-static inline bool lock_file_match(struct file_lock *fl, struct fd_parms *p)
+static int lock_btrfs_file_match(pid_t pid, int fd, struct file_lock *fl, struct fd_parms *p)
 {
-	return fl->i_no == p->stat.st_ino &&
-		makedev(fl->maj, fl->min) == p->stat.st_dev;
+	int phys_dev = MKKDEV(fl->maj, fl->min);
+	char link[PATH_MAX], t[32];
+	struct ns_id *ns;
+	int ret;
+
+	snprintf(t, sizeof(t), "/proc/%d/fd/%d", pid, fd);
+	ret = readlink(t, link, sizeof(link)) - 1;
+	if (ret < 0) {
+		pr_perror("Can't read link of fd %d", fd);
+		return -1;
+	} else if ((size_t)ret == sizeof(link)) {
+		pr_err("Buffer for read link of fd %d is too small\n", fd);
+		return -1;
+	}
+	link[ret] = 0;
+
+	ns = lookup_nsid_by_mnt_id(p->mnt_id);
+	return  phys_stat_dev_match(p->stat.st_dev, phys_dev, ns, link);
+}
+
+static inline int lock_file_match(pid_t pid, int fd, struct file_lock *fl, struct fd_parms *p)
+{
+	dev_t dev = p->stat.st_dev;
+
+	if (fl->i_no != p->stat.st_ino)
+		return 0;
+
+	/*
+	 * Get the right devices for BTRFS. Look at phys_stat_resolve_dev()
+	 * for more details.
+	 */
+	if (p->fs_type == BTRFS_SUPER_MAGIC) {
+		if (p->mnt_id != -1) {
+			struct mount_info *m;
+
+			m = lookup_mnt_id(p->mnt_id);
+			BUG_ON(m == NULL);
+			dev = kdev_to_odev(m->s_dev);
+		} else /* old kernel */
+			return lock_btrfs_file_match(pid, fd, fl, p);
+	}
+
+	return makedev(fl->maj, fl->min) == dev;
 }
 
 static int lock_check_fd(int lfd, struct file_lock *fl)
@@ -164,9 +208,13 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 {
 	struct file_lock *fl;
+	int ret;
 
 	list_for_each_entry(fl, &file_lock_list, list) {
-		if (!lock_file_match(fl, p))
+		ret = lock_file_match(pid->real, fd, fl, p);
+		if (ret < 0)
+			return -1;
+		if (ret == 0)
 			continue;
 
 		if (!opts.handle_file_locks) {
