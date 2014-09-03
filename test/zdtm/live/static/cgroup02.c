@@ -15,7 +15,7 @@ char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
 static const char *cgname = "zdtmtst";
 static const char *subname = "oldroot";
-static const char *cgname2 = "defaultroot";
+static const char *cgname2 = "zdtmtst.defaultroot";
 
 int mount_and_add(const char *controller, const char *path)
 {

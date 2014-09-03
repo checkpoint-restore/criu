@@ -315,6 +315,23 @@ exit_callback()
 }
 trap exit_callback EXIT
 
+# If a controller is mounted during dumping processes, criu may fail with error:
+# Error (cgroup.c:768): cg: Set 3 is not subset of 2
+# so lets mount all test controllers before executing tests.
+mount_cgroups()
+{
+	cat /proc/self/cgroup | grep zdtmtst.defaultroot && return
+	local tdir
+	tdir=`mktemp -d zdtm.XXXXXX`
+	for i in "zdtmtst" "zdtmtst.defaultroot"; do
+		mount -t cgroup -o none,name=$i zdtm $tdir &&
+		# a fake group prevents destroying of a controller
+		mkdir $tdir/holder &&
+		umount $tdir || return 1
+	done
+	rmdir $tdir
+}
+
 construct_root()
 {
 	local root=$1
@@ -903,6 +920,7 @@ while :; do
 			# mntns is used to mount /proc
 			# net is used to avoid conflicts of parasite sockets
 			make zdtm_ct &&
+			mount_cgroups &&
 			./zdtm_ct ./zdtm.sh "$@"
 			exit
 		}
