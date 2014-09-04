@@ -530,6 +530,7 @@ out:
 
 int cr_service_work(int sk)
 {
+	int ret = -1;
 	CriuReq *msg = 0;
 
 	if (recv_criu_msg(sk, &msg) == -1) {
@@ -539,23 +540,27 @@ int cr_service_work(int sk)
 
 	switch (msg->type) {
 	case CRIU_REQ_TYPE__DUMP:
-		return dump_using_req(sk, msg->opts);
+		ret = dump_using_req(sk, msg->opts);
+		break;
 	case CRIU_REQ_TYPE__RESTORE:
-		return restore_using_req(sk, msg->opts);
+		ret = restore_using_req(sk, msg->opts);
+		break;
 	case CRIU_REQ_TYPE__CHECK:
-		return check(sk);
+		ret = check(sk);
+		break;
 	case CRIU_REQ_TYPE__PRE_DUMP:
-		return pre_dump_loop(sk, msg);
+		ret = pre_dump_loop(sk, msg);
+		break;
 	case CRIU_REQ_TYPE__PAGE_SERVER:
-		return start_page_server_req(sk, msg->opts);
+		ret =  start_page_server_req(sk, msg->opts);
+		break;
 
 	default:
 		send_criu_err(sk, "Invalid req");
-		goto err;
+		break;
 	}
-
 err:
-	return -1;
+	return ret;
 }
 
 static void reap_worker(int signo)
