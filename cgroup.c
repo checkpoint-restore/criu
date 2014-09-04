@@ -999,6 +999,7 @@ void fini_cgroup(void)
 	umount2(cg_yard, MNT_DETACH);
 	rmdir(cg_yard);
 	xfree(cg_yard);
+	cg_yard = NULL;
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
