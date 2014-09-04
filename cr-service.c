@@ -528,15 +528,40 @@ out:
 	return send_criu_msg(sk, &resp);
 }
 
+static int chk_keepopen_req(CriuReq *msg)
+{
+	if (!msg->keep_open)
+		return 0;
+
+	/*
+	 * Service may (well, it will) leave some
+	 * resources leaked after processing e.g.
+	 * dump or restore requests. Before we audit
+	 * the code for this, let's first enable
+	 * mreq RPCs for those requests we know do
+	 * good work
+	 */
+
+	if (msg->type == CRIU_REQ_TYPE__PAGE_SERVER)
+		/* This just fork()-s so no leaks */
+		return 0;
+
+	return -1;
+}
+
 int cr_service_work(int sk)
 {
 	int ret = -1;
 	CriuReq *msg = 0;
 
+more:
 	if (recv_criu_msg(sk, &msg) == -1) {
 		pr_perror("Can't recv request");
 		goto err;
 	}
+
+	if (chk_keepopen_req(msg))
+		goto err;
 
 	switch (msg->type) {
 	case CRIU_REQ_TYPE__DUMP:
@@ -559,6 +584,13 @@ int cr_service_work(int sk)
 		send_criu_err(sk, "Invalid req");
 		break;
 	}
+
+	if (!ret && msg->keep_open) {
+		criu_req__free_unpacked(msg, NULL);
+		ret = -1;
+		goto more;
+	}
+
 err:
 	return ret;
 }

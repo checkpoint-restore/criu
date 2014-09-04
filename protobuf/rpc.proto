@@ -89,6 +89,13 @@ message criu_req {
 
 	optional criu_opts		opts		= 2;
 	optional bool			notify_success	= 3;
+
+	/*
+	 * When set service won't close the connection but
+	 * will wait for more req-s to appear. Works not
+	 * for all request types.
+	 */
+	optional bool			keep_open	= 4;
 }
 
 /*
