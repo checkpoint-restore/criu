@@ -496,7 +496,7 @@ static int pre_dump_loop(int sk, CriuReq *msg)
 
 static int start_page_server_req(int sk, CriuOpts *req)
 {
-	int ret;
+	int ret, pid, start_pipe[2];
 	bool success = false;
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
@@ -506,14 +506,33 @@ static int start_page_server_req(int sk, CriuOpts *req)
 		goto out;
 	}
 
-	if (setup_opts_from_req(sk, req))
+	if (pipe(start_pipe)) {
+		pr_perror("No start pipe");
 		goto out;
+	}
 
-	setproctitle("page-server --rpc --address %s --port %hu", opts.addr, opts.ps_port);
+	pid = fork();
+	if (pid == 0) {
+		close(start_pipe[0]);
 
-	pr_debug("Starting page server\n");
+		if (setup_opts_from_req(sk, req))
+			goto out_ch;
 
-	ret = cr_page_server(true);
+		setproctitle("page-server --rpc --address %s --port %hu", opts.addr, opts.ps_port);
+
+		pr_debug("Starting page server\n");
+
+		ret = cr_page_server(true, start_pipe[1]);
+out_ch:
+		write(start_pipe[1], &ret, sizeof(ret));
+		close(start_pipe[1]);
+		exit(0);
+	}
+
+	close(start_pipe[1]);
+	wait(NULL);
+	ret = -1;
+	read(start_pipe[0], &ret, sizeof(ret));
 	if (ret > 0) {
 		success = true;
 		ps.has_pid = true;

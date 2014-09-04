@@ -263,7 +263,7 @@ extern void *shmalloc(size_t bytes);
 extern void shfree_last(void *ptr);
 
 extern int cr_system(int in, int out, int err, char *cmd, char *const argv[]);
-extern int cr_daemon(int nochdir, int noclose);
+extern int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd);
 extern int is_root_user(void);
 
 static inline bool dir_dots(struct dirent *de)

@@ -254,7 +254,7 @@ static int get_sockaddr_in(struct sockaddr_in *addr)
 	return 0;
 }
 
-int cr_page_server(bool daemon_mode)
+int cr_page_server(bool daemon_mode, int cfd)
 {
 	int sk = -1, ask = -1, ret;
 	struct sockaddr_in saddr, caddr;
@@ -292,7 +292,7 @@ int cr_page_server(bool daemon_mode)
 
 no_server:
 	if (daemon_mode) {
-		ret = cr_daemon(1, 0);
+		ret = cr_daemon(1, 0, &ask, cfd);
 		if (ret == -1) {
 			pr_perror("Can't run in the background");
 			goto out;

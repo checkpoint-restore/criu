@@ -2,7 +2,7 @@
 #define __CR_PAGE_XFER__H__
 #include "page-read.h"
 
-extern int cr_page_server(bool daemon_mode);
+extern int cr_page_server(bool daemon_mode, int cfd);
 
 /*
  * page_xfer -- transfer pages into image file.

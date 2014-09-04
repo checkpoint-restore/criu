@@ -560,7 +560,7 @@ out:
 	return ret;
 }
 
-int cr_daemon(int nochdir, int noclose)
+int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd)
 {
 	int pid;
 
@@ -579,6 +579,12 @@ int cr_daemon(int nochdir, int noclose)
 			pr_perror("Can't change directory");
 	if (!noclose) {
 		int fd;
+
+		if (close_fd != -1)
+			close(close_fd);
+
+		if (*keep_fd != -1)
+			*keep_fd = dup2(*keep_fd, 3);
 
 		fd = open("/dev/null", O_RDWR);
 		if (fd < 0) {
