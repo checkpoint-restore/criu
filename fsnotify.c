@@ -236,10 +236,8 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ret = fd_has_data(lfd);
 	if (ret < 0)
 		return -1;
-	else if (ret > 0) {
-		pr_err("The %d inotify has queued events\n", id);
-		return -1;
-	}
+	else if (ret > 0)
+		pr_warn("The 0x%08x inotify events will be dropped\n", id);
 
 	ie.id = id;
 	ie.flags = p->flags;
@@ -348,10 +346,8 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	ret = fd_has_data(lfd);
 	if (ret < 0)
 		return -1;
-	else if (ret > 0) {
-		pr_err("The %d inotify has queued events\n", id);
-		return -1;
-	}
+	else if (ret > 0)
+		pr_warn("The 0x%08x fanotify events will be dropped\n", id);
 	ret = -1;
 
 	fe.id = id;
