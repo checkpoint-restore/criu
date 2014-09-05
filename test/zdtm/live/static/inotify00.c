@@ -107,9 +107,9 @@ out:
 
 int main (int argc, char *argv[])
 {
-	unsigned int mask = IN_DELETE | IN_CLOSE_WRITE | IN_DELETE_SELF;
-	char test_link_path[PATH_MAX], test_file_path[PATH_MAX];
-	int fd, link_fd, real_fd;
+	unsigned int mask = IN_DELETE | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_CREATE;
+	char test_file_path[PATH_MAX];
+	int fd, real_fd;
 	unsigned int emask;
 
 	test_init(argc, argv);
@@ -125,35 +125,15 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	snprintf(test_link_path, sizeof(test_link_path), "%s/%s", dirname, TEST_LINK);
 	snprintf(test_file_path, sizeof(test_file_path), "%s/%s", dirname, TEST_FILE);
 
-	if (chdir(dirname)) {
-		err("Can't step into %s", dirname);
-		exit(1);
-	}
-
-	if (open(TEST_FILE, O_CREAT | O_TRUNC | O_RDWR, 0644) < 0) {
-		err("inotify_init failed");
-		exit(1);
-	}
-
-	if (link(TEST_FILE, TEST_LINK)) {
-		err("Can't link %s -> %s", TEST_FILE, TEST_LINK);
-		exit(1);
-	}
-
-	if (chdir("..")) {
-		err("Can't step into %s", "..");
+	real_fd = open(test_file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
+	if (real_fd < 0) {
+		err("Can't create %s", test_file_path);
 		exit(1);
 	}
 
 	if (inotify_add_watch(fd, dirname, mask) < 0) {
-		err("inotify_add_watch failed");
-		exit(1);
-	}
-
-	if (inotify_add_watch(fd, test_link_path, mask) < 0) {
 		err("inotify_add_watch failed");
 		exit(1);
 	}
@@ -163,37 +143,18 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	link_fd = open(test_link_path, O_RDWR);
-	if (link_fd < 0) {
-		err("Can't open link");
-		exit(1);
-	}
-
-	real_fd = open(test_file_path, O_RDWR);
-	if (real_fd < 0) {
-		err("Can't open real");
-		exit(1);
-	}
-
 	/*
 	 * At this moment we have a file inside testing
 	 * directory and a hardlink to it. The file and
 	 * hardlink are opened.
 	 */
 
-	if (unlink(test_link_path)) {
-		err("can't unlink %s\n", test_link_path);
-		exit(1);
-	}
-
 	if (unlink(test_file_path)) {
 		err("can't unlink %s\n", test_file_path);
 		exit(1);
 	}
 
-	close(link_fd);
-
-	emask = IN_CLOSE_WRITE | IN_DELETE_SELF;
+	emask = IN_DELETE;
 	inotify_read_events("unlink 02", fd, &emask);
 	if (emask) {
 		char emask_bits[128];
@@ -208,7 +169,7 @@ int main (int argc, char *argv[])
 
 	close(real_fd);
 
-	emask = IN_DELETE | IN_CLOSE_WRITE;
+	emask = IN_CLOSE_WRITE;
 	inotify_read_events("after", fd, &emask);
 	if (emask) {
 		char emask_bits[128];
@@ -216,8 +177,26 @@ int main (int argc, char *argv[])
 		fail("Unhandled events in emask %#x -> %s",
 		    emask, emask_bits);
 		return 1;
-	} else
-		pass();
+	}
+
+	real_fd = open(test_file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
+	if (real_fd < 0) {
+		err("Can't create %s", test_file_path);
+		exit(1);
+	}
+	close(real_fd);
+
+	emask = IN_CREATE | IN_CLOSE_WRITE;
+	inotify_read_events("after2", fd, &emask);
+	if (emask) {
+		char emask_bits[128];
+		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
+		fail("Unhandled events in emask %#x -> %s",
+		    emask, emask_bits);
+		return 1;
+	}
+
+	pass();
 
 	return 0;
 }
