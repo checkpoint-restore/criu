@@ -90,7 +90,7 @@ static int check_file_locks()
 			continue;
 
 		num = sscanf(buf,
-			"%lld:%s %s %s %d %02x:%02x:%ld %lld %s",
+			"%lld:%s %s %s %d %x:%x:%ld %lld %s",
 			&fl_id, fl_flag, fl_type, fl_option,
 			&fl_owner, &maj, &min, &i_no, &start, end);
 
