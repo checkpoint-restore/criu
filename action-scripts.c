@@ -61,7 +61,7 @@ int add_script(char *path, int arg)
 	if (script == NULL)
 		return 1;
 
-	script->path = optarg;
+	script->path = path;
 	script->arg = arg;
 	list_add(&script->node, &opts.scripts);
 
