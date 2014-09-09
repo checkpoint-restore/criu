@@ -797,6 +797,7 @@ static int do_opt2flag(char *opt, unsigned *flags,
 {
 	int i;
 	char *end;
+	size_t uoff = 0;
 
 	while (1) {
 		end = strchr(opt, ',');
@@ -815,15 +816,17 @@ static int do_opt2flag(char *opt, unsigned *flags,
 				return -1;
 			}
 
-			strcpy(unknown, opt);
-			unknown += strlen(opt);
-			*unknown = ',';
-			unknown++;
+			strcpy(unknown + uoff, opt);
+			uoff += strlen(opt);
+			unknown[uoff] = ',';
+			uoff++;
 		}
 
 		if (!end) {
+			if (uoff)
+				uoff--;
 			if (unknown)
-				*unknown = '\0';
+				unknown[uoff] = '\0';
 			break;
 		} else
 			opt = end + 1;
