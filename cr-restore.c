@@ -957,6 +957,12 @@ struct cr_clone_arg {
 static void maybe_clone_parent(struct pstree_item *item,
 			      struct cr_clone_arg *ca)
 {
+	/*
+	 * zdtm runs in kernel 3.11, which has the problem described below. We
+	 * avoid this by including the pdeath_sig test. Once users/zdtm migrate
+	 * off of 3.11, this condition can be simplified to just test the
+	 * options and not have the pdeath_sig test.
+	 */
 	if (opts.swrk_restore ||
 	    (opts.restore_detach && ca->core->thread_core->pdeath_sig)) {
 		/*
@@ -1170,18 +1176,6 @@ static int criu_signals_setup(void)
 	}
 
 	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
-	if (root_as_sibling)
-		/*
-		 * Root task will be our sibling. This means, that
-		 * we will not notice when (if) it dies in SIGCHLD
-		 * handler, but we should. To do this -- attach to
-		 * the guy with ptrace (below) and (!) make the kernel
-		 * deliver us the signal when it will get stopped.
-		 * It will in case of e.g. segfault before handling
-		 * the signal.
-		 */
-		act.sa_flags &= ~SA_NOCLDSTOP;
-
 	act.sa_sigaction = sigchld_handler;
 	sigemptyset(&act.sa_mask);
 	sigaddset(&act.sa_mask, SIGCHLD);
@@ -1669,6 +1663,20 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 
 	if (root_as_sibling) {
+		struct sigaction act;
+		/*
+		 * Root task will be our sibling. This means, that
+		 * we will not notice when (if) it dies in SIGCHLD
+		 * handler, but we should. To do this -- attach to
+		 * the guy with ptrace (below) and (!) make the kernel
+		 * deliver us the signal when it will get stopped.
+		 * It will in case of e.g. segfault before handling
+		 * the signal.
+		 */
+		sigaction(SIGCHLD, NULL, &act);
+		act.sa_flags &= ~SA_NOCLDSTOP;
+		sigaction(SIGCHLD, &act, NULL);
+
 		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
 			pr_perror("Can't attach to init");
 			goto out;
