@@ -225,7 +225,7 @@ done:
 	}
 
 	mkdir(MPTS_ROOT"/dev/share-1/test.mnt.share", 0600);
-	if (mount("none", MPTS_ROOT"/dev/share-1/test.mnt.share", "tmpfs", 0, "") < 0) {
+	if (mount("none", MPTS_ROOT"/dev/share-1/test.mnt.share", "tmpfs", 0, "size=1G") < 0) {
 		fail("Can't mount tmpfs");
 		return 1;
 	}
