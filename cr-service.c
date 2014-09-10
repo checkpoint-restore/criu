@@ -506,6 +506,7 @@ static int pre_dump_loop(int sk, CriuReq *msg)
 static int start_page_server_req(int sk, CriuOpts *req)
 {
 	int ret, pid, start_pipe[2];
+	ssize_t count;
 	bool success = false;
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
@@ -533,16 +534,20 @@ static int start_page_server_req(int sk, CriuOpts *req)
 
 		ret = cr_page_server(true, start_pipe[1]);
 out_ch:
-		write(start_pipe[1], &ret, sizeof(ret));
+		count = write(start_pipe[1], &ret, sizeof(ret));
 		close(start_pipe[1]);
+		if (count != sizeof(ret))
+			exit(1);
 		exit(0);
 	}
 
 	close(start_pipe[1]);
 	wait(NULL);
 	ret = -1;
-	read(start_pipe[0], &ret, sizeof(ret));
-	if (ret > 0) {
+	count = read(start_pipe[0], &ret, sizeof(ret));
+	if (count != sizeof(ret))
+		success = false;
+	else if (ret > 0) {
 		success = true;
 		ps.has_pid = true;
 		ps.pid = ret;
