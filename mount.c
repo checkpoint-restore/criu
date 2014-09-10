@@ -377,10 +377,9 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			/* root mount can be any */
 			continue;
 
-		if (m->parent->shared_id) {
+		if (m->parent->shared_id && !list_empty(&m->parent->mnt_share)) {
 			struct mount_info *ct;
-			if (list_empty(&m->parent->mnt_share))
-				continue;
+
 			t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
 
 			list_for_each_entry(ct, &t->children, siblings) {
