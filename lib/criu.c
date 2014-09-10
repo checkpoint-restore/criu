@@ -666,6 +666,9 @@ int criu_restore_child(void)
 	req.type	= CRIU_REQ_TYPE__RESTORE;
 	req.opts	= opts;
 
+	req.opts->has_rst_sibling = true;
+	req.opts->rst_sibling = true;
+
 	ret = send_req_and_recv_resp_sk(sks[0], &req, &resp);
 
 	close(sks[0]);
