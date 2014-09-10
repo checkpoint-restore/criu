@@ -129,13 +129,14 @@ int main(int argc, char *argv[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:M:";
+	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree", required_argument, 0, 't' },
 		{ "pid", required_argument, 0, 'p' },
 		{ "leave-stopped", no_argument, 0, 's' },
 		{ "leave-running", no_argument, 0, 'R' },
 		{ "restore-detached", no_argument, 0, 'd' },
+		{ "restore-sibling", no_argument, 0, 'S' },
 		{ "daemon", no_argument, 0, 'd' },
 		{ "contents", no_argument, 0, 'c' },
 		{ "file", required_argument, 0, 'f' },
@@ -240,6 +241,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			opts.restore_detach = true;
+			break;
+		case 'S':
+			opts.restore_sibling = true;
 			break;
 		case 'D':
 			imgs_dir = optarg;
@@ -405,6 +409,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (!opts.restore_detach && opts.restore_sibling) {
+		pr_msg("--restore-sibling only makes sense with --restore-detach\n");
+		return 1;
+	}
+
 	if (work_dir == NULL)
 		work_dir = imgs_dir;
 
@@ -541,6 +550,7 @@ usage:
 "* Generic:\n"
 "  -t|--tree PID         checkpoint a process tree identified by PID\n"
 "  -d|--restore-detached detach after restore\n"
+"  -S|--restore-sibling  restore root task as sibling\n"
 "  -s|--leave-stopped    leave tasks in stopped state after checkpoint\n"
 "  -R|--leave-running    leave tasks in running state after checkpoint\n"
 "  -D|--images-dir DIR   directory for image files\n"

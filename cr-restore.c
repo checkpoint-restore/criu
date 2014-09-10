@@ -962,8 +962,7 @@ static void maybe_clone_parent(struct pstree_item *item,
 	 * off of 3.11, this condition can be simplified to just test the
 	 * options and not have the pdeath_sig test.
 	 */
-	if (opts.swrk_restore ||
-	    (opts.restore_detach && ca->core->thread_core->pdeath_sig)) {
+	if (opts.restore_sibling) {
 		/*
 		 * This means we're called from lib's criu_restore_child().
 		 * In that case create the root task as the child one to+
@@ -984,6 +983,10 @@ static void maybe_clone_parent(struct pstree_item *item,
 		if (item->rst->clone_flags & CLONE_NEWPID)
 			pr_warn("Set CLONE_PARENT | CLONE_NEWPID but it might cause restore problem,"
 				"because not all kernels support such clone flags combinations!\n");
+	} else if (opts.restore_detach) {
+		if (ca->core->thread_core->pdeath_sig)
+			pr_warn("Root task has pdeath_sig configured, so it will receive one _right_"
+				"after restore on CRIU exit\n");
 	}
 }
 

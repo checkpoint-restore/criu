@@ -52,6 +52,8 @@ message criu_opts {
 	repeated ext_mount_map		ext_mnt		= 23;
 	optional bool			manage_cgroups	= 24;
 	repeated cgroup_root		cg_root		= 25;
+
+	optional bool			rst_sibling	= 26; /* swrk only */
 }
 
 message criu_dump_resp {

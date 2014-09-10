@@ -32,6 +32,7 @@ struct cr_options {
 	bool			check_ms_kernel;
 	bool			show_pages_content;
 	bool			restore_detach;
+	bool			restore_sibling;
 	bool			ext_unix_sk;
 	bool			shell_job;
 	bool			handle_file_locks;
