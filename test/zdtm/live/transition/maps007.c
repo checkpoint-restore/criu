@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 			t[0] = lrand48();
 		}
 	}
-	err("count %d", count);
+	test_msg("count %d\n", count);
 
 	if (child == 0) {
 		futex_set_and_wake(&shm->stop, 2);
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 				goto err;
 			}
 		}
-		err("readable %d", readable);
+		test_msg("readable %d\n", readable);
 		kill(child, SIGTRAP);
 		wait(NULL);
 		pass();

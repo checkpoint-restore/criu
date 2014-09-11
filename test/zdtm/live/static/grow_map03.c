@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	addr1 = mmap(start_addr + PAGE_SIZE * 5, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
 	addr2 = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
 
-	err("%p %p\n", addr1, addr2);
+	test_msg("%p %p\n", addr1, addr2);
 
 	test_daemon();
 	test_waitsig();

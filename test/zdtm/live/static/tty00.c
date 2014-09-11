@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 			return 1;
 		}
 	} else
-		err("The child has been killed by %d", WTERMSIG(status));
+		test_msg("The child has been killed by %d\n", WTERMSIG(status));
 
 	pass();
 

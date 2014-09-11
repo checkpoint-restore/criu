@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	path_before[ret] = 0;
-	err("%s\n", path_before);
+	test_msg("%s\n", path_before);
 
 	test_daemon();
 	test_waitsig();
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	path_after[ret] = 0;
-	err("%s\n", path_after);
+	test_msg("%s\n", path_after);
 
 	if (!strcmp(path_before, path_after))
 		pass();
