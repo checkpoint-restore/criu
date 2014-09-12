@@ -25,6 +25,7 @@ static/maps01
 static/maps02
 static/maps04
 static/maps05
+static/mlock_setuid
 static/maps_file_prot
 static/mprotect00
 static/mtime_mmap
@@ -203,6 +204,7 @@ TEST_SUID_LIST="
 pid00
 caps00
 maps01
+mlock_setuid
 groups
 sched_prio00
 sched_policy00

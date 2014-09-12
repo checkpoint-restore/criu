@@ -70,6 +70,7 @@ TST_NOFILE	=				\
 		maps03				\
 		maps04				\
 		maps05				\
+		mlock_setuid			\
 		xids00				\
 		groups				\
 		pdeath_sig			\
@@ -290,6 +291,7 @@ sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
 mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP
 maps02:		get_smaps_bits.o
+mlock_setuid:		get_smaps_bits.o
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
