@@ -455,6 +455,7 @@ static int prepare_pstree_ids(void)
 		helper->pid.virt = item->sid;
 		helper->state = TASK_HELPER;
 		helper->parent = root_item;
+		helper->rst->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add_tail(&helper->sibling, &helpers);
 		task_entries->nr_helpers++;
 
@@ -575,6 +576,7 @@ static int prepare_pstree_ids(void)
 		helper->pid.virt = item->pgid;
 		helper->state = TASK_HELPER;
 		helper->parent = item;
+		helper->rst->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add(&helper->sibling, &item->children);
 		task_entries->nr_helpers++;
 		item->rst->pgrp_leader = helper;
