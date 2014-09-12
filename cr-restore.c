@@ -1779,7 +1779,7 @@ out_kill:
 out:
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");
-	return 1;
+	return -1;
 }
 
 static int prepare_task_entries(void)
