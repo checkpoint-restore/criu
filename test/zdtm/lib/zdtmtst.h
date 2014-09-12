@@ -123,4 +123,5 @@ extern int tcp_init_server(int family, int *port);
 extern int tcp_accept_server(int sock);
 extern int tcp_init_client(int family, char *servIP, unsigned short servPort);
 
+extern int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned long *madv);
 #endif /* _VIMITESU_H_ */

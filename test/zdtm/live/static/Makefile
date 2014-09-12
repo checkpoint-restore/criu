@@ -289,12 +289,13 @@ socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
 mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP
+maps02:		get_smaps_bits.o
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean:
-	$(RM) -f $(OBJ) $(TST) *~ criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h
+	$(RM) -f $(OBJ) $(TST) *~ criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h get_smaps_bits.o
 
 cleandep:	clean
 	$(RM) -f $(DEP)
