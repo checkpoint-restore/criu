@@ -251,7 +251,12 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 		struct mount_info *p;
 
 		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
-		p = __lookup_mnt_id(list, m->parent_mnt_id);
+
+		if (m->mnt_id != m->parent_mnt_id)
+			p = __lookup_mnt_id(list, m->parent_mnt_id);
+		else /* a circular mount reference. It's rootfs or smth like it. */
+			p = NULL;
+
 		if (!p) {
 			/* This should be / */
 			if (root == NULL && is_root_mount(m)) {
