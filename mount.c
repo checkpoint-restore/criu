@@ -992,9 +992,6 @@ static int dump_mnt_ns(struct ns_id *ns, struct mount_info *pms)
 	int img_fd = -1, ret = -1;
 	int ns_id = ns->id;
 
-	if (validate_mounts(pms, true))
-		goto err;
-
 	pr_info("Dumping mountpoints\n");
 	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
 	if (img_fd < 0)
@@ -2095,8 +2092,12 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 				if (mntinfo == NULL)
 					goto err;
 			}
-
-			continue;
+			/*
+			 * Mount namespaces are dumped only if the root task lives in
+			 * its own mntns, so we can stop enumeration of namespaces.
+			 * We are not going to dump this tree, so we skip validation.
+			 */
+			goto out;
 		}
 
 		pr_info("Dump MNT namespace (mountpoints) %d via %d\n", ns->id, ns->pid);
@@ -2111,6 +2112,9 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 	}
 	if (collect_shared(mntinfo))
 		goto err;
+	if (validate_mounts(mntinfo, true))
+		goto err;
+out:
 	ret = 0;
 err:
 	return ret;
