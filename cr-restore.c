@@ -1357,7 +1357,7 @@ static int restore_task_with_children(void *_arg)
 	current = ca->item;
 
 	if (current != root_item) {
-		char buf[PATH_MAX];
+		char buf[12];
 		int fd;
 
 		/* Determine PID in CRIU's namespace */
