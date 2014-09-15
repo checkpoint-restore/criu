@@ -886,6 +886,10 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	return 0;
 }
 
+#define TRACE_ALL	1
+#define TRACE_ENTER	2
+#define TRACE_EXIT	3
+
 /*
  * Trap tasks on the exit from the specified syscall
  *
@@ -897,6 +901,13 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr)
 	user_regs_struct_t regs;
 	int status, ret;
 	pid_t pid;
+	/*
+	 * The PTRACE_SYSCALL will trap task twice -- on
+	 * enter into and on exit from syscall. If we trace
+	 * a single task, we may skip half of all getregs
+	 * calls -- on exit we don't need them.
+	 */
+	int trace = (tasks == 1 ? TRACE_ENTER : TRACE_ALL);
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (tasks) {
@@ -912,6 +923,15 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr)
 		}
 
 		pr_debug("%d was trapped\n", pid);
+
+		if (trace == TRACE_EXIT) {
+			trace = TRACE_ENTER;
+			pr_debug("`- Expecting exit\n");
+			goto goon;
+		}
+		if (trace == TRACE_ENTER)
+			trace = TRACE_EXIT;
+
 		ret = ptrace_get_regs(pid, &regs);
 		if (ret) {
 			pr_perror("ptrace");
@@ -945,7 +965,7 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr)
 			tasks--;
 			continue;
 		}
-
+goon:
 		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 		if (ret) {
 			pr_perror("ptrace");
