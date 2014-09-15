@@ -945,7 +945,11 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 /* All arguments should be above stack, because it grows down */
 struct cr_clone_arg {
-	char stack[PAGE_SIZE] __attribute__((aligned (8)));
+	/*
+	 * Reserve some space for clone() to locate arguments
+	 * and retcode in this place
+	 */
+	char stack[128] __attribute__((aligned (8)));
 	char stack_ptr[0];
 	struct pstree_item *item;
 	unsigned long clone_flags;
@@ -993,8 +997,8 @@ static void maybe_clone_parent(struct pstree_item *item,
 
 static inline int fork_with_pid(struct pstree_item *item)
 {
-	int ret = -1, fd;
 	struct cr_clone_arg ca;
+	int ret = -1, fd;
 	pid_t pid = item->pid.virt;
 
 	if (item->state != TASK_HELPER) {
@@ -1036,6 +1040,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	ca.item = item;
 	ca.clone_flags = item->rst->clone_flags;
+
+	BUG_ON(ca.clone_flags & CLONE_VM);
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
