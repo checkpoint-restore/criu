@@ -1639,7 +1639,7 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 		}
 
 		list_for_each_entry(cc, retl, l)
-			if (strcmp(cc->name, name) >= 0 && strcmp(cc->path, path) >= 0)
+			if (strcmp(cc->name, name) >= 0)
 				break;
 
 		list_add_tail(&ncc->l, &cc->l);
