@@ -568,7 +568,8 @@ static int timerfd_arm(struct task_restore_args *args)
 		}
 
 		ret  = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
-		ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
+		if (t->ticks)
+			ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
 		if (ret) {
 			pr_err("Can't restore ticks/time for timerfd - %d\n", i);
 			return ret;
