@@ -1616,9 +1616,9 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 		 * 3:cpuset:/
 		 * 2:name=systemd:/user.slice/user-1000.slice/session-1.scope
 		 */
-		name = strchr(buf, ':') + 1;
+		name = strchr(buf, ':');
 		if (name)
-			path = strchr(name, ':');
+			path = strchr(++name, ':');
 		if (!name || !path) {
 			pr_err("Failed parsing cgroup %s\n", buf);
 			xfree(ncc);
