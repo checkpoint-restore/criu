@@ -7,7 +7,7 @@
 #include "asm/types.h"
 #include "servicefd.h"
 
-#define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
+#define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
 extern int check_img_inventory(void);
 extern int write_img_inventory(void);
