@@ -1127,7 +1127,7 @@ nodata:
 
 #define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
 
-static int parse_fdinfo_pid_s(char *pid, int fd, int type,
+static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
 	FILE *f;
@@ -1135,8 +1135,7 @@ static int parse_fdinfo_pid_s(char *pid, int fd, int type,
 	bool entry_met = false;
 	int ret = -1;
 
-	sprintf(str, "/proc/%s/fdinfo/%d", pid, fd);
-	f = fopen(str, "r");
+	f = fopen_proc(pid, "fdinfo/%d", fd);
 	if (!f) {
 		pr_perror("Can't open %s to parse", str);
 		return -1;
@@ -1402,16 +1401,13 @@ out:
 int parse_fdinfo_pid(int pid, int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
-	char pid_s[10];
-
-	sprintf(pid_s, "%d", pid);
-	return parse_fdinfo_pid_s(pid_s, fd, type, cb, arg);
+	return parse_fdinfo_pid_s(pid, fd, type, cb, arg);
 }
 
 int parse_fdinfo(int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
-	return parse_fdinfo_pid_s("self", fd, type, cb, arg);
+	return parse_fdinfo_pid_s(PROC_SELF, fd, type, cb, arg);
 }
 
 static int parse_file_lock_buf(char *buf, struct file_lock *fl,
