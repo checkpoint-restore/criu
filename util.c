@@ -678,7 +678,7 @@ int mkdirp(const char *path)
 		if (pos)
 			*pos = '\0';
 		if (mkdir(made_path, 0755) < 0 && errno != EEXIST) {
-			pr_perror("couldn't mkdirpat directory");
+			pr_perror("couldn't mkdirpat directory %s", made_path);
 			return -1;
 		}
 		if (pos) {
