@@ -90,6 +90,7 @@
 /live/static/pty02
 /live/static/pty03
 /live/static/pty04
+/live/static/remap_dead_pid
 /live/static/rlimits00
 /live/static/rmdir_open
 /live/static/rtc

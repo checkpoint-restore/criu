@@ -179,6 +179,7 @@ static/cgroup00
 static/cgroup01
 static/cgroup02
 ns/static/clean_mntns
+static/remap_dead_pid
 "
 
 TEST_CR_KERNEL="

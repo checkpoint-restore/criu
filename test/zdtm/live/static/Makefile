@@ -113,6 +113,7 @@ TST_NOFILE	=				\
 		clean_mntns			\
 		dumpable01			\
 		dumpable02			\
+		remap_dead_pid			\
 #		jobctl00			\
 
 TST_FILE	=				\
