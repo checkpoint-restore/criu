@@ -579,26 +579,22 @@ err:
 
 static int get_task_personality(pid_t pid, u32 *personality)
 {
-	FILE *file = NULL;
-	int ret = -1;
+	int fd, ret = -1;
 
 	pr_info("Obtaining personality ... ");
 
-	file = fopen_proc(pid, "personality");
-	if (!file)
+	fd = open_proc(pid, "personality");
+	if (fd < 0)
 		goto err;
 
-	if (!fgets(loc_buf, sizeof(loc_buf), file)) {
-		pr_perror("Can't read task personality");
-		goto err;
+	ret = read(fd, loc_buf, sizeof(loc_buf));
+	close(fd);
+
+	if (ret >= 0) {
+		loc_buf[ret] = '\0';
+		*personality = atoi(loc_buf);
 	}
-
-	*personality = atoi(loc_buf);
-	ret = 0;
-
 err:
-	if (file)
-		fclose(file);
 	return ret;
 }
 
@@ -720,7 +716,7 @@ static int dump_task_core_all(struct pstree_item *item,
 	pr_info("----------------------------------------\n");
 
 	ret = get_task_personality(pid, &core->tc->personality);
-	if (ret)
+	if (ret < 0)
 		goto err;
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
