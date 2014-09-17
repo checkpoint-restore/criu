@@ -214,7 +214,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 
 	*s = (struct vdso_symtable)VDSO_SYMTABLE_INIT;
 
-	maps = fopen("/proc/self/maps", "r");
+	maps = fopen_proc(PROC_SELF, "maps");
 	if (!maps) {
 		pr_perror("Can't open self-vma");
 		return -1;

@@ -47,7 +47,7 @@ int parse_cpuinfo_features(int (*handler)(char *tok))
 {
 	FILE *cpuinfo;
 
-	cpuinfo = fopen("/proc/cpuinfo", "r");
+	cpuinfo = fopen_proc(PROC_GEN, "cpuinfo");
 	if (!cpuinfo) {
 		pr_perror("Can't open cpuinfo file");
 		return -1;
@@ -1477,7 +1477,7 @@ int parse_file_locks(void)
 	int	ret = 0;
 	bool	is_blocked;
 
-	fl_locks = fopen("/proc/locks", "r");
+	fl_locks = fopen_proc(PROC_GEN, "locks");
 	if (!fl_locks) {
 		pr_perror("Can't open file locks file!");
 		return -1;
@@ -1763,7 +1763,7 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 	int heirarchy, ret = 0;
 	struct cg_controller *cur = NULL;
 
-	f = fopen("/proc/cgroups", "r");
+	f = fopen_proc(PROC_GEN, "cgroups");
 	if (!f) {
 		pr_perror("failed opening /proc/cgroups");
 		return -1;
