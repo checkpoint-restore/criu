@@ -70,6 +70,8 @@ struct parasite_init_args {
 	int			log_level;
 
 	struct rt_sigframe	*sigframe;
+
+	void			*sigreturn_addr;
 };
 
 struct parasite_unmap_args {

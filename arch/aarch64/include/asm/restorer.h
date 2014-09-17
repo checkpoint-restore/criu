@@ -108,4 +108,9 @@ static inline void restore_tls(tls_t *ptls)
 	asm("msr tpidr_el0, %0" : : "r" (*ptls));
 }
 
+static inline int ptrace_set_breakpoint(pid_t pid, void *addr)
+{
+	return 0;
+}
+
 #endif

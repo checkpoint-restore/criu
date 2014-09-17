@@ -150,4 +150,9 @@ static inline void restore_tls(tls_t *ptls) {
 	     );
 }
 
+static inline int ptrace_set_breakpoint(pid_t pid, void *addr)
+{
+	return 0;
+}
+
 #endif

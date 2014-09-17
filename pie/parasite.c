@@ -438,6 +438,11 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 	return -1;
 }
 
+static noinline void fini_sigreturn(unsigned long new_sp)
+{
+	ARCH_RT_SIGRETURN(new_sp);
+}
+
 static int fini()
 {
 	unsigned long new_sp;
@@ -454,7 +459,7 @@ static int fini()
 	sys_close(tsock);
 	log_set_fd(-1);
 
-	ARCH_RT_SIGRETURN(new_sp);
+	fini_sigreturn(new_sp);
 
 	BUG();
 
@@ -561,6 +566,7 @@ static noinline __used int parasite_init_daemon(void *data)
 	struct parasite_init_args *args = data;
 	int ret;
 
+	args->sigreturn_addr = fini_sigreturn;
 	sigframe = args->sigframe;
 
 	tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);

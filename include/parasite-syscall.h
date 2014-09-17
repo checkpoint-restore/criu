@@ -30,6 +30,7 @@ struct parasite_ctl {
 	struct pid		pid;
 	void			*remote_map;
 	void			*local_map;
+	void			*sigreturn_addr;			/* A place for the breakpoint */
 	unsigned long		map_length;
 
 	/* thread leader data */

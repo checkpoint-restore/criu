@@ -528,6 +528,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;
 	}
 
+	ctl->sigreturn_addr = args->sigreturn_addr;
 	ctl->daemonized = true;
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
@@ -868,6 +869,24 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (ret)
 		return -1;
 
+	/* Go to sigreturn as closer as we can */
+	ret = ptrace_set_breakpoint(pid, ctl->sigreturn_addr);
+	if (ret < 0)
+		return ret;
+	if (ret > 0) {
+		pid = wait4(pid, &status, __WALL, NULL);
+		if (pid == -1) {
+			pr_perror("wait4 failed");
+			return -1;
+		}
+
+		if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
+			pr_err("Task is in unexpected state: %x\n", status);
+			return -1;
+		}
+	}
+
+	/* Start tracing syscalls */
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
 		pr_perror("ptrace");

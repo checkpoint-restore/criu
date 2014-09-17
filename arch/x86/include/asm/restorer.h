@@ -145,4 +145,7 @@ int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_stat
 
 static inline void restore_tls(tls_t *ptls) { (void)ptls; }
 
+int ptrace_set_breakpoint(pid_t pid, void *addr);
+
+
 #endif

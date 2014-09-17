@@ -1,6 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <elf.h>
+#include <sys/user.h>
 
 #include "asm/processor-flags.h"
 #include "asm/restorer.h"
@@ -492,5 +493,50 @@ int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_stat
 	}
 
 	return 0;
+}
+
+/* Copied from the gdb header gdb/nat/x86-dregs.h */
+
+/* Debug registers' indices.  */
+#define DR_FIRSTADDR 0
+#define DR_LASTADDR  3
+#define DR_NADDR     4  /* The number of debug address registers.  */
+#define DR_STATUS    6  /* Index of debug status register (DR6).  */
+#define DR_CONTROL   7  /* Index of debug control register (DR7).  */
+
+#define DR_LOCAL_ENABLE_SHIFT   0 /* Extra shift to the local enable bit.  */
+#define DR_GLOBAL_ENABLE_SHIFT  1 /* Extra shift to the global enable bit.  */
+#define DR_ENABLE_SIZE          2 /* Two enable bits per debug register.  */
+
+/* Locally enable the break/watchpoint in the I'th debug register.  */
+#define X86_DR_LOCAL_ENABLE(i) (1 << (DR_LOCAL_ENABLE_SHIFT + DR_ENABLE_SIZE * (i)))
+
+int ptrace_set_breakpoint(pid_t pid, void *addr)
+{
+	int ret;
+
+	/* Set a breakpoint */
+	if (ptrace(PTRACE_POKEUSER, pid,
+			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
+			addr)) {
+		pr_err("Unable to setup a breakpoint\n");
+		return -1;
+	}
+
+	/* Enable the breakpoint */
+	if (ptrace(PTRACE_POKEUSER, pid,
+			offsetof(struct user, u_debugreg[DR_CONTROL]),
+			X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
+		pr_err("Unable to enable the breakpoint\n");
+		return -1;
+	}
+
+	ret = ptrace(PTRACE_CONT, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("Unable to restart  the  stopped tracee process");
+		return -1;
+	}
+
+	return 1;
 }
 
