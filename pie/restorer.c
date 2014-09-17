@@ -330,6 +330,11 @@ static int restore_thread_common(struct rt_sigframe *sigframe,
 	return 0;
 }
 
+static void noinline rst_sigreturn(unsigned long new_sp)
+{
+	ARCH_RT_SIGRETURN(new_sp);
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
@@ -381,7 +386,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
-	ARCH_RT_SIGRETURN(new_sp);
+	rst_sigreturn(new_sp);
 
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
@@ -764,6 +769,7 @@ long __export_restore_task(struct task_restore_args *args)
 	task_entries = args->task_entries;
 	helpers = args->helpers;
 	n_helpers = args->n_helpers;
+	*args->breakpoint = rst_sigreturn;
 
 	ksigfillset(&act.rt_sa_mask);
 	act.rt_sa_handler = sigchld_handler;
@@ -1130,7 +1136,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
-	ARCH_RT_SIGRETURN(new_sp);
+	rst_sigreturn(new_sp);
 
 core_restore_end:
 	futex_abort_and_wake(&task_entries->nr_in_progress);

@@ -1546,7 +1546,7 @@ static int attach_to_tasks(bool root_seized)
 
 	for_each_pstree_item(item) {
 		pid_t pid = item->pid.real;
-		int status, i;
+		int status, i, ret;
 
 		if (!task_alive(item))
 			continue;
@@ -1579,7 +1579,12 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 			}
 
-			if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
+			ret = ptrace_set_breakpoint(pid, item->rst->breakpoint);
+			if (ret < 0)
+				return -1;
+
+			/* A breakpoint was not set */
+			if (ret == 0 && ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
 				pr_perror("Unable to start %d", pid);
 				return -1;
 			}
@@ -2691,6 +2696,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (rst_mem_remap(mem))
 		goto err;
 
+	task_args->breakpoint = &current->rst->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
 	task_args->rst_mem = mem;

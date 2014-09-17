@@ -54,6 +54,8 @@ struct rst_info {
 	struct file_desc	*root;
 	bool			has_umask;
 	u32			umask;
+
+	void			*breakpoint;
 };
 
 #endif /* __CR_RST_INFO_H__ */

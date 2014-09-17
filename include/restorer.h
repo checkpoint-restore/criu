@@ -158,6 +158,7 @@ struct task_restore_args {
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 #endif
+	void				**breakpoint;
 } __aligned(64);
 
 #define RESTORE_ALIGN_STACK(start, size)	\
