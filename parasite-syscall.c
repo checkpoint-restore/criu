@@ -863,16 +863,16 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 	}
 
+	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl);
+	close_safe(&ctl->tsock);
+	if (ret)
+		return -1;
+
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
 		pr_perror("ptrace");
 		return -1;
 	}
-
-	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl);
-	close_safe(&ctl->tsock);
-	if (ret)
-		return -1;
 
 	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn))
 		return -1;
