@@ -912,10 +912,6 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr)
 		}
 
 		pr_debug("%d was trapped\n", pid);
-		if (!WIFSTOPPED(status)) {
-			pr_err("%d\n", status);
-			return -1;
-		}
 		ret = ptrace_get_regs(pid, &regs);
 		if (ret) {
 			pr_perror("ptrace");
