@@ -1,4 +1,10 @@
+enum remap_type {
+  LINKED		= 0;
+  GHOST 		= 1;
+};
+
 message remap_file_path_entry {
 	required uint32		orig_id		= 1;
 	required uint32		remap_id	= 2;
+	optional remap_type	remap_type	= 3;
 }

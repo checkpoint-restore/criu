@@ -131,7 +131,6 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	int ifd;
 	char *root;
 
-	rfe->remap_id &= ~REMAP_GHOST;
 	list_for_each_entry(gf, &ghost_files, list)
 		if (gf->id == rfe->remap_id)
 			goto gf_found;
@@ -246,10 +245,29 @@ static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 	rfi = container_of(fdesc, struct reg_file_info, d);
 	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
 
-	if (rfe->remap_id & REMAP_GHOST)
-		ret = open_remap_ghost(rfi, rfe);
-	else
+
+	if (!rfe->has_remap_type) {
+		rfe->has_remap_type = true;
+		/* backward compatibility with images */
+		if (rfe->remap_id & REMAP_GHOST) {
+			rfe->remap_id &= ~REMAP_GHOST;
+			rfe->remap_type = REMAP_TYPE__GHOST;
+		} else
+			rfe->remap_type = REMAP_TYPE__LINKED;
+	}
+
+	switch (rfe->remap_type) {
+	case REMAP_TYPE__LINKED:
 		ret = open_remap_linked(rfi, rfe);
+		break;
+	case REMAP_TYPE__GHOST:
+		ret = open_remap_ghost(rfi, rfe);
+		break;
+	default:
+		pr_err("unknown remap type %u\n", rfe->remap_type);
+		goto out;
+	}
+
 out:
 	return ret;
 }
@@ -375,10 +393,10 @@ static int dump_ghost_remap(char *path, const struct stat *st,
 		return -1;
 
 dump_entry:
-	BUG_ON(gf->id & REMAP_GHOST);
-
 	rpe.orig_id = id;
-	rpe.remap_id = gf->id | REMAP_GHOST;
+	rpe.remap_id = gf->id;
+	rpe.has_remap_type = true;
+	rpe.remap_type = REMAP_TYPE__GHOST;
 
 	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
 			&rpe, PB_REMAP_FPATH);
