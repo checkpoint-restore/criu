@@ -95,6 +95,9 @@ static int prepare_posix_timers(int pid, CoreEntry *core);
 static int prepare_signals(int pid, CoreEntry *core);
 
 static int root_as_sibling;
+static pid_t *helpers = NULL;
+static unsigned long helpers_pos = 0;
+static int n_helpers = 0;
 
 static int crtools_prepare_shared(void)
 {
@@ -698,30 +701,29 @@ err:
 	return ret;
 }
 
-static int pstree_wait_helpers()
+static int collect_helper_pids()
 {
 	struct pstree_item *pi;
 
 	list_for_each_entry(pi, &current->children, sibling) {
-		int status, ret;
 
 		if (pi->state != TASK_HELPER)
 			continue;
 
-		/* Check, that a helper completed. */
-		ret = waitpid(pi->pid.virt, &status, 0);
-		if (ret == -1) {
-			if (errno == ECHILD)
-				continue; /* It has been waited in sigchld_handler */
-			pr_err("waitpid(%d) failed\n", pi->pid.virt);
-			return -1;
-		}
-		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_err("%d exited with non-zero code (%d,%d)\n", pi->pid.virt,
-				WEXITSTATUS(status), WTERMSIG(status));
-			return -1;
+		if (helpers) {
+			void *m;
+			m = rst_mem_alloc(sizeof(*helpers) * ++n_helpers, RM_PRIVATE);
+			if (!m)
+				return -1;
+		} else {
+			helpers_pos = rst_mem_cpos(RM_PRIVATE);
+			helpers = rst_mem_alloc(sizeof(*helpers), RM_PRIVATE);
+			if (!helpers)
+				return -1;
+			n_helpers = 1;
 		}
 
+		helpers[n_helpers - 1] = pi->pid.virt;
 	}
 
 	return 0;
@@ -770,9 +772,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	rst_mem_switch_to_private();
 
-	if (pstree_wait_helpers())
-		return -1;
-
 	if (prepare_fds(current))
 		return -1;
 
@@ -792,6 +791,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_rlimits(pid, core) < 0)
+		return -1;
+
+	if (collect_helper_pids() < 0)
 		return -1;
 
 	return sigreturn_restore(pid, core);
@@ -931,9 +933,10 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_alive_task(pid, core);
 	else if (current->state == TASK_DEAD)
 		ret = restore_one_zombie(pid, core);
-	else if (current->state == TASK_HELPER)
+	else if (current->state == TASK_HELPER) {
+		restore_finish_stage(CR_STATE_RESTORE);
 		ret = 0;
-	else {
+	} else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
 	}
@@ -1496,6 +1499,7 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_FORKING:
 		return task_entries->nr_tasks + task_entries->nr_helpers;
 	case CR_STATE_RESTORE:
+		return task_entries->nr_threads + task_entries->nr_helpers;
 	case CR_STATE_RESTORE_SIGCHLD:
 		return task_entries->nr_threads;
 	case CR_STATE_RESTORE_CREDS:
@@ -2711,6 +2715,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->tcp_socks_nr = rst_tcp_socks_nr;
 	task_args->tcp_socks = rst_mem_remap_ptr(tcp_socks, RM_PRIVATE);
+
+	task_args->n_helpers = n_helpers;
+	if (n_helpers > 0)
+		task_args->helpers = rst_mem_remap_ptr(helpers_pos, RM_PRIVATE);
+	else
+		task_args->helpers = NULL;
 
 	/*
 	 * Arguments for task restoration.
