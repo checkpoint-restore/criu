@@ -1426,6 +1426,9 @@ static int restore_task_with_children(void *_arg)
 
 		if (root_prepare_shared())
 			goto err_fini_mnt;
+
+		if (restore_finish_stage(CR_STATE_RESTORE_SHARED) < 0)
+			goto err_fini_mnt;
 	}
 
 	if (prepare_mappings(pid))
@@ -1495,6 +1498,7 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_FAIL:
 		return 0;
 	case CR_STATE_RESTORE_NS:
+	case CR_STATE_RESTORE_SHARED:
 		return 1;
 	case CR_STATE_FORKING:
 		return task_entries->nr_tasks + task_entries->nr_helpers;
@@ -1706,6 +1710,9 @@ static int restore_root_task(struct pstree_item *init)
 		goto out;
 
 	timing_start(TIME_FORK);
+	ret = restore_switch_stage(CR_STATE_RESTORE_SHARED);
+	if (ret < 0)
+		goto out;
 
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)

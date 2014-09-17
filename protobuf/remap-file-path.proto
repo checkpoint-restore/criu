@@ -1,6 +1,7 @@
 enum remap_type {
   LINKED		= 0;
   GHOST 		= 1;
+  PROCFS		= 2;
 };
 
 message remap_file_path_entry {

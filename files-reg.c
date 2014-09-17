@@ -24,6 +24,7 @@
 #include "asm/atomic.h"
 #include "namespaces.h"
 #include "proc_parse.h"
+#include "pstree.h"
 
 #include "protobuf.h"
 #include "protobuf/regfile.pb-c.h"
@@ -226,6 +227,36 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	return 0;
 }
 
+static int open_remap_dead_process(struct reg_file_info *rfi,
+		RemapFilePathEntry *rfe)
+{
+	struct pstree_item *helper;
+
+	for_each_pstree_item(helper) {
+		/* don't need to add multiple tasks */
+		if (helper->pid.virt == rfe->remap_id) {
+			pr_info("Skipping helper for restoring /proc/%d; pid exists\n", rfe->remap_id);
+			return 0;
+		}
+	}
+
+	helper = alloc_pstree_item_with_rst();
+	if (!helper)
+		return -1;
+
+	helper->sid = root_item->sid;
+	helper->pgid = root_item->pgid;
+	helper->pid.virt = rfe->remap_id;
+	helper->state = TASK_HELPER;
+	helper->parent = root_item;
+	list_add_tail(&helper->sibling, &root_item->children);
+	task_entries->nr_helpers++;
+
+	pr_info("Added a helper for restoring /proc/%d\n", helper->pid.virt);
+
+	return 0;
+}
+
 static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 {
 	int ret = -1;
@@ -262,6 +293,9 @@ static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 		break;
 	case REMAP_TYPE__GHOST:
 		ret = open_remap_ghost(rfi, rfe);
+		break;
+	case REMAP_TYPE__PROCFS:
+		ret = open_remap_dead_process(rfi, rfe);
 		break;
 	default:
 		pr_err("unknown remap type %u\n", rfe->remap_type);
@@ -516,6 +550,20 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 			&rpe, PB_REMAP_FPATH);
 }
 
+static int dump_dead_process_remap(pid_t pid, char *path, int len, const struct stat *ost,
+				int lfd, u32 id, struct ns_id *nsid)
+{
+	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
+
+	rpe.orig_id = id;
+	rpe.remap_id = pid;
+	rpe.has_remap_type = true;
+	rpe.remap_type = REMAP_TYPE__PROCFS;
+
+	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+			&rpe, PB_REMAP_FPATH);
+}
+
 static bool is_sillyrename_name(char *name)
 {
 	int i;
@@ -556,6 +604,38 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 	int ret, mntns_root;
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
+
+	if (parms->fs_type == PROC_SUPER_MAGIC) {
+		/* The file points to /proc/pid/<foo> where pid is a dead
+		 * process. We remap this file by adding this pid to be
+		 * fork()ed into a TASK_HELPER state so that we can point to it
+		 * on restore.
+		 */
+		pid_t pid;
+		char *start, *end;
+
+		/* skip "./proc/" */
+		start = strstr(rpath, "/") + 1;
+		if (!start)
+			return -1;
+		start = strstr(start, "/") + 1;
+		if (!start)
+			return -1;
+		pid = strtol(start, &end, 10);
+
+		/* if we didn't find another /, this path something
+		 * like ./proc/kmsg, which we shouldn't mess with. */
+		if (*end == '/') {
+			*end = 0;
+			ret = access(rpath, F_OK);
+			*end = '/';
+
+			if (ret) {
+				pr_info("Dumping dead process remap of %d\n", pid);
+				return dump_dead_process_remap(pid, rpath + 1, plen - 1, ost, lfd, id, nsid);
+			}
+		}
+	}
 
 	if (ost->st_nlink == 0)
 		/*
