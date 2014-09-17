@@ -749,10 +749,8 @@ err:
 
 static int parse_children(pid_t pid, pid_t **_c, int *_n)
 {
-	FILE *file;
-	char *tok;
 	pid_t *ch = NULL;
-	int nr = 1;
+	int nr = 0;
 	DIR *dir;
 	struct dirent *de;
 
@@ -761,33 +759,45 @@ static int parse_children(pid_t pid, pid_t **_c, int *_n)
 		return -1;
 
 	while ((de = readdir(dir))) {
+		int fd, len;
+		char *pos;
+
 		if (dir_dots(de))
 			continue;
 
-		file = fopen_proc(pid, "task/%s/children", de->d_name);
-		if (!file)
+		fd = open_proc(pid, "task/%s/children", de->d_name);
+		if (fd < 0)
 			goto err;
 
-		if (!(fgets(loc_buf, sizeof(loc_buf), file)))
-			loc_buf[0] = 0;
+		len = read(fd, loc_buf, sizeof(loc_buf));
+		close(fd);
+		if (len < 0)
+			goto err;
 
-		fclose(file);
+		loc_buf[len] = '\0';
+		pos = loc_buf;
+		while (1) {
+			pid_t val, *tmp;
 
-		tok = strtok(loc_buf, " \n");
-		while (tok) {
-			pid_t *tmp = xrealloc(ch, nr * sizeof(pid_t));
+			val = strtol(pos, &pos, 0);
+			if (!val) {
+				BUG_ON(*pos != '\0');
+				break;
+			}
+
+			tmp = xrealloc(ch, (nr + 1) * sizeof(pid_t));
 			if (!tmp)
 				goto err;
-			ch = tmp;
-			ch[nr - 1] = atoi(tok);
-			nr++;
-			tok = strtok(NULL, " \n");
-		}
 
+			ch = tmp;
+			ch[nr] = val;
+			nr++;
+			pos++; /* space goes after each pid */
+		}
 	}
 
 	*_c = ch;
-	*_n = nr - 1;
+	*_n = nr;
 
 	closedir(dir);
 	return 0;
