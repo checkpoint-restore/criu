@@ -258,6 +258,7 @@ int cr_page_server(bool daemon_mode, int cfd)
 {
 	int sk = -1, ask = -1, ret;
 	struct sockaddr_in saddr, caddr;
+	socklen_t slen = sizeof(saddr);
 	socklen_t clen = sizeof(caddr);
 
 	up_page_ids_base();
@@ -280,7 +281,7 @@ int cr_page_server(bool daemon_mode, int cfd)
 	if (get_sockaddr_in(&saddr))
 		goto out;
 
-	if (bind(sk, (struct sockaddr *)&saddr, sizeof(saddr))) {
+	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
 		pr_perror("Can't bind page server");
 		goto out;
 	}
@@ -288,6 +289,17 @@ int cr_page_server(bool daemon_mode, int cfd)
 	if (listen(sk, 1)) {
 		pr_perror("Can't listen on page server socket");
 		goto out;
+	}
+
+	/* Get socket port in case of autobind */
+	if (opts.ps_port == 0) {
+		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
+			pr_perror("Can't get page server name");
+			goto out;
+		}
+
+		opts.ps_port = ntohs(saddr.sin_port);
+		pr_info("Using %u port\n", opts.ps_port);
 	}
 
 no_server:
