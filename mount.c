@@ -2087,11 +2087,12 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 			 * Otherwise, the necessary list of mounts
 			 * will be collected below.
 			 */
-			if (!(root_ns_mask & CLONE_NEWNS)) {
-				mntinfo = collect_mntinfo(ns);
-				if (mntinfo == NULL)
-					goto err;
-			}
+			if ((root_ns_mask & CLONE_NEWNS))
+				continue;
+
+			mntinfo = collect_mntinfo(ns);
+			if (mntinfo == NULL)
+				goto err;
 			/*
 			 * Mount namespaces are dumped only if the root task lives in
 			 * its own mntns, so we can stop enumeration of namespaces.
