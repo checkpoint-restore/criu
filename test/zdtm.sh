@@ -291,7 +291,7 @@ git://git.kernel.org/pub/scm/linux/kernel/git/gorcunov/linux-cr.git
 ===================================================================
 EOF
 
-	set -- `uname -r | sed 's/\./ /g'`
+	set -- `uname -r | sed 's/[\.-]/ /g'`
 
 	[ $1 -gt 3 ] && return 0
 	[ $1 -eq 3 -a $2 -ge 11 ] && return 0
