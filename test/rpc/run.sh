@@ -64,4 +64,7 @@ title_print "Run restore-loop"
 ../restore-loop.py || _exit $?
 kill -SIGTERM ${P}
 
+title_print "Run ps_test"
+../ps_test.py || _exit $?
+
 _exit 0
