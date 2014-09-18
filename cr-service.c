@@ -517,11 +517,6 @@ static int start_page_server_req(int sk, CriuOpts *req)
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
 	struct ps_info info;
 
-	if (!req->ps) {
-		pr_err("No page server info in message\n");
-		goto out;
-	}
-
 	if (pipe(start_pipe)) {
 		pr_perror("No start pipe");
 		goto out;
