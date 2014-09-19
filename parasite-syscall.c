@@ -827,6 +827,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	pid_t pid = ctl->pid.real;
 	user_regs_struct_t regs;
 	int status, ret = 0;
+	enum trace_flags flag;
 
 	/* stop getting chld from parasite -- we're about to step-by-step it */
 	if (restore_child_handler())
@@ -873,27 +874,20 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	ret = ptrace_set_breakpoint(pid, ctl->sigreturn_addr);
 	if (ret < 0)
 		return ret;
-	if (ret > 0) {
-		pid = wait4(pid, &status, __WALL, NULL);
-		if (pid == -1) {
-			pr_perror("wait4 failed");
-			return -1;
+	if (ret > 0)
+		flag = TRACE_EXIT;
+	else {
+		/* Start tracing syscalls */
+		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+		if (ret) {
+		       pr_perror("ptrace");
+		       return -1;
 		}
 
-		if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
-			pr_err("Task is in unexpected state: %x\n", status);
-			return -1;
-		}
+		flag = TRACE_ENTER;
 	}
 
-	/* Start tracing syscalls */
-	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-	if (ret) {
-		pr_perror("ptrace");
-		return -1;
-	}
-
-	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn))
+	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn, flag))
 		return -1;
 
 	/*
@@ -905,28 +899,20 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	return 0;
 }
 
-#define TRACE_ALL	1
-#define TRACE_ENTER	2
-#define TRACE_EXIT	3
-
 /*
  * Trap tasks on the exit from the specified syscall
  *
  * tasks - number of processes, which should be trapped
  * sys_nr - the required syscall number
  */
-int parasite_stop_on_syscall(int tasks, const int sys_nr)
+int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace)
 {
 	user_regs_struct_t regs;
 	int status, ret;
 	pid_t pid;
-	/*
-	 * The PTRACE_SYSCALL will trap task twice -- on
-	 * enter into and on exit from syscall. If we trace
-	 * a single task, we may skip half of all getregs
-	 * calls -- on exit we don't need them.
-	 */
-	int trace = (tasks == 1 ? TRACE_ENTER : TRACE_ALL);
+
+	if (tasks > 1)
+		trace = TRACE_ALL;
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (tasks) {
@@ -1061,7 +1047,7 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	if (ret)
 		goto err;
 
-	ret = parasite_stop_on_syscall(1, __NR_munmap);
+	ret = parasite_stop_on_syscall(1, __NR_munmap, TRACE_ENTER);
 
 	if (restore_thread_ctx(pid, &ctl->orig))
 		ret = -1;

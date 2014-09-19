@@ -1540,7 +1540,7 @@ static int restore_switch_stage(int next_stage)
 	return restore_wait_inprogress_tasks();
 }
 
-static int attach_to_tasks(bool root_seized)
+static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 {
 	struct pstree_item *item;
 
@@ -1584,9 +1584,14 @@ static int attach_to_tasks(bool root_seized)
 				return -1;
 
 			/* A breakpoint was not set */
-			if (ret == 0 && ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
-				pr_perror("Unable to start %d", pid);
-				return -1;
+			if (ret > 0)
+				*flag = TRACE_EXIT;
+			else {
+				*flag = TRACE_ENTER;
+				if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
+					pr_perror("Unable to start %d", pid);
+					return -1;
+				}
 			}
 		}
 	}
@@ -1644,6 +1649,7 @@ static void ignore_kids(void)
 
 static int restore_root_task(struct pstree_item *init)
 {
+	enum trace_flags flag = TRACE_ALL;
 	int ret, fd;
 
 	fd = open("/proc", O_DIRECTORY | O_RDONLY);
@@ -1760,13 +1766,14 @@ static int restore_root_task(struct pstree_item *init)
 
 	timing_stop(TIME_RESTORE);
 
-	ret = attach_to_tasks(root_as_sibling);
+	ret = attach_to_tasks(root_as_sibling, &flag);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (ret == 0)
-		ret = parasite_stop_on_syscall(task_entries->nr_threads, __NR_rt_sigreturn);
+		ret = parasite_stop_on_syscall(task_entries->nr_threads,
+						__NR_rt_sigreturn, flag);
 
 	/*
 	 * finalize_restore() always detaches from processes and

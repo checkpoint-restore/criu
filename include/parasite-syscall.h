@@ -125,7 +125,19 @@ extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
 #endif
 
-extern int parasite_stop_on_syscall(int tasks, int sys_nr);
+/*
+ * The PTRACE_SYSCALL will trap task twice -- on
+ * enter into and on exit from syscall. If we trace
+ * a single task, we may skip half of all getregs
+ * calls -- on exit we don't need them.
+ */
+enum trace_flags {
+	TRACE_ALL,
+	TRACE_ENTER,
+	TRACE_EXIT,
+};
+
+extern int parasite_stop_on_syscall(int tasks, int sys_nr, enum trace_flags trace);
 extern int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */
