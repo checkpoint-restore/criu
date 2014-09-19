@@ -23,7 +23,7 @@
 #include "kerndat.h"
 #include "vdso.h"
 #include "vma.h"
-
+#include "bfd.h"
 #include "proc_parse.h"
 #include "cr_options.h"
 #include "sysfs_parse.h"
@@ -1080,7 +1080,7 @@ static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 	}
 }
 
-static int parse_timerfd(FILE *f, char *buf, size_t size, TimerfdEntry *tfy)
+static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 {
 	/*
 	 * Format is
@@ -1093,26 +1093,30 @@ static int parse_timerfd(FILE *f, char *buf, size_t size, TimerfdEntry *tfy)
 	if (sscanf(buf, "clockid: %d", &tfy->clockid) != 1)
 		goto parse_err;
 
-	if (!fgets(buf, size, f))
+	str = breadline(f);
+	if (str == NULL || str == BREADERR)
 		goto nodata;
-	if (sscanf(buf, "ticks: %llu", (unsigned long long *)&tfy->ticks) != 1)
+	if (sscanf(str, "ticks: %llu", (unsigned long long *)&tfy->ticks) != 1)
 		goto parse_err;
 
-	if (!fgets(buf, size, f))
+	str = breadline(f);
+	if (str == NULL || str == BREADERR)
 		goto nodata;
-	if (sscanf(buf, "settime flags: 0%o", &tfy->settime_flags) != 1)
+	if (sscanf(str, "settime flags: 0%o", &tfy->settime_flags) != 1)
 		goto parse_err;
 
-	if (!fgets(buf, size, f))
+	str = breadline(f);
+	if (str == NULL || str == BREADERR)
 		goto nodata;
-	if (sscanf(buf, "it_value: (%llu, %llu)",
+	if (sscanf(str, "it_value: (%llu, %llu)",
 		   (unsigned long long *)&tfy->vsec,
 		   (unsigned long long *)&tfy->vnsec) != 2)
 		goto parse_err;
 
-	if (!fgets(buf, size, f))
+	str = breadline(f);
+	if (str == NULL || str == BREADERR)
 		goto nodata;
-	if (sscanf(buf, "it_interval: (%llu, %llu)",
+	if (sscanf(str, "it_interval: (%llu, %llu)",
 		   (unsigned long long *)&tfy->isec,
 		   (unsigned long long *)&tfy->insec) != 2)
 		goto parse_err;
@@ -1130,19 +1134,28 @@ nodata:
 static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
-	FILE *f;
-	char str[256];
+	struct bfd f;
+	char *str;
 	bool entry_met = false;
 	int ret = -1;
 
-	f = fopen_proc(pid, "fdinfo/%d", fd);
-	if (!f) {
-		pr_perror("Can't open %s to parse", str);
+	f.fd = open_proc(pid, "fdinfo/%d", fd);
+	if (f.fd < 0) {
+		pr_perror("Can't open fdinfo/%d to parse", fd);
 		return -1;
 	}
 
-	while (fgets(str, sizeof(str), f)) {
+	if (bfdopen(&f))
+		return -1;
+
+	while (1) {
 		union fdinfo_entries entry;
+
+		str = breadline(&f);
+		if (!str)
+			break;
+		if (str == BREADERR)
+			goto out;
 
 		if (fdinfo_field(str, "pos") ||
 		    fdinfo_field(str, "flags") ||
@@ -1191,7 +1204,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 			if (type != FD_TYPES__TIMERFD)
 				goto parse_err;
-			ret = parse_timerfd(f, str, sizeof(str), &entry.tfy);
+			ret = parse_timerfd(&f, str, &entry.tfy);
 			if (ret)
 				goto parse_err;
 			ret = cb(&entry, arg);
@@ -1394,7 +1407,7 @@ parse_err:
 	ret = -1;
 	pr_perror("%s: error parsing [%s] for %d", __func__, str, type);
 out:
-	fclose(f);
+	bclose(&f);
 	return ret;
 }
 
