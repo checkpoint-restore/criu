@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# If a controller is created during dumping processes, criu may fail with error:
+# Error (cgroup.c:768): cg: Set 3 is not subset of 2
+# so lets create all test controllers before executing tests.
+
+cat /proc/self/cgroup | grep zdtmtst.defaultroot && exit
+
+tdir=`mktemp -d zdtm.XXXXXX`
+for i in "zdtmtst" "zdtmtst.defaultroot"; do
+	mount -t cgroup -o none,name=$i zdtm $tdir &&
+	# a fake group prevents destroying of a controller
+	mkdir $tdir/holder &&
+	umount $tdir || exit 1
+done
+rmdir $tdir

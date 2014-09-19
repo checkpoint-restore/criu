@@ -42,7 +42,10 @@ clean:
 	$(Q) $(MAKE) -C libcriu clean
 	$(Q) $(MAKE) -C rpc clean
 
-$(TST): zdtm_ct
+mount_cgroups: .FORCE
+	flock zdtm_mount_cgroups ./zdtm_mount_cgroups
+
+$(TST): zdtm_ct mount_cgroups .FORCE
 	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
 	{ flock Makefile cat $(subst /,_,$@).log; exit 1; }
 .PHONY: zdtm_ns
