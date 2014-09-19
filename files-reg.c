@@ -550,10 +550,49 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 			&rpe, PB_REMAP_FPATH);
 }
 
+static int have_seen_dead_pid(pid_t pid)
+{
+	static pid_t *dead_pids = NULL;
+	static int n_dead_pids = 0;
+
+	if (dead_pids) {
+		int i;
+		void *m;
+
+		for (i = 0; i < n_dead_pids; i++)
+			if (dead_pids[i] == pid)
+				return 1;
+
+		m = realloc(dead_pids, sizeof(*dead_pids) * (n_dead_pids + 1));
+		if (!m)
+			return -1;
+
+		dead_pids = m;
+		dead_pids[n_dead_pids++] = pid;
+	} else {
+		dead_pids = malloc(sizeof(*dead_pids));
+		if (!dead_pids)
+			return -1;
+		*dead_pids = pid;
+		n_dead_pids++;
+	}
+
+	return 0;
+}
+
 static int dump_dead_process_remap(pid_t pid, char *path, int len, const struct stat *ost,
 				int lfd, u32 id, struct ns_id *nsid)
 {
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
+	int ret;
+
+	ret = have_seen_dead_pid(pid);
+	if (ret < 0)
+		return -1;
+	if (ret) {
+		pr_info("Found dead pid %d already, skipping remap\n", pid);
+		return 0;
+	}
 
 	rpe.orig_id = id;
 	rpe.remap_id = pid;
