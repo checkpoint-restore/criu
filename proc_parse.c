@@ -1573,8 +1573,8 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	int ret = 0;
 	int pid_t;
 
-	FILE * file;
-
+	struct bfd f;
+	char *s;
 	char sigpid[7];
 	char tidpid[4];
 
@@ -1583,40 +1583,48 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	INIT_LIST_HEAD(&args->timers);
 	args->timer_n = 0;
 
-	file = fopen_proc(pid, "timers");
-	if (file == NULL) {
+	f.fd = open_proc(pid, "timers");
+	if (f.fd < 0) {
 		pr_perror("Can't open posix timers file!");
 		return -1;
 	}
 
+	if (bfdopen(&f))
+		return -1;
+
 	while (1) {
 		char pbuf[17]; /* 16 + eol */
+
 		timer = xzalloc(sizeof(struct proc_posix_timer));
 		if (timer == NULL)
 			goto err;
 
-		ret = fscanf(file, "ID: %ld\n"
-				   "signal: %d/%16s\n"
-				   "notify: %6[a-z]/%3[a-z].%d\n"
-				   "ClockID: %d\n",
-				&timer->spt.it_id,
-				&timer->spt.si_signo, pbuf,
-				sigpid, tidpid, &pid_t,
-				&timer->spt.clock_id);
-		if (ret != 7) {
-			ret = 0;
-			xfree(timer);
-			if (feof(file))
-				goto out;
+		if (!(s = breadline(&f)))
+			goto out;
+		if (sscanf(s, "ID: %ld",
+					&timer->spt.it_id) != 1)
 			goto err;
-		}
+		if (!(s = breadline(&f)))
+			goto err;
+		if (sscanf(s, "signal: %d/%16s",
+					&timer->spt.si_signo, pbuf) != 2)
+			goto err;
+		if (!(s = breadline(&f)))
+			goto err;
+		if (sscanf(s, "notify: %6[a-z]/%3[a-z].%d\n",
+					sigpid, tidpid, &pid_t) != 3)
+			goto err;
+		if (!(s = breadline(&f)))
+			goto err;
+		if (sscanf(s, "ClockID: %d\n",
+				&timer->spt.clock_id) != 1)
+			goto err;
 
 		timer->spt.sival_ptr = NULL;
 		if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
 		    strcmp(pbuf, "(null)")) {
 			pr_err("Unable to parse '%s'\n", pbuf);
-			xfree(timer);
-			goto err;
+			goto errf;
 		}
 
 		if ( tidpid[0] == 't') {
@@ -1639,12 +1647,15 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		timer = NULL;
 		args->timer_n++;
 	}
+
+errf:
+	xfree(timer);
 err:
 	free_posix_timers(args);
 	pr_perror("Parse error in posix timers proc file!");
 	ret = -1;
 out:
-	fclose(file);
+	bclose(&f);
 	return ret;
 }
 
