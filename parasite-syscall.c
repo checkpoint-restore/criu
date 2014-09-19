@@ -890,6 +890,9 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn, flag))
 		return -1;
 
+	if (ptrace_flush_breakpoints(pid))
+		return -1;
+
 	/*
 	 * All signals are unblocked now. The kernel notifies about leaving
 	 * syscall before starting to deliver signals. All parasite code are

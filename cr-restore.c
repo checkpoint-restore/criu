@@ -1599,6 +1599,18 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 	return 0;
 }
 
+static int clear_breakpoints()
+{
+	struct pstree_item *item;
+	int ret = 0, i;
+
+	for_each_pstree_item(item)
+		for (i = 0; i < item->nr_threads; i++)
+			ret |= ptrace_flush_breakpoints(item->threads[i].real);
+
+	return ret;
+}
+
 static void finalize_restore(int status)
 {
 	struct pstree_item *item;
@@ -1774,6 +1786,9 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret == 0)
 		ret = parasite_stop_on_syscall(task_entries->nr_threads,
 						__NR_rt_sigreturn, flag);
+
+	if (clear_breakpoints())
+		pr_err("Unable to flush breakpoints\n");
 
 	/*
 	 * finalize_restore() always detaches from processes and
