@@ -284,8 +284,6 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	return 0;
 }
 
-static char smaps_buf[PAGE_SIZE];
-
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
 {
 	struct vma_area *vma_area = NULL;
@@ -296,18 +294,19 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	struct vma_file_info prev_vfi = {};
 
 	DIR *map_files_dir = NULL;
-	FILE *smaps = NULL;
+	struct bfd f;
 
 	vma_area_list->nr = 0;
 	vma_area_list->longest = 0;
 	vma_area_list->priv_size = 0;
 	INIT_LIST_HEAD(&vma_area_list->h);
 
-	smaps = fopen_proc(pid, "smaps");
-	if (!smaps)
-		goto err;
+	f.fd = open_proc(pid, "smaps");
+	if (f.fd < 0)
+		goto err_n;
 
-	setvbuf(smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
+	if (bfdopen(&f))
+		goto err_n;
 
 	if (use_map_files) {
 		map_files_dir = opendir_proc(pid, "map_files");
@@ -319,11 +318,13 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		int num;
 		char file_path[6];
 		bool eof;
+		char *str;
 
-		eof = (fgets(buf, BUF_SIZE, smaps) == NULL);
+		str = breadline(&f);
+		eof = (str == NULL);
 
-		if (!eof && !is_vma_range_fmt(buf)) {
-			if (!strncmp(buf, "Nonlinear", 9)) {
+		if (!eof && !is_vma_range_fmt(str)) {
+			if (!strncmp(str, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
 				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
 				       vma_area->e->start, vma_area->e->end);
@@ -333,9 +334,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				 */
 				vma_area = NULL;
 				goto err;
-			} else if (!strncmp(buf, "VmFlags: ", 9)) {
+			} else if (!strncmp(str, "VmFlags: ", 9)) {
 				BUG_ON(!vma_area);
-				if (parse_vmflags(&buf[9], vma_area))
+				if (parse_vmflags(&str[9], vma_area))
 					goto err;
 				continue;
 			} else
@@ -377,11 +378,11 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			goto err;
 
 		memset(file_path, 0, 6);
-		num = sscanf(buf, "%lx-%lx %c%c%c%c %lx %x:%x %lu %5s",
+		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %5s",
 			     &start, &end, &r, &w, &x, &s, &pgoff,
 			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, file_path);
 		if (num < 10) {
-			pr_err("Can't parse: %s\n", buf);
+			pr_err("Can't parse: %s\n", str);
 			goto err;
 		}
 
@@ -411,9 +412,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 		if (vma_area->e->status != 0) {
 			continue;
-		} else if (strstr(buf, "[vsyscall]") || strstr(buf, "[vectors]")) {
+		} else if (strstr(str, "[vsyscall]") || strstr(str, "[vectors]")) {
 			vma_area->e->status |= VMA_AREA_VSYSCALL;
-		} else if (strstr(buf, "[vdso]")) {
+		} else if (strstr(str, "[vdso]")) {
 #ifdef CONFIG_VDSO
 			vma_area->e->status |= VMA_AREA_REGULAR;
 			if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
@@ -422,7 +423,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			pr_warn_once("Found vDSO area without support\n");
 			goto err;
 #endif
-		} else if (strstr(buf, "[vvar]")) {
+		} else if (strstr(str, "[vvar]")) {
 #ifdef CONFIG_VDSO
 			vma_area->e->status |= VMA_AREA_REGULAR;
 			if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
@@ -431,7 +432,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			pr_warn_once("Found VVAR area without support\n");
 			goto err;
 #endif
-		} else if (strstr(buf, "[heap]")) {
+		} else if (strstr(str, "[heap]")) {
 			vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {
 			vma_area->e->status = VMA_AREA_REGULAR;
@@ -522,9 +523,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	ret = 0;
 
 err:
-	if (smaps)
-		fclose(smaps);
-
+	bclose(&f);
+err_n:
 	if (map_files_dir)
 		closedir(map_files_dir);
 
