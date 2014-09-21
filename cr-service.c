@@ -503,13 +503,19 @@ static int pre_dump_loop(int sk, CriuReq *msg)
 	return dump_using_req(sk, msg->opts);
 }
 
+struct ps_info {
+	int pid;
+	unsigned short port;
+};
+
 static int start_page_server_req(int sk, CriuOpts *req)
 {
-	int ret, pid, start_pipe[2];
+	int ret = -1, pid, start_pipe[2];
 	ssize_t count;
 	bool success = false;
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuPageServerInfo ps = CRIU_PAGE_SERVER_INFO__INIT;
+	struct ps_info info;
 
 	if (!req->ps) {
 		pr_err("No page server info in message\n");
@@ -532,27 +538,48 @@ static int start_page_server_req(int sk, CriuOpts *req)
 
 		pr_debug("Starting page server\n");
 
-		ret = cr_page_server(true, start_pipe[1]);
+		pid = cr_page_server(true, start_pipe[1]);
+		if (pid <= 0)
+			goto out_ch;
+
+		info.pid = pid;
+		info.port = opts.ps_port;
+
+		count = write(start_pipe[1], &info, sizeof(info));
+		if (count != sizeof(info))
+			goto out_ch;
+
+		ret = 0;
 out_ch:
-		count = write(start_pipe[1], &ret, sizeof(ret));
+		if (ret < 0 && pid > 0)
+			kill(pid, SIGKILL);
 		close(start_pipe[1]);
-		if (count != sizeof(ret))
-			exit(1);
-		exit(0);
+		exit(ret);
 	}
 
 	close(start_pipe[1]);
-	wait(NULL);
-	ret = -1;
-	count = read(start_pipe[0], &ret, sizeof(ret));
-	if (count != sizeof(ret))
-		success = false;
-	else if (ret > 0) {
-		success = true;
-		ps.has_pid = true;
-		ps.pid = ret;
-		resp.ps = &ps;
+	wait(&ret);
+	if (WIFEXITED(ret)) {
+		if (WEXITSTATUS(ret)) {
+			pr_err("Child exited with an error\n");
+			goto out;
+		}
+	} else {
+		pr_err("Child wasn't terminated normally\n");
+		goto out;
 	}
+
+	count = read(start_pipe[0], &info, sizeof(info));
+	close(start_pipe[0]);
+	if (count != sizeof(info))
+		goto out;
+
+	success = true;
+	ps.has_pid = true;
+	ps.pid = info.pid;
+	ps.has_port = true;
+	ps.port = info.port;
+	resp.ps = &ps;
 
 	pr_debug("Page server started\n");
 out:
