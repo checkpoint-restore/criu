@@ -424,27 +424,27 @@ int gen_predump_ns_mask(void)
 
 static int do_dump_namespaces(struct ns_id *ns)
 {
-	int ret = -1;
+	int ret;
+
+	ret = switch_ns(ns->pid, ns->nd, NULL);
+	if (ret)
+		return ret;
 
 	switch (ns->nd->cflag) {
-	case CLONE_NEWPID:
-	case CLONE_NEWNS:
-		ret = 0;
-		break;
 	case CLONE_NEWUTS:
 		pr_info("Dump UTS namespace %d via %d\n",
 				ns->id, ns->pid);
-		ret = dump_uts_ns(ns->pid, ns->id);
+		ret = dump_uts_ns(ns->id);
 		break;
 	case CLONE_NEWIPC:
 		pr_info("Dump IPC namespace %d via %d\n",
 				ns->id, ns->pid);
-		ret = dump_ipc_ns(ns->pid, ns->id);
+		ret = dump_ipc_ns(ns->id);
 		break;
 	case CLONE_NEWNET:
 		pr_info("Dump NET namespace info %d via %d\n",
 				ns->id, ns->pid);
-		ret = dump_net_ns(ns->pid, ns->id);
+		ret = dump_net_ns(ns->id);
 		break;
 	default:
 		pr_err("Unknown namespace flag %x", ns->nd->cflag);
@@ -484,6 +484,14 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 		/* Skip current namespaces, which are in the list too  */
 		if (ns->pid == getpid())
 			continue;
+
+		switch (ns->nd->cflag) {
+			/* No data for pid namespaces to dump */
+			case CLONE_NEWPID:
+			/* Dumped explicitly with dump_mnt_namespaces() */
+			case CLONE_NEWNS:
+				continue;
+		}
 
 		pid = fork();
 		if (pid < 0) {

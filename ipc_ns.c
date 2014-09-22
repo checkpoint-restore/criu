@@ -456,7 +456,7 @@ static int dump_ipc_data(const struct cr_imgset *imgset)
 	return 0;
 }
 
-int dump_ipc_ns(int ns_pid, int ns_id)
+int dump_ipc_ns(int ns_id)
 {
 	int ret;
 	struct cr_imgset *imgset;
@@ -464,10 +464,6 @@ int dump_ipc_ns(int ns_pid, int ns_id)
 	imgset = cr_imgset_open(ns_id, IPCNS, O_DUMP);
 	if (imgset == NULL)
 		return -1;
-
-	ret = switch_ns(ns_pid, &ipc_ns_desc, NULL);
-	if (ret < 0)
-		goto err;
 
 	ret = dump_ipc_data(imgset);
 	if (ret < 0) {

@@ -4,7 +4,7 @@
 #include "list.h"
 
 struct cr_imgset;
-extern int dump_net_ns(int pid, int ns_id);
+extern int dump_net_ns(int ns_id);
 extern int prepare_net_ns(int pid);
 extern int netns_pre_create(void);
 

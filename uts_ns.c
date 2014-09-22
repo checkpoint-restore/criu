@@ -12,7 +12,7 @@
 #include "protobuf.h"
 #include "protobuf/utsns.pb-c.h"
 
-int dump_uts_ns(int ns_pid, int ns_id)
+int dump_uts_ns(int ns_id)
 {
 	int ret;
 	struct cr_img *img;
@@ -22,10 +22,6 @@ int dump_uts_ns(int ns_pid, int ns_id)
 	img = open_image(CR_FD_UTSNS, O_DUMP, ns_id);
 	if (!img)
 		return -1;
-
-	ret = switch_ns(ns_pid, &uts_ns_desc, NULL);
-	if (ret < 0)
-		goto err;
 
 	ret = uname(&ubuf);
 	if (ret < 0) {

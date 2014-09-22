@@ -533,7 +533,7 @@ static int mount_ns_sysfs(void)
 	return ns_sysfs_fd >= 0 ? 0 : -1;
 }
 
-int dump_net_ns(int pid, int ns_id)
+int dump_net_ns(int ns_id)
 {
 	struct cr_imgset *fds;
 	int ret;
@@ -542,9 +542,7 @@ int dump_net_ns(int pid, int ns_id)
 	if (fds == NULL)
 		return -1;
 
-	ret = switch_ns(pid, &net_ns_desc, NULL);
-	if (!ret)
-		ret = mount_ns_sysfs();
+	ret = mount_ns_sysfs();
 	if (!ret)
 		ret = dump_links(fds);
 	if (!ret)
