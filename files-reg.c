@@ -635,6 +635,8 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 				return dump_dead_process_remap(pid, rpath + 1, plen - 1, ost, lfd, id, nsid);
 			}
 		}
+
+		return 0;
 	}
 
 	if (ost->st_nlink == 0)
