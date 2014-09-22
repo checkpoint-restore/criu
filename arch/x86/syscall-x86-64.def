@@ -43,7 +43,7 @@ __NR_setsockopt		54		sys_setsockopt		(int sockfd, int level, int optname, const 
 __NR_getsockopt		55		sys_getsockopt		(int sockfd, int level, int optname, const void *optval, socklen_t *optlen)
 __NR_clone		56		sys_clone		(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid)
 __NR_exit		60		sys_exit		(unsigned long error_code)
-__NR_wait4		61		sys_waitpid		(int pid, int *status, int options, struct rusage *ru)
+__NR_wait4		61		sys_wait4		(int pid, int *status, int options, struct rusage *ru)
 __NR_kill		62		sys_kill		(long pid, int sig)
 __NR_fcntl		72		sys_fcntl		(int fd, int type, long arg)
 __NR_flock		73		sys_flock		(int fd, unsigned long cmd)

@@ -725,7 +725,7 @@ static int wait_helpers(struct task_restore_args *task_args)
 		pid_t pid = task_args->helpers[i];
 
 		/* Check that a helper completed. */
-		if (sys_waitpid(pid, &status, 0, NULL) == -1) {
+		if (sys_wait4(pid, &status, 0, NULL) == -1) {
 			/* It has been waited in sigchld_handler */
 			continue;
 		}
