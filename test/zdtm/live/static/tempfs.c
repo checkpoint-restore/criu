@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	}
 
 	snprintf(fname, sizeof(buf), "%s/test.file", dirname);
-	fdo = open(fname, O_RDWR | O_CREAT);
+	fdo = open(fname, O_RDWR | O_CREAT, 0644);
 	if (fdo < 0) {
 		err("open failed");
 		goto err;
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	mkdir(overmount, 0700);
 
 	snprintf(fname, sizeof(buf), "%s/test.file", overmount);
-	fd = open(fname, O_RDWR | O_CREAT);
+	fd = open(fname, O_RDWR | O_CREAT, 0644);
 	if (fd < 0) {
 		err("open failed");
 		goto err;
