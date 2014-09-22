@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <linux/limits.h>
 
 #include "zdtmtst.h"
 
@@ -15,8 +16,8 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char **argv)
 {
-	char cwd0[256], cwd1[256], cwd2[256];
-	int pid, p[2], aux;
+	char cwd0[PATH_MAX], cwd1[PATH_MAX], cwd2[PATH_MAX];
+	int pid, p[2], aux, aux2;
 
 	test_init(argc, argv);
 
@@ -57,16 +58,27 @@ int main(int argc, char **argv)
 		err("can't get cwd: %m\n");
 		goto cleanup;
 	}
+	if (aux == sizeof(cwd1)) {
+		err("A buffer is too small");
+		goto cleanup;
+	}
 
 	cwd1[aux] = '\0';
 
 	test_daemon();
 	test_waitsig();
 
-	if (readlink("/proc/self/cwd", cwd2, sizeof(cwd2)) < 0) {
+	aux2 = readlink("/proc/self/cwd", cwd2, sizeof(cwd2));
+	if (aux2 < 0) {
 		fail("can't get cwd: %m\n");
 		goto cleanup;
 	}
+	if (aux2 == sizeof(cwd2)) {
+		err("A buffer is too small");
+		goto cleanup;
+	}
+
+	cwd2[aux2] = '\0';
 
 	/* FIXME -- criu adds a suffix to removed cwd */
 	if (strncmp(cwd1, cwd2, aux))
