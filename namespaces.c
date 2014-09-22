@@ -459,7 +459,7 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 {
 	struct pid *ns_pid = &item->pid;
 	struct ns_id *ns;
-	int pid, status;
+	int pid, nr = 0;
 	int ret = 0;
 
 	/*
@@ -496,8 +496,14 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 			exit(ret);
 		}
 
-		ret = waitpid(pid, &status, 0);
-		if (ret != pid) {
+		nr++;
+	}
+
+	while (nr > 0) {
+		int status;
+
+		ret = waitpid(-1, &status, 0);
+		if (ret < 0) {
 			pr_perror("Can't wait ns dumper");
 			return -1;
 		}
@@ -506,6 +512,8 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 			pr_err("Namespaces dumping finished with error %d\n", status);
 			return -1;
 		}
+
+		nr--;
 	}
 
 	pr_info("Namespaces dump complete\n");
