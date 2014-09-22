@@ -975,7 +975,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns)
 {
 	struct mount_info *pm;
 
-	pm = parse_mountinfo(ns->pid, ns);
+	ns->mnt.mntinfo_list = pm = parse_mountinfo(ns->pid, ns);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns->pid);
 		return NULL;
@@ -2133,15 +2133,14 @@ int collect_mnt_namespaces(void)
 
 int dump_mnt_namespaces(void)
 {
-	struct ns_id *nsid = NULL;
-	struct mount_info *m;
+	struct ns_id *nsid;
 	int n = 0;
 
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return 0;
 
-	for (m = mntinfo; m; m = m->next) {
-		if (m->nsid == nsid)
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
 		if (++n == 2 && check_mnt_id()) {
@@ -2150,11 +2149,10 @@ int dump_mnt_namespaces(void)
 			return -1;
 		}
 
-		if (dump_mnt_ns(m->nsid, m))
+		if (dump_mnt_ns(nsid, nsid->mnt.mntinfo_list))
 			return -1;
-
-		nsid = m->nsid;
 	}
+
 	return 0;
 }
 

@@ -18,6 +18,7 @@ struct ns_id {
 	futex_t created; /* boolean */
 	union {
 		struct {
+			struct mount_info *mntinfo_list;
 			struct mount_info *mntinfo_tree;
 		} mnt;
 	};
