@@ -871,21 +871,9 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 
 	/* Go to sigreturn as closer as we can */
-	ret = ptrace_set_breakpoint(pid, ctl->sigreturn_addr);
+	ret = ptrace_stop_pie(pid, ctl->sigreturn_addr, &flag);
 	if (ret < 0)
 		return ret;
-	if (ret > 0)
-		flag = TRACE_EXIT;
-	else {
-		/* Start tracing syscalls */
-		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		if (ret) {
-		       pr_perror("ptrace");
-		       return -1;
-		}
-
-		flag = TRACE_ENTER;
-	}
 
 	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn, flag))
 		return -1;
@@ -1237,4 +1225,35 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 err_restore:
 	parasite_cure_seized(ctl);
 	return NULL;
+}
+
+int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf)
+{
+	int ret;
+
+	ret = ptrace_set_breakpoint(pid, addr);
+	if (ret < 0)
+		return ret;
+
+	if (ret > 0) {
+		/*
+		 * PIE will stop on a breakpoint, next
+		 * stop after that will be syscall enter.
+		 */
+		*tf = TRACE_EXIT;
+		return 0;
+	}
+
+	/*
+	 * No breakpoints available -- start tracing it
+	 * in a per-syscall manner.
+	 */
+	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("ptrace");
+		return -1;
+	}
+
+	*tf = TRACE_ENTER;
+	return 0;
 }

@@ -1579,20 +1579,9 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 				return -1;
 			}
 
-			ret = ptrace_set_breakpoint(pid, item->rst->breakpoint);
+			ret = ptrace_stop_pie(pid, item->rst->breakpoint, flag);
 			if (ret < 0)
 				return -1;
-
-			/* A breakpoint was not set */
-			if (ret > 0)
-				*flag = TRACE_EXIT;
-			else {
-				*flag = TRACE_ENTER;
-				if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL)) {
-					pr_perror("Unable to start %d", pid);
-					return -1;
-				}
-			}
 		}
 	}
 
