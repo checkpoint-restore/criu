@@ -1028,8 +1028,6 @@ static int collect_task(struct pstree_item *item)
 	if (pstree_alloc_cores(item))
 		goto err_close;
 
-	close_pid_proc();
-
 	pr_info("Collected %d in %d state\n", item->pid.real, item->state);
 	return 0;
 
