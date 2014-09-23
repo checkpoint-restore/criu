@@ -1244,7 +1244,7 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 
 				/* +1 for trailing NULL */
 				int newlen = strlen(to) + strlen(cg->path + off) + 1;
-				char *m = malloc(newlen * sizeof(char*));
+				char *m = xmalloc(newlen * sizeof(char*));
 				if (!m)
 					return -1;
 
