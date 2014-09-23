@@ -947,6 +947,8 @@ int prepare_fds(struct pstree_item *me)
 
 	pr_info("Opening fdinfo-s\n");
 
+	close_pid_proc(); /* flush any proc cached fds we may have */
+
 	if (me->rst->fdt) {
 		struct fdt *fdt = me->rst->fdt;
 
