@@ -178,7 +178,6 @@ int close_pid_proc(void)
 void close_proc()
 {
 	close_pid_proc();
-
 	close_service_fd(PROC_FD_OFF);
 }
 
@@ -192,8 +191,8 @@ int set_proc_fd(int fd)
 static int open_proc_sfd(char *path)
 {
 	int fd, ret;
-	close_proc();
 
+	close_proc();
 	fd = open(path, O_DIRECTORY | O_RDONLY);
 	if (fd == -1) {
 		pr_err("Can't open %s\n", path);
@@ -254,8 +253,9 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 {
 	char path[128];
 	va_list args;
-	int dirfd = open_pid_proc(pid);
+	int dirfd;
 
+	dirfd = open_pid_proc(pid);
 	if (dirfd < 0)
 		return -1;
 
