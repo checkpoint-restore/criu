@@ -247,17 +247,6 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 	return 0;
 }
 
-static int get_fd_mntid(int fd, int *mnt_id)
-{
-	struct fdinfo_common fdinfo = { .mnt_id = -1};
-
-	if (parse_fdinfo(fd, FD_TYPES__UND, NULL, &fdinfo))
-		return -1;
-
-	*mnt_id = fdinfo.mnt_id;
-	return 0;
-}
-
 static int fill_fd_params_special(int fd, struct fd_parms *p)
 {
 	*p = FD_PARMS_INIT;
@@ -371,6 +360,7 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 
 	BUG_ON(!vma_area->vmst);
 	p.stat = *vma_area->vmst;
+	p.mnt_id = vma_area->mnt_id;
 
 	/*
 	 * AUFS support to compensate for the kernel bug
@@ -387,9 +377,6 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		aufs_link.len = strlen(aufs_link.name);
 		p.link = &aufs_link;
 	}
-
-	if (get_fd_mntid(vma_area->vm_file_fd, &p.mnt_id))
-		return -1;
 
 	/* Flags will be set during restore in get_filemap_fd() */
 

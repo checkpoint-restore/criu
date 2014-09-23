@@ -214,6 +214,14 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 		vma->vm_file_fd = prev->vm_file_fd;
 		if (prev->e->status & VMA_AREA_SOCKET)
 			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+
+		/*
+		 * FIXME -- in theory there can be vmas that have
+		 * dev:ino match, but live in different mount
+		 * namespaces. However, we only borrow files for
+		 * subsequent vmas. These are _very_ likely to
+		 * have files from the same namespaces.
+		 */
 		vma->file_borrowed = true;
 
 		return 0;
@@ -454,6 +462,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			vma_area->e->status = prev->e->status;
 			vma_area->e->shmid = prev->e->shmid;
 			vma_area->vmst = prev->vmst;
+			vma_area->mnt_id = prev->mnt_id;
 		} else if (vma_area->vm_file_fd >= 0) {
 			struct stat *st_buf;
 
@@ -505,6 +514,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				else
 					vma_area->e->status |= VMA_FILE_SHARED;
 			}
+
+			if (get_fd_mntid(vma_area->vm_file_fd, &vma_area->mnt_id))
+				return -1;
 		} else {
 			/*
 			 * No file but mapping -- anonymous one.
@@ -1421,6 +1433,17 @@ int parse_fdinfo(int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
 	return parse_fdinfo_pid_s(PROC_SELF, fd, type, cb, arg);
+}
+
+int get_fd_mntid(int fd, int *mnt_id)
+{
+	struct fdinfo_common fdinfo = { .mnt_id = -1};
+
+	if (parse_fdinfo(fd, FD_TYPES__UND, NULL, &fdinfo))
+		return -1;
+
+	*mnt_id = fdinfo.mnt_id;
+	return 0;
 }
 
 static int parse_file_lock_buf(char *buf, struct file_lock *fl,

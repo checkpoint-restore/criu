@@ -50,6 +50,7 @@ struct vma_area {
 			 */
 			bool		file_borrowed;
 			struct stat	*vmst;
+			int		mnt_id;
 		};
 
 		struct /* for restore */ {
