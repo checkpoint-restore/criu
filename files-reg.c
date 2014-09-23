@@ -1062,7 +1062,7 @@ int get_filemap_fd(struct vma_area *vma)
 	 * We open file w/o lseek, as mappings don't care about it
 	 */
 
-	BUG_ON(vma->fd == NULL);
+	BUG_ON(vma->vmfd == NULL);
 	if (vma->e->has_fdflags)
 		flags = vma->e->fdflags;
 	else if ((vma->e->prot & PROT_WRITE) &&
@@ -1071,7 +1071,7 @@ int get_filemap_fd(struct vma_area *vma)
 	else
 		flags = O_RDONLY;
 
-	return open_path(vma->fd, do_open_reg_noseek_flags, &flags);
+	return open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
 }
 
 static void remap_get(struct file_desc *fdesc, char typ)

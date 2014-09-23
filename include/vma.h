@@ -28,24 +28,26 @@ struct vma_area {
 	VmaEntry		*e;
 
 	union {
-		int		vm_file_fd;
-		int		vm_socket_id;
-		struct file_desc *fd;
-	};
-	union {
-		unsigned long	*page_bitmap;	/* existent pages, restore only */
-		char		*aufs_rpath;	/* path from aufs root, dump only */
-	};
-	union {
-		unsigned long	*ppage_bitmap;	/* parent's existent pages */
-		char		*aufs_fpath;	/* full path from global root, dump only */
-	};
+		struct /* for dump */ {
+			union {
+				int	vm_file_fd;
+				int	vm_socket_id;
+			};
 
-	unsigned long		premmaped_addr;
+			char		*aufs_rpath;	/* path from aufs root */
+			char		*aufs_fpath;	/* full path from global root */
 
-	bool			file_borrowed;
+			bool		file_borrowed;
+			struct stat	*vmst;
+		};
 
-	struct stat		*st;
+		struct /* for restore */ {
+			struct file_desc *vmfd;
+			unsigned long	*page_bitmap;	/* existent pages */
+			unsigned long	*ppage_bitmap;	/* parent's existent pages */
+			unsigned long	premmaped_addr;	/* restore only */
+		};
+	};
 };
 
 extern struct vma_area *alloc_vma_area(void);

@@ -135,7 +135,7 @@ void free_mappings(struct vm_area_list *vma_area_list)
 	list_for_each_entry_safe(vma_area, p, &vma_area_list->h, list) {
 		close_vma_file(vma_area);
 		if (!vma_area->file_borrowed)
-			free(vma_area->st);
+			free(vma_area->vmst);
 		free(vma_area);
 	}
 
@@ -369,8 +369,8 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 	int ret = 0;
 	u32 id;
 
-	BUG_ON(!vma_area->st);
-	p.stat = *vma_area->st;
+	BUG_ON(!vma_area->vmst);
+	p.stat = *vma_area->vmst;
 
 	/*
 	 * AUFS support to compensate for the kernel bug

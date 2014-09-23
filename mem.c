@@ -377,7 +377,7 @@ static inline int collect_filemap(struct vma_area *vma)
 	if (!fd)
 		return -1;
 
-	vma->fd = fd;
+	vma->vmfd = fd;
 	return 0;
 }
 

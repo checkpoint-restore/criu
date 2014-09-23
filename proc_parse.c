@@ -453,11 +453,11 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			vma_area->e->flags |= (prev->e->flags & MAP_ANONYMOUS);
 			vma_area->e->status = prev->e->status;
 			vma_area->e->shmid = prev->e->shmid;
-			vma_area->st = prev->st;
+			vma_area->vmst = prev->vmst;
 		} else if (vma_area->vm_file_fd >= 0) {
 			struct stat *st_buf;
 
-			st_buf = vma_area->st = xmalloc(sizeof(*st_buf));
+			st_buf = vma_area->vmst = xmalloc(sizeof(*st_buf));
 			if (!st_buf)
 				goto err;
 
