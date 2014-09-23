@@ -554,28 +554,16 @@ static int have_seen_dead_pid(pid_t pid)
 {
 	static pid_t *dead_pids = NULL;
 	static int n_dead_pids = 0;
+	size_t i;
 
-	if (dead_pids) {
-		int i;
-		void *m;
-
-		for (i = 0; i < n_dead_pids; i++)
-			if (dead_pids[i] == pid)
-				return 1;
-
-		m = realloc(dead_pids, sizeof(*dead_pids) * (n_dead_pids + 1));
-		if (!m)
-			return -1;
-
-		dead_pids = m;
-		dead_pids[n_dead_pids++] = pid;
-	} else {
-		dead_pids = malloc(sizeof(*dead_pids));
-		if (!dead_pids)
-			return -1;
-		*dead_pids = pid;
-		n_dead_pids++;
+	for (i = 0; i < n_dead_pids; i++) {
+		if (dead_pids[i] == pid)
+			return 1;
 	}
+
+	if (xrealloc_safe(&dead_pids, sizeof(*dead_pids) * (n_dead_pids + 1)))
+		return -1;
+	dead_pids[n_dead_pids++] = pid;
 
 	return 0;
 }
