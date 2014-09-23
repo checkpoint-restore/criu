@@ -30,6 +30,12 @@ struct vma_area {
 	union {
 		struct /* for dump */ {
 			union {
+				/*
+				 * These two cannot be assigned at once.
+				 * The file_fd is an fd for a regular file and
+				 * the socket_id is the inode number of the
+				 * mapped (PF_PACKET) socket.
+				 */
 				int	vm_file_fd;
 				int	vm_socket_id;
 			};
@@ -37,6 +43,11 @@ struct vma_area {
 			char		*aufs_rpath;	/* path from aufs root */
 			char		*aufs_fpath;	/* full path from global root */
 
+			/*
+			 * When several subsequent vmas have the same 
+			 * dev:ino pair all 'tail' ones set this to true
+			 * and the vmst points to the head's stat buf.
+			 */
 			bool		file_borrowed;
 			struct stat	*vmst;
 		};
