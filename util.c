@@ -159,20 +159,48 @@ int move_img_fd(int *img_fd, int want_fd)
 	return 0;
 }
 
+/*
+ * Cached opened /proc/$pid and /proc/self files.
+ * Used for faster access to /proc/.../foo files
+ * by using openat()-s
+ */
+
 static pid_t open_proc_pid = PROC_NONE;
 static int open_proc_fd = -1;
+static int open_proc_self_fd = -1;
+
+static inline void set_proc_self_fd(int fd)
+{
+	if (open_proc_self_fd >= 0)
+		close(open_proc_self_fd);
+
+	open_proc_self_fd = fd;
+}
+
+static inline void set_proc_pid_fd(int pid, int fd)
+{
+	if (open_proc_fd >= 0)
+		close(open_proc_fd);
+
+	open_proc_pid = pid;
+	open_proc_fd = fd;
+}
+
+static inline int get_proc_fd(int pid)
+{
+	if (pid == PROC_SELF)
+		return open_proc_self_fd;
+	else if (pid == open_proc_pid)
+		return open_proc_fd;
+	else
+		return -1;
+}
 
 int close_pid_proc(void)
 {
-	int ret = 0;
-
-	if (open_proc_fd >= 0)
-		ret = close(open_proc_fd);
-
-	open_proc_fd = -1;
-	open_proc_pid = PROC_NONE;
-
-	return ret;
+	set_proc_self_fd(-1);
+	set_proc_pid_fd(PROC_NONE, -1);
+	return 0;
 }
 
 void close_proc()
@@ -213,10 +241,9 @@ inline int open_pid_proc(pid_t pid)
 	int fd;
 	int dfd;
 
-	if (pid == open_proc_pid)
-		return open_proc_fd;
-
-	close_pid_proc();
+	fd = get_proc_fd(pid);
+	if (fd >= 0)
+		return fd;
 
 	dfd = get_service_fd(PROC_FD_OFF);
 	if (dfd < 0) {
@@ -239,12 +266,15 @@ inline int open_pid_proc(pid_t pid)
 		snprintf(path, sizeof(path), "%d", pid);
 
 	fd = openat(dfd, path, O_RDONLY);
-	if (fd < 0)
+	if (fd < 0) {
 		pr_perror("Can't open %s", path);
-	else {
-		open_proc_fd = fd;
-		open_proc_pid = pid;
+		return -1;
 	}
+
+	if (pid == PROC_SELF)
+		set_proc_self_fd(fd);
+	else
+		set_proc_pid_fd(pid, fd);
 
 	return fd;
 }
