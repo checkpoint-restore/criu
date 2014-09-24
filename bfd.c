@@ -141,16 +141,17 @@ again:
 		return b->pos;
 	}
 
-	/* no full line in the buffer -- refill one */
-	if (brefill(f))
-		return BREADERR;
-
 	/*
 	 * small optimization -- we've scanned b->bleft
 	 * symols already, no need to re-scan them after
 	 * the buffer refill.
 	 */
 	ss = b->bleft;
+
+	/* no full line in the buffer -- refill one */
+	if (brefill(f))
+		return BREADERR;
+
 	refilled = true;
 
 	goto again;
