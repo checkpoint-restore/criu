@@ -2143,6 +2143,9 @@ int dump_mnt_namespaces(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
+		if (nsid->pid == getpid())
+			continue;
+
 		if (++n == 2 && check_mnt_id()) {
 			pr_err("Nested mount namespaces are not supported "
 				"without mnt_id in fdinfo\n");
