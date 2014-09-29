@@ -7,6 +7,8 @@
 
 #include "log.h"
 #include "bfd.h"
+#include "list.h"
+#include "xmalloc.h"
 #include "asm-generic/page.h"
 
 /*
@@ -15,43 +17,70 @@
  */
 #define BUFSIZE	(PAGE_SIZE)
 
-/*
- * XXX currently CRIU doesn't open several files
- * at once, so we can have just one buffer.
- */
-static char *buf;
-static bool buf_busy;
+struct bfd_buf {
+	char *mem;
+	struct list_head l;
+};
+
+static LIST_HEAD(bufs);
+
+#define BUFBATCH	(16)
 
 static int buf_get(struct xbuf *xb)
 {
-	if (buf_busy) {
-		pr_err("bfd: Buffer busy\n");
-		return -1;
-	}
+	struct bfd_buf *b;
 
-	if (!buf) {
-		buf = mmap(NULL, BUFSIZE, PROT_READ | PROT_WRITE,
+	if (list_empty(&bufs)) {
+		void *mem;
+		int i;
+
+		pr_debug("BUF++\n");
+		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANON, 0, 0);
-		if (buf == MAP_FAILED) {
+		if (mem == MAP_FAILED) {
 			pr_perror("bfd: No buf");
 			return -1;
 		}
+
+		for (i = 0; i < BUFBATCH; i++) {
+			b = xmalloc(sizeof(*b));
+			if (!b) {
+				if (i == 0) {
+					pr_err("No buffer for bfd\n");
+					return -1;
+				}
+
+				pr_warn("BFD buffers partial refil!\n");
+				break;
+			}
+
+			b->mem = mem + i * BUFSIZE;
+			list_add_tail(&b->l, &bufs);
+		}
 	}
 
-	buf_busy = true;
-	xb->mem = buf;
-	xb->pos = buf;
+	b = list_first_entry(&bufs, struct bfd_buf, l);
+	list_del_init(&b->l);
+
+	xb->mem = b->mem;
+	xb->pos = xb->mem;
 	xb->bleft = 0;
+	xb->buf = b;
+	pr_debug("BUF %p <\n", xb->mem);
 	return 0;
 }
 
 static void buf_put(struct xbuf *xb)
 {
-	buf_busy = false;
 	/*
 	 * Don't unmap buffer back, it will get reused
 	 * by next bfdopen call
 	 */
+	pr_debug("BUF %p >\n", xb->mem);
+	list_add(&xb->buf->l, &bufs);
+	xb->buf = NULL;
+	xb->mem = NULL;
+	xb->pos = NULL;
 }
 
 int bfdopen(struct bfd *f)
