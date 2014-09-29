@@ -1050,6 +1050,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
+		int len;
 
 		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 		if (ca.fd < 0) {
@@ -1063,8 +1064,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 			goto err;
 		}
 
-		snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write_img_buf(ca.fd, buf, strlen(buf)))
+		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+		if (write(ca.fd, buf, len) != len)
 			goto err_unlock;
 	} else {
 		ca.fd = -1;
