@@ -155,15 +155,15 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 	return 0;
 }
 
-static unsigned int lookup_ns_id(unsigned int kid, struct ns_desc *nd)
+static struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next)
 		if (nsid->kid == kid && nsid->nd == nd)
-			return nsid->id;
+			return nsid;
 
-	return 0;
+	return NULL;
 }
 
 struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd)
@@ -177,14 +177,14 @@ struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd)
 	return NULL;
 }
 
-static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd)
+static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd,
+		struct ns_id **ns_ret)
 {
-	unsigned int id;
 	struct ns_id *nsid;
 
-	id = lookup_ns_id(kid, nd);
-	if (id)
-		return id;
+	nsid = lookup_ns_by_kid(kid, nd);
+	if (nsid)
+		goto found;
 
 	if (pid != getpid()) {
 		if (pid == root_item->pid.real) {
@@ -211,10 +211,13 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 
 	pr_info("Collected %u.%s namespace\n", nsid->id, nd->str);
 
+found:
+	if (ns_ret)
+		*ns_ret = nsid;
 	return nsid->id;
 }
 
-static unsigned int get_ns_id(int pid, struct ns_desc *nd)
+static unsigned int __get_ns_id(int pid, struct ns_desc *nd, struct ns_id **ns)
 {
 	int proc_dir, ret;
 	unsigned int kid;
@@ -234,7 +237,12 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 	kid = parse_ns_link(ns_id, ret, nd);
 	BUG_ON(!kid);
 
-	return generate_ns_id(pid, kid, nd);
+	return generate_ns_id(pid, kid, nd, ns);
+}
+
+static unsigned int get_ns_id(int pid, struct ns_desc *nd)
+{
+	return __get_ns_id(pid, nd, NULL);
 }
 
 int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
@@ -242,16 +250,16 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	struct cr_img *img = img_from_set(glob_imgset, CR_FD_NS_FILES);
 	NsFileEntry nfe = NS_FILE_ENTRY__INIT;
 	struct fd_link *link = p->link;
-	unsigned int nsid;
+	struct ns_id *nsid;
 
-	nsid = lookup_ns_id(link->ns_kid, link->ns_d);
+	nsid = lookup_ns_by_kid(link->ns_kid, link->ns_d);
 	if (!nsid) {
 		pr_err("No NS ID with kid %u\n", link->ns_kid);
 		return -1;
 	}
 
 	nfe.id		= id;
-	nfe.ns_id	= nsid;
+	nfe.ns_id	= nsid->id;
 	nfe.ns_cflag	= link->ns_d->cflag;
 	nfe.flags	= p->flags;
 
