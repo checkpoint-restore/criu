@@ -626,9 +626,35 @@ int veth_pair_add(char *in, char *out)
 	return 0;
 }
 
+static int collect_net_ns(struct ns_id *ns)
+{
+	pr_info("Collecting netns %d/%d\n", ns->id, ns->pid);
+	return collect_sockets(ns->pid);
+}
+
 int collect_net_namespaces(void)
 {
-	return collect_sockets(root_item->pid.real);
+	int ret = 0;
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		if (!(ns->nd->cflag & CLONE_NEWNET))
+			continue;
+
+		if (ns->pid == getpid()) {
+			if ((root_ns_mask & CLONE_NEWNET))
+				continue;
+
+			ret = collect_net_ns(ns);
+			break;
+		}
+
+		ret = collect_net_ns(ns);
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
