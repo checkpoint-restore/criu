@@ -1308,7 +1308,7 @@ int prepare_cgroup(void)
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
-			return fd;
+			return -1;
 	}
 
 	ret = pb_read_one_eof(fd, &ce, PB_CGROUP);

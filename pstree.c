@@ -325,7 +325,7 @@ static int read_pstree_image(void)
 
 	ps_fd = open_image(CR_FD_PSTREE, O_RSTR);
 	if (ps_fd < 0)
-		return ps_fd;
+		return -1;
 
 	while (1) {
 		PstreeEntry *e;

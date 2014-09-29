@@ -1984,7 +1984,7 @@ static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 
 	fd = open_image(CR_FD_ITIMERS, O_RSTR, pid);
 	if (fd < 0)
-		return fd;
+		return -1;
 
 	ret = pb_read_one(fd, &ie, PB_ITIMER);
 	if (ret < 0)
@@ -2109,7 +2109,7 @@ static int prepare_posix_timers_from_fd(int pid)
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
-			return fd;
+			return -1;
 	}
 
 	while (1) {
@@ -2178,7 +2178,7 @@ static int prepare_creds(int pid, struct task_restore_args *args)
 
 	fd = open_image(CR_FD_CREDS, O_RSTR, pid);
 	if (fd < 0)
-		return fd;
+		return -1;
 
 	ret = pb_read_one(fd, &ce, PB_CREDS);
 	close_safe(&fd);
