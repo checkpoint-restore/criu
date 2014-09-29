@@ -528,6 +528,17 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 	return 0;
 }
 
+int collect_namespaces(void)
+{
+	int ret;
+
+	ret = collect_mnt_namespaces();
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
 	pid_t pid = item->pid.virt;
