@@ -8,6 +8,8 @@
 #include "image-desc.h"
 #include "fcntl.h"
 #include "magic.h"
+#include "bfd.h"
+#include "bug.h"
 
 #define PAGE_IMAGE_SIZE	4096
 #define PAGE_RSS	1
@@ -77,12 +79,13 @@ extern bool ns_per_id;
 #define O_RSTR	(O_RDONLY)
 
 struct cr_img {
-	int _fd;
+	struct bfd _x;
 };
 
 static inline int img_raw_fd(struct cr_img *img)
 {
-	return img->_fd;
+	BUG_ON(bfd_buffered(&img->_x));
+	return img->_x.fd;
 }
 
 extern int open_image_dir(char *dir);

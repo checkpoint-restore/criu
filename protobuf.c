@@ -17,7 +17,7 @@
 #include "string.h"
 #include "sockets.h"
 #include "cr_options.h"
-
+#include "bfd.h"
 #include "protobuf.h"
 
 /*
@@ -494,7 +494,7 @@ void do_pb_show_plain(struct cr_img *img, int type, int single_entry,
 
 static char *image_name(struct cr_img *img)
 {
-	int fd = img->_fd;
+	int fd = img->_x.fd;
 	static char image_path[PATH_MAX];
 
 	if (read_fd_link(fd, image_path, sizeof(image_path)) > 0)
@@ -515,7 +515,6 @@ static char *image_name(struct cr_img *img)
 
 int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 {
-	int fd = img->_fd;
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size;
@@ -529,7 +528,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 
 	*pobj = NULL;
 
-	ret = read(fd, &size, sizeof(size));
+	ret = bread(&img->_x, &size, sizeof(size));
 	if (ret == 0) {
 		if (eof) {
 			return 0;
@@ -552,7 +551,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 			goto err;
 	}
 
-	ret = read(fd, buf, size);
+	ret = bread(&img->_x, buf, size);
 	if (ret < 0) {
 		pr_perror("Can't read %d bytes from file %s",
 			  size, image_name(img));
@@ -590,7 +589,6 @@ err:
  */
 int pb_write_one(struct cr_img *img, void *obj, int type)
 {
-	int fd = img->_fd;
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size, packed;
@@ -620,7 +618,7 @@ int pb_write_one(struct cr_img *img, void *obj, int type)
 	iov[1].iov_base = buf;
 	iov[1].iov_len = size;
 
-	ret = writev(fd, iov, 2);
+	ret = bwritev(&img->_x, iov, 2);
 	if (ret != size + sizeof(size)) {
 		pr_perror("Can't write %d bytes", (int)(size + sizeof(size)));
 		goto err;

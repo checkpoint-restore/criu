@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <sys/uio.h>
 
 #include "log.h"
 #include "bfd.h"
@@ -95,7 +96,8 @@ int bfdopen(struct bfd *f)
 
 void bclose(struct bfd *f)
 {
-	buf_put(&f->b);
+	if (bfd_buffered(f))
+		buf_put(&f->b);
 	close(f->fd);
 }
 
@@ -184,4 +186,19 @@ again:
 	refilled = true;
 
 	goto again;
+}
+
+int bwrite(struct bfd *bfd, const void *buf, int size)
+{
+	return write(bfd->fd, buf, size);
+}
+
+int bwritev(struct bfd *bfd, const struct iovec *iov, int cnt)
+{
+	return writev(bfd->fd, iov, cnt);
+}
+
+int bread(struct bfd *bfd, void *buf, int size)
+{
+	return read(bfd->fd, buf, size);
 }

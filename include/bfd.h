@@ -13,8 +13,22 @@ struct bfd {
 	struct xbuf b;
 };
 
+static inline bool bfd_buffered(struct bfd *b)
+{
+	return b->b.mem != NULL;
+}
+
+static inline void bfd_setraw(struct bfd *b)
+{
+	b->b.mem = NULL;
+}
+
 #define BREADERR	((char *)-1)
 int bfdopen(struct bfd *f);
 void bclose(struct bfd *f);
 char *breadline(struct bfd *f);
+int bwrite(struct bfd *f, const void *buf, int sz);
+struct iovec;
+int bwritev(struct bfd *f, const struct iovec *iov, int cnt);
+int bread(struct bfd *f, void *buf, int sz);
 #endif

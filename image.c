@@ -229,7 +229,12 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 		goto err;
 	}
 
-	img->_fd = ret;
+	img->_x.fd = ret;
+	if (oflags & O_NOBUF)
+		bfd_setraw(&img->_x);
+	else if (bfdopen(&img->_x))
+		goto err;
+
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;
 
@@ -258,7 +263,7 @@ errn:
 
 void close_image(struct cr_img *img)
 {
-	close(img->_fd);
+	bclose(&img->_x);
 	xfree(img);
 }
 
@@ -267,8 +272,11 @@ struct cr_img *img_from_fd(int fd)
 	struct cr_img *img;
 
 	img = xmalloc(sizeof(*img));
-	if (img)
-		img->_fd = fd;
+	if (img) {
+		img->_x.fd = fd;
+		bfd_setraw(&img->_x);
+	}
+
 	return img;
 }
 
@@ -355,10 +363,9 @@ struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi)
  */
 int write_img_buf(struct cr_img *img, const void *ptr, int size)
 {
-	int fd = img->_fd;
 	int ret;
 
-	ret = write(fd, ptr, size);
+	ret = bwrite(&img->_x, ptr, size);
 	if (ret == size)
 		return 0;
 
@@ -378,10 +385,9 @@ int write_img_buf(struct cr_img *img, const void *ptr, int size)
  */
 int read_img_buf_eof(struct cr_img *img, void *ptr, int size)
 {
-	int fd = img->_fd;
 	int ret;
 
-	ret = read(fd, ptr, size);
+	ret = bread(&img->_x, ptr, size);
 	if (ret == size)
 		return 1;
 	if (ret == 0)
