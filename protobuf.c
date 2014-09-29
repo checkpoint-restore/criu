@@ -492,8 +492,9 @@ void do_pb_show_plain(struct cr_img *img, int type, int single_entry,
 	}
 }
 
-static char *image_name(int fd)
+static char *image_name(struct cr_img *img)
 {
+	int fd = img->_fd;
 	static char image_path[PATH_MAX];
 
 	if (read_fd_link(fd, image_path, sizeof(image_path)) > 0)
@@ -522,7 +523,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d on %s\n",
-			type, image_name(fd));
+			type, image_name(img));
 		return -1;
 	}
 
@@ -534,13 +535,13 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 			return 0;
 		} else {
 			pr_err("Unexpected EOF on %s\n",
-			       image_name(fd));
+			       image_name(img));
 			return -1;
 		}
 	} else if (ret < sizeof(size)) {
 		pr_perror("Read %d bytes while %d expected on %s",
 			  ret, (int)sizeof(size),
-			  image_name(fd));
+			  image_name(img));
 		return -1;
 	}
 
@@ -554,11 +555,11 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	ret = read(fd, buf, size);
 	if (ret < 0) {
 		pr_perror("Can't read %d bytes from file %s",
-			  size, image_name(fd));
+			  size, image_name(img));
 		goto err;
 	} else if (ret != size) {
 		pr_perror("Read %d bytes while %d expected from %s",
-			  ret, size, image_name(fd));
+			  ret, size, image_name(img));
 		ret = -1;
 		goto err;
 	}
@@ -567,7 +568,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	if (!*pobj) {
 		ret = -1;
 		pr_err("Failed unpacking object %p from %s\n",
-		       pobj, image_name(fd));
+		       pobj, image_name(img));
 		goto err;
 	}
 
