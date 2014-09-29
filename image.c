@@ -211,7 +211,8 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	if (!img)
 		goto errn;
 
-	flags &= ~O_OPT;
+	oflags |= imgset_template[type].oflags;
+	flags &= ~(O_OPT | O_NOBUF);
 
 	va_start(args, flags);
 	vsnprintf(path, PATH_MAX, imgset_template[type].fmt, args);

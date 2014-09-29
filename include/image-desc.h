@@ -101,6 +101,7 @@ enum {
 struct cr_fd_desc_tmpl {
 	const char	*fmt;			/* format for the name */
 	u32		magic;			/* magic in the header */
+	int		oflags;			/* flags for image_open */
 };
 
 extern struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX];

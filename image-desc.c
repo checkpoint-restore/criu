@@ -3,6 +3,7 @@
 #include "image-desc.h"
 #include "cr-show.h"
 #include "magic.h"
+#include "image.h"
 
 /*
  * The cr fd set is the set of files where the information
@@ -15,6 +16,13 @@
 	[CR_FD_##_name] = {			\
 		.fmt	= _fmt ".img",		\
 		.magic	= _name##_MAGIC,	\
+	}
+
+#define FD_ENTRY_F(_name, _fmt, _f)		\
+	[CR_FD_##_name] = {			\
+		.fmt	= _fmt ".img",		\
+		.magic	= _name##_MAGIC,	\
+		.oflags	= _f,			\
 	}
 
 struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
@@ -38,16 +46,16 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(MM,		"mm-%d"),
 	FD_ENTRY(VMAS,		"vmas-%d"),
 	FD_ENTRY(PIPES,		"pipes"),
-	FD_ENTRY(PIPES_DATA,	"pipes-data"),
+	FD_ENTRY_F(PIPES_DATA,	"pipes-data", O_NOBUF), /* splices data */
 	FD_ENTRY(FIFO,		"fifo"),
-	FD_ENTRY(FIFO_DATA,	"fifo-data"),
+	FD_ENTRY_F(FIFO_DATA,	"fifo-data", O_NOBUF), /* the same */
 	FD_ENTRY(PSTREE,	"pstree"),
 	FD_ENTRY(SIGACT,	"sigacts-%d"),
 	FD_ENTRY(UNIXSK,	"unixsk"),
 	FD_ENTRY(INETSK,	"inetsk"),
 	FD_ENTRY(PACKETSK,	"packetsk"),
 	FD_ENTRY(NETLINK_SK,	"netlinksk"),
-	FD_ENTRY(SK_QUEUES,	"sk-queues"),
+	FD_ENTRY_F(SK_QUEUES,	"sk-queues", O_NOBUF), /* lseeks the image */
 	FD_ENTRY(ITIMERS,	"itimers-%d"),
 	FD_ENTRY(POSIX_TIMERS,	"posix-timers-%d"),
 	FD_ENTRY(CREDS,		"creds-%d"),
@@ -58,22 +66,22 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(IPCNS_SEM,	"ipcns-sem-%d"),
 	FD_ENTRY(FS,		"fs-%d"),
 	FD_ENTRY(REMAP_FPATH,	"remap-fpath"),
-	FD_ENTRY(GHOST_FILE,	"ghost-file-%x"),
+	FD_ENTRY_F(GHOST_FILE,	"ghost-file-%x", O_NOBUF),
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x"),
 	FD_ENTRY(MNTS,		"mountpoints-%d"),
 	FD_ENTRY(NETDEV,	"netdev-%d"),
-	FD_ENTRY(IFADDR,	"ifaddr-%d"),
-	FD_ENTRY(ROUTE,		"route-%d"),
-	FD_ENTRY(IPTABLES,	"iptables-%d"),
-	FD_ENTRY(TMPFS_IMG,	"tmpfs-%d.tar.gz"),
-	FD_ENTRY(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz"),
+	FD_ENTRY_F(IFADDR,	"ifaddr-%d", O_NOBUF),
+	FD_ENTRY_F(ROUTE,	"route-%d", O_NOBUF),
+	FD_ENTRY_F(IPTABLES,	"iptables-%d", O_NOBUF),
+	FD_ENTRY_F(TMPFS_IMG,	"tmpfs-%d.tar.gz", O_NOBUF),
+	FD_ENTRY_F(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz", O_NOBUF),
 	FD_ENTRY(TTY_FILES,	"tty"),
 	FD_ENTRY(TTY_INFO,	"tty-info"),
 	FD_ENTRY(FILE_LOCKS,	"filelocks"),
 	FD_ENTRY(RLIMIT,	"rlimit-%d"),
-	FD_ENTRY(PAGES,		"pages-%u"),
-	FD_ENTRY(PAGES_OLD,	"pages-%d"),
-	FD_ENTRY(SHM_PAGES_OLD, "pages-shmem-%ld"),
+	FD_ENTRY_F(PAGES,	"pages-%u", O_NOBUF),
+	FD_ENTRY_F(PAGES_OLD,	"pages-%d", O_NOBUF),
+	FD_ENTRY_F(SHM_PAGES_OLD, "pages-shmem-%ld", O_NOBUF),
 	FD_ENTRY(SIGNAL,	"signal-s-%d"),
 	FD_ENTRY(PSIGNAL,	"signal-p-%d"),
 	FD_ENTRY(TUNFILE,	"tunfile"),
