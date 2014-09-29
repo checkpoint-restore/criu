@@ -536,6 +536,10 @@ int collect_namespaces(void)
 	if (ret < 0)
 		return ret;
 
+	ret = collect_net_namespaces();
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 

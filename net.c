@@ -19,7 +19,8 @@
 #include "util-pie.h"
 #include "plugin.h"
 #include "action-scripts.h"
-
+#include "sockets.h"
+#include "pstree.h"
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
@@ -623,6 +624,11 @@ int veth_pair_add(char *in, char *out)
 	list_add(&n->node, &opts.veth_pairs);
 	pr_debug("Added %s:%s veth map\n", in, out);
 	return 0;
+}
+
+int collect_net_namespaces(void)
+{
+	return collect_sockets(root_item->pid.real);
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");

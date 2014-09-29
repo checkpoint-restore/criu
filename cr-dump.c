@@ -41,7 +41,6 @@
 #include "syscall.h"
 #include "ptrace.h"
 #include "util.h"
-#include "sockets.h"
 #include "namespaces.h"
 #include "image.h"
 #include "proc_parse.h"
@@ -1800,9 +1799,6 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (collect_namespaces() < 0)
-		goto err;
-
-	if (collect_sockets(pid))
 		goto err;
 
 	glob_imgset = cr_glob_imgset_open(O_DUMP);

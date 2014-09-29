@@ -14,6 +14,8 @@ struct veth_pair {
 	char *outside;
 };
 
+extern int collect_net_namespaces(void);
+
 extern int network_lock(void);
 extern void network_unlock(void);
 
