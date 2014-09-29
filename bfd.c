@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 
+#include "bug.h"
 #include "log.h"
 #include "bfd.h"
 #include "list.h"
@@ -99,6 +100,12 @@ static int bflush(struct bfd *bfd);
 void bclose(struct bfd *f)
 {
 	if (bfd_buffered(f)) {
+		/*
+		 * FIXME -- when we bread from images we don't
+		 * need to flush. This call doesn't fail simply
+		 * becase we read _all_ data from them and the
+		 * b->sz would be 0 by the time we close them.
+		 */
 		if (bflush(f) < 0)
 			/*
 			 * FIXME -- propagate error up. It's
@@ -131,7 +138,7 @@ static int brefill(struct bfd *f)
 		return 0;
 
 	b->sz += ret;
-	return 0;
+	return 1;
 }
 
 static char *strnchr(char *str, unsigned int len, char c)
@@ -192,7 +199,7 @@ again:
 	ss = b->sz;
 
 	/* no full line in the buffer -- refill one */
-	if (brefill(f))
+	if (brefill(f) < 0)
 		return BREADERR;
 
 	refilled = true;
@@ -267,5 +274,33 @@ int bwritev(struct bfd *bfd, const struct iovec *iov, int cnt)
 
 int bread(struct bfd *bfd, void *buf, int size)
 {
-	return read(bfd->fd, buf, size);
+	struct xbuf *b = &bfd->b;
+	int more = 1, filled = 0;
+
+	if (!bfd_buffered(bfd))
+		return read(bfd->fd, buf, size);
+
+	while (more > 0) {
+		int chunk;
+
+		chunk = size - filled;
+		if (chunk > b->sz)
+			chunk = b->sz;
+
+		if (chunk) {
+			memcpy(buf + filled, b->data, chunk);
+			b->data += chunk;
+			b->sz -= chunk;
+			filled += chunk;
+		}
+
+		if (filled < size)
+			more = brefill(bfd);
+		else {
+			BUG_ON(filled > size);
+			more = 0;
+		}
+	}
+
+	return more < 0 ? more : filled;
 }
