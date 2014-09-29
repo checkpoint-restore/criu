@@ -36,6 +36,14 @@ static inline struct rst_info *rsti(struct pstree_item *i)
 	return (struct rst_info *)(i + 1);
 }
 
+struct dmp_info {
+};
+
+static inline struct dmp_info *dmpi(struct pstree_item *i)
+{
+	return (struct dmp_info *)(i + 1);
+}
+
 /* ids is alocated and initialized for all alive tasks */
 static inline int shared_fdtable(struct pstree_item *item)
 {

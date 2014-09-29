@@ -162,14 +162,14 @@ void free_pstree(struct pstree_item *root_item)
 struct pstree_item *__alloc_pstree_item(bool rst)
 {
 	struct pstree_item *item;
+	int sz;
 
 	if (!rst) {
-		item = xzalloc(sizeof(*item));
+		sz = sizeof(*item) + sizeof(struct dmp_info);
+		item = xzalloc(sz);
 		if (!item)
 			return NULL;
 	} else {
-		int sz;
-
 		sz = sizeof(*item) + sizeof(struct rst_info);
 		item = shmalloc(sz);
 		if (!item)
