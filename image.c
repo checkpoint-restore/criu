@@ -199,7 +199,7 @@ struct cr_fdset *cr_glob_fdset_open(int mode)
 
 int open_image_at(int dfd, int type, unsigned long flags, ...)
 {
-	bool optional = !!(flags & O_OPT);
+	unsigned long oflags = flags;
 	char path[PATH_MAX];
 	va_list args;
 	int ret;
@@ -212,7 +212,7 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if (optional && errno == ENOENT)
+		if ((oflags & O_OPT) && errno == ENOENT)
 			return -ENOENT;
 		pr_perror("Unable to open %s", path);
 		goto err;
