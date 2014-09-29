@@ -24,7 +24,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "fsnotify.h"
 #include "proc_parse.h"
 #include "syscall.h"
@@ -256,7 +256,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.n_wd = wd_list.n;
 
 	pr_info("id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
 		goto free;
 
 	exit_code = 0;
@@ -372,7 +372,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.faflags = wd_list.fsn_params.faflags;
 	fe.evflags = wd_list.fsn_params.evflags;
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
 free:
 	xfree(fe.mark);
 	list_for_each_entry_safe(we, tmp, &wd_list.list, ify.node)

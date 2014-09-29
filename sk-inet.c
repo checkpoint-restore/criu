@@ -12,7 +12,7 @@
 #include "asm/types.h"
 #include "libnetlink.h"
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "inet_diag.h"
 #include "files.h"
 #include "image.h"
@@ -291,7 +291,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_INETSK), &ie, PB_INET_SK))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INETSK), &ie, PB_INET_SK))
 		goto err;
 
 	pr_info("Dumping inet socket at %d\n", p->fd);

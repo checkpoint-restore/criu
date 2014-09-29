@@ -17,7 +17,7 @@
 		.magic	= _name##_MAGIC,	\
 	}
 
-struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX] = {
+struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(INVENTORY,	"inventory"),
 	FD_ENTRY(FDINFO,	"fdinfo-%d"),
 	FD_ENTRY(PAGEMAP,	"pagemap-%ld"),

@@ -15,7 +15,7 @@
 #include "timerfd.h"
 #include "pstree.h"
 #include "files.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "util.h"
 #include "log.h"
 #include "bug.h"
@@ -81,7 +81,7 @@ static int dump_timerfd_entry(union fdinfo_entries *e, void *arg)
 		tfy->id, tfy->clockid, (unsigned long long)tfy->vsec, (unsigned long long)tfy->vnsec,
 		(unsigned long long)tfy->isec, (unsigned long long)tfy->insec);
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_TIMERFD), &e->tfy, PB_TIMERFD);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_TIMERFD), &e->tfy, PB_TIMERFD);
 }
 
 static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)

@@ -14,7 +14,7 @@
 #include "pstree.h"
 #include "proc_parse.h"
 #include "util.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "util-pie.h"
 #include "protobuf.h"
 #include "protobuf/core.pb-c.h"
@@ -828,7 +828,7 @@ int dump_cgroups(void)
 		return -1;
 
 	pr_info("Writing CG image\n");
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_CGROUP), &cg, PB_CGROUP);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_CGROUP), &cg, PB_CGROUP);
 }
 
 static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,

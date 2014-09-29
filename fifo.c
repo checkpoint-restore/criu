@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#include "fdset.h"
+#include "imgset.h"
 #include "image.h"
 #include "files.h"
 #include "files-reg.h"
@@ -41,7 +41,7 @@ static struct pipe_data_dump pd_fifo = { .img_type = CR_FD_FIFO_DATA, };
 
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
-	int img = fdset_fd(glob_fdset, CR_FD_FIFO);
+	int img = img_from_set(glob_imgset, CR_FD_FIFO);
 	FifoEntry e = FIFO_ENTRY__INIT;
 
 	/*

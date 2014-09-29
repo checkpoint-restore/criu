@@ -8,7 +8,7 @@
 #include "protobuf/regfile.pb-c.h"
 #include "protobuf/ghost-file.pb-c.h"
 
-struct cr_fdset;
+struct cr_imgset;
 struct fd_parms;
 
 struct file_remap {

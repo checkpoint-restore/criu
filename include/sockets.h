@@ -12,7 +12,7 @@ struct fdinfo_list_entry;
 struct sk_opts_entry;
 struct file_desc;
 struct fd_parms;
-struct cr_fdset;
+struct cr_imgset;
 struct nlmsghdr;
 
 struct socket_desc {

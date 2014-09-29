@@ -12,7 +12,7 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
 
-#include "fdset.h"
+#include "imgset.h"
 #include "syscall.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
@@ -573,7 +573,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	return dump_thread_core(pid, core, args);
 }
 
-int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset)
+int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset)
 {
 	struct parasite_dump_sa_args *args;
 	int ret, sig, fd;
@@ -585,7 +585,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_f
 	if (ret < 0)
 		return ret;
 
-	fd = fdset_fd(cr_fdset, CR_FD_SIGACT);
+	fd = img_from_set(cr_imgset, CR_FD_SIGACT);
 
 	for (sig = 1; sig <= SIGMAX; sig++) {
 		int i = sig - 1;

@@ -16,7 +16,7 @@
 
 struct pstree_item;
 struct file_desc;
-struct cr_fdset;
+struct cr_imgset;
 struct rst_info;
 struct parasite_ctl;
 

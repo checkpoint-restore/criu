@@ -16,7 +16,7 @@ struct pstree_item;
 struct _CredsEntry;
 struct _CoreEntry;
 struct list_head;
-struct cr_fdset;
+struct cr_imgset;
 struct fd_opts;
 struct pid;
 
@@ -57,7 +57,7 @@ struct parasite_ctl {
 	struct page_pipe	*mem_pp;
 };
 
-extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_fdset *cr_fdset);
+extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *);
 
 struct proc_posix_timers_stat;

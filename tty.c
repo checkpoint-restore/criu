@@ -18,7 +18,7 @@
 #include "syscall.h"
 #include "files.h"
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "servicefd.h"
 #include "image.h"
 #include "util.h"
@@ -1107,7 +1107,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	 * gather.
 	 */
 	if (pti->hangup)
-		return pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
+		return pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
 
 	/*
 	 * Now trace the paired/unpaired ttys. For example
@@ -1152,7 +1152,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	}
 	winsize_copy(&winsize, &w);
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_INFO), &info, PB_TTY_INFO);
 out:
 	xfree(termios.c_cc);
 	xfree(termios_locked.c_cc);
@@ -1200,7 +1200,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 		ret = dump_pty_info(lfd, e.tty_info_id, p, major, index);
 
 	if (!ret)
-		ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
+		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
 	return ret;
 }
 

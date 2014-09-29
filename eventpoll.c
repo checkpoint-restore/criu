@@ -14,7 +14,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "rst_info.h"
 #include "eventpoll.h"
 #include "proc_parse.h"
@@ -99,7 +99,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	e.n_tfd = ep_list.n;
 
 	pr_info_eventpoll("Dumping ", &e);
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTPOLL_FILE),
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
 		     &e, PB_EVENTPOLL_FILE);
 out:
 	list_for_each_entry_safe(te, tmp, &ep_list.list, epl.node)

@@ -5,7 +5,7 @@
 #define PACKET_TIMESTAMP	17
 #endif
 
-struct cr_fdset;
+struct cr_imgset;
 struct fd_parms;
 struct vma_area;
 

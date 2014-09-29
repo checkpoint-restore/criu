@@ -14,7 +14,7 @@
 
 #include "asm/types.h"
 #include "list.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "namespaces.h"
 #include "compiler.h"
 #include "cr_options.h"
@@ -403,17 +403,17 @@ out:
 static int cr_show_pstree_item(struct pstree_item *item)
 {
 	int ret = -1, i;
-	struct cr_fdset *cr_fdset = NULL;
+	struct cr_imgset *cr_imgset = NULL;
 	TaskKobjIdsEntry *ids;
 
-	cr_fdset = cr_task_fdset_open(item->pid.virt, O_SHOW);
-	if (!cr_fdset)
+	cr_imgset = cr_task_imgset_open(item->pid.virt, O_SHOW);
+	if (!cr_imgset)
 		goto out;
 
 	pr_msg("Task %d:\n", item->pid.virt);
 	pr_msg("----------------------------------------\n");
 
-	cr_parse_fd(fdset_fd(cr_fdset, CR_FD_CORE), CORE_MAGIC);
+	cr_parse_fd(img_from_set(cr_imgset, CR_FD_CORE), CORE_MAGIC);
 
 	if (item->nr_threads > 1) {
 		int fd_th;
@@ -440,26 +440,26 @@ static int cr_show_pstree_item(struct pstree_item *item)
 	for (i = _CR_FD_TASK_FROM + 1; i < _CR_FD_TASK_TO; i++)
 		if ((i != CR_FD_CORE) && (i != CR_FD_IDS)) {
 			pr_msg("* ");
-			pr_msg(fdset_template[i].fmt, item->pid.virt);
+			pr_msg(imgset_template[i].fmt, item->pid.virt);
 			pr_msg(":\n");
-			cr_parse_fd(fdset_fd(cr_fdset, i), fdset_template[i].magic);
+			cr_parse_fd(img_from_set(cr_imgset, i), imgset_template[i].magic);
 		}
 
 	i = open_image(CR_FD_RLIMIT, O_SHOW | O_OPT, item->pid.virt);
 	if (i >= 0) {
 		pr_msg("* ");
-		pr_msg(fdset_template[CR_FD_RLIMIT].fmt, item->pid.virt);
+		pr_msg(imgset_template[CR_FD_RLIMIT].fmt, item->pid.virt);
 		pr_msg(":\n");
 
 		cr_parse_fd(i, RLIMIT_MAGIC);
 		close(i);
 	}
 
-	if (pb_read_one(fdset_fd(cr_fdset, CR_FD_IDS), &ids, PB_IDS) > 0) {
+	if (pb_read_one(img_from_set(cr_imgset, CR_FD_IDS), &ids, PB_IDS) > 0) {
 		i = open_image(CR_FD_FDINFO, O_SHOW, ids->files_id);
 		if (i >= 0) {
 			pr_msg("* ");
-			pr_msg(fdset_template[CR_FD_FDINFO].fmt, ids->files_id);
+			pr_msg(imgset_template[CR_FD_FDINFO].fmt, ids->files_id);
 			pr_msg(":\n");
 
 			cr_parse_fd(i, FDINFO_MAGIC);
@@ -473,7 +473,7 @@ static int cr_show_pstree_item(struct pstree_item *item)
 
 	ret = 0;
 outc:
-	close_cr_fdset(&cr_fdset);
+	close_cr_imgset(&cr_imgset);
 out:
 	return ret;
 }

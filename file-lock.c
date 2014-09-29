@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "files.h"
 #include "fs-magic.h"
 #include "image.h"
@@ -74,7 +74,7 @@ static int dump_one_file_lock(FileLockEntry *fle)
 	pr_info("LOCK flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
 		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_FILE_LOCKS),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILE_LOCKS),
 			fle, PB_FILE_LOCK);
 }
 

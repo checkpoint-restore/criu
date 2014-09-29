@@ -14,7 +14,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "eventfd.h"
 #include "proc_parse.h"
 #include "image.h"
@@ -65,7 +65,7 @@ static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
 	e->efd.fown = (FownEntry *)&da->p->fown;
 
 	pr_info_eventfd("Dumping ", &e->efd);
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_EVENTFD_FILE),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTFD_FILE),
 			&e->efd, PB_EVENTFD_FILE);
 }
 

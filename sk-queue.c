@@ -12,7 +12,7 @@
 
 #include "asm/types.h"
 #include "list.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "image.h"
 #include "servicefd.h"
 #include "cr_options.h"
@@ -151,13 +151,13 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			goto err_set_sock;
 		}
 
-		ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
+		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err_set_sock;
 		}
 
-		ret = write_img_buf(fdset_fd(glob_fdset, CR_FD_SK_QUEUES), data, pe.length);
+		ret = write_img_buf(img_from_set(glob_imgset, CR_FD_SK_QUEUES), data, pe.length);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err_set_sock;

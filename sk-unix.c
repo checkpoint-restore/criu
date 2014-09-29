@@ -12,7 +12,7 @@
 #include "asm/types.h"
 #include "libnetlink.h"
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "unix_diag.h"
 #include "files.h"
 #include "file-ids.h"
@@ -133,7 +133,7 @@ static int write_unix_entry(struct unix_sk_desc *sk)
 {
 	int ret;
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), sk->ue, PB_UNIX_SK);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_UNIXSK), sk->ue, PB_UNIX_SK);
 
 	show_one_unix_img("Dumped", sk->ue);
 
@@ -604,7 +604,7 @@ int fix_external_unix_sockets(void)
 		e.fown		= &fown;
 		e.opts		= &skopts;
 
-		if (pb_write_one(fdset_fd(glob_fdset, CR_FD_UNIXSK), &e, PB_UNIX_SK))
+		if (pb_write_one(img_from_set(glob_imgset, CR_FD_UNIXSK), &e, PB_UNIX_SK))
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);

@@ -8,7 +8,7 @@
 #include <sched.h>
 #include <sys/mount.h>
 
-#include "fdset.h"
+#include "imgset.h"
 #include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"
@@ -47,14 +47,14 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
-int write_netdev_img(NetDeviceEntry *nde, struct cr_fdset *fds)
+int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
 {
-	return pb_write_one(fdset_fd(fds, CR_FD_NETDEV), nde, PB_NETDEV);
+	return pb_write_one(img_from_set(fds, CR_FD_NETDEV), nde, PB_NETDEV);
 }
 
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,
-		struct rtattr **tb, struct cr_fdset *fds,
-		int (*dump)(NetDeviceEntry *, struct cr_fdset *))
+		struct rtattr **tb, struct cr_imgset *fds,
+		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
 {
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
 
@@ -103,7 +103,7 @@ static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
 }
 
 static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_fdset *fds)
+		struct rtattr **tb, struct cr_imgset *fds)
 {
 	int ret;
 
@@ -118,7 +118,7 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 }
 
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_fdset *fds)
+		struct rtattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "veth"))
 		/*
@@ -137,7 +137,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 }
 
 static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_fdset *fds)
+		struct rtattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
@@ -146,7 +146,7 @@ static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 }
 
 static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_fdset *fds)
+		struct rtattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "venet"))
 		/*
@@ -161,7 +161,7 @@ static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 {
-	struct cr_fdset *fds = arg;
+	struct cr_imgset *fds = arg;
 	struct ifinfomsg *ifi;
 	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	struct rtattr *tb[IFLA_MAX + 1];
@@ -203,7 +203,7 @@ unk:
 	return ret;
 }
 
-static int dump_links(struct cr_fdset *fds)
+static int dump_links(struct cr_imgset *fds)
 {
 	int sk, ret;
 	struct {
@@ -436,19 +436,19 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 	return ret;
 }
 
-static inline int dump_ifaddr(struct cr_fdset *fds)
+static inline int dump_ifaddr(struct cr_imgset *fds)
 {
-	return run_ip_tool("addr", "save", -1, fdset_fd(fds, CR_FD_IFADDR));
+	return run_ip_tool("addr", "save", -1, img_from_set(fds, CR_FD_IFADDR));
 }
 
-static inline int dump_route(struct cr_fdset *fds)
+static inline int dump_route(struct cr_imgset *fds)
 {
-	return run_ip_tool("route", "save", -1, fdset_fd(fds, CR_FD_ROUTE));
+	return run_ip_tool("route", "save", -1, img_from_set(fds, CR_FD_ROUTE));
 }
 
-static inline int dump_iptables(struct cr_fdset *fds)
+static inline int dump_iptables(struct cr_imgset *fds)
 {
-	return run_iptables_tool("iptables-save", -1, fdset_fd(fds, CR_FD_IPTABLES));
+	return run_iptables_tool("iptables-save", -1, img_from_set(fds, CR_FD_IPTABLES));
 }
 
 static int restore_ip_dump(int type, int pid, char *cmd)
@@ -529,10 +529,10 @@ static int mount_ns_sysfs(void)
 
 int dump_net_ns(int pid, int ns_id)
 {
-	struct cr_fdset *fds;
+	struct cr_imgset *fds;
 	int ret;
 
-	fds = cr_fdset_open(ns_id, NETNS, O_DUMP);
+	fds = cr_imgset_open(ns_id, NETNS, O_DUMP);
 	if (fds == NULL)
 		return -1;
 
@@ -551,7 +551,7 @@ int dump_net_ns(int pid, int ns_id)
 	close(ns_sysfs_fd);
 	ns_sysfs_fd = -1;
 
-	close_cr_fdset(&fds);
+	close_cr_imgset(&fds);
 	return ret;
 }
 

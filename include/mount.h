@@ -14,7 +14,7 @@ struct proc_mountinfo;
 extern int open_mount(unsigned int s_dev);
 extern struct fstype *find_fstype_by_name(char *fst);
 
-struct cr_fdset;
+struct cr_imgset;
 extern struct mount_info * collect_mntinfo(struct ns_id *ns);
 extern int prepare_mnt_ns(void);
 

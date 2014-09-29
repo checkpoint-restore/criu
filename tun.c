@@ -5,7 +5,7 @@
 #include <sys/ioctl.h>
 
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "protobuf.h"
 #include "cr-show.h"
 #include "string.h"
@@ -266,7 +266,7 @@ static struct tun_link *get_tun_link_fd(char *name, unsigned flags)
 
 static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 {
-	int ret, img = fdset_fd(glob_fdset, CR_FD_TUNFILE);
+	int ret, img = img_from_set(glob_imgset, CR_FD_TUNFILE);
 	TunfileEntry tfe = TUNFILE_ENTRY__INIT;
 	struct ifreq ifr;
 
@@ -398,7 +398,7 @@ struct collect_image_info tunfile_cinfo = {
 	.flags = COLLECT_OPTIONAL,
 };
 
-int dump_tun_link(NetDeviceEntry *nde, struct cr_fdset *fds)
+int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds)
 {
 	TunLinkEntry tle = TUN_LINK_ENTRY__INIT;
 	char spath[64];

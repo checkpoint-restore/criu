@@ -9,7 +9,7 @@
 
 #include "util.h"
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"
@@ -437,20 +437,20 @@ err:
 	return ret;
 }
 
-static int dump_ipc_data(const struct cr_fdset *fdset)
+static int dump_ipc_data(const struct cr_imgset *imgset)
 {
 	int ret;
 
-	ret = dump_ipc_var(fdset_fd(fdset, CR_FD_IPC_VAR));
+	ret = dump_ipc_var(img_from_set(imgset, CR_FD_IPC_VAR));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_shm(fdset_fd(fdset, CR_FD_IPCNS_SHM));
+	ret = dump_ipc_shm(img_from_set(imgset, CR_FD_IPCNS_SHM));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_msg(fdset_fd(fdset, CR_FD_IPCNS_MSG));
+	ret = dump_ipc_msg(img_from_set(imgset, CR_FD_IPCNS_MSG));
 	if (ret < 0)
 		return ret;
-	ret = dump_ipc_sem(fdset_fd(fdset, CR_FD_IPCNS_SEM));
+	ret = dump_ipc_sem(img_from_set(imgset, CR_FD_IPCNS_SEM));
 	if (ret < 0)
 		return ret;
 	return 0;
@@ -459,24 +459,24 @@ static int dump_ipc_data(const struct cr_fdset *fdset)
 int dump_ipc_ns(int ns_pid, int ns_id)
 {
 	int ret;
-	struct cr_fdset *fdset;
+	struct cr_imgset *imgset;
 
-	fdset = cr_fdset_open(ns_id, IPCNS, O_DUMP);
-	if (fdset == NULL)
+	imgset = cr_imgset_open(ns_id, IPCNS, O_DUMP);
+	if (imgset == NULL)
 		return -1;
 
 	ret = switch_ns(ns_pid, &ipc_ns_desc, NULL);
 	if (ret < 0)
 		goto err;
 
-	ret = dump_ipc_data(fdset);
+	ret = dump_ipc_data(imgset);
 	if (ret < 0) {
 		pr_err("Failed to write IPC namespace data\n");
 		goto err;
 	}
 
 err:
-	close_cr_fdset(&fdset);
+	close_cr_imgset(&imgset);
 	return ret < 0 ? -1 : 0;
 }
 

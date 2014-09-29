@@ -34,7 +34,7 @@
 #include "namespaces.h"
 #include "tun.h"
 #include "timerfd.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "fs-magic.h"
 #include "proc_parse.h"
 

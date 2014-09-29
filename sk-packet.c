@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "asm/types.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "files.h"
 #include "sockets.h"
 #include "libnetlink.h"
@@ -190,7 +190,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ret)
 		goto out;
 
-	ret = pb_write_one(fdset_fd(glob_fdset, CR_FD_PACKETSK), &psk, PB_PACKET_SOCK);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_PACKETSK), &psk, PB_PACKET_SOCK);
 out:
 	release_skopts(&skopts);
 	xfree(psk.rx_ring);

@@ -103,6 +103,6 @@ struct cr_fd_desc_tmpl {
 	u32		magic;			/* magic in the header */
 };
 
-extern struct cr_fd_desc_tmpl fdset_template[CR_FD_MAX];
+extern struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX];
 
 #endif /* __CR_IMAGE_DESC_H__ */

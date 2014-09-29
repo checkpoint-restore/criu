@@ -2,7 +2,7 @@
 
 #include <unistd.h>
 
-#include "fdset.h"
+#include "imgset.h"
 #include "files.h"
 #include "plugin.h"
 
@@ -22,7 +22,7 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 	xfe.id		= id;
 	xfe.fown	= (FownEntry *)&p->fown;
 
-	rfd = fdset_fd(glob_fdset, CR_FD_EXT_FILES);
+	rfd = img_from_set(glob_imgset, CR_FD_EXT_FILES);
 
 	return pb_write_one(rfd, &xfe, PB_EXT_FILE);
 }

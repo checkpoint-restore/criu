@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
-#include "fdset.h"
+#include "imgset.h"
 #include "image.h"
 #include "files.h"
 #include "pipes.h"
@@ -425,7 +425,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 		return -1;
 	}
 
-	img = fdset_fd(glob_fdset, pd->img_type);
+	img = img_from_set(glob_imgset, pd->img_type);
 	pd->ids[pd->nr++] = pipe_id(p);
 
 	pipe_size = fcntl(lfd, F_GETPIPE_SZ);
@@ -499,7 +499,7 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	pe.flags	= p->flags;
 	pe.fown		= (FownEntry *)&p->fown;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_PIPES), &pe, PB_PIPE))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_PIPES), &pe, PB_PIPE))
 		return -1;
 
 	return dump_one_pipe_data(&pd_pipes, lfd, p);

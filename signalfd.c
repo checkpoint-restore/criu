@@ -6,7 +6,7 @@
 #include "asm/types.h"
 #include "signalfd.h"
 #include "proc_parse.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "image.h"
 #include "util.h"
 #include "log.h"
@@ -45,7 +45,7 @@ static int dump_signalfd_entry(union fdinfo_entries *e, void *arg)
 	e->sfd.flags = da->p->flags;
 	e->sfd.fown = (FownEntry *)&da->p->fown;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_SIGNALFD),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_SIGNALFD),
 			&e->sfd, PB_SIGNALFD);
 }
 

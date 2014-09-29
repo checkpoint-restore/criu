@@ -2,7 +2,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-#include "fdset.h"
+#include "imgset.h"
 #include "files.h"
 #include "sockets.h"
 #include "util.h"
@@ -137,7 +137,7 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(fdset_fd(glob_fdset, CR_FD_NETLINK_SK), &ne, PB_NETLINK_SK))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_NETLINK_SK), &ne, PB_NETLINK_SK))
 		goto err;
 
 	return 0;

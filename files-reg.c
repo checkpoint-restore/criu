@@ -13,7 +13,7 @@
 #define SILLYNAME_SUFF_LEN (((unsigned)sizeof(u64) << 1) + ((unsigned)sizeof(unsigned int) << 1))
 
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "file-ids.h"
 #include "mount.h"
 #include "files.h"
@@ -432,7 +432,7 @@ dump_entry:
 	rpe.has_remap_type = true;
 	rpe.remap_type = REMAP_TYPE__GHOST;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_REMAP_FPATH),
 			&rpe, PB_REMAP_FPATH);
 }
 
@@ -525,7 +525,7 @@ static int create_link_remap(char *path, int len, int lfd,
 	rlb->mnt_ns = nsid;
 	list_add(&rlb->list, &link_remaps);
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
 
 err2:
 	xfree(rlb);
@@ -546,7 +546,7 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 	rpe.orig_id = id;
 	rpe.remap_id = lid;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_REMAP_FPATH),
 			&rpe, PB_REMAP_FPATH);
 }
 
@@ -587,7 +587,7 @@ static int dump_dead_process_remap(pid_t pid, char *path, int len, const struct 
 	rpe.has_remap_type = true;
 	rpe.remap_type = REMAP_TYPE__PROCFS;
 
-	return pb_write_one(fdset_fd(glob_fdset, CR_FD_REMAP_FPATH),
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_REMAP_FPATH),
 			&rpe, PB_REMAP_FPATH);
 }
 
@@ -787,7 +787,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		rfe.size = p->stat.st_size;
 	}
 
-	rfd = fdset_fd(glob_fdset, CR_FD_REG_FILES);
+	rfd = img_from_set(glob_imgset, CR_FD_REG_FILES);
 
 	return pb_write_one(rfd, &rfe, PB_REG_FILE);
 }

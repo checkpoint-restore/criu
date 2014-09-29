@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "cr-show.h"
 #include "util.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "syscall.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
@@ -239,7 +239,7 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 
 int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	int fd = fdset_fd(glob_fdset, CR_FD_NS_FILES);
+	int fd = img_from_set(glob_imgset, CR_FD_NS_FILES);
 	NsFileEntry nfe = NS_FILE_ENTRY__INIT;
 	struct fd_link *link = p->link;
 	unsigned int nsid;
@@ -556,7 +556,7 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 
 int try_show_namespaces(int ns_pid)
 {
-	struct cr_fdset *fdset;
+	struct cr_imgset *imgset;
 	int i, fd, ret;
 	TaskKobjIdsEntry *ids;
 
@@ -570,45 +570,45 @@ int try_show_namespaces(int ns_pid)
 	if (ret < 0)
 		return -1;
 
-	fdset = cr_fdset_open(ids->net_ns_id, NETNS, O_SHOW);
-	if (fdset) {
+	imgset = cr_imgset_open(ids->net_ns_id, NETNS, O_SHOW);
+	if (imgset) {
 		pr_msg("-------------------NETNS---------------------\n");
 		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
 			int fd;
 
-			fd = fdset_fd(fdset, i);
+			fd = img_from_set(imgset, i);
 			if (fd == -1)
 				continue;
 
-			cr_parse_fd(fd, fdset_template[i].magic);
+			cr_parse_fd(fd, imgset_template[i].magic);
 		}
-		close_cr_fdset(&fdset);
+		close_cr_imgset(&imgset);
 	}
 
-	fdset = cr_fdset_open(ids->ipc_ns_id, IPCNS, O_SHOW);
-	if (fdset) {
+	imgset = cr_imgset_open(ids->ipc_ns_id, IPCNS, O_SHOW);
+	if (imgset) {
 		pr_msg("-------------------IPCNS---------------------\n");
 		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
-			fd = fdset_fd(fdset, i);
+			fd = img_from_set(imgset, i);
 			if (fd == -1)
 				continue;
 
-			cr_parse_fd(fd, fdset_template[i].magic);
+			cr_parse_fd(fd, imgset_template[i].magic);
 		}
-		close_cr_fdset(&fdset);
+		close_cr_imgset(&imgset);
 	}
 
 	fd = open_image(CR_FD_UTSNS, O_SHOW, ids->uts_ns_id);
 	if (fd >= 0) {
 		pr_msg("-------------------UTSNS---------------------\n");
-		cr_parse_fd(fd, fdset_template[CR_FD_UTSNS].magic);
+		cr_parse_fd(fd, imgset_template[CR_FD_UTSNS].magic);
 		close(fd);
 	}
 
 	fd = open_image(CR_FD_MNTS, O_SHOW, ids->mnt_ns_id);
 	if (fd > 0) {
 		pr_msg("-------------------MNTNS---------------------\n");
-		cr_parse_fd(fd, fdset_template[CR_FD_MNTS].magic);
+		cr_parse_fd(fd, imgset_template[CR_FD_MNTS].magic);
 		close(fd);
 	}
 

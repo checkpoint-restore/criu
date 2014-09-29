@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include "crtools.h"
 #include "cr_options.h"
-#include "fdset.h"
+#include "imgset.h"
 #include "image.h"
 #include "pstree.h"
 #include "stats.h"
@@ -104,70 +104,70 @@ int write_img_inventory(void)
 void kill_inventory(void)
 {
 	unlinkat(get_service_fd(IMG_FD_OFF),
-			fdset_template[CR_FD_INVENTORY].fmt, 0);
+			imgset_template[CR_FD_INVENTORY].fmt, 0);
 }
 
-static struct cr_fdset *alloc_cr_fdset(int nr)
+static struct cr_imgset *alloc_cr_imgset(int nr)
 {
-	struct cr_fdset *cr_fdset;
+	struct cr_imgset *cr_imgset;
 	unsigned int i;
 
-	cr_fdset = xmalloc(sizeof(*cr_fdset));
-	if (cr_fdset == NULL)
+	cr_imgset = xmalloc(sizeof(*cr_imgset));
+	if (cr_imgset == NULL)
 		return NULL;
 
-	cr_fdset->_fds = xmalloc(nr * sizeof(int));
-	if (cr_fdset->_fds == NULL) {
-		xfree(cr_fdset);
+	cr_imgset->_imgs = xmalloc(nr * sizeof(int));
+	if (cr_imgset->_imgs == NULL) {
+		xfree(cr_imgset);
 		return NULL;
 	}
 
 	for (i = 0; i < nr; i++)
-		cr_fdset->_fds[i] = -1;
-	cr_fdset->fd_nr = nr;
-	return cr_fdset;
+		cr_imgset->_imgs[i] = -1;
+	cr_imgset->fd_nr = nr;
+	return cr_imgset;
 }
 
-static void __close_cr_fdset(struct cr_fdset *cr_fdset)
+static void __close_cr_imgset(struct cr_imgset *cr_imgset)
 {
 	unsigned int i;
 
-	if (!cr_fdset)
+	if (!cr_imgset)
 		return;
 
-	for (i = 0; i < cr_fdset->fd_nr; i++) {
-		if (cr_fdset->_fds[i] == -1)
+	for (i = 0; i < cr_imgset->fd_nr; i++) {
+		if (cr_imgset->_imgs[i] == -1)
 			continue;
-		close_safe(&cr_fdset->_fds[i]);
-		cr_fdset->_fds[i] = -1;
+		close_safe(&cr_imgset->_imgs[i]);
+		cr_imgset->_imgs[i] = -1;
 	}
 }
 
-void close_cr_fdset(struct cr_fdset **cr_fdset)
+void close_cr_imgset(struct cr_imgset **cr_imgset)
 {
-	if (!cr_fdset || !*cr_fdset)
+	if (!cr_imgset || !*cr_imgset)
 		return;
 
-	__close_cr_fdset(*cr_fdset);
+	__close_cr_imgset(*cr_imgset);
 
-	xfree((*cr_fdset)->_fds);
-	xfree(*cr_fdset);
-	*cr_fdset = NULL;
+	xfree((*cr_imgset)->_imgs);
+	xfree(*cr_imgset);
+	*cr_imgset = NULL;
 }
 
-struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
+struct cr_imgset *cr_imgset_open_range(int pid, int from, int to,
 			       unsigned long flags)
 {
-	struct cr_fdset *fdset;
+	struct cr_imgset *imgset;
 	unsigned int i;
 	int ret = -1;
 
-	fdset = alloc_cr_fdset(to - from);
-	if (!fdset)
+	imgset = alloc_cr_imgset(to - from);
+	if (!imgset)
 		goto err;
 
 	from++;
-	fdset->fd_off = from;
+	imgset->fd_off = from;
 	for (i = from; i < to; i++) {
 		ret = open_image(i, flags, pid);
 		if (ret < 0) {
@@ -177,24 +177,24 @@ struct cr_fdset *cr_fdset_open_range(int pid, int from, int to,
 			goto err;
 		}
 
-		fdset->_fds[i - from] = ret;
+		imgset->_imgs[i - from] = ret;
 	}
 
-	return fdset;
+	return imgset;
 
 err:
-	close_cr_fdset(&fdset);
+	close_cr_imgset(&imgset);
 	return NULL;
 }
 
-struct cr_fdset *cr_task_fdset_open(int pid, int mode)
+struct cr_imgset *cr_task_imgset_open(int pid, int mode)
 {
-	return cr_fdset_open(pid, TASK, mode);
+	return cr_imgset_open(pid, TASK, mode);
 }
 
-struct cr_fdset *cr_glob_fdset_open(int mode)
+struct cr_imgset *cr_glob_imgset_open(int mode)
 {
-	return cr_fdset_open(-1 /* ignored */, GLOB, mode);
+	return cr_imgset_open(-1 /* ignored */, GLOB, mode);
 }
 
 int open_image_at(int dfd, int type, unsigned long flags, ...)
@@ -207,7 +207,7 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 	flags &= ~O_OPT;
 
 	va_start(args, flags);
-	vsnprintf(path, PATH_MAX, fdset_template[type].fmt, args);
+	vsnprintf(path, PATH_MAX, imgset_template[type].fmt, args);
 	va_end(args);
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
@@ -218,7 +218,7 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 		goto err;
 	}
 
-	if (fdset_template[type].magic == RAW_IMAGE_MAGIC)
+	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;
 
 	if (flags == O_RDONLY) {
@@ -226,12 +226,12 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 
 		if (read_img(ret, &magic) < 0)
 			goto err;
-		if (magic != fdset_template[type].magic) {
+		if (magic != imgset_template[type].magic) {
 			pr_err("Magic doesn't match for %s\n", path);
 			goto err;
 		}
 	} else {
-		if (write_img(ret, &fdset_template[type].magic))
+		if (write_img(ret, &imgset_template[type].magic))
 			goto err;
 	}
 
