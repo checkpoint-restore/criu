@@ -83,4 +83,12 @@ extern int open_pages_image(unsigned long flags, int pm_fd);
 extern int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
 extern void up_page_ids_base(void);
 
+extern int write_img_buf(int fd, const void *ptr, int size);
+#define write_img(fd, ptr)	write_img_buf((fd), (ptr), sizeof(*(ptr)))
+extern int read_img_buf_eof(int fd, void *ptr, int size);
+#define read_img_eof(fd, ptr)	read_img_buf_eof((fd), (ptr), sizeof(*(ptr)))
+extern int read_img_buf(int fd, void *ptr, int size);
+#define read_img(fd, ptr)	read_img_buf((fd), (ptr), sizeof(*(ptr)))
+extern int read_img_str(int fd, char **pstr, int size);
+
 #endif /* __CR_IMAGE_H__ */
