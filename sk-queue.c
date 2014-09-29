@@ -36,12 +36,13 @@ static LIST_HEAD(packets_list);
 int read_sk_queues(void)
 {
 	struct sk_packet *pkt;
-	int ret, fd;
+	int ret;
+	struct cr_img *img;
 
 	pr_info("Trying to read socket queues image\n");
 
-	fd = open_image(CR_FD_SK_QUEUES, O_RSTR);
-	if (fd < 0)
+	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
+	if (!img)
 		return -1;
 
 	while (1) {
@@ -51,19 +52,19 @@ int read_sk_queues(void)
 			pr_err("Failed to allocate packet header\n");
 			break;
 		}
-		ret = pb_read_one_eof(fd, &pkt->entry, PB_SK_QUEUES);
+		ret = pb_read_one_eof(img, &pkt->entry, PB_SK_QUEUES);
 		if (ret <= 0)
 			break;
 
-		pkt->img_off = lseek(fd, 0, SEEK_CUR);
+		pkt->img_off = lseek(img_raw_fd(img), 0, SEEK_CUR);
 		/*
 		 * NOTE: packet must be added to the tail. Otherwise sequence
 		 * will be broken.
 		 */
 		list_add_tail(&pkt->list, &packets_list);
-		lseek(fd, pkt->entry->length, SEEK_CUR);
+		lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR);
 	}
-	close(fd);
+	close_image(img);
 	xfree(pkt);
 
 	return ret;
@@ -178,24 +179,25 @@ err_brk:
 	return ret;
 }
 
-void sk_queue_data_handler(int fd, void *obj)
+void sk_queue_data_handler(struct cr_img *img, void *obj)
 {
 	SkPacketEntry *e = obj;
-	print_image_data(fd, e->length, opts.show_pages_content);
+	print_image_data(img, e->length, opts.show_pages_content);
 }
 
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
-	int ret, img_fd;
+	int ret;
+	struct cr_img *img;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
 	if (restore_prepare_socket(fd))
 		return -1;
 
-	img_fd = open_image(CR_FD_SK_QUEUES, O_RSTR);
-	if (img_fd < 0)
+	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
+	if (!img)
 		return -1;
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
@@ -220,12 +222,12 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		if (buf ==NULL)
 			goto err;
 
-		if (lseek(img_fd, pkt->img_off, SEEK_SET) == -1) {
+		if (lseek(img_raw_fd(img), pkt->img_off, SEEK_SET) == -1) {
 			pr_perror("lseek() failed");
 			xfree(buf);
 			goto err;
 		}
-		if (read_img_buf(img_fd, buf, entry->length) != 1) {
+		if (read_img_buf(img, buf, entry->length) != 1) {
 			xfree(buf);
 			goto err;
 		}
@@ -246,9 +248,9 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		xfree(pkt);
 	}
 
-	close(img_fd);
+	close_image(img);
 	return 0;
 err:
-	close_safe(&img_fd);
+	close_image(img);
 	return -1;
 }

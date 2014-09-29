@@ -431,7 +431,7 @@ static int write_pagemap_to_server(struct page_xfer *xfer,
 	pi.dst_id = xfer->dst_id;
 	iovec2psi(iov, &pi);
 
-	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
+	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write pagemap to server");
 		return -1;
 	}
@@ -444,7 +444,7 @@ static int write_pages_to_server(struct page_xfer *xfer,
 {
 	pr_debug("Splicing %lu bytes / %lu pages into socket\n", len, len / PAGE_SIZE);
 
-	if (splice(p, NULL, xfer->fd, NULL, len, SPLICE_F_MOVE) != len) {
+	if (splice(p, NULL, xfer->sk, NULL, len, SPLICE_F_MOVE) != len) {
 		pr_perror("Can't write pages to socket");
 		return -1;
 	}
@@ -460,7 +460,7 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 	pi.dst_id = xfer->dst_id;
 	iovec2psi(iov, &pi);
 
-	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
+	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write pagehole to server");
 		return -1;
 	}
@@ -470,14 +470,14 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 
 static void close_server_xfer(struct page_xfer *xfer)
 {
-	xfer->fd = -1;
+	xfer->sk = -1;
 }
 
 static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	struct page_server_iov pi;
 
-	xfer->fd = page_server_sk;
+	xfer->sk = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
 	xfer->write_hole = write_hole_to_server;
@@ -489,7 +489,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	pi.vaddr = 0;
 	pi.nr_pages = 0;
 
-	if (write(xfer->fd, &pi, sizeof(pi)) != sizeof(pi)) {
+	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
 		pr_perror("Can't write to page server");
 		return -1;
 	}
@@ -511,14 +511,15 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 			return ret;
 		}
 	}
-	return pb_write_one(xfer->fd, &pe, PB_PAGEMAP);
+	return pb_write_one(xfer->pmi, &pe, PB_PAGEMAP);
 }
 
 static int write_pages_loc(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
 	ssize_t ret;
-	ret = splice(p, NULL, xfer->fd_pg, NULL, len, SPLICE_F_MOVE);
+
+	ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len, SPLICE_F_MOVE);
 	if (ret == -1) {
 		pr_perror("Unable to spice data");
 		return -1;
@@ -592,7 +593,7 @@ static int write_pagehole_loc(struct page_xfer *xfer, struct iovec *iov)
 	pe.has_in_parent = true;
 	pe.in_parent = true;
 
-	if (pb_write_one(xfer->fd, &pe, PB_PAGEMAP) < 0)
+	if (pb_write_one(xfer->pmi, &pe, PB_PAGEMAP) < 0)
 		return -1;
 
 	return 0;
@@ -605,8 +606,8 @@ static void close_page_xfer(struct page_xfer *xfer)
 		xfree(xfer->parent);
 		xfer->parent = NULL;
 	}
-	close(xfer->fd_pg);
-	close(xfer->fd);
+	close_image(xfer->pi);
+	close_image(xfer->pmi);
 }
 
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
@@ -667,13 +668,13 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
-	xfer->fd = open_image(fd_type, O_DUMP, id);
-	if (xfer->fd < 0)
+	xfer->pmi = open_image(fd_type, O_DUMP, id);
+	if (!xfer->pmi)
 		return -1;
 
-	xfer->fd_pg = open_pages_image(O_DUMP, xfer->fd);
-	if (xfer->fd_pg < 0) {
-		close(xfer->fd);
+	xfer->pi = open_pages_image(O_DUMP, xfer->pmi);
+	if (!xfer->pi) {
+		close_image(xfer->pmi);
 		return -1;
 	}
 

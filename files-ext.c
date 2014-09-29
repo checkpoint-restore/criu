@@ -11,7 +11,8 @@
 
 static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	int rfd, ret;
+	int ret;
+	struct cr_img *rimg;
 
 	ExtFileEntry xfe = EXT_FILE_ENTRY__INIT;
 
@@ -22,9 +23,8 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 	xfe.id		= id;
 	xfe.fown	= (FownEntry *)&p->fown;
 
-	rfd = img_from_set(glob_imgset, CR_FD_EXT_FILES);
-
-	return pb_write_one(rfd, &xfe, PB_EXT_FILE);
+	rimg = img_from_set(glob_imgset, CR_FD_EXT_FILES);
+	return pb_write_one(rimg, &xfe, PB_EXT_FILE);
 }
 
 const struct fdtype_ops ext_dump_ops = {
@@ -79,11 +79,11 @@ struct collect_image_info ext_file_cinfo = {
 };
 
 int dump_unsupp_fd(struct fd_parms *p, int lfd,
-			  const int fdinfo, char *more, char *info)
+			  struct cr_img *img, char *more, char *info)
 {
 	int ret;
 
-	ret = do_dump_gen_file(p, lfd, &ext_dump_ops, fdinfo);
+	ret = do_dump_gen_file(p, lfd, &ext_dump_ops, img);
 	if (ret == 0)
 		return 0;
 	if (ret == -ENOTSUP)

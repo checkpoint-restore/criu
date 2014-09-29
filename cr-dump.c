@@ -693,7 +693,7 @@ static int dump_task_core_all(struct pstree_item *item,
 		const struct parasite_dump_misc *misc,
 		const struct cr_imgset *cr_imgset)
 {
-	int fd_core = img_from_set(cr_imgset, CR_FD_CORE);
+	struct cr_img *img;
 	CoreEntry *core = item->core[0];
 	pid_t pid = item->pid.real;
 	int ret = -1;
@@ -724,7 +724,8 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret)
 		goto err;
 
-	ret = pb_write_one(fd_core, core, PB_CORE);
+	img = img_from_set(cr_imgset, CR_FD_CORE);
+	ret = pb_write_one(img, core, PB_CORE);
 	if (ret < 0)
 		goto err;
 
@@ -1088,7 +1089,8 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	struct pid *tid = &item->threads[id];
 	CoreEntry *core = item->core[id];
 	pid_t pid = tid->real;
-	int ret = -1, fd_core;
+	int ret = -1;
+	struct cr_img *img;
 
 	pr_info("\n");
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
@@ -1100,13 +1102,13 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		goto err;
 	}
 
-	fd_core = open_image(CR_FD_CORE, O_DUMP, tid->virt);
-	if (fd_core < 0)
+	img = open_image(CR_FD_CORE, O_DUMP, tid->virt);
+	if (!img)
 		goto err;
 
-	ret = pb_write_one(fd_core, core, PB_CORE);
+	ret = pb_write_one(img, core, PB_CORE);
 
-	close(fd_core);
+	close_image(img);
 err:
 	pr_info("----------------------------------------\n");
 	return ret;
@@ -1116,7 +1118,8 @@ static int dump_one_zombie(const struct pstree_item *item,
 			   const struct proc_pid_stat *pps)
 {
 	CoreEntry *core;
-	int ret = -1, fd_core;
+	int ret = -1;
+	struct cr_img *img;
 
 	core = core_entry_alloc(0, 1);
 	if (!core)
@@ -1126,12 +1129,12 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
-	fd_core = open_image(CR_FD_CORE, O_DUMP, item->pid.virt);
-	if (fd_core < 0)
+	img = open_image(CR_FD_CORE, O_DUMP, item->pid.virt);
+	if (!img)
 		goto err;
 
-	ret = pb_write_one(fd_core, core, PB_CORE);
-	close(fd_core);
+	ret = pb_write_one(img, core, PB_CORE);
+	close_image(img);
 err:
 	core_entry_free(core);
 	return ret;

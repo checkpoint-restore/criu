@@ -310,7 +310,8 @@ err_sopt:
 
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
-	int ret, img_fd, aux;
+	int ret, aux;
+	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
 
@@ -371,29 +372,29 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	 * Push the stuff to image
 	 */
 
-	img_fd = open_image(CR_FD_TCP_STREAM, O_DUMP, sk->sd.ino);
-	if (img_fd < 0)
+	img = open_image(CR_FD_TCP_STREAM, O_DUMP, sk->sd.ino);
+	if (!img)
 		goto err_img;
 
-	ret = pb_write_one(img_fd, &tse, PB_TCP_STREAM);
+	ret = pb_write_one(img, &tse, PB_TCP_STREAM);
 	if (ret < 0)
 		goto err_iw;
 
 	if (in_buf) {
-		ret = write_img_buf(img_fd, in_buf, tse.inq_len);
+		ret = write_img_buf(img, in_buf, tse.inq_len);
 		if (ret < 0)
 			goto err_iw;
 	}
 
 	if (out_buf) {
-		ret = write_img_buf(img_fd, out_buf, tse.outq_len);
+		ret = write_img_buf(img, out_buf, tse.outq_len);
 		if (ret < 0)
 			goto err_iw;
 	}
 
 	pr_info("Done\n");
 err_iw:
-	close(img_fd);
+	close_image(img);
 err_img:
 err_opt:
 	xfree(out_buf);
@@ -452,7 +453,7 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 	return 0;
 }
 
-static int __send_tcp_queue(int sk, int queue, u32 len, int imgfd)
+static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 {
 	int ret, err = -1;
 	int off, max;
@@ -462,7 +463,7 @@ static int __send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 	if (!buf)
 		return -1;
 
-	if (read_img_buf(imgfd, buf, len) < 0)
+	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
 	max = (queue == TCP_SEND_QUEUE) ? tcp_max_wshare : tcp_max_rshare;
@@ -487,7 +488,7 @@ err:
 	return err;
 }
 
-static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
+static int send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 {
 	pr_debug("\tRestoring TCP %d queue data %u bytes\n", queue, len);
 
@@ -496,10 +497,10 @@ static int send_tcp_queue(int sk, int queue, u32 len, int imgfd)
 		return -1;
 	}
 
-	return __send_tcp_queue(sk, queue, len, imgfd);
+	return __send_tcp_queue(sk, queue, len, img);
 }
 
-static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
+static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img)
 {
 	u32 len;
 
@@ -507,7 +508,7 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 		return -1;
 
 	len = tse->inq_len;
-	if (len && send_tcp_queue(sk, TCP_RECV_QUEUE, len, fd))
+	if (len && send_tcp_queue(sk, TCP_RECV_QUEUE, len, img))
 		return -1;
 
 	/*
@@ -518,7 +519,7 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 	 * restored in repair mode.
 	 */
 	len = tse->outq_len - tse->unsq_len;
-	if (len && send_tcp_queue(sk, TCP_SEND_QUEUE, len, fd))
+	if (len && send_tcp_queue(sk, TCP_SEND_QUEUE, len, img))
 		return -1;
 
 	/*
@@ -527,7 +528,7 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, int fd)
 	 */
 	len = tse->unsq_len;
 	tcp_repair_off(sk);
-	if (len && __send_tcp_queue(sk, TCP_SEND_QUEUE, len, fd))
+	if (len && __send_tcp_queue(sk, TCP_SEND_QUEUE, len, img))
 		return -1;
 	if (tcp_repair_on(sk))
 		return -1;
@@ -588,16 +589,17 @@ static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
 
 static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 {
-	int ifd, aux;
+	int aux;
+	struct cr_img *img;
 	TcpStreamEntry *tse;
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
 
-	ifd = open_image(CR_FD_TCP_STREAM, O_RSTR, ii->ie->ino);
-	if (ifd < 0)
+	img = open_image(CR_FD_TCP_STREAM, O_RSTR, ii->ie->ino);
+	if (!img)
 		goto err;
 
-	if (pb_read_one(ifd, &tse, PB_TCP_STREAM) < 0)
+	if (pb_read_one(img, &tse, PB_TCP_STREAM) < 0)
 		goto err_c;
 
 	if (restore_tcp_seqs(sk, tse))
@@ -612,7 +614,7 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	if (restore_tcp_opts(sk, tse))
 		goto err_c;
 
-	if (restore_tcp_queues(sk, tse, ifd))
+	if (restore_tcp_queues(sk, tse, img))
 		goto err_c;
 
 	if (tse->has_nodelay && tse->nodelay) {
@@ -628,12 +630,12 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	}
 
 	tcp_stream_entry__free_unpacked(tse, NULL);
-	close(ifd);
+	close_image(img);
 	return 0;
 
 err_c:
 	tcp_stream_entry__free_unpacked(tse, NULL);
-	close(ifd);
+	close_image(img);
 err:
 	return -1;
 }
@@ -719,13 +721,13 @@ out:
 	return ret;
 }
 
-void show_tcp_stream(int fd, void *obj)
+void show_tcp_stream(struct cr_img *img, void *obj)
 {
 	TcpStreamEntry *e = obj;
 	if (opts.show_pages_content) {
 		pr_msg("In-queue:");
-		print_image_data(fd, e->inq_len, 1);
+		print_image_data(img, e->inq_len, 1);
 		pr_msg("Out-queue:");
-		print_image_data(fd, e->outq_len, 1);
+		print_image_data(img, e->outq_len, 1);
 	}
 }

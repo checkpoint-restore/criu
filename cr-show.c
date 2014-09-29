@@ -37,10 +37,10 @@
 
 static LIST_HEAD(pstree_list);
 
-static void pipe_data_handler(int fd, void *obj)
+static void pipe_data_handler(struct cr_img *img, void *obj)
 {
 	PipeDataEntry *e = obj;
-	print_image_data(fd, e->bytes, opts.show_pages_content);
+	print_image_data(img, e->bytes, opts.show_pages_content);
 }
 
 static int nice_width_for(unsigned long addr)
@@ -115,13 +115,13 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-void print_image_data(int fd, unsigned int length, int show)
+void print_image_data(struct cr_img *img, unsigned int length, int show)
 {
 	void *data;
 	int ret;
 
 	if (!show) {
-		lseek(fd, length, SEEK_CUR);
+		lseek(img_raw_fd(img), length, SEEK_CUR);
 		return;
 	}
 
@@ -130,7 +130,7 @@ void print_image_data(int fd, unsigned int length, int show)
 	data = xmalloc(length);
 	if (!data)
 		return;
-	ret = read_img_buf(fd, (unsigned char *)data, length);
+	ret = read_img_buf(img, (unsigned char *)data, length);
 	if (ret < 0) {
 		xfree(data);
 		return;
@@ -139,12 +139,12 @@ void print_image_data(int fd, unsigned int length, int show)
 	xfree(data);
 }
 
-static void show_pagemaps(int fd, void *obj)
+static void show_pagemaps(struct cr_img *img, void *obj)
 {
-	pb_show_plain_pretty(fd, PB_PAGEMAP, "nr_pages:%u");
+	pb_show_plain_pretty(img, PB_PAGEMAP, "nr_pages:%u");
 }
 
-void show_siginfo(int fd)
+void show_siginfo(struct cr_img *img)
 {
 	int ret;
 
@@ -153,7 +153,7 @@ void show_siginfo(int fd)
 		SiginfoEntry *sie;
 		siginfo_t *info;
 
-		ret = pb_read_one_eof(fd, &sie, PB_SIGINFO);
+		ret = pb_read_one_eof(img, &sie, PB_SIGINFO);
 		if (ret <= 0)
 			break;
 
@@ -182,7 +182,7 @@ static int pstree_item_from_pb(PstreeEntry *e, struct pstree_item *item)
 	return 0;
 }
 
-static void pstree_handler(int fd, void *obj)
+static void pstree_handler(struct cr_img *img, void *obj)
 {
 	PstreeEntry *e = obj;
 	struct pstree_item *item = NULL;
@@ -199,9 +199,9 @@ static void pstree_handler(int fd, void *obj)
 	list_add_tail(&item->sibling, &pstree_list);
 }
 
-void show_collect_pstree(int fd, int collect)
+static void show_collect_pstree(struct cr_img *img, int collect)
 {
-	pb_show_plain_payload_pretty(fd, PB_PSTREE,
+	pb_show_plain_payload_pretty(img, PB_PSTREE,
 			collect ? pstree_handler : NULL, "*:%d");
 }
 
@@ -349,6 +349,7 @@ static int cr_parse_file(void)
 {
 	u32 magic;
 	int ret = -1, fd;
+	struct cr_img *img = NULL;
 
 	fd = open(opts.show_dump_file, O_RDONLY);
 	if (fd < 0) {
@@ -356,26 +357,33 @@ static int cr_parse_file(void)
 		goto out;
 	}
 
-	if (read_img(fd, &magic) < 0)
+	img = img_from_fd(fd);
+	if (!img)
 		goto out;
 
-	ret = cr_parse_fd(fd, magic);
+	if (read_img(img, &magic) < 0)
+		goto out;
+
+	ret = cr_parse_fd(img, magic);
 out:
-	close_safe(&fd);
+	if (img)
+		close_image(img);
+	else
+		close_safe(&fd);
 	return ret;
 }
 
-int cr_parse_fd(int fd, u32 magic)
+int cr_parse_fd(struct cr_img *img, u32 magic)
 {
 	int ret = 0, i;
 
 	if (magic == PSTREE_MAGIC) {
-		show_collect_pstree(fd, 0);
+		show_collect_pstree(img, 0);
 		goto out;
 	}
 
 	if (magic == SIGNAL_MAGIC || magic == PSIGNAL_MAGIC) {
-		show_siginfo(fd);
+		show_siginfo(img);
 		goto out;
 	}
 
@@ -386,7 +394,7 @@ int cr_parse_fd(int fd, u32 magic)
 		if (si->magic != magic)
 			continue;
 
-		do_pb_show_plain(fd, si->pb_type, si->single,
+		do_pb_show_plain(img, si->pb_type, si->single,
 				si->payload, si->fmt);
 		goto out;
 	}
@@ -403,6 +411,7 @@ out:
 static int cr_show_pstree_item(struct pstree_item *item)
 {
 	int ret = -1, i;
+	struct cr_img *img;
 	struct cr_imgset *cr_imgset = NULL;
 	TaskKobjIdsEntry *ids;
 
@@ -416,22 +425,20 @@ static int cr_show_pstree_item(struct pstree_item *item)
 	cr_parse_fd(img_from_set(cr_imgset, CR_FD_CORE), CORE_MAGIC);
 
 	if (item->nr_threads > 1) {
-		int fd_th;
-
 		for (i = 0; i < item->nr_threads; i++) {
 
 			if (item->threads[i].virt == item->pid.virt)
 				continue;
 
-			fd_th = open_image(CR_FD_CORE, O_SHOW, item->threads[i].virt);
-			if (fd_th < 0)
+			img = open_image(CR_FD_CORE, O_SHOW, item->threads[i].virt);
+			if (!img)
 				goto outc;
 
 			pr_msg("Thread %d.%d:\n", item->pid.virt, item->threads[i].virt);
 			pr_msg("----------------------------------------\n");
 
-			cr_parse_fd(fd_th, CORE_MAGIC);
-			close_safe(&fd_th);
+			cr_parse_fd(img, CORE_MAGIC);
+			close_image(img);
 		}
 	}
 
@@ -445,25 +452,25 @@ static int cr_show_pstree_item(struct pstree_item *item)
 			cr_parse_fd(img_from_set(cr_imgset, i), imgset_template[i].magic);
 		}
 
-	i = open_image(CR_FD_RLIMIT, O_SHOW | O_OPT, item->pid.virt);
-	if (i >= 0) {
+	img = open_image(CR_FD_RLIMIT, O_SHOW | O_OPT, item->pid.virt);
+	if (img) {
 		pr_msg("* ");
 		pr_msg(imgset_template[CR_FD_RLIMIT].fmt, item->pid.virt);
 		pr_msg(":\n");
 
-		cr_parse_fd(i, RLIMIT_MAGIC);
-		close(i);
+		cr_parse_fd(img, RLIMIT_MAGIC);
+		close_image(img);
 	}
 
 	if (pb_read_one(img_from_set(cr_imgset, CR_FD_IDS), &ids, PB_IDS) > 0) {
-		i = open_image(CR_FD_FDINFO, O_SHOW, ids->files_id);
-		if (i >= 0) {
+		img = open_image(CR_FD_FDINFO, O_SHOW, ids->files_id);
+		if (img) {
 			pr_msg("* ");
 			pr_msg(imgset_template[CR_FD_FDINFO].fmt, ids->files_id);
 			pr_msg(":\n");
 
-			cr_parse_fd(i, FDINFO_MAGIC);
-			close(i);
+			cr_parse_fd(img, FDINFO_MAGIC);
+			close_image(img);
 		}
 
 		task_kobj_ids_entry__free_unpacked(ids, NULL);
@@ -480,19 +487,20 @@ out:
 
 static int cr_show_pid(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	struct pstree_item item;
 
-	fd = open_image(CR_FD_PSTREE, O_SHOW);
-	if (fd < 0)
+	img = open_image(CR_FD_PSTREE, O_SHOW);
+	if (!img)
 		return -1;
 
 	while (1) {
 		PstreeEntry *pe;
 
-		ret = pb_read_one_eof(fd, &pe, PB_PSTREE);
+		ret = pb_read_one_eof(img, &pe, PB_PSTREE);
 		if (ret <= 0) {
-			close(fd);
+			close_image(img);
 			return ret;
 		}
 
@@ -505,7 +513,7 @@ static int cr_show_pid(int pid)
 		pstree_entry__free_unpacked(pe, NULL);
 	}
 
-	close(fd);
+	close_image(img);
 
 	return cr_show_pstree_item(&item);
 }
@@ -513,19 +521,14 @@ static int cr_show_pid(int pid)
 static int cr_show_all(void)
 {
 	struct pstree_item *item = NULL, *tmp;
-	int ret = -1, fd, pid;
+	int ret = -1, pid;
+	struct cr_img *img;
 
-	fd = open_image(CR_FD_PSTREE, O_SHOW);
-	if (fd < 0)
+	img = open_image(CR_FD_PSTREE, O_SHOW);
+	if (!img)
 		goto out;
-	show_collect_pstree(fd, 1);
-	close(fd);
-
-	fd = open_image(CR_FD_SK_QUEUES, O_SHOW);
-	if (fd < 0)
-		goto out;
-
-	close(fd);
+	show_collect_pstree(img, 1);
+	close_image(img);
 
 	pid = list_first_entry(&pstree_list, struct pstree_item, sibling)->pid.virt;
 	ret = try_show_namespaces(pid);

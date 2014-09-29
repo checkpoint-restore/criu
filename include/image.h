@@ -74,21 +74,34 @@ extern bool ns_per_id;
 #define O_RSTR	(O_RDONLY)
 #define O_OPT	(O_PATH)
 
+struct cr_img {
+	int _fd;
+};
+
+static inline int img_raw_fd(struct cr_img *img)
+{
+	return img->_fd;
+}
+
 extern int open_image_dir(char *dir);
 extern void close_image_dir(void);
 
-extern int open_image_at(int dfd, int type, unsigned long flags, ...);
+extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);
 #define open_image(typ, flags, ...) open_image_at(get_service_fd(IMG_FD_OFF), typ, flags, ##__VA_ARGS__)
-extern int open_pages_image(unsigned long flags, int pm_fd);
-extern int open_pages_image_at(int dfd, unsigned long flags, int pm_fd);
+extern struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi);
+extern struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi);
 extern void up_page_ids_base(void);
 
-extern int write_img_buf(int fd, const void *ptr, int size);
-#define write_img(fd, ptr)	write_img_buf((fd), (ptr), sizeof(*(ptr)))
-extern int read_img_buf_eof(int fd, void *ptr, int size);
-#define read_img_eof(fd, ptr)	read_img_buf_eof((fd), (ptr), sizeof(*(ptr)))
-extern int read_img_buf(int fd, void *ptr, int size);
-#define read_img(fd, ptr)	read_img_buf((fd), (ptr), sizeof(*(ptr)))
-extern int read_img_str(int fd, char **pstr, int size);
+extern struct cr_img *img_from_fd(int fd); /* for cr-show mostly */
+
+extern int write_img_buf(struct cr_img *, const void *ptr, int size);
+#define write_img(img, ptr)	write_img_buf((img), (ptr), sizeof(*(ptr)))
+extern int read_img_buf_eof(struct cr_img *, void *ptr, int size);
+#define read_img_eof(img, ptr)	read_img_buf_eof((img), (ptr), sizeof(*(ptr)))
+extern int read_img_buf(struct cr_img *, void *ptr, int size);
+#define read_img(img, ptr)	read_img_buf((img), (ptr), sizeof(*(ptr)))
+extern int read_img_str(struct cr_img *, char **pstr, int size);
+
+extern void close_image(struct cr_img *);
 
 #endif /* __CR_IMAGE_H__ */

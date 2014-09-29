@@ -20,7 +20,7 @@ static int get_page_vaddr(struct page_read *pr, struct iovec *iov)
 	int ret;
 	u64 img_va;
 
-	ret = read_img_eof(pr->fd_pg, &img_va);
+	ret = read_img_eof(pr->pmi, &img_va);
 	if (ret <= 0)
 		return ret;
 
@@ -34,7 +34,7 @@ static int read_page(struct page_read *pr, unsigned long vaddr, void *buf)
 {
 	int ret;
 
-	ret = read(pr->fd_pg, buf, PAGE_SIZE);
+	ret = read(img_raw_fd(pr->pmi), buf, PAGE_SIZE);
 	if (ret != PAGE_SIZE) {
 		pr_err("Can't read mapping page %d\n", ret);
 		return -1;
@@ -60,7 +60,7 @@ static int get_pagemap(struct page_read *pr, struct iovec *iov)
 	int ret;
 	PagemapEntry *pe;
 
-	ret = pb_read_one_eof(pr->fd, &pe, PB_PAGEMAP);
+	ret = pb_read_one_eof(pr->pmi, &pe, PB_PAGEMAP);
 	if (ret <= 0)
 		return ret;
 
@@ -91,7 +91,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 
 	pr_debug("\tpr%u Skip %lx bytes from page-dump\n", pr->id, len);
 	if (!pr->pe->in_parent)
-		lseek(pr->fd_pg, len, SEEK_CUR);
+		lseek(img_raw_fd(pr->pi), len, SEEK_CUR);
 	pr->cvaddr += len;
 }
 
@@ -145,10 +145,11 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *bu
 		if (ret == -1)
 			return ret;
 	} else {
-		off_t current_vaddr = lseek(pr->fd_pg, 0, SEEK_CUR);
+		int fd = img_raw_fd(pr->pi);
+		off_t current_vaddr = lseek(fd, 0, SEEK_CUR);
 		pr_debug("\tpr%u Read page %lx from self %lx/%"PRIx64"\n", pr->id,
 				vaddr, pr->cvaddr, current_vaddr);
-		ret = read(pr->fd_pg, buf, PAGE_SIZE);
+		ret = read(fd, buf, PAGE_SIZE);
 		if (ret != PAGE_SIZE) {
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
@@ -184,8 +185,9 @@ static void close_page_read(struct page_read *pr)
 		xfree(pr->parent);
 	}
 
-	close(pr->fd_pg);
-	close(pr->fd);
+	close_image(pr->pmi);
+	if (pr->pi)
+		close_image(pr->pi);
 }
 
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
@@ -227,25 +229,26 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool sh
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 
-	pr->fd = open_image_at(dfd, shmem ? CR_FD_SHMEM_PAGEMAP : CR_FD_PAGEMAP, O_RSTR, (long)pid);
-	if (pr->fd < 0) {
-		pr->fd_pg = open_image_at(dfd, shmem ? CR_FD_SHM_PAGES_OLD : CR_FD_PAGES_OLD, flags, pid);
-		if (pr->fd_pg < 0)
+	pr->pmi = open_image_at(dfd, shmem ? CR_FD_SHMEM_PAGEMAP : CR_FD_PAGEMAP, O_RSTR, (long)pid);
+	if (!pr->pmi) {
+		pr->pmi = open_image_at(dfd, shmem ? CR_FD_SHM_PAGES_OLD : CR_FD_PAGES_OLD, flags, pid);
+		if (!pr->pmi)
 			return -1;
 
 		pr->get_pagemap = get_page_vaddr;
 		pr->put_pagemap = NULL;
 		pr->read_page = read_page;
+		pr->pi = NULL;
 	} else {
 		static unsigned ids = 1;
 
 		if (!shmem && try_open_parent(dfd, pid, pr, flags)) {
-			close(pr->fd);
+			close_image(pr->pmi);
 			return -1;
 		}
 
-		pr->fd_pg = open_pages_image_at(dfd, flags, pr->fd);
-		if (pr->fd_pg < 0) {
+		pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
+		if (!pr->pi) {
 			close_page_read(pr);
 			return -1;
 		}

@@ -384,18 +384,20 @@ static inline int collect_filemap(struct vma_area *vma)
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = i->pid.virt;
-	int fd, ret = -1, vn = 0;
+	int ret = -1, vn = 0;
+	struct cr_img *img;
 	struct rst_info *ri = i->rst;
 
-	fd = open_image(CR_FD_MM, O_RSTR | O_OPT, pid);
-	if (fd < 0) {
+	img = open_image(CR_FD_MM, O_RSTR | O_OPT, pid);
+	if (!img) {
 		if (errno == ENOENT)
 			return 0;
 		return -1;
 	}
 
-	ret = pb_read_one(fd, &ri->mm, PB_MM);
-	close(fd);
+	ret = pb_read_one(img, &ri->mm, PB_MM);
+	close_image(img);
+
 	if (ret < 0)
 		return -1;
 
@@ -403,18 +405,18 @@ int prepare_mm_pid(struct pstree_item *i)
 		return -1;
 
 	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
-	fd = -1;
+	img = NULL;
 	if (ri->mm->n_vmas == 0) {
 		/*
 		 * Old image. Read VMAs from vma-.img
 		 */
-		fd = open_image(CR_FD_VMAS, O_RSTR, pid);
-		if (fd < 0)
+		img = open_image(CR_FD_VMAS, O_RSTR, pid);
+		if (!img)
 			return -1;
 	}
 
 
-	while (vn < ri->mm->n_vmas || fd >= 0) {
+	while (vn < ri->mm->n_vmas || img != NULL) {
 		struct vma_area *vma;
 
 		ret = -1;
@@ -424,13 +426,13 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		ret = 0;
 		ri->vmas.nr++;
-		if (fd == -1)
+		if (!img)
 			vma->e = ri->mm->vmas[vn++];
 		else {
-			ret = pb_read_one_eof(fd, &vma->e, PB_VMA);
+			ret = pb_read_one_eof(img, &vma->e, PB_VMA);
 			if (ret <= 0) {
 				xfree(vma);
-				close(fd);
+				close_image(img);
 				break;
 			}
 		}

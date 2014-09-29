@@ -205,7 +205,7 @@ int dump_pstree(struct pstree_item *root_item)
 	struct pstree_item *item = root_item;
 	PstreeEntry e = PSTREE_ENTRY__INIT;
 	int ret = -1, i;
-	int pstree_fd;
+	struct cr_img *img;
 
 	pr_info("\n");
 	pr_info("Dumping pstree (pid: %d)\n", root_item->pid.real);
@@ -228,8 +228,8 @@ int dump_pstree(struct pstree_item *root_item)
 		}
 	}
 
-	pstree_fd = open_image(CR_FD_PSTREE, O_DUMP);
-	if (pstree_fd < 0)
+	img = open_image(CR_FD_PSTREE, O_DUMP);
+	if (!img)
 		return -1;
 
 	for_each_pstree_item(item) {
@@ -248,7 +248,7 @@ int dump_pstree(struct pstree_item *root_item)
 		for (i = 0; i < item->nr_threads; i++)
 			e.threads[i] = item->threads[i].virt;
 
-		ret = pb_write_one(pstree_fd, &e, PB_PSTREE);
+		ret = pb_write_one(img, &e, PB_PSTREE);
 		xfree(e.threads);
 
 		if (ret)
@@ -258,7 +258,7 @@ int dump_pstree(struct pstree_item *root_item)
 
 err:
 	pr_info("----------------------------------------\n");
-	close(pstree_fd);
+	close_image(img);
 	return ret;
 }
 
@@ -318,19 +318,20 @@ static int prepare_pstree_for_shell_job(void)
 
 static int read_pstree_image(void)
 {
-	int ret = 0, i, ps_fd;
+	int ret = 0, i;
+	struct cr_img *img;
 	struct pstree_item *pi, *parent = NULL;
 
 	pr_info("Reading image tree\n");
 
-	ps_fd = open_image(CR_FD_PSTREE, O_RSTR);
-	if (ps_fd < 0)
+	img = open_image(CR_FD_PSTREE, O_RSTR);
+	if (!img)
 		return -1;
 
 	while (1) {
 		PstreeEntry *e;
 
-		ret = pb_read_one_eof(ps_fd, &e, PB_PSTREE);
+		ret = pb_read_one_eof(img, &e, PB_PSTREE);
 		if (ret <= 0)
 			break;
 
@@ -404,17 +405,17 @@ static int read_pstree_image(void)
 		pstree_entry__free_unpacked(e, NULL);
 
 		{
-			int fd;
+			struct cr_img *img;
 
-			fd = open_image(CR_FD_IDS, O_RSTR, pi->pid.virt);
-			if (fd < 0) {
+			img = open_image(CR_FD_IDS, O_RSTR, pi->pid.virt);
+			if (!img) {
 				if (errno == ENOENT)
 					continue;
 				goto err;
 			}
-			ret = pb_read_one(fd, &pi->ids, PB_IDS);
-			close(fd);
-		}
+			ret = pb_read_one(img, &pi->ids, PB_IDS);
+			close_image(img);
+			}
 
 		if (ret != 1)
 			goto err;
@@ -425,7 +426,7 @@ static int read_pstree_image(void)
 		}
 	}
 err:
-	close(ps_fd);
+	close_image(img);
 	return ret;
 }
 

@@ -19,14 +19,15 @@ u32 root_cg_set;
 
 int check_img_inventory(void)
 {
-	int fd, ret = -1;
+	int ret = -1;
+	struct cr_img *img;
 	InventoryEntry *he;
 
-	fd = open_image(CR_FD_INVENTORY, O_RSTR);
-	if (fd < 0)
+	img = open_image(CR_FD_INVENTORY, O_RSTR);
+	if (!img)
 		return -1;
 
-	if (pb_read_one(fd, &he, PB_INVENTORY) < 0)
+	if (pb_read_one(img, &he, PB_INVENTORY) < 0)
 		goto out_close;
 
 	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
@@ -58,20 +59,20 @@ int check_img_inventory(void)
 out_err:
 	inventory_entry__free_unpacked(he, NULL);
 out_close:
-	close(fd);
+	close_image(img);
 	return ret;
 }
 
 int write_img_inventory(void)
 {
-	int fd;
+	struct cr_img *img;
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item crt = { };
 
 	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
-	fd = open_image(CR_FD_INVENTORY, O_DUMP);
-	if (fd < 0)
+	img = open_image(CR_FD_INVENTORY, O_DUMP);
+	if (!img)
 		return -1;
 
 	he.img_version = CRTOOLS_IMAGES_V1;
@@ -83,7 +84,7 @@ int write_img_inventory(void)
 	crt.state = TASK_ALIVE;
 	crt.pid.real = getpid();
 	if (get_task_ids(&crt)) {
-		close(fd);
+		close_image(img);
 		return -1;
 	}
 
@@ -93,11 +94,11 @@ int write_img_inventory(void)
 
 	he.root_ids = crt.ids;
 
-	if (pb_write_one(fd, &he, PB_INVENTORY) < 0)
+	if (pb_write_one(img, &he, PB_INVENTORY) < 0)
 		return -1;
 
 	xfree(crt.ids);
-	close(fd);
+	close_image(img);
 	return 0;
 }
 
@@ -116,14 +117,14 @@ static struct cr_imgset *alloc_cr_imgset(int nr)
 	if (cr_imgset == NULL)
 		return NULL;
 
-	cr_imgset->_imgs = xmalloc(nr * sizeof(int));
+	cr_imgset->_imgs = xmalloc(nr * sizeof(struct cr_img *));
 	if (cr_imgset->_imgs == NULL) {
 		xfree(cr_imgset);
 		return NULL;
 	}
 
 	for (i = 0; i < nr; i++)
-		cr_imgset->_imgs[i] = -1;
+		cr_imgset->_imgs[i] = NULL;
 	cr_imgset->fd_nr = nr;
 	return cr_imgset;
 }
@@ -136,10 +137,10 @@ static void __close_cr_imgset(struct cr_imgset *cr_imgset)
 		return;
 
 	for (i = 0; i < cr_imgset->fd_nr; i++) {
-		if (cr_imgset->_imgs[i] == -1)
+		if (!cr_imgset->_imgs[i])
 			continue;
-		close_safe(&cr_imgset->_imgs[i]);
-		cr_imgset->_imgs[i] = -1;
+		close_image(cr_imgset->_imgs[i]);
+		cr_imgset->_imgs[i] = NULL;
 	}
 }
 
@@ -160,7 +161,6 @@ struct cr_imgset *cr_imgset_open_range(int pid, int from, int to,
 {
 	struct cr_imgset *imgset;
 	unsigned int i;
-	int ret = -1;
 
 	imgset = alloc_cr_imgset(to - from);
 	if (!imgset)
@@ -169,15 +169,17 @@ struct cr_imgset *cr_imgset_open_range(int pid, int from, int to,
 	from++;
 	imgset->fd_off = from;
 	for (i = from; i < to; i++) {
-		ret = open_image(i, flags, pid);
-		if (ret < 0) {
+		struct cr_img *img;
+
+		img = open_image(i, flags, pid);
+		if (!img) {
 			if (!(flags & O_CREAT))
 				/* caller should check himself */
 				continue;
 			goto err;
 		}
 
-		imgset->_imgs[i - from] = ret;
+		imgset->_imgs[i - from] = img;
 	}
 
 	return imgset;
@@ -197,12 +199,17 @@ struct cr_imgset *cr_glob_imgset_open(int mode)
 	return cr_imgset_open(-1 /* ignored */, GLOB, mode);
 }
 
-int open_image_at(int dfd, int type, unsigned long flags, ...)
+struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 {
+	struct cr_img *img;
 	unsigned long oflags = flags;
 	char path[PATH_MAX];
 	va_list args;
 	int ret;
+
+	img = xmalloc(sizeof(*img));
+	if (!img)
+		goto errn;
 
 	flags &= ~O_OPT;
 
@@ -212,33 +219,56 @@ int open_image_at(int dfd, int type, unsigned long flags, ...)
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if ((oflags & O_OPT) && errno == ENOENT)
-			return -ENOENT;
+		if ((oflags & O_OPT) && errno == ENOENT) {
+			xfree(img);
+			return NULL;
+		}
+
 		pr_perror("Unable to open %s", path);
 		goto err;
 	}
 
+	img->_fd = ret;
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;
 
 	if (flags == O_RDONLY) {
 		u32 magic;
 
-		if (read_img(ret, &magic) < 0)
+		if (read_img(img, &magic) < 0)
 			goto err;
 		if (magic != imgset_template[type].magic) {
 			pr_err("Magic doesn't match for %s\n", path);
 			goto err;
 		}
 	} else {
-		if (write_img(ret, &imgset_template[type].magic))
+		if (write_img(img, &imgset_template[type].magic))
 			goto err;
 	}
 
 skip_magic:
-	return ret;
+	return img;
+
 err:
-	return -1;
+	xfree(img);
+errn:
+	return NULL;
+}
+
+void close_image(struct cr_img *img)
+{
+	close(img->_fd);
+	xfree(img);
+}
+
+struct cr_img *img_from_fd(int fd)
+{
+	struct cr_img *img;
+
+	img = xmalloc(sizeof(*img));
+	if (img)
+		img->_fd = fd;
+	return img;
 }
 
 int open_image_dir(char *dir)
@@ -291,29 +321,29 @@ void up_page_ids_base(void)
 	page_ids += 0x10000;
 }
 
-int open_pages_image_at(int dfd, unsigned long flags, int pm_fd)
+struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi)
 {
 	unsigned id;
 
 	if (flags == O_RDONLY || flags == O_RDWR) {
 		PagemapHead *h;
-		if (pb_read_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
-			return -1;
+		if (pb_read_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
+			return NULL;
 		id = h->pages_id;
 		pagemap_head__free_unpacked(h, NULL);
 	} else {
 		PagemapHead h = PAGEMAP_HEAD__INIT;
 		id = h.pages_id = page_ids++;
-		if (pb_write_one(pm_fd, &h, PB_PAGEMAP_HEAD) < 0)
-			return -1;
+		if (pb_write_one(pmi, &h, PB_PAGEMAP_HEAD) < 0)
+			return NULL;
 	}
 
 	return open_image_at(dfd, CR_FD_PAGES, flags, id);
 }
 
-int open_pages_image(unsigned long flags, int pm_fd)
+struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi)
 {
-	return open_pages_image_at(get_service_fd(IMG_FD_OFF), flags, pm_fd);
+	return open_pages_image_at(get_service_fd(IMG_FD_OFF), flags, pmi);
 }
 
 /*
@@ -322,9 +352,11 @@ int open_pages_image(unsigned long flags, int pm_fd)
  *	0  on success
  *	-1 on error (error message is printed)
  */
-int write_img_buf(int fd, const void *ptr, int size)
+int write_img_buf(struct cr_img *img, const void *ptr, int size)
 {
+	int fd = img->_fd;
 	int ret;
+
 	ret = write(fd, ptr, size);
 	if (ret == size)
 		return 0;
@@ -343,9 +375,11 @@ int write_img_buf(int fd, const void *ptr, int size)
  *	0  on EOF (silently)
  *	-1 on error (error message is printed)
  */
-int read_img_buf_eof(int fd, void *ptr, int size)
+int read_img_buf_eof(struct cr_img *img, void *ptr, int size)
 {
+	int fd = img->_fd;
 	int ret;
+
 	ret = read(fd, ptr, size);
 	if (ret == size)
 		return 1;
@@ -365,11 +399,11 @@ int read_img_buf_eof(int fd, void *ptr, int size)
  *	1  on success
  *	-1 on error or EOF (error message is printed)
  */
-int read_img_buf(int fd, void *ptr, int size)
+int read_img_buf(struct cr_img *img, void *ptr, int size)
 {
 	int ret;
 
-	ret = read_img_buf_eof(fd, ptr, size);
+	ret = read_img_buf_eof(img, ptr, size);
 	if (ret == 0) {
 		pr_err("Unexpected EOF\n");
 		ret = -1;
@@ -383,7 +417,7 @@ int read_img_buf(int fd, void *ptr, int size)
  * the buffer and puts the '\0' at the end
  */
 
-int read_img_str(int fd, char **pstr, int size)
+int read_img_str(struct cr_img *img, char **pstr, int size)
 {
 	int ret;
 	char *str;
@@ -392,7 +426,7 @@ int read_img_str(int fd, char **pstr, int size)
 	if (!str)
 		return -1;
 
-	ret = read_img_buf(fd, str, size);
+	ret = read_img_buf(img, str, size);
 	if (ret < 0) {
 		xfree(str);
 		return -1;

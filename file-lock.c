@@ -338,11 +338,12 @@ static int restore_file_locks(int pid)
 
 static int restore_file_locks_legacy(int pid)
 {
-	int fd, ret = -1;
+	int ret = -1;
+	struct cr_img *img;
 	FileLockEntry *fle;
 
-	fd = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR | O_OPT, pid);
-	if (fd < 0) {
+	img = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR | O_OPT, pid);
+	if (!img) {
 		if (errno == ENOENT)
 			return 0;
 		else
@@ -350,7 +351,7 @@ static int restore_file_locks_legacy(int pid)
 	}
 
 	while (1) {
-		ret = pb_read_one_eof(fd, &fle, PB_FILE_LOCK);
+		ret = pb_read_one_eof(img, &fle, PB_FILE_LOCK);
 		if (ret <= 0)
 			break;
 
@@ -360,7 +361,7 @@ static int restore_file_locks_legacy(int pid)
 			break;
 	}
 
-	close_safe(&fd);
+	close_image(img);
 	return ret;
 }
 

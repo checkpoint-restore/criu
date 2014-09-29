@@ -460,14 +460,14 @@ static void pb_show_msg(const void *msg, pb_pr_ctl_t *ctl)
 	}
 }
 
-static inline void pb_no_payload(int fd, void *obj) { }
+static inline void pb_no_payload(struct cr_img *i, void *obj) { }
 
-void do_pb_show_plain(int fd, int type, int single_entry,
-		void (*payload_hadler)(int fd, void *obj),
+void do_pb_show_plain(struct cr_img *img, int type, int single_entry,
+		void (*payload_hadler)(struct cr_img *, void *obj),
 		const char *pretty_fmt)
 {
 	pb_pr_ctl_t ctl = {NULL, single_entry, pretty_fmt};
-	void (*handle_payload)(int fd, void *obj);
+	void (*handle_payload)(struct cr_img *, void *obj);
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d\n", type);
@@ -479,12 +479,12 @@ void do_pb_show_plain(int fd, int type, int single_entry,
 	while (1) {
 		void *obj;
 
-		if (pb_read_one_eof(fd, &obj, type) <= 0)
+		if (pb_read_one_eof(img, &obj, type) <= 0)
 			break;
 
 		ctl.arg = (void *)cr_pb_descs[type].pb_desc;
 		pb_show_msg(obj, &ctl);
-		handle_payload(fd, obj);
+		handle_payload(img, obj);
 		cr_pb_descs[type].free(obj, NULL);
 		if (single_entry)
 			break;
@@ -512,8 +512,9 @@ static char *image_name(int fd)
  * Don't forget to free memory granted to unpacked object in calling code if needed
  */
 
-int do_pb_read_one(int fd, void **pobj, int type, bool eof)
+int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 {
+	int fd = img->_fd;
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size;
@@ -586,8 +587,9 @@ err:
  *  0 on success
  * -1 on error
  */
-int pb_write_one(int fd, void *obj, int type)
+int pb_write_one(struct cr_img *img, void *obj, int type)
 {
+	int fd = img->_fd;
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size, packed;
@@ -633,15 +635,16 @@ err:
 int collect_image(struct collect_image_info *cinfo)
 {
 	bool optional = !!(cinfo->flags & COLLECT_OPTIONAL);
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	void *(*o_alloc)(size_t size) = malloc;
 	void (*o_free)(void *ptr) = free;
 
 	pr_info("Collecting %d/%d (flags %x)\n",
 			cinfo->fd_type, cinfo->pb_type, cinfo->flags);
 
-	fd = open_image(cinfo->fd_type, O_RSTR | (optional ? O_OPT : 0));
-	if (fd < 0) {
+	img = open_image(cinfo->fd_type, O_RSTR | (optional ? O_OPT : 0));
+	if (!img) {
 		if (optional && errno == ENOENT)
 			return 0;
 		else
@@ -666,7 +669,7 @@ int collect_image(struct collect_image_info *cinfo)
 		} else
 			obj = NULL;
 
-		ret = pb_read_one_eof(fd, &msg, cinfo->pb_type);
+		ret = pb_read_one_eof(img, &msg, cinfo->pb_type);
 		if (ret <= 0) {
 			o_free(obj);
 			break;
@@ -683,7 +686,7 @@ int collect_image(struct collect_image_info *cinfo)
 			cr_pb_descs[cinfo->pb_type].free(msg, NULL);
 	}
 
-	close(fd);
+	close_image(img);
 	pr_debug(" `- ... done\n");
 	return ret;
 }

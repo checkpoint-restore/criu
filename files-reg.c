@@ -69,7 +69,7 @@ static LIST_HEAD(link_remaps);
  */
 #define MAX_GHOST_FILE_SIZE	(1 * 1024 * 1024)
 
-static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, int ifd)
+static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, struct cr_img *img)
 {
 	int gfd, ghost_flags, ret = -1;
 	char path[PATH_MAX];
@@ -113,7 +113,7 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 	}
 
 	if (S_ISREG(gfe->mode)) {
-		if (copy_file(ifd, gfd, 0) < 0)
+		if (copy_file(img_raw_fd(img), gfd, 0) < 0)
 			goto err_c;
 	}
 
@@ -129,7 +129,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 {
 	struct ghost_file *gf;
 	GhostFileEntry *gfe = NULL;
-	int ifd;
+	struct cr_img *img;
 	char *root;
 
 	list_for_each_entry(gf, &ghost_files, list)
@@ -158,11 +158,11 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (!gf->remap.path)
 		goto err;
 
-	ifd = open_image(CR_FD_GHOST_FILE, O_RSTR, rfe->remap_id);
-	if (ifd < 0)
+	img = open_image(CR_FD_GHOST_FILE, O_RSTR, rfe->remap_id);
+	if (!img)
 		goto err;
 
-	if (pb_read_one(ifd, &gfe, PB_GHOST_FILE) < 0)
+	if (pb_read_one(img, &gfe, PB_GHOST_FILE) < 0)
 		goto close_ifd;
 
 	/*
@@ -175,11 +175,11 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
-	if (create_ghost(gf, gfe, root, ifd))
+	if (create_ghost(gf, gfe, root, img))
 		goto close_ifd;
 
 	ghost_file_entry__free_unpacked(gfe, NULL);
-	close(ifd);
+	close_image(img);
 
 	gf->id = rfe->remap_id;
 	gf->remap.users = 0;
@@ -190,7 +190,7 @@ gf_found:
 	return 0;
 
 close_ifd:
-	close_safe(&ifd);
+	close_image(img);
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);
@@ -314,7 +314,7 @@ struct collect_image_info remap_cinfo = {
 
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_dev)
 {
-	int img;
+	struct cr_img *img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
@@ -353,13 +353,13 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 			pr_perror("Can't open ghost original file");
 			return -1;
 		}
-		ret = copy_file(fd, img, st->st_size);
+		ret = copy_file(fd, img_raw_fd(img), st->st_size);
 		close(fd);
 		if (ret)
 			return -1;
 	}
 
-	close(img);
+	close_image(img);
 	return 0;
 }
 
@@ -740,7 +740,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct fd_link _link, *link;
 	struct ns_id *nsid;
-	int rfd;
+	struct cr_img *rimg;
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
@@ -787,9 +787,8 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		rfe.size = p->stat.st_size;
 	}
 
-	rfd = img_from_set(glob_imgset, CR_FD_REG_FILES);
-
-	return pb_write_one(rfd, &rfe, PB_REG_FILE);
+	rimg = img_from_set(glob_imgset, CR_FD_REG_FILES);
+	return pb_write_one(rimg, &rfe, PB_REG_FILE);
 }
 
 const struct fdtype_ops regfile_dump_ops = {

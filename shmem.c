@@ -113,7 +113,7 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 
 static int restore_shmem_content(void *addr, struct shmem_info *si)
 {
-	int ret = 0;
+	int ret = 0, fd_pg;
 	struct page_read pr;
 	unsigned long off_real;
 
@@ -121,6 +121,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	if (ret)
 		goto err_unmap;
 
+	fd_pg = img_raw_fd(pr.pi);
 	while (1) {
 		unsigned long vaddr;
 		unsigned nr_pages;
@@ -136,9 +137,9 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 		if (vaddr + nr_pages * PAGE_SIZE > si->size)
 			break;
 
-		off_real = lseek(pr.fd_pg, 0, SEEK_CUR);
+		off_real = lseek(fd_pg, 0, SEEK_CUR);
 
-		ret = read(pr.fd_pg, addr + vaddr, nr_pages * PAGE_SIZE);
+		ret = read(fd_pg, addr + vaddr, nr_pages * PAGE_SIZE);
 		if (ret != nr_pages * PAGE_SIZE) {
 			ret = -1;
 			break;

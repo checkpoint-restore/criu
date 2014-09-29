@@ -163,7 +163,7 @@ static u32 make_gen_id(const struct fd_parms *p)
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, const int fdinfo)
+		const struct fdtype_ops *ops, struct cr_img *img)
 {
 	FdinfoEntry e = FDINFO_ENTRY__INIT;
 	int ret = -1;
@@ -183,7 +183,7 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	pr_info("fdinfo: type: 0x%2x flags: %#o/%#o pos: 0x%8"PRIx64" fd: %d\n",
 		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
 
-	return pb_write_one(fdinfo, &e, PB_FDINFO);
+	return pb_write_one(img, &e, PB_FDINFO);
 }
 
 int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
@@ -264,7 +264,7 @@ static const struct fdtype_ops *get_misc_dev_ops(int minor)
 	return NULL;
 }
 
-static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
+static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 {
 	int maj = major(p->stat.st_rdev);
 	const struct fdtype_ops *ops;
@@ -287,15 +287,15 @@ static int dump_chrdev(struct fd_parms *p, int lfd, const int fdinfo)
 		char more[32];
 
 		sprintf(more, "%d:%d", maj, minor(p->stat.st_rdev));
-		return dump_unsupp_fd(p, lfd, fdinfo, "chr", more);
+		return dump_unsupp_fd(p, lfd, img, "chr", more);
 	}
 	}
 
-	return do_dump_gen_file(p, lfd, ops, fdinfo);
+	return do_dump_gen_file(p, lfd, ops, img);
 }
 
 static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
-		       const int fdinfo)
+		       struct cr_img *img)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
@@ -309,10 +309,10 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		return -1;
 
 	if (S_ISSOCK(p.stat.st_mode))
-		return dump_socket(&p, lfd, fdinfo);
+		return dump_socket(&p, lfd, img);
 
 	if (S_ISCHR(p.stat.st_mode))
-		return dump_chrdev(&p, lfd, fdinfo);
+		return dump_chrdev(&p, lfd, img);
 
 	if (p.fs_type == ANON_INODE_FS_MAGIC) {
 		char link[32];
@@ -333,9 +333,9 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		else if (is_timerfd_link(link))
 			ops = &timerfd_dump_ops;
 		else
-			return dump_unsupp_fd(&p, lfd, fdinfo, "anon", link);
+			return dump_unsupp_fd(&p, lfd, img, "anon", link);
 
-		return do_dump_gen_file(&p, lfd, ops, fdinfo);
+		return do_dump_gen_file(&p, lfd, ops, img);
 	}
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
@@ -346,12 +346,12 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 
 		p.link = &link;
 		if (link.name[1] == '/')
-			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, fdinfo);
+			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, img);
 
 		if (check_ns_proc(&link))
-			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, fdinfo);
+			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, img);
 
-		return dump_unsupp_fd(&p, lfd, fdinfo, "reg", link.name + 1);
+		return dump_unsupp_fd(&p, lfd, img, "reg", link.name + 1);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
@@ -360,16 +360,17 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		else
 			ops = &fifo_dump_ops;
 
-		return do_dump_gen_file(&p, lfd, ops, fdinfo);
+		return do_dump_gen_file(&p, lfd, ops, img);
 	}
 
-	return dump_unsupp_fd(&p, lfd, fdinfo, "unknown", NULL);
+	return dump_unsupp_fd(&p, lfd, img, "unknown", NULL);
 }
 
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds)
 {
-	int *lfds, fdinfo;
+	int *lfds;
+	struct cr_img *img;
 	struct fd_opts *opts;
 	int i, ret = -1;
 
@@ -389,18 +390,18 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 	if (ret)
 		goto err2;
 
-	fdinfo = open_image(CR_FD_FDINFO, O_DUMP, item->ids->files_id);
-	if (fdinfo < 0)
+	img = open_image(CR_FD_FDINFO, O_DUMP, item->ids->files_id);
+	if (!img)
 		goto err2;
 
 	for (i = 0; i < dfds->nr_fds; i++) {
-		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, fdinfo);
+		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, img);
 		close(lfds[i]);
 		if (ret)
 			break;
 	}
 
-	close(fdinfo);
+	close_image(img);
 
 	pr_info("----------------------------------------\n");
 err2:
@@ -587,7 +588,8 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 
 int prepare_fd_pid(struct pstree_item *item)
 {
-	int fdinfo_fd, ret = 0;
+	int ret = 0;
+	struct cr_img *img;
 	pid_t pid = item->pid.virt;
 	struct rst_info *rst_info = item->rst;
 
@@ -596,8 +598,8 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
 	if (!fdinfo_per_id) {
-		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR | O_OPT, pid);
-		if (fdinfo_fd < 0) {
+		img = open_image(CR_FD_FDINFO, O_RSTR | O_OPT, pid);
+		if (!img) {
 			if (errno == ENOENT)
 				return 0;
 			return -1;
@@ -609,15 +611,15 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (item->rst->fdt && item->rst->fdt->pid != item->pid.virt)
 			return 0;
 
-		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
-		if (fdinfo_fd < 0)
+		img = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
+		if (!img)
 			return -1;
 	}
 
 	while (1) {
 		FdinfoEntry *e;
 
-		ret = pb_read_one_eof(fdinfo_fd, &e, PB_FDINFO);
+		ret = pb_read_one_eof(img, &e, PB_FDINFO);
 		if (ret <= 0)
 			break;
 
@@ -628,7 +630,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		}
 	}
 
-	close(fdinfo_fd);
+	close_image(img);
 	return ret;
 }
 
@@ -1083,21 +1085,21 @@ int prepare_fs_pid(struct pstree_item *item)
 {
 	pid_t pid = item->pid.virt;
 	struct rst_info *ri = item->rst;
-	int ifd;
+	struct cr_img *img;
 	FsEntry *fe;
 
-	ifd = open_image(CR_FD_FS, O_RSTR | O_OPT, pid);
-	if (ifd < 0) {
+	img = open_image(CR_FD_FS, O_RSTR | O_OPT, pid);
+	if (!img) {
 		if (errno == ENOENT)
 			goto ok;
 		else
 			goto out;
 	}
 
-	if (pb_read_one(ifd, &fe, PB_FS) < 0)
+	if (pb_read_one(img, &fe, PB_FS) < 0)
 		goto out_i;
 
-	close(ifd);
+	close_image(img);
 
 	ri->cwd = collect_special_file(fe->cwd_id);
 	if (!ri->cwd) {
@@ -1123,7 +1125,7 @@ out_f:
 	return -1;
 
 out_i:
-	close(ifd);
+	close_image(img);
 out:
 	return -1;
 }

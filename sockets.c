@@ -439,7 +439,7 @@ void release_skopts(SkOptsEntry *soe)
 	xfree(soe->so_bound_dev);
 }
 
-int dump_socket(struct fd_parms *p, int lfd, const int fdinfo)
+int dump_socket(struct fd_parms *p, int lfd, struct cr_img *img)
 {
 	int family;
 	const struct fdtype_ops *ops;
@@ -468,7 +468,7 @@ int dump_socket(struct fd_parms *p, int lfd, const int fdinfo)
 		return -1;
 	}
 
-	return do_dump_gen_file(p, lfd, ops, fdinfo);
+	return do_dump_gen_file(p, lfd, ops, img);
 }
 
 static int inet_receive_one(struct nlmsghdr *h, void *arg)

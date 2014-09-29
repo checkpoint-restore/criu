@@ -369,22 +369,23 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 
 static int restore_links(int pid)
 {
-	int fd, nlsk, ret;
+	int nlsk, ret;
+	struct cr_img *img;
 	NetDeviceEntry *nde;
 
-	fd = open_image(CR_FD_NETDEV, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_NETDEV, O_RSTR, pid);
+	if (!img)
 		return -1;
 
 	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (nlsk < 0) {
 		pr_perror("Can't create nlk socket");
-		close_safe(&fd);
+		close_image(img);
 		return -1;
 	}
 
 	while (1) {
-		ret = pb_read_one_eof(fd, &nde, PB_NETDEV);
+		ret = pb_read_one_eof(img, &nde, PB_NETDEV);
 		if (ret <= 0)
 			break;
 
@@ -395,7 +396,7 @@ static int restore_links(int pid)
 	}
 
 	close(nlsk);
-	close(fd);
+	close_image(img);
 	return ret;
 }
 
@@ -438,27 +439,31 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 
 static inline int dump_ifaddr(struct cr_imgset *fds)
 {
-	return run_ip_tool("addr", "save", -1, img_from_set(fds, CR_FD_IFADDR));
+	struct cr_img *img = img_from_set(fds, CR_FD_IFADDR);
+	return run_ip_tool("addr", "save", -1, img_raw_fd(img));
 }
 
 static inline int dump_route(struct cr_imgset *fds)
 {
-	return run_ip_tool("route", "save", -1, img_from_set(fds, CR_FD_ROUTE));
+	struct cr_img *img = img_from_set(fds, CR_FD_ROUTE);
+	return run_ip_tool("route", "save", -1, img_raw_fd(img));
 }
 
 static inline int dump_iptables(struct cr_imgset *fds)
 {
-	return run_iptables_tool("iptables-save", -1, img_from_set(fds, CR_FD_IPTABLES));
+	struct cr_img *img = img_from_set(fds, CR_FD_IPTABLES);
+	return run_iptables_tool("iptables-save", -1, img_raw_fd(img));
 }
 
 static int restore_ip_dump(int type, int pid, char *cmd)
 {
-	int fd, ret;
+	int ret = -1;
+	struct cr_img *img;
 
-	ret = fd = open_image(type, O_RSTR, pid);
-	if (fd >= 0) {
-		ret = run_ip_tool(cmd, "restore", fd, -1);
-		close(fd);
+	img = open_image(type, O_RSTR, pid);
+	if (img) {
+		ret = run_ip_tool(cmd, "restore", img_raw_fd(img), -1);
+		close_image(img);
 	}
 
 	return ret;
@@ -476,12 +481,13 @@ static inline int restore_route(int pid)
 
 static inline int restore_iptables(int pid)
 {
-	int ret, fd;
+	int ret = -1;
+	struct cr_img *img;
 
-	ret = fd = open_image(CR_FD_IPTABLES, O_RSTR, pid);
-	if (fd >= 0) {
-		ret = run_iptables_tool("iptables-restore", fd, -1);
-		close(fd);
+	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
+	if (img) {
+		ret = run_iptables_tool("iptables-restore", img_raw_fd(img), -1);
+		close_image(img);
 	}
 
 	return ret;

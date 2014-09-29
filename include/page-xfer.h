@@ -20,11 +20,18 @@ struct page_xfer {
 	void (*close)(struct page_xfer *self);
 
 	/* private data for every page-xfer engine */
-	int fd;
 	union {
-		int fd_pg;
-		u64 dst_id;
+		struct /* local */ {
+			struct cr_img *pmi; /* pagemaps */
+			struct cr_img *pi;  /* pages */
+		};
+
+		struct /* page-server */ {
+			int sk;
+			u64 dst_id;
+		};
 	};
+
 	struct page_read *parent;
 };
 

@@ -53,8 +53,8 @@ struct page_read {
 	void (*close)(struct page_read *);
 
 	/* Private data of reader */
-	int fd;
-	int fd_pg;
+	struct cr_img *pmi;
+	struct cr_img *pi;
 
 	PagemapEntry *pe;		/* current pagemap we are on */
 	struct page_read *parent;	/* parent pagemap (if ->in_parent

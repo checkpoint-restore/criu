@@ -3,14 +3,15 @@
 
 #include "image-desc.h"
 #include "bug.h"
+#include "image.h"
 
 struct cr_imgset {
 	int fd_off;
 	int fd_nr;
-	int *_imgs;
+	struct cr_img **_imgs;
 };
 
-static inline int img_from_set(const struct cr_imgset *imgset, int type)
+static inline struct cr_img *img_from_set(const struct cr_imgset *imgset, int type)
 {
 	int idx;
 

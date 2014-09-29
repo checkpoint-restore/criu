@@ -576,7 +576,8 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset)
 {
 	struct parasite_dump_sa_args *args;
-	int ret, sig, fd;
+	int ret, sig;
+	struct cr_img *img;
 	SaEntry se = SA_ENTRY__INIT;
 
 	args = parasite_args(ctl, struct parasite_dump_sa_args);
@@ -585,7 +586,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	if (ret < 0)
 		return ret;
 
-	fd = img_from_set(cr_imgset, CR_FD_SIGACT);
+	img = img_from_set(cr_imgset, CR_FD_SIGACT);
 
 	for (sig = 1; sig <= SIGMAX; sig++) {
 		int i = sig - 1;
@@ -598,7 +599,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
 		ASSIGN_TYPED(se.mask, args->sas[i].rt_sa_mask.sig[0]);
 
-		if (pb_write_one(fd, &se, PB_SIGACT) < 0)
+		if (pb_write_one(img, &se, PB_SIGACT) < 0)
 			return -1;
 	}
 

@@ -14,6 +14,7 @@ struct file_desc;
 struct fd_parms;
 struct cr_imgset;
 struct nlmsghdr;
+struct cr_img;
 
 struct socket_desc {
 	unsigned int		family;
@@ -22,7 +23,7 @@ struct socket_desc {
 	int			already_dumped;
 };
 
-extern int dump_socket(struct fd_parms *p, int lfd, const int fdinfo);
+extern int dump_socket(struct fd_parms *p, int lfd, struct cr_img *);
 extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);

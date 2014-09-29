@@ -239,7 +239,7 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd)
 
 int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	int fd = img_from_set(glob_imgset, CR_FD_NS_FILES);
+	struct cr_img *img = img_from_set(glob_imgset, CR_FD_NS_FILES);
 	NsFileEntry nfe = NS_FILE_ENTRY__INIT;
 	struct fd_link *link = p->link;
 	unsigned int nsid;
@@ -255,7 +255,7 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	nfe.ns_cflag	= link->ns_d->cflag;
 	nfe.flags	= p->flags;
 
-	return pb_write_one(fd, &nfe, PB_NS_FILE);
+	return pb_write_one(img, &nfe, PB_NS_FILE);
 }
 
 const struct fdtype_ops nsfile_dump_ops = {
@@ -557,16 +557,17 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 int try_show_namespaces(int ns_pid)
 {
 	struct cr_imgset *imgset;
-	int i, fd, ret;
+	int i, ret;
+	struct cr_img *img;
 	TaskKobjIdsEntry *ids;
 
 	pr_msg("Namespaces for %d:\n", ns_pid);
 
-	fd = open_image(CR_FD_IDS, O_RSTR, ns_pid);
-	if (fd < 0)
+	img = open_image(CR_FD_IDS, O_RSTR, ns_pid);
+	if (!img)
 		return -1;
-	ret = pb_read_one(fd, &ids, PB_IDS);
-	close(fd);
+	ret = pb_read_one(img, &ids, PB_IDS);
+	close_image(img);
 	if (ret < 0)
 		return -1;
 
@@ -574,13 +575,11 @@ int try_show_namespaces(int ns_pid)
 	if (imgset) {
 		pr_msg("-------------------NETNS---------------------\n");
 		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
-			int fd;
-
-			fd = img_from_set(imgset, i);
-			if (fd == -1)
+			img = img_from_set(imgset, i);
+			if (!img)
 				continue;
 
-			cr_parse_fd(fd, imgset_template[i].magic);
+			cr_parse_fd(img, imgset_template[i].magic);
 		}
 		close_cr_imgset(&imgset);
 	}
@@ -589,27 +588,27 @@ int try_show_namespaces(int ns_pid)
 	if (imgset) {
 		pr_msg("-------------------IPCNS---------------------\n");
 		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
-			fd = img_from_set(imgset, i);
-			if (fd == -1)
+			img = img_from_set(imgset, i);
+			if (!img)
 				continue;
 
-			cr_parse_fd(fd, imgset_template[i].magic);
+			cr_parse_fd(img, imgset_template[i].magic);
 		}
 		close_cr_imgset(&imgset);
 	}
 
-	fd = open_image(CR_FD_UTSNS, O_SHOW, ids->uts_ns_id);
-	if (fd >= 0) {
+	img = open_image(CR_FD_UTSNS, O_SHOW, ids->uts_ns_id);
+	if (img) {
 		pr_msg("-------------------UTSNS---------------------\n");
-		cr_parse_fd(fd, imgset_template[CR_FD_UTSNS].magic);
-		close(fd);
+		cr_parse_fd(img, imgset_template[CR_FD_UTSNS].magic);
+		close_image(img);
 	}
 
-	fd = open_image(CR_FD_MNTS, O_SHOW, ids->mnt_ns_id);
-	if (fd > 0) {
+	img = open_image(CR_FD_MNTS, O_SHOW, ids->mnt_ns_id);
+	if (img) {
 		pr_msg("-------------------MNTNS---------------------\n");
-		cr_parse_fd(fd, imgset_template[CR_FD_MNTS].magic);
-		close(fd);
+		cr_parse_fd(img, imgset_template[CR_FD_MNTS].magic);
+		close_image(img);
 	}
 
 	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);

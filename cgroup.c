@@ -1300,19 +1300,20 @@ static int rewrite_cgroup_roots(CgroupEntry *cge)
 
 int prepare_cgroup(void)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	CgroupEntry *ce;
 
-	fd = open_image(CR_FD_CGROUP, O_RSTR | O_OPT);
-	if (fd < 0) {
+	img = open_image(CR_FD_CGROUP, O_RSTR | O_OPT);
+	if (!img) {
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
 			return -1;
 	}
 
-	ret = pb_read_one_eof(fd, &ce, PB_CGROUP);
-	close(fd);
+	ret = pb_read_one_eof(img, &ce, PB_CGROUP);
+	close_image(img);
 	if (ret <= 0) /* Zero is OK -- no sets there. */
 		return ret;
 

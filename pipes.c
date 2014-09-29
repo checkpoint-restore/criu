@@ -43,7 +43,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 		pr_info("   `- FD %d pid %d\n", fle->fe->fd, fle->pid);
 }
 
-static int pipe_data_read(int fd, struct pipe_data_rst *r)
+static int pipe_data_read(struct cr_img *img, struct pipe_data_rst *r)
 {
 	unsigned long bytes = r->pde->bytes;
 
@@ -66,16 +66,17 @@ static int pipe_data_read(int fd, struct pipe_data_rst *r)
 		return -1;
 	}
 
-	return read_img_buf(fd, r->data, bytes);
+	return read_img_buf(img, r->data, bytes);
 }
 
 int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	struct pipe_data_rst *r = NULL;
 
-	fd = open_image(img_type, O_RSTR);
-	if (fd < 0)
+	img = open_image(img_type, O_RSTR);
+	if (!img)
 		return -1;
 
 	while (1) {
@@ -84,11 +85,11 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		if (!r)
 			break;
 
-		ret = pb_read_one_eof(fd, &r->pde, PB_PIPE_DATA);
+		ret = pb_read_one_eof(img, &r->pde, PB_PIPE_DATA);
 		if (ret <= 0)
 			break;
 
-		ret = pipe_data_read(fd, r);
+		ret = pipe_data_read(img, r);
 		if (ret < 0)
 			break;
 
@@ -104,7 +105,7 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 		pipe_data_entry__free_unpacked(r->pde, NULL);
 	xfree(r);
 
-	close(fd);
+	close_image(img);
 	return ret;
 }
 
@@ -403,7 +404,7 @@ int collect_pipes(void)
 
 int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms *p)
 {
-	int img;
+	struct cr_img *img;
 	int pipe_size, i, bytes;
 	int steal_pipe[2];
 	int ret = -1;
@@ -460,7 +461,7 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	if (bytes) {
 		int wrote;
 
-		wrote = splice(steal_pipe[0], NULL, img, NULL, bytes, 0);
+		wrote = splice(steal_pipe[0], NULL, img_raw_fd(img), NULL, bytes, 0);
 		if (wrote < 0) {
 			pr_perror("Can't push pipe data");
 			goto err_close;

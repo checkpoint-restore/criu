@@ -692,7 +692,8 @@ static int tmpfs_dump(struct mount_info *pm)
 {
 	int ret = -1;
 	char tmpfs_path[PSFDS];
-	int fd = -1, fd_img = -1;
+	int fd = -1;
+	struct cr_img *img;
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
@@ -703,13 +704,13 @@ static int tmpfs_dump(struct mount_info *pm)
 		goto out;
 	}
 
-	fd_img = open_image(CR_FD_TMPFS_DEV, O_DUMP, pm->s_dev);
-	if (fd_img < 0)
+	img = open_image(CR_FD_TMPFS_DEV, O_DUMP, pm->s_dev);
+	if (!img)
 		goto out;
 
 	sprintf(tmpfs_path, "/proc/self/fd/%d", fd);
 
-	ret = cr_system(-1, fd_img, -1, "tar", (char *[])
+	ret = cr_system(-1, img_raw_fd(img), -1, "tar", (char *[])
 			{ "tar", "--create",
 			"--gzip",
 			"--one-file-system",
@@ -722,8 +723,8 @@ static int tmpfs_dump(struct mount_info *pm)
 	if (ret)
 		pr_err("Can't dump tmpfs content\n");
 
+	close_image(img);
 out:
-	close_safe(&fd_img);
 	close_safe(&fd);
 	return ret;
 }
@@ -731,18 +732,18 @@ out:
 static int tmpfs_restore(struct mount_info *pm)
 {
 	int ret;
-	int fd_img;
+	struct cr_img *img;
 
-	fd_img = open_image(CR_FD_TMPFS_DEV, O_RSTR, pm->s_dev);
-	if (fd_img < 0 && errno == ENOENT)
-		fd_img = open_image(CR_FD_TMPFS_IMG, O_RSTR, pm->mnt_id);
-	if (fd_img < 0)
+	img = open_image(CR_FD_TMPFS_DEV, O_RSTR, pm->s_dev);
+	if (!img && errno == ENOENT)
+		img = open_image(CR_FD_TMPFS_IMG, O_RSTR, pm->mnt_id);
+	if (!img)
 		return -1;
 
-	ret = cr_system(fd_img, -1, -1, "tar",
+	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]) {"tar", "--extract", "--gzip",
 				"--directory", pm->mountpoint, NULL});
-	close(fd_img);
+	close_image(img);
 
 	if (ret) {
 		pr_err("Can't restore tmpfs content\n");
@@ -906,7 +907,7 @@ uns:
 	return &fstypes[0];
 }
 
-static int dump_one_mountpoint(struct mount_info *pm, int fd)
+static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 {
 	MntEntry me = MNT_ENTRY__INIT;
 
@@ -954,7 +955,7 @@ static int dump_one_mountpoint(struct mount_info *pm, int fd)
 	} else
 		me.root = pm->root;
 
-	if (pb_write_one(fd, &me, PB_MNT))
+	if (pb_write_one(img, &me, PB_MNT))
 		return -1;
 
 	return 0;
@@ -994,21 +995,22 @@ err:
 static int dump_mnt_ns(struct ns_id *ns, struct mount_info *pms)
 {
 	struct mount_info *pm;
-	int img_fd = -1, ret = -1;
+	int ret = -1;
+	struct cr_img *img;
 	int ns_id = ns->id;
 
 	pr_info("Dumping mountpoints\n");
-	img_fd = open_image(CR_FD_MNTS, O_DUMP, ns_id);
-	if (img_fd < 0)
+	img = open_image(CR_FD_MNTS, O_DUMP, ns_id);
+	if (!img)
 		goto err;
 
 	for (pm = pms; pm && pm->nsid == ns; pm = pm->next)
-		if (dump_one_mountpoint(pm, img_fd))
+		if (dump_one_mountpoint(pm, img))
 			goto err_i;
 
 	ret = 0;
 err_i:
-	close(img_fd);
+	close_image(img);
 err:
 	return ret;
 }
@@ -1594,7 +1596,8 @@ static int rst_collect_local_mntns(void)
 static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
-	int img, ret, root_len = 1;
+	int ret, root_len = 1;
+	struct cr_img *img;
 	char root[PATH_MAX] = ".";
 
 	img = open_image(CR_FD_MNTS, O_RSTR, nsid->id);
@@ -1693,11 +1696,11 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 	if (me)
 		mnt_entry__free_unpacked(me, NULL);
 
-	close(img);
+	close_image(img);
 
 	return 0;
 err:
-	close_safe(&img);
+	close_image(img);
 	return -1;
 }
 

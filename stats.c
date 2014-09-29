@@ -105,7 +105,7 @@ void write_stats(int what)
 	DumpStatsEntry ds_entry = DUMP_STATS_ENTRY__INIT;
 	RestoreStatsEntry rs_entry = RESTORE_STATS_ENTRY__INIT;
 	char *name;
-	int fd;
+	struct cr_img *img;
 
 	pr_info("Writing stats\n");
 	if (what == DUMP_STATS) {
@@ -138,10 +138,10 @@ void write_stats(int what)
 	} else
 		return;
 
-	fd = open_image_at(AT_FDCWD, CR_FD_STATS, O_DUMP, name);
-	if (fd >= 0) {
-		pb_write_one(fd, &stats, PB_STATS);
-		close(fd);
+	img = open_image_at(AT_FDCWD, CR_FD_STATS, O_DUMP, name);
+	if (img) {
+		pb_write_one(img, &stats, PB_STATS);
+		close_image(img);
 	}
 }
 

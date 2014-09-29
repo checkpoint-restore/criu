@@ -70,7 +70,7 @@ static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 	print_on_level(LOG_INFO, "nsems: %-10d\n", sem->nsems);
 }
 
-static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
+static int dump_ipc_sem_set(struct cr_img *img, const IpcSemEntry *sem)
 {
 	size_t rounded;
 	int ret, size;
@@ -93,7 +93,7 @@ static int dump_ipc_sem_set(int fd, const IpcSemEntry *sem)
 	pr_info_ipc_sem_array(sem->nsems, values);
 
 	memzero((void *)values + size, rounded - size);
-	ret = write_img_buf(fd, values, rounded);
+	ret = write_img_buf(img, values, rounded);
 	if (ret < 0) {
 		pr_err("Failed to write IPC message data\n");
 		goto out;
@@ -103,7 +103,7 @@ out:
 	return ret;
 }
 
-static int dump_ipc_sem_desc(int fd, int id, const struct semid_ds *ds)
+static int dump_ipc_sem_desc(struct cr_img *img, int id, const struct semid_ds *ds)
 {
 	IpcSemEntry sem = IPC_SEM_ENTRY__INIT;
 	IpcDescEntry desc = IPC_DESC_ENTRY__INIT;
@@ -115,15 +115,15 @@ static int dump_ipc_sem_desc(int fd, int id, const struct semid_ds *ds)
 	fill_ipc_desc(id, sem.desc, &ds->sem_perm);
 	pr_info_ipc_sem_entry(&sem);
 
-	ret = pb_write_one(fd, &sem, PB_IPC_SEM);
+	ret = pb_write_one(img, &sem, PB_IPC_SEM);
 	if (ret < 0) {
 		pr_err("Failed to write IPC semaphores set\n");
 		return ret;
 	}
-	return dump_ipc_sem_set(fd, &sem);
+	return dump_ipc_sem_set(img, &sem);
 }
 
-static int dump_ipc_sem(int fd)
+static int dump_ipc_sem(struct cr_img *img)
 {
 	int i, maxid;
 	struct seminfo info;
@@ -147,7 +147,7 @@ static int dump_ipc_sem(int fd)
 			pr_perror("Failed to get stats for IPC semaphore set");
 			break;
 		}
-		ret = dump_ipc_sem_desc(fd, id, &ds);
+		ret = dump_ipc_sem_desc(img, id, &ds);
 		if (!ret)
 			slot++;
 	}
@@ -171,7 +171,7 @@ static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 		       msg->qbytes, msg->qnum);
 }
 
-static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
+static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *msq,
 				       unsigned int msg_nr)
 {
 	struct msgbuf *message = NULL;
@@ -210,7 +210,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 
 		pr_info_ipc_msg(msg_cnt, &msg);
 
-		ret = pb_write_one(fd, &msg, PB_IPCNS_MSG);
+		ret = pb_write_one(img, &msg, PB_IPCNS_MSG);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message header\n");
 			break;
@@ -218,7 +218,7 @@ static int dump_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq,
 
 		rounded = round_up(msg.msize, sizeof(u64));
 		memzero(((void *)message->mtext + msg.msize), rounded - msg.msize);
-		ret = write_img_buf(fd, message->mtext, rounded);
+		ret = write_img_buf(img, message->mtext, rounded);
 		if (ret < 0) {
 			pr_err("Failed to write IPC message data\n");
 			break;
@@ -230,7 +230,7 @@ err:
 	return ret;
 }
 
-static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
+static int dump_ipc_msg_queue(struct cr_img *img, int id, const struct msqid_ds *ds)
 {
 	IpcMsgEntry msg = IPC_MSG_ENTRY__INIT;
 	IpcDescEntry desc = IPC_DESC_ENTRY__INIT;
@@ -243,15 +243,15 @@ static int dump_ipc_msg_queue(int fd, int id, const struct msqid_ds *ds)
 
 	pr_info_ipc_msg_entry(&msg);
 
-	ret = pb_write_one(fd, &msg, PB_IPCNS_MSG_ENT);
+	ret = pb_write_one(img, &msg, PB_IPCNS_MSG_ENT);
 	if (ret < 0) {
 		pr_err("Failed to write IPC message queue\n");
 		return ret;
 	}
-	return dump_ipc_msg_queue_messages(fd, &msg, ds->msg_qnum);
+	return dump_ipc_msg_queue_messages(img, &msg, ds->msg_qnum);
 }
 
-static int dump_ipc_msg(int fd)
+static int dump_ipc_msg(struct cr_img *img)
 {
 	int i, maxid;
 	struct msginfo info;
@@ -275,7 +275,7 @@ static int dump_ipc_msg(int fd)
 			pr_perror("Failed to get stats for IPC message queue");
 			break;
 		}
-		ret = dump_ipc_msg_queue(fd, id, &ds);
+		ret = dump_ipc_msg_queue(img, id, &ds);
 		if (!ret)
 			slot++;
 	}
@@ -332,7 +332,7 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
  * TODO: Function below should be later improved to locate and dump only dirty
  * pages via updated sys_mincore().
  */
-static int dump_ipc_shm_pages(int fd, const IpcShmEntry *shm)
+static int dump_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 {
 	void *data;
 	int ret;
@@ -342,7 +342,7 @@ static int dump_ipc_shm_pages(int fd, const IpcShmEntry *shm)
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
 	}
-	ret = write_img_buf(fd, data, round_up(shm->size, sizeof(u32)));
+	ret = write_img_buf(img, data, round_up(shm->size, sizeof(u32)));
 	if (ret < 0) {
 		pr_err("Failed to write IPC shared memory data\n");
 		return ret;
@@ -354,7 +354,7 @@ static int dump_ipc_shm_pages(int fd, const IpcShmEntry *shm)
 	return 0;
 }
 
-static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
+static int dump_ipc_shm_seg(struct cr_img *img, int id, const struct shmid_ds *ds)
 {
 	IpcShmEntry shm = IPC_SHM_ENTRY__INIT;
 	IpcDescEntry desc = IPC_DESC_ENTRY__INIT;
@@ -365,15 +365,15 @@ static int dump_ipc_shm_seg(int fd, int id, const struct shmid_ds *ds)
 	fill_ipc_desc(id, shm.desc, &ds->shm_perm);
 	pr_info_ipc_shm(&shm);
 
-	ret = pb_write_one(fd, &shm, PB_IPC_SHM);
+	ret = pb_write_one(img, &shm, PB_IPC_SHM);
 	if (ret < 0) {
 		pr_err("Failed to write IPC shared memory segment\n");
 		return ret;
 	}
-	return dump_ipc_shm_pages(fd, &shm);
+	return dump_ipc_shm_pages(img, &shm);
 }
 
-static int dump_ipc_shm(int fd)
+static int dump_ipc_shm(struct cr_img *img)
 {
 	int i, maxid, slot;
 	struct shm_info info;
@@ -397,7 +397,7 @@ static int dump_ipc_shm(int fd)
 			break;
 		}
 
-		ret = dump_ipc_shm_seg(fd, id, &ds);
+		ret = dump_ipc_shm_seg(img, id, &ds);
 		if (ret < 0)
 			return ret;
 		slot++;
@@ -410,7 +410,7 @@ static int dump_ipc_shm(int fd)
 	return 0;
 }
 
-static int dump_ipc_var(int fd)
+static int dump_ipc_var(struct cr_img *img)
 {
 	IpcVarEntry var = IPC_VAR_ENTRY__INIT;
 	int ret = -1;
@@ -426,7 +426,7 @@ static int dump_ipc_var(int fd)
 		goto err;
 	}
 
-	ret = pb_write_one(fd, &var, PB_IPC_VAR);
+	ret = pb_write_one(img, &var, PB_IPC_VAR);
 	if (ret < 0) {
 		pr_err("Failed to write IPC variables\n");
 		goto err;
@@ -480,7 +480,7 @@ err:
 	return ret < 0 ? -1 : 0;
 }
 
-void ipc_sem_handler(int fd, void *obj)
+void ipc_sem_handler(struct cr_img *img, void *obj)
 {
 	IpcSemEntry *e = obj;
 	u16 *values;
@@ -491,37 +491,37 @@ void ipc_sem_handler(int fd, void *obj)
 	values = xmalloc(size);
 	if (values == NULL)
 		return;
-	if (read_img_buf(fd, values, size) <= 0) {
+	if (read_img_buf(img, values, size) <= 0) {
 		xfree(values);
 		return;
 	}
 	pr_msg_ipc_sem_array(e->nsems, values);
 }
 
-static void ipc_msg_data_handler(int fd, void *obj)
+static void ipc_msg_data_handler(struct cr_img *img, void *obj)
 {
 	IpcMsg *e = obj;
-	print_image_data(fd, round_up(e->msize, sizeof(u64)), opts.show_pages_content);
+	print_image_data(img, round_up(e->msize, sizeof(u64)), opts.show_pages_content);
 }
 
-void ipc_msg_handler(int fd, void *obj)
+void ipc_msg_handler(struct cr_img *img, void *obj)
 {
 	IpcMsgEntry *e = obj;
 	int msg_nr = 0;
 
 	pr_msg("\n");
 	while (msg_nr++ < e->qnum)
-		pb_show_plain_payload(fd, PB_IPCNS_MSG, ipc_msg_data_handler);
+		pb_show_plain_payload(img, PB_IPCNS_MSG, ipc_msg_data_handler);
 
 }
 
-void ipc_shm_handler(int fd, void *obj)
+void ipc_shm_handler(struct cr_img *img, void *obj)
 {
 	IpcShmEntry *e = obj;
-	print_image_data(fd, round_up(e->size, sizeof(u32)), opts.show_pages_content);
+	print_image_data(img, round_up(e->size, sizeof(u32)), opts.show_pages_content);
 }
 
-static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
+static int prepare_ipc_sem_values(struct cr_img *img, const IpcSemEntry *sem)
 {
 	int ret, size;
 	u16 *values;
@@ -534,7 +534,7 @@ static int prepare_ipc_sem_values(int fd, const IpcSemEntry *sem)
 		goto out;
 	}
 
-	ret = read_img_buf(fd, values, size);
+	ret = read_img_buf(img, values, size);
 	if (ret < 0) {
 		pr_err("Failed to allocate memory for semaphores set values\n");
 		ret = -ENOMEM;
@@ -553,7 +553,7 @@ out:
 	return ret;
 }
 
-static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
+static int prepare_ipc_sem_desc(struct cr_img *img, const IpcSemEntry *sem)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
@@ -596,7 +596,7 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
 		return -EFAULT;
 	}
 
-	ret = prepare_ipc_sem_values(fd, sem);
+	ret = prepare_ipc_sem_values(img, sem);
 	if (ret < 0) {
 		pr_err("Failed to update sem pages\n");
 		return ret;
@@ -606,17 +606,18 @@ static int prepare_ipc_sem_desc(int fd, const IpcSemEntry *sem)
 
 static int prepare_ipc_sem(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 
 	pr_info("Restoring IPC semaphores sets\n");
-	fd = open_image(CR_FD_IPCNS_SEM, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_IPCNS_SEM, O_RSTR, pid);
+	if (!img)
 		return -1;
 
 	while (1) {
 		IpcSemEntry *sem;
 
-		ret = pb_read_one_eof(fd, &sem, PB_IPC_SEM);
+		ret = pb_read_one_eof(img, &sem, PB_IPC_SEM);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err;
@@ -626,7 +627,7 @@ static int prepare_ipc_sem(int pid)
 
 		pr_info_ipc_sem_entry(sem);
 
-		ret = prepare_ipc_sem_desc(fd, sem);
+		ret = prepare_ipc_sem_desc(img, sem);
 		ipc_sem_entry__free_unpacked(sem, NULL);
 
 		if (ret < 0) {
@@ -635,13 +636,15 @@ static int prepare_ipc_sem(int pid)
 		}
 	}
 
-	return close_safe(&fd);
+	close_image(img);
+	return 0;
+
 err:
-	close_safe(&fd);
+	close_image(img);
 	return ret;
 }
 
-static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq)
+static int prepare_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *msq)
 {
 	IpcMsg *msg = NULL;
 	int msg_nr = 0;
@@ -653,7 +656,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq)
 			char mtext[MSGMAX];
 		} data;
 
-		ret = pb_read_one(fd, &msg, PB_IPCNS_MSG);
+		ret = pb_read_one(img, &msg, PB_IPCNS_MSG);
 		if (ret <= 0)
 			return -EIO;
 
@@ -666,7 +669,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq)
 			break;
 		}
 
-		ret = read_img_buf(fd, data.mtext, round_up(msg->msize, sizeof(u64)));
+		ret = read_img_buf(img, data.mtext, round_up(msg->msize, sizeof(u64)));
 		if (ret < 0) {
 			pr_err("Failed to read IPC message data\n");
 			break;
@@ -687,7 +690,7 @@ static int prepare_ipc_msg_queue_messages(int fd, const IpcMsgEntry *msq)
 	return ret;
 }
 
-static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
+static int prepare_ipc_msg_queue(struct cr_img *img, const IpcMsgEntry *msq)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
@@ -729,7 +732,7 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
 		return -EFAULT;
 	}
 
-	ret = prepare_ipc_msg_queue_messages(fd, msq);
+	ret = prepare_ipc_msg_queue_messages(img, msq);
 	if (ret < 0) {
 		pr_err("Failed to update message queue messages\n");
 		return ret;
@@ -739,17 +742,18 @@ static int prepare_ipc_msg_queue(int fd, const IpcMsgEntry *msq)
 
 static int prepare_ipc_msg(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 
 	pr_info("Restoring IPC message queues\n");
-	fd = open_image(CR_FD_IPCNS_MSG, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_IPCNS_MSG, O_RSTR, pid);
+	if (!img)
 		return -1;
 
 	while (1) {
 		IpcMsgEntry *msq;
 
-		ret = pb_read_one_eof(fd, &msq, PB_IPCNS_MSG_ENT);
+		ret = pb_read_one_eof(img, &msq, PB_IPCNS_MSG_ENT);
 		if (ret < 0) {
 			pr_err("Failed to read IPC messages queue\n");
 			ret = -EIO;
@@ -760,7 +764,7 @@ static int prepare_ipc_msg(int pid)
 
 		pr_info_ipc_msg_entry(msq);
 
-		ret = prepare_ipc_msg_queue(fd, msq);
+		ret = prepare_ipc_msg_queue(img, msq);
 		ipc_msg_entry__free_unpacked(msq, NULL);
 
 		if (ret < 0) {
@@ -768,13 +772,15 @@ static int prepare_ipc_msg(int pid)
 			goto err;
 		}
 	}
-	return close_safe(&fd);
+
+	close_image(img);
+	return 0;
 err:
-	close_safe(&fd);
+	close_image(img);
 	return ret;
 }
 
-static int prepare_ipc_shm_pages(int fd, const IpcShmEntry *shm)
+static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 {
 	int ret;
 	void *data;
@@ -784,7 +790,7 @@ static int prepare_ipc_shm_pages(int fd, const IpcShmEntry *shm)
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
 	}
-	ret = read_img_buf(fd, data, round_up(shm->size, sizeof(u32)));
+	ret = read_img_buf(img, data, round_up(shm->size, sizeof(u32)));
 	if (ret < 0) {
 		pr_err("Failed to read IPC shared memory data\n");
 		return ret;
@@ -796,7 +802,7 @@ static int prepare_ipc_shm_pages(int fd, const IpcShmEntry *shm)
 	return 0;
 }
 
-static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
+static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
@@ -839,7 +845,7 @@ static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 		return -EFAULT;
 	}
 
-	ret = prepare_ipc_shm_pages(fd, shm);
+	ret = prepare_ipc_shm_pages(img, shm);
 	if (ret < 0) {
 		pr_err("Failed to update shm pages\n");
 		return ret;
@@ -849,17 +855,18 @@ static int prepare_ipc_shm_seg(int fd, const IpcShmEntry *shm)
 
 static int prepare_ipc_shm(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 
 	pr_info("Restoring IPC shared memory\n");
-	fd = open_image(CR_FD_IPCNS_SHM, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_IPCNS_SHM, O_RSTR, pid);
+	if (!img)
 		return -1;
 
 	while (1) {
 		IpcShmEntry *shm;
 
-		ret = pb_read_one_eof(fd, &shm, PB_IPC_SHM);
+		ret = pb_read_one_eof(img, &shm, PB_IPC_SHM);
 		if (ret < 0) {
 			pr_err("Failed to read IPC shared memory segment\n");
 			ret = -EIO;
@@ -870,7 +877,7 @@ static int prepare_ipc_shm(int pid)
 
 		pr_info_ipc_shm(shm);
 
-		ret = prepare_ipc_shm_seg(fd, shm);
+		ret = prepare_ipc_shm_seg(img, shm);
 		ipc_shm_entry__free_unpacked(shm, NULL);
 
 		if (ret < 0) {
@@ -878,24 +885,27 @@ static int prepare_ipc_shm(int pid)
 			goto err;
 		}
 	}
-	return close_safe(&fd);
+
+	close_image(img);
+	return 0;
 err:
-	close_safe(&fd);
+	close_image(img);
 	return ret;
 }
 
 static int prepare_ipc_var(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	IpcVarEntry *var;
 
 	pr_info("Restoring IPC variables\n");
-	fd = open_image(CR_FD_IPC_VAR, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_IPC_VAR, O_RSTR, pid);
+	if (!img)
 		return -1;
 
-	ret = pb_read_one(fd, &var, PB_IPC_VAR);
-	close_safe(&fd);
+	ret = pb_read_one(img, &var, PB_IPC_VAR);
+	close_image(img);
 	if (ret <= 0) {
 		pr_err("Failed to read IPC namespace variables\n");
 		return -EFAULT;

@@ -14,12 +14,13 @@
 
 int dump_uts_ns(int ns_pid, int ns_id)
 {
-	int ret, img_fd;
+	int ret;
+	struct cr_img *img;
 	struct utsname ubuf;
 	UtsnsEntry ue = UTSNS_ENTRY__INIT;
 
-	img_fd = open_image(CR_FD_UTSNS, O_DUMP, ns_id);
-	if (img_fd < 0)
+	img = open_image(CR_FD_UTSNS, O_DUMP, ns_id);
+	if (!img)
 		return -1;
 
 	ret = switch_ns(ns_pid, &uts_ns_desc, NULL);
@@ -35,15 +36,16 @@ int dump_uts_ns(int ns_pid, int ns_id)
 	ue.nodename = ubuf.nodename;
 	ue.domainname = ubuf.domainname;
 
-	ret = pb_write_one(img_fd, &ue, PB_UTSNS);
+	ret = pb_write_one(img, &ue, PB_UTSNS);
 err:
-	close(img_fd);
+	close_image(img);
 	return ret < 0 ? -1 : 0;
 }
 
 int prepare_utsns(int pid)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	UtsnsEntry *ue;
 	struct sysctl_req req[3] = {
 		{ "kernel/hostname" },
@@ -51,11 +53,11 @@ int prepare_utsns(int pid)
 		{ },
 	};
 
-	fd = open_image(CR_FD_UTSNS, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_UTSNS, O_RSTR, pid);
+	if (!img)
 		return -1;
 
-	ret = pb_read_one(fd, &ue, PB_UTSNS);
+	ret = pb_read_one(img, &ue, PB_UTSNS);
 	if (ret < 0)
 		goto out;
 
@@ -67,7 +69,7 @@ int prepare_utsns(int pid)
 	ret = sysctl_op(req, CTL_WRITE);
 	utsns_entry__free_unpacked(ue, NULL);
 out:
-	close(fd);
+	close_image(img);
 	return ret;
 }
 

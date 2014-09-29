@@ -125,7 +125,7 @@ int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
 	} else {
 		if (bunch->iov_len > 0) {
 			pr_debug("Punch!/%p/%zu/\n", bunch->iov_base, bunch->iov_len);
-			ret = fallocate(pr->fd_pg, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+			ret = fallocate(img_raw_fd(pr->pi), FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
 					(unsigned long)bunch->iov_base, bunch->iov_len);
 			if (ret != 0) {
 				pr_perror("Error punching hole");
@@ -169,7 +169,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 			return -1;
 		pagemap2iovec(pr->pe, &piov);
 		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
-		off_real = lseek(pr->fd_pg, 0, SEEK_CUR);
+		off_real = lseek(img_raw_fd(pr->pi), 0, SEEK_CUR);
 		if (!pr->pe->in_parent) {
 			ret = punch_hole(pr, off_real, min(piov_end, iov_end) - off, false);
 			if (ret == -1)

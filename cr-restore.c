@@ -633,7 +633,7 @@ static int prepare_sigactions(void)
 {
 	int pid = current->pid.virt;
 	rt_sigaction_t act;
-	int fd_sigact;
+	struct cr_img *img;
 	SaEntry *e;
 	int sig, rst = 0;
 	int ret = 0;
@@ -643,15 +643,15 @@ static int prepare_sigactions(void)
 
 	pr_info("Restore sigacts for %d\n", pid);
 
-	fd_sigact = open_image(CR_FD_SIGACT, O_RSTR, pid);
-	if (fd_sigact < 0)
+	img = open_image(CR_FD_SIGACT, O_RSTR, pid);
+	if (!img)
 		return -1;
 
 	for (sig = 1; sig <= SIGMAX; sig++) {
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = pb_read_one_eof(fd_sigact, &e, PB_SIGACT);
+		ret = pb_read_one_eof(img, &e, PB_SIGACT);
 		if (ret == 0) {
 			if (sig != SIGMAX_OLD + 1) { /* backward compatibility */
 				pr_err("Unexpected EOF %d\n", sig);
@@ -697,7 +697,7 @@ static int prepare_sigactions(void)
 			SIGMAX - 3 /* KILL, STOP and CHLD */);
 
 err:
-	close_safe(&fd_sigact);
+	close_image(img);
 	return ret;
 }
 
@@ -731,7 +731,7 @@ static int collect_helper_pids()
 
 static int open_cores(int pid, CoreEntry *leader_core)
 {
-	int fd = -1, i, tpid;
+	int i, tpid;
 	CoreEntry **cores = NULL;
 
 	cores = xmalloc(sizeof(*cores)*current->nr_threads);
@@ -744,16 +744,20 @@ static int open_cores(int pid, CoreEntry *leader_core)
 		if (tpid == pid)
 			cores[i] = leader_core;
 		else {
-			fd = open_image(CR_FD_CORE, O_RSTR, tpid);
-			if (fd < 0) {
+			struct cr_img *img;
+
+			img = open_image(CR_FD_CORE, O_RSTR, tpid);
+			if (!img) {
 				pr_err("Can't open core data for thread %d\n", tpid);
 				goto err;
 			}
 
-			if (pb_read_one(fd, &cores[i], PB_CORE) <= 0)
+			if (pb_read_one(img, &cores[i], PB_CORE) <= 0) {
+				close_image(img);
 				goto err;
+			}
 
-			close(fd);
+			close_image(img);
 		}
 	}
 
@@ -762,7 +766,6 @@ static int open_cores(int pid, CoreEntry *leader_core)
 	return 0;
 err:
 	xfree(cores);
-	close_safe(&fd);
 	return -1;
 }
 
@@ -1001,16 +1004,18 @@ static void maybe_clone_parent(struct pstree_item *item,
 static inline int fork_with_pid(struct pstree_item *item)
 {
 	struct cr_clone_arg ca;
-	int ret = -1, fd;
+	int ret = -1;
 	pid_t pid = item->pid.virt;
 
 	if (item->state != TASK_HELPER) {
-		fd = open_image(CR_FD_CORE, O_RSTR, pid);
-		if (fd < 0)
+		struct cr_img *img;
+
+		img = open_image(CR_FD_CORE, O_RSTR, pid);
+		if (!img)
 			return -1;
 
-		ret = pb_read_one(fd, &ca.core, PB_CORE);
-		close(fd);
+		ret = pb_read_one(img, &ca.core, PB_CORE);
+		close_image(img);
 
 		if (ret < 0)
 			return -1;
@@ -1979,14 +1984,15 @@ static inline int decode_itimer(char *n, ItimerEntry *ie, struct itimerval *val)
 
 static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 {
-	int fd, ret = -1;
+	int ret = -1;
+	struct cr_img *img;
 	ItimerEntry *ie;
 
-	fd = open_image(CR_FD_ITIMERS, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_ITIMERS, O_RSTR, pid);
+	if (!img)
 		return -1;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMER);
+	ret = pb_read_one(img, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = decode_itimer("real", ie, &args->itimers[0]);
@@ -1994,7 +2000,7 @@ static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMER);
+	ret = pb_read_one(img, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = decode_itimer("virt", ie, &args->itimers[1]);
@@ -2002,7 +2008,7 @@ static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 	if (ret < 0)
 		goto out;
 
-	ret = pb_read_one(fd, &ie, PB_ITIMER);
+	ret = pb_read_one(img, &ie, PB_ITIMER);
 	if (ret < 0)
 		goto out;
 	ret = decode_itimer("prof", ie, &args->itimers[2]);
@@ -2010,7 +2016,7 @@ static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 	if (ret < 0)
 		goto out;
 out:
-	close_safe(&fd);
+	close_image(img);
 	return ret;
 }
 
@@ -2100,12 +2106,12 @@ static void sort_posix_timers(void)
 
 static int prepare_posix_timers_from_fd(int pid)
 {
-	int fd = -1;
+	struct cr_img *img;
 	int ret = -1;
 	struct restore_posix_timer *t;
 
-	fd = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
-	if (fd < 0) {
+	img = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
+	if (!img) {
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
@@ -2115,7 +2121,7 @@ static int prepare_posix_timers_from_fd(int pid)
 	while (1) {
 		PosixTimerEntry *pte;
 
-		ret = pb_read_one_eof(fd, &pte, PB_POSIX_TIMER);
+		ret = pb_read_one_eof(img, &pte, PB_POSIX_TIMER);
 		if (ret <= 0)
 			break;
 
@@ -2131,7 +2137,7 @@ static int prepare_posix_timers_from_fd(int pid)
 		posix_timers_nr++;
 	}
 
-	close_safe(&fd);
+	close_image(img);
 	if (!ret)
 		sort_posix_timers();
 
@@ -2173,15 +2179,16 @@ static inline int verify_cap_size(CredsEntry *ce)
 
 static int prepare_creds(int pid, struct task_restore_args *args)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 	CredsEntry *ce;
 
-	fd = open_image(CR_FD_CREDS, O_RSTR, pid);
-	if (fd < 0)
+	img = open_image(CR_FD_CREDS, O_RSTR, pid);
+	if (!img)
 		return -1;
 
-	ret = pb_read_one(fd, &ce, PB_CREDS);
-	close_safe(&fd);
+	ret = pb_read_one(img, &ce, PB_CREDS);
+	close_image(img);
 
 	if (ret < 0)
 		return ret;
@@ -2347,13 +2354,14 @@ static unsigned int rlims_nr;
 static int prepare_rlimits_from_fd(int pid)
 {
 	struct rlimit *r;
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 
 	/*
 	 * Old image -- read from the file.
 	 */
-	fd = open_image(CR_FD_RLIMIT, O_RSTR | O_OPT, pid);
-	if (fd < 0) {
+	img = open_image(CR_FD_RLIMIT, O_RSTR | O_OPT, pid);
+	if (!img) {
 		if (errno == ENOENT) {
 			pr_info("Skip rlimits for %d\n", pid);
 			return 0;
@@ -2365,7 +2373,7 @@ static int prepare_rlimits_from_fd(int pid)
 	while (1) {
 		RlimitEntry *re;
 
-		ret = pb_read_one_eof(fd, &re, PB_RLIMIT);
+		ret = pb_read_one_eof(img, &re, PB_RLIMIT);
 		if (ret <= 0)
 			break;
 
@@ -2389,7 +2397,7 @@ static int prepare_rlimits_from_fd(int pid)
 		rlims_nr++;
 	}
 
-	close(fd);
+	close_image(img);
 
 	return 0;
 }
@@ -2441,10 +2449,11 @@ static int signal_to_mem(SiginfoEntry *sie)
 
 static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 {
-	int fd, ret;
+	int ret;
+	struct cr_img *img;
 
-	fd = open_image(type, O_RSTR | O_OPT, pid);
-	if (fd < 0) {
+	img = open_image(type, O_RSTR | O_OPT, pid);
+	if (!img) {
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
@@ -2455,7 +2464,7 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 	while (1) {
 		SiginfoEntry *sie;
 
-		ret = pb_read_one_eof(fd, &sie, PB_SIGINFO);
+		ret = pb_read_one_eof(img, &sie, PB_SIGINFO);
 		if (ret <= 0)
 			break;
 		if (sie->siginfo.len != sizeof(siginfo_t)) {
@@ -2473,7 +2482,7 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 		siginfo_entry__free_unpacked(sie, NULL);
 	}
 
-	close(fd);
+	close_image(img);
 
 	return ret ? : 0;
 }

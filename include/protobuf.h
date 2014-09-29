@@ -7,12 +7,14 @@
 #include "compiler.h"
 #include "util.h"
 
-extern int do_pb_read_one(int fd, void **objp, int type, bool eof);
+struct cr_img;
+
+extern int do_pb_read_one(struct cr_img *, void **objp, int type, bool eof);
 
 #define pb_read_one(fd, objp, type) do_pb_read_one(fd, (void **)objp, type, false)
 #define pb_read_one_eof(fd, objp, type) do_pb_read_one(fd, (void **)objp, type, true)
 
-extern int pb_write_one(int fd, void *obj, int type);
+extern int pb_write_one(struct cr_img *, void *obj, int type);
 
 #define pb_pksize(__obj, __proto_message_name)						\
 	(__proto_message_name ##__get_packed_size(__obj) + sizeof(u32))
@@ -25,8 +27,8 @@ extern int pb_write_one(int fd, void *obj, int type);
 
 #include <google/protobuf-c/protobuf-c.h>
 
-extern void do_pb_show_plain(int fd, int type, int single_entry,
-		void (*payload_hadler)(int fd, void *obj),
+extern void do_pb_show_plain(struct cr_img *, int type, int single_entry,
+		void (*payload_hadler)(struct cr_img *, void *obj),
 		const char *pretty_fmt);
 
 /* Don't have objects at hands to also do typechecking here */
