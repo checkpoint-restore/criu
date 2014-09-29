@@ -168,11 +168,15 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 		if (!item)
 			return NULL;
 	} else {
-		item = shmalloc(sizeof(*item) + sizeof(item->rst[0]));
+		int sz;
+
+		sz = sizeof(*item) + sizeof(struct rst_info);
+		item = shmalloc(sz);
 		if (!item)
 			return NULL;
-		memset(item, 0, sizeof(*item) + sizeof(item->rst[0]));
-		vm_area_list_init(&item->rst[0].vmas);
+
+		memset(item, 0, sz);
+		vm_area_list_init(&rsti(item)->vmas);
 	}
 
 	INIT_LIST_HEAD(&item->children);
@@ -461,7 +465,7 @@ static int prepare_pstree_ids(void)
 		helper->pid.virt = item->sid;
 		helper->state = TASK_HELPER;
 		helper->parent = root_item;
-		helper->rst->clone_flags = CLONE_FILES | CLONE_FS;
+		rsti(helper)->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add_tail(&helper->sibling, &helpers);
 		task_entries->nr_helpers++;
 
@@ -562,7 +566,7 @@ static int prepare_pstree_ids(void)
 		}
 
 		if (gleader) {
-			item->rst->pgrp_leader = gleader;
+			rsti(item)->pgrp_leader = gleader;
 			continue;
 		}
 
@@ -582,10 +586,10 @@ static int prepare_pstree_ids(void)
 		helper->pid.virt = item->pgid;
 		helper->state = TASK_HELPER;
 		helper->parent = item;
-		helper->rst->clone_flags = CLONE_FILES | CLONE_FS;
+		rsti(helper)->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add(&helper->sibling, &item->children);
 		task_entries->nr_helpers++;
-		item->rst->pgrp_leader = helper;
+		rsti(item)->pgrp_leader = helper;
 
 		pr_info("Add a helper %d for restoring PGID %d\n",
 				helper->pid.virt, helper->pgid);
@@ -669,7 +673,7 @@ static int prepare_pstree_kobj_ids(void)
 		}
 
 set_mask:
-		item->rst->clone_flags = cflags;
+		rsti(item)->clone_flags = cflags;
 		if (parent)
 			/*
 			 * Mount namespaces are setns()-ed at
@@ -677,7 +681,7 @@ set_mask:
 			 * no need in creating it with its own
 			 * temporary namespace
 			 */
-			item->rst->clone_flags &= ~CLONE_NEWNS;
+			rsti(item)->clone_flags &= ~CLONE_NEWNS;
 
 		cflags &= CLONE_ALLNS;
 

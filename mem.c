@@ -386,7 +386,7 @@ int prepare_mm_pid(struct pstree_item *i)
 	pid_t pid = i->pid.virt;
 	int ret = -1, vn = 0;
 	struct cr_img *img;
-	struct rst_info *ri = i->rst;
+	struct rst_info *ri = rsti(i);
 
 	img = open_image(CR_FD_MM, O_RSTR | O_OPT, pid);
 	if (!img) {

@@ -591,7 +591,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	int ret = 0;
 	struct cr_img *img;
 	pid_t pid = item->pid.virt;
-	struct rst_info *rst_info = item->rst;
+	struct rst_info *rst_info = rsti(item);
 
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
@@ -608,7 +608,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (item->ids == NULL) /* zombie */
 			return 0;
 
-		if (item->rst->fdt && item->rst->fdt->pid != item->pid.virt)
+		if (rsti(item)->fdt && rsti(item)->fdt->pid != item->pid.virt)
 			return 0;
 
 		img = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
@@ -951,8 +951,8 @@ int prepare_fds(struct pstree_item *me)
 
 	close_pid_proc(); /* flush any proc cached fds we may have */
 
-	if (me->rst->fdt) {
-		struct fdt *fdt = me->rst->fdt;
+	if (rsti(me)->fdt) {
+		struct fdt *fdt = rsti(me)->fdt;
 
 		/*
 		 * Wait all tasks, who share a current fd table.
@@ -975,7 +975,7 @@ int prepare_fds(struct pstree_item *me)
 			continue;
 		}
 
-		ret = open_fdinfos(me->pid.virt, &me->rst->fds, state);
+		ret = open_fdinfos(me->pid.virt, &rsti(me)->fds, state);
 		if (ret)
 			break;
 
@@ -983,7 +983,7 @@ int prepare_fds(struct pstree_item *me)
 		 * Now handle TTYs. Slaves are delayed to be sure masters
 		 * are already opened.
 		 */
-		ret = open_fdinfos(me->pid.virt, &me->rst->tty_slaves, state);
+		ret = open_fdinfos(me->pid.virt, &rsti(me)->tty_slaves, state);
 		if (ret)
 			break;
 
@@ -992,13 +992,13 @@ int prepare_fds(struct pstree_item *me)
 		 * to be already restored, thus we store them in a separate
 		 * list and restore at the very end.
 		 */
-		ret = open_fdinfos(me->pid.virt, &me->rst->eventpoll, state);
+		ret = open_fdinfos(me->pid.virt, &rsti(me)->eventpoll, state);
 		if (ret)
 			break;
 	}
 
-	if (me->rst->fdt)
-		futex_inc_and_wake(&me->rst->fdt->fdt_lock);
+	if (rsti(me)->fdt)
+		futex_inc_and_wake(&rsti(me)->fdt->fdt_lock);
 out:
 	close_service_fd(CR_PROC_FD_OFF);
 	tty_fini_fds();
@@ -1032,7 +1032,7 @@ static int fchroot(int fd)
 int restore_fs(struct pstree_item *me)
 {
 	int dd_root, dd_cwd, ret, err = -1;
-	struct rst_info *ri = me->rst;
+	struct rst_info *ri = rsti(me);
 
 	/*
 	 * First -- open both descriptors. We will not
@@ -1084,7 +1084,7 @@ out:
 int prepare_fs_pid(struct pstree_item *item)
 {
 	pid_t pid = item->pid.virt;
-	struct rst_info *ri = item->rst;
+	struct rst_info *ri = rsti(item);
 	struct cr_img *img;
 	FsEntry *fe;
 
@@ -1135,21 +1135,21 @@ int shared_fdt_prepare(struct pstree_item *item)
 	struct pstree_item *parent = item->parent;
 	struct fdt *fdt;
 
-	if (!parent->rst->fdt) {
-		fdt = shmalloc(sizeof(*item->rst->fdt));
+	if (!rsti(parent)->fdt) {
+		fdt = shmalloc(sizeof(*rsti(item)->fdt));
 		if (fdt == NULL)
 			return -1;
 
-		parent->rst->fdt = fdt;
+		rsti(parent)->fdt = fdt;
 
 		futex_init(&fdt->fdt_lock);
 		fdt->nr = 1;
 		fdt->pid = parent->pid.virt;
 	} else
-		fdt = parent->rst->fdt;
+		fdt = rsti(parent)->fdt;
 
-	item->rst->fdt = fdt;
-	item->rst->service_fd_id = fdt->nr;
+	rsti(item)->fdt = fdt;
+	rsti(item)->service_fd_id = fdt->nr;
 	fdt->nr++;
 	if (pid_rst_prio(item->pid.virt, fdt->pid))
 		fdt->pid = item->pid.virt;

@@ -339,7 +339,7 @@ static int restore_priv_vma_content(pid_t pid)
 {
 	struct vma_area *vma;
 	int ret = 0;
-	struct list_head *vmas = &current->rst->vmas.h;
+	struct list_head *vmas = &rsti(current)->vmas.h;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -491,7 +491,7 @@ static int prepare_mappings(int pid)
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len, pstart = 0;
 
-	vmas = &current->rst->vmas;
+	vmas = &rsti(current)->vmas;
 	if (vmas->nr == 0) /* Zombie */
 		goto out;
 
@@ -500,7 +500,7 @@ static int prepare_mappings(int pid)
 	 * See comments in map_private_vma.
 	 */
 	if (current->parent)
-		parent_vmas = &current->parent->rst->vmas.h;
+		parent_vmas = &rsti(current->parent)->vmas.h;
 	else
 		parent_vmas = &empty;
 
@@ -511,10 +511,10 @@ static int prepare_mappings(int pid)
 		return -1;
 	}
 
-	old_premmapped_addr = current->rst->premmapped_addr;
-	old_premmapped_len = current->rst->premmapped_len;
-	current->rst->premmapped_addr = addr;
-	current->rst->premmapped_len = vmas->priv_size;
+	old_premmapped_addr = rsti(current)->premmapped_addr;
+	old_premmapped_len = rsti(current)->premmapped_len;
+	rsti(current)->premmapped_addr = addr;
+	rsti(current)->premmapped_len = vmas->priv_size;
 
 	pvma = list_first_entry(parent_vmas, struct vma_area, list);
 
@@ -556,7 +556,7 @@ out:
 static int unmap_guard_pages()
 {
 	struct vma_area *vma;
-	struct list_head *vmas = &current->rst->vmas.h;
+	struct list_head *vmas = &rsti(current)->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
 		if (!vma_priv(vma->e))
@@ -579,7 +579,7 @@ static int open_vmas(int pid)
 {
 	struct vma_area *vma;
 	int ret = 0;
-	struct list_head *vmas = &current->rst->vmas.h;
+	struct list_head *vmas = &rsti(current)->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
 		if (!(vma_area_is(vma, VMA_AREA_REGULAR)))
@@ -989,9 +989,9 @@ static void maybe_clone_parent(struct pstree_item *item,
 		 * versions of the kernels, but we treat 3.11 as a base, so at
 		 * least warn a user about potential problems.
 		 */
-		item->rst->clone_flags |= CLONE_PARENT;
+		rsti(item)->clone_flags |= CLONE_PARENT;
 		root_as_sibling = 1;
-		if (item->rst->clone_flags & CLONE_NEWPID)
+		if (rsti(item)->clone_flags & CLONE_NEWPID)
 			pr_warn("Set CLONE_PARENT | CLONE_NEWPID but it might cause restore problem,"
 				"because not all kernels support such clone flags combinations!\n");
 	} else if (opts.restore_detach) {
@@ -1024,10 +1024,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 			return -1;
 
 		item->state = ca.core->tc->task_state;
-		item->rst->cg_set = ca.core->tc->cg_set;
+		rsti(item)->cg_set = ca.core->tc->cg_set;
 
 		if (item->state == TASK_DEAD)
-			item->parent->rst->nr_zombies++;
+			rsti(item->parent)->nr_zombies++;
 		else if (!task_alive(item)) {
 			pr_err("Unknown task state %d\n", item->state);
 			return -1;
@@ -1040,14 +1040,14 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 * Helper entry will not get moved around and thus
 		 * will live in the parent's cgset.
 		 */
-		item->rst->cg_set = item->parent->rst->cg_set;
+		rsti(item)->cg_set = rsti(item->parent)->cg_set;
 		ca.core = NULL;
 	}
 
 	ret = -1;
 
 	ca.item = item;
-	ca.clone_flags = item->rst->clone_flags;
+	ca.clone_flags = rsti(item)->clone_flags;
 
 	BUG_ON(ca.clone_flags & CLONE_VM);
 
@@ -1282,10 +1282,10 @@ static void restore_pgid(void)
 		 * group (-j option).
 		 */
 
-		leader = current->rst->pgrp_leader;
+		leader = rsti(current)->pgrp_leader;
 		if (leader) {
 			BUG_ON(my_pgid != leader->pid.virt);
-			futex_wait_until(&leader->rst->pgrp_set, 1);
+			futex_wait_until(&rsti(leader)->pgrp_set, 1);
 		}
 	}
 
@@ -1296,7 +1296,7 @@ static void restore_pgid(void)
 	}
 
 	if (my_pgid == current->pid.virt)
-		futex_set_and_wake(&current->rst->pgrp_set, 1);
+		futex_set_and_wake(&rsti(current)->pgrp_set, 1);
 }
 
 static int mount_proc(void)
@@ -1396,7 +1396,7 @@ static int restore_task_with_children(void *_arg)
 		close_safe(&ca->fd);
 
 	if (current->state != TASK_HELPER) {
-		ret = clone_service_fd(current->rst->service_fd_id);
+		ret = clone_service_fd(rsti(current)->service_fd_id);
 		if (ret)
 			goto err;
 	}
@@ -1585,7 +1585,7 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 				return -1;
 			}
 
-			ret = ptrace_stop_pie(pid, item->rst->breakpoint, flag);
+			ret = ptrace_stop_pie(pid, rsti(item)->breakpoint, flag);
 			if (ret < 0)
 				return -1;
 		}
@@ -1626,7 +1626,7 @@ static void finalize_restore(int status)
 		if (ctl == NULL)
 			goto detach;
 
-		parasite_unmap(ctl, (unsigned long) item->rst->munmap_restorer);
+		parasite_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
 
 		xfree(ctl);
 
@@ -2236,7 +2236,7 @@ static int prepare_creds(int pid, struct task_restore_args *args)
 static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
 	int exe_fd, i, ret = -1;
-	MmEntry *mm = current->rst->mm;
+	MmEntry *mm = rsti(current)->mm;
 
 	args->mm = *mm;
 	args->mm.n_mm_saved_auxv = 0;
@@ -2568,7 +2568,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 #endif
 
 	struct vm_area_list self_vmas;
-	struct vm_area_list *vmas = &current->rst->vmas;
+	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
 
 	pr_info("Restore via sigreturn\n");
@@ -2683,7 +2683,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 */
 	restore_thread_exec_start	= restorer_sym(exec_mem_hint, __export_restore_thread);
 	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task);
-	current->rst->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap);
+	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap);
 
 	exec_mem_hint += restorer_len;
 
@@ -2717,7 +2717,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (rst_mem_remap(mem))
 		goto err;
 
-	task_args->breakpoint = &current->rst->breakpoint;
+	task_args->breakpoint = &rsti(current)->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
 	task_args->rst_mem = mem;
@@ -2729,8 +2729,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->vdso_rt_size = vdso_rt_size;
 #endif
 
-	task_args->premmapped_addr = (unsigned long) current->rst->premmapped_addr;
-	task_args->premmapped_len = current->rst->premmapped_len;
+	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
+	task_args->premmapped_len = rsti(current)->premmapped_len;
 
 	task_args->shmems = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
 	task_args->nr_shmems = nr_shmems;
@@ -2882,7 +2882,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Now prepare run-time data for threads restore.
 	 */
 	task_args->nr_threads		= current->nr_threads;
-	task_args->nr_zombies		= current->rst->nr_zombies;
+	task_args->nr_zombies		= rsti(current)->nr_zombies;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
 

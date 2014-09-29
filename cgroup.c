@@ -968,22 +968,22 @@ int prepare_task_cgroup(struct pstree_item *me)
 	CgSetEntry *se;
 	u32 current_cgset;
 
-	if (!me->rst->cg_set)
+	if (!rsti(me)->cg_set)
 		return 0;
 
 	if (me->parent)
-		current_cgset = me->parent->rst->cg_set;
+		current_cgset = rsti(me->parent)->cg_set;
 	else
 		current_cgset = root_cg_set;
 
-	if (me->rst->cg_set == current_cgset) {
+	if (rsti(me)->cg_set == current_cgset) {
 		pr_info("Cgroups %d inherited from parent\n", current_cgset);
 		return 0;
 	}
 
-	se = find_rst_set_by_id(me->rst->cg_set);
+	se = find_rst_set_by_id(rsti(me)->cg_set);
 	if (!se) {
-		pr_err("No set %d found\n", me->rst->cg_set);
+		pr_err("No set %d found\n", rsti(me)->cg_set);
 		return -1;
 	}
 

@@ -28,9 +28,13 @@ struct pstree_item {
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
-
-	struct rst_info		rst[0];
 };
+
+/* See alloc_pstree_item() for details */
+static inline struct rst_info *rsti(struct pstree_item *i)
+{
+	return (struct rst_info *)(i + 1);
+}
 
 /* ids is alocated and initialized for all alive tasks */
 static inline int shared_fdtable(struct pstree_item *item)
