@@ -94,10 +94,22 @@ int bfdopen(struct bfd *f)
 	return 0;
 }
 
+static int bflush(struct bfd *bfd);
+
 void bclose(struct bfd *f)
 {
-	if (bfd_buffered(f))
+	if (bfd_buffered(f)) {
+		if (bflush(f) < 0)
+			/*
+			 * FIXME -- propagate error up. It's
+			 * hardly possible by returning and
+			 * checking it, but setting a static
+			 * flag, failing further bfdopen-s and
+			 * checking one at the end would work.
+			 */
+			pr_err("Error flushing image\n");
 		buf_put(&f->b);
+	}
 	close(f->fd);
 }
 
@@ -188,14 +200,69 @@ again:
 	goto again;
 }
 
+static int bflush(struct bfd *bfd)
+{
+	struct xbuf *b = &bfd->b;
+	int ret;
+
+	if (!b->sz)
+		return 0;
+
+	ret = write(bfd->fd, b->data, b->sz);
+	if (ret != b->sz)
+		return -1;
+
+	b->sz = 0;
+	return 0;
+}
+
+static int __bwrite(struct bfd *bfd, const void *buf, int size)
+{
+	struct xbuf *b = &bfd->b;
+
+	if (b->sz + size > BUFSIZE) {
+		int ret;
+		ret = bflush(bfd);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (size > BUFSIZE)
+		return write(bfd->fd, buf, size);
+
+	memcpy(b->data + b->sz, buf, size);
+	b->sz += size;
+	return size;
+}
+
 int bwrite(struct bfd *bfd, const void *buf, int size)
 {
-	return write(bfd->fd, buf, size);
+	if (!bfd_buffered(bfd))
+		return write(bfd->fd, buf, size);
+
+	return __bwrite(bfd, buf, size);
 }
 
 int bwritev(struct bfd *bfd, const struct iovec *iov, int cnt)
 {
-	return writev(bfd->fd, iov, cnt);
+	int i, written = 0;
+
+	if (!bfd_buffered(bfd))
+		return writev(bfd->fd, iov, cnt);
+
+	for (i = 0; i < cnt; i++) {
+		int ret;
+
+		ret = __bwrite(bfd, (const void *)iov[i].iov_base, iov[i].iov_len);
+		if (ret < 0)
+			return ret;
+
+		written += ret;
+		if (ret < iov[i].iov_len)
+			break;
+	}
+
+	return written;
 }
 
 int bread(struct bfd *bfd, void *buf, int size)
