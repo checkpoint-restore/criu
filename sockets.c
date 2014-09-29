@@ -515,26 +515,11 @@ static int do_collect_req(int nl, struct sock_diag_req *req, int size,
 	return tmp;
 }
 
-int collect_sockets(int pid)
+int collect_sockets(struct ns_id *ns)
 {
 	int err = 0, tmp;
-	int rst = -1;
-	int nl;
+	int nl = ns->net.nlsk;
 	struct sock_diag_req req;
-
-	if (root_ns_mask & CLONE_NEWNET) {
-		pr_info("Switching to %d's net for collecting sockets\n", pid);
-
-		if (switch_ns(pid, &net_ns_desc, &rst))
-			return -1;
-	}
-
-	nl = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
-	if (nl < 0) {
-		pr_perror("Can't create sock diag socket");
-		err = -1;
-		goto out;
-	}
 
 	memset(&req, 0, sizeof(req));
 	req.hdr.nlmsg_len	= sizeof(req);
@@ -615,7 +600,7 @@ int collect_sockets(int pid)
 	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support packet_diag\n");
-		if (pid == 0 || tmp != -ENOENT) /* Fedora 19 */
+		if (ns->pid == 0 || tmp != -ENOENT) /* Fedora 19 */
 			err = tmp;
 	}
 
@@ -625,16 +610,15 @@ int collect_sockets(int pid)
 	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support netlink_diag\n");
-		if (pid == 0 || tmp != -ENOENT) /* Fedora 19 */
+		if (ns->pid == 0 || tmp != -ENOENT) /* Fedora 19 */
 			err = tmp;
 	}
 
+	/* don't need anymore */
 	close(nl);
-out:
-	if (rst >= 0) {
-		if (restore_ns(rst, &net_ns_desc) < 0)
-			err = -1;
-	} else if (pid != 0) {
+	ns->net.nlsk = -1;
+
+	if (ns->pid == getpid()) {
 		/*
 		 * If netns isn't dumped, criu will fail only
 		 * if an unsupported socket will be really dumped.

@@ -626,10 +626,58 @@ int veth_pair_add(char *in, char *out)
 	return 0;
 }
 
+/*
+ * The setns() syscall (called by switch_ns()) can be extremely
+ * slow. If we call it two or more times from the same task the
+ * kernel will synchonously go on a very slow routine called
+ * synchronize_rcu() trying to put a reference on old namespaces.
+ *
+ * To avoid doing this more than once we pre-create all the
+ * needed other-ns sockets in advance.
+ */
+
+static int prep_ns_sockets(struct ns_id *ns)
+{
+	int nsret = -1, ret;
+
+	if (ns->pid != getpid()) {
+		pr_info("Switching to %d's net for collecting sockets\n", ns->pid);
+		if (switch_ns(ns->pid, &net_ns_desc, &nsret))
+			return -1;
+	}
+
+	ret = ns->net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+	if (ret < 0) {
+		pr_perror("Can't create sock diag socket");
+		goto err_nl;
+	}
+
+	ret = 0;
+out:
+	if (nsret >= 0 && restore_ns(nsret, &net_ns_desc) < 0) {
+		nsret = -1;
+		if (ret == 0)
+			goto err_ret;
+	}
+
+	return ret;
+
+err_ret:
+	close(ns->net.nlsk);
+err_nl:
+	goto out;
+}
+
 static int collect_net_ns(struct ns_id *ns)
 {
+	int ret;
+
 	pr_info("Collecting netns %d/%d\n", ns->id, ns->pid);
-	return collect_sockets(ns->pid);
+	ret = prep_ns_sockets(ns);
+	if (ret)
+		return ret;
+
+	return collect_sockets(ns);
 }
 
 int collect_net_namespaces(void)

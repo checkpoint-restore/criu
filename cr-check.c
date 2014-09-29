@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <linux/netlink.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/eventfd.h>
@@ -7,6 +8,7 @@
 #include <sys/signalfd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <linux/if.h>
@@ -91,11 +93,23 @@ static int check_map_files(void)
 	return -1;
 }
 
+#ifndef NETLINK_SOCK_DIAG
+#define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
+#endif
+
 static int check_sock_diag(void)
 {
 	int ret;
+	struct ns_id ns;
 
-	ret = collect_sockets(0);
+	ns.pid = 0;
+	ns.net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+	if (ns.net.nlsk < 0) {
+		pr_perror("Can't make diag socket for check");
+		return -1;
+	}
+
+	ret = collect_sockets(&ns);
 	if (!ret)
 		return 0;
 

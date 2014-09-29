@@ -21,6 +21,11 @@ struct ns_id {
 			struct mount_info *mntinfo_list;
 			struct mount_info *mntinfo_tree;
 		} mnt;
+
+		struct {
+			int nlsk;	/* for sockets collection */
+			int seqsk;	/* to talk to parasite daemons */
+		} net;
 	};
 };
 extern struct ns_id *ns_ids;
