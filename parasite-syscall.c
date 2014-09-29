@@ -434,11 +434,11 @@ static int restore_child_handler()
 	return 0;
 }
 
-static int ssock = -1;
-
 static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 				struct parasite_init_args *args)
 {
+	static int ssock = -1;
+
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 
@@ -469,23 +469,31 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 		}
 	}
 
+	/*
+	 * Set to -1 to prevent any accidental misuse. The
+	 * only valid user of it is accept_tsock().
+	 */
+	ctl->tsock = -ssock;
 	return 0;
 err:
 	close_safe(&ssock);
 	return -1;
 }
 
-static int accept_tsock()
+static int accept_tsock(struct parasite_ctl *ctl)
 {
 	int sock;
+	int ask = -ctl->tsock; /* this '-' is explained above */
 
-	sock = accept(ssock, NULL, 0);
+	sock = accept(ask, NULL, 0);
 	if (sock < 0) {
 		pr_perror("Can't accept connection to the transport socket");
-		close_safe(&ssock);
+		close(ask);
+		return -1;
 	}
 
-	return sock;
+	ctl->tsock = sock;
+	return 0;
 }
 
 static int parasite_init_daemon(struct parasite_ctl *ctl)
@@ -513,8 +521,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	if (parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
 		goto err;
 
-	ctl->tsock = accept_tsock();
-	if (ctl->tsock < 0)
+	if (accept_tsock(ctl) < 0)
 		goto err;
 
 	if (parasite_send_fd(ctl, log_get_fd()))
