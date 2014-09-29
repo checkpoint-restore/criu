@@ -652,6 +652,12 @@ static int prep_ns_sockets(struct ns_id *ns)
 		goto err_nl;
 	}
 
+	ret = ns->net.seqsk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	if (ret < 0) {
+		pr_perror("Can't create seqsk for parasite");
+		goto err_sq;
+	}
+
 	ret = 0;
 out:
 	if (nsret >= 0 && restore_ns(nsret, &net_ns_desc) < 0) {
@@ -663,6 +669,8 @@ out:
 	return ret;
 
 err_ret:
+	close(ns->net.seqsk);
+err_sq:
 	close(ns->net.nlsk);
 err_nl:
 	goto out;

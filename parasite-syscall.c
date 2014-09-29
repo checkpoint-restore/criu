@@ -435,7 +435,7 @@ static int restore_child_handler()
 }
 
 static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
-				struct parasite_init_args *args)
+		struct parasite_init_args *args, struct ns_id *net)
 {
 	static int ssock = -1;
 
@@ -443,20 +443,8 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 
 	if (ssock == -1) {
-		int rst = -1;
-
-		pr_info("Switching to %d's net for tsock creation\n", pid);
-		if (switch_ns(pid, &net_ns_desc, &rst))
-			return -1;
-
-		ssock = socket(PF_UNIX, SOCK_SEQPACKET, 0);
-		if (ssock < 0)
-			pr_perror("Can't create socket");
-
-		if (rst >= 0 && restore_ns(rst, &net_ns_desc) < 0)
-			return -1;
-		if (ssock < 0)
-			return -1;
+		ssock = net->net.seqsk;
+		net->net.seqsk = -1;
 
 		if (bind(ssock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
 			pr_perror("Can't bind socket");
@@ -496,7 +484,7 @@ static int accept_tsock(struct parasite_ctl *ctl)
 	return 0;
 }
 
-static int parasite_init_daemon(struct parasite_ctl *ctl)
+static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
 {
 	struct parasite_init_args *args;
 	pid_t pid = ctl->pid.real;
@@ -510,7 +498,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	args->sigframe = ctl->rsigframe;
 	args->log_level = log_get_loglevel();
 
-	if (prepare_tsock(ctl, pid, args))
+	if (prepare_tsock(ctl, pid, args, net))
 		goto err;;
 
 	/* after this we can catch parasite errors in chld handler */
@@ -1164,7 +1152,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
 		return -1;
 
-	if (parasite_init_daemon(ctl))
+	if (parasite_init_daemon(ctl, dmpi(item)->netns))
 		return -1;;
 
 	return 0;
