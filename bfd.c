@@ -63,8 +63,8 @@ static int buf_get(struct xbuf *xb)
 	list_del_init(&b->l);
 
 	xb->mem = b->mem;
-	xb->pos = xb->mem;
-	xb->bleft = 0;
+	xb->data = xb->mem;
+	xb->sz = 0;
 	xb->buf = b;
 	pr_debug("BUF %p <\n", xb->mem);
 	return 0;
@@ -80,7 +80,7 @@ static void buf_put(struct xbuf *xb)
 	list_add(&xb->buf->l, &bufs);
 	xb->buf = NULL;
 	xb->mem = NULL;
-	xb->pos = NULL;
+	xb->data = NULL;
 }
 
 int bfdopen(struct bfd *f)
@@ -104,10 +104,10 @@ static int brefill(struct bfd *f)
 	int ret;
 	struct xbuf *b = &f->b;
 
-	memmove(b->mem, b->pos, b->bleft);
-	b->pos = b->mem;
+	memmove(b->mem, b->data, b->sz);
+	b->data = b->mem;
 
-	ret = read(f->fd, b->mem + b->bleft, BUFSIZE - b->bleft);
+	ret = read(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
 	if (ret < 0) {
 		pr_perror("bfd: Error reading file");
 		return -1;
@@ -116,7 +116,7 @@ static int brefill(struct bfd *f)
 	if (ret == 0)
 		return 0;
 
-	b->bleft += ret;
+	b->sz += ret;
 	return 0;
 }
 
@@ -138,19 +138,19 @@ char *breadline(struct bfd *f)
 	unsigned int ss = 0;
 
 again:
-	n = strnchr(b->pos + ss, b->bleft - ss, '\n');
+	n = strnchr(b->data + ss, b->sz - ss, '\n');
 	if (n) {
 		char *ret;
 
-		ret = b->pos;
-		b->pos = n + 1; /* skip the \n found */
+		ret = b->data;
+		b->data = n + 1; /* skip the \n found */
 		*n = '\0';
-		b->bleft -= (b->pos - ret);
+		b->sz -= (b->data - ret);
 		return ret;
 	}
 
 	if (refilled) {
-		if (!b->bleft)
+		if (!b->sz)
 			return NULL;
 
 		/*
@@ -158,24 +158,24 @@ again:
 		 * end, need to report this as full
 		 * line anyway
 		 */
-		b->pos[b->bleft] = '\0';
+		b->data[b->sz] = '\0';
 
 		/*
-		 * The b->pos still points to old data,
+		 * The b->data still points to old data,
 		 * but we say that no bytes left there
 		 * so next call to breadline will not
 		 * "find" these bytes again.
 		 */
-		b->bleft = 0;
-		return b->pos;
+		b->sz = 0;
+		return b->data;
 	}
 
 	/*
-	 * small optimization -- we've scanned b->bleft
+	 * small optimization -- we've scanned b->sz
 	 * symols already, no need to re-scan them after
 	 * the buffer refill.
 	 */
-	ss = b->bleft;
+	ss = b->sz;
 
 	/* no full line in the buffer -- refill one */
 	if (brefill(f))

@@ -3,8 +3,8 @@
 struct bfd_buf;
 struct xbuf {
 	char *mem;		/* buffer */
-	char *pos;		/* position we see bytes at */
-	unsigned int bleft;	/* bytes left after b->pos */
+	char *data;		/* position we see bytes at */
+	unsigned int sz;	/* bytes sitting after b->pos */
 	struct bfd_buf *buf;
 };
 
