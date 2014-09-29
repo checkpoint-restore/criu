@@ -36,7 +36,9 @@ static inline struct rst_info *rsti(struct pstree_item *i)
 	return (struct rst_info *)(i + 1);
 }
 
+struct ns_id;
 struct dmp_info {
+	struct ns_id *netns;
 };
 
 static inline struct dmp_info *dmpi(struct pstree_item *i)

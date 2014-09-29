@@ -372,7 +372,7 @@ int dump_task_ns_ids(struct pstree_item *item)
 	}
 
 	ids->has_net_ns_id = true;
-	ids->net_ns_id = get_ns_id(pid, &net_ns_desc);
+	ids->net_ns_id = __get_ns_id(pid, &net_ns_desc, &dmpi(item)->netns);
 	if (!ids->net_ns_id) {
 		pr_err("Can't make netns id\n");
 		return -1;

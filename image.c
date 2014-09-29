@@ -67,7 +67,10 @@ int write_img_inventory(void)
 {
 	struct cr_img *img;
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
-	struct pstree_item crt = { };
+	struct {
+		struct pstree_item i;
+		struct dmp_info d;
+	} crt = { };
 
 	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
@@ -81,9 +84,9 @@ int write_img_inventory(void)
 	he.ns_per_id = true;
 	he.has_ns_per_id = true;
 
-	crt.state = TASK_ALIVE;
-	crt.pid.real = getpid();
-	if (get_task_ids(&crt)) {
+	crt.i.state = TASK_ALIVE;
+	crt.i.pid.real = getpid();
+	if (get_task_ids(&crt.i)) {
 		close_image(img);
 		return -1;
 	}
@@ -92,12 +95,12 @@ int write_img_inventory(void)
 	if (dump_task_cgroup(NULL, &he.root_cg_set))
 		return -1;
 
-	he.root_ids = crt.ids;
+	he.root_ids = crt.i.ids;
 
 	if (pb_write_one(img, &he, PB_INVENTORY) < 0)
 		return -1;
 
-	xfree(crt.ids);
+	xfree(crt.i.ids);
 	close_image(img);
 	return 0;
 }
