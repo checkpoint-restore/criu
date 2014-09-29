@@ -381,7 +381,7 @@ in:
 		return 1;
 	}
 
-	if (*fd == -ENOENT && dir == AT_FDCWD) {
+	if (errno == ENOENT && dir == AT_FDCWD) {
 		pr_info("Searching irmap cache in parent\n");
 		dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (dir >= 0)

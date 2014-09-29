@@ -598,7 +598,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	if (!fdinfo_per_id) {
 		fdinfo_fd = open_image(CR_FD_FDINFO, O_RSTR | O_OPT, pid);
 		if (fdinfo_fd < 0) {
-			if (fdinfo_fd == -ENOENT)
+			if (errno == ENOENT)
 				return 0;
 			return -1;
 		}
@@ -1088,7 +1088,7 @@ int prepare_fs_pid(struct pstree_item *item)
 
 	ifd = open_image(CR_FD_FS, O_RSTR | O_OPT, pid);
 	if (ifd < 0) {
-		if (ifd == -ENOENT)
+		if (errno == ENOENT)
 			goto ok;
 		else
 			goto out;

@@ -343,7 +343,7 @@ static int restore_file_locks_legacy(int pid)
 
 	fd = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (fd == -ENOENT)
+		if (errno == ENOENT)
 			return 0;
 		else
 			return -1;

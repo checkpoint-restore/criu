@@ -642,7 +642,7 @@ int collect_image(struct collect_image_info *cinfo)
 
 	fd = open_image(cinfo->fd_type, O_RSTR | (optional ? O_OPT : 0));
 	if (fd < 0) {
-		if (optional && fd == -ENOENT)
+		if (optional && errno == ENOENT)
 			return 0;
 		else
 			return -1;

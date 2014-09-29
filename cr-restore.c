@@ -2354,7 +2354,7 @@ static int prepare_rlimits_from_fd(int pid)
 	 */
 	fd = open_image(CR_FD_RLIMIT, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (fd == -ENOENT) {
+		if (errno == ENOENT) {
 			pr_info("Skip rlimits for %d\n", pid);
 			return 0;
 		}
@@ -2445,7 +2445,7 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 
 	fd = open_image(type, O_RSTR | O_OPT, pid);
 	if (fd < 0) {
-		if (fd == -ENOENT) /* backward compatibility */
+		if (errno == ENOENT) /* backward compatibility */
 			return 0;
 		else
 			return -1;
