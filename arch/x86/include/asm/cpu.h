@@ -16,7 +16,6 @@
 
 extern const char * const x86_cap_flags[NCAPINTS_BITS];
 
-extern void cpu_set_feature(unsigned int feature);
 extern bool cpu_has_feature(unsigned int feature);
 extern int cpu_init(void);
 

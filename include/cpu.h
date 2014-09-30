@@ -3,7 +3,6 @@
 
 #include "asm/cpu.h"
 
-extern void cpu_set_feature(unsigned int feature);
 extern bool cpu_has_feature(unsigned int feature);
 extern int cpu_init(void);
 

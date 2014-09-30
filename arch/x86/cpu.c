@@ -30,7 +30,7 @@ const char * const x86_cap_flags[NCAPINTS_BITS] = {
 
 static DECLARE_BITMAP(cpu_features, NCAPINTS_BITS);
 
-void cpu_set_feature(unsigned int feature)
+static void cpu_set_feature(unsigned int feature)
 {
 	if (likely(feature < NCAPINTS_BITS))
 		set_bit(feature, cpu_features);
