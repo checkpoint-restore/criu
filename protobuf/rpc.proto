@@ -79,6 +79,9 @@ enum criu_req_type {
 	PAGE_SERVER	= 5;
 
 	NOTIFY		= 6;
+
+	CPUINFO_DUMP	= 7;
+	CPUINFO_CHECK	= 8;
 }
 
 /*

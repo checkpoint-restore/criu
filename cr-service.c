@@ -17,6 +17,7 @@
 #include "cr_options.h"
 #include "util.h"
 #include "log.h"
+#include "cpu.h"
 #include "pstree.h"
 #include "cr-service.h"
 #include "cr-service-const.h"
@@ -600,8 +601,54 @@ static int chk_keepopen_req(CriuReq *msg)
 	if (msg->type == CRIU_REQ_TYPE__PAGE_SERVER)
 		/* This just fork()-s so no leaks */
 		return 0;
+	else if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ||
+		 msg->type == CRIU_REQ_TYPE__CPUINFO_CHECK)
+		return 0;
 
 	return -1;
+}
+
+static int handle_cpuinfo(int sk, CriuReq *msg)
+{
+	CriuResp resp = CRIU_RESP__INIT;
+	bool success = false;
+	int pid, status;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		goto out;
+	}
+
+	if (pid == 0) {
+		int ret = 1;
+
+		if (setup_opts_from_req(sk, msg->opts))
+			goto cout;
+
+		setproctitle("cpuinfo %s --rpc -D %s",
+			     msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ?
+			     "dump" : "check",
+			     images_dir);
+
+		if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP)
+			ret = cpuinfo_dump();
+		else
+			ret = cpuinfo_check();
+cout:
+		exit(ret);
+	}
+
+	wait(&status);
+	if (!WIFEXITED(status) || WEXITSTATUS(status))
+		goto out;
+
+	success = true;
+out:
+	resp.type = msg->type;
+	resp.success = success;
+
+	return send_criu_msg(sk, &resp);
 }
 
 int cr_service_work(int sk)
@@ -633,6 +680,10 @@ more:
 		break;
 	case CRIU_REQ_TYPE__PAGE_SERVER:
 		ret =  start_page_server_req(sk, msg->opts);
+		break;
+	case CRIU_REQ_TYPE__CPUINFO_DUMP:
+	case CRIU_REQ_TYPE__CPUINFO_CHECK:
+		ret = handle_cpuinfo(sk, msg);
 		break;
 
 	default:
