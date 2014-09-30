@@ -29,7 +29,6 @@ const char * const x86_cap_flags[NCAPINTS_BITS] = {
 };
 
 static DECLARE_BITMAP(cpu_features, NCAPINTS_BITS);
-#define cpu_has(bit)	test_bit(bit, cpu_features)
 
 void cpu_set_feature(unsigned int feature)
 {
@@ -40,7 +39,7 @@ void cpu_set_feature(unsigned int feature)
 bool cpu_has_feature(unsigned int feature)
 {
 	if (likely(feature < NCAPINTS_BITS))
-		return cpu_has(feature);
+		return test_bit(feature, cpu_features);
 	return false;
 }
 
@@ -67,17 +66,17 @@ int cpu_init(void)
 	 * Make sure that at least FPU is onboard
 	 * and fxsave is supported.
 	 */
-	if (cpu_has(X86_FEATURE_FPU)) {
-		if (!cpu_has(X86_FEATURE_FXSR)) {
+	if (cpu_has_feature(X86_FEATURE_FPU)) {
+		if (!cpu_has_feature(X86_FEATURE_FXSR)) {
 			pr_err("missing support fxsave/restore insns\n");
 			return -1;
 		}
 	}
 
 	pr_debug("fpu:%d fxsr:%d xsave:%d\n",
-		 !!cpu_has(X86_FEATURE_FPU),
-		 !!cpu_has(X86_FEATURE_FXSR),
-		 !!cpu_has(X86_FEATURE_XSAVE));
+		 !!cpu_has_feature(X86_FEATURE_FPU),
+		 !!cpu_has_feature(X86_FEATURE_FXSR),
+		 !!cpu_has_feature(X86_FEATURE_XSAVE));
 
 	return 0;
 }
