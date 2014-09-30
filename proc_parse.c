@@ -1102,7 +1102,7 @@ static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 	 * it_value: (0, 49406829)
 	 * it_interval: (1, 0)
 	 */
-	if (sscanf(buf, "clockid: %d", &tfy->clockid) != 1)
+	if (sscanf(str, "clockid: %d", &tfy->clockid) != 1)
 		goto parse_err;
 
 	str = breadline(f);
