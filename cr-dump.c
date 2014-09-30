@@ -1734,6 +1734,9 @@ int cr_pre_dump_tasks(pid_t pid)
 		if (pre_dump_one_task(item, &ctls))
 			goto err;
 
+	if (irmap_predump_prep())
+		goto err;
+
 	ret = 0;
 err:
 	pstree_switch_state(root_item,

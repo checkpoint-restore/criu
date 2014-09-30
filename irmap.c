@@ -217,6 +217,8 @@ invalid:
 	return 1;
 }
 
+static bool doing_predump = false;
+
 char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 {
 	struct irmap *c, *h, **p;
@@ -227,7 +229,14 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 
 	pr_debug("Resolving %x:%lx path\n", s_dev, i_ino);
 
-	if (__mntns_get_root_fd(root_item->pid.real) < 0)
+	/*
+	 * If we're in predump, then processes already run
+	 * and the root_item is already freed by that time.
+	 * But the root service fd is already set by the
+	 * irmap_predump_prep, so we just go ahead and scan.
+	 */
+	if (!doing_predump &&
+			__mntns_get_root_fd(root_item->pid.real) < 0)
 		goto out;
 
 	timing_start(TIME_IRMAP_RESOLVE);
@@ -294,6 +303,22 @@ int irmap_queue_cache(unsigned int dev, unsigned long ino,
 	ip->next = predump_queue;
 	predump_queue = ip;
 	return 0;
+}
+
+int irmap_predump_prep(void)
+{
+	/*
+	 * Tasks are about to get released soon, but
+	 * we'll need to do FS scan for irmaps. In this
+	 * scan we will need to know the root dir tasks
+	 * live in. Need to make sure the respective fd
+	 * (service) is set to that root, so that the
+	 * scan works and doesn't race with the tasks
+	 * dying or changind root.
+	 */
+
+	doing_predump = true;
+	return __mntns_get_root_fd(root_item->pid.real) < 0 ? -1 : 0;
 }
 
 int irmap_predump_run(void)
