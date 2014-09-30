@@ -74,6 +74,7 @@
 #define TUNFILE_MAGIC		0x57143751 /* Kalyazin */
 #define CGROUP_MAGIC		0x59383330 /* Tikhvin */
 #define TIMERFD_MAGIC		0x50493712 /* Korocha */
+#define CPUINFO_MAGIC		0x61404013 /* Nyandoma */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
