@@ -868,42 +868,106 @@ static const char *special_cpuset_props[] = {
 	NULL,
 };
 
-static int copy_special_cg_props(const char *controller, const char *path)
+static int find_value(const char *controller, const char *path, const char *prop,
+			char *value, char *prefix, char *missing_path)
 {
-	int cg = get_service_fd(CGROUP_YARD);
+	char fpath[PATH_MAX], my_path[PATH_MAX];
+	char *pos;
+	int ret, cg;
 
+	cg = get_service_fd(CGROUP_YARD);
+	strncpy(my_path, path, PATH_MAX);
+
+	while (1) {
+		FILE *f;
+
+		pos = strrchr(my_path, '/');
+		if (pos) {
+			*pos = 0;
+			snprintf(prefix, PATH_MAX, "%s/%s", controller, my_path);
+		} else {
+			snprintf(fpath, PATH_MAX, "%s", controller);
+		}
+		snprintf(fpath, PATH_MAX, "%s/%s", prefix, prop);
+
+		f = fopenat(cg, fpath, "r");
+		if (!f)
+			return -1;
+
+		ret = fscanf(f, "%1024s", value);
+		fclose(f);
+
+		if (ret > 0) {
+			strcpy(missing_path, path + (pos - my_path));
+			return 0;
+		} else if (!pos) {
+			pr_err("didn't find a value to propogate in the root!\n");
+			return -1;
+		}
+	}
+
+	return -1;
+}
+
+static int copy_recursive(const char *prefix, char *path, const char *prop, const char *value)
+{
+	char fpath[PATH_MAX];
+	char *pos;
+	int ret, out, cg;
+
+	cg = get_service_fd(CGROUP_YARD);
+
+	/* skip the first / */
+	pos = path + 1;
+	while (1) {
+		pos = strchr(pos, '/');
+
+		if (pos)
+			*pos = 0;
+		snprintf(fpath, PATH_MAX, "%s/%s/%s", prefix, path, prop);
+		if (pos) {
+			*pos = '/';
+			pos++;
+		}
+
+		out = openat(cg, fpath, O_RDWR);
+		if (out < 0) {
+			pr_perror("couldn't open cg prop at %s\n", fpath);
+			return -1;
+		}
+
+		ret = write(out, value, strlen(value));
+		close(out);
+
+		if (ret < 0) {
+			pr_perror("copying property %s to %s failed\n", prop, fpath);
+			return -1;
+		}
+
+		if (!pos)
+			break;
+	}
+
+	return 0;
+}
+
+static int copy_special_cg_props(const char *controller, char *path)
+{
 	pr_info("copying special cg props for %s\n", controller);
 
 	if (strstr(controller, "cpuset")) {
 		int i;
 
 		for (i = 0; special_cpuset_props[i]; i++) {
-			char fpath[PATH_MAX], buf[1024];
+			char buf[1024], prefix[PATH_MAX], missing_path[PATH_MAX];
 			const char *prop = special_cpuset_props[i];
-			int ret;
-			FILE *f;
-
-			snprintf(fpath, PATH_MAX, "%s/%s", controller, prop);
-			f = fopenat(cg, fpath, "r");
-			if (!f)
+			if (find_value(controller, path, prop, buf, prefix, missing_path) < 0)
 				return -1;
 
-			ret = fscanf(f, "%1024s", buf);
-			fclose(f);
-
-			if (ret <= 0) {
-				continue;
+			if (copy_recursive(prefix, missing_path, prop, buf) < 0) {
+				pr_err("copying prop %s failed\n", prop);
+				return -1;
 			}
-
-			pr_info("copying %s for %s/%s\n", buf, controller, prop);
-
-			snprintf(fpath, PATH_MAX, "%s/%s/%s", controller, path, prop);
-			f = fopenat(cg, fpath, "w");
-			if (!f)
-				return -1;
-
-			fprintf(f, "%s", buf);
-			fclose(f);
 		}
 	}
 
