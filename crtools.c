@@ -114,8 +114,12 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 
 		if (!strncmp(optarg, "fpu", 3))
 			____cpu_set_cap(opts, CPU_CAP_FPU, inverse);
-		if (!strncmp(optarg, "all", 3))
+		else if (!strncmp(optarg, "all", 3))
 			____cpu_set_cap(opts, CPU_CAP_ALL, inverse);
+		else if (!strncmp(optarg, "none", 3))
+			____cpu_set_cap(opts, CPU_CAP_NONE, inverse);
+		else if (!strncmp(optarg, "cpu", 3))
+			____cpu_set_cap(opts, CPU_CAP_CPU, inverse);
 		else
 			goto Esyntax;
 	}
@@ -561,8 +565,8 @@ usage:
 "     --pidfile FILE     write root task, service or page-server pid to FILE\n"
 "  -W|--work-dir DIR     directory to cd and write logs/pidfiles/stats to\n"
 "                        (if not specified, value of --images-dir is used)\n"
-"     --cpu-cap CAP      require certain cpu capability. CAP: may be one of:\n"
-"                        'fpu','all'. To disable capability, prefix it with '^'.\n"
+"     --cpu-cap [CAP]    require certain cpu capability. CAP: may be one of:\n"
+"                        'cpu','fpu','all','none'. To disable capability, prefix it with '^'.\n"
 "     --exec-cmd         execute the command specified after '--' on successful\n"
 "                        restore making it the parent of the restored process\n"
 "\n"
