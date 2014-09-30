@@ -77,15 +77,30 @@ OPTIONS
     done with help of 'post-dump' script.
     In other words, do not use it until really needed.
 
-*--cpu-cap* 'cap'[,'cap']::
+*--cpu-cap* [,'cap']::
     When restore process require 'cap' CPU capability to be present. To inverse
     capability prefix it with '^'.
 
-    - *fpu*. Requre the CPU to have comaptible FPU. For example the process
-             might be dumped with xsave capability but attempted to restore
-             without it present on target cpu. In such case we refuse to procceed.
+    - 'all'.    Require all capabilities. This is *default* mode if *--cpu-cap*
+                is passed without arguments. Most safe mode.
 
-    - *all*. Require all capability. This is *default* mode.
+    - 'cpu'.    Require the CPU to have all capabilities match. On *dump* the
+                capabilities are writen into image file and on *restore* they
+                are validated to match ones present on runtime CPU.
+
+    - 'fpu'.    Requre the CPU to have comaptible FPU. For example the process
+                might be dumped with xsave capability but attempted to restore
+                without it present on target CPU. In such case we refuse to
+                procceed. This is *default* mode if *--cpu-cap* is not present
+                in command line.
+
+    - 'none'.   Ignore capabilities. Most dangerous mode. The behaviour is
+                implementation dependent. Try to not use it until really
+                required. One possible need of using this option is when
+                *--cpu-cap*='cpu' has been passed on *dump* then images are
+                migrated to a less capable processor and one need to *restore*
+                this application, by default *criu* will refuse to proceed without
+                relaxing capability with *--cpu-cap*='none' parameter.
 
 *-f*, *--file* 'file'::
     This option is valid for the *show* command only and allows one to see the
