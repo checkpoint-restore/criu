@@ -176,7 +176,26 @@ static inline unsigned int cpuid_edx(unsigned int op)
 	return edx;
 }
 
-extern const char * const x86_cap_flags[NCAPINTS_BITS];
+#define X86_FEATURE_VERSION		1
+
+enum {
+	X86_VENDOR_INTEL	= 0,
+	X86_VENDOR_AMD		= 1,
+
+	X86_VENDOR_MAX
+};
+
+struct cpuinfo_x86 {
+	u8			x86_family;
+	u8			x86_vendor;
+	u8			x86_model;
+	u8			x86_mask;
+	u32			x86_capability[NCAPINTS];
+	u32			extended_cpuid_level;
+	int			cpuid_level;
+	char			x86_vendor_id[16];
+	char			x86_model_id[64];
+};
 
 extern bool cpu_has_feature(unsigned int feature);
 extern int cpu_init(void);
