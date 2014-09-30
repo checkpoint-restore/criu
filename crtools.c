@@ -98,6 +98,11 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 			(__opts)->cpu_cap |=  (__cap);	\
 	} while (0)
 
+	if (!optarg) {
+		____cpu_set_cap(opts, CPU_CAP_ALL, false);
+		return 0;
+	}
+
 	for (; *optarg; optarg++) {
 		if (optarg[0] == '^') {
 			inverse = !inverse;
@@ -171,7 +176,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "track-mem", no_argument, 0, 1055},
 		{ "auto-dedup", no_argument, 0, 1056},
 		{ "libdir", required_argument, 0, 'L'},
-		{ "cpu-cap", required_argument, 0, 1057},
+		{ "cpu-cap", optional_argument, 0, 1057},
 		{ "force-irmap", no_argument, 0, 1058},
 		{ "ext-mount-map", required_argument, 0, 'M'},
 		{ "exec-cmd", no_argument, 0, 1059},
