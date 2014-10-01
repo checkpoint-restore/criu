@@ -1,5 +1,8 @@
 #ifndef __CR_BFD_H__
 #define __CR_BFD_H__
+
+#include "err.h"
+
 struct bfd_buf;
 struct xbuf {
 	char *mem;		/* buffer */
@@ -23,7 +26,6 @@ static inline void bfd_setraw(struct bfd *b)
 	b->b.mem = NULL;
 }
 
-#define BREADERR	((char *)-1)
 int bfdopen(struct bfd *f);
 void bclose(struct bfd *f);
 char *breadline(struct bfd *f);

@@ -1106,19 +1106,19 @@ static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 		goto parse_err;
 
 	str = breadline(f);
-	if (str == NULL || str == BREADERR)
+	if (IS_ERR_OR_NULL(str))
 		goto nodata;
 	if (sscanf(str, "ticks: %llu", (unsigned long long *)&tfy->ticks) != 1)
 		goto parse_err;
 
 	str = breadline(f);
-	if (str == NULL || str == BREADERR)
+	if (IS_ERR_OR_NULL(str))
 		goto nodata;
 	if (sscanf(str, "settime flags: 0%o", &tfy->settime_flags) != 1)
 		goto parse_err;
 
 	str = breadline(f);
-	if (str == NULL || str == BREADERR)
+	if (IS_ERR_OR_NULL(str))
 		goto nodata;
 	if (sscanf(str, "it_value: (%llu, %llu)",
 		   (unsigned long long *)&tfy->vsec,
@@ -1126,7 +1126,7 @@ static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 		goto parse_err;
 
 	str = breadline(f);
-	if (str == NULL || str == BREADERR)
+	if (IS_ERR_OR_NULL(str))
 		goto nodata;
 	if (sscanf(str, "it_interval: (%llu, %llu)",
 		   (unsigned long long *)&tfy->isec,
@@ -1166,7 +1166,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		str = breadline(&f);
 		if (!str)
 			break;
-		if (str == BREADERR)
+		if (IS_ERR(str))
 			goto out;
 
 		if (fdinfo_field(str, "pos") ||

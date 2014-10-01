@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <sys/uio.h>
+#include <errno.h>
 
 #include "bug.h"
 #include "log.h"
@@ -200,7 +201,7 @@ again:
 
 	/* no full line in the buffer -- refill one */
 	if (brefill(f) < 0)
-		return BREADERR;
+		return ERR_PTR(-EIO);
 
 	refilled = true;
 
