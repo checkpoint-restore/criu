@@ -2,5 +2,5 @@
 
 source `dirname $0`/criu-lib.sh &&
 prep &&
-make -C test -j 4 ZDTM_ARGS="-C -i 3" &&
+make -C test -j 4 ZDTM_ARGS="-C -i 3" zdtm &&
 true || fail

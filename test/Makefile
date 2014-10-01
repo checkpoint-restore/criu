@@ -5,8 +5,8 @@ ZDTM_ARGS ?= -C
 
 .FORCE:
 
-all: .FORCE
-	$(MAKE) zdtm
+all: zdtm zdtm-pre-dump zdtm-snapshot zdtm-iter
+
 .PHONY: all
 
 TESTS = unix-callback mem-snap rpc libcriu mounts/ext security
@@ -19,6 +19,16 @@ other: .FORCE
 zdtm: .FORCE 
 	$(MAKE) zdtm_ns
 	$(MAKE) zdtm_nons
+
+zdtm-pre-dump:
+	ZDTM_ARGS="-P -p -i 3 -C" $(MAKE) ns/static/pipe00
+
+zdtm-snapshot:
+	ZDTM_ARGS="-s -i 3 -C" $(MAKE) ns/static/pipe00
+
+zdtm-iter:
+	ZDTM_ARGS="-i 3 -C" $(MAKE) ns/static/pipe00
+
 .PHONY: zdtm
 
 fault-injection: .FORCE
