@@ -1050,12 +1050,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		size_t off2 = off;
 
 		off2 += sprintf(path + off, "/%s", e->dir_name);
-		/*
-		 * Check to see if we made e->properties NULL during restore
-		 * because directory already existed and as such we don't want to
-		 * change its properties
-		 */
-		if (e->properties) {
+		if (e->n_properties > 0) {
 			for (j = 0; j < e->n_properties; ++j) {
 				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
 					return -1;
@@ -1104,7 +1099,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 		/*
 		 * Checking to see if file already exists. If not, create it. If
 		 * it does exist, prevent us from overwriting the properties
-		 * later by setting the CgroupDirEntry's properties pointer to NULL
+		 * later by removing the CgroupDirEntry's properties.
 		 */
 		if (access(paux, F_OK) < 0) {
 			if (errno != ENOENT) {
@@ -1117,7 +1112,11 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 			}
 			pr_info("Created dir %s\n", paux);
 		} else {
-			e->properties = NULL;
+			if (e->n_properties > 0) {
+				xfree(e->properties);
+				e->properties = NULL;
+				e->n_properties = 0;
+			}
 			pr_info("Determined dir %s already existed\n", paux);
 		}
 
