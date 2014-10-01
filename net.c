@@ -636,7 +636,7 @@ int veth_pair_add(char *in, char *out)
  * needed other-ns sockets in advance.
  */
 
-static int prep_ns_sockets(struct ns_id *ns)
+static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
 
@@ -646,11 +646,14 @@ static int prep_ns_sockets(struct ns_id *ns)
 			return -1;
 	}
 
-	ret = ns->net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
-	if (ret < 0) {
-		pr_perror("Can't create sock diag socket");
-		goto err_nl;
-	}
+	if (for_dump) {
+		ret = ns->net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+		if (ret < 0) {
+			pr_perror("Can't create sock diag socket");
+			goto err_nl;
+		}
+	} else
+		ns->net.nlsk = -1;
 
 	ret = ns->net.seqsk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (ret < 0) {
@@ -671,24 +674,28 @@ out:
 err_ret:
 	close(ns->net.seqsk);
 err_sq:
-	close(ns->net.nlsk);
+	if (ns->net.nlsk >= 0)
+		close(ns->net.nlsk);
 err_nl:
 	goto out;
 }
 
-static int collect_net_ns(struct ns_id *ns)
+static int collect_net_ns(struct ns_id *ns, bool for_dump)
 {
 	int ret;
 
 	pr_info("Collecting netns %d/%d\n", ns->id, ns->pid);
-	ret = prep_ns_sockets(ns);
+	ret = prep_ns_sockets(ns, for_dump);
 	if (ret)
 		return ret;
+
+	if (!for_dump)
+		return 0;
 
 	return collect_sockets(ns);
 }
 
-int collect_net_namespaces(void)
+int collect_net_namespaces(bool for_dump)
 {
 	int ret = 0;
 	struct ns_id *ns;
@@ -701,11 +708,11 @@ int collect_net_namespaces(void)
 			if ((root_ns_mask & CLONE_NEWNET))
 				continue;
 
-			ret = collect_net_ns(ns);
+			ret = collect_net_ns(ns, for_dump);
 			break;
 		}
 
-		ret = collect_net_ns(ns);
+		ret = collect_net_ns(ns, for_dump);
 		if (ret)
 			break;
 	}

@@ -359,6 +359,28 @@ struct collect_image_info nsfile_cinfo = {
 	.flags = COLLECT_OPTIONAL,
 };
 
+/*
+ * Same as dump_task_ns_ids(), but
+ * a) doesn't keep IDs (don't need them)
+ * b) generates them for mount and netns only
+ *    mnt ones are needed for open_mount() in
+ *    inotify pred-dump
+ *    net ones are needed for parasite socket
+ */
+
+int predump_task_ns_ids(struct pstree_item *item)
+{
+	int pid = item->pid.real;
+
+	if (!__get_ns_id(pid, &net_ns_desc, &dmpi(item)->netns))
+		return -1;
+
+	if (!get_ns_id(pid, &mnt_ns_desc))
+		return -1;
+
+	return 0;
+}
+
 int dump_task_ns_ids(struct pstree_item *item)
 {
 	int pid = item->pid.real;
@@ -399,34 +421,6 @@ int dump_task_ns_ids(struct pstree_item *item)
 		return -1;
 	}
 
-	return 0;
-}
-
-static int gen_ns_ids(int pid)
-{
-	/* needed for mntns_get_root_fd */
-	if (!get_ns_id(pid, &mnt_ns_desc))
-		return -1;
-	return 0;
-}
-
-/*
- * We use ns_mask in various places to check whether
- * the tasks we dump live in namespaces or not. The
- * mask generation is tied with dumping inventory and
- * tasks' images, which is not needed for pre-dump.
- * This routine generates a mask for pre-dump.
- */
-int gen_predump_ns_mask(void)
-{
-	BUG_ON(root_ns_mask);
-
-	if (gen_ns_ids(getpid()))
-		return -1;
-	if (gen_ns_ids(root_item->pid.real))
-		return -1;
-
-	pr_info("NS mask generated: %lx\n", root_ns_mask);
 	return 0;
 }
 
@@ -536,7 +530,7 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 	return 0;
 }
 
-int collect_namespaces(void)
+int collect_namespaces(bool for_dump)
 {
 	int ret;
 
@@ -544,7 +538,7 @@ int collect_namespaces(void)
 	if (ret < 0)
 		return ret;
 
-	ret = collect_net_namespaces();
+	ret = collect_net_namespaces(for_dump);
 	if (ret < 0)
 		return ret;
 

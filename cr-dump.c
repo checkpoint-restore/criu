@@ -1036,6 +1036,36 @@ err_close:
 	return -1;
 }
 
+static int collect_pstree_ids_predump(void)
+{
+	struct pstree_item *item;
+	struct {
+		struct pstree_item i;
+		struct dmp_info d;
+	} crt = { };
+
+	/*
+	 * This thing is normally done inside
+	 * write_img_inventory().
+	 */
+
+	crt.i.state = TASK_ALIVE;
+	crt.i.pid.real = getpid();
+
+	if (predump_task_ns_ids(&crt.i))
+		return -1;
+
+	for_each_pstree_item(item) {
+		if (item->state == TASK_DEAD)
+			continue;
+
+		if (predump_task_ns_ids(item))
+			return -1;
+	}
+
+	return 0;
+}
+
 int collect_pstree_ids(void)
 {
 	struct pstree_item *item;
@@ -1682,10 +1712,10 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (collect_pstree(pid))
 		goto err;
 
-	if (gen_predump_ns_mask())
+	if (collect_pstree_ids_predump())
 		goto err;
 
-	if (collect_mnt_namespaces() < 0)
+	if (collect_namespaces(false) < 0)
 		goto err;
 
 	for_each_pstree_item(item)
@@ -1798,7 +1828,7 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_file_locks())
 		goto err;
 
-	if (collect_namespaces() < 0)
+	if (collect_namespaces(true) < 0)
 		goto err;
 
 	glob_imgset = cr_glob_imgset_open(O_DUMP);

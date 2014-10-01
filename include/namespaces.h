@@ -46,7 +46,7 @@ extern unsigned long root_ns_mask;
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;
 
-extern int collect_namespaces(void);
+extern int collect_namespaces(bool for_dump);
 extern int collect_mnt_namespaces(void);
 extern int dump_mnt_namespaces(void);
 extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
@@ -57,10 +57,9 @@ extern int switch_ns(int pid, struct ns_desc *nd, int *rst);
 extern int restore_ns(int rst, struct ns_desc *nd);
 
 extern int dump_task_ns_ids(struct pstree_item *);
+extern int predump_task_ns_ids(struct pstree_item *);
 extern struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
 extern int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
 extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
-
-extern int gen_predump_ns_mask(void);
 
 #endif /* __CR_NS_H__ */
