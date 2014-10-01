@@ -355,3 +355,28 @@ err:
 	close_image(img);
 	return ret;
 }
+
+int cpuinfo_dump(void)
+{
+	if (cpu_init())
+		return -1;
+	if (cpu_dump_cpuinfo())
+		return -1;
+	return 0;
+}
+
+int cpuinfo_check(void)
+{
+	if (cpu_init())
+		return -1;
+
+	/*
+	 * Force to check all caps because its been
+	 * called as a special command from options.
+	 */
+	opts.cpu_cap = CPU_CAP_ALL;
+
+	if (cpu_validate_cpuinfo())
+		return -1;
+	return 0;
+}

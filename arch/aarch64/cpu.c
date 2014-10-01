@@ -1,6 +1,7 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
+#include <errno.h>
 #include "cpu.h"
 
 bool cpu_has_feature(unsigned int feature)
@@ -21,4 +22,14 @@ int cpu_dump_cpuinfo(void)
 int cpu_validate_cpuinfo(void)
 {
 	return 0;
+}
+
+int cpu_dump_cpuinfo_single(void)
+{
+	return -ENOTSUP;
+}
+
+int cpu_validate_image_cpuinfo_single(void)
+{
+	return -ENOTSUP;
 }

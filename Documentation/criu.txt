@@ -50,6 +50,13 @@ Starts pagemap data deduplication procedure, where *criu* scans over all
 pagemap files and tries to minimalize the number of pagemap entries by
 obtaining the references from a parent pagemap image.
 
+*cpuinfo* *dump*::
+Writes information about currently running CPU and its features into an image.
+
+*cpuinfo* *check*::
+Reads information about CPU from an image file and checks if it is compatible
+with currently running CPU.
+
 OPTIONS
 -------
 *-c*::

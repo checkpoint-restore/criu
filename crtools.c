@@ -36,6 +36,7 @@
 #include "plugin.h"
 #include "mount.h"
 #include "cgroup.h"
+#include "cpu.h"
 #include "action-scripts.h"
 
 #include "setproctitle.h"
@@ -522,6 +523,15 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "dedup"))
 		return cr_dedup() != 0;
 
+	if (!strcmp(argv[optind], "cpuinfo")) {
+		if (!argv[optind + 1])
+			goto usage;
+		if (!strcmp(argv[optind + 1], "dump"))
+			return cpuinfo_dump();
+		else if (!strcmp(argv[optind + 1], "check"))
+			return cpuinfo_check();
+	}
+
 	pr_msg("Error: unknown command: %s\n", argv[optind]);
 usage:
 	pr_msg("\n"
@@ -545,6 +555,8 @@ usage:
 "  page-server    launch page server\n"
 "  service        launch service\n"
 "  dedup          remove duplicates in memory dump\n"
+"  cpuinfo dump   writes cpu information into image file\n"
+"  cpuinfo check  validates cpu information read from image file\n"
 	);
 
 	if (usage_error) {
