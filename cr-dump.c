@@ -1807,6 +1807,11 @@ int cr_dump_tasks(pid_t pid)
 	if (write_img_inventory())
 		goto err;
 
+	if (opts.cpu_cap & CPU_CAP_CPU) {
+		if (cpu_dump_cpuinfo())
+			goto err;
+	}
+
 	if (connect_to_page_server())
 		goto err;
 

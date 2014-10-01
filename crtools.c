@@ -53,7 +53,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 
-	opts.cpu_cap = CPU_CAP_ALL;
+	opts.cpu_cap = CPU_CAP_DEFAULT;
 	opts.manage_cgroups = false;
 	opts.ps_socket = -1;
 }

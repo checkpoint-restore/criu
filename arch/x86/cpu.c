@@ -13,11 +13,15 @@
 
 #include "compiler.h"
 
+#include "cr_options.h"
 #include "proc_parse.h"
 #include "util.h"
 #include "log.h"
 
 #include "cpu.h"
+
+#include "protobuf.h"
+#include "protobuf/cpuinfo.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "cpu: "
@@ -219,4 +223,135 @@ int cpu_init(void)
 		 !!cpu_has_feature(X86_FEATURE_XSAVE));
 
 	return 0;
+}
+
+int cpu_dump_cpuinfo(void)
+{
+	CpuinfoEntry cpu_info = CPUINFO_ENTRY__INIT;
+	CpuinfoX86Entry cpu_x86_info = CPUINFO_X86_ENTRY__INIT;
+	CpuinfoX86Entry *cpu_x86_info_ptr = &cpu_x86_info;
+	struct cr_img *img;
+
+	img = open_image(CR_FD_CPUINFO, O_DUMP);
+	if (!img)
+		return -1;
+
+	cpu_info.x86_entry = &cpu_x86_info_ptr;
+	cpu_info.n_x86_entry = 1;
+
+	cpu_x86_info.vendor_id = (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ?
+		CPUINFO_X86_ENTRY__VENDOR__INTEL :
+		CPUINFO_X86_ENTRY__VENDOR__AMD;
+	cpu_x86_info.cpu_family = rt_cpu_info.x86_family;
+	cpu_x86_info.model = rt_cpu_info.x86_model;
+	cpu_x86_info.stepping = rt_cpu_info.x86_mask;
+	cpu_x86_info.capability_ver = 1;
+	cpu_x86_info.n_capability = ARRAY_SIZE(rt_cpu_info.x86_capability);
+	cpu_x86_info.capability = (void *)rt_cpu_info.x86_capability;
+
+	if (rt_cpu_info.x86_model_id[0])
+		cpu_x86_info.model_id = rt_cpu_info.x86_model_id;
+
+	if (pb_write_one(img, &cpu_info, PB_CPUINFO) < 0) {
+		close_image(img);
+		return -1;
+	}
+
+	close_image(img);
+	return 0;
+}
+
+static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
+{
+	if (img_x86_entry->n_capability != ARRAY_SIZE(rt_cpu_info.x86_capability)) {
+		/*
+		 * Image carries different number of bits.
+		 * Simply reject, we can't guarantee anything
+		 * in such case.
+		 */
+		pr_err("Size of features in image mismatch "
+		       "one provided by run time CPU (%d:%d)\n",
+		       (unsigned)img_x86_entry->n_capability,
+		       (unsigned)ARRAY_SIZE(rt_cpu_info.x86_capability));
+		return -1;
+	}
+
+	if ((opts.cpu_cap & ~CPU_CAP_FPU) == CPU_CAP_FPU) {
+		/*
+		 * If we're requested to check FPU only ignore
+		 * any other bit. It's up to a user if the
+		 * rest of mismatches won't cause problems.
+		 */
+
+#define __mismatch_fpu_bit(__bit)					\
+		(test_bit(__bit, (void *)img_x86_entry->capability) &&	\
+		 !cpu_has_feature(__bit))
+		if (__mismatch_fpu_bit(X86_FEATURE_FPU)		||
+		    __mismatch_fpu_bit(X86_FEATURE_FXSR)	||
+		    __mismatch_fpu_bit(X86_FEATURE_XSAVE)) {
+			pr_err("FPU feature required by image "
+			       "is not supported on host.\n");
+			return -1;
+		} else
+			return 0;
+#undef __mismatch_fpu_bit
+	}
+
+	/*
+	 * FIXME We need to bring ability to run images with lower
+	 * features on more capable CPU.
+	 */
+
+	if (memcmp(img_x86_entry->capability, rt_cpu_info.x86_capability,
+		   sizeof(rt_cpu_info.x86_capability))) {
+			pr_err("CPU capabilites do not match run time\n");
+			return -1;
+	}
+
+	return 0;
+}
+
+int cpu_validate_cpuinfo(void)
+{
+	CpuinfoX86Entry *img_x86_entry;
+	CpuinfoEntry *img_cpu_info;
+	struct cr_img *img;
+	int ret = -1;
+
+	img = open_image(CR_FD_CPUINFO, O_RSTR | O_OPT);
+	if (!img) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
+
+	if (pb_read_one(img, &img_cpu_info, PB_CPUINFO) < 0)
+		goto err;
+
+	if (img_cpu_info->n_x86_entry != 1) {
+		pr_err("No x86 related cpuinfo in image, "
+		       "corruption (n_x86_entry = %zi)\n",
+		       img_cpu_info->n_x86_entry);
+		goto err;
+	}
+
+	img_x86_entry = img_cpu_info->x86_entry[0];
+	if (img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__INTEL &&
+	    img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__AMD) {
+		pr_err("Unknown cpu vendor %d\n", img_x86_entry->vendor_id);
+		goto err;
+	}
+
+	if (img_x86_entry->n_capability != ARRAY_SIZE(rt_cpu_info.x86_capability)) {
+		pr_err("Image carries %u words while %u expected\n",
+		       (unsigned)img_x86_entry->n_capability,
+		       (unsigned)ARRAY_SIZE(rt_cpu_info.x86_capability));
+		goto err;
+	}
+
+	ret = cpu_validate_features(img_x86_entry);
+err:
+	close_image(img);
+	return ret;
 }

@@ -12,3 +12,13 @@ int cpu_init(void)
 {
 	return 0;
 }
+
+int cpu_dump_cpuinfo(void)
+{
+	return 0;
+}
+
+int cpu_validate_cpuinfo(void)
+{
+	return 0;
+}
