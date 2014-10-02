@@ -1001,9 +1001,9 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 			goto err;
 		}
 
-		pr_info("\ttype %s source %s %x %s @ %s flags %x options %s\n",
+		pr_info("\ttype %s source %s mnt_id %#x s_dev %#x %s @ %s flags %#x options %s\n",
 				new->fstype->name, new->source,
-				new->s_dev, new->root, new->mountpoint,
+				new->mnt_id, new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
 
 		if (new->fstype->parse) {
