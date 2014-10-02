@@ -24,6 +24,10 @@
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
+#ifndef NETLINK_SOCK_DIAG
+#define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
+#endif
+
 static int ns_fd = -1;
 static int ns_sysfs_fd = -1;
 
