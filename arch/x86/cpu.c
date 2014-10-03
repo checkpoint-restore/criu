@@ -364,7 +364,7 @@ int cpuinfo_dump(void)
 int cpuinfo_check(void)
 {
 	if (cpu_init())
-		return -1;
+		return 1;
 
 	/*
 	 * Force to check all caps because its been
@@ -373,6 +373,7 @@ int cpuinfo_check(void)
 	opts.cpu_cap = CPU_CAP_ALL;
 
 	if (cpu_validate_cpuinfo())
-		return -1;
+		return 1;
+
 	return 0;
 }
