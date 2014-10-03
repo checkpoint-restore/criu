@@ -33,3 +33,13 @@ int cpu_validate_image_cpuinfo_single(void)
 {
 	return -ENOTSUP;
 }
+
+int cpuinfo_dump(void)
+{
+	return -ENOTSUP;
+}
+
+int cpuinfo_check(void)
+{
+	return -ENOTSUP;
+}
