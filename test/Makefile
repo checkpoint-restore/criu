@@ -5,7 +5,11 @@ ZDTM_ARGS ?= -C
 
 .FORCE:
 
-all: zdtm zdtm-pre-dump zdtm-snapshot zdtm-iter
+all:
+	$(MAKE) zdtm
+	$(MAKE) zdtm-pre-dump
+	$(MAKE) zdtm-snapshot
+	$(MAKE) zdtm-iter
 
 .PHONY: all
 
