@@ -319,12 +319,8 @@ int cpu_validate_cpuinfo(void)
 	int ret = -1;
 
 	img = open_image(CR_FD_CPUINFO, O_RSTR | O_OPT);
-	if (!img) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	if (pb_read_one(img, &img_cpu_info, PB_CPUINFO) < 0)
 		goto err;
