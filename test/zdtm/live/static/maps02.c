@@ -1,6 +1,10 @@
 #include <sys/mman.h>
 #include "zdtmtst.h"
 
+#ifndef MADV_DONTDUMP
+#define MADV_DONTDUMP   16
+#endif
+
 const char *test_doc	= "Test shared memory with advises";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
