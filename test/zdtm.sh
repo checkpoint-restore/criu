@@ -407,7 +407,7 @@ start_test()
 	if ! echo $TEST_SUID_LIST | grep -q $tname; then
 		export ZDTM_UID=18943
 		export ZDTM_GID=58467
-		chown $ZDTM_UID:$ZDTM_GID $tdir
+		chmod a+w $tdir
 	fi
 
 	if [ -z "$PIDNS" ]; then
