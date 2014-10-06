@@ -974,7 +974,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 
 	INIT_LIST_HEAD(&info->sibling);
 	info->major = major(info->tie->rdev);
-	info->create = (info->major == TTYAUX_MAJOR);
+	info->create = tty_is_master(info);
 	info->inherit = false;
 
 	if (verify_info(info))
