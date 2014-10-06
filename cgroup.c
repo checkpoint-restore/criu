@@ -868,112 +868,6 @@ static const char *special_cpuset_props[] = {
 	NULL,
 };
 
-static int find_value(const char *controller, const char *path, const char *prop,
-			char *value, char *prefix, char *missing_path)
-{
-	char fpath[PATH_MAX], my_path[PATH_MAX];
-	char *pos;
-	int ret, cg;
-
-	cg = get_service_fd(CGROUP_YARD);
-	strncpy(my_path, path, PATH_MAX);
-
-	while (1) {
-		FILE *f;
-
-		pos = strrchr(my_path, '/');
-		if (pos) {
-			*pos = 0;
-			snprintf(prefix, PATH_MAX, "%s/%s", controller, my_path);
-		} else {
-			snprintf(fpath, PATH_MAX, "%s", controller);
-		}
-		snprintf(fpath, PATH_MAX, "%s/%s", prefix, prop);
-
-		f = fopenat(cg, fpath, "r");
-		if (!f)
-			return -1;
-
-		ret = fscanf(f, "%1024s", value);
-		fclose(f);
-
-		if (ret > 0) {
-			strcpy(missing_path, path + (pos - my_path));
-			return 0;
-		} else if (!pos) {
-			pr_err("didn't find a value to propogate in the root!\n");
-			return -1;
-		}
-	}
-
-	return -1;
-}
-
-static int copy_recursive(const char *prefix, char *path, const char *prop, const char *value)
-{
-	char fpath[PATH_MAX];
-	char *pos;
-	int ret, out, cg;
-
-	cg = get_service_fd(CGROUP_YARD);
-
-	/* skip the first / */
-	pos = path + 1;
-	while (1) {
-		pos = strchr(pos, '/');
-
-		if (pos)
-			*pos = 0;
-		snprintf(fpath, PATH_MAX, "%s/%s/%s", prefix, path, prop);
-		if (pos) {
-			*pos = '/';
-			pos++;
-		}
-
-		out = openat(cg, fpath, O_RDWR);
-		if (out < 0) {
-			pr_perror("couldn't open cg prop at %s\n", fpath);
-			return -1;
-		}
-
-		ret = write(out, value, strlen(value));
-		close(out);
-
-		if (ret < 0) {
-			pr_perror("copying property %s to %s failed\n", prop, fpath);
-			return -1;
-		}
-
-		if (!pos)
-			break;
-	}
-
-	return 0;
-}
-
-static int copy_special_cg_props(const char *controller, char *path)
-{
-	pr_info("copying special cg props for %s\n", controller);
-
-	if (strstr(controller, "cpuset")) {
-		int i;
-
-		for (i = 0; special_cpuset_props[i]; i++) {
-			char buf[1024], prefix[PATH_MAX], missing_path[PATH_MAX];
-			const char *prop = special_cpuset_props[i];
-			if (find_value(controller, path, prop, buf, prefix, missing_path) < 0)
-				return -1;
-
-			if (copy_recursive(prefix, missing_path, prop, buf) < 0) {
-				pr_err("copying prop %s failed\n", prop);
-				return -1;
-			}
-		}
-	}
-
-	return 0;
-}
-
 static int move_in_cgroup(CgSetEntry *se)
 {
 	int cg, i;
@@ -1000,11 +894,6 @@ static int move_in_cgroup(CgSetEntry *se)
 		}
 
 		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
-
-		if (copy_special_cg_props(aux, ce->path) < 0) {
-			pr_perror("Couldn't copy special cgroup properties\n");
-			return -1;
-		}
 
 		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 		pr_debug("  `-> %s\n", aux);
@@ -1149,9 +1038,29 @@ int prepare_cgroup_properties(void)
 	return 0;
 }
 
-static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, size_t n_ents)
+static int restore_special_cpuset_props(char *paux, size_t off, CgroupDirEntry *e)
 {
-	size_t i;
+	int i, j;
+
+	for (i = 0; special_cpuset_props[i]; i++) {
+		const char *name = special_cpuset_props[i];
+
+		for (j = 0; j < e->n_properties; j++) {
+			CgroupPropEntry *prop = e->properties[j];
+
+			if (strcmp(name, prop->name) == 0)
+				if (restore_cgroup_prop(prop, paux, off) < 0)
+					return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux, size_t off,
+				CgroupDirEntry **ents, size_t n_ents)
+{
+	size_t i, j;
 	CgroupDirEntry *e;
 	int cg = get_service_fd(CGROUP_YARD);
 
@@ -1178,6 +1087,15 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 				return -1;
 			}
 			pr_info("Created dir %s\n", paux);
+
+			for (j = 0; j < n_controllers; j++) {
+				if (strcmp(controllers[j], "cpuset") == 0) {
+					if (restore_special_cpuset_props(paux, off2, e) < 0) {
+						pr_err("Restoring special cpuset props failed!\n");
+						return -1;
+					}
+				}
+			}
 		} else {
 			if (e->n_properties > 0) {
 				xfree(e->properties);
@@ -1187,7 +1105,8 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 			pr_info("Determined dir %s already existed\n", paux);
 		}
 
-		if (prepare_cgroup_dirs(paux, off2, e->children, e->n_children) < 0)
+		if (prepare_cgroup_dirs(controllers, n_controllers, paux, off2,
+				e->children, e->n_children) < 0)
 			return -1;
 	}
 
@@ -1286,7 +1205,8 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		yard = paux + strlen(cg_yard) + 1;
 		yard_off = ctl_off - (strlen(cg_yard) + 1);
 		if (opts.manage_cgroups &&
-		    prepare_cgroup_dirs(yard, yard_off, ctrl->dirs, ctrl->n_dirs))
+		    prepare_cgroup_dirs(ctrl->cnames, ctrl->n_cnames, yard, yard_off,
+				ctrl->dirs, ctrl->n_dirs))
 			goto err;
 
 	}
