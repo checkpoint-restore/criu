@@ -945,11 +945,11 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg)
 }
 
 struct collect_image_info tty_info_cinfo = {
-	.fd_type = CR_FD_TTY_INFO,
-	.pb_type = PB_TTY_INFO,
-	.priv_size = sizeof(struct tty_info_entry),
-	.collect = collect_one_tty_info_entry,
-	.flags = COLLECT_OPTIONAL,
+	.fd_type	= CR_FD_TTY_INFO,
+	.pb_type	= PB_TTY_INFO,
+	.priv_size	= sizeof(struct tty_info_entry),
+	.collect	= collect_one_tty_info_entry,
+	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_tty(void *obj, ProtobufCMessage *msg)
@@ -990,11 +990,11 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 }
 
 struct collect_image_info tty_cinfo = {
-	.fd_type = CR_FD_TTY_FILES,
-	.pb_type = PB_TTY_FILE,
-	.priv_size = sizeof(struct tty_info),
-	.collect = collect_one_tty,
-	.flags = COLLECT_OPTIONAL,
+	.fd_type	= CR_FD_TTY_FILES,
+	.pb_type	= PB_TTY_FILE,
+	.priv_size	= sizeof(struct tty_info),
+	.collect	= collect_one_tty,
+	.flags		= COLLECT_OPTIONAL,
 };
 
 /* Make sure the ttys we're dumping do belong our process tree */
