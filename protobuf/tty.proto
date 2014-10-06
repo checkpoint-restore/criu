@@ -33,9 +33,9 @@ message tty_info_entry {
 
 	required TtyType		type		=  2;
 
-	required bool			locked		=  3;
+	required bool			locked		=  3;	/* Unix98 PTY only */
 	required bool			exclusive	=  4;
-	required bool			packet_mode	=  5;
+	required bool			packet_mode	=  5;	/* Unix98 PTY only */
 
 	required uint32			sid		=  6;
 	required uint32			pgrp		=  7;
