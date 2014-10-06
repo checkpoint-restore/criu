@@ -238,8 +238,6 @@ static int tty_test_and_set(int bit, unsigned long *bitmap)
 {
 	int ret;
 
-	BUG_ON(bit > (MAX_TTYS << 1));
-
 	ret = test_bit(bit, bitmap);
 	if (!ret)
 		set_bit(bit, bitmap);
@@ -903,6 +901,9 @@ static int verify_info(struct tty_info *info)
 
 	if (verify_termios(info->tfe->id, info->tie->termios_locked) ||
 	    verify_termios(info->tfe->id, info->tie->termios))
+		return -1;
+
+	if (info->tie->termios && info->tfe->tty_info_id > (MAX_TTYS << 1))
 		return -1;
 
 	return 0;
