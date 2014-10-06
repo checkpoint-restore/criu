@@ -39,7 +39,10 @@
 
 /*
  * Here are some notes about overall TTY c/r design. At moment
- * we support unix98 ptys only.
+ * we support unix98 ptys only. Supporting legacy BSD terminals
+ * is impossible without help from the kernel side -- the indices
+ * of such terminals are not reported anywhere in the kernel so that
+ * we can't figure out active pairs.
  *
  * Usually the PTYs represent a pair of links -- master peer and slave
  * peer. Master peer must be opened before slave. Internally, when kernel
@@ -60,6 +63,9 @@
  * only one slave parameters should be restored, there is no need to carry
  * all parameters for every slave peer we've found.
  *
+ * Note the /dev/pts/ is rather convenient agreement and internally the
+ * kernel doesn't care where exactly the inodes of ptys are laying --
+ * it depends on "devpts" mount point path.
  */
 
 #undef	LOG_PREFIX
