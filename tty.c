@@ -199,7 +199,7 @@ int tty_verify_active_pairs(void)
 	return 0;
 }
 
-static int parse_index(u32 id, int lfd, int major)
+static int parse_pty_index(u32 id, int lfd, int major)
 {
 	int index = -1;
 
@@ -395,19 +395,19 @@ static char *tty_type(int major)
 	return tty_unknown;
 }
 
-static bool pty_is_master(struct tty_info *info)
+static bool tty_is_master(struct tty_info *info)
 {
 	return info->major == TTYAUX_MAJOR;
 }
 
-static bool pty_is_hung(struct tty_info *info)
+static bool tty_is_hung(struct tty_info *info)
 {
 	return info->tie->termios == NULL;
 }
 
 static bool tty_has_active_pair(struct tty_info *info)
 {
-	int d = pty_is_master(info) ? -1 : + 1;
+	int d = tty_is_master(info) ? -1 : + 1;
 
 	return test_bit(info->tfe->tty_info_id + d,
 			tty_active_pairs);
@@ -417,7 +417,7 @@ static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
 		prefix, tty_type(info->major), info->tfe->id, info->tie->pty->index,
-		pty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
+		tty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
 static int restore_tty_params(int fd, struct tty_info *info)
@@ -477,7 +477,7 @@ static int pty_open_slaves(struct tty_info *info)
 	}
 
 	list_for_each_entry(slave, &info->sibling, sibling) {
-		BUG_ON(pty_is_master(slave));
+		BUG_ON(tty_is_master(slave));
 
 		fd = open(pts_name, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
@@ -658,7 +658,7 @@ static int tty_open(struct file_desc *d)
 	if (!info->create)
 		return receive_tty(info);
 
-	if (!pty_is_master(info))
+	if (!tty_is_master(info))
 		return pty_open_unpaired_slave(d, info);
 
 	return pty_open_ptmx(info);
@@ -681,7 +681,7 @@ static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
 	 * opened before them
 	 */
 
-	if (pty_is_master(container_of(d, struct tty_info, d)))
+	if (tty_is_master(container_of(d, struct tty_info, d)))
 		tgt = &ri->fds;
 	else
 		tgt = &ri->tty_slaves;
@@ -745,13 +745,13 @@ static int tty_find_restoring_task(struct tty_info *info)
 	 * rather non-usable anyway.
 	 */
 
-	if (pty_is_hung(info)) {
+	if (tty_is_hung(info)) {
 		pr_debug("Hungup terminal found id %x\n", info->tfe->id);
 		return 0;
 	}
 
 	if (info->tie->sid) {
-		if (!pty_is_master(info)) {
+		if (!tty_is_master(info)) {
 			if (tty_has_active_pair(info))
 				return 0;
 			else
@@ -774,7 +774,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 		goto notask;
 	} else {
-		if (pty_is_master(info))
+		if (tty_is_master(info))
 			return 0;
 		if (tty_has_active_pair(info))
 			return 0;
@@ -800,14 +800,14 @@ static int tty_setup_orphan_slavery(void)
 		struct fdinfo_list_entry *a, *b;
 		bool has_leader = false;
 
-		if (pty_is_master(info))
+		if (tty_is_master(info))
 			continue;
 
 		a = file_master(&info->d);
 		m = info;
 
 		list_for_each_entry(peer, &info->sibling, sibling) {
-			if (pty_is_master(peer)) {
+			if (tty_is_master(peer)) {
 				has_leader = true;
 				break;
 			}
@@ -896,7 +896,7 @@ static int verify_info(struct tty_info *info)
 	 * or don't have them at all.
 	 */
 	if (term_opts_missing_any(info)) {
-		if (pty_is_master(info)) {
+		if (tty_is_master(info)) {
 			pr_err("Corrupted master peer %x\n", info->tfe->id);
 			return -1;
 		} else if (!term_opts_missing_all(info)) {
@@ -1174,7 +1174,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
 	major = major(p->stat.st_rdev);
-	index = parse_index(id, lfd, major);
+	index = parse_pty_index(id, lfd, major);
 	if (index < 0)
 		return -1;
 
