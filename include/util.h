@@ -212,7 +212,7 @@ static inline bool strstartswith(const char *str, const char *sub)
 /*
  * mkdir -p
  */
-int mkdirp(const char *path);
+int mkdirpat(int fd, const char *path);
 
 /*
  * Tests whether a path is a prefix of another path. This is different than

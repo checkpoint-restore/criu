@@ -687,7 +687,7 @@ struct vma_area *alloc_vma_area(void)
 	return p;
 }
 
-int mkdirp(const char *path)
+int mkdirpat(int fd, const char *path)
 {
 	size_t i;
 	char made_path[PATH_MAX], *pos;
@@ -707,7 +707,7 @@ int mkdirp(const char *path)
 		pos = strchr(made_path + i, '/');
 		if (pos)
 			*pos = '\0';
-		if (mkdir(made_path, 0755) < 0 && errno != EEXIST) {
+		if (mkdirat(fd, made_path, 0755) < 0 && errno != EEXIST) {
 			pr_perror("couldn't mkdirpat directory %s", made_path);
 			return -1;
 		}

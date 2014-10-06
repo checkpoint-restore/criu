@@ -1153,10 +1153,12 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 {
 	size_t i;
 	CgroupDirEntry *e;
+	int cg = get_service_fd(CGROUP_YARD);
 
 	for (i = 0; i < n_ents; i++) {
 		size_t off2 = off;
 		e = ents[i];
+		struct stat st;
 
 		off2 += sprintf(paux + off, "/%s", e->dir_name);
 
@@ -1165,12 +1167,13 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 		 * it does exist, prevent us from overwriting the properties
 		 * later by removing the CgroupDirEntry's properties.
 		 */
-		if (access(paux, F_OK) < 0) {
+		if (fstatat(cg, paux, &st, 0) < 0) {
 			if (errno != ENOENT) {
 				pr_perror("Failed accessing file %s", paux);
 				return -1;
 			}
-			if (mkdirp(paux)) {
+
+			if (mkdirpat(cg, paux)) {
 				pr_perror("Can't make cgroup dir %s", paux);
 				return -1;
 			}
@@ -1211,7 +1214,7 @@ static int prepare_cgroup_dirs(char *paux, size_t off, CgroupDirEntry **ents, si
 
 static int prepare_cgroup_sfd(CgroupEntry *ce)
 {
-	int off, i;
+	int off, i, ret;
 	char paux[PATH_MAX];
 
 	pr_info("Preparing cgroups yard\n");
@@ -1238,11 +1241,24 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		goto err;
 	}
 
+	pr_debug("Opening %s as cg yard\n", cg_yard);
+	i = open(cg_yard, O_DIRECTORY);
+	if (i < 0) {
+		pr_perror("Can't open cgyard");
+		goto err;
+	}
+
+	ret = install_service_fd(CGROUP_YARD, i);
+	close(i);
+	if (ret < 0)
+		goto err;
+
+
 	paux[off++] = '/';
 
 	for (i = 0; i < ce->n_controllers; i++) {
-		int ctl_off = off;
-		char opt[128];
+		int ctl_off = off, yard_off;
+		char opt[128], *yard;
 		CgControllerEntry *ctrl = ce->controllers[i];
 
 		if (ctrl->n_cnames < 1) {
@@ -1265,23 +1281,15 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			goto err;
 		}
 
+		/* We skip over the .criu.cgyard.XXXXXX/, since those will be
+		 * referred to by the cg yard service fd. */
+		yard = paux + strlen(cg_yard) + 1;
+		yard_off = ctl_off - (strlen(cg_yard) + 1);
 		if (opts.manage_cgroups &&
-		    prepare_cgroup_dirs(paux, ctl_off, ctrl->dirs, ctrl->n_dirs))
+		    prepare_cgroup_dirs(yard, yard_off, ctrl->dirs, ctrl->n_dirs))
 			goto err;
 
 	}
-
-	pr_debug("Opening %s as cg yard\n", cg_yard);
-	i = open(cg_yard, O_DIRECTORY);
-	if (i < 0) {
-		pr_perror("Can't open cgyard");
-		goto err;
-	}
-
-	off = install_service_fd(CGROUP_YARD, i);
-	close(i);
-	if (off < 0)
-		goto err;
 
 	return 0;
 
