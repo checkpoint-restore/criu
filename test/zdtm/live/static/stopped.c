@@ -33,35 +33,42 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		ret = read(p[0], &c, 1);
-		if (ret != 0) {
-			err("Unable to read: %d", ret);
-			return 1;
-		}
-
 		return 0;
 	}
 	close(p[0]);
 
 	kill(pid, SIGSTOP);
+
 	write(p[1], "0", 1);
+	close(p[1]);
 
 	test_daemon();
 	test_waitsig();
 
-	kill(pid, SIGCONT);
-	if (waitpid(pid, &status, WCONTINUED) == -1) {
+	// Return immediately if child run or stopped(by SIGSTOP)
+	if (waitpid(pid, &status, WUNTRACED | WCONTINUED) == -1) {
 		err("Unable to wait child");
 		goto out;
 	}
 
-	if (WIFCONTINUED(status))
+	if (WIFSTOPPED(status))
+		test_msg("The procces stopped\n");
+	else{
+		fail("The process doesn't stopped");
+		goto out;
+	}
+
+	kill(pid, SIGCONT);
+
+	if (waitpid(pid, &status, 0) == -1) {
+		err("Unable to wait child");
+		goto out;
+	}
+
+	if (WIFEXITED(status))
 		pass();
 	else
 		fail("The process doesn't continue");
 out:
-	close(p[1]);
-	waitpid(pid, &status, 0);
-
 	return 0;
 }
