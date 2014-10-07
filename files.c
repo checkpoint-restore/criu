@@ -949,6 +949,13 @@ int prepare_fds(struct pstree_item *me)
 
 	pr_info("Opening fdinfo-s\n");
 
+	/*
+	 * This must be done after forking to allow child
+	 * to get the cgroup fd so it can move into the
+	 * correct /tasks file if it is in a different cgroup
+	 * set than its parent
+	 */
+	close_service_fd(CGROUP_YARD);
 	close_pid_proc(); /* flush any proc cached fds we may have */
 
 	if (rsti(me)->fdt) {
