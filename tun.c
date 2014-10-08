@@ -311,7 +311,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops tunfile_dump_ops = {
-	.type = FD_TYPES__TUN,
+	.type = FD_TYPES__TUNF,
 	.dump = dump_tunfile,
 };
 
@@ -376,7 +376,7 @@ err:
 }
 
 static struct file_desc_ops tunfile_desc_ops = {
-	.type = FD_TYPES__TUN,
+	.type = FD_TYPES__TUNF,
 	.open = tunfile_open,
 };
 

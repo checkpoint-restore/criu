@@ -14,7 +14,7 @@ enum fd_types {
 	FANOTIFY	= 12;
 	NETLINKSK	= 13;
 	NS		= 14;
-	TUN		= 15;
+	TUNF		= 15;
 	EXT		= 16;
 	TIMERFD		= 17;
 }
