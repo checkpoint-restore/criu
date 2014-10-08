@@ -132,17 +132,21 @@ static int sysctl_show_##__type(int fd,					\
 
 GEN_SYSCTL_READ_FUNC(u32, strtoul);
 GEN_SYSCTL_READ_FUNC(u64, strtoull);
+GEN_SYSCTL_READ_FUNC(s32, strtol);
 
 GEN_SYSCTL_WRITE_FUNC(u32, "%u ");
 GEN_SYSCTL_WRITE_FUNC(u64, "%"PRIu64" ");
+GEN_SYSCTL_WRITE_FUNC(s32, "%d ");
 
 GEN_SYSCTL_PRINT_FUNC(u32, "%u ");
 GEN_SYSCTL_PRINT_FUNC(u64, "%"PRIu64" ");
 GEN_SYSCTL_PRINT_FUNC(char, "%c");
+GEN_SYSCTL_PRINT_FUNC(s32, "%d ");
 
 GEN_SYSCTL_SHOW_FUNC(u32, "%u ");
 GEN_SYSCTL_SHOW_FUNC(u64, "%"PRIu64" ");
 GEN_SYSCTL_SHOW_FUNC(char, "%c");
+GEN_SYSCTL_SHOW_FUNC(s32, "%d ");
 
 static int
 sysctl_write_char(int fd, struct sysctl_req *req, char *arg, int nr)
@@ -197,6 +201,9 @@ static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 		nr = CTL_LEN(req->type);
 	case CTL_U32:
 		__SYSCTL_OP(ret, fd, req, u32, nr, op);
+		break;
+	case CTL_32:
+		__SYSCTL_OP(ret, fd, req, s32, nr, op);
 		break;
 	case __CTL_U64A:
 		nr = CTL_LEN(req->type);
