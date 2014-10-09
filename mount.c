@@ -2078,52 +2078,36 @@ int mntns_get_root_by_mnt_id(int mnt_id)
 	return mntns_get_root_fd(mntns);
 }
 
-int collect_mnt_namespaces(void)
+static int collect_mntns(struct ns_id *ns, void *oarg)
 {
 	struct mount_info *pms;
-	struct ns_id *ns;
-	int ret = -1;
 
-	for (ns = ns_ids; ns; ns = ns->next) {
-		if (!(ns->nd->cflag & CLONE_NEWNS))
-			continue;
+	pms = collect_mntinfo(ns);
+	if (!pms)
+		return -1;
 
-		if (ns->pid == getpid()) {
-			/*
-			 * Collect criu's mounts only if the target
-			 * task does NOT live in mount namespaces to
-			 * make smart paths resolution work.
-			 *
-			 * Otherwise, the necessary list of mounts
-			 * will be collected below.
-			 */
-			if ((root_ns_mask & CLONE_NEWNS))
-				continue;
+	if (ns->pid != getpid())
+		*(int *)oarg = 1;
 
-			mntinfo = collect_mntinfo(ns);
-			if (mntinfo == NULL)
-				goto err;
-			/*
-			 * Mount namespaces are dumped only if the root task lives in
-			 * its own mntns, so we can stop enumeration of namespaces.
-			 * We are not going to dump this tree, so we skip validation.
-			 */
-			goto out;
-		}
+	mntinfo_add_list(pms);
+	return 0;
+}
 
-		pr_info("Dump MNT namespace (mountpoints) %d via %d\n", ns->id, ns->pid);
-		pms = collect_mntinfo(ns);
-		if (pms == NULL)
+int collect_mnt_namespaces(void)
+{
+	int need_to_validate = 0, ret;
+
+	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &need_to_validate);
+	if (ret)
+		goto err;
+
+	if (need_to_validate) {
+		if (collect_shared(mntinfo))
 			goto err;
-
-		mntinfo_add_list(pms);
+		if (validate_mounts(mntinfo, true))
+			goto err;
 	}
 
-	if (collect_shared(mntinfo))
-		goto err;
-	if (validate_mounts(mntinfo, true))
-		goto err;
-out:
 	ret = 0;
 err:
 	return ret;
