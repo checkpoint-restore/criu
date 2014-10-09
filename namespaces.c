@@ -177,6 +177,46 @@ struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd)
 	return NULL;
 }
 
+/*
+ * For all namespaces we support, there are two supported
+ * tasks-to-namespaces layout.
+ *
+ * If root task lives in the same namespace as criu does
+ * all other tasks should live in it too and we do NOT dump
+ * this namespace. On restore tasks inherit the respective
+ * namespace from criu.
+ *
+ * If root task lives in its own namespace, then all other
+ * tasks may live in it. Sometimes (CLONE_SUBNS) there can
+ * be more than one namespace of that type. For this case
+ * we dump all namespace's info and recreate them on restore.
+ */
+
+int walk_namespaces(struct ns_desc *nd, int (*cb)(struct ns_id *, void *), void *oarg)
+{
+	int ret = 0;
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->nd != nd)
+			continue;
+
+		if (ns->pid == getpid()) {
+			if (root_ns_mask & nd->cflag)
+				continue;
+
+			ret = cb(ns, oarg);
+			break;
+		}
+
+		ret = cb(ns, oarg);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd,
 		struct ns_id **ns_ret)
 {

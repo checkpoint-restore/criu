@@ -46,6 +46,7 @@ extern unsigned long root_ns_mask;
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;
 
+extern int walk_namespaces(struct ns_desc *nd, int (*cb)(struct ns_id *, void *), void *oarg);
 extern int collect_namespaces(bool for_dump);
 extern int collect_mnt_namespaces(void);
 extern int dump_mnt_namespaces(void);
