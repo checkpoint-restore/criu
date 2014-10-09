@@ -684,8 +684,9 @@ err_nl:
 	goto out;
 }
 
-static int collect_net_ns(struct ns_id *ns, bool for_dump)
+static int collect_net_ns(struct ns_id *ns, void *oarg)
 {
+	bool for_dump = (oarg == (void *)1);
 	int ret;
 
 	pr_info("Collecting netns %d/%d\n", ns->id, ns->pid);
@@ -701,27 +702,8 @@ static int collect_net_ns(struct ns_id *ns, bool for_dump)
 
 int collect_net_namespaces(bool for_dump)
 {
-	int ret = 0;
-	struct ns_id *ns;
-
-	for (ns = ns_ids; ns; ns = ns->next) {
-		if (!(ns->nd->cflag & CLONE_NEWNET))
-			continue;
-
-		if (ns->pid == getpid()) {
-			if ((root_ns_mask & CLONE_NEWNET))
-				continue;
-
-			ret = collect_net_ns(ns, for_dump);
-			break;
-		}
-
-		ret = collect_net_ns(ns, for_dump);
-		if (ret)
-			break;
-	}
-
-	return ret;
+	return walk_namespaces(&net_ns_desc, collect_net_ns,
+			(void *)(for_dump ? 1UL : 0));
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
