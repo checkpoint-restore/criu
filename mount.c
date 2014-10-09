@@ -2078,7 +2078,7 @@ int mntns_get_root_by_mnt_id(int mnt_id)
 	return mntns_get_root_fd(mntns);
 }
 
-static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), void *arg)
+int collect_mnt_namespaces(void)
 {
 	struct mount_info *pms;
 	struct ns_id *ns;
@@ -2116,11 +2116,9 @@ static int walk_mnt_ns(int (*cb)(struct ns_id *, struct mount_info *, void *), v
 		if (pms == NULL)
 			goto err;
 
-		if (cb && cb(ns, pms, arg))
-			goto err;
-
 		mntinfo_add_list(pms);
 	}
+
 	if (collect_shared(mntinfo))
 		goto err;
 	if (validate_mounts(mntinfo, true))
@@ -2129,11 +2127,6 @@ out:
 	ret = 0;
 err:
 	return ret;
-}
-
-int collect_mnt_namespaces(void)
-{
-	return walk_mnt_ns(NULL, NULL);
 }
 
 int dump_mnt_namespaces(void)
