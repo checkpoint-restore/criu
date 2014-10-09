@@ -189,6 +189,20 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	return item;
 }
 
+struct pstree_item *alloc_pstree_helper(void)
+{
+	struct pstree_item *ret;
+
+	ret = alloc_pstree_item_with_rst();
+	if (ret) {
+		ret->state = TASK_HELPER;
+		rsti(ret)->clone_flags = CLONE_FILES | CLONE_FS;
+		task_entries->nr_helpers++;
+	}
+
+	return ret;
+}
+
 /* Deep first search on children */
 struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
@@ -457,17 +471,14 @@ static int prepare_pstree_ids(void)
 		if (item->sid == root_item->sid || item->sid == item->pid.virt)
 			continue;
 
-		helper = alloc_pstree_item_with_rst();
+		helper = alloc_pstree_helper();
 		if (helper == NULL)
 			return -1;
 		helper->sid = item->sid;
 		helper->pgid = item->sid;
 		helper->pid.virt = item->sid;
-		helper->state = TASK_HELPER;
 		helper->parent = root_item;
-		rsti(helper)->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add_tail(&helper->sibling, &helpers);
-		task_entries->nr_helpers++;
 
 		pr_info("Add a helper %d for restoring SID %d\n",
 				helper->pid.virt, helper->sid);
@@ -578,17 +589,14 @@ static int prepare_pstree_ids(void)
 		if (current_pgid == item->pgid)
 			continue;
 
-		helper = alloc_pstree_item_with_rst();
+		helper = alloc_pstree_helper();
 		if (helper == NULL)
 			return -1;
 		helper->sid = item->sid;
 		helper->pgid = item->pgid;
 		helper->pid.virt = item->pgid;
-		helper->state = TASK_HELPER;
 		helper->parent = item;
-		rsti(helper)->clone_flags = CLONE_FILES | CLONE_FS;
 		list_add(&helper->sibling, &item->children);
-		task_entries->nr_helpers++;
 		rsti(item)->pgrp_leader = helper;
 
 		pr_info("Add a helper %d for restoring PGID %d\n",

@@ -240,17 +240,15 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 		}
 	}
 
-	helper = alloc_pstree_item_with_rst();
+	helper = alloc_pstree_helper();
 	if (!helper)
 		return -1;
 
 	helper->sid = root_item->sid;
 	helper->pgid = root_item->pgid;
 	helper->pid.virt = rfe->remap_id;
-	helper->state = TASK_HELPER;
 	helper->parent = root_item;
 	list_add_tail(&helper->sibling, &root_item->children);
-	task_entries->nr_helpers++;
 
 	pr_info("Added a helper for restoring /proc/%d\n", helper->pid.virt);
 
