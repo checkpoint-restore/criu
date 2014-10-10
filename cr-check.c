@@ -493,7 +493,7 @@ static int check_ipc(void)
 	return -1;
 }
 
-int check_sigqueuinfo()
+static int check_sigqueuinfo()
 {
 	siginfo_t info = { .si_code = 1 };
 
@@ -507,7 +507,7 @@ int check_sigqueuinfo()
 	return 0;
 }
 
-int check_ptrace_peeksiginfo()
+static int check_ptrace_peeksiginfo()
 {
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo;
