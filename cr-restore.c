@@ -1591,9 +1591,12 @@ static int clear_breakpoints()
 	struct pstree_item *item;
 	int ret = 0, i;
 
-	for_each_pstree_item(item)
+	for_each_pstree_item(item) {
+		if (!task_alive(item))
+			continue;
 		for (i = 0; i < item->nr_threads; i++)
 			ret |= ptrace_flush_breakpoints(item->threads[i].real);
+	}
 
 	return ret;
 }
