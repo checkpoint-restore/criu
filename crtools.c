@@ -473,6 +473,8 @@ int main(int argc, char *argv[], char *envp[])
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
 	if (!strcmp(argv[optind], "dump")) {
+		preload_socket_modules();
+
 		if (!tree_id)
 			goto opt_pid_missing;
 		return cr_dump_tasks(tree_id);

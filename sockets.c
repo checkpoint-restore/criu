@@ -96,6 +96,41 @@ bool socket_test_collect_bit(unsigned int family, unsigned int proto)
 	return test_bit(nr, socket_cl_bits) != 0;
 }
 
+void preload_socket_modules()
+{
+	/*
+	 * If the task to dump (e.g. an LXC container) has any netlink
+	 * KOBJECT_UEVENT socket open and the _diag modules aren't
+	 * loaded is dumped, criu will freeze the task and then the
+	 * kernel will send it messages on the socket, and then we will
+	 * fail to dump because the socket has pending data. The Real
+	 * Solution is to dump this pending data, but we just modprobe
+	 * things beforehand for now so that the first dump doesn't
+	 * fail.
+	 *
+	 * We ignore failure since these could be compiled directly
+	 * in, instead of being kernel modules.
+	 */
+	char *modules[] = {
+		"netlink_diag",
+		"af_packet_diag",
+		"udp_diag",
+		"tcp_diag",
+		"unix_diag",
+		NULL,
+	};
+	int i;
+	char *args[2] = {
+		"modprobe",
+		NULL
+	};
+
+	for (i = 0; modules[i]; i++) {
+		args[1] = modules[i];
+		cr_system(-1, -1, -1, args[0], args);
+	}
+}
+
 static int dump_bound_dev(int sk, SkOptsEntry *soe)
 {
 	int ret;
