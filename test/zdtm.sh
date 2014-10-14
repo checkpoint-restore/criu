@@ -597,6 +597,7 @@ EOF
 			fi
 			return 1
 		fi
+		cat $ddump/dump.log* | grep Error
 
 		if [ -n "$SNAPSHOT" ]; then
 			snappdir=../`basename $ddump`
@@ -646,6 +647,7 @@ EOF
 
 			echo Restore
 			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args || return 2
+			cat $ddump/restore.log* | grep Error
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 			for i in `seq 5`; do
