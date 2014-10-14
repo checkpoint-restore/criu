@@ -13,7 +13,7 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {
-	int tmp_pipe[2];
+	int tmp_pipe[2], i;
 	int pids[2], syncfd[2], stat, fail = 0;
 
 	test_init(argc, argv);
@@ -83,9 +83,14 @@ int main(int argc, char **argv)
 			exit(2);
 
 		kill(pid, SIGTERM);
-		wait(&stat);
-		if (!WIFEXITED(stat) || WEXITSTATUS(stat))
+		if (waitpid(pid, &stat, 0) < 0) {
+			err("Unable to wait P2 %d", pid);
 			exit(3);
+		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
+			err("P2 stat %d/%d/%d/%d", WIFEXITED(stat), WEXITSTATUS(stat),
+							WIFSIGNALED(stat), WTERMSIG(stat));
+			exit(3);
+		}
 
 		exit(0);
 	}
@@ -100,17 +105,18 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	kill(pids[0], SIGTERM);
-	wait(&stat);
-	if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-		test_msg("P1 stat %d/%d\n", WIFEXITED(stat), WEXITSTATUS(stat));
-		fail = 1;
-	}
-	kill(pids[1], SIGTERM);
-	wait(&stat);
-	if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-		test_msg("P1 stat %d/%d\n", WIFEXITED(stat), WEXITSTATUS(stat));
-		fail = 1;
+	for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++)
+		kill(pids[i], SIGTERM);
+
+	for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
+		if (waitpid(pids[i], &stat, 0) < 0) {
+			err("Unable to wait %d", pids[i]);
+			fail = 1;
+		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
+			err("P%d stat %d/%d/%d/%d", i, WIFEXITED(stat), WEXITSTATUS(stat),
+							WIFSIGNALED(stat), WTERMSIG(stat));
+			fail = 1;
+		}
 	}
 
 	if (fail)
