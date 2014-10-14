@@ -60,6 +60,6 @@ mount_cgroups: .FORCE
 	flock zdtm_mount_cgroups ./zdtm_mount_cgroups
 
 $(TST): zdtm_ct mount_cgroups .FORCE
-	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log || \
-	{ flock Makefile cat $(subst /,_,$@).log; exit 1; }
+	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log; \
+	{ ret=$$?; flock Makefile cat $(subst /,_,$@).log; exit $$ret; }
 .PHONY: zdtm_ns
