@@ -7,6 +7,7 @@
 #include "shmem.h"
 #include "image.h"
 #include "cr_options.h"
+#include "kerndat.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
 #include "rst-malloc.h"
@@ -175,8 +176,9 @@ err_unmap:
 int get_shmem_fd(int pid, VmaEntry *vi)
 {
 	struct shmem_info *si;
-	void *addr;
-	int f;
+	void *addr = MAP_FAILED;
+	int f = -1;
+	int flags;
 
 	si = find_shmem_by_id(vi->shmid);
 	pr_info("Search for 0x%016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
@@ -191,6 +193,22 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	if (si->fd != -1)
 		return dup(si->fd);
 
+	flags = MAP_SHARED;
+	if (memfd_is_supported) {
+		f = sys_memfd_create("", 0);
+		if (f < 0) {
+			pr_perror("Unable to create memfd");
+			goto err;
+		}
+
+		if (ftruncate(f, si->size)) {
+			pr_perror("Unable to truncate memfd");
+			goto err;
+		}
+		flags |= MAP_FILE;
+	} else
+		flags |= MAP_ANONYMOUS;
+
 	/*
 	 * The following hack solves problems:
 	 * vi->pgoff may be not zero in a target process.
@@ -198,23 +216,25 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	 * The restorer doesn't have snprintf.
 	 * Here is a good place to restore content
 	 */
-	addr = mmap(NULL, si->size,
-			PROT_WRITE | PROT_READ,
-			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	addr = mmap(NULL, si->size, PROT_WRITE | PROT_READ, flags, f, 0);
 	if (addr == MAP_FAILED) {
 		pr_err("Can't mmap shmid=0x%"PRIx64" size=%ld\n",
 				vi->shmid, si->size);
-		return -1;
+		goto err;
 	}
 
 	if (restore_shmem_content(addr, si) < 0) {
 		pr_err("Can't restore shmem content\n");
-		return -1;
+		goto err;
 	}
 
-	f = open_proc_rw(getpid(), "map_files/%lx-%lx",
-			(unsigned long) addr,
-			(unsigned long) addr + si->size);
+	if (f == -1) {
+		f = open_proc_rw(getpid(), "map_files/%lx-%lx",
+				(unsigned long) addr,
+				(unsigned long) addr + si->size);
+		if (f < 0)
+			goto err;
+	}
 	munmap(addr, si->size);
 
 	si->fd = f;
@@ -228,6 +248,11 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	futex_wait_until(&si->lock, si->count - si->self_count + 1);
 
 	return f;
+err:
+	if (addr != MAP_FAILED)
+		munmap(addr, si->size);
+	close_safe(&f);
+	return -1;
 }
 
 struct shmem_info_dump {
