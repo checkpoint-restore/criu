@@ -13,7 +13,7 @@ HOST_DEPENDENCIES="debootstrap qemu-user-static binfmt-support sbuild"
 GUEST_DEPENDENCIES="build-essential git m4 sudo python protobuf-c-compiler libprotobuf-c0-dev gcc make bsdmainutils bash"
 
 # Command used to run the tests
-TEST_COMMAND="make -j 2"
+TEST_COMMAND="make -j 4 && make -j 4 -C test/zdtm"
 
 function setup_arm_chroot {
     # Host dependencies
