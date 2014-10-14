@@ -55,6 +55,7 @@ int collect_shmem(int pid, VmaEntry *vi)
 
 		if (si->size < size)
 			si->size = size;
+		si->count++;
 
 		/*
 		 * Only the shared mapping with a lowest
@@ -62,12 +63,17 @@ int collect_shmem(int pid, VmaEntry *vi)
 		 * will wait until the kernel propagate this mapping
 		 * into /proc
 		 */
-		if (!pid_rst_prio(pid, si->pid))
+		if (!pid_rst_prio(pid, si->pid)) {
+			if (si->pid == pid)
+				si->self_count++;
+
 			return 0;
+		}
 
 		si->pid	 = pid;
 		si->start = vi->start;
 		si->end	 = vi->end;
+		si->self_count = 1;
 
 		return 0;
 	}
@@ -85,6 +91,8 @@ int collect_shmem(int pid, VmaEntry *vi)
 	si->pid	  = pid;
 	si->size  = size;
 	si->fd    = -1;
+	si->count = 1;
+	si->self_count = 1;
 
 	nr_shmems++;
 	futex_init(&si->lock);
@@ -97,17 +105,18 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 	char path[128];
 	int ret;
 
-	snprintf(path, sizeof(path), "/proc/%d/map_files/%lx-%lx",
-		si->pid, si->start, si->end);
+	pr_info("Waiting for the %lx shmem to appear\n", si->shmid);
+	futex_wait_while(&si->lock, 0);
 
-	pr_info("Waiting for [%s] to appear\n", path);
-	futex_wait_until(&si->lock, 1);
+	snprintf(path, sizeof(path), "/proc/%d/fd/%d",
+		si->pid, si->fd);
 
 	pr_info("Opening shmem [%s] \n", path);
-	ret = open_proc_rw(si->pid, "map_files/%lx-%lx", si->start, si->end);
+	ret = open_proc_rw(si->pid, "fd/%d", si->fd);
 	if (ret < 0)
 		pr_perror("     %d: Can't stat shmem at %s",
 				si->pid, path);
+	futex_inc_and_wake(&si->lock);
 	return ret;
 }
 
@@ -207,10 +216,17 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 			(unsigned long) addr,
 			(unsigned long) addr + si->size);
 	munmap(addr, si->size);
-	if (f < 0)
-		return -1;
 
 	si->fd = f;
+
+	/* Send signal to slaves, that they can open fd for this shmem */
+	futex_inc_and_wake(&si->lock);
+	/*
+	 * All other regions in this process will duplicate
+	 * the file descriptor, so we don't wait them.
+	 */
+	futex_wait_until(&si->lock, si->count - si->self_count + 1);
+
 	return f;
 }
 

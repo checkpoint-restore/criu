@@ -881,16 +881,6 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
 
-		if (vma_entry_is(vma_entry, VMA_ANON_SHARED)) {
-			struct shmem_info *entry;
-
-			entry = find_shmem(args->shmems, args->nr_shmems,
-						  vma_entry->shmid);
-			if (entry && entry->pid == my_pid &&
-			    entry->start == vma_entry->start)
-				futex_set_and_wake(&entry->lock, 1);
-		}
-
 		if (vma_entry->prot & PROT_WRITE)
 			continue;
 
