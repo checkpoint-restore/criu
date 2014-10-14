@@ -1626,15 +1626,21 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_threads(parasite_ctl, item);
-	if (ret) {
-		pr_err("Can't dump threads\n");
-		goto err_cure;
-	}
-
 	ret = dump_task_creds(parasite_ctl, cr_imgset, &cr);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
+		goto err;
+	}
+
+	ret = parasite_stop_daemon(parasite_ctl);
+	if (ret) {
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
+		goto err;
+	}
+
+	ret = dump_task_threads(parasite_ctl, item);
+	if (ret) {
+		pr_err("Can't dump threads\n");
 		goto err;
 	}
 

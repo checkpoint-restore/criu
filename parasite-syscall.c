@@ -831,9 +831,6 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (restore_child_handler())
 		return -1;
 
-	if (!ctl->daemonized)
-		return 0;
-
 	/* Start to trace syscalls for each thread */
 	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
 		pr_perror("Unable to interrupt the process");
@@ -970,15 +967,33 @@ goon:
 	return 0;
 }
 
+int parasite_stop_daemon(struct parasite_ctl *ctl)
+{
+	if (ctl->daemonized) {
+		/*
+		 * Looks like a previous attempt failed, we should do
+		 * nothing in this case. parasite will try to cure itself.
+		 */
+		if (ctl->tsock < 0)
+			return -1;
+
+		if (parasite_fini_seized(ctl)) {
+			close_safe(&ctl->tsock);
+			return -1;
+		}
+	}
+
+	ctl->daemonized = false;
+
+	return 0;
+}
+
 int parasite_cure_remote(struct parasite_ctl *ctl)
 {
 	int ret = 0;
 
-	if (ctl->parasite_ip)
-		if (parasite_fini_seized(ctl))
-			return -1;
-
-	close_safe(&ctl->tsock);
+	if (parasite_stop_daemon(ctl))
+		return -1;
 
 	if (ctl->remote_map) {
 		struct parasite_unmap_args *args;
