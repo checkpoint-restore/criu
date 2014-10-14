@@ -24,4 +24,6 @@ extern u64 zero_page_pfn;
 struct stat;
 extern struct stat *kerndat_get_devpts_stat(void);
 
+extern bool memfd_is_supported;
+
 #endif /* __CR_KERNDAT_H__ */

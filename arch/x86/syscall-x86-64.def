@@ -96,3 +96,4 @@ __NR_prlimit64		302		sys_prlimit64		(pid_t pid, unsigned int resource, const str
 __NR_open_by_handle_at	304		sys_open_by_handle_at	(int mountdirfd, struct file_handle *handle, int flags)
 __NR_setns		308		sys_setns		(int fd, int nstype)
 __NR_kcmp		312		sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)
+__NR_memfd_create	319		sys_memfd_create	(const char *name, unsigned int flags)

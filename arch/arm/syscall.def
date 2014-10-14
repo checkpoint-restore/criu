@@ -96,3 +96,4 @@ kcmp				272	378	(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned 
 openat				56	322	(int dirfd, const char *pathname, int flags, mode_t mode)
 mkdirat				34	323	(int dirfd, const char *pathname, mode_t mode)
 unlinkat			35	328	(int dirfd, const char *pathname, int flags)
+memfd_create			279	385	(const char *name, unsigned int flags)

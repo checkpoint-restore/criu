@@ -13,6 +13,7 @@
 #include "mem.h"
 #include "compiler.h"
 #include "sysctl.h"
+#include "syscall.h"
 #include "asm/types.h"
 #include "cr_options.h"
 #include "util.h"
@@ -220,6 +221,25 @@ int get_last_cap(void)
 	return sysctl_op(req, CTL_READ);
 }
 
+bool memfd_is_supported;
+static bool kerndat_has_memfd_create(void)
+{
+	int ret;
+
+	ret = sys_memfd_create(NULL, 0);
+
+	if (ret == -ENOSYS)
+		memfd_is_supported = false;
+	else if (ret == -EFAULT)
+		memfd_is_supported = true;
+	else {
+		pr_err("Unexpected error %d from memfd_create(NULL, 0)\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -231,6 +251,8 @@ int kerndat_init(void)
 		ret = init_zero_page_pfn();
 	if (!ret)
 		ret = get_last_cap();
+	if (!ret)
+		ret = kerndat_has_memfd_create();
 
 	return ret;
 }
