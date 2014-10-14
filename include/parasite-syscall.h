@@ -46,7 +46,6 @@ struct parasite_ctl {
 
 	unsigned long		parasite_ip;				/* service routine start ip */
 	unsigned long		syscall_ip;				/* entry point of infection */
-	u8			code_orig[BUILTIN_SYSCALL_SIZE];
 
 	unsigned int		*addr_cmd;				/* addr for command */
 	void			*addr_args;				/* address for arguments */

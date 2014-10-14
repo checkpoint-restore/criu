@@ -208,14 +208,15 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 {
 	pid_t pid = ctl->pid.real;
 	int err;
+	u8 code_orig[BUILTIN_SYSCALL_SIZE];
 
 	/*
 	 * Inject syscall instruction and remember original code,
 	 * we will need it to restore original program content.
 	 */
-	memcpy(ctl->code_orig, code_syscall, sizeof(ctl->code_orig));
+	memcpy(code_orig, code_syscall, sizeof(code_orig));
 	if (ptrace_swap_area(pid, (void *)ctl->syscall_ip,
-			     (void *)ctl->code_orig, sizeof(ctl->code_orig))) {
+			     (void *)code_orig, sizeof(code_orig))) {
 		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
 		return -1;
 	}
@@ -224,8 +225,8 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *reg
 	if (!err)
 		err = parasite_trap(ctl, pid, regs, &ctl->orig);
 
-	if (ptrace_poke_area(pid, (void *)ctl->code_orig,
-			     (void *)ctl->syscall_ip, sizeof(ctl->code_orig))) {
+	if (ptrace_poke_area(pid, (void *)code_orig,
+			     (void *)ctl->syscall_ip, sizeof(code_orig))) {
 		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid.real);
 		err = -1;
 	}
