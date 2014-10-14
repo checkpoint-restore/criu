@@ -1470,7 +1470,7 @@ static int dump_one_task(struct pstree_item *item)
 	pid_t pid = item->pid.real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
-	int ret = -1;
+	int ret, exit_code = -1;
 	struct parasite_dump_misc misc;
 	struct cr_imgset *cr_imgset = NULL;
 	struct parasite_drain_fd *dfds = NULL;
@@ -1500,7 +1500,6 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 
 	if (!may_dump(&cr)) {
-		ret = -1;
 		pr_err("Check uid (pid: %d) failed\n", pid);
 		goto err;
 	}
@@ -1535,7 +1534,6 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
-	ret = -1;
 	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds, proc_args.timer_n);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
@@ -1579,11 +1577,9 @@ static int dump_one_task(struct pstree_item *item)
 	if (item->sid == 0) {
 		pr_err("A session leader of %d(%d) is outside of its pid namespace\n",
 			item->pid.real, item->pid.virt);
-		ret = -1;
 		goto err_cure;
 	}
 
-	ret = -1;
 	cr_imgset = cr_task_imgset_open(item->pid.virt, O_DUMP);
 	if (!cr_imgset)
 		goto err_cure;
@@ -1661,11 +1657,12 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	close_cr_imgset(&cr_imgset);
+	exit_code = 0;
 err:
 	close_pid_proc();
 	free_mappings(&vmas);
 	xfree(dfds);
-	return ret;
+	return exit_code;
 
 err_cure:
 	close_cr_imgset(&cr_imgset);
