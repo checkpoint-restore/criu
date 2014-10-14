@@ -57,7 +57,11 @@ struct itimerspec;
 #define CLONE_NEWNET	0x40000000
 #endif
 
-#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS)
+#ifndef CLONE_NEWUSER
+#define CLONE_NEWUSER	0x10000000
+#endif
+
+#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
 
 /* Nested namespaces are supported only for these types */
 #define CLONE_SUBNS	(CLONE_NEWNS)

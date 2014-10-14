@@ -36,6 +36,7 @@ message task_kobj_ids_entry {
 	optional uint32			ipc_ns_id	= 7;
 	optional uint32			uts_ns_id	= 8;
 	optional uint32			mnt_ns_id	= 9;
+	optional uint32			user_ns_id	= 10;
 }
 
 message thread_sas_entry {

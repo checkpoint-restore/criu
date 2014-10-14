@@ -467,7 +467,20 @@ int dump_task_ns_ids(struct pstree_item *item)
 		return -1;
 	}
 
+	ids->has_user_ns_id = true;
+	ids->user_ns_id = get_ns_id(pid, &user_ns_desc);
+	if (!ids->user_ns_id) {
+		pr_err("Can't make userns id\n");
+		return -1;
+	}
+
 	return 0;
+}
+
+static int dump_user_ns(pid_t pid, int ns_id)
+{
+	pr_err("User namesapces are not supported yet\n");
+	return -1;
 }
 
 static int do_dump_namespaces(struct ns_id *ns)
@@ -493,6 +506,11 @@ static int do_dump_namespaces(struct ns_id *ns)
 		pr_info("Dump NET namespace info %d via %d\n",
 				ns->id, ns->pid);
 		ret = dump_net_ns(ns->id);
+		break;
+	case CLONE_NEWUSER:
+		pr_info("Dump USER namespace info %d via %d\n",
+				ns->id, ns->pid);
+		ret = dump_user_ns(ns->pid, ns->id);
 		break;
 	default:
 		pr_err("Unknown namespace flag %x", ns->nd->cflag);
