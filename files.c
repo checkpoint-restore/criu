@@ -273,11 +273,6 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 	case MEM_MAJOR:
 		ops = &regfile_dump_ops;
 		break;
-	case TTYAUX_MAJOR:
-	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
-	case UNIX98_PTY_SLAVE_MAJOR:
-		ops = &tty_dump_ops;
-		break;
 	case MISC_MAJOR:
 		ops = get_misc_dev_ops(minor(p->stat.st_rdev));
 		if (ops)
@@ -285,6 +280,11 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 		/* fallthrough */
 	default: {
 		char more[32];
+
+		if (is_tty(maj, minor(p->stat.st_rdev))) {
+			ops = &tty_dump_ops;
+			break;
+		}
 
 		sprintf(more, "%d:%d", maj, minor(p->stat.st_rdev));
 		return dump_unsupp_fd(p, lfd, img, "chr", more);

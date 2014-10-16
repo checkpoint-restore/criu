@@ -1,10 +1,20 @@
 #ifndef __CR_TTY_H__
 #define __CR_TTY_H__
 
+#include <linux/major.h>
+
 #include "files.h"
 
 /* Kernel's limit */
 #define TERMIOS_NCC	19
+
+enum {
+	TTY_TYPE_UNKNOWN	= 0,
+	TTY_TYPE_PTM		= 1,
+	TTY_TYPE_PTS		= 2,
+
+	TTY_TYPE_MAX
+};
 
 #define PTMX_PATH	"/dev/ptmx"
 #ifndef PTMX_MINOR
@@ -13,6 +23,27 @@
 #define PTS_FMT		"/dev/pts/%d"
 
 extern const struct fdtype_ops tty_dump_ops;
+
+static inline int tty_type(int major, int minor)
+{
+	switch (major) {
+	case TTYAUX_MAJOR:
+		if (minor == 0 || minor == 2)
+			return TTY_TYPE_PTM;
+		break;
+	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
+		return TTY_TYPE_PTM;
+	case UNIX98_PTY_SLAVE_MAJOR:
+		return TTY_TYPE_PTS;
+	}
+	return TTY_TYPE_UNKNOWN;
+}
+
+static inline int is_tty(int major, int minor)
+{
+	return tty_type(major, minor) != TTY_TYPE_UNKNOWN;
+}
+
 extern int dump_verify_tty_sids(void);
 extern struct collect_image_info tty_info_cinfo;
 extern struct collect_image_info tty_cinfo;

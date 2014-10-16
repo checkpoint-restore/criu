@@ -84,7 +84,7 @@ struct tty_info {
 	TtyInfoEntry			*tie;
 
 	struct list_head		sibling;
-	int				major;
+	int				type;
 
 	bool				create;
 	bool				inherit;
@@ -97,7 +97,7 @@ struct tty_dump_info {
 	pid_t				sid;
 	pid_t				pgrp;
 	int				fd;
-	int				major;
+	int				type;
 };
 
 static LIST_HEAD(all_tty_info_entries);
@@ -156,9 +156,9 @@ int prepare_shared_tty(void)
 		ASSIGN_MEMBER((d),(s), c_line);		\
 	} while (0)
 
-static int tty_gen_id(int major, int index)
+static int tty_gen_id(int type, int index)
 {
-	return (index << 1) + (major == TTYAUX_MAJOR);
+	return (index << 1) + (type == TTY_TYPE_PTM);
 }
 
 static int tty_get_index(u32 id)
@@ -199,19 +199,19 @@ int tty_verify_active_pairs(void)
 	return 0;
 }
 
-static int parse_pty_index(u32 id, int lfd, int major)
+static int parse_pty_index(u32 id, int lfd, int type)
 {
 	int index = -1;
 
-	switch (major) {
-	case TTYAUX_MAJOR:
+	switch (type) {
+	case TTY_TYPE_PTM:
 		if (ioctl(lfd, TIOCGPTN, &index)) {
 			pr_perror("Can't obtain ptmx index");
 			return -1;
 		}
 		break;
 
-	case UNIX98_PTY_SLAVE_MAJOR: {
+	case TTY_TYPE_PTS: {
 		char path[PATH_MAX];
 		char link[32];
 		int len;
@@ -378,26 +378,20 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	return ret;
 }
 
-static char *tty_type(int major)
+static char *tty_name(int type)
 {
-	static char *tty_types[] = {
-		[UNIX98_PTY_SLAVE_MAJOR]	= "pts",
-		[TTYAUX_MAJOR]			= "ptmx",
-	};
-	static char tty_unknown[]		= "unknown";
-
-	switch (major) {
-	case UNIX98_PTY_SLAVE_MAJOR:
-	case TTYAUX_MAJOR:
-		return tty_types[major];
+	switch (type) {
+	case TTY_TYPE_PTM:
+		return "ptmx";
+	case TTY_TYPE_PTS:
+		return "pts";
 	}
-
-	return tty_unknown;
+	return "unknown";
 }
 
 static bool tty_is_master(struct tty_info *info)
 {
-	return info->major == TTYAUX_MAJOR;
+	return info->type == TTY_TYPE_PTM;
 }
 
 static bool tty_is_hung(struct tty_info *info)
@@ -416,7 +410,7 @@ static bool tty_has_active_pair(struct tty_info *info)
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
-		prefix, tty_type(info->major), info->tfe->id, info->tie->pty->index,
+		prefix, tty_name(info->type), info->tfe->id, info->tie->pty->index,
 		tty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
@@ -890,6 +884,13 @@ static int verify_termios(u32 id, TermiosEntry *e)
 
 static int verify_info(struct tty_info *info)
 {
+	if (info->type != TTY_TYPE_PTM &&
+	    info->type != TTY_TYPE_PTS) {
+		pr_err("Unknown type %d master peer %x\n",
+		       info->type, info->tfe->id);
+		return -1;
+	}
+
 	/*
 	 * Master peer must have all parameters present,
 	 * while slave peer must have either all parameters present
@@ -973,7 +974,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	}
 
 	INIT_LIST_HEAD(&info->sibling);
-	info->major = major(info->tie->rdev);
+	info->type = tty_type(major(info->tie->rdev), minor(info->tie->rdev));
 	info->create = tty_is_master(info);
 	info->inherit = false;
 
@@ -1036,7 +1037,7 @@ int dump_verify_tty_sids(void)
 				if (!opts.shell_job) {
 					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d.\n",
 					       dinfo->sid, dinfo->pgrp,
-					       tty_type(dinfo->major),
+					       tty_name(dinfo->type),
 					       dinfo->fd);
 					/*
 					 * First thing people do with criu is dump smth
@@ -1056,7 +1057,7 @@ int dump_verify_tty_sids(void)
 	return ret;
 }
 
-static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, int index)
+static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int type, int index)
 {
 	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
 	TermiosEntry termios		= TERMIOS_ENTRY__INIT;
@@ -1091,7 +1092,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int major, i
 	dinfo->sid		= pti->sid;
 	dinfo->pgrp		= pti->pgrp;
 	dinfo->fd		= p->fd;
-	dinfo->major		= major;
+	dinfo->type		= type;
 
 	list_add_tail(&dinfo->list, &all_ttys);
 
@@ -1169,17 +1170,17 @@ out:
 static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 {
 	TtyFileEntry e = TTY_FILE_ENTRY__INIT;
-	int ret = 0, major, index;
+	int ret = 0, type, index;
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
-	major = major(p->stat.st_rdev);
-	index = parse_pty_index(id, lfd, major);
+	type = tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
+	index = parse_pty_index(id, lfd, type);
 	if (index < 0)
 		return -1;
 
 	e.id		= id;
-	e.tty_info_id	= tty_gen_id(major, index);
+	e.tty_info_id	= tty_gen_id(type, index);
 	e.flags		= p->flags;
 	e.fown		= (FownEntry *)&p->fown;
 
@@ -1204,7 +1205,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 	 */
 
 	if (!tty_test_and_set(e.tty_info_id, tty_bitmap))
-		ret = dump_pty_info(lfd, e.tty_info_id, p, major, index);
+		ret = dump_pty_info(lfd, e.tty_info_id, p, type, index);
 
 	if (!ret)
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
