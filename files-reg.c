@@ -976,7 +976,7 @@ int open_path(struct file_desc *d,
 	return tmp;
 }
 
-static int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	u32 flags = *(u32 *)arg;
 	int fd;

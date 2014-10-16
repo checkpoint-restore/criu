@@ -35,6 +35,7 @@ extern void clear_ghost_files(void);
 extern int prepare_shared_reg_files(void);
 
 extern const struct fdtype_ops regfile_dump_ops;
+extern int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg);
 extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 
 extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
