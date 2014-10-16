@@ -209,6 +209,7 @@ static inline int drain_fds_size(struct parasite_drain_fd *dfds)
 
 struct parasite_tty_args {
 	int	fd;
+	int	type;
 
 	int	sid;
 	int	pgrp;

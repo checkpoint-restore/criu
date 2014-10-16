@@ -715,12 +715,13 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	return 0;
 }
 
-struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd)
+struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, int type)
 {
 	struct parasite_tty_args *p;
 
 	p = parasite_args(ctl, struct parasite_tty_args);
 	p->fd = fd;
+	p->type = type;
 
 	if (parasite_execute_daemon(PARASITE_CMD_DUMP_TTY, ctl) < 0)
 		return NULL;

@@ -15,6 +15,7 @@
 #include "lock.h"
 #include "vdso.h"
 #include "log.h"
+#include "tty.h"
 
 #include <string.h>
 
@@ -329,44 +330,47 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 # define TIOCGEXCL	_IOR('T', 0x40, int)
 #endif
 
-	ret = tty_ioctl(args->fd, TIOCGSID, &args->sid);
-	if (ret < 0)
-		goto err;
-
-	ret = tty_ioctl(args->fd, TIOCGPGRP, &args->pgrp);
-	if (ret < 0)
-		goto err;
-
-	ret = tty_ioctl(args->fd, TIOCGPKT, &args->st_pckt);
-	if (ret < 0)
-		goto err;
-
-	ret = tty_ioctl(args->fd, TIOCGPTLCK, &args->st_lock);
-	if (ret < 0)
-		goto err;
-
-	ret = tty_ioctl(args->fd, TIOCGEXCL, &args->st_excl);
-	if (ret < 0)
-		goto err;
-
-	args->hangup = false;
-	return 0;
-
-err:
-	if (ret != -EIO) {
-		pr_err("TTY: Can't get sid/pgrp: %d\n", ret);
-		return -1;
-	}
-
-	/* kernel reports EIO for get ioctls on pair-less ptys */
 	args->sid = 0;
 	args->pgrp = 0;
 	args->st_pckt = 0;
 	args->st_lock = 0;
 	args->st_excl = 0;
-	args->hangup = true;
 
+#define __tty_ioctl(cmd, arg)					\
+	do {							\
+		ret = tty_ioctl(args->fd, cmd, &arg);		\
+		if (ret < 0) {					\
+			if (ret == -ENOTTY)			\
+				arg = 0;			\
+			else if (ret == -EIO)			\
+				goto err_io;			\
+			else					\
+				goto err;			\
+		}						\
+	} while (0)
+
+	__tty_ioctl(TIOCGSID, args->sid);
+	__tty_ioctl(TIOCGPGRP, args->pgrp);
+	__tty_ioctl(TIOCGEXCL,	args->st_excl);
+	
+	if (args->type == TTY_TYPE_PTM ||
+	    args->type == TTY_TYPE_PTS) {
+		__tty_ioctl(TIOCGPKT,	args->st_pckt);
+		__tty_ioctl(TIOCGPTLCK,	args->st_lock);
+	}
+
+	args->hangup = false;
 	return 0;
+
+err:
+	pr_err("tty: Can't fetch params: err = %d\n", ret);
+	return -1;
+err_io:
+
+	/* kernel reports EIO for get ioctls on pair-less ptys */
+	args->hangup = true;
+	return 0;
+#undef __tty_ioctl
 }
 
 #ifdef CONFIG_VDSO

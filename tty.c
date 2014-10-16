@@ -1080,7 +1080,7 @@ static int dump_pty_info(int lfd, u32 id, const struct fd_parms *p, int type, in
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	pti = parasite_dump_tty(p->ctl, p->fd);
+	pti = parasite_dump_tty(p->ctl, p->fd, type);
 	if (!pti)
 		return -1;
 

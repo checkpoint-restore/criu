@@ -106,7 +106,7 @@ extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
 					      struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
-extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd);
+extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, int type);
 
 extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
