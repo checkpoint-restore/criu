@@ -199,7 +199,7 @@ int tty_verify_active_pairs(void)
 	return 0;
 }
 
-static int parse_pty_index(u32 id, int lfd, int type)
+static int parse_pty_index(u32 id, int lfd, const struct fd_parms *p, int type)
 {
 	int index = -1;
 
@@ -212,22 +212,14 @@ static int parse_pty_index(u32 id, int lfd, int type)
 		break;
 
 	case TTY_TYPE_PTS: {
-		char path[PATH_MAX];
-		char link[32];
-		int len;
+		const struct fd_link *link = p->link;
+		char *pos = strrchr(link->name, '/');
 
-		snprintf(link, sizeof(link), "/proc/self/fd/%d", lfd);
-		len = readlink(link, path, sizeof(path) - 1);
-		if (len < 0) {
-			pr_perror("Can't readlink %s", link);
+		if (!pos || pos == (link->name + link->len - 1)) {
+			pr_err("Unexpected format on path %s\n", link->name + 1);
 			return -1;
 		}
-		path[len] = '\0';
-
-		if (sscanf(path, PTS_FMT, &index) != 1) {
-			pr_err("Unexpected format on path %s\n", path);
-			return -1;
-		}
+		index = atoi(pos + 1);
 		break;
 	}
 	}
@@ -1175,7 +1167,7 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
 	type = tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
-	index = parse_pty_index(id, lfd, type);
+	index = parse_pty_index(id, lfd, p, type);
 	if (index < 0)
 		return -1;
 

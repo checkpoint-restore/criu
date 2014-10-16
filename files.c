@@ -282,6 +282,11 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 		char more[32];
 
 		if (is_tty(maj, minor(p->stat.st_rdev))) {
+			struct fd_link link;
+
+			if (fill_fdlink(lfd, p, &link))
+				return -1;
+			p->link = &link;
 			ops = &tty_dump_ops;
 			break;
 		}
