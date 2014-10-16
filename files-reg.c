@@ -623,9 +623,27 @@ static inline bool nfs_silly_rename(char *rpath, const struct fd_parms *parms)
 	return (parms->fs_type == NFS_SUPER_MAGIC) && is_sillyrename_name(rpath);
 }
 
-static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
+static void strip_deleted(struct fd_link *link)
+{
+	const char postfix[] = " (deleted)";
+	const size_t plen = strlen(postfix);
+
+	if (link->len > plen) {
+		size_t at = link->len - plen;
+		if (!strcmp(&link->name[at], postfix)) {
+			pr_debug("Stip %s' tag from '%s'\n",
+				 postfix, link->name);
+			link->name[at] = '\0';
+			link->len -= plen;
+		}
+	}
+}
+
+static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 				int lfd, u32 id, struct ns_id *nsid)
 {
+	char *rpath = link->name;
+	int plen = link->len;
 	int ret, mntns_root;
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
@@ -664,14 +682,16 @@ static int check_path_remap(char *rpath, int plen, const struct fd_parms *parms,
 		return 0;
 	}
 
-	if (ost->st_nlink == 0)
+	if (ost->st_nlink == 0) {
 		/*
 		 * Unpleasant, but easy case. File is completely invisible
 		 * from the FS. Just dump its contents and that's it. But
 		 * be careful whether anybody still has any of its hardlinks
 		 * also open.
 		 */
+		strip_deleted(link);
 		return dump_ghost_remap(rpath + 1, ost, lfd, id, nsid);
+	}
 
 	if (nfs_silly_rename(rpath, parms)) {
 		/*
@@ -771,7 +791,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (check_path_remap(link->name, link->len, p, lfd, id, nsid))
+	if (check_path_remap(link, p, lfd, id, nsid))
 		return -1;
 
 	rfe.id		= id;
