@@ -855,6 +855,10 @@ static struct fstype fstypes[] = {
 		.dump = dump_empty_fs,
 		.code = FSTYPE__PSTORE,
 	}, {
+		.name = "mqueue",
+		.dump = dump_empty_fs,
+		.code = FSTYPE__MQUEUE,
+	}, {
 		.name = "securityfs",
 		.code = FSTYPE__SECURITYFS,
 	}, {

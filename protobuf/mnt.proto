@@ -13,6 +13,7 @@ enum fstype {
 	DEBUGFS			= 11;
 	CGROUP			= 12;
 	AUFS			= 13;
+	MQUEUE			= 14;
 };
 
 message mnt_entry {
