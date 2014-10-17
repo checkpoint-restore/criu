@@ -1127,7 +1127,7 @@ static struct file_desc_ops reg_desc_ops = {
 	.collect_fd = collect_reg_fd,
 };
 
-struct file_desc *collect_special_file(u32 id)
+struct file_desc *try_collect_special_file(u32 id, int optional)
 {
 	struct file_desc *fdesc;
 
@@ -1140,7 +1140,8 @@ struct file_desc *collect_special_file(u32 id)
 
 	fdesc = find_file_desc_raw(FD_TYPES__REG, id);
 	if (fdesc == NULL) {
-		pr_err("No entry for reg-file-ID %#x\n", id);
+		if (!optional)
+			pr_err("No entry for reg-file-ID %#x\n", id);
 		return NULL;
 	}
 
