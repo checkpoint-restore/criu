@@ -27,6 +27,7 @@
 #include "util-pie.h"
 #include "proc_parse.h"
 #include "file-ids.h"
+#include "files-reg.h"
 
 #include "protobuf.h"
 #include "protobuf/tty.pb-c.h"
@@ -80,6 +81,8 @@ struct tty_info {
 	struct list_head		list;
 	struct file_desc		d;
 
+	struct file_desc		*reg_d;
+
 	TtyFileEntry			*tfe;
 	TtyInfoEntry			*tie;
 
@@ -120,6 +123,8 @@ static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
  * so we need to serialize access to it.
  */
 static mutex_t *tty_mutex;
+
+static bool tty_is_master(struct tty_info *info);
 
 int prepare_shared_tty(void)
 {
@@ -242,7 +247,130 @@ static int tty_test_and_set(int bit, unsigned long *bitmap)
 	return ret;
 }
 
-static int pty_open_ptmx_index(int flags, int index)
+/*
+ * Generate a regular file object in case if such is missed
+ * in the image file, ie obsolete interface has been used on
+ * checkpoint.
+ */
+static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
+{
+	TtyFileEntry *tfe = info->tfe;
+	const size_t namelen = 64;
+	struct reg_file_info *r;
+
+	r = xzalloc(sizeof(*r) + sizeof(*r->rfe) + namelen);
+	if (!r)
+		return NULL;
+
+	r->rfe = (void *)r + sizeof(*r);
+	reg_file_entry__init(r->rfe);
+
+	r->rfe->name = (void *)r + sizeof(*r) + sizeof(*r->rfe);
+	if (tty_is_master(info))
+		strcpy(r->rfe->name, "/dev/ptmx");
+	else
+		snprintf(r->rfe->name, namelen, "/dev/pts/%u",
+			 info->tie->pty->index);
+
+	if (add)
+		file_desc_add(&r->d, tfe->id, NULL);
+	else
+		file_desc_init(&r->d, tfe->id, NULL);
+
+	r->rfe->id	= tfe->id;
+	r->rfe->flags	= tfe->flags;
+	r->rfe->fown	= tfe->fown;
+	r->path		= &r->rfe->name[1];
+
+	return &r->d;
+}
+
+/*
+ * In case if we need to open a fake pty (for example
+ * a master peer which were deleted at checkpoint moment,
+ * or open a slave peer when restoring control terminal)
+ * we need to create a new reg-file object taking @info
+ * as a template. Here is a trick though: the @info might
+ * represent master peer while we need to allocate a slave
+ * one and the reverse. For such case taking path from the
+ * @info as a template we generate that named 'inverted-path'.
+ *
+ * For example if the master peer was /dev/pts/ptmx with index 1,
+ * the inverted path is /dev/pts/1, for inverted slaves it's simplier
+ * we just add 'ptmx' postfix.
+ */
+static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
+{
+	struct reg_file_info *new, *orig;
+	struct file_desc *fake_desc;
+
+	pr_debug("Allocating fake descriptor for %#x (reg_d %p)\n",
+		 info->tfe->id, info->reg_d);
+
+	BUG_ON(!info->reg_d);
+
+	fake_desc = pty_alloc_reg(info, false);
+	if (!fake_desc)
+		return NULL;
+
+	orig = container_of(info->reg_d, struct reg_file_info, d);
+	new = container_of(fake_desc, struct reg_file_info, d);
+
+	if ((type == TTY_TYPE_PTM && tty_is_master(info)) ||
+	    (type == TTY_TYPE_PTS && !tty_is_master(info))) {
+		new->path = xstrdup(orig->path);
+		new->rfe->name = &new->path[1];
+	} else {
+		char *pos = strrchr(orig->rfe->name, '/');
+		size_t len = strlen(orig->rfe->name) + 1;
+		size_t slash_at = pos - orig->rfe->name;
+		char *inverted_path = xmalloc(len + 32);
+
+		BUG_ON(!pos || !inverted_path);
+
+		memcpy(inverted_path, orig->rfe->name, slash_at + 1);
+		if (type == TTY_TYPE_PTM)
+			strcat(inverted_path, "ptmx");
+		else {
+			if (slash_at >= 4 && strcmp(&inverted_path[slash_at - 4], "pts"))
+				snprintf(&inverted_path[slash_at + 1], 10, "pts/%u",
+					 info->tie->pty->index);
+			else
+				snprintf(&inverted_path[slash_at + 1], 10, "%u",
+					 info->tie->pty->index);
+		}
+
+		new->rfe->name = inverted_path;
+		new->path = &inverted_path[1];
+	}
+
+	return new;
+}
+
+#define pty_alloc_fake_master(info)	pty_alloc_fake_reg(info, TTY_TYPE_PTM)
+#define pty_alloc_fake_slave(info)	pty_alloc_fake_reg(info, TTY_TYPE_PTS)
+
+static void pty_free_fake_reg(struct reg_file_info **r)
+{
+	if (*r) {
+		xfree((*r)->rfe->name);
+		xfree((*r));
+		*r = NULL;
+	}
+}
+
+static int open_pty_reg(struct file_desc *reg_d, u32 flags)
+{
+	return open_path(reg_d, do_open_reg_noseek_flags, &flags);
+}
+
+static char *path_from_reg(struct file_desc *d)
+{
+	struct reg_file_info *rfi = container_of(d, struct reg_file_info, d);
+	return rfi->path;
+}
+
+static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 {
 	int fds[32], i, ret = -1, cur_idx;
 
@@ -251,14 +379,15 @@ static int pty_open_ptmx_index(int flags, int index)
 	mutex_lock(tty_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
-		fds[i] = open(PTMX_PATH, flags);
+		fds[i] = open_pty_reg(d, flags);
 		if (fds[i] < 0) {
-			pr_perror("Can't open %s", PTMX_PATH);
+			pr_perror("Can't open %s", path_from_reg(d));
 			break;
 		}
 
 		if (ioctl(fds[i], TIOCGPTN, &cur_idx)) {
-			pr_perror("Can't obtain current index on %s", PTMX_PATH);
+			pr_perror("Can't obtain current index on %s",
+				  path_from_reg(d));
 			break;
 		}
 
@@ -278,7 +407,8 @@ static int pty_open_ptmx_index(int flags, int index)
 		if (cur_idx < index && (index - cur_idx) < ARRAY_SIZE(fds))
 			continue;
 
-		pr_err("Unable to open %s with specified index %d\n", PTMX_PATH, index);
+		pr_err("Unable to open %s with specified index %d\n",
+		       path_from_reg(d), index);
 		break;
 	}
 
@@ -343,17 +473,19 @@ static int tty_set_prgp(int fd, int group)
 static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
+	struct reg_file_info *fake;
 	int slave, ret = -1;
-	char pts_name[64];
 
 	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
 
-	snprintf(pts_name, sizeof(pts_name), PTS_FMT, info->tie->pty->index);
-	slave = open(pts_name, O_RDONLY);
+	fake = pty_alloc_fake_slave(info);
+	if (!fake)
+		goto err;
+	slave = open_pty_reg(&fake->d, O_RDONLY);
 	if (slave < 0) {
-		pr_perror("Can't open %s", pts_name);
-		return -1;
+		pr_perror("Can't open %s", path_from_reg(&fake->d));
+		goto err;
 	}
 
 	pr_info("Restore session %d by %d tty (index %d)\n",
@@ -365,8 +497,9 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 		ret = tty_set_prgp(slave, info->tie->pgrp);
 
 	close(slave);
+err:
+	pty_free_fake_reg(&fake);
 	close(fd);
-
 	return ret;
 }
 
@@ -452,9 +585,6 @@ static int pty_open_slaves(struct tty_info *info)
 	int sock = -1, fd = -1, ret = -1;
 	struct fdinfo_list_entry *fle;
 	struct tty_info *slave;
-	char pts_name[64];
-
-	snprintf(pts_name, sizeof(pts_name), PTS_FMT, info->tie->pty->index);
 
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -465,9 +595,9 @@ static int pty_open_slaves(struct tty_info *info)
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(tty_is_master(slave));
 
-		fd = open(pts_name, slave->tfe->flags | O_NOCTTY);
+		fd = open_pty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
-			pr_perror("Can't open slave %s", pts_name);
+			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
 		}
 
@@ -477,7 +607,7 @@ static int pty_open_slaves(struct tty_info *info)
 		fle = file_master(&slave->d);
 
 		pr_debug("send slave %#x fd %d connected on %s (pid %d)\n",
-			 slave->tfe->id, fd, pts_name, fle->pid);
+			 slave->tfe->id, fd, path_from_reg(slave->reg_d), fle->pid);
 
 		if (send_fd_to_peer(fd, fle, sock)) {
 			pr_perror("Can't send file descriptor");
@@ -518,6 +648,7 @@ static int receive_tty(struct tty_info *info)
 
 static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 {
+	struct reg_file_info *fake = NULL;
 	int master = -1, ret = -1, fd = -1;
 
 	/*
@@ -534,22 +665,21 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 		pr_info("Migrated slave peer %x -> to fd %d\n",
 			slave->tfe->id, fd);
 	} else {
-		char pts_name[64];
-
-		snprintf(pts_name, sizeof(pts_name), PTS_FMT, slave->tie->pty->index);
-
-		master = pty_open_ptmx_index(O_RDONLY, slave->tie->pty->index);
+		fake = pty_alloc_fake_master(slave);
+		if (!fake)
+			goto err;
+		master = pty_open_ptmx_index(&fake->d, slave->tie->pty->index, O_RDONLY);
 		if (master < 0) {
 			pr_perror("Can't open fale %x (index %d)",
 				  slave->tfe->id, slave->tie->pty->index);
-			return -1;
+			goto err;
 		}
 
 		unlock_pty(master);
 
-		fd = open(pts_name, slave->tfe->flags | O_NOCTTY);
+		fd = open_pty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
-			pr_perror("Can't open slave %s", pts_name);
+			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
 		}
 
@@ -591,6 +721,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 err:
 	close_safe(&master);
 	close_safe(&fd);
+	pty_free_fake_reg(&fake);
 	return ret;
 }
 
@@ -598,7 +729,7 @@ static int pty_open_ptmx(struct tty_info *info)
 {
 	int master = -1;
 
-	master = pty_open_ptmx_index(info->tfe->flags, info->tie->pty->index);
+	master = pty_open_ptmx_index(info->reg_d, info->tie->pty->index, info->tfe->flags);
 	if (master < 0) {
 		pr_perror("Can't open %x (index %d)",
 			  info->tfe->id, info->tie->pty->index);
@@ -606,9 +737,6 @@ static int pty_open_ptmx(struct tty_info *info)
 	}
 
 	unlock_pty(master);
-
-	if (rst_file_params(master, info->tfe->fown, info->tfe->flags))
-		goto err;
 
 	if (restore_tty_params(master, info))
 		goto err;
@@ -974,6 +1102,21 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 		return -1;
 
 	/*
+	 * The image might have no reg file record in old CRIU, so
+	 * lets don't fail for a while. After a couple of releases
+	 * simply require the record to present.
+	 */
+	info->reg_d = try_collect_special_file(info->tfe->id, 1);
+	if (!info->reg_d) {
+		info->reg_d = pty_alloc_reg(info, true);
+		if (!info->reg_d) {
+			pr_err("Can't generate new reg descriptor for id %#x\n",
+			       info->tfe->id);
+			return -1;
+		}
+	}
+
+	/*
 	 * The tty peers which have no @termios are hung up,
 	 * so don't mark them as active, we create them with
 	 * faked master and they are rather a rudiment which
@@ -1165,6 +1308,9 @@ static int dump_one_pty(int lfd, u32 id, const struct fd_parms *p)
 	int ret = 0, type, index;
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
+
+	if (dump_one_reg_file(lfd, id, p))
+		return -1;
 
 	type = tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
 	index = parse_pty_index(id, lfd, p, type);
