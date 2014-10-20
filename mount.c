@@ -737,6 +737,26 @@ out:
 	return ret;
 }
 
+static bool rt_detmpfs_match(struct mount_info *pm)
+{
+	struct stat *host_st;
+
+	host_st = kerndat_get_fs_stat(KERNDAT_FS_STAT_DEVTMPFS);
+	if (host_st) {
+		if (host_st->st_dev == kdev_to_odev(pm->s_dev))
+			return true;
+	}
+
+	return false;
+}
+
+static int devtmpfs_dump(struct mount_info *pm)
+{
+	if (!rt_detmpfs_match(pm))
+		return tmpfs_dump(pm);
+	return 0;
+}
+
 static int tmpfs_restore(struct mount_info *pm)
 {
 	int ret;
@@ -758,6 +778,13 @@ static int tmpfs_restore(struct mount_info *pm)
 		return -1;
 	}
 
+	return 0;
+}
+
+static int devtmpfs_restore(struct mount_info *pm)
+{
+	if (!rt_detmpfs_match(pm))
+		return tmpfs_restore(pm);
 	return 0;
 }
 
@@ -839,6 +866,8 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "devtmpfs",
 		.code = FSTYPE__DEVTMPFS,
+		.dump = devtmpfs_dump,
+		.restore = devtmpfs_restore,
 	}, {
 		.name = "binfmt_misc",
 		.code = FSTYPE__BINFMT_MISC,
