@@ -3,6 +3,8 @@
 
 #include "asm/types.h"
 
+struct stat;
+
 /*
  * kerndat stands for "kernel data" and is a collection
  * of run-time information about current kernel
@@ -21,8 +23,14 @@ extern int tcp_max_rshare;
 extern int kern_last_cap;
 extern u64 zero_page_pfn;
 
-struct stat;
-extern struct stat *kerndat_get_devpts_stat(void);
+enum {
+	KERNDAT_FS_STAT_DEVPTS,
+	KERNDAT_FS_STAT_DEVTMPFS,
+
+	KERNDAT_FS_STAT_MAX
+};
+
+extern struct stat *kerndat_get_fs_stat(unsigned int which);
 
 extern bool memfd_is_supported;
 

@@ -54,30 +54,50 @@ static int kerndat_get_shmemdev(void)
 	return 0;
 }
 
-struct stat *kerndat_get_devpts_stat()
+struct stat *kerndat_get_fs_stat(unsigned int which)
 {
-	static struct stat st = {};
+	static struct {
+		const char	*name;
+		const char	*path;
+		unsigned int	magic;
+		struct stat	st;
+	} kstat[KERNDAT_FS_STAT_MAX] = {
+		[KERNDAT_FS_STAT_DEVPTS] = {
+			.name	= "devpts",
+			.path	= "/dev/pts",
+			.magic	= DEVPTS_SUPER_MAGIC,
+		},
+		[KERNDAT_FS_STAT_DEVTMPFS] = {
+			.name	= "devtmpfs",
+			.path	= "/dev",
+			.magic	= TMPFS_MAGIC,
+		},
+	};
 	struct statfs fst;
 
-	if (st.st_dev != 0)
-		return &st;
-
-	if (statfs("/dev/pts", &fst)) {
-		pr_perror("Unable to statefs /dev/pts");
-		return NULL;
-	}
-	if (fst.f_type != DEVPTS_SUPER_MAGIC) {
-		pr_err("devpts isn't mount on the host\n");
+	if (which >= KERNDAT_FS_STAT_MAX) {
+		pr_err("Wrong fs type %u passed\n", which);
 		return NULL;
 	}
 
-	/* The root /dev/pts is mounted w/o newinstance, isn't it? */
-	if (stat("/dev/pts", &st)) {
-		pr_perror("Unable to stat /dev/pts");
+	if (kstat[which].st.st_dev != 0)
+		return &kstat[which].st;
+
+	if (statfs(kstat[which].path, &fst)) {
+		pr_perror("Unable to statefs %s", kstat[which].path);
+		return NULL;
+	}
+	if (fst.f_type != kstat[which].magic) {
+		pr_err("%s isn't mount on the host\n", kstat[which].name);
 		return NULL;
 	}
 
-	return &st;
+	if (stat(kstat[which].path, &kstat[which].st)) {
+		pr_perror("Unable to stat %s", kstat[which].path);
+		return NULL;
+	}
+
+	return &kstat[which].st;
 }
 
 /*

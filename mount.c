@@ -686,7 +686,7 @@ static int devpts_parse(struct mount_info *pm)
 {
 	struct stat *host_st;
 
-	host_st = kerndat_get_devpts_stat();
+	host_st = kerndat_get_fs_stat(KERNDAT_FS_STAT_DEVPTS);
 	if (host_st == NULL)
 		return -1;
 
