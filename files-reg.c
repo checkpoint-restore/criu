@@ -173,7 +173,10 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->dev = gfe->dev;
 	gf->ino = gfe->ino;
 
-	snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+	if (S_ISDIR(gfe->mode))
+		strncpy(gf->remap.path, rfi->path, PATH_MAX);
+	else
+		snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
 	if (create_ghost(gf, gfe, root, img))
 		goto close_ifd;
