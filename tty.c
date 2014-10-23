@@ -332,7 +332,7 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
 		if (type == TTY_TYPE_PTM)
 			strcat(inverted_path, "ptmx");
 		else {
-			if (slash_at >= 4 && strcmp(&inverted_path[slash_at - 4], "pts"))
+			if (slash_at >= 3 && strncmp(&inverted_path[slash_at - 3], "pts", 3))
 				snprintf(&inverted_path[slash_at + 1], 10, "pts/%u",
 					 info->tie->pty->index);
 			else
