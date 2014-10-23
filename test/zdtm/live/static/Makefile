@@ -138,6 +138,7 @@ TST_FILE	=				\
 		fifo-ghost			\
 		fifo_ro				\
 		fifo_wronly			\
+		console				\
 		unlink_fifo			\
 		unlink_fifo_wronly		\
 		unlink_mmap00			\

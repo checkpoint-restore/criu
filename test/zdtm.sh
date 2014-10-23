@@ -105,6 +105,7 @@ static/pty01
 static/pty04
 static/tty02
 static/tty03
+static/console
 static/child_opened_proc
 static/cow01
 static/fpu00
@@ -217,6 +218,7 @@ sk-netlink
 tun
 chroot
 chroot-file
+console
 rtc
 tempfs
 maps007
