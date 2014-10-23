@@ -1496,11 +1496,6 @@ static int cr_pivot_root(char *root)
 		return -1;
 	}
 
-	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
-		pr_perror("Can't remount root with MS_PRIVATE");
-		return -1;
-	}
-
 	if (umount2(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
 		return -1;
