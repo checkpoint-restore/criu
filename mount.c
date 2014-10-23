@@ -1567,7 +1567,7 @@ static char *mnt_roots;
  */
 static inline int print_ns_root(struct ns_id *ns, char *buf, int bs)
 {
-	return snprintf(buf, bs, "%s/%d/", mnt_roots, ns->id);
+	return snprintf(buf, bs, "%s/%d", mnt_roots, ns->id);
 }
 
 static int create_mnt_roots(void)
