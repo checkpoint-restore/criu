@@ -1469,6 +1469,7 @@ static int clean_mnt_ns(struct mount_info *mntinfo_tree)
 static int cr_pivot_root(char *root)
 {
 	char put_root[] = "crtools-put-root.XXXXXX";
+	int exit_code = -1;
 
 	pr_info("Move the root to %s\n", root ? : ".");
 
@@ -1484,11 +1485,19 @@ static int cr_pivot_root(char *root)
 		return -1;
 	}
 
+	if (mount(put_root, put_root, NULL, MS_BIND, NULL)) {
+		pr_perror("Unable to mount tmpfs in %s", put_root);
+		goto err_root;
+	}
+
+	if (mount(NULL, put_root, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount %s with MS_PRIVATE", put_root);
+		goto err_tmpfs;
+	}
+
 	if (pivot_root(".", put_root)) {
 		pr_perror("pivot_root(., %s) failed", put_root);
-		if (rmdir(put_root))
-			pr_perror("Can't remove the directory %s", put_root);
-		return -1;
+		goto err_tmpfs;
 	}
 
 	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
@@ -1496,16 +1505,26 @@ static int cr_pivot_root(char *root)
 		return -1;
 	}
 
+	exit_code = 0;
+
 	if (umount2(put_root, MNT_DETACH)) {
 		pr_perror("Can't umount %s", put_root);
 		return -1;
 	}
+
+err_tmpfs:
+	if (umount2(put_root, MNT_DETACH)) {
+		pr_perror("Can't umount %s", put_root);
+		return -1;
+	}
+
+err_root:
 	if (rmdir(put_root)) {
 		pr_perror("Can't remove the directory %s", put_root);
 		return -1;
 	}
 
-	return 0;
+	return exit_code;
 }
 
 struct mount_info *mnt_entry_alloc()
