@@ -1468,7 +1468,7 @@ static int clean_mnt_ns(struct mount_info *mntinfo_tree)
 
 static int cr_pivot_root(char *root)
 {
-	int old_root;
+	char put_root[] = "crtools-put-root.XXXXXX";
 
 	pr_info("Move the root to %s\n", root ? : ".");
 
@@ -1479,36 +1479,34 @@ static int cr_pivot_root(char *root)
 		}
 	}
 
-	old_root = open("/", O_DIRECTORY | O_RDONLY);
-	if (old_root < 0) {
-		pr_perror("Unable to open /");
+	if (mkdtemp(put_root) == NULL) {
+		pr_perror("Can't create a temporary directory");
 		return -1;
 	}
 
-	if (pivot_root(".", ".")) {
-		close(old_root);
-		pr_perror("pivot_root(., .) failed");
+	if (pivot_root(".", put_root)) {
+		pr_perror("pivot_root(., %s) failed", put_root);
+		if (rmdir(put_root))
+			pr_perror("Can't remove the directory %s", put_root);
 		return -1;
 	}
 
-	if (fchdir(old_root)) {
-		perror("Unable to change working directory");
-		return -1;
-	}
-	close(old_root);
-
-	if (mount("none", ".", "none", MS_REC|MS_PRIVATE, NULL)) {
+	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
 
-	if (umount2(".", MNT_DETACH)) {
-		pr_perror("Can't umount the old root");
+	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
+		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
 
-	if (chdir("/")) {
-		perror("Unable to change working directory");
+	if (umount2(put_root, MNT_DETACH)) {
+		pr_perror("Can't umount %s", put_root);
+		return -1;
+	}
+	if (rmdir(put_root)) {
+		pr_perror("Can't remove the directory %s", put_root);
 		return -1;
 	}
 
