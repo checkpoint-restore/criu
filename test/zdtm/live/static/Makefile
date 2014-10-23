@@ -256,9 +256,9 @@ check_start:	$(PID:%.pid=%.is_running)
 stop:	$(STATE_OUT)
 	-kill -TERM `cat *.pid`
 
-WAIT_TIME=10
+WAIT_TIME=240
 wait_stop:
-	-for ((i = 0; i < $(WAIT_TIME); i++)); do \
+	for ((i = 0; i < $(WAIT_TIME); i++)); do \
 		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
 	done
