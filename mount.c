@@ -372,6 +372,30 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	info->external = em;
 	return 0;
 }
+static int validate_shared(struct mount_info *m)
+{
+	struct mount_info *ct, *t;
+
+	if (!list_empty(&m->parent->mnt_share))
+		return 0;
+
+	t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
+
+	list_for_each_entry(ct, &t->children, siblings) {
+		if (mounts_equal(m, ct, false))
+			break;
+	}
+	if (&ct->siblings == &t->children) {
+		pr_err("Two shared mounts %d, %d have different sets of children\n",
+			m->parent->mnt_id, t->mnt_id);
+		pr_err("%d:%s doesn't have a proper point for %d:%s\n",
+			t->mnt_id, t->mountpoint,
+			m->mnt_id, m->mountpoint);
+		return -1;
+	}
+
+	return 0;
+}
 
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
@@ -382,24 +406,8 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			/* root mount can be any */
 			continue;
 
-		if (m->parent->shared_id && !list_empty(&m->parent->mnt_share)) {
-			struct mount_info *ct;
-
-			t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
-
-			list_for_each_entry(ct, &t->children, siblings) {
-				if (mounts_equal(m, ct, false))
-					break;
-			}
-			if (&ct->siblings == &t->children) {
-				pr_err("Two shared mounts %d, %d have different sets of children\n",
-					m->parent->mnt_id, t->mnt_id);
-				pr_err("%d:%s doesn't have a proper point for %d:%s\n",
-					t->mnt_id, t->mountpoint,
-					m->mnt_id, m->mountpoint);
-				return -1;
-			}
-		}
+		if (m->parent->shared_id && validate_shared(m))
+			return -1;
 
 		/*
 		 * Mountpoint can point to / of an FS. In that case this FS
