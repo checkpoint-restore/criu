@@ -754,6 +754,7 @@ long __export_restore_task(struct task_restore_args *args)
 	unsigned long va;
 
 	struct rt_sigframe *rt_sigframe;
+	struct prctl_mm_map prctl_map;
 	unsigned long new_sp;
 	k_rtsigset_t to_block;
 	pid_t my_pid = sys_getpid();
@@ -921,30 +922,56 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Tune up the task fields.
 	 */
-	ret |= sys_prctl_safe(PR_SET_NAME, (long)args->comm, 0, 0);
-
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)args->mm.mm_start_data, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)args->mm.mm_end_data, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,	(long)args->mm.mm_start_stack, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)args->mm.mm_start_brk, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,		(long)args->mm.mm_brk, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)args->mm.mm_arg_start, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)args->mm.mm_arg_end, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)args->mm.mm_env_start, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)args->mm.mm_env_end, 0);
-	ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm_saved_auxv, args->mm_saved_auxv_size);
+	ret = sys_prctl_safe(PR_SET_NAME, (long)args->comm, 0, 0);
 	if (ret)
 		goto core_restore_end;
 
 	/*
-	 * Because of requirements applied from kernel side
-	 * we need to restore /proc/pid/exe symlink late,
-	 * after old existing VMAs are superseded with
-	 * new ones from image file.
+	 * New kernel interface with @PR_SET_MM_MAP will become
+	 * more widespread once kernel get deployed over the world.
+	 * Thus lets be opportunistic and use new inteface as a try.
 	 */
-	ret = restore_self_exe_late(args);
+	prctl_map = (struct prctl_mm_map) {
+		.start_code	= args->mm.mm_start_code,
+		.end_code	= args->mm.mm_end_code,
+		.start_data	= args->mm.mm_start_data,
+		.end_data	= args->mm.mm_end_data,
+		.start_stack	= args->mm.mm_start_stack,
+		.start_brk	= args->mm.mm_start_brk,
+		.brk		= args->mm.mm_brk,
+		.arg_start	= args->mm.mm_arg_start,
+		.arg_end	= args->mm.mm_arg_end,
+		.env_start	= args->mm.mm_env_start,
+		.env_end	= args->mm.mm_env_end,
+		.auxv		= (void *)args->mm_saved_auxv,
+		.auxv_size	= args->mm_saved_auxv_size,
+		.exe_fd		= args->fd_exe_link,
+	};
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP, (long)&prctl_map, sizeof(prctl_map), 0);
+	if (ret == -EINVAL) {
+		ret  = sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)args->mm.mm_start_data, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)args->mm.mm_end_data, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,	(long)args->mm.mm_start_stack, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)args->mm.mm_start_brk, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,		(long)args->mm.mm_brk, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)args->mm.mm_arg_start, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)args->mm.mm_arg_end, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)args->mm.mm_env_start, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)args->mm.mm_env_end, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm_saved_auxv, args->mm_saved_auxv_size);
+
+		/*
+		 * Because of requirements applied from kernel side
+		 * we need to restore /proc/pid/exe symlink late,
+		 * after old existing VMAs are superseded with
+		 * new ones from image file.
+		 */
+		ret |= restore_self_exe_late(args);
+	} else
+		sys_close(args->fd_exe_link);
+
 	if (ret)
 		goto core_restore_end;
 
