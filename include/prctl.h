@@ -1,6 +1,8 @@
 #ifndef __CR_PRCTL_H__
 #define __CR_PRCTL_H__
 
+#include "asm/int.h"
+
 #ifndef PR_SET_NAME
 # define PR_SET_NAME		15
 #endif
@@ -42,6 +44,28 @@
 # define PR_SET_MM_AUXV			12
 # define PR_SET_MM_EXE_FILE		13
 #endif
+
+#ifndef PR_SET_MM_MAP
+# define PR_SET_MM_MAP			14
+# define PR_SET_MM_MAP_SIZE		15
+#endif
+
+struct prctl_mm_map {
+	u64	start_code;
+	u64	end_code;
+	u64	start_data;
+	u64	end_data;
+	u64	start_brk;
+	u64	brk;
+	u64	start_stack;
+	u64	arg_start;
+	u64	arg_end;
+	u64	env_start;
+	u64	env_end;
+	u64	*auxv;
+	u32	auxv_size;
+	u32	exe_fd;
+};
 
 #ifndef PR_GET_TID_ADDRESS
 # define PR_GET_TID_ADDRESS	40
