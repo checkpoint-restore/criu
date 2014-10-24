@@ -169,6 +169,7 @@ static int check_prctl(void)
 {
 	unsigned long user_auxv = 0;
 	unsigned int *tid_addr;
+	unsigned int size = 0;
 	int ret;
 
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
@@ -177,25 +178,32 @@ static int check_prctl(void)
 		return -1;
 	}
 
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
+	/*
+	 * Either new or old interface must be supported in the kernel.
+	 */
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret) {
-		if (ret == -EPERM)
-			pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
-		else
-			pr_msg("prctl: PR_SET_MM is not supported\n");
-		return -1;
-	}
 
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
-	if (ret != -EBADF) {
-		pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported (%d)\n", ret);
-		return -1;
-	}
+		ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
+		if (ret) {
+			if (ret == -EPERM)
+				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
+			else
+				pr_msg("prctl: PR_SET_MM is not supported\n");
+			return -1;
+		}
 
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
-	if (ret) {
-		pr_msg("prctl: PR_SET_MM_AUXV is not supported\n");
-		return -1;
+		ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
+		if (ret != -EBADF) {
+			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported (%d)\n", ret);
+			return -1;
+		}
+
+		ret = sys_prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
+		if (ret) {
+			pr_msg("prctl: PR_SET_MM_AUXV is not supported\n");
+			return -1;
+		}
 	}
 
 	return 0;
