@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	pid_t extpid;
 	int pfd[2];
 	int sk_bsize;
-	int ret, snd_size, rcv_size = 0, rcv_size_orig;
+	int ret, snd, snd_size, rcv_size = 0, rcv_buf_size;
 
 #ifdef ZDTM_TCP_LOCAL
 	test_init(argc, argv);
@@ -149,26 +149,35 @@ int main(int argc, char **argv)
 
 		write_safe(ctl_fd, &snd_size, sizeof(snd_size));
 
-		read_safe(ctl_fd, &rcv_size_orig, sizeof(rcv_size_orig));
+		read_safe(ctl_fd, &rcv_buf_size, sizeof(rcv_buf_size));
 
 		while (1) {
+			/* heart beat */
 			read_safe(ctl_fd, &ret, sizeof(ret));
 			if (ret < 0)
 				break;
+			rcv_buf_size += ret;
 
-			ret = fill_sock_buf(fd);
-			if (ret < 0)
+			snd = fill_sock_buf(fd);
+			if (snd < 0)
 				return -1;
-			snd_size += ret;
+			snd_size += snd;
 
-			ret = clean_sk_buf(fd, rcv_size_orig / 2);
-			if (ret <= 0)
-				return 1;
+			if (rcv_buf_size / 2) {
+				ret = clean_sk_buf(fd, rcv_buf_size / 2);
+				if (ret <= 0)
+					return 1;
+			} else
+				ret = 0;
 
+			rcv_buf_size -= ret;
 			rcv_size += ret;
 
-			write_safe(ctl_fd, &ret, sizeof(ret));
+			write_safe(ctl_fd, &snd, sizeof(snd));
 		}
+
+		read_safe(ctl_fd, &ret, sizeof(ret));
+		rcv_buf_size += ret;
 
 		write_safe(ctl_fd, &snd_size, sizeof(snd_size));
 
@@ -185,6 +194,10 @@ int main(int argc, char **argv)
 		size = clean_sk_buf(fd, 0);
 		if (size < 0)
 			return 1;
+
+		if (size != rcv_buf_size) {
+			fail("the received buffer contains only %d bytes (%d)\n", size, rcv_buf_size);
+		}
 
 		rcv_size += size;
 
@@ -240,30 +253,40 @@ int main(int argc, char **argv)
 	if (snd_size <= 0)
 		return 1;
 
-	read_safe(ctl_fd, &rcv_size_orig, sizeof(rcv_size_orig));
+	read_safe(ctl_fd, &rcv_buf_size, sizeof(rcv_buf_size));
 
 	write_safe(ctl_fd, &snd_size, sizeof(snd_size));
 
 	test_daemon();
+
+	snd = 0;
 	while (test_go()) {
-		ret = clean_sk_buf(fd, rcv_size_orig / 2);
-		if (ret <= 0)
-			return 1;
+		/* heart beat */
+		if (rcv_buf_size / 2) {
+			ret = clean_sk_buf(fd, rcv_buf_size / 2);
+			if (ret <= 0)
+				return 1;
+		} else
+			ret = 0;
 
 		rcv_size += ret;
+		rcv_buf_size -= ret;
 
-		write_safe(ctl_fd, &ret, sizeof(ret));
+		write_safe(ctl_fd, &snd, sizeof(snd));
 		read_safe(ctl_fd, &ret, sizeof(ret));
 
-		ret = fill_sock_buf(fd);
-		if (ret < 0)
+		rcv_buf_size += ret;
+
+		snd = fill_sock_buf(fd);
+		if (snd < 0)
 			return -1;
-		snd_size += ret;
+		snd_size += snd;
 	}
 
 	ret = -1;
 	write_safe(ctl_fd, &ret, sizeof(ret));
-	read_safe(ctl_fd, &rcv_size_orig, sizeof(rcv_size_orig));
+	write_safe(ctl_fd, &snd, sizeof(ret));
+	read_safe(ctl_fd, &snd, sizeof(snd));
 
 	if (shutdown(ctl_fd, SHUT_WR) == -1) {
 		err("shutdown");
@@ -275,10 +298,14 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	rcv_size += clean_sk_buf(fd, 0);
+	ret = clean_sk_buf(fd, 0);
+	if (ret != rcv_buf_size) {
+		fail("the received buffer contains only %d bytes (%d)\n", ret, rcv_buf_size);
+	}
+	rcv_size += ret;
 
-	if (rcv_size_orig != rcv_size) {
-		fail("The child sent %d bytes, but the parent received %d bytes\n", rcv_size_orig, rcv_size);
+	if (snd != rcv_size) {
+		fail("The child sent %d bytes, but the parent received %d bytes\n", rcv_buf_size, rcv_size);
 		return 1;
 	}
 
