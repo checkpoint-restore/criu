@@ -11,7 +11,7 @@
 #include "cr-service.h"
 #include "action-scripts.h"
 
-static char *action_names[] = {
+static const char *action_names[ACT_MAX] = {
 	[ ACT_POST_DUMP ]	= "post-dump",
 	[ ACT_POST_RESTORE ]	= "post-restore",
 	[ ACT_NET_LOCK ]	= "network-lock",
@@ -24,7 +24,7 @@ int run_scripts(enum script_actions act)
 	struct script *script;
 	int ret = 0;
 	char image_dir[PATH_MAX];
-	char *action = action_names[act];
+	const char *action = action_names[act];
 
 	pr_debug("Running %s scripts\n", action);
 
@@ -42,7 +42,7 @@ int run_scripts(enum script_actions act)
 	list_for_each_entry(script, &opts.scripts, node) {
 		if (script->path == SCRIPT_RPC_NOTIFY) {
 			pr_debug("\tRPC\n");
-			ret |= send_criu_rpc_script(act, action, script->arg);
+			ret |= send_criu_rpc_script(act, (char *)action, script->arg);
 		} else {
 			pr_debug("\t[%s]\n", script->path);
 			ret |= system(script->path);
