@@ -324,7 +324,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 	while (1) {
 		int num;
-		char file_path[6];
+		char file_path[32];
 		bool eof;
 		char *str;
 
@@ -385,8 +385,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 		if (!vma_area)
 			goto err;
 
-		memset(file_path, 0, 6);
-		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %5s",
+		memzero(file_path, sizeof(file_path));
+		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %31s",
 			     &start, &end, &r, &w, &x, &s, &pgoff,
 			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, file_path);
 		if (num < 10) {
@@ -420,9 +420,10 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 		if (vma_area->e->status != 0) {
 			continue;
-		} else if (strstr(str, "[vsyscall]") || strstr(str, "[vectors]")) {
+		} else if (!strcmp(file_path, "[vsyscall]") ||
+			   !strcmp(file_path, "[vectors]")) {
 			vma_area->e->status |= VMA_AREA_VSYSCALL;
-		} else if (strstr(str, "[vdso]")) {
+		} else if (!strcmp(file_path, "[vdso]")) {
 #ifdef CONFIG_VDSO
 			vma_area->e->status |= VMA_AREA_REGULAR;
 			if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
@@ -431,7 +432,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			pr_warn_once("Found vDSO area without support\n");
 			goto err;
 #endif
-		} else if (strstr(str, "[vvar]")) {
+		} else if (!strcmp(file_path, "[vvar]")) {
 #ifdef CONFIG_VDSO
 			vma_area->e->status |= VMA_AREA_REGULAR;
 			if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
@@ -440,7 +441,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 			pr_warn_once("Found VVAR area without support\n");
 			goto err;
 #endif
-		} else if (strstr(str, "[heap]")) {
+		} else if (!strcmp(file_path, "[heap]")) {
 			vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 		} else {
 			vma_area->e->status = VMA_AREA_REGULAR;
@@ -504,7 +505,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 				vma_area->e->status |= VMA_ANON_SHARED;
 				vma_area->e->shmid = st_buf->st_ino;
 
-				if (!strcmp(file_path, "/SYSV")) {
+				if (!strncmp(file_path, "/SYSV", 5)) {
 					pr_info("path: %s\n", file_path);
 					vma_area->e->status |= VMA_AREA_SYSVIPC;
 				}
