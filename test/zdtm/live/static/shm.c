@@ -107,6 +107,9 @@ static int test_fn(int argc, char **argv)
 	int fail_count = 0;
 	int ret = -1;
 
+	void *mem;
+	uint32_t crc = INIT_CRC;
+
 	key = ftok(argv[0], 822155666);
 	if (key == -1) {
 		err("Can't make key");
@@ -116,6 +119,12 @@ static int test_fn(int argc, char **argv)
 	shm = prepare_shm(key, shmem_size);
 	if (shm == -1) {
 		err("Can't prepare shm (1)");
+		goto out;
+	}
+
+	mem = shmat(shm, NULL, 0);
+	if (mem == (void *)-1) {
+		err("Can't shmat");
 		goto out;
 	}
 
@@ -134,6 +143,16 @@ static int test_fn(int argc, char **argv)
 		fail("KEY check failed\n");
 		fail_count++;
 		goto out_shm;
+	}
+
+	if (datachk(mem, shmem_size, &crc)) {
+		fail("shmem data is corrupted");
+		return -1;
+	}
+
+	if (shmdt(mem) < 0) {
+		err("Can't detach shm");
+		return -1;
 	}
 
 	ret = shmctl(shm, IPC_RMID, NULL);
