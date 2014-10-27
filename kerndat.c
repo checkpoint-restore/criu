@@ -251,8 +251,6 @@ int kerndat_init(void)
 		ret = init_zero_page_pfn();
 	if (!ret)
 		ret = get_last_cap();
-	if (!ret)
-		ret = kerndat_has_memfd_create();
 
 	return ret;
 }
@@ -270,6 +268,8 @@ int kerndat_init_rst(void)
 	ret = tcp_read_sysctl_limits();
 	if (!ret)
 		ret = get_last_cap();
+	if (!ret)
+		ret = kerndat_has_memfd_create();
 
 	return ret;
 }
