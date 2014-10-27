@@ -1086,8 +1086,16 @@ static inline int fork_with_pid(struct pstree_item *item)
 		if (netns_pre_create())
 			goto err_unlock;
 
+	/*
+	 * Some kernel modules, such as netwrok packet generator
+	 * run kernel thread upon net-namespace creattion taking
+	 * the @pid we've been requeting via LAST_PID_PATH interface
+	 * so that we can't restore a take with pid needed.
+	 *
+	 * Here is an idea -- unhare net namespace in callee instead.
+	 */
 	ret = clone(restore_task_with_children, ca.stack_ptr,
-			ca.clone_flags | SIGCHLD, &ca);
+		    (ca.clone_flags & ~CLONE_NEWNET) | SIGCHLD, &ca);
 
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
@@ -1410,6 +1418,14 @@ static int restore_task_with_children(void *_arg)
 	ret = log_init_by_pid();
 	if (ret < 0)
 		goto err;
+
+	if (ca->clone_flags & CLONE_NEWNET) {
+		ret = unshare(CLONE_NEWNET);
+		if (ret) {
+			pr_perror("Can't unshare net-namespace");
+			goto err;
+		}
+	}
 
 	/* Restore root task */
 	if (current->parent == NULL) {
