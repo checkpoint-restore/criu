@@ -115,6 +115,7 @@ TST_NOFILE	=				\
 		dumpable01			\
 		dumpable02			\
 		remap_dead_pid			\
+		fd				\
 #		jobctl00			\
 
 TST_FILE	=				\
