@@ -66,8 +66,7 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 	int nsfd;
 	int ret = -1;
 
-	snprintf(buf, sizeof(buf), "/proc/%d/ns/%s", pid, nd->str);
-	nsfd = open(buf, O_RDONLY);
+	nsfd = open_proc(pid, "ns/%s", nd->str);
 	if (nsfd < 0) {
 		pr_perror("Can't open ipcns file");
 		goto err_ns;
