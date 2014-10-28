@@ -115,7 +115,7 @@ void bclose(struct bfd *f)
 			 * flag, failing further bfdopen-s and
 			 * checking one at the end would work.
 			 */
-			pr_err("Error flushing image\n");
+			pr_perror("Error flushing image");
 		buf_put(&f->b);
 	}
 	close(f->fd);
