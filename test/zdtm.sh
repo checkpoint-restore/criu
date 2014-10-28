@@ -451,17 +451,29 @@ stop_test()
 
 save_fds()
 {
-	test -n "$PIDNS" && return 0
-	ls -l /proc/$1/fd | sed 's/\(-> \(pipe\|socket\)\):.*/\1/' | sed -e 's/\/.nfs[0-9a-zA-Z]*/.nfs-silly-rename/' | awk '{ print $9,$10,$11; }' > $2
+	test -z "$PIDNS" && return 0
+	echo -n > $2 # Busybox doesn't have truncate
+	for p in `ls /proc/$1/root/proc/ | grep "^[0-9]*$"`; do
+		ls -l /proc/$1/root/proc/$p/fd |
+			sed 's/\(-> \(pipe\|socket\)\):.*/\1/' |
+			sed -e 's/\/.nfs[0-9a-zA-Z]*/.nfs-silly-rename/' |
+			sed 's/net:\[[0-9].*\]/net/' |
+			awk '{ print $9,$10,$11; }' | sort >> $2
+	done
 }
 
 save_maps()
 {
-	cat /proc/$1/maps | python maps.py > $2
+	test -z "$PIDNS" && return 0
+	echo -n > $2 # Busybox doesn't have truncate
+	for p in `ls /proc/$1/root/proc/ | grep "^[0-9]*$"`; do
+		cat /proc/$1/root/proc/$p/maps | python maps.py >> $2
+	done
 }
 
 diff_maps()
 {
+	test -z "$PIDNS" && return 0
 	if ! diff -up $1 $2; then
 		echo ERROR: Sets of mappings differ:
 		echo $1
@@ -472,7 +484,7 @@ diff_maps()
 
 diff_fds()
 {
-	test -n "$PIDNS" && return 0
+	test -z "$PIDNS" && return 0
 	if ! diff -up $1 $2; then
 		echo ERROR: Sets of descriptors differ:
 		echo $1
@@ -652,12 +664,9 @@ EOF
 			cat $ddump/restore.log* | grep Error
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
-			for i in `seq 5`; do
-				save_fds $PID  $ddump/restore.fd
-				diff_fds $ddump/dump.fd $ddump/restore.fd && break
-				sleep 0.2
-			done
-			[ $i -eq 5 ] && return 2
+
+			save_fds $PID  $ddump/restore.fd
+			diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
 
 			save_maps $PID $ddump/restore.maps
 			expr $tname : "static" > /dev/null && {

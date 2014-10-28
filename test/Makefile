@@ -61,5 +61,5 @@ mount_cgroups: .FORCE
 
 $(TST): zdtm_ct mount_cgroups .FORCE
 	./zdtm.sh --ct ${ZDTM_ARGS} $(@) &> $(subst /,_,$@).log; \
-	{ ret=$$?; flock Makefile cat $(subst /,_,$@).log; exit $$ret; }
+	{ ret=$$?; fname=$(subst /,_,$@).log; flock Makefile cat $$fname; unlink $$fname; exit $$ret; }
 .PHONY: zdtm_ns
