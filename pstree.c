@@ -415,6 +415,7 @@ static int read_pstree_image(void)
 		for (i = 0; i < e->n_threads; i++) {
 			pi->threads[i].real = -1;
 			pi->threads[i].virt = e->threads[i];
+			max_pid = max((int)e->threads[i], max_pid);
 		}
 
 		task_entries->nr_threads += e->n_threads;
