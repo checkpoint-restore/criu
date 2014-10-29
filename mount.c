@@ -2146,7 +2146,7 @@ static int collect_mntns(struct ns_id *ns, void *oarg)
 	return 0;
 }
 
-int collect_mnt_namespaces(void)
+int collect_mnt_namespaces(bool for_dump)
 {
 	int need_to_validate = 0, ret;
 
@@ -2154,7 +2154,7 @@ int collect_mnt_namespaces(void)
 	if (ret)
 		goto err;
 
-	if (need_to_validate) {
+	if (for_dump && need_to_validate) {
 		if (collect_shared(mntinfo))
 			goto err;
 		if (validate_mounts(mntinfo, true))

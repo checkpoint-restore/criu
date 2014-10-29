@@ -573,7 +573,7 @@ int collect_namespaces(bool for_dump)
 {
 	int ret;
 
-	ret = collect_mnt_namespaces();
+	ret = collect_mnt_namespaces(for_dump);
 	if (ret < 0)
 		return ret;
 
