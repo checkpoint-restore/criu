@@ -1554,6 +1554,11 @@ int parse_file_locks(void)
 			continue;
 		}
 
+		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_ltype,
+			fl->fl_owner, fl->maj, fl->min, fl->i_no,
+			fl->start, fl->end);
+
 		if (is_blocked) {
 			/*
 			 * Here the task is in the pstree.
@@ -1568,11 +1573,6 @@ int parse_file_locks(void)
 			xfree(fl);
 			goto err;
 		}
-
-		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_kind, fl->fl_ltype,
-			fl->fl_owner, fl->maj, fl->min, fl->i_no,
-			fl->start, fl->end);
 
 		list_add_tail(&fl->list, &file_lock_list);
 	}
