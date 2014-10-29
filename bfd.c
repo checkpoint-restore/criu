@@ -86,13 +86,14 @@ static void buf_put(struct xbuf *xb)
 	xb->data = NULL;
 }
 
-int bfdopen(struct bfd *f)
+int bfdopen(struct bfd *f, int mode)
 {
 	if (buf_get(&f->b)) {
 		close(f->fd);
 		return -1;
 	}
 
+	f->mode = mode;
 	return 0;
 }
 
@@ -107,13 +108,7 @@ int bfd_flush_images(void)
 void bclose(struct bfd *f)
 {
 	if (bfd_buffered(f)) {
-		/*
-		 * FIXME -- when we bread from images we don't
-		 * need to flush. This call doesn't fail simply
-		 * becase we read _all_ data from them and the
-		 * b->sz would be 0 by the time we close them.
-		 */
-		if (bflush(f) < 0) {
+		if ((f->mode != O_RDONLY) && bflush(f) < 0) {
 			/*
 			 * This is to propagate error up. It's
 			 * hardly possible by returning and

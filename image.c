@@ -235,7 +235,7 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	img->_x.fd = ret;
 	if (oflags & O_NOBUF)
 		bfd_setraw(&img->_x);
-	else if (bfdopen(&img->_x))
+	else if (bfdopen(&img->_x, flags))
 		goto err;
 
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)

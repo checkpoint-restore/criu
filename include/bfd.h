@@ -13,6 +13,7 @@ struct xbuf {
 
 struct bfd {
 	int fd;
+	int mode;
 	struct xbuf b;
 };
 
@@ -26,7 +27,7 @@ static inline void bfd_setraw(struct bfd *b)
 	b->b.mem = NULL;
 }
 
-int bfdopen(struct bfd *f);
+int bfdopen(struct bfd *f, int mode);
 void bclose(struct bfd *f);
 char *breadline(struct bfd *f);
 int bwrite(struct bfd *f, const void *buf, int sz);

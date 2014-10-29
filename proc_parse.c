@@ -313,7 +313,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	if (f.fd < 0)
 		goto err_n;
 
-	if (bfdopen(&f))
+	if (bfdopen(&f, O_RDONLY))
 		goto err_n;
 
 	if (use_map_files) {
@@ -1158,7 +1158,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		return -1;
 	}
 
-	if (bfdopen(&f))
+	if (bfdopen(&f, O_RDONLY))
 		return -1;
 
 	while (1) {
@@ -1613,7 +1613,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		return -1;
 	}
 
-	if (bfdopen(&f))
+	if (bfdopen(&f, O_RDONLY))
 		return -1;
 
 	while (1) {
