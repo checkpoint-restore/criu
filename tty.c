@@ -486,7 +486,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
 	struct reg_file_info *fake = NULL;
-	int slave = -1, ret = -1;
+	int slave = -1, ret = -1, index;
 
 	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
@@ -496,12 +496,14 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 		if (!fake)
 			goto err;
 		slave = open_pty_reg(&fake->d, O_RDONLY);
+		index = info->tie->pty->index;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(&fake->d));
 			goto err;
 		}
 	} else if (info->type == TTY_TYPE_CONSOLE) {
 		slave = open_pty_reg(info->reg_d, O_RDONLY);
+		index = -1;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(info->reg_d));
 			goto err;
@@ -510,8 +512,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 		BUG();
 
 	pr_info("Restore session %d by %d tty (index %d)\n",
-		 info->tie->sid, (int)getpid(),
-		 info->tie->pty->index);
+		 info->tie->sid, (int)getpid(), index);
 
 	ret = tty_set_sid(slave);
 	if (!ret)
