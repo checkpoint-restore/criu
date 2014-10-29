@@ -1766,6 +1766,9 @@ err:
 	if (disconnect_from_page_server())
 		ret = -1;
 
+	if (bfd_flush_images())
+		ret = -1;
+
 	if (ret)
 		pr_err("Pre-dumping FAILED.\n");
 	else {
@@ -1890,6 +1893,9 @@ err:
 		ret = -1;
 
 	close_cr_imgset(&glob_imgset);
+
+	if (bfd_flush_images())
+		ret = -1;
 
 	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
 

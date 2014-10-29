@@ -33,4 +33,5 @@ int bwrite(struct bfd *f, const void *buf, int sz);
 struct iovec;
 int bwritev(struct bfd *f, const struct iovec *iov, int cnt);
 int bread(struct bfd *f, void *buf, int sz);
+int bfd_flush_images(void);
 #endif

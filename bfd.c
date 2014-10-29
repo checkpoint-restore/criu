@@ -97,6 +97,12 @@ int bfdopen(struct bfd *f)
 }
 
 static int bflush(struct bfd *bfd);
+static bool flush_failed = false;
+
+int bfd_flush_images(void)
+{
+	return flush_failed ? -1 : 0;
+}
 
 void bclose(struct bfd *f)
 {
@@ -107,15 +113,18 @@ void bclose(struct bfd *f)
 		 * becase we read _all_ data from them and the
 		 * b->sz would be 0 by the time we close them.
 		 */
-		if (bflush(f) < 0)
+		if (bflush(f) < 0) {
 			/*
-			 * FIXME -- propagate error up. It's
+			 * This is to propagate error up. It's
 			 * hardly possible by returning and
 			 * checking it, but setting a static
 			 * flag, failing further bfdopen-s and
 			 * checking one at the end would work.
 			 */
+			flush_failed = true;
 			pr_perror("Error flushing image");
+		}
+
 		buf_put(&f->b);
 	}
 	close(f->fd);
