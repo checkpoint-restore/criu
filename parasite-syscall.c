@@ -762,6 +762,16 @@ int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
 
 	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(pc->groups[0]));
 	ce->groups = pc->groups;
+
+	ce->uid   = pc->uids[0];
+	ce->gid   = pc->gids[0];
+	ce->euid  = pc->uids[1];
+	ce->egid  = pc->gids[1];
+	ce->suid  = pc->uids[2];
+	ce->sgid  = pc->gids[2];
+	ce->fsuid = pc->uids[3];
+	ce->fsgid = pc->gids[3];
+
 	return 0;
 }
 

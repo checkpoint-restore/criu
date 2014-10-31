@@ -169,10 +169,8 @@ struct parasite_dump_misc {
  * and still fit the struct in one page
  */
 #define PARASITE_MAX_GROUPS							\
-	(PAGE_SIZE								\
-	 - sizeof(unsigned int)			/* cap_last_cap */		\
-	 - 4 * CR_CAP_SIZE * sizeof(u32)	/* cap_{inh,prm,eff,bnd} */ 	\
-	 - 2 * sizeof(unsigned int)		/* secbits, ngroups*/		\
+	(PAGE_SIZE -								\
+	 offsetof(struct parasite_dump_creds, groups)				\
 	) / sizeof(unsigned int)		/* groups */
 
 struct parasite_dump_creds {
@@ -183,9 +181,24 @@ struct parasite_dump_creds {
 	u32			cap_eff[CR_CAP_SIZE];
 	u32			cap_bnd[CR_CAP_SIZE];
 
+	int			uids[4];
+	int			gids[4];
 	unsigned int		secbits;
 	unsigned int		ngroups;
-	unsigned int		groups[PARASITE_MAX_GROUPS];
+	/*
+	 * FIXME -- this structure is passed to parasite code
+	 * through parasite args area so in parasite_dump_creds()
+	 * call we check for size of this data fits the size of
+	 * the area. Unfortunatelly, we _actually_ use more bytes
+	 * than the sizeof() -- we put PARASITE_MAX_GROUPS int-s
+	 * in there, so the size check is not correct.
+	 *
+	 * However, all this works simply because we make sure
+	 * the PARASITE_MAX_GROUPS is so, that the total amount
+	 * of memory in use doesn't exceed the PAGE_SIZE and the
+	 * args area is at least one page (PARASITE_ARG_SIZE_MIN).
+	 */
+	unsigned int		groups[0];
 };
 
 static inline void copy_sas(ThreadSasEntry *dst, const stack_t *src)

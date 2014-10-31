@@ -29,5 +29,6 @@ struct proc_status_creds;
 extern bool may_dump(struct proc_status_creds *);
 struct _CredsEntry;
 extern bool may_restore(struct _CredsEntry *);
+extern bool cr_user_is_root(void);
 
 #endif /* __CR_CRTOOLS_H__ */

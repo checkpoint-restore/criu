@@ -501,19 +501,9 @@ err:
 }
 
 static int dump_task_creds(struct parasite_ctl *ctl,
-			   const struct cr_imgset *fds,
-			   struct proc_status_creds *cr)
+			   const struct cr_imgset *fds)
 {
 	CredsEntry ce = CREDS_ENTRY__INIT;
-
-	ce.uid   = cr->uids[0];
-	ce.gid   = cr->gids[0];
-	ce.euid  = cr->uids[1];
-	ce.egid  = cr->gids[1];
-	ce.suid  = cr->uids[2];
-	ce.sgid  = cr->gids[2];
-	ce.fsuid = cr->uids[3];
-	ce.fsgid = cr->gids[3];
 
 	pr_info("\n");
 	pr_info("Dumping creds for %d)\n", ctl->pid.real);
@@ -1475,7 +1465,6 @@ static int dump_one_task(struct pstree_item *item)
 	struct cr_imgset *cr_imgset = NULL;
 	struct parasite_drain_fd *dfds = NULL;
 	struct proc_posix_timers_stat proc_args;
-	struct proc_status_creds cr;
 
 	INIT_LIST_HEAD(&vmas.h);
 	vmas.nr = 0;
@@ -1495,13 +1484,17 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err;
 
-	ret = parse_pid_status(pid, &cr);
-	if (ret)
-		goto err;
+	if (!cr_user_is_root()) {
+		struct proc_status_creds cr;
 
-	if (!may_dump(&cr)) {
-		pr_err("Check uid (pid: %d) failed\n", pid);
-		goto err;
+		ret = parse_pid_status(pid, &cr);
+		if (ret)
+			goto err;
+
+		if (!may_dump(&cr)) {
+			pr_err("Check uid (pid: %d) failed\n", pid);
+			goto err;
+		}
 	}
 
 	ret = collect_mappings(pid, &vmas);
@@ -1626,7 +1619,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_creds(parasite_ctl, cr_imgset, &cr);
+	ret = dump_task_creds(parasite_ctl, cr_imgset);
 	if (ret) {
 		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
 		goto err;

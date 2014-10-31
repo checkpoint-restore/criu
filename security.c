@@ -150,6 +150,11 @@ static bool check_caps(u32 *inh, u32 *eff, u32 *prm)
 	return true;
 }
 
+bool cr_user_is_root()
+{
+	return cr_uid == 0 && cr_gid == 0;
+}
+
 bool may_dump(struct proc_status_creds *creds)
 {
 	return check_uids(creds->uids[0], creds->uids[1], creds->uids[2]) &&

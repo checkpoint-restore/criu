@@ -236,6 +236,22 @@ static int dump_creds(struct parasite_dump_creds *args)
 		return -1;
 	}
 
+	ret = sys_getresuid(&args->uids[0], &args->uids[1], &args->uids[2]);
+	if (ret) {
+		pr_err("Unable to get uids: %d\n", ret);
+		return -1;
+	}
+
+	args->uids[3] = sys_setfsuid(-1L);
+
+	ret = sys_getresgid(&args->gids[0], &args->gids[1], &args->gids[2]);
+	if (ret) {
+		pr_err("Unable to get uids: %d\n", ret);
+		return -1;
+	}
+
+	args->gids[3] = sys_setfsgid(-1L);
+
 	return 0;
 
 grps_err:
