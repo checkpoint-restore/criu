@@ -366,9 +366,10 @@ static void free_cgroup_prop(struct cgroup_prop *prop)
 
 static void free_all_cgroup_props(struct cgroup_dir *ncd)
 {
-	struct cgroup_prop *prop;
+	struct cgroup_prop *prop, *t;
 
-	list_for_each_entry(prop, &ncd->properties, list) {
+	list_for_each_entry_safe(prop, t, &ncd->properties, list) {
+		list_del(&prop->list);
 		free_cgroup_prop(prop);
 	}
 
