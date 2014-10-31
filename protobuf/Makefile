@@ -62,6 +62,7 @@ proto-obj-y	+= siginfo.o
 proto-obj-y	+= rpc.o
 proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
+proto-obj-y	+= userns.o
 
 proto		:= $(proto-obj-y:.o=)
 proto-c		:= $(proto-obj-y:.o=.pb-c.c)
