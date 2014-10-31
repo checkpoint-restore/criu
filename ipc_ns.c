@@ -492,6 +492,7 @@ void ipc_sem_handler(struct cr_img *img, void *obj)
 		return;
 	}
 	pr_msg_ipc_sem_array(e->nsems, values);
+	xfree(values);
 }
 
 static void ipc_msg_data_handler(struct cr_img *img, void *obj)
