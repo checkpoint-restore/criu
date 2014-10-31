@@ -100,14 +100,6 @@ static int prepare_mntns()
 		}
 		close(dfd);
 
-	mkdir("/dev", 0777);
-	mknod("/dev/null", 0777 | S_IFCHR, makedev(1, 3));
-	chmod("/dev/null", 0777);
-	mkdir("/dev/net", 0777);
-	mknod("/dev/net/tun", 0777 | S_IFCHR, makedev(10, 200));
-	chmod("/dev/net/tun", 0777);
-	mknod("/dev/rtc", 0777 | S_IFCHR, makedev(254, 0));
-	chmod("/dev/rtc", 0777);
 	return 0;
 }
 
@@ -299,6 +291,46 @@ int ns_init(int argc, char **argv)
 	exit(1);
 }
 
+static int construct_root()
+{
+	char *root;
+	int dfd;
+
+	root = getenv("ZDTM_ROOT");
+	if (!root) {
+		fprintf(stderr, "ZDTM_ROOT isn't set\n");
+		return -1;
+	}
+
+	dfd = open(".", O_RDONLY);
+	if (dfd == -1) {
+		fprintf(stderr, "open(.) failed: %m\n");
+		return -1;
+	}
+	if (chdir(root)) {
+		fprintf(stderr, "chdir(%s): %m\n", root);
+		return -1;
+	}
+
+	mkdir("dev", 0777);
+	chmod("dev", 0777);
+	mknod("dev/null", 0777 | S_IFCHR, makedev(1, 3));
+	chmod("dev/null", 0777);
+	mkdir("dev/net", 0777);
+	mknod("dev/net/tun", 0777 | S_IFCHR, makedev(10, 200));
+	chmod("dev/net/tun", 0777);
+	mknod("dev/rtc", 0777 | S_IFCHR, makedev(254, 0));
+	chmod("dev/rtc", 0777);
+
+	if (fchdir(dfd)) {
+		fprintf(stderr, "fchdir() failed: %m\n");
+		return -1;
+	}
+	close(dfd);
+
+	return 0;
+}
+
 void ns_create(int argc, char **argv)
 {
 	pid_t pid;
@@ -314,6 +346,10 @@ void ns_create(int argc, char **argv)
 		fprintf(stderr, "Pipe() failed %m\n");
 		exit(1);
 	}
+
+	if (construct_root())
+		exit(1);
+
 	pid = clone(ns_exec, args.stack_ptr,
 			CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
 			CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD, &args);
