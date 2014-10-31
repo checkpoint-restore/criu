@@ -553,7 +553,7 @@ done:
 		goto err;
 
 	if (restore_socket_opts(sk, ie->opts))
-		return -1;
+		goto err;
 
 	return sk;
 
