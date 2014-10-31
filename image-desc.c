@@ -88,6 +88,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(CGROUP,	"cgroup"),
 	FD_ENTRY(TIMERFD,	"timerfd"),
 	FD_ENTRY(CPUINFO,	"cpuinfo"),
+	FD_ENTRY(USERNS,	"userns-%d"),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",

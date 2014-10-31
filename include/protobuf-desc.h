@@ -53,6 +53,7 @@ enum {
 	PB_CGROUP,
 	PB_TIMERFD,
 	PB_CPUINFO,
+	PB_USERNS,
 
 	/* PB_AUTOGEN_STOP */
 

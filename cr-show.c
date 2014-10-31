@@ -323,6 +323,7 @@ static struct show_image_info show_infos[] = {
 	SHOW_PLAINS(EXT_FILE),
 	SHOW_PLAIN(IRMAP_CACHE),
 	SHOW_PLAIN(CPUINFO),
+	SHOW_PLAIN(USERNS),
 
 	{ FILE_LOCKS_MAGIC,	PB_FILE_LOCK,		false,	NULL, "3:%u", },
 	{ TCP_STREAM_MAGIC,	PB_TCP_STREAM,		true,	show_tcp_stream, "1:%u 2:%u 3:%u 4:%u 12:%u", },

@@ -75,6 +75,7 @@
 #define CGROUP_MAGIC		0x59383330 /* Tikhvin */
 #define TIMERFD_MAGIC		0x50493712 /* Korocha */
 #define CPUINFO_MAGIC		0x61404013 /* Nyandoma */
+#define USERNS_MAGIC		0x55474906 /* Kazan */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
