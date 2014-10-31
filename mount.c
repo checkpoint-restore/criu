@@ -397,6 +397,26 @@ static int validate_shared(struct mount_info *m)
 	return 0;
 }
 
+/*
+ * Find the mount_info from which the respective bind-mount
+ * can be created. It can be either an FS-root mount, or the
+ * root of the tree (the latter only if its root path is the
+ * sub-path of the bind mount's root).
+ */
+
+static struct mount_info *find_fsroot_mount_for(struct mount_info *bm)
+{
+	struct mount_info *sm;
+
+	list_for_each_entry(sm, &bm->mnt_bind, mnt_bind)
+		if (fsroot_mounted(sm) ||
+				(sm->parent == NULL &&
+				 strstartswith(bm->root, sm->root)))
+			return sm;
+
+	return NULL;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -427,14 +447,8 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				return -1;
 			}
 		} else {
-			list_for_each_entry(t, &m->mnt_bind, mnt_bind) {
-				if (fsroot_mounted(t) ||
-						(t->parent == NULL &&
-						 strstartswith(m->root, t->root)))
-					break;
-			}
-
-			if (&t->mnt_bind == &m->mnt_bind) {
+			t = find_fsroot_mount_for(m);
+			if (!t) {
 				int ret;
 
 				if (for_dump) {
