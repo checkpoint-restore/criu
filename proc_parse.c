@@ -1619,30 +1619,31 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	while (1) {
 		char pbuf[17]; /* 16 + eol */
 
+		if (!(s = breadline(&f)))
+			goto out;
+
 		timer = xzalloc(sizeof(struct proc_posix_timer));
 		if (timer == NULL)
 			goto err;
 
-		if (!(s = breadline(&f)))
-			goto out;
 		if (sscanf(s, "ID: %ld",
 					&timer->spt.it_id) != 1)
-			goto err;
+			goto errf;
 		if (!(s = breadline(&f)))
-			goto err;
+			goto errf;
 		if (sscanf(s, "signal: %d/%16s",
 					&timer->spt.si_signo, pbuf) != 2)
-			goto err;
+			goto errf;
 		if (!(s = breadline(&f)))
-			goto err;
+			goto errf;
 		if (sscanf(s, "notify: %6[a-z]/%3[a-z].%d\n",
 					sigpid, tidpid, &pid_t) != 3)
-			goto err;
+			goto errf;
 		if (!(s = breadline(&f)))
-			goto err;
+			goto errf;
 		if (sscanf(s, "ClockID: %d\n",
 				&timer->spt.clock_id) != 1)
-			goto err;
+			goto errf;
 
 		timer->spt.sival_ptr = NULL;
 		if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
