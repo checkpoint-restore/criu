@@ -745,7 +745,20 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		return -1;
 	}
 
-	while (done < 6 && fgets(str, sizeof(str), f)) {
+	while (done < 8 && fgets(str, sizeof(str), f)) {
+		if (!strncmp(str, "State:", 6)) {
+			cr->state = str[7];
+			done++;
+		}
+
+		if (!strncmp(str, "PPid:", 5)) {
+			if (sscanf(str, "PPid:\t%d", &cr->ppid) != 1) {
+				pr_err("Unable to parse: %s", str);
+				goto err_parse;
+			}
+			done++;
+		}
+
 		if (!strncmp(str, "Uid:", 4)) {
 			if (ids_parse(str + 5, cr->uids))
 				goto err_parse;
@@ -789,7 +802,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		}
 	}
 
-	if (done != 6) {
+	if (done != 8) {
 err_parse:
 		pr_err("Error parsing proc status file\n");
 		fclose(f);

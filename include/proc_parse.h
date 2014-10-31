@@ -90,6 +90,9 @@ struct proc_status_creds {
 	u32 cap_prm[PROC_CAP_SIZE];
 	u32 cap_eff[PROC_CAP_SIZE];
 	u32 cap_bnd[PROC_CAP_SIZE];
+
+	char			state;
+	int			ppid;
 };
 
 struct mount_info;
