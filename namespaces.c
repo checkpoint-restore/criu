@@ -836,6 +836,17 @@ static int prepare_userns_creds()
 		return -1;
 	}
 
+	/*
+	 * This flag is dropped after entering userns, but is
+	 * required to access files in /proc, so put one here
+	 * temoprarily. It will be set to proper value at the
+	 * very end.
+	 */
+	if (prctl(PR_SET_DUMPABLE, 1, 0)) {
+		pr_perror("Unable to set PR_SET_DUMPABLE");
+		exit(1);
+	}
+
 	return 0;
 }
 
