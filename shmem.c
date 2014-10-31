@@ -129,7 +129,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 
 	ret = open_page_read(si->shmid, &pr, opts.auto_dedup ? O_RDWR : O_RSTR, true);
 	if (ret)
-		goto err_unmap;
+		return -1;
 
 	fd_pg = img_raw_fd(pr.pi);
 	while (1) {
@@ -168,9 +168,6 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 
 	pr.close(&pr);
 	return ret;
-err_unmap:
-	munmap(addr,  si->size);
-	return -1;
 }
 
 int get_shmem_fd(int pid, VmaEntry *vi)
