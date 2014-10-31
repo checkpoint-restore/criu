@@ -19,8 +19,9 @@
 extern int pivot_root(const char *new_root, const char *put_old);
 static int prepare_mntns()
 {
-	int dfd;
+	int dfd, ret;
 	char *root;
+	char path[PATH_MAX];
 
 	root = getenv("ZDTM_ROOT");
 	if (!root) {
@@ -28,7 +29,28 @@ static int prepare_mntns()
 		return -1;
 	}
 
-		dfd = open(".", O_RDONLY);
+		/*
+		 * In a new userns all mounts are locked to protect what is
+		 * under them. So we need to create another mount for the
+		 * new root.
+		 */
+		if (mount("/", "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+			fprintf(stderr, "Can't bind-mount root: %m\n");
+			return -1;
+		}
+
+		if (mount(root, root, NULL, MS_BIND | MS_REC, NULL)) {
+			fprintf(stderr, "Can't bind-mount root: %m\n");
+			return -1;
+		}
+
+		/* Move current working directory to the new root */
+		ret = readlink("/proc/self/cwd", path, sizeof(path) - 1);
+		if (ret < 0)
+			return -1;
+		path[ret] = 0;
+
+		dfd = open(path, O_RDONLY | O_DIRECTORY);
 		if (dfd == -1) {
 			fprintf(stderr, "open(.) failed: %m\n");
 			return -1;
@@ -43,27 +65,31 @@ static int prepare_mntns()
 			return -1;
 		}
 
-		if (mount("none", "/", "none", MS_REC|MS_PRIVATE, NULL)) {
-			fprintf(stderr, "Can't remount root with MS_PRIVATE: %m\n");
-			return -1;
-		}
-
 		if (pivot_root(".", "./old")) {
 			fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
 			return -1;
 		}
-		if (umount2("./old", MNT_DETACH)) {
-			fprintf(stderr, "umount(./old) failed: %m\n");
-			return -1;
-		}
+
 		if (mkdir("proc", 0777) && errno != EEXIST) {
 			fprintf(stderr, "mkdir(proc) failed: %m\n");
 			return -1;
 		}
+
+		/*
+		 * proc and sysfs can be mounted in an unprivileged namespace,
+		 * if they are already mounted when the user namespace is created.
+		 * So ./old must be umounted after mounting /proc and /sys.
+		 */
 		if (mount("proc", "/proc", "proc", MS_MGC_VAL, NULL)) {
 			fprintf(stderr, "mount(/proc) failed: %m\n");
 			return -1;
 		}
+
+		if (umount2("./old", MNT_DETACH)) {
+			fprintf(stderr, "umount(./old) failed: %m\n");
+			return -1;
+		}
+
 		if (mkdir("/dev", 0755) && errno != EEXIST) {
 			fprintf(stderr, "mkdir(/dev) failed: %m\n");
 			return -1;
