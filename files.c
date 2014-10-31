@@ -749,18 +749,21 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	ret = bind(sock, &saddr, sun_len);
 	if (ret < 0) {
 		pr_perror("Can't bind unix socket %s", saddr.sun_path + 1);
-		return -1;
+		goto err;
 	}
 
 	ret = reopen_fd_as(fle->fe->fd, sock);
 	if (ret < 0)
-		return -1;
+		goto err;
 
 	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
 	futex_set_and_wake(&fle->real_pid, getpid());
 	want_recv_stage();
 
 	return 0;
+err:
+	close(sock);
+	return -1;
 }
 
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
