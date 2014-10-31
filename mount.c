@@ -376,7 +376,7 @@ static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *ct, *t;
 
-	if (!list_empty(&m->parent->mnt_share))
+	if (list_empty(&m->parent->mnt_share))
 		return 0;
 
 	t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
