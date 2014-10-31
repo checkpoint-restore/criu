@@ -209,8 +209,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		ue->file_perms = perms;
 
 		perms->mode	= sk->mode;
-		perms->uid	= sk->uid;
-		perms->gid	= sk->gid;
+		perms->uid	= userns_uid(sk->uid);
+		perms->gid	= userns_gid(sk->gid);
 	}
 
 	sk_encode_shutdown(ue, sk->shutdown);

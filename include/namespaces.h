@@ -63,4 +63,7 @@ extern struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *n
 extern int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
 extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
+extern int userns_uid(int uid);
+extern int userns_gid(int gid);
+
 #endif /* __CR_NS_H__ */

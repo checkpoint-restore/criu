@@ -477,6 +477,21 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
+static int userns_id(int id)
+{
+	return id;
+}
+
+int userns_uid(int uid)
+{
+	return userns_id(uid);
+}
+
+int userns_gid(int gid)
+{
+	return userns_id(gid);
+}
+
 static int dump_user_ns(pid_t pid, int ns_id)
 {
 	pr_err("User namesapces are not supported yet\n");

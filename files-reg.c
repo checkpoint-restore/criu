@@ -324,8 +324,8 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	if (img < 0)
 		return -1;
 
-	gfe.uid = st->st_uid;
-	gfe.gid = st->st_gid;
+	gfe.uid = userns_uid(st->st_uid);
+	gfe.gid = userns_gid(st->st_gid);
 	gfe.mode = st->st_mode;
 
 	gfe.has_dev = gfe.has_ino = true;
