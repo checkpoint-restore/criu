@@ -1993,17 +1993,17 @@ int prepare_mnt_ns(void)
 	if (!mis)
 		goto out;
 
-	if (chdir(opts.root ? : "/")) {
-		pr_perror("chdir(%s) failed", opts.root ? : "/");
-		return -1;
-	}
-
 	/*
 	 * The new mount namespace is filled with the mountpoint
 	 * clones from the original one. We have to umount them
 	 * prior to recreating new ones.
 	 */
 	if (!opts.root) {
+		if (chdir("/")) {
+			pr_perror("chdir(\"/\") failed");
+			return -1;
+		}
+
 		if (clean_mnt_ns(ns.mnt.mntinfo_tree))
 			return -1;
 	} else {
@@ -2028,6 +2028,18 @@ int prepare_mnt_ns(void)
 
 		if (mount("none", mi->parent->mountpoint + 1, "none", MS_SLAVE, NULL)) {
 			pr_perror("Can't remount the parent of the new root with MS_SLAVE");
+			return -1;
+		}
+
+		/* Unprivileged users can't reveal what is under a mount */
+		if (root_ns_mask & CLONE_NEWUSER) {
+			if (mount(opts.root, opts.root, NULL, MS_BIND | MS_REC, NULL)) {
+				pr_perror("Can't remount bind-mount %s into itself\n", opts.root);
+				return -1;
+			}
+		}
+		if (chdir(opts.root)) {
+			pr_perror("chdir(%s) failed", opts.root ? : "/");
 			return -1;
 		}
 	}
