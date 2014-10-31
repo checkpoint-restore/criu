@@ -211,8 +211,9 @@ int parse_aufs_branches(struct mount_info *mi)
 	 * Now read branch pathnames from the branch files.
 	 */
 	n = strlen(path);
-	fp = NULL;
 	for (br_num = 0; br_num <= br_max; br_num++) {
+		fp = NULL;
+
 		ret = snprintf(&path[n], sizeof path - n, "/br%d", br_num);
 		if (ret >= sizeof path - n) {
 			pr_err("Buffer overrun creating path for branch %d\n", br_num);
