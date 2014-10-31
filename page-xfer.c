@@ -4,6 +4,8 @@
 #include <linux/falloc.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "cr_options.h"
 #include "servicefd.h"
@@ -309,14 +311,17 @@ no_server:
 			pr_perror("Can't run in the background");
 			goto out;
 		}
-		if (ret > 0) /* parent task, daemon started */
-			return ret;
-	}
+		if (ret > 0) { /* parent task, daemon started */
+			if (opts.pidfile) {
+				if (write_pidfile(ret) == -1) {
+					pr_perror("Can't write pidfile");
+					kill(ret, SIGKILL);
+					waitpid(ret, NULL, 0);
+					return -1;
+				}
+			}
 
-	if (opts.pidfile) {
-		if (write_pidfile(getpid()) == -1) {
-			pr_perror("Can't write pidfile");
-			return -1;
+			return ret;
 		}
 	}
 

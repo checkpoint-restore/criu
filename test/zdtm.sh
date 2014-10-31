@@ -573,8 +573,8 @@ EOF
 		[ -n "$DUMP_ONLY" ] && dump_only=1
 
 		if [ $PAGE_SERVER -eq 1 ]; then
-			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT $ps_args --daemon || return 1
-			ps_pid=`lsof -s TCP:LISTEN -i :$PS_PORT -t`
+			$CRIU page-server -D $ddump -o page_server.log -v4 --port $PS_PORT $ps_args --daemon --pidfile $ddump/page-server.pid || return 1
+			ps_pid=`cat $ddump/page-server.pid`
 			ps -p "$ps_pid" -o cmd h | grep -q page-server || {
 				echo "Unable to determing PID of page-server"
 				return 1
