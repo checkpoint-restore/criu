@@ -573,7 +573,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 	if (fd < 0)
 		goto err;
 
-	ret = read(fd, loc_buf, sizeof(loc_buf));
+	ret = read(fd, loc_buf, sizeof(loc_buf) - 1);
 	close(fd);
 
 	if (ret >= 0) {
@@ -756,7 +756,7 @@ static int parse_children(pid_t pid, pid_t **_c, int *_n)
 		if (fd < 0)
 			goto err;
 
-		len = read(fd, loc_buf, sizeof(loc_buf));
+		len = read(fd, loc_buf, sizeof(loc_buf) - 1);
 		close(fd);
 		if (len < 0)
 			goto err;
