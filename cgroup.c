@@ -305,31 +305,26 @@ static inline char *strip(char *str)
 static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 {
 	char buf[1024];
-	FILE *f;
-	char *endptr;
+	int fd, ret;
 
-	f = fopen(fullpath, "r");
-	if (!f) {
+	fd = open(fullpath, O_RDONLY);
+	if (fd == -1) {
 		property->value = NULL;
 		pr_perror("Failed opening %s", fullpath);
 		return -1;
 	}
 
-	memset(buf, 0, sizeof(buf));
-	if (fread(buf, sizeof(buf), 1, f) != 1) {
-		if (!feof(f)) {
-			pr_err("Failed scanning %s\n", fullpath);
-			fclose(f);
-			return -1;
-		}
-	}
-
-	if (fclose(f) != 0) {
-		pr_err("Failed closing %s\n", fullpath);
+	ret = read(fd, buf, sizeof(buf) - 1);
+	if (ret == -1) {
+		pr_err("Failed scanning %s\n", fullpath);
+		close(fd);
 		return -1;
 	}
+	close(fd);
 
-	if (strtoll(buf, &endptr, 10) == LLONG_MAX)
+	buf[ret] = 0;
+
+	if (strtoll(buf, NULL, 10) == LLONG_MAX)
 		strcpy(buf, "-1");
 
 	property->value = xstrdup(strip(buf));
