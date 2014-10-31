@@ -1484,19 +1484,6 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err;
 
-	if (!cr_user_is_root()) {
-		struct proc_status_creds cr;
-
-		ret = parse_pid_status(pid, &cr);
-		if (ret)
-			goto err;
-
-		if (!may_dump(&cr)) {
-			pr_err("Check uid (pid: %d) failed\n", pid);
-			goto err;
-		}
-	}
-
 	ret = collect_mappings(pid, &vmas);
 	if (ret) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
