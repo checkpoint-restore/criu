@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <grp.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/mount.h>
@@ -13,6 +14,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sched.h>
+#include <sys/socket.h>
 
 #include "ns.h"
 
@@ -183,6 +185,7 @@ write_out:
 int ns_exec(void *_arg)
 {
 	struct ns_exec_args *args = (struct ns_exec_args *) _arg;
+	char buf[4096];
 	int ret;
 
 	close(args->status_pipe[0]);
@@ -197,6 +200,13 @@ int ns_exec(void *_arg)
 		return -1;
 	}
 	close(args->status_pipe[1]);
+	read(STATUS_FD, buf, sizeof(buf));
+	shutdown(STATUS_FD, SHUT_RD);
+	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
+		fprintf(stderr, "set*id failed: %m\n");
+		return -1;
+	}
+
 	if (prepare_mntns())
 		return -1;
 
@@ -357,33 +367,75 @@ static int construct_root()
 	return 0;
 }
 
+#define UID_MAP "0 100000 100000\n100000 200000 50000"
+#define GID_MAP "0 400000 50000\n50000 500000 100000"
 void ns_create(int argc, char **argv)
 {
 	pid_t pid;
+	char pname[PATH_MAX];
 	int ret, status;
 	struct ns_exec_args args;
-	int fd;
+	int fd, flags;
+	char *val;
 
 	args.argc = argc;
 	args.argv = argv;
 
-	ret = pipe(args.status_pipe);
+	ret = socketpair(AF_UNIX, SOCK_SEQPACKET, 0, args.status_pipe);
 	if (ret) {
 		fprintf(stderr, "Pipe() failed %m\n");
 		exit(1);
 	}
 
+	val = getenv("ZDTM_USERNS");
+	if (val)
+		/*
+		 * CLONE_NEWIPC and CLONE_NEWUTS are excluded, because
+		 * their sysctl-s are protected by CAP_SYS_ADMIN
+		 */
+		flags = CLONE_NEWPID | CLONE_NEWNS  |
+			CLONE_NEWNET | CLONE_NEWUSER | SIGCHLD;
+	else
+		flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
+			CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
+
 	if (construct_root())
 		exit(1);
 
-	pid = clone(ns_exec, args.stack_ptr,
-			CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
-			CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD, &args);
+	pid = clone(ns_exec, args.stack_ptr, flags, &args);
 	if (pid < 0) {
 		fprintf(stderr, "clone() failed: %m\n");
 		exit(1);
 	}
+
 	close(args.status_pipe[1]);
+
+	if (val) {
+		snprintf(pname, sizeof(pname), "/proc/%d/uid_map", pid);
+		fd = open(pname, O_WRONLY);
+		if (fd < 0) {
+			fprintf(stderr, "open(%s): %m\n", pname);
+			exit(1);
+		}
+		if (write(fd, UID_MAP, sizeof(UID_MAP)) < 0) {
+			fprintf(stderr, "write(" UID_MAP "): %m\n");
+			exit(1);
+		}
+		close(fd);
+
+		snprintf(pname, sizeof(pname), "/proc/%d/gid_map", pid);
+		fd = open(pname, O_WRONLY);
+		if (fd < 0) {
+			fprintf(stderr, "open(%s): %m\n", pname);
+			exit(1);
+		}
+		if (write(fd, GID_MAP, sizeof(GID_MAP)) < 0) {
+			fprintf(stderr, "write(" GID_MAP "): %m\n");
+			exit(1);
+		}
+		close(fd);
+	}
+	shutdown(args.status_pipe[0], SHUT_WR);
 
 	status = 1;
 	ret = read(args.status_pipe[0], &status, sizeof(status));

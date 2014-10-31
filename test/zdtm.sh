@@ -412,6 +412,12 @@ start_test()
 		chmod a+w $tdir
 	fi
 
+	if [ -z "$USERNS" ]; then
+		unset ZDTM_USERNS
+	else
+		export ZDTM_USERNS=1
+	fi
+
 	if [ -z "$PIDNS" ]; then
 		TPID="$test.pid"
 		unset ZDTM_NEWNS
@@ -507,7 +513,10 @@ run_test()
 	fi
 
 	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
-	test=${ZP}/${test#ns/}
+	test=${test#ns/}
+	expr "$test" : 'user/' > /dev/null && USERNS=1 || USERNS=""
+	test=${test#user/}
+	test=${ZP}/${test}
 
 	shift
 	local gen_args=$*
