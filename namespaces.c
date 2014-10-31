@@ -598,11 +598,63 @@ int collect_user_namespaces(bool for_dump)
 	return walk_namespaces(&net_ns_desc, collect_user_ns, NULL);
 }
 
+static int check_user_ns(int pid)
+{
+	int status;
+	pid_t chld;
+
+	chld = fork();
+	if (chld == -1) {
+		pr_perror("Unable to fork a process\n");
+		return -1;
+	}
+
+	if (chld == 0) {
+		/*
+		 * Check that we are able to enter into other namespaces
+		 * from the target userns namespace. This signs that these
+		 * namespaces were created from the target userns.
+		 */
+
+		if (switch_ns(pid, &user_ns_desc, NULL))
+			exit(-1);
+
+		if ((root_ns_mask & CLONE_NEWNET) &&
+		    switch_ns(pid, &net_ns_desc, NULL))
+			exit(-1);
+		if ((root_ns_mask & CLONE_NEWUTS) &&
+		    switch_ns(pid, &uts_ns_desc, NULL))
+			exit(-1);
+		if ((root_ns_mask & CLONE_NEWIPC) &&
+		    switch_ns(pid, &ipc_ns_desc, NULL))
+			exit(-1);
+		if ((root_ns_mask & CLONE_NEWNS) &&
+		    switch_ns(pid, &mnt_ns_desc, NULL))
+			exit(-1);
+		exit(0);
+	}
+
+	if (waitpid(chld, &status, 0) != chld) {
+		pr_perror("Unable to wait the %d process", pid);
+		return -1;
+	}
+
+	if (status) {
+		pr_err("One or more namespaces doesn't belong to the target user namespace\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int dump_user_ns(pid_t pid, int ns_id)
 {
 	int ret, exit_code = -1;
 	UsernsEntry *e = &userns_entry;
 	struct cr_img *img;
+
+	if (check_user_ns(pid))
+		return -1;
 
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
