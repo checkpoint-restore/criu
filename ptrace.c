@@ -44,7 +44,7 @@ int unseize_task(pid_t pid, int orig_st, int st)
  * up with someone else.
  */
 
-int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
+int seize_task(pid_t pid, pid_t ppid)
 {
 	siginfo_t si;
 	int status;
@@ -81,11 +81,6 @@ int seize_task(pid_t pid, pid_t ppid, pid_t *pgid, pid_t *sid)
 	ret2 = parse_pid_stat_small(pid, &ps);
 	if (ret2 < 0)
 		return -1;
-
-	if (pgid)
-		*pgid = ps.pgid;
-	if (sid)
-		*sid = ps.sid;
 
 	if (ret < 0) {
 		if (ps.state != 'Z') {

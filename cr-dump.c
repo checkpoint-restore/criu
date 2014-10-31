@@ -817,7 +817,7 @@ static int get_children(struct pstree_item *item)
 			goto free;
 		}
 
-		ret = seize_task(pid, item->pid.real, &item->pgid, &item->sid);
+		ret = seize_task(pid, item->pid.real);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -916,7 +916,7 @@ static int seize_threads(struct pstree_item *item,
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid.real, pid);
 
-		ret = seize_task(pid, item_ppid(item), NULL, NULL);
+		ret = seize_task(pid, item_ppid(item));
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_threads() and seize(),
@@ -1078,7 +1078,7 @@ static int collect_pstree(pid_t pid)
 		return -1;
 
 	root_item->pid.real = pid;
-	ret = seize_task(pid, -1, &root_item->pgid, &root_item->sid);
+	ret = seize_task(pid, -1);
 	if (ret < 0)
 		goto err;
 	pr_info("Seized task %d, state %d\n", pid, ret);
