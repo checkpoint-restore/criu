@@ -200,6 +200,62 @@ else
 	export ZDTM_NOSUBNS=1
 fi
 
+BLACKLIST_FOR_USERNS="
+ns/static/maps01
+ns/static/mlock_setuid
+ns/static/sched_prio00
+ns/static/sched_policy00
+ns/static/sockets00
+ns/static/sockets01
+ns/static/sockets02
+ns/static/sock_opts00
+ns/static/sock_opts01
+ns/static/sockets_spair
+ns/static/sockets_dgram
+ns/static/socket_queues
+ns/static/deleted_unix_sock
+ns/static/sk-unix-unconn
+ns/static/socket_listen
+ns/static/socket_listen6
+ns/static/packet_sock
+ns/static/socket_udp
+ns/static/sock_filter
+ns/static/socket6_udp
+ns/static/socket_udplite
+ns/static/inotify00
+ns/static/inotify_irmap
+ns/static/fanotify00
+ns/static/unbound_sock
+ns/static/fifo-ghost
+ns/static/unlink_fifo
+ns/static/unlink_fifo_wronly
+ns/static/pty00
+ns/static/pty01
+ns/static/tty02
+ns/static/tty03
+ns/static/sk-netlink
+ns/static/dumpable02
+ns/static/deleted_dev
+ns/static/tempfs
+ns/static/clean_mntns
+ns/static/mntns_link_remap
+ns/static/mntns_link_ghost
+ns/static/console
+ns/static/rtc
+"
+
+# Add tests which can be executed in an user namespace
+test -f /proc/self/ns/user && {
+	blist=`mktemp /tmp/zdtm.black.XXXXXX`
+	echo "$BLACKLIST_FOR_USERNS" | sort > $blist
+
+
+	TEST_LIST="$TEST_LIST
+	`echo "$TEST_LIST" | grep "^ns/" | sort | \
+	diff --changed-group-format="%<" --unchanged-group-format="" - $blist | \
+	sed s#ns/#ns/user/#`"
+	unlink $blist
+}
 
 TEST_SUID_LIST="
 pid00
@@ -507,9 +563,15 @@ run_test()
 
 	[ -n "$EXCLUDE_PATTERN" ] && echo $test | grep "$EXCLUDE_PATTERN" && return 0
 
-	if [ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ] && echo $TEST_CR_KERNEL | grep -q ${test#ns/}; then
-		echo "Skip $test"
-		return 0
+	if [ -n "$MAINSTREAM_KERNEL" ] && [ $COMPILE_ONLY -eq 0 ]; then
+		if echo $TEST_CR_KERNEL | grep -q ${test#ns/}; then
+			echo "Skip $test"
+			return 0
+		fi
+		expr $test 'ns/user' > /dev/null && {
+			echo "Skip $test"
+			return 0
+		}
 	fi
 
 	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
