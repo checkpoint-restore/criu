@@ -307,12 +307,12 @@ int cr_page_server(bool daemon_mode, int cfd)
 no_server:
 	if (daemon_mode) {
 		ret = cr_daemon(1, 0, &ask, cfd);
-		close_safe(&sk);
 		if (ret == -1) {
 			pr_err("Can't run in the background\n");
 			goto out;
 		}
 		if (ret > 0) { /* parent task, daemon started */
+			close_safe(&sk);
 			if (opts.pidfile) {
 				if (write_pidfile(ret) == -1) {
 					pr_perror("Can't write pidfile");
