@@ -1536,11 +1536,27 @@ int parse_file_locks(void)
 			goto err;
 		}
 
+		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
+			fl->fl_id, fl->fl_kind, fl->fl_ltype,
+			fl->fl_owner, fl->maj, fl->min, fl->i_no,
+			fl->start, fl->end);
+
+
 		if (fl->fl_kind == FL_UNKNOWN) {
 			pr_err("Unknown file lock!\n");
 			ret = -1;
 			xfree(fl);
 			goto err;
+		}
+
+		if (is_blocked) {
+			/*
+			 * All target processes are stopped in this moment and
+			 * can't wait any locks.
+			 */
+			pr_debug("Skip blocked processes\n");
+			xfree(fl);
+			continue;
 		}
 
 		if ((fl->fl_kind == FL_POSIX) &&
@@ -1552,26 +1568,6 @@ int parse_file_locks(void)
 			 */
 			xfree(fl);
 			continue;
-		}
-
-		pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
-			fl->fl_id, fl->fl_kind, fl->fl_ltype,
-			fl->fl_owner, fl->maj, fl->min, fl->i_no,
-			fl->start, fl->end);
-
-		if (is_blocked) {
-			/*
-			 * Here the task is in the pstree.
-			 * If it is blocked on a flock, when we try to
-			 * ptrace-seize it, the kernel will unblock task
-			 * from flock and will stop it in another place.
-			 * So in dumping, a blocked file lock should never
-			 * be here.
-			 */
-			pr_perror("We have a blocked file lock!");
-			ret = -1;
-			xfree(fl);
-			goto err;
 		}
 
 		list_add_tail(&fl->list, &file_lock_list);
