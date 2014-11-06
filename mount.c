@@ -479,19 +479,11 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 		}
 
 		list_for_each_entry(t, &m->parent->children, siblings) {
-			int tlen, mlen;
-
 			if (m == t)
 				continue;
+			if (!issubpath(m->mountpoint, t->mountpoint))
+				continue;
 
-			tlen = strlen(t->mountpoint);
-			mlen = strlen(m->mountpoint);
-			if (mlen < tlen)
-				continue;
-			if (strncmp(t->mountpoint, m->mountpoint, tlen))
-				continue;
-			if (mlen > tlen && m->mountpoint[tlen] != '/')
-				continue;
 			pr_err("%d:%s is overmounted\n", m->mnt_id, m->mountpoint);
 			return -1;
 		}

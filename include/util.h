@@ -192,13 +192,17 @@ extern int read_fd_link(int lfd, char *buf, size_t size);
 int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
 
 /*
- * Check whether @str starts with @sub
+ * Check whether @str starts with @sub and report the
+ * next character of @str in @end
  */
-static inline bool strstartswith(const char *str, const char *sub)
+static inline bool strstartswith2(const char *str, const char *sub, char *end)
 {
 	while (1) {
-		if (*sub == '\0') /* end of sub -- match */
+		if (*sub == '\0') /* end of sub -- match */ {
+			if (end)
+				*end = *str;
 			return true;
+		}
 		if (*str == '\0') /* end of str, sub is NOT ended -- miss */
 			return false;
 		if (*str != *sub)
@@ -207,6 +211,24 @@ static inline bool strstartswith(const char *str, const char *sub)
 		str++;
 		sub++;
 	}
+}
+
+static inline bool strstartswith(const char *str, const char *sub)
+{
+	return strstartswith2(str, sub, NULL);
+}
+
+/*
+ * Checks whether the @path has @sub_path as a sub path, i.e.
+ * sub_path is the beginning of path and the last component
+ * match is full (next character terminates path component).
+ */
+
+static inline bool issubpath(const char *path, const char *sub_path)
+{
+	char end;
+	return strstartswith2(path, sub_path, &end) &&
+		(end == '/' || end == '\0');
 }
 
 /*
