@@ -2,6 +2,8 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <grp.h>
+
 #include "cr-show.h"
 #include "util.h"
 #include "imgset.h"
@@ -755,6 +757,58 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 	return 0;
 }
 
+static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
+{
+	char buf[PAGE_SIZE];
+	int off = 0, i;
+	int fd;
+
+	/*
+	 *  We can perform only a single write (that may contain multiple
+	 *  newline-delimited records) to a uid_map and a gid_map files.
+	 */
+	for (i = 0; i < n; i++)
+		off += snprintf(buf + off, sizeof(buf) - off,
+				"%d %d %d\n", extents[i]->first,
+					extents[i]->lower_first,
+					extents[i]->count);
+
+	fd = open_proc_rw(pid, "%s", id_map);
+	if (fd < 0)
+		return -1;
+	if (write(fd, buf, off) != off) {
+		pr_perror("Unable to write into %s\n", id_map);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
+	return 0;
+}
+
+int prepare_userns(struct pstree_item *item)
+{
+	struct cr_img *img;
+	UsernsEntry *e;
+	int ret;
+
+	img = open_image(CR_FD_USERNS, O_RSTR, item->ids->user_ns_id);
+	if (!img)
+		return -1;
+	ret = pb_read_one(img, &e, PB_USERNS);
+	close_image(img);
+	if (ret < 0)
+		return -1;
+
+	if (write_id_map(item->pid.real, e->uid_map, e->n_uid_map, "uid_map"))
+		return -1;
+
+	if (write_id_map(item->pid.real, e->gid_map, e->n_gid_map, "gid_map"))
+		return -1;
+
+	return 0;
+}
+
 int collect_namespaces(bool for_dump)
 {
 	int ret;
@@ -774,6 +828,17 @@ int collect_namespaces(bool for_dump)
 	return 0;
 }
 
+static int prepare_userns_creds()
+{
+	/* UID and GID must be set after restoring /proc/PID/{uid,gid}_maps */
+	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
+		pr_perror("Unable to initialize id-s");
+		return -1;
+	}
+
+	return 0;
+}
+
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
 	pid_t pid = item->pid.virt;
@@ -781,6 +846,9 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			item->pid.virt, clone_flags);
+
+	if ((clone_flags & CLONE_NEWUSER) && prepare_userns_creds())
+		return -1;
 
 	/*
 	 * On netns restore we launch an IP tool, thus we
