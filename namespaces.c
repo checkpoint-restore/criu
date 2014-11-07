@@ -722,10 +722,6 @@ static int do_dump_namespaces(struct ns_id *ns)
 				ns->id, ns->pid);
 		ret = dump_net_ns(ns->id);
 		break;
-	case CLONE_NEWUSER:
-		/* userns is dumped before dumping tasks */
-		ret = 0;
-		break;
 	default:
 		pr_err("Unknown namespace flag %x", ns->nd->cflag);
 		break;
@@ -770,6 +766,8 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 			case CLONE_NEWPID:
 			/* Dumped explicitly with dump_mnt_namespaces() */
 			case CLONE_NEWNS:
+			/* Userns is dumped before dumping tasks */
+			case CLONE_NEWUSER:
 				continue;
 		}
 
