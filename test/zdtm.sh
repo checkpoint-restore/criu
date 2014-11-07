@@ -471,6 +471,9 @@ start_test()
 	if [ -z "$USERNS" ]; then
 		unset ZDTM_USERNS
 	else
+		# we need to be able to create a temporary directory in a test
+		# root for restoring mount namespaces
+		chmod go+wxr .
 		export ZDTM_USERNS=1
 	fi
 
