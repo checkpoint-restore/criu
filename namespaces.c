@@ -148,12 +148,11 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
-	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
-		if (nsid->id == id) {
-			if (pid_rst_prio(pid, nsid->pid))
-				nsid->pid = pid;
-			return 0;
-		}
+	nsid = lookup_ns_by_id(id, nd);
+	if (nsid) {
+		if (pid_rst_prio(pid, nsid->pid))
+			nsid->pid = pid;
+		return 0;
 	}
 
 	nsid = rst_new_ns_id(id, pid, nd);
