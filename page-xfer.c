@@ -40,6 +40,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
 #define PS_IOV_ADD	1
 #define PS_IOV_HOLE	2
 #define PS_IOV_OPEN	3
+#define PS_IOV_OPEN2	4
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -79,7 +80,8 @@ static void page_server_close(void)
 		cxfer.loc_xfer.close(&cxfer.loc_xfer);
 }
 
-static int page_server_open(struct page_server_iov *pi)
+static void close_page_xfer(struct page_xfer *xfer);
+static int page_server_open(int sk, struct page_server_iov *pi)
 {
 	int type;
 	long id;
@@ -94,6 +96,17 @@ static int page_server_open(struct page_server_iov *pi)
 		return -1;
 
 	cxfer.dst_id = pi->dst_id;
+
+	if (sk >= 0) {
+		char has_parent = !!cxfer.loc_xfer.parent;
+
+		if (write(sk, &has_parent, 1) != 1) {
+			pr_perror("Unable to send reponse");
+			close_page_xfer(&cxfer.loc_xfer);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -101,7 +114,7 @@ static int prep_loc_xfer(struct page_server_iov *pi)
 {
 	if (cxfer.dst_id != pi->dst_id) {
 		pr_warn("Deprecated IO w/o open\n");
-		return page_server_open(pi);
+		return page_server_open(-1, pi);
 	} else
 		return 0;
 }
@@ -192,7 +205,10 @@ static int page_server_serve(int sk)
 
 		switch (pi.cmd) {
 		case PS_IOV_OPEN:
-			ret = page_server_open(&pi);
+			ret = page_server_open(-1, &pi);
+			break;
+		case PS_IOV_OPEN2:
+			ret = page_server_open(sk, &pi);
 			break;
 		case PS_IOV_ADD:
 			ret = page_server_add(sk, &pi);
@@ -482,6 +498,7 @@ static void close_server_xfer(struct page_xfer *xfer)
 static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	struct page_server_iov pi;
+	char has_parent;
 
 	xfer->sk = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
@@ -489,8 +506,9 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->write_hole = write_hole_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
+	xfer->parent = NULL;
 
-	pi.cmd = PS_IOV_OPEN;
+	pi.cmd = PS_IOV_OPEN2;
 	pi.dst_id = xfer->dst_id;
 	pi.vaddr = 0;
 	pi.nr_pages = 0;
@@ -499,6 +517,14 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 		pr_perror("Can't write to page server");
 		return -1;
 	}
+
+	if (read(xfer->sk, &has_parent, 1) != 1) {
+		pr_perror("The page server doesn't answer");
+		return -1;
+	}
+
+	if (has_parent)
+		xfer->parent = (void *) 1; /* This is required for generate_iovs() */
 
 	return 0;
 }
