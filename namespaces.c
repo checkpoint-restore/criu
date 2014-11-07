@@ -120,19 +120,25 @@ struct ns_id *ns_ids = NULL;
 static unsigned int ns_next_id = 1;
 unsigned long root_ns_mask = 0;
 
+static void nsid_add(struct ns_id *ns, struct ns_desc *nd, unsigned int id, pid_t pid)
+{
+	ns->nd = nd;
+	ns->id = id;
+	ns->pid = pid;
+	ns->next = ns_ids;
+	ns_ids = ns;
+
+	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->pid);
+}
+
 struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
 	nsid = shmalloc(sizeof(*nsid));
 	if (nsid) {
-		nsid->nd = nd;
-		nsid->id = id;
-		nsid->pid = pid;
+		nsid_add(nsid, nd, id, pid);
 		futex_set(&nsid->ns_created, 0);
-
-		nsid->next = ns_ids;
-		ns_ids = nsid;
 	}
 
 	return nsid;
@@ -154,7 +160,6 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 	if (nsid == NULL)
 		return -1;
 
-	pr_info("Add namespace %d pid %d\n", nsid->id, nsid->pid);
 	return 0;
 }
 
@@ -245,14 +250,8 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	if (!nsid)
 		return 0;
 
-	nsid->id = ns_next_id++;
 	nsid->kid = kid;
-	nsid->nd = nd;
-	nsid->next = ns_ids;
-	nsid->pid = pid;
-	ns_ids = nsid;
-
-	pr_info("Collected %u.%s namespace\n", nsid->id, nd->str);
+	nsid_add(nsid, nd, ns_next_id++, pid);
 
 found:
 	if (ns_ret)
