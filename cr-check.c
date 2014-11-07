@@ -183,6 +183,12 @@ static int check_prctl(void)
 	 */
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret) {
+		if (!opts.check_ms_kernel) {
+			pr_msg("prctl: PR_SET_MM_MAP is not supported, which "
+			       "is required for restoring user namespaces\n");
+			return -1;
+		} else
+			pr_warn("Skipping unssuported PR_SET_MM_MAP\n");
 
 		ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
 		if (ret) {
