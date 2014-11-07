@@ -15,6 +15,7 @@
 
 #include "protobuf.h"
 #include "protobuf/ns.pb-c.h"
+#include "protobuf/userns.pb-c.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -477,25 +478,171 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
-static int userns_id(int id)
+static UsernsEntry userns_entry = USERNS_ENTRY__INIT;
+
+static int userns_id(int id, UidGidExtent **map, int n)
 {
-	return id;
+	int i;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return id;
+
+	for (i = 0; i < n; i++) {
+		if (map[i]->lower_first <= id &&
+		    map[i]->lower_first + map[i]->count > id)
+			return map[i]->first + (id - map[i]->lower_first);
+	}
+
+	return -1;
 }
 
 int userns_uid(int uid)
 {
-	return userns_id(uid);
+	UsernsEntry *e = &userns_entry;
+	return userns_id(uid, e->uid_map, e->n_uid_map);
 }
 
 int userns_gid(int gid)
 {
-	return userns_id(gid);
+	UsernsEntry *e = &userns_entry;
+	return userns_id(gid, e->gid_map, e->n_gid_map);
 }
 
-static int dump_user_ns(pid_t pid, int ns_id)
+static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
 {
-	pr_err("User namesapces are not supported yet\n");
+	UidGidExtent *extents = NULL;
+	int len = 0, size = 0, ret, i;
+	FILE *f;
+
+	f = fopen_proc(pid, "%s", name);
+	if (f == NULL)
+		return -1;
+
+	ret = -1;
+	while (1) {
+		UidGidExtent *ext;
+
+		if (len == size) {
+			UidGidExtent *t;
+
+			size = size * 2 + 1;
+			t = xrealloc(extents, size * sizeof(UidGidExtent));
+			if (t == NULL)
+				break;
+			extents = t;
+		}
+
+		ext = &extents[len];
+
+		uid_gid_extent__init(ext);
+		ret = fscanf(f, "%d %d %d", &ext->first,
+				&ext->lower_first, &ext->count);
+		if (ret != 3) {
+			if (errno != 0) {
+				pr_perror("Unable to parse extents");
+				ret = -1;
+			} else
+				ret = 0;
+			break;
+		}
+		pr_info("id_map: %d %d %d\n", ext->first, ext->lower_first, ext->count);
+		len++;
+	}
+
+	fclose(f);
+
+	if (ret)
+		goto err;
+
+	if (len) {
+		*pb_exts = xmalloc(sizeof(UidGidExtent *) * len);
+		if (*pb_exts == NULL)
+			goto err;
+
+		for (i = 0; i < len; i++)
+			(*pb_exts)[i] = &extents[i];
+	} else {
+		xfree(extents);
+		*pb_exts = NULL;
+	}
+
+	return len;
+err:
+	xfree(extents);
 	return -1;
+}
+
+int collect_user_ns(struct ns_id *ns, void *oarg)
+{
+	/*
+	 * User namespace is dumped before files to get uid and gid
+	 * mappings, which are used for convirting local id-s to
+	 * userns id-s (userns_uid(), userns_gid())
+	 */
+	if (dump_user_ns(root_item->pid.real, root_item->ids->user_ns_id))
+		return -1;
+
+	return 0;
+}
+
+int collect_user_namespaces(bool for_dump)
+{
+	if (!for_dump)
+		return 0;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	return walk_namespaces(&net_ns_desc, collect_user_ns, NULL);
+}
+
+int dump_user_ns(pid_t pid, int ns_id)
+{
+	int ret, exit_code = -1;
+	UsernsEntry *e = &userns_entry;
+	struct cr_img *img;
+
+	ret = parse_id_map(pid, "uid_map", &e->uid_map);
+	if (ret < 0)
+		goto err;
+	e->n_uid_map = ret;
+
+	ret = parse_id_map(pid, "gid_map", &e->gid_map);
+	if (ret < 0)
+		goto err;
+	e->n_gid_map = ret;
+
+	img = open_image(CR_FD_USERNS, O_DUMP, ns_id);
+	if (!img)
+		goto err;
+	ret = pb_write_one(img, e, PB_USERNS);
+	close_image(img);
+	if (ret < 0)
+		goto err;
+
+	return 0;
+err:
+	if (e->uid_map) {
+		xfree(e->uid_map[0]);
+		xfree(e->uid_map);
+	}
+	if (e->gid_map) {
+		xfree(e->gid_map[0]);
+		xfree(e->gid_map);
+	}
+	return exit_code;
+}
+
+void free_userns_maps()
+{
+	if (userns_entry.n_uid_map > 0) {
+		xfree(userns_entry.uid_map[0]);
+		xfree(userns_entry.uid_map);
+	}
+	if (userns_entry.n_gid_map > 0) {
+		xfree(userns_entry.gid_map[0]);
+		xfree(userns_entry.gid_map);
+	}
 }
 
 static int do_dump_namespaces(struct ns_id *ns)
@@ -523,9 +670,8 @@ static int do_dump_namespaces(struct ns_id *ns)
 		ret = dump_net_ns(ns->id);
 		break;
 	case CLONE_NEWUSER:
-		pr_info("Dump USER namespace info %d via %d\n",
-				ns->id, ns->pid);
-		ret = dump_user_ns(ns->pid, ns->id);
+		/* userns is dumped before dumping tasks */
+		ret = 0;
 		break;
 	default:
 		pr_err("Unknown namespace flag %x", ns->nd->cflag);
@@ -618,6 +764,10 @@ int collect_namespaces(bool for_dump)
 		return ret;
 
 	ret = collect_net_namespaces(for_dump);
+	if (ret < 0)
+		return ret;
+
+	ret = collect_user_namespaces(for_dump);
 	if (ret < 0)
 		return ret;
 

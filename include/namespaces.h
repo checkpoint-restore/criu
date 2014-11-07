@@ -63,7 +63,11 @@ extern struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *n
 extern int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
 extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
+extern int collect_user_namespaces(bool for_dump);
+extern int prepare_userns(struct pstree_item *item);
 extern int userns_uid(int uid);
 extern int userns_gid(int gid);
+extern int dump_user_ns(pid_t pid, int ns_id);
+extern void free_userns_maps(void);
 
 #endif /* __CR_NS_H__ */

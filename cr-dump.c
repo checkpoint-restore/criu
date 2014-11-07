@@ -1930,6 +1930,7 @@ err:
 	free_file_locks();
 	free_link_remaps();
 	free_aufs_branches();
+	free_userns_maps();
 
 	close_service_fd(CR_PROC_FD_OFF);
 
