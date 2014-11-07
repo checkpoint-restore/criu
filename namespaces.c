@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <sys/prctl.h>
 #include <grp.h>
 
 #include "cr-show.h"
