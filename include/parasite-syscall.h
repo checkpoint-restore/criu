@@ -98,9 +98,8 @@ extern int parasite_cure_local(struct parasite_ctl *ctl);
 extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
-						   struct vm_area_list *vma_area_list,
-						   struct parasite_drain_fd *dfds,
-						   int timer_n);
+						   struct vm_area_list *vma_area_list);
+extern void parasite_ensure_args_size(unsigned long sz);
 extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
 					      struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);

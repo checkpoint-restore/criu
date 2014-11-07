@@ -1148,17 +1148,11 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
-static unsigned long parasite_args_size(struct vm_area_list *vmas, struct parasite_drain_fd *dfds, int timer_n)
+static unsigned long parasite_args_size = PARASITE_ARG_SIZE_MIN;
+void parasite_ensure_args_size(unsigned long sz)
 {
-	unsigned long size = PARASITE_ARG_SIZE_MIN;
-
-	if (dfds)
-		size = max(size, (unsigned long)drain_fds_size(dfds));
-	if (timer_n)
-		size = max(size, (unsigned long)posix_timers_dump_size(timer_n));
-	size = max(size, (unsigned long)dump_pages_args_size(vmas));
-
-	return round_up(size, PAGE_SIZE);
+	if (parasite_args_size < sz)
+		parasite_args_size = sz;
 }
 
 static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *item)
@@ -1186,8 +1180,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
-		struct vm_area_list *vma_area_list, struct parasite_drain_fd *dfds,
-		int timer_n)
+		struct vm_area_list *vma_area_list)
 {
 	int ret;
 	struct parasite_ctl *ctl;
@@ -1199,6 +1192,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (!ctl)
 		return NULL;
 
+	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
+
 	/*
 	 * Inject a parasite engine. Ie allocate memory inside alien
 	 * space and copy engine code there. Then re-map the engine
@@ -1206,7 +1201,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
-	ctl->args_size = parasite_args_size(vma_area_list, dfds, timer_n);
+	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
+	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
 	map_exchange_size = parasite_size + ctl->args_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)

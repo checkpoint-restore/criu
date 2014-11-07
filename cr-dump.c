@@ -1424,7 +1424,7 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 	}
 
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas, NULL, 0);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err_free;
@@ -1513,6 +1513,8 @@ static int dump_one_task(struct pstree_item *item)
 			pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
 			goto err;
 		}
+
+		parasite_ensure_args_size(drain_fds_size(dfds));
 	}
 
 	ret = parse_posix_timers(pid, &proc_args);
@@ -1521,13 +1523,15 @@ static int dump_one_task(struct pstree_item *item)
 		goto err;
 	}
 
+	parasite_ensure_args_size(posix_timers_dump_size(proc_args.timer_n));
+
 	ret = dump_task_signals(pid, item);
 	if (ret) {
 		pr_err("Dump %d signals failed %d\n", pid, ret);
 		goto err;
 	}
 
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas, dfds, proc_args.timer_n);
+	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
