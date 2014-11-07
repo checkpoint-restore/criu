@@ -555,54 +555,6 @@ err_bogus_mapfile:
 	goto err;
 }
 
-int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s)
-{
-	char *tok, *p;
-	int fd;
-	int n;
-
-	fd = open_proc(pid, "stat");
-	if (fd < 0)
-		return -1;
-
-	n = read(fd, buf, BUF_SIZE);
-	if (n < 1) {
-		pr_err("stat for %d is corrupted\n", pid);
-		close(fd);
-		return -1;
-	}
-	close(fd);
-
-	memset(s, 0, sizeof(*s));
-
-	tok = strchr(buf, ' ');
-	if (!tok)
-		goto err;
-	*tok++ = '\0';
-	if (*tok != '(')
-		goto err;
-
-	s->pid = atoi(buf);
-
-	p = strrchr(tok + 1, ')');
-	if (!p)
-		goto err;
-	*tok = '\0';
-	*p = '\0';
-
-	strncpy(s->comm, tok + 1, sizeof(s->comm));
-
-	n = sscanf(p + 1, " %c %d %d %d", &s->state, &s->ppid, &s->pgid, &s->sid);
-	if (n < 4)
-		goto err;
-
-	return 0;
-
-err:
-	pr_err("Parsing %d's stat failed (#fields do not match)\n", pid);
-	return -1;
-}
-
 int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 {
 	char *tok, *p;

@@ -16,15 +16,6 @@
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
 
-struct proc_pid_stat_small {
-	int			pid;
-	char			comm[PROC_TASK_COMM_LEN];
-	char			state;
-	int			ppid;
-	int			pgid;
-	int			sid;
-};
-
 struct proc_pid_stat {
 	int			pid;
 	char			comm[PROC_TASK_COMM_LEN];
@@ -164,7 +155,6 @@ struct vm_area_list;
 
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
-extern int parse_pid_stat_small(pid_t pid, struct proc_pid_stat_small *s);
 extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files);
 extern int parse_self_maps_lite(struct vm_area_list *vms);
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
