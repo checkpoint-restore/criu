@@ -1650,7 +1650,7 @@ static int rst_collect_local_mntns(void)
 	if (!mntinfo)
 		return -1;
 
-	futex_set(&nsid->created, 1);
+	futex_set(&nsid->ns_created, 1);
 	return 0;
 }
 
@@ -1820,7 +1820,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid)
 	if (nsid->pid != getpid()) {
 		int fd;
 
-		futex_wait_while_eq(&nsid->created, 0);
+		futex_wait_while_eq(&nsid->ns_created, 0);
 		fd = open_proc(nsid->pid, "ns/mnt");
 		if (fd < 0)
 			return -1;
@@ -1843,7 +1843,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid)
 	if (cr_pivot_root(path))
 		return -1;
 
-	futex_set_and_wake(&nsid->created, 1);
+	futex_set_and_wake(&nsid->ns_created, 1);
 
 	return 0;
 }

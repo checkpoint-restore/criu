@@ -15,7 +15,15 @@ struct ns_id {
 	pid_t pid;
 	struct ns_desc *nd;
 	struct ns_id *next;
-	futex_t created; /* boolean */
+
+	/*
+	 * For mount namespaces on restore -- indicates that
+	 * the namespace in question is created (all mounts
+	 * are mounted) and other tasks may do setns on it
+	 * and proceed.
+	 */
+	futex_t ns_created;
+
 	union {
 		struct {
 			struct mount_info *mntinfo_list;
