@@ -668,8 +668,10 @@ EOF
 
 		[ -n "$dump_only" ] && cpt_args="$cpt_args $POSTDUMP"
 
-		save_fds $PID  $ddump/dump.fd
-		save_maps $PID  $ddump/dump.maps
+		expr $tname : "static" > /dev/null && {
+			save_fds $PID  $ddump/dump.fd
+			save_maps $PID  $ddump/dump.maps
+		}
 		setsid $CRIU_CPT $dump_cmd -D $ddump -o dump.log -v4 -t $PID $gen_args $cpt_args
 		retcode=$?
 
@@ -701,11 +703,11 @@ EOF
 		fi
 
 		if [ -n "$dump_only" ]; then
-			save_fds $PID  $ddump/dump.fd.after
-			diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
-
-			save_maps $PID  $ddump/dump.maps.after
 			expr $tname : "static" > /dev/null && {
+				save_fds $PID  $ddump/dump.fd.after
+				diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
+
+				save_maps $PID  $ddump/dump.maps.after
 				diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
 			}
 
@@ -739,11 +741,10 @@ EOF
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 
-			save_fds $PID  $ddump/restore.fd
-			diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
-
-			save_maps $PID $ddump/restore.maps
 			expr $tname : "static" > /dev/null && {
+				save_fds $PID  $ddump/restore.fd
+				save_maps $PID $ddump/restore.maps
+				diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
 				diff_maps $ddump/dump.maps $ddump/restore.maps || return 2
 			}
 		fi
