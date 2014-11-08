@@ -99,6 +99,7 @@ static/unlink_fifo_wronly
 static/zombie00
 static/rlimits00
 transition/fork
+transition/fork2
 transition/thread-bomb
 static/pty00
 static/pty01
