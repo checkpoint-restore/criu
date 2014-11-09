@@ -197,10 +197,17 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
  */
 static inline bool strstartswith2(const char *str, const char *sub, char *end)
 {
+	const char *osub = sub;
+
 	while (1) {
 		if (*sub == '\0') /* end of sub -- match */ {
-			if (end)
-				*end = *str;
+			if (end) {
+				if (sub == osub + 1) /* pure root */
+					*end = '/';
+				else
+					*end = *str;
+			}
+
 			return true;
 		}
 		if (*str == '\0') /* end of str, sub is NOT ended -- miss */
@@ -222,6 +229,11 @@ static inline bool strstartswith(const char *str, const char *sub)
  * Checks whether the @path has @sub_path as a sub path, i.e.
  * sub_path is the beginning of path and the last component
  * match is full (next character terminates path component).
+ *
+ * Paths shouldn't contain excessive /-s, i.e. only one slash
+ * between path components and no slash at the end (except for
+ * the "/" path. This is pretty good assumption to what paths
+ * are used by criu.
  */
 
 static inline bool issubpath(const char *path, const char *sub_path)
