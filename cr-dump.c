@@ -800,7 +800,6 @@ static int get_children(struct pstree_item *item)
 {
 	pid_t *ch;
 	int ret, i, nr_children, nr_inprogress;
-	struct pstree_item *c;
 
 	ret = parse_children(item->pid.real, &ch, &nr_children);
 	if (ret < 0)
@@ -808,6 +807,7 @@ static int get_children(struct pstree_item *item)
 
 	nr_inprogress = 0;
 	for (i = 0; i < nr_children; i++) {
+		struct pstree_item *c;
 		pid_t pid = ch[i];
 
 		/* Is it already frozen? */
@@ -838,7 +838,7 @@ static int get_children(struct pstree_item *item)
 			continue;
 		}
 
-		c->pid.real = ch[i];
+		c->pid.real = pid;
 		c->parent = item;
 		c->state = ret;
 		list_add_tail(&c->sibling, &item->children);
