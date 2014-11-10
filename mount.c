@@ -1468,27 +1468,10 @@ static int do_new_mount(struct mount_info *mi)
 {
 	char *src;
 	struct fstype *tp = mi->fstype;
-	struct mount_info *t;
 
 	src = resolve_source(mi);
 	if (!src)
 		return -1;
-
-	/*
-	 * Wait while all parent are not mounted
-	 *
-	 * FIXME a child is shared only between parents,
-	 * who was present in a moment of birth
-	 */
-	if (mi->parent->flags & MS_SHARED) {
-		list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
-			if (!t->mounted) {
-				pr_debug("\t\tPostpone %s due to %s\n",
-						mi->mountpoint, t->mountpoint);
-				return 1;
-			}
-		}
-	}
 
 	if (mount(src, mi->mountpoint, tp->name,
 			mi->flags & (~MS_SHARED), mi->options) < 0) {
@@ -1585,22 +1568,34 @@ static bool can_mount_now(struct mount_info *mi)
 	/* The root mount */
 	if (!mi->parent)
 		return true;
-
-	/*
-	 * Private root mounts can be mounted at any time
-	 */
-	if (!mi->master_id && fsroot_mounted(mi))
+	if (mi->is_ns_root)
 		return true;
 
-	/*
-	 * Other mounts can be mounted only if they have
-	 * the master mount (see propagate_mount) or if we
-	 * expect a plugin/ext-mount-map to help us.
-	 */
-	if (mi->bind || mi->need_plugin || mi->external)
-		return true;
+	if (mi->master_id && mi->bind == NULL)
+		return false;
 
-	return false;
+	if (!fsroot_mounted(mi) && (mi->bind == NULL && !mi->need_plugin && !mi->external))
+		return false;
+
+	if (mi->parent->shared_id) {
+		struct mount_info *p = mi->parent, *n;
+
+		if (mi->parent->shared_id == mi->shared_id) {
+			int rlen = strlen(mi->root);
+			list_for_each_entry(n, &p->mnt_share, mnt_share)
+				if (strlen(n->root) < rlen && !n->mounted)
+					return false;
+		} else {
+			list_for_each_entry(n, &p->mnt_share, mnt_share)
+				if (!n->mounted)
+					return false;
+			list_for_each_entry(n, &p->mnt_slave_list, mnt_slave)
+				if (!n->mounted)
+					return false;
+		}
+	}
+
+	return true;
 }
 
 static int do_mount_root(struct mount_info *mi)
