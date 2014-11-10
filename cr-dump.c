@@ -975,30 +975,44 @@ err:
 	return -1;
 }
 
-static int collect_threads(struct pstree_item *item)
+static int collect_loop(struct pstree_item *item,
+		int (*collect)(struct pstree_item *))
 {
-	int attempts = NR_ATTEMPTS;
-	int nr_inprogress;
+	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
-	nr_inprogress = 1;
+	/*
+	 * While we scan the proc and seize the children/threads
+	 * new ones can appear (with clone(CLONE_PARENT) or with
+	 * pthread_create). Thus, after one go, we need to repeat
+	 * the scan-and-freeze again collecting new arrivals. As
+	 * new guys may appear again we do NR_ATTEMPTS passes and
+	 * fail to seize the item if new tasks/threads still
+	 * appear.
+	 */
+
 	while (nr_inprogress > 0 && attempts) {
 		attempts--;
-
-		nr_inprogress = seize_threads(item);
-		if (nr_inprogress < 0)
-			break;
-
+		nr_inprogress = collect(item);
 	}
 
-	if (nr_inprogress && attempts)
-		return -1;
+	/*
+	 * We may fail to collect items or run out of attempts.
+	 * In the former case nr_inprogress will be negative, in
+	 * the latter -- positive. Thus it's enough just to check
+	 * for "no more new stuff" and say "we're OK" if so.
+	 */
 
-	return 0;
+	return (nr_inprogress == 0) ? 0 : -1;
+}
+
+static int collect_threads(struct pstree_item *item)
+{
+	return collect_loop(item, seize_threads);
 }
 
 static int collect_task(struct pstree_item *item)
 {
-	int ret, nr_inprogress, attempts = NR_ATTEMPTS;
+	int ret;
 
 	ret = collect_threads(item);
 	if (ret < 0)
@@ -1008,20 +1022,8 @@ static int collect_task(struct pstree_item *item)
 		return 0;
 
 	/* Depth-first search (DFS) is used for traversing a process tree. */
-	nr_inprogress = 1;
-	while (nr_inprogress && attempts) {
-		attempts--;
-
-		/*
-		 * Freeze children and children of children, etc.
-		 * Then check again, that nobody is reparented.
-		 */
-		nr_inprogress = get_children(item);
-		if (nr_inprogress < 0)
-			goto err_close;
-	}
-
-	if (attempts == 0)
+	ret = collect_loop(item, get_children);
+	if (ret < 0)
 		goto err_close;
 
 	if ((item->state == TASK_DEAD) && !list_empty(&item->children)) {
