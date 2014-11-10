@@ -900,10 +900,14 @@ static inline bool thread_collected(struct pstree_item *i, pid_t tid)
 	return false;
 }
 
-static int seize_threads(struct pstree_item *item,
-				struct pid *threads, int nr_threads)
+static int seize_threads(struct pstree_item *item)
 {
-	int i = 0, ret, nr_inprogress, nr_stopped = 0;
+	struct pid *threads = NULL;
+	int nr_threads = 0, i = 0, ret, nr_inprogress, nr_stopped = 0;
+
+	ret = parse_threads(item->pid.real, &threads, &nr_threads);
+	if (ret < 0)
+		goto err;
 
 	if ((item->state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
@@ -963,30 +967,24 @@ static int seize_threads(struct pstree_item *item,
 		goto err;
 	}
 
+	xfree(threads);
 	return nr_inprogress;
+
 err:
+	xfree(threads);
 	return -1;
 }
 
 static int collect_threads(struct pstree_item *item)
 {
-	int ret, attempts = NR_ATTEMPTS;
-	struct pid *t;
-	int nr, nr_inprogress;
+	int attempts = NR_ATTEMPTS;
+	int nr_inprogress;
 
 	nr_inprogress = 1;
 	while (nr_inprogress > 0 && attempts) {
 		attempts--;
 
-		t = NULL;
-		nr = 0;
-
-		ret = parse_threads(item->pid.real, &t, &nr);
-		if (ret < 0)
-			break;
-
-		nr_inprogress = seize_threads(item, t, nr);
-		xfree(t);
+		nr_inprogress = seize_threads(item);
 		if (nr_inprogress < 0)
 			break;
 
