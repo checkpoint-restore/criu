@@ -745,16 +745,30 @@ out:
 	return ret;
 }
 
-static bool rt_detmpfs_match(struct mount_info *pm)
+/*
+ * Virtualized devtmpfs on any side (dump or restore)
+ * means, that we should try to handle it as a plain
+ * tmpfs.
+ *
+ * Interesting case -- shared on dump and virtual on
+ * restore -- will fail, since no tarball with the fs
+ * contents will be found.
+ */
+
+static int devtmpfs_virtual(struct mount_info *pm)
 {
-	return kerndat_fs_virtualized(KERNDAT_FS_STAT_DEVTMPFS, pm->s_dev) == 0;
+	return kerndat_fs_virtualized(KERNDAT_FS_STAT_DEVTMPFS, pm->s_dev);
 }
 
 static int devtmpfs_dump(struct mount_info *pm)
 {
-	if (!rt_detmpfs_match(pm))
-		return tmpfs_dump(pm);
-	return 0;
+	int ret;
+
+	ret = devtmpfs_virtual(pm);
+	if (ret == 1)
+		ret = tmpfs_dump(pm);
+
+	return ret;
 }
 
 static int tmpfs_restore(struct mount_info *pm)
@@ -783,9 +797,13 @@ static int tmpfs_restore(struct mount_info *pm)
 
 static int devtmpfs_restore(struct mount_info *pm)
 {
-	if (!rt_detmpfs_match(pm))
-		return tmpfs_restore(pm);
-	return 0;
+	int ret;
+
+	ret = devtmpfs_virtual(pm);
+	if (ret == 1)
+		ret = tmpfs_restore(pm);
+
+	return ret;
 }
 
 static int binfmt_misc_dump(struct mount_info *pm)
