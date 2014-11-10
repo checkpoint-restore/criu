@@ -784,6 +784,17 @@ err:
 	return -1;
 }
 
+static inline bool child_collected(struct pstree_item *i, pid_t pid)
+{
+	struct pstree_item *c;
+
+	list_for_each_entry(c, &i->children, sibling)
+		if (c->pid.real == pid)
+			return true;
+
+	return false;
+}
+
 static int collect_task(struct pstree_item *item);
 static int get_children(struct pstree_item *item)
 {
@@ -800,11 +811,7 @@ static int get_children(struct pstree_item *item)
 		pid_t pid = ch[i];
 
 		/* Is it already frozen? */
-		list_for_each_entry(c, &item->children, sibling)
-			if (c->pid.real == pid)
-				break;
-
-		if (&c->sibling != &item->children)
+		if (child_collected(item, pid))
 			continue;
 
 		nr_inprogress++;
@@ -879,10 +886,24 @@ static pid_t item_ppid(const struct pstree_item *item)
 	return item ? item->pid.real : -1;
 }
 
+static inline bool thread_collected(struct pstree_item *i, pid_t tid)
+{
+	int t;
+
+	if (i->pid.real == tid) /* thread leader is collected as task */
+		return true;
+
+	for (t = 0; t < i->nr_threads; t++)
+		if (tid == i->threads[t].real)
+			return true;
+
+	return false;
+}
+
 static int seize_threads(struct pstree_item *item,
 				struct pid *threads, int nr_threads)
 {
-	int i = 0, ret, j, nr_inprogress, nr_stopped = 0;
+	int i = 0, ret, nr_inprogress, nr_stopped = 0;
 
 	if ((item->state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
@@ -902,15 +923,10 @@ static int seize_threads(struct pstree_item *item,
 	nr_inprogress = 0;
 	for (i = 0; i < nr_threads; i++) {
 		pid_t pid = threads[i].real;
-		if (item->pid.real == pid)
+
+		if (thread_collected(item, pid))
 			continue;
 
-		for (j = 0; j < item->nr_threads; j++)
-			if (pid == item->threads[j].real)
-				break;
-
-		if (j != item->nr_threads)
-			continue;
 		nr_inprogress++;
 
 		pr_info("\tSeizing %d's %d thread\n",
