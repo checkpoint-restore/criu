@@ -238,9 +238,26 @@ static bool mounts_equal(struct mount_info* mi, struct mount_info *c, bool bind)
 	return true;
 }
 
+/*
+ * mnt_roots is a temporary directory for restoring sub-trees of
+ * non-root namespaces.
+ */
+static char *mnt_roots;
+
 static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 {
 	struct mount_info *m, *root = NULL;
+	struct mount_info *tmp_root_mount = NULL;
+
+	if (mnt_roots) {
+		/* mnt_roots is a tmpfs mount and it's private */
+		tmp_root_mount = mnt_entry_alloc();
+		if (!tmp_root_mount)
+			return NULL;
+
+		tmp_root_mount->mountpoint = mnt_roots;
+		tmp_root_mount->mounted = true;
+	}
 
 	/*
 	 * Just resolve the mnt_id:parent_mnt_id relations
@@ -280,7 +297,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 				 * root mount namespace, so its parent is
 				 * the main root.
 				 */
-				p = root;
+				p = tmp_root_mount;
 			} else
 				return NULL;
 		}
@@ -292,6 +309,11 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 	if (!root) {
 		pr_err("No root found for tree\n");
 		return NULL;
+	}
+
+	if (mnt_roots) {
+		tmp_root_mount->parent = root;
+		list_add_tail(&tmp_root_mount->siblings, &root->children);
 	}
 
 	return root;
@@ -1748,12 +1770,6 @@ void mnt_entry_free(struct mount_info *mi)
 	xfree(mi->options);
 	xfree(mi);
 }
-
-/*
- * mnt_roots is a temporary directory for restoring sub-trees of
- * non-root namespaces.
- */
-static char *mnt_roots;
 
 /*
  * Helper for getting a path to where the namespace's root
