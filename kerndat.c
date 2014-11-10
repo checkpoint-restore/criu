@@ -57,13 +57,13 @@ static int kerndat_get_shmemdev(void)
 	return 0;
 }
 
-static struct stat *kerndat_get_fs_stat(unsigned int which)
+static dev_t get_host_dev(unsigned int which)
 {
-	static struct {
+	static struct kst {
 		const char	*name;
 		const char	*path;
 		unsigned int	magic;
-		struct stat	st;
+		dev_t		fs_dev;
 	} kstat[KERNDAT_FS_STAT_MAX] = {
 		[KERNDAT_FS_STAT_DEVPTS] = {
 			.name	= "devpts",
@@ -76,42 +76,53 @@ static struct stat *kerndat_get_fs_stat(unsigned int which)
 			.magic	= TMPFS_MAGIC,
 		},
 	};
-	struct statfs fst;
 
 	if (which >= KERNDAT_FS_STAT_MAX) {
 		pr_err("Wrong fs type %u passed\n", which);
-		return NULL;
+		return 0;
 	}
 
-	if (kstat[which].st.st_dev != 0)
-		return &kstat[which].st;
+	if (kstat[which].fs_dev == 0) {
+		struct statfs fst;
+		struct stat st;
 
-	if (statfs(kstat[which].path, &fst)) {
-		pr_perror("Unable to statefs %s", kstat[which].path);
-		return NULL;
-	}
-	if (fst.f_type != kstat[which].magic) {
-		pr_err("%s isn't mount on the host\n", kstat[which].name);
-		return NULL;
+		if (statfs(kstat[which].path, &fst)) {
+			pr_perror("Unable to statefs %s", kstat[which].path);
+			return 0;
+		}
+
+		/*
+		 * XXX: If the fs we need is not there, it still
+		 * may mean that it's virtualized, but just not
+		 * mounted on the host.
+		 */
+
+		if (fst.f_type != kstat[which].magic) {
+			pr_err("%s isn't mount on the host\n", kstat[which].name);
+			return 0;
+		}
+
+		if (stat(kstat[which].path, &st)) {
+			pr_perror("Unable to stat %s", kstat[which].path);
+			return 0;
+		}
+
+		BUG_ON(st.st_dev == 0);
+		kstat[which].fs_dev = st.st_dev;
 	}
 
-	if (stat(kstat[which].path, &kstat[which].st)) {
-		pr_perror("Unable to stat %s", kstat[which].path);
-		return NULL;
-	}
-
-	return &kstat[which].st;
+	return kstat[which].fs_dev;
 }
 
 int kerndat_fs_virtualized(unsigned int which, u32 kdev)
 {
-	struct stat *host_fs_stat;
+	dev_t host_fs_dev;
 
-	host_fs_stat = kerndat_get_fs_stat(which);
-	if (host_fs_stat == NULL)
+	host_fs_dev = get_host_dev(which);
+	if (host_fs_dev == 0)
 		return -1;
 
-	return (kdev_to_odev(kdev) == host_fs_stat->st_dev) ? 0 : 1;
+	return (kdev_to_odev(kdev) == host_fs_dev) ? 0 : 1;
 }
 
 /*
