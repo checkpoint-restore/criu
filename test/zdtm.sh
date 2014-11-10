@@ -579,7 +579,7 @@ run_test()
 			echo "Skip $test"
 			return 0
 		fi
-		expr $test 'ns/user' > /dev/null && {
+		expr $test : 'ns/user' > /dev/null && {
 			echo "Skip $test"
 			return 0
 		}
