@@ -33,6 +33,12 @@ enum {
 	KERNDAT_FS_STAT_MAX
 };
 
-extern struct stat *kerndat_get_fs_stat(unsigned int which);
+/*
+ * Check whether the fs @which with kdevice @kdev
+ * is the same as host's. If yes, this means that
+ * the fs mount is shared with host, if no -- it's
+ * a new (likely virtuzlized) fs instance.
+ */
+extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 
 #endif /* __CR_KERNDAT_H__ */

@@ -57,7 +57,7 @@ static int kerndat_get_shmemdev(void)
 	return 0;
 }
 
-struct stat *kerndat_get_fs_stat(unsigned int which)
+static struct stat *kerndat_get_fs_stat(unsigned int which)
 {
 	static struct {
 		const char	*name;
@@ -101,6 +101,17 @@ struct stat *kerndat_get_fs_stat(unsigned int which)
 	}
 
 	return &kstat[which].st;
+}
+
+int kerndat_fs_virtualized(unsigned int which, u32 kdev)
+{
+	struct stat *host_fs_stat;
+
+	host_fs_stat = kerndat_get_fs_stat(which);
+	if (host_fs_stat == NULL)
+		return -1;
+
+	return (kdev_to_odev(kdev) == host_fs_stat->st_dev) ? 0 : 1;
 }
 
 /*

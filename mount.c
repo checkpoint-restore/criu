@@ -690,15 +690,17 @@ static int attach_option(struct mount_info *pm, char *opt)
 /* Is it mounted w or w/o the newinstance option */
 static int devpts_parse(struct mount_info *pm)
 {
-	struct stat *host_st;
+	int ret;
 
-	host_st = kerndat_get_fs_stat(KERNDAT_FS_STAT_DEVPTS);
-	if (host_st == NULL)
-		return -1;
+	ret = kerndat_fs_virtualized(KERNDAT_FS_STAT_DEVPTS, pm->s_dev);
+	if (ret <= 0)
+		return ret;
 
-	if (host_st->st_dev == kdev_to_odev(pm->s_dev))
-		return 0;
-
+	/*
+	 * Kernel hides this option, but if the fs instance
+	 * is new (virtualized) we know that it was created
+	 * with -o newinstance.
+	 */
 	return attach_option(pm, "newinstance");
 }
 
@@ -745,15 +747,7 @@ out:
 
 static bool rt_detmpfs_match(struct mount_info *pm)
 {
-	struct stat *host_st;
-
-	host_st = kerndat_get_fs_stat(KERNDAT_FS_STAT_DEVTMPFS);
-	if (host_st) {
-		if (host_st->st_dev == kdev_to_odev(pm->s_dev))
-			return true;
-	}
-
-	return false;
+	return kerndat_fs_virtualized(KERNDAT_FS_STAT_DEVTMPFS, pm->s_dev) == 0;
 }
 
 static int devtmpfs_dump(struct mount_info *pm)
