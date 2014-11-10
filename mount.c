@@ -372,28 +372,133 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	info->external = em;
 	return 0;
 }
+
 static int validate_shared(struct mount_info *m)
 {
-	struct mount_info *ct, *t;
+	struct mount_info *t, *ct, *cm, *tmp;
+	int t_root_len, m_root_len, tpm, mpm;
+	LIST_HEAD(children);
 
-	if (list_empty(&m->parent->mnt_share))
+	/*
+	 * Check that all mounts in one shared group has the same set of
+	 * children. Only visible children are accounted. A non-root bind-mount
+	 * doesn't see children out of its root and it's excpected case.
+	 *
+	 * Here is a few conditions:
+	 * 1. t is wider than m
+	 * 2. We search a wider mount in the same direction, so when we
+	 *    enumirate all mounts, we can't be sure that all of them
+	 *    has the same set of children.
+	 */
+
+	/*
+	 * Try to find a mount, which is wider or equal.
+	 * A is wider than B, if A->root is a substring of B->root.
+	 */
+	list_for_each_entry(t, &m->mnt_share, mnt_share)
+		if (issubpath(m->root, t->root))
+			break;
+
+	/*
+	 * The current mount is widest one in its shared group,
+	 * all others should be compared with it.
+	 */
+	if (&t->mnt_share == &m->mnt_share)
 		return 0;
 
-	t = list_first_entry(&m->parent->mnt_share, struct mount_info, mnt_share);
+	/* A set of childrent which ar visiable for both should be the same */
 
+	t_root_len = strlen(t->root);
+	m_root_len = strlen(m->root);
+	tpm = strlen(t->mountpoint);
+	mpm = strlen(m->mountpoint);
+
+	if (t->root[t_root_len - 1] == '/')
+		t_root_len--;
+	if (m->root[m_root_len - 1] == '/')
+		m_root_len--;
+	if (t->mountpoint[tpm - 1] == '/')
+		tpm--;
+	if (m->mountpoint[mpm - 1] == '/')
+		mpm--;
+
+	/* For example:
+	 * t->root = /		t->mp = ./zdtm/live/static/mntns_root_bind.test
+	 * m->root = /test	m->mp = ./zdtm/live/static/mntns_root_bind.test/test.bind
+	 * t_root_len = 0	tpm = 39
+	 * m_root_len = 5	mpm = 49
+	 * ct->root = /		ct->mp = ./zdtm/live/static/mntns_root_bind.test/test/sub
+	 * tp = /test/sub	mp = /test len=5
+	 */
+
+	/*
+	 * ct:  | t->root       |	child mount point	|
+	 * cm:  |       m->root         | child mount point	|
+	 * ct:  |		|  /test/sub			|
+	 * cm:  |		  /test	| /sub			|
+	 *                      | A     | B                     |
+	 *			| ct->mountpoint + tpm
+	 *			| m->root + strlen(t->root)
+	 */
+
+	/* Search a child, which is visiable in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
-		if (mounts_equal(m, ct, false))
+		char *tp, *mp;
+		int len;
+
+		if (ct->is_ns_root)
+			continue;
+
+		tp = ct->mountpoint + tpm;
+		mp = m->root + t_root_len;
+		len = m_root_len - t_root_len;
+
+		/* A */
+
+		/* issubpath() can't be used here, because tp should not be
+		 * equal to mp. Otherwise ct will be eqaul to m or its brother.
+		 */
+		if (strncmp(tp, mp, len))
+			continue;
+
+		if (tp[len] != '/')
+			continue;
+
+		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
+			/* B */
+			if (strcmp(ct->mountpoint + tpm + len, cm->mountpoint + mpm))
+				continue;
+
+			if (!mounts_equal(cm, ct, false)) {
+				pr_err("Two shared mounts on same spaces have different mounts\n");
+				pr_err("%d:%s\n", cm->mnt_id, cm->mountpoint);
+				pr_err("%d:%s\n", ct->mnt_id, ct->mountpoint);
+				return -1;
+			}
+
+			list_move(&cm->siblings, &children);
 			break;
+		}
+		if (&cm->siblings == &m->children) {
+			list_splice(&children, &m->children);
+
+			pr_err("%d:%s and %d:%s have different set of mounts\n",
+				m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
+			pr_err("For example %d:%s\n", ct->mnt_id, ct->mountpoint);
+			return -1;
+		}
 	}
-	if (&ct->siblings == &t->children) {
-		pr_err("Two shared mounts %d, %d have different sets of children\n",
-			m->parent->mnt_id, t->mnt_id);
-		pr_err("%d:%s doesn't have a proper point for %d:%s\n",
-			t->mnt_id, t->mountpoint,
-			m->mnt_id, m->mountpoint);
+
+	if (!list_empty(&m->children)) {
+
+		cm = list_first_entry(&m->children, struct mount_info, siblings);
+		pr_err("%d:%s and %d:%s have different set of mounts\n",
+			m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
+		pr_err("For example %d:%s\n", cm->mnt_id, cm->mountpoint);
+		list_splice(&children, &m->children);
 		return -1;
 	}
-
+	list_splice(&children, &m->children);
 	return 0;
 }
 
@@ -426,7 +531,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			/* root mount can be any */
 			continue;
 
-		if (m->parent->shared_id && validate_shared(m))
+		if (m->shared_id && validate_shared(m))
 			return -1;
 
 		/*
