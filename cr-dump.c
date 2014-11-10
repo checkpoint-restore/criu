@@ -796,7 +796,7 @@ static inline bool child_collected(struct pstree_item *i, pid_t pid)
 }
 
 static int collect_task(struct pstree_item *item);
-static int get_children(struct pstree_item *item)
+static int collect_children(struct pstree_item *item)
 {
 	pid_t *ch;
 	int ret, i, nr_children, nr_inprogress;
@@ -900,7 +900,7 @@ static inline bool thread_collected(struct pstree_item *i, pid_t tid)
 	return false;
 }
 
-static int seize_threads(struct pstree_item *item)
+static int collect_threads(struct pstree_item *item)
 {
 	struct pid *threads = NULL;
 	int nr_threads = 0, i = 0, ret, nr_inprogress, nr_stopped = 0;
@@ -1005,21 +1005,16 @@ static int collect_loop(struct pstree_item *item,
 	return (nr_inprogress == 0) ? 0 : -1;
 }
 
-static int collect_threads(struct pstree_item *item)
-{
-	return collect_loop(item, seize_threads);
-}
-
 static int collect_task(struct pstree_item *item)
 {
 	int ret;
 
-	ret = collect_threads(item);
+	ret = collect_loop(item, collect_threads);
 	if (ret < 0)
 		goto err_close;
 
 	/* Depth-first search (DFS) is used for traversing a process tree. */
-	ret = collect_loop(item, get_children);
+	ret = collect_loop(item, collect_children);
 	if (ret < 0)
 		goto err_close;
 
