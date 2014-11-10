@@ -183,6 +183,8 @@ static/cgroup01
 static/cgroup02
 ns/static/clean_mntns
 static/remap_dead_pid
+ns/static/mntns_shared_bind
+ns/static/mntns_shared_bind02
 "
 
 TEST_CR_KERNEL="
@@ -243,6 +245,8 @@ ns/static/mntns_link_remap
 ns/static/mntns_link_ghost
 ns/static/console
 ns/static/rtc
+ns/static/mntns_shared_bind
+ns/static/mntns_shared_bind02
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
@@ -300,6 +304,8 @@ deleted_dev
 mntns_open
 mntns_link_remap
 mntns_link_ghost
+mntns_shared_bind
+mntns_shared_bind02
 sockets00
 "
 

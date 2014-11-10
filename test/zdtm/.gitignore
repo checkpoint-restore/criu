@@ -63,6 +63,8 @@
 /live/static/mntns_link_ghost
 /live/static/mntns_link_remap
 /live/static/mntns_open
+/live/static/mntns_shared_bind
+/live/static/mntns_shared_bind02
 /live/static/mountpoints
 /live/static/mprotect00
 /live/static/msgque
