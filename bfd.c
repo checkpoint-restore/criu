@@ -14,6 +14,9 @@
 #include "xmalloc.h"
 #include "asm-generic/page.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "bfd: "
+
 /*
  * Kernel doesn't produce more than one page of
  * date per one read call on proc files.
@@ -41,7 +44,7 @@ static int buf_get(struct xbuf *xb)
 		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANON, 0, 0);
 		if (mem == MAP_FAILED) {
-			pr_perror("bfd: No buf");
+			pr_perror("No buf");
 			return -1;
 		}
 
@@ -135,7 +138,7 @@ static int brefill(struct bfd *f)
 
 	ret = read(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
 	if (ret < 0) {
-		pr_perror("bfd: Error reading file");
+		pr_perror("Error reading file");
 		return -1;
 	}
 
