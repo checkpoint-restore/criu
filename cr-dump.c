@@ -1299,9 +1299,16 @@ static int fill_zombies_pids(struct pstree_item *item)
 	int i, nr;
 	pid_t *ch;
 
+	/*
+	 * Pids read here are virtual -- caller has set up
+	 * the proc of target pid namespace.
+	 */
 	if (parse_children(item->pid.virt, &ch, &nr) < 0)
 		return -1;
 
+	/*
+	 * Step 1 -- filter our ch's pid of alive tasks
+	 */
 	list_for_each_entry(child, &item->children, sibling) {
 		if (child->pid.virt < 0)
 			continue;
@@ -1313,6 +1320,12 @@ static int fill_zombies_pids(struct pstree_item *item)
 		}
 	}
 
+	/*
+	 * Step 2 -- assign remaining pids from ch on
+	 * children's items in arbitrary order. The caller
+	 * will then re-read everything needed to dump
+	 * zombies using newly obtained virtual pids.
+	 */
 	i = 0;
 	list_for_each_entry(child, &item->children, sibling) {
 		if (child->pid.virt > 0)
