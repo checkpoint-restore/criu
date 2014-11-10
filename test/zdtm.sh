@@ -245,8 +245,17 @@ ns/static/console
 ns/static/rtc
 "
 
+source $(readlink -f `dirname $0`/env.sh) || exit 1
+
+can_cr_userns() {
+	[ ! -f /proc/self/ns/user ] && return 1
+	$CRIU check | fgrep -q 'PR_SET_MM_MAP is not supported' && return 1
+
+	return 0 # this means TRUE in bash :\
+}
+
 # Add tests which can be executed in an user namespace
-test -f /proc/self/ns/user && {
+if can_cr_userns ; then
 	blist=`mktemp /tmp/zdtm.black.XXXXXX`
 	echo "$BLACKLIST_FOR_USERNS" | sort > $blist
 
@@ -256,7 +265,7 @@ test -f /proc/self/ns/user && {
 	diff --changed-group-format="%<" --unchanged-group-format="" - $blist | \
 	sed s#ns/#ns/user/#`"
 	unlink $blist
-}
+fi
 
 TEST_SUID_LIST="
 pid00
@@ -293,8 +302,6 @@ mntns_link_remap
 mntns_link_ghost
 sockets00
 "
-
-source $(readlink -f `dirname $0`/env.sh) || exit 1
 
 CRIU_CPT=$CRIU
 TMP_TREE=""
