@@ -665,7 +665,7 @@ static int ids_parse(char *str, unsigned int *arr)
 	arr[1] = strtol(end + 1, &end, 10);
 	arr[2] = strtol(end + 1, &end, 10);
 	arr[3] = strtol(end + 1, &end, 10);
-	if (*end != '\n')
+	if (*end)
 		return -1;
 	else
 		return 0;
@@ -687,17 +687,22 @@ static int cap_parse(char *str, unsigned int *res)
 
 int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 {
+	struct bfd f;
 	int done = 0;
-	FILE *f;
-	char str[64];
+	int ret = -1;
+	char *str;
 
-	f = fopen_proc(pid, "status");
-	if (f == NULL) {
+	f.fd = open_proc(pid, "status");
+	if (f.fd < 0) {
 		pr_perror("Can't open proc status");
 		return -1;
 	}
 
-	while (done < 8 && fgets(str, sizeof(str), f)) {
+	if (bfdopen(&f, O_RDONLY))
+		return -1;
+
+	while (done < 8 && (str = breadline(&f))) {
+		pr_debug("str: `%s'\n", str);
 		if (!strncmp(str, "State:", 6)) {
 			cr->state = str[7];
 			done++;
@@ -754,15 +759,14 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		}
 	}
 
-	if (done != 8) {
-err_parse:
-		pr_err("Error parsing proc status file\n");
-		fclose(f);
-		return -1;
-	}
+	if (done == 8)
+		ret = 0;
 
-	fclose(f);
-	return 0;
+err_parse:
+	if (ret)
+		pr_err("Error parsing proc status file\n");
+	bclose(&f);
+	return ret;
 }
 
 struct opt2flag {
