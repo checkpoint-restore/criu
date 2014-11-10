@@ -1018,9 +1018,6 @@ static int collect_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err_close;
 
-	if (item->state == TASK_DEAD)
-		return 0;
-
 	/* Depth-first search (DFS) is used for traversing a process tree. */
 	ret = collect_loop(item, get_children);
 	if (ret < 0)
