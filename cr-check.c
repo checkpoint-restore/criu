@@ -566,7 +566,7 @@ static int check_mem_dirty_track(void)
 	if (kerndat_get_dirty_track() < 0)
 		return -1;
 
-	if (!kerndat_has_dirty_track)
+	if (!kdat.has_dirty_track)
 		pr_warn("Dirty tracking is OFF. Memory snapshot will not work.\n");
 	return 0;
 }

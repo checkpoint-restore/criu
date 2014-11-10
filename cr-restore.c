@@ -2249,7 +2249,7 @@ static int prepare_creds(int pid, struct task_restore_args *args)
 
 	creds_entry__free_unpacked(ce, NULL);
 
-	args->cap_last_cap = kern_last_cap;
+	args->cap_last_cap = kdat.last_cap;
 
 	/* XXX -- validate creds here? */
 

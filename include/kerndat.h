@@ -14,14 +14,17 @@ extern int kerndat_init(void);
 extern int kerndat_init_rst(void);
 extern int kerndat_get_dirty_track(void);
 
-extern dev_t kerndat_shmem_dev;
-extern bool kerndat_has_dirty_track;
+struct kerndat_s {
+	dev_t shmem_dev;
+	int tcp_max_wshare;
+	int tcp_max_rshare;
+	int last_cap;
+	u64 zero_page_pfn;
+	bool has_dirty_track;
+	bool has_memfd;
+};
 
-extern int tcp_max_wshare;
-extern int tcp_max_rshare;
-
-extern int kern_last_cap;
-extern u64 zero_page_pfn;
+extern struct kerndat_s kdat;
 
 enum {
 	KERNDAT_FS_STAT_DEVPTS,
@@ -31,7 +34,5 @@ enum {
 };
 
 extern struct stat *kerndat_get_fs_stat(unsigned int which);
-
-extern bool memfd_is_supported;
 
 #endif /* __CR_KERNDAT_H__ */

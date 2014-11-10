@@ -174,7 +174,7 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 
 static inline int is_anon_shmem_map(dev_t dev)
 {
-	return kerndat_shmem_dev == dev;
+	return kdat.shmem_dev == dev;
 }
 
 struct vma_file_info {

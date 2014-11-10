@@ -466,7 +466,7 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
-	max = (queue == TCP_SEND_QUEUE) ? tcp_max_wshare : tcp_max_rshare;
+	max = (queue == TCP_SEND_QUEUE) ? kdat.tcp_max_wshare : kdat.tcp_max_rshare;
 	off = 0;
 	while (len) {
 		int chunk = (len > max ? max : len);

@@ -29,7 +29,7 @@ static int task_reset_dirty_track(int pid)
 	if (!opts.track_mem)
 		return 0;
 
-	BUG_ON(!kerndat_has_dirty_track);
+	BUG_ON(!kdat.has_dirty_track);
 
 	return do_task_reset_dirty_track(pid);
 }
@@ -92,7 +92,7 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (pme & PME_SWAP)
 		return true;
-	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != zero_page_pfn))
+	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != kdat.zero_page_pfn))
 		return true;
 
 	return false;
@@ -251,7 +251,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
-	BUG_ON(zero_page_pfn == 0);
+	BUG_ON(kdat.zero_page_pfn == 0);
 
 	timing_start(TIME_MEMDUMP);
 

@@ -18,7 +18,10 @@
 #include "cr_options.h"
 #include "util.h"
 
-dev_t kerndat_shmem_dev;
+struct kerndat_s kdat = {
+	.tcp_max_wshare = 2U << 20,
+	.tcp_max_rshare = 3U << 20,
+};
 
 /*
  * Anonymous shared mappings are backed by hidden tmpfs
@@ -49,8 +52,8 @@ static int kerndat_get_shmemdev(void)
 
 	munmap(map, PAGE_SIZE);
 
-	kerndat_shmem_dev = buf.st_dev;
-	pr_info("Found anon-shmem device at %"PRIx64"\n", kerndat_shmem_dev);
+	kdat.shmem_dev = buf.st_dev;
+	pr_info("Found anon-shmem device at %"PRIx64"\n", kdat.shmem_dev);
 	return 0;
 }
 
@@ -105,8 +108,6 @@ struct stat *kerndat_get_fs_stat(unsigned int which)
  * this functionality under CONFIG_MEM_SOFT_DIRTY option.
  */
 
-bool kerndat_has_dirty_track = false;
-
 int kerndat_get_dirty_track(void)
 {
 	char *map;
@@ -146,7 +147,7 @@ int kerndat_get_dirty_track(void)
 
 	if (pmap & PME_SOFT_DIRTY) {
 		pr_info("Dirty track supported on kernel\n");
-		kerndat_has_dirty_track = true;
+		kdat.has_dirty_track = true;
 	} else {
 		pr_info("Dirty tracking support is OFF\n");
 		if (opts.track_mem) {
@@ -167,8 +168,6 @@ int kerndat_get_dirty_track(void)
  * Meanwhile set it up to 2M and 3M, which is safe enough to
  * proceed without errors.
  */
-int tcp_max_wshare = 2U << 20;
-int tcp_max_rshare = 3U << 20;
 
 static int tcp_read_sysctl_limits(void)
 {
@@ -191,19 +190,17 @@ static int tcp_read_sysctl_limits(void)
 		goto out;
 	}
 
-	tcp_max_wshare = min(tcp_max_wshare, (int)vect[0][2]);
-	tcp_max_rshare = min(tcp_max_rshare, (int)vect[1][2]);
+	kdat.tcp_max_wshare = min(kdat.tcp_max_wshare, (int)vect[0][2]);
+	kdat.tcp_max_rshare = min(kdat.tcp_max_rshare, (int)vect[1][2]);
 
-	if (tcp_max_wshare < 128 || tcp_max_rshare < 128)
+	if (kdat.tcp_max_wshare < 128 || kdat.tcp_max_rshare < 128)
 		pr_warn("The memory limits for TCP queues are suspiciously small\n");
 out:
-	pr_debug("TCP queue memory limits are %d:%d\n", tcp_max_wshare, tcp_max_rshare);
+	pr_debug("TCP queue memory limits are %d:%d\n", kdat.tcp_max_wshare, kdat.tcp_max_rshare);
 	return 0;
 }
 
 /* The page frame number (PFN) is constant for the zero page */
-u64 zero_page_pfn;
-
 static int init_zero_page_pfn()
 {
 	void *addr;
@@ -220,28 +217,25 @@ static int init_zero_page_pfn()
 		return -1;
 	}
 
-	ret = vaddr_to_pfn((unsigned long)addr, &zero_page_pfn);
+	ret = vaddr_to_pfn((unsigned long)addr, &kdat.zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
 
-	if (zero_page_pfn == 0)
+	if (kdat.zero_page_pfn == 0)
 		ret = -1;
 
 	return ret;
 }
 
-int kern_last_cap;
-
 int get_last_cap(void)
 {
 	struct sysctl_req req[] = {
-		{ "kernel/cap_last_cap", &kern_last_cap, CTL_U32 },
+		{ "kernel/cap_last_cap", &kdat.last_cap, CTL_U32 },
 		{ },
 	};
 
 	return sysctl_op(req, CTL_READ);
 }
 
-bool memfd_is_supported;
 static bool kerndat_has_memfd_create(void)
 {
 	int ret;
@@ -249,9 +243,9 @@ static bool kerndat_has_memfd_create(void)
 	ret = sys_memfd_create(NULL, 0);
 
 	if (ret == -ENOSYS)
-		memfd_is_supported = false;
+		kdat.has_memfd = false;
 	else if (ret == -EFAULT)
-		memfd_is_supported = true;
+		kdat.has_memfd = true;
 	else {
 		pr_err("Unexpected error %d from memfd_create(NULL, 0)\n", ret);
 		return -1;

@@ -191,7 +191,7 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 		return dup(si->fd);
 
 	flags = MAP_SHARED;
-	if (memfd_is_supported) {
+	if (kdat.has_memfd) {
 		f = sys_memfd_create("", 0);
 		if (f < 0) {
 			pr_perror("Unable to create memfd");
