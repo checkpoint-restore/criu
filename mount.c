@@ -473,18 +473,12 @@ static int validate_shared(struct mount_info *m)
 
 		ct_mpnt_rpath = ct->mountpoint + t_mpnt_l; /* path from t->mountpoint to ct->mountpoint */
 
-		/* A */
-
 		/*
-		 * issubpath() can't be used here, because ct_mpnt_rpath should
-		 * not be equal to m_root_rpath. Otherwise ct will be eqaul to
-		 * m or its brother.
+		 * Check whether ct can be is visible at m, i.e. the
+		 * ct's rpath starts (as path) with m's rpath.
 		 */
 
-		if (strncmp(ct_mpnt_rpath, m_root_rpath, len))
-			continue;
-
-		if (ct_mpnt_rpath[len] != '/')
+		if (!issubpath(ct_mpnt_rpath, m_root_rpath))
 			continue;
 
 		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
