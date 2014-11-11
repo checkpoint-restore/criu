@@ -388,6 +388,24 @@ static struct mount_info *get_widest_peer(struct mount_info *m)
 	return NULL;
 }
 
+static struct mount_info *find_shared_peer(struct mount_info *m,
+		struct mount_info *ct, char *ct_mountpoint, int m_mpnt_l)
+{
+	struct mount_info *cm;
+
+	list_for_each_entry(cm, &m->children, siblings) {
+		if (strcmp(ct_mountpoint, cm->mountpoint + m_mpnt_l))
+			continue;
+
+		if (!mounts_equal(cm, ct, false))
+			break;
+
+		return cm;
+	}
+
+	return NULL;
+}
+
 static inline int path_length(char *path)
 {
 	int off;
@@ -409,7 +427,7 @@ static inline int path_length(char *path)
 
 static int validate_shared(struct mount_info *m)
 {
-	struct mount_info *t, *ct, *cm, *tmp;
+	struct mount_info *t, *ct;
 	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l, len;
 	char *m_root_rpath;
 	LIST_HEAD(children);
@@ -467,6 +485,7 @@ static int validate_shared(struct mount_info *m)
 	/* Search a child, which is visiable in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
 		char *ct_mpnt_rpath;
+		struct mount_info *cm;
 
 		if (ct->is_ns_root)
 			continue;
@@ -494,41 +513,28 @@ static int validate_shared(struct mount_info *m)
 		 * described above path corrections).
 		 */
 
-		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
-			if (strcmp(ct_mpnt_rpath, cm->mountpoint + m_mpnt_l))
-				continue;
+		cm = find_shared_peer(m, ct, ct_mpnt_rpath, m_mpnt_l);
+		if (!cm)
+			goto err;
 
-			if (!mounts_equal(cm, ct, false)) {
-				pr_err("Two shared mounts on same spaces have different mounts\n");
-				pr_err("%d:%s\n", cm->mnt_id, cm->mountpoint);
-				pr_err("%d:%s\n", ct->mnt_id, ct->mountpoint);
-				return -1;
-			}
-
-			list_move(&cm->siblings, &children);
-			break;
-		}
-		if (&cm->siblings == &m->children) {
-			list_splice(&children, &m->children);
-
-			pr_err("%d:%s and %d:%s have different set of mounts\n",
-				m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
-			pr_err("For example %d:%s\n", ct->mnt_id, ct->mountpoint);
-			return -1;
-		}
+		/*
+		 * Keep this one aside. At the end of t's children scan we should
+		 * move _all_ m's children here (the list_empty check below).
+		 */
+		list_move(&cm->siblings, &children);
 	}
 
-	if (!list_empty(&m->children)) {
+	if (!list_empty(&m->children))
+		goto err;
 
-		cm = list_first_entry(&m->children, struct mount_info, siblings);
-		pr_err("%d:%s and %d:%s have different set of mounts\n",
-			m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
-		pr_err("For example %d:%s\n", cm->mnt_id, cm->mountpoint);
-		list_splice(&children, &m->children);
-		return -1;
-	}
 	list_splice(&children, &m->children);
 	return 0;
+
+err:
+	list_splice(&children, &m->children);
+	pr_err("%d:%s and %d:%s have different set of mounts\n",
+			m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
+	return -1;
 }
 
 /*
