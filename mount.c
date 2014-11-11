@@ -373,6 +373,21 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	return 0;
 }
 
+static struct mount_info *get_widest_peer(struct mount_info *m)
+{
+	struct mount_info *p;
+
+	/*
+	 * Try to find a mount, which is wider or equal.
+	 * A is wider than B, if A->root is a subpath of B->root.
+	 */
+	list_for_each_entry(p, &m->mnt_share, mnt_share)
+		if (issubpath(m->root, p->root))
+			return p;
+
+	return NULL;
+}
+
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct, *cm, *tmp;
@@ -391,19 +406,13 @@ static int validate_shared(struct mount_info *m)
 	 *    has the same set of children.
 	 */
 
-	/*
-	 * Try to find a mount, which is wider or equal.
-	 * A is wider than B, if A->root is a substring of B->root.
-	 */
-	list_for_each_entry(t, &m->mnt_share, mnt_share)
-		if (issubpath(m->root, t->root))
-			break;
-
-	/*
-	 * The current mount is widest one in its shared group,
-	 * all others should be compared with it.
-	 */
-	if (&t->mnt_share == &m->mnt_share)
+	t = get_widest_peer(m);
+	if (!t)
+		/*
+		 * The current mount is the widest one in its shared group,
+		 * all others will be compared to it or with some other,
+		 * which will be compared to it.
+		 */
 		return 0;
 
 	/* A set of childrent which ar visiable for both should be the same */
