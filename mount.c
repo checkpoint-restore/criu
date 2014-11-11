@@ -410,7 +410,8 @@ static inline int path_length(char *path)
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct, *cm, *tmp;
-	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l;
+	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l, len;
+	char *m_root_rpath;
 	LIST_HEAD(children);
 
 	/*
@@ -460,27 +461,30 @@ static int validate_shared(struct mount_info *m)
 	 *			| m->root + strlen(t->root)
 	 */
 
+	m_root_rpath = m->root + t_root_l;	/* path from t->root to m->root */
+	len = m_root_l - t_root_l;		/* its length */
+
 	/* Search a child, which is visiable in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
-		char *tp, *mp;
-		int len;
+		char *ct_mpnt_rpath;
 
 		if (ct->is_ns_root)
 			continue;
 
-		tp = ct->mountpoint + t_mpnt_l;
-		mp = m->root + t_root_l;
-		len = m_root_l - t_root_l;
+		ct_mpnt_rpath = ct->mountpoint + t_mpnt_l; /* path from t->mountpoint to ct->mountpoint */
 
 		/* A */
 
-		/* issubpath() can't be used here, because tp should not be
-		 * equal to mp. Otherwise ct will be eqaul to m or its brother.
+		/*
+		 * issubpath() can't be used here, because ct_mpnt_rpath should
+		 * not be equal to m_root_rpath. Otherwise ct will be eqaul to
+		 * m or its brother.
 		 */
-		if (strncmp(tp, mp, len))
+
+		if (strncmp(ct_mpnt_rpath, m_root_rpath, len))
 			continue;
 
-		if (tp[len] != '/')
+		if (ct_mpnt_rpath[len] != '/')
 			continue;
 
 		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
