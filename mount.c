@@ -428,7 +428,7 @@ static inline int path_length(char *path)
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct;
-	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l, len;
+	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l;
 	char *m_root_rpath;
 	LIST_HEAD(children);
 
@@ -480,7 +480,6 @@ static int validate_shared(struct mount_info *m)
 	 */
 
 	m_root_rpath = m->root + t_root_l;	/* path from t->root to m->root */
-	len = m_root_l - t_root_l;		/* its length */
 
 	/* Search a child, which is visiable in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
@@ -502,11 +501,11 @@ static int validate_shared(struct mount_info *m)
 
 		/*
 		 * The ct has peer in m but with the mount path deeper according
-		 * to m's depth relavie to t. Thus -- trim this difference from
-		 * ct's mountpoint path.
+		 * to m's depth relavie to t. Thus -- trim this difference (the
+		 * lenght of m_root_rpath) from ct's mountpoint path.
 		 */
 
-		ct_mpnt_rpath += len;
+		ct_mpnt_rpath += m_root_l - t_root_l;
 
 		/*
 		 * Find in m the mountpoint that fully matches with ct (with the
