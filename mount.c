@@ -388,6 +388,25 @@ static struct mount_info *get_widest_peer(struct mount_info *m)
 	return NULL;
 }
 
+static inline int path_length(char *path)
+{
+	int off;
+
+	off = strlen(path);
+	/*
+	 * If we're pure / then set lenght to zero so that adding this
+	 * value as sub-path offset would produce the correct result.
+	 * E.g. the tail path of the "/foo/bar" relative to the "/foo"
+	 * will be the "/foo/bar" + len("/foo") == "/bar", while the
+	 * same relative to the "/" should be +0 to be the "/foo/bar",
+	 * not +1 and the "foo/bar".
+	 */
+	if (path[off - 1] == '/')
+		off--;
+
+	return off;
+}
+
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct, *cm, *tmp;
@@ -417,19 +436,10 @@ static int validate_shared(struct mount_info *m)
 
 	/* A set of childrent which ar visiable for both should be the same */
 
-	t_root_len = strlen(t->root);
-	m_root_len = strlen(m->root);
-	tpm = strlen(t->mountpoint);
-	mpm = strlen(m->mountpoint);
-
-	if (t->root[t_root_len - 1] == '/')
-		t_root_len--;
-	if (m->root[m_root_len - 1] == '/')
-		m_root_len--;
-	if (t->mountpoint[tpm - 1] == '/')
-		tpm--;
-	if (m->mountpoint[mpm - 1] == '/')
-		mpm--;
+	t_root_len = path_length(t->root);
+	m_root_len = path_length(m->root);
+	tpm = path_length(t->mountpoint);
+	mpm = path_length(m->mountpoint);
 
 	/* For example:
 	 * t->root = /		t->mp = ./zdtm/live/static/mntns_root_bind.test
