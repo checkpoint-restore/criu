@@ -410,7 +410,7 @@ static inline int path_length(char *path)
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct, *cm, *tmp;
-	int t_root_len, m_root_len, tpm, mpm;
+	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l;
 	LIST_HEAD(children);
 
 	/*
@@ -436,16 +436,16 @@ static int validate_shared(struct mount_info *m)
 
 	/* A set of childrent which ar visiable for both should be the same */
 
-	t_root_len = path_length(t->root);
-	m_root_len = path_length(m->root);
-	tpm = path_length(t->mountpoint);
-	mpm = path_length(m->mountpoint);
+	t_root_l = path_length(t->root);
+	m_root_l = path_length(m->root);
+	t_mpnt_l = path_length(t->mountpoint);
+	m_mpnt_l = path_length(m->mountpoint);
 
 	/* For example:
 	 * t->root = /		t->mp = ./zdtm/live/static/mntns_root_bind.test
 	 * m->root = /test	m->mp = ./zdtm/live/static/mntns_root_bind.test/test.bind
-	 * t_root_len = 0	tpm = 39
-	 * m_root_len = 5	mpm = 49
+	 * t_root_l = 0	t_mpnt_l = 39
+	 * m_root_l = 5	m_mpnt_l = 49
 	 * ct->root = /		ct->mp = ./zdtm/live/static/mntns_root_bind.test/test/sub
 	 * tp = /test/sub	mp = /test len=5
 	 */
@@ -456,7 +456,7 @@ static int validate_shared(struct mount_info *m)
 	 * ct:  |		|  /test/sub			|
 	 * cm:  |		  /test	| /sub			|
 	 *                      | A     | B                     |
-	 *			| ct->mountpoint + tpm
+	 *			| ct->mountpoint + t_mpnt_l
 	 *			| m->root + strlen(t->root)
 	 */
 
@@ -468,9 +468,9 @@ static int validate_shared(struct mount_info *m)
 		if (ct->is_ns_root)
 			continue;
 
-		tp = ct->mountpoint + tpm;
-		mp = m->root + t_root_len;
-		len = m_root_len - t_root_len;
+		tp = ct->mountpoint + t_mpnt_l;
+		mp = m->root + t_root_l;
+		len = m_root_l - t_root_l;
 
 		/* A */
 
@@ -485,7 +485,7 @@ static int validate_shared(struct mount_info *m)
 
 		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
 			/* B */
-			if (strcmp(ct->mountpoint + tpm + len, cm->mountpoint + mpm))
+			if (strcmp(ct->mountpoint + t_mpnt_l + len, cm->mountpoint + m_mpnt_l))
 				continue;
 
 			if (!mounts_equal(cm, ct, false)) {
