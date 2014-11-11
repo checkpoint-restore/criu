@@ -483,7 +483,7 @@ static int validate_shared(struct mount_info *m)
 
 		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
 			/* B */
-			if (strcmp(ct->mountpoint + t_mpnt_l + len, cm->mountpoint + m_mpnt_l))
+			if (strcmp(ct_mpnt_rpath + len, cm->mountpoint + m_mpnt_l))
 				continue;
 
 			if (!mounts_equal(cm, ct, false)) {
