@@ -481,9 +481,21 @@ static int validate_shared(struct mount_info *m)
 		if (!issubpath(ct_mpnt_rpath, m_root_rpath))
 			continue;
 
+		/*
+		 * The ct has peer in m but with the mount path deeper according
+		 * to m's depth relavie to t. Thus -- trim this difference from
+		 * ct's mountpoint path.
+		 */
+
+		ct_mpnt_rpath += len;
+
+		/*
+		 * Find in m the mountpoint that fully matches with ct (with the
+		 * described above path corrections).
+		 */
+
 		list_for_each_entry_safe(cm, tmp, &m->children, siblings) {
-			/* B */
-			if (strcmp(ct_mpnt_rpath + len, cm->mountpoint + m_mpnt_l))
+			if (strcmp(ct_mpnt_rpath, cm->mountpoint + m_mpnt_l))
 				continue;
 
 			if (!mounts_equal(cm, ct, false)) {
