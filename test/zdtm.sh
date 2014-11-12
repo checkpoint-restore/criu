@@ -183,8 +183,6 @@ static/cgroup01
 static/cgroup02
 ns/static/clean_mntns
 static/remap_dead_pid
-ns/static/mntns_shared_bind
-ns/static/mntns_shared_bind02
 "
 
 TEST_CR_KERNEL="
@@ -198,6 +196,8 @@ if [ $? -eq 0 ]; then
 ns/static/mntns_open
 ns/static/mntns_link_remap
 ns/static/mntns_link_ghost
+ns/static/mntns_shared_bind
+ns/static/mntns_shared_bind02
 "
 else
 	export ZDTM_NOSUBNS=1
