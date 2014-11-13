@@ -28,6 +28,9 @@ int run_scripts(enum script_actions act)
 
 	pr_debug("Running %s scripts\n", action);
 
+	if (unlikely(list_empty(&opts.scripts)))
+		return 0;
+
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
 		return -1;
