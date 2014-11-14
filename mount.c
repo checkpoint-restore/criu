@@ -125,18 +125,6 @@ static inline int fsroot_mounted(struct mount_info *mi)
 	return is_root(mi->root);
 }
 
-static int __open_mountpoint(struct mount_info *pm, int mnt_fd);
-int open_mount(unsigned int s_dev)
-{
-	struct mount_info *i;
-
-	for (i = mntinfo; i != NULL; i = i->next)
-		if (s_dev == i->s_dev)
-			return __open_mountpoint(i, -1);
-
-	return -ENOENT;
-}
-
 static struct mount_info *__lookup_mnt_id(struct mount_info *list, int id)
 {
 	struct mount_info *m;
@@ -770,6 +758,17 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 err:
 	close(mnt_fd);
 	return -1;
+}
+
+int open_mount(unsigned int s_dev)
+{
+	struct mount_info *m;
+
+	m = lookup_mnt_sdev(s_dev);
+	if (!m)
+		return -ENOENT;
+
+	return __open_mountpoint(m, -1);
 }
 
 static int open_mountpoint(struct mount_info *pm)
