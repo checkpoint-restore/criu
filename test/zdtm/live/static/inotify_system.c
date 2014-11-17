@@ -262,8 +262,8 @@ int errors(int exp_len, int len, char *etalon_buf, char *buf) {
 			exp_event = (struct inotify_event *) &etalon_buf[marker];
 		else {
 			if (!harmless(event->mask)) {
-				fail("got unexpected event %s\n",
-						handle_event(event->mask));
+				fail("got unexpected event %s (%x mask)\n",
+					handle_event(event->mask), event->mask);
 				error++;
 			}
 			goto next_event;
