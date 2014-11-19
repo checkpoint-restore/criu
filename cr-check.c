@@ -217,11 +217,21 @@ static int check_prctl(void)
 
 static int check_fcntl(void)
 {
-	/*
-	 * FIXME Add test for F_GETOWNER_UIDS once
-	 * it's merged into mainline and kernel part
-	 * settle down.
-	 */
+	u32 v[2];
+	int fd;
+
+	fd = open("/proc/self/comm", O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open self comm file");
+		return -1;
+	}
+
+	if (fcntl(fd, F_GETOWNER_UIDS, (long)v)) {
+		pr_perror("Can'r fetch file owner UIDs");
+		return -1;
+	}
+
+	close(fd);
 	return 0;
 }
 
