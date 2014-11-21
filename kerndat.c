@@ -19,7 +19,6 @@
 #include "util.h"
 
 struct kerndat_s kdat = {
-	.tcp_max_wshare = 2U << 20,
 	.tcp_max_rshare = 3U << 20,
 };
 
@@ -197,7 +196,6 @@ static int tcp_read_sysctl_limits(void)
 	int ret;
 
 	struct sysctl_req req[] = {
-		{ "net/ipv4/tcp_wmem", &vect[0], CTL_U32A(ARRAY_SIZE(vect[0])) },
 		{ "net/ipv4/tcp_rmem", &vect[1], CTL_U32A(ARRAY_SIZE(vect[1])) },
 		{ },
 	};
@@ -212,13 +210,12 @@ static int tcp_read_sysctl_limits(void)
 		goto out;
 	}
 
-	kdat.tcp_max_wshare = min(kdat.tcp_max_wshare, (int)vect[0][2]);
 	kdat.tcp_max_rshare = min(kdat.tcp_max_rshare, (int)vect[1][2]);
 
-	if (kdat.tcp_max_wshare < 128 || kdat.tcp_max_rshare < 128)
+	if (kdat.tcp_max_rshare < 128)
 		pr_warn("The memory limits for TCP queues are suspiciously small\n");
 out:
-	pr_debug("TCP queue memory limits are %d:%d\n", kdat.tcp_max_wshare, kdat.tcp_max_rshare);
+	pr_debug("TCP recv queue memory limit is %d\n", kdat.tcp_max_rshare);
 	return 0;
 }
 

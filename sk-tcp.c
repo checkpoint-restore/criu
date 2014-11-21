@@ -456,7 +456,7 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 {
 	int ret, err = -1;
-	int off, max;
+	int off;
 	char *buf;
 
 	buf = xmalloc(len);
@@ -466,10 +466,12 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
-	max = (queue == TCP_SEND_QUEUE) ? kdat.tcp_max_wshare : kdat.tcp_max_rshare;
 	off = 0;
 	while (len) {
-		int chunk = (len > max ? max : len);
+		int chunk = len;
+
+		if (queue == TCP_RECV_QUEUE && len > kdat.tcp_max_rshare)
+			chunk = kdat.tcp_max_rshare;
 
 		ret = send(sk, buf + off, chunk, 0);
 		if (ret <= 0) {

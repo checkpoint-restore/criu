@@ -16,7 +16,6 @@ extern int kerndat_get_dirty_track(void);
 
 struct kerndat_s {
 	dev_t shmem_dev;
-	int tcp_max_wshare;
 	int tcp_max_rshare;
 	int last_cap;
 	u64 zero_page_pfn;
