@@ -221,6 +221,8 @@ static int page_server_serve(int sk)
 		{
 			int32_t status = 0;
 
+			ret = 0;
+
 			/*
 			 * An answer must be sent back to inform another side,
 			 * that all data were received
@@ -231,7 +233,6 @@ static int page_server_serve(int sk)
 			}
 
 			flushed = true;
-			ret = 0;
 			break;
 		}
 		default:
