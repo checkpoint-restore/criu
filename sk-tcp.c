@@ -472,13 +472,13 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 		int chunk = (len > max ? max : len);
 
 		ret = send(sk, buf + off, chunk, 0);
-		if (ret != chunk) {
+		if (ret <= 0) {
 			pr_perror("Can't restore %d queue data (%d), want (%d:%d)",
 				  queue, ret, chunk, len);
 			goto err;
 		}
-		off += chunk;
-		len -= chunk;
+		off += ret;
+		len -= ret;
 	}
 
 	err = 0;
