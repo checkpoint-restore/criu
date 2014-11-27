@@ -5,7 +5,7 @@ git clean -dfx &&
 make -j 4 && make -j 4 -C test/zdtm &&
 mkdir -p test/dump &&
 mount -t tmpfs zdtm test/dump &&
-make -C test -j 32 zdtm_ns &&
+make -C test -j 4 zdtm_ns &&
 true || {
     tar -czf /home/criu-by-id-${TEST_COMMIT}-$(date +%m%d%H%M).tar.gz .
     exit 1
