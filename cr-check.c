@@ -228,6 +228,7 @@ static int check_fcntl(void)
 
 	if (fcntl(fd, F_GETOWNER_UIDS, (long)v)) {
 		pr_perror("Can'r fetch file owner UIDs");
+		close(fd);
 		return -1;
 	}
 
