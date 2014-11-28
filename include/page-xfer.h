@@ -42,4 +42,6 @@ extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
 extern int connect_to_page_server(void);
 extern int disconnect_from_page_server(void);
 
+extern int check_parent_page_xfer(int fd_type, long id);
+
 #endif /* __CR_PAGE_XFER__H__ */

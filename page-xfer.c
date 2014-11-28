@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #include "cr_options.h"
 #include "servicefd.h"
@@ -41,6 +42,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
 #define PS_IOV_HOLE	2
 #define PS_IOV_OPEN	3
 #define PS_IOV_OPEN2	4
+#define PS_IOV_PARENT	5
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -174,6 +176,8 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
+static int page_server_check_parent(int sk, struct page_server_iov *pi);
+
 static int page_server_serve(int sk)
 {
 	int ret = -1;
@@ -209,6 +213,9 @@ static int page_server_serve(int sk)
 			break;
 		case PS_IOV_OPEN2:
 			ret = page_server_open(sk, &pi);
+			break;
+		case PS_IOV_PARENT:
+			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD:
 			ret = page_server_add(sk, &pi);
@@ -758,4 +765,81 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 		return open_page_server_xfer(xfer, fd_type, id);
 	else
 		return open_page_local_xfer(xfer, fd_type, id);
+}
+
+/*
+ * Return:
+ *	 1 - if a parent image exists
+ *	 0 - if a parent image doesn't exist
+ *	-1 - in error cases
+ */
+int check_parent_local_xfer(int fd_type, int id)
+{
+	char path[PATH_MAX];
+	struct stat st;
+	int ret, pfd;
+
+	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+	if (pfd < 0 && errno == ENOENT)
+		return 0;;
+
+	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, id);
+	ret = fstatat(pfd, path, &st, 0);
+	if (ret == -1 && errno != ENOENT) {
+		pr_perror("Unable to stat %s", path);
+		close(pfd);
+		return -1;
+	}
+
+	close(pfd);
+	return (ret == 0);
+}
+
+static int page_server_check_parent(int sk, struct page_server_iov *pi)
+{
+	int type, ret;
+	long id;
+
+	type = decode_pm_type(pi->dst_id);
+	id = decode_pm_id(pi->dst_id);
+
+	ret = check_parent_local_xfer(type, id);
+	if (ret < 0)
+		return -1;
+
+	if (write(sk, &ret, sizeof(ret)) != sizeof(ret)) {
+		pr_perror("Unable to send reponse");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int check_parent_server_xfer(int fd_type, long id)
+{
+	struct page_server_iov pi = {};
+	int has_parent;
+
+	pi.cmd = PS_IOV_PARENT;
+	pi.dst_id = encode_pm_id(fd_type, id);
+
+	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write to page server");
+		return -1;
+	}
+
+	if (read(page_server_sk, &has_parent, sizeof(int)) != sizeof(int)) {
+		pr_perror("The page server doesn't answer");
+		return -1;
+	}
+
+	return has_parent;
+}
+
+int check_parent_page_xfer(int fd_type, long id)
+{
+	if (opts.use_page_server)
+		return check_parent_server_xfer(fd_type, id);
+	else
+		return check_parent_local_xfer(fd_type, id);
 }

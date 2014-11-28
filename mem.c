@@ -244,7 +244,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
 	struct vma_area *vma_area;
-	struct page_xfer xfer;
+	struct page_xfer xfer = { .parent = NULL };
 	int ret = -1;
 
 	pr_info("\n");
@@ -276,6 +276,13 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
 			goto out_pp;
+	} else {
+		ret = check_parent_page_xfer(CR_FD_PAGEMAP, ctl->pid.virt);
+		if (ret < 0)
+			goto out_pp;
+
+		if (ret)
+			xfer.parent = NULL + 1;
 	}
 
 	/*
