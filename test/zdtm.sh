@@ -574,6 +574,7 @@ diff_fds()
 
 run_test()
 {
+	local test_name=$1
 	local test=$1
 	local snappdir=
 	local ps_pid=
@@ -608,7 +609,7 @@ run_test()
 		make -C $tdir $tname && return 0 || return 1
 	fi
 
-	echo "Execute $test"
+	echo "Execute $test_name"
 
 	start_test $tdir $tname || return 1
 
@@ -653,7 +654,7 @@ EOF
 		local cpt_args=
 		local dump_only=
 		local dump_cmd="dump"
-		ddump=`readlink -fm dump/$(basename $tdir)/$tname/$PID/$i`
+		ddump=`readlink -fm dump/$test_name/$i/$PID`
 		DUMP_PATH=$ddump
 		echo Dump $PID
 		mkdir -p $ddump
