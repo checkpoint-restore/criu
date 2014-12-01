@@ -762,6 +762,7 @@ EOF
 				diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
 				diff_maps $ddump/dump.maps $ddump/restore.maps || return 2
 			}
+			[ "$CLEANUP" -ne 0 ] && rm -f --one-file-system $ddump/pages-*.img
 		fi
 
 	done
