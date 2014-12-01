@@ -650,11 +650,12 @@ EOF
 		gen_args="$gen_args --force-irmap"
 	fi
 
+	ddump=`readlink -fm dump/$test_name/$PID/$i`
 	for i in `seq $ITERATIONS`; do
 		local cpt_args=
 		local dump_only=
 		local dump_cmd="dump"
-		ddump=`readlink -fm dump/$test_name/$i/$PID`
+		ddump=`dirname $ddump`/$i
 		DUMP_PATH=$ddump
 		echo Dump $PID
 		mkdir -p $ddump
