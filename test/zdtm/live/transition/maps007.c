@@ -12,8 +12,8 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-#define MAP_SIZE (1 << 20)
-#define MEM_SIZE (1 << 29)
+#define MAP_SIZE (1UL << 20)
+#define MEM_SIZE (1UL << 29)
 #define PAGE_SIZE 4096
 
 const char *test_doc	= "create random mappings and touch memory";
@@ -93,7 +93,8 @@ int main(int argc, char **argv)
 		count++;
 
 		p = start + ((lrand48() * PAGE_SIZE) % MEM_SIZE);
-		size = (lrand48() * PAGE_SIZE) % (end - p);
+		size = lrand48() * PAGE_SIZE;
+		size %= (end - p);
 		size %= MAP_SIZE;
 		if (size == 0)
 			size = PAGE_SIZE;
