@@ -1,6 +1,8 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
+#include "asm/processor.h"
+
 typedef struct {
 	int counter;
 } atomic_t;
@@ -88,5 +90,29 @@ static inline int atomic_dec(atomic_t *v) { return atomic_sub_return(1, v) + 1; 
 #define atomic_dec_and_test(v) (atomic_sub_return(1, v) == 0)
 
 #define atomic_inc_return(v)	(atomic_add_return(1, v))
+
+static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
+{
+	int oldval;
+	unsigned long res;
+
+	smp_mb();
+	prefetchw(&ptr->counter);
+
+	do {
+		__asm__ __volatile__("@ atomic_cmpxchg\n"
+		"ldrex	%1, [%3]\n"
+		"mov	%0, #0\n"
+		"teq	%1, %4\n"
+		"strexeq %0, %5, [%3]\n"
+		    : "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
+		    : "r" (&ptr->counter), "Ir" (old), "r" (new)
+		    : "cc");
+	} while (res);
+
+	smp_mb();
+
+	return oldval;
+}
 
 #endif /* __CR_ATOMIC_H__ */
