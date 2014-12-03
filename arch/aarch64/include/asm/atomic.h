@@ -73,4 +73,26 @@ static inline int atomic_dec(atomic_t *v) { return atomic_sub_return(1, v) + 1; 
 
 #define atomic_inc_return(v)	(atomic_add_return(1, v))
 
+static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
+{
+	unsigned long tmp;
+	int oldval;
+
+	smp_mb();
+
+	asm volatile("// atomic_cmpxchg\n"
+"1:	ldxr	%w1, %2\n"
+"	cmp	%w1, %w3\n"
+"	b.ne	2f\n"
+"	stxr	%w0, %w4, %2\n"
+"	cbnz	%w0, 1b\n"
+"2:"
+	: "=&r" (tmp), "=&r" (oldval), "+Q" (ptr->counter)
+	: "Ir" (old), "r" (new)
+	: "cc");
+
+	smp_mb();
+	return oldval;
+}
+
 #endif /* __CR_ATOMIC_H__ */
