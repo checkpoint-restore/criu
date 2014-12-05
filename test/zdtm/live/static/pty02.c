@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 		ret = write(new_master, teststr, sizeof(teststr) - 1);
 		if (ret != sizeof(teststr) - 1) {
-			err("write(new_master) failed");
+			err("write(new_master) failed (ret = %d)", ret);
 			exit_shot_parent(1);
 		}
 
@@ -82,11 +82,10 @@ int main(int argc, char *argv[])
 	test_waitsig();
 
 	signal(SIGHUP, SIG_IGN);
-	task_waiter_complete(&t, 1);
 
 	ret = read(slave, buf, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("read(slave) failed");
+		err("read(slave) failed (ret = %d)", ret);
 		return 1;
 	}
 
@@ -95,6 +94,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	task_waiter_complete(&t, 1);
 	close(slave);
 
 	pass();
