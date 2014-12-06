@@ -548,8 +548,11 @@ static int check_ptrace_peeksiginfo()
 		exit(1);
 	}
 
-	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1)
-		return -1;
+	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
+		pr_perror("Unable to ptrace the child");
+		ret = -1;
+		goto out;
+	}
 
 	waitpid(pid, NULL, 0);
 
@@ -567,8 +570,8 @@ static int check_ptrace_peeksiginfo()
 		ret = -1;
 	}
 
-	ptrace(PTRACE_KILL, pid, NULL, NULL);
-
+out:
+	kill(pid, SIGKILL);
 	return ret;
 }
 
