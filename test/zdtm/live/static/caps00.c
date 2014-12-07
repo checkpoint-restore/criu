@@ -64,8 +64,9 @@ int main(int argc, char **argv)
 		struct cap_data data_2[_LINUX_CAPABILITY_U32S_3];
 
 		if (prctl(PR_CAPBSET_DROP, CAP_SETPCAP, 0, 0, 0)) {
-			err("PR_CAPBSET_DROP");
-			return -1;
+			res = 'x';
+			task_waiter_complete_current(&t);
+			goto bad;
 		}
 
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
