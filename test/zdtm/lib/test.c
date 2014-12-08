@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <grp.h>
 
 #include "zdtmtst.h"
 #include "lock.h"
@@ -118,6 +119,24 @@ void test_init(int argc, char **argv)
 		}
 
 		/* "3" -- run the test */
+	}
+
+	val = getenv("ZDTM_GROUPS");
+	if (val) {
+		char *tok = NULL;
+		unsigned int size = 0, groups[NGROUPS_MAX];
+
+		tok = strtok(val, " ");
+		while (tok) {
+			size++;
+			groups[size - 1] = atoi(tok);
+			tok = strtok(NULL, " ");
+		}
+
+		if (setgroups(size, groups)) {
+			fprintf(stderr, "Can't set groups: %m");
+			exit(1);
+		}
 	}
 
 	val = getenv("ZDTM_GID");

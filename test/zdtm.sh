@@ -475,10 +475,12 @@ start_test()
 
 	unset ZDTM_UID
 	unset ZDTM_GID
+	unset ZDTM_GROUPS
 
 	if ! echo $TEST_SUID_LIST | grep -q $tname; then
 		export ZDTM_UID=18943
 		export ZDTM_GID=58467
+		export ZDTM_GROUPS="27495 48244"
 		chmod a+w $tdir
 	fi
 
