@@ -166,6 +166,8 @@
 /live/static/write_read10
 /live/static/xids00
 /live/static/zombie00
+/live/static/ip.dump
+/live/static/ip.rst
 /live/streaming/fifo_dyn
 /live/streaming/fifo_loop
 /live/streaming/file_aio
