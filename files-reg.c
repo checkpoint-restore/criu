@@ -921,6 +921,20 @@ int open_path(struct file_desc *d,
 
 	rfi = container_of(d, struct reg_file_info, d);
 
+	tmp = inherit_fd_lookup_id(rfi->path);
+	if (tmp >= 0) {
+		int fd;
+
+		fd = dup(tmp);
+		if (fd == -1) {
+			pr_perror("Can't dup inherit fd %d\n", fd);
+			return -1;
+		}
+		pr_info("File %s will be restored from fd %d duped from inherit fd %d\n",
+			rfi->path, fd, tmp);
+		return fd;
+	}
+
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
 		if (rfi->remap->is_dir) {

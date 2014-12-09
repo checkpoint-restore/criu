@@ -41,6 +41,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "cr-service.h"
+#include "files.h"
 
 #define VMA_OPT_LEN	128
 
@@ -93,6 +94,7 @@ void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 int close_safe(int *fd)
 {
 	int ret = 0;
+
 	if (*fd > -1) {
 		ret = close(*fd);
 		if (!ret)
@@ -109,6 +111,9 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 	int tmp;
 
 	if (old_fd != new_fd) {
+		/* make sure we won't clash with an inherit fd */
+		if (inherit_fd_resolve_clash(new_fd) < 0)
+			return -1;
 
 		if (!allow_reuse_fd) {
 			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {

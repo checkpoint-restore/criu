@@ -43,6 +43,7 @@ struct cr_options {
 	struct list_head	veth_pairs;
 	struct list_head	scripts;
 	struct list_head	ext_mounts;
+	struct list_head	inherit_fds;
 	char			*libdir;
 	bool			use_page_server;
 	unsigned short		ps_port;

@@ -293,14 +293,47 @@ static int recv_pipe_fd(struct pipe_info *pi)
 	return fd;
 }
 
+static char *pipe_id_string(int pipe_id)
+{
+	static char idstr[16];
+
+	if (snprintf(idstr, sizeof idstr, "pipe:[%d]", pipe_id) >= sizeof idstr) {
+		pr_err("Not enough room for pipe %d identifier string\n", pipe_id);
+		return NULL;
+	}
+	return idstr;
+}
+
 static int open_pipe(struct file_desc *d)
 {
+	char *pipe_name;
 	struct pipe_info *pi, *p;
 	int ret, tmp;
 	int pfd[2];
 	int sock;
 
 	pi = container_of(d, struct pipe_info, d);
+
+	/*
+	 * If the pipe is in the inherit fd list,
+	 * it should be inherited rather than created.
+	 */
+	pipe_name = pipe_id_string(pi->pe->pipe_id);
+	if (pipe_name == NULL)
+		return -1;
+	tmp = inherit_fd_lookup_id(pipe_name);
+	if (tmp >= 0) {
+		int fd;
+
+		fd = dup(tmp);
+		if (fd == -1) {
+			pr_perror("Can't dup inherit fd %d\n", fd);
+			return -1;
+		}
+		pr_info("Pipe %s will be restored from fd %d duped from inherit fd %d\n",
+			pipe_name, fd, tmp);
+		return fd;
+	}
 
 	pr_info("\t\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe->pipe_id, pi->pe->id);
 

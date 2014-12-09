@@ -799,6 +799,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (collect_helper_pids() < 0)
 		return -1;
 
+	if (inherit_fd_fini() < 0)
+		return -1;
+
 	return sigreturn_restore(pid, core);
 }
 
@@ -860,6 +863,9 @@ static int restore_one_zombie(int pid, CoreEntry *core)
 	int exit_code = core->tc->exit_code;
 
 	pr_info("Restoring zombie with %d code\n", exit_code);
+
+	if (inherit_fd_fini() < 0)
+		return -1;
 
 	sys_prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
 

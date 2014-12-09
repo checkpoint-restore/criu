@@ -37,6 +37,7 @@
 #include "imgset.h"
 #include "fs-magic.h"
 #include "proc_parse.h"
+#include "cr_options.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -786,6 +787,10 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 	if (fd == dfd)
 		return 0;
 
+	/* make sure we won't clash with an inherit fd */
+	if (inherit_fd_resolve_clash(dfd) < 0)
+		return -1;
+
 	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
 	if (move_img_fd(sock, dfd))
 		return -1;
@@ -945,7 +950,8 @@ int close_old_fds(struct pstree_item *me)
 			return -1;
 		}
 
-		if ((!is_any_service_fd(fd)) && (dirfd(dir) != fd))
+		if ((!is_any_service_fd(fd)) && (dirfd(dir) != fd) &&
+		    !inherit_fd_lookup_fd(fd, __FUNCTION__))
 			close_safe(&fd);
 	}
 
@@ -1174,5 +1180,254 @@ int shared_fdt_prepare(struct pstree_item *item)
 	if (pid_rst_prio(item->pid.virt, fdt->pid))
 		fdt->pid = item->pid.virt;
 
+	return 0;
+}
+
+/*
+ * Inherit fd support.
+ *
+ * There are cases where a process's file descriptor cannot be restored
+ * from the checkpointed image.  For example, a pipe file descriptor with
+ * one end in the checkpointed process and the other end in a separate
+ * process (that was not part of the checkpointed process tree) cannot be
+ * restored because after checkpoint the pipe would be broken and removed.
+ *
+ * There are also cases where the user wants to use a new file during
+ * restore instead of the original file in the checkpointed image.  For
+ * example, the user wants to change the log file of a process from
+ * /path/to/oldlog to /path/to/newlog.
+ *
+ * In these cases, criu's caller should set up a new file descriptor to be
+ * inherited by the restored process and specify it with the --inherit-fd
+ * command line option.  The argument of --inherit-fd has the format
+ * fd[%d]:%s, where %d tells criu which of its own file descriptor to use
+ * for restoring file identified by %s.
+ *
+ * As a debugging aid, if the argument has the format debug[%d]:%s, it tells
+ * criu to write out the string after colon to the file descriptor %d.  This
+ * can be used to leave a "restore marker" in the output stream of the process.
+ *
+ * It's important to note that inherit fd support breaks applications
+ * that depend on the state of the file descriptor being inherited.  So,
+ * consider inherit fd only for specific use cases that you know for sure
+ * won't break the application.
+ *
+ * For examples please visit http://criu.org/Category:HOWTO.
+ */
+
+struct inherit_fd {
+	struct list_head inh_list;
+	char *inh_id;		/* file identifier */
+	int inh_fd;		/* criu's descriptor to inherit */
+	dev_t inh_dev;
+	ino_t inh_ino;
+	mode_t inh_mode;
+	dev_t inh_rdev;
+};
+
+/*
+ * Return 1 if inherit fd has been closed or reused, 0 otherwise.
+ */
+static int inherit_fd_reused(struct inherit_fd *inh)
+{
+	struct stat sbuf;
+
+	if (fstat(inh->inh_fd, &sbuf) == -1) {
+		if (errno == EBADF) {
+			pr_debug("Inherit fd %s -> %d has been closed\n",
+				inh->inh_id, inh->inh_fd);
+			return 1;
+		}
+		pr_perror("Can't fstat inherit fd %d", inh->inh_fd);
+		return -1;
+	}
+
+	if (inh->inh_dev != sbuf.st_dev || inh->inh_ino != sbuf.st_ino ||
+	    inh->inh_mode != sbuf.st_mode || inh->inh_rdev != sbuf.st_rdev) {
+		pr_info("Inherit fd %s -> %d has been reused\n",
+			inh->inh_id, inh->inh_fd);
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * We can't print diagnostics messages in this function because the
+ * log file isn't initialized yet.
+ */
+int inherit_fd_add(char *optarg)
+{
+	char *cp = NULL;
+	int n = -1;
+	int fd = -1;
+	int dbg = 0;
+	struct stat sbuf;
+	struct inherit_fd *inh;
+
+	/*
+	 * Parse the argument.
+	 */
+	if (!strncmp(optarg, "fd", 2))
+		cp = &optarg[2];
+	else if (!strncmp(optarg, "debug", 5)) {
+		cp = &optarg[5];
+		dbg = 1;
+	}
+	if (cp) {
+		n = sscanf(cp, "[%d]:", &fd);
+		cp = strchr(optarg, ':');
+	}
+	if (n != 1 || fd < 0 || !cp || !cp[1]) {
+		pr_err("Invalid inherit fd argument: %s\n", optarg);
+		return -1;
+	}
+
+	/*
+	 * If the argument is a debug string, write it to fd.
+	 * Otherwise, add it to the inherit fd list.
+	 */
+	cp++;
+	if (dbg) {
+		n = strlen(cp);
+		if (write(fd, cp, n) != n) {
+			pr_err("Can't write debug message %s to inherit fd %d\n",
+				cp, fd);
+			return -1;
+		}
+		return 0;
+	}
+
+	if (fstat(fd, &sbuf) == -1) {
+		pr_perror("Can't fstat inherit fd %d", fd);
+		return -1;
+	}
+
+	inh = xmalloc(sizeof *inh);
+	if (inh == NULL)
+		return -1;
+
+	inh->inh_id = cp;
+	inh->inh_fd = fd;
+	inh->inh_dev = sbuf.st_dev;
+	inh->inh_ino = sbuf.st_ino;
+	inh->inh_mode = sbuf.st_mode;
+	inh->inh_rdev = sbuf.st_rdev;
+	list_add_tail(&inh->inh_list, &opts.inherit_fds);
+	return 0;
+}
+
+/*
+ * Log the inherit fd list.  Called for diagnostics purposes
+ * after the log file is initialized.
+ */
+void inherit_fd_log(void)
+{
+	struct inherit_fd *inh;
+
+	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+		pr_info("File %s will be restored from inherit fd %d\n",
+			inh->inh_id, inh->inh_fd);
+	}
+}
+
+/*
+ * Look up the inherit fd list by a file identifier.
+ */
+int inherit_fd_lookup_id(char *id)
+{
+	int ret;
+	struct inherit_fd *inh;
+
+	ret = -1;
+	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+		if (!strcmp(inh->inh_id, id)) {
+			if (!inherit_fd_reused(inh)) {
+				ret = inh->inh_fd;
+				pr_debug("Found id %s (fd %d) in inherit fd list\n",
+					id, ret);
+			}
+			break;
+		}
+	}
+	return ret;
+}
+
+/*
+ * Look up the inherit fd list by a file descriptor.
+ */
+struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller)
+{
+	struct inherit_fd *ret;
+	struct inherit_fd *inh;
+
+	ret = NULL;
+	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+		if (inh->inh_fd == fd) {
+			if (!inherit_fd_reused(inh)) {
+				ret = inh;
+				pr_debug("Found fd %d (id %s) in inherit fd list (caller %s)\n",
+					fd, inh->inh_id, caller);
+			}
+			break;
+		}
+	}
+	return ret;
+}
+
+/*
+ * If the specified fd clashes with an inherit fd,
+ * move the inherit fd.
+ */
+int inherit_fd_resolve_clash(int fd)
+{
+	int newfd;
+	struct inherit_fd *inh;
+
+	inh = inherit_fd_lookup_fd(fd, __FUNCTION__);
+	if (inh == NULL)
+		return 0;
+
+	newfd = dup(fd);
+	if (newfd == -1) {
+		pr_perror("Can't dup inherit fd %d", fd);
+		return -1;
+	}
+
+	if (close(fd) == -1) {
+		pr_perror("Can't close inherit fd %d", fd);
+		return -1;
+	}
+
+	inh->inh_fd = newfd;
+	pr_debug("Inherit fd %d moved to %d to resolve clash\n", fd, inh->inh_fd);
+	return 0;
+}
+
+/*
+ * Close all inherit fds.
+ */
+int inherit_fd_fini()
+{
+	int reused;
+	struct inherit_fd *inh;
+
+	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+		if (inh->inh_fd < 0) {
+			pr_err("File %s in inherit fd list has invalid fd %d\n",
+				inh->inh_id, inh->inh_fd);
+			return -1;
+		}
+
+		reused = inherit_fd_reused(inh);
+		if (reused < 0)
+			return -1;
+
+		if (!reused) {
+			pr_debug("Closing inherit fd %d -> %s\n", inh->inh_fd,
+				inh->inh_id);
+			if (close_safe(&inh->inh_fd) < 0)
+				return -1;
+		}
+	}
 	return 0;
 }

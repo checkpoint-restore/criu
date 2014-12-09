@@ -52,6 +52,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.scripts);
 	INIT_LIST_HEAD(&opts.ext_mounts);
+	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 
 	opts.cpu_cap = CPU_CAP_DEFAULT;
@@ -187,6 +188,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "exec-cmd", no_argument, 0, 1059},
 		{ "manage-cgroups", no_argument, 0, 1060},
 		{ "cgroup-root", required_argument, 0, 1061},
+		{ "inherit-fd", required_argument, 0, 1062},
 		{ },
 	};
 
@@ -392,6 +394,10 @@ int main(int argc, char *argv[], char *envp[])
 					return -1;
 			}
 			break;
+		case 1062:
+			if (inherit_fd_add(optarg) < 0)
+				return 1;
+			break;
 		case 'M':
 			{
 				char *aux;
@@ -468,6 +474,15 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (log_init(opts.output))
 		return 1;
+
+	if (!list_empty(&opts.inherit_fds)) {
+		if (strcmp(argv[optind], "restore")) {
+			pr_err("--inherit-fd is restore-only option\n");
+			return 1;
+		}
+		/* now that log file is set up, print inherit fd list */
+		inherit_fd_log();
+	}
 
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
