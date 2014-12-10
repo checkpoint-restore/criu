@@ -658,6 +658,7 @@ int criu_restore_child(void)
 		sprintf(fds, "%d", sks[1]);
 
 		execlp("criu", "criu", "swrk", fds, NULL);
+		perror("Can't exec criu swrk");
 		exit(1);
 	}
 
