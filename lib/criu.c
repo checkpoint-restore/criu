@@ -448,6 +448,9 @@ again:
 		}
 	}
 
+	if ((*resp)->has_cr_errno)
+		saved_errno = (*resp)->cr_errno;
+
 exit:
 	return ret;
 }
