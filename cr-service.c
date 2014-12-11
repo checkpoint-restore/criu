@@ -30,6 +30,8 @@
 
 #include "setproctitle.h"
 
+#include "cr-errno.h"
+
 unsigned int service_sk_ino = -1;
 
 static int recv_criu_msg(int socket_fd, CriuReq **msg)
@@ -341,6 +343,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	return 0;
 
 err:
+	set_cr_errno(EBADRQC);
 	return -1;
 }
 
