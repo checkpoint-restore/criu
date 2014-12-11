@@ -67,4 +67,7 @@ kill -SIGTERM ${P}
 title_print "Run ps_test"
 ../ps_test.py || _exit $?
 
+title_print "Run cr_errno test"
+../errno.py || _exit $?
+
 _exit 0
