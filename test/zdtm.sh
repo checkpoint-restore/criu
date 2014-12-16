@@ -107,6 +107,7 @@ static/pty04
 static/tty02
 static/tty03
 static/console
+static/vt
 static/child_opened_proc
 static/cow01
 static/fpu00
@@ -246,6 +247,7 @@ ns/static/clean_mntns
 ns/static/mntns_link_remap
 ns/static/mntns_link_ghost
 ns/static/console
+ns/static/vt
 ns/static/rtc
 ns/static/mntns_shared_bind
 ns/static/mntns_shared_bind02
@@ -292,6 +294,7 @@ tun
 chroot
 chroot-file
 console
+vt
 rtc
 tempfs
 maps007

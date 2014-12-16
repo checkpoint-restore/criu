@@ -168,6 +168,7 @@
 /live/static/zombie00
 /live/static/ip.dump
 /live/static/ip.rst
+/live/static/vt
 /live/streaming/fifo_dyn
 /live/streaming/fifo_loop
 /live/streaming/file_aio
