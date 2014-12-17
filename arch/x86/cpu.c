@@ -276,7 +276,7 @@ static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
 		return -1;
 	}
 
-	if ((opts.cpu_cap & ~CPU_CAP_FPU) == CPU_CAP_FPU) {
+	if (opts.cpu_cap == CPU_CAP_FPU) {
 		/*
 		 * If we're requested to check FPU only ignore
 		 * any other bit. It's up to a user if the
