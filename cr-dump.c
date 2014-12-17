@@ -1832,7 +1832,7 @@ int cr_dump_tasks(pid_t pid)
 	if (write_img_inventory())
 		goto err;
 
-	if (opts.cpu_cap & CPU_CAP_CPU) {
+	if (opts.cpu_cap & (CPU_CAP_CPU | CPU_CAP_INS)) {
 		if (cpu_dump_cpuinfo())
 			goto err;
 	}

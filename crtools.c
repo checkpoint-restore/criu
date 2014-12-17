@@ -122,6 +122,8 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 			____cpu_set_cap(opts, CPU_CAP_NONE, inverse);
 		else if (!strncmp(optarg, "cpu", 3))
 			____cpu_set_cap(opts, CPU_CAP_CPU, inverse);
+		else if (!strncmp(optarg, "ins", 3))
+			____cpu_set_cap(opts, CPU_CAP_INS, inverse);
 		else
 			goto Esyntax;
 	}
@@ -595,7 +597,7 @@ usage:
 "  -W|--work-dir DIR     directory to cd and write logs/pidfiles/stats to\n"
 "                        (if not specified, value of --images-dir is used)\n"
 "     --cpu-cap [CAP]    require certain cpu capability. CAP: may be one of:\n"
-"                        'cpu','fpu','all','none'. To disable capability, prefix it with '^'.\n"
+"                        'cpu','fpu','all','ins','none'. To disable capability, prefix it with '^'.\n"
 "     --exec-cmd         execute the command specified after '--' on successful\n"
 "                        restore making it the parent of the restored process\n"
 "\n"

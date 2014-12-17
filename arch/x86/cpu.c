@@ -261,6 +261,112 @@ int cpu_dump_cpuinfo(void)
 	return 0;
 }
 
+#define __ins_bit(__l, __v)	(1u << ((__v) - 32u * (__l)))
+
+static u32 x86_ins_capability_mask[NCAPINTS] = {
+	[0] =
+		__ins_bit(0, X86_FEATURE_FPU)		|
+		__ins_bit(0, X86_FEATURE_TSC)		|
+		__ins_bit(0, X86_FEATURE_CX8)		|
+		__ins_bit(0, X86_FEATURE_SEP)		|
+		__ins_bit(0, X86_FEATURE_CMOV)		|
+		__ins_bit(0, X86_FEATURE_CLFLUSH)	|
+		__ins_bit(0, X86_FEATURE_MMX)		|
+		__ins_bit(0, X86_FEATURE_FXSR)		|
+		__ins_bit(0, X86_FEATURE_XMM)		|
+		__ins_bit(0, X86_FEATURE_XMM2),
+
+	[1] =
+		__ins_bit(1, X86_FEATURE_SYSCALL)	|
+		__ins_bit(1, X86_FEATURE_MMXEXT)	|
+		__ins_bit(1, X86_FEATURE_RDTSCP)	|
+		__ins_bit(1, X86_FEATURE_3DNOWEXT)	|
+		__ins_bit(1, X86_FEATURE_3DNOW),
+
+	[3] =
+		__ins_bit(3, X86_FEATURE_REP_GOOD)	|
+		__ins_bit(3, X86_FEATURE_NOPL),
+
+	[4] =
+		__ins_bit(4, X86_FEATURE_XMM3)		|
+		__ins_bit(4, X86_FEATURE_PCLMULQDQ)	|
+		__ins_bit(4, X86_FEATURE_MWAIT)		|
+		__ins_bit(4, X86_FEATURE_SSSE3)		|
+		__ins_bit(4, X86_FEATURE_CX16)		|
+		__ins_bit(4, X86_FEATURE_XMM4_1)	|
+		__ins_bit(4, X86_FEATURE_XMM4_2)	|
+		__ins_bit(4, X86_FEATURE_MOVBE)		|
+		__ins_bit(4, X86_FEATURE_POPCNT)	|
+		__ins_bit(4, X86_FEATURE_AES)		|
+		__ins_bit(4, X86_FEATURE_XSAVE)		|
+		__ins_bit(4, X86_FEATURE_OSXSAVE)	|
+		__ins_bit(4, X86_FEATURE_AVX)		|
+		__ins_bit(4, X86_FEATURE_F16C)		|
+		__ins_bit(4, X86_FEATURE_RDRAND),
+
+	[6] =
+		__ins_bit(6, X86_FEATURE_ABM)		|
+		__ins_bit(6, X86_FEATURE_SSE4A)		|
+		__ins_bit(6, X86_FEATURE_MISALIGNSSE)	|
+		__ins_bit(6, X86_FEATURE_3DNOWPREFETCH)	|
+		__ins_bit(6, X86_FEATURE_XOP)		|
+		__ins_bit(6, X86_FEATURE_FMA4)		|
+		__ins_bit(6, X86_FEATURE_TBM),
+
+	[9] =
+		__ins_bit(9, X86_FEATURE_FSGSBASE)	|
+		__ins_bit(9, X86_FEATURE_BMI1)		|
+		__ins_bit(9, X86_FEATURE_HLE)		|
+		__ins_bit(9, X86_FEATURE_AVX2)		|
+		__ins_bit(9, X86_FEATURE_BMI2)		|
+		__ins_bit(9, X86_FEATURE_ERMS)		|
+		__ins_bit(9, X86_FEATURE_RTM)		|
+		__ins_bit(9, X86_FEATURE_MPX)		|
+		__ins_bit(9, X86_FEATURE_AVX512F)	|
+		__ins_bit(9, X86_FEATURE_AVX512DQ)	|
+		__ins_bit(9, X86_FEATURE_RDSEED)	|
+		__ins_bit(9, X86_FEATURE_ADX)		|
+		__ins_bit(9, X86_FEATURE_CLFLUSHOPT)	|
+		__ins_bit(9, X86_FEATURE_AVX512PF)	|
+		__ins_bit(9, X86_FEATURE_AVX512ER)	|
+		__ins_bit(9, X86_FEATURE_AVX512CD)	|
+		__ins_bit(9, X86_FEATURE_SHA)		|
+		__ins_bit(9, X86_FEATURE_AVX512BW)	|
+		__ins_bit(9, X86_FEATURE_AVXVL),
+
+	[10] =
+		__ins_bit(10, X86_FEATURE_XSAVEOPT)	|
+		__ins_bit(10, X86_FEATURE_XSAVEC)	|
+		__ins_bit(10, X86_FEATURE_XGETBV1)	|
+		__ins_bit(10, X86_FEATURE_XSAVES),
+
+	[11] =
+		__ins_bit(11, X86_FEATURE_PREFETCHWT1),
+};
+
+#undef __ins_bit
+
+static int cpu_validate_ins_features(CpuinfoX86Entry *img_x86_entry)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(rt_cpu_info.x86_capability); i++) {
+		u32 s = img_x86_entry->capability[i] & x86_ins_capability_mask[i];
+		u32 d = rt_cpu_info.x86_capability[i] & x86_ins_capability_mask[i];
+
+		/*
+		 * Destination might be more feature rich
+		 * but not the reverse.
+		 */
+		if (s & ~d) {
+			pr_err("CPU instruction capabilities do not match run time\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
 {
 	if (img_x86_entry->n_capability != ARRAY_SIZE(rt_cpu_info.x86_capability)) {
@@ -298,10 +404,14 @@ static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
 	}
 
 	/*
-	 * FIXME We need to bring ability to run images with lower
-	 * features on more capable CPU.
+	 * Capability on instructions level only.
 	 */
+	if (opts.cpu_cap == CPU_CAP_INS)
+		return cpu_validate_ins_features(img_x86_entry);
 
+	/*
+	 * Strict capability mode. Everything must match.
+	 */
 	if (memcmp(img_x86_entry->capability, rt_cpu_info.x86_capability,
 		   sizeof(rt_cpu_info.x86_capability))) {
 			pr_err("CPU capabilites do not match run time\n");
@@ -367,10 +477,12 @@ int cpuinfo_check(void)
 		return 1;
 
 	/*
-	 * Force to check all caps because its been
-	 * called as a special command from options.
+	 * Force to check all caps if empty passed,
+	 * still allow to check instructions only
+	 * and etc.
 	 */
-	opts.cpu_cap = CPU_CAP_ALL;
+	if (!opts.cpu_cap)
+		opts.cpu_cap = CPU_CAP_ALL;
 
 	if (cpu_validate_cpuinfo())
 		return 1;

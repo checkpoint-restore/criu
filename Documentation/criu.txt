@@ -101,6 +101,12 @@ OPTIONS
                 procceed. This is *default* mode if *--cpu-cap* is not present
                 in command line.
 
+    - 'ins'     Only require CPU compatibility on instructions level. On *dump*
+                all capabilities are writen into image file and on *restore*
+                only subset related to CPU instructions tested if target CPU
+                supports them. Unlike 'cpu' mode the target CPU may have more
+                features than ones present in image file.
+
     - 'none'.   Ignore capabilities. Most dangerous mode. The behaviour is
                 implementation dependent. Try to not use it until really
                 required. One possible need of using this option is when

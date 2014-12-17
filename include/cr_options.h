@@ -11,7 +11,8 @@
 #define CPU_CAP_NONE		(0u)
 #define CPU_CAP_ALL		(-1u)
 #define CPU_CAP_FPU		(1u)		/* Only FPU capability required */
-#define CPU_CAP_CPU		(2u)		/* CPU capability required */
+#define CPU_CAP_CPU		(2u)		/* Strict CPU capability required */
+#define CPU_CAP_INS		(4u)		/* Instructions CPU capatibility */
 #define CPU_CAP_DEFAULT		(CPU_CAP_FPU)
 
 struct cg_root_opt {
