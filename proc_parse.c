@@ -490,7 +490,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 
 			if (!S_ISREG(st_buf->st_mode) &&
 			    !(S_ISCHR(st_buf->st_mode) && st_buf->st_rdev == DEVZERO)) {
-				pr_err("Can't handle non-regular mapping on %d's map %lu\n", pid, start);
+				pr_err("Can't handle non-regular mapping on %d's map %#lx\n", pid, start);
 				goto err;
 			}
 
