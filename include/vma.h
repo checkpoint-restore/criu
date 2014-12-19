@@ -7,6 +7,7 @@
 struct vm_area_list {
 	struct list_head	h;
 	unsigned		nr;
+	unsigned int		nr_aios;
 	unsigned long		priv_size; /* nr of pages in private VMAs */
 	unsigned long		longest; /* nr of pages in longest VMA */
 };
@@ -35,9 +36,12 @@ struct vma_area {
 				 * The file_fd is an fd for a regular file and
 				 * the socket_id is the inode number of the
 				 * mapped (PF_PACKET) socket.
+				 *
+				 * The aio_nr_req is only for aio rings.
 				 */
 				int	vm_file_fd;
 				int	vm_socket_id;
+				unsigned int aio_nr_req;
 			};
 
 			char		*aufs_rpath;	/* path from aufs root */

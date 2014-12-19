@@ -43,6 +43,12 @@ static char *buf = __buf.buf;
 
 #define BUF_SIZE sizeof(__buf.buf)
 
+/*
+ * This is how AIO ring buffers look like in proc
+ */
+
+#define AIO_FNAME	"/[aio]"
+
 int parse_cpuinfo_features(int (*handler)(char *tok))
 {
 	FILE *cpuinfo;
@@ -191,7 +197,7 @@ static inline int vfi_equal(struct vma_file_info *a, struct vma_file_info *b)
 			(a->dev_min ^ b->dev_min)) == 0;
 }
 
-static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
+static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 		struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
 	char path[32];
@@ -244,13 +250,22 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 			if (fstatat(dirfd(mfd), path, &buf, 0))
 				return -1;
 
-			if (!S_ISSOCK(buf.st_mode))
-				return -1;
+			if (S_ISSOCK(buf.st_mode)) {
+				pr_info("Found socket mapping @%"PRIx64"\n", vma->e->start);
+				vma->vm_socket_id = buf.st_ino;
+				vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+				return 0;
+			}
 
-			vma->vm_socket_id = buf.st_ino;
-			pr_info("Found socket mapping @%"PRIx64"\n", vma->e->start);
-			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
-			return 0;
+			if ((buf.st_mode & S_IFMT) == 0 && !strcmp(fname, AIO_FNAME)) {
+				/* AIO ring, let's try */
+				close(vma->vm_file_fd);
+				vma->aio_nr_req = -1;
+				vma->e->status = VMA_AREA_AIORING;
+				return 0;
+			}
+
+			pr_err("Unknown shit %o (%s)\n", buf.st_mode, fname);
 		}
 
 		return -1;
@@ -325,6 +340,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 	struct bfd f;
 
 	vma_area_list->nr = 0;
+	vma_area_list->nr_aios = 0;
 	vma_area_list->longest = 0;
 	vma_area_list->priv_size = 0;
 	INIT_LIST_HEAD(&vma_area_list->h);
@@ -417,7 +433,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		vma_area->e->pgoff	= pgoff;
 		vma_area->e->prot	= PROT_NONE;
 
-		if (vma_get_mapfile(vma_area, map_files_dir, &vfi, &prev_vfi))
+		if (vma_get_mapfile(file_path, vma_area, map_files_dir, &vfi, &prev_vfi))
 			goto err_bogus_mapfile;
 
 		if (r == 'r')
@@ -437,6 +453,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		}
 
 		if (vma_area->e->status != 0) {
+			if (vma_area->e->status & VMA_AREA_AIORING)
+				vma_area_list->nr_aios++;
 			continue;
 		} else if (!strcmp(file_path, "[vsyscall]") ||
 			   !strcmp(file_path, "[vectors]")) {

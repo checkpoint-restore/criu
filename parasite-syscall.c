@@ -28,6 +28,7 @@
 #include "mem.h"
 #include "vma.h"
 #include "proc_parse.h"
+#include "aio.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1193,6 +1194,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		return NULL;
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
+	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
 
 	/*
 	 * Inject a parasite engine. Ie allocate memory inside alien

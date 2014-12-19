@@ -330,6 +330,73 @@ static inline int tty_ioctl(int fd, int cmd, int *arg)
 	return 0;
 }
 
+/*
+ * Stolen from kernel/fs/aio.c
+ *
+ * Is it valid to go to memory and check it? Should be,
+ * as libaio does the same.
+ */
+
+#define AIO_RING_MAGIC			0xa10a10a1
+#define AIO_RING_COMPAT_FEATURES	1
+#define AIO_RING_INCOMPAT_FEATURES	0
+
+struct aio_ring {
+	unsigned        id;     /* kernel internal index number */
+	unsigned        nr;     /* number of io_events */
+	unsigned        head;   /* Written to by userland or under ring_lock
+				 * mutex by aio_read_events_ring(). */
+	unsigned        tail;
+
+	unsigned        magic;
+	unsigned        compat_features;
+	unsigned        incompat_features;
+	unsigned        header_length;  /* size of aio_ring */
+
+
+	/* struct io_event         io_events[0]; */
+};
+
+static int sane_ring(struct aio_ring *ring)
+{
+	return ring->magic == AIO_RING_MAGIC &&
+		ring->compat_features == AIO_RING_COMPAT_FEATURES &&
+		ring->incompat_features == AIO_RING_INCOMPAT_FEATURES &&
+		ring->header_length == sizeof(struct aio_ring);
+}
+
+static int parasite_check_aios(struct parasite_check_aios_args *args)
+{
+	int i;
+
+	for (i = 0; i < args->nr_rings; i++) {
+		struct aio_ring *ring;
+
+		ring = (struct aio_ring *)args->ring[i].ctx;
+		if (!sane_ring(ring)) {
+			pr_err("Not valid ring #%d\n", i);
+			pr_info(" `- magic %x\n", ring->magic);
+			pr_info(" `- cf    %d\n", ring->compat_features);
+			pr_info(" `- if    %d\n", ring->incompat_features);
+			pr_info(" `- size  %d (%ld)\n", ring->header_length, sizeof(struct aio_ring));
+			return -1;
+		}
+
+		/*
+		 * XXX what else can we do if there are requests
+		 * in the ring?
+		 */
+		if (ring->head != ring->tail) {
+			pr_err("Pending AIO requests in ring #%d\n", i);
+			return -1;
+		}
+
+		args->ring[i].max_reqs = ring->nr;
+	}
+
+	return 0;
+}
+
 static int parasite_dump_tty(struct parasite_tty_args *args)
 {
 	int ret;
@@ -540,6 +607,9 @@ static noinline __used int noinline parasite_daemon(void *args)
 			break;
 		case PARASITE_CMD_DUMP_TTY:
 			ret = parasite_dump_tty(args);
+			break;
+		case PARASITE_CMD_CHECK_AIOS:
+			ret = parasite_check_aios(args);
 			break;
 #ifdef CONFIG_VDSO
 		case PARASITE_CMD_CHECK_VDSO_MARK:

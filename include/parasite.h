@@ -47,6 +47,7 @@ enum {
 	PARASITE_CMD_GET_PROC_FD,
 	PARASITE_CMD_DUMP_TTY,
 	PARASITE_CMD_CHECK_VDSO_MARK,
+	PARASITE_CMD_CHECK_AIOS,
 
 	PARASITE_CMD_MAX,
 };
@@ -131,6 +132,17 @@ struct posix_timer {
 struct parasite_dump_posix_timers_args {
 	int timer_n;
 	struct posix_timer timer[0];
+};
+
+struct parasite_aio {
+	unsigned long ctx;
+	unsigned int max_reqs;
+	unsigned int *vma_nr_reqs;
+};
+
+struct parasite_check_aios_args {
+	unsigned nr_rings;
+	struct parasite_aio ring[0];
 };
 
 static inline int posix_timers_dump_size(int timer_n)

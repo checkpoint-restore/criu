@@ -72,6 +72,7 @@
 #include "irmap.h"
 #include "sysfs_parse.h"
 #include "action-scripts.h"
+#include "aio.h"
 
 #include "asm/dump.h"
 
@@ -464,6 +465,12 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 			goto err;
 
 		mme.vmas[i++] = vma;
+
+		if (vma_entry_is(vma, VMA_AREA_AIORING)) {
+			ret = dump_aio_ring(&mme, vma_area);
+			if (ret)
+				goto err;
+		}
 	}
 
 	mme.mm_start_code = stat->start_code;
@@ -496,6 +503,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 
 	ret = pb_write_one(img_from_set(imgset, CR_FD_MM), &mme, PB_MM);
 	xfree(mme.mm_saved_auxv);
+	free_aios(&mme);
 err:
 	return ret;
 }
@@ -1563,6 +1571,12 @@ static int dump_one_task(struct pstree_item *item)
 	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
 	if (ret) {
 		pr_err("Can't fixup vdso VMAs (pid: %d)\n", pid);
+		goto err_cure_imgset;
+	}
+
+	ret = parasite_check_aios(parasite_ctl, &vmas); /* FIXME -- merge with above */
+	if (ret) {
+		pr_err("Failed to check aio rings (pid: %d)\n", pid);
 		goto err_cure_imgset;
 	}
 
