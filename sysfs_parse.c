@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "cr_options.h"
 #include "criu-log.h"
@@ -296,6 +297,12 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 			sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
 		}
 		pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
+	}
+
+	if (stat(vma->aufs_fpath, vma->vmst) < 0) {
+		pr_perror("Failed stat on map %"PRIx64" (%s)",
+				vma->e->start, vma->aufs_fpath);
+		return -1;
 	}
 
 	return 0;

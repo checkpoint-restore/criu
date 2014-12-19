@@ -234,6 +234,10 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 	 */
 	vma->vm_file_fd = openat(dirfd(mfd), path, O_RDONLY);
 	if (vma->vm_file_fd < 0) {
+		if (errno == ENOENT)
+			/* Just mapping w/o map_files link */
+			return 0;
+
 		if (errno == ENXIO) {
 			struct stat buf;
 
@@ -243,14 +247,33 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 			if (!S_ISSOCK(buf.st_mode))
 				return -1;
 
-			pr_info("Found socket %"PRIu64" mapping @%"PRIx64"\n",
-					buf.st_ino, vma->e->start);
-			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
 			vma->vm_socket_id = buf.st_ino;
-		} else if (errno != ENOENT)
-			return -1;
-	} else if (opts.aufs && fixup_aufs_vma_fd(vma) < 0)
+			pr_info("Found socket mapping @%"PRIx64"\n", vma->e->start);
+			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+			return 0;
+		}
+
 		return -1;
+	}
+
+	vma->vmst = xmalloc(sizeof(struct stat));
+	if (!vma->vmst)
+		return -1;
+
+	if (opts.aufs)
+		/*
+		 * For AUFS support, we cannot fstat() a file descriptor that
+		 * is a symbolic link to a branch (it would return different
+		 * dev/ino than the real file).  Instead, we stat() using the
+		 * full pathname that we saved before.
+		 */
+
+		return fixup_aufs_vma_fd(vma);
+
+	if (fstat(vma->vm_file_fd, vma->vmst) < 0) {
+		pr_perror("Failed fstat on map %"PRIx64"", vma->e->start);
+		return -1;
+	}
 
 	return 0;
 }
@@ -460,28 +483,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 			vma_area->vmst = prev->vmst;
 			vma_area->mnt_id = prev->mnt_id;
 		} else if (vma_area->vm_file_fd >= 0) {
-			struct stat *st_buf;
-
-			st_buf = vma_area->vmst = xmalloc(sizeof(*st_buf));
-			if (!st_buf)
-				goto err;
-
-			/*
-			 * For AUFS support, we cannot fstat() a file descriptor that
-			 * is a symbolic link to a branch (it would return different
-			 * dev/ino than the real file).  Instead, we stat() using the
-			 * full pathname that we saved before.
-			 */
-			if (vma_area->aufs_fpath) {
-				if (stat(vma_area->aufs_fpath, st_buf) < 0) {
-					pr_perror("Failed stat on %d's map %lu (%s)",
-						pid, start, vma_area->aufs_fpath);
-					goto err;
-				}
-			} else if (fstat(vma_area->vm_file_fd, st_buf) < 0) {
-				pr_perror("Failed fstat on %d's map %lu", pid, start);
-				goto err;
-			}
+			struct stat *st_buf = vma_area->vmst;
 
 			if (S_ISREG(st_buf->st_mode))
 				/* regular file mapping -- supported */;
