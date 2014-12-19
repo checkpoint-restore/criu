@@ -69,6 +69,7 @@ static/cmdlinenv00
 static/socket_listen
 static/socket_listen6
 static/packet_sock
+static/packet_sock_mmap
 static/socket_udp
 static/sock_filter
 static/socket6_udp
@@ -224,6 +225,7 @@ ns/static/sk-unix-unconn
 ns/static/socket_listen
 ns/static/socket_listen6
 ns/static/packet_sock
+ns/static/packet_sock_mmap
 ns/static/socket_udp
 ns/static/sock_filter
 ns/static/socket6_udp
@@ -288,6 +290,7 @@ sock_opts00
 sock_opts01
 cmdlinenv00
 packet_sock
+packet_sock_mmap
 fanotify00
 sk-netlink
 tun

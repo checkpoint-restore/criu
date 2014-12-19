@@ -34,6 +34,7 @@ TST_NOFILE	=				\
 		socket_udplite			\
 		socket_aio			\
 		packet_sock			\
+		packet_sock_mmap		\
 		sock_filter			\
 		msgque				\
 		inotify_system			\
