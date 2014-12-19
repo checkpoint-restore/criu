@@ -196,9 +196,6 @@ static int vma_get_mapfile(struct vma_area *vma, DIR *mfd,
 {
 	char path[32];
 
-	if (!mfd)
-		return 0;
-
 	if (prev_vfi->vma && vfi_equal(vfi, prev_vfi)) {
 		struct vma_area *prev = prev_vfi->vma;
 
@@ -292,7 +289,7 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	return 0;
 }
 
-int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files)
+int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area = NULL;
 	unsigned long start, end, pgoff, prev_end = 0;
@@ -316,11 +313,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_file
 	if (bfdopen(&f, O_RDONLY))
 		goto err_n;
 
-	if (use_map_files) {
-		map_files_dir = opendir_proc(pid, "map_files");
-		if (!map_files_dir) /* old kernel? */
-			goto err;
-	}
+	map_files_dir = opendir_proc(pid, "map_files");
+	if (!map_files_dir) /* old kernel? */
+		goto err;
 
 	while (1) {
 		int num;

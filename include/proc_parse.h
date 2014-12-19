@@ -155,7 +155,7 @@ struct vm_area_list;
 
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
-extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, bool use_map_files);
+extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list);
 extern int parse_self_maps_lite(struct vm_area_list *vms);
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
 
