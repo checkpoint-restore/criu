@@ -57,6 +57,7 @@ static struct irmap hints[] = {
 	{ .path = "/etc", .nr_kids = -1, },
 	{ .path = "/var/spool", .nr_kids = -1, },
 	{ .path = "/lib/udev", .nr_kids = -1, },
+	{ .path = "/.", .nr_kids = 0, },
 	{ .path = "/no-such-path", .nr_kids = -1, },
 	{ },
 };
