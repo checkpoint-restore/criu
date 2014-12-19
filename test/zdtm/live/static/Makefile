@@ -116,6 +116,7 @@ TST_NOFILE	=				\
 		dumpable01			\
 		dumpable02			\
 		remap_dead_pid			\
+		aio00				\
 		fd				\
 #		jobctl00			\
 
@@ -272,6 +273,7 @@ wait_stop:
 
 $(TST):	$(LIB)
 
+aio00:			override LDFLAGS += -laio
 futex.o:		override CFLAGS += -pthread
 futex:			override LDFLAGS += -pthread
 futex-rl.o:		override CFLAGS += -pthread

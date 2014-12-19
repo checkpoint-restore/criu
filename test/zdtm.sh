@@ -20,6 +20,7 @@ static/cwd00
 static/cwd01
 static/cwd02
 static/env00
+static/aio00
 static/maps00
 static/maps01
 static/maps02
@@ -190,6 +191,7 @@ static/remap_dead_pid
 TEST_CR_KERNEL="
 ns/static/tun
 static/timerfd
+static/aio00
 "
 
 cat /proc/self/fdinfo/1 | grep -q mnt_id
