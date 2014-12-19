@@ -183,6 +183,7 @@ static/cgroup01
 static/cgroup02
 ns/static/clean_mntns
 static/remap_dead_pid
+ns/static/mntns_root_bind
 "
 
 TEST_CR_KERNEL="
@@ -198,6 +199,7 @@ ns/static/mntns_link_remap
 ns/static/mntns_link_ghost
 ns/static/mntns_shared_bind
 ns/static/mntns_shared_bind02
+ns/static/mntns_root_bind
 "
 else
 	export ZDTM_NOSUBNS=1
@@ -247,6 +249,7 @@ ns/static/console
 ns/static/rtc
 ns/static/mntns_shared_bind
 ns/static/mntns_shared_bind02
+ns/static/mntns_root_bind
 "
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
@@ -306,6 +309,7 @@ mntns_link_remap
 mntns_link_ghost
 mntns_shared_bind
 mntns_shared_bind02
+mntns_root_bind
 sockets00
 "
 
