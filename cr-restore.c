@@ -861,9 +861,6 @@ static inline int sig_fatal(int sig)
 struct task_entries *task_entries;
 static unsigned long task_entries_pos;
 
-#define set_task_cr_err(new_err)	atomic_cmpxchg(&task_entries->cr_err, 0, new_err)
-#define get_task_cr_err()		atomic_read(&task_entries->cr_err)
-
 static int restore_one_zombie(int pid, CoreEntry *core)
 {
 	int exit_code = core->tc->exit_code;
