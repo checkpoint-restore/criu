@@ -295,7 +295,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 
 static char *pipe_id_string(int pipe_id)
 {
-	static char idstr[16];
+	static char idstr[18];
 
 	if (snprintf(idstr, sizeof idstr, "pipe:[%d]", pipe_id) >= sizeof idstr) {
 		pr_err("Not enough room for pipe %d identifier string\n", pipe_id);
