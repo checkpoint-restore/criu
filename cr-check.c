@@ -14,6 +14,7 @@
 #include <linux/if.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <sys/mman.h>
 
 #include "proc_parse.h"
 #include "sockets.h"
@@ -597,6 +598,80 @@ static int check_posix_timers(void)
 	return -1;
 }
 
+static unsigned long get_ring_len(unsigned long addr)
+{
+	FILE *maps;
+	char buf[256];
+
+	maps = fopen("/proc/self/maps", "r");
+	if (!maps) {
+		pr_perror("No maps proc file");
+		return 0;
+	}
+
+	while (fgets(buf, sizeof(buf), maps)) {
+		unsigned long start, end;
+		int r, tail;
+
+		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n", &start, &end, &tail);
+		if (r != 2) {
+			fclose(maps);
+			pr_err("Bad maps format %d.%d (%s)\n", r, tail, buf + tail);
+			return 0;
+		}
+
+		if (start == addr) {
+			fclose(maps);
+			if (strcmp(buf + tail, "/[aio] (deleted)\n"))
+				goto notfound;
+
+			return end - start;
+		}
+	}
+
+	fclose(maps);
+notfound:
+	pr_err("No AIO ring at expected location\n");
+	return 0;
+}
+
+static int check_aio_remap(void)
+{
+	aio_context_t ctx = 0;
+	unsigned long len;
+	void *naddr;
+	int r;
+
+	if (sys_io_setup(16, &ctx) < 0) {
+		pr_err("No AIO syscall");
+		return -1;
+	}
+
+	len = get_ring_len((unsigned long) ctx);
+	if (!len)
+		return -1;
+
+	naddr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
+	if (naddr == MAP_FAILED) {
+		pr_perror("Can't find place for new AIO ring\n");
+		return -1;
+	}
+
+	if (mremap((void *)ctx, len, len, MREMAP_FIXED | MREMAP_MAYMOVE, naddr) == MAP_FAILED) {
+		pr_perror("Can't remap AIO ring\n");
+		return -1;
+	}
+
+	ctx = (aio_context_t)naddr;
+	r = sys_io_getevents(ctx, 0, 1, NULL, NULL);
+	if (r < 0) {
+		pr_err("AIO remap doesn't work properly\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int cr_check(void)
 {
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
@@ -643,6 +718,7 @@ int cr_check(void)
 	ret |= check_tun();
 	ret |= check_timerfd();
 	ret |= check_mnt_id();
+	ret |= check_aio_remap();
 
 	if (!ret)
 		pr_msg("Looks good.\n");
