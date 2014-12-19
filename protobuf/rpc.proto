@@ -116,4 +116,6 @@ message criu_resp {
 	optional criu_restore_resp	restore		= 4;
 	optional criu_notify		notify		= 5;
 	optional criu_page_server_info	ps		= 6;
+
+	optional int32			cr_errno	= 7;
 }
