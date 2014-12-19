@@ -1227,6 +1227,15 @@ struct inherit_fd {
 
 /*
  * Return 1 if inherit fd has been closed or reused, 0 otherwise.
+ *
+ * Some parts of the file restore engine can close an inherit fd
+ * explicitly by close() or implicitly by dup2() to reuse that descriptor.
+ * In some specific functions (for example, send_fd_to_self()), we
+ * check for clashes at the beginning of the function and, therefore,
+ * these specific functions will not reuse an inherit fd.  However, to
+ * avoid adding a ton of clash detect and resolve code everywhere we close()
+ * and/or dup2(), we just make sure that when we're dup()ing or close()ing
+ * our inherit fd we're still dealing with the same fd that we inherited.
  */
 static int inherit_fd_reused(struct inherit_fd *inh)
 {
