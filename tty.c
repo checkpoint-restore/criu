@@ -116,6 +116,12 @@ static LIST_HEAD(all_ttys);
  */
 
 #define MAX_TTYS	1024
+
+/*
+ * Custom indices should be even numbers just in case if we
+ * need odds for pair numbering someday.
+ */
+
 #define MAX_PTY_INDEX	1000
 #define CONSOLE_INDEX	1002
 #define VT_INDEX	1004
