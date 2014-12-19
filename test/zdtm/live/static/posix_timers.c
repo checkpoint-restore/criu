@@ -20,6 +20,10 @@ sigset_t mask;
 #define MAX_TIMER_DISPLACEMENT	10
 #define NO_PERIODIC
 
+#ifndef CLOCK_MONOTONIC_COARSE
+# define CLOCK_MONOTONIC_COARSE	6
+#endif
+
 #ifndef CLOCK_BOOTTIME
 # define CLOCK_BOOTTIME		7
 #endif
@@ -144,7 +148,7 @@ static int check_handler_status(struct posix_timers_info *info,
 	return 0;
 }
 
-static int check_timers(int delta)
+static int check_timers(int delta, struct timespec *sleep_start, struct timespec *sleep_end)
 {
 	struct posix_timers_info *info = posix_timers;
 	int ms_passed;
@@ -166,6 +170,16 @@ static int check_timers(int delta)
 		if (clock_gettime(info->clock, &info->end) == -1) {
 			fail("Can't get %s end time\n", info->name);
 			return -errno;
+		}
+
+		/*
+		 * Adjust with @total_sleep_time if needed.
+		 */
+		if (info->clock == CLOCK_BOOTTIME) {
+			info->start.tv_sec	-= sleep_start->tv_sec;
+			info->start.tv_nsec	-= sleep_start->tv_nsec;
+			info->end.tv_sec	-= sleep_end->tv_sec;
+			info->end.tv_nsec	-= sleep_end->tv_nsec;
 		}
 
 		ms_passed = (info->end.tv_sec - info->start.tv_sec) * 1000 +
@@ -321,8 +335,43 @@ static int setup_timers(void)
 	return 0;
 }
 
+/*
+ * Figure out @total_sleep_time, ie time the system was in hardware
+ * suspend mode, will need this value to exclude from boottime clock
+ * testing.
+ */
+static int get_total_sleep_time(struct timespec *tv, char *type)
+{
+	struct timespec boottime_coarse;
+	struct timespec boottime;
+
+	if (clock_gettime(CLOCK_BOOTTIME, &boottime) == -1) {
+		err("Can't get CLOCK_BOOTTIME %s time\n", type);
+		return -errno;
+	}
+
+	if (clock_gettime(CLOCK_MONOTONIC_COARSE, &boottime_coarse) == -1) {
+		err("Can't get CLOCK_MONOTONIC_COARSE %s time\n", type);
+		return -errno;
+	}
+
+	tv->tv_sec = boottime.tv_sec - boottime_coarse.tv_sec;
+	tv->tv_nsec = boottime.tv_nsec - boottime_coarse.tv_nsec;
+
+	test_msg("(%6s) boottime %lu "
+		 "boottime-coarse %lu "
+		 "total_sleep_time %lu\n",
+		 type,
+		 (long)boottime.tv_sec,
+		 (long)boottime_coarse.tv_sec,
+		 (long)tv->tv_sec);
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
+	struct timespec sleep_start, sleep_end;
 	struct timespec start, end;
 	int err;
 
@@ -337,11 +386,19 @@ int main(int argc, char **argv)
 	test_daemon();
 
 	clock_gettime(CLOCK_REALTIME, &start);
-	test_waitsig();
-	clock_gettime(CLOCK_REALTIME, &end);
+	err = get_total_sleep_time(&sleep_start, "start");
+	if (err)
+		return err;
 
+	test_waitsig();
+
+	clock_gettime(CLOCK_REALTIME, &end);
+	err = get_total_sleep_time(&sleep_end, "end");
+	if (err)
+		return err;
 	err = check_timers((end.tv_sec - start.tv_sec) * 1000 +
-				(end.tv_nsec - start.tv_nsec) / 1000000);
+			   (end.tv_nsec - start.tv_nsec) / 1000000,
+			   &sleep_start, &sleep_end);
 	if (err)
 		return err;
 
