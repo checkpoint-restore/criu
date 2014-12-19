@@ -148,6 +148,9 @@ struct task_restore_args {
 	struct rst_tcp_sock		*tcp_socks;
 	int				tcp_socks_nr;
 
+	struct rst_aio_ring		*rings;
+	int				nr_rings;
+
 	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
 
 	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;

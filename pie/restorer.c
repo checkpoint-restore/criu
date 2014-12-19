@@ -29,6 +29,7 @@
 #include "crtools.h"
 #include "lock.h"
 #include "restorer.h"
+#include "aio.h"
 
 #include "protobuf/creds.pb-c.h"
 #include "protobuf/mm.pb-c.h"
@@ -914,6 +915,60 @@ long __export_restore_task(struct task_restore_args *args)
 					goto core_restore_end;
 				}
 			}
+		}
+	}
+
+	/*
+	 * Now when all VMAs are in their places time to set
+	 * up AIO rings.
+	 */
+
+	for (i = 0; i < args->nr_rings; i++) {
+		struct rst_aio_ring *raio = &args->rings[i];
+		unsigned long ctx = 0;
+		int ret;
+
+		ret = sys_io_setup(raio->nr_req, &ctx);
+		if (ret < 0) {
+			pr_err("Ring setup failed with %d\n", ret);
+			goto core_restore_end;
+		}
+
+		if (ctx == raio->addr) /* Lucky bastards we are! */
+			continue;
+
+		/*
+		 * If we failed to get the proper nr_req right and
+		 * created smaller or larger ring, then this remap
+		 * will (should) fail, since AIO rings has immutable
+		 * size.
+		 *
+		 * This is not great, but anyway better than putting
+		 * a ring of wrong size into correct place.
+		 */
+
+		ctx = sys_mremap(ctx, raio->len, raio->len,
+					MREMAP_FIXED | MREMAP_MAYMOVE,
+					raio->addr);
+		if (ctx != raio->addr) {
+			pr_err("Ring remap failed with %ld\n", ctx);
+			goto core_restore_end;
+		}
+
+		/*
+		 * Now check that kernel not just remapped the
+		 * ring into new place, but updated the internal
+		 * context state respectively.
+		 */
+
+		ret = sys_io_getevents(ctx, 0, 1, NULL, NULL);
+		if (ret != 0) {
+			if (ret < 0)
+				pr_err("Kernel doesn't remap AIO rings\n");
+			else
+				pr_err("AIO context screwed up\n");
+
+			goto core_restore_end;
 		}
 	}
 

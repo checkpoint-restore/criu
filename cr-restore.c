@@ -72,6 +72,7 @@
 #include "timerfd.h"
 #include "file-lock.h"
 #include "action-scripts.h"
+#include "aio.h"
 
 #include "parasite-syscall.h"
 
@@ -2602,6 +2603,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long vdso_rt_delta = 0;
 #endif
 
+	unsigned long aio_rings;
+	MmEntry *mm = rsti(current)->mm;
+
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
@@ -2634,6 +2638,23 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		if (vma_priv(vma->e))
 			vma_premmaped_start(vme) = vma->premmaped_addr;
+	}
+
+	/*
+	 * Put info about AIO rings, they will get remapped
+	 */
+
+	aio_rings = rst_mem_cpos(RM_PRIVATE);
+	for (i = 0; i < mm->n_aios; i++) {
+		struct rst_aio_ring *raio;
+
+		raio = rst_mem_alloc(sizeof(*raio), RM_PRIVATE);
+		if (!raio)
+			goto err_nv;
+
+		raio->addr = mm->aios[i]->id;
+		raio->nr_req = mm->aios[i]->nr_req;
+		raio->len = mm->aios[i]->ring_len;
 	}
 
 	/*
@@ -2784,6 +2805,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->tcp_socks_nr = rst_tcp_socks_nr;
 	task_args->tcp_socks = rst_mem_remap_ptr(tcp_socks, RM_PRIVATE);
+
+	task_args->nr_rings = mm->n_aios;
+	task_args->rings = rst_mem_remap_ptr(aio_rings, RM_PRIVATE);
 
 	task_args->n_helpers = n_helpers;
 	if (n_helpers > 0)
