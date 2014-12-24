@@ -64,6 +64,8 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	SRCARCH      := arm
 	DEFINES      := -DCONFIG_ARMV$(ARMV)
 
+	USERCFLAGS += -Wa,-mimplicit-it=always
+
 	ifeq ($(ARMV),6)
 		USERCFLAGS += -march=armv6
 	endif
