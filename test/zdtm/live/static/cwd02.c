@@ -16,8 +16,7 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char **argv)
 {
-	char cwd0[256];
-	int fd, pid, p[2], aux;
+	int cwd, fd, pid, p[2], aux;
 	struct stat std, stf;
 
 	test_init(argc, argv);
@@ -31,8 +30,9 @@ int main(int argc, char **argv)
 		exit(aux ? 1 : 0);
 	}
 
-	if (!getcwd(cwd0, sizeof(cwd0))) {
-		err("can't get cwd: %m\n");
+	cwd = open(".", O_DIRECTORY | O_RDONLY);
+	if (cwd == -1) {
+		err("Unable to open the current dir");
 		exit(1);
 	}
 
@@ -82,8 +82,8 @@ int main(int argc, char **argv)
 
 cleanup:
 	/* return to the initial dir before writing out results */
-	if (chdir(cwd0)) {
-		err("can't change directory to %s: %m\n", cwd0);
+	if (fchdir(cwd)) {
+		err("can't restore cwd");
 		exit(1);
 	}
 
