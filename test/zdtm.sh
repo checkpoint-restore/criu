@@ -661,7 +661,8 @@ EOF
 		gen_args="$gen_args --force-irmap"
 	fi
 
-	ddump=`readlink -fm dump/$test_name/$PID/$i`
+	# X will be substituted with an iteration number
+	ddump=`pwd`/dump/$test_name/$PID/X
 	for i in `seq $ITERATIONS`; do
 		local cpt_args=
 		local dump_only=
