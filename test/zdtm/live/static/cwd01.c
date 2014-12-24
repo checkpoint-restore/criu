@@ -5,6 +5,9 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <linux/limits.h>
+#include <sys/types.h>
+#include <fcntl.h>
+
 
 #include "zdtmtst.h"
 
@@ -16,8 +19,8 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char **argv)
 {
-	char cwd0[PATH_MAX], cwd1[PATH_MAX], cwd2[PATH_MAX];
-	int pid, p[2], aux, aux2;
+	char cwd1[PATH_MAX], cwd2[PATH_MAX];
+	int pid, p[2], aux, aux2, fd;
 
 	test_init(argc, argv);
 
@@ -30,8 +33,9 @@ int main(int argc, char **argv)
 		exit(aux ? 1 : 0);
 	}
 
-	if (!getcwd(cwd0, sizeof(cwd0))) {
-		err("can't get cwd: %m\n");
+	fd = open(".", O_DIRECTORY | O_RDONLY);
+	if (fd == -1) {
+		err("Unable to open the current dir");
 		exit(1);
 	}
 
@@ -87,8 +91,8 @@ int main(int argc, char **argv)
 		pass();
 cleanup:
 	/* return to the initial dir before writing out results */
-	if (chdir(cwd0)) {
-		err("can't change directory to %s: %m\n", cwd0);
+	if (fchdir(fd)) {
+		err("can't restore cwd");
 		exit(1);
 	}
 
