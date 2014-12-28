@@ -665,8 +665,11 @@ static int check_aio_remap(void)
 	ctx = (aio_context_t)naddr;
 	r = sys_io_getevents(ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
-		pr_err("AIO remap doesn't work properly\n");
-		return -1;
+		if (!opts.check_ms_kernel) {
+			pr_err("AIO remap doesn't work properly\n");
+			return -1;
+		} else
+			pr_warn("Skipping unsupported AIO remap\n");
 	}
 
 	return 0;
