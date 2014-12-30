@@ -168,9 +168,6 @@ static int root_prepare_shared(void)
 	if (prepare_shared_reg_files())
 		return -1;
 
-	if (prepare_shmem_restore())
-		return -1;
-
 	for (i = 0; i < ARRAY_SIZE(cinfos); i++) {
 		ret = collect_image(cinfos[i]);
 		if (ret)
@@ -2787,9 +2784,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
 	task_args->premmapped_len = rsti(current)->premmapped_len;
-
-	task_args->shmems = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
-	task_args->nr_shmems = nr_shmems;
 
 	task_args->nr_vmas = vmas->nr;
 	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);

@@ -46,49 +46,36 @@ struct shmem_info {
 	 */
 	int		count;		/* the number of regions */
 	int		self_count;	/* the number of regions, which belongs to "pid" */
+
+	struct list_head l;
 };
 
-unsigned long nr_shmems;
-unsigned long rst_shmems;
-
-int prepare_shmem_restore(void)
-{
-	rst_shmems = rst_mem_cpos(RM_SHREMAP);
-	return 0;
-}
+/*
+ * This list is filled with shared objects before we fork
+ * any tasks. Thus the head is private (COW-ed) and the
+ * entries are all in shmem.
+ */
+static LIST_HEAD(shmems); /* XXX hash? tree? */
 
 void show_saved_shmems(void)
 {
-	int i;
 	struct shmem_info *si;
 
 	pr_info("\tSaved shmems:\n");
-	si = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
-	for (i = 0; i < nr_shmems; i++, si++)
+	list_for_each_entry(si, &shmems, l)
 		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
 				si->start, si->shmid, si->pid);
 }
 
-static struct shmem_info *find_shmem(struct shmem_info *shmems,
-		int nr, unsigned long shmid)
+static struct shmem_info *find_shmem_by_id(unsigned long shmid)
 {
 	struct shmem_info *si;
-	int i;
 
-	for (i = 0, si = shmems; i < nr; i++, si++)
+	list_for_each_entry(si, &shmems, l)
 		if (si->shmid == shmid)
 			return si;
 
 	return NULL;
-}
-
-
-static struct shmem_info *find_shmem_by_id(unsigned long id)
-{
-	struct shmem_info *si;
-
-	si = rst_mem_remap_ptr(rst_shmems, RM_SHREMAP);
-	return find_shmem(si, nr_shmems, id);
 }
 
 int collect_shmem(int pid, VmaEntry *vi)
@@ -124,7 +111,7 @@ int collect_shmem(int pid, VmaEntry *vi)
 		return 0;
 	}
 
-	si = rst_mem_alloc(sizeof(struct shmem_info), RM_SHREMAP);
+	si = shmalloc(sizeof(struct shmem_info));
 	if (!si)
 		return -1;
 
@@ -139,9 +126,8 @@ int collect_shmem(int pid, VmaEntry *vi)
 	si->fd    = -1;
 	si->count = 1;
 	si->self_count = 1;
-
-	nr_shmems++;
 	futex_init(&si->lock);
+	list_add_tail(&si->l, &shmems);
 
 	return 0;
 }

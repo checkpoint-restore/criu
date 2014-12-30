@@ -106,8 +106,6 @@ struct task_restore_args {
 	int				nr_zombies;
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
-	struct shmem_info		*shmems;
-	unsigned int			nr_shmems;
 	struct task_entries		*task_entries;
 	void				*rst_mem;
 	unsigned long			rst_mem_size;
