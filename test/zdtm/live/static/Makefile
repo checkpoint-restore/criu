@@ -273,7 +273,7 @@ wait_stop:
 
 $(TST):	$(LIB)
 
-aio00:			override LDFLAGS += -laio
+aio00:			override LDLIBS += -laio
 futex.o:		override CFLAGS += -pthread
 futex:			override LDFLAGS += -pthread
 futex-rl.o:		override CFLAGS += -pthread

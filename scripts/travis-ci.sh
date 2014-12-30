@@ -64,6 +64,7 @@ else
   fi
 fi
 
+export LIBRARY_PATH=/usr/lib/${ARCH}-linux-gnu/
 echo "Running tests"
 echo "Environment: $(uname -a)"
 
