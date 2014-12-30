@@ -930,6 +930,8 @@ static int open_fdinfos(int pid, struct list_head *list, int state)
 	return ret;
 }
 
+static struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller);
+
 int close_old_fds(struct pstree_item *me)
 {
 	DIR *dir;
@@ -1364,7 +1366,7 @@ int inherit_fd_lookup_id(char *id)
 /*
  * Look up the inherit fd list by a file descriptor.
  */
-struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller)
+static struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller)
 {
 	struct inherit_fd *ret;
 	struct inherit_fd *inh;
