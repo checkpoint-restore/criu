@@ -24,8 +24,6 @@
  */
 struct shmem_info {
 	unsigned long	shmid;
-	unsigned long	start;
-	unsigned long	end;
 	unsigned long	size;
 	int		pid;
 	int		fd;
@@ -63,8 +61,7 @@ void show_saved_shmems(void)
 
 	pr_info("\tSaved shmems:\n");
 	list_for_each_entry(si, &shmems, l)
-		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
-				si->start, si->shmid, si->pid);
+		pr_info("\t\tshmid: 0x%lx pid: %d\n", si->shmid, si->pid);
 }
 
 static struct shmem_info *find_shmem_by_id(unsigned long shmid)
@@ -104,8 +101,6 @@ int collect_shmem(int pid, VmaEntry *vi)
 		}
 
 		si->pid	 = pid;
-		si->start = vi->start;
-		si->end	 = vi->end;
 		si->self_count = 1;
 
 		return 0;
@@ -118,8 +113,6 @@ int collect_shmem(int pid, VmaEntry *vi)
 	pr_info("Add new shmem 0x%"PRIx64" (0x%016"PRIx64"-0x%016"PRIx64")\n",
 				vi->shmid, vi->start, vi->end);
 
-	si->start = vi->start;
-	si->end	  = vi->end;
 	si->shmid = vi->shmid;
 	si->pid	  = pid;
 	si->size  = size;
