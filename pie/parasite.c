@@ -378,7 +378,7 @@ static int parasite_check_aios(struct parasite_check_aios_args *args)
 			pr_info(" `- magic %x\n", ring->magic);
 			pr_info(" `- cf    %d\n", ring->compat_features);
 			pr_info(" `- if    %d\n", ring->incompat_features);
-			pr_info(" `- size  %d (%ld)\n", ring->header_length, sizeof(struct aio_ring));
+			pr_info(" `- size  %d (%zd)\n", ring->header_length, sizeof(struct aio_ring));
 			return -1;
 		}
 
@@ -491,8 +491,7 @@ static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 	m = ctl_msg_ack(cmd, err);
 	ret = sys_sendto(tsock, &m, sizeof(m), 0, NULL, 0);
 	if (ret != sizeof(m)) {
-		pr_err("Sent only %d bytes while %d expected\n",
-			ret, (int)sizeof(m));
+		pr_err("Sent only %d bytes while %zd expected\n", ret, sizeof(m));
 		return -1;
 	}
 
