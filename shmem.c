@@ -16,6 +16,38 @@
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
+/*
+ * pid is a pid of a creater
+ * start, end are used for open mapping
+ * fd is a file discriptor, which is valid for creater,
+ * it's opened in cr-restor, because pgoff may be non zero
+ */
+struct shmem_info {
+	unsigned long	shmid;
+	unsigned long	start;
+	unsigned long	end;
+	unsigned long	size;
+	int		pid;
+	int		fd;
+
+	/*
+	 * 0. lock is initilized to zero
+	 * 1. the master opens a descriptor and set lock to 1
+	 * 2. slaves open their descriptors and increment lock
+	 * 3. the master waits all slaves on lock. After that
+	 *    it can close the descriptor.
+	 */
+	futex_t		lock;
+
+	/*
+	 * Here is a problem, that we don't know, which process will restore
+	 * an region. Each time when we	found a process with a smaller pid,
+	 * we reset self_count, so we can't have only one counter.
+	 */
+	int		count;		/* the number of regions */
+	int		self_count;	/* the number of regions, which belongs to "pid" */
+};
+
 unsigned long nr_shmems;
 unsigned long rst_shmems;
 
@@ -35,6 +67,19 @@ void show_saved_shmems(void)
 	for (i = 0; i < nr_shmems; i++, si++)
 		pr_info("\t\tstart: 0x%016lx shmid: 0x%lx pid: %d\n",
 				si->start, si->shmid, si->pid);
+}
+
+static struct shmem_info *find_shmem(struct shmem_info *shmems,
+		int nr, unsigned long shmid)
+{
+	struct shmem_info *si;
+	int i;
+
+	for (i = 0, si = shmems; i < nr; i++, si++)
+		if (si->shmid == shmid)
+			return si;
+
+	return NULL;
 }
 
 
