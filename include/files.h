@@ -105,6 +105,7 @@ struct file_desc_ops {
 	 */
 	void			(*collect_fd)(struct file_desc *, struct fdinfo_list_entry *,
 						struct rst_info *);
+	char *			(*name)(struct file_desc *, char *b, size_t s);
 };
 
 static inline void collect_gen_fd(struct fdinfo_list_entry *fle, struct rst_info *ri)
@@ -170,8 +171,9 @@ extern int dump_unsupp_fd(struct fd_parms *p, int lfd,
 
 extern int inherit_fd_add(char *optarg);
 extern void inherit_fd_log(void);
-extern int inherit_fd_lookup_id(char *id);
 extern int inherit_fd_resolve_clash(int fd);
 extern int inherit_fd_fini(void);
+
+extern bool inherited_fd(struct file_desc *, int *fdp);
 
 #endif /* __CR_FILES_H__ */

@@ -1344,7 +1344,7 @@ void inherit_fd_log(void)
 /*
  * Look up the inherit fd list by a file identifier.
  */
-int inherit_fd_lookup_id(char *id)
+static int inherit_fd_lookup_id(char *id)
 {
 	int ret;
 	struct inherit_fd *inh;
@@ -1361,6 +1361,28 @@ int inherit_fd_lookup_id(char *id)
 		}
 	}
 	return ret;
+}
+
+bool inherited_fd(struct file_desc *d, int *fd_p)
+{
+	char buf[32], *id_str;
+	int i_fd;
+
+	if (!d->ops->name)
+		return false;
+
+	id_str = d->ops->name(d, buf, sizeof(buf));
+	i_fd = inherit_fd_lookup_id(id_str);
+	if (i_fd < 0)
+		return false;
+
+	*fd_p = dup(i_fd);
+	if (*fd_p < 0)
+		pr_perror("Inherit fd DUP failed");
+	else
+		pr_info("File %s will be restored from fd %d duped "
+				"from inherit fd %d\n", id_str, *fd_p, i_fd);
+	return true;
 }
 
 /*

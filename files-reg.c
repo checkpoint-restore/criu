@@ -919,22 +919,10 @@ int open_path(struct file_desc *d,
 	int tmp, mntns_root;
 	char *orig_path = NULL;
 
+	if (inherited_fd(d, &tmp))
+		return tmp;
+
 	rfi = container_of(d, struct reg_file_info, d);
-
-	tmp = inherit_fd_lookup_id(rfi->path);
-	if (tmp >= 0) {
-		int fd;
-
-		fd = dup(tmp);
-		if (fd == -1) {
-			pr_perror("Can't dup inherit fd %d\n", fd);
-			return -1;
-		}
-		pr_info("File %s will be restored from fd %d duped from inherit fd %d\n",
-			rfi->path, fd, tmp);
-		return fd;
-	}
-
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
 		if (rfi->remap->is_dir) {
@@ -1138,10 +1126,19 @@ static int open_fe_fd(struct file_desc *fd)
 	return open_path(fd, do_open_reg, NULL);
 }
 
+static char *reg_file_path(struct file_desc *d, char *buf, size_t s)
+{
+	struct reg_file_info *rfi;
+
+	rfi = container_of(d, struct reg_file_info, d);
+	return rfi->path;
+}
+
 static struct file_desc_ops reg_desc_ops = {
 	.type = FD_TYPES__REG,
 	.open = open_fe_fd,
 	.collect_fd = collect_reg_fd,
+	.name = reg_file_path,
 };
 
 struct file_desc *try_collect_special_file(u32 id, int optional)
