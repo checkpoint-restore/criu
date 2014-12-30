@@ -13,7 +13,7 @@ int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 	int nr = mme->n_aios;
 	AioRingEntry *re;
 
-	pr_info("Dumping AIO ring @%#lx, %u reqs\n",
+	pr_info("Dumping AIO ring @%"PRIx64", %u reqs\n",
 			vma->e->start, vma->aio_nr_req);
 
 	mme->aios = xrealloc(mme->aios, (nr + 1) * sizeof(re));
@@ -96,8 +96,8 @@ int parasite_check_aios(struct parasite_ctl *ctl, struct vm_area_list *vmas)
 		if (!vma_area_is(vma, VMA_AREA_AIORING))
 			continue;
 
-		pr_debug(" `- Ring #%ld @%#lx\n",
-				pa - &aa->ring[0], vma->e->start);
+		pr_debug(" `- Ring #%ld @%"PRIx64"\n",
+				(long)(pa - &aa->ring[0]), vma->e->start);
 		pa->ctx = vma->e->start;
 		pa->max_reqs = 0;
 		pa->vma_nr_reqs = &vma->aio_nr_req;
