@@ -142,7 +142,7 @@ build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 PROGRAM		:= criu
 
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
-	docs help pie protobuf $(ARCH_DIR) clean-built lib
+	docs help pie protobuf $(ARCH_DIR) clean-built lib crit
 
 ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
@@ -196,6 +196,9 @@ $(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
+crit:
+	$(Q) $(MAKE) -C pycriu all
+
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
 
@@ -226,6 +229,8 @@ clean: clean-built
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test $@
+	$(Q) $(MAKE) -C pycriu $@
+	$(Q) $(RM) ./*.pyc
 
 distclean: clean
 	$(E) "  DISTCLEAN"

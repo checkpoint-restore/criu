@@ -10,6 +10,7 @@
 *.so
 .git-ignore
 *.patch
+*.pyc
 criu
 cscope*
 tags
