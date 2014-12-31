@@ -1,0 +1,4 @@
+*.pyc
+*_pb2.py
+magic.py
+pb.py
