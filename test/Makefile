@@ -55,6 +55,7 @@ clean:
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout
 	$(Q) $(MAKE) -C libcriu clean
 	$(Q) $(MAKE) -C rpc clean
+	$(Q) $(MAKE) -C crit clean
 
 mount_cgroups: .FORCE
 	flock zdtm_mount_cgroups ./zdtm_mount_cgroups
