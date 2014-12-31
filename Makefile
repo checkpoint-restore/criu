@@ -148,7 +148,7 @@ ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: config pie $(VERSION_HEADER) $(CRIU-LIB)
+all: config pie $(VERSION_HEADER) $(CRIU-LIB) crit
 	$(Q) $(MAKE) $(PROGRAM)
 
 protobuf/%::
@@ -231,6 +231,7 @@ clean: clean-built
 	$(Q) $(MAKE) -C test $@
 	$(Q) $(MAKE) -C pycriu $@
 	$(Q) $(RM) ./*.pyc
+	$(Q) $(RM) -r build
 
 distclean: clean
 	$(E) "  DISTCLEAN"
@@ -257,7 +258,7 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 		v$(CRTOOLSVERSION) | bzip2 > $@
 .PHONY: dist tar
 
-install: $(PROGRAM) $(CRIU-LIB) install-man
+install: $(PROGRAM) $(CRIU-LIB) install-man install-crit
 	$(E) "  INSTALL " $(PROGRAM)
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
@@ -285,7 +286,11 @@ install: $(PROGRAM) $(CRIU-LIB) install-man
 install-man:
 	$(Q) $(MAKE) -C Documentation install
 
-.PHONY: install install-man
+install-crit: crit
+	$(E) "  INSTALL crit"
+	$(Q) python scripts/crit-setup.py install --prefix=$(DESTDIR)
+
+.PHONY: install install-man install-crit
 
 help:
 	@echo '    Targets:'

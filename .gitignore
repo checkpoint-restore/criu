@@ -27,3 +27,4 @@ pie/pie.lds.S
 include/config.h
 protobuf-desc-gen.h
 criu.pc
+build
