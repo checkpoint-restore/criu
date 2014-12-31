@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+import argparse
+import sys
+import json
+
+import pycriu
+
+def handle_cmdline_opts():
+	desc = 'CRiu Image Tool'
+	parser = argparse.ArgumentParser(description=desc)
+	parser.add_argument('command',
+			    choices = ['convert'],
+			help = 'use \"covert\" to convert CRIU image to/from human-readable format')
+	parser.add_argument('-i',
+			    '--in',
+			help = 'input file (stdin by default)')
+	parser.add_argument('-o',
+			    '--out',
+			help = 'output file (stdout by default')
+	parser.add_argument('-f',
+			    '--format',
+			    choices = ['raw', 'nice'],
+			help = 'well-formated output (by default: raw for files and nice for stdout)')
+
+	opts = vars(parser.parse_args())
+
+	return opts
+
+def convert_img(opts):
+	orig_type = None
+	indent = None
+
+	# If no input file is set -- stdin is used.
+	if opts['in']:
+		with open(opts['in'], 'r') as f:
+			in_str = f.read()
+	else:
+		in_str = sys.stdin.read()
+
+	# Detect what is the type we are dealing with.
+	if in_str[len(in_str) - len(in_str.lstrip())] == '{':
+			img = json.loads(in_str)
+			orig_type = 'json'
+	else:
+			img = pycriu.images.loads(in_str)
+			orig_type = 'bin'
+
+	# For stdout --format nice is set by default.
+	if opts['format'] == 'nice' or (opts['format'] == None and opts['out'] == None):
+		indent = 4
+
+	# Just convert image to the opposite format
+	if orig_type == 'json':
+		out_str = pycriu.images.dumps(img)
+	else:
+		out_str = json.dumps(img, indent=indent)
+
+	# If no output file is set -- stdout is used.
+	if opts['out']:
+		with open(opts['out'], 'w+') as f:
+			f.write(out_str)
+	else:
+		sys.stdout.write(out_str)
+
+def main():
+	#Handle cmdline options
+	opts = handle_cmdline_opts()
+
+	cmds = {
+		'convert' : convert_img
+	}
+
+	cmds[opts['command']](opts)
+
+if __name__ == '__main__':
+	main()
