@@ -24,15 +24,12 @@ set -o pipefail
 : ${DOCKER_BINARY=docker}
 : ${CRIU_IMG_DIR=${DOCKER_HOME}/criu_img}
 : ${CRIU_BINARY=criu}
+: ${DOCKERINIT_BINARY=}
 
 declare -A BIND_MOUNT
 BIND_MOUNT[/etc/resolv.conf]=.ResolvConfPath
 BIND_MOUNT[/etc/hosts]=.HostsPath
 BIND_MOUNT[/etc/hostname]=.HostnamePath
-# since older versions of docker bind mount /.dockerinit but
-# the path cannot be queried by docker inspect, we have to
-# hard code it here
-BIND_MOUNT[/.dockerinit]="${DOCKER_HOME}/init/dockerinit-1.0.0"
 MOUNT_MAP_ARGS=()
 
 #
@@ -68,9 +65,32 @@ Environment:
 	DOCKER_HOME		(default ${DOCKER_HOME})
 	CRIU_IMG_DIR		(default ${CRIU_IMG_DIR})
 	DOCKER_BINARY		(default ${DOCKER_BINARY})
+	DOCKERINIT_BINARY	(default \${DOCKER_HOME}/init/dockerinit-<version>-dev)
 	CRIU_BINARY		(default ${CRIU_BINARY})
 EOF
 	exit ${rv}
+}
+
+#
+# If the user has not specified a bind mount file for the container's
+# /.dockerinit, try to determine it from the Docker version.
+#
+find_dockerinit() {
+	local v
+
+	if [[ -z "${DOCKERINIT_BINARY}" ]]; then
+		v=$("${DOCKER_BINARY}" --version | sed -e 's/.*version \(.*\),.*/\1/')
+		DOCKERINIT_BINARY="${DOCKER_HOME}/init/dockerinit-${v}"
+	elif [[ "${DOCKERINIT_BINARY}" != /* ]]; then
+		DOCKERINIT_BINARY="${DOCKER_HOME}/init/${DOCKERINIT_BINARY}"
+	fi
+
+	if [[ ! -x "${DOCKERINIT_BINARY}" ]]; then
+		echo "${DOCKERINIT_BINARY} does not exist"
+		exit 1
+	fi
+
+	BIND_MOUNT[/.dockerinit]="${DOCKERINIT_BINARY}"
 }
 
 parse_args() {
@@ -346,9 +366,11 @@ main() {
 	local rv=0
 
 	parse_args "$@"
+	find_dockerinit
 	init_container_vars
 
 	${ECHO} "docker binary: ${DOCKER_BINARY}"
+	${ECHO} "dockerinit binary: ${DOCKERINIT_BINARY}"
 	${ECHO} "criu binary: ${CRIU_BINARY}"
 	${ECHO} "image directory: ${CONTAINER_IMG_DIR}"
 	${ECHO} "container root directory: ${CONTAINER_ROOT_DIR}"
