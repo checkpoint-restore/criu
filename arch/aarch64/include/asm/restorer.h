@@ -51,8 +51,9 @@ struct rt_sigframe {
 			     thread_args, clone_restore_fn)			\
 	asm volatile(								\
 			"clone_emul:					\n"	\
-			"and x1, %2, #~15				\n"	\
-			"sub x1, x2, #16				\n"	\
+			"ldr x1, %2					\n"	\
+			"and x1, x1, #~15				\n"	\
+			"sub x1, x1, #16				\n"	\
 			"stp %5, %6, [x1]				\n"	\
 			"mov x0, %1					\n"	\
 			"mov x2, %3					\n"	\
@@ -72,13 +73,12 @@ struct rt_sigframe {
 			"clone_end:					\n"	\
 			: "=r"(ret)						\
 			: "r"(clone_flags),					\
-			  "r"(new_sp),						\
+			  "m"(new_sp),						\
 			  "r"(&parent_tid),					\
 			  "r"(&thread_args[i].pid),				\
 			  "r"(clone_restore_fn),				\
 			  "r"(&thread_args[i])					\
 			: "x0", "x1", "x2", "x3", "x8", "memory")
-
 
 #define ARCH_FAIL_CORE_RESTORE					\
 	asm volatile(						\
