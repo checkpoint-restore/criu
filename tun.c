@@ -4,6 +4,9 @@
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 
+// MAO required on Centos 6 (linux-3.18.1 kernel)
+#include <linux/filter.h>
+
 #include "cr_options.h"
 #include "imgset.h"
 #include "protobuf.h"
