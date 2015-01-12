@@ -1774,6 +1774,10 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	ret = move_veth_to_bridge();
+	if (ret < 0)
+		goto out_kill;
+
 	ret = run_scripts(ACT_POST_RESTORE);
 	if (ret != 0) {
 		pr_err("Aborting restore due to script ret code %d\n", ret);

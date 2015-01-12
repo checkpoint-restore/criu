@@ -608,6 +608,8 @@ usage:
 "  --evasive-devices     use any path to a device file if the original one\n"
 "                        is inaccessible\n"
 "  --veth-pair IN=OUT    map inside veth device name to outside one\n"
+"                        can optionally append @<bridge-name> to OUT for moving\n"
+"                        the outside veth to the named bridge\n"
 "  --link-remap          allow to link unlinked files back when possible\n"
 "  --action-script FILE  add an external action script\n"
 "  -j|--" OPT_SHELL_JOB "        allow to dump and restore shell jobs\n"

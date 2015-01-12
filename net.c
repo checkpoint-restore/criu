@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <net/if.h>
+#include <linux/sockios.h>
 
 #include "imgset.h"
 #include "syscall-types.h"
@@ -617,6 +619,7 @@ void network_unlock(void)
 
 int veth_pair_add(char *in, char *out)
 {
+	char *aux;
 	struct veth_pair *n;
 
 	n = xmalloc(sizeof(*n));
@@ -625,8 +628,23 @@ int veth_pair_add(char *in, char *out)
 
 	n->inside = in;
 	n->outside = out;
+	/*
+	 * Does the out string specify a bridge for
+	 * moving the outside end of the veth pair to?
+	 */
+	aux = strrchr(out, '@');
+	if (aux) {
+		*aux++ = '\0';
+		n->bridge = aux;
+	} else {
+		n->bridge = NULL;
+	}
+
 	list_add(&n->node, &opts.veth_pairs);
-	pr_debug("Added %s:%s veth map\n", in, out);
+	if (n->bridge)
+		pr_debug("Added %s:%s@%s veth map\n", in, out, aux);
+	else
+		pr_debug("Added %s:%s veth map\n", in, out);
 	return 0;
 }
 
@@ -707,3 +725,71 @@ int collect_net_namespaces(bool for_dump)
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
+
+int move_veth_to_bridge(void)
+{
+	int s;
+	int ret;
+	struct veth_pair *n;
+	struct ifreq ifr;
+
+	s = -1;
+	ret = 0;
+	list_for_each_entry(n, &opts.veth_pairs, node) {
+		if (n->bridge == NULL)
+			continue;
+
+		pr_debug("\tMoving dev %s to bridge %s\n", n->outside, n->bridge);
+
+		if (s == -1) {
+			s = socket(AF_LOCAL, SOCK_STREAM|SOCK_CLOEXEC, 0);
+			if (s < 0) {
+				pr_perror("Can't create control socket");
+				return -1;
+			}
+		}
+
+		/*
+		 * Add the device to the bridge. This is equivalent to:
+		 * $ brctl addif <bridge> <device>
+		 */
+		ifr.ifr_ifindex = if_nametoindex(n->outside);
+		if (ifr.ifr_ifindex == 0) {
+			pr_perror("Can't get index of %s", n->outside);
+			ret = -1;
+			break;
+		}
+		strncpy(ifr.ifr_name, n->bridge, IFNAMSIZ);
+		ret = ioctl(s, SIOCBRADDIF, &ifr);
+		if (ret < 0) {
+			pr_perror("Can't add interface %s to bridge %s",
+				n->outside, n->bridge);
+			break;
+		}
+
+		/*
+		 * Make sure the device is up.  This is equivalent to:
+		 * $ ip link set dev <device> up
+		 */
+		ifr.ifr_ifindex = 0;
+		strncpy(ifr.ifr_name, n->outside, IFNAMSIZ);
+		ret = ioctl(s, SIOCGIFFLAGS, &ifr);
+		if (ret < 0) {
+			pr_perror("Can't get flags of interface %s", n->outside);
+			break;
+		}
+		if (ifr.ifr_flags & IFF_UP)
+			continue;
+		ifr.ifr_flags |= IFF_UP;
+		ret = ioctl(s, SIOCSIFFLAGS, &ifr);
+		if (ret < 0) {
+			pr_perror("Can't set flags of interface %s to 0x%x",
+				n->outside, ifr.ifr_flags);
+			break;
+		}
+	}
+
+	if (s >= 0)
+		close(s);
+	return ret;
+}
