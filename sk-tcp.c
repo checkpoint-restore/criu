@@ -25,6 +25,11 @@
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
 
+#ifndef SIOCOUTQNSD
+/* MAO - Define SIOCOUTQNSD ioctl if we don't have it */
+#define SIOCOUTQNSD     0x894B
+#endif
+
 #ifndef CONFIG_HAS_TCP_REPAIR
 /*
  * It's been reported that both tcp_repair_opt
