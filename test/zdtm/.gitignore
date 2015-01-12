@@ -169,6 +169,16 @@
 /live/static/ip.dump
 /live/static/ip.rst
 /live/static/vt
+/live/static/aio00
+/live/static/packet_sock_mmap
+/live/static/console
+/live/static/fd
+/live/static/file_locks02
+/live/static/file_locks03
+/live/static/file_locks04
+/live/static/file_locks05
+/live/static/mlock_setuid
+/live/static/mntns_root_bind
 /live/streaming/fifo_dyn
 /live/streaming/fifo_loop
 /live/streaming/file_aio
