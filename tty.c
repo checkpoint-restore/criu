@@ -280,6 +280,7 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
 	TtyFileEntry *tfe = info->tfe;
 	const size_t namelen = 64;
 	struct reg_file_info *r;
+	static struct file_desc_ops noops = {};
 
 	r = xzalloc(sizeof(*r) + sizeof(*r->rfe) + namelen);
 	if (!r)
@@ -296,9 +297,9 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
 			 info->tie->pty->index);
 
 	if (add)
-		file_desc_add(&r->d, tfe->id, NULL);
+		file_desc_add(&r->d, tfe->id, &noops);
 	else
-		file_desc_init(&r->d, tfe->id, NULL);
+		file_desc_init(&r->d, tfe->id, &noops);
 
 	r->rfe->id	= tfe->id;
 	r->rfe->flags	= tfe->flags;
