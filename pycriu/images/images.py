@@ -124,33 +124,51 @@ class entry_handler:
 		self.dump(entries, f)
 		return f.read()
 
-# Some custom extra handlers
+# Special handler for pagemap.img
+class pagemap_handler:
+	"""
+	Special entry handler for pagemap.img, which is unique in a way
+	that it has a header of pagemap_head type followed by entries
+	of pagemap_entry type.
+	"""
+	def load(self, f):
+		entries = []
 
-class pagemap_extra_handler:
-	def load(self, f, pload):
-		array = []
-
+		pb = pagemap_head()
 		while True:
-			pb = pagemap_entry()
 			buf = f.read(4)
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))
-			array.append(pb2dict.pb2dict(pb))
+			entries.append(pb2dict.pb2dict(pb))
 
-		return array
-
-	def dump(self, extra, f, pload):
-		for item in extra:
 			pb = pagemap_entry()
+
+		return entries
+
+	def loads(self, s):
+		f = io.BytesIO(s)
+		return self.load(f)
+
+	def dump(self, entries, f):
+		pb = pagemap_head()
+		for item in entries:
 			pb2dict.dict2pb(item, pb)
 			pb_str = pb.SerializeToString()
 			size = len(pb_str)
 			f.write(struct.pack('i', size))
 			f.write(pb_str)
 
-# In following handlers we use base64 encoding
+			pb = pagemap_entry()
+
+	def dumps(self, entries):
+		f = io.BytesIO('')
+		self.dump(entries, f)
+		return f.read()
+
+
+# In following extra handlers we use base64 encoding
 # to store binary data. Even though, the nature
 # of base64 is that it increases the total size,
 # it doesn't really matter, because our images
@@ -198,7 +216,7 @@ handlers = {
 	'CGROUP'		: entry_handler(cgroup_entry),
 	'TCP_STREAM'		: entry_handler(tcp_stream_entry),
 	'STATS'			: entry_handler(stats_entry),
-	'PAGEMAP'		: entry_handler(pagemap_head, pagemap_extra_handler()),
+	'PAGEMAP'		: pagemap_handler(), # Special one
 	'PSTREE'		: entry_handler(pstree_entry),
 	'REG_FILES'		: entry_handler(reg_file_entry),
 	'NS_FILES'		: entry_handler(ns_file_entry),
