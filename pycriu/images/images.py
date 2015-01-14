@@ -30,7 +30,7 @@
 # Entry, in its turn, could be described as:
 #
 # {
-#	'payload' : pb_msg,
+#	pb_msg,
 #	'extra' : extra_msg
 # }
 #
@@ -77,7 +77,7 @@ class entry_handler:
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))
-			entry['payload'] = pb2dict.pb2dict(pb)
+			entry = pb2dict.pb2dict(pb)
 
 			# Read extra
 			if self.extra_handler:
@@ -101,17 +101,19 @@ class entry_handler:
 		in binary format to.
 		"""
 		for entry in entries:
+			extra = entry.pop('extra', None)
+
 			# Write payload
 			pb = self.payload()
-			pb2dict.dict2pb(entry['payload'], pb)
+			pb2dict.dict2pb(entry, pb)
 			pb_str = pb.SerializeToString()
 			size = len(pb_str)
 			f.write(struct.pack('i', size))
 			f.write(pb_str)
 
 			# Write extra
-			if self.extra_handler:
-				self.extra_handler.dump(entry['extra'], f, pb)
+			if self.extra_handler and extra:
+				self.extra_handler.dump(extra, f, pb)
 
 	def dumps(self, entries):
 		"""
