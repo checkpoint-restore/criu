@@ -185,7 +185,7 @@ class pipes_data_extra_handler:
 		f.write(data)
 
 class sk_queues_extra_handler:
-	def load(self, f, pb):
+	def load(self, f, pload):
 		size = pload.length
 		data = f.read(size)
 		return data.encode('base64')
