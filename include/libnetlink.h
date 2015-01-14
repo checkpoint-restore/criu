@@ -7,7 +7,8 @@ extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int le
 #define parse_rtattr_nested(tb, max, rta) \
 	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
 extern int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h, void *), void *);
+		int (*receive_callback)(struct nlmsghdr *h, void *),
+		int (*error_callback)(int err, void *), void *);
 
 extern int addattr_l(struct nlmsghdr *n, int maxlen, int type,
 		const void *data, int alen);

@@ -234,7 +234,7 @@ static int dump_links(struct cr_imgset *fds)
 	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
 	req.g.rtgen_family = AF_PACKET;
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, fds);
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, fds);
 	close(sk);
 out:
 	return ret;
@@ -297,7 +297,7 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.h) - (void *)linkinfo;
 	}
 
-	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL);
+	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL);
 }
 
 int restore_link_parms(NetDeviceEntry *nde, int nlsk)

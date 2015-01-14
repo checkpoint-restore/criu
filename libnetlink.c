@@ -21,7 +21,8 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	return 0;
 }
 
-static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *), void *arg)
+static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *), 
+		int (*err_cb)(int, void *), void *arg)
 {
 	struct nlmsghdr *hdr;
 
@@ -50,8 +51,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 			if (err->error == 0)
 				return 0;
 
-			pr_warn("ERROR %d reported by netlink\n", err->error);
-			return err->error;
+			return err_cb(err->error, arg);
 		}
 		if (cb(hdr, arg))
 			return -1;
@@ -60,14 +60,24 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 	return 1;
 }
 
+static int rtnl_return_err(int err, void *arg)
+{
+	pr_warn("ERROR %d reported by netlink\n", err);
+	return err;
+}
+
 int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h, void *), void *arg)
+		int (*receive_callback)(struct nlmsghdr *h, void *),
+		int (*error_callback)(int err, void *), void *arg)
 {
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
 	static char buf[4096];
 	int err;
+
+	if (!error_callback)
+		error_callback = rtnl_return_err;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name	= &nladdr;
@@ -111,7 +121,7 @@ int do_rtnl_req(int nl, void *req, int size,
 		if (err == 0)
 			break;
 
-		err = nlmsg_receive(buf, err, receive_callback, arg);
+		err = nlmsg_receive(buf, err, receive_callback, error_callback, arg);
 		if (err < 0)
 			goto err;
 		if (err == 0)

@@ -538,7 +538,7 @@ static int do_collect_req(int nl, struct sock_diag_req *req, int size,
 {
 	int tmp;
 
-	tmp = do_rtnl_req(nl, req, size, receive_callback, arg);
+	tmp = do_rtnl_req(nl, req, size, receive_callback, NULL, arg);
 
 	if (tmp == 0)
 		set_collect_bit(req->r.n.sdiag_family, req->r.n.sdiag_protocol);
