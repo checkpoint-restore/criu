@@ -60,6 +60,8 @@ def convert_img(opts):
 		with open(opts['out'], 'w+') as f:
 			f.write(out_str)
 	else:
+		if orig_type == 'bin':
+			out_str += "\n"
 		sys.stdout.write(out_str)
 
 def main():
