@@ -16,7 +16,7 @@ def handle_cmdline_opts():
 			help = 'input file (stdin by default)')
 	parser.add_argument('-o',
 			    '--out',
-			help = 'output file (stdout by default')
+			help = 'output file (stdout by default)')
 	parser.add_argument('-f',
 			    '--format',
 			    choices = ['raw', 'nice'],
