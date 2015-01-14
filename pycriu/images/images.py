@@ -271,7 +271,9 @@ def load(f):
 	try:
 		m = magic.by_val[img_magic]
 	except:
-		raise Exception("Unknown magic "+str(img_magic))
+		raise Exception("Unknown magic "+str(img_magic)+".\n"\
+				"Maybe you are feeding me an image with "\
+				"raw data(i.e. pages.img)?")
 
 	try:
 		handler = handlers[m]
