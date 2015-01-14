@@ -9,8 +9,8 @@ def handle_cmdline_opts():
 	desc = 'CRiu Image Tool'
 	parser = argparse.ArgumentParser(description=desc)
 	parser.add_argument('command',
-			    choices = ['convert'],
-			help = 'use \"covert\" to convert CRIU image to/from human-readable format')
+			    choices = ['decode', 'encode'],
+			help = 'decode/encode - convert criu image from/to binary type to/from json')
 	parser.add_argument('-i',
 			    '--in',
 			help = 'input file (stdin by default)')
@@ -26,50 +26,53 @@ def handle_cmdline_opts():
 
 	return opts
 
-def convert_img(opts):
-	orig_type = None
+
+def decode(opts):
 	indent = None
 
 	# If no input file is set -- stdin is used.
 	if opts['in']:
 		with open(opts['in'], 'r') as f:
-			in_str = f.read()
+			img = pycriu.images.load(f)
 	else:
-		in_str = sys.stdin.read()
-
-	# Detect what is the type we are dealing with.
-	if in_str[len(in_str) - len(in_str.lstrip())] == '{':
-			img = json.loads(in_str)
-			orig_type = 'json'
-	else:
-			img = pycriu.images.loads(in_str)
-			orig_type = 'bin'
+		img = pycriu.images.load(sys.stdin)
 
 	# For stdout --format nice is set by default.
 	if opts['format'] == 'nice' or (opts['format'] == None and opts['out'] == None):
 		indent = 4
 
-	# Just convert image to the opposite format
-	if orig_type == 'json':
-		out_str = pycriu.images.dumps(img)
+	# If no output file is set -- stdout is used.
+	if opts['out']:
+		with open(opts['out'], 'w+') as f:
+			json.dump(img, f, indent=indent)
 	else:
-		out_str = json.dumps(img, indent=indent)
+		json.dump(img, sys.stdout, indent=indent)
+		sys.stdout.write("\n")
+
+
+def encode(opts):
+	# If no input file is set -- stdin is used.
+	if opts['in']:
+		with open(opts['in'], 'r') as f:
+			img = json.load(f)
+	else:
+		img = json.load(sys.stdin)
 
 	# If no output file is set -- stdout is used.
 	if opts['out']:
 		with open(opts['out'], 'w+') as f:
-			f.write(out_str)
+			pycriu.images.dump(img, f)
 	else:
-		if orig_type == 'bin':
-			out_str += "\n"
-		sys.stdout.write(out_str)
+		pycriu.images.dump(img, sys.stdout)
+
 
 def main():
 	#Handle cmdline options
 	opts = handle_cmdline_opts()
 
 	cmds = {
-		'convert' : convert_img
+		'decode' : decode,
+		'encode' : encode
 	}
 
 	cmds[opts['command']](opts)
