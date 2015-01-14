@@ -16,9 +16,9 @@ do
 	fi
 
 	echo "  -- to json"
-	../../crit convert -o "$x"".json" --format nice < $x || _exit $?
+	../../crit decode -o "$x"".json" --format nice < $x || _exit $?
 	echo "  -- to img"
-	../../crit convert -i "$x"".json" > "$x"".json.img" || _exit $?
+	../../crit encode -i "$x"".json" > "$x"".json.img" || _exit $?
 	echo "  -- cmp"
 	cmp $x "$x"".json.img" || _exit $?
 
