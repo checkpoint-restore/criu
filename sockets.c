@@ -31,6 +31,22 @@
 #define SO_GET_FILTER	SO_ATTACH_FILTER
 #endif
 
+struct sock_diag_greq {
+	u8	family;
+	u8	protocol;
+};
+
+struct sock_diag_req {
+	struct nlmsghdr hdr;
+	union {
+		struct unix_diag_req	u;
+		struct inet_diag_req_v2	i;
+		struct packet_diag_req	p;
+		struct netlink_diag_req n;
+		struct sock_diag_greq	g;
+	} r;
+};
+
 enum socket_cl_bits
 {
 	NETLINK_CL_BIT,
@@ -96,39 +112,93 @@ bool socket_test_collect_bit(unsigned int family, unsigned int proto)
 	return test_bit(nr, socket_cl_bits) != 0;
 }
 
+static int probe_recv_one(struct nlmsghdr *h, void *arg)
+{
+	pr_err("PROBE RECEIVED\n");
+	return -1;
+}
+
+static int probe_err(int err, void *arg)
+{
+	int expected_err = *(int *)arg;
+
+	if (err == expected_err)
+		return 0;
+
+	pr_err("Diag module missing (%d)\n", err);
+	return err;
+}
+
+static inline void probe_diag(int nl, struct sock_diag_req *req, int expected_err)
+{
+	do_rtnl_req(nl, req, req->hdr.nlmsg_len, probe_recv_one, probe_err, &expected_err);
+}
+
 void preload_socket_modules()
 {
+	int nl;
+	struct sock_diag_req req;
+
 	/*
 	 * If the task to dump (e.g. an LXC container) has any netlink
 	 * KOBJECT_UEVENT socket open and the _diag modules aren't
 	 * loaded is dumped, criu will freeze the task and then the
 	 * kernel will send it messages on the socket, and then we will
 	 * fail to dump because the socket has pending data. The Real
-	 * Solution is to dump this pending data, but we just modprobe
-	 * things beforehand for now so that the first dump doesn't
-	 * fail.
-	 *
-	 * We ignore failure since these could be compiled directly
-	 * in, instead of being kernel modules.
+	 * Solution is to dump this pending data, but we just make sure
+	 * modules are there beforehand for now so that the first dump
+	 * doesn't fail.
 	 */
-	char *modules[] = {
-		"netlink_diag",
-		"af_packet_diag",
-		"udp_diag",
-		"tcp_diag",
-		"unix_diag",
-		NULL,
-	};
-	int i;
-	char *args[2] = {
-		"modprobe",
-		NULL
-	};
 
-	for (i = 0; modules[i]; i++) {
-		args[1] = modules[i];
-		cr_system(-1, -1, -1, args[0], args);
-	}
+	nl = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+	if (nl < 0)
+		return;
+
+	pr_info("Probing sock diag modules\n");
+
+	memset(&req, 0, sizeof(req));
+	req.hdr.nlmsg_type	= SOCK_DIAG_BY_FAMILY;
+	req.hdr.nlmsg_seq	= CR_NLMSG_SEQ;
+
+	/*
+	 * Probe UNIX, netlink and packet diag-s by feeding
+	 * to the kernel request that is shorter than they
+	 * expect, byt still containing the family to make
+	 * sure the family handler is there. The family-level
+	 * diag module would report EINVAL in this case.
+	 */
+
+	req.hdr.nlmsg_len = sizeof(req.hdr) + sizeof(req.r.g);
+	req.hdr.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
+
+	req.r.g.family = AF_UNIX;
+	probe_diag(nl, &req, -EINVAL);
+
+	req.r.g.family = AF_PACKET;
+	probe_diag(nl, &req, -EINVAL);
+
+	req.r.g.family = AF_NETLINK;
+	probe_diag(nl, &req, -EINVAL);
+
+	/*
+	 * TCP and UDP(LITE) diags do not support such trick, only
+	 * inet_diag module can be probed like that. For the protocol
+	 * level ones it's OK to request for exact non-existing socket
+	 * and check for ENOENT being reported back as error.
+	 */
+
+	req.hdr.nlmsg_len = sizeof(req.hdr) + sizeof(req.r.i);
+	req.hdr.nlmsg_flags = NLM_F_REQUEST;
+	req.r.i.sdiag_family = AF_INET;
+
+	req.r.i.sdiag_protocol = IPPROTO_TCP;
+	probe_diag(nl, &req, -ENOENT);
+
+	req.r.i.sdiag_protocol = IPPROTO_UDP; /* UDLITE is merged with UDP */
+	probe_diag(nl, &req, -ENOENT);
+
+	close(nl);
+	pr_info("Done probing\n");
 }
 
 static int dump_bound_dev(int sk, SkOptsEntry *soe)
@@ -522,16 +592,6 @@ static int inet_receive_one(struct nlmsghdr *h, void *arg)
 
 	return inet_collect_one(h, i->sdiag_family, type);
 }
-
-struct sock_diag_req {
-	struct nlmsghdr hdr;
-	union {
-		struct unix_diag_req	u;
-		struct inet_diag_req_v2	i;
-		struct packet_diag_req	p;
-		struct netlink_diag_req n;
-	} r;
-};
 
 static int do_collect_req(int nl, struct sock_diag_req *req, int size,
 		int (*receive_callback)(struct nlmsghdr *h, void *), void *arg)
