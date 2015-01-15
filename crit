@@ -26,45 +26,35 @@ def handle_cmdline_opts():
 
 	return opts
 
+def inf(opts):
+	if opts['in']:
+		return open(opts['in'], 'r')
+	else:
+		return sys.stdin
+
+def outf(opts):
+	if opts['out']:
+		return open(opts['out'], 'w+')
+	else:
+		return sys.stdout
+
 
 def decode(opts):
 	indent = None
-
-	# If no input file is set -- stdin is used.
-	if opts['in']:
-		with open(opts['in'], 'r') as f:
-			img = pycriu.images.load(f)
-	else:
-		img = pycriu.images.load(sys.stdin)
+	img = pycriu.images.load(inf(opts))
 
 	# For stdout --format nice is set by default.
 	if opts['format'] == 'nice' or (opts['format'] == None and opts['out'] == None):
 		indent = 4
 
-	# If no output file is set -- stdout is used.
-	if opts['out']:
-		with open(opts['out'], 'w+') as f:
-			json.dump(img, f, indent=indent)
-	else:
-		json.dump(img, sys.stdout, indent=indent)
-		sys.stdout.write("\n")
-
+	f = outf(opts)
+	json.dump(img, f, indent=indent)
+	if f == sys.stdout:
+		f.write("\n")
 
 def encode(opts):
-	# If no input file is set -- stdin is used.
-	if opts['in']:
-		with open(opts['in'], 'r') as f:
-			img = json.load(f)
-	else:
-		img = json.load(sys.stdin)
-
-	# If no output file is set -- stdout is used.
-	if opts['out']:
-		with open(opts['out'], 'w+') as f:
-			pycriu.images.dump(img, f)
-	else:
-		pycriu.images.dump(img, sys.stdout)
-
+	img = json.load(inf(opts))
+	pycriu.images.dump(img, outf(opts))
 
 def main():
 	#Handle cmdline options
