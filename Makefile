@@ -148,8 +148,7 @@ ifeq ($(GCOV),1)
 %.o $(PROGRAM): override CFLAGS += --coverage
 endif
 
-all: config pie $(VERSION_HEADER) $(CRIU-LIB) crit
-	$(Q) $(MAKE) $(PROGRAM)
+all: config pie $(VERSION_HEADER) $(CRIU-LIB) $(PROGRAM) crit
 
 protobuf/%::
 	$(Q) $(MAKE) $(build)=protobuf $@
