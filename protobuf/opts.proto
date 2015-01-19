@@ -1,0 +1,10 @@
+import "google/protobuf/descriptor.proto";
+
+message CRIU_Opts {
+	optional bool hex = 1; // Idicate that CRIT should treat this field as hex.
+}
+
+extend google.protobuf.FieldOptions {
+	// Registered unique number to use for all kinds of custom options.
+	optional CRIU_Opts criu = 1018;
+}
