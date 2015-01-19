@@ -59,7 +59,7 @@ class entry_handler:
 		self.payload		= payload
 		self.extra_handler	= extra_handler
 
-	def load(self, f):
+	def load(self, f, fmt = None):
 		"""
 		Convert criu image entries from binary format to dict(json).
 		Takes a file-like object and returnes a list with entries in
@@ -77,7 +77,7 @@ class entry_handler:
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))
-			entry = pb2dict.pb2dict(pb)
+			entry = pb2dict.pb2dict(pb, fmt)
 
 			# Read extra
 			if self.extra_handler:
@@ -87,12 +87,12 @@ class entry_handler:
 
 		return entries
 
-	def loads(self, s):
+	def loads(self, s, fmt = None):
 		"""
 		Same as load(), but takes a string as an argument.
 		"""
 		f = io.BytesIO(s)
-		return self.load(f)
+		return self.load(f, fmt)
 
 	def dump(self, entries, f):
 		"""
@@ -131,7 +131,7 @@ class pagemap_handler:
 	that it has a header of pagemap_head type followed by entries
 	of pagemap_entry type.
 	"""
-	def load(self, f):
+	def load(self, f, fmt = None):
 		entries = []
 
 		pb = pagemap_head()
@@ -141,15 +141,15 @@ class pagemap_handler:
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))
-			entries.append(pb2dict.pb2dict(pb))
+			entries.append(pb2dict.pb2dict(pb, fmt))
 
 			pb = pagemap_entry()
 
 		return entries
 
-	def loads(self, s):
+	def loads(self, s, fmt = None):
 		f = io.BytesIO(s)
-		return self.load(f)
+		return self.load(f, fmt)
 
 	def dump(self, entries, f):
 		pb = pagemap_head()
@@ -258,7 +258,7 @@ handlers = {
 	'IPCNS_MSG'		: entry_handler(ipc_msg_entry)
 	}
 
-def load(f):
+def load(f, fmt = None):
 	"""
 	Convert criu image from binary format to dict(json).
 	Takes a file-like object to read criu image from.
@@ -281,16 +281,16 @@ def load(f):
 		raise Exception("No handler found for image with such magic "+m)
 
 	image['magic']		= m
-	image['entries']	= handler.load(f)
+	image['entries']	= handler.load(f, fmt)
 
 	return image
 
-def loads(s):
+def loads(s, fmt = None):
 	"""
 	Same as load(), but takes a string.
 	"""
 	f = io.BytesIO(s)
-	return load(f)
+	return load(f, fmt)
 
 def dump(img, f):
 	"""

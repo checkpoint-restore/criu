@@ -63,6 +63,8 @@ proto-obj-y	+= rpc.o
 proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
 proto-obj-y	+= userns.o
+proto-obj-y	+= google/protobuf/descriptor.o # To make protoc-c happy and compile opts.proto
+proto-pbj-y	+= opts.o
 
 proto		:= $(proto-obj-y:.o=)
 proto-c		:= $(proto-obj-y:.o=.pb-c.c)
@@ -124,4 +126,8 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
+cleanup-y += $(obj)/google/protobuf/*.d
+cleanup-y += $(obj)/google/protobuf/*.h
+cleanup-y += $(obj)/google/protobuf/*.c
+cleanup-y += $(obj)/google/protobuf/*.o
 cleanup-y += $(obj)/*.d $(obj)/*.i $(obj)/*.s $(obj)/*.o

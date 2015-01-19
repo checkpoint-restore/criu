@@ -1,4 +1,5 @@
 from google.protobuf.descriptor import FieldDescriptor as FD
+import opts_pb2
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -39,19 +40,33 @@ _basic_cast = {
 	FD.TYPE_STRING		: unicode
 }
 
-def _pb2dict_cast(field, value):
+def _marked_as_hex(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].hex
+
+def _pb2dict_cast(field, value, fmt = None, is_hex = False):
+	if not is_hex:
+		is_hex = _marked_as_hex(field)
+	if fmt:
+		print_hex = 'hex' in fmt
+
 	if field.type == FD.TYPE_MESSAGE:
-		return pb2dict(value)
+		return pb2dict(value, fmt, is_hex)
 	elif field.type == FD.TYPE_BYTES:
 		return value.encode('base64')
 	elif field.type == FD.TYPE_ENUM:
 		return field.enum_type.values_by_number.get(value, None).name
 	elif field.type in _basic_cast:
-		return _basic_cast[field.type](value)
+		cast = _basic_cast[field.type]
+		if (cast == int or cast == long) and is_hex and print_hex:
+			# Fields that have (criu).hex = true option set
+			# should be stored in hex string format.
+			return "0x%x" % value
+		else:
+			return cast(value)
 	else:
 		raise Exception("Field(%s) has unsupported type %d" % (field.name, field.type))
 
-def pb2dict(pb):
+def pb2dict(pb, fmt = None, is_hex = False):
 	"""
 	Convert protobuf msg to dictionary.
 	Takes a protobuf message and returns a dict.
@@ -61,9 +76,9 @@ def pb2dict(pb):
 		if field.label == FD.LABEL_REPEATED:
 			d_val = []
 			for v in value:
-				d_val.append(_pb2dict_cast(field, v))
+				d_val.append(_pb2dict_cast(field, v, fmt, is_hex))
 		else:
-			d_val = _pb2dict_cast(field, value)
+			d_val = _pb2dict_cast(field, value, fmt, is_hex)
 
 		d[field.name] = d_val
 	return d
@@ -77,7 +92,13 @@ def _dict2pb_cast(field, value):
 	elif field.type == FD.TYPE_ENUM:
 		return field.enum_type.values_by_name.get(value, None).number
 	else:
-		return _basic_cast[field.type](value)
+		cast = _basic_cast[field.type]
+		if (cast == int or cast == long) and isinstance(value, unicode):
+			# Some int or long fields might be stored as hex
+			# strings. See _pb2dict_cast.
+			return cast(value, 0)
+		else:
+			return cast(value)
 
 def dict2pb(d, pb):
 	"""

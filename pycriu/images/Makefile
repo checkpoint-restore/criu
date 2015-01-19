@@ -10,7 +10,7 @@ proto-py-modules := $(foreach m,$(proto),$(subst -,_,$(notdir $(m:.proto=_pb2)))
 # Unfortunately, we can't drop ugly _pb2 suffixes here, because
 # some _pb2 files depend on others _pb2 files.
 protobuf:
-	$(Q) protoc -I=$(SRC_DIR)/protobuf --python_out=./ $(proto)
+	$(Q) protoc -I=$(SRC_DIR)/protobuf -I=/usr/include/ --python_out=./ $(proto)
 
 magic.py: $(SRC_DIR)/scripts/magic-gen.py $(SRC_DIR)/include/magic.h
 	$(E) "  GEN  " $@
