@@ -89,7 +89,7 @@ $(obj)/%.proto.c.d: $(obj)/%.proto | $(obj)/%.proto.d
 		-e 's/.*/$(subst .proto,.pb-c.c,$(subst /,\/,$<)):$(subst /,\/,$(obj))\/&/'	| \
 		uniq > $@
 
-$(obj)/%.pb-c.c $(obj)/%.pb-c.h: $(obj)/%.proto $(obj)/%.proto.c.d
+$(obj)/%.pb-c.c $(obj)/%.pb-c.h: $(obj)/%.proto $(obj)/%.proto.c.d $(obj)/opts.pb-c.c
 	$(E) "  PBCC    " $@
 	$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $<
 ifeq ($(SRCARCH),arm)
