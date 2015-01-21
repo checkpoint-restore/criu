@@ -1,14 +1,3 @@
-##
-##
-## Unfortunately protobuf-c compiler is extremely dumb
-## one, and I'm that ->.<- close to rewrite it on plain
-## C language.
-##
-## Meanwhile, we need to carry own rules instead of reusing
-## our build farm.
-
-CFLAGS		+= -I$(obj)/
-
 proto-obj-y	+= stats.o
 proto-obj-y	+= core.o
 proto-obj-y	+= core-x86.o
@@ -64,55 +53,45 @@ proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
 proto-obj-y	+= userns.o
 proto-obj-y	+= google/protobuf/descriptor.o # To make protoc-c happy and compile opts.proto
-proto-pbj-y	+= opts.o
+proto-obj-y	+= opts.o
 
-proto		:= $(proto-obj-y:.o=)
-proto-c		:= $(proto-obj-y:.o=.pb-c.c)
-proto-h		:= $(proto-obj-y:.o=.pb-c.h)
+CFLAGS		+= -I$(obj)/
 
-.SECONDARY:
+#
+# Generates a set of names from protobuf "import" directive.
+# The names are bare, ie no suffixes.
+define gen-proto-dep-names
+$(shell grep "^[[:blank:]]*import[[:blank:]]" $(1)      |       \
+        sed     -e 's/[[:blank:]]*import[[:blank:]]*//'         \
+                -e 's/[\";]//g'                                 \
+                -e 's/\.proto//g'                       |       \
+        sort | uniq)
+endef
 
-$(obj)/%.proto.d: $(obj)/%.proto
-	$(E) "  PB DDEP " $@
-	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $^ | sed					  \
-		-e 's/[[:blank:]]*import[[:blank:]]*//'						  \
-		-e 's/[\";]//g'									  \
-		-e 's/.*/$(subst /,\/,$^):$(subst /,\/,$(obj))\/&/'				| \
-		uniq > $@
-
-$(obj)/%.proto.c.d: $(obj)/%.proto | $(obj)/%.proto.d
-	$(E) "  PB DEP  " $@
-	$(Q) grep "^[[:blank:]]*import[[:blank:]]" $< | sed					  \
-		-e 's/[[:blank:]]*import[[:blank:]]*//'						  \
-		-e 's/.proto/.pb-c.c/'								  \
-		-e 's/[\";]//g'									  \
-		-e 's/.*/$(subst .proto,.pb-c.c,$(subst /,\/,$<)):$(subst /,\/,$(obj))\/&/'	| \
-		uniq > $@
-
-$(obj)/%.pb-c.c $(obj)/%.pb-c.h: $(obj)/%.proto $(obj)/%.proto.c.d $(obj)/opts.pb-c.c
-	$(E) "  PBCC    " $@
-	$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $<
+#
+# Generates rules needed to compile protobuf files.
+define gen-proto-rules
+$(obj)/$(1).pb-c.c $(obj)/$(1).pb-c.h: $(obj)/$(1).proto $(addsuffix .pb-c.c,$(addprefix $(obj)/,$(2)))
+	$$(E) "  PBCC    " $$@
+	$$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $$<
 ifeq ($(SRCARCH),arm)
-	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $@
-	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $(patsubst %.c,%.h,$@)
-	$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $(patsubst %.h,%.c,$@)
+	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$@
+	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$(patsubst %.c,%.h,$$@)
+	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$(patsubst %.h,%.c,$$@)
 endif
+$(obj)/$(1).pb-c.d: $(obj)/$(1).pb-c.c $(addsuffix .pb-c.d,$(addprefix $(obj)/,$(2)))
+	$$(E) "  DEP     " $$@
+	$$(Q) $$(CC) -M -MT $$@ -MT $(patsubst %.d,%.o,$$@) $$(CFLAGS) $$< -o $$@
+endef
 
-_first_stage := $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.c))
-_first_stage += $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.h))
-$(obj)/%.pb-c.d: $(_first_stage)
+$(foreach file, $(proto-obj-y),                                                 \
+        $(eval $(call gen-proto-rules,$(file:.o=),                              \
+                        $(call gen-proto-dep-names,                             \
+                                $(addprefix $(obj)/,$(file:.o=.proto))))))
 
-$(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h $(obj)/%.pb-c.d
+$(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
-
-$(obj)/%.pb-c.d: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
-	$(E) "  DEP     " $@
-	$(Q) $(CC) -M -MT $@ -MT $(patsubst %.d,%.o,$@) $(CFLAGS) $< -o $@
-
-$(obj)/%.pb-c.i: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
-	$(E) "  CC      " $@
-	$(Q) $(CC) -E $(CFLAGS) $< -o $@
 
 $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 	$(E) "  LINK    " $@
@@ -121,8 +100,7 @@ $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 _all += $(obj)/built-in.o
 
 ifneq ($(MAKECMDGOALS),clean)
--include $(addprefix $(obj)/,$(proto-obj-y:.o=.proto.d))
--include $(addprefix $(obj)/,$(proto-obj-y:.o=.proto.c.d))
+-include $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.d))
 endif
 
 cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
