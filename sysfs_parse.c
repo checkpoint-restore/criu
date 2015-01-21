@@ -282,32 +282,23 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 		return -1;
 
 	len = fixup_aufs_path(&path[1], sizeof path - 1);
-	if (len < 0)
+	if (len <= 0)
+		return len;
+
+	vma->aufs_rpath = xmalloc(len + 2);
+	if (!vma->aufs_rpath)
 		return -1;
 
-	if (len == 0) {
-		/*
-		 * The vma is associated with a map_files entry
-		 * that does not expose the branch pathname
-		 * (e.g., /dev/zero).  In this case, we can use
-		 * the path.
-		 */
-		file = &path[1];
-	} else {
-		vma->aufs_rpath = xmalloc(len + 2);
-		if (!vma->aufs_rpath)
+	strcpy(vma->aufs_rpath, path);
+	if (opts.root) {
+		vma->aufs_fpath = xmalloc(strlen(opts.root) + 1 + len + 1);
+		if (!vma->aufs_fpath)
 			return -1;
-		strcpy(vma->aufs_rpath, path);
-		if (opts.root) {
-			vma->aufs_fpath = xmalloc(strlen(opts.root) + 1 + len + 1);
-			if (!vma->aufs_fpath)
-				return -1;
-			/* skip ./ in path */
-			sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
-		}
-		pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
-		file = vma->aufs_fpath;
+		/* skip ./ in path */
+		sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
 	}
+	pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
+	file = vma->aufs_fpath;
 
 	if (stat(file, vma->vmst) < 0) {
 		pr_perror("Failed stat on map %"PRIx64" (%s)",
@@ -315,7 +306,7 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 		return -1;
 	}
 
-	return 0;
+	return len;
 }
 
 void free_aufs_branches(void)

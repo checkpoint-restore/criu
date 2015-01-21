@@ -275,15 +275,24 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 	if (!vma->vmst)
 		return -1;
 
-	if (opts.aufs)
-		/*
-		 * For AUFS support, we cannot fstat() a file descriptor that
-		 * is a symbolic link to a branch (it would return different
-		 * dev/ino than the real file).  Instead, we stat() using the
-		 * full pathname that we saved before.
-		 */
+	/*
+	 * For AUFS support, we need to check if the symbolic link
+	 * points to a branch.  If it does, we cannot fstat() its file
+	 * descriptor because it would return a different dev/ino than
+	 * the real file.  If fixup_aufs_vma_fd() returns positive,
+	 * it means that it has stat()'ed using the full pathname.
+	 * Zero return means that the symbolic link does not point to
+	 * a branch and we can do fstat() below.
+	 */
+	if (opts.aufs) {
+		int ret;
 
-		return fixup_aufs_vma_fd(vma);
+		ret = fixup_aufs_vma_fd(vma);
+		if (ret < 0)
+			return -1;
+		if (ret > 0)
+			return 0;
+	}
 
 	if (fstat(vma->vm_file_fd, vma->vmst) < 0) {
 		pr_perror("Failed fstat on map %"PRIx64"", vma->e->start);
