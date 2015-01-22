@@ -48,6 +48,8 @@ def _pb2dict_cast(field, value, fmt = None, is_hex = False):
 		is_hex = _marked_as_hex(field)
 	if fmt:
 		print_hex = 'hex' in fmt
+	else:
+		print_hex = False
 
 	if field.type == FD.TYPE_MESSAGE:
 		return pb2dict(value, fmt, is_hex)
