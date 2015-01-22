@@ -11,6 +11,8 @@ ARCH=`uname -m | sed			\
 
 ZP="zdtm/live"
 
+source $(readlink -f `dirname $0`/env.sh) || exit 1
+
 TEST_LIST="
 static/pipe00
 static/pipe01
@@ -178,7 +180,6 @@ static/shm
 static/msgque
 static/sem
 transition/ipc
-ns/static/tun
 static/netns-nf
 static/netns
 static/cgroup00
@@ -189,14 +190,9 @@ static/remap_dead_pid
 "
 
 TEST_CR_KERNEL="
-ns/static/tun
-static/timerfd
-static/aio00
 "
 
-cat /proc/self/fdinfo/1 | grep -q mnt_id
-if [ $? -eq 0 ]; then
-	TEST_LIST="$TEST_LIST
+TEST_MNTNS="
 ns/static/mntns_open
 ns/static/mntns_link_remap
 ns/static/mntns_link_ghost
@@ -204,8 +200,39 @@ ns/static/mntns_shared_bind
 ns/static/mntns_shared_bind02
 ns/static/mntns_root_bind
 "
+
+TEST_AIO="
+static/aio00
+"
+
+TEST_TIMERFD="
+static/timerfd
+"
+
+TEST_TUN="
+ns/static/tun
+"
+
+$CRIU check --feature "mnt_id"
+if [ $? -eq 0 ]; then
+	TEST_LIST="$TEST_LIST$TEST_MNTNS"
 else
 	export ZDTM_NOSUBNS=1
+fi
+
+$CRIU check --feature "aio_remap"
+if [ $? -eq 0 ]; then
+	TEST_LIST="$TEST_LIST$TEST_AIO"
+fi
+
+$CRIU check --feature "timerfd"
+if [ $? -eq 0 ]; then
+	TEST_LIST="$TEST_LIST$TEST_TIMERFD"
+fi
+
+$CRIU check --feature "tun"
+if [ $? -eq 0 ]; then
+	TEST_LIST="$TEST_LIST$TEST_TUN"
 fi
 
 BLACKLIST_FOR_USERNS="
@@ -256,8 +283,6 @@ ns/static/mntns_shared_bind
 ns/static/mntns_shared_bind02
 ns/static/mntns_root_bind
 "
-
-source $(readlink -f `dirname $0`/env.sh) || exit 1
 
 can_cr_userns() {
 	[ ! -f /proc/self/ns/user ] && return 1

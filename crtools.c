@@ -191,6 +191,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "manage-cgroups", no_argument, 0, 1060},
 		{ "cgroup-root", required_argument, 0, 1061},
 		{ "inherit-fd", required_argument, 0, 1062},
+		{ "feature", required_argument, 0, 1063},
 		{ },
 	};
 
@@ -398,6 +399,10 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1062:
 			if (inherit_fd_add(optarg) < 0)
+				return 1;
+			break;
+		case 1063:
+			if (check_add_feature(optarg) < 0)
 				return 1;
 			break;
 		case 'M':

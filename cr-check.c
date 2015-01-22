@@ -675,6 +675,8 @@ static int check_aio_remap(void)
 	return 0;
 }
 
+static int (*chk_feature)(void);
+
 int cr_check(void)
 {
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
@@ -700,6 +702,11 @@ int cr_check(void)
 	if (mntinfo == NULL)
 		return -1;
 
+	if (chk_feature) {
+		ret = chk_feature();
+		goto out;
+	}
+
 	ret |= check_map_files();
 	ret |= check_sock_diag();
 	ret |= check_ns_last_pid();
@@ -718,13 +725,43 @@ int cr_check(void)
 	ret |= check_ptrace_peeksiginfo();
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
-	ret |= check_tun();
+	ret |= check_tun_cr(0);
 	ret |= check_timerfd();
 	ret |= check_mnt_id();
 	ret |= check_aio_remap();
 
+out:
 	if (!ret)
 		pr_msg("Looks good.\n");
 
 	return ret;
+}
+
+static int check_tun(void)
+{
+	/*
+	 * In case there's no TUN support at all we
+	 * should report error. Unlike this plain criu
+	 * check would report "Looks good" in this case
+	 * since C/R effectively works, just not for TUN.
+	 */
+	return check_tun_cr(-1);
+}
+
+int check_add_feature(char *feat)
+{
+	if (!strcmp(feat, "mnt_id"))
+		chk_feature = check_mnt_id;
+	else if (!strcmp(feat, "aio_remap"))
+		chk_feature = check_aio_remap;
+	else if (!strcmp(feat, "timerfd"))
+		chk_feature = check_timerfd;
+	else if (!strcmp(feat, "tun"))
+		chk_feature = check_tun;
+	else {
+		pr_err("Unknown feature %s\n", feat);
+		return -1;
+	}
+
+	return 0;
 }

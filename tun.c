@@ -50,7 +50,7 @@
 
 #define TUN_DEV_GEN_PATH	"/dev/net/tun"
 
-int check_tun(void)
+int check_tun_cr(int no_tun_err)
 {
 	int fd, idx = 13, ret;
 
@@ -62,7 +62,7 @@ int check_tun(void)
 	fd = open(TUN_DEV_GEN_PATH, O_RDWR);
 	if (fd < 0) {
 		pr_perror("Can't check tun support");
-		return 0;
+		return no_tun_err;
 	}
 
 	ret = ioctl(fd, TUNSETIFINDEX, &idx);
