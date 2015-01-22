@@ -27,7 +27,6 @@ static/cwd00
 static/cwd01
 static/cwd02
 static/env00
-static/aio00
 static/maps00
 static/maps01
 static/maps02
