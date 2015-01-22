@@ -2,7 +2,7 @@
 
 set -e
 
-source ../env.sh || exit 1
+CRIU=./criu
 
 export PROTODIR=`readlink -f "${PWD}/../../protobuf"`
 
