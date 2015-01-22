@@ -272,7 +272,6 @@ err:
  */
 int fixup_aufs_vma_fd(struct vma_area *vma)
 {
-	char *file;
 	char path[PATH_MAX];
 	int len;
 
@@ -298,9 +297,8 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 		sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
 	}
 	pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
-	file = vma->aufs_fpath;
 
-	if (stat(file, vma->vmst) < 0) {
+	if (stat(vma->aufs_fpath, vma->vmst) < 0) {
 		pr_perror("Failed stat on map %"PRIx64" (%s)",
 				vma->e->start, vma->aufs_fpath);
 		return -1;
