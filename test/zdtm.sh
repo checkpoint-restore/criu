@@ -371,6 +371,7 @@ COMPILE_ONLY=0
 START_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
+START_FROM="."
 
 zdtm_sep()
 { (
@@ -945,6 +946,7 @@ Options:
 	-S : Only start the test
 	-n : Batch test
 	-r : Run test with specified name directly without match or check
+	-f <name>: Run tests starting from @name
 	-v : Verbose mode
 	-P : Make pre-dump instead of dump on all iterations except the last one
 	-s : Make iterative snapshots. Only the last one will be checked.
@@ -1036,6 +1038,11 @@ while :; do
 	  	START_ONLY=1
 		shift
 		;;
+	  -f)
+	  	shift
+	  	START_FROM="^${1}$"
+		shift
+		;;
 	  -n)
 		BATCH_TEST=1
 		shift
@@ -1103,7 +1110,7 @@ else
 	fi
 
 	generate_test_list
-	for t in $(echo "$TEST_LIST" | grep -x "$pattern"); do
+	for t in $(echo "$TEST_LIST" | sed -n -e "/${START_FROM////\/}/,\$p" | grep -x "$pattern"); do
 		run_test $t || case_error $t
 	done
 
