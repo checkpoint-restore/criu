@@ -236,7 +236,7 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	if (oflags & O_NOBUF)
 		bfd_setraw(&img->_x);
 	else if (bfdopen(&img->_x, flags))
-		goto err;
+		goto err_close;
 
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;
@@ -245,14 +245,14 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 		u32 magic;
 
 		if (read_img(img, &magic) < 0)
-			goto err;
+			goto err_close;
 		if (magic != imgset_template[type].magic) {
 			pr_err("Magic doesn't match for %s\n", path);
-			goto err;
+			goto err_close;
 		}
 	} else {
 		if (write_img(img, &imgset_template[type].magic))
-			goto err;
+			goto err_close;
 	}
 
 skip_magic:
@@ -261,6 +261,9 @@ skip_magic:
 err:
 	xfree(img);
 errn:
+	return NULL;
+err_close:
+	close_image(img);
 	return NULL;
 }
 

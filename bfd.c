@@ -125,7 +125,7 @@ void bclose(struct bfd *f)
 
 		buf_put(&f->b);
 	}
-	close(f->fd);
+	close_safe(&f->fd);
 }
 
 static int brefill(struct bfd *f)
