@@ -748,6 +748,26 @@ static int check_tun(void)
 	return check_tun_cr(-1);
 }
 
+static int check_userns(void)
+{
+	int ret;
+	unsigned long size = 0;
+
+	ret = access("/proc/self/ns/user", F_OK);
+	if (ret) {
+		pr_perror("No userns proc file");
+		return -1;
+	}
+
+	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
+	if (ret) {
+		pr_perror("No new prctl API");
+		return -1;
+	}
+
+	return 0;
+}
+
 int check_add_feature(char *feat)
 {
 	if (!strcmp(feat, "mnt_id"))
@@ -758,6 +778,8 @@ int check_add_feature(char *feat)
 		chk_feature = check_timerfd;
 	else if (!strcmp(feat, "tun"))
 		chk_feature = check_tun;
+	else if (!strcmp(feat, "userns"))
+		chk_feature = check_userns;
 	else {
 		pr_err("Unknown feature %s\n", feat);
 		return -1;

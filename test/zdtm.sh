@@ -284,15 +284,9 @@ ns/static/mntns_shared_bind02
 ns/static/mntns_root_bind
 "
 
-can_cr_userns() {
-	[ ! -f /proc/self/ns/user ] && return 1
-	$CRIU check | fgrep -q 'PR_SET_MM_MAP is not supported' && return 1
-
-	return 0 # this means TRUE in bash :\
-}
-
 # Add tests which can be executed in an user namespace
-if can_cr_userns ; then
+$CRIU check --feature "userns"
+if [ $? -eq 0 ]; then
 	blist=`mktemp /tmp/zdtm.black.XXXXXX`
 	echo "$BLACKLIST_FOR_USERNS" | sort > $blist
 
