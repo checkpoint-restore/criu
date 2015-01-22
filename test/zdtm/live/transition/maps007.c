@@ -70,9 +70,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (child)
-		test_daemon();
-
 	while (1) {
 		void *ret;
 		unsigned long size;
@@ -94,6 +91,8 @@ int main(int argc, char **argv)
 		}
 
 		count++;
+		if (child && count == MAX_DELTA + 1)
+			test_daemon();
 
 		p = start + ((lrand48() * PAGE_SIZE) % MEM_SIZE);
 		size = lrand48() * PAGE_SIZE;
