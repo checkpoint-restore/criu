@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# duplicate stdout into 3
+exec 3<&1
+# duplicate stderr into stdout
+exec 1>&2
+
 ARCH=`uname -m | sed			\
 		-e s/i.86/i386/		\
 		-e s/sun4u/sparc64/	\
@@ -541,7 +546,13 @@ start_test()
 		rm -f $ZDTM_PIDFILE
 	fi
 
-	if ! make -C $tdir $tname.pid; then
+	(
+		# Here is no way to set FD_CLOEXEC on 3
+		exec 3>&-
+		make -C $tdir $tname.pid
+	)
+
+	if [ $? -ne 0 ]; then
 		echo ERROR: fail to start $test
 		return 1
 	fi
@@ -1025,7 +1036,7 @@ while :; do
 		shift
 		;;
 	  -l)
-		echo $TEST_LIST | tr ' ' '\n'
+		echo $TEST_LIST | tr ' ' '\n' >&3
 		exit 0
 		;;
 	  -v)
