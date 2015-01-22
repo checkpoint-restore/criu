@@ -2,6 +2,7 @@ all: test-c rpc_pb2.py
 .PHONY: all
 
 run: all
+	mkdir -p build
 	./run.sh
 
 test-c: rpc.pb-c.o test.o

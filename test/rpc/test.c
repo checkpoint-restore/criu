@@ -50,7 +50,7 @@ static int send_req(int socket_fd, CriuReq *req)
 	return 0;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	CriuReq req		= CRIU_REQ__INIT;
 	CriuResp *resp		= NULL;
@@ -60,22 +60,20 @@ int main()
 	socklen_t addr_len;
 	struct stat st = {0};
 
+	if (argc != 3) {
+		fprintf(stderr, "Usage: test-c criu-service.socket imgs_dir");
+		return -1;
+	}
+
 	/*
 	 * Open a directory, in which criu will
 	 * put images
 	 */
-	umask(0);
 
-	if (stat("imgs_c", &st)) {
-		if (mkdir("imgs_c", 0666)) {
-			perror("Can't create dir");
-			return -1;
-		}
-	}
-
-	dir_fd = open("imgs_c", O_DIRECTORY);
+	puts(argv[2]);
+	dir_fd = open(argv[2], O_DIRECTORY);
 	if (dir_fd == -1) {
-		perror("Can't open dir");
+		perror("Can't open imgs dir");
 		return -1;
 	}
 
@@ -116,7 +114,7 @@ int main()
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
 
-	strcpy(addr.sun_path, "criu_service.socket");
+	strcpy(addr.sun_path, argv[1]);
 
 	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
 

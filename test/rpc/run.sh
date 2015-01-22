@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 source ../env.sh || exit 1
 
 export PROTODIR=`readlink -f "${PWD}/../../protobuf"`
@@ -13,61 +15,76 @@ function title_print {
 
 }
 
-function _exit {
-	if [ $1 -ne 0 ]; then
-		echo "FAIL"
-	fi
+function start_server {
+	title_print "Start service server"
+	${CRIU} service -v4 -W build -o service.log --address criu_service.socket -d --pidfile pidfile
+}
 
+function stop_server {
 	title_print "Shutdown service server"
-	kill -SIGTERM `cat pidfile`
-
-	exit $1
+	kill -SIGTERM $(cat build/pidfile)
 }
 
-function check_and_term {
-	title_print "Check and term $1"
-	ps -C $1
-	pkill $1
+function test_c {
+	mkdir -p build/imgs_c
+
+	title_print "Run test-c"
+	./test-c build/criu_service.socket build/imgs_c
+
+	title_print "Restore test-c"
+	${CRIU} restore -v4 -o restore-c.log -D build/imgs_c --shell-job
 }
 
-title_print "Build programs"
-make clean
-mkdir build
-cd build
-make -C ../ || { echo "FAIL"; exit 1; }
+function test_py {
+	mkdir -p build/imgs_py
 
-title_print "Start service server"
-${CRIU} service -v4 -o service.log --address criu_service.socket -d --pidfile `pwd`/pidfile || { echo "FAIL"; exit 1; }
+	title_print "Run test-py"
+	./test.py build/criu_service.socket build/imgs_py
 
-title_print "Run test-c"
-../test-c || _exit $?
+	title_print "Restore test-py"
+	${CRIU} restore -v4 -o restore-py.log -D build/imgs_py --shell-job
+}
 
-title_print "Run test-py"
-../test.py || _exit $?
+function test_restore_loop {
+	mkdir -p build/imgs_loop
 
-title_print "Restore test-c"
-${CRIU} restore -v4 -o restore-c.log -D imgs_c --shell-job || _exit $?
+	title_print "Run loop.sh"
+	setsid ./loop.sh < /dev/null &> build/loop.log &
+	P=${!}
+	echo "pid ${P}"
 
-title_print "Restore test-py"
-${CRIU} restore -v4 -o restore-py.log -D imgs_py --shell-job || _exit $?
+	title_print "Dump loop.sh"
+	${CRIU} dump -v4 -o dump-loop.log -D build/imgs_loop -t ${P}
 
-title_print "Run loop.sh"
-setsid ../loop.sh < /dev/null &> loop.log &
-P=${!}
-echo "pid ${P}"
+	title_print "Run restore-loop"
+	./restore-loop.py build/criu_service.socket build/imgs_loop
+	kill -SIGTERM ${P}
+}
 
-title_print "Dump loop.sh"
-mkdir imgs_loop
-${CRIU} dump -v4 -o dump-loop.log -D imgs_loop -t ${P} || _exit $?
+function test_ps {
+	mkdir -p build/imgs_ps
 
-title_print "Run restore-loop"
-../restore-loop.py || _exit $?
-kill -SIGTERM ${P}
+	title_print "Run ps_test"
+	./ps_test.py build/criu_service.socket build/imgs_ps
+}
 
-title_print "Run ps_test"
-../ps_test.py || _exit $?
+function test_errno {
+	mkdir -p build/imgs_errno
 
-title_print "Run cr_errno test"
-../errno.py || _exit $?
+	title_print "Run cr_errno test"
+	./errno.py build/criu_service.socket build/imgs_errno
+}
 
-_exit 0
+trap 'echo "FAIL"; stop_server' EXIT
+
+start_server
+
+test_c
+test_py
+test_restore_loop
+test_ps
+test_errno
+
+stop_server
+
+trap 'echo "Success"' EXIT

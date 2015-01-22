@@ -1,14 +1,18 @@
 #!/usr/bin/python
 
 import socket, os, imp, sys
-
-p = os.getcwd()
-sys.path.append(p)
 import rpc_pb2 as rpc
+import argparse
+
+parser = argparse.ArgumentParser(description="Test page-server using CRIU RPC")
+parser.add_argument('socket', type = str, help = "CRIU service socket")
+parser.add_argument('dir', type = str, help = "Directory where CRIU images should be placed")
+
+args = vars(parser.parse_args())
 
 # Connect to service socket
 s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-s.connect('criu_service.socket')
+s.connect(args['socket'])
 
 # Start page-server
 print 'Starting page-server'
@@ -16,11 +20,7 @@ req			= rpc.criu_req()
 req.type		= rpc.PAGE_SERVER
 req.opts.log_file	= 'page-server.log'
 req.opts.log_level	= 4
-
-if not os.path.exists('ps_test'):
-	os.makedirs('ps_test')
-
-req.opts.images_dir_fd	= os.open('ps_test', os.O_DIRECTORY)
+req.opts.images_dir_fd	= os.open(args['dir'], os.O_DIRECTORY)
 
 s.send(req.SerializeToString())
 
@@ -58,7 +58,7 @@ req.opts.leave_running	= True
 
 s.close()
 s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-s.connect('criu_service.socket')
+s.connect(args['socket'])
 s.send(req.SerializeToString())
 
 resp.ParseFromString(s.recv(MAX_MSG_SIZE))

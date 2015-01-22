@@ -2,25 +2,25 @@
 # Test criu errno
 
 import socket, os, imp, sys, errno
-
-p = os.getcwd()
-sys.path.append(p)
 import rpc_pb2 as rpc
+import argparse
 
+parser = argparse.ArgumentParser(description="Test errno reported by CRIU RPC")
+parser.add_argument('socket', type = str, help = "CRIU service socket")
+parser.add_argument('dir', type = str, help = "Directory where CRIU images should be placed")
+
+args = vars(parser.parse_args())
 
 # Prepare dir for images
 class test:
 	def __init__(self):
-		imgs_path = "imgs_errno"
-		if not os.path.exists(imgs_path):
-			os.makedirs(imgs_path)
-		self.imgs_fd = os.open(imgs_path, os.O_DIRECTORY)
+		self.imgs_fd = os.open(args['dir'], os.O_DIRECTORY)
 		self.s = -1
 		self._MAX_MSG_SIZE = 1024
 
 	def connect(self):
 		self.s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-		self.s.connect('criu_service.socket')
+		self.s.connect(args['socket'])
 
 	def get_base_req(self):
 		req			= rpc.criu_req()
