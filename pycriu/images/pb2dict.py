@@ -93,7 +93,7 @@ def _dict2pb_cast(field, value):
 		return value.decode('base64')
 	elif field.type == FD.TYPE_ENUM:
 		return field.enum_type.values_by_name.get(value, None).number
-	else:
+	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
 		if (cast == int or cast == long) and isinstance(value, unicode):
 			# Some int or long fields might be stored as hex
@@ -101,6 +101,8 @@ def _dict2pb_cast(field, value):
 			return cast(value, 0)
 		else:
 			return cast(value)
+	else:
+		raise Exception("Field(%s) has unsupported type %d" % (field.name, field.type))
 
 def dict2pb(d, pb):
 	"""
