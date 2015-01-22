@@ -1,3 +1,4 @@
+import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
@@ -18,7 +19,7 @@ message inet_sk_entry {
 	required uint32			state		=  6;
 	required uint32			src_port	=  7;
 	required uint32			dst_port	=  8;
-	required uint32			flags		=  9;
+	required uint32			flags		=  9 [(criu).hex = true];
 	required uint32			backlog		= 10;
 
 	repeated uint32			src_addr	= 11;

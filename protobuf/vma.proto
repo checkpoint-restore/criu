@@ -1,10 +1,12 @@
+import "opts.proto";
+
 message vma_entry {
-	required uint64		start	= 1;
-	required uint64		end	= 2;
+	required uint64		start	= 1 [(criu).hex = true];
+	required uint64		end	= 2 [(criu).hex = true];
 	required uint64		pgoff	= 3;
 	required uint64		shmid	= 4;
-	required uint32		prot	= 5;
-	required uint32		flags	= 6;
+	required uint32		prot	= 5 [(criu).hex = true];
+	required uint32		flags	= 6 [(criu).hex = true];
 	required uint32		status	= 7;
 	/*
 	 * This fd thing is unused in the image, it was lost
@@ -14,8 +16,8 @@ message vma_entry {
 	required sint64		fd	= 8;
 
 	/* madvise flags bitmap */
-	optional uint64		madv	= 9;
+	optional uint64		madv	= 9 [(criu).hex = true];
 
 	/* file status flags */
-	optional uint32		fdflags	= 10;
+	optional uint32		fdflags	= 10 [(criu).hex = true];
 }

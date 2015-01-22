@@ -1,8 +1,9 @@
+import "opts.proto";
 import "fown.proto";
 
 message signalfd_entry {
 	required uint32		id		= 1;
-	required uint32		flags		= 2;
+	required uint32		flags		= 2 [(criu).hex = true];
 	required fown_entry	fown		= 3;
-	required uint64		sigmask		= 4;
+	required uint64		sigmask		= 4 [(criu).hex = true];
 };

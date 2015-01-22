@@ -1,3 +1,4 @@
+import "opts.proto";
 import "tun.proto";
 
 enum nd_type {
@@ -17,7 +18,7 @@ message net_device_entry {
 	required nd_type type		= 1;
 	required uint32  ifindex	= 2;
 	required uint32  mtu		= 3;
-	required uint32  flags		= 4;
+	required uint32  flags		= 4 [(criu).hex = true];
 	required string  name		= 5;
 
 	optional tun_link_entry tun	= 6;

@@ -1,6 +1,8 @@
+import "opts.proto";
+
 message sa_entry {
-	required uint64	sigaction	= 1;
-	required uint64	flags		= 2;
-	required uint64	restorer	= 3;
-	required uint64	mask		= 4;
+	required uint64	sigaction	= 1 [(criu).hex = true];
+	required uint64	flags		= 2 [(criu).hex = true];
+	required uint64	restorer	= 3 [(criu).hex = true];
+	required uint64	mask		= 4 [(criu).hex = true];
 }
