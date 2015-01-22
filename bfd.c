@@ -11,6 +11,7 @@
 #include "log.h"
 #include "bfd.h"
 #include "list.h"
+#include "util.h"
 #include "xmalloc.h"
 #include "asm-generic/page.h"
 
