@@ -463,6 +463,9 @@ int main(int argc, char *argv[], char *envp[])
 		opts.exec_cmd = xmalloc((argc - optind) * sizeof(char *));
 		memcpy(opts.exec_cmd, &argv[optind + 1], (argc - optind - 1) * sizeof(char *));
 		opts.exec_cmd[argc - optind - 1] = NULL;
+	} else if (optind + 1 != argc) {
+		pr_err("Unable to handle more than one command\n");
+		goto usage;
 	}
 
 	/* We must not open imgs dir, if service is called */
