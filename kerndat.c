@@ -245,7 +245,7 @@ static int init_zero_page_pfn()
 	return ret;
 }
 
-int get_last_cap(void)
+static int get_last_cap(void)
 {
 	struct sysctl_req req[] = {
 		{ "kernel/cap_last_cap", &kdat.last_cap, CTL_U32 },
