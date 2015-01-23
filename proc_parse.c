@@ -910,7 +910,7 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
 	return 0;
 }
 
-static int parse_mountinfo_ent(char *str, struct mount_info *new)
+static int parse_mountinfo_ent(char *str, struct mount_info *new, char **r_fstype)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
@@ -951,6 +951,8 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 
 	ret = -1;
 	new->fstype = find_fstype_by_name(fstype);
+	if (new->fstype->code == FSTYPE__UNSUPPORTED)
+		*r_fstype = fstype; /* keep for logging */
 
 	new->options = xmalloc(strlen(opt) + 1);
 	if (!new->options)
@@ -962,7 +964,8 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new)
 	ret = 0;
 err:
 	free(opt);
-	free(fstype);
+	if (!*r_fstype)
+		free(fstype);
 	return ret;
 }
 
@@ -981,6 +984,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 	while (fgets(str, sizeof(str), f)) {
 		struct mount_info *new;
 		int ret;
+		char *fst = NULL;
 
 		new = mnt_entry_alloc();
 		if (!new)
@@ -991,14 +995,14 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 		new->next = list;
 		list = new;
 
-		ret = parse_mountinfo_ent(str, new);
+		ret = parse_mountinfo_ent(str, new, &fst);
 		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
 			goto err;
 		}
 
 		pr_info("\ttype %s source %s mnt_id %#x s_dev %#x %s @ %s flags %#x options %s\n",
-				new->fstype->name, new->source,
+				fst ? : new->fstype->name, new->source,
 				new->mnt_id, new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
 
