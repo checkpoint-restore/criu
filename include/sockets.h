@@ -83,4 +83,8 @@ static inline int sk_decode_shutdown(int val)
 
 #define USK_EXT_PARAM "ext-unix-sk"
 
+#ifndef NETLINK_SOCK_DIAG
+#define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
+#endif
+
 #endif /* __CR_SOCKETS_H__ */

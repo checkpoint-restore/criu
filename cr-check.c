@@ -94,10 +94,6 @@ static int check_map_files(void)
 	return -1;
 }
 
-#ifndef NETLINK_SOCK_DIAG
-#define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
-#endif
-
 static int check_sock_diag(void)
 {
 	int ret;
