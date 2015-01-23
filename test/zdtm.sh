@@ -207,10 +207,12 @@ ns/static/mntns_root_bind
 
 TEST_AIO="
 static/aio00
+ns/static/aio00
 "
 
 TEST_TIMERFD="
 static/timerfd
+ns/static/timerfd
 "
 
 TEST_TUN="
