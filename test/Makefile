@@ -44,7 +44,7 @@ fault-injection: .FORCE
 override CFLAGS += -D_GNU_SOURCE
 
 clean:
-	$(RM) zdtm_ct
+	$(RM) zdtm_ct zdtm-tst-list
 	$(Q) $(RM) -r ./lib/
 	$(Q) $(RM) -r ./lib64/
 	$(Q) $(RM) -r ./dump/
