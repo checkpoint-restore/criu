@@ -18,291 +18,299 @@ ZP="zdtm/live"
 
 source $(readlink -f `dirname $0`/env.sh) || exit 1
 
-TEST_LIST="
-static/pipe00
-static/pipe01
-static/pipe02
-static/busyloop00
-static/cwd00
-static/cwd01
-static/cwd02
-static/env00
-static/maps00
-static/maps01
-static/maps02
-static/maps04
-static/maps05
-static/mlock_setuid
-static/maps_file_prot
-static/mprotect00
-static/mtime_mmap
-static/sleeping00
-static/write_read00
-static/write_read01
-static/write_read02
-static/write_read10
-static/wait00
-static/vdso00
-static/sched_prio00
-static/sched_policy00
-static/file_shared
-static/file_append
-static/timers
-static/posix_timers
-static/futex
-static/futex-rl
-static/xids00
-static/groups
-static/pthread00
-static/pthread01
-static/umask00
-streaming/pipe_loop00
-streaming/pipe_shared00
-transition/file_read
-static/sockets00
-static/sockets01
-static/sockets02
-static/sock_opts00
-static/sock_opts01
-static/sockets_spair
-static/sockets_dgram
-static/socket_queues
-static/deleted_unix_sock
-static/sk-unix-unconn
-static/pid00
-static/pstree
-static/caps00
-static/cmdlinenv00
-static/socket_listen
-static/socket_listen6
-static/packet_sock
-static/packet_sock_mmap
-static/socket_udp
-static/sock_filter
-static/socket6_udp
-static/socket_udplite
-static/selfexe00
-static/link10
-static/unlink_fstat00
-static/unlink_fstat01
-static/unlink_fstat02
-static/unlink_fstat03
-static/unlink_mmap00
-static/unlink_mmap01
-static/unlink_mmap02
-static/rmdir_open
-static/eventfs00
-static/signalfd00
-static/inotify00
-static/inotify_irmap
-static/fanotify00
-static/unbound_sock
-static/fifo-rowo-pair
-static/fifo-ghost
-static/fifo
-static/fifo_wronly
-static/fifo_ro
-static/unlink_fifo
-static/unlink_fifo_wronly
-static/zombie00
-static/rlimits00
-transition/fork
-transition/fork2
-transition/thread-bomb
-static/pty00
-static/pty01
-static/pty04
-static/tty02
-static/tty03
-static/console
-static/vt
-static/child_opened_proc
-static/cow01
-static/fpu00
-static/fpu01
-static/mmx00
-static/sse00
-static/sse20
-static/pdeath_sig
-static/fdt_shared
-static/file_locks00
-static/file_locks01
-static/file_locks02
-static/file_locks03
-static/file_locks04
-static/file_locks05
-static/sigpending
-static/sigaltstack
-static/sk-netlink
-static/proc-self
-static/grow_map
-static/grow_map02
-static/grow_map03
-static/stopped
-static/chroot
-static/chroot-file
-static/rtc
-transition/maps007
-static/dumpable01
-static/dumpable02
-static/deleted_dev
-"
+generate_test_list()
+{
 
-#
-# Arch specific tests
-if [ $ARCH = "x86_64" ]; then
-	TEST_LIST_ARCH="
-static/vdso01
-"
-fi
+	check_mainstream || exit 1
 
-TEST_LIST=$TEST_LIST$TEST_LIST_ARCH
+	TEST_LIST="
+		static/pipe00
+		static/pipe01
+		static/pipe02
+		static/busyloop00
+		static/cwd00
+		static/cwd01
+		static/cwd02
+		static/env00
+		static/maps00
+		static/maps01
+		static/maps02
+		static/maps04
+		static/maps05
+		static/mlock_setuid
+		static/maps_file_prot
+		static/mprotect00
+		static/mtime_mmap
+		static/sleeping00
+		static/write_read00
+		static/write_read01
+		static/write_read02
+		static/write_read10
+		static/wait00
+		static/vdso00
+		static/sched_prio00
+		static/sched_policy00
+		static/file_shared
+		static/file_append
+		static/timers
+		static/posix_timers
+		static/futex
+		static/futex-rl
+		static/xids00
+		static/groups
+		static/pthread00
+		static/pthread01
+		static/umask00
+		streaming/pipe_loop00
+		streaming/pipe_shared00
+		transition/file_read
+		static/sockets00
+		static/sockets01
+		static/sockets02
+		static/sock_opts00
+		static/sock_opts01
+		static/sockets_spair
+		static/sockets_dgram
+		static/socket_queues
+		static/deleted_unix_sock
+		static/sk-unix-unconn
+		static/pid00
+		static/pstree
+		static/caps00
+		static/cmdlinenv00
+		static/socket_listen
+		static/socket_listen6
+		static/packet_sock
+		static/packet_sock_mmap
+		static/socket_udp
+		static/sock_filter
+		static/socket6_udp
+		static/socket_udplite
+		static/selfexe00
+		static/link10
+		static/unlink_fstat00
+		static/unlink_fstat01
+		static/unlink_fstat02
+		static/unlink_fstat03
+		static/unlink_mmap00
+		static/unlink_mmap01
+		static/unlink_mmap02
+		static/rmdir_open
+		static/eventfs00
+		static/signalfd00
+		static/inotify00
+		static/inotify_irmap
+		static/fanotify00
+		static/unbound_sock
+		static/fifo-rowo-pair
+		static/fifo-ghost
+		static/fifo
+		static/fifo_wronly
+		static/fifo_ro
+		static/unlink_fifo
+		static/unlink_fifo_wronly
+		static/zombie00
+		static/rlimits00
+		transition/fork
+		transition/fork2
+		transition/thread-bomb
+		static/pty00
+		static/pty01
+		static/pty04
+		static/tty02
+		static/tty03
+		static/console
+		static/vt
+		static/child_opened_proc
+		static/cow01
+		static/fpu00
+		static/fpu01
+		static/mmx00
+		static/sse00
+		static/sse20
+		static/pdeath_sig
+		static/fdt_shared
+		static/file_locks00
+		static/file_locks01
+		static/file_locks02
+		static/file_locks03
+		static/file_locks04
+		static/file_locks05
+		static/sigpending
+		static/sigaltstack
+		static/sk-netlink
+		static/proc-self
+		static/grow_map
+		static/grow_map02
+		static/grow_map03
+		static/stopped
+		static/chroot
+		static/chroot-file
+		static/rtc
+		transition/maps007
+		static/dumpable01
+		static/dumpable02
+		static/deleted_dev
+	"
 
-# Duplicate list with ns/ prefix
-TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
+	#
+	# Arch specific tests
+	if [ $ARCH = "x86_64" ]; then
+		TEST_LIST_ARCH="
+			static/vdso01
+		"
+	fi
 
-# These ones are not in ns
-TEST_LIST="$TEST_LIST
-static/file_fown
-static/socket-ext
-static/socket-tcp
-static/socket-tcp6
-streaming/socket-tcp
-streaming/socket-tcp6
-static/socket-tcpbuf
-static/socket-tcpbuf-local
-static/socket-tcpbuf6
-static/pty03
-static/mountpoints
-ns/static/session00
-ns/static/session01
-ns/static/tempfs
-ns/static/bind-mount
-static/utsname
-static/ipc_namespace
-static/shm
-static/msgque
-static/sem
-transition/ipc
-static/netns-nf
-static/netns
-static/cgroup00
-static/cgroup01
-static/cgroup02
-ns/static/clean_mntns
-static/remap_dead_pid
-"
+	TEST_LIST=$TEST_LIST$TEST_LIST_ARCH
 
-TEST_CR_KERNEL="
-"
+	# Duplicate list with ns/ prefix
+	TEST_LIST=$TEST_LIST$(echo $TEST_LIST | tr ' ' '\n' | sed 's#^#ns/#')
 
-TEST_MNTNS="
-ns/static/mntns_open
-ns/static/mntns_link_remap
-ns/static/mntns_link_ghost
-ns/static/mntns_shared_bind
-ns/static/mntns_shared_bind02
-ns/static/mntns_root_bind
-"
-
-TEST_AIO="
-static/aio00
-ns/static/aio00
-"
-
-TEST_TIMERFD="
-static/timerfd
-ns/static/timerfd
-"
-
-TEST_TUN="
-ns/static/tun
-"
-
-$CRIU check --feature "mnt_id"
-if [ $? -eq 0 ]; then
-	TEST_LIST="$TEST_LIST$TEST_MNTNS"
-else
-	export ZDTM_NOSUBNS=1
-fi
-
-$CRIU check --feature "aio_remap"
-if [ $? -eq 0 ]; then
-	TEST_LIST="$TEST_LIST$TEST_AIO"
-fi
-
-$CRIU check --feature "timerfd"
-if [ $? -eq 0 ]; then
-	TEST_LIST="$TEST_LIST$TEST_TIMERFD"
-fi
-
-$CRIU check --feature "tun"
-if [ $? -eq 0 ]; then
-	TEST_LIST="$TEST_LIST$TEST_TUN"
-fi
-
-BLACKLIST_FOR_USERNS="
-ns/static/maps01
-ns/static/mlock_setuid
-ns/static/sched_prio00
-ns/static/sched_policy00
-ns/static/sockets00
-ns/static/sockets01
-ns/static/sockets02
-ns/static/sock_opts00
-ns/static/sock_opts01
-ns/static/sockets_spair
-ns/static/sockets_dgram
-ns/static/socket_queues
-ns/static/deleted_unix_sock
-ns/static/sk-unix-unconn
-ns/static/socket_listen
-ns/static/socket_listen6
-ns/static/packet_sock
-ns/static/packet_sock_mmap
-ns/static/socket_udp
-ns/static/sock_filter
-ns/static/socket6_udp
-ns/static/socket_udplite
-ns/static/inotify00
-ns/static/inotify_irmap
-ns/static/fanotify00
-ns/static/unbound_sock
-ns/static/fifo-ghost
-ns/static/unlink_fifo
-ns/static/unlink_fifo_wronly
-ns/static/pty00
-ns/static/pty01
-ns/static/tty02
-ns/static/tty03
-ns/static/sk-netlink
-ns/static/dumpable02
-ns/static/deleted_dev
-ns/static/tempfs
-ns/static/clean_mntns
-ns/static/mntns_link_remap
-ns/static/mntns_link_ghost
-ns/static/console
-ns/static/vt
-ns/static/rtc
-ns/static/mntns_shared_bind
-ns/static/mntns_shared_bind02
-ns/static/mntns_root_bind
-"
-
-# Add tests which can be executed in an user namespace
-$CRIU check --feature "userns"
-if [ $? -eq 0 ]; then
-	blist=`mktemp /tmp/zdtm.black.XXXXXX`
-	echo "$BLACKLIST_FOR_USERNS" | sort > $blist
-
-
+	# These ones are not in ns
 	TEST_LIST="$TEST_LIST
-	`echo "$TEST_LIST" | grep "^ns/" | sort | \
-	diff --changed-group-format="%<" --unchanged-group-format="" - $blist | \
-	sed s#ns/#ns/user/#`"
-	unlink $blist
-fi
+		static/file_fown
+		static/socket-ext
+		static/socket-tcp
+		static/socket-tcp6
+		streaming/socket-tcp
+		streaming/socket-tcp6
+		static/socket-tcpbuf
+		static/socket-tcpbuf-local
+		static/socket-tcpbuf6
+		static/pty03
+		static/mountpoints
+		ns/static/session00
+		ns/static/session01
+		ns/static/tempfs
+		ns/static/bind-mount
+		static/utsname
+		static/ipc_namespace
+		static/shm
+		static/msgque
+		static/sem
+		transition/ipc
+		static/netns-nf
+		static/netns
+		static/cgroup00
+		static/cgroup01
+		static/cgroup02
+		ns/static/clean_mntns
+		static/remap_dead_pid
+	"
+
+	TEST_CR_KERNEL="
+	"
+
+	TEST_MNTNS="
+		ns/static/mntns_open
+		ns/static/mntns_link_remap
+		ns/static/mntns_link_ghost
+		ns/static/mntns_shared_bind
+		ns/static/mntns_shared_bind02
+		ns/static/mntns_root_bind
+	"
+
+	TEST_AIO="
+		static/aio00
+		ns/static/aio00
+	"
+
+	TEST_TIMERFD="
+		static/timerfd
+		ns/static/timerfd
+	"
+
+	TEST_TUN="
+		ns/static/tun
+	"
+
+	$CRIU check --feature "mnt_id"
+	if [ $? -eq 0 ]; then
+		TEST_LIST="$TEST_LIST$TEST_MNTNS"
+	else
+		export ZDTM_NOSUBNS=1
+	fi
+
+	$CRIU check --feature "aio_remap"
+	if [ $? -eq 0 ]; then
+		TEST_LIST="$TEST_LIST$TEST_AIO"
+	fi
+
+	$CRIU check --feature "timerfd"
+	if [ $? -eq 0 ]; then
+		TEST_LIST="$TEST_LIST$TEST_TIMERFD"
+	fi
+
+	$CRIU check --feature "tun"
+	if [ $? -eq 0 ]; then
+		TEST_LIST="$TEST_LIST$TEST_TUN"
+	fi
+
+	BLACKLIST_FOR_USERNS="
+		ns/static/maps01
+		ns/static/mlock_setuid
+		ns/static/sched_prio00
+		ns/static/sched_policy00
+		ns/static/sockets00
+		ns/static/sockets01
+		ns/static/sockets02
+		ns/static/sock_opts00
+		ns/static/sock_opts01
+		ns/static/sockets_spair
+		ns/static/sockets_dgram
+		ns/static/socket_queues
+		ns/static/deleted_unix_sock
+		ns/static/sk-unix-unconn
+		ns/static/socket_listen
+		ns/static/socket_listen6
+		ns/static/packet_sock
+		ns/static/packet_sock_mmap
+		ns/static/socket_udp
+		ns/static/sock_filter
+		ns/static/socket6_udp
+		ns/static/socket_udplite
+		ns/static/inotify00
+		ns/static/inotify_irmap
+		ns/static/fanotify00
+		ns/static/unbound_sock
+		ns/static/fifo-ghost
+		ns/static/unlink_fifo
+		ns/static/unlink_fifo_wronly
+		ns/static/pty00
+		ns/static/pty01
+		ns/static/tty02
+		ns/static/tty03
+		ns/static/sk-netlink
+		ns/static/dumpable02
+		ns/static/deleted_dev
+		ns/static/tempfs
+		ns/static/clean_mntns
+		ns/static/mntns_link_remap
+		ns/static/mntns_link_ghost
+		ns/static/console
+		ns/static/vt
+		ns/static/rtc
+		ns/static/mntns_shared_bind
+		ns/static/mntns_shared_bind02
+		ns/static/mntns_root_bind
+	"
+
+	# Add tests which can be executed in an user namespace
+	$CRIU check --feature "userns"
+	if [ $? -eq 0 ]; then
+		blist=`mktemp /tmp/zdtm.black.XXXXXX`
+		echo "$BLACKLIST_FOR_USERNS" | tr -d "[:blank:]" | sort > $blist
+
+
+		TEST_LIST="$TEST_LIST
+		`echo "$TEST_LIST" | tr -d "[:blank:]" | grep "^ns/" | sort | \
+		diff --changed-group-format="%<" --unchanged-group-format="" - $blist | \
+		sed s#ns/#ns/user/#`"
+		unlink $blist
+	fi
+
+	TEST_LIST=$(echo $TEST_LIST | tr " " "\n")
+}
 
 TEST_SUID_LIST="
 pid00
@@ -1037,7 +1045,8 @@ while :; do
 		shift
 		;;
 	  -l)
-		echo $TEST_LIST | tr ' ' '\n' >&3
+		generate_test_list
+		echo "$TEST_LIST" >&3
 		exit 0
 		;;
 	  -v)
@@ -1055,7 +1064,6 @@ while :; do
 			# pidns is used to avoid conflicts
 			# mntns is used to mount /proc
 			# net is used to avoid conflicts of parasite sockets
-			make zdtm_ct &&
 			./zdtm_ct ./zdtm.sh "$@"
 			exit
 		}
@@ -1088,16 +1096,13 @@ if [ $SPECIFIED_NAME_USED -eq 1 ]; then
 	fi
 	run_test $1 || case_error $1
 else
-	if [ $COMPILE_ONLY -eq 0 ]; then
-		check_mainstream || exit 1
-	fi
-
 	if [ $# -eq 0 ]; then
 		pattern='.*'
 	else
 		pattern=$1
 	fi
 
+	generate_test_list
 	for t in $(echo "$TEST_LIST" | grep -x "$pattern"); do
 		run_test $t || case_error $t
 	done
