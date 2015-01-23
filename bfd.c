@@ -41,7 +41,6 @@ static int buf_get(struct xbuf *xb)
 		void *mem;
 		int i;
 
-		pr_debug("BUF++\n");
 		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANON, 0, 0);
 		if (mem == MAP_FAILED) {
@@ -73,7 +72,6 @@ static int buf_get(struct xbuf *xb)
 	xb->data = xb->mem;
 	xb->sz = 0;
 	xb->buf = b;
-	pr_debug("BUF %p <\n", xb->mem);
 	return 0;
 }
 
@@ -83,7 +81,6 @@ static void buf_put(struct xbuf *xb)
 	 * Don't unmap buffer back, it will get reused
 	 * by next bfdopen call
 	 */
-	pr_debug("BUF %p >\n", xb->mem);
 	list_add(&xb->buf->l, &bufs);
 	xb->buf = NULL;
 	xb->mem = NULL;

@@ -729,7 +729,6 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		return -1;
 
 	while (done < 8 && (str = breadline(&f))) {
-		pr_debug("str: `%s'\n", str);
 		if (!strncmp(str, "State:", 6)) {
 			cr->state = str[7];
 			done++;
