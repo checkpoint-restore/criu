@@ -266,9 +266,11 @@ stop:	$(STATE_OUT)
 
 WAIT_TIME=240
 wait_stop:
-	for ((i = 0; i < $(WAIT_TIME); i++)); do \
+		i=0; \
+		while [ $$i -lt $(WAIT_TIME) ] ; do \
 		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
+		i=`expr $$i + 1`; \
 	done
 
 $(TST):	$(LIB)

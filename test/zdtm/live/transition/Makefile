@@ -54,7 +54,7 @@ stop:
 
 WAIT_TIME=10
 wait_stop:
-	-for ((i = 0; i < $(WAIT_TIME); i++)); do \
+	-for i in `seq 1 $(WAIT_TIME)`; do \
 		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
 	done
