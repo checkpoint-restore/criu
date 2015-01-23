@@ -1,4 +1,5 @@
 TST = $(shell cat zdtm-tst-list)
+CFLAGS += -D_GNU_SOURCE
 
 .FORCE:
 
