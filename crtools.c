@@ -105,26 +105,36 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 		return 0;
 	}
 
-	for (; *optarg; optarg++) {
+	while (*optarg) {
 		if (optarg[0] == '^') {
 			inverse = !inverse;
+			optarg++;
 			continue;
 		} else if (optarg[0] == ',') {
 			inverse = false;
+			optarg++;
 			continue;
 		}
 
-		if (!strncmp(optarg, "fpu", 3))
+		if (!strncmp(optarg, "fpu", 3)) {
 			____cpu_set_cap(opts, CPU_CAP_FPU, inverse);
-		else if (!strncmp(optarg, "all", 3))
+			optarg += 3;
+		} else if (!strncmp(optarg, "all", 3)) {
 			____cpu_set_cap(opts, CPU_CAP_ALL, inverse);
-		else if (!strncmp(optarg, "none", 3))
-			____cpu_set_cap(opts, CPU_CAP_NONE, inverse);
-		else if (!strncmp(optarg, "cpu", 3))
+			optarg += 3;
+		} else if (!strncmp(optarg, "none", 4)) {
+			if (inverse)
+				opts->cpu_cap = CPU_CAP_ALL;
+			else
+				opts->cpu_cap = CPU_CAP_NONE;
+			optarg += 4;
+		} else if (!strncmp(optarg, "cpu", 3)) {
 			____cpu_set_cap(opts, CPU_CAP_CPU, inverse);
-		else if (!strncmp(optarg, "ins", 3))
+			optarg += 3;
+		} else if (!strncmp(optarg, "ins", 3)) {
 			____cpu_set_cap(opts, CPU_CAP_INS, inverse);
-		else
+			optarg += 3;
+		} else
 			goto Esyntax;
 	}
 #undef ____cpu_set_cap
