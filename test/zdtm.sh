@@ -224,24 +224,24 @@ generate_test_list()
 		ns/static/tun
 	"
 
-	$CRIU check --feature "mnt_id"
+	$CRIU check -v0 --feature "mnt_id"
 	if [ $? -eq 0 ]; then
 		TEST_LIST="$TEST_LIST$TEST_MNTNS"
 	else
 		export ZDTM_NOSUBNS=1
 	fi
 
-	$CRIU check --feature "aio_remap"
+	$CRIU check -v0 --feature "aio_remap"
 	if [ $? -eq 0 ]; then
 		TEST_LIST="$TEST_LIST$TEST_AIO"
 	fi
 
-	$CRIU check --feature "timerfd"
+	$CRIU check -v0 --feature "timerfd"
 	if [ $? -eq 0 ]; then
 		TEST_LIST="$TEST_LIST$TEST_TIMERFD"
 	fi
 
-	$CRIU check --feature "tun"
+	$CRIU check -v0 --feature "tun"
 	if [ $? -eq 0 ]; then
 		TEST_LIST="$TEST_LIST$TEST_TUN"
 	fi
@@ -296,7 +296,7 @@ generate_test_list()
 	"
 
 	# Add tests which can be executed in an user namespace
-	$CRIU check --feature "userns"
+	$CRIU check -v0 --feature "userns"
 	if [ $? -eq 0 ]; then
 		blist=`mktemp /tmp/zdtm.black.XXXXXX`
 		echo "$BLACKLIST_FOR_USERNS" | tr -d "[:blank:]" | sort > $blist
@@ -399,7 +399,7 @@ check_mainstream()
 {
 	zdtm_sep "CRIU CHECK"
 
-	$CRIU check && return 0
+	$CRIU check -v1 && return 0
 	MAINSTREAM_KERNEL=1
 
 	cat >&2 <<EOF

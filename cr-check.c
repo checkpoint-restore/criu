@@ -678,8 +678,6 @@ int cr_check(void)
 	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
 	int ret = 0;
 
-	log_set_loglevel(LOG_WARN);
-
 	if (!is_root_user())
 		return -1;
 
@@ -728,7 +726,7 @@ int cr_check(void)
 
 out:
 	if (!ret)
-		pr_msg("Looks good.\n");
+		print_on_level(DEFAULT_LOGLEVEL, "Looks good.\n");
 
 	return ret;
 }
