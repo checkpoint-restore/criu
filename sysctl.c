@@ -18,14 +18,6 @@ do {									\
 		__ret = sysctl_write_##__type(__fd, __req,		\
 					      (__type *)(__req)->arg,	\
 					      __nr);			\
-	else if (__op == CTL_PRINT)					\
-		__ret = sysctl_print_##__type(__fd, __req,		\
-					      (__type *)(__req)->arg,	\
-					      __nr);			\
-	else if (__op == CTL_PRINT)					\
-		__ret = sysctl_show_##__type(__fd, __req,		\
-					      (__type *)(__req)->arg,	\
-					      __nr);			\
 	else								\
 		__ret = -1;						\
 } while (0)
@@ -99,37 +91,6 @@ err:									\
 	return ret;							\
 }
 
-#define GEN_SYSCTL_PRINT_FUNC(__type, __fmt)				\
-static int sysctl_print_##__type(int fd,				\
-				 struct sysctl_req *req,		\
-				 __type *arg,				\
-				 int nr)				\
-{									\
-	char msg[PAGE_SIZE];						\
-	int i, off = 0;							\
-	for (i = 0; i < nr; i++)					\
-		off += snprintf(msg + off, sizeof(msg) - off,		\
-				__fmt, arg[i]);				\
-	pr_info("sysctl: <%s> = <%s>\n", req->name, msg);		\
-									\
-	return 0;							\
-}
-
-#define GEN_SYSCTL_SHOW_FUNC(__type, __fmt)				\
-static int sysctl_show_##__type(int fd,					\
-				 struct sysctl_req *req,		\
-				 __type *arg,				\
-				 int nr)				\
-{									\
-	int i;								\
-	pr_msg("sysctl: <%s> = <", req->name);				\
-	for (i = 0; i < nr; i++)					\
-		pr_msg(__fmt, arg[i]);					\
-	pr_msg(">\n");							\
-									\
-	return 0;							\
-}
-
 GEN_SYSCTL_READ_FUNC(u32, strtoul);
 GEN_SYSCTL_READ_FUNC(u64, strtoull);
 GEN_SYSCTL_READ_FUNC(s32, strtol);
@@ -137,16 +98,6 @@ GEN_SYSCTL_READ_FUNC(s32, strtol);
 GEN_SYSCTL_WRITE_FUNC(u32, "%u ");
 GEN_SYSCTL_WRITE_FUNC(u64, "%"PRIu64" ");
 GEN_SYSCTL_WRITE_FUNC(s32, "%d ");
-
-GEN_SYSCTL_PRINT_FUNC(u32, "%u ");
-GEN_SYSCTL_PRINT_FUNC(u64, "%"PRIu64" ");
-GEN_SYSCTL_PRINT_FUNC(char, "%c");
-GEN_SYSCTL_PRINT_FUNC(s32, "%d ");
-
-GEN_SYSCTL_SHOW_FUNC(u32, "%u ");
-GEN_SYSCTL_SHOW_FUNC(u64, "%"PRIu64" ");
-GEN_SYSCTL_SHOW_FUNC(char, "%c");
-GEN_SYSCTL_SHOW_FUNC(s32, "%d ");
 
 static int
 sysctl_write_char(int fd, struct sysctl_req *req, char *arg, int nr)
@@ -177,23 +128,17 @@ err:
 
 static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 {
-	int fd = -1;
-	int ret = -1;
-	int nr = 1;
+	int fd, ret = -1, nr = 1, flags;
 
-	if (dir >= 0) {
-		int flags;
+	if (op == CTL_READ)
+		flags = O_RDONLY;
+	else
+		flags = O_WRONLY;
 
-		if (op == CTL_READ)
-			flags = O_RDONLY;
-		else
-			flags = O_WRONLY;
-
-		fd = openat(dir, req->name, flags);
-		if (fd < 0) {
-			pr_perror("Can't open sysctl %s", req->name);
-			return -1;
-		}
+	fd = openat(dir, req->name, flags);
+	if (fd < 0) {
+		pr_perror("Can't open sysctl %s", req->name);
+		return -1;
 	}
 
 	switch (CTL_TYPE(req->type)) {
@@ -226,12 +171,10 @@ int sysctl_op(struct sysctl_req *req, int op)
 	int ret = 0;
 	int dir = -1;
 
-	if (op != CTL_PRINT && op != CTL_SHOW) {
-		dir = open("/proc/sys", O_RDONLY);
-		if (dir < 0) {
-			pr_perror("Can't open sysctl dir");
-			return -1;
-		}
+	dir = open("/proc/sys", O_RDONLY);
+	if (dir < 0) {
+		pr_perror("Can't open sysctl dir");
+		return -1;
 	}
 
 	while (req->name) {

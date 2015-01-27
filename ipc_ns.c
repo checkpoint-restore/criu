@@ -908,8 +908,6 @@ static int prepare_ipc_var(int pid)
 		return -EFAULT;
 	}
 
-	ipc_sysctl_req(var, CTL_PRINT);
-
 	ret = ipc_sysctl_req(var, CTL_WRITE);
 	ipc_var_entry__free_unpacked(var, NULL);
 
