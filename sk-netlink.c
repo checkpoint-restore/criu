@@ -31,7 +31,7 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 	unsigned long *groups;
 
 	m = NLMSG_DATA(hdr);
-	pr_info("Collect netlink sock 0x%x\n", m->ndiag_ino);
+	pr_debug("Collect netlink sock 0x%x\n", m->ndiag_ino);
 
 	sd = xmalloc(sizeof(*sd));
 	if (!sd)
