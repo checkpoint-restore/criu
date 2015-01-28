@@ -1,5 +1,7 @@
 from google.protobuf.descriptor import FieldDescriptor as FD
 import opts_pb2
+import ipaddr
+import socket
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -43,6 +45,9 @@ _basic_cast = {
 def _marked_as_hex(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].hex
 
+def _marked_as_ip(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].ipadd
+
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
 		is_hex = _marked_as_hex(field)
@@ -73,8 +78,21 @@ def pb2dict(pb, pretty = False, is_hex = False):
 	for field, value in pb.ListFields():
 		if field.label == FD.LABEL_REPEATED:
 			d_val = []
-			for v in value:
-				d_val.append(_pb2dict_cast(field, v, pretty, is_hex))
+			if pretty and _marked_as_ip(field):
+				if len(value) == 1:
+					v = socket.ntohl(value[0])
+					addr = ipaddr.IPv4Address(v)
+				else:
+					v = 0 +	(socket.ntohl(value[0]) << (32 * 3)) + \
+						(socket.ntohl(value[1]) << (32 * 2)) + \
+						(socket.ntohl(value[2]) << (32 * 1)) + \
+						(socket.ntohl(value[3]))
+					addr = ipaddr.IPv6Address(v)
+
+				d_val.append(addr.compressed)
+			else:
+				for v in value:
+					d_val.append(_pb2dict_cast(field, v, pretty, is_hex))
 		else:
 			d_val = _pb2dict_cast(field, value, pretty, is_hex)
 
