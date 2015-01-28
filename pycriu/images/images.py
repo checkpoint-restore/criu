@@ -203,6 +203,25 @@ class ghost_file_extra_handler:
 		data = extra.decode('base64')
 		f.write(data)
 
+class tcp_stream_extra_handler:
+	def load(self, f, pb):
+		d = {}
+
+		inq	= f.read(pb.inq_len)
+		outq	= f.read(pb.outq_len)
+
+		d['inq']	= inq.encode('base64')
+		d['outq']	= outq.encode('base64')
+
+		return d
+
+	def dump(self, extra, f, pb):
+		inq	= extra['inq'].decode('base64')
+		outq	= extra['outq'].decode('base64')
+
+		f.write(inq)
+		f.write(outq)
+
 handlers = {
 	'INVENTORY'		: entry_handler(inventory_entry),
 	'CORE'			: entry_handler(core_entry),
@@ -214,7 +233,7 @@ handlers = {
 	'GHOST_FILE'		: entry_handler(ghost_file_entry, ghost_file_extra_handler()),
 	'MM'			: entry_handler(mm_entry),
 	'CGROUP'		: entry_handler(cgroup_entry),
-	'TCP_STREAM'		: entry_handler(tcp_stream_entry),
+	'TCP_STREAM'		: entry_handler(tcp_stream_entry, tcp_stream_extra_handler()),
 	'STATS'			: entry_handler(stats_entry),
 	'PAGEMAP'		: pagemap_handler(), # Special one
 	'PSTREE'		: entry_handler(pstree_entry),
