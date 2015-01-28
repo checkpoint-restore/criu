@@ -17,14 +17,8 @@ def handle_cmdline_opts():
 	parser.add_argument('-o',
 			    '--out',
 			help = 'output file (stdout by default)')
-	parser.add_argument('-f',
-			    '--format',
-			    choices = ['raw', 'nice', 'hex'],
-			    nargs = '+',
-			    default = [],
-			help = 'raw  - all in one line\n'\
-			       'nice - add indents and newlines to look nice(default for stdout)\n'\
-			       'hex  - print int fields as hex strings where suitable(could be combined with others)')
+	parser.add_argument('--pretty', help = 'Multiline with indents and some numerical fields in field-specific format',
+			action = 'store_true')
 
 	opts = vars(parser.parse_args())
 
@@ -45,10 +39,9 @@ def outf(opts):
 
 def decode(opts):
 	indent = None
-	img = pycriu.images.load(inf(opts), opts['format'])
+	img = pycriu.images.load(inf(opts), opts['pretty'])
 
-	# For stdout --format nice is set by default.
-	if 'nice' in opts['format'] or ('raw' not in opts['format'] and opts['out'] == None):
+	if opts['pretty']:
 		indent = 4
 
 	f = outf(opts)
