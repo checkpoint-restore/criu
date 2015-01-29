@@ -17,6 +17,7 @@
 #include "util.h"
 #include "cr_options.h"
 #include "servicefd.h"
+#include "security.h"
 
 #define DEFAULT_LOGFD		STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
@@ -188,6 +189,12 @@ int write_pidfile(int pid)
 	fd = open(opts.pidfile, O_WRONLY | O_EXCL | O_CREAT, 0600);
 	if (fd == -1) {
 		pr_perror("Can't open %s", opts.pidfile);
+		return -1;
+	}
+
+	if (cr_fchown(fd)) {
+		pr_perror("Can't chown pidfile %s", opts.pidfile);
+		close(fd);
 		return -1;
 	}
 
