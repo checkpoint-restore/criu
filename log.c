@@ -86,6 +86,11 @@ int log_init(const char *output)
 			pr_perror("Can't create log file %s", output);
 			return -1;
 		}
+
+		if (cr_fchown(new_logfd)) {
+			pr_perror("Can't chown log file %s", output);
+			return -1;
+		}
 	} else {
 		new_logfd = dup(DEFAULT_LOGFD);
 		if (new_logfd < 0) {
