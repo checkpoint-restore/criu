@@ -169,3 +169,16 @@ bool may_restore(CredsEntry *creds)
 		check_groups(creds->groups, creds->n_groups) &&
 		check_caps(creds->cap_inh, creds->cap_eff, creds->cap_prm);
 }
+
+int cr_fchown(int fd)
+{
+	if (cr_user_is_root())
+		return 0;
+
+	if (fchown(fd, cr_uid, cr_gid)) {
+		pr_perror("Can't chown to (%u,%u)", cr_uid, cr_gid);
+		return -1;
+	}
+
+	return 0;
+}
