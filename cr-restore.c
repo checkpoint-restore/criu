@@ -73,6 +73,7 @@
 #include "file-lock.h"
 #include "action-scripts.h"
 #include "aio.h"
+#include "security.h"
 
 #include "parasite-syscall.h"
 

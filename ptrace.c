@@ -19,6 +19,7 @@
 #include "ptrace.h"
 #include "proc_parse.h"
 #include "crtools.h"
+#include "security.h"
 
 int unseize_task(pid_t pid, int orig_st, int st)
 {

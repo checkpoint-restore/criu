@@ -38,6 +38,7 @@
 #include "cgroup.h"
 #include "cpu.h"
 #include "action-scripts.h"
+#include "security.h"
 
 #include "setproctitle.h"
 

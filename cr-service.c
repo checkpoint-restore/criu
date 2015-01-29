@@ -27,6 +27,7 @@
 #include "mount.h"
 #include "cgroup.h"
 #include "action-scripts.h"
+#include "security.h"
 
 #include "setproctitle.h"
 
