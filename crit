@@ -5,25 +5,6 @@ import json
 
 import pycriu
 
-def handle_cmdline_opts():
-	desc = 'CRiu Image Tool'
-	parser = argparse.ArgumentParser(description=desc, formatter_class=argparse.RawTextHelpFormatter)
-	parser.add_argument('command',
-			    choices = ['decode', 'encode'],
-			help = 'decode/encode - convert criu image from/to binary type to/from json')
-	parser.add_argument('-i',
-			    '--in',
-			help = 'input file (stdin by default)')
-	parser.add_argument('-o',
-			    '--out',
-			help = 'output file (stdout by default)')
-	parser.add_argument('--pretty', help = 'Multiline with indents and some numerical fields in field-specific format',
-			action = 'store_true')
-
-	opts = vars(parser.parse_args())
-
-	return opts
-
 def inf(opts):
 	if opts['in']:
 		return open(opts['in'], 'r')
@@ -54,15 +35,40 @@ def encode(opts):
 	pycriu.images.dump(img, outf(opts))
 
 def main():
-	#Handle cmdline options
-	opts = handle_cmdline_opts()
+	desc = 'CRiu Image Tool'
+	parser = argparse.ArgumentParser(description=desc,
+			formatter_class=argparse.RawTextHelpFormatter)
 
-	cmds = {
-		'decode' : decode,
-		'encode' : encode
-	}
+	subparsers = parser.add_subparsers(help='Use crit CMD --help for command-specific help')
 
-	cmds[opts['command']](opts)
+	# Decode
+	decode_parser = subparsers.add_parser('decode',
+			help = 'convert criu image from binary type json')
+	decode_parser.add_argument('--pretty',
+			help = 'Multiline with indents and some numerical fields in field-specific format',
+			action = 'store_true')
+	decode_parser.add_argument('-i',
+			    '--in',
+			help = 'criu image in binary format to be decoded (stdin by default)')
+	decode_parser.add_argument('-o',
+			    '--out',
+			help = 'where to put criu image in json format (stdout by default)')
+	decode_parser.set_defaults(func=decode)
+
+	# Encode
+	encode_parser = subparsers.add_parser('encode',
+			help = 'convert criu image from json type to binary')
+	encode_parser.add_argument('-i',
+			    '--in',
+			help = 'criu image in json format to be encoded (stdin by default)')
+	encode_parser.add_argument('-o',
+			    '--out',
+			help = 'where to put criu image in binary format (stdout by default)')
+	encode_parser.set_defaults(func=encode)
+
+	opts = vars(parser.parse_args())
+
+	opts["func"](opts)
 
 if __name__ == '__main__':
 	main()
