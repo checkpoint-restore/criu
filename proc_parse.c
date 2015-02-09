@@ -543,7 +543,15 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 					vma_area->e->status |= VMA_FILE_SHARED;
 			}
 
-			if (get_fd_mntid(vma_area->vm_file_fd, &vma_area->mnt_id))
+			/*
+			 * We cannot use the mnt_id value provided by the kernel
+			 * for vm_file_fd if it is an AUFS file (the value is
+			 * wrong).  In such a case, fixup_aufs_vma_fd() has set
+			 * mnt_id to -1 to mimic pre-3.15 kernels that didn't
+			 * have mnt_id.
+			 */
+			if (vma_area->mnt_id != -1 &&
+			    get_fd_mntid(vma_area->vm_file_fd, &vma_area->mnt_id))
 				return -1;
 		} else {
 			/*

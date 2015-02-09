@@ -262,7 +262,8 @@ err:
 
 /*
  * AUFS support to compensate for the kernel bug
- * exposing branch pathnames in map_files.
+ * exposing branch pathnames in map_files and providing
+ * a wrong mnt_id value in /proc/<pid>/fdinfo/<fd>.
  *
  * If the link points inside a branch, save the
  * relative pathname from the root of the mount
@@ -304,6 +305,8 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 		return -1;
 	}
 
+	/* tell parse_smap() not to call get_fd_mntid() */
+	vma->mnt_id = -1;
 	return len;
 }
 
