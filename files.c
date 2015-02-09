@@ -938,7 +938,7 @@ int close_old_fds(struct pstree_item *me)
 	struct dirent *de;
 	int fd, ret;
 
-	dir = opendir_proc(getpid(), "fd");
+	dir = opendir_proc(PROC_SELF, "fd");
 	if (dir == NULL)
 		return -1;
 
