@@ -16,7 +16,7 @@ do
 	fi
 
 	echo "  -- to json"
-	../../crit decode -o "$x"".json" --format nice hex < $x || _exit $?
+	../../crit decode -o "$x"".json" --pretty < $x || _exit $?
 	echo "  -- to img"
 	../../crit encode -i "$x"".json" > "$x"".json.img" || _exit $?
 	echo "  -- cmp"
