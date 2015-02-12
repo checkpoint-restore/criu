@@ -34,24 +34,24 @@ struct tpacket_req3 {
 
 static void check_map_is_there(unsigned long addr, int sk)
 {
-	char name[128];
-	struct stat sk_s, link_s;
+	FILE *f;
+	char line[64];
+	struct stat ss;
 
-	sprintf(name, "/proc/self/map_files/%lx-%lx",
-			addr, addr + 2 * 4096);
+	fstat(sk, &ss);
+	f = fopen("/proc/self/maps", "r");
+	while (fgets(line, sizeof(line), f) != NULL) {
+		unsigned long start;
+		int maj, min, ino;
 
-	if (stat(name, &link_s) < 0) {
-		fail("No socket mapping\n");
-		return;
+		sscanf(line, "%lx-%*x %*s %*s %x:%x %d %*s", &start, &maj, &min, &ino);
+		if ((start == addr) && ss.st_dev == makedev(maj, min) && ss.st_ino == ino) {
+			pass();
+			return;
+		}
 	}
 
-	fstat(sk, &sk_s);
-	if ((sk_s.st_dev != link_s.st_dev) || (sk_s.st_ino != link_s.st_ino)) {
-		fail("Non-socket mapping restored\n");
-		return;
-	}
-
-	pass();
+	fail("No socket mapping found");
 }
 
 int main(int argc, char **argv)

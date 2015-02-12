@@ -251,7 +251,6 @@ generate_test_list()
 		ns/static/mlock_setuid
 		ns/static/sched_prio00
 		ns/static/sched_policy00
-		ns/static/packet_sock_mmap
 		ns/static/fanotify00
 		ns/static/fifo-ghost
 		ns/static/unlink_fifo
