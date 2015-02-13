@@ -28,6 +28,7 @@
 #include "proc_parse.h"
 #include "file-ids.h"
 #include "files-reg.h"
+#include "namespaces.h"
 
 #include "protobuf.h"
 #include "protobuf/tty.pb-c.h"
@@ -606,10 +607,54 @@ static void tty_show_pty_info(char *prefix, struct tty_info *info)
 		tty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
+struct tty_parms {
+	int tty_id;
+	unsigned has;
+#define HAS_TERMIOS_L	0x1
+#define HAS_TERMIOS	0x2
+#define HAS_WINS	0x4
+	struct termios tl;
+	struct termios t;
+	struct winsize w;
+};
+
+static int do_restore_tty_parms(void *arg, int fd)
+{
+	struct tty_parms *p = arg;
+
+	/*
+	 * Only locked termios need CAP_SYS_ADMIN, but we
+	 * restore them all here, since the regular tremios
+	 * restore is affected by locked and thus we would
+	 * have to do synchronous usernsd call which is not
+	 * nice.
+	 *
+	 * Window size is restored here as it might depend
+	 * on termios too. Just to be on the safe side.
+	 */
+
+	if ((p->has & HAS_TERMIOS_L) &&
+			ioctl(fd, TIOCSLCKTRMIOS, &p->tl) < 0)
+		goto err;
+
+	if ((p->has & HAS_TERMIOS) &&
+			ioctl(fd, TCSETS, &p->t) < 0)
+		goto err;
+
+	if ((p->has & HAS_WINS) &&
+			ioctl(fd, TIOCSWINSZ, &p->w) < 0)
+		goto err;
+
+	return 0;
+
+err:
+	pr_perror("Can't set tty params on %d", p->tty_id);
+	return -1;
+}
+
 static int restore_tty_params(int fd, struct tty_info *info)
 {
-	struct winsize w;
-	struct termios t;
+	struct tty_parms p;
 
 	/*
 	 * It's important to zeroify termios
@@ -620,31 +665,28 @@ static int restore_tty_params(int fd, struct tty_info *info)
 	 * never be extended.
 	 */
 
+	p.has = 0;
+	p.tty_id = info->tfe->id;
+
 	if (info->tie->termios_locked) {
-		memzero(&t, sizeof(t));
-		termios_copy(&t, info->tie->termios_locked);
-		if (ioctl(fd, TIOCSLCKTRMIOS, &t) < 0)
-			goto err;
+		memzero(&p.tl, sizeof(p.tl));
+		p.has |= HAS_TERMIOS_L;
+		termios_copy(&p.tl, info->tie->termios_locked);
 	}
 
 	if (info->tie->termios) {
-		memzero(&t, sizeof(t));
-		termios_copy(&t, info->tie->termios);
-		if (ioctl(fd, TCSETS, &t) < 0)
-			goto err;
+		memzero(&p.t, sizeof(p.t));
+		p.has |= HAS_TERMIOS;
+		termios_copy(&p.t, info->tie->termios);
 	}
 
 	if (info->tie->winsize) {
-		memzero(&w, sizeof(w));
-		winsize_copy(&w, info->tie->winsize);
-		if (ioctl(fd, TIOCSWINSZ, &w) < 0)
-			goto err;
+		memzero(&p.w, sizeof(p.w));
+		p.has |= HAS_WINS;
+		winsize_copy(&p.w, info->tie->winsize);
 	}
 
-	return 0;
-err:
-	pr_perror("Can't set tty params on %d", info->tfe->id);
-		return -1;
+	return userns_call(do_restore_tty_parms, UNS_ASYNC, &p, sizeof(p), fd);
 }
 
 static int pty_open_slaves(struct tty_info *info)
