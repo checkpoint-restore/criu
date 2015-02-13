@@ -102,6 +102,11 @@ static void decode_handle(fh_t *handle, FhEntry *img)
 				sizeof(handle->__handle)));
 }
 
+static int open_by_handle(void *arg, int fd)
+{
+	return sys_open_by_handle_at(fd, arg, O_PATH);
+}
+
 static int open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
@@ -119,7 +124,7 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 		goto out;
 	}
 
-	fd = sys_open_by_handle_at(mntfd, (void *)&handle, O_PATH);
+	fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
 	if (fd < 0) {
 		errno = -fd;
 		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
