@@ -251,36 +251,17 @@ generate_test_list()
 		ns/static/mlock_setuid
 		ns/static/sched_prio00
 		ns/static/sched_policy00
-		ns/static/sockets00
-		ns/static/sockets01
-		ns/static/sockets02
-		ns/static/sock_opts00
-		ns/static/sock_opts01
-		ns/static/sockets_spair
-		ns/static/sockets_dgram
-		ns/static/socket_queues
-		ns/static/deleted_unix_sock
-		ns/static/sk-unix-unconn
 		ns/static/socket_listen
 		ns/static/socket_listen6
 		ns/static/packet_sock
 		ns/static/packet_sock_mmap
 		ns/static/socket_udp
-		ns/static/sock_filter
 		ns/static/socket6_udp
 		ns/static/socket_udplite
-		ns/static/inotify00
-		ns/static/inotify_irmap
 		ns/static/fanotify00
-		ns/static/unbound_sock
 		ns/static/fifo-ghost
 		ns/static/unlink_fifo
 		ns/static/unlink_fifo_wronly
-		ns/static/pty00
-		ns/static/pty01
-		ns/static/tty02
-		ns/static/tty03
-		ns/static/sk-netlink
 		ns/static/dumpable02
 		ns/static/deleted_dev
 		ns/static/tempfs
