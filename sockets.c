@@ -374,6 +374,18 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 	return 0;
 }
 
+static int sk_setbufs(void *arg, int fd)
+{
+	u32 *buf = (u32 *)arg;
+
+	if (restore_opt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &buf[0]))
+		return -1;
+	if (restore_opt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1]))
+		return -1;
+
+	return 0;
+}
+
 /*
  * Set sizes of buffers to maximum and prevent blocking
  * Caller of this fn should call other socket restoring
@@ -383,13 +395,10 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 int restore_prepare_socket(int sk)
 {
 	int flags;
-
 	/* In kernel a bufsize has type int and a value is doubled. */
-	u32 maxbuf = INT_MAX / 2;
+	u32 maxbuf[2] = { INT_MAX / 2, INT_MAX / 2 };
 
-	if (restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &maxbuf))
-		return -1;
-	if (restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &maxbuf))
+	if (userns_call(sk_setbufs, 0, maxbuf, sizeof(maxbuf), sk))
 		return -1;
 
 	/* Prevent blocking on restore */
@@ -410,14 +419,12 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0, val;
 	struct timeval tv;
+	u32 bufs[2] = { soe->so_sndbuf, soe->so_rcvbuf };
 
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 
 	/* setsockopt() multiplies the input values by 2 */
-	val = soe->so_sndbuf / 2;
-	ret |= restore_opt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &val);
-	val = soe->so_rcvbuf / 2;
-	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &val);
+	ret |= userns_call(sk_setbufs, UNS_ASYNC, bufs, sizeof(bufs), sk);
 
 	if (soe->has_so_priority) {
 		pr_debug("\trestore priority %d for socket\n", soe->so_priority);
