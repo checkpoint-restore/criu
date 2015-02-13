@@ -462,7 +462,7 @@ static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 
 	ret = sys_setsockopt(rts->sk, SOL_SOCKET, SO_REUSEADDR, &aux, sizeof(aux));
 	if (ret < 0)
-		pr_perror("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
+		pr_err("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
 }
 
 static void rst_tcp_socks_all(struct task_restore_args *ta)

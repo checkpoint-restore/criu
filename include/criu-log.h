@@ -20,6 +20,13 @@
 #ifndef __CRIU_LOG_H__
 #define __CRIU_LOG_H__
 
+#ifndef CR_NOGLIBC
+
+#include <string.h>
+#include <errno.h>
+
+#endif /* CR_NOGLIBC */
+
 #define LOG_UNSET	(-1)
 #define LOG_MSG		(0) /* Print message regardless of log level */
 #define LOG_ERROR	(1) /* Errors only, when we're in trouble */
@@ -74,7 +81,11 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	print_on_level(LOG_DEBUG,					\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
+#ifndef CR_NOGLIBC
+
 #define pr_perror(fmt, ...)						\
-	pr_err(fmt ": %m\n", ##__VA_ARGS__)
+	pr_err(fmt ": %s\n", ##__VA_ARGS__, strerror(errno))
+
+#endif /* CR_NOGLIBC */
 
 #endif /* __CR_LOG_LEVELS_H__ */
