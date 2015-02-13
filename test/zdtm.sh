@@ -709,7 +709,7 @@ EOF
 
 		[ -n "$dump_only" ] && cpt_args="$cpt_args $POSTDUMP"
 
-		expr $tname : "static" > /dev/null && {
+		expr $tdir : ".*static$" > /dev/null && {
 			save_fds $PID  $ddump/dump.fd
 			save_maps $PID  $ddump/dump.maps
 		}
@@ -744,7 +744,7 @@ EOF
 		fi
 
 		if [ -n "$dump_only" ]; then
-			expr $tname : "static" > /dev/null && {
+			expr $tdir : ".*static$" > /dev/null && {
 				save_fds $PID  $ddump/dump.fd.after
 				diff_fds $ddump/dump.fd $ddump/dump.fd.after || return 1
 
@@ -782,7 +782,7 @@ EOF
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
 
-			expr $tname : "static" > /dev/null && {
+			expr $tdir : ".*static$" > /dev/null && {
 				save_fds $PID  $ddump/restore.fd
 				save_maps $PID $ddump/restore.maps
 				diff_fds $ddump/dump.fd $ddump/restore.fd || return 2
