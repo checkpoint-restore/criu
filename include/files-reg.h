@@ -16,6 +16,7 @@ struct file_remap {
 	bool is_dir;
 	int  mnt_id;
 	unsigned int users;
+	uid_t owner;
 };
 
 struct reg_file_info {

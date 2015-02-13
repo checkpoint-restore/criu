@@ -252,9 +252,6 @@ generate_test_list()
 		ns/static/sched_prio00
 		ns/static/sched_policy00
 		ns/static/fanotify00
-		ns/static/fifo-ghost
-		ns/static/unlink_fifo
-		ns/static/unlink_fifo_wronly
 		ns/static/dumpable02
 		ns/static/deleted_dev
 		ns/static/tempfs

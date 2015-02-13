@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -32,6 +33,8 @@
 
 #include "files-reg.h"
 #include "plugin.h"
+
+int setfsuid(uid_t fsuid);
 
 /*
  * Ghost files are those not visible from the FS. Dumping them is
@@ -187,6 +190,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->id = rfe->remap_id;
 	gf->remap.users = 0;
 	gf->remap.is_dir = S_ISDIR(gfe->mode);
+	gf->remap.owner = gfe->uid;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
 	rfi->remap = &gf->remap;
@@ -208,6 +212,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	struct file_remap *rm;
 	struct file_desc *rdesc;
 	struct reg_file_info *rrfi;
+	uid_t owner = -1;
 
 	rdesc = find_file_desc_raw(FD_TYPES__REG, rfe->remap_id);
 	if (!rdesc) {
@@ -222,9 +227,23 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	rrfi = container_of(rdesc, struct reg_file_info, d);
 	pr_info("Remapped %s -> %s\n", rfi->path, rrfi->path);
 
+	if (root_ns_mask & CLONE_NEWUSER) {
+		int rfd;
+		struct stat st;
+
+		rfd = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
+		if (fstatat(rfd, rrfi->path, &st, AT_SYMLINK_NOFOLLOW)) {
+			pr_perror("Can't get owner of link remap %s", rrfi->path);
+			return -1;
+		}
+
+		owner = st.st_uid;
+	}
+
 	rm->path = rrfi->path;
 	rm->users = 0;
 	rm->is_dir = false;
+	rm->owner = owner;
 	rm->mnt_id = rfi->rfe->mnt_id;
 	rfi->remap = rm;
 	return 0;
@@ -857,6 +876,47 @@ static void convert_path_from_another_mp(char *src, char *dst, int dlen,
 				src + off);
 }
 
+static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner)
+{
+	int ret, old_fsuid = -1;
+
+	if (root_ns_mask & CLONE_NEWUSER)
+		/*
+		 * Kernel has strange secutiry restrictions about
+		 * linkat. If the fsuid of the caller doesn't equals
+		 * the uid of the file and the file is not "safe"
+		 * one, then only global CAP_CHOWN will be allowed
+		 * to link().
+		 *
+		 * Next, when we're in user namespace we're ns root,
+		 * but not global CAP_CHOWN. Thus, even though we
+		 * ARE ns root, we will not be allowed to link() at
+		 * files that belong to regular users %)
+		 *
+		 * Fortunately, the setfsuid() requires ns-level
+		 * CAP_SETUID which we have.
+		 */
+
+		old_fsuid = setfsuid(owner);
+
+	ret = linkat(odir, opath, ndir, npath, 0);
+	if (ret < 0)
+		pr_perror("Can't link %s -> %s", opath, npath);
+
+	if (root_ns_mask & CLONE_NEWUSER) {
+		setfsuid(old_fsuid);
+		if (setfsuid(-1) != old_fsuid)
+			pr_warn("Failed to restore old fsuid!\n");
+			/*
+			 * Don't fail here. We still have chances to run till
+			 * the pie/restorer, and if _this_ guy fails to set
+			 * the proper fsuid, then we'll abort the restore.
+			 */
+	}
+
+	return ret;
+}
+
 /*
  * This routine properly resolves d's path handling ghost/link-remaps.
  * The open_cb is a routine that does actual open, it differs for
@@ -909,7 +969,7 @@ out:
 	mntns_root = mntns_get_root_fd(tmi->nsid);
 
 out_root:
-	return linkat(mntns_root, rpath, mntns_root, path, 0);
+	return linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->owner);
 }
 
 int open_path(struct file_desc *d,
@@ -936,7 +996,7 @@ int open_path(struct file_desc *d,
 			static char tmp_path[PATH_MAX];
 
 			if (errno != EEXIST) {
-				pr_perror("Can't link %s -> %s", rfi->path,
+				pr_err("Can't link %s -> %s", rfi->path,
 						rfi->remap->path);
 				return -1;
 			}
