@@ -192,8 +192,6 @@ int ns_exec(void *_arg)
 
 	setsid();
 
-	system("ip link set up dev lo");
-
 	ret = dup2(args->status_pipe[1], STATUS_FD);
 	if (ret < 0) {
 		fprintf(stderr, "dup2() failed: %m\n");
@@ -206,6 +204,8 @@ int ns_exec(void *_arg)
 		fprintf(stderr, "set*id failed: %m\n");
 		return -1;
 	}
+
+	system("ip link set up dev lo");
 
 	if (prepare_mntns())
 		return -1;
