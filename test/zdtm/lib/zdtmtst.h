@@ -91,6 +91,7 @@ extern int parse_opt_string(char *param, void *arg);
 
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 
 #define __stringify_1(x)        #x
 #define __stringify(x)          __stringify_1(x)
@@ -99,11 +100,11 @@ extern int parse_opt_string(char *param, void *arg);
 extern void setup_outfile(void);
 extern int test_log_init(const char *outfile, const char *suffix);
 #define err(format, arg...)	\
-	test_msg("ERR: %s:%d: " format " (errno = %d (%m))\n", \
-		__FILE__, __LINE__, ## arg, errno)
+	test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", \
+		__FILE__, __LINE__, ## arg, errno, strerror(errno))
 #define fail(format, arg...)	\
-	test_msg("FAIL: %s:%d: " format " (errno = %d (%m))\n", \
-		 __FILE__, __LINE__, ## arg, errno)
+	test_msg("FAIL: %s:%d: " format " (errno = %d (%s))\n", \
+		 __FILE__, __LINE__, ## arg, errno, strerror(errno))
 #define skip(format, arg...)	\
 	test_msg("SKIP: %s:%d: " format "\n", \
 		 __FILE__, __LINE__, ## arg)
