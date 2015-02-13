@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include <grp.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stdarg.h>
+#include <signal.h>
 
 #include "cr-show.h"
 #include "util.h"
@@ -833,6 +837,324 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	close(fd);
 
 	return 0;
+}
+
+struct unsc_msg {
+	struct msghdr h;
+	/*
+	 * 0th is the call address
+	 * 1st is the flags
+	 * 2nd is the optional (NULL in responce) arguments
+	 */
+	struct iovec iov[3];
+	char c[CMSG_SPACE(sizeof(int))];
+};
+
+#define MAX_MSG_SIZE	256
+
+static int usernsd_pid;
+
+static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
+		int *x, void *arg, size_t asize, int fd)
+{
+	m->h.msg_iov = m->iov;
+	m->h.msg_iovlen = 2;
+
+	m->iov[0].iov_base = c;
+	m->iov[0].iov_len = sizeof(*c);
+	m->iov[1].iov_base = x;
+	m->iov[1].iov_len = sizeof(*x);
+
+	if (arg) {
+		m->iov[2].iov_base = arg;
+		m->iov[2].iov_len = asize;
+		m->h.msg_iovlen++;
+	}
+
+	m->h.msg_name = NULL;
+	m->h.msg_namelen = 0;
+	m->h.msg_flags = 0;
+
+	if (fd < 0) {
+		m->h.msg_control = NULL;
+		m->h.msg_controllen = 0;
+	} else {
+		struct cmsghdr *ch;
+
+		m->h.msg_control = &m->c;
+		m->h.msg_controllen = sizeof(m->c);
+		ch = CMSG_FIRSTHDR(&m->h);
+		ch->cmsg_len = CMSG_LEN(sizeof(int));
+		ch->cmsg_level = SOL_SOCKET;
+		ch->cmsg_type = SCM_RIGHTS;
+		*((int *)CMSG_DATA(ch)) = fd;
+	}
+}
+
+static int unsc_msg_fd(struct unsc_msg *um)
+{
+	struct cmsghdr *ch;
+
+	ch = CMSG_FIRSTHDR(&um->h);
+	if (ch && ch->cmsg_len == CMSG_LEN(sizeof(int))) {
+		BUG_ON(ch->cmsg_level != SOL_SOCKET);
+		BUG_ON(ch->cmsg_type != SCM_RIGHTS);
+		return *((int *)CMSG_DATA(ch));
+	}
+
+	return -1;
+}
+
+static int usernsd(int sk)
+{
+	pr_info("UNS: Daemon started\n");
+
+	while (1) {
+		struct unsc_msg um;
+		static char msg[MAX_MSG_SIZE];
+		uns_call_t call;
+		int flags, fd, ret;
+
+		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0);
+		if (recvmsg(sk, &um.h, 0) <= 0) {
+			pr_perror("UNS: recv req error");
+			return -1;
+		}
+
+		fd = unsc_msg_fd(&um);
+		pr_debug("UNS: daemon calls %p (%d, %x)\n", call, fd, flags);
+
+		/*
+		 * Caller has sent us bare address of the routine it
+		 * wants to call. Since the caller is fork()-ed from the
+		 * same process as the daemon is, the latter has exactly
+		 * the same code at exactly the same address as the
+		 * former guy has. So go ahead and just call one!
+		 */
+
+		ret = call(msg, fd);
+
+		if (fd >= 0)
+			close(fd);
+
+		if (flags & UNS_ASYNC) {
+			/*
+			 * Async call failed and the called doesn't know
+			 * about it. Exit now and let the stop_usernsd()
+			 * check the exit code and abort the restoration.
+			 *
+			 * We'd get there either by the end of restore or
+			 * from the next userns_call() due to failed
+			 * sendmsg() in there.
+			 */
+			if (ret < 0) {
+				pr_err("UNS: Async call failed. Exiting\n");
+				return -1;
+			}
+
+			continue;
+		}
+
+		if (flags & UNS_FDOUT)
+			fd = ret;
+		else
+			fd = -1;
+
+		unsc_msg_init(&um, &call, &ret, NULL, 0, fd);
+		if (sendmsg(sk, &um.h, 0) <= 0) {
+			pr_perror("UNS: send resp error");
+			return -1;
+		}
+
+		if (fd >= 0)
+			close(fd);
+	}
+}
+
+int userns_call(uns_call_t call, int flags,
+		void *arg, size_t arg_size, int fd)
+{
+	int ret, res, sk;
+	bool async = flags & UNS_ASYNC;
+	struct unsc_msg um;
+
+	if (unlikely(arg_size > MAX_MSG_SIZE)) {
+		pr_err("UNS: message size exceeded\n");
+		return -1;
+	}
+
+	if (!usernsd_pid)
+		return call(arg, fd);
+
+	sk = get_service_fd(USERNSD_SK);
+	pr_debug("UNS: calling %p (%d, %x)\n", call, fd, flags);
+
+	if (!async)
+		/*
+		 * Why don't we lock for async requests? Because
+		 * they just put the request in the daemon's
+		 * queue and do not wait for the responce. Thus
+		 * when daemon responce there's only one client
+		 * waiting for it in recvmsg below, so he
+		 * responces to proper caller.
+		 */
+		mutex_lock(&task_entries->userns_sync_lock);
+	else
+		/*
+		 * If we want the callback to give us and FD then
+		 * we should NOT do the asynchronous call.
+		 */
+		BUG_ON(flags & UNS_FDOUT);
+
+	/* Send the request */
+
+	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd);
+	ret = sendmsg(sk, &um.h, 0);
+	if (ret <= 0) {
+		pr_perror("UNS: send req error");
+		ret = -1;
+		goto out;
+	}
+
+	if (async) {
+		ret = 0;
+		goto out;
+	}
+
+	/* Get the responce back */
+
+	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
+	ret = recvmsg(sk, &um.h, 0);
+	if (ret <= 0) {
+		pr_perror("UNS: recv resp error");
+		ret = -1;
+		goto out;
+	}
+
+	/* Decode the result and return */
+
+	if (flags & UNS_FDOUT)
+		ret = unsc_msg_fd(&um);
+	else
+		ret = res;
+out:
+	if (!async)
+		mutex_unlock(&task_entries->userns_sync_lock);
+
+	return ret;
+}
+
+int start_usernsd(void)
+{
+	int sk[2];
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	/*
+	 * Seqpacket to
+	 *
+	 * a) Help daemon distinguish individual requests from
+	 *    each other easily. Stream socket require manual
+	 *    messages boundaries.
+	 *
+	 * b) Make callers note the damon death by seeing the
+	 *    disconnected socket. In case of dgram socket
+	 *    callers would just get stuck in receiving the
+	 *    responce.
+	 */
+
+	if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, sk)) {
+		pr_perror("Can't make usernsd socket");
+		return -1;
+	}
+
+	usernsd_pid = fork();
+	if (usernsd_pid < 0) {
+		pr_perror("Can't fork usernsd");
+		close(sk[0]);
+		close(sk[1]);
+		return -1;
+	}
+
+	if (usernsd_pid == 0) {
+		int ret;
+
+		close(sk[0]);
+		ret = usernsd(sk[1]);
+		exit(ret);
+	}
+
+	close(sk[1]);
+	if (install_service_fd(USERNSD_SK, sk[0]) < 0) {
+		kill(usernsd_pid, SIGKILL);
+		waitpid(usernsd_pid, NULL, 0);
+		close(sk[0]);
+		return -1;
+	}
+
+	close(sk[0]);
+	return 0;
+}
+
+static int exit_usernsd(void *arg, int fd)
+{
+	int code = *(int *)arg;
+	pr_info("UNS: `- daemon exits w/ %d\n", code);
+	exit(code);
+}
+
+int stop_usernsd(void)
+{
+	int ret = 0;
+
+	if (usernsd_pid) {
+		int status = -1;
+		sigset_t blockmask, oldmask;
+
+		/*
+		 * Don't let the sigchld_handler() mess with us
+		 * calling waitpid() on the exited daemon. The
+		 * same is done in cr_system().
+		 */
+
+		sigemptyset(&blockmask);
+		sigaddset(&blockmask, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &blockmask, &oldmask);
+
+		/*
+		 * Send a message to make sure the daemon _has_
+		 * proceeded all its queue of asynchronous requests.
+		 *
+		 * All the restoring processes might have already
+		 * closed their USERNSD_SK descriptors, but daemon
+		 * still has its in connected state -- this is us
+		 * who hold the last reference on the peer.
+		 *
+		 * If daemon has exited "in advance" due to async
+		 * call or socket error, the userns_call() and the
+		 * waitpid() below would both fail and we'll see
+		 * bad exit status.
+		 */
+
+		userns_call(exit_usernsd, UNS_ASYNC, &ret, sizeof(ret), -1);
+		waitpid(usernsd_pid, &status, 0);
+
+		if (WIFEXITED(status))
+			ret = WEXITSTATUS(status);
+		else
+			ret = -1;
+
+		usernsd_pid = 0;
+		sigprocmask(SIG_BLOCK, &oldmask, NULL);
+
+		if (ret != 0)
+			pr_err("UNS: daemon exited abnormally\n");
+		else
+			pr_info("UNS: daemon stopped\n");
+	}
+
+	return ret;
 }
 
 int prepare_userns(struct pstree_item *item)

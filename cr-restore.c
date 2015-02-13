@@ -1712,6 +1712,9 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 	}
 
+	if (start_usernsd())
+		return -1;
+
 	futex_set(&task_entries->nr_in_progress,
 			stage_participants(CR_STATE_RESTORE_NS));
 
@@ -1772,6 +1775,10 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
+	if (ret < 0)
+		goto out_kill;
+
+	ret = stop_usernsd();
 	if (ret < 0)
 		goto out_kill;
 
@@ -1849,6 +1856,7 @@ out_kill:
 	}
 
 out:
+	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");
 	return -1;
@@ -1868,6 +1876,7 @@ static int prepare_task_entries(void)
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->zombie_lock);
+	mutex_init(&task_entries->userns_sync_lock);
 
 	return 0;
 }
@@ -2955,6 +2964,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	close_image_dir();
 	close_proc();
 	close_service_fd(ROOT_FD_OFF);
+	close_service_fd(USERNSD_SK);
 
 	__gcov_flush();
 

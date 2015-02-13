@@ -73,9 +73,38 @@ extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
 extern int collect_user_namespaces(bool for_dump);
 extern int prepare_userns(struct pstree_item *item);
+extern int start_usernsd(void);
+extern int stop_usernsd(void);
 extern int userns_uid(int uid);
 extern int userns_gid(int gid);
 extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_maps(void);
+
+typedef int (*uns_call_t)(void *arg, int fd);
+/*
+ * Async call -- The call is guaranteed to be done till the
+ * CR_STATE_COMPLETE happens. The function may return even
+ * before the call starts.
+ * W/o flag the call is synchronous -- this function returns
+ * strictly after the call finishes.
+ */
+#define UNS_ASYNC	0x1
+/*
+ * The call returns an FD which should be sent back. Conflicts
+ * with UNS_ASYNC.
+ */
+#define UNS_FDOUT	0x2
+
+/*
+ * When we're restoring inside user namespace, some things are
+ * not allowed to be done there due to insufficient capabilities.
+ * If the operation in question can be offloaded to another process,
+ * this call allows to do that.
+ *
+ * In case we're not in userns, just call the callback immediatelly
+ * in the context of calling task.
+ */
+int userns_call(uns_call_t call, int flags,
+		void *arg, size_t arg_size, int fd);
 
 #endif /* __CR_NS_H__ */
