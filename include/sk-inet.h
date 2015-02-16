@@ -79,5 +79,6 @@ extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 
 extern int check_tcp(void);
 extern int rst_tcp_socks_add(int fd, bool reuseaddr);
+extern mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii);
 
 #endif /* __CR_SK_INET_H__ */

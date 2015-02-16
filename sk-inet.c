@@ -30,6 +30,7 @@ struct inet_port {
 	int port;
 	int type;
 	futex_t users;
+	mutex_t reuseaddr_lock;
 	struct list_head list;
 };
 
@@ -53,6 +54,7 @@ static struct inet_port *port_add(int type, int port)
 	e->type = type;
 	futex_init(&e->users);
 	futex_inc(&e->users);
+	mutex_init(&e->reuseaddr_lock);
 
 	list_add(&e->list, &inet_ports);
 
@@ -537,10 +539,13 @@ static int open_inet_sk(struct file_desc *d)
 			goto err;
 		}
 
+		mutex_lock(&ii->port->reuseaddr_lock);
 		if (listen(sk, ie->backlog) == -1) {
 			pr_perror("Can't listen on a socket");
+			mutex_unlock(&ii->port->reuseaddr_lock);
 			goto err;
 		}
+		mutex_unlock(&ii->port->reuseaddr_lock);
 	}
 
 	if (ie->state == TCP_ESTABLISHED &&
@@ -623,4 +628,9 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 	}
 
 	return 0;
+}
+
+mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii)
+{
+	return &ii->port->reuseaddr_lock;
 }
