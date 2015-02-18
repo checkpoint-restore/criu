@@ -135,10 +135,13 @@ struct tty_type {
 	int t;
 	char *name;
 	int index;
+	unsigned flags;
 	int (*fd_get_index)(int fd, const struct fd_parms *);
 	int (*img_get_index)(struct tty_info *ti);
 	int (*open)(struct tty_info *ti);
 };
+
+#define TTY_PAIR	0x1
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 {
@@ -166,6 +169,7 @@ static int pty_open_ptmx(struct tty_info *info);
 
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
+	.flags = TTY_PAIR,
 	.name = "ptmx",
 	.fd_get_index = ptm_fd_get_index,
 	.img_get_index = pty_get_index,
@@ -176,6 +180,7 @@ static int open_simple_tty(struct tty_info *info);
 
 static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
+	.flags = 0,
 	.name = "console",
 	.index = CONSOLE_INDEX,
 	.open = open_simple_tty,
@@ -183,6 +188,7 @@ static struct tty_type console_type = {
 
 static struct tty_type vt_type = {
 	.t = TTY_TYPE_VT,
+	.flags = 0,
 	.name = "vt",
 	.index = VT_INDEX,
 	.open = open_simple_tty,
@@ -210,6 +216,7 @@ static int pts_fd_get_index(int fd, const struct fd_parms *p)
 
 static struct tty_type pts_type = {
 	.t = TTY_TYPE_PTS,
+	.flags = TTY_PAIR,
 	.name = "pts",
 	.fd_get_index = pts_fd_get_index,
 	.img_get_index = pty_get_index,
@@ -243,7 +250,7 @@ struct tty_type *get_tty_type(int major, int minor)
 
 static inline int is_pty(struct tty_type *type)
 {
-	return (type->t == TTY_TYPE_PTM || type->t == TTY_TYPE_PTS);
+	return type->flags & TTY_PAIR;
 }
 
 /*
@@ -1135,12 +1142,12 @@ int tty_setup_slavery(void)
 	list_for_each_entry(info, &all_ttys, list) {
 		if (tty_find_restoring_task(info))
 			return -1;
-		if (info->type->t == TTY_TYPE_CONSOLE || info->type->t == TTY_TYPE_VT)
+		if (!is_pty(info->type))
 			continue;
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
-			if (peer->type->t == TTY_TYPE_CONSOLE || peer->type->t == TTY_TYPE_VT)
+			if (!is_pty(peer->type))
 				continue;
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
