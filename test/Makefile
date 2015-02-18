@@ -25,6 +25,7 @@ zdtm-tst-list: zdtm.sh
 zdtm: zdtm-tst-list .FORCE 
 	$(MAKE) -f Makefile.zdtm zdtm_nons
 	$(MAKE) -f Makefile.zdtm zdtm_ns
+	$(MAKE) clean_root
 	$(MAKE) -f Makefile.zdtm zdtm_ns_user
 
 zdtm-pre-dump: zdtm-tst-list
@@ -44,13 +45,18 @@ fault-injection: .FORCE
 
 override CFLAGS += -D_GNU_SOURCE
 
-clean:
-	$(RM) zdtm_ct zdtm-tst-list
+clean_root:
 	$(Q) $(RM) -r ./lib/
 	$(Q) $(RM) -r ./lib64/
-	$(Q) $(RM) -r ./dump/
 	$(Q) $(RM) -r ./tmp
+	$(Q) $(RM) -r ./etc
+	$(Q) $(RM) -r ./dev
+	$(Q) $(RM) -r ./bin
+
+clean: clean_root
+	$(RM) zdtm_ct zdtm-tst-list
 	$(Q) $(RM) *.log
+	$(Q) $(RM) -r ./dump/
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout
 	$(Q) $(MAKE) -C libcriu clean
 	$(Q) $(MAKE) -C rpc clean
