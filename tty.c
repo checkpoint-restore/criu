@@ -137,6 +137,7 @@ struct tty_type {
 	int index;
 	int (*fd_get_index)(int fd, const struct fd_parms *);
 	int (*img_get_index)(struct tty_info *ti);
+	int (*open)(struct tty_info *ti);
 };
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
@@ -161,23 +162,30 @@ static int pty_get_index(struct tty_info *ti)
 	return ti->tie->pty->index;
 }
 
+static int pty_open_ptmx(struct tty_info *info);
+
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
 	.name = "ptmx",
 	.fd_get_index = ptm_fd_get_index,
 	.img_get_index = pty_get_index,
+	.open = pty_open_ptmx,
 };
+
+static int open_simple_tty(struct tty_info *info);
 
 static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
 	.name = "console",
 	.index = CONSOLE_INDEX,
+	.open = open_simple_tty,
 };
 
 static struct tty_type vt_type = {
 	.t = TTY_TYPE_VT,
 	.name = "vt",
 	.index = VT_INDEX,
+	.open = open_simple_tty,
 };
 
 static int pts_fd_get_index(int fd, const struct fd_parms *p)
@@ -205,6 +213,7 @@ static struct tty_type pts_type = {
 	.name = "pts",
 	.fd_get_index = pts_fd_get_index,
 	.img_get_index = pty_get_index,
+	.open = pty_open_ptmx,
 };
 
 struct tty_type *get_tty_type(int major, int minor)
@@ -947,10 +956,7 @@ static int tty_open(struct file_desc *d)
 	if (!tty_is_master(info))
 		return pty_open_unpaired_slave(d, info);
 
-	if (info->type->t == TTY_TYPE_CONSOLE || info->type->t == TTY_TYPE_VT)
-		return open_simple_tty(info);
-
-	return pty_open_ptmx(info);
+	return info->type->open(info);
 }
 
 static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
