@@ -143,6 +143,7 @@ struct tty_type {
 };
 
 #define TTY_PAIR	0x1
+#define TTY_MASTER	0x2
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 {
@@ -170,7 +171,7 @@ static int pty_open_ptmx(struct tty_info *info);
 
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
-	.flags = TTY_PAIR,
+	.flags = TTY_PAIR | TTY_MASTER,
 	.name = "ptmx",
 	.img_type = TTY_TYPE__PTY,
 	.fd_get_index = ptm_fd_get_index,
@@ -182,7 +183,7 @@ static int open_simple_tty(struct tty_info *info);
 
 static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
-	.flags = 0,
+	.flags = TTY_MASTER,
 	.name = "console",
 	.img_type = TTY_TYPE__CONSOLE,
 	.index = CONSOLE_INDEX,
@@ -626,7 +627,7 @@ err:
 
 static bool tty_is_master(struct tty_info *info)
 {
-	if (info->type->t == TTY_TYPE_PTM || info->type->t == TTY_TYPE_CONSOLE)
+	if (info->type->flags & TTY_MASTER)
 		return true;
 
 	if (info->type->t == TTY_TYPE_VT && !opts.shell_job)
