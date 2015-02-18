@@ -27,10 +27,11 @@ enum {
 
 extern const struct fdtype_ops tty_dump_ops;
 
-int tty_type(int major, int minor);
+struct tty_type;
+struct tty_type *get_tty_type(int major, int minor);
 static inline int is_tty(int major, int minor)
 {
-	return tty_type(major, minor) != TTY_TYPE_UNKNOWN;
+	return get_tty_type(major, minor) != NULL;
 }
 
 extern int dump_verify_tty_sids(void);

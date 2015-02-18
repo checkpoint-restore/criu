@@ -88,7 +88,7 @@ struct tty_info {
 	TtyInfoEntry			*tie;
 
 	struct list_head		sibling;
-	int				type;
+	struct tty_type			*type;
 
 	bool				create;
 	bool				inherit;
@@ -101,7 +101,7 @@ struct tty_dump_info {
 	pid_t				sid;
 	pid_t				pgrp;
 	int				fd;
-	int				type;
+	struct tty_type			*type;
 };
 
 static LIST_HEAD(all_tty_info_entries);
@@ -130,14 +130,34 @@ static LIST_HEAD(all_ttys);
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
-int tty_type(int major, int minor)
+struct tty_type {
+	int t;
+};
+
+static struct tty_type ptm_type = {
+	.t = TTY_TYPE_PTM,
+};
+
+static struct tty_type console_type = {
+	.t = TTY_TYPE_CONSOLE,
+};
+
+static struct tty_type vt_type = {
+	.t = TTY_TYPE_VT,
+};
+
+static struct tty_type pts_type = {
+	.t = TTY_TYPE_PTS,
+};
+
+struct tty_type *get_tty_type(int major, int minor)
 {
 	switch (major) {
 	case TTYAUX_MAJOR:
 		if (minor == 2)
-			return TTY_TYPE_PTM;
+			return &ptm_type;
 		else if (minor == 1)
-			return TTY_TYPE_CONSOLE;
+			return &console_type;
 		break;
 	case TTY_MAJOR:
 		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
@@ -146,18 +166,18 @@ int tty_type(int major, int minor)
 			 * for consoles (virtual terminals, VT in terms
 			 * of kernel).
 			 */
-			return TTY_TYPE_VT;
+			return &vt_type;
 	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
-		return TTY_TYPE_PTM;
+		return &ptm_type;
 	case UNIX98_PTY_SLAVE_MAJOR:
-		return TTY_TYPE_PTS;
+		return &pts_type;
 	}
-	return TTY_TYPE_UNKNOWN;
+	return NULL;
 }
 
-static inline int is_pty(int type)
+static inline int is_pty(struct tty_type *type)
 {
-	return (type == TTY_TYPE_PTM || type == TTY_TYPE_PTS);
+	return (type->t == TTY_TYPE_PTM || type->t == TTY_TYPE_PTS);
 }
 
 /*
@@ -203,9 +223,9 @@ int prepare_shared_tty(void)
 		ASSIGN_MEMBER((d),(s), c_line);		\
 	} while (0)
 
-static int tty_gen_id(int type, int index)
+static int tty_gen_id(struct tty_type *type, int index)
 {
-	return (index << 1) + (type == TTY_TYPE_PTM);
+	return (index << 1) + (type->t == TTY_TYPE_PTM);
 }
 
 static int tty_get_index(u32 id)
@@ -246,11 +266,11 @@ int tty_verify_active_pairs(void)
 	return 0;
 }
 
-static int parse_tty_index(u32 id, int lfd, const struct fd_parms *p, int type)
+static int parse_tty_index(u32 id, int lfd, const struct fd_parms *p, struct tty_type *type)
 {
 	int index = -1;
 
-	switch (type) {
+	switch (type->t) {
 	case TTY_TYPE_PTM:
 		if (ioctl(lfd, TIOCGPTN, &index)) {
 			pr_perror("Can't obtain ptmx index");
@@ -281,8 +301,8 @@ static int parse_tty_index(u32 id, int lfd, const struct fd_parms *p, int type)
 		BUG();
 	}
 
-	if (type != TTY_TYPE_CONSOLE &&
-	    type != TTY_TYPE_VT &&
+	if (type->t != TTY_TYPE_CONSOLE &&
+	    type->t != TTY_TYPE_VT &&
 	    index > MAX_PTY_INDEX) {
 		pr_err("Index %d on tty %x is too big\n", index, id);
 		return -1;
@@ -545,14 +565,14 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 			pr_perror("Can't open %s", path_from_reg(&fake->d));
 			goto err;
 		}
-	} else if (info->type == TTY_TYPE_CONSOLE) {
+	} else if (info->type->t == TTY_TYPE_CONSOLE) {
 		slave = open_pty_reg(info->reg_d, O_RDONLY);
 		index = CONSOLE_INDEX;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(info->reg_d));
 			goto err;
 		}
-	} else if (info->type == TTY_TYPE_VT) {
+	} else if (info->type->t == TTY_TYPE_VT) {
 		slave = open_pty_reg(info->reg_d, O_RDONLY);
 		index = VT_INDEX;
 		if (slave < 0) {
@@ -576,9 +596,9 @@ err:
 	return ret;
 }
 
-static char *tty_name(int type)
+static char *tty_name(struct tty_type *type)
 {
-	switch (type) {
+	switch (type->t) {
 	case TTY_TYPE_PTM:
 		return "ptmx";
 	case TTY_TYPE_PTS:
@@ -593,10 +613,10 @@ static char *tty_name(int type)
 
 static bool tty_is_master(struct tty_info *info)
 {
-	if (info->type == TTY_TYPE_PTM || info->type == TTY_TYPE_CONSOLE)
+	if (info->type->t == TTY_TYPE_PTM || info->type->t == TTY_TYPE_CONSOLE)
 		return true;
 
-	if (info->type == TTY_TYPE_VT && !opts.shell_job)
+	if (info->type->t == TTY_TYPE_VT && !opts.shell_job)
 		return true;
 
 	return false;
@@ -619,7 +639,7 @@ static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	int index = -1;
 
-	switch (info->type) {
+	switch (info->type->t) {
 	case TTY_TYPE_CONSOLE:
 		index = CONSOLE_INDEX;
 		break;
@@ -934,7 +954,7 @@ static int tty_open(struct file_desc *d)
 	if (!tty_is_master(info))
 		return pty_open_unpaired_slave(d, info);
 
-	if (info->type == TTY_TYPE_CONSOLE || info->type == TTY_TYPE_VT)
+	if (info->type->t == TTY_TYPE_CONSOLE || info->type->t == TTY_TYPE_VT)
 		return open_simple_tty(info);
 
 	return pty_open_ptmx(info);
@@ -1116,12 +1136,12 @@ int tty_setup_slavery(void)
 	list_for_each_entry(info, &all_ttys, list) {
 		if (tty_find_restoring_task(info))
 			return -1;
-		if (info->type == TTY_TYPE_CONSOLE || info->type == TTY_TYPE_VT)
+		if (info->type->t == TTY_TYPE_CONSOLE || info->type->t == TTY_TYPE_VT)
 			continue;
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
-			if (peer->type == TTY_TYPE_CONSOLE || peer->type == TTY_TYPE_VT)
+			if (peer->type->t == TTY_TYPE_CONSOLE || peer->type->t == TTY_TYPE_VT)
 				continue;
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
@@ -1169,12 +1189,8 @@ static int verify_termios(u32 id, TermiosEntry *e)
 
 static int verify_info(struct tty_info *info)
 {
-	if (info->type != TTY_TYPE_PTM &&
-	    info->type != TTY_TYPE_PTS &&
-	    info->type != TTY_TYPE_CONSOLE &&
-	    info->type != TTY_TYPE_VT) {
-		pr_err("Unknown type %d master peer %x\n",
-		       info->type, info->tfe->id);
+	if (!info->type) {
+		pr_err("Unknown type master peer %x\n", info->tfe->id);
 		return -1;
 	}
 
@@ -1271,7 +1287,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	}
 
 	INIT_LIST_HEAD(&info->sibling);
-	info->type = tty_type(major(info->tie->rdev), minor(info->tie->rdev));
+	info->type = get_tty_type(major(info->tie->rdev), minor(info->tie->rdev));
 	info->create = tty_is_master(info);
 	info->inherit = false;
 
@@ -1374,7 +1390,7 @@ int dump_verify_tty_sids(void)
 	return ret;
 }
 
-static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, int type, int index)
+static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_type *type, int index)
 {
 	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
 	TermiosEntry termios		= TERMIOS_ENTRY__INIT;
@@ -1397,7 +1413,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, int type, in
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	pti = parasite_dump_tty(p->ctl, p->fd, type);
+	pti = parasite_dump_tty(p->ctl, p->fd, type->t);
 	if (!pti)
 		return -1;
 
@@ -1418,7 +1434,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, int type, in
 	info.pgrp		= pti->pgrp;
 	info.rdev		= p->stat.st_rdev;
 
-	switch (type) {
+	switch (type->t) {
 	case TTY_TYPE_PTM:
 	case TTY_TYPE_PTS:
 		info.type	= TTY_TYPE__PTY;
@@ -1501,14 +1517,15 @@ out:
 static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 {
 	TtyFileEntry e = TTY_FILE_ENTRY__INIT;
-	int ret = 0, type, index = -1;
+	int ret = 0, index = -1;
+	struct tty_type *type;
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
 	if (dump_one_reg_file(lfd, id, p))
 		return -1;
 
-	type = tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
+	type = get_tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
 	index = parse_tty_index(id, lfd, p, type);
 	if (index < 0) {
 		pr_info("Can't obtain index on tty %d id %#x\n", lfd, id);
