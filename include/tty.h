@@ -27,39 +27,10 @@ enum {
 
 extern const struct fdtype_ops tty_dump_ops;
 
-static inline int tty_type(int major, int minor)
-{
-	switch (major) {
-	case TTYAUX_MAJOR:
-		if (minor == 2)
-			return TTY_TYPE_PTM;
-		else if (minor == 1)
-			return TTY_TYPE_CONSOLE;
-		break;
-	case TTY_MAJOR:
-		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
-			/*
-			 * Minors [MIN_NR_CONSOLES; MAX_NR_CONSOLES] stand
-			 * for consoles (virtual terminals, VT in terms
-			 * of kernel).
-			 */
-			return TTY_TYPE_VT;
-	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
-		return TTY_TYPE_PTM;
-	case UNIX98_PTY_SLAVE_MAJOR:
-		return TTY_TYPE_PTS;
-	}
-	return TTY_TYPE_UNKNOWN;
-}
-
+int tty_type(int major, int minor);
 static inline int is_tty(int major, int minor)
 {
 	return tty_type(major, minor) != TTY_TYPE_UNKNOWN;
-}
-
-static inline int is_pty(int type)
-{
-	return (type == TTY_TYPE_PTM || type == TTY_TYPE_PTS);
 }
 
 extern int dump_verify_tty_sids(void);

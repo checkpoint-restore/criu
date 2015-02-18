@@ -130,6 +130,36 @@ static LIST_HEAD(all_ttys);
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
+int tty_type(int major, int minor)
+{
+	switch (major) {
+	case TTYAUX_MAJOR:
+		if (minor == 2)
+			return TTY_TYPE_PTM;
+		else if (minor == 1)
+			return TTY_TYPE_CONSOLE;
+		break;
+	case TTY_MAJOR:
+		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
+			/*
+			 * Minors [MIN_NR_CONSOLES; MAX_NR_CONSOLES] stand
+			 * for consoles (virtual terminals, VT in terms
+			 * of kernel).
+			 */
+			return TTY_TYPE_VT;
+	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
+		return TTY_TYPE_PTM;
+	case UNIX98_PTY_SLAVE_MAJOR:
+		return TTY_TYPE_PTS;
+	}
+	return TTY_TYPE_UNKNOWN;
+}
+
+static inline int is_pty(int type)
+{
+	return (type == TTY_TYPE_PTM || type == TTY_TYPE_PTS);
+}
+
 /*
  * /dev/ptmx is a shared resource between all tasks
  * so we need to serialize access to it.
