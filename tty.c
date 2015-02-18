@@ -879,8 +879,7 @@ static int open_simple_tty(struct tty_info *info)
 	fd = open_pty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
 		pr_perror("Can't open %s %x",
-		info->type == TTY_TYPE_CONSOLE ? "console" : "virtual terminal",
-		info->tfe->id);
+				tty_name(info->type), info->tfe->id);
 		return -1;
 	}
 
