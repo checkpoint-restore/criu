@@ -126,6 +126,7 @@ static LIST_HEAD(all_ttys);
 #define MAX_PTY_INDEX	1000
 #define CONSOLE_INDEX	1002
 #define VT_INDEX	1004
+#define INDEX_ERR	(MAX_TTYS + 1)
 
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
@@ -133,26 +134,69 @@ static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 struct tty_type {
 	int t;
 	char *name;
+	int index;
+	int (*fd_get_index)(int fd, const struct fd_parms *);
 };
+
+static int ptm_fd_get_index(int fd, const struct fd_parms *p)
+{
+	int index;
+
+	if (ioctl(fd, TIOCGPTN, &index)) {
+		pr_perror("Can't obtain ptmx index");
+		return INDEX_ERR;
+	}
+
+	if (index > MAX_PTY_INDEX) {
+		pr_err("Index %d on ptmx is too big\n", index);
+		return INDEX_ERR;
+	}
+
+	return index;
+}
 
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
 	.name = "ptmx",
+	.fd_get_index = ptm_fd_get_index,
 };
 
 static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
 	.name = "console",
+	.index = CONSOLE_INDEX,
 };
 
 static struct tty_type vt_type = {
 	.t = TTY_TYPE_VT,
 	.name = "vt",
+	.index = VT_INDEX,
 };
+
+static int pts_fd_get_index(int fd, const struct fd_parms *p)
+{
+	int index;
+	const struct fd_link *link = p->link;
+	char *pos = strrchr(link->name, '/');
+
+	if (!pos || pos == (link->name + link->len - 1)) {
+		pr_err("Unexpected format on path %s\n", link->name + 1);
+		return INDEX_ERR;
+	}
+
+	index = atoi(pos + 1);
+	if (index > MAX_PTY_INDEX) {
+		pr_err("Index %d on pts is too big\n", index);
+		return INDEX_ERR;
+	}
+
+	return index;
+}
 
 static struct tty_type pts_type = {
 	.t = TTY_TYPE_PTS,
 	.name = "pts",
+	.fd_get_index = pts_fd_get_index,
 };
 
 struct tty_type *get_tty_type(int major, int minor)
@@ -269,51 +313,6 @@ int tty_verify_active_pairs(void)
 	}
 
 	return 0;
-}
-
-static int parse_tty_index(u32 id, int lfd, const struct fd_parms *p, struct tty_type *type)
-{
-	int index = -1;
-
-	switch (type->t) {
-	case TTY_TYPE_PTM:
-		if (ioctl(lfd, TIOCGPTN, &index)) {
-			pr_perror("Can't obtain ptmx index");
-			return -1;
-		}
-		break;
-
-	case TTY_TYPE_PTS: {
-		const struct fd_link *link = p->link;
-		char *pos = strrchr(link->name, '/');
-
-		if (!pos || pos == (link->name + link->len - 1)) {
-			pr_err("Unexpected format on path %s\n", link->name + 1);
-			return -1;
-		}
-		index = atoi(pos + 1);
-		break;
-	}
-
-	case TTY_TYPE_CONSOLE:
-		index = CONSOLE_INDEX;
-		break;
-
-	case TTY_TYPE_VT:
-		index = VT_INDEX;
-		break;
-	default:
-		BUG();
-	}
-
-	if (type->t != TTY_TYPE_CONSOLE &&
-	    type->t != TTY_TYPE_VT &&
-	    index > MAX_PTY_INDEX) {
-		pr_err("Index %d on tty %x is too big\n", index, id);
-		return -1;
-	}
-
-	return index;
 }
 
 static int tty_test_and_set(int bit, unsigned long *bitmap)
@@ -1515,8 +1514,12 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 
 	type = get_tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
-	index = parse_tty_index(id, lfd, p, type);
-	if (index < 0) {
+	if (type->fd_get_index)
+		index = type->fd_get_index(lfd, p);
+	else
+		index = type->index;
+
+	if (index == INDEX_ERR) {
 		pr_info("Can't obtain index on tty %d id %#x\n", lfd, id);
 		return -1;
 	}
