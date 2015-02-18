@@ -132,22 +132,27 @@ static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
 struct tty_type {
 	int t;
+	char *name;
 };
 
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
+	.name = "ptmx",
 };
 
 static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
+	.name = "console",
 };
 
 static struct tty_type vt_type = {
 	.t = TTY_TYPE_VT,
+	.name = "vt",
 };
 
 static struct tty_type pts_type = {
 	.t = TTY_TYPE_PTS,
+	.name = "pts",
 };
 
 struct tty_type *get_tty_type(int major, int minor)
@@ -596,21 +601,6 @@ err:
 	return ret;
 }
 
-static char *tty_name(struct tty_type *type)
-{
-	switch (type->t) {
-	case TTY_TYPE_PTM:
-		return "ptmx";
-	case TTY_TYPE_PTS:
-		return "pts";
-	case TTY_TYPE_CONSOLE:
-		return "console";
-	case TTY_TYPE_VT:
-		return "tty";
-	}
-	return "unknown";
-}
-
 static bool tty_is_master(struct tty_info *info)
 {
 	if (info->type->t == TTY_TYPE_PTM || info->type->t == TTY_TYPE_CONSOLE)
@@ -653,7 +643,7 @@ static void tty_show_pty_info(char *prefix, struct tty_info *info)
 	}
 
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
-		prefix, tty_name(info->type), info->tfe->id, index,
+		prefix, info->type->name, info->tfe->id, index,
 		tty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
@@ -929,7 +919,7 @@ static int open_simple_tty(struct tty_info *info)
 	fd = open_pty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
 		pr_perror("Can't open %s %x",
-				tty_name(info->type), info->tfe->id);
+				info->type->name, info->tfe->id);
 		return -1;
 	}
 
@@ -1370,8 +1360,7 @@ int dump_verify_tty_sids(void)
 				if (!opts.shell_job) {
 					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d.\n",
 					       dinfo->sid, dinfo->pgrp,
-					       tty_name(dinfo->type),
-					       dinfo->fd);
+					       dinfo->type->name, dinfo->fd);
 					/*
 					 * First thing people do with criu is dump smth
 					 * run from shell. This is typical pitfall, warn
