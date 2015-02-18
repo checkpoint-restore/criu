@@ -135,6 +135,7 @@ struct tty_type {
 	int t;
 	char *name;
 	int index;
+	int img_type;
 	unsigned flags;
 	int (*fd_get_index)(int fd, const struct fd_parms *);
 	int (*img_get_index)(struct tty_info *ti);
@@ -171,6 +172,7 @@ static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
 	.flags = TTY_PAIR,
 	.name = "ptmx",
+	.img_type = TTY_TYPE__PTY,
 	.fd_get_index = ptm_fd_get_index,
 	.img_get_index = pty_get_index,
 	.open = pty_open_ptmx,
@@ -182,6 +184,7 @@ static struct tty_type console_type = {
 	.t = TTY_TYPE_CONSOLE,
 	.flags = 0,
 	.name = "console",
+	.img_type = TTY_TYPE__CONSOLE,
 	.index = CONSOLE_INDEX,
 	.open = open_simple_tty,
 };
@@ -190,6 +193,7 @@ static struct tty_type vt_type = {
 	.t = TTY_TYPE_VT,
 	.flags = 0,
 	.name = "vt",
+	.img_type = TTY_TYPE__VT,
 	.index = VT_INDEX,
 	.open = open_simple_tty,
 };
@@ -218,6 +222,7 @@ static struct tty_type pts_type = {
 	.t = TTY_TYPE_PTS,
 	.flags = TTY_PAIR,
 	.name = "pts",
+	.img_type = TTY_TYPE__PTY,
 	.fd_get_index = pts_fd_get_index,
 	.img_get_index = pty_get_index,
 	.open = pty_open_ptmx,
@@ -1438,27 +1443,15 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_t
 	info.sid		= pti->sid;
 	info.pgrp		= pti->pgrp;
 	info.rdev		= p->stat.st_rdev;
-
-	switch (type->t) {
-	case TTY_TYPE_PTM:
-	case TTY_TYPE_PTS:
-		info.type	= TTY_TYPE__PTY;
-		info.pty	= &pty;
-		pty.index	= index;
-		break;
-	case TTY_TYPE_CONSOLE:
-		info.type	= TTY_TYPE__CONSOLE;
-		break;
-	case TTY_TYPE_VT:
-		info.type	= TTY_TYPE__VT;
-		break;
-	default:
-		BUG();
-	}
-
 	info.locked		= pti->st_lock;
 	info.exclusive		= pti->st_excl;
 	info.packet_mode	= pti->st_pckt;
+
+	info.type = type->img_type;
+	if (info.type == TTY_TYPE__PTY) {
+		info.pty	= &pty;
+		pty.index	= index;
+	}
 
 	/*
 	 * Nothing we can do on hanging up terminal,
