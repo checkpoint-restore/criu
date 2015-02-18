@@ -136,6 +136,7 @@ struct tty_type {
 	char *name;
 	int index;
 	int (*fd_get_index)(int fd, const struct fd_parms *);
+	int (*img_get_index)(struct tty_info *ti);
 };
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
@@ -155,10 +156,16 @@ static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 	return index;
 }
 
+static int pty_get_index(struct tty_info *ti)
+{
+	return ti->tie->pty->index;
+}
+
 static struct tty_type ptm_type = {
 	.t = TTY_TYPE_PTM,
 	.name = "ptmx",
 	.fd_get_index = ptm_fd_get_index,
+	.img_get_index = pty_get_index,
 };
 
 static struct tty_type console_type = {
@@ -197,6 +204,7 @@ static struct tty_type pts_type = {
 	.t = TTY_TYPE_PTS,
 	.name = "pts",
 	.fd_get_index = pts_fd_get_index,
+	.img_get_index = pty_get_index,
 };
 
 struct tty_type *get_tty_type(int major, int minor)
@@ -553,32 +561,35 @@ static int tty_set_prgp(int fd, int group)
 static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
+	struct tty_type *type = info->type;
 	struct reg_file_info *fake = NULL;
 	int slave = -1, ret = -1, index = -1;
 
 	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
 
+	if (type->img_get_index)
+		index = type->img_get_index(info);
+	else
+		index = type->index;
+
 	if (is_pty(info->type)) {
 		fake = pty_alloc_fake_slave(info);
 		if (!fake)
 			goto err;
 		slave = open_pty_reg(&fake->d, O_RDONLY);
-		index = info->tie->pty->index;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(&fake->d));
 			goto err;
 		}
 	} else if (info->type->t == TTY_TYPE_CONSOLE) {
 		slave = open_pty_reg(info->reg_d, O_RDONLY);
-		index = CONSOLE_INDEX;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(info->reg_d));
 			goto err;
 		}
 	} else if (info->type->t == TTY_TYPE_VT) {
 		slave = open_pty_reg(info->reg_d, O_RDONLY);
-		index = VT_INDEX;
 		if (slave < 0) {
 			pr_perror("Can't open %s", path_from_reg(info->reg_d));
 			goto err;
@@ -627,19 +638,12 @@ static bool tty_has_active_pair(struct tty_info *info)
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	int index = -1;
+	struct tty_type *type = info->type;
 
-	switch (info->type->t) {
-	case TTY_TYPE_CONSOLE:
-		index = CONSOLE_INDEX;
-		break;
-	case TTY_TYPE_VT:
-		index = VT_INDEX;
-		break;
-	case TTY_TYPE_PTM:
-	case TTY_TYPE_PTS:
-		index = info->tie->pty->index;
-		break;
-	}
+	if (type->img_get_index)
+		index = type->img_get_index(info);
+	else
+		index = type->index;
 
 	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
 		prefix, info->type->name, info->tfe->id, index,
