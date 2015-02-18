@@ -3,8 +3,9 @@ CFLAGS += -D_GNU_SOURCE
 
 .FORCE:
 
-zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | awk '/^ns\// && !/tty|pty/ {print}')
-zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | awk '!/^ns\// || /tty|pty/ {print}')
+zdtm_ns: $(shell echo "$(TST)" | tr ' ' '\n' | awk '/^ns\// && !/ns\/user/ {print}')
+zdtm_ns_user: $(shell echo "$(TST)" | tr ' ' '\n' | awk '/^ns\/user/ {print}')
+zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | awk '!/^ns\// {print}')
 
 $(TST): zdtm_ct mount_cgroups .FORCE
 	./zdtm.sh --ct ${ZDTM_ARGS} -r $(@) &> $(subst /,_,$@).log; \

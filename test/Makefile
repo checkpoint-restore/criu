@@ -23,8 +23,9 @@ zdtm-tst-list: zdtm.sh
 	./zdtm.sh -l > zdtm-tst-list
 
 zdtm: zdtm-tst-list .FORCE 
-	$(MAKE) -f Makefile.zdtm zdtm_ns
 	$(MAKE) -f Makefile.zdtm zdtm_nons
+	$(MAKE) -f Makefile.zdtm zdtm_ns
+	$(MAKE) -f Makefile.zdtm zdtm_ns_user
 
 zdtm-pre-dump: zdtm-tst-list
 	ZDTM_ARGS="-P -p -i 3 -C" $(MAKE) -f Makefile.zdtm ns/static/pipe00
