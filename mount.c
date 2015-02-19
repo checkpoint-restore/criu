@@ -2334,6 +2334,8 @@ int collect_mnt_namespaces(bool for_dump)
 		goto err;
 
 	if (for_dump && need_to_validate) {
+		ret = -1;
+
 		if (collect_shared(mntinfo))
 			goto err;
 		if (validate_mounts(mntinfo, true))
