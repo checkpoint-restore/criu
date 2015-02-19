@@ -31,7 +31,7 @@ static inline int tty_type(int major, int minor)
 {
 	switch (major) {
 	case TTYAUX_MAJOR:
-		if (minor == 0 || minor == 2)
+		if (minor == 2)
 			return TTY_TYPE_PTM;
 		else if (minor == 1)
 			return TTY_TYPE_CONSOLE;
