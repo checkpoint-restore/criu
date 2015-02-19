@@ -1092,7 +1092,7 @@ int tty_setup_slavery(void)
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
-			if (peer->type == TTY_TYPE_CONSOLE || info->type == TTY_TYPE_VT)
+			if (peer->type == TTY_TYPE_CONSOLE || peer->type == TTY_TYPE_VT)
 				continue;
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
