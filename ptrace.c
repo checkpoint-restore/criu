@@ -50,7 +50,7 @@ int seize_task(pid_t pid, pid_t ppid)
 {
 	siginfo_t si;
 	int status;
-	int ret, ret2, ptrace_errno;
+	int ret, ret2, ptrace_errno, wait_errno = 0;
 	struct proc_status_creds cr;
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
@@ -81,7 +81,10 @@ int seize_task(pid_t pid, pid_t ppid)
 	 */
 
 try_again:
-	ret = wait4(pid, &status, __WALL, NULL);
+	if (!ret) {
+		ret = wait4(pid, &status, __WALL, NULL);
+		wait_errno = errno;
+	}
 
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
@@ -97,8 +100,8 @@ try_again:
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
 			else
-				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
-						pid, cr.state, ret, ptrace_errno);
+				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d/%d\n",
+						pid, cr.state, ret, ptrace_errno, wait_errno);
 			return -1;
 		}
 
@@ -135,6 +138,7 @@ try_again:
 			goto err;
 		}
 
+		ret = 0;
 		goto try_again;
 	}
 
