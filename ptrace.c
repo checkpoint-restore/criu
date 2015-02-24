@@ -80,6 +80,9 @@ int seize_task(pid_t pid, pid_t ppid)
 	 * we might nead at that early point.
 	 */
 
+try_again:
+	ret = wait4(pid, &status, __WALL, NULL);
+
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
 		goto err;
@@ -105,18 +108,6 @@ int seize_task(pid_t pid, pid_t ppid)
 	if ((ppid != -1) && (cr.ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
 				pid, ppid, cr.ppid);
-		goto err;
-	}
-
-try_again:
-	ret = wait4(pid, &status, __WALL, NULL);
-	if (ret < 0) {
-		pr_perror("SEIZE %d: can't wait task", pid);
-		goto err;
-	}
-
-	if (ret != pid) {
-		pr_err("SEIZE %d: wrong task attached (%d)\n", pid, ret);
 		goto err;
 	}
 
