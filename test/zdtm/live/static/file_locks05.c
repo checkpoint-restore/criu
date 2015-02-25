@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	if (flock(fd2, LOCK_SH) == 0)
 		pass();
 	else
-		fail("Flock file locks check failed");
+		fail("Flock file locks check failed (%d)", errno);
 
 	close(fd);
 	close(fd2);

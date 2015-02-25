@@ -85,7 +85,11 @@ static int check_file_locks()
 	if (!fp_locks)
 		return -1;
 
+	test_msg("C: %d/%d/%d\n", inodes[0], inodes[1], inodes[2]);
+
 	while (fgets(buf, sizeof(buf), fp_locks)) {
+		test_msg("c: %s", buf);
+
 		if (strstr(buf, "->"))
 			continue;
 

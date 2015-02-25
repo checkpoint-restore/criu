@@ -27,7 +27,11 @@ static int check_file_locks()
 	if (!fp_locks)
 		return -1;
 
+	test_msg("C: %d\n", pid);
+
 	while (fgets(buf, sizeof(buf), fp_locks)) {
+		test_msg("c: %s", buf);
+
 		if (strstr(buf, "->"))
 			continue;
 
