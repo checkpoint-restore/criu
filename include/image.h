@@ -38,12 +38,57 @@
 #define USK_SERVICE	(1 << 1)
 #define USK_CALLBACK	(1 << 2)
 
+/*
+ * VMA_AREA status:
+ *
+ *  - none
+ *	VmaEntry is just allocated and has not been used
+ *	for anything yet
+ *  - regular
+ *  	VmaEntry represent some memory area which should be
+ *  	dumped and restored; this is a general sign that we
+ *  	should not skip the area content from processing in
+ *  	compare with special areas such as vsyscall
+ *  - stack
+ *  	the memory area is used in application stack so we
+ *  	should be careful about guard page here
+ *  - vsyscall
+ *  	special memory area injected into the task memory
+ *  	space by the kernel itself, represent virtual syscall
+ *  	implementation and it is specific to every kernel version,
+ *  	its contents should not be dumped ever
+ *  - vdso,vvar
+ *  	the vDSO area, it might reqire additional memory
+ *  	contents modification especially when tasks are
+ *  	migrating between different kernel versions
+ *  - heap
+ *  	"heap" area in application, currently for inforamtion only
+ *  - file private
+ *  	stands for privately memory mapped files
+ *  - file shared
+ *  	stands for shared memory mapped files
+ *  - anon shared
+ *  	represent shared anonymous memory areas
+ *  - anon private
+ *  	represent private anonymous memory areas
+ *  - SysV IPC
+ *  	IPC shared memory area
+ *  - socket
+ *  	memory map for socket
+ *  - AIO ring
+ *  	memory area serves AIO buffers
+ *  - unsupported
+ *  	stands for any unknown memory areas, usually means
+ *  	we don't know how to work with it and should stop
+ *  	processing exiting with error; while the rest of bits
+ *  	are part of image ABI, this particular one must never
+ *  	be used in image.
+ */
 #define VMA_AREA_NONE		(0 <<  0)
-#define VMA_AREA_REGULAR	(1 <<  0)	/* Dumpable area */
+#define VMA_AREA_REGULAR	(1 <<  0)
 #define VMA_AREA_STACK		(1 <<  1)
 #define VMA_AREA_VSYSCALL	(1 <<  2)
 #define VMA_AREA_VDSO		(1 <<  3)
-#define VMA_FORCE_READ		(1 <<  4)	/* VMA changed to be readable */
 #define VMA_AREA_HEAP		(1 <<  5)
 
 #define VMA_FILE_PRIVATE	(1 <<  6)
@@ -56,7 +101,7 @@
 #define VMA_AREA_VVAR		(1 <<  12)
 #define VMA_AREA_AIORING	(1 <<  13)
 
-#define VMA_UNSUPP		(1 <<  31)	/* Unsupported VMA */
+#define VMA_UNSUPP		(1 <<  31)
 
 #define CR_CAP_SIZE	2
 
