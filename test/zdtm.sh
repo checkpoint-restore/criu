@@ -1072,6 +1072,7 @@ if [ $SPECIFIED_NAME_USED -eq 1 ]; then
 		echo "test name should be provided"
 		exit 1
 	fi
+	$CRIU check -v0 --feature "mnt_id" || export ZDTM_NOSUBNS=1
 	run_test $1 || case_error $1
 else
 	if [ $# -eq 0 ]; then
