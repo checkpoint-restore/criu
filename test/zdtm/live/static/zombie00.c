@@ -65,7 +65,13 @@ int main(int argc, char ** argv)
 	 * wait4 here :( Use sleep.
 	 */
 
-	sleep(1);
+	for (i = 0; i < NR_ZOMBIES; i++) {
+		siginfo_t siginfo;
+		if (waitid(P_PID, zombie[i].pid, &siginfo, WNOWAIT | WEXITED)) {
+			err("Unable to wait %d", zombie[i].pid);
+			exit(1);
+		}
+	}
 
 	test_daemon();
 	test_waitsig();
