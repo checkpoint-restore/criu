@@ -63,19 +63,55 @@ static struct posix_timers_info {
 	struct timespec start, end;
 } posix_timers[] = {
 #ifndef NO_PERIODIC
-	[REALTIME_PERIODIC_INFO] = {CLOCK_REALTIME, "REALTIME (periodic)",
-				realtime_periodic_handler, SIGALRM, 0, 1},
-	[MONOTONIC_PERIODIC_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (periodic)",
-				monotonic_periodic_handler, SIGINT, 0, 3},
-	[BOOTTIME_PERIODIC_INFO] = {CLOCK_BOOTTIME, "BOOTTIME (periodic)",
-				boottime_periodic_handler, SIGWINCH, 0, 3},
+	[REALTIME_PERIODIC_INFO] = {
+		.clock		= CLOCK_REALTIME,
+		.name		= "REALTIME (periodic)",
+		.handler	= realtime_periodic_handler,
+		.sig		= SIGALRM,
+		.oneshot	= 0,
+		.ms_int		= 1,
+	},
+	[MONOTONIC_PERIODIC_INFO] = {
+		.clock		= CLOCK_MONOTONIC,
+		.name		= "MONOTONIC (periodic)",
+		.handler	= monotonic_periodic_handler,
+		.sig		= SIGINT,
+		.oneshot	= 0,
+		.ms_int		= 3,
+	},
+	[BOOTTIME_PERIODIC_INFO] = {
+		.clock		= CLOCK_BOOTTIME,
+		.name		= "BOOTTIME (periodic)",
+		.handler	= boottime_periodic_handler,
+		.sig		= SIGWINCH,
+		.oneshot	= 0,
+		.ms_int		= 3,
+	},
 #endif
-	[REALTIME_ONESHOT_INFO] = {CLOCK_REALTIME, "REALTIME (oneshot)",
-				realtime_oneshot_handler, SIGUSR1, 1, INT_MAX},
-	[MONOTONIC_ONESHOT_INFO] = {CLOCK_MONOTONIC, "MONOTONIC (oneshot)",
-				monotonic_oneshot_handler, SIGUSR2, 1, INT_MAX},
-	[BOOTTIME_ONESHOT_INFO] = {CLOCK_BOOTTIME, "BOOTTIME (oneshot)",
-				boottime_oneshot_handler, SIGPROF, 1, INT_MAX },
+	[REALTIME_ONESHOT_INFO] = {
+		.clock		= CLOCK_REALTIME,
+		.name		= "REALTIME (oneshot)",
+		.handler	= realtime_oneshot_handler,
+		.sig		= SIGUSR1,
+		.oneshot	= 1,
+		.ms_int		= INT_MAX,
+	},
+	[MONOTONIC_ONESHOT_INFO] = {
+		.clock		= CLOCK_MONOTONIC,
+		.name		= "MONOTONIC (oneshot)",
+		.handler	= monotonic_oneshot_handler,
+		.sig		= SIGUSR2,
+		.oneshot	= 1,
+		.ms_int		= INT_MAX,
+	},
+	[BOOTTIME_ONESHOT_INFO] = {
+		.clock		= CLOCK_BOOTTIME,
+		.name		= "BOOTTIME (oneshot)",
+		.handler	= boottime_oneshot_handler,
+		.sig		= SIGPROF,
+		.oneshot	= 1,
+		.ms_int		= INT_MAX,
+	},
 	{ }
 };
 
@@ -137,12 +173,13 @@ static int check_handler_status(struct posix_timers_info *info,
 		timer_ms = (info->overrun + info->handler_cnt) * info->ms_int;
 	displacement = (abs(ms_passed - timer_ms) - delta) * 100 / ms_passed;
 
+	test_msg("%20s: cpt/rst          : %-8d msec\n", info->name, delta);
+	test_msg("%20s: Time passed (ms) : %-8d msec\n", info->name, ms_passed);
+	test_msg("%20s: Timer results    : %-8d msec\n", info->name, timer_ms);
+	test_msg("%20s: Handler count    : %d\n", info->name, info->handler_cnt);
+
 	if (displacement > MAX_TIMER_DISPLACEMENT) {
-		test_msg("%s: cpt/rst : %d msec\n", info->name, delta);
-		test_msg("%s: Time passed (ms) : %d msec\n", info->name, ms_passed);
-		test_msg("%s: Timer results    : %d msec\n", info->name, timer_ms);
-		test_msg("%s: Handler count    : %d\n", info->name, info->handler_cnt);
-		fail("%s: Time displacement: %d%% (max alloved: %d%%)\n", info->name, displacement, MAX_TIMER_DISPLACEMENT);
+		fail("%32s: Time displacement: %d%% (max alloved: %d%%)\n", info->name, displacement, MAX_TIMER_DISPLACEMENT);
 		return -EFAULT;
 	}
 	return 0;
