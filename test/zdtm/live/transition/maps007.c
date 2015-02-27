@@ -84,6 +84,8 @@ int main(int argc, char **argv)
 			if (!futex_get(&shm->stop))
 				/* shm->delta must be always bigger than MAX_DELTA */
 				futex_wait_while_lt(&shm->delta, MAX_DELTA + 2);
+			else if (count % 100 == 0)
+				test_msg("count %d delta %d\n", count, futex_get(&shm->delta)); /* heartbeat */
 
 			if (futex_get(&shm->stop) && atomic_get(&shm->delta.raw) == MAX_DELTA)
 				break;

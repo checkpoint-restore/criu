@@ -800,7 +800,7 @@ EOF
 	fi
 
 	sltime=1
-	for i in `seq 50`; do
+	for i in `seq 200`; do
 		kill -0 $PID > /dev/null 2>&1 || break
 		echo Waiting...
 		sleep 0.$sltime
@@ -825,6 +825,7 @@ EOF
 	fi
 
 	cat $test.out
+	[ $i -gt 50 ] && return 2 # waiting too long
 	cat $test.out | grep -q PASS || return 2
 	[ "$CLEANUP" -ne 0 ] && rm -rf --one-file-system `dirname $ddump`
 	echo "Test: $test, Result: PASS"
