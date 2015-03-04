@@ -19,6 +19,8 @@
 #include "util-pie.h"
 #include "fcntl.h"
 
+#include "bug.h"
+
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
 {
 	struct cmsghdr *cmsg;
@@ -153,8 +155,8 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 		 * into files which do not have glibc and a couple of
 		 * sys_write_ helpers. Meawhile opencoded BUG_ON here.
 		 */
-		if (unlikely(min_fd > CR_SCM_MAX_FD))
-			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;
+		BUG_ON(min_fd > CR_SCM_MAX_FD);
+
 		if (unlikely(min_fd <= 0))
 			return -1;
 		builtin_memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
