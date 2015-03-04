@@ -337,6 +337,44 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 	return 0;
 }
 
+static int premap_priv_vmas(pid_t pid, struct vm_area_list *vmas, void *at)
+{
+	struct list_head *parent_vmas;
+	struct vma_area *pvma, *vma;
+	unsigned long pstart = 0;
+	int ret = 0;
+	LIST_HEAD(empty);
+
+	/*
+	 * Keep parent vmas at hands to check whether we can "inherit" them.
+	 * See comments in map_private_vma.
+	 */
+	if (current->parent)
+		parent_vmas = &rsti(current->parent)->vmas.h;
+	else
+		parent_vmas = &empty;
+
+	pvma = list_first_entry(parent_vmas, struct vma_area, list);
+
+	list_for_each_entry(vma, &vmas->h, list) {
+		if (pstart > vma->e->start) {
+			ret = -1;
+			pr_err("VMA-s are not sorted in the image file\n");
+			break;
+		}
+		pstart = vma->e->start;
+
+		if (!vma_priv(vma->e))
+			continue;
+
+		ret = map_private_vma(pid, vma, &at, &pvma, parent_vmas);
+		if (ret < 0)
+			break;
+	}
+
+	return ret;
+}
+
 static int restore_priv_vma_content(pid_t pid)
 {
 	struct vma_area *vma;
@@ -483,27 +521,15 @@ err_addr:
 static int prepare_mappings(int pid)
 {
 	int ret = 0;
-	struct vma_area *pvma, *vma;
 	void *addr;
 	struct vm_area_list *vmas;
-	struct list_head *parent_vmas = NULL;
-	LIST_HEAD(empty);
 
 	void *old_premmapped_addr = NULL;
-	unsigned long old_premmapped_len, pstart = 0;
+	unsigned long old_premmapped_len;
 
 	vmas = &rsti(current)->vmas;
 	if (vmas->nr == 0) /* Zombie */
 		goto out;
-
-	/*
-	 * Keep parent vmas at hands to check whether we can "inherit" them.
-	 * See comments in map_private_vma.
-	 */
-	if (current->parent)
-		parent_vmas = &rsti(current->parent)->vmas.h;
-	else
-		parent_vmas = &empty;
 
 	/* Reserve a place for mapping private vma-s one by one */
 	addr = mmap(NULL, vmas->priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -517,25 +543,8 @@ static int prepare_mappings(int pid)
 	rsti(current)->premmapped_addr = addr;
 	rsti(current)->premmapped_len = vmas->priv_size;
 
-	pvma = list_first_entry(parent_vmas, struct vma_area, list);
-
-	list_for_each_entry(vma, &vmas->h, list) {
-		if (pstart > vma->e->start) {
-			ret = -1;
-			pr_err("VMA-s are not sorted in the image file\n");
-			break;
-		}
-		pstart = vma->e->start;
-
-		if (!vma_priv(vma->e))
-			continue;
-
-		ret = map_private_vma(pid, vma, &addr, &pvma, parent_vmas);
-		if (ret < 0)
-			break;
-	}
-
-	if (ret >= 0)
+	ret = premap_priv_vmas(pid, vmas, addr);
+	if (ret == 0)
 		ret = restore_priv_vma_content(pid);
 
 out:
