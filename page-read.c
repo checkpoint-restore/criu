@@ -190,7 +190,7 @@ static void close_page_read(struct page_read *pr)
 		close_image(pr->pi);
 }
 
-static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
+static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int pfd;
 	struct page_read *parent = NULL;
@@ -203,7 +203,7 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int flags)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_read_at(pfd, pid, parent, flags, false)) {
+	if (open_page_read_at(pfd, pid, parent, pr_flags)) {
 		if (errno != ENOENT)
 			goto err_free;
 		xfree(parent);
@@ -222,16 +222,39 @@ err_cl:
 	return -1;
 }
 
-int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool shmem)
+int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
+	int flags, i_typ, i_typ_o;
+
+	if (opts.auto_dedup)
+		pr_flags |= PR_MOD;
+	if (pr_flags & PR_MOD)
+		flags = O_RDWR;
+	else
+		flags = O_RSTR;
+
+	switch (pr_flags & PR_TYPE_MASK) {
+	case PR_TASK:
+		i_typ = CR_FD_PAGEMAP;
+		i_typ_o = CR_FD_PAGES_OLD;
+		break;
+	case PR_SHMEM:
+		i_typ = CR_FD_SHMEM_PAGEMAP;
+		i_typ_o = CR_FD_SHM_PAGES_OLD;
+		break;
+	default:
+		BUG();
+		return -1;
+	}
+
 	pr->pe = NULL;
 	pr->parent = NULL;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 
-	pr->pmi = open_image_at(dfd, shmem ? CR_FD_SHMEM_PAGEMAP : CR_FD_PAGEMAP, O_RSTR, (long)pid);
+	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi) {
-		pr->pmi = open_image_at(dfd, shmem ? CR_FD_SHM_PAGES_OLD : CR_FD_PAGES_OLD, flags, pid);
+		pr->pmi = open_image_at(dfd, i_typ_o, flags, pid);
 		if (!pr->pmi)
 			return -1;
 
@@ -242,7 +265,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool sh
 	} else {
 		static unsigned ids = 1;
 
-		if (!shmem && try_open_parent(dfd, pid, pr, flags)) {
+		if ((i_typ != CR_FD_SHMEM_PAGEMAP) && try_open_parent(dfd, pid, pr, pr_flags)) {
 			close_image(pr->pmi);
 			return -1;
 		}
@@ -267,7 +290,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int flags, bool sh
 	return 0;
 }
 
-int open_page_read(int pid, struct page_read *pr, int flags, bool shmem)
+int open_page_read(int pid, struct page_read *pr, int pr_flags)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, flags, shmem);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, pr_flags);
 }

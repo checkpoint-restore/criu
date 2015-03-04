@@ -352,8 +352,7 @@ static int restore_priv_vma_content(pid_t pid)
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 
-	ret = open_page_read(pid, &pr,
-			opts.auto_dedup ? O_RDWR : O_RSTR, false);
+	ret = open_page_read(pid, &pr, PR_TASK);
 	if (ret)
 		return -1;
 

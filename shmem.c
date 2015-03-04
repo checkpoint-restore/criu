@@ -151,7 +151,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	struct page_read pr;
 	unsigned long off_real;
 
-	ret = open_page_read(si->shmid, &pr, opts.auto_dedup ? O_RDWR : O_RSTR, true);
+	ret = open_page_read(si->shmid, &pr, PR_SHMEM);
 	if (ret)
 		return -1;
 
