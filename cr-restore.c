@@ -534,8 +534,9 @@ static int prepare_mappings(int pid)
 	/* Reserve a place for mapping private vma-s one by one */
 	addr = mmap(NULL, vmas->priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
+		ret = -1;
 		pr_perror("Unable to reserve memory (%lu bytes)", vmas->priv_size);
-		return -1;
+		goto out;
 	}
 
 	old_premmapped_addr = rsti(current)->premmapped_addr;
@@ -544,18 +545,21 @@ static int prepare_mappings(int pid)
 	rsti(current)->premmapped_len = vmas->priv_size;
 
 	ret = premap_priv_vmas(pid, vmas, addr);
-	if (ret == 0)
-		ret = restore_priv_vma_content(pid);
+	if (ret < 0)
+		goto out;
 
-out:
-	if (old_premmapped_addr &&
-	    munmap(old_premmapped_addr, old_premmapped_len)) {
-		pr_perror("Unable to unmap %p(%lx)",
-				old_premmapped_addr, old_premmapped_len);
-		return -1;
+	ret = restore_priv_vma_content(pid);
+	if (ret < 0)
+		goto out;
+
+	if (old_premmapped_addr) {
+		ret = munmap(old_premmapped_addr, old_premmapped_len);
+		if (ret < 0)
+			pr_perror("Unable to unmap %p(%lx)",
+					old_premmapped_addr, old_premmapped_len);
 	}
 
-
+out:
 	return ret;
 }
 
