@@ -120,7 +120,7 @@ extern bool ns_per_id;
 #define O_OPT	(O_PATH)
 #define O_NOBUF	(O_DIRECT)
 
-#define O_DUMP	(O_RDWR | O_CREAT | O_TRUNC)
+#define O_DUMP	(O_WRONLY | O_CREAT | O_TRUNC)
 #define O_SHOW	(O_RDONLY | O_NOBUF)
 #define O_RSTR	(O_RDONLY)
 
