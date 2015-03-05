@@ -210,6 +210,9 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	va_list args;
 	int ret;
 
+	if (dfd == -1)
+		dfd = get_service_fd(IMG_FD_OFF);
+
 	img = xmalloc(sizeof(*img));
 	if (!img)
 		goto errn;

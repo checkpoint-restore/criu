@@ -138,7 +138,7 @@ extern int open_image_dir(char *dir);
 extern void close_image_dir(void);
 
 extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);
-#define open_image(typ, flags, ...) open_image_at(get_service_fd(IMG_FD_OFF), typ, flags, ##__VA_ARGS__)
+#define open_image(typ, flags, ...) open_image_at(-1, typ, flags, ##__VA_ARGS__)
 extern struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi);
 extern struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi);
 extern void up_page_ids_base(void);
