@@ -226,10 +226,13 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if (errno == ENOENT)
+		if (!(flags & O_CREAT) && (errno == ENOENT)) {
 			pr_info("No %s image\n", path);
-		else
-			pr_perror("Unable to open %s", path);
+			img->_x.fd = EMPTY_IMG_FD;
+			goto skip_magic;
+		}
+
+		pr_perror("Unable to open %s", path);
 		goto err;
 	}
 
@@ -270,7 +273,8 @@ err_close:
 
 void close_image(struct cr_img *img)
 {
-	bclose(&img->_x);
+	if (!empty_image(img))
+		bclose(&img->_x);
 	xfree(img);
 }
 

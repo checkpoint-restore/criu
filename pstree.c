@@ -427,16 +427,15 @@ static int read_pstree_image(void)
 			struct cr_img *img;
 
 			img = open_image(CR_FD_IDS, O_RSTR, pi->pid.virt);
-			if (!img) {
-				if (errno == ENOENT)
-					continue;
+			if (!img)
 				goto err;
-			}
-			ret = pb_read_one(img, &pi->ids, PB_IDS);
+			ret = pb_read_one_eof(img, &pi->ids, PB_IDS);
 			close_image(img);
-			}
+		}
 
-		if (ret != 1)
+		if (ret == 0)
+			continue;
+		if (ret < 0)
 			goto err;
 
 		if (pi->ids->has_mnt_ns_id) {

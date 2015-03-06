@@ -610,11 +610,8 @@ int prepare_fd_pid(struct pstree_item *item)
 
 	if (!fdinfo_per_id) {
 		img = open_image(CR_FD_FDINFO, O_RSTR, pid);
-		if (!img) {
-			if (errno == ENOENT)
-				return 0;
+		if (!img)
 			return -1;
-		}
 	} else {
 		if (item->ids == NULL) /* zombie */
 			return 0;
@@ -1115,19 +1112,16 @@ int prepare_fs_pid(struct pstree_item *item)
 	struct rst_info *ri = rsti(item);
 	struct cr_img *img;
 	FsEntry *fe;
+	int ret = -1;
 
 	img = open_image(CR_FD_FS, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT)
-			goto ok;
-		else
-			goto out;
-	}
+	if (!img)
+		goto out;
 
-	if (pb_read_one(img, &fe, PB_FS) < 0)
-		goto out_i;
-
+	ret = pb_read_one_eof(img, &fe, PB_FS);
 	close_image(img);
+	if (ret <= 0)
+		goto out;
 
 	ri->cwd = collect_special_file(fe->cwd_id);
 	if (!ri->cwd) {
@@ -1144,18 +1138,11 @@ int prepare_fs_pid(struct pstree_item *item)
 	ri->has_umask = fe->has_umask;
 	ri->umask = fe->umask;
 
-	fs_entry__free_unpacked(fe, NULL);
-ok:
-	return 0;
-
+	ret = 0;
 out_f:
 	fs_entry__free_unpacked(fe, NULL);
-	return -1;
-
-out_i:
-	close_image(img);
 out:
-	return -1;
+	return ret;
 }
 
 int shared_fdt_prepare(struct pstree_item *item)

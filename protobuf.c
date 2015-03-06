@@ -528,7 +528,10 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 
 	*pobj = NULL;
 
-	ret = bread(&img->_x, &size, sizeof(size));
+	if (unlikely(empty_image(img)))
+		ret = 0;
+	else
+		ret = bread(&img->_x, &size, sizeof(size));
 	if (ret == 0) {
 		if (eof) {
 			return 0;
@@ -642,12 +645,8 @@ int collect_image(struct collect_image_info *cinfo)
 			cinfo->fd_type, cinfo->pb_type, cinfo->flags);
 
 	img = open_image(cinfo->fd_type, O_RSTR);
-	if (!img) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	cinfo->flags |= COLLECT_HAPPENED;
 	if (cinfo->flags & COLLECT_SHARED) {

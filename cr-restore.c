@@ -2170,12 +2170,8 @@ static int prepare_posix_timers_from_fd(int pid)
 	struct restore_posix_timer *t;
 
 	img = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT) /* backward compatibility */
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	while (1) {
 		PosixTimerEntry *pte;
@@ -2420,14 +2416,8 @@ static int prepare_rlimits_from_fd(int pid)
 	 * Old image -- read from the file.
 	 */
 	img = open_image(CR_FD_RLIMIT, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT) {
-			pr_info("Skip rlimits for %d\n", pid);
-			return 0;
-		}
-
+	if (!img)
 		return -1;
-	}
 
 	while (1) {
 		RlimitEntry *re;
@@ -2512,12 +2502,8 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 	struct cr_img *img;
 
 	img = open_image(type, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT) /* backward compatibility */
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	*nr = 0;
 	while (1) {

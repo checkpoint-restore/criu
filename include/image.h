@@ -127,6 +127,13 @@ struct cr_img {
 	struct bfd _x;
 };
 
+#define EMPTY_IMG_FD	(-404)
+
+static inline bool empty_image(struct cr_img *img)
+{
+	return img && img->_x.fd == EMPTY_IMG_FD;
+}
+
 static inline int img_raw_fd(struct cr_img *img)
 {
 	BUG_ON(bfd_buffered(&img->_x));

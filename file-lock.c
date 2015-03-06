@@ -342,12 +342,8 @@ static int restore_file_locks_legacy(int pid)
 	FileLockEntry *fle;
 
 	img = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	while (1) {
 		ret = pb_read_one_eof(img, &fle, PB_FILE_LOCK);

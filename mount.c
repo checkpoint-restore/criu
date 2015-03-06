@@ -937,9 +937,11 @@ static int tmpfs_restore(struct mount_info *pm)
 	struct cr_img *img;
 
 	img = open_image(CR_FD_TMPFS_DEV, O_RSTR, pm->s_dev);
-	if (!img && errno == ENOENT)
+	if (empty_image(img)) {
+		close_image(img);
 		img = open_image(CR_FD_TMPFS_IMG, O_RSTR, pm->mnt_id);
-	if (!img)
+	}
+	if (!img || empty_image(img))
 		return -1;
 
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",

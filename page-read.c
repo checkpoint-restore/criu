@@ -256,11 +256,12 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->bunch.iov_base = NULL;
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
-	if (!pr->pmi) {
-		if (errno == ENOENT)
-			goto open_old;
-		else
-			return -1;
+	if (!pr->pmi)
+		return -1;
+
+	if (empty_image(pr->pmi)) {
+		close_image(pr->pmi);
+		goto open_old;
 	}
 
 	if ((i_typ != CR_FD_SHMEM_PAGEMAP) && try_open_parent(dfd, pid, pr, pr_flags)) {
@@ -287,11 +288,12 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 open_old:
 	pr->pmi = open_image_at(dfd, i_typ_o, flags, pid);
-	if (!pr->pmi) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
+	if (!pr->pmi)
+		return -1;
+
+	if (empty_image(pr->pmi)) {
+		close_image(pr->pmi);
+		return 0;
 	}
 
 	pr->get_pagemap = get_page_vaddr;

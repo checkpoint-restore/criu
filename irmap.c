@@ -403,23 +403,27 @@ in:
 	if (dir != AT_FDCWD)
 		close(dir);
 
-	if (*img) {
-		pr_info("... done\n");
-		return 1;
+	if (empty_image(*img)) {
+		close_image(*img);
+		if (dir == AT_FDCWD) {
+			pr_info("Searching irmap cache in parent\n");
+			dir = openat(get_service_fd(IMG_FD_OFF),
+					CR_PARENT_LINK, O_RDONLY);
+			if (dir >= 0)
+				goto in;
+			if (errno != ENOENT)
+				return -1;
+		}
+
+		pr_info("No irmap cache\n");
+		return 0;
 	}
 
-	if (errno == ENOENT && dir == AT_FDCWD) {
-		pr_info("Searching irmap cache in parent\n");
-		dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-		if (dir >= 0)
-			goto in;
-	}
-
-	if (errno != ENOENT)
+	if (!*img)
 		return -1;
 
-	pr_info("No irmap cache\n");
-	return 0;
+	pr_info("... done\n");
+	return 1;
 }
 
 int irmap_load_cache(void)

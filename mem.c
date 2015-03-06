@@ -396,17 +396,13 @@ int prepare_mm_pid(struct pstree_item *i)
 	struct rst_info *ri = rsti(i);
 
 	img = open_image(CR_FD_MM, O_RSTR, pid);
-	if (!img) {
-		if (errno == ENOENT)
-			return 0;
+	if (!img)
 		return -1;
-	}
 
-	ret = pb_read_one(img, &ri->mm, PB_MM);
+	ret = pb_read_one_eof(img, &ri->mm, PB_MM);
 	close_image(img);
-
-	if (ret < 0)
-		return -1;
+	if (ret <= 0)
+		return ret;
 
 	if (collect_special_file(ri->mm->exe_file_id) == NULL)
 		return -1;

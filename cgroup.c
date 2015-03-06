@@ -1292,12 +1292,8 @@ int prepare_cgroup(void)
 	CgroupEntry *ce;
 
 	img = open_image(CR_FD_CGROUP, O_RSTR);
-	if (!img) {
-		if (errno == ENOENT) /* backward compatibility */
-			return 0;
-		else
-			return -1;
-	}
+	if (!img)
+		return -1;
 
 	ret = pb_read_one_eof(img, &ce, PB_CGROUP);
 	close_image(img);
