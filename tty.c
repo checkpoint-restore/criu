@@ -132,14 +132,14 @@ static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
 struct tty_driver {
-	int t;
-	char *name;
-	int index;
-	int img_type;
-	unsigned flags;
-	int (*fd_get_index)(int fd, const struct fd_parms *);
-	int (*img_get_index)(struct tty_info *ti);
-	int (*open)(struct tty_info *ti);
+	int				t;
+	char				*name;
+	int				index;
+	int				img_type;
+	unsigned int			flags;
+	int				(*fd_get_index)(int fd, const struct fd_parms *p);
+	int				(*img_get_index)(struct tty_info *ti);
+	int				(*open)(struct tty_info *ti);
 };
 
 #define TTY_PAIR	0x1
@@ -170,33 +170,33 @@ static int pty_get_index(struct tty_info *ti)
 static int pty_open_ptmx(struct tty_info *info);
 
 static struct tty_driver ptm_driver = {
-	.t = TTY_TYPE_PTM,
-	.flags = TTY_PAIR | TTY_MASTER,
-	.name = "ptmx",
-	.img_type = TTY_TYPE__PTY,
-	.fd_get_index = ptm_fd_get_index,
-	.img_get_index = pty_get_index,
-	.open = pty_open_ptmx,
+	.t			= TTY_TYPE_PTM,
+	.flags			= TTY_PAIR | TTY_MASTER,
+	.name			= "ptmx",
+	.img_type		= TTY_TYPE__PTY,
+	.fd_get_index		= ptm_fd_get_index,
+	.img_get_index		= pty_get_index,
+	.open			= pty_open_ptmx,
 };
 
 static int open_simple_tty(struct tty_info *info);
 
 static struct tty_driver console_driver = {
-	.t = TTY_TYPE_CONSOLE,
-	.flags = TTY_MASTER,
-	.name = "console",
-	.img_type = TTY_TYPE__CONSOLE,
-	.index = CONSOLE_INDEX,
-	.open = open_simple_tty,
+	.t			= TTY_TYPE_CONSOLE,
+	.flags			= TTY_MASTER,
+	.name			= "console",
+	.img_type		= TTY_TYPE__CONSOLE,
+	.index			= CONSOLE_INDEX,
+	.open			= open_simple_tty,
 };
 
 static struct tty_driver vt_driver = {
-	.t = TTY_TYPE_VT,
-	.flags = 0,
-	.name = "vt",
-	.img_type = TTY_TYPE__VT,
-	.index = VT_INDEX,
-	.open = open_simple_tty,
+	.t			= TTY_TYPE_VT,
+	.flags			= 0,
+	.name			= "vt",
+	.img_type		= TTY_TYPE__VT,
+	.index			= VT_INDEX,
+	.open			= open_simple_tty,
 };
 
 static int pts_fd_get_index(int fd, const struct fd_parms *p)
@@ -220,13 +220,13 @@ static int pts_fd_get_index(int fd, const struct fd_parms *p)
 }
 
 static struct tty_driver pts_driver = {
-	.t = TTY_TYPE_PTS,
-	.flags = TTY_PAIR,
-	.name = "pts",
-	.img_type = TTY_TYPE__PTY,
-	.fd_get_index = pts_fd_get_index,
-	.img_get_index = pty_get_index,
-	.open = pty_open_ptmx,
+	.t			= TTY_TYPE_PTS,
+	.flags			= TTY_PAIR,
+	.name			= "pts",
+	.img_type		= TTY_TYPE__PTY,
+	.fd_get_index		= pts_fd_get_index,
+	.img_get_index		= pty_get_index,
+	.open			= pty_open_ptmx,
 };
 
 struct tty_driver *get_tty_driver(int major, int minor)
