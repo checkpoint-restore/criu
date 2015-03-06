@@ -19,12 +19,6 @@ enum {
 	TTY_TYPE_MAX
 };
 
-#define PTMX_PATH	"/dev/ptmx"
-#ifndef PTMX_MINOR
-# define PTMX_MINOR 2
-#endif
-#define PTS_FMT		"/dev/pts/%d"
-
 extern const struct fdtype_ops tty_dump_ops;
 
 struct tty_type;
