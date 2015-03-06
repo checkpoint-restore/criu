@@ -1262,7 +1262,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg)
 		       info->tie->type, info->tie->id);
 		return -1;
 	}
-	
+
 	INIT_LIST_HEAD(&info->list);
 	list_add(&info->list, &all_tty_info_entries);
 
