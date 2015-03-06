@@ -88,7 +88,7 @@ struct tty_info {
 	TtyInfoEntry			*tie;
 
 	struct list_head		sibling;
-	struct tty_type			*type;
+	struct tty_driver		*driver;
 
 	bool				create;
 	bool				inherit;
@@ -101,7 +101,7 @@ struct tty_dump_info {
 	pid_t				sid;
 	pid_t				pgrp;
 	int				fd;
-	struct tty_type			*type;
+	struct tty_driver		*driver;
 };
 
 static LIST_HEAD(all_tty_info_entries);
@@ -131,7 +131,7 @@ static LIST_HEAD(all_ttys);
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
-struct tty_type {
+struct tty_driver {
 	int t;
 	char *name;
 	int index;
@@ -169,7 +169,7 @@ static int pty_get_index(struct tty_info *ti)
 
 static int pty_open_ptmx(struct tty_info *info);
 
-static struct tty_type ptm_type = {
+static struct tty_driver ptm_driver = {
 	.t = TTY_TYPE_PTM,
 	.flags = TTY_PAIR | TTY_MASTER,
 	.name = "ptmx",
@@ -181,7 +181,7 @@ static struct tty_type ptm_type = {
 
 static int open_simple_tty(struct tty_info *info);
 
-static struct tty_type console_type = {
+static struct tty_driver console_driver = {
 	.t = TTY_TYPE_CONSOLE,
 	.flags = TTY_MASTER,
 	.name = "console",
@@ -190,7 +190,7 @@ static struct tty_type console_type = {
 	.open = open_simple_tty,
 };
 
-static struct tty_type vt_type = {
+static struct tty_driver vt_driver = {
 	.t = TTY_TYPE_VT,
 	.flags = 0,
 	.name = "vt",
@@ -219,7 +219,7 @@ static int pts_fd_get_index(int fd, const struct fd_parms *p)
 	return index;
 }
 
-static struct tty_type pts_type = {
+static struct tty_driver pts_driver = {
 	.t = TTY_TYPE_PTS,
 	.flags = TTY_PAIR,
 	.name = "pts",
@@ -229,14 +229,14 @@ static struct tty_type pts_type = {
 	.open = pty_open_ptmx,
 };
 
-struct tty_type *get_tty_type(int major, int minor)
+struct tty_driver *get_tty_driver(int major, int minor)
 {
 	switch (major) {
 	case TTYAUX_MAJOR:
 		if (minor == 2)
-			return &ptm_type;
+			return &ptm_driver;
 		else if (minor == 1)
-			return &console_type;
+			return &console_driver;
 		break;
 	case TTY_MAJOR:
 		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
@@ -245,18 +245,18 @@ struct tty_type *get_tty_type(int major, int minor)
 			 * for consoles (virtual terminals, VT in terms
 			 * of kernel).
 			 */
-			return &vt_type;
+			return &vt_driver;
 	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
-		return &ptm_type;
+		return &ptm_driver;
 	case UNIX98_PTY_SLAVE_MAJOR:
-		return &pts_type;
+		return &pts_driver;
 	}
 	return NULL;
 }
 
-static inline int is_pty(struct tty_type *type)
+static inline int is_pty(struct tty_driver *driver)
 {
-	return type->flags & TTY_PAIR;
+	return driver->flags & TTY_PAIR;
 }
 
 /*
@@ -302,9 +302,9 @@ int prepare_shared_tty(void)
 		ASSIGN_MEMBER((d),(s), c_line);		\
 	} while (0)
 
-static int tty_gen_id(struct tty_type *type, int index)
+static int tty_gen_id(struct tty_driver *driver, int index)
 {
-	return (index << 1) + (type->t == TTY_TYPE_PTM);
+	return (index << 1) + (driver->t == TTY_TYPE_PTM);
 }
 
 static int tty_get_index(u32 id)
@@ -417,7 +417,7 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
 		 info->tfe->id, info->reg_d);
 
 	BUG_ON(!info->reg_d);
-	BUG_ON(!is_pty(info->type));
+	BUG_ON(!is_pty(info->driver));
 
 	fake_desc = pty_alloc_reg(info, false);
 	if (!fake_desc)
@@ -583,7 +583,7 @@ static int tty_set_prgp(int fd, int group)
 static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
-	struct tty_type *type = info->type;
+	struct tty_driver *driver = info->driver;
 	struct reg_file_info *fake = NULL;
 	struct file_desc *slave_d;
 	int slave = -1, ret = -1, index = -1;
@@ -591,12 +591,12 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
 
-	if (type->img_get_index)
-		index = type->img_get_index(info);
+	if (driver->img_get_index)
+		index = driver->img_get_index(info);
 	else
-		index = type->index;
+		index = driver->index;
 
-	if (is_pty(info->type)) {
+	if (is_pty(info->driver)) {
 		fake = pty_alloc_fake_slave(info);
 		if (!fake)
 			goto err;
@@ -627,10 +627,10 @@ err:
 
 static bool tty_is_master(struct tty_info *info)
 {
-	if (info->type->flags & TTY_MASTER)
+	if (info->driver->flags & TTY_MASTER)
 		return true;
 
-	if (info->type->t == TTY_TYPE_VT && !opts.shell_job)
+	if (info->driver->t == TTY_TYPE_VT && !opts.shell_job)
 		return true;
 
 	return false;
@@ -652,15 +652,15 @@ static bool tty_has_active_pair(struct tty_info *info)
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
 {
 	int index = -1;
-	struct tty_type *type = info->type;
+	struct tty_driver *driver = info->driver;
 
-	if (type->img_get_index)
-		index = type->img_get_index(info);
+	if (driver->img_get_index)
+		index = driver->img_get_index(info);
 	else
-		index = type->index;
+		index = driver->index;
 
-	pr_info("%s type %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
-		prefix, info->type->name, info->tfe->id, index,
+	pr_info("%s driver %s id %#x index %d (master %d sid %d pgrp %d inherit %d)\n",
+		prefix, info->driver->name, info->tfe->id, index,
 		tty_is_master(info), info->tie->sid, info->tie->pgrp, info->inherit);
 }
 
@@ -936,7 +936,7 @@ static int open_simple_tty(struct tty_info *info)
 	fd = open_pty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
 		pr_perror("Can't open %s %x",
-				info->type->name, info->tfe->id);
+				info->driver->name, info->tfe->id);
 		return -1;
 	}
 
@@ -961,7 +961,7 @@ static int tty_open(struct file_desc *d)
 	if (!tty_is_master(info))
 		return pty_open_unpaired_slave(d, info);
 
-	return info->type->open(info);
+	return info->driver->open(info);
 }
 
 static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
@@ -1140,12 +1140,12 @@ int tty_setup_slavery(void)
 	list_for_each_entry(info, &all_ttys, list) {
 		if (tty_find_restoring_task(info))
 			return -1;
-		if (!is_pty(info->type))
+		if (!is_pty(info->driver))
 			continue;
 
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
-			if (!is_pty(peer->type))
+			if (!is_pty(peer->driver))
 				continue;
 			if (peer->tie->pty->index != info->tie->pty->index)
 				continue;
@@ -1193,8 +1193,8 @@ static int verify_termios(u32 id, TermiosEntry *e)
 
 static int verify_info(struct tty_info *info)
 {
-	if (!info->type) {
-		pr_err("Unknown type master peer %x\n", info->tfe->id);
+	if (!info->driver) {
+		pr_err("Unknown driver master peer %x\n", info->tfe->id);
 		return -1;
 	}
 
@@ -1291,7 +1291,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	}
 
 	INIT_LIST_HEAD(&info->sibling);
-	info->type = get_tty_type(major(info->tie->rdev), minor(info->tie->rdev));
+	info->driver = get_tty_driver(major(info->tie->rdev), minor(info->tie->rdev));
 	info->create = tty_is_master(info);
 	info->inherit = false;
 
@@ -1305,7 +1305,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	 */
 	info->reg_d = try_collect_special_file(info->tfe->id, 1);
 	if (!info->reg_d) {
-		if (is_pty(info->type)) {
+		if (is_pty(info->driver)) {
 			info->reg_d = pty_alloc_reg(info, true);
 			if (!info->reg_d) {
 				pr_err("Can't generate new reg descriptor for id %#x\n",
@@ -1325,7 +1325,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	 * can't be used. Most likely they appear if a user has
 	 * dumped program when it was closing a peer.
 	 */
-	if (is_pty(info->type) && info->tie->termios)
+	if (is_pty(info->driver) && info->tie->termios)
 		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
 
 	pr_info("Collected tty ID %#x\n", info->tfe->id);
@@ -1374,7 +1374,7 @@ int dump_verify_tty_sids(void)
 				if (!opts.shell_job) {
 					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d.\n",
 					       dinfo->sid, dinfo->pgrp,
-					       dinfo->type->name, dinfo->fd);
+					       dinfo->driver->name, dinfo->fd);
 					/*
 					 * First thing people do with criu is dump smth
 					 * run from shell. This is typical pitfall, warn
@@ -1393,7 +1393,7 @@ int dump_verify_tty_sids(void)
 	return ret;
 }
 
-static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_type *type, int index)
+static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_driver *driver, int index)
 {
 	TtyInfoEntry info		= TTY_INFO_ENTRY__INIT;
 	TermiosEntry termios		= TERMIOS_ENTRY__INIT;
@@ -1416,7 +1416,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_t
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	pti = parasite_dump_tty(p->ctl, p->fd, type->t);
+	pti = parasite_dump_tty(p->ctl, p->fd, driver->t);
 	if (!pti)
 		return -1;
 
@@ -1428,7 +1428,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_t
 	dinfo->sid		= pti->sid;
 	dinfo->pgrp		= pti->pgrp;
 	dinfo->fd		= p->fd;
-	dinfo->type		= type;
+	dinfo->driver		= driver;
 
 	list_add_tail(&dinfo->list, &all_ttys);
 
@@ -1440,7 +1440,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_t
 	info.exclusive		= pti->st_excl;
 	info.packet_mode	= pti->st_pckt;
 
-	info.type = type->img_type;
+	info.type = driver->img_type;
 	if (info.type == TTY_TYPE__PTY) {
 		info.pty	= &pty;
 		pty.index	= index;
@@ -1461,7 +1461,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_t
 	 * not yet supported by our tool and better to
 	 * inform a user about such situation.
 	 */
-	if (is_pty(type))
+	if (is_pty(driver))
 		tty_test_and_set(id, tty_active_pairs);
 
 	info.termios		= &termios;
@@ -1509,18 +1509,18 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 {
 	TtyFileEntry e = TTY_FILE_ENTRY__INIT;
 	int ret = 0, index = -1;
-	struct tty_type *type;
+	struct tty_driver *driver;
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
 	if (dump_one_reg_file(lfd, id, p))
 		return -1;
 
-	type = get_tty_type(major(p->stat.st_rdev), minor(p->stat.st_rdev));
-	if (type->fd_get_index)
-		index = type->fd_get_index(lfd, p);
+	driver = get_tty_driver(major(p->stat.st_rdev), minor(p->stat.st_rdev));
+	if (driver->fd_get_index)
+		index = driver->fd_get_index(lfd, p);
 	else
-		index = type->index;
+		index = driver->index;
 
 	if (index == INDEX_ERR) {
 		pr_info("Can't obtain index on tty %d id %#x\n", lfd, id);
@@ -1528,7 +1528,7 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	e.id		= id;
-	e.tty_info_id	= tty_gen_id(type, index);
+	e.tty_info_id	= tty_gen_id(driver, index);
 	e.flags		= p->flags;
 	e.fown		= (FownEntry *)&p->fown;
 
@@ -1553,7 +1553,7 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	 */
 
 	if (!tty_test_and_set(e.tty_info_id, tty_bitmap))
-		ret = dump_tty_info(lfd, e.tty_info_id, p, type, index);
+		ret = dump_tty_info(lfd, e.tty_info_id, p, driver, index);
 
 	if (!ret)
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
