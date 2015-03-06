@@ -117,7 +117,6 @@
 extern bool fdinfo_per_id;
 extern bool ns_per_id;
 
-#define O_OPT	(O_PATH)
 #define O_NOBUF	(O_DIRECT)
 
 #define O_DUMP	(O_WRONLY | O_CREAT | O_TRUNC)

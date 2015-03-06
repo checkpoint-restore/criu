@@ -500,5 +500,4 @@ struct collect_image_info packet_sk_cinfo = {
 	.pb_type = PB_PACKET_SOCK,
 	.priv_size = sizeof(struct packet_sock_info),
 	.collect = collect_one_packet_sk,
-	.flags = COLLECT_OPTIONAL,
 };

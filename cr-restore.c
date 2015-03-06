@@ -2419,7 +2419,7 @@ static int prepare_rlimits_from_fd(int pid)
 	/*
 	 * Old image -- read from the file.
 	 */
-	img = open_image(CR_FD_RLIMIT, O_RSTR | O_OPT, pid);
+	img = open_image(CR_FD_RLIMIT, O_RSTR, pid);
 	if (!img) {
 		if (errno == ENOENT) {
 			pr_info("Skip rlimits for %d\n", pid);
@@ -2511,7 +2511,7 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 	int ret;
 	struct cr_img *img;
 
-	img = open_image(type, O_RSTR | O_OPT, pid);
+	img = open_image(type, O_RSTR, pid);
 	if (!img) {
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;

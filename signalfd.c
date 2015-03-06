@@ -120,5 +120,4 @@ struct collect_image_info signalfd_cinfo = {
 	.pb_type = PB_SIGNALFD,
 	.priv_size = sizeof(struct signalfd_info),
 	.collect = collect_one_sigfd,
-	.flags = COLLECT_OPTIONAL,
 };

@@ -210,7 +210,6 @@ struct collect_image_info epoll_tfd_cinfo = {
 	.pb_type = PB_EVENTPOLL_TFD,
 	.priv_size = sizeof(struct eventpoll_tfd_file_info),
 	.collect = collect_one_epoll_tfd,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_epoll(void *o, ProtobufCMessage *msg)

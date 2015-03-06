@@ -399,7 +399,7 @@ static int open_irmap_cache(struct cr_img **img)
 
 	pr_info("Searching irmap cache in work dir\n");
 in:
-	*img = open_image_at(dir, CR_FD_IRMAP_CACHE, O_RSTR | O_OPT);
+	*img = open_image_at(dir, CR_FD_IRMAP_CACHE, O_RSTR);
 	if (dir != AT_FDCWD)
 		close(dir);
 

@@ -454,7 +454,7 @@ static int cr_show_pstree_item(struct pstree_item *item)
 			cr_parse_fd(img_from_set(cr_imgset, i), imgset_template[i].magic);
 		}
 
-	img = open_image(CR_FD_RLIMIT, O_SHOW | O_OPT, item->pid.virt);
+	img = open_image(CR_FD_RLIMIT, O_SHOW, item->pid.virt);
 	if (img) {
 		pr_msg("* ");
 		pr_msg(imgset_template[CR_FD_RLIMIT].fmt, item->pid.virt);

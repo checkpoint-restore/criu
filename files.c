@@ -609,7 +609,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 
 	if (!fdinfo_per_id) {
-		img = open_image(CR_FD_FDINFO, O_RSTR | O_OPT, pid);
+		img = open_image(CR_FD_FDINFO, O_RSTR, pid);
 		if (!img) {
 			if (errno == ENOENT)
 				return 0;
@@ -1116,7 +1116,7 @@ int prepare_fs_pid(struct pstree_item *item)
 	struct cr_img *img;
 	FsEntry *fe;
 
-	img = open_image(CR_FD_FS, O_RSTR | O_OPT, pid);
+	img = open_image(CR_FD_FS, O_RSTR, pid);
 	if (!img) {
 		if (errno == ENOENT)
 			goto ok;

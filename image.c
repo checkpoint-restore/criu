@@ -218,7 +218,7 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 		goto errn;
 
 	oflags |= imgset_template[type].oflags;
-	flags &= ~(O_OPT | O_NOBUF);
+	flags &= ~(O_NOBUF);
 
 	va_start(args, flags);
 	vsnprintf(path, PATH_MAX, imgset_template[type].fmt, args);
@@ -226,12 +226,10 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if ((oflags & O_OPT) && errno == ENOENT) {
-			xfree(img);
-			return NULL;
-		}
-
-		pr_perror("Unable to open %s", path);
+		if (errno == ENOENT)
+			pr_info("No %s image\n", path);
+		else
+			pr_perror("Unable to open %s", path);
 		goto err;
 	}
 

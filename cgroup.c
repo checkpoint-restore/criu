@@ -1291,7 +1291,7 @@ int prepare_cgroup(void)
 	struct cr_img *img;
 	CgroupEntry *ce;
 
-	img = open_image(CR_FD_CGROUP, O_RSTR | O_OPT);
+	img = open_image(CR_FD_CGROUP, O_RSTR);
 	if (!img) {
 		if (errno == ENOENT) /* backward compatibility */
 			return 0;

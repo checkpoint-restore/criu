@@ -428,7 +428,7 @@ int cpu_validate_cpuinfo(void)
 	struct cr_img *img;
 	int ret = -1;
 
-	img = open_image(CR_FD_CPUINFO, O_RSTR | O_OPT);
+	img = open_image(CR_FD_CPUINFO, O_RSTR);
 	if (!img)
 		return -1;
 

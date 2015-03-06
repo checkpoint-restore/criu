@@ -1274,7 +1274,6 @@ struct collect_image_info tty_info_cinfo = {
 	.pb_type	= PB_TTY_INFO,
 	.priv_size	= sizeof(struct tty_info_entry),
 	.collect	= collect_one_tty_info_entry,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_tty(void *obj, ProtobufCMessage *msg)
@@ -1339,7 +1338,6 @@ struct collect_image_info tty_cinfo = {
 	.pb_type	= PB_TTY_FILE,
 	.priv_size	= sizeof(struct tty_info),
 	.collect	= collect_one_tty,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 /* Make sure the ttys we're dumping do belong our process tree */

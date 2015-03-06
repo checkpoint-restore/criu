@@ -395,7 +395,7 @@ int prepare_mm_pid(struct pstree_item *i)
 	struct cr_img *img;
 	struct rst_info *ri = rsti(i);
 
-	img = open_image(CR_FD_MM, O_RSTR | O_OPT, pid);
+	img = open_image(CR_FD_MM, O_RSTR, pid);
 	if (!img) {
 		if (errno == ENOENT)
 			return 0;

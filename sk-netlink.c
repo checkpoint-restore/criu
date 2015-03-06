@@ -230,5 +230,4 @@ struct collect_image_info netlink_sk_cinfo = {
 	.pb_type = PB_NETLINK_SK,
 	.priv_size = sizeof(struct netlink_sock_info),
 	.collect = collect_one_netlink_sk,
-	.flags = COLLECT_OPTIONAL,
 };

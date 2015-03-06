@@ -756,7 +756,6 @@ struct collect_image_info inotify_cinfo = {
 	.pb_type	= PB_INOTIFY_FILE,
 	.priv_size	= sizeof(struct fsnotify_file_info),
 	.collect	= collect_one_inotify,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_fanotify(void *o, ProtobufCMessage *msg)
@@ -792,7 +791,6 @@ struct collect_image_info fanotify_cinfo = {
 	.pb_type	= PB_FANOTIFY_FILE,
 	.priv_size	= sizeof(struct fsnotify_file_info),
 	.collect	= collect_one_fanotify,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
@@ -811,7 +809,6 @@ struct collect_image_info inotify_mark_cinfo = {
 	.pb_type	= PB_INOTIFY_WD,
 	.priv_size	= sizeof(struct fsnotify_mark_info),
 	.collect	= collect_one_inotify_mark,
-	.flags		= COLLECT_OPTIONAL,
 };
 
 static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg)
@@ -830,5 +827,4 @@ struct collect_image_info fanotify_mark_cinfo = {
 	.pb_type	= PB_FANOTIFY_MARK,
 	.priv_size	= sizeof(struct fsnotify_mark_info),
 	.collect	= collect_one_fanotify_mark,
-	.flags		= COLLECT_OPTIONAL,
 };

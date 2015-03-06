@@ -40,7 +40,6 @@ struct collect_image_info file_locks_cinfo = {
 	.pb_type = PB_FILE_LOCK,
 	.priv_size = sizeof(struct file_lock_rst),
 	.collect = collect_one_file_lock,
-	.flags = COLLECT_OPTIONAL,
 };
 
 struct file_lock *alloc_file_lock(void)
@@ -342,7 +341,7 @@ static int restore_file_locks_legacy(int pid)
 	struct cr_img *img;
 	FileLockEntry *fle;
 
-	img = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR | O_OPT, pid);
+	img = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR, pid);
 	if (!img) {
 		if (errno == ENOENT)
 			return 0;

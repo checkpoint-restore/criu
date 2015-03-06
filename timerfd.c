@@ -194,5 +194,4 @@ struct collect_image_info timerfd_cinfo = {
 	.pb_type	= PB_TIMERFD,
 	.priv_size	= sizeof(struct timerfd_info),
 	.collect	= collect_one_timerfd,
-	.flags		= COLLECT_OPTIONAL,
 };

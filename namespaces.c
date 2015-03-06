@@ -408,7 +408,6 @@ struct collect_image_info nsfile_cinfo = {
 	.pb_type = PB_NS_FILE,
 	.priv_size = sizeof(struct ns_file_info),
 	.collect = collect_one_nsfile,
-	.flags = COLLECT_OPTIONAL,
 };
 
 /*
