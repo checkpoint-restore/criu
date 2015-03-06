@@ -391,7 +391,7 @@ static int restore_priv_vma_content(pid_t pid)
 	vma = list_first_entry(vmas, struct vma_area, list);
 
 	ret = open_page_read(pid, &pr, PR_TASK);
-	if (ret)
+	if (ret <= 0)
 		return -1;
 
 	/*

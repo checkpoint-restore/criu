@@ -74,6 +74,11 @@ struct page_read {
 #define PR_TYPE_MASK	0x3
 #define PR_MOD		0x4	/* Will need to modify */
 
+/*
+ * -1 -- error
+ *  0 -- no images
+ *  1 -- opened
+ */
 extern int open_page_read(int pid, struct page_read *, int pr_flags);
 extern int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags);
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);

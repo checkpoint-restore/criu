@@ -741,7 +741,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 		}
 
 		ret = open_page_read_at(pfd, id, xfer->parent, PR_TASK);
-		if (ret) {
+		if (ret <= 0) {
 			pr_perror("No parent image found, though parent directory is set");
 			xfree(xfer->parent);
 			xfer->parent = NULL;

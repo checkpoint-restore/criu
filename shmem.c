@@ -152,7 +152,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	unsigned long off_real;
 
 	ret = open_page_read(si->shmid, &pr, PR_SHMEM);
-	if (ret)
+	if (ret <= 0)
 		return -1;
 
 	fd_pg = img_raw_fd(pr.pi);

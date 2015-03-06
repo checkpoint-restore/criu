@@ -192,7 +192,7 @@ static void close_page_read(struct page_read *pr)
 
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
-	int pfd;
+	int pfd, ret;
 	struct page_read *parent = NULL;
 
 	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
@@ -203,9 +203,11 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 	if (!parent)
 		goto err_cl;
 
-	if (open_page_read_at(pfd, pid, parent, pr_flags)) {
-		if (errno != ENOENT)
-			goto err_free;
+	ret = open_page_read_at(pfd, pid, parent, pr_flags);
+	if (ret < 0)
+		goto err_free;
+
+	if (!ret) {
 		xfree(parent);
 		parent = NULL;
 	}
@@ -225,6 +227,7 @@ err_cl:
 int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int flags, i_typ, i_typ_o;
+	static unsigned ids = 1;
 
 	if (opts.auto_dedup)
 		pr_flags |= PR_MOD;
@@ -254,40 +257,50 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi) {
-		pr->pmi = open_image_at(dfd, i_typ_o, flags, pid);
-		if (!pr->pmi)
+		if (errno == ENOENT)
+			goto open_old;
+		else
 			return -1;
-
-		pr->get_pagemap = get_page_vaddr;
-		pr->put_pagemap = NULL;
-		pr->read_page = read_page;
-		pr->pi = NULL;
-	} else {
-		static unsigned ids = 1;
-
-		if ((i_typ != CR_FD_SHMEM_PAGEMAP) && try_open_parent(dfd, pid, pr, pr_flags)) {
-			close_image(pr->pmi);
-			return -1;
-		}
-
-		pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
-		if (!pr->pi) {
-			close_page_read(pr);
-			return -1;
-		}
-
-		pr->get_pagemap = get_pagemap;
-		pr->put_pagemap = put_pagemap;
-		pr->read_page = read_pagemap_page;
-		pr->id = ids++;
-
-		pr_debug("Opened page read %u (parent %u)\n",
-				pr->id, pr->parent ? pr->parent->id : 0);
 	}
 
+	if ((i_typ != CR_FD_SHMEM_PAGEMAP) && try_open_parent(dfd, pid, pr, pr_flags)) {
+		close_image(pr->pmi);
+		return -1;
+	}
+
+	pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
+	if (!pr->pi) {
+		close_page_read(pr);
+		return -1;
+	}
+
+	pr->get_pagemap = get_pagemap;
+	pr->put_pagemap = put_pagemap;
+	pr->read_page = read_pagemap_page;
+	pr->close = close_page_read;
+	pr->id = ids++;
+
+	pr_debug("Opened page read %u (parent %u)\n",
+			pr->id, pr->parent ? pr->parent->id : 0);
+
+	return 1;
+
+open_old:
+	pr->pmi = open_image_at(dfd, i_typ_o, flags, pid);
+	if (!pr->pmi) {
+		if (errno == ENOENT)
+			return 0;
+		else
+			return -1;
+	}
+
+	pr->get_pagemap = get_page_vaddr;
+	pr->put_pagemap = NULL;
+	pr->read_page = read_page;
+	pr->pi = NULL;
 	pr->close = close_page_read;
 
-	return 0;
+	return 1;
 }
 
 int open_page_read(int pid, struct page_read *pr, int pr_flags)
