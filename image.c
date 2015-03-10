@@ -202,27 +202,47 @@ struct cr_imgset *cr_glob_imgset_open(int mode)
 	return cr_imgset_open(-1 /* ignored */, GLOB, mode);
 }
 
+static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsigned long flags, char *path);
+
 struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 {
 	struct cr_img *img;
-	unsigned long oflags = flags;
+	unsigned long oflags;
 	char path[PATH_MAX];
 	va_list args;
-	int ret;
+	bool lazy = false;
 
-	if (dfd == -1)
+	if (dfd == -1) {
 		dfd = get_service_fd(IMG_FD_OFF);
+		lazy = (flags & O_CREAT);
+	}
 
 	img = xmalloc(sizeof(*img));
 	if (!img)
-		goto errn;
+		return NULL;
 
-	oflags |= imgset_template[type].oflags;
-	flags &= ~(O_NOBUF);
+	oflags = flags | imgset_template[type].oflags;
 
 	va_start(args, flags);
 	vsnprintf(path, PATH_MAX, imgset_template[type].fmt, args);
 	va_end(args);
+
+	if (lazy) {
+		img->fd = LAZY_IMG_FD;
+		img->type = type;
+		img->oflags = oflags;
+		img->path = xstrdup(path);
+		return img;
+	}
+
+	return do_open_image(img, dfd, type, oflags, path);
+}
+
+static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
+{
+	int ret, flags;
+
+	flags = oflags & ~(O_NOBUF);
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
@@ -271,17 +291,33 @@ skip_magic:
 
 err:
 	xfree(img);
-errn:
 	return NULL;
+
 err_close:
 	close_image(img);
 	return NULL;
 }
 
+int open_image_lazy(struct cr_img *img)
+{
+	int dfd;
+	char *path = img->path;
+
+	dfd = get_service_fd(IMG_FD_OFF);
+	if (do_open_image(img, dfd, img->type, img->oflags, path) == NULL)
+		return -1;
+
+	xfree(path);
+	return 0;
+}
+
 void close_image(struct cr_img *img)
 {
-	if (!empty_image(img))
+	if (lazy_image(img))
+		xfree(img->path);
+	else if (!empty_image(img))
 		bclose(&img->_x);
+
 	xfree(img);
 }
 

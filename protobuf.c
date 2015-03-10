@@ -603,6 +603,9 @@ int pb_write_one(struct cr_img *img, void *obj, int type)
 		return -1;
 	}
 
+	if (lazy_image(img) && open_image_lazy(img))
+		return -1;
+
 	size = cr_pb_descs[type].getpksize(obj);
 	if (size > (u32)sizeof(local)) {
 		buf = xmalloc(size);

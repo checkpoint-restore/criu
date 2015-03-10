@@ -124,14 +124,28 @@ extern bool ns_per_id;
 #define O_RSTR	(O_RDONLY)
 
 struct cr_img {
-	struct bfd _x;
+	union {
+		struct bfd _x;
+		struct {
+			int fd; /* should be first to coincide with _x.fd */
+			int type;
+			unsigned long oflags;
+			char *path;
+		};
+	};
 };
 
 #define EMPTY_IMG_FD	(-404)
+#define LAZY_IMG_FD	(-505)
 
 static inline bool empty_image(struct cr_img *img)
 {
 	return img && img->_x.fd == EMPTY_IMG_FD;
+}
+
+static inline bool lazy_image(struct cr_img *img)
+{
+	return img->_x.fd == LAZY_IMG_FD;
 }
 
 static inline int img_raw_fd(struct cr_img *img)
@@ -145,6 +159,7 @@ extern void close_image_dir(void);
 
 extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);
 #define open_image(typ, flags, ...) open_image_at(-1, typ, flags, ##__VA_ARGS__)
+extern int open_image_lazy(struct cr_img *img);
 extern struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi);
 extern struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi);
 extern void up_page_ids_base(void);
