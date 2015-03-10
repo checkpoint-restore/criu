@@ -239,8 +239,15 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	img->_x.fd = ret;
 	if (oflags & O_NOBUF)
 		bfd_setraw(&img->_x);
-	else if (bfdopen(&img->_x, flags))
-		goto err_close;
+	else {
+		if (flags == O_RDONLY)
+			ret = bfdopenr(&img->_x);
+		else
+			ret = bfdopenw(&img->_x);
+
+		if (ret)
+			goto err_close;
+	}
 
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;

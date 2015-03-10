@@ -87,15 +87,25 @@ static void buf_put(struct xbuf *xb)
 	xb->data = NULL;
 }
 
-int bfdopen(struct bfd *f, int mode)
+static int bfdopen(struct bfd *f, bool writable)
 {
 	if (buf_get(&f->b)) {
 		close(f->fd);
 		return -1;
 	}
 
-	f->mode = mode;
+	f->writable = writable;
 	return 0;
+}
+
+int bfdopenr(struct bfd *f)
+{
+	return bfdopen(f, false);
+}
+
+int bfdopenw(struct bfd *f)
+{
+	return bfdopen(f, true);
 }
 
 static int bflush(struct bfd *bfd);
@@ -109,7 +119,7 @@ int bfd_flush_images(void)
 void bclose(struct bfd *f)
 {
 	if (bfd_buffered(f)) {
-		if ((f->mode != O_RDONLY) && bflush(f) < 0) {
+		if (f->writable && bflush(f) < 0) {
 			/*
 			 * This is to propagate error up. It's
 			 * hardly possible by returning and

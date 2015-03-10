@@ -358,7 +358,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 	if (f.fd < 0)
 		goto err_n;
 
-	if (bfdopen(&f, O_RDONLY))
+	if (bfdopenr(&f))
 		goto err_n;
 
 	map_files_dir = opendir_proc(pid, "map_files");
@@ -733,7 +733,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		return -1;
 	}
 
-	if (bfdopen(&f, O_RDONLY))
+	if (bfdopenr(&f))
 		return -1;
 
 	while (done < 8 && (str = breadline(&f))) {
@@ -1165,7 +1165,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		return -1;
 	}
 
-	if (bfdopen(&f, O_RDONLY))
+	if (bfdopenr(&f))
 		return -1;
 
 	while (1) {
@@ -1616,7 +1616,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		return -1;
 	}
 
-	if (bfdopen(&f, O_RDONLY))
+	if (bfdopenr(&f))
 		return -1;
 
 	while (1) {
