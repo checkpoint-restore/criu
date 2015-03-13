@@ -435,7 +435,7 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 	__tty_ioctl(TIOCGSID, args->sid);
 	__tty_ioctl(TIOCGPGRP, args->pgrp);
 	__tty_ioctl(TIOCGEXCL,	args->st_excl);
-	
+
 	if (args->type == TTY_TYPE_PTM ||
 	    args->type == TTY_TYPE_PTS) {
 		__tty_ioctl(TIOCGPKT,	args->st_pckt);
