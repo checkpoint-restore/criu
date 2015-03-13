@@ -92,6 +92,7 @@ TST_NOFILE	=				\
 		tty00				\
 		tty02				\
 		tty03				\
+		poll				\
 		mountpoints			\
 		netns				\
 		session01			\

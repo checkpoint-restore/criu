@@ -151,6 +151,7 @@ generate_test_list()
 		static/dumpable01
 		static/dumpable02
 		static/deleted_dev
+		static/poll
 	"
 
 	#
