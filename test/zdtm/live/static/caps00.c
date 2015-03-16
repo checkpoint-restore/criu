@@ -36,6 +36,8 @@ int main(int argc, char **argv)
 {
 	task_waiter_t t;
 	int pid, result_pipe[2];
+	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
+	struct cap_data data_2[_LINUX_CAPABILITY_U32S_3];
 	char res = 'x';
 	FILE *f;
 
@@ -60,9 +62,6 @@ int main(int argc, char **argv)
 	pid = test_fork();
 	if (pid == 0) {
 		struct cap_hdr hdr;
-		struct cap_data data[_LINUX_CAPABILITY_U32S_3];
-		struct cap_data data_2[_LINUX_CAPABILITY_U32S_3];
-
 		if (prctl(PR_CAPBSET_DROP, CAP_SETPCAP, 0, 0, 0)) {
 			res = 'x';
 			task_waiter_complete_current(&t);
@@ -72,7 +71,10 @@ int main(int argc, char **argv)
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
 
-		capget(&hdr, data);
+		if (capget(&hdr, data) < 0) {
+			err("capget");
+			return -1;
+		}
 
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
@@ -80,7 +82,10 @@ int main(int argc, char **argv)
 		data[0].eff &= ~((1 << CAP_CHOWN) | (1 << CAP_DAC_OVERRIDE));
 		data[0].prm &= ~(1 << CAP_DAC_OVERRIDE);
 
-		capset(&hdr, data);
+		if (capset(&hdr, data) < 0) {
+			err("capset\n");
+			return -1;
+		}
 
 		task_waiter_complete_current(&t);
 		task_waiter_wait4(&t, getppid());
@@ -88,7 +93,10 @@ int main(int argc, char **argv)
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
 		hdr.pid = 0;
 
-		capget(&hdr, data_2);
+		if (capget(&hdr, data_2) < 0) {
+			err("second capget");
+			return -1;
+		}
 
 		NORM_CAPS(data, eff);
 		NORM_CAPS(data, prm);
@@ -130,6 +138,12 @@ int main(int argc, char **argv)
 		res = '0';
 bad:
 		write(result_pipe[1], &res, 1);
+
+		if (res != '0') {
+			write(result_pipe[1], data, sizeof(data));
+			write(result_pipe[1], data_2, sizeof(data_2));
+		}
+
 		close(result_pipe[0]);
 		close(result_pipe[1]);
 		_exit(0);
@@ -143,13 +157,22 @@ bad:
 	task_waiter_complete_current(&t);
 
 	read(result_pipe[0], &res, 1);
-	close(result_pipe[0]);
-	close(result_pipe[1]);
 
 	if (res == '0')
 		pass();
-	else
+	else {
+		read(result_pipe[0], data, sizeof(data));
+		read(result_pipe[0], data_2, sizeof(data_2));
+		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n",
+			  data[0].eff, data[0].prm, data[0].inh,
+			  data[1].eff, data[1].prm, data[1].inh);
+		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n",
+			  data_2[0].eff, data_2[0].prm, data_2[0].inh,
+			  data_2[1].eff, data_2[1].prm, data_2[1].inh);
 		fail("Fail: %c", res);
+	}
+	close(result_pipe[0]);
+	close(result_pipe[1]);
 
 	return 0;
 }
