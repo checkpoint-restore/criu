@@ -148,8 +148,13 @@ static inline bool lazy_image(struct cr_img *img)
 	return img->_x.fd == LAZY_IMG_FD;
 }
 
+extern int open_image_lazy(struct cr_img *img);
+
 static inline int img_raw_fd(struct cr_img *img)
 {
+	if (lazy_image(img) && open_image_lazy(img))
+		return -1;
+
 	BUG_ON(bfd_buffered(&img->_x));
 	return img->_x.fd;
 }
