@@ -1833,8 +1833,10 @@ static int restore_root_task(struct pstree_item *init)
 
 	write_stats(RESTORE_STATS);
 
-	if (!opts.restore_detach && !opts.exec_cmd)
+	if (!opts.restore_detach && !opts.exec_cmd) {
+		fini_cgroup();
 		wait(NULL);
+	}
 
 	return 0;
 
