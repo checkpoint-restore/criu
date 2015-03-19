@@ -126,6 +126,7 @@ static LIST_HEAD(all_ttys);
 #define MAX_PTY_INDEX	1000
 #define CONSOLE_INDEX	1002
 #define VT_INDEX	1004
+#define CTTY_INDEX	1006
 #define INDEX_ERR	(MAX_TTYS + 1)
 
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
@@ -187,6 +188,14 @@ static struct tty_driver console_driver = {
 	.open			= open_simple_tty,
 };
 
+static struct tty_driver ctty_driver = {
+	.type			= TTY_TYPE__CTTY,
+	.subtype		= TTY_SUBTYPE_SLAVE,
+	.name			= "ctty",
+	.index			= CTTY_INDEX,
+	.open			= open_simple_tty,
+};
+
 static struct tty_driver vt_driver = {
 	.type			= TTY_TYPE__VT,
 	.name			= "vt",
@@ -231,6 +240,8 @@ struct tty_driver *get_tty_driver(int major, int minor)
 			return &ptm_driver;
 		else if (minor == 1)
 			return &console_driver;
+		else if (minor == 0)
+			return &ctty_driver;
 		break;
 	case TTY_MAJOR:
 		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
@@ -626,6 +637,7 @@ static bool tty_is_master(struct tty_info *info)
 
 	switch (info->driver->type) {
 	case TTY_TYPE__CONSOLE:
+	case TTY_TYPE__CTTY:
 		return true;
 	case TTY_TYPE__VT:
 		if (!opts.shell_job)
@@ -972,15 +984,19 @@ static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
 static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
 		struct rst_info *ri)
 {
+	struct tty_info *info = container_of(d, struct tty_info, d);
 	struct list_head *tgt;
 
 	/*
 	 * Unix98 pty slave peers requires the master peers being
-	 * opened before them
+	 * opened before them. In turn, current ttys should be opened
+	 * after the slave peers so session must alread exist.
 	 */
 
-	if (tty_is_master(container_of(d, struct tty_info, d)))
+	if (tty_is_master(info) && info->driver->type != TTY_TYPE__CTTY)
 		tgt = &ri->fds;
+	else if (info->driver->type == TTY_TYPE__CTTY)
+		tgt = &ri->tty_ctty;
 	else
 		tgt = &ri->tty_slaves;
 
@@ -1047,6 +1063,15 @@ static int tty_find_restoring_task(struct tty_info *info)
 		pr_debug("Hungup terminal found id %x\n", info->tfe->id);
 		return 0;
 	}
+
+	/*
+	 * Current tty should be skipped here: the
+	 * underlied _real_ pty (or anything else
+	 * driver in future) should restore the
+	 * session.
+	 */
+	if (info->driver->type == TTY_TYPE__CTTY)
+		return 0;
 
 	if (info->tie->sid) {
 		if (!tty_is_master(info)) {
@@ -1248,6 +1273,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg)
 			return -1;
 		}
 		break;
+	case TTY_TYPE__CTTY:
 	case TTY_TYPE__CONSOLE:
 	case TTY_TYPE__VT:
 		if (info->tie->pty) {
@@ -1326,7 +1352,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	if (is_pty(info->driver) && info->tie->termios)
 		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
 
-	pr_info("Collected tty ID %#x\n", info->tfe->id);
+	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
 	list_add(&info->list, &all_ttys);
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);

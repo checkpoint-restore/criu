@@ -29,6 +29,7 @@ enum TtyType {
 	PTY		= 1;
 	CONSOLE		= 2;
 	VT		= 3;
+	CTTY		= 4;
 }
 
 message tty_info_entry {

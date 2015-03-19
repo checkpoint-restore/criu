@@ -607,6 +607,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
+	INIT_LIST_HEAD(&rst_info->tty_ctty);
 
 	if (!fdinfo_per_id) {
 		img = open_image(CR_FD_FDINFO, O_RSTR, pid);
@@ -1018,6 +1019,21 @@ int prepare_fds(struct pstree_item *me)
 		 * list and restore at the very end.
 		 */
 		ret = open_fdinfos(me->pid.virt, &rsti(me)->eventpoll, state);
+		if (ret)
+			break;
+	}
+
+	for (state = 0; state < ARRAY_SIZE(states); state++) {
+		if (!states[state].required) {
+			pr_debug("Skipping %s fd stage\n", states[state].name);
+			continue;
+		}
+
+		/*
+		 * Opening current TTYs require session to be already set up,
+		 * thus slave peers already handled now it's time for cttys,
+		 */
+		ret = open_fdinfos(me->pid.virt, &rsti(me)->tty_ctty, state);
 		if (ret)
 			break;
 	}
