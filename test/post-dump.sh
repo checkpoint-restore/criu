@@ -1,6 +1,6 @@
 #!/bin/sh
 
-[ "$CRTOOLS_SCRIPT_ACTION" == post-dump ] || exit 0
+[ "$CRTOOLS_SCRIPT_ACTION" = post-dump ] || exit 0
 
 #
 # Special code to inform zdtm that we're
