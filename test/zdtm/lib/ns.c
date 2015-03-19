@@ -122,6 +122,14 @@ static int prepare_mntns()
 				return -1;
 			}
 		}
+		if (access("/dev/tty", F_OK)) {
+			if (mknod("/dev/tty", 0666 | S_IFCHR, makedev(5, 0)) == 0) {
+				chmod("/dev/tty", 0666);
+			} else if (errno != EEXIST) {
+				fprintf(stderr, "mknod(/dev/tty) failed: %m\n");
+				return -1;
+			}
+		}
 		if (fchdir(dfd)) {
 			fprintf(stderr, "fchdir() failed: %m\n");
 			return -1;

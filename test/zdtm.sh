@@ -480,6 +480,9 @@ construct_root()
 		done
 	done
 
+	mkdir $root/dev
+	mknod -m 0666 $root/dev/tty c 5 0
+
 	# make 'tmp' dir under new root
 	mkdir -p $tmpdir
 	chmod 0777 $tmpdir
