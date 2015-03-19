@@ -21,7 +21,7 @@ static void signal_handler_sighup(int signum)
 
 int main(int argc, char ** argv)
 {
-	int fdm, fds, ret;
+	int fdm, fds, ret, tty;
 	char *slavename;
 	char buf[10];
 	const char teststr[] = "hello\n";
@@ -53,6 +53,12 @@ int main(int argc, char ** argv)
 	fds = open(slavename, O_RDWR);
 	if (fds == -1) {
 		err("open(%s) failed", slavename);
+		return 1;
+	}
+
+	tty = open("/dev/tty", O_RDWR);
+	if (tty < 0) {
+		err("open(%s) failed", "/dev/tty");
 		return 1;
 	}
 
@@ -93,6 +99,23 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+	ret = write(fdm, teststr, sizeof(teststr) - 1);
+	if (ret != sizeof(teststr) - 1) {
+		err("write(fdm) failed");
+		return 1;
+	}
+
+	ret = read(tty, buf, sizeof(teststr) - 1);
+	if (ret != sizeof(teststr) - 1) {
+		err("read(tty) failed");
+		return 1;
+	}
+
+	if (strncmp(teststr, buf, sizeof(teststr) - 1)) {
+		fail("data mismatch");
+		return 1;
+	}
+
 	if (nr_sighups != 0) {
 		fail("Expected 0 SIGHUP before closing control terminal but got %d", nr_sighups);
 		return 1;
@@ -100,6 +123,7 @@ int main(int argc, char ** argv)
 
 	close(fdm);
 	close(fds);
+	close(tty);
 
 	if (nr_sighups != 1) {
 		fail("Expected 1 SIGHUP after closing control terminal but got %d", nr_sighups);
