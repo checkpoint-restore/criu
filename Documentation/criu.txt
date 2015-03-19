@@ -248,7 +248,7 @@ directory *checkpoint*:
 
 To restore this program detaching criu itself:
 
-    criu restore -d -D checkpoint -t 1234
+    criu restore -d -D checkpoint
 
 
 To close a file descriptor number *1* in task with pid *1234*:
