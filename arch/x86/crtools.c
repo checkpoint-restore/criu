@@ -475,6 +475,7 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG2(rip, ip);
 	CPREG2(eflags, flags);
 	CPREG1(cs);
+	CPREG1(ss);
 	CPREG1(gs);
 	CPREG1(fs);
 
