@@ -17,6 +17,7 @@
 #include "util-pie.h"
 
 #include "protobuf/vma.pb-c.h"
+#include "protobuf/tty.pb-c.h"
 
 #define __head __used __section(.head.text)
 

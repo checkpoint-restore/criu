@@ -9,16 +9,6 @@
 /* Kernel's limit */
 #define TERMIOS_NCC	19
 
-enum {
-	TTY_TYPE_UNKNOWN	= 0,
-	TTY_TYPE_PTM		= 1,
-	TTY_TYPE_PTS		= 2,
-	TTY_TYPE_CONSOLE	= 3,
-	TTY_TYPE_VT		= 4,
-
-	TTY_TYPE_MAX
-};
-
 extern const struct fdtype_ops tty_dump_ops;
 
 struct tty_driver;

@@ -132,18 +132,17 @@ static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
 static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
 
 struct tty_driver {
-	int				t;
+	short				type;
+	short				subtype;
 	char				*name;
 	int				index;
-	int				img_type;
-	unsigned int			flags;
 	int				(*fd_get_index)(int fd, const struct fd_parms *p);
 	int				(*img_get_index)(struct tty_info *ti);
 	int				(*open)(struct tty_info *ti);
 };
 
-#define TTY_PAIR	0x1
-#define TTY_MASTER	0x2
+#define TTY_SUBTYPE_MASTER			0x0001
+#define TTY_SUBTYPE_SLAVE			0x0002
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 {
@@ -170,10 +169,9 @@ static int pty_get_index(struct tty_info *ti)
 static int pty_open_ptmx(struct tty_info *info);
 
 static struct tty_driver ptm_driver = {
-	.t			= TTY_TYPE_PTM,
-	.flags			= TTY_PAIR | TTY_MASTER,
+	.type			= TTY_TYPE__PTY,
+	.subtype		= TTY_SUBTYPE_MASTER,
 	.name			= "ptmx",
-	.img_type		= TTY_TYPE__PTY,
 	.fd_get_index		= ptm_fd_get_index,
 	.img_get_index		= pty_get_index,
 	.open			= pty_open_ptmx,
@@ -182,19 +180,16 @@ static struct tty_driver ptm_driver = {
 static int open_simple_tty(struct tty_info *info);
 
 static struct tty_driver console_driver = {
-	.t			= TTY_TYPE_CONSOLE,
-	.flags			= TTY_MASTER,
+	.type			= TTY_TYPE__CONSOLE,
+	.subtype		= TTY_SUBTYPE_SLAVE,
 	.name			= "console",
-	.img_type		= TTY_TYPE__CONSOLE,
 	.index			= CONSOLE_INDEX,
 	.open			= open_simple_tty,
 };
 
 static struct tty_driver vt_driver = {
-	.t			= TTY_TYPE_VT,
-	.flags			= 0,
+	.type			= TTY_TYPE__VT,
 	.name			= "vt",
-	.img_type		= TTY_TYPE__VT,
 	.index			= VT_INDEX,
 	.open			= open_simple_tty,
 };
@@ -220,10 +215,9 @@ static int pts_fd_get_index(int fd, const struct fd_parms *p)
 }
 
 static struct tty_driver pts_driver = {
-	.t			= TTY_TYPE_PTS,
-	.flags			= TTY_PAIR,
+	.type			= TTY_TYPE__PTY,
+	.subtype		= TTY_SUBTYPE_SLAVE,
 	.name			= "pts",
-	.img_type		= TTY_TYPE__PTY,
 	.fd_get_index		= pts_fd_get_index,
 	.img_get_index		= pty_get_index,
 	.open			= pty_open_ptmx,
@@ -256,7 +250,7 @@ struct tty_driver *get_tty_driver(int major, int minor)
 
 static inline int is_pty(struct tty_driver *driver)
 {
-	return driver->flags & TTY_PAIR;
+	return driver->type == TTY_TYPE__PTY;
 }
 
 /*
@@ -304,7 +298,7 @@ int prepare_shared_tty(void)
 
 static int tty_gen_id(struct tty_driver *driver, int index)
 {
-	return (index << 1) + (driver->t == TTY_TYPE_PTM);
+	return (index << 1) + (driver->subtype == TTY_SUBTYPE_MASTER);
 }
 
 static int tty_get_index(u32 id)
@@ -408,7 +402,7 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
  * the inverted path is /dev/pts/1, for inverted slaves it's simplier
  * we just add 'ptmx' postfix.
  */
-static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
+static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subtype)
 {
 	struct reg_file_info *new, *orig;
 	struct file_desc *fake_desc;
@@ -426,8 +420,8 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
 	orig = container_of(info->reg_d, struct reg_file_info, d);
 	new = container_of(fake_desc, struct reg_file_info, d);
 
-	if ((type == TTY_TYPE_PTM && tty_is_master(info)) ||
-	    (type == TTY_TYPE_PTS && !tty_is_master(info))) {
+	if ((subtype == TTY_SUBTYPE_MASTER && tty_is_master(info)) ||
+	    (subtype == TTY_SUBTYPE_SLAVE && !tty_is_master(info))) {
 		new->path = xstrdup(orig->path);
 		new->rfe->name = &new->path[1];
 	} else {
@@ -439,7 +433,7 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
 		BUG_ON(!pos || !inverted_path);
 
 		memcpy(inverted_path, orig->rfe->name, slash_at + 1);
-		if (type == TTY_TYPE_PTM)
+		if (subtype == TTY_SUBTYPE_MASTER)
 			strcat(inverted_path, "ptmx");
 		else {
 			if (slash_at >= 3 && strncmp(&inverted_path[slash_at - 3], "pts", 3))
@@ -457,8 +451,8 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int type)
 	return new;
 }
 
-#define pty_alloc_fake_master(info)	pty_alloc_fake_reg(info, TTY_TYPE_PTM)
-#define pty_alloc_fake_slave(info)	pty_alloc_fake_reg(info, TTY_TYPE_PTS)
+#define pty_alloc_fake_master(info)	pty_alloc_fake_reg(info, TTY_SUBTYPE_MASTER)
+#define pty_alloc_fake_slave(info)	pty_alloc_fake_reg(info, TTY_SUBTYPE_SLAVE)
 
 static void pty_free_fake_reg(struct reg_file_info **r)
 {
@@ -627,11 +621,16 @@ err:
 
 static bool tty_is_master(struct tty_info *info)
 {
-	if (info->driver->flags & TTY_MASTER)
+	if (info->driver->subtype == TTY_SUBTYPE_MASTER)
 		return true;
 
-	if (info->driver->t == TTY_TYPE_VT && !opts.shell_job)
+	switch (info->driver->type) {
+	case TTY_TYPE__CONSOLE:
 		return true;
+	case TTY_TYPE__VT:
+		if (!opts.shell_job)
+			return true;
+	}
 
 	return false;
 }
@@ -1414,7 +1413,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	pti = parasite_dump_tty(p->ctl, p->fd, driver->t);
+	pti = parasite_dump_tty(p->ctl, p->fd, driver->type);
 	if (!pti)
 		return -1;
 
@@ -1438,7 +1437,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	info.exclusive		= pti->st_excl;
 	info.packet_mode	= pti->st_pckt;
 
-	info.type = driver->img_type;
+	info.type = driver->type;
 	if (info.type == TTY_TYPE__PTY) {
 		info.pty	= &pty;
 		pty.index	= index;
