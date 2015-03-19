@@ -463,7 +463,7 @@ static void pty_free_fake_reg(struct reg_file_info **r)
 	}
 }
 
-static int open_pty_reg(struct file_desc *reg_d, u32 flags)
+static int open_tty_reg(struct file_desc *reg_d, u32 flags)
 {
 	return open_path(reg_d, do_open_reg_noseek_flags, &flags);
 }
@@ -483,7 +483,7 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 	mutex_lock(tty_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
-		fds[i] = open_pty_reg(d, flags);
+		fds[i] = open_tty_reg(d, flags);
 		if (fds[i] < 0) {
 			pr_perror("Can't open %s", path_from_reg(d));
 			break;
@@ -599,7 +599,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	} else
 		slave_d = info->reg_d;
 
-	slave = open_pty_reg(slave_d, O_RDONLY);
+	slave = open_tty_reg(slave_d, O_RDONLY);
 	if (slave < 0) {
 		pr_perror("Can't open %s", path_from_reg(slave_d));
 		goto err;
@@ -760,7 +760,7 @@ static int pty_open_slaves(struct tty_info *info)
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(tty_is_master(slave));
 
-		fd = open_pty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
+		fd = open_tty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
@@ -842,7 +842,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 
 		unlock_pty(master);
 
-		fd = open_pty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
+		fd = open_tty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
@@ -932,7 +932,7 @@ static int open_simple_tty(struct tty_info *info)
 {
 	int fd = -1;
 
-	fd = open_pty_reg(info->reg_d, info->tfe->flags);
+	fd = open_tty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
 		pr_perror("Can't open %s %x",
 				info->driver->name, info->tfe->id);
