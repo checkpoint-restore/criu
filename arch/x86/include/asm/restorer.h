@@ -53,7 +53,7 @@ struct rt_sigcontext {
 	unsigned short			cs;
 	unsigned short			gs;
 	unsigned short			fs;
-	unsigned short			__pad0;
+	unsigned short			ss;
 	unsigned long			err;
 	unsigned long			trapno;
 	unsigned long			oldmask;
