@@ -957,7 +957,7 @@ static int tty_open(struct file_desc *d)
 	if (!info->create)
 		return receive_tty(info);
 
-	if (!tty_is_master(info))
+	if (is_pty(info->driver) && !tty_is_master(info))
 		return pty_open_unpaired_slave(d, info);
 
 	return info->driver->open(info);
