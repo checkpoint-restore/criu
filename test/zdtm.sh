@@ -436,9 +436,9 @@ construct_root()
 
 	local libs=$(ldd $test_path $ps_path | awk '
 		!/^[ \t]/ { next }
-		/\<linux-vdso\.so\>/ { next }
-		/\<linux-gate\.so\>/ { next }
-		/\<not a dynamic executable$/ { next }
+		/linux-vdso\.so/ { next }
+		/linux-gate\.so/ { next }
+		/not a dynamic executable$/ { next }
 		$2 ~ /^=>$/ { print $3; next }
 		{ print $1 }
 	')
