@@ -319,4 +319,10 @@ gcov:
 	genhtml -o html crtools.info
 .PHONY: gcov
 
+docker-build:
+	docker build -t criu .
+
+docker-test:
+	docker run --rm -it --privileged criu ./test/zdtm.sh -C -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup -x mountpoint
+
 .DEFAULT_GOAL	:= all
