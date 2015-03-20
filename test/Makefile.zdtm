@@ -8,7 +8,7 @@ zdtm_ns_user: $(shell echo "$(TST)" | tr ' ' '\n' | awk '/^ns\/user/ {print}')
 zdtm_nons: $(shell echo "$(TST)" | tr ' ' '\n' | awk '!/^ns\// {print}')
 
 $(TST): zdtm_ct mount_cgroups .FORCE
-	./zdtm.sh --ct ${ZDTM_ARGS} -r $(@) &> $(subst /,_,$@).log; \
+	./zdtm.sh --ct ${ZDTM_ARGS} -r $(@) > $(subst /,_,$@).log 2>&1;  \
 	{ ret=$$?; fname=$(subst /,_,$@).log; flock Makefile cat $$fname; unlink $$fname; exit $$ret; }
 
 mount_cgroups: .FORCE
