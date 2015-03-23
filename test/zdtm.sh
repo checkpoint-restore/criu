@@ -322,6 +322,7 @@ mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
 sockets00
+cow01
 "
 
 CRIU_CPT=$CRIU
