@@ -8,6 +8,7 @@
 #include <linux/limits.h>
 #include <sys/user.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 
 #include "zdtmtst.h"
 
@@ -55,12 +56,12 @@ static pid_t child_pid;
  * file, etc.).  A return code of 1 means failure, it means criu was not able
  * to checkpoint and/or restore the process properly.
  */
-#define EXECUTE_ACTION(func) ({		\
+#define EXECUTE_ACTION(func, fd) ({	\
 	int __ret = 0;			\
-	__ret |= func(&sep_tcs);	\
-	__ret |= func(&cow_tcs);	\
-	__ret |= func(&cow_gd_tcs);	\
-	__ret |= func(&file_tcs);	\
+	__ret |= func(&sep_tcs, fd);	\
+	__ret |= func(&cow_tcs, fd);	\
+	__ret |= func(&cow_gd_tcs, fd);	\
+	__ret |= func(&file_tcs, fd);	\
 	__ret;				\
 })
 
@@ -72,7 +73,7 @@ struct test_cases cow_tcs = {.init = init_cow, .tname = "cow_tcs"},
 uint32_t zero_crc = ~1;
 
 static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
-		  uint64_t *map_child_ret, uint64_t *map_parent_ret)
+		  uint64_t *map_child_ret, uint64_t *map_parent_ret, int fd)
 {
 	char buf[PATH_MAX];
 	unsigned long pfn = (unsigned long) addr / PAGE_SIZE;
@@ -99,6 +100,8 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 	 * so we should do several iterations.
 	 */
 	for (i = 0; i < 10; i++) {
+		void **p = addr;
+
 		lseek_ret = lseek(fd_child, pfn * sizeof(map_child), SEEK_SET);
 		if (lseek_ret == (off_t) -1) {
 			err("Unable to seek child pagemap to virtual addr %#08lx",
@@ -127,8 +130,20 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 			return -1;
 		}
 
-		if (map_child == map_parent)
+		if (map_child == map_parent && i > 5)
 			break;
+
+		p = (void **)(addr + i * PAGE_SIZE);
+		test_msg("Read *%p = %p\n", p, p[0]);
+		if (write(fd, &p, sizeof(p)) != sizeof(p)) {
+			err("write");
+			return -1;
+		}
+		if (read(fd, &p, sizeof(p)) != sizeof(p)) {
+			err("read");
+			return -1;
+		}
+		test_msg("Child %p\n", p);
 	}
 
 	close(fd_child);
@@ -143,7 +158,7 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 	return map_child != map_parent;
 }
 
-static int child_prep(struct test_cases *test_cases)
+static int child_prep(struct test_cases *test_cases, int fd)
 {
 	int i;
 	uint8_t *addr = test_cases->addr;
@@ -164,7 +179,7 @@ static int child_prep(struct test_cases *test_cases)
 	return 0;
 }
 
-static int child_check(struct test_cases *test_cases)
+static int child_check(struct test_cases *test_cases, int fd)
 {
 	int i, ret = 0;
 	uint8_t *addr = test_cases->addr;
@@ -185,7 +200,7 @@ static int child_check(struct test_cases *test_cases)
 	return ret;
 }
 
-static int parent_before_fork(struct test_cases *test_cases)
+static int parent_before_fork(struct test_cases *test_cases, int fd)
 {
 	uint8_t *addr;
 	int i;
@@ -215,7 +230,7 @@ static int parent_before_fork(struct test_cases *test_cases)
 	return 0;
 }
 
-static int parent_post_fork(struct test_cases *test_cases)
+static int parent_post_fork(struct test_cases *test_cases, int fd)
 {
 	uint8_t *addr = test_cases->addr;
 	int i;
@@ -238,7 +253,7 @@ static int parent_post_fork(struct test_cases *test_cases)
 	return 0;
 }
 
-static int parent_check(struct test_cases *test_cases)
+static int parent_check(struct test_cases *test_cases, int fd)
 {
 	uint8_t *addr = test_cases->addr;
 	int i, ret = 0;
@@ -265,7 +280,7 @@ static int parent_check(struct test_cases *test_cases)
 			int is_cow_ret;
 
 			is_cow_ret = is_cow(addr + i * PAGE_SIZE, child_pid, getpid(),
-					    &map_child, &map_parent);
+					    &map_child, &map_parent, fd);
 			ret |= is_cow_ret;
 			if (is_cow_ret == 1) {
 				errno = 0;
@@ -387,7 +402,7 @@ static int init_file(struct test_cases *tcs)
 	return 0;
 }
 
-static int child(task_waiter_t *child_waiter)
+static int child(task_waiter_t *child_waiter, int fd)
 {
 	int ret = 0;
 
@@ -399,13 +414,29 @@ static int child(task_waiter_t *child_waiter)
 		return -1;
 	}
 
-	EXECUTE_ACTION(child_prep);
+	EXECUTE_ACTION(child_prep, fd);
 
 	task_waiter_complete_current(child_waiter);
 
-	test_waitsig();
+	while (1) {
+		void **p;
+		ret = read(fd, &p, sizeof(p));
+		if (ret == 0)
+			break;
+		if (ret != sizeof(p)) {
+			err("read");
+			return -1;
+		}
+		test_msg("Read *%p = %p\n", p, p[0]);
+		p = ((void **)p)[0];
+		if (write(fd, &p, sizeof(p)) != sizeof(p)) {
+			err("write");
+			return -1;
+		}
+		ret = 0;
+	}
 
-	ret |= EXECUTE_ACTION(child_check);
+	ret = EXECUTE_ACTION(child_check, fd);
 
 	// Exit code of child process, so return 2 for a test error, 1 for a
 	// test failure (child_check got mismatched checksums) and 0 for
@@ -416,8 +447,9 @@ static int child(task_waiter_t *child_waiter)
 int main(int argc, char ** argv)
 {
 	uint8_t zero_page[PAGE_SIZE];
-	int status, ret = 0;
+	int status = -1, ret = 0;
 	task_waiter_t child_waiter;
+	int pfd[2], fd;
 
 	task_waiter_init(&child_waiter);
 
@@ -427,7 +459,12 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
-	if (EXECUTE_ACTION(parent_before_fork))
+	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pfd)) {
+		err("pipe");
+		return 1;
+	}
+
+	if (EXECUTE_ACTION(parent_before_fork, -1))
 		return 2;
 
 	child_pid = test_fork();
@@ -436,20 +473,24 @@ int main(int argc, char ** argv)
 		return 2;
 	}
 
-	if (child_pid == 0)
-		return child(&child_waiter);
+	if (child_pid == 0) {
+		close(pfd[0]);
+		return child(&child_waiter, pfd[1]);
+	}
+	close(pfd[1]);
+	fd = pfd[0];
 
 	task_waiter_wait4(&child_waiter, child_pid);
 
-	EXECUTE_ACTION(parent_post_fork);
+	EXECUTE_ACTION(parent_post_fork, -1);
 
 	test_daemon();
 
 	test_waitsig();
 
-	ret |= EXECUTE_ACTION(parent_check);
+	ret |= EXECUTE_ACTION(parent_check, fd);
 
-	kill(child_pid, SIGTERM);
+	close(fd);
 	wait(&status);
 
 	unlink(filename);
