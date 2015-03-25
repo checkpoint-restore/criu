@@ -151,7 +151,6 @@ generate_test_list()
 		static/dumpable01
 		static/dumpable02
 		static/deleted_dev
-		static/poll
 	"
 
 	#
@@ -197,6 +196,7 @@ generate_test_list()
 		static/cgroup02
 		ns/static/clean_mntns
 		static/remap_dead_pid
+		static/poll
 	"
 
 	TEST_CR_KERNEL="
