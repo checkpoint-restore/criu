@@ -265,6 +265,7 @@ generate_test_list()
 		ns/static/mntns_shared_bind
 		ns/static/mntns_shared_bind02
 		ns/static/mntns_root_bind
+		ns/static/cow01
 	"
 
 	# Add tests which can be executed in an user namespace
