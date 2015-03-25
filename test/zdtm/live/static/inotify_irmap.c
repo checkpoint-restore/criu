@@ -30,7 +30,6 @@ int main (int argc, char *argv[])
 
 	test_init(argc, argv);
 
-	mkdir(TDIR, 0600);
 	unlink(TFIL);
 	if (creat(TFIL, 0600) < 0) {
 		err("Can't make test file");
