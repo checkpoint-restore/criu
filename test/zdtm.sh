@@ -323,6 +323,7 @@ mntns_link_ghost
 mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
+mntns_rw_ro_rw
 sockets00
 cow01
 "

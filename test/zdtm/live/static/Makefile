@@ -114,6 +114,7 @@ TST_NOFILE	=				\
 		stopped				\
 		rtc				\
 		clean_mntns			\
+		mntns_rw_ro_rw			\
 		dumpable01			\
 		dumpable02			\
 		remap_dead_pid			\
