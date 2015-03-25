@@ -336,6 +336,134 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	return 0;
 }
 
+static int handle_vma(pid_t pid, struct vma_area *vma_area,
+			char *file_path, DIR *map_files_dir,
+			struct vma_file_info *vfi,
+			struct vma_file_info *prev_vfi,
+			struct vm_area_list *vma_area_list)
+{
+	if (vma_get_mapfile(file_path, vma_area, map_files_dir, vfi, prev_vfi))
+		goto err_bogus_mapfile;
+
+	if (vma_area->e->status != 0) {
+		if (vma_area->e->status & VMA_AREA_AIORING)
+			vma_area_list->nr_aios++;
+		return 0;
+	} else if (!strcmp(file_path, "[vsyscall]") ||
+		   !strcmp(file_path, "[vectors]")) {
+		vma_area->e->status |= VMA_AREA_VSYSCALL;
+	} else if (!strcmp(file_path, "[vdso]")) {
+#ifdef CONFIG_VDSO
+		vma_area->e->status |= VMA_AREA_REGULAR;
+		if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
+			vma_area->e->status |= VMA_AREA_VDSO;
+#else
+		pr_warn_once("Found vDSO area without support\n");
+		goto err;
+#endif
+	} else if (!strcmp(file_path, "[vvar]")) {
+#ifdef CONFIG_VDSO
+		vma_area->e->status |= VMA_AREA_REGULAR;
+		if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
+			vma_area->e->status |= VMA_AREA_VVAR;
+#else
+		pr_warn_once("Found VVAR area without support\n");
+		goto err;
+#endif
+	} else if (!strcmp(file_path, "[heap]")) {
+		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
+	} else {
+		vma_area->e->status = VMA_AREA_REGULAR;
+	}
+
+	/*
+	 * Some mapping hints for restore, we save this on
+	 * disk and restore might need to analyze it.
+	 */
+	if (vma_area->file_borrowed) {
+		struct vma_area *prev = prev_vfi->vma;
+
+		/*
+		 * Pick-up flags that might be set in the branch below.
+		 * Status is copied as-is as it should be zero here,
+		 * and have full match with the previous.
+		 */
+		vma_area->e->flags |= (prev->e->flags & MAP_ANONYMOUS);
+		vma_area->e->status = prev->e->status;
+		vma_area->e->shmid = prev->e->shmid;
+		vma_area->vmst = prev->vmst;
+		vma_area->mnt_id = prev->mnt_id;
+	} else if (vma_area->vm_file_fd >= 0) {
+		struct stat *st_buf = vma_area->vmst;
+
+		if (S_ISREG(st_buf->st_mode))
+			/* regular file mapping -- supported */;
+		else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO))
+			/* devzero mapping -- also makes sense */;
+		else {
+			pr_err("Can't handle non-regular mapping on %d's map %#lx\n", pid, vma_area->e->start);
+			goto err;
+		}
+
+		/*
+		 * /dev/zero stands for anon-shared mapping
+		 * otherwise it's some file mapping.
+		 */
+		if (is_anon_shmem_map(st_buf->st_dev)) {
+			if (!(vma_area->e->flags & MAP_SHARED))
+				goto err_bogus_mapping;
+			vma_area->e->flags  |= MAP_ANONYMOUS;
+			vma_area->e->status |= VMA_ANON_SHARED;
+			vma_area->e->shmid = st_buf->st_ino;
+
+			if (!strncmp(file_path, "/SYSV", 5)) {
+				pr_info("path: %s\n", file_path);
+				vma_area->e->status |= VMA_AREA_SYSVIPC;
+			}
+		} else {
+			if (vma_area->e->flags & MAP_PRIVATE)
+				vma_area->e->status |= VMA_FILE_PRIVATE;
+			else
+				vma_area->e->status |= VMA_FILE_SHARED;
+		}
+
+		/*
+		 * We cannot use the mnt_id value provided by the kernel
+		 * for vm_file_fd if it is an AUFS file (the value is
+		 * wrong).  In such a case, fixup_aufs_vma_fd() has set
+		 * mnt_id to -1 to mimic pre-3.15 kernels that didn't
+		 * have mnt_id.
+		 */
+		if (vma_area->mnt_id != -1 &&
+		    get_fd_mntid(vma_area->vm_file_fd, &vma_area->mnt_id))
+			return -1;
+	} else {
+		/*
+		 * No file but mapping -- anonymous one.
+		 */
+		if (vma_area->e->flags & MAP_SHARED) {
+			vma_area->e->status |= VMA_ANON_SHARED;
+			vma_area->e->shmid = vfi->ino;
+		} else {
+			vma_area->e->status |= VMA_ANON_PRIVATE;
+		}
+		vma_area->e->flags  |= MAP_ANONYMOUS;
+	}
+
+	return 0;
+err:
+	return -1;
+err_bogus_mapping:
+	pr_err("Bogus mapping 0x%"PRIx64"-0x%"PRIx64" (flags: %#x vm_file_fd: %d)\n",
+	       vma_area->e->start, vma_area->e->end,
+	       vma_area->e->flags, vma_area->vm_file_fd);
+	goto err;
+
+err_bogus_mapfile:
+	pr_perror("Can't open %d's mapfile link %lx", pid, vma_area->e->start);
+	goto err;
+}
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area = NULL;
@@ -442,9 +570,6 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		vma_area->e->pgoff	= pgoff;
 		vma_area->e->prot	= PROT_NONE;
 
-		if (vma_get_mapfile(file_path, vma_area, map_files_dir, &vfi, &prev_vfi))
-			goto err_bogus_mapfile;
-
 		if (r == 'r')
 			vma_area->e->prot |= PROT_READ;
 		if (w == 'w')
@@ -461,110 +586,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 			goto err;
 		}
 
-		if (vma_area->e->status != 0) {
-			if (vma_area->e->status & VMA_AREA_AIORING)
-				vma_area_list->nr_aios++;
-			continue;
-		} else if (!strcmp(file_path, "[vsyscall]") ||
-			   !strcmp(file_path, "[vectors]")) {
-			vma_area->e->status |= VMA_AREA_VSYSCALL;
-		} else if (!strcmp(file_path, "[vdso]")) {
-#ifdef CONFIG_VDSO
-			vma_area->e->status |= VMA_AREA_REGULAR;
-			if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
-				vma_area->e->status |= VMA_AREA_VDSO;
-#else
-			pr_warn_once("Found vDSO area without support\n");
+		if (handle_vma(pid, vma_area, file_path, map_files_dir,
+					&vfi, &prev_vfi, vma_area_list))
 			goto err;
-#endif
-		} else if (!strcmp(file_path, "[vvar]")) {
-#ifdef CONFIG_VDSO
-			vma_area->e->status |= VMA_AREA_REGULAR;
-			if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
-				vma_area->e->status |= VMA_AREA_VVAR;
-#else
-			pr_warn_once("Found VVAR area without support\n");
-			goto err;
-#endif
-		} else if (!strcmp(file_path, "[heap]")) {
-			vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
-		} else {
-			vma_area->e->status = VMA_AREA_REGULAR;
-		}
-
-		/*
-		 * Some mapping hints for restore, we save this on
-		 * disk and restore might need to analyze it.
-		 */
-		if (vma_area->file_borrowed) {
-			struct vma_area *prev = prev_vfi.vma;
-
-			/*
-			 * Pick-up flags that might be set in the branch below.
-			 * Status is copied as-is as it should be zero here,
-			 * and have full match with the previous.
-			 */
-			vma_area->e->flags |= (prev->e->flags & MAP_ANONYMOUS);
-			vma_area->e->status = prev->e->status;
-			vma_area->e->shmid = prev->e->shmid;
-			vma_area->vmst = prev->vmst;
-			vma_area->mnt_id = prev->mnt_id;
-		} else if (vma_area->vm_file_fd >= 0) {
-			struct stat *st_buf = vma_area->vmst;
-
-			if (S_ISREG(st_buf->st_mode))
-				/* regular file mapping -- supported */;
-			else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO))
-				/* devzero mapping -- also makes sense */;
-			else {
-				pr_err("Can't handle non-regular mapping on %d's map %#lx\n", pid, start);
-				goto err;
-			}
-
-			/*
-			 * /dev/zero stands for anon-shared mapping
-			 * otherwise it's some file mapping.
-			 */
-			if (is_anon_shmem_map(st_buf->st_dev)) {
-				if (!(vma_area->e->flags & MAP_SHARED))
-					goto err_bogus_mapping;
-				vma_area->e->flags  |= MAP_ANONYMOUS;
-				vma_area->e->status |= VMA_ANON_SHARED;
-				vma_area->e->shmid = st_buf->st_ino;
-
-				if (!strncmp(file_path, "/SYSV", 5)) {
-					pr_info("path: %s\n", file_path);
-					vma_area->e->status |= VMA_AREA_SYSVIPC;
-				}
-			} else {
-				if (vma_area->e->flags & MAP_PRIVATE)
-					vma_area->e->status |= VMA_FILE_PRIVATE;
-				else
-					vma_area->e->status |= VMA_FILE_SHARED;
-			}
-
-			/*
-			 * We cannot use the mnt_id value provided by the kernel
-			 * for vm_file_fd if it is an AUFS file (the value is
-			 * wrong).  In such a case, fixup_aufs_vma_fd() has set
-			 * mnt_id to -1 to mimic pre-3.15 kernels that didn't
-			 * have mnt_id.
-			 */
-			if (vma_area->mnt_id != -1 &&
-			    get_fd_mntid(vma_area->vm_file_fd, &vma_area->mnt_id))
-				return -1;
-		} else {
-			/*
-			 * No file but mapping -- anonymous one.
-			 */
-			if (vma_area->e->flags & MAP_SHARED) {
-				vma_area->e->status |= VMA_ANON_SHARED;
-				vma_area->e->shmid = vfi.ino;
-			} else {
-				vma_area->e->status |= VMA_ANON_PRIVATE;
-			}
-			vma_area->e->flags  |= MAP_ANONYMOUS;
-		}
 	}
 
 	vma_area = NULL;
@@ -579,15 +603,6 @@ err_n:
 	xfree(vma_area);
 	return ret;
 
-err_bogus_mapping:
-	pr_err("Bogus mapping 0x%"PRIx64"-0x%"PRIx64" (flags: %#x vm_file_fd: %d)\n",
-	       vma_area->e->start, vma_area->e->end,
-	       vma_area->e->flags, vma_area->vm_file_fd);
-	goto err;
-
-err_bogus_mapfile:
-	pr_perror("Can't open %d's mapfile link %lx", pid, start);
-	goto err;
 }
 
 int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
