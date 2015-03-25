@@ -1850,10 +1850,8 @@ static int restore_root_task(struct pstree_item *init)
 
 	write_stats(RESTORE_STATS);
 
-	if (!opts.restore_detach && !opts.exec_cmd) {
-		fini_cgroup();
+	if (!opts.restore_detach && !opts.exec_cmd)
 		wait(NULL);
-	}
 
 	return 0;
 
@@ -1875,6 +1873,7 @@ out_kill:
 	}
 
 out:
+	fini_cgroup();
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");
