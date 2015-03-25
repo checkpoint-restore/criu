@@ -416,6 +416,10 @@ construct_root()
 	local tmpdir=$root/tmp
 	local lname tname
 
+	# inotify_irmap creates files in /etc so it should be able to do
+	# this from userns.
+	mkdir -m 0777 -p $root/etc
+
 	mkdir -p $root/bin
 	cp $ps_path $root/bin
 
