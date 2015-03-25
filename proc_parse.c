@@ -464,6 +464,39 @@ err_bogus_mapfile:
 	goto err;
 }
 
+static int vma_list_add(struct vma_area *vma_area,
+			struct vm_area_list *vma_area_list,
+			unsigned long *prev_end,
+			struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
+{
+	if (vma_area->e->status & VMA_UNSUPP) {
+		pr_err("Unsupported mapping found %016"PRIx64"-%016"PRIx64"\n",
+					vma_area->e->start, vma_area->e->end);
+		return -1;
+	}
+
+	/* Add a guard page only if here is enough space for it */
+	if ((vma_area->e->flags & MAP_GROWSDOWN) &&
+	    *prev_end < vma_area->e->start)
+		vma_area->e->start -= PAGE_SIZE; /* Guard page */
+	*prev_end = vma_area->e->end;
+
+	list_add_tail(&vma_area->list, &vma_area_list->h);
+	vma_area_list->nr++;
+	if (privately_dump_vma(vma_area)) {
+		unsigned long pages;
+
+		pages = vma_area_len(vma_area) / PAGE_SIZE;
+		vma_area_list->priv_size += pages;
+		vma_area_list->longest = max(vma_area_list->longest, pages);
+	}
+
+	*prev_vfi = *vfi;
+	prev_vfi->vma = vma_area;
+
+	return 0;
+}
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct vma_area *vma_area = NULL;
@@ -522,32 +555,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 				continue;
 		}
 
-		if (vma_area) {
-			if (vma_area->e->status & VMA_UNSUPP) {
-				pr_err("Unsupported mapping found %016"PRIx64"-%016"PRIx64"\n",
-							vma_area->e->start, vma_area->e->end);
-				goto err;
-			}
-
-			/* Add a guard page only if here is enough space for it */
-			if ((vma_area->e->flags & MAP_GROWSDOWN) &&
-			    prev_end < vma_area->e->start)
-				vma_area->e->start -= PAGE_SIZE; /* Guard page */
-			prev_end = vma_area->e->end;
-
-			list_add_tail(&vma_area->list, &vma_area_list->h);
-			vma_area_list->nr++;
-			if (privately_dump_vma(vma_area)) {
-				unsigned long pages;
-
-				pages = vma_area_len(vma_area) / PAGE_SIZE;
-				vma_area_list->priv_size += pages;
-				vma_area_list->longest = max(vma_area_list->longest, pages);
-			}
-
-			prev_vfi = vfi;
-			prev_vfi.vma = vma_area;
-		}
+		if (vma_area && vma_list_add(vma_area, vma_area_list,
+						&prev_end, &vfi, &prev_vfi))
+			goto err;
 
 		if (eof)
 			break;
