@@ -155,6 +155,7 @@ unsigned int log_get_loglevel(void)
 static void __print_on_level(unsigned int loglevel, const char *format, va_list params)
 {
 	int fd, size, ret, off = 0;
+	int __errno = errno;
 
 	if (unlikely(loglevel == LOG_MSG)) {
 		fd = STDOUT_FILENO;
@@ -176,6 +177,7 @@ static void __print_on_level(unsigned int loglevel, const char *format, va_list 
 			break;
 		off += ret;
 	}
+	errno =  __errno;
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
