@@ -39,6 +39,7 @@ void test_msg(const char *format, ...)
 	va_list arg;
 	int off = 0;
 	char buf[PAGE_SIZE];
+	int __errno = errno;
 	struct timeval tv;
 	struct tm *tm;
 
@@ -57,4 +58,5 @@ void test_msg(const char *format, ...)
 	va_end(arg);
 
 	fprintf(stderr, "%s", buf);
+	errno = __errno;
 }
