@@ -129,8 +129,8 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 			regs.ip -= 2;
 			break;
 		case -ERESTART_RESTARTBLOCK:
-			regs.ax = __NR_restart_syscall;
-			regs.ip -= 2;
+			pr_warn("Will restore %d with interrupted system call\n", pid);
+			regs.ax = -EINTR;
 			break;
 		}
 	}
