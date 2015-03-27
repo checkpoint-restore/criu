@@ -401,7 +401,7 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 		else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO))
 			/* devzero mapping -- also makes sense */;
 		else {
-			pr_err("Can't handle non-regular mapping on %d's map %#lx\n", pid, vma_area->e->start);
+			pr_err("Can't handle non-regular mapping on %d's map %"PRIx64"\n", pid, vma_area->e->start);
 			goto err;
 		}
 
@@ -460,7 +460,7 @@ err_bogus_mapping:
 	goto err;
 
 err_bogus_mapfile:
-	pr_perror("Can't open %d's mapfile link %lx", pid, vma_area->e->start);
+	pr_perror("Can't open %d's mapfile link %"PRIx64, pid, vma_area->e->start);
 	goto err;
 }
 
