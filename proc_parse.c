@@ -1016,22 +1016,19 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 
 	while (fgets(str, sizeof(str), f)) {
 		struct mount_info *new;
-		int ret;
+		int ret = -1;
 		char *fst = NULL;
 
 		new = mnt_entry_alloc();
 		if (!new)
-			goto err;
+			goto end;
 
 		new->nsid = nsid;
-
-		new->next = list;
-		list = new;
 
 		ret = parse_mountinfo_ent(str, new, &fst);
 		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
-			goto err;
+			goto end;
 		}
 
 		pr_info("\ttype %s source %s mnt_id %d s_dev %#x %s @ %s flags %#x options %s\n",
@@ -1044,9 +1041,17 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 			if (ret) {
 				pr_err("Failed to parse FS specific data on %s\n",
 						new->mountpoint);
-				goto err;
+				goto end;
 			}
 		}
+end:
+		if (new) {
+			new->next = list;
+			list = new;
+		}
+
+		if (ret)
+			goto err;
 	}
 out:
 	fclose(f);
