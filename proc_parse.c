@@ -958,10 +958,8 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 			&new->mnt_id, &new->parent_mnt_id,
 			&kmaj, &kmin, &new->root, new->mountpoint + 1,
 			&opt, &n);
-	if (ret != 7) {
-		xfree(new->mountpoint);
+	if (ret != 7)
 		return -1;
-	}
 
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 
