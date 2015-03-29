@@ -802,7 +802,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		if (!vma_priv(vma_entry))
+		if (!vma_entry_is_private(vma_entry))
 			continue;
 
 		if (vma_entry->end >= TASK_SIZE)
@@ -823,7 +823,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		if (!vma_priv(vma_entry))
+		if (!vma_entry_is_private(vma_entry))
 			continue;
 
 		if (vma_entry->start > TASK_SIZE)
@@ -846,7 +846,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		if (vma_priv(vma_entry))
+		if (vma_entry_is_private(vma_entry))
 			continue;
 
 		va = restore_mapping(vma_entry);

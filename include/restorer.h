@@ -197,8 +197,4 @@ enum {
 /* the restorer_blob_offset__ prefix is added by gen_offsets.sh */
 #define restorer_sym(rblob, name)	((void *)(rblob) + restorer_blob_offset__##name)
 
-#define vma_priv(vma) ((vma_entry_is(vma, VMA_AREA_REGULAR)) &&	\
-			(vma_entry_is(vma, VMA_ANON_PRIVATE) || \
-			vma_entry_is(vma, VMA_FILE_PRIVATE)))
-
 #endif /* __CR_RESTORER_H__ */

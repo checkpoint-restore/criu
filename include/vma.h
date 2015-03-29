@@ -1,7 +1,10 @@
 #ifndef __CR_VMA_H__
 #define __CR_VMA_H__
 
+#include "asm/types.h"
+#include "image.h"
 #include "list.h"
+
 #include "protobuf/vma.pb-c.h"
 
 struct vm_area_list {
@@ -69,7 +72,6 @@ struct vma_area {
 extern struct vma_area *alloc_vma_area(void);
 extern int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list);
 extern void free_mappings(struct vm_area_list *vma_area_list);
-extern bool privately_dump_vma(struct vma_area *vma);
 
 #define vma_area_is(vma_area, s)	vma_entry_is((vma_area)->e, s)
 #define vma_area_len(vma_area)		vma_entry_len((vma_area)->e)
@@ -88,6 +90,19 @@ static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 {
 	return addr >= (unsigned long)vma->e->start &&
 		addr < (unsigned long)vma->e->end;
+}
+
+static inline bool vma_entry_is_private(VmaEntry *entry)
+{
+	return vma_entry_is(entry, VMA_AREA_REGULAR)	&&
+		(vma_entry_is(entry, VMA_ANON_PRIVATE)	||
+		 vma_entry_is(entry, VMA_FILE_PRIVATE)) &&
+		 (entry->end <= TASK_SIZE);
+}
+
+static inline bool vma_area_is_private(struct vma_area *vma)
+{
+	return vma_entry_is_private(vma->e);
 }
 
 #endif /* __CR_VMA_H__ */

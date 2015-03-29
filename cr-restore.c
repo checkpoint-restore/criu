@@ -252,7 +252,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 		if (p->e->start > vma->e->start)
 			 break;
 
-		if (!vma_priv(p->e))
+		if (!vma_area_is_private(p))
 			continue;
 
 		 if (p->e->end != vma->e->end ||
@@ -364,7 +364,7 @@ static int premap_priv_vmas(pid_t pid, struct vm_area_list *vmas, void *at)
 		}
 		pstart = vma->e->start;
 
-		if (!vma_priv(vma->e))
+		if (!vma_area_is_private(vma))
 			continue;
 
 		ret = map_private_vma(pid, vma, &at, &pvma, parent_vmas);
@@ -430,7 +430,7 @@ static int restore_priv_vma_content(pid_t pid)
 			 */
 			if (va < vma->e->start)
 				goto err_addr;
-			else if (unlikely(!vma_priv(vma->e))) {
+			else if (unlikely(!vma_area_is_private(vma))) {
 				pr_err("Trying to restore page for non-private VMA\n");
 				goto err_addr;
 			}
@@ -573,7 +573,7 @@ static int unmap_guard_pages()
 	struct list_head *vmas = &rsti(current)->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
-		if (!vma_priv(vma->e))
+		if (!vma_area_is_private(vma))
 			continue;
 
 		if (vma->e->flags & MAP_GROWSDOWN) {
@@ -2646,7 +2646,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		*vme = *vma->e;
 
-		if (vma_priv(vma->e))
+		if (vma_area_is_private(vma))
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 

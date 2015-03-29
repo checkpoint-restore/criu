@@ -81,42 +81,6 @@
 
 static char loc_buf[PAGE_SIZE];
 
-bool privately_dump_vma(struct vma_area *vma)
-{
-	/*
-	 * The special areas are not dumped.
-	 */
-	if (!(vma->e->status & VMA_AREA_REGULAR))
-		return false;
-
-	/* No dumps for file-shared mappings */
-	if (vma->e->status & VMA_FILE_SHARED)
-		return false;
-
-	/* No dumps for SYSV IPC mappings */
-	if (vma->e->status & VMA_AREA_SYSVIPC)
-		return false;
-
-#ifdef CONFIG_VDSO
-	/* No dumps for vDSO VVAR data */
-	if (vma->e->status & VMA_AREA_VVAR)
-		return false;
-#endif
-	if (vma_area_is(vma, VMA_ANON_SHARED))
-		return false;
-
-	if (!vma_area_is(vma, VMA_ANON_PRIVATE) &&
-			!vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		pr_warn("Unexpected VMA area found\n");
-		return false;
-	}
-
-	if (vma->e->end > TASK_SIZE)
-		return false;
-
-	return true;
-}
-
 static void close_vma_file(struct vma_area *vma)
 {
 	if (vma->vm_file_fd < 0)
