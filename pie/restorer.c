@@ -799,9 +799,6 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->nr_vmas; i++) {
 		vma_entry = args->tgt_vmas + i;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
-			continue;
-
 		if (!vma_entry_is_private(vma_entry))
 			continue;
 
@@ -819,9 +816,6 @@ long __export_restore_task(struct task_restore_args *args)
 	/* Shift private vma-s to the right */
 	for (i = args->nr_vmas - 1; i >= 0; i--) {
 		vma_entry = args->tgt_vmas + i;
-
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
-			continue;
 
 		if (!vma_entry_is_private(vma_entry))
 			continue;
