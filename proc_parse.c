@@ -962,6 +962,8 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 		goto err;
 
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
+	if (!new->mountpoint)
+		goto err;
 
 	new->s_dev = MKKDEV(kmaj, kmin);
 	new->flags = 0;
