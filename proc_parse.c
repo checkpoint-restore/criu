@@ -947,11 +947,11 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
-	char *opt;
+	char *opt = NULL;
 
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
-		return -1;
+		goto err;
 
 	new->mountpoint[0] = '.';
 	ret = sscanf(str, "%i %i %u:%u %ms %s %ms %n",
@@ -959,29 +959,29 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 			&kmaj, &kmin, &new->root, new->mountpoint + 1,
 			&opt, &n);
 	if (ret != 7)
-		return -1;
+		goto err;
 
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 
 	new->s_dev = MKKDEV(kmaj, kmin);
 	new->flags = 0;
 	if (parse_mnt_flags(opt, &new->flags))
-		return -1;
+		goto err;
 
-	free(opt); /* after %ms scanf */
+	free(opt); /* we are going to reallocate/reuse this buffer */
+	opt = NULL;
 
 	str += n;
 	if (parse_mnt_opt(str, new, &n))
-		return -1;
+		goto err;
 
 	str += n;
 	ret = sscanf(str, "%ms %ms %ms", fsname, &new->source, &opt);
 	if (ret != 3)
-		return -1;
+		goto err;
 
 	new->fstype = find_fstype_by_name(*fsname);
 
-	ret = -1;
 	new->options = xmalloc(strlen(opt) + 1);
 	if (!new->options)
 		goto err;
@@ -990,9 +990,12 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 		goto err;
 
 	ret = 0;
-err:
-	free(opt);
+ret:
+	xfree(opt);
 	return ret;
+err:
+	ret = -1;
+	goto ret;
 }
 
 struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
