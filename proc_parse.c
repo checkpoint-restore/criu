@@ -943,12 +943,11 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
 	return 0;
 }
 
-static int parse_mountinfo_ent(char *str, struct mount_info *new, char **r_fstype)
+static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
 	char *opt;
-	char *fstype;
 
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
@@ -978,15 +977,13 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **r_fstyp
 		return -1;
 
 	str += n;
-	ret = sscanf(str, "%ms %ms %ms", &fstype, &new->source, &opt);
+	ret = sscanf(str, "%ms %ms %ms", fsname, &new->source, &opt);
 	if (ret != 3)
 		return -1;
 
-	ret = -1;
-	new->fstype = find_fstype_by_name(fstype);
-	if (new->fstype->code == FSTYPE__UNSUPPORTED)
-		*r_fstype = fstype; /* keep for logging */
+	new->fstype = find_fstype_by_name(*fsname);
 
+	ret = -1;
 	new->options = xmalloc(strlen(opt) + 1);
 	if (!new->options)
 		goto err;
@@ -997,8 +994,6 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **r_fstyp
 	ret = 0;
 err:
 	free(opt);
-	if (!*r_fstype)
-		free(fstype);
 	return ret;
 }
 
@@ -1017,7 +1012,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 	while (fgets(str, sizeof(str), f)) {
 		struct mount_info *new;
 		int ret = -1;
-		char *fst = NULL;
+		char *fsname = NULL;
 
 		new = mnt_entry_alloc();
 		if (!new)
@@ -1025,14 +1020,14 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 
 		new->nsid = nsid;
 
-		ret = parse_mountinfo_ent(str, new, &fst);
+		ret = parse_mountinfo_ent(str, new, &fsname);
 		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
 			goto end;
 		}
 
 		pr_info("\ttype %s source %s mnt_id %d s_dev %#x %s @ %s flags %#x options %s\n",
-				fst ? : new->fstype->name, new->source,
+				fsname, new->source,
 				new->mnt_id, new->s_dev, new->root, new->mountpoint,
 				new->flags, new->options);
 
@@ -1045,6 +1040,9 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
 			}
 		}
 end:
+		if (fsname)
+			free(fsname);
+
 		if (new) {
 			new->next = list;
 			list = new;
