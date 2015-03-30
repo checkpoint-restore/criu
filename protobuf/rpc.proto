@@ -15,6 +15,11 @@ message ext_mount_map {
 	required string		val	= 2;
 };
 
+message inherit_fd {
+	required string		key	= 1;
+	required int32		fd	= 2;
+};
+
 message cgroup_root {
 	optional string		ctrl	= 1;
 	required string		path	= 2;
@@ -55,6 +60,7 @@ message criu_opts {
 	repeated cgroup_root		cg_root		= 25;
 
 	optional bool			rst_sibling	= 26; /* swrk only */
+	repeated inherit_fd		inherit_fd	= 27; /* swrk only */
 }
 
 message criu_dump_resp {
