@@ -409,7 +409,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			break;
 		case 1062:
-			if (inherit_fd_add(optarg) < 0)
+			if (inherit_fd_parse(optarg) < 0)
 				return 1;
 			break;
 		case 1063:

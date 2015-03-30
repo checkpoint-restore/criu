@@ -1253,14 +1253,12 @@ static int inherit_fd_reused(struct inherit_fd *inh)
  * We can't print diagnostics messages in this function because the
  * log file isn't initialized yet.
  */
-int inherit_fd_add(char *optarg)
+int inherit_fd_parse(char *optarg)
 {
 	char *cp = NULL;
 	int n = -1;
 	int fd = -1;
 	int dbg = 0;
-	struct stat sbuf;
-	struct inherit_fd *inh;
 
 	/*
 	 * Parse the argument.
@@ -1295,6 +1293,14 @@ int inherit_fd_add(char *optarg)
 		return 0;
 	}
 
+	return inherit_fd_add(fd, cp);
+}
+
+int inherit_fd_add(int fd, char *key)
+{
+	struct inherit_fd *inh;
+	struct stat sbuf;
+
 	if (fstat(fd, &sbuf) == -1) {
 		pr_perror("Can't fstat inherit fd %d", fd);
 		return -1;
@@ -1304,7 +1310,7 @@ int inherit_fd_add(char *optarg)
 	if (inh == NULL)
 		return -1;
 
-	inh->inh_id = cp;
+	inh->inh_id = key;
 	inh->inh_fd = fd;
 	inh->inh_dev = sbuf.st_dev;
 	inh->inh_ino = sbuf.st_ino;

@@ -18,6 +18,7 @@
 #include "util.h"
 #include "log.h"
 #include "cpu.h"
+#include "files.h"
 #include "pstree.h"
 #include "cr-service.h"
 #include "cr-service-const.h"
@@ -341,6 +342,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	for (i = 0; i < req->n_ext_mnt; i++) {
 		if (ext_mount_add(req->ext_mnt[i]->key, req->ext_mnt[i]->val))
+			goto err;
+	}
+
+	if (req->n_inherit_fd && !opts.swrk_restore) {
+		pr_err("inherit_fd is not allowed in standalone service\n");
+		goto err;
+	}
+	for (i = 0; i < req->n_inherit_fd; i++) {
+		if (inherit_fd_add(req->inherit_fd[i]->fd, req->inherit_fd[i]->key))
 			goto err;
 	}
 

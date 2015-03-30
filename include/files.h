@@ -169,7 +169,8 @@ extern struct collect_image_info ext_file_cinfo;
 extern int dump_unsupp_fd(struct fd_parms *p, int lfd,
 			  struct cr_img *, char *more, char *info);
 
-extern int inherit_fd_add(char *optarg);
+extern int inherit_fd_parse(char *optarg);
+extern int inherit_fd_add(int fd, char *key);
 extern void inherit_fd_log(void);
 extern int inherit_fd_resolve_clash(int fd);
 extern int inherit_fd_fini(void);
