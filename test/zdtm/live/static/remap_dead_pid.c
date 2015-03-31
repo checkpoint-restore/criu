@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 		fd = open(path, O_RDONLY);
 
 		/* no matter what, we should kill the child */
-		kill(pid, SIGINT);
+		kill(pid, SIGKILL);
 		result = waitpid(pid, NULL, 0);
 		if (result < 0) {
 			fail("failed waitpid()");
