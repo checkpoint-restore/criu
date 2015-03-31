@@ -50,6 +50,37 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
+char *devconfs[] = {
+	"accept_local",
+	"accept_redirects",
+	"accept_source_route",
+	"arp_accept",
+	"arp_announce",
+	"arp_filter",
+	"arp_ignore",
+	"arp_notify",
+	"bootp_relay",
+	"disable_policy",
+	"disable_xfrm",
+	"force_igmp_version",
+	"forwarding",
+	"igmpv2_unsolicited_report_interval",
+	"igmpv3_unsolicited_report_interval",
+	"log_martians",
+	"medium_id",
+	"promote_secondaries",
+	"proxy_arp",
+	"proxy_arp_pvlan",
+	"route_localnet",
+	"rp_filter",
+	"secure_redirects",
+	"send_redirects",
+	"shared_media",
+	"src_valid_mark",
+	"tag",
+	NULL,
+};
+
 int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
 {
 	return pb_write_one(img_from_set(fds, CR_FD_NETDEV), nde, PB_NETDEV);
