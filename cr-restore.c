@@ -1822,7 +1822,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	/*
 	 * -------------------------------------------------------------
-	 * Below this line nothing can fail, because network is unlocked
+	 * Below this line nothing should fail, because network is unlocked
 	 */
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
