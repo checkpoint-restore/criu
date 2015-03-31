@@ -61,6 +61,7 @@
 #define INOTIFY_WD_MAGIC	0x54562009 /* Svetlogorsk (Rauschen) */
 #define MNTS_MAGIC		0x55563928 /* Petushki */
 #define NETDEV_MAGIC		0x57373951 /* Yaroslavl */
+#define NETNS_MAGIC		0x55933752 /* Dolgoprudny */
 #define TTY_FILES_MAGIC		0x59433025 /* Pushkin */
 #define TTY_INFO_MAGIC		0x59453036 /* Kolpino */
 #define FILE_LOCKS_MAGIC	0x54323616 /* Kaluga */

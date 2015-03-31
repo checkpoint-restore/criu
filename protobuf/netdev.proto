@@ -24,4 +24,11 @@ message net_device_entry {
 	optional tun_link_entry tun	= 6;
 
 	optional bytes address		= 7;
+
+	repeated int32 conf		= 8;
+}
+
+message netns_entry {
+	repeated int32 def_conf		= 1;
+	repeated int32 all_conf		= 2;
 }
