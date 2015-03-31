@@ -163,6 +163,7 @@ int send_criu_rpc_script(enum script_actions act, char *name, int fd)
 
 	switch (act) {
 	case ACT_SETUP_NS:
+	case ACT_POST_RESTORE:
 		/*
 		 * FIXME pid is required only once on
 		 * restore. Need some more sane way of
