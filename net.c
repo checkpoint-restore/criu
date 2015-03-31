@@ -464,6 +464,17 @@ static int restore_links(int pid)
 			break;
 
 		ret = restore_link(nde, nlsk);
+		if (ret) {
+			pr_err("can not restore link");
+			goto exit;
+		}
+
+		if (nde->conf) {
+			ret = ipv4_conf_op(nde->name, nde->conf, CTL_WRITE);
+			if (!ret)
+				return ret;
+		}
+exit:
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
 			break;
