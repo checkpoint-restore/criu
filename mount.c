@@ -2017,6 +2017,15 @@ int restore_task_mnt_ns(struct pstree_item *current)
 		unsigned int id = current->ids->mnt_ns_id;
 		struct ns_id *nsid;
 
+		/*
+		 * Regardless of the namespace a task wants to
+		 * live in, by that point they all will live in
+		 * root's one (see prepare_pstree_kobj_ids() +
+		 * get_clone_mask()). So if the current task's
+		 * target namespace is the root's one -- it's
+		 * already there, otherwise it will have to do
+		 * setns().
+		 */
 		if (root_item->ids->mnt_ns_id == id)
 			return 0;
 

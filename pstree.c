@@ -689,7 +689,12 @@ set_mask:
 			 * Mount namespaces are setns()-ed at
 			 * restore_task_mnt_ns() explicitly,
 			 * no need in creating it with its own
-			 * temporary namespace
+			 * temporary namespace.
+			 *
+			 * Root task is exceptional -- it will
+			 * be born in a fresh new mount namespace
+			 * which will be populated with all other
+			 * namespaces' entries.
 			 */
 			rsti(item)->clone_flags &= ~CLONE_NEWNS;
 
