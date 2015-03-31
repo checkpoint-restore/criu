@@ -529,6 +529,36 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	return run_iptables_tool("iptables-save", -1, img_raw_fd(img));
 }
 
+static int dump_netns_conf(struct cr_imgset *fds)
+{
+	int ret;
+	NetnsEntry netns = NETNS_ENTRY__INIT;
+
+	netns.n_def_conf = ARRAY_SIZE(devconfs);
+	netns.n_all_conf = ARRAY_SIZE(devconfs);
+	netns.def_conf = xmalloc(sizeof(int) * netns.n_def_conf);
+	if (!netns.def_conf)
+		return -1;
+	netns.all_conf = xmalloc(sizeof(int) * netns.n_all_conf);
+	if (!netns.all_conf) {
+		xfree(netns.def_conf);
+		return -1;
+	}
+
+	ret = ipv4_conf_op("default", netns.def_conf, CTL_READ);
+	if (ret < 0)
+		goto err_free;
+	ret = ipv4_conf_op("all", netns.all_conf, CTL_READ);
+	if (ret < 0)
+		goto err_free;
+
+	ret = pb_write_one(img_from_set(fds, CR_FD_NETNS), &netns, PB_NETNS);
+err_free:
+	xfree(netns.def_conf);
+	xfree(netns.all_conf);
+	return ret;
+}
+
 static int restore_ip_dump(int type, int pid, char *cmd)
 {
 	int ret = -1;
@@ -617,6 +647,8 @@ int dump_net_ns(int ns_id)
 		return -1;
 
 	ret = mount_ns_sysfs();
+	if (!ret)
+		ret = dump_netns_conf(fds);
 	if (!ret)
 		ret = dump_links(fds);
 	if (!ret)
