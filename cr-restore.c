@@ -398,7 +398,7 @@ static int restore_priv_vma_content(pid_t pid)
 	 * Read page contents.
 	 */
 	while (1) {
-		unsigned long off, i, nr_pages;;
+		unsigned long off, i, nr_pages;
 		struct iovec iov;
 
 		ret = pr.get_pagemap(&pr, &iov);

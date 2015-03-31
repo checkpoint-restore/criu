@@ -781,7 +781,7 @@ int check_parent_local_xfer(int fd_type, int id)
 
 	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 	if (pfd < 0 && errno == ENOENT)
-		return 0;;
+		return 0;
 
 	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, id);
 	ret = fstatat(pfd, path, &st, 0);

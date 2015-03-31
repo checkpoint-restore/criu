@@ -501,7 +501,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
 	args->log_level = log_get_loglevel();
 
 	if (prepare_tsock(ctl, pid, args, net))
-		goto err;;
+		goto err;
 
 	/* after this we can catch parasite errors in chld handler */
 	if (setup_child_handler())
@@ -1175,7 +1175,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 		return -1;
 
 	if (parasite_init_daemon(ctl, dmpi(item)->netns))
-		return -1;;
+		return -1;
 
 	return 0;
 }

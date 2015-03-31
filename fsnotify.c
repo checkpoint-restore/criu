@@ -211,7 +211,7 @@ struct watch_list {
 static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 {
 	struct watch_list *wd_list = (struct watch_list *) arg;
-	struct inotify_wd_entry *wd_entry = (struct inotify_wd_entry *) e;;
+	struct inotify_wd_entry *wd_entry = (struct inotify_wd_entry *) e;
 	InotifyWdEntry *we = &wd_entry->e;
 
 	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",

@@ -817,7 +817,7 @@ static int open_mountpoint(struct mount_info *pm)
 		goto out;
 	}
 
-	return __open_mountpoint(pm, fd);;
+	return __open_mountpoint(pm, fd);
 out:
 	if (ns_old >= 0)
 		 restore_ns(ns_old, &mnt_ns_desc);
