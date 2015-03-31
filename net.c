@@ -23,6 +23,7 @@
 #include "action-scripts.h"
 #include "sockets.h"
 #include "pstree.h"
+#include "sysctl.h"
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
@@ -81,6 +82,32 @@ char *devconfs[] = {
 	NULL,
 };
 
+#define NET_CONF_PATH "net/ipv4/conf"
+#define MAX_CONF_OPT_PATH IFNAMSIZ+50
+
+static int ipv4_conf_op(char *tgt, int *conf, int op)
+{
+	int i;
+	int ret;
+	struct sysctl_req req[ARRAY_SIZE(devconfs) + 1];
+	char path[ARRAY_SIZE(devconfs)][MAX_CONF_OPT_PATH];
+
+	for (i = 0; devconfs[i]; i++) {
+		sprintf(path[i], "%s/%s/%s", NET_CONF_PATH, tgt, devconfs[i]);
+		req[i].name = path[i];
+		req[i].arg = &conf[i];
+		req[i].type = CTL_32;
+	}
+	req[i].name = NULL;
+
+	ret = sysctl_op(req, op);
+	if (ret < 0) {
+		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ)?"read":"write", tgt);
+		return -1;
+	}
+	return 0;
+}
+
 int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
 {
 	return pb_write_one(img_from_set(fds, CR_FD_NETDEV), nde, PB_NETDEV);
@@ -90,6 +117,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		struct rtattr **tb, struct cr_imgset *fds,
 		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
 {
+	int ret;
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
 
 	if (!tb[IFLA_IFNAME]) {
@@ -112,10 +140,22 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 				(int)netdev.address.len, netdev.name);
 	}
 
+	netdev.n_conf = ARRAY_SIZE(devconfs);
+	netdev.conf = xmalloc(sizeof(int) * netdev.n_conf);
+	if (!netdev.conf)
+		return -1;
+
+	ret = ipv4_conf_op(netdev.name, netdev.conf, CTL_READ);
+	if (ret < 0)
+		goto err_free;
+
 	if (!dump)
 		dump = write_netdev_img;
 
-	return dump(&netdev, fds);
+	ret = dump(&netdev, fds);
+err_free:
+	xfree(netdev.conf);
+	return ret;
 }
 
 static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
