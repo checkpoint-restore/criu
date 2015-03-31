@@ -597,6 +597,35 @@ static inline int restore_iptables(int pid)
 	return ret;
 }
 
+static int restore_netns_conf(int pid)
+{
+	int ret = 0;
+	struct cr_img *img;
+	NetnsEntry *netns;
+
+	img = open_image(CR_FD_NETNS, O_RSTR, pid);
+	if (!img)
+		return -1;
+
+	if (empty_image(img))
+		/* Backward compatibility */
+		goto out;
+
+	ret = pb_read_one(img, netns, PB_NETNS);
+	if (ret < 0) {
+		pr_err("Can not read netns object\n");
+		return -1;
+	}
+
+	ret = ipv4_conf_op("default", netns->def_conf, CTL_WRITE);
+	if (!ret)
+		ret = ipv4_conf_op("all", netns->all_conf, CTL_WRITE);
+	netns_entry__free_unpacked(netns, NULL);
+out:
+	close_image(img);
+	return ret;
+}
+
 static int mount_ns_sysfs(void)
 {
 	char sys_mount[] = "crtools-sys.XXXXXX";
@@ -669,7 +698,9 @@ int prepare_net_ns(int pid)
 {
 	int ret;
 
-	ret = restore_links(pid);
+	ret = restore_netns_conf(pid);
+	if (!ret)
+		ret = restore_links(pid);
 	if (!ret)
 		ret = restore_ifaddr(pid);
 	if (!ret)
