@@ -692,7 +692,7 @@ int cr_check(void)
 
 	ns.id = root_item->ids->mnt_ns_id;
 
-	mntinfo = collect_mntinfo(&ns);
+	mntinfo = collect_mntinfo(&ns, false);
 	if (mntinfo == NULL)
 		return -1;
 

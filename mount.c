@@ -1193,11 +1193,11 @@ static void free_mntinfo(struct mount_info *pms)
 	}
 }
 
-struct mount_info *collect_mntinfo(struct ns_id *ns)
+struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 {
 	struct mount_info *pm;
 
-	ns->mnt.mntinfo_list = pm = parse_mountinfo(ns->pid, ns);
+	ns->mnt.mntinfo_list = pm = parse_mountinfo(ns->pid, ns, for_dump);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns->pid);
 		return NULL;
@@ -1809,7 +1809,7 @@ static int rst_collect_local_mntns(void)
 	if (!nsid)
 		return -1;
 
-	mntinfo = collect_mntinfo(nsid);
+	mntinfo = collect_mntinfo(nsid, false);
 	if (!mntinfo)
 		return -1;
 
@@ -2147,7 +2147,7 @@ int prepare_mnt_ns(void)
 
 	pr_info("Restoring mount namespace\n");
 
-	old = collect_mntinfo(&ns);
+	old = collect_mntinfo(&ns, false);
 	if (old == NULL)
 		return -1;
 
@@ -2321,16 +2321,22 @@ int mntns_get_root_by_mnt_id(int mnt_id)
 	return mntns_get_root_fd(mntns);
 }
 
-static int collect_mntns(struct ns_id *ns, void *oarg)
+struct collect_mntns_arg {
+	bool need_to_validate;
+	bool for_dump;
+};
+
+static int collect_mntns(struct ns_id *ns, void *__arg)
 {
+	struct collect_mntns_arg *arg = __arg;
 	struct mount_info *pms;
 
-	pms = collect_mntinfo(ns);
+	pms = collect_mntinfo(ns, arg->for_dump);
 	if (!pms)
 		return -1;
 
-	if (ns->pid != getpid())
-		*(int *)oarg = 1;
+	if (arg->for_dump && ns->pid != getpid())
+		arg->need_to_validate = true;
 
 	mntinfo_add_list(pms);
 	return 0;
@@ -2338,13 +2344,17 @@ static int collect_mntns(struct ns_id *ns, void *oarg)
 
 int collect_mnt_namespaces(bool for_dump)
 {
-	int need_to_validate = 0, ret;
+	struct collect_mntns_arg arg;
+	int ret;
 
-	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &need_to_validate);
+	arg.for_dump = for_dump;
+	arg.need_to_validate = false;
+
+	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &arg);
 	if (ret)
 		goto err;
 
-	if (for_dump && need_to_validate) {
+	if (arg.need_to_validate) {
 		ret = -1;
 
 		if (collect_shared(mntinfo))

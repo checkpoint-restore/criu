@@ -1000,7 +1000,7 @@ err:
 	goto ret;
 }
 
-struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid)
+struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;
 	FILE *f;
