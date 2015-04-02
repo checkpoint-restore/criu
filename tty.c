@@ -182,7 +182,6 @@ static int open_simple_tty(struct tty_info *info);
 
 static struct tty_driver console_driver = {
 	.type			= TTY_TYPE__CONSOLE,
-	.subtype		= TTY_SUBTYPE_SLAVE,
 	.name			= "console",
 	.index			= CONSOLE_INDEX,
 	.open			= open_simple_tty,
@@ -190,7 +189,6 @@ static struct tty_driver console_driver = {
 
 static struct tty_driver ctty_driver = {
 	.type			= TTY_TYPE__CTTY,
-	.subtype		= TTY_SUBTYPE_SLAVE,
 	.name			= "ctty",
 	.index			= CTTY_INDEX,
 	.open			= open_simple_tty,
