@@ -775,6 +775,7 @@ static int open_mountpoint(struct mount_info *pm)
 {
 	int fd = -1, ns_old = -1;
 	char mnt_path[] = "/tmp/cr-tmpfs.XXXXXX";
+	int cwd_fd;
 
 	/*
 	 * If a mount doesn't have children, we can open a mount point,
@@ -793,8 +794,14 @@ static int open_mountpoint(struct mount_info *pm)
 	 * mkdtemp, setns(tgt), mount, open, detach, setns(old).
 	 */
 
-	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0)
+	cwd_fd = open(".", O_DIRECTORY);
+	if (cwd_fd < 0) {
+		pr_perror("Unable to open cwd");
 		return -1;
+	}
+
+	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0)
+		goto out;
 
 	if (mkdtemp(mnt_path) == NULL) {
 		pr_perror("Can't create a temporary directory");
@@ -816,12 +823,22 @@ static int open_mountpoint(struct mount_info *pm)
 		ns_old = -1;
 		goto out;
 	}
+	if (fchdir(cwd_fd)) {
+		pr_perror("Unable to restore cwd");
+		close(cwd_fd);
+		close(fd);
+		return -1;
+	}
+	close(cwd_fd);
 
 	return __open_mountpoint(pm, fd);
 out:
 	if (ns_old >= 0)
 		 restore_ns(ns_old, &mnt_ns_desc);
 	close_safe(&fd);
+	if (fchdir(cwd_fd))
+		pr_perror("Unable to restore cwd");
+	close(cwd_fd);
 	return -1;
 }
 
