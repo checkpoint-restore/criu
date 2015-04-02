@@ -1000,6 +1000,37 @@ err:
 	goto ret;
 }
 
+static LIST_HEAD(skip_mount_list);
+
+struct str_node {
+	struct list_head node;
+	char string[];
+};
+
+bool add_skip_mount(const char *mountpoint)
+{
+	struct str_node *skip = xmalloc(sizeof(struct str_node) +
+					strlen(mountpoint) + 1);
+	if (!skip)
+		return false;
+
+	strcpy(skip->string, mountpoint);
+	list_add(&skip->node, &skip_mount_list);
+	return true;
+}
+
+static bool should_skip_mount(const char *mountpoint)
+{
+	struct str_node *pos;
+
+	list_for_each_entry(pos, &skip_mount_list, node) {
+		if (strcmp(mountpoint, pos->string) == 0)
+			return true;
+	}
+
+	return false;
+}
+
 struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;
@@ -1026,6 +1057,18 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 		ret = parse_mountinfo_ent(str, new, &fsname);
 		if (ret < 0) {
 			pr_err("Bad format in %d mountinfo\n", pid);
+			goto end;
+		}
+
+		/*
+		 * Drop this mountpoint early, so that lookup_mnt_id/etc will
+		 * fail loudly at "dump" stage if an opened file or another mnt
+		 * depends on this one.
+		 */
+		if (for_dump && should_skip_mount(new->mountpoint + 1)) {
+			pr_info("\tskip %s @ %s\n", fsname,  new->mountpoint);
+			mnt_entry_free(new);
+			new = NULL;
 			goto end;
 		}
 

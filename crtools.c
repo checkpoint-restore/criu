@@ -203,6 +203,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-root", required_argument, 0, 1061},
 		{ "inherit-fd", required_argument, 0, 1062},
 		{ "feature", required_argument, 0, 1063},
+		{ "skip-mnt", required_argument, 0, 1064},
 		{ },
 	};
 
@@ -414,6 +415,10 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1063:
 			if (check_add_feature(optarg) < 0)
+				return 1;
+			break;
+		case 1064:
+			if (!add_skip_mount(optarg))
 				return 1;
 			break;
 		case 'M':
@@ -642,6 +647,7 @@ usage:
 "                        change the root cgroup the controller will be\n"
 "                        installed into. No controller means that root is the\n"
 "                        default for all controllers not specified.\n"
+"  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace.\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
