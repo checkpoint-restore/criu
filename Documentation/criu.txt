@@ -66,6 +66,10 @@ OPTIONS
     Use path 'path' as a base directory where to look for dump files set. This
     commands applies to any 'command'.
 
+*--prev-images-dir* 'path'::
+    Use path 'path' as a parent directory where to look for dump files set. This
+    make sence in case of increment dumps.
+
 *-W*, *--work-dir* 'dir'::
     Use directory 'dir' for putting logs, pidfiles and statistics. If not
     specified, 'path' from *-D* option is taken.
@@ -128,6 +132,9 @@ OPTIONS
 *-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
 
+*-S*, *--restore-sibling*::
+    Restore root task as a sibling (make sense with *--restore-detached*) only.
+
 *-n*, *--namespaces* 'ns'[,'ns'...]::
     Checkpoint namespaces. Namespaces must be separated by comma.
     Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
@@ -137,6 +144,9 @@ OPTIONS
 
 *--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
+
+*--pidfile* 'file'::
+    Write root task, service or page-server pid into a 'file'.
 
 *--veth-pair* 'IN'*=*'OUT'::
     Correspondence between outside and inside names of veth devices.
@@ -202,14 +212,40 @@ OPTIONS
     In case of *check* command does not try to check for features which are
     known to be not yet merged upstream.
 
+*--track-mem*::
+    Turn on memory changes tracker in kernel.
+
+*--auto-dedup::
+    When used on *dump* it will deduplicate "old" data in pages images of
+    previous dump. When used on *restore*, as soon as page is restored, it
+    will be punched from the image.
+
 *--page-server*::
     In case of *dump* command sends pages to a page server.
 
-*--address*::
+*--address* 'address'::
     Page server address.
 
-*--port*::
+*--port* 'number'::
     Page server port number.
+
+*-L*, *--libdir* 'path'::
+    Path to a plugins directory.
+
+*--force-irmap*::
+    Force resolving names for inotify and fsnotify watches.
+
+*--manage-cgroups*::
+    Dump or restore cgroups the process is in.
+
+*--cgroup-root* '[controller:]/newroot'::
+    Change the root cgroup the controller will be installed into. No controller
+    means that root is the default for all controllers not specified.
+
+*--inherit-fd* 'fd[num]:existing'::
+    Inherit file descriptors on *restore*. This allows to treat file descriptor
+    'num' as being already opened via 'existing' one and instead of trying to
+    open we inherit it.
 
 *-V, *--version*::
     Print program version.
