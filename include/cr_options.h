@@ -27,7 +27,10 @@ struct cr_options {
 	char			*show_fmt;
 	bool			check_ms_kernel;
 	bool			show_pages_content;
-	bool			restore_detach;
+	union {
+		bool		restore_detach;
+		bool		daemon_mode;
+	};
 	bool			restore_sibling;
 	bool			ext_unix_sk;
 	bool			shell_job;

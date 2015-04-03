@@ -558,10 +558,10 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.restore_detach, -1) > 0 ? 0 : 1;
+		return cr_page_server(opts.daemon_mode, -1) > 0 ? 0 : 1;
 
 	if (!strcmp(argv[optind], "service"))
-		return cr_service(opts.restore_detach);
+		return cr_service(opts.daemon_mode);
 
 	if (!strcmp(argv[optind], "dedup"))
 		return cr_dedup() != 0;
