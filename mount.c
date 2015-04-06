@@ -1319,7 +1319,7 @@ again:
 	if (!progress) {
 		struct mount_info *m;
 
-		pr_err("A few mount points can't be mounted");
+		pr_err("A few mount points can't be mounted\n");
 		list_for_each_entry(m, &postpone2, postpone) {
 			pr_err("%d:%d %s %s %s\n", m->mnt_id,
 				m->parent_mnt_id, m->root,
