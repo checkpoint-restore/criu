@@ -716,7 +716,7 @@ static int collect_net_ns(struct ns_id *ns, void *oarg)
 
 int collect_net_namespaces(bool for_dump)
 {
-	return walk_namespaces(&net_ns_desc, collect_net_ns,
+	return walk_namespaces(&net_ns_desc, false, collect_net_ns,
 			(void *)(for_dump ? 1UL : 0));
 }
 

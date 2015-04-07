@@ -2372,7 +2372,7 @@ int collect_mnt_namespaces(bool for_dump)
 	arg.for_dump = for_dump;
 	arg.need_to_validate = false;
 
-	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &arg);
+	ret = walk_namespaces(&mnt_ns_desc, false, collect_mntns, &need_to_validate);
 	if (ret)
 		goto err;
 

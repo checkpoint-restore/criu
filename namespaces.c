@@ -201,9 +201,14 @@ struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd)
  * tasks may live in it. Sometimes (CLONE_SUBNS) there can
  * be more than one namespace of that type. For this case
  * we dump all namespace's info and recreate them on restore.
+ *
+ * In some cases (e.g. for external mount autodetection), we want to walk all
+ * the namespaces, regardless of who it is attached to. Passing walk_all=true
+ * forces the function to walk all the namespaces, regardless of who they
+ * belong to.
  */
 
-int walk_namespaces(struct ns_desc *nd, int (*cb)(struct ns_id *, void *), void *oarg)
+int walk_namespaces(struct ns_desc *nd, bool walk_all, int (*cb)(struct ns_id *, void *), void *oarg)
 {
 	int ret = 0;
 	struct ns_id *ns;
@@ -212,7 +217,7 @@ int walk_namespaces(struct ns_desc *nd, int (*cb)(struct ns_id *, void *), void 
 		if (ns->nd != nd)
 			continue;
 
-		if (ns->pid == getpid()) {
+		if (ns->pid == getpid() && !walk_all) {
 			if (root_ns_mask & nd->cflag)
 				continue;
 
@@ -597,7 +602,7 @@ int collect_user_namespaces(bool for_dump)
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
 
-	return walk_namespaces(&net_ns_desc, collect_user_ns, NULL);
+	return walk_namespaces(&net_ns_desc, false, collect_user_ns, NULL);
 }
 
 static int check_user_ns(int pid)
