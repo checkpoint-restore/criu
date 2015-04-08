@@ -94,11 +94,13 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",
 		.magic	= STATS_MAGIC,
+		.oflags = O_SERVICE,
 	},
 
 	[CR_FD_IRMAP_CACHE] = {
 		.fmt	= "irmap-cache",
 		.magic	= IRMAP_CACHE_MAGIC,
+		.oflags = O_SERVICE,
 	},
 
 	[CR_FD_FILE_LOCKS_PID] = {

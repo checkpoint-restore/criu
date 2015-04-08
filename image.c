@@ -14,6 +14,7 @@
 
 bool fdinfo_per_id = false;
 bool ns_per_id = false;
+bool img_common_magic = false;
 TaskKobjIdsEntry *root_ids;
 u32 root_cg_set;
 
@@ -50,10 +51,19 @@ int check_img_inventory(void)
 		root_cg_set = he->root_cg_set;
 	}
 
-	if (he->img_version != CRTOOLS_IMAGES_V1) {
+	switch (he->img_version) {
+	case CRTOOLS_IMAGES_V1:
+		/* good old images. OK */
+		break;
+	case CRTOOLS_IMAGES_V1_1:
+		/* newer images with extra magic in the head */
+		img_common_magic = true;
+		break;
+	default:
 		pr_err("Not supported images version %u\n", he->img_version);
 		goto out_err;
 	}
+
 	ret = 0;
 
 out_err:
@@ -78,7 +88,8 @@ int write_img_inventory(void)
 	if (!img)
 		return -1;
 
-	he.img_version = CRTOOLS_IMAGES_V1;
+	img_common_magic = true;
+	he.img_version = CRTOOLS_IMAGES_V1_1;
 	he.fdinfo_per_id = true;
 	he.has_fdinfo_per_id = true;
 	he.ns_per_id = true;
@@ -238,12 +249,27 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	return do_open_image(img, dfd, type, oflags, path);
 }
 
+static inline u32 head_magic(int oflags)
+{
+	return oflags & O_SERVICE ? IMG_SERVICE_MAGIC : IMG_COMMON_MAGIC;
+}
+
 static int img_check_magic(struct cr_img *img, int oflags, int type, char *path)
 {
 	u32 magic;
 
 	if (read_img(img, &magic) < 0)
 		return -1;
+
+	if (img_common_magic && (type != CR_FD_INVENTORY)) {
+		if (magic != head_magic(oflags)) {
+			pr_err("Head magic doesn't match for %s\n", path);
+			return -1;
+		}
+
+		if (read_img(img, &magic) < 0)
+			return -1;
+	}
 
 	if (magic != imgset_template[type].magic) {
 		pr_err("Magic doesn't match for %s\n", path);
@@ -255,6 +281,14 @@ static int img_check_magic(struct cr_img *img, int oflags, int type, char *path)
 
 static int img_write_magic(struct cr_img *img, int oflags, int type)
 {
+	if (img_common_magic && (type != CR_FD_INVENTORY)) {
+		u32 cmagic;
+
+		cmagic = head_magic(oflags);
+		if (write_img(img, &cmagic))
+			return -1;
+	}
+
 	return write_img(img, &imgset_template[type].magic);
 }
 
@@ -262,7 +296,7 @@ static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsig
 {
 	int ret, flags;
 
-	flags = oflags & ~(O_NOBUF);
+	flags = oflags & ~(O_NOBUF | O_SERVICE);
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {

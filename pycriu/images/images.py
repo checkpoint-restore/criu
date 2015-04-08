@@ -287,6 +287,9 @@ def load(f, pretty = False):
 
 	img_magic, = struct.unpack('i', f.read(4))
 
+	if img_magic in (magic.by_name['IMG_COMMON'], magic.by_name['IMG_SERVICE']):
+		img_magic, = struct.unpack('i', f.read(4))
+
 	try:
 		m = magic.by_val[img_magic]
 	except:
@@ -319,6 +322,12 @@ def dump(img, f):
 	"""
 	m = img['magic']
 	magic_val = magic.by_name[img['magic']]
+
+	if m != 'INVENTORY':
+		if m in ('STATS', 'IRMAP_CACHE'):
+			f.write(struct.pack('i', magic.by_name['IMG_COMMON']))
+		else:
+			f.write(struct.pack('i', magic.by_name['IMG_SERVICE']))
 
 	f.write(struct.pack('i', magic_val))
 

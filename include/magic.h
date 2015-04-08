@@ -6,6 +6,11 @@
  */
 
 #define CRTOOLS_IMAGES_V1	1
+/*
+ * v1.1 has common magic in the head of each image file,
+ * except for inventory
+ */
+#define CRTOOLS_IMAGES_V1_1	2
 
 /*
  * Raw images are images in which data is stored in some
@@ -15,13 +20,20 @@
 #define RAW_IMAGE_MAGIC		0x0
 
 /*
+ * Images have the IMG_COMMON_MAGIC in the head. Service files
+ * such as stats and irmap-cache have the IMG_SERVICE_MAGIC.
+ */
+
+#define IMG_COMMON_MAGIC	0x54564319 /* Sarov (a.k.a. Arzamas-16) */
+#define IMG_SERVICE_MAGIC	0x55105940 /* Zlatoust */
+
+/*
  * The magic-s below correspond to coordinates
  * of various Russian towns in the NNNNEEEE form.
  */
 
 #define INVENTORY_MAGIC		0x58313116 /* Veliky Novgorod */
 #define PSTREE_MAGIC		0x50273030 /* Kyiv */
-#define STATS_MAGIC		0x57093306 /* Ostashkov */
 #define FDINFO_MAGIC		0x56213732 /* Dmitrov */
 #define PAGEMAP_MAGIC		0x56084025 /* Vladimir */
 #define SHMEM_PAGEMAP_MAGIC	PAGEMAP_MAGIC
@@ -87,6 +99,10 @@
 #define PAGES_OLD_MAGIC		PAGEMAP_MAGIC
 #define SHM_PAGES_OLD_MAGIC	PAGEMAP_MAGIC
 
+/*
+ * These are special files, not exactly images
+ */
+#define STATS_MAGIC		0x57093306 /* Ostashkov */
 #define IRMAP_CACHE_MAGIC	0x57004059 /* Ivanovo */
 
 #endif /* __CR_MAGIC_H__ */
