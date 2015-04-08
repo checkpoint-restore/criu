@@ -191,6 +191,7 @@ generate_test_list()
 		transition/ipc
 		static/netns-nf
 		static/netns
+		ns/static/netns-dev
 		static/cgroup00
 		static/cgroup01
 		static/cgroup02
@@ -324,6 +325,7 @@ mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
 mntns_rw_ro_rw
+netns-dev
 sockets00
 cow01
 "
