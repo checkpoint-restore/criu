@@ -238,6 +238,26 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 	return do_open_image(img, dfd, type, oflags, path);
 }
 
+static int img_check_magic(struct cr_img *img, int oflags, int type, char *path)
+{
+	u32 magic;
+
+	if (read_img(img, &magic) < 0)
+		return -1;
+
+	if (magic != imgset_template[type].magic) {
+		pr_err("Magic doesn't match for %s\n", path);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int img_write_magic(struct cr_img *img, int oflags, int type)
+{
+	return write_img(img, &imgset_template[type].magic);
+}
+
 static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
 	int ret, flags;
@@ -272,19 +292,12 @@ static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsig
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
 		goto skip_magic;
 
-	if (flags == O_RDONLY) {
-		u32 magic;
-
-		if (read_img(img, &magic) < 0)
-			goto err_close;
-		if (magic != imgset_template[type].magic) {
-			pr_err("Magic doesn't match for %s\n", path);
-			goto err_close;
-		}
-	} else {
-		if (write_img(img, &imgset_template[type].magic))
-			goto err_close;
-	}
+	if (flags == O_RDONLY)
+		ret = img_check_magic(img, oflags, type, path);
+	else
+		ret = img_write_magic(img, oflags, type);
+	if (ret)
+		goto err_close;
 
 skip_magic:
 	return img;
