@@ -1127,11 +1127,26 @@ struct fstype *find_fstype_by_name(char *fst)
 	 * anything is wrong, almost every fs has its own features)
 	 * 2nd -- save some space in the image (since we scan all
 	 * names anyway)
+	 *
+	 * The kernel reports "subtypes" sometimes and the valid
+	 * type-vs-subtype delimiter is the dot symbol. We disregard any
+	 * subtypes for the purpose of finding the fstype.
 	 */
+	char fstype[1024];
 
-	for (i = 0; i < ARRAY_SIZE(fstypes); i++)
-		if (!strcmp(fstypes[i].name, fst))
+	for (i = 0; fst[i] && i < sizeof(fstype) - 1; i++) {
+		if (fst[i] == '.')
+			break;
+
+		fstype[i] = fst[i];
+	}
+
+	fstype[i] = 0;
+
+	for (i = 0; i < ARRAY_SIZE(fstypes); i++) {
+		if (!strcmp(fstypes[i].name, fstype))
 			return fstypes + i;
+	}
 
 	return &fstypes[0];
 }
