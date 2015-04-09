@@ -1172,6 +1172,11 @@ static struct fstype fstypes[32] = {
 	},
 };
 
+static bool fsname_is_auto(const char *name)
+{
+	return false;
+}
+
 struct fstype *find_fstype_by_name(char *_fst)
 {
 	int i;
@@ -1201,12 +1206,21 @@ struct fstype *find_fstype_by_name(char *_fst)
 	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
 		struct fstype *fstype = fstypes + i;
 
-		if (!fstype->name)
-			break;
+		if (!fstype->name) {
+			if (!fsname_is_auto(fst))
+				break;
+
+			fstype->name = xstrdup(fst);
+			fstype->code = FSTYPE__AUTO;
+			return fstype;
+		}
 
 		if (!strcmp(fstype->name, fst))
 			return fstype;
 	}
+
+	if (i == ARRAY_SIZE(fstypes)) /* ensure we have a room for auto */
+		pr_err_once("fstypes[] overflow!\n");
 
 	return &fstypes[0];
 }
