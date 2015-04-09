@@ -1177,7 +1177,7 @@ static bool fsname_is_auto(const char *name)
 	return false;
 }
 
-struct fstype *find_fstype_by_name(char *_fst)
+static struct fstype *__find_fstype_by_name(char *_fst, bool force_auto)
 {
 	int i;
 
@@ -1207,7 +1207,7 @@ struct fstype *find_fstype_by_name(char *_fst)
 		struct fstype *fstype = fstypes + i;
 
 		if (!fstype->name) {
-			if (!fsname_is_auto(fst))
+			if (!force_auto && !fsname_is_auto(fst))
 				break;
 
 			fstype->name = xstrdup(fst);
@@ -1223,6 +1223,11 @@ struct fstype *find_fstype_by_name(char *_fst)
 		pr_err_once("fstypes[] overflow!\n");
 
 	return &fstypes[0];
+}
+
+struct fstype *find_fstype_by_name(char *fst)
+{
+	return __find_fstype_by_name(fst, false);
 }
 
 static struct fstype *decode_fstype(u32 fst)
