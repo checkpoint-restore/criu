@@ -1105,7 +1105,7 @@ static int always_fail(struct mount_info *pm)
 	return -1;
 }
 
-static struct fstype fstypes[] = {
+static struct fstype fstypes[32] = {
 	{
 		.name = "unsupported",
 		.code = FSTYPE__UNSUPPORTED,
@@ -1198,9 +1198,14 @@ struct fstype *find_fstype_by_name(char *_fst)
 
 	fst[i] = 0;
 
-	for (i = 0; i < ARRAY_SIZE(fstypes); i++) {
-		if (!strcmp(fstypes[i].name, fst))
-			return fstypes + i;
+	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
+		struct fstype *fstype = fstypes + i;
+
+		if (!fstype->name)
+			break;
+
+		if (!strcmp(fstype->name, fst))
+			return fstype;
 	}
 
 	return &fstypes[0];
@@ -1213,9 +1218,15 @@ static struct fstype *decode_fstype(u32 fst)
 	if (fst == FSTYPE__UNSUPPORTED)
 		goto uns;
 
-	for (i = 0; i < ARRAY_SIZE(fstypes); i++)
-		if (fstypes[i].code == fst)
-			return fstypes + i;
+	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
+		struct fstype *fstype = fstypes + i;
+
+		if (!fstype->name)
+			break;
+
+		if (fstype->code == fst)
+			return fstype;
+	}
 uns:
 	return &fstypes[0];
 }
