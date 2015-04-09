@@ -1023,6 +1023,9 @@ int prepare_fds(struct pstree_item *me)
 			break;
 	}
 
+	if (ret)
+		goto out_w;
+
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
 		if (!states[state].required) {
 			pr_debug("Skipping %s fd stage\n", states[state].name);
@@ -1037,7 +1040,7 @@ int prepare_fds(struct pstree_item *me)
 		if (ret)
 			break;
 	}
-
+out_w:
 	if (rsti(me)->fdt)
 		futex_inc_and_wake(&rsti(me)->fdt->fdt_lock);
 out:
