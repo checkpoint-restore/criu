@@ -34,9 +34,9 @@ int cr_plugin_dump_ext_mount(char *mountpoint, int id)
 		return -ENOTSUP;
 	}
 
-	dst = getenv("dfile");
+	dst = getenv("EMP_MOUNTPOINT");
 	if (!dst) {
-		pr_err("No dfile env\n");
+		pr_err("No EMP_MOUNTPOINT env\n");
 		return -1;
 	}
 
@@ -74,9 +74,9 @@ int cr_plugin_restore_ext_mount(int id, char *mountpoint, char *old_root, int *i
 	}
 	close(fd);
 
-	src_file = getenv("sfpath");
+	src_file = getenv("EMP_ROOT_P");
 	if (!src_file) {
-		pr_err("Can't get sfpath env\n");
+		pr_err("Can't get EMP_ROOT_P env\n");
 		return -1;
 	}
 

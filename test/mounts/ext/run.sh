@@ -7,51 +7,100 @@ function fail {
 	exit 1
 }
 
-make || fail "Can't compile library"
+make || fail "Can't compile library or ns init"
 
 criu="../../../criu"
 
-finf="finish"
-outf="run_output"
-pidfile="pid_wait"
-tempd="temp_dir"
-sfile="source_file"
-tdir="test_dir"
-dfile="dest_file"
-mesg="msg-$((RANDOM % 128))"
-export finf
-export outf
-export pidfile
-export sfile
-export dfile
-export tempd
-export mesg
-export tdir
+# New root for namespace
+NSROOT="nsroot"
+# External file with contents (exported for plugin.restore)
+EMP_ROOT="external_file"
+export EMP_ROOT_P="$(pwd)/$EMP_ROOT"
+# Internal file as seen from namespace (exported for plugin.dump)
+export EMP_MOUNTPOINT="file"
+# Message in a file to check visibility
+FMESSAGE="tram-pam-pam"
+# Binary of namespace's init
+NS_INIT="ns_init"
+# File with namespace init pid
+PIDF="pidf"
 
-mkdir dump/
-mkdir $tdir
-mount --bind "/" ${tdir} || fail "Can't bind root"
-mount --make-rprivate "${tdir}"
+start_ns()
+{
+	#
+	# Prepare the namespace's FS layout
+	#
+	mkdir $NSROOT
+	echo -n "$FMESSAGE" > "$EMP_ROOT"
+	mount --bind "$NSROOT" "$NSROOT"
+	mount --make-private "$NSROOT"
+	touch "$NSROOT/$EMP_MOUNTPOINT"
+	mount --bind "$EMP_ROOT" "$NSROOT/$EMP_MOUNTPOINT" || fail "Can't prepare fs for ns"
 
-unshare --mount ./run_ns.sh || fail "Can't unshare ns"
-cat $pidfile
+	#
+	# Start the namespace's init
+	#
+	cp $NS_INIT "$NSROOT/"
+	"./$NSROOT/$NS_INIT" "$PIDF" "$NSROOT" "log" "$EMP_MOUNTPOINT" "$FMESSAGE" || fail "Can't start namespace"
+	umount "$NSROOT/$EMP_MOUNTPOINT"
 
-sleep 2
-$criu dump -t $(cat $pidfile) -D dump/ -o dump.log -v4 --lib $(pwd) && echo OK
-sleep 1
+	echo "Namespace started, pid $(cat $PIDF)"
+}
 
-mkdir $tempd
-mount -t tmpfs none "$tempd"
-echo "$mesg" > "$tempd/$sfile"
-sfpath="/$(pwd)/$tempd/$sfile"
-export sfpath
+stop_ns()
+{
+	#
+	# Kill the init
+	#
 
-$criu restore -D dump/ -o restore.log -v4 --lib $(pwd) --root "$(pwd)/$tdir" -d && echo OK
+	kill -TERM $(cat $PIDF)
+	sleep 2 # Shitty, but...
+	umount $NSROOT
 
-umount "$tempd"
+	if [ -z "$1" ]; then
+		rm -f "$NSROOT/log"
+	else
+		mv "$NSROOT/log" "$1"
+	fi
 
-touch $finf
-sleep 1 # Shitty, but...
-tail $outf
+	rm -f "$PIDF" "$EMP_ROOT" "$NSROOT/$NS_INIT" "$NSROOT/log" "$NSROOT/$EMP_MOUNTPOINT"
+	rmdir "$NSROOT/oldm"
+	rmdir "$NSROOT/proc"
+	rmdir "$NSROOT"
+}
 
-umount ${tdir}
+DDIR="dump"
+rm -rf $DDIR
+mkdir $DDIR
+
+chk_pass()
+{
+	tail -n1 $1 | fgrep -q "PASS"
+}
+
+#
+# Test 1: handle external mount with plugin
+#
+
+test_plugin()
+{
+	echo "=== Testing how plugin works"
+	mkdir "$DDIR/plugin/"
+	start_ns
+
+	$criu dump    -D "$DDIR/plugin/" -v4 -o "dump.log" --lib=$(pwd) \
+			-t $(cat pidf) || { stop_ns; return 1; }
+
+	$criu restore -D "$DDIR/plugin/" -v4 -o "rstr.log" --lib=$(pwd) \
+			-d --root="$(pwd)/$NSROOT" --pidfile=$PIDF || { stop_ns; return 1; }
+
+	echo "Restored, checking results"
+	mv "$DDIR/plugin/$PIDF" .
+	stop_ns "$DDIR/plugin/ns.log"
+	chk_pass "$DDIR/plugin/ns.log"
+}
+
+test_plugin || exit 1
+
+echo "All tests passed"
+exit 0
