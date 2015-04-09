@@ -64,6 +64,7 @@ struct cr_options {
 	struct list_head	new_cgroup_roots;
 	bool			autodetect_ext_mounts;
 	bool			enable_external_sharing;
+	bool			enable_external_masters;
 	bool			aufs;		/* auto-deteced, not via cli */
 };
 

@@ -739,6 +739,20 @@ static int resolve_external_mounts(struct mount_info *info)
 				m->internal_sharing = true;
 		}
 
+		if (m->flags & MS_SLAVE) {
+			if (!opts.enable_external_masters)
+				continue;
+
+			/*
+			 * In order to support something like internal slavery,
+			 * we need to teach can_mount_now and do_mount_one
+			 * about slavery relationships in external mounts. This
+			 * seems like an uncommon case, so we punt for not.
+			 */
+			if (m->master_id != match->shared_id)
+				continue;
+		}
+
 		size = strlen(match->mountpoint + 1) + strlen(m->root) + 1;
 		p = xmalloc(sizeof(char) * size);
 		if (!p)

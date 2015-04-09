@@ -206,6 +206,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "skip-mnt",		required_argument,	0, 1064},
 		{ "enable-fs",		required_argument,	0, 1065},
 		{ "enable-external-sharing", no_argument, 	0, 1066 },
+		{ "enable-external-masters", no_argument, 	0, 1067 },
 		{ },
 	};
 
@@ -430,6 +431,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1066:
 			opts.enable_external_sharing = true;
 			break;
+		case 1067:
+			opts.enable_external_masters = true;
+			break;
 		case 'M':
 			{
 				char *aux;
@@ -463,6 +467,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!opts.restore_detach && opts.restore_sibling) {
 		pr_msg("--restore-sibling only makes sense with --restore-detach\n");
+		return 1;
+	}
+
+	if (!opts.autodetect_ext_mounts && (opts.enable_external_masters || opts.enable_external_sharing)) {
+		pr_msg("must specify --ext-mount-map auto with --enable-external-{sharing|masters}");
 		return 1;
 	}
 
@@ -660,6 +669,8 @@ usage:
 "                        attempt to autodetect external mount mapings\n"
 "  --enable-external-sharing\n"
 "                        allow autoresolving mounts with external sharing\n"
+"  --enable-external-masters\n"
+"                        allow autoresolving mounts with external masters\n"
 "  --manage-cgroups      dump or restore cgroups the process is in\n"
 "  --cgroup-root [controller:]/newroot\n"
 "                        change the root cgroup the controller will be\n"
