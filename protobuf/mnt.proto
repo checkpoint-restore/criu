@@ -37,4 +37,6 @@ message mnt_entry {
 
 	optional bool		with_plugin		= 12;
 	optional bool		ext_mount		= 13;
+
+	optional string		fsname			= 14;
 }

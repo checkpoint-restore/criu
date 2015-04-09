@@ -1230,9 +1230,12 @@ struct fstype *find_fstype_by_name(char *fst)
 	return __find_fstype_by_name(fst, false);
 }
 
-static struct fstype *decode_fstype(u32 fst)
+static struct fstype *decode_fstype(u32 fst, char *fsname)
 {
 	int i;
+
+	if (fst == FSTYPE__AUTO)
+		return __find_fstype_by_name(fsname, true);
 
 	if (fst == FSTYPE__UNSUPPORTED)
 		goto uns;
@@ -1258,6 +1261,9 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 			pm->root, pm->mountpoint);
 
 	me.fstype		= pm->fstype->code;
+
+	if (me.fstype == FSTYPE__AUTO)
+		me.fsname = pm->fstype->name;
 
 	if (pm->parent && !pm->dumped && !pm->need_plugin &&
 	    pm->fstype->dump && fsroot_mounted(pm)) {
@@ -1981,7 +1987,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->is_ns_root		= is_root(me->mountpoint);
 
 		/* FIXME: abort unsupported early */
-		pm->fstype		= decode_fstype(me->fstype);
+		pm->fstype		= decode_fstype(me->fstype, me->fsname);
 
 		if (me->ext_mount) {
 			struct ext_mount *em;
