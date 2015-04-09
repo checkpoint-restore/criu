@@ -16,6 +16,7 @@ enum fstype {
 	CGROUP			= 12;
 	AUFS			= 13;
 	MQUEUE			= 14;
+	FUSE			= 15;
 };
 
 message mnt_entry {

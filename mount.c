@@ -1024,6 +1024,47 @@ out:
 	return ret;
 }
 
+static int fusectl_dump(struct mount_info *pm)
+{
+	int fd, ret = -1;
+	struct dirent *de;
+	DIR *fdir = NULL;
+
+	fd = open_mountpoint(pm);
+	if (fd < 0)
+		return -1;
+
+	fdir = fdopendir(fd);
+	if (fdir == NULL) {
+		close(fd);
+		return -1;
+	}
+
+	while ((de = readdir(fdir))) {
+		int id;
+		struct mount_info *it;
+
+		if (dir_dots(de))
+			continue;
+
+		if (sscanf(de->d_name, "%d", &id) != 1) {
+			pr_err("wrong number of items scanned in fusectl dump\n");
+			goto out;
+		}
+
+		for (it = mntinfo; it; it = it->next) {
+			if (it->fstype->code == FSTYPE__FUSE && id == minor(it->s_dev) && !it->external) {
+				pr_err("%s is a fuse mount but not external\n", it->mountpoint);
+				goto out;
+			}
+		}
+	}
+
+	ret = 0;
+out:
+	closedir(fdir);
+	return ret;
+}
 
 static int dump_empty_fs(struct mount_info *pm)
 {
@@ -1053,6 +1094,15 @@ static int dump_empty_fs(struct mount_info *pm)
 out:
 	closedir(fdir);
 	return ret;
+}
+
+/*
+ * Some fses (fuse) cannot be dumped, so we should always fail on dump/restore
+ * of these fses.
+ */
+static int always_fail(struct mount_info *pm)
+{
+	return -1;
 }
 
 static struct fstype fstypes[] = {
@@ -1102,7 +1152,7 @@ static struct fstype fstypes[] = {
 		.code = FSTYPE__SECURITYFS,
 	}, {
 		.name = "fusectl",
-		.dump = dump_empty_fs,
+		.dump = fusectl_dump,
 		.code = FSTYPE__FUSECTL,
 	}, {
 		.name = "debugfs",
@@ -1114,6 +1164,11 @@ static struct fstype fstypes[] = {
 		.name = "aufs",
 		.code = FSTYPE__AUFS,
 		.parse = aufs_parse,
+	}, {
+		.name = "fuse",
+		.code = FSTYPE__FUSE,
+		.dump = always_fail,
+		.restore = always_fail,
 	},
 };
 
