@@ -205,6 +205,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "feature",		required_argument,	0, 1063	},
 		{ "skip-mnt",		required_argument,	0, 1064},
 		{ "enable-fs",		required_argument,	0, 1065},
+		{ "enable-external-sharing", no_argument, 	0, 1066 },
 		{ },
 	};
 
@@ -425,6 +426,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1065:
 			if (!add_fsname_auto(optarg))
 				return 1;
+			break;
+		case 1066:
+			opts.enable_external_sharing = true;
 			break;
 		case 'M':
 			{
@@ -654,6 +658,8 @@ usage:
 "                        add external mount mapping\n"
 "  -M|--ext-mount-map auto\n"
 "                        attempt to autodetect external mount mapings\n"
+"  --enable-external-sharing\n"
+"                        allow autoresolving mounts with external sharing\n"
 "  --manage-cgroups      dump or restore cgroups the process is in\n"
 "  --cgroup-root [controller:]/newroot\n"
 "                        change the root cgroup the controller will be\n"

@@ -731,6 +731,14 @@ static int resolve_external_mounts(struct mount_info *info)
 		if (!match)
 			continue;
 
+		if (m->flags & MS_SHARED) {
+			if (!opts.enable_external_sharing)
+				continue;
+
+			if (m->shared_id != match->shared_id)
+				m->internal_sharing = true;
+		}
+
 		size = strlen(match->mountpoint + 1) + strlen(m->root) + 1;
 		p = xmalloc(sizeof(char) * size);
 		if (!p)
@@ -1437,6 +1445,11 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		me.with_plugin = true;
 	}
 
+	if (pm->internal_sharing) {
+		me.has_internal_sharing = true;
+		me.internal_sharing = true;
+	}
+
 	if (pm->external) {
 		/*
 		 * For external mount points dump the mapping's
@@ -1778,6 +1791,7 @@ static int restore_ext_mount(struct mount_info *mi)
 static int do_bind_mount(struct mount_info *mi)
 {
 	bool shared = 0;
+	bool force_private_remount = false;
 
 	if (!mi->need_plugin) {
 		char *root, rpath[PATH_MAX];
@@ -1791,6 +1805,7 @@ static int do_bind_mount(struct mount_info *mi)
 			 * to proper location in the namespace we restore.
 			 */
 			root = mi->root;
+			force_private_remount = mi->internal_sharing;
 			goto do_bind;
 		}
 
@@ -1827,7 +1842,7 @@ do_bind:
 	 * shared - the mount is in the same shared group with mi->bind
 	 * mi->shared_id && !shared - create a new shared group
 	 */
-	if (restore_shared_options(mi, !shared && !mi->master_id,
+	if (restore_shared_options(mi, force_private_remount || (!shared && !mi->master_id),
 					mi->shared_id && !shared,
 					mi->master_id))
 		return -1;
@@ -2138,6 +2153,9 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
 			goto err;
+
+		if (me->has_internal_sharing)
+			pm->internal_sharing = me->internal_sharing;
 
 		/* FIXME: abort unsupported early */
 		pm->fstype		= decode_fstype(me->fstype, me->fsname);
