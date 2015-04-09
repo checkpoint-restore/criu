@@ -100,7 +100,26 @@ test_plugin()
 	chk_pass "$DDIR/plugin/ns.log"
 }
 
+test_ext_mount_map()
+{
+	echo "=== Testing how --ext-mount-map works"
+	mkdir "$DDIR/ext_mount_map/"
+	start_ns
+
+	$criu dump    -D "$DDIR/ext_mount_map/" -v4 -o "dump.log" \
+			-t $(cat pidf) --ext-mount-map "/$EMP_MOUNTPOINT:TM" || { stop_ns; return 1; }
+
+	$criu restore -D "$DDIR/ext_mount_map/" -v4 -o "rstr.log" \
+			-d --root="$(pwd)/$NSROOT" --pidfile=$PIDF --ext-mount-map "TM:$EMP_ROOT_P" || { stop_ns; return 1; }
+
+	echo "Restored, checking results"
+	mv "$DDIR/ext_mount_map/$PIDF" .
+	stop_ns "$DDIR/ext_mount_map/ns.log"
+	chk_pass "$DDIR/ext_mount_map/ns.log"
+}
+
 test_plugin || exit 1
+test_ext_mount_map || exit 1
 
 echo "All tests passed"
 exit 0
