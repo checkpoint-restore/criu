@@ -162,6 +162,15 @@ OPTIONS
     VAL is the path on host that will be bind-mounted into container
     (to the mountpoint path from image)
 
+    A special case is `--ext-mount-map auto`. If this flag is passed, when an
+    external mount is missing from the command line --ext-mount-map KEY:VAL
+    syntax, criu attempts to automatically resolve this mount from its
+    namespace.
+
+*--enable-external-sharing*, *--enable-external-masters*::
+    These flags enable external shared or slave mounts to be resolved
+    automatically when `--ext-mount-map auto` is passed.
+
 *--action-script* 'SCRIPT'::
     Add an external action script.
     The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the
