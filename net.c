@@ -485,7 +485,7 @@ static int restore_links(int pid, NetnsEntry **netns)
 			 * so we cant optimize its restore
 			 */
 			ret = ipv4_conf_op(nde->name, nde->conf, CTL_WRITE, nde->type == ND_TYPE__LOOPBACK ? NULL : netns);
-			if (!ret)
+			if (ret < 0)
 				return ret;
 		}
 exit:
