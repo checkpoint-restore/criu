@@ -1172,9 +1172,31 @@ static struct fstype fstypes[32] = {
 	},
 };
 
+static char *fsauto_names;
+
 static bool fsname_is_auto(const char *name)
 {
-	return false;
+	const char *p;
+
+	if (!fsauto_names)
+		return false;
+
+	if (strcmp(fsauto_names, "all") == 0)
+		return true;
+
+	for (p = strtok(fsauto_names, ","); p; p = strtok(NULL, ",")) {
+		if (strcmp(name, p) == 0)
+			return true;
+	}
+
+ 	return false;
+}
+
+bool add_fsname_auto(const char *names)
+{
+	xfree(fsauto_names);
+	fsauto_names = xstrdup(names);
+	return fsauto_names != NULL;
 }
 
 static struct fstype *__find_fstype_by_name(char *_fst, bool force_auto)

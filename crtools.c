@@ -204,6 +204,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "inherit-fd",		required_argument,	0, 1062	},
 		{ "feature",		required_argument,	0, 1063	},
 		{ "skip-mnt",		required_argument,	0, 1064},
+		{ "enable-fs",		required_argument,	0, 1065},
 		{ },
 	};
 
@@ -419,6 +420,10 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1064:
 			if (!add_skip_mount(optarg))
+				return 1;
+			break;
+		case 1065:
+			if (!add_fsname_auto(optarg))
 				return 1;
 			break;
 		case 'M':
@@ -648,6 +653,9 @@ usage:
 "                        installed into. No controller means that root is the\n"
 "                        default for all controllers not specified.\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace.\n"
+"  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\".\n"
+"                        force criu to (try to) dump/restore these filesystem's\n"
+"                        mountpoints even if fs is not supported.\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
