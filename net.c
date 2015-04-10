@@ -478,16 +478,13 @@ static int restore_links(int pid, NetnsEntry **netns)
 			goto exit;
 		}
 
-		if (nde->conf) {
+		if (nde->conf)
 			/*
 			 * optimize restore of devices configuration except lo
 			 * lo is created with namespace and before default is set
 			 * so we cant optimize its restore
 			 */
 			ret = ipv4_conf_op(nde->name, nde->conf, CTL_WRITE, nde->type == ND_TYPE__LOOPBACK ? NULL : netns);
-			if (ret < 0)
-				return ret;
-		}
 exit:
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
