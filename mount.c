@@ -1172,7 +1172,7 @@ static struct fstype fstypes[] = {
 	},
 };
 
-struct fstype *find_fstype_by_name(char *fst)
+struct fstype *find_fstype_by_name(char *_fst)
 {
 	int i;
 
@@ -1187,19 +1187,19 @@ struct fstype *find_fstype_by_name(char *fst)
 	 * type-vs-subtype delimiter is the dot symbol. We disregard any
 	 * subtypes for the purpose of finding the fstype.
 	 */
-	char fstype[1024];
+	char fst[1024];
 
-	for (i = 0; fst[i] && i < sizeof(fstype) - 1; i++) {
-		if (fst[i] == '.')
+	for (i = 0; _fst[i] && i < sizeof(fst) - 1; i++) {
+		if (_fst[i] == '.')
 			break;
 
-		fstype[i] = fst[i];
+		fst[i] = _fst[i];
 	}
 
-	fstype[i] = 0;
+	fst[i] = 0;
 
 	for (i = 0; i < ARRAY_SIZE(fstypes); i++) {
-		if (!strcmp(fstypes[i].name, fstype))
+		if (!strcmp(fstypes[i].name, fst))
 			return fstypes + i;
 	}
 
