@@ -62,6 +62,7 @@ struct cr_options {
 	bool			manage_cgroups;
 	char			*new_global_cg_root;
 	struct list_head	new_cgroup_roots;
+	bool			autodetect_ext_mounts;
 	bool			aufs;		/* auto-deteced, not via cli */
 };
 

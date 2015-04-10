@@ -430,6 +430,11 @@ int main(int argc, char *argv[], char *envp[])
 			{
 				char *aux;
 
+				if (strcmp(optarg, "auto") == 0) {
+					opts.autodetect_ext_mounts = true;
+					break;
+				}
+
 				aux = strchr(optarg, ':');
 				if (aux == NULL)
 					goto bad_arg;
@@ -647,6 +652,8 @@ usage:
 "  --force-irmap         force resolving names for inotify/fsnotify watches\n"
 "  -M|--ext-mount-map KEY:VALUE\n"
 "                        add external mount mapping\n"
+"  -M|--ext-mount-map auto\n"
+"                        attempt to autodetect external mount mapings\n"
 "  --manage-cgroups      dump or restore cgroups the process is in\n"
 "  --cgroup-root [controller:]/newroot\n"
 "                        change the root cgroup the controller will be\n"
