@@ -4,6 +4,7 @@
 #
 # According to http://criu.org/Images, criu images can be described
 # with such IOW:
+#
 # IMAGE_FILE ::= MAGIC { ENTRY }
 # ENTRY      ::= SIZE PAYLOAD [ EXTRA ]
 # PAYLOAD    ::= "message encoded in ProtocolBuffer format"
@@ -11,6 +12,10 @@
 #
 # MAGIC      ::= "32 bit integer"
 # SIZE       ::= "32 bit integer, equals the PAYLOAD length"
+#
+# Images v1.1 NOTE: MAGIC now consist of 2 32 bit integers, first one is
+#	MAGIC_COMMON or MAGIC_SERVICE and the second one is same as MAGIC
+#	in images V1.0. We don't keep "first" magic in json images.
 #
 # In order to convert images to human-readable format, we use dict(json).
 # Using json not only allows us to easily read\write images, but also
@@ -285,6 +290,7 @@ def load(f, pretty = False):
 	"""
 	image = {}
 
+	# Images v1.1 NOTE: First read "first" magic.
 	img_magic, = struct.unpack('i', f.read(4))
 
 	if img_magic in (magic.by_name['IMG_COMMON'], magic.by_name['IMG_SERVICE']):
@@ -323,11 +329,13 @@ def dump(img, f):
 	m = img['magic']
 	magic_val = magic.by_name[img['magic']]
 
+	# Images v1.1 NOTE: use "second" magic to identify what "first"
+	# should be written.
 	if m != 'INVENTORY':
 		if m in ('STATS', 'IRMAP_CACHE'):
-			f.write(struct.pack('i', magic.by_name['IMG_COMMON']))
-		else:
 			f.write(struct.pack('i', magic.by_name['IMG_SERVICE']))
+		else:
+			f.write(struct.pack('i', magic.by_name['IMG_COMMON']))
 
 	f.write(struct.pack('i', magic_val))
 
