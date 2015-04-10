@@ -1639,6 +1639,15 @@ static char *resolve_source(struct mount_info *mi)
 		 */
 		return mi->source;
 
+	if (mi->fstype->code == FSTYPE__AUTO) {
+		struct stat st;
+
+		if (!stat(mi->source, &st) && S_ISBLK(st.st_mode) &&
+		    major(st.st_rdev) == kdev_major(mi->s_dev) &&
+		    minor(st.st_rdev) == kdev_minor(mi->s_dev))
+			return mi->source;
+	}
+
 	pr_err("No device for %s mount\n", mi->mountpoint);
 	return NULL;
 }
