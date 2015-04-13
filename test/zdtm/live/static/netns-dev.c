@@ -91,6 +91,12 @@ static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
 		return -1;
 	}
 
+	ret = fseek(fp, 0, SEEK_SET);
+	if (ret) {
+		err("fseek");
+		return -1;
+	}
+
 	/*
 	 * Set random value
 	 */
@@ -126,6 +132,12 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 	if (val != tc->ipv4_conf_rand[opt]) {
 		fail("Option \"%s/%s\" changed from %d to %d",
 		     tc->dir, devconfs[opt], tc->ipv4_conf_rand[opt], val);
+		return -1;
+	}
+
+	ret = fseek(fp, 0, SEEK_SET);
+	if (ret) {
+		err("fseek");
 		return -1;
 	}
 
