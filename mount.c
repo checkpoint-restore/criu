@@ -769,7 +769,7 @@ static int resolve_external_mounts(struct mount_info *info)
 		if (!p)
 			return -1;
 
-		ret = snprintf(p, size+1, "%s%s", match->mountpoint + 1, m->root);
+		ret = snprintf(p, size, "%s%s", match->mountpoint + 1, m->root);
 		if (ret < 0 || ret >= size) {
 			free(p);
 			return -1;
