@@ -647,6 +647,25 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 	return 0;
 }
 
+static char *cut_root_for_bind(char *target_root, char *source_root)
+{
+	int tok = 0;
+	/*
+	 * Cut common part of root.
+	 * For non-root binds the source is always "/" (checked)
+	 * so this will result in this slash removal only.
+	 */
+	while (target_root[tok] == source_root[tok]) {
+		tok++;
+		if (source_root[tok] == '\0')
+			break;
+		BUG_ON(target_root[tok] == '\0');
+	}
+
+	return target_root + tok;
+
+}
+
 static struct mount_info *find_best_external_match(struct mount_info *list, struct mount_info *info)
 {
 	struct mount_info *it, *candidate = NULL;
@@ -722,7 +741,7 @@ static int resolve_external_mounts(struct mount_info *info)
 
 	for (m = info; m; m = m->next) {
 		int ret, size;
-		char *p;
+		char *p, *cut_root;
 		struct ext_mount *em;
 		struct mount_info *match;
 
@@ -764,12 +783,16 @@ static int resolve_external_mounts(struct mount_info *info)
 				continue;
 		}
 
-		size = strlen(match->mountpoint + 1) + strlen(m->root) + 1;
+		cut_root = cut_root_for_bind(m->root, match->root);
+
+		/* +2 for the NULL byte and the extra / in the sprintf below,
+		 * which we cut off in cut_root_for_bind(). */
+		size = strlen(match->mountpoint + 1) + strlen(cut_root) + 2;
 		p = xmalloc(sizeof(char) * size);
 		if (!p)
 			return -1;
 
-		ret = snprintf(p, size, "%s%s", match->mountpoint + 1, m->root);
+		ret = snprintf(p, size, "%s/%s", match->mountpoint + 1, cut_root);
 		if (ret < 0 || ret >= size) {
 			free(p);
 			return -1;
@@ -1817,8 +1840,7 @@ static int do_bind_mount(struct mount_info *mi)
 	bool force_private_remount = false;
 
 	if (!mi->need_plugin) {
-		char *root, rpath[PATH_MAX];
-		int tok = 0;
+		char *root, *cut_root, rpath[PATH_MAX];
 
 		if (mi->external) {
 			/*
@@ -1833,21 +1855,10 @@ static int do_bind_mount(struct mount_info *mi)
 		}
 
 		shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
-
-		/*
-		 * Cut common part of root.
-		 * For non-root binds the source is always "/" (checked)
-		 * so this will result in this slash removal only.
-		 */
-		while (mi->root[tok] == mi->bind->root[tok]) {
-			tok++;
-			if (mi->bind->root[tok] == '\0')
-				break;
-			BUG_ON(mi->root[tok] == '\0');
-		}
+		cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
 		snprintf(rpath, sizeof(rpath), "%s/%s",
-				mi->bind->mountpoint, mi->root + tok);
+				mi->bind->mountpoint, cut_root);
 		root = rpath;
 do_bind:
 		pr_info("\tBind %s to %s\n", root, mi->mountpoint);
