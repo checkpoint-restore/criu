@@ -1759,6 +1759,9 @@ skip_parent:
 	return 0;
 }
 
+#define MS_CHANGE_TYPE_MASK	\
+	(MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE)
+
 static int do_new_mount(struct mount_info *mi)
 {
 	char *src;
@@ -1769,7 +1772,7 @@ static int do_new_mount(struct mount_info *mi)
 		return -1;
 
 	if (mount(src, mi->mountpoint, tp->name,
-			mi->flags & (~MS_SHARED), mi->options) < 0) {
+			mi->flags & ~MS_CHANGE_TYPE_MASK, mi->options) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
