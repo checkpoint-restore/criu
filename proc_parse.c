@@ -947,7 +947,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
 	unsigned int kmaj, kmin;
 	int ret, n;
-	char *opt = NULL;
+	char *sub, *opt = NULL;
 
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
@@ -981,6 +981,14 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	ret = sscanf(str, "%ms %ms %ms", fsname, &new->source, &opt);
 	if (ret != 3)
 		goto err;
+	/*
+	 * The kernel reports "subtypes" sometimes and the valid
+	 * type-vs-subtype delimiter is the dot symbol. We disregard
+	 * any subtypes for the purpose of finding the fstype.
+	 */
+	sub = strchr(*fsname, '.');
+	if (sub)
+		*sub = 0;
 
 	new->fstype = find_fstype_by_name(*fsname);
 

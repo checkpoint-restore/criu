@@ -1344,7 +1344,7 @@ bool add_fsname_auto(const char *names)
 	return fsauto_names != NULL;
 }
 
-static struct fstype *__find_fstype_by_name(char *_fst, bool force_auto)
+static struct fstype *__find_fstype_by_name(char *fst, bool force_auto)
 {
 	int i;
 
@@ -1354,22 +1354,7 @@ static struct fstype *__find_fstype_by_name(char *_fst, bool force_auto)
 	 * anything is wrong, almost every fs has its own features)
 	 * 2nd -- save some space in the image (since we scan all
 	 * names anyway)
-	 *
-	 * The kernel reports "subtypes" sometimes and the valid
-	 * type-vs-subtype delimiter is the dot symbol. We disregard any
-	 * subtypes for the purpose of finding the fstype.
 	 */
-	char fst[1024];
-
-	for (i = 0; _fst[i] && i < sizeof(fst) - 1; i++) {
-		if (_fst[i] == '.')
-			break;
-
-		fst[i] = _fst[i];
-	}
-
-	fst[i] = 0;
-
 	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
 		struct fstype *fstype = fstypes + i;
 
