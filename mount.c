@@ -1493,7 +1493,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 {
 	struct mount_info *pm;
 
-	ns->mnt.mntinfo_list = pm = parse_mountinfo(ns->pid, ns, for_dump);
+	pm = parse_mountinfo(ns->pid, ns, for_dump);
 	if (!pm) {
 		pr_err("Can't parse %d's mountinfo\n", ns->pid);
 		return NULL;
@@ -1503,6 +1503,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
 
+	ns->mnt.mntinfo_list = pm;
 	return pm;
 err:
 	free_mntinfo(pm);
