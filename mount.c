@@ -2687,7 +2687,7 @@ int collect_mnt_namespaces(bool for_dump)
 	arg.for_dump = for_dump;
 	arg.need_to_validate = false;
 
-	ret = walk_namespaces(&mnt_ns_desc, opts.autodetect_ext_mounts, collect_mntns, &arg);
+	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &arg);
 	if (ret)
 		goto err;
 
