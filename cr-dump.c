@@ -1678,8 +1678,6 @@ int cr_pre_dump_tasks(pid_t pid)
 		opts.final_state = TASK_ALIVE;
 	}
 
-	img_common_magic = true;
-
 	if (init_stats(DUMP_STATS))
 		goto err;
 
@@ -1770,8 +1768,6 @@ int cr_dump_tasks(pid_t pid)
 	struct pstree_item *item;
 	int post_dump_ret = 0;
 	int ret = -1;
-
-	img_common_magic = true;
 
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);

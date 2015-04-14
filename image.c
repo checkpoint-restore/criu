@@ -14,7 +14,7 @@
 
 bool fdinfo_per_id = false;
 bool ns_per_id = false;
-bool img_common_magic = false;
+bool img_common_magic = true;
 TaskKobjIdsEntry *root_ids;
 u32 root_cg_set;
 
@@ -54,10 +54,10 @@ int check_img_inventory(void)
 	switch (he->img_version) {
 	case CRTOOLS_IMAGES_V1:
 		/* good old images. OK */
+		img_common_magic = false;
 		break;
 	case CRTOOLS_IMAGES_V1_1:
 		/* newer images with extra magic in the head */
-		img_common_magic = true;
 		break;
 	default:
 		pr_err("Not supported images version %u\n", he->img_version);
