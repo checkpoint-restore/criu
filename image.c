@@ -88,7 +88,6 @@ int write_img_inventory(void)
 	if (!img)
 		return -1;
 
-	img_common_magic = true;
 	he.img_version = CRTOOLS_IMAGES_V1_1;
 	he.fdinfo_per_id = true;
 	he.has_fdinfo_per_id = true;
