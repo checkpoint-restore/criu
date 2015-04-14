@@ -2674,8 +2674,7 @@ static int collect_mntns(struct ns_id *ns, void *__arg)
 	if (arg->for_dump && ns->pid != getpid())
 		arg->need_to_validate = true;
 
-	if (ns->pid != getpid() || !(root_ns_mask & CLONE_NEWNS))
-		mntinfo_add_list(pms);
+	mntinfo_add_list(pms);
 	return 0;
 }
 
