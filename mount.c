@@ -2677,7 +2677,8 @@ int collect_mnt_namespaces(bool for_dump)
 	if (ret)
 		goto err;
 
-	if (resolve_external_mounts(mntinfo))
+	ret = resolve_external_mounts(mntinfo);
+	if (ret)
 		goto err;
 
 	if (arg.need_to_validate) {
