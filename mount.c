@@ -692,21 +692,29 @@ static struct mount_info *find_best_external_match(struct mount_info *list, stru
 	return candidate;
 }
 
+static struct ns_id *find_ext_ns_id(void)
+{
+	int pid = getpid();
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns->next; ns = ns->next)
+		if (ns->pid == pid && ns->nd == &mnt_ns_desc) {
+			return ns;
+		}
+
+	pr_err("Failed to find criu pid's mount ns!");
+	return NULL;
+}
+
 static int resolve_external_mounts(struct mount_info *info)
 {
+	struct ns_id *ext_ns = NULL;
 	struct mount_info *m;
-	struct ns_id *ns = NULL, *iter;
 
-	for (iter = ns_ids; iter->next; iter = iter->next) {
-		if (iter->pid == getpid() && iter->nd == &mnt_ns_desc) {
-			ns = iter;
-			break;
-		}
-	}
-
-	if (!ns) {
-		pr_err("Failed to find criu pid's mount ns!");
-		return -1;
+	if (opts.autodetect_ext_mounts) {
+		ext_ns = find_ext_ns_id();
+		if (!ext_ns)
+			return -1;
 	}
 
 	for (m = info; m; m = m->next) {
@@ -721,13 +729,13 @@ static int resolve_external_mounts(struct mount_info *info)
 		ret = try_resolve_ext_mount(m);
 		if (ret < 0 && ret != -ENOTSUP) {
 			return -1;
-		} else if (ret == -ENOTSUP && !opts.autodetect_ext_mounts) {
+		} else if (ret == -ENOTSUP && !ext_ns) {
 			continue;
 		} else if (ret == 0) {
 			continue;
 		}
 
-		match = find_best_external_match(ns->mnt.mntinfo_list, m);
+		match = find_best_external_match(ext_ns->mnt.mntinfo_list, m);
 		if (!match)
 			continue;
 
