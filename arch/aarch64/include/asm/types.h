@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <signal.h>
+#include <asm/ptrace.h>
 #include "protobuf/core.pb-c.h"
 
 #include "asm-generic/page.h"
