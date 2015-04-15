@@ -674,6 +674,20 @@ static struct mount_info *find_best_external_match(struct mount_info *list, stru
 		if (!mounts_equal(info, it, true))
 			continue;
 
+		/*
+		 * This means we have a situation like:
+		 *
+		 * root@criu:~# mount --bind bind1/subdir/ bind2
+		 * root@criu:~# mount --bind bind1/ bind3
+		 *
+		 * outside the container, and bind1 is directly bind mounted
+		 * inside the container. mounts_equal() considers these mounts
+		 * equal for bind purposes, but their roots are different, and
+		 * we want to match the one with the right root.
+		 */
+		if (!issubpath(info->root, it->root))
+			continue;
+
 		candidate = it;
 
 		/*
