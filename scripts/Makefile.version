@@ -1,7 +1,7 @@
 CRTOOLSVERSION		:= $(VERSION_MAJOR)$(if $(VERSION_MINOR),.$(VERSION_MINOR))$(if $(VERSION_SUBLEVEL),.$(VERSION_SUBLEVEL))
 
 VERSION_HEADER := include/version.h
-GITID := $(shell if [ -d ".git" ]; then git reflog -n 1 | cut -f1 -d' '; fi)
+GITID := $(shell if [ -d ".git" ]; then git describe; fi)
 ifeq ($(GITID),)
 	GITID := 0
 endif
