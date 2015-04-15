@@ -1717,6 +1717,13 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 	pr_debug("%d:%s private %d shared %d slave %d\n",
 			mi->mnt_id, mi->mountpoint, private, shared, slave);
 
+	if (mi->flags & MS_UNBINDABLE) {
+		if (shared || slave)
+			pr_warn("%s has both unbindable and sharing, ignoring unbindable\n", mi->mountpoint);
+		else
+			return mount(NULL, mi->mountpoint, NULL, MS_UNBINDABLE, NULL);
+	}
+
 	if (private && mount(NULL, mi->mountpoint, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Unable to make %s private", mi->mountpoint);
 		return -1;
