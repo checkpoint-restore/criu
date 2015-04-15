@@ -1852,7 +1852,9 @@ static int do_new_mount(struct mount_info *mi)
 		return -1;
 	}
 
-	if (restore_shared_options(mi, 0, mi->shared_id, 0))
+	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id,
+					mi->shared_id,
+					mi->master_id))
 		return -1;
 
 	mi->mounted = true;
