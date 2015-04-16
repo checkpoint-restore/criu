@@ -30,3 +30,4 @@ include/config.h
 protobuf-desc-gen.h
 criu.pc
 build
+.gitid
