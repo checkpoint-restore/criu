@@ -1365,6 +1365,7 @@ static struct fstype fstypes[32] = {
 	},
 };
 
+static char fsauto_all[] = "all";
 static char *fsauto_names;
 
 static bool css_contains(const char *css, const char *str)
@@ -1391,7 +1392,7 @@ static bool fsname_is_auto(const char *name)
 	if (!fsauto_names)
 		return false;
 
-	if (strcmp(fsauto_names, "all") == 0)
+	if (fsauto_names == fsauto_all)
 		return true;
 
 	return css_contains(fsauto_names, name);
@@ -1399,8 +1400,21 @@ static bool fsname_is_auto(const char *name)
 
 bool add_fsname_auto(const char *names)
 {
-	xfree(fsauto_names);
-	fsauto_names = xstrdup(names);
+	char *old = fsauto_names;
+
+	if (old == fsauto_all)
+		return true;
+
+	if (css_contains(names, fsauto_all))
+		fsauto_names = fsauto_all;
+	else if (!old)
+		fsauto_names = xstrdup(names);
+	else {
+		fsauto_names = NULL;
+		asprintf(&fsauto_names, "%s,%s", old, names);
+	}
+
+	xfree(old);
 	return fsauto_names != NULL;
 }
 
