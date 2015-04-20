@@ -1367,22 +1367,34 @@ static struct fstype fstypes[32] = {
 
 static char *fsauto_names;
 
+static bool css_contains(const char *css, const char *str)
+{
+	int len = strlen(str);
+	const char *cur;
+
+	if (!len)
+		return false;
+
+	for (cur = css; (cur = strstr(cur, str)); cur += len) {
+		if (cur > css && cur[-1] != ',')
+			continue;
+		if (cur[len] && cur[len] != ',')
+			continue;
+		return true;
+	}
+
+	return false;
+}
+
 static bool fsname_is_auto(const char *name)
 {
-	const char *p;
-
 	if (!fsauto_names)
 		return false;
 
 	if (strcmp(fsauto_names, "all") == 0)
 		return true;
 
-	for (p = strtok(fsauto_names, ","); p; p = strtok(NULL, ",")) {
-		if (strcmp(name, p) == 0)
-			return true;
-	}
-
- 	return false;
+	return css_contains(fsauto_names, name);
 }
 
 bool add_fsname_auto(const char *names)
