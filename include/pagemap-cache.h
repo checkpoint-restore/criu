@@ -2,7 +2,7 @@
 #define __CR_PAGEMAP_H__
 
 #include <sys/types.h>
-#include "asm-generic/page.h"
+#include "asm/page.h"
 #include "asm/int.h"
 
 #include "list.h"

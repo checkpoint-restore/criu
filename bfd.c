@@ -13,7 +13,7 @@
 #include "list.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "asm-generic/page.h"
+#include "asm/page.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "bfd: "

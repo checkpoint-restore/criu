@@ -1,5 +1,5 @@
-#ifndef __CR_ASM_GENERIC_PAGE_H__
-#define __CR_ASM_GENERIC_PAGE_H__
+#ifndef __CR_ASM_PAGE_H__
+#define __CR_ASM_PAGE_H__
 
 #ifndef PAGE_SHIFT
 # define PAGE_SHIFT	12
@@ -14,5 +14,6 @@
 #endif
 
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
+#define page_size()	PAGE_SIZE
 
-#endif /* __CR_ASM_GENERIC_PAGE_H__ */
+#endif /* __CR_ASM_PAGE_H__ */

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <signal.h>
 
-#include "asm-generic/page.h"
+#include "asm/page.h"
 #include "asm/bitops.h"
 #include "asm/int.h"
 #include "asm/prlimit.h"

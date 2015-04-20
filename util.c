@@ -657,7 +657,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 	if (fd < 0)
 		return -1;
 
-	off = (vaddr / PAGE_SIZE) * sizeof(u64);
+	off = (vaddr / page_size()) * sizeof(u64);
 	if (lseek(fd, off, SEEK_SET) != off) {
 		pr_perror("Failed to seek address %lx", vaddr);
 		goto out;

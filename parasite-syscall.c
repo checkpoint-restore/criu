@@ -1129,7 +1129,7 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return -1;
 	}
 
-	ctl->map_length = round_up(size, PAGE_SIZE);
+	ctl->map_length = round_up(size, page_size());
 
 	fd = open_proc_rw(ctl->pid.real, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
