@@ -44,7 +44,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *proxy_vvar_marked = NULL;
 	struct parasite_vdso_vma_entry *args;
 	struct vma_area *vma;
-	int fd, ret = -1;
+	int fd, ret, exit_code = -1;
 	off_t off;
 	u64 pfn;
 
@@ -97,7 +97,6 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 
 		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
 			pr_err("vdso: Parasite failed to poke for mark\n");
-			ret = -1;
 			goto err;
 		}
 
@@ -109,7 +108,6 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (unlikely(args->is_marked)) {
 			if (proxy_vdso_marked) {
 				pr_err("Ow! Second vdso mark detected!\n");
-				ret = -1;
 				goto err;
 			}
 			proxy_vdso_marked = vma;
@@ -122,14 +120,12 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		ret = pread(fd, &pfn, sizeof(pfn), off);
 		if (ret < 0 || ret != sizeof(pfn)) {
 			pr_perror("Can't read pme for pid %d", pid);
-			ret = -1;
 			goto err;
 		}
 
 		pfn = PME_PFRAME(pfn);
 		if (!pfn) {
 			pr_err("Unexpected page fram number 0 for pid %d\n", pid);
-			ret = -1;
 			goto err;
 		}
 
@@ -194,16 +190,16 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			vma_area_list->nr--;
 		}
 	}
-	ret = 0;
+	exit_code = 0;
 err:
 	close(fd);
-	return ret;
+	return exit_code;
 }
 
 static int vdso_fill_self_symtable(struct vdso_symtable *s)
 {
 	char buf[512];
-	int ret = -1;
+	int ret, exit_code = -1;
 	FILE *maps;
 
 	*s = (struct vdso_symtable)VDSO_SYMTABLE_INIT;
@@ -229,7 +225,6 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 
 		ret = sscanf(buf, "%lx-%lx", &start, &end);
 		if (ret != 2) {
-			ret = -1;
 			pr_err("Can't find vDSO/VVAR bounds\n");
 			goto err;
 		}
@@ -237,7 +232,6 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		if (has_vdso) {
 			if (s->vma_start != VDSO_BAD_ADDR) {
 				pr_err("Got second vDSO entry\n");
-				ret = -1;
 				goto err;
 			}
 			s->vma_start = start;
@@ -249,7 +243,6 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		} else {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
-				ret = -1;
 				goto err;
 			}
 			s->vvar_start = start;
@@ -270,18 +263,15 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 	 * 7fffc3504000-7fffc3506000 r-xp 00000000 00:00 0 [vdso]
 	 *
 	 */
-	ret = 0;
 	if (s->vma_start != VDSO_BAD_ADDR) {
 		if (s->vvar_start != VVAR_BAD_ADDR) {
 			if (s->vma_end != s->vvar_start &&
 			    s->vvar_end != s->vma_start) {
-				ret = -1;
 				pr_err("Unexpected rt vDSO area bounds\n");
 				goto err;
 			}
 		}
 	} else {
-		ret = -1;
 		pr_err("Can't find rt vDSO\n");
 		goto err;
 	}
@@ -290,9 +280,10 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		 s->vma_start, s->vma_end,
 		 s->vvar_start, s->vvar_end);
 
+	exit_code = 0;
 err:
 	fclose(maps);
-	return ret;
+	return exit_code;
 }
 
 int vdso_init(void)
