@@ -1239,7 +1239,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 	struct bfd f;
 	char *str;
 	bool entry_met = false;
-	int ret = -1;
+	int ret, exit_code = -1;;
 
 	f.fd = open_proc(pid, "fdinfo/%d", fd);
 	if (f.fd < 0) {
@@ -1401,7 +1401,6 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 			if (alloc_fhandle(&e->ffy.f_handle)) {
 				free_fanotify_mark_entry(e);
-				ret = -1;
 				goto out;
 			}
 			parse_fhandle_encoded(str + hoff, &e->ffy.f_handle);
@@ -1478,7 +1477,6 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 			if (alloc_fhandle(ify->f_handle)) {
 				free_inotify_wd_entry(e);
-				ret = -1;
 				goto out;
 			}
 
@@ -1494,7 +1492,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		}
 	}
 
-	ret = 0;
+	exit_code = 0;
 	if (entry_met)
 		goto out;
 	/*
@@ -1506,11 +1504,11 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 	pr_err("No records of type %d found in fdinfo file\n", type);
 parse_err:
-	ret = -1;
+	exit_code = -1;
 	pr_perror("%s: error parsing [%s] for %d", __func__, str, type);
 out:
 	bclose(&f);
-	return ret;
+	return exit_code;
 }
 
 int parse_fdinfo_pid(int pid, int fd, int type,
@@ -1600,7 +1598,7 @@ int parse_file_locks(void)
 	struct file_lock *fl;
 
 	FILE	*fl_locks;
-	int	ret = 0;
+	int	exit_code = -1;
 	bool	is_blocked;
 
 	fl_locks = fopen_proc(PROC_GEN, "locks");
@@ -1615,13 +1613,11 @@ int parse_file_locks(void)
 		fl = alloc_file_lock();
 		if (!fl) {
 			pr_perror("Alloc file lock failed!");
-			ret = -1;
 			goto err;
 		}
 
 		if (parse_file_lock_buf(buf, fl, is_blocked)) {
 			xfree(fl);
-			ret = -1;
 			goto err;
 		}
 
@@ -1633,7 +1629,6 @@ int parse_file_locks(void)
 
 		if (fl->fl_kind == FL_UNKNOWN) {
 			pr_err("Unknown file lock!\n");
-			ret = -1;
 			xfree(fl);
 			goto err;
 		}
@@ -1662,9 +1657,10 @@ int parse_file_locks(void)
 		list_add_tail(&fl->list, &file_lock_list);
 	}
 
+	exit_code = 0;
 err:
 	fclose(fl_locks);
-	return ret;
+	return exit_code;
 }
 
 void free_posix_timers(struct proc_posix_timers_stat *st)
@@ -1894,7 +1890,7 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 {
 	FILE *f;
 	char buf[1024], name[1024];
-	int heirarchy, ret = 0;
+	int heirarchy, exit_code = -1;
 	struct cg_controller *cur = NULL;
 
 	f = fopen_proc(PROC_GEN, "cgroups");
@@ -1904,16 +1900,17 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 	}
 
 	/* throw away the header */
-	if (!fgets(buf, 1024, f)) {
-		ret = -1;
+	if (!fgets(buf, 1024, f))
 		goto out;
-	}
 
 	while (fgets(buf, 1024, f)) {
 		char *n;
 		char found = 0;
 
-		sscanf(buf, "%s %d", name, &heirarchy);
+		if (sscanf(buf, "%s %d", name, &heirarchy) != 2) {
+			pr_err("Unable to parse: %s\n", buf);
+			goto out;
+		}
 		list_for_each_entry(cur, cgroups, l) {
 			if (cur->heirarchy == heirarchy) {
 				void *m;
@@ -1921,22 +1918,14 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 				found = 1;
 				cur->n_controllers++;
 				m = xrealloc(cur->controllers, sizeof(char *) * cur->n_controllers);
-				if (!m) {
-					ret = -1;
+				if (!m)
 					goto out;
-				}
 
 				cur->controllers = m;
-				if (!cur->controllers) {
-					ret = -1;
-					goto out;
-				}
 
 				n = xstrdup(name);
-				if (!n) {
-					ret = -1;
+				if (!n)
 					goto out;
-				}
 
 				cur->controllers[cur->n_controllers-1] = n;
 				break;
@@ -1945,18 +1934,17 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
 
 		if (!found) {
 			struct cg_controller *nc = new_controller(name, heirarchy);
-			if (!nc) {
-				ret = -1;
+			if (!nc)
 				goto out;
-			}
 			list_add_tail(&nc->l, &cur->l);
 			(*n_cgroups)++;
 		}
 	}
 
+	exit_code = 0;
 out:
 	fclose(f);
-	return ret;
+	return exit_code;
 }
 
 /*
