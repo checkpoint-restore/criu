@@ -1675,8 +1675,9 @@ void free_posix_timers(struct proc_posix_timers_stat *st)
 
 int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 {
-	int ret = 0;
+	int exit_code = -1;
 	int pid_t;
+	int i = 0;
 
 	struct bfd f;
 	char *s;
@@ -1700,69 +1701,78 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	while (1) {
 		char pbuf[17]; /* 16 + eol */
 
-		if (!(s = breadline(&f)))
-			goto out;
-
-		timer = xzalloc(sizeof(struct proc_posix_timer));
-		if (timer == NULL)
+		s = breadline(&f);
+		if (!s)
+			break;
+		if (IS_ERR(s))
 			goto err;
 
-		if (sscanf(s, "ID: %ld",
-					&timer->spt.it_id) != 1)
-			goto errf;
-		if (!(s = breadline(&f)))
-			goto errf;
-		if (sscanf(s, "signal: %d/%16s",
-					&timer->spt.si_signo, pbuf) != 2)
-			goto errf;
-		if (!(s = breadline(&f)))
-			goto errf;
-		if (sscanf(s, "notify: %6[a-z]/%3[a-z].%d\n",
-					sigpid, tidpid, &pid_t) != 3)
-			goto errf;
-		if (!(s = breadline(&f)))
-			goto errf;
-		if (sscanf(s, "ClockID: %d\n",
-				&timer->spt.clock_id) != 1)
-			goto errf;
+		pr_err("%s\n", s);
+		switch (i % 4) {
+		case 0:
+			timer = xzalloc(sizeof(struct proc_posix_timer));
+			if (timer == NULL)
+				goto err;
 
-		timer->spt.sival_ptr = NULL;
-		if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
-		    strcmp(pbuf, "(null)")) {
-			pr_err("Unable to parse '%s'\n", pbuf);
-			goto errf;
-		}
+			if (sscanf(s, "ID: %ld",
+						&timer->spt.it_id) != 1)
+				goto err;
+			break;
+		case 1:
+			if (sscanf(s, "signal: %d/%16s",
+						&timer->spt.si_signo, pbuf) != 2)
+				goto err;
+			break;
+		case 2:
+			if (sscanf(s, "notify: %6[a-z]/%3[a-z].%d\n",
+						sigpid, tidpid, &pid_t) != 3)
+				goto err;
+			break;
+		case 3:
+			if (sscanf(s, "ClockID: %d\n",
+					&timer->spt.clock_id) != 1)
+				goto err;
 
-		if ( tidpid[0] == 't') {
-			timer->spt.it_sigev_notify = SIGEV_THREAD_ID;
-		} else {
-			switch (sigpid[0]) {
-				case 's' :
-					timer->spt.it_sigev_notify = SIGEV_SIGNAL;
-					break;
-				case 't' :
-					timer->spt.it_sigev_notify = SIGEV_THREAD;
-					break;
-				default :
-					timer->spt.it_sigev_notify = SIGEV_NONE;
-					break;
+			timer->spt.sival_ptr = NULL;
+			if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
+			    strcmp(pbuf, "(null)")) {
+				pr_err("Unable to parse '%s'\n", pbuf);
+				goto err;
 			}
-		}
 
-		list_add(&timer->list, &args->timers);
-		timer = NULL;
-		args->timer_n++;
+			if ( tidpid[0] == 't') {
+				timer->spt.it_sigev_notify = SIGEV_THREAD_ID;
+			} else {
+				switch (sigpid[0]) {
+					case 's' :
+						timer->spt.it_sigev_notify = SIGEV_SIGNAL;
+						break;
+					case 't' :
+						timer->spt.it_sigev_notify = SIGEV_THREAD;
+						break;
+					default :
+						timer->spt.it_sigev_notify = SIGEV_NONE;
+						break;
+				}
+			}
+
+			list_add(&timer->list, &args->timers);
+			timer = NULL;
+			args->timer_n++;
+			break;
+		}
+		i++;
 	}
 
-errf:
-	xfree(timer);
-err:
-	free_posix_timers(args);
-	pr_perror("Parse error in posix timers proc file!");
-	ret = -1;
+	exit_code = 0;
 out:
 	bclose(&f);
-	return ret;
+	return exit_code;
+err:
+	xfree(timer);
+	free_posix_timers(args);
+	pr_perror("Parse error in posix timers proc file!");
+	goto out;
 }
 
 int parse_threads(int pid, struct pid **_t, int *_n)
