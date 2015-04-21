@@ -436,7 +436,7 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 {
 	struct cgroup_dir *ncd = NULL, *match;
-	int ret = 0;
+	int exit_code = -1;
 
 	if (typeflag == FTW_D) {
 		int mtype;
@@ -461,6 +461,7 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		switch (mtype) {
 		/* ignore co-mounted cgroups */
 		case EXACT_MATCH:
+			exit_code = 0;
 			goto out;
 		case PARENT_MATCH:
 			list_add_tail(&ncd->siblings, &match->children);
@@ -479,20 +480,17 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 
 		INIT_LIST_HEAD(&ncd->properties);
 		ncd->n_properties = 0;
-		if (add_cgroup_properties(fpath, ncd, current_controller) < 0) {
-			ret = -1;
+		if (add_cgroup_properties(fpath, ncd, current_controller) < 0)
 			goto out;
-		}
+	}
 
-		return 0;
-	} else
-		return 0;
+	return 0;
 
 out:
 	if (ncd)
 		xfree(ncd->path);
 	xfree(ncd);
-	return ret;
+	return exit_code;
 }
 
 static int collect_cgroups(struct list_head *ctls)
@@ -522,8 +520,7 @@ static int collect_cgroups(struct list_head *ctls)
 			/* only allow "fake" controllers to be created this way */
 			if (!strstartswith(cc->name, "name=")) {
 				pr_err("controller %s not found\n", cc->name);
-				ret = -1;
-				goto out;
+				return -1;
 			} else {
 				struct cg_controller *nc = new_controller(cc->name, -1);
 				list_add_tail(&nc->l, &cg->l);
@@ -562,12 +559,9 @@ static int collect_cgroups(struct list_head *ctls)
 		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", cc->path);
 
 		ret = ftw(path, add_cgroup, 4);
-		if (ret < 0) {
+		if (ret < 0)
 			pr_perror("failed walking %s for empty cgroups", path);
-			goto out;
-		}
 
-out:
 		close_safe(&fd);
 
 		if (ret < 0)
