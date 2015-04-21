@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <signal.h>
+#include <alloca.h>
 
 #include "criu.h"
 #include "rpc.pb-c.h"
@@ -311,13 +312,21 @@ er:
 
 static CriuResp *recv_resp(int socket_fd)
 {
-	unsigned char buf[CR_MAX_MSG_SIZE];
+	unsigned char *buf;
 	int len;
 	CriuResp *msg = 0;
 
-	len = read(socket_fd, buf, CR_MAX_MSG_SIZE);
+	len = recv(socket_fd, NULL, 0, MSG_TRUNC | MSG_PEEK);
 	if (len == -1) {
-		perror("Can't read response");
+		perror("Can't read request");
+		goto err;
+	}
+
+	buf = alloca(len);
+
+	len = recv(socket_fd, buf, len, MSG_TRUNC);
+	if (len == -1) {
+		perror("Can't read request");
 		goto err;
 	}
 
@@ -335,10 +344,12 @@ err:
 
 static int send_req(int socket_fd, CriuReq *req)
 {
-	unsigned char buf[CR_MAX_MSG_SIZE];
+	unsigned char *buf;
 	int len;
 
 	len = criu_req__get_packed_size(req);
+
+	buf = alloca(len);
 
 	if (criu_req__pack(req, buf) != len) {
 		perror("Failed packing request");

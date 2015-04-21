@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <alloca.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -36,12 +37,20 @@
 
 unsigned int service_sk_ino = -1;
 
-static int recv_criu_msg(int socket_fd, CriuReq **msg)
+static int recv_criu_msg(int socket_fd, CriuReq **req)
 {
-	unsigned char buf[CR_MAX_MSG_SIZE];
+	unsigned char *buf;
 	int len;
 
-	len = read(socket_fd, buf, CR_MAX_MSG_SIZE);
+	len = recv(socket_fd, NULL, 0, MSG_TRUNC | MSG_PEEK);
+	if (len == -1) {
+		pr_perror("Can't read request");
+		return -1;
+	}
+
+	buf = alloca(len);
+
+	len = recv(socket_fd, buf, len, MSG_TRUNC);
 	if (len == -1) {
 		pr_perror("Can't read request");
 		return -1;
@@ -53,8 +62,8 @@ static int recv_criu_msg(int socket_fd, CriuReq **msg)
 		return -1;
 	}
 
-	*msg = criu_req__unpack(NULL, len, buf);
-	if (!*msg) {
+	*req = criu_req__unpack(NULL, len, buf);
+	if (!*req) {
 		pr_perror("Failed unpacking request");
 		return -1;
 	}
@@ -64,10 +73,12 @@ static int recv_criu_msg(int socket_fd, CriuReq **msg)
 
 static int send_criu_msg(int socket_fd, CriuResp *msg)
 {
-	unsigned char buf[CR_MAX_MSG_SIZE];
+	unsigned char *buf;
 	int len;
 
 	len = criu_resp__get_packed_size(msg);
+
+	buf = alloca(len);
 
 	if (criu_resp__pack(msg, buf) != len) {
 		pr_perror("Failed packing response");
