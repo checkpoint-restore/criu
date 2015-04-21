@@ -159,6 +159,24 @@ void criu_set_manage_cgroups(bool manage)
 	opts->manage_cgroups = manage;
 }
 
+void criu_set_auto_ext_mnt(bool val)
+{
+	opts->has_auto_ext_mnt = true;
+	opts->auto_ext_mnt = val;
+}
+
+void criu_set_ext_sharing(bool val)
+{
+	opts->has_ext_sharing = true;
+	opts->ext_sharing = val;
+}
+
+void criu_set_ext_masters(bool val)
+{
+	opts->has_ext_masters = true;
+	opts->ext_masters = val;
+}
+
 void criu_set_log_file(char *log_file)
 {
 	opts->log_file = strdup(log_file);

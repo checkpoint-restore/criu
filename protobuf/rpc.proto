@@ -61,6 +61,10 @@ message criu_opts {
 
 	optional bool			rst_sibling	= 26; /* swrk only */
 	repeated inherit_fd		inherit_fd	= 27; /* swrk only */
+
+	optional bool			auto_ext_mnt	= 28;
+	optional bool			ext_sharing 	= 29;
+	optional bool			ext_masters	= 30;
 }
 
 message criu_dump_resp {

@@ -378,6 +378,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_manage_cgroups)
 		opts.manage_cgroups = req->manage_cgroups;
 
+	if (req->has_auto_ext_mnt)
+		opts.autodetect_ext_mounts = req->auto_ext_mnt;
+
+	if (req->has_ext_sharing)
+		opts.enable_external_sharing = req->ext_sharing;
+
+	if (req->has_ext_masters)
+		opts.enable_external_masters = req->ext_masters;
+
 	return 0;
 
 err:
