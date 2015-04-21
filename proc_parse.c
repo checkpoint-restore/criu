@@ -1822,15 +1822,15 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 
 int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 {
-	int ret = 0;
 	FILE *f;
 
 	f = fopen_proc(pid, "cgroup");
+	if (f == NULL)
+		return -1;
 	while (fgets(buf, BUF_SIZE, f)) {
 		struct cg_ctl *ncc, *cc;
 		char *name, *path = NULL, *e;
 
-		ret = -1;
 		ncc = xmalloc(sizeof(*cc));
 		if (!ncc)
 			goto err;
@@ -1878,7 +1878,7 @@ int parse_task_cgroup(int pid, struct list_head *retl, unsigned int *n)
 err:
 	put_ctls(retl);
 	fclose(f);
-	return ret;
+	return -1;
 }
 
 void put_ctls(struct list_head *l)
