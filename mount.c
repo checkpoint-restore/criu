@@ -1411,7 +1411,10 @@ bool add_fsname_auto(const char *names)
 		fsauto_names = xstrdup(names);
 	else {
 		fsauto_names = NULL;
-		asprintf(&fsauto_names, "%s,%s", old, names);
+		if (asprintf(&fsauto_names, "%s,%s", old, names) < 0) {
+			fsauto_names = old;
+			return false;
+		}
 	}
 
 	xfree(old);
