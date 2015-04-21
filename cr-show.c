@@ -553,6 +553,12 @@ out:
 
 int cr_show(int pid)
 {
+	if (isatty(STDOUT_FILENO)) {
+		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
+		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
+		return -1;
+	}
+
 	if (opts.show_dump_file)
 		return cr_parse_file();
 
