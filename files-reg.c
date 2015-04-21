@@ -818,7 +818,8 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	nsid = lookup_nsid_by_mnt_id(p->mnt_id);
 	if (nsid == NULL) {
-		pr_err("Unable to look up the %d mount\n", p->mnt_id);
+		pr_err("Can't lookup mount=%d for fd=%d path=%s\n",
+			p->mnt_id, p->fd, link->name + 1);
 		return -1;
 	}
 
