@@ -380,6 +380,11 @@ int cr_parse_fd(struct cr_img *img, u32 magic)
 {
 	int ret = 0, i;
 
+	if (magic == IMG_COMMON_MAGIC || magic == IMG_SERVICE_MAGIC) {
+		if (read_img(img, &magic) < 0)
+			goto out;
+	}
+
 	if (magic == PSTREE_MAGIC) {
 		show_collect_pstree(img, 0);
 		goto out;
