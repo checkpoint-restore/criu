@@ -445,8 +445,15 @@ void *mmap_seized(struct parasite_ctl *ctl,
 
 	err = syscall_seized(ctl, __NR_mmap, &map,
 			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0 || map > TASK_SIZE)
-		map = 0;
+	if (err < 0)
+		return NULL;
+
+	if (IS_ERR_VALUE(map)) {
+		if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC))
+			pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
+				"check selinux execmem policy\n", ctl->pid.real);
+		return NULL;
+	}
 
 	return (void *)map;
 }
