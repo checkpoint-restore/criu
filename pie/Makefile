@@ -48,7 +48,7 @@ $(obj)/$(PIELDS): $(obj)/$(PIELDS).in
 
 $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS)
 	$(E) "  GEN     " $@
-	$(Q) $(LD) -T $(obj)/$(PIELDS) -o $@ $<
+	$(Q) $(LD) $(ldflags-y) -T $(obj)/$(PIELDS) -o $@ $<
 
 $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 	$(E) "  GEN     " $@

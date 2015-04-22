@@ -172,7 +172,7 @@ $(1)-all-objs += $(all-objs)
 
 $$(obj)/$(1).built-in.o: $$($(1)-all-objs) $$($(1)-libs-e) $(libs-e)
 	$$(E) "  LINK    " $$@
-	$$(Q) $$(LD) -r -o $$@ $$^
+	$$(Q) $$(LD) $$(ldflags-y) -r -o $$@ $$^
 
 _all += $$(obj)/$(1).built-in.o
 cleanup-y += $$(obj)/$(1).built-in.o
@@ -193,7 +193,7 @@ ifeq ($(targets),)
 ifneq ($(all-objs),)
 $(obj)/built-in.o: $(all-objs) $(libs-e)
 	$(E) "  LINK    " $@
-	$(Q) $(LD) -r -o $@ $^
+	$(Q) $(LD) $(ldflags-y) -r -o $@ $^
 
 _all += $(obj)/built-in.o
 cleanup-y += $(obj)/built-in.o

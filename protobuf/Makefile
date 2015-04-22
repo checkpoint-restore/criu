@@ -95,7 +95,7 @@ $(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
 
 $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 	$(E) "  LINK    " $@
-	$(Q) $(LD) -r -o $@ $^
+	$(Q) $(LD) $(ldflags-y) -r -o $@ $^
 
 _all += $(obj)/built-in.o
 
