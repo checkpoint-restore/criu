@@ -84,6 +84,8 @@ LDARCH		?= $(SRCARCH)
 SRC_DIR		?= $(CURDIR)
 ARCH_DIR	:= arch/$(SRCARCH)
 
+export ARCH SRCARCH
+
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
 cflags-y		+= -iquote include -iquote pie -iquote .
