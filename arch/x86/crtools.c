@@ -361,9 +361,9 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 		 (int)i387->fop, (int)i387->mxcsr, (int)i387->mxcsr_mask);
 
 	pr_debug("magic1:%x extended_size:%x xstate_bv:%lx xstate_size:%x\n",
-		 fpx->magic1, fpx->extended_size, fpx->xstate_bv, fpx->xstate_size);
+		 fpx->magic1, fpx->extended_size, (long)fpx->xstate_bv, fpx->xstate_size);
 
-	pr_debug("xstate_bv: %lx\n", xsave_hdr->xstate_bv);
+	pr_debug("xstate_bv: %lx\n", (long)xsave_hdr->xstate_bv);
 
 	pr_debug("-----------------------\n");
 }
