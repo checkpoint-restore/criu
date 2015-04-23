@@ -349,6 +349,7 @@ START_ONLY=0
 BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 START_FROM="."
+RESTORE_SIBLING=""
 
 zdtm_sep()
 { (
@@ -639,6 +640,7 @@ run_test()
 	local gen_args=$*
 	local tname=`basename $test`
 	local tdir=`dirname $test`
+	local rst_args=
 	DUMP_PATH=""
 
 	if [ $COMPILE_ONLY -eq 1 ]; then
@@ -681,6 +683,10 @@ EOF
 	if [ -n "$AUTO_DEDUP" ]; then
 		gen_args="$gen_args --auto-dedup"
 		ps_args="--auto-dedup"
+	fi
+
+	if [ -n "$RESTORE_SIBLING" ]; then
+		rst_args="$rst_args --restore-sibling"
 	fi
 
 	if echo $tname | fgrep -q 'irmap'; then
@@ -790,7 +796,7 @@ EOF
 			rm -f $TPID || true
 
 			echo Restore
-			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args || return 2
+			setsid $CRIU restore -D $ddump -o restore.log -v4 -d $gen_args $rst_args || return 2
 			cat $ddump/restore.log* | grep Error
 
 			[ -n "$PIDNS" ] && PID=`cat $TPID`
@@ -1059,6 +1065,10 @@ while :; do
 			./zdtm_ct ./zdtm.sh "$@"
 			exit
 		}
+		shift
+		;;
+	  --restore-sibling)
+		RESTORE_SIBLING=1
 		shift
 		;;
 	  -*)
