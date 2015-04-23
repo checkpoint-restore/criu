@@ -527,7 +527,7 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 	if (ptrace(PTRACE_POKEUSER, pid,
 			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
 			addr)) {
-		pr_err("Unable to setup a breakpoint\n");
+		pr_perror("Unable to setup a breakpoint into %d", pid);
 		return -1;
 	}
 
@@ -535,13 +535,13 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 	if (ptrace(PTRACE_POKEUSER, pid,
 			offsetof(struct user, u_debugreg[DR_CONTROL]),
 			X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
-		pr_err("Unable to enable the breakpoint\n");
+		pr_perror("Unable to enable the breakpoint for %d", pid);
 		return -1;
 	}
 
 	ret = ptrace(PTRACE_CONT, pid, NULL, NULL);
 	if (ret) {
-		pr_perror("Unable to restart  the  stopped tracee process");
+		pr_perror("Unable to restart the  stopped tracee process %d", pid);
 		return -1;
 	}
 
@@ -554,7 +554,7 @@ int ptrace_flush_breakpoints(pid_t pid)
 	if (ptrace(PTRACE_POKEUSER, pid,
 			offsetof(struct user, u_debugreg[DR_CONTROL]),
 			0)) {
-		pr_err("Unable to disable the breakpoint\n");
+		pr_perror("Unable to disable the breakpoint for %d", pid);
 		return -1;
 	}
 

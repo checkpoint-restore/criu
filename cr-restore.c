@@ -1123,8 +1123,11 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 
-	if (item == root_item)
+	if (item == root_item) {
 		item->pid.real = ret;
+		pr_debug("PID: real %d virt %d\n",
+				item->pid.real, item->pid.virt);
+	}
 
 	if (opts.pidfile && root_item == item) {
 		int pid;
@@ -1606,13 +1609,13 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 				 * and SYSCALL below work.
 				 */
 				if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
-					pr_perror("Can't interrupt task");
+					pr_perror("Can't interrupt the %d task", pid);
 					return -1;
 				}
 			}
 
 			if (wait4(pid, &status, __WALL, NULL) != pid) {
-				pr_perror("waitpid() failed");
+				pr_perror("waitpid(%d) failed", pid);
 				return -1;
 			}
 

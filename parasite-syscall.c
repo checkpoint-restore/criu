@@ -1271,7 +1271,7 @@ int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf)
 	 */
 	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
 	if (ret) {
-		pr_perror("ptrace");
+		pr_perror("Unable to restart the %d process", pid);
 		return -1;
 	}
 
