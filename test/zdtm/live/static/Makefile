@@ -46,6 +46,7 @@ TST_NOFILE	=				\
 		pipe02				\
 		pthread00			\
 		pthread01			\
+		pthread02			\
 		vdso00				\
 		vdso01				\
 		utsname				\
@@ -291,6 +292,7 @@ unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURC
 inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
 pthread01:		override LDLIBS += -pthread
+pthread02:		override LDLIBS += -pthread
 sigpending:		override LDLIBS += -pthread
 sigaltstack:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS
