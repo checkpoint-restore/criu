@@ -1582,7 +1582,7 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 
-			if (item != root_item || !root_seized) {
+			if (item != root_item || !root_seized || i != 0) {
 				if (ptrace(PTRACE_ATTACH, pid, 0, 0)) {
 					pr_perror("Can't attach to %d", pid);
 					return -1;
