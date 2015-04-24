@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -273,6 +274,42 @@ static bool kerndat_has_memfd_create(void)
 	return 0;
 }
 
+int kerndat_fdinfo_has_lock()
+{
+	int fd, pfd = -1, exit_code = -1, len;
+	char buf[PAGE_SIZE];
+
+	fd = open("/proc/locks", O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Unable to open /proc/locks");
+		return -1;
+	}
+
+	if (flock(fd, LOCK_SH)) {
+		pr_perror("Can't take a lock\n");
+		return -1;
+	}
+
+	pfd = open_proc(PROC_SELF, "fdinfo/%d", fd);
+	if (pfd < 0)
+		goto out;
+
+	len = read(pfd, buf, sizeof(buf));
+	if (len < 0) {
+		pr_perror("Unable to read");
+		goto out;
+	}
+
+	kdat.has_fdinfo_lock = (strstr(buf, "lock:") != NULL);
+
+	exit_code = 0;
+out:
+	close(pfd);
+	close(fd);
+
+	return exit_code;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -284,6 +321,8 @@ int kerndat_init(void)
 		ret = init_zero_page_pfn();
 	if (!ret)
 		ret = get_last_cap();
+	if (!ret)
+		ret = kerndat_fdinfo_has_lock();
 
 	return ret;
 }

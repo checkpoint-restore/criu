@@ -671,6 +671,23 @@ static int check_aio_remap(void)
 	return 0;
 }
 
+static int check_fdinfo_lock(void)
+{
+	if (kerndat_fdinfo_has_lock())
+		return -1;
+
+	if (!kdat.has_fdinfo_lock) {
+		if (!opts.check_ms_kernel) {
+			pr_err("fdinfo doesn't contain the lock field\n");
+			return -1;
+		} else {
+			pr_warn("fdinfo doesn't contain the lock field\n");
+		}
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 int cr_check(void)
@@ -723,6 +740,7 @@ int cr_check(void)
 	ret |= check_timerfd();
 	ret |= check_mnt_id();
 	ret |= check_aio_remap();
+	ret |= check_fdinfo_lock();
 
 out:
 	if (!ret)
@@ -774,6 +792,8 @@ int check_add_feature(char *feat)
 		chk_feature = check_tun;
 	else if (!strcmp(feat, "userns"))
 		chk_feature = check_userns;
+	else if (!strcmp(feat, "fdinfo_lock"))
+		chk_feature = check_fdinfo_lock;
 	else {
 		pr_err("Unknown feature %s\n", feat);
 		return -1;

@@ -13,6 +13,7 @@ struct stat;
 extern int kerndat_init(void);
 extern int kerndat_init_rst(void);
 extern int kerndat_get_dirty_track(void);
+extern int kerndat_fdinfo_has_lock(void);
 
 struct kerndat_s {
 	dev_t shmem_dev;
@@ -21,6 +22,7 @@ struct kerndat_s {
 	u64 zero_page_pfn;
 	bool has_dirty_track;
 	bool has_memfd;
+	bool has_fdinfo_lock;
 };
 
 extern struct kerndat_s kdat;
