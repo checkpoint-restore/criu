@@ -456,8 +456,13 @@ void restore_child(int *new_pipefd, char *old_pipe_name)
 					"%s", INHERIT_FD_OPTION);
 				snprintf(inh_file_arg, sizeof inh_file_arg,
 					"fd[%d]:%s", filefd, OLD_LOG_FILE + 1);
-			}
-		}
+
+				restore_argv[13] = inh_file_opt;
+			} else
+				restore_argv[13] = NULL;
+			restore_argv[11] = inh_pipe_opt;
+		} else
+			restore_argv[11] = NULL;
 
 		snprintf(buf, sizeof buf, "%s/%s", IMG_DIR, RESTORE_PID_FILE);
 		unlink_safe(buf);

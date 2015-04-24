@@ -22,6 +22,8 @@ testdir: ../../criu
 	chmod 777 $(DIR)
 
 users:
+	-userdel -f $(USR1)
+	-userdel -f $(USR2)
 	useradd -M -U $(USR1)
 	useradd -M -U $(USR2)
 	usermod -a -G $(USR2) $(USR1)

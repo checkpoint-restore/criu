@@ -2,7 +2,7 @@ CFLAGS += -Wall
 pipe: pipe.c
 clean:
 	rm -f pipe
-run:
+run: pipe
 	./pipe - &&		\
 	./pipe -c &&		\
 	./pipe -cl &&		\
