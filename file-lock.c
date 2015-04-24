@@ -10,6 +10,7 @@
 #include "imgset.h"
 #include "files.h"
 #include "fs-magic.h"
+#include "kerndat.h"
 #include "image.h"
 #include "mount.h"
 #include "proc_parse.h"
@@ -208,6 +209,9 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 {
 	struct file_lock *fl;
 	int ret;
+
+	if (kdat.has_fdinfo_lock)
+		return 0;
 
 	list_for_each_entry(fl, &file_lock_list, list) {
 		ret = lock_file_match(pid->real, fd, fl, p);

@@ -199,6 +199,7 @@ struct fdinfo_common {
 	off64_t pos;
 	int flags;
 	int mnt_id;
+	int owner;
 };
 
 extern int parse_fdinfo(int fd, int type,

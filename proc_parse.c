@@ -1233,6 +1233,8 @@ nodata:
 
 #define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
 
+static int parse_file_lock_buf(char *buf, struct file_lock *fl,
+				bool is_blocked);
 static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		int (*cb)(union fdinfo_entries *e, void *arg), void *arg)
 {
@@ -1280,6 +1282,41 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 			entry_met = true;
 			continue;
+		}
+
+		if (fdinfo_field(str, "lock")) {
+			struct file_lock *fl;
+			struct fdinfo_common *fdinfo = arg;
+
+			if (type != FD_TYPES__UND)
+				continue;
+
+			fl = alloc_file_lock();
+			if (!fl) {
+				pr_perror("Alloc file lock failed!");
+				goto out;
+			}
+
+			if (parse_file_lock_buf(str + 6, fl, 0)) {
+				xfree(fl);
+				goto parse_err;
+			}
+
+			pr_info("lockinfo: %lld:%d %x %d %02x:%02x:%ld %lld %s\n",
+				fl->fl_id, fl->fl_kind, fl->fl_ltype,
+				fl->fl_owner, fl->maj, fl->min, fl->i_no,
+				fl->start, fl->end);
+
+
+			if (fl->fl_kind == FL_UNKNOWN) {
+				pr_err("Unknown file lock!\n");
+				xfree(fl);
+				goto out;
+			}
+
+			fl->real_owner = fdinfo->owner;
+			fl->owners_fd = fd;
+			list_add_tail(&fl->list, &file_lock_list);
 		}
 
 		if (type == FD_TYPES__UND)
@@ -1600,6 +1637,9 @@ int parse_file_locks(void)
 	FILE	*fl_locks;
 	int	exit_code = -1;
 	bool	is_blocked;
+
+	if (kdat.has_fdinfo_lock)
+		return 0;
 
 	fl_locks = fopen_proc(PROC_GEN, "locks");
 	if (!fl_locks) {

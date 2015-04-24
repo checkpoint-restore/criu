@@ -213,7 +213,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 {
 	int ret;
 	struct statfs fsbuf;
-	struct fdinfo_common fdinfo = { .mnt_id = -1 };
+	struct fdinfo_common fdinfo = { .mnt_id = -1, .owner = ctl->pid.virt };
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
@@ -225,7 +225,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 		return -1;
 	}
 
-	if (parse_fdinfo(lfd, FD_TYPES__UND, NULL, &fdinfo))
+	if (parse_fdinfo_pid(ctl->pid.real, fd, FD_TYPES__UND, NULL, &fdinfo))
 		return -1;
 
 	p->fs_type	= fsbuf.f_type;
