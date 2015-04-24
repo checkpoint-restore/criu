@@ -2,132 +2,205 @@ CRIU(8)
 =======
 :doctype:       manpage
 :man source:    criu
-:man version:   0.0.2
+:man version:   0.0.3
 :man manual:    CRIU Manual
 
 NAME
 ----
 criu - checkpoint/restore in userspace
 
+
 SYNOPSIS
 --------
-*criu* 'command' ['options']
+*criu* '<command>' ['options']
+
 
 DESCRIPTION
 -----------
-*criu* is command line utility to steer checkpoint and restore procedure.
+*criu* is a tool for checkpointing and restoring running applications.
+It does this by saving their state as a collection of files (see the 'dump'
+command) and creating equivalent processes from those files (see the 'restore'
+command). The restore operation can be performed at a later time,
+on a different system, or both.
 
-The 'command' can be one of the following:
-
-*pre-dump*::
-Launch that named pre-dump procedure, where *criu* does snapshot of
-memory changes since previous pre-dump. Also *criu* forms fsnotify
-cache which speedup *restore* procedure.
-
-*dump*::
-Initiate checkpoint procedure.
-
-*restore*::
-Restore previously checkpointed processes.
-
-*show*::
-Decode own binary dump files and show their contents in human-readable form.
-
-*check*::
-Test whether the kernel support is up-to-date.
-
-*page-server*::
-Launch a page server.
-
-*exec*::
-Execute a system call from other task\'s context.
-
-*service*::
-Start RPC service.
-
-*dedup*::
-Starts pagemap data deduplication procedure, where *criu* scans over all
-pagemap files and tries to minimalize the number of pagemap entries by
-obtaining the references from a parent pagemap image.
-
-*cpuinfo* *dump*::
-Writes information about currently running CPU and its features into an image.
-
-*cpuinfo* *check*::
-Reads information about CPU from an image file and checks if it is compatible
-with currently running CPU.
 
 OPTIONS
 -------
-*-c*::
-    In case of *show* command the dumped pages content will be shown in hex format.
+The options are depending on the '<command>' *criu* run with.
 
-*-D*, *--images-dir* 'path'::
-    Use path 'path' as a base directory where to look for dump files set. This
-    commands applies to any 'command'.
+Common options
+~~~~~~~~~~~~~~
+Common options are applied to any '<command>'.
 
-*--prev-images-dir* 'path'::
-    Use path 'path' as a parent directory where to look for dump files set. This
-    make sence in case of increment dumps.
+*-v*['<num>'|*v*...]::
+    Set logging level to '<num>'. The higer the level, the more output
+    is produced. Either numeric values or multiple *v* can be used.
+    +
+The following levels are available:
+    * *-v1*, *-v*
+        only messages and errors;
+    * *-v2*, *-vv*
+        also warnings (default level);
+    * *-v3*, *-vvv*
+        also information messages and timestamps;
+    * *-v4*, *-vvvv*
+        lots of debug.
 
-*-W*, *--work-dir* 'dir'::
-    Use directory 'dir' for putting logs, pidfiles and statistics. If not
-    specified, 'path' from *-D* option is taken.
+*--pidfile* '<file>'::
+    Write root task, service or page-server pid into a '<file>'.
 
-*-s*, *--leave-stopped*::
-    Leave tasks in stopped state after checkpoint instead of killing them.
+*-o*, *--log-file* '<file>'::
+    Write logging messages to '<file>'.
+
+*--log-pid*::
+    Write separate logging files per each pid.
+
+*-D*, *--images-dir* '<path>'::
+    Use path '<path>' as a base directory where to look for dump files set.
+
+*--prev-images-dir* '<path>'::
+    Use path '<path>' as a parent directory where to look for dump files set.
+    This make sence in case of increment dumps.
+
+*-W*, *--work-dir* '<dir>'::
+    Use directory '<dir>' for putting logs, pidfiles and statistics. If not
+    specified, '<path>' from *-D* option is taken.
+
+*--close* '<fd>'::
+    Close file with descriptor '<fd>' before any actions.
+
+*-L*, *--libdir* '<path>'::
+    Path to a plugins directory.
+
+*--action-script* '<SCRIPT>'::
+    Add an external action script.
+    The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the
+    actions:
+        * *post-dump*
+            run an action upon *dump* completion;
+
+        * *post-restore*
+            run an action upon *restore* completion;
+
+        * *network-lock*
+            lock network in a target network namespace;
+
+        * *network-unlock*
+            unlock network in a target network namespace;
+
+        * *setup-namespaces*
+            run an action once root task just been created
+            with required namespaces, note it is early stage
+            on restore nothing were restored yet except namespaces
+            themselves.
+
+*-V*, *--version*::
+    Print program version and exit.
+
+*-h*, *--help*::
+    Print a commands list and exit. The commands list is very
+    short one just for overview and does not match this manual.
+
+*pre-dump*
+~~~~~~~~~~
+Launches that named pre-dump procedure, where *criu* does snapshot of
+memory changes since previous pre-dump. Also *criu* forms fsnotify
+cache which speedup *restore* procedure. *pre-dump* requires at least
+*-t* option (see *dump* below). Optionally *page-server* options
+may be specified.
+
+*--track-mem*::
+    Turn on memory changes tracker in the kernel. If the option is
+    not passed the memory tracker get turned on implicitly.
+
+*dump*
+~~~~~~
+Starts a checkpoint procedure.
+
+*-t*, *--tree* '<pid>'::
+    Checkpoint the whole process tree starting from '<pid>'.
 
 *-R*, *--leave-running*::
     Leave tasks in running state after checkpoint instead of killing them. This
     option is pretty dangerous and should be used if and only if you understand
     what you are doing.
-    If task is about to run after been checkpointed it can modify TCP connections,
-    delete files and do other dangerous actions. So that *criu* itself can not
-    guarantee that the next *restore* action will not fail. Most likely if a user
-    starts *criu* with this option passed at least the file system snapshot must be
-    done with help of 'post-dump' script.
-    In other words, do not use it until really needed.
++
+If task is about to run after been checkpointed it can modify TCP connections,
+delete files and do other dangerous actions. So that *criu* itself can not
+guarantee that the next *restore* action will not fail. Most likely if a user
+starts *criu* with this option passed at least the file system snapshot must be
+done with help of 'post-dump' script.
++
+In other words, do not use it until really needed.
 
-*--cpu-cap* [,'cap']::
-    When restore process require 'cap' CPU capability to be present. To inverse
-    capability prefix it with '^'.
-
-    - 'all'.    Require all capabilities. This is *default* mode if *--cpu-cap*
-                is passed without arguments. Most safe mode.
-
-    - 'cpu'.    Require the CPU to have all capabilities match. On *dump* the
-                capabilities are writen into image file and on *restore* they
-                are validated to match ones present on runtime CPU.
-
-    - 'fpu'.    Requre the CPU to have comaptible FPU. For example the process
-                might be dumped with xsave capability but attempted to restore
-                without it present on target CPU. In such case we refuse to
-                procceed. This is *default* mode if *--cpu-cap* is not present
-                in command line.
-
-    - 'ins'     Only require CPU compatibility on instructions level. On *dump*
-                all capabilities are writen into image file and on *restore*
-                only subset related to CPU instructions tested if target CPU
-                supports them. Unlike 'cpu' mode the target CPU may have more
-                features than ones present in image file.
-
-    - 'none'.   Ignore capabilities. Most dangerous mode. The behaviour is
-                implementation dependent. Try to not use it until really
-                required. One possible need of using this option is when
-                *--cpu-cap*='cpu' has been passed on *dump* then images are
-                migrated to a less capable processor and one need to *restore*
-                this application, by default *criu* will refuse to proceed without
-                relaxing capability with *--cpu-cap*='none' parameter.
-
-*-f*, *--file* 'file'::
-    This option is valid for the *show* command only and allows one to see the
-    content of the 'file' specified.
+*-s*, *--leave-stopped*::
+    Leave tasks in stopped state after checkpoint instead of killing them.
 
 *-x*, *--ext-unix-sk*::
     Dump external unix sockets.
 
-*-t*, *--tree* 'pid'::
-    Checkpoint the whole process tree starting from 'pid'.
+*-n*, *--namespaces* '<ns>'[,'<ns>'...]::
+    Checkpoint namespaces. Namespaces must be separated by comma.
+    Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
+
+*--manage-cgroups*::
+    Collect cgroups into the image thus they gonna be restored then.
+    Without this argument *criu* will not save cgroups configuration
+    associated with a task.
+
+*--tcp-established*::
+    Checkpoint established TCP connections.
+
+*--veth-pair* '<IN>'*=*'<OUT>'::
+    Correspondence between outside and inside names of veth devices.
+
+*--evasive-devices*::
+    Use any path to a device file if the original one is inaccessible.
+
+*--page-server*::
+    Send pages to a page server (see *page-server* command).
+
+*--force-irmap*::
+    Force resolving names for inotify and fsnotify watches.
+
+*--auto-dedup*::
+    Deduplicate "old" data in pages images of previous *dump*. Which implies
+    incremental *dump* mode (see *pre-dump* command).
+
+*-l*, *--file-locks*::
+    Dump file locks. It is necessary to make sure that all file lock users
+    are taken into dump, so it is only safe to use this for enclojured containers
+    where locks are not holed by someone outside of it.
+
+*-M*, *--ext-mount-map* '<KEY>'*:*'<VAL>'::
+    Setup mapping for external mounts. '<KEY>' is a mountpoint inside container
+    and corresponding '<VAL>' is a string that will be written into the image
+    as mountpoint\'s root value.
+
+*--link-remap*::
+    Allow to link unlinked files back when possible (modifies FS till *restore*).
+
+*-j*, *--shell-job*::
+    Allow to dump shell jobs. This implies the restored task will inherit session and
+    process group ID from the criu itself. Also this option allows one to migrate a
+    single external tty connection, in other words this option allows one to migrate
+    such application as "top" and friends. If passed on *dump* it must be
+    specified on *restore* as well.
+
+*--cpu-cap* [,'<cap>']::
+    Specify 'cap' CPU capability to be written into an image file. Basically
+    if '<cap>' is one of *all*, *cpu* or *ins*, then *criu* writes CPU related
+    information into image file. If the option is omitted or set to *none*
+    then image will not be written. By default *criu* do not write this image.
+
+*restore*
+~~~~~~~~~
+Restores previously checkpointed processes.
+
+*--inherit-fd* 'fd[<num>]:<existing>'::
+    Inherit file descriptors. This allows to treat file descriptor '<num>' as
+    being already opened via '<existing>' one and instead of trying to open we
+    inherit it.
 
 *-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
@@ -135,143 +208,146 @@ OPTIONS
 *-S*, *--restore-sibling*::
     Restore root task as a sibling (make sense with *--restore-detached*) only.
 
-*-n*, *--namespaces* 'ns'[,'ns'...]::
-    Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
-
-*-r*, *--root* 'path'::
-    Change the root filesystem (when run in mount namespace).
-
-*--evasive-devices*::
-    Use any path to a device file if the original one is inaccessible.
-
-*--pidfile* 'file'::
-    Write root task, service or page-server pid into a 'file'.
-
-*--veth-pair* 'IN'*=*'OUT'::
-    Correspondence between outside and inside names of veth devices.
-
-*-M*, *--ext-mount-map* 'KEY'*:*'VAL'::
-    Setup mapping for external mounts.
-
-    On dump, KEY is a mountpoint inside container and corresponding VAL 
-    is a string that will be written into the image as mountpoint's root
-    value
-
-    On restore KEY is the value from the image (VAL from dump) and the
-    VAL is the path on host that will be bind-mounted into container
-    (to the mountpoint path from image)
-
-    A special case is `--ext-mount-map auto`. If this flag is passed, when an
-    external mount is missing from the command line --ext-mount-map KEY:VAL
-    syntax, criu attempts to automatically resolve this mount from its
-    namespace.
-
-*--enable-external-sharing*, *--enable-external-masters*::
-    These flags enable external shared or slave mounts to be resolved
-    automatically when `--ext-mount-map auto` is passed.
-
-*--action-script* 'SCRIPT'::
-    Add an external action script.
-    The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the
-    actions:
-        * *network-lock*
-                lock network in a target network namespace
-
-        * *network-unlock*
-                unlock network in a target network namespace
-
-*--link-remap*::
-    Allow to link unlinked files back when possible (modifies FS
-    till restore).
-
-*-o*, *--log-file* 'file'::
-    Write logging messages to 'file'.
-
-*-v*['num'|*v*...]::
-    Set logging level to 'num'. The higer the level, the more output
-    is produced. Either numeric values or multiple *v* can be used.
-    The following levels are available:
-        * *-v1*, *-v*    - only messages and errors;
-        * *-v2*, *-vv*   - also warnings (default level);
-        * *-v3*, *-vvv*  - also information messages and timestamps;
-        * *-v4*, *-vvvv* - lots of debug.
-
-*--log-pid*::
-    Write separate logging files per each pid.
-
-*--close* 'fd'::
-    Close file with descriptor 'fd' before anything else.
-
-*--tcp-established*::
-    Checkpoint/restore established TCP connections.
-
-*-j*, *--shell-job*::
-    Allow to dump and restore shell jobs. This implies the restored task
-    will inherit session and process group ID from the criu itself.
-    Also this option allows one to migrate a single external tty connection, in other
-    words this option allows one to migrate such application as *top* and friends.
-
-*-l*, *--file-locks*::
-    Allow to dump and restore file locks. It is necessary to make sure that
-    all file lock users are taken into dump, so it is only safe to use this
-    for a container dump/restore.
-
-*--ms*::
-    In case of *check* command does not try to check for features which are
-    known to be not yet merged upstream.
-
-*--track-mem*::
-    Turn on memory changes tracker in kernel.
-
-*--auto-dedup::
-    When used on *dump* it will deduplicate "old" data in pages images of
-    previous dump. When used on *restore*, as soon as page is restored, it
-    will be punched from the image.
-
-*--page-server*::
-    In case of *dump* command sends pages to a page server.
-
-*--address* 'address'::
-    Page server address.
-
-*--port* 'number'::
-    Page server port number.
-
-*-L*, *--libdir* 'path'::
-    Path to a plugins directory.
-
-*--force-irmap*::
-    Force resolving names for inotify and fsnotify watches.
+*-r*, *--root* '<path>'::
+    Change the root filesystem to <path> (when run in mount namespace).
 
 *--manage-cgroups*::
-    Dump or restore cgroups the process is in.
+    Restore cgroups configuration associated with a task from the image.
 
-*--cgroup-root* '[controller:]/newroot'::
+*--cgroup-root* '[<controller>:]/<newroot>'::
     Change the root cgroup the controller will be installed into. No controller
     means that root is the default for all controllers not specified.
 
-*--inherit-fd* 'fd[num]:existing'::
-    Inherit file descriptors on *restore*. This allows to treat file descriptor
-    'num' as being already opened via 'existing' one and instead of trying to
-    open we inherit it.
+*--tcp-established*::
+    Restore previously dumped established TCP connections. This implies that
+    the network has been locked between *dump* and *restore* phases so other
+    side of a connection simply notice a kind of lag.
 
-*-V, *--version*::
-    Print program version.
+*--veth-pair* '<IN>'*=*'<OUT>'::
+    Correspondence between outside and inside names of veth devices.
 
-*-h*, *--help*::
-    Print inline help.
+*-l*, *--file-locks*::
+    Restore file locks from the image.
+
+*-M*, *--ext-mount-map* '<KEY>'*:*'<VAL>'::
+    Setup mapping for external mounts. '<KEY>' is the value from the image
+    ('<VAL>' from dump) and the '<VAL>' is the path on host that will be
+    bind-mounted into container (to the mountpoint path from image).
+
+*--ext-mount-map* *auto*::
+    This is a special case. If this flag is passed, when an external
+    mount is missing from the command line '*--ext-mount-map* <KEY>:<VAL>' syntax,
+    criu attempts to automatically resolve this mount from its namespace.
+
+*--enable-external-sharing*, *--enable-external-masters*::
+    These flags enable external shared or slave mounts to be resolved
+    automatically when '*--ext-mount-map auto*' is passed.
+
+*--auto-dedup*::
+    As soon as a page is restored it get punched out from image.
+
+*-j*, *--shell-job*::
+    Restore shell jobs, in other words inherit session and process group
+    ID from the criu itself.
+
+*--cpu-cap* ['<cap>','<cap>']::
+    Specify '<cap>' CPU capability to be present on the CPU the process is
+    restoring. To inverse capability prefix it with *^*. This option implies
+    that *--cpu-cap* has been passed on *dump* as well, except *fpu* option
+    case.
+
+    - *all*.    Require all capabilities. This is *default* mode if *--cpu-cap*
+                is passed without arguments. Most safe mode.
+
+    - *cpu*.    Require the CPU to have all capabilities in image to match
+                runtime CPU.
+
+    - *fpu*.    Requre the CPU to have comaptible FPU. For example the process
+                might be dumped with xsave capability but attempted to restore
+                without it present on target CPU. In such case we refuse to
+                procceed. This is *default* mode if *--cpu-cap* is not present
+                in command line. Note this argument might be passed even if
+                on the *dump* no *--cpu-cap* have been specified becase FPU
+                frames are always encoded into images.
+
+    - *ins*.    Require CPU compatibility on instructions level.
+
+    - *none*.   Ignore capabilities. Most dangerous mode. The behaviour is
+                implementation dependent. Try to not use it until really
+                required.
++
+One possible need of using this option is when
+*--cpu-cap*=*cpu* has been passed on *dump* then images are
+migrated to a less capable processor and one need to *restore*
+this application, by default *criu* will refuse to proceed without
+relaxing capability with *--cpu-cap*=*none* parameter.
+
+*check*
+~~~~~~~
+Tests wheter the kernel support is up to date.
+
+*--ms*::
+    Do not check not yet merged features.
+
+*--feature* '<name>'::
+    Check a particular feature. Instead of checking everything one may specify
+    which exactly feature is to be tested. The '<name>' may be: *mnt_id*,
+    *aio_remap*, *timerfd*, *tun*, *userns*.
+
+*page-server*
+~~~~~~~~~~~~~
+Launches *criu* in page server mode.
+
+*--daemon*::
+    Runs page server as a daemon (background process).
+
+*--address* '<address>'::
+    Page server IP address.
+
+*--port* '<number>'::
+    Page server port number.
+
+*exec*
+~~~~~~
+Executes a system call inside a destination task\'s context.
+
+*service*
+~~~~~~~~~
+Launches *criu* in RPC daemon mode where *criu* is listeninп for
+RPC commands over socket to perform. This is convenient for the
+case where daemon itself is running in a privilege (superuser) mode
+but clients are not.
+
+dedup
+~~~~~
+Starts pagemap data deduplication procedure, where *criu* scans over all
+pagemap files and tries to minimalize the number of pagemap entries by
+obtaining the references from a parent pagemap image.
+
+*cpuinfo* *dump*
+~~~~~~~~~~~~~~~~
+Fetches current CPU features and write them into an image file.
+
+*cpuinfo* *check*
+~~~~~~~~~~~~~~~~~
+Fetches current CPU features (ie CPU the *criu* is running on) and test if
+they are compatible with ones present in image file.
+
 
 SYSCALLS EXECUTION
 ------------------
 
-To run a system call from another task\'s context use
+To run a system call in another task\'s context use
 
+----------
     criu exec -t pid syscall-string
+----------
 
 command. The 'syscall-string' should look like
 
+----------
     syscall-name syscall-arguments ...
+----------
 
 Each command line argument is transformed into the system call argument by
 the following rules:
@@ -283,33 +359,40 @@ the following rules:
 * Otherwise it is treated as a number (converted with strtol) and is directly
   passed into the system call.
 
+
 EXAMPLES
 --------
-
 To checkpoint a program with pid of *1234* and write all image files into
 directory *checkpoint*:
 
+----------
     criu dump -D checkpoint -t 1234
+----------
 
 To restore this program detaching criu itself:
 
+----------
     criu restore -d -D checkpoint
-
+----------
 
 To close a file descriptor number *1* in task with pid *1234*:
 
+----------
     criu exec -t 1234 close 1
+----------
 
-To open a file named */foo/bar* for read-write in the task with pid
-*1234*:
+To open a file named */foo/bar* for read-write in the task with pid *1234*:
 
+----------
     criu exec -t 1234 open '&/foo/bar' 2
+----------
 
 
 AUTHOR
 ------
 OpenVZ team.
 
+
 COPYRIGHT
 ---------
-Copyright \(C) 2011-2013, Parallels Inc.
+Copyright \(C) 2011-2015, Parallels Inc.
