@@ -878,7 +878,7 @@ static int do_opt2flag(char *opt, unsigned *flags,
 
 static int parse_mnt_flags(char *opt, unsigned *flags)
 {
-	const struct opt2flag mnt_opt2flag[] = {
+	static const struct opt2flag mnt_opt2flag[] = {
 		{ "rw", 0, },
 		{ "ro", MS_RDONLY, },
 		{ "nosuid", MS_NOSUID, },
@@ -890,12 +890,19 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 		{ },
 	};
 
-	return do_opt2flag(opt, flags, mnt_opt2flag, NULL);
+	if (do_opt2flag(opt, flags, mnt_opt2flag, NULL))
+		return -1;
+
+	/* Otherwise the kernel assumes RELATIME by default */
+	if ((*flags & (MS_RELATIME | MS_NOATIME)) == 0)
+		*flags = MS_STRICTATIME;
+
+	return 0;
 }
 
 static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 {
-	const struct opt2flag sb_opt2flag[] = {
+	static const struct opt2flag sb_opt2flag[] = {
 		{ "rw", 0, },
 		{ "ro", MS_RDONLY, },
 		{ "sync", MS_SYNC, },
