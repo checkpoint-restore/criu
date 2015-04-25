@@ -65,6 +65,9 @@ message criu_opts {
 	optional bool			auto_ext_mnt	= 28;
 	optional bool			ext_sharing 	= 29;
 	optional bool			ext_masters	= 30;
+
+	repeated string			skip_mnt	= 31;
+	repeated string			enable_fs	= 32;
 }
 
 message criu_dump_resp {
