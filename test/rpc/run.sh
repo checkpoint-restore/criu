@@ -23,6 +23,7 @@ function start_server {
 function stop_server {
 	title_print "Shutdown service server"
 	kill -SIGTERM $(cat build/pidfile)
+	unlink build/pidfile
 }
 
 function test_c {
