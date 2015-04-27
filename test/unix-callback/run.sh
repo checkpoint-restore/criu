@@ -27,7 +27,7 @@ done
 
 pid=`cat pid`
 
-${CRIU} dump --shell-job -D data -o dump.log -v4 --lib `pwd`/lib -t $pid || exit 1
+${CRIU} dump -D data -o dump.log -v4 --lib `pwd`/lib -t $pid || exit 1
 kill $srv_pid
 wait $srv_pid
 unlink /tmp/criu.unix.callback.test
@@ -37,7 +37,7 @@ for i in `seq 20`; do
 	test -f /tmp/criu.unix.callback.test && break
 	sleep 0.1
 done
-${CRIU} restore --shell-job -D data -o restore.log -v4 --lib `pwd`/lib -d || exit 1
+${CRIU} restore -D data -o restore.log -v4 --lib `pwd`/lib -d || exit 1
 kill $pid
 while :; do
 	cat output | grep PASS && break
