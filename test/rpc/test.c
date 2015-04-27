@@ -97,8 +97,6 @@ int main(int argc, char *argv[])
 	req.opts->has_leave_running	= true;
 	req.opts->leave_running		= true;
 	req.opts->images_dir_fd		= dir_fd;
-	req.opts->has_shell_job		= true;
-	req.opts->shell_job		= true;
 	req.opts->has_log_level		= true;
 	req.opts->log_level		= 4;
 

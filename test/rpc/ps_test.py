@@ -53,7 +53,6 @@ print 'Dumping myself using page-server'
 req.type		= rpc.DUMP
 req.opts.ps.port	= resp.ps.port
 req.opts.log_file	= 'dump.log'
-req.opts.shell_job	= True
 req.opts.leave_running	= True
 
 s.close()
