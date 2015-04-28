@@ -1762,7 +1762,6 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 		if (IS_ERR(s))
 			goto err;
 
-		pr_err("%s\n", s);
 		switch (i % 4) {
 		case 0:
 			timer = xzalloc(sizeof(struct proc_posix_timer));
