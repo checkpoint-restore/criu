@@ -279,7 +279,8 @@ handlers = {
 	'SK_QUEUES'		: entry_handler(sk_packet_entry, sk_queues_extra_handler()),
 	'IPCNS_SHM'		: entry_handler(ipc_shm_entry),
 	'IPCNS_SEM'		: entry_handler(ipc_sem_entry),
-	'IPCNS_MSG'		: entry_handler(ipc_msg_entry)
+	'IPCNS_MSG'		: entry_handler(ipc_msg_entry),
+	'NETNS'			: entry_handler(netns_entry)
 	}
 
 def load(f, pretty = False):
