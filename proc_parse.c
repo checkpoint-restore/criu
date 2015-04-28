@@ -533,6 +533,8 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		char *str;
 
 		str = breadline(&f);
+		if (IS_ERR(str))
+			goto err;
 		eof = (str == NULL);
 
 		if (!eof && !is_vma_range_fmt(str)) {
@@ -761,7 +763,13 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 8 && (str = breadline(&f))) {
+	while (done < 8) {
+		str = breadline(&f);
+		if (str == NULL)
+			break;
+		if (IS_ERR(str))
+			goto err_parse;
+
 		if (!strncmp(str, "State:", 6)) {
 			cr->state = str[7];
 			done++;
