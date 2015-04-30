@@ -198,14 +198,13 @@ static int tcp_read_sysctl_limits(void)
 
 	struct sysctl_req req[] = {
 		{ "net/ipv4/tcp_rmem", &vect[1], CTL_U32A(ARRAY_SIZE(vect[1])) },
-		{ },
 	};
 
 	/*
 	 * Lets figure out which exactly amount of memory is
 	 * availabe for send/read queues on restore.
 	 */
-	ret = sysctl_op(req, CTL_READ);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
 	if (ret) {
 		pr_warn("TCP mem sysctls are not available. Using defaults.\n");
 		goto out;
@@ -250,10 +249,9 @@ static int get_last_cap(void)
 {
 	struct sysctl_req req[] = {
 		{ "kernel/cap_last_cap", &kdat.last_cap, CTL_U32 },
-		{ },
 	};
 
-	return sysctl_op(req, CTL_READ);
+	return sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
 }
 
 static bool kerndat_has_memfd_create(void)

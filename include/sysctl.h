@@ -7,7 +7,7 @@ struct sysctl_req {
 	int	type;
 };
 
-extern int sysctl_op(struct sysctl_req *req, int op);
+extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op);
 
 enum {
 	CTL_READ,

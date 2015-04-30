@@ -43,10 +43,9 @@ int prepare_utsns(int pid)
 	int ret;
 	struct cr_img *img;
 	UtsnsEntry *ue;
-	struct sysctl_req req[3] = {
+	struct sysctl_req req[] = {
 		{ "kernel/hostname" },
 		{ "kernel/domainname" },
-		{ },
 	};
 
 	img = open_image(CR_FD_UTSNS, O_RSTR, pid);
@@ -62,7 +61,7 @@ int prepare_utsns(int pid)
 	req[1].arg = ue->domainname;
 	req[1].type = CTL_STR(strlen(ue->domainname));
 
-	ret = sysctl_op(req, CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
 	utsns_entry__free_unpacked(ue, NULL);
 out:
 	close_image(img);

@@ -179,10 +179,9 @@ static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *ms
 	int ret, msg_cnt = 0;
 	struct sysctl_req req[] = {
 		{ "kernel/msgmax", &msgmax, CTL_U32 },
-		{ },
 	};
 
-	ret = sysctl_op(req, CTL_READ);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
 	if (ret < 0) {
 		pr_err("Failed to read max IPC message size\n");
 		goto err;
@@ -304,19 +303,17 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		{ "kernel/shmall",		&e->shm_ctlall,		CTL_U64 },
 		{ "kernel/shmmni",		&e->shm_ctlmni,		CTL_U32 },
 		{ "kernel/shm_rmid_forced",	&e->shm_rmid_forced,	CTL_U32 },
-		{ },
 	};
 
 	struct sysctl_req req_mq[] = {
 		{ "fs/mqueue/queues_max",	&e->mq_queues_max,	CTL_U32 },
 		{ "fs/mqueue/msg_max",		&e->mq_msg_max,		CTL_U32 },
 		{ "fs/mqueue/msgsize_max",	&e->mq_msgsize_max,	CTL_U32 },
-		{ },
 	};
 
 	int ret;
 
-	ret = sysctl_op(req, op);
+	ret = sysctl_op(req, ARRAY_SIZE(req), op);
 	if (ret)
 		return ret;
 
@@ -325,7 +322,7 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		return 0;
 	}
 
-	return sysctl_op(req_mq, op);
+	return sysctl_op(req_mq, ARRAY_SIZE(req_mq), op);
 }
 
 /*
@@ -555,11 +552,10 @@ static int prepare_ipc_sem_desc(struct cr_img *img, const IpcSemEntry *sem)
 	int ret, id;
 	struct sysctl_req req[] = {
 		{ "kernel/sem_next_id", &sem->desc->id, CTL_U32 },
-		{ },
 	};
 	struct semid_ds semid;
 
-	ret = sysctl_op(req, CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC sem ID\n");
 		return ret;
@@ -692,11 +688,10 @@ static int prepare_ipc_msg_queue(struct cr_img *img, const IpcMsgEntry *msq)
 	int ret, id;
 	struct sysctl_req req[] = {
 		{ "kernel/msg_next_id", &msq->desc->id, CTL_U32 },
-		{ },
 	};
 	struct msqid_ds msqid;
 
-	ret = sysctl_op(req, CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC msg ID\n");
 		return ret;
@@ -804,11 +799,10 @@ static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 	int ret, id;
 	struct sysctl_req req[] = {
 		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32 },
-		{ },
 	};
 	struct shmid_ds shmid;
 
-	ret = sysctl_op(req, CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC shm ID\n");
 		return ret;

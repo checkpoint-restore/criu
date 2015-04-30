@@ -166,7 +166,7 @@ static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 	return ret;
 }
 
-int sysctl_op(struct sysctl_req *req, int op)
+int sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 {
 	int ret = 0;
 	int dir = -1;
@@ -177,7 +177,7 @@ int sysctl_op(struct sysctl_req *req, int op)
 		return -1;
 	}
 
-	while (req->name) {
+	while (nr_req--) {
 		ret = __sysctl_op(dir, req, op);
 		if (ret < 0)
 			break;
