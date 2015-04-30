@@ -2595,7 +2595,7 @@ int prepare_mnt_ns(void)
 		/* Unprivileged users can't reveal what is under a mount */
 		if (root_ns_mask & CLONE_NEWUSER) {
 			if (mount(opts.root, opts.root, NULL, MS_BIND | MS_REC, NULL)) {
-				pr_perror("Can't remount bind-mount %s into itself\n", opts.root);
+				pr_perror("Can't remount bind-mount %s into itself", opts.root);
 				return -1;
 			}
 		}

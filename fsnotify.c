@@ -526,7 +526,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 
 		target = openat(mntns_root, m->mountpoint, O_PATH);
 		if (target == -1) {
-			pr_perror("Unable to open %s\n", m->mountpoint);
+			pr_perror("Unable to open %s", m->mountpoint);
 			goto err;
 		}
 

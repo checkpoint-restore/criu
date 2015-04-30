@@ -649,12 +649,12 @@ static int check_aio_remap(void)
 
 	naddr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
 	if (naddr == MAP_FAILED) {
-		pr_perror("Can't find place for new AIO ring\n");
+		pr_perror("Can't find place for new AIO ring");
 		return -1;
 	}
 
 	if (mremap((void *)ctx, len, len, MREMAP_FIXED | MREMAP_MAYMOVE, naddr) == MAP_FAILED) {
-		pr_perror("Can't remap AIO ring\n");
+		pr_perror("Can't remap AIO ring");
 		return -1;
 	}
 

@@ -286,7 +286,7 @@ int kerndat_fdinfo_has_lock()
 	}
 
 	if (flock(fd, LOCK_SH)) {
-		pr_perror("Can't take a lock\n");
+		pr_perror("Can't take a lock");
 		return -1;
 	}
 

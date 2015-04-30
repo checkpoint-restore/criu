@@ -607,7 +607,7 @@ static int check_user_ns(int pid)
 
 	chld = fork();
 	if (chld == -1) {
-		pr_perror("Unable to fork a process\n");
+		pr_perror("Unable to fork a process");
 		return -1;
 	}
 
@@ -829,7 +829,7 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	if (fd < 0)
 		return -1;
 	if (write(fd, buf, off) != off) {
-		pr_perror("Unable to write into %s\n", id_map);
+		pr_perror("Unable to write into %s", id_map);
 		close(fd);
 		return -1;
 	}
