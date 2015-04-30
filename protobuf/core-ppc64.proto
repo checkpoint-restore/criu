@@ -1,0 +1,23 @@
+message user_ppc64_regs_entry {
+	// Following is the list of regiters starting at r0.
+	repeated uint64 gpr		= 1;
+	required uint64 nip		= 2;
+	required uint64 msr		= 3;
+	required uint64 orig_gpr3	= 4;
+	required uint64 ctr		= 5;
+	required uint64 link		= 6;
+	required uint64 xer		= 7;
+	required uint64 ccr		= 8;
+	required uint64 trap		= 9;
+}
+
+message user_ppc64_fpstate_entry {
+	// Following is the list of regiters starting at fpr0
+	repeated uint64 fpregs 		= 1;
+}
+
+message thread_info_ppc64 {
+	required uint64			 	clear_tid_addr	= 1;
+	required user_ppc64_regs_entry	 	gpregs		= 2;
+	optional user_ppc64_fpstate_entry 	fpstate		= 3;
+}

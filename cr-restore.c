@@ -2751,8 +2751,13 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * might be completely unused so it's here just for convenience.
 	 */
 	restore_thread_exec_start	= restorer_sym(exec_mem_hint, __export_restore_thread);
+#ifdef CONFIG_PPC64
+	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task_trampoline);
+	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap_trampoline);
+#else
 	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task);
 	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap);
+#endif
 
 	exec_mem_hint += restorer_len;
 

@@ -12,6 +12,8 @@ SECTIONS
 		. = ALIGN(32);
 		*(.got*)
 		. = ALIGN(32);
+		*(.toc*)
+		. = ALIGN(32);
 	} =0x00000000,
 
 	/DISCARD/ : {

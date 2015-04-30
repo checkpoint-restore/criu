@@ -10,6 +10,9 @@ obj-e			+= $(ARCH_DIR)/vdso-pie.o
 ifeq ($(SRCARCH),aarch64)
 asm-e			+= $(ARCH_DIR)/intraprocedure.o
 endif
+ifeq ($(SRCARCH), ppc64)
+asm-e			+= $(ARCH_DIR)/vdso-trampoline.o
+endif
 endif
 
 parasite-obj-y		+= parasite.o
@@ -18,6 +21,9 @@ parasite-libs-e		+= $(SYSCALL-LIB)
 
 restorer-obj-y		+= restorer.o
 restorer-obj-e		+= $(ARCH_DIR)/restorer.o
+ifeq ($(SRCARCH), ppc64)
+restorer-asm-e		+= $(ARCH_DIR)/restorer-trampoline.o
+endif
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 #

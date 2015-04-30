@@ -43,7 +43,6 @@ ARCH ?= $(shell uname -m | sed		\
 		-e s/sun4u/sparc64/	\
 		-e s/s390x/s390/	\
 		-e s/parisc64/parisc/	\
-		-e s/ppc.*/powerpc/	\
 		-e s/mips.*/mips/	\
 		-e s/sh[234].*/sh/)
 
@@ -83,6 +82,20 @@ endif
 ifeq ($(SRCARCH),arm)
 	PROTOUFIX    := y
 	export PROTOUFIX
+endif
+
+#
+# The PowerPC 64 bits architecture could be big or little endian.
+# They are handled in the same way.
+#
+ifeq ($(shell echo $(ARCH) | sed -e 's/ppc64.*/ppc64/'),ppc64)
+	ifeq ($(ARCH),ppc64)
+		error	:= $(error ppc64 big endian not yet supported)
+	endif
+	SRCARCH	:= ppc64
+	DEFINES := -DCONFIG_PPC64
+	LDARCH	:= powerpc:common64
+	VDSO	:= y
 endif
 
 SRCARCH		?= $(ARCH)
@@ -192,6 +205,9 @@ $(ARCH_DIR)/vdso-pie.o: pie
 PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
 ifeq ($(SRCARCH),aarch64)
 PROGRAM-BUILTINS	+= $(ARCH_DIR)/intraprocedure.o
+endif
+ifeq ($(SRCARCH),ppc64)
+PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-trampoline.o
 endif
 endif
 
