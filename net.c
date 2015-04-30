@@ -51,7 +51,7 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
-char *devconfs[] = {
+static char *devconfs[] = {
 	"accept_local",
 	"accept_redirects",
 	"accept_source_route",
