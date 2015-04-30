@@ -101,7 +101,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 			continue;
 		}
 
-		sprintf(path[i], "%s/%s/%s", NET_CONF_PATH, tgt, devconfs[i]);
+		snprintf(path[i], MAX_CONF_OPT_PATH, "%s/%s/%s", NET_CONF_PATH, tgt, devconfs[i]);
 		req[ri].name = path[i];
 		req[ri].arg = &conf[i];
 		req[ri].type = CTL_32;
