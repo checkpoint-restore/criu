@@ -15,6 +15,7 @@ criu
 cscope*
 tags
 TAGS
+Makefile.local
 syscall-x86-64.S
 include/syscall.h
 include/syscall-codes.h

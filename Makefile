@@ -351,3 +351,6 @@ docker-test:
 	docker run --rm -it --privileged criu ./test/zdtm.sh -C -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup -x mountpoint
 
 .DEFAULT_GOAL	:= all
+
+# include optional local rules
+-include Makefile.local
