@@ -90,6 +90,18 @@
 
 #include "cr-errno.h"
 
+#ifndef arch_export_restore_thread
+#define arch_export_restore_thread	__export_restore_thread
+#endif
+
+#ifndef arch_export_restore_task
+#define arch_export_restore_task	__export_restore_task
+#endif
+
+#ifndef arch_export_unmap
+#define arch_export_unmap		__export_unmap
+#endif
+
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
@@ -2750,14 +2762,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_thread_exec_start	= restorer_sym(exec_mem_hint, __export_restore_thread);
-#ifdef CONFIG_PPC64
-	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task_trampoline);
-	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap_trampoline);
-#else
-	restore_task_exec_start		= restorer_sym(exec_mem_hint, __export_restore_task);
-	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, __export_unmap);
-#endif
+	restore_thread_exec_start	= restorer_sym(exec_mem_hint, arch_export_restore_thread);
+	restore_task_exec_start		= restorer_sym(exec_mem_hint, arch_export_restore_task);
+	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, arch_export_unmap);
 
 	exec_mem_hint += restorer_len;
 

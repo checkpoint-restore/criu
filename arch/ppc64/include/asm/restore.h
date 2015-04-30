@@ -30,4 +30,7 @@
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core);
 
+#define arch_export_restore_task	__export_restore_task_trampoline
+#define arch_export_unmap		__export_unmap_trampoline
+
 #endif /* __CR_ASM_RESTORE_H__ */
