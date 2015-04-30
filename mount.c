@@ -2199,7 +2199,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 	char root[PATH_MAX] = ".";
 
 	img = open_image(CR_FD_MNTS, O_RSTR, nsid->id);
-	if (img < 0)
+	if (!img)
 		return -1;
 
 	if (nsid->id != root_item->ids->mnt_ns_id)

@@ -340,7 +340,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
 	img = open_image(CR_FD_GHOST_FILE, O_DUMP, id);
-	if (img < 0)
+	if (!img)
 		return -1;
 
 	gfe.uid = userns_uid(st->st_uid);
