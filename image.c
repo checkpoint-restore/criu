@@ -212,7 +212,7 @@ struct cr_imgset *cr_glob_imgset_open(int mode)
 	return cr_imgset_open(-1 /* ignored */, GLOB, mode);
 }
 
-static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsigned long flags, char *path);
+static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long flags, char *path);
 
 struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 {
@@ -243,9 +243,15 @@ struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...)
 		img->oflags = oflags;
 		img->path = xstrdup(path);
 		return img;
+	} else
+		img->fd = EMPTY_IMG_FD;
+
+	if (do_open_image(img, dfd, type, oflags, path)) {
+		close_image(img);
+		return NULL;
 	}
 
-	return do_open_image(img, dfd, type, oflags, path);
+	return img;
 }
 
 static inline u32 head_magic(int oflags)
@@ -291,7 +297,7 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 	return write_img(img, &imgset_template[type].magic);
 }
 
-static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
+static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
 	int ret, flags;
 
@@ -319,7 +325,7 @@ static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsig
 			ret = bfdopenw(&img->_x);
 
 		if (ret)
-			goto err_close;
+			goto err;
 	}
 
 	if (imgset_template[type].magic == RAW_IMAGE_MAGIC)
@@ -330,18 +336,13 @@ static struct cr_img *do_open_image(struct cr_img *img, int dfd, int type, unsig
 	else
 		ret = img_write_magic(img, oflags, type);
 	if (ret)
-		goto err_close;
+		goto err;
 
 skip_magic:
-	return img;
+	return 0;
 
 err:
-	xfree(img);
-	return NULL;
-
-err_close:
-	close_image(img);
-	return NULL;
+	return -1;
 }
 
 int open_image_lazy(struct cr_img *img)
@@ -349,9 +350,13 @@ int open_image_lazy(struct cr_img *img)
 	int dfd;
 	char *path = img->path;
 
+	img->path = NULL;
+
 	dfd = get_service_fd(IMG_FD_OFF);
-	if (do_open_image(img, dfd, img->type, img->oflags, path) == NULL)
+	if (do_open_image(img, dfd, img->type, img->oflags, path)) {
+		xfree(path);
 		return -1;
+	}
 
 	xfree(path);
 	return 0;
