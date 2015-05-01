@@ -294,11 +294,12 @@ int kerndat_fdinfo_has_lock()
 	if (pfd < 0)
 		goto out;
 
-	len = read(pfd, buf, sizeof(buf));
+	len = read(pfd, buf, sizeof(buf) - 1);
 	if (len < 0) {
 		pr_perror("Unable to read");
 		goto out;
 	}
+	buf[len] = 0;
 
 	kdat.has_fdinfo_lock = (strstr(buf, "lock:") != NULL);
 
