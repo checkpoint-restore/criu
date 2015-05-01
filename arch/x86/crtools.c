@@ -33,7 +33,7 @@ const char code_syscall[] = {
 
 const int code_syscall_size = round_up(sizeof(code_syscall), sizeof(long));
 
-static inline void __check_code_syscall(void)
+static inline __always_unused void __check_code_syscall(void)
 {
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
