@@ -287,7 +287,7 @@ int kerndat_fdinfo_has_lock()
 
 	if (flock(fd, LOCK_SH)) {
 		pr_perror("Can't take a lock");
-		return -1;
+		goto out;
 	}
 
 	pfd = open_proc(PROC_SELF, "fdinfo/%d", fd);
