@@ -18,6 +18,6 @@
 #endif
 
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
-#define page_size()	PAGE_SIZE
+#define page_size()	sysconf(_SC_PAGESIZE)
 
 #endif /* __CR_ASM_PAGE_H__ */
