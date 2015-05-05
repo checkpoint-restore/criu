@@ -501,7 +501,7 @@ static int open_inet_sk(struct file_desc *d)
 
 	if (ie->v6only) {
 		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
-			return -1;
+			goto err;
 	}
 
 	/*
@@ -509,7 +509,7 @@ static int open_inet_sk(struct file_desc *d)
 	 * The origin value of SO_REUSEADDR will be restored in post_open.
 	 */
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &yes))
-		return -1;
+		goto err;
 
 	if (tcp_connection(ie)) {
 		if (!opts.tcp_established_ok) {
