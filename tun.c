@@ -342,7 +342,7 @@ static int tunfile_open(struct file_desc *d)
 	tl = find_tun_link(ti->tfe->netdev);
 	if (!tl) {
 		pr_err("No tun device for file %s\n", ti->tfe->netdev);
-		return -1;
+		goto err;
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
