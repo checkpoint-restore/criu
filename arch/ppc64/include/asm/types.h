@@ -100,7 +100,7 @@ typedef uint64_t tls_t;
 /*
  * Copied for the Linux kernel arch/powerpc/include/asm/processor.h
  *
- * NOTE: 32bit task are supported.
+ * NOTE: 32bit tasks are not supported.
  */
 #define TASK_SIZE_USER64 (0x0000400000000000UL)
 #define TASK_SIZE TASK_SIZE_USER64
