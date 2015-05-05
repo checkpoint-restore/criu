@@ -844,12 +844,14 @@ static int serve_out_fd(int pid, int fd, struct file_desc *d)
 
 		if (ret) {
 			pr_err("Can't sent fd %d to %d\n", fd, fle->pid);
-			return -1;
+			goto out;
 		}
 	}
 
+	ret = 0;
+out:
 	close(sock);
-	return 0;
+	return ret;
 }
 
 static int open_fd(int pid, struct fdinfo_list_entry *fle)
