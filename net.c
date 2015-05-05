@@ -79,7 +79,6 @@ static char *devconfs[] = {
 	"shared_media",
 	"src_valid_mark",
 	"tag",
-	NULL,
 };
 
 #define NET_CONF_PATH "net/ipv4/conf"
@@ -89,10 +88,10 @@ static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 {
 	int i, ri;
 	int ret;
-	struct sysctl_req req[ARRAY_SIZE(devconfs) + 1];
+	struct sysctl_req req[ARRAY_SIZE(devconfs)];
 	char path[ARRAY_SIZE(devconfs)][MAX_CONF_OPT_PATH];
 
-	for (i = 0, ri = 0; devconfs[i]; i++) {
+	for (i = 0, ri = 0; i < ARRAY_SIZE(devconfs); i++) {
 		/*
 		 * If dev conf value is the same as default skip restoring it
 		 */
@@ -107,9 +106,8 @@ static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 		req[ri].type = CTL_32;
 		ri++;
 	}
-	req[ri].name = NULL;
 
-	ret = sysctl_op(req, ri ? ri - 1 : 0, op);
+	ret = sysctl_op(req, ri, op);
 	if (ret < 0) {
 		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ)?"read":"write", tgt);
 		return -1;
