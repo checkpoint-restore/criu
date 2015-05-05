@@ -89,6 +89,7 @@ int log_init(const char *output)
 
 		if (cr_fchown(new_logfd)) {
 			pr_perror("Can't chown log file %s", output);
+			close(new_logfd);
 			return -1;
 		}
 	} else {
