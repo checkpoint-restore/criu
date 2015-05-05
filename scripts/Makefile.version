@@ -7,7 +7,7 @@ GITID := $(shell if [ -d ".git" ]; then git describe; fi)
 ifeq ($(GITID),)
 	GITID := 0
 else
-        GITID_FILE_VALUE := $(shell if [ `cat .gitid` = $(GITID) ]; then echo y; fi)
+        GITID_FILE_VALUE := $(shell if [ -f '.gitid' ]; then if [ `cat .gitid` = $(GITID) ]; then echo y; fi; fi)
         ifneq ($(GITID_FILE_VALUE),y)
                 .PHONY: $(GITID_FILE)
         endif
