@@ -354,17 +354,15 @@ no_server:
 		ret = ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 		if (ask < 0)
 			pr_perror("Can't accept connection to server");
-
+		else
+			pr_info("Accepted connection from %s:%u\n",
+					inet_ntoa(caddr.sin_addr),
+					(int)ntohs(caddr.sin_port));
 		close(sk);
 	}
 
-	if (ask >= 0) {
-		pr_info("Accepted connection from %s:%u\n",
-				inet_ntoa(caddr.sin_addr),
-				(int)ntohs(caddr.sin_port));
-
+	if (ask >= 0)
 		ret = page_server_serve(ask);
-	}
 
 	if (daemon_mode)
 		exit(ret);
