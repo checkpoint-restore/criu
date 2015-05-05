@@ -16,7 +16,7 @@ const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-static int check_file_locks()
+static int check_file_locks(pid_t child)
 {
 	FILE		*fp_locks = NULL;
 	char		buf[100], fl_flag[16], fl_type[16], fl_option[16];
@@ -44,7 +44,7 @@ static int check_file_locks()
 			break;
 		}
 
-		if (fl_owner != pid)
+		if (fl_owner != pid && fl_owner != child)
 			continue;
 
 		if (!strcmp(fl_flag, "FLOCK") &&
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (check_file_locks())
+	if (check_file_locks(pid))
 		pass();
 	else
 		fail("Flock file locks check failed");
