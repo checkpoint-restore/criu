@@ -1077,7 +1077,7 @@ static int fchroot(int fd)
 
 int restore_fs(struct pstree_item *me)
 {
-	int dd_root, dd_cwd, ret, err = -1;
+	int dd_root = -1, dd_cwd = -1, ret, err = -1;
 	struct rst_info *ri = rsti(me);
 
 	/*
@@ -1104,14 +1104,12 @@ int restore_fs(struct pstree_item *me)
 	 */
 
 	ret = fchroot(dd_root);
-	close(dd_root);
 	if (ret < 0) {
 		pr_perror("Can't change root");
 		goto out;
 	}
 
 	ret = fchdir(dd_cwd);
-	close(dd_cwd);
 	if (ret < 0) {
 		pr_perror("Can't change cwd");
 		goto out;
@@ -1124,6 +1122,11 @@ int restore_fs(struct pstree_item *me)
 
 	err = 0;
 out:
+	if (dd_cwd >= 0)
+		close(dd_cwd);
+	if (dd_root >= 0)
+		close(dd_root);
+
 	return err;
 }
 
