@@ -328,6 +328,68 @@ er:
 	return -ENOMEM;
 }
 
+int criu_add_enable_fs(char *fs)
+{
+	int nr;
+	char *str = NULL;
+	char **ptr = NULL;
+
+	str = strdup(fs);
+	if (!str)
+		goto err;
+
+	nr = opts->n_enable_fs + 1;
+	ptr = realloc(opts->enable_fs, nr * sizeof(*ptr));
+	if (!ptr)
+		goto err;
+
+	ptr[nr - 1] = str;
+
+	opts->n_enable_fs = nr;
+	opts->enable_fs = ptr;
+
+	return 0;
+
+err:
+	if (str)
+		free(str);
+	if (ptr)
+		free(ptr);
+
+	return -ENOMEM;
+}
+
+int criu_add_skip_mnt(char *mnt)
+{
+	int nr;
+	char *str = NULL;
+	char **ptr = NULL;
+
+	str = strdup(mnt);
+	if (!str)
+		goto err;
+
+	nr = opts->n_skip_mnt + 1;
+	ptr = realloc(opts->skip_mnt, nr * sizeof(*ptr));
+	if (!ptr)
+		goto err;
+
+	ptr[nr - 1] = str;
+
+	opts->n_skip_mnt = nr;
+	opts->skip_mnt = ptr;
+
+	return 0;
+
+err:
+	if (str)
+		free(str);
+	if (ptr)
+		free(ptr);
+
+	return -ENOMEM;
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf;
