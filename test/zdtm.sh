@@ -204,6 +204,8 @@ generate_test_list()
 	"
 
 	TEST_MNTNS="
+		ns/static/mnt_ext_auto
+		ns/static/mnt_ext_master
 		ns/static/mntns_open
 		ns/static/mntns_link_remap
 		ns/static/mntns_link_ghost
@@ -560,9 +562,11 @@ start_test()
 		return 1
 	fi
 
-	mount --make-private "$ZDTM_ROOT"
-	umount -l "$ZDTM_ROOT"
-	mount --make-private --bind . $ZDTM_ROOT || return 1
+	if [ -n "$ZDTM_ROOT" ]; then
+		mount --make-private "$ZDTM_ROOT"
+		umount -l "$ZDTM_ROOT"
+		mount --make-private --bind . $ZDTM_ROOT || return 1
+	fi
 }
 
 stop_test()
