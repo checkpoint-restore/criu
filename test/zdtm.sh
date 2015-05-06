@@ -651,6 +651,11 @@ run_test()
 	local rst_args=
 	DUMP_PATH=""
 
+	if [ -f "$test".checkskip ] && [ "$test".checkskip ]; then
+		echo "Skip $test"
+		return 0
+	fi
+
 	if [ $COMPILE_ONLY -eq 1 ]; then
 		echo "Compile $test"
 		make -C $tdir $tname && return 0 || return 1
