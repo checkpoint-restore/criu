@@ -36,7 +36,7 @@ static int prepare_mntns()
 		 * under them. So we need to create another mount for the
 		 * new root.
 		 */
-		if (mount("/", "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+		if (mount(root, root, NULL, MS_SLAVE , NULL)) {
 			fprintf(stderr, "Can't bind-mount root: %m\n");
 			return -1;
 		}
@@ -69,6 +69,11 @@ static int prepare_mntns()
 
 		if (pivot_root(".", "./old")) {
 			fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
+			return -1;
+		}
+
+		if (mount("./old", "./old", NULL, MS_PRIVATE | MS_REC , NULL)) {
+			fprintf(stderr, "Can't bind-mount root: %m\n");
 			return -1;
 		}
 

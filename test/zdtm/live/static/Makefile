@@ -187,6 +187,7 @@ TST_DIR		=				\
 		mntns_shared_bind		\
 		mntns_shared_bind02		\
 		mntns_root_bind			\
+		mnt_ext_auto			\
 
 TST_DIR_FILE	=				\
 		chroot				\

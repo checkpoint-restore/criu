@@ -559,6 +559,10 @@ start_test()
 		echo "Test failed to start"
 		return 1
 	fi
+
+	mount --make-private "$ZDTM_ROOT"
+	umount -l "$ZDTM_ROOT"
+	mount --make-private --bind . $ZDTM_ROOT || return 1
 }
 
 stop_test()
