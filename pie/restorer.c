@@ -740,6 +740,25 @@ static int wait_helpers(struct task_restore_args *task_args)
 	return 0;
 }
 
+static int lsm_set_label(struct task_restore_args *args)
+{
+	int ret = -1;
+
+	if (!args->lsm_profile)
+		return 0;
+
+	pr_info("restoring lsm profile %s\n", args->lsm_profile);
+
+	ret = sys_write(args->proc_attr_current, args->lsm_profile, args->lsm_profile_len);
+	sys_close(args->proc_attr_current);
+	if (ret < 0) {
+		pr_err("can't write lsm profile\n");
+		return -1;
+	}
+
+	return ret;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1159,6 +1178,11 @@ long __export_restore_task(struct task_restore_args *args)
 	ret = restore_creds(&args->creds);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
+
+	if (lsm_set_label(args) < 0) {
+		pr_err("lsm_set_label failed\n");
+		goto core_restore_end;
+	}
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 

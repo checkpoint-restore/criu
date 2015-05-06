@@ -154,6 +154,10 @@ struct task_restore_args {
 	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;
 	int				n_helpers;
 
+	int				proc_attr_current;
+	char				*lsm_profile;
+	int				lsm_profile_len;
+
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */

@@ -74,6 +74,7 @@
 #include "action-scripts.h"
 #include "aio.h"
 #include "security.h"
+#include "lsm.h"
 
 #include "parasite-syscall.h"
 
@@ -2248,7 +2249,7 @@ static inline int verify_cap_size(CredsEntry *ce)
 		(ce->n_cap_prm == CR_CAP_SIZE) && (ce->n_cap_bnd == CR_CAP_SIZE));
 }
 
-static int prepare_creds(int pid, struct task_restore_args *args)
+static int prepare_creds(int pid, struct task_restore_args *args, char **lsm_profile)
 {
 	int ret;
 	struct cr_img *img;
@@ -2293,6 +2294,17 @@ static int prepare_creds(int pid, struct task_restore_args *args)
 	if (setgroups(ce->n_groups, ce->groups) < 0) {
 		pr_perror("Can't set supplementary groups");
 		return -1;
+	}
+
+	*lsm_profile = NULL;
+
+	if (ce->lsm_profile) {
+		if (validate_lsm(ce) < 0)
+			return -1;
+
+		*lsm_profile = xstrdup(ce->lsm_profile);
+		if (!*lsm_profile)
+			return -1;
 	}
 
 	creds_entry__free_unpacked(ce, NULL);
@@ -2631,6 +2643,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long aio_rings;
 	MmEntry *mm = rsti(current)->mm;
 
+	char *lsm = NULL;
+	int lsm_profile_len = 0;
+	unsigned long lsm_pos = 0;
+
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
@@ -2783,6 +2799,32 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args	= mem;
 	thread_args	= (struct thread_restore_args *)(task_args + 1);
 
+	ret = prepare_creds(pid, task_args, &lsm);
+	if (ret < 0)
+		goto err;
+
+	if (lsm) {
+		char *rendered;
+		int ret;
+
+		ret = render_lsm_profile(lsm, &rendered);
+		xfree(lsm);
+		if (ret < 0) {
+			goto err_nv;
+		}
+
+		lsm_pos = rst_mem_cpos(RM_PRIVATE);
+		lsm_profile_len = strlen(rendered);
+		lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
+		if (!lsm) {
+			xfree(rendered);
+			goto err_nv;
+		}
+
+		strncpy(lsm, rendered, lsm_profile_len);
+		xfree(rendered);
+	}
+
 	/*
 	 * Get a reference to shared memory area which is
 	 * used to signal if shmem restoration complete
@@ -2836,6 +2878,19 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		task_args->helpers = rst_mem_remap_ptr(helpers_pos, RM_PRIVATE);
 	else
 		task_args->helpers = NULL;
+
+	if (lsm) {
+		task_args->proc_attr_current = open_proc_rw(PROC_SELF, "attr/current");
+		if (task_args->proc_attr_current < 0) {
+			pr_perror("Can't open attr/current");
+			goto err;
+		}
+
+		task_args->lsm_profile = rst_mem_remap_ptr(lsm_pos, RM_PRIVATE);
+		task_args->lsm_profile_len = lsm_profile_len;
+	} else {
+		task_args->lsm_profile = NULL;
+	}
 
 	/*
 	 * Arguments for task restoration.
@@ -2934,10 +2989,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	new_sp = restorer_stack(task_args->t);
 
 	ret = prepare_itimers(pid, core, task_args);
-	if (ret < 0)
-		goto err;
-
-	ret = prepare_creds(pid, task_args);
 	if (ret < 0)
 		goto err;
 

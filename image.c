@@ -8,6 +8,7 @@
 #include "pstree.h"
 #include "stats.h"
 #include "cgroup.h"
+#include "lsm.h"
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -17,6 +18,7 @@ bool ns_per_id = false;
 bool img_common_magic = true;
 TaskKobjIdsEntry *root_ids;
 u32 root_cg_set;
+Lsmtype image_lsm;
 
 int check_img_inventory(void)
 {
@@ -50,6 +52,8 @@ int check_img_inventory(void)
 
 		root_cg_set = he->root_cg_set;
 	}
+
+	image_lsm = he->lsmtype;
 
 	switch (he->img_version) {
 	case CRTOOLS_IMAGES_V1:
@@ -93,6 +97,7 @@ int write_img_inventory(void)
 	he.has_fdinfo_per_id = true;
 	he.ns_per_id = true;
 	he.has_ns_per_id = true;
+	he.lsmtype = host_lsm_type();
 
 	crt.i.state = TASK_ALIVE;
 	crt.i.pid.real = getpid();

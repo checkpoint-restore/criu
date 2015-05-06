@@ -74,6 +74,7 @@
 #include "action-scripts.h"
 #include "aio.h"
 #include "security.h"
+#include "lsm.h"
 
 #include "asm/dump.h"
 
@@ -483,6 +484,9 @@ static int dump_task_creds(struct parasite_ctl *ctl,
 	pr_info("----------------------------------------\n");
 
 	if (parasite_dump_creds(ctl, &ce) < 0)
+		return -1;
+
+	if (collect_lsm_profile(ctl->pid.real, &ce) < 0)
 		return -1;
 
 	return pb_write_one(img_from_set(fds, CR_FD_CREDS), &ce, PB_CREDS);

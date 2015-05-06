@@ -16,4 +16,6 @@ message creds_entry {
 	required uint32	secbits	= 13;
 
 	repeated uint32	groups	= 14;
+
+	optional string lsm_profile = 15;
 }

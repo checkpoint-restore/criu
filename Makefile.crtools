@@ -64,6 +64,7 @@ obj-y	+= timerfd.o
 obj-y	+= aio.o
 obj-y	+= string.o
 obj-y	+= sigframe.o
+obj-y	+= lsm.o
 ifeq ($(VDSO),y)
 obj-y	+= $(ARCH_DIR)/vdso.o
 endif
