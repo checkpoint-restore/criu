@@ -198,6 +198,7 @@ generate_test_list()
 		ns/static/clean_mntns
 		static/remap_dead_pid
 		static/poll
+		static/apparmor
 	"
 
 	TEST_CR_KERNEL="
@@ -330,6 +331,7 @@ mntns_rw_ro_rw
 netns-dev
 sockets00
 cow01
+apparmor
 "
 
 CRIU_CPT=$CRIU

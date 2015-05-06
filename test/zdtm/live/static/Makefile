@@ -122,6 +122,7 @@ TST_NOFILE	=				\
 		remap_dead_pid			\
 		aio00				\
 		fd				\
+		apparmor				\
 #		jobctl00			\
 
 TST_FILE	=				\

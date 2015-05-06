@@ -1,4 +1,5 @@
 /lib/libzdtmtst.a
+/live/static/apparmor
 /live/static/arm-neon00
 /live/static/bind-mount
 /live/static/busyloop00
