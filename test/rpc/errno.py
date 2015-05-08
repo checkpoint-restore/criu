@@ -78,7 +78,6 @@ class test:
 		# Perform self-dump
 		req = self.get_base_req()
 		req.type		= rpc.DUMP
-		req.opts.shell_job	= True
 		req.opts.leave_running	= True
 
 		self.send_req(req)
