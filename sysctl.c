@@ -137,6 +137,8 @@ static int __sysctl_op(int dir, struct sysctl_req *req, int op)
 
 	fd = openat(dir, req->name, flags);
 	if (fd < 0) {
+		if (errno == ENOENT && (req->flags & CTL_FLAGS_OPTIONAL))
+			return 0;
 		pr_perror("Can't open sysctl %s", req->name);
 		return -1;
 	}

@@ -5,6 +5,7 @@ struct sysctl_req {
 	char	*name;
 	void	*arg;
 	int	type;
+	int	flags;
 };
 
 extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op);
@@ -29,5 +30,10 @@ enum {
 
 #define CTL_LEN(t)	((t) >> CTL_SHIFT)
 #define CTL_TYPE(t)	((t) & ((1 << CTL_SHIFT) - 1))
+
+/*
+ * Some entries might be missing mark them as optional.
+ */
+#define CTL_FLAGS_OPTIONAL	1
 
 #endif /* __CR_SYSCTL_H__ */

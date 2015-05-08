@@ -104,6 +104,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 		req[ri].name = path[i];
 		req[ri].arg = &conf[i];
 		req[ri].type = CTL_32;
+		req[ri].flags = 0;
 		ri++;
 	}
 
