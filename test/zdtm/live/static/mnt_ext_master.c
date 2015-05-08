@@ -10,7 +10,7 @@
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check that mounts with external master peers are c/r'd";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>"
+const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname = "mnt_ext_auto.test";
 TEST_OPTION(dirname, string, "directory name", 1);
