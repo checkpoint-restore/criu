@@ -66,14 +66,14 @@ function test_ps {
 	mkdir -p build/imgs_ps
 
 	title_print "Run ps_test"
-	setsid ./ps_test.py build/criu_service.socket build/imgs_ps < /dev/null &>> output_ps
+	setsid ./ps_test.py build/criu_service.socket build/imgs_ps < /dev/null &>> build/output_ps
 }
 
 function test_errno {
 	mkdir -p build/imgs_errno
 
 	title_print "Run cr_errno test"
-	setsid ./errno.py build/criu_service.socket build/imgs_errno < /dev/null &>> output_errno
+	setsid ./errno.py build/criu_service.socket build/imgs_errno < /dev/null &>> build/output_errno
 }
 
 trap 'echo "FAIL"; stop_server' EXIT
