@@ -3,3 +3,6 @@ Description=Checkpoint Restore in Userspace daemon
 
 [Service]
 ExecStart=/usr/sbin/criu service -o /var/log/criu-service.log
+
+[Install]
+WantedBy=multi-user.target
