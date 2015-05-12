@@ -81,13 +81,20 @@ static char *devconfs[] = {
 	"tag",
 };
 
+/*
+ * I case if some entry is missing in
+ * the kernel, simply write DEVCONFS_UNUSED
+ * into the image so we would skip it.
+ */
+#define DEVCONFS_UNUSED        (-1u)
+
 #define NET_CONF_PATH "net/ipv4/conf"
 #define MAX_CONF_OPT_PATH IFNAMSIZ+50
 
 static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 {
 	int i, ri;
-	int ret;
+	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
 	struct sysctl_req req[ARRAY_SIZE(devconfs)];
 	char path[ARRAY_SIZE(devconfs)][MAX_CONF_OPT_PATH];
 
@@ -100,11 +107,16 @@ static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
 			continue;
 		}
 
+		if (op == CTL_WRITE && conf[i] == DEVCONFS_UNUSED)
+			continue;
+		else if (op == CTL_READ)
+			conf[i] = DEVCONFS_UNUSED;
+
 		snprintf(path[i], MAX_CONF_OPT_PATH, "%s/%s/%s", NET_CONF_PATH, tgt, devconfs[i]);
 		req[ri].name = path[i];
 		req[ri].arg = &conf[i];
 		req[ri].type = CTL_32;
-		req[ri].flags = 0;
+		req[ri].flags = flags;
 		ri++;
 	}
 
