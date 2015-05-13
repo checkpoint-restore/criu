@@ -28,7 +28,7 @@ function run_test {
 	else
 		echo "== Test $1"
 		mkdir wdir/i/$1/
-		if ! ./$1 wdir/s/cs.sk wdir/i/$1/; then
+		if ! setsid ./$1 wdir/s/cs.sk wdir/i/$1/ < /dev/null &>> wdir/i/$1/test.log; then
 			echo "$1: FAIL"
 			RESULT=1
 		fi

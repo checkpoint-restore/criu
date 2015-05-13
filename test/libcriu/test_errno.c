@@ -97,7 +97,6 @@ static int process_exists(void)
 	printf("--- Try to restore process which pid is already taken by other process\n");
 
 	get_base_req();
-	criu_set_shell_job(true);
 	criu_set_leave_running(true);
 	if (criu_dump()) {
 		fprintf(stderr, "Self-dump failed");
