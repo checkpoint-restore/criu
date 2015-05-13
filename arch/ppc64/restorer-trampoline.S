@@ -8,14 +8,14 @@
 	// This trampoline is there to restore r2 before jumping back to the
 	// C code.
 #define LOAD_REG_ADDR(reg, name)                \
-        addis   reg,7,(name - 0b)@ha;           \
-        addi    reg,7,(name - 0b)@l;
+        addis   reg,r7,(name - 0b)@ha;           \
+        addi    reg,r7,(name - 0b)@l;
 
 ENTRY(__export_unmap_trampoline)
         bl      0f
-0:      mflr    7
-	LOAD_REG_ADDR(8,restorer_r2)
-	ld	2,0(8)
+0:      mflr    r7
+	LOAD_REG_ADDR(r8,restorer_r2)
+	ld	r2,0(r8)
 	b	__export_unmap
 	//END(__export_restore_unmap_trampoline)
 
@@ -24,9 +24,9 @@ ENTRY(__export_unmap_trampoline)
 	// Assuming up to 4 parameters here since we are using r7 and r8.
 ENTRY(__export_restore_task_trampoline)
         bl      0f
-0:      mflr    7
-	LOAD_REG_ADDR(8,restorer_r2)
-	std	2,0(8)
+0:      mflr    r7
+	LOAD_REG_ADDR(r8,restorer_r2)
+	std	r2,0(r8)
 	b	__export_restore_task
 
 restorer_r2:

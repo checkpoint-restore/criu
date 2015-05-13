@@ -3,9 +3,9 @@
 	.section	.text
 
 GLOBAL(vdso_trampoline)
-	mflr	12			/* r12 vdso_ptr's address */
-	mtlr	0			/* restore lr */
-	ld	12,0(12)		/* read value store in vdso_ptr */
-	mtctr	12			/* branch to it */
+	mflr	r12			/* r12 vdso_ptr's address */
+	mtlr	r0			/* restore lr */
+	ld	r12,0(r12)		/* read value store in vdso_ptr */
+	mtctr	r12			/* branch to it */
 	bctr
 GLOBAL(vdso_trampoline_end)
