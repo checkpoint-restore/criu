@@ -12,6 +12,7 @@ asm-e			+= $(ARCH_DIR)/intraprocedure.o
 endif
 ifeq ($(SRCARCH), ppc64)
 asm-e			+= $(ARCH_DIR)/vdso-trampoline.o
+asm-e			+= $(ARCH_DIR)/memcpy_power7.o
 endif
 endif
 

@@ -3,9 +3,16 @@
 
 #include "compiler.h"
 
-/*
- * TODO : We may optimized some code here instead of using the generic ones.
- */
+#define HAS_BUILTIN_MEMCPY
+
 #include "asm-generic/string.h"
+
+extern void memcpy_power7(void *to, const void *from, unsigned long n);
+static inline void *builtin_memcpy(void *to, const void *from, unsigned long n)
+{
+	if (n)
+		memcpy_power7(to, from, n);
+	return to;
+}
 
 #endif /* __CR_ASM_STRING_H__ */
