@@ -13,6 +13,7 @@ endif
 ifeq ($(SRCARCH), ppc64)
 asm-e			+= $(ARCH_DIR)/vdso-trampoline.o
 asm-e			+= $(ARCH_DIR)/memcpy_power7.o
+asm-e			+= $(ARCH_DIR)/memcmp_64.o
 endif
 endif
 
