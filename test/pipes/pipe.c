@@ -116,7 +116,7 @@ char inh_file_arg[64];
 char *dump_argv[] = {
 	"criu", "dump",
 	"-D", IMG_DIR, "-o", DUMP_LOG_FILE,
-	"-v4", "-j",
+	"-v4",
 	"-t", pid_number,
 	NULL
 };
@@ -125,7 +125,7 @@ char *restore_argv[] = {
 	"criu", "restore", "-d",
 	"-D", IMG_DIR, "-o", RESTORE_LOG_FILE,
 	"--pidfile", RESTORE_PID_FILE,
-	"-v4", "-j",
+	"-v4",
 	inh_pipe_opt, inh_pipe_arg,
 	inh_file_opt, inh_file_arg,
 	NULL
@@ -162,6 +162,7 @@ void unlink_safe(char *pathname);
 void execv_safe(char *path, char *argv[], int ls);
 pid_t waitpid_safe(pid_t pid, int *status, int options, int id);
 void prctl_safe(int option, ulong arg2, ulong arg3, ulong arg4, ulong arg5);
+int dup2_safe(int oldfd, int newfd);
 
 void usage(char *cmd)
 {
@@ -227,10 +228,17 @@ int main(int argc, char *argv[])
 		/* child */
 		int dupfd = -1;
 		int openfd = -1;
+		int logfd;
 
 		child_pid = getpid();
 
 		close_safe(pipefd[READ_FD]);
+		setsid();
+		logfd = open_safe(OLD_LOG_FILE, O_WRONLY | O_APPEND | O_CREAT);
+		dup2_safe(logfd, 1);
+		dup2_safe(logfd, 2);
+		close(logfd);
+		close(0);
 
 		/* open a regular file and move it to CLASH_FD */
 		if (cflag)
@@ -457,12 +465,12 @@ void restore_child(int *new_pipefd, char *old_pipe_name)
 				snprintf(inh_file_arg, sizeof inh_file_arg,
 					"fd[%d]:%s", filefd, OLD_LOG_FILE + 1);
 
-				restore_argv[13] = inh_file_opt;
+				restore_argv[12] = inh_file_opt;
 			} else
-				restore_argv[13] = NULL;
-			restore_argv[11] = inh_pipe_opt;
+				restore_argv[12] = NULL;
+			restore_argv[10] = inh_pipe_opt;
 		} else
-			restore_argv[11] = NULL;
+			restore_argv[10] = NULL;
 
 		snprintf(buf, sizeof buf, "%s/%s", IMG_DIR, RESTORE_PID_FILE);
 		unlink_safe(buf);
@@ -572,7 +580,7 @@ int open_safe(char *pathname, int flags)
 {
 	int fd;
 
-	if ((fd = open(pathname, flags)) == -1)
+	if ((fd = open(pathname, flags, 0777)) == -1)
 		die("open: pathname=%s", pathname);
 	return fd;
 }
