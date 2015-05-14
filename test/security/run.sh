@@ -6,20 +6,23 @@ function run_as {
 	echo "== Run ${LOOP} as $1"
 	echo ${PIDFILE}
 	rm -f ${PIDFILE}
-	su $1 -c "${LOOP} $2 < /dev/null 2> /dev/null > ${PIDFILE} &"
+	su $1 -c "setsid ${LOOP} ${PIDFILE} $2 < /dev/null &> /dev/null &"
+	for i in `seq 100`; do
+		test -f ${PIDFILE} && break
+	done
 	PID=`cat ${PIDFILE}`
 	echo ${PID}
 }
 
 function dump_as {
 	echo "== Dump ${PID} as $@"
-	su $@ -c "${CRIU} dump --tree ${PID} --images-dir ${IMGS} --shell-job"
+	su $@ -c "${CRIU} dump --tree ${PID} --images-dir ${IMGS}"
 	return $?
 }
 
 function rstr_as {
 	echo "== Restore ${IMGS} as $@"
-	su $@ -c "${CRIU} restore --images-dir ${IMGS} --shell-job --restore-detached"
+	su $@ -c "${CRIU} restore --images-dir ${IMGS} --restore-detached"
 	return $?
 }
 

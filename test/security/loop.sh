@@ -1,10 +1,11 @@
 #!/bin/bash
 
-echo $$
+echo $$ > $1.int
+mv $1.int $1
 
-if [ "$1" == "--chgrp" ]; then
+if [ "$2" == "--chgrp" ]; then
 	grps=( $(groups) )
-	newgrp ${grps[1]}
+	newgrp ${grps[2]}
 fi
 
 while :; do
