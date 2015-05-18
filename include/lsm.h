@@ -10,6 +10,11 @@
 extern Lsmtype host_lsm_type();
 
 /*
+ * Initilize the Lsmtype for the current host
+ */
+extern void kerndat_lsm();
+
+/*
  * Read the LSM profile for the pstree item
  */
 extern int collect_lsm_profile(pid_t, CredsEntry *);

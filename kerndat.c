@@ -18,6 +18,7 @@
 #include "asm/types.h"
 #include "cr_options.h"
 #include "util.h"
+#include "lsm.h"
 
 struct kerndat_s kdat = {
 	.tcp_max_rshare = 3U << 20,
@@ -323,6 +324,8 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_fdinfo_has_lock();
 
+	kerndat_lsm();
+
 	return ret;
 }
 
@@ -341,6 +344,8 @@ int kerndat_init_rst(void)
 		ret = get_last_cap();
 	if (!ret)
 		ret = kerndat_has_memfd_create();
+
+	kerndat_lsm();
 
 	return ret;
 }

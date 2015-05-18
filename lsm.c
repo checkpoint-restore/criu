@@ -102,7 +102,7 @@ static int selinux_get_label(pid_t pid, char **output)
 }
 #endif
 
-static void get_host_lsm()
+void kerndat_lsm()
 {
 	if (access("/sys/kernel/security/apparmor", F_OK) == 0) {
 		get_label = apparmor_get_label;
@@ -132,17 +132,11 @@ static void get_host_lsm()
 
 Lsmtype host_lsm_type()
 {
-	if (name == NULL)
-		get_host_lsm();
-
 	return lsmtype;
 }
 
 int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 {
-	if (name == NULL)
-		get_host_lsm();
-
 	ce->lsm_profile = NULL;
 
 	if (lsmtype == LSMTYPE__NO_LSM)
@@ -162,9 +156,6 @@ extern Lsmtype image_lsm;
 
 int validate_lsm(CredsEntry *ce)
 {
-	if (name == NULL)
-		get_host_lsm();
-
 	if (image_lsm == LSMTYPE__NO_LSM || image_lsm == lsmtype)
 		return 0;
 
