@@ -654,7 +654,7 @@ run_test()
 	local rst_args=
 	DUMP_PATH=""
 
-	if [ -f "$test".checkskip ] && [ "$test".checkskip ]; then
+	if [ -f "$test".checkskip ] && ! "$test".checkskip; then
 		echo "Skip $test"
 		return 0
 	fi
