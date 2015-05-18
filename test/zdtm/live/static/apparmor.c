@@ -78,16 +78,6 @@ int main(int argc, char **argv)
 {
 	test_init(argc, argv);
 
-	if (access("/sys/kernel/security/apparmor", F_OK) != 0) {
-		skip("apparmor not enabled\n");
-		return 1;
-	}
-
-	if (system("apparmor_parser -r apparmor.profile") < 0) {
-		fail("apparmor profile parse failed");
-		return -1;
-	}
-
 	setprofile();
 
 	test_daemon();

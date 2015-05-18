@@ -199,6 +199,7 @@ generate_test_list()
 		static/remap_dead_pid
 		static/poll
 		static/apparmor
+		ns/static/apparmor
 	"
 
 	TEST_CR_KERNEL="
