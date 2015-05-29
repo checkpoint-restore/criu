@@ -131,7 +131,8 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
 	if (list_empty(&d->fd_info_head)) {
-		pr_err("Empty list on file desc id %#x\n", d->id);
+		pr_err("Empty list on file desc id %#x(%d)\n", d->id,
+				d->ops ? d->ops->type : -1);
 		BUG();
 	}
 
