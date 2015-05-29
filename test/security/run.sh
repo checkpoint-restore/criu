@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 PID=
 
 function run_as {
@@ -9,12 +11,15 @@ function run_as {
 	su $1 -c "setsid ${LOOP} ${PIDFILE} $2 < /dev/null &> /dev/null &"
 	for i in `seq 100`; do
 		test -f ${PIDFILE} && break
+		sleep 1
 	done
 	PID=`cat ${PIDFILE}`
 	echo ${PID}
 }
 
 function dump_as {
+	test -d ${IMGS} && rm -rf ${IMGS}
+	mkdir -p ${IMGS}
 	echo "== Dump ${PID} as $@"
 	su $@ -c "${CRIU} dump --tree ${PID} --images-dir ${IMGS}"
 	return $?
@@ -33,6 +38,7 @@ function result {
 
 	if [ $1 -ne 0 ]; then
 		echo -e "${BGRED}FAIL${NORMAL}"
+		exit 1
 	else
 		echo -e "${BGGREEN}PASS${NORMAL}"
 	fi

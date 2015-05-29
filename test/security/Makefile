@@ -1,4 +1,4 @@
-DIR	:= /tmp/criu-test
+DIR	:= $(shell pwd)/data
 LOOP	:= $(DIR)/loop.sh
 PIDFILE := $(DIR)/loop.pid
 IMGS	:= $(DIR)/imgs
