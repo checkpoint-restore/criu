@@ -20,7 +20,14 @@ def outf(opts):
 
 def decode(opts):
 	indent = None
-	img = pycriu.images.load(inf(opts), opts['pretty'])
+
+	try:
+		img = pycriu.images.load(inf(opts), opts['pretty'])
+	except pycriu.images.MagicException as exc:
+		print >>sys.stderr, "Unknown magic %#x.\n"\
+				"Maybe you are feeding me an image with "\
+				"raw data(i.e. pages.img)?" % exc.magic
+		sys.exit(1)
 
 	if opts['pretty']:
 		indent = 4

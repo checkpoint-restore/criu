@@ -50,6 +50,10 @@ import pb2dict
 import magic
 from pb import *
 
+class MagicException(Exception):
+	def __init__(self, magic):
+		self.magic = magic
+
 # Generic class to handle loading/dumping criu images entries from/to bin
 # format to/from dict(json).
 class entry_handler:
@@ -300,9 +304,7 @@ def load(f, pretty = False):
 	try:
 		m = magic.by_val[img_magic]
 	except:
-		raise Exception("Unknown magic "+str(img_magic)+".\n"\
-				"Maybe you are feeding me an image with "\
-				"raw data(i.e. pages.img)?")
+		raise MagicException(img_magic)
 
 	try:
 		handler = handlers[m]
