@@ -369,9 +369,15 @@ int open_image_lazy(struct cr_img *img)
 
 void close_image(struct cr_img *img)
 {
-	if (lazy_image(img))
+	if (lazy_image(img)) {
+		/*
+		 * Remove the image file if it's there so that
+		 * subsequent restore doesn't read wrong or fake
+		 * data from it.
+		 */
+		unlinkat(get_service_fd(IMG_FD_OFF), img->path, 0);
 		xfree(img->path);
-	else if (!empty_image(img))
+	} else if (!empty_image(img))
 		bclose(&img->_x);
 
 	xfree(img);
