@@ -1683,7 +1683,7 @@ int parse_file_locks(void)
 
 
 		if (fl->fl_kind == FL_UNKNOWN) {
-			pr_err("Unknown file lock!\n");
+			pr_err("Unknown file lock: %s!\n", buf);
 			xfree(fl);
 			goto err;
 		}
