@@ -314,7 +314,7 @@ install-man:
 
 install-crit: crit
 	$(E) "  INSTALL crit"
-	$(Q) python scripts/crit-setup.py install --prefix=$(DESTDIR)$(PREFIX)
+	$(Q) python scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
 
 .PHONY: install install-man install-crit
 
