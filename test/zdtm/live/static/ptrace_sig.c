@@ -30,7 +30,7 @@ void sig_chld_handler(int signo)
 	test_msg("Receive signal %d\n", signo);
 }
 
-int child(fd)
+int child(int fd)
 {
 	int ret = 0;
 	struct sigaction act = {
