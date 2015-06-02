@@ -178,10 +178,10 @@ In other words, do not use it until really needed.
     as mountpoint\'s root value.
 
 *--link-remap*::
-    Allow to link unlinked files back when possible (modifies FS till *restore*).
+    Allow one to link unlinked files back when possible (modifies FS till *restore*).
 
 *-j*, *--shell-job*::
-    Allow to dump shell jobs. This implies the restored task will inherit session and
+    Allow one to dump shell jobs. This implies the restored task will inherit session and
     process group ID from the criu itself. Also this option allows one to migrate a
     single external tty connection, in other words this option allows one to migrate
     such application as "top" and friends. If passed on *dump* it must be
@@ -198,7 +198,7 @@ In other words, do not use it until really needed.
 Restores previously checkpointed processes.
 
 *--inherit-fd* 'fd[<num>]:<existing>'::
-    Inherit file descriptors. This allows to treat file descriptor '<num>' as
+    Inherit file descriptors. This allows one to treat file descriptor '<num>' as
     being already opened via '<existing>' one and instead of trying to open we
     inherit it.
 
@@ -284,7 +284,7 @@ relaxing capability with *--cpu-cap*=*none* parameter.
 
 *check*
 ~~~~~~~
-Tests wheter the kernel support is up to date.
+Tests whether the kernel support is up to date.
 
 *--ms*::
     Do not check not yet merged features.
