@@ -109,7 +109,15 @@ typedef struct {
 #define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
 #define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
 
-#define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
+#ifdef CONFIG_X86_64
+# define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
+#else
+/*
+ * Task size may be limited to 3G but we need a
+ * higher limit, because it's backward compatible.
+ */
+# define TASK_SIZE	(0xffffe000)
+#endif
 
 typedef u64 auxv_t;
 typedef u32 tls_t;
