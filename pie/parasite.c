@@ -690,7 +690,11 @@ err:
 	return -1;
 }
 
-int __used parasite_service(unsigned int cmd, void *args)
+#ifndef __parasite_entry
+# define __parasite_entry
+#endif
+
+int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 {
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
