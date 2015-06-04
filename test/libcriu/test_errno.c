@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 
 #define PID_MAX "/proc/sys/kernel/pid_max"
 

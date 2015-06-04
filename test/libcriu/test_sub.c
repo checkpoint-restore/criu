@@ -4,6 +4,9 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "lib.h"
 
 static int stop = 0;
@@ -78,7 +81,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("   `- Dump succeeded\n");
-	wait(pid, NULL, 0);
+	waitpid(pid, NULL, 0);
 
 	printf("--- Restore loop ---\n");
 	criu_init_opts();
