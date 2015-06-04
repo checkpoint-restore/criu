@@ -36,7 +36,12 @@ restorer-libs-e		+= $(SYSCALL-LIB)
 #
 CFLAGS			:= $(filter-out -pg,$(CFLAGS))
 
-cflags-y		+= -DCR_NOGLIBC -fpie  -Wa,--noexecstack -fno-stack-protector
+ifneq ($(filter-out i386 ia32, $(ARCH)),)
+cflags-y		+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
+else
+cflags-y		+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
+endif
+
 ifeq ($(SRCARCH), arm)
 	cflags-y	+= -marm
 endif
