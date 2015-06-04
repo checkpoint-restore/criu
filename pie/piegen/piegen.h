@@ -7,7 +7,6 @@
 typedef struct {
 	char		*input_filename;
 	char		*stream_name;
-	char		*type_name;
 	char		*prefix_name;
 	char		*var_name;
 	char		*nrgotpcrel_name;

@@ -37,6 +37,7 @@
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
 #include "asm/restorer.h"
+#include "pie/pie-relocs.h"
 
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
 # define parasite_size		(round_up(sizeof(parasite_blob) + nr_gotpcrel * sizeof(long), PAGE_SIZE))
@@ -1223,10 +1224,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
 
-#if defined(CONFIG_X86_64) || defined(CONFIG_X86_32)
-	elf_apply_relocs(ctl->local_map, ctl->remote_map, sizeof(parasite_blob),
+	elf_relocs_apply(ctl->local_map, ctl->remote_map, sizeof(parasite_blob),
 			 elf_relocs, ARRAY_SIZE(elf_relocs));
-#endif
 
 	/* Setup the rest of a control block */
 	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, __export_parasite_head_start);

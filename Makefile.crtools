@@ -72,6 +72,7 @@ obj-y	+= cr-service.o
 obj-y	+= sd-daemon.o
 obj-y	+= plugin.o
 obj-y	+= cr-errno.o
+obj-y	+= pie/pie-relocs.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y

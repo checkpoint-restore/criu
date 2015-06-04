@@ -20,7 +20,6 @@
 piegen_opt_t opts = {
 	.input_filename		= "file.o",
 	.stream_name		= "stream",
-	.type_name		= "elf_reloc_t",
 	.prefix_name		= "__",
 	.var_name		= "elf_relocs",
 	.nrgotpcrel_name	= "nr_gotpcrel",
@@ -59,11 +58,10 @@ int main(int argc, char *argv[])
 	void *mem;
 	int fd;
 
-	static const char short_opts[] = "f:s:t:p:v:h";
+	static const char short_opts[] = "f:s:p:v:h";
 	static struct option long_opts[] = {
 		{ "file",	required_argument,	0, 'f' },
 		{ "stream",	required_argument,	0, 's' },
-		{ "type",	required_argument,	0, 't' },
 		{ "sym-prefix",	required_argument,	0, 'p' },
 		{ "variable",	required_argument,	0, 'v' },
 		{ "help",	required_argument,	0, 'h' },
@@ -87,9 +85,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			opts.prefix_name = optarg;
-			break;
-		case 't':
-			opts.type_name = optarg;
 			break;
 		case 'v':
 			opts.var_name = optarg;

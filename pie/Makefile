@@ -34,7 +34,7 @@ restorer-libs-e		+= $(SYSCALL-LIB)
 # applications, which is not the target of the
 # project.
 #
-CFLAGS			:= $(filter-out -pg,$(CFLAGS))
+CFLAGS			:= $(filter-out -pg,$(CFLAGS)) -iquote pie/piegen
 
 ifneq ($(filter-out i386 ia32, $(ARCH)),)
 cflags-y		+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
