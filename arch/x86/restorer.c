@@ -11,6 +11,7 @@
 
 int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 {
+#ifdef CONFIG_X86_64
 	long ret;
 	unsigned long fsgs_base;
 
@@ -27,6 +28,6 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 		pr_info("SET_GS fail %ld\n", ret);
 		return -1;
 	}
-
+#endif
 	return 0;
 }

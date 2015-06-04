@@ -5,6 +5,7 @@
 
 #include "protobuf/core.pb-c.h"
 
+#ifdef CONFIG_X86_64
 #define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,		\
 			      task_args)				\
 	asm volatile(							\
@@ -18,6 +19,14 @@
 		       "g"(restore_task_exec_start),			\
 		       "g"(task_args)					\
 		     : "rsp", "rdi", "rsi", "rbx", "rax", "memory")
+#else /* CONFIG_X86_64 */
+#define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,		\
+			      task_args)				\
+	(void)new_sp;							\
+	(void)restore_task_exec_start;					\
+	(void)task_args;						\
+	;
+#endif /* CONFIG_X86_64 */
 
 #define core_get_tls(pcore, ptls)
 

@@ -72,7 +72,7 @@ struct rt_sigframe {
 	fpu_state_t		fpu_state;
 };
 
-
+#ifdef CONFIG_X86_64
 #define ARCH_RT_SIGRETURN(new_sp)					\
 	asm volatile(							\
 		     "movq %0, %%rax				    \n"	\
@@ -129,6 +129,35 @@ struct rt_sigframe {
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")
+#else /* CONFIG_X86_64 */
+#define ARCH_RT_SIGRETURN(new_sp)					\
+	asm volatile(							\
+		     "movl %0, %%eax				    \n"	\
+		     "movl %%eax, %%esp				    \n"	\
+		     "movl $"__stringify(__NR_rt_sigreturn)", %%eax \n" \
+		     "int $0x80					    \n"	\
+		     :							\
+		     : "r"(new_sp)					\
+		     : "eax","esp","memory")
+
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
+			     thread_args, clone_restore_fn)             \
+	(void)ret;							\
+	(void)clone_flags;						\
+	(void)new_sp;							\
+	(void)parent_tid;						\
+	(void)thread_args;						\
+	(void)clone_restore_fn;						\
+	;
+#define ARCH_FAIL_CORE_RESTORE					\
+	asm volatile(						\
+		     "movl %0, %%esp			    \n"	\
+		     "xorl %%eax, %%eax			    \n"	\
+		     "jmp *%%eax			    \n"	\
+		     :						\
+		     : "r"(ret)					\
+		     : "memory")
+#endif /* CONFIG_X86_64 */
 
 #define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
 #define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->uc.uc_mcontext.rip

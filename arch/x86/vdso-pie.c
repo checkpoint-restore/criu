@@ -26,6 +26,7 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
+#ifdef CONFIG_X86_64
 typedef struct {
 	u16	movabs;
 	u64	imm64;
@@ -438,3 +439,31 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), VDSO_PROT);
 	return 0;
 }
+
+#else /* CONFIG_X86_64 */
+
+int vdso_redirect_calls(void *base_to, void *base_from,
+			struct vdso_symtable *to,
+			struct vdso_symtable *from)
+{
+	return 0;
+}
+
+int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
+{
+	return 0;
+}
+
+int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size)
+{
+	return 0;
+}
+
+int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
+		 unsigned long vdso_rt_parked_at, size_t index,
+		 VmaEntry *vmas, size_t nr_vmas)
+{
+	return 0;
+}
+
+#endif /* CONFIG_X86_64 */

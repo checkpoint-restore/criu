@@ -59,6 +59,16 @@ ifeq ($(ARCH),x86_64)
 	LDARCH       := i386:x86-64
 	VDSO         := y
 endif
+ifeq ($(ARCH),ia32)
+	SRCARCH      := x86
+	DEFINES      := -DCONFIG_X86_32
+	LDARCH       := i386
+	ldflags-y    += -m elf_i386
+	VDSO         := y
+	USERCFLAGS   += -m32
+	PROTOUFIX    := y
+	export PROTOUFIX ldflags-y
+endif
 
 ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ARMV         := $(shell echo $(ARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
