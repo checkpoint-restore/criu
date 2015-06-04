@@ -236,14 +236,14 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 			case R_X86_64_32: /* Symbol + Addend (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_32   at 0x%-4lx val 0x%x\n", place, value32);
 				pr_out("	{ .offset = 0x%-8x, .type = 0, "
-				       ".addend = 0       , .value = 0x%-16x, }, /* R_X86_64_32 */\n",
-				       (unsigned int)place, value32 + addend32);
+				       ".addend = %-8d, .value = 0x%-16x, }, /* R_X86_64_32 */\n",
+				       (unsigned int)place, addend32, value32);
 				break;
 			case R_X86_64_64: /* Symbol + Addend (8 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_64   at 0x%-4lx val 0x%lx\n", place, value64);
 				pr_out("	{ .offset = 0x%-8x, .type = 1, "
-				       ".addend = 0       , .value = 0x%-16lx, }, /* R_X86_64_64 */\n",
-				       (unsigned int)place, (long)(value64 + addend64));
+				       ".addend = %-8ld, .value = 0x%-16lx, }, /* R_X86_64_64 */\n",
+				       (unsigned int)place, (long)addend64, (long)value64);
 				break;
 			case R_X86_64_PC32: /* Symbol + Addend - Place (4 bytes) */
 				pr_debug("\t\t\t\tR_386_PC32 at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
@@ -304,11 +304,11 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_32)
 pr_out(
-"static __maybe_unused void elf_apply_relocs(void *mem, size_t size, %s *elf_relocs, size_t nr_relocs)\n"
+"static __maybe_unused void elf_apply_relocs(void *mem, void *vbase, size_t size, %s *elf_relocs, size_t nr_relocs)\n"
 "{\n"
 "	size_t i, j;\n"
 "\n"
-"	for (i = 0, j = 0; i < ARRAY_SIZE(elf_relocs); i++) {\n"
+"	for (i = 0, j = 0; i < nr_relocs; i++) {\n"
 "		if (elf_relocs[i].type) {\n"
 "			long *where = mem + elf_relocs[i].offset;\n"
 "			long *p = mem + size;\n"
@@ -317,16 +317,16 @@ pr_out(
 "				int *value = (int *)where;\n"
 "				int rel;\n"
 "\n"
-"				p[j] = (long)mem + elf_relocs[i].value;\n"
-"				rel = (unsigned)((void *)&p[j] - (void *)mem) - elf_relocs[i].offset - elf_relocs[i].addend;\n"
+"				p[j] = (long)vbase + elf_relocs[i].value;\n"
+"				rel = (unsigned)((void *)&p[j] - (void *)mem) - elf_relocs[i].offset + elf_relocs[i].addend;\n"
 "\n"
 "				*value = rel;\n"
 "				j++;\n"
 "			} else\n"
-"				*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)mem;\n"
+"				*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;\n"
 "		} else {\n"
 "			int *where = (mem + elf_relocs[i].offset);\n"
-"			*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)mem;\n"
+"			*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;\n"
 "		}\n"
 "	}\n"
 "}\n", opts->type_name);
