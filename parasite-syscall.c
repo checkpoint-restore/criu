@@ -39,12 +39,6 @@
 #include "asm/restorer.h"
 #include "pie/pie-relocs.h"
 
-#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
-# define parasite_size		(round_up(sizeof(parasite_blob) + nr_gotpcrel * sizeof(long), PAGE_SIZE))
-#else
-# define parasite_size		(round_up(sizeof(parasite_blob), PAGE_SIZE))
-#endif
-
 static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 {
 	return ip >= start && ip < (end - code_syscall_size);
@@ -1210,7 +1204,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
 	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
-	map_exchange_size = parasite_size + ctl->args_size;
+	map_exchange_size = PIE_SIZE(parasite_blob) + ctl->args_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
@@ -1232,7 +1226,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ctl->addr_cmd		= parasite_sym(ctl->local_map, __export_parasite_cmd);
 	ctl->addr_args		= parasite_sym(ctl->local_map, __export_parasite_args);
 
-	p = parasite_size + ctl->args_size;
+	p = PIE_SIZE(parasite_blob) + ctl->args_size;
 
 	ctl->rsigframe	= ctl->remote_map + p;
 	ctl->sigframe	= ctl->local_map  + p;
