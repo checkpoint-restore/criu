@@ -188,13 +188,13 @@ $(ARCH_DIR): protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
-pie/piegen/%:
+pie/piegen/%: config
 	$(Q) $(MAKE) $(build)=pie/piegen $@
-pie/piegen:
+pie/piegen: config
 	$(Q) $(MAKE) $(build)=pie/piegen all
 $(PIEGEN): pie/piegen/built-in.o
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	$(Q) $(CC) $(CFLAGS) pie/piegen/built-in.o $(LDFLAGS) -o $@
 .PHONY: pie/piegen
 endif
 

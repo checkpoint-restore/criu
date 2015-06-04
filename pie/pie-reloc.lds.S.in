@@ -1,0 +1,27 @@
+SECTIONS
+{
+	.text : {
+		*(.head.text)
+		*(.text*)
+	}
+
+	.data : {
+		*(.data*)
+		*(.bss*)
+	}
+
+	.rodata : {
+		*(.rodata*)
+		*(.got*)
+		*(.toc*)
+	}
+
+	/DISCARD/ : {
+		*(.debug*)
+		*(.comment*)
+		*(.note*)
+		*(.group*)
+		*(.eh_frame*)
+	}
+__export_parasite_args = .;
+}

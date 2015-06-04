@@ -49,6 +49,34 @@ PIELDS			:= pie.lds.S
 
 .SECONDARY:
 
+ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+ldflags-y += -r
+target-name = $(patsubst pie/%-blob.h,%,$(1))
+
+ifeq ($(ARCH),x86_64)
+$(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
+	$(E) "  GEN     " $@
+	$(Q) echo "OUTPUT_ARCH(i386:x86-64)"		>  $(obj)/$(PIELDS)
+	$(Q) echo "TARGET(elf64-x86-64)"		>> $(obj)/$(PIELDS)
+	$(Q) cat $<					>> $(obj)/$(PIELDS)
+else
+$(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
+	$(E) "  GEN     " $@
+	$(Q) echo "OUTPUT_ARCH(i386)"			>  $(obj)/$(PIELDS)
+	$(Q) echo "TARGET(elf32-i386)"			>> $(obj)/$(PIELDS)
+	$(Q) cat $<					>> $(obj)/$(PIELDS)
+endif
+
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS)
+	$(E) "  GEN     " $@
+	$(Q) $(LD) $(ldflags-y) -T $(obj)/$(PIELDS) -o $@ $<
+
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) pie/piegen
+	$(E) "  GEN     " $@
+	$(Q) pie/piegen/piegen -f $< -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob > $@
+
+else
+
 $(obj)/$(PIELDS): $(obj)/$(PIELDS).in
 	$(E) "  GEN     " $@
 	$(Q) $(SH) -c "echo 'OUTPUT_ARCH($(LDARCH))'	 > $(obj)/$(PIELDS)"
@@ -65,6 +93,8 @@ $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 $(obj)/%-blob.h: $(obj)/%.built-in.bin $(obj)/$(GEN-OFFSETS)
 	$(E) "  GEN     " $@
 	$(Q) $(SH) $(obj)/$(GEN-OFFSETS) $(@:-blob.h=) $(notdir $(@:-blob.h=)) $(CROSS_COMPILE) > $@
+
+endif
 
 $(BLOBS): $(obj)/$(PIELDS)
 _all += $(BLOBS)
