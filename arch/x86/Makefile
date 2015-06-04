@@ -8,8 +8,13 @@ crtools-obj-y	+= crtools.o
 crtools-obj-y	+= cpu.o
 crtools-obj-y	+= prlimit.o
 
+ifeq ($(ARCH),x86_64)
 SYS-DEF		:= syscall_64.tbl
 SYS-ASM-COMMON	:= syscall-common-x86-64.S
+else
+SYS-DEF		:= syscall_32.tbl
+SYS-ASM-COMMON	:= syscall-common-x86-32.S
+endif
 
 SYS-TYPES	:= ../../include/syscall-types.h
 SYS-CODES	:= ../../include/syscall-codes.h
@@ -17,8 +22,18 @@ SYS-PROTO	:= ../../include/syscall.h
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
+ifeq ($(ARCH),x86_64)
 syscalls-asm-y-asmflags	:= -fpie -Wstrict-prototypes -Wa,--noexecstack
+else
+syscalls-asm-y-asmflags	:= -fno-pic -Wstrict-prototypes -Wa,--noexecstack
+endif
 syscalls-asm-y-asmflags += -nostdlib -fomit-frame-pointer -I$(obj)
+
+ifneq ($(ARCH),x86_64)
+syscalls-obj-y += syscalls/syscall32.o
+$(obj)/syscalls/syscall32.o: $(obj)/$(SYS-CODES) $(obj)/$(SYS-PROTO)
+endif
+cleanup-y += $(obj)/syscalls/*.o $(obj)/syscalls/*.d
 
 ASMFLAGS	+= -D__ASSEMBLY__
 
@@ -39,6 +54,9 @@ $(obj)/$(SYS-PROTO): $(obj)/syscalls/$(SYS-DEF)
 	$(Q) echo "#define __ASM_CR_SYSCALL_PROTO_H__"							>> $@
 	$(Q) echo "#include \"syscall-codes.h\""							>> $@
 	$(Q) echo "#include \"syscall-types.h\""							>> $@
+ifneq ($(ARCH),x86_64)
+	$(Q) echo "#include \"asm/syscall32.h\""							>> $@
+endif
 	$(Q) cat $< | awk  '/^__NR/{print "extern long", $$3, substr($$0, index($$0,$$4)), ";"}'	>> $@
 	$(Q) echo "#endif /* __ASM_CR_SYSCALL_PROTO_H__ */"						>> $@
 _all += $(obj)/$(SYS-PROTO)
