@@ -142,6 +142,9 @@ ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
 CRIU-SO		:= libcriu
 CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
+ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+PIEGEN		:= pie/piegen/piegen
+endif
 
 export CC MAKE CFLAGS LIBS SRCARCH DEFINES MAKEFLAGS CRIU-SO
 export SRC_DIR SYSCALL-LIB SH RM ARCH_DIR OBJCOPY LDARCH LD
@@ -184,9 +187,20 @@ $(ARCH_DIR)/%:: protobuf config
 $(ARCH_DIR): protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
-pie/%:: $(ARCH_DIR)
+ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+pie/piegen/%:
+	$(Q) $(MAKE) $(build)=pie/piegen $@
+pie/piegen:
+	$(Q) $(MAKE) $(build)=pie/piegen all
+$(PIEGEN): pie/piegen/built-in.o
+	$(E) "  LINK    " $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+.PHONY: pie/piegen
+endif
+
+pie/%:: $(ARCH_DIR) $(PIEGEN)
 	$(Q) $(MAKE) $(build)=pie $@
-pie: $(ARCH_DIR)
+pie: $(ARCH_DIR) $(PIEGEN)
 	$(Q) $(MAKE) $(build)=pie all
 
 %.o %.i %.s %.d: $(VERSION_HEADER) pie
@@ -235,6 +249,7 @@ clean-built:
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
 	$(Q) $(MAKE) $(build)=protobuf clean
+	$(Q) $(MAKE) $(build)=pie/piegen clean
 	$(Q) $(MAKE) $(build)=pie clean
 	$(Q) $(MAKE) $(build)=lib clean
 	$(Q) $(MAKE) $(build-crtools)=. clean
