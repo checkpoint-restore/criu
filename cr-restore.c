@@ -2392,6 +2392,10 @@ static int remap_restorer_blob(void *addr)
 		return -1;
 	}
 
+#if defined(CONFIG_X86_64) || defined(CONFIG_X86_32)
+	elf_apply_relocs(addr, addr, sizeof(restorer_blob),
+			 elf_relocs, ARRAY_SIZE(elf_relocs));
+#endif
 	return 0;
 }
 
