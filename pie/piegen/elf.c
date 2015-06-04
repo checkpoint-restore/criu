@@ -191,7 +191,7 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 #endif
 					pr_out("#define %s%s 0x%lx\n",
 					       opts->prefix_name, name,
-					       (unsigned long)(sym->st_value + sh_src->sh_offset));
+					       (unsigned long)(sym->st_value + sh_src->sh_addr));
 			}
 		}
 	}
@@ -244,7 +244,7 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 				 (unsigned long)r->rel.r_offset, (unsigned long)r->rel.r_info,
 				 (unsigned long)ELF_R_SYM(r->rel.r_info),
 				 (unsigned long)ELF_R_TYPE(r->rel.r_info),
-				 (unsigned long)sh_src->sh_offset);
+				 (unsigned long)sh_rel->sh_addr);
 
 			if (sym->st_shndx == SHN_UNDEF) {
 #ifdef ELF_PPC64
@@ -263,7 +263,6 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 #endif
 			}
 
-			ptr_func_exit((mem + sh_rel->sh_offset + r->rel.r_offset));
 			if (sh->sh_type == SHT_REL) {
 				addend32 = *(s32 *)where;
 				addend64 = *(s64 *)where;
@@ -272,13 +271,13 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 				addend64 = (s64)r->rela.r_addend;
 			}
 
-			place = where - mem;
+			place = sh_rel->sh_addr + r->rel.r_offset;
 
 			pr_debug("\t\t\tvalue 0x%-8lx addend32 %-4d addend64 %-8ld symname %s\n",
 				 (unsigned long)sym->st_value, addend32, (long)addend64, name);
 
-			value32 = (s32)sh_src->sh_offset + (s32)sym->st_value;
-			value64 = (s64)sh_src->sh_offset + (s64)sym->st_value;
+			value32 = (s32)sh_src->sh_addr + (s32)sym->st_value;
+			value64 = (s64)sh_src->sh_addr + (s64)sym->st_value;
 
 #ifdef ELF_PPC64
 /* Snippet from the OpenPOWER ABI for Linux Supplement:
@@ -461,13 +460,32 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 	pr_out("static __maybe_unused size_t %s = %zd;\n", opts->nrgotpcrel_name, nr_gotpcrel);
 
 	pr_out("static __maybe_unused const char %s[] = {\n\t", opts->stream_name);
-	for (i = 0; i < ALIGN(size, 8); i++) {
-		if (i && (i % 8) == 0)
-			pr_out("\n\t");
-		if (i < size)
-			pr_out("0x%02x,", ((unsigned char *)mem)[i]);
-		else
+
+	for (i=0, k=0; i < hdr->e_shnum; i++) {
+		size_t j;
+		Shdr_t *sh = mem + hdr->e_shoff + hdr->e_shentsize * i;
+		unsigned char *shdata = mem + sh->sh_offset;
+
+		if (!(sh->sh_flags & SHF_ALLOC) || !sh->sh_size)
+			continue;
+
+		pr_debug("Copying section '%s'\n" \
+			 "\tstart:0x%lx (gap:0x%lx) size:0x%lx\n",
+			 &secstrings[sh->sh_name], (unsigned long) sh->sh_addr,
+			 (unsigned long)(sh->sh_addr - k), sh->sh_size);
+
+		/* write 0 in the gap between the 2 sections */
+		for (;k < sh->sh_addr; k++) {
+			if (k && (k % 8) == 0)
+				pr_out("\n\t");
 			pr_out("0x00,");
+		}
+
+		for (j=0; j < sh->sh_size; j++, k++) {
+			if (k && (k % 8) == 0)
+				pr_out("\n\t");
+			pr_out("0x%02x,", shdata[j]);
+		}
 	}
 	pr_out("};\n");
 
