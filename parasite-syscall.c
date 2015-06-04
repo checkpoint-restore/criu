@@ -38,7 +38,11 @@
 #include "asm/dump.h"
 #include "asm/restorer.h"
 
-#define parasite_size		(round_up(sizeof(parasite_blob), PAGE_SIZE))
+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+# define parasite_size		(round_up(sizeof(parasite_blob) + nr_gotpcrel * sizeof(long), PAGE_SIZE))
+#else
+# define parasite_size		(round_up(sizeof(parasite_blob), PAGE_SIZE))
+#endif
 
 static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
 {

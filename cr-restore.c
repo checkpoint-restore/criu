@@ -2364,7 +2364,11 @@ static int prepare_restorer_blob(void)
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 
+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+	restorer_len = round_up(sizeof(restorer_blob) + nr_gotpcrel * sizeof(long), PAGE_SIZE);
+#else
 	restorer_len = round_up(sizeof(restorer_blob), PAGE_SIZE);
+#endif
 	restorer = mmap(NULL, restorer_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
