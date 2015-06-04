@@ -14,6 +14,7 @@ ifeq ($(SRCARCH), ppc64)
 asm-e			+= $(ARCH_DIR)/vdso-trampoline.o
 asm-e			+= $(ARCH_DIR)/memcpy_power7.o
 asm-e			+= $(ARCH_DIR)/memcmp_64.o
+asm-e			+= $(ARCH_DIR)/misc.o
 endif
 endif
 
@@ -23,9 +24,6 @@ parasite-libs-e		+= $(SYSCALL-LIB)
 
 restorer-obj-y		+= restorer.o
 restorer-obj-e		+= $(ARCH_DIR)/restorer.o
-ifeq ($(SRCARCH), ppc64)
-restorer-asm-e		+= $(ARCH_DIR)/restorer-trampoline.o
-endif
 restorer-libs-e		+= $(SYSCALL-LIB)
 
 #
@@ -54,22 +52,29 @@ PIELDS			:= pie.lds.S
 
 .SECONDARY:
 
-ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
 ldflags-y += -r
 target-name = $(patsubst pie/%-blob.h,%,$(1))
 
+ifeq ($(SRCARCH),ppc64)
+$(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
+	$(E) "  GEN     " $@
+	$(Q) echo "OUTPUT_ARCH($(LDARCH))"              >  $(obj)/$(PIELDS)
+	$(Q) cat $<					>> $(obj)/$(PIELDS)
+else
 ifeq ($(ARCH),x86_64)
 $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
 	$(E) "  GEN     " $@
 	$(Q) echo "OUTPUT_ARCH(i386:x86-64)"		>  $(obj)/$(PIELDS)
 	$(Q) echo "TARGET(elf64-x86-64)"		>> $(obj)/$(PIELDS)
 	$(Q) cat $<					>> $(obj)/$(PIELDS)
-else
+else # i386 ia32
 $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
 	$(E) "  GEN     " $@
 	$(Q) echo "OUTPUT_ARCH(i386)"			>  $(obj)/$(PIELDS)
 	$(Q) echo "TARGET(elf32-i386)"			>> $(obj)/$(PIELDS)
 	$(Q) cat $<					>> $(obj)/$(PIELDS)
+endif
 endif
 
 $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS)

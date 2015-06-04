@@ -39,6 +39,11 @@ static inline void __check_code_syscall(void)
 
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
+	/*
+	 * OpenPOWER ABI requires that r12 is set to the calling function addressi
+	 * to compute the TOC pointer.
+	 */
+	regs->gpr[12] = new_ip;
 	regs->nip = new_ip;
 	if (stack)
 		regs->gpr[1] = (unsigned long) stack;

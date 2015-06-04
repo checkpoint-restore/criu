@@ -192,42 +192,6 @@ static unsigned long elf_hash(const unsigned char *name)
 	return h;
 }
 
-/*
- * TODO :
- * 	PIE linking doesn't work for this kind of definition.
- *	When build for the parasite code, the pointers to the string are
- *	computed from the start of the object but the generated code is
- *	assuming that the pointers are fixed by the loader.
- *
- *	In addition, GCC create a call to C library memcpy when the table is
- *	containing more than 9 items. Since the parasite code is not linked
- *	with the C library an undefined symbol error is raised at build time.
- *	By initialising the table at run time, we are working around this
- *	issue.
- */
-#ifdef __pie__
-static const char *VDSO_SYMBOL(int i)
-{
-	static char *vdso_symbols[VDSO_SYMBOL_MAX];
-	static int init_done = 0;
-
-#define SET_VDSO_SYM(s) vdso_symbols[VDSO_SYMBOL_##s] = VDSO_SYMBOL_##s##_NAME
-	if (!init_done) {
-		SET_VDSO_SYM(CLOCK_GETRES);
-		SET_VDSO_SYM(CLOCK_GETTIME);
-		SET_VDSO_SYM(GET_SYSCALL_MAP);
-		SET_VDSO_SYM(GET_TBFREQ);
-		SET_VDSO_SYM(GETCPU);
-		SET_VDSO_SYM(GETTIMEOFDAY);
-		SET_VDSO_SYM(SIGTRAMP_RT64);
-		SET_VDSO_SYM(SYNC_DICACHE);
-		SET_VDSO_SYM(SYNC_DICACHE_P5);
-		SET_VDSO_SYM(TIME);
-		init_done = 1;
-	}
-	return vdso_symbols[i];
-}
-#else
 #define SET_VDSO_SYM(s) [VDSO_SYMBOL_##s] = VDSO_SYMBOL_##s##_NAME
 const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 	SET_VDSO_SYM(CLOCK_GETRES),
@@ -242,7 +206,6 @@ const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 	SET_VDSO_SYM(TIME)
 };
 #define VDSO_SYMBOL(i)	vdso_symbols[i]
-#endif
 
 int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {

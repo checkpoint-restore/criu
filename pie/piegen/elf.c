@@ -43,6 +43,25 @@ static bool test_pointer(const void *ptr, const void *start, const size_t size,
 		}							\
 	} while (0)
 
+#ifdef ELF_PPC64
+static int do_relative_toc(long value, uint16_t *location,
+			   unsigned long mask, int complain_signed)
+{
+        if (complain_signed && (value + 0x8000 > 0xffff)) {
+		pr_err("TOC16 relocation overflows (%ld)\n", value);
+		return -1;
+        }
+
+	if ((~mask & 0xffff) & value) {
+		pr_err("bad TOC16 relocation (%ld) (0x%lx)\n", value, (~mask & 0xffff) & value);
+		return -1;
+	}
+
+	*location = (*location & ~mask) | (value & mask);
+	return 0;
+}
+#endif
+
 int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 {
 	const char *symstrings = NULL;
@@ -56,6 +75,9 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 	const char *secstrings;
 
 	size_t i, k, nr_gotpcrel = 0;
+#ifdef ELF_PPC64
+	s64 toc_offset = 0;
+#endif
 
 	pr_debug("Header\n------------\n");
 	pr_debug("\ttype 0x%x machine 0x%x version 0x%x\n",
@@ -99,6 +121,13 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 			 (unsigned)sh->sh_type, &secstrings[sh->sh_name]);
 
 		sec_hdrs[i] = sh;
+
+#ifdef ELF_PPC64
+		if (!strcmp(&secstrings[sh->sh_name], ".toc")) {
+			toc_offset = sh->sh_addr + 0x8000;
+			pr_debug("\t\tTOC offset 0x%lx\n", toc_offset);
+		}
+#endif
 	}
 
 	if (!symtab_hdr) {
@@ -141,6 +170,16 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 			pr_debug("\ttype 0x%-2x bind 0x%-2x shndx 0x%-4x value 0x%-2lx name %s\n",
 				 (unsigned)ELF_ST_TYPE(sym->st_info), (unsigned)ELF_ST_BIND(sym->st_info),
 				 (unsigned)sym->st_shndx, (unsigned long)sym->st_value, name);
+#ifdef ELF_PPC64
+			if (!sym->st_value && !strncmp(name, ".TOC.", 6)) {
+				if (!toc_offset) {
+					pr_err("No TOC pointer\n");
+					goto err;
+				}
+				sym->st_value = toc_offset;
+				continue;
+			}
+#endif
 			if (strncmp(name, "__export", 8))
 				continue;
 			if (sym->st_shndx && sym->st_shndx < hdr->e_shnum) {
@@ -207,8 +246,22 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 				 (unsigned long)ELF_R_TYPE(r->rel.r_info),
 				 (unsigned long)sh_src->sh_offset);
 
-			if (sym->st_shndx == SHN_UNDEF)
+			if (sym->st_shndx == SHN_UNDEF) {
+#ifdef ELF_PPC64
+				/* On PowerPC, TOC symbols appear to be
+				 * undefined but should be processed as well.
+				 * Their type is STT_NOTYPE, so report any
+				 * other one.
+				 */
+				if (ELF32_ST_TYPE(sym->st_info) != STT_NOTYPE
+				    || strncmp(name, ".TOC.", 6)) {
+					pr_err("Unexpected undefined symbol:%s\n", name);
+					goto err;
+				}
+#else
 				continue;
+#endif
+			}
 
 			ptr_func_exit((mem + sh_rel->sh_offset + r->rel.r_offset));
 			if (sh->sh_type == SHT_REL) {
@@ -227,7 +280,124 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 			value32 = (s32)sh_src->sh_offset + (s32)sym->st_value;
 			value64 = (s64)sh_src->sh_offset + (s64)sym->st_value;
 
+#ifdef ELF_PPC64
+/* Snippet from the OpenPOWER ABI for Linux Supplement:
+ * The OpenPOWER ABI uses the three most-significant bits in the symbol
+ * st_other field specifies the number of instructions between a function's
+ * global entry point and local entry point. The global entry point is used
+ * when it is necessary to set up the TOC pointer (r2) for the function. The
+ * local entry point is used when r2 is known to already be valid for the
+ * function. A value of zero in these bits asserts that the function does
+ * not use r2.
+ * The st_other values have the following meanings:
+ * 0 and 1, the local and global entry points are the same.
+ * 2, the local entry point is at 1 instruction past the global entry point.
+ * 3, the local entry point is at 2 instructions past the global entry point.
+ * 4, the local entry point is at 4 instructions past the global entry point.
+ * 5, the local entry point is at 8 instructions past the global entry point.
+ * 6, the local entry point is at 16 instructions past the global entry point.
+ * 7, reserved.
+ *
+ * Here we are only handle the case '3' which is the most commonly seen.
+ */
+#define LOCAL_OFFSET(s)	((s->st_other >> 5) & 0x7)
+			if (LOCAL_OFFSET(sym)) {
+				if (LOCAL_OFFSET(sym) != 3) {
+					pr_err("Unexpected local offset value %d\n",
+					       LOCAL_OFFSET(sym));
+					goto err;
+				}
+				pr_debug("\t\t\tUsing local offset\n");
+				value64 += 8;
+				value32 += 8;
+			}
+#endif
+
 			switch (ELF_R_TYPE(r->rel.r_info)) {
+#ifdef ELF_PPC64
+			case R_PPC64_REL24:
+				/* Update PC relative offset, linker has not done this yet */
+				pr_debug("\t\t\tR_PPC64_REL24 at 0x%-4lx val 0x%lx\n",
+					 place, value64);
+				/* Convert value to relative */
+				value64 -= place;
+				if (value64 + 0x2000000 > 0x3ffffff || (value64 & 3) != 0) {
+					pr_err("REL24 %li out of range!\n", (long int)value64);
+					goto err;
+				}
+				/* Only replace bits 2 through 26 */
+				*(uint32_t *)where = (*(uint32_t *)where & ~0x03fffffc) |
+                                        (value64 & 0x03fffffc);
+				break;
+
+			case R_PPC64_ADDR32:
+				pr_debug("\t\t\tR_PPC64_ADDR32 at 0x%-4lx val 0x%x\n",
+					 place, (unsigned int)(value32 + addend32));
+				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
+				       " .addend = %-8d, .value = 0x%-16x, "
+				       "}, /* R_PPC64_ADDR32 */\n",
+				       (unsigned int) place,  addend32, value32);
+				break;
+
+			case R_PPC64_ADDR64:
+			case R_PPC64_REL64:
+				pr_debug("\t\t\tR_PPC64_ADDR64 at 0x%-4lx val 0x%lx\n",
+					 place, value64 + addend64);
+				pr_out("\t{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG,"
+				       " .addend = %-8ld, .value = 0x%-16lx, "
+				       "}, /* R_PPC64_ADDR64 */\n",
+				       (unsigned int) place, (long)addend64, (long)value64);
+				break;
+
+			case R_PPC64_TOC16_HA:
+				pr_debug("\t\t\tR_PPC64_TOC16_HA at 0x%-4lx val 0x%lx\n",
+					 place, value64 + addend64 - toc_offset + 0x8000);
+				if (do_relative_toc((value64 + addend64 - toc_offset + 0x8000) >> 16,
+						    where, 0xffff, 1))
+					goto err;
+				break;
+
+			case R_PPC64_TOC16_LO:
+				pr_debug("\t\t\tR_PPC64_TOC16_LO at 0x%-4lx val 0x%lx\n",
+					 place, value64 + addend64 - toc_offset);
+				if (do_relative_toc(value64 + addend64 - toc_offset,
+						    where, 0xffff, 1))
+					goto err;
+				break;
+
+			case R_PPC64_TOC16_LO_DS:
+				pr_debug("\t\t\tR_PPC64_TOC16_LO_DS at 0x%-4lx val 0x%lx\n",
+					 place, value64 + addend64 - toc_offset);
+				if (do_relative_toc(value64 + addend64 - toc_offset,
+						    where, 0xfffc, 0))
+					goto err;
+				break;
+
+			case R_PPC64_REL16_HA:
+				value64 += addend64 - place;
+				pr_debug("\t\t\tR_PPC64_REL16_HA at 0x%-4lx val 0x%lx\n",
+					 place, value64);
+				/* check that we are dealing with the addis 2,12 instruction */
+				if (((*(uint32_t*)where) & 0xffff0000) != 0x3c4c0000) {
+					pr_err("Unexpected instruction for R_PPC64_REL16_HA\n");
+					goto err;
+				}
+				*(uint16_t *)where = ((value64 + 0x8000) >> 16) & 0xffff;
+				break;
+
+			case R_PPC64_REL16_LO:
+				value64 += addend64 - place;
+				pr_debug("\t\t\tR_PPC64_REL16_LO at 0x%-4lx val 0x%lx\n",
+					 place, value64);
+				/* check that we are dealing with the addi 2,2 instruction */
+				if (((*(uint32_t*)where) & 0xffff0000) != 0x38420000) {
+					pr_err("Unexpected instruction for R_PPC64_REL16_LO");
+					goto err;
+				}
+				*(uint16_t *)where = value64 & 0xffff;
+				break;
+
+#endif /* ELF_PPC64 */
 
 #ifdef ELF_X86_64
 			case R_X86_64_32: /* Symbol + Addend (4 bytes) */

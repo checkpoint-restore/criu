@@ -152,7 +152,7 @@ ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
 CRIU-SO		:= libcriu
 CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
-ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
 PIEGEN		:= pie/piegen/piegen
 endif
 
@@ -197,7 +197,7 @@ $(ARCH_DIR)/%:: protobuf config
 $(ARCH_DIR): protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
-ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
 pie/piegen/%: config
 	$(Q) $(MAKE) $(build)=pie/piegen $@
 pie/piegen: config

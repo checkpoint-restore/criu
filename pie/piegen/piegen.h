@@ -19,6 +19,10 @@ extern int handle_elf_x86_32(const piegen_opt_t *opts, void *mem, size_t size);
 extern int handle_elf_x86_64(const piegen_opt_t *opts, void *mem, size_t size);
 #endif
 
+#if defined(CONFIG_PPC64)
+extern int handle_elf_ppc64(const piegen_opt_t *opts, void *mem, size_t size);
+#endif
+
 #define pr_out(fmt, ...)	fprintf(stdout, fmt, ##__VA_ARGS__)
 
 #if 0

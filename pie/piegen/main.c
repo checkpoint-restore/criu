@@ -44,6 +44,21 @@ static int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 		return handle_elf_x86_64(opts, mem, size);
 #endif
 
+#if defined(CONFIG_PPC64)
+	const unsigned char elf_ident[EI_NIDENT] = {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+                0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+#else
+		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x02, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+#endif
+	};
+
+	if (memcmp(mem, elf_ident, sizeof(elf_ident)) == 0)
+		return handle_elf_ppc64(opts, mem, size);
+#endif /* CONFIG_PPC64 */
+
 	pr_err("Unsupported Elf format detected\n");
 	return -1;
 }
