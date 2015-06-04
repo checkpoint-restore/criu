@@ -13,6 +13,9 @@ SECTIONS
 	.rodata : {
 		*(.rodata*)
 		*(.got*)
+	}
+
+	.toc : ALIGN(8) {
 		*(.toc*)
 	}
 
