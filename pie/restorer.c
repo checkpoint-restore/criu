@@ -649,16 +649,14 @@ static unsigned int bootstrap_len;
  */
 #ifdef CONFIG_VDSO
 static unsigned long vdso_rt_size;
+#else
+#define vdso_rt_size	(0)
+#endif
+
 void __export_unmap(void)
 {
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
-#else
-void __export_unmap(void)
-{
-	sys_munmap(bootstrap_start, bootstrap_len);
-}
-#endif
 
 /*
  * This function unmaps all VMAs, which don't belong to
@@ -805,10 +803,8 @@ long __export_restore_task(struct task_restore_args *args)
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
-#ifdef CONFIG_VDSO
 	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
 		goto core_restore_end;
-#endif
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
 				bootstrap_start, bootstrap_len))

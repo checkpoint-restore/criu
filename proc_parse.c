@@ -149,13 +149,11 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 
 		/* vmsplice doesn't work for VM_IO and VM_PFNMAP mappings. */
 		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf")) {
-#ifdef CONFIG_VDSO
 			/*
 			 * VVAR area mapped by the kernel as
 			 * VM_IO | VM_PFNMAP| VM_DONTEXPAND | VM_DONTDUMP
 			 */
 			if (!vma_area_is(vma_area, VMA_AREA_VVAR))
-#endif
 				vma_area->e->status |= VMA_UNSUPP;
 		}
 
@@ -336,6 +334,36 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	return 0;
 }
 
+#ifdef CONFIG_VDSO
+static inline int handle_vdso_vma(struct vma_area *vma)
+{
+	vma->e->status |= VMA_AREA_REGULAR;
+	if ((vma->e->prot & VDSO_PROT) == VDSO_PROT)
+		vma->e->status |= VMA_AREA_VDSO;
+	return 0;
+}
+
+static inline int handle_vvar_vma(struct vma_area *vma)
+{
+	vma->e->status |= VMA_AREA_REGULAR;
+	if ((vma->e->prot & VVAR_PROT) == VVAR_PROT)
+		vma->e->status |= VMA_AREA_VVAR;
+	return 0;
+}
+#else
+static inline int handle_vdso_vma(struct vma_area *vma)
+{
+	pr_warn_once("Found vDSO area without support\n");
+	return -1;
+}
+
+static inline int handle_vvar_vma(struct vma_area *vma)
+{
+	pr_warn_once("Found VVAR area without support\n");
+	return -1;
+}
+#endif
+
 static int handle_vma(pid_t pid, struct vma_area *vma_area,
 			char *file_path, DIR *map_files_dir,
 			struct vma_file_info *vfi,
@@ -353,23 +381,11 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 		   !strcmp(file_path, "[vectors]")) {
 		vma_area->e->status |= VMA_AREA_VSYSCALL;
 	} else if (!strcmp(file_path, "[vdso]")) {
-#ifdef CONFIG_VDSO
-		vma_area->e->status |= VMA_AREA_REGULAR;
-		if ((vma_area->e->prot & VDSO_PROT) == VDSO_PROT)
-			vma_area->e->status |= VMA_AREA_VDSO;
-#else
-		pr_warn_once("Found vDSO area without support\n");
-		goto err;
-#endif
+		if (handle_vdso_vma(vma_area))
+			goto err;
 	} else if (!strcmp(file_path, "[vvar]")) {
-#ifdef CONFIG_VDSO
-		vma_area->e->status |= VMA_AREA_REGULAR;
-		if ((vma_area->e->prot & VVAR_PROT) == VVAR_PROT)
-			vma_area->e->status |= VMA_AREA_VVAR;
-#else
-		pr_warn_once("Found VVAR area without support\n");
-		goto err;
-#endif
+		if (handle_vvar_vma(vma_area))
+			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 	} else {
