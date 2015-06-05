@@ -118,7 +118,7 @@ extern int __parasite_execute_syscall(struct parasite_ctl *ctl,
 				user_regs_struct_t *regs);
 extern bool arch_can_dump_task(pid_t pid);
 
-#ifdef CONFIG_VFDO
+#ifdef CONFIG_VDSO
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
 #endif
