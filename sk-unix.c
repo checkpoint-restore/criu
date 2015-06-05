@@ -564,6 +564,12 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 				pr_err("Can't dump half of stream unix connection.\n");
 				return -1;
 			}
+
+			if (!peer->name) {
+				show_one_unix("Ext dgram w/o name", peer);
+				pr_err("Can't dump name-less external socket.\n");
+				return -1;
+			}
 		} else if (ret < 0)
 			return -1;
 		else
