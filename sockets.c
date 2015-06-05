@@ -716,7 +716,7 @@ int collect_sockets(struct ns_id *ns)
 	close(nl);
 	ns->net.nlsk = -1;
 
-	if (ns->pid == getpid()) {
+	if (err && (ns->pid == getpid())) {
 		/*
 		 * If netns isn't dumped, criu will fail only
 		 * if an unsupported socket will be really dumped.
