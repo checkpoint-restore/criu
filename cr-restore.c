@@ -2860,29 +2860,21 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
 	task_args->premmapped_len = rsti(current)->premmapped_len;
 
-	task_args->nr_vmas = vmas->nr;
-	task_args->tgt_vmas = rst_mem_remap_ptr(tgt_vmas, RM_PRIVATE);
+#define remap_array(name, nr, cpos)	do {				\
+		task_args->name##_n = nr;				\
+		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
+	} while (0)
 
-	task_args->timer_n = posix_timers_nr;
-	task_args->posix_timers = rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE);
+	remap_array(vmas,	  vmas->nr, tgt_vmas);
+	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
+	remap_array(timerfd,	  rst_timerfd_nr, timerfd_mem_cpos);
+	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
+	remap_array(tcp_socks,	  rst_tcp_socks_nr, tcp_socks);
+	remap_array(rings,	  mm->n_aios, aio_rings);
+	remap_array(rlims,	  rlims_nr, rlims_cpos);
+	remap_array(helpers,	  n_helpers, helpers_pos);
 
-	task_args->timerfd_n = rst_timerfd_nr;
-	task_args->timerfd = rst_mem_remap_ptr(timerfd_mem_cpos, RM_PRIVATE);
-
-	task_args->siginfo_nr = siginfo_nr;
-	task_args->siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);
-
-	task_args->tcp_socks_nr = rst_tcp_socks_nr;
-	task_args->tcp_socks = rst_mem_remap_ptr(tcp_socks, RM_PRIVATE);
-
-	task_args->nr_rings = mm->n_aios;
-	task_args->rings = rst_mem_remap_ptr(aio_rings, RM_PRIVATE);
-
-	task_args->n_helpers = n_helpers;
-	if (n_helpers > 0)
-		task_args->helpers = rst_mem_remap_ptr(helpers_pos, RM_PRIVATE);
-	else
-		task_args->helpers = NULL;
+#undef remap_array
 
 	if (lsm) {
 		task_args->proc_attr_current = open_proc_rw(PROC_SELF, "attr/current");
@@ -2909,9 +2901,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
-	task_args->nr_rlim = rlims_nr;
-	if (rlims_nr)
-		task_args->rlims = rst_mem_remap_ptr(rlims_cpos, RM_PRIVATE);
 
 	/*
 	 * Fill up per-thread data.
@@ -2921,10 +2910,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		struct rt_sigframe *sigframe;
 
 		thread_args[i].pid = current->threads[i].virt;
-		thread_args[i].siginfo_nr = siginfo_priv_nr[i];
+		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);
 		thread_args[i].siginfo += siginfo_nr;
-		siginfo_nr += thread_args[i].siginfo_nr;
+		siginfo_nr += thread_args[i].siginfo_n;
 
 		/* skip self */
 		if (thread_args[i].pid == pid) {

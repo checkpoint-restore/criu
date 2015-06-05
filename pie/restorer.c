@@ -273,7 +273,7 @@ static void restore_rlims(struct task_restore_args *ta)
 {
 	int r;
 
-	for (r = 0; r < ta->nr_rlim; r++) {
+	for (r = 0; r < ta->rlims_n; r++) {
 		struct krlimit krlim;
 
 		krlim.rlim_cur = ta->rlims[r].rlim_cur;
@@ -378,7 +378,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	restore_finish_stage(CR_STATE_RESTORE);
 
-	if (restore_signals(args->siginfo, args->siginfo_nr, false))
+	if (restore_signals(args->siginfo, args->siginfo_n, false))
 		goto core_restore_end;
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
@@ -469,7 +469,7 @@ static void rst_tcp_socks_all(struct task_restore_args *ta)
 {
 	int i;
 
-	for (i = 0; i < ta->tcp_socks_nr; i++)
+	for (i = 0; i < ta->tcp_socks_n; i++)
 		rst_tcp_repair_off(&ta->tcp_socks[i]);
 }
 
@@ -599,7 +599,7 @@ static int create_posix_timers(struct task_restore_args *args)
 	timer_t next_id;
 	struct sigevent sev;
 
-	for (i = 0; i < args->timer_n; i++) {
+	for (i = 0; i < args->posix_timers_n; i++) {
 		sev.sigev_notify = args->posix_timers[i].spt.it_sigev_notify;
 		sev.sigev_signo = args->posix_timers[i].spt.si_signo;
 		sev.sigev_value.sival_ptr = args->posix_timers[i].spt.sival_ptr;
@@ -635,7 +635,7 @@ static void restore_posix_timers(struct task_restore_args *args)
 	int i;
 	struct restore_posix_timer *rt;
 
-	for (i = 0; i < args->timer_n; i++) {
+	for (i = 0; i < args->posix_timers_n; i++) {
 		rt = &args->posix_timers[i];
 		sys_timer_settime((timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
@@ -719,7 +719,7 @@ static int wait_helpers(struct task_restore_args *task_args)
 {
 	int i;
 
-	for (i = 0; i < task_args->n_helpers; i++) {
+	for (i = 0; i < task_args->helpers_n; i++) {
 		int status;
 		pid_t pid = task_args->helpers[i];
 
@@ -787,7 +787,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	task_entries = args->task_entries;
 	helpers = args->helpers;
-	n_helpers = args->n_helpers;
+	n_helpers = args->helpers_n;
 	*args->breakpoint = rst_sigreturn;
 
 	ksigfillset(&act.rt_sa_mask);
@@ -811,8 +811,8 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
-	for (i = 0; i < args->nr_vmas; i++) {
-		vma_entry = args->tgt_vmas + i;
+	for (i = 0; i < args->vmas_n; i++) {
+		vma_entry = args->vmas + i;
 
 		if (!vma_entry_is_private(vma_entry))
 			continue;
@@ -829,8 +829,8 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	/* Shift private vma-s to the right */
-	for (i = args->nr_vmas - 1; i >= 0; i--) {
-		vma_entry = args->tgt_vmas + i;
+	for (i = args->vmas_n - 1; i >= 0; i--) {
+		vma_entry = args->vmas + i;
 
 		if (!vma_entry_is_private(vma_entry))
 			continue;
@@ -849,8 +849,8 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * OK, lets try to map new one.
 	 */
-	for (i = 0; i < args->nr_vmas; i++) {
-		vma_entry = args->tgt_vmas + i;
+	for (i = 0; i < args->vmas_n; i++) {
+		vma_entry = args->vmas + i;
 
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
@@ -870,12 +870,12 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	for (i = 0; i < args->nr_vmas; i++) {
-		if (vma_entry_is(&args->tgt_vmas[i], VMA_AREA_VDSO) ||
-		    vma_entry_is(&args->tgt_vmas[i], VMA_AREA_VVAR)) {
+	for (i = 0; i < args->vmas_n; i++) {
+		if (vma_entry_is(&args->vmas[i], VMA_AREA_VDSO) ||
+		    vma_entry_is(&args->vmas[i], VMA_AREA_VVAR)) {
 			if (vdso_proxify("dumpee", &args->vdso_sym_rt,
 					 args->vdso_rt_parked_at,
-					 i, args->tgt_vmas, args->nr_vmas))
+					 i, args->vmas, args->vmas_n))
 				goto core_restore_end;
 			break;
 		}
@@ -886,8 +886,8 @@ long __export_restore_task(struct task_restore_args *args)
 	 * Walk though all VMAs again to drop PROT_WRITE
 	 * if it was not there.
 	 */
-	for (i = 0; i < args->nr_vmas; i++) {
-		vma_entry = args->tgt_vmas + i;
+	for (i = 0; i < args->vmas_n; i++) {
+		vma_entry = args->vmas + i;
 
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
@@ -903,10 +903,10 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Finally restore madivse() bits
 	 */
-	for (i = 0; i < args->nr_vmas; i++) {
+	for (i = 0; i < args->vmas_n; i++) {
 		unsigned long m;
 
-		vma_entry = args->tgt_vmas + i;
+		vma_entry = args->vmas + i;
 		if (!vma_entry->has_madv || !vma_entry->madv)
 			continue;
 
@@ -932,7 +932,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * up AIO rings.
 	 */
 
-	for (i = 0; i < args->nr_rings; i++) {
+	for (i = 0; i < args->rings_n; i++) {
 		struct rst_aio_ring *raio = &args->rings[i];
 		unsigned long ctx = 0;
 		int ret;
@@ -1153,11 +1153,11 @@ long __export_restore_task(struct task_restore_args *args)
 
 	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 
-	ret = restore_signals(args->siginfo, args->siginfo_nr, true);
+	ret = restore_signals(args->siginfo, args->siginfo_n, true);
 	if (ret)
 		goto core_restore_end;
 
-	ret = restore_signals(args->t->siginfo, args->t->siginfo_nr, false);
+	ret = restore_signals(args->t->siginfo, args->t->siginfo_n, false);
 	if (ret)
 		goto core_restore_end;
 

@@ -90,7 +90,8 @@ struct thread_restore_args {
 	tls_t				tls;
 
 	siginfo_t			*siginfo;
-	unsigned int			siginfo_nr;
+	unsigned int			siginfo_n;
+
 	int				pdeath_sig;
 } __aligned(64);
 
@@ -109,10 +110,33 @@ struct task_restore_args {
 	struct task_entries		*task_entries;
 	void				*rst_mem;
 	unsigned long			rst_mem_size;
-	VmaEntry			*tgt_vmas;
+
+	/* Below arrays get remapped from RM_PRIVATE in sigreturn_restore */
+	VmaEntry			*vmas;
+	unsigned int			vmas_n;
+
+	struct restore_posix_timer	*posix_timers;
+	unsigned int			posix_timers_n;
+
+	struct restore_timerfd		*timerfd;
+	unsigned int			timerfd_n;
+
 	siginfo_t			*siginfo;
-	unsigned int			siginfo_nr;
-	unsigned int			nr_vmas;
+	unsigned int			siginfo_n;
+
+	struct rst_tcp_sock		*tcp_socks;
+	unsigned int			tcp_socks_n;
+
+	struct rst_aio_ring		*rings;
+	unsigned int			rings_n;
+
+	struct rlimit			*rlims;
+	unsigned int			rlims_n;
+
+	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;
+	unsigned int			helpers_n;
+	/* * * * * * * * * * * * * * * * * * * * */
+
 	unsigned long			premmapped_addr;
 	unsigned long			premmapped_len;
 	rt_sigaction_t			sigchld_act;
@@ -121,12 +145,6 @@ struct task_restore_args {
 	unsigned long			bootstrap_len;
 
 	struct itimerval		itimers[3];
-
-	int				timer_n;
-	struct restore_posix_timer	*posix_timers;
-
-	int				timerfd_n;
-	struct restore_timerfd		*timerfd;
 
 	CredsEntry			creds;
 	u32				cap_inh[CR_CAP_SIZE];
@@ -140,19 +158,7 @@ struct task_restore_args {
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
 
-	int				nr_rlim;
-	struct rlimit			*rlims;
-
-	struct rst_tcp_sock		*tcp_socks;
-	int				tcp_socks_nr;
-
-	struct rst_aio_ring		*rings;
-	int				nr_rings;
-
 	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
-
-	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;
-	int				n_helpers;
 
 	int				proc_attr_current;
 	char				*lsm_profile;
