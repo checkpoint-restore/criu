@@ -284,7 +284,9 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 		v$(CRTOOLSVERSION) | bzip2 > $@
 .PHONY: dist tar
 
-install: $(PROGRAM) $(CRIU-LIB) install-man install-crit
+install: install-criu install-man 
+
+install-criu: $(PROGRAM) $(CRIU-LIB) install-crit
 	$(E) "  INSTALL " $(PROGRAM)
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
@@ -316,7 +318,7 @@ install-crit: crit
 	$(E) "  INSTALL crit"
 	$(Q) python scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
 
-.PHONY: install install-man install-crit
+.PHONY: install install-man install-crit install-criu
 
 help:
 	@echo '    Targets:'
