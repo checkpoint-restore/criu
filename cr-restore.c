@@ -1255,7 +1255,15 @@ static int criu_signals_setup(void)
 	 */
 	sigfillset(&blockmask);
 	sigdelset(&blockmask, SIGCHLD);
-	ret = sigprocmask(SIG_BLOCK, &blockmask, NULL);
+
+	/*
+	 * Here we use SIG_SETMASK instead of SIG_BLOCK to avoid the case where
+	 * we've been forked from a parent who had blocked SIGCHLD. If SIGCHLD
+	 * is blocked when a task dies (e.g. if the task fails to restore
+	 * somehow), we hang because our SIGCHLD handler is never run. Since we
+	 * depend on SIGCHLD being unblocked, let's set the mask explicitly.
+	 */
+	ret = sigprocmask(SIG_SETMASK, &blockmask, NULL);
 	if (ret < 0) {
 		pr_perror("Can't block signals");
 		return -1;
