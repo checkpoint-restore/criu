@@ -8,7 +8,12 @@ rmroots() {
 	mount -t cgroup none $tname -o "$1"
 
 	for d in "$tname/oldroot" "$tname/newroot" "$tname/zdtmtstroot"; do
-		test -d "$d" && rmdir "$d"
+		test -d "$d" || continue
+		# sort by line length
+		for i in `find $d -type d | awk '{print length, $0}' | sort -rn | cut -d " " -f2-`; do
+			echo $i
+			rmdir $i
+		done
 	done
 
 	echo "Left there is:"
