@@ -844,7 +844,7 @@ EOF
 
 	if [ -x "${test}.hook" ]; then
 		echo "Executing cleanup hook"
-		"${test}.hook" --clean
+		"${test}.hook" --clean || return 2
 	fi
 
 	if [ -n "$AUTO_DEDUP" ]; then
