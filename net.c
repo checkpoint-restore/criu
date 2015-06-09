@@ -728,12 +728,13 @@ int dump_net_ns(int ns_id)
 int prepare_net_ns(int pid)
 {
 	int ret;
-	NetnsEntry *netns;
+	NetnsEntry *netns = NULL;
 
 	ret = restore_netns_conf(pid, &netns);
 	if (!ret)
 		ret = restore_links(pid, &netns);
-	netns_entry__free_unpacked(netns, NULL);
+	if (netns)
+		netns_entry__free_unpacked(netns, NULL);
 
 	if (!ret)
 		ret = restore_ifaddr(pid);
