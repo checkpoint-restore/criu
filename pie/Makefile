@@ -77,13 +77,17 @@ $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
 endif
 endif
 
+ifeq ($(strip $(V)),)
+piegen_stdout = >/dev/null
+endif
+
 $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS)
 	$(E) "  GEN     " $@
 	$(Q) $(LD) $(ldflags-y) -T $(obj)/$(PIELDS) -o $@ $<
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) pie/piegen
 	$(E) "  GEN     " $@
-	$(Q) pie/piegen/piegen -f $< -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob > $@
+	$(Q) pie/piegen/piegen -f $< -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
 
 else
 

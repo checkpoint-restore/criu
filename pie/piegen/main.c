@@ -25,6 +25,8 @@ piegen_opt_t opts = {
 	.nrgotpcrel_name	= "nr_gotpcrel",
 };
 
+FILE *fout;
+
 static int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 {
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
@@ -73,9 +75,10 @@ int main(int argc, char *argv[])
 	void *mem;
 	int fd;
 
-	static const char short_opts[] = "f:s:p:v:h";
+	static const char short_opts[] = "f:o:s:p:v:h";
 	static struct option long_opts[] = {
 		{ "file",	required_argument,	0, 'f' },
+		{ "output",	required_argument,	0, 'o' },
 		{ "stream",	required_argument,	0, 's' },
 		{ "sym-prefix",	required_argument,	0, 'p' },
 		{ "variable",	required_argument,	0, 'v' },
@@ -94,6 +97,9 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 'f':
 			opts.input_filename = optarg;
+			break;
+		case 'o':
+			opts.output_filename = optarg;
 			break;
 		case 's':
 			opts.stream_name = optarg;
@@ -121,17 +127,28 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
+	fout = fopen(opts.output_filename, "w");
+	if (fout == NULL) {
+		pr_perror("Can't open %s", opts.output_filename);
+		goto err;
+	}
+
 	mem = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (mem == MAP_FAILED) {
 		pr_perror("Can't mmap file %s", opts.input_filename);
 		goto err;
 	}
 
-	if (handle_elf(&opts, mem, st.st_size))
+	if (handle_elf(&opts, mem, st.st_size)) {
+		fclose(fout);
+		unlink(opts.output_filename);
 		goto err;
-	return 1;
-usage:
-	printf("Usage: %s -f filename\n", argv[0]);
-err:
+	}
+	fclose(fout);
+	printf("%s generated successfully.\n", opts.output_filename);
 	return 0;
+usage:
+	fprintf(stderr, "Usage: %s -f filename\n", argv[0]);
+err:
+	return 1;
 }
