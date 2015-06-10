@@ -79,7 +79,8 @@ int handle_elf(void *mem, size_t size)
 	s64 toc_offset = 0;
 #endif
 
-	pr_debug("Header\n------------\n");
+	pr_debug("Header\n");
+	pr_debug("------------\n");
 	pr_debug("\ttype 0x%x machine 0x%x version 0x%x\n",
 		 (unsigned)hdr->e_type, (unsigned)hdr->e_machine, (unsigned)hdr->e_version);
 
@@ -108,7 +109,8 @@ int handle_elf(void *mem, size_t size)
 	ptr_func_exit(secstrings_hdr);
 	ptr_func_exit(secstrings);
 
-	pr_debug("Sections\n------------\n");
+	pr_debug("Sections\n");
+	pr_debug("------------\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
 		Shdr_t *sh = mem + hdr->e_shoff + hdr->e_shentsize * i;
 		ptr_func_exit(sh);
@@ -140,7 +142,8 @@ int handle_elf(void *mem, size_t size)
 		goto err;
 	}
 
-	pr_debug("Symbols\n------------\n");
+	pr_debug("Symbols\n");
+	pr_debug("------------\n");
 	strtab_hdr = sec_hdrs[symtab_hdr->sh_link];
 	ptr_func_exit(strtab_hdr);
 
@@ -198,7 +201,8 @@ int handle_elf(void *mem, size_t size)
 
 	pr_out("static __maybe_unused elf_reloc_t %s[] = {\n", opts.var_name);
 
-	pr_debug("Relocations\n------------\n");
+	pr_debug("Relocations\n");
+	pr_debug("------------\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
 		Shdr_t *sh = sec_hdrs[i];
 		Shdr_t *sh_rel;
