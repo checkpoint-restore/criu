@@ -488,7 +488,7 @@ int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 		}
 	}
 	pr_out("};\n");
-
+	return 0;
 err:
 	free(sec_hdrs);
 	return -1;
