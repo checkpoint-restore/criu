@@ -27,7 +27,7 @@ piegen_opt_t opts = {
 
 FILE *fout;
 
-static int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
+static int handle_elf(void *mem, size_t size)
 {
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
 	unsigned char elf_ident_x86_32[EI_NIDENT] = {
@@ -41,9 +41,9 @@ static int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 	};
 
 	if (memcmp(mem, elf_ident_x86_32, sizeof(elf_ident_x86_32)) == 0)
-		return handle_elf_x86_32(opts, mem, size);
+		return handle_elf_x86_32(mem, size);
 	else if (memcmp(mem, elf_ident_x86_64, sizeof(elf_ident_x86_64)) == 0)
-		return handle_elf_x86_64(opts, mem, size);
+		return handle_elf_x86_64(mem, size);
 #endif
 
 #if defined(CONFIG_PPC64)
@@ -58,7 +58,7 @@ static int handle_elf(const piegen_opt_t *opts, void *mem, size_t size)
 	};
 
 	if (memcmp(mem, elf_ident, sizeof(elf_ident)) == 0)
-		return handle_elf_ppc64(opts, mem, size);
+		return handle_elf_ppc64(mem, size);
 #endif /* CONFIG_PPC64 */
 
 	pr_err("Unsupported Elf format detected\n");
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
-	if (handle_elf(&opts, mem, st.st_size)) {
+	if (handle_elf(mem, st.st_size)) {
 		fclose(fout);
 		unlink(opts.output_filename);
 		goto err;
