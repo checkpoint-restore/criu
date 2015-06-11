@@ -404,26 +404,26 @@ int handle_elf(void *mem, size_t size)
 
 #ifdef ELF_X86_64
 			case R_X86_64_32: /* Symbol + Addend (4 bytes) */
-				pr_debug("\t\t\t\tR_X86_64_32   at 0x%-4lx val 0x%x\n", place, value32);
+				pr_debug("\t\t\t\tR_X86_64_32       at 0x%-4lx val 0x%x\n", place, value32);
 				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
 				       ".addend = %-8d, .value = 0x%-16x, }, /* R_X86_64_32 */\n",
 				       (unsigned int)place, addend32, value32);
 				break;
 			case R_X86_64_64: /* Symbol + Addend (8 bytes) */
-				pr_debug("\t\t\t\tR_X86_64_64   at 0x%-4lx val 0x%lx\n", place, value64);
+				pr_debug("\t\t\t\tR_X86_64_64       at 0x%-4lx val 0x%lx\n", place, value64);
 				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG, "
 				       ".addend = %-8ld, .value = 0x%-16lx, }, /* R_X86_64_64 */\n",
 				       (unsigned int)place, (long)addend64, (long)value64);
 				break;
 			case R_X86_64_PC32: /* Symbol + Addend - Place (4 bytes) */
-				pr_debug("\t\t\t\tR_386_PC32 at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
+				pr_debug("\t\t\t\tR_X86_64_PC32     at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
 				/*
 				 * R_X86_64_PC32 are relative, patch them inplace.
 				 */
 				*((s32 *)where) = value32 + addend32 - place;
 				break;
 			case R_X86_64_PLT32: /* ProcLinkage + Addend - Place (4 bytes) */
-				pr_debug("\t\t\t\tR_386_PLT32 at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
+				pr_debug("\t\t\t\tR_X86_64_PLT32    at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
 				/*
 				 * R_X86_64_PLT32 are relative, patch them inplace.
 				 */
