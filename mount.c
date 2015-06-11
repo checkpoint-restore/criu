@@ -1984,8 +1984,6 @@ static int do_mount_root(struct mount_info *mi)
 						mi->shared_id, mi->master_id))
 		return -1;
 
-	mi->mounted = true;
-
 	return 0;
 }
 
@@ -2003,9 +2001,11 @@ static int do_mount_one(struct mount_info *mi)
 
 	pr_debug("\tMounting %s @%s (%d)\n", mi->fstype->name, mi->mountpoint, mi->need_plugin);
 
-	if (!mi->parent)
-		ret = do_mount_root(mi);
-	else if (!mi->bind && !mi->need_plugin && !mi->external)
+	if (!mi->parent) {
+		/* do_mount_root() is called from populate_mnt_ns() */
+		mi->mounted = true;
+		ret = 0;
+	} else if (!mi->bind && !mi->need_plugin && !mi->external)
 		ret = do_new_mount(mi);
 	else
 		ret = do_bind_mount(mi);
@@ -2481,9 +2481,6 @@ static int populate_mnt_ns(struct mount_info *mis)
 	struct mount_info *pms;
 	struct ns_id *nsid;
 
-	if (prepare_roots_yard())
-		return -1;
-
 	pms = mnt_build_tree(mis);
 	if (!pms)
 		return -1;
@@ -2504,6 +2501,17 @@ static int populate_mnt_ns(struct mount_info *mis)
 	}
 
 	if (validate_mounts(mis, false))
+		return -1;
+
+	/*
+	 * Set properties for the root before mounting a root yard,
+	 * otherwise the root yard can be propagated into the host
+	 * mntns and remain there.
+	 */
+	if (do_mount_root(pms))
+		return -1;
+
+	if (prepare_roots_yard())
 		return -1;
 
 	return mnt_tree_for_each(pms, do_mount_one);
