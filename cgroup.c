@@ -1053,18 +1053,17 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 	for (i = 0; i < n_ents; i++) {
 		size_t off2 = off;
 		e = ents[i];
-		struct stat st;
 
 		off2 += sprintf(paux + off, "/%s", e->dir_name);
 
-		/*
-		 * Checking to see if file already exists. If not, create it. If
-		 * it does exist, prevent us from overwriting the properties
-		 * later by removing the CgroupDirEntry's properties.
-		 */
-		if (fstatat(cg, paux, &st, 0) < 0) {
+		if (faccessat(cg, paux, F_OK, 0) < 0) {
 			if (errno != ENOENT) {
-				pr_perror("Failed accessing file %s", paux);
+				pr_perror("Failed accessing cgroup dir %s", paux);
+				return -1;
+			}
+
+			if (opts.manage_cgroups & (CG_MODE_NONE | CG_MODE_PROPS)) {
+				pr_err("Cgroup dir %s doesn't exist\n", paux);
 				return -1;
 			}
 
@@ -1072,7 +1071,7 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				pr_perror("Can't make cgroup dir %s", paux);
 				return -1;
 			}
-			pr_info("Created dir %s\n", paux);
+			pr_info("Created cgroup dir %s\n", paux);
 
 			for (j = 0; j < n_controllers; j++) {
 				if (strcmp(controllers[j], "cpuset") == 0) {
@@ -1083,12 +1082,21 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				}
 			}
 		} else {
-			if (e->n_properties > 0) {
-				xfree(e->properties);
-				e->properties = NULL;
-				e->n_properties = 0;
+			pr_info("Determined cgroup dir %s already exist\n", paux);
+
+			if (opts.manage_cgroups & CG_MODE_STRICT) {
+				pr_err("Abort restore of existing cgroups\n");
+				return -1;
 			}
-			pr_info("Determined dir %s already existed\n", paux);
+
+			if (opts.manage_cgroups & (CG_MODE_SOFT | CG_MODE_NONE)) {
+				pr_info("Skip restoring properties on cgroup dir %s\n", paux);
+				if (e->n_properties > 0) {
+					xfree(e->properties);
+					e->properties = NULL;
+					e->n_properties = 0;
+				}
+			}
 		}
 
 		if (prepare_cgroup_dirs(controllers, n_controllers, paux, off2,
@@ -1122,10 +1130,14 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	int off, i, ret;
 	char paux[PATH_MAX];
 
-	pr_info("Preparing cgroups yard\n");
+	pr_info("Preparing cgroups yard (cgroups restore mode %#x)\n",
+		opts.manage_cgroups);
+	if (!opts.manage_cgroups)
+		return 0;
 
 	cg_yard = opts.cg_yard;
 	off = strlen(opts.cg_yard);
+	strcpy(paux, opts.cg_yard);
 
 	pr_debug("Opening %s as cg yard\n", cg_yard);
 	i = open(cg_yard, O_DIRECTORY);
@@ -1138,7 +1150,6 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	close(i);
 	if (ret < 0)
 		goto err;
-
 
 	paux[off++] = '/';
 
@@ -1156,26 +1167,28 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 				paux + ctl_off, sizeof(paux) - ctl_off,
 				opt, sizeof(opt));
 
-		pr_debug("\tMaking subdir %s (%s)\n", paux, opt);
-		if (mkdir(paux, 0700)) {
-			pr_perror("Can't make cgyard subdir %s", paux);
-			goto err;
+		/* Create controller if not yet present */
+		if (access(paux, F_OK)) {
+			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
+			if (mkdir(paux, 0700)) {
+				pr_perror("\tCan't make controller dir %s", paux);
+				return -1;
+			}
+			if (mount("none", paux, "cgroup", 0, opt) < 0) {
+				pr_perror("\tCan't mount controller dir %s", paux);
+				return -1;
+			}
 		}
 
-		if (mount("none", paux, "cgroup", 0, opt) < 0) {
-			pr_perror("Can't mount %s cgyard", paux);
-			goto err;
-		}
-
-		/* We skip over the .criu.cgyard.XXXXXX/, since those will be
-		 * referred to by the cg yard service fd. */
+		/*
+		 * Finally handle all cgroups for this controller.
+		 */
 		yard = paux + strlen(cg_yard) + 1;
 		yard_off = ctl_off - (strlen(cg_yard) + 1);
 		if (opts.manage_cgroups &&
 		    prepare_cgroup_dirs(ctrl->cnames, ctrl->n_cnames, yard, yard_off,
 				ctrl->dirs, ctrl->n_dirs))
 			goto err;
-
 	}
 
 	return 0;

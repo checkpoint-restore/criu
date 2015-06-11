@@ -211,8 +211,25 @@ Restores previously checkpointed processes.
 *-r*, *--root* '<path>'::
     Change the root filesystem to <path> (when run in mount namespace).
 
-*--manage-cgroups*::
+*--manage-cgroups* [<mode>]::
     Restore cgroups configuration associated with a task from the image.
+    Controllers are always restored in optimistic way -- if already present
+    in system *criu* reuses it, otherwise it will be created.
++
+The '<mode>' may be one of below.
+
+    - *none*.   Do not restore cgroup properties but require cgroup to
+                pre-exist at the moment of *restore* procedure.
+
+    - *props*.  Restore cgroup properties and require cgroup to pre-exist.
+
+    - *soft*.   Restore cgroup properties if only cgroup has been created
+                by *criu*, otherwise do not restore properies.
+
+    - *full*.   Always restore all cgroups and their properties.
+
+    - *strict*. Restore all cgroups and their properties from the scratch,
+                requiring them to not present in the system.
 
 *--cgroup-root* '[<controller>:]/<newroot>'::
     Change the root cgroup the controller will be installed into. No controller

@@ -58,7 +58,7 @@ void init_opts(void)
 
 	opts.cg_yard = "/sys/fs/cgroup";
 	opts.cpu_cap = CPU_CAP_DEFAULT;
-	opts.manage_cgroups = false;
+	opts.manage_cgroups = CG_MODE_DEFAULT;
 	opts.ps_socket = -1;
 }
 
@@ -148,6 +148,33 @@ Esyntax:
 	return -1;
 }
 
+static int parse_manage_cgroups(struct cr_options *opts, const char *optarg)
+{
+	if (!optarg) {
+		opts->manage_cgroups = CG_MODE_SOFT;
+		return 0;
+	}
+
+	if (!strcmp(optarg, "none")) {
+		opts->manage_cgroups = CG_MODE_NONE;
+	} else if (!strcmp(optarg, "props")) {
+		opts->manage_cgroups = CG_MODE_PROPS;
+	} else if (!strcmp(optarg, "soft")) {
+		opts->manage_cgroups = CG_MODE_SOFT;
+	} else if (!strcmp(optarg, "full")) {
+		opts->manage_cgroups = CG_MODE_FULL;
+	} else if (!strcmp(optarg, "strict")) {
+		opts->manage_cgroups = CG_MODE_STRICT;
+	} else
+		goto Esyntax;
+
+	return 0;
+
+Esyntax:
+	pr_err("Unknown cgroups mode `%s' selected\n", optarg);
+	return -1;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	pid_t pid = 0, tree_id = 0;
@@ -200,7 +227,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "force-irmap",		no_argument,		0, 1058	},
 		{ "ext-mount-map",		required_argument,	0, 'M'	},
 		{ "exec-cmd",			no_argument,		0, 1059	},
-		{ "manage-cgroups",		no_argument,		0, 1060	},
+		{ "manage-cgroups",		optional_argument,	0, 1060	},
 		{ "cgroup-root",		required_argument,	0, 1061	},
 		{ "inherit-fd",			required_argument,	0, 1062	},
 		{ "feature",			required_argument,	0, 1063	},
@@ -394,7 +421,8 @@ int main(int argc, char *argv[], char *envp[])
 			has_exec_cmd = true;
 			break;
 		case 1060:
-			opts.manage_cgroups = true;
+			if (parse_manage_cgroups(&opts, optarg))
+				goto usage;
 			break;
 		case 1061:
 			{
@@ -674,7 +702,8 @@ usage:
 "                        allow autoresolving mounts with external sharing\n"
 "  --enable-external-masters\n"
 "                        allow autoresolving mounts with external masters\n"
-"  --manage-cgroups      dump or restore cgroups the process is in\n"
+"  --manage-cgroups [m]  dump or restore cgroups the process is in usig mode:\n"
+"                        'none', 'props', 'soft' (default), 'full' and 'strict'.\n"
 "  --cgroup-root [controller:]/newroot\n"
 "                        change the root cgroup the controller will be\n"
 "                        installed into. No controller means that root is the\n"

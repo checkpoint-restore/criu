@@ -21,6 +21,18 @@ struct cg_root_opt {
 	char *newroot;
 };
 
+/*
+ * Cgroup management options.
+ */
+#define CG_MODE_IGNORE		(0u << 0)	/* Zero is important here */
+#define CG_MODE_NONE		(1u << 0)
+#define CG_MODE_PROPS		(1u << 1)
+#define CG_MODE_SOFT		(1u << 2)
+#define CG_MODE_FULL		(1u << 3)
+#define CG_MODE_STRICT		(1u << 4)
+
+#define CG_MODE_DEFAULT		(CG_MODE_IGNORE)
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -59,7 +71,7 @@ struct cr_options {
 	unsigned int		cpu_cap;
 	bool			force_irmap;
 	char			**exec_cmd;
-	bool			manage_cgroups;
+	unsigned int		manage_cgroups;
 	char			*cg_yard;
 	char			*new_global_cg_root;
 	struct list_head	new_cgroup_roots;
