@@ -185,16 +185,16 @@ int handle_elf(void *mem, size_t size)
 #endif
 			if (strncmp(name, "__export", 8))
 				continue;
-			if (sym->st_shndx && sym->st_shndx < hdr->e_shnum) {
-				sh_src = sec_hdrs[sym->st_shndx];
-				ptr_func_exit(sh_src);
-#if 0
-				if (ELF_ST_TYPE(sym->st_info) == STT_FUNC ||
-				    ELF_ST_TYPE(sym->st_info) == STT_OBJECT)
-#endif
-					pr_out("#define %s%s 0x%lx\n",
-					       opts.prefix_name, name,
-					       (unsigned long)(sym->st_value + sh_src->sh_addr));
+			if ((sym->st_shndx && sym->st_shndx < hdr->e_shnum) || sym->st_shndx == SHN_ABS) {
+				if (sym->st_shndx == SHN_ABS) {
+					sh_src = NULL;
+				} else {
+					sh_src = sec_hdrs[sym->st_shndx];
+					ptr_func_exit(sh_src);
+				}
+				pr_out("#define %s%s 0x%lx\n",
+				       opts.prefix_name, name,
+				       (unsigned long)(sym->st_value + (sh_src ? sh_src->sh_addr : 0)));
 			}
 		}
 	}
@@ -222,7 +222,6 @@ int handle_elf(void *mem, size_t size)
 			s32 addend32, value32;
 			unsigned long place;
 			const char *name;
-			Shdr_t *sh_src;
 			void *where;
 			Sym_t *sym;
 
@@ -240,9 +239,6 @@ int handle_elf(void *mem, size_t size)
 
 			where = mem + sh_rel->sh_offset + r->rel.r_offset;
 			ptr_func_exit(where);
-
-			sh_src = sec_hdrs[sym->st_shndx];
-			ptr_func_exit(sh_src);
 
 			pr_debug("\t\tr_offset 0x%-4lx r_info 0x%-4lx / sym 0x%-2lx type 0x%-2lx symsecoff 0x%-4lx\n",
 				 (unsigned long)r->rel.r_offset, (unsigned long)r->rel.r_info,
@@ -277,11 +273,26 @@ int handle_elf(void *mem, size_t size)
 
 			place = sh_rel->sh_addr + r->rel.r_offset;
 
-			pr_debug("\t\t\tvalue 0x%-8lx addend32 %-4d addend64 %-8ld symname %s\n",
-				 (unsigned long)sym->st_value, addend32, (long)addend64, name);
+			pr_debug("\t\t\tvalue 0x%-8lx addend32 %-4d addend64 %-8ld place %-8lx symname %s\n",
+				 (unsigned long)sym->st_value, addend32, (long)addend64, (long)place, name);
 
-			value32 = (s32)sh_src->sh_addr + (s32)sym->st_value;
-			value64 = (s64)sh_src->sh_addr + (s64)sym->st_value;
+			if (sym->st_shndx == SHN_ABS) {
+				value32 = (s32)sym->st_value;
+				value64 = (s64)sym->st_value;
+			} else {
+				Shdr_t *sh_src;
+
+				if ((unsigned)sym->st_shndx > (unsigned)hdr->e_shnum) {
+					pr_err("Unexpected symbol section index %u/%u\n",
+					       (unsigned)sym->st_shndx, hdr->e_shnum);
+					goto err;
+				}
+				sh_src = sec_hdrs[sym->st_shndx];
+				ptr_func_exit(sh_src);
+
+				value32 = (s32)sh_src->sh_addr + (s32)sym->st_value;
+				value64 = (s64)sh_src->sh_addr + (s64)sym->st_value;
+			}
 
 #ifdef ELF_PPC64
 /* Snippet from the OpenPOWER ABI for Linux Supplement:
@@ -410,7 +421,7 @@ int handle_elf(void *mem, size_t size)
 				       (unsigned int)place, addend32, value32);
 				break;
 			case R_X86_64_64: /* Symbol + Addend (8 bytes) */
-				pr_debug("\t\t\t\tR_X86_64_64       at 0x%-4lx val 0x%lx\n", place, value64);
+				pr_debug("\t\t\t\tR_X86_64_64       at 0x%-4lx val 0x%lx\n", place, (long)value64);
 				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG, "
 				       ".addend = %-8ld, .value = 0x%-16lx, }, /* R_X86_64_64 */\n",
 				       (unsigned int)place, (long)addend64, (long)value64);
