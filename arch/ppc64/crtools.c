@@ -118,7 +118,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
  */
 static int get_fpu_regs(pid_t pid, CoreEntry *core)
 {
-	elf_fpregset_t fpregs;
+	uint64_t fpregs[NFPREG];
 	UserPpc64FpstateEntry *fpe;
 	int i;
 
@@ -140,7 +140,7 @@ static int get_fpu_regs(pid_t pid, CoreEntry *core)
 	}
 
 	/* FPSRC is the last (33th) register in the set */
-	for (i=0; i<NFPREG; i++)
+	for (i = 0; i < NFPREG; i++)
 		fpe->fpregs[i] = fpregs[i];
 
 	core->ti_ppc64->fpstate = fpe;
@@ -150,9 +150,10 @@ static int get_fpu_regs(pid_t pid, CoreEntry *core)
 static void put_fpu_regs(mcontext_t *mc, UserPpc64FpstateEntry *fpe)
 {
 	int i;
+	uint64_t *mcfp = (uint64_t *)mc->fp_regs;
 
-	for (i=0; i<fpe->n_fpregs; i++)
-		mc->fp_regs[i] = (double)(fpe->fpregs[i]);
+	for (i = 0; i < fpe->n_fpregs; i++)
+		mcfp[i] =  fpe->fpregs[i];
 }
 
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
