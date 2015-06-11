@@ -2391,7 +2391,7 @@ static int remap_restorer_blob(void *addr)
 	}
 
 	elf_relocs_apply(addr, addr, sizeof(restorer_blob),
-			 elf_relocs, ARRAY_SIZE(elf_relocs));
+			 restorer_relocs, ARRAY_SIZE(restorer_relocs));
 
 	return 0;
 }
