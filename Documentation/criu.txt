@@ -218,6 +218,9 @@ Restores previously checkpointed processes.
     Change the root cgroup the controller will be installed into. No controller
     means that root is the default for all controllers not specified.
 
+*--cgroup-yard* '<dir>'::
+   Use directory '<dir>' as cgroups yard instead of /sys/fs/cgroup.
+
 *--tcp-established*::
     Restore previously dumped established TCP connections. This implies that
     the network has been locked between *dump* and *restore* phases so other

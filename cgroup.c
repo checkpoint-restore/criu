@@ -935,14 +935,10 @@ int prepare_task_cgroup(struct pstree_item *me)
 
 void fini_cgroup(void)
 {
-	if (!cg_yard)
-		return;
-
-	close_service_fd(CGROUP_YARD);
-	umount2(cg_yard, MNT_DETACH);
-	rmdir(cg_yard);
-	xfree(cg_yard);
-	cg_yard = NULL;
+	if (cg_yard) {
+		close_service_fd(CGROUP_YARD);
+		cg_yard = NULL;
+	}
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
@@ -1128,27 +1124,8 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 
 	pr_info("Preparing cgroups yard\n");
 
-	off = sprintf(paux, ".criu.cgyard.XXXXXX");
-	if (mkdtemp(paux) == NULL) {
-		pr_perror("Can't make temp cgyard dir");
-		return -1;
-	}
-
-	cg_yard = xstrdup(paux);
-	if (!cg_yard) {
-		rmdir(paux);
-		return -1;
-	}
-
-	if (mount("none", cg_yard, "tmpfs", 0, NULL)) {
-		pr_perror("Can't mount tmpfs in cgyard");
-		goto err;
-	}
-
-	if (mount("none", cg_yard, NULL, MS_PRIVATE, NULL)) {
-		pr_perror("Can't make cgyard private");
-		goto err;
-	}
+	cg_yard = opts.cg_yard;
+	off = strlen(opts.cg_yard);
 
 	pr_debug("Opening %s as cg yard\n", cg_yard);
 	i = open(cg_yard, O_DIRECTORY);

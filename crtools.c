@@ -56,6 +56,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 
+	opts.cg_yard = "/sys/fs/cgroup";
 	opts.cpu_cap = CPU_CAP_DEFAULT;
 	opts.manage_cgroups = false;
 	opts.ps_socket = -1;
@@ -207,6 +208,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "enable-fs",			required_argument,	0, 1065 },
 		{ "enable-external-sharing", 	no_argument, 		0, 1066 },
 		{ "enable-external-masters", 	no_argument, 		0, 1067 },
+		{ "cgroup-yard",		required_argument,	0, 1068 },
 		{ },
 	};
 
@@ -433,6 +435,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1067:
 			opts.enable_external_masters = true;
+			break;
+		case 1068:
+			opts.cg_yard = optarg;
 			break;
 		case 'M':
 			{
@@ -674,6 +679,7 @@ usage:
 "                        change the root cgroup the controller will be\n"
 "                        installed into. No controller means that root is the\n"
 "                        default for all controllers not specified.\n"
+"  --cgroup-yard DIR     use DIR as premounted cgroups external yard\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace.\n"
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\".\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"

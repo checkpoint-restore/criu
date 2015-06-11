@@ -60,6 +60,7 @@ struct cr_options {
 	bool			force_irmap;
 	char			**exec_cmd;
 	bool			manage_cgroups;
+	char			*cg_yard;
 	char			*new_global_cg_root;
 	struct list_head	new_cgroup_roots;
 	bool			autodetect_ext_mounts;
