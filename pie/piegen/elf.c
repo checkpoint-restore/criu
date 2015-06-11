@@ -466,13 +466,14 @@ int handle_elf(void *mem, size_t size)
 	pr_out("static __maybe_unused const char %s[] = {\n\t", opts.stream_name);
 
 	for (i=0, k=0; i < hdr->e_shnum; i++) {
+		Shdr_t *sh = sec_hdrs[i];
+		unsigned char *shdata;
 		size_t j;
-		Shdr_t *sh = mem + hdr->e_shoff + hdr->e_shentsize * i;
-		unsigned char *shdata = mem + sh->sh_offset;
 
 		if (!(sh->sh_flags & SHF_ALLOC) || !sh->sh_size)
 			continue;
 
+		shdata =  mem + sh->sh_offset;
 		pr_debug("Copying section '%s'\n" \
 			 "\tstart:0x%lx (gap:0x%lx) size:0x%lx\n",
 			 &secstrings[sh->sh_name], (unsigned long) sh->sh_addr,
