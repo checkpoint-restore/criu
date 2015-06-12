@@ -476,7 +476,7 @@ int handle_elf(void *mem, size_t size)
 		pr_debug("Copying section '%s'\n" \
 			 "\tstart:0x%lx (gap:0x%lx) size:0x%lx\n",
 			 &secstrings[sh->sh_name], (unsigned long) sh->sh_addr,
-			 (unsigned long)(sh->sh_addr - k), sh->sh_size);
+			 (unsigned long)(sh->sh_addr - k), (unsigned long) sh->sh_size);
 
 		/* write 0 in the gap between the 2 sections */
 		for (;k < sh->sh_addr; k++) {
