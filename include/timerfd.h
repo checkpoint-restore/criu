@@ -2,6 +2,7 @@
 #define __CR_TIMERFD_H__
 
 #include <time.h>
+#include <sys/ioctl.h>
 
 #include "files.h"
 
@@ -34,7 +35,7 @@ extern int is_timerfd_link(char *link);
 #endif
 
 #ifndef TFD_IOC_SET_TICKS
-# define TFD_IOC_SET_TICKS	0x40085400
+# define TFD_IOC_SET_TICKS	_IOW('T', 0, u64)
 #endif
 
 #endif /* __CR_TIMERFD_H__ */
