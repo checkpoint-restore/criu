@@ -2810,6 +2810,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args	= mem;
 	thread_args	= (struct thread_restore_args *)(task_args + 1);
 
+	task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
+	if (task_args->proc_fd < 0) {
+		pr_perror("can't dup proc fd");
+		goto err;
+	}
+
 	ret = prepare_creds(pid, task_args, &lsm);
 	if (ret < 0)
 		goto err;
@@ -2835,13 +2841,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		strncpy(lsm, rendered, lsm_profile_len);
 		xfree(rendered);
 
-		task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
-		if (task_args->proc_fd < 0) {
-			pr_perror("can't dup proc fd");
-			goto err;
-		}
-	} else {
-		task_args->proc_fd = -1;
 	}
 
 	/*
@@ -2997,16 +2996,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
 	xfree(current->core);
-
-	/*
-	 * Open the last_pid syscl early, since restorer (maybe) lives
-	 * in chroot and has no access to "/proc/..." paths.
-	 */
-	task_args->fd_last_pid = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-	if (task_args->fd_last_pid < 0) {
-		pr_perror("Can't open sys.ns_last_pid");
-		goto err;
-	}
 
 	/*
 	 * Now prepare run-time data for threads restore.

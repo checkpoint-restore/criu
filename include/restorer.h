@@ -158,8 +158,6 @@ struct task_restore_args {
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
 
-	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
-
 	/*
 	 * proc_fd is a handle to /proc that the restorer blob can use to open
 	 * files there, because some of them can't be opened before the

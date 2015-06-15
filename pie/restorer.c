@@ -108,7 +108,6 @@ static int lsm_set_label(char *label, int procfd)
 	simple_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
 
 	lsmfd = sys_openat(procfd, path, O_WRONLY, 0);
-	sys_close(procfd);
 	if (lsmfd < 0) {
 		pr_err("failed openat %d\n", lsmfd);
 		return -1;
@@ -1092,10 +1091,16 @@ long __export_restore_task(struct task_restore_args *args)
 		long parent_tid;
 		int i, fd;
 
-		fd = args->fd_last_pid;
+		fd = sys_openat(args->proc_fd, LAST_PID_PATH, O_RDWR, 0);
+		if (fd < 0) {
+			pr_err("can't open last pid fd %d\n", fd);
+			goto core_restore_end;
+		}
+
 		ret = sys_flock(fd, LOCK_EX);
 		if (ret) {
 			pr_err("Can't lock last_pid %d\n", fd);
+			sys_close(fd);
 			goto core_restore_end;
 		}
 
@@ -1112,6 +1117,7 @@ long __export_restore_task(struct task_restore_args *args)
 			ret = sys_write(fd, s, last_pid_len);
 			if (ret < 0) {
 				pr_err("Can't set last_pid %ld/%s\n", ret, last_pid_buf);
+				sys_close(fd);
 				goto core_restore_end;
 			}
 
@@ -1128,12 +1134,12 @@ long __export_restore_task(struct task_restore_args *args)
 		ret = sys_flock(fd, LOCK_UN);
 		if (ret) {
 			pr_err("Can't unlock last_pid %ld\n", ret);
+			sys_close(fd);
 			goto core_restore_end;
 		}
 
+		sys_close(fd);
 	}
-
-	sys_close(args->fd_last_pid);
 
 	restore_rlims(args);
 
@@ -1201,6 +1207,7 @@ long __export_restore_task(struct task_restore_args *args)
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);
 
+	sys_close(args->proc_fd);
 	log_set_fd(-1);
 
 	/*
