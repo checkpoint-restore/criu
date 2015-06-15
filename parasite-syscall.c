@@ -1218,8 +1218,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
 
-	elf_relocs_apply(ctl->local_map, ctl->remote_map, sizeof(parasite_blob),
-			 parasite_relocs, ARRAY_SIZE(parasite_relocs));
+	ELF_RELOCS_APPLY_PARASITE(ctl->local_map, ctl->remote_map);
 
 	/* Setup the rest of a control block */
 	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, __export_parasite_head_start);
