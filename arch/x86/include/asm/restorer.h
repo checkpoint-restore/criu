@@ -119,7 +119,7 @@ struct rt_sigframe {
 		       "g"(&thread_args[i].pid),			\
 		       "g"(clone_restore_fn),				\
 		       "g"(&thread_args[i])				\
-		     : "rax", "rdi", "rsi", "rdx", "r10", "memory")
+		     : "rax", "rcx", "rdi", "rsi", "rdx", "r10", "r11", "memory")
 
 #define ARCH_FAIL_CORE_RESTORE					\
 	asm volatile(						\
