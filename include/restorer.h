@@ -160,9 +160,12 @@ struct task_restore_args {
 
 	int				fd_last_pid; /* sys.ns_last_pid for threads rst */
 
-	int				proc_attr_current;
-	char				*lsm_profile;
-	int				lsm_profile_len;
+	/*
+	 * proc_fd is a handle to /proc that the restorer blob can use to open
+	 * files there, because some of them can't be opened before the
+	 * restorer blob is called.
+	 */
+	int				proc_fd;
 
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;

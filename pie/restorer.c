@@ -95,7 +95,39 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	sys_exit_group(1);
 }
 
-static int restore_creds(CredsEntry *ce)
+static int lsm_set_label(char *label, int procfd)
+{
+	int ret = -1, len, lsmfd;
+	char path[LOG_SIMPLE_CHUNK];
+
+	if (!label)
+		return 0;
+
+	pr_info("restoring lsm profile %s\n", label);
+
+	simple_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
+
+	lsmfd = sys_openat(procfd, path, O_WRONLY, 0);
+	sys_close(procfd);
+	if (lsmfd < 0) {
+		pr_err("failed openat %d\n", lsmfd);
+		return -1;
+	}
+
+	for (len = 0; label[len]; len++)
+		;
+
+	ret = sys_write(lsmfd, label, len);
+	sys_close(lsmfd);
+	if (ret < 0) {
+		pr_err("can't write lsm profile %d\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int restore_creds(CredsEntry *ce, int procfd)
 {
 	int b, i, ret;
 	struct cap_header hdr;
@@ -199,6 +231,9 @@ static int restore_creds(CredsEntry *ce)
 		pr_err("Unable to restore capabilities: %d\n", ret);
 		return -1;
 	}
+
+	if (lsm_set_label(ce->lsm_profile, procfd) < 0)
+		return -1;
 
 	return 0;
 }
@@ -366,7 +401,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
 
-	ret = restore_creds(&args->ta->creds);
+	ret = restore_creds(&args->ta->creds, args->ta->proc_fd);
 	if (ret)
 		goto core_restore_end;
 
@@ -736,25 +771,6 @@ static int wait_helpers(struct task_restore_args *task_args)
 	}
 
 	return 0;
-}
-
-static int lsm_set_label(struct task_restore_args *args)
-{
-	int ret = -1;
-
-	if (!args->lsm_profile)
-		return 0;
-
-	pr_info("restoring lsm profile %s\n", args->lsm_profile);
-
-	ret = sys_write(args->proc_attr_current, args->lsm_profile, args->lsm_profile_len);
-	sys_close(args->proc_attr_current);
-	if (ret < 0) {
-		pr_err("can't write lsm profile\n");
-		return -1;
-	}
-
-	return ret;
 }
 
 /*
@@ -1171,14 +1187,9 @@ long __export_restore_task(struct task_restore_args *args)
 	 * thus restore* creds _after_ all of the above.
 	 */
 
-	ret = restore_creds(&args->creds);
+	ret = restore_creds(&args->creds, args->proc_fd);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
-
-	if (lsm_set_label(args) < 0) {
-		pr_err("lsm_set_label failed\n");
-		goto core_restore_end;
-	}
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 

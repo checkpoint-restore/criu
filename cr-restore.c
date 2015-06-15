@@ -2834,6 +2834,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 		strncpy(lsm, rendered, lsm_profile_len);
 		xfree(rendered);
+
+		task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
+		if (task_args->proc_fd < 0) {
+			pr_perror("can't dup proc fd");
+			goto err;
+		}
+	} else {
+		task_args->proc_fd = -1;
 	}
 
 	/*
@@ -2879,18 +2887,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 #undef remap_array
 
-	if (lsm) {
-		task_args->proc_attr_current = open_proc_rw(PROC_SELF, "attr/current");
-		if (task_args->proc_attr_current < 0) {
-			pr_perror("Can't open attr/current");
-			goto err;
-		}
-
-		task_args->lsm_profile = rst_mem_remap_ptr(lsm_pos, RM_PRIVATE);
-		task_args->lsm_profile_len = lsm_profile_len;
-	} else {
-		task_args->lsm_profile = NULL;
-	}
+	if (lsm)
+		task_args->creds.lsm_profile = rst_mem_remap_ptr(lsm_pos, RM_PRIVATE);
+	else
+		task_args->creds.lsm_profile = NULL;
 
 	/*
 	 * Arguments for task restoration.
