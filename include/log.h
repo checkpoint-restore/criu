@@ -16,7 +16,11 @@ extern int log_get_fd(void);
 extern void log_set_loglevel(unsigned int loglevel);
 extern unsigned int log_get_loglevel(void);
 
+#define LOG_SIMPLE_CHUNK	72
+
 extern int vprint_num(char *buf, int blen, int num, char **ps);
+extern void simple_sprintf(char output[LOG_SIMPLE_CHUNK], const char *format, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
 
 extern int write_pidfile(int pid);
 

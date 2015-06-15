@@ -5,17 +5,18 @@
 #include "syscall.h"
 #include "log.h"
 
-#define LOG_SIMPLE_CHUNK	72
-
 struct simple_buf {
 	char buf[LOG_SIMPLE_CHUNK];
 	char *bp;
+	void (*flush)(struct simple_buf *b);
 };
 
 static int logfd = -1;
 static int cur_loglevel = DEFAULT_LOGLEVEL;
 
-static void sbuf_init(struct simple_buf *b)
+static void sbuf_log_flush(struct simple_buf *b);
+
+static void sbuf_log_init(struct simple_buf *b)
 {
 	b->buf[0] = 'p';
 	b->buf[1] = 'i';
@@ -23,26 +24,32 @@ static void sbuf_init(struct simple_buf *b)
 	b->buf[3] = ':';
 	b->buf[4] = ' ';
 	b->bp = b->buf + 5;
+	b->flush = sbuf_log_flush;
 }
 
-static void sbuf_flush(struct simple_buf *b)
+static void sbuf_log_flush(struct simple_buf *b)
 {
 	if (b->bp == b->buf + 5)
 		return;
 
 	sys_write(logfd, b->buf, b->bp - b->buf);
-	sbuf_init(b);
+	sbuf_log_init(b);
 }
 
 static void sbuf_putc(struct simple_buf *b, char c)
 {
+	/* TODO: maybe some warning or error here? */
+	if (b->bp - b->buf >= LOG_SIMPLE_CHUNK)
+		return;
+
 	*b->bp = c;
 	b->bp++;
 	if (b->bp - b->buf >= LOG_SIMPLE_CHUNK - 2) {
 		b->bp[0] = '>';
 		b->bp[1] = '\n';
 		b->bp += 2;
-		sbuf_flush(b);
+		if (b->flush)
+			b->flush(b);
 	}
 }
 
@@ -197,18 +204,9 @@ static void print_hex_l(unsigned long num, struct simple_buf *b)
 	print_string(z, b);
 }
 
-void print_on_level(unsigned int loglevel, const char *format, ...)
+void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
 {
-	va_list args;
 	const char *s = format;
-	struct simple_buf b;
-
-	if (loglevel > cur_loglevel)
-		return;
-
-	sbuf_init(&b);
-
-	va_start(args, format);
 	while (1) {
 		int along = 0;
 
@@ -216,7 +214,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 			break;
 
 		if (*s != '%') {
-			sbuf_putc(&b, *s);
+			sbuf_putc(b, *s);
 			s++;
 			continue;
 		}
@@ -231,24 +229,56 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 		switch (*s) {
 		case 's':
-			print_string(va_arg(args, char *), &b);
+			print_string(va_arg(args, char *), b);
 			break;
 		case 'd':
 			if (along)
-				print_num_l(va_arg(args, long), &b);
+				print_num_l(va_arg(args, long), b);
 			else
-				print_num(va_arg(args, int), &b);
+				print_num(va_arg(args, int), b);
 			break;
 		case 'x':
 			if (along)
-				print_hex_l(va_arg(args, long), &b);
+				print_hex_l(va_arg(args, long), b);
 			else
-				print_hex(va_arg(args, unsigned int), &b);
+				print_hex(va_arg(args, unsigned int), b);
 			break;
 		}
 		s++;
 	}
+}
+
+void print_on_level(unsigned int loglevel, const char *format, ...)
+{
+	va_list args;
+	struct simple_buf b;
+
+	if (loglevel > cur_loglevel)
+		return;
+
+	sbuf_log_init(&b);
+
+	va_start(args, format);
+	sbuf_printf(&b, format, args);
 	va_end(args);
 
-	sbuf_flush(&b);
+	sbuf_log_flush(&b);
+}
+
+void simple_sprintf(char output[LOG_SIMPLE_CHUNK], const char *format, ...)
+{
+	va_list args;
+	struct simple_buf b;
+	char *p;
+
+	b.bp = b.buf;
+	b.flush = NULL;
+
+	va_start(args, format);
+	sbuf_printf(&b, format, args);
+	va_end(args);
+	*b.bp = 0;
+
+	for (p = b.buf; p <= b.bp; p++)
+		output[p - b.buf] = *p;
 }
