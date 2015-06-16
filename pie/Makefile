@@ -52,7 +52,7 @@ PIELDS			:= pie.lds.S
 
 .SECONDARY:
 
-ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
+ifeq ($(piegen-y),y)
 ldflags-y += -r
 target-name = $(patsubst pie/%-blob.h,%,$(1))
 

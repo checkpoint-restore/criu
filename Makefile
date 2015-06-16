@@ -118,6 +118,16 @@ export ARCH SRCARCH
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
+#
+# piegen might be disabled by hands. Don't use it  until
+# you know what you're doing.
+ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
+ifneq ($(PIEGEN),no)
+	piegen-y := y
+	export piegen-y
+endif
+endif
+
 cflags-y		+= -iquote include -iquote pie -iquote .
 cflags-y		+= -iquote $(ARCH_DIR) -iquote $(ARCH_DIR)/include
 cflags-y		+= -fno-strict-aliasing
@@ -152,8 +162,8 @@ ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
 CRIU-SO		:= libcriu
 CRIU-LIB	:= lib/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
-ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
-PIEGEN		:= pie/piegen/piegen
+ifeq ($(piegen-y),y)
+piegen		:= pie/piegen/piegen
 endif
 
 export CC MAKE CFLAGS LIBS SRCARCH DEFINES MAKEFLAGS CRIU-SO
@@ -197,20 +207,20 @@ $(ARCH_DIR)/%:: protobuf config
 $(ARCH_DIR): protobuf config
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
-ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
+ifeq ($(piegen-y),y)
 pie/piegen/%: config
 	$(Q) $(MAKE) $(build)=pie/piegen $@
 pie/piegen: config
 	$(Q) $(MAKE) $(build)=pie/piegen all
-$(PIEGEN): pie/piegen/built-in.o
+$(piegen): pie/piegen/built-in.o
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) pie/piegen/built-in.o $(LDFLAGS) -o $@
 .PHONY: pie/piegen
 endif
 
-pie/%:: $(ARCH_DIR) $(PIEGEN)
+pie/%:: $(ARCH_DIR) $(piegen)
 	$(Q) $(MAKE) $(build)=pie $@
-pie: $(ARCH_DIR) $(PIEGEN)
+pie: $(ARCH_DIR) $(piegen)
 	$(Q) $(MAKE) $(build)=pie all
 
 %.o %.i %.s %.d: $(VERSION_HEADER) pie
