@@ -9,6 +9,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <linux/fs.h>
+#include <linux/seccomp.h>
 
 #include "asm/types.h"
 #include "list.h"
@@ -779,7 +780,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 8) {
+	while (done < 9) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -840,9 +841,22 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 
 			done++;
 		}
+
+		if (!strncmp(str, "Seccomp:", 8)) {
+			if (sscanf(str + 9, "%d", &cr->seccomp_mode) != 1) {
+				goto err_parse;
+			}
+
+			if (cr->seccomp_mode == SECCOMP_MODE_FILTER) {
+				pr_err("SECCOMP_MODE_FILTER not currently supported\n");
+				goto err_parse;
+			}
+
+			done++;
+		}
 	}
 
-	if (done == 8)
+	if (done == 9)
 		ret = 0;
 
 err_parse:

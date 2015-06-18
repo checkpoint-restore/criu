@@ -84,6 +84,8 @@ struct proc_status_creds {
 
 	char			state;
 	int			ppid;
+
+	int			seccomp_mode;
 };
 
 struct mount_info;

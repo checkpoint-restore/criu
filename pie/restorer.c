@@ -40,6 +40,18 @@
 #define PR_SET_PDEATHSIG 1
 #endif
 
+#ifndef SECCOMP_MODE_DISABLED
+#define SECCOMP_MODE_DISABLED 0
+#endif
+
+#ifndef SECCOMP_MODE_STRICT
+#define SECCOMP_MODE_STRICT 1
+#endif
+
+#ifndef SECCOMP_MODE_FILTER
+#define SECCOMP_MODE_FILTER 2
+#endif
+
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
@@ -339,6 +351,32 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static void restore_seccomp(int seccomp_mode)
+{
+	switch (seccomp_mode) {
+	case SECCOMP_MODE_DISABLED:
+		return;
+	case SECCOMP_MODE_STRICT:
+		if (sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT, 0, 0, 0))
+			goto die;
+		return;
+	case SECCOMP_MODE_FILTER:
+		goto die;
+	default:
+		goto die;
+	}
+
+die:
+	/*
+	 * If preparing any seccomp state failed, we should make sure this
+	 * process doesn't continue so that it can't do things outside the
+	 * sandbox. Unfortunately, the rest of the restore has to continue
+	 * since we're too late in the process to stop it and have unlocked the
+	 * network.
+	 */
+	sys_exit_group(1);
+}
+
 static int restore_thread_common(struct rt_sigframe *sigframe,
 		struct thread_restore_args *args)
 {
@@ -417,8 +455,14 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
 	restore_pdeath_sig(args);
+
+	if (args->ta->seccomp_mode != SECCOMP_MODE_DISABLED)
+		pr_info("restoring seccomp mode %d for %ld\n", args->ta->seccomp_mode, sys_getpid());
+
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 	futex_dec_and_wake(&thread_inprogress);
+
+	restore_seccomp(args->ta->seccomp_mode);
 
 	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
 	rst_sigreturn(new_sp);
@@ -1199,6 +1243,13 @@ long __export_restore_task(struct task_restore_args *args)
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
+	/*
+	 * We have to close the log before restoring seccomp, because
+	 * SECCOMP_MODE_STRICT blocks close().
+	 */
+	if (args->seccomp_mode != SECCOMP_MODE_DISABLED)
+		pr_info("restoring seccomp mode %d for %ld\n", args->seccomp_mode, sys_getpid());
+
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 
 	if (ret)
@@ -1229,6 +1280,8 @@ long __export_restore_task(struct task_restore_args *args)
 	restore_posix_timers(args);
 
 	sys_munmap(args->rst_mem, args->rst_mem_size);
+
+	restore_seccomp(args->seccomp_mode);
 
 	/*
 	 * Sigframe stack.

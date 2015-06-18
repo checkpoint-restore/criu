@@ -8,10 +8,13 @@
 #include <limits.h>
 #include <signal.h>
 
+#include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
+
+#include <linux/seccomp.h>
 
 #include "compiler.h"
 #include "asm/types.h"
@@ -30,13 +33,31 @@ int unseize_task(pid_t pid, int orig_st, int st)
 	else if (st == TASK_STOPPED) {
 		if (orig_st == TASK_ALIVE)
 			kill(pid, SIGSTOP);
-	} else if (st == TASK_ALIVE)
+	} else if (st == TASK_ALIVE) {
 		/* do nothing */ ;
-	else
+	} else
 		pr_err("Unknown final state %d\n", st);
 
 	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
+
+#ifdef CONFIG_HAS_SUSPEND_SECCOMP
+int suspend_seccomp(pid_t pid)
+{
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
+		pr_perror("suspending seccomp failed");
+		return -1;
+	}
+
+	return 0;
+}
+#else
+int suspend_seccomp(pid_t pid)
+{
+	pr_err("seccomp enabled and seccomp suspending not supported\n");
+	return -1;
+}
+#endif
 
 /*
  * This routine seizes task putting it into a special
@@ -46,7 +67,7 @@ int unseize_task(pid_t pid, int orig_st, int st)
  * up with someone else.
  */
 
-int seize_task(pid_t pid, pid_t ppid)
+int seize_task(pid_t pid, pid_t ppid, int *seccomp_mode)
 {
 	siginfo_t si;
 	int status;
@@ -89,6 +110,9 @@ try_again:
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
 		goto err;
+
+	if (seccomp_mode)
+		*seccomp_mode = cr.seccomp_mode;
 
 	if (!may_dump(&cr)) {
 		pr_err("Check uid (pid: %d) failed\n", pid);
@@ -141,6 +165,9 @@ try_again:
 		ret = 0;
 		goto try_again;
 	}
+
+	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
+		goto err_stop;
 
 	if (si.si_signo == SIGTRAP)
 		return TASK_ALIVE;

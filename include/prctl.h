@@ -9,6 +9,9 @@
 #ifndef PR_GET_NAME
 # define PR_GET_NAME		16
 #endif
+#ifndef PR_SET_SECCOMP
+# define PR_SET_SECCOMP		22
+#endif
 #ifndef PR_CAPBSET_READ
 # define PR_CAPBSET_READ	23
 #endif

@@ -92,3 +92,14 @@ int main(int argc, char *argv[], char *envp[])
 }
 
 endef
+
+define PTRACE_SUSPEND_SECCOMP_TEST
+
+#include <linux/ptrace.h>
+
+int main(void)
+{
+	return PTRACE_O_SUSPEND_SECCOMP;
+}
+
+endef

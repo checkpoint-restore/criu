@@ -165,6 +165,8 @@ struct task_restore_args {
 	 */
 	int				proc_fd;
 
+	int				seccomp_mode;
+
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */

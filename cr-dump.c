@@ -19,6 +19,8 @@
 #include <sched.h>
 #include <sys/resource.h>
 
+#include <linux/seccomp.h>
+
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fs.pb-c.h"
@@ -672,6 +674,12 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret < 0)
 		goto err;
 
+	if (item->seccomp_mode != SECCOMP_MODE_DISABLED) {
+		pr_info("got seccomp mode %d for %d\n", item->seccomp_mode, item->pid.virt);
+		core->tc->has_seccomp_mode = true;
+		core->tc->seccomp_mode = item->seccomp_mode;
+	}
+
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
 	core->tc->task_state = item->state;
@@ -801,7 +809,7 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		ret = seize_task(pid, item->pid.real);
+		ret = seize_task(pid, item->pid.real, &c->seccomp_mode);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -913,7 +921,14 @@ static int collect_threads(struct pstree_item *item)
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid.real, pid);
 
-		ret = seize_task(pid, item_ppid(item));
+		/*
+		 * FIXME: The NULL here is wrong; we really want to get the
+		 * seccomp state of this thread, but we have nowhere to put it,
+		 * so for now we ignore it. We should at least check to see
+		 * that the seccomp state is the same for all threads; we'll do
+		 * this in a future series.
+		 */
+		ret = seize_task(pid, item_ppid(item), NULL);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_threads() and seize(),
@@ -1063,7 +1078,7 @@ static int collect_pstree(pid_t pid)
 		return -1;
 
 	root_item->pid.real = pid;
-	ret = seize_task(pid, -1);
+	ret = seize_task(pid, -1, &root_item->seccomp_mode);
 	if (ret < 0)
 		goto err;
 	pr_info("Seized task %d, state %d\n", pid, ret);

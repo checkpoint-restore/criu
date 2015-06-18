@@ -10,6 +10,15 @@ import "siginfo.proto";
 
 import "opts.proto";
 
+/*
+ * These match the SECCOMP_MODE_* flags from <linux/seccomp.h>.
+ */
+enum seccomp_mode {
+	disabled	= 0;
+	strict		= 1;
+	filter		= 2;
+};
+
 message task_core_entry {
 	required uint32			task_state	= 1;
 	required uint32			exit_code	= 2;
@@ -26,6 +35,8 @@ message task_core_entry {
 	optional uint32			cg_set		= 9;
 
 	optional signal_queue_entry	signals_s	= 10;
+
+	optional seccomp_mode		seccomp_mode	= 11;
 }
 
 message task_kobj_ids_entry {
