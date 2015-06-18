@@ -101,6 +101,7 @@
 /live/static/rtc
 /live/static/sched_policy00
 /live/static/sched_prio00
+/live/static/seccomp_strict
 /live/static/selfexe00
 /live/static/sem
 /live/static/session00

@@ -123,6 +123,7 @@ TST_NOFILE	=				\
 		aio00				\
 		fd				\
 		apparmor				\
+		seccomp_strict			\
 #		jobctl00			\
 
 TST_FILE	=				\

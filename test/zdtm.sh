@@ -333,6 +333,7 @@ netns-dev
 sockets00
 cow01
 apparmor
+seccomp_strict
 "
 
 CRIU_CPT=$CRIU
