@@ -98,7 +98,7 @@ int seize_task(pid_t pid, pid_t ppid, int *seccomp_mode)
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
 	 * attaching to zombie from other errors. Thus we have to parse
 	 * the target's /proc/pid/stat. Sad, but parse whatever else
-	 * we might nead at that early point.
+	 * we might need at that early point.
 	 */
 
 try_again:
