@@ -117,6 +117,7 @@ int cr_exec(int pid, char **opt)
 	struct parasite_ctl *ctl;
 	struct vm_area_list vmas;
 	int ret = -1, prev_state;
+	struct proc_status_creds *creds;
 
 	if (!sys_name) {
 		pr_err("Syscall name required\n");
@@ -129,11 +130,18 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	prev_state = ret = seize_task(pid, -1, NULL);
+	prev_state = ret = seize_task(pid, -1, &creds);
 	if (ret < 0) {
 		pr_err("Can't seize task %d\n", pid);
 		goto out;
 	}
+
+	/*
+	 * We don't seize a task's threads here, and there is no reason to
+	 * compare threads' creds in this use case anyway, so let's just free
+	 * the creds.
+	 */
+	free(creds);
 
 	ret = collect_mappings(pid, &vmas);
 	if (ret) {

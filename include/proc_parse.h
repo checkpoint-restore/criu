@@ -88,6 +88,8 @@ struct proc_status_creds {
 	int			seccomp_mode;
 };
 
+bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2);
+
 struct mount_info;
 struct fstype {
 	char *name;

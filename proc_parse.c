@@ -2056,3 +2056,8 @@ int aufs_parse(struct mount_info *new)
 
 	return ret;
 }
+
+bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2)
+{
+	return memcmp(o1, o2, sizeof(struct proc_status_creds)) == 0;
+}

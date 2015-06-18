@@ -67,12 +67,17 @@ int suspend_seccomp(pid_t pid)
  * up with someone else.
  */
 
-int seize_task(pid_t pid, pid_t ppid, int *seccomp_mode)
+int seize_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
 {
 	siginfo_t si;
 	int status;
 	int ret, ret2, ptrace_errno, wait_errno = 0;
 	struct proc_status_creds cr;
+
+	/*
+	 * For the comparison below, let's zero out any padding.
+	 */
+	memzero(&cr, sizeof(struct proc_status_creds));
 
 	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
 	ptrace_errno = errno;
@@ -110,9 +115,6 @@ try_again:
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
 		goto err;
-
-	if (seccomp_mode)
-		*seccomp_mode = cr.seccomp_mode;
 
 	if (!may_dump(&cr)) {
 		pr_err("Check uid (pid: %d) failed\n", pid);
@@ -164,6 +166,18 @@ try_again:
 
 		ret = 0;
 		goto try_again;
+	}
+
+	if (*creds == NULL) {
+		*creds = xzalloc(sizeof(struct proc_status_creds));
+		if (!*creds)
+			goto err_stop;
+
+		**creds = cr;
+
+	} else if (!proc_status_creds_eq(*creds, &cr)) {
+		pr_err("creds don't match %d %d\n", pid, ppid);
+		goto err_stop;
 	}
 
 	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
