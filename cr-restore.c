@@ -1364,7 +1364,7 @@ static int mount_proc(void)
 	}
 
 	pr_info("Mount procfs in %s\n", proc_mountpoint);
-	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL)) {
+	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
 		pr_perror("mount failed");
 		rmdir(proc_mountpoint);
 		return -1;

@@ -87,7 +87,7 @@ static int prepare_mntns()
 		 * if they are already mounted when the user namespace is created.
 		 * So ./old must be umounted after mounting /proc and /sys.
 		 */
-		if (mount("proc", "/proc", "proc", MS_MGC_VAL, NULL)) {
+		if (mount("proc", "/proc", "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
 			fprintf(stderr, "mount(/proc) failed: %m\n");
 			return -1;
 		}
