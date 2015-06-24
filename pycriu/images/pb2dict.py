@@ -2,6 +2,7 @@ from google.protobuf.descriptor import FieldDescriptor as FD
 import opts_pb2
 import ipaddr
 import socket
+import collections
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -74,7 +75,7 @@ def pb2dict(pb, pretty = False, is_hex = False):
 	Convert protobuf msg to dictionary.
 	Takes a protobuf message and returns a dict.
 	"""
-	d = {}
+	d = collections.OrderedDict() if pretty else {}
 	for field, value in pb.ListFields():
 		if field.label == FD.LABEL_REPEATED:
 			d_val = []
