@@ -131,6 +131,6 @@ static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
 /*
  * Defined in arch/ppc64/syscall-common-ppc64.S
  */
-int sys_shmat(int shmid, const void *shmaddr, int shmflg);
+unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg);
 
 #endif /*__CR_ASM_RESTORER_H__*/

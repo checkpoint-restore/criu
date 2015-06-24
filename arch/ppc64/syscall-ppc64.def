@@ -98,3 +98,4 @@ __NR_kcmp		354		sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1,
 __NR_memfd_create	360		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_io_setup		227		sys_io_setup		(unsigned nr_events, aio_context_t *ctx_idp)
 __NR_io_getevents	229		sys_io_getevents	(aio_context_t ctx_id, long min_nr, long nr, struct io_event *events, struct timespec *timeout)
+__NR_ipc		117		sys_ipc			(unsigned int call, int first, unsigned long second, unsigned long third, const void *ptr, long fifth)

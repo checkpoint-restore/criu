@@ -22,11 +22,3 @@ ENTRY(__cr_restore_rt)
 	b	__syscall_common
 END(__cr_restore_rt)
 
-# On Power, shmat is done through the ipc system call.
-ENTRY(sys_shmat)
-	mr	r7, r4	# shmaddr -> ptr
-	mr	r4, r3	# shmid -> first
-	li	r3, 21	# call = SHMAT
-	li	r0, __NR_ipc
-	b	__syscall_common
-END(sys_shmat)
