@@ -1979,7 +1979,7 @@ err:
 	return ret;
 }
 
-static long restorer_get_vma_hint(pid_t pid, struct list_head *tgt_vma_list,
+static long restorer_get_vma_hint(struct list_head *tgt_vma_list,
 		struct list_head *self_vma_list, long vma_len)
 {
 	struct vma_area *t_vma, *s_vma;
@@ -2764,7 +2764,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * or inited from scratch).
 	 */
 
-	exec_mem_hint = restorer_get_vma_hint(pid, &vmas->h, &self_vmas.h,
+	exec_mem_hint = restorer_get_vma_hint(&vmas->h, &self_vmas.h,
 					      restore_bootstrap_len);
 	if (exec_mem_hint == -1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
