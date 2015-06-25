@@ -678,10 +678,10 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret < 0)
 		goto err;
 
-	if (item->creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
-		pr_info("got seccomp mode %d for %d\n", item->creds->seccomp_mode, item->pid.virt);
+	if (dmpi(item)->pi_creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
+		pr_info("got seccomp mode %d for %d\n", dmpi(item)->pi_creds->seccomp_mode, item->pid.virt);
 		core->tc->has_seccomp_mode = true;
-		core->tc->seccomp_mode = item->creds->seccomp_mode;
+		core->tc->seccomp_mode = dmpi(item)->pi_creds->seccomp_mode;
 	}
 
 	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
@@ -813,7 +813,7 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		ret = seize_task(pid, item->pid.real, &c->creds);
+		ret = seize_task(pid, item->pid.real, &dmpi(c)->pi_creds);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -962,7 +962,7 @@ static int collect_threads(struct pstree_item *item)
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid.real, pid);
 
-		ret = seize_task(pid, item_ppid(item), &item->creds);
+		ret = seize_task(pid, item_ppid(item), &dmpi(item)->pi_creds);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_threads() and seize(),
@@ -1112,7 +1112,7 @@ static int collect_pstree(pid_t pid)
 		return -1;
 
 	root_item->pid.real = pid;
-	ret = seize_task(pid, -1, &root_item->creds);
+	ret = seize_task(pid, -1, &dmpi(root_item)->pi_creds);
 	if (ret < 0)
 		goto err;
 	pr_info("Seized task %d, state %d\n", pid, ret);

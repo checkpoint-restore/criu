@@ -30,12 +30,6 @@ struct pstree_item {
 	 */
 	bool			has_seccomp;
 
-	/*
-	 * We keep the creds here so that we can compare creds while seizing
-	 * threads. Dumping tasks with different creds is not supported.
-	 */
-	struct proc_status_creds *creds;
-
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
@@ -51,6 +45,12 @@ static inline struct rst_info *rsti(struct pstree_item *i)
 struct ns_id;
 struct dmp_info {
 	struct ns_id *netns;
+	/*
+	 * We keep the creds here so that we can compare creds while seizing
+	 * threads. Dumping tasks with different creds is not supported.
+	 */
+	struct proc_status_creds *pi_creds;
+
 };
 
 static inline struct dmp_info *dmpi(struct pstree_item *i)
