@@ -2647,9 +2647,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct vma_area *vma;
 	unsigned long tgt_vmas;
 
-	void *timerfd_mem;
-	unsigned long timerfd_mem_cpos;
-
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
 	unsigned long vdso_rt_delta = 0;
@@ -2724,11 +2721,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Copy timerfd params for restorer args, we need to proceed
 	 * timer setting at the very late.
 	 */
-	timerfd_mem_cpos = rst_mem_cpos(RM_PRIVATE);
-	timerfd_mem = rst_mem_alloc(rst_timerfd_len(), RM_PRIVATE);
-	if (!timerfd_mem)
+	if (rst_timerfd_prep())
 		goto err_nv;
-	memcpy(timerfd_mem, rst_timerfd, rst_timerfd_len());
 
 	/*
 	 * We're about to search for free VM area and inject the restorer blob
@@ -2876,7 +2870,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	remap_array(vmas,	  vmas->nr, tgt_vmas);
 	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
-	remap_array(timerfd,	  rst_timerfd_nr, timerfd_mem_cpos);
+	remap_array(timerfd,	  rst_timerfd_nr, rst_timerfd_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
 	remap_array(tcp_socks,	  rst_tcp_socks_nr, rst_tcp_socks_cpos);
 	remap_array(rings,	  mm->n_aios, aio_rings);

@@ -31,10 +31,14 @@ struct timerfd_dump_arg {
 struct timerfd_info {
 	TimerfdEntry		*tfe;
 	struct file_desc	d;
+	int			t_fd;
+	struct list_head	rlist;
 };
 
-struct restore_timerfd *rst_timerfd;
-unsigned int rst_timerfd_nr;
+static LIST_HEAD(rst_timerfds);
+
+unsigned long rst_timerfd_cpos;
+unsigned int rst_timerfd_nr = 0;
 
 int check_timerfd(void)
 {
@@ -105,24 +109,37 @@ const struct fdtype_ops timerfd_dump_ops = {
 static int timerfd_post_open(struct file_desc *d, int fd)
 {
 	struct timerfd_info *info = container_of(d, struct timerfd_info, d);
-	TimerfdEntry *tfe = info->tfe;
+
+	info->t_fd = fd;
+	list_add_tail(&info->rlist, &rst_timerfds);
+	return 0;
+}
+
+int rst_timerfd_prep(void)
+{
+	struct timerfd_info *ti;
 	struct restore_timerfd *t;
 
-	rst_timerfd_nr++;
-	rst_timerfd = xrealloc(rst_timerfd, rst_timerfd_len());
-	if (!rst_timerfd)
-		return -ENOMEM;
+	rst_timerfd_cpos = rst_mem_cpos(RM_PRIVATE);
+	list_for_each_entry(ti, &rst_timerfds, rlist) {
+		TimerfdEntry *tfe = ti->tfe;
 
-	t = &rst_timerfd[rst_timerfd_nr - 1];
-	t->id				= tfe->id;
-	t->fd				= fd;
-	t->clockid			= tfe->clockid;
-	t->ticks			= (unsigned long)tfe->ticks;
-	t->settime_flags		= tfe->settime_flags;
-	t->val.it_interval.tv_sec	= (time_t)tfe->isec;
-	t->val.it_interval.tv_nsec	= (long)tfe->insec;
-	t->val.it_value.tv_sec		= (time_t)tfe->vsec;
-	t->val.it_value.tv_nsec		= (long)tfe->vnsec;
+		t = rst_mem_alloc(sizeof(*t), RM_PRIVATE);
+		if (!t)
+			return -1;
+
+		t->id				= tfe->id;
+		t->fd				= ti->t_fd;
+		t->clockid			= tfe->clockid;
+		t->ticks			= (unsigned long)tfe->ticks;
+		t->settime_flags		= tfe->settime_flags;
+		t->val.it_interval.tv_sec	= (time_t)tfe->isec;
+		t->val.it_interval.tv_nsec	= (long)tfe->insec;
+		t->val.it_value.tv_sec		= (time_t)tfe->vsec;
+		t->val.it_value.tv_nsec		= (long)tfe->vnsec;
+
+		rst_timerfd_nr++;
+	}
 
 	return 0;
 }
@@ -185,6 +202,8 @@ static int collect_one_timerfd(void *o, ProtobufCMessage *msg)
 		pr_err("Verification failed for %#x\n", info->tfe->id);
 		return -1;
 	}
+
+	info->t_fd = -1;
 
 	return file_desc_add(&info->d, info->tfe->id, &timerfd_desc_ops);
 }
