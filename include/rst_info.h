@@ -58,6 +58,13 @@ struct rst_info {
 	bool			has_umask;
 	u32			umask;
 
+	/*
+	 * We set this flag when process has seccomp filters
+	 * so that we know to suspend them before we unmap the
+	 * restorer blob.
+	 */
+	bool			has_seccomp;
+
 	void			*breakpoint;
 };
 

@@ -24,12 +24,6 @@ struct pstree_item {
 
 	int			state;		/* TASK_XXX constants */
 
-	/*
-	 * On restore, we set this flag when process has seccomp filters so
-	 * that we know to suspend them before we unmap the restorer blob.
-	 */
-	bool			has_seccomp;
-
 	int			nr_threads;	/* number of threads */
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
