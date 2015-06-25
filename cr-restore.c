@@ -241,7 +241,7 @@ err:
 }
 
 /* Map a private vma, if it is not mapped by a parent yet */
-static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
+static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 			struct vma_area **pvma, struct list_head *pvma_list)
 {
 	int ret;
@@ -352,7 +352,7 @@ static int map_private_vma(pid_t pid, struct vma_area *vma, void **tgt_addr,
 	return 0;
 }
 
-static int premap_priv_vmas(pid_t pid, struct vm_area_list *vmas, void *at)
+static int premap_priv_vmas(struct vm_area_list *vmas, void *at)
 {
 	struct list_head *parent_vmas;
 	struct vma_area *pvma, *vma;
@@ -382,7 +382,7 @@ static int premap_priv_vmas(pid_t pid, struct vm_area_list *vmas, void *at)
 		if (!vma_area_is_private(vma))
 			continue;
 
-		ret = map_private_vma(pid, vma, &at, &pvma, parent_vmas);
+		ret = map_private_vma(vma, &at, &pvma, parent_vmas);
 		if (ret < 0)
 			break;
 	}
@@ -390,7 +390,7 @@ static int premap_priv_vmas(pid_t pid, struct vm_area_list *vmas, void *at)
 	return ret;
 }
 
-static int restore_priv_vma_content(pid_t pid)
+static int restore_priv_vma_content(void)
 {
 	struct vma_area *vma;
 	int ret = 0;
@@ -405,7 +405,7 @@ static int restore_priv_vma_content(pid_t pid)
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 
-	ret = open_page_read(pid, &pr, PR_TASK);
+	ret = open_page_read(current->pid.virt, &pr, PR_TASK);
 	if (ret <= 0)
 		return -1;
 
@@ -533,7 +533,7 @@ err_addr:
 	return -1;
 }
 
-static int prepare_mappings(int pid)
+static int prepare_mappings(void)
 {
 	int ret = 0;
 	void *addr;
@@ -559,11 +559,11 @@ static int prepare_mappings(int pid)
 	rsti(current)->premmapped_addr = addr;
 	rsti(current)->premmapped_len = vmas->priv_size;
 
-	ret = premap_priv_vmas(pid, vmas, addr);
+	ret = premap_priv_vmas(vmas, addr);
 	if (ret < 0)
 		goto out;
 
-	ret = restore_priv_vma_content(pid);
+	ret = restore_priv_vma_content();
 	if (ret < 0)
 		goto out;
 
@@ -1496,7 +1496,7 @@ static int restore_task_with_children(void *_arg)
 			goto err_fini_mnt;
 	}
 
-	if (prepare_mappings(pid))
+	if (prepare_mappings())
 		goto err_fini_mnt;
 
 	if (!(ca->clone_flags & CLONE_FILES)) {
