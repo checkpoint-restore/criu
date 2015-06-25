@@ -62,7 +62,7 @@ extern void rst_mem_free_last(int type);
 /*
  * Routines to remap SHREMAP and PRIVATE into restorer address space
  */
-extern unsigned long rst_mem_remap_size(void);
+extern unsigned long rst_mem_lock(void);
 extern int rst_mem_remap(void *to);
 
 #endif /* __CR_RST_MALLOC__H__ */

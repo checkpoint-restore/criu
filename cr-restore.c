@@ -2639,6 +2639,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	long ret;
 
 	long restore_bootstrap_len;
+	long rst_mem_size;
 
 	struct task_restore_args *task_args;
 	struct thread_restore_args *thread_args;
@@ -2734,8 +2735,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	restore_bootstrap_len = restorer_len + args_len +
-				rst_mem_remap_size();
+	rst_mem_size = rst_mem_lock();
+	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
 
 #ifdef CONFIG_VDSO
 	/*
@@ -2855,7 +2856,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
 	task_args->rst_mem = mem;
-	task_args->rst_mem_size = rst_mem_remap_size();
+	task_args->rst_mem_size = rst_mem_size;
 
 	task_args->bootstrap_start = (void *)exec_mem_hint;
 	task_args->bootstrap_len = restore_bootstrap_len;
@@ -2972,7 +2973,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * since we need it being accessible even when own
 	 * self-vmas are unmaped.
 	 */
-	mem += rst_mem_remap_size();
+	mem += rst_mem_size;
 	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
 	task_args->vdso_sym_rt = vdso_sym_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
