@@ -21,6 +21,7 @@
 #include "config.h"
 #include "cr-show.h"
 #include "kerndat.h"
+#include "rst-malloc.h"
 
 #include "protobuf.h"
 #include "protobuf/tcp-stream.pb-c.h"
@@ -653,26 +654,25 @@ err:
 	return -1;
 }
 
-/*
- * rst_tcp_socks contains sockets in repair mode,
- * which will be off in restorer before resuming.
- */
-struct rst_tcp_sock *rst_tcp_socks = NULL;
-int rst_tcp_socks_nr = 0;
+unsigned long rst_tcp_socks_cpos;
+unsigned int rst_tcp_socks_nr = 0;
 
-int rst_tcp_socks_add(int fd, bool reuseaddr)
+int rst_tcp_socks_prep(void)
 {
-	struct rst_tcp_sock *cur;
+	struct inet_sk_info *ii;
 
-	rst_tcp_socks_nr++;
-	rst_tcp_socks = xrealloc(rst_tcp_socks, rst_tcp_socks_len());
-	if (!rst_tcp_socks)
-		return -1;
+	rst_tcp_socks_cpos = rst_mem_cpos(RM_PRIVATE);
+	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist) {
+		struct rst_tcp_sock *rs;
 
-	pr_debug("Schedule %d socket for repair off\n", fd);
-	cur = &rst_tcp_socks[rst_tcp_socks_nr - 1];
-	cur->sk = fd;
-	cur->reuseaddr = reuseaddr;
+		rs = rst_mem_alloc(sizeof(*rs), RM_PRIVATE);
+		if (!rs)
+			return -1;
+
+		rs->sk = ii->sk_fd;
+		rs->reuseaddr = ii->ie->opts->reuseaddr;
+		rst_tcp_socks_nr++;
+	}
 
 	return 0;
 }
@@ -693,6 +693,7 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 void tcp_locked_conn_add(struct inet_sk_info *ii)
 {
 	list_add_tail(&ii->rlist, &rst_tcp_repair_sockets);
+	ii->sk_fd = -1;
 }
 
 void rst_unlock_tcp_connections(void)

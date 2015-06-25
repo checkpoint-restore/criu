@@ -40,24 +40,17 @@ struct inet_sk_info {
 	InetSkEntry *ie;
 	struct file_desc d;
 	struct inet_port *port;
+	/*
+	 * This is an fd by which the socket is opened.
+	 * It will be carried down to restorer code to
+	 * repair-off the socket at the very end.
+	 */
+	int sk_fd;
 	struct list_head rlist;
 };
 
 extern int inet_bind(int sk, struct inet_sk_info *);
 extern int inet_connect(int sk, struct inet_sk_info *);
-
-struct rst_tcp_sock {
-	int	sk;
-	bool	reuseaddr;
-};
-
-extern struct rst_tcp_sock *rst_tcp_socks;
-extern int rst_tcp_socks_nr;
-
-static inline unsigned long rst_tcp_socks_len(void)
-{
-	return rst_tcp_socks_nr * sizeof(struct rst_tcp_sock);
-}
 
 static inline void tcp_repair_off(int fd)
 {
@@ -78,7 +71,15 @@ extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 #define SK_EST_PARAM	"tcp-established"
 
 extern int check_tcp(void);
-extern int rst_tcp_socks_add(int fd, bool reuseaddr);
 extern mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii);
+
+int rst_tcp_socks_prep(void);
+extern unsigned long rst_tcp_socks_cpos;
+extern unsigned int rst_tcp_socks_nr;
+
+struct rst_tcp_sock {
+	int	sk;
+	bool	reuseaddr;
+};
 
 #endif /* __CR_SK_INET_H__ */

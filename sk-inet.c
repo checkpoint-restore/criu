@@ -450,9 +450,9 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	 * after unlocking connections.
 	 */
 	if (tcp_connection(ii->ie)) {
-		if (rst_tcp_socks_add(sk, ii->ie->opts->reuseaddr))
-			return -1;
-
+		pr_debug("Schedule %d socket for repair off\n", sk);
+		BUG_ON(ii->sk_fd != -1);
+		ii->sk_fd = sk;
 		return 0;
 	}
 

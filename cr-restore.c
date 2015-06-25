@@ -2647,9 +2647,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct vma_area *vma;
 	unsigned long tgt_vmas;
 
-	void *tcp_socks_mem;
-	unsigned long tcp_socks;
-
 	void *timerfd_mem;
 	unsigned long timerfd_mem_cpos;
 
@@ -2717,16 +2714,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	}
 
 	/*
-	 * Copy tcp sockets fds to rst memory -- restorer will
-	 * turn repair off before going sigreturn
+	 * Get all the tcp sockets fds into rst memory -- restorer
+	 * will turn repair off before going sigreturn
 	 */
-
-	tcp_socks = rst_mem_cpos(RM_PRIVATE);
-	tcp_socks_mem = rst_mem_alloc(rst_tcp_socks_len(), RM_PRIVATE);
-	if (!tcp_socks_mem)
+	if (rst_tcp_socks_prep())
 		goto err_nv;
-
-	memcpy(tcp_socks_mem, rst_tcp_socks, rst_tcp_socks_len());
 
 	/*
 	 * Copy timerfd params for restorer args, we need to proceed
@@ -2886,7 +2878,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
 	remap_array(timerfd,	  rst_timerfd_nr, timerfd_mem_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
-	remap_array(tcp_socks,	  rst_tcp_socks_nr, tcp_socks);
+	remap_array(tcp_socks,	  rst_tcp_socks_nr, rst_tcp_socks_cpos);
 	remap_array(rings,	  mm->n_aios, aio_rings);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
