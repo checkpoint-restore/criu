@@ -116,7 +116,6 @@ static int prepare_posix_timers(int pid, CoreEntry *core);
 static int prepare_signals(int pid, CoreEntry *core);
 
 static int root_as_sibling;
-static pid_t *helpers = NULL;
 static unsigned long helpers_pos = 0;
 static int n_helpers = 0;
 
@@ -735,25 +734,20 @@ static int collect_helper_pids()
 {
 	struct pstree_item *pi;
 
+	helpers_pos = rst_mem_cpos(RM_PRIVATE);
+
 	list_for_each_entry(pi, &current->children, sibling) {
+		static pid_t *helper;
 
 		if (pi->state != TASK_HELPER)
 			continue;
 
-		if (helpers) {
-			void *m;
-			m = rst_mem_alloc(sizeof(*helpers) * ++n_helpers, RM_PRIVATE);
-			if (!m)
-				return -1;
-		} else {
-			helpers_pos = rst_mem_cpos(RM_PRIVATE);
-			helpers = rst_mem_alloc(sizeof(*helpers), RM_PRIVATE);
-			if (!helpers)
-				return -1;
-			n_helpers = 1;
-		}
+		helper = rst_mem_alloc(sizeof(*helper), RM_PRIVATE);
+		if (!helper)
+			return -1;
 
-		helpers[n_helpers - 1] = pi->pid.virt;
+		n_helpers++;
+		*helper = pi->pid.virt;
 	}
 
 	return 0;
