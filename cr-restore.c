@@ -882,7 +882,7 @@ static inline int sig_fatal(int sig)
 struct task_entries *task_entries;
 static unsigned long task_entries_pos;
 
-static int restore_one_zombie(int pid, CoreEntry *core)
+static int restore_one_zombie(CoreEntry *core)
 {
 	int exit_code = core->tc->exit_code;
 
@@ -912,7 +912,7 @@ static int restore_one_zombie(int pid, CoreEntry *core)
 			signr = SIGABRT;
 		}
 
-		if (kill(pid, signr) < 0)
+		if (kill(current->pid.virt, signr) < 0)
 			pr_perror("Can't kill myself, will just exit");
 
 		exit_code = 0;
@@ -965,7 +965,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 	if (task_alive(current))
 		ret = restore_one_alive_task(pid, core);
 	else if (current->state == TASK_DEAD)
-		ret = restore_one_zombie(pid, core);
+		ret = restore_one_zombie(core);
 	else if (current->state == TASK_HELPER) {
 		restore_finish_stage(CR_STATE_RESTORE);
 		ret = 0;
