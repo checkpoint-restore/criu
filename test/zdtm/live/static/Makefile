@@ -124,6 +124,7 @@ TST_NOFILE	=				\
 		fd				\
 		apparmor				\
 		seccomp_strict			\
+		different_creds			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -284,6 +285,7 @@ wait_stop:
 $(TST):	$(LIB)
 
 aio00:			override LDLIBS += -laio
+different_creds:	override LDLIBS += -lcap
 futex.o:		override CFLAGS += -pthread
 futex:			override LDFLAGS += -pthread
 futex-rl.o:		override CFLAGS += -pthread

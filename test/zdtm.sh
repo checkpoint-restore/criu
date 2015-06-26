@@ -200,6 +200,7 @@ generate_test_list()
 		static/poll
 		static/apparmor
 		ns/static/apparmor
+		static/different_creds
 	"
 
 	TEST_CR_KERNEL="
@@ -343,9 +344,11 @@ sockets00
 cow01
 apparmor
 seccomp_strict
+different_creds
 "
 
 TEST_EXPECTED_FAILURE="
+static/different_creds
 "
 
 CRIU_CPT=$CRIU
