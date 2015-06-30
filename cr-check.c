@@ -529,17 +529,15 @@ static int check_sigqueuinfo()
 	return 0;
 }
 
-static int check_ptrace_peeksiginfo()
+static pid_t fork_and_ptrace_attach(void)
 {
-	struct ptrace_peeksiginfo_args arg;
-	siginfo_t siginfo;
-	pid_t pid, ret = 0;
-	k_rtsigset_t mask;
+	pid_t pid;
 
 	pid = fork();
-	if (pid < 0)
+	if (pid < 0) {
 		pr_perror("fork");
-	else if (pid == 0) {
+		return -1;
+	} else if (pid == 0) {
 		while (1)
 			sleep(1000);
 		exit(1);
@@ -547,11 +545,25 @@ static int check_ptrace_peeksiginfo()
 
 	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
 		pr_perror("Unable to ptrace the child");
-		ret = -1;
-		goto out;
+		kill(pid, SIGKILL);
+		return -1;
 	}
 
 	waitpid(pid, NULL, 0);
+
+	return pid;
+}
+
+static int check_ptrace_peeksiginfo()
+{
+	struct ptrace_peeksiginfo_args arg;
+	siginfo_t siginfo;
+	pid_t pid, ret = 0;
+	k_rtsigset_t mask;
+
+	pid = fork_and_ptrace_attach();
+	if (pid < 0)
+		return -1;
 
 	arg.flags = 0;
 	arg.off = 0;
@@ -567,7 +579,33 @@ static int check_ptrace_peeksiginfo()
 		ret = -1;
 	}
 
-out:
+	kill(pid, SIGKILL);
+	return ret;
+}
+
+static int check_ptrace_suspend_seccomp(void)
+{
+	pid_t pid;
+	int ret = 0;
+
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping PTRACE_O_SUSPEND_SECCOMP check\n");
+		return 0;
+	}
+
+	pid = fork_and_ptrace_attach();
+	if (pid < 0)
+		return -1;
+
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
+		if (errno == EINVAL) {
+			pr_err("Kernel doesn't support PTRACE_O_SUSPEND_SECCOMP\n");
+		} else {
+			pr_perror("couldn't suspend seccomp");
+		}
+		ret = -1;
+	}
+
 	kill(pid, SIGKILL);
 	return ret;
 }
@@ -734,6 +772,7 @@ int cr_check(void)
 	ret |= check_ipc();
 	ret |= check_sigqueuinfo();
 	ret |= check_ptrace_peeksiginfo();
+	ret |= check_ptrace_suspend_seccomp();
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
 	ret |= check_tun_cr(0);
@@ -794,6 +833,8 @@ int check_add_feature(char *feat)
 		chk_feature = check_userns;
 	else if (!strcmp(feat, "fdinfo_lock"))
 		chk_feature = check_fdinfo_lock;
+	else if (!strcmp(feat, "seccomp_suspend"))
+		chk_feature = check_ptrace_suspend_seccomp;
 	else {
 		pr_err("Unknown feature %s\n", feat);
 		return -1;
