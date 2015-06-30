@@ -12,6 +12,8 @@
 #include "protobuf/inventory.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 
+#undef CONFIG_HAS_SELINUX
+
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>
 #endif

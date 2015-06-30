@@ -24,8 +24,6 @@
 
 #include <sys/sendfile.h>
 
-#include <linux/seccomp.h>
-
 #include "ptrace.h"
 #include "compiler.h"
 #include "asm/types.h"
@@ -77,6 +75,7 @@
 #include "aio.h"
 #include "security.h"
 #include "lsm.h"
+#include "seccomp.h"
 
 #include "parasite-syscall.h"
 

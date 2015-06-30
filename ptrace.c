@@ -14,8 +14,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include <linux/seccomp.h>
-
 #include "compiler.h"
 #include "asm/types.h"
 #include "util.h"
@@ -23,6 +21,7 @@
 #include "proc_parse.h"
 #include "crtools.h"
 #include "security.h"
+#include "seccomp.h"
 
 int unseize_task(pid_t pid, int orig_st, int st)
 {
@@ -41,7 +40,6 @@ int unseize_task(pid_t pid, int orig_st, int st)
 	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
 
-#ifdef CONFIG_HAS_SUSPEND_SECCOMP
 int suspend_seccomp(pid_t pid)
 {
 	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
@@ -51,13 +49,6 @@ int suspend_seccomp(pid_t pid)
 
 	return 0;
 }
-#else
-int suspend_seccomp(pid_t pid)
-{
-	pr_err("seccomp enabled and seccomp suspending not supported\n");
-	return -1;
-}
-#endif
 
 /*
  * This routine seizes task putting it into a special

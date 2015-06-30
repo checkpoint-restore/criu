@@ -19,8 +19,6 @@
 #include <sched.h>
 #include <sys/resource.h>
 
-#include <linux/seccomp.h>
-
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/fs.pb-c.h"
@@ -77,6 +75,7 @@
 #include "aio.h"
 #include "security.h"
 #include "lsm.h"
+#include "seccomp.h"
 
 #include "asm/dump.h"
 

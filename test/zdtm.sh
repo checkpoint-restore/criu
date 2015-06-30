@@ -229,6 +229,10 @@ generate_test_list()
 	TEST_TUN="
 		ns/static/tun
 	"
+	TEST_SECCOMP_SUSPEND="
+		static/seccomp_strict
+	"
+
 
 	$CRIU check -v0 --feature "mnt_id"
 	if [ $? -eq 0 ]; then
@@ -250,6 +254,11 @@ generate_test_list()
 	$CRIU check -v0 --feature "tun"
 	if [ $? -eq 0 ]; then
 		TEST_LIST="$TEST_LIST$TEST_TUN"
+	fi
+
+	$CRIU check -v0 --feature "seccomp_suspend"
+	if [ $? -eq 0 ]; then
+		TEST_LIST="$TEST_LIST$TEST_SECCOMP_SUSPEND"
 	fi
 
 	BLACKLIST_FOR_USERNS="

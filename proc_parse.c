@@ -9,7 +9,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <linux/fs.h>
-#include <linux/seccomp.h>
 
 #include "asm/types.h"
 #include "list.h"
@@ -28,6 +27,7 @@
 #include "proc_parse.h"
 #include "cr_options.h"
 #include "sysfs_parse.h"
+#include "seccomp.h"
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/mnt.pb-c.h"
@@ -856,7 +856,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		}
 	}
 
-	if (done == 9)
+	if (done >= 8)
 		ret = 0;
 
 err_parse:
