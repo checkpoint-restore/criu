@@ -726,6 +726,33 @@ static int check_fdinfo_lock(void)
 	return 0;
 }
 
+struct clone_arg {
+	/*
+	 * Reserve some space for clone() to locate arguments
+	 * and retcode in this place
+	 */
+	char stack[128] __attribute__((aligned (8)));
+	char stack_ptr[0];
+};
+
+static int clone_cb(void *_arg) {
+	exit(0);
+}
+
+static int check_clone_parent_vs_pid()
+{
+	struct clone_arg ca;
+	pid_t pid;
+
+	pid = clone(clone_cb, ca.stack_ptr, CLONE_NEWPID | CLONE_PARENT, &ca);
+	if (pid < 0) {
+		pr_err("CLONE_PARENT | CLONE_NEWPID don't work together\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 int cr_check(void)
@@ -780,6 +807,7 @@ int cr_check(void)
 	ret |= check_mnt_id();
 	ret |= check_aio_remap();
 	ret |= check_fdinfo_lock();
+	ret |= check_clone_parent_vs_pid();
 
 out:
 	if (!ret)
