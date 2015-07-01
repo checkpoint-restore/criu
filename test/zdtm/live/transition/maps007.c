@@ -14,7 +14,6 @@
 
 #define MAP_SIZE (1UL << 20)
 #define MEM_SIZE (1UL << 29)
-#define PAGE_SIZE 4096
 
 const char *test_doc	= "create random mappings and touch memory";
 

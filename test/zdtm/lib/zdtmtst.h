@@ -2,9 +2,10 @@
 #define _VIMITESU_H_
 
 #include <sys/types.h>
+#include <unistd.h>
 
 #ifndef PAGE_SIZE
-# define PAGE_SIZE 4096
+# define PAGE_SIZE (unsigned int)(sysconf(_SC_PAGESIZE))
 #endif
 
 #ifndef PR_SET_CHILD_SUBREAPER
