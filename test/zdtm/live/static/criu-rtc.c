@@ -30,7 +30,12 @@ int cr_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
-	if (major(st.st_rdev) != 254 || minor(st.st_rdev) != 0)
+#if defined(__PPC64__)
+#define RTC_DEV_MAJOR	253
+#else
+#define RTC_DEV_MAJOR	254
+#endif
+	if (major(st.st_rdev) != RTC_DEV_MAJOR || minor(st.st_rdev) != 0)
 		return -ENOTSUP;
 
 	if (ioctl(fd, RTC_IRQP_READ, &irqp) == -1) {
