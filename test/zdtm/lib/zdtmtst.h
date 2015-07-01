@@ -25,6 +25,7 @@ extern void test_init_ns(int argc, char **argv, unsigned long clone_flags, int (
 #define CLONE_NEWIPC 0x08000000
 #endif
 
+#define TEST_MSG_BUFFER_SIZE	2048
 /*wrapper for fork: init log offset*/
 #define test_fork() test_fork_id(-1)
 extern int test_fork_id(int id);

@@ -16,8 +16,8 @@
 const char *test_doc	= "Check for alternate signal stack";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-static char stack_thread[SIGSTKSZ];
-static char stack_main[SIGSTKSZ];
+static char stack_thread[SIGSTKSZ + TEST_MSG_BUFFER_SIZE];
+static char stack_main[SIGSTKSZ + TEST_MSG_BUFFER_SIZE];
 
 enum {
 	SAS_MAIN_OLD,

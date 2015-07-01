@@ -38,7 +38,7 @@ void test_msg(const char *format, ...)
 {
 	va_list arg;
 	int off = 0;
-	char buf[PAGE_SIZE];
+	char buf[TEST_MSG_BUFFER_SIZE];
 	int __errno = errno;
 	struct timeval tv;
 	struct tm *tm;
