@@ -69,26 +69,26 @@ int main(int argc, char **argv)
 	}
 
 	memset(&ring, 0, sizeof(ring));
-	ring.tp_block_size = 4096;
+	ring.tp_block_size = PAGE_SIZE;
 	ring.tp_block_nr = 1;
 	ring.tp_frame_size = 1024;
-	ring.tp_frame_nr = 4;
+	ring.tp_frame_nr = (ring.tp_block_size / ring.tp_frame_size) * ring.tp_block_nr;
 	if (setsockopt(sk, SOL_PACKET, PACKET_RX_RING, &ring, sizeof(ring)) < 0) {
 		err("Can't set rx ring %m");
 		return 1;
 	}
 
 	memset(&ring, 0, sizeof(ring));
-	ring.tp_block_size = 4096;
+	ring.tp_block_size = PAGE_SIZE;
 	ring.tp_block_nr = 1;
 	ring.tp_frame_size = 1024;
-	ring.tp_frame_nr = 4;
+	ring.tp_frame_nr = (ring.tp_block_size / ring.tp_frame_size) * ring.tp_block_nr;
 	if (setsockopt(sk, SOL_PACKET, PACKET_TX_RING, &ring, sizeof(ring)) < 0) {
 		err("Can't set tx ring %m");
 		return 1;
 	}
 
-	mem = mmap(NULL, 2 * 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, sk, 0);
+	mem = mmap(NULL, 2 * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, sk, 0);
 	if (mem == MAP_FAILED) {
 		err("Can't mmap socket %m");
 		return 1;
