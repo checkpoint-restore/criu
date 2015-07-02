@@ -119,17 +119,9 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 
 		if (!allow_reuse_fd) {
 			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {
-				if (new_fd < 3) {
-					/*
-					 * Standard descriptors.
-					 */
-					pr_warn("fd %d already in use (called at %s:%d)\n",
-						new_fd, file, line);
-				} else {
-					pr_err("fd %d already in use (called at %s:%d)\n",
-						new_fd, file, line);
-					return -1;
-				}
+				pr_err("fd %d already in use (called at %s:%d)\n",
+					new_fd, file, line);
+				return -1;
 			}
 		}
 
