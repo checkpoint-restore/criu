@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 		/* child */
 		int dupfd = -1;
 		int openfd = -1;
-		int logfd;
+		int logfd, flags;
 
 		child_pid = getpid();
 
@@ -244,6 +244,7 @@ int main(int argc, char *argv[])
 		if (cflag)
 			move_fd(open_safe(OLD_LOG_FILE, O_WRONLY | O_APPEND | O_CREAT), CLASH_FD);
 
+		fcntl(pipefd[WRITE_FD], F_SETFL, O_NONBLOCK | O_WRONLY);
 		/* open additional descriptors on the pipe and use them all */
 		if (dflag)
 			dupfd = dup_safe(pipefd[WRITE_FD]);
@@ -254,6 +255,12 @@ int main(int argc, char *argv[])
 		}
 
 		ret = child(pipefd, dupfd, openfd);
+
+		flags = fcntl(pipefd[WRITE_FD], F_GETFL, 0);
+		if ((flags & O_NONBLOCK) == 0) {
+			printf("Unexpected flags %x\n", flags);
+			ret = -1;
+		}
 	}
 
 	return ret;
