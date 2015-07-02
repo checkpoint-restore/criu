@@ -7,6 +7,8 @@ run: pipe
 	./pipe -c &&		\
 	./pipe -cl &&		\
 	./pipe -d &&		\
+	./pipe -o &&		\
+	./pipe -r &&		\
 	./pipe -dc &&		\
 	./pipe -dcl &&		\
 	true
