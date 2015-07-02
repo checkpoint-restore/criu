@@ -393,18 +393,22 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base)
 	pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
 			pi->pe->id, pi->pe->pipe_id);
 
-	list_for_each_entry(tmp, &pipes, list)
-		if (pi->pe->pipe_id == tmp->pe->pipe_id)
-			break;
+	if (file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops))
+		return -1;
 
-	if (&tmp->list == &pipes)
-		INIT_LIST_HEAD(&pi->pipe_list);
-	else
-		list_add(&pi->pipe_list, &tmp->pipe_list);
+	INIT_LIST_HEAD(&pi->pipe_list);
+	if (!inherited_fd(&pi->d, NULL)) {
+		list_for_each_entry(tmp, &pipes, list)
+			if (pi->pe->pipe_id == tmp->pe->pipe_id)
+				break;
+
+		if (&tmp->list != &pipes)
+			list_add(&pi->pipe_list, &tmp->pipe_list);
+	}
 
 	list_add_tail(&pi->list, &pipes);
-	return file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops);
 
+	return 0;
 }
 
 struct collect_image_info pipe_cinfo = {

@@ -1394,6 +1394,9 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 	if (i_fd < 0)
 		return false;
 
+	if (fd_p == NULL)
+		return true;
+
 	*fd_p = dup(i_fd);
 	if (*fd_p < 0)
 		pr_perror("Inherit fd DUP failed");
