@@ -314,11 +314,15 @@ static int open_pipe(struct file_desc *d)
 	int pfd[2];
 	int sock;
 
-	if (inherited_fd(d, &tmp))
-		return tmp;
-
 	pi = container_of(d, struct pipe_info, d);
 	pr_info("\t\tCreating pipe pipe_id=%#x id=%#x\n", pi->pe->pipe_id, pi->pe->id);
+	if (inherited_fd(d, &tmp)) {
+		if (tmp < 0)
+			return tmp;
+
+		pi->reopen = 1;
+		goto out;
+	}
 
 	if (!pi->create)
 		return recv_pipe_fd(pi);
@@ -357,6 +361,7 @@ static int open_pipe(struct file_desc *d)
 	close(pfd[!(pi->pe->flags & O_WRONLY)]);
 	tmp = pfd[pi->pe->flags & O_WRONLY];
 
+out:
 	if (pi->reopen)
 		tmp = reopen_pipe(tmp, pi->pe->flags);
 
