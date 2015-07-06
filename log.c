@@ -25,7 +25,7 @@
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 
-static char buffer[PAGE_SIZE];
+static char buffer[PAGE_SIZE * 2];
 static char buf_off = 0;
 
 static struct timeval start;
@@ -123,7 +123,7 @@ int log_init_by_pid(void)
 	reset_buf_off();
 
 	if (!opts.log_file_per_pid) {
-		buf_off += snprintf(buffer + buf_off, PAGE_SIZE - buf_off, "%6d: ", getpid());
+		buf_off += snprintf(buffer + buf_off, sizeof buffer - buf_off, "%6d: ", getpid());
 		return 0;
 	}
 
@@ -169,7 +169,7 @@ static void __print_on_level(unsigned int loglevel, const char *format, va_list 
 			print_ts();
 	}
 
-	size  = vsnprintf(buffer + buf_off, PAGE_SIZE - buf_off, format, params);
+	size  = vsnprintf(buffer + buf_off, sizeof buffer - buf_off, format, params);
 	size += buf_off;
 
 	while (off < size) {
