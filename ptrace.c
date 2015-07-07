@@ -27,11 +27,13 @@ int unseize_task(pid_t pid, int orig_st, int st)
 {
 	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
-	if (st == TASK_DEAD)
+	if (st == TASK_DEAD) {
 		kill(pid, SIGKILL);
-	else if (st == TASK_STOPPED) {
+		return 0;
+	} else if (st == TASK_STOPPED) {
 		if (orig_st == TASK_ALIVE)
 			kill(pid, SIGSTOP);
+		/* PTRACE_SEIZE will restore state of other tasks */
 	} else if (st == TASK_ALIVE) {
 		/* do nothing */ ;
 	} else

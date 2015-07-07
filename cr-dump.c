@@ -13,6 +13,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/vfs.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 
 #include <sys/sendfile.h>
 
@@ -853,8 +856,42 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 
 	unseize_task(item->pid.real, item->state, st);
 
+	if (st == TASK_DEAD)
+		return;
+
 	for (i = 1; i < item->nr_threads; i++)
-		ptrace(PTRACE_DETACH, item->threads[i].real, NULL, NULL);
+		if (ptrace(PTRACE_DETACH, item->threads[i].real, NULL, NULL))
+			pr_perror("Unable to detach from %d", item->threads[i].real);
+}
+
+static void pstree_wait(struct pstree_item *root_item)
+{
+	struct pstree_item *item = root_item;
+	int pid, status, i;
+
+	for_each_pstree_item(item) {
+
+		if (item->state == TASK_DEAD)
+			continue;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			pid = wait4(-1, &status, __WALL, NULL);
+			if (pid < 0) {
+				pr_perror("wait4 failed");
+				break;
+			} else {
+				if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
+					pr_err("Unexpected exit code %d of %d\n", status, pid);
+					BUG();
+				}
+			}
+		}
+	}
+	pid = wait4(-1, &status, __WALL, NULL);
+	if (pid > 0) {
+		pr_err("Unexpected child %d", pid);
+		BUG();
+	}
 }
 
 static void pstree_switch_state(struct pstree_item *root_item, int st)
@@ -864,6 +901,9 @@ static void pstree_switch_state(struct pstree_item *root_item, int st)
 	pr_info("Unfreezing tasks into %d\n", st);
 	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
+
+	if (st == TASK_DEAD)
+		pstree_wait(root_item);
 }
 
 static pid_t item_ppid(const struct pstree_item *item)
