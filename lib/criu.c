@@ -19,7 +19,7 @@
 const char *criu_lib_version = CRIU_VERSION;
 
 static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
-static CriuOpts *opts;
+static CriuOpts *global_opts;
 static int (*notify)(char *action, criu_notify_arg_t na);
 static int saved_errno;
 
@@ -31,28 +31,42 @@ void criu_set_service_address(char *path)
 		service_address = CR_DEFAULT_SERVICE_ADDRESS;
 }
 
-int criu_init_opts(void)
+int criu_local_init_opts(void **o)
 {
-	if (opts) {
+	if (*o) {
 		notify = NULL;
-		criu_opts__free_unpacked(opts, NULL);
+		criu_opts__free_unpacked((CriuOpts *)*o, NULL);
 	}
 
-	opts = malloc(sizeof(CriuOpts));
-	if (opts == NULL) {
+	*o = malloc(sizeof(CriuOpts));
+	if (*o == NULL) {
 		perror("Can't allocate memory for criu opts");
 		return -1;
 	}
 
-	criu_opts__init(opts);
+	criu_opts__init((CriuOpts *)*o);
 	return 0;
+}
+
+int criu_init_opts(void)
+{
+	return criu_local_init_opts((void **)&global_opts);
+}
+
+void criu_local_set_notify_cb(void *o, int (*cb)(char *action, criu_notify_arg_t na))
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
+	notify = cb;
+	opts->has_notify_scripts = true;
+	opts->notify_scripts = true;
 }
 
 void criu_set_notify_cb(int (*cb)(char *action, criu_notify_arg_t na))
 {
-	notify = cb;
-	opts->has_notify_scripts = true;
-	opts->notify_scripts = true;
+	criu_local_set_notify_cb((void *)global_opts, cb);
 }
 
 int criu_notify_pid(criu_notify_arg_t na)
@@ -60,137 +74,338 @@ int criu_notify_pid(criu_notify_arg_t na)
 	return na->has_pid ? na->pid : 0;
 }
 
-void criu_set_pid(int pid)
+void criu_local_set_pid(void *o, int pid)
 {
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_pid	= true;
 	opts->pid	= pid;
 }
 
+void criu_set_pid(int pid)
+{
+	criu_local_set_pid((void *)global_opts, pid);
+}
+
+void criu_local_set_images_dir_fd(void *o, int fd)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
+	opts->images_dir_fd = fd;
+}
+
 void criu_set_images_dir_fd(int fd)
 {
-	opts->images_dir_fd = fd;
+	criu_local_set_images_dir_fd((void *)global_opts, fd);
+}
+
+void criu_local_set_parent_images(void *o, char *path)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
+	opts->parent_img = strdup(path);
 }
 
 void criu_set_parent_images(char *path)
 {
-	opts->parent_img = strdup(path);
+	criu_local_set_parent_images((void *)global_opts, path);
 }
 
-void criu_set_track_mem(bool track_mem)
+void criu_local_set_track_mem(void *o, bool track_mem)
 {
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_track_mem = true;
 	opts->track_mem = track_mem;
 }
 
-void criu_set_auto_dedup(bool auto_dedup)
+void criu_set_track_mem(bool track_mem)
 {
+	criu_local_set_track_mem((void *)global_opts, track_mem);
+}
+
+void criu_local_set_auto_dedup(void *o, bool auto_dedup)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_auto_dedup = true;
 	opts->auto_dedup = auto_dedup;
 }
 
-void criu_set_force_irmap(bool force_irmap)
+void criu_set_auto_dedup(bool auto_dedup)
 {
+	criu_local_set_auto_dedup((void *)global_opts, auto_dedup);
+}
+
+void criu_local_set_force_irmap(void *o, bool force_irmap)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_force_irmap = true;
 	opts->force_irmap = force_irmap;
 }
 
-void criu_set_link_remap(bool link_remap)
+void criu_set_force_irmap(bool force_irmap)
 {
+	criu_local_set_force_irmap((void *)global_opts, force_irmap);
+}
+
+void criu_local_set_link_remap(void *o, bool link_remap)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_link_remap = true;
 	opts->link_remap = link_remap;
 }
 
-void criu_set_work_dir_fd(int fd)
+void criu_set_link_remap(bool link_remap)
 {
+	criu_local_set_link_remap((void *)global_opts, link_remap);
+}
+
+void criu_local_set_work_dir_fd(void *o, int fd)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_work_dir_fd	= true;
 	opts->work_dir_fd	= fd;
 }
 
-void criu_set_leave_running(bool leave_running)
+void criu_set_work_dir_fd(int fd)
 {
+	criu_local_set_work_dir_fd((void *)global_opts, fd);
+}
+
+void criu_local_set_leave_running(void *o, bool leave_running)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_leave_running	= true;
 	opts->leave_running	= leave_running;
 }
 
-void criu_set_ext_unix_sk(bool ext_unix_sk)
+void criu_set_leave_running(bool leave_running)
 {
+	criu_local_set_leave_running((void *)global_opts, leave_running);
+}
+
+void criu_local_set_ext_unix_sk(void *o, bool ext_unix_sk)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_ext_unix_sk	= true;
 	opts->ext_unix_sk	= ext_unix_sk;
 }
 
-void criu_set_tcp_established(bool tcp_established)
+void criu_set_ext_unix_sk(bool ext_unix_sk)
 {
+	criu_local_set_ext_unix_sk((void *)global_opts, ext_unix_sk);
+}
+
+void criu_local_set_tcp_established(void *o, bool tcp_established)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_tcp_established	= true;
 	opts->tcp_established		= tcp_established;
 }
 
-void criu_set_evasive_devices(bool evasive_devices)
+void criu_set_tcp_established(bool tcp_established)
 {
+	criu_local_set_tcp_established((void *)global_opts, tcp_established);
+}
+
+void criu_local_set_evasive_devices(void *o, bool evasive_devices)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_evasive_devices	= true;
 	opts->evasive_devices		= evasive_devices;
 }
 
-void criu_set_shell_job(bool shell_job)
+void criu_set_evasive_devices(bool evasive_devices)
 {
+	criu_local_set_evasive_devices((void *)global_opts, evasive_devices);
+}
+
+void criu_local_set_shell_job(void *o, bool shell_job)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_shell_job	= true;
 	opts->shell_job		= shell_job;
 }
 
-void criu_set_file_locks(bool file_locks)
+void criu_set_shell_job(bool shell_job)
 {
+	criu_local_set_shell_job((void *)global_opts, shell_job);
+}
+
+void criu_local_set_file_locks(void *o, bool file_locks)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_file_locks	= true;
 	opts->file_locks	= file_locks;
 }
 
-void criu_set_log_level(int log_level)
+void criu_set_file_locks(bool file_locks)
 {
+	criu_local_set_file_locks((void *)global_opts, file_locks);
+}
+
+void criu_local_set_log_level(void *o, int log_level)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_log_level	= true;
 	opts->log_level		= log_level;
 }
 
-void criu_set_root(char *root)
+void criu_set_log_level(int log_level)
 {
+	criu_local_set_log_level((void *)global_opts, log_level);
+}
+
+void criu_local_set_root(void *o, char *root)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->root = strdup(root);
 }
 
-void criu_set_manage_cgroups(bool manage)
+void criu_set_root(char *root)
 {
+	criu_local_set_root((void *)global_opts, root);
+}
+
+void criu_local_set_manage_cgroups(void *o, bool manage)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_manage_cgroups = true;
 	opts->manage_cgroups = manage;
 }
 
-void criu_set_auto_ext_mnt(bool val)
+void criu_set_manage_cgroups(bool manage)
 {
+	criu_local_set_manage_cgroups((void *)global_opts, manage);
+}
+
+void criu_local_set_auto_ext_mnt(void *o, bool val)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_auto_ext_mnt = true;
 	opts->auto_ext_mnt = val;
 }
 
-void criu_set_ext_sharing(bool val)
+void criu_set_auto_ext_mnt(bool val)
 {
+	criu_local_set_auto_ext_mnt((void *)global_opts, val);
+}
+
+void criu_local_set_ext_sharing(void *o, bool val)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_ext_sharing = true;
 	opts->ext_sharing = val;
 }
 
-void criu_set_ext_masters(bool val)
+void criu_set_ext_sharing(bool val)
 {
+	criu_local_set_ext_sharing((void *)global_opts, val);
+}
+
+void criu_local_set_ext_masters(void *o, bool val)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_ext_masters = true;
 	opts->ext_masters = val;
 }
 
-void criu_set_log_file(char *log_file)
+void criu_set_ext_masters(bool val)
 {
+	criu_local_set_ext_masters((void *)global_opts, val);
+}
+
+void criu_local_set_log_file(void *o, char *log_file)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->log_file = strdup(log_file);
 }
 
-void criu_set_cpu_cap(unsigned int cap)
+void criu_set_log_file(char *log_file)
 {
+	criu_local_set_log_file((void *)global_opts, log_file);
+}
+
+void criu_local_set_cpu_cap(void *o, unsigned int cap)
+{
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
+
 	opts->has_cpu_cap	= true;
 	opts->cpu_cap		= cap;
 }
 
-int criu_set_exec_cmd(int argc, char *argv[])
+void criu_set_cpu_cap(unsigned int cap)
+{
+	criu_local_set_cpu_cap((void *)global_opts, cap);
+}
+
+int criu_local_set_exec_cmd(void *o, int argc, char *argv[])
 {
 	int i;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	opts->n_exec_cmd = argc;
 	opts->exec_cmd = malloc((argc) * sizeof(char *));
@@ -214,10 +429,18 @@ out:
 	return -ENOMEM;
 }
 
-int criu_add_ext_mount(char *key, char *val)
+int criu_set_exec_cmd(int argc, char *argv[])
+{
+	return criu_local_set_exec_cmd((void *)global_opts, argc, argv);
+}
+
+int criu_local_add_ext_mount(void *o, char *key, char *val)
 {
 	int nr;
 	ExtMountMap **a, *m;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	m = malloc(sizeof(*m));
 	if (!m)
@@ -251,10 +474,18 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_cg_root(char *ctrl, char *path)
+int criu_add_ext_mount(char *key, char *val)
+{
+	return criu_local_add_ext_mount((void *)global_opts, key, val);
+}
+
+int criu_local_add_cg_root(void *o, char *ctrl, char *path)
 {
 	int nr;
 	CgroupRoot **a, *root;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	root = malloc(sizeof(*root));
 	if (!root)
@@ -291,10 +522,19 @@ er_r:
 er:
 	return -ENOMEM;
 }
-int criu_add_veth_pair(char *in, char *out)
+
+int criu_add_cg_root(char *ctrl, char *path)
+{
+	return criu_local_add_cg_root((void *)global_opts, ctrl, path);
+}
+
+int criu_local_add_veth_pair(void *o, char *in, char *out)
 {
 	int nr;
 	CriuVethPair **a, *p;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	p = malloc(sizeof(*p));
 	if (!p)
@@ -328,11 +568,19 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_enable_fs(char *fs)
+int criu_add_veth_pair(char *in, char *out)
+{
+	return criu_local_add_veth_pair((void *)global_opts, in, out);
+}
+
+int criu_local_add_enable_fs(void *o, char *fs)
 {
 	int nr;
 	char *str = NULL;
 	char **ptr = NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	str = strdup(fs);
 	if (!str)
@@ -359,11 +607,20 @@ err:
 	return -ENOMEM;
 }
 
-int criu_add_skip_mnt(char *mnt)
+int criu_add_enable_fs(char *fs)
+{
+	return criu_local_add_enable_fs((void *)global_opts, fs);
+}
+
+
+int criu_local_add_skip_mnt(void *o, char *mnt)
 {
 	int nr;
 	char *str = NULL;
 	char **ptr = NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	str = strdup(mnt);
 	if (!str)
@@ -388,6 +645,11 @@ err:
 		free(ptr);
 
 	return -ENOMEM;
+}
+
+int criu_add_skip_mnt(char *mnt)
+{
+	return criu_local_add_skip_mnt((void *)global_opts, mnt);
 }
 
 static CriuResp *recv_resp(int socket_fd)
@@ -588,11 +850,14 @@ exit:
 	return ret;
 }
 
-int criu_dump(void)
+int criu_local_dump(void *o)
 {
 	int ret = -1;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	saved_errno = 0;
 
@@ -620,11 +885,19 @@ exit:
 	return ret;
 }
 
-int criu_dump_iters(int (*more)(criu_predump_info pi))
+int criu_dump(void)
+{
+	return criu_local_dump((void *)global_opts);
+}
+
+int criu_local_dump_iters(void *o, int (*more)(criu_predump_info pi))
 {
 	int ret = -1, fd = -1, uret;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	saved_errno = 0;
 
@@ -684,11 +957,19 @@ exit:
 	return ret;
 }
 
-int criu_restore(void)
+int criu_dump_iters(int (*more)(criu_predump_info pi))
+{
+	return criu_local_dump_iters((void *)global_opts, more);
+}
+
+int criu_local_restore(void *o)
 {
 	int ret = -1;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	saved_errno = 0;
 
@@ -713,11 +994,19 @@ exit:
 	return ret;
 }
 
-int criu_restore_child(void)
+int criu_restore(void)
+{
+	return criu_local_restore((void *)global_opts);
+}
+
+int criu_local_restore_child(void *o)
 {
 	int sks[2], pid, ret = -1;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
+	CriuOpts *opts;
+
+	opts = (CriuOpts *)o;
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sks))
 		goto out;
@@ -781,4 +1070,9 @@ err:
 	close(sks[1]);
 	close(sks[0]);
 	goto out;
+}
+
+int criu_restore_child(void)
+{
+	return criu_local_restore_child((void *)global_opts);
 }
