@@ -385,8 +385,14 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_cpu_cap)
 		opts.cpu_cap = req->cpu_cap;
 
+	/*
+	 * FIXME: For backward compatibility we setup
+	 * soft mode here, need to enhance to support
+	 * other modes as well via separate option
+	 * probably.
+	 */
 	if (req->has_manage_cgroups)
-		opts.manage_cgroups = req->manage_cgroups;
+		opts.manage_cgroups = req->manage_cgroups ? CG_MODE_SOFT : CG_MODE_IGNORE;
 
 	if (req->has_auto_ext_mnt)
 		opts.autodetect_ext_mounts = req->auto_ext_mnt;
