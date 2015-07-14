@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
 		protobuf-compiler \
 		python-minimal \
 		libaio-dev \
-		libseccomp-dev \
 		iptables
 
 COPY . /criu
