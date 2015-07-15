@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <sched.h>
 #include <sys/capability.h>
-#include <linux/seccomp.h>
 #include <linux/limits.h>
 
 #include "zdtmtst.h"
