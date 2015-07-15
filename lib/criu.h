@@ -20,6 +20,7 @@
 #define __CRIU_LIB_H__
 
 #include <stdbool.h>
+#include "rpc.pb-c.h"
 
 void criu_set_service_address(char *path);
 
@@ -120,42 +121,48 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
  * structure and lets you set individual options in it.
  */
 
-int criu_local_init_opts(void **opts);
+typedef struct {
+	CriuOpts	*rpc; /* Generic RPC options in protobuf format */
+	int		(*notify)(char *action, criu_notify_arg_t na);
+} criu_opts;
 
-void criu_local_set_pid(void *opts, int pid);
-void criu_local_set_images_dir_fd(void *opts, int fd); /* must be set for dump/restore */
-void criu_local_set_parent_images(void *opts, char *path);
-void criu_local_set_work_dir_fd(void *opts, int fd);
-void criu_local_set_leave_running(void *opts, bool leave_running);
-void criu_local_set_ext_unix_sk(void *opts, bool ext_unix_sk);
-void criu_local_set_tcp_established(void *opts, bool tcp_established);
-void criu_local_set_evasive_devices(void *opts, bool evasive_devices);
-void criu_local_set_shell_job(void *opts, bool shell_job);
-void criu_local_set_file_locks(void *opts, bool file_locks);
-void criu_local_set_track_mem(void *opts, bool track_mem);
-void criu_local_set_auto_dedup(void *opts, bool auto_dedup);
-void criu_local_set_force_irmap(void *opts, bool force_irmap);
-void criu_local_set_link_remap(void *opts, bool link_remap);
-void criu_local_set_log_level(void *opts, int log_level);
-void criu_local_set_log_file(void *opts, char *log_file);
-void criu_local_set_cpu_cap(void *opts, unsigned int cap);
-void criu_local_set_root(void *opts, char *root);
-void criu_local_set_manage_cgroups(void *opts, bool manage);
-void criu_local_set_auto_ext_mnt(void *opts, bool val);
-void criu_local_set_ext_sharing(void *opts, bool val);
-void criu_local_set_ext_masters(void *opts, bool val);
-int criu_local_set_exec_cmd(void *opts, int argc, char *argv[]);
-int criu_local_add_ext_mount(void *opts, char *key, char *val);
-int criu_local_add_veth_pair(void *opts, char *in, char *out);
-int criu_local_add_cg_root(void *opts, char *ctrl, char *path);
-int criu_local_add_enable_fs(void *opts, char *fs);
-int criu_local_add_skip_mnt(void *opts, char *mnt);
+int criu_local_init_opts(criu_opts **opts);
 
-void criu_local_set_notify_cb(void *opts, int (*cb)(char *action, criu_notify_arg_t na));
+void criu_local_set_pid(criu_opts *opts, int pid);
+void criu_local_set_images_dir_fd(criu_opts *opts, int fd); /* must be set for dump/restore */
+void criu_local_set_parent_images(criu_opts *opts, char *path);
+void criu_local_set_work_dir_fd(criu_opts *opts, int fd);
+void criu_local_set_leave_running(criu_opts *opts, bool leave_running);
+void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk);
+void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established);
+void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices);
+void criu_local_set_shell_job(criu_opts *opts, bool shell_job);
+void criu_local_set_file_locks(criu_opts *opts, bool file_locks);
+void criu_local_set_track_mem(criu_opts *opts, bool track_mem);
+void criu_local_set_auto_dedup(criu_opts *opts, bool auto_dedup);
+void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap);
+void criu_local_set_link_remap(criu_opts *opts, bool link_remap);
+void criu_local_set_log_level(criu_opts *opts, int log_level);
+void criu_local_set_log_file(criu_opts *opts, char *log_file);
+void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap);
+void criu_local_set_root(criu_opts *opts, char *root);
+void criu_local_set_manage_cgroups(criu_opts *opts, bool manage);
+void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val);
+void criu_local_set_ext_sharing(criu_opts *opts, bool val);
+void criu_local_set_ext_masters(criu_opts *opts, bool val);
+int criu_local_set_exec_cmd(criu_opts *opts, int argc, char *argv[]);
+int criu_local_add_ext_mount(criu_opts *opts, char *key, char *val);
+int criu_local_add_veth_pair(criu_opts *opts, char *in, char *out);
+int criu_local_add_cg_root(criu_opts *opts, char *ctrl, char *path);
+int criu_local_add_enable_fs(criu_opts *opts, char *fs);
+int criu_local_add_skip_mnt(criu_opts *opts, char *mnt);
 
-int criu_local_dump(void *opts);
-int criu_local_restore(void *opts);
-int criu_local_restore_child(void *opts);
-int criu_local_dump_iters(void *opts, int (*more)(criu_predump_info pi));
+void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
+
+int criu_local_check(criu_opts *opts);
+int criu_local_dump(criu_opts *opts);
+int criu_local_restore(criu_opts *opts);
+int criu_local_restore_child(criu_opts *opts);
+int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));
 
 #endif /* __CRIU_LIB_H__ */
