@@ -11,13 +11,13 @@ run: all
 
 define genb
 $(1): $(1).o lib.o
-	gcc $$^ -L ../../lib -lcriu -o $$@
+	gcc $$^ -L ../../lib -L ../../protobuf -lcriu -o $$@
 endef
 
 $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
 
 %.o: %.c
-	gcc -c $^ -I../../lib/ -o $@ -Werror
+	gcc -c $^ -I../../lib/ -I../../protobuf -o $@ -Werror
 
 clean:
 	rm -rf $(TESTS) $(TESTS:%=%.o) lib.o
