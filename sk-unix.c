@@ -631,7 +631,13 @@ struct unix_sk_info {
 	unsigned flags;
 	struct unix_sk_info *peer;
 	struct file_desc d;
-	futex_t bound;
+
+	/*
+	 * Futex to signal when the socket is prepared. In particular, we
+	 * signal after bind()ing the socket if it is not in TCP_LISTEN, or
+	 * after listen() if the socket is in TCP_LISTEN.
+	 */
+	futex_t prepared;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -689,7 +695,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
-		futex_wait_while(&peer->bound, 0);
+		futex_wait_while(&peer->prepared, 0);
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
@@ -764,7 +770,8 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		}
 	}
 
-	futex_set_and_wake(&ui->bound, 1);
+	if (ui->ue->state != TCP_LISTEN)
+		futex_set_and_wake(&ui->prepared, 1);
 done:
 	return 0;
 }
@@ -957,6 +964,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			pr_perror("Can't make usk listen");
 			return -1;
 		}
+		futex_set_and_wake(&ui->prepared, 1);
 	}
 out:
 	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
@@ -1012,7 +1020,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	} else
 		ui->name = NULL;
 
-	futex_init(&ui->bound);
+	futex_init(&ui->prepared);
 	ui->peer = NULL;
 	ui->flags = 0;
 	pr_info(" `- Got %#x peer %#x (name %s)\n",
