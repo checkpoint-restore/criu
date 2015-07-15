@@ -529,7 +529,7 @@ static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 
 	ret = sys_setsockopt(rts->sk, SOL_SOCKET, SO_REUSEADDR, &aux, sizeof(aux));
 	if (ret < 0)
-		pr_err("Failed to restore of SO_REUSEADDR on socket (%d)", ret);
+		pr_err("Failed to restore of SO_REUSEADDR on socket (%d)\n", ret);
 }
 
 static void rst_tcp_socks_all(struct task_restore_args *ta)
@@ -636,7 +636,7 @@ static int timerfd_arm(struct task_restore_args *args)
 			 * overflow the limit NSEC_PER_SEC FIXME
 			 */
 			if (sys_clock_gettime(t->clockid, &ts)) {
-				pr_err("Can't get current time");
+				pr_err("Can't get current time\n");
 				return -1;
 			}
 
@@ -688,7 +688,7 @@ static int create_posix_timers(struct task_restore_args *args)
 			}
 
 			if ((long)next_id > args->posix_timers[i].spt.it_id) {
-				pr_err("Can't create timers, kernel don't give them consequently");
+				pr_err("Can't create timers, kernel don't give them consequently\n");
 				return -1;
 			}
 		}

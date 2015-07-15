@@ -2559,7 +2559,7 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 		if (ret <= 0)
 			break;
 		if (sie->siginfo.len != sizeof(siginfo_t)) {
-			pr_err("Unknown image format");
+			pr_err("Unknown image format\n");
 			ret = -1;
 			break;
 		}
