@@ -2266,31 +2266,42 @@ static inline int verify_cap_size(CredsEntry *ce)
 		(ce->n_cap_prm == CR_CAP_SIZE) && (ce->n_cap_bnd == CR_CAP_SIZE));
 }
 
-static int prepare_creds(int pid, struct task_restore_args *args, char **lsm_profile)
+static CredsEntry *read_creds(int pid)
 {
 	int ret;
 	struct cr_img *img;
-	CredsEntry *ce;
+	CredsEntry *ce = NULL;
 
 	img = open_image(CR_FD_CREDS, O_RSTR, pid);
 	if (!img)
-		return -1;
+		return NULL;
 
 	ret = pb_read_one(img, &ce, PB_CREDS);
 	close_image(img);
 
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		creds_entry__free_unpacked(ce, NULL);
+		return NULL;
+	}
+
 	if (!verify_cap_size(ce)) {
 		pr_err("Caps size mismatch %d %d %d %d\n",
 		       (int)ce->n_cap_inh, (int)ce->n_cap_eff,
 		       (int)ce->n_cap_prm, (int)ce->n_cap_bnd);
-		return -1;
+		creds_entry__free_unpacked(ce, NULL);
+		return NULL;
 	}
 
-	if (!may_restore(ce))
-		return -1;
+	if (!may_restore(ce)) {
+		creds_entry__free_unpacked(ce, NULL);
+		return NULL;
+	}
 
+	return ce;
+}
+
+static int prepare_creds(CredsEntry *ce, struct task_restore_args *args)
+{
 	args->creds = *ce;
 	args->creds.cap_inh = args->cap_inh;
 	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
@@ -2311,17 +2322,6 @@ static int prepare_creds(int pid, struct task_restore_args *args, char **lsm_pro
 	if (setgroups(ce->n_groups, ce->groups) < 0) {
 		pr_perror("Can't set supplementary groups");
 		return -1;
-	}
-
-	*lsm_profile = NULL;
-
-	if (ce->lsm_profile) {
-		if (validate_lsm(ce) < 0)
-			return -1;
-
-		*lsm_profile = xstrdup(ce->lsm_profile);
-		if (!*lsm_profile)
-			return -1;
 	}
 
 	creds_entry__free_unpacked(ce, NULL);
@@ -2664,6 +2664,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
 
+	CredsEntry *creds;
+
 	pr_info("Restore via sigreturn\n");
 
 	/* pr_info_vma_list(&self_vma_list); */
@@ -2734,6 +2736,35 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	ret = parse_self_maps_lite(&self_vmas);
 	if (ret < 0)
 		goto err;
+
+	creds = read_creds(pid);
+	if (!creds)
+		goto err;
+
+	if (creds->lsm_profile) {
+		char *rendered;
+		int ret;
+
+		if (validate_lsm(creds) < 0)
+			return -1;
+
+		ret = render_lsm_profile(creds->lsm_profile, &rendered);
+		if (ret < 0) {
+			goto err_nv;
+		}
+
+		lsm_pos = rst_mem_cpos(RM_PRIVATE);
+		lsm_profile_len = strlen(rendered);
+		lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
+		if (!lsm) {
+			xfree(rendered);
+			goto err_nv;
+		}
+
+		strncpy(lsm, rendered, lsm_profile_len);
+		xfree(rendered);
+
+	}
 
 	rst_mem_size = rst_mem_lock();
 	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
@@ -2810,32 +2841,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	}
 
-	ret = prepare_creds(pid, task_args, &lsm);
+	ret = prepare_creds(creds, task_args);
 	if (ret < 0)
 		goto err;
-
-	if (lsm) {
-		char *rendered;
-		int ret;
-
-		ret = render_lsm_profile(lsm, &rendered);
-		xfree(lsm);
-		if (ret < 0) {
-			goto err_nv;
-		}
-
-		lsm_pos = rst_mem_cpos(RM_PRIVATE);
-		lsm_profile_len = strlen(rendered);
-		lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
-		if (!lsm) {
-			xfree(rendered);
-			goto err_nv;
-		}
-
-		strncpy(lsm, rendered, lsm_profile_len);
-		xfree(rendered);
-
-	}
 
 	/*
 	 * Get a reference to shared memory area which is
