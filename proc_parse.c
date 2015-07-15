@@ -1152,7 +1152,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 
 		ret = parse_mountinfo_ent(str, new, &fsname);
 		if (ret < 0) {
-			pr_err("Bad format in %d mountinfo\n", pid);
+			pr_err("Bad format in %d mountinfo: '%s'\n", pid, str);
 			goto end;
 		}
 
