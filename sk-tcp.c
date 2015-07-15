@@ -665,6 +665,13 @@ int rst_tcp_socks_prep(void)
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist) {
 		struct rst_tcp_sock *rs;
 
+		/*
+		 * rst_tcp_repair_sockets contains all sockets, so we need to
+		 * select sockets which restored in a current porcess.
+		 */
+		if (ii->sk_fd == -1)
+			continue;
+
 		rs = rst_mem_alloc(sizeof(*rs), RM_PRIVATE);
 		if (!rs)
 			return -1;
