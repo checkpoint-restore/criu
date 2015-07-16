@@ -18,16 +18,40 @@
 
 const char *criu_lib_version = CRIU_VERSION;
 
-static char *service_address = CR_DEFAULT_SERVICE_ADDRESS;
 static criu_opts *global_opts;
 static int saved_errno;
 
-void criu_set_service_address(char *path)
+void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm comm)
+{
+	opts->service_comm = comm;
+}
+
+void criu_set_service_comm(enum criu_service_comm comm)
+{
+	criu_local_set_service_comm(global_opts, comm);
+}
+
+void criu_local_set_service_address(criu_opts *opts, char *path)
 {
 	if (path)
-		service_address = path;
+		opts->service_address = path;
 	else
-		service_address = CR_DEFAULT_SERVICE_ADDRESS;
+		opts->service_address = CR_DEFAULT_SERVICE_ADDRESS;
+}
+
+void criu_set_service_address(char *path)
+{
+	criu_local_set_service_address(global_opts, path);
+}
+
+void criu_local_set_service_fd(criu_opts *opts, int fd)
+{
+	opts->service_fd = fd;
+}
+
+void criu_set_service_fd(int fd)
+{
+	criu_local_set_service_fd(global_opts, fd);
 }
 
 int criu_local_init_opts(criu_opts **o)
@@ -56,6 +80,9 @@ int criu_local_init_opts(criu_opts **o)
 
 	opts->rpc	= rpc;
 	opts->notify	= NULL;
+
+	opts->service_comm	= CRIU_COMM_SK;
+	opts->service_address	= CR_DEFAULT_SERVICE_ADDRESS;
 
 	*o = opts;
 
@@ -636,11 +663,14 @@ static int send_notify_ack(int socket_fd, int ret)
 	return ret ? : send_ret;
 }
 
-static int criu_connect(void)
+static int criu_connect(criu_opts *opts)
 {
 	int fd, ret;
 	struct sockaddr_un addr;
 	socklen_t addr_len;
+
+	if (opts->service_comm == CRIU_COMM_FD)
+		return opts->service_fd;
 
 	fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (fd < 0) {
@@ -652,7 +682,7 @@ static int criu_connect(void)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
 
-	strncpy(addr.sun_path, service_address, sizeof(addr.sun_path));
+	strncpy(addr.sun_path, opts->service_address, sizeof(addr.sun_path));
 
 	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
 
@@ -717,7 +747,7 @@ static int send_req_and_recv_resp(criu_opts *opts, CriuReq *req, CriuResp **resp
 	int fd;
 	int ret	= 0;
 
-	fd = criu_connect();
+	fd = criu_connect(opts);
 	if (fd < 0) {
 		perror("Can't connect to criu");
 		ret = -ECONNREFUSED;
@@ -819,7 +849,7 @@ int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi))
 		goto exit;
 
 	ret = -ECONNREFUSED;
-	fd = criu_connect();
+	fd = criu_connect(opts);
 	if (fd < 0)
 		goto exit;
 

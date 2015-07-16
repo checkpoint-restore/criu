@@ -22,7 +22,19 @@
 #include <stdbool.h>
 #include "rpc.pb-c.h"
 
+enum criu_service_comm {
+	CRIU_COMM_SK,
+	CRIU_COMM_FD
+};
+
 void criu_set_service_address(char *path);
+void criu_set_service_fd(int fd);
+
+/*
+ * You can choose if you want libcriu to connect to service socket
+ * by itself or just use provided file descriptor
+ */
+void criu_set_service_comm(enum criu_service_comm);
 
 /*
  * Set opts to defaults. _Must_ be called first before using any functions from
@@ -122,11 +134,22 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
  */
 
 typedef struct {
-	CriuOpts	*rpc; /* Generic RPC options in protobuf format */
-	int		(*notify)(char *action, criu_notify_arg_t na);
+	CriuOpts		*rpc; /* Generic RPC options in protobuf format */
+	int			(*notify)(char *action, criu_notify_arg_t na);
+	enum criu_service_comm	service_comm;
+	union {
+		char		*service_address;
+		int		service_fd;
+	};
 } criu_opts;
 
 int criu_local_init_opts(criu_opts **opts);
+
+void criu_local_set_service_address(criu_opts *opts, char *path);
+void criu_local_set_service_fd(criu_opts *opts, int fd);
+void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm);
+
+void criu_local_set_service_fd(criu_opts *opts, int fd);
 
 void criu_local_set_pid(criu_opts *opts, int pid);
 void criu_local_set_images_dir_fd(criu_opts *opts, int fd); /* must be set for dump/restore */
