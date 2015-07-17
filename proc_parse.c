@@ -1024,8 +1024,15 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 
 	str += n;
 	ret = sscanf(str, "%ms %ms %ms", fsname, &new->source, &opt);
-	if (ret != 3)
+	if (ret == 2) {
+		/* src may be empty */
+		opt = new->source;
+		new->source = xstrdup("");
+		if (new->source == NULL)
+			goto err;
+	} else if (ret != 3)
 		goto err;
+
 	/*
 	 * The kernel reports "subtypes" sometimes and the valid
 	 * type-vs-subtype delimiter is the dot symbol. We disregard
