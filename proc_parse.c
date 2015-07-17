@@ -988,6 +988,37 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
 	return 0;
 }
 
+/*
+ * mountinfo contains mangled paths. space, tab and back slash were replaced
+ * with usual octal escape. This function replaces these symbols back.
+ */
+static void cure_path(char *path) { int i, len, off = 0;
+
+	if (strchr(path, '\\') == NULL) /* fast path */
+		return;
+
+	len = strlen(path);
+	for (i = 0; i < len; i++) {
+		if (!strncmp(path + i, "\\040", 4)) {
+			path[i - off] = ' ';
+			goto replace;
+		} else if (!strncmp(path + i, "\\011", 4)) {
+			path[i - off] = '\t';
+			goto replace;
+		} else if (!strncmp(path + i, "\\134", 4)) {
+			path[i - off] = '\\';
+			goto replace;
+		}
+		if (off)
+			path[i - off] = path[i];
+		continue;
+replace:
+		off += 3;
+		i += 3;
+	}
+	path[len - off] = 0;
+}
+
 static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
 	unsigned int kmaj, kmin;
@@ -1005,6 +1036,9 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 			&opt, &n);
 	if (ret != 7)
 		goto err;
+
+	cure_path(new->mountpoint);
+	cure_path(new->root);
 
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 	if (!new->mountpoint)
@@ -1032,6 +1066,8 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 			goto err;
 	} else if (ret != 3)
 		goto err;
+
+	cure_path(new->source);
 
 	/*
 	 * The kernel reports "subtypes" sometimes and the valid
