@@ -1104,6 +1104,8 @@ static int tmpfs_dump(struct mount_info *pm)
 	ret = cr_system(-1, img_raw_fd(img), -1, "tar", (char *[])
 			{ "tar", "--create",
 			"--gzip",
+			"--no-unquote",
+			"--no-wildcards",
 			"--one-file-system",
 			"--check-links",
 			"--preserve-permissions",
@@ -1161,6 +1163,7 @@ static int tmpfs_restore(struct mount_info *pm)
 
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]) {"tar", "--extract", "--gzip",
+				"--no-unquote", "--no-wildcards",
 				"--directory", pm->mountpoint, NULL});
 	close_image(img);
 
