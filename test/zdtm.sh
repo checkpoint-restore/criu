@@ -182,6 +182,7 @@ generate_test_list()
 		ns/static/session00
 		ns/static/session01
 		ns/static/tempfs
+		ns/static/mount_paths
 		ns/static/bind-mount
 		static/utsname
 		static/ipc_namespace
@@ -271,6 +272,7 @@ generate_test_list()
 		ns/static/dumpable02
 		ns/static/deleted_dev
 		ns/static/tempfs
+		ns/static/mount_paths
 		ns/static/clean_mntns
 		ns/static/mntns_link_remap
 		ns/static/mntns_link_ghost
@@ -339,6 +341,7 @@ mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
 mntns_rw_ro_rw
+mount_paths
 netns-dev
 sockets00
 cow01

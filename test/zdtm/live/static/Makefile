@@ -178,6 +178,7 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 		tempfs				\
+		mount_paths			\
 		bind-mount			\
 		inotify00			\
 		cgroup00			\
