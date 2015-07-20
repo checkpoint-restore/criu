@@ -1164,9 +1164,8 @@ static int devpts_parse(struct mount_info *pm)
 
 static int tmpfs_dump(struct mount_info *pm)
 {
-	int ret = -1;
+	int ret = -1, fd = -1, userns_pid = -1;
 	char tmpfs_path[PSFDS];
-	int fd = -1;
 	struct cr_img *img;
 
 	fd = open_mountpoint(pm);
@@ -1184,7 +1183,10 @@ static int tmpfs_dump(struct mount_info *pm)
 
 	sprintf(tmpfs_path, "/proc/self/fd/%d", fd);
 
-	ret = cr_system(-1, img_raw_fd(img), -1, "tar", (char *[])
+	if (root_ns_mask & CLONE_NEWUSER)
+		userns_pid = root_item->pid.real;
+
+	ret = cr_system_userns(-1, img_raw_fd(img), -1, "tar", (char *[])
 			{ "tar", "--create",
 			"--gzip",
 			"--no-unquote",
@@ -1194,7 +1196,7 @@ static int tmpfs_dump(struct mount_info *pm)
 			"--preserve-permissions",
 			"--sparse",
 			"--numeric-owner",
-			"--directory", tmpfs_path, ".", NULL });
+			"--directory", tmpfs_path, ".", NULL }, userns_pid);
 
 	if (ret)
 		pr_err("Can't dump tmpfs content\n");

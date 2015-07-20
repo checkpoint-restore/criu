@@ -1183,15 +1183,15 @@ int collect_namespaces(bool for_dump)
 {
 	int ret;
 
+	ret = collect_user_namespaces(for_dump);
+	if (ret < 0)
+		return ret;
+
 	ret = collect_mnt_namespaces(for_dump);
 	if (ret < 0)
 		return ret;
 
 	ret = collect_net_namespaces(for_dump);
-	if (ret < 0)
-		return ret;
-
-	ret = collect_user_namespaces(for_dump);
 	if (ret < 0)
 		return ret;
 
