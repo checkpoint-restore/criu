@@ -37,6 +37,7 @@
 #include "image.h"
 #include "vma.h"
 #include "mem.h"
+#include "namespaces.h"
 
 #include "cr_options.h"
 #include "servicefd.h"
@@ -507,6 +508,12 @@ void shfree_last(void *ptr)
  */
 int cr_system(int in, int out, int err, char *cmd, char *const argv[])
 {
+	return cr_system_userns(in, out, err, cmd, argv, -1);
+}
+
+int cr_system_userns(int in, int out, int err, char *cmd,
+			char *const argv[], int userns_pid)
+{
 	sigset_t blockmask, oldmask;
 	int ret = -1, status;
 	pid_t pid;
@@ -523,6 +530,15 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[])
 		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
+		if (userns_pid > 0) {
+			if (switch_ns(userns_pid, &user_ns_desc, NULL))
+				goto out_chld;
+			if (setuid(0) || setgid(0)) {
+				pr_perror("Unable to set uid or gid");
+				goto out_chld;
+			}
+		}
+
 		if (out < 0)
 			out = log_get_fd();
 		if (err < 0)
