@@ -271,6 +271,29 @@ static const struct fdtype_ops *get_misc_dev_ops(int minor)
 	return NULL;
 }
 
+static const struct fdtype_ops *get_mem_dev_ops(struct fd_parms *p, int minor)
+{
+	const struct fdtype_ops *ops = NULL;
+
+	switch (minor) {
+	case 11:
+		/*
+		 * If /dev/kmsg is opened in write-only mode the file position
+		 * should not be set up upon restore, kernel doesn't allow that.
+		 */
+		if ((p->flags & O_ACCMODE) == O_WRONLY && p->pos == 0)
+			p->pos = -1ULL;
+		/*
+		 * Fallthrough.
+		 */
+	default:
+		ops = &regfile_dump_ops;
+		break;
+	};
+
+	return ops;
+}
+
 static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 {
 	int maj = major(p->stat.st_rdev);
@@ -278,7 +301,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 
 	switch (maj) {
 	case MEM_MAJOR:
-		ops = &regfile_dump_ops;
+		ops = get_mem_dev_ops(p, minor(p->stat.st_rdev));
 		break;
 	case MISC_MAJOR:
 		ops = get_misc_dev_ops(minor(p->stat.st_rdev));
