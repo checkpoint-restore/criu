@@ -265,6 +265,8 @@ generate_test_list()
 		TEST_LIST="$TEST_LIST$TEST_SECCOMP_SUSPEND"
 	fi
 
+	# ns/static/clean_mntns: proc can't be mounted in userns, if it isn't mounted yet
+
 	BLACKLIST_FOR_USERNS="
 		ns/static/maps01
 		ns/static/mlock_setuid
@@ -273,17 +275,12 @@ generate_test_list()
 		ns/static/fanotify00
 		ns/static/dumpable02
 		ns/static/deleted_dev
-		ns/static/tempfs
-		ns/static/mount_paths
 		ns/static/clean_mntns
 		ns/static/mntns_link_remap
 		ns/static/mntns_link_ghost
 		ns/static/console
 		ns/static/vt
 		ns/static/rtc
-		ns/static/mntns_shared_bind
-		ns/static/mntns_shared_bind02
-		ns/static/mntns_root_bind
 		ns/static/cow01
 	"
 
