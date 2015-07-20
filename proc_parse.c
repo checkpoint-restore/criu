@@ -28,6 +28,8 @@
 #include "cr_options.h"
 #include "sysfs_parse.h"
 #include "seccomp.h"
+#include "namespaces.h"
+
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
 #include "protobuf/mnt.pb-c.h"
@@ -852,6 +854,8 @@ static int do_opt2flag(char *opt, unsigned *flags,
 	size_t uoff = 0;
 
 	while (1) {
+		unsigned int id;
+
 		end = strchr(opt, ',');
 		if (end)
 			*end = '\0';
@@ -862,7 +866,15 @@ static int do_opt2flag(char *opt, unsigned *flags,
 				break;
 			}
 
-		if (opts[i].opt == NULL) {
+		if (sscanf(opt, "gid=%d", &id) == 1) {
+			uoff += sprintf(unknown + uoff, "gid=%d", userns_gid(id));
+			unknown[uoff] = ',';
+			uoff++;
+		} else if (sscanf(opt, "uid=%d", &id) == 1) {
+			uoff += sprintf(unknown + uoff, "uid=%d", userns_uid(id));
+			unknown[uoff] = ',';
+			uoff++;
+		} else if (opts[i].opt == NULL) {
 			if (!unknown) {
 				pr_err("Unknown option [%s]\n", opt);
 				return -1;
