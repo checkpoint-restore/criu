@@ -61,8 +61,13 @@ int criu_local_init_opts(criu_opts **o)
 
 	opts = *o;
 
-	if (opts && opts->rpc)
-		criu_opts__free_unpacked(opts->rpc, NULL);
+	if (opts) {
+		if (opts->rpc)
+			criu_opts__free_unpacked(opts->rpc, NULL);
+
+		free(opts);
+		opts = NULL;
+	}
 
 	rpc = malloc(sizeof(CriuOpts));
 	if (rpc == NULL) {
@@ -75,6 +80,7 @@ int criu_local_init_opts(criu_opts **o)
 	opts = malloc(sizeof(criu_opts));
 	if (opts == NULL) {
 		perror("Can't allocate memory for criu opts");
+		criu_opts__free_unpacked(rpc, NULL);
 		return -1;
 	}
 
