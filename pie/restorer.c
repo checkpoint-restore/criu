@@ -51,10 +51,11 @@
 
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
-static futex_t zombies_inprogress;
 static int cap_last_cap;
 static pid_t *helpers;
 static int n_helpers;
+static pid_t *zombies;
+static int n_zombies;
 
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
@@ -70,16 +71,9 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (siginfo->si_pid == helpers[i])
 			return;
 
-	if (futex_get(&task_entries->start) == CR_STATE_RESTORE_SIGCHLD) {
-		pr_debug("%ld: Collect a zombie with (pid %d, %d)\n",
-			sys_getpid(), siginfo->si_pid, siginfo->si_pid);
-		futex_dec_and_wake(&task_entries->nr_in_progress);
-		futex_dec_and_wake(&zombies_inprogress);
-		task_entries->nr_threads--;
-		task_entries->nr_tasks--;
-		mutex_unlock(&task_entries->zombie_lock);
-		return;
-	}
+	for (i = 0; i < n_zombies; i++)
+		if (siginfo->si_pid == zombies[i])
+			return;
 
 	if (siginfo->si_code & CLD_EXITED)
 		r = " exited, status=";
@@ -805,6 +799,26 @@ static int wait_helpers(struct task_restore_args *task_args)
 	return 0;
 }
 
+static int wait_zombies(struct task_restore_args *task_args)
+{
+	int i;
+
+	task_entries->nr_threads -= task_args->zombies_n;
+	task_entries->nr_tasks -= task_args->zombies_n;
+
+	for (i = 0; i < task_args->zombies_n; i++) {
+		if (sys_waitid(P_PID, task_args->zombies[i], NULL, WNOWAIT | WEXITED, NULL) < 0) {
+			pr_err("Wait on %d zombie failed\n", task_args->zombies[i]);
+			return -1;
+		}
+		pr_debug("%ld: Collect a zombie with pid %d\n",
+			sys_getpid(), task_args->zombies[i]);
+		futex_dec_and_wake(&task_entries->nr_in_progress);
+	}
+
+	return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -836,6 +850,8 @@ long __export_restore_task(struct task_restore_args *args)
 	task_entries = args->task_entries;
 	helpers = args->helpers;
 	n_helpers = args->helpers_n;
+	zombies = args->zombies;
+	n_zombies = args->zombies_n;
 	*args->breakpoint = rst_sigreturn;
 
 	ksigfillset(&act.rt_sa_mask);
@@ -1190,11 +1206,10 @@ long __export_restore_task(struct task_restore_args *args)
 
 	pr_info("%ld: Restored\n", sys_getpid());
 
-	futex_set(&zombies_inprogress, args->nr_zombies);
-
 	restore_finish_stage(CR_STATE_RESTORE);
 
-	futex_wait_while_gt(&zombies_inprogress, 0);
+	if (wait_zombies(args) < 0)
+		goto core_restore_end;
 
 	if (wait_helpers(args) < 0)
 		goto core_restore_end;

@@ -104,7 +104,6 @@ struct task_restore_args {
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
-	int				nr_zombies;
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
 	struct thread_restore_args	*thread_args;		/* array of thread arguments */
 	struct task_entries		*task_entries;
@@ -135,6 +134,9 @@ struct task_restore_args {
 
 	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;
 	unsigned int			helpers_n;
+
+	pid_t				*zombies;
+	unsigned int			zombies_n;
 	/* * * * * * * * * * * * * * * * * * * * */
 
 	unsigned long			premmapped_addr;

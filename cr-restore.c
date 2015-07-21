@@ -118,6 +118,8 @@ static int prepare_signals(int pid, CoreEntry *core);
 static int root_as_sibling;
 static unsigned long helpers_pos = 0;
 static int n_helpers = 0;
+static unsigned long zombies_pos = 0;
+static int n_zombies = 0;
 
 static int crtools_prepare_shared(void)
 {
@@ -730,27 +732,38 @@ err:
 	return ret;
 }
 
-static int collect_helper_pids()
+static int collect_child_pids(int state, int *n)
 {
 	struct pstree_item *pi;
 
-	helpers_pos = rst_mem_cpos(RM_PRIVATE);
-
+	*n = 0;
 	list_for_each_entry(pi, &current->children, sibling) {
-		static pid_t *helper;
+		static pid_t *child;
 
-		if (pi->state != TASK_HELPER)
+		if (pi->state != state)
 			continue;
 
-		helper = rst_mem_alloc(sizeof(*helper), RM_PRIVATE);
-		if (!helper)
+		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
+		if (!child)
 			return -1;
 
-		n_helpers++;
-		*helper = pi->pid.virt;
+		(*n)++;
+		*child = pi->pid.virt;
 	}
 
 	return 0;
+}
+
+static int collect_helper_pids()
+{
+	helpers_pos = rst_mem_cpos(RM_PRIVATE);
+	return collect_child_pids(TASK_HELPER, &n_helpers);
+}
+
+static int collect_zombie_pids()
+{
+	zombies_pos = rst_mem_cpos(RM_PRIVATE);
+	return collect_child_pids(TASK_DEAD, &n_zombies);
 }
 
 static int open_cores(int pid, CoreEntry *leader_core)
@@ -821,6 +834,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (collect_helper_pids() < 0)
+		return -1;
+
+	if (collect_zombie_pids() < 0)
 		return -1;
 
 	if (inherit_fd_fini() < 0)
@@ -896,7 +912,6 @@ static int restore_one_zombie(CoreEntry *core)
 	if (task_entries != NULL) {
 		restore_finish_stage(CR_STATE_RESTORE);
 		zombie_prepare_signals();
-		mutex_lock(&task_entries->zombie_lock);
 	}
 
 	if (exit_code & 0x7f) {
@@ -1926,7 +1941,6 @@ static int prepare_task_entries(void)
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
-	mutex_init(&task_entries->zombie_lock);
 	mutex_init(&task_entries->userns_sync_lock);
 
 	return 0;
@@ -2885,6 +2899,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	remap_array(rings,	  mm->n_aios, aio_rings);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
+	remap_array(zombies,	  n_zombies, zombies_pos);
 
 #undef remap_array
 
@@ -3005,7 +3020,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Now prepare run-time data for threads restore.
 	 */
 	task_args->nr_threads		= current->nr_threads;
-	task_args->nr_zombies		= rsti(current)->nr_zombies;
 	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
 
