@@ -44,6 +44,7 @@ getsockopt			209	295	(int sockfd, int level, int optname, const void *optval, so
 clone				220	120	(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid)
 exit				93	1	(unsigned long error_code)
 wait4				260	114	(int pid, int *status, int options, struct rusage *ru)
+waitid				280	!	(int which, pid_t pid, struct siginfo *infop, int options, struct rusage *ru)
 kill				129	37	(long pid, int sig)
 fcntl				25	55	(int fd, int type, long arg)
 flock				32	143	(int fd, unsigned long cmd)

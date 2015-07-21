@@ -80,4 +80,6 @@ struct krlimit {
 	unsigned long rlim_max;
 };
 
+struct siginfo;
+
 #endif /* __CR_SYSCALL_TYPES_H__ */
