@@ -73,6 +73,12 @@ def main():
 			help = 'where to put criu image in binary format (stdout by default)')
 	encode_parser.set_defaults(func=encode)
 
+	# Show
+	show_parser = subparsers.add_parser('show',
+			help = "convert criu image from binary to human-readable json")
+	show_parser.add_argument("in")
+	show_parser.set_defaults(func=decode, pretty=True, out=None)
+
 	opts = vars(parser.parse_args())
 
 	opts["func"](opts)
