@@ -53,6 +53,7 @@ TST_NOFILE	=				\
 		pstree				\
 		sockets01			\
 		sockets02			\
+		sockets03			\
 		sockets_spair			\
 		socket_queues			\
 		socket_queues02			\
