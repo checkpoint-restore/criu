@@ -101,6 +101,7 @@ extern int parse_opt_string(char *param, void *arg);
 /* message helpers */
 extern void setup_outfile(void);
 extern int test_log_init(const char *outfile, const char *suffix);
+extern int zdtm_seccomp;
 #define err(format, arg...)	\
 	test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", \
 		__FILE__, __LINE__, ## arg, errno, strerror(errno))

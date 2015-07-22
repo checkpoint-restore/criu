@@ -34,6 +34,7 @@ int test_log_init(const char *fname, const char *suffix)
 	return 0;
 }
 
+int zdtm_seccomp;
 void test_msg(const char *format, ...)
 {
 	va_list arg;
@@ -42,6 +43,9 @@ void test_msg(const char *format, ...)
 	int __errno = errno;
 	struct timeval tv;
 	struct tm *tm;
+
+	if (zdtm_seccomp) /* seccomp allows restricted set of syscall-s */
+		goto skip;
 
 	gettimeofday(&tv, NULL);
 	tm = localtime(&tv.tv_sec);
@@ -53,6 +57,8 @@ void test_msg(const char *format, ...)
 
 	off += sprintf(buf + off, ".%.3ld: ", tv.tv_usec / 1000);
 	off += sprintf(buf + off, "%5d: ", getpid());
+
+skip:
 	va_start(arg, format);
 	off += vsnprintf(buf + off, sizeof(buf) - off, format, arg);
 	va_end(arg);
