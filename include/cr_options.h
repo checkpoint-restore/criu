@@ -31,7 +31,7 @@ struct cg_root_opt {
 #define CG_MODE_FULL		(1u << 3)
 #define CG_MODE_STRICT		(1u << 4)
 
-#define CG_MODE_DEFAULT		(CG_MODE_IGNORE)
+#define CG_MODE_DEFAULT		(CG_MODE_SOFT)
 
 struct cr_options {
 	int			final_state;
