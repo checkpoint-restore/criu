@@ -744,6 +744,13 @@ struct unix_sk_info {
 	 * after listen() if the socket is in TCP_LISTEN.
 	 */
 	futex_t prepared;
+
+	/*
+	 * For DGRAM sockets with queues, we should only restore the queue
+	 * once although it may be open by more than one tid. This is the peer
+	 * that should do the queueing.
+	 */
+	u32 queuer;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -830,7 +837,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 		return -1;
 	}
 
-	if (restore_sk_queue(fd, peer->ue->id))
+	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
 		return -1;
 
 	if (rst_file_params(fd, ui->ue->fown, ui->ue->flags))
@@ -1161,6 +1168,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 		ui->name = NULL;
 
 	futex_init(&ui->prepared);
+	ui->queuer = 0;
 	ui->peer = NULL;
 	ui->flags = 0;
 	pr_info(" `- Got %#x peer %#x (name %s dir %s)\n",
@@ -1204,6 +1212,8 @@ int resolve_unix_peers(void)
 		}
 
 		ui->peer = peer;
+		if (!ui->queuer)
+			ui->queuer = ui->ue->ino;
 		if (ui == peer)
 			/* socket connected to self %) */
 			continue;
