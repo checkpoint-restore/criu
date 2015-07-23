@@ -363,21 +363,98 @@ const struct fdtype_ops unix_dump_ops = {
 	.dump		= dump_one_unix_fd,
 };
 
-static int unix_collect_one(const struct unix_diag_msg *m,
-		struct rtattr **tb)
+/*
+ * Returns: < 0 on error, 0 if OK, 1 to skip the socket
+ */
+static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct rtattr **tb)
 {
-	struct unix_sk_desc *d;
-	char *name = NULL;
+	int len, mntns_root;
 	struct ns_id *ns;
-	int ret = 0, mntns_root;
+	char *name;
 
 	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
-	if (ns == NULL)
-		return -1;
+	if (!ns)
+		return -ENOENT;
 
 	mntns_root = mntns_get_root_fd(ns);
 	if (mntns_root < 0)
-		return -1;
+		return -ENOENT;
+
+	len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
+	name = xmalloc(len + 1);
+	if (!name)
+		return -ENOMEM;
+
+	memcpy(name, RTA_DATA(tb[UNIX_DIAG_NAME]), len);
+	name[len] = '\0';
+
+	if (name[0] != '\0') {
+		struct unix_diag_vfs *uv;
+		bool drop_path = false;
+		char rpath[PATH_MAX];
+		struct stat st;
+
+		if (name[0] != '/') {
+			pr_warn("Relative bind path '%s' unsupported\n", name);
+			goto skip;
+		}
+
+		if (!tb[UNIX_DIAG_VFS]) {
+			pr_err("Bound socket w/o inode %#x\n", m->udiag_ino);
+			goto skip;
+		}
+
+		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
+		snprintf(rpath, sizeof(rpath), ".%s", name);
+		if (fstatat(mntns_root, rpath, &st, 0)) {
+			if (errno != ENOENT) {
+				pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n",
+					m->udiag_ino, rpath, errno);
+				goto skip;
+			}
+
+			pr_info("unix: Dropping path %s for unlinked sk %#x\n",
+				name, m->udiag_ino);
+			drop_path = true;
+		} else if ((st.st_ino != uv->udiag_vfs_ino) ||
+			   !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, ns, name)) {
+			pr_info("unix: Dropping path %s for unlinked bound "
+				"sk %#x.%#x real %#x.%#x\n",
+				name, (int)st.st_dev, (int)st.st_ino,
+				(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
+			drop_path = true;
+		}
+
+		if (drop_path) {
+			/*
+			 * When a socket is bound to unlinked file, we
+			 * just drop his name, since no one will access
+			 * it via one.
+			 */
+			xfree(name);
+			len = 0;
+			name = NULL;
+		}
+
+		d->mode = st.st_mode;
+		d->uid	= st.st_uid;
+		d->gid	= st.st_gid;
+	}
+
+	d->namelen = len;
+	d->name = name;
+	return 0;
+
+skip:
+	xfree(name);
+	return 1;
+}
+
+static int unix_collect_one(const struct unix_diag_msg *m,
+			    struct rtattr **tb)
+{
+	struct unix_sk_desc *d;
+	int ret = 0;
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
@@ -400,77 +477,12 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		d->peer_ino = *(int *)RTA_DATA(tb[UNIX_DIAG_PEER]);
 
 	if (tb[UNIX_DIAG_NAME]) {
-		int len		= RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
-
-		name = xmalloc(len + 1);
-		if (!name)
+		ret = unix_process_name(d, m, tb);
+		if (ret < 0)
 			goto err;
-
-		memcpy(name, RTA_DATA(tb[UNIX_DIAG_NAME]), len);
-		name[len] = '\0';
-
-		if (name[0] != '\0') {
-			struct unix_diag_vfs *uv;
-			struct stat st;
-			char rpath[PATH_MAX];
-			bool drop_path = false;
-
-			if (name[0] != '/') {
-				pr_warn("Relative bind path '%s' "
-					"unsupported\n", name);
-				goto skip;
-			}
-
-			if (!tb[UNIX_DIAG_VFS]) {
-				pr_err("Bound socket w/o inode %#x\n",
-						m->udiag_ino);
-				goto skip;
-			}
-
-			uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
-			snprintf(rpath, sizeof(rpath), ".%s", name);
-			if (fstatat(mntns_root, rpath, &st, 0)) {
-				if (errno != ENOENT) {
-					pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n",
-							m->udiag_ino, rpath, errno);
-					goto skip;
-				}
-
-				pr_info("unix: Dropping path %s for unlinked sk %#x\n",
-						name, m->udiag_ino);
-				drop_path = true;
-			} else if ((st.st_ino != uv->udiag_vfs_ino) ||
-					!phys_stat_dev_match(st.st_dev,
-						uv->udiag_vfs_dev, ns, name)) {
-				pr_info("unix: Dropping path %s for "
-						"unlinked bound "
-						"sk %#x.%#x real %#x.%#x\n",
-						name,
-						(int)st.st_dev,
-						(int)st.st_ino,
-						(int)uv->udiag_vfs_dev,
-						(int)uv->udiag_vfs_ino);
-				drop_path = true;
-			}
-
-			if (drop_path) {
-				/*
-				 * When a socket is bound to unlinked file, we
-				 * just drop his name, since no one will access
-				 * it via one.
-				 */
-				xfree(name);
-				len = 0;
-				name = NULL;
-			}
-
-			d->mode = st.st_mode;
-			d->uid	= st.st_uid;
-			d->gid	= st.st_gid;
-		}
-
-		d->namelen = len;
-		d->name = name;
+		else if (ret == 1)
+			goto skip;
+		BUG_ON(ret != 0);
 	}
 
 	if (tb[UNIX_DIAG_ICONS]) {
@@ -526,7 +538,7 @@ err:
 	ret = -1;
 skip:
 	xfree(d->icons);
-	xfree(name);
+	xfree(d->name);
 	xfree(d);
 	return ret;
 }
