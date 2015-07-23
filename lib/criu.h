@@ -20,7 +20,6 @@
 #define __CRIU_LIB_H__
 
 #include <stdbool.h>
-#include "rpc.pb-c.h"
 
 #ifdef __GNUG__
        extern "C" {
@@ -136,9 +135,9 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
  * Same as the list above, but lets you have your very own options
  * structure and lets you set individual options in it.
  */
-
+typedef struct _CriuOpts *criu_pb_opts_t;
 typedef struct {
-	CriuOpts		*rpc; /* Generic RPC options in protobuf format */
+	criu_pb_opts_t		rpc; /* Generic RPC options in protobuf format */
 	int			(*notify)(char *action, criu_notify_arg_t na);
 	enum criu_service_comm	service_comm;
 	union {
