@@ -506,8 +506,6 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			e->peer_ino	= n;
 			e->sk_desc	= d;
 		}
-
-
 	}
 
 	if (tb[UNIX_DIAG_RQLEN]) {
