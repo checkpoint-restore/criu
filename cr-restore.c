@@ -2387,7 +2387,7 @@ static int prepare_restorer_blob(void)
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 
-	restorer_len = PIE_SIZE(restorer_blob);
+	restorer_len = pie_size(restorer_blob);
 	restorer = mmap(NULL, restorer_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANON, 0, 0);
