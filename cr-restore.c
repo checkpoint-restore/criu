@@ -2687,7 +2687,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
-	args_len = round_up(sizeof(*task_args) + sizeof(*thread_args) * current->nr_threads, PAGE_SIZE);
+	args_len = round_up(sizeof(*task_args) + sizeof(*thread_args) * current->nr_threads, page_size());
 	pr_info("%d threads require %ldK of memory\n",
 			current->nr_threads, KBYTES(args_len));
 

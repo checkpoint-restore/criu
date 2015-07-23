@@ -1,6 +1,8 @@
 #ifndef __CR_ASM_PAGE_H__
 #define __CR_ASM_PAGE_H__
 
+#include <unistd.h>
+
 #ifndef PAGE_SHIFT
 # define PAGE_SHIFT	12
 #endif
