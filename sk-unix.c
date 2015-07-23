@@ -31,6 +31,9 @@
 #include "protobuf.h"
 #include "protobuf/sk-unix.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "sk unix: "
+
 struct unix_sk_desc {
 	struct socket_desc	sd;
 	unsigned int		type;
