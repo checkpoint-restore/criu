@@ -10,7 +10,7 @@ CHROOT_ARCH=armhf
 HOST_DEPENDENCIES="debootstrap qemu-user-static binfmt-support sbuild"
 
 # Debian package dependencies for the chrooted environment
-GUEST_DEPENDENCIES="build-essential git m4 sudo python protobuf-c-compiler libprotobuf-c0-dev gcc make bsdmainutils bash libaio-dev libprotobuf-dev protobuf-compiler python-ipaddr"
+GUEST_DEPENDENCIES="build-essential git m4 sudo python protobuf-c-compiler libprotobuf-c0-dev gcc make bsdmainutils bash libaio-dev libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev"
 
 # Command used to run the tests
 TEST_COMMAND="make -j 4 && make -j 4 -C test/zdtm"
