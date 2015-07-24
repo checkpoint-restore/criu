@@ -22,6 +22,10 @@
 #include <stdbool.h>
 #include "rpc.pb-c.h"
 
+#ifdef __GNUG__
+       extern "C" {
+#endif
+
 enum criu_service_comm {
 	CRIU_COMM_SK,
 	CRIU_COMM_FD
@@ -187,5 +191,9 @@ int criu_local_dump(criu_opts *opts);
 int criu_local_restore(criu_opts *opts);
 int criu_local_restore_child(criu_opts *opts);
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));
+
+#ifdef __GNUG__
+}
+#endif
 
 #endif /* __CRIU_LIB_H__ */
