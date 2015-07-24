@@ -2058,6 +2058,19 @@ out:
 }
 
 /*
+ * If an OverlayFS mountpoint is found in the mountinfo table,
+ * we enable opts.overlayfs, which is a workaround for the
+ * OverlayFS Kernel bug.
+ *
+ * See fixup_overlayfs for details.
+ */
+int overlayfs_parse(struct mount_info *new)
+{
+	opts.overlayfs = true;
+	return 0;
+}
+
+/*
  * AUFS callback function to "fix up" the root pathname.
  * See sysfs_parse.c for details.
  */

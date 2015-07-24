@@ -242,6 +242,9 @@ int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups);
 /* callback for AUFS support */
 extern int aufs_parse(struct mount_info *mi);
 
+/* callback for OverlayFS support */
+extern int overlayfs_parse(struct mount_info *mi);
+
 int parse_children(pid_t pid, pid_t **_c, int *_n);
 
 #endif /* __CR_PROC_PARSE_H__ */
