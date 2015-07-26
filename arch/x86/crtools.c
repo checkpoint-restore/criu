@@ -463,6 +463,7 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 #define CPREG1(d)	f->uc.uc_mcontext.d = r->d
 #define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
 
+#ifdef CONFIG_X86_64
 	CPREG1(r8);
 	CPREG1(r9);
 	CPREG1(r10);
@@ -471,6 +472,8 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG1(r13);
 	CPREG1(r14);
 	CPREG1(r15);
+#endif
+
 	CPREG2(rdi, di);
 	CPREG2(rsi, si);
 	CPREG2(rbp, bp);
@@ -481,10 +484,19 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG2(rsp, sp);
 	CPREG2(rip, ip);
 	CPREG2(eflags, flags);
+
 	CPREG1(cs);
+
+#ifdef CONFIG_X86_32
 	CPREG1(ss);
+#endif
+
+#ifdef CONFIG_X86_32
 	CPREG1(gs);
 	CPREG1(fs);
+	CPREG1(es);
+	CPREG1(ds);
+#endif
 
 	return 0;
 }
