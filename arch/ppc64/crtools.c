@@ -21,6 +21,9 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 
+#define MSR_VEC (1<<25)
+#define MSR_VSX (1<<23)
+
 /*
  * Injected syscall instruction
  */
@@ -156,6 +159,169 @@ static void put_fpu_regs(mcontext_t *mc, UserPpc64FpstateEntry *fpe)
 		mcfp[i] =  fpe->fpregs[i];
 }
 
+static int get_altivec_regs(pid_t pid, CoreEntry *core)
+{
+	/* The kernel returns :
+	 *   32 Vector registers (128bit)
+	 *   VSCR (32bit) stored in a 128bit entry (odd)
+	 *   VRSAVE (32bit) store at the end.
+	 *
+	 * Kernel setup_sigcontext's comment mentions:
+	 * "Userland shall check AT_HWCAP to know whether it can rely on the
+	 * v_regs pointer or not"
+	 */
+	unsigned char vrregs[33 * 16 + 4];
+	UserPpc64VrstateEntry *vse;
+	uint64_t *p64;
+	uint32_t *p32;
+	int i;
+
+	if (ptrace(PTRACE_GETVRREGS, pid, 0, (void*)&vrregs) < 0) {
+		/* PTRACE_GETVRREGS returns EIO if Altivec is not supported.
+		 * This should not happen if msr_vec is set. */
+		if (errno != EIO) {
+			pr_err("Couldn't get Altivec registers");
+			return -1;
+		}
+		pr_debug("Altivec not supported\n");
+		return 0;
+	}
+
+	pr_debug("Dumping Altivec registers\n");
+
+	vse = xmalloc(sizeof(*vse));
+	if (!vse)
+		return -1;
+	user_ppc64_vrstate_entry__init(vse);
+
+	vse->n_vrregs = 33 * 2; /* protocol buffer store 64bit entries */
+	vse->vrregs = xmalloc(vse->n_vrregs * sizeof(vse->vrregs[0]));
+	if (!vse->vrregs) {
+		xfree(vse);
+		return -1;
+	}
+
+	/* Vectors are 2*64bits entries */
+	for (i = 0; i < 33; i++) {
+		p64 = (uint64_t*) &vrregs[i * 2 * sizeof(uint64_t)];
+		vse->vrregs[i*2] =  p64[0];
+		vse->vrregs[i*2 + 1] = p64[1];
+	}
+
+	p32 = (uint32_t*) &vrregs[33 * 2 * sizeof(uint64_t)];
+	vse->vrsave = *p32;
+
+	core->ti_ppc64->vrstate = vse;
+
+	/*
+	 * Force the MSR_VEC bit of the restored MSR otherwise the kernel
+	 * will not restore them from the signal frame.
+	 */
+	core->ti_ppc64->gpregs->msr |= MSR_VEC;
+
+	return 0;
+}
+
+static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
+{
+	vrregset_t *v_regs = (vrregset_t *)(((unsigned long)mc->vmx_reserve + 15) & ~0xful);
+
+	pr_debug("Restoring Altivec registers\n");
+	if (vse->n_vrregs != 33*2) {
+		pr_err("Corrupted Altivec dump data");
+		return -1;
+	}
+
+	/* Note that this should only be done in the case MSR_VEC is set but
+	 * this is not a big deal to do that in all cases.
+	 */
+	memcpy(&v_regs->vrregs[0][0], vse->vrregs, sizeof(uint64_t) * 2 * 33);
+	/* vscr has been restored with the previous memcpy which copied 32
+	 * 128bits registers + a 128bits field containing the vscr value in
+	 * the low part.
+	 */
+
+	v_regs->vrsave = vse->vrsave;
+	mc->v_regs = v_regs;
+
+	return 0;
+}
+
+/*
+ * Since the FPR[0-31] is stored in the first double word of VSR[0-31] and
+ * FPR are saved through the FP state, there is no need to save the upper part
+ * of the first 32 VSX registers.
+ * Furthermore, the 32 last VSX registers are also the 32 Altivec registers
+ * already saved, so no need to save them.
+ * As a consequence, only the doubleword 1 of the 32 first VSX registers have
+ * to be saved (the ones are returned by PTRACE_GETVSRREGS).
+ */
+static int get_vsx_regs(pid_t pid, CoreEntry *core)
+{
+	UserPpc64VsxstateEntry *vse;
+	uint64_t vsregs[32];
+	int i;
+
+	if (ptrace(PTRACE_GETVSRREGS, pid, 0, (void*)&vsregs) < 0) {
+		/*
+		 * EIO is returned in the case PTRACE_GETVRREGS is not
+		 * supported.
+		 */
+		if (errno == EIO) {
+			pr_debug("VSX register's dump not supported.\n");
+			return 0;
+		}
+		pr_err("Couldn't get VSX registers");
+		return -1;
+	}
+
+	vse = xmalloc(sizeof(*vse));
+	if (!vse)
+		return -1;
+	user_ppc64_vsxstate_entry__init(vse);
+
+	vse->n_vsxregs = 32;
+	vse->vsxregs = xmalloc(vse->n_vsxregs * sizeof(vse->vsxregs[0]));
+	if (!vse->vsxregs) {
+		xfree(vse);
+		return -1;
+	}
+
+	for (i = 0; i < vse->n_vsxregs; i++)
+		vse->vsxregs[i] = vsregs[i];
+
+	core->ti_ppc64->vsxstate = vse;
+
+	/*
+	 * Force the MSR_VSX bit of the restored MSR otherwise the kernel
+	 * will not restore them from the signal frame.
+	 */
+	core->ti_ppc64->gpregs->msr |= MSR_VSX;
+	return 0;
+}
+
+static int put_vsx_regs(mcontext_t *mc, UserPpc64VsxstateEntry *vse)
+{
+	uint64_t *buf;
+	int i;
+
+	pr_debug("Restoring VSX registers\n");
+	if (!mc->v_regs) {
+		/* VSX implies Altivec so v_regs should be set */
+		pr_err("Internal error\n");
+		return -1;
+	}
+
+	/* point after the Altivec registers */
+	buf = (uint64_t*) (mc->v_regs + 1);
+
+	/* Copy the value saved by get_vsx_regs in the sigframe */
+	for (i=0; i<vse->n_vsxregs; i++)
+		buf[i] = vse->vsxregs[i];
+
+	return 0;
+}
+
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	int i;
@@ -209,6 +375,16 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	if (get_fpu_regs(pid, core))
 		return -1;
 
+	if (get_altivec_regs(pid, core))
+		return -1;
+
+	/*
+	 * Don't save the VSX registers if Altivec registers are not
+	 * supported
+	 */
+	if (CORE_THREAD_ARCH_INFO(core)->vrstate && get_vsx_regs(pid, core))
+		return -1;
+
 	return 0;
 }
 
@@ -248,6 +424,14 @@ void arch_free_thread_info(CoreEntry *core)
 			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate->fpregs);
 			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate);
 		}
+		if (CORE_THREAD_ARCH_INFO(core)->vrstate) {
+			xfree(CORE_THREAD_ARCH_INFO(core)->vrstate->vrregs);
+			xfree(CORE_THREAD_ARCH_INFO(core)->vrstate);
+		}
+		if (CORE_THREAD_ARCH_INFO(core)->vsxstate) {
+			xfree(CORE_THREAD_ARCH_INFO(core)->vsxstate->vsxregs);
+			xfree(CORE_THREAD_ARCH_INFO(core)->vsxstate);
+		}
                 xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->gpr);
                 xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
                 xfree(CORE_THREAD_ARCH_INFO(core));
@@ -257,10 +441,28 @@ void arch_free_thread_info(CoreEntry *core)
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
+	int ret = 0;
 	if (CORE_THREAD_ARCH_INFO(core)->fpstate)
 		put_fpu_regs(&sigframe->uc.uc_mcontext,
 			     CORE_THREAD_ARCH_INFO(core)->fpstate);
-	return 0;
+
+	if (CORE_THREAD_ARCH_INFO(core)->vrstate)
+		ret = put_altivec_regs(&sigframe->uc.uc_mcontext,
+				       CORE_THREAD_ARCH_INFO(core)->vrstate);
+	else if (core->ti_ppc64->gpregs->msr & MSR_VEC) {
+		pr_err("Internal error\n");
+		ret = -1;
+	}
+
+	if (!ret && CORE_THREAD_ARCH_INFO(core)->vsxstate)
+		ret = put_vsx_regs(&sigframe->uc.uc_mcontext,
+				   CORE_THREAD_ARCH_INFO(core)->vsxstate);
+	else if (core->ti_ppc64->gpregs->msr & MSR_VSX) {
+		pr_err("Internal error\n");
+		ret = -1;
+	}
+
+	return ret;
 }
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r)
