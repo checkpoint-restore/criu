@@ -146,11 +146,11 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 	if (fd >= 0) {
 		struct mount_info *mi;
 
-		pr_debug("\tHandle %x:%lx is openable\n", s_dev, i_ino);
+		pr_debug("\tHandle 0x%x:0x%lx is openable\n", s_dev, i_ino);
 
 		mi = lookup_mnt_sdev(s_dev);
 		if (mi == NULL) {
-			pr_err("Unable to lookup a mount by dev %x\n", s_dev);
+			pr_err("Unable to lookup a mount by dev 0x%x\n", s_dev);
 			goto err;
 		}
 
@@ -185,7 +185,7 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 			goto out_nopath;
 	}
 
-	pr_warn("\tHandle %x:%lx cannot be opened\n", s_dev, i_ino);
+	pr_warn("\tHandle 0x%x:0x%lx cannot be opened\n", s_dev, i_ino);
 	path = irmap_lookup(s_dev, i_ino);
 	if (!path) {
 		pr_err("\tCan't dump that handle\n");
@@ -322,7 +322,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
-			pr_err("Can't find mnt_id %x\n", fme->me->mnt_id);
+			pr_err("Can't find mnt_id 0x%x\n", fme->me->mnt_id);
 			goto out;
 		}
 		fme->s_dev = m->s_dev;
@@ -483,17 +483,17 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 
 		wd = inotify_add_watch(inotify_fd, path, iwe->mask);
 		if (wd < 0) {
-			pr_perror("Can't add watch for %d with %d", inotify_fd, iwe->wd);
+			pr_perror("Can't add watch for 0x%x with 0x%x", inotify_fd, iwe->wd);
 			break;
 		} else if (wd == iwe->wd) {
 			ret = 0;
 			break;
 		} else if (wd > iwe->wd) {
-			pr_err("Unsorted watch %d found for %d with %d", wd, inotify_fd, iwe->wd);
+			pr_err("Unsorted watch 0x%x found for 0x%x with 0x%x", wd, inotify_fd, iwe->wd);
 			break;
 		}
 
-		pr_debug("\t\tWatch got %d but %d expected\n", wd, iwe->wd);
+		pr_debug("\t\tWatch got 0x%x but 0x%x expected\n", wd, iwe->wd);
 		inotify_rm_watch(inotify_fd, wd);
 	}
 
@@ -518,7 +518,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
-			pr_err("Can't find mount mnt_id %x\n", fme->me->mnt_id);
+			pr_err("Can't find mount mnt_id 0x%x\n", fme->me->mnt_id);
 			return -1;
 		}
 
@@ -540,7 +540,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 		if (!path)
 			goto err;
 	} else {
-		pr_err("Bad fsnotify mark type %d\n", fme->type);
+		pr_err("Bad fsnotify mark type 0x%x\n", fme->type);
 		goto err;
 	}
 
@@ -549,7 +549,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	if (mark->fme->mask) {
 		ret = sys_fanotify_mark(fd, flags, fme->mask, AT_FDCWD, path);
 		if (ret) {
-			pr_err("Adding fanotify mask %x on %x/%s failed (%d)\n",
+			pr_err("Adding fanotify mask 0x%x on 0x%x/%s failed (%d)\n",
 			       fme->mask, fme->id, path, ret);
 			goto err;
 		}
@@ -559,7 +559,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 		ret = sys_fanotify_mark(fd, flags | FAN_MARK_IGNORED_MASK,
 					fme->ignored_mask, AT_FDCWD, path);
 		if (ret) {
-			pr_err("Adding fanotify ignored-mask %x on %x/%s failed (%d)\n",
+			pr_err("Adding fanotify ignored-mask 0x%x on 0x%x/%s failed (%d)\n",
 			       fme->ignored_mask, fme->id, path, ret);
 			goto err;
 		}
@@ -588,7 +588,7 @@ static int open_inotify_fd(struct file_desc *d)
 	}
 
 	list_for_each_entry(wd_info, &info->marks, list) {
-		pr_info("\tRestore %d wd for 0x%08x\n", wd_info->iwe->wd, wd_info->iwe->id);
+		pr_info("\tRestore 0x%x wd for 0x%08x\n", wd_info->iwe->wd, wd_info->iwe->id);
 		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
 			break;
@@ -658,7 +658,7 @@ static struct fsnotify_file_info *find_inotify_info(unsigned id)
 		 * wd-s for one inotify in one row, thus sometimes
 		 * we can avoid scanning the inotify_info_head.
 		 */
-		pr_debug("\t\tlast ify for %u found\n", id);
+		pr_debug("\t\tlast ify for 0x%08x found\n", id);
 		return last;
 	}
 
