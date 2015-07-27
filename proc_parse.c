@@ -50,33 +50,6 @@ static char *buf = __buf.buf;
 
 #define AIO_FNAME	"/[aio]"
 
-int parse_cpuinfo_features(int (*handler)(char *tok))
-{
-	FILE *cpuinfo;
-
-	cpuinfo = fopen_proc(PROC_GEN, "cpuinfo");
-	if (!cpuinfo) {
-		pr_perror("Can't open cpuinfo file");
-		return -1;
-	}
-
-	while (fgets(buf, BUF_SIZE, cpuinfo)) {
-		char *tok;
-
-		if (strncmp(buf, "flags\t\t:", 8))
-			continue;
-
-		for (tok = strtok(buf, " \t\n"); tok;
-		     tok = strtok(NULL, " \t\n")) {
-			if (handler(tok) < 0)
-				break;
-		}
-	}
-
-	fclose(cpuinfo);
-	return 0;
-}
-
 /* check the @line starts with "%lx-%lx" format */
 static bool is_vma_range_fmt(char *line)
 {
