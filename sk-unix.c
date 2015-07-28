@@ -31,6 +31,15 @@
 #include "protobuf.h"
 #include "protobuf/sk-unix.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "sk unix: "
+
+typedef struct {
+	char			*dir;
+	unsigned int		udiag_vfs_dev;
+	unsigned int		udiag_vfs_ino;
+} rel_name_desc_t;
+
 struct unix_sk_desc {
 	struct socket_desc	sd;
 	unsigned int		type;
@@ -40,6 +49,7 @@ struct unix_sk_desc {
 	unsigned int		wqlen;
 	unsigned int		namelen;
 	char			*name;
+	rel_name_desc_t		*rel_name;
 	unsigned int		nr_icons;
 	unsigned int		*icons;
 	unsigned char		shutdown;
@@ -145,6 +155,71 @@ static int write_unix_entry(struct unix_sk_desc *sk)
 	return ret;
 }
 
+static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
+{
+	rel_name_desc_t *rel_name = sk->rel_name;
+	const char *dirs[] = { "cwd", "root" };
+	struct pstree_item *task;
+	int mntns_root, i;
+	struct ns_id *ns;
+
+	for_each_pstree_item(task) {
+		if (task->pid.real == p->pid)
+			break;
+	}
+	if (!task)
+		return -ENOENT;
+
+	ns = lookup_ns_by_id(task->ids->mnt_ns_id, &mnt_ns_desc);
+	if (!ns)
+		return -ENOENT;
+
+	mntns_root = mntns_get_root_fd(ns);
+	if (mntns_root < 0)
+		return -ENOENT;
+
+	pr_debug("Resolving relative name %s for socket %x\n",
+		 sk->name, sk->sd.ino);
+
+	for (i = 0; i < ARRAY_SIZE(dirs); i++) {
+		char dir[PATH_MAX], path[PATH_MAX];
+		struct stat st;
+		int ret;
+
+		snprintf(path, sizeof(path), "/proc/%d/%s", p->pid, dirs[i]);
+		ret = readlink(path, dir, sizeof(dir));
+		if (ret < 0 || (size_t)ret == sizeof(dir)) {
+			pr_err("Can't readlink for %s\n", dirs[i]);
+			return -1;
+		}
+		dir[ret] = 0;
+
+		snprintf(path, sizeof(path), ".%s/%s", dir, sk->name);
+		if (fstatat(mntns_root, path, &st, 0)) {
+			if (errno == ENOENT)
+				continue;
+			goto err;
+		}
+
+		if ((st.st_ino == rel_name->udiag_vfs_ino) &&
+		    phys_stat_dev_match(st.st_dev, rel_name->udiag_vfs_dev, ns, path)) {
+			rel_name->dir = xstrdup(dir);
+			if (!rel_name->dir)
+				return -ENOMEM;
+
+			pr_debug("Resolved relative socket name to dir %s\n", rel_name->dir);
+			sk->mode = st.st_mode;
+			sk->uid	= st.st_uid;
+			sk->gid	= st.st_gid;
+			return 0;
+		}
+	}
+
+err:
+	pr_err("Can't resolve name for socket %#x\n", rel_name->udiag_vfs_ino);
+	return -ENOENT;
+}
+
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
@@ -194,6 +269,14 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue->fown	= fown;
 	ue->opts	= skopts;
 	ue->uflags	= 0;
+
+	if (sk->rel_name) {
+		if (resolve_rel_name(sk, p))
+			goto err;
+		ue->has_name_dir = true;
+		ue->name_dir.len  = (size_t)strlen(sk->rel_name->dir) + 1;
+		ue->name_dir.data = (void *)sk->rel_name->dir;
+	}
 
 	/*
 	 * Check if this socket is connected to criu service.
@@ -394,17 +477,27 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		char rpath[PATH_MAX];
 		struct stat st;
 
-		if (name[0] != '/') {
-			pr_warn("Relative bind path '%s' unsupported\n", name);
-			goto skip;
-		}
-
 		if (!tb[UNIX_DIAG_VFS]) {
 			pr_err("Bound socket w/o inode %#x\n", m->udiag_ino);
 			goto skip;
 		}
 
 		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
+		if (name[0] != '/') {
+			/*
+			 * Relative names are be resolved later at first
+			 * dump attempt.
+			 */
+			rel_name_desc_t *rel_name = xzalloc(sizeof(*rel_name));
+			if (!rel_name)
+				return -ENOMEM;
+			rel_name->udiag_vfs_dev = uv->udiag_vfs_dev;
+			rel_name->udiag_vfs_ino = uv->udiag_vfs_ino;
+
+			d->rel_name = rel_name;
+			goto postprone;
+		}
+
 		snprintf(rpath, sizeof(rpath), ".%s", name);
 		if (fstatat(mntns_root, rpath, &st, 0)) {
 			if (errno != ENOENT) {
@@ -441,6 +534,7 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		d->gid	= st.st_gid;
 	}
 
+postprone:
 	d->namelen = len;
 	d->name = name;
 	return 0;
@@ -634,6 +728,7 @@ struct unix_sk_info {
 	UnixSkEntry *ue;
 	struct list_head list;
 	char *name;
+	char *name_dir;
 	unsigned flags;
 	struct unix_sk_info *peer;
 	struct file_desc d;
@@ -673,6 +768,19 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 	return 0;
 }
 
+static int prep_unix_sk_cwd(struct unix_sk_info *ui)
+{
+	if (ui->name_dir) {
+		if (chdir(ui->name_dir)) {
+			pr_perror("Can't change working dir %s\n",
+				  ui->name_dir);
+			return -1;
+		}
+		pr_debug("Change working dir to %s\n", ui->name_dir);
+	}
+	return 0;
+}
+
 static int post_open_unix_sk(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
@@ -700,6 +808,9 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
+
+	if (prep_unix_sk_cwd(peer))
+		return -1;
 
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
@@ -741,6 +852,9 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
+	if (prep_unix_sk_cwd(ui))
+		return -1;
+
 	if (bind(sk, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) + ui->ue->name.len)) {
 		pr_perror("Can't bind socket");
@@ -759,12 +873,12 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		memcpy(fname, ui->name, ui->ue->name.len);
 		fname[ui->ue->name.len] = '\0';
 
-		if (chown(fname, perms->uid, perms->gid) == -1) {
+		if (fchownat(AT_FDCWD, fname, perms->uid, perms->gid, 0) == -1) {
 			pr_perror("Unable to change file owner and group");
 			return -1;
 		}
 
-		if (chmod(fname, perms->mode) == -1) {
+		if (fchmodat(AT_FDCWD, fname, perms->mode, 0) == -1) {
 			pr_perror("Unable to change file mode bits");
 			return -1;
 		}
@@ -994,11 +1108,29 @@ static struct file_desc_ops unix_desc_ops = {
 	.want_transport = unixsk_should_open_transport,
 };
 
+/*
+ * Make FS clean from sockets we're about to
+ * restore. See for how we bind them for details
+ */
+static int unlink_stale(struct unix_sk_info *ui)
+{
+	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
+		return 0;
+
+	if (prep_unix_sk_cwd(ui))
+		return -1;
+
+	return unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
+}
+
 static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 {
 	struct unix_sk_info *ui = o;
 
 	ui->ue = pb_msg(base, UnixSkEntry);
+
+	if (ui->ue->has_name_dir)
+		ui->name_dir = (void *)ui->ue->name_dir.data;
 
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len >= UNIX_PATH_MAX) {
@@ -1008,22 +1140,22 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 
 		ui->name = (void *)ui->ue->name.data;
 
-		/*
-		 * Make FS clean from sockets we're about to
-		 * restore. See for how we bind them for details
-		 */
-		if (ui->name[0] != '\0' &&
-				!(ui->ue->uflags & USK_EXTERN))
-			unlink(ui->name);
+		if (unlink_stale(ui)) {
+			pr_warn("Can't unlink stale socket %#x peer %#x (name %s dir %s)\n",
+				ui->ue->ino, ui->ue->peer,
+				ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
+				ui->name_dir ? ui->name_dir : "-");
+		}
 	} else
 		ui->name = NULL;
 
 	futex_init(&ui->bound);
 	ui->peer = NULL;
 	ui->flags = 0;
-	pr_info(" `- Got %#x peer %#x (name %s)\n",
+	pr_info(" `- Got %#x peer %#x (name %s dir %s)\n",
 		ui->ue->ino, ui->ue->peer,
-		ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-");
+		ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
+		ui->name_dir ? ui->name_dir : "-");
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
