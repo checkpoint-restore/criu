@@ -440,7 +440,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	restore_pdeath_sig(args);
 
 	if (args->ta->seccomp_mode != SECCOMP_MODE_DISABLED)
-		pr_info("restoring seccomp mode %d for %ld\n", args->ta->seccomp_mode, sys_getpid());
+		pr_info("Restoring seccomp mode %d for %ld\n", args->ta->seccomp_mode, sys_getpid());
 
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 	futex_dec_and_wake(&thread_inprogress);
@@ -742,7 +742,7 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
 	void *p1, *p2;
 	int ret;
 
-	if ((void *) premmapped_addr < bootstrap_start) {
+	if (premmapped_addr < bootstrap_start) {
 		p1 = premmapped_addr;
 		s1 = premmapped_len;
 		p2 = bootstrap_start;

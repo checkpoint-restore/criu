@@ -510,7 +510,7 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 {
 	int ret;
 
-	pr_debug("Daemon wais for command\n");
+	pr_debug("Daemon waits for command\n");
 
 	while (1) {
 		*m = (struct ctl_msg){ };
@@ -645,8 +645,8 @@ static noinline int unmap_itself(void *data)
 
 	sys_munmap(args->parasite_start, args->parasite_len);
 	/*
-	 * sys_munmap never return back. The controll process must
-	 * trap us on the exit from munmap
+	 * This call to sys_munmap must never return. Instead, the controlling
+	 * process must trap us on the exit from munmap.
 	 */
 
 	BUG();
