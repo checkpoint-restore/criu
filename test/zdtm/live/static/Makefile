@@ -137,6 +137,7 @@ TST_FILE	=				\
 		link10				\
 		file_attr			\
 		deleted_unix_sock		\
+		sk-unix-rel			\
 		deleted_dev			\
 		unlink_fstat00			\
 		unlink_fstat01			\

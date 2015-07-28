@@ -75,6 +75,7 @@ generate_test_list()
 		static/socket_queues
 		static/deleted_unix_sock
 		static/sk-unix-unconn
+		static/sk-unix-rel
 		static/pid00
 		static/pstree
 		static/caps00
