@@ -890,14 +890,14 @@ static int do_opt2flag(char *opt, unsigned *flags,
 static int parse_mnt_flags(char *opt, unsigned *flags)
 {
 	static const struct opt2flag mnt_opt2flag[] = {
-		{ "rw", 0, },
-		{ "ro", MS_RDONLY, },
-		{ "nosuid", MS_NOSUID, },
-		{ "nodev", MS_NODEV, } ,
-		{ "noexec", MS_NOEXEC, },
-		{ "noatime", MS_NOATIME, },
-		{ "nodiratime", MS_NODIRATIME, },
-		{ "relatime", MS_RELATIME, },
+		{ "rw",		0,		},
+		{ "ro",		MS_RDONLY,	},
+		{ "nosuid",	MS_NOSUID,	},
+		{ "nodev",	MS_NODEV,	},
+		{ "noexec",	MS_NOEXEC,	},
+		{ "noatime",	MS_NOATIME,	},
+		{ "nodiratime",	MS_NODIRATIME,	},
+		{ "relatime",	MS_RELATIME,	},
 		{ },
 	};
 
@@ -914,11 +914,11 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 {
 	static const struct opt2flag sb_opt2flag[] = {
-		{ "rw", 0, },
-		{ "ro", MS_RDONLY, },
-		{ "sync", MS_SYNC, },
-		{ "dirsync", MS_DIRSYNC, },
-		{ "mad", MS_MANDLOCK, },
+		{ "rw",		0,		},
+		{ "ro",		MS_RDONLY,	},
+		{ "sync",	MS_SYNC,	},
+		{ "dirsync",	MS_DIRSYNC,	},
+		{ "mad",	MS_MANDLOCK,	},
 		{ },
 	};
 
