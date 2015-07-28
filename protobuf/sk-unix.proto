@@ -40,4 +40,9 @@ message unix_sk_entry {
 	optional sk_shutdown		shutdown	= 12;
 
 	optional file_perms_entry	file_perms	= 13;
+
+	/*
+	 * Relative socket name may have prefix.
+	 */
+	optional bytes			name_dir	= 14;
 }
