@@ -160,7 +160,6 @@ static bool unix_sk_exception_lookup_id(ino_t ino)
 	return ret;
 }
 
-
 static int write_unix_entry(struct unix_sk_desc *sk)
 {
 	int ret;
@@ -843,15 +842,18 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	if (ui->ue->uflags & USK_CALLBACK)
 		return 0;
 
-	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
-
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
 		futex_wait_while(&peer->prepared, 0);
 
+	if (ui->ue->uflags & USK_INHERIT)
+		return 0;
+
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
+
+	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
 	if (prep_unix_sk_cwd(peer))
 		return -1;
@@ -1139,7 +1141,13 @@ static int open_unix_sk(struct file_desc *d)
 	struct unix_sk_info *ui;
 
 	ui = container_of(d, struct unix_sk_info, d);
-	if (ui->flags & USK_PAIR_MASTER)
+
+	int unixsk_fd = -1;
+
+	if (inherited_fd(d, &unixsk_fd)) {
+		ui->ue->uflags |= USK_INHERIT;
+		return unixsk_fd;
+	} else if (ui->flags & USK_PAIR_MASTER)
 		return open_unixsk_pair_master(ui);
 	else if (ui->flags & USK_PAIR_SLAVE)
 		return open_unixsk_pair_slave(ui);
@@ -1147,11 +1155,27 @@ static int open_unix_sk(struct file_desc *d)
 		return open_unixsk_standalone(ui);
 }
 
+static char *socket_d_name(struct file_desc *d, char *buf, size_t s)
+{
+	struct unix_sk_info *ui;
+
+	ui = container_of(d, struct unix_sk_info, d);
+
+	if (snprintf(buf, s, "socket:[%d]", ui->ue->ino) >= s) {
+		pr_err("Not enough room for unixsk %d identifier string\n",
+				ui->ue->ino);
+		return NULL;
+	}
+
+	return buf;
+}
+
 static struct file_desc_ops unix_desc_ops = {
 	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
 	.post_open = post_open_unix_sk,
 	.want_transport = unixsk_should_open_transport,
+	.name = socket_d_name,
 };
 
 /*

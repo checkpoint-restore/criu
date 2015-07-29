@@ -41,6 +41,7 @@
 #define USK_EXTERN	(1 << 0)
 #define USK_SERVICE	(1 << 1)
 #define USK_CALLBACK	(1 << 2)
+#define USK_INHERIT	(1 << 3)
 
 /*
  * VMA_AREA status:
