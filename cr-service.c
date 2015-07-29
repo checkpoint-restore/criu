@@ -30,6 +30,7 @@
 #include "cgroup.h"
 #include "action-scripts.h"
 #include "security.h"
+#include "sockets.h"
 
 #include "setproctitle.h"
 
@@ -285,8 +286,13 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		req->pid = ids.pid;
 	}
 
-	if (req->has_ext_unix_sk)
+	if (req->has_ext_unix_sk) {
 		opts.ext_unix_sk = req->ext_unix_sk;
+		for (i = 0; i < req->n_unix_sk_ino; i++) {
+			if (unix_sk_id_add(req->unix_sk_ino[i]->inode) < 0)
+				goto err;
+		}
+	}
 
 	if (req->root)
 		opts.root = req->root;

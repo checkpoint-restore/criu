@@ -1424,7 +1424,7 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 	if (*fd_p < 0)
 		pr_perror("Inherit fd DUP failed");
 	else
-		pr_info("File %s will be restored from fd %d duped "
+		pr_info("File %s will be restored from fd %d dumped "
 				"from inherit fd %d\n", id_str, *fd_p, i_fd);
 	return true;
 }

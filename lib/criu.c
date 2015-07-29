@@ -225,6 +225,53 @@ void criu_set_ext_unix_sk(bool ext_unix_sk)
 	criu_local_set_ext_unix_sk(global_opts, ext_unix_sk);
 }
 
+int criu_local_add_unix_sk(criu_opts *opts, unsigned int inode)
+{
+	int nr;
+	UnixSk **a, *u;
+
+	/*if caller forgot enable ext_unix_sk option we do it*/
+	if (!opts->rpc->has_ext_unix_sk) {
+		criu_local_set_ext_unix_sk(opts, true);
+	}
+
+	/*if user disabled ext_unix_sk and try to add unixsk inode after that*/
+	if (opts->rpc->has_ext_unix_sk && !opts->rpc->ext_unix_sk) {
+		if (opts->rpc->n_unix_sk_ino > 0) {
+			free(opts->rpc->unix_sk_ino);
+			opts->rpc->n_unix_sk_ino = 0;
+		}
+		return -1;
+	}
+
+	u = malloc(sizeof(*u));
+	if (!u)
+		goto er;
+	unix_sk__init(u);
+
+	u->inode = inode;
+
+	nr = opts->rpc->n_unix_sk_ino + 1;
+	a = realloc(opts->rpc->unix_sk_ino, nr * sizeof(u));
+	if (!a)
+		goto er_u;
+
+	a[nr - 1] = u;
+	opts->rpc->unix_sk_ino = a;
+	opts->rpc->n_unix_sk_ino = nr;
+	return 0;
+
+er_u:
+	free(u);
+er:
+	return -ENOMEM;
+}
+
+int criu_add_unix_sk(unsigned int inode)
+{
+	return criu_local_add_unix_sk(global_opts, inode);
+}
+
 void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established)
 {
 	opts->rpc->has_tcp_established	= true;

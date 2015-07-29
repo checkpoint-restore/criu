@@ -51,6 +51,7 @@ void criu_set_parent_images(char *path);
 void criu_set_work_dir_fd(int fd);
 void criu_set_leave_running(bool leave_running);
 void criu_set_ext_unix_sk(bool ext_unix_sk);
+int criu_add_unix_sk(unsigned int inode);
 void criu_set_tcp_established(bool tcp_established);
 void criu_set_evasive_devices(bool evasive_devices);
 void criu_set_shell_job(bool shell_job);
@@ -73,8 +74,6 @@ int criu_add_veth_pair(char *in, char *out);
 int criu_add_cg_root(char *ctrl, char *path);
 int criu_add_enable_fs(char *fs);
 int criu_add_skip_mnt(char *mnt);
-
-
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -160,6 +159,7 @@ void criu_local_set_parent_images(criu_opts *opts, char *path);
 void criu_local_set_work_dir_fd(criu_opts *opts, int fd);
 void criu_local_set_leave_running(criu_opts *opts, bool leave_running);
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk);
+int criu_local_add_unix_sk(criu_opts *opts, unsigned int inode);
 void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established);
 void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices);
 void criu_local_set_shell_job(criu_opts *opts, bool shell_job);

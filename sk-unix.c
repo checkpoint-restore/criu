@@ -75,6 +75,11 @@ struct unix_sk_listen_icon {
 	struct unix_sk_listen_icon	*next;
 };
 
+struct  unix_sk_exception {
+	struct list_head unix_sk_list;
+	ino_t unix_sk_ino;
+};
+
 #define SK_HASH_SIZE		32
 
 static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
@@ -138,6 +143,23 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 
 	return 1;
 }
+
+static bool unix_sk_exception_lookup_id(ino_t ino)
+{
+	bool ret = false;
+	struct unix_sk_exception *sk;
+
+	list_for_each_entry(sk, &opts.ext_unixsk_ids, unix_sk_list) {
+		if (sk->unix_sk_ino == ino) {
+			pr_debug("Found ino %u in exception unix sk list\n", (unsigned int)ino);
+			ret = true;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 
 static int write_unix_entry(struct unix_sk_desc *sk)
 {
@@ -663,16 +685,21 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 				return -1;
 			}
 
-			if (peer->type != SOCK_DGRAM) {
-				show_one_unix("Ext stream not supported", peer);
-				pr_err("Can't dump half of stream unix connection.\n");
-				return -1;
-			}
+			if (unix_sk_exception_lookup_id(sk->sd.ino)) {
+				pr_debug("found exception for unix name-less external socket.\n");
+			} else {
+				if (peer->type != SOCK_DGRAM) {
+					show_one_unix("Ext stream not supported", peer);
+					pr_err("Can't dump half of stream unix connection.\n");
+					return -1;
+				}
 
-			if (!peer->name) {
-				show_one_unix("Ext dgram w/o name", peer);
-				pr_err("Can't dump name-less external socket.\n");
-				return -1;
+				if (!peer->name) {
+					show_one_unix("Ext dgram w/o name", peer);
+					pr_err("Can't dump name-less external socket.\n");
+					pr_err("%d\n", sk->fd);
+					return -1;
+				}
 			}
 		} else if (ret < 0)
 			return -1;
@@ -1252,6 +1279,50 @@ int resolve_unix_peers(void)
 			pr_info("\t\tfd %d in pid %d\n",
 					fle->fe->fd, fle->pid);
 
+	}
+
+	return 0;
+}
+
+int unix_sk_id_add(ino_t ino)
+{
+	struct unix_sk_exception *unix_sk;
+
+	/* TODO: validate inode here? */
+
+	unix_sk = xmalloc(sizeof *unix_sk);
+	if (unix_sk == NULL)
+		return -1;
+	unix_sk->unix_sk_ino = ino;
+	list_add_tail(&unix_sk->unix_sk_list, &opts.ext_unixsk_ids);
+
+	return 0;
+}
+
+int unix_sk_ids_parse(char *optarg)
+{
+	/*
+	 * parsing option of the following form: --ext-unix-sk=<inode value>,<inode
+	 * value>... or short form -x<inode>,<inode>...
+	 */
+
+	char *iter = optarg;
+
+	while (*iter != '\0') {
+		if (*iter == ',')
+			iter++;
+		else {
+			ino_t ino = (ino_t)strtoul(iter, &iter, 10);
+
+			if (0 == ino) {
+				pr_err("Can't parse unix socket inode from optarg: %s\n", optarg);
+				return -1;
+			}
+			if (unix_sk_id_add(ino) < 0) {
+				pr_err("Can't add unix socket inode in list: %s\n", optarg);
+				return -1;
+			}
+		}
 	}
 
 	return 0;

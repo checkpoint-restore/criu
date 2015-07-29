@@ -45,6 +45,7 @@ struct cr_options {
 	};
 	bool			restore_sibling;
 	bool			ext_unix_sk;
+	struct list_head        ext_unixsk_ids;
 	bool			shell_job;
 	bool			handle_file_locks;
 	bool			tcp_established_ok;

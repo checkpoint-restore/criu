@@ -25,6 +25,10 @@ message cgroup_root {
 	required string		path	= 2;
 };
 
+message unix_sk {
+	required uint32		inode 	= 1;
+};
+
 message criu_opts {
 	required int32			images_dir_fd	= 1;
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
@@ -68,6 +72,8 @@ message criu_opts {
 
 	repeated string			skip_mnt	= 31;
 	repeated string			enable_fs	= 32;
+
+	repeated unix_sk                unix_sk_ino     = 33;
 }
 
 message criu_dump_resp {

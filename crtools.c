@@ -50,6 +50,7 @@ void init_opts(void)
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
+	INIT_LIST_HEAD(&opts.ext_unixsk_ids);
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.scripts);
 	INIT_LIST_HEAD(&opts.ext_mounts);
@@ -184,7 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::xVr:jlW:L:M:";
+	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::x::Vr:jlW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
 		{ "pid",			required_argument,	0, 'p'	},
@@ -201,7 +202,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "log-file",			required_argument,	0, 'o'	},
 		{ "namespaces",			required_argument,	0, 'n'	},
 		{ "root",			required_argument,	0, 'r'	},
-		{ USK_EXT_PARAM,		no_argument,		0, 'x'	},
+		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
 		{ SK_EST_PARAM,			no_argument,		0, 1042	},
 		{ "close",			required_argument,	0, 1043	},
@@ -278,6 +279,8 @@ int main(int argc, char *argv[], char *envp[])
 			opts.final_state = TASK_ALIVE;
 			break;
 		case 'x':
+			if (optarg && unix_sk_ids_parse(optarg) < 0)
+				return 1;
 			opts.ext_unix_sk = true;
 			break;
 		case 'p':
@@ -675,7 +678,7 @@ usage:
 "                        restore making it the parent of the restored process\n"
 "\n"
 "* Special resources support:\n"
-"  -x|--" USK_EXT_PARAM "      allow external unix connections\n"
+"  -x|--" USK_EXT_PARAM "inode,.." "      allow external unix connections (optionally can be assign socket's inode that allows one-sided dump)\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"
 "  --evasive-devices     use any path to a device file if the original one\n"
