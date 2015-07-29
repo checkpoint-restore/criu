@@ -43,5 +43,6 @@ run_test test_errno
 
 echo "== Stopping service"
 kill -TERM $(cat wdir/s/pidfile)
+unlink libcriu.so.1
 [ $RESULT -eq 0 ] && echo "Success" || echo "FAIL"
 exit $RESULT
