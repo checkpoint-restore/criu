@@ -294,9 +294,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (sk->rel_name) {
 		if (resolve_rel_name(sk, p))
 			goto err;
-		ue->has_name_dir = true;
-		ue->name_dir.len  = (size_t)strlen(sk->rel_name->dir) + 1;
-		ue->name_dir.data = (void *)sk->rel_name->dir;
+		ue->name_dir = sk->rel_name->dir;
 	}
 
 	/*
@@ -1199,9 +1197,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	struct unix_sk_info *ui = o;
 
 	ui->ue = pb_msg(base, UnixSkEntry);
-
-	if (ui->ue->has_name_dir)
-		ui->name_dir = (void *)ui->ue->name_dir.data;
+	ui->name_dir = (void *)ui->ue->name_dir;
 
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len >= UNIX_PATH_MAX) {
