@@ -472,17 +472,8 @@ const struct fdtype_ops unix_dump_ops = {
  */
 static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct rtattr **tb)
 {
-	int len, mntns_root;
-	struct ns_id *ns;
 	char *name;
-
-	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
-	if (!ns)
-		return -ENOENT;
-
-	mntns_root = mntns_get_root_fd(ns);
-	if (mntns_root < 0)
-		return -ENOENT;
+	int len;
 
 	len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
 	name = xmalloc(len + 1);
@@ -496,12 +487,22 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		struct unix_diag_vfs *uv;
 		bool drop_path = false;
 		char rpath[PATH_MAX];
+		struct ns_id *ns;
 		struct stat st;
+		int mntns_root;
 
 		if (!tb[UNIX_DIAG_VFS]) {
 			pr_err("Bound socket w/o inode %#x\n", m->udiag_ino);
 			goto skip;
 		}
+
+		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+		if (!ns)
+			return -ENOENT;
+
+		mntns_root = mntns_get_root_fd(ns);
+		if (mntns_root < 0)
+			return -ENOENT;
 
 		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 		if (name[0] != '/') {
