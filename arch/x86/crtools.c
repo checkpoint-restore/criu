@@ -486,10 +486,7 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG2(eflags, flags);
 
 	CPREG1(cs);
-
-#ifdef CONFIG_X86_32
 	CPREG1(ss);
-#endif
 
 #ifdef CONFIG_X86_32
 	CPREG1(gs);
