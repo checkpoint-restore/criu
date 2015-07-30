@@ -229,7 +229,7 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 		}
 
 		if ((st.st_ino == rel_name->udiag_vfs_ino) &&
-		    phys_stat_dev_match(st.st_dev, rel_name->udiag_vfs_dev, ns, path)) {
+		    phys_stat_dev_match(st.st_dev, rel_name->udiag_vfs_dev, ns, &path[1])) {
 			rel_name->dir = xstrdup(dir);
 			if (!rel_name->dir)
 				return -ENOMEM;
