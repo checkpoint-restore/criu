@@ -339,7 +339,7 @@ install-criu: $(PROGRAM) $(CRIU-LIB) install-crit
 	$(Q) install -m 644 scripts/sd/criu.service $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) mkdir -p $(DESTDIR)$(LOGROTATEDIR)
 	$(Q) install -m 644 scripts/logrotate.d/criu-service $(DESTDIR)$(LOGROTATEDIR)
-	$(Q) sed -e 's,@version@,$(GITID),' \
+	$(Q) sed -e 's,@version@,$(CRTOOLSVERSION),' \
 		-e 's,@libdir@,$(LIBDIR),' \
 		-e 's,@includedir@,$(dir $(INCLUDEDIR)),' \
 		lib/criu.pc.in > criu.pc
