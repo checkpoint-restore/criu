@@ -1027,6 +1027,8 @@ int criu_local_restore_child(criu_opts *opts)
 
 	close(sks[1]);
 
+	saved_errno = 0;
+
 	req.type	= CRIU_REQ_TYPE__RESTORE;
 	req.opts	= opts->rpc;
 
@@ -1043,6 +1045,7 @@ int criu_local_restore_child(criu_opts *opts)
 		criu_resp__free_unpacked(resp, NULL);
 	}
 
+	errno = saved_errno;
 out:
 	return ret;
 
