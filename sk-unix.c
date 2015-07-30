@@ -188,16 +188,22 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 		if (task->pid.real == p->pid)
 			break;
 	}
-	if (!task)
+	if (!task) {
+		pr_err("Can't find task with pid %d\n", p->pid);
 		return -ENOENT;
+	}
 
 	ns = lookup_ns_by_id(task->ids->mnt_ns_id, &mnt_ns_desc);
-	if (!ns)
+	if (!ns) {
+		pr_err("Can't resolve mount namespace for pid %d\n", p->pid);
 		return -ENOENT;
+	}
 
 	mntns_root = mntns_get_root_fd(ns);
-	if (mntns_root < 0)
+	if (mntns_root < 0) {
+		pr_err("Can't resolve fs root for pid %d\n", p->pid);
 		return -ENOENT;
+	}
 
 	pr_debug("Resolving relative name %s for socket %x\n",
 		 sk->name, sk->sd.ino);
