@@ -139,10 +139,6 @@ In other words, do not use it until really needed.
 *-x*, *--ext-unix-sk*::
     Dump external unix sockets.
 
-*-n*, *--namespaces* '<ns>'[,'<ns>'...]::
-    Checkpoint namespaces. Namespaces must be separated by comma.
-    Currently supported namespaces: *uts*, *ipc*, *mnt*, *pid*, *net*.
-
 *--manage-cgroups*::
     Collect cgroups into the image thus they gonna be restored then.
     Without this argument *criu* will not save cgroups configuration
