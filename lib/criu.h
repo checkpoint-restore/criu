@@ -27,11 +27,13 @@
 
 enum criu_service_comm {
 	CRIU_COMM_SK,
-	CRIU_COMM_FD
+	CRIU_COMM_FD,
+	CRIU_COMM_BIN
 };
 
 void criu_set_service_address(char *path);
 void criu_set_service_fd(int fd);
+void criu_set_service_binary(char *path);
 
 /*
  * You can choose if you want libcriu to connect to service socket
@@ -142,6 +144,7 @@ typedef struct {
 	union {
 		char		*service_address;
 		int		service_fd;
+		char		*service_binary;
 	};
 	int			swrk_pid;
 } criu_opts;

@@ -16,6 +16,8 @@
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
 
+#define CR_DEFAULT_SERVICE_BIN "criu"
+
 const char *criu_lib_version = CRIU_VERSION;
 
 static criu_opts *global_opts;
@@ -52,6 +54,19 @@ void criu_local_set_service_fd(criu_opts *opts, int fd)
 void criu_set_service_fd(int fd)
 {
 	criu_local_set_service_fd(global_opts, fd);
+}
+
+void criu_local_set_service_binary(criu_opts *opts, char *path)
+{
+	if (path)
+		opts->service_binary = path;
+	else
+		opts->service_binary = CR_DEFAULT_SERVICE_BIN;
+}
+
+void criu_set_service_binary(char *path)
+{
+	criu_local_set_service_binary(global_opts, path);
 }
 
 int criu_local_init_opts(criu_opts **o)
@@ -718,7 +733,8 @@ static int send_notify_ack(int socket_fd, int ret)
 
 static void swrk_wait(criu_opts *opts)
 {
-	waitpid(opts->swrk_pid, NULL, 0);
+	if (opts->service_comm == CRIU_COMM_BIN)
+		waitpid(opts->swrk_pid, NULL, 0);
 }
 
 static int swrk_connect(criu_opts *opts)
@@ -757,7 +773,7 @@ static int swrk_connect(criu_opts *opts)
 		close(sks[0]);
 		sprintf(fds, "%d", sks[1]);
 
-		execlp("criu", "criu", "swrk", fds, NULL);
+		execlp(opts->service_binary, opts->service_binary, "swrk", fds, NULL);
 		perror("Can't exec criu swrk");
 		exit(1);
 	}
@@ -781,6 +797,8 @@ static int criu_connect(criu_opts *opts)
 
 	if (opts->service_comm == CRIU_COMM_FD)
 		return opts->service_fd;
+	else if (opts->service_comm == CRIU_COMM_BIN)
+		return swrk_connect(opts);
 
 	fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (fd < 0) {
@@ -889,6 +907,8 @@ exit:
 	if (resp)
 		criu_resp__free_unpacked(resp, NULL);
 
+	swrk_wait(opts);
+
 	errno = saved_errno;
 
 	return ret;
@@ -925,6 +945,8 @@ int criu_local_dump(criu_opts *opts)
 exit:
 	if (resp)
 		criu_resp__free_unpacked(resp, NULL);
+
+	swrk_wait(opts);
 
 	errno = saved_errno;
 
@@ -995,6 +1017,8 @@ exit:
 	if (resp)
 		criu_resp__free_unpacked(resp, NULL);
 
+	swrk_wait(opts);
+
 	errno = saved_errno;
 
 	return ret;
@@ -1029,6 +1053,8 @@ exit:
 	if (resp)
 		criu_resp__free_unpacked(resp, NULL);
 
+	swrk_wait(opts);
+
 	errno = saved_errno;
 
 	return ret;
@@ -1042,10 +1068,36 @@ int criu_restore(void)
 int criu_local_restore_child(criu_opts *opts)
 {
 	int sk, ret = -1;
+	enum criu_service_comm saved_comm;
+	char *saved_comm_data;
+	bool save_comm;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
 
+	/*
+	 * restore_child is not possible with criu running as a system
+	 * service, so we need to switch comm method to CRIU_COMM_BIN.
+	 * We're doing so because of the backward compatibility, and we
+	 * should probably consider requiring CRIU_COMM_BIN to be set by
+	 * user at some point.
+	 */
+	save_comm = (opts->service_comm != CRIU_COMM_BIN);
+	if (save_comm) {
+		/* Save comm */
+		saved_comm = opts->service_comm;
+		saved_comm_data = opts->service_address;
+
+		opts->service_comm = CRIU_COMM_BIN;
+		opts->service_binary = CR_DEFAULT_SERVICE_BIN;
+	}
+
 	sk = swrk_connect(opts);
+	if (save_comm) {
+		/* Restore comm */
+		opts->service_comm = saved_comm;
+		opts->service_address = saved_comm_data;
+	}
+
 	if (sk < 0)
 		return -1;
 
