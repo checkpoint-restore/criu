@@ -716,6 +716,63 @@ static int send_notify_ack(int socket_fd, int ret)
 	return ret ? : send_ret;
 }
 
+static void swrk_wait(criu_opts *opts)
+{
+	waitpid(opts->swrk_pid, NULL, 0);
+}
+
+static int swrk_connect(criu_opts *opts)
+{
+	int sks[2], pid, ret = -1;
+
+	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sks))
+		goto out;
+
+	pid = fork();
+	if (pid < 0)
+		goto err;
+
+	if (pid == 0) {
+		sigset_t mask;
+		char fds[11];
+
+		/*
+		 * Unblock SIGCHLD.
+		 *
+		 * The caller of this function is supposed to have
+		 * this signal blocked. Otherwise it risks to get
+		 * into situation, when this routine is not yet
+		 * returned, but the restore subtree exits and
+		 * emits the SIGCHLD.
+		 *
+		 * In turn, unblocked SIGCHLD is required to make
+		 * criu restoration process work -- it catches
+		 * subtasks restore errors in this handler.
+		 */
+
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGCHLD);
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
+		close(sks[0]);
+		sprintf(fds, "%d", sks[1]);
+
+		execlp("criu", "criu", "swrk", fds, NULL);
+		perror("Can't exec criu swrk");
+		exit(1);
+	}
+
+	close(sks[1]);
+	opts->swrk_pid = pid;
+	ret = sks[0];
+out:
+	return ret;
+err:
+	close(sks[0]);
+	close(sks[1]);
+	goto out;
+}
+
 static int criu_connect(criu_opts *opts)
 {
 	int fd, ret;
@@ -984,48 +1041,13 @@ int criu_restore(void)
 
 int criu_local_restore_child(criu_opts *opts)
 {
-	int sks[2], pid, ret = -1;
+	int sk, ret = -1;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
 
-	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sks))
-		goto out;
-
-	pid = fork();
-	if (pid < 0)
-		goto err;
-
-	if (pid == 0) {
-		sigset_t mask;
-		char fds[11];
-
-		/*
-		 * Unblock SIGCHLD.
-		 *
-		 * The caller of this function is supposed to have
-		 * this signal blocked. Otherwise it risks to get
-		 * into situation, when this routine is not yet
-		 * returned, but the restore subtree exits and
-		 * emits the SIGCHLD.
-		 *
-		 * In turn, unblocked SIGCHLD is required to make
-		 * criu restoration process work -- it catches
-		 * subtasks restore errors in this handler.
-		 */
-
-		sigemptyset(&mask);
-		sigaddset(&mask, SIGCHLD);
-		sigprocmask(SIG_UNBLOCK, &mask, NULL);
-
-		close(sks[0]);
-		sprintf(fds, "%d", sks[1]);
-
-		execlp("criu", "criu", "swrk", fds, NULL);
-		perror("Can't exec criu swrk");
-		exit(1);
-	}
-
-	close(sks[1]);
+	sk = swrk_connect(opts);
+	if (sk < 0)
+		return -1;
 
 	saved_errno = 0;
 
@@ -1035,24 +1057,18 @@ int criu_local_restore_child(criu_opts *opts)
 	req.opts->has_rst_sibling = true;
 	req.opts->rst_sibling = true;
 
-	ret = send_req_and_recv_resp_sk(sks[0], opts, &req, &resp);
+	ret = send_req_and_recv_resp_sk(sk, opts, &req, &resp);
 
-	close(sks[0]);
-	waitpid(pid, NULL, 0);
+	swrk_wait(opts);
 
 	if (!ret) {
 		ret = resp->success ? resp->restore->pid : -EBADE;
 		criu_resp__free_unpacked(resp, NULL);
 	}
 
+	close(sk);
 	errno = saved_errno;
-out:
 	return ret;
-
-err:
-	close(sks[1]);
-	close(sks[0]);
-	goto out;
 }
 
 int criu_restore_child(void)

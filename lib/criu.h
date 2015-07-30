@@ -143,6 +143,7 @@ typedef struct {
 		char		*service_address;
 		int		service_fd;
 	};
+	int			swrk_pid;
 } criu_opts;
 
 int criu_local_init_opts(criu_opts **opts);
