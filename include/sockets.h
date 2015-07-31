@@ -43,11 +43,6 @@ extern int resolve_unix_peers(void);
 
 extern struct collect_image_info netlink_sk_cinfo;
 
-extern char *skfamily2s(u32 f);
-extern char *sktype2s(u32 t);
-extern char *skproto2s(u32 p);
-extern char *skstate2s(u32 state);
-
 extern struct socket_desc *lookup_socket(int ino, int family, int proto);
 
 extern const struct fdtype_ops unix_dump_ops;
