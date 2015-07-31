@@ -20,6 +20,18 @@
 
 const char *criu_lib_version = CRIU_VERSION;
 
+struct criu_opts {
+	CriuOpts		*rpc;
+	int			(*notify)(char *action, criu_notify_arg_t na);
+	enum criu_service_comm	service_comm;
+	union {
+		char		*service_address;
+		int		service_fd;
+		char		*service_binary;
+	};
+	int			swrk_pid;
+};
+
 static criu_opts *global_opts;
 static int saved_errno;
 

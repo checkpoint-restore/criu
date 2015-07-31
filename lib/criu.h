@@ -136,18 +136,7 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
  * Same as the list above, but lets you have your very own options
  * structure and lets you set individual options in it.
  */
-typedef struct _CriuOpts *criu_pb_opts_t;
-typedef struct {
-	criu_pb_opts_t		rpc; /* Generic RPC options in protobuf format */
-	int			(*notify)(char *action, criu_notify_arg_t na);
-	enum criu_service_comm	service_comm;
-	union {
-		char		*service_address;
-		int		service_fd;
-		char		*service_binary;
-	};
-	int			swrk_pid;
-} criu_opts;
+typedef struct criu_opts criu_opts;
 
 int criu_local_init_opts(criu_opts **opts);
 
