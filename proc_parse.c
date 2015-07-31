@@ -473,7 +473,7 @@ static int vma_list_add(struct vma_area *vma_area,
 
 	list_add_tail(&vma_area->list, &vma_area_list->h);
 	vma_area_list->nr++;
-	if (vma_area_is_private(vma_area)) {
+	if (vma_area_is_private(vma_area, kdat.task_size)) {
 		unsigned long pages;
 
 		pages = vma_area_len(vma_area) / PAGE_SIZE;

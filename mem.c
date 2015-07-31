@@ -178,7 +178,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	args->nr_vmas = 0;
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (!vma_area_is_private(vma))
+		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 		if (vma->e->prot & PROT_READ)
 			continue;
@@ -293,7 +293,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		u64 off = 0;
 		u64 *map;
 
-		if (!vma_area_is_private(vma_area))
+		if (!vma_area_is_private(vma_area, kdat.task_size))
 			continue;
 
 		map = pmc_get_map(&pmc, vma_area);
@@ -441,7 +441,7 @@ int prepare_mm_pid(struct pstree_item *i)
 		}
 		list_add_tail(&vma->list, &ri->vmas.h);
 
-		if (vma_area_is_private(vma)) {
+		if (vma_area_is_private(vma, kdat.task_size)) {
 			ri->vmas.priv_size += vma_area_len(vma);
 			if (vma->e->flags & MAP_GROWSDOWN)
 				ri->vmas.priv_size += PAGE_SIZE;

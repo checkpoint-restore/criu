@@ -92,17 +92,19 @@ static inline int in_vma_area(struct vma_area *vma, unsigned long addr)
 		addr < (unsigned long)vma->e->end;
 }
 
-static inline bool vma_entry_is_private(VmaEntry *entry)
+static inline bool vma_entry_is_private(VmaEntry *entry,
+					unsigned long task_size)
 {
 	return vma_entry_is(entry, VMA_AREA_REGULAR)	&&
 		(vma_entry_is(entry, VMA_ANON_PRIVATE)	||
 		 vma_entry_is(entry, VMA_FILE_PRIVATE)) &&
-		 (entry->end <= TASK_SIZE);
+		 (entry->end <= task_size);
 }
 
-static inline bool vma_area_is_private(struct vma_area *vma)
+static inline bool vma_area_is_private(struct vma_area *vma,
+				       unsigned long task_size)
 {
-	return vma_entry_is_private(vma->e);
+	return vma_entry_is_private(vma->e, task_size);
 }
 
 #endif /* __CR_VMA_H__ */
