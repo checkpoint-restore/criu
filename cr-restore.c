@@ -2893,6 +2893,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
 	task_args->premmapped_len = rsti(current)->premmapped_len;
 
+	task_args->task_size = kdat.task_size;
+
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\

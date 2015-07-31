@@ -727,16 +727,17 @@ void __export_unmap(void)
  * and arguments and the one with private vmas of the tasks we restore
  * (a.k.a. premmaped area):
  *
- * 0                       TASK_SIZE
+ * 0                       task_size
  * +----+====+----+====+---+
  *
  * Thus to unmap old memory we have to do 3 unmaps:
  * [ 0 -- 1st area start ]
  * [ 1st end -- 2nd start ]
- * [ 2nd start -- TASK_SIZE ]
+ * [ 2nd start -- task_size ]
  */
 static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
-		      void *bootstrap_start, unsigned long bootstrap_len)
+		      void *bootstrap_start, unsigned long bootstrap_len,
+		      unsigned long task_size)
 {
 	unsigned long s1, s2;
 	void *p1, *p2;
@@ -766,10 +767,10 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
 		return -1;
 	}
 
-	ret = sys_munmap(p2 + s2, (void *) TASK_SIZE - (p2 + s2));
+	ret = sys_munmap(p2 + s2, task_size - (unsigned long)(p2 + s2));
 	if (ret) {
 		pr_err("Unable to unmap (%p-%p): %d\n",
-				p2 + s2, (void *)TASK_SIZE, ret);
+				p2 + s2, (void *)task_size, ret);
 		return -1;
 	}
 
@@ -870,7 +871,7 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
-				bootstrap_start, bootstrap_len))
+				bootstrap_start, bootstrap_len, args->task_size))
 		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
@@ -880,7 +881,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is_private(vma_entry))
 			continue;
 
-		if (vma_entry->end >= TASK_SIZE)
+		if (vma_entry->end >= args->task_size)
 			continue;
 
 		if (vma_entry->start > vma_entry->shmid)
@@ -898,7 +899,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is_private(vma_entry))
 			continue;
 
-		if (vma_entry->start > TASK_SIZE)
+		if (vma_entry->start > args->task_size)
 			continue;
 
 		if (vma_entry->start < vma_entry->shmid)

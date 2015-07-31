@@ -139,6 +139,7 @@ struct task_restore_args {
 	unsigned int			zombies_n;
 	/* * * * * * * * * * * * * * * * * * * * */
 
+	unsigned long			task_size;
 	unsigned long			premmapped_addr;
 	unsigned long			premmapped_len;
 	rt_sigaction_t			sigchld_act;
