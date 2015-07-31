@@ -18,6 +18,7 @@
 #include "parasite-syscall.h"
 #include "restorer.h"
 #include "errno.h"
+#include "kerndat.h"
 
 
 /*
@@ -212,7 +213,7 @@ void *mmap_seized(struct parasite_ctl *ctl,
 
 	err = syscall_seized(ctl, __NR_mmap2, &map,
 			(unsigned long)addr, length, prot, flags, fd, offset >> 12);
-	if (err < 0 || map > TASK_SIZE)
+	if (err < 0 || map > kdat.task_size)
 		map = 0;
 
 	return (void *)map;

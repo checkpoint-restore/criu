@@ -7,6 +7,7 @@
 #include "util.h"
 #include "log.h"
 #include "vma.h"
+#include "kerndat.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "pagemap-cache: "
@@ -66,8 +67,8 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 	size_t len = vma_area_len(vma);
 	size_t size_map;
 
-	if (high > TASK_SIZE)
-		high = TASK_SIZE;
+	if (high > kdat.task_size)
+		high = kdat.task_size;
 
 	pmc->start = vma->e->start;
 	pmc->end = vma->e->end;

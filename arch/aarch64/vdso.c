@@ -87,7 +87,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			continue;
 		}
 
-		if (vma->e->start > TASK_SIZE)
+		if (vma->e->start > kdat.task_size)
 			continue;
 
 		if (vma->e->flags & MAP_GROWSDOWN)

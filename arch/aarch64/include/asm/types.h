@@ -61,15 +61,12 @@ typedef struct user_pt_regs user_regs_struct_t;
 #define REG_IP(regs)		((u64)(regs).pc)
 #define REG_SYSCALL_NR(regs)	((u64)(regs).regs[8])
 
-// Copied from the Linux kernel arch/arm64/include/asm/memory.h
-// FIXME: what about a 32bit task?
-
-#define TASK_SIZE (1ULL << 39)
-
 /*
  * Range for task size calculated from the following Linux kernel files:
  *   arch/arm64/include/asm/memory.h
  *   arch/arm64/Kconfig
+ *
+ * TODO: handle 32 bit tasks
  */
 #define TASK_SIZE_MIN (1UL << 39)
 #define TASK_SIZE_MAX (1UL << 48)

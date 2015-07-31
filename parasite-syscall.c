@@ -56,7 +56,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 	struct vma_area *vma_area;
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
-		if (vma_area->e->start >= TASK_SIZE)
+		if (vma_area->e->start >= kdat.task_size)
 			continue;
 		if (!(vma_area->e->prot & PROT_EXEC))
 			continue;
