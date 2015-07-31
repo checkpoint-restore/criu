@@ -105,6 +105,8 @@ typedef uint64_t tls_t;
 #define TASK_SIZE_USER64 (0x0000400000000000UL)
 #define TASK_SIZE TASK_SIZE_USER64
 
+static inline unsigned long task_size() { return TASK_SIZE; }
+
 static inline void *decode_pointer(uint64_t v) { return (void*)v; }
 static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
 

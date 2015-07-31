@@ -66,6 +66,26 @@ typedef struct user_pt_regs user_regs_struct_t;
 
 #define TASK_SIZE (1ULL << 39)
 
+/*
+ * Range for task size calculated from the following Linux kernel files:
+ *   arch/arm64/include/asm/memory.h
+ *   arch/arm64/Kconfig
+ */
+#define TASK_SIZE_MIN (1UL << 39)
+#define TASK_SIZE_MAX (1UL << 48)
+
+int munmap(void *addr, size_t length);
+
+static inline unsigned long task_size() {
+	unsigned long task_size;
+
+	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
+		if (munmap((void *)task_size, page_size()))
+			break;
+
+	return task_size;
+}
+
 #define AT_VECTOR_SIZE 40
 
 typedef UserAarch64RegsEntry UserRegsEntry;

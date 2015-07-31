@@ -273,6 +273,13 @@ static bool kerndat_has_memfd_create(void)
 	return 0;
 }
 
+static int get_task_size(void)
+{
+	kdat.task_size = task_size();
+	pr_debug("Found task size of %lx\n", kdat.task_size);
+	return 0;
+}
+
 int kerndat_fdinfo_has_lock()
 {
 	int fd, pfd = -1, exit_code = -1, len;
@@ -323,6 +330,8 @@ int kerndat_init(void)
 		ret = get_last_cap();
 	if (!ret)
 		ret = kerndat_fdinfo_has_lock();
+	if (!ret)
+		ret = get_task_size();
 
 	kerndat_lsm();
 
@@ -344,6 +353,8 @@ int kerndat_init_rst(void)
 		ret = get_last_cap();
 	if (!ret)
 		ret = kerndat_has_memfd_create();
+	if (!ret)
+		ret = get_task_size();
 
 	kerndat_lsm();
 

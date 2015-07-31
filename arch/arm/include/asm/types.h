@@ -98,6 +98,8 @@ struct user_vfp_exc {
 
 #define TASK_SIZE 0xbf000000
 
+static inline unsigned long task_size() { return TASK_SIZE; }
+
 #define AT_VECTOR_SIZE 40
 
 typedef UserArmRegsEntry UserRegsEntry;

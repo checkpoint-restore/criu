@@ -119,6 +119,8 @@ typedef struct {
 # define TASK_SIZE	(0xffffe000)
 #endif
 
+static inline unsigned long task_size() { return TASK_SIZE; }
+
 typedef u64 auxv_t;
 typedef u32 tls_t;
 

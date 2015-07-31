@@ -23,6 +23,7 @@ struct kerndat_s {
 	bool has_dirty_track;
 	bool has_memfd;
 	bool has_fdinfo_lock;
+	unsigned long task_size;
 };
 
 extern struct kerndat_s kdat;
