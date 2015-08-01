@@ -74,6 +74,8 @@ message criu_opts {
 	repeated string			enable_fs	= 32;
 
 	repeated unix_sk                unix_sk_ino     = 33;
+
+	optional bool			overlayfs	= 34;
 }
 
 message criu_dump_resp {

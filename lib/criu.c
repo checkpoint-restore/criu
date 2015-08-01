@@ -309,6 +309,17 @@ void criu_set_evasive_devices(bool evasive_devices)
 	criu_local_set_evasive_devices(global_opts, evasive_devices);
 }
 
+void criu_local_set_overlayfs(criu_opts *opts, bool overlayfs)
+{
+	opts->rpc->has_overlayfs	= true;
+	opts->rpc->overlayfs		= overlayfs;
+}
+
+void criu_set_overlayfs(bool overlayfs)
+{
+	criu_local_set_overlayfs(global_opts, overlayfs);
+}
+
 void criu_local_set_shell_job(criu_opts *opts, bool shell_job)
 {
 	opts->rpc->has_shell_job	= true;
