@@ -27,6 +27,7 @@ include/version.h
 arch/x86/sys-exec-tbl.c
 arch/x86/syscalls.S
 pie/pie.lds.S
+pie/piegen/piegen
 include/config.h
 protobuf-desc-gen.h
 criu.pc
