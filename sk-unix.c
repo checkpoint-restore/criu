@@ -1212,8 +1212,8 @@ int resolve_unix_peers(void)
 		}
 
 		ui->peer = peer;
-		if (!ui->queuer)
-			ui->queuer = ui->ue->ino;
+		if (!peer->queuer)
+			peer->queuer = ui->ue->ino;
 		if (ui == peer)
 			/* socket connected to self %) */
 			continue;
