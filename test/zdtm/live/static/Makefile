@@ -34,6 +34,7 @@ TST_NOFILE	=				\
 		socket_udplite			\
 		socket_aio			\
 		socket_close_data		\
+		socket_snd_addr			\
 		packet_sock			\
 		packet_sock_mmap		\
 		sock_filter			\
