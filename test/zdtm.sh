@@ -67,11 +67,11 @@ generate_test_list()
 		static/sockets00
 		static/sockets01
 		static/sockets02
-		static/sockets03
 		static/sock_opts00
 		static/sock_opts01
 		static/sockets_spair
 		static/sockets_dgram
+		static/socket_dgram_data
 		static/socket_queues
 		static/deleted_unix_sock
 		static/sk-unix-unconn
