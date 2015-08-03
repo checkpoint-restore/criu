@@ -33,6 +33,7 @@ TST_NOFILE	=				\
 		socket6_udp			\
 		socket_udplite			\
 		socket_aio			\
+		socket_close_data		\
 		packet_sock			\
 		packet_sock_mmap		\
 		sock_filter			\
