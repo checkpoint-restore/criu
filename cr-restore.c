@@ -1838,6 +1838,12 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	/*
+	 * The task_entries->nr_zombies is updated in the
+	 * CR_STATE_RESTORE_SIGCHLD in pie code.
+	 */
+	task_entries->nr_threads -= atomic_read(&task_entries->nr_zombies);
+
 	ret = stop_usernsd();
 	if (ret < 0)
 		goto out_kill;
@@ -1940,6 +1946,7 @@ static int prepare_task_entries(void)
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
+	atomic_set(&task_entries->nr_zombies, 0);
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->userns_sync_lock);
 

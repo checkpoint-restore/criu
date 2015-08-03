@@ -803,8 +803,7 @@ static int wait_zombies(struct task_restore_args *task_args)
 {
 	int i;
 
-	task_entries->nr_threads -= task_args->zombies_n;
-	task_entries->nr_tasks -= task_args->zombies_n;
+	atomic_add(task_args->zombies_n, &task_entries->nr_zombies);
 
 	for (i = 0; i < task_args->zombies_n; i++) {
 		if (sys_waitid(P_PID, task_args->zombies[i], NULL, WNOWAIT | WEXITED, NULL) < 0) {
