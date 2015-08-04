@@ -476,8 +476,8 @@ const struct fdtype_ops unix_dump_ops = {
  */
 static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct rtattr **tb)
 {
+	int len, ret;
 	char *name;
-	int len;
 
 	len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
 	name = xmalloc(len + 1);
@@ -501,12 +501,16 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		}
 
 		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
-		if (!ns)
-			return -ENOENT;
+		if (!ns) {
+			ret = -ENOENT;
+			goto out;
+		}
 
 		mntns_root = mntns_get_root_fd(ns);
-		if (mntns_root < 0)
-			return -ENOENT;
+		if (mntns_root < 0) {
+			ret = -ENOENT;
+			goto out;
+		}
 
 		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
 		if (name[0] != '/') {
@@ -515,8 +519,10 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 			 * dump attempt.
 			 */
 			rel_name_desc_t *rel_name = xzalloc(sizeof(*rel_name));
-			if (!rel_name)
-				return -ENOMEM;
+			if (!rel_name) {
+				ret = -ENOMEM;
+				goto out;
+			}
 			rel_name->udiag_vfs_dev = uv->udiag_vfs_dev;
 			rel_name->udiag_vfs_ino = uv->udiag_vfs_ino;
 
@@ -565,9 +571,12 @@ postprone:
 	d->name = name;
 	return 0;
 
-skip:
+out:
 	xfree(name);
-	return 1;
+	return ret;
+skip:
+	ret = 1;
+	goto out;
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
