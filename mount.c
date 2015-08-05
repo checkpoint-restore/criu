@@ -127,6 +127,95 @@ static inline int fsroot_mounted(struct mount_info *mi)
 	return is_root(mi->root);
 }
 
+static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpath,
+						unsigned int st_dev, unsigned int st_ino,
+						unsigned int mnt_id)
+{
+	/*
+	 * Goes through all entries in the mountinfo table
+	 * looking for a mount point that contains the file specified
+	 * in rpath. Uses the device number st_dev and the inode number st_ino
+	 * to make sure the file is correct.
+	 */
+	struct mount_info *mi_ret = NULL;
+	struct mount_info *m;
+
+	for (m = list; m != NULL; m = m->next) {
+		/* Case 1: If mnt_id is correct, don't do anything */
+		if (st_dev == m->s_dev && mnt_id == m->mnt_id)
+			return NULL;
+
+		/*
+		 * Case 2: If overlayFS we try to find the correct mnt_id.
+		 *
+		 * Note that even if we do find something, we want to keep looking for
+		 * Case 1, which takes precedence.
+		 */
+		if (m->fstype->code == FSTYPE__OVERLAYFS) {
+			char _abs_path[PATH_MAX];
+			struct stat f_stat;
+			int ret_stat;
+
+			/* Concatenates m->mountpoint with rpath and attempts to stat the resulting path */
+			if (strcmp("./", m->mountpoint) == 0)
+				ret_stat = stat(rpath + 1, &f_stat);
+			else {
+				int n = snprintf(_abs_path, PATH_MAX, "%s/%s", m->mountpoint + 1, rpath);
+
+				if (n >= PATH_MAX) {
+					pr_err("Not enough space to concatenate %s and %s\n", m->mountpoint, rpath);
+					return NULL;
+				}
+				ret_stat = stat(_abs_path, &f_stat);
+			}
+
+			if (ret_stat == 0 && st_dev == f_stat.st_dev && st_ino == f_stat.st_ino)
+				mi_ret = m;
+		}
+	}
+
+	return mi_ret;
+}
+
+/*
+ * Looks up the mnt_id and path of a file in an overlayFS directory.
+ *
+ * This is useful in order to fix the OverlayFS bug present in the
+ * Linux Kernel before version 4.2. See fixup_overlayfs for details.
+ *
+ * We first enter the mount namespace of the process and check to see
+ * if there are any overlayFS mounted directories in the mountinfo table.
+ * If so, we concatenate the mountpoint with the name of the file, and
+ * stat the resulting path to check if we found the correct device id
+ * and node number. If that is the case, we update the mount id and
+ * link variables with the correct values.
+ *
+ * This update is skipped if there is an entry in the
+ * mountinfo table with the same known device number and
+ * mount id, signifying that we already have the correct id.
+ *
+ * At the end of this procedure, we exit the mount namespace
+ * of the process, back to the original one.
+ */
+struct mount_info *lookup_overlayfs(char *rpath, unsigned int st_dev,
+					unsigned int st_ino, unsigned int mnt_id)
+{
+	int ns_old = -1;
+	struct mount_info *mi;
+
+	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0) {
+		pr_err("Failed to switch into mount namespace of PID %d\n", root_item->pid.real);
+		return NULL;
+	}
+	mi = __lookup_overlayfs(mntinfo, rpath, st_dev, st_ino, mnt_id);
+
+	if (restore_ns(ns_old, &mnt_ns_desc)) {
+		pr_err("Failed to restore to old mount namespace %d\n", ns_old);
+		return NULL;
+	}
+	return mi;
+}
+
 static struct mount_info *__lookup_mnt_id(struct mount_info *list, int id)
 {
 	struct mount_info *m;
@@ -1365,6 +1454,9 @@ static struct fstype fstypes[32] = {
 		.code = FSTYPE__FUSE,
 		.dump = always_fail,
 		.restore = always_fail,
+	}, {
+		.name = "overlay",
+		.code = FSTYPE__OVERLAYFS,
 	},
 };
 

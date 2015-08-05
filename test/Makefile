@@ -13,7 +13,7 @@ all:
 
 .PHONY: all
 
-TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socketpairs
+TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socketpairs overlayfs
 
 other: .FORCE
 	for t in $(TESTS); do			\

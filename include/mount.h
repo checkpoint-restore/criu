@@ -22,6 +22,8 @@ extern int prepare_mnt_ns(void);
 extern int pivot_root(const char *new_root, const char *put_old);
 
 struct mount_info;
+struct mount_info *lookup_overlayfs(char *rpath, unsigned int s_dev,
+				unsigned int st_ino, unsigned int mnt_id);
 extern struct mount_info *lookup_mnt_id(unsigned int id);
 extern struct mount_info *lookup_mnt_sdev(unsigned int s_dev);
 
