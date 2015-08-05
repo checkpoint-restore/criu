@@ -656,10 +656,6 @@ run_test()
 			echo "Skip $test"
 			return 0
 		fi
-		expr $test : 'ns/user' > /dev/null && {
-			echo "Skip $test"
-			return 0
-		}
 	fi
 
 	expr "$test" : 'ns/' > /dev/null && PIDNS=1 || PIDNS=""
