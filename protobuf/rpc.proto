@@ -60,7 +60,7 @@ message criu_opts {
 	repeated string			exec_cmd	= 22;
 
 	repeated ext_mount_map		ext_mnt		= 23;
-	optional bool			manage_cgroups	= 24;
+	optional bool			manage_cgroups	= 24; /* backward compatibility */
 	repeated cgroup_root		cg_root		= 25;
 
 	optional bool			rst_sibling	= 26; /* swrk only */
@@ -74,6 +74,8 @@ message criu_opts {
 	repeated string			enable_fs	= 32;
 
 	repeated unix_sk                unix_sk_ino     = 33;
+
+	optional uint32                 manage_cgroups_mode = 34;
 }
 
 message criu_dump_resp {

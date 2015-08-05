@@ -375,6 +375,17 @@ void criu_set_manage_cgroups(bool manage)
 	criu_local_set_manage_cgroups(global_opts, manage);
 }
 
+void criu_local_set_manage_cgroups_mode(criu_opts *opts, unsigned int mode)
+{
+	opts->rpc->has_manage_cgroups_mode = true;
+	opts->rpc->manage_cgroups_mode = mode;
+}
+
+void criu_set_manage_cgroups_mode(unsigned int mode)
+{
+	criu_local_set_manage_cgroups_mode(global_opts, mode);
+}
+
 void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val)
 {
 	opts->rpc->has_auto_ext_mnt = true;
