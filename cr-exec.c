@@ -130,7 +130,10 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	prev_state = ret = seize_task(pid, -1, &creds);
+	if (seize_catch_task(pid))
+		goto out;
+
+	prev_state = ret = seize_wait_task(pid, -1, &creds);
 	if (ret < 0) {
 		pr_err("Can't seize task %d\n", pid);
 		goto out;

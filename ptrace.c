@@ -52,6 +52,39 @@ int suspend_seccomp(pid_t pid)
 	return 0;
 }
 
+int seize_catch_task(pid)
+{
+	int ret;
+
+	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
+	if (ret) {
+		/*
+		 * ptrace API doesn't allow to distinguish
+		 * attaching to zombie from other errors.
+		 * All errors will be handled in seize_wait_task().
+		 */
+		pr_warn("Unable to interrupt task: %d (%s)\n", pid, strerror(errno));
+		return ret;
+	}
+
+	/*
+	 * If we SEIZE-d the task stop it before going
+	 * and reading its stat from proc. Otherwise task
+	 * may die _while_ we're doing it and we'll have
+	 * inconsistent seize/state pair.
+	 *
+	 * If task dies after we seize it but before we
+	 * do this interrupt, we'll notice it via proc.
+	 */
+	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
+	if (ret < 0) {
+		pr_warn("SEIZE %d: can't interrupt task: %s", pid, strerror(errno));
+		ptrace(PTRACE_DETACH, pid, NULL, NULL);
+	}
+
+	return ret;
+}
+
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
@@ -59,38 +92,17 @@ int suspend_seccomp(pid_t pid)
  * of it so the task would not know if it was saddled
  * up with someone else.
  */
-
-int seize_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
+int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
 {
 	siginfo_t si;
 	int status;
-	int ret, ret2, ptrace_errno, wait_errno = 0;
+	int ret = 0, ret2, wait_errno = 0;
 	struct proc_status_creds cr;
 
 	/*
 	 * For the comparison below, let's zero out any padding.
 	 */
 	memzero(&cr, sizeof(struct proc_status_creds));
-
-	ret = ptrace(PTRACE_SEIZE, pid, NULL, 0);
-	ptrace_errno = errno;
-	if (ret == 0) {
-		/*
-		 * If we SEIZE-d the task stop it before going
-		 * and reading its stat from proc. Otherwise task
-		 * may die _while_ we're doing it and we'll have
-		 * inconsistent seize/state pair.
-		 *
-		 * If task dies after we seize it but before we
-		 * do this interrupt, we'll notice it via proc.
-		 */
-		ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
-		if (ret < 0) {
-			pr_perror("SEIZE %d: can't interrupt task", pid);
-			ptrace(PTRACE_DETACH, pid, NULL, NULL);
-			goto err;
-		}
-	}
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -100,10 +112,9 @@ int seize_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
 	 */
 
 try_again:
-	if (!ret) {
-		ret = wait4(pid, &status, __WALL, NULL);
-		wait_errno = errno;
-	}
+
+	ret = wait4(pid, &status, __WALL, NULL);
+	wait_errno = errno;
 
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
@@ -119,8 +130,8 @@ try_again:
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
 			else
-				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d/%d\n",
-						pid, cr.state, ret, ptrace_errno, wait_errno);
+				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
+						pid, cr.state, ret, wait_errno);
 			return -1;
 		}
 
