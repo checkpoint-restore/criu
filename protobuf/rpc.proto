@@ -29,6 +29,16 @@ message unix_sk {
 	required uint32		inode 	= 1;
 };
 
+enum criu_cg_mode {
+	IGNORE	= 0;
+	NONE	= 1;
+	PROPS	= 2;
+	SOFT	= 3;
+	FULL	= 4;
+	STRICT	= 5;
+	DEFAULT = 6;
+};
+
 message criu_opts {
 	required int32			images_dir_fd	= 1;
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
@@ -75,7 +85,7 @@ message criu_opts {
 
 	repeated unix_sk                unix_sk_ino     = 33;
 
-	optional uint32                 manage_cgroups_mode = 34;
+	optional criu_cg_mode		manage_cgroups_mode = 34;
 }
 
 message criu_dump_resp {

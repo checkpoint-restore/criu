@@ -401,8 +401,37 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.manage_cgroups = req->manage_cgroups ? CG_MODE_SOFT : CG_MODE_IGNORE;
 
 	/* Override the manage_cgroup if mode is set explicitly */
-	if (req->has_manage_cgroups_mode)
-		opts.manage_cgroups = req->manage_cgroups_mode;
+	if (req->has_manage_cgroups_mode) {
+		unsigned int mode;
+
+		switch (req->manage_cgroups_mode) {
+		case CRIU_CG_MODE__IGNORE:
+			mode = CG_MODE_IGNORE;
+			break;
+		case CRIU_CG_MODE__NONE:
+			mode = CG_MODE_NONE;
+			break;
+		case CRIU_CG_MODE__PROPS:
+			mode = CG_MODE_PROPS;
+			break;
+		case CRIU_CG_MODE__SOFT:
+			mode = CG_MODE_SOFT;
+			break;
+		case CRIU_CG_MODE__FULL:
+			mode = CG_MODE_FULL;
+			break;
+		case CRIU_CG_MODE__STRICT:
+			mode = CG_MODE_STRICT;
+			break;
+		case CRIU_CG_MODE__DEFAULT:
+			mode = CG_MODE_DEFAULT;
+			break;
+		default:
+			goto err;
+		}
+
+		opts.manage_cgroups = mode;
+	}
 
 	if (req->has_auto_ext_mnt)
 		opts.autodetect_ext_mounts = req->auto_ext_mnt;

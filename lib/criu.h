@@ -31,6 +31,16 @@ enum criu_service_comm {
 	CRIU_COMM_BIN
 };
 
+enum criu_cg_mode {
+	CRIU_CG_MODE_IGNORE	= 0,
+	CRIU_CG_MODE_NONE	= 1,
+	CRIU_CG_MODE_PROPS	= 2,
+	CRIU_CG_MODE_SOFT	= 3,
+	CRIU_CG_MODE_FULL	= 4,
+	CRIU_CG_MODE_STRICT	= 5,
+	CRIU_CG_MODE_DEFAULT	= 6
+};
+
 void criu_set_service_address(char *path);
 void criu_set_service_fd(int fd);
 void criu_set_service_binary(char *path);
@@ -67,7 +77,7 @@ void criu_set_log_file(char *log_file);
 void criu_set_cpu_cap(unsigned int cap);
 void criu_set_root(char *root);
 void criu_set_manage_cgroups(bool manage);
-void criu_set_manage_cgroups_mode(unsigned int mode);
+void criu_set_manage_cgroups_mode(enum criu_cg_mode mode);
 void criu_set_auto_ext_mnt(bool val);
 void criu_set_ext_sharing(bool val);
 void criu_set_ext_masters(bool val);
@@ -167,7 +177,7 @@ void criu_local_set_log_file(criu_opts *opts, char *log_file);
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap);
 void criu_local_set_root(criu_opts *opts, char *root);
 void criu_local_set_manage_cgroups(criu_opts *opts, bool manage);
-void criu_local_set_manage_cgroups_mode(criu_opts *opts, unsigned int mode);
+void criu_local_set_manage_cgroups_mode(criu_opts *opts, enum criu_cg_mode mode);
 void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val);
 void criu_local_set_ext_sharing(criu_opts *opts, bool val);
 void criu_local_set_ext_masters(criu_opts *opts, bool val);

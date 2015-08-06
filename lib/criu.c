@@ -375,13 +375,13 @@ void criu_set_manage_cgroups(bool manage)
 	criu_local_set_manage_cgroups(global_opts, manage);
 }
 
-void criu_local_set_manage_cgroups_mode(criu_opts *opts, unsigned int mode)
+void criu_local_set_manage_cgroups_mode(criu_opts *opts, enum criu_cg_mode mode)
 {
 	opts->rpc->has_manage_cgroups_mode = true;
-	opts->rpc->manage_cgroups_mode = mode;
+	opts->rpc->manage_cgroups_mode = (CriuCgMode)mode;
 }
 
-void criu_set_manage_cgroups_mode(unsigned int mode)
+void criu_set_manage_cgroups_mode(enum criu_cg_mode mode)
 {
 	criu_local_set_manage_cgroups_mode(global_opts, mode);
 }
