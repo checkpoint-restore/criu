@@ -2077,3 +2077,64 @@ bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds
 {
 	return memcmp(o1, o2, sizeof(struct proc_status_creds)) == 0;
 }
+
+int parse_children(pid_t pid, pid_t **_c, int *_n)
+{
+	pid_t *ch = NULL;
+	int nr = 0;
+	DIR *dir;
+	struct dirent *de;
+
+	dir = opendir_proc(pid, "task");
+	if (dir == NULL)
+		return -1;
+
+	while ((de = readdir(dir))) {
+		int fd, len;
+		char *pos;
+
+		if (dir_dots(de))
+			continue;
+
+		fd = open_proc(pid, "task/%s/children", de->d_name);
+		if (fd < 0)
+			goto err;
+
+		len = read(fd, buf, BUF_SIZE);
+		close(fd);
+		if (len < 0)
+			goto err;
+
+		buf[len] = '\0';
+		pos = buf;
+		while (1) {
+			pid_t val, *tmp;
+
+			val = strtol(pos, &pos, 0);
+			if (!val) {
+				BUG_ON(*pos != '\0');
+				break;
+			}
+
+			tmp = xrealloc(ch, (nr + 1) * sizeof(pid_t));
+			if (!tmp)
+				goto err;
+
+			ch = tmp;
+			ch[nr] = val;
+			nr++;
+			pos++; /* space goes after each pid */
+		}
+	}
+
+	*_c = ch;
+	*_n = nr;
+
+	closedir(dir);
+	return 0;
+err:
+	closedir(dir);
+	xfree(ch);
+	return -1;
+}
+
