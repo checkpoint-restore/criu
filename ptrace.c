@@ -52,7 +52,7 @@ int suspend_seccomp(pid_t pid)
 	return 0;
 }
 
-int seize_catch_task(pid)
+int seize_catch_task(pid_t pid)
 {
 	int ret;
 
