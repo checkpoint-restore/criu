@@ -31,8 +31,8 @@
 #define GBYTES(size)	PREF_SHIFT_OP(G, >>, size)
 
 #define KILO(size)	PREF_SHIFT_OP(K, <<, size)
-#define MEGA(size)	PREF_SHIFT_OP(K, <<, size)
-#define GIGA(size)	PREF_SHIFT_OP(K, <<, size)
+#define MEGA(size)	PREF_SHIFT_OP(M, <<, size)
+#define GIGA(size)	PREF_SHIFT_OP(G, <<, size)
 
 struct vma_area;
 struct list_head;
