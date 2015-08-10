@@ -1,6 +1,8 @@
 all: test-c rpc_pb2.py criu
 .PHONY: all
 
+CFLAGS += -g -Werror -Wall
+
 run: all
 	mkdir -p build
 	chmod a+rwx build
@@ -11,10 +13,8 @@ criu:
 	chmod u+s $@
 
 test-c: rpc.pb-c.o test.o
-	gcc $^ -o $@ -lprotobuf-c
 
 test.o: test.c
-	gcc -c $< -I ./
 
 rpc_pb2.py: rpc.proto
 	protoc --proto_path=. --python_out=. rpc.proto

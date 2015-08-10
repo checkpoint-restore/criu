@@ -6,6 +6,7 @@
 #include <sys/fcntl.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
 
 #define MAX_MSG_SIZE 1024
 
@@ -58,7 +59,6 @@ int main(int argc, char *argv[])
 	int ret = 0;
 	struct sockaddr_un addr;
 	socklen_t addr_len;
-	struct stat st = {0};
 
 	if (argc != 3) {
 		fprintf(stderr, "Usage: test-c criu-service.socket imgs_dir");
