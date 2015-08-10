@@ -442,6 +442,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_ext_masters)
 		opts.enable_external_masters = req->ext_masters;
 
+	if (req->has_ghost_limit)
+		opts.ghost_limit = req->ghost_limit;
+
 	return 0;
 
 err:
