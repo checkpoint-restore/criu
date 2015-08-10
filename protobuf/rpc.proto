@@ -86,6 +86,7 @@ message criu_opts {
 	repeated unix_sk                unix_sk_ino     = 33;
 
 	optional criu_cg_mode		manage_cgroups_mode = 34;
+	optional uint32			ghost_limit	= 35 [default = 0x100000];
 }
 
 message criu_dump_resp {
