@@ -674,6 +674,17 @@ int criu_add_skip_mnt(char *mnt)
 	return criu_local_add_skip_mnt(global_opts, mnt);
 }
 
+void criu_local_set_ghost_limit(criu_opts *opts, unsigned int limit)
+{
+	opts->rpc->has_ghost_limit = true;
+	opts->rpc->ghost_limit = limit;
+}
+
+void criu_set_ghost_limit(unsigned int limit)
+{
+	criu_local_set_ghost_limit(global_opts, limit);
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf;
