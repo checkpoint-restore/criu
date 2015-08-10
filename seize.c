@@ -9,6 +9,7 @@
 
 #include "compiler.h"
 #include "cr_options.h"
+#include "cr-errno.h"
 #include "pstree.h"
 #include "ptrace.h"
 #include "seize.h"
@@ -323,8 +324,10 @@ int collect_pstree(pid_t pid)
 
 	root_item->pid.real = pid;
 
-	if (seize_catch_task(pid))
+	if (seize_catch_task(pid)) {
+		set_cr_errno(ESRCH);
 		goto err;
+	}
 
 	ret = seize_wait_task(pid, -1, &dmpi(root_item)->pi_creds);
 	if (ret < 0)
