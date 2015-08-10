@@ -235,6 +235,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "enable-fs",			required_argument,	0, 1065 },
 		{ "enable-external-sharing", 	no_argument, 		0, 1066 },
 		{ "enable-external-masters", 	no_argument, 		0, 1067 },
+		{ "freeze-cgroup",		required_argument,	0, 1068 },
 		{ },
 	};
 
@@ -465,6 +466,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1067:
 			opts.enable_external_masters = true;
 			break;
+		case 1068:
+			opts.freeze_cgroup = optarg;
+			break;
 		case 'M':
 			{
 				char *aux;
@@ -676,6 +680,8 @@ usage:
 "                        'cpu','fpu','all','ins','none'. To disable capability, prefix it with '^'.\n"
 "     --exec-cmd         execute the command specified after '--' on successful\n"
 "                        restore making it the parent of the restored process\n"
+"  --freeze-cgroup\n"
+"                        use cgroup freezer to collect processes\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "inode,.." "      allow external unix connections (optionally can be assign socket's inode that allows one-sided dump)\n"

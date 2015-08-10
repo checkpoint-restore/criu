@@ -19,6 +19,180 @@
 
 #define NR_ATTEMPTS 5
 
+const char frozen[]	= "FROZEN";
+const char freezing[]	= "FREEZING";
+const char thawed[]	= "THAWED";
+
+static const char *get_freezer_state(int fd)
+{
+	int ret;
+	char path[PATH_MAX];
+
+	lseek(fd, 0, SEEK_SET);
+	ret = read(fd, path, sizeof(path) - 1);
+	if (ret <= 0) {
+		pr_perror("Unable to get a current state");
+		goto err;
+	}
+	if (path[ret - 1] == '\n')
+		path[ret - 1] = 0;
+	else
+		path[ret] = 0;
+
+	pr_debug("freezer.state=%s\n", path);
+	if (strcmp(path, frozen) == 0)
+		return frozen;
+	if (strcmp(path, freezing) == 0)
+		return freezing;
+	if (strcmp(path, thawed) == 0)
+		return thawed;
+
+	pr_err("Unknown freezer state: %s", path);
+err:
+	return NULL;
+}
+
+static bool freezer_thawed;
+
+static int freezer_restore_state(void)
+{
+	int fd;
+	char path[PATH_MAX];
+
+	if (!opts.freeze_cgroup || freezer_thawed)
+		return 0;
+
+	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
+	fd = open(path, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+
+	if (write(fd, frozen, sizeof(frozen)) != sizeof(frozen)) {
+			pr_perror("Unable to freeze tasks");
+			close(fd);
+			return -1;
+	}
+	close(fd);
+	return 0;
+}
+
+static int freeze_processes(void)
+{
+	int i, ret, fd, exit_code = -1;
+	char path[PATH_MAX];
+	const char *state = thawed;
+	FILE *f;
+
+	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
+	fd = open(path, O_RDWR);
+	if (fd < 0) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+	state = get_freezer_state(fd);
+	if (!state) {
+		close(fd);
+		return -1;
+	}
+	if (state == thawed) {
+		freezer_thawed = true;
+
+		lseek(fd, 0, SEEK_SET);
+		if (write(fd, frozen, sizeof(frozen)) != sizeof(frozen)) {
+			pr_perror("Unable to freeze tasks");
+			close(fd);
+			return -1;
+		}
+	}
+
+	/*
+	 * There is not way to wait a specified state, so we need to poll the
+	 * freezer.state.
+	 * Here is one extra attempt to check that everything are frozen.
+	 */
+	for (i = 0; i <= NR_ATTEMPTS; i++) {
+		struct timespec req = {};
+		u64 timeout;
+
+		/*
+		 * New tasks can appear while a freezer state isn't
+		 * frozen, so we need to catch all new tasks.
+		 */
+		snprintf(path, sizeof(path), "%s/tasks", opts.freeze_cgroup);
+		f = fopen(path, "r");
+		if (f == NULL) {
+			pr_perror("Unable to open %s", path);
+			goto err;
+		}
+		while (fgets(path, sizeof(path), f)) {
+			pid_t pid;
+
+			pid = atoi(path);
+
+			/*
+			 * Here we are going to skip tasks which are already traced.
+			 * Ptraced tasks looks like children for us, so if
+			 * a task isn't ptraced yet, waitpid() will return a error.
+			 */
+			ret = wait4(pid, NULL, __WALL | WNOHANG, NULL);
+			if (ret == 0)
+				continue;
+
+			if (seize_catch_task(pid)) {
+				/* fails when meets a zombie */
+				fclose(f);
+				if (state == frozen)
+					goto err;
+			}
+		}
+		fclose(f);
+
+		if (state == frozen)
+			break;
+
+		state = get_freezer_state(fd);
+		if (!state)
+			goto err;
+
+		if (state == frozen) {
+			/*
+			 * Enumerate all tasks one more time to collect all new
+			 * tasks, which can be born while the cgroup is being frozen.
+			 */
+
+			continue;
+		}
+
+		timeout = 10000000 * i;
+		req.tv_nsec = timeout % 1000000000;
+		req.tv_sec = timeout / 1000000000;
+		nanosleep(&req, NULL);
+	}
+
+	if (i > NR_ATTEMPTS) {
+		pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	if (exit_code == 0 || freezer_thawed) {
+		lseek(fd, 0, SEEK_SET);
+		if (write(fd, thawed, sizeof(thawed)) != sizeof(thawed)) {
+			pr_perror("Unable to thaw tasks");
+			exit_code = -1;
+		}
+	}
+	if (close(fd)) {
+		pr_perror("Unable to thaw tasks");
+		return -1;
+	}
+
+	return exit_code;
+}
+
 static inline bool child_collected(struct pstree_item *i, pid_t pid)
 {
 	struct pstree_item *c;
@@ -59,8 +233,9 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		/* fails when meets a zombie */
-		seize_catch_task(pid);
+		if (!opts.freeze_cgroup)
+			/* fails when meets a zombie */
+			seize_catch_task(pid);
 
 		ret = seize_wait_task(pid, item->pid.real, &dmpi(c)->pi_creds);
 		if (ret < 0) {
@@ -147,6 +322,9 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 {
 	struct pstree_item *item = root_item;
 
+	if (st != TASK_DEAD)
+		freezer_restore_state();
+
 	pr_info("Unfreezing tasks into %d\n", st);
 	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
@@ -211,7 +389,7 @@ static int collect_threads(struct pstree_item *item)
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid.real, pid);
 
-		if (seize_catch_task(pid))
+		if (!opts.freeze_cgroup && seize_catch_task(pid))
 			continue;
 
 		ret = seize_wait_task(pid, item_ppid(item), &dmpi(item)->pi_creds);
@@ -258,6 +436,9 @@ static int collect_loop(struct pstree_item *item,
 {
 	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
+	if (opts.freeze_cgroup)
+		attempts = 1;
+
 	/*
 	 * While we scan the proc and seize the children/threads
 	 * new ones can appear (with clone(CLONE_PARENT) or with
@@ -268,7 +449,7 @@ static int collect_loop(struct pstree_item *item,
 	 * appear.
 	 */
 
-	while (nr_inprogress > 0 && attempts) {
+	while (nr_inprogress > 0 && attempts >= 0) {
 		attempts--;
 		nr_inprogress = collect(item);
 	}
@@ -318,13 +499,16 @@ int collect_pstree(pid_t pid)
 
 	timing_start(TIME_FREEZING);
 
+	if (opts.freeze_cgroup && freeze_processes())
+		return -1;
+
 	root_item = alloc_pstree_item();
 	if (root_item == NULL)
 		return -1;
 
 	root_item->pid.real = pid;
 
-	if (seize_catch_task(pid)) {
+	if (!opts.freeze_cgroup && seize_catch_task(pid)) {
 		set_cr_errno(ESRCH);
 		goto err;
 	}

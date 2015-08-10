@@ -57,6 +57,7 @@ struct cr_options {
 	char			*output;
 	char			*root;
 	char			*pidfile;
+	char			*freeze_cgroup;
 	struct list_head	veth_pairs;
 	struct list_head	scripts;
 	struct list_head	ext_mounts;
