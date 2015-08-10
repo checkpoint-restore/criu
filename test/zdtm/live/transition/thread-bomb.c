@@ -4,11 +4,13 @@
 #include <syscall.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "zdtmtst.h"
 
 static int p[2];
-static char buf[100]; /* the size is equal to the limit of threads */
+static char *buf;
+static int buf_size = 1024;
 
 #define exit_group(code)	\
 	syscall(__NR_exit_group, code)
@@ -40,11 +42,21 @@ err:
 
 int main(int argc, char **argv)
 {
+	char *val;
+
+	val = getenv("ZDTM_THREAD_BOMB");
+	if (val)
+		buf_size = atoi(val);
+	test_msg("%d\n", buf_size);
+	buf = malloc(buf_size);
+	if (!buf)
+		return 1;
+
 	if (pipe(p))
 		return 1;
 	fcntl(p[0], F_SETFL, O_NONBLOCK);
 
-	if (write(p[1], buf, sizeof(buf)) != sizeof(buf))
+	if (write(p[1], buf, buf_size) != buf_size)
 		return 1;
 
 	test_init(argc, argv);

@@ -10,6 +10,7 @@ all:
 	$(MAKE) zdtm-pre-dump
 	$(MAKE) zdtm-snapshot
 	$(MAKE) zdtm-iter
+	$(MAKE) zdtm-freezer
 
 .PHONY: all
 
@@ -37,6 +38,10 @@ zdtm-snapshot: zdtm-tst-list
 
 zdtm-iter: zdtm-tst-list
 	ZDTM_ARGS="-i 3 -C" $(MAKE) -f Makefile.zdtm ns/static/pipe00
+
+zdtm-freezer:
+	ZDTM_ARGS="--freeze-cgroup /sys/fs/cgroup/freezer/test -i 3" $(MAKE) -f Makefile.zdtm transition/thread-bomb
+	ZDTM_ARGS="--freeze-cgroup /sys/fs/cgroup/freezer/test -d --frozen" $(MAKE) -f Makefile.zdtm transition/thread-bomb
 
 .PHONY: zdtm
 

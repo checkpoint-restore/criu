@@ -373,6 +373,7 @@ BATCH_TEST=0
 SPECIFIED_NAME_USED=0
 START_FROM="."
 RESTORE_SIBLING=""
+FREEZE_CGROUP=""
 
 zdtm_sep()
 { (
@@ -565,6 +566,12 @@ start_test()
 	fi
 
 	(
+		if [ -n "$FREEZE_CGROUP" ]; then
+			mkdir -p $FREEZE_CGROUP
+			echo 0 > $FREEZE_CGROUP/tasks || exit 1
+		else
+			export ZDTM_THREAD_BOMB=100
+		fi
 		# Here is no way to set FD_CLOEXEC on 3
 		exec 3>&-
 		make -C $tdir $tname.pid
@@ -573,6 +580,10 @@ start_test()
 	if [ $? -ne 0 ]; then
 		echo ERROR: fail to start $test
 		return 1
+	fi
+
+	if [ -n "$FREEZE_CGROUP" ] && [ -n "$FREEZER_STATE" ]; then
+		echo $FREEZER_STATE > $FREEZE_CGROUP/freezer.state
 	fi
 
 	[ -z "$PIDNS" ] || cd -
@@ -755,6 +766,10 @@ EOF
 			fi
 			[ -n "$snappdir" ] && cpt_args="$cpt_args --prev-images-dir=$snappdir"
 		fi
+		if [ -n "$FREEZE_CGROUP" ]; then
+			cpt_args="$cpt_args --freeze-cgroup $FREEZE_CGROUP --manage-cgroups"
+			rst_args="$rst_args --manage-cgroups"
+		fi
 
 		[ -n "$dump_only" ] && cpt_args="$cpt_args $POSTDUMP"
 
@@ -805,6 +820,15 @@ EOF
 				save_maps $PID  $ddump/dump.maps.after
 				diff_maps $ddump/dump.maps $ddump/dump.maps.after || return 1
 			}
+
+			if [ -n "$FREEZE_CGROUP" ] && [ -n "$FREEZER_STATE" ]; then
+				while :; do
+					echo freezer.state=`cat $FREEZE_CGROUP/freezer.state`
+					cat $FREEZE_CGROUP/freezer.state | grep -q $FREEZER_STATE && break;
+					sleep 0.1
+				done
+			fi
+			echo THAWED > $FREEZE_CGROUP/freezer.state
 
 			rm -f ./$tdir/link_remap.*
 		else
@@ -1054,6 +1078,15 @@ while :; do
 		;;
 	  --auto-dedup)
 		AUTO_DEDUP=1
+		shift
+		;;
+	  --freeze-cgroup)
+		shift
+		FREEZE_CGROUP=$1
+		shift
+		;;
+	  --frozen)
+		FREEZER_STATE=FROZEN
 		shift
 		;;
 	  -g)
