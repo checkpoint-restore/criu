@@ -60,6 +60,7 @@ void init_opts(void)
 	opts.cpu_cap = CPU_CAP_DEFAULT;
 	opts.manage_cgroups = CG_MODE_DEFAULT;
 	opts.ps_socket = -1;
+	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 }
 
 static int parse_ns_string(const char *ptr)
@@ -175,6 +176,17 @@ Esyntax:
 	return -1;
 }
 
+static size_t parse_size(char *optarg)
+{
+	if (index(optarg, 'K'))
+		return (size_t)KILO(atol(optarg));
+	else if (index(optarg, 'M'))
+		return (size_t)MEGA(atol(optarg));
+	else if (index(optarg, 'G'))
+		return (size_t)GIGA(atol(optarg));
+	return (size_t)atol(optarg);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	pid_t pid = 0, tree_id = 0;
@@ -236,6 +248,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "enable-external-sharing", 	no_argument, 		0, 1066 },
 		{ "enable-external-masters", 	no_argument, 		0, 1067 },
 		{ "freeze-cgroup",		required_argument,	0, 1068 },
+		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ },
 	};
 
@@ -469,6 +482,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1068:
 			opts.freeze_cgroup = optarg;
 			break;
+		case 1069:
+			opts.ghost_limit = parse_size(optarg);
+			break;
 		case 'M':
 			{
 				char *aux;
@@ -693,6 +709,7 @@ usage:
 "                        can optionally append @<bridge-name> to OUT for moving\n"
 "                        the outside veth to the named bridge\n"
 "  --link-remap          allow one to link unlinked files back when possible\n"
+"  --ghost-limit size    specify maximum size of deleted file contents to be carried inside an image file\n"
 "  --action-script FILE  add an external action script\n"
 "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"

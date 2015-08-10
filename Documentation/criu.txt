@@ -176,6 +176,12 @@ In other words, do not use it until really needed.
 *--link-remap*::
     Allow one to link unlinked files back when possible (modifies FS till *restore*).
 
+*--ghost-limit* 'size'::
+    Allow one to specify maximum allowed size of deleted file to be carried
+    inside image files. By default up to 1M file is allowed. It is done in
+    a sake to not carry big files inside images. 'size' may be postfixed
+    with 'K', 'M' or 'G' (which stands for kilo, mega and gigabytes accordingly).
+
 *-j*, *--shell-job*::
     Allow one to dump shell jobs. This implies the restored task will inherit session and
     process group ID from the criu itself. Also this option allows one to migrate a

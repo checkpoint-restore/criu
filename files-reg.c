@@ -66,12 +66,6 @@ struct link_remap_rlb {
 };
 static LIST_HEAD(link_remaps);
 
-/*
- * This constant is selected without any calculations. Just do not
- * want to pick up too big files with us in the image.
- */
-#define MAX_GHOST_FILE_SIZE	(1 * 1024 * 1024)
-
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, struct cr_img *img)
 {
 	int gfd, ghost_flags, ret = -1;
@@ -423,8 +417,8 @@ static int dump_ghost_remap(char *path, const struct stat *st,
 
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
-	if (st->st_size > MAX_GHOST_FILE_SIZE) {
-		pr_err("Can't dump ghost file %s of %"PRIu64" size\n",
+	if (st->st_size > opts.ghost_limit) {
+		pr_err("Can't dump ghost file %s of %"PRIu64" size, increase limit\n",
 				path, st->st_size);
 		return -1;
 	}

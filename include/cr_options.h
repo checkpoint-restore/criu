@@ -33,6 +33,11 @@ struct cg_root_opt {
 
 #define CG_MODE_DEFAULT		(CG_MODE_SOFT)
 
+/*
+ * Ghost file size we allow to carry by default.
+ */
+#define DEFAULT_GHOST_LIMIT	(1 << 20)
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -81,6 +86,7 @@ struct cr_options {
 	bool			enable_external_masters;
 	bool			aufs;		/* auto-deteced, not via cli */
 	bool			overlayfs;
+	size_t			ghost_limit;
 };
 
 extern struct cr_options opts;
