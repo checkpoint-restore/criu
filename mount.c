@@ -123,40 +123,40 @@ static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpat
 	int mntns_root = -1;
 
 	for (m = list; m != NULL; m = m->next) {
-		if (m->fstype->code == FSTYPE__OVERLAYFS) {
-			struct stat f_stat;
-			int ret_stat;
+		struct stat f_stat;
+		int ret_stat;
 
-			/*
-			 * We need the mntns root fd of the process to be dumped,
-			 * to make sure we stat the correct file
-			 */
-			if (mntns_root == -1) {
-				mntns_root = __mntns_get_root_fd(root_item->pid.real);
+		if (m->fstype->code != FSTYPE__OVERLAYFS)
+			continue;
 
-				if (mntns_root < 0) {
-					pr_err("Unable to get the root file descriptor of pid %d\n", root_item->pid.real);
-					return ERR_PTR(-1);
-				}
+		/*
+		 * We need the mntns root fd of the process to be dumped,
+		 * to make sure we stat the correct file
+		 */
+		if (mntns_root == -1) {
+			mntns_root = __mntns_get_root_fd(root_item->pid.real);
+			if (mntns_root < 0) {
+				pr_err("Unable to get the root file descriptor of pid %d\n", root_item->pid.real);
+				return ERR_PTR(-ENOENT);
 			}
-
-			/* Concatenates m->mountpoint with rpath and attempts to stat the resulting path */
-			if (strcmp("./", m->mountpoint) == 0)
-				ret_stat = fstatat(mntns_root, rpath, &f_stat, 0);
-			else {
-				char _full_path[PATH_MAX];
-				int n = snprintf(_full_path, PATH_MAX, "%s/%s", m->mountpoint, rpath);
-
-				if (n >= PATH_MAX) {
-					pr_err("Not enough space to concatenate %s and %s\n", m->mountpoint, rpath);
-					return ERR_PTR(-1);
-				}
-				ret_stat = fstatat(mntns_root, _full_path, &f_stat, 0);
-			}
-
-			if (ret_stat == 0 && st_dev == f_stat.st_dev && st_ino == f_stat.st_ino)
-				mi_ret = m;
 		}
+
+		/* Concatenates m->mountpoint with rpath and attempts to stat the resulting path */
+		if (is_root_mount(m)) {
+			ret_stat = fstatat(mntns_root, rpath, &f_stat, 0);
+		} else {
+			char _full_path[PATH_MAX];
+			int n = snprintf(_full_path, PATH_MAX, "%s/%s", m->mountpoint, rpath);
+
+			if (n >= PATH_MAX) {
+				pr_err("Not enough space to concatenate %s and %s\n", m->mountpoint, rpath);
+				return ERR_PTR(-ENOSPC);
+			}
+			ret_stat = fstatat(mntns_root, _full_path, &f_stat, 0);
+		}
+
+		if (ret_stat == 0 && st_dev == f_stat.st_dev && st_ino == f_stat.st_ino)
+			mi_ret = m;
 	}
 
 	return mi_ret;
