@@ -1,14 +1,92 @@
 #ifndef __CR_MOUNT_H__
 #define __CR_MOUNT_H__
 
+#include <sys/types.h>
+
+#include "asm/types.h"
+#include "list.h"
+
 struct proc_mountinfo;
 struct pstree_item;
-struct mount_info;
-struct cr_imgset;
+struct fstype;
 struct ns_id;
+
+/*
+ * Structure to keep external mount points resolving info.
+ *
+ * On dump the key is the mountpoint as seen from the mount
+ * namespace, the val is some name that will be put into image
+ * instead of the mount point's root path.
+ *
+ * On restore the key is the name from the image (the one
+ * mentioned above) and the val is the path in criu's mount
+ * namespace that will become the mount point's root, i.e. --
+ * be bind mounted to the respective mountpoint.
+ */
+struct ext_mount {
+	struct list_head	list;
+	char			*key;
+	char			*val;
+};
+
+struct mount_info {
+	int			mnt_id;
+	int			parent_mnt_id;
+	unsigned int		s_dev;
+	char			*root;
+	/*
+	 * During dump mountpoint contains path with dot at the
+	 * beginning. It allows to use openat, statat, etc without
+	 * creating a temporary copy of the path.
+	 *
+	 * On restore mountpoint is prepended with so called ns
+	 * root path -- it's a place in fs where the namespace
+	 * mount tree is constructed. Check mnt_roots for details.
+	 * The ns_mountpoint contains path w/o this prefix.
+	 */
+	char			*mountpoint;
+	char			*ns_mountpoint;
+	unsigned		flags;
+	int			master_id;
+	int			shared_id;
+	struct fstype		*fstype;
+	char			*source;
+	char			*options;
+	union {
+		bool		mounted;
+		bool		dumped;
+	};
+	bool			need_plugin;
+	int			is_file;
+	bool			is_ns_root;
+	struct mount_info	*next;
+	struct ns_id		*nsid;
+
+	struct ext_mount	*external;
+	bool			internal_sharing;
+
+	/* tree linkage */
+	struct mount_info	*parent;
+	struct mount_info	*bind;
+	struct list_head	children;
+	struct list_head	siblings;
+
+	struct list_head	mnt_bind;	/* circular list of derivatives of one real mount */
+	struct list_head	mnt_share;	/* circular list of shared mounts */
+	struct list_head	mnt_slave_list;	/* list of slave mounts */
+	struct list_head	mnt_slave;	/* slave list entry */
+	struct mount_info	*mnt_master;	/* slave is on master->mnt_slave_list */
+
+	struct list_head	postpone;
+
+	void			*private;	/* associated filesystem data */
+};
 
 extern struct mount_info *mntinfo;
 extern struct ns_desc mnt_ns_desc;
+
+extern struct mount_info *mnt_entry_alloc();
+extern void mnt_entry_free(struct mount_info *mi);
 
 extern int __mntns_get_root_fd(pid_t pid);
 extern int mntns_get_root_fd(struct ns_id *ns);
