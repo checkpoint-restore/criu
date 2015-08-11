@@ -101,10 +101,10 @@ struct fstype {
 
 struct ext_mount;
 struct mount_info {
-	int		mnt_id;
-	int		parent_mnt_id;
-	unsigned int	s_dev;
-	char		*root;
+	int			mnt_id;
+	int			parent_mnt_id;
+	unsigned int		s_dev;
+	char			*root;
 	/*
 	 * During dump mountpoint contains path with dot at the 
 	 * beginning. It allows to use openat, statat, etc without 
@@ -115,42 +115,42 @@ struct mount_info {
 	 * mount tree is constructed. Check mnt_roots for details.
 	 * The ns_mountpoint contains path w/o this prefix.
 	 */
-	char		*mountpoint;
-	char		*ns_mountpoint;
-	unsigned	flags;
-	int		master_id;
-	int		shared_id;
-	struct fstype	*fstype;
-	char		*source;
-	char		*options;
+	char			*mountpoint;
+	char			*ns_mountpoint;
+	unsigned		flags;
+	int			master_id;
+	int			shared_id;
+	struct fstype		*fstype;
+	char			*source;
+	char			*options;
 	union {
 		bool		mounted;
 		bool		dumped;
 	};
-	bool		need_plugin;
-	int		is_file;
-	bool		is_ns_root;
-	struct mount_info *next;
-	struct ns_id	*nsid;
+	bool			need_plugin;
+	int			is_file;
+	bool			is_ns_root;
+	struct mount_info	*next;
+	struct ns_id		*nsid;
 
-	struct ext_mount *external;
-	bool		internal_sharing;
+	struct ext_mount	*external;
+	bool			internal_sharing;
 
 	/* tree linkage */
-	struct mount_info *parent;
-	struct mount_info *bind;
-	struct list_head children;
-	struct list_head siblings;
+	struct mount_info	*parent;
+	struct mount_info	*bind;
+	struct list_head	children;
+	struct list_head	siblings;
 
-	struct list_head mnt_bind;	/* circular list of derivatives of one real mount */
-	struct list_head mnt_share;	/* circular list of shared mounts */
-	struct list_head mnt_slave_list;/* list of slave mounts */
-	struct list_head mnt_slave;	/* slave list entry */
-	struct mount_info *mnt_master;	/* slave is on master->mnt_slave_list */
+	struct list_head	mnt_bind;	/* circular list of derivatives of one real mount */
+	struct list_head	mnt_share;	/* circular list of shared mounts */
+	struct list_head	mnt_slave_list;	/* list of slave mounts */
+	struct list_head	mnt_slave;	/* slave list entry */
+	struct mount_info	*mnt_master;	/* slave is on master->mnt_slave_list */
 
-	struct list_head postpone;
+	struct list_head	postpone;
 
-	void		*private;	/* associated filesystem data */
+	void			*private;	/* associated filesystem data */
 };
 
 extern struct mount_info *mnt_entry_alloc();
