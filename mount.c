@@ -2786,11 +2786,7 @@ struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
 		mi = mntinfo;
 	else
 		mi = lookup_mnt_id(mnt_id);
-
-	if (mi == NULL)
-		return NULL;
-
-	return mi->nsid;
+	return mi ? mi->nsid : NULL;
 }
 
 int mntns_get_root_by_mnt_id(int mnt_id)
