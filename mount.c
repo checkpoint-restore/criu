@@ -2209,14 +2209,13 @@ struct mount_info *mnt_entry_alloc()
 
 void mnt_entry_free(struct mount_info *mi)
 {
-	if (mi == NULL)
-		return;
-
-	xfree(mi->root);
-	xfree(mi->mountpoint);
-	xfree(mi->source);
-	xfree(mi->options);
-	xfree(mi);
+	if (mi) {
+		xfree(mi->root);
+		xfree(mi->mountpoint);
+		xfree(mi->source);
+		xfree(mi->options);
+		xfree(mi);
+	}
 }
 
 /*
