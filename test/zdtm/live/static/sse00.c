@@ -52,7 +52,8 @@ int main(int argc, char **argv)
 {
 #if defined(__i386__) || defined(__x86_64__)
 	float input[8] __attribute__((aligned(16)));
-	float res1[8], res2[8];
+	float res1[8] __attribute__((aligned(16)));
+	float res2[8] __attribute__((aligned(16)));
 	int i;
 #endif
 
