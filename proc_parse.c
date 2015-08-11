@@ -977,7 +977,9 @@ static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
  * mountinfo contains mangled paths. space, tab and back slash were replaced
  * with usual octal escape. This function replaces these symbols back.
  */
-static void cure_path(char *path) { int i, len, off = 0;
+static void cure_path(char *path)
+{
+	int i, len, off = 0;
 
 	if (strchr(path, '\\') == NULL) /* fast path */
 		return;
