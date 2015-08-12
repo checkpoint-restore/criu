@@ -6,7 +6,7 @@ CRIU=../../../criu
 
 setup() {
 	setup_mount
-	sleep 10 3>z/file &
+	setsid sleep 10 3>z/file < /dev/null &> output &
 	PROC_PID=$!
 	echo "PROC_PID=$PROC_PID"
 	sleep 1
@@ -21,13 +21,13 @@ setup_mount() {
 
 check_criu() {
 	echo "Dumping $PROC_PID..."
-	if ! $CRIU dump -D checkpoint --shell-job -t "${PROC_PID}"; then
+	if ! $CRIU dump -D checkpoint -t "${PROC_PID}"; then
 		echo "ERROR! dump failed"
 		return 1
 	fi
 
 	echo "Restoring..."
-	if ! $CRIU restore -d -D checkpoint --shell-job; then
+	if ! $CRIU restore -d -D checkpoint; then
 		echo "ERROR! restore failed"
 		return 1
 	fi
