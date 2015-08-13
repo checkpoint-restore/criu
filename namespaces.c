@@ -1020,7 +1020,7 @@ int userns_call(uns_call_t call, int flags,
 		goto out;
 	}
 
-	/* Get the responce back */
+	/* Get the response back */
 
 	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
 	ret = recvmsg(sk, &um.h, 0);
