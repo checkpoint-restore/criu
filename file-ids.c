@@ -22,11 +22,6 @@
 
 static DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
 
-void fd_id_show_tree(void)
-{
-	kid_show_tree(&fd_tree);
-}
-
 #define FDID_BITS	5
 #define FDID_SIZE	(1 << FDID_BITS)
 #define FDID_MASK	(FDID_SIZE - 1)

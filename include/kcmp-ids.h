@@ -25,6 +25,5 @@ struct kid_elem {
 
 extern u32 kid_generate_gen(struct kid_tree *tree,
 			    struct kid_elem *elem, int *new_id);
-extern void kid_show_tree(struct kid_tree *tree);
 
 #endif /* __CR_KCMP_IDS_H__ */

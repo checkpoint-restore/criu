@@ -1546,7 +1546,6 @@ int cr_dump_tasks(pid_t pid)
 	if (ret)
 		goto err;
 
-	fd_id_show_tree();
 err:
 	if (disconnect_from_page_server())
 		ret = -1;

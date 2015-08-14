@@ -16,6 +16,5 @@ struct stat;
 struct fd_parms;
 extern int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct fd_parms *p);
 extern int fd_id_generate_special(struct fd_parms *p, u32 *id);
-extern void fd_id_show_tree(void);
 
 #endif /* __CR_FILE_IDS_H__ */

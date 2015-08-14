@@ -56,59 +56,6 @@ struct kid_entry {
 	struct kid_elem	elem;
 } __aligned(sizeof(long));
 
-static void show_subnode(struct rb_node *node, int self)
-{
-	struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-
-	pr_info("\t\t| %#x.%#x %s\n", this->elem.genid, this->subid,
-			self ? "(self)" : "");
-	if (node->rb_left) {
-		pr_info("\t\t| left:\n");
-		show_subnode(node->rb_left, 0);
-		pr_info("\t\t| --l\n");
-	}
-	if (node->rb_right) {
-		pr_info("\t\t| right:\n");
-		show_subnode(node->rb_right, 0);
-		pr_info("\t\t| --r\n");
-	}
-}
-
-static void show_subtree(struct rb_root *root)
-{
-	pr_info("\t\t| SubTree\n");
-	show_subnode(root->rb_node, 1);
-}
-
-static void show_node(struct rb_node *node)
-{
-	struct kid_entry *this = rb_entry(node, struct kid_entry, node);
-
-	pr_info("\t%#x.%#x\n", this->elem.genid, this->subid);
-	if (node->rb_left) {
-		pr_info("\tleft:\n");
-		show_node(node->rb_left);
-		pr_info("\t--l\n");
-	}
-	if (node->rb_right) {
-		pr_info("\tright:\n");
-		show_node(node->rb_right);
-		pr_info("\t--r\n");
-	}
-
-	show_subtree(&this->subtree_root);
-	pr_info("\t--s\n");
-}
-
-void kid_show_tree(struct kid_tree *tree)
-{
-	struct rb_root *root = &tree->root;
-
-	pr_info("\tTree of %d objects\n", tree->kcmp_type);
-	if (root->rb_node)
-		show_node(root->rb_node);
-}
-
 static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, struct kid_elem *elem)
 {
 	struct kid_entry *e;
