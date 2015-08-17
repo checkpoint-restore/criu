@@ -26,6 +26,20 @@ set -o pipefail
 : ${CRIU_BINARY=criu}
 : ${DOCKERINIT_BINARY=}
 
+#
+# Patterns for different filesystem types in dump.log.
+#
+readonly AUFS_PATTERN='/sys/fs/aufs/si_'
+readonly OVERLAYFS_PATTERN='type.*source.*options.*lowerdir=.*upperdir=.*workdir='
+readonly UNIONFS_PATTERN='type.*source.*options.*dirs='
+
+#
+# These globals will be set by init_container_vars()
+#
+declare CID
+declare CONTAINER_IMG_DIR
+declare CONTAINER_DUMP_LOG
+
 declare -A BIND_MOUNT
 BIND_MOUNT[/etc/resolv.conf]=.ResolvConfPath
 BIND_MOUNT[/etc/hosts]=.HostsPath
@@ -149,10 +163,17 @@ init_container_vars() {
 	d=$("${DOCKER_BINARY}" info 2> /dev/null | awk '/Storage Driver:/ { print $3 }')
 	if [[ "${d}" == "vfs" ]]; then
 		CONTAINER_ROOT_DIR="${DOCKER_HOME}/${d}/dir/${CID}"
-	else
+	elif [[ "${d}" == "aufs" || "${d}" == "unionfs" ]]; then
 		CONTAINER_ROOT_DIR="${DOCKER_HOME}/${d}/mnt/${CID}"
+	elif [[ "${d}" == "overlay" ]]; then
+		CONTAINER_ROOT_DIR="${DOCKER_HOME}/${d}/${CID}/merged"
+	else
+		echo "${d}: unknown filesystem type"
+		return 1
 	fi
+
 	CONTAINER_IMG_DIR="${CRIU_IMG_DIR}/${CID}"
+	CONTAINER_DUMP_LOG="${CONTAINER_IMG_DIR}/dump.log"
 }
 
 get_container_conf() {
@@ -182,9 +203,13 @@ setup_mount_map() {
 }
 
 fs_mounted() {
-	grep -wq "$1" /proc/mounts
+	if grep -wq "$1" /proc/self/mountinfo; then
+		${ECHO} "container root directory already mounted"
+		return 0
+	fi
+	${ECHO} "container root directory not mounted"
+	return 1
 }
-
 
 #
 # Pretty print the mount command in verbose mode by putting each branch
@@ -192,9 +217,9 @@ fs_mounted() {
 #
 pp_mount() {
 	${ECHO} -e "\nmount -t $1 -o"
-	${ECHO} "${2}" | tr ':' '\n'
-	${ECHO} none
+	${ECHO} "${2}" | tr ':,' '\n'
 	${ECHO} "${3}"
+	${ECHO} "${4}"
 }
 
 #
@@ -209,18 +234,17 @@ pp_mount() {
 # safe for typical Docker containers.
 #
 setup_aufs() {
-	local logf="${CONTAINER_IMG_DIR}/dump.log"
-	local tmpf="${CONTAINER_IMG_DIR}/aufs.br"
+	local -r tmpf="${CONTAINER_IMG_DIR}/aufs.br"
 	local br
 	local branches
 
-	# create a temporary file with branches listed in
-	# ascending order (line 1 is branch 0)
-	awk '/aufs.si_/ { print $2, $4 }' "${logf}" | sort | uniq | \
-		awk '{ print $2 }' > "${tmpf}"
-
 	# nothing to do if filesystem already mounted
 	fs_mounted "${CONTAINER_ROOT_DIR}" && return
+
+	# create a temporary file with branches listed in
+	# ascending order (line 1 is branch 0)
+	awk '/aufs.si_/ { print $2, $4 }' "${CONTAINER_DUMP_LOG}" | \
+		sort | uniq | awk '{ print $2 }' > "${tmpf}"
 
 	# construct the mount option string from branches
 	branches=""
@@ -229,9 +253,29 @@ setup_aufs() {
 	done < "${tmpf}"
 
 	# mount the container's filesystem
-	pp_mount "aufs" "${branches}" "${CONTAINER_ROOT_DIR}"
+	pp_mount "aufs" "${branches}" "none" "${CONTAINER_ROOT_DIR}"
 	mount -t aufs -o br="${branches}" none "${CONTAINER_ROOT_DIR}"
 	rm -f "${tmpf}"
+}
+
+setup_overlayfs() {
+	local lowerdir
+	local upperdir
+	local workdir
+	local ovlydirs
+	local -r f="${CONTAINER_DUMP_LOG}"
+
+	# nothing to do if filesystem already mounted
+	fs_mounted "${CONTAINER_ROOT_DIR}" && return
+
+	lowerdir=$(grep "${OVERLAYFS_PATTERN}" "${f}" | sed -n -e 's/.*lowerdir=\([^,]*\).*/\1/p')
+	upperdir=$(grep "${OVERLAYFS_PATTERN}" "${f}" | sed -n -e 's/.*upperdir=\([^,]*\).*/\1/p')
+	workdir=$(grep "${OVERLAYFS_PATTERN}" "${f}" | sed -n -e 's/.*workdir=\([^,]*\).*/\1/p')
+	ovlydirs="lowerdir=${lowerdir},upperdir=${upperdir},workdir=${workdir}"
+
+	# mount the container's filesystem
+	pp_mount "overlay" "${ovlydirs}" "overlay" "${CONTAINER_ROOT_DIR}"
+	mount -t overlay -o "${ovlydirs}" overlay "${CONTAINER_ROOT_DIR}"
 }
 
 #
@@ -250,17 +294,16 @@ setup_aufs() {
 #     device file by mknod.
 #
 setup_unionfs() {
-	local logf="${CONTAINER_IMG_DIR}/dump.log"
 	local dirs
 
 	# nothing to do if filesystem already mounted
 	fs_mounted "${CONTAINER_ROOT_DIR}" && return
 
-	dirs=$(sed -n -e 's/.*type.*dirs=/dirs=/p' "${logf}")
+	dirs=$(sed -n -e 's/.*type.*dirs=/dirs=/p' "${CONTAINER_DUMP_LOG}")
 	[[ "${dirs}" = "" ]] && echo "do not have branch information" && exit 1
 
 	# mount the container's filesystem
-	pp_mount "unionfs" "${dirs}" "${CONTAINER_ROOT_DIR}"
+	pp_mount "unionfs" "${dirs}" "none" "${CONTAINER_ROOT_DIR}"
 	mount -t unionfs -o "${dirs}" none "${CONTAINER_ROOT_DIR}"
 
 	# see comment at the beginning of the function
@@ -277,6 +320,7 @@ prep_dump() {
 	# docker returns 0 for containers it thinks have exited
 	# (i.e., dumping a restored container again)
 	if [[ ${pid} -eq 0 ]]; then
+		echo -e "\nCheckpointing a restored container?"
 		read -p "Process ID: " pid
 	fi
 
@@ -293,19 +337,27 @@ prep_dump() {
 	fi
 }
 
+#
+# Set up container's root filesystem if not already set up.
+#
 prep_restore() {
-	local aufs_pattern='/sys/fs/aufs/si_'
-	local unionfs_pattern='type.*source.*options.*dirs='
+	local -r f="${CONTAINER_DUMP_LOG}"
 
-	# set up aufs and unionfs mounts if they're not already set up
-	if grep -q "${aufs_pattern}" "${CONTAINER_IMG_DIR}/dump.log"; then
+	if [[ ! -f "${f}" ]]; then
+		echo "${f} does not exist"
+		return 1
+	fi
+
+	if grep -q "${AUFS_PATTERN}" "${f}"; then
 		setup_aufs
-	elif grep -q "${unionfs_pattern}" "${CONTAINER_IMG_DIR}/dump.log"; then
+	elif grep -q "${OVERLAYFS_PATTERN}" "${f}"; then
+		setup_overlayfs
+	elif grep -q "${UNIONFS_PATTERN}" "${f}"; then
 		setup_unionfs
 	fi
 
 	# criu requires this (due to container using pivot_root)
-	if ! grep -q "${CONTAINER_ROOT_DIR}" /proc/mounts; then
+	if ! grep -qw "${CONTAINER_ROOT_DIR}" /proc/self/mountinfo; then
 		execute mount --rbind "${CONTAINER_ROOT_DIR}" "${CONTAINER_ROOT_DIR}"
 		MOUNTED=1
 	else
@@ -334,8 +386,8 @@ run_criu() {
 }
 
 wrap_up() {
-	local logf="${CONTAINER_IMG_DIR}/${CMD}.log"
-	local pidf="${CONTAINER_IMG_DIR}/restore.pid"
+	local -r logf="${CONTAINER_IMG_DIR}/${CMD}.log"
+	local -r pidf="${CONTAINER_IMG_DIR}/restore.pid"
 
 	if [[ $1 -eq 0 ]]; then
 		${ECHO} -e "\n"
@@ -362,18 +414,43 @@ wrap_up() {
 	fi
 }
 
+resolve_path() {
+	local p
+
+	p="${2}"
+	if which realpath > /dev/null; then
+		p=$(realpath "${p}")
+	fi
+	${ECHO} "${1}: ${p}"
+}
+
+resolve_cmd() {
+	local cpath
+
+	cpath=$(which "${2}")
+	resolve_path "${1}" "${cpath}"
+}
+
 main() {
 	local rv=0
+
+	if [[ $(id -u) -ne 0 ]]; then
+		echo "not running as root"
+		exit 1
+	fi
 
 	parse_args "$@"
 	find_dockerinit
 	init_container_vars
 
-	${ECHO} "docker binary: ${DOCKER_BINARY}"
-	${ECHO} "dockerinit binary: ${DOCKERINIT_BINARY}"
-	${ECHO} "criu binary: ${CRIU_BINARY}"
-	${ECHO} "image directory: ${CONTAINER_IMG_DIR}"
-	${ECHO} "container root directory: ${CONTAINER_ROOT_DIR}"
+	if [[ "${VERBOSE}" == "-v" ]]; then
+		echo
+		resolve_cmd "docker binary" "${DOCKER_BINARY}"
+		resolve_cmd "dockerinit binary" "${DOCKERINIT_BINARY}"
+		resolve_cmd "criu binary" "${CRIU_BINARY}"
+		resolve_path "image directory" "${CONTAINER_IMG_DIR}"
+		resolve_path "container root directory" "${CONTAINER_ROOT_DIR}"
+	fi
 
 	if [[ "${CMD}" == "dump" ]]; then
 		prep_dump
