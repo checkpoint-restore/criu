@@ -41,4 +41,6 @@ message mnt_entry {
 
 	optional string		fsname			= 14;
 	optional bool		internal_sharing	= 15;
+
+	optional bool		deleted			= 16;
 }

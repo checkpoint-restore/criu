@@ -1590,6 +1590,10 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		me.has_with_plugin = true;
 		me.with_plugin = true;
 	}
+	if (pm->deleted) {
+		me.has_deleted	= true;
+		me.deleted	= true;
+	}
 
 	if (pm->internal_sharing) {
 		me.has_internal_sharing = true;
@@ -1990,10 +1994,24 @@ static int do_bind_mount(struct mount_info *mi)
 		root = rpath;
 do_bind:
 		pr_info("\tBind %s to %s\n", root, mi->mountpoint);
-		if (mount(root, mi->mountpoint, NULL,
-					MS_BIND, NULL) < 0) {
+
+		if (unlikely(mi->deleted)) {
+			if (mkdir(root, 0700)) {
+				pr_perror("Can't re-create deleted %s\n", root);
+				return -1;
+			}
+		}
+
+		if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
 			pr_perror("Can't mount at %s", mi->mountpoint);
 			return -1;
+		}
+
+		if (unlikely(mi->deleted)) {
+			if (rmdir(root)) {
+				pr_perror("Can't remove deleted %s\n", root);
+				return -1;
+			}
 		}
 	} else {
 		if (restore_ext_mount(mi))
@@ -2308,6 +2326,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->shared_id		= me->shared_id;
 		pm->master_id		= me->master_id;
 		pm->need_plugin		= me->with_plugin;
+		pm->deleted		= me->deleted;
 		pm->is_ns_root		= is_root(me->mountpoint);
 
 		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);

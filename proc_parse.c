@@ -29,6 +29,7 @@
 #include "sysfs_parse.h"
 #include "seccomp.h"
 #include "namespaces.h"
+#include "files-reg.h"
 
 #include "protobuf.h"
 #include "protobuf/fdinfo.pb-c.h"
@@ -1008,6 +1009,7 @@ replace:
 
 static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
+	struct fd_link root_link;
 	unsigned int kmaj, kmin;
 	int ret, n;
 	char *sub, *opt = NULL;
@@ -1026,6 +1028,13 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 
 	cure_path(new->mountpoint);
 	cure_path(new->root);
+
+	root_link.len = strlen(new->root);
+	strcpy(root_link.name, new->root);
+	if (strip_deleted(&root_link)) {
+		strcpy(new->root, root_link.name);
+		new->deleted = true;
+	}
 
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 	if (!new->mountpoint)
