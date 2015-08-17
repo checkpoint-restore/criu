@@ -57,7 +57,6 @@ struct mount_info {
 		bool		dumped;
 	};
 	bool			need_plugin;
-	int			is_file;
 	bool			is_ns_root;
 	struct mount_info	*next;
 	struct ns_id		*nsid;
