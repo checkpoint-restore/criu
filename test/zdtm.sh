@@ -218,6 +218,7 @@ generate_test_list()
 		ns/static/mntns_shared_bind
 		ns/static/mntns_shared_bind02
 		ns/static/mntns_root_bind
+		ns/static/mntns_deleted
 	"
 
 	TEST_AIO="
@@ -340,6 +341,7 @@ mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
 mntns_rw_ro_rw
+mntns_deleted
 mount_paths
 netns-dev
 sockets00
