@@ -51,4 +51,6 @@ extern struct collect_image_info remap_cinfo;
 extern void delete_link_remaps(void);
 extern void free_link_remaps(void);
 
+extern int strip_deleted(struct fd_link *link);
+
 #endif /* __CR_FILES_REG_H__ */
