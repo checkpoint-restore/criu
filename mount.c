@@ -1900,7 +1900,7 @@ skip_parent:
 	 * FIXME Currently non-root mounts can be restored
 	 * only if a proper root mount exists
 	 */
-	if (fsroot_mounted(mi) || mi->parent == NULL)
+	if (fsroot_mounted(mi) || mi->parent == NULL) {
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
 			if (t->mounted)
 				continue;
@@ -1910,6 +1910,7 @@ skip_parent:
 				continue;
 			t->bind = mi;
 		}
+	}
 
 	return 0;
 }
