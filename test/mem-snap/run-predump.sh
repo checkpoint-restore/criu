@@ -71,7 +71,7 @@ echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
 
 cd ../zdtm/live/static/
-make mem-touch.out
+make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
 echo "Test PASSED"

@@ -55,7 +55,7 @@ fi
 echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log --auto-dedup -d -v4 || fail "Fail to restore"
 
-make -C ../zdtm/live/static/ maps04.out
+make -C ../zdtm/live/static/ maps04.stop
 sleep 1
 
 cat "../zdtm/live/static/maps04.out" | fgrep PASS || fail "Test failed"

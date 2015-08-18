@@ -77,7 +77,7 @@ if [[ $size_last1 -ne 0 || $size_last2 -ne 0 || $size_last3 -ne 0 ]]; then
 fi
 
 cd ../zdtm/live/static/
-make mem-touch.out
+make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
 if [ $restore_dedup_ok -ne 0 ]; then

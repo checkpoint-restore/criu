@@ -89,7 +89,7 @@ echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
 
 cd ../zdtm/live/static/
-make mem-touch.out
+make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
 if [[ $dedup_ok_2 -ne 0 || $dedup_ok_1 -ne 0 ]]; then

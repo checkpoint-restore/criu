@@ -279,6 +279,18 @@ stop:	$(STATE_OUT)
 	-kill -TERM `cat *.pid`
 
 WAIT_TIME=240
+%.stop:	%.pid %
+	kill -TERM `cat $<`; \
+	i=0; \
+	while [ $$i -lt $(WAIT_TIME) ] ; do \
+		kill -0 `cat $< 2>/dev/null` 2>/dev/null || break; \
+		sleep 1; \
+		echo -n .; \
+		i=`expr $$i + 1`; \
+	done; \
+	echo; \
+	[ $$i -lt $(WAIT_TIME) ]
+
 wait_stop:
 		i=0; \
 		while [ $$i -lt $(WAIT_TIME) ] ; do \

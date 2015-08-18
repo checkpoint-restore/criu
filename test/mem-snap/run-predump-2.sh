@@ -27,8 +27,7 @@ function launch_test {
 function stop_test {
 	wtime=1
 	cd ../zdtm/live/static/
-	make maps04.out
-	while [ ! -f maps04.out ]; do echo "Wait for maps04.out"; sleep $wtime; ((wtime++)); done
+	make maps04.stop
 	cat maps04.out | fgrep PASS || fail "Test failed"
 	echo "OK"
 }
