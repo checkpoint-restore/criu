@@ -17,9 +17,9 @@ all:
 TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socketpairs overlayfs
 
 other: .FORCE
-	for t in $(TESTS); do			\
-		$(MAKE) -C $$t run || exit 1;	\
-	done					\
+	for t in $(TESTS); do				\
+		setsid $(MAKE) -C $$t run || exit 1;	\
+	done						\
 
 zdtm-tst-list: zdtm.sh
 	./zdtm.sh -l > zdtm-tst-list
