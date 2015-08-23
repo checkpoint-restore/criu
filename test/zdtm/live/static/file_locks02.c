@@ -80,7 +80,6 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid == 0) {
-		close(pf[1]);
 		read(pf[0], &pid, sizeof(pid));
 		exit(0);
 	}

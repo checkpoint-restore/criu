@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 
 #include "zdtmtst.h"
 
@@ -18,6 +19,32 @@ TEST_OPTION(filename, string, "file name", 1);
 #define STACK_SIZE 4096
 #define TEST_FD 128
 #define TEST_STRING "Hello World!"
+
+#define CHILDREN 4
+static int fork_pfd[2];
+
+static void forked()
+{
+	char c = 0;
+
+	if (write(fork_pfd[1], &c, 1) != 1) {
+		err("Unable to send a signal to the parent");
+		exit(5);
+	}
+}
+
+static void wait_children()
+{
+	int i;
+	char c;
+
+	for (i = 0; i < CHILDREN; i++) {
+		if (read(fork_pfd[0], &c, 1) != 1) {
+			err("Unable to read a signal from a child");
+			exit(5);
+		}
+	}
+}
 
 static pid_t clone_child(int (*fn)(void *), int flags)
 {
@@ -38,6 +65,7 @@ static int child2(void *_arg)
 {
 	char buf[10];
 
+	forked();
 	test_waitsig();
 
 	if (read(TEST_FD, buf, sizeof(TEST_STRING)) != sizeof(TEST_STRING)) {
@@ -50,6 +78,7 @@ static int child2(void *_arg)
 
 static int child3(void *_arg)
 {
+	forked();
 	test_waitsig();
 
 	if (close(TEST_FD) != -1) {
@@ -74,6 +103,7 @@ static int child(void *_arg)
 	if (pid < 0)
 		return 1;
 
+	forked();
 	test_waitsig();
 
 	kill(pid2, SIGTERM);
@@ -113,6 +143,11 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
+	if (pipe(fork_pfd)) {
+		err("pipe");
+		return 1;
+	}
+
 	pid = clone_child(child, CLONE_FILES);
 	if (pid < 0)
 		return 1;
@@ -120,6 +155,8 @@ int main(int argc, char ** argv)
 	pid2 = clone_child(child2, CLONE_FILES);
 	if (pid2 < 0)
 		return 1;
+
+	wait_children();
 
 	test_daemon();
 	test_waitsig();
