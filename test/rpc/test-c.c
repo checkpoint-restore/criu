@@ -164,6 +164,7 @@ int main(int argc, char *argv[])
 exit:
 	close(fd);
 	close(dir_fd);
-	criu_resp__free_unpacked(resp, NULL);
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
 	return ret;
 }
