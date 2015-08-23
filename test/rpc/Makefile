@@ -9,7 +9,7 @@ run: all
 	chmod a+rwx build
 	sudo -g '#1000' -u '#1000' ./run.sh
 
-criu:
+criu: ../../criu
 	cp ../../criu $@
 	chmod u+s $@
 
