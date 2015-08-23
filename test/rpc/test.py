@@ -19,7 +19,6 @@ s.connect(args['socket'])
 req			= rpc.criu_req()
 req.type		= rpc.DUMP
 req.opts.leave_running	= True
-req.opts.shell_job	= True
 req.opts.log_level	= 4
 req.opts.images_dir_fd	= os.open(args['dir'], os.O_DIRECTORY)
 
