@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import socket, os, imp, sys
+import socket, os, imp, sys, errno
 import rpc_pb2 as rpc
 import argparse
 
