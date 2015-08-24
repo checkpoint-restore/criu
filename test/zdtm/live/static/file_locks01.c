@@ -21,6 +21,7 @@ char file0[PATH_MAX];
 char file1[PATH_MAX];
 char file2[PATH_MAX];
 unsigned int inodes[3];
+dev_t dev;
 
 static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 {
@@ -37,6 +38,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 
 	fstat(*fd_0, &buf);
 	inodes[0] = buf.st_ino;
+	dev = buf.st_dev;
 
 	*fd_1 = open(file1, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_1 < 0) {
@@ -103,7 +105,7 @@ static int check_file_locks()
 			break;
 		}
 
-		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2])
+		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2] && makedev(maj, min) != dev)
 			continue;
 
 		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
