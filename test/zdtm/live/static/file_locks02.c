@@ -64,11 +64,9 @@ static int check_file_locks(pid_t child)
 
 int main(int argc, char **argv)
 {
-	int fd, pf[2], pid;
+	int fd, pid;
 
 	test_init(argc, argv);
-
-	pipe(pf);
 
 	fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
@@ -80,11 +78,9 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid == 0) {
-		read(pf[0], &pid, sizeof(pid));
+		test_waitsig();
 		exit(0);
 	}
-
-	close(pf[0]);
 
 	test_daemon();
 	test_waitsig();
@@ -94,7 +90,7 @@ int main(int argc, char **argv)
 	else
 		fail("Flock file locks check failed");
 
-	close(pf[1]);
+	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
 	close(fd);
 	unlink(filename);
