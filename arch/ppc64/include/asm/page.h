@@ -1,6 +1,8 @@
 #ifndef __CR_ASM_PAGE_H__
 #define __CR_ASM_PAGE_H__
 
+#include <unistd.h>
+
 /*
  * Default config for Pseries is to use 64K pages.
  * See kernel file arch/powerpc/configs/pseries_*defconfig
