@@ -1970,6 +1970,7 @@ static int do_bind_mount(struct mount_info *mi)
 {
 	bool shared = 0;
 	bool force_private_remount = false;
+	struct stat st;
 
 	if (!mi->need_plugin) {
 		char *root, *cut_root, rpath[PATH_MAX];
@@ -1996,8 +1997,24 @@ do_bind:
 		pr_info("\tBind %s to %s\n", root, mi->mountpoint);
 
 		if (unlikely(mi->deleted)) {
-			if (mkdir(root, 0700)) {
-				pr_perror("Can't re-create deleted %s\n", root);
+			if (stat(mi->mountpoint, &st)) {
+				pr_perror("Can't fetch stat on %s", mi->mountpoint);
+				return -1;
+			}
+
+			if (S_ISDIR(st.st_mode)) {
+				if (mkdir(root, (st.st_mode & ~S_IFMT))) {
+					pr_perror("Can't re-create deleted directory %s\n", root);
+					return -1;
+				}
+			} else if (S_ISREG(st.st_mode)) {
+				if (open(root, O_WRONLY | O_CREAT | O_TRUNC, (st.st_mode & ~S_IFMT)) < 0) {
+					pr_perror("Can't re-create deleted file %s\n", root);
+					return -1;
+				}
+			} else {
+				pr_err("Unsupported st_mode 0%o deleted root %s\n",
+				       (int)st.st_mode, root);
 				return -1;
 			}
 		}
@@ -2008,9 +2025,16 @@ do_bind:
 		}
 
 		if (unlikely(mi->deleted)) {
-			if (rmdir(root)) {
-				pr_perror("Can't remove deleted %s\n", root);
-				return -1;
+			if (S_ISDIR(st.st_mode)) {
+				if (rmdir(root)) {
+					pr_perror("Can't remove deleted directory %s\n", root);
+					return -1;
+				}
+			} else if (S_ISREG(st.st_mode)) {
+				if (unlink(root)) {
+					pr_perror("Can't unlink deleted file %s\n", root);
+					return -1;
+				}
 			}
 		}
 	} else {
