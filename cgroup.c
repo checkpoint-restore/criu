@@ -992,6 +992,9 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		CgroupDirEntry *e = ents[i];
 		size_t off2 = off;
 
+		if (strcmp(e->dir_name, "") == 0 &&
+			goto skip; /* skip root cgroups */
+
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		if (e->n_properties > 0) {
 			for (j = 0; j < e->n_properties; ++j) {
@@ -1000,6 +1003,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			}
 		}
 
+skip:
 		if (prepare_cgroup_dir_properties(path, off2, e->children, e->n_children) < 0)
 			return -1;
 	}
