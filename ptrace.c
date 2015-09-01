@@ -39,7 +39,12 @@ int unseize_task(pid_t pid, int orig_st, int st)
 	} else
 		pr_err("Unknown final state %d\n", st);
 
-	return ptrace(PTRACE_DETACH, pid, NULL, NULL);
+	if (ptrace(PTRACE_DETACH, pid, NULL, NULL)) {
+		pr_perror("Unable to detach from %d", pid);
+		return -1;
+	}
+
+	return 0;
 }
 
 int suspend_seccomp(pid_t pid)
@@ -79,7 +84,8 @@ int seize_catch_task(pid_t pid)
 	ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 	if (ret < 0) {
 		pr_warn("SEIZE %d: can't interrupt task: %s", pid, strerror(errno));
-		ptrace(PTRACE_DETACH, pid, NULL, NULL);
+		if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
+			pr_perror("Unable to detach from %d", pid);
 	}
 
 	return ret;
@@ -227,7 +233,8 @@ try_again:
 err_stop:
 	kill(pid, SIGSTOP);
 err:
-	ptrace(PTRACE_DETACH, pid, NULL, NULL);
+	if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
+		pr_perror("Unable to detach from %d", pid);
 	return -1;
 }
 
