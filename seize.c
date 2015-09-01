@@ -140,11 +140,10 @@ static int freeze_processes(void)
 			if (ret == 0)
 				continue;
 
-			if (seize_catch_task(pid)) {
+			if (seize_catch_task(pid) && state == frozen) {
 				/* fails when meets a zombie */
 				fclose(f);
-				if (state == frozen)
-					goto err;
+				goto err;
 			}
 		}
 		fclose(f);
