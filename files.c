@@ -197,7 +197,7 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 		char buf[PATH_MAX];
 		int n;
 
-		strncpy(buf, link->name, PATH_MAX);
+		strncpy(buf, link->name, PATH_MAX - 1);
 		n = snprintf(link->name, PATH_MAX, "%s/%s", m->mountpoint, buf + 2);
 		if (n >= PATH_MAX) {
 			pr_err("Not enough space to replace %s\n", buf);
