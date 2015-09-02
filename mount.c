@@ -2008,10 +2008,13 @@ do_bind:
 					return -1;
 				}
 			} else if (S_ISREG(st.st_mode)) {
-				if (open(root, O_WRONLY | O_CREAT | O_TRUNC, (st.st_mode & ~S_IFMT)) < 0) {
+				int fd = open(root, O_WRONLY | O_CREAT | O_EXCL,
+					      st.st_mode & ~S_IFMT);
+				if (fd < 0) {
 					pr_perror("Can't re-create deleted file %s\n", root);
 					return -1;
 				}
+				close(fd);
 			} else {
 				pr_err("Unsupported st_mode 0%o deleted root %s\n",
 				       (int)st.st_mode, root);
