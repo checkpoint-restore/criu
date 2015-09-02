@@ -105,7 +105,10 @@ static int check_file_locks()
 			break;
 		}
 
-		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2] && makedev(maj, min) != dev)
+		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2])
+			continue;
+
+		if (makedev(maj, min) != dev)
 			continue;
 
 		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
