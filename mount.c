@@ -319,16 +319,16 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 
 	pr_debug("\tBuilding plain mount tree\n");
 	for (m = list; m != NULL; m = m->next) {
-		struct mount_info *p;
+		struct mount_info *parent;
 
 		pr_debug("\t\tWorking on %d->%d\n", m->mnt_id, m->parent_mnt_id);
 
 		if (m->mnt_id != m->parent_mnt_id)
-			p = __lookup_mnt_id(list, m->parent_mnt_id);
+			parent = __lookup_mnt_id(list, m->parent_mnt_id);
 		else /* a circular mount reference. It's rootfs or smth like it. */
-			p = NULL;
+			parent = NULL;
 
-		if (!p) {
+		if (!parent) {
 			/* This should be / */
 			if (root == NULL && is_root_mount(m)) {
 				root = m;
@@ -351,13 +351,13 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 				 * root mount namespace, so its parent is
 				 * the main root.
 				 */
-				p = tmp_root_mount;
+				parent = tmp_root_mount;
 			} else
 				return NULL;
 		}
 
-		m->parent = p;
-		list_add_tail(&m->siblings, &p->children);
+		m->parent = parent;
+		list_add_tail(&m->siblings, &parent->children);
 	}
 
 	if (!root) {
