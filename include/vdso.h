@@ -8,17 +8,19 @@
 
 #ifdef CONFIG_VDSO
 
-#include "asm/vdso.h"
+#include "util-vdso.h"
+
+extern struct vdso_symtable vdso_sym_rt;
+
+extern int vdso_init(void);
+
+extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
+			       struct vm_area_list *vma_area_list);
 
 #else /* CONFIG_VDSO */
 
 #define vdso_init()						(0)
 #define parasite_fixup_vdso(ctl, pid, vma_area_list)		(0)
-#define vdso_vma_size(t)					(0)
-#define vdso_do_park(sym_rt, park_at, park_size)		(0)
-#define vdso_remap(who, from, to, size)				(0)
-#define vdso_proxify(who, sym_rt, vdso_rt_parked_at, \
-		     index, vmas, nr_vmas)			(0)
 
 #endif /* CONFIG_VDSO */
 

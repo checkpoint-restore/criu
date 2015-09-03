@@ -6,6 +6,8 @@ obj-y			+= util.o
 obj-y			+= util-fd.o
 
 ifeq ($(VDSO),y)
+obj-y			+= util-vdso.o
+obj-y			+= parasite-vdso.o
 obj-e			+= $(ARCH_DIR)/vdso-pie.o
 ifeq ($(SRCARCH),aarch64)
 asm-e			+= $(ARCH_DIR)/intraprocedure.o

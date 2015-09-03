@@ -234,15 +234,7 @@ lib: $(VERSION_HEADER) config built-in.o
 	$(Q) $(MAKE) $(build)=lib all
 
 ifeq ($(VDSO),y)
-$(ARCH_DIR)/vdso-pie.o: pie
-	$(Q) $(MAKE) $(build)=pie $(ARCH_DIR)/vdso-pie.o
-PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-pie.o
-ifeq ($(SRCARCH),aarch64)
-PROGRAM-BUILTINS	+= $(ARCH_DIR)/intraprocedure.o
-endif
-ifeq ($(SRCARCH),ppc64)
-PROGRAM-BUILTINS	+= $(ARCH_DIR)/vdso-trampoline.o
-endif
+PROGRAM-BUILTINS	+= pie/util-vdso.o
 endif
 
 PROGRAM-BUILTINS	+= pie/util-fd.o

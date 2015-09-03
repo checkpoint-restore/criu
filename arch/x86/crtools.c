@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <elf.h>
 #include <sys/user.h>
+#include <sys/mman.h>
 
 #include "asm/processor-flags.h"
 #include "asm/restorer.h"

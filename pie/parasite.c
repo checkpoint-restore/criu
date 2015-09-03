@@ -13,7 +13,7 @@
 #include "fcntl.h"
 #include "prctl.h"
 #include "lock.h"
-#include "vdso.h"
+#include "parasite-vdso.h"
 #include "log.h"
 #include "tty.h"
 

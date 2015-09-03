@@ -19,7 +19,7 @@
 #include "timerfd.h"
 #include "shmem.h"
 #include "sigframe.h"
-#include "vdso.h"
+#include "parasite-vdso.h"
 
 #include <time.h>
 
