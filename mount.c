@@ -383,9 +383,9 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 	return root;
 }
 
-static int mnt_depth(struct mount_info *m)
+static unsigned int mnt_depth(struct mount_info *m)
 {
-	int depth = 0;
+	unsigned int depth = 0;
 	char *c;
 
 	for (c = m->mountpoint; *c != '\0'; c++)
@@ -415,7 +415,7 @@ static void mnt_resort_siblings(struct mount_info *tree)
 
 	pr_info("\tResorting siblings on %d\n", tree->mnt_id);
 	while (!list_empty(&tree->children)) {
-		int depth;
+		unsigned int depth;
 
 		m = list_first_entry(&tree->children, struct mount_info, siblings);
 		list_del(&m->siblings);
