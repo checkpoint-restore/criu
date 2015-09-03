@@ -449,7 +449,7 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	return 0;
 }
 
-static struct mount_info *get_widest_peer(struct mount_info *m)
+static struct mount_info *find_widest_shared(struct mount_info *m)
 {
 	struct mount_info *p;
 
@@ -520,7 +520,7 @@ static int validate_shared(struct mount_info *m)
 	 *    has the same set of children.
 	 */
 
-	t = get_widest_peer(m);
+	t = find_widest_shared(m);
 	if (!t)
 		/*
 		 * The current mount is the widest one in its shared group,
