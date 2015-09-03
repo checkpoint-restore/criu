@@ -75,9 +75,6 @@ static unsigned long put_trampoline(unsigned long at, struct vdso_symtable *sym)
 			if (i==j || vdso_symbol_empty(&sym->symbols[j]))
 				continue;
 
-			/* pr_debug("next:%s(%lx)\n", sym->symbols[j].name, */
-			/* 	 sym->symbols[j].offset); */
-
 			if (sym->symbols[j].offset <= sym->symbols[i].offset)
 				/* this symbol is above the current one */
 				continue;
@@ -105,7 +102,7 @@ static unsigned long put_trampoline(unsigned long at, struct vdso_symtable *sym)
 			trampoline = at + sym->symbols[i].offset;
 			trampoline += TRAMP_CALL_SIZE;
 
-			pr_debug("Puting vDSO trampoline in %s at %lx",
+			pr_debug("Puting vDSO trampoline in %s at %lx\n",
 				 sym->symbols[i].name, trampoline);
 			builtin_memcpy((void *)trampoline, &vdso_trampoline,
 				       size);
