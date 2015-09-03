@@ -335,13 +335,16 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 				continue;
 			}
 
-			pr_err("Mountpoint %d w/o parent %d found @%s (root %s)\n",
-					m->mnt_id, m->parent_mnt_id, m->mountpoint,
-					root ? "found" : "not found");
+			pr_debug("Mountpoint %d (@%s) w/o parent %d\n",
+				 m->mnt_id, m->mountpoint, m->parent_mnt_id);
+
 			if (root && m->is_ns_root) {
 				if (!mounts_equal(root, m, true) ||
-						strcmp(root->root, m->root)) {
-					pr_err("Nested mount namespaces with different roots are not supported yet");
+				    strcmp(root->root, m->root)) {
+					pr_err("Nested mount namespaces with different "
+					       "roots %d (@%s %s) %d (@%s %s) are not supported yet",
+					       root->mnt_id, root->mountpoint, root->root,
+					       m->mnt_id, m->mountpoint, m->root);
 					return NULL;
 				}
 
@@ -352,8 +355,15 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 				 * the main root.
 				 */
 				parent = tmp_root_mount;
-			} else
+
+				pr_debug("Mountpoint %d (@%s) get parent %d (@%s)\n",
+					 m->mnt_id, m->mountpoint,
+					 parent->mnt_id, parent->mountpoint);
+			} else {
+				pr_err("No root found for mountpoint %d (@%s)\n",
+					m->mnt_id, m->mountpoint);
 				return NULL;
+			}
 		}
 
 		m->parent = parent;
