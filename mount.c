@@ -667,8 +667,10 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				int ret;
 
 				if (for_dump) {
-					// We've already resolved the mount
-					// and it is external.
+					/*
+					 * We've already resolved the mount
+					 * and it is external.
+					 */
 					if (m->external) {
 						ret = 0;
 					} else {
@@ -930,8 +932,10 @@ static int collect_shared(struct mount_info *info, bool for_dump)
 			}
 		}
 
-		// If we haven't already determined this mount is external,
-		// then we don't know where it came from.
+		/*
+		 * If we haven't already determined this mount is external,
+		 * then we don't know where it came from.
+		 */
 		if (need_master && m->parent && !m->external) {
 			pr_err("Mount %d %s (master_id: %d shared_id: %d) "
 			       "has unreachable sharing. Try --enable-external-masters.\n", m->mnt_id,
