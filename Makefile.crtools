@@ -66,7 +66,7 @@ obj-y	+= string.o
 obj-y	+= sigframe.o
 obj-y	+= lsm.o
 ifeq ($(VDSO),y)
-obj-y	+= $(ARCH_DIR)/vdso.o
+obj-y	+= vdso.o
 endif
 obj-y	+= cr-service.o
 obj-y	+= sd-daemon.o
