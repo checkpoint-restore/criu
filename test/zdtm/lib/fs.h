@@ -1,7 +1,10 @@
 #ifndef ZDTM_FS_H_
 #define ZDTM_FS_H_
 
-#define _BSD_SOURCE
+#ifndef _BSD_SOURCE
+# define _BSD_SOURCE
+#endif
+
 #include <sys/types.h>
 
 #include <limits.h>
