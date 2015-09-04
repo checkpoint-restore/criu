@@ -73,7 +73,7 @@ int do_rtnl_req(int nl, void *req, int size,
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
 	struct iovec iov;
-	static char buf[4096];
+	static char buf[16384];
 	int err;
 
 	if (!error_callback)
@@ -120,6 +120,12 @@ int do_rtnl_req(int nl, void *req, int size,
 		}
 		if (err == 0)
 			break;
+
+		if (msg.msg_flags & MSG_TRUNC) {
+			pr_err("Message truncated\n");
+			err = -EMSGSIZE;
+			goto err;
+		}
 
 		err = nlmsg_receive(buf, err, receive_callback, error_callback, arg);
 		if (err < 0)
