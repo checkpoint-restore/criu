@@ -10,6 +10,7 @@
 #include <linux/limits.h>
 
 #include "zdtmtst.h"
+#include "fs.h"
 
 const char *test_doc	= "Check that flock locks are restored";
 const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
@@ -21,6 +22,7 @@ char file0[PATH_MAX];
 char file1[PATH_MAX];
 char file2[PATH_MAX];
 unsigned int inodes[3];
+static mnt_info_t *m;
 dev_t dev;
 
 static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
@@ -38,7 +40,11 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 
 	fstat(*fd_0, &buf);
 	inodes[0] = buf.st_ino;
-	dev = buf.st_dev;
+
+	if (!strcmp(m->fsname, "btrfs"))
+		dev = m->s_dev;
+	else
+		dev = buf.st_dev;
 
 	*fd_1 = open(file1, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_1 < 0) {
@@ -108,8 +114,13 @@ static int check_file_locks()
 		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2])
 			continue;
 
-		if (makedev(maj, min) != dev)
-			continue;
+		if (!strcmp(m->fsname, "btrfs")) {
+			if (MKKDEV(major(maj), minor(min)) != dev)
+				continue;
+		} else {
+			if (makedev(maj, min) != dev)
+				continue;
+		}
 
 		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
 			if (!strcmp(fl_option, "READ"))
@@ -142,6 +153,14 @@ int main(int argc, char **argv)
 	int fd_0, fd_1, fd_2;
 
 	test_init(argc, argv);
+
+	m = get_cwd_mnt_info();
+	if (!m) {
+		err("Can't fetch mountinfo");
+		return -1;
+	}
+	if (!strcmp(m->fsname, "btrfs"))
+		m->s_dev = kdev_to_odev(m->s_dev);
 
 	if (open_all_files(&fd_0, &fd_1, &fd_2))
 		return -1;
