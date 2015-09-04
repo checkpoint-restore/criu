@@ -6,7 +6,7 @@ CFLAGS	+= $(USERCFLAGS)
 LIBDIR	= .
 LIB	= libzdtmtst.a
 
-LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c
+LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c fs.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
 LIBDEP	= $(LIBSRC:%.c=%.d)
 
