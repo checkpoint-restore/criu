@@ -5,7 +5,6 @@ ARCH ?= $(shell uname -m | sed		\
 		-e s/sa110/arm/		\
 		-e s/s390x/s390/	\
 		-e s/parisc64/parisc/	\
-		-e s/ppc.*/powerpc/	\
 		-e s/mips.*/mips/	\
 		-e s/sh[234].*/sh/)
 
