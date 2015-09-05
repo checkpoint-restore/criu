@@ -21,7 +21,23 @@
 #include "lsm.h"
 
 struct kerndat_s kdat = {
-	.tcp_max_rshare = 3U << 20,
+	/*
+	 * TCP send receive buffers are calculated
+	 * dynamically by the kernel taking into account
+	 * the size of memory present on the machine.
+	 *
+	 * On machines with huge amount of memory it grants
+	 * up to 4M for sendding buffer and 6M for receiving.
+	 * But in turn for low mem machines these limits
+	 * are quite small down to 16K for sending and
+	 * 87380 for receiving.
+	 *
+	 * We will find out precise limits in tcp_read_sysctl_limits
+	 * but by default lets stick for small data to not fail
+	 * on restore: better to slowdown restore procedure than
+	 * failing completely.
+	 */
+	.tcp_max_rshare = 87380,
 };
 
 /*
