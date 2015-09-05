@@ -56,6 +56,10 @@ static struct irmap *cache[IRMAP_CACHE_SIZE];
 static struct irmap hints[] = {
 	{ .path = "/etc", .nr_kids = -1, },
 	{ .path = "/var/spool", .nr_kids = -1, },
+	{ .path = "/var/log", .nr_kids = -1, },
+	{ .path = "/usr/share/dbus-1/system-services", .nr_kids = -1 },
+	{ .path = "/var/lib/polkit-1/localauthority", .nr_kids = -1 },
+	{ .path = "/usr/share/polkit-1/actions", .nr_kids = -1 },
 	{ .path = "/lib/udev", .nr_kids = -1, },
 	{ .path = "/.", .nr_kids = 0, },
 	{ .path = "/no-such-path", .nr_kids = -1, },
