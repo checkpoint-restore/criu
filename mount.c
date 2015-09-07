@@ -2400,6 +2400,20 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->s_dev		= me->root_dev;
 		pm->flags		= me->flags;
 		pm->sb_flags		= me->sb_flags;
+		if (!me->has_sb_flags) {
+			const unsigned int mflags = MS_SHARED | MS_PRIVATE |
+						MS_SLAVE | MS_UNBINDABLE |
+						MS_NOSUID | MS_NODEV | MS_NOEXEC |
+						MS_NOATIME | MS_NODIRATIME | MS_RELATIME;
+
+			/*
+			 * In old images mnt and sb flags are saved together.
+			 * Here we separate them and save the old logic about MS_RDONLY.
+			 */
+
+			pm->sb_flags = pm->flags & ~mflags;
+			pm->flags = pm->flags & mflags;
+		}
 		pm->shared_id		= me->shared_id;
 		pm->master_id		= me->master_id;
 		pm->need_plugin		= me->with_plugin;
