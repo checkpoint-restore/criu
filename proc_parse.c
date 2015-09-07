@@ -847,16 +847,33 @@ struct opt2flag {
 	unsigned flag;
 };
 
+static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
+{
+	unsigned int id;
+
+	if (sscanf(opt, "gid=%d", &id) == 1) {
+		*uoff += sprintf(unknown + *uoff, "gid=%d", userns_gid(id));
+		unknown[*uoff] = ',';
+		(*uoff)++;
+		return true;
+	} else if (sscanf(opt, "uid=%d", &id) == 1) {
+		*uoff += sprintf(unknown + *uoff, "uid=%d", userns_uid(id));
+		unknown[*uoff] = ',';
+		(*uoff)++;
+		return true;
+	}
+	return false;
+}
+
 static int do_opt2flag(char *opt, unsigned *flags,
-		const struct opt2flag *opts, char *unknown)
+		const struct opt2flag *opts, char *unknown,
+		bool (*cb)(char *opt, char *unknown, size_t *uoff))
 {
 	int i;
 	char *end;
 	size_t uoff = 0;
 
 	while (1) {
-		unsigned int id;
-
 		end = strchr(opt, ',');
 		if (end)
 			*end = '\0';
@@ -867,15 +884,7 @@ static int do_opt2flag(char *opt, unsigned *flags,
 				break;
 			}
 
-		if (sscanf(opt, "gid=%d", &id) == 1) {
-			uoff += sprintf(unknown + uoff, "gid=%d", userns_gid(id));
-			unknown[uoff] = ',';
-			uoff++;
-		} else if (sscanf(opt, "uid=%d", &id) == 1) {
-			uoff += sprintf(unknown + uoff, "uid=%d", userns_uid(id));
-			unknown[uoff] = ',';
-			uoff++;
-		} else if (opts[i].opt == NULL) {
+		if (opts[i].opt == NULL && cb && !cb(opt, unknown, &uoff)) {
 			if (!unknown) {
 				pr_err("Unknown option [%s]\n", opt);
 				return -1;
@@ -914,7 +923,7 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 		{ },
 	};
 
-	if (do_opt2flag(opt, flags, mnt_opt2flag, NULL))
+	if (do_opt2flag(opt, flags, mnt_opt2flag, NULL, NULL))
 		return -1;
 
 	/* Otherwise the kernel assumes RELATIME by default */
@@ -935,7 +944,7 @@ static int parse_sb_opt(char *opt, unsigned *flags, char *uopt)
 		{ },
 	};
 
-	return do_opt2flag(opt, flags, sb_opt2flag, uopt);
+	return do_opt2flag(opt, flags, sb_opt2flag, uopt, sb_opt_cb);
 }
 
 static int parse_mnt_opt(char *str, struct mount_info *mi, int *off)
