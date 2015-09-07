@@ -36,14 +36,14 @@ int main(int argc, char **argv)
 	if (fd3 == -1)
 		return 1;
 
-	test_daemon();
-
 	pid = test_fork();
 
 	if (pid == -1)
 		return 1;
 	else if (pid) {
 		fcntl(fd2, F_SETFD, 1);
+
+		test_daemon();
 		test_waitsig();
 		off = lseek(fd, OFFSET, SEEK_SET);
 		if (off == (off_t) -1)
