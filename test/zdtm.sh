@@ -189,6 +189,7 @@ generate_test_list()
 		ns/static/session00
 		ns/static/session01
 		ns/static/tempfs
+		ns/static/mnt_ro_bind
 		ns/static/mount_paths
 		ns/static/bind-mount
 		static/utsname
@@ -328,9 +329,9 @@ chroot-file
 console
 vt
 rtc
-tempfs
 maps007
 tempfs
+mnt_ro_bind
 bind-mount
 mountpoints
 inotify_irmap
