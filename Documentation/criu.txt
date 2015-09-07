@@ -136,8 +136,12 @@ In other words, do not use it until really needed.
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint instead of killing them.
 
-*-x*, *--ext-unix-sk*::
-    Dump external unix sockets.
+*-x*, *--ext-unix-sk* ['<inode>',<inode>']::
+    Dump external unix sockets. Optionally passing '<inode>' (or comma separated
+    series) it assigns inodes which allowed for one sided dump.
+
+*--freeze-cgroup*::
+   Use cgroup freezer to collect processes.
 
 *--manage-cgroups*::
     Collect cgroups into the image thus they gonna be restored then.
