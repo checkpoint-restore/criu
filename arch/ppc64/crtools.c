@@ -227,6 +227,7 @@ static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
 	vrregset_t *v_regs = (vrregset_t *)(((unsigned long)mc->vmx_reserve + 15) & ~0xful);
 
 	pr_debug("Restoring Altivec registers\n");
+
 	if (vse->n_vrregs != 33*2) {
 		pr_err("Corrupted Altivec dump data");
 		return -1;
@@ -274,6 +275,8 @@ static int get_vsx_regs(pid_t pid, CoreEntry *core)
 		pr_err("Couldn't get VSX registers");
 		return -1;
 	}
+
+	pr_debug("Dumping VSX registers\n");
 
 	vse = xmalloc(sizeof(*vse));
 	if (!vse)
@@ -463,6 +466,26 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	}
 
 	return ret;
+}
+
+/*
+ * The signal frame has been built using local addresses. Since it has to be
+ * used in the context of the checkpointed process, the v_regs pointer in the
+ * signal frame must be updated to match the address in the remote stack.
+ */
+int sigreturn_prep_fpu_frame(struct rt_sigframe *frame, mcontext_t *rcontext)
+{
+	mcontext_t *lcontext = &frame->uc.uc_mcontext;
+
+	if (lcontext->v_regs) {
+		uint64_t offset = (uint64_t)(lcontext->v_regs) - (uint64_t)lcontext;
+		lcontext->v_regs = (vrregset_t *)((uint64_t)rcontext + offset);
+
+		pr_debug("Updated v_regs:%llx (rcontext:%llx)\n",
+			 (unsigned long long) lcontext->v_regs,
+			 (unsigned long long) rcontext);
+	}
+	return 0;
 }
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r)
