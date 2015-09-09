@@ -125,11 +125,6 @@ generate_test_list()
 		static/vt
 		static/child_opened_proc
 		static/cow01
-		static/fpu00
-		static/fpu01
-		static/mmx00
-		static/sse00
-		static/sse20
 		static/pdeath_sig
 		static/fdt_shared
 		static/file_locks00
@@ -159,6 +154,11 @@ generate_test_list()
 	# Arch specific tests
 	if [ $ARCH = "x86_64" ]; then
 		TEST_LIST_ARCH="
+			static/fpu00
+			static/fpu01
+			static/mmx00
+			static/sse00
+			static/sse20
 			static/vdso01
 		"
 	fi
