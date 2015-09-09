@@ -317,6 +317,7 @@ inotify_system_nodel:	override CFLAGS += -DNODEL
 pthread00:		override LDLIBS += -pthread
 pthread01:		override LDLIBS += -pthread
 pthread02:		override LDLIBS += -pthread
+different_creds:	override LDLIBS += -pthread
 sigpending:		override LDLIBS += -pthread
 sigaltstack:		override LDLIBS += -pthread
 shm:			override CFLAGS += -DNEW_IPC_NS

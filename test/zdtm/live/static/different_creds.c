@@ -6,13 +6,18 @@
 #include <sched.h>
 #include <sys/capability.h>
 #include <linux/limits.h>
+#include <pthread.h>
+#include <syscall.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check that threads with different creds aren't checkpointed";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
-int drop_caps_and_wait(void *arg)
+#define exit_group(code)	\
+	syscall(__NR_exit_group, code)
+
+void *drop_caps_and_wait(void *arg)
 {
 	cap_t caps;
 	int *pipe = arg;
@@ -20,7 +25,7 @@ int drop_caps_and_wait(void *arg)
         caps = cap_get_proc();
         if (!caps) {
                 err("cap_get_proc");
-                return 1;
+                return NULL;
         }
 
         if (cap_clear_flag(caps, CAP_EFFECTIVE) < 0) {
@@ -39,18 +44,14 @@ int drop_caps_and_wait(void *arg)
 		sleep(1000);
 die:
         cap_free(caps);
-        return 1;
+        return NULL;
 }
 
 int main(int argc, char ** argv)
 {
-	pid_t pid;
 	int ret, pipefd[2];
-	long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND |
-			   CLONE_THREAD | CLONE_SYSVSEM;
+	pthread_t thr;
 
-        size_t stack_size = sysconf(_SC_PAGESIZE);
-        void *stack = alloca(stack_size);
 	char buf;
 
 	test_init(argc, argv);
@@ -60,12 +61,10 @@ int main(int argc, char ** argv)
 		return -1;
 	}
 
-	pid = clone(drop_caps_and_wait, stack + stack_size, clone_flags, pipefd);
-	if (pid < 0) {
-		err("fork");
+	if (pthread_create(&thr, NULL, drop_caps_and_wait, pipefd)) {
+		err("Unable to create thread");
 		return -1;
 	}
-
 	close(pipefd[1]);
 
 	/*
@@ -83,6 +82,5 @@ int main(int argc, char ** argv)
 
 	fail("shouldn't dump successfully");
 
-	kill(pid, SIGKILL);
-	return ret;
+	exit_group(ret);
 }
