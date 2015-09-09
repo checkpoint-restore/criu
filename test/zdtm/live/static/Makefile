@@ -128,6 +128,7 @@ TST_NOFILE	=				\
 		apparmor				\
 		seccomp_strict			\
 		different_creds			\
+		vsx				\
 #		jobctl00			\
 
 TST_FILE	=				\

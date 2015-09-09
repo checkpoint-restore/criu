@@ -162,6 +162,12 @@ generate_test_list()
 		"
 	fi
 
+	if [ $ARCH = "ppc64le" ]; then
+		TEST_LIST_ARCH="
+			static/vsx
+		"
+	fi
+
 	TEST_LIST=$TEST_LIST$TEST_LIST_ARCH
 
 	# Duplicate list with ns/ prefix
