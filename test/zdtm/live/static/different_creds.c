@@ -83,4 +83,5 @@ int main(int argc, char ** argv)
 	fail("shouldn't dump successfully");
 
 	exit_group(ret);
+	return 1;
 }
