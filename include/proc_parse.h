@@ -180,7 +180,7 @@ struct cg_ctl {
 extern int parse_task_cgroup(int pid, struct list_head *l, unsigned int *n);
 extern void put_ctls(struct list_head *);
 
-int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups);
+int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
 
 /* callback for AUFS support */
 extern int aufs_parse(struct mount_info *mi);

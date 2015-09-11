@@ -40,7 +40,6 @@ struct cgroup_dir {
  * The heads are subdirectories organized in their tree format.
  */
 struct cg_controller {
-	int			heirarchy;
 	unsigned int		n_controllers;
 	char			**controllers;
 
@@ -51,7 +50,7 @@ struct cg_controller {
 	/* for cgroup list in cgroup.c */
 	struct list_head	l;
 };
-struct cg_controller *new_controller(const char *name, int heirarchy);
+struct cg_controller *new_controller(const char *name);
 
 /* parse all global cgroup information into structures */
 int parse_cg_info(void);

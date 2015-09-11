@@ -2015,67 +2015,76 @@ void put_ctls(struct list_head *l)
 	}
 }
 
-
 /* Parse and create all the real controllers. This does not include things with
  * the "name=" prefix, e.g. systemd.
  */
-int parse_cgroups(struct list_head *cgroups, unsigned int *n_cgroups)
+int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 {
+	int exit_code = -1;
 	FILE *f;
-	char buf[1024], name[1024];
-	int heirarchy, exit_code = -1;
-	struct cg_controller *cur = NULL;
 
-	f = fopen_proc(PROC_GEN, "cgroups");
-	if (!f) {
-		pr_perror("failed opening /proc/cgroups");
+	f = fopen_proc(PROC_SELF, "cgroup");
+	if (f == NULL)
 		return -1;
-	}
 
-	/* throw away the header */
-	if (!fgets(buf, 1024, f))
-		goto out;
+	while (fgets(buf, BUF_SIZE, f)) {
+		struct cg_controller *nc = NULL;
+		char *controllers, *off;
 
-	while (fgets(buf, 1024, f)) {
-		char *n;
-		char found = 0;
-
-		if (sscanf(buf, "%s %d", name, &heirarchy) != 2) {
-			pr_err("Unable to parse: %s\n", buf);
-			goto out;
+		controllers = strchr(buf, ':');
+		if (!controllers) {
+			pr_err("Unable to parse \"%s\"\n", buf);
+			goto err;
 		}
-		list_for_each_entry(cur, cgroups, l) {
-			if (cur->heirarchy == heirarchy) {
+		controllers++;
+
+		off = strchr(controllers, ':');
+		if (!off) {
+			pr_err("Unable to parse \"%s\"\n", buf);
+			goto err;
+		}
+		*off = '\0';
+		while (1) {
+			off = strchr(controllers, ',');
+			if (off)
+				*off = '\0';
+
+			if (!strncmp("name=", controllers, 5))
+				goto skip;
+
+			if (!nc) {
+				nc = new_controller(controllers);
+				if (!nc)
+					goto err;
+				list_add_tail(&nc->l, cgroups);
+				(*n_cgroups)++;
+			} else {
 				void *m;
+				char *n;
 
-				found = 1;
-				cur->n_controllers++;
-				m = xrealloc(cur->controllers, sizeof(char *) * cur->n_controllers);
+				nc->n_controllers++;
+				m = xrealloc(nc->controllers, sizeof(char *) * nc->n_controllers);
 				if (!m)
-					goto out;
+					goto err;
 
-				cur->controllers = m;
+				nc->controllers = m;
 
-				n = xstrdup(name);
+				n = xstrdup(controllers);
 				if (!n)
-					goto out;
+					goto err;
 
-				cur->controllers[cur->n_controllers-1] = n;
-				break;
+				nc->controllers[nc->n_controllers-1] = n;
 			}
-		}
-
-		if (!found) {
-			struct cg_controller *nc = new_controller(name, heirarchy);
-			if (!nc)
-				goto out;
-			list_add_tail(&nc->l, &cur->l);
-			(*n_cgroups)++;
+			
+skip:
+			if (!off)
+				break;
+			controllers = off + 1;
 		}
 	}
 
 	exit_code = 0;
-out:
+err:
 	fclose(f);
 	return exit_code;
 }

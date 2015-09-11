@@ -188,7 +188,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls)
 	return cs;
 }
 
-struct cg_controller *new_controller(const char *name, int heirarchy)
+struct cg_controller *new_controller(const char *name)
 {
 	struct cg_controller *nc = xmalloc(sizeof(*nc));
 	if (!nc)
@@ -208,7 +208,6 @@ struct cg_controller *new_controller(const char *name, int heirarchy)
 	}
 
 	nc->n_controllers = 1;
-	nc->heirarchy = heirarchy;
 
 	nc->n_heads = 0;
 	INIT_LIST_HEAD(&nc->heads);
@@ -218,7 +217,7 @@ struct cg_controller *new_controller(const char *name, int heirarchy)
 
 int parse_cg_info(void)
 {
-	if (parse_cgroups(&cgroups, &n_cgroups) < 0)
+	if (collect_controllers(&cgroups, &n_cgroups) < 0)
 		return -1;
 
 	return 0;
@@ -522,7 +521,7 @@ static int collect_cgroups(struct list_head *ctls)
 				pr_err("controller %s not found\n", cc->name);
 				return -1;
 			} else {
-				struct cg_controller *nc = new_controller(cc->name, -1);
+				struct cg_controller *nc = new_controller(cc->name);
 				list_add_tail(&nc->l, &cg->l);
 				n_cgroups++;
 				current_controller = nc;
