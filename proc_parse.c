@@ -1089,7 +1089,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	if (!new->options)
 		goto err;
 
-	if (parse_sb_opt(opt, &new->flags, new->options))
+	if (parse_sb_opt(opt, &new->sb_flags, new->options))
 		goto err;
 
 	ret = 0;

@@ -43,4 +43,5 @@ message mnt_entry {
 	optional bool		internal_sharing	= 15;
 
 	optional bool		deleted			= 16;
+	optional uint32		sb_flags		= 17 [(criu).hex = true];
 }

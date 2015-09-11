@@ -47,6 +47,7 @@ struct mount_info {
 	char			*mountpoint;
 	char			*ns_mountpoint;
 	unsigned		flags;
+	unsigned		sb_flags;
 	int			master_id;
 	int			shared_id;
 	struct fstype		*fstype;
