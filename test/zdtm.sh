@@ -1174,7 +1174,11 @@ if [ $SPECIFIED_NAME_USED -eq 1 ]; then
 		exit 1
 	fi
 	$CRIU check -v0 --feature "mnt_id" || export ZDTM_NOSUBNS=1
-	run_test $1 || case_error $1
+	# don't run file_locks* tests simultaneously
+	(
+		expr $1 : ".*file_locks" > /dev/null && flock 10
+		run_test $1 10<&-
+	) 10<zdtm.sh || case_error $1
 else
 	if [ $# -eq 0 ]; then
 		pattern='.*'
