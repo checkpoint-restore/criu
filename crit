@@ -41,6 +41,11 @@ def encode(opts):
 	img = json.load(inf(opts))
 	pycriu.images.dump(img, outf(opts))
 
+def info(opts):
+	infs = pycriu.images.info(inf(opts))
+	json.dump(infs, sys.stdout, indent = 4)
+	print
+
 def main():
 	desc = 'CRiu Image Tool'
 	parser = argparse.ArgumentParser(description=desc,
@@ -72,6 +77,12 @@ def main():
 			    '--out',
 			help = 'where to put criu image in binary format (stdout by default)')
 	encode_parser.set_defaults(func=encode)
+
+	# Info
+	info_parser = subparsers.add_parser('info',
+			help = 'show info about image')
+	info_parser.add_argument("in")
+	info_parser.set_defaults(func=info)
 
 	# Show
 	show_parser = subparsers.add_parser('show',

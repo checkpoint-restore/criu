@@ -133,6 +133,22 @@ class entry_handler:
 		self.dump(entries, f)
 		return f.read()
 
+	def count(self, f):
+		"""
+		Counts the number of top-level object in the image file
+		"""
+		entries = 0
+
+		while True:
+			buf = f.read(4)
+			if buf == '':
+				break
+			size, = struct.unpack('i', buf)
+			f.seek(size, 1)
+			entries += 1
+
+		return entries
+
 # Special handler for pagemap.img
 class pagemap_handler:
 	"""
@@ -175,6 +191,9 @@ class pagemap_handler:
 		f = io.BytesIO('')
 		self.dump(entries, f)
 		return f.read()
+
+	def count(self, f):
+		return entry_handler(None).count(f) - 1
 
 
 # In following extra handlers we use base64 encoding
@@ -287,17 +306,9 @@ handlers = {
 	'NETNS'			: entry_handler(netns_entry)
 	}
 
-def load(f, pretty = False):
-	"""
-	Convert criu image from binary format to dict(json).
-	Takes a file-like object to read criu image from.
-	Returns criu image in dict(json) format.
-	"""
-	image = {}
-
+def __rhandler(f):
 	# Images v1.1 NOTE: First read "first" magic.
 	img_magic, = struct.unpack('i', f.read(4))
-
 	if img_magic in (magic.by_name['IMG_COMMON'], magic.by_name['IMG_SERVICE']):
 		img_magic, = struct.unpack('i', f.read(4))
 
@@ -309,12 +320,34 @@ def load(f, pretty = False):
 	try:
 		handler = handlers[m]
 	except:
-		raise Exception("No handler found for image with such magic "+m)
+		raise Exception("No handler found for image with magic " + m)
 
-	image['magic']		= m
-	image['entries']	= handler.load(f, pretty)
+	return m, handler
+
+def load(f, pretty = False):
+	"""
+	Convert criu image from binary format to dict(json).
+	Takes a file-like object to read criu image from.
+	Returns criu image in dict(json) format.
+	"""
+	image = {}
+
+	m, handler = __rhandler(f)
+
+	image['magic'] = m
+	image['entries'] = handler.load(f, pretty)
 
 	return image
+
+def info(f):
+	res = {}
+
+	m, handler = __rhandler(f)
+
+	res['magic'] = m
+	res['count'] = handler.count(f)
+
+	return res
 
 def loads(s, pretty = False):
 	"""
