@@ -669,6 +669,40 @@ err:
 	return -ENOMEM;
 }
 
+int criu_local_add_irmap_path(criu_opts *opts, char *path)
+{
+	int nr;
+	char *my_path;
+	char **m;
+
+	if (!opts)
+		return -1;
+
+	my_path = strdup(path);
+	if (!my_path)
+		goto err;
+
+	nr = opts->rpc->n_irmap_scan_paths + 1;
+	m = realloc(opts->rpc->irmap_scan_paths, nr * sizeof(*m));
+	if (!m)
+		goto err;
+
+	m[nr - 1] = my_path;
+
+	opts->rpc->n_irmap_scan_paths = nr;
+	opts->rpc->irmap_scan_paths = m;
+
+	return 0;
+
+err:
+	if (my_path)
+		free(my_path);
+	if (m)
+		free(m);
+
+	return -ENOMEM;
+}
+
 int criu_add_skip_mnt(char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
@@ -683,6 +717,11 @@ void criu_local_set_ghost_limit(criu_opts *opts, unsigned int limit)
 void criu_set_ghost_limit(unsigned int limit)
 {
 	criu_local_set_ghost_limit(global_opts, limit);
+}
+
+int criu_add_irmap_path(char *path)
+{
+	return criu_local_add_irmap_path(global_opts, path);
 }
 
 static CriuResp *recv_resp(int socket_fd)

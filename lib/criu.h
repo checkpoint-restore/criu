@@ -88,6 +88,7 @@ int criu_add_cg_root(char *ctrl, char *path);
 int criu_add_enable_fs(char *fs);
 int criu_add_skip_mnt(char *mnt);
 void criu_set_ghost_limit(unsigned int limit);
+int criu_add_irmap_path(char *path);
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -189,6 +190,7 @@ int criu_local_add_cg_root(criu_opts *opts, char *ctrl, char *path);
 int criu_local_add_enable_fs(criu_opts *opts, char *fs);
 int criu_local_add_skip_mnt(criu_opts *opts, char *mnt);
 void criu_local_set_ghost_limit(criu_opts *opts, unsigned int limit);
+int criu_local_add_irmap_path(criu_opts *opts, char *path);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 

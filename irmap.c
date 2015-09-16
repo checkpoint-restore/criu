@@ -24,6 +24,7 @@
 #include "image.h"
 #include "stats.h"
 #include "pstree.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 #include "protobuf/fsnotify.pb-c.h"
@@ -229,6 +230,7 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	struct irmap *c, *h, **p;
 	char *path = NULL;
 	int hv;
+	struct irmap_path_opt *o;
 
 	s_dev = kdev_to_odev(s_dev);
 
@@ -258,6 +260,27 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 		pr_debug("\tFound %s in cache\n", c->path);
 		path = c->path;
 		goto out;
+	}
+
+	/* Let's scan any user provided paths first; since the user told us
+	 * about them, hopefully they're more interesting than our hints.
+	 */
+	list_for_each_entry(o, &opts.irmap_scan_paths, node) {
+		struct irmap *ir;
+
+		ir = xzalloc(sizeof(*ir));
+		if (!ir)
+			goto out;
+
+		ir->nr_kids = -1;
+		ir->path = o->path;
+
+		c = irmap_scan(ir, s_dev, i_ino);
+		if (c) {
+			pr_debug("\tScanned %s\n", c->path);
+			path = c->path;
+			goto out;
+		}
 	}
 
 	for (h = hints; h->path; h++) {
@@ -456,4 +479,17 @@ int irmap_load_cache(void)
 
 	close_image(img);
 	return ret;
+}
+
+int irmap_scan_path_add(char *path)
+{
+	struct irmap_path_opt *o;
+
+	o = xmalloc(sizeof(*o));
+	if (!o)
+		return -1;
+
+	o->path = path;
+	list_add(&o->node, &opts.irmap_scan_paths);
+	return 0;
 }
