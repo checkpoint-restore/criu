@@ -57,7 +57,7 @@ message user_x86_fpregs_entry {
 }
 
 message thread_info_x86 {
-	required uint64			clear_tid_addr	= 1;
+	required uint64			clear_tid_addr	= 1[(criu).hex = true];
 	required user_x86_regs_entry	gpregs		= 2[(criu).hex = true];
 	required user_x86_fpregs_entry	fpregs		= 3;
 }
