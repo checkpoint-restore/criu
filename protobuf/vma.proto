@@ -5,8 +5,8 @@ message vma_entry {
 	required uint64		end	= 2 [(criu).hex = true];
 	required uint64		pgoff	= 3;
 	required uint64		shmid	= 4;
-	required uint32		prot	= 5 [(criu).hex = true];
-	required uint32		flags	= 6 [(criu).hex = true];
+	required uint32		prot	= 5 [(criu).flags = "mmap.prot" ];
+	required uint32		flags	= 6 [(criu).flags = "mmap.flags" ];
 	required uint32		status	= 7;
 	/*
 	 * This fd thing is unused in the image, it was lost

@@ -52,7 +52,30 @@ def _marked_as_ip(field):
 def _marked_as_flags(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].flags
 
+mmap_prot_map = [
+	('PROT_READ',	0x1),
+	('PROT_WRITE',	0x2),
+	('PROT_EXEC',	0x4),
+];
+
+mmap_flags_map = [
+	('MAP_SHARED',	0x1),
+	('MAP_PRIVATE',	0x2),
+	('MAP_ANON',	0x20),
+];
+
+rfile_flags_map = [
+	('O_WRONLY',	01),
+	('O_RDWR',	02),
+	('O_APPEND',	02000),
+	('O_DIRECT',	040000),
+	('O_LARGEFILE',	0100000),
+];
+
 flags_maps = {
+	'mmap.prot' : mmap_prot_map,
+	'mmap.flags' : mmap_flags_map,
+	'rfile.flags' : rfile_flags_map,
 }
 
 def map_flags(value, flags_map):

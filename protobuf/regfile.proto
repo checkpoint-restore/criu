@@ -3,7 +3,7 @@ import "fown.proto";
 
 message reg_file_entry {
 	required uint32		id	= 1;
-	required uint32		flags	= 2 [(criu).hex = true];
+	required uint32		flags	= 2 [(criu).flags = "rfile.flags"];
 	required uint64		pos	= 3;
 	required fown_entry	fown	= 5;
 	required string		name	= 6;
