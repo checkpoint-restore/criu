@@ -49,6 +49,26 @@ def _marked_as_hex(field):
 def _marked_as_ip(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].ipadd
 
+def _marked_as_flags(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].flags
+
+flags_maps = {
+}
+
+def map_flags(value, flags_map):
+	bs = map(lambda x: x[0], filter(lambda x: value & x[1], flags_map))
+	value &= ~sum(map(lambda x: x[1], flags_map))
+	if value:
+		bs.append("0x%x" % value)
+	return " | ".join(bs)
+
+def unmap_flags(value, flags_map):
+	if value == '':
+		return 0
+
+	bd = dict(flags_map)
+	return sum(map(lambda x: int(str(bd.get(x, x)), 0), map(lambda x: x.strip(), value.split('|'))))
+
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
 		is_hex = _marked_as_hex(field)
@@ -61,12 +81,22 @@ def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 		return field.enum_type.values_by_number.get(value, None).name
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
-		if (cast == int or cast == long) and is_hex and pretty:
-			# Fields that have (criu).hex = true option set
-			# should be stored in hex string format.
-			return "0x%x" % value
-		else:
-			return cast(value)
+		if pretty and (cast == int or cast == long):
+			if is_hex:
+				# Fields that have (criu).hex = true option set
+				# should be stored in hex string format.
+				return "0x%x" % value
+
+			flags = _marked_as_flags(field)
+			if flags:
+				try:
+					flags_map = flags_maps[flags]
+				except:
+					return "0x%x" % value # flags are better seen as hex anyway
+				else:
+					return map_flags(value, flags_map)
+
+		return cast(value)
 	else:
 		raise Exception("Field(%s) has unsupported type %d" % (field.name, field.type))
 
@@ -111,6 +141,15 @@ def _dict2pb_cast(field, value):
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
 		if (cast == int or cast == long) and isinstance(value, unicode):
+			flags = _marked_as_flags(field)
+			if flags:
+				try:
+					flags_map = flags_maps[flags]
+				except:
+					pass # Try to use plain string cast
+				else:
+					return unmap_flags(value, flags_map)
+
 			# Some int or long fields might be stored as hex
 			# strings. See _pb2dict_cast.
 			return cast(value, 0)
