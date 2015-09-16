@@ -257,6 +257,20 @@ static int page_server_serve(int sk)
 		ret = -1;
 	}
 
+	if (ret == 0) {
+		char c;
+
+		/*
+		 * Wait when a remote side closes the connection
+		 * to avoid TIME_WAIT bucket
+		 */
+
+		if (read(sk, &c, sizeof(c)) != 0) {
+			pr_perror("Unexpected data");
+			ret = -1;
+		}
+	}
+
 	page_server_close();
 	pr_info("Session over\n");
 
