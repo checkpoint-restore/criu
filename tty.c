@@ -684,7 +684,7 @@ struct tty_parms {
 	struct winsize w;
 };
 
-static int do_restore_tty_parms(void *arg, int fd)
+static int do_restore_tty_parms(void *arg, int fd, pid_t pid)
 {
 	struct tty_parms *p = arg;
 

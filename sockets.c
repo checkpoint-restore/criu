@@ -374,7 +374,7 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 	return 0;
 }
 
-static int sk_setbufs(void *arg, int fd)
+static int sk_setbufs(void *arg, int fd, pid_t pid)
 {
 	u32 *buf = (u32 *)arg;
 

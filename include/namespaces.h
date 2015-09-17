@@ -80,7 +80,7 @@ extern int userns_gid(int gid);
 extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_maps(void);
 
-typedef int (*uns_call_t)(void *arg, int fd);
+typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
 /*
  * Async call -- The call is guaranteed to be done till the
  * CR_STATE_COMPLETE happens. The function may return even

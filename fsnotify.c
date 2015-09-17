@@ -102,7 +102,7 @@ static void decode_handle(fh_t *handle, FhEntry *img)
 				sizeof(handle->__handle)));
 }
 
-static int open_by_handle(void *arg, int fd)
+static int open_by_handle(void *arg, int fd, int pid)
 {
 	return sys_open_by_handle_at(fd, arg, O_PATH);
 }

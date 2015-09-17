@@ -846,7 +846,7 @@ struct unsc_msg {
 	 * 2nd is the optional (NULL in responce) arguments
 	 */
 	struct iovec iov[3];
-	char c[CMSG_SPACE(sizeof(int))];
+	char c[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))];
 };
 
 static int usernsd_pid;
@@ -854,6 +854,9 @@ static int usernsd_pid;
 static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
 		int *x, void *arg, size_t asize, int fd)
 {
+	struct cmsghdr *ch;
+	struct ucred *ucred;
+
 	m->h.msg_iov = m->iov;
 	m->h.msg_iovlen = 2;
 
@@ -872,15 +875,29 @@ static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
 	m->h.msg_namelen = 0;
 	m->h.msg_flags = 0;
 
-	if (fd < 0) {
-		m->h.msg_control = NULL;
-		m->h.msg_controllen = 0;
-	} else {
-		struct cmsghdr *ch;
+	m->h.msg_control = &m->c;
 
-		m->h.msg_control = &m->c;
-		m->h.msg_controllen = sizeof(m->c);
-		ch = CMSG_FIRSTHDR(&m->h);
+	/* Need to memzero because of:
+	 * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=514917
+	 */
+	memzero(&m->c, sizeof(m->c));
+
+	m->h.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+
+	ch = CMSG_FIRSTHDR(&m->h);
+	ch->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+	ch->cmsg_level = SOL_SOCKET;
+	ch->cmsg_type = SCM_CREDENTIALS;
+
+	ucred = (struct ucred *) CMSG_DATA(ch);
+	ucred->pid = getpid();
+	ucred->uid = getuid();
+	ucred->gid = getgid();
+
+	if (fd >= 0) {
+		m->h.msg_controllen += CMSG_SPACE(sizeof(int));
+		ch = CMSG_NXTHDR(&m->h, ch);
+		BUG_ON(!ch);
 		ch->cmsg_len = CMSG_LEN(sizeof(int));
 		ch->cmsg_level = SOL_SOCKET;
 		ch->cmsg_type = SCM_RIGHTS;
@@ -888,18 +905,31 @@ static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
 	}
 }
 
-static int unsc_msg_fd(struct unsc_msg *um)
+static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 {
 	struct cmsghdr *ch;
+	struct ucred *ucred;
 
 	ch = CMSG_FIRSTHDR(&um->h);
+	BUG_ON(!ch);
+	BUG_ON(ch->cmsg_len != CMSG_LEN(sizeof(struct ucred)));
+	BUG_ON(ch->cmsg_level != SOL_SOCKET);
+	BUG_ON(ch->cmsg_type != SCM_CREDENTIALS);
+
+	if (pid) {
+		ucred = (struct ucred *) CMSG_DATA(ch);
+		*pid = ucred->pid;
+	}
+
+	ch = CMSG_NXTHDR(&um->h, ch);
+
 	if (ch && ch->cmsg_len == CMSG_LEN(sizeof(int))) {
 		BUG_ON(ch->cmsg_level != SOL_SOCKET);
 		BUG_ON(ch->cmsg_type != SCM_RIGHTS);
-		return *((int *)CMSG_DATA(ch));
+		*fd = *((int *)CMSG_DATA(ch));
+	} else {
+		*fd = -1;
 	}
-
-	return -1;
 }
 
 static int usernsd(int sk)
@@ -911,6 +941,7 @@ static int usernsd(int sk)
 		static char msg[MAX_UNSFD_MSG_SIZE];
 		uns_call_t call;
 		int flags, fd, ret;
+		pid_t pid;
 
 		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0);
 		if (recvmsg(sk, &um.h, 0) <= 0) {
@@ -918,8 +949,10 @@ static int usernsd(int sk)
 			return -1;
 		}
 
-		fd = unsc_msg_fd(&um);
-		pr_debug("UNS: daemon calls %p (%d, %x)\n", call, fd, flags);
+		unsc_msg_pid_fd(&um, &pid, &fd);
+		pr_debug("UNS: daemon calls %p (%d, %d, %x)\n", call, pid, fd, flags);
+
+		BUG_ON(fd < 0 && flags & UNS_FDOUT);
 
 		/*
 		 * Caller has sent us bare address of the routine it
@@ -929,7 +962,7 @@ static int usernsd(int sk)
 		 * former guy has. So go ahead and just call one!
 		 */
 
-		ret = call(msg, fd);
+		ret = call(msg, fd, pid);
 
 		if (fd >= 0)
 			close(fd);
@@ -981,7 +1014,7 @@ int userns_call(uns_call_t call, int flags,
 	}
 
 	if (!usernsd_pid)
-		return call(arg, fd);
+		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
 	pr_debug("UNS: calling %p (%d, %x)\n", call, fd, flags);
@@ -1031,7 +1064,7 @@ int userns_call(uns_call_t call, int flags,
 	/* Decode the result and return */
 
 	if (flags & UNS_FDOUT)
-		ret = unsc_msg_fd(&um);
+		unsc_msg_pid_fd(&um, NULL, &ret);
 	else
 		ret = res;
 out:
@@ -1044,6 +1077,7 @@ out:
 int start_usernsd(void)
 {
 	int sk[2];
+	int one = 1;
 
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
@@ -1063,6 +1097,16 @@ int start_usernsd(void)
 
 	if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, sk)) {
 		pr_perror("Can't make usernsd socket");
+		return -1;
+	}
+
+	if (setsockopt(sk[0], SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
+		pr_perror("failed to setsockopt");
+		return -1;
+	}
+
+	if (setsockopt(sk[1], SOL_SOCKET, SO_PASSCRED, &one, sizeof(1)) < 0) {
+		pr_perror("failed to setsockopt");
 		return -1;
 	}
 
@@ -1094,7 +1138,7 @@ int start_usernsd(void)
 	return 0;
 }
 
-static int exit_usernsd(void *arg, int fd)
+static int exit_usernsd(void *arg, int fd, pid_t pid)
 {
 	int code = *(int *)arg;
 	pr_info("UNS: `- daemon exits w/ %d\n", code);
