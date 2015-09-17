@@ -95,6 +95,8 @@ typedef int (*uns_call_t)(void *arg, int fd);
  */
 #define UNS_FDOUT	0x2
 
+#define MAX_UNSFD_MSG_SIZE 256
+
 /*
  * When we're restoring inside user namespace, some things are
  * not allowed to be done there due to insufficient capabilities.

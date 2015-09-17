@@ -849,8 +849,6 @@ struct unsc_msg {
 	char c[CMSG_SPACE(sizeof(int))];
 };
 
-#define MAX_MSG_SIZE	256
-
 static int usernsd_pid;
 
 static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
@@ -910,7 +908,7 @@ static int usernsd(int sk)
 
 	while (1) {
 		struct unsc_msg um;
-		static char msg[MAX_MSG_SIZE];
+		static char msg[MAX_UNSFD_MSG_SIZE];
 		uns_call_t call;
 		int flags, fd, ret;
 
@@ -977,7 +975,7 @@ int userns_call(uns_call_t call, int flags,
 	bool async = flags & UNS_ASYNC;
 	struct unsc_msg um;
 
-	if (unlikely(arg_size > MAX_MSG_SIZE)) {
+	if (unlikely(arg_size > MAX_UNSFD_MSG_SIZE)) {
 		pr_err("UNS: message size exceeded\n");
 		return -1;
 	}
