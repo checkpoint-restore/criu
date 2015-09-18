@@ -2493,27 +2493,24 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->need_plugin		= me->with_plugin;
 		pm->deleted		= me->deleted;
 		pm->is_ns_root		= is_root(me->mountpoint);
+		if (me->has_internal_sharing)
+			pm->internal_sharing = me->internal_sharing;
 
-		pr_debug("\t\tGetting source for %d\n", pm->mnt_id);
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
 			goto err;
 
-		if (me->has_internal_sharing)
-			pm->internal_sharing = me->internal_sharing;
+		pm->options = xstrdup(me->options);
+		if (!pm->options)
+			goto err;
 
 		/* FIXME: abort unsupported early */
-		pm->fstype		= decode_fstype(me->fstype, me->fsname);
+		pm->fstype = decode_fstype(me->fstype, me->fsname);
 
 		if (get_mp_root(me, pm))
 			goto err;
 
 		if (get_mp_mountpoint(me, pm, root, root_len))
-			goto err;
-
-		pr_debug("\t\tGetting opts for %d\n", pm->mnt_id);
-		pm->options = xstrdup(me->options);
-		if (!pm->options)
 			goto err;
 
 		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
