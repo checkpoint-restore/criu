@@ -2527,7 +2527,7 @@ err:
 	return -1;
 }
 
-static struct mount_info *read_mnt_ns_img(void)
+static int read_mnt_ns_img(void)
 {
 	struct mount_info *pms = NULL;
 	struct ns_id *nsid;
@@ -2542,15 +2542,14 @@ static struct mount_info *read_mnt_ns_img(void)
 			 * then we'll need the roots yard.
 			 */
 			if (create_mnt_roots())
-				return NULL;
+				return -1;
 
 		if (collect_mnt_from_image(&pms, nsid))
-			return NULL;
+			return -1;
 	}
 
-	/* Here it doesn't matter where the mount list is saved */
 	mntinfo = pms;
-	return pms;
+	return 0;
 }
 
 char *rst_get_mnt_root(int mnt_id)
@@ -2673,16 +2672,19 @@ static int prepare_roots_yard(void)
 	return 0;
 }
 
-static int populate_mnt_ns(struct mount_info *mis)
+static int populate_mnt_ns(void)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
 
-	pms = mnt_build_tree(mis);
+	if (read_mnt_ns_img())
+		return -1;
+
+	pms = mnt_build_tree(mntinfo);
 	if (!pms)
 		return -1;
 
-	if (collect_shared(mis, false))
+	if (collect_shared(mntinfo, false))
 		return -1;
 
 	for (nsid = ns_ids; nsid; nsid = nsid->next) {
@@ -2697,7 +2699,7 @@ static int populate_mnt_ns(struct mount_info *mis)
 		nsid->mnt.mntinfo_tree = pms;
 	}
 
-	if (validate_mounts(mis, false))
+	if (validate_mounts(mntinfo, false))
 		return -1;
 
 	/*
@@ -2746,7 +2748,7 @@ int fini_mnt_ns(void)
 int prepare_mnt_ns(void)
 {
 	int ret = -1;
-	struct mount_info *mis, *old;
+	struct mount_info *old;
 	struct ns_id ns = { .pid = PROC_SELF, .nd = &mnt_ns_desc };
 
 	if (!(root_ns_mask & CLONE_NEWNS))
@@ -2759,10 +2761,6 @@ int prepare_mnt_ns(void)
 		return -1;
 
 	close_proc();
-
-	mis = read_mnt_ns_img();
-	if (!mis)
-		goto out;
 
 	/*
 	 * The new mount namespace is filled with the mountpoint
@@ -2817,13 +2815,10 @@ int prepare_mnt_ns(void)
 
 	free_mntinfo(old);
 
-	ret = populate_mnt_ns(mis);
-	if (ret)
-		goto out;
-
-	if (opts.root)
+	ret = populate_mnt_ns();
+	if (!ret && opts.root)
 		ret = cr_pivot_root(NULL);
-out:
+
 	return ret;
 }
 
