@@ -439,7 +439,7 @@ static int read_pstree_image(void)
 			goto err;
 
 		if (pi->ids->has_mnt_ns_id) {
-			if (rst_add_ns_id(pi->ids->mnt_ns_id, pi->pid.virt, &mnt_ns_desc))
+			if (rst_add_ns_id(pi->ids->mnt_ns_id, pi, &mnt_ns_desc))
 				goto err;
 		}
 	}

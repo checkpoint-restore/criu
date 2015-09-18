@@ -135,12 +135,14 @@ static void nsid_add(struct ns_id *ns, struct ns_desc *nd, unsigned int id, pid_
 	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->pid);
 }
 
-struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
+static struct ns_id *__rst_new_ns_id(unsigned int id, pid_t pid,
+		struct ns_desc *nd, enum ns_type type)
 {
 	struct ns_id *nsid;
 
 	nsid = shmalloc(sizeof(*nsid));
 	if (nsid) {
+		nsid->type = type;
 		nsid_add(nsid, nd, id, pid);
 		futex_set(&nsid->ns_created, 0);
 	}
@@ -148,8 +150,14 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 	return nsid;
 }
 
-int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
+struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
+	return __rst_new_ns_id(id, pid, nd, NS_CRIU);
+}
+
+int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
+{
+	pid_t pid = i->pid.virt;
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -159,7 +167,8 @@ int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 		return 0;
 	}
 
-	nsid = rst_new_ns_id(id, pid, nd);
+	nsid = __rst_new_ns_id(id, pid, nd,
+			i == root_item ? NS_ROOT : NS_OTHER);
 	if (nsid == NULL)
 		return -1;
 
@@ -232,27 +241,32 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 		struct ns_id **ns_ret)
 {
 	struct ns_id *nsid;
+	enum ns_type type;
 
 	nsid = lookup_ns_by_kid(kid, nd);
 	if (nsid)
 		goto found;
 
 	if (pid != getpid()) {
+		type = NS_OTHER;
 		if (pid == root_item->pid.real) {
 			BUG_ON(root_ns_mask & nd->cflag);
 			pr_info("Will take %s namespace in the image\n", nd->str);
 			root_ns_mask |= nd->cflag;
+			type = NS_ROOT;
 		} else if (nd->cflag & ~CLONE_SUBNS) {
 			pr_err("Can't dump nested %s namespace for %d\n",
 					nd->str, pid);
 			return 0;
 		}
-	}
+	} else
+		type = NS_CRIU;
 
 	nsid = xmalloc(sizeof(*nsid));
 	if (!nsid)
 		return 0;
 
+	nsid->type = type;
 	nsid->kid = kid;
 	nsid_add(nsid, nd, ns_next_id++, pid);
 

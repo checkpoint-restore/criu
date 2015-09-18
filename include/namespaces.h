@@ -9,12 +9,20 @@ struct ns_desc {
 	size_t		len;
 };
 
+enum ns_type {
+	NS_UNKNOWN = 0,
+	NS_CRIU,
+	NS_ROOT,
+	NS_OTHER,
+};
+
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;
 	pid_t pid;
 	struct ns_desc *nd;
 	struct ns_id *next;
+	enum ns_type type;
 
 	/*
 	 * For mount namespaces on restore -- indicates that
@@ -68,7 +76,7 @@ extern int restore_ns(int rst, struct ns_desc *nd);
 extern int dump_task_ns_ids(struct pstree_item *);
 extern int predump_task_ns_ids(struct pstree_item *);
 extern struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
-extern int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd);
+extern int rst_add_ns_id(unsigned int id, struct pstree_item *, struct ns_desc *nd);
 extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
 extern int collect_user_namespaces(bool for_dump);
