@@ -2363,6 +2363,31 @@ static int rst_collect_local_mntns(void)
 	return 0;
 }
 
+static int get_mp_mountpoint(MntEntry *me, struct mount_info *mi, char *root, int root_len)
+{
+	int len;
+
+	len  = strlen(me->mountpoint) + root_len + 1;
+	mi->mountpoint = xmalloc(len);
+	if (!mi->mountpoint)
+		return -1;
+
+	/*
+	 * For bind-mounts we would also fix the root here
+	 * too, but bind-mounts restore merges mountpoint
+	 * and root paths together, so there's no need in
+	 * that.
+	 */
+
+	strcpy(mi->mountpoint, root);
+	strcpy(mi->mountpoint + root_len, me->mountpoint);
+
+	mi->ns_mountpoint = mi->mountpoint + root_len;
+
+	pr_debug("\t\tWill mount %d @ %s\n", mi->mnt_id, mi->mountpoint);
+	return 0;
+}
+
 static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
@@ -2381,7 +2406,6 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 
 	while (1) {
 		struct mount_info *pm;
-		int len;
 
 		ret = pb_read_one_eof(img, &me, PB_MNT);
 		if (ret <= 0)
@@ -2477,22 +2501,8 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 				goto err;
 		}
 
-		len  = strlen(me->mountpoint) + root_len + 1;
-		pm->mountpoint = xmalloc(len);
-		if (!pm->mountpoint)
+		if (get_mp_mountpoint(me, pm, root, root_len))
 			goto err;
-		pm->ns_mountpoint = pm->mountpoint + root_len;
-		/*
-		 * For bind-mounts we would also fix the root here
-		 * too, but bind-mounts restore merges mountpoint
-		 * and root paths together, so there's no need in
-		 * that.
-		 */
-
-		strcpy(pm->mountpoint, root);
-		strcpy(pm->mountpoint + root_len, me->mountpoint);
-
-		pr_debug("\t\tGetting mpt for %d %s\n", pm->mnt_id, pm->mountpoint);
 
 		pr_debug("\t\tGetting opts for %d\n", pm->mnt_id);
 		pm->options = xstrdup(me->options);
