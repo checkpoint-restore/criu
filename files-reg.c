@@ -459,12 +459,15 @@ static void __rollback_link_remaps(bool do_unlink)
 		return;
 
 	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
-		mntns_root = mntns_get_root_fd(rlb->mnt_ns);
-		if (mntns_root < 0)
-			return;
+		if (do_unlink) {
+			mntns_root = mntns_get_root_fd(rlb->mnt_ns);
+			if (mntns_root >= 0)
+				unlinkat(mntns_root, rlb->path, 0);
+			else
+				pr_err("Failed to clenaup %s link remap\n", rlb->path);
+		}
+
 		list_del(&rlb->list);
-		if (do_unlink)
-			unlinkat(mntns_root, rlb->path, 0);
 		xfree(rlb->path);
 		xfree(rlb);
 	}
