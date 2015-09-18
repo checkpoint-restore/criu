@@ -99,7 +99,8 @@ static int check_sock_diag(void)
 	int ret;
 	struct ns_id ns;
 
-	ns.pid = 0;
+	ns.ns_pid = 0;
+	ns.type = NS_CRIU;
 	ns.net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
 	if (ns.net.nlsk < 0) {
 		pr_perror("Can't make diag socket for check");
@@ -757,7 +758,7 @@ static int (*chk_feature)(void);
 
 int cr_check(void)
 {
-	struct ns_id ns = { .pid = getpid(), .nd = &mnt_ns_desc };
+	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
 	int ret = 0;
 
 	if (!is_root_user())

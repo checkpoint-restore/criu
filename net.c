@@ -827,9 +827,9 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
 
-	if (ns->pid != getpid()) {
-		pr_info("Switching to %d's net for collecting sockets\n", ns->pid);
-		if (switch_ns(ns->pid, &net_ns_desc, &nsret))
+	if (ns->type != NS_CRIU) {
+		pr_info("Switching to %d's net for collecting sockets\n", ns->ns_pid);
+		if (switch_ns(ns->ns_pid, &net_ns_desc, &nsret))
 			return -1;
 	}
 
@@ -872,7 +872,7 @@ static int collect_net_ns(struct ns_id *ns, void *oarg)
 	bool for_dump = (oarg == (void *)1);
 	int ret;
 
-	pr_info("Collecting netns %d/%d\n", ns->id, ns->pid);
+	pr_info("Collecting netns %d/%d\n", ns->id, ns->ns_pid);
 	ret = prep_ns_sockets(ns, for_dump);
 	if (ret)
 		return ret;

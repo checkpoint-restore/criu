@@ -128,11 +128,11 @@ static void nsid_add(struct ns_id *ns, struct ns_desc *nd, unsigned int id, pid_
 {
 	ns->nd = nd;
 	ns->id = id;
-	ns->pid = pid;
+	ns->ns_pid = pid;
 	ns->next = ns_ids;
 	ns_ids = ns;
 
-	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->pid);
+	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->ns_pid);
 }
 
 static struct ns_id *__rst_new_ns_id(unsigned int id, pid_t pid,
@@ -162,8 +162,8 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 
 	nsid = lookup_ns_by_id(id, nd);
 	if (nsid) {
-		if (pid_rst_prio(pid, nsid->pid))
-			nsid->pid = pid;
+		if (pid_rst_prio(pid, nsid->ns_pid))
+			nsid->ns_pid = pid;
 		return 0;
 	}
 
@@ -221,7 +221,7 @@ int walk_namespaces(struct ns_desc *nd, int (*cb)(struct ns_id *, void *), void 
 		if (ns->nd != nd)
 			continue;
 
-		if (ns->pid == getpid()) {
+		if (ns->type == NS_CRIU) {
 			if (root_ns_mask & nd->cflag)
 				continue;
 
@@ -719,24 +719,24 @@ static int do_dump_namespaces(struct ns_id *ns)
 {
 	int ret;
 
-	ret = switch_ns(ns->pid, ns->nd, NULL);
+	ret = switch_ns(ns->ns_pid, ns->nd, NULL);
 	if (ret)
 		return ret;
 
 	switch (ns->nd->cflag) {
 	case CLONE_NEWUTS:
 		pr_info("Dump UTS namespace %d via %d\n",
-				ns->id, ns->pid);
+				ns->id, ns->ns_pid);
 		ret = dump_uts_ns(ns->id);
 		break;
 	case CLONE_NEWIPC:
 		pr_info("Dump IPC namespace %d via %d\n",
-				ns->id, ns->pid);
+				ns->id, ns->ns_pid);
 		ret = dump_ipc_ns(ns->id);
 		break;
 	case CLONE_NEWNET:
 		pr_info("Dump NET namespace info %d via %d\n",
-				ns->id, ns->pid);
+				ns->id, ns->ns_pid);
 		ret = dump_net_ns(ns->id);
 		break;
 	default:
@@ -775,7 +775,7 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 
 	for (ns = ns_ids; ns; ns = ns->next) {
 		/* Skip current namespaces, which are in the list too  */
-		if (ns->pid == getpid())
+		if (ns->type == NS_CRIU)
 			continue;
 
 		switch (ns->nd->cflag) {

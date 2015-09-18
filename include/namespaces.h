@@ -19,7 +19,7 @@ enum ns_type {
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;
-	pid_t pid;
+	pid_t ns_pid;
 	struct ns_desc *nd;
 	struct ns_id *next;
 	enum ns_type type;

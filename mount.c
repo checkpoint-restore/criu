@@ -807,11 +807,10 @@ static struct mount_info *find_best_external_match(struct mount_info *list, stru
 
 static struct ns_id *find_ext_ns_id(void)
 {
-	int pid = getpid();
 	struct ns_id *ns;
 
 	for (ns = ns_ids; ns->next; ns = ns->next)
-		if (ns->pid == pid && ns->nd == &mnt_ns_desc) {
+		if (ns->type == NS_CRIU && ns->nd == &mnt_ns_desc) {
 			if (!ns->mnt.mntinfo_list &&
 			    !collect_mntinfo(ns, true))
 				break;
@@ -1653,9 +1652,9 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 {
 	struct mount_info *pm;
 
-	pm = parse_mountinfo(ns->pid, ns, for_dump);
+	pm = parse_mountinfo(ns->ns_pid, ns, for_dump);
 	if (!pm) {
-		pr_err("Can't parse %d's mountinfo\n", ns->pid);
+		pr_err("Can't parse %d's mountinfo\n", ns->ns_pid);
 		return NULL;
 	}
 
@@ -2449,7 +2448,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 	if (!img)
 		return -1;
 
-	if (nsid->id != root_item->ids->mnt_ns_id)
+	if (nsid->type == NS_OTHER)
 		root_len = print_ns_root(nsid, root, sizeof(root));
 
 	pr_debug("Reading mountpoint images\n");
@@ -2536,13 +2535,15 @@ static int read_mnt_ns_img(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
-		if (nsid->id != root_item->ids->mnt_ns_id)
+		if (nsid->type != NS_ROOT) {
+			BUG_ON(nsid->type == NS_CRIU);
 			/*
 			 * If we have more than one (root) namespace,
 			 * then we'll need the roots yard.
 			 */
 			if (create_mnt_roots())
 				return -1;
+		}
 
 		if (collect_mnt_from_image(&pms, nsid))
 			return -1;
@@ -2567,22 +2568,21 @@ char *rst_get_mnt_root(int mnt_id)
 	if (m == NULL)
 		return NULL;
 
-	if (m->nsid->pid == getpid())
-		return path;
+	if (m->nsid->type == NS_OTHER)
+		print_ns_root(m->nsid, path, sizeof(path));
 
-	print_ns_root(m->nsid, path, sizeof(path));
 	return path;
 }
 
-static int do_restore_task_mnt_ns(struct ns_id *nsid)
+static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
 {
 	char path[PATH_MAX];
 
-	if (nsid->pid != getpid()) {
+	if (nsid->ns_pid != current->pid.virt) {
 		int fd;
 
 		futex_wait_while_eq(&nsid->ns_created, 0);
-		fd = open_proc(nsid->pid, "ns/mnt");
+		fd = open_proc(nsid->ns_pid, "ns/mnt");
 		if (fd < 0)
 			return -1;
 
@@ -2633,7 +2633,9 @@ int restore_task_mnt_ns(struct pstree_item *current)
 			return -1;
 		}
 
-		if (do_restore_task_mnt_ns(nsid))
+		BUG_ON(nsid->type != NS_OTHER);
+
+		if (do_restore_task_mnt_ns(nsid, current))
 			return -1;
 	}
 
@@ -2749,7 +2751,7 @@ int prepare_mnt_ns(void)
 {
 	int ret = -1;
 	struct mount_info *old;
-	struct ns_id ns = { .pid = PROC_SELF, .nd = &mnt_ns_desc };
+	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
 
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return rst_collect_local_mntns();
@@ -2889,7 +2891,7 @@ set_root:
 
 int mntns_get_root_fd(struct ns_id *mntns)
 {
-	return __mntns_get_root_fd(mntns->pid);
+	return __mntns_get_root_fd(mntns->ns_pid);
 }
 
 struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
@@ -2933,7 +2935,7 @@ static int collect_mntns(struct ns_id *ns, void *__arg)
 	if (!pms)
 		return -1;
 
-	if (arg->for_dump && ns->pid != getpid())
+	if (arg->for_dump && ns->type != NS_CRIU)
 		arg->need_to_validate = true;
 
 	mntinfo_add_list(pms);
@@ -2973,19 +2975,15 @@ err:
 int dump_mnt_namespaces(void)
 {
 	struct ns_id *nsid;
-	int n = 0;
 
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return 0;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
-		if (nsid->nd != &mnt_ns_desc)
+		if (nsid->nd != &mnt_ns_desc || nsid->type == NS_CRIU)
 			continue;
 
-		if (nsid->pid == getpid())
-			continue;
-
-		if (++n == 2 && check_mnt_id()) {
+		if ((nsid->type == NS_OTHER) && check_mnt_id()) {
 			pr_err("Nested mount namespaces are not supported "
 				"without mnt_id in fdinfo\n");
 			return -1;
