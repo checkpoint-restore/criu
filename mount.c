@@ -2734,12 +2734,17 @@ int depopulate_roots_yard(void)
 		pr_perror("Can't unmount %s", mnt_roots);
 		ret = 1;
 	}
-	if (rmdir(mnt_roots)) {
-		pr_perror("Can't remove the directory %s", mnt_roots);
-		ret = 1;
-	}
 
 	return ret;
+}
+
+void cleanup_mnt_ns(void)
+{
+	if (mnt_roots == NULL)
+		return;
+
+	if (rmdir(mnt_roots))
+		pr_perror("Can't remove the directory %s", mnt_roots);
 }
 
 int prepare_mnt_ns(void)

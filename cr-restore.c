@@ -1546,9 +1546,6 @@ static int restore_task_with_children(void *_arg)
 	return 0;
 
 err_fini_mnt:
-	if (current->parent == NULL)
-		depopulate_roots_yard();
-
 err:
 	if (current->parent == NULL)
 		futex_abort_and_wake(&task_entries->nr_in_progress);
@@ -1835,6 +1832,8 @@ static int restore_root_task(struct pstree_item *init)
 	 */
 	task_entries->nr_threads -= atomic_read(&task_entries->nr_zombies);
 
+	cleanup_mnt_ns();
+
 	ret = stop_usernsd();
 	if (ret < 0)
 		goto out_kill;
@@ -1919,6 +1918,7 @@ out_kill:
 
 out:
 	fini_cgroup();
+	cleanup_mnt_ns();
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");

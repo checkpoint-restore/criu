@@ -118,5 +118,6 @@ extern int depopulate_roots_yard(void);
 extern char *rst_get_mnt_root(int mnt_id);
 extern int ext_mount_add(char *key, char *val);
 extern int mntns_maybe_create_roots(void);
+extern void cleanup_mnt_ns(void);
 
 #endif /* __CR_MOUNT_H__ */
