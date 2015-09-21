@@ -2207,17 +2207,6 @@ static int do_umount_one(struct mount_info *mi)
 	return 0;
 }
 
-static int clean_mnt_ns(struct mount_info *mntinfo_tree)
-{
-	pr_info("Cleaning mount namespace\n");
-
-	/*
-	 * Mountinfos were collected at prepare stage
-	 */
-
-	return mnt_tree_for_each_reverse(mntinfo_tree, do_umount_one);
-}
-
 static int cr_pivot_root(char *root)
 {
 	char put_root[] = "crtools-put-root.XXXXXX";
@@ -2770,21 +2759,29 @@ int prepare_mnt_ns(void)
 
 	close_proc();
 
-	/*
-	 * The new mount namespace is filled with the mountpoint
-	 * clones from the original one. We have to umount them
-	 * prior to recreating new ones.
-	 */
 	if (!opts.root) {
 		if (chdir("/")) {
 			pr_perror("chdir(\"/\") failed");
 			return -1;
 		}
 
-		if (clean_mnt_ns(ns.mnt.mntinfo_tree))
+		/*
+		 * The new mount namespace is filled with the mountpoint
+		 * clones from the original one. We have to umount them
+		 * prior to recreating new ones.
+		 */
+		pr_info("Cleaning mount namespace\n");
+		if (mnt_tree_for_each_reverse(ns.mnt.mntinfo_tree, do_umount_one))
 			return -1;
 	} else {
 		struct mount_info *mi;
+
+		/*
+		 * The whole tree of mountpoints is to be moved into one
+		 * place with the pivot_root() call. Don't do manual
+		 * umount (as we do above), all this stuff will go away
+		 * with a single umount call later.
+		 */
 
 		/* moving a mount residing under a shared mount is invalid. */
 		mi = mount_resolve_path(ns.mnt.mntinfo_tree, opts.root);
