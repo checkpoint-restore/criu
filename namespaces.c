@@ -1321,8 +1321,16 @@ int prepare_namespace_before_tasks(void)
 	if (netns_keep_nsfd())
 		goto err_netns;
 
+	if (mntns_maybe_create_roots())
+		goto err_mnt;
+
 	return 0;
 
+err_mnt:
+	/*
+	 * Nothing, netns' descriptor will be closed
+	 * on criu exit
+	 */
 err_netns:
 	stop_usernsd();
 err_unds:

@@ -2529,16 +2529,6 @@ static int read_mnt_ns_img(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
-		if (nsid->type != NS_ROOT) {
-			BUG_ON(nsid->type == NS_CRIU);
-			/*
-			 * If we have more than one (root) namespace,
-			 * then we'll need the roots yard.
-			 */
-			if (create_mnt_roots())
-				return -1;
-		}
-
 		if (collect_mnt_from_image(&pms, nsid))
 			return -1;
 	}
@@ -2566,6 +2556,32 @@ char *rst_get_mnt_root(int mnt_id)
 		print_ns_root(m->nsid, path, sizeof(path));
 
 	return path;
+}
+
+int mntns_maybe_create_roots(void)
+{
+	struct ns_id *ns;
+
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return 0;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->nd != &mnt_ns_desc)
+			continue;
+
+		if (ns->type != NS_ROOT) {
+			BUG_ON(ns->type == NS_CRIU);
+
+			/*
+			 * If we have more than one (root) namespace,
+			 * then we'll need the roots yard.
+			 */
+			return create_mnt_roots();
+		}
+	}
+
+	/* No "other" mntns found, just go ahead, we don't need roots yard. */
+	return 0;
 }
 
 static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
