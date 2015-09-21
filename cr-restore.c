@@ -1537,7 +1537,7 @@ static int restore_task_with_children(void *_arg)
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
 		goto err_fini_mnt;
 
-	if (current->parent == NULL && fini_mnt_ns())
+	if (current->parent == NULL && depopulate_roots_yard())
 		goto err;
 
 	if (restore_one_task(current->pid.virt, ca->core))
@@ -1547,7 +1547,7 @@ static int restore_task_with_children(void *_arg)
 
 err_fini_mnt:
 	if (current->parent == NULL)
-		fini_mnt_ns();
+		depopulate_roots_yard();
 
 err:
 	if (current->parent == NULL)

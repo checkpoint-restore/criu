@@ -2644,7 +2644,7 @@ int restore_task_mnt_ns(struct pstree_item *current)
 /*
  * All nested mount namespaces are restore as sub-trees of the root namespace.
  */
-static int prepare_roots_yard(void)
+static int populate_roots_yard(void)
 {
 	char path[PATH_MAX];
 	struct ns_id *nsid;
@@ -2707,13 +2707,13 @@ static int populate_mnt_ns(void)
 	if (do_mount_root(pms))
 		return -1;
 
-	if (prepare_roots_yard())
+	if (populate_roots_yard())
 		return -1;
 
 	return mnt_tree_for_each(pms, do_mount_one);
 }
 
-int fini_mnt_ns(void)
+int depopulate_roots_yard(void)
 {
 	int ret = 0;
 
