@@ -6,7 +6,7 @@
 struct cr_imgset;
 extern int dump_net_ns(int ns_id);
 extern int prepare_net_ns(int pid);
-extern int netns_pre_create(void);
+extern int netns_keep_nsfd(void);
 
 struct veth_pair {
 	struct list_head node;

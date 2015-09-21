@@ -67,6 +67,7 @@ extern int collect_namespaces(bool for_dump);
 extern int collect_mnt_namespaces(bool for_dump);
 extern int dump_mnt_namespaces(void);
 extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
+extern int prepare_namespace_before_tasks(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
 extern int try_show_namespaces(int pid);
 
@@ -81,7 +82,6 @@ extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
 extern int collect_user_namespaces(bool for_dump);
 extern int prepare_userns(struct pstree_item *item);
-extern int start_usernsd(void);
 extern int stop_usernsd(void);
 extern int userns_uid(int uid);
 extern int userns_gid(int gid);

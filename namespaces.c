@@ -1088,7 +1088,7 @@ out:
 	return ret;
 }
 
-int start_usernsd(void)
+static int start_usernsd(void)
 {
 	int sk[2];
 	int one = 1;
@@ -1311,6 +1311,22 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 		return -1;
 
 	return 0;
+}
+
+int prepare_namespace_before_tasks(void)
+{
+	if (start_usernsd())
+		goto err_unds;
+
+	if (netns_keep_nsfd())
+		goto err_netns;
+
+	return 0;
+
+err_netns:
+	stop_usernsd();
+err_unds:
+	return -1;
 }
 
 int try_show_namespaces(int ns_pid)

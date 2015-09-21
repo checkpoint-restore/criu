@@ -1123,15 +1123,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 		BUG_ON(pid != INIT_PID);
 	}
 
-	if (ca.clone_flags & CLONE_NEWNET)
-		/*
-		 * When restoring a net namespace we need to communicate
-		 * with the original (i.e. -- init) one. Thus, prepare for
-		 * that before we leave the existing namespaces.
-		 */
-		if (netns_pre_create())
-			goto err_unlock;
-
 	/*
 	 * Some kernel modules, such as netwrok packet generator
 	 * run kernel thread upon net-namespace creattion taking
@@ -1772,7 +1763,7 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 	}
 
-	if (start_usernsd())
+	if (prepare_namespace_before_tasks())
 		return -1;
 
 	futex_set(&task_entries->nr_in_progress,

@@ -762,8 +762,17 @@ int prepare_net_ns(int pid)
 	return ret;
 }
 
-int netns_pre_create(void)
+int netns_keep_nsfd(void)
 {
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	/*
+	 * When restoring a net namespace we need to communicate
+	 * with the original (i.e. -- init) one. Thus, prepare for
+	 * that before we leave the existing namespaces.
+	 */
+
 	ns_fd = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
 	if (ns_fd < 0) {
 		pr_perror("Can't cache net fd");
