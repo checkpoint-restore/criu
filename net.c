@@ -91,14 +91,21 @@ static char *devconfs[] = {
 #define NET_CONF_PATH "net/ipv4/conf"
 #define MAX_CONF_OPT_PATH IFNAMSIZ+50
 
-static int ipv4_conf_op(char *tgt, int *conf, int op, NetnsEntry **netns)
+static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 {
 	int i, ri;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
 	struct sysctl_req req[ARRAY_SIZE(devconfs)];
 	char path[ARRAY_SIZE(devconfs)][MAX_CONF_OPT_PATH];
 
+	if (n > ARRAY_SIZE(devconfs))
+		pr_warn("The image contains unknown sysctl-s\n");
+
 	for (i = 0, ri = 0; i < ARRAY_SIZE(devconfs); i++) {
+		if (i >= n) {
+			pr_warn("Skip %s/%s\n", tgt, devconfs[i]);
+			continue;
+		}
 		/*
 		 * If dev conf value is the same as default skip restoring it
 		 */
@@ -165,7 +172,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	if (!netdev.conf)
 		return -1;
 
-	ret = ipv4_conf_op(netdev.name, netdev.conf, CTL_READ, NULL);
+	ret = ipv4_conf_op(netdev.name, netdev.conf, netdev.n_conf, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
@@ -489,13 +496,17 @@ static int restore_links(int pid, NetnsEntry **netns)
 			goto exit;
 		}
 
-		if (nde->conf)
+		if (nde->conf) {
+			NetnsEntry **def_netns = netns;
 			/*
 			 * optimize restore of devices configuration except lo
 			 * lo is created with namespace and before default is set
 			 * so we cant optimize its restore
 			 */
-			ret = ipv4_conf_op(nde->name, nde->conf, CTL_WRITE, nde->type == ND_TYPE__LOOPBACK ? NULL : netns);
+			if (nde->type == ND_TYPE__LOOPBACK)
+				def_netns = NULL;
+			ret = ipv4_conf_op(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns);
+		}
 exit:
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
@@ -564,7 +575,7 @@ static inline int dump_iptables(struct cr_imgset *fds)
 
 static int dump_netns_conf(struct cr_imgset *fds)
 {
-	int ret;
+	int ret, n;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
 
 	netns.n_def_conf = ARRAY_SIZE(devconfs);
@@ -578,10 +589,11 @@ static int dump_netns_conf(struct cr_imgset *fds)
 		return -1;
 	}
 
-	ret = ipv4_conf_op("default", netns.def_conf, CTL_READ, NULL);
+	n = netns.n_def_conf;
+	ret = ipv4_conf_op("default", netns.def_conf, n, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
-	ret = ipv4_conf_op("all", netns.all_conf, CTL_READ, NULL);
+	ret = ipv4_conf_op("all", netns.all_conf, n, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
@@ -632,7 +644,7 @@ static inline int restore_iptables(int pid)
 
 static int restore_netns_conf(int pid, NetnsEntry **netns)
 {
-	int ret = 0;
+	int ret = 0, n;
 	struct cr_img *img;
 
 	img = open_image(CR_FD_NETNS, O_RSTR, pid);
@@ -649,9 +661,11 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 		return -1;
 	}
 
-	ret = ipv4_conf_op("default", (*netns)->def_conf, CTL_WRITE, NULL);
-	if (!ret)
-		ret = ipv4_conf_op("all", (*netns)->all_conf, CTL_WRITE, NULL);
+	n = (*netns)->n_def_conf;
+	ret = ipv4_conf_op("default", (*netns)->def_conf, n, CTL_WRITE, NULL);
+	if (ret)
+		goto out;
+	ret = ipv4_conf_op("all", (*netns)->all_conf, n, CTL_WRITE, NULL);
 out:
 	close_image(img);
 	return ret;
