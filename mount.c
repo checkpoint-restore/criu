@@ -2647,11 +2647,7 @@ static int prepare_roots_yard(void)
 	if (mnt_roots == NULL)
 		return 0;
 
-	if (mount("none", mnt_roots, "tmpfs", 0, NULL)) {
-		pr_perror("Unable to mount tmpfs in %s", mnt_roots);
-		return -1;
-	}
-	if (mount("none", mnt_roots, NULL, MS_PRIVATE, NULL))
+	if (make_yard(mnt_roots))
 		return -1;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {

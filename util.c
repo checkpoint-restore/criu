@@ -14,7 +14,7 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 #include <poll.h>
-
+#include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
@@ -844,4 +844,19 @@ int fd_has_data(int lfd)
 	}
 
 	return ret;
+}
+
+int make_yard(char *path)
+{
+	if (mount("none", path, "tmpfs", 0, NULL)) {
+		pr_perror("Unable to mount tmpfs in %s", path);
+		return -1;
+	}
+
+	if (mount("none", path, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Unable to mark yard as private");
+		return -1;
+	}
+
+	return 0;
 }

@@ -1157,15 +1157,8 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		return -1;
 	}
 
-	if (mount("none", cg_yard, "tmpfs", 0, NULL)) {
-		pr_perror("Can't mount tmpfs in cgyard");
+	if (make_yard(cg_yard))
 		goto err;
-	}
-
-	if (mount("none", cg_yard, NULL, MS_PRIVATE, NULL)) {
-		pr_perror("Can't make cgyard private");
-		goto err;
-	}
 
 	pr_debug("Opening %s as cg yard\n", cg_yard);
 	i = open(cg_yard, O_DIRECTORY);
