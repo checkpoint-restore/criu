@@ -1958,14 +1958,14 @@ static int do_new_mount(struct mount_info *mi)
 	if (!src)
 		return -1;
 
-	if (remount_ro)
-		sflags &= ~MS_RDONLY;
-
 	/* Merge superblock and mount flags if it's posiable */
-	if (!(mflags & ~MS_MNT_KNOWN_FLAGS) && ((sflags ^ mflags) & MS_RDONLY)) {
+	if (!(mflags & ~MS_MNT_KNOWN_FLAGS) && !((sflags ^ mflags) & MS_RDONLY)) {
 		sflags |= mflags;
 		mflags = 0;
 	}
+
+	if (remount_ro)
+		sflags &= ~MS_RDONLY;
 
 	if (mount(src, mi->mountpoint, tp->name, sflags, mi->options) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
