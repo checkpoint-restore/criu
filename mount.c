@@ -911,7 +911,7 @@ static int resolve_external_mounts(struct mount_info *info)
 	return 0;
 }
 
-static int collect_shared(struct mount_info *info, bool for_dump)
+static int resolve_shared_mounts(struct mount_info *info)
 {
 	struct mount_info *m, *t;
 
@@ -2686,7 +2686,7 @@ static int populate_mnt_ns(void)
 	if (!pms)
 		return -1;
 
-	if (collect_shared(mntinfo, false))
+	if (resolve_shared_mounts(mntinfo))
 		return -1;
 
 	for (nsid = ns_ids; nsid; nsid = nsid->next) {
@@ -2961,7 +2961,7 @@ int collect_mnt_namespaces(bool for_dump)
 	if (arg.need_to_validate) {
 		ret = -1;
 
-		if (collect_shared(mntinfo, true))
+		if (resolve_shared_mounts(mntinfo))
 			goto err;
 		if (validate_mounts(mntinfo, true))
 			goto err;
