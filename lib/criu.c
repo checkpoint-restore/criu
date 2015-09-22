@@ -697,8 +697,6 @@ int criu_local_add_irmap_path(criu_opts *opts, char *path)
 err:
 	if (my_path)
 		free(my_path);
-	if (m)
-		free(m);
 
 	return -ENOMEM;
 }
