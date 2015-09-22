@@ -675,34 +675,28 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 						m->mountpoint, m->s_dev, m->root, m->mnt_id);
 				return -1;
 			}
-		} else {
+		} else if (!m->external) {
 			t = find_fsroot_mount_for(m);
 			if (!t) {
 				int ret;
 
+				/*
+				 * No root-mount found for this bind and it's neither
+				 * marked nor auto-resolved as external one. So last
+				 * chance not to fail is to talk to plugins.
+				 */
+
 				if (for_dump) {
+					ret = run_plugins(DUMP_EXT_MOUNT, m->mountpoint, m->mnt_id);
+					if (ret == 0)
+						m->need_plugin = true;
+				} else
 					/*
-					 * We've already resolved the mount
-					 * and it is external.
+					 * Plugin should take care of this one
+					 * in restore_ext_mount, or do_bind_mount
+					 * will mount it as external
 					 */
-					if (m->external) {
-						ret = 0;
-					} else {
-						ret = run_plugins(DUMP_EXT_MOUNT, m->mountpoint, m->mnt_id);
-						if (ret == 0)
-							m->need_plugin = true;
-					}
-				} else {
-					if (m->need_plugin || m->external)
-						/*
-						 * plugin should take care of this one
-						 * in restore_ext_mount, or do_bind_mount
-						 * will mount it as external
-						 */
-						ret = 0;
-					else
-						ret = -ENOTSUP;
-				}
+					ret = m->need_plugin ? 0 : -ENOTSUP;
 
 				if (ret < 0) {
 					if (ret == -ENOTSUP)
