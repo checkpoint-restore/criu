@@ -290,6 +290,7 @@ generate_test_list()
 		ns/static/vt
 		ns/static/rtc
 		ns/static/cow01
+		ns/static/tempfs_ro
 	"
 
 	# Add tests which can be executed in an user namespace
