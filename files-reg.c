@@ -301,25 +301,19 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 	return 0;
 }
 
+struct remap_info {
+	struct list_head list;
+	RemapFilePathEntry *rfe;
+	struct reg_file_info *rfi;
+};
+
 static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 {
-	int ret = -1;
+	struct remap_info *ri = obj;
 	RemapFilePathEntry *rfe;
 	struct file_desc *fdesc;
-	struct reg_file_info *rfi;
 
-	rfe = pb_msg(msg, RemapFilePathEntry);
-
-	fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
-	if (fdesc == NULL) {
-		pr_err("Remap for non existing file %#x\n",
-				rfe->orig_id);
-		goto out;
-	}
-
-	rfi = container_of(fdesc, struct reg_file_info, d);
-	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
-
+	ri->rfe = rfe = pb_msg(msg, RemapFilePathEntry);
 
 	if (!rfe->has_remap_type) {
 		rfe->has_remap_type = true;
@@ -330,6 +324,27 @@ static int collect_one_remap(void *obj, ProtobufCMessage *msg)
 		} else
 			rfe->remap_type = REMAP_TYPE__LINKED;
 	}
+
+	fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
+	if (fdesc == NULL) {
+		pr_err("Remap for non existing file %#x\n", rfe->orig_id);
+		return -1;
+	}
+
+	ri->rfi = container_of(fdesc, struct reg_file_info, d);
+
+	list_add_tail(&ri->list, &remaps);
+
+	return 0;
+}
+
+static int prepare_one_remap(struct remap_info *ri)
+{
+	int ret = -1;
+	RemapFilePathEntry *rfe = ri->rfe;
+	struct reg_file_info *rfi = ri->rfi;
+
+	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
 
 	switch (rfe->remap_type) {
 	case REMAP_TYPE__LINKED:
@@ -350,9 +365,24 @@ out:
 	return ret;
 }
 
-struct collect_image_info remap_cinfo = {
+int prepare_remaps(void)
+{
+	struct remap_info *ri;
+	int ret = 0;
+
+	list_for_each_entry(ri, &remaps, list) {
+		ret = prepare_one_remap(ri);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
+static struct collect_image_info remap_cinfo = {
 	.fd_type = CR_FD_REMAP_FPATH,
 	.pb_type = PB_REMAP_FPATH,
+	.priv_size = sizeof(struct remap_info),
 	.collect = collect_one_remap,
 };
 
@@ -1273,7 +1303,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base)
 	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 }
 
-struct collect_image_info reg_file_cinfo = {
+static struct collect_image_info reg_file_cinfo = {
 	.fd_type = CR_FD_REG_FILES,
 	.pb_type = PB_REG_FILE,
 	.priv_size = sizeof(struct reg_file_info),
@@ -1287,5 +1317,16 @@ int prepare_shared_reg_files(void)
 		return -1;
 
 	mutex_init(ghost_file_mutex);
+	return 0;
+}
+
+int collect_remaps_and_regfiles(void)
+{
+	if (collect_image(&reg_file_cinfo))
+		return -1;
+
+	if (collect_image(&remap_cinfo))
+		return -1;
+
 	return 0;
 }

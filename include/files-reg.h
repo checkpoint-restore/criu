@@ -45,11 +45,11 @@ extern void remap_put(struct file_remap *remap);
 extern struct file_desc *try_collect_special_file(u32 id, int optional);
 #define collect_special_file(id)	try_collect_special_file(id, 0)
 
-extern struct collect_image_info reg_file_cinfo;
-extern struct collect_image_info remap_cinfo;
+extern int collect_remaps_and_regfiles(void);
 
 extern void delete_link_remaps(void);
 extern void free_link_remaps(void);
+extern int prepare_remaps(void);
 
 extern int strip_deleted(struct fd_link *link);
 
