@@ -71,7 +71,7 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, 
 	int gfd, ghost_flags, ret = -1;
 	char path[PATH_MAX];
 
-	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.path);
+	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.rpath);
 	if (S_ISFIFO(gfe->mode)) {
 		if (mknod(path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file");
@@ -150,9 +150,9 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf = shmalloc(sizeof(*gf));
 	if (!gf)
 		return -1;
-	gf->remap.path = xmalloc(PATH_MAX);
-	gf->remap.mnt_id = rfi->rfe->mnt_id;
-	if (!gf->remap.path)
+	gf->remap.rpath = xmalloc(PATH_MAX);
+	gf->remap.rmnt_id = rfi->rfe->mnt_id;
+	if (!gf->remap.rpath)
 		goto err;
 
 	img = open_image(CR_FD_GHOST_FILE, O_RSTR, rfe->remap_id);
@@ -171,9 +171,9 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->ino = gfe->ino;
 
 	if (S_ISDIR(gfe->mode))
-		strncpy(gf->remap.path, rfi->path, PATH_MAX);
+		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
-		snprintf(gf->remap.path, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+		snprintf(gf->remap.rpath, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
 	if (create_ghost(gf, gfe, root, img))
 		goto close_ifd;
@@ -195,7 +195,7 @@ close_ifd:
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);
-	xfree(gf->remap.path);
+	xfree(gf->remap.rpath);
 	shfree_last(gf);
 	return -1;
 }
@@ -234,11 +234,11 @@ static int open_remap_linked(struct reg_file_info *rfi,
 		owner = st.st_uid;
 	}
 
-	rm->path = rrfi->path;
+	rm->rpath = rrfi->path;
 	rm->users = 0;
 	rm->is_dir = false;
 	rm->owner = owner;
-	rm->mnt_id = rfi->rfe->mnt_id;
+	rm->rmnt_id = rfi->rfe->mnt_id;
 	rfi->remap = rm;
 	return 0;
 }
@@ -383,10 +383,10 @@ void remap_put(struct file_remap *remap)
 	if (--remap->users == 0) {
 		int mntns_root;
 
-		pr_info("Unlink the ghost %s\n", remap->path);
+		pr_info("Unlink the ghost %s\n", remap->rpath);
 
-		mntns_root = mntns_get_root_by_mnt_id(remap->mnt_id);
-		unlinkat(mntns_root, remap->path, 0);
+		mntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
+		unlinkat(mntns_root, remap->rpath, 0);
 	}
 	mutex_unlock(ghost_file_mutex);
 }
@@ -960,20 +960,20 @@ static int rfi_remap(struct reg_file_info *rfi)
 		/* Know nothing about mountpoints */
 		mntns_root = mntns_get_root_by_mnt_id(-1);
 		path = rfi->path;
-		rpath = rfi->remap->path;
+		rpath = rfi->remap->rpath;
 		goto out_root;
 	}
 
 	mi = lookup_mnt_id(rfi->rfe->mnt_id);
-	if (rfi->rfe->mnt_id == rfi->remap->mnt_id) {
+	if (rfi->rfe->mnt_id == rfi->remap->rmnt_id) {
 		/* Both links on the same mount point */
 		tmi = mi;
 		path = rfi->path;
-		rpath = rfi->remap->path;
+		rpath = rfi->remap->rpath;
 		goto out;
 	}
 
-	rmi = lookup_mnt_id(rfi->remap->mnt_id);
+	rmi = lookup_mnt_id(rfi->remap->rmnt_id);
 
 	/*
 	 * Find the common bind-mount. We know that one mount point was
@@ -988,7 +988,7 @@ static int rfi_remap(struct reg_file_info *rfi)
 
 	/* Calcalate paths on the device (root mount) */
 	convert_path_from_another_mp(rfi->path, path, sizeof(_path), mi, tmi);
-	convert_path_from_another_mp(rfi->remap->path, rpath, sizeof(_rpath), rmi, tmi);
+	convert_path_from_another_mp(rfi->remap->rpath, rpath, sizeof(_rpath), rmi, tmi);
 
 out:
 	pr_debug("%d: Link %s -> %s\n", tmi->mnt_id, rpath, path);
@@ -1017,13 +1017,13 @@ int open_path(struct file_desc *d,
 			 * Will have to open it under the ghost one :(
 			 */
 			orig_path = rfi->path;
-			rfi->path = rfi->remap->path;
+			rfi->path = rfi->remap->rpath;
 		} else if (rfi_remap(rfi) < 0) {
 			static char tmp_path[PATH_MAX];
 
 			if (errno != EEXIST) {
 				pr_err("Can't link %s -> %s", rfi->path,
-						rfi->remap->path);
+						rfi->remap->rpath);
 				return -1;
 			}
 
@@ -1040,7 +1040,7 @@ int open_path(struct file_desc *d,
 			orig_path = rfi->path;
 			rfi->path = tmp_path;
 			snprintf(tmp_path, sizeof(tmp_path), "%s.cr_link", orig_path);
-			pr_debug("Fake %s -> %s link\n", rfi->path, rfi->remap->path);
+			pr_debug("Fake %s -> %s link\n", rfi->path, rfi->remap->rpath);
 
 			if (rfi_remap(rfi) < 0) {
 				pr_perror("Can't create even fake link!");
@@ -1086,9 +1086,9 @@ int open_path(struct file_desc *d,
 
 		BUG_ON(!rfi->remap->users);
 		if (--rfi->remap->users == 0) {
-			pr_info("Unlink the ghost %s\n", rfi->remap->path);
-			mntns_root = mntns_get_root_by_mnt_id(rfi->remap->mnt_id);
-			unlinkat(mntns_root, rfi->remap->path, rfi->remap->is_dir ? AT_REMOVEDIR : 0);
+			pr_info("Unlink the ghost %s\n", rfi->remap->rpath);
+			mntns_root = mntns_get_root_by_mnt_id(rfi->remap->rmnt_id);
+			unlinkat(mntns_root, rfi->remap->rpath, rfi->remap->is_dir ? AT_REMOVEDIR : 0);
 		}
 
 		if (orig_path)
@@ -1192,7 +1192,7 @@ static void remap_get(struct file_desc *fdesc, char typ)
 	rfi = container_of(fdesc, struct reg_file_info, d);
 	if (rfi->remap) {
 		pr_debug("One more remap user (%c) for %s\n",
-				typ, rfi->remap->path);
+				typ, rfi->remap->rpath);
 		/* No lock, we're still sngle-process here */
 		rfi->remap->users++;
 	}

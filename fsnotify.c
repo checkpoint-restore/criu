@@ -419,11 +419,11 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 	if (remap) {
 		int mntns_root;
 
-		mntns_root = mntns_get_root_by_mnt_id(remap->mnt_id);
+		mntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
 
 		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
-			 who, s_dev, i_ino, remap->path);
-		*target = openat(mntns_root, remap->path, O_PATH);
+			 who, s_dev, i_ino, remap->rpath);
+		*target = openat(mntns_root, remap->rpath, O_PATH);
 	} else if (f_handle->path) {
 		int  mntns_root;
 

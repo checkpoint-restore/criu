@@ -12,9 +12,9 @@ struct cr_imgset;
 struct fd_parms;
 
 struct file_remap {
-	char *path;
+	char *rpath;
 	bool is_dir;
-	int  mnt_id;
+	int  rmnt_id;
 	unsigned int users;
 	uid_t owner;
 };
