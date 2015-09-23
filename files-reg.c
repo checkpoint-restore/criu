@@ -56,15 +56,43 @@ static LIST_HEAD(ghost_files);
 
 static mutex_t *ghost_file_mutex;
 
+static LIST_HEAD(remaps);
+
 /*
- * To rollback link remaps.
+ * Remember the name to delete it if needed on error or
+ * rollback action. Note we don't expect that there will
+ * be a HUGE number of link remaps, so in a sake of speed
+ * we keep all data in memory.
  */
 struct link_remap_rlb {
 	struct list_head	list;
 	struct ns_id		*mnt_ns;
 	char			*path;
 };
-static LIST_HEAD(link_remaps);
+
+static int note_link_remap(char *path, struct ns_id *nsid)
+{
+	struct link_remap_rlb *rlb;
+
+	rlb = xmalloc(sizeof(*rlb));
+	if (!rlb)
+		goto err;
+
+	rlb->path = strdup(path);
+	if (!rlb->path)
+		goto err2;
+
+	rlb->mnt_ns = nsid;
+	list_add(&rlb->list, &remaps);
+
+	return 0;
+
+err2:
+	xfree(rlb);
+err:
+	pr_err("Can't note link remap for %s\n", path);
+	return -1;
+}
 
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
@@ -457,10 +485,7 @@ static void __rollback_link_remaps(bool do_unlink)
 	struct link_remap_rlb *rlb, *tmp;
 	int mntns_root;
 
-	if (!opts.link_remap_ok)
-		return;
-
-	list_for_each_entry_safe(rlb, tmp, &link_remaps, list) {
+	list_for_each_entry_safe(rlb, tmp, &remaps, list) {
 		if (do_unlink) {
 			mntns_root = mntns_get_root_fd(rlb->mnt_ns);
 			if (mntns_root >= 0)
@@ -484,7 +509,6 @@ static int create_link_remap(char *path, int len, int lfd,
 	char link_name[PATH_MAX], *tmp;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
-	struct link_remap_rlb *rlb;
 	int mntns_root;
 
 	if (!opts.link_remap_ok) {
@@ -527,30 +551,10 @@ static int create_link_remap(char *path, int len, int lfd,
 		return -1;
 	}
 
-	/*
-	 * Remember the name to delete it if needed on error or
-	 * rollback action. Note we don't expect that there will
-	 * be a HUGE number of link remaps, so in a sake of speed
-	 * we keep all data in memory.
-	 */
-	rlb = xmalloc(sizeof(*rlb));
-	if (!rlb)
-		goto err1;
-
-	rlb->path = strdup(link_name);
-	if (!rlb->path)
-		goto err2;
-
-	rlb->mnt_ns = nsid;
-	list_add(&rlb->list, &link_remaps);
+	if (note_link_remap(link_name, nsid))
+		return -1;
 
 	return pb_write_one(img_from_set(glob_imgset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
-
-err2:
-	xfree(rlb);
-err1:
-	pr_perror("Can't register rollback for %s", path);
-	return -1;
 }
 
 static int dump_linked_remap(char *path, int len, const struct stat *ost,
