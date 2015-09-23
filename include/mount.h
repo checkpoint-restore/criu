@@ -115,7 +115,7 @@ extern bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev,
 extern int restore_task_mnt_ns(struct pstree_item *current);
 extern int depopulate_roots_yard(void);
 
-extern char *rst_get_mnt_root(int mnt_id);
+extern int rst_get_mnt_root(int mnt_id, char *path, int plen);
 extern int ext_mount_add(char *key, char *val);
 extern int mntns_maybe_create_roots(void);
 extern void cleanup_mnt_ns(void);

@@ -2526,25 +2526,24 @@ static int read_mnt_ns_img(void)
 	return 0;
 }
 
-char *rst_get_mnt_root(int mnt_id)
+int rst_get_mnt_root(int mnt_id, char *path, int plen)
 {
 	struct mount_info *m;
-	static char path[PATH_MAX] = "/";
 
-	if (!(root_ns_mask & CLONE_NEWNS))
-		return path;
-
-	if (mnt_id == -1)
-		return path;
+	if (!(root_ns_mask & CLONE_NEWNS) || mnt_id == -1)
+		goto rroot;
 
 	m = lookup_mnt_id(mnt_id);
 	if (m == NULL)
-		return NULL;
+		return -1;
 
 	if (m->nsid->type == NS_OTHER)
-		print_ns_root(m->nsid, path, sizeof(path));
+		return print_ns_root(m->nsid, path, plen);
 
-	return path;
+rroot:
+	path[0] = '/';
+	path[1] = '\0';
+	return 1;
 }
 
 int mntns_maybe_create_roots(void)

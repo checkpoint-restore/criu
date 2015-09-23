@@ -66,12 +66,20 @@ struct link_remap_rlb {
 };
 static LIST_HEAD(link_remaps);
 
-static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, char *root, struct cr_img *img)
+static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
-	int gfd, ghost_flags, ret = -1;
+	int gfd, ghost_flags, ret;
 	char path[PATH_MAX];
 
-	snprintf(path, sizeof(path), "%s/%s", root, gf->remap.rpath);
+	ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
+	if (ret < 0) {
+		pr_err("The %d mount is not found for ghost\n", gf->remap.rmnt_id);
+		goto err;
+	}
+
+	snprintf(path + ret, sizeof(path) - ret, "%s", gf->remap.rpath);
+	ret = -1;
+
 	if (S_ISFIFO(gfe->mode)) {
 		if (mknod(path, gfe->mode, 0)) {
 			pr_perror("Can't create node for ghost file");
@@ -127,7 +135,6 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	struct ghost_file *gf;
 	GhostFileEntry *gfe = NULL;
 	struct cr_img *img;
-	char *root;
 
 	list_for_each_entry(gf, &ghost_files, list)
 		if (gf->id == rfe->remap_id)
@@ -141,17 +148,11 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 
 	pr_info("Opening ghost file %#x for %s\n", rfe->remap_id, rfi->path);
 
-	root = rst_get_mnt_root(rfi->rfe->mnt_id);
-	if (root == NULL) {
-		pr_err("The %d mount is not found\n", rfi->rfe->mnt_id);
-		return -1;
-	}
-
 	gf = shmalloc(sizeof(*gf));
 	if (!gf)
 		return -1;
+
 	gf->remap.rpath = xmalloc(PATH_MAX);
-	gf->remap.rmnt_id = rfi->rfe->mnt_id;
 	if (!gf->remap.rpath)
 		goto err;
 
@@ -169,13 +170,14 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	 */
 	gf->dev = gfe->dev;
 	gf->ino = gfe->ino;
+	gf->remap.rmnt_id = rfi->rfe->mnt_id;
 
 	if (S_ISDIR(gfe->mode))
 		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
 		snprintf(gf->remap.rpath, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
 
-	if (create_ghost(gf, gfe, root, img))
+	if (create_ghost(gf, gfe, img))
 		goto close_ifd;
 
 	ghost_file_entry__free_unpacked(gfe, NULL);
