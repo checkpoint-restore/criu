@@ -1324,8 +1324,13 @@ int prepare_namespace_before_tasks(void)
 	if (mntns_maybe_create_roots())
 		goto err_mnt;
 
+	if (read_mnt_ns_img())
+		goto err_img;
+
 	return 0;
 
+err_img:
+	cleanup_mnt_ns();
 err_mnt:
 	/*
 	 * Nothing, netns' descriptor will be closed

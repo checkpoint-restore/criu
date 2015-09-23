@@ -2509,7 +2509,7 @@ err:
 	return -1;
 }
 
-static int read_mnt_ns_img(void)
+int read_mnt_ns_img(void)
 {
 	struct mount_info *pms = NULL;
 	struct ns_id *nsid;
@@ -2672,9 +2672,6 @@ static int populate_mnt_ns(void)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
-
-	if (read_mnt_ns_img())
-		return -1;
 
 	pms = mnt_build_tree(mntinfo);
 	if (!pms)
