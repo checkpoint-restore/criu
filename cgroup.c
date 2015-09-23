@@ -960,6 +960,8 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
+	pr_info("Restoring cgroup property value [%s] to [%s]\n", cg_prop_entry_p->value, path);
+
 	cg = get_service_fd(CGROUP_YARD);
 	f = fopenat(cg, path, "w+");
 	if (!f) {
@@ -978,7 +980,6 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
-	pr_info("Restored cgroup property value %s to %s\n", cg_prop_entry_p->value, path);
 	return 0;
 }
 
@@ -1033,6 +1034,8 @@ int prepare_cgroup_properties(void)
 static int restore_special_cpuset_props(char *paux, size_t off, CgroupDirEntry *e)
 {
 	int i, j;
+
+	pr_info("Restore special cpuset props\n");
 
 	for (i = 0; special_cpuset_props[i]; i++) {
 		const char *name = special_cpuset_props[i];
