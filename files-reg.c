@@ -157,6 +157,12 @@ err:
 	return ret;
 }
 
+static inline void ghost_path(char *path, int plen,
+		struct reg_file_info *rfi, RemapFilePathEntry *rfe)
+{
+	snprintf(path, plen, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+}
+
 static int open_remap_ghost(struct reg_file_info *rfi,
 		RemapFilePathEntry *rfe)
 {
@@ -203,7 +209,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (S_ISDIR(gfe->mode))
 		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
-		snprintf(gf->remap.rpath, PATH_MAX, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rfe);
 
 	if (create_ghost(gf, gfe, img))
 		goto close_ifd;
@@ -377,6 +383,78 @@ int prepare_remaps(void)
 	}
 
 	return ret;
+}
+
+static void try_clean_ghost(struct remap_info *ri)
+{
+	char path[PATH_MAX];
+	int mnt_id, ret;
+
+	mnt_id = ri->rfi->rfe->mnt_id; /* rirfirfe %) */
+	ret = rst_get_mnt_root(mnt_id, path, sizeof(path));
+	if (ret < 0)
+		return;
+
+	ghost_path(path + ret, sizeof(path) - 1, ri->rfi, ri->rfe);
+	if (!unlink(path)) {
+		pr_info(" `- X [%s] ghost\n", path);
+		return;
+	}
+
+	/*
+	 * We can also find out the ghost type by stat()-ing
+	 * it or by reading the ghost image, but this way
+	 * is the fastest one.
+	 */
+
+	if ((errno == EISDIR)) {
+		strncpy(path + ret, ri->rfi->path, sizeof(path) - 1);
+		if (!rmdir(path)) {
+			pr_info(" `- Xd [%s] ghost\n", path);
+			return;
+		}
+	}
+
+	pr_perror(" `- XFail [%s] ghost", path);
+}
+
+void try_clean_remaps(int ns_fd)
+{
+	struct remap_info *ri;
+	int old_ns = -1;
+
+	if (list_empty(&remaps))
+		goto out;
+
+	if (ns_fd >= 0) {
+		pr_info("Switching to new ns to clean ghosts\n");
+
+		old_ns = open_proc(PROC_SELF, "ns/mnt");
+		if (old_ns < 0) {
+			pr_perror("`- Can't keep old ns");
+			return;
+		}
+
+		if (setns(ns_fd, CLONE_NEWNS) < 0) {
+			close(old_ns);
+			pr_perror("`- Can't switch");
+			return;
+		}
+	}
+
+	list_for_each_entry(ri, &remaps, list)
+		if (ri->rfe->remap_type == REMAP_TYPE__GHOST)
+			try_clean_ghost(ri);
+
+	if (old_ns >= 0) {
+		if (setns(old_ns, CLONE_NEWNS) < 0)
+			pr_perror("Fail to switch back!");
+		close(old_ns);
+	}
+
+out:
+	if (ns_fd >= 0)
+		close(ns_fd);
 }
 
 static struct collect_image_info remap_cinfo = {

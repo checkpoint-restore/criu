@@ -1732,7 +1732,7 @@ static void ignore_kids(void)
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
-	int ret, fd;
+	int ret, fd, mnt_ns_fd = -1;
 
 	fd = open("/proc", O_DIRECTORY | O_RDONLY);
 	if (fd < 0) {
@@ -1808,6 +1808,14 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out;
 
+	if (root_ns_mask & CLONE_NEWNS) {
+		mnt_ns_fd = open_proc(init->pid.real, "ns/mnt");
+		if (mnt_ns_fd < 0) {
+			pr_perror("Can't open init's mntns fd");
+			goto out;
+		}
+	}
+
 	ret = run_scripts(ACT_SETUP_NS);
 	if (ret)
 		goto out;
@@ -1837,6 +1845,12 @@ static int restore_root_task(struct pstree_item *init)
 	 */
 	task_entries->nr_threads -= atomic_read(&task_entries->nr_zombies);
 
+	if (mnt_ns_fd >= 0)
+		/*
+		 * Don't try_clean_remaps here, since restore went OK
+		 * and all ghosts were removed by the openers.
+		 */
+		close(mnt_ns_fd);
 	cleanup_mnt_ns();
 
 	ret = stop_usernsd();
@@ -1923,6 +1937,7 @@ out_kill:
 
 out:
 	fini_cgroup();
+	try_clean_remaps(mnt_ns_fd);
 	cleanup_mnt_ns();
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
