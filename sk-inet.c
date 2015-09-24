@@ -91,7 +91,24 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 		e->state, src_addr);
 }
 
-static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
+static int can_dump_ipproto(int ino, int proto)
+{
+	/* Make sure it's a proto we support */
+	switch (proto) {
+	case IPPROTO_IP:
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
+		break;
+	default:
+		pr_err("Unsupported proto %d for socket %x\n", proto, ino);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 {
 	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
@@ -147,18 +164,6 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk, int proto)
 		break;
 	default:
 		pr_err("Unknown inet socket %x state %d\n", sk->sd.ino, sk->state);
-		return 0;
-	}
-
-	/* Make sure it's a proto we support */
-	switch (proto) {
-	case IPPROTO_IP:
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-	case IPPROTO_UDPLITE:
-		break;
-	default:
-		pr_err("Unsupported proto %d for socket %x\n", proto, sk->sd.ino);
 		return 0;
 	}
 
@@ -237,6 +242,9 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (ret)
 		goto err;
 
+	if (!can_dump_ipproto(p->stat.st_ino, proto))
+		goto err;
+
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
 	if (IS_ERR(sk))
 		goto err;
@@ -246,7 +254,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 			goto err;
 	}
 
-	if (!can_dump_inet_sk(sk, proto))
+	if (!can_dump_inet_sk(sk))
 		goto err;
 
 	BUG_ON(sk->sd.already_dumped);
