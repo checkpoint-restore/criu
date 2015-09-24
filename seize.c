@@ -312,7 +312,7 @@ static void pstree_wait(struct pstree_item *root_item)
 	}
 	pid = wait4(-1, &status, __WALL, NULL);
 	if (pid > 0) {
-		pr_err("Unexpected child %d", pid);
+		pr_err("Unexpected child %d\n", pid);
 		BUG();
 	}
 }
