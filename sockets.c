@@ -339,7 +339,7 @@ struct socket_desc *lookup_socket(int ino, int family, int proto)
 		return ERR_PTR(-EINVAL);
 	}
 
-	pr_debug("\tSearching for socket %x (family %d)\n", ino, family);
+	pr_debug("\tSearching for socket %x (family %d.%d)\n", ino, family, proto);
 	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next)
 		if (sd->ino == ino) {
 			BUG_ON(sd->family != family);
