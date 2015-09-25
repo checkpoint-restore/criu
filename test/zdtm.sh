@@ -792,6 +792,8 @@ EOF
 		setsid $CRIU_CPT $dump_cmd -D $ddump -o dump.log -v4 -t $PID $gen_args $cpt_args
 		retcode=$?
 
+		cat $ddump/dump.log | grep Error
+
 		#
 		# Here we may have two cases: either checkpoint is failed
 		# with some error code, or checkpoint is complete but return
