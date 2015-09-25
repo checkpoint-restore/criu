@@ -64,6 +64,7 @@ TST_NOFILE	=				\
 		socket-tcpbuf			\
 		socket-tcpbuf-local		\
 		socket-tcpbuf6			\
+		socket-closed-tcp		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
