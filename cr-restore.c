@@ -1121,8 +1121,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 		}
 
 		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(ca.fd, buf, len) != len)
+		if (write(ca.fd, buf, len) != len) {
+			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
 			goto err_unlock;
+		}
 	} else {
 		ca.fd = -1;
 		BUG_ON(pid != INIT_PID);
