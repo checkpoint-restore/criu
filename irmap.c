@@ -266,16 +266,7 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	 * about them, hopefully they're more interesting than our hints.
 	 */
 	list_for_each_entry(o, &opts.irmap_scan_paths, node) {
-		struct irmap *ir;
-
-		ir = xzalloc(sizeof(*ir));
-		if (!ir)
-			goto out;
-
-		ir->nr_kids = -1;
-		ir->path = o->path;
-
-		c = irmap_scan(ir, s_dev, i_ino);
+		c = irmap_scan(o->ir, s_dev, i_ino);
 		if (c) {
 			pr_debug("\tScanned %s\n", c->path);
 			path = c->path;
@@ -485,11 +476,18 @@ int irmap_scan_path_add(char *path)
 {
 	struct irmap_path_opt *o;
 
-	o = xmalloc(sizeof(*o));
+	o = xzalloc(sizeof(*o));
 	if (!o)
 		return -1;
 
-	o->path = path;
+	o->ir = xzalloc(sizeof(*o->ir));
+	if (!o->ir) {
+		xfree(o);
+		return -1;
+	}
+
+	o->ir->path = path;
+	o->ir->nr_kids = -1;
 	list_add(&o->node, &opts.irmap_scan_paths);
 	return 0;
 }

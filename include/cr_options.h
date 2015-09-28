@@ -38,9 +38,11 @@ struct cg_root_opt {
  */
 #define DEFAULT_GHOST_LIMIT	(1 << 20)
 
+struct irmap;
+
 struct irmap_path_opt {
 	struct list_head node;
-	char *path;
+	struct irmap *ir;
 };
 
 struct cr_options {
