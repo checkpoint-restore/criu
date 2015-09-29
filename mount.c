@@ -84,7 +84,7 @@ static void mntinfo_add_list(struct mount_info *new)
 
 static int open_mountpoint(struct mount_info *pm);
 
-static struct mount_info *mnt_build_tree(struct mount_info *list);
+static struct mount_info *mnt_build_tree(struct mount_info *list, bool insert_roots);
 static int validate_mounts(struct mount_info *info, bool for_dump);
 
 /* Asolute paths are used on dump and relative paths are used on restore */
@@ -302,12 +302,12 @@ static bool mounts_equal(struct mount_info* mi, struct mount_info *c, bool bind)
  */
 static char *mnt_roots;
 
-static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
+static struct mount_info *mnt_build_ids_tree(struct mount_info *list, bool insert_roots)
 {
 	struct mount_info *m, *root = NULL;
 	struct mount_info *tmp_root_mount = NULL;
 
-	if (mnt_roots) {
+	if (insert_roots && mnt_roots) {
 		/* mnt_roots is a tmpfs mount and it's private */
 		tmp_root_mount = mnt_entry_alloc();
 		if (!tmp_root_mount)
@@ -379,7 +379,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 		return NULL;
 	}
 
-	if (mnt_roots) {
+	if (tmp_root_mount) {
 		tmp_root_mount->parent = root;
 		list_add_tail(&tmp_root_mount->siblings, &root->children);
 	}
@@ -966,7 +966,7 @@ static int resolve_shared_mounts(struct mount_info *info)
 	return 0;
 }
 
-static struct mount_info *mnt_build_tree(struct mount_info *list)
+static struct mount_info *mnt_build_tree(struct mount_info *list, bool insert_roots)
 {
 	struct mount_info *tree;
 
@@ -975,7 +975,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	 */
 
 	pr_info("Building mountpoints tree\n");
-	tree = mnt_build_ids_tree(list);
+	tree = mnt_build_ids_tree(list, insert_roots);
 	if (!tree)
 		return NULL;
 
@@ -1652,7 +1652,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 		return NULL;
 	}
 
-	ns->mnt.mntinfo_tree = mnt_build_tree(pm);
+	ns->mnt.mntinfo_tree = mnt_build_tree(pm, false);
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
 
@@ -2673,7 +2673,7 @@ static int populate_mnt_ns(void)
 	struct mount_info *pms;
 	struct ns_id *nsid;
 
-	pms = mnt_build_tree(mntinfo);
+	pms = mnt_build_tree(mntinfo, true);
 	if (!pms)
 		return -1;
 
