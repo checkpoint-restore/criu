@@ -214,7 +214,7 @@ pie/piegen: config
 	$(Q) $(MAKE) $(build)=pie/piegen all
 $(piegen): pie/piegen/built-in.o
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) pie/piegen/built-in.o $(LDFLAGS) -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 .PHONY: pie/piegen
 endif
 
