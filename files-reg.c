@@ -105,7 +105,7 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 		goto err;
 	}
 
-	snprintf(path + ret, sizeof(path) - ret, "%s", gf->remap.rpath);
+	snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath);
 	ret = -1;
 
 	if (S_ISFIFO(gfe->mode)) {
