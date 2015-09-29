@@ -32,8 +32,15 @@ NM		:= $(CROSS_COMPILE)nm
 SH		:= bash
 MAKE		:= make
 OBJCOPY		:= $(CROSS_COMPILE)objcopy
+HOSTCC		?= gcc
+HOSTLD		?= ld
 
 CFLAGS		+= $(USERCFLAGS)
+HOSTCFLAGS	?= $(CFLAGS)
+
+export HOSTCC
+export HOSTLD
+export HOSTCFLAGS
 
 #
 # Fetch ARCH from the uname if not yet set
@@ -209,12 +216,12 @@ $(ARCH_DIR): protobuf config
 
 ifeq ($(piegen-y),y)
 pie/piegen/%: config
-	$(Q) $(MAKE) $(build)=pie/piegen $@
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build)=pie/piegen $@
 pie/piegen: config
-	$(Q) $(MAKE) $(build)=pie/piegen all
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build)=pie/piegen all
 $(piegen): pie/piegen/built-in.o
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
 .PHONY: pie/piegen
 endif
 
