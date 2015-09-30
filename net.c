@@ -518,7 +518,7 @@ exit:
 	return ret;
 }
 
-static int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
+static int run_ip_tool(char *arg1, char *arg2, char *arg3, int fdin, int fdout)
 {
 	char *ip_tool_cmd;
 	int ret;
@@ -530,7 +530,7 @@ static int run_ip_tool(char *arg1, char *arg2, int fdin, int fdout)
 		ip_tool_cmd = "ip";
 
 	ret = cr_system(fdin, fdout, -1, ip_tool_cmd,
-				(char *[]) { "ip", arg1, arg2, NULL });
+				(char *[]) { "ip", arg1, arg2, arg3, NULL });
 	if (ret) {
 		pr_err("IP tool failed on %s %s\n", arg1, arg2);
 		return -1;
@@ -558,13 +558,28 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 static inline int dump_ifaddr(struct cr_imgset *fds)
 {
 	struct cr_img *img = img_from_set(fds, CR_FD_IFADDR);
-	return run_ip_tool("addr", "save", -1, img_raw_fd(img));
+	return run_ip_tool("addr", "save", NULL, -1, img_raw_fd(img));
 }
 
 static inline int dump_route(struct cr_imgset *fds)
 {
-	struct cr_img *img = img_from_set(fds, CR_FD_ROUTE);
-	return run_ip_tool("route", "save", -1, img_raw_fd(img));
+	struct cr_img *img;
+
+	img = img_from_set(fds, CR_FD_ROUTE);
+	if (run_ip_tool("route", "save", NULL, -1, img_raw_fd(img)))
+		return -1;
+
+	/* If ipv6 is disabled, "ip -6 route dump" dumps all routes */
+	if (access("/proc/sys/net/ipv6/", F_OK)) {
+		pr_debug("ipv6 is disabled\n");
+		return 0;
+	}
+
+	img = img_from_set(fds, CR_FD_ROUTE6);
+	if (run_ip_tool("-6", "route", "save", -1, img_raw_fd(img)))
+		return -1;
+
+	return 0;
 }
 
 static inline int dump_iptables(struct cr_imgset *fds)
@@ -610,8 +625,10 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 	struct cr_img *img;
 
 	img = open_image(type, O_RSTR, pid);
+	if (empty_image(img))
+		return 0;
 	if (img) {
-		ret = run_ip_tool(cmd, "restore", img_raw_fd(img), -1);
+		ret = run_ip_tool(cmd, "restore", NULL, img_raw_fd(img), -1);
 		close_image(img);
 	}
 
@@ -625,7 +642,13 @@ static inline int restore_ifaddr(int pid)
 
 static inline int restore_route(int pid)
 {
-	return restore_ip_dump(CR_FD_ROUTE, pid, "route");
+	if (restore_ip_dump(CR_FD_ROUTE, pid, "route"))
+		return -1;
+
+	if (restore_ip_dump(CR_FD_ROUTE6, pid, "route"))
+		return -1;
+
+	return 0;
 }
 
 static inline int restore_iptables(int pid)
