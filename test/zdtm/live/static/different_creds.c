@@ -8,19 +8,19 @@
 #include <linux/limits.h>
 #include <pthread.h>
 #include <syscall.h>
+#include <sys/socket.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Check that threads with different creds aren't checkpointed";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
-#define exit_group(code)	\
-	syscall(__NR_exit_group, code)
-
 void *drop_caps_and_wait(void *arg)
 {
+	int fd = *((int *) arg);
+	void *retcode = (void *)0xdeadbeaf;
 	cap_t caps;
-	int *pipe = arg;
+	char c;
 
         caps = cap_get_proc();
         if (!caps) {
@@ -38,41 +38,45 @@ void *drop_caps_and_wait(void *arg)
                 goto die;
         }
 
-	close(*pipe);
+	if (write(fd, "a", 1) != 1) {
+		err("Unable to send a status");
+		goto die;
+	}
 
-	while(1)
-		sleep(1000);
+	if (read(fd, &c, 1) != 1) {
+		err("Unable to read a status");
+		goto die;
+	}
+
+	retcode = NULL;
 die:
         cap_free(caps);
-        return NULL;
+	return retcode;
 }
 
 int main(int argc, char ** argv)
 {
-	int ret, pipefd[2];
+	int pipefd[2];
 	pthread_t thr;
-
-	char buf;
+	char c;
+	void *retcode;
 
 	test_init(argc, argv);
 
-	if (pipe(pipefd) < 0) {
+	if (socketpair(AF_FILE, SOCK_SEQPACKET, 0, pipefd)) {
 		err("pipe");
 		return -1;
 	}
 
-	if (pthread_create(&thr, NULL, drop_caps_and_wait, pipefd)) {
+	if (pthread_create(&thr, NULL, drop_caps_and_wait, &pipefd[0])) {
 		err("Unable to create thread");
 		return -1;
 	}
-	close(pipefd[1]);
 
 	/*
 	 * Wait for child to signal us that it has droped caps.
 	 */
-	ret = read(pipefd[0], &buf, 1);
-	close(pipefd[0]);
-	if (ret < 0) {
+	if (read(pipefd[1], &c, 1) != 1) {
 		err("read");
 		return 1;
 	}
@@ -80,8 +84,19 @@ int main(int argc, char ** argv)
 	test_daemon();
 	test_waitsig();
 
-	fail("shouldn't dump successfully");
+	if (write(pipefd[1], &c, 1) != 1) {
+		err("write");
+		return 1;
+	}
 
-	exit_group(ret);
-	return 1;
+	if (pthread_join(thr, &retcode)) {
+		err("Unable to jount a thread");
+		return 1;
+	}
+	if (retcode != NULL)
+		return 1;
+
+	pass();
+
+	return 0;
 }

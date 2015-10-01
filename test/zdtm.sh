@@ -798,12 +798,15 @@ EOF
 		# Here we may have two cases: either checkpoint is failed
 		# with some error code, or checkpoint is complete but return
 		# code is non-zero because of post dump action.
-		if [ "$retcode" -ne 0 ] && [[ "$retcode" -ne 32 || -z "$dump_only" ]]; then
-			if echo $TEST_EXPECTED_FAILURE | grep -q $tname; then
-				echo "Got expected dump failure"
-				return 0
+		if echo $TEST_EXPECTED_FAILURE | grep -q $tname; then
+			echo "Expect dump falure: $retcode"
+			if [ "$retcode" -eq 0 ]; then
+				return 1
 			fi
-
+			dump_only=1
+			retcode=32
+		fi
+		if [ "$retcode" -ne 0 ] && [[ "$retcode" -ne 32 || -z "$dump_only" ]]; then
 			if [ $BATCH_TEST -eq 0 ]; then
 				echo WARNING: $tname returned $retcode and left running for debug needs
 			else
@@ -811,7 +814,6 @@ EOF
 			fi
 			return 1
 		fi
-		cat $ddump/dump.log* | grep Error
 
 		if [ -n "$SNAPSHOT" ]; then
 			snappdir=../`basename $ddump`
