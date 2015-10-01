@@ -181,17 +181,17 @@ try_again:
 	if (*creds == NULL) {
 		*creds = xzalloc(sizeof(struct proc_status_creds));
 		if (!*creds)
-			goto err_stop;
+			goto err;
 
 		**creds = cr;
 
 	} else if (!proc_status_creds_eq(*creds, &cr)) {
 		pr_err("creds don't match %d %d\n", pid, ppid);
-		goto err_stop;
+		goto err;
 	}
 
 	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
-		goto err_stop;
+		goto err;
 
 	if (si.si_signo == SIGTRAP)
 		return TASK_ALIVE;
