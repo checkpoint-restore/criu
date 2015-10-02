@@ -16,6 +16,7 @@
 #include "util.h"
 #include "imgset.h"
 #include "util-pie.h"
+#include "namespaces.h"
 #include "protobuf.h"
 #include "protobuf/core.pb-c.h"
 #include "protobuf/cgroup.pb-c.h"
@@ -857,15 +858,41 @@ static const char *special_cpuset_props[] = {
 	NULL,
 };
 
+static int userns_move(void *arg, int fd, pid_t pid)
+{
+	char pidbuf[32];
+	int cg, len, err;
+
+	len = snprintf(pidbuf, sizeof(pidbuf), "%d", pid);
+
+	if (len >= sizeof(pidbuf)) {
+		pr_err("pid printing failed: %d\n", pid);
+		return -1;
+	}
+
+	cg = get_service_fd(CGROUP_YARD);
+	err = fd = openat(cg, arg, O_WRONLY);
+	if (fd >= 0) {
+		err = write(fd, pidbuf, len);
+		close(fd);
+	}
+
+	if (err < 0) {
+		pr_perror("Can't move %s into %s (%d/%d)", pidbuf, (char *)arg, err, fd);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int move_in_cgroup(CgSetEntry *se)
 {
-	int cg, i;
+	int i;
 
 	pr_info("Move into %d\n", se->id);
-	cg = get_service_fd(CGROUP_YARD);
 	for (i = 0; i < se->n_ctls; i++) {
 		char aux[PATH_MAX];
-		int fd, err, j, aux_off;
+		int fd = -1, err, j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
 		CgControllerEntry *ctrl = NULL;
 
@@ -886,16 +913,7 @@ static int move_in_cgroup(CgSetEntry *se)
 
 		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 		pr_debug("  `-> %s\n", aux);
-		err = fd = openat(cg, aux, O_WRONLY);
-		if (fd >= 0) {
-			/*
-			 * Writing zero into this file moves current
-			 * task w/o any permissions checks :)
-			 */
-			err = write(fd, "0", 1);
-			close(fd);
-		}
-
+		err = userns_call(userns_move, UNS_ASYNC, aux, strlen(aux) + 1, -1);
 		if (err < 0) {
 			pr_perror("Can't move into %s (%d/%d)", aux, err, fd);
 			return -1;
