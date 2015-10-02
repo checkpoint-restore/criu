@@ -61,7 +61,7 @@ int prepare_utsns(int pid)
 	req[1].arg = ue->domainname;
 	req[1].type = CTL_STR(strlen(ue->domainname));
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWUTS);
 	utsns_entry__free_unpacked(ue, NULL);
 out:
 	close_image(img);

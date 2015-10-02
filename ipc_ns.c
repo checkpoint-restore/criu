@@ -181,7 +181,7 @@ static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *ms
 		{ "kernel/msgmax", &msgmax, CTL_U32 },
 	};
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ, CLONE_NEWIPC);
 	if (ret < 0) {
 		pr_err("Failed to read max IPC message size\n");
 		goto err;
@@ -313,7 +313,7 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 
 	int ret;
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), op);
+	ret = sysctl_op(req, ARRAY_SIZE(req), op, CLONE_NEWIPC);
 	if (ret)
 		return ret;
 
@@ -322,7 +322,7 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		return 0;
 	}
 
-	return sysctl_op(req_mq, ARRAY_SIZE(req_mq), op);
+	return sysctl_op(req_mq, ARRAY_SIZE(req_mq), op, CLONE_NEWIPC);
 }
 
 /*
@@ -555,7 +555,7 @@ static int prepare_ipc_sem_desc(struct cr_img *img, const IpcSemEntry *sem)
 	};
 	struct semid_ds semid;
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWIPC);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC sem ID\n");
 		return ret;
@@ -691,7 +691,7 @@ static int prepare_ipc_msg_queue(struct cr_img *img, const IpcMsgEntry *msq)
 	};
 	struct msqid_ds msqid;
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWIPC);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC msg ID\n");
 		return ret;
@@ -802,7 +802,7 @@ static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 	};
 	struct shmid_ds shmid;
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWIPC);
 	if (ret < 0) {
 		pr_err("Failed to set desired IPC shm ID\n");
 		return ret;

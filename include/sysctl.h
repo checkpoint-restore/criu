@@ -8,7 +8,7 @@ struct sysctl_req {
 	int	flags;
 };
 
-extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op);
+extern int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns);
 
 enum {
 	CTL_READ,

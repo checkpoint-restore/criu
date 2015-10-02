@@ -860,3 +860,23 @@ int make_yard(char *path)
 
 	return 0;
 }
+
+const char *ns_to_string(unsigned int ns)
+{
+	switch (ns) {
+	case CLONE_NEWIPC:
+		return "ipc";
+	case CLONE_NEWNS:
+		return "mnt";
+	case CLONE_NEWNET:
+		return "net";
+	case CLONE_NEWPID:
+		return "pid";
+	case CLONE_NEWUSER:
+		return "user";
+	case CLONE_NEWUTS:
+		return "uts";
+	default:
+		return NULL;
+	}
+}

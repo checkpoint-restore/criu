@@ -127,7 +127,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 		ri++;
 	}
 
-	ret = sysctl_op(req, ri, op);
+	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
 	if (ret < 0) {
 		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ)?"read":"write", tgt);
 		return -1;

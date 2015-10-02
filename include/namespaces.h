@@ -103,7 +103,7 @@ typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
  */
 #define UNS_FDOUT	0x2
 
-#define MAX_UNSFD_MSG_SIZE 256
+#define MAX_UNSFD_MSG_SIZE 4096
 
 /*
  * When we're restoring inside user namespace, some things are

@@ -221,7 +221,7 @@ static int tcp_read_sysctl_limits(void)
 	 * Lets figure out which exactly amount of memory is
 	 * availabe for send/read queues on restore.
 	 */
-	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
+	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
 	if (ret) {
 		pr_warn("TCP mem sysctls are not available. Using defaults.\n");
 		goto out;
@@ -268,7 +268,7 @@ static int get_last_cap(void)
 		{ "kernel/cap_last_cap", &kdat.last_cap, CTL_U32 },
 	};
 
-	return sysctl_op(req, ARRAY_SIZE(req), CTL_READ);
+	return sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
 }
 
 static bool kerndat_has_memfd_create(void)
