@@ -85,9 +85,6 @@ extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 			unsigned long vdso_rt_parked_at, size_t index,
 			VmaEntry *vmas, size_t nr_vmas);
 
-/* only used by aarch64 => to be moved to aarch64/include/asm/vdso.h */
-extern void write_intraprocedure_branch(void *to, void *from);
-
 #else /* CONFIG_VDSO */
 #define vdso_do_park(sym_rt, park_at, park_size)		(0)
 
