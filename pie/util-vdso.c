@@ -24,10 +24,6 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
-const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-	ARCH_VDSO_SYMBOLS
-};
-
 /* Check if pointer is out-of-bound */
 static bool __ptr_oob(void *ptr, void *start, size_t size)
 {
@@ -54,6 +50,10 @@ static unsigned long elf_hash(const unsigned char *name)
 
 int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {
+	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+		ARCH_VDSO_SYMBOLS
+	};
+
 	Elf64_Phdr *dynamic = NULL, *load = NULL;
 	Elf64_Ehdr *ehdr = (void *)mem;
 	Elf64_Dyn *dyn_strtab = NULL;

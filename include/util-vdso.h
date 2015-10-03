@@ -60,10 +60,6 @@ static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
 	return t->vvar_end - t->vvar_start;
 }
 
-extern const char *vdso_symbols[VDSO_SYMBOL_MAX];
-
 extern int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t);
-
-
 
 #endif /* __CR_UTIL_VDSO_H__ */
