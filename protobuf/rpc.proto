@@ -137,8 +137,8 @@ message criu_req {
 }
 
 /*
- * Responce -- it states whether the request was served
- * and additional request-specific informarion
+ * Response -- it states whether the request was served
+ * and additional request-specific information
  */
 
 message criu_resp {
