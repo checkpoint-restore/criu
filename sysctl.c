@@ -196,6 +196,7 @@ static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
 	struct sysctl_userns_req *userns_req = arg;
 	int op = userns_req->op;
 	struct sysctl_req *req, **reqs = NULL;
+	sigset_t blockmask, oldmask;
 	pid_t worker;
 
 	// fix up the pointer
@@ -266,6 +267,16 @@ static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
 		req = (struct sysctl_req *) (((char *) req) + total_len);
 	}
 
+	/*
+	 * Don't let the sigchld_handler() mess with us
+	 * calling waitpid() on the exited worker. The
+	 * same is done in cr_system().
+	 */
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &blockmask, &oldmask);
+
 	worker = fork();
 	if (worker < 0)
 		goto out;
@@ -297,10 +308,11 @@ static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
 	}
 
 	if (waitpid(worker, &status, 0) != worker) {
-		pr_err("worker didn't die?");
+		pr_perror("worker didn't die?");
 		kill(worker, SIGKILL);
 		goto out;
 	}
+	sigprocmask(SIG_BLOCK, &oldmask, NULL);
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
 		pr_err("worker failed: %d\n", status);
