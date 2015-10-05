@@ -1,0 +1,330 @@
+static/pipe00:
+static/pipe01:
+static/pipe02:
+static/busyloop00:
+static/cwd00:
+static/cwd01:
+static/cwd02:
+static/env00:
+static/maps00:
+static/maps01:
+  flags: suid
+  flavor: h ns
+static/maps02:
+static/maps04:
+static/maps05:
+static/mlock_setuid:
+  flags: suid
+  flavor: h ns
+static/maps_file_prot:
+static/mprotect00:
+static/mtime_mmap:
+static/sleeping00:
+static/write_read00:
+static/write_read01:
+static/write_read02:
+static/write_read10:
+static/wait00:
+static/vdso00:
+static/sched_prio00:
+  flags: suid
+  flavor: h ns
+static/sched_policy00:
+  flags: suid
+  flavor: h ns
+static/file_shared:
+static/file_append:
+static/timers:
+static/posix_timers:
+static/futex:
+static/futex-rl:
+static/xids00:
+static/groups:
+  flags: suid
+static/pthread00:
+static/pthread01:
+static/umask00:
+streaming/pipe_loop00:
+streaming/pipe_shared00:
+transition/file_read:
+static/sockets00:
+  flags: suid
+static/sockets01:
+static/sockets02:
+static/sock_opts00:
+  flags: suid
+static/sock_opts01:
+  flags: suid
+static/sockets_spair:
+static/sockets_dgram:
+static/socket_dgram_data:
+static/socket_queues:
+static/deleted_unix_sock:
+static/sk-unix-unconn:
+static/sk-unix-rel:
+static/pid00:
+  flags: suid
+static/pstree:
+static/caps00:
+  flags: suid
+static/cmdlinenv00:
+  flags: suid
+static/socket_listen:
+static/socket_listen6:
+static/packet_sock:
+  flags: suid
+static/packet_sock_mmap:
+  flags: suid
+static/socket_udp:
+static/sock_filter:
+static/socket6_udp:
+static/socket_udplite:
+static/selfexe00:
+static/link10:
+static/unlink_fstat00:
+static/unlink_fstat01:
+static/unlink_fstat02:
+static/unlink_fstat03:
+  opts: --link-remap
+static/unlink_mmap00:
+static/unlink_mmap01:
+static/unlink_mmap02:
+static/rmdir_open:
+static/eventfs00:
+static/signalfd00:
+static/inotify00:
+  opts: --link-remap
+static/inotify_irmap:
+  flags: suid
+static/fanotify00:
+  flags: suid
+  flavor: h ns
+static/unbound_sock:
+static/fifo-rowo-pair:
+static/fifo-ghost:
+static/fifo:
+static/fifo_wronly:
+static/fifo_ro:
+static/unlink_fifo:
+static/unlink_fifo_wronly:
+static/zombie00:
+static/rlimits00:
+transition/fork:
+transition/fork2:
+transition/thread-bomb:
+static/pty00:
+static/pty01:
+static/pty04:
+static/tty02:
+static/tty03:
+static/console:
+  flags: suid
+  flavor: h ns
+static/vt:
+  flags: suid
+  flavor: h ns
+static/child_opened_proc:
+static/cow01:
+  flags: suid
+  flavor: h ns
+static/pdeath_sig:
+static/fdt_shared:
+static/file_locks00:
+  flags: excl
+  opts: --file-locks
+static/file_locks01:
+  flags: excl
+  opts: --file-locks
+static/file_locks02:
+  flags: excl
+  opts: --file-locks
+static/file_locks03:
+  flags: excl
+  opts: --file-locks
+static/file_locks04:
+  flags: excl
+  opts: --file-locks
+static/file_locks05:
+  flags: excl
+  opts: --file-locks
+static/sigpending:
+static/sigaltstack:
+static/sk-netlink:
+  flags: suid
+static/proc-self:
+static/grow_map:
+static/grow_map02:
+static/grow_map03:
+static/stopped:
+static/chroot:
+  flags: suid
+static/chroot-file:
+  flags: suid
+static/rtc:
+  flags: suid crlib
+  flavor: h
+transition/maps007:
+  flags: suid
+static/dumpable01:
+static/dumpable02:
+  flavor: h ns
+static/deleted_dev:
+  flags: suid
+  flavor: h ns
+static/fpu00:
+  arch: x86_64
+static/fpu01:
+  arch: x86_64
+static/mmx00:
+  arch: x86_64
+static/sse00:
+  arch: x86_64
+static/sse20:
+  arch: x86_64
+static/vdso01:
+  arch: x86_64
+static/vsx:
+  arch: ppc64le
+static/file_fown:
+  flavor: h
+static/socket-ext:
+  flavor: h
+  opts: --ext-unix-sk
+static/socket-tcp:
+  flavor: h
+  opts: --tcp-established
+static/socket-tcp6:
+  flavor: h
+  opts: --tcp-established
+streaming/socket-tcp:
+  flavor: h
+  opts: --tcp-established
+streaming/socket-tcp6:
+  flavor: h
+  opts: --tcp-established
+static/socket-tcpbuf:
+  flavor: h
+  opts: --tcp-established
+static/socket-tcpbuf-local:
+  flavor: h
+  opts: --tcp-established
+static/socket-tcpbuf6:
+  flavor: h
+  opts: --tcp-established
+static/pty03:
+  flavor: h
+static/mountpoints:
+  flags: suid
+  flavor: h
+static/utsname:
+  flavor: h
+static/ipc_namespace:
+  flavor: h
+static/shm:
+  flavor: h
+static/msgque:
+  flavor: h
+static/sem:
+  flavor: h
+transition/ipc:
+  flavor: h
+static/netns-nf:
+  flavor: h
+static/netns:
+  flavor: h
+static/cgroup00:
+  flags: suid
+  flavor: h
+  opts: --manage-cgroups
+static/cgroup01:
+  flags: suid
+  flavor: h
+  opts: --manage-cgroups
+static/cgroup02:
+  flags: suid
+  flavor: h
+  opts: --manage-cgroups --cgroup-root /newroot --cgroup-root name=zdtmtst:/zdtmtstroot
+static/remap_dead_pid:
+  flavor: h
+static/poll:
+  flavor: h
+static/apparmor:
+  flags: suid
+  flavor: h ns
+static/different_creds:
+  flags: suid crfail
+  flavor: h
+static/aio00:
+  feature: aio_remap
+static/timerfd:
+  feature: timerfd
+static/session00:
+  flavor: ns uns
+static/session01:
+  flavor: ns uns
+static/tempfs:
+  flags: suid
+  flavor: ns uns
+static/tempfs_ro:
+  flags: suid
+  flavor: ns
+static/mnt_ro_bind:
+  flags: suid
+  flavor: ns uns
+static/mount_paths:
+  flags: suid
+  flavor: ns uns
+static/bind-mount:
+  flags: suid
+  flavor: ns uns
+static/netns-dev:
+  flags: suid
+  flavor: ns uns
+static/mnt_ext_auto:
+  flavor: ns uns
+  feature: mntid
+  opts: --ext-mount-map auto --enable-external-sharing
+static/mnt_ext_master:
+  flavor: ns uns
+  feature: mntid
+  opts: --ext-mount-map auto --enable-external-masters
+static/mntns_open:
+  flags: suid
+  flavor: ns uns
+  feature: mntid
+static/mntns_link_remap:
+  flags: suid
+  flavor: ns
+  feature: mntid
+  opts: --link-remap
+static/mntns_link_ghost:
+  flags: suid
+  flavor: ns
+  feature: mntid
+static/mntns_shared_bind:
+  flags: suid
+  flavor: ns uns
+  feature: mntid
+static/mntns_shared_bind02:
+  flags: suid
+  flavor: ns uns
+  feature: mntid
+static/mntns_root_bind:
+  flags: suid
+  flavor: ns uns
+  feature: mntid
+static/mntns_deleted:
+  flags: suid
+  flavor: ns uns
+  feature: mntid
+static/tun:
+  flags: suid
+  flavor: ns uns
+  feature: tun
+static/seccomp_strict:
+  flags: suid
+  flavor: h
+  feature: seccomp_suspend
+static/clean_mntns:
+  flags: suid
+  flavor: ns
