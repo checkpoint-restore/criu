@@ -400,17 +400,12 @@ void ns_create(int argc, char **argv)
 		exit(1);
 	}
 
+	flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
+		CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
+
 	val = getenv("ZDTM_USERNS");
 	if (val)
-		/*
-		 * CLONE_NEWIPC and CLONE_NEWUTS are excluded, because
-		 * their sysctl-s are protected by CAP_SYS_ADMIN
-		 */
-		flags = CLONE_NEWPID | CLONE_NEWNS  |
-			CLONE_NEWNET | CLONE_NEWUSER | SIGCHLD;
-	else
-		flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
-			CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
+		flags |= CLONE_NEWUSER;
 
 	if (construct_root())
 		exit(1);
