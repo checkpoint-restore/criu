@@ -921,11 +921,16 @@ static int resolve_shared_mounts(struct mount_info *info)
 		need_share = m->shared_id && list_empty(&m->mnt_share);
 		need_master = m->master_id;
 
+		pr_debug("Inspecting sharing on %2d shared_id %d master_id %d (@%s)\n",
+			 m->mnt_id, m->shared_id, m->master_id, m->mountpoint);
+
 		for (t = info; t && (need_share || need_master); t = t->next) {
 			if (t == m)
 				continue;
 			if (need_master && t->shared_id == m->master_id) {
-				pr_debug("The mount %d is slave for %d\n", m->mnt_id, t->mnt_id);
+				pr_debug("\tThe mount %3d is slave for %3d (@%s -> @%s)\n",
+					 m->mnt_id, t->mnt_id,
+					 m->mountpoint, t->mountpoint);
 				list_add(&m->mnt_slave, &t->mnt_slave_list);
 				m->mnt_master = t;
 				need_master = false;
@@ -933,8 +938,9 @@ static int resolve_shared_mounts(struct mount_info *info)
 
 			/* Collect all mounts from this group */
 			if (need_share && t->shared_id == m->shared_id) {
-				pr_debug("Mount %d is shared with %d group %d\n",
-						m->mnt_id, t->mnt_id, m->shared_id);
+				pr_debug("\tMount %3d is shared with %3d group %3d (@%s -> @%s)\n",
+					 m->mnt_id, t->mnt_id, m->shared_id,
+					 t->mountpoint, m->mountpoint);
 				list_add(&t->mnt_share, &m->mnt_share);
 			}
 		}
@@ -957,8 +963,12 @@ static int resolve_shared_mounts(struct mount_info *info)
 			 * for others. Look at propagate_mount()
 			 */
 			for (t = m->next; t; t = t->next) {
-				if (mounts_equal(m, t, true))
+				if (mounts_equal(m, t, true)) {
 					list_add(&t->mnt_bind, &m->mnt_bind);
+					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
+						 t->mnt_id, m->mnt_id,
+						 t->mountpoint, m->mountpoint);
+				}
 			}
 		}
 	}
@@ -1845,9 +1855,9 @@ static int umount_from_slaves(struct mount_info *mi)
 
 		snprintf(mpath, sizeof(mpath), "%s/%s",
 				t->mountpoint, basename(mi->mountpoint));
-		pr_debug("\t\tUmount %s\n", mpath);
+		pr_debug("\t\tUmount slave %s\n", mpath);
 		if (umount(mpath) == -1) {
-			pr_perror("Can't umount %s", mpath);
+			pr_perror("Can't umount slave %s", mpath);
 			return -1;
 		}
 	}
@@ -1872,14 +1882,14 @@ static int propagate_siblings(struct mount_info *mi)
 	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
 		if (t->mounted)
 			continue;
-		pr_debug("\t\tBind %s\n", t->mountpoint);
+		pr_debug("\t\tBind share %s\n", t->mountpoint);
 		t->bind = mi;
 	}
 
 	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
 		if (t->mounted)
 			continue;
-		pr_debug("\t\tBind %s\n", t->mountpoint);
+		pr_debug("\t\tBind slave %s\n", t->mountpoint);
 		t->bind = mi;
 	}
 
