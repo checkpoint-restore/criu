@@ -2444,7 +2444,8 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 	if (nsid->type == NS_OTHER)
 		root_len = print_ns_root(nsid, root, sizeof(root));
 
-	pr_debug("Reading mountpoint images\n");
+	pr_debug("Reading mountpoint images (id %d pid %d)\n",
+		 nsid->id, (int)nsid->ns_pid);
 
 	while (1) {
 		struct mount_info *pm;
