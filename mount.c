@@ -359,6 +359,11 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, bool inser
 				 * the main root.
 				 */
 				parent = tmp_root_mount;
+				if (unlikely(!tmp_root_mount)) {
+					pr_err("Nested mount %d (@%s %s) w/o root insertion detected\n",
+					       m->mnt_id, m->mountpoint, m->root);
+					return NULL;
+				}
 
 				pr_debug("Mountpoint %d (@%s) get parent %d (@%s)\n",
 					 m->mnt_id, m->mountpoint,
