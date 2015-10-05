@@ -170,6 +170,7 @@ static int do_sysctl_op(int fd, struct sysctl_req *req, int op)
 	switch (CTL_TYPE(req->type)) {
 	case __CTL_U32A:
 		nr = CTL_LEN(req->type);
+		/* fallthrough */
 	case CTL_U32:
 		__SYSCTL_OP(ret, fd, req, u32, nr, op);
 		break;
@@ -178,6 +179,7 @@ static int do_sysctl_op(int fd, struct sysctl_req *req, int op)
 		break;
 	case __CTL_U64A:
 		nr = CTL_LEN(req->type);
+		/* fallthrough */
 	case CTL_U64:
 		__SYSCTL_OP(ret, fd, req, u64, nr, op);
 		break;
