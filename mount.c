@@ -2598,7 +2598,8 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 		return -1;
 	}
 
-	print_ns_root(nsid, path, sizeof(path));
+	path[0] = '/';
+	print_ns_root(nsid, path + 1, sizeof(path) - 1);
 	if (cr_pivot_root(path))
 		return -1;
 
