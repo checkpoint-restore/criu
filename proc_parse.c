@@ -622,12 +622,11 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 		return -1;
 
 	n = read(fd, buf, BUF_SIZE);
+	close(fd);
 	if (n < 1) {
 		pr_err("stat for %d is corrupted\n", pid);
-		close(fd);
 		return -1;
 	}
-	close(fd);
 
 	memset(s, 0, sizeof(*s));
 
