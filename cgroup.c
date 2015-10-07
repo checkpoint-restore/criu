@@ -403,7 +403,7 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 
 		for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
 			if (snprintf(buf, PATH_MAX, "%s/%s", fpath, prop_arr[j]) >= PATH_MAX) {
-				pr_err("snprintf output was truncated");
+				pr_err("snprintf output was truncated\n");
 				return -1;
 			}
 
@@ -969,7 +969,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	int cg;
 
 	if (!cg_prop_entry_p->value) {
-		pr_err("cg_prop_entry->value was empty when should have had a value");
+		pr_err("cg_prop_entry->value was empty when should have had a value\n");
 		return -1;
 	}
 
@@ -1198,7 +1198,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		CgControllerEntry *ctrl = ce->controllers[i];
 
 		if (ctrl->n_cnames < 1) {
-			pr_err("Each cg_controller_entry must have at least 1 controller");
+			pr_err("Each cg_controller_entry must have at least 1 controller\n");
 			goto err;
 		}
 
