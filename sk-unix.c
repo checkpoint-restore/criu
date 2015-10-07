@@ -846,7 +846,7 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
 			return -1;
 		}
 		if (chdir(ui->name_dir)) {
-			pr_perror("Can't change working dir %s\n",
+			pr_perror("Can't change working dir %s",
 				  ui->name_dir);
 			close(*prev_cwd_fd);
 			*prev_cwd_fd = -1;

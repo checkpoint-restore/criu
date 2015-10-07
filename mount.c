@@ -1990,7 +1990,7 @@ static int do_new_mount(struct mount_info *mi)
 
 	if (mflags && mount(NULL, mi->mountpoint, NULL,
 				MS_REMOUNT | MS_BIND | mflags, NULL)) {
-		pr_perror("Unable to apply bind-mount options\n");
+		pr_perror("Unable to apply bind-mount options");
 		return -1;
 	}
 
@@ -2054,14 +2054,14 @@ do_bind:
 
 			if (S_ISDIR(st.st_mode)) {
 				if (mkdir(root, (st.st_mode & ~S_IFMT))) {
-					pr_perror("Can't re-create deleted directory %s\n", root);
+					pr_perror("Can't re-create deleted directory %s", root);
 					return -1;
 				}
 			} else if (S_ISREG(st.st_mode)) {
 				int fd = open(root, O_WRONLY | O_CREAT | O_EXCL,
 					      st.st_mode & ~S_IFMT);
 				if (fd < 0) {
-					pr_perror("Can't re-create deleted file %s\n", root);
+					pr_perror("Can't re-create deleted file %s", root);
 					return -1;
 				}
 				close(fd);
@@ -2087,12 +2087,12 @@ do_bind:
 		if (unlikely(mi->deleted)) {
 			if (S_ISDIR(st.st_mode)) {
 				if (rmdir(root)) {
-					pr_perror("Can't remove deleted directory %s\n", root);
+					pr_perror("Can't remove deleted directory %s", root);
 					return -1;
 				}
 			} else if (S_ISREG(st.st_mode)) {
 				if (unlink(root)) {
-					pr_perror("Can't unlink deleted file %s\n", root);
+					pr_perror("Can't unlink deleted file %s", root);
 					return -1;
 				}
 			}
