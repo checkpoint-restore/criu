@@ -387,7 +387,7 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 	if (nr_req == 0)
 		return 0;
 
-	if (ns & !KNOWN_NS_MASK) {
+	if (ns & ~KNOWN_NS_MASK) {
 		pr_err("don't know how to restore some namespaces in %u\n", ns);
 		return -1;
 	}
