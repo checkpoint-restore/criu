@@ -435,8 +435,10 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 	} else
 		*target = open_handle(s_dev, i_ino, f_handle);
 
-	if (*target < 0)
+	if (*target < 0) {
+		pr_perror("Unable to open %s", f_handle->path);
 		goto err;
+	}
 
 	/*
 	 * fanotify/inotify open syscalls want path to attach
