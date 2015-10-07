@@ -2121,8 +2121,6 @@ static bool can_mount_now(struct mount_info *mi)
 	/* The root mount */
 	if (!mi->parent)
 		return true;
-	if (mi->is_ns_root)
-		return true;
 
 	if (mi->external)
 		return true;
