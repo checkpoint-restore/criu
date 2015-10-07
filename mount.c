@@ -346,7 +346,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, bool inser
 				if (!mounts_equal(root, m, true) ||
 				    strcmp(root->root, m->root)) {
 					pr_err("Nested mount namespaces with different "
-					       "roots %d (@%s %s) %d (@%s %s) are not supported yet",
+					       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
 					       root->mnt_id, root->mountpoint, root->root,
 					       m->mnt_id, m->mountpoint, m->root);
 					return NULL;
@@ -816,7 +816,7 @@ static struct ns_id *find_ext_ns_id(void)
 			return ns;
 		}
 
-	pr_err("Failed to find criu pid's mount ns!");
+	pr_err("Failed to find criu pid's mount ns\n");
 	return NULL;
 }
 

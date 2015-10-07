@@ -491,7 +491,7 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 			ret = 0;
 			break;
 		} else if (wd > iwe->wd) {
-			pr_err("Unsorted watch 0x%x found for 0x%x with 0x%x", wd, inotify_fd, iwe->wd);
+			pr_err("Unsorted watch 0x%x found for 0x%x with 0x%x\n", wd, inotify_fd, iwe->wd);
 			break;
 		}
 

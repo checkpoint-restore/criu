@@ -770,7 +770,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 
 		if (!strncmp(str, "PPid:", 5)) {
 			if (sscanf(str, "PPid:\t%d", &cr->ppid) != 1) {
-				pr_err("Unable to parse: %s", str);
+				pr_err("Unable to parse: %s\n", str);
 				goto err_parse;
 			}
 			done++;
@@ -1683,7 +1683,7 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 	}
 
 	if (num < 10) {
-		pr_err("Invalid file lock info (%d): %s", num, buf);
+		pr_err("Invalid file lock info (%d): %s\n", num, buf);
 		return -1;
 	}
 

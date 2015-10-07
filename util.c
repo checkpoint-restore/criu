@@ -715,7 +715,7 @@ int mkdirpat(int fd, const char *path)
 	char made_path[PATH_MAX], *pos;
 
 	if (strlen(path) >= PATH_MAX) {
-		pr_err("path %s is longer than PATH_MAX", path);
+		pr_err("path %s is longer than PATH_MAX\n", path);
 		return -1;
 	}
 

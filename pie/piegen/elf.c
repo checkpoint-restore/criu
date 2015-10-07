@@ -405,7 +405,7 @@ int handle_elf(void *mem, size_t size)
 					 place, value64);
 				/* check that we are dealing with the addi 2,2 instruction */
 				if (((*(uint32_t*)where) & 0xffff0000) != 0x38420000) {
-					pr_err("Unexpected instruction for R_PPC64_REL16_LO");
+					pr_err("Unexpected instruction for R_PPC64_REL16_LO\n");
 					goto err;
 				}
 				*(uint16_t *)where = value64 & 0xffff;

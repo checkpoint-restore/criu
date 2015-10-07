@@ -498,7 +498,7 @@ static int restore_links(int pid, NetnsEntry **netns)
 
 		ret = restore_link(nde, nlsk);
 		if (ret) {
-			pr_err("can not restore link");
+			pr_err("Can't restore link\n");
 			goto exit;
 		}
 

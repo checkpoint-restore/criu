@@ -96,7 +96,7 @@ static int cr_lib_load(int stage, char *path)
 
 	h = dlopen(path, RTLD_LAZY);
 	if (h == NULL) {
-		pr_err("Unable to load %s: %s", path, dlerror());
+		pr_err("Unable to load %s: %s\n", path, dlerror());
 		return -1;
 	}
 

@@ -47,7 +47,7 @@ static const char *get_freezer_state(int fd)
 	if (strcmp(path, thawed) == 0)
 		return thawed;
 
-	pr_err("Unknown freezer state: %s", path);
+	pr_err("Unknown freezer state: %s\n", path);
 err:
 	return NULL;
 }

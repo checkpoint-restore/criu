@@ -678,7 +678,7 @@ static int check_aio_remap(void)
 	int r;
 
 	if (sys_io_setup(16, &ctx) < 0) {
-		pr_err("No AIO syscall");
+		pr_err("No AIO syscall\n");
 		return -1;
 	}
 

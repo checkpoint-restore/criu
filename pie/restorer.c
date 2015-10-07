@@ -412,7 +412,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	ksigfillset(&to_block);
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
 	if (ret) {
-		pr_err("Unable to block signals %d", ret);
+		pr_err("Unable to block signals %d\n", ret);
 		goto core_restore_end;
 	}
 
@@ -1217,7 +1217,7 @@ long __export_restore_task(struct task_restore_args *args)
 	ksigfillset(&to_block);
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
 	if (ret) {
-		pr_err("Unable to block signals %ld", ret);
+		pr_err("Unable to block signals %ld\n", ret);
 		goto core_restore_end;
 	}
 

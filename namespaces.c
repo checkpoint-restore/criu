@@ -740,7 +740,7 @@ static int do_dump_namespaces(struct ns_id *ns)
 		ret = dump_net_ns(ns->id);
 		break;
 	default:
-		pr_err("Unknown namespace flag %x", ns->nd->cflag);
+		pr_err("Unknown namespace flag %x\n", ns->nd->cflag);
 		break;
 	}
 
