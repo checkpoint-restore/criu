@@ -463,11 +463,11 @@ int read_fd_link(int lfd, char *buf, size_t size)
 	if (ret < 0) {
 		pr_perror("Can't read link of fd %d", lfd);
 		return -1;
-	} else if ((size_t)ret == size) {
+	} else if ((size_t)ret >= size) {
 		pr_err("Buffer for read link of fd %d is too small\n", lfd);
 		return -1;
 	}
-	buf[ret - 1] = 0;
+	buf[ret] = 0;
 
 	return ret;
 }
