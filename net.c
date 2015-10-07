@@ -45,6 +45,11 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	rlen = read(fd, buf, len);
 	close(fd);
 
+	if (rlen == len) {
+		pr_err("Too small buffer to read ns sys file %s\n", path);
+		return -1;
+	}
+
 	if (rlen > 0)
 		buf[rlen - 1] = '\0';
 
