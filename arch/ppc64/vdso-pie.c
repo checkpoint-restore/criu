@@ -16,6 +16,20 @@
 /* This symbols are defined in vdso-trampoline.S */
 extern char *vdso_trampoline, *vdso_trampoline_end;
 
+/*
+ * When building the parasite code, the compiler may rely on the C library
+ * service memcpy to initialise big local variable in the stack.
+ * Since we are not linked with the C library, we have to remap this service
+ * to the builtin one we are using.
+ * Note this cannot be done through macro since the compiler is creating the
+ * memcpy call in our back. So we have to define a *real* symbol.
+ */
+void *memcpy(void *to, const void *from, unsigned long n)
+{
+    return builtin_memcpy(to, from, n);
+}
+
+
 static inline void invalidate_caches(unsigned long at)
 {
     asm volatile("isync		\n"	\
