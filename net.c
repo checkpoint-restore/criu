@@ -45,8 +45,8 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	rlen = read(fd, buf, len);
 	close(fd);
 
-	if (rlen >= 0)
-		buf[rlen] = '\0';
+	if (rlen > 0)
+		buf[rlen - 1] = '\0';
 
 	return rlen;
 }
