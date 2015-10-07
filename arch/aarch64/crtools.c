@@ -92,14 +92,14 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	iov.iov_base = &regs;
 	iov.iov_len = sizeof(user_regs_struct_t);
 	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov))) {
-		pr_err("Failed to obtain CPU registers for %d!", pid);
+		pr_perror("Failed to obtain CPU registers for %d", pid);
 		goto err;
 	}
 
 	iov.iov_base = &fpsimd;
 	iov.iov_len = sizeof(fpsimd);
 	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov))) {
-		pr_err("Failed to obtain FPU registers for %d!", pid);
+		pr_perror("Failed to obtain FPU registers for %d", pid);
 		goto err;
 	}
 
