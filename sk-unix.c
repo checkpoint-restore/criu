@@ -825,16 +825,36 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 	return 0;
 }
 
-static int prep_unix_sk_cwd(struct unix_sk_info *ui)
+static void revert_unix_sk_cwd(int *prev_cwd_fd)
+{
+	if (prev_cwd_fd && *prev_cwd_fd >= 0) {
+		if (fchdir(*prev_cwd_fd))
+			pr_perror("Can't revert working dir");
+		else
+			pr_debug("Reverted working dir\n");
+		close(*prev_cwd_fd);
+		*prev_cwd_fd = -1;
+	}
+}
+
+static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
 {
 	if (ui->name_dir) {
+		*prev_cwd_fd = open(".", O_RDONLY);
+		if (*prev_cwd_fd < 0) {
+			pr_err("Can't open current dir\n");
+			return -1;
+		}
 		if (chdir(ui->name_dir)) {
 			pr_perror("Can't change working dir %s\n",
 				  ui->name_dir);
+			close(*prev_cwd_fd);
+			*prev_cwd_fd = -1;
 			return -1;
 		}
 		pr_debug("Change working dir to %s\n", ui->name_dir);
-	}
+	} else
+		*prev_cwd_fd = -1;
 	return 0;
 }
 
@@ -843,6 +863,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	struct unix_sk_info *ui;
 	struct unix_sk_info *peer;
 	struct sockaddr_un addr;
+	int cwd_fd = -1;
 
 	ui = container_of(d, struct unix_sk_info, d);
 	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
@@ -869,15 +890,18 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
-	if (prep_unix_sk_cwd(peer))
+	if (prep_unix_sk_cwd(peer, &cwd_fd))
 		return -1;
 
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
+		revert_unix_sk_cwd(&cwd_fd);
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
 		return -1;
 	}
+
+	revert_unix_sk_cwd(&cwd_fd);
 
 	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
 		return -1;
@@ -897,8 +921,10 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	struct sockaddr_un addr;
+	int cwd_fd = -1;
+	int ret = -1;
 
-	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state == TCP_ESTABLISHED))
+	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state == TCP_ESTABLISHED)) {
 		/*
 		 * FIXME this can be done, but for doing this properly we
 		 * need to bind socket to its name, then rename one to
@@ -906,19 +932,21 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		 * restored we should walk those temp names and rename
 		 * some of them back to real ones.
 		 */
+		ret = 0;
 		goto done;
+	}
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
-	if (prep_unix_sk_cwd(ui))
+	if (prep_unix_sk_cwd(ui, &cwd_fd))
 		return -1;
 
 	if (bind(sk, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) + ui->ue->name.len)) {
 		pr_perror("Can't bind socket");
-		return -1;
+		goto done;
 	}
 
 	if (ui->ue->name.len && *ui->name && ui->ue->file_perms) {
@@ -927,7 +955,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 		if (ui->ue->name.len >= sizeof(fname)) {
 			pr_err("The file name is too long\n");
-			return -1;
+			goto done;
 		}
 
 		memcpy(fname, ui->name, ui->ue->name.len);
@@ -935,19 +963,22 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 		if (fchownat(AT_FDCWD, fname, perms->uid, perms->gid, 0) == -1) {
 			pr_perror("Unable to change file owner and group");
-			return -1;
+			goto done;
 		}
 
 		if (fchmodat(AT_FDCWD, fname, perms->mode, 0) == -1) {
 			pr_perror("Unable to change file mode bits");
-			return -1;
+			goto done;
 		}
 	}
 
 	if (ui->ue->state != TCP_LISTEN)
 		futex_set_and_wake(&ui->prepared, 1);
+
+	ret = 0;
 done:
-	return 0;
+	revert_unix_sk_cwd(&cwd_fd);
+	return ret;
 }
 
 static int unixsk_should_open_transport(FdinfoEntry *fe,
@@ -1198,13 +1229,18 @@ static struct file_desc_ops unix_desc_ops = {
  */
 static int unlink_stale(struct unix_sk_info *ui)
 {
+	int ret, cwd_fd;
+
 	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return 0;
 
-	if (prep_unix_sk_cwd(ui))
+	if (prep_unix_sk_cwd(ui, &cwd_fd))
 		return -1;
 
-	return unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
+	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
+	revert_unix_sk_cwd(&cwd_fd);
+
+	return ret;
 }
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base)
