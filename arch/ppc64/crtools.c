@@ -126,7 +126,7 @@ static int get_fpu_regs(pid_t pid, CoreEntry *core)
 	int i;
 
 	if (ptrace(PTRACE_GETFPREGS, pid, 0, (void *)&fpregs) < 0) {
-		pr_err("Couldn't get floating-point registers.");
+		pr_perror("Couldn't get floating-point registers");
 		return -1;
 	}
 
@@ -180,7 +180,7 @@ static int get_altivec_regs(pid_t pid, CoreEntry *core)
 		/* PTRACE_GETVRREGS returns EIO if Altivec is not supported.
 		 * This should not happen if msr_vec is set. */
 		if (errno != EIO) {
-			pr_err("Couldn't get Altivec registers");
+			pr_perror("Couldn't get Altivec registers");
 			return -1;
 		}
 		pr_debug("Altivec not supported\n");
@@ -229,7 +229,7 @@ static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
 	pr_debug("Restoring Altivec registers\n");
 
 	if (vse->n_vrregs != 33*2) {
-		pr_err("Corrupted Altivec dump data");
+		pr_err("Corrupted Altivec dump data\n");
 		return -1;
 	}
 
@@ -272,7 +272,7 @@ static int get_vsx_regs(pid_t pid, CoreEntry *core)
 			pr_debug("VSX register's dump not supported.\n");
 			return 0;
 		}
-		pr_err("Couldn't get VSX registers");
+		pr_perror("Couldn't get VSX registers");
 		return -1;
 	}
 
