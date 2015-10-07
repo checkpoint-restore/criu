@@ -809,13 +809,13 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 		char *start, *end;
 
 		/* skip "./proc/" */
-		start = strstr(rpath, "/") + 1;
+		start = strstr(rpath, "/");
 		if (!start)
 			return -1;
-		start = strstr(start, "/") + 1;
+		start = strstr(start + 1, "/");
 		if (!start)
 			return -1;
-		pid = strtol(start, &end, 10);
+		pid = strtol(start + 1, &end, 10);
 
 		/* if we didn't find another /, this path something
 		 * like ./proc/kmsg, which we shouldn't mess with. */
