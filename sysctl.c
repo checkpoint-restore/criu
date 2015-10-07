@@ -225,7 +225,7 @@ static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
 		goto out;
 
 	reqs = xmalloc(sizeof(struct sysctl_req) * userns_req->nr_req);
-	if (!fds)
+	if (!reqs)
 		goto out;
 
 	memset(fds, -1, sizeof(int) * userns_req->nr_req);
