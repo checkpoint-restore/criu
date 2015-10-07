@@ -467,7 +467,7 @@ int read_fd_link(int lfd, char *buf, size_t size)
 		pr_err("Buffer for read link of fd %d is too small\n", lfd);
 		return -1;
 	}
-	buf[ret] = 0;
+	buf[ret - 1] = 0;
 
 	return ret;
 }
