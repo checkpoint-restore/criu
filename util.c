@@ -229,7 +229,7 @@ static int open_proc_sfd(char *path)
 	close_proc();
 	fd = open(path, O_DIRECTORY | O_RDONLY);
 	if (fd == -1) {
-		pr_err("Can't open %s\n", path);
+		pr_perror("Can't open %s", path);
 		return -1;
 	}
 
