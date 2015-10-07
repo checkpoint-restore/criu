@@ -23,6 +23,7 @@
 #include "action-scripts.h"
 #include "sockets.h"
 #include "pstree.h"
+#include "string.h"
 #include "sysctl.h"
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
@@ -975,7 +976,7 @@ int move_veth_to_bridge(void)
 			ret = -1;
 			break;
 		}
-		strncpy(ifr.ifr_name, n->bridge, IFNAMSIZ);
+		strlcpy(ifr.ifr_name, n->bridge, IFNAMSIZ);
 		ret = ioctl(s, SIOCBRADDIF, &ifr);
 		if (ret < 0) {
 			pr_perror("Can't add interface %s to bridge %s",
@@ -988,7 +989,7 @@ int move_veth_to_bridge(void)
 		 * $ ip link set dev <device> up
 		 */
 		ifr.ifr_ifindex = 0;
-		strncpy(ifr.ifr_name, n->outside, IFNAMSIZ);
+		strlcpy(ifr.ifr_name, n->outside, IFNAMSIZ);
 		ret = ioctl(s, SIOCGIFFLAGS, &ifr);
 		if (ret < 0) {
 			pr_perror("Can't get flags of interface %s", n->outside);

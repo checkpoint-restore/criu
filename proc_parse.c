@@ -28,6 +28,7 @@
 #include "cr_options.h"
 #include "sysfs_parse.h"
 #include "seccomp.h"
+#include "string.h"
 #include "namespaces.h"
 #include "files-reg.h"
 
@@ -645,7 +646,7 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 	*tok = '\0';
 	*p = '\0';
 
-	strncpy(s->comm, tok + 1, sizeof(s->comm));
+	strlcpy(s->comm, tok + 1, sizeof(s->comm));
 
 	n = sscanf(p + 1,
 	       " %c %d %d %d %d %d %u %lu %lu %lu %lu "

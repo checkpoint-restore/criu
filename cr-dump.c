@@ -41,6 +41,7 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "servicefd.h"
+#include "string.h"
 #include "syscall.h"
 #include "ptrace.h"
 #include "util.h"
@@ -344,7 +345,8 @@ static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 	if (vma_area->aufs_rpath) {
 		struct fd_link aufs_link;
 
-		strcpy(aufs_link.name, vma_area->aufs_rpath);
+		strlcpy(aufs_link.name, vma_area->aufs_rpath,
+				sizeof(aufs_link.name));
 		aufs_link.len = strlen(aufs_link.name);
 		p.link = &aufs_link;
 	}
@@ -683,7 +685,7 @@ static int dump_task_core_all(struct pstree_item *item,
 		core->tc->seccomp_mode = dmpi(item)->pi_creds->seccomp_mode;
 	}
 
-	strncpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
+	strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
 	core->tc->task_state = item->state;
 	core->tc->exit_code = 0;
@@ -800,7 +802,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	if (!core)
 		return -1;
 
-	strncpy((char *)core->tc->comm, pps->comm, TASK_COMM_LEN);
+	strlcpy((char *)core->tc->comm, pps->comm, TASK_COMM_LEN);
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
