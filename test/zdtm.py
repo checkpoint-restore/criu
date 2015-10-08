@@ -470,7 +470,7 @@ class launcher:
 			sys.exit(1)
 
 def all_tests(opts):
-	desc = eval(open('zdtm.desc').read())
+	desc = eval(open(opts['set'] + '.desc').read())
 	lst = subprocess.Popen(['find', desc['dir'], '-type', 'f', '-executable' ], \
 			stdout = subprocess.PIPE)
 	excl = map(lambda x: os.path.join(desc['dir'], x), desc['exclude'])
@@ -601,6 +601,7 @@ if os.environ.has_key('CR_CT_TEST_INFO'):
 
 p = argparse.ArgumentParser("CRIU test suite")
 p.add_argument("--debug", help = "Print what's being executed", action = 'store_true')
+p.add_argument("--set", help = "Which set of tests to use", default = 'zdtm')
 
 sp = p.add_subparsers(help = "Use --help for list of actions")
 
