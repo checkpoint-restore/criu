@@ -2,7 +2,7 @@ all: pb.py protobuf magic.py
 
 .PHONY: all protobuf clean pb.py
 
-proto := $(filter-out $(SRC_DIR)/protobuf/rpc.proto, $(wildcard $(SRC_DIR)/protobuf/*.proto))
+proto := $(filter-out $(SRC_DIR)/protobuf/rpc.proto, $(sort $(wildcard $(SRC_DIR)/protobuf/*.proto)))
 proto-py-modules := $(foreach m,$(proto),$(subst -,_,$(notdir $(m:.proto=_pb2))))
 
 # We don't need rpc_pb2.py here, as it is not related to the
