@@ -338,6 +338,15 @@ class criu_cli:
 	def check(feature):
 		return criu_cli.__criu("check", ["-v0", "--feature", feature]) == 0
 
+
+def try_run_hook(test, args):
+	hname = test.getname() + '.hook'
+	if os.access(hname, os.X_OK):
+		print "Running %s(%s)" % (hname, ', '.join(args))
+		hook = subprocess.Popen([hname] + args)
+		if hook.wait() != 0:
+			raise test_fail_exc("hook " + " ".join(args))
+
 #
 # Main testing entity -- dump (probably with pre-dumps) and restore
 #
@@ -357,6 +366,7 @@ def cr(test, opts):
 		else:
 			cr_api.dump("dump")
 			test.gone()
+			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
 
 # Additional checks that can be done outside of test process
@@ -410,6 +420,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			cr(t, opts)
 			check_visible_state(t, s)
 			t.stop()
+			try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print "Test %s FAIL at %s" % (tname, e.step)
 			t.print_output()
