@@ -1,0 +1,1 @@
+{ 'dir': 'zdtm/live/', 'exclude': [ 'static/route_rules', 'static/criu-rtc.so' ] }

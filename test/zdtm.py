@@ -30,9 +30,6 @@ def traceit(f, e, a):
 	return traceit
 
 
-# Descriptor for abstract test not in list
-default_test={ }
-
 # Root dir for ns and uns flavors. All tests
 # sit in the same dir
 zdtm_root = None
@@ -176,15 +173,8 @@ class zdtm_test:
 		self.__flavor = flavor
 		self.auto_reap = True
 
-	@staticmethod
-	def __zdtm_path(name, typ):
-		return os.path.join("zdtm/live/", name + typ)
-
-	def __getpath(self, typ = ''):
-		return self.__zdtm_path(self.__name, typ)
-
 	def __make_action(self, act, env = None, root = None):
-		tpath = self.__getpath('.' + act)
+		tpath = self.__name + '.' + act
 		s_args = ['make', '--no-print-directory', \
 			 	'-C', os.path.dirname(tpath), \
 				      os.path.basename(tpath)]
@@ -197,16 +187,16 @@ class zdtm_test:
 
 	def __pidfile(self):
 		if self.__flavor.ns:
-			return self.__getpath('.init.pid')
+			return self.__name + '.init.pid'
 		else:
-			return self.__getpath('.pid')
+			return self.__name + '.pid'
 
 	def __wait_task_die(self):
 		wait_pid_die(int(self.__pid), self.__name)
 
 	def start(self):
 		env = {}
-		self.__flavor.init(self.__getpath())
+		self.__flavor.init(self.__name)
 
 		print "Start test"
 
@@ -220,7 +210,7 @@ class zdtm_test:
 
 		if self.__flavor.ns:
 			env['ZDTM_NEWNS'] = "1"
-			env['ZDTM_PIDFILE'] = os.path.realpath(self.__getpath('.init.pid'))
+			env['ZDTM_PIDFILE'] = os.path.realpath(self.__name + '.init.pid')
 			env['ZDTM_ROOT'] = self.__flavor.root
 
 			if self.__flavor.uns:
@@ -244,7 +234,7 @@ class zdtm_test:
 		print "Stop test"
 		self.kill(signal.SIGTERM)
 
-		res = tail(self.__getpath('.out'))
+		res = tail(self.__name + '.out')
 		if not 'PASS' in res.split():
 			raise test_fail_exc("result check")
 
@@ -276,18 +266,9 @@ class zdtm_test:
 
 	def print_output(self):
 		print "Test output: " + "=" * 32
-		print open(self.__getpath('.out')).read()
+		print open(self.__name + '.out').read()
 		print " <<< " + "=" * 32
 
-	@staticmethod
-	def checkskip(name):
-		chs = zdtm_test.__zdtm_path(name, ".checkskip")
-		if os.access(chs, os.X_OK):
-			ch = subprocess.Popen([chs])
-			return ch.wait() == 0 and False or True
-
-		return False
-			
 
 #
 # CRIU when launched using CLI
@@ -481,14 +462,52 @@ class launcher:
 		if self.__fail:
 			sys.exit(1)
 
-def run_tests(opts, tlist):
+def all_tests(opts):
+	desc = eval(open('zdtm.desc').read())
+	lst = subprocess.Popen(['find', desc['dir'], '-type', 'f', '-executable' ], \
+			stdout = subprocess.PIPE)
+	excl = map(lambda x: os.path.join(desc['dir'], x), desc['exclude'])
+	tlist = filter(lambda x: \
+			not x.endswith('.checkskip') and \
+			not x.endswith('.hook') and \
+			not x in excl, \
+				map(lambda x: x.strip(), lst.stdout.readlines()) \
+		)
+	lst.wait()
+	return tlist
+
+
+# Descriptor for abstract test not in list
+default_test={ }
+
+
+def get_test_desc(tname):
+	d_path = tname + '.desc'
+	if os.access(d_path, os.F_OK):
+		return eval(open(d_path).read())
+
+	return default_test
+
+
+def self_checkskip(tname):
+	chs = tname  + '.checkskip'
+	if os.access(chs, os.X_OK):
+		ch = subprocess.Popen([chs])
+		return ch.wait() == 0 and False or True
+
+	return False
+
+
+def run_tests(opts):
 	excl = None
 	features = {}
 
 	if opts['all']:
-		torun = tlist
+		torun = all_tests(opts)
+		run_all = True
 	elif opts['test']:
 		torun = opts['test']
+		run_all = False
 	else:
 		print "Specify test with -t <name> or -a"
 		return
@@ -506,9 +525,13 @@ def run_tests(opts, tlist):
 				print "Skipping %s (exclude)" % t
 				continue
 
-			tdesc = tlist.get(t, default_test) or default_test
+			tdesc = get_test_desc(t)
 			if tdesc.get('arch', arch) != arch:
 				print "Skipping %s (arch %s)" % (t, tdesc['arch'])
+				continue
+
+			if run_all and test_flag(tdesc, 'noauto'):
+				print "Skipping test %s (manual run only)" % t
 				continue
 
 			feat = tdesc.get('feature', None)
@@ -521,7 +544,7 @@ def run_tests(opts, tlist):
 					print "Skipping %s (no %s feature)" % (t, feat)
 					continue
 
-			if zdtm_test.checkskip(t):
+			if self_checkskip(t):
 				print "Skipping %s (self)" % t
 				continue
 
@@ -534,9 +557,10 @@ def run_tests(opts, tlist):
 	finally:
 		l.finish()
 
-def list_tests(opts, tlist):
-	for t in tlist:
-		print t
+
+def list_tests(opts):
+	tlist = all_tests(opts)
+	print '\n'.join(tlist)
 
 #
 # main() starts here
@@ -582,9 +606,8 @@ lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
 
 opts = vars(p.parse_args())
-tlist = yaml.load(open("zdtm.list"))
 
 if opts['debug']:
 	sys.settrace(traceit)
 
-opts['action'](opts, tlist)
+opts['action'](opts)

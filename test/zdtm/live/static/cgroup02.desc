@@ -1,0 +1,1 @@
+{'flavor': 'h', 'flags': 'suid', 'opts': '--manage-cgroups --cgroup-root /newroot --cgroup-root name=zdtmtst:/zdtmtstroot'}
