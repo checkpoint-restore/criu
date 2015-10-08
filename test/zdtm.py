@@ -265,9 +265,10 @@ class zdtm_test:
 			os.unlink(self.__pidfile())
 
 	def print_output(self):
-		print "Test output: " + "=" * 32
-		print open(self.__name + '.out').read()
-		print " <<< " + "=" * 32
+		if os.access(self.__name + '.out', os.R_OK):
+			print "Test output: " + "=" * 32
+			print open(self.__name + '.out').read()
+			print " <<< " + "=" * 32
 
 
 test_classes = { 'zdtm': zdtm_test }
