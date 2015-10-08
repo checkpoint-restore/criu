@@ -133,7 +133,7 @@ def tail(path):
 def rpidfile(path):
 	return open(path).readline().strip()
 
-def wait_pid_die(pid, who, tmo = 3):
+def wait_pid_die(pid, who, tmo = 4):
 	stime = 0.1
 	while stime < tmo:
 		try:
@@ -251,6 +251,8 @@ class zdtm_test:
 		opts = self.__desc.get('opts', '').split() + ["--pidfile", os.path.realpath(self.__pidfile())]
 		if self.__flavor.ns:
 			opts += ["--root", self.__flavor.root]
+		if test_flag(self.__desc, 'crlib'):
+			opts += ["-L", os.path.dirname(os.path.realpath(self.__name)) + '/lib']
 		return opts
 
 	def gone(self, force = True):
