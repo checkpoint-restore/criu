@@ -440,7 +440,8 @@ class launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
-		sub = subprocess.Popen(["zdtm_ct", "zdtm.py"], env = { 'ZDTM_CT_TEST_INFO': arg }, \
+		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
+				env = dict(os.environ, ZDTM_CT_TEST_INFO = arg ), \
 				stdout = open(log, "w"), stderr = subprocess.STDOUT)
 		self.__subs[sub.pid] = { 'sub': sub, 'log': log }
 
