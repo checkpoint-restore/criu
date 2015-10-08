@@ -32,6 +32,7 @@
 #include "security.h"
 #include "sockets.h"
 #include "irmap.h"
+#include "kerndat.h"
 
 #include "setproctitle.h"
 
@@ -723,8 +724,85 @@ static int chk_keepopen_req(CriuReq *msg)
 	else if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ||
 		 msg->type == CRIU_REQ_TYPE__CPUINFO_CHECK)
 		return 0;
+	else if (msg->type == CRIU_REQ_TYPE__FEATURE_CHECK)
+		return 0;
 
 	return -1;
+}
+
+/*
+ * Generic function to handle CRIU_REQ_TYPE__FEATURE_CHECK.
+ *
+ * The function will have resp.sucess = true for most cases
+ * and the actual result will be in resp.features.
+ *
+ * For each feature which has been requested in msg->features
+ * the corresponding parameter will be set in resp.features.
+ */
+static int handle_feature_check(int sk, CriuReq * msg)
+{
+	CriuResp resp = CRIU_RESP__INIT;
+	CriuFeatures feat = CRIU_FEATURES__INIT;
+	bool success = false;
+	int pid, status;
+
+	/* enable setting of an optional message */
+	feat.has_mem_track = 1;
+	feat.mem_track = false;
+
+	/*
+	 * Check if the requested feature check can be answered.
+	 *
+	 * This function is right now hard-coded to memory
+	 * tracking detection and needs other/better logic to
+	 * handle multiple feature checks.
+	 */
+	if (msg->features->has_mem_track != 1) {
+		pr_warn("Feature checking for unknown feature.\n");
+		goto out;
+	}
+
+	/*
+	 * From this point on the function will always
+	 * 'succeed'. If the requested features are supported
+	 * can be seen if the requested optional parameters are
+	 * set in the message 'criu_features'.
+	 */
+	success = true;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		goto out;
+	}
+
+	if (pid == 0) {
+		int ret = 1;
+
+		if (setup_opts_from_req(sk, msg->opts))
+			goto cout;
+
+		setproctitle("feature-check --rpc -D %s", images_dir);
+
+		kerndat_get_dirty_track();
+
+		if (kdat.has_dirty_track)
+			ret = 0;
+cout:
+		exit(ret);
+	}
+
+	wait(&status);
+	if (!WIFEXITED(status) || WEXITSTATUS(status))
+		goto out;
+
+	feat.mem_track = true;
+out:
+	resp.features = &feat;
+	resp.type = msg->type;
+	resp.success = success;
+
+	return send_criu_msg(sk, &resp);
 }
 
 static int handle_cpuinfo(int sk, CriuReq *msg)
@@ -803,6 +881,9 @@ more:
 	case CRIU_REQ_TYPE__CPUINFO_DUMP:
 	case CRIU_REQ_TYPE__CPUINFO_CHECK:
 		ret = handle_cpuinfo(sk, msg);
+		break;
+	case CRIU_REQ_TYPE__FEATURE_CHECK:
+		ret = handle_feature_check(sk, msg);
 		break;
 
 	default:

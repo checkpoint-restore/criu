@@ -115,6 +115,16 @@ enum criu_req_type {
 
 	CPUINFO_DUMP	= 7;
 	CPUINFO_CHECK	= 8;
+
+	FEATURE_CHECK	= 9;
+}
+
+/*
+ * List of features which can queried via
+ * CRIU_REQ_TYPE__FEATURE_CHECK
+ */
+message criu_features {
+	optional bool			mem_track	= 1;
 }
 
 /*
@@ -134,6 +144,12 @@ message criu_req {
 	 * for all request types.
 	 */
 	optional bool			keep_open	= 4;
+	/*
+	 * 'features' can be used to query which features
+	 * are supported by the installed criu/kernel
+	 * via RPC.
+	 */
+	optional criu_features		features	= 5;
 }
 
 /*
@@ -151,4 +167,5 @@ message criu_resp {
 	optional criu_page_server_info	ps		= 6;
 
 	optional int32			cr_errno	= 7;
+	optional criu_features		features	= 8;
 }
