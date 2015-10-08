@@ -411,9 +411,9 @@ def do_run_test(tname, tdesc, flavs, opts):
 			check_visible_state(t, s)
 			t.stop()
 		except test_fail_exc as e:
+			print "Test %s FAIL at %s" % (tname, e.step)
 			t.print_output()
 			t.kill()
-			print "Test %s FAIL at %s" % (tname, e.step)
 			# This exit does two things -- exits from subprocess and
 			# aborts the main script execution on the 1st error met
 			sys.exit(1)
