@@ -32,19 +32,19 @@ def traceit(f, e, a):
 
 # Root dir for ns and uns flavors. All tests
 # sit in the same dir
-zdtm_root = None
+tests_root = None
 
-def clean_zdtm_root():
-	global zdtm_root
-	if zdtm_root:
-		os.rmdir(zdtm_root)
+def clean_tests_root():
+	global tests_root
+	if tests_root:
+		os.rmdir(tests_root)
 
-def make_zdtm_root():
-	global zdtm_root
-	if not zdtm_root:
-		zdtm_root = tempfile.mkdtemp("", "criu-root-", "/tmp")
-		atexit.register(clean_zdtm_root)
-	return zdtm_root
+def make_tests_root():
+	global tests_root
+	if not tests_root:
+		tests_root = tempfile.mkdtemp("", "criu-root-", "/tmp")
+		atexit.register(clean_tests_root)
+	return tests_root
 
 # Arch we run on
 arch = os.uname()[4]
@@ -73,7 +73,7 @@ class ns_flavor:
 		self.name = "ns"
 		self.ns = True
 		self.uns = False
-		self.root = make_zdtm_root()
+		self.root = make_tests_root()
 
 	def init(self, test_bin):
 		print "Construct root for %s" % test_bin
@@ -270,6 +270,8 @@ class zdtm_test:
 		print " <<< " + "=" * 32
 
 
+test_classes = { 'zdtm': zdtm_test }
+
 #
 # CRIU when launched using CLI
 #
@@ -390,11 +392,16 @@ def check_visible_state(test, state):
 		raise test_fail_exc("maps compare")
 
 def do_run_test(tname, tdesc, flavs, opts):
-	print "Run %s in %s" % (tname, flavs)
+	tcname = tname.split('/')[0]
+	tclass = test_classes.get(tcname, None)
+	if not tclass:
+		print "Unknown test class %s" % tcname
+		return
 
+	print "Run %s in %s" % (tname, flavs)
 	for f in flavs:
 		flav = flavors[f](opts)
-		t = zdtm_test(tname, tdesc, flav)
+		t = tclass(tname, tdesc, flav)
 
 		try:
 			t.start()
@@ -433,7 +440,7 @@ class launcher:
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
-				env = dict(os.environ, ZDTM_CT_TEST_INFO = arg ), \
+				env = dict(os.environ, CR_CT_TEST_INFO = arg ), \
 				stdout = open(log, "w"), stderr = subprocess.STDOUT)
 		self.__subs[sub.pid] = { 'sub': sub, 'log': log }
 
@@ -577,12 +584,12 @@ def list_tests(opts):
 # main() starts here
 #
 
-if os.environ.has_key('ZDTM_CT_TEST_INFO'):
+if os.environ.has_key('CR_CT_TEST_INFO'):
 	# Fork here, since we're new pidns init and are supposed to
 	# collect this namespace's zombies
 	pid = os.fork()
 	if pid == 0:
-		tinfo = eval(os.environ['ZDTM_CT_TEST_INFO'])
+		tinfo = eval(os.environ['CR_CT_TEST_INFO'])
 		do_run_test(tinfo[0], tinfo[1], tinfo[2], tinfo[3])
 	else:
 		while True:
@@ -592,7 +599,7 @@ if os.environ.has_key('ZDTM_CT_TEST_INFO'):
 
 	sys.exit(0)
 
-p = argparse.ArgumentParser("ZDTM test suite")
+p = argparse.ArgumentParser("CRIU test suite")
 p.add_argument("--debug", help = "Print what's being executed", action = 'store_true')
 
 sp = p.add_subparsers(help = "Use --help for list of actions")
