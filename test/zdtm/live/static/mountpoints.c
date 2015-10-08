@@ -73,7 +73,7 @@ int ns_child(void *_arg)
 static int test_fn(int argc, char **argv)
 {
 	FILE *f;
-	int fd, tmpfs_fd;
+	int fd, tmpfs_fd, have_bfmtm = 0;
 	unsigned fs_cnt, fs_cnt_last = 0;
 	struct ns_exec_args args;
 	mode_t old_mask;
@@ -268,10 +268,8 @@ done:
 	}
 
 	if (mount("none", MPTS_ROOT"/kernel/sys/fs/binfmt_misc",
-					"binfmt_misc", 0, "") < 0) {
-		fail("Can't mount binfmt_misc");
-		return 1;
-	}
+					"binfmt_misc", 0, "") == 0)
+		have_bfmtm = 1;
 
 	unlink("/dev/null");
 	/*
@@ -302,6 +300,11 @@ done:
 	/* this checks both -- sys and proc presence */
 	if (access(MPTS_ROOT"/kernel/meminfo", F_OK)) {
 		fail("No proc after restore");
+		return 1;
+	}
+
+	if (have_bfmtm && access(MPTS_ROOT"/kernel/sys/fs/binfmt_misc/register", F_OK)) {
+		fail("No binfmt_misc after restore");
 		return 1;
 	}
 
