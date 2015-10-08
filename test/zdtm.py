@@ -558,8 +558,19 @@ def run_tests(opts):
 		l.finish()
 
 
+sti_fmt = "%-40s%-10s%s"
+
+def show_test_info(t):
+	tdesc = get_test_desc(t)
+	flavs = tdesc.get('flavor', '')
+	return sti_fmt % (t, flavs, tdesc.get('flags', ''))
+
+
 def list_tests(opts):
 	tlist = all_tests(opts)
+	if opts['info']:
+		print sti_fmt % ('Name', 'Flavors', 'Flags')
+		tlist = map(lambda x: show_test_info(x), tlist)
 	print '\n'.join(tlist)
 
 #
@@ -604,6 +615,7 @@ rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
+lp.add_argument('-i', '--info', help = "Show more info about tests", action = 'store_true')
 
 opts = vars(p.parse_args())
 
