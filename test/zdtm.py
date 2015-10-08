@@ -309,7 +309,7 @@ class criu_cli:
 
 		s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
 
-		print "Run CRIU: [" + " ".join(s_args) + "]"
+		print "Run CRIU: [" + action + " " + " ".join(s_args) + "]"
 		ret = self.__criu(action, s_args)
 		if ret != 0:
 			raise test_fail_exc("CRIU %s" % action)
