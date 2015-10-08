@@ -720,8 +720,9 @@ static int prepare_sigactions(void)
 		 * sigaction overwrites se_restorer.
 		 */
 		ret = sys_sigaction(sig, &act, NULL, sizeof(k_rtsigset_t));
-		if (ret == -1) {
-			pr_err("%d: Can't restore sigaction: %m\n", pid);
+		if (ret < 0) {
+			errno = -ret;
+			pr_perror("Can't restore sigaction");
 			goto err;
 		}
 
