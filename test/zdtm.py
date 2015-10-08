@@ -531,8 +531,18 @@ def list_tests(opts, tlist):
 #
 
 if os.environ.has_key('ZDTM_CT_TEST_INFO'):
-	tinfo = eval(os.environ['ZDTM_CT_TEST_INFO'])
-	do_run_test(tinfo[0], tinfo[1], tinfo[2], tinfo[3])
+	# Fork here, since we're new pidns init and are supposed to
+	# collect this namespace's zombies
+	pid = os.fork()
+	if pid == 0:
+		tinfo = eval(os.environ['ZDTM_CT_TEST_INFO'])
+		do_run_test(tinfo[0], tinfo[1], tinfo[2], tinfo[3])
+	else:
+		while True:
+			wpid, status = os.wait()
+			if wpid == pid:
+				break;
+
 	sys.exit(0)
 
 p = argparse.ArgumentParser("ZDTM test suite")
