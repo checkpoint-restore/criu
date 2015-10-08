@@ -192,7 +192,7 @@ static int do_sysctl_op(int fd, struct sysctl_req *req, int op)
 	return ret;
 }
 
-static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
+static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 {
 	int fd, ret = -1, dir, i, status, *fds = NULL;
 	struct sysctl_userns_req *userns_req = arg;
@@ -288,7 +288,7 @@ static int __userns_sysctl_op(void *arg, int unused, pid_t pid)
 		const char *nsname = ns_to_string(userns_req->ns);
 
 		BUG_ON(!nsname);
-		nsfd = open_proc(pid, "ns/%s", nsname);
+		nsfd = openat(proc_fd, nsname, O_RDONLY);
 		if (nsfd < 0) {
 			pr_perror("failed to open pid %d's ns %s", pid, nsname);
 			exit(1);
@@ -382,7 +382,7 @@ out:
 
 int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 {
-	int i;
+	int i, fd, ret;
 	struct sysctl_userns_req *userns_req;
 	struct sysctl_req *cur;
 
@@ -453,5 +453,11 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 		cur = (struct sysctl_req *) (((char *) cur) + total_len);
 	}
 
-	return userns_call(__userns_sysctl_op, UNS_ASYNC, userns_req, MAX_UNSFD_MSG_SIZE, -1);
+	fd = open_proc(PROC_SELF, "ns");
+	if (fd < 0)
+		return -1;
+
+	ret = userns_call(__userns_sysctl_op, UNS_ASYNC, userns_req, MAX_UNSFD_MSG_SIZE, fd);
+	close(fd);
+	return ret;
 }
