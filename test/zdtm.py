@@ -174,6 +174,7 @@ class zdtm_test:
 		self.__make_action('cleanout')
 		self.__pid = 0
 		self.__flavor = flavor
+		self.auto_reap = True
 
 	@staticmethod
 	def __zdtm_path(name, typ):
@@ -263,6 +264,11 @@ class zdtm_test:
 		return opts
 
 	def gone(self, force = True):
+		if not self.auto_reap:
+			pid, status = os.waitpid(int(self.__pid), 0)
+			if pid != int(self.__pid):
+				raise test_fail_exc("kill pid mess")
+
 		self.__wait_task_die()
 		self.__pid = 0
 		if force or self.__flavor.ns:
@@ -294,6 +300,7 @@ class criu_cli:
 		self.__iter = 0
 		os.makedirs(self.__dump_path)
 		self.__page_server = (opts['page_server'] and True or False)
+		self.__restore_sibling = (opts['sibling'] and True or False)
 
 	def __ddir(self):
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
@@ -337,7 +344,11 @@ class criu_cli:
 			wait_pid_die(int(rpidfile(self.__ddir() + "/ps.pid")), "page server")
 
 	def restore(self):
-		self.__criu_cr("restore", opts = ["--restore-detached"])
+		r_opts = []
+		if self.__restore_sibling:
+			r_opts = ["--restore-sibling"]
+			self.__test.auto_reap = False
+		self.__criu_cr("restore", opts = r_opts + ["--restore-detached"])
 
 	@staticmethod
 	def check(feature):
@@ -437,7 +448,7 @@ class launcher:
 			if self.__fail:
 				raise test_fail_exc('')
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
@@ -558,6 +569,7 @@ rp.add_argument("-t", "--test", help = "Test name", action = 'append')
 rp.add_argument("-f", "--flavor", help = "Flavor to run")
 rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
 
+rp.add_argument("--sibling", help = "Restore tests as siblings", action = 'store_true')
 rp.add_argument("--pre", help = "Do some pre-dumps before dump")
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
