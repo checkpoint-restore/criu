@@ -12,7 +12,9 @@
 #include "action-scripts.h"
 
 static const char *action_names[ACT_MAX] = {
+	[ ACT_PRE_DUMP ]	= "pre-dump",
 	[ ACT_POST_DUMP ]	= "post-dump",
+	[ ACT_PRE_RESTORE ]	= "pre-restore",
 	[ ACT_POST_RESTORE ]	= "post-restore",
 	[ ACT_NET_LOCK ]	= "network-lock",
 	[ ACT_NET_UNLOCK ]	= "network-unlock",

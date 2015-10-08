@@ -10,11 +10,13 @@ struct script {
 #define SCRIPT_RPC_NOTIFY	(char *)0x1
 
 enum script_actions {
-	ACT_POST_DUMP		= 0,
-	ACT_POST_RESTORE	= 1,
-	ACT_NET_LOCK		= 2,
-	ACT_NET_UNLOCK		= 3,
-	ACT_SETUP_NS		= 4,
+	ACT_PRE_DUMP		= 0,
+	ACT_POST_DUMP		= 1,
+	ACT_PRE_RESTORE		= 2,
+	ACT_POST_RESTORE	= 3,
+	ACT_NET_LOCK		= 4,
+	ACT_NET_UNLOCK		= 5,
+	ACT_SETUP_NS		= 6,
 
 	ACT_MAX
 };

@@ -1444,12 +1444,18 @@ int cr_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
 	int post_dump_ret = 0;
+	int pre_dump_ret = 0;
 	int ret = -1;
 
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+	pre_dump_ret = run_scripts(ACT_PRE_DUMP);
+	if (pre_dump_ret != 0) {
+		pr_err("Pre dump script failed with %d!\n", post_dump_ret);
+		goto err;
+	}
 	if (init_stats(DUMP_STATS))
 		goto err;
 

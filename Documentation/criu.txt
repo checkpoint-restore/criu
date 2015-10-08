@@ -76,8 +76,14 @@ The following levels are available:
     Add an external action script.
     The environment variable *CRTOOLS_SCRIPT_ACTION* contains one of the
     actions:
+        * *pre-dump*
+            run an action prior to beginning a *dump*
+
         * *post-dump*
             run an action upon *dump* completion;
+
+        * *pre-restore*
+            run an action prior to beginning a *restore*
 
         * *post-restore*
             run an action upon *restore* completion;

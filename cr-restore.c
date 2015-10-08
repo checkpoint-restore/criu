@@ -1737,6 +1737,12 @@ static int restore_root_task(struct pstree_item *init)
 	enum trace_flags flag = TRACE_ALL;
 	int ret, fd, mnt_ns_fd = -1;
 
+	ret = run_scripts(ACT_PRE_RESTORE);
+	if (ret != 0) {
+		pr_err("Aborting restore due to pre-restore script ret code %d\n", ret);
+		return -1;
+	}
+
 	fd = open("/proc", O_DIRECTORY | O_RDONLY);
 	if (fd < 0) {
 		pr_perror("Unable to open /proc");
@@ -1871,7 +1877,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	ret = run_scripts(ACT_POST_RESTORE);
 	if (ret != 0) {
-		pr_err("Aborting restore due to script ret code %d\n", ret);
+		pr_err("Aborting restore due to post-restore script ret code %d\n", ret);
 		timing_stop(TIME_RESTORE);
 		write_stats(RESTORE_STATS);
 		goto out_kill;
