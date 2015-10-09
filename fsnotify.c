@@ -169,6 +169,9 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 			if (path == NULL)
 				goto err;
 
+			f_handle->has_mnt_id = true;
+			f_handle->mnt_id = mi->mnt_id;
+
 			goto out;
 		}
 
@@ -426,12 +429,19 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		*target = openat(mntns_root, remap->rpath, O_PATH);
 	} else if (f_handle->path) {
 		int  mntns_root;
+		char *path = ".";
+		uint32_t mnt_id = f_handle->has_mnt_id ? f_handle->mnt_id : -1;
+
 
 		/* irmap cache is collected in the root namespaces. */
-		mntns_root = mntns_get_root_by_mnt_id(-1);
+		mntns_root = mntns_get_root_by_mnt_id(mnt_id);
 
-		pr_debug("\t\tRestore with path hint %s\n", f_handle->path);
-		*target = openat(mntns_root, f_handle->path, O_PATH);
+		/* change "/foo" into "foo" and "/" into "." */
+		if (f_handle->path[1] != '\0')
+			path = f_handle->path + 1;
+
+		pr_debug("\t\tRestore with path hint %d:%s\n", mnt_id, path);
+		*target = openat(mntns_root, path, O_PATH);
 	} else
 		*target = open_handle(s_dev, i_ino, f_handle);
 
