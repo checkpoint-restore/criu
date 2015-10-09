@@ -314,7 +314,7 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 		kill(worker, SIGKILL);
 		goto out;
 	}
-	sigprocmask(SIG_BLOCK, &oldmask, NULL);
+	sigprocmask(SIG_SETMASK, &oldmask, NULL);
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
 		pr_err("worker failed: %d\n", status);
