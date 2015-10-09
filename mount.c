@@ -2125,8 +2125,23 @@ static bool can_mount_now(struct mount_info *mi)
 	if (mi->external)
 		return true;
 
-	if (mi->master_id && mi->bind == NULL)
-		return false;
+	/*
+	 * We're the slave peer:
+	 *   - Make sure the master peer is already mounted
+	 *   - Make sure all children is mounted as well to
+	 *     eliminame mounts duplications
+	 */
+	if (mi->master_id) {
+		struct mount_info *c;
+
+		if (mi->bind == NULL)
+			return false;
+
+		list_for_each_entry(c, &mi->bind->children, siblings) {
+			if (!c->mounted)
+				return false;
+		}
+	}
 
 	if (!fsroot_mounted(mi) && (mi->bind == NULL && !mi->need_plugin && !mi->external))
 		return false;
@@ -2141,9 +2156,6 @@ static bool can_mount_now(struct mount_info *mi)
 					return false;
 		} else {
 			list_for_each_entry(n, &p->mnt_share, mnt_share)
-				if (!n->mounted)
-					return false;
-			list_for_each_entry(n, &p->mnt_slave_list, mnt_slave)
 				if (!n->mounted)
 					return false;
 		}
