@@ -13,7 +13,6 @@
 #include <alloca.h>
 
 #include "criu.h"
-#include "string.h"
 #include "rpc.pb-c.h"
 #include "cr-service-const.h"
 
@@ -882,9 +881,9 @@ static int criu_connect(criu_opts *opts)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
 
-	strlcpy(addr.sun_path, opts->service_address, sizeof(addr.sun_path));
+	strncpy(addr.sun_path, opts->service_address, sizeof(addr.sun_path));
 
-	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
+	addr_len = strlen(opts->service_address) + sizeof(addr.sun_family);
 
 	ret = connect(fd, (struct sockaddr *) &addr, addr_len);
 	if (ret < 0) {
