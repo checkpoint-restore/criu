@@ -189,6 +189,7 @@ TST_DIR		=				\
 		mount_paths			\
 		bind-mount			\
 		inotify00			\
+		inotify01			\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\
@@ -338,6 +339,7 @@ mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP
 mntns_shared_bind02:		override CFLAGS += -DSHARED_BIND02
 maps02:		get_smaps_bits.o
 mlock_setuid:		get_smaps_bits.o
+inotify01:		override CFLAGS += -DINOTIFY01
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)

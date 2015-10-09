@@ -226,6 +226,7 @@ generate_test_list()
 		ns/static/mntns_shared_bind02
 		ns/static/mntns_root_bind
 		ns/static/mntns_deleted
+		ns/static/inotify01
 	"
 
 	TEST_AIO="
@@ -358,6 +359,7 @@ cow01
 apparmor
 seccomp_strict
 different_creds
+inotify01
 "
 
 TEST_EXPECTED_FAILURE="

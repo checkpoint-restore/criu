@@ -13,6 +13,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <signal.h>
+#include <sched.h>
+#include <sys/mount.h>
+#include <sys/prctl.h>
 
 #include "zdtmtst.h"
 
@@ -114,14 +118,61 @@ int main (int argc, char *argv[])
 
 	test_init(argc, argv);
 
-	fd = inotify_init1(IN_NONBLOCK);
-	if (fd < 0) {
-		err("inotify_init failed");
+	if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
+		err("Can't create directory %s", dirname);
 		exit(1);
 	}
 
-	if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
-		err("Can't create directory %s", dirname);
+#ifdef INOTIFY01
+{
+	pid_t pid;
+	task_waiter_t t;
+	task_waiter_init(&t);
+	static char buf[PATH_MAX];
+
+	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+		err("Unable to remount /");
+		return 1;
+	}
+
+	pid = fork();
+	if (pid < 0) {
+		err("Can't fork a test process");
+		exit(1);
+	}
+	if (pid == 0) {
+		int fd;
+
+		prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+		if (unshare(CLONE_NEWNS)) {
+			err("Unable to unshare mount namespace");
+			exit(1);
+		}
+
+		if (mount("zdtm", dirname, "tmpfs", 0, NULL)) {
+			err("Unable to mount tmpfs");
+			exit(1);
+		}
+		fd = open(dirname, O_RDONLY);
+		if (fd < 0) {
+			err("Unable to open %s", dirname);
+			exit(1);
+		}
+		dup2(fd, 100);
+		task_waiter_complete_current(&t);
+		while (1)
+			sleep(1000);
+		exit(1);
+	}
+	task_waiter_wait4(&t, pid);
+	snprintf(buf, sizeof(buf), "/proc/%d/fd/100", pid);
+	dirname = buf;
+}
+#endif
+
+	fd = inotify_init1(IN_NONBLOCK);
+	if (fd < 0) {
+		err("inotify_init failed");
 		exit(1);
 	}
 
@@ -149,6 +200,7 @@ int main (int argc, char *argv[])
 	 * hardlink are opened.
 	 */
 
+#ifndef INOTIFY01
 	if (unlink(test_file_path)) {
 		err("can't unlink %s\n", test_file_path);
 		exit(1);
@@ -163,6 +215,7 @@ int main (int argc, char *argv[])
 		    emask, emask_bits);
 		exit(1);
 	}
+#endif
 
 	test_daemon();
 	test_waitsig();
@@ -179,6 +232,7 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
+#ifndef INOTIFY01
 	real_fd = open(test_file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
 	if (real_fd < 0) {
 		err("Can't create %s", test_file_path);
@@ -195,6 +249,7 @@ int main (int argc, char *argv[])
 		    emask, emask_bits);
 		return 1;
 	}
+#endif
 
 	pass();
 
