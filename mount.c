@@ -1017,23 +1017,23 @@ static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		if (mntns_root < 0)
 			return -1;
 
-		mnt_fd = openat(mntns_root, pm->mountpoint, O_RDONLY);
+		mnt_fd = openat(mntns_root, pm->ns_mountpoint, O_RDONLY);
 		if (mnt_fd < 0) {
-			pr_perror("Can't open %s", pm->mountpoint);
+			pr_perror("Can't open %s", pm->ns_mountpoint);
 			return -1;
 		}
 	}
 
 	ret = fstat(mnt_fd, &st);
 	if (ret < 0) {
-		pr_perror("fstat(%s) failed", pm->mountpoint);
+		pr_perror("fstat(%s) failed", pm->ns_mountpoint);
 		goto err;
 	}
 
-	dev = phys_stat_resolve_dev(pm->nsid, st.st_dev, pm->mountpoint + 1);
+	dev = phys_stat_resolve_dev(pm->nsid, st.st_dev, pm->ns_mountpoint + 1);
 	if (dev != pm->s_dev) {
 		pr_err("The file system %#x (%#x) %s %s is inaccessible\n",
-				pm->s_dev, (int)dev, pm->fstype->name, pm->mountpoint);
+		       pm->s_dev, (int)dev, pm->fstype->name, pm->ns_mountpoint);
 		goto err;
 	}
 
