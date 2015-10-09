@@ -1915,9 +1915,15 @@ out_kill:
 	 * otherwise an external proccesses can be killed.
 	 */
 	if (root_ns_mask & CLONE_NEWPID) {
+		int status;
+
 		/* Kill init */
 		if (root_item->pid.real > 0)
 			kill(root_item->pid.real, SIGKILL);
+
+		if (waitpid(root_item->pid.real, &status, 0) < 0)
+			pr_warn("Unable to wait %d: %s",
+				root_item->pid.real, strerror(errno));
 	} else {
 		struct pstree_item *pi;
 
