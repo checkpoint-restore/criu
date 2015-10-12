@@ -247,13 +247,19 @@ class zdtm_test:
 	def getname(self):
 		return self.__name
 
-	def getcropts(self):
+	def __getcropts(self):
 		opts = self.__desc.get('opts', '').split() + ["--pidfile", os.path.realpath(self.__pidfile())]
 		if self.__flavor.ns:
 			opts += ["--root", self.__flavor.root]
 		if test_flag(self.__desc, 'crlib'):
 			opts += ["-L", os.path.dirname(os.path.realpath(self.__name)) + '/lib']
 		return opts
+
+	def getdopts(self):
+		return self.__getcropts()
+
+	def getropts(self):
+		return self.__getcropts()
 
 	def gone(self, force = True):
 		if not self.auto_reap:
@@ -317,9 +323,6 @@ class criu_cli:
 			grep_errors(os.path.join(self.__ddir(), log))
 			raise test_fail_exc("CRIU %s" % action)
 
-	def __criu_cr(self, action, opts):
-		self.__criu_act(action, opts = opts + self.__test.getcropts())
-
 	def dump(self, action, opts = []):
 		self.__iter += 1
 		os.mkdir(self.__ddir())
@@ -334,7 +337,9 @@ class criu_cli:
 					"--daemon", "--pidfile", "ps.pid"])
 			a_opts += ["--page-server", "--address", "127.0.0.1", "--port", "12345"]
 
-		self.__criu_cr(action, opts = a_opts + opts)
+		a_opts += self.__test.getdopts()
+
+		self.__criu_act(action, opts = a_opts + opts)
 
 		if self.__page_server:
 			wait_pid_die(int(rpidfile(self.__ddir() + "/ps.pid")), "page server")
@@ -344,7 +349,9 @@ class criu_cli:
 		if self.__restore_sibling:
 			r_opts = ["--restore-sibling"]
 			self.__test.auto_reap = False
-		self.__criu_cr("restore", opts = r_opts + ["--restore-detached"])
+		r_opts += self.__test.getropts()
+
+		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 
 	@staticmethod
 	def check(feature):
