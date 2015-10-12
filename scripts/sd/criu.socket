@@ -1,8 +1,0 @@
-[Unit]
-Description=Checkpoint Restore in Userspace socket
-
-[Socket]
-ListenSequentialPacket=/var/run/criu-service.socket
-
-[Install]
-WantedBy=sockets.target
