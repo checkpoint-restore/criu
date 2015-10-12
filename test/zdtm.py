@@ -12,6 +12,10 @@ import signal
 import atexit
 import sys
 import linecache
+import random
+import string
+import imp
+import socket
 
 prev_line = None
 def traceit(f, e, a):
@@ -279,7 +283,86 @@ class zdtm_test:
 			print " <<< " + "=" * 32
 
 
-test_classes = { 'zdtm': zdtm_test }
+class inhfd_test:
+	def __init__(self, name, desc, flavor):
+		self.__name = os.path.basename(name)
+		print "Load %s" % name
+		self.__fdtyp = imp.load_source(self.__name, name)
+		self.__my_file = None
+		self.__peer_pid = 0
+		self.__peer_file = None
+		self.__peer_file_name = None
+		self.__dump_opts = None
+
+	def start(self):
+		self.__message = "".join([random.choice(string.ascii_letters) for _ in range(16)])
+		(self.__my_file, peer_file) = self.__fdtyp.create_fds()
+
+		# Check FDs returned for inter-connection
+		self.__my_file.write(self.__message)
+		self.__my_file.flush()
+		if peer_file.read(16) != self.__message:
+			raise test_fail_exc("FDs screwup")
+
+		start_pipe = os.pipe()
+		self.__peer_pid = os.fork()
+		if self.__peer_pid == 0:
+			os.setsid()
+			os.close(0)
+			os.close(1)
+			os.close(2)
+		 	self.__my_file.close()
+			os.close(start_pipe[0])
+			os.close(start_pipe[1])
+			try:
+				data = peer_file.read(16)
+			except:
+				sys.exit(1)
+
+			sys.exit(data == self.__message and 42 or 2)
+
+		os.close(start_pipe[1])
+		os.read(start_pipe[0], 12)
+		os.close(start_pipe[0])
+
+		self.__peer_file_name = self.__fdtyp.filename(peer_file)
+		self.__dump_opts = self.__fdtyp.dump_opts(peer_file)
+
+	def stop(self):
+		self.__my_file.write(self.__message)
+		self.__my_file.flush()
+		pid, status = os.waitpid(self.__peer_pid, 0)
+		if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 42:
+			raise test_fail_exc("test failed with %d" % status)
+
+	def kill(self):
+		if self.__peer_pid:
+			os.kill(self.__peer_pid, signal.SIGKILL)
+
+	def getname(self):
+		return self.__name
+
+	def getpid(self):
+		return "%s" % self.__peer_pid
+
+	def gone(self, force = True):
+		os.waitpid(self.__peer_pid, 0)
+		wait_pid_die(self.__peer_pid, self.__name)
+		self.__my_file = None
+		self.__peer_file = None
+
+	def getdopts(self):
+		return self.__dump_opts
+
+	def getropts(self):
+		(self.__my_file, self.__peer_file) = self.__fdtyp.create_fds()
+		return ["--restore-sibling", "--inherit-fd", "fd[%d]:%s" % (self.__peer_file.fileno(), self.__peer_file_name)]
+
+	def print_output(self):
+		pass
+
+
+test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
 
 #
 # CRIU when launched using CLI
