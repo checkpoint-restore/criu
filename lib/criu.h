@@ -47,7 +47,7 @@ void criu_set_service_binary(char *path);
 
 /*
  * You can choose if you want libcriu to connect to service socket
- * by itself or just use provided file descriptor
+ * by itself, use provided file descriptor or spawn swrk by itself
  */
 void criu_set_service_comm(enum criu_service_comm);
 

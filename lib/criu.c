@@ -114,8 +114,8 @@ int criu_local_init_opts(criu_opts **o)
 	opts->rpc	= rpc;
 	opts->notify	= NULL;
 
-	opts->service_comm	= CRIU_COMM_SK;
-	opts->service_address	= CR_DEFAULT_SERVICE_ADDRESS;
+	opts->service_comm	= CRIU_COMM_BIN;
+	opts->service_address	= CR_DEFAULT_SERVICE_BIN;
 
 	*o = opts;
 
@@ -808,7 +808,7 @@ static void swrk_wait(criu_opts *opts)
 		waitpid(opts->swrk_pid, NULL, 0);
 }
 
-static int swrk_connect(criu_opts *opts)
+static int swrk_connect(criu_opts *opts, bool d)
 {
 	int sks[2], pid, ret = -1;
 
@@ -844,23 +844,45 @@ static int swrk_connect(criu_opts *opts)
 		close(sks[0]);
 		sprintf(fds, "%d", sks[1]);
 
+		if (d)
+			if (daemon(0, 1)) {
+				perror("Can't detach for a self-dump");
+				goto child_err;
+			}
+
+		pid = getpid();
+		if (write(sks[1], &pid, sizeof(pid)) != sizeof(pid)) {
+			perror("Can't write swrk pid");
+			goto child_err;
+		}
+
 		execlp(opts->service_binary, opts->service_binary, "swrk", fds, NULL);
 		perror("Can't exec criu swrk");
+child_err:
+		close(sks[1]);
 		exit(1);
 	}
 
 	close(sks[1]);
+
+	if (read(sks[0], &pid, sizeof(pid)) != sizeof(pid)) {
+		perror("Can't read swrk pid");
+		goto err;
+	}
+
 	opts->swrk_pid = pid;
 	ret = sks[0];
+
 out:
 	return ret;
+
 err:
 	close(sks[0]);
 	close(sks[1]);
 	goto out;
 }
 
-static int criu_connect(criu_opts *opts)
+static int criu_connect(criu_opts *opts, bool d)
 {
 	int fd, ret;
 	struct sockaddr_un addr;
@@ -869,7 +891,7 @@ static int criu_connect(criu_opts *opts)
 	if (opts->service_comm == CRIU_COMM_FD)
 		return opts->service_fd;
 	else if (opts->service_comm == CRIU_COMM_BIN)
-		return swrk_connect(opts);
+		return swrk_connect(opts, d);
 
 	fd = socket(AF_LOCAL, SOCK_SEQPACKET, 0);
 	if (fd < 0) {
@@ -945,8 +967,12 @@ static int send_req_and_recv_resp(criu_opts *opts, CriuReq *req, CriuResp **resp
 {
 	int fd;
 	int ret	= 0;
+	bool d = false;
 
-	fd = criu_connect(opts);
+	if (req->type == CRIU_REQ_TYPE__DUMP && req->opts->has_pid == false)
+		d = true;
+
+	fd = criu_connect(opts, d);
 	if (fd < 0) {
 		perror("Can't connect to criu");
 		ret = -ECONNREFUSED;
@@ -1052,7 +1078,7 @@ int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi))
 		goto exit;
 
 	ret = -ECONNREFUSED;
-	fd = criu_connect(opts);
+	fd = criu_connect(opts, false);
 	if (fd < 0)
 		goto exit;
 
@@ -1162,7 +1188,7 @@ int criu_local_restore_child(criu_opts *opts)
 		opts->service_binary = CR_DEFAULT_SERVICE_BIN;
 	}
 
-	sk = swrk_connect(opts);
+	sk = swrk_connect(opts, false);
 	if (save_comm) {
 		/* Restore comm */
 		opts->service_comm = saved_comm;
