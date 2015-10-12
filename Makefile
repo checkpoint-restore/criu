@@ -225,8 +225,6 @@ $(piegen): pie/piegen/built-in.o
 .PHONY: pie/piegen
 endif
 
-pie/%:: $(ARCH_DIR) $(piegen)
-	$(Q) $(MAKE) $(build)=pie $@
 pie: $(ARCH_DIR) $(piegen)
 	$(Q) $(MAKE) $(build)=pie all
 
@@ -240,12 +238,6 @@ lib/%:: $(VERSION_HEADER) config built-in.o
 lib: $(VERSION_HEADER) config built-in.o
 	$(Q) $(MAKE) $(build)=lib all
 
-ifeq ($(VDSO),y)
-PROGRAM-BUILTINS	+= pie/util-vdso.o
-endif
-
-PROGRAM-BUILTINS	+= pie/util-fd.o
-PROGRAM-BUILTINS	+= pie/util.o
 PROGRAM-BUILTINS	+= protobuf/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
 

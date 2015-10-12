@@ -67,6 +67,7 @@ obj-y	+= sigframe.o
 obj-y	+= lsm.o
 ifeq ($(VDSO),y)
 obj-y	+= vdso.o
+obj-y	+= pie/util-vdso.o
 endif
 obj-y	+= cr-service.o
 obj-y	+= sd-daemon.o
@@ -74,6 +75,8 @@ obj-y	+= plugin.o
 obj-y	+= cr-errno.o
 obj-y	+= pie/pie-relocs.o
 obj-y	+= seize.o
+obj-y	+= pie/util-fd.o
+obj-y	+= pie/util.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y

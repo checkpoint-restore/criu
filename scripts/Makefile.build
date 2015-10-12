@@ -64,6 +64,18 @@ all-objs += $(obj-y)
 deps += $(obj-y:.o=.d)
 endif
 
+ifneq ($(obj-x),)
+obj-x := $(addprefix $(obj)/, $(obj-x))
+obj-x := $(addsuffix $(xsuffix).o, $(obj-x:.o=))
+$(foreach file,						\
+	$(obj-x),					\
+	$(eval						\
+		$(call gen-target-c-bundle,		\
+			$(file:$(xsuffix).o=),$(file:.o=))))
+all-objs += $(obj-x)
+deps += $(obj-x:.o=.d)
+endif
+
 ifneq ($(obj-e),)
 $(foreach file,						\
 	$(obj-e),					\

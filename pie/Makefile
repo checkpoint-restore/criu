@@ -1,12 +1,15 @@
 targets			+= parasite
 targets			+= restorer
 
+# used by obj-x to identify shared files built for parasite/restorer binaries
+xsuffix			:= -pie-build
+
 obj-y			+= log-simple.o
-obj-y			+= util.o
-obj-y			+= util-fd.o
+obj-x			+= util.o
+obj-x			+= util-fd.o
 
 ifeq ($(VDSO),y)
-obj-y			+= util-vdso.o
+obj-x			+= util-vdso.o
 obj-y			+= parasite-vdso.o
 obj-e			+= $(ARCH_DIR)/vdso-pie.o
 ifeq ($(SRCARCH),aarch64)

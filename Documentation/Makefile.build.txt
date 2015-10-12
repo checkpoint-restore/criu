@@ -57,6 +57,11 @@ obj-y::
 	Source code C file. Typically refered as *obj-y += 'some-file.o'*.
 	This implies you have real 'some-file.c' in '$(obj)' directory.
 
+obj-x::
+	Same as 'obj-y' but the output files have the suffix $(xsuffix).
+	This is used when building shared source file for both pie and crtools
+	The posfix '-x' came from word 'extra'.
+
 obj-e::
 	Same as 'obj-y' but implies that source code file lays in directory
 	other than '$(obj)'. The postfix '-e' came from word 'external'.
