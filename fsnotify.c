@@ -223,6 +223,10 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 
+	if (we->mask & KERNEL_FS_EVENT_ON_CHILD)
+		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit "
+			     "in mask (will be ignored on restore)\n");
+
 	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
 		free_inotify_wd_entry(e);
 		return -1;
@@ -812,6 +816,16 @@ static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg)
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
 	INIT_LIST_HEAD(&mark->list);
 	mark->remap = NULL;
+
+	/*
+	 * The kernel prior 4.3 might export internal event
+	 * mask bits which are not part of user-space API. It
+	 * is fixed in kernel but we have to keep backward
+	 * compatibility with old images. So mask out
+	 * inappropriate bits (in particular fdinfo might
+	 * have FS_EVENT_ON_CHILD bit set).
+	 */
+	mark->iwe->mask &= ~KERNEL_FS_EVENT_ON_CHILD;
 
 	return collect_inotify_mark(mark);
 }
