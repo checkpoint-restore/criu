@@ -30,7 +30,7 @@ static int init(char *argv[])
 static void get_base_req(void)
 {
 	criu_init_opts();
-	criu_set_service_address(service);
+	criu_set_service_binary(service);
 	criu_set_images_dir_fd(dir_fd);
 	criu_set_log_level(4);
 }

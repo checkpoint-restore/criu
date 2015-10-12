@@ -8,10 +8,7 @@ rm -rf wdir
 rm -f ./libcriu.so.1
 
 echo "== Prepare"
-mkdir -p wdir/s/
-mkdir wdir/i/
-echo "== Start service"
-${CRIU} service -v4 -o service.log --address cs.sk -d --pidfile pidfile -W wdir/s/ || { echo "FAIL service start"; exit 1; }
+mkdir -p wdir/i/
 
 echo "== Run tests"
 ln -s ../../lib/libcriu.so libcriu.so.1
@@ -28,7 +25,7 @@ function run_test {
 	else
 		echo "== Test $1"
 		mkdir wdir/i/$1/
-		if ! setsid ./$1 wdir/s/cs.sk wdir/i/$1/ < /dev/null &>> wdir/i/$1/test.log; then
+		if ! setsid ./$1 ${CRIU} wdir/i/$1/ < /dev/null &>> wdir/i/$1/test.log; then
 			echo "$1: FAIL"
 			RESULT=1
 		fi
@@ -41,8 +38,7 @@ run_test test_notify
 run_test test_iters
 run_test test_errno
 
-echo "== Stopping service"
-kill -TERM $(cat wdir/s/pidfile)
+echo "== Tests done"
 unlink libcriu.so.1
 [ $RESULT -eq 0 ] && echo "Success" || echo "FAIL"
 exit $RESULT

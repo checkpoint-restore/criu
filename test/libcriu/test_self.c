@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	}
 
 	criu_init_opts();
-	criu_set_service_address(argv[1]);
+	criu_set_service_binary(argv[1]);
 	criu_set_images_dir_fd(fd);
 	criu_set_log_level(4);
 
