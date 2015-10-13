@@ -412,8 +412,9 @@ def do_run_test(tname, tdesc, flavs, opts):
 		print "Unknown test class %s" % tcname
 		return
 
-	print "Run %s in %s" % (tname, flavs)
 	for f in flavs:
+		print
+		print_sep("Run %s in %s" % (tname, f))
 		flav = flavors[f](opts)
 		t = tclass(tname, tdesc, flav)
 
@@ -432,7 +433,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			# aborts the main script execution on the 1st error met
 			sys.exit(1)
 		else:
-			print "Test %s PASS" % tname
+			print_sep("Test %s PASS" % tname)
 
 class launcher:
 	def __init__(self, opts):
