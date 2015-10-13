@@ -1,5 +1,7 @@
 #!/bin/bash
 
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
 set -e
 
 rmroots() {

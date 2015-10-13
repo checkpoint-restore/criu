@@ -164,6 +164,10 @@ class test_fail_exc:
 	def __init__(self, step):
 		self.step = step
 
+class test_fault_injected_exc:
+	def __init__(self, cr_action):
+		self.cr_action = cr_action
+
 #
 # A test from zdtm/ directory.
 #
@@ -375,6 +379,7 @@ class criu_cli:
 		self.__iter = 0
 		self.__page_server = (opts['page_server'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
+		self.__fault = (opts['fault'])
 
 	def set_test(self, test):
 		self.__test = test
@@ -390,8 +395,12 @@ class criu_cli:
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
 
 	@staticmethod
-	def __criu(action, args):
-		cr = subprocess.Popen(["../criu", action] + args)
+	def __criu(action, args, fault = None):
+		env = None
+		if fault:
+			print "Forcing %s fault" % fault
+			env = dict(os.environ, CRIU_FAULT = fault)
+		cr = subprocess.Popen(["../criu", action] + args, env = env)
 		return cr.wait()
 
 	def __criu_act(self, action, opts, log = None):
@@ -401,10 +410,13 @@ class criu_cli:
 		s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
 
 		print "Run CRIU: [" + action + " " + " ".join(s_args) + "]"
-		ret = self.__criu(action, s_args)
+		ret = self.__criu(action, s_args, self.__fault)
 		if ret != 0:
-			grep_errors(os.path.join(self.__ddir(), log))
-			raise test_fail_exc("CRIU %s" % action)
+			if self.__fault:
+				raise test_fault_injected_exc(action)
+			else:
+				grep_errors(os.path.join(self.__ddir(), log))
+				raise test_fail_exc("CRIU %s" % action)
 
 	def dump(self, action, opts = []):
 		self.__iter += 1
@@ -521,10 +533,16 @@ def do_run_test(tname, tdesc, flavs, opts):
 		try:
 			t.start()
 			s = get_visible_state(t)
-			cr(cr_api, t, opts)
-			check_visible_state(t, s)
-			t.stop()
-			try_run_hook(t, ["--clean"])
+			try:
+				cr(cr_api, t, opts)
+			except test_fault_injected_exc as e:
+				if e.cr_action == "dump":
+					t.stop()
+				try_run_hook(t, ["--fault", e.cr_action])
+			else:
+				check_visible_state(t, s)
+				t.stop()
+				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print "Test %s FAIL at %s" % (tname, e.step)
 			t.print_output()
@@ -753,6 +771,7 @@ rp.add_argument("--pre", help = "Do some pre-dumps before dump")
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check")
+rp.add_argument("--fault", help = "Test fault injection")
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
