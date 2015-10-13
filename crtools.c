@@ -40,6 +40,7 @@
 #include "action-scripts.h"
 #include "security.h"
 #include "irmap.h"
+#include "fault-injection.h"
 
 #include "setproctitle.h"
 
@@ -256,6 +257,9 @@ int main(int argc, char *argv[], char *envp[])
 	};
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
+
+	if (fault_injection_init())
+		return 1;
 
 	cr_pb_init();
 	if (restrict_uid(getuid(), getgid()))

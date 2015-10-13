@@ -76,7 +76,7 @@
 #include "security.h"
 #include "lsm.h"
 #include "seccomp.h"
-
+#include "fault-injection.h"
 #include "parasite-syscall.h"
 
 #include "protobuf.h"
@@ -1530,6 +1530,11 @@ static int restore_task_with_children(void *_arg)
 
 	if (prepare_sigactions() < 0)
 		goto err_fini_mnt;
+
+	if (fault_injected(FI_RESTORE_ROOT_ONLY)) {
+		pr_info("fault: Restore root task failure!\n");
+		BUG();
+	}
 
 	if (create_children_and_session())
 		goto err_fini_mnt;

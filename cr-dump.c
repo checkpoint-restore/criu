@@ -81,6 +81,7 @@
 #include "lsm.h"
 #include "seccomp.h"
 #include "seize.h"
+#include "fault-injection.h"
 
 #include "asm/dump.h"
 
@@ -1193,6 +1194,11 @@ static int dump_one_task(struct pstree_item *item)
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err;
+	}
+
+	if (fault_injected(FI_DUMP_EARLY)) {
+		pr_info("fault: CRIU sudden detach\n");
+		BUG();
 	}
 
 	if (root_ns_mask & CLONE_NEWPID && root_item == item) {
