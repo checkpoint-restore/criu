@@ -107,6 +107,90 @@ static int open_by_handle(void *arg, int fd, int pid)
 	return sys_open_by_handle_at(fd, arg, O_PATH);
 }
 
+static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
+{
+	struct mount_info *m;
+	fh_t handle;
+	int fd = -1;
+	char *path;
+
+	decode_handle(&handle, f_handle);
+
+	/*
+	 * We gonna try to open the handle and then
+	 * depending on command line options and type
+	 * of the filesystem (tmpfs/devtmpfs do not
+	 * preserve their inodes between mounts) we
+	 * might need to find out an openable path
+	 * get used on restore as a watch destination.
+	 */
+	for (m = mntinfo; m; m = m->next) {
+		char buf[PATH_MAX], *__path;
+		int mntfd, openable_fd;
+		struct stat st;
+
+		if (m->s_dev != s_dev)
+			continue;
+
+		mntfd = __open_mountpoint(m, -1);
+		pr_debug("\t\tTrying via mntid %d root %s ns_mountpoint @%s (%d)\n",
+			 m->mnt_id, m->root, m->ns_mountpoint, mntfd);
+		if (mntfd < 0)
+			continue;
+
+		fd = userns_call(open_by_handle, UNS_FDOUT, &handle,
+				 sizeof(handle), mntfd);
+		close(mntfd);
+		if (fd < 0)
+			continue;
+
+		if (read_fd_link(fd, buf, sizeof(buf)) < 0) {
+			close(fd);
+			goto err;
+		}
+		close(fd);
+
+		/*
+		 * Convert into a relative path.
+		 */
+		__path = (buf[1] != '\0') ? buf + 1 : ".";
+		pr_debug("\t\t\tlink as %s\n", __path);
+
+		mntfd = mntns_get_root_fd(m->nsid);
+		if (mntfd < 0)
+			goto err;
+
+		openable_fd = openat(mntfd, __path, O_PATH);
+		if (openable_fd >= 0) {
+			if (fstat(openable_fd, &st)) {
+				pr_perror("Can't stat on %s\n", __path);
+				close(openable_fd);
+				return ERR_PTR(-errno);
+			}
+			close(openable_fd);
+
+			pr_debug("\t\t\topenable (inode %s) as %s\n",
+				 st.st_ino == i_ino ?
+				 "match" : "don't match", __path);
+
+			if (st.st_ino == i_ino) {
+				path = xstrdup(buf);
+				if (path == NULL)
+					goto err;
+
+				f_handle->has_mnt_id = true;
+				f_handle->mnt_id = m->mnt_id;
+				return path;
+			}
+		} else
+			pr_debug("\t\t\tnot openable as %s (%m)\n", __path);
+	}
+
+	return ERR_PTR(-ENOENT);
+err:
+	return ERR_PTR(-1);
+}
+
 static int open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
@@ -160,18 +244,12 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		 */
 		if ((mi->fstype->code == FSTYPE__TMPFS) ||
 				(mi->fstype->code == FSTYPE__DEVTMPFS)) {
-			char p[PATH_MAX];
-
-			if (read_fd_link(fd, p, sizeof(p)) < 0)
+			path = alloc_openable(s_dev, i_ino, f_handle);
+			if (IS_ERR_OR_NULL(path)) {
+				pr_err("Can't find suitable path for handle (%d)\n",
+				       (int)PTR_ERR(path));
 				goto err;
-
-			path = xstrdup(p);
-			if (path == NULL)
-				goto err;
-
-			f_handle->has_mnt_id = true;
-			f_handle->mnt_id = mi->mnt_id;
-
+			}
 			goto out;
 		}
 
