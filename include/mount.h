@@ -94,6 +94,7 @@ extern int mntns_get_root_by_mnt_id(int mnt_id);
 extern struct ns_id *lookup_nsid_by_mnt_id(int mnt_id);
 
 extern int open_mount(unsigned int s_dev);
+extern int __open_mountpoint(struct mount_info *pm, int mnt_fd);
 extern struct fstype *find_fstype_by_name(char *fst);
 extern bool add_fsname_auto(const char *names);
 

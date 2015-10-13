@@ -982,7 +982,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
  * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
  * If mnt_fd is -1, the mountpoint will be opened by this function.
  */
-static int __open_mountpoint(struct mount_info *pm, int mnt_fd)
+int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
 	dev_t dev;
 	struct stat st;
