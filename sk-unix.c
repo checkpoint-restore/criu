@@ -1238,6 +1238,12 @@ static int unlink_stale(struct unix_sk_info *ui)
 		return -1;
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
+	if (ret < 0) {
+		pr_perror("Can't unlink stale socket %#x peer %#x (name %s dir %s)\n",
+			  ui->ue->ino, ui->ue->peer,
+			  ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
+			  ui->name_dir ? ui->name_dir : "-");
+	}
 	revert_unix_sk_cwd(&cwd_fd);
 
 	return ret;
@@ -1258,12 +1264,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 
 		ui->name = (void *)ui->ue->name.data;
 
-		if (unlink_stale(ui)) {
-			pr_warn("Can't unlink stale socket %#x peer %#x (name %s dir %s)\n",
-				ui->ue->ino, ui->ue->peer,
-				ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
-				ui->name_dir ? ui->name_dir : "-");
-		}
+		unlink_stale(ui);
 	} else
 		ui->name = NULL;
 
