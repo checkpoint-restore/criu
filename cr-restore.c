@@ -1736,6 +1736,7 @@ static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
 	int ret, fd, mnt_ns_fd = -1;
+	int clean_remaps = 1;
 
 	ret = run_scripts(ACT_PRE_RESTORE);
 	if (ret != 0) {
@@ -1854,12 +1855,12 @@ static int restore_root_task(struct pstree_item *init)
 	 */
 	task_entries->nr_threads -= atomic_read(&task_entries->nr_zombies);
 
-	if (mnt_ns_fd >= 0)
-		/*
-		 * Don't try_clean_remaps here, since restore went OK
-		 * and all ghosts were removed by the openers.
-		 */
-		close(mnt_ns_fd);
+	/*
+	 * There is no need to call try_clean_remaps() after this point,
+	 * as restore went OK and all ghosts were removed by the openers.
+	 */
+	clean_remaps = 0;
+	close_safe(&mnt_ns_fd);
 	cleanup_mnt_ns();
 
 	ret = stop_usernsd();
@@ -1952,7 +1953,8 @@ out_kill:
 
 out:
 	fini_cgroup();
-	try_clean_remaps(mnt_ns_fd);
+	if (clean_remaps)
+		try_clean_remaps(mnt_ns_fd);
 	cleanup_mnt_ns();
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
