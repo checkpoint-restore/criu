@@ -214,7 +214,7 @@ static int tcp_read_sysctl_limits(void)
 	int ret;
 
 	struct sysctl_req req[] = {
-		{ "net/ipv4/tcp_rmem", &vect, CTL_U32A(ARRAY_SIZE(vect)) },
+		{ "net/ipv4/tcp_rmem", &vect, CTL_U32A(ARRAY_SIZE(vect)), CTL_FLAGS_OPTIONAL },
 	};
 
 	/*
@@ -222,7 +222,7 @@ static int tcp_read_sysctl_limits(void)
 	 * availabe for send/read queues on restore.
 	 */
 	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
-	if (ret) {
+	if (ret || vect[0] == 0) {
 		pr_warn("TCP mem sysctls are not available. Using defaults.\n");
 		goto out;
 	}
