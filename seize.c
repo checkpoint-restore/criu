@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -141,6 +142,14 @@ static int freeze_processes(void)
 				continue;
 
 			if (seize_catch_task(pid) && state == frozen) {
+				char buf[] = "/proc/XXXXXXXXXX/exe";
+				struct stat st;
+
+				/* skip kernel threads */
+				snprintf(buf, sizeof(buf), "/proc/%d/exe", pid);
+				if (stat(buf, &st) == -1 && errno == ENOENT)
+					continue;
+
 				/* fails when meets a zombie */
 				fclose(f);
 				goto err;
