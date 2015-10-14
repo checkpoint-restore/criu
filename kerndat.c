@@ -210,11 +210,11 @@ int kerndat_get_dirty_track(void)
 
 static int tcp_read_sysctl_limits(void)
 {
-	u32 vect[2][3] = { };
+	u32 vect[3] = { };
 	int ret;
 
 	struct sysctl_req req[] = {
-		{ "net/ipv4/tcp_rmem", &vect[1], CTL_U32A(ARRAY_SIZE(vect[1])) },
+		{ "net/ipv4/tcp_rmem", &vect, CTL_U32A(ARRAY_SIZE(vect)) },
 	};
 
 	/*
@@ -227,7 +227,7 @@ static int tcp_read_sysctl_limits(void)
 		goto out;
 	}
 
-	kdat.tcp_max_rshare = min(kdat.tcp_max_rshare, (int)vect[1][2]);
+	kdat.tcp_max_rshare = min(kdat.tcp_max_rshare, (int)vect[2]);
 
 	if (kdat.tcp_max_rshare < 128)
 		pr_warn("The memory limits for TCP queues are suspiciously small\n");
