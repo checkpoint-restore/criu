@@ -54,11 +54,6 @@ int check_tun_cr(int no_tun_err)
 {
 	int fd, idx = 13, ret;
 
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping tun support check\n");
-		return 0;
-	}
-
 	fd = open(TUN_DEV_GEN_PATH, O_RDWR);
 	if (fd < 0) {
 		pr_perror("Can't check tun support");
