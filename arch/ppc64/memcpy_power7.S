@@ -23,6 +23,11 @@
  */
 #include "asm/linkage.h"
 
+/*
+ * When building the parasite code, the compiler may rely on the C library
+ * service memcpy to initialise big local variable in the stack.
+ */
+ENTRY(memcpy)
 ENTRY(memcpy_power7)
 	cmpldi	r5,16
 	std	r3,-STACKFRAMESIZE+STK_REG(R31)(r1)

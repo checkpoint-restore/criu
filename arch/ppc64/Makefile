@@ -6,7 +6,6 @@ SYS-ASM		:= syscalls.S
 syscalls-asm-y	+= $(SYS-ASM:.S=).o
 crtools-obj-y	+= crtools.o
 crtools-obj-y	+= cpu.o
-crtools-asm-y	+= memcpy_power7.o memcmp_64.o
 
 SYS-DEF		:= syscall-ppc64.def
 SYS-ASM-COMMON	:= syscall-common-ppc64.S
