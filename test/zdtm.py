@@ -539,6 +539,10 @@ def run_tests(opts):
 	if opts['all']:
 		torun = all_tests(opts)
 		run_all = True
+	elif opts['tests']:
+		r = re.compile(opts['tests'])
+		torun = filter(lambda x: r.match(x), all_tests(opts))
+		run_all = True
 	elif opts['test']:
 		torun = opts['test']
 		run_all = False
@@ -636,6 +640,7 @@ rp = sp.add_parser("run", help = "Run test(s)")
 rp.set_defaults(action = run_tests)
 rp.add_argument("-a", "--all", action = 'store_true')
 rp.add_argument("-t", "--test", help = "Test name", action = 'append')
+rp.add_argument("-T", "--tests", help = "Regexp")
 rp.add_argument("-f", "--flavor", help = "Flavor to run")
 rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
 
