@@ -23,19 +23,21 @@ int cr_plugin_dump_file(int fd, int id)
 	unsigned char buf[4096];
 	int img_fd, ret, len;
 	unsigned long irqp;
-	struct stat st;
+	struct stat st, st_rtc;
 
 	if (fstat(fd, &st) == -1) {
 		pr_perror("fstat");
 		return -1;
 	}
 
-#if defined(__PPC64__)
-#define RTC_DEV_MAJOR	253
-#else
-#define RTC_DEV_MAJOR	254
-#endif
-	if (major(st.st_rdev) != RTC_DEV_MAJOR || minor(st.st_rdev) != 0)
+	ret = stat("/dev/rtc", &st_rtc);
+	if (ret == -1) {
+		pr_perror("fstat");
+		return -1;
+	}
+
+	if (major(st.st_rdev) != major(st_rtc.st_rdev) ||
+	    minor(st.st_rdev) != 0)
 		return -ENOTSUP;
 
 	if (ioctl(fd, RTC_IRQP_READ, &irqp) == -1) {
