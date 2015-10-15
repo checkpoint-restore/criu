@@ -44,11 +44,6 @@ int check_timerfd(void)
 {
 	int fd, ret = -1;
 
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping timerfd support check\n");
-		return 0;
-	}
-
 	fd = timerfd_create(CLOCK_MONOTONIC, 0);
 	if (fd < 0) {
 		pr_perror("timerfd_create failed");
