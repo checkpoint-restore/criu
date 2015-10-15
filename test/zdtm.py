@@ -280,13 +280,22 @@ test_classes = { 'zdtm': zdtm_test }
 #
 
 class criu_cli:
-	def __init__(self, test, opts):
-		self.__test = test
-		self.__dump_path = "dump/" + test.getname() + "/" + test.getpid()
+	def __init__(self, opts):
+		self.__test = None
+		self.__dump_path = None
 		self.__iter = 0
-		os.makedirs(self.__dump_path)
 		self.__page_server = (opts['page_server'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
+
+	def set_test(self, test):
+		self.__test = test
+		self.__dump_path = "dump/" + test.getname() + "/" + test.getpid()
+		os.makedirs(self.__dump_path)
+
+	def cleanup(self):
+		if self.__dump_path:
+			print "Remvoing %s" % self.__dump_path
+			shutil.rmtree(self.__dump_path)
 
 	def __ddir(self):
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
@@ -354,11 +363,11 @@ def try_run_hook(test, args):
 # Main testing entity -- dump (probably with pre-dumps) and restore
 #
 
-def cr(test, opts):
+def cr(cr_api, test, opts):
 	if opts['nocr']:
 		return
 
-	cr_api = criu_cli(test, opts)
+	cr_api.set_test(test)
 
 	for i in xrange(0, int(opts['iters'] or 1)):
 		for p in xrange(0, int(opts['pre'] or 0)):
@@ -417,11 +426,12 @@ def do_run_test(tname, tdesc, flavs, opts):
 		print_sep("Run %s in %s" % (tname, f))
 		flav = flavors[f](opts)
 		t = tclass(tname, tdesc, flav)
+		cr_api = criu_cli(opts)
 
 		try:
 			t.start()
 			s = get_visible_state(t)
-			cr(t, opts)
+			cr(cr_api, t, opts)
 			check_visible_state(t, s)
 			t.stop()
 			try_run_hook(t, ["--clean"])
@@ -429,10 +439,14 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print "Test %s FAIL at %s" % (tname, e.step)
 			t.print_output()
 			t.kill()
+			if opts['keep_img'] == 'never':
+				cr_api.cleanup()
 			# This exit does two things -- exits from subprocess and
 			# aborts the main script execution on the 1st error met
 			sys.exit(1)
 		else:
+			if opts['keep_img'] != 'always':
+				cr_api.cleanup()
 			print_sep("Test %s PASS" % tname)
 
 class launcher:
@@ -652,6 +666,9 @@ rp.add_argument("--iters", help = "Do CR cycle several times before check")
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
+
+rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after test",
+		choices = [ 'always', 'never', 'failed' ], default = 'failed')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
