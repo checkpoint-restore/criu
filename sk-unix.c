@@ -1227,15 +1227,15 @@ static struct file_desc_ops unix_desc_ops = {
  * Make FS clean from sockets we're about to
  * restore. See for how we bind them for details
  */
-static int unlink_stale(struct unix_sk_info *ui)
+static void unlink_stale(struct unix_sk_info *ui)
 {
 	int ret, cwd_fd;
 
 	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
-		return 0;
+		return;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd))
-		return -1;
+		return;
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0) {
@@ -1245,8 +1245,6 @@ static int unlink_stale(struct unix_sk_info *ui)
 			  ui->name_dir ? ui->name_dir : "-");
 	}
 	revert_unix_sk_cwd(&cwd_fd);
-
-	return ret;
 }
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base)
