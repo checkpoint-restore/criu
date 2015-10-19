@@ -74,6 +74,7 @@ $(foreach file,						\
 			$(file:$(xsuffix).o=),$(file:.o=))))
 all-objs += $(obj-x)
 deps += $(obj-x:.o=.d)
+cleanup-y += $(obj-x) $(obj-x:.o=.d)
 endif
 
 ifneq ($(obj-e),)
