@@ -574,7 +574,7 @@ class launcher:
 			if self.__fail:
 				raise test_fail_exc('')
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
