@@ -239,7 +239,7 @@ class zdtm_test:
 		self.__flavor.fini()
 
 	def stop(self):
-		print "Stop test"
+		self.getpid() # Read the pid from pidfile back
 		self.kill(signal.SIGTERM)
 
 		res = tail(self.__name + '.out')
@@ -285,6 +285,10 @@ class zdtm_test:
 			print "Test output: " + "=" * 32
 			print open(self.__name + '.out').read()
 			print " <<< " + "=" * 32
+
+	def static(self):
+		return self.__name.split('/')[2] == 'static'
+
 
 
 class inhfd_test:
@@ -364,6 +368,9 @@ class inhfd_test:
 
 	def print_output(self):
 		pass
+
+	def static(self):
+		return True
 
 
 test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
@@ -505,9 +512,12 @@ def cmp_lists(m1, m2):
 	return filter(lambda x: x[0] != x[1], zip(m1, m2))
 
 def get_visible_state(test):
-	fds = get_fds(test)
-	maps = get_maps(test)
-	return (fds, maps)
+	if test.static():
+		fds = get_fds(test)
+		maps = get_maps(test)
+		return (fds, maps)
+	else:
+		return ([], [])
 
 def check_visible_state(test, state):
 	new = get_visible_state(test)
