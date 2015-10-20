@@ -225,7 +225,7 @@ static int rand_ipc_sem(void)
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		err("Can't open %d\n", name);
+		err("Can't open %s", name);
 		return fd;
 	}
 	sprintf(buf, "%d %d %d %d\n", (unsigned)lrand48(), (unsigned)lrand48(),
