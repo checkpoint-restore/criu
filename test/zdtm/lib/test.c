@@ -192,7 +192,7 @@ void test_init(int argc, char **argv)
 			waitpid(pid, &ret, 0);
 
 			if (WIFEXITED(ret)) {
-				pr_perror("Test exited with unexpectedly with code %d", WEXITSTATUS(ret));
+				pr_perror("Test exited unexpectedly with code %d", WEXITSTATUS(ret));
 				exit(0);
 			}
 			if (WIFSIGNALED(ret)) {
@@ -324,7 +324,7 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 		waitpid(pid, &ret, 0);
 
 		if (WIFEXITED(ret)) {
-			pr_perror("Test exited with unexpectedly with code %d", WEXITSTATUS(ret));
+			pr_perror("Test exited unexpectedly with code %d", WEXITSTATUS(ret));
 			exit(0);
 		}
 		if (WIFSIGNALED(ret)) {
