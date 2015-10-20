@@ -50,7 +50,7 @@ static void show_ss(char *prefix, stack_t *s)
 void thread_sigaction(int signo, siginfo_t *info, void *context)
 {
 	if (sigaltstack(NULL, &sas_state[SAS_THRD_NEW]))
-		err("thread sigaltstack");
+		pr_perror("thread sigaltstack");
 
 	show_ss("thread in sas", &sas_state[SAS_THRD_NEW]);
 
@@ -77,14 +77,14 @@ static void *thread_func(void *arg)
 	sigemptyset(&sa.sa_mask);
 
 	if (sigaction(SIGUSR2, &sa, NULL)) {
-		err("Can't set SIGUSR2 handler");
+		pr_perror("Can't set SIGUSR2 handler");
 		exit_group(-1);
 	}
 
 	task_waiter_wait4(&t, 1);
 
 	if (sigaltstack(&sas_state[SAS_THRD_OLD], NULL)) {
-		err("thread sigaltstack");
+		pr_perror("thread sigaltstack");
 		exit_group(-1);
 	}
 
@@ -96,7 +96,7 @@ static void *thread_func(void *arg)
 void leader_sigaction(int signo, siginfo_t *info, void *context)
 {
 	if (sigaltstack(NULL, &sas_state[SAS_MAIN_NEW]))
-		err("leader sigaltstack");
+		pr_perror("leader sigaltstack");
 
 	show_ss("leader in sas", &sas_state[SAS_MAIN_NEW]);
 }
@@ -122,17 +122,17 @@ int main(int argc, char *argv[])
 	task_waiter_init(&t);
 
 	if (sigaction(SIGUSR1, &sa, NULL)) {
-		err("Can't set SIGUSR1 handler");
+		pr_perror("Can't set SIGUSR1 handler");
 		exit(-1);
 	}
 
 	if (pthread_create(&thread, NULL, &thread_func, NULL)) {
-		err("Can't create thread");
+		pr_perror("Can't create thread");
 		exit(-1);
 	}
 
 	if (sigaltstack(&sas_state[SAS_MAIN_OLD], NULL)) {
-		err("sigaltstack");
+		pr_perror("sigaltstack");
 		exit(-1);
 	}
 

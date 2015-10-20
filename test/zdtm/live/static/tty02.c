@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
-		err("Can't open a master pseudoterminal");
+		pr_perror("Can't open a master pseudoterminal");
 		return 1;
 	}
 
@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
 	/* set up a controlling terminal */
 	fds = open(slavename, O_RDWR | O_NOCTTY);
 	if (fds == -1) {
-		err("Can't open a slave pseudoterminal %s", slavename);
+		pr_perror("Can't open a slave pseudoterminal %s", slavename);
 		return 1;
 	}
 

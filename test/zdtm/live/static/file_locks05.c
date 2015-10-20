@@ -24,13 +24,13 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
-		err("No file");
+		pr_perror("No file");
 		return -1;
 	}
 
 	fd2 = open(filename, O_RDWR);
 	if (fd2 < 0) {
-		err("No file2");
+		pr_perror("No file2");
 		return -1;
 	}
 

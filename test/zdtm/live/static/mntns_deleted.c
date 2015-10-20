@@ -40,12 +40,12 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (mkdir(dirname, 0700)) {
-		err("mkdir %s", dirname);
+		pr_perror("mkdir %s", dirname);
 		exit(1);
 	}
 
 	if (mount("none", dirname, "tmpfs", MS_MGC_VAL, NULL)) {
-		err("mount %s", dirname);
+		pr_perror("mount %s", dirname);
 		return 1;
 	}
 
@@ -60,39 +60,39 @@ int main(int argc, char *argv[])
 
 	if (mkdir(path_src, 0700) ||
 	    mkdir(path_dst, 0700)) {
-		err("mkdir");
+		pr_perror("mkdir");
 		return 1;
 	}
 
 	if ((fd1 = open(TEST_FILE_SRC, O_WRONLY | O_CREAT | O_TRUNC) < 0)) {
-		err("touching %s", TEST_FILE_SRC);
+		pr_perror("touching %s", TEST_FILE_SRC);
 		return 1;
 	}
 	close(fd1);
 
 	if ((fd2 = open(TEST_FILE_DST, O_WRONLY | O_CREAT | O_TRUNC) < 0)) {
-		err("touching %s", TEST_FILE_DST);
+		pr_perror("touching %s", TEST_FILE_DST);
 		return 1;
 	}
 	close(fd2);
 
 	if (mount(path_src, path_dst, NULL, MS_BIND | MS_MGC_VAL, NULL)) {
-		err("mount %s -> %s", path_src, path_dst);
+		pr_perror("mount %s -> %s", path_src, path_dst);
 		return 1;
 	}
 
 	if (mount(TEST_FILE_SRC, TEST_FILE_DST, NULL, MS_BIND | MS_MGC_VAL, NULL)) {
-		err("mount %s -> %s", TEST_FILE_SRC, TEST_FILE_DST);
+		pr_perror("mount %s -> %s", TEST_FILE_SRC, TEST_FILE_DST);
 		return 1;
 	}
 
 	if (rmdir(path_src)) {
-		err("rmdir %s", path_src);
+		pr_perror("rmdir %s", path_src);
 		return 1;
 	}
 
 	if (unlink(TEST_FILE_SRC)) {
-		err("unlink %s", TEST_FILE_SRC);
+		pr_perror("unlink %s", TEST_FILE_SRC);
 		return 1;
 	}
 

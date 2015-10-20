@@ -39,24 +39,24 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_procs > PROCS_MAX) {
-		err("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
+		pr_perror("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
 		exit(1);
 	}
 
 	if (pipe(pipes)) {
-		err("Can't create pipes: %m\n");
+		pr_perror("Can't create pipes\n");
 		exit(1);
 	}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		err("can't set SIGCHLD handler: %m\n");
+		pr_perror("can't set SIGCHLD handler\n");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			err("Can't fork: %m\n");
+			pr_perror("Can't fork\n");
 			kill(0, SIGKILL);
 			exit(1);
 		}
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 	close(pipes[0]);
 
 	if (num_exited) {
-		err("Some children died unexpectedly\n");
+		pr_perror("Some children died unexpectedly\n");
 		kill(0, SIGKILL);
 		exit(1);
 	}

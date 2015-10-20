@@ -34,12 +34,12 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (write(fd2, "x", 1) != 1) {
-		err("Can't write x");
+		pr_perror("Can't write x");
 		return 1;
 	}
 
 	if (write(fd, "y", 1) != 1) {
-		err("Can't write y");
+		pr_perror("Can't write y");
 		return 1;
 	}
 

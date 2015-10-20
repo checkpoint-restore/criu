@@ -73,13 +73,13 @@ int main(int argc, char *argv[])
 
 	ret = chmod(path, TEST_MODE);
 	if (ret) {
-		err("chmod");
+		pr_perror("chmod");
 		exit(1);
 	}
 
 	ret = chown(path, uid, gid);
 	if (ret) {
-		err("chown");
+		pr_perror("chown");
 		exit(1);
 	}
 

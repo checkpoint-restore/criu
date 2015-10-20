@@ -47,7 +47,7 @@ static int get_mntid(int fd)
 	snprintf(str, sizeof(str), "/proc/self/fdinfo/%d", fd);
 	f = fopen(str, "r");
 	if (!f) {
-		err("Can't open %s to parse", str);
+		pr_perror("Can't open %s to parse", str);
 		return -1;
 	}
 	while (fgets(str, sizeof(str), f)) {
@@ -69,7 +69,7 @@ int ns_child(void *_arg)
 
 	snprintf(fpath, sizeof(fpath), "%s/1", dirname);
 	if (umount(fpath)) {
-		err("umount");
+		pr_perror("umount");
 		return 1;
 	}
 
@@ -82,20 +82,20 @@ int ns_child(void *_arg)
 	}
 
 	if (mount(lpath, fpath, NULL, MS_BIND, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 
 	snprintf(fpath, sizeof(fpath), "%s/0", dirname);
 	if (umount(fpath)) {
-		err("umount");
+		pr_perror("umount");
 		return 1;
 	}
 
 	snprintf(fpath, sizeof(fpath), "%s/2/%s", dirname, MPTS_FILE);
 	fd2 = open(fpath, O_RDWR);
 	if (fd2 < 0) {
-		err("open");
+		pr_perror("open");
 		return -1;
 	}
 	close(args->sync);
@@ -107,7 +107,7 @@ int ns_child(void *_arg)
 		exit(1);
 
 	if (fstat(args->fd, &st1) || fstat(fd2, &st2)) {
-		err("stat");
+		pr_perror("stat");
 		exit(1);
 	}
 
@@ -118,7 +118,7 @@ int ns_child(void *_arg)
 #else
 	if (st1.st_nlink != 0) {
 #endif
-		err("Wrong number of links: %d", st1.st_nlink);
+		pr_perror("Wrong number of links: %d", st1.st_nlink);
 		exit(1);
 	}
 
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mount("test", dirname, "tmpfs", 0, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 
@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (mount("test", fpath, "tmpfs", 0, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (mount(lpath, fpath, NULL, MS_BIND, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 	snprintf(lpath, sizeof(lpath), "%s/0/2", dirname);
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 	}
 
 	if (pipe(p) == -1) {
-		err("pipe");
+		pr_perror("pipe");
 		return 1;
 	}
 
@@ -194,13 +194,13 @@ int main(int argc, char **argv)
 		snprintf(fpath, sizeof(fpath), "%s/0/1/%s", dirname, MPTS_FILE);
 		snprintf(lpath, sizeof(fpath), "%s/0/2/%s", dirname, MPTS_FILE);
 		if (link(fpath, lpath) == -1) {
-			err("link");
+			pr_perror("link");
 			return -1;
 		}
 #ifdef ZDTM_LINK_REMAP
 		snprintf(lpath, sizeof(fpath), "%s/0/%s", dirname, MPTS_FILE);
 		if (link(fpath, lpath) == -1) {
-			err("link");
+			pr_perror("link");
 			return -1;
 		}
 #endif
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
 
 		pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
 		if (pid < 0) {
-			err("Unable to fork child");
+			pr_perror("Unable to fork child");
 			return 1;
 		}
 

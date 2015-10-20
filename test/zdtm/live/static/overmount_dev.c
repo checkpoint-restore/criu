@@ -27,28 +27,28 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (snprintf(path, sizeof(path), "%s/foo", dirname) >= sizeof(path)) {
-		err("directory name \"%s\"is too long", dirname);
+		pr_perror("directory name \"%s\"is too long", dirname);
 		exit(1);
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s", dirname);
+		pr_perror("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if (mknod(path, mode, dev)) {
-		err("can't make device file \"%s\"", path);
+		pr_perror("can't make device file \"%s\"", path);
 		exit(1);
 	}
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s", path);
+		pr_perror("can't open %s", path);
 		goto rmdir;
 	}
 
 	if (mount("rien", dirname, "tmpfs", 0, 0) < 0) {
-		err("can't mount tmpfs over %s: %m", dirname);
+		pr_perror("can't mount tmpfs over %s", dirname);
 		goto cleanup;
 	}
 

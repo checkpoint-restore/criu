@@ -165,7 +165,7 @@ static void chew_some_file(int num)
 			sprintf(str, "standard_%s.%d", filename, num);
 			fd1 = open(str, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 			if (write(fd1, buf, FILE_SIZE) != FILE_SIZE)
-				err("can't write %s: %m\n", str);
+				pr_perror("can't write %s\n", str);
 			close(fd1);
 			goto out_exit;
 		}
@@ -187,19 +187,19 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (scale > MAX_SCALE) {
-		err("Too many children specified\n");
+		pr_perror("Too many children specified\n");
 		exit(-1);
 	}
 
 	if (signal(SIGUSR2, do_stop) == SIG_ERR) {
-		err("Can't setup handler\n");
+		pr_perror("Can't setup handler\n");
 		exit(-1);
 	}
 
 	for (i = 0; i < scale; i++) {
 		rv = test_fork();
 		if (rv == -1) {
-			err("Can't fork\n");
+			pr_perror("Can't fork\n");
 			killall();
 			exit(-1);
 		}

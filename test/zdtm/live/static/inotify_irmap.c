@@ -32,7 +32,7 @@ int main (int argc, char *argv[])
 
 	unlink(TFIL);
 	if (creat(TFIL, 0600) < 0) {
-		err("Can't make test file");
+		pr_perror("Can't make test file");
 		exit(1);
 	}
 

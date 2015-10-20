@@ -32,12 +32,12 @@ int main(int argc, char **argv)
 	snprintf(fname, sizeof(buf), "%s/test.file", dirname);
 	fd = open(fname, O_RDWR | O_CREAT, 0644);
 	if (fd < 0) {
-		err("open failed");
+		pr_perror("open failed");
 		goto err;
 	}
 
 	if (write(fd, TEST_WORD, sizeof(TEST_WORD)) != sizeof(TEST_WORD)) {
-		err("write() failed");
+		pr_perror("write() failed");
 		goto err;
 	}
 	close(fd);
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0) {
-		err("open failed");
+		pr_perror("open failed");
 		goto err;
 	}
 

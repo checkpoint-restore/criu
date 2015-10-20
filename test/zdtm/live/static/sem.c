@@ -112,7 +112,7 @@ static int test_fn(int argc, char **argv)
 
 	key = ftok(argv[0], 89063453);
 	if (key == -1) {
-		err("Can't make key");
+		pr_perror("Can't make key");
 		return -1;
 	}
 
@@ -121,12 +121,12 @@ static int test_fn(int argc, char **argv)
 	id = semget(key, 1, 0777 | IPC_CREAT | IPC_EXCL);
 	if (id  == -1) {
 		fail_count++;
-		err("Can't get sem");
+		pr_perror("Can't get sem");
 		goto out;
 	}
 	if (semctl(id, 0, SETVAL, val) == -1) {
 		fail_count++;
-		err("Can't init sem");
+		pr_perror("Can't init sem");
 		goto out_destroy;
 	}
 

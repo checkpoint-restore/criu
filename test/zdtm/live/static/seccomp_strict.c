@@ -22,7 +22,7 @@ int get_seccomp_mode(pid_t pid)
 	sprintf(buf, "/proc/%d/status", pid);
 	f = fopen(buf, "r+");
 	if (!f) {
-		err("fopen failed");
+		pr_perror("fopen failed");
 		return -1;
 	}
 
@@ -50,13 +50,13 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
-		err("socketpair");
+		pr_perror("socketpair");
 		return -1;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("fork");
+		pr_perror("fork");
 		return -1;
 	}
 
@@ -66,18 +66,18 @@ int main(int argc, char ** argv)
 		zdtm_seccomp = 1;
 
 		if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT) < 0) {
-			err("prctl failed");
+			pr_perror("prctl failed");
 			return -1;
 		}
 		test_msg("SECCOMP_MODE_STRICT is enabled\n");
 
 		if (write(sk, &c, 1) != 1) {
-			err("write");
+			pr_perror("write");
 			return -1;
 		}
 		if (read(sk, &c, 1) != 1) {
 			_exit(1);
-			err("read");
+			pr_perror("read");
 			return -1;
 		}
 
@@ -88,7 +88,7 @@ int main(int argc, char ** argv)
 	close(sk_pair[1]);
 
 	if (read(sk, &c, 1) != 1) {
-		err("read");
+		pr_perror("read");
 		goto err;
 	}
 
@@ -97,15 +97,15 @@ int main(int argc, char ** argv)
 
 	mode = get_seccomp_mode(pid);
 	if (write(sk, &c, 1) != 1) {
-		err("write");
+		pr_perror("write");
 		goto err;
 	}
 	if (waitpid(pid, &status, 0) != pid) {
-		err("waitpid");
+		pr_perror("waitpid");
 		exit(1);
 	}
 	if (status != 0) {
-		err("The child exited with an unexpected code %d", status);
+		pr_perror("The child exited with an unexpected code %d", status);
 		exit(1);
 	}
 	if (mode != SECCOMP_MODE_STRICT) {

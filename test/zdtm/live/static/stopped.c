@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (pipe(p)) {
-		err("Unable to create pipe");
+		pr_perror("Unable to create pipe");
 		return 1;
 	}
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 		close(p[1]);
 		ret = read(p[0], &c, 1);
 		if (ret != 1) {
-			err("Unable to read: %d", ret);
+			pr_perror("Unable to read: %d", ret);
 			return 1;
 		}
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 
 	// Return immediately if child run or stopped(by SIGSTOP)
 	if (waitpid(pid, &status, WUNTRACED | WCONTINUED) == -1) {
-		err("Unable to wait child");
+		pr_perror("Unable to wait child");
 		goto out;
 	}
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	kill(pid, SIGCONT);
 
 	if (waitpid(pid, &status, 0) == -1) {
-		err("Unable to wait child");
+		pr_perror("Unable to wait child");
 		goto out;
 	}
 

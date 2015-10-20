@@ -30,12 +30,12 @@ int main(int argc, char ** argv)
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		err("open");
+		pr_perror("open");
 		return 1;
 	};
 
 	if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK) == -1) {
-		err("fcntl");
+		pr_perror("fcntl");
 		return 1;
 	}
 

@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
 	sk1 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
 	if (sk1 < 0) {
-		err("Can't create socket");
+		pr_perror("Can't create socket");
 		return 1;
 	}
 
@@ -47,13 +47,13 @@ int main(int argc, char **argv)
 
 	ret = bind(sk1, (struct sockaddr *)&addr1, len);
 	if (ret < 0) {
-		err("Can't bind socket");
+		pr_perror("Can't bind socket");
 		return 1;
 	}
 
 	sk2 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
 	if (sk2 < 0) {
-		err("Can't create socket");
+		pr_perror("Can't create socket");
 		return 1;
 	}
 
@@ -64,13 +64,13 @@ int main(int argc, char **argv)
 
 	ret = bind(sk2, (struct sockaddr *)&addr2, len);
 	if (ret < 0) {
-		err("Can't bind socket");
+		pr_perror("Can't bind socket");
 		return 1;
 	}
 
 	ret = connect(sk2, (struct sockaddr *)&addr1, len);
 	if (ret < 0) {
-		err("Can't connect");
+		pr_perror("Can't connect");
 		return 1;
 	}
 

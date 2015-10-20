@@ -48,12 +48,12 @@ static void setup_timers(void)
 
 	for (i = 0; i < NUM_TIMERS; i++) {
 		if (signal(timer_tests[i].signal, timer_tick) == SIG_ERR) {
-			err("can't set signal handler %d", i);
+			pr_perror("can't set signal handler %d", i);
 			exit(1);
 		}
 
 		if (setitimer(timer_tests[i].timer_type, &tv, NULL) < 0) {
-			err("can't set timer %d", i);
+			pr_perror("can't set timer %d", i);
 			exit(1);
 		}
 	}

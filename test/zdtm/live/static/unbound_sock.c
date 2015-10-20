@@ -25,7 +25,7 @@ int main(int argc, char ** argv)
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return 1;
 	}
 

@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 
 	save_dumpable = prctl(PR_GET_DUMPABLE);
 	if (save_dumpable < 0) {
-		err("error getting prctl(PR_GET_DUMPABLE) before dump");
+		pr_perror("error getting prctl(PR_GET_DUMPABLE) before dump");
 		return 1;
 	}
 #ifdef DEBUG
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 
 	dumpable = prctl(PR_GET_DUMPABLE);
 	if (dumpable < 0) {
-		err("error getting prctl(PR_GET_DUMPABLE) after restore");
+		pr_perror("error getting prctl(PR_GET_DUMPABLE) after restore");
 		return 1;
 	}
 #ifdef DEBUG

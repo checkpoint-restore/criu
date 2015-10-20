@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < NR_ZOMBIES; i++) {
 		zombie[i].pid = fork();
 		if (zombie[i].pid < 0) {
-			err("Fork failed %m");
+			pr_perror("Fork failed %m");
 			exit(1);
 		}
 
@@ -68,7 +68,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < NR_ZOMBIES; i++) {
 		siginfo_t siginfo;
 		if (waitid(P_PID, zombie[i].pid, &siginfo, WNOWAIT | WEXITED)) {
-			err("Unable to wait %d", zombie[i].pid);
+			pr_perror("Unable to wait %d", zombie[i].pid);
 			exit(1);
 		}
 	}

@@ -47,19 +47,19 @@ int main(int argc, char **argv)
 	    mkdir(path, 0700) ||
 	    mkdir(spath, 0700) ||
 	    mkdir(bpath, 0700)) {
-		err("mkdir");
+		pr_perror("mkdir");
 		return 1;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("fork");
+		pr_perror("fork");
 		return 1;
 	}
 	if (pid == 0) {
 		unshare(CLONE_NEWNS);
 		if (mount(path, bpath, NULL, MS_BIND, NULL)) {
-			err("mount");
+			pr_perror("mount");
 			return 1;
 		}
 
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 	task_waiter_wait4(&t, 1);
 
 	if (mount("test", spath, "tmpfs", 0, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 
@@ -93,12 +93,12 @@ int main(int argc, char **argv)
 	task_waiter_complete(&t, 2);
 
 	if (waitpid(pid, &status, 0) != pid) {
-		err("waitpid %d", pid);
+		pr_perror("waitpid %d", pid);
 		return 1;
 	}
 
 	if (status) {
-		err("%d/%d/%d/%d", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
+		pr_perror("%d/%d/%d/%d", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
 		return 1;
 	}
 

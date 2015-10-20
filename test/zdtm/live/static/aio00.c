@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (io_setup(1, &ctx) < 0) {
-		err("Can't setup io ctx");
+		pr_perror("Can't setup io ctx");
 		return 1;
 	}
 

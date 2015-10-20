@@ -28,29 +28,29 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get file info %s before", filename);
+		pr_perror("can't get file info %s before", filename);
 		goto failed;
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		goto failed;
 	}
 	/* Change file size */
 	if (fst.st_size != 0) {
-		err("%s file size eq %d", fst.st_size);
+		pr_perror("%s file size eq %d", fst.st_size);
 		goto failed;
 	}
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write %s", filename);
+		pr_perror("can't write %s", filename);
 		goto failed;
 	}
 	/* Change file mode */
@@ -60,7 +60,7 @@ int main(int argc, char ** argv)
 		mode = (fst.st_mode ^ S_IXOTH);
 
 	if (fchmod(fd, mode) < 0) {
-		err("can't chmod %s", filename);
+		pr_perror("can't chmod %s", filename);
 		goto failed;
 	}
 
@@ -70,13 +70,13 @@ int main(int argc, char ** argv)
 	} else {
 		/* Change uid, gid */
 		if (fchown(fd, (uid = fst.st_uid + 1), (gid = fst.st_gid + 1)) < 0) {
-			err("can't chown %s", filename);
+			pr_perror("can't chown %s", filename);
 			goto failed;
 		}
 	}
 
 	if (lseek(fd, 0, SEEK_SET) != 0) {
-		err("can't reposition to 0: %m");
+		pr_perror("can't reposition to 0");
 		goto failed;
 	}
 
@@ -84,7 +84,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info after", filename);
+		pr_perror("can't get %s file info after", filename);
 		goto failed;
 	}
 
@@ -111,7 +111,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (lseek(fd, 0, SEEK_SET) != 0) {
-		err("can't reposition to 0: %m");
+		pr_perror("can't reposition to 0");
 		goto failed;
 	}
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {

@@ -61,7 +61,7 @@ static struct testcase __testcases[] = {
 
 #define TESTS (sizeof(__testcases) / sizeof(struct testcase))
 
-#define check(n, a, b) do { if ((a) != (b)) { err("%s mismatch %d != %d", n, a, b); goto err; } } while (0)
+#define check(n, a, b) do { if ((a) != (b)) { pr_perror("%s mismatch %d != %d", n, a, b); goto err; } } while (0)
 
 static int child(const int c);
 static int fork_children(struct testcase *t, int leader)
@@ -112,7 +112,7 @@ static int child(const int c)
 	if (t->pid == t->pgid) {
 		if (getpid() != getpgid(getpid()))
 			if (setpgid(getpid(), getpid()) < 0) {
-				err("setpgid() failed");
+				pr_perror("setpgid() failed");
 				goto err;
 			}
 		t->master.pgid = t->master.pid;
@@ -132,7 +132,7 @@ static int child(const int c)
 			continue;
 		if (getpgid(getpid()) != testcases[i].master.pid)
 			if (setpgid(getpid(), testcases[i].master.pid) < 0) {
-				err("setpgid() failed (%d) (%d)", c, i);
+				pr_perror("setpgid() failed (%d) (%d)", c, i);
 				goto err;
 			}
 
@@ -273,12 +273,12 @@ int main(int argc, char ** argv)
 			struct testcase *p = testcases + j;
 			/* sanity check */
 			if (p->pid == t->sid && t->master.sid != p->master.pid) {
-				err("session mismatch (%d) %d != (%d) %d",
+				pr_perror("session mismatch (%d) %d != (%d) %d",
 					i, t->master.sid, j, p->master.pid);
 				err++;
 			}
 			if (p->pid == t->pgid && t->master.pgid != p->master.pid) {
-				err("pgid mismatch (%d) %d != (%d) %d",
+				pr_perror("pgid mismatch (%d) %d != (%d) %d",
 					i, t->master.pgid, j, p->master.pid);
 				err++;
 			}
@@ -286,14 +286,14 @@ int main(int argc, char ** argv)
 
 		sid = getsid(t->master.pid);
 		if (t->master.sid != sid) {
-			err("%d: session mismatch %d (expected %d)",
+			pr_perror("%d: session mismatch %d (expected %d)",
 						i, sid, t->master.sid);
 			err++;
 		}
 
 		pgid = getpgid(t->master.pid);
 		if (t->master.pgid != pgid) {
-			err("%d: pgid mismatch %d (expected %d)",
+			pr_perror("%d: pgid mismatch %d (expected %d)",
 						i, t->master.pgid, pgid);
 			err++;
 		}

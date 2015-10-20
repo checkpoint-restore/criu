@@ -16,13 +16,13 @@ static int test_fn(int argc, char **argv)
 	char cmd[128];
 
 	if (system("iptables -A INPUT -t filter --protocol icmp -j DROP")) {
-		err("Can't set input rule");
+		pr_perror("Can't set input rule");
 		return -1;
 	}
 
 	sprintf(cmd, "iptables -L > pre-%s", filename);
 	if (system(cmd)) {
-		err("Can't save iptables");
+		pr_perror("Can't save iptables");
 		return -1;
 	}
 

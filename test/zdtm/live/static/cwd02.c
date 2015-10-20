@@ -32,22 +32,22 @@ int main(int argc, char **argv)
 
 	cwd = open(".", O_DIRECTORY | O_RDONLY);
 	if (cwd == -1) {
-		err("Unable to open the current dir");
+		pr_perror("Unable to open the current dir");
 		exit(1);
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s", dirname);
+		pr_perror("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if ((fd = open(dirname, O_DIRECTORY)) < 0) {
-		err("can't open dir %s", dirname);
+		pr_perror("can't open dir %s", dirname);
 		goto cleanup;
 	}
 
 	if (chdir(dirname)) {
-		err("can't change directory to %s", dirname);
+		pr_perror("can't change directory to %s", dirname);
 		goto cleanup;
 	}
 
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 	close(p[0]);
 	waitpid(pid, &aux, 0);
 	if (!WIFEXITED(aux) || WEXITSTATUS(aux) != 0) {
-		err("can't remove dir");
+		pr_perror("can't remove dir");
 		goto cleanup;
 	}
 
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 cleanup:
 	/* return to the initial dir before writing out results */
 	if (fchdir(cwd)) {
-		err("can't restore cwd");
+		pr_perror("can't restore cwd");
 		exit(1);
 	}
 

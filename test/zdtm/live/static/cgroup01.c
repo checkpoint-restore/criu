@@ -25,13 +25,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mkdir(dirname, 0700) < 0) {
-		err("Can't make dir");
+		pr_perror("Can't make dir");
 		goto out;
 	}
 
 	sprintf(aux, "none,name=%s", cgname);
 	if (mount("none", dirname, "cgroup", 0, aux)) {
-		err("Can't mount cgroups");
+		pr_perror("Can't mount cgroups");
 		goto out_rd;
 	}
 
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 
 	cgfd = open(paux, O_WRONLY);
 	if (cgfd < 0) {
-		err("Can't open tasks");
+		pr_perror("Can't open tasks");
 		goto out_rs;
 	}
 
@@ -51,14 +51,14 @@ int main(int argc, char **argv)
 	close(cgfd);
 
 	if (l < 0) {
-		err("Can't move self to subcg");
+		pr_perror("Can't move self to subcg");
 		goto out_rs;
 	}
 
 	for (i = 0; i < 2; i++) {
 		sprintf(paux, "%s/%s/%s.%d", dirname, subname, empty, i);
 		if (mkdir(paux, 0600)) {
-			err("mkdir %s", paux);
+			pr_perror("mkdir %s", paux);
 			return 1;
 		}
 	}

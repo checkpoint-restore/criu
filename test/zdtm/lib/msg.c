@@ -19,7 +19,7 @@ int test_log_init(const char *fname, const char *suffix)
 	snprintf(path, sizeof(path), "%s%s", fname, suffix);
 	logfd = open(path, O_WRONLY | O_EXCL | O_CREAT | O_APPEND, 0644);
 	if (logfd < 0) {
-		err("Can't open file %s", fname);
+		pr_perror("Can't open file %s", path);
 		return -1;
 	}
 
@@ -50,7 +50,7 @@ void test_msg(const char *format, ...)
 	gettimeofday(&tv, NULL);
 	tm = localtime(&tv.tv_sec);
 	if (tm == NULL) {
-		err("localtime() failed");
+		pr_perror("localtime() failed");
 	} else {
 		off += strftime(buf, sizeof(buf), "%H:%M:%S", tm);
 	}

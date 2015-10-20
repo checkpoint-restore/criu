@@ -23,17 +23,17 @@ int main(int argc, char **argv)
 
 	fd = open("/dev/rtc", O_RDWR);
 	if (fd < 0) {
-		err("open");
+		pr_perror("open");
 		return 1;
 	}
 
 	if (ioctl(fd, RTC_IRQP_SET, TEST_HZ) == -1) {
-		err("RTC_IRQP_SET");
+		pr_perror("RTC_IRQP_SET");
 		return 1;
 	}
 
 	if (ioctl(fd, RTC_PIE_ON, 0) == -1) {
-		err("RTC_PIE_ON");
+		pr_perror("RTC_PIE_ON");
 		return 1;
 	}
 
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		end.tv_usec += end.tv_sec * 1000000;
 		delta = end.tv_usec - start.tv_usec;
 		if (labs(delta - 1000000 / TEST_HZ ) > 100000) {
-			err("delta = %ld", delta);
+			pr_perror("delta = %ld", delta);
 			fail--;
 			if (fail == 0)
 				return 1;

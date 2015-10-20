@@ -31,16 +31,16 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		exit(1);
 	} else if (pid == 0) {
 		if (dup2(pipe1[1], 11) == -1 || dup2(pipe2[0], 12) == -1) {
-			err("dup2 failed");
+			pr_perror("dup2 failed");
 			return 1;
 		}
 	} else {
 		if (dup2(pipe1[0], 12) == -1 ||	dup2(pipe2[1], 11) == -1) {
-			err("dup2 failed");
+			pr_perror("dup2 failed");
 			goto err;
 		}
 	}
@@ -59,22 +59,22 @@ int main(int argc, char ** argv)
 
 		ret = read(12, buf, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("read failed: %d", ret);
+			pr_perror("read failed: %d", ret);
 			goto err;
 		}
 		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("write failed: %d", ret);
+			pr_perror("write failed: %d", ret);
 			goto err;
 		}
 		close(11);
 		ret = read(12, buf, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("read failed: %d", ret);
+			pr_perror("read failed: %d", ret);
 			goto err;
 		}
 		if (strcmp(TEST_STRING, buf)) {
-			err("data curruption");
+			pr_perror("data curruption");
 			goto err;
 		}
 
@@ -88,28 +88,28 @@ int main(int argc, char ** argv)
 	} else {
 		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("write failed: %d", ret);
+			pr_perror("write failed: %d", ret);
 			return 1;
 		}
 		ret = read(12, buf, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("read failed: %d", ret);
+			pr_perror("read failed: %d", ret);
 			return 1;
 		}
 		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
-			err("write failed: %d", ret);
+			pr_perror("write failed: %d", ret);
 			return 1;
 		}
 		close(11);
 		if (strcmp(TEST_STRING, buf)) {
-			err("data curruption");
+			pr_perror("data curruption");
 			return 1;
 		}
 	}
 
 	return 0;
 err:
-	err("FAIL");
+	pr_perror("FAIL");
 	return 1;
 }

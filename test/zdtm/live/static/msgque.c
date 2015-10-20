@@ -37,13 +37,13 @@ static int test_fn(int argc, char **argv)
 
 	key = ftok(argv[0], 822155650);
 	if (key == -1) {
-		err("Can't make key");
+		pr_perror("Can't make key");
 		exit(1);
 	}
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		exit(1);
 	}
 
@@ -51,7 +51,7 @@ static int test_fn(int argc, char **argv)
 	if (msg == -1) {
 		msg = msgget(key, 0666);
 		if (msg == -1) {
-			err("Can't get queue");
+			pr_perror("Can't get queue");
 			goto err_kill;
 		}
 	}

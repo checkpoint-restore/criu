@@ -18,7 +18,7 @@
 const char *test_doc	= "Test unix sockets shutdown";
 const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 
-#define fin(msg)	do { err(msg); exit(1); } while (0)
+#define fin(msg)	do { pr_perror(msg); exit(1); } while (0)
 #define ffin(msg)	do { fail(msg); exit(1); } while (0)
 
 #define TEST_MSG	"test-message"

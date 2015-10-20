@@ -23,7 +23,7 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 	m->start = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE,
 			flags, -1, 0);
 	if (m->start == MAP_FAILED) {
-		err("mmap failed: %m");
+		pr_perror("mmap failed");
 		return -1;
 	}
 
@@ -33,7 +33,7 @@ static int alloc_anon_mmap(struct mmap_data *m, int flags, int adv)
 			munmap(m->start, MEM_SIZE);
 			*m = (struct mmap_data){ };
 		} else {
-			err("madvise failed: %m");
+			pr_perror("madvise failed");
 			return -1;
 		}
 	}
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 			return -1;
 
 		if (m[i].orig_flags != m[i].new_flags) {
-			err("Flags are changed %lx %lx -> %lx (%d)",
+			pr_perror("Flags are changed %lx %lx -> %lx (%d)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_flags, m[i].new_flags, i);
 			fail();
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 		}
 
 		if (m[i].orig_madv != m[i].new_madv) {
-			err("Madvs are changed %lx %lx -> %lx (%d)",
+			pr_perror("Madvs are changed %lx %lx -> %lx (%d)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_madv, m[i].new_madv, i);
 			fail();

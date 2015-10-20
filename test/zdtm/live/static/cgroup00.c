@@ -28,7 +28,7 @@ static int cg_move(char *name)
 
 	cgfd = open(paux, O_WRONLY);
 	if (cgfd < 0) {
-		err("Can't open tasks");
+		pr_perror("Can't open tasks");
 		return -1;
 	}
 
@@ -36,7 +36,7 @@ static int cg_move(char *name)
 	close(cgfd);
 
 	if (l < 0) {
-		err("Can't move self to subcg");
+		pr_perror("Can't move self to subcg");
 		return -1;
 	}
 
@@ -90,13 +90,13 @@ int main(int argc, char **argv)
 	pipe(pr);
 
 	if (mkdir(dirname, 0700) < 0) {
-		err("Can't make dir");
+		pr_perror("Can't make dir");
 		goto out;
 	}
 
 	sprintf(aux, "none,name=%s", cgname);
 	if (mount("none", dirname, "cgroup", 0, aux)) {
-		err("Can't mount cgroups");
+		pr_perror("Can't mount cgroups");
 		goto out_rd;
 	}
 
@@ -199,7 +199,7 @@ out:
 	return 0;
 
 out_ks:
-	err("Error moving into cgroups");
+	pr_perror("Error moving into cgroups");
 	close(pr[0]);
 	goto out_rs;
 }

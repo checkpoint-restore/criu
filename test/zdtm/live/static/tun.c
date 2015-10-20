@@ -31,7 +31,7 @@ static int __open_tun(void)
 
 	fd = open(TUN_DEVICE, O_RDWR);
 	if (fd < 0)
-		err("Can't open tun file");
+		pr_perror("Can't open tun file");
 
 	return fd;
 }
@@ -44,7 +44,7 @@ static int set_tun_queue(int fd, unsigned flags)
 	ifr.ifr_flags = flags;
 
 	if (ioctl(fd, TUNSETQUEUE, &ifr) < 0) {
-		err("Can't set queue");
+		pr_perror("Can't set queue");
 		return -1;
 	}
 
@@ -61,7 +61,7 @@ static int __attach_tun(int fd, char *name, unsigned flags)
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
 		if (!(flags & IFF_TUN_EXCL))
-			err("Can't attach iff %s", name);
+			pr_perror("Can't attach iff %s", name);
 		return -1;
 	}
 
@@ -104,7 +104,7 @@ static int dev_get_hwaddr(int fd, char *a)
 	struct ifreq ifr;
 
 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-		err("Can't get hwaddr");
+		pr_perror("Can't get hwaddr");
 		return -1;
 	}
 
@@ -122,27 +122,27 @@ int main(int argc, char **argv)
 	/* fd[0] -- opened file */
 	fds[0] = __open_tun();
 	if (fds[0] < 0) {
-		err("No file 0");
+		pr_perror("No file 0");
 		return -1;
 	}
 
 	/* fd[1] -- opened file with tun device */
 	fds[1] = open_tun("tunx0", IFF_TUN);
 	if (fds[1] < 0) {
-		err("No file 1");
+		pr_perror("No file 1");
 		return -1;
 	}
 
 	/* fd[2] and [3] -- two-queued device, with 3 detached */
 	fds[2] = open_tun("tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 	if (fds[2] < 0) {
-		err("No file 2");
+		pr_perror("No file 2");
 		return -1;
 	}
 
 	fds[3] = open_tun("tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 	if (fds[3] < 0) {
-		err("No file 3");
+		pr_perror("No file 3");
 		return -1;
 	}
 
@@ -153,24 +153,24 @@ int main(int argc, char **argv)
 	/* special case -- persistent device */
 	ret = open_tun("tunx2", IFF_TUN);
 	if (ret < 0) {
-		err("No persistent device");
+		pr_perror("No persistent device");
 		return -1;
 	}
 
 	if (ioctl(ret, TUNSETPERSIST, 1) < 0) {
-		err("Can't make persistent");
+		pr_perror("Can't make persistent");
 		return -1;
 	}
 
 	/* and one tap in fd[4] */
 	fds[4] = open_tun("tapx0", IFF_TAP);
 	if (fds[4] < 0) {
-		err("No tap");
+		pr_perror("No tap");
 		return -1;
 	}
 
 	if (dev_get_hwaddr(fds[4], addr) < 0) {
-		err("No hwaddr for tap?");
+		pr_perror("No hwaddr for tap?");
 		return -1;
 	}
 
@@ -213,14 +213,14 @@ int main(int argc, char **argv)
 	} else {
 		ret = open_tun("tunx2", IFF_TUN);
 		if (ret < 0)
-			err("Can't attach tun2");
+			pr_perror("Can't attach tun2");
 		else
 			ioctl(ret, TUNSETPERSIST, 0);
 	}
 
 	check_tun(fds[4], "tapx0", IFF_TAP);
 	if (dev_get_hwaddr(fds[4], a2) < 0) {
-		err("No hwaddr for tap? (2)");
+		pr_perror("No hwaddr for tap? (2)");
 		any_fail = 1;
 	} else if (memcmp(addr, a2, sizeof(addr))) {
 		fail("Address mismatch on tap %x:%x -> %x:%x",

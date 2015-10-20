@@ -44,28 +44,28 @@ static int setup_srv_sock(void)
 	int sock;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		err("filename \"%s\" is too long", filename);
+		pr_perror("filename \"%s\" is too long", filename);
 		return -1;
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return -1;
 	}
 
 	if (bind(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0) {
-		err("can't bind to socket \"%s\": %m", filename);
+		pr_perror("can't bind to socket \"%s\"", filename);
 		goto err;
 	}
 
 	if (fcntl(sock, F_SETFL, O_NONBLOCK) < 0) {
-		err("can't make socket \"%s\" non-blocking: %m", filename);
+		pr_perror("can't make socket \"%s\" non-blocking", filename);
 		goto err;
 	}
 
 	if (listen(sock, 1) < 0) {
-		err("can't listen on a socket \"%s\": %m\n", filename);
+		pr_perror("can't listen on a socket \"%s\"\n", filename);
 		goto err;
 	}
 
@@ -90,16 +90,16 @@ static int accept_one_conn(int sock)
 	case 1:
 		break;
 	case 0:
-		err("timeout accepting a connection");
+		pr_perror("timeout accepting a connection");
 		return -1;
 	default:
-		err("error while waiting for a connection: %m");
+		pr_perror("error while waiting for a connection");
 		return -1;
 	}
 
 	acc_sock = accept(sock, NULL, NULL);
 	if (acc_sock < 0)
-		err("error accepting a connection: %m");
+		pr_perror("error accepting a connection");
 	return acc_sock;
 }
 
@@ -111,20 +111,20 @@ static int setup_clnt_sock(void)
 
 	if (fill_sock_name(&name, filename) < 0) {
 		ret = -errno;
-		err("filename \"%s\" is too long", filename);
+		pr_perror("filename \"%s\" is too long", filename);
 		return ret;
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock < 0) {
 		ret = -errno;
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return ret;
 	}
 
 	if (connect(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0) {
 		ret = -errno;
-		err("can't connect: %m");
+		pr_perror("can't connect");
 		goto err;
 	}
 
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_procs > PROCS_MAX) {
-		err("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
+		pr_perror("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
 		exit(1);
 	}
 
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 	for (nproc = 0; nproc < num_procs; nproc++) {
 		child_desc[nproc].pid = test_fork();
 		if (child_desc[nproc].pid < 0) {
-			err("can't fork: %m");
+			pr_perror("can't fork");
 			goto cleanup;
 		}
 

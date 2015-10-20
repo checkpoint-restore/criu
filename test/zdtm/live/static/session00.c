@@ -50,13 +50,13 @@ static int fork_child(int i)
 
 	ret = pipe(p);
 	if (ret) {
-		err("pipe() failed");
+		pr_perror("pipe() failed");
 		return 1;
 	}
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		return 1;
 	}
 
@@ -64,7 +64,7 @@ static int fork_child(int i)
 		if (testcases[i].flags & NEWSID) {
 			sid = setsid();
 			if (sid == -1) {
-				err("setsid failed");
+				pr_perror("setsid failed");
 				write(p[1], &sid, sizeof(sid));
 				exit(1);
 			}
@@ -84,7 +84,7 @@ static int fork_child(int i)
 
 			sid = setsid();
 			if (sid == -1) {
-				err("setsid failed");
+				pr_perror("setsid failed");
 				write(p[1], &sid, sizeof(sid));
 				exit(1);
 			}
@@ -110,7 +110,7 @@ static int fork_child(int i)
 
 			sid = setsid();
 			if (sid == -1) {
-				err("setsid failed");
+				pr_perror("setsid failed");
 				write(p[1], &sid, sizeof(sid));
 				exit(1);
 			}
@@ -140,7 +140,7 @@ child:
 		pid_t ret;
 		ret = wait(&status);
 		if (ret != pid) {
-			err("wait return %d instead of %d", ret, pid);
+			pr_perror("wait return %d instead of %d", ret, pid);
 			kill(pid, SIGKILL);
 			return 1;
 		}
@@ -148,14 +148,14 @@ child:
 
 	ret = read(p[0], &testcases[i].pid, sizeof(pid));
 	if (ret != sizeof(ret)) {
-		err("read failed");
+		pr_perror("read failed");
 		return 1;
 	}
 
 	close(p[0]);
 
 	if (testcases[i].pid < 0) {
-		err("child failed");
+		pr_perror("child failed");
 		return 1;
 	}
 
@@ -198,7 +198,7 @@ int main(int argc, char ** argv)
 
 		ret = kill(pid, SIGKILL);
 		if (ret == -1) {
-			err("kill failed");
+			pr_perror("kill failed");
 			err++;
 		}
 		waitpid(pid, NULL, 0);
@@ -206,7 +206,7 @@ int main(int argc, char ** argv)
 		if (testcases[i].flags & CHANGESID) {
 			pid = wait(&status);
 			if (pid == -1) {
-				err("wait() failed");
+				pr_perror("wait() failed");
 				err++;
 			}
 			if (!WIFEXITED(status) || WEXITSTATUS(status)) {
@@ -218,7 +218,7 @@ int main(int argc, char ** argv)
 
 	pid = wait(&status);
 	if (pid != -1 || errno != ECHILD) {
-		err("%d isn't waited");
+		pr_perror("%d isn't waited");
 		err++;
 	}
 

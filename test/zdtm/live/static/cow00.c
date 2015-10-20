@@ -23,14 +23,14 @@ static int is_cow(void *addr, pid_t p1, pid_t p2)
 	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", p1);
 	fd1 = open(buf, O_RDONLY);
 	if (fd1 < 0) {
-		err("Unable to open file %s", buf);
+		pr_perror("Unable to open file %s", buf);
 		return -1;
 	}
 
 	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", p2);
 	fd2 = open(buf, O_RDONLY);
 	if (fd1 < 0) {
-		err("Unable to open file %s", buf);
+		pr_perror("Unable to open file %s", buf);
 		return -1;
 	}
 
@@ -44,12 +44,12 @@ static int is_cow(void *addr, pid_t p1, pid_t p2)
 
 		ret = read(fd1, &map1, sizeof(map1));
 		if (ret != sizeof(map1)) {
-			err("Unable to read data");
+			pr_perror("Unable to read data");
 			return -1;
 		}
 		ret = read(fd2, &map2, sizeof(map2));
 		if (ret != sizeof(map2)) {
-			err("Unable to read data");
+			pr_perror("Unable to read data");
 			return -1;
 		}
 
@@ -73,7 +73,7 @@ int main(int argc, char ** argv)
 
 	addr = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
-		err("Can't allocate memory");
+		pr_perror("Can't allocate memory");
 		return 1;
 	}
 
@@ -81,7 +81,7 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Unable to fork a new process");
+		pr_perror("Unable to fork a new process");
 		return 1;
 	} else if (pid == 0) {
 		test_waitsig();
@@ -91,7 +91,7 @@ int main(int argc, char ** argv)
 	if (is_cow(addr, pid, getpid()) == 1)
 		test_msg("OK\n");
 	else {
-		err("A page is not shared");
+		pr_perror("A page is not shared");
 		goto out;
 	}
 

@@ -40,7 +40,7 @@ static int check_file_locks(int alt_pid, int fd)
 			fl_flag, fl_type, fl_option, &fl_owner);
 
 		if (num < 4) {
-			err("Invalid lock info.");
+			pr_perror("Invalid lock info.");
 			break;
 		}
 
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
-		err("No file");
+		pr_perror("No file");
 		return -1;
 	}
 
@@ -93,14 +93,14 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		err("No file 2");
+		pr_perror("No file 2");
 		close(pf[1]);
 		waitpid(pid, NULL, 0);
 		return -1;
 	}
 
 	if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
-		err("Bogus locks");
+		pr_perror("Bogus locks");
 		close(pf[1]);
 		waitpid(pid, NULL, 0);
 		return -1;

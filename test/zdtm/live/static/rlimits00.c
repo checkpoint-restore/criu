@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 
 	for (r = 0; r < RLIM_NLIMITS; r++) {
 		if (getrlimit(r, &rlims[r])) {
-			err("Can't get rlimit");
+			pr_perror("Can't get rlimit");
 			goto out;
 		}
 
@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 			rlims[r].rlim_cur--;
 
 			if (setrlimit(r, &rlims[r])) {
-				err("Can't set rlimit");
+				pr_perror("Can't set rlimit");
 				goto out;
 			}
 
@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!changed) {
-		err("Can't change any rlimir");
+		pr_perror("Can't change any rlimir");
 		goto out;
 	}
 

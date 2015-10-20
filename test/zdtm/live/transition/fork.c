@@ -25,12 +25,12 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (pipe(p)) {
-		err("pipe");
+		pr_perror("pipe");
 		return -1;
 	}
 
 	if (write(p[1], children, sizeof(children)) != sizeof(children)) {
-		err("write");
+		pr_perror("write");
 		return -1;
 	}
 
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 
 		ret = read(p[0], &children, sizeof(children));
 		if (ret <= 0) {
-			err("read");
+			pr_perror("read");
 			return 1;
 		}
 
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 				usleep(10000);
 #endif
 				if (write(p[1], &c, 1) != 1) {
-					err("write");
+					pr_perror("write");
 					return 1;
 				}
 				exit(0);
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			if (wpid < 0) {
 				if (errno == ECHILD)
 					break;
-				err("waitpid");
+				pr_perror("waitpid");
 				return -1;
 			}
 			if (wpid == 0)

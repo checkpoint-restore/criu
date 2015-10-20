@@ -38,14 +38,14 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write to %s: %m", filename);
+		pr_perror("can't write to %s", filename);
 		exit(1);
 	}
 
@@ -54,17 +54,17 @@ int main(int argc, char ** argv)
 		.modtime = mtime,
 	};
 	if (utime(filename, &ut)) {
-		err("can't set modtime %d on %s", mtime, filename);
+		pr_perror("can't set modtime %d on %s", mtime, filename);
 		exit(1);
 	}
 
 	if (fchmod(fd, perms)) {
-		err("can't set perms %o on %s", perms, filename);
+		pr_perror("can't set perms %o on %s", perms, filename);
 		exit(1);
 	}
 
 	if (unlink(filename)) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		exit(1);
 	}
 

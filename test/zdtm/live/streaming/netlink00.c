@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
 	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (fd<0){
-		err("socket: %m ");
+		pr_perror("socket ");
 		goto out;
 	}
 	// setup local address & bind using
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 	la.nl_family = AF_NETLINK;
 	la.nl_pid = getpid();
 	if (bind(fd, (struct sockaddr*) &la, sizeof(la))){
-		err("bind failed: %m ");
+		pr_perror("bind failed ");
 		goto out;
 	}
 	//Preperation:
@@ -140,7 +140,7 @@ int send_request()
 	// send the RTNETLINK message to kernel
 	rtn = sendmsg(fd, &msg, 0);
 	if (rtn<0){
-		err("sendmsg failed: %m");
+		pr_perror("sendmsg failed");
 		return -1;
 	}
 	return 0;
@@ -158,12 +158,12 @@ int recv_reply()
 	while(1) {
 		rtn = recv(fd, p, sizeof(buf) - nll, 0);
 		if (rtn < 0) {
-			err("recv failed: %m");
+			pr_perror("recv failed");
 			return -1;
 		}
 
 		if (rtn == 0) {
-			err("EOF on netlink\n");
+			pr_perror("EOF on netlink\n");
 			return -1;
 		}
 

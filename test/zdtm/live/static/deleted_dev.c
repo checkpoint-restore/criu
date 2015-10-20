@@ -25,18 +25,18 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, dev)) {
-		err("can't make device file \"%s\"", filename);
+		pr_perror("can't make device file \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		goto out;
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink %s: %m", filename);
+		pr_perror("can't unlink %s", filename);
 		goto out;
 	}
 

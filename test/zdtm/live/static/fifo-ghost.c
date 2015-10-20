@@ -25,19 +25,19 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\"", filename);
+		pr_perror("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		return 1;
 	}
 
 	fd_ro = open(filename, O_RDONLY);
 	if (fd_ro < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		return 1;
 	}
 
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	datagen(buf, sizeof(buf), &crc);
 	ret = write(fd, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
-		err("write() failed");
+		pr_perror("write() failed");
 		return 1;
 	}
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 
 	ret = read(fd_ro, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
-		err("read() failed");
+		pr_perror("read() failed");
 		return 1;
 	}
 

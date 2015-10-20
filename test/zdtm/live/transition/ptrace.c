@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 			PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, 0, 0);
 	if (pids == MAP_FAILED) {
-		err("Can't map");
+		pr_perror("Can't map");
 		exit(1);
 	}
 
@@ -50,14 +50,14 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		goto out;
 	} else if (pid == 0) {
 		pthread_t pt[nr_threads];
 
 		for (i = 0; i < nr_threads - 1; i++) {
 			if (pthread_create(&pt[i], NULL, thread, pids + i)) {
-				err("Can't make thread");
+				pr_perror("Can't make thread");
 				goto out_th;
 			}
 		}
@@ -74,7 +74,7 @@ out_th:
 		while (pids[i] == 0)
 			sched_yield();
 		if (ptrace(PTRACE_ATTACH, pids[i], (char *)1, NULL) == -1) {
-			err("Can't attach");
+			pr_perror("Can't attach");
 			goto out_pt;
 		}
 	}
@@ -89,7 +89,7 @@ out_th:
 			break;
 		stopped = wait4(-1, &status, __WALL, NULL);
 		if (stopped == -1) {
-			err("Can't wait");
+			pr_perror("Can't wait");
 			break;
 		}
 

@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 	f = fopen("/proc/sys/kernel/cap_last_cap", "r");
 	if (f) {
 		if (fscanf(f, "%d", &cap_last_cap) != 1) {
-			err("Unable to read cal_last_cap");
+			pr_perror("Unable to read cal_last_cap");
 			return 1;
 		}
 		fclose(f);
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 		test_msg("/proc/sys/kernel/cap_last_cap is not available\n");
 
 	if (pipe(result_pipe)) {
-		err("Can't create pipe");
+		pr_perror("Can't create pipe");
 		return 1;
 	}
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 		hdr.pid = 0;
 
 		if (capget(&hdr, data) < 0) {
-			err("capget");
+			pr_perror("capget");
 			return -1;
 		}
 
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 		data[0].prm &= ~(1 << CAP_DAC_OVERRIDE);
 
 		if (capset(&hdr, data) < 0) {
-			err("capset");
+			pr_perror("capset");
 			return -1;
 		}
 
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 		hdr.pid = 0;
 
 		if (capget(&hdr, data_2) < 0) {
-			err("second capget");
+			pr_perror("second capget");
 			return -1;
 		}
 

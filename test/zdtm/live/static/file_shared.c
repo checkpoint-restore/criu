@@ -55,12 +55,12 @@ int main(int argc, char **argv)
 
 		ret = kill(pid, SIGTERM);
 		if (ret == -1) {
-			err("kill() failed: %m");
+			pr_perror("kill() failed");
 		}
 
 		ret = wait(&status);
 		if (ret == -1) {
-			err("wait() failed: %m");
+			pr_perror("wait() failed");
 			return 1;
 		}
 

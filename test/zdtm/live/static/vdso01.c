@@ -135,7 +135,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	 * Make sure it's a file we support.
 	 */
 	if (memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
-		err("Elf header magic mismatch");
+		pr_perror("Elf header magic mismatch");
 		return -EINVAL;
 	}
 
@@ -149,14 +149,14 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		switch (phdr->p_type) {
 		case PT_DYNAMIC:
 			if (dynamic) {
-				err("Second PT_DYNAMIC header");
+				pr_perror("Second PT_DYNAMIC header");
 				return -EINVAL;
 			}
 			dynamic = phdr;
 			break;
 		case PT_LOAD:
 			if (load) {
-				err("Second PT_LOAD header");
+				pr_perror("Second PT_LOAD header");
 				return -EINVAL;
 			}
 			load = phdr;
@@ -165,7 +165,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	}
 
 	if (!load || !dynamic) {
-		err("One of obligated program headers is missed");
+		pr_perror("One of obligated program headers is missed");
 		return -EINVAL;
 	}
 
@@ -196,7 +196,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	}
 
 	if (!dyn_strtab || !dyn_symtab || !dyn_strsz || !dyn_syment || !dyn_hash) {
-		err("Not all dynamic entries are present");
+		pr_perror("Not all dynamic entries are present");
 		return -EINVAL;
 	}
 
@@ -248,7 +248,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	return 0;
 
 err_oob:
-	err("Corrupted Elf data");
+	pr_perror("Corrupted Elf data");
 	return -EFAULT;
 }
 
@@ -262,7 +262,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 
 	maps = fopen("/proc/self/maps", "r");
 	if (!maps) {
-		err("Can't open self-vma");
+		pr_perror("Can't open self-vma");
 		return -1;
 	}
 
@@ -275,7 +275,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		ret = sscanf(buf, "%lx-%lx", &start, &end);
 		if (ret != 2) {
 			ret = -1;
-			err("Can't find vDSO bounds");
+			pr_perror("Can't find vDSO bounds");
 			goto err;
 		}
 
@@ -304,7 +304,7 @@ static int vdso_clock_gettime_handler(void *func)
 		 ts1.tv_sec, ts2.tv_sec);
 
 	if (abs(ts1.tv_sec - ts2.tv_sec) > TIME_DELTA_SEC) {
-		err("Delta is too big");
+		pr_perror("Delta is too big");
 		return -1;
 	}
 
@@ -335,7 +335,7 @@ static int vdso_gettimeofday_handler(void *func)
 		 tv1.tv_sec, tv2.tv_sec);
 
 	if (abs(tv1.tv_sec - tv2.tv_sec) > TIME_DELTA_SEC) {
-		err("Delta is too big");
+		pr_perror("Delta is too big");
 		return -1;
 	}
 
@@ -353,7 +353,7 @@ static int vdso_time_handler(void *func)
 	test_msg("time: %li vdso_time: %li\n", (long)t1, (long)t1);
 
 	if (abs(t1 - t2) > TIME_DELTA_SEC) {
-		err("Delta is too big");
+		pr_perror("Delta is too big");
 		return -1;
 	}
 
@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (vdso_fill_self_symtable(&symtable)) {
-		err("Faied to parse vdso");
+		pr_perror("Faied to parse vdso");
 		return -1;
 	}
 
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
 		func = handlers[i];
 
 		if (func((void *)(s->offset + symtable.vma_start))) {
-			err("Handler error");
+			pr_perror("Handler error");
 			return -1;
 		}
 	}

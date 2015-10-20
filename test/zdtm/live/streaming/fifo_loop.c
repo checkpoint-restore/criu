@@ -45,24 +45,24 @@ int main(int argc, char **argv)
 	for (i = 0; i < PROCS_DEF; i++) {
 		file_path = path[i];
 		if (snprintf(file_path, BUF_SIZE, "%s-%02d", filename, i) >= BUF_SIZE) {
-			err("filename %s is too long\n", filename);
+			pr_perror("filename %s is too long\n", filename);
 			exit(1);
 		}
 		if (mkfifo(file_path, mode)) {
-			err("can't make fifo \"%s\": %m\n", file_path);
+			pr_perror("can't make fifo \"%s\"\n", file_path);
 			exit(1);
 		}
 	}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		err("can't set SIGCHLD handler: %m\n");
+		pr_perror("can't set SIGCHLD handler\n");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			err("Can't fork: %m\n");
+			pr_perror("Can't fork\n");
 			kill(0, SIGKILL);
 			exit(1);
 		}
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			file_path = path[i - 1];
 			readfd = open(file_path, O_RDONLY);
 			if (readfd < 0) {
-				err("open(%s, O_RDONLY) Failed: %m\n",
+				pr_perror("open(%s, O_RDONLY) Failed\n",
 					file_path);
 				ret = errno;
 				return ret;
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 			file_path = path[i];
 			writefd = open(file_path, O_WRONLY);
 			if (writefd < 0) {
-				err("open(%s, O_WRONLY) Failed: %m\n",
+				pr_perror("open(%s, O_WRONLY) Failed\n",
 					file_path);
 				ret = errno;
 				return ret;
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 	file_path = path[0];
 	writefd = open(file_path, O_WRONLY);
 	if (writefd < 0) {
-		err("open(%s, O_WRONLY) Failed: %m\n", file_path);
+		pr_perror("open(%s, O_WRONLY) Failed\n", file_path);
 		kill(0, SIGKILL);
 		exit(1);
 	}
@@ -107,13 +107,13 @@ int main(int argc, char **argv)
 	file_path = path[i - 1];
 	readfd = open(file_path, O_RDONLY);
 	if (readfd < 0) {
-		err("open(%s, O_RDONLY) Failed: %m\n", file_path);
+		pr_perror("open(%s, O_RDONLY) Failed\n", file_path);
 		kill(0, SIGKILL);
 		exit(1);
 	}
 
 	if (num_exited) {
-		err("Some children died unexpectedly\n");
+		pr_perror("Some children died unexpectedly\n");
 		kill(0, SIGKILL);
 		exit(1);
 	}

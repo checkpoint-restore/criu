@@ -13,7 +13,7 @@ const char *test_author	= "Jamie Liu <jamieliu@google.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-#define die(fmt, arg...) do { err(fmt, ## arg); return 1; } while (0)
+#define die(fmt, arg...) do { pr_perror(fmt, ## arg); return 1; } while (0)
 
 int main(int argc, char ** argv)
 {

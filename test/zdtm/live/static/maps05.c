@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 
 	addr = mmap(NULL, summary, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (addr == MAP_FAILED) {
-		err("Can't mmap");
+		pr_perror("Can't mmap");
 		return 1;
 	}
 	munmap(addr, summary);
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 		map[i] = mmap(i > 0 ? map[i - 1] + 8192 : addr, 4096, PROT_READ | PROT_WRITE,
 			      MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 		if (map[i] == MAP_FAILED) {
-			err("Can't mmap");
+			pr_perror("Can't mmap");
 			return 1;
 		} else {
 			/* Dirtify it */
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	map[NR_MAPS_1] = mmap(map[NR_MAPS_1 - 1] + 8192, MAPS_SIZE_1, PROT_READ | PROT_WRITE | PROT_EXEC,
 			      MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
 	if (map[NR_MAPS_1] == MAP_FAILED) {
-		err("Can't mmap");
+		pr_perror("Can't mmap");
 		return 1;
 	} else {
 		/* Dirtify it */
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 	map[NR_MAPS_2] = mmap(map[NR_MAPS_1] + MAPS_SIZE_1, MAPS_SIZE_2, PROT_READ | PROT_WRITE,
 			      MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
 	if (map[NR_MAPS_2] == MAP_FAILED) {
-		err("Can't mmap");
+		pr_perror("Can't mmap");
 		return 1;
 	} else {
 		/* Dirtify it */

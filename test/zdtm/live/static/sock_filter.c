@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 
 	sk = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sk < 0) {
-		err("No socket");
+		pr_perror("No socket");
 		return 1;
 	}
 
@@ -52,18 +52,18 @@ int main(int argc, char **argv)
 	p.filter = f;
 
 	if (setsockopt(sk, SOL_SOCKET, SO_ATTACH_FILTER, &p, sizeof(p))) {
-		err("No filter");
+		pr_perror("No filter");
 		return 1;
 	}
 
 	len = 0;
 	if (getsockopt(sk, SOL_SOCKET, SO_GET_FILTER, NULL, &len)) {
-		err("No len");
+		pr_perror("No len");
 		return 1;
 	}
 
 	if (len != SFLEN) {
-		err("Len mismatch");
+		pr_perror("Len mismatch");
 		return 1;
 	}
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	}
 
 	if (len != SFLEN) {
-		err("Len mismatch2");
+		pr_perror("Len mismatch2");
 		return 1;
 	}
 

@@ -15,15 +15,15 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mount("/proc/sys/", "/proc/sys", NULL, MS_BIND, NULL)) {
-		err("Unable to bind-mount  /proc/sys");
+		pr_perror("Unable to bind-mount  /proc/sys");
 		return 1;
 	}
 	if (mount("/proc/sys/net", "/proc/sys/net", NULL, MS_BIND, NULL)) {
-		err("Unable to bind-mount /proc/sys/net");
+		pr_perror("Unable to bind-mount /proc/sys/net");
 		return 1;
 	}
 	if (mount("/proc/sys/", "/proc/sys", NULL, MS_RDONLY|MS_BIND|MS_REMOUNT, NULL)) {
-		err("Unable to remount  /proc/sys");
+		pr_perror("Unable to remount  /proc/sys");
 		return 1;
 	}
 

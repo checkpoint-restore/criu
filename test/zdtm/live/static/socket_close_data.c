@@ -18,12 +18,12 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (socketpair(PF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0, sks) < 0) {
-		err("socketpair");
+		pr_perror("socketpair");
 		return 1;
 	}
 
 	if (write(sks[1], MSG, sizeof(MSG)) != sizeof(MSG)) {
-		err("write");
+		pr_perror("write");
 		return 1;
 	}
 	close(sks[1]);

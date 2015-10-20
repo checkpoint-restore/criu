@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 		}
 
 		if (send(clnt, MSG, sizeof(MSG), 0) != sizeof(MSG)) {
-			err("write");
+			pr_perror("write");
 			return 1;
 		}
 	}
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		if (hdr.msg_namelen > sizeof(addr.sun_family) + 1)
-			err("%d, %s", hdr.msg_namelen, addr.sun_path + 1);
+			pr_perror("%d, %s", hdr.msg_namelen, addr.sun_path + 1);
 		if (memcmp(addr.sun_path, sk_names[i], sizeof(SK_NAME))) {
 			fail("A sender address is mismatch");
 			return 1;

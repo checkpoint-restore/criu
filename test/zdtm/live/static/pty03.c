@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 
 	master = open("/dev/ptmx", O_RDWR);
 	if (master == -1) {
-		err("open(%s) failed", "/dev/ptmx");
+		pr_perror("open(%s) failed", "/dev/ptmx");
 		return 1;
 	}
 
@@ -35,12 +35,12 @@ int main(int argc, char *argv[])
 	slavename = ptsname(master);
 	slave = open(slavename, O_RDWR);
 	if (slave == -1) {
-		err("open(%s) failed", slavename);
+		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
 
 	if (ioctl(slave, TIOCSCTTY, 1)) {
-		err("Can't set a controll terminal");
+		pr_perror("Can't set a controll terminal");
 		return 1;
 	}
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
 	slave = open("/dev/tty", O_RDWR);
 	if (slave == -1) {
-		err("Can't open the controll terminal");
+		pr_perror("Can't open the controll terminal");
 		return -1;
 	}
 
@@ -59,13 +59,13 @@ int main(int argc, char *argv[])
 
 	ret = write(master, teststr, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("write(master) failed");
+		pr_perror("write(master) failed");
 		return 1;
 	}
 
 	ret = read(slave, buf, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("read(slave1) failed");
+		pr_perror("read(slave1) failed");
 		return 1;
 	}
 

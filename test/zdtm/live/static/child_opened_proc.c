@@ -22,7 +22,7 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		exit(1);
 	}
 
@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
 	sprintf(name, "/proc/%d/stat", pid);
 	proc_fd = open(name, O_RDONLY);
 	if (proc_fd == -1) {
-		err("can't open %s", name);
+		pr_perror("can't open %s", name);
 		err++;
 		goto out;
 	}
@@ -42,16 +42,16 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (close(proc_fd) == -1) {
-		err("Failed to close %s", name);
+		pr_perror("Failed to close %s", name);
 		err++;
 	}
 out:
 	if (kill(pid, SIGTERM) == -1) {
-		err("Failed to terminate child");
+		pr_perror("Failed to terminate child");
 		err++;
 	} else {
 		if (waitpid(pid, NULL, 0) != pid) {
-			err("Failed to collect killed child");
+			pr_perror("Failed to collect killed child");
 			err++;
 		}
 	}

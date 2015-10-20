@@ -25,45 +25,45 @@ int main(int argc, char ** argv)
 
 	fd[0] = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd[0] < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	sprintf(link_name, "%s.link", filename);
 	if (link(filename, link_name)) {
-		err("can't link files");
+		pr_perror("can't link files");
 		goto failed0;
 	}
 
 	fd[1] = open(link_name, O_RDONLY);
 	if (fd[1] < 0) {
-		err("can't open %s", link_name);
+		pr_perror("can't open %s", link_name);
 		goto failed0;
 	}
 
 	if (fstat(fd[0], &fst) < 0) {
-		err("can't get file info %s before", filename);
+		pr_perror("can't get file info %s before", filename);
 		goto failed;
 	}
 
 	if (fst.st_size != 0) {
-		err("%s file size eq %d", fst.st_size);
+		pr_perror("%s file size eq %d", fst.st_size);
 		goto failed;
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		goto failed;
 	}
 
 	if (unlink(link_name) < 0) {
-		err("can't unlink %s", link_name);
+		pr_perror("can't unlink %s", link_name);
 		goto failed;
 	}
 
 	memset(buf, '0', sizeof(buf));
 	if (write(fd[0], buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write %s", filename);
+		pr_perror("can't write %s", filename);
 		goto failed;
 	}
 
@@ -71,12 +71,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (fstat(fd[0], &fst) < 0) {
-		err("can't get %s file info after", filename);
+		pr_perror("can't get %s file info after", filename);
 		goto failed;
 	}
 
 	if (fstat(fd[1], &fst2) < 0) {
-		err("can't get %s file2 info after", link_name);
+		pr_perror("can't get %s file2 info after", link_name);
 		goto failed;
 	}
 

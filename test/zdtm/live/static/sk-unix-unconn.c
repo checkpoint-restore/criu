@@ -21,13 +21,13 @@ int main(int argc, char ** argv)
 
 	sk = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sk == -1) {
-		err("socket");
+		pr_perror("socket");
 		return 1;
 	}
 
 	skc = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (skc == -1) {
-		err("socket");
+		pr_perror("socket");
 		return 1;
 	}
 
@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (listen(sk, 1) == -1) {
-		err("listen");
+		pr_perror("listen");
 		return 1;
 	}
 

@@ -20,14 +20,14 @@ int main(int argc, char **argv)
 
 	ng = getgroups(0, NULL);
 	if (ng < 0) {
-		err("Can't get groups");
+		pr_perror("Can't get groups");
 		return -1;
 	}
 
 	grp = malloc((ng + 1) * sizeof(*grp));
 	ng = getgroups(ng, grp);
 	if (ng < 0) {
-		err("Can't get groups2");
+		pr_perror("Can't get groups2");
 		return -1;
 	}
 
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	grp[ng++] = max + 1;
 
 	if (setgroups(ng, grp) < 0) {
-		err("Can't set groups");
+		pr_perror("Can't set groups");
 		return -1;
 	}
 

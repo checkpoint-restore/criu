@@ -30,7 +30,7 @@ int main(int argc, char ** argv)
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
-		err("Can't open a master pseudoterminal");
+		pr_perror("Can't open a master pseudoterminal");
 		return 1;
 	}
 
@@ -40,7 +40,7 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("fork() failed");
+		pr_perror("fork() failed");
 		return 1;
 	}
 
@@ -54,12 +54,12 @@ int main(int argc, char ** argv)
 		/* set up a controlling terminal */
 		fds = open(slavename, O_RDWR);
 		if (fds == -1) {
-			err("Can't open a slave pseudoterminal %s", slavename);
+			pr_perror("Can't open a slave pseudoterminal %s", slavename);
 			return 1;
 		}
 
 		if (ioctl(fdm, TIOCSCTTY, 1) < 0) {
-			err("Can't setup a controlling terminal");
+			pr_perror("Can't setup a controlling terminal");
 			return 1;
 		}
 		close(fds);
@@ -78,7 +78,7 @@ int main(int argc, char ** argv)
 	close(fdm);
 
 	if (kill(pid, SIGTERM) == -1) {
-		err("kill failed");
+		pr_perror("kill failed");
 		return 1;
 	}
 

@@ -52,7 +52,7 @@ static int check_read_lock(int fd, int whence, off_t offset, off_t len)
 
 	ret = fcntl(fd, F_GETLK, &lock);
 	if (ret == -1) {
-		err("F_GETLK failed.");
+		pr_perror("F_GETLK failed.");
 		return -1;
 	}
 
@@ -80,7 +80,7 @@ static int check_write_lock(int fd, int whence, off_t offset, off_t len)
 
 	ret = fcntl(fd, F_GETLK, &lock);
 	if (ret == -1) {
-		err("F_GETLK failed.");
+		pr_perror("F_GETLK failed.");
 		return -1;
 	}
 
@@ -107,7 +107,7 @@ static int check_file_locks()
 
 	fd_0 = open(file0, O_RDWR | O_CREAT, 0644);
 	if (fd_0 < 0) {
-		err("Unable to open file %s", file0);
+		pr_perror("Unable to open file %s", file0);
 		return -1;
 	}
 	ret0 = check_read_lock(fd_0, SEEK_SET, 0, 0);
@@ -116,7 +116,7 @@ static int check_file_locks()
 	if (fd_1 < 0) {
 		close(fd_0);
 		unlink(file0);
-		err("Unable to open file %s", file1);
+		pr_perror("Unable to open file %s", file1);
 		return -1;
 	}
 	ret1 = check_write_lock(fd_1, SEEK_SET, 0, 0);
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 	snprintf(file1, sizeof(file0), "%s.1", filename);
 	fd_0 = open(file0, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (fd_0 < 0) {
-		err("Unable to open file %s", file0);
+		pr_perror("Unable to open file %s", file0);
 		return -1;
 	}
 
@@ -146,13 +146,13 @@ int main(int argc, char **argv)
 	if (fd_1 < 0) {
 		close(fd_0);
 		unlink(file0);
-		err("Unable to open file %s", file1);
+		pr_perror("Unable to open file %s", file1);
 		return -1;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		return -1;
 	}
 

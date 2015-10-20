@@ -23,7 +23,7 @@ void task_waiter_init(task_waiter_t *t)
 	t->seed = t->seed % TASK_WAITER_INITIAL;
 
 	if (pipe(t->pipes)) {
-		err("task_waiter_init failed: %m");
+		pr_perror("task_waiter_init failed");
 		exit(1);
 	}
 }
@@ -69,14 +69,14 @@ void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 	return;
 
 err:
-	err("task_waiter_wait4 failed: %m");
+	pr_perror("task_waiter_wait4 failed");
 	exit(errno);
 }
 
 void task_waiter_complete(task_waiter_t *t, unsigned int lockid)
 {
 	if (write(t->pipes[1], &lockid, sizeof(lockid)) != sizeof(lockid)) {
-		err("task_waiter_complete failed: %m");
+		pr_perror("task_waiter_complete failed");
 		exit(1);
 	}
 }

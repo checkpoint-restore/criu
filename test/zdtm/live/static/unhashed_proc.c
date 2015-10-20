@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("Fork failed %m");
+		pr_perror("Fork failed %m");
 		exit(1);
 	} else if (!pid) {
 		pause();
@@ -32,7 +32,7 @@ int main(int argc, char ** argv)
 
 	if (chdir(cwd1) < 0) {
 		kill(pid, SIGKILL);
-		err("Chdir failed %m");
+		pr_perror("Chdir failed %m");
 		exit(1);
 	}
 
@@ -40,16 +40,16 @@ int main(int argc, char ** argv)
 	waitpid(pid, NULL, 0);
 
 	if (getcwd(cwd1, sizeof(cwd1))) {
-		err("successful getcwd: %s", cwd1);
+		pr_perror("successful getcwd: %s", cwd1);
 		exit(1);
 	} else if (errno != ENOENT) {
-		err("wrong errno");
+		pr_perror("wrong errno");
 		exit(1);
 	}
 
 	len = readlink("/proc/self/cwd", cwd1, sizeof(cwd1));
 	if (len < 0) {
-		err("can't read cwd symlink %m");
+		pr_perror("can't read cwd symlink %m");
 		exit(1);
 	}
 	cwd1[len] = 0;

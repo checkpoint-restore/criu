@@ -21,12 +21,12 @@ TEST_OPTION(filename, string, "file name", 1);
 static void touch_file_page(int fd, unsigned long off, char c)
 {
 	if (lseek(fd, off, SEEK_SET) != off) {
-		err("Lseek fail");
+		pr_perror("Lseek fail");
 		exit(1);
 	}
 
 	if (write(fd, &c, 1) != 1) {
-		err("Write fail");
+		pr_perror("Write fail");
 		exit(1);
 	}
 }
@@ -40,7 +40,7 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open file");
+		pr_perror("can't open file");
 		exit(1);
 	}
 
@@ -53,12 +53,12 @@ int main(int argc, char ** argv)
 	mem_a = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
 	mem_b = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, PAGE_SIZE);
 	if (mem_a == MAP_FAILED || mem_b == MAP_FAILED) {
-		err("can't map file");
+		pr_perror("can't map file");
 		exit(1);
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink file");
+		pr_perror("can't unlink file");
 		exit(1);
 	}
 

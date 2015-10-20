@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 
 	sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return 1;
 	}
 
@@ -29,14 +29,14 @@ int main(int argc, char ** argv)
 	if (ret < 0)
 		ret = setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3);
 	if (ret < 0) {
-		err("can't bind to eth0");
+		pr_perror("can't bind to eth0");
 		return 1;
 	}
 
 	len = sizeof(dev);
 	ret = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &dev, &len);
 	if (ret < 0) {
-		err("can't get dev binding");
+		pr_perror("can't get dev binding");
 		return 1;
 	}
 

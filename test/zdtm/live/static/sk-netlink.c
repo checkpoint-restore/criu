@@ -30,12 +30,12 @@ int main(int argc, char ** argv)
 
 	ssk = socket(PF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (ssk < 0) {
-		err("Can't create sock diag socket");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 	bsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (bsk < 0) {
-		err("Can't create sock diag socket");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 #if 0
@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
 
 	bbsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (bbsk < 0) {
-		err("Can't create sock diag socket");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 
@@ -52,12 +52,12 @@ int main(int argc, char ** argv)
 #endif
 	csk = socket(PF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (csk < 0) {
-		err("Can't create sock diag socket");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 	dsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (dsk < 0) {
-		err("Can't create sock diag socket");
+		pr_perror("Can't create sock diag socket");
 		return -1;
 	}
 
@@ -65,21 +65,21 @@ int main(int argc, char ** argv)
 	addr.nl_groups = 0;
 	addr.nl_pid = getpid();
 	if (bind(ssk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
-		err("bind");
+		pr_perror("bind");
 		return 1;
 	}
 
 	addr.nl_groups = 1 << (UDEV_MONITOR_TEST - 1);
 	addr.nl_pid = 0;
 	if (bind(bsk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
-		err("bind");
+		pr_perror("bind");
 		return 1;
 	}
 
 	addr.nl_pid = getpid();;
 	addr.nl_groups = 1 << (UDEV_MONITOR_TEST - 1);
 	if (connect(csk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
-		err("connect");
+		pr_perror("connect");
 		return 1;
 	}
 
@@ -101,7 +101,7 @@ int main(int argc, char ** argv)
 	iov.iov_len     = sizeof(req);;
 
 	if (sendmsg(csk, &msg, 0) < 0) {
-		err("Can't send request message");
+		pr_perror("Can't send request message");
 		return 1;
 	}
 
@@ -114,12 +114,12 @@ int main(int argc, char ** argv)
 	iov.iov_len     = sizeof(buf);
 
 	if (recvmsg(ssk, &msg, 0) < 0) {
-		err("Can't recv request message");
+		pr_perror("Can't recv request message");
 		return 1;
 	}
 
 	if (recvmsg(bsk, &msg, 0) < 0) {
-		err("Can't recv request message");
+		pr_perror("Can't recv request message");
 		return 1;
 	}
 
@@ -137,7 +137,7 @@ int main(int argc, char ** argv)
 	iov.iov_len     = sizeof(req);;
 
 	if (sendmsg(dsk, &msg, 0) < 0) {
-		err("Can't send request message");
+		pr_perror("Can't send request message");
 		return 1;
 	}
 
@@ -150,7 +150,7 @@ int main(int argc, char ** argv)
 	iov.iov_len     = sizeof(buf);
 
 	if (recvmsg(ssk, &msg, 0) < 0) {
-		err("Can't recv request message");
+		pr_perror("Can't recv request message");
 		return 1;
 	}
 

@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 			return do_nothing();
 
 		if (setpriority(PRIO_PROCESS, pid[i], parm[i])) {
-			err("Can't set prio %d", i);
+			pr_perror("Can't set prio %d", i);
 			kill_all(pid, i);
 			return -1;
 		}

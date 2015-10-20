@@ -43,7 +43,7 @@ static int parse_self_fdinfo(int fd, struct timerfd_status *s)
 	sprintf(buf, "/proc/self/fdinfo/%d", fd);
 	f = fopen(buf, "r");
 	if (!f) {
-		err("Can't open %s to parse", buf);
+		pr_perror("Can't open %s to parse", buf);
 		return -1;
 	}
 
@@ -98,7 +98,7 @@ err:
 	return ret;
 
 parse_err:
-	err("Format error");
+	pr_perror("Format error");
 	goto err;
 }
 
@@ -143,13 +143,13 @@ int main(int argc, char *argv[])
 
 	timerfd = timerfd_create(old.clockid, 0);
 	if (timerfd < 0) {
-		err("timerfd_create failed");
+		pr_perror("timerfd_create failed");
 		return -1;
 	}
 
 	show_timerfd("setup", &old);
 	if (timerfd_settime(timerfd, old.settime_flags, &old.v, NULL)) {
-		err("timerfd_settime failed");
+		pr_perror("timerfd_settime failed");
 		return -1;
 	}
 	sleep(1);

@@ -147,7 +147,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	sprintf(str, "/proc/self/fdinfo/%d", fd);
 	f = fopen(str, "r");
 	if (!f) {
-		err("Can't open fdinfo to parse");
+		pr_perror("Can't open fdinfo to parse");
 		return -1;
 	}
 
@@ -188,7 +188,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	}
 
 	if (expected_to_meet != met) {
-		err("Expected to meet %d entries but got %d",
+		pr_perror("Expected to meet %d entries but got %d",
 		    expected_to_meet, met);
 		return -1;
 	}
@@ -196,7 +196,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	return 0;
 
 parse_err:
-	err("Can't parse '%s'", str);
+	pr_perror("Can't parse '%s'", str);
 	return -1;
 }
 
@@ -212,11 +212,11 @@ int main (int argc, char *argv[])
 
 	if (ns) {
 		if (mkdir("/tmp", 666) && errno != EEXIST) {
-			err("Unable to create the /tmp directory");
+			pr_perror("Unable to create the /tmp directory");
 			return -1;
 		}
 		if (mount("zdtm", "/tmp", "tmpfs", 0, NULL)) {
-			err("Unable to mount tmpfs into %s", "/tmp");
+			pr_perror("Unable to mount tmpfs into %s", "/tmp");
 		}
 	}
 
@@ -224,27 +224,27 @@ int main (int argc, char *argv[])
 			      FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
 			      0);
 	if (fa_fd < 0) {
-		err("fanotify_init failed");
+		pr_perror("fanotify_init failed");
 		exit(1);
 	}
 
 	del_after = open(fanotify_path, O_CREAT | O_TRUNC);
 	if (del_after < 0) {
-		err("open failed");
+		pr_perror("open failed");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD,
 			  FAN_MODIFY | FAN_ACCESS | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, fanotify_path)) {
-		err("fanotify_mark failed");
+		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed");
+		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 
@@ -252,12 +252,12 @@ int main (int argc, char *argv[])
 			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
 			  FAN_MODIFY | FAN_ACCESS,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed");
+		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 
 	if (parse_fanotify_fdinfo(fa_fd, &old, 3)) {
-		err("parsing fanotify fdinfo failed");
+		pr_perror("parsing fanotify fdinfo failed");
 		exit(1);
 	}
 
@@ -298,7 +298,7 @@ int main (int argc, char *argv[])
 	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed");
+		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 

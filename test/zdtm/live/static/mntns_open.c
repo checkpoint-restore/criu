@@ -46,7 +46,7 @@ static int get_mntid(int fd)
 	snprintf(str, sizeof(str), "/proc/self/fdinfo/%d", fd);
 	f = fopen(str, "r");
 	if (!f) {
-		err("Can't open %s to parse", str);
+		pr_perror("Can't open %s to parse", str);
 		return -1;
 	}
 	while (fgets(str, sizeof(str), f)) {
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 
 		pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
 		if (pid < 0) {
-			err("Unable to fork child");
+			pr_perror("Unable to fork child");
 			return 1;
 		}
 

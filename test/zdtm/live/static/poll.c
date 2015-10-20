@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	task_waiter_init(&t);
 
 	if (pipe(pipes)) {
-		err("Can't create pipes");
+		pr_perror("Can't create pipes");
 		exit(1);
 	}
 
@@ -62,18 +62,18 @@ int main(int argc, char *argv[])
 	show_pollfd(ufds, 2);
 
 	if (gettimeofday(&time1, NULL)) {
-		err("Can't get first delta");
+		pr_perror("Can't get first delta");
 		exit(1);
 	}
 	show_timestamp("Init", time1.tv_sec, time1.tv_usec);
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Fork failed");
+		pr_perror("Fork failed");
 		exit(1);
 	} else if (pid == 0) {
 		if (gettimeofday(&time1, NULL)) {
-			err("Can't get from times");
+			pr_perror("Can't get from times");
 			exit(1);
 		}
 
@@ -85,12 +85,12 @@ int main(int argc, char *argv[])
 			ret = poll(ufds, 2, delta * 1000);
 			show_pollfd(ufds, 2);
 			if (ret && errno != EINTR) {
-				err("Poll-2 returned %d (events?!)", ret);
+				pr_perror("Poll-2 returned %d (events?!)", ret);
 				exit(1);
 			}
 
 			if (gettimeofday(&time2, NULL)) {
-				err("Can't get from times");
+				pr_perror("Can't get from times");
 				exit(1);
 			}
 
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 
 	/* Return immediately if child run or stopped(by SIGSTOP) */
 	if (waitpid(pid, &status, 0) == -1) {
-		err("Unable to wait child");
+		pr_perror("Unable to wait child");
 		exit(1);
 	}
 

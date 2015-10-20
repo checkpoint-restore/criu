@@ -12,10 +12,10 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (umount("/proc") < 0)
-		err("Can't umount proc");
+		pr_perror("Can't umount proc");
 
 	if (umount("/dev/pts") < 0)
-		err("Can't umount devpts");
+		pr_perror("Can't umount devpts");
 
 	test_daemon();
 	test_waitsig();

@@ -37,23 +37,23 @@ static int setup_srv_sock(void)
 	int sock;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		err("filename \"%s\" is too long", filename);
+		pr_perror("filename \"%s\" is too long", filename);
 		return -1;
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return -1;
 	}
 
 	if (bind(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0) {
-		err("can't bind to socket \"%s\": %m", filename);
+		pr_perror("can't bind to socket \"%s\"", filename);
 		goto err;
 	}
 
 	if (listen(sock, 1) < 0) {
-		err("can't listen on a socket \"%s\"", filename);
+		pr_perror("can't listen on a socket \"%s\"", filename);
 		goto err;
 	}
 
@@ -99,7 +99,7 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("can't fork");
+		pr_perror("can't fork");
 		exit(1);
 	}
 
@@ -115,7 +115,7 @@ int main(int argc, char ** argv)
 		crc = ~0;
 		datagen(buf, sizeof(buf), &crc);
 		if (write(sock, buf, sizeof(buf)) != sizeof(buf)) {
-			err("can't write to socket: %m");
+			pr_perror("can't write to socket");
 			exit(errno);
 		}
 
@@ -125,7 +125,7 @@ int main(int argc, char ** argv)
 
 	acc_sock = accept(sock, NULL, NULL);
 	if (acc_sock < 0) {
-		err("can't accept() the connection on \"%s\": %m", filename);
+		pr_perror("can't accept() the connection on \"%s\"", filename);
 		goto out_kill;
 	}
 
@@ -133,7 +133,7 @@ int main(int argc, char ** argv)
 	sock = acc_sock;
 
 	if (unlink(filename)) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		goto out_kill;
 	}
 

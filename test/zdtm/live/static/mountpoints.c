@@ -63,7 +63,7 @@ int ns_child(void *_arg)
 	}
 
 	if (stat(MPTS_ROOT"/dev/mntns2/test", &st)) {
-		err("Can't stat /dev/share-1/test.share/test.share");
+		pr_perror("Can't stat /dev/share-1/test.share/test.share");
 		return 1;
 	}
 
@@ -95,7 +95,7 @@ again:
 	}
 
 	if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
-		err("Can't remount / with MS_PRIVATE");
+		pr_perror("Can't remount / with MS_PRIVATE");
 		return -1;
 	}
 
@@ -151,7 +151,7 @@ done:
 	}
 	tmpfs_fd = open(MPTS_ROOT"/dev/test", O_WRONLY | O_CREAT);
 	if (write(tmpfs_fd, "hello", 5) <= 0) {
-		err("write() failed");
+		pr_perror("write() failed");
 		return 1;
 	}
 
@@ -159,18 +159,18 @@ done:
 	mkdir(MPTS_ROOT"/dev/overmount", 0600);
 	fd = open(MPTS_ROOT"/dev/overmount/test.over", O_WRONLY | O_CREAT);
 	if (fd == -1) {
-		err("Unable to open "MPTS_ROOT"/dev/overmount");
+		pr_perror("Unable to open "MPTS_ROOT"/dev/overmount");
 		return -1;
 	}
 	close(fd);
 	if (mount("none", MPTS_ROOT"/dev/overmount", "tmpfs", 0, "") < 0) {
-		err("Can't mount "MPTS_ROOT"/dev/overmount");
+		pr_perror("Can't mount "MPTS_ROOT"/dev/overmount");
 		return 1;
 	}
 
 	mkdir(MPTS_ROOT"/dev/non-root", 0600);
 	if (mount(MPTS_ROOT"/dev/non-root", MPTS_ROOT"/module", NULL, MS_BIND, NULL) < 0) {
-		err("Can't bind-mount %s -> %s", MPTS_ROOT"/dev/tdir", MPTS_ROOT"/module");
+		pr_perror("Can't bind-mount %s -> %s", MPTS_ROOT"/dev/tdir", MPTS_ROOT"/module");
 	}
 	mkdir(MPTS_ROOT"/dev/non-root/test", 0600);
 
@@ -232,7 +232,7 @@ done:
 
 	mkdir(MPTS_ROOT"/dev/share-1/test.mnt.share/test.share", 0600);
 	if (umount(MPTS_ROOT"/dev/slave2/test.mnt.share")) {
-		err("Can't umount "MPTS_ROOT"/dev/slave2/test.mnt.share: %m");
+		pr_perror("Can't umount "MPTS_ROOT"/dev/slave2/test.mnt.share");
 		return 1;
 	}
 
@@ -245,14 +245,14 @@ done:
 
 	fd = open(MPTS_ROOT"/dev/bmfile", O_CREAT | O_WRONLY);
 	if (fd < 0) {
-		err("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
+		pr_perror("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
 		return 1;
 	}
 	close(fd);
 
 	fd = open(MPTS_ROOT"/dev/bmfile-mount", O_CREAT | O_WRONLY);
 	if (fd < 0) {
-		err("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
+		pr_perror("Can't create " MPTS_ROOT "/dev/share-1/bmfile");
 		return 1;
 	}
 	close(fd);
@@ -289,7 +289,7 @@ done:
 	if (getenv("ZDTM_NOSUBNS") == NULL) {
 		pid = clone(ns_child, args.stack_ptr, CLONE_NEWNS | SIGCHLD, &args);
 		if (pid < 0) {
-			err("Unable to fork child");
+			pr_perror("Unable to fork child");
 			return 1;
 		}
 	}
@@ -309,7 +309,7 @@ done:
 	}
 
 	if (umount(MPTS_ROOT"/dev/overmount") == -1) {
-		err("Can't umount "MPTS_ROOT"/dev/overmount");
+		pr_perror("Can't umount "MPTS_ROOT"/dev/overmount");
 		return -1;
 	}
 	if (access(MPTS_ROOT"/dev/overmount/test.over", F_OK)) {
@@ -320,11 +320,11 @@ done:
 	{
 		struct stat st1, st2;
 		if (stat(MPTS_ROOT"/dev/share-1/test.mnt.share/test.share", &st1)) {
-			err("Can't stat /dev/share-1/test.share/test.share");
+			pr_perror("Can't stat /dev/share-1/test.share/test.share");
 			return 1;
 		}
 		if (stat(MPTS_ROOT"/dev/share-2/test.mnt.share/test.share", &st2)) {
-			err("Can't stat /dev/share-2/test.mnt.share/test.share");
+			pr_perror("Can't stat /dev/share-2/test.mnt.share/test.share");
 			return 1;
 		}
 		if (st1.st_ino != st2.st_ino) {
@@ -332,7 +332,7 @@ done:
 			return 1;
 		}
 		if (stat(MPTS_ROOT"/dev/slave/test.mnt.share/test.share", &st2)) {
-			err("Can't stat /dev/slave/test.mnt.share/test.share");
+			pr_perror("Can't stat /dev/slave/test.mnt.share/test.share");
 			return 1;
 		}
 		if (st1.st_ino != st2.st_ino) {
@@ -340,15 +340,15 @@ done:
 			return 1;
 		}
 		if (stat(MPTS_ROOT"/dev/share-1/test.mnt.slave/test.slave", &st1) != -1 || errno != ENOENT) {
-			err("/dev/share-1/test.mnt.slave/test.slave exists");
+			pr_perror("/dev/share-1/test.mnt.slave/test.slave exists");
 			return 1;
 		}
 		if (stat(MPTS_ROOT"/dev/slave/test.mnt.slave/test.slave", &st2)) {
-			err("Can't stat /dev/slave/test.mnt.slave/test.slave");
+			pr_perror("Can't stat /dev/slave/test.mnt.slave/test.slave");
 			return 1;
 		}
 		if (stat(MPTS_ROOT"/dev/non-root/test", &st1)) {
-			err("Can't stat /dev/non-root/test");
+			pr_perror("Can't stat /dev/non-root/test");
 			return 1;
 		}
 	}

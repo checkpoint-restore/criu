@@ -24,27 +24,27 @@ void *drop_caps_and_wait(void *arg)
 
         caps = cap_get_proc();
         if (!caps) {
-                err("cap_get_proc");
+                pr_perror("cap_get_proc");
                 return NULL;
         }
 
         if (cap_clear_flag(caps, CAP_EFFECTIVE) < 0) {
-                err("cap_clear_flag");
+                pr_perror("cap_clear_flag");
                 goto die;
         }
 
         if (cap_set_proc(caps) < 0) {
-                err("cap_set_proc");
+                pr_perror("cap_set_proc");
                 goto die;
         }
 
 	if (write(fd, "a", 1) != 1) {
-		err("Unable to send a status");
+		pr_perror("Unable to send a status");
 		goto die;
 	}
 
 	if (read(fd, &c, 1) != 1) {
-		err("Unable to read a status");
+		pr_perror("Unable to read a status");
 		goto die;
 	}
 
@@ -64,12 +64,12 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (socketpair(AF_FILE, SOCK_SEQPACKET, 0, pipefd)) {
-		err("pipe");
+		pr_perror("pipe");
 		return -1;
 	}
 
 	if (pthread_create(&thr, NULL, drop_caps_and_wait, &pipefd[0])) {
-		err("Unable to create thread");
+		pr_perror("Unable to create thread");
 		return -1;
 	}
 
@@ -77,7 +77,7 @@ int main(int argc, char ** argv)
 	 * Wait for child to signal us that it has droped caps.
 	 */
 	if (read(pipefd[1], &c, 1) != 1) {
-		err("read");
+		pr_perror("read");
 		return 1;
 	}
 
@@ -85,12 +85,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (write(pipefd[1], &c, 1) != 1) {
-		err("write");
+		pr_perror("write");
 		return 1;
 	}
 
 	if (pthread_join(thr, &retcode)) {
-		err("Unable to jount a thread");
+		pr_perror("Unable to jount a thread");
 		return 1;
 	}
 	if (retcode != NULL)

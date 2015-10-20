@@ -25,17 +25,17 @@ int main(int argc, char **argv)
 
 	srv = socket(PF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (srv < 0) {
-		err("socket");
+		pr_perror("socket");
 		return 1;
 	}
 	clnt1 = socket(PF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (clnt1 < 0) {
-		err("socket");
+		pr_perror("socket");
 		return 1;
 	}
 	clnt2 = socket(PF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (clnt2 < 0) {
-		err("socket");
+		pr_perror("socket");
 		return 1;
 	}
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 	}
 
 	if (write(clnt1, MSG, sizeof(MSG)) != sizeof(MSG)) {
-		err("write");
+		pr_perror("write");
 		return 1;
 	}
 

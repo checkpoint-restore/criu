@@ -22,14 +22,14 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write %s", filename);
+		pr_perror("can't write %s", filename);
 		exit(1);
 	}
 
@@ -37,13 +37,13 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	len = sizeof(buf) / 2;
 	if (read(fd, buf, len) != len) {
-		err("can't read %s", filename);
+		pr_perror("can't read %s", filename);
 		exit(1);
 	}
 

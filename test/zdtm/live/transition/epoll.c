@@ -106,40 +106,40 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (scale > MAX_SCALE) {
-		err("Too many children specified\n");
+		pr_perror("Too many children specified\n");
 		exit(1);
 	}
 
 	if (signal(SIGUSR2, do_stop) == SIG_ERR) {
-		err("Can't setup handler\n");
+		pr_perror("Can't setup handler\n");
 		exit(1);
 	}
 
 	if ((efd = epoll_create(scale)) < 0) {
-		err("Can't create epoll: %m\n");
+		pr_perror("Can't create epoll\n");
 		exit(1);
 	}
 
 	for (i = 0; i < scale; i++) {
 		if (pipe(fds[i]) < 0) {
-			err("Can't create pipe[%d]: %m\n", i);
+			pr_perror("Can't create pipe[%d]\n", i);
 			killall();
 			exit(1);
 		}
 		if (fcntl(fds[i][0], F_SETFL, O_NONBLOCK) < 0) {
-			err("Can't set O_NONBLOCK flag on fd[%d]: %m\n", i);
+			pr_perror("Can't set O_NONBLOCK flag on fd[%d]\n", i);
 			killall();
 			exit(1);
 		}
 		event.data.fd = fds[i][0];
 		if (epoll_ctl(efd, EPOLL_CTL_ADD, fds[i][0], &event) < 0) {
-			err("Can't add fd[%d]: %m\n", i);
+			pr_perror("Can't add fd[%d]\n", i);
 			killall();
 			exit(1);
 		}
 
 		if ((rv = test_fork()) < 0) {
-			err("Can't fork[%d]: %m\n", i);
+			pr_perror("Can't fork[%d]\n", i);
 			killall();
 			exit(1);
 		}
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	}
 
 	if ((events = (struct epoll_event*) malloc (sizeof(struct epoll_event)*scale)) == NULL) {
-		err("Can't allocate memory: %m\n");
+		pr_perror("Can't allocate memory\n");
 		killall();
 		exit(1);
 	}
@@ -159,14 +159,14 @@ int main(int argc, char **argv)
 
 	while (test_go()) {
 		if ((rv = epoll_wait(efd, events, scale, rand() % 999)) < 0 && errno != EINTR) {
-			err("epoll_wait error: %m\n");
+			pr_perror("epoll_wait error\n");
 			killall();
 			exit(1);
 		}
 		for (i = 0; i < rv; i++) {
 			while (read(events[i].data.fd, buf, buf_size) > 0);
 			if (errno != EAGAIN && errno != 0 && errno) {
-				err("read error: %m\n");
+				pr_perror("read error\n");
 				killall();
 				exit(1);
 			}

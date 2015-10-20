@@ -26,7 +26,7 @@ int read_fd_link(int lfd, char *buf, size_t size)
 	snprintf(t, sizeof(t), "/proc/self/fd/%d", lfd);
 	ret = readlink(t, buf, size - 1);
 	if (ret < 0) {
-		err("Can't read link of fd %d", lfd);
+		pr_perror("Can't read link of fd %d", lfd);
 		return -1;
 	}
 	buf[ret] = 0;
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
 	fd_self = open(nspath, O_RDONLY);
 	if (fd_self < 0) {
-		err("Can't open %s", nspath);
+		pr_perror("Can't open %s", nspath);
 		return -1;
 	}
 
@@ -54,18 +54,18 @@ int main(int argc, char *argv[])
 	test_waitsig();
 
 	if (read_fd_link(fd_self, path_orig, sizeof(path_orig))) {
-		err("Can't fill original path");
+		pr_perror("Can't fill original path");
 		return -1;
 	}
 
 	fd_new = open(nspath, O_RDONLY);
 	if (fd_new < 0) {
-		err("Can't open %s", nspath);
+		pr_perror("Can't open %s", nspath);
 		return -1;
 	}
 
 	if (read_fd_link(fd_new, path_new, sizeof(path_new))) {
-		err("Can't fill new path");
+		pr_perror("Can't fill new path");
 		return -1;
 	}
 

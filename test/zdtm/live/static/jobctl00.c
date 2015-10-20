@@ -197,7 +197,7 @@ int start_jobs(pid_t *jobs, int njobs, int fdmaster, int fdslave)
 	 * exit :) and signal that via SIGCHLD */
 	if (signal(SIGUSR2, record_sig) == SIG_ERR ||
 	    signal(SIGCHLD, record_sig) == SIG_ERR) {
-		err("can't install signal handler: %m");
+		pr_perror("can't install signal handler");
 		return -1;
 	}
 
@@ -206,7 +206,7 @@ int start_jobs(pid_t *jobs, int njobs, int fdmaster, int fdslave)
 
 		jobs[i] = fork();
 		if (jobs[i] < 0) {	/* we're busted - bail out */
-			err("fork failed: %m");
+			pr_perror("fork failed");
 			goto killout;
 		}
 
@@ -273,19 +273,19 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (num_jobs > JOBS_MAX) {
-		err("%d jobs is too many", num_jobs);
+		pr_perror("%d jobs is too many", num_jobs);
 		exit(1);
 	}
 
 	if (make_pty_pair(&fdmaster, &fdslave) < 0) {
-		err("can't make pty pair: %m");
+		pr_perror("can't make pty pair");
 		exit(1);
 	}
 
 	sleep(30);
 
 	if (start_jobs(jobs, num_jobs, fdmaster, fdslave)) {
-		err("failed to start jobs");
+		pr_perror("failed to start jobs");
 		exit(1);
 	}
 

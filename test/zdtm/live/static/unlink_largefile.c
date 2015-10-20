@@ -23,12 +23,12 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_LARGEFILE, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	if (lseek64(fd, offset, SEEK_SET) < 0) {
-		err("can't lseek %s, offset= %x", filename,
+		pr_perror("can't lseek %s, offset= %x", filename,
 			offset);
 		goto failed;
 	}
@@ -36,12 +36,12 @@ int main(int argc, char ** argv)
 	count = sizeof(buf);
 	memset(buf, 0, count);
 	if (write(fd, buf, count) != count) {
-		err("can't write %s", filename);
+		pr_perror("can't write %s", filename);
 		goto failed;
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		goto failed;
 	}
 

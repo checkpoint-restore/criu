@@ -29,13 +29,13 @@ int main(int argc, char **argv)
 	mkdir(test_dir, 0700);
 
 	if (mount("", test_dir, "tmpfs", 0, NULL)) {
-		err("mount");
+		pr_perror("mount");
 		return 1;
 	}
 
 	snprintf(fname, sizeof(buf), "%s/\\\t \\\\ \\tt", test_dir);
 	if (mkdir(fname, 0700)) {
-		err("mkdir");
+		pr_perror("mkdir");
 		return 1;
 	}
 

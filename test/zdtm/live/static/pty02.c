@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 
 	master = open("/dev/ptmx", O_RDWR);
 	if (master == -1) {
-		err("open(%s) failed", "/dev/ptmx");
+		pr_perror("open(%s) failed", "/dev/ptmx");
 		return 1;
 	}
 
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	slavename = ptsname(master);
 	slave = open(slavename, O_RDWR);
 	if (slave == -1) {
-		err("open(%s) failed", slavename);
+		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
 		new_master = dup(master);
 		if (new_master < 0) {
-			err("can't dup master");
+			pr_perror("can't dup master");
 			exit_shot_parent(1);
 		}
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 		ret = write(new_master, teststr, sizeof(teststr) - 1);
 		if (ret != sizeof(teststr) - 1) {
-			err("write(new_master) failed (ret = %d)", ret);
+			pr_perror("write(new_master) failed (ret = %d)", ret);
 			exit_shot_parent(1);
 		}
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 		close(new_master);
 		exit(0);
 	} else if (pid < 0) {
-		err("test_fork failed");
+		pr_perror("test_fork failed");
 		exit(1);
 	}
 
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
 	ret = read(slave, buf, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("read(slave) failed (ret = %d)", ret);
+		pr_perror("read(slave) failed (ret = %d)", ret);
 		return 1;
 	}
 

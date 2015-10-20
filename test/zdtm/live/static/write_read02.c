@@ -23,7 +23,7 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
@@ -35,14 +35,14 @@ int main(int argc, char ** argv)
 	sprintf(str, "standard_%s", filename);
 	fd1 = open(str, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (write(fd1, buf, full_len) != full_len) {
-		err("can't write %s", str);
+		pr_perror("can't write %s", str);
 		exit(1);
 	}
 	close(fd1);
 
 	len = sizeof(buf) / 2;
 	if (write(fd, buf, len) != len) {
-		err("can't write %s", filename);
+		pr_perror("can't write %s", filename);
 		exit(1);
 	}
 

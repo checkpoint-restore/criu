@@ -15,7 +15,7 @@ int main(int argc, char **argv)
 	mem = (void *)mmap(NULL, (10L << 30), PROT_READ | PROT_WRITE,
 			   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if ((void *)mem == MAP_FAILED) {
-		err("mmap failed: %m");
+		pr_perror("mmap failed");
 		return -1;
 	}
 

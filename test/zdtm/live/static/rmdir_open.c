@@ -21,18 +21,18 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mkdir(dirname, 0700)) {
-		err("Can't make dir");
+		pr_perror("Can't make dir");
 		goto out;
 	}
 
 	fd = open(dirname, O_DIRECTORY);
 	if (fd < 0) {
-		err("Can't open dir");
+		pr_perror("Can't open dir");
 		goto outr;
 	}
 
 	if (rmdir(dirname)) {
-		err("Can't remove dir");
+		pr_perror("Can't remove dir");
 		goto outr;
 	}
 

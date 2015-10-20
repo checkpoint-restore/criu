@@ -94,7 +94,7 @@ static int make_child(int id, int flags)
 			flags | SIGCHLD, &args);
 
 	if (cid < 0)
-		err("clone(%d, %d)", id, flags);
+		pr_perror("clone(%d, %d)", id, flags);
 
 	processes[id].pid = cid;
 
@@ -108,7 +108,7 @@ static void handle_command()
 
 	ret = read(sk, &cmd, sizeof(cmd));
 	if (ret != sizeof(cmd)) {
-		err("Unable to get command");
+		pr_perror("Unable to get command");
 		goto err;
 	}
 
@@ -133,21 +133,21 @@ static void handle_command()
 				cmd.arg1, processes[cmd.arg1].pid);
 
 		if (waitpid(processes[cmd.arg1].pid, NULL, 0) == -1) {
-			err("waitpid(%d)", processes[cmd.arg1].pid);
+			pr_perror("waitpid(%d)", processes[cmd.arg1].pid);
 			status = -1;
 		}
 		break;
 	case TEST_SUBREAPER:
 		test_msg("%3d: subreaper(%d)\n", current, cmd.arg1);
 		if (prctl(PR_SET_CHILD_SUBREAPER, cmd.arg1, 0, 0, 0) == -1) {
-			err("PR_SET_CHILD_SUBREAPER");
+			pr_perror("PR_SET_CHILD_SUBREAPER");
 			status = -1;
 		}
 		break;
 	case TEST_SETSID:
 		test_msg("%3d: setsid()\n", current);
 		if(setsid() == -1) {
-			err("setsid");
+			pr_perror("setsid");
 			status = -1;
 		}
 		break;
@@ -160,7 +160,7 @@ static void handle_command()
 
 	ret = write(sk, &status, sizeof(status));
 	if (ret != sizeof(status)) {
-		err("Unable to answer");
+		pr_perror("Unable to answer");
 		goto err;
 	}
 
@@ -180,26 +180,26 @@ static int send_command(int id, enum commands op, int arg1, int arg2)
 
 	if (op == TEST_FORK) {
 		if (processes[arg1].pid) {
-			err("%d is busy", arg1);
+			pr_perror("%d is busy", arg1);
 			return -1;
 		}
 	}
 
 	ret = write(sk, &cmd, sizeof(cmd));
 	if (ret != sizeof(cmd)) {
-		err("Unable to send command");
+		pr_perror("Unable to send command");
 		goto err;
 	}
 
 	status = 0;
 	ret = read(sk, &status, sizeof(status));
 	if (ret != sizeof(status) && !(status == 0 && op == TEST_DIE)) {
-		err("Unable to get answer");
+		pr_perror("Unable to get answer");
 		goto err;
 	}
 
 	if (status) {
-		err("The command(%d, %d, %d) failed");
+		pr_perror("The command(%d, %d, %d) failed");
 		goto err;
 	}
 
@@ -219,13 +219,13 @@ int main(int argc, char ** argv)
 	processes = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ,
 				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (processes == NULL) {
-		err("Unable to map share memory");
+		pr_perror("Unable to map share memory");
 		return 1;
 	}
 
 	for (i = 0; i < nr_processes; i++) {
 		if (socketpair(PF_UNIX, SOCK_STREAM, 0, processes[i].sks) == -1) {
-			err("socketpair");
+			pr_perror("socketpair");
 			return 1;
 		}
 	}
@@ -286,7 +286,7 @@ int main(int argc, char ** argv)
 
 		processes[i].sid = getsid(processes[i].pid);
 		if (processes[i].sid == -1) {
-			err("getsid(%d)", i);
+			pr_perror("getsid(%d)", i);
 			goto err;
 		}
 	}
@@ -305,7 +305,7 @@ int main(int argc, char ** argv)
 
 		sid = getsid(processes[i].pid);
 		if (sid == -1) {
-			err("getsid(%d)", i);
+			pr_perror("getsid(%d)", i);
 			goto err;
 		}
 

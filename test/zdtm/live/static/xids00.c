@@ -84,10 +84,10 @@ int main(int argc, char **argv)
 
 		kill(pid, SIGTERM);
 		if (waitpid(pid, &stat, 0) < 0) {
-			err("Unable to wait P2 %d", pid);
+			pr_perror("Unable to wait P2 %d", pid);
 			exit(3);
 		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-			err("P2 stat %d/%d/%d/%d", WIFEXITED(stat), WEXITSTATUS(stat),
+			pr_perror("P2 stat %d/%d/%d/%d", WIFEXITED(stat), WEXITSTATUS(stat),
 							WIFSIGNALED(stat), WTERMSIG(stat));
 			exit(3);
 		}
@@ -110,10 +110,10 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
 		if (waitpid(pids[i], &stat, 0) < 0) {
-			err("Unable to wait %d", pids[i]);
+			pr_perror("Unable to wait %d", pids[i]);
 			fail = 1;
 		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-			err("P%d stat %d/%d/%d/%d", i, WIFEXITED(stat), WEXITSTATUS(stat),
+			pr_perror("P%d stat %d/%d/%d/%d", i, WIFEXITED(stat), WEXITSTATUS(stat),
 							WIFSIGNALED(stat), WTERMSIG(stat));
 			fail = 1;
 		}

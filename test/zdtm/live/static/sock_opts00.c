@@ -31,14 +31,14 @@ int main(int argc, char ** argv)
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return 1;
 	}
 
 	for (i = 0; i < NOPTS; i++) {
 		ret = getsockopt(sock, SOL_SOCKET, vname[i], &val[i], &len);
 		if (ret) {
-			err("can't get option %d", i);
+			pr_perror("can't get option %d", i);
 			return 1;
 		}
 
@@ -46,19 +46,19 @@ int main(int argc, char ** argv)
 
 		ret = setsockopt(sock, SOL_SOCKET, vname[i], &val[i], len);
 		if (ret) {
-			err("can't set option %d", i);
+			pr_perror("can't set option %d", i);
 			return 1;
 		}
 
 		ret = getsockopt(sock, SOL_SOCKET, vname[i], &rval, &len);
 		if (ret) {
-			err("can't get option %d 2", i);
+			pr_perror("can't get option %d 2", i);
 			return 1;
 		}
 
 		if (rval != val[i]) {
 			if (rval + 1 == val[i]) {
-				err("can't reset option %d want %d have %d", i,
+				pr_perror("can't reset option %d want %d have %d", i,
 						val[i], rval);
 				return 1;
 			}
@@ -74,7 +74,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < NOPTS; i++) {
 		ret = getsockopt(sock, SOL_SOCKET, vname[i], &rval, &len);
 		if (ret) {
-			err("can't get option %d again", i);
+			pr_perror("can't get option %d again", i);
 			return 1;
 		}
 

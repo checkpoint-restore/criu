@@ -80,14 +80,14 @@ int main(int argc, char **argv)
 		read(pipe_prep[0], &res, 1);
 		if (res != SUCCESS) {
 			if (res == ERR_PIPES)
-				err("broken pipes");
+				pr_perror("broken pipes");
 			else {
 				if (res & ERR_IN_FILE)
-					err("inside-root file fail");
+					pr_perror("inside-root file fail");
 				if (res & ERR_ROOT)
-					err("chroot fail");
+					pr_perror("chroot fail");
 				if (res & ERR_DIR)
-					err("mkdir fail");
+					pr_perror("mkdir fail");
 			}
 			return 0;
 		}

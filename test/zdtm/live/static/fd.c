@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("fork()");
+		pr_perror("fork()");
 		return 1;
 	}
 
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 
 		ret = readlinkat(dirfd(d), de->d_name, pfd, sizeof(pfd) - 1);
 		if (ret < 0) {
-			err("readlink");
+			pr_perror("readlink");
 			ret = 0;
 		}
 		pfd[ret] = '\0';
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	kill(pid, SIGTERM);
 
 	if (waitpid(pid, &status, 0) != pid) {
-		err("waitpid()");
+		pr_perror("waitpid()");
 		return 1;
 	}
 

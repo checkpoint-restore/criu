@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 
 	start_addr = mmap(NULL, PAGE_SIZE * 10, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (start_addr == MAP_FAILED) {
-		err("Can't mal a new region");
+		pr_perror("Can't mal a new region");
 		return 1;
 	}
 	munmap(start_addr, PAGE_SIZE * 10);

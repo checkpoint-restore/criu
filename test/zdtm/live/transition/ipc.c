@@ -91,32 +91,32 @@ static int test_fn(int argc, char **argv)
 
 	key = ftok(argv[0], 822155650);
 	if (key == -1) {
-		err("Can't make key");
+		pr_perror("Can't make key");
 		goto out;
 	}
 
 	sem = semget(key, 1, 0777 | IPC_CREAT | IPC_EXCL);
 	if (sem  == -1) {
-		err("Can't get sem");
+		pr_perror("Can't get sem");
 		goto out;
 	}
 
 	if (semctl(sem, 0, SETVAL, 1) == -1) {
-		err("Can't init sem");
+		pr_perror("Can't init sem");
 		fail_count++;
 		goto out_sem;
 	}
 
 	shm = shmget(key, shmem_size, 0777 | IPC_CREAT | IPC_EXCL);
 	if (shm == -1) {
-		err("Can't get shm");
+		pr_perror("Can't get shm");
 		fail_count++;
 		goto out_sem;
 	}
 
 	mem = shmat(shm, NULL, 0);
 	if (mem == (void *)-1) {
-		err("Can't attach shm");
+		pr_perror("Can't attach shm");
 		fail_count++;
 		goto out_shm;
 	}
@@ -125,14 +125,14 @@ static int test_fn(int argc, char **argv)
 
 	pid1 = test_fork();
 	if (pid1 == -1) {
-		err("Can't fork 1st time");
+		pr_perror("Can't fork 1st time");
 		goto out_shdt;
 	} else if (pid1 == 0)
 		exit(child(key));
 
 	pid2 = test_fork();
 	if (pid2 == -1) {
-		err("Can't fork 2nd time");
+		pr_perror("Can't fork 2nd time");
 		fail_count++;
 		goto out_child;
 	} else if (pid2 == 0)
@@ -172,20 +172,20 @@ static int test_fn(int argc, char **argv)
 	waitpid(pid2, &ret, 0);
 	if (!WIFEXITED(ret)) {
 		fail_count++;
-		err("Child 2 was killed");
+		pr_perror("Child 2 was killed");
 	} else if (WEXITSTATUS(ret)) {
 		fail_count++;
-		err("Child 2 couldn't inititalise");
+		pr_perror("Child 2 couldn't inititalise");
 	}
 out_child:
 	kill(pid1, SIGTERM);
 	waitpid(pid1, &ret, 0);
 	if (!WIFEXITED(ret)) {
 		fail_count++;
-		err("Child 1 was killed");
+		pr_perror("Child 1 was killed");
 	} else if (WEXITSTATUS(ret)) {
 		fail_count++;
-		err("Child 1 couldn't inititalise");
+		pr_perror("Child 1 couldn't inititalise");
 	}
 out_shdt:
 	shmdt(mem);

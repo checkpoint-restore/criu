@@ -38,18 +38,18 @@ int get_dumpable_from_pipes(int pipe_input, int pipe_output) {
 	write(pipe_input, "GET\n", 4);
 	len = read(pipe_output, buf, sizeof(buf));
 	if (len < 0) {
-		err("error in parent reading from pipe");
+		pr_perror("error in parent reading from pipe");
 		return -1;
 	}
 
 	if (memcmp(buf, "DUMPABLE:", 9) != 0) {
-		err("child returned [%s]", buf);
+		pr_perror("child returned [%s]", buf);
 		return -1;
 	}
 
 	value = strtol(&buf[9], &endptr, 10);
 	if (!endptr || *endptr != '\n' || endptr != buf + len - 1) {
-		err("child returned [%s]", buf);
+		pr_perror("child returned [%s]", buf);
 		return -1;
 	}
 
@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 	 */
 	ret = chmod(argv[0], 0111);
 	if (ret < 0) {
-		err("error chmodding %s", argv[0]);
+		pr_perror("error chmodding %s", argv[0]);
 		return 1;
 	}
 
@@ -94,19 +94,19 @@ int main(int argc, char **argv)
 
 	ret = pipe(pipe_input);
 	if (ret < 0) {
-		err("error creating input pipe");
+		pr_perror("error creating input pipe");
 		return 1;
 	}
 
 	ret = pipe(pipe_output);
 	if (ret < 0) {
-		err("error creating output pipe");
+		pr_perror("error creating output pipe");
 		return 1;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("error forking the dumpable server");
+		pr_perror("error forking the dumpable server");
 		return 1;
 	}
 
@@ -121,13 +121,13 @@ int main(int argc, char **argv)
 
 		ret = dup2(pipe_input[0], 0);
 		if (ret < 0) {
-			err("could not dup2 pipe into child's stdin");
+			pr_perror("could not dup2 pipe into child's stdin");
 			return 1;
 		}
 
 		ret = dup2(pipe_output[1], 1);
 		if (ret < 0) {
-			err("could not dup2 pipe into child's stdout");
+			pr_perror("could not dup2 pipe into child's stdout");
 			return 1;
 		}
 
@@ -138,12 +138,12 @@ int main(int argc, char **argv)
 
 		ret = setenv("DUMPABLE_SERVER", "yes", 1);
 		if (ret < 0) {
-			err("could not set the DUMPABLE_SERVER env variable");
+			pr_perror("could not set the DUMPABLE_SERVER env variable");
 			return 1;
 		}
 
 		ret = execl(argv[0], "dumpable_server", NULL);
-		err("could not execv %s as a dumpable_server", argv[0]);
+		pr_perror("could not execv %s as a dumpable_server", argv[0]);
 		return 1;
 	}
 
@@ -182,22 +182,22 @@ int main(int argc, char **argv)
 
 	waited = wait(&status);
 	if (waited < 0) {
-		err("error calling wait on the child");
+		pr_perror("error calling wait on the child");
 		return 1;
 	}
 	errno = 0;
 	if (waited != pid) {
-		err("waited pid %d did not match child pid %d",
+		pr_perror("waited pid %d did not match child pid %d",
 		    waited, pid);
 		return 1;
 	}
 	if (!WIFEXITED(status)) {
-		err("child dumpable server returned abnormally with status=%d",
+		pr_perror("child dumpable server returned abnormally with status=%d",
 		    status);
 		return 1;
 	}
 	if (WEXITSTATUS(status) != 0) {
-		err("child dumpable server returned rc=%d",
+		pr_perror("child dumpable server returned rc=%d",
 		    WEXITSTATUS(status));
 		return 1;
 	}

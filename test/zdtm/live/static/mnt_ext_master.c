@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
 
 	root = getenv("ZDTM_ROOT");
 	if (root == NULL) {
-		err("root");
+		pr_perror("root");
 		return 1;
 	}
 
@@ -42,19 +42,19 @@ int main(int argc, char ** argv)
 		mkdir(dname, 755);
 		sprintf(src, "%s/test", dname);
 		if (mount("zdtm_auto_ext_mnt", dname, "tmpfs", 0, NULL)) {
-			err("mount");
+			pr_perror("mount");
 			return 1;
 		}
 
 		mkdir(src, 755);
 		mkdir(dst, 755);
 		if (mount(src, dst, NULL, MS_BIND, NULL)) {
-			err("bind");
+			pr_perror("bind");
 			return 1;
 		}
 
 		if (mount(src, dst, NULL, MS_SLAVE, NULL)) {
-			err("slave");
+			pr_perror("slave");
 			return 1;
 		}
 

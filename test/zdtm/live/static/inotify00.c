@@ -83,7 +83,7 @@ static int inotify_read_events(char *prefix, int inotify_fd, unsigned int *expec
 		ret = read(inotify_fd, buf, sizeof(buf));
 		if (ret < 0) {
 			if (errno != EAGAIN) {
-				err("Can't read inotify queue");
+				pr_perror("Can't read inotify queue");
 				return -1;
 			} else {
 				ret = 0;
@@ -119,7 +119,7 @@ int main (int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
-		err("Can't create directory %s", dirname);
+		pr_perror("Can't create directory %s", dirname);
 		exit(1);
 	}
 
@@ -131,13 +131,13 @@ int main (int argc, char *argv[])
 	static char buf[PATH_MAX];
 
 	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
-		err("Unable to remount /");
+		pr_perror("Unable to remount /");
 		return 1;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("Can't fork a test process");
+		pr_perror("Can't fork a test process");
 		exit(1);
 	}
 	if (pid == 0) {
@@ -145,17 +145,17 @@ int main (int argc, char *argv[])
 
 		prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
 		if (unshare(CLONE_NEWNS)) {
-			err("Unable to unshare mount namespace");
+			pr_perror("Unable to unshare mount namespace");
 			exit(1);
 		}
 
 		if (mount("zdtm", dirname, "tmpfs", 0, NULL)) {
-			err("Unable to mount tmpfs");
+			pr_perror("Unable to mount tmpfs");
 			exit(1);
 		}
 		fd = open(dirname, O_RDONLY);
 		if (fd < 0) {
-			err("Unable to open %s", dirname);
+			pr_perror("Unable to open %s", dirname);
 			exit(1);
 		}
 		dup2(fd, 100);
@@ -172,7 +172,7 @@ int main (int argc, char *argv[])
 
 	fd = inotify_init1(IN_NONBLOCK);
 	if (fd < 0) {
-		err("inotify_init failed");
+		pr_perror("inotify_init failed");
 		exit(1);
 	}
 
@@ -180,17 +180,17 @@ int main (int argc, char *argv[])
 
 	real_fd = open(test_file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
 	if (real_fd < 0) {
-		err("Can't create %s", test_file_path);
+		pr_perror("Can't create %s", test_file_path);
 		exit(1);
 	}
 
 	if (inotify_add_watch(fd, dirname, mask) < 0) {
-		err("inotify_add_watch failed");
+		pr_perror("inotify_add_watch failed");
 		exit(1);
 	}
 
 	if (inotify_add_watch(fd, test_file_path, mask) < 0) {
-		err("inotify_add_watch failed");
+		pr_perror("inotify_add_watch failed");
 		exit(1);
 	}
 
@@ -202,7 +202,7 @@ int main (int argc, char *argv[])
 
 #ifndef INOTIFY01
 	if (unlink(test_file_path)) {
-		err("can't unlink %s", test_file_path);
+		pr_perror("can't unlink %s", test_file_path);
 		exit(1);
 	}
 
@@ -211,7 +211,7 @@ int main (int argc, char *argv[])
 	if (emask) {
 		char emask_bits[128];
 		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
-		err("Unhandled events in emask %#x -> %s",
+		pr_perror("Unhandled events in emask %#x -> %s",
 		    emask, emask_bits);
 		exit(1);
 	}
@@ -235,7 +235,7 @@ int main (int argc, char *argv[])
 #ifndef INOTIFY01
 	real_fd = open(test_file_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
 	if (real_fd < 0) {
-		err("Can't create %s", test_file_path);
+		pr_perror("Can't create %s", test_file_path);
 		exit(1);
 	}
 	close(real_fd);

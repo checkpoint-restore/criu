@@ -84,14 +84,14 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", pid_child);
 	fd_child = open(buf, O_RDONLY);
 	if (fd_child < 0) {
-		err("Unable to open child pagemap file %s", buf);
+		pr_perror("Unable to open child pagemap file %s", buf);
 		return -1;
 	}
 
 	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", pid_parent);
 	fd_parent = open(buf, O_RDONLY);
 	if (fd_parent < 0) {
-		err("Unable to open parent pagemap file %s", buf);
+		pr_perror("Unable to open parent pagemap file %s", buf);
 		return -1;
 	}
 
@@ -104,28 +104,28 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 
 		lseek_ret = lseek(fd_child, pfn * sizeof(map_child), SEEK_SET);
 		if (lseek_ret == (off_t) -1) {
-			err("Unable to seek child pagemap to virtual addr %#08lx",
+			pr_perror("Unable to seek child pagemap to virtual addr %#08lx",
 			    pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		lseek_ret = lseek(fd_parent, pfn * sizeof(map_parent), SEEK_SET);
 		if (lseek_ret == (off_t) -1) {
-			err("Unable to seek parent pagemap to virtual addr %#08lx",
+			pr_perror("Unable to seek parent pagemap to virtual addr %#08lx",
 			    pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		ret = read(fd_child, &map_child, sizeof(map_child));
 		if (ret != sizeof(map_child)) {
-			err("Unable to read child pagemap at virtual addr %#08lx",
+			pr_perror("Unable to read child pagemap at virtual addr %#08lx",
 			    pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		ret = read(fd_parent, &map_parent, sizeof(map_parent));
 		if (ret != sizeof(map_parent)) {
-			err("Unable to read parent pagemap at virtual addr %#08lx",
+			pr_perror("Unable to read parent pagemap at virtual addr %#08lx",
 			    pfn * PAGE_SIZE);
 			return -1;
 		}
@@ -136,11 +136,11 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 		p = (void **)(addr + i * PAGE_SIZE);
 		test_msg("Read *%p = %p\n", p, p[0]);
 		if (write(fd, &p, sizeof(p)) != sizeof(p)) {
-			err("write");
+			pr_perror("write");
 			return -1;
 		}
 		if (read(fd, &p, sizeof(p)) != sizeof(p)) {
-			err("read");
+			pr_perror("read");
 			return -1;
 		}
 		test_msg("Child %p\n", p);
@@ -304,7 +304,7 @@ static int __init_cow(struct test_cases *tcs, int flags)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
-		err("Can't allocate memory");
+		pr_perror("Can't allocate memory");
 		return -1;
 	}
 
@@ -348,7 +348,7 @@ static int init_sep(struct test_cases *tcs)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (tcs->addr == MAP_FAILED) {
-		err("Can't allocate memory");
+		pr_perror("Can't allocate memory");
 		return -1;
 	}
 
@@ -370,7 +370,7 @@ static int init_file(struct test_cases *tcs)
 
 	fd = open(filename, O_TRUNC | O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
-		err("Unable to create a test file");
+		pr_perror("Unable to create a test file");
 		return -1;
 	}
 
@@ -380,7 +380,7 @@ static int init_file(struct test_cases *tcs)
 		datagen2(buf, sizeof(buf), &crc);
 		ret = write(fd, buf, sizeof(buf));
 		if (ret != sizeof(buf)) {
-			err("Unable to write data in test file %s", filename);
+			pr_perror("Unable to write data in test file %s", filename);
 			return -1;
 		}
 
@@ -392,7 +392,7 @@ static int init_file(struct test_cases *tcs)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (tcs->addr == MAP_FAILED) {
-		err("Can't allocate memory");
+		pr_perror("Can't allocate memory");
 		return -1;
 	}
 
@@ -410,7 +410,7 @@ static int child(task_waiter_t *child_waiter, int fd)
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 	if (sep_tcs.addr == MAP_FAILED) {
-		err("Can't allocate memory");
+		pr_perror("Can't allocate memory");
 		return -1;
 	}
 
@@ -424,13 +424,13 @@ static int child(task_waiter_t *child_waiter, int fd)
 		if (ret == 0)
 			break;
 		if (ret != sizeof(p)) {
-			err("read");
+			pr_perror("read");
 			return -1;
 		}
 		test_msg("Read *%p = %p\n", p, p[0]);
 		p = ((void **)p)[0];
 		if (write(fd, &p, sizeof(p)) != sizeof(p)) {
-			err("write");
+			pr_perror("write");
 			return -1;
 		}
 		ret = 0;
@@ -460,7 +460,7 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pfd)) {
-		err("pipe");
+		pr_perror("pipe");
 		return 1;
 	}
 
@@ -469,7 +469,7 @@ int main(int argc, char ** argv)
 
 	child_pid = test_fork();
 	if (child_pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		return 2;
 	}
 

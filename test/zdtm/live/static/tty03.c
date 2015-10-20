@@ -22,13 +22,13 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (pipe(pfd) == -1) {
-		err("pipe");
+		pr_perror("pipe");
 		return 1;
 	}
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
-		err("Can't open a master pseudoterminal");
+		pr_perror("Can't open a master pseudoterminal");
 		return 1;
 	}
 
@@ -39,7 +39,7 @@ int main(int argc, char ** argv)
 	pid = test_fork();
 	if (pid == 0) {
 		if (setsid() == -1) {
-			err("setsid");
+			pr_perror("setsid");
 			return 1;
 		}
 
@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 		/* set up a controlling terminal */
 		fds = open(slavename, O_RDWR | O_NOCTTY);
 		if (fds == -1) {
-			err("Can't open a slave pseudoterminal %s", slavename);
+			pr_perror("Can't open a slave pseudoterminal %s", slavename);
 			return 1;
 		}
 		ioctl(fds, TIOCSCTTY, 1);
@@ -56,7 +56,7 @@ int main(int argc, char ** argv)
 		pid = test_fork();
 		if (pid == 0) {
 			if (setsid() == -1) {
-				err("setsid");
+				pr_perror("setsid");
 				return 1;
 			}
 
@@ -79,12 +79,12 @@ int main(int argc, char ** argv)
 
 	close(pfd[1]);
 	if (read(pfd[0], &sid_a, 1) != 0) {
-		err("read");
+		pr_perror("read");
 		goto out;
 	}
 
 	if (ioctl(fdm, TIOCGSID, &sid_b) == -1) {
-		err("The tty is not a controlling");
+		pr_perror("The tty is not a controlling");
 		goto out;
 	}
 

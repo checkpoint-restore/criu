@@ -27,13 +27,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\"", filename);
+		pr_perror("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork");
+		pr_perror("Can't fork");
 		exit(1);
 	}
 
@@ -42,18 +42,18 @@ int main(int argc, char **argv)
 		int res;
 		fd1 = open(filename, O_RDONLY);
 		if (fd1 < 0) {
-			err("open(%s, O_RDONLY) Failed", filename);
+			pr_perror("open(%s, O_RDONLY) Failed", filename);
 			chret = errno;
 			return chret;
 		}
 		res = read(fd1, rbuf, 7);
 		if (res < 0) {
-			err("read error %s", filename);
+			pr_perror("read error %s", filename);
 			chret = errno;
 			return chret;
 		}
 		else if (res == 0) {
-			err("read(%d, rbuf, 7) return 0", fd1);
+			pr_perror("read(%d, rbuf, 7) return 0", fd1);
 			return 1;
 		}
 		if (close(fd1) < 0) {
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
 		fd = open(filename, O_WRONLY);
 		if (fd < 0) {
-			err("open(%s, O_WRONLY) Failed", filename);
+			pr_perror("open(%s, O_WRONLY) Failed", filename);
 			kill(pid, SIGKILL);
 			wait(NULL);
 			return 1;
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 		test_waitsig();
 
 		if (write(fd, "string", 7) == -1) {
-			err("write(%d, 'string', 7) Failed", fd);
+			pr_perror("write(%d, 'string', 7) Failed", fd);
 			return 1;
 		}
 

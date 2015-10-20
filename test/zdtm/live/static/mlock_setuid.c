@@ -17,14 +17,14 @@ int main(int argc, char **argv)
 	start = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE,
 	             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (start == MAP_FAILED) {
-		err("mmap failed");
+		pr_perror("mmap failed");
 		return -1;
 	}
 
 	test_msg("Lock vma from %lx to %lx\n", start, start + MEM_SIZE);
 	ret = mlock(start, MEM_SIZE);
 	if (ret < 0) {
-		err("mlock");
+		pr_perror("mlock");
 		return -1;
 	}
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	test_msg("Setuid to 18943\n");
 	ret = setuid(18943);
 	if (ret < 0) {
-		err("setuid");
+		pr_perror("setuid");
 		return -1;
 	}
 

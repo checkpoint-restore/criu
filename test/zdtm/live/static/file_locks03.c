@@ -40,7 +40,7 @@ static int check_file_locks(int alt_pid)
 			fl_flag, fl_type, fl_option, &fl_owner);
 
 		if (num < 4) {
-			err("Invalid lock info.");
+			pr_perror("Invalid lock info.");
 			break;
 		}
 
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
-		err("No file");
+		pr_perror("No file");
 		return -1;
 	}
 

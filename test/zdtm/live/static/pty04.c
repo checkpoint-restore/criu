@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
 	master = open("/dev/ptmx", O_RDWR);
 	if (master == -1) {
-		err("open(%s) failed", "/dev/ptmx");
+		pr_perror("open(%s) failed", "/dev/ptmx");
 		return 1;
 	}
 
@@ -33,18 +33,18 @@ int main(int argc, char *argv[])
 
 	slave1 = open(slavename, O_RDWR);
 	if (slave1 == -1) {
-		err("open(%s) failed", slavename);
+		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
 
 	slave2 = open(slavename, O_RDWR);
 	if (slave2 == -1) {
-		err("open(%s) failed", slavename);
+		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
 
 	if (ioctl(slave1, TIOCSCTTY, 1)) {
-		err("Can't set a controll terminal");
+		pr_perror("Can't set a controll terminal");
 		return 1;
 	}
 

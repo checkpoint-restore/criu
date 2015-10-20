@@ -38,7 +38,7 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 	test_msg("signo=%d si_code=%x\n", signal, info->si_code);
 
 	if (test_go()) {
-		err("The signal is received before unlocking");
+		pr_perror("The signal is received before unlocking");
 		return;
 	}
 
@@ -85,7 +85,7 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 		return;
 	}
 
-	err("Unexpected signal");
+	pr_perror("Unexpected signal");
 	exit(1);
 }
 
@@ -103,12 +103,12 @@ static void *thread_fn(void *args)
 	sigdelset(&blockmask, SIGTERM);
 
 	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return NULL;
 	}
 
 	if (sigprocmask(SIG_SETMASK, NULL, &oldset) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return NULL;
 	}
 
@@ -121,7 +121,7 @@ static void *thread_fn(void *args)
 	sigaddset(&act.sa_mask, TESTSIG);
 	sigaddset(&act.sa_mask, THREADSIG);
 	if (sigaction(TESTSIG, &act, NULL)) {
-		err("sigaction() failed");
+		pr_perror("sigaction() failed");
 		return NULL;
 	}
 
@@ -129,7 +129,7 @@ static void *thread_fn(void *args)
 	pthread_mutex_lock(&exit_lock);
 
 	if (sigprocmask(SIG_UNBLOCK, &blockmask, &newset) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return NULL;
 	}
 
@@ -181,7 +181,7 @@ int main(int argc, char ** argv)
 	pthread_mutex_lock(&init_lock);
 
 	if (pthread_create(&pthrd, NULL, thread_fn, NULL)) {
-		err("Can't create a thread");
+		pr_perror("Can't create a thread");
 		return 1;
 	}
 
@@ -191,18 +191,18 @@ int main(int argc, char ** argv)
 	sigdelset(&blockmask, SIGTERM);
 
 	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return -1;
 	}
 
 	if (sigprocmask(SIG_BLOCK, NULL, &oldset) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return -1;
 	}
 
 	child = fork();
 	if (child == -1) {
-		err("fork");
+		pr_perror("fork");
 		return -1;
 	}
 
@@ -228,19 +228,19 @@ int main(int argc, char ** argv)
 	sigemptyset(&act.sa_mask);
 
 	if (sigaction(SIGCHLD, &act, NULL)) {
-		err("sigaction() failed");
+		pr_perror("sigaction() failed");
 		return -1;
 	}
 
 	sigaddset(&act.sa_mask, TESTSIG);
 	sigaddset(&act.sa_mask, THREADSIG);
 	if (sigaction(TESTSIG, &act, NULL)) {
-		err("sigaction() failed");
+		pr_perror("sigaction() failed");
 		return -1;
 	}
 
 	if (sigaction(THREADSIG, &act, NULL)) {
-		err("sigaction() failed");
+		pr_perror("sigaction() failed");
 		return -1;
 	}
 
@@ -249,7 +249,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (sigprocmask(SIG_UNBLOCK, &blockmask, &newset) == -1) {
-		err("sigprocmask");
+		pr_perror("sigprocmask");
 		return -1;
 	}
 	pthread_mutex_unlock(&exit_lock);

@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
 	child = fork();
 	if (child < 0) {
-		err("fork");
+		pr_perror("fork");
 		return 1;
 	}
 
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 
 		ret = mmap(p, size, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 		if (ret == MAP_FAILED) {
-			err("%p-%p", p, p + size);
+			pr_perror("%p-%p", p, p + size);
 			goto err;
 		}
 
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 
 	if (child == 0) {
 		if (!test_go())
-			err("unexpected state");
+			pr_perror("unexpected state");
 		futex_set_and_wake(&shm->stop, 2);
 		test_waitsig();
 		return 0;
@@ -148,14 +148,14 @@ int main(int argc, char **argv)
 			lret = sys_process_vm_readv(getpid(), p, lbuf, PAGE_SIZE);
 			rret = sys_process_vm_readv(child, p, rbuf, PAGE_SIZE);
 			if (rret != lret) {
-				err("%p %d %d", p, lret, rret);
+				pr_perror("%p %d %d", p, lret, rret);
 				goto err;
 			}
 			if (lret < 0)
 				continue;
 			readable++;
 			if (memcmp(rbuf, lbuf, PAGE_SIZE)) {
-				err("%p", p);
+				pr_perror("%p", p);
 				goto err;
 			}
 		}
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 		kill(child, SIGTERM);
 		wait(&status);
 		if (status != 0) {
-			err("Non-zero exit code: %d", status);
+			pr_perror("Non-zero exit code: %d", status);
 			goto err;
 		}
 		pass();

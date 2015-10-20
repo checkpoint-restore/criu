@@ -36,13 +36,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if ((fd_s = tcp_init_server(AF_INET, &port)) < 0) {
-		err("initializing server failed");
+		pr_perror("initializing server failed");
 		return 1;
 	}
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("fork failed. Return %d %m", pid);
+		pr_perror("fork failed. Return %d %m", pid);
 		return 1;
 	}
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		aiocb.aio_nbytes = BUF_SIZE;
 		ret = aio_read(&aiocb);
 		if (ret < 0) {
-			err("aio_read failed %m");
+			pr_perror("aio_read failed %m");
 			return 1;
 		}
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 		res = 0;
 again:
 		if (aio_suspend(aioary, 1, NULL) < 0 && errno != EINTR) {
-			err("aio_suspend failed %m");
+			pr_perror("aio_suspend failed %m");
 			res = 1;
 		}
 
@@ -86,12 +86,12 @@ again:
 			goto again;
 		}
 		if (ret != 0) {
-			err("Error at aio_error() %s", strerror(ret));
+			pr_perror("Error at aio_error() %s", strerror(ret));
 			res = 1;
 		}
 
 		if (aio_return(&aiocb) != BUF_SIZE) {
-			err("Error at aio_return() %m");
+			pr_perror("Error at aio_return() %m");
 			res = 1;
 		}
 
@@ -105,7 +105,7 @@ again:
 	fd = tcp_accept_server(fd_s);
 	close(fd_s);
 	if (fd < 0) {
-		err("can't accept client connection %m");
+		pr_perror("can't accept client connection %m");
 		goto error;
 	}
 
@@ -113,19 +113,19 @@ again:
 	test_waitsig();
 
 	if (write(fd, buf, BUF_SIZE) < BUF_SIZE) {
-		err("can't write");
+		pr_perror("can't write");
 		goto error;
 	}
 	close(fd);
 
 
 	if (wait(&status) < 0) {
-		err("wait failed %m");
+		pr_perror("wait failed %m");
 		goto error;
 	}
 
 	if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-		err("chiled failed. Return %d", WEXITSTATUS(status));
+		pr_perror("chiled failed. Return %d", WEXITSTATUS(status));
 		return 1;
 	}
 

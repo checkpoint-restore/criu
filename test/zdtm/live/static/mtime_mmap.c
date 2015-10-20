@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_RDWR | O_CREAT, 0666);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
@@ -42,19 +42,19 @@ int main(int argc, char **argv)
 	count = sizeof(buf);
 	memset(buf, 1, count);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("failed to write %s", filename);
+		pr_perror("failed to write %s", filename);
 		exit(1);
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info", filename);
+		pr_perror("can't get %s file info", filename);
 		goto failed;
 	}
 
 	ptr = (char *)mmap(NULL, count, PROT_READ | PROT_WRITE,
 			MAP_SHARED, fd, 0);
 	if (ptr == MAP_FAILED) {
-		err("mmap() Failed, errno=%d : %s", errno, strerror(errno));
+		pr_perror("mmap() Failed, errno=%d : %s", errno, strerror(errno));
 		goto failed;
 	}
 
@@ -66,12 +66,12 @@ int main(int argc, char **argv)
 		ptr[i]++;
 
 	if (munmap(ptr, count)) {
-		err("munmap Failed, errno=%d : %s", errno, strerror(errno));
+		pr_perror("munmap Failed, errno=%d : %s", errno, strerror(errno));
 		goto failed;
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info", filename);
+		pr_perror("can't get %s file info", filename);
 		goto failed;
 	}
 
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info", filename);
+		pr_perror("can't get %s file info", filename);
 		goto failed;
 	}
 

@@ -25,24 +25,24 @@ int main(int argc, char ** argv)
 
 	if (snprintf(filename2, sizeof(filename2), "%s.lnk", filename) >=
 	    sizeof(filename2)) {
-		err("filename %s is too long", filename);
+		pr_perror("filename %s is too long", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0644);
 	if (fd < 0) {
-		err("can't open %s: %m", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	if (link(filename, filename2) < 0) {
-		err("can't link %s to %s: %m", filename, filename2);
+		pr_perror("can't link %s to %s", filename, filename2);
 		goto unlink;
 	}
 
 	fd2 = open(filename2, O_RDONLY);
 	if (fd < 0) {
-		err("can't open %s: %m", filename2);
+		pr_perror("can't open %s", filename2);
 		goto unlink;
 	}
 

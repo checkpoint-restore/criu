@@ -44,7 +44,7 @@ int main(int argc, char ** argv)
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
-		err("open(%s) failed", "/dev/ptmx");
+		pr_perror("open(%s) failed", "/dev/ptmx");
 		return 1;
 	}
 	grantpt(fdm);
@@ -52,26 +52,26 @@ int main(int argc, char ** argv)
 	slavename = ptsname(fdm);
 	fds = open(slavename, O_RDWR);
 	if (fds == -1) {
-		err("open(%s) failed", slavename);
+		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
 
 	tty = open("/dev/tty", O_RDWR);
 	if (tty < 0) {
-		err("open(%s) failed", "/dev/tty");
+		pr_perror("open(%s) failed", "/dev/tty");
 		return 1;
 	}
 
 	/* Try to reproduce a deadlock */
 	if (dup2(fdm, 101) != 101) {
-		err("dup( , 101) failed");
+		pr_perror("dup( , 101) failed");
 		return 1;
 	}
 	close(fdm);
 	fdm = 101;
 
 	if (dup2(fds, 100) != 100) {
-		err("dup( , 100) failed");
+		pr_perror("dup( , 100) failed");
 		return 1;
 	}
 	close(fds);
@@ -84,13 +84,13 @@ int main(int argc, char ** argv)
 	/* Check connectivity */
 	ret = write(fdm, teststr, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("write(fdm) failed");
+		pr_perror("write(fdm) failed");
 		return 1;
 	}
 
 	ret = read(fds, buf, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("read(fds) failed");
+		pr_perror("read(fds) failed");
 		return 1;
 	}
 
@@ -101,13 +101,13 @@ int main(int argc, char ** argv)
 
 	ret = write(fdm, teststr, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("write(fdm) failed");
+		pr_perror("write(fdm) failed");
 		return 1;
 	}
 
 	ret = read(tty, buf, sizeof(teststr) - 1);
 	if (ret != sizeof(teststr) - 1) {
-		err("read(tty) failed");
+		pr_perror("read(tty) failed");
 		return 1;
 	}
 

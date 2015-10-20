@@ -109,13 +109,13 @@ int main(int argc, char ** argv)
 						(unsigned long) m + MEM_SIZE);
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
-		err("Can't open file %s: %m", path);
+		pr_perror("Can't open file %s", path);
 		goto err;
 	}
 
 	m2 = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED, fd, MEM_OFFSET3);
 	if (m2 == MAP_FAILED) {
-		err("Can't map file %s", path);
+		pr_perror("Can't map file %s", path);
 		goto err;
 	}
 	close(fd);

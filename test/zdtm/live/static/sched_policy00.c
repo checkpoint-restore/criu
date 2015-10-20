@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
 
 	p.sched_priority = parm;
 	if (sched_setscheduler(pid, SCHED_RR, &p)) {
-		err("Can't set policy");
+		pr_perror("Can't set policy");
 		kill(pid, SIGKILL);
 		return -1;
 	}

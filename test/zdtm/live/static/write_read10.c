@@ -27,24 +27,24 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	child_fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s", filename);
+		pr_perror("can't open %s", filename);
 		exit(1);
 	}
 
 	if (unlink(filename)) {
-		err("can't unlink %s", filename);
+		pr_perror("can't unlink %s", filename);
 		exit(1);
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("can't fork");
+		pr_perror("can't fork");
 		exit(1);
 	}
 

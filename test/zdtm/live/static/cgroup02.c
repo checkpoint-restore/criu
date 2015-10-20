@@ -23,19 +23,19 @@ int mount_and_add(const char *controller, const char *path)
 	int cgfd, l;
 
 	if (mkdir(dirname, 0700) < 0 && errno != EEXIST) {
-		err("Can't make dir");
+		pr_perror("Can't make dir");
 		return -1;
 	}
 
 	sprintf(subdir, "%s/%s", dirname, controller);
 	if (mkdir(subdir, 0700) < 0) {
-		err("Can't make dir");
+		pr_perror("Can't make dir");
 		return -1;
 	}
 
 	sprintf(aux, "none,name=%s", controller);
 	if (mount("none", subdir, "cgroup", 0, aux)) {
-		err("Can't mount cgroups");
+		pr_perror("Can't mount cgroups");
 		goto err_rd;
 	}
 
@@ -47,7 +47,7 @@ int mount_and_add(const char *controller, const char *path)
 
 	cgfd = open(paux, O_WRONLY);
 	if (cgfd < 0) {
-		err("Can't open tasks");
+		pr_perror("Can't open tasks");
 		goto err_rs;
 	}
 
@@ -55,7 +55,7 @@ int mount_and_add(const char *controller, const char *path)
 	close(cgfd);
 
 	if (l < 0) {
-		err("Can't move self to subcg");
+		pr_perror("Can't move self to subcg");
 		goto err_rs;
 	}
 

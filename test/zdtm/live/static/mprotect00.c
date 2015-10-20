@@ -83,13 +83,13 @@ int main(int argc, char ** argv)
 
 	pagesize = sysconf(_SC_PAGESIZE);
 	if (pagesize < 0) {
-		err("can't get PAGE_SIZE: %m");
+		pr_perror("can't get PAGE_SIZE");
 		exit(1);
 	}
 
 	ptr = mmap(NULL, pagesize * (NUM_MPROTS + 1), PROT_NONE, MAP_PRIVATE | MAP_ANON, 0, 0);
 	if (ptr == MAP_FAILED) {
-		err("calloc failed: %m");
+		pr_perror("calloc failed");
 		return -1;
 	}
 
@@ -99,7 +99,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < NUM_MPROTS; i++)
 		if (mprotect(ptr_aligned + pagesize * i,
 			     pagesize / 2, prots[i]) < 0) {
-			err("mprotect failed: %m");
+			pr_perror("mprotect failed");
 			exit(1);
 		}
 

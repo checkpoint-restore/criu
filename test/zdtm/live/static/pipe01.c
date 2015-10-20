@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
 
 	ret = pipe(pfd);
 	if (ret) {
-		err("pipe() failed: %m");
+		pr_perror("pipe() failed");
 		return 1;
 	}
 
@@ -45,19 +45,19 @@ int main(int argc, char ** argv)
 
 	if (pfd_rop[0] == -1 || pfd_rop[1] == -1 ||
 	    pfd_dup[0] == -1 || pfd_dup[1] == -1) {
-		err("dup() failed");
+		pr_perror("dup() failed");
 		return 1;
 	}
 
 	flags = fcntl(pfd[1], F_GETFL, 0);
 	if (flags == -1) {
-		err("fcntl() failed");
+		pr_perror("fcntl() failed");
 		return 1;
 	}
 
 	ret = fcntl(pfd[1], F_SETFL, flags | O_NONBLOCK);
 	if (ret == -1) {
-		err("fcntl() failed");
+		pr_perror("fcntl() failed");
 		return 1;
 	}
 
@@ -66,7 +66,7 @@ int main(int argc, char ** argv)
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				break;
-			err("write() failed: %m");
+			pr_perror("write() failed");
 			goto err;
 		}
 
@@ -79,24 +79,24 @@ int main(int argc, char ** argv)
 
 	flags = fcntl(pfd[1], F_GETFL, 0);
 	if (!(flags & O_NONBLOCK)) {
-		err("O_NONBLOCK is absent");
+		pr_perror("O_NONBLOCK is absent");
 		goto err;
 	}
 
 	flags = fcntl(pfd_dup[1], F_GETFL, 0);
 	if (!(flags & O_NONBLOCK)) {
-		err("O_NONBLOCK is absent");
+		pr_perror("O_NONBLOCK is absent");
 		goto err;
 	}
 
 	flags = fcntl(pfd_rop[1], F_GETFL, 0);
 	if (flags & O_NONBLOCK) {
-		err("O_NONBLOCK appeared");
+		pr_perror("O_NONBLOCK appeared");
 		goto err;
 	}
 
 	if (close(pfd[1]) == -1) {
-		err("close() failed");
+		pr_perror("close() failed");
 		goto err;
 	}
 
@@ -109,7 +109,7 @@ int main(int argc, char ** argv)
 			break;
 		if (ret == -1) {
 			goto err;
-			err("read() failed: %m");
+			pr_perror("read() failed");
 		}
 		size -= ret;
 

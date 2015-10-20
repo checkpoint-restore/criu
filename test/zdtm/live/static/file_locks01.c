@@ -34,7 +34,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 	snprintf(file2, sizeof(file0), "%s.2", filename);
 	*fd_0 = open(file0, O_RDWR | O_CREAT | O_EXCL, 0666);
 	if (*fd_0 < 0) {
-		err("Unable to open file %s", file0);
+		pr_perror("Unable to open file %s", file0);
 		return -1;
 	}
 
@@ -50,7 +50,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 	if (*fd_1 < 0) {
 		close(*fd_0);
 		unlink(file0);
-		err("Unable to open file %s", file1);
+		pr_perror("Unable to open file %s", file1);
 		return -1;
 	}
 
@@ -63,7 +63,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		close(*fd_1);
 		unlink(file0);
 		unlink(file1);
-		err("Unable to open file %s", file1);
+		pr_perror("Unable to open file %s", file1);
 		return -1;
 	}
 
@@ -107,7 +107,7 @@ static int check_file_locks()
 			&fl_owner, &maj, &min, &i_no, &start, end);
 
 		if (num < 10) {
-			err("Invalid lock info.");
+			pr_perror("Invalid lock info.");
 			break;
 		}
 
@@ -156,7 +156,7 @@ int main(int argc, char **argv)
 
 	m = get_cwd_mnt_info();
 	if (!m) {
-		err("Can't fetch mountinfo");
+		pr_perror("Can't fetch mountinfo");
 		return -1;
 	}
 	if (!strcmp(m->fsname, "btrfs"))

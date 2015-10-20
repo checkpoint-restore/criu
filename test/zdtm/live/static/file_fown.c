@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (pipe(pipes)) {
-		err("Can't create pipe");
+		pr_perror("Can't create pipe");
 		exit(1);
 	}
 
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("can't fork %m");
+		pr_perror("can't fork %m");
 		exit(1);
 	}
 

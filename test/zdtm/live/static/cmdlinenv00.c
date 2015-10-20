@@ -33,7 +33,7 @@ static void read_from_proc(const char *path, char *buf, size_t size)
 	while (r < size) {
 		ret = read(fd, buf + r, size - r);
 		if (ret < 0) {
-			err("Read failed");
+			pr_perror("Read failed");
 			exit(1);
 		} else if (ret == 0) {
 			break;

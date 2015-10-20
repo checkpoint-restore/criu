@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
 	pid = fork();
 	if (pid < 0) {
-		err("fork() failed");
+		pr_perror("fork() failed");
 		return 1;
 	} else if (pid == 0) {
 		char c;
@@ -48,12 +48,12 @@ int main(int argc, char *argv[])
 
 		sk = socket(AF_UNIX, SOCK_DGRAM, 0);
 		if (sk < 0) {
-			err("Can't create socket");
+			pr_perror("Can't create socket");
 			return 1;
 		}
 		ret = bind(sk, &addr, addrlen);
 		if (ret < 0) {
-			err("Can't bind socket to %s", path);
+			pr_perror("Can't bind socket to %s", path);
 			return 1;
 		}
 		chmod(path, 0777);
@@ -73,13 +73,13 @@ int main(int argc, char *argv[])
 
 	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (sk < 0) {
-		err("Can't create socket");
+		pr_perror("Can't create socket");
 		return 1;
 	}
 
 	ret = connect(sk, &addr, addrlen);
 	if (ret < 0) {
-		err("Can't connect socket");
+		pr_perror("Can't connect socket");
 		return 1;
 	}
 
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 
 	ret = send(sk, "H", 1, 0);
 	if (ret != 1) {
-		err("Can't send a symbol");
+		pr_perror("Can't send a symbol");
 		fail();
 		return 1;
 	}

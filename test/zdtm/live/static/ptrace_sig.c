@@ -21,7 +21,7 @@ void sig_handler(int signo, siginfo_t *siginfo, void *data)
 	pid = siginfo->si_pid;
 	ret = write(child_fd, &pid, sizeof(pid));
 	if (ret != sizeof(pid))
-		err("write");
+		pr_perror("write");
 	child_exit = 1;
 }
 
@@ -44,13 +44,13 @@ int child(int fd)
 
 	ret = sigaction(SIGUSR2, &act, &old_act);
 	if (ret < 0) {
-		err("signal failed");
+		pr_perror("signal failed");
 		return 1;
 	}
 
 	ret = ptrace(PTRACE_TRACEME, 0, 0, 0);
 	if (ret < 0) {
-		err("ptrace failed");
+		pr_perror("ptrace failed");
 		return 1;
 	}
 	ret = write(child_fd, &ret, sizeof(ret));
@@ -72,13 +72,13 @@ int main(int argc, char ** argv)
 
 	ret = pipe(child_pipe);
 	if (ret < 0) {
-		err("pipe failed");
+		pr_perror("pipe failed");
 		return 1;
 	}
 
 	cpid = test_fork();
 	if (cpid < 0) {
-		err("fork failed");
+		pr_perror("fork failed");
 		return 1;
 	}
 	else if (cpid == 0) {
@@ -89,25 +89,25 @@ int main(int argc, char ** argv)
 	close(child_pipe[1]);
 	ret = pipe(signal_pipe);
 	if (ret < 0) {
-		err("pipe failed");
+		pr_perror("pipe failed");
 		return 1;
 	}
 
 	spid = test_fork();
 	if (spid < 0) {
-		err("Can't fork signal process");
+		pr_perror("Can't fork signal process");
 		return 1;
 	} else if (spid == 0) {
 		close(signal_pipe[1]);
 		ret = read(signal_pipe[0], &status, sizeof(status));
 		if (ret != sizeof(status)) {
-			err("read");
+			pr_perror("read");
 			return 1;
 		}
 		test_msg("send signal to %d\n", cpid);
 		ret = kill(cpid, SIGUSR2);
 		if (ret < 0) {
-			err("kill failed");
+			pr_perror("kill failed");
 		}
 		return 0;
 	}
@@ -115,20 +115,20 @@ int main(int argc, char ** argv)
 
 	sh = signal(SIGCHLD, sig_chld_handler);
 	if (sh == SIG_ERR) {
-		err("signal failed");
+		pr_perror("signal failed");
 		return 1;
 	}
 
 	test_msg("wait while child initialized");
 	ret = read(child_pipe[0], &status, sizeof(status));
 	if  (ret != sizeof(status)) {
-		err("read from child process failed");
+		pr_perror("read from child process failed");
 		return 1;
 	}
 
 	ret = write(signal_pipe[1], &status, sizeof(status));
 	if (ret != sizeof(status)) {
-		err("write to signal process failed");
+		pr_perror("write to signal process failed");
 	}
 	close(signal_pipe[1]);
 
@@ -140,7 +140,7 @@ int main(int argc, char ** argv)
 		pid = wait(&status);
 		if (pid < 0) {
 			if (errno != ECHILD)
-				err("wait");
+				pr_perror("wait");
 			break;
 		}
 
@@ -151,18 +151,18 @@ int main(int argc, char ** argv)
 
 			ret = ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
 			if (ret < 0) {
-				err("ptrace failed");
+				pr_perror("ptrace failed");
 				return 1;
 			} else
 				test_msg("pid=%d sends signal\n", siginfo.si_pid);
 
 			ret = ptrace(PTRACE_CONT, pid, 0, WSTOPSIG(status));
 			if (ret < 0)
-				err("ptrace failed");
+				pr_perror("ptrace failed");
 
 			ret = read(child_pipe[0], &status, sizeof(status));
 			if  (ret != sizeof(status)) {
-				err("read");
+				pr_perror("read");
 				return 1;
 			}
 

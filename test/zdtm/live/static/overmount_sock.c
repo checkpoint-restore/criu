@@ -34,23 +34,23 @@ static int setup_srv_sock(const char *filename)
 	int sock;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		err("filename \"%s\" is too long", filename);
+		pr_perror("filename \"%s\" is too long", filename);
 		return -1;
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock < 0) {
-		err("can't create socket: %m");
+		pr_perror("can't create socket");
 		return -1;
 	}
 
 	if (bind(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0) {
-		err("can't bind to socket \"%s\": %m", filename);
+		pr_perror("can't bind to socket \"%s\"", filename);
 		goto err;
 	}
 
 	if (listen(sock, 1) < 0) {
-		err("can't listen on a socket \"%s\"", filename);
+		pr_perror("can't listen on a socket \"%s\"", filename);
 		goto err;
 	}
 
@@ -92,12 +92,12 @@ int main(int argc, char ** argv)
 	test_init(argc, argv);
 
 	if (snprintf(path, sizeof(path), "%s/foo", dirname) >= sizeof(path)) {
-		err("directory name \"%s\"is too long", dirname);
+		pr_perror("directory name \"%s\"is too long", dirname);
 		exit(1);
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s", dirname);
+		pr_perror("can't make directory %s", dirname);
 		exit(1);
 	}
 
@@ -107,7 +107,7 @@ int main(int argc, char ** argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("can't fork");
+		pr_perror("can't fork");
 		goto out;
 	}
 
@@ -131,7 +131,7 @@ int main(int argc, char ** argv)
 
 	acc_sock = accept(sock, NULL, NULL);
 	if (acc_sock < 0) {
-		err("can't accept() the connection on \"%s\": %m", path);
+		pr_perror("can't accept() the connection on \"%s\"", path);
 		goto out_kill;
 	}
 
@@ -139,7 +139,7 @@ int main(int argc, char ** argv)
 	sock = acc_sock;
 
 	if (mount("rien", dirname, "tmpfs", 0, 0) < 0) {
-		err("can't mount tmpfs over %s: %m", dirname);
+		pr_perror("can't mount tmpfs over %s", dirname);
 		goto out_kill;
 	}
 

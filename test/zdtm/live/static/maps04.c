@@ -37,7 +37,7 @@ int main(int argc, char ** argv)
 
 	for (i = 0; i < MEM_SIZE / (1<<20); i++)
 		if (mprotect(m + (lrand48() * PAGE_SIZE % MEM_SIZE), PAGE_SIZE, PROT_NONE)) {
-			err("mprotect");
+			pr_perror("mprotect");
 			return 1;
 		}
 
@@ -45,7 +45,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (mprotect(m, MEM_SIZE, PROT_READ))
-		err("mprotect");
+		pr_perror("mprotect");
 
 	crc = ~0;
 	if (datachk(m, MEM_SIZE, &crc))

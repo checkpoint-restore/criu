@@ -23,22 +23,22 @@ int main(int argc, char **argv)
 
 	fd = open(".", O_DIRECTORY | O_RDONLY);
 	if (fd == -1) {
-		err("Unable to open the current dir");
+		pr_perror("Unable to open the current dir");
 		exit(1);
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s", dirname);
+		pr_perror("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if (chdir(dirname)) {
-		err("can't change directory to %s", dirname);
+		pr_perror("can't change directory to %s", dirname);
 		goto cleanup;
 	}
 
 	if (!getcwd(cwd1, sizeof(cwd1))) {
-		err("can't get cwd");
+		pr_perror("can't get cwd");
 		goto cleanup;
 	}
 
@@ -57,11 +57,11 @@ int main(int argc, char **argv)
 cleanup:
 	/* return to the initial dir before writing out results */
 	if (fchdir(fd)) {
-		err("can't restore cwd");
+		pr_perror("can't restore cwd");
 		exit(1);
 	}
 	if (rmdir(dirname)) {
-		err("can't remove directory %s", dirname);
+		pr_perror("can't remove directory %s", dirname);
 		exit(1);
 	}
 	return 0;

@@ -25,18 +25,18 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, S_IFCHR | S_IRUSR | S_IWUSR, makedev(4, 5))) {
-		err("Can't create virtual terminal %s", filename);
+		pr_perror("Can't create virtual terminal %s", filename);
 		return 1;
 	}
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		err("Open virtual terminal %s failed", filename);
+		pr_perror("Open virtual terminal %s failed", filename);
 		return 1;
 	}
 
 	if (fstat(fd, &st1)) {
-		err("Can't stat %s virtual terminal", filename);
+		pr_perror("Can't stat %s virtual terminal", filename);
 		return 1;
 	}
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (fstat(fd, &st2)) {
-		err("Can't stat %s virtual terminal", filename);
+		pr_perror("Can't stat %s virtual terminal", filename);
 		return 1;
 	}
 

@@ -39,25 +39,25 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_procs > PROCS_MAX) {
-		err("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
+		pr_perror("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
 		exit(1);
 	}
 
 	for (i = 0; i < num_procs; i++)
 		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, socks + i * 2)) {
-			err("Can't create socks: %m\n");
+			pr_perror("Can't create socks\n");
 			exit(1);
 		}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		err("can't set SIGCHLD handler: %m\n");
+		pr_perror("can't set SIGCHLD handler\n");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			err("Can't fork: %m\n");
+			pr_perror("Can't fork\n");
 			kill(0, SIGKILL);
 			exit(1);
 		}
@@ -93,12 +93,12 @@ int main(int argc, char **argv)
 
 	/* don't block on writing, _do_ block on reading */
 	if (set_nonblock(out,1) < 0) {
-		err("setting O_NONBLOCK failed: %m");
+		pr_perror("setting O_NONBLOCK failed");
 		exit(1);
 	}
 
 	if (num_exited) {
-		err("Some children died unexpectedly\n");
+		pr_perror("Some children died unexpectedly\n");
 		kill(0, SIGKILL);
 		exit(1);
 	}
