@@ -164,7 +164,7 @@ class test_fail_exc:
 	def __init__(self, step):
 		self.step = step
 
-class test_fault_injected_exc:
+class test_fail_expected_exc:
 	def __init__(self, cr_action):
 		self.cr_action = cr_action
 
@@ -289,6 +289,9 @@ class zdtm_test:
 	def static(self):
 		return self.__name.split('/')[2] == 'static'
 
+	def blocking(self):
+		return test_flag(self.__desc, 'crfail')
+
 
 
 class inhfd_test:
@@ -372,6 +375,9 @@ class inhfd_test:
 	def static(self):
 		return True
 
+	def blocking(self):
+		return False
+
 
 test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
 
@@ -419,8 +425,8 @@ class criu_cli:
 		print "Run CRIU: [" + action + " " + " ".join(s_args) + "]"
 		ret = self.__criu(action, s_args, self.__fault)
 		if ret != 0:
-			if self.__fault:
-				raise test_fault_injected_exc(action)
+			if self.__fault or self.__test.blocking():
+				raise test_fail_expected_exc(action)
 			else:
 				grep_errors(os.path.join(self.__ddir(), log))
 				raise test_fail_exc("CRIU %s" % action)
@@ -545,7 +551,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			s = get_visible_state(t)
 			try:
 				cr(cr_api, t, opts)
-			except test_fault_injected_exc as e:
+			except test_fail_expected_exc as e:
 				if e.cr_action == "dump":
 					t.stop()
 				try_run_hook(t, ["--fault", e.cr_action])
