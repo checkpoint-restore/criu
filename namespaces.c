@@ -821,7 +821,7 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	 */
 	for (i = 0; i < n; i++)
 		off += snprintf(buf + off, sizeof(buf) - off,
-				"%d %d %d\n", extents[i]->first,
+				"%u %u %u\n", extents[i]->first,
 					extents[i]->lower_first,
 					extents[i]->count);
 
