@@ -1,1 +1,1 @@
-{'flavor': 'ns', 'flags': 'suid', 'feature': 'mntid'}
+{'flavor': 'ns', 'flags': 'suid', 'feature': 'mnt_id'}
