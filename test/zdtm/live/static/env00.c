@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (setenv(envname, test_author, 1)) {
-		err("Can't set env var \"%s\" to \"%s\": %m\n", envname, test_author);
+		err("Can't set env var \"%s\" to \"%s\"", envname, test_author);
 		exit(1);
 	}
 

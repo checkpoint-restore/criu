@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (clock_gettime(CLOCK_MONOTONIC, &tm_old)) {
-		err("clock_gettime failed: %m\n");
+		err("clock_gettime failed");
 		exit(1);
 	}
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 
 	while (test_go()) {
 		if (clock_gettime(CLOCK_MONOTONIC, &tm)) {
-			err("clock_gettime failed: %m\n");
+			err("clock_gettime failed");
 			exit(1);
 		}
 		if (!tv_ge(&tm, &tm_old)) {

@@ -28,17 +28,17 @@ int main(int argc, char **argv)
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s: %m\n", dirname);
+		err("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if (chdir(dirname)) {
-		err("can't change directory to %s: %m\n", dirname);
+		err("can't change directory to %s", dirname);
 		goto cleanup;
 	}
 
 	if (!getcwd(cwd1, sizeof(cwd1))) {
-		err("can't get cwd: %m\n");
+		err("can't get cwd");
 		goto cleanup;
 	}
 
@@ -61,7 +61,7 @@ cleanup:
 		exit(1);
 	}
 	if (rmdir(dirname)) {
-		err("can't remove directory %s: %m\n", dirname);
+		err("can't remove directory %s", dirname);
 		exit(1);
 	}
 	return 0;

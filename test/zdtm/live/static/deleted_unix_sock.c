@@ -53,7 +53,7 @@ static int setup_srv_sock(void)
 	}
 
 	if (listen(sock, 1) < 0) {
-		err("can't listen on a socket \"%s\": %m\n", filename);
+		err("can't listen on a socket \"%s\"", filename);
 		goto err;
 	}
 
@@ -99,7 +99,7 @@ int main(int argc, char ** argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("can't fork: %m\n");
+		err("can't fork");
 		exit(1);
 	}
 
@@ -133,7 +133,7 @@ int main(int argc, char ** argv)
 	sock = acc_sock;
 
 	if (unlink(filename)) {
-		err("can't unlink %s: %m\n", filename);
+		err("can't unlink %s", filename);
 		goto out_kill;
 	}
 

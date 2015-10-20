@@ -21,14 +21,14 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		exit(1);
 	}
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write %s: %m\n", filename);
+		err("can't write %s", filename);
 		exit(1);
 	}
 

@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_threads > MAX_NUM_THREADS) {
-		err("%d threads it too much. max is %d\n",
+		err("%d threads it too much. max is %d",
 				num_threads, MAX_NUM_THREADS);
 		goto out;
 	}
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < num_threads; i++)
 		if (pthread_create(&thr[i], NULL, thread_fn, &m)) {
-			err("Can't create %d'th thread\n", i + 1);
+			err("Can't create %d'th thread", i + 1);
 			goto out_kill;
 		}
 
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 		if (errno == EBUSY)
 			fail("kids left my mutex locked\n");
 		else
-			err("kids spoiled my mutex\n");
+			err("kids spoiled my mutex");
 	}
 
 	if (kid_passed != num_threads)

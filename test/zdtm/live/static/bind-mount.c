@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 
 	fd = open(test_file, O_CREAT | O_WRONLY | O_EXCL, 0600);
 	if (fd < 0) {
-		err("Unable to open %s\n", test_file);
+		err("Unable to open %s", test_file);
 		return 1;
 	}
 	close(fd);

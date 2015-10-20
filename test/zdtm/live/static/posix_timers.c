@@ -308,7 +308,7 @@ static int setup_timers(void)
 	}
 
 	if (sigprocmask(SIG_SETMASK, &mask, NULL) == -1) {
-		err("Failed to unlock signal\n");
+		err("Failed to unlock signal");
 		return -errno;
 	}
 
@@ -319,12 +319,12 @@ static int setup_timers(void)
 		for (i = 0; i < 10; i++) {
 			ret = timer_create(CLOCK_REALTIME, NULL, &timeridt);
 			if (ret < 0) {
-				err("Can't create temporary posix timer %lx\n", (long) timeridt);
+				err("Can't create temporary posix timer %lx", (long) timeridt);
 				return -errno;
 			}
 			ret = timer_delete(timeridt);
 			if (ret < 0) {
-				err("Can't remove temporaty posix timer %lx\n", (long) timeridt);
+				err("Can't remove temporaty posix timer %lx", (long) timeridt);
 				return -errno;
 			}
 		}
@@ -334,7 +334,7 @@ static int setup_timers(void)
 		sigemptyset(&info->sa.sa_mask);
 
 		if (sigaction(info->sig, &info->sa, NULL) == -1) {
-			err("Failed to set SIGALRM handler\n");
+			err("Failed to set SIGALRM handler");
 			return -errno;
 		}
 
@@ -346,7 +346,7 @@ static int setup_timers(void)
 			sev.sigev_value.sival_ptr = info;
 
 		if (timer_create(info->clock, &sev, &info->timerid) == -1) {
-			err("Can't create timer\n");
+			err("Can't create timer");
 			return -errno;
 		}
 
@@ -359,12 +359,12 @@ static int setup_timers(void)
 			its.it_interval.tv_sec = its.it_interval.tv_nsec = 0;
 
 		if (clock_gettime(info->clock, &info->start) == -1) {
-			err("Can't get %s start time\n", info->name);
+			err("Can't get %s start time", info->name);
 			return -errno;
 		}
 
 		if (timer_settime(info->timerid, 0, &its, NULL) == -1) {
-			err("Can't set timer\n");
+			err("Can't set timer");
 			return -errno;
 		}
 		info++;
@@ -383,12 +383,12 @@ static int get_total_sleep_time(struct timespec *tv, char *type)
 	struct timespec boottime;
 
 	if (clock_gettime(CLOCK_BOOTTIME, &boottime) == -1) {
-		err("Can't get CLOCK_BOOTTIME %s time\n", type);
+		err("Can't get CLOCK_BOOTTIME %s time", type);
 		return -errno;
 	}
 
 	if (clock_gettime(CLOCK_MONOTONIC_COARSE, &boottime_coarse) == -1) {
-		err("Can't get CLOCK_MONOTONIC_COARSE %s time\n", type);
+		err("Can't get CLOCK_MONOTONIC_COARSE %s time", type);
 		return -errno;
 	}
 

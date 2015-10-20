@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 	ret = -1;
 	read(pr[0], &ret, sizeof(ret));
 	if (ret != 0) {
-		err("C start error\n");
+		err("C start error");
 		goto out;
 	}
 

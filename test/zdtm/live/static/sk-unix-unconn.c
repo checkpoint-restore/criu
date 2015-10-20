@@ -21,13 +21,13 @@ int main(int argc, char ** argv)
 
 	sk = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sk == -1) {
-		err("socket\n");
+		err("socket");
 		return 1;
 	}
 
 	skc = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (skc == -1) {
-		err("socket\n");
+		err("socket");
 		return 1;
 	}
 

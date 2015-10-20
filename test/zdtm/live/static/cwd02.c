@@ -37,17 +37,17 @@ int main(int argc, char **argv)
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s: %m\n", dirname);
+		err("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if ((fd = open(dirname, O_DIRECTORY)) < 0) {
-		err("can't open dir %s: %m\n", dirname);
+		err("can't open dir %s", dirname);
 		goto cleanup;
 	}
 
 	if (chdir(dirname)) {
-		err("can't change directory to %s: %m\n", dirname);
+		err("can't change directory to %s", dirname);
 		goto cleanup;
 	}
 
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 	close(p[0]);
 	waitpid(pid, &aux, 0);
 	if (!WIFEXITED(aux) || WEXITSTATUS(aux) != 0) {
-		err("can't remove dir\n");
+		err("can't remove dir");
 		goto cleanup;
 	}
 

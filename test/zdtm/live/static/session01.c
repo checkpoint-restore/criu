@@ -132,7 +132,7 @@ static int child(const int c)
 			continue;
 		if (getpgid(getpid()) != testcases[i].master.pid)
 			if (setpgid(getpid(), testcases[i].master.pid) < 0) {
-				err("setpgid() failed (%d) (%d)\n", c, i);
+				err("setpgid() failed (%d) (%d)", c, i);
 				goto err;
 			}
 

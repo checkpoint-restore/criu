@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	test_msg("%s pid %d\n", argv[0], getpid());
 	ret = readlink("/proc/self/exe", path_before, sizeof(path_before) - 1);
 	if (ret < 0) {
-		err("Can't read selflink\n");
+		err("Can't read selflink");
 		fail();
 		exit(1);
 	}
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
 	ret = readlink("/proc/self/exe", path_after, sizeof(path_after) - 1);
 	if (ret < 0) {
-		err("Can't read selflink\n");
+		err("Can't read selflink");
 		fail();
 		exit(1);
 	}

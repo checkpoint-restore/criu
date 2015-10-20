@@ -202,7 +202,7 @@ int main (int argc, char *argv[])
 
 #ifndef INOTIFY01
 	if (unlink(test_file_path)) {
-		err("can't unlink %s\n", test_file_path);
+		err("can't unlink %s", test_file_path);
 		exit(1);
 	}
 

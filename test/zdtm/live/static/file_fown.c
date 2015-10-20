@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (pipe(pipes)) {
-		err("Can't create pipe: %m\n");
+		err("Can't create pipe");
 		exit(1);
 	}
 

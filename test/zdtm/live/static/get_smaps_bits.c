@@ -119,7 +119,7 @@ int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned long *mad
 	fclose(smaps);
 
 	if (!found) {
-		err("VmFlags not found for %lx\n", where);
+		err("VmFlags not found for %lx", where);
 		return -1;
 	}
 

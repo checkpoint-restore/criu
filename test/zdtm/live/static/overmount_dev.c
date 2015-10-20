@@ -32,18 +32,18 @@ int main(int argc, char **argv)
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s: %m\n", dirname);
+		err("can't make directory %s", dirname);
 		exit(1);
 	}
 
 	if (mknod(path, mode, dev)) {
-		err("can't make device file \"%s\": %m\n", path);
+		err("can't make device file \"%s\"", path);
 		exit(1);
 	}
 
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s: %m\n", path);
+		err("can't open %s", path);
 		goto rmdir;
 	}
 

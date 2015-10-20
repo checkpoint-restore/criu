@@ -180,7 +180,7 @@ static int send_command(int id, enum commands op, int arg1, int arg2)
 
 	if (op == TEST_FORK) {
 		if (processes[arg1].pid) {
-			err("%d is busy\n", arg1);
+			err("%d is busy", arg1);
 			return -1;
 		}
 	}

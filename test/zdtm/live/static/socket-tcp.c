@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 
 		close(pfd[1]);
 		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
-			err("Can't read port\n");
+			err("Can't read port");
 			return 1;
 		}
 

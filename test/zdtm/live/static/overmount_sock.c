@@ -50,7 +50,7 @@ static int setup_srv_sock(const char *filename)
 	}
 
 	if (listen(sock, 1) < 0) {
-		err("can't listen on a socket \"%s\": %m\n", filename);
+		err("can't listen on a socket \"%s\"", filename);
 		goto err;
 	}
 
@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (mkdir(dirname, 0700)) {
-		err("can't make directory %s: %m\n", dirname);
+		err("can't make directory %s", dirname);
 		exit(1);
 	}
 
@@ -107,7 +107,7 @@ int main(int argc, char ** argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("can't fork: %m\n");
+		err("can't fork");
 		goto out;
 	}
 

@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
 		new_master = dup(master);
 		if (new_master < 0) {
-			err("can't dup master\n");
+			err("can't dup master");
 			exit_shot_parent(1);
 		}
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 		close(new_master);
 		exit(0);
 	} else if (pid < 0) {
-		err("test_fork failed: %m\n");
+		err("test_fork failed");
 		exit(1);
 	}
 

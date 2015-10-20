@@ -24,28 +24,28 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		exit(1);
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get file info %s before: %m\n", filename);
+		err("can't get file info %s before", filename);
 		goto failed;
 	}
 
 	if (fst.st_size != 0) {
-		err("%s file size eq %d\n", fst.st_size);
+		err("%s file size eq %d", fst.st_size);
 		goto failed;
 	}
 
 	if (unlink(filename) < 0) {
-		err("can't unlink %s: %m\n", filename);
+		err("can't unlink %s", filename);
 		goto failed;
 	}
 
 	memset(buf, '0', sizeof(buf));
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("can't write %s: %m\n", filename);
+		err("can't write %s", filename);
 		goto failed;
 	}
 
@@ -53,7 +53,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info after: %m\n", filename);
+		err("can't get %s file info after", filename);
 		goto failed;
 	}
 

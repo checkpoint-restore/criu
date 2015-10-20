@@ -269,7 +269,7 @@ int main(int argc, char ** argv)
 
 	ret = sigaction(SIGCHLD, NULL, &act);
 	if (ret < 0) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return -1;
 	}
 
@@ -280,7 +280,7 @@ int main(int argc, char ** argv)
 
 	ret = sigaction(SIGCHLD, &act, NULL);
 	if (ret < 0) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return -1;
 	}
 

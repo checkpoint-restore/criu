@@ -188,7 +188,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	}
 
 	if (expected_to_meet != met) {
-		err("Expected to meet %d entries but got %d\n",
+		err("Expected to meet %d entries but got %d",
 		    expected_to_meet, met);
 		return -1;
 	}
@@ -196,7 +196,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	return 0;
 
 parse_err:
-	err("Can't parse '%s'\n", str);
+	err("Can't parse '%s'", str);
 	return -1;
 }
 
@@ -224,27 +224,27 @@ int main (int argc, char *argv[])
 			      FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
 			      0);
 	if (fa_fd < 0) {
-		err("fanotify_init failed\n");
+		err("fanotify_init failed");
 		exit(1);
 	}
 
 	del_after = open(fanotify_path, O_CREAT | O_TRUNC);
 	if (del_after < 0) {
-		err("open failed\n");
+		err("open failed");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD,
 			  FAN_MODIFY | FAN_ACCESS | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, fanotify_path)) {
-		err("fanotify_mark failed\n");
+		err("fanotify_mark failed");
 		exit(1);
 	}
 
 	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed\n");
+		err("fanotify_mark failed");
 		exit(1);
 	}
 
@@ -252,12 +252,12 @@ int main (int argc, char *argv[])
 			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
 			  FAN_MODIFY | FAN_ACCESS,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed\n");
+		err("fanotify_mark failed");
 		exit(1);
 	}
 
 	if (parse_fanotify_fdinfo(fa_fd, &old, 3)) {
-		err("parsing fanotify fdinfo failed\n");
+		err("parsing fanotify fdinfo failed");
 		exit(1);
 	}
 
@@ -298,7 +298,7 @@ int main (int argc, char *argv[])
 	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT,
 			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
 			  AT_FDCWD, "/tmp")) {
-		err("fanotify_mark failed\n");
+		err("fanotify_mark failed");
 		exit(1);
 	}
 

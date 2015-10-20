@@ -54,7 +54,7 @@ static pid_t clone_child(int (*fn)(void *), int flags)
 	pid = clone(fn, stack + STACK_SIZE,
 			flags | SIGCHLD, NULL);
 	if (pid == -1) {
-		err("Unable to clone a new process\n");
+		err("Unable to clone a new process");
 		return -1;
 	}
 
@@ -69,7 +69,7 @@ static int child2(void *_arg)
 	test_waitsig();
 
 	if (read(TEST_FD, buf, sizeof(TEST_STRING)) != sizeof(TEST_STRING)) {
-		err("Unable to read from %d\n", TEST_FD);
+		err("Unable to read from %d", TEST_FD);
 		return 1;
 	}
 
@@ -123,12 +123,12 @@ static int child(void *_arg)
 	}
 
 	if (read(TEST_FD, buf, sizeof(TEST_STRING)) != sizeof(TEST_STRING)) {
-		err("Unable to read from %d\n", TEST_FD);
+		err("Unable to read from %d", TEST_FD);
 		return 1;
 	}
 
 	if (close(TEST_FD) == -1) {
-		err("Unable to close(%d)\n", TEST_FD);
+		err("Unable to close(%d)", TEST_FD);
 		return 1;
 	}
 
@@ -163,19 +163,19 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDWR | O_CREAT, 0666);
 	if (fd == -1) {
-		err("Can't open /dev/zero\n");
+		err("Can't open /dev/zero");
 		return -1;
 	}
 
 	for (i = 0; i < 3; i++)
 		if (write(fd, TEST_STRING, sizeof(TEST_STRING)) != sizeof(TEST_STRING)) {
-			err("Unable to write a test string\n");
+			err("Unable to write a test string");
 			return -1;
 		}
 
 	fd = dup2(fd, TEST_FD);
 	if (fd == -1) {
-		err("Can't dup fd to %d\n", fd, TEST_FD);
+		err("Can't dup fd to %d", fd, TEST_FD);
 		return -1;
 	}
 

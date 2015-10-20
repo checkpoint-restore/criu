@@ -81,20 +81,20 @@ static void *ch_thread_2(void *arg)
 	task_waiter_wait4(&t2, 2);
 
 	if (memcmp(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string))) {
-		err("Failed to restore tls_data.rand_string in thread 2\n");
+		err("Failed to restore tls_data.rand_string in thread 2");
 		results_map[2] = -1;
 	} else
 		results_map[2] = 1;
 
 	if (memcmp(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset))) {
-		err("Failed to restore tls_data.blk_sigset in thread 2\n");
+		err("Failed to restore tls_data.blk_sigset in thread 2");
 		results_map[4] = -1;
 	} else
 		results_map[4] = 1;
 
 	pthread_sigmask(SIG_SETMASK, NULL, &new);
 	if (memcmp(&tls_data.blk_sigset, &new, sizeof(tls_data.blk_sigset))) {
-		err("Failed to restore blk_sigset in thread 2\n");
+		err("Failed to restore blk_sigset in thread 2");
 		results_map[6] = -1;
 
 		show_sigset(&tls_data.blk_sigset);
@@ -128,13 +128,13 @@ static void *ch_thread_1(void *arg)
 	task_waiter_wait4(&t1, 2);
 
 	if (memcmp(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string))) {
-		err("Failed to restore tls_data.rand_string in thread 1\n");
+		err("Failed to restore tls_data.rand_string in thread 1");
 		results_map[1] = -1;
 	} else
 		results_map[1] = 1;
 
 	if (memcmp(&tls_data.blk_sigset, &blk_sigset, sizeof(tls_data.blk_sigset))) {
-		err("Failed to restore tls_data.blk_sigset in thread 1\n");
+		err("Failed to restore tls_data.blk_sigset in thread 1");
 		results_map[3] = -1;
 	} else
 		results_map[3] = 1;
@@ -142,7 +142,7 @@ static void *ch_thread_1(void *arg)
 	sigemptyset(&new);
 	pthread_sigmask(SIG_SETMASK, NULL, &new);
 	if (memcmp(&tls_data.blk_sigset, &new, sizeof(tls_data.blk_sigset))) {
-		err("Failed to restore blk_sigset in thread 1\n");
+		err("Failed to restore blk_sigset in thread 1");
 		results_map[5] = -1;
 
 		show_sigset(&tls_data.blk_sigset);

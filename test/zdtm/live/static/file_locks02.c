@@ -40,7 +40,7 @@ static int check_file_locks(pid_t child)
 			fl_flag, fl_type, fl_option, &fl_owner);
 
 		if (num < 4) {
-			err("Invalid lock info.\n");
+			err("Invalid lock info.");
 			break;
 		}
 

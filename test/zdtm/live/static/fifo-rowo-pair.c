@@ -44,18 +44,18 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(name_master, S_IFIFO | 0700, 0)) {
-		err("can't make fifo \"%s\": %m\n", name_master);
+		err("can't make fifo \"%s\"", name_master);
 		exit(1);
 	}
 
 	if (mknod(name_slave, S_IFIFO | 0700, 0)) {
-		err("can't make fifo \"%s\": %m\n", name_slave);
+		err("can't make fifo \"%s\"", name_slave);
 		exit(1);
 	}
 
 	fd_slave = open(name_slave, O_RDWR);
 	if (fd_slave < 0) {
-		err("can't open %s: %m\n", name_slave);
+		err("can't open %s", name_slave);
 		exit(1);
 	}
 
@@ -67,13 +67,13 @@ int main(int argc, char **argv)
 
 		fd_master = open(name_master, O_WRONLY);
 		if (fd_master < 0) {
-			err("can't open %s: %m\n", name_master);
+			err("can't open %s", name_master);
 			exit_shot_parent(1);
 		}
 
 		new_slave = dup2(fd_slave, 64);
 		if (new_slave < 0) {
-			err("can't dup %s: %m\n", name_slave);
+			err("can't dup %s", name_slave);
 			exit_shot_parent(1);
 		}
 
@@ -83,13 +83,13 @@ int main(int argc, char **argv)
 
 		v = TEST_VALUE;
 		if (write(new_slave, &v, sizeof(v)) != sizeof(v)) {
-			err("write failed: %m\n");
+			err("write failed");
 			exit_shot_parent(1);
 		}
 
 		v = TEST_VALUE;
 		if (write(fd_master, &v, sizeof(v)) != sizeof(v)) {
-			err("write failed: %m\n");
+			err("write failed");
 			exit_shot_parent(1);
 		}
 
@@ -98,13 +98,13 @@ int main(int argc, char **argv)
 
 		exit(0);
 	} else if (pid < 0) {
-		err("test_fork failed: %m\n");
+		err("test_fork failed");
 		exit(1);
 	}
 
 	fd_master = open(name_master, O_RDONLY);
 	if (fd_master < 0) {
-		err("can't open %s: %m\n", name_master);
+		err("can't open %s", name_master);
 		exit_shot(pid, 1);
 	}
 
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (read(fd_master, &v, sizeof(v)) != sizeof(v)) {
-		err("read failed: %m\n");
+		err("read failed");
 		exit_shot(pid, 1);
 	}
 
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 	}
 
 	if (read(fd_slave, &v, sizeof(v)) != sizeof(v)) {
-		err("read failed: %m\n");
+		err("read failed");
 		exit_shot(pid, 1);
 	}
 	if (v != TEST_VALUE) {
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 		err("can't unlink %s: %m", name_slave);
 
 	if (!WIFEXITED(status)) {
-		err("child %d is still running\n", pid);
+		err("child %d is still running", pid);
 		exit_shot(pid, 1);
 	}
 

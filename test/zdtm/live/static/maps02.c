@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 			return -1;
 
 		if (m[i].orig_flags != m[i].new_flags) {
-			err("Flags are changed %lx %lx -> %lx (%d)\n",
+			err("Flags are changed %lx %lx -> %lx (%d)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_flags, m[i].new_flags, i);
 			fail();
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 		}
 
 		if (m[i].orig_madv != m[i].new_madv) {
-			err("Madvs are changed %lx %lx -> %lx (%d)\n",
+			err("Madvs are changed %lx %lx -> %lx (%d)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_madv, m[i].new_madv, i);
 			fail();

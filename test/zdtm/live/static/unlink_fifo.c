@@ -22,13 +22,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\": %m\n", filename);
+		err("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		return 1;
 	}
 

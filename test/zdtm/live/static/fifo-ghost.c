@@ -25,19 +25,19 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\": %m\n", filename);
+		err("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		return 1;
 	}
 
 	fd_ro = open(filename, O_RDONLY);
 	if (fd_ro < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		return 1;
 	}
 
@@ -45,12 +45,12 @@ int main(int argc, char **argv)
 	datagen(buf, sizeof(buf), &crc);
 	ret = write(fd, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
-		err("write() failed\n");
+		err("write() failed");
 		return 1;
 	}
 
 	if (unlink(filename) < 0) {
-		fail("can't unlink %s: %m", filename);
+		fail("can't unlink %s", filename);
 		return 1;
 	}
 
@@ -61,18 +61,18 @@ int main(int argc, char **argv)
 
 	ret = read(fd_ro, buf, sizeof(buf));
 	if (ret != sizeof(buf)) {
-		err("read() failed\n");
+		err("read() failed");
 		return 1;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		return 1;
 	}
 
 	if (close(fd_ro) < 0) {
-		fail("can't close %s: %m", filename);
+		fail("can't close %s", filename);
 		return 1;
 	}
 

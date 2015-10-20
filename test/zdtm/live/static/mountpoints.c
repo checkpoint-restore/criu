@@ -159,12 +159,12 @@ done:
 	mkdir(MPTS_ROOT"/dev/overmount", 0600);
 	fd = open(MPTS_ROOT"/dev/overmount/test.over", O_WRONLY | O_CREAT);
 	if (fd == -1) {
-		err("Unable to open "MPTS_ROOT"/dev/overmount\n");
+		err("Unable to open "MPTS_ROOT"/dev/overmount");
 		return -1;
 	}
 	close(fd);
 	if (mount("none", MPTS_ROOT"/dev/overmount", "tmpfs", 0, "") < 0) {
-		err("Can't mount "MPTS_ROOT"/dev/overmount\n");
+		err("Can't mount "MPTS_ROOT"/dev/overmount");
 		return 1;
 	}
 
@@ -309,7 +309,7 @@ done:
 	}
 
 	if (umount(MPTS_ROOT"/dev/overmount") == -1) {
-		err("Can't umount "MPTS_ROOT"/dev/overmount\n");
+		err("Can't umount "MPTS_ROOT"/dev/overmount");
 		return -1;
 	}
 	if (access(MPTS_ROOT"/dev/overmount/test.over", F_OK)) {

@@ -44,13 +44,13 @@ int child(int fd)
 
 	ret = sigaction(SIGUSR2, &act, &old_act);
 	if (ret < 0) {
-		err("signal failed\n");
+		err("signal failed");
 		return 1;
 	}
 
 	ret = ptrace(PTRACE_TRACEME, 0, 0, 0);
 	if (ret < 0) {
-		err("ptrace failed\n");
+		err("ptrace failed");
 		return 1;
 	}
 	ret = write(child_fd, &ret, sizeof(ret));
@@ -122,7 +122,7 @@ int main(int argc, char ** argv)
 	test_msg("wait while child initialized");
 	ret = read(child_pipe[0], &status, sizeof(status));
 	if  (ret != sizeof(status)) {
-		err("read from child process failed\n");
+		err("read from child process failed");
 		return 1;
 	}
 

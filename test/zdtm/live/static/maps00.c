@@ -77,27 +77,27 @@ static int make_map(struct map *map)
 		/* need file */
 		if (snprintf(map->filename, sizeof(map->filename),
 					 "%s-%02d", filename, i++) >= sizeof(map->filename)) {
-			err("filename %s is too long\n", filename);
+			err("filename %s is too long", filename);
 			return -1;
 		}
 
 		map->fd = open(map->filename, O_RDWR | O_CREAT, 0600);
 		if (map->fd < 0) {
-			err("can't open %s: %m\n", map->filename);
+			err("can't open %s", map->filename);
 			return -1;
 		}
 
 		crc = ~0;
 		datagen(buf, sizeof(buf), &crc);
 		if (write(map->fd, buf, sizeof(buf)) != sizeof(buf)) {
-			err("failed to write %s: %m\n", map->filename);
+			err("failed to write %s", map->filename);
 			return -1;
 		}
 	}
 
 	map->ptr = mmap(NULL, ONE_MAP_SIZE, map->prot, map->flag, map->fd, 0);
 	if (map->ptr == MAP_FAILED) {
-		err("can't create mapping: %m\n");
+		err("can't create mapping");
 		return -1;
 	}
 
@@ -178,7 +178,7 @@ static int check_map(struct map *map)
 			if (!(map->flag & MAP_ANONYMOUS)) {
 				lseek(map->fd,0,SEEK_SET);
 				if (write(map->fd,test_func,check_map - test_func)<check_map - test_func) {
-					err("failed to write %s: %m\n", map->filename);
+					err("failed to write %s", map->filename);
 					return -1;
 				}
 			}

@@ -52,7 +52,7 @@ static int check_read_lock(int fd, int whence, off_t offset, off_t len)
 
 	ret = fcntl(fd, F_GETLK, &lock);
 	if (ret == -1) {
-		err("F_GETLK failed.\n");
+		err("F_GETLK failed.");
 		return -1;
 	}
 
@@ -80,7 +80,7 @@ static int check_write_lock(int fd, int whence, off_t offset, off_t len)
 
 	ret = fcntl(fd, F_GETLK, &lock);
 	if (ret == -1) {
-		err("F_GETLK failed.\n");
+		err("F_GETLK failed.");
 		return -1;
 	}
 
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("Can't fork: %m\n");
+		err("Can't fork");
 		return -1;
 	}
 

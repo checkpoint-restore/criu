@@ -107,7 +107,7 @@ static int check_file_locks()
 			&fl_owner, &maj, &min, &i_no, &start, end);
 
 		if (num < 10) {
-			err("Invalid lock info.\n");
+			err("Invalid lock info.");
 			break;
 		}
 

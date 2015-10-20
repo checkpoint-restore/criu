@@ -121,7 +121,7 @@ static void *thread_fn(void *args)
 	sigaddset(&act.sa_mask, TESTSIG);
 	sigaddset(&act.sa_mask, THREADSIG);
 	if (sigaction(TESTSIG, &act, NULL)) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return NULL;
 	}
 
@@ -228,19 +228,19 @@ int main(int argc, char ** argv)
 	sigemptyset(&act.sa_mask);
 
 	if (sigaction(SIGCHLD, &act, NULL)) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return -1;
 	}
 
 	sigaddset(&act.sa_mask, TESTSIG);
 	sigaddset(&act.sa_mask, THREADSIG);
 	if (sigaction(TESTSIG, &act, NULL)) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return -1;
 	}
 
 	if (sigaction(THREADSIG, &act, NULL)) {
-		err("sigaction() failed\n");
+		err("sigaction() failed");
 		return -1;
 	}
 

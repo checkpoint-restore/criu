@@ -25,13 +25,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, dev)) {
-		err("can't make device file \"%s\": %m\n", filename);
+		err("can't make device file \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		goto out;
 	}
 

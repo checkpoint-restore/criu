@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		end.tv_usec += end.tv_sec * 1000000;
 		delta = end.tv_usec - start.tv_usec;
 		if (labs(delta - 1000000 / TEST_HZ ) > 100000) {
-			err("delta = %ld\n", delta);
+			err("delta = %ld", delta);
 			fail--;
 			if (fail == 0)
 				return 1;

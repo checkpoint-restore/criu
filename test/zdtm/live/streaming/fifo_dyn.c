@@ -37,18 +37,18 @@ int main(int argc, char **argv)
 	for (i = 0; i < PROCS_DEF; i++) {
 		file_path = path[i];
 		if (snprintf(file_path, BUF_SIZE, "%s-%02d", filename, i) >= BUF_SIZE) {
-			err("filename %s is too long\n", filename);
+			err("filename %s is too long", filename);
 			exit(1);
 		}
 		if (mkfifo(file_path, mode)) {
-			err("can't make fifo \"%s\": %m\n", file_path);
+			err("can't make fifo \"%s\"", file_path);
 			exit(1);
 		}
 	}
 
 	pid = test_fork();
 	if (pid < 0) {
-		err("Can't fork: %m\n");
+		err("Can't fork");
 		kill(0, SIGKILL);
 		exit(1);
 	}
@@ -56,14 +56,14 @@ int main(int argc, char **argv)
 		file_path = path[0];
 		readfd = open(file_path, O_RDONLY);
 		if (readfd < 0) {
-			err("open(%s, O_RDONLY) Failed: %m\n", file_path);
+			err("open(%s, O_RDONLY) Failed", file_path);
 			ret = errno;
 			return ret;
 		}
 		file_path = path[1];
 		writefd = open(file_path, O_WRONLY);
 		if (writefd < 0) {
-			err("open(%s, O_WRONLY) Failed: %m\n", file_path);
+			err("open(%s, O_WRONLY) Failed", file_path);
 			ret = errno;
 			return ret;
 		}
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 	file_path = path[0];
 	writefd = open(file_path, O_WRONLY);
 	if (writefd < 0) {
-		err("open(%s, O_WRONLY) Failed: %m\n", file_path);
+		err("open(%s, O_WRONLY) Failed", file_path);
 		kill(pid, SIGKILL);
 		return 1;
 	}
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 	file_path = path[1];
 	readfd = open(file_path, O_RDONLY);
 	if (readfd < 0) {
-		err("open(%s, O_RDONLY) Failed: %m\n", file_path);
+		err("open(%s, O_RDONLY) Failed", file_path);
 		kill(pid, SIGKILL);
 		return 1;
 	}

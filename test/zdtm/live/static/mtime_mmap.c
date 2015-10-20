@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_RDWR | O_CREAT, 0666);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		exit(1);
 	}
 
@@ -42,12 +42,12 @@ int main(int argc, char **argv)
 	count = sizeof(buf);
 	memset(buf, 1, count);
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		err("failed to write %s: %m\n", filename);
+		err("failed to write %s", filename);
 		exit(1);
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info: %m\n", filename);
+		err("can't get %s file info", filename);
 		goto failed;
 	}
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info: %m\n", filename);
+		err("can't get %s file info", filename);
 		goto failed;
 	}
 
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (fstat(fd, &fst) < 0) {
-		err("can't get %s file info: %m\n", filename);
+		err("can't get %s file info", filename);
 		goto failed;
 	}
 

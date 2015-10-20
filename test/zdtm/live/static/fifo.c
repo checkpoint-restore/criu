@@ -28,13 +28,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\": %m\n", filename);
+		err("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
 	fd = open(filename, O_RDWR);
 	if (fd < 0) {
-		err("can't open %s: %m\n", filename);
+		err("can't open %s", filename);
 		return 1;
 	}
 
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	datagen(buf, BUF_SIZE, &crc);
 	ret = write(fd, buf, BUF_SIZE);
 	if (ret != BUF_SIZE) {
-		err("write() failed\n");
+		err("write() failed");
 		return 1;
 	}
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 
 	ret = read(fd, buf, BUF_SIZE);
 	if (ret != BUF_SIZE) {
-		err("read() failed\n");
+		err("read() failed");
 		return 1;
 	}
 

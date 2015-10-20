@@ -20,13 +20,13 @@ static int test_fn(int argc, char **argv)
 
 	fd = open("/proc/sys/kernel/hostname", O_WRONLY);
 	if (fd < 0) {
-		err("Can't open hostname\n");
+		err("Can't open hostname");
 		return 1;
 	}
 
 	ret = write(fd, ZDTM_NODE, sizeof(ZDTM_NODE));
 	if (ret != sizeof(ZDTM_NODE)) {
-		err("Can't write nodename\n");
+		err("Can't write nodename");
 		return 1;
 	}
 
@@ -34,13 +34,13 @@ static int test_fn(int argc, char **argv)
 
 	fd = open("/proc/sys/kernel/domainname", O_WRONLY);
 	if (fd < 0) {
-		err("Can't open domainname\n");
+		err("Can't open domainname");
 		return -errno;
 	}
 
 	ret = write(fd, ZDTM_DOMAIN, sizeof(ZDTM_DOMAIN));
 	if (ret != sizeof(ZDTM_DOMAIN)) {
-		err("Can't write domainname\n");
+		err("Can't write domainname");
 		return 1;
 	}
 

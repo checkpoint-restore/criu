@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 		test_msg("/proc/sys/kernel/cap_last_cap is not available\n");
 
 	if (pipe(result_pipe)) {
-		err("Can't create pipe\n");
+		err("Can't create pipe");
 		return 1;
 	}
 
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 		data[0].prm &= ~(1 << CAP_DAC_OVERRIDE);
 
 		if (capset(&hdr, data) < 0) {
-			err("capset\n");
+			err("capset");
 			return -1;
 		}
 

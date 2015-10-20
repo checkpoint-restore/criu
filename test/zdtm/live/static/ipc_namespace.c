@@ -71,12 +71,12 @@ static int read_ipc_sysctl(char *name, int *data, size_t size)
 
 	fd = open(name, O_RDONLY);
 	if (fd < 0) {
-		err("Can't open %d\n", name);
+		err("Can't open %d", name);
 		return fd;
 	}
 	ret = read(fd, buf, 32);
 	if (ret < 0) {
-		err("Can't read %s\n", name);
+		err("Can't read %s", name);
 		ret = -errno;
 		goto err;
 	}
@@ -94,7 +94,7 @@ static int get_messages_info(struct ipc_ns *ipc)
 
 	ret = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
 	if (ret < 0) {
-		err("msgctl failed with %d\n", errno);
+		err("msgctl failed with %d", errno);
 		return ret;
 	}
 
@@ -118,7 +118,7 @@ static int get_semaphores_info(struct ipc_ns *ipc)
 
 	err = semctl(0, 0, SEM_INFO, &info);
 	if (err < 0)
-		err("semctl failed with %d\n", errno);
+		err("semctl failed with %d", errno);
 
 	ipc->sem_ctls[0] = info.semmsl;
 	ipc->sem_ctls[1] = info.semmns;
@@ -141,7 +141,7 @@ static int get_shared_memory_info(struct ipc_ns *ipc)
 
 	ret = shmctl(0, IPC_INFO, &u.shmid);
 	if (ret < 0)
-		err("semctl failed with %d\n", errno);
+		err("semctl failed with %d", errno);
 
 	ipc->shm_ctlmax = u.shminfo64.shmmax;
 	ipc->shm_ctlall = u.shminfo64.shmall;
@@ -149,7 +149,7 @@ static int get_shared_memory_info(struct ipc_ns *ipc)
 
 	ret = shmctl(0, SHM_INFO, &u.shmid);
 	if (ret < 0)
-		err("semctl failed with %d\n", errno);
+		err("semctl failed with %d", errno);
 
 	ipc->shm_tot = u.shminfo.shm_tot;
 	ipc->ids[IPC_SHM_IDS].in_use = u.shminfo.used_ids;
@@ -177,19 +177,19 @@ int fill_ipc_ns(struct ipc_ns *ipc)
 
 	ret = get_messages_info(ipc);
 	if (ret < 0) {
-		err("Failed to collect messages\n");
+		err("Failed to collect messages");
 		return ret;
 	}
 
 	ret = get_semaphores_info(ipc);
 	if (ret < 0) {
-		err("Failed to collect semaphores\n");
+		err("Failed to collect semaphores");
 		return ret;
 	}
 
 	ret = get_shared_memory_info(ipc);
 	if (ret < 0) {
-		err("Failed to collect shared memory\n");
+		err("Failed to collect shared memory");
 		return ret;
 	}
 	return 0;
@@ -203,13 +203,13 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		err("Can't open %d\n", name);
+		err("Can't open %d", name);
 		return fd;
 	}
 	sprintf(buf, "%d\n", val);
 	ret = write(fd, buf, strlen(buf));
 	if (ret < 0) {
-		err("Can't write %u into %s\n", val, name);
+		err("Can't write %u into %s", val, name);
 		return -errno;
 	}
 	close(fd);
@@ -232,7 +232,7 @@ static int rand_ipc_sem(void)
 				      (unsigned)lrand48(), (unsigned)lrand48());
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
-		err("Can't write %s: %d\n", name, errno);
+		err("Can't write %s: %d", name, errno);
 		return -errno;
 	}
 	close(fd);
@@ -270,7 +270,7 @@ static int rand_ipc_ns(void)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", ((unsigned)lrand48() & (8192 * 128 - 1)) | 128);
 
 	if (ret < 0)
-		err("Failed to randomize ipc namespace tunables\n");
+		err("Failed to randomize ipc namespace tunables");
 
 	return ret;
 }
@@ -281,49 +281,49 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 
 	for (i = 0; i < 3; i++) {
 		if (old->ids[i].in_use != new->ids[i].in_use)
-			err("ids[%d].in_use differs: %d ---> %d\n", i,
+			err("ids[%d].in_use differs: %d ---> %d", i,
 				old->ids[i].in_use, new->ids[i].in_use);
 
 	}
 	for (i = 0; i < 4; i++) {
 		if (old->sem_ctls[i] != new->sem_ctls[i])
-			err("sem_ctls[%d] differs: %d ---> %d\n", i,
+			err("sem_ctls[%d] differs: %d ---> %d", i,
 				old->sem_ctls[i], new->sem_ctls[i]);
 
 	}
 
 	if (old->msg_ctlmax != new->msg_ctlmax)
-		err("msg_ctlmax differs: %d ---> %d\n",
+		err("msg_ctlmax differs: %d ---> %d",
 			old->msg_ctlmax, new->msg_ctlmax);
 	if (old->msg_ctlmnb != new->msg_ctlmnb)
-		err("msg_ctlmnb differs: %d ---> %d\n",
+		err("msg_ctlmnb differs: %d ---> %d",
 			old->msg_ctlmnb, new->msg_ctlmnb);
 	if (old->msg_ctlmni != new->msg_ctlmni)
-		err("msg_ctlmni differs: %d ---> %d\n",
+		err("msg_ctlmni differs: %d ---> %d",
 			old->msg_ctlmni, new->msg_ctlmni);
 	if (old->auto_msgmni != new->auto_msgmni)
-		err("auto_msgmni differs: %d ---> %d\n",
+		err("auto_msgmni differs: %d ---> %d",
 			old->auto_msgmni, new->auto_msgmni);
 	if (old->shm_ctlmax != new->shm_ctlmax)
-		err("shm_ctlmax differs: %d ---> %d\n",
+		err("shm_ctlmax differs: %d ---> %d",
 			old->shm_ctlmax, new->shm_ctlmax);
 	if (old->shm_ctlall != new->shm_ctlall)
-		err("shm_ctlall differs: %d ---> %d\n",
+		err("shm_ctlall differs: %d ---> %d",
 			old->shm_ctlall, new->shm_ctlall);
 	if (old->shm_ctlmni != new->shm_ctlmni)
-		err("shm_ctlmni differs: %d ---> %d\n",
+		err("shm_ctlmni differs: %d ---> %d",
 			old->shm_ctlmni, new->shm_ctlmni);
 	if (old->shm_rmid_forced != new->shm_rmid_forced)
-		err("shm_rmid_forced differs: %d ---> %d\n",
+		err("shm_rmid_forced differs: %d ---> %d",
 			old->shm_rmid_forced, new->shm_rmid_forced);
 	if (old->mq_queues_max != new->mq_queues_max)
-		err("mq_queues_max differs: %d ---> %d\n",
+		err("mq_queues_max differs: %d ---> %d",
 			old->mq_queues_max, new->mq_queues_max);
 	if (old->mq_msg_max != new->mq_msg_max)
-		err("mq_msg_max differs: %d ---> %d\n",
+		err("mq_msg_max differs: %d ---> %d",
 			old->mq_msg_max, new->mq_msg_max);
 	if (old->mq_msgsize_max != new->mq_msgsize_max)
-		err("mq_msgsize_max differs: %d ---> %d\n",
+		err("mq_msgsize_max differs: %d ---> %d",
 			old->mq_msgsize_max, new->mq_msgsize_max);
 }
 
@@ -333,13 +333,13 @@ static int test_fn(int argc, char **argv)
 
 	ret = rand_ipc_ns();
 	if (ret) {
-		err("Failed to randomize ipc ns before migration\n");
+		err("Failed to randomize ipc ns before migration");
 		return -1;
 	}
 
 	ret = fill_ipc_ns(&ipc_before);
 	if (ret) {
-		err("Failed to collect ipc ns before migration\n");
+		err("Failed to collect ipc ns before migration");
 		return ret;
 	}
 
@@ -348,12 +348,12 @@ static int test_fn(int argc, char **argv)
 
 	ret = fill_ipc_ns(&ipc_after);
 	if (ret) {
-		err("Failed to collect ipc ns after migration\n");
+		err("Failed to collect ipc ns after migration");
 		return ret;
 	}
 
 	if (memcmp(&ipc_before, &ipc_after, sizeof(ipc_after))) {
-		err("IPC's differ\n");
+		err("IPC's differ");
 		show_ipc_entry(&ipc_before, &ipc_after);
 		return -EINVAL;
 	}

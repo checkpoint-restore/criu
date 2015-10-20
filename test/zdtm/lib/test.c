@@ -75,7 +75,7 @@ static void redir_stdfds()
 
 	nullfd = open("/dev/null", O_RDWR);
 	if (nullfd < 0) {
-		err("Can't open /dev/null: %m\n");
+		err("Can't open /dev/null");
 		exit(1);
 	}
 
@@ -174,13 +174,13 @@ void test_init(int argc, char **argv)
 
 	pidf = fopen(pidfile, "wx");
 	if (!pidf) {
-		err("Can't create pid file %s: %m\n", pidfile);
+		err("Can't create pid file %s", pidfile);
 		exit(1);
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		err("Daemonizing failed: %m\n");
+		err("Daemonizing failed");
 		exit(1);
 	}
 
@@ -192,11 +192,11 @@ void test_init(int argc, char **argv)
 			waitpid(pid, &ret, 0);
 
 			if (WIFEXITED(ret)) {
-				err("Test exited with unexpectedly with code %d\n", WEXITSTATUS(ret));
+				err("Test exited with unexpectedly with code %d", WEXITSTATUS(ret));
 				exit(0);
 			}
 			if (WIFSIGNALED(ret)) {
-				err("Test exited on unexpected signal %d\n", WTERMSIG(ret));
+				err("Test exited on unexpected signal %d", WTERMSIG(ret));
 				exit(0);
 			}
 		}
@@ -209,7 +209,7 @@ void test_init(int argc, char **argv)
 	fclose(pidf);
 
 	if (setsid() < 0) {
-		err("Can't become session group leader: %m\n");
+		err("Can't become session group leader");
 		exit(1);
 	}
 
@@ -219,7 +219,7 @@ skip_pid:
 
 	sa.sa_handler = SIG_DFL;
 	if (sigaction(SIGCHLD, &sa, NULL)) {
-		err("Can't reset SIGCHLD handler: %m\n");
+		err("Can't reset SIGCHLD handler");
 		exit(1);
 	}
 
@@ -252,12 +252,12 @@ static int do_test_fn(void *_arg)
 
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGCHLD, &sa, NULL)) {
-		err("Can't reset SIGCHLD handler: %m\n");
+		err("Can't reset SIGCHLD handler");
 		exit(1);
 	}
 
 	if (setsid() < 0) {
-		err("Can't become session group leader: %m\n");
+		err("Can't become session group leader");
 		exit(1);
 	}
 
@@ -302,7 +302,7 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 
 	pidf = fopen(pidfile, "wx");
 	if (!pidf) {
-		err("Can't create pid file %s: %m\n", pidfile);
+		err("Can't create pid file %s", pidfile);
 		exit(1);
 	}
 
@@ -312,7 +312,7 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 	ca.argv = argv;
 	pid = clone(do_test_fn, ca.stack_ptr, clone_flags | SIGCHLD, &ca);
 	if (pid < 0) {
-		err("Daemonizing failed: %m\n");
+		err("Daemonizing failed");
 		exit(1);
 	}
 
@@ -324,11 +324,11 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 		waitpid(pid, &ret, 0);
 
 		if (WIFEXITED(ret)) {
-			err("Test exited with unexpectedly with code %d\n", WEXITSTATUS(ret));
+			err("Test exited with unexpectedly with code %d", WEXITSTATUS(ret));
 			exit(0);
 		}
 		if (WIFSIGNALED(ret)) {
-			err("Test exited on unexpected signal %d\n", WTERMSIG(ret));
+			err("Test exited on unexpected signal %d", WTERMSIG(ret));
 			exit(0);
 		}
 	}
@@ -344,7 +344,7 @@ void test_daemon()
 
 	ppid = getppid();
 	if (ppid <= 1) {
-		err("Test orphaned\n");
+		err("Test orphaned");
 		goto out;
 	}
 

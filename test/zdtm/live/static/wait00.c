@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
 
 	pid = fork();
 	if (pid < 0) {
-		err("fork failed: %m\n");
+		err("fork failed");
 		exit(1);
 	}
 

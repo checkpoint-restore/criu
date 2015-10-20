@@ -135,7 +135,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	 * Make sure it's a file we support.
 	 */
 	if (memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
-		err("Elf header magic mismatch\n");
+		err("Elf header magic mismatch");
 		return -EINVAL;
 	}
 
@@ -149,14 +149,14 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		switch (phdr->p_type) {
 		case PT_DYNAMIC:
 			if (dynamic) {
-				err("Second PT_DYNAMIC header\n");
+				err("Second PT_DYNAMIC header");
 				return -EINVAL;
 			}
 			dynamic = phdr;
 			break;
 		case PT_LOAD:
 			if (load) {
-				err("Second PT_LOAD header\n");
+				err("Second PT_LOAD header");
 				return -EINVAL;
 			}
 			load = phdr;
@@ -165,7 +165,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	}
 
 	if (!load || !dynamic) {
-		err("One of obligated program headers is missed\n");
+		err("One of obligated program headers is missed");
 		return -EINVAL;
 	}
 
@@ -196,7 +196,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	}
 
 	if (!dyn_strtab || !dyn_symtab || !dyn_strsz || !dyn_syment || !dyn_hash) {
-		err("Not all dynamic entries are present\n");
+		err("Not all dynamic entries are present");
 		return -EINVAL;
 	}
 
@@ -248,7 +248,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	return 0;
 
 err_oob:
-	err("Corrupted Elf data\n");
+	err("Corrupted Elf data");
 	return -EFAULT;
 }
 
@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (vdso_fill_self_symtable(&symtable)) {
-		err("Faied to parse vdso\n");
+		err("Faied to parse vdso");
 		return -1;
 	}
 

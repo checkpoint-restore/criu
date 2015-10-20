@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (mknod(filename, mode, 0)) {
-		err("can't make fifo \"%s\": %m\n", filename);
+		err("can't make fifo \"%s\"", filename);
 		exit(1);
 	}
 
@@ -42,13 +42,13 @@ int main(int argc, char **argv)
 		int res;
 		fd1 = open(filename, O_RDONLY);
 		if (fd1 < 0) {
-			err("open(%s, O_RDONLY) Failed: %m\n", filename);
+			err("open(%s, O_RDONLY) Failed", filename);
 			chret = errno;
 			return chret;
 		}
 		res = read(fd1, rbuf, 7);
 		if (res < 0) {
-			err("read error %s: %m\n", filename);
+			err("read error %s", filename);
 			chret = errno;
 			return chret;
 		}
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
 		fd = open(filename, O_WRONLY);
 		if (fd < 0) {
-			err("open(%s, O_WRONLY) Failed: %m\n", filename);
+			err("open(%s, O_WRONLY) Failed", filename);
 			kill(pid, SIGKILL);
 			wait(NULL);
 			return 1;
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 		test_waitsig();
 
 		if (write(fd, "string", 7) == -1) {
-			err("write(%d, 'string', 7) Failed: %m\n", fd);
+			err("write(%d, 'string', 7) Failed", fd);
 			return 1;
 		}
 
