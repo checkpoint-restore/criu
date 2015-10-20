@@ -8,6 +8,7 @@ function prep()
 	git clean -dfx &&
 	make -j 4 &&
 	make -j 4 -C test/zdtm/live &&
+	make -C test zdtm_ct &&
 	true
 }
 
