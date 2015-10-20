@@ -740,6 +740,7 @@ def list_tests(opts):
 if os.environ.has_key('CR_CT_TEST_INFO'):
 	# Fork here, since we're new pidns init and are supposed to
 	# collect this namespace's zombies
+	status = 0
 	pid = os.fork()
 	if pid == 0:
 		tinfo = eval(os.environ['CR_CT_TEST_INFO'])
@@ -748,9 +749,11 @@ if os.environ.has_key('CR_CT_TEST_INFO'):
 		while True:
 			wpid, status = os.wait()
 			if wpid == pid:
+				if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+					status = 1
 				break;
 
-	sys.exit(0)
+	sys.exit(status)
 
 p = argparse.ArgumentParser("CRIU test suite")
 p.add_argument("--debug", help = "Print what's being executed", action = 'store_true')
