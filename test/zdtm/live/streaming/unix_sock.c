@@ -110,9 +110,8 @@ static int setup_clnt_sock(void)
 	int ret = 0;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		ret = -errno;
 		pr_perror("filename \"%s\" is too long", filename);
-		return ret;
+		return -1;
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
