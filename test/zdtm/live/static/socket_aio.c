@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if ((fd_s = tcp_init_server(AF_INET, &port)) < 0) {
-		pr_perror("initializing server failed");
+		pr_err("initializing server failed\n");
 		return 1;
 	}
 
@@ -86,7 +86,7 @@ again:
 			goto again;
 		}
 		if (ret != 0) {
-			pr_perror("Error at aio_error() %s", strerror(ret));
+			pr_err("Error at aio_error(): %s\n", strerror(ret));
 			res = 1;
 		}
 
@@ -105,7 +105,7 @@ again:
 	fd = tcp_accept_server(fd_s);
 	close(fd_s);
 	if (fd < 0) {
-		pr_perror("can't accept client connection %m");
+		pr_err("can't accept client connection\n");
 		goto error;
 	}
 
@@ -125,7 +125,7 @@ again:
 	}
 
 	if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-		pr_perror("chiled failed. Return %d", WEXITSTATUS(status));
+		pr_err("child failed with exit code %d\n", WEXITSTATUS(status));
 		return 1;
 	}
 

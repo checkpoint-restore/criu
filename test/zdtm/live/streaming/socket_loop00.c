@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_procs > PROCS_MAX) {
-		pr_perror("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
+		pr_err("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
 		exit(1);
 	}
 
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 	}
 
 	if (num_exited) {
-		pr_perror("Some children died unexpectedly\n");
+		pr_err("Some children died unexpectedly\n");
 		kill(0, SIGKILL);
 		exit(1);
 	}

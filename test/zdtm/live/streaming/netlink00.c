@@ -163,7 +163,7 @@ int recv_reply()
 		}
 
 		if (rtn == 0) {
-			pr_perror("EOF on netlink\n");
+			pr_err("EOF on netlink\n");
 			return -1;
 		}
 

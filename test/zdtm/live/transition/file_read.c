@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (scale > MAX_SCALE) {
-		pr_perror("Too many children specified\n");
+		pr_err("Too many children specified\n");
 		exit(-1);
 	}
 

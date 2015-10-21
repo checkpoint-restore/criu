@@ -80,7 +80,7 @@ again:
 			goto again;
 		}
 		if (ret != 0) {
-			pr_perror("Error at aio_error() %s", strerror(ret));
+			pr_err("Error at aio_error(): %s\n", strerror(ret));
 			return 1;
 		}
 

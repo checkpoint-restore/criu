@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if ((fd_s = tcp_init_server(ZDTM_FAMILY, &port)) < 0) {
-		pr_perror("initializing server failed");
+		pr_err("initializing server failed\n");
 		return 1;
 	}
 
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 	 */
 	fd = tcp_accept_server(fd_s);
 	if (fd < 0) {
-		pr_perror("can't accept client connection %m");
+		pr_err("can't accept client connection\n");
 		return 1;
 	}
 

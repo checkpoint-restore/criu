@@ -44,7 +44,7 @@ static int setup_srv_sock(void)
 	int sock;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		pr_perror("filename \"%s\" is too long", filename);
+		pr_err("filename \"%s\" is too long\n", filename);
 		return -1;
 	}
 
@@ -90,7 +90,7 @@ static int accept_one_conn(int sock)
 	case 1:
 		break;
 	case 0:
-		pr_perror("timeout accepting a connection");
+		pr_err("timeout accepting a connection\n");
 		return -1;
 	default:
 		pr_perror("error while waiting for a connection");
@@ -110,7 +110,7 @@ static int setup_clnt_sock(void)
 	int ret = 0;
 
 	if (fill_sock_name(&name, filename) < 0) {
-		pr_perror("filename \"%s\" is too long", filename);
+		pr_err("filename \"%s\" is too long\n", filename);
 		return -1;
 	}
 
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_procs > PROCS_MAX) {
-		pr_perror("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
+		pr_err("%d processes is too many: max = %d\n", num_procs, PROCS_MAX);
 		exit(1);
 	}
 

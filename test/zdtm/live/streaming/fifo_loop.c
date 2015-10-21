@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < PROCS_DEF; i++) {
 		file_path = path[i];
 		if (snprintf(file_path, BUF_SIZE, "%s-%02d", filename, i) >= BUF_SIZE) {
-			pr_perror("filename %s is too long\n", filename);
+			pr_err("filename %s is too long\n", filename);
 			exit(1);
 		}
 		if (mkfifo(file_path, mode)) {
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 	}
 
 	if (num_exited) {
-		pr_perror("Some children died unexpectedly\n");
+		pr_err("Some children died unexpectedly\n");
 		kill(0, SIGKILL);
 		exit(1);
 	}
