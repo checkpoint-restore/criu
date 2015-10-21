@@ -100,6 +100,7 @@ generate_test_list()
 		static/eventfs00
 		static/signalfd00
 		static/inotify00
+		static/inotify02
 		static/inotify_irmap
 		static/fanotify00
 		static/unbound_sock
