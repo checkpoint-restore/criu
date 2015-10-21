@@ -36,7 +36,7 @@ static void read_safe(int fd, void *buf, size_t size)
 static void write_safe(int fd, void *buf, size_t size)
 {
 	if (write(fd, buf, size) != size) {
-		pr_perror("Unable to write from %d", fd);
+		pr_perror("Unable to write to %d", fd);
 		exit(1);
 	}
 }
