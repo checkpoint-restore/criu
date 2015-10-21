@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
 	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (fd<0){
-		pr_perror("socket ");
+		pr_perror("socket");
 		goto out;
 	}
 	// setup local address & bind using
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 	la.nl_family = AF_NETLINK;
 	la.nl_pid = getpid();
 	if (bind(fd, (struct sockaddr*) &la, sizeof(la))){
-		pr_perror("bind failed ");
+		pr_perror("bind failed");
 		goto out;
 	}
 	//Preperation:

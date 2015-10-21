@@ -65,7 +65,7 @@ static int setup_srv_sock(void)
 	}
 
 	if (listen(sock, 1) < 0) {
-		pr_perror("can't listen on a socket \"%s\"\n", filename);
+		pr_perror("can't listen on a socket \"%s\"", filename);
 		goto err;
 	}
 

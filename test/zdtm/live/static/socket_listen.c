@@ -53,11 +53,11 @@ int main(int argc, char **argv)
 
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGCHLD, &sa, NULL))
-		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
+		pr_perror("Can't set SIGCHLD handler");
 
 	pid = test_fork();
 	if (pid < 0) {
-		pr_perror("fork failed. Return %d %m", pid);
+		pr_perror("fork failed");
 		return 1;
 	}
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
 
 	if (wait(&status) < 0) {
-		pr_perror("wait failed %m");
+		pr_perror("wait failed");
 		goto error;
 	}
 

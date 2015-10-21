@@ -44,19 +44,19 @@ int main(int argc, char **argv)
 	}
 
 	if (pipe(pipes)) {
-		pr_perror("Can't create pipes\n");
+		pr_perror("Can't create pipes");
 		exit(1);
 	}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		pr_perror("can't set SIGCHLD handler\n");
+		pr_perror("can't set SIGCHLD handler");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			pr_perror("Can't fork\n");
+			pr_perror("can't fork");
 			kill(0, SIGKILL);
 			exit(1);
 		}

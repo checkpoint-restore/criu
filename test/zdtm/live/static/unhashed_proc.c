@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 
 	pid = fork();
 	if (pid < 0) {
-		pr_perror("Fork failed %m");
+		pr_perror("fork failed");
 		exit(1);
 	} else if (!pid) {
 		pause();
@@ -32,7 +32,7 @@ int main(int argc, char ** argv)
 
 	if (chdir(cwd1) < 0) {
 		kill(pid, SIGKILL);
-		pr_perror("Chdir failed %m");
+		pr_perror("chdir failed");
 		exit(1);
 	}
 
@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 
 	len = readlink("/proc/self/cwd", cwd1, sizeof(cwd1));
 	if (len < 0) {
-		pr_perror("can't read cwd symlink %m");
+		pr_perror("can't read cwd symlink");
 		exit(1);
 	}
 	cwd1[len] = 0;

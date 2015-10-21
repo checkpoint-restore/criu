@@ -49,20 +49,20 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		if (mkfifo(file_path, mode)) {
-			pr_perror("can't make fifo \"%s\"\n", file_path);
+			pr_perror("can't make fifo \"%s\"", file_path);
 			exit(1);
 		}
 	}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		pr_perror("can't set SIGCHLD handler\n");
+		pr_perror("can't set SIGCHLD handler");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			pr_perror("Can't fork\n");
+			pr_perror("Can't fork");
 			kill(0, SIGKILL);
 			exit(1);
 		}
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			file_path = path[i - 1];
 			readfd = open(file_path, O_RDONLY);
 			if (readfd < 0) {
-				pr_perror("open(%s, O_RDONLY) Failed\n",
+				pr_perror("open(%s, O_RDONLY) failed",
 					file_path);
 				ret = errno;
 				return ret;
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 			file_path = path[i];
 			writefd = open(file_path, O_WRONLY);
 			if (writefd < 0) {
-				pr_perror("open(%s, O_WRONLY) Failed\n",
+				pr_perror("open(%s, O_WRONLY) failed",
 					file_path);
 				ret = errno;
 				return ret;
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 	file_path = path[0];
 	writefd = open(file_path, O_WRONLY);
 	if (writefd < 0) {
-		pr_perror("open(%s, O_WRONLY) Failed\n", file_path);
+		pr_perror("open(%s, O_WRONLY) failed", file_path);
 		kill(0, SIGKILL);
 		exit(1);
 	}
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 	file_path = path[i - 1];
 	readfd = open(file_path, O_RDONLY);
 	if (readfd < 0) {
-		pr_perror("open(%s, O_RDONLY) Failed\n", file_path);
+		pr_perror("open(%s, O_RDONLY) failed", file_path);
 		kill(0, SIGKILL);
 		exit(1);
 	}

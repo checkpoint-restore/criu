@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
 	for (i = 0; i < NR_ZOMBIES; i++) {
 		zombie[i].pid = fork();
 		if (zombie[i].pid < 0) {
-			pr_perror("Fork failed %m");
+			pr_perror("fork failed");
 			exit(1);
 		}
 

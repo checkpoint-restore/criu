@@ -27,15 +27,14 @@ int main(int argc, char **argv)
 
 	fd = mkstemp(tmpfname);
 	if (fd == -1) {
-		pr_perror("Error at open(): %s", strerror(errno));
+		pr_perror("mkstemp() failed");
 		exit(1);
 	}
 
 	unlink(tmpfname);
 
 	if (write(fd, buf, BUF_SIZE) != BUF_SIZE) {
-		pr_perror("Error at write(): %s",
-				strerror(errno));
+		pr_perror("Error at write()");
 		exit(1);
 	}
 
@@ -52,12 +51,12 @@ int main(int argc, char **argv)
 		if (ret < 0) {
 			if ((errno == EINTR) && (!test_go()))
 				break;
-			pr_perror("aio_read failed %m");
+			pr_perror("aio_read failed");
 			return 1;
 		}
 
 		if (ret < 0) {
-			pr_perror("aio_read failed %s\n", strerror(errno));
+			pr_perror("aio_read failed");
 			exit(1);
 		}
 		/* Wait for request completion */
@@ -68,7 +67,7 @@ again:
 			if ((errno == EINTR) && (! test_go()))
 				break;
 			if (errno != EINTR) {
-				pr_perror("aio_suspend failed %m");
+				pr_perror("aio_suspend failed");
 				return 1;
 			}
 		}
@@ -89,11 +88,11 @@ again:
 		if (ret < 0) {
 			if ((errno == EINTR) && (!test_go()))
 				break;
-			pr_perror("aio_return failed %m");
+			pr_perror("aio_return failed");
 			return 1;
 		}
 		if (ret != BUF_SIZE) {
-			pr_perror("Error at aio_return()\n");
+			pr_perror("Error at aio_return()");
 			exit(1);
 		}
 	}

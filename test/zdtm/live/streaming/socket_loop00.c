@@ -45,19 +45,19 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < num_procs; i++)
 		if (socketpair(AF_LOCAL, SOCK_STREAM, 0, socks + i * 2)) {
-			pr_perror("Can't create socks\n");
+			pr_perror("can't create sockets");
 			exit(1);
 		}
 
 	if (signal(SIGCHLD, inc_num_exited) == SIG_ERR) {
-		pr_perror("can't set SIGCHLD handler\n");
+		pr_perror("can't set SIGCHLD handler");
 		exit(1);
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
-			pr_perror("Can't fork\n");
+			pr_perror("Can't fork");
 			kill(0, SIGKILL);
 			exit(1);
 		}

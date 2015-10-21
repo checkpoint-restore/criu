@@ -111,35 +111,35 @@ int main(int argc, char **argv)
 	}
 
 	if (signal(SIGUSR2, do_stop) == SIG_ERR) {
-		pr_perror("Can't setup handler\n");
+		pr_perror("Can't setup signal handler");
 		exit(1);
 	}
 
 	if ((efd = epoll_create(scale)) < 0) {
-		pr_perror("Can't create epoll\n");
+		pr_perror("Can't create epoll");
 		exit(1);
 	}
 
 	for (i = 0; i < scale; i++) {
 		if (pipe(fds[i]) < 0) {
-			pr_perror("Can't create pipe[%d]\n", i);
+			pr_perror("Can't create pipe[%d]", i);
 			killall();
 			exit(1);
 		}
 		if (fcntl(fds[i][0], F_SETFL, O_NONBLOCK) < 0) {
-			pr_perror("Can't set O_NONBLOCK flag on fd[%d]\n", i);
+			pr_perror("Can't set O_NONBLOCK flag on fd[%d]", i);
 			killall();
 			exit(1);
 		}
 		event.data.fd = fds[i][0];
 		if (epoll_ctl(efd, EPOLL_CTL_ADD, fds[i][0], &event) < 0) {
-			pr_perror("Can't add fd[%d]\n", i);
+			pr_perror("Can't add fd[%d]", i);
 			killall();
 			exit(1);
 		}
 
 		if ((rv = test_fork()) < 0) {
-			pr_perror("Can't fork[%d]\n", i);
+			pr_perror("Can't fork[%d]", i);
 			killall();
 			exit(1);
 		}
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 	}
 
 	if ((events = (struct epoll_event*) malloc (sizeof(struct epoll_event)*scale)) == NULL) {
-		pr_perror("Can't allocate memory\n");
+		pr_perror("Can't allocate memory");
 		killall();
 		exit(1);
 	}
@@ -159,14 +159,14 @@ int main(int argc, char **argv)
 
 	while (test_go()) {
 		if ((rv = epoll_wait(efd, events, scale, rand() % 999)) < 0 && errno != EINTR) {
-			pr_perror("epoll_wait error\n");
+			pr_perror("epoll_wait error");
 			killall();
 			exit(1);
 		}
 		for (i = 0; i < rv; i++) {
 			while (read(events[i].data.fd, buf, buf_size) > 0);
 			if (errno != EAGAIN && errno != 0 && errno) {
-				pr_perror("read error\n");
+				pr_perror("read error");
 				killall();
 				exit(1);
 			}

@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 
 	pid = test_fork();
 	if (pid < 0) {
-		pr_perror("fork failed. Return %d %m", pid);
+		pr_perror("fork failed");
 		return 1;
 	}
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		aiocb.aio_nbytes = BUF_SIZE;
 		ret = aio_read(&aiocb);
 		if (ret < 0) {
-			pr_perror("aio_read failed %m");
+			pr_perror("aio_read failed");
 			return 1;
 		}
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 		res = 0;
 again:
 		if (aio_suspend(aioary, 1, NULL) < 0 && errno != EINTR) {
-			pr_perror("aio_suspend failed %m");
+			pr_perror("aio_suspend failed");
 			res = 1;
 		}
 
@@ -91,7 +91,7 @@ again:
 		}
 
 		if (aio_return(&aiocb) != BUF_SIZE) {
-			pr_perror("Error at aio_return() %m");
+			pr_perror("Error at aio_return()");
 			res = 1;
 		}
 
@@ -120,7 +120,7 @@ again:
 
 
 	if (wait(&status) < 0) {
-		pr_perror("wait failed %m");
+		pr_perror("wait failed");
 		goto error;
 	}
 

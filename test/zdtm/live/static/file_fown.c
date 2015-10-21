@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 
 	pid = test_fork();
 	if (pid < 0) {
-		pr_perror("can't fork %m");
+		pr_perror("can't fork");
 		exit(1);
 	}
 

@@ -27,7 +27,7 @@ int tcp_init_server(int family, int *port)
 
 	sock = socket(family, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
-		pr_perror("socket() failed %m");
+		pr_perror("socket() failed");
 		return -1;
 	}
 
@@ -54,12 +54,12 @@ int tcp_init_server(int family, int *port)
 	}
 
 	if (ret == -1) {
-		pr_perror("bind() failed %m");
+		pr_perror("bind() failed");
 		return -1;
 	}
 
 	if (listen(sock, 1) == -1) {
-		pr_perror("listen() failed %m");
+		pr_perror("listen() failed");
 		return -1;
 	}
 	return sock;
@@ -77,7 +77,7 @@ int tcp_accept_server(int sock)
 	sock2 = accept(sock,(struct sockaddr *) &maddr, &addrlen);
 
 	if (sock2 == -1) {
-		pr_perror("accept() failed %m");
+		pr_perror("accept() failed");
 		return -1;
 	}
 
@@ -93,7 +93,7 @@ int tcp_init_client(int family, char *servIP, unsigned short servPort)
 	union sockaddr_inet servAddr;
 
 	if ((sock = socket(family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-		pr_perror("can't create socket %m");
+		pr_perror("can't create socket");
 		return -1;
 	}
 	/* Construct the server address structure */
@@ -108,7 +108,7 @@ int tcp_init_client(int family, char *servIP, unsigned short servPort)
 		inet_pton(AF_INET6, servIP, &servAddr.v6.sin6_addr);
 	}
 	if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
-		pr_perror("can't connect to server %m");
+		pr_perror("can't connect to server");
 		return -1;
 	}
 	return sock;

@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	addr.sll_family = AF_PACKET;
 	addr.sll_ifindex = 1; /* loopback should be 1 in all namespaces */
 	if (bind(sk2, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		pr_perror("Can't bind socket %m");
+		pr_perror("Can't bind socket");
 		return 1;
 	}
 
@@ -127,13 +127,13 @@ int main(int argc, char **argv)
 
 	ver = TPACKET_V2;
 	if (setsockopt(sk1, SOL_PACKET, PACKET_VERSION, &ver, sizeof(ver)) < 0) {
-		pr_perror("Can't set version %m");
+		pr_perror("Can't set version");
 		return 1;
 	}
 
 	yes = 1;
 	if (setsockopt(sk1, SOL_PACKET, PACKET_AUXDATA, &yes, sizeof(yes)) < 0) {
-		pr_perror("Can't set auxdata %m");
+		pr_perror("Can't set auxdata");
 		return 1;
 	}
 
@@ -143,25 +143,25 @@ int main(int argc, char **argv)
 	ring.tp_frame_size = 1024;
 	ring.tp_frame_nr = (ring.tp_block_size / ring.tp_frame_size) * ring.tp_block_nr;
 	if (setsockopt(sk1, SOL_PACKET, PACKET_RX_RING, &ring, sizeof(ring)) < 0) {
-		pr_perror("Can't set rx ring %m");
+		pr_perror("Can't set rx ring");
 		return 1;
 	}
 
 	rsv = SK_RESERVE;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, sizeof(rsv)) < 0) {
-		pr_perror("Can't set reserve %m");
+		pr_perror("Can't set reserve");
 		return 1;
 	}
 
 	yes = 1;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_ORIGDEV, &yes, sizeof(yes)) < 0) {
-		pr_perror("Can't set origdev %m");
+		pr_perror("Can't set origdev");
 		return 1;
 	}
 
 	yes = DEF_FANOUT;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_FANOUT, &yes, sizeof(yes)) < 0) {
-		pr_perror("Can't configure fanout %m");
+		pr_perror("Can't configure fanout");
 		return 1;
 	}
 
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
 	mreq.mr_ifindex = 1;
 	mreq.mr_type = PACKET_MR_PROMISC;
 	if (setsockopt(sk1, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-		pr_perror("Can't add promisc member %m");
+		pr_perror("Can't add promisc member");
 		return 1;
 	}
 
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 	mreq.mr_type = PACKET_MR_UNICAST;
 	mreq.mr_alen = LO_ADDR_LEN;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-		pr_perror("Can't add ucast member %m");
+		pr_perror("Can't add ucast member");
 		return 1;
 	}
 
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 	ring.tp_frame_size = 1024;
 	ring.tp_frame_nr = (ring.tp_block_size / ring.tp_frame_size) * ring.tp_block_nr;
 	if (setsockopt(sk2, SOL_PACKET, PACKET_TX_RING, &ring, sizeof(ring)) < 0) {
-		pr_perror("Can't set tx ring %m");
+		pr_perror("Can't set tx ring");
 		return 1;
 	}
 
