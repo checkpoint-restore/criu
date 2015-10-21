@@ -189,15 +189,18 @@ void test_init(int argc, char **argv)
 
 		if (futex_get(&sig_received) == SIGCHLD) {
 			int ret;
-			waitpid(pid, &ret, 0);
+			if (waitpid(pid, &ret, 0) != pid) {
+				pr_perror("Unable to wait %d, pid");
+				exit(1);
+			}
 
 			if (WIFEXITED(ret)) {
-				pr_perror("Test exited unexpectedly with code %d", WEXITSTATUS(ret));
-				exit(0);
+				pr_err("Test exited unexpectedly with code %d\n", WEXITSTATUS(ret));
+				exit(1);
 			}
 			if (WIFSIGNALED(ret)) {
-				pr_perror("Test exited on unexpected signal %d", WTERMSIG(ret));
-				exit(0);
+				pr_err("Test exited on unexpected signal %d\n", WTERMSIG(ret));
+				exit(1);
 			}
 		}
 
@@ -321,15 +324,18 @@ void test_init_ns(int argc, char **argv, unsigned long clone_flags,
 
 	if (futex_get(&sig_received) == SIGCHLD) {
 		int ret;
-		waitpid(pid, &ret, 0);
+		if (waitpid(pid, &ret, 0) != pid) {
+			pr_perror("Unable to wait %d", pid);
+			exit(1);
+		}
 
 		if (WIFEXITED(ret)) {
-			pr_perror("Test exited unexpectedly with code %d", WEXITSTATUS(ret));
-			exit(0);
+			pr_err("Test exited unexpectedly with code %d\n", WEXITSTATUS(ret));
+			exit(1);
 		}
 		if (WIFSIGNALED(ret)) {
-			pr_perror("Test exited on unexpected signal %d", WTERMSIG(ret));
-			exit(0);
+			pr_err("Test exited on unexpected signal %d\n", WTERMSIG(ret));
+			exit(1);
 		}
 	}
 
