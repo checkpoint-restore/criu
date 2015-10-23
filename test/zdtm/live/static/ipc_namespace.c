@@ -327,9 +327,11 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 			old->mq_msgsize_max, new->mq_msgsize_max);
 }
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int ret;
+
+	test_init(argc, argv);
 
 	ret = rand_ipc_ns();
 	if (ret) {
@@ -360,10 +362,4 @@ static int test_fn(int argc, char **argv)
 
 	pass();
 	return 0;
-}
-
-int main(int argc, char **argv)
-{
-	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
-	return -1;
 }

@@ -193,11 +193,11 @@ generate_test_list()
 		ns/static/mnt_ro_bind
 		ns/static/mount_paths
 		ns/static/bind-mount
-		static/utsname
-		static/ipc_namespace
+		ns/static/utsname
+		ns/static/ipc_namespace
 		static/shm
 		static/msgque
-		static/sem
+		ns/static/sem
 		transition/ipc
 		static/netns-nf
 		static/netns
@@ -292,6 +292,8 @@ generate_test_list()
 		ns/static/rtc
 		ns/static/cow01
 		ns/static/tempfs_ro
+		ns/static/ipc_namespace
+		ns/static/utsname
 	"
 
 	# Add tests which can be executed in an user namespace
@@ -360,6 +362,8 @@ apparmor
 seccomp_strict
 different_creds
 inotify01
+ipc_namespace
+utsname
 "
 
 TEST_EXPECTED_FAILURE="

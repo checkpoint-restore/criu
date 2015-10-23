@@ -105,10 +105,12 @@ static int check_sem_by_id(int id, int val)
 			sizeof(unlock)/sizeof(struct sembuf));
 }
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int id, key, val;
 	int ret, fail_count = 0;
+
+	test_init(argc, argv);
 
 	key = ftok(argv[0], 89063453);
 	if (key == -1) {
@@ -167,15 +169,4 @@ out:
 	if (fail_count == 0)
 		pass();
 	return fail_count;
-}
-
-int main(int argc, char **argv)
-{
-#ifdef NEW_IPC_NS
-	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
-#else
-	test_init(argc, argv);
-	test_fn(argc, argv);
-#endif
-	return 0;
 }

@@ -13,10 +13,12 @@ static struct utsname after;
 #define ZDTM_NODE "zdtm.nodename.ru"
 #define ZDTM_DOMAIN "zdtm.nodename.ru"
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	int ret;
 	int fd;
+
+	test_init(argc, argv);
 
 	fd = open("/proc/sys/kernel/hostname", O_WRONLY);
 	if (fd < 0) {
@@ -61,11 +63,5 @@ static int test_fn(int argc, char **argv)
 	}
 
 	pass();
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
-	test_init_ns(argc, argv, CLONE_NEWUTS, test_fn);
 	return 0;
 }
