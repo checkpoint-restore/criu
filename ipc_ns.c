@@ -47,10 +47,10 @@ static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipc
 {
 	desc->id = id;
 	desc->key = ipcp->KEY;
-	desc->uid = ipcp->uid;
-	desc->gid = ipcp->gid;
-	desc->cuid = ipcp->cuid;
-	desc->cgid = ipcp->cgid;
+	desc->uid = userns_uid(ipcp->uid);
+	desc->gid = userns_gid(ipcp->gid);
+	desc->cuid = userns_uid(ipcp->cuid);
+	desc->cgid = userns_gid(ipcp->cgid);
 	desc->mode = ipcp->mode;
 }
 
