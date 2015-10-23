@@ -600,6 +600,27 @@ static inline int dump_route(struct cr_imgset *fds)
 	return 0;
 }
 
+static inline int dump_rule(struct cr_imgset *fds)
+{
+	struct cr_img *img;
+	char *path;
+
+	img = img_from_set(fds, CR_FD_RULE);
+	path = xstrdup(img->path);
+
+	if (!path)
+		return -1;
+
+	if (run_ip_tool("rule", "save", NULL, -1, img_raw_fd(img))) {
+		pr_err("Check if \"ip rule save\" is supported!\n");
+		unlinkat(get_service_fd(IMG_FD_OFF), path, 0);
+	}
+
+	free(path);
+
+	return 0;
+}
+
 static inline int dump_iptables(struct cr_imgset *fds)
 {
 	struct cr_img *img = img_from_set(fds, CR_FD_IPTABLES);
@@ -667,6 +688,34 @@ static inline int restore_route(int pid)
 		return -1;
 
 	return 0;
+}
+
+static inline int restore_rule(int pid)
+{
+	struct cr_img *img;
+	int ret = 0;
+
+	img = open_image(CR_FD_RULE, O_RSTR, pid);
+	if (!img)
+		goto out;
+	if (empty_image(img)) {
+		ret = -1;
+		goto close;
+	}
+	/*
+	 * Delete 3 default rules to prevent duplicates. See kernel's
+	 * function fib_default_rules_init() for the details.
+	 */
+	run_ip_tool("rule", "delete", NULL, -1, -1);
+	run_ip_tool("rule", "delete", NULL, -1, -1);
+	run_ip_tool("rule", "delete", NULL, -1, -1);
+
+	if (restore_ip_dump(CR_FD_RULE, pid, "rule"))
+		ret = -1;
+close:
+	close_image(img);
+out:
+	return ret;
 }
 
 static inline int restore_iptables(int pid)
@@ -771,6 +820,8 @@ int dump_net_ns(int ns_id)
 	if (!ret)
 		ret = dump_route(fds);
 	if (!ret)
+		ret = dump_rule(fds);
+	if (!ret)
 		ret = dump_iptables(fds);
 
 	close(ns_sysfs_fd);
@@ -795,6 +846,8 @@ int prepare_net_ns(int pid)
 		ret = restore_ifaddr(pid);
 	if (!ret)
 		ret = restore_route(pid);
+	if (!ret)
+		ret = restore_rule(pid);
 	if (!ret)
 		ret = restore_iptables(pid);
 
