@@ -1251,7 +1251,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 	ui->name_dir = (void *)ui->ue->name_dir;
 
 	if (ui->ue->name.len) {
-		if (ui->ue->name.len >= UNIX_PATH_MAX) {
+		if (ui->ue->name.len > UNIX_PATH_MAX) {
 			pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
 			return -1;
 		}
