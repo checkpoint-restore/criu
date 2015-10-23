@@ -195,8 +195,8 @@ generate_test_list()
 		ns/static/bind-mount
 		ns/static/utsname
 		ns/static/ipc_namespace
-		static/shm
-		static/msgque
+		ns/static/shm
+		ns/static/msgque
 		ns/static/sem
 		transition/ipc
 		static/netns-nf

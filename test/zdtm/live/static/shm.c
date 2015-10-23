@@ -100,7 +100,7 @@ static int check_shm_key(int key, size_t size)
 	return check_shm_id(id, size);
 }
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	key_t key;
 	int shm;
@@ -109,6 +109,8 @@ static int test_fn(int argc, char **argv)
 
 	void *mem;
 	uint32_t crc = INIT_CRC;
+
+	test_init(argc, argv);
 
 	key = ftok(argv[0], 822155666);
 	if (key == -1) {
@@ -189,16 +191,4 @@ out_shm:
 		pass();
 out:
 	return ret;
-}
-
-
-int main(int argc, char **argv)
-{
-#ifdef NEW_IPC_NS
-	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
-#else
-	test_init(argc, argv);
-	test_fn(argc, argv);
-#endif
-	return 0;
 }
