@@ -66,7 +66,7 @@ class host_flavor:
 		self.ns = False
 		self.root = None
 
-	def init(self, test_bin):
+	def init(self, test_bin, deps):
 		pass
 
 	def fini(self):
@@ -79,20 +79,21 @@ class ns_flavor:
 		self.uns = False
 		self.root = make_tests_root()
 
-	def init(self, test_bin):
-		print "Construct root for %s" % test_bin
-		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
+	def __copy_one(self, fname):
+		tfname = self.root + fname
+		if not os.access(tfname, os.F_OK):
+			# Copying should be atomic as tests can be
+			# run in parallel
+			try:
+				os.makedirs(self.root + os.path.dirname(fname))
+			except:
+				pass
+			dst = tempfile.mktemp(".tso", "", self.root + os.path.dirname(fname))
+			shutil.copy2(fname, dst)
+			os.rename(dst, tfname)
 
-		if not os.access(self.root + "/.constructed", os.F_OK):
-			for dir in ["/bin", "/etc", "/lib", "/lib64", "/dev", "/tmp"]:
-				os.mkdir(self.root + dir)
-				os.chmod(self.root + dir, 0777)
-
-			os.mknod(self.root + "/dev/tty", stat.S_IFCHR, os.makedev(5, 0))
-			os.chmod(self.root + "/dev/tty", 0666)
-			os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
-
-		ldd = subprocess.Popen(["ldd", test_bin], stdout = subprocess.PIPE)
+	def __copy_libs(self, binary):
+		ldd = subprocess.Popen(["ldd", binary], stdout = subprocess.PIPE)
 		xl = re.compile('^(linux-gate.so|linux-vdso(64)?.so|not a dynamic)')
 
 		# This Mayakovsky-style code gets list of libraries a binary
@@ -105,13 +106,27 @@ class ns_flavor:
 		ldd.wait()
 
 		for lib in libs:
-			tlib = self.root + lib
-			if not os.access(tlib, os.F_OK):
-				# Copying should be atomic as tests can be
-				# run in parallel
-				dst = tempfile.mktemp(".tso", "", self.root + os.path.dirname(lib))
-				shutil.copy2(lib, dst)
-				os.rename(dst, tlib)
+			self.__copy_one(lib)
+
+	def init(self, test_bin, deps):
+		print "Construct root for %s" % test_bin
+		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
+
+		if not os.access(self.root + "/.constructed", os.F_OK):
+			for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/tmp", "/usr"]:
+				os.mkdir(self.root + dir)
+				os.chmod(self.root + dir, 0777)
+
+			os.mknod(self.root + "/dev/tty", stat.S_IFCHR, os.makedev(5, 0))
+			os.chmod(self.root + "/dev/tty", 0666)
+			os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
+			for ldir in [ "/bin", "/sbin", "/lib", "/lib64" ]:
+				os.symlink(".." + ldir, self.root + "/usr" + ldir)
+
+		self.__copy_libs(test_bin)
+		for dep in deps:
+			self.__copy_one(dep)
+			self.__copy_libs(dep)
 
 	def fini(self):
 		subprocess.check_call(["mount", "--make-private", self.root])
@@ -209,7 +224,7 @@ class zdtm_test:
 
 	def start(self):
 		env = {}
-		self.__flavor.init(self.__name)
+		self.__flavor.init(self.__name, self.__desc.get('deps', []))
 
 		print "Start test"
 
