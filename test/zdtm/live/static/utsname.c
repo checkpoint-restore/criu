@@ -15,38 +15,17 @@ static struct utsname after;
 
 int main(int argc, char **argv)
 {
-	int ret;
-	int fd;
-
 	test_init(argc, argv);
 
-	fd = open("/proc/sys/kernel/hostname", O_WRONLY);
-	if (fd < 0) {
-		pr_perror("Can't open hostname");
+	if (sethostname(ZDTM_NODE, sizeof(ZDTM_NODE))) {
+		pr_perror("Unable to set hostname");
 		return 1;
 	}
 
-	ret = write(fd, ZDTM_NODE, sizeof(ZDTM_NODE));
-	if (ret != sizeof(ZDTM_NODE)) {
-		pr_perror("Can't write nodename");
+	if (setdomainname(ZDTM_DOMAIN, sizeof(ZDTM_DOMAIN))) {
+		pr_perror("Unable to set domainname");
 		return 1;
 	}
-
-	close(fd);
-
-	fd = open("/proc/sys/kernel/domainname", O_WRONLY);
-	if (fd < 0) {
-		pr_perror("Can't open domainname");
-		return -errno;
-	}
-
-	ret = write(fd, ZDTM_DOMAIN, sizeof(ZDTM_DOMAIN));
-	if (ret != sizeof(ZDTM_DOMAIN)) {
-		pr_perror("Can't write domainname");
-		return 1;
-	}
-
-	close(fd);
 
 	test_daemon();
 	test_waitsig();

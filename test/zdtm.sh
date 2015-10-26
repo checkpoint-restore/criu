@@ -293,7 +293,6 @@ generate_test_list()
 		ns/static/cow01
 		ns/static/tempfs_ro
 		ns/static/ipc_namespace
-		ns/static/utsname
 	"
 
 	# Add tests which can be executed in an user namespace
