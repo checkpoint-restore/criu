@@ -31,6 +31,7 @@ int bfdopenr(struct bfd *f);
 int bfdopenw(struct bfd *f);
 void bclose(struct bfd *f);
 char *breadline(struct bfd *f);
+char *breadchr(struct bfd *f, char c);
 int bwrite(struct bfd *f, const void *buf, int sz);
 struct iovec;
 int bwritev(struct bfd *f, const struct iovec *iov, int cnt);

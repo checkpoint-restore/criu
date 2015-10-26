@@ -169,13 +169,18 @@ static char *strnchr(char *str, unsigned int len, char c)
 
 char *breadline(struct bfd *f)
 {
+	return breadchr(f, '\n');
+}
+
+char *breadchr(struct bfd *f, char c)
+{
 	struct xbuf *b = &f->b;
 	bool refilled = false;
 	char *n;
 	unsigned int ss = 0;
 
 again:
-	n = strnchr(b->data + ss, b->sz - ss, '\n');
+	n = strnchr(b->data + ss, b->sz - ss, c);
 	if (n) {
 		char *ret;
 
