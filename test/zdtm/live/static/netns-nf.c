@@ -11,9 +11,11 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	char cmd[128];
+
+	test_init(argc, argv);
 
 	if (system("iptables -A INPUT -t filter --protocol icmp -j DROP")) {
 		pr_perror("Can't set input rule");
@@ -44,12 +46,3 @@ static int test_fn(int argc, char **argv)
 	pass();
 	return 0;
 }
-
-#define CLONE_NEWNET     0x40000000
-
-int main(int argc, char **argv)
-{
-	test_init_ns(argc, argv, CLONE_NEWNET, test_fn);
-	return 0;
-}
-

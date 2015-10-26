@@ -1,1 +1,1 @@
-{'flavor': 'h'}
+{'flavor': 'ns uns', 'deps': [ '/bin/sh', '/sbin/iptables', '/usr/lib64/xtables/libxt_standard.so', '/bin/diff' ], 'flags': 'suid'}
