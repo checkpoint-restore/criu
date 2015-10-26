@@ -2139,47 +2139,50 @@ int parse_children(pid_t pid, pid_t **_c, int *_n)
 	int nr = 0;
 	DIR *dir;
 	struct dirent *de;
+	struct bfd f;
 
 	dir = opendir_proc(pid, "task");
 	if (dir == NULL)
 		return -1;
 
 	while ((de = readdir(dir))) {
-		int fd, len;
-		char *pos;
+		char *pos, *end;
 
 		if (dir_dots(de))
 			continue;
 
-		fd = open_proc(pid, "task/%s/children", de->d_name);
-		if (fd < 0)
+		f.fd = open_proc(pid, "task/%s/children", de->d_name);
+		if (f.fd < 0)
 			goto err;
 
-		len = read(fd, buf, BUF_SIZE);
-		close(fd);
-		if (len < 0)
+		if (bfdopenr(&f))
 			goto err;
 
-		buf[len] = '\0';
-		pos = buf;
 		while (1) {
 			pid_t val, *tmp;
 
-			val = strtol(pos, &pos, 0);
-			if (!val) {
-				BUG_ON(*pos != '\0');
+			pos = breadchr(&f, ' ');
+			if (IS_ERR(pos))
+				goto err_close;
+			if (pos == NULL)
 				break;
+
+			val = strtol(pos, &end, 0);
+
+			if (*end != 0 && *end != ' ') {
+				pr_err("Unable to parse %s\n", end);
+				goto err_close;
 			}
 
 			tmp = xrealloc(ch, (nr + 1) * sizeof(pid_t));
 			if (!tmp)
-				goto err;
+				goto err_close;
 
 			ch = tmp;
 			ch[nr] = val;
 			nr++;
-			pos++; /* space goes after each pid */
 		}
+		bclose(&f);
 	}
 
 	*_c = ch;
@@ -2187,6 +2190,8 @@ int parse_children(pid_t pid, pid_t **_c, int *_n)
 
 	closedir(dir);
 	return 0;
+err_close:
+	bclose(&f);
 err:
 	closedir(dir);
 	xfree(ch);
