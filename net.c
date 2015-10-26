@@ -243,12 +243,7 @@ static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "venet"))
-		/*
-		 * If we meet a link we know about, such as
-		 * OpenVZ's venet, save general parameters of
-		 * it as external link.
-		 */
-		return dump_one_netdev(ND_TYPE__EXTLINK, ifi, tb, fds, NULL);
+		return dump_one_netdev(ND_TYPE__VENET, ifi, tb, fds, NULL);
 
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
@@ -441,6 +436,21 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	return 0;
 }
 
+static int venet_link_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	struct rtattr *venet_data;
+
+	BUG_ON(ns_fd < 0);
+
+	venet_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "venet", 5);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_DATA, NULL, 0);
+	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &ns_fd, sizeof(ns_fd));
+	venet_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)venet_data;
+
+	return 0;
+}
+
 static int restore_link(NetDeviceEntry *nde, int nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
@@ -449,6 +459,8 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	case ND_TYPE__LOOPBACK: /* fallthrough */
 	case ND_TYPE__EXTLINK:  /* see comment in protobuf/netdev.proto */
 		return restore_link_parms(nde, nlsk);
+	case ND_TYPE__VENET:
+		return restore_one_link(nde, nlsk, venet_link_info);
 	case ND_TYPE__VETH:
 		return restore_one_link(nde, nlsk, veth_link_info);
 	case ND_TYPE__TUN:

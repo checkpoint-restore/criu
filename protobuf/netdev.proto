@@ -12,6 +12,10 @@ enum nd_type {
 	 * by the setup-namespaces script.
 	 */
 	EXTLINK		= 4;
+	/*
+	 * Virtuozzo specific device.
+	 */
+	VENET		= 5;
 }
 
 message net_device_entry {
