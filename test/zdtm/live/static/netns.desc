@@ -1,1 +1,1 @@
-{'flavor': 'h'}
+{'flavor': 'ns uns', 'deps': [ '/bin/sh', '/sbin/ip', '/bin/diff'], 'flags': 'suid'}

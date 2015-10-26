@@ -7,8 +7,10 @@
 const char *test_doc	= "Check that network environment (links, addresses and routes) are preserved";
 const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
+	test_init(argc, argv);
+
 	if (system("ip link set lo up")) {
 		fail("Can't set lo up");
 		return -1;
@@ -50,12 +52,3 @@ static int test_fn(int argc, char **argv)
 	pass();
 	return 0;
 }
-
-#define CLONE_NEWNET     0x40000000
-
-int main(int argc, char **argv)
-{
-	test_init_ns(argc, argv, CLONE_NEWNET, test_fn);
-	return 0;
-}
-
