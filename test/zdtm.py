@@ -659,9 +659,7 @@ def self_checkskip(tname):
 	return False
 
 def print_sep(title, sep = "="):
-	sep_len = (80 - len(title) - 2) / 2
-	sep = sep * sep_len
-	print "%s %s %s" % (sep, title, sep)
+	print (" " + title + " ").center(80, sep)
 
 def grep_errors(fname):
 	print_sep("grep Error")
