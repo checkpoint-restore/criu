@@ -612,7 +612,7 @@ static inline int dump_rule(struct cr_imgset *fds)
 		return -1;
 
 	if (run_ip_tool("rule", "save", NULL, -1, img_raw_fd(img))) {
-		pr_err("Check if \"ip rule save\" is supported!\n");
+		pr_warn("Check if \"ip rule save\" is supported!\n");
 		unlinkat(get_service_fd(IMG_FD_OFF), path, 0);
 	}
 
