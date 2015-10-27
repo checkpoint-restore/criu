@@ -696,12 +696,14 @@ static inline int restore_rule(int pid)
 	int ret = 0;
 
 	img = open_image(CR_FD_RULE, O_RSTR, pid);
-	if (!img)
-		goto out;
-	if (empty_image(img)) {
+	if (!img) {
 		ret = -1;
-		goto close;
+		goto out;
 	}
+
+	if (empty_image(img))
+		goto close;
+
 	/*
 	 * Delete 3 default rules to prevent duplicates. See kernel's
 	 * function fib_default_rules_init() for the details.
