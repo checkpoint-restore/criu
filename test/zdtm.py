@@ -555,15 +555,22 @@ def try_run_hook(test, args):
 # Main testing entity -- dump (probably with pre-dumps) and restore
 #
 
+def iter_parm(opt, dflt):
+	x = ((opt or str(dflt)) + ":0").split(':')
+	return (xrange(0, int(x[0])), float(x[1]))
+
 def cr(cr_api, test, opts):
 	if opts['nocr']:
 		return
 
 	cr_api.set_test(test)
 
-	for i in xrange(0, int(opts['iters'] or 1)):
-		for p in xrange(0, int(opts['pre'] or 0)):
+	iters = iter_parm(opts['iters'], 1)
+	for i in iters[0]:
+		pres = iter_parm(opts['pre'], 0)
+		for p in pres[0]:
 			cr_api.dump("pre-dump")
+			time.sleep(pres[1])
 
 		if opts['norst']:
 			cr_api.dump("dump", opts = ["--leave-running"])
@@ -572,6 +579,9 @@ def cr(cr_api, test, opts):
 			test.gone()
 			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
+
+		time.sleep(iters[1])
+
 
 # Additional checks that can be done outside of test process
 
@@ -873,10 +883,10 @@ rp.add_argument("-f", "--flavor", help = "Flavor to run")
 rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
 
 rp.add_argument("--sibling", help = "Restore tests as siblings", action = 'store_true')
-rp.add_argument("--pre", help = "Do some pre-dumps before dump")
+rp.add_argument("--pre", help = "Do some pre-dumps before dump (n[:pause])")
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
-rp.add_argument("--iters", help = "Do CR cycle several times before check")
+rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
 rp.add_argument("--fault", help = "Test fault injection")
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
