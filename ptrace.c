@@ -131,7 +131,7 @@ try_again:
 		goto err;
 	}
 
-	if (ret < 0) {
+	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (cr.state != 'Z') {
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
