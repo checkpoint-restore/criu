@@ -55,6 +55,8 @@ int run_scripts(enum script_actions act)
 	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
+	if (ret)
+		pr_err("One of more action scripts failed\n");
 	return ret;
 }
 
