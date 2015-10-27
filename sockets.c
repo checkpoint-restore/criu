@@ -419,7 +419,8 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0, val;
 	struct timeval tv;
-	u32 bufs[2] = { soe->so_sndbuf, soe->so_rcvbuf };
+	/* In kernel a bufsize value is doubled. */
+	u32 bufs[2] = { soe->so_sndbuf / 2, soe->so_rcvbuf / 2};
 
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 
