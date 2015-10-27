@@ -390,6 +390,7 @@ class criu_cli:
 		self.__test = None
 		self.__dump_path = None
 		self.__iter = 0
+		self.__prev_dump_iter = None
 		self.__page_server = (opts['page_server'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__fault = (opts['fault'])
@@ -436,8 +437,9 @@ class criu_cli:
 		os.mkdir(self.__ddir())
 
 		a_opts = ["-t", self.__test.getpid()]
-		if self.__iter > 1:
-			a_opts += ["--prev-images-dir", "../%d" % (self.__iter - 1), "--track-mem"]
+		if self.__prev_dump_iter:
+			a_opts += ["--prev-images-dir", "../%d" % self.__prev_dump_iter, "--track-mem"]
+		self.__prev_dump_iter = self.__iter
 
 		if self.__page_server:
 			print "Adding page server"
@@ -459,6 +461,7 @@ class criu_cli:
 			self.__test.auto_reap = False
 		r_opts += self.__test.getropts()
 
+		self.__prev_dump_iter = None
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 
 	@staticmethod
