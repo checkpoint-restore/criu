@@ -138,10 +138,10 @@ class userns_flavor(ns_flavor):
 		self.name = "userns"
 		self.uns = True
 
-	def init(self, test_bin):
+	def init(self, test_bin, deps):
 		# To be able to create roots_yard in CRIU
 		os.chmod(".", os.stat(".").st_mode | 0077)
-		ns_flavor.init(self, test_bin)
+		ns_flavor.init(self, test_bin, deps)
 
 flavors = { 'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor }
 
