@@ -457,7 +457,7 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 	if (fd < 0)
 		return -1;
 
-	ret = userns_call(__userns_sysctl_op, UNS_ASYNC, userns_req, MAX_UNSFD_MSG_SIZE, fd);
+	ret = userns_call(__userns_sysctl_op, 0, userns_req, MAX_UNSFD_MSG_SIZE, fd);
 	close(fd);
 	return ret;
 }
