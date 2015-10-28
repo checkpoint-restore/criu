@@ -351,10 +351,10 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 cleanout:
-	$(RM) -f -r *.pid *.out* *.test* *.state ip.dump ip.rst
+	$(RM) -f -r *.pid *.out* *.test* *.state
 
 %.cleanout: %
-	$(Q) $(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state
+	$(Q) $(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state $<.init.pid
 
 realclean:	cleandep cleanout
 
