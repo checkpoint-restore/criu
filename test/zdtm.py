@@ -272,6 +272,8 @@ class zdtm_test:
 
 			if self.__flavor.uns:
 				env['ZDTM_USERNS'] = "1"
+				p = os.path.dirname(self.__name)
+				os.chmod(p, os.stat(p).st_mode | 0222)
 
 		self.__make_action('pid', env, self.__flavor.root)
 
