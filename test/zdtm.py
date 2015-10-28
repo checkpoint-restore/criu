@@ -618,7 +618,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 				t.stop()
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
-			print "Test %s FAIL at %s" % (tname, e.step)
+			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
 			t.print_output()
 			t.kill()
 			add_to_report(cr_api.logs(), "cr_logs")
