@@ -50,6 +50,31 @@ def make_tests_root():
 		atexit.register(clean_tests_root)
 	return tests_root
 
+# Report generation
+
+report_dir = None
+
+def init_report(path):
+	global report_dir
+	report_dir = path
+	if not os.access(report_dir, os.F_OK):
+		os.makedirs(report_dir)
+
+def add_to_report(path, tgt_name):
+	global report_dir
+	if report_dir:
+		tgt_path = os.path.join(report_dir, tgt_name)
+		att = 0
+		while os.access(tgt_path, os.F_OK):
+			tgt_path = os.path.join(report_dir, tgt_name + ".%d" % att)
+			att += 1
+
+		if os.path.isdir(path):
+			shutil.copytree(path, tgt_path)
+		else:
+			shutil.copy2(path, tgt_path)
+
+
 # Arch we run on
 arch = os.uname()[4]
 
@@ -419,6 +444,9 @@ class criu_cli:
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__fault = (opts['fault'])
 
+	def logs(self):
+		return self.__dump_path
+
 	def set_test(self, test):
 		self.__test = test
 		self.__dump_path = "dump/" + test.getname() + "/" + test.getpid()
@@ -566,6 +594,9 @@ def do_run_test(tname, tdesc, flavs, opts):
 		print "Unknown test class %s" % tcname
 		return
 
+	if opts['report']:
+		init_report(opts['report'])
+
 	for f in flavs:
 		print
 		print_sep("Run %s in %s" % (tname, f))
@@ -590,6 +621,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print "Test %s FAIL at %s" % (tname, e.step)
 			t.print_output()
 			t.kill()
+			add_to_report(cr_api.logs(), "cr_logs")
 			if opts['keep_img'] == 'never':
 				cr_api.cleanup()
 			# This exit does two things -- exits from subprocess and
@@ -603,21 +635,17 @@ def do_run_test(tname, tdesc, flavs, opts):
 class launcher:
 	def __init__(self, opts):
 		self.__opts = opts
-		self.__max = int(opts['parallel'] or 0)
+		self.__max = int(opts['parallel'] or 1)
 		self.__subs = {}
 		self.__fail = False
 
 	def run_test(self, name, desc, flavor):
-		if self.__max == 0:
-			do_run_test(name, desc, flavor, self.__opts)
-			return
-
 		if len(self.__subs) >= self.__max:
 			self.wait()
 			if self.__fail:
 				raise test_fail_exc('')
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
@@ -631,6 +659,7 @@ class launcher:
 			sub = self.__subs.pop(pid)
 			if status != 0:
 				self.__fail = True
+				add_to_report(sub['log'], "output")
 
 			print open(sub['log']).read()
 			os.unlink(sub['log'])
@@ -716,6 +745,9 @@ def run_tests(opts):
 	if opts['exclude']:
 		excl = re.compile(".*(" + "|".join(opts['exclude']) + ")")
 		print "Compiled exclusion list"
+
+	if opts['report']:
+		init_report(opts['report'])
 
 	l = launcher(opts)
 	try:
@@ -822,6 +854,7 @@ rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 
 rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after test",
 		choices = [ 'always', 'never', 'failed' ], default = 'failed')
+rp.add_argument("--report", help = "Generate summary report in directory")
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
