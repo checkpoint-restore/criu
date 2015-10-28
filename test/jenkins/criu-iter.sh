@@ -5,4 +5,4 @@ prep
 mkdir -p test/dump
 mount -t tmpfs dump test/dump
 cd test
-./zdtm.py run --all --parallel 4 --iter 3 -x 'maps04'
+./zdtm.py run --all --parallel 4 --iter 3 -x 'maps04' || fail

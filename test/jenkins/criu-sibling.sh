@@ -5,4 +5,4 @@ prep
 mkdir -p test/dump
 mount -t tmpfs dump test/dump
 cd test
-./zdtm.py run --all --sibling --parallel 4
+./zdtm.py run --all --sibling --parallel 4 || fail
