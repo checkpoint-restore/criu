@@ -137,7 +137,7 @@ def tail(path):
 def rpidfile(path):
 	return open(path).readline().strip()
 
-def wait_pid_die(pid, who, tmo = 4):
+def wait_pid_die(pid, who, tmo = 30):
 	stime = 0.1
 	while stime < tmo:
 		try:
