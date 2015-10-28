@@ -123,6 +123,11 @@ class userns_flavor(ns_flavor):
 		self.name = "userns"
 		self.uns = True
 
+	def init(self, test_bin):
+		# To be able to create roots_yard in CRIU
+		os.chmod(".", os.stat(".").st_mode | 0077)
+		ns_flavor.init(self, test_bin)
+
 flavors = { 'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor }
 
 #
@@ -213,6 +218,10 @@ class zdtm_test:
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
 			env['ZDTM_GROUPS'] = "27495 48244"
+
+			# Add write perms for .out and .pid files
+			p = os.path.dirname(self.__name)
+			os.chmod(p, os.stat(p).st_mode | 0222)
 		else:
 			print "Test is SUID"
 
