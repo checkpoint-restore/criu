@@ -343,6 +343,13 @@ class zdtm_test:
 	def blocking(self):
 		return test_flag(self.__desc, 'crfail')
 
+	@staticmethod
+	def available():
+		if not os.access("zdtm_ct", os.X_OK):
+			subprocess.check_call(["make", "zdtm_ct"])
+		if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
+			subprocess.check_call(["make", "-C", "zdtm/"])
+
 
 
 class inhfd_test:
@@ -429,6 +436,10 @@ class inhfd_test:
 	def blocking(self):
 		return False
 
+	@staticmethod
+	def available():
+		pass
+
 
 test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
 
@@ -436,6 +447,7 @@ test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
 # CRIU when launched using CLI
 #
 
+criu_bin = "../criu"
 class criu_cli:
 	def __init__(self, opts):
 		self.__test = None
@@ -468,7 +480,7 @@ class criu_cli:
 		if fault:
 			print "Forcing %s fault" % fault
 			env = dict(os.environ, CRIU_FAULT = fault)
-		cr = subprocess.Popen(["../criu", action] + args, env = env)
+		cr = subprocess.Popen([criu_bin, action] + args, env = env)
 		return cr.wait()
 
 	def __criu_act(self, action, opts, log = None):
@@ -521,6 +533,12 @@ class criu_cli:
 	@staticmethod
 	def check(feature):
 		return criu_cli.__criu("check", ["-v0", "--feature", feature]) == 0
+
+	@staticmethod
+	def available():
+		if not os.access(criu_bin, os.X_OK):
+			print "CRIU binary not built"
+			sys.exit(1)
 
 
 def try_run_hook(test, args):
@@ -866,5 +884,9 @@ opts = vars(p.parse_args())
 
 if opts['debug']:
 	sys.settrace(traceit)
+
+criu_cli.available()
+for tst in test_classes.values():
+	tst.available()
 
 opts['action'](opts)
