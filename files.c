@@ -1526,6 +1526,7 @@ int inherit_fd_resolve_clash(int fd)
 	}
 
 	if (close(fd) == -1) {
+		close(newfd);
 		pr_perror("Can't close inherit fd %d", fd);
 		return -1;
 	}
