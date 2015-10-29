@@ -948,7 +948,7 @@ static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 
 static int usernsd(int sk)
 {
-	pr_info("UNS: Daemon started\n");
+	pr_info("uns: Daemon started\n");
 
 	while (1) {
 		struct unsc_msg um;
@@ -959,12 +959,12 @@ static int usernsd(int sk)
 
 		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0);
 		if (recvmsg(sk, &um.h, 0) <= 0) {
-			pr_perror("UNS: recv req error");
+			pr_perror("uns: recv req error");
 			return -1;
 		}
 
 		unsc_msg_pid_fd(&um, &pid, &fd);
-		pr_debug("UNS: daemon calls %p (%d, %d, %x)\n", call, pid, fd, flags);
+		pr_debug("uns: daemon calls %p (%d, %d, %x)\n", call, pid, fd, flags);
 
 		BUG_ON(fd < 0 && flags & UNS_FDOUT);
 
@@ -992,7 +992,7 @@ static int usernsd(int sk)
 			 * sendmsg() in there.
 			 */
 			if (ret < 0) {
-				pr_err("UNS: Async call failed. Exiting\n");
+				pr_err("uns: Async call failed. Exiting\n");
 				return -1;
 			}
 
@@ -1006,7 +1006,7 @@ static int usernsd(int sk)
 
 		unsc_msg_init(&um, &call, &ret, NULL, 0, fd);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
-			pr_perror("UNS: send resp error");
+			pr_perror("uns: send resp error");
 			return -1;
 		}
 
@@ -1023,7 +1023,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 	struct unsc_msg um;
 
 	if (unlikely(arg_size > MAX_UNSFD_MSG_SIZE)) {
-		pr_err("UNS: message size exceeded\n");
+		pr_err("uns: message size exceeded\n");
 		return -1;
 	}
 
@@ -1031,7 +1031,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
-	pr_debug("UNS: calling %s (%d, %x)\n", func_name, fd, flags);
+	pr_debug("uns: calling %s (%d, %x)\n", func_name, fd, flags);
 
 	if (!async)
 		/*
@@ -1055,7 +1055,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
-		pr_perror("UNS: send req error");
+		pr_perror("uns: send req error");
 		ret = -1;
 		goto out;
 	}
@@ -1070,7 +1070,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
 	ret = recvmsg(sk, &um.h, 0);
 	if (ret <= 0) {
-		pr_perror("UNS: recv resp error");
+		pr_perror("uns: recv resp error");
 		ret = -1;
 		goto out;
 	}
@@ -1155,7 +1155,7 @@ static int start_usernsd(void)
 static int exit_usernsd(void *arg, int fd, pid_t pid)
 {
 	int code = *(int *)arg;
-	pr_info("UNS: `- daemon exits w/ %d\n", code);
+	pr_info("uns: `- daemon exits w/ %d\n", code);
 	exit(code);
 }
 
@@ -1204,9 +1204,9 @@ int stop_usernsd(void)
 		sigprocmask(SIG_SETMASK, &oldmask, NULL);
 
 		if (ret != 0)
-			pr_err("UNS: daemon exited abnormally\n");
+			pr_err("uns: daemon exited abnormally\n");
 		else
-			pr_info("UNS: daemon stopped\n");
+			pr_info("uns: daemon stopped\n");
 	}
 
 	return ret;
