@@ -9,6 +9,16 @@ function prep()
 	make -j 4 &&
 	make -j 4 -C test/zdtm/live &&
 	make -C test zdtm_ct &&
+	mkdir -p test/dump/report &&
+	true
+}
+
+function mount_tmpfs_to_dump()
+{
+		
+	mkdir -p test/dump &&
+	mount -t tmpfs criu_dump test/dump &&
+	mkdir -p test/dump/report &&
 	true
 }
 
@@ -18,5 +28,6 @@ function fail()
 	ps axf > ps.log
 	cat /sys/kernel/debug/tracing/trace > trace.log
 	tar -czf /home/`basename $0`-${GIT_COMMIT}-$(date +%m%d%H%M).tar.gz .
+	tar -czf report.tar.gz -C test/dump report
 	exit 1
 }

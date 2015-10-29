@@ -2,7 +2,5 @@
 set -e
 source `dirname $0`/criu-lib.sh
 prep
-mkdir -p test/dump
-mount -t tmpfs dump test/dump
-cd test
-./zdtm.py run --all --parallel 4 --iter 3 -x 'maps04' || fail
+mount_tmpfs_to_dump
+./test/zdtm.py run --all --report dump/report --parallel 4 --iter 3 -x 'maps04' || fail

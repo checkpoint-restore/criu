@@ -2,7 +2,5 @@
 set -e
 source `dirname $0`/criu-lib.sh
 prep
-mkdir -p test/dump
-mount -t tmpfs dump test/dump
-cd test
-./zdtm.py run --all --sibling --parallel 4 || fail
+mount_tmpfs_to_dump
+./test/zdtm.py run --all --report test/dump/report --sibling --parallel 4 || fail
