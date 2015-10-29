@@ -154,7 +154,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 		break;
 	case TCP_ESTABLISHED:
 		if (!opts.tcp_established_ok) {
-			pr_err("Connected TCP socket, consider using %s option.\n",
+			pr_err("Connected TCP socket, consider using --%s option.\n",
 					SK_EST_PARAM);
 			return 0;
 		}
