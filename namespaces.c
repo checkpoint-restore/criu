@@ -1015,8 +1015,8 @@ static int usernsd(int sk)
 	}
 }
 
-int userns_call(uns_call_t call, int flags,
-		void *arg, size_t arg_size, int fd)
+int __userns_call(const char *func_name, uns_call_t call, int flags,
+		  void *arg, size_t arg_size, int fd)
 {
 	int ret, res, sk;
 	bool async = flags & UNS_ASYNC;
@@ -1031,7 +1031,7 @@ int userns_call(uns_call_t call, int flags,
 		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
-	pr_debug("UNS: calling %p (%d, %x)\n", call, fd, flags);
+	pr_debug("UNS: calling %s (%d, %x)\n", func_name, fd, flags);
 
 	if (!async)
 		/*

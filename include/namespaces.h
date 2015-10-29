@@ -1,6 +1,7 @@
 #ifndef __CR_NS_H__
 #define __CR_NS_H__
 
+#include "compiler.h"
 #include "files.h"
 
 struct ns_desc {
@@ -114,7 +115,11 @@ typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
  * In case we're not in userns, just call the callback immediatelly
  * in the context of calling task.
  */
-int userns_call(uns_call_t call, int flags,
-		void *arg, size_t arg_size, int fd);
+extern int __userns_call(const char *func_name, uns_call_t call, int flags,
+			 void *arg, size_t arg_size, int fd);
+
+#define userns_call(__call, __flags, __arg, __arg_size, __fd)	\
+	__userns_call(__stringify(__call), __call, __flags,	\
+		      __arg, __arg_size, __fd)
 
 #endif /* __CR_NS_H__ */
