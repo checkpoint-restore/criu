@@ -17,6 +17,8 @@ import string
 import imp
 import socket
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 prev_line = None
 def traceit(f, e, a):
 	if e == "line":
