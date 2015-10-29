@@ -264,6 +264,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 		rfd = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
 		if (fstatat(rfd, rrfi->path, &st, AT_SYMLINK_NOFOLLOW)) {
 			pr_perror("Can't get owner of link remap %s", rrfi->path);
+			xfree(rm);
 			return -1;
 		}
 
