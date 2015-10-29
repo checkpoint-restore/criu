@@ -55,7 +55,7 @@ def main():
 
 	# Decode
 	decode_parser = subparsers.add_parser('decode',
-			help = 'convert criu image from binary type json')
+			help = 'convert criu image from binary type to json')
 	decode_parser.add_argument('--pretty',
 			help = 'Multiline with indents and some numerical fields in field-specific format',
 			action = 'store_true')
