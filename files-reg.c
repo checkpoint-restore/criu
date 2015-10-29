@@ -780,7 +780,7 @@ int strip_deleted(struct fd_link *link)
 
 		at = link->len - prepends[i].len;
 		if (!strcmp(&link->name[at], prepends[i].str)) {
-			pr_debug("Stip %s' tag from '%s'\n",
+			pr_debug("Strip '%s' tag from '%s'\n",
 				 prepends[i].str, link->name);
 			link->name[at] = '\0';
 			link->len -= prepends[i].len;
