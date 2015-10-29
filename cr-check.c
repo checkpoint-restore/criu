@@ -54,12 +54,12 @@ static int check_tty(void)
 
 	master = open("/dev/ptmx", O_RDWR);
 	if (master < 0) {
-		pr_msg("Can't open master pty.\n");
+		pr_perror("Can't open /dev/ptmx");
 		goto out;
 	}
 
 	if (ioctl(master, TIOCSPTLCK, &lock)) {
-		pr_msg("Unable to lock pty device.\n");
+		pr_perror("Can't lock pty master");
 		goto out;
 	}
 
@@ -67,11 +67,11 @@ static int check_tty(void)
 	slave = open(slavename, O_RDWR);
 	if (slave < 0) {
 		if (errno != EIO) {
-			pr_msg("Unexpected error code on locked pty.\n");
+			pr_perror("Unexpected error on locked pty");
 			goto out;
 		}
 	} else {
-		pr_msg("Managed to open locked pty.\n");
+		pr_err("Managed to open locked pty.\n");
 		goto out;
 	}
 
@@ -90,7 +90,7 @@ static int check_map_files(void)
 	if (!ret)
 		return 0;
 
-	pr_msg("/proc/<pid>/map_files directory is missing.\n");
+	pr_perror("/proc/<pid>/map_files is inaccessible");
 	return -1;
 }
 
@@ -126,7 +126,7 @@ static int check_ns_last_pid(void)
 	if (!ret)
 		return 0;
 
-	pr_msg("%s sysctl is missing.\n", LAST_PID_PATH);
+	pr_perror("%s sysctl is inaccessible", LAST_PID_PATH);
 	return -1;
 }
 
@@ -159,7 +159,8 @@ static int check_kcmp(void)
 	if (ret != -ENOSYS)
 		return 0;
 
-	pr_msg("System call kcmp is not supported\n");
+	errno = -ret;
+	pr_perror("System call kcmp is not supported");
 	return -1;
 }
 
@@ -172,7 +173,7 @@ static int check_prctl(void)
 
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
 	if (ret) {
-		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported\n");
+		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported");
 		return -1;
 	}
 
@@ -507,17 +508,20 @@ static int check_ipc(void)
 	if (!ret)
 		return 0;
 
-	pr_msg("/proc/sys/kernel/sem_next_id sysctl is missing.\n");
+	pr_perror("/proc/sys/kernel/sem_next_id is inaccessible");
 	return -1;
 }
 
 static int check_sigqueuinfo()
 {
+	int ret;
 	siginfo_t info = { .si_code = 1 };
 
 	signal(SIGUSR1, SIG_IGN);
 
-	if (sys_rt_sigqueueinfo(getpid(), SIGUSR1, &info)) {
+	ret = sys_rt_sigqueueinfo(getpid(), SIGUSR1, &info);
+	if (ret < 0) {
+		errno = -ret;
 		pr_perror("Unable to send siginfo with positive si_code to itself");
 		return -1;
 	}
@@ -836,6 +840,7 @@ static int check_userns(void)
 
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret) {
+		errno = -ret;
 		pr_perror("No new prctl API");
 		return -1;
 	}
