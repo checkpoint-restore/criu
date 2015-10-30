@@ -492,7 +492,10 @@ class criu_cli:
 
 		s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
 
-		print "Run CRIU: [" + action + " " + " ".join(s_args) + "]"
+		with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
+			f.write(' '.join(s_args) + '\n')
+		print "Run criu " + action
+
 		ret = self.__criu(action, s_args, self.__fault)
 		if ret != 0:
 			if self.__fault or self.__test.blocking():
