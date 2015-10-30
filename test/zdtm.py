@@ -674,17 +674,26 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print_sep("Test %s PASS" % tname)
 
 class launcher:
-	def __init__(self, opts):
+	def __init__(self, opts, nr_tests):
 		self.__opts = opts
+		self.__total = nr_tests
+		self.__nr = 0
 		self.__max = int(opts['parallel'] or 1)
 		self.__subs = {}
 		self.__fail = False
+
+	def __show_progress(self):
+		perc = self.__nr * 16 / self.__total
+		print "=== Run %d/%d %s" % (self.__nr, self.__total, '=' * perc + '-' * (16 - perc))
 
 	def run_test(self, name, desc, flavor):
 		if len(self.__subs) >= self.__max:
 			self.wait()
 			if self.__fail:
 				raise test_fail_exc('')
+
+		self.__nr += 1
+		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
@@ -791,7 +800,7 @@ def run_tests(opts):
 	if opts['report']:
 		init_report(opts['report'])
 
-	l = launcher(opts)
+	l = launcher(opts, len(torun))
 	try:
 		for t in torun:
 			global arch
