@@ -717,6 +717,7 @@ class launcher:
 		while self.__subs:
 			self.__wait_one(0)
 		if self.__fail:
+			print_sep("FAIL", "#")
 			sys.exit(1)
 
 def all_tests(opts):
