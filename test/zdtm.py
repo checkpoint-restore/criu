@@ -229,6 +229,7 @@ class zdtm_test:
 		self.auto_reap = True
 
 	def __make_action(self, act, env = None, root = None):
+		sys.stdout.flush() # Not to let make's messages appear before ours
 		tpath = self.__name + '.' + act
 		s_args = ['make', '--no-print-directory', \
 			 	'-C', os.path.dirname(tpath), \
