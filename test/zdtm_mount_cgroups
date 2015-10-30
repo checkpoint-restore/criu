@@ -4,7 +4,7 @@
 # Error (cgroup.c:768): cg: Set 3 is not subset of 2
 # so lets create all test controllers before executing tests.
 
-cat /proc/self/cgroup | grep zdtmtst.defaultroot && exit
+cat /proc/self/cgroup | grep -q zdtmtst.defaultroot && exit
 
 tdir=`mktemp -d zdtm.XXXXXX`
 for i in "zdtmtst" "zdtmtst.defaultroot"; do

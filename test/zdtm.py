@@ -349,7 +349,7 @@ class zdtm_test:
 			subprocess.check_call(["make", "zdtm_ct"])
 		if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
 			subprocess.check_call(["make", "-C", "zdtm/"])
-
+		subprocess.check_call(["flock", "zdtm_mount_cgroups", "./zdtm_mount_cgroups"])
 
 
 class inhfd_test:
