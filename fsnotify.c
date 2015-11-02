@@ -239,18 +239,25 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		}
 
 		/*
-		 * Inode numbers are not restored for tmpfs content, but we can
-		 * get file names, becasue tmpfs cache is not pruned.
+		 * Always try to fetch watchee path first. There are several reasons:
+		 *
+		 *  - tmpfs/devtmps do not save inode numbers between mounts,
+		 *    so it is critical to have the complete path under our
+		 *    hands for restore purpose;
+		 *
+		 *  - in case of migration the inodes might be changed as well
+		 *    so the only portable solution is to carry the whole path
+		 *    to the watchee inside image.
 		 */
-		if ((mi->fstype->code == FSTYPE__TMPFS) ||
-				(mi->fstype->code == FSTYPE__DEVTMPFS)) {
-			path = alloc_openable(s_dev, i_ino, f_handle);
-			if (IS_ERR_OR_NULL(path)) {
-				pr_err("Can't find suitable path for handle (%d)\n",
-				       (int)PTR_ERR(path));
-				goto err;
-			}
+		path = alloc_openable(s_dev, i_ino, f_handle);
+		if (!IS_ERR_OR_NULL(path))
 			goto out;
+
+		if ((mi->fstype->code == FSTYPE__TMPFS) ||
+		    (mi->fstype->code == FSTYPE__DEVTMPFS)) {
+			pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n",
+			       s_dev, i_ino, (int)PTR_ERR(path));
+			goto err;
 		}
 
 		if (!opts.force_irmap)
