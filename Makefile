@@ -284,6 +284,7 @@ clean: clean-built
 	$(Q) $(MAKE) -C pycriu $@
 	$(Q) $(RM) ./*.pyc
 	$(Q) $(RM) -r build
+	$(Q) $(RM) -r usr
 
 distclean: clean
 	$(E) "  DISTCLEAN"

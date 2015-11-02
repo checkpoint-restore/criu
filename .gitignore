@@ -33,3 +33,4 @@ protobuf-desc-gen.h
 criu.pc
 build
 .gitid
+usr/
