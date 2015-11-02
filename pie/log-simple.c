@@ -243,6 +243,10 @@ void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
 			else
 				print_hex(va_arg(args, unsigned int), b);
 			break;
+		default:
+			print_string("UNKNOWN FORMAT ", b);
+			sbuf_putc(b, *s);
+			break;
 		}
 		s++;
 	}
