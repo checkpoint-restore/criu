@@ -607,8 +607,8 @@ def check_visible_state(test, state):
 	if cmp_lists(new[0], state[0]):
 		raise test_fail_exc("fds compare")
 	if cmp_lists(new[1], state[1]):
-		s_new = set(new[1])
-		s_old = set(state[1])
+		s_new = set(map(lambda x: '%x-%x' % (x[0], x[1]), new[1]))
+		s_old = set(map(lambda x: '%x-%x' % (x[0], x[1]), state[1]))
 
 		print "Old maps lost:"
 		print s_old - s_new
