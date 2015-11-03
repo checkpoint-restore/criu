@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# vim: noet
 import argparse
 import yaml
 import os
