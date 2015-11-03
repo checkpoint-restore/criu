@@ -473,7 +473,7 @@ class criu_cli:
 
 	def cleanup(self):
 		if self.__dump_path:
-			print "Remvoing %s" % self.__dump_path
+			print "Removing %s" % self.__dump_path
 			shutil.rmtree(self.__dump_path)
 
 	def __ddir(self):
