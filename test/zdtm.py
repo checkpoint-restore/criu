@@ -592,7 +592,7 @@ def get_fds(test):
 	return map(lambda x: int(x), os.listdir("/proc/%s/fdinfo" % test.getpid()))
 
 def cmp_lists(m1, m2):
-	return filter(lambda x: x[0] != x[1], zip(m1, m2))
+	return len(m1) != len(m2) or filter(lambda x: x[0] != x[1], zip(m1, m2))
 
 def get_visible_state(test):
 	if test.static():
