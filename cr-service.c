@@ -837,10 +837,20 @@ cout:
 	}
 
 	wait(&status);
-	if (!WIFEXITED(status) || WEXITSTATUS(status))
+	if (!WIFEXITED(status))
 		goto out;
+	switch (WEXITSTATUS(status)) {
+	case (-ENOTSUP & 0xff):
+		resp.has_cr_errno = 1;
+		resp.cr_errno = WEXITSTATUS(status);
+		break;
+	case 0:
+		success = true;
+		break;
+	default:
+		break;
+	}
 
-	success = true;
 out:
 	resp.type = msg->type;
 	resp.success = success;
