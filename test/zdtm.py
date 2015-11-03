@@ -469,6 +469,15 @@ class criu_cli:
 	def set_test(self, test):
 		self.__test = test
 		self.__dump_path = "dump/" + test.getname() + "/" + test.getpid()
+		if os.path.exists(self.__dump_path):
+			for i in xrange(100):
+				newpath = self.__dump_path + "." + str(i)
+				if not os.path.exists(newpath):
+					os.rename(self.__dump_path, newpath)
+					break
+			else:
+				raise test_fail_exc("couldn't find dump dir %s" % self.__dump_path)
+
 		os.makedirs(self.__dump_path)
 
 	def cleanup(self):
