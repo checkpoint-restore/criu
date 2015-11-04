@@ -1283,9 +1283,9 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_posix_timers(args);
 
-	sys_munmap(args->rst_mem, args->rst_mem_size);
-
 	restore_seccomp(args->seccomp_mode);
+
+	sys_munmap(args->rst_mem, args->rst_mem_size);
 
 	/*
 	 * Sigframe stack.

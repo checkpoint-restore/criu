@@ -1654,6 +1654,16 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 				return -1;
 			}
 
+			/*
+			 * Suspend seccomp if necessary. We need to do this because
+			 * although seccomp is restored at the very end of the
+			 * restorer blob (and the final sigreturn is ok), here we're
+			 * doing an munmap in the process, which may be blocked by
+			 * seccomp and cause the task to be killed.
+			 */
+			if (rsti(item)->has_seccomp && suspend_seccomp(pid) < 0)
+				pr_err("failed to suspend seccomp, restore will probably fail...\n");
+
 			ret = ptrace_stop_pie(pid, rsti(item)->breakpoint, flag);
 			if (ret < 0)
 				return -1;
@@ -1694,17 +1704,6 @@ static void finalize_restore(int status)
 			goto detach;
 
 		/* Unmap the restorer blob */
-
-		/*
-		 * Suspend seccomp if necessary. We need to do this because
-		 * although seccomp is restored at the very end of the
-		 * restorer blob (and the final sigreturn is ok), here we're
-		 * doing an munmap in the process, which may be blocked by
-		 * seccomp and cause the task to be killed.
-		 */
-		if (rsti(item)->has_seccomp && suspend_seccomp(pid) < 0)
-			pr_err("failed to suspend seccomp, restore will probably fail...\n");
-
 		ctl = parasite_prep_ctl(pid, NULL);
 		if (ctl == NULL)
 			goto detach;
