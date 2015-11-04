@@ -87,6 +87,7 @@ __NR_openat			257		sys_openat		(int dfd, const char *filename, int flags, int mo
 __NR_waitid			247		sys_waitid		(int which, pid_t pid, struct siginfo *infop, int options, struct rusage *ru)
 __NR_set_robust_list		273		sys_set_robust_list	(struct robust_list_head *head, size_t len)
 __NR_get_robust_list		274		sys_get_robust_list	(int pid, struct robust_list_head **head_ptr, size_t *len_ptr)
+__NR_seccomp			317		sys_seccomp		(unsigned int op, unsigned int flags, const char *uargs)
 __NR_vmsplice			278		sys_vmsplice		(int fd, const struct iovec *iov, unsigned long nr_segs, unsigned int flags)
 __NR_timerfd_settime		286		sys_timerfd_settime	(int ufd, int flags, const struct itimerspec *utmr, struct itimerspec *otmr)
 __NR_signalfd4			289		sys_signalfd		(int fd, k_rtsigset_t *mask, size_t sizemask, int flags)

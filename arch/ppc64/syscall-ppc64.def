@@ -96,6 +96,7 @@ __NR_prlimit64		325		sys_prlimit64		(pid_t pid, unsigned int resource, const str
 __NR_open_by_handle_at	346		sys_open_by_handle_at	(int mountdirfd, struct file_handle *handle, int flags)
 __NR_setns		350		sys_setns		(int fd, int nstype)
 __NR_kcmp		354		sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)
+__NR_seccomp		358		sys_seccomp		(unsigned int op, unsigned int flags, const char *uargs)
 __NR_memfd_create	360		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_io_setup		227		sys_io_setup		(unsigned nr_events, aio_context_t *ctx_idp)
 __NR_io_getevents	229		sys_io_getevents	(aio_context_t ctx_id, long min_nr, long nr, struct io_event *events, struct timespec *timeout)
