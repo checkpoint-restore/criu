@@ -842,7 +842,11 @@ cout:
 	switch (WEXITSTATUS(status)) {
 	case (-ENOTSUP & 0xff):
 		resp.has_cr_errno = 1;
-		resp.cr_errno = WEXITSTATUS(status);
+		/*
+		 * Let's return the actual error code and
+		 * not just (-ENOTSUP & 0xff)
+		 */
+		resp.cr_errno = ENOTSUP;
 		break;
 	case 0:
 		success = true;
