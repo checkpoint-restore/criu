@@ -25,6 +25,7 @@ char *devconfs[] = {
 	"forwarding",
 	"igmpv2_unsolicited_report_interval",
 	"igmpv3_unsolicited_report_interval",
+	"ignore_routes_with_linkdown",
 	"log_martians",
 	"mc_forwarding",
 	"medium_id",
@@ -57,6 +58,7 @@ int rand_limit[] = {
 	2,	/* forwarding */
 	0,	/* igmpv2_unsolicited_report_interval */
 	0,	/* igmpv3_unsolicited_report_interval */
+	2,	/* ignore_routes_with_linkdown */
 	2,	/* log_martians */
 	2,	/* mc_forwarding */
 	0,	/* medium_id */

@@ -85,6 +85,7 @@ static char *devconfs[] = {
 	"shared_media",
 	"src_valid_mark",
 	"tag",
+	"ignore_routes_with_linkdown",
 };
 
 /*
