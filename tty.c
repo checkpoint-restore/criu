@@ -92,6 +92,8 @@ struct tty_info {
 
 	bool				create;
 	bool				inherit;
+
+	struct tty_info			*ctl_tty;
 };
 
 struct tty_dump_info {
@@ -1080,6 +1082,14 @@ static int tty_find_restoring_task(struct tty_info *info)
 		}
 
 		/*
+		 * Restoring via leader only. All files
+		 * opened over same real tty get propagated
+		 * automatically by kernel itself.
+		 */
+		if (info->ctl_tty != info)
+			return 0;
+
+		/*
 		 * Find out the task which is session leader
 		 * and it can restore the controlling terminal
 		 * for us.
@@ -1158,6 +1168,31 @@ static int tty_setup_orphan_slavery(void)
 int tty_setup_slavery(void)
 {
 	struct tty_info *info, *peer, *m;
+
+	/*
+	 * The image may carry several terminals opened
+	 * belonging to the same session, so choose the
+	 * leader which gonna be setting up the controlling
+	 * terminal.
+	 */
+	list_for_each_entry(info, &all_ttys, list) {
+		if (!info->tie->sid || info->ctl_tty ||
+		    info->driver->type == TTY_TYPE__CTTY)
+			continue;
+
+		info->ctl_tty = info;
+		pr_debug("ctl tty leader %x\n", info->tfe->id);
+		peer = info;
+		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
+			if (!peer->tie->sid || peer->ctl_tty ||
+			    peer->driver->type == TTY_TYPE__CTTY)
+				continue;
+			if (peer->tie->sid == info->tie->sid) {
+				pr_debug(" `- slave %x\n", peer->tfe->id);
+				peer->ctl_tty = info;
+			}
+		}
+	}
 
 	list_for_each_entry(info, &all_ttys, list) {
 		if (tty_find_restoring_task(info))
@@ -1316,6 +1351,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	info->driver = get_tty_driver(major(info->tie->rdev), minor(info->tie->rdev));
 	info->create = tty_is_master(info);
 	info->inherit = false;
+	info->ctl_tty = NULL;
 
 	if (verify_info(info))
 		return -1;
