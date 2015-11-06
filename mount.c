@@ -1592,7 +1592,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	if (me.fstype == FSTYPE__AUTO)
 		me.fsname = pm->fstype->name;
 
-	if (pm->parent && !pm->dumped && !pm->need_plugin &&
+	if (pm->parent && !pm->dumped && !pm->need_plugin && !pm->external &&
 	    pm->fstype->dump && fsroot_mounted(pm)) {
 		struct mount_info *t;
 
