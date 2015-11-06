@@ -1390,6 +1390,8 @@ out:
  */
 static int always_fail(struct mount_info *pm)
 {
+	pr_err("failed to dump fs %s (%s): always fail\n", pm->mountpoint,
+							   pm->fstype->name);
 	return -1;
 }
 
