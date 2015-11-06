@@ -227,7 +227,7 @@ static int open_proc_sfd(char *path)
 	int fd, ret;
 
 	close_proc();
-	fd = open(path, O_DIRECTORY | O_RDONLY);
+	fd = open(path, O_DIRECTORY | O_PATH);
 	if (fd == -1) {
 		pr_perror("Can't open %s", path);
 		return -1;
@@ -271,7 +271,7 @@ inline int open_pid_proc(pid_t pid)
 	else
 		snprintf(path, sizeof(path), "%d", pid);
 
-	fd = openat(dfd, path, O_RDONLY);
+	fd = openat(dfd, path, O_PATH);
 	if (fd < 0) {
 		pr_perror("Can't open %s", path);
 		set_cr_errno(ESRCH);
