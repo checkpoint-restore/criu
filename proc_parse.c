@@ -214,7 +214,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 	 * so later we might refer to it via /proc/self/fd/vm_file_fd
 	 * if needed.
 	 */
-	vma->vm_file_fd = openat(dirfd(mfd), path, O_RDONLY);
+	vma->vm_file_fd = openat(dirfd(mfd), path, O_PATH);
 	if (vma->vm_file_fd < 0) {
 		if (errno == ENOENT)
 			/* Just mapping w/o map_files link */
