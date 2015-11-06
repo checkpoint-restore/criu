@@ -240,7 +240,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 	struct fd_parms params;
 	int fd, ret = 0;
 
-	fd = open_proc(pid, "exe");
+	fd = open_proc_path(pid, "exe");
 	if (fd < 0)
 		return -1;
 
@@ -263,7 +263,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_im
 	fe.has_umask = true;
 	fe.umask = misc->umask;
 
-	fd = open_proc(pid, "cwd");
+	fd = open_proc_path(pid, "cwd");
 	if (fd < 0)
 		return -1;
 
@@ -278,7 +278,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_im
 
 	close(fd);
 
-	fd = open_proc(pid, "root");
+	fd = open_proc_path(pid, "root");
 	if (fd < 0)
 		return -1;
 

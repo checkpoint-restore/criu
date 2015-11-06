@@ -94,6 +94,9 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 #define open_proc_rw(pid, fmt, ...)				\
 	__open_proc(pid, O_RDWR, fmt, ##__VA_ARGS__)
 
+#define open_proc_path(pid, fmt, ...)				\
+	__open_proc(pid, O_PATH, fmt, ##__VA_ARGS__)
+
 /* DIR *opendir_proc(pid_t pid, const char *fmt, ...); */
 #define opendir_proc(pid, fmt, ...)					\
 	({								\
