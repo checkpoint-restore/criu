@@ -465,7 +465,7 @@ static int restore_priv_vma_content(void)
 			if (vma->ppage_bitmap) { /* inherited vma */
 				clear_bit(off, vma->ppage_bitmap);
 
-				ret = pr.read_page(&pr, va, buf);
+				ret = pr.read_pages(&pr, va, 1, buf);
 				if (ret < 0)
 					goto err_read;
 				va += PAGE_SIZE;
@@ -479,7 +479,7 @@ static int restore_priv_vma_content(void)
 
 				memcpy(p, buf, PAGE_SIZE);
 			} else {
-				ret = pr.read_page(&pr, va, p);
+				ret = pr.read_pages(&pr, va, 1, p);
 				if (ret < 0)
 					goto err_read;
 				va += PAGE_SIZE;

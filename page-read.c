@@ -30,9 +30,11 @@ static int get_page_vaddr(struct page_read *pr, struct iovec *iov)
 	return 1;
 }
 
-static int read_page(struct page_read *pr, unsigned long vaddr, void *buf)
+static int read_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf)
 {
 	int ret;
+
+	BUG_ON(nr != 1);
 
 	ret = read(img_raw_fd(pr->pmi), buf, PAGE_SIZE);
 	if (ret != PAGE_SIZE) {
@@ -82,7 +84,7 @@ static void put_pagemap(struct page_read *pr)
 	pagemap_entry__free_unpacked(pr->pe, NULL);
 }
 
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *buf);
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf);
 
 static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 {
@@ -132,38 +134,51 @@ new_pagemap:
 	}
 }
 
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, void *buf)
+static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, int nr)
+{
+	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
+		pr_err("Page read err %lx:%u vs %lx:%u\n",
+				pe->vaddr, pe->nr_pages, vaddr, nr);
+		BUG();
+	}
+}
+
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf)
 {
 	int ret;
+	unsigned long len = nr * PAGE_SIZE;
+
+	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pr->pe->in_parent) {
 		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
 		ret = seek_pagemap_page(pr->parent, vaddr, true);
 		if (ret <= 0)
 			return -1;
-		ret = read_pagemap_page(pr->parent, vaddr, buf);
+		ret = read_pagemap_page(pr->parent, vaddr, nr, buf);
 		if (ret == -1)
 			return ret;
 	} else {
 		int fd = img_raw_fd(pr->pi);
 		off_t current_vaddr = lseek(fd, 0, SEEK_CUR);
+
 		pr_debug("\tpr%u Read page %lx from self %lx/%"PRIx64"\n", pr->id,
 				vaddr, pr->cvaddr, current_vaddr);
-		ret = read(fd, buf, PAGE_SIZE);
-		if (ret != PAGE_SIZE) {
+		ret = read(fd, buf, len);
+		if (ret != len) {
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
 		}
 
 		if (opts.auto_dedup) {
-			ret = punch_hole(pr, current_vaddr, (unsigned int)PAGE_SIZE, false);
+			ret = punch_hole(pr, current_vaddr, len, false);
 			if (ret == -1) {
 				return -1;
 			}
 		}
 	}
 
-	pr->cvaddr += PAGE_SIZE;
+	pr->cvaddr += len;
 
 	return 1;
 }
@@ -277,7 +292,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->get_pagemap = get_pagemap;
 	pr->put_pagemap = put_pagemap;
-	pr->read_page = read_pagemap_page;
+	pr->read_pages = read_pagemap_page;
 	pr->close = close_page_read;
 	pr->id = ids++;
 
@@ -298,7 +313,7 @@ open_old:
 
 	pr->get_pagemap = get_page_vaddr;
 	pr->put_pagemap = NULL;
-	pr->read_page = read_page;
+	pr->read_pages = read_page;
 	pr->pi = NULL;
 	pr->close = close_page_read;
 

@@ -47,7 +47,7 @@ struct page_read {
 	 */
 	int (*get_pagemap)(struct page_read *, struct iovec *iov);
 	/* reads page from current pagemap */
-	int (*read_page)(struct page_read *, unsigned long vaddr, void *);
+	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr, void *);
 	/* stop working on current pagemap */
 	void (*put_pagemap)(struct page_read *);
 	void (*close)(struct page_read *);
