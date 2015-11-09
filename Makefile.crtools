@@ -48,6 +48,7 @@ obj-y	+= fsnotify.o
 obj-y	+= irmap.o
 obj-y	+= signalfd.o
 obj-y	+= pstree.o
+obj-y	+= bitmap.o
 obj-y	+= protobuf.o
 obj-y	+= protobuf-desc.o
 obj-y	+= tty.o
