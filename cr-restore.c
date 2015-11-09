@@ -468,8 +468,8 @@ static int restore_priv_vma_content(void)
 				ret = pr.read_pages(&pr, va, 1, buf);
 				if (ret < 0)
 					goto err_read;
-				va += PAGE_SIZE;
 
+				va += PAGE_SIZE;
 				nr_compared++;
 
 				if (memcmp(p, buf, PAGE_SIZE) == 0) {
@@ -477,15 +477,35 @@ static int restore_priv_vma_content(void)
 					continue;
 				}
 
+				nr_restored++;
 				memcpy(p, buf, PAGE_SIZE);
 			} else {
-				ret = pr.read_pages(&pr, va, 1, p);
+				int nr, j;
+
+				/*
+				 * Try to read as many pages as possible at once.
+				 *
+				 * Within the current pagemap we still have
+				 * nr_pages - i pages (not all, as we might have
+				 * switched VMA above), within the current VMA
+				 * we have at most (vma->end - current_addr) bytes.
+				 */
+
+				nr = min(nr_pages - i, (vma->e->end - va) / PAGE_SIZE);
+
+				ret = pr.read_pages(&pr, va, nr, p);
 				if (ret < 0)
 					goto err_read;
-				va += PAGE_SIZE;
+
+				va += nr * PAGE_SIZE;
+				nr_restored += nr;
+				i += nr - 1;
+
+				/* FIXME -- optimize */
+				for (j = 1; j < nr; j++)
+					set_bit(off + j, vma->page_bitmap);
 			}
 
-			nr_restored++;
 		}
 
 		if (pr.put_pagemap)
