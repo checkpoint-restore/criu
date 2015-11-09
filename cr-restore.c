@@ -76,6 +76,7 @@
 #include "security.h"
 #include "lsm.h"
 #include "seccomp.h"
+#include "bitmap.h"
 #include "fault-injection.h"
 #include "parasite-syscall.h"
 
@@ -89,6 +90,7 @@
 
 #include "asm/restore.h"
 #include "asm/atomic.h"
+#include "asm/bitops.h"
 
 #include "cr-errno.h"
 
@@ -480,7 +482,7 @@ static int restore_priv_vma_content(void)
 				nr_restored++;
 				memcpy(p, buf, PAGE_SIZE);
 			} else {
-				int nr, j;
+				int nr;
 
 				/*
 				 * Try to read as many pages as possible at once.
@@ -501,9 +503,7 @@ static int restore_priv_vma_content(void)
 				nr_restored += nr;
 				i += nr - 1;
 
-				/* FIXME -- optimize */
-				for (j = 1; j < nr; j++)
-					set_bit(off + j, vma->page_bitmap);
+				bitmap_set(vma->page_bitmap, off + 1, nr - 1);
 			}
 
 		}
