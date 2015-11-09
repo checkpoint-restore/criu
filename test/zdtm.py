@@ -469,6 +469,7 @@ class criu_cli:
 		self.__page_server = (opts['page_server'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__fault = (opts['fault'])
+		self.__sat = (opts['sat'] and True or False)
 
 	def logs(self):
 		return self.__dump_path
@@ -496,12 +497,12 @@ class criu_cli:
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
 
 	@staticmethod
-	def __criu(action, args, fault = None):
+	def __criu(action, args, fault = None, strace = []):
 		env = None
 		if fault:
 			print "Forcing %s fault" % fault
 			env = dict(os.environ, CRIU_FAULT = fault)
-		cr = subprocess.Popen([criu_bin, action] + args, env = env)
+		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env)
 		return cr.wait()
 
 	def __criu_act(self, action, opts, log = None):
@@ -514,10 +515,17 @@ class criu_cli:
 			f.write(' '.join(s_args) + '\n')
 		print "Run criu " + action
 
-		ret = self.__criu(action, s_args, self.__fault)
+		strace = []
+		if self.__sat:
+			strace = ["strace", "-o", os.path.join(self.__ddir(), action + '.strace'), '-T']
+			if action == 'restore':
+				strace += [ '-f' ]
+				s_args += [ '--action-script', os.getcwd() + '/../scripts/fake-restore.sh' ]
+
+		ret = self.__criu(action, s_args, self.__fault, strace)
 		grep_errors(os.path.join(self.__ddir(), log))
 		if ret != 0:
-			if self.__fault or self.__test.blocking():
+			if self.__fault or self.__test.blocking() or (self.__sat and action == 'restore'):
 				raise test_fail_expected_exc(action)
 			else:
 				raise test_fail_exc("CRIU %s" % action)
@@ -721,7 +729,7 @@ class launcher:
 		self.__nr += 1
 		self.__show_progress()
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report', 'snaps')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report', 'snaps', 'sat')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
@@ -943,6 +951,7 @@ rp.add_argument("--nocr", help = "Do not CR anything, just check test works", ac
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
 rp.add_argument("--fault", help = "Test fault injection")
+rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
@@ -956,6 +965,8 @@ lp.set_defaults(action = list_tests)
 lp.add_argument('-i', '--info', help = "Show more info about tests", action = 'store_true')
 
 opts = vars(p.parse_args())
+if opts['sat']:
+	opts['keep_img'] = 'always'
 
 if opts['debug']:
 	sys.settrace(traceit)
