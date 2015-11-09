@@ -18,7 +18,6 @@ function mount_tmpfs_to_dump()
 		
 	mkdir -p test/dump &&
 	mount -t tmpfs criu_dump test/dump &&
-	mkdir -p test/dump/report &&
 	true
 }
 
