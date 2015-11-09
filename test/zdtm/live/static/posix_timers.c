@@ -420,13 +420,12 @@ int main(int argc, char **argv)
 
 	usleep(500 * 1000);
 
-	test_daemon();
-
 	clock_gettime(CLOCK_REALTIME, &start);
 	err = get_total_sleep_time(&sleep_start, "start");
 	if (err)
 		return err;
 
+	test_daemon();
 	test_waitsig();
 
 	clock_gettime(CLOCK_REALTIME, &end);
