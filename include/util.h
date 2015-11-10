@@ -261,4 +261,6 @@ void split(char *str, char token, char ***out, int *n);
 
 int fd_has_data(int lfd);
 
+void tcp_nodelay(int sk, bool on);
+void tcp_cork(int sk, bool on);
 #endif /* __CR_UTIL_H__ */

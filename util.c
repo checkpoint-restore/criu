@@ -28,6 +28,9 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "compiler.h"
 #include "asm/types.h"
@@ -844,4 +847,16 @@ int fd_has_data(int lfd)
 	}
 
 	return ret;
+}
+
+void tcp_cork(int sk, bool on)
+{
+	int val = on ? 1 : 0;
+	setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val));
+}
+
+void tcp_nodelay(int sk, bool on)
+{
+	int val = on ? 1 : 0;
+	setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val));
 }
