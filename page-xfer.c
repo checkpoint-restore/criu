@@ -13,7 +13,7 @@
 #include "image.h"
 #include "page-xfer.h"
 #include "page-pipe.h"
-
+#include "util.h"
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
 
@@ -182,6 +182,13 @@ static int page_server_serve(int sk)
 {
 	int ret = -1;
 	bool flushed = false;
+
+	/*
+	 * This socket only accepts data except one thing -- it
+	 * writes back the has_parent bit from time to time, so
+	 * make it NODELAY all the time.
+	 */
+	tcp_nodelay(sk, true);
 
 	if (pipe(cxfer.p)) {
 		pr_perror("Can't make pipe for xfer");
@@ -400,7 +407,7 @@ int connect_to_page_server(void)
 	if (opts.ps_socket != -1) {
 		page_server_sk = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", page_server_sk);
-		return 0;
+		goto out;
 	}
 
 	pr_info("Connecting to server %s:%u\n",
@@ -420,6 +427,13 @@ int connect_to_page_server(void)
 		return -1;
 	}
 
+out:
+	/*
+	 * CORK the socket at the very beginning. As per ANK
+	 * the corked by default socket with sporadic NODELAY-s
+	 * on urgent data is the smartest mode ever.
+	 */
+	tcp_cork(page_server_sk, true);
 	return 0;
 }
 
@@ -537,6 +551,9 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 		pr_perror("Can't write to page server");
 		return -1;
 	}
+
+	/* Push the command NOW */
+	tcp_nodelay(xfer->sk, true);
 
 	if (read(xfer->sk, &has_parent, 1) != 1) {
 		pr_perror("The page server doesn't answer");
@@ -839,6 +856,8 @@ static int check_parent_server_xfer(int fd_type, long id)
 		pr_perror("Can't write to page server");
 		return -1;
 	}
+
+	tcp_nodelay(page_server_sk, true);
 
 	if (read(page_server_sk, &has_parent, sizeof(int)) != sizeof(int)) {
 		pr_perror("The page server doesn't answer");

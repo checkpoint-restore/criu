@@ -266,5 +266,8 @@ int fd_has_data(int lfd);
 
 int make_yard(char *path);
 
+void tcp_nodelay(int sk, bool on);
+void tcp_cork(int sk, bool on);
+
 const char *ns_to_string(unsigned int ns);
 #endif /* __CR_UTIL_H__ */
