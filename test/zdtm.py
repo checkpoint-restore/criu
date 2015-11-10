@@ -779,19 +779,19 @@ def self_checkskip(tname):
 
 	return False
 
-def print_sep(title, sep = "="):
-	print (" " + title + " ").center(80, sep)
+def print_sep(title, sep = "=", width = 80):
+	print (" " + title + " ").center(width, sep)
 
 def grep_errors(fname):
 	first = True
 	for l in open(fname):
 		if "Error" in l:
 			if first:
-				print_sep("grep Error")
+				print_sep("grep Error", "-", 60)
 				first = False
 			print l,
 	if not first:
-		print_sep("ERROR OVER")
+		print_sep("ERROR OVER", "-", 60)
 
 def run_tests(opts):
 	excl = None
