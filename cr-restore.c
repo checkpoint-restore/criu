@@ -247,23 +247,9 @@ err:
 	return ret;
 }
 
-/*
- * When mapping a file in several VMAs we can use one descriptor
- * for all mappings, no need to re-open it for every mmap. By
- * doing this we save many open-s since typically applications
- * have sequences of VMAs for the same file with different pgoffs
- * and/or prots. This is restore-side analogue of the VMA file
- * borrowing in proc_parse.c.
- */
-
-struct vma_fd_cache {
-	struct file_desc *d;
-	int fd;
-};
-
 /* Map a private vma, if it is not mapped by a parent yet */
 static int map_private_vma(struct vma_area *vma, void **tgt_addr,
-		struct vma_area **pvma, struct list_head *pvma_list, struct vma_fd_cache *fc)
+			struct vma_area **pvma, struct list_head *pvma_list)
 {
 	int ret;
 	void *addr, *paddr = NULL;
@@ -271,21 +257,12 @@ static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 	struct vma_area *p = *pvma;
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		if (fc->d != vma->vmfd) {
-			if (fc->fd != -1)
-				close(fc->fd);
-
-			ret = get_filemap_fd(vma);
-			if (ret < 0) {
-				pr_err("Can't fixup VMA's fd\n");
-				return -1;
-			}
-
-			fc->d = vma->vmfd;
-			fc->fd = ret;
+		ret = get_filemap_fd(vma);
+		if (ret < 0) {
+			pr_err("Can't fixup VMA's fd\n");
+			return -1;
 		}
-
-		vma->e->fd = fc->fd;
+		vma->e->fd = ret;
 	}
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
@@ -375,6 +352,9 @@ static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 		vma->premmaped_addr += PAGE_SIZE;
 	}
 
+	if (vma_area_is(vma, VMA_FILE_PRIVATE))
+		close(vma->e->fd);
+
 	*tgt_addr += size;
 	return 0;
 }
@@ -386,7 +366,6 @@ static int premap_priv_vmas(struct vm_area_list *vmas, void *at)
 	unsigned long pstart = 0;
 	int ret = 0;
 	LIST_HEAD(empty);
-	struct vma_fd_cache fc = { .d = NULL, .fd = -1 };
 
 	/*
 	 * Keep parent vmas at hands to check whether we can "inherit" them.
@@ -410,13 +389,10 @@ static int premap_priv_vmas(struct vm_area_list *vmas, void *at)
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 
-		ret = map_private_vma(vma, &at, &pvma, parent_vmas, &fc);
+		ret = map_private_vma(vma, &at, &pvma, parent_vmas);
 		if (ret < 0)
 			break;
 	}
-
-	if (fc.fd != -1)
-		close(fc.fd);
 
 	return ret;
 }
