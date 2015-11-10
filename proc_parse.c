@@ -177,6 +177,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 		struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
 	char path[32];
+	int flags;
 
 	if (prev_vfi->vma && vfi_equal(vfi, prev_vfi)) {
 		struct vma_area *prev = prev_vfi->vma;
@@ -214,7 +215,18 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 	 * so later we might refer to it via /proc/self/fd/vm_file_fd
 	 * if needed.
 	 */
-	vma->vm_file_fd = openat(dirfd(mfd), path, O_PATH);
+	flags = O_PATH;
+	if (vfi->dev_maj == 0)
+		/*
+		 * Opening with O_PATH omits calling kernel ->open
+		 * method, thus for some special files their type
+		 * detection might be broken. Thus we open those with
+		 * the O_RDONLY to potentially get ENXIO and check
+		 * it below.
+		 */
+		flags = O_RDONLY;
+
+	vma->vm_file_fd = openat(dirfd(mfd), path, flags);
 	if (vma->vm_file_fd < 0) {
 		if (errno == ENOENT)
 			/* Just mapping w/o map_files link */
