@@ -508,11 +508,11 @@ class criu_cli:
 		print "Run criu " + action
 
 		ret = self.__criu(action, s_args, self.__fault)
+		grep_errors(os.path.join(self.__ddir(), log))
 		if ret != 0:
 			if self.__fault or self.__test.blocking():
 				raise test_fail_expected_exc(action)
 			else:
-				grep_errors(os.path.join(self.__ddir(), log))
 				raise test_fail_exc("CRIU %s" % action)
 
 	def dump(self, action, opts = []):
@@ -783,11 +783,15 @@ def print_sep(title, sep = "="):
 	print (" " + title + " ").center(80, sep)
 
 def grep_errors(fname):
-	print_sep("grep Error")
+	first = True
 	for l in open(fname):
 		if "Error" in l:
+			if first:
+				print_sep("grep Error")
+				first = False
 			print l,
-	print_sep("ERROR OVER")
+	if not first:
+		print_sep("ERROR OVER")
 
 def run_tests(opts):
 	excl = None
