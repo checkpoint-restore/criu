@@ -342,6 +342,7 @@ int ns_init(int argc, char **argv)
 
 static int construct_root()
 {
+	struct stat st;
 	char *root;
 	int dfd;
 
@@ -366,9 +367,17 @@ static int construct_root()
 	mknod("dev/null", 0777 | S_IFCHR, makedev(1, 3));
 	chmod("dev/null", 0777);
 	mkdir("dev/net", 0777);
-	mknod("dev/net/tun", 0777 | S_IFCHR, makedev(10, 200));
+	if (stat("/dev/net/tun", &st)) {
+		fprintf(stderr, "Unable to stat /dev/net/tun: %m");
+		return -1;
+	}
+	mknod("dev/net/tun", 0777 | S_IFCHR, st.st_rdev);
 	chmod("dev/net/tun", 0777);
-	mknod("dev/rtc", 0777 | S_IFCHR, makedev(254, 0));
+	if (stat("/dev/rtc", &st)) {
+		fprintf(stderr, "Unable to stat /dev/rtc: %m");
+		return -1;
+	}
+	mknod("dev/rtc", 0777 | S_IFCHR, st.st_rdev);
 	chmod("dev/rtc", 0777);
 
 	if (fchdir(dfd)) {
