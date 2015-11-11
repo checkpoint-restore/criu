@@ -1,0 +1,1 @@
+{'flavor': 'ns uns', 'deps': [ '/bin/sh', '/bin/grep', '/sbin/ip', '/sbin/brctl', '/sbin/ifconfig', '/usr/bin/diff'], 'flags': 'suid'}

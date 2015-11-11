@@ -200,6 +200,7 @@ generate_test_list()
 		ns/static/sem
 		transition/ipc
 		ns/static/netns-dev
+		static/bridge
 		static/cgroup00
 		static/cgroup01
 		static/cgroup02
@@ -361,6 +362,7 @@ different_creds
 inotify01
 ipc_namespace
 utsname
+bridge
 "
 
 TEST_EXPECTED_FAILURE="

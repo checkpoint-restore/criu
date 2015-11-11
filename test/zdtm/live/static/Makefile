@@ -130,6 +130,7 @@ TST_NOFILE	=				\
 		seccomp_strict			\
 		different_creds			\
 		vsx				\
+		bridge				\
 #		jobctl00			\
 
 TST_FILE	=				\

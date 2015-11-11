@@ -2,6 +2,7 @@
 /live/static/apparmor
 /live/static/arm-neon00
 /live/static/bind-mount
+/live/static/bridge
 /live/static/busyloop00
 /live/static/caps00
 /live/static/cgroup00
