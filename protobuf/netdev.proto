@@ -16,6 +16,7 @@ enum nd_type {
 	 * Virtuozzo specific device.
 	 */
 	VENET		= 5;
+	BRIDGE		= 6;
 }
 
 message net_device_entry {

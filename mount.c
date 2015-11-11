@@ -1357,31 +1357,19 @@ out:
 static int dump_empty_fs(struct mount_info *pm)
 {
 	int fd, ret = -1;
-	struct dirent *de;
-	DIR *fdir = NULL;
 	fd = open_mountpoint(pm);
 
 	if (fd < 0)
 		return -1;
 
-	fdir = fdopendir(fd);
-	if (fdir == NULL) {
-		close(fd);
+	ret = is_empty_dir(fd);
+	close(fd);
+	if (ret < 0) {
+		pr_err("%s isn't empty\n", pm->fstype->name);
 		return -1;
 	}
 
-	while ((de = readdir(fdir))) {
-		if (dir_dots(de))
-			continue;
-
-		pr_err("%s isn't empty: %s\n", pm->fstype->name, de->d_name);
-		goto out;
-	}
-
-	ret = 0;
-out:
-	closedir(fdir);
-	return ret;
+	return ret ? 0 : -1;
 }
 
 /*

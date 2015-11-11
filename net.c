@@ -225,6 +225,41 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 	return -1;
 }
 
+static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
+{
+	char spath[IFNAMSIZ + 16]; /* len("class/net//brif") + 1 for null */
+	int ret, fd;
+
+	ret = snprintf(spath, sizeof(spath), "class/net/%s/brif", nde->name);
+	if (ret < 0 || ret >= sizeof(spath))
+		return -1;
+
+	/* Let's only allow dumping empty bridges for now. To do a full bridge
+	 * restore, we need to make sure the bridge and slaves are restored in
+	 * the right order and attached correctly. It looks like the veth code
+	 * supports this, but we need some way to do ordering.
+	 */
+	fd = openat(ns_sysfs_fd, spath, O_DIRECTORY, 0);
+	if (fd < 0) {
+		pr_perror("opening %s failed", spath);
+		return -1;
+	}
+
+	ret = is_empty_dir(fd);
+	close(fd);
+	if (ret < 0) {
+		pr_perror("problem testing %s for emptiness", spath);
+		return -1;
+	}
+
+	if (!ret) {
+		pr_err("dumping bridges with attached slaves not supported currently\n");
+		return -1;
+	}
+
+	return write_netdev_img(nde, imgset);
+}
+
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		struct rtattr **tb, struct cr_imgset *fds)
 {
@@ -240,6 +275,8 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, fds, NULL);
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
+	if (!strcmp(kind, "bridge"))
+		return dump_one_netdev(ND_TYPE__BRIDGE, ifi, tb, fds, dump_bridge);
 
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
@@ -465,6 +502,17 @@ static int venet_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	return 0;
 }
 
+static int bridge_link_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	struct rtattr *bridge_data;
+
+	bridge_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "bridge", sizeof("bridge"));
+	bridge_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)bridge_data;
+
+	return 0;
+}
+
 static int restore_link(NetDeviceEntry *nde, int nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
@@ -479,6 +527,9 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 		return restore_one_link(nde, nlsk, veth_link_info);
 	case ND_TYPE__TUN:
 		return restore_one_tun(nde, nlsk);
+	case ND_TYPE__BRIDGE:
+		return restore_one_link(nde, nlsk, bridge_link_info);
+
 	default:
 		pr_err("Unsupported link type %d\n", nde->type);
 		break;

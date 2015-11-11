@@ -665,6 +665,29 @@ int is_root_user()
 	return 1;
 }
 
+int is_empty_dir(int dirfd)
+{
+	int ret = 0;
+	DIR *fdir = NULL;
+	struct dirent *de;
+
+	fdir = fdopendir(dirfd);
+	if (!fdir)
+		return -1;
+
+	while ((de = readdir(fdir))) {
+		if (dir_dots(de))
+			continue;
+
+		goto out;
+	}
+
+	ret = 1;
+out:
+	closedir(fdir);
+	return ret;
+}
+
 int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 {
 	int fd, ret = -1;

@@ -183,6 +183,8 @@ static inline bool dir_dots(struct dirent *de)
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
 }
 
+extern int is_empty_dir(int dirfd);
+
 /*
  * Size of buffer to carry the worst case or /proc/self/fd/N
  * path. Since fd is an integer, we can easily estimate one :)
