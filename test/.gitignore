@@ -1,9 +1,11 @@
 /lib
 /lib64
 /bin
+/sbin
 /dev
 /dump
 /tmp
+/.constructed
 /*.log
 /zdtm_ct
 /zdtm-tst-list
