@@ -8,61 +8,46 @@
 
 #include "zdtmtst.h"
 
-static int p[2];
-static char *buf;
-static int buf_size = 1024;
-
 #define exit_group(code)	\
 	syscall(__NR_exit_group, code)
 
 static void *thread_fn(void *arg)
 {
-	pthread_t t;
-	char c = 0;
-	int ret;
+	pthread_t t, p, *self;
 
-	while (test_go()) {
-		ret = read(p[0], &c, 1);
-		if (ret == -1 && errno == EAGAIN)
-			return NULL;
-		if (ret != 1)
-			goto err;
-		if (pthread_create(&t, NULL, thread_fn, NULL))
-			goto err;
-		pthread_join(t, NULL);
-		if (write(p[1], &c, 1) != 1)
-			goto err;
+	if (arg) {
+		p = *(pthread_t *)arg;
+		pthread_join(p, NULL);
+		free(arg);
 	}
 
-	return NULL;
-err:
-	exit_group(1);
+	self = malloc(sizeof(*self));
+	*self = pthread_self();
+
+	pthread_create(&t, NULL, thread_fn, self);
 	return NULL;
 }
 
 int main(int argc, char **argv)
 {
 	char *val;
+	int max_nr = 1024, i;
 
 	val = getenv("ZDTM_THREAD_BOMB");
 	if (val)
-		buf_size = atoi(val);
-	test_msg("%d\n", buf_size);
-	buf = malloc(buf_size);
-	if (!buf)
-		return 1;
+		max_nr = atoi(val);
 
-	if (pipe(p))
-		return 1;
-	fcntl(p[0], F_SETFL, O_NONBLOCK);
-
-	if (write(p[1], buf, buf_size) != buf_size)
-		return 1;
+	test_msg("%d\n", max_nr);
 
 	test_init(argc, argv);
-	test_daemon();
 
-	thread_fn(NULL);
+	for (i = 0; i < max_nr; i++) {
+		pthread_t p;
+		pthread_create(&p, NULL, thread_fn, NULL);
+	}
+
+	test_daemon();
+	test_waitsig();
 
 	pass();
 

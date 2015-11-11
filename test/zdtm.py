@@ -265,7 +265,7 @@ class zdtm_test:
 
 		print "Start test"
 
-		env['ZDTM_THREAD_BOMB'] = "100"
+		env['ZDTM_THREAD_BOMB'] = "5"
 		if not test_flag(self.__desc, 'suid'):
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
