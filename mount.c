@@ -1085,7 +1085,7 @@ static int open_mountpoint(struct mount_info *pm)
 		return -1;
 	}
 
-	if (switch_ns(root_item->pid.real, &mnt_ns_desc, &ns_old) < 0)
+	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0)
 		goto out;
 
 	mnt_path = mkdtemp(mnt_path_tmp);
