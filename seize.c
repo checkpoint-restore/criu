@@ -462,6 +462,8 @@ static int collect_loop(struct pstree_item *item,
 		nr_inprogress = collect(item);
 	}
 
+	pr_info("Collected (%d attempts, %d in_progress)\n", attempts, nr_inprogress);
+
 	/*
 	 * We may fail to collect items or run out of attempts.
 	 * In the former case nr_inprogress will be negative, in
