@@ -39,12 +39,17 @@ static inline void futex_set(futex_t *f, u32 v)
 		u32 tmp;					\
 								\
 		while (1) {					\
+			struct timespec to = {.tv_sec = 120};	\
 			tmp = (u32)atomic_read(&(__f)->raw);	\
 			if ((tmp & FUTEX_ABORT_FLAG) ||		\
 			    (tmp __cond (__v)))			\
 				break;				\
 			ret = sys_futex((u32 *)&(__f)->raw.counter, FUTEX_WAIT,\
-					tmp, NULL, NULL, 0);	\
+					tmp, &to, NULL, 0);	\
+			if (ret == -ETIMEDOUT) {		\
+				pr_warn("blocked for more than 120 seconds\n"); \
+				continue;			\
+			}					\
 			BUG_ON(ret < 0 && ret != -EWOULDBLOCK);	\
 		}						\
 	} while (0)
@@ -84,20 +89,16 @@ static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
 static inline void futex_dec(futex_t *f) { atomic_dec(&f->raw); }
 
 /* Wait until futex @f value become @v */
-static inline void futex_wait_until(futex_t *f, u32 v)
-{ futex_wait_if_cond(f, v, ==); }
+#define futex_wait_until(f, v) futex_wait_if_cond(f, v, ==)
 
 /* Wait while futex @f value is greater than @v */
-static inline void futex_wait_while_gt(futex_t *f, u32 v)
-{ futex_wait_if_cond(f, v, <=); }
+#define futex_wait_while_gt(f, v) futex_wait_if_cond(f, v, <=)
 
 /* Wait while futex @f value is less than @v */
-static inline void futex_wait_while_lt(futex_t *f, u32 v)
-{ futex_wait_if_cond(f, v, >=); }
+#define futex_wait_while_lt(f, v) futex_wait_if_cond(f, v, >=)
 
 /* Wait while futex @f value is equal to @v */
-static inline void futex_wait_while_eq(futex_t *f, u32 v)
-{ futex_wait_if_cond(f, v, !=); }
+#define futex_wait_while_eq(f, v) futex_wait_if_cond(f, v, !=)
 
 /* Wait while futex @f value is @v */
 static inline void futex_wait_while(futex_t *f, u32 v)
