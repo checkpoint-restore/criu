@@ -137,7 +137,7 @@ new_pagemap:
 static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, int nr)
 {
 	if (vaddr < pe->vaddr || (vaddr - pe->vaddr) / PAGE_SIZE + nr > pe->nr_pages) {
-		pr_err("Page read err "PRIx64":%u vs %lx:%u\n",
+		pr_err("Page read err %"PRIx64":%u vs %lx:%u\n",
 				pe->vaddr, pe->nr_pages, vaddr, nr);
 		BUG();
 	}
