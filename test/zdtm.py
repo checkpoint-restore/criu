@@ -110,6 +110,9 @@ class ns_flavor:
 		self.root = make_tests_root()
 
 	def __copy_one(self, fname):
+		if not os.access(fname, os.F_OK):
+			raise test_fail_exc("Deps check (%s doesn't exist)" % fname)
+
 		tfname = self.root + fname
 		if not os.access(tfname, os.F_OK):
 			# Copying should be atomic as tests can be
