@@ -493,7 +493,7 @@ static int restore_priv_vma_content(void)
 				 * we have at most (vma->end - current_addr) bytes.
 				 */
 
-				nr = min(nr_pages - i, (vma->e->end - va) / PAGE_SIZE);
+				nr = min_t(int, nr_pages - i, (vma->e->end - va) / PAGE_SIZE);
 
 				ret = pr.read_pages(&pr, va, nr, p);
 				if (ret < 0)
