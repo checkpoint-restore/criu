@@ -704,10 +704,12 @@ class launcher:
 		print "=== Run %d/%d %s" % (self.__nr, self.__total, '=' * perc + '-' * (16 - perc))
 
 	def run_test(self, name, desc, flavor):
+
 		if len(self.__subs) >= self.__max:
 			self.wait()
-			if self.__fail:
-				raise test_fail_exc('')
+
+		if test_flag(desc, 'excl'):
+			self.wait_all()
 
 		self.__nr += 1
 		self.__show_progress()
@@ -719,6 +721,9 @@ class launcher:
 				env = dict(os.environ, CR_CT_TEST_INFO = arg ), \
 				stdout = open(log, "w"), stderr = subprocess.STDOUT)
 		self.__subs[sub.pid] = { 'sub': sub, 'log': log }
+
+		if test_flag(desc, 'excl'):
+			self.wait()
 
 	def __wait_one(self, flags):
 		pid, status = os.waitpid(0, flags)
@@ -734,15 +739,25 @@ class launcher:
 
 		return False
 
+	def __wait_all(self):
+		while self.__subs:
+			self.__wait_one(0)
+
 	def wait(self):
 		self.__wait_one(0)
 		while self.__subs:
 			if not self.__wait_one(os.WNOHANG):
 				break
+		if self.__fail:
+			raise test_fail_exc('')
+
+	def wait_all(self):
+		self.__wait_all()
+		if self.__fail:
+			raise test_fail_exc('')
 
 	def finish(self):
-		while self.__subs:
-			self.__wait_one(0)
+		self.__wait_all()
 		if self.__fail:
 			print_sep("FAIL", "#")
 			sys.exit(1)
