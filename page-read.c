@@ -91,7 +91,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	pr_debug("\tpr%u Skip %lx bytes from page-dump\n", pr->id, len);
+	pr_debug("\tpr%u Skip %lu bytes from page-dump\n", pr->id, len);
 	if (!pr->pe->in_parent)
 		lseek(img_raw_fd(pr->pi), len, SEEK_CUR);
 	pr->cvaddr += len;
@@ -148,22 +148,56 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 	int ret;
 	unsigned long len = nr * PAGE_SIZE;
 
+	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pr->pe->in_parent) {
-		pr_debug("\tpr%u Read page %lx from parent\n", pr->id, vaddr);
-		ret = seek_pagemap_page(pr->parent, vaddr, true);
-		if (ret <= 0)
-			return -1;
-		ret = read_pagemap_page(pr->parent, vaddr, nr, buf);
-		if (ret == -1)
-			return ret;
+		struct page_read *ppr = pr->parent;
+
+		/*
+		 * Parent pagemap at this point entry may be shorter
+		 * than the current vaddr:nr needs, so we have to
+		 * carefully 'split' the vaddr:nr into pieces and go
+		 * to parent page-read with the longest requests it
+		 * can handle.
+		 */
+
+		do {
+			int p_nr;
+
+			pr_debug("\tpr%u Read from parent\n", pr->id);
+			ret = seek_pagemap_page(ppr, vaddr, true);
+			if (ret <= 0)
+				return -1;
+
+			/*
+			 * This is how many pages we have in the parent
+			 * page_read starting from vaddr. Go ahead and
+			 * read as much as we can.
+			 */
+			p_nr = ppr->pe->nr_pages - (vaddr - ppr->pe->vaddr) / PAGE_SIZE;
+			pr_info("\tparent has %u pages in\n", p_nr);
+			if (p_nr > nr)
+				p_nr = nr;
+
+			ret = read_pagemap_page(ppr, vaddr, p_nr, buf);
+			if (ret == -1)
+				return ret;
+
+			/*
+			 * OK, let's see how much data we have left and go
+			 * to parent page-read again for the next pagemap
+			 * entry.
+			 */
+			nr -= p_nr;
+			vaddr += p_nr * PAGE_SIZE;
+			buf += p_nr * PAGE_SIZE;
+		} while (nr);
 	} else {
 		int fd = img_raw_fd(pr->pi);
 		off_t current_vaddr = lseek(fd, 0, SEEK_CUR);
 
-		pr_debug("\tpr%u Read page %lx from self %lx/%"PRIx64"\n", pr->id,
-				vaddr, pr->cvaddr, current_vaddr);
+		pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
 		ret = read(fd, buf, len);
 		if (ret != len) {
 			pr_perror("Can't read mapping page %d", ret);
