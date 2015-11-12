@@ -200,7 +200,7 @@ generate_test_list()
 		ns/static/sem
 		transition/ipc
 		ns/static/netns-dev
-		static/bridge
+		ns/static/bridge
 		static/cgroup00
 		static/cgroup01
 		static/cgroup02
