@@ -17,13 +17,13 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
 int add_bridge(void)
 {
-	if (system("brctl addbr " BRIDGE_NAME))
+	if (system("ip link add " BRIDGE_NAME " type bridge"))
 		return -1;
 
-	if (system("ifconfig " BRIDGE_NAME " 10.0.55.55"))
+	if (system("ip addr add 10.0.55.55/32 dev " BRIDGE_NAME))
 		return -1;
 
-	if (system("ifconfig " BRIDGE_NAME " up"))
+	if (system("ip link set " BRIDGE_NAME " up"))
 		return -1;
 
 	return 0;
@@ -32,9 +32,9 @@ int add_bridge(void)
 int del_bridge(void)
 {
 	/* don't check for errors, let's try to make sure it's deleted */
-	system("ifconfig " BRIDGE_NAME " down");
+	system("ip link set " BRIDGE_NAME " down");
 
-	if (system("brctl delbr " BRIDGE_NAME))
+	if (system("ip link del " BRIDGE_NAME))
 		return -1;
 
 	return 0;
