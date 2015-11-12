@@ -600,7 +600,7 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, int fdin, int fdout)
 		ip_tool_cmd = "ip";
 
 	ret = cr_system(fdin, fdout, -1, ip_tool_cmd,
-				(char *[]) { "ip", arg1, arg2, arg3, NULL });
+				(char *[]) { "ip", arg1, arg2, arg3, NULL }, 0);
 	if (ret) {
 		pr_err("IP tool failed on %s %s\n", arg1, arg2);
 		return -1;
@@ -618,7 +618,7 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 	if (!cmd)
 		cmd = def_cmd;
 	pr_debug("\tRunning %s for %s\n", cmd, def_cmd);
-	ret = cr_system(fdin, fdout, -1, "sh", (char *[]) { "sh", "-c", cmd, NULL });
+	ret = cr_system(fdin, fdout, -1, "sh", (char *[]) { "sh", "-c", cmd, NULL }, 0);
 	if (ret)
 		pr_err("%s failed\n", def_cmd);
 

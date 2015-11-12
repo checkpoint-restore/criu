@@ -64,7 +64,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 	 * cr_system is used here, because it blocks SIGCHLD before waiting
 	 * a child and the child can't be waited from SIGCHLD handler.
 	 */
-	ret = cr_system(-1, -1, -1, "sh", argv);
+	ret = cr_system(-1, -1, -1, "sh", argv, 0);
 	if (ret < 0 || !WIFEXITED(ret) || WEXITSTATUS(ret)) {
 		pr_perror("Iptables configuration failed");
 		return -1;

@@ -1203,7 +1203,7 @@ static int tmpfs_dump(struct mount_info *pm)
 			"--preserve-permissions",
 			"--sparse",
 			"--numeric-owner",
-			"--directory", tmpfs_path, ".", NULL }, userns_pid);
+			"--directory", tmpfs_path, ".", NULL }, 0, userns_pid);
 
 	if (ret)
 		pr_err("Can't dump tmpfs content\n");
@@ -1256,7 +1256,7 @@ static int tmpfs_restore(struct mount_info *pm)
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]) {"tar", "--extract", "--gzip",
 				"--no-unquote", "--no-wildcards",
-				"--directory", pm->mountpoint, NULL});
+				"--directory", pm->mountpoint, NULL}, 0);
 	close_image(img);
 
 	if (ret) {

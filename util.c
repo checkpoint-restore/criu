@@ -509,13 +509,13 @@ void shfree_last(void *ptr)
  * If "in" is negative, stdin will be closed.
  * If "out" or "err" are negative, a log file descriptor will be used.
  */
-int cr_system(int in, int out, int err, char *cmd, char *const argv[])
+int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags)
 {
-	return cr_system_userns(in, out, err, cmd, argv, -1);
+	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
 }
 
 int cr_system_userns(int in, int out, int err, char *cmd,
-			char *const argv[], int userns_pid)
+			char *const argv[], unsigned flags, int userns_pid)
 {
 	sigset_t blockmask, oldmask;
 	int ret = -1, status;

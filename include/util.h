@@ -172,9 +172,9 @@ extern int is_anon_link_type(char *link, char *type);
 extern void *shmalloc(size_t bytes);
 extern void shfree_last(void *ptr);
 
-extern int cr_system(int in, int out, int err, char *cmd, char *const argv[]);
+extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags);
 extern int cr_system_userns(int in, int out, int err, char *cmd,
-				char *const argv[], int userns_pid);
+				char *const argv[], unsigned flags, int userns_pid);
 extern int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd);
 extern int is_root_user(void);
 
