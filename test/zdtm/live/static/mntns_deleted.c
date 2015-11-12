@@ -64,13 +64,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if ((fd1 = open(TEST_FILE_SRC, O_WRONLY | O_CREAT | O_TRUNC) < 0)) {
+	if ((fd1 = open(TEST_FILE_SRC, O_WRONLY | O_CREAT | O_TRUNC, 0600) < 0)) {
 		pr_perror("touching %s", TEST_FILE_SRC);
 		return 1;
 	}
 	close(fd1);
 
-	if ((fd2 = open(TEST_FILE_DST, O_WRONLY | O_CREAT | O_TRUNC) < 0)) {
+	if ((fd2 = open(TEST_FILE_DST, O_WRONLY | O_CREAT | O_TRUNC, 0600) < 0)) {
 		pr_perror("touching %s", TEST_FILE_DST);
 		return 1;
 	}
