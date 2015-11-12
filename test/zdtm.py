@@ -17,6 +17,7 @@ import random
 import string
 import imp
 import socket
+import fcntl
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -138,19 +139,22 @@ class ns_flavor:
 			self.__copy_one(lib)
 
 	def init(self, test_bin, deps):
-		print "Construct root for %s" % test_bin
 		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
 
 		if not os.access(self.root + "/.constructed", os.F_OK):
-			for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/tmp", "/usr"]:
-				os.mkdir(self.root + dir)
-				os.chmod(self.root + dir, 0777)
+			with open(os.path.abspath(__file__)) as o:
+				fcntl.flock(o, fcntl.LOCK_EX)
+				if not os.access(self.root + "/.constructed", os.F_OK):
+					print "Construct root for %s" % test_bin
+					for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/tmp", "/usr"]:
+						os.mkdir(self.root + dir)
+						os.chmod(self.root + dir, 0777)
 
-			os.mknod(self.root + "/dev/tty", stat.S_IFCHR, os.makedev(5, 0))
-			os.chmod(self.root + "/dev/tty", 0666)
-			os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
-			for ldir in [ "/bin", "/sbin", "/lib", "/lib64" ]:
-				os.symlink(".." + ldir, self.root + "/usr" + ldir)
+					os.mknod(self.root + "/dev/tty", stat.S_IFCHR, os.makedev(5, 0))
+					os.chmod(self.root + "/dev/tty", 0666)
+					for ldir in [ "/bin", "/sbin", "/lib", "/lib64" ]:
+						os.symlink(".." + ldir, self.root + "/usr" + ldir)
+					os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
 
 		self.__copy_libs(test_bin)
 		for dep in deps:
