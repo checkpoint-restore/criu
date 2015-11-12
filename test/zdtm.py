@@ -584,7 +584,10 @@ def cr(cr_api, test, opts):
 	for i in iters[0]:
 		pres = iter_parm(opts['pre'], 0)
 		for p in pres[0]:
-			cr_api.dump("pre-dump")
+			if opts['snaps']:
+				cr_api.dump("dump", opts = ["--leave-running"])
+			else:
+				cr_api.dump("pre-dump")
 			time.sleep(pres[1])
 
 		if opts['norst']:
@@ -709,7 +712,7 @@ class launcher:
 		self.__nr += 1
 		self.__show_progress()
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report', 'snaps')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
@@ -913,6 +916,7 @@ rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action
 
 rp.add_argument("--sibling", help = "Restore tests as siblings", action = 'store_true')
 rp.add_argument("--pre", help = "Do some pre-dumps before dump (n[:pause])")
+rp.add_argument("--snaps", help = "Instead of pre-dumps do full dumps", action = 'store_true')
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
