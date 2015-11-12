@@ -366,13 +366,14 @@ static int construct_root()
 	chmod("dev", 0777);
 	mknod("dev/null", 0777 | S_IFCHR, makedev(1, 3));
 	chmod("dev/null", 0777);
-	mkdir("dev/net", 0777);
-	if (stat("/dev/net/tun", &st)) {
+	if (stat("/dev/net/tun", &st))
 		fprintf(stderr, "Unable to stat /dev/net/tun: %m");
-		return -1;
+	else {
+		mkdir("dev/net", 0777);
+		mknod("dev/net/tun", 0777 | S_IFCHR, st.st_rdev);
+		chmod("dev/net/tun", 0777);
 	}
-	mknod("dev/net/tun", 0777 | S_IFCHR, st.st_rdev);
-	chmod("dev/net/tun", 0777);
+
 	if (stat("/dev/rtc", &st)) {
 		fprintf(stderr, "Unable to stat /dev/rtc: %m");
 		return -1;
