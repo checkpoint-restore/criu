@@ -592,7 +592,7 @@ out_chld:
 		}
 
 		if (WIFEXITED(status)) {
-			if (WEXITSTATUS(status))
+			if (!(flags & CRS_CAN_FAIL) && WEXITSTATUS(status))
 				pr_err("exited, status=%d\n", WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {

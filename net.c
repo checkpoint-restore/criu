@@ -602,7 +602,8 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, int fdin, int fdout, 
 	ret = cr_system(fdin, fdout, -1, ip_tool_cmd,
 				(char *[]) { "ip", arg1, arg2, arg3, NULL }, flags);
 	if (ret) {
-		pr_err("IP tool failed on %s %s\n", arg1, arg2);
+		if (!(flags & CRS_CAN_FAIL))
+			pr_err("IP tool failed on %s %s\n", arg1, arg2);
 		return -1;
 	}
 
@@ -663,7 +664,7 @@ static inline int dump_rule(struct cr_imgset *fds)
 	if (!path)
 		return -1;
 
-	if (run_ip_tool("rule", "save", NULL, -1, img_raw_fd(img), 0)) {
+	if (run_ip_tool("rule", "save", NULL, -1, img_raw_fd(img), CRS_CAN_FAIL)) {
 		pr_warn("Check if \"ip rule save\" is supported!\n");
 		unlinkat(get_service_fd(IMG_FD_OFF), path, 0);
 	}
