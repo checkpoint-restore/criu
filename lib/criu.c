@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <signal.h>
-#include <alloca.h>
 
 #include "criu.h"
 #include "rpc.pb-c.h"
@@ -724,7 +723,7 @@ int criu_add_irmap_path(char *path)
 
 static CriuResp *recv_resp(int socket_fd)
 {
-	unsigned char *buf;
+	unsigned char *buf = NULL;
 	int len;
 	CriuResp *msg = 0;
 
@@ -734,7 +733,12 @@ static CriuResp *recv_resp(int socket_fd)
 		goto err;
 	}
 
-	buf = alloca(len);
+	buf = malloc(len);
+	if (!buf) {
+		errno = ENOMEM;
+		perror("Can't receive response");
+		goto err;
+	}
 
 	len = recv(socket_fd, buf, len, MSG_TRUNC);
 	if (len == -1) {
@@ -748,8 +752,10 @@ static CriuResp *recv_resp(int socket_fd)
 		goto err;
 	}
 
+	free(buf);
 	return msg;
 err:
+	free(buf);
 	saved_errno = errno;
 	return NULL;
 }
@@ -761,7 +767,12 @@ static int send_req(int socket_fd, CriuReq *req)
 
 	len = criu_req__get_packed_size(req);
 
-	buf = alloca(len);
+	buf = malloc(len);
+	if (!buf) {
+		errno = ENOMEM;
+		perror("Can't send request");
+		goto err;
+	}
 
 	if (criu_req__pack(req, buf) != len) {
 		perror("Failed packing request");
@@ -773,8 +784,10 @@ static int send_req(int socket_fd, CriuReq *req)
 		goto err;
 	}
 
+	free(buf);
 	return 0;
 err:
+	free(buf);
 	saved_errno = errno;
 	return -1;
 }
