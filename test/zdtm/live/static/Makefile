@@ -146,6 +146,7 @@ TST_FILE	=				\
 		deleted_dev			\
 		unlink_fstat00			\
 		unlink_fstat01			\
+		unlink_fstat01+			\
 		unlink_fstat02			\
 		unlink_fstat03			\
 		unlink_largefile		\
@@ -342,6 +343,7 @@ mntns_shared_bind02:		override CFLAGS += -DSHARED_BIND02
 maps02:		get_smaps_bits.o
 mlock_setuid:		get_smaps_bits.o
 inotify01:		override CFLAGS += -DINOTIFY01
+unlink_fstat01+:	override CFLAGS += -DUNLINK_OVER
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)

@@ -43,6 +43,18 @@ int main(int argc, char ** argv)
 		goto failed;
 	}
 
+#ifdef UNLINK_OVER
+{
+	int fdo;
+
+	fdo = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fdo < 0) {
+		pr_perror("can't open %s", filename);
+		exit(1);
+	}
+}
+#endif
+
 	memset(buf, '0', sizeof(buf));
 	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
 		pr_perror("can't write %s", filename);
