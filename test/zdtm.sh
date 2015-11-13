@@ -190,6 +190,7 @@ generate_test_list()
 		ns/static/session01
 		ns/static/tempfs
 		ns/static/tempfs_ro
+		ns/static/tempfs_subns
 		ns/static/mnt_ro_bind
 		ns/static/mount_paths
 		ns/static/bind-mount
@@ -334,6 +335,7 @@ rtc
 maps007
 tempfs
 tempfs_ro
+tempfs_subns
 mnt_ro_bind
 bind-mount
 mountpoints

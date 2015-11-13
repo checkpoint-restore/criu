@@ -186,6 +186,7 @@ TST_DIR		=				\
 		overmount_sock			\
 		tempfs				\
 		tempfs_ro			\
+		tempfs_subns			\
 		mnt_ro_bind			\
 		mount_paths			\
 		bind-mount			\
