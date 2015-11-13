@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include <alloca.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -51,27 +50,33 @@ static int recv_criu_msg(int socket_fd, CriuReq **req)
 		return -1;
 	}
 
-	buf = alloca(len);
+	buf = xmalloc(len);
+	if (!buf)
+		return -ENOMEM;
 
 	len = recv(socket_fd, buf, len, MSG_TRUNC);
 	if (len == -1) {
 		pr_perror("Can't read request");
-		return -1;
+		goto err;
 	}
 
 	if (len == 0) {
 		pr_info("Client exited unexpectedly\n");
 		errno = ECONNRESET;
-		return -1;
+		goto err;
 	}
 
 	*req = criu_req__unpack(NULL, len, buf);
 	if (!*req) {
 		pr_perror("Failed unpacking request");
-		return -1;
+		goto err;
 	}
 
+	xfree(buf);
 	return 0;
+err:
+	xfree(buf);
+	return -1;
 }
 
 static int send_criu_msg(int socket_fd, CriuResp *msg)
@@ -81,19 +86,25 @@ static int send_criu_msg(int socket_fd, CriuResp *msg)
 
 	len = criu_resp__get_packed_size(msg);
 
-	buf = alloca(len);
+	buf = xmalloc(len);
+	if (!buf)
+		return -ENOMEM;
 
 	if (criu_resp__pack(msg, buf) != len) {
 		pr_perror("Failed packing response");
-		return -1;
+		goto err;
 	}
 
 	if (write(socket_fd, buf, len)  == -1) {
 		pr_perror("Can't send response");
-		return -1;
+		goto err;
 	}
 
+	xfree(buf);
 	return 0;
+err:
+	xfree(buf);
+	return -1;
 }
 
 static void send_criu_err(int sk, char *msg)
