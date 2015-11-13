@@ -1520,9 +1520,6 @@ static int restore_task_with_children(void *_arg)
 		if (mount_proc())
 			goto err_fini_mnt;
 
-		if (close_old_fds(current))
-			goto err_fini_mnt;
-
 		if (root_prepare_shared())
 			goto err_fini_mnt;
 
@@ -1530,14 +1527,11 @@ static int restore_task_with_children(void *_arg)
 			goto err_fini_mnt;
 	}
 
-	if (prepare_mappings())
+	if (restore_task_mnt_ns(current))
 		goto err_fini_mnt;
 
-	if (!(ca->clone_flags & CLONE_FILES)) {
-		ret = close_old_fds(current);
-		if (ret)
-			goto err_fini_mnt;
-	}
+	if (prepare_mappings())
+		goto err_fini_mnt;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
@@ -1559,8 +1553,11 @@ static int restore_task_with_children(void *_arg)
 	if (create_children_and_session())
 		goto err_fini_mnt;
 
-	if (restore_task_mnt_ns(current))
-		goto err_fini_mnt;
+	if (!(ca->clone_flags & CLONE_FILES)) {
+		ret = close_old_fds(current);
+		if (ret)
+			goto err_fini_mnt;
+	}
 
 	if (unmap_guard_pages())
 		goto err_fini_mnt;

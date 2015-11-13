@@ -2590,36 +2590,13 @@ int mntns_maybe_create_roots(void)
 
 static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
 {
-	char path[PATH_MAX];
-
-	if (nsid->ns_pid != current->pid.virt) {
-		int fd;
-
-		futex_wait_while_eq(&nsid->ns_created, 0);
-		fd = open_proc(nsid->ns_pid, "ns/mnt");
-		if (fd < 0)
-			return -1;
-
-		if (setns(fd, CLONE_NEWNS)) {
-			pr_perror("Unable to change mount namespace");
-			return -1;
-		}
-
-		close(fd);
-		return 0;
-	}
-
-	if (unshare(CLONE_NEWNS)) {
-		pr_perror("Unable to unshare mount namespace");
+	if (setns(nsid->mnt.ns_fd, CLONE_NEWNS)) {
+		pr_perror("Can't restore mntns");
 		return -1;
 	}
 
-	path[0] = '/';
-	print_ns_root(nsid, path + 1, sizeof(path) - 1);
-	if (cr_pivot_root(path))
-		return -1;
-
-	futex_set_and_wake(&nsid->ns_created, 1);
+	if (nsid->ns_pid == current->pid.virt)
+		futex_set_and_wake(&nsid->ns_created, 1);
 
 	return 0;
 }
@@ -2639,7 +2616,7 @@ int restore_task_mnt_ns(struct pstree_item *current)
 		 * already there, otherwise it will have to do
 		 * setns().
 		 */
-		if (root_item->ids->mnt_ns_id == id)
+		if (!current->parent || id == current->parent->ids->mnt_ns_id)
 			return 0;
 
 		nsid = lookup_ns_by_id(id, &mnt_ns_desc);
@@ -2762,9 +2739,10 @@ void cleanup_mnt_ns(void)
 
 int prepare_mnt_ns(void)
 {
-	int ret = -1;
+	int ret = -1, rst = -1;
 	struct mount_info *old;
 	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
+	struct ns_id *nsid;
 
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return rst_collect_local_mntns();
@@ -2842,7 +2820,49 @@ int prepare_mnt_ns(void)
 	if (!ret && opts.root)
 		ret = cr_pivot_root(NULL);
 
+	rst = open_proc(PROC_SELF, "ns/mnt");
+	if (rst < 0)
+		return -1;
+
+	/* resotre non-root namespaces */
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		char path[PATH_MAX];
+
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+		if (root_item->ids->mnt_ns_id == nsid->id)
+			continue;
+
+		/* Create the new mount namespace */
+		if (unshare(CLONE_NEWNS)) {
+			pr_perror("Unable to create a new mntns");
+			goto err;
+		}
+
+		/* Set its root */
+		path[0] = '/';
+		print_ns_root(nsid, path + 1, sizeof(path) - 1);
+		if (cr_pivot_root(path))
+			goto err;
+
+		/* Pin one with a file descriptor */
+		nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
+		if (nsid->mnt.ns_fd < 0)
+			goto err;
+
+		/* And return back to regain the access to the roots yard */
+		if (setns(rst, CLONE_NEWNS)) {
+			pr_perror("Can't restore mntns back");
+			goto err;
+		}
+	}
+	close(rst);
+
 	return ret;
+err:
+	if (rst)
+		restore_ns(rst, &mnt_ns_desc);
+	return -1;
 }
 
 int __mntns_get_root_fd(pid_t pid)
