@@ -1020,6 +1020,7 @@ static void convert_path_from_another_mp(char *src, char *dst, int dlen,
 static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner)
 {
 	int ret, old_fsuid = -1;
+	int errno_save;
 
 	if (root_ns_mask & CLONE_NEWUSER)
 		/*
@@ -1041,6 +1042,7 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 		old_fsuid = setfsuid(owner);
 
 	ret = linkat(odir, opath, ndir, npath, 0);
+	errno_save = errno;
 	if (ret < 0)
 		pr_perror("Can't link %s -> %s", opath, npath);
 
@@ -1054,6 +1056,7 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 			 * the proper fsuid, then we'll abort the restore.
 			 */
 	}
+	errno = errno_save;
 
 	return ret;
 }
