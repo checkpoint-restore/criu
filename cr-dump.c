@@ -542,7 +542,7 @@ static int get_task_personality(pid_t pid, u32 *personality)
 {
 	int fd, ret = -1;
 
-	pr_info("Obtaining personality ... ");
+	pr_info("Obtaining personality ... \n");
 
 	fd = open_proc(pid, "personality");
 	if (fd < 0)
