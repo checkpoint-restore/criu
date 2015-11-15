@@ -478,6 +478,7 @@ static int prepare_pstree_ids(void)
 		helper->pgid = item->sid;
 		helper->pid.virt = item->sid;
 		helper->parent = root_item;
+		helper->ids = root_item->ids;
 		list_add_tail(&helper->sibling, &helpers);
 
 		pr_info("Add a helper %d for restoring SID %d\n",
@@ -596,6 +597,7 @@ static int prepare_pstree_ids(void)
 		helper->pgid = item->pgid;
 		helper->pid.virt = item->pgid;
 		helper->parent = item;
+		helper->ids = item->ids;
 		list_add(&helper->sibling, &item->children);
 		rsti(item)->pgrp_leader = helper;
 
