@@ -1504,6 +1504,12 @@ static int restore_task_with_children(void *_arg)
 		}
 	}
 
+	if (!(ca->clone_flags & CLONE_FILES)) {
+		ret = close_old_fds(current);
+		if (ret)
+			goto err_fini_mnt;
+	}
+
 	/* Restore root task */
 	if (current->parent == NULL) {
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
@@ -1553,11 +1559,6 @@ static int restore_task_with_children(void *_arg)
 	if (create_children_and_session())
 		goto err_fini_mnt;
 
-	if (!(ca->clone_flags & CLONE_FILES)) {
-		ret = close_old_fds(current);
-		if (ret)
-			goto err_fini_mnt;
-	}
 
 	if (unmap_guard_pages())
 		goto err_fini_mnt;
