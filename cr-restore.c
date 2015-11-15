@@ -1509,15 +1509,15 @@ static int restore_task_with_children(void *_arg)
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
 			goto err;
 
-		if (prepare_namespace(current, ca->clone_flags))
-			goto err_fini_mnt;
-
 		/*
 		 * We need non /proc proc mount for restoring pid and mount
 		 * namespaces and do not care for the rest of the cases.
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 		if (mount_proc())
+			goto err_fini_mnt;
+
+		if (prepare_namespace(current, ca->clone_flags))
 			goto err_fini_mnt;
 
 		if (root_prepare_shared())
@@ -1567,8 +1567,12 @@ static int restore_task_with_children(void *_arg)
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
 		goto err_fini_mnt;
 
-	if (current->parent == NULL && depopulate_roots_yard())
-		goto err;
+	if (current->parent == NULL) {
+		if (depopulate_roots_yard())
+			goto err;
+
+		fini_restore_mntns();
+	}
 
 	if (restore_one_task(current->pid.virt, ca->core))
 		goto err;

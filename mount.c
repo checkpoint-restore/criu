@@ -2590,10 +2590,18 @@ int mntns_maybe_create_roots(void)
 
 static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
 {
-	if (setns(nsid->mnt.ns_fd, CLONE_NEWNS)) {
+	int fd;
+
+	fd = open_proc(root_item->pid.virt, "fd/%d", nsid->mnt.ns_fd);
+	if (fd < 0)
+		return -1;
+
+	if (setns(fd, CLONE_NEWNS)) {
 		pr_perror("Can't restore mntns");
+		close(fd);
 		return -1;
 	}
+	close(fd);
 
 	if (nsid->ns_pid == current->pid.virt)
 		futex_set_and_wake(&nsid->ns_created, 1);
@@ -2632,6 +2640,19 @@ int restore_task_mnt_ns(struct pstree_item *current)
 	}
 
 	return 0;
+}
+
+void fini_restore_mntns(void)
+{
+	struct ns_id *nsid;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+		if (root_item->ids->mnt_ns_id == nsid->id)
+			continue;
+		close(nsid->mnt.ns_fd);
+	}
 }
 
 /*
@@ -2752,8 +2773,6 @@ int prepare_mnt_ns(void)
 	old = collect_mntinfo(&ns, false);
 	if (old == NULL)
 		return -1;
-
-	close_proc();
 
 	if (!opts.root) {
 		if (chdir("/")) {
