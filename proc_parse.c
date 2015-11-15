@@ -778,6 +778,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		if (!strncmp(str, "State:", 6)) {
 			cr->state = str[7];
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "PPid:", 5)) {
@@ -786,6 +787,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 			}
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "Uid:", 4)) {
@@ -793,6 +795,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "Gid:", 4)) {
@@ -800,6 +803,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "CapInh:", 7)) {
@@ -807,6 +811,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "CapEff:", 7)) {
@@ -814,6 +819,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "CapPrm:", 7)) {
@@ -821,6 +827,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "CapBnd:", 7)) {
@@ -828,6 +835,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 
 			done++;
+			continue;
 		}
 
 		if (!strncmp(str, "Seccomp:", 8)) {
@@ -841,6 +849,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 			}
 
 			done++;
+			continue;
 		}
 	}
 
