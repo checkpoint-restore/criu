@@ -144,7 +144,7 @@ static struct ns_id *__rst_new_ns_id(unsigned int id, pid_t pid,
 	if (nsid) {
 		nsid->type = type;
 		nsid_add(nsid, nd, id, pid);
-		futex_set(&nsid->ns_created, 0);
+		futex_set(&nsid->ns_populated, 0);
 	}
 
 	return nsid;
@@ -268,6 +268,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 
 	nsid->type = type;
 	nsid->kid = kid;
+	futex_set(&nsid->ns_populated, 1);
 	nsid_add(nsid, nd, ns_next_id++, pid);
 
 found:

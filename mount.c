@@ -2356,7 +2356,7 @@ static int rst_collect_local_mntns(void)
 	if (!mntinfo)
 		return -1;
 
-	futex_set(&nsid->ns_created, 1);
+	futex_set(&nsid->ns_populated, 1);
 	return 0;
 }
 
@@ -2604,7 +2604,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 	close(fd);
 
 	if (nsid->ns_pid == current->pid.virt)
-		futex_set_and_wake(&nsid->ns_created, 1);
+		futex_set_and_wake(&nsid->ns_populated, 1);
 
 	return 0;
 }
@@ -2949,8 +2949,17 @@ set_root:
 	return ret;
 }
 
-int mntns_get_root_fd(struct ns_id *mntns)
-{
+int mntns_get_root_fd(struct ns_id *mntns) {
+	/*
+	 * We need to find a task from the target namespace and open its root.
+	 * For that we need to wait when one of tasks enters into required
+	 * namespaces.
+	 *
+	 * The root task is born in the root mount namespace.
+	 */
+
+	if (mntns->type != NS_ROOT)
+		futex_wait_while_eq(&mntns->ns_populated, 0);
 	return __mntns_get_root_fd(mntns->ns_pid);
 }
 
