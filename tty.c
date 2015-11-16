@@ -476,6 +476,11 @@ static void pty_free_fake_reg(struct reg_file_info **r)
 
 static int open_tty_reg(struct file_desc *reg_d, u32 flags)
 {
+	/*
+	 * Never set as a control terminal automatically, all
+	 * ctty magic happens only in tty_set_sid().
+	 */
+	flags |= O_NOCTTY;
 	return open_path(reg_d, do_open_reg_noseek_flags, &flags);
 }
 
@@ -772,7 +777,7 @@ static int pty_open_slaves(struct tty_info *info)
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(tty_is_master(slave));
 
-		fd = open_tty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
+		fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
@@ -854,7 +859,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 
 		unlock_pty(master);
 
-		fd = open_tty_reg(slave->reg_d, slave->tfe->flags | O_NOCTTY);
+		fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 		if (fd < 0) {
 			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
 			goto err;
