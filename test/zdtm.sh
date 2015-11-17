@@ -248,6 +248,7 @@ generate_test_list()
 	TEST_SECCOMP_FILTERS="
 		static/seccomp_filter
 		static/seccomp_filter_tsync
+		static/seccomp_filter_inheritance
 	"
 
 	$CRIU check -v0 --feature "mnt_id"
@@ -370,6 +371,7 @@ apparmor
 seccomp_strict
 seccomp_filter
 seccomp_filter_tsync
+seccomp_filter_inheritance
 different_creds
 inotify01
 ipc_namespace

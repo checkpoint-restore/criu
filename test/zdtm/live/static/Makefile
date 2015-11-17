@@ -130,6 +130,7 @@ TST_NOFILE	=				\
 		seccomp_strict			\
 		seccomp_filter			\
 		seccomp_filter_tsync			\
+		seccomp_filter_inheritance		\
 		different_creds			\
 		vsx				\
 		bridge				\
