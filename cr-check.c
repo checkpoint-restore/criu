@@ -12,6 +12,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <linux/if.h>
+#include <linux/filter.h>
+#include <linux/bpf.h>
+#include <linux/seccomp.h>
+#include <sys/syscall.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <sys/mman.h>
@@ -529,19 +533,49 @@ static int check_sigqueuinfo()
 	return 0;
 }
 
-static pid_t fork_and_ptrace_attach(void)
+static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 {
 	pid_t pid;
+	int sk_pair[2], sk;
+	char c;
+
+	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
+		pr_perror("socketpair");
+		return -1;
+	}
 
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("fork");
 		return -1;
 	} else if (pid == 0) {
+		sk = sk_pair[1];
+		close(sk_pair[0]);
+
+		if (child_setup && child_setup() != 0)
+			exit(1);
+
+		if (write(sk, &c, 1) != 1) {
+			pr_perror("write");
+			exit(1);
+		}
+
 		while (1)
 			sleep(1000);
 		exit(1);
 	}
+
+	sk = sk_pair[0];
+	close(sk_pair[1]);
+
+	if (read(sk, &c, 1) != 1) {
+		close(sk);
+		kill(pid, SIGKILL);
+		pr_perror("read");
+		return -1;
+	}
+
+	close(sk);
 
 	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
 		pr_perror("Unable to ptrace the child");
@@ -561,7 +595,7 @@ static int check_ptrace_peeksiginfo()
 	pid_t pid, ret = 0;
 	k_rtsigset_t mask;
 
-	pid = fork_and_ptrace_attach();
+	pid = fork_and_ptrace_attach(NULL);
 	if (pid < 0)
 		return -1;
 
@@ -593,7 +627,7 @@ static int check_ptrace_suspend_seccomp(void)
 		return 0;
 	}
 
-	pid = fork_and_ptrace_attach();
+	pid = fork_and_ptrace_attach(NULL);
 	if (pid < 0)
 		return -1;
 
@@ -604,6 +638,51 @@ static int check_ptrace_suspend_seccomp(void)
 			pr_perror("couldn't suspend seccomp");
 		}
 		ret = -1;
+	}
+
+	kill(pid, SIGKILL);
+	return ret;
+}
+
+static int setup_seccomp_filter(void)
+{
+	struct sock_filter filter[] = {
+		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, offsetof(struct seccomp_data, nr)),
+		/* Allow all syscalls except ptrace */
+		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ptrace, 0, 1),
+		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
+		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
+	};
+
+	struct sock_fprog bpf_prog = {
+		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
+		.filter = filter,
+	};
+
+	if (sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long) &bpf_prog, 0, 0) < 0)
+		return -1;
+
+	return 0;
+}
+
+static int check_ptrace_dump_seccomp_filters(void)
+{
+	pid_t pid;
+	int ret = 0, len;
+
+	if (opts.check_ms_kernel) {
+		pr_warn("Skipping PTRACE_SECCOMP_GET_FILTER check");
+		return 0;
+	}
+
+	pid = fork_and_ptrace_attach(setup_seccomp_filter);
+	if (pid < 0)
+		return -1;
+
+	len = ptrace(PTRACE_SECCOMP_GET_FILTER, pid, 0, NULL);
+	if (len < 0) {
+		ret = -1;
+		pr_perror("Dumping seccomp filters not supported");
 	}
 
 	kill(pid, SIGKILL);
@@ -800,6 +879,7 @@ int cr_check(void)
 	ret |= check_sigqueuinfo();
 	ret |= check_ptrace_peeksiginfo();
 	ret |= check_ptrace_suspend_seccomp();
+	ret |= check_ptrace_dump_seccomp_filters();
 	ret |= check_mem_dirty_track();
 	ret |= check_posix_timers();
 	ret |= check_tun_cr(0);
@@ -864,6 +944,8 @@ int check_add_feature(char *feat)
 		chk_feature = check_fdinfo_lock;
 	else if (!strcmp(feat, "seccomp_suspend"))
 		chk_feature = check_ptrace_suspend_seccomp;
+	else if (!strcmp(feat, "seccomp_filters"))
+		chk_feature = check_ptrace_dump_seccomp_filters;
 	else {
 		pr_err("Unknown feature %s\n", feat);
 		return -1;
