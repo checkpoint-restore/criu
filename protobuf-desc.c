@@ -61,6 +61,7 @@
 #include "protobuf/timerfd.pb-c.h"
 #include "protobuf/cpuinfo.pb-c.h"
 #include "protobuf/userns.pb-c.h"
+#include "protobuf/seccomp.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 

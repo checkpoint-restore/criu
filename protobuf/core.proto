@@ -37,6 +37,7 @@ message task_core_entry {
 	optional signal_queue_entry	signals_s	= 10;
 
 	optional seccomp_mode		seccomp_mode	= 11;
+	optional uint32			seccomp_filter	= 12;
 }
 
 message task_kobj_ids_entry {

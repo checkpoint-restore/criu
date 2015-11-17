@@ -843,11 +843,6 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 			}
 
-			if (cr->seccomp_mode == SECCOMP_MODE_FILTER) {
-				pr_err("SECCOMP_MODE_FILTER not currently supported\n");
-				goto err_parse;
-			}
-
 			done++;
 			continue;
 		}
@@ -2151,6 +2146,10 @@ int aufs_parse(struct mount_info *new)
 
 bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2)
 {
+	/* FIXME: this is a little too strict, we should do semantic comparison
+	 * of seccomp filters instead of forcing them to be exactly identical.
+	 * It's not unsafe, though, so let's be lazy for now.
+	 */
 	return memcmp(o1, o2, sizeof(struct proc_status_creds)) == 0;
 }
 

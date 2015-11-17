@@ -44,7 +44,6 @@ struct dmp_info {
 	 * threads. Dumping tasks with different creds is not supported.
 	 */
 	struct proc_status_creds *pi_creds;
-
 };
 
 static inline struct dmp_info *dmpi(struct pstree_item *i)
@@ -94,4 +93,5 @@ extern void pstree_free_cores(struct pstree_item *item);
 
 extern int collect_pstree_ids(void);
 
+extern int preorder_pstree_traversal(struct pstree_item *item, int (*f)(struct pstree_item *));
 #endif /* __CR_PSTREE_H__ */

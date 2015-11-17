@@ -671,6 +671,7 @@ static int dump_task_core_all(struct pstree_item *item,
 	CoreEntry *core = item->core[0];
 	pid_t pid = item->pid.real;
 	int ret = -1;
+	struct proc_status_creds *creds;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
@@ -680,10 +681,16 @@ static int dump_task_core_all(struct pstree_item *item,
 	if (ret < 0)
 		goto err;
 
-	if (dmpi(item)->pi_creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
-		pr_info("got seccomp mode %d for %d\n", dmpi(item)->pi_creds->seccomp_mode, item->pid.virt);
+	creds = dmpi(item)->pi_creds;
+	if (creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
+		pr_info("got seccomp mode %d for %d\n", creds->seccomp_mode, item->pid.virt);
 		core->tc->has_seccomp_mode = true;
-		core->tc->seccomp_mode = dmpi(item)->pi_creds->seccomp_mode;
+		core->tc->seccomp_mode = creds->seccomp_mode;
+
+		if (creds->seccomp_mode == SECCOMP_MODE_FILTER) {
+			core->tc->has_seccomp_filter = true;
+			core->tc->seccomp_filter = creds->last_filter;
+		}
 	}
 
 	strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
@@ -1517,6 +1524,9 @@ int cr_dump_tasks(pid_t pid)
 
 	glob_imgset = cr_glob_imgset_open(O_DUMP);
 	if (!glob_imgset)
+		goto err;
+
+	if (collect_seccomp_filters() < 0)
 		goto err;
 
 	for_each_pstree_item(item) {

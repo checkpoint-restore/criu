@@ -137,6 +137,10 @@ struct task_restore_args {
 
 	pid_t				*zombies;
 	unsigned int			zombies_n;
+
+	struct sock_fprog		*seccomp_filters;
+	unsigned int			seccomp_filters_n;
+
 	/* * * * * * * * * * * * * * * * * * * * */
 
 	unsigned long			task_size;

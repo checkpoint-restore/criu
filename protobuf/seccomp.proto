@@ -1,0 +1,8 @@
+message seccomp_filter {
+	required bytes		filter			= 1;
+	optional uint32		prev			= 2;
+}
+
+message seccomp_entry {
+	repeated seccomp_filter		seccomp_filters	= 1;
+}

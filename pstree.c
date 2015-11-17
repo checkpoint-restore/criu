@@ -218,6 +218,22 @@ struct pstree_item *pstree_item_next(struct pstree_item *item)
 	return NULL;
 }
 
+/* Preorder traversal of pstree item */
+int preorder_pstree_traversal(struct pstree_item *item, int (*f)(struct pstree_item *))
+{
+	struct pstree_item *cursor;
+
+	if (f(item) < 0)
+		return -1;
+
+	list_for_each_entry(cursor, &item->children, sibling) {
+		if (preorder_pstree_traversal(cursor, f) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 int dump_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item;

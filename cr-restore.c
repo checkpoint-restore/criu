@@ -193,6 +193,9 @@ static int root_prepare_shared(void)
 	if (prepare_remaps())
 		return -1;
 
+	if (prepare_seccomp_filters())
+		return -1;
+
 	for (i = 0; i < ARRAY_SIZE(cinfos); i++) {
 		ret = collect_image(cinfos[i]);
 		if (ret)
@@ -1096,6 +1099,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		item->state = ca.core->tc->task_state;
 		rsti(item)->cg_set = ca.core->tc->cg_set;
+
 		rsti(item)->has_seccomp = ca.core->tc->seccomp_mode != SECCOMP_MODE_DISABLED;
 
 		if (item->state == TASK_DEAD)
@@ -2735,6 +2739,9 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	int lsm_profile_len = 0;
 	unsigned long lsm_pos = 0;
 
+	int n_seccomp_filters = 0;
+	unsigned long seccomp_filter_pos = 0;
+
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
@@ -2840,6 +2847,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		xfree(rendered);
 
 	}
+
+	if (seccomp_filters_get_rst_pos(core, &n_seccomp_filters, &seccomp_filter_pos) < 0)
+		goto err;
+
 
 	rst_mem_size = rst_mem_lock();
 	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
@@ -2963,10 +2974,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
 	remap_array(zombies,	  n_zombies, zombies_pos);
+	remap_array(seccomp_filters,	n_seccomp_filters, seccomp_filter_pos);
 
 #undef remap_array
 
-	task_args->seccomp_mode = core->tc->seccomp_mode;
+	if (core->tc->has_seccomp_mode)
+		task_args->seccomp_mode = core->tc->seccomp_mode;
 
 	if (lsm)
 		task_args->creds.lsm_profile = rst_mem_remap_ptr(lsm_pos, RM_PRIVATE);

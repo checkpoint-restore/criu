@@ -79,6 +79,7 @@ obj-y	+= seize.o
 obj-y	+= fault-injection.o
 obj-y	+= pie/util-fd.o
 obj-y	+= pie/util.o
+obj-y	+= seccomp.o
 
 ifneq ($(MAKECMDGOALS),clean)
 incdeps := y
