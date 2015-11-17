@@ -76,6 +76,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY_F(ROUTE6,	"route6-%d", O_NOBUF),
 	FD_ENTRY_F(RULE,	"rule-%d", O_NOBUF),
 	FD_ENTRY_F(IPTABLES,	"iptables-%d", O_NOBUF),
+	FD_ENTRY_F(IP6TABLES,	"ip6tables-%d", O_NOBUF),
 	FD_ENTRY_F(TMPFS_IMG,	"tmpfs-%d.tar.gz", O_NOBUF),
 	FD_ENTRY_F(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz", O_NOBUF),
 	FD_ENTRY(TTY_FILES,	"tty"),

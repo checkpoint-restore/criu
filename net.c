@@ -676,8 +676,19 @@ static inline int dump_rule(struct cr_imgset *fds)
 
 static inline int dump_iptables(struct cr_imgset *fds)
 {
-	struct cr_img *img = img_from_set(fds, CR_FD_IPTABLES);
-	return run_iptables_tool("iptables-save", -1, img_raw_fd(img));
+	struct cr_img *img;
+
+	img = img_from_set(fds, CR_FD_IPTABLES);
+	if (run_iptables_tool("iptables-save", -1, img_raw_fd(img)))
+		return -1;
+
+	if (kdat.ipv6) {
+		img = img_from_set(fds, CR_FD_IP6TABLES);
+		if (run_iptables_tool("ip6tables-save", -1, img_raw_fd(img)))
+			return -1;
+	}
+
+	return 0;
 }
 
 static int dump_netns_conf(struct cr_imgset *fds)
@@ -783,6 +794,18 @@ static inline int restore_iptables(int pid)
 		ret = run_iptables_tool("iptables-restore", img_raw_fd(img), -1);
 		close_image(img);
 	}
+	if (ret)
+		return ret;
+
+	img = open_image(CR_FD_IP6TABLES, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img))
+		goto out;
+
+	ret = run_iptables_tool("ip6tables-restore", img_raw_fd(img), -1);
+out:
+	close_image(img);
 
 	return ret;
 }
