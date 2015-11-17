@@ -30,7 +30,6 @@
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
-static int ns_fd = -1;
 static int ns_sysfs_fd = -1;
 
 int read_ns_sys_file(char *path, char *buf, int len)
@@ -463,6 +462,7 @@ enum {
 
 static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 {
+	int ns_fd = get_service_fd(NS_FD_OFF);
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
 	struct veth_pair *n;
@@ -491,6 +491,7 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 
 static int venet_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 {
+	int ns_fd = get_service_fd(NS_FD_OFF);
 	struct rtattr *venet_data;
 
 	BUG_ON(ns_fd < 0);
@@ -929,13 +930,15 @@ int prepare_net_ns(int pid)
 	if (!ret)
 		ret = restore_iptables(pid);
 
-	close(ns_fd);
+	close_service_fd(NS_FD_OFF);
 
 	return ret;
 }
 
 int netns_keep_nsfd(void)
 {
+	int ns_fd, ret;
+
 	if (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
 
@@ -951,8 +954,14 @@ int netns_keep_nsfd(void)
 		return -1;
 	}
 
-	pr_info("Saved netns fd for links restore\n");
-	return 0;
+	ret = install_service_fd(NS_FD_OFF, ns_fd);
+	if (ret < 0)
+		pr_err("Can't install ns net reference\n");
+	else
+		pr_info("Saved netns fd for links restore\n");
+	close(ns_fd);
+
+	return ret >= 0 ? 0 : -1;
 }
 
 int network_lock(void)

@@ -18,6 +18,7 @@ enum sfd_type {
 	ROOT_FD_OFF,	/* Root of the namespace we dump/restore */
 	CGROUP_YARD,
 	USERNSD_SK,	/* Socket for usernsd */
+	NS_FD_OFF,	/* Node's net namespace fd */
 
 	SERVICE_FD_MAX
 };
