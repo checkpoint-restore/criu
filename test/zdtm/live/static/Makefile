@@ -61,8 +61,11 @@ TST_NOFILE	=				\
 		socket_queues02			\
 		socket-tcp			\
 		socket-tcp6			\
+		socket-tcp-local		\
+		socket-tcp6-local		\
 		socket-tcpbuf			\
 		socket-tcpbuf-local		\
+		socket-tcpbuf6-local		\
 		socket-tcpbuf6			\
 		socket-closed-tcp		\
 		sock_opts00			\
@@ -339,6 +342,9 @@ posix_timers:		override LDLIBS += -lrt -pthread
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL
+socket-tcpbuf6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
+socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
+socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt

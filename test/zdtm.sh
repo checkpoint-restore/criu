@@ -147,6 +147,10 @@ generate_test_list()
 		static/dumpable01
 		static/dumpable02
 		static/deleted_dev
+		static/socket-tcpbuf-local
+		static/socket-tcpbuf6-local
+		static/socket-tcp-local
+		static/socket-tcp6-local
 	"
 
 	#
@@ -182,7 +186,6 @@ generate_test_list()
 		streaming/socket-tcp
 		streaming/socket-tcp6
 		static/socket-tcpbuf
-		static/socket-tcpbuf-local
 		static/socket-tcpbuf6
 		static/pty03
 		static/mountpoints

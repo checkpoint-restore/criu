@@ -61,6 +61,10 @@ int main(int argc, char **argv)
 	int val;
 	socklen_t optlen;
 
+#ifdef ZDTM_TCP_LOCAL
+	test_init(argc, argv);
+#endif
+
 	if (pipe(pfd)) {
 		pr_perror("pipe() failed");
 		return 1;
@@ -71,7 +75,9 @@ int main(int argc, char **argv)
 		pr_perror("fork() failed");
 		return 1;
 	} else if (extpid == 0) {
+#ifndef ZDTM_TCP_LOCAL
 		test_ext_init(argc, argv);
+#endif
 
 		close(pfd[1]);
 		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
@@ -115,7 +121,9 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+#ifndef ZDTM_TCP_LOCAL
 	test_init(argc, argv);
+#endif
 
 	if ((fd_s = tcp_init_server(ZDTM_FAMILY, &port)) < 0) {
 		pr_err("initializing server failed\n");
