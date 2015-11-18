@@ -1813,7 +1813,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
-		return -1;
+		goto out;
 
 	if (root_as_sibling) {
 		struct sigaction act;
@@ -1832,7 +1832,7 @@ static int restore_root_task(struct pstree_item *init)
 
 		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
 			pr_perror("Can't attach to init");
-			goto out;
+			goto out_kill;
 		}
 	}
 
@@ -1841,33 +1841,33 @@ static int restore_root_task(struct pstree_item *init)
 	 * prepare_userns_creds() must be called after filling mappings.
 	 */
 	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init))
-		goto out;
+		goto out_kill;
 
 	pr_info("Wait until namespaces are created\n");
 	ret = restore_wait_inprogress_tasks();
 	if (ret)
-		goto out;
+		goto out_kill;
 
 	if (root_ns_mask & CLONE_NEWNS) {
 		mnt_ns_fd = open_proc(init->pid.real, "ns/mnt");
 		if (mnt_ns_fd < 0) {
 			pr_perror("Can't open init's mntns fd");
-			goto out;
+			goto out_kill;
 		}
 	}
 
 	ret = run_scripts(ACT_SETUP_NS);
 	if (ret)
-		goto out;
+		goto out_kill;
 
 	timing_start(TIME_FORK);
 	ret = restore_switch_stage(CR_STATE_RESTORE_SHARED);
 	if (ret < 0)
-		goto out;
+		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)
-		goto out;
+		goto out_kill;
 
 	timing_stop(TIME_FORK);
 
