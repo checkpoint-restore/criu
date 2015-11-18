@@ -423,6 +423,7 @@ void try_clean_remaps(int ns_fd)
 {
 	struct remap_info *ri;
 	int old_ns = -1;
+	int cwd_fd = -1;
 
 	if (list_empty(&remaps))
 		goto out;
@@ -433,6 +434,12 @@ void try_clean_remaps(int ns_fd)
 		old_ns = open_proc(PROC_SELF, "ns/mnt");
 		if (old_ns < 0) {
 			pr_perror("`- Can't keep old ns");
+			return;
+		}
+
+		cwd_fd = open(".", O_DIRECTORY);
+		if (cwd_fd < 0) {
+			pr_perror("Unable to open cwd");
 			return;
 		}
 
@@ -451,6 +458,15 @@ void try_clean_remaps(int ns_fd)
 		if (setns(old_ns, CLONE_NEWNS) < 0)
 			pr_perror("Fail to switch back!");
 		close(old_ns);
+	}
+
+	if (cwd_fd >= 0) {
+		if (fchdir(cwd_fd)) {
+			pr_perror("Unable to restore cwd");
+			close(cwd_fd);
+			return;
+		}
+		close(cwd_fd);
 	}
 
 out:
