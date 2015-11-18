@@ -77,7 +77,7 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(Q) $(RM) -f -r $<.pid $<.out* $<.test
+	$(Q) $(RM) -f -r $<.pid $<.init.pid $<.out* $<.test
 
 cleanout:
 	$(RM) -f *.pid *.out* *.test*
