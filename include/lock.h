@@ -50,7 +50,12 @@ static inline void futex_set(futex_t *f, u32 v)
 				pr_warn("blocked for more than 120 seconds\n"); \
 				continue;			\
 			}					\
-			BUG_ON(ret < 0 && ret != -EWOULDBLOCK);	\
+			if (ret == -EINTR || ret == -EWOULDBLOCK) \
+				continue;			\
+			if (ret < 0) {				\
+				pr_err("futex() returned an unexpected error: %d\n", ret); \
+				BUG();				\
+			}					\
 		}						\
 	} while (0)
 
