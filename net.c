@@ -25,6 +25,8 @@
 #include "pstree.h"
 #include "string.h"
 #include "sysctl.h"
+#include "kerndat.h"
+
 #include "protobuf.h"
 #include "protobuf/netdev.pb-c.h"
 
@@ -641,10 +643,8 @@ static inline int dump_route(struct cr_imgset *fds)
 		return -1;
 
 	/* If ipv6 is disabled, "ip -6 route dump" dumps all routes */
-	if (access("/proc/sys/net/ipv6/", F_OK)) {
-		pr_debug("ipv6 is disabled\n");
+	if (!kdat.ipv6)
 		return 0;
-	}
 
 	img = img_from_set(fds, CR_FD_ROUTE6);
 	if (run_ip_tool("-6", "route", "save", -1, img_raw_fd(img), 0))

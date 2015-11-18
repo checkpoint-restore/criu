@@ -24,6 +24,7 @@ struct kerndat_s {
 	bool has_memfd;
 	bool has_fdinfo_lock;
 	unsigned long task_size;
+	bool ipv6;
 };
 
 extern struct kerndat_s kdat;

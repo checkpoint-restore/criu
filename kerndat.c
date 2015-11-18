@@ -333,6 +333,21 @@ out:
 	return exit_code;
 }
 
+static int get_ipv6()
+{
+	if (access("/proc/sys/net/ipv6", F_OK) < 0) {
+		if (errno == ENOENT) {
+			pr_debug("ipv6 is disabled\n");
+			kdat.ipv6 = false;
+			return 0;
+		}
+		pr_perror("Unable to access /proc/sys/net/ipv6");
+		return -1;
+	}
+	kdat.ipv6 = true;
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -348,6 +363,8 @@ int kerndat_init(void)
 		ret = kerndat_fdinfo_has_lock();
 	if (!ret)
 		ret = get_task_size();
+	if (!ret)
+		ret = get_ipv6();
 
 	kerndat_lsm();
 
@@ -371,6 +388,8 @@ int kerndat_init_rst(void)
 		ret = kerndat_has_memfd_create();
 	if (!ret)
 		ret = get_task_size();
+	if (!ret)
+		ret = get_ipv6();
 
 	kerndat_lsm();
 
