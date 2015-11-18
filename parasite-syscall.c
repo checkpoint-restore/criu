@@ -384,12 +384,12 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
 	int pid, status;
 
-	pr_err("si_code=%d si_pid=%d si_status=%d\n",
-		siginfo->si_code, siginfo->si_pid, siginfo->si_status);
-
 	pid = waitpid(-1, &status, WNOHANG);
 	if (pid <= 0)
 		return;
+
+	pr_err("si_code=%d si_pid=%d si_status=%d\n",
+		siginfo->si_code, siginfo->si_pid, siginfo->si_status);
 
 	if (WIFEXITED(status))
 		pr_err("%d exited with %d unexpectedly\n", pid, WEXITSTATUS(status));
