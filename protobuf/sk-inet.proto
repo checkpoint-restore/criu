@@ -2,6 +2,10 @@ import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
+message ip_opts_entry {
+	optional bool		freebind	= 1;
+}
+
 message inet_sk_entry {
 	/*
 	 * We have two IDs here -- id and ino. The first one
@@ -28,4 +32,5 @@ message inet_sk_entry {
 	required fown_entry		fown		= 13;
 	required sk_opts_entry		opts		= 14;
 	optional bool			v6only		= 15;
+	optional ip_opts_entry		ip_opts		= 16;
 }

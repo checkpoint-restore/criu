@@ -230,10 +230,20 @@ err:
 	return NULL;
 }
 
+static int dump_ip_opts(int sk, IpOptsEntry *ioe)
+{
+	int ret = 0;
+
+	ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+	ioe->has_freebind = ioe->freebind;
+
+	return ret;
+}
 static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int family)
 {
 	struct inet_sk_desc *sk;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
+	IpOptsEntry ipopts = IP_OPTS_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	int ret = -1, err = -1, proto;
 
@@ -272,6 +282,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	ie.fown		= (FownEntry *)&p->fown;
 	ie.opts		= &skopts;
+	ie.ip_opts	= &ipopts;
 
 	ie.n_src_addr = PB_ALEN_INET;
 	ie.n_dst_addr = PB_ALEN_INET;
@@ -297,6 +308,9 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	memcpy(ie.src_addr, sk->src_addr, pb_repeated_size(&ie, src_addr));
 	memcpy(ie.dst_addr, sk->dst_addr, pb_repeated_size(&ie, dst_addr));
+
+	if (dump_ip_opts(lfd, &ipopts))
+		goto err;
 
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
@@ -477,6 +491,15 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	return 0;
 }
 
+int restore_ip_opts(int sk, IpOptsEntry *ioe)
+{
+	int ret = 0;
+
+	if (ioe->has_freebind)
+		ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+
+	return ret;
+}
 static int open_inet_sk(struct file_desc *d)
 {
 	struct inet_sk_info *ii;
@@ -563,6 +586,9 @@ done:
 	futex_dec_and_wake(&ii->port->users);
 
 	if (rst_file_params(sk, ie->fown, ie->flags))
+		goto err;
+
+	if (ie->ip_opts && restore_ip_opts(sk, ie->ip_opts))
 		goto err;
 
 	if (restore_socket_opts(sk, ie->opts))
