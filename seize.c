@@ -71,9 +71,9 @@ static int freezer_restore_state(void)
 	}
 
 	if (write(fd, frozen, sizeof(frozen)) != sizeof(frozen)) {
-			pr_perror("Unable to freeze tasks");
-			close(fd);
-			return -1;
+		pr_perror("Unable to freeze tasks");
+		close(fd);
+		return -1;
 	}
 	close(fd);
 	return 0;
