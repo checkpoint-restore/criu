@@ -765,10 +765,12 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		return -1;
 	}
 
+	cr->sigpnd = 0;
+
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 9) {
+	while (done < 11) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -846,9 +848,20 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 			done++;
 			continue;
 		}
+
+		if (!strncmp(str, "SigPnd:", 7) || !strncmp(str, "ShdPnd:", 7)) {
+			unsigned long long sigpnd;
+
+			if (sscanf(str + 7, "%llx", &sigpnd) != 1)
+				goto err_parse;
+			cr->sigpnd |= sigpnd;
+
+			done++;
+			continue;
+		}
 	}
 
-	if (done >= 8)
+	if (done >= 10)
 		ret = 0;
 
 err_parse:

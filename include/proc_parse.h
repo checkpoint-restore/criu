@@ -92,6 +92,7 @@ struct proc_status_creds {
 
 	char			state;
 	int			ppid;
+	unsigned long long	sigpnd;
 
 	int			seccomp_mode;
 	u32			last_filter;
