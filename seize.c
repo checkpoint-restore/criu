@@ -79,12 +79,93 @@ static int freezer_restore_state(void)
 	return 0;
 }
 
+static int seize_cgroup_tree(char *root_path, const char *state)
+{
+	DIR *dir;
+	struct dirent *de;
+	char path[PATH_MAX];
+	FILE *f;
+
+	/*
+	 * New tasks can appear while a freezer state isn't
+	 * frozen, so we need to catch all new tasks.
+	 */
+	snprintf(path, sizeof(path), "%s/tasks", root_path);
+	f = fopen(path, "r");
+	if (f == NULL) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+	while (fgets(path, sizeof(path), f)) {
+		pid_t pid;
+		int ret;
+
+		pid = atoi(path);
+
+		/*
+		 * Here we are going to skip tasks which are already traced.
+		 * Ptraced tasks looks like children for us, so if
+		 * a task isn't ptraced yet, waitpid() will return a error.
+		 */
+		ret = wait4(pid, NULL, __WALL | WNOHANG, NULL);
+		if (ret == 0)
+			continue;
+
+		if (seize_catch_task(pid) && state == frozen) {
+			char buf[] = "/proc/XXXXXXXXXX/exe";
+			struct stat st;
+
+			/* skip kernel threads */
+			snprintf(buf, sizeof(buf), "/proc/%d/exe", pid);
+			if (stat(buf, &st) == -1 && errno == ENOENT)
+				continue;
+
+			/* fails when meets a zombie */
+			pr_err("zombie found while seizing\n");
+			fclose(f);
+			return -1;
+		}
+	}
+	fclose(f);
+
+	dir = opendir(root_path);
+	if (!dir) {
+		pr_perror("Unable to open %s", root_path);
+		return -1;
+	}
+
+	while ((de = readdir(dir))) {
+		struct stat st;
+
+		if (dir_dots(de))
+			continue;
+
+		sprintf(path, "%s/%s", root_path, de->d_name);
+
+		if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
+			pr_perror("stat of %s failed", path);
+			closedir(dir);
+			return -1;
+		}
+
+		if (!S_ISDIR(st.st_mode))
+			continue;
+
+		if (seize_cgroup_tree(path, state) < 0) {
+			closedir(dir);
+			return -1;
+		}
+	}
+	closedir(dir);
+
+	return 0;
+}
+
 static int freeze_processes(void)
 {
-	int i, ret, fd, exit_code = -1;
+	int i, fd, exit_code = -1;
 	char path[PATH_MAX];
 	const char *state = thawed;
-	FILE *f;
 
 	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
 	fd = open(path, O_RDWR);
@@ -117,45 +198,8 @@ static int freeze_processes(void)
 		struct timespec req = {};
 		u64 timeout;
 
-		/*
-		 * New tasks can appear while a freezer state isn't
-		 * frozen, so we need to catch all new tasks.
-		 */
-		snprintf(path, sizeof(path), "%s/tasks", opts.freeze_cgroup);
-		f = fopen(path, "r");
-		if (f == NULL) {
-			pr_perror("Unable to open %s", path);
+		if (seize_cgroup_tree(opts.freeze_cgroup, state) < 0)
 			goto err;
-		}
-		while (fgets(path, sizeof(path), f)) {
-			pid_t pid;
-
-			pid = atoi(path);
-
-			/*
-			 * Here we are going to skip tasks which are already traced.
-			 * Ptraced tasks looks like children for us, so if
-			 * a task isn't ptraced yet, waitpid() will return a error.
-			 */
-			ret = wait4(pid, NULL, __WALL | WNOHANG, NULL);
-			if (ret == 0)
-				continue;
-
-			if (seize_catch_task(pid) && state == frozen) {
-				char buf[] = "/proc/XXXXXXXXXX/exe";
-				struct stat st;
-
-				/* skip kernel threads */
-				snprintf(buf, sizeof(buf), "/proc/%d/exe", pid);
-				if (stat(buf, &st) == -1 && errno == ENOENT)
-					continue;
-
-				/* fails when meets a zombie */
-				fclose(f);
-				goto err;
-			}
-		}
-		fclose(f);
 
 		if (state == frozen)
 			break;
