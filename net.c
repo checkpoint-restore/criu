@@ -964,6 +964,86 @@ int netns_keep_nsfd(void)
 	return ret >= 0 ? 0 : -1;
 }
 
+/*
+ * If we want to modify iptables, we need to recevied the current
+ * configuration, change it and load a new one into the kernel.
+ * iptables can change or add only one rule.
+ * iptables-restore allows to make a few changes for one iteration,
+ * so it works faster.
+ */
+static int iptables_restore(bool ipv6, char *buf, int size)
+{
+	int pfd[2], ret = -1;
+	char *cmd4[] = {"iptables-restore",  "--noflush", NULL};
+	char *cmd6[] = {"ip6tables-restore", "--noflush", NULL};
+	char **cmd = ipv6 ? cmd6 : cmd4;;
+
+	if (pipe(pfd) < 0) {
+		pr_perror("Unable to create pipe");
+		return -1;
+	}
+
+	if (write(pfd[1], buf, size) < size) {
+		pr_perror("Unable to write iptables configugration");
+		goto err;
+	}
+	close_safe(&pfd[1]);
+
+	ret = cr_system(pfd[0], -1, -1, cmd[0], cmd, 0);
+err:
+	close_safe(&pfd[1]);
+	close_safe(&pfd[0]);
+	return ret;
+}
+
+static int network_lock_internal()
+{
+	char conf[] =	"*filter\n"
+				":CRIU - [0:0]\n"
+				"-I INPUT -j CRIU\n"
+				"-I OUTPUT -j CRIU\n"
+				"-A CRIU -j DROP\n"
+				"COMMIT\n";
+	int ret = 0, nsret;
+
+	if (switch_ns(root_item->pid.real, &net_ns_desc, &nsret))
+		return -1;
+
+
+	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
+	if (kdat.ipv6)
+		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+
+	if (restore_ns(nsret, &net_ns_desc))
+		ret = -1;
+
+	return ret;
+}
+
+static int network_unlock_internal()
+{
+	char conf[] =	"*filter\n"
+			":CRIU - [0:0]\n"
+			"-D INPUT -j CRIU\n"
+			"-D OUTPUT -j CRIU\n"
+			"-X CRIU\n"
+			"COMMIT\n";
+	int ret = 0, nsret;
+
+	if (switch_ns(root_item->pid.real, &net_ns_desc, &nsret))
+		return -1;
+
+
+	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
+	if (kdat.ipv6)
+		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+
+	if (restore_ns(nsret, &net_ns_desc))
+		ret = -1;
+
+	return ret;
+}
+
 int network_lock(void)
 {
 	pr_info("Lock network\n");
@@ -972,7 +1052,10 @@ int network_lock(void)
 	if  (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
 
-	return run_scripts(ACT_NET_LOCK);
+	if (run_scripts(ACT_NET_LOCK))
+		return -1;
+
+	return network_lock_internal();
 }
 
 void network_unlock(void)
@@ -982,8 +1065,10 @@ void network_unlock(void)
 	cpt_unlock_tcp_connections();
 	rst_unlock_tcp_connections();
 
-	if (root_ns_mask & CLONE_NEWNET)
+	if (root_ns_mask & CLONE_NEWNET) {
 		run_scripts(ACT_NET_UNLOCK);
+		network_unlock_internal();
+	}
 }
 
 int veth_pair_add(char *in, char *out)
