@@ -193,10 +193,16 @@ try_again:
 	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
-	if (si.si_signo == SIGTRAP)
-		return TASK_ALIVE;
-	else if (si.si_signo == SIGSTOP) {
+	if (cr.sigpnd & (1 << (SIGSTOP - 1)) || si.si_signo == SIGSTOP) {
 		/*
+		 * 1) SIGSTOP is queued, but isn't handled yet:
+		 * SGISTOP can't be blocked, so we need to wait when the kernel
+		 * handles this signal.
+		 *
+		 * Otherwise the process will be stopped immediatly after
+		 * starting it.
+		 *
+		 * 2) A seized task was stopped:
 		 * PTRACE_SEIZE doesn't affect signal or group stop state.
 		 * Currently ptrace reported that task is in stopped state.
 		 * We need to start task again, and it will be trapped
@@ -225,7 +231,11 @@ try_again:
 		}
 
 		return TASK_STOPPED;
-	} else {
+	}
+
+	if (si.si_signo == SIGTRAP)
+		return TASK_ALIVE;
+	else {
 		pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
 		goto err;
 	}
