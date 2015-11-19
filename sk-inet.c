@@ -634,15 +634,48 @@ static int restore_sockaddr(union sockaddr_inet *sa,
 
 int inet_bind(int sk, struct inet_sk_info *ii)
 {
+	bool rst_freebind = false;
 	union sockaddr_inet addr;
 	int addr_size;
 
 	addr_size = restore_sockaddr(&addr, ii->ie->family,
 			ii->ie->src_port, ii->ie->src_addr);
 
+	/*
+	 * ipv6 addresses go through a “tentative” phase and
+	 * sockets could not be bound to them in this moment
+	 * without setting IP_FREEBIND.
+	 */
+	if (ii->ie->family == AF_INET6) {
+		int yes = 1;
+
+		if (restore_opt(sk, SOL_IP, IP_FREEBIND, &yes))
+			return -1;
+
+		if (ii->ie->ip_opts && ii->ie->ip_opts->freebind)
+			/*
+			 * The right value is already set, so
+			 * don't need to restore it in restore_ip_opts()
+			 */
+			ii->ie->ip_opts->has_freebind = false;
+		else
+			rst_freebind = true;
+	}
+
 	if (bind(sk, (struct sockaddr *)&addr, addr_size) == -1) {
 		pr_perror("Can't bind inet socket");
 		return -1;
+	}
+
+	if (rst_freebind) {
+		int no = 0;
+
+		/*
+		 * The "no" value is default, so it will not be
+		 * restore in restore_ip_opts()
+		 */
+		if (restore_opt(sk, SOL_IP, IP_FREEBIND, &no))
+			return -1;
 	}
 
 	return 0;
