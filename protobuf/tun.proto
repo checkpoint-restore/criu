@@ -1,5 +1,4 @@
 import "opts.proto";
-import "fown.proto";
 
 message tunfile_entry {
 	required uint32		id		= 1;
