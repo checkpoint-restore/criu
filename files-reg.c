@@ -361,7 +361,8 @@ static int prepare_one_remap(struct remap_info *ri)
 		ret = open_remap_ghost(rfi, rfe);
 		break;
 	case REMAP_TYPE__PROCFS:
-		ret = open_remap_dead_process(rfi, rfe);
+		/* handled earlier by prepare_procfs_remaps */
+		ret = 0;
 		break;
 	default:
 		pr_err("unknown remap type %u\n", rfe->remap_type);
@@ -370,6 +371,31 @@ static int prepare_one_remap(struct remap_info *ri)
 
 out:
 	return ret;
+}
+
+/* We separate the prepartion of PROCFS remaps because they allocate pstree
+ * items, which need to be seen by the root task. We can't do all remaps here,
+ * because the files haven't been loaded yet.
+ */
+int prepare_procfs_remaps(void)
+{
+	struct remap_info *ri;
+
+	list_for_each_entry(ri, &remaps, list) {
+		RemapFilePathEntry *rfe = ri->rfe;
+		struct reg_file_info *rfi = ri->rfi;
+
+		switch (rfe->remap_type) {
+		case REMAP_TYPE__PROCFS:
+			if (open_remap_dead_process(rfi, rfe) < 0)
+				return -1;
+			break;
+		default:
+			continue;
+		}
+	}
+
+	return 0;
 }
 
 int prepare_remaps(void)
