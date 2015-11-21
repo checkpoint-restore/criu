@@ -758,6 +758,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 	int done = 0;
 	int ret = -1;
 	char *str;
+	bool parsed_seccomp = false;
 
 	f.fd = open_proc(pid, "status");
 	if (f.fd < 0) {
@@ -845,6 +846,7 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 			}
 
+			parsed_seccomp = true;
 			done++;
 			continue;
 		}
@@ -861,7 +863,8 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 		}
 	}
 
-	if (done >= 10)
+	/* seccomp is optional */
+	if (done >= 10 || (done == 9 && !parsed_seccomp))
 		ret = 0;
 
 err_parse:
