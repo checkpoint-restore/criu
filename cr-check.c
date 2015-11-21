@@ -13,7 +13,6 @@
 #include <signal.h>
 #include <linux/if.h>
 #include <linux/filter.h>
-#include <linux/bpf.h>
 #include <linux/seccomp.h>
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
