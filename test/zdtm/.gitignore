@@ -203,6 +203,11 @@
 /live/static/file_locks05
 /live/static/mlock_setuid
 /live/static/mntns_root_bind
+/live/static/mntns-deleted-dst
+/live/static/socket-tcp-local
+/live/static/socket-tcp6-local
+/live/static/socket-tcpbuf6-local
+/live/static/tempfs_subns
 /live/streaming/fifo_dyn
 /live/streaming/fifo_loop
 /live/streaming/file_aio
