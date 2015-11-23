@@ -217,7 +217,7 @@ static int freeze_processes(void)
 			continue;
 		}
 
-		timeout = 10000000 * i;
+		timeout = 100000000 * (i + 1); /* 100 msec */
 		req.tv_nsec = timeout % 1000000000;
 		req.tv_sec = timeout / 1000000000;
 		nanosleep(&req, NULL);
