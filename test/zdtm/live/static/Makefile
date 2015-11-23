@@ -31,6 +31,8 @@ TST_NOFILE	=				\
 		socket_listen6			\
 		socket_udp			\
 		socket6_udp			\
+		sk-freebind			\
+		sk-freebind-false		\
 		socket_udplite			\
 		socket_aio			\
 		socket_close_data		\
@@ -354,6 +356,7 @@ maps02:		get_smaps_bits.o
 mlock_setuid:		get_smaps_bits.o
 inotify01:		override CFLAGS += -DINOTIFY01
 unlink_fstat01+:	override CFLAGS += -DUNLINK_OVER
+sk-freebind-false:	override CFLAGS += -DZDTM_FREEBIND_FALSE
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
