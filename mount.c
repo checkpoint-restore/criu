@@ -1250,8 +1250,12 @@ static int tmpfs_restore(struct mount_info *pm)
 		close_image(img);
 		img = open_image(CR_FD_TMPFS_IMG, O_RSTR, pm->mnt_id);
 	}
-	if (!img || empty_image(img))
+	if (!img)
 		return -1;
+	if (empty_image(img)) {
+		close_image(img);
+		return -1;
+	}
 
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]) {"tar", "--extract", "--gzip",

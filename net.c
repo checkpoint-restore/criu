@@ -729,8 +729,10 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 	struct cr_img *img;
 
 	img = open_image(type, O_RSTR, pid);
-	if (empty_image(img))
+	if (empty_image(img)) {
+		close_image(img);
 		return 0;
+	}
 	if (img) {
 		ret = run_ip_tool(cmd, "restore", NULL, img_raw_fd(img), -1, 0);
 		close_image(img);
