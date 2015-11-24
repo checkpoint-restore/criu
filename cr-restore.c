@@ -1516,7 +1516,7 @@ static int restore_task_with_children(void *_arg)
 	if (!(ca->clone_flags & CLONE_FILES)) {
 		ret = close_old_fds(current);
 		if (ret)
-			goto err_fini_mnt;
+			goto err;
 	}
 
 	/* Restore root task */
@@ -1530,23 +1530,23 @@ static int restore_task_with_children(void *_arg)
 		 * Thus -- mount proc at custom location for any new namespace
 		 */
 		if (mount_proc())
-			goto err_fini_mnt;
+			goto err;
 
 		if (prepare_namespace(current, ca->clone_flags))
-			goto err_fini_mnt;
+			goto err;
 
 		if (root_prepare_shared())
-			goto err_fini_mnt;
+			goto err;
 
 		if (restore_finish_stage(CR_STATE_RESTORE_SHARED) < 0)
-			goto err_fini_mnt;
+			goto err;
 	}
 
 	if (restore_task_mnt_ns(current))
-		goto err_fini_mnt;
+		goto err;
 
 	if (prepare_mappings())
-		goto err_fini_mnt;
+		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
@@ -1555,10 +1555,10 @@ static int restore_task_with_children(void *_arg)
 	 * just have it inherited.
 	 */
 	if (prepare_task_cgroup(current) < 0)
-		goto err_fini_mnt;
+		goto err;
 
 	if (prepare_sigactions() < 0)
-		goto err_fini_mnt;
+		goto err;
 
 	if (fault_injected(FI_RESTORE_ROOT_ONLY)) {
 		pr_info("fault: Restore root task failure!\n");
@@ -1566,16 +1566,16 @@ static int restore_task_with_children(void *_arg)
 	}
 
 	if (create_children_and_session())
-		goto err_fini_mnt;
+		goto err;
 
 
 	if (unmap_guard_pages())
-		goto err_fini_mnt;
+		goto err;
 
 	restore_pgid();
 
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
-		goto err_fini_mnt;
+		goto err;
 
 	if (current->parent == NULL) {
 		if (depopulate_roots_yard())
@@ -1589,7 +1589,6 @@ static int restore_task_with_children(void *_arg)
 
 	return 0;
 
-err_fini_mnt:
 err:
 	if (current->parent == NULL)
 		futex_abort_and_wake(&task_entries->nr_in_progress);
