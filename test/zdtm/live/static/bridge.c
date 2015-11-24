@@ -8,6 +8,8 @@
 #include <sys/mount.h>
 #include <linux/limits.h>
 #include <signal.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 #include "zdtmtst.h"
 
 const char *test_doc	= "check that empty bridges are c/r'd correctly";
@@ -21,6 +23,10 @@ int add_bridge(void)
 		return -1;
 
 	if (system("ip addr add 10.0.55.55/32 dev " BRIDGE_NAME))
+		return -1;
+
+	/* use a link local address so we can test scope_id change */
+	if (system("ip addr add fe80:4567::1/64 nodad dev " BRIDGE_NAME))
 		return -1;
 
 	if (system("ip link set " BRIDGE_NAME " up"))
@@ -43,10 +49,33 @@ int del_bridge(void)
 int main(int argc, char **argv)
 {
 	int ret = 1;
+	struct sockaddr_in6 addr;
+	int sk;
+
 	test_init(argc, argv);
 
 	if (add_bridge() < 0)
 		return 1;
+
+	sk = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		fail("can't get socket");
+		goto out;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sin6_port = htons(0);
+	addr.sin6_family = AF_INET6;
+	if (inet_pton(AF_INET6, "fe80:4567::1", &addr.sin6_addr) < 0) {
+		fail("can't convert inet6 addr");
+		goto out;
+	}
+	addr.sin6_scope_id = if_nametoindex(BRIDGE_NAME);
+
+	if (bind(sk, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+		fail("can't bind");
+		goto out;
+	}
 
 	/* Here, we grep for inet because some of the IPV6 DAD stuff can be
 	 * racy, and all we really care about is that the bridge got restored
@@ -55,7 +84,7 @@ int main(int argc, char **argv)
 	 * (I got this race with zdtm.py, but not with zdtm.sh; not quite sure
 	 * what the environment difference is/was.)
 	 */
-	if (system("ip addr list dev " BRIDGE_NAME " | grep inet > bridge.dump.test")) {
+	if (system("ip addr list dev " BRIDGE_NAME " | grep inet | sort > bridge.dump.test")) {
 		pr_perror("can't save net config");
 		fail("Can't save net config");
 		goto out;
@@ -64,7 +93,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (system("ip addr list dev " BRIDGE_NAME " | grep inet > bridge.rst.test")) {
+	if (system("ip addr list dev " BRIDGE_NAME " | grep inet | sort > bridge.rst.test")) {
 		fail("Can't get net config");
 		goto out;
 	}
