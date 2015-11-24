@@ -108,6 +108,7 @@ class ns_flavor:
 		self.ns = True
 		self.uns = False
 		self.root = make_tests_root()
+		self.root_mounted = False
 
 	def __copy_one(self, fname):
 		if not os.access(fname, os.F_OK):
@@ -143,6 +144,7 @@ class ns_flavor:
 
 	def init(self, test_bin, deps):
 		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
+		self.root_mounted = True
 
 		if not os.access(self.root + "/.constructed", os.F_OK):
 			with open(os.path.abspath(__file__)) as o:
@@ -165,8 +167,10 @@ class ns_flavor:
 			self.__copy_libs(dep)
 
 	def fini(self):
-		subprocess.check_call(["mount", "--make-private", self.root])
-		subprocess.check_call(["umount", "-l", self.root])
+		if self.root_mounted:
+			subprocess.check_call(["mount", "--make-private", self.root])
+			subprocess.check_call(["umount", "-l", self.root])
+			self.root_mounted = False
 
 class userns_flavor(ns_flavor):
 	def __init__(self, opts):
