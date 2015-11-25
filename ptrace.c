@@ -31,11 +31,22 @@ int unseize_task(pid_t pid, int orig_st, int st)
 		kill(pid, SIGKILL);
 		return 0;
 	} else if (st == TASK_STOPPED) {
-		if (orig_st == TASK_ALIVE)
-			kill(pid, SIGSTOP);
-		/* PTRACE_SEIZE will restore state of other tasks */
+		/*
+		 * Task might have had STOP in queue. We detected such
+		 * guy as TASK_STOPPED, but cleared signal to run the
+		 * parasite code. hus after detach the task will become
+		 * running. That said -- STOP everyone regardless of
+		 * the initial state.
+		 */
+		kill(pid, SIGSTOP);
 	} else if (st == TASK_ALIVE) {
-		/* do nothing */ ;
+		/*
+		 * Same as in the comment above -- there might be a
+		 * task with STOP in queue that would get lost after
+		 * detach, so stop it again.
+		 */
+		if (orig_st == TASK_STOPPED)
+			kill(pid, SIGSTOP);
 	} else
 		pr_err("Unknown final state %d\n", st);
 
