@@ -204,7 +204,7 @@ try_again:
 	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
-	if (cr.sigpnd & (1 << (SIGSTOP - 1)) || si.si_signo == SIGSTOP) {
+	if ((cr.sigpnd | cr.shdpnd) & (1 << (SIGSTOP - 1)) || si.si_signo == SIGSTOP) {
 		/*
 		 * 1) SIGSTOP is queued, but isn't handled yet:
 		 * SGISTOP can't be blocked, so we need to wait when the kernel
