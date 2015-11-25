@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <unistd.h>
+#include <syscall.h>
 #include <sys/wait.h>
 
 #include "zdtmtst.h"
@@ -38,6 +40,16 @@ int main(int argc, char **argv)
 	close(p[0]);
 
 	kill(pid, SIGSTOP);
+	if (waitid(P_PID, pid, NULL, WNOWAIT | WSTOPPED) < 0) {
+		pr_perror("waitid");
+		return 1;
+	}
+#ifdef ZDTM_STOPPED_TKILL
+	syscall(__NR_tkill, pid, SIGSTOP);
+#endif
+#ifdef ZDTM_STOPPED_KILL
+	kill(pid, SIGSTOP);
+#endif
 
 	write(p[1], "0", 1);
 	close(p[1]);

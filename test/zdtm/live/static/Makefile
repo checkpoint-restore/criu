@@ -123,6 +123,9 @@ TST_NOFILE	=				\
 		grow_map03			\
 		tun				\
 		stopped				\
+		stopped01			\
+		stopped02			\
+		stopped03			\
 		rtc				\
 		clean_mntns			\
 		mntns_rw_ro_rw			\
@@ -357,6 +360,9 @@ mlock_setuid:		get_smaps_bits.o
 inotify01:		override CFLAGS += -DINOTIFY01
 unlink_fstat01+:	override CFLAGS += -DUNLINK_OVER
 sk-freebind-false:	override CFLAGS += -DZDTM_FREEBIND_FALSE
+stopped01:	override CFLAGS += -DZDTM_STOPPED_KILL
+stopped02:	override CFLAGS += -DZDTM_STOPPED_TKILL
+stopped12:	override CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
