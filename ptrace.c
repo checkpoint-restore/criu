@@ -102,6 +102,45 @@ int seize_catch_task(pid_t pid)
 	return ret;
 }
 
+static int skip_sigstop(int pid, int nr_signals)
+{
+	int i, status, ret;
+
+	/*
+	 * 1) SIGSTOP is queued, but isn't handled yet:
+	 * SGISTOP can't be blocked, so we need to wait when the kernel
+	 * handles this signal.
+	 *
+	 * Otherwise the process will be stopped immediatly after
+	 * starting it.
+	 *
+	 * 2) A seized task was stopped:
+	 * PTRACE_SEIZE doesn't affect signal or group stop state.
+	 * Currently ptrace reported that task is in stopped state.
+	 * We need to start task again, and it will be trapped
+	 * immediately, because we sent PTRACE_INTERRUPT to it.
+	 */
+	for (i = 0; i < nr_signals; i++) {
+		ret = ptrace(PTRACE_CONT, pid, 0, 0);
+		if (ret) {
+			pr_perror("Unable to start process");
+			return -1;
+		}
+
+		ret = wait4(pid, &status, __WALL, NULL);
+		if (ret < 0) {
+			pr_perror("SEIZE %d: can't wait task", pid);
+			return -1;
+		}
+
+		if (!WIFSTOPPED(status)) {
+			pr_err("SEIZE %d: task not stopped after seize\n", pid);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
@@ -112,7 +151,7 @@ int seize_catch_task(pid_t pid)
 int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
 {
 	siginfo_t si;
-	int status;
+	int status, nr_sigstop;
 	int ret = 0, ret2, wait_errno = 0;
 	struct proc_status_creds cr;
 
@@ -204,42 +243,17 @@ try_again:
 	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
-	if ((cr.sigpnd | cr.shdpnd) & (1 << (SIGSTOP - 1)) || si.si_signo == SIGSTOP) {
-		/*
-		 * 1) SIGSTOP is queued, but isn't handled yet:
-		 * SGISTOP can't be blocked, so we need to wait when the kernel
-		 * handles this signal.
-		 *
-		 * Otherwise the process will be stopped immediatly after
-		 * starting it.
-		 *
-		 * 2) A seized task was stopped:
-		 * PTRACE_SEIZE doesn't affect signal or group stop state.
-		 * Currently ptrace reported that task is in stopped state.
-		 * We need to start task again, and it will be trapped
-		 * immediately, because we sent PTRACE_INTERRUPT to it.
-		 */
-		ret = ptrace(PTRACE_CONT, pid, 0, 0);
-		if (ret) {
-			pr_perror("Unable to start process");
-			goto err_stop;
-		}
+	nr_sigstop = 0;
+	if (cr.sigpnd & (1 << (SIGSTOP - 1)))
+		nr_sigstop++;
+	if (cr.shdpnd & (1 << (SIGSTOP - 1)))
+		nr_sigstop++;
+	if (si.si_signo == SIGSTOP)
+		nr_sigstop++;
 
-		ret = wait4(pid, &status, __WALL, NULL);
-		if (ret < 0) {
-			pr_perror("SEIZE %d: can't wait task", pid);
+	if (nr_sigstop) {
+		if (skip_sigstop(pid, nr_sigstop))
 			goto err_stop;
-		}
-
-		if (ret != pid) {
-			pr_err("SEIZE %d: wrong task attached (%d)\n", pid, ret);
-			goto err_stop;
-		}
-
-		if (!WIFSTOPPED(status)) {
-			pr_err("SEIZE %d: task not stopped after seize\n", pid);
-			goto err_stop;
-		}
 
 		return TASK_STOPPED;
 	}
