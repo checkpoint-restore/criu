@@ -142,6 +142,7 @@ TST_NOFILE	=				\
 		different_creds			\
 		vsx				\
 		bridge				\
+		vfork00				\
 #		jobctl00			\
 
 TST_FILE	=				\
