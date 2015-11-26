@@ -471,6 +471,7 @@ void try_clean_remaps(int ns_fd)
 
 		if (setns(ns_fd, CLONE_NEWNS) < 0) {
 			close(old_ns);
+			close(cwd_fd);
 			pr_perror("`- Can't switch");
 			return;
 		}
