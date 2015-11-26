@@ -32,13 +32,14 @@ int main(int argc, char **argv)
 	test_daemon();
 	while (test_go()) {
 		unsigned pfn;
+		struct timespec req = { .tv_sec = 0, .tv_nsec = 100000, };
 
 		pfn = random() % MEM_PAGES;
 		*(unsigned *)(mem + pfn * PAGE_SIZE) = rover;
 		backup[pfn] = rover;
 		test_msg("t %u %u\n", pfn, rover);
 		rover++;
-		sleep(1);
+		nanosleep(&req, NULL);
 	}
 	test_waitsig();
 

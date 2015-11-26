@@ -474,6 +474,7 @@ class criu_cli:
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__fault = (opts['fault'])
 		self.__sat = (opts['sat'] and True or False)
+		self.__dedup = (opts['dedup'] and True or False)
 
 	def logs(self):
 		return self.__dump_path
@@ -545,11 +546,18 @@ class criu_cli:
 
 		if self.__page_server:
 			print "Adding page server"
-			self.__criu_act("page-server", opts = [ "--port", "12345", \
-					"--daemon", "--pidfile", "ps.pid"])
+
+			ps_opts = [ "--port", "12345", "--daemon", "--pidfile", "ps.pid" ]
+			if self.__dedup:
+				ps_opts += [ "--auto-dedup" ]
+
+			self.__criu_act("page-server", opts = ps_opts)
 			a_opts += ["--page-server", "--address", "127.0.0.1", "--port", "12345"]
 
 		a_opts += self.__test.getdopts()
+
+		if self.__dedup:
+			a_opts += [ "--auto-dedup" ]
 
 		self.__criu_act(action, opts = a_opts + opts)
 
@@ -733,7 +741,8 @@ class launcher:
 		self.__nr += 1
 		self.__show_progress()
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'fault', 'keep_img', 'report', 'snaps', 'sat')
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'dedup')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 		log = name.replace('/', '_') + ".log"
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
@@ -951,6 +960,7 @@ rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action
 rp.add_argument("--sibling", help = "Restore tests as siblings", action = 'store_true')
 rp.add_argument("--pre", help = "Do some pre-dumps before dump (n[:pause])")
 rp.add_argument("--snaps", help = "Instead of pre-dumps do full dumps", action = 'store_true')
+rp.add_argument("--dedup", help = "Auto-deduplicate images on iterations", action = 'store_true')
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
