@@ -536,7 +536,7 @@ static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 {
 	pid_t pid;
 	int sk_pair[2], sk;
-	char c;
+	char c = 0;
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
 		pr_perror("socketpair");
