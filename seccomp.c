@@ -97,8 +97,10 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 
 		info->filter.filter.len = len * sizeof(struct sock_filter);
 		info->filter.filter.data = xmalloc(info->filter.filter.len);
-		if (!info->filter.filter.data)
+		if (!info->filter.filter.data) {
+			xfree(info);
 			goto out;
+		}
 
 		memcpy(info->filter.filter.data, buf, info->filter.filter.len);
 
