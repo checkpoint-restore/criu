@@ -102,14 +102,15 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 
 		pid = atoi(path);
 
-		/*
-		 * Here we are going to skip tasks which are already traced.
-		 * Ptraced tasks looks like children for us, so if
-		 * a task isn't ptraced yet, waitpid() will return a error.
-		 */
-		ret = wait4(pid, NULL, __WALL | WNOHANG, NULL);
+		/* Here we are going to skip tasks which are already traced. */
+		ret = ptrace(PTRACE_INTERRUPT, pid, NULL, NULL);
 		if (ret == 0)
 			continue;
+		if (errno != ESRCH) {
+			pr_perror("Unexpected error");
+			fclose(f);
+			return -1;
+		}
 
 		if (seize_catch_task(pid) && state == frozen) {
 			char buf[] = "/proc/XXXXXXXXXX/exe";
