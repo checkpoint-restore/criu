@@ -142,6 +142,7 @@
 /live/static/socket6_udp
 /live/static/socket_aio
 /live/static/socket_close_data
+/live/static/socket_close_data01
 /live/static/socket_dgram_data
 /live/static/socket_listen
 /live/static/socket_listen6
