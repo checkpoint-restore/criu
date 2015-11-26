@@ -2650,6 +2650,9 @@ void fini_restore_mntns(void)
 {
 	struct ns_id *nsid;
 
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return;
+
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
