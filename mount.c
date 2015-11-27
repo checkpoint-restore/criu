@@ -2637,7 +2637,7 @@ int restore_task_mnt_ns(struct pstree_item *current)
 			return -1;
 		}
 
-		BUG_ON(nsid->type != NS_OTHER);
+		BUG_ON(nsid->type == NS_CRIU);
 
 		if (do_restore_task_mnt_ns(nsid, current))
 			return -1;
@@ -2655,8 +2655,6 @@ void fini_restore_mntns(void)
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &mnt_ns_desc)
-			continue;
-		if (root_item->ids->mnt_ns_id == nsid->id)
 			continue;
 		close(nsid->mnt.ns_fd);
 	}
@@ -2856,8 +2854,13 @@ int prepare_mnt_ns(void)
 
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
-		if (root_item->ids->mnt_ns_id == nsid->id)
+		if (nsid->type == NS_ROOT) {
+			/* Pin one with a file descriptor */
+			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
+			if (nsid->mnt.ns_fd < 0)
+				goto err;
 			continue;
+		}
 
 		/* Create the new mount namespace */
 		if (unshare(CLONE_NEWNS)) {
