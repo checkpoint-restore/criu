@@ -52,6 +52,13 @@ int main(int argc, char **argv)
 				sleep(1);
 			return 1;
 		}
+		pid = fork();
+		if (pid == 0) {
+			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+			while (1)
+				sleep(1);
+			return 1;
+		}
 		if (unshare(CLONE_NEWNS)) {
 			pr_perror("unshare");
 			return 1;
