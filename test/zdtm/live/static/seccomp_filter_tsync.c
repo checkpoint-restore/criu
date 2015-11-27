@@ -7,7 +7,6 @@
 #include <linux/seccomp.h>
 #include <linux/filter.h>
 #include <linux/limits.h>
-#include <linux/bpf.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
