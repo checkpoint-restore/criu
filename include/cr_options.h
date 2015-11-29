@@ -75,6 +75,7 @@ struct cr_options {
 	struct list_head	ext_mounts;
 	struct list_head	inherit_fds;
 	char			*libdir;
+	char			*tmpdir;
 	bool			use_page_server;
 	unsigned short		ps_port;
 	char			*addr;

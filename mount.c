@@ -1057,9 +1057,7 @@ int open_mount(unsigned int s_dev)
 static int open_mountpoint(struct mount_info *pm)
 {
 	int fd = -1, ns_old = -1;
-	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
-	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
-	char *mnt_path = mnt_path_tmp;
+	char *mnt_path = mkdtemp(strcat(opts.tmpdir, "/cr-tmpfs.XXXXXX"));
 	int cwd_fd;
 
 	/*
@@ -1088,10 +1086,7 @@ static int open_mountpoint(struct mount_info *pm)
 	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0)
 		goto out;
 
-	mnt_path = mkdtemp(mnt_path_tmp);
-	if (mnt_path == NULL && errno == ENOENT)
-		mnt_path = mkdtemp(mnt_path_root);
-	if (mnt_path == NULL) {
+	if (!mnt_path) {
 		pr_perror("Can't create a temporary directory");
 		goto out;
 	}

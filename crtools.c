@@ -200,7 +200,9 @@ int main(int argc, char *argv[], char *envp[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::x::Vr:jlW:L:M:";
+	struct stat tmpst;
+	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::x::Vr:jlW:L\
+					  :M:T";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
 		{ "pid",			required_argument,	0, 'p'	},
@@ -253,6 +255,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "freeze-cgroup",		required_argument,	0, 1068 },
 		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
+		{ "tmp-dir",			optional_argument,	0, 'T'  },
 		{ },
 	};
 
@@ -516,6 +519,8 @@ int main(int argc, char *argv[], char *envp[])
 					return 1;
 			}
 			break;
+		case 'T':
+			opts.tmpdir = optarg;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -541,6 +546,16 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (work_dir == NULL)
 		work_dir = imgs_dir;
+
+	if (!opts.tmpdir) {
+		opts.tmpdir = "/tmp";
+	}
+
+	if (stat(opts.tmpdir, &tmpst) || !(S_ISDIR(tmpst.st_mode))
+	    || !(S_IRWXU & tmpst.st_mode)) {
+		pr_perror("%s is not a valid directory", opts.tmpdir);
+		return 1;
+	}
 
 	if (optind >= argc) {
 		pr_msg("Error: command is required\n");
