@@ -240,6 +240,26 @@ static int dump_ip_opts(int sk, IpOptsEntry *ioe)
 
 	return ret;
 }
+
+/* Stolen from the kernel's __ipv6_addr_type/__ipv6_addr_needs_scopeid;
+ * link local and (multicast + loopback + linklocal) addrs require a
+ * scope id.
+ */
+#define IPV6_ADDR_SCOPE_NODELOCAL       0x01
+#define IPV6_ADDR_SCOPE_LINKLOCAL       0x02
+static bool needs_scope_id(uint32_t *src_addr)
+{
+	if ((src_addr[0] & htonl(0xFF00000)) == htonl(0xFF000000)) {
+		if (src_addr[1] & (IPV6_ADDR_SCOPE_LINKLOCAL|IPV6_ADDR_SCOPE_NODELOCAL))
+			return true;
+	}
+
+	if ((src_addr[0] & htonl(0xFFC00000)) == htonl(0xFE800000))
+		return true;
+
+	return false;
+}
+
 static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int family)
 {
 	struct inet_sk_desc *sk;
@@ -304,17 +324,20 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 		/* ifindex only matters on source ports for bind, so let's
 		 * find only that ifindex. */
-		if (getsockopt(lfd, SOL_SOCKET, SO_BINDTODEVICE, device, &len) < 0) {
-			pr_perror("can't get ifname");
-			goto err;
-		}
-
-		if (len > 0) {
-			ie.ifname = xstrdup(device);
-			if (!ie.ifname)
+		if (sk->src_port && needs_scope_id(sk->src_addr)) {
+			if (getsockopt(lfd, SOL_SOCKET, SO_BINDTODEVICE, device, &len) < 0) {
+				pr_perror("can't get ifname");
 				goto err;
-		} else {
-			pr_warn("couldn't find ifname for %d, can't bind\n", id);
+			}
+
+			if (len > 0) {
+				ie.ifname = xstrdup(device);
+				if (!ie.ifname)
+					goto err;
+			} else {
+				pr_err("couldn't find ifname for %d, can't bind\n", id);
+				goto err;
+			}
 		}
 	}
 
