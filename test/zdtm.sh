@@ -188,7 +188,7 @@ generate_test_list()
 		static/socket-tcpbuf
 		static/socket-tcpbuf6
 		static/pty03
-		static/mountpoints
+		ns/static/mountpoints
 		ns/static/session00
 		ns/static/session01
 		ns/static/tempfs

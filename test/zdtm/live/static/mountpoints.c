@@ -70,7 +70,7 @@ int ns_child(void *_arg)
 	return 0;
 }
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	FILE *f;
 	int fd, tmpfs_fd, have_bfmtm = 0;
@@ -79,13 +79,8 @@ static int test_fn(int argc, char **argv)
 	mode_t old_mask;
 	pid_t pid = -1;
 
-	if (!getenv("ZDTM_REEXEC")) {
-		setenv("ZDTM_REEXEC", "1", 0);
-		return execv(argv[0], argv);
-	} else
-		test_init(argc, argv);
+	test_init(argc, argv);
 
-	close(0); /* /dev/null */
 again:
 	fs_cnt = 0;
 	f = fopen("/proc/self/mountinfo", "r");
@@ -362,15 +357,5 @@ done:
 	}
 
 	pass();
-	return 0;
-}
-
-#define CLONE_NEWNS     0x00020000
-
-int main(int argc, char **argv)
-{
-	if (getenv("ZDTM_REEXEC"))
-		return test_fn(argc, argv);
-	test_init_ns(argc, argv, CLONE_NEWNS, test_fn);
 	return 0;
 }
