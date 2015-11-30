@@ -80,7 +80,7 @@ static int child(key_t key)
 	return res;
 }
 
-static int test_fn(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	key_t key;
 	int sem, shm, pid1, pid2;
@@ -88,6 +88,8 @@ static int test_fn(int argc, char **argv)
 	uint8_t *mem;
 	uint32_t crc;
 	int ret;
+
+	test_init(argc, argv);
 
 	key = ftok(argv[0], 822155650);
 	if (key == -1) {
@@ -196,16 +198,5 @@ out_sem:
 	if (fail_count == 0)
 		pass();
 out:
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
-#ifdef NEW_IPC_NS
-	test_init_ns(argc, argv, CLONE_NEWIPC, test_fn);
-#else
-	test_init(argc, argv);
-	test_fn(argc, argv);
-#endif
 	return 0;
 }

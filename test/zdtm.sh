@@ -202,7 +202,7 @@ generate_test_list()
 		ns/static/shm
 		ns/static/msgque
 		ns/static/sem
-		transition/ipc
+		ns/transition/ipc
 		ns/static/netns-dev
 		static/cgroup00
 		static/cgroup01

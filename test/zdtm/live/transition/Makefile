@@ -63,7 +63,6 @@ $(TST):	$(LIB)
 
 ptrace.o:	override CFLAGS += -pthread
 ptrace:		override LDFLAGS += -pthread
-ipc:		override CFLAGS += -DNEW_IPC_NS
 fork2:		override CFLAGS += -D FORK2
 thread-bomb.o:		override CFLAGS += -pthread
 thread-bomb:		override LDFLAGS += -pthread
