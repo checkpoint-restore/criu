@@ -15,7 +15,22 @@
 #include <pthread.h>
 #include "zdtmtst.h"
 
-#define seccomp(_op, _flags, _uargs) syscall(__NR_seccomp, _op, _flags, _uargs)
+#undef __NR_seccomp
+
+#ifdef __NR_seccomp
+#define HAVE_SECCOMP 1
+#else
+#define HAVE_SECCOMP 0
+#define __NR_seccomp -1
+#endif
+
+#ifndef SECCOMP_SET_MODE_FILTER
+#define SECCOMP_SET_MODE_FILTER 1
+#endif
+
+#ifndef SECCOMP_FILTER_FLAG_TSYNC
+#define SECCOMP_FILTER_FLAG_TSYNC 1
+#endif
 
 const char *test_doc	= "Check that SECCOMP_FILTER_FLAG_TSYNC works correctly after restore";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
@@ -90,6 +105,11 @@ int main(int argc, char ** argv)
 	char c = 'K';
 
 	test_init(argc, argv);
+
+	if (!HAVE_SECCOMP) {
+		skip("no seccomp present in this kernel\n");
+		return 0;
+	}
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
 		pr_perror("socketpair");

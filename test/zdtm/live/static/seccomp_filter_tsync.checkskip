@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+cat > /tmp/has_nr_seccomp.c <<EOF
+#include <syscall.h>
+int main() {
+	return __NR_seccomp;
+}
+EOF
+
+make /tmp/has_nr_seccomp
