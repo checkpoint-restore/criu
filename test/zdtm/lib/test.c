@@ -53,7 +53,7 @@ static void test_fini(void)
 	unlink(pidfile);
 }
 
-void setup_outfile()
+static void setup_outfile()
 {
 	if (!access(outfile, F_OK) || errno != ENOENT) {
 		fprintf(stderr, "Output file %s appears to exist, aborting\n",

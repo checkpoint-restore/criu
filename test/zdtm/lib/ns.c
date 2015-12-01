@@ -175,7 +175,7 @@ write_out:
 }
 
 #define STATUS_FD 255
-int ns_exec(void *_arg)
+static int ns_exec(void *_arg)
 {
 	struct ns_exec_args *args = (struct ns_exec_args *) _arg;
 	char buf[4096];

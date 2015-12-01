@@ -99,7 +99,6 @@ extern int parse_opt_string(char *param, void *arg);
 #define __stringify(x)          __stringify_1(x)
 
 /* message helpers */
-extern void setup_outfile(void);
 extern int test_log_init(const char *outfile, const char *suffix);
 extern int zdtm_seccomp;
 #define pr_err(format, arg...) \
