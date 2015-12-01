@@ -355,7 +355,7 @@ void ns_create(int argc, char **argv)
 
 	close(args.status_pipe[1]);
 
-	if (val) {
+	if (flags & CLONE_NEWUSER) {
 		snprintf(pname, sizeof(pname), "/proc/%d/uid_map", pid);
 		fd = open(pname, O_WRONLY);
 		if (fd < 0) {
