@@ -77,11 +77,6 @@ static int prepare_mntns()
 			return -1;
 		}
 
-		if (mkdir("proc", 0777) && errno != EEXIST) {
-			fprintf(stderr, "mkdir(proc) failed: %m\n");
-			return -1;
-		}
-
 		/*
 		 * proc and sysfs can be mounted in an unprivileged namespace,
 		 * if they are already mounted when the user namespace is created.
@@ -97,14 +92,6 @@ static int prepare_mntns()
 			return -1;
 		}
 
-		if (mkdir("/dev", 0755) && errno != EEXIST) {
-			fprintf(stderr, "mkdir(/dev) failed: %m\n");
-			return -1;
-		}
-		if (mkdir("/dev/pts", 0755) && errno != EEXIST) {
-			fprintf(stderr, "mkdir(/dev/pts) failed: %m\n");
-			return -1;
-		}
 		if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, "mode=666,ptmxmode=666,newinstance")) {
 			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
 			return -1;
@@ -127,14 +114,7 @@ static int prepare_mntns()
 				return -1;
 			}
 		}
-		if (access("/dev/tty", F_OK)) {
-			if (mknod("/dev/tty", 0666 | S_IFCHR, makedev(5, 0)) == 0) {
-				chmod("/dev/tty", 0666);
-			} else if (errno != EEXIST) {
-				fprintf(stderr, "mknod(/dev/tty) failed: %m\n");
-				return -1;
-			}
-		}
+
 		if (fchdir(dfd)) {
 			fprintf(stderr, "fchdir() failed: %m\n");
 			return -1;
@@ -340,56 +320,6 @@ int ns_init(int argc, char **argv)
 	exit(1);
 }
 
-static int construct_root()
-{
-	struct stat st;
-	char *root;
-	int dfd;
-
-	root = getenv("ZDTM_ROOT");
-	if (!root) {
-		fprintf(stderr, "ZDTM_ROOT isn't set\n");
-		return -1;
-	}
-
-	dfd = open(".", O_RDONLY);
-	if (dfd == -1) {
-		fprintf(stderr, "open(.) failed: %m\n");
-		return -1;
-	}
-	if (chdir(root)) {
-		fprintf(stderr, "chdir(%s): %m\n", root);
-		return -1;
-	}
-
-	mkdir("dev", 0777);
-	chmod("dev", 0777);
-	mknod("dev/null", 0777 | S_IFCHR, makedev(1, 3));
-	chmod("dev/null", 0777);
-	if (stat("/dev/net/tun", &st))
-		fprintf(stderr, "Unable to stat /dev/net/tun: %m");
-	else {
-		mkdir("dev/net", 0777);
-		mknod("dev/net/tun", 0777 | S_IFCHR, st.st_rdev);
-		chmod("dev/net/tun", 0777);
-	}
-
-	if (stat("/dev/rtc", &st)) {
-		fprintf(stderr, "Unable to stat /dev/rtc: %m");
-		return -1;
-	}
-	mknod("dev/rtc", 0777 | S_IFCHR, st.st_rdev);
-	chmod("dev/rtc", 0777);
-
-	if (fchdir(dfd)) {
-		fprintf(stderr, "fchdir() failed: %m\n");
-		return -1;
-	}
-	close(dfd);
-
-	return 0;
-}
-
 #define UID_MAP "0 100000 100000\n100000 200000 50000"
 #define GID_MAP "0 400000 50000\n50000 500000 100000"
 void ns_create(int argc, char **argv)
@@ -416,9 +346,6 @@ void ns_create(int argc, char **argv)
 	val = getenv("ZDTM_USERNS");
 	if (val)
 		flags |= CLONE_NEWUSER;
-
-	if (construct_root())
-		exit(1);
 
 	pid = clone(ns_exec, args.stack_ptr, flags, &args);
 	if (pid < 0) {

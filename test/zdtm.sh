@@ -541,7 +541,18 @@ construct_root()
 	done
 
 	mkdir $root/dev
+	mkdir $root/dev/pts
 	mknod -m 0666 $root/dev/tty c 5 0
+	mknod -m 0666 $root/dev/null c 1 3
+	if [ -r "/dev/net/tun" ]; then
+		mkdir $root/dev/net/
+		mknod -m 0666 $root/dev/net/tun $(stat -c "0x%t" /dev/net/tun) $(stat -c "0x%T" /dev/net/tun)
+	fi
+	if [ -r "/dev/rtc" ]; then
+		mknod -m 0666 $root/dev/rtc $(stat -c "0x%t" /dev/rtc) $(stat -c "0x%T" /dev/rtc)
+	fi
+
+	mkdir $root/proc
 
 	# make 'tmp' dir under new root
 	mkdir -p $tmpdir

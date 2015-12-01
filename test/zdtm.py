@@ -141,6 +141,32 @@ class ns_flavor:
 		for lib in libs:
 			self.__copy_one(lib)
 
+	def __mknod(self, name, rdev = None):
+		name = "/dev/" + name
+		if not rdev:
+			if not os.access(name, os.F_OK):
+				print "Skipping %s at root" % name
+				return
+			else:
+				rdev = os.stat(name).st_rdev
+
+		name = self.root + name
+		os.mknod(name, stat.S_IFCHR, rdev)
+		os.chmod(name, 0666)
+
+	def __construct_root(self):
+		for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/tmp", "/usr", "/proc"]:
+			os.mkdir(self.root + dir)
+			os.chmod(self.root + dir, 0777)
+
+		for ldir in [ "/bin", "/sbin", "/lib", "/lib64" ]:
+			os.symlink(".." + ldir, self.root + "/usr" + ldir)
+
+		self.__mknod("tty", os.makedev(5, 0))
+		self.__mknod("null", os.makedev(1, 3))
+		self.__mknod("net/tun")
+		self.__mknod("rtc")
+
 	def init(self, test_bin, deps):
 		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
 		self.root_mounted = True
@@ -150,14 +176,7 @@ class ns_flavor:
 				fcntl.flock(o, fcntl.LOCK_EX)
 				if not os.access(self.root + "/.constructed", os.F_OK):
 					print "Construct root for %s" % test_bin
-					for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/tmp", "/usr"]:
-						os.mkdir(self.root + dir)
-						os.chmod(self.root + dir, 0777)
-
-					os.mknod(self.root + "/dev/tty", stat.S_IFCHR, os.makedev(5, 0))
-					os.chmod(self.root + "/dev/tty", 0666)
-					for ldir in [ "/bin", "/sbin", "/lib", "/lib64" ]:
-						os.symlink(".." + ldir, self.root + "/usr" + ldir)
+					self.__construct_root()
 					os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
 
 		self.__copy_libs(test_bin)
