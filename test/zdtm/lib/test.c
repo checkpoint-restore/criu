@@ -169,9 +169,6 @@ void test_init(int argc, char **argv)
 	setup_outfile();
 	redir_stdfds();
 
-	if (getenv("ZDTM_REEXEC"))
-		goto skip_pid;
-
 	pidf = fopen(pidfile, "wx");
 	if (!pidf) {
 		pr_perror("Can't create pid file %s", pidfile);
@@ -216,7 +213,6 @@ void test_init(int argc, char **argv)
 		exit(1);
 	}
 
-skip_pid:
 	/* record the test pid to remember the ownership of the pidfile */
 	master_pid = getpid();
 
