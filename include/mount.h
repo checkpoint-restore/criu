@@ -29,10 +29,13 @@ struct ext_mount {
 	char			*val;
 };
 
+#define MOUNT_INVALID_DEV	(0)
+
 struct mount_info {
 	int			mnt_id;
 	int			parent_mnt_id;
 	unsigned int		s_dev;
+	unsigned int		s_dev_rt;
 	char			*root;
 	/*
 	 * During dump mountpoint contains path with dot at the

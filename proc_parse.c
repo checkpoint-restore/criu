@@ -1093,7 +1093,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	if (!new->mountpoint)
 		goto err;
 
-	new->s_dev = MKKDEV(kmaj, kmin);
+	new->s_dev = new->s_dev_rt = MKKDEV(kmaj, kmin);
 	new->flags = 0;
 	if (parse_mnt_flags(opt, &new->flags))
 		goto err;

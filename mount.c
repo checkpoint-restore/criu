@@ -1031,10 +1031,23 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
+	if (pm->s_dev_rt == MOUNT_INVALID_DEV) {
+		pr_err("Resolving over unvalid device for %#x %s %s\n",
+		       pm->s_dev, pm->fstype->name, pm->ns_mountpoint);
+		goto err;
+	}
+
 	dev = phys_stat_resolve_dev(pm->nsid, st.st_dev, pm->ns_mountpoint + 1);
-	if (dev != pm->s_dev) {
-		pr_err("The file system %#x (%#x) %s %s is inaccessible\n",
-		       pm->s_dev, (int)dev, pm->fstype->name, pm->ns_mountpoint);
+	/*
+	 * Always check for @s_dev_rt here, because the @s_dev
+	 * from the image (in case of restore) has all rights
+	 * to not match the device (say it's migrated and kernel
+	 * allocates new device ID).
+	 */
+	if (dev != pm->s_dev_rt) {
+		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n",
+		       pm->s_dev, pm->s_dev_rt, (int)dev,
+		       pm->fstype->name, pm->ns_mountpoint);
 		goto err;
 	}
 
@@ -2102,6 +2115,7 @@ static int propagate_siblings(struct mount_info *mi)
 			continue;
 		pr_debug("\t\tBind share %s\n", t->mountpoint);
 		t->bind = mi;
+		t->s_dev_rt = mi->s_dev_rt;
 	}
 
 	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
@@ -2109,6 +2123,7 @@ static int propagate_siblings(struct mount_info *mi)
 			continue;
 		pr_debug("\t\tBind slave %s\n", t->mountpoint);
 		t->bind = mi;
+		t->s_dev_rt = mi->s_dev_rt;
 	}
 
 	return 0;
@@ -2154,9 +2169,23 @@ skip_parent:
 			if (t->master_id)
 				continue;
 			t->bind = mi;
+			t->s_dev_rt = mi->s_dev_rt;
 		}
 	}
 
+	return 0;
+}
+
+static int fetch_rt_stat(struct mount_info *m, const char *where)
+{
+	struct stat st;
+
+	if (stat(where, &st)) {
+		pr_perror("Can't stat on %s\n", where);
+		return -1;
+	}
+
+	m->s_dev_rt = MKKDEV(major(st.st_dev), minor(st.st_dev));
 	return 0;
 }
 
@@ -2383,7 +2412,7 @@ static int do_mount_root(struct mount_info *mi)
 						mi->shared_id, mi->master_id))
 		return -1;
 
-	return 0;
+	return fetch_rt_stat(mi, mi->mountpoint);
 }
 
 static int do_mount_one(struct mount_info *mi)
@@ -2408,6 +2437,9 @@ static int do_mount_one(struct mount_info *mi)
 		ret = do_new_mount(mi);
 	else
 		ret = do_bind_mount(mi);
+
+	if (ret == 0 && fetch_rt_stat(mi, mi->mountpoint))
+		return -1;
 
 	if (ret == 0 && propagate_mount(mi))
 		return -1;
@@ -2509,6 +2541,11 @@ err_root:
 struct mount_info *mnt_entry_alloc()
 {
 	struct mount_info *new;
+
+	/*
+	 * We rely on xzalloc here for MOUNT_INVALID_DEV.
+	 */
+	BUILD_BUG_ON(MOUNT_INVALID_DEV);
 
 	new = xzalloc(sizeof(struct mount_info));
 	if (new) {
