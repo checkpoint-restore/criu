@@ -56,6 +56,7 @@ proto-obj-y	+= userns.o
 proto-obj-y	+= google/protobuf/descriptor.o # To make protoc-c happy and compile opts.proto
 proto-obj-y	+= opts.o
 proto-obj-y	+= seccomp.o
+proto-obj-y	+= binfmt-misc.o
 
 CFLAGS		+= -I$(obj)/
 
