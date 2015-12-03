@@ -997,7 +997,7 @@ lp.set_defaults(action = list_tests)
 lp.add_argument('-i', '--info', help = "Show more info about tests", action = 'store_true')
 
 opts = vars(p.parse_args())
-if opts['sat']:
+if opts.get('sat', False):
 	opts['keep_img'] = 'always'
 
 if opts['debug']:
