@@ -19,7 +19,7 @@
 #include "ns.h"
 
 extern int pivot_root(const char *new_root, const char *put_old);
-static int prepare_mntns()
+static int prepare_mntns(void)
 {
 	int dfd, ret;
 	char *root;
@@ -31,95 +31,110 @@ static int prepare_mntns()
 		return -1;
 	}
 
-		/*
-		 * In a new userns all mounts are locked to protect what is
-		 * under them. So we need to create another mount for the
-		 * new root.
-		 */
-		if (mount(root, root, NULL, MS_SLAVE , NULL)) {
-			fprintf(stderr, "Can't bind-mount root: %m\n");
-			return -1;
-		}
+	/*
+	 * In a new userns all mounts are locked to protect what is
+	 * under them. So we need to create another mount for the
+	 * new root.
+	 */
+	if (mount(root, root, NULL, MS_SLAVE , NULL)) {
+		fprintf(stderr, "Can't bind-mount root: %m\n");
+		return -1;
+	}
 
-		if (mount(root, root, NULL, MS_BIND | MS_REC, NULL)) {
-			fprintf(stderr, "Can't bind-mount root: %m\n");
-			return -1;
-		}
+	if (mount(root, root, NULL, MS_BIND | MS_REC, NULL)) {
+		fprintf(stderr, "Can't bind-mount root: %m\n");
+		return -1;
+	}
 
-		/* Move current working directory to the new root */
-		ret = readlink("/proc/self/cwd", path, sizeof(path) - 1);
-		if (ret < 0)
-			return -1;
-		path[ret] = 0;
+	/* Move current working directory to the new root */
+	ret = readlink("/proc/self/cwd", path, sizeof(path) - 1);
+	if (ret < 0)
+		return -1;
+	path[ret] = 0;
 
-		dfd = open(path, O_RDONLY | O_DIRECTORY);
-		if (dfd == -1) {
-			fprintf(stderr, "open(.) failed: %m\n");
-			return -1;
-		}
+	dfd = open(path, O_RDONLY | O_DIRECTORY);
+	if (dfd == -1) {
+		fprintf(stderr, "open(.) failed: %m\n");
+		return -1;
+	}
 
-		if (chdir(root)) {
-			fprintf(stderr, "chdir(%s) failed: %m\n", root);
-			return -1;
-		}
-		if (mkdir("old", 0777) && errno != EEXIST) {
-			fprintf(stderr, "mkdir(old) failed: %m\n");
-			return -1;
-		}
+	if (chdir(root)) {
+		fprintf(stderr, "chdir(%s) failed: %m\n", root);
+		return -1;
+	}
+	if (mkdir("old", 0777) && errno != EEXIST) {
+		fprintf(stderr, "mkdir(old) failed: %m\n");
+		return -1;
+	}
 
-		if (pivot_root(".", "./old")) {
-			fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
-			return -1;
-		}
+	if (pivot_root(".", "./old")) {
+		fprintf(stderr, "pivot_root(., ./old) failed: %m\n");
+		return -1;
+	}
 
-		if (mount("./old", "./old", NULL, MS_PRIVATE | MS_REC , NULL)) {
-			fprintf(stderr, "Can't bind-mount root: %m\n");
-			return -1;
-		}
+	if (mount("./old", "./old", NULL, MS_PRIVATE | MS_REC , NULL)) {
+		fprintf(stderr, "Can't bind-mount root: %m\n");
+		return -1;
+	}
 
-		/*
-		 * proc and sysfs can be mounted in an unprivileged namespace,
-		 * if they are already mounted when the user namespace is created.
-		 * So ./old must be umounted after mounting /proc and /sys.
-		 */
-		if (mount("proc", "/proc", "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
-			fprintf(stderr, "mount(/proc) failed: %m\n");
-			return -1;
-		}
+	/*
+	 * proc and sysfs can be mounted in an unprivileged namespace,
+	 * if they are already mounted when the user namespace is created.
+	 * So ./old must be umounted after mounting /proc and /sys.
+	 */
+	if (mount("proc", "/proc", "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
+		fprintf(stderr, "mount(/proc) failed: %m\n");
+		return -1;
+	}
 
-		if (umount2("./old", MNT_DETACH)) {
-			fprintf(stderr, "umount(./old) failed: %m\n");
-			return -1;
-		}
+	if (umount2("./old", MNT_DETACH)) {
+		fprintf(stderr, "umount(./old) failed: %m\n");
+		return -1;
+	}
 
-		if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, "mode=666,ptmxmode=666,newinstance")) {
-			fprintf(stderr, "mount(/dev/pts) failed: %m\n");
+	if (mount("pts", "/dev/pts", "devpts", MS_MGC_VAL, "mode=666,ptmxmode=666,newinstance")) {
+		fprintf(stderr, "mount(/dev/pts) failed: %m\n");
+		return -1;
+	}
+	/*
+	 * If CONFIG_DEVPTS_MULTIPLE_INSTANCES=n, then /dev/pts/ptmx
+	 * does not exist. Fall back to creating the device with
+	 * mknod() in that case.
+	 */
+	if (access("/dev/pts/ptmx", F_OK) == 0) {
+		if (symlink("pts/ptmx", "/dev/ptmx") && errno != EEXIST) {
+			fprintf(stderr, "symlink(/dev/ptmx) failed: %m\n");
 			return -1;
 		}
-		/*
-		 * If CONFIG_DEVPTS_MULTIPLE_INSTANCES=n, then /dev/pts/ptmx
-		 * does not exist. Fall back to creating the device with
-		 * mknod() in that case.
-		 */
-		if (access("/dev/pts/ptmx", F_OK) == 0) {
-			if (symlink("pts/ptmx", "/dev/ptmx") && errno != EEXIST) {
-				fprintf(stderr, "symlink(/dev/ptmx) failed: %m\n");
-				return -1;
-			}
-		} else {
-			if (mknod("/dev/ptmx", 0666 | S_IFCHR, makedev(5, 2)) == 0) {
-				chmod("/dev/ptmx", 0666);
-			} else if (errno != EEXIST) {
-				fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
-				return -1;
-			}
+	} else {
+		if (mknod("/dev/ptmx", 0666 | S_IFCHR, makedev(5, 2)) == 0) {
+			chmod("/dev/ptmx", 0666);
+		} else if (errno != EEXIST) {
+			fprintf(stderr, "mknod(/dev/ptmx) failed: %m\n");
+			return -1;
 		}
+	}
 
-		if (fchdir(dfd)) {
-			fprintf(stderr, "fchdir() failed: %m\n");
-			return -1;
-		}
-		close(dfd);
+	if (fchdir(dfd)) {
+		fprintf(stderr, "fchdir() failed: %m\n");
+		return -1;
+	}
+	close(dfd);
+
+	return 0;
+}
+
+static int prepare_namespaces(void)
+{
+	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
+		fprintf(stderr, "set*id failed: %m\n");
+		return -1;
+	}
+
+	system("ip link set up dev lo");
+
+	if (prepare_mntns())
+		return -1;
 
 	return 0;
 }
@@ -193,14 +208,8 @@ static int ns_exec(void *_arg)
 	close(args->status_pipe[1]);
 	read(STATUS_FD, buf, sizeof(buf));
 	shutdown(STATUS_FD, SHUT_RD);
-	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
-		fprintf(stderr, "set*id failed: %m\n");
-		return -1;
-	}
 
-	system("ip link set up dev lo");
-
-	if (prepare_mntns())
+	if (prepare_namespaces())
 		return -1;
 
 	setenv("ZDTM_NEWNS", "2", 1);
