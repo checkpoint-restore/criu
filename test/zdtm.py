@@ -94,7 +94,7 @@ class host_flavor:
 		self.ns = False
 		self.root = None
 
-	def init(self, test_bin, deps):
+	def init(self, l_bins, x_bins):
 		pass
 
 	def fini(self):
@@ -166,7 +166,7 @@ class ns_flavor:
 		self.__mknod("net/tun")
 		self.__mknod("rtc")
 
-	def init(self, test_bin, deps):
+	def init(self, l_bins, x_bins):
 		subprocess.check_call(["mount", "--make-private", "--bind", ".", self.root])
 		self.root_mounted = True
 
@@ -174,14 +174,15 @@ class ns_flavor:
 			with open(os.path.abspath(__file__)) as o:
 				fcntl.flock(o, fcntl.LOCK_EX)
 				if not os.access(self.root + "/.constructed", os.F_OK):
-					print "Construct root for %s" % test_bin
+					print "Construct root for %s" % l_bins[0]
 					self.__construct_root()
 					os.mknod(self.root + "/.constructed", stat.S_IFREG | 0600)
 
-		self.__copy_libs(test_bin)
-		for dep in deps:
-			self.__copy_one(dep)
-			self.__copy_libs(dep)
+		for b in l_bins:
+			self.__copy_libs(b)
+		for b in x_bins:
+			self.__copy_one(b)
+			self.__copy_libs(b)
 
 	def fini(self):
 		if self.root_mounted:
@@ -195,10 +196,10 @@ class userns_flavor(ns_flavor):
 		self.name = "userns"
 		self.uns = True
 
-	def init(self, test_bin, deps):
+	def init(self, l_bins, x_bins):
 		# To be able to create roots_yard in CRIU
 		os.chmod(".", os.stat(".").st_mode | 0077)
-		ns_flavor.init(self, test_bin, deps)
+		ns_flavor.init(self, l_bins, x_bins)
 
 flavors = { 'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor }
 
@@ -256,6 +257,8 @@ class zdtm_test:
 		self.__make_action('cleanout')
 		self.__pid = 0
 		self.__flavor = flavor
+		self._bins = [ name ]
+		self._env = []
 		self.auto_reap = True
 
 	def __make_action(self, act, env = None, root = None):
@@ -281,11 +284,11 @@ class zdtm_test:
 		wait_pid_die(int(self.__pid), self.__name)
 
 	def start(self):
-		env = {}
-		self.__flavor.init(self.__name, self.__desc.get('deps', []))
+		self.__flavor.init(self._bins, self.__desc.get('deps', []))
 
 		print "Start test"
 
+		env = self._env
 		env['ZDTM_THREAD_BOMB'] = "5"
 		if not test_flag(self.__desc, 'suid'):
 			env['ZDTM_UID'] = "18943"
