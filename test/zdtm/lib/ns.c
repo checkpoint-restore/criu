@@ -262,10 +262,9 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "fork() failed: %m\n");
 		exit(1);
 	} else if (pid == 0) {
-		setenv("ZDTM_NEWNS", "3", 1);
-		ret = execvp(argv[0], argv);
-		fprintf(stderr, "exec(%s) failed: %m\n", argv[0]);
-		return ret;
+		close(status_pipe);
+		unsetenv("ZDTM_NEWNS");
+		return 0; /* Continue normal test startup */
 	}
 
 	ret = -1;
@@ -299,7 +298,7 @@ int ns_init(int argc, char **argv)
 	write(status_pipe, &ret, sizeof(ret));
 	close(status_pipe);
 	if (ret)
-		return ret;
+		exit(ret);
 
 	/* suspend/resume */
 	test_waitsig();

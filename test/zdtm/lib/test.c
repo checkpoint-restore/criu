@@ -115,10 +115,7 @@ void test_init(int argc, char **argv)
 			test_log_init(outfile, "ns");
 			redir_stdfds();
 			ns_init(argc, argv);
-			exit(1);
 		}
-
-		/* "3" -- run the test */
 	}
 
 	val = getenv("ZDTM_GROUPS");
