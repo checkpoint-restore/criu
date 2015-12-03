@@ -941,6 +941,100 @@ def list_tests(opts):
 		tlist = map(lambda x: show_test_info(x), tlist)
 	print '\n'.join(tlist)
 
+
+class group:
+	def __init__(self, tname, tdesc):
+		self.__tests = [ tname ]
+		self.__desc = tdesc
+		self.__deps = set()
+
+	def __is_mergeable_desc(self, desc):
+		# For now make it full match
+		if self.__desc.get('flags') != desc.get('flags'):
+			return False
+		if self.__desc.get('flavor') != desc.get('flavor'):
+			return False
+		if self.__desc.get('arch') != desc.get('arch'):
+			return False
+		if self.__desc.get('opts') != desc.get('opts'):
+			return False
+		if self.__desc.get('feature') != desc.get('feature'):
+			return False
+		return True
+
+	def merge(self, tname, tdesc):
+		if not self.__is_mergeable_desc(tdesc):
+			return False
+
+		self.__deps |= set(tdesc.get('deps', []))
+		self.__tests.append(tname)
+		return True
+
+	def size(self):
+		return len(self.__tests)
+
+	def dump(self, fname):
+		f = open(fname, "w")
+		for t in self.__tests:
+			f.write(t + '\n')
+		f.close()
+		os.chmod(fname, 0700)
+
+		if len(self.__desc) or len(self.__deps):
+			f = open(fname + '.desc', "w")
+			if len(self.__deps):
+				self.__desc['deps'] = list(self.__deps)
+			f.write(repr(self.__desc))
+			f.close()
+
+
+def group_tests(opts):
+	excl = None
+	groups = []
+	pend_groups = []
+	maxs = int(opts['max_size'])
+
+	if not os.access("groups", os.F_OK):
+		os.mkdir("groups")
+
+	tlist = all_tests(opts)
+	random.shuffle(tlist)
+	if opts['exclude']:
+		excl = re.compile(".*(" + "|".join(opts['exclude']) + ")")
+		print "Compiled exclusion list"
+
+	for t in tlist:
+		if excl and excl.match(t):
+			continue
+
+		td = get_test_desc(t)
+
+		for g in pend_groups:
+			if g.merge(t, td):
+				if g.size() == maxs:
+					pend_groups.remove(g)
+					groups.append(g)
+				break
+		else:
+			g = group(t, td)
+			pend_groups.append(g)
+
+	groups += pend_groups
+
+	nr = 0
+	suf = opts['name'] or 'group'
+
+	for g in groups:
+		if g.size() == 1: # Not much point in group test for this
+			continue
+
+		fn = os.path.join("groups", "%s.%d" % (suf, nr))
+		g.dump(fn)
+		nr += 1
+
+	print "Generated %d group(s)" % nr
+
+
 #
 # main() starts here
 #
@@ -997,6 +1091,12 @@ rp.add_argument("--report", help = "Generate summary report in directory")
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
 lp.add_argument('-i', '--info', help = "Show more info about tests", action = 'store_true')
+
+gp = sp.add_parser("group", help = "Generate groups")
+gp.set_defaults(action = group_tests)
+gp.add_argument("-m", "--max-size", help = "Maximum number of tests in group")
+gp.add_argument("-n", "--name", help = "Common name for group tests")
+gp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
 
 opts = vars(p.parse_args())
 if opts.get('sat', False):
