@@ -22,6 +22,7 @@ __NR_rt_sigprocmask	174		sys_sigprocmask		(int how, k_rtsigset_t *set, k_rtsigse
 __NR_rt_sigreturn	172		sys_rt_sigreturn	(void)
 __NR_ioctl		54		sys_ioctl		(unsigned int fd, unsigned int cmd, unsigned long arg)
 __NR_pread64		179		sys_pread		(unsigned int fd, char *buf, size_t count, loff_t pos)
+__NR_ptrace		26		sys_ptrace		(long request, pid_t pid, void *addr, void *data)
 __NR_mremap		163		sys_mremap		(unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long flags, unsigned long new_addr)
 __NR_mincore		206		sys_mincore		(void *addr, unsigned long size, unsigned char *vec)
 __NR_madvise		205		sys_madvise		(unsigned long start, size_t len, int behavior)
