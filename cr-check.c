@@ -14,7 +14,6 @@
 #include <linux/if.h>
 #include <linux/filter.h>
 #include <linux/seccomp.h>
-#include <sys/syscall.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <sys/mman.h>
