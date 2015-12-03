@@ -699,6 +699,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 			struct iovec *iov = &ppb->iov[i];
 
 			while (hole && (hole->iov_base < iov->iov_base)) {
+				BUG_ON(hole->iov_base < (void *)off);
+				hole->iov_base -= off;
 				pr_debug("\th %p [%u]\n", hole->iov_base,
 						(unsigned int)(hole->iov_len / PAGE_SIZE));
 				if (xfer->write_hole(xfer, hole))
@@ -722,6 +724,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 	}
 
 	while (hole) {
+		BUG_ON(hole->iov_base < (void *)off);
+		hole->iov_base -= off;
 		pr_debug("\th* %p [%u]\n", hole->iov_base,
 				(unsigned int)(hole->iov_len / PAGE_SIZE));
 		if (xfer->write_hole(xfer, hole))
