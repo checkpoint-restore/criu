@@ -1133,6 +1133,40 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 
 		close(sks[1]);
 		sk = sks[0];
+	} else if (ui->ue->type == SOCK_DGRAM) {
+		struct sockaddr_un addr;
+		int sks[2];
+
+		if (socketpair(PF_UNIX, ui->ue->type, 0, sks) < 0) {
+			pr_perror("Can't create socketpair");
+			return -1;
+		}
+
+		sk = sks[0];
+		addr.sun_family = AF_UNSPEC;
+
+		/*
+		 * socketpair() assigns sks[1] as a peer of sks[0]
+		 * (and vice versa). But in this case (not zero peer)
+		 * it's impossible for other sockets to connect
+		 * to sks[0] (see unix_dgram_connect()->unix_may_send()).
+		 * The below is hack: we use that connect with AF_UNSPEC
+		 * clears socket's peer.
+		 */
+		if (connect(sk, &addr, sizeof(addr.sun_family))) {
+			pr_perror("Can't clear socket's peer");
+			return -1;
+		}
+
+		/*
+		 * This must be after the connect() hack, because
+		 * connect() flushes receive queue.
+		 */
+		if (restore_sk_queue(sks[1], ui->ue->id)) {
+			pr_perror("Can't restore socket queue");
+			return -1;
+		}
+		close(sks[1]);
 	} else {
 		if (ui->ue->uflags & USK_CALLBACK) {
 			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
