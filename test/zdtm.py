@@ -155,7 +155,7 @@ class ns_flavor:
 		os.chmod(name, 0666)
 
 	def __construct_root(self):
-		for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/tmp", "/usr", "/proc"]:
+		for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc"]:
 			os.mkdir(self.root + dir)
 			os.chmod(self.root + dir, 0777)
 
