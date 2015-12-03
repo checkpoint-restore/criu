@@ -477,7 +477,55 @@ class inhfd_test:
 		pass
 
 
-test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test }
+class groups_test(zdtm_test):
+	def __init__(self, name, desc, flavor):
+		zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor)
+		if flavor.ns:
+			self.__real_name = name
+			self.__subs = map(lambda x: x.strip(), open(name).readlines())
+			print "Subs:\n%s" % '\n'.join(self.__subs)
+		else:
+			self.__real_name = ''
+			self.__subs = []
+
+		self._bins += self.__subs
+		self._env = { 'ZDTM_TESTS': self.__real_name }
+
+	def __get_start_cmd(self, name):
+		tdir = os.path.dirname(name)
+		tname = os.path.basename(name)
+
+		s_args = ['make', '--no-print-directory', '-C', tdir]
+		subprocess.check_call(s_args + [ tname + '.cleanout' ])
+		s = subprocess.Popen(s_args + [ '--dry-run', tname + '.pid' ], stdout = subprocess.PIPE)
+		cmd = s.stdout.readlines().pop().strip()
+		s.wait()
+
+		return 'cd /' + tdir + ' && ' + cmd
+
+	def start(self):
+		if (self.__subs):
+			with open(self.__real_name + '.start', 'w') as f:
+				for test in self.__subs:
+					cmd = self.__get_start_cmd(test)
+					f.write(cmd + '\n')
+
+			with open(self.__real_name + '.stop', 'w') as f:
+				for test in self.__subs:
+					f.write('kill -TERM `cat /%s.pid`\n' % test)
+
+		zdtm_test.start(self)
+
+	def stop(self):
+		zdtm_test.stop(self)
+
+		for test in self.__subs:
+			res = tail(test + '.out')
+			if not 'PASS' in res.split():
+				raise test_fail_exc("sub %s result check" % test)
+
+
+test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test, 'groups': groups_test }
 
 #
 # CRIU when launched using CLI

@@ -5,6 +5,7 @@ CFLAGS	+= $(USERCFLAGS)
 
 LIBDIR	= .
 LIB	= libzdtmtst.a
+GRPS	= groups
 
 LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c fs.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
@@ -30,6 +31,17 @@ cleandep:
 
 cleanout:
 	@true
+
+$(GRPS): $(LIB)
+
+$(GRPS:%=%.pid): $(GRPS)
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out
+
+$(GRPS:%=%.out): $(GRPS:%=%.pid)
+	-kill -TERM `cat $<`
+
+$(GRPS:%=%.cleanout): $(GRPS)
+	$(Q) $(RM) -f -r $<.pid $<.out* *$<.test* $<.*.test $<.state $<.init.pid
 
 realclean:	clean cleandep
 
