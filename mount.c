@@ -3214,9 +3214,21 @@ err:
 	return -1;
 }
 
+static int mntns_root_pid = -1;
+static int mntns_set_root_fd(pid_t pid, int fd)
+{
+	int ret;
+
+	ret = install_service_fd(ROOT_FD_OFF, fd);
+	if (ret >= 0)
+		mntns_root_pid = pid;
+	close(fd);
+
+	return ret;
+}
+
 int __mntns_get_root_fd(pid_t pid)
 {
-	static int mntns_root_pid = -1;
 
 	int fd, pfd;
 	int ret;
@@ -3272,11 +3284,7 @@ int __mntns_get_root_fd(pid_t pid)
 	}
 
 set_root:
-	ret = install_service_fd(ROOT_FD_OFF, fd);
-	if (ret >= 0)
-		mntns_root_pid = pid;
-	close(fd);
-	return ret;
+	return mntns_set_root_fd(pid, fd);
 }
 
 int mntns_get_root_fd(struct ns_id *mntns) {
