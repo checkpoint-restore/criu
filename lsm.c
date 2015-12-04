@@ -7,6 +7,7 @@
 #include "config.h"
 #include "pstree.h"
 #include "util.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 #include "protobuf/inventory.pb-c.h"
@@ -106,6 +107,14 @@ static int selinux_get_label(pid_t pid, char **output)
 
 void kerndat_lsm(void)
 {
+	/* On restore, if someone passes --lsm-profile, we might end up doing
+	 * detection twice, once during flag parsing and once for
+	 * kerndat_init_rst(). Let's detect when we've already done detection
+	 * and not do it again.
+	 */
+	if (name)
+		return;
+
 	if (access("/sys/kernel/security/apparmor", F_OK) == 0) {
 		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
@@ -156,7 +165,7 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 // in inventory.c
 extern Lsmtype image_lsm;
 
-int validate_lsm(CredsEntry *ce)
+int validate_lsm(char *lsm_profile)
 {
 	if (image_lsm == LSMTYPE__NO_LSM || image_lsm == lsmtype)
 		return 0;
@@ -166,7 +175,7 @@ int validate_lsm(CredsEntry *ce)
 	 * specified an LSM profile. If not, we won't restore anything anyway,
 	 * so it's fine.
 	 */
-	if (ce->lsm_profile) {
+	if (lsm_profile) {
 		pr_err("mismatched lsm types and lsm profile specified\n");
 		return -1;
 	}
@@ -194,6 +203,47 @@ int render_lsm_profile(char *profile, char **val)
 	default:
 		return -1;
 	}
+
+	return 0;
+}
+
+int parse_lsm_arg(char *arg)
+{
+	char *aux;
+
+	kerndat_lsm();
+
+	aux = strchr(arg, ':');
+	if (aux == NULL) {
+		pr_err("invalid argument %s for --lsm-profile", arg);
+		return -1;
+	}
+
+	*aux = '\0';
+	aux++;
+
+	if (strcmp(arg, "apparmor") == 0) {
+		if (lsmtype != LSMTYPE__APPARMOR) {
+			pr_err("apparmor LSM specified but apparmor not supported by kernel\n");
+			return -1;
+		}
+
+		opts.lsm_profile = aux;
+	} else if (strcmp(arg, "selinux") == 0) {
+		if (lsmtype != LSMTYPE__SELINUX) {
+			pr_err("selinux LSM specified but selinux not supported by kernel\n");
+			return -1;
+		}
+
+		opts.lsm_profile = aux;
+	} else if (strcmp(arg, "none") == 0) {
+		opts.lsm_profile = NULL;
+	} else {
+		pr_err("unknown lsm %s\n", arg);
+		return -1;
+	}
+
+	opts.lsm_supplied = true;
 
 	return 0;
 }

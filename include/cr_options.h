@@ -95,6 +95,8 @@ struct cr_options {
 	bool			overlayfs;
 	size_t			ghost_limit;
 	struct list_head	irmap_scan_paths;
+	bool			lsm_supplied;
+	char			*lsm_profile;
 };
 
 extern struct cr_options opts;

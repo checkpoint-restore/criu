@@ -2827,28 +2827,34 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (!creds)
 		goto err;
 
-	if (creds->lsm_profile) {
-		char *rendered;
+	if (creds->lsm_profile || opts.lsm_supplied) {
+		char *rendered, *profile;
 		int ret;
 
-		if (validate_lsm(creds) < 0)
+		profile = creds->lsm_profile;
+		if (opts.lsm_supplied)
+			profile = opts.lsm_profile;
+
+		if (validate_lsm(profile) < 0)
 			return -1;
 
-		ret = render_lsm_profile(creds->lsm_profile, &rendered);
-		if (ret < 0) {
-			goto err_nv;
-		}
+		if (profile) {
+			ret = render_lsm_profile(profile, &rendered);
+			if (ret < 0) {
+				goto err_nv;
+			}
 
-		lsm_pos = rst_mem_cpos(RM_PRIVATE);
-		lsm_profile_len = strlen(rendered);
-		lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
-		if (!lsm) {
+			lsm_pos = rst_mem_cpos(RM_PRIVATE);
+			lsm_profile_len = strlen(rendered);
+			lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
+			if (!lsm) {
+				xfree(rendered);
+				goto err_nv;
+			}
+
+			strncpy(lsm, rendered, lsm_profile_len);
 			xfree(rendered);
-			goto err_nv;
 		}
-
-		strncpy(lsm, rendered, lsm_profile_len);
-		xfree(rendered);
 
 	}
 

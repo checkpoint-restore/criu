@@ -23,7 +23,7 @@ extern int collect_lsm_profile(pid_t, CredsEntry *);
  * Validate that the LSM profiles can be correctly applied (must happen after
  * pstree is set up).
  */
-int validate_lsm(CredsEntry *ce);
+int validate_lsm(char *profile);
 
 /*
  * Render the profile name in the way that the LSM wants it written to
@@ -31,4 +31,5 @@ int validate_lsm(CredsEntry *ce);
  */
 int render_lsm_profile(char *profile, char **val);
 
+extern int parse_lsm_arg(char *arg);
 #endif /* __CR_LSM_H__ */

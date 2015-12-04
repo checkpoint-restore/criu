@@ -41,6 +41,7 @@
 #include "security.h"
 #include "irmap.h"
 #include "fault-injection.h"
+#include "lsm.h"
 
 #include "setproctitle.h"
 
@@ -253,6 +254,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "freeze-cgroup",		required_argument,	0, 1068 },
 		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
+		{ "lsm-profile",		required_argument,	0, 1071 },
 		{ },
 	};
 
@@ -496,6 +498,10 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1070:
 			if (irmap_scan_path_add(optarg))
+				return -1;
+			break;
+		case 1071:
+			if (parse_lsm_arg(optarg) < 0)
 				return -1;
 			break;
 		case 'M':
