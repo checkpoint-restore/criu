@@ -970,7 +970,10 @@ def run_tests(opts):
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
 			opts_flavs = (opts['flavor'] or 'h,ns,uns').split(',')
-			run_flavs = set(test_flavs) & set(opts_flavs)
+			if opts_flavs != ['best']:
+				run_flavs = set(test_flavs) & set(opts_flavs)
+			else:
+				run_flavs = set([test_flavs.pop()])
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
