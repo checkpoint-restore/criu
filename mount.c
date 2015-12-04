@@ -2325,27 +2325,43 @@ static inline int print_ns_root(struct ns_id *ns, char *buf, int bs)
 
 static int create_mnt_roots(void)
 {
+	int exit_code = -1, cwd_fd;
+
 	if (mnt_roots)
 		return 0;
 
+	cwd_fd = open(".", O_DIRECTORY);
+	if (cwd_fd < 0) {
+		pr_perror("Unable to open cwd");
+		return -1;
+	}
+
 	if (chdir(opts.root ? : "/")) {
 		pr_perror("Unable to change working directory on %s", opts.root);
-		return -1;
+		goto out;
 	}
 
 	mnt_roots = strdup(".criu.mntns.XXXXXX");
 	if (mnt_roots == NULL) {
 		pr_perror("Can't allocate memory");
-		return -1;
+		goto out;
 	}
 
 	if (mkdtemp(mnt_roots) == NULL) {
 		pr_perror("Unable to create a temporary directory");
 		mnt_roots = NULL;
-		return -1;
+		goto out;
 	}
 
-	return 0;
+	exit_code = 0;
+out:
+	if (fchdir(cwd_fd)) {
+		pr_perror("Unable to restore cwd");
+		exit_code = -1;
+	}
+	close(cwd_fd);
+
+	return exit_code;
 }
 
 static int rst_collect_local_mntns(void)
@@ -2756,10 +2772,13 @@ int depopulate_roots_yard(void)
 
 void cleanup_mnt_ns(void)
 {
+	char path[PATH_MAX], *root = opts.root ? : "/";
+
 	if (mnt_roots == NULL)
 		return;
 
-	if (rmdir(mnt_roots))
+	snprintf(path, sizeof(path), "%s/%s", root, mnt_roots);
+	if (rmdir(path))
 		pr_perror("Can't remove the directory %s", mnt_roots);
 }
 
