@@ -1068,6 +1068,29 @@ int open_mount(unsigned int s_dev)
 	return __open_mountpoint(m, -1);
 }
 
+/* Bind-mount a mount point in a temporary place without children */
+static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_path_root)
+{
+	char *mnt_path;
+
+	mnt_path = mkdtemp(mnt_path_tmp);
+	if (mnt_path == NULL && errno == ENOENT)
+		mnt_path = mkdtemp(mnt_path_root);
+	if (mnt_path == NULL) {
+		pr_perror("Can't create a temporary directory");
+		return NULL;;
+	}
+
+	if (mount(mi->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
+		pr_perror("Can't bind-mount %d:%s to %s",
+				mi->mnt_id, mi->mountpoint, mnt_path);
+		rmdir(mnt_path);
+		return NULL;
+	}
+
+	return mnt_path;
+}
+
 static int open_mountpoint(struct mount_info *pm)
 {
 	int fd = -1, ns_old = -1;
@@ -1102,20 +1125,9 @@ static int open_mountpoint(struct mount_info *pm)
 	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0)
 		goto out;
 
-	mnt_path = mkdtemp(mnt_path_tmp);
-	if (mnt_path == NULL && errno == ENOENT)
-		mnt_path = mkdtemp(mnt_path_root);
-	if (mnt_path == NULL) {
-		pr_perror("Can't create a temporary directory");
+	mnt_path = get_clean_mnt(pm, mnt_path_tmp, mnt_path_root);
+	if (mnt_path == NULL)
 		goto out;
-	}
-
-	if (mount(pm->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
-		pr_perror("Can't bind-mount %d:%s to %s",
-				pm->mnt_id, pm->mountpoint, mnt_path);
-		rmdir(mnt_path);
-		goto out;
-	}
 
 	fd = open_detach_mount(mnt_path);
 	if (fd < 0)
