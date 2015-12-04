@@ -3,6 +3,7 @@ import opts_pb2
 import ipaddr
 import socket
 import collections
+import os
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -52,6 +53,12 @@ def _marked_as_ip(field):
 def _marked_as_flags(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].flags
 
+def _marked_as_dev(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].dev
+
+def _marked_as_odev(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].odev
+
 mmap_prot_map = [
 	('PROT_READ',	0x1),
 	('PROT_WRITE',	0x2),
@@ -92,6 +99,21 @@ def unmap_flags(value, flags_map):
 	bd = dict(flags_map)
 	return sum(map(lambda x: int(str(bd.get(x, x)), 0), map(lambda x: x.strip(), value.split('|'))))
 
+kern_minorbits = 20 # This is how kernel encodes dev_t in new format
+
+def decode_dev(field, value):
+	if _marked_as_odev(field):
+		return "%d:%d" % (os.major(value), os.minor(value))
+	else:
+		return "%d:%d" % (value >> kern_minorbits, value & ((1 << kern_minorbits) - 1))
+
+def encode_dev(field, value):
+	dev = map(lambda x: int(x), value.split(':'))
+	if _marked_as_odev(field):
+		return os.makedev(dev[0], dev[1])
+	else:
+		return dev[0] << kern_minorbits | dev[1]
+
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
 		is_hex = _marked_as_hex(field)
@@ -109,6 +131,9 @@ def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 				# Fields that have (criu).hex = true option set
 				# should be stored in hex string format.
 				return "0x%x" % value
+
+			if _marked_as_dev(field):
+				return decode_dev(field, value)
 
 			flags = _marked_as_flags(field)
 			if flags:
@@ -164,6 +189,9 @@ def _dict2pb_cast(field, value):
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
 		if (cast == int or cast == long) and isinstance(value, unicode):
+			if _marked_as_dev(field):
+				return encode_dev(field, value)
+
 			flags = _marked_as_flags(field)
 			if flags:
 				try:

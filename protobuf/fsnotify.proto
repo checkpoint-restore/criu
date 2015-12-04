@@ -7,7 +7,7 @@ message inotify_wd_entry {
 	required uint64		i_ino		= 2;
 	required uint32		mask		= 3 [(criu).hex = true];
 	required uint32		ignored_mask	= 4 [(criu).hex = true];
-	required uint32		s_dev		= 5;
+	required uint32		s_dev		= 5 [(criu).dev = true];
 	required uint32		wd		= 6;
 	required fh_entry	f_handle	= 7;
 }
@@ -40,7 +40,7 @@ message fanotify_mark_entry {
 	required uint32		mflags		= 3 [(criu).hex = true];
 	required uint32		mask		= 4 [(criu).hex = true];
 	required uint32		ignored_mask	= 5 [(criu).hex = true];
-	required uint32		s_dev		= 6;
+	required uint32		s_dev		= 6 [(criu).dev = true];
 
 	optional fanotify_inode_mark_entry ie	= 7;
 	optional fanotify_mount_mark_entry me	= 8;
