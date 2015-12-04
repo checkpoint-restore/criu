@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # vim: noet
 import argparse
-import yaml
 import os
 import subprocess
 import time
