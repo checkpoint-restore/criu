@@ -220,6 +220,20 @@ def dict2pb(d, pb):
 		value = d[field.name]
 		if field.label == FD.LABEL_REPEATED:
 			pb_val = getattr(pb, field.name, None)
+			if isinstance(value[0], unicode) and _marked_as_ip(field):
+				val = ipaddr.IPAddress(value[0])
+				if val.version == 4:
+					pb_val.append(socket.htonl(int(val)))
+				elif val.version == 6:
+					ival = int(val)
+					pb_val.append(socket.htonl((ival >> (32 * 3)) & 0xFFFFFFFF))
+					pb_val.append(socket.htonl((ival >> (32 * 2)) & 0xFFFFFFFF))
+					pb_val.append(socket.htonl((ival >> (32 * 1)) & 0xFFFFFFFF))
+					pb_val.append(socket.htonl((ival >> (32 * 0)) & 0xFFFFFFFF))
+				else:
+					raise Exception("Unknown IP address version %d" % val.version)
+				continue
+
 			for v in value:
 				if field.type == FD.TYPE_MESSAGE:
 					dict2pb(v, pb_val.add())
