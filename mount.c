@@ -2295,7 +2295,7 @@ static int do_bind_mount(struct mount_info *mi)
 		 * is tuned in collect_mnt_from_image to refer
 		 * to proper location in the namespace we restore.
 		 */
-		root = mi->root;
+		root = mi->external->val;
 		force_private_remount = mi->internal_sharing;
 		goto do_bind;
 	}
@@ -2677,13 +2677,12 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 {
 	struct ext_mount *em = NULL;
 
-	if (!me->ext_mount) {
-		mi->root = xstrdup(me->root);
-		if (!mi->root)
-			return -1;
+	mi->root = xstrdup(me->root);
+	if (!mi->root)
+		return -1;
 
+	if (!me->ext_mount)
 		goto out;
-	}
 
 	/*
 	 * External mount point -- get the reverse mapping
@@ -2716,10 +2715,9 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 	}
 
 	mi->external = em;
-	mi->root = em->val;
 out:
 	pr_debug("\t\tWill mount %d from %s%s\n",
-			mi->mnt_id, mi->root, em ? " (E)" : "");
+			mi->mnt_id, em ? em->val : mi->root, em ? " (E)" : "");
 	return 0;
 }
 
