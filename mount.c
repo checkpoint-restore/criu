@@ -2271,11 +2271,16 @@ static int restore_ext_mount(struct mount_info *mi)
 
 static int do_bind_mount(struct mount_info *mi)
 {
+	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
+	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
 	char *root, *cut_root, rpath[PATH_MAX];
 	bool force_private_remount = false;
 	unsigned long mflags;
+	int exit_code = -1;
 	bool shared = 0;
+	char *mnt_path;
 	struct stat st;
+	bool umount_mnt_path = false;
 
 	if (mi->need_plugin) {
 		if (restore_ext_mount(mi))
@@ -2298,8 +2303,17 @@ static int do_bind_mount(struct mount_info *mi)
 	shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
 	cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
-	snprintf(rpath, sizeof(rpath), "%s/%s",
-			mi->bind->mountpoint, cut_root);
+	if (list_empty(&mi->bind->children))
+		mnt_path = mi->bind->mountpoint;
+	else {
+		mnt_path = get_clean_mnt(mi->bind, mnt_path_tmp, mnt_path_root);
+		umount_mnt_path = true;
+	}
+	if (mnt_path == NULL)
+		return -1;
+
+	snprintf(rpath, sizeof(rpath), "%s/%s/.",
+			mnt_path, cut_root);
 	root = rpath;
 do_bind:
 	pr_info("\tBind %s to %s\n", root, mi->mountpoint);
@@ -2307,51 +2321,51 @@ do_bind:
 	if (unlikely(mi->deleted)) {
 		if (stat(mi->mountpoint, &st)) {
 			pr_perror("Can't fetch stat on %s", mi->mountpoint);
-			return -1;
+			goto err;
 		}
 
 		if (S_ISDIR(st.st_mode)) {
 			if (mkdir(root, (st.st_mode & ~S_IFMT))) {
 				pr_perror("Can't re-create deleted directory %s", root);
-				return -1;
+				goto err;
 			}
 		} else if (S_ISREG(st.st_mode)) {
 			int fd = open(root, O_WRONLY | O_CREAT | O_EXCL,
 				      st.st_mode & ~S_IFMT);
 			if (fd < 0) {
 				pr_perror("Can't re-create deleted file %s", root);
-				return -1;
+				goto err;
 			}
 			close(fd);
 		} else {
 			pr_err("Unsupported st_mode 0%o deleted root %s\n",
 			       (int)st.st_mode, root);
-			return -1;
+			goto err;
 		}
 	}
 
 	if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
-		return -1;
+		goto err;
 	}
 
 	mflags = mi->flags & (~MS_PROPAGATE);
 	if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
 		if (mount(NULL, mi->mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
 			pr_perror("Can't mount at %s", mi->mountpoint);
-			return -1;
+			goto err;
 		}
 
 	if (unlikely(mi->deleted)) {
 		if (S_ISDIR(st.st_mode)) {
 			if (rmdir(root)) {
 				pr_perror("Can't remove deleted directory %s", root);
-				return -1;
+				goto err;
 			}
 		} else if (S_ISREG(st.st_mode)) {
 			if (unlink(root)) {
 				pr_perror("Can't unlink deleted file %s", root);
-				return -1;
+				goto err;
 			}
 		}
 	}
@@ -2366,8 +2380,19 @@ out:
 		return -1;
 
 	mi->mounted = true;
-
-	return 0;
+	exit_code = 0;
+err:
+	if (umount_mnt_path) {
+		if (umount(mnt_path)) {
+			pr_perror("Unable to umount %s", mnt_path);
+			return -1;
+		}
+		if (rmdir(mnt_path)) {
+			pr_perror("Unable to remove %s", mnt_path);
+			return -1;
+		}
+	}
+	return exit_code;
 }
 
 static bool can_mount_now(struct mount_info *mi)
