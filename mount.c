@@ -2271,91 +2271,91 @@ static int restore_ext_mount(struct mount_info *mi)
 
 static int do_bind_mount(struct mount_info *mi)
 {
-	bool shared = 0;
+	char *root, *cut_root, rpath[PATH_MAX];
 	bool force_private_remount = false;
+	unsigned long mflags;
+	bool shared = 0;
 	struct stat st;
 
-	if (!mi->need_plugin) {
-		char *root, *cut_root, rpath[PATH_MAX];
-		unsigned long mflags;
+	if (mi->need_plugin) {
+		if (restore_ext_mount(mi))
+			return -1;
+		goto out;
+	}
 
-		if (mi->external) {
-			/*
-			 * We have / pointing to criu's ns root still,
-			 * so just use the mapping's path. The mountpoint
-			 * is tuned in collect_mnt_from_image to refer
-			 * to proper location in the namespace we restore.
-			 */
-			root = mi->root;
-			force_private_remount = mi->internal_sharing;
-			goto do_bind;
-		}
+	if (mi->external) {
+		/*
+		 * We have / pointing to criu's ns root still,
+		 * so just use the mapping's path. The mountpoint
+		 * is tuned in collect_mnt_from_image to refer
+		 * to proper location in the namespace we restore.
+		 */
+		root = mi->root;
+		force_private_remount = mi->internal_sharing;
+		goto do_bind;
+	}
 
-		shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
-		cut_root = cut_root_for_bind(mi->root, mi->bind->root);
+	shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
+	cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
-		snprintf(rpath, sizeof(rpath), "%s/%s",
-				mi->bind->mountpoint, cut_root);
-		root = rpath;
+	snprintf(rpath, sizeof(rpath), "%s/%s",
+			mi->bind->mountpoint, cut_root);
+	root = rpath;
 do_bind:
-		pr_info("\tBind %s to %s\n", root, mi->mountpoint);
+	pr_info("\tBind %s to %s\n", root, mi->mountpoint);
 
-		if (unlikely(mi->deleted)) {
-			if (stat(mi->mountpoint, &st)) {
-				pr_perror("Can't fetch stat on %s", mi->mountpoint);
-				return -1;
-			}
-
-			if (S_ISDIR(st.st_mode)) {
-				if (mkdir(root, (st.st_mode & ~S_IFMT))) {
-					pr_perror("Can't re-create deleted directory %s", root);
-					return -1;
-				}
-			} else if (S_ISREG(st.st_mode)) {
-				int fd = open(root, O_WRONLY | O_CREAT | O_EXCL,
-					      st.st_mode & ~S_IFMT);
-				if (fd < 0) {
-					pr_perror("Can't re-create deleted file %s", root);
-					return -1;
-				}
-				close(fd);
-			} else {
-				pr_err("Unsupported st_mode 0%o deleted root %s\n",
-				       (int)st.st_mode, root);
-				return -1;
-			}
+	if (unlikely(mi->deleted)) {
+		if (stat(mi->mountpoint, &st)) {
+			pr_perror("Can't fetch stat on %s", mi->mountpoint);
+			return -1;
 		}
 
-		if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
+		if (S_ISDIR(st.st_mode)) {
+			if (mkdir(root, (st.st_mode & ~S_IFMT))) {
+				pr_perror("Can't re-create deleted directory %s", root);
+				return -1;
+			}
+		} else if (S_ISREG(st.st_mode)) {
+			int fd = open(root, O_WRONLY | O_CREAT | O_EXCL,
+				      st.st_mode & ~S_IFMT);
+			if (fd < 0) {
+				pr_perror("Can't re-create deleted file %s", root);
+				return -1;
+			}
+			close(fd);
+		} else {
+			pr_err("Unsupported st_mode 0%o deleted root %s\n",
+			       (int)st.st_mode, root);
+			return -1;
+		}
+	}
+
+	if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
+		pr_perror("Can't mount at %s", mi->mountpoint);
+		return -1;
+	}
+
+	mflags = mi->flags & (~MS_PROPAGATE);
+	if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
+		if (mount(NULL, mi->mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
 			pr_perror("Can't mount at %s", mi->mountpoint);
 			return -1;
 		}
 
-		mflags = mi->flags & (~MS_PROPAGATE);
-		if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
-			if (mount(NULL, mi->mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
-				pr_perror("Can't mount at %s", mi->mountpoint);
+	if (unlikely(mi->deleted)) {
+		if (S_ISDIR(st.st_mode)) {
+			if (rmdir(root)) {
+				pr_perror("Can't remove deleted directory %s", root);
 				return -1;
 			}
-
-		if (unlikely(mi->deleted)) {
-			if (S_ISDIR(st.st_mode)) {
-				if (rmdir(root)) {
-					pr_perror("Can't remove deleted directory %s", root);
-					return -1;
-				}
-			} else if (S_ISREG(st.st_mode)) {
-				if (unlink(root)) {
-					pr_perror("Can't unlink deleted file %s", root);
-					return -1;
-				}
+		} else if (S_ISREG(st.st_mode)) {
+			if (unlink(root)) {
+				pr_perror("Can't unlink deleted file %s", root);
+				return -1;
 			}
 		}
-	} else {
-		if (restore_ext_mount(mi))
-			return -1;
 	}
-
+out:
 	/*
 	 * shared - the mount is in the same shared group with mi->bind
 	 * mi->shared_id && !shared - create a new shared group
