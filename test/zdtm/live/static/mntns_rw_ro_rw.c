@@ -30,12 +30,12 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (access("/proc/sys/net/unix/max_dgram_qlen", W_OK)) {
+	if (access("/proc/sys/net/ipv4/ip_forward", W_OK)) {
 		fail("Unable to access /proc/sys/net/core/wmem_max");
 		return 1;
 	}
 
-	if (access("/proc/sys/kernel/pid_max", W_OK) != -1 || errno != EROFS) {
+	if (access("/proc/sys/kernel/ns_last_pid", W_OK) != -1 || errno != EROFS) {
 		fail("Unable to access /proc/sys/kernel/pid_max");
 		return 1;
 	}

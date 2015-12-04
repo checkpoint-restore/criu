@@ -229,6 +229,7 @@ generate_test_list()
 		ns/static/mntns_root_bind
 		ns/static/mntns_deleted
 		ns/static/inotify01
+		ns/static/mntns_rw_ro_rw
 	"
 
 	TEST_AIO="
