@@ -798,6 +798,10 @@ class launcher:
 		perc = self.__nr * 16 / self.__total
 		print "=== Run %d/%d %s" % (self.__nr, self.__total, '=' * perc + '-' * (16 - perc))
 
+	def skip(self, name, reason):
+		print "Skipping %s (%s)" % (name, reason)
+		self.__nr += 1
+
 	def run_test(self, name, desc, flavor):
 
 		if len(self.__subs) >= self.__max:
@@ -938,16 +942,16 @@ def run_tests(opts):
 			global arch
 
 			if excl and excl.match(t):
-				print "Skipping %s (exclude)" % t
+				l.skip(t, "exclude")
 				continue
 
 			tdesc = get_test_desc(t)
 			if tdesc.get('arch', arch) != arch:
-				print "Skipping %s (arch %s)" % (t, tdesc['arch'])
+				l.skip(t, "arch %s" % tdesc['arch'])
 				continue
 
 			if run_all and test_flag(tdesc, 'noauto'):
-				print "Skipping test %s (manual run only)" % t
+				l.skip(t, "manual run only")
 				continue
 
 			feat = tdesc.get('feature', None)
@@ -957,11 +961,11 @@ def run_tests(opts):
 					features[feat] = criu_cli.check(feat)
 
 				if not features[feat]:
-					print "Skipping %s (no %s feature)" % (t, feat)
+					l.skip(t, "no %s feature" % feat)
 					continue
 
 			if self_checkskip(t):
-				print "Skipping %s (self)" % t
+				l.skip(t, "self")
 				continue
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
@@ -970,6 +974,8 @@ def run_tests(opts):
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
+			else:
+				l.skip(t, "no flavors")
 	finally:
 		l.finish()
 
