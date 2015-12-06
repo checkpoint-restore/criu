@@ -31,7 +31,7 @@ static inline void pmc_zap(pmc_t *pmc)
 	pmc->start = pmc->end = 0;
 }
 
-int pmc_init(pmc_t *pmc, pid_t pid, struct list_head *vma_head, size_t size)
+int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t size)
 {
 	size_t map_size = max(size, (size_t)PMC_SIZE);
 	pmc_reset(pmc);
@@ -60,7 +60,7 @@ static inline u64 *__pmc_get_map(pmc_t *pmc, unsigned long addr)
 	return &pmc->map[PAGE_PFN(addr - pmc->start)];
 }
 
-static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
+static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 {
 	unsigned long low = vma->e->start & PMC_MASK;
 	unsigned long high = low + PMC_SIZE;
@@ -129,7 +129,7 @@ static int pmc_fill_cache(pmc_t *pmc, struct vma_area *vma)
 	return 0;
 }
 
-u64 *pmc_get_map(pmc_t *pmc, struct vma_area *vma)
+u64 *pmc_get_map(pmc_t *pmc, const struct vma_area *vma)
 {
 	/* Hit */
 	if (likely(pmc->start <= vma->e->start && pmc->end >= vma->e->end))
