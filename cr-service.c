@@ -22,7 +22,6 @@
 #include "pstree.h"
 #include "cr-service.h"
 #include "cr-service-const.h"
-#include "sd-daemon.h"
 #include "page-xfer.h"
 #include "net.h"
 #include "mount.h"
@@ -991,19 +990,13 @@ static int restore_sigchld_handler()
 
 int cr_service(bool daemon_mode)
 {
-	int server_fd = -1, n;
+	int server_fd = -1;
 	int child_pid;
 
 	struct sockaddr_un client_addr;
 	socklen_t client_addr_len;
 
-	n = sd_listen_fds(0);
-	if (n > 1) {
-		pr_err("Too many file descriptors (%d) recieved", n);
-		goto err;
-	} else if (n == 1)
-		server_fd = SD_LISTEN_FDS_START + 0;
-	else {
+	{
 		struct sockaddr_un server_addr;
 		socklen_t server_addr_len;
 
@@ -1017,8 +1010,10 @@ int cr_service(bool daemon_mode)
 		memset(&client_addr, 0, sizeof(client_addr));
 		server_addr.sun_family = AF_LOCAL;
 
-		if (opts.addr == NULL)
+		if (opts.addr == NULL) {
+			pr_warn("Binding to local dir address!\n");
 			opts.addr = CR_DEFAULT_SERVICE_ADDRESS;
+		}
 
 		strcpy(server_addr.sun_path, opts.addr);
 

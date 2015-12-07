@@ -71,7 +71,6 @@ obj-y	+= vdso.o
 obj-y	+= pie/util-vdso.o
 endif
 obj-y	+= cr-service.o
-obj-y	+= sd-daemon.o
 obj-y	+= plugin.o
 obj-y	+= cr-errno.o
 obj-y	+= pie/pie-relocs.o
