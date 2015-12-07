@@ -22,8 +22,8 @@ END(__export_parasite_head_start)
 #else /* CONFIG_X86_64 */
 
 ENTRY(__export_parasite_head_start)
-	subl	$8, %esp
-	andl	$~7, %esp
+	subl	$16, %esp
+	andl	$~15, %esp
 	pushl	$0
 	movl	%esp, %ebp
 	call	1f
