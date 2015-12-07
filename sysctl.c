@@ -362,8 +362,10 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 
 		fd = openat(dir, req->name, flags);
 		if (fd < 0) {
-			if (errno == ENOENT && (req->flags & CTL_FLAGS_OPTIONAL))
+			if (errno == ENOENT && (req->flags & CTL_FLAGS_OPTIONAL)) {
+				req++;
 				continue;
+			}
 			pr_perror("Can't open sysctl %s", req->name);
 			goto out;
 		}
