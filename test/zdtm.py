@@ -974,6 +974,9 @@ def run_tests(opts):
 				run_flavs = set(test_flavs) & set(opts_flavs)
 			else:
 				run_flavs = set([test_flavs.pop()])
+			if not criu_cli.check("userns"):
+				run_flavs.remove("uns")
+
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
