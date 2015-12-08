@@ -258,7 +258,7 @@ class zdtm_test:
 		self.__pid = 0
 		self.__flavor = flavor
 		self._bins = [ name ]
-		self._env = []
+		self._env = {}
 		self.auto_reap = True
 
 	def __make_action(self, act, env = None, root = None):
