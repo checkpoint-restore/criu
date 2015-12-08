@@ -2312,7 +2312,7 @@ static int do_bind_mount(struct mount_info *mi)
 	if (mnt_path == NULL)
 		return -1;
 
-	snprintf(rpath, sizeof(rpath), "%s/%s/.",
+	snprintf(rpath, sizeof(rpath), "%s/%s",
 			mnt_path, cut_root);
 	root = rpath;
 do_bind:
