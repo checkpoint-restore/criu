@@ -3161,6 +3161,8 @@ int prepare_mnt_ns(void)
 	ret = populate_mnt_ns();
 	if (!ret && opts.root)
 		ret = cr_pivot_root(NULL);
+	if (ret)
+		return -1;
 
 	rst = open_proc(PROC_SELF, "ns/mnt");
 	if (rst < 0)
@@ -3207,7 +3209,7 @@ int prepare_mnt_ns(void)
 
 	return ret;
 err:
-	if (rst)
+	if (rst >= 0)
 		restore_ns(rst, &mnt_ns_desc);
 	return -1;
 }
