@@ -344,7 +344,7 @@ out:
 
 static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 {
-	int dir, ret = -1;;
+	int dir, ret, exit_code = -1;;
 
 	dir = open("/proc/sys", O_RDONLY, O_DIRECTORY);
 	if (dir < 0) {
@@ -371,15 +371,16 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 		}
 
 		ret = do_sysctl_op(fd, req, op);
+		if (ret)
+			goto out;
 		close(fd);
 		req++;
 	}
 
-	ret = 0;
-
+	exit_code = 0;
 out:
 	close(dir);
-	return ret;
+	return exit_code;
 }
 
 int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
