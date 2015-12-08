@@ -2383,7 +2383,15 @@ out:
 	exit_code = 0;
 err:
 	if (umount_mnt_path) {
-		if (umount(mnt_path)) {
+		/*
+		 * If mnt_path was shared, a new mount may be propagated
+		 * into it.
+		 */
+		if (mount(NULL, mnt_path, NULL, MS_PRIVATE, NULL)) {
+			pr_perror("Unable to make %s private", mnt_path);
+			return -1;
+		}
+		if (umount2(mnt_path, MNT_DETACH)) {
 			pr_perror("Unable to umount %s", mnt_path);
 			return -1;
 		}
