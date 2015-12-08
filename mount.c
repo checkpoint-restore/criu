@@ -1521,7 +1521,7 @@ static int binfmt_misc_restore(struct mount_info *mi)
 		return -1;
 
 	img = open_image(CR_FD_BINFMT_MISC, O_RSTR, mi->s_dev);
-	if (!img || empty_image(img)) {
+	if (!img) {
 		goto free_buf;
 	}
 
