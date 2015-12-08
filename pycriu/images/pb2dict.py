@@ -69,6 +69,28 @@ mmap_flags_map = [
 	('MAP_SHARED',	0x1),
 	('MAP_PRIVATE',	0x2),
 	('MAP_ANON',	0x20),
+	('MAP_GROWSDOWN',	0x0100),
+];
+
+mmap_status_map = [
+	('VMA_AREA_NONE',	0 << 0),
+	('VMA_AREA_REGULAR',	1 << 0),
+	('VMA_AREA_STACK',	1 << 1),
+	('VMA_AREA_VSYSCALL',	1 << 2),
+	('VMA_AREA_VDSO',	1 << 3),
+	('VMA_AREA_HEAP',	1 << 5),
+
+	('VMA_FILE_PRIVATE',	1 << 6),
+	('VMA_FILE_SHARED',	1 << 7),
+	('VMA_ANON_SHARED',	1 << 8),
+	('VMA_ANON_PRIVATE',	1 << 9),
+
+	('VMA_AREA_SYSVIPC',	1 << 10),
+	('VMA_AREA_SOCKET',	1 << 11),
+	('VMA_AREA_VVAR',	1 << 12),
+	('VMA_AREA_AIORING',	1 << 13),
+
+	('VMA_UNSUPP',		1 << 31),
 ];
 
 rfile_flags_map = [
@@ -82,6 +104,7 @@ rfile_flags_map = [
 flags_maps = {
 	'mmap.prot' : mmap_prot_map,
 	'mmap.flags' : mmap_flags_map,
+	'mmap.status' : mmap_status_map,
 	'rfile.flags' : rfile_flags_map,
 }
 
