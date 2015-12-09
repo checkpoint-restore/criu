@@ -20,35 +20,39 @@
 
 #define NR_ATTEMPTS 5
 
-const char frozen[]	= "FROZEN";
-const char freezing[]	= "FREEZING";
-const char thawed[]	= "THAWED";
+static const char frozen[]	= "FROZEN";
+static const char freezing[]	= "FREEZING";
+static const char thawed[]	= "THAWED";
 
 static const char *get_freezer_state(int fd)
 {
+	char state[32];
 	int ret;
-	char path[PATH_MAX];
+
+	BUILD_BUG_ON((sizeof(state) < sizeof(frozen))	||
+		     (sizeof(state) < sizeof(freezing))	||
+		     (sizeof(state) < sizeof(thawed)));
 
 	lseek(fd, 0, SEEK_SET);
-	ret = read(fd, path, sizeof(path) - 1);
+	ret = read(fd, state, sizeof(state) - 1);
 	if (ret <= 0) {
 		pr_perror("Unable to get a current state");
 		goto err;
 	}
-	if (path[ret - 1] == '\n')
-		path[ret - 1] = 0;
+	if (state[ret - 1] == '\n')
+		state[ret - 1] = 0;
 	else
-		path[ret] = 0;
+		state[ret] = 0;
 
-	pr_debug("freezer.state=%s\n", path);
-	if (strcmp(path, frozen) == 0)
+	pr_debug("freezer.state=%s\n", state);
+	if (strcmp(state, frozen) == 0)
 		return frozen;
-	if (strcmp(path, freezing) == 0)
+	else if (strcmp(state, freezing) == 0)
 		return freezing;
-	if (strcmp(path, thawed) == 0)
+	else if (strcmp(state, thawed) == 0)
 		return thawed;
 
-	pr_err("Unknown freezer state: %s\n", path);
+	pr_err("Unknown freezer state: %s\n", state);
 err:
 	return NULL;
 }
