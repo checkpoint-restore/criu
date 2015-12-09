@@ -664,6 +664,23 @@ def try_run_hook(test, args):
 			raise test_fail_exc("hook " + " ".join(args))
 
 #
+# Step by step execution
+#
+
+do_sbs = False
+
+def init_sbs():
+	if sys.stdout.isatty():
+		global do_sbs
+		do_sbs = True
+	else:
+	 	print "Can't do step-by-step in this runtime"
+
+def sbs(what):
+	if do_sbs:
+		raw_input("Pause at %s. Press any key to continue." % what)
+
+#
 # Main testing entity -- dump (probably with pre-dumps) and restore
 #
 
@@ -687,13 +704,17 @@ def cr(cr_api, test, opts):
 				cr_api.dump("pre-dump")
 			time.sleep(pres[1])
 
+		sbs('pre-dump')
+
 		if opts['norst']:
 			cr_api.dump("dump", opts = ["--leave-running"])
 		else:
 			cr_api.dump("dump")
 			test.gone()
+			sbs('pre-restore')
 			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
+			sbs('post-restore')
 
 		time.sleep(iters[1])
 
@@ -751,6 +772,8 @@ def do_run_test(tname, tdesc, flavs, opts):
 
 	if opts['report']:
 		init_report(opts['report'])
+	if opts['sbs']:
+		init_sbs()
 
 	for f in flavs:
 		print
@@ -816,7 +839,7 @@ class launcher:
 		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
-				'fault', 'keep_img', 'report', 'snaps', 'sat', 'dedup')
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'dedup', 'sbs')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
 		if self.__max > 1 and self.__total > 1:
@@ -1160,6 +1183,7 @@ rp.add_argument("--norst", help = "Don't restore tasks, leave them running after
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
 rp.add_argument("--fault", help = "Test fault injection")
 rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
+rp.add_argument("--sbs", help = "Do step-by-step execution, asking user for keypress to continue", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
