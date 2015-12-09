@@ -590,7 +590,9 @@ class criu_cli:
 
 		strace = []
 		if self.__sat:
-			strace = ["strace", "-o", os.path.join(self.__ddir(), action + '.strace'), '-T']
+			fname = os.path.join(self.__ddir(), action + '.strace')
+			print_fname(fname, 'strace')
+			strace = ["strace", "-o", fname, '-T']
 			if action == 'restore':
 				strace += [ '-f' ]
 				s_args += [ '--action-script', os.getcwd() + '/../scripts/fake-restore.sh' ]
@@ -906,6 +908,10 @@ def self_checkskip(tname):
 
 	return False
 
+def print_fname(fname, typ):
+	print "=[%s]=> %s" % (typ, fname)
+
+
 def print_sep(title, sep = "=", width = 80):
 	print (" " + title + " ").center(width, sep)
 
@@ -914,6 +920,7 @@ def grep_errors(fname):
 	for l in open(fname):
 		if "Error" in l:
 			if first:
+				print_fname(fname, 'log')
 				print_sep("grep Error", "-", 60)
 				first = False
 			print l,
