@@ -975,7 +975,11 @@ def run_tests(opts):
 			else:
 				run_flavs = set([test_flavs.pop()])
 			if not criu_cli.check("userns"):
-				run_flavs.remove("uns")
+				try:
+					run_flavs.remove("uns")
+				except ValueError:
+					# don't worry if uns isn't in run_flavs
+					pass
 
 
 			if run_flavs:
