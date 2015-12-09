@@ -1185,6 +1185,9 @@ int tty_setup_slavery(void)
 		    info->driver->type == TTY_TYPE__CTTY)
 			continue;
 
+		if (!tty_is_master(info))
+			continue;
+
 		info->ctl_tty = info;
 		pr_debug("ctl tty leader %x\n", info->tfe->id);
 		peer = info;
