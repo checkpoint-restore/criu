@@ -206,6 +206,7 @@ TST_DIR		=				\
 		bind-mount			\
 		inotify00			\
 		inotify01			\
+		inotify02			\
 		cgroup00			\
 		rmdir_open			\
 		cgroup01			\
