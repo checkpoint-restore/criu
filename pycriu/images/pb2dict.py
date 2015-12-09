@@ -24,12 +24,10 @@ import os
 
 
 _basic_cast = {
-	FD.TYPE_DOUBLE		: float,
-	FD.TYPE_FLOAT		: float,
-	FD.TYPE_FIXED64		: float,
-	FD.TYPE_FIXED32		: float,
-	FD.TYPE_SFIXED64	: float,
-	FD.TYPE_SFIXED32	: float,
+	FD.TYPE_FIXED64		: long,
+	FD.TYPE_FIXED32		: int,
+	FD.TYPE_SFIXED64	: long,
+	FD.TYPE_SFIXED32	: int,
 
 	FD.TYPE_INT64		: long,
 	FD.TYPE_UINT64		: long,
