@@ -14,6 +14,14 @@ union sockaddr_inet {
 	struct sockaddr_in6 v6;
 };
 
+#ifdef ZDTM_FREEBIND_FALSE
+static const int fb_keep = 0;
+static const int port = 56789;
+#else
+static const int fb_keep = 1;
+static const int port = 56787;
+#endif
+
 int main(int argc, char **argv)
 {
 	union sockaddr_inet addr;
@@ -24,7 +32,7 @@ int main(int argc, char **argv)
 
 	addr.v6.sin6_family = AF_INET6;
 	inet_pton(AF_INET6, "2001:db8::ff00:42:8329", &(addr.v6.sin6_addr));
-	addr.v6.sin6_port = htons(56789);
+	addr.v6.sin6_port = htons(port);
 
 	sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock == -1) {
@@ -40,13 +48,14 @@ int main(int argc, char **argv)
 		pr_perror("bind()");
 		return -1;
 	}
-#ifdef ZDTM_FREEBIND_FALSE
-	val = 0;
-	if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1 ) {
-		pr_perror("setsockopt() error");
-		return -1;
+
+	if (!fb_keep) {
+		val = 0;
+		if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1 ) {
+			pr_perror("setsockopt() error");
+			return -1;
+		}
 	}
-#endif
 
 	test_daemon();
 	test_waitsig();
@@ -57,11 +66,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-#ifdef ZDTM_FREEBIND_FALSE
-	if (val) {
-#else
-	if (val == 0) {
-#endif
+	if (val != fb_keep) {
 		fail("Unexpected value: %d", val);
 		return -1;
 	}
