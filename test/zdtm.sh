@@ -548,10 +548,10 @@ construct_root()
 	mknod -m 0666 $root/dev/null c 1 3
 	if [ -r "/dev/net/tun" ]; then
 		mkdir $root/dev/net/
-		mknod -m 0666 $root/dev/net/tun $(stat -c "0x%t" /dev/net/tun) $(stat -c "0x%T" /dev/net/tun)
+		mknod -m 0666 $root/dev/net/tun c $(stat -c "0x%t" /dev/net/tun) $(stat -c "0x%T" /dev/net/tun)
 	fi
 	if [ -r "/dev/rtc" ]; then
-		mknod -m 0666 $root/dev/rtc $(stat -c "0x%t" /dev/rtc) $(stat -c "0x%T" /dev/rtc)
+		mknod -m 0666 $root/dev/rtc -c $(stat -c "0x%t" /dev/rtc) $(stat -c "0x%T" /dev/rtc)
 	fi
 
 	mkdir $root/proc
