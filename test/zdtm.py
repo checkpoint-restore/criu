@@ -816,11 +816,18 @@ class launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'dedup')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
-		log = name.replace('/', '_') + ".log"
+
+		if self.__max > 1 and self.__total > 1:
+			logf = name.replace('/', '_') + ".log"
+			log = open(logf, "w")
+		else:
+			logf = None
+			log = None
+
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
 				env = dict(os.environ, CR_CT_TEST_INFO = arg ), \
-				stdout = open(log, "w"), stderr = subprocess.STDOUT)
-		self.__subs[sub.pid] = { 'sub': sub, 'log': log }
+				stdout = log, stderr = subprocess.STDOUT)
+		self.__subs[sub.pid] = { 'sub': sub, 'log': logf }
 
 		if test_flag(desc, 'excl'):
 			self.wait()
@@ -833,8 +840,10 @@ class launcher:
 				self.__fail = True
 				add_to_report(sub['log'], "output")
 
-			print open(sub['log']).read()
-			os.unlink(sub['log'])
+			if sub['log']:
+				print open(sub['log']).read()
+				os.unlink(sub['log'])
+
 			return True
 
 		return False
