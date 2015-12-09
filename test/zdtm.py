@@ -259,6 +259,7 @@ class zdtm_test:
 		self.__flavor = flavor
 		self._bins = [ name ]
 		self._env = {}
+		self._deps = desc.get('deps', [])
 		self.auto_reap = True
 
 	def __make_action(self, act, env = None, root = None):
@@ -284,7 +285,7 @@ class zdtm_test:
 		wait_pid_die(int(self.__pid), self.__name)
 
 	def start(self):
-		self.__flavor.init(self._bins, self.__desc.get('deps', []))
+		self.__flavor.init(self._bins, self._deps)
 
 		print "Start test"
 
@@ -489,6 +490,7 @@ class groups_test(zdtm_test):
 			self.__subs = []
 
 		self._bins += self.__subs
+		self._deps += get_test_desc('zdtm/lib/groups')['deps']
 		self._env = { 'ZDTM_TESTS': self.__real_name }
 
 	def __get_start_cmd(self, name):
