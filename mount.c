@@ -2678,11 +2678,11 @@ out:
 	return exit_code;
 }
 
-static int rst_collect_local_mntns(void)
+static int rst_collect_local_mntns(enum ns_type typ)
 {
 	struct ns_id *nsid;
 
-	nsid = rst_new_ns_id(0, getpid(), &mnt_ns_desc);
+	nsid = rst_new_ns_id(0, getpid(), &mnt_ns_desc, typ);
 	if (!nsid)
 		return -1;
 
@@ -3104,7 +3104,7 @@ int prepare_mnt_ns(void)
 	struct ns_id *nsid;
 
 	if (!(root_ns_mask & CLONE_NEWNS))
-		return rst_collect_local_mntns();
+		return rst_collect_local_mntns(NS_CRIU);
 
 	pr_info("Restoring mount namespace\n");
 

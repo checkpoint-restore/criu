@@ -135,7 +135,7 @@ static void nsid_add(struct ns_id *ns, struct ns_desc *nd, unsigned int id, pid_
 	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->ns_pid);
 }
 
-static struct ns_id *__rst_new_ns_id(unsigned int id, pid_t pid,
+struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		struct ns_desc *nd, enum ns_type type)
 {
 	struct ns_id *nsid;
@@ -150,11 +150,6 @@ static struct ns_id *__rst_new_ns_id(unsigned int id, pid_t pid,
 	return nsid;
 }
 
-struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
-{
-	return __rst_new_ns_id(id, pid, nd, NS_CRIU);
-}
-
 int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 {
 	pid_t pid = i->pid.virt;
@@ -167,7 +162,7 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 		return 0;
 	}
 
-	nsid = __rst_new_ns_id(id, pid, nd,
+	nsid = rst_new_ns_id(id, pid, nd,
 			i == root_item ? NS_ROOT : NS_OTHER);
 	if (nsid == NULL)
 		return -1;
