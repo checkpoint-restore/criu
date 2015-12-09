@@ -1555,7 +1555,7 @@ static int restore_task_with_children(void *_arg)
 	}
 
 	if (!(ca->clone_flags & CLONE_FILES)) {
-		ret = close_old_fds(current);
+		ret = close_old_fds();
 		if (ret)
 			goto err;
 	}

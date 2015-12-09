@@ -1022,7 +1022,7 @@ static int open_fdinfos(int pid, struct list_head *list, int state)
 
 static struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller);
 
-int close_old_fds(struct pstree_item *me)
+int close_old_fds(void)
 {
 	DIR *dir;
 	struct dirent *de;

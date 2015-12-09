@@ -156,7 +156,7 @@ extern int restore_fs(struct pstree_item *);
 extern int prepare_fs_pid(struct pstree_item *);
 extern int set_fd_flags(int fd, int flags);
 
-extern int close_old_fds(struct pstree_item *me);
+extern int close_old_fds(void);
 #ifndef AT_EMPTY_PATH
 #define AT_EMPTY_PATH 0x1000
 #endif
