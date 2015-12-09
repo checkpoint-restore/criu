@@ -2972,6 +2972,8 @@ void fini_restore_mntns(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 		close(nsid->mnt.ns_fd);
+		if (nsid->type != NS_ROOT)
+			close(nsid->mnt.root_fd);
 	}
 }
 
@@ -3179,6 +3181,8 @@ int prepare_mnt_ns(void)
 			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
 			if (nsid->mnt.ns_fd < 0)
 				goto err;
+			/* we set ns_populated so we don't need to open root_fd */
+			futex_set(&nsid->ns_populated, 1);
 			continue;
 		}
 
@@ -3197,6 +3201,11 @@ int prepare_mnt_ns(void)
 		/* Pin one with a file descriptor */
 		nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
 		if (nsid->mnt.ns_fd < 0)
+			goto err;
+
+		/* root_fd is used to restore file mappings */
+		nsid->mnt.root_fd = open_proc(PROC_SELF, "root");
+		if (nsid->mnt.root_fd < 0)
 			goto err;
 
 		/* And return back to regain the access to the roots yard */
@@ -3289,15 +3298,33 @@ set_root:
 
 int mntns_get_root_fd(struct ns_id *mntns) {
 	/*
-	 * We need to find a task from the target namespace and open its root.
-	 * For that we need to wait when one of tasks enters into required
-	 * namespaces.
+	 * All namespaces are restored from the root task and during the
+	 * CR_STATE_FORKING stage the root task has two file descriptors for
+	 * each mntns. One is associated with a namespace and another one is a
+	 * root of this mntns.
 	 *
-	 * The root task is born in the root mount namespace.
+	 * When a non-root task is forked, it enters into a proper mount
+	 * namespace, restores private mappings and forks children. Some of
+	 * these mappings can be associated with files from other namespaces.
+	 *
+	 * After the CR_STATE_FORKING stage the root task has to close all
+	 * mntns file descriptors to restore its descriptors and at this moment
+	 * we know that all tasks live in their mount namespaces.
+	 *
+	 * If we find that a mount namespace isn't populated, we can get its
+	 * root from the root task.
 	 */
 
-	if (mntns->type != NS_ROOT)
-		futex_wait_while_eq(&mntns->ns_populated, 0);
+	if (!futex_get(&mntns->ns_populated)) {
+		int fd;
+
+		fd = open_proc(root_item->pid.virt, "fd/%d", mntns->mnt.root_fd);
+		if (fd < 0)
+			return -1;
+
+		return mntns_set_root_fd(mntns->ns_pid, fd);
+	}
+
 	return __mntns_get_root_fd(mntns->ns_pid);
 }
 

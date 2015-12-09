@@ -38,6 +38,7 @@ struct ns_id {
 			struct mount_info *mntinfo_list;
 			struct mount_info *mntinfo_tree;
 			int ns_fd;
+			int root_fd;
 		} mnt;
 
 		struct {
