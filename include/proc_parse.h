@@ -101,12 +101,16 @@ struct proc_status_creds {
 
 bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2);
 
+typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
+			  char *fstype, unsigned long mountflags);
+
 struct fstype {
 	char *name;
 	int code;
 	int (*dump)(struct mount_info *pm);
 	int (*restore)(struct mount_info *pm);
 	int (*parse)(struct mount_info *pm);
+	mount_fn_t mount;
 };
 
 struct vm_area_list;

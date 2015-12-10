@@ -2209,6 +2209,13 @@ static int fetch_rt_stat(struct mount_info *m, const char *where)
  */
 #define MS_MNT_KNOWN_FLAGS (MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_NOATIME | \
 				MS_NODIRATIME | MS_RELATIME | MS_RDONLY)
+
+static int do_simple_mount(struct mount_info *mi, const char *src, const
+			   char *fstype, unsigned long mountflags)
+{
+	return mount(src, mi->mountpoint, fstype, mountflags, mi->options);
+}
+
 static int do_new_mount(struct mount_info *mi)
 {
 	unsigned long sflags = mi->sb_flags;
@@ -2216,6 +2223,7 @@ static int do_new_mount(struct mount_info *mi)
 	char *src;
 	struct fstype *tp = mi->fstype;
 	bool remount_ro = (tp->restore && mi->sb_flags & MS_RDONLY);
+	mount_fn_t do_mount = (tp->mount) ? tp->mount : do_simple_mount;
 
 	src = resolve_source(mi);
 	if (!src)
@@ -2230,7 +2238,7 @@ static int do_new_mount(struct mount_info *mi)
 	if (remount_ro)
 		sflags &= ~MS_RDONLY;
 
-	if (mount(src, mi->mountpoint, tp->name, sflags, mi->options) < 0) {
+	if (do_mount(mi, src, tp->name, sflags) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
