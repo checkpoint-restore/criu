@@ -269,7 +269,7 @@ class ipc_sem_set_handler:
 		s = array.array('H')
 		if s.itemsize != sizeof_u16:
 			raise Exception("Array size mismatch")
-		s.fromfile(f, entry['nsems'])
+		s.fromstring(f.read(size))
 		f.seek(rounded - size, 1)
 		return s.tolist()
 
@@ -283,7 +283,7 @@ class ipc_sem_set_handler:
 		s.fromlist(extra)
 		if len(s) != entry['nsems']:
 			raise Exception("Number of semaphores mismatch")
-		s.tofile(f)
+		f.write(s.tostring())
 		f.write('\0' * (rounded - size))
 
 class ipc_msg_queue_handler:
