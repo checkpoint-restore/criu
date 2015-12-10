@@ -135,6 +135,9 @@ def encode_dev(field, value):
 	else:
 		return dev[0] << kern_minorbits | dev[1]
 
+def is_string(value):
+	return isinstance(value, unicode) or isinstance(value, str)
+
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
 		is_hex = _marked_as_hex(field)
@@ -209,7 +212,7 @@ def _dict2pb_cast(field, value):
 		return field.enum_type.values_by_name.get(value, None).number
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
-		if (cast == int or cast == long) and isinstance(value, unicode):
+		if (cast == int or cast == long) and is_string(value):
 			if _marked_as_dev(field):
 				return encode_dev(field, value)
 
@@ -241,7 +244,7 @@ def dict2pb(d, pb):
 		value = d[field.name]
 		if field.label == FD.LABEL_REPEATED:
 			pb_val = getattr(pb, field.name, None)
-			if isinstance(value[0], unicode) and _marked_as_ip(field):
+			if is_string(value[0]) and _marked_as_ip(field):
 				val = ipaddr.IPAddress(value[0])
 				if val.version == 4:
 					pb_val.append(socket.htonl(int(val)))
