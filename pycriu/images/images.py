@@ -276,6 +276,18 @@ class ipc_sem_set_handler:
 	def dump(self, extra, f, pb):
 		raise Exception("Not yet implemented")
 
+class ipc_shm_handler:
+	def load(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		size = entry['size']
+		data = f.read(size)
+		rounded = round_up(size, sizeof_u32)
+		f.seek(rounded - size, 1)
+		return data.encode('base64')
+
+	def dump(self, extra, f, pb):
+		raise Exception("Not yet implemented")
+
 handlers = {
 	'INVENTORY'		: entry_handler(inventory_entry),
 	'CORE'			: entry_handler(core_entry),
@@ -326,7 +338,7 @@ handlers = {
 	'PIPES_DATA'		: entry_handler(pipe_data_entry, pipes_data_extra_handler()),
 	'FIFO_DATA'		: entry_handler(pipe_data_entry, pipes_data_extra_handler()),
 	'SK_QUEUES'		: entry_handler(sk_packet_entry, sk_queues_extra_handler()),
-	'IPCNS_SHM'		: entry_handler(ipc_shm_entry),
+	'IPCNS_SHM'		: entry_handler(ipc_shm_entry, ipc_shm_handler()),
 	'IPCNS_SEM'		: entry_handler(ipc_sem_entry, ipc_sem_set_handler()),
 	'IPCNS_MSG'		: entry_handler(ipc_msg_entry),
 	'NETNS'			: entry_handler(netns_entry),
