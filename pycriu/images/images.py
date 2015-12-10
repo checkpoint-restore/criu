@@ -276,6 +276,38 @@ class ipc_sem_set_handler:
 	def dump(self, extra, f, pb):
 		raise Exception("Not yet implemented")
 
+class ipc_msg_queue_handler:
+	def load(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		messages = []
+		for x in range (0, entry['qnum']):
+			buf = f.read(4)
+			if buf == '':
+				break
+			size, = struct.unpack('i', buf)
+			msg = ipc_msg()
+			msg.ParseFromString(f.read(size))
+			rounded = round_up(msg.msize, sizeof_u64)
+			data = f.read(msg.msize)
+			f.seek(rounded - msg.msize, 1)
+			messages.append(pb2dict.pb2dict(msg))
+			messages.append(data.encode('base64'))
+		return messages
+
+	def dump(self, extra, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		for i in range (0, len(extra), 2):
+			msg = ipc_msg()
+			pb2dict.dict2pb(extra[i], msg)
+			msg_str = msg.SerializeToString()
+			size = len(msg_str)
+			f.write(struct.pack('i', size))
+			f.write(msg_str)
+			rounded = round_up(msg.msize, sizeof_u64)
+			data = extra[i + 1].decode('base64')
+			f.write(data[:msg.msize])
+			f.write('\0' * (rounded - msg.msize))
+
 class ipc_shm_handler:
 	def load(self, f, pb):
 		entry = pb2dict.pb2dict(pb)
@@ -345,7 +377,7 @@ handlers = {
 	'SK_QUEUES'		: entry_handler(sk_packet_entry, sk_queues_extra_handler()),
 	'IPCNS_SHM'		: entry_handler(ipc_shm_entry, ipc_shm_handler()),
 	'IPCNS_SEM'		: entry_handler(ipc_sem_entry, ipc_sem_set_handler()),
-	'IPCNS_MSG'		: entry_handler(ipc_msg_entry),
+	'IPCNS_MSG'		: entry_handler(ipc_msg_entry, ipc_msg_queue_handler()),
 	'NETNS'			: entry_handler(netns_entry),
 	'USERNS'		: entry_handler(userns_entry),
 	'SECCOMP'		: entry_handler(seccomp_entry),
