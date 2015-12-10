@@ -46,9 +46,20 @@ import os
 import sys
 import json
 import pb2dict
+import array
 
 import magic
 from pb import *
+
+#
+# Predefined hardcoded constants
+sizeof_u16 = 2
+sizeof_u32 = 4
+sizeof_u64 = 8
+
+# A helper for rounding
+def round_up(x,y):
+	return (((x - 1) | (y - 1)) + 1)
 
 class MagicException(Exception):
 	def __init__(self, magic):
@@ -250,6 +261,21 @@ class tcp_stream_extra_handler:
 		f.write(inq)
 		f.write(outq)
 
+class ipc_sem_set_handler:
+	def load(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		size = sizeof_u16 * entry['nsems']
+		rounded = round_up(size, sizeof_u64)
+		s = array.array('H')
+		if s.itemsize != sizeof_u16:
+			raise Exception("Array size mismatch")
+		s.fromfile(f, entry['nsems'])
+		f.seek(rounded - size, 1)
+		return s.tolist()
+
+	def dump(self, extra, f, pb):
+		raise Exception("Not yet implemented")
+
 handlers = {
 	'INVENTORY'		: entry_handler(inventory_entry),
 	'CORE'			: entry_handler(core_entry),
@@ -301,7 +327,7 @@ handlers = {
 	'FIFO_DATA'		: entry_handler(pipe_data_entry, pipes_data_extra_handler()),
 	'SK_QUEUES'		: entry_handler(sk_packet_entry, sk_queues_extra_handler()),
 	'IPCNS_SHM'		: entry_handler(ipc_shm_entry),
-	'IPCNS_SEM'		: entry_handler(ipc_sem_entry),
+	'IPCNS_SEM'		: entry_handler(ipc_sem_entry, ipc_sem_set_handler()),
 	'IPCNS_MSG'		: entry_handler(ipc_msg_entry),
 	'NETNS'			: entry_handler(netns_entry),
 	'USERNS'		: entry_handler(userns_entry),
