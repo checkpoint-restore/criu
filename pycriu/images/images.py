@@ -274,7 +274,17 @@ class ipc_sem_set_handler:
 		return s.tolist()
 
 	def dump(self, extra, f, pb):
-		raise Exception("Not yet implemented")
+		entry = pb2dict.pb2dict(pb)
+		size = sizeof_u16 * entry['nsems']
+		rounded = round_up(size, sizeof_u64)
+		s = array.array('H')
+		if s.itemsize != sizeof_u16:
+			raise Exception("Array size mismatch")
+		s.fromlist(extra)
+		if len(s) != entry['nsems']:
+			raise Exception("Number of semaphores mismatch")
+		s.tofile(f)
+		f.write('\0' * (rounded - size))
 
 class ipc_msg_queue_handler:
 	def load(self, f, pb):
