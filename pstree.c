@@ -778,14 +778,39 @@ bool restore_before_setsid(struct pstree_item *child)
 	return false;
 }
 
-bool pid_in_pstree(pid_t pid)
+struct pstree_item *pstree_item_by_virt(pid_t virt)
 {
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		if (item->pid.real == pid)
-			return true;
+		if (item->pid.virt == virt)
+			return item;
 	}
+	return NULL;
+}
 
-	return false;
+struct pstree_item *pstree_item_by_real(pid_t real)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		if (item->pid.real == real)
+			return item;
+	}
+	return NULL;
+}
+
+int pid_to_virt(pid_t real)
+{
+	struct pstree_item *item;
+
+	item = pstree_item_by_real(real);
+	if (item)
+		return item->pid.virt;
+	return 0;
+}
+
+bool pid_in_pstree(pid_t pid)
+{
+	return pstree_item_by_real(pid) != NULL;
 }
