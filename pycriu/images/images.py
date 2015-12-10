@@ -286,7 +286,12 @@ class ipc_shm_handler:
 		return data.encode('base64')
 
 	def dump(self, extra, f, pb):
-		raise Exception("Not yet implemented")
+		entry = pb2dict.pb2dict(pb)
+		size = entry['size']
+		data = extra.decode('base64')
+		rounded = round_up(size, sizeof_u32)
+		f.write(data[:size])
+		f.write('\0' * (rounded - size))
 
 handlers = {
 	'INVENTORY'		: entry_handler(inventory_entry),
