@@ -116,7 +116,10 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 			return -1;
 		}
 
-		if (seize_catch_task(pid) && state == frozen) {
+		if (!seize_catch_task(pid)) {
+			pr_debug("SEIZE %d: success\n", pid);
+			processes_to_wait++;
+		} else if (state == frozen) {
 			char buf[] = "/proc/XXXXXXXXXX/exe";
 			struct stat st;
 
@@ -163,6 +166,63 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 	}
 	closedir(dir);
 
+	return 0;
+}
+
+/* A number of tasks in a freezer cgroup which are not going to be dumped */
+int processes_to_wait;
+
+/*
+ * A freezer cgroup can contain tasks which will not be dumped
+ * and we need to wait them, because the are interupted them by ptrace.
+ */
+static int freezer_wait_processes()
+{
+	int i;
+
+	for (i = 0; i < processes_to_wait; i++) {
+		int status;
+		pid_t pid;
+
+		/*
+		 * Here we are going to skip tasks which are already traced.
+		 * Ptraced tasks looks like children for us, so if
+		 * a task isn't ptraced yet, waitpid() will return a error.
+		 */
+		pid = waitpid(-1, &status, 0);
+		if (pid < 0) {
+			pr_perror("Unable to wait processes");
+			return -1;
+		}
+		pr_warn("Unexpected process %d in the freezer cgroup (status 0x%x)\n", pid, status);
+	}
+
+	return 0;
+}
+
+static int freezer_detach(void)
+{
+	char path[PATH_MAX];
+	FILE *f;
+
+	if (!opts.freeze_cgroup)
+		return 0;
+
+	snprintf(path, sizeof(path), "%s/tasks", opts.freeze_cgroup);
+	f = fopen(path, "r");
+	if (f == NULL) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+	while (fgets(path, sizeof(path), f)) {
+		pid_t pid;
+
+		pid = atoi(path);
+
+		if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
+			pr_perror("Unable to detach from %d\n", pid);
+	}
+	fclose(f);
 	return 0;
 }
 
@@ -337,7 +397,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 
 	unseize_task(item->pid.real, item->state, st);
 
-	if (st == TASK_DEAD)
+	if (st == TASK_DEAD || opts.freeze_cgroup)
 		return;
 
 	for (i = 1; i < item->nr_threads; i++)
@@ -368,6 +428,7 @@ static void pstree_wait(struct pstree_item *root_item)
 			}
 		}
 	}
+
 	pid = wait4(-1, &status, __WALL, NULL);
 	if (pid > 0) {
 		pr_err("Unexpected child %d\n", pid);
@@ -385,6 +446,8 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 	pr_info("Unfreezing tasks into %d\n", st);
 	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
+
+	freezer_detach();
 
 	if (st == TASK_DEAD)
 		pstree_wait(root_item);
@@ -581,6 +644,9 @@ int collect_pstree(pid_t pid)
 	ret = collect_task(root_item);
 	if (ret < 0)
 		goto err;
+
+	if (opts.freeze_cgroup && freezer_wait_processes())
+		return -1;
 
 	timing_stop(TIME_FREEZING);
 	timing_start(TIME_FROZEN);

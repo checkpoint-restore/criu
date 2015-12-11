@@ -167,10 +167,22 @@ int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
 	 * we might need at that early point.
 	 */
 
+	processes_to_wait--;
 try_again:
 
 	ret = wait4(pid, &status, __WALL, NULL);
-	wait_errno = errno;
+	if (ret < 0) {
+		/*
+		 * wait4() can expectedly fail only in a first time
+		 * if a task is zombie. If we are here from try_again,
+		 * this means that we are tracing this task.
+		 *
+		 * processes_to_wait should be descrimented only once in this
+		 * function if a first wait was success.
+		 */
+		processes_to_wait++;
+		wait_errno = errno;
+	}
 
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
