@@ -37,7 +37,7 @@ static int num_of_handles(int fd)
 	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
 	f = fopen(path, "r");
 	if (!f) {
-		err("Can't open %s", path);
+		pr_err("Can't open %s", path);
 		return -1;
 	}
 
@@ -62,13 +62,13 @@ int main (int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
-		err("Can't create directory %s", dirname);
+		pr_err("Can't create directory %s", dirname);
 		exit(1);
 	}
 
 	fd = inotify_init1(IN_NONBLOCK);
 	if (fd < 0) {
-		err("inotify_init failed");
+		pr_err("inotify_init failed");
 		exit(1);
 	}
 
@@ -76,12 +76,12 @@ int main (int argc, char *argv[])
 		snprintf(temp[i], sizeof(temp[0]), "d.%03d", i);
 		snprintf(path, sizeof(path), "%s/%s", dirname, temp[i]);
 		if (mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
-			err("Can't create %s", path);
+			pr_err("Can't create %s", path);
 			exit(1);
 		}
 
 		if (inotify_add_watch(fd, path, mask) < 0) {
-			err("inotify_add_watch failed on %s", path);
+			pr_err("inotify_add_watch failed on %s", path);
 			exit(1);
 		}
 	}
