@@ -284,6 +284,12 @@ class zdtm_test:
 	def __wait_task_die(self):
 		wait_pid_die(int(self.__pid), self.__name)
 
+	def __add_wperms(self):
+		# Add write perms for .out and .pid files
+		for b in self._bins:
+			p = os.path.dirname(b)
+			os.chmod(p, os.stat(p).st_mode | 0222)
+
 	def start(self):
 		self.__flavor.init(self._bins, self._deps)
 
@@ -295,10 +301,7 @@ class zdtm_test:
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
 			env['ZDTM_GROUPS'] = "27495 48244"
-
-			# Add write perms for .out and .pid files
-			p = os.path.dirname(self.__name)
-			os.chmod(p, os.stat(p).st_mode | 0222)
+			self.__add_wperms()
 		else:
 			print "Test is SUID"
 
@@ -309,8 +312,7 @@ class zdtm_test:
 
 			if self.__flavor.uns:
 				env['ZDTM_USERNS'] = "1"
-				p = os.path.dirname(self.__name)
-				os.chmod(p, os.stat(p).st_mode | 0222)
+				self.__add_wperms()
 
 		self.__make_action('pid', env, self.__flavor.root)
 
