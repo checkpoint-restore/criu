@@ -100,7 +100,13 @@ class host_flavor:
 	def fini(self):
 		pass
 
+	@staticmethod
+	def clean():
+		pass
+
 class ns_flavor:
+	__root_dirs = ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc"]
+
 	def __init__(self, opts):
 		self.name = "ns"
 		self.ns = True
@@ -154,7 +160,7 @@ class ns_flavor:
 		os.chmod(name, 0666)
 
 	def __construct_root(self):
-		for dir in ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc"]:
+		for dir in self.__root_dirs:
 			os.mkdir(self.root + dir)
 			os.chmod(self.root + dir, 0777)
 
@@ -190,6 +196,18 @@ class ns_flavor:
 			subprocess.check_call(["umount", "-l", self.root])
 			self.root_mounted = False
 
+	@staticmethod
+	def clean():
+		for d in ns_flavor.__root_dirs:
+			p = './' + d
+			print 'Remove %s' % p
+			if os.access(p, os.F_OK):
+				shutil.rmtree('./' + d)
+
+		if os.access('./.constructed', os.F_OK):
+			os.unlink('./.constructed')
+
+
 class userns_flavor(ns_flavor):
 	def __init__(self, opts):
 		ns_flavor.__init__(self, opts)
@@ -200,6 +218,11 @@ class userns_flavor(ns_flavor):
 		# To be able to create roots_yard in CRIU
 		os.chmod(".", os.stat(".").st_mode | 0077)
 		ns_flavor.init(self, l_bins, x_bins)
+
+	@staticmethod
+	def clean():
+		pass
+
 
 flavors = { 'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor }
 
@@ -1142,6 +1165,14 @@ def group_tests(opts):
 	print "Generated %d group(s)" % nr
 
 
+def clean_stuff(opts):
+	print "Cleaning %s" % opts['what']
+	if opts['what'] == 'nsroot':
+		for f in flavors:
+			f = flavors[f]
+			f.clean()
+
+
 #
 # main() starts here
 #
@@ -1205,6 +1236,10 @@ gp.set_defaults(action = group_tests)
 gp.add_argument("-m", "--max-size", help = "Maximum number of tests in group")
 gp.add_argument("-n", "--name", help = "Common name for group tests")
 gp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
+
+cp = sp.add_parser("clean", help = "Clean something")
+cp.set_defaults(action = clean_stuff)
+cp.add_argument("what", choices = [ 'nsroot' ])
 
 opts = vars(p.parse_args())
 if opts.get('sat', False):
