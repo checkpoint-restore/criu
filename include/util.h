@@ -267,6 +267,7 @@ FILE *fopenat(int dirfd, char *path, char *cflags);
 void split(char *str, char token, char ***out, int *n);
 
 int fd_has_data(int lfd);
+size_t read_into_buffer(int fd, char *buff, size_t size);
 
 int make_yard(char *path);
 
