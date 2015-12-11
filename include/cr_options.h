@@ -76,7 +76,7 @@ struct cr_options {
 	struct list_head	inherit_fds;
 	char			*libdir;
 	bool			use_page_server;
-	unsigned short		ps_port;
+	unsigned short		port;
 	char			*addr;
 	int			ps_socket;
 	bool			track_mem;

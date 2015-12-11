@@ -297,7 +297,7 @@ static int get_sockaddr_in(struct sockaddr_in *addr)
 		return -1;
 	}
 
-	addr->sin_port = opts.ps_port;
+	addr->sin_port = opts.port;
 	return 0;
 }
 
@@ -317,7 +317,7 @@ int cr_page_server(bool daemon_mode, int cfd)
 		goto no_server;
 	}
 
-	pr_info("Starting page server on port %u\n", (int)ntohs(opts.ps_port));
+	pr_info("Starting page server on port %u\n", (int)ntohs(opts.port));
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
@@ -339,14 +339,14 @@ int cr_page_server(bool daemon_mode, int cfd)
 	}
 
 	/* Get socket port in case of autobind */
-	if (opts.ps_port == 0) {
+	if (opts.port == 0) {
 		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
 			pr_perror("Can't get page server name");
 			goto out;
 		}
 
-		opts.ps_port = ntohs(saddr.sin_port);
-		pr_info("Using %u port\n", opts.ps_port);
+		opts.port = ntohs(saddr.sin_port);
+		pr_info("Using %u port\n", opts.port);
 	}
 
 no_server:
@@ -411,7 +411,7 @@ int connect_to_page_server(void)
 	}
 
 	pr_info("Connecting to server %s:%u\n",
-			opts.addr, (int)ntohs(opts.ps_port));
+			opts.addr, (int)ntohs(opts.port));
 
 	page_server_sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (page_server_sk < 0) {
@@ -450,7 +450,7 @@ int disconnect_from_page_server(void)
 		return 0;
 
 	pr_info("Disconnect from the page server %s:%u\n",
-			opts.addr, (int)ntohs(opts.ps_port));
+			opts.addr, (int)ntohs(opts.port));
 
 	if (opts.ps_socket != -1)
 		/*

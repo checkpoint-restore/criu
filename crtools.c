@@ -411,8 +411,8 @@ int main(int argc, char *argv[], char *envp[])
 			opts.addr = optarg;
 			break;
 		case 1052:
-			opts.ps_port = htons(atoi(optarg));
-			if (!opts.ps_port)
+			opts.port = htons(atoi(optarg));
+			if (!opts.port)
 				goto bad_arg;
 			break;
 		case 'j':

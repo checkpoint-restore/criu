@@ -351,7 +351,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->ps) {
 		opts.use_page_server = true;
 		opts.addr = req->ps->address;
-		opts.ps_port = htons((short)req->ps->port);
+		opts.port = htons((short)req->ps->port);
 
 		if (req->ps->has_fd) {
 			if (!opts.swrk_restore)
@@ -660,7 +660,7 @@ static int start_page_server_req(int sk, CriuOpts *req)
 		if (setup_opts_from_req(sk, req))
 			goto out_ch;
 
-		setproctitle("page-server --rpc --address %s --port %hu", opts.addr, opts.ps_port);
+		setproctitle("page-server --rpc --address %s --port %hu", opts.addr, opts.port);
 
 		pr_debug("Starting page server\n");
 
@@ -669,7 +669,7 @@ static int start_page_server_req(int sk, CriuOpts *req)
 			goto out_ch;
 
 		info.pid = pid;
-		info.port = opts.ps_port;
+		info.port = opts.port;
 
 		count = write(start_pipe[1], &info, sizeof(info));
 		if (count != sizeof(info))
