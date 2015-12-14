@@ -145,6 +145,7 @@ TST_NOFILE	=				\
 		bridge				\
 		vfork00				\
 		oom_score_adj			\
+		loginuid			\
 #		jobctl00			\
 
 TST_FILE	=				\
