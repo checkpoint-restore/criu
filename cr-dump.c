@@ -323,6 +323,34 @@ static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 	return 0;
 }
 
+static int dump_pid_misc(pid_t pid, TaskCoreEntry *tc)
+{
+	int ret;
+
+	pr_info("dumping /proc/%d/{oom_score_adj,loginuid}\n", pid);
+
+	tc->has_loginuid = true;
+	tc->loginuid = parse_pid_loginuid(pid, &ret);
+	/*
+	 * loginuid dumping is critical, as if not correctly
+	 * restored, you may loss ability to login via SSH to CT
+	 */
+	if (ret < 0)
+		return ret;
+
+	tc->oom_score_adj = parse_pid_oom_score_adj(pid, &ret);
+	/*
+	 * oom_score_adj dumping is not very critical, as it will affect
+	 * on victim in OOM situation and one will find dumping error in log
+	 */
+	if (ret < 0)
+		tc->has_oom_score_adj = false;
+	else
+		tc->has_oom_score_adj = true;
+
+	return 0;
+}
+
 static int dump_filemap(pid_t pid, struct vma_area *vma_area,
 		const struct cr_imgset *imgset)
 {
@@ -699,6 +727,10 @@ static int dump_task_core_all(struct pstree_item *item,
 	core->tc->exit_code = 0;
 
 	ret = dump_thread_core(pid, core, &misc->ti);
+	if (ret)
+		goto err;
+
+	ret = dump_pid_misc(pid, core->tc);
 	if (ret)
 		goto err;
 

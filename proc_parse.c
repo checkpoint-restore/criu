@@ -724,6 +724,56 @@ err:
 	return -1;
 }
 
+unsigned int parse_pid_loginuid(pid_t pid, int *err)
+{
+	int fd;
+	ssize_t num;
+
+	*err = 0;
+	fd = open_proc(pid, "loginuid");
+	if (fd < 0)
+		goto out;
+
+	num = read(fd, buf, 10);
+	close(fd);
+	if (num < 0) {
+		pr_perror("Unable to read /proc/%d/loginuid", pid);
+		goto out;
+	}
+	buf[num] = '\0';
+
+	return strtol(buf, NULL, 10);
+
+out:
+	*err = -1;
+	return INVALID_UID; /* unset value */
+}
+
+int parse_pid_oom_score_adj(pid_t pid, int *err)
+{
+	int fd;
+	ssize_t num;
+
+	*err = 0;
+	fd = open_proc(pid, "oom_score_adj");
+	if (fd < 0)
+		goto out;
+
+	num = read(fd, buf, 10);
+	close(fd);
+	if (num < 0) {
+		pr_perror("Unable to read /proc/%d/oom_score_adj", pid);
+		goto out;
+	}
+	buf[num] = '\0';
+
+	return strtol(buf, NULL, 10);
+
+out:
+	*err = -1;
+	return 0;
+}
+
 static int ids_parse(char *str, unsigned int *arr)
 {
 	char *end;

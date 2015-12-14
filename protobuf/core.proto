@@ -38,6 +38,10 @@ message task_core_entry {
 
 	optional seccomp_mode		seccomp_mode	= 11;
 	optional uint32			seccomp_filter	= 12;
+
+	optional uint32			loginuid	= 13;
+
+	optional int32			oom_score_adj	= 14;
 }
 
 message task_kobj_ids_entry {

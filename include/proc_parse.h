@@ -115,9 +115,13 @@ struct fstype {
 
 struct vm_area_list;
 
+#define INVALID_UID ((uid_t)-1)
+
 extern bool add_skip_mount(const char *mountpoint);
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
+extern unsigned int parse_pid_loginuid(pid_t pid, int *err);
+extern int parse_pid_oom_score_adj(pid_t pid, int *err);
 extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list);
 extern int parse_self_maps_lite(struct vm_area_list *vms);
 extern int parse_pid_status(pid_t pid, struct proc_status_creds *);
