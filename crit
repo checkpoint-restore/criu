@@ -152,7 +152,67 @@ def explore_fds(opts):
 		print "\t%7s: %s" % ('root', get_file_str(opts, {'type': 'REG', 'id': fdi['root_id']}))
 
 
-explorers = { 'ps': explore_ps, 'fds': explore_fds }
+class vma_id:
+	def __init__(self):
+		self.__ids = {}
+		self.__last = 1
+
+	def get(self, iid):
+		ret = self.__ids.get(iid, None)
+		if not ret:
+			ret = self.__last
+			self.__last += 1
+			self.__ids[iid] = ret
+
+		return ret
+
+def explore_mems(opts):
+	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+	vids = vma_id()
+	for p in ps_img['entries']:
+		pid = p['pid']
+		mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
+
+		print "%d" % pid
+		print "\t%-36s    %s" % ('exe', get_file_str(opts, {'type': 'REG', 'id': mmi['exe_file_id']}))
+
+		for vma in mmi['vmas']:
+			st = vma['status']
+			if st & (1 << 10):
+				fn = ' ' + 'ips[%lx]' % vids.get(vma['shmid'])
+			elif st & (1 << 8):
+				fn = ' ' + 'shmem[%lx]' % vids.get(vma['shmid'])
+			elif st & (1 << 11):
+				fn = ' ' + 'packet[%lx]' % vids.get(vma['shmid'])
+			elif st & ((1 << 6) | (1 << 7)):
+				fn = ' ' + get_file_str(opts, {'type': 'REG', 'id': vma['shmid']})
+				if vma['pgoff']:
+					fn += ' + %#lx' % vma['pgoff']
+				if st & (1 << 7):
+					fn += ' (s)'
+			elif st & (1 << 1):
+				fn = ' [stack]'
+			elif st & (1 << 2):
+				fn = ' [vsyscall]'
+			elif st & (1 << 3):
+				fn = ' [vdso]'
+			elif vma['flags'] & 0x0100: # growsdown
+				fn = ' [stack?]'
+			else:
+				fn = ''
+
+			if not st & (1 << 0):
+				fn += ' *'
+
+			prot = vma['prot'] & 0x1 and 'r' or '-'
+			prot += vma['prot'] & 0x2 and 'w' or '-'
+			prot += vma['prot'] & 0x4 and 'x' or '-'
+
+			astr = '%08lx-%08lx' % (vma['start'], vma['end'])
+			print "\t%-36s%s%s" % (astr, prot, fn)
+
+
+explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems }
 
 def explore(opts):
 	explorers[opts['what']](opts)
@@ -198,7 +258,7 @@ def main():
 	# Explore
 	x_parser = subparsers.add_parser('x', help = 'explore image dir')
 	x_parser.add_argument('dir')
-	x_parser.add_argument('what', choices = [ 'ps', 'fds' ])
+	x_parser.add_argument('what', choices = [ 'ps', 'fds', 'mems' ])
 	x_parser.set_defaults(func=explore)
 
 	# Show
