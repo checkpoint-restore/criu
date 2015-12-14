@@ -313,7 +313,7 @@ criu-$(CRTOOLSVERSION).tar.bz2:
 
 install: install-criu install-man 
 
-install-criu: $(PROGRAM) $(CRIU-LIB) install-crit
+install-criu: all $(CRIU-LIB) install-crit
 	$(E) "  INSTALL " $(PROGRAM)
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
 	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
