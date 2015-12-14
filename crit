@@ -90,7 +90,69 @@ def explore_ps(opts):
 	show_ps(psr, opts)
 
 
-explorers = { 'ps': explore_ps }
+def ftype_find_in_image(opts, ft, fid, img):
+	if ft['img'] == None:
+		ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
+	for f in ft['img']:
+		if f['id'] == fid:
+			return f
+	return None
+
+def ftype_reg(opts, ft, fid):
+	rf = ftype_find_in_image(opts, ft, fid, 'reg-files.img')
+	return rf and rf['name'] or 'unknown path'
+
+def ftype_pipe(opts, ft, fid):
+	p = ftype_find_in_image(opts, ft, fid, 'pipes.img')
+	return p and 'pipe[%d]' % p['pipe_id'] or 'pipe[?]'
+
+def ftype_unix(opts, ft, fid):
+	ux = ftype_find_in_image(opts, ft, fid, 'unixsk.img')
+	if not ux:
+		return 'unix[?]'
+
+	n = ux['name'] and ' %s' % ux['name'].decode('base64') or ''
+	return 'unix[%d (%d)%s]' % (ux['ino'], ux['peer'], n)
+
+file_types = {
+	'REG':		{'get': ftype_reg,	'img': None},
+	'PIPE':		{'get': ftype_pipe,	'img': None},
+	'UNIXSK':	{'get': ftype_unix,	'img': None},
+}
+
+def ftype_gen(opts, ft, fid):
+	return '%s.%d' % (ft['typ'], fid)
+
+files_cache = { }
+
+def get_file_str(opts, fd):
+	key = (fd['type'], fd['id'])
+	f = files_cache.get(key, None)
+	if not f:
+		ft = file_types.get(fd['type'], {'get': ftype_gen, 'typ': fd['type']})
+		f = ft['get'](opts, ft, fd['id'])
+		files_cache[key] = f
+
+	return f
+
+def explore_fds(opts):
+	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+	for p in ps_img['entries']:
+		pid = p['pid']
+		idi = pycriu.images.load(dinf(opts, 'ids-%s.img' % pid))
+		fdt = idi['entries'][0]['files_id']
+		fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt))
+
+		print "%d" % pid
+		for fd in fdi['entries']:
+			print "\t%7d: %s" % (fd['fd'], get_file_str(opts, fd))
+
+		fdi = pycriu.images.load(dinf(opts, 'fs-%d.img' % pid))['entries'][0]
+		print "\t%7s: %s" % ('cwd', get_file_str(opts, {'type': 'REG', 'id': fdi['cwd_id']}))
+		print "\t%7s: %s" % ('root', get_file_str(opts, {'type': 'REG', 'id': fdi['root_id']}))
+
+
+explorers = { 'ps': explore_ps, 'fds': explore_fds }
 
 def explore(opts):
 	explorers[opts['what']](opts)
@@ -136,7 +198,7 @@ def main():
 	# Explore
 	x_parser = subparsers.add_parser('x', help = 'explore image dir')
 	x_parser.add_argument('dir')
-	x_parser.add_argument('what', choices = [ 'ps' ])
+	x_parser.add_argument('what', choices = [ 'ps', 'fds' ])
 	x_parser.set_defaults(func=explore)
 
 	# Show
