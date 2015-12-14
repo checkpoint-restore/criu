@@ -445,7 +445,7 @@ class inhfd_test:
 			os.close(0)
 			os.close(1)
 			os.close(2)
-		 	self.__my_file.close()
+			self.__my_file.close()
 			os.close(start_pipe[0])
 			os.close(start_pipe[1])
 			try:
@@ -704,7 +704,7 @@ def init_sbs():
 		global do_sbs
 		do_sbs = True
 	else:
-	 	print "Can't do step-by-step in this runtime"
+		print "Can't do step-by-step in this runtime"
 
 def sbs(what):
 	if do_sbs:
