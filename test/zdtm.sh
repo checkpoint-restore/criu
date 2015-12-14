@@ -616,7 +616,7 @@ start_test()
 			mkdir -p $FREEZE_CGROUP
 			echo 0 > $FREEZE_CGROUP/tasks || exit 1
 		else
-			export ZDTM_THREAD_BOMB=100
+			export ZDTM_THREAD_BOMB=5
 		fi
 		# Here is no way to set FD_CLOEXEC on 3
 		exec 3>&-
