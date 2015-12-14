@@ -1827,6 +1827,38 @@ static void ignore_kids(void)
 		pr_perror("Restoring CHLD sigaction failed");
 }
 
+static unsigned int saved_loginuid;
+
+static int prepare_userns_hook(void)
+{
+	pid_t pid = getpid();
+	int ret;
+
+	/*
+	 * Save old loginuid and set it to INVALID_UID:
+	 * this value means that loginuid is unset and it will be inherited.
+	 * After you set some value to /proc/<>/loginuid it can't be changed
+	 * inside container due to permissions.
+	 * But you still can set this value if it was unset.
+	 */
+	saved_loginuid = parse_pid_loginuid(pid, &ret);
+	if (ret < 0)
+		return -1;
+
+	if (prepare_pid_loginuid(pid, INVALID_UID) < 0) {
+		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?");
+		return -1;
+	}
+	return 0;
+}
+
+static void restore_origin_ns_hook(void)
+{
+	/* not critical: it does not affect CT in any way */
+	if (prepare_pid_loginuid(getpid(), saved_loginuid) < 0)
+		pr_err("Restore original /proc/self/loginuid failed");
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
@@ -1870,6 +1902,9 @@ static int restore_root_task(struct pstree_item *init)
 		return -1;
 	}
 
+	if (prepare_userns_hook())
+		return -1;
+
 	if (prepare_namespace_before_tasks())
 		return -1;
 
@@ -1879,6 +1914,8 @@ static int restore_root_task(struct pstree_item *init)
 	ret = fork_with_pid(init);
 	if (ret < 0)
 		goto out;
+
+	restore_origin_ns_hook();
 
 	if (root_as_sibling) {
 		struct sigaction act;
