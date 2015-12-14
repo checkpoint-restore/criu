@@ -223,6 +223,7 @@ TST_DIR		=				\
 		mnt_ext_auto			\
 		mnt_ext_master			\
 		mntns_deleted			\
+		binfmt_misc			\
 
 TST_DIR_FILE	=				\
 		chroot				\
