@@ -17,6 +17,8 @@ def outf(opts):
 	else:
 		return sys.stdout
 
+def dinf(opts, name):
+	return open(os.path.join(opts['dir'], name))
 
 def decode(opts):
 	indent = None
@@ -45,6 +47,15 @@ def info(opts):
 	infs = pycriu.images.info(inf(opts))
 	json.dump(infs, sys.stdout, indent = 4)
 	print
+
+#
+# Explorers
+#
+
+explorers = { }
+
+def explore(opts):
+	explorers[opts['what']](opts)
 
 def main():
 	desc = 'CRiu Image Tool'
@@ -83,6 +94,12 @@ def main():
 			help = 'show info about image')
 	info_parser.add_argument("in")
 	info_parser.set_defaults(func=info)
+
+	# Explore
+	x_parser = subparsers.add_parser('x', help = 'explore image dir')
+	x_parser.add_argument('dir')
+	x_parser.add_argument('what', choices = [ ])
+	x_parser.set_defaults(func=explore)
 
 	# Show
 	show_parser = subparsers.add_parser('show',
