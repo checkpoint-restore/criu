@@ -840,6 +840,64 @@ err:
 	return -1;
 }
 
+static int prepare_pid_oom_score_adj(pid_t pid, int value)
+{
+	int fd, ret = 0;
+	char buf[11];
+
+	fd = open_proc_rw(pid, "oom_score_adj");
+	if (fd < 0)
+		return -1;
+
+	snprintf(buf, 11, "%d", value);
+
+	if (write(fd, buf, 11) < 0) {
+		pr_perror("Write %s to /proc/%d/oom_score_adj failed",
+			buf, pid);
+		ret = -1;
+	}
+
+	close(fd);
+	return ret;
+}
+
+static int prepare_pid_loginuid(pid_t pid, unsigned int value)
+{
+	int fd, ret = 0;
+	char buf[11]; /* 4294967295 is maximum for u32 */
+
+	fd = open_proc_rw(pid, "loginuid");
+	if (fd < 0)
+		return -1;
+
+	snprintf(buf, 11, "%u", value);
+
+	if (write(fd, buf, 11) < 0) {
+		pr_perror("Write %s to /proc/%d/loginuid failed", buf, pid);
+		ret = -1;
+	}
+	close(fd);
+	return ret;
+}
+
+static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
+{
+	int ret;
+
+	/* loginuid value is critical to restore */
+	if (tc->has_loginuid) {
+		ret = prepare_pid_loginuid(pid, tc->loginuid);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* oom_score_adj is not critical: only log errors */
+	if (tc->has_oom_score_adj)
+		prepare_pid_oom_score_adj(pid, tc->oom_score_adj);
+
+	return 0;
+}
+
 static int restore_one_alive_task(int pid, CoreEntry *core)
 {
 	pr_info("Restoring resources\n");
@@ -874,6 +932,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (inherit_fd_fini() < 0)
+		return -1;
+
+	if (prepare_proc_misc(pid, core->tc))
 		return -1;
 
 	return sigreturn_restore(pid, core);
