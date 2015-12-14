@@ -2,6 +2,7 @@
 import argparse
 import sys
 import json
+import os
 
 import pycriu
 
@@ -52,7 +53,44 @@ def info(opts):
 # Explorers
 #
 
-explorers = { }
+class ps_item:
+	def __init__(self, p, core):
+		self.pid = p['pid']
+		self.ppid = p['ppid']
+		self.p = p
+		self.core = core
+		self.kids = []
+
+def show_ps(p, opts, depth = 0):
+	print "%7d%7d%7d   %s%s" % (p.pid, p.p['pgid'], p.p['sid'],
+			' ' * (4 * depth), p.core['tc']['comm'])
+	for kid in p.kids:
+		show_ps(kid, opts, depth + 1)
+
+def explore_ps(opts):
+	pss = { }
+	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+	for p in ps_img['entries']:
+		core = pycriu.images.load(dinf(opts, 'core-%d.img' % p['pid']))
+		ps = ps_item(p, core['entries'][0])
+		pss[ps.pid] = ps
+
+	# Build tree
+	psr = None
+	for pid in pss:
+		p = pss[pid]
+		if p.ppid == 0:
+			psr = p
+			continue
+
+		pp = pss[p.ppid]
+		pp.kids.append(p)
+
+	print "%7s%7s%7s   %s" % ('PID', 'PGID', 'SID', 'COMM')
+	show_ps(psr, opts)
+
+
+explorers = { 'ps': explore_ps }
 
 def explore(opts):
 	explorers[opts['what']](opts)
@@ -98,7 +136,7 @@ def main():
 	# Explore
 	x_parser = subparsers.add_parser('x', help = 'explore image dir')
 	x_parser.add_argument('dir')
-	x_parser.add_argument('what', choices = [ ])
+	x_parser.add_argument('what', choices = [ 'ps' ])
 	x_parser.set_defaults(func=explore)
 
 	# Show
