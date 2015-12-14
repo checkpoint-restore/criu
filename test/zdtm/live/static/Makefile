@@ -144,6 +144,7 @@ TST_NOFILE	=				\
 		vsx				\
 		bridge				\
 		vfork00				\
+		oom_score_adj			\
 #		jobctl00			\
 
 TST_FILE	=				\
