@@ -1534,7 +1534,6 @@ static int binfmt_misc_restore(struct mount_info *mi)
 			ret = -1;
 		} else if (bme->magic) {
 			ret = make_bfmtm_magic_str(buf, bme);
-			pr_perror("xxxbuf=%s\n", buf);
 		} else if (bme->extension) {
 			/* :name:E::extension::interpreter:flags */
 			ret = snprintf(buf, BINFMT_MISC_STR, ":%s:E::%s::%s:%s",
@@ -1542,8 +1541,10 @@ static int binfmt_misc_restore(struct mount_info *mi)
 				       bme->flags ? : "\0");
 		}
 
-		if (ret > 0)
+		if (ret > 0) {
+			pr_debug("binfmt_misc_pattern=%s\n", buf);
 			ret = restore_binfmt_misc_entry(mi->mountpoint, buf, bme);
+		}
 
 		binfmt_misc_entry__free_unpacked(bme, NULL);
 	}
