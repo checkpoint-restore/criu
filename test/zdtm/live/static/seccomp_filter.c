@@ -58,7 +58,7 @@ int filter_syscall(int syscall_nr)
 	};
 
 	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &bpf_prog) < 0) {
-		pr_err("prctl failed");
+		pr_perror("prctl failed");
 		return -1;
 	}
 
