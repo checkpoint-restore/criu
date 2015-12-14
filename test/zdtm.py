@@ -402,6 +402,9 @@ class zdtm_test:
 	def static(self):
 		return self.__name.split('/')[2] == 'static'
 
+	def ns(self):
+		return self.__flavor.ns
+
 	def blocking(self):
 		return test_flag(self.__desc, 'crfail')
 
@@ -749,26 +752,36 @@ def cr(cr_api, test, opts):
 # Additional checks that can be done outside of test process
 
 def get_maps(test):
-	maps = [[0,0]]
-	last = 0
-	for mp in open("/proc/%s/maps" % test.getpid()).readlines():
-		m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
-		if maps[last][1] == m[0]:
-			maps[last][1] = m[1]
-		else:
-			maps.append(m)
-			last += 1
-	maps.pop(0)
+	maps = []
+
+	r = re.compile('^[0-9]+$')
+	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
+	for pid in pids:
+		maps.append([0, 0])
+		last = 0
+		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)).readlines():
+			m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
+			if maps[last][1] == m[0]:
+				maps[last][1] = m[1]
+			else:
+				maps.append(m)
+				last += 1
 	return maps
 
 def get_fds(test):
-	return map(lambda x: int(x), os.listdir("/proc/%s/fdinfo" % test.getpid()))
+	files = []
+	r = re.compile('^[0-9]+$')
+	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
+	for pid in pids:
+		files.append(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
+
+	return files
 
 def cmp_lists(m1, m2):
 	return len(m1) != len(m2) or filter(lambda x: x[0] != x[1], zip(m1, m2))
 
 def get_visible_state(test):
-	if test.static():
+	if test.static() and test.ns():
 		fds = get_fds(test)
 		maps = get_maps(test)
 		return (fds, maps)
