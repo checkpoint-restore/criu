@@ -914,6 +914,7 @@ static int resolve_external_mounts(struct mount_info *info)
 static int resolve_shared_mounts(struct mount_info *info)
 {
 	struct mount_info *m, *t;
+	int root_master_id = info->master_id;
 
 	/*
 	 * If we have a shared mounts, both master
@@ -924,8 +925,12 @@ static int resolve_shared_mounts(struct mount_info *info)
 	for (m = info; m; m = m->next) {
 		bool need_share, need_master;
 
+		/* the root master_id can be ignored, because it's already created */
+		if (root_master_id == m->master_id)
+			m->master_id = -1;
+
 		need_share = m->shared_id && list_empty(&m->mnt_share);
-		need_master = m->master_id;
+		need_master = m->master_id > 0;
 
 		pr_debug("Inspecting sharing on %2d shared_id %d master_id %d (@%s)\n",
 			 m->mnt_id, m->shared_id, m->master_id, m->mountpoint);
@@ -2178,7 +2183,7 @@ skip_parent:
 				continue;
 			if (t->bind)
 				continue;
-			if (t->master_id)
+			if (t->master_id > 0)
 				continue;
 			t->bind = mi;
 			t->s_dev_rt = mi->s_dev_rt;
@@ -2428,7 +2433,7 @@ static bool can_mount_now(struct mount_info *mi)
 	 *   - Make sure all children is mounted as well to
 	 *     eliminame mounts duplications
 	 */
-	if (mi->master_id) {
+	if (mi->master_id > 0) {
 		struct mount_info *c;
 
 		if (mi->bind == NULL)
