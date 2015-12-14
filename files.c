@@ -736,6 +736,17 @@ int set_fd_flags(int fd, int flags)
 	ret = fcntl(fd, F_SETFL, flags);
 	if (ret < 0)
 		goto err;
+
+	/* Let's check, that now actual flags contains those we need */
+	ret = fcntl(fd, F_GETFL, 0);
+	if (ret < 0)
+		goto err;
+
+	if (ret != flags) {
+		pr_err("fcntl call on fd %d (flags %#o) succeeded, "
+			"but some flags were dropped: %#o\n", fd, flags, ret);
+		return -1;
+	}
 	return 0;
 
 err:
