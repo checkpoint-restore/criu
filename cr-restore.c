@@ -73,7 +73,6 @@
 #include "file-lock.h"
 #include "action-scripts.h"
 #include "aio.h"
-#include "security.h"
 #include "lsm.h"
 #include "seccomp.h"
 #include "bitmap.h"
@@ -2820,8 +2819,6 @@ rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (!may_restore(ce))
-		return ERR_PTR(-EINVAL);
 
 	args = rst_mem_alloc(sizeof(*args), RM_PRIVATE);
 	if (!args)

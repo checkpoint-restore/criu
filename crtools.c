@@ -38,10 +38,10 @@
 #include "cgroup.h"
 #include "cpu.h"
 #include "action-scripts.h"
-#include "security.h"
 #include "irmap.h"
 #include "fault-injection.h"
 #include "lsm.h"
+#include "proc_parse.h"
 
 #include "setproctitle.h"
 
@@ -266,9 +266,6 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 
 	cr_pb_init();
-	if (restrict_uid(getuid(), getgid()))
-		return 1;
-
 	setproctitle_init(argc, argv, envp);
 
 	if (argc < 2)

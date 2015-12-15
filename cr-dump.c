@@ -77,7 +77,6 @@
 #include "sysfs_parse.h"
 #include "action-scripts.h"
 #include "aio.h"
-#include "security.h"
 #include "lsm.h"
 #include "seccomp.h"
 #include "seize.h"

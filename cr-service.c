@@ -27,10 +27,10 @@
 #include "mount.h"
 #include "cgroup.h"
 #include "action-scripts.h"
-#include "security.h"
 #include "sockets.h"
 #include "irmap.h"
 #include "kerndat.h"
+#include "proc_parse.h"
 
 #include "setproctitle.h"
 
@@ -232,9 +232,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		pr_perror("Can't get socket options");
 		goto err;
 	}
-
-	if (restrict_uid(ids.uid, ids.gid))
-		goto err;
 
 	if (fstat(sk, &st)) {
 		pr_perror("Can't get socket stat");

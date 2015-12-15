@@ -3,7 +3,6 @@ obj-y	+= mem.o
 obj-y	+= rst-malloc.o
 obj-y	+= cr-restore.o
 obj-y	+= crtools.o
-obj-y	+= security.o
 obj-y	+= image.o
 obj-y	+= image-desc.o
 obj-y	+= net.o

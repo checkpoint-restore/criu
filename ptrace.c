@@ -20,7 +20,6 @@
 #include "ptrace.h"
 #include "proc_parse.h"
 #include "crtools.h"
-#include "security.h"
 #include "seccomp.h"
 
 int unseize_task(pid_t pid, int orig_st, int st)
@@ -187,11 +186,6 @@ try_again:
 	ret2 = parse_pid_status(pid, &cr);
 	if (ret2)
 		goto err;
-
-	if (!may_dump(&cr)) {
-		pr_err("Check uid (pid: %d) failed\n", pid);
-		goto err;
-	}
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (cr.state != 'Z') {
