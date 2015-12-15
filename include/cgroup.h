@@ -9,6 +9,7 @@ int prepare_task_cgroup(struct pstree_item *);
 int prepare_cgroup(void);
 /* Restore things like cpu_limit in known cgroups. */
 int prepare_cgroup_properties(void);
+int restore_freezer_state(void);
 void fini_cgroup(void);
 
 struct cg_controller;

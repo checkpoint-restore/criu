@@ -2013,7 +2013,6 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 
 	ret = prepare_cgroup_properties();
-	fini_cgroup();
 	if (ret < 0)
 		goto out_kill;
 
@@ -2058,6 +2057,11 @@ static int restore_root_task(struct pstree_item *init)
 
 	if (ret == 0)
 		finalize_restore();
+
+	if (restore_freezer_state())
+		pr_err("Unable to restore freezer state\n");
+
+	fini_cgroup();
 
 	/* Detaches from processes and they continue run through sigreturn. */
 	finalize_restore_detach(ret);

@@ -1036,6 +1036,31 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	return 0;
 }
 
+static CgroupPropEntry *freezer_state_entry;
+static char freezer_path[PATH_MAX];
+
+int restore_freezer_state(void)
+{
+	size_t freezer_path_len;
+
+	if (!freezer_state_entry)
+		return 0;
+
+	freezer_path_len = strlen(freezer_path);
+	return restore_cgroup_prop(freezer_state_entry, freezer_path, freezer_path_len);
+}
+
+static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, size_t path_len)
+{
+	BUG_ON(freezer_state_entry);
+	BUG_ON(path_len >= sizeof(freezer_path));
+
+	freezer_state_entry = entry;
+	/* Path is not null terminated at path_len */
+	strncpy(freezer_path, path, path_len);
+	freezer_path[path_len] = 0;
+}
+
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
@@ -1051,6 +1076,10 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		if (e->n_properties > 0) {
 			for (j = 0; j < e->n_properties; ++j) {
+				if (!strcmp(e->properties[j]->name, "freezer.state")) {
+					add_freezer_state_for_restore(e->properties[j], path, off2);
+					continue; /* skip restore now */
+				}
 				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
 					return -1;
 			}
