@@ -75,11 +75,11 @@ extern int set_proc_fd(int fd);
 
 extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 
-#define __open_proc(pid, flags, fmt, ...)				\
+#define __open_proc(pid, ier, flags, fmt, ...)				\
 	({								\
 		int __fd = do_open_proc(pid, flags,			\
 					fmt, ##__VA_ARGS__);		\
-		if (__fd < 0)						\
+		if (__fd < 0 && (errno != ier))				\
 			pr_perror("Can't open %d/" fmt " on procfs",	\
 					pid, ##__VA_ARGS__);		\
 									\
@@ -88,14 +88,14 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 
 /* int open_proc(pid_t pid, const char *fmt, ...); */
 #define open_proc(pid, fmt, ...)				\
-	__open_proc(pid, O_RDONLY, fmt, ##__VA_ARGS__)
+	__open_proc(pid, 0, O_RDONLY, fmt, ##__VA_ARGS__)
 
 /* int open_proc_rw(pid_t pid, const char *fmt, ...); */
 #define open_proc_rw(pid, fmt, ...)				\
-	__open_proc(pid, O_RDWR, fmt, ##__VA_ARGS__)
+	__open_proc(pid, 0, O_RDWR, fmt, ##__VA_ARGS__)
 
 #define open_proc_path(pid, fmt, ...)				\
-	__open_proc(pid, O_PATH, fmt, ##__VA_ARGS__)
+	__open_proc(pid, 0, O_PATH, fmt, ##__VA_ARGS__)
 
 /* DIR *opendir_proc(pid_t pid, const char *fmt, ...); */
 #define opendir_proc(pid, fmt, ...)					\
