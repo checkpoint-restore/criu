@@ -452,10 +452,10 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
 
-	freezer_detach();
-
 	if (st == TASK_DEAD)
 		pstree_wait(root_item);
+
+	freezer_detach();
 }
 
 static pid_t item_ppid(const struct pstree_item *item)
