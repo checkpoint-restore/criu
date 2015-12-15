@@ -17,6 +17,7 @@ import string
 import imp
 import socket
 import fcntl
+import errno
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -751,42 +752,40 @@ def cr(cr_api, test, opts):
 
 # Additional checks that can be done outside of test process
 
-def get_maps(test):
-	maps = []
+def get_visible_state(test):
+	maps	= []
+	files	= []
+	mounts	= []
+
+	if not test.static() or not test.ns():
+		return ([], [], [])
 
 	r = re.compile('^[0-9]+$')
 	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
 	for pid in pids:
+		files.append(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
+
 		maps.append([0, 0])
 		last = 0
-		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)).readlines():
+		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)):
 			m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
 			if maps[last][1] == m[0]:
 				maps[last][1] = m[1]
 			else:
 				maps.append(m)
 				last += 1
-	return maps
 
-def get_fds(test):
-	files = []
-	r = re.compile('^[0-9]+$')
-	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
-	for pid in pids:
-		files.append(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
-
-	return files
+		try:
+			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)")
+			for m in open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)):
+				mounts.append(r.match(m).groups())
+		except IOError, e:
+			if e.errno != errno.EINVAL:
+				raise e
+	return files, maps, mounts
 
 def cmp_lists(m1, m2):
 	return len(m1) != len(m2) or filter(lambda x: x[0] != x[1], zip(m1, m2))
-
-def get_visible_state(test):
-	if test.static() and test.ns():
-		fds = get_fds(test)
-		maps = get_maps(test)
-		return (fds, maps)
-	else:
-		return ([], [])
 
 def check_visible_state(test, state):
 	new = get_visible_state(test)
