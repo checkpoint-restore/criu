@@ -26,12 +26,16 @@
 
 static int task_reset_dirty_track(int pid)
 {
+	int ret;
+
 	if (!opts.track_mem)
 		return 0;
 
 	BUG_ON(!kdat.has_dirty_track);
 
-	return do_task_reset_dirty_track(pid);
+	ret = do_task_reset_dirty_track(pid);
+	BUG_ON(ret == 1);
+	return ret;
 }
 
 int do_task_reset_dirty_track(int pid)
@@ -41,9 +45,9 @@ int do_task_reset_dirty_track(int pid)
 
 	pr_info("Reset %d's dirty tracking\n", pid);
 
-	fd = open_proc_rw(pid, "clear_refs");
+	fd = __open_proc(pid, EACCES, O_RDWR, "clear_refs");
 	if (fd < 0)
-		return -1;
+		return errno == EACCES ? 1 : -1;
 
 	ret = write(fd, cmd, sizeof(cmd));
 	close(fd);
@@ -250,8 +254,6 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
 	pr_info("----------------------------------------\n");
-
-	BUG_ON(kdat.zero_page_pfn == 0);
 
 	timing_start(TIME_MEMDUMP);
 

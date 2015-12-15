@@ -763,9 +763,9 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 	int fd, ret = -1;
 	off_t off;
 
-	fd = open_proc(getpid(), "pagemap");
+	fd = __open_proc(getpid(), EPERM, O_RDONLY, "pagemap");
 	if (fd < 0)
-		return -1;
+		return errno == EPERM ? 1 : -1;
 
 	off = (vaddr / page_size()) * sizeof(u64);
 	if (lseek(fd, off, SEEK_SET) != off) {

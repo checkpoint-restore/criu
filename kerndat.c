@@ -227,7 +227,13 @@ int kerndat_get_dirty_track(void)
 	 * was at least once re-set. (this is to be removed in
 	 * a couple of kernel releases)
 	 */
-	do_task_reset_dirty_track(getpid());
+	ret = do_task_reset_dirty_track(getpid());
+	if (ret < 0)
+		return ret;
+	if (ret == 1)
+		goto no_dt;
+
+	ret = -1;
 	pm2 = open("/proc/self/pagemap", O_RDONLY);
 	if (pm2 < 0) {
 		pr_perror("Can't open pagemap file");
@@ -249,6 +255,7 @@ int kerndat_get_dirty_track(void)
 		pr_info("Dirty track supported on kernel\n");
 		kdat.has_dirty_track = true;
 	} else {
+no_dt:
 		pr_info("Dirty tracking support is OFF\n");
 		if (opts.track_mem) {
 			pr_err("Tracking memory is not available\n");
@@ -317,7 +324,10 @@ static int init_zero_page_pfn()
 	ret = vaddr_to_pfn((unsigned long)addr, &kdat.zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
 
-	if (kdat.zero_page_pfn == 0)
+	if (ret == 1) {
+		pr_info("Zero page detection failed, optimization turns off.\n");
+		ret = 0;
+	} else if (kdat.zero_page_pfn == 0)
 		ret = -1;
 
 	return ret;
