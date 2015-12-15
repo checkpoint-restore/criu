@@ -39,19 +39,23 @@
 #include "asm/restorer.h"
 #include "pie/pie-relocs.h"
 
-static int can_run_syscall(unsigned long ip, unsigned long start, unsigned long end)
+static int can_run_syscall(unsigned long ip, unsigned long start,
+			   unsigned long end, unsigned long pad)
 {
-	return ip >= start && ip < (end - code_syscall_size);
+	return ip >= start && ip < (end - code_syscall_size - pad);
 }
 
-static int syscall_fits_vma_area(struct vma_area *vma_area)
+static int syscall_fits_vma_area(struct vma_area *vma_area, unsigned long pad)
 {
 	return can_run_syscall((unsigned long)vma_area->e->start,
 			       (unsigned long)vma_area->e->start,
-			       (unsigned long)vma_area->e->end);
+			       (unsigned long)vma_area->e->end,
+			       pad);
 }
 
-static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned long ip)
+static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list,
+				      unsigned long ip,
+				      unsigned long pad)
 {
 	struct vma_area *vma_area;
 
@@ -60,7 +64,7 @@ static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list, unsigned 
 			continue;
 		if (!(vma_area->e->prot & PROT_EXEC))
 			continue;
-		if (syscall_fits_vma_area(vma_area))
+		if (syscall_fits_vma_area(vma_area, pad))
 			return vma_area;
 	}
 
@@ -1125,7 +1129,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		return ctl;
 
 	/* Search a place for injecting syscall */
-	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->orig.regs));
+	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->orig.regs), 0);
 	if (!vma_area) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
