@@ -330,6 +330,7 @@ class zdtm_test:
 			env['ZDTM_THREAD_BOMB'] = "5"
 
 		if not test_flag(self.__desc, 'suid'):
+			# Numbers should match those in criu_cli
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
 			env['ZDTM_GROUPS'] = "27495 48244"
@@ -583,6 +584,7 @@ class criu_cli:
 		self.__fault = (opts['fault'])
 		self.__sat = (opts['sat'] and True or False)
 		self.__dedup = (opts['dedup'] and True or False)
+		self.__user = (opts['user'] and True or False)
 
 	def logs(self):
 		return self.__dump_path
@@ -610,13 +612,18 @@ class criu_cli:
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
 
 	@staticmethod
-	def __criu(action, args, fault = None, strace = []):
+	def __criu(action, args, fault = None, strace = [], preexec = None):
 		env = None
 		if fault:
 			print "Forcing %s fault" % fault
 			env = dict(os.environ, CRIU_FAULT = fault)
-		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env)
+		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
 		return cr.wait()
+
+	def set_user_id(self):
+		# Numbers should match those in zdtm_test
+		os.setresgid(58467, 58467, 58467)
+		os.setresuid(18943, 18943, 18943)
 
 	def __criu_act(self, action, opts, log = None):
 		if not log:
@@ -637,7 +644,9 @@ class criu_cli:
 				strace += [ '-f' ]
 				s_args += [ '--action-script', os.getcwd() + '/../scripts/fake-restore.sh' ]
 
-		ret = self.__criu(action, s_args, self.__fault, strace)
+		preexec = self.__user and self.set_user_id or None
+
+		ret = self.__criu(action, s_args, self.__fault, strace, preexec)
 		grep_errors(os.path.join(self.__ddir(), log))
 		if ret != 0:
 			if self.__fault or self.__test.blocking() or (self.__sat and action == 'restore'):
@@ -648,6 +657,7 @@ class criu_cli:
 	def dump(self, action, opts = []):
 		self.__iter += 1
 		os.mkdir(self.__ddir())
+		os.chmod(self.__ddir(), 0777)
 
 		a_opts = ["-t", self.__test.getpid()]
 		if self.__prev_dump_iter:
@@ -963,7 +973,7 @@ class launcher:
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
 				'fault', 'keep_img', 'report', 'snaps', 'sat', \
-				'dedup', 'sbs', 'freezecg')
+				'dedup', 'sbs', 'freezecg', 'user')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
 		if self.__max > 1 and self.__total > 1:
@@ -1135,6 +1145,10 @@ def run_tests(opts):
 				l.skip(t, "self")
 				continue
 
+			if opts['user'] and test_flag(tdesc, 'suid'):
+				l.skip(t, "suid test in user mode")
+				continue
+
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
 			opts_flavs = (opts['flavor'] or 'h,ns,uns').split(',')
 			if opts_flavs != ['best']:
@@ -1148,6 +1162,16 @@ def run_tests(opts):
 					# don't worry if uns isn't in run_flavs
 					pass
 
+			if opts['user']:
+				# FIXME -- probably uns will make sense
+				try:
+					run_flavs.remove("ns")
+				except KeyError:
+					pass
+				try:
+					run_flavs.remove("uns")
+				except KeyError:
+					pass
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
@@ -1321,6 +1345,7 @@ rp.add_argument("--fault", help = "Test fault injection")
 rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
 rp.add_argument("--sbs", help = "Do step-by-step execution, asking user for keypress to continue", action = 'store_true')
 rp.add_argument("--freezecg", help = "Use freeze cgroup (path:state)")
+rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
