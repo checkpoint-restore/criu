@@ -21,27 +21,21 @@ other: .FORCE
 		setsid $(MAKE) -C $$t run || exit 1;	\
 	done						\
 
-zdtm-tst-list: zdtm.sh
-	./zdtm.sh -l > zdtm-tst-list
+zdtm: .FORCE
+	./zdtm.py run -a --parallel 2
 
-zdtm: zdtm-tst-list .FORCE 
-	$(MAKE) -f Makefile.zdtm zdtm_nons
-	$(MAKE) -f Makefile.zdtm zdtm_ns
-	$(MAKE) clean_root
-	$(MAKE) -f Makefile.zdtm zdtm_ns_user
+zdtm-pre-dump:
+	./zdtm.py run --pre 2:1 -t zdtm/live/transition/fork -f uns
 
-zdtm-pre-dump: zdtm-tst-list
-	ZDTM_ARGS="-P -p -i 3 -C" $(MAKE) -f Makefile.zdtm ns/static/pipe00
+zdtm-snapshot:
+	./zdtm.py run --pre 2:1 --snap -t zdtm/live/transition/fork -f uns
 
-zdtm-snapshot: zdtm-tst-list
-	ZDTM_ARGS="-s -i 3 -C" $(MAKE) -f Makefile.zdtm ns/static/pipe00
-
-zdtm-iter: zdtm-tst-list
-	ZDTM_ARGS="-i 3 -C" $(MAKE) -f Makefile.zdtm ns/static/pipe00
+zdtm-iter:
+	./zdtm.py run --iters 3:1 -t zdtm/live/transition/fork -f uns
 
 zdtm-freezer:
-	ZDTM_ARGS="--freeze-cgroup /sys/fs/cgroup/freezer/test -i 3" $(MAKE) -f Makefile.zdtm transition/thread-bomb
-	ZDTM_ARGS="--freeze-cgroup /sys/fs/cgroup/freezer/test -d --frozen" $(MAKE) -f Makefile.zdtm transition/thread-bomb
+	./zdtm.sh --freeze-cgroup /sys/fs/cgroup/freezer/test -i 3 transition/thread-bomb
+	./zdtm.sh --frozen --freeze-cgroup /sys/fs/cgroup/freezer/test -i 3 transition/thread-bomb
 
 .PHONY: zdtm
 
