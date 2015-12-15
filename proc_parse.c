@@ -533,8 +533,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		goto err;
 
 	while (1) {
-		int num;
-		char file_path[32];
+		int num, path_off;
 		bool eof;
 		char *str;
 
@@ -574,10 +573,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 		if (!vma_area)
 			goto err;
 
-		memzero(file_path, sizeof(file_path));
-		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %31s",
+		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %n",
 			     &start, &end, &r, &w, &x, &s, &pgoff,
-			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, file_path);
+			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, &path_off);
 		if (num < 10) {
 			pr_err("Can't parse: %s\n", str);
 			goto err;
@@ -604,7 +602,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 			goto err;
 		}
 
-		if (handle_vma(pid, vma_area, file_path, map_files_dir,
+		if (handle_vma(pid, vma_area, str + path_off, map_files_dir,
 					&vfi, &prev_vfi, vma_area_list))
 			goto err;
 	}
