@@ -1779,25 +1779,21 @@ static int clear_breakpoints()
 	return ret;
 }
 
-static void finalize_restore(int status)
+static void finalize_restore(void)
 {
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
 		pid_t pid = item->pid.real;
 		struct parasite_ctl *ctl;
-		int i;
 
 		if (!task_alive(item))
 			continue;
 
-		if (status  < 0)
-			goto detach;
-
 		/* Unmap the restorer blob */
 		ctl = parasite_prep_ctl(pid, NULL);
 		if (ctl == NULL)
-			goto detach;
+			continue;
 
 		parasite_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
 
@@ -1805,7 +1801,20 @@ static void finalize_restore(int status)
 
 		if (item->state == TASK_STOPPED)
 			kill(item->pid.real, SIGSTOP);
-detach:
+	}
+}
+
+static void finalize_restore_detach(int status)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		pid_t pid;
+		int i;
+
+		if (!task_alive(item))
+			continue;
+
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 			if (pid < 0) {
@@ -2047,11 +2056,11 @@ static int restore_root_task(struct pstree_item *init)
 	if (clear_breakpoints())
 		pr_err("Unable to flush breakpoints\n");
 
-	/*
-	 * finalize_restore() always detaches from processes and
-	 * they continue run through sigreturn.
-	 */
-	finalize_restore(ret);
+	if (ret == 0)
+		finalize_restore();
+
+	/* Detaches from processes and they continue run through sigreturn. */
+	finalize_restore_detach(ret);
 
 	write_stats(RESTORE_STATS);
 
