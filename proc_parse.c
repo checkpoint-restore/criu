@@ -254,8 +254,95 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 			}
 
 			pr_err("Unknown shit %o (%s)\n", buf.st_mode, fname);
+			return -1;
 		}
 
+		if (errno == EPERM && !opts.aufs) {
+			int fd;
+			dev_t vfi_dev;
+
+			/*
+			 * Kernel prohibits reading map_files for users. The
+			 * best we can do here is fill stat using the information
+			 * from smaps file and ... hope for the better :\
+			 *
+			 * Here we'll miss AIO-s and sockets :(
+			 */
+
+			if (fname[0] == '\0') {
+				/*
+				 * Another bad thing is that kernel first checks
+				 * for permission access to ANY map_files link,
+				 * then checks for its existance. So we have to
+				 * check for file path being empty to "emulate"
+				 * the ENOENT case.
+				 */
+
+				if (vfi->dev_maj != 0 || vfi->dev_min != 0 || vfi->ino != 0) {
+					pr_err("Strange file mapped at %lx [%s]:%d.%d.%ld\n",
+							vma->e->start, fname,
+							vfi->dev_maj, vfi->dev_min, vfi->ino);
+					return -1;
+				}
+
+				return 0;
+			} else if (fname[0] != '/') {
+				/*
+				 * This should be some kind of
+				 * special mapping like [heap], [vdso]
+				 * and such, the caller should take care
+				 * of the @fname and vma status.
+				 */
+				return 0;
+			}
+
+			vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
+			if (is_anon_shmem_map(vfi_dev)) {
+				if (!(vma->e->flags & MAP_SHARED))
+					return -1;
+
+				vma->e->flags  |= MAP_ANONYMOUS;
+				vma->e->status |= VMA_ANON_SHARED;
+				vma->e->shmid = vfi->ino;
+
+				if (!strncmp(fname, "/SYSV", 5))
+					vma->e->status |= VMA_AREA_SYSVIPC;
+
+				return 0;
+			}
+
+			pr_info("Failed to open map_files/%s, try to go via [%s] path\n", path, fname);
+			fd = open(fname, O_RDONLY);
+			if (fd < 0) {
+				pr_perror("Can't open mapped [%s]", fname);
+				return -1;
+			}
+
+			vma->vmst = xmalloc(sizeof(struct stat));
+			if (!vma->vmst) {
+				close(fd);
+				return -1;
+			}
+
+			if (fstat(fd, vma->vmst) < 0) {
+				pr_perror("Can't stat [%s]\n", fname);
+				close(fd);
+				return -1;
+			}
+
+			if (vma->vmst->st_dev != vfi_dev ||
+					vma->vmst->st_ino != vfi->ino) {
+				pr_err("Failed to resolve mapping %lx filename\n",
+						vma->e->start);
+				close(fd);
+				return -1;
+			}
+
+			vma->vm_file_fd = fd;
+			return 0;
+		}
+
+		pr_perror("Can't open map_files");
 		return -1;
 	}
 
