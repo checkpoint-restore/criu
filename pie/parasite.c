@@ -482,6 +482,15 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 		args->is_marked = 0;
 		args->proxy_vdso_addr = VDSO_BAD_ADDR;
 		args->proxy_vvar_addr = VVAR_BAD_ADDR;
+
+		if (args->try_fill_symtable) {
+			struct vdso_symtable t;
+
+			if (vdso_fill_symtable((void *)args->start, args->len, &t))
+				args->is_vdso = false;
+			else
+				args->is_vdso = true;
+		}
 	}
 
 	return 0;

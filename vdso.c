@@ -43,15 +43,20 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *proxy_vdso_marked = NULL;
 	struct vma_area *proxy_vvar_marked = NULL;
 	struct parasite_vdso_vma_entry *args;
-	struct vma_area *vma;
 	int fd, ret, exit_code = -1;
+	u64 pfn = VDSO_BAD_PFN;
+	struct vma_area *vma;
 	off_t off;
-	u64 pfn;
 
 	args = parasite_args(ctl, struct parasite_vdso_vma_entry);
-	fd = open_proc(pid, "pagemap");
-	if (fd < 0)
-		return -1;
+	fd = __open_proc(pid, EPERM, O_RDONLY, "pagemap");
+	if (fd < 0) {
+		if (errno == EPERM) {
+			pr_info("Pagemap is unavailable, trying a slow way\n");
+		} else
+			return -1;
+	} else
+		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (!vma_area_is(vma, VMA_AREA_REGULAR))
@@ -91,12 +96,18 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * I need to poke every potentially marked vma,
 		 * otherwise if task never called for vdso functions
 		 * page frame number won't be reported.
+		 *
+		 * Moreover, if page frame numbers are not accessible
+		 * we have to scan the vma zone for vDSO elf structure
+		 * which gonna be a slow way.
 		 */
 		args->start = vma->e->start;
 		args->len = vma_area_len(vma);
+		args->try_fill_symtable = (fd < 0) ? true : false;
+		args->is_vdso = false;
 
 		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
-			pr_err("vdso: Parasite failed to poke for mark\n");
+			pr_err("Parasite failed to poke for mark\n");
 			goto err;
 		}
 
@@ -116,17 +127,27 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			continue;
 		}
 
-		off = (vma->e->start / PAGE_SIZE) * sizeof(u64);
-		ret = pread(fd, &pfn, sizeof(pfn), off);
-		if (ret < 0 || ret != sizeof(pfn)) {
-			pr_perror("Can't read pme for pid %d", pid);
-			goto err;
-		}
+		/*
+		 * If we have an access to pagemap we can handle vDSO
+		 * status early. Otherwise, in worst scenario, where
+		 * the dumpee has been remapping vdso on its own and
+		 * the kernel version is < 3.16, the vdso won't be
+		 * detected via procfs status so we have to parse
+		 * symbols in parasite code.
+		 */
+		if (fd >= 0) {
+			off = (vma->e->start / PAGE_SIZE) * sizeof(u64);
+			ret = pread(fd, &pfn, sizeof(pfn), off);
+			if (ret < 0 || ret != sizeof(pfn)) {
+				pr_perror("Can't read pme for pid %d", pid);
+				goto err;
+			}
 
-		pfn = PME_PFRAME(pfn);
-		if (!pfn) {
-			pr_err("Unexpected page fram number 0 for pid %d\n", pid);
-			goto err;
+			pfn = PME_PFRAME(pfn);
+			if (!pfn) {
+				pr_err("Unexpected page fram number 0 for pid %d\n", pid);
+				goto err;
+			}
 		}
 
 		/*
@@ -136,15 +157,15 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * but only since that particular version of the
 		 * kernel!
 		 */
-		if (pfn == vdso_pfn) {
+		if ((pfn == vdso_pfn && pfn != VDSO_BAD_PFN) || args->is_vdso) {
 			if (!vma_area_is(vma, VMA_AREA_VDSO)) {
-				pr_debug("vdso: Restore vDSO status by pfn at %lx\n",
+				pr_debug("Restore vDSO status by pfn/symtable at %lx\n",
 					 (long)vma->e->start);
 				vma->e->status |= VMA_AREA_VDSO;
 			}
 		} else {
 			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO))) {
-				pr_debug("vdso: Drop mishinted vDSO status at %lx\n",
+				pr_debug("Drop mishinted vDSO status at %lx\n",
 					 (long)vma->e->start);
 				vma->e->status &= ~VMA_AREA_VDSO;
 			}
@@ -290,5 +311,8 @@ int vdso_init(void)
 {
 	if (vdso_fill_self_symtable(&vdso_sym_rt))
 		return -1;
-	return vaddr_to_pfn(vdso_sym_rt.vma_start, &vdso_pfn);
+	if (vaddr_to_pfn(vdso_sym_rt.vma_start, &vdso_pfn) != 0)
+		pr_info("VDSO detection turned off\n");
+
+	return 0;
 }
