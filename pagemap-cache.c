@@ -39,20 +39,29 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 	BUG_ON(!vma_head);
 
 	pmc->pid	= pid;
-	pmc->fd		= open_proc(pid, "pagemap");
 	pmc->map_len	= PAGEMAP_LEN(map_size);
-	pmc->map	= xmalloc(pmc->map_len);
 	pmc->vma_head	= vma_head;
 
-	if (!pmc->map || pmc->fd < 0) {
-		pr_err("Failed to init pagemap for %d\n", pid);
-		pmc_fini(pmc);
-		return -1;
+	pmc->map = xmalloc(pmc->map_len);
+	if (!pmc->map)
+		goto err;
+
+	pmc->fd = __open_proc(pid, EPERM, O_RDONLY, "pagemap");
+	if (pmc->fd < 0) {
+		if (errno != EPERM)
+			goto err;
+
+		pr_warn("No pagemap for %d available, "
+				"switching to greedy mode\n", pid);
 	}
 
 	pr_debug("created for pid %d (takes %zu bytes)\n", pid, pmc->map_len);
-
 	return 0;
+
+err:
+	pr_err("Failed to init pagemap for %d\n", pid);
+	pmc_fini(pmc);
+	return -1;
 }
 
 static inline u64 *__pmc_get_map(pmc_t *pmc, unsigned long addr)
@@ -120,10 +129,19 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	size_map = PAGEMAP_LEN(pmc->end - pmc->start);
 	BUG_ON(pmc->map_len < size_map);
 
-	if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
-		pmc_zap(pmc);
-		pr_perror("Can't read %d's pagemap file", pmc->pid);
-		return -1;
+	if (unlikely(pmc->fd < 0)) {
+		/*
+		 * We don't have access to the dumpee pagemap so fill
+		 * everything as present. It's better than refuse
+		 * to dump because it simply disables optimisation.
+		 */
+		memset(pmc->map, 1, size_map);
+	} else {
+		if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
+			pmc_zap(pmc);
+			pr_perror("Can't read %d's pagemap file", pmc->pid);
+			return -1;
+		}
 	}
 
 	return 0;
