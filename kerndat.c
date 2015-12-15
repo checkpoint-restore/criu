@@ -46,11 +46,51 @@ struct kerndat_s kdat = {
  * from real tmpfs files maps.
  */
 
+static int parse_self_maps(unsigned long vm_start, dev_t *device)
+{
+	FILE *maps;
+	char buf[1024];
+
+	maps = fopen_proc(PROC_SELF, "maps");
+	if (maps == NULL) {
+		pr_perror("Can't open self maps");
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), maps) != NULL) {
+		char *end, *aux;
+		unsigned long start;
+		int maj, min;
+
+		start = strtoul(buf, &end, 16);
+		if (vm_start > start)
+			continue;
+		if (vm_start < start)
+			break;
+
+		/* It's ours */
+		aux = strchr(end + 1, ' '); /* end prot */
+		aux = strchr(aux + 1, ' '); /* prot pgoff */
+		aux = strchr(aux + 1, ' '); /* pgoff dev */
+
+		maj = strtoul(aux + 1, &end, 16);
+		min = strtoul(end + 1, NULL, 16);
+
+		*device = makedev(maj, min);
+		fclose(maps);
+		return 0;
+	}
+
+	fclose(maps);
+	return -1;
+}
+
 static int kerndat_get_shmemdev(void)
 {
 	void *map;
 	char maps[128];
 	struct stat buf;
+	dev_t dev;
 
 	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
@@ -62,16 +102,32 @@ static int kerndat_get_shmemdev(void)
 	sprintf(maps, "/proc/self/map_files/%lx-%lx",
 			(unsigned long)map, (unsigned long)map + page_size());
 	if (stat(maps, &buf) < 0) {
-		munmap(map, PAGE_SIZE);
-		pr_perror("Can't stat self map_files");
-		return -1;
-	}
+		int e = errno;
+		if (errno == EPERM) {
+			/*
+			 * Kernel disables messing with map_files.
+			 * OK, let's go the slower route.
+			 */
+
+			if (parse_self_maps((unsigned long)map, &dev) < 0) {
+				pr_err("Can't read self maps\n");
+				goto err;
+			}
+		} else {
+			pr_perror("Can't stat self map_files %d", e);
+			goto err;
+		}
+	} else
+		dev = buf.st_dev;
 
 	munmap(map, PAGE_SIZE);
-
-	kdat.shmem_dev = buf.st_dev;
+	kdat.shmem_dev = dev;
 	pr_info("Found anon-shmem device at %"PRIx64"\n", kdat.shmem_dev);
 	return 0;
+
+err:
+	munmap(map, PAGE_SIZE);
+	return -1;
 }
 
 static dev_t get_host_dev(unsigned int which)
