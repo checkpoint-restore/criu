@@ -13,7 +13,7 @@ const char *test_doc = "Check for /proc/self/oom_score_adj restore";
 const char *test_author = "Dmitry Safonov <dsafonov@odin.com>";
 
 const char oom_score_adj_self[] = "/proc/self/oom_score_adj";
-const int test_value = -400;
+const int test_value = 400;
 
 int get_oom_score_adj(const char *path, int *err)
 {
