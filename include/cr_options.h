@@ -38,6 +38,8 @@ struct cg_root_opt {
  */
 #define DEFAULT_GHOST_LIMIT	(1 << 20)
 
+#define DEFAULT_TIMEOUT		5
+
 struct irmap;
 
 struct irmap_path_opt {
@@ -97,6 +99,7 @@ struct cr_options {
 	struct list_head	irmap_scan_paths;
 	bool			lsm_supplied;
 	char			*lsm_profile;
+	unsigned int		timeout;
 };
 
 extern struct cr_options opts;

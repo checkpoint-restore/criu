@@ -65,6 +65,7 @@ void init_opts(void)
 	opts.manage_cgroups = CG_MODE_DEFAULT;
 	opts.ps_socket = -1;
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
+	opts.timeout = DEFAULT_TIMEOUT;
 }
 
 static int parse_ns_string(const char *ptr)
@@ -255,6 +256,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
 		{ "lsm-profile",		required_argument,	0, 1071 },
+		{ "timeout",			required_argument,	0, 1072 },
 		{ },
 	};
 
@@ -503,6 +505,8 @@ int main(int argc, char *argv[], char *envp[])
 		case 1071:
 			if (parse_lsm_arg(optarg) < 0)
 				return -1;
+		case 1072:
+			opts.timeout = atoi(optarg);
 			break;
 		case 'M':
 			{

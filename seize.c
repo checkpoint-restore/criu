@@ -640,6 +640,13 @@ int collect_pstree(pid_t pid)
 		goto err;
 	}
 
+	/*
+	 * wait4() may hang for some reason. Enable timer and fire SIGALRM
+	 * if timeout reached. SIGALRM handler will do  the necessary
+	 * cleanups and terminate current process.
+	 */
+	alarm(opts.timeout);
+
 	ret = seize_wait_task(pid, -1, &dmpi(root_item)->pi_creds);
 	if (ret < 0)
 		goto err;
@@ -658,6 +665,8 @@ int collect_pstree(pid_t pid)
 	timing_start(TIME_FROZEN);
 
 err:
+	/* Freezing stage finished in time - disable timer. */
+	alarm(0);
 	return ret;
 }
 

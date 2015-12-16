@@ -1384,6 +1384,25 @@ err_cure_imgset:
 	goto err;
 }
 
+typedef void (*sa_handler_t)(int);
+
+static int setup_alarm_handler(sa_handler_t handler)
+{
+	struct sigaction sa = {
+		.sa_handler	= handler,
+		.sa_flags	= 0,
+	};
+
+	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGALRM);
+	if (sigaction(SIGALRM, &sa, NULL)) {
+		pr_perror("Unable to setup SIGALRM handler");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 {
 	struct parasite_ctl *ctl, *n;
@@ -1436,6 +1455,15 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 	return ret;
 }
 
+void pre_dump_alarm_handler(int signum)
+{
+	LIST_HEAD(empty_list);
+
+	pr_err("Timeout reached\n");
+	cr_pre_dump_finish(&empty_list, -1);
+	exit(-1);
+}
+
 int cr_pre_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
@@ -1468,6 +1496,9 @@ int cr_pre_dump_tasks(pid_t pid)
 		goto err;
 
 	if (connect_to_page_server())
+		goto err;
+
+	if (setup_alarm_handler(pre_dump_alarm_handler))
 		goto err;
 
 	if (collect_pstree(pid))
@@ -1570,6 +1601,13 @@ static int cr_dump_finish(int ret)
 	return post_dump_ret ? : (ret != 0);
 }
 
+void dump_alarm_handler(int signum)
+{
+	pr_err("Timeout reached\n");
+	cr_dump_finish(-1);
+	exit(-1);
+}
+
 int cr_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
@@ -1615,6 +1653,9 @@ int cr_dump_tasks(pid_t pid)
 	}
 
 	if (connect_to_page_server())
+		goto err;
+
+	if (setup_alarm_handler(dump_alarm_handler))
 		goto err;
 
 	/*
