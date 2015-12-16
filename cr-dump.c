@@ -331,6 +331,7 @@ static int dump_pid_misc(pid_t pid, TaskCoreEntry *tc)
 
 	tc->has_loginuid = true;
 	tc->loginuid = parse_pid_loginuid(pid, &ret);
+	tc->loginuid = userns_uid(tc->loginuid);
 	/*
 	 * loginuid dumping is critical, as if not correctly
 	 * restored, you may loss ability to login via SSH to CT
