@@ -100,16 +100,7 @@ int main(int argc, char ** argv)
 		if (filter_syscall(__NR_getpid) < 0)
 			_exit(1);
 
-		/* FIXME: seccomp requires a task to be root in its user ns in
-		 * order to install filters for security reasons, so that
-		 * unprivileged parents cannot take over privileged childen.
-		 * However, we restore euids before we restore seccomp filters,
-		 * so if someone does a setuid(1000) here, the restore will
-		 * fail. We need to reorder some things so that the other creds
-		 * restore takes place after seccomp state is set; except that
-		 * the tasks need to be ptraced so the seccomp filters
-		 * potentially don't kill the task for calling setuid().
-		 */
+		setuid(1000);
 
 		zdtm_seccomp = 1;
 		test_msg("SECCOMP_MODE_FILTER is enabled\n");
