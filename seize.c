@@ -622,16 +622,16 @@ err_close:
 
 int collect_pstree(pid_t pid)
 {
-	int ret;
+	int ret = -1;
 
 	timing_start(TIME_FREEZING);
 
 	if (opts.freeze_cgroup && freeze_processes())
-		return -1;
+		goto err;
 
 	root_item = alloc_pstree_item();
 	if (root_item == NULL)
-		return -1;
+		goto err;
 
 	root_item->pid.real = pid;
 
@@ -651,14 +651,13 @@ int collect_pstree(pid_t pid)
 		goto err;
 
 	if (opts.freeze_cgroup && freezer_wait_processes())
-		return -1;
+		goto err;
 
+	ret = 0;
 	timing_stop(TIME_FREEZING);
 	timing_start(TIME_FROZEN);
 
-	return 0;
 err:
-	pstree_switch_state(root_item, TASK_ALIVE);
-	return -1;
+	return ret;
 }
 
