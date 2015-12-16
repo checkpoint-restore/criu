@@ -1499,7 +1499,7 @@ int cr_dump_tasks(pid_t pid)
 
 	pre_dump_ret = run_scripts(ACT_PRE_DUMP);
 	if (pre_dump_ret != 0) {
-		pr_err("Pre dump script failed with %d!\n", post_dump_ret);
+		pr_err("Pre dump script failed with %d!\n", pre_dump_ret);
 		goto err;
 	}
 	if (init_stats(DUMP_STATS))
