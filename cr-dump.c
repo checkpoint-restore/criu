@@ -1384,12 +1384,63 @@ err_cure_imgset:
 	goto err;
 }
 
+static int cr_pre_dump_finish(struct list_head *ctls, int ret)
+{
+	struct parasite_ctl *ctl, *n;
+
+	pstree_switch_state(root_item,
+			ret ? TASK_ALIVE : opts.final_state);
+	free_pstree(root_item);
+
+	timing_stop(TIME_FROZEN);
+
+	pr_info("Pre-dumping tasks' memory\n");
+	list_for_each_entry_safe(ctl, n, ctls, pre_list) {
+		struct page_xfer xfer;
+
+		pr_info("\tPre-dumping %d\n", ctl->pid.virt);
+		timing_start(TIME_MEMWRITE);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
+		if (ret < 0)
+			break;
+
+		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
+
+		xfer.close(&xfer);
+
+		if (ret)
+			break;
+
+		timing_stop(TIME_MEMWRITE);
+
+		destroy_page_pipe(ctl->mem_pp);
+		list_del(&ctl->pre_list);
+		parasite_cure_local(ctl);
+	}
+
+	if (irmap_predump_run())
+		ret = -1;
+
+	if (disconnect_from_page_server())
+		ret = -1;
+
+	if (bfd_flush_images())
+		ret = -1;
+
+	if (ret)
+		pr_err("Pre-dumping FAILED.\n");
+	else {
+		write_stats(DUMP_STATS);
+		pr_info("Pre-dumping finished successfully\n");
+	}
+	return ret;
+}
+
 int cr_pre_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
 	int ret = -1;
 	LIST_HEAD(ctls);
-	struct parasite_ctl *ctl, *n;
 
 	if (!opts.track_mem) {
 		pr_info("Enforcing memory tracking for pre-dump.\n");
@@ -1437,59 +1488,91 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	ret = 0;
 err:
-	pstree_switch_state(root_item,
-			ret ? TASK_ALIVE : opts.final_state);
-	free_pstree(root_item);
+	return cr_pre_dump_finish(&ctls, ret);
+}
 
-	timing_stop(TIME_FROZEN);
-
-	pr_info("Pre-dumping tasks' memory\n");
-	list_for_each_entry_safe(ctl, n, &ctls, pre_list) {
-		struct page_xfer xfer;
-
-		pr_info("\tPre-dumping %d\n", ctl->pid.virt);
-		timing_start(TIME_MEMWRITE);
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
-		if (ret < 0)
-			break;
-
-		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
-
-		xfer.close(&xfer);
-
-		if (ret)
-			break;
-
-		timing_stop(TIME_MEMWRITE);
-
-		destroy_page_pipe(ctl->mem_pp);
-		list_del(&ctl->pre_list);
-		parasite_cure_local(ctl);
-	}
-
-	if (irmap_predump_run())
-		ret = -1;
+static int cr_dump_finish(int ret)
+{
+	int post_dump_ret = 0;
 
 	if (disconnect_from_page_server())
 		ret = -1;
 
+	close_cr_imgset(&glob_imgset);
+
 	if (bfd_flush_images())
 		ret = -1;
 
-	if (ret)
-		pr_err("Pre-dumping FAILED.\n");
-	else {
-		write_stats(DUMP_STATS);
-		pr_info("Pre-dumping finished successfully\n");
+	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+
+	if (!ret) {
+		/*
+		 * It might be a migration case, where we're asked
+		 * to dump everything, then some script transfer
+		 * image on a new node and we're supposed to kill
+		 * dumpee because it continue running somewhere
+		 * else.
+		 *
+		 * Thus ask user via script if we're to break
+		 * checkpoint.
+		 */
+		post_dump_ret = run_scripts(ACT_POST_DUMP);
+		if (post_dump_ret) {
+			post_dump_ret = WEXITSTATUS(post_dump_ret);
+			pr_info("Post dump script passed with %d\n", post_dump_ret);
+		}
 	}
 
-	return ret;
+	/*
+	 * Dump is complete at this stage. To choose what
+	 * to do next we need to consider the following
+	 * scenarios
+	 *
+	 *  - error happened during checkpoint: just clean up
+	 *    everything and continue execution of the dumpee;
+	 *
+	 *  - dump successed but post-dump script returned
+	 *    some ret code: same as in previous scenario --
+	 *    just clean up everything and continue execution,
+	 *    we will return script ret code back to criu caller
+	 *    and it's up to a caller what to do with running instance
+	 *    of the dumpee -- either kill it, or continue running;
+	 *
+	 *  - dump successed but -R option passed, pointing that
+	 *    we're asked to continue execution of the dumpee. It's
+	 *    assumed that a user will use post-dump script to keep
+	 *    consistency of the FS and other resources, we simply
+	 *    start rollback procedure and cleanup everyhting.
+	 */
+	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
+		network_unlock();
+		delete_link_remaps();
+	}
+	pstree_switch_state(root_item,
+			    (ret || post_dump_ret) ?
+			    TASK_ALIVE : opts.final_state);
+	timing_stop(TIME_FROZEN);
+	free_pstree(root_item);
+	free_file_locks();
+	free_link_remaps();
+	free_aufs_branches();
+	free_userns_maps();
+
+	close_service_fd(CR_PROC_FD_OFF);
+
+	if (ret) {
+		kill_inventory();
+		pr_err("Dumping FAILED.\n");
+	} else {
+		write_stats(DUMP_STATS);
+		pr_info("Dumping finished successfully\n");
+	}
+	return post_dump_ret ? : (ret != 0);
 }
 
 int cr_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
-	int post_dump_ret = 0;
 	int pre_dump_ret = 0;
 	int ret = -1;
 
@@ -1604,78 +1687,5 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 err:
-	if (disconnect_from_page_server())
-		ret = -1;
-
-	close_cr_imgset(&glob_imgset);
-
-	if (bfd_flush_images())
-		ret = -1;
-
-	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
-
-	if (!ret) {
-		/*
-		 * It might be a migration case, where we're asked
-		 * to dump everything, then some script transfer
-		 * image on a new node and we're supposed to kill
-		 * dumpee because it continue running somewhere
-		 * else.
-		 *
-		 * Thus ask user via script if we're to break
-		 * checkpoint.
-		 */
-		post_dump_ret = run_scripts(ACT_POST_DUMP);
-		if (post_dump_ret) {
-			post_dump_ret = WEXITSTATUS(post_dump_ret);
-			pr_info("Post dump script passed with %d\n", post_dump_ret);
-		}
-	}
-
-	/*
-	 * Dump is complete at this stage. To choose what
-	 * to do next we need to consider the following
-	 * scenarios
-	 *
-	 *  - error happened during checkpoint: just clean up
-	 *    everything and continue execution of the dumpee;
-	 *
-	 *  - dump successed but post-dump script returned
-	 *    some ret code: same as in previous scenario --
-	 *    just clean up everything and continue execution,
-	 *    we will return script ret code back to criu caller
-	 *    and it's up to a caller what to do with running instance
-	 *    of the dumpee -- either kill it, or continue running;
-	 *
-	 *  - dump successed but -R option passed, pointing that
-	 *    we're asked to continue execution of the dumpee. It's
-	 *    assumed that a user will use post-dump script to keep
-	 *    consistency of the FS and other resources, we simply
-	 *    start rollback procedure and cleanup everyhting.
-	 */
-	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
-		network_unlock();
-		delete_link_remaps();
-	}
-	pstree_switch_state(root_item,
-			    (ret || post_dump_ret) ?
-			    TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
-	free_pstree(root_item);
-	free_file_locks();
-	free_link_remaps();
-	free_aufs_branches();
-	free_userns_maps();
-
-	close_service_fd(CR_PROC_FD_OFF);
-
-	if (ret) {
-		kill_inventory();
-		pr_err("Dumping FAILED.\n");
-	} else {
-		write_stats(DUMP_STATS);
-		pr_info("Dumping finished successfully\n");
-	}
-
-	return post_dump_ret ? : (ret != 0);
+	return cr_dump_finish(ret);
 }
