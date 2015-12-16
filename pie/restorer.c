@@ -1256,24 +1256,22 @@ long __export_restore_task(struct task_restore_args *args)
 
 	rst_tcp_socks_all(args);
 
+	/* The kernel restricts setting seccomp to uid 0 in the current user
+	 * ns, so we must do this before restore_creds.
+	 */
+	pr_info("restoring seccomp mode %d for %ld\n", args->seccomp_mode, sys_getpid());
+	restore_seccomp(args);
+
 	/*
 	 * Writing to last-pid is CAP_SYS_ADMIN protected,
 	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
 	 * thus restore* creds _after_ all of the above.
 	 */
-
 	ret = restore_creds(&args->creds, args->proc_fd);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
-
-	/*
-	 * We have to close the log before restoring seccomp, because
-	 * SECCOMP_MODE_STRICT blocks close().
-	 */
-	if (args->seccomp_mode != SECCOMP_MODE_DISABLED)
-		pr_info("restoring seccomp mode %d for %ld\n", args->seccomp_mode, sys_getpid());
 
 	restore_finish_stage(CR_STATE_RESTORE_CREDS);
 
@@ -1303,8 +1301,6 @@ long __export_restore_task(struct task_restore_args *args)
 		sys_setitimer(ITIMER_PROF, &args->itimers[2], NULL);
 
 	restore_posix_timers(args);
-
-	restore_seccomp(args);
 
 	sys_munmap(args->rst_mem, args->rst_mem_size);
 
