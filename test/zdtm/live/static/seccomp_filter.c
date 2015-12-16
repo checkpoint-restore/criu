@@ -97,7 +97,7 @@ int main(int argc, char ** argv)
 		if (filter_syscall(__NR_ptrace) < 0)
 			_exit(1);
 
-		if (filter_syscall(__NR_getpid) < 0)
+		if (filter_syscall(__NR_prctl) < 0)
 			_exit(1);
 
 		setuid(1000);
