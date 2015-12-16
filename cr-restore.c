@@ -1706,7 +1706,61 @@ static int restore_switch_stage(int next_stage)
 	return restore_wait_inprogress_tasks();
 }
 
-static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
+static int attach_to_tasks(bool root_seized)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		pid_t pid = item->pid.real;
+		int status, i;
+
+		if (!task_alive(item))
+			continue;
+
+		if (parse_threads(item->pid.real, &item->threads, &item->nr_threads))
+			return -1;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			pid = item->threads[i].real;
+
+			if (item != root_item || !root_seized || i != 0) {
+				if (ptrace(PTRACE_SEIZE, pid, 0, 0)) {
+					pr_perror("Can't attach to %d", pid);
+					return -1;
+				}
+			}
+			if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
+				pr_perror("Can't interrupt the %d task", pid);
+				return -1;
+			}
+
+
+			if (wait4(pid, &status, __WALL, NULL) != pid) {
+				pr_perror("waitpid(%d) failed", pid);
+				return -1;
+			}
+
+			/*
+			 * Suspend seccomp if necessary. We need to do this because
+			 * although seccomp is restored at the very end of the
+			 * restorer blob (and the final sigreturn is ok), here we're
+			 * doing an munmap in the process, which may be blocked by
+			 * seccomp and cause the task to be killed.
+			 */
+			if (rsti(item)->has_seccomp && suspend_seccomp(pid) < 0)
+				pr_err("failed to suspend seccomp, restore will probably fail...\n");
+
+			if (ptrace(PTRACE_CONT, pid, NULL, NULL) ) {
+				pr_perror("Unable to resume %d", pid);
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int catch_tasks(bool root_seized, enum trace_flags *flag)
 {
 	struct pstree_item *item;
 
@@ -1723,37 +1777,15 @@ static int attach_to_tasks(bool root_seized, enum trace_flags *flag)
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 
-			if (item != root_item || !root_seized || i != 0) {
-				if (ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-					pr_perror("Can't attach to %d", pid);
-					return -1;
-				}
-			} else {
-				/*
-				 * Root item is SEIZE-d, so we only need
-				 * to stop one (INTERRUPT) to make wait4
-				 * and SYSCALL below work.
-				 */
-				if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
-					pr_perror("Can't interrupt the %d task", pid);
-					return -1;
-				}
+			if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
+				pr_perror("Can't interrupt the %d task", pid);
+				return -1;
 			}
 
 			if (wait4(pid, &status, __WALL, NULL) != pid) {
 				pr_perror("waitpid(%d) failed", pid);
 				return -1;
 			}
-
-			/*
-			 * Suspend seccomp if necessary. We need to do this because
-			 * although seccomp is restored at the very end of the
-			 * restorer blob (and the final sigreturn is ok), here we're
-			 * doing an munmap in the process, which may be blocked by
-			 * seccomp and cause the task to be killed.
-			 */
-			if (rsti(item)->has_seccomp && suspend_seccomp(pid) < 0)
-				pr_err("failed to suspend seccomp, restore will probably fail...\n");
 
 			ret = ptrace_stop_pie(pid, rsti(item)->breakpoint, flag);
 			if (ret < 0)
@@ -2037,13 +2069,14 @@ static int restore_root_task(struct pstree_item *init)
 	 * -------------------------------------------------------------
 	 * Below this line nothing should fail, because network is unlocked
 	 */
+	attach_to_tasks(root_as_sibling);
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	BUG_ON(ret);
 
 	timing_stop(TIME_RESTORE);
 
-	ret = attach_to_tasks(root_as_sibling, &flag);
+	ret = catch_tasks(root_as_sibling, &flag);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
