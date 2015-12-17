@@ -1163,24 +1163,11 @@ out:
 
 static int attach_option(struct mount_info *pm, char *opt)
 {
-	char *buf;
-	int len, olen;
-
-	len = strlen(pm->options);
-	olen = strlen(opt);
-	buf = xrealloc(pm->options, len + olen + 2);
-	if (buf == NULL)
-		return -1;
-
-	if (len && buf[len - 1] != ',') {
-		buf[len] = ',';
-		len++;
-	}
-
-	memcpy(buf + len, opt, olen + 1);
-	pm->options = buf;
-
-	return 0;
+	if (pm->options[0] == '\0')
+		pm->options = xstrcat(pm->options, "%s", opt);
+	else
+		pm->options = xstrcat(pm->options, ",%s", opt);
+	return pm->options ? 0 : -1;
 }
 
 /* Is it mounted w or w/o the newinstance option */
