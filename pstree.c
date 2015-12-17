@@ -21,6 +21,8 @@ void core_entry_free(CoreEntry *core)
 {
 	if (core->tc && core->tc->timers)
 		xfree(core->tc->timers->posix);
+	if (core->thread_core)
+		xfree(core->thread_core->creds->groups);
 	arch_free_thread_info(core);
 	xfree(core);
 }
@@ -46,8 +48,20 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			sz += 3 * sizeof(ItimerEntry); /* 3 for real, virt and prof */
 		}
 	}
-	if (th)
-		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry);
+	if (th) {
+		CredsEntry *ce = NULL;
+
+		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry) + sizeof(CredsEntry);
+
+		sz += CR_CAP_SIZE * sizeof(ce->cap_inh[0]);
+		sz += CR_CAP_SIZE * sizeof(ce->cap_prm[0]);
+		sz += CR_CAP_SIZE * sizeof(ce->cap_eff[0]);
+		sz += CR_CAP_SIZE * sizeof(ce->cap_bnd[0]);
+		/*
+		 * @groups are dynamic and allocated
+		 * on demand.
+		 */
+	}
 
 	m = xmalloc(sz);
 	if (m) {
@@ -89,10 +103,23 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 		}
 
 		if (th) {
+			CredsEntry *ce;
+
 			core->thread_core = xptr_pull(&m, ThreadCoreEntry);
 			thread_core_entry__init(core->thread_core);
 			core->thread_core->sas = xptr_pull(&m, ThreadSasEntry);
 			thread_sas_entry__init(core->thread_core->sas);
+			ce = core->thread_core->creds = xptr_pull(&m, CredsEntry);
+			creds_entry__init(ce);
+
+			ce->n_cap_inh	= CR_CAP_SIZE;
+			ce->n_cap_prm	= CR_CAP_SIZE;
+			ce->n_cap_eff	= CR_CAP_SIZE;
+			ce->n_cap_bnd	= CR_CAP_SIZE;
+			ce->cap_inh	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_inh[0]));
+			ce->cap_prm	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
+			ce->cap_eff	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
+			ce->cap_bnd	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);
