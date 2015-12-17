@@ -1313,18 +1313,14 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 					/* +1 to get rid of leading / */
 					strstartswith(cg->path + 1, from)) {
 
+				char *tmp = cg->path;
+
 				/* +1 to get rid of leading /, again */
-				int off = strlen(from) + 1;
-
-				/* +1 for trailing NULL */
-				int newlen = strlen(to) + strlen(cg->path + off) + 1;
-				char *m = xmalloc(newlen * sizeof(char*));
-				if (!m)
+				cg->path = xsprintf("%s%s", to, cg->path +
+							strlen(from) + 1);
+				if (!cg->path)
 					return -1;
-
-				sprintf(m, "%s%s", to, cg->path + off);
-				free(cg->path);
-				cg->path = m;
+				free(tmp);
 			}
 		}
 
