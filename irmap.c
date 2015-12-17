@@ -106,7 +106,7 @@ static int irmap_update_stat(struct irmap *i)
  */
 static int irmap_update_dir(struct irmap *t)
 {
-	int fd, nr = 0, dlen, mntns_root;
+	int fd, nr = 0, mntns_root;
 	DIR *dfd;
 	struct dirent *de;
 
@@ -122,7 +122,6 @@ static int irmap_update_dir(struct irmap *t)
 		return -1;
 	}
 
-	dlen = strlen(t->path);
 	dfd = fdopendir(fd);
 	if (!dfd) {
 		pr_perror("Can't opendir %s", t->path);
@@ -145,12 +144,9 @@ static int irmap_update_dir(struct irmap *t)
 		k->kids = NULL;	 /* for xrealloc above */
 		k->ino = 0;	 /* for irmap_update_stat */
 		k->nr_kids = -1; /* for irmap_update_dir */
-
-		k->path = xmalloc(dlen + strlen(de->d_name) + 2);
+		k->path = xsprintf("%s/%s", t->path, de->d_name);
 		if (!k->path)
 			goto out_err;
-
-		sprintf(k->path, "%s/%s", t->path, de->d_name);
 	}
 
 	if (errno) {
