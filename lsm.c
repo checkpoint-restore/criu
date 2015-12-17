@@ -53,8 +53,10 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 	 * An "unconfined" value means there is no profile, so we don't need to
 	 * worry about trying to restore one.
 	 */
-	if (strcmp(*profile_name, "unconfined") == 0)
+	if (strcmp(*profile_name, "unconfined") == 0) {
+		free(*profile_name);
 		*profile_name = NULL;
+	}
 
 	return 0;
 }
