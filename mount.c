@@ -833,7 +833,7 @@ static int resolve_external_mounts(struct mount_info *info)
 	}
 
 	for (m = info; m; m = m->next) {
-		int ret, size;
+		int ret;
 		char *p, *cut_root;
 		struct ext_mount *em;
 		struct mount_info *match;
@@ -878,18 +878,9 @@ static int resolve_external_mounts(struct mount_info *info)
 
 		cut_root = cut_root_for_bind(m->root, match->root);
 
-		/* +2 for the NULL byte and the extra / in the sprintf below,
-		 * which we cut off in cut_root_for_bind(). */
-		size = strlen(match->mountpoint + 1) + strlen(cut_root) + 2;
-		p = xmalloc(sizeof(char) * size);
+		p = xsprintf("%s/%s", match->mountpoint + 1, cut_root);
 		if (!p)
 			return -1;
-
-		ret = snprintf(p, size, "%s/%s", match->mountpoint + 1, cut_root);
-		if (ret < 0 || ret >= size) {
-			free(p);
-			return -1;
-		}
 
 		em = xmalloc(sizeof(struct ext_mount));
 		if (!em) {
