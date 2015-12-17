@@ -85,11 +85,6 @@ struct proc_status_creds {
 	unsigned int uids[4];
 	unsigned int gids[4];
 
-	u32 cap_inh[PROC_CAP_SIZE];
-	u32 cap_prm[PROC_CAP_SIZE];
-	u32 cap_eff[PROC_CAP_SIZE];
-	u32 cap_bnd[PROC_CAP_SIZE];
-
 	char			state;
 	int			ppid;
 	unsigned long long	sigpnd;
@@ -97,6 +92,15 @@ struct proc_status_creds {
 
 	int			seccomp_mode;
 	u32			last_filter;
+
+	/*
+	 * Keep them at the end of structure
+	 * for fast comparision reason.
+	 */
+	u32			cap_inh[PROC_CAP_SIZE];
+	u32			cap_prm[PROC_CAP_SIZE];
+	u32			cap_eff[PROC_CAP_SIZE];
+	u32			cap_bnd[PROC_CAP_SIZE];
 };
 
 bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2);
