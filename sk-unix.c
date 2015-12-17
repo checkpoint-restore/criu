@@ -1133,7 +1133,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if (ui->ue->type == SOCK_DGRAM) {
+	} else if (ui->ue->type == SOCK_DGRAM && !ui->queuer) {
 		struct sockaddr_un addr;
 		int sks[2];
 
