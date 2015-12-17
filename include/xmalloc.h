@@ -33,6 +33,14 @@
 		__ret;							\
 	 })
 
+#define xmemdup(ptr, size)						\
+	({								\
+		void *new = xmalloc(size);				\
+		if (new)						\
+			memcpy(new, ptr, size);				\
+		new;							\
+	 })
+
 #define memzero_p(p)		memset(p, 0, sizeof(*p))
 #define memzero(p, size)	memset(p, 0, size)
 
