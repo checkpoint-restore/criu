@@ -291,11 +291,10 @@ int fixup_aufs_vma_fd(struct vma_area *vma)
 
 	strcpy(vma->aufs_rpath, path);
 	if (opts.root) {
-		vma->aufs_fpath = xmalloc(strlen(opts.root) + 1 + len + 1);
+		/* skip ./ in path */
+		vma->aufs_fpath = xsprintf("%s/%s", opts.root, &path[2]);
 		if (!vma->aufs_fpath)
 			return -1;
-		/* skip ./ in path */
-		sprintf(vma->aufs_fpath, "%s/%s", opts.root, &path[2]);
 	}
 	pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
 
