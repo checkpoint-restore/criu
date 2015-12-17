@@ -51,6 +51,76 @@
 
 #define VMA_OPT_LEN	128
 
+/*
+ * This function reallocates passed str pointer.
+ * It means:
+ * 1) passed pointer can be either NULL, or previously allocated by malloc.
+ * 2) Passed pointer can' be reused. It's either freed in case of error or can
+ * be changed.
+ */
+static char *xvstrcat(char *str, const char *fmt, va_list args)
+{
+	size_t offset = 0, delta;
+	int ret;
+	char *new;
+	va_list tmp;
+
+	if (str)
+		offset = strlen(str);
+	delta = strlen(fmt) * 2;
+
+	do {
+		ret = -ENOMEM;
+		new = xrealloc(str, offset + delta);
+		if (new) {
+			va_copy(tmp, args);
+			ret = vsnprintf(new + offset, delta, fmt, tmp);
+			if (ret >= delta) {
+				/* NOTE: vsnprintf returns the amount of bytes
+				 * to allocate. */
+				delta = ret +1;
+				str = new;
+				ret = 0;
+			}
+		}
+	} while (ret == 0);
+
+	if (ret == -ENOMEM) {
+		/* realloc failed. We must release former string */
+		pr_err("Failed to allocate string\n");
+		xfree(str);
+	} else if (ret < 0) {
+		/* vsnprintf failed */
+		pr_err("Failed to print string\n");
+		xfree(new);
+		new = NULL;
+	}
+	return new;
+}
+
+char *xstrcat(char *str, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	str = xvstrcat(str, fmt, args);
+	va_end(args);
+
+	return str;
+}
+
+char *xsprintf(const char *fmt, ...)
+{
+	va_list args;
+	char *str;
+
+	va_start(args, fmt);
+	str = xvstrcat(NULL, fmt, args);
+	va_end(args);
+
+	return str;
+}
+
 static void vma_opt_str(const struct vma_area *v, char *opt)
 {
 	int p = 0;

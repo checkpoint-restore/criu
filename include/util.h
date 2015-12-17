@@ -275,4 +275,10 @@ void tcp_nodelay(int sk, bool on);
 void tcp_cork(int sk, bool on);
 
 const char *ns_to_string(unsigned int ns);
+
+char *xstrcat(char *str, const char *fmt, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
+char *xsprintf(const char *fmt, ...)
+	__attribute__ ((__format__ (__printf__, 1, 2)));
+
 #endif /* __CR_UTIL_H__ */
