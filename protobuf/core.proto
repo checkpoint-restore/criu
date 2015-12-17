@@ -5,6 +5,7 @@ import "core-ppc64.proto";
 
 import "rlimit.proto";
 import "timer.proto";
+import "creds.proto";
 
 import "siginfo.proto";
 
@@ -75,6 +76,7 @@ message thread_core_entry {
 	optional uint32			pdeath_sig	= 8;
 
 	optional signal_queue_entry	signals_p	= 9;
+	optional creds_entry		creds		= 10;
 }
 
 message task_rlimits_entry {
