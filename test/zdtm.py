@@ -296,7 +296,7 @@ class zdtm_test:
 		if env:
 			env = dict(os.environ, **env)
 
-		s = subprocess.Popen(s_args, env = env, cwd = root)
+		s = subprocess.Popen(s_args, env = env, cwd = root, close_fds = True)
 		s.wait()
 
 	def __pidfile(self):
