@@ -840,20 +840,19 @@ err:
 	return -1;
 }
 
-static int prepare_pid_oom_score_adj(pid_t pid, int value)
+static int prepare_oom_score_adj(int value)
 {
 	int fd, ret = 0;
 	char buf[11];
 
-	fd = open_proc_rw(pid, "oom_score_adj");
+	fd = open_proc_rw(PROC_SELF, "oom_score_adj");
 	if (fd < 0)
 		return -1;
 
 	snprintf(buf, 11, "%d", value);
 
 	if (write(fd, buf, 11) < 0) {
-		pr_perror("Write %s to /proc/%d/oom_score_adj failed",
-			buf, pid);
+		pr_perror("Write %s to /proc/self/oom_score_adj failed", buf);
 		ret = -1;
 	}
 
@@ -861,19 +860,19 @@ static int prepare_pid_oom_score_adj(pid_t pid, int value)
 	return ret;
 }
 
-static int prepare_pid_loginuid(pid_t pid, unsigned int value)
+static int prepare_loginuid(unsigned int value)
 {
 	int fd, ret = 0;
 	char buf[11]; /* 4294967295 is maximum for u32 */
 
-	fd = open_proc_rw(pid, "loginuid");
+	fd = open_proc_rw(PROC_SELF, "loginuid");
 	if (fd < 0)
 		return -1;
 
 	snprintf(buf, 11, "%u", value);
 
 	if (write(fd, buf, 11) < 0) {
-		pr_perror("Write %s to /proc/%d/loginuid failed", buf, pid);
+		pr_perror("Write %s to /proc/self/loginuid failed", buf);
 		ret = -1;
 	}
 	close(fd);
@@ -885,15 +884,15 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
 	int ret;
 
 	/* loginuid value is critical to restore */
-	if (tc->has_loginuid) {
-		ret = prepare_pid_loginuid(pid, tc->loginuid);
+	if (tc->has_loginuid && tc->loginuid != INVALID_UID) {
+		ret = prepare_loginuid(tc->loginuid);
 		if (ret < 0)
 			return ret;
 	}
 
 	/* oom_score_adj is not critical: only log errors */
-	if (tc->has_oom_score_adj)
-		prepare_pid_oom_score_adj(pid, tc->oom_score_adj);
+	if (tc->has_oom_score_adj && tc->oom_score_adj != 0)
+		prepare_oom_score_adj(tc->oom_score_adj);
 
 	return 0;
 }
@@ -1886,7 +1885,7 @@ static int prepare_userns_hook(void)
 	if (ret < 0)
 		return -1;
 
-	if (prepare_pid_loginuid(pid, INVALID_UID) < 0) {
+	if (prepare_loginuid(INVALID_UID) < 0) {
 		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?");
 		return -1;
 	}
@@ -1896,7 +1895,7 @@ static int prepare_userns_hook(void)
 static void restore_origin_ns_hook(void)
 {
 	/* not critical: it does not affect CT in any way */
-	if (prepare_pid_loginuid(getpid(), saved_loginuid) < 0)
+	if (prepare_loginuid(saved_loginuid) < 0)
 		pr_err("Restore original /proc/self/loginuid failed");
 }
 
