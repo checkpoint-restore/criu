@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/vfs.h>
+#include <sys/prctl.h>
 #include <ctype.h>
 
 /* Stolen from kernel/fs/nfs/unlink.c */
