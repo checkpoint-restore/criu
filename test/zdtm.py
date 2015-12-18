@@ -753,54 +753,65 @@ def cr(cr_api, test, opts):
 # Additional checks that can be done outside of test process
 
 def get_visible_state(test):
-	maps	= []
-	files	= []
-	mounts	= []
+	maps	= {}
+	files	= {}
+	mounts	= {}
 
 	if not test.static() or not test.ns():
-		return ([], [], [])
+		return ({}, {}, {})
 
 	r = re.compile('^[0-9]+$')
 	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
 	for pid in pids:
-		files.append(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
+		files[pid] = set(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
 
-		maps.append([0, 0])
+		cmaps = [[0, 0]]
 		last = 0
 		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)):
 			m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
-			if maps[last][1] == m[0]:
-				maps[last][1] = m[1]
+			if cmaps[last][1] == m[0]:
+				cmaps[last][1] = m[1]
 			else:
-				maps.append(m)
+				cmaps.append(m)
 				last += 1
+		maps[pid] = set(map(lambda x: '%x-%x' % (x[0], x[1]), cmaps))
 
+		cmounts = []
 		try:
 			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)")
 			for m in open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)):
-				mounts.append(r.match(m).groups())
+				cmounts.append(r.match(m).groups())
 		except IOError, e:
 			if e.errno != errno.EINVAL:
 				raise e
+		mounts[pid] = set(cmounts)
 	return files, maps, mounts
-
-def cmp_lists(m1, m2):
-	return len(m1) != len(m2) or filter(lambda x: x[0] != x[1], zip(m1, m2))
 
 def check_visible_state(test, state):
 	new = get_visible_state(test)
-	if cmp_lists(new[0], state[0]):
-		raise test_fail_exc("fds compare")
-	if cmp_lists(new[1], state[1]):
-		s_new = set(map(lambda x: '%x-%x' % (x[0], x[1]), new[1]))
-		s_old = set(map(lambda x: '%x-%x' % (x[0], x[1]), state[1]))
 
-		print "Old maps lost:"
-		print s_old - s_new
-		print "New maps appeared:"
-		print s_new - s_old
+	for pid in state[0].keys():
+		fnew = new[0][pid]
+		fold = state[0][pid]
+		if fnew != fold:
+			print "%s: Old files lost: %s" % (pid, fold - fnew)
+			print "%s: New files appeared: %s" % (pid, fnew - fold)
+			raise test_fail_exc("fds compare")
 
-		raise test_fail_exc("maps compare")
+		old_maps = state[1][pid]
+		new_maps = new[1][pid]
+		if old_maps != new_maps:
+			print "%s: Old maps lost: %s" % (pid, old_maps - new_maps)
+			print "%s: New maps appeared: %s" % (pid, new_maps - old_maps)
+
+			raise test_fail_exc("maps compare")
+
+		old_mounts = state[2][pid]
+		new_mounts = new[2][pid]
+		if old_mounts != new_mounts:
+			print "%s: Old mounts lost: %s" % (pid, old_mounts - new_mounts)
+			print "%s: New mounts appeared: %s" % (pid, new_mounts - old_mounts)
+			raise test_fail_exc("mounts compare")
 
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
