@@ -926,7 +926,7 @@ static int resolve_shared_mounts(struct mount_info *info)
 		bool need_share, need_master;
 
 		/* the root master_id can be ignored, because it's already created */
-		if (root_master_id == m->master_id)
+		if (root_master_id && root_master_id == m->master_id)
 			m->master_id = -1;
 
 		need_share = m->shared_id && list_empty(&m->mnt_share);
