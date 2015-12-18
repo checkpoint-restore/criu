@@ -1091,13 +1091,22 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 
 	if (root_ns_mask & CLONE_NEWUSER) {
 		setfsuid(old_fsuid);
-		if (setfsuid(-1) != old_fsuid)
+		if (setfsuid(-1) != old_fsuid) {
 			pr_warn("Failed to restore old fsuid!\n");
 			/*
 			 * Don't fail here. We still have chances to run till
 			 * the pie/restorer, and if _this_ guy fails to set
 			 * the proper fsuid, then we'll abort the restore.
 			 */
+		}
+
+		/*
+		 * Restoring PR_SET_DUMPABLE flag is required after setfsuid,
+		 * as if it not set, proc inode will be created with root cred
+		 * (see proc_pid_make_inode), which will result in permission
+		 * check fail when trying to access files in /proc/self/
+		 */
+		prctl(PR_SET_DUMPABLE, 1, 0);
 	}
 	errno = errno_save;
 
