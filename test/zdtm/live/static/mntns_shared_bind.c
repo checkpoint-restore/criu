@@ -79,12 +79,13 @@ int main(int argc, char **argv)
 
 		task_waiter_complete(&t, 1);
 		task_waiter_wait4(&t, 2);
-
-
-		if (umount(bpath)) {
+		if (umount(spath)) {
+			task_waiter_complete(&t, 2);
 			fail("umount");
 			return 1;
 		}
+		task_waiter_complete(&t, 3);
+		task_waiter_wait4(&t, 4);
 
 		return 0;
 	}
@@ -100,11 +101,16 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (umount(spath)) {
+	task_waiter_complete(&t, 2);
+	task_waiter_wait4(&t, 3);
+
+	if (umount(bpath)) {
+		task_waiter_complete(&t, 2);
 		fail("umount");
 		return 1;
 	}
-	task_waiter_complete(&t, 2);
+
+	task_waiter_complete(&t, 4);
 
 	if (waitpid(pid, &status, 0) != pid) {
 		pr_perror("waitpid %d", pid);
