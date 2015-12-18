@@ -151,6 +151,11 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 			goto err_c;
 	}
 
+	if (fchmod(gfd, gfe->mode)) {
+		pr_perror("Can't set perms %o on ghost %s", perms, filename);
+		goto err_c;
+	}
+
 	ret = 0;
 err_c:
 	close(gfd);
