@@ -58,6 +58,8 @@ static int get_mntid(int fd)
 	return mnt_id;
 }
 
+task_waiter_t t;
+
 int ns_child(void *_arg)
 {
 	struct ns_exec_args *args = _arg;
@@ -65,6 +67,7 @@ int ns_child(void *_arg)
 	int id1, id2;
 
 	fd2 = open(fpath, O_RDWR);
+	task_waiter_complete(&t, 1);
 	test_waitsig();
 
 	id1 = get_mntid(args->fd);
@@ -86,6 +89,8 @@ int main(int argc, char **argv)
 	pid_t pid = -1;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	snprintf(fpath, sizeof(fpath), "%s/%s", dirname, MPTS_FILE);
 	if (mkdir(dirname, 0600) < 0) {
@@ -109,9 +114,10 @@ int main(int argc, char **argv)
 		close(args.fd);
 	}
 
+	task_waiter_wait4(&t, 1);
+
 	test_daemon();
 	test_waitsig();
-
 
 	if (pid > 0) {
 		kill(pid, SIGTERM);
