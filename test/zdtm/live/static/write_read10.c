@@ -32,7 +32,7 @@ int main(int argc, char ** argv)
 	}
 
 	child_fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
-	if (fd < 0) {
+	if (child_fd < 0) {
 		pr_perror("can't open %s", filename);
 		exit(1);
 	}
