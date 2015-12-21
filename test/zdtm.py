@@ -275,12 +275,14 @@ class test_fail_expected_exc:
 #
 
 class zdtm_test:
-	def __init__(self, name, desc, flavor):
+	def __init__(self, name, desc, flavor, freezer):
 		self.__name = name
 		self.__desc = desc
+		self.__freezer = None
 		self.__make_action('cleanout')
 		self.__pid = 0
 		self.__flavor = flavor
+		self.__freezer = freezer
 		self._bins = [ name ]
 		self._env = {}
 		self._deps = desc.get('deps', [])
@@ -296,8 +298,12 @@ class zdtm_test:
 		if env:
 			env = dict(os.environ, **env)
 
-		s = subprocess.Popen(s_args, env = env, cwd = root, close_fds = True)
+		s = subprocess.Popen(s_args, env = env, cwd = root, close_fds = True,
+				preexec_fn = self.__freezer and self.__freezer.attach or None)
 		s.wait()
+
+		if self.__freezer:
+			self.__freezer.freeze()
 
 	def __pidfile(self):
 		if self.__flavor.ns:
@@ -320,7 +326,9 @@ class zdtm_test:
 		print "Start test"
 
 		env = self._env
-		env['ZDTM_THREAD_BOMB'] = "5"
+		if not self.__freezer.kernel:
+			env['ZDTM_THREAD_BOMB'] = "5"
+
 		if not test_flag(self.__desc, 'suid'):
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
@@ -353,6 +361,7 @@ class zdtm_test:
 		self.__flavor.fini()
 
 	def stop(self):
+		self.__freezer.thaw()
 		self.getpid() # Read the pid from pidfile back
 		self.kill(signal.SIGTERM)
 
@@ -378,10 +387,10 @@ class zdtm_test:
 		return opts
 
 	def getdopts(self):
-		return self.__getcropts()
+		return self.__getcropts() + self.__freezer.getdopts()
 
 	def getropts(self):
-		return self.__getcropts()
+		return self.__getcropts() + self.__freezer.getropts()
 
 	def gone(self, force = True):
 		if not self.auto_reap:
@@ -419,7 +428,7 @@ class zdtm_test:
 
 
 class inhfd_test:
-	def __init__(self, name, desc, flavor):
+	def __init__(self, name, desc, flavor, freezer):
 		self.__name = os.path.basename(name)
 		print "Load %s" % name
 		self.__fdtyp = imp.load_source(self.__name, name)
@@ -508,8 +517,8 @@ class inhfd_test:
 
 
 class groups_test(zdtm_test):
-	def __init__(self, name, desc, flavor):
-		zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor)
+	def __init__(self, name, desc, flavor, freezer):
+		zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor, freezer)
 		if flavor.ns:
 			self.__real_name = name
 			self.__subs = map(lambda x: x.strip(), open(name).readlines())
@@ -813,6 +822,67 @@ def check_visible_state(test, state):
 			print "%s: New mounts appeared: %s" % (pid, new_mounts - old_mounts)
 			raise test_fail_exc("mounts compare")
 
+
+class noop_freezer:
+	def __init__(self):
+		self.kernel = False
+
+	def attach(self):
+		pass
+
+	def freeze(self):
+		pass
+
+	def thaw(self):
+		pass
+
+	def getdopts(self):
+		return []
+
+	def getropts(self):
+		return []
+
+
+class cg_freezer:
+	def __init__(self, path, state):
+		self.__path = '/sys/fs/cgroup/freezer/' + path
+		self.__state = state
+		self.kernel = True
+
+	def attach(self):
+		if not os.access(self.__path, os.F_OK):
+			os.makedirs(self.__path)
+		with open(self.__path + '/tasks', 'w') as f:
+			f.write('0')
+
+	def __set_state(self, state):
+		with open(self.__path + '/freezer.state', 'w') as f:
+			f.write(state)
+
+	def freeze(self):
+		if self.__state.startswith('f'):
+			self.__set_state('FROZEN')
+
+	def thaw(self):
+		if self.__state.startswith('f'):
+			self.__set_state('THAWED')
+
+	def getdopts(self):
+		return [ '--freeze-cgroup', self.__path, '--manage-cgroups' ]
+
+	def getropts(self):
+		return [ '--manage-cgroups' ]
+
+
+def get_freezer(desc):
+	if not desc:
+		return noop_freezer()
+
+	fd = desc.split(':')
+	fr = cg_freezer(path = fd[0], state = fd[1])
+	return fr
+
+
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
 	tclass = test_classes.get(tcname, None)
@@ -825,11 +895,13 @@ def do_run_test(tname, tdesc, flavs, opts):
 	if opts['sbs']:
 		init_sbs()
 
+	fcg = get_freezer(opts['freezecg'])
+
 	for f in flavs:
 		print
 		print_sep("Run %s in %s" % (tname, f))
 		flav = flavors[f](opts)
-		t = tclass(tname, tdesc, flav)
+		t = tclass(tname, tdesc, flav, fcg)
 		cr_api = criu_cli(opts)
 
 		try:
@@ -889,7 +961,8 @@ class launcher:
 		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
-				'fault', 'keep_img', 'report', 'snaps', 'sat', 'dedup', 'sbs')
+				'fault', 'keep_img', 'report', 'snaps', 'sat', \
+				'dedup', 'sbs', 'freezecg')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
 		if self.__max > 1 and self.__total > 1:
@@ -1024,6 +1097,10 @@ def run_tests(opts):
 
 	if opts['report']:
 		init_report(opts['report'])
+
+	if opts['parallel'] and opts['freezecg']:
+		print "Parallel launch with freezer not supported"
+		opts['parallel'] = None
 
 	l = launcher(opts, len(torun))
 	try:
@@ -1242,6 +1319,7 @@ rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pa
 rp.add_argument("--fault", help = "Test fault injection")
 rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
 rp.add_argument("--sbs", help = "Do step-by-step execution, asking user for keypress to continue", action = 'store_true')
+rp.add_argument("--freezecg", help = "Use freeze cgroup (path:state)")
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")

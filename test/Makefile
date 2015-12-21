@@ -34,8 +34,8 @@ zdtm-iter:
 	./zdtm.py run --iters 3:1 -t zdtm/live/transition/fork -f uns
 
 zdtm-freezer:
-	./zdtm.sh --freeze-cgroup /sys/fs/cgroup/freezer/test -i 3 transition/thread-bomb
-	./zdtm.sh --frozen --freeze-cgroup /sys/fs/cgroup/freezer/test -i 3 transition/thread-bomb
+	./zdtm.py run --test zdtm/live/transition/thread-bomb --pre 3 --freezecg zdtm:t
+	./zdtm.py run --test zdtm/live/transition/thread-bomb --pre 3 --freezecg zdtm:f
 
 .PHONY: zdtm
 
