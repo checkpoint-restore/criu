@@ -27,6 +27,8 @@ struct ns_exec_args {
 	int status_pipe[2];
 };
 
+task_waiter_t t;
+
 int ns_child(void *_arg)
 {
 	struct stat st;
@@ -51,6 +53,8 @@ int ns_child(void *_arg)
 	unlink(MPTS_ROOT"/dev/mntns2/test/test.file.unlinked");
 
 	pid = fork();
+
+	task_waiter_complete(&t, 1);
 
 	test_waitsig();
 
@@ -79,6 +83,8 @@ int main(int argc, char **argv)
 	pid_t pid = -1;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 again:
 	fs_cnt = 0;
@@ -276,6 +282,8 @@ done:
 			return 1;
 		}
 	}
+
+	task_waiter_wait4(&t, 1);
 
 	test_daemon();
 	test_waitsig();
