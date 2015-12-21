@@ -45,4 +45,8 @@
 #define PROC_SUPER_MAGIC	0x9fa0
 #endif
 
+#ifndef BINFMTFS_MAGIC
+#define BINFMTFS_MAGIC		0x42494e4d
+#endif
+
 #endif /* __CR_FS_MAGIC_H__ */

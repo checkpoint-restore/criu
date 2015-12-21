@@ -1291,6 +1291,11 @@ static int devtmpfs_restore(struct mount_info *pm)
 	return ret;
 }
 
+static int binfmt_misc_virtual(struct mount_info *pm)
+{
+	return kerndat_fs_virtualized(KERNDAT_FS_STAT_BINFMT_MISC, pm->s_dev);
+}
+
 static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 {
 	while (1) {
@@ -1375,9 +1380,13 @@ err:
 static int binfmt_misc_dump(struct mount_info *pm)
 {
 	struct cr_img *img;
-	int fd, ret = -1;
 	struct dirent *de;
 	DIR *fdir = NULL;
+	int fd, ret;
+
+	ret = binfmt_misc_virtual(pm);
+	if (ret <= 0)
+		return ret;
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
@@ -1389,6 +1398,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 		return -1;
 	}
 
+	ret = -1;
 	img = open_image(CR_FD_BINFMT_MISC, O_DUMP, pm->s_dev);
 	if (!img)
 		goto out;

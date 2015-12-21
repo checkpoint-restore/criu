@@ -92,6 +92,11 @@ static dev_t get_host_dev(unsigned int which)
 			.path	= "/dev",
 			.magic	= TMPFS_MAGIC,
 		},
+		[KERNDAT_FS_STAT_BINFMT_MISC] = {
+			.name	= "binfmt_misc",
+			.path	= "/proc/sys/fs/binfmt_misc",
+			.magic	= BINFMTFS_MAGIC,
+		},
 	};
 
 	if (which >= KERNDAT_FS_STAT_MAX) {
