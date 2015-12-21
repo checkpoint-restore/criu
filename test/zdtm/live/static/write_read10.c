@@ -22,6 +22,7 @@ int main(int argc, char ** argv)
 	pid_t pid;
 	uint32_t crc;
 	uint8_t buf[1000000];
+	task_waiter_t t;
 
 	test_init(argc, argv);
 
@@ -42,6 +43,8 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
+	task_waiter_init(&t);
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("can't fork");
@@ -50,6 +53,7 @@ int main(int argc, char ** argv)
 
 	if (pid == 0) {	/* child writes to the unlinked file and returns */
 		close(fd);
+		task_waiter_complete_current(&t);
 		test_waitsig();
 
 		crc = ~0;
@@ -59,7 +63,8 @@ int main(int argc, char ** argv)
 
 		close(child_fd);
 		_exit(0);
-	}
+	} else
+		task_waiter_wait4(&t, pid);
 
 	close(child_fd);
 
