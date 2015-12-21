@@ -511,24 +511,6 @@ err:
 	return ret;
 }
 
-static int dump_task_creds(struct parasite_ctl *ctl,
-			   const struct cr_imgset *fds)
-{
-	CredsEntry ce = CREDS_ENTRY__INIT;
-
-	pr_info("\n");
-	pr_info("Dumping creds for %d)\n", ctl->pid.real);
-	pr_info("----------------------------------------\n");
-
-	if (parasite_dump_creds(ctl, &ce) < 0)
-		return -1;
-
-	if (collect_lsm_profile(ctl->pid.real, &ce) < 0)
-		return -1;
-
-	return pb_write_one(img_from_set(fds, CR_FD_CREDS), &ce, PB_CREDS);
-}
-
 static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 {
 	struct robust_list_head *head = NULL;
@@ -674,7 +656,9 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	int ret;
 	ThreadCoreEntry *tc = core->thread_core;
 
-	ret = get_task_futex_robust_list(pid, tc);
+	ret = collect_lsm_profile(pid, tc->creds);
+	if (!ret)
+		ret = get_task_futex_robust_list(pid, tc);
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
 	if (!ret) {
@@ -691,10 +675,10 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	return ret;
 }
 
-static int dump_task_core_all(struct pstree_item *item,
-		const struct proc_pid_stat *stat,
-		const struct parasite_dump_misc *misc,
-		const struct cr_imgset *cr_imgset)
+static int dump_task_core_all(struct parasite_ctl *ctl,
+			      struct pstree_item *item,
+			      const struct proc_pid_stat *stat,
+			      const struct cr_imgset *cr_imgset)
 {
 	struct cr_img *img;
 	CoreEntry *core = item->core[0];
@@ -727,7 +711,7 @@ static int dump_task_core_all(struct pstree_item *item,
 	core->tc->task_state = item->state;
 	core->tc->exit_code = 0;
 
-	ret = dump_thread_core(pid, core, &misc->ti);
+	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
 	if (ret)
 		goto err;
 
@@ -1327,16 +1311,10 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = dump_task_core_all(item, &pps_buf, &misc, cr_imgset);
+	ret = dump_task_core_all(parasite_ctl, item, &pps_buf, cr_imgset);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
-	}
-
-	ret = dump_task_creds(parasite_ctl, cr_imgset);
-	if (ret) {
-		pr_err("Dump creds (pid: %d) failed with %d\n", pid, ret);
-		goto err;
 	}
 
 	ret = parasite_stop_daemon(parasite_ctl);

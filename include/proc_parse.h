@@ -103,7 +103,8 @@ struct proc_status_creds {
 	u32			cap_bnd[PROC_CAP_SIZE];
 };
 
-bool proc_status_creds_eq(struct proc_status_creds *o1, struct proc_status_creds *o2);
+bool proc_status_creds_dumpable(struct proc_status_creds *parent,
+				struct proc_status_creds *child);
 
 typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
 			  char *fstype, unsigned long mountflags);

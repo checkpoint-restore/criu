@@ -247,7 +247,7 @@ try_again:
 
 		**creds = cr;
 
-	} else if (!proc_status_creds_eq(*creds, &cr)) {
+	} else if (!proc_status_creds_dumpable(*creds, &cr)) {
 		pr_err("creds don't match %d %d\n", pid, ppid);
 		goto err;
 	}

@@ -43,7 +43,6 @@ enum {
 	PARASITE_CMD_DUMP_ITIMERS,
 	PARASITE_CMD_DUMP_POSIX_TIMERS,
 	PARASITE_CMD_DUMP_MISC,
-	PARASITE_CMD_DUMP_CREDS,
 	PARASITE_CMD_DRAIN_FDS,
 	PARASITE_CMD_GET_PROC_FD,
 	PARASITE_CMD_DUMP_TTY,
@@ -151,14 +150,6 @@ static inline int posix_timers_dump_size(int timer_n)
 	return sizeof(int) + sizeof(struct posix_timer) * timer_n;
 }
 
-struct parasite_dump_thread {
-	unsigned int		*tid_addr;
-	pid_t			tid;
-	tls_t			tls;
-	stack_t			sas;
-	int			pdeath_sig;
-};
-
 /*
  * Misc sfuff, that is too small for separate file, but cannot
  * be read w/o using parasite
@@ -172,8 +163,6 @@ struct parasite_dump_misc {
 	u32 pgid;
 	u32 umask;
 
-	struct parasite_dump_thread	ti;
-
 	int dumpable;
 };
 
@@ -182,9 +171,8 @@ struct parasite_dump_misc {
  * and still fit the struct in one page
  */
 #define PARASITE_MAX_GROUPS							\
-	(PAGE_SIZE -								\
-	 offsetof(struct parasite_dump_creds, groups)				\
-	) / sizeof(unsigned int)		/* groups */
+	((PAGE_SIZE - sizeof(struct parasite_dump_thread) -			\
+	 offsetof(struct parasite_dump_creds, groups)) / sizeof(unsigned int)) /* groups */
 
 struct parasite_dump_creds {
 	unsigned int		cap_last_cap;
@@ -212,6 +200,15 @@ struct parasite_dump_creds {
 	 * args area is at least one page (PARASITE_ARG_SIZE_MIN).
 	 */
 	unsigned int		groups[0];
+};
+
+struct parasite_dump_thread {
+	unsigned int			*tid_addr;
+	pid_t				tid;
+	tls_t				tls;
+	stack_t				sas;
+	int				pdeath_sig;
+	struct parasite_dump_creds	creds[0];
 };
 
 static inline void copy_sas(ThreadSasEntry *dst, const stack_t *src)

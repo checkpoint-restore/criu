@@ -145,6 +145,8 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 	return ret;
 }
 
+static int dump_creds(struct parasite_dump_creds *args);
+
 static int dump_thread_common(struct parasite_dump_thread *ti)
 {
 	int ret;
@@ -159,6 +161,10 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 		goto out;
 
 	ret = sys_prctl(PR_GET_PDEATHSIG, (unsigned long)&ti->pdeath_sig, 0, 0, 0);
+	if (ret)
+		goto out;
+
+	ret = dump_creds(ti->creds);
 out:
 	return ret;
 }
@@ -174,7 +180,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 	sys_umask(args->umask); /* never fails */
 	args->dumpable = sys_prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
 
-	return dump_thread_common(&args->ti);
+	return 0;
 }
 
 static int dump_creds(struct parasite_dump_creds *args)
@@ -597,11 +603,11 @@ static noinline __used int noinline parasite_daemon(void *args)
 		case PARASITE_CMD_DUMP_POSIX_TIMERS:
 			ret = dump_posix_timers(args);
 			break;
+		case PARASITE_CMD_DUMP_THREAD:
+			ret = dump_thread(args);
+			break;
 		case PARASITE_CMD_DUMP_MISC:
 			ret = dump_misc(args);
-			break;
-		case PARASITE_CMD_DUMP_CREDS:
-			ret = dump_creds(args);
 			break;
 		case PARASITE_CMD_DRAIN_FDS:
 			ret = drain_fds(args);

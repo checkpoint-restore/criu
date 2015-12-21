@@ -532,18 +532,83 @@ err:
 	return -1;
 }
 
+static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c)
+{
+	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(c->groups[0]));
+	BUILD_BUG_ON(sizeof(ce->cap_inh[0]) != sizeof(c->cap_inh[0]));
+	BUILD_BUG_ON(sizeof(ce->cap_prm[0]) != sizeof(c->cap_prm[0]));
+	BUILD_BUG_ON(sizeof(ce->cap_eff[0]) != sizeof(c->cap_eff[0]));
+	BUILD_BUG_ON(sizeof(ce->cap_bnd[0]) != sizeof(c->cap_bnd[0]));
+
+	BUG_ON(ce->n_cap_inh != CR_CAP_SIZE);
+	BUG_ON(ce->n_cap_prm != CR_CAP_SIZE);
+	BUG_ON(ce->n_cap_eff != CR_CAP_SIZE);
+	BUG_ON(ce->n_cap_bnd != CR_CAP_SIZE);
+
+	memcpy(ce->cap_inh, c->cap_inh, sizeof(c->cap_inh[0]) * CR_CAP_SIZE);
+	memcpy(ce->cap_prm, c->cap_prm, sizeof(c->cap_prm[0]) * CR_CAP_SIZE);
+	memcpy(ce->cap_eff, c->cap_eff, sizeof(c->cap_eff[0]) * CR_CAP_SIZE);
+	memcpy(ce->cap_bnd, c->cap_bnd, sizeof(c->cap_bnd[0]) * CR_CAP_SIZE);
+
+	ce->secbits	= c->secbits;
+	ce->n_groups	= c->ngroups;
+
+	ce->groups	= xmemdup(c->groups, sizeof(c->groups[0]) * c->ngroups);
+
+	ce->uid		= c->uids[0];
+	ce->gid		= c->gids[0];
+	ce->euid	= c->uids[1];
+	ce->egid	= c->gids[1];
+	ce->suid	= c->uids[2];
+	ce->sgid	= c->gids[2];
+	ce->fsuid	= c->uids[3];
+	ce->fsgid	= c->gids[3];
+
+	return ce->groups ? 0 : -ENOMEM;
+}
+
+int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core)
+{
+	ThreadCoreEntry *tc = core->thread_core;
+	struct parasite_dump_thread *args;
+	struct parasite_dump_creds *pc;
+	int ret;
+
+	args = parasite_args(ctl, struct parasite_dump_thread);
+
+	pc = args->creds;
+	pc->cap_last_cap = kdat.last_cap;
+
+	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_THREAD, ctl);
+	if (ret < 0)
+		return ret;
+
+	ret = alloc_groups_copy_creds(tc->creds, pc);
+	if (ret) {
+		pr_err("Can't copy creds for thread leader %d\n", pid);
+		return -1;
+	}
+
+	return dump_thread_core(pid, core, args);
+}
+
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 				struct pid *tid, CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
 	ThreadCoreEntry *tc = core->thread_core;
+	CredsEntry *creds = tc->creds;
+	struct parasite_dump_creds *pc;
 	int ret;
 	struct thread_ctx octx;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
 	args = parasite_args(ctl, struct parasite_dump_thread);
+
+	pc = args->creds;
+	pc->cap_last_cap = kdat.last_cap;
 
 	ret = get_thread_ctx(pid, &octx);
 	if (ret)
@@ -556,6 +621,12 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 			pid, ctl->r_thread_stack, &octx);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
+		return -1;
+	}
+
+	ret = alloc_groups_copy_creds(creds, pc);
+	if (ret) {
+		pr_err("Can't copy creds for thread %d\n", pid);
 		return -1;
 	}
 
@@ -728,51 +799,6 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 		return NULL;
 
 	return p;
-}
-
-int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce)
-{
-	struct parasite_dump_creds *pc;
-
-	BUILD_BUG_ON(sizeof(*pc) > PAGE_SIZE);
-
-	pc = parasite_args(ctl, struct parasite_dump_creds);
-	pc->cap_last_cap = kdat.last_cap;
-
-	if (parasite_execute_daemon(PARASITE_CMD_DUMP_CREDS, ctl) < 0)
-		return -1;
-
-	ce->n_cap_inh = CR_CAP_SIZE;
-	ce->cap_inh = pc->cap_inh;
-	ce->n_cap_prm = CR_CAP_SIZE;
-	ce->cap_prm = pc->cap_prm;
-	ce->n_cap_eff = CR_CAP_SIZE;
-	ce->cap_eff = pc->cap_eff;
-	ce->n_cap_bnd = CR_CAP_SIZE;
-	ce->cap_bnd = pc->cap_bnd;
-
-	ce->secbits = pc->secbits;
-	ce->n_groups = pc->ngroups;
-
-	/*
-	 * Achtung! We leak the parasite args pointer to the caller.
-	 * It's not safe in general, but in our case is OK, since the
-	 * latter doesn't go to parasite before using the data in it.
-	 */
-
-	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(pc->groups[0]));
-	ce->groups = pc->groups;
-
-	ce->uid   = pc->uids[0];
-	ce->gid   = pc->gids[0];
-	ce->euid  = pc->uids[1];
-	ce->egid  = pc->gids[1];
-	ce->suid  = pc->uids[2];
-	ce->sgid  = pc->gids[2];
-	ce->fsuid = pc->uids[3];
-	ce->fsgid = pc->gids[3];
-
-	return 0;
 }
 
 int parasite_drain_fds_seized(struct parasite_ctl *ctl,
