@@ -2492,73 +2492,6 @@ static inline int verify_cap_size(CredsEntry *ce)
 		(ce->n_cap_prm == CR_CAP_SIZE) && (ce->n_cap_bnd == CR_CAP_SIZE));
 }
 
-static CredsEntry *read_creds(int pid)
-{
-	int ret;
-	struct cr_img *img;
-	CredsEntry *ce = NULL;
-
-	img = open_image(CR_FD_CREDS, O_RSTR, pid);
-	if (!img)
-		return NULL;
-
-	ret = pb_read_one(img, &ce, PB_CREDS);
-	close_image(img);
-
-	if (ret < 0) {
-		creds_entry__free_unpacked(ce, NULL);
-		return NULL;
-	}
-
-	if (!verify_cap_size(ce)) {
-		pr_err("Caps size mismatch %d %d %d %d\n",
-		       (int)ce->n_cap_inh, (int)ce->n_cap_eff,
-		       (int)ce->n_cap_prm, (int)ce->n_cap_bnd);
-		creds_entry__free_unpacked(ce, NULL);
-		return NULL;
-	}
-
-	if (!may_restore(ce)) {
-		creds_entry__free_unpacked(ce, NULL);
-		return NULL;
-	}
-
-	return ce;
-}
-
-static int prepare_creds(CredsEntry *ce, struct task_restore_args *args)
-{
-	args->creds = *ce;
-	args->creds.cap_inh = args->cap_inh;
-	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
-	args->creds.cap_eff = args->cap_eff;
-	memcpy(args->cap_eff, ce->cap_eff, sizeof(args->cap_eff));
-	args->creds.cap_prm = args->cap_prm;
-	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
-	args->creds.cap_bnd = args->cap_bnd;
-	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
-
-	/*
-	 * We can set supplementary groups here. This won't affect any
-	 * permission checks for us (we're still root) and will not be
-	 * reset by subsequent creds changes in restorer.
-	 */
-
-	BUILD_BUG_ON(sizeof(*ce->groups) != sizeof(gid_t));
-	if (setgroups(ce->n_groups, ce->groups) < 0) {
-		pr_perror("Can't set supplementary groups");
-		return -1;
-	}
-
-	creds_entry__free_unpacked(ce, NULL);
-
-	args->cap_last_cap = kdat.last_cap;
-
-	/* XXX -- validate creds here? */
-
-	return 0;
-}
-
 static int prepare_mm(pid_t pid, struct task_restore_args *args)
 {
 	int exe_fd, i, ret = -1;
@@ -2855,6 +2788,175 @@ out:
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void) {}
 
+static void rst_reloc_creds(struct thread_restore_args *thread_args,
+			    unsigned long *creds_pos_next)
+{
+	struct thread_creds_args *args;
+
+	if (unlikely(!*creds_pos_next))
+		return;
+
+	args = rst_mem_remap_ptr(*creds_pos_next, RM_PRIVATE);
+
+	if (args->lsm_profile)
+		args->lsm_profile = rst_mem_remap_ptr(args->mem_lsm_profile_pos, RM_PRIVATE);
+	if (args->groups)
+		args->groups = rst_mem_remap_ptr(args->mem_groups_pos, RM_PRIVATE);
+
+	*creds_pos_next = args->mem_pos_next;
+	thread_args->creds_args = args;
+}
+
+static struct thread_creds_args *
+rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
+{
+	unsigned long this_pos = rst_mem_cpos(RM_PRIVATE);
+	struct thread_creds_args *args;
+
+	if (!verify_cap_size(ce)) {
+		pr_err("Caps size mismatch %d %d %d %d\n",
+		       (int)ce->n_cap_inh, (int)ce->n_cap_eff,
+		       (int)ce->n_cap_prm, (int)ce->n_cap_bnd);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!may_restore(ce))
+		return ERR_PTR(-EINVAL);
+
+	args = rst_mem_alloc(sizeof(*args), RM_PRIVATE);
+	if (!args)
+		return ERR_PTR(-ENOMEM);
+
+	args->cap_last_cap = kdat.last_cap;
+	memcpy(&args->creds, ce, sizeof(args->creds));
+
+	if (ce->lsm_profile || opts.lsm_supplied) {
+		char *rendered, *profile;
+
+		profile = ce->lsm_profile;
+		if (opts.lsm_supplied)
+			profile = opts.lsm_profile;
+
+		if (validate_lsm(profile) < 0)
+			return ERR_PTR(-EINVAL);
+
+		if (profile) {
+			size_t lsm_profile_len;
+
+			if (render_lsm_profile(profile, &rendered))
+				return ERR_PTR(-EINVAL);
+
+			args->mem_lsm_profile_pos = rst_mem_cpos(RM_PRIVATE);
+			lsm_profile_len = strlen(rendered);
+			args->lsm_profile = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
+			if (!args->lsm_profile) {
+				xfree(rendered);
+				return ERR_PTR(-ENOMEM);
+			}
+
+			strncpy(args->lsm_profile, rendered, lsm_profile_len);
+			xfree(rendered);
+		}
+	} else {
+		args->lsm_profile = NULL;
+		args->mem_lsm_profile_pos = 0;
+	}
+
+	/*
+	 * Zap fields which we cant use.
+	 */
+	args->creds.cap_inh = NULL;
+	args->creds.cap_eff = NULL;
+	args->creds.cap_prm = NULL;
+	args->creds.cap_bnd = NULL;
+	args->creds.groups = NULL;
+	args->creds.lsm_profile = NULL;
+
+	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
+	memcpy(args->cap_eff, ce->cap_eff, sizeof(args->cap_eff));
+	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
+	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
+
+	if (ce->n_groups) {
+		args->mem_groups_pos = rst_mem_cpos(RM_PRIVATE);
+		args->groups = rst_mem_alloc(ce->n_groups * sizeof(u32), RM_PRIVATE);
+		if (!args->groups)
+			return ERR_PTR(-ENOMEM);
+		memcpy(args->groups, ce->groups, ce->n_groups * sizeof(u32));
+	} else {
+		args->groups = NULL;
+		args->mem_groups_pos = 0;
+	}
+
+	args->mem_pos_next = 0;
+
+	if (prev)
+		prev->mem_pos_next = this_pos;
+	return args;
+}
+
+static int rst_prep_creds_from_img(pid_t pid)
+{
+	CredsEntry *ce = NULL;
+	struct cr_img *img;
+	int ret;
+
+	img = open_image(CR_FD_CREDS, O_RSTR, pid);
+	if (!img)
+		return -ENOENT;
+
+	ret = pb_read_one(img, &ce, PB_CREDS);
+	close_image(img);
+
+	if (ret > 0) {
+		struct thread_creds_args *args;
+
+		args = rst_prep_creds_args(NULL, ce);
+		if (IS_ERR(args))
+			ret = PTR_ERR(args);
+		else
+			ret = 0;
+	}
+	creds_entry__free_unpacked(ce, NULL);
+	return ret;
+}
+
+static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
+{
+	struct thread_creds_args *args = NULL;
+	size_t i;
+
+	/*
+	 * This is _really_ very old image
+	 * format where @thread_core were not
+	 * present. It means we don't have
+	 * creds either, just ignore and exit
+	 * early.
+	 */
+	if (unlikely(!core->thread_core)) {
+		*creds_pos = 0;
+		return 0;
+	}
+
+	*creds_pos = rst_mem_cpos(RM_PRIVATE);
+
+	/*
+	 * Old format: one Creds per task carried in own image file.
+	 */
+	if (!core->thread_core->creds)
+		return rst_prep_creds_from_img(pid);
+
+	for (i = 0; i < current->nr_threads; i++) {
+		CredsEntry *ce = current->core[i]->thread_core->creds;
+
+		args = rst_prep_creds_args(args, ce);
+		if (IS_ERR(args))
+			return PTR_ERR(args);
+	}
+
+	return 0;
+}
+
 static int sigreturn_restore(pid_t pid, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
@@ -2882,10 +2984,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	unsigned long aio_rings;
 	MmEntry *mm = rsti(current)->mm;
 
-	char *lsm = NULL;
-	int lsm_profile_len = 0;
-	unsigned long lsm_pos = 0;
-
 	int n_seccomp_filters = 0;
 	unsigned long seccomp_filter_pos = 0;
 
@@ -2893,7 +2991,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct vm_area_list *vmas = &rsti(current)->vmas;
 	int i;
 
-	CredsEntry *creds;
+	unsigned long creds_pos = 0;
+	unsigned long creds_pos_next;
 
 	pr_info("Restore via sigreturn\n");
 
@@ -2957,6 +3056,13 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err_nv;
 
 	/*
+	 * Read creds info for every thread and allocate memory
+	 * needed so we can use this data inside restorer.
+	 */
+	if (rst_prep_creds(pid, core, &creds_pos))
+		goto err_nv;
+
+	/*
 	 * We're about to search for free VM area and inject the restorer blob
 	 * into it. No irrelevent mmaps/mremaps beyond this point, otherwise
 	 * this unwanted mapping might get overlapped by the restorer.
@@ -2966,44 +3072,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (ret < 0)
 		goto err;
 
-	creds = read_creds(pid);
-	if (!creds)
-		goto err;
-
-	if (creds->lsm_profile || opts.lsm_supplied) {
-		char *rendered, *profile;
-		int ret;
-
-		profile = creds->lsm_profile;
-		if (opts.lsm_supplied)
-			profile = opts.lsm_profile;
-
-		if (validate_lsm(profile) < 0)
-			return -1;
-
-		if (profile) {
-			ret = render_lsm_profile(profile, &rendered);
-			if (ret < 0) {
-				goto err_nv;
-			}
-
-			lsm_pos = rst_mem_cpos(RM_PRIVATE);
-			lsm_profile_len = strlen(rendered);
-			lsm = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
-			if (!lsm) {
-				xfree(rendered);
-				goto err_nv;
-			}
-
-			strncpy(lsm, rendered, lsm_profile_len);
-			xfree(rendered);
-		}
-
-	}
-
 	if (seccomp_filters_get_rst_pos(core, &n_seccomp_filters, &seccomp_filter_pos) < 0)
 		goto err;
-
 
 	rst_mem_size = rst_mem_lock();
 	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
@@ -3080,10 +3150,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	}
 
-	ret = prepare_creds(creds, task_args);
-	if (ret < 0)
-		goto err;
-
 	/*
 	 * Get a reference to shared memory area which is
 	 * used to signal if shmem restoration complete
@@ -3134,11 +3200,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	if (core->tc->has_seccomp_mode)
 		task_args->seccomp_mode = core->tc->seccomp_mode;
 
-	if (lsm)
-		task_args->creds.lsm_profile = rst_mem_remap_ptr(lsm_pos, RM_PRIVATE);
-	else
-		task_args->creds.lsm_profile = NULL;
-
 	/*
 	 * Arguments for task restoration.
 	 */
@@ -3155,6 +3216,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	/*
 	 * Fill up per-thread data.
 	 */
+	creds_pos_next = creds_pos;
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
@@ -3188,6 +3250,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		thread_args[i].gpregs		= *CORE_THREAD_ARCH_INFO(tcore)->gpregs;
 		thread_args[i].clear_tid_addr	= CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
+
+		rst_reloc_creds(&thread_args[i], &creds_pos_next);
 
 		if (tcore->thread_core) {
 			thread_args[i].has_futex	= true;

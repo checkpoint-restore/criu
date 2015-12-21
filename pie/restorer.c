@@ -51,7 +51,6 @@
 
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
-static int cap_last_cap;
 static pid_t *helpers;
 static int n_helpers;
 static pid_t *zombies;
@@ -121,8 +120,9 @@ static int lsm_set_label(char *label, int procfd)
 	return 0;
 }
 
-static int restore_creds(CredsEntry *ce, int procfd)
+static int restore_creds(struct thread_creds_args *args, int procfd)
 {
+	CredsEntry *ce = &args->creds;
 	int b, i, ret;
 	struct cap_header hdr;
 	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
@@ -130,6 +130,17 @@ static int restore_creds(CredsEntry *ce, int procfd)
 	/*
 	 * We're still root here and thus can do it without failures.
 	 */
+
+	/*
+	 * Setup supplementary group IDs early.
+	 */
+	if (args->groups) {
+		ret = sys_setgroups(ce->n_groups, args->groups);
+		if (ret) {
+			pr_err("Can't setup supplementary group IDs: %d\n", ret);
+			return -1;
+		}
+	}
 
 	/*
 	 * First -- set the SECURE_NO_SETUID_FIXUP bit not to
@@ -190,9 +201,9 @@ static int restore_creds(CredsEntry *ce, int procfd)
 
 	for (b = 0; b < CR_CAP_SIZE; b++) {
 		for (i = 0; i < 32; i++) {
-			if (b * 32 + i > cap_last_cap)
+			if (b * 32 + i > args->cap_last_cap)
 				break;
-			if (ce->cap_bnd[b] & (1 << i))
+			if (args->cap_bnd[b] & (1 << i))
 				/* already set */
 				continue;
 			ret = sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
@@ -215,9 +226,9 @@ static int restore_creds(CredsEntry *ce, int procfd)
 	BUILD_BUG_ON(_LINUX_CAPABILITY_U32S_3 != CR_CAP_SIZE);
 
 	for (i = 0; i < CR_CAP_SIZE; i++) {
-		data[i].eff = ce->cap_eff[i];
-		data[i].prm = ce->cap_prm[i];
-		data[i].inh = ce->cap_inh[i];
+		data[i].eff = args->cap_eff[i];
+		data[i].prm = args->cap_prm[i];
+		data[i].inh = args->cap_inh[i];
 	}
 
 	ret = sys_capset(&hdr, data);
@@ -226,9 +237,8 @@ static int restore_creds(CredsEntry *ce, int procfd)
 		return -1;
 	}
 
-	if (lsm_set_label(ce->lsm_profile, procfd) < 0)
+	if (lsm_set_label(args->lsm_profile, procfd) < 0)
 		return -1;
-
 	return 0;
 }
 
@@ -443,7 +453,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(rt_sigframe, args))
 		goto core_restore_end;
 
-	ret = restore_creds(&args->ta->creds, args->ta->proc_fd);
+	ret = restore_creds(args->creds_args, args->ta->proc_fd);
 	if (ret)
 		goto core_restore_end;
 
@@ -884,8 +894,6 @@ long __export_restore_task(struct task_restore_args *args)
 	log_set_fd(args->logfd);
 	log_set_loglevel(args->loglevel);
 
-	cap_last_cap = args->cap_last_cap;
-
 	pr_info("Switched to the restorer %d\n", my_pid);
 
 	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
@@ -1267,7 +1275,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
 	 * thus restore* creds _after_ all of the above.
 	 */
-	ret = restore_creds(&args->creds, args->proc_fd);
+	ret = restore_creds(args->t->creds_args, args->proc_fd);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
 

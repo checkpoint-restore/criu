@@ -72,6 +72,26 @@ struct task_restore_core_args;
  * simpler, force both _args alignment be 64 bytes.
  */
 
+struct thread_creds_args {
+	CredsEntry			creds;
+
+	unsigned int			cap_last_cap;
+
+	u32				cap_inh[CR_CAP_SIZE];
+	u32				cap_prm[CR_CAP_SIZE];
+	u32				cap_eff[CR_CAP_SIZE];
+	u32				cap_bnd[CR_CAP_SIZE];
+
+	unsigned int			secbits;
+	char				*lsm_profile;
+	unsigned int			*groups;
+
+	unsigned long			mem_lsm_profile_pos;
+	unsigned long			mem_groups_pos;
+
+	unsigned long			mem_pos_next;
+};
+
 struct thread_restore_args {
 	struct restore_mem_zone		mem_zone;
 
@@ -93,6 +113,8 @@ struct thread_restore_args {
 	unsigned int			siginfo_n;
 
 	int				pdeath_sig;
+
+	struct thread_creds_args	*creds_args;
 } __aligned(64);
 
 struct task_restore_args {
@@ -152,13 +174,6 @@ struct task_restore_args {
 	unsigned long			bootstrap_len;
 
 	struct itimerval		itimers[3];
-
-	CredsEntry			creds;
-	u32				cap_inh[CR_CAP_SIZE];
-	u32				cap_prm[CR_CAP_SIZE];
-	u32				cap_eff[CR_CAP_SIZE];
-	u32				cap_bnd[CR_CAP_SIZE];
-	u32				cap_last_cap;
 
 	MmEntry				mm;
 	auxv_t				mm_saved_auxv[AT_VECTOR_SIZE];
