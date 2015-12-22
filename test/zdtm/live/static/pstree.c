@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	close(fp[0]);
 	close(rp[1]);
 
-	read(sp[1], &x, 1);
+	read(sp[0], &x, 1);
 
 	test_daemon();
 	test_waitsig();
