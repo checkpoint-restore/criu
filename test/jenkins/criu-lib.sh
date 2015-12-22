@@ -5,6 +5,7 @@ function prep()
 	echo 950000 > /sys/fs/cgroup/cpu,cpuacct/system/jenkins.service/cpu.rt_runtime_us || true
 
 	ulimit -c unlimited &&
+	export CFLAGS=-g
 	git clean -dfx &&
 	make -j 4 &&
 	make -j 4 -C test/zdtm/live &&
