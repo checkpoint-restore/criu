@@ -16,9 +16,10 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	pipe(sp);
-	pipe(fp);
-	pipe(rp);
+	if (pipe(sp) || pipe(fp) || pipe(rp)) {
+		pr_perror("pipe");
+		return 1;
+	}
 
 	pid = fork();
 	if (pid == 0) {
@@ -30,7 +31,10 @@ int main(int argc, char **argv)
 		ppid = getppid();
 
 		close(sp[1]);
-		read(fp[0], &x, 1);
+		if (read(fp[0], &x, 1)) {
+			pr_perror("read");
+			return 1;
+		}
 		close(fp[0]);
 
 		if (pid != getpid())
@@ -40,7 +44,10 @@ int main(int argc, char **argv)
 		else
 			x = '0';
 
-		write(rp[1], &x, 1);
+		if (write(rp[1], &x, 1) != 1) {
+			pr_perror("write");
+			return 1;
+		}
 		close(rp[1]);
 		_exit(0);
 	}
@@ -50,13 +57,19 @@ int main(int argc, char **argv)
 	close(fp[0]);
 	close(rp[1]);
 
-	read(sp[0], &x, 1);
+	if (read(sp[0], &x, 1)) {
+		pr_perror("read");
+		return 1;
+	}
 
 	test_daemon();
 	test_waitsig();
 
 	close(fp[1]);
-	read(rp[0], &x, 1);
+	if (read(rp[0], &x, 1) != 1) {
+		pr_perror("read");
+		return 1;
+	}
 	close(rp[0]);
 
 	if (x == 'X')
