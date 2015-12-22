@@ -27,8 +27,11 @@ int main(int argc, char ** argv)
 	uint32_t crc;
 	pid_t pid = -1;
 	int status, fd;
+	task_waiter_t t;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
 				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -70,6 +73,8 @@ int main(int argc, char ** argv)
 		crc = ~0;
 		datagen(p3, PAGE_SIZE, &crc);
 
+		task_waiter_complete(&t, 1);
+
 		test_waitsig();
 
 		crc = ~0;
@@ -98,6 +103,7 @@ int main(int argc, char ** argv)
 			return 1;
 		return 0;
 	}
+	task_waiter_wait4(&t, 1);
 
 	munmap(p, MEM_OFFSET);
 	p2 = mremap(p + MEM_OFFSET, MEM_OFFSET, MEM_OFFSET, MREMAP_FIXED | MREMAP_MAYMOVE, p2);
