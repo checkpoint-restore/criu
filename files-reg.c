@@ -99,6 +99,7 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 {
 	int gfd, ghost_flags, ret;
 	char path[PATH_MAX];
+	struct timeval tv[2];
 
 	ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
 	if (ret < 0) {
@@ -154,6 +155,17 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 	if (fchmod(gfd, gfe->mode)) {
 		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
 		goto err_c;
+	}
+
+	if (gfe->atim) {
+		tv[0].tv_sec = gfe->atim->tv_sec;
+		tv[0].tv_usec = gfe->atim->tv_usec;
+		tv[1].tv_sec = gfe->mtim->tv_sec;
+		tv[1].tv_usec = gfe->mtim->tv_usec;
+		if (futimes(gfd, tv)) {
+			pr_perror("Can't set access and modufication times on ghost %s", path);
+			goto err_c;
+		}
 	}
 
 	ret = 0;
@@ -518,6 +530,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 {
 	struct cr_img *img;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
+	Timeval atim = TIMEVAL__INIT, mtim = TIMEVAL__INIT;
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
@@ -528,6 +541,13 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	gfe.uid = userns_uid(st->st_uid);
 	gfe.gid = userns_gid(st->st_gid);
 	gfe.mode = st->st_mode;
+
+	gfe.atim = &atim;
+	gfe.mtim = &mtim;
+	gfe.atim->tv_sec = st->st_atim.tv_sec;
+	gfe.atim->tv_usec = st->st_atim.tv_nsec / 1000;
+	gfe.mtim->tv_sec = st->st_mtim.tv_sec;
+	gfe.mtim->tv_usec = st->st_mtim.tv_nsec / 1000;
 
 	gfe.has_dev = gfe.has_ino = true;
 	gfe.dev = phys_dev;

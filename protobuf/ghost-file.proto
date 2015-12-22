@@ -1,4 +1,5 @@
 import "opts.proto";
+import "time.proto";
 
 message ghost_file_entry {
 	required uint32		uid		= 1;
@@ -8,4 +9,6 @@ message ghost_file_entry {
 	optional uint32		dev		= 4 [(criu).dev = true];
 	optional uint64		ino		= 5;
 	optional uint32		rdev		= 6 [(criu).dev = true, (criu).odev = true];
+	optional timeval	atim		= 7;
+	optional timeval	mtim		= 8;
 }
