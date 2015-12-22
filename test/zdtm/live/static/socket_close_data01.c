@@ -13,7 +13,8 @@ const char *test_doc	= "Check data of bound socket and possibility to connect";
 const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo";
 
 #define MSG "hello"
-#define NAME "socket_close_data01.sock"
+char *filename;
+TEST_OPTION(filename, string, "file name", 1);
 
 static int client(const char *iter)
 {
@@ -27,7 +28,7 @@ static int client(const char *iter)
 	}
 
 	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, NAME);
+	strcpy(addr.sun_path, filename);
 
 	if (connect(sk, (void *)&addr, sizeof(struct sockaddr_un)) < 0) {
 		pr_perror("connect failed %s\n", iter);
@@ -57,7 +58,7 @@ int main(int argc, char **argv)
 	}
 
 	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, NAME);
+	strcpy(addr.sun_path, filename);
 
 	if (bind(srv, (struct sockaddr *) &addr, sizeof(struct sockaddr_un))) {
 		pr_perror("bind srv");
@@ -106,6 +107,6 @@ int main(int argc, char **argv)
 	ret = 0;
 	pass();
 unlink:
-	unlink(NAME);
+	unlink(filename);
 	return ret;
 }
