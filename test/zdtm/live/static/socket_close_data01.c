@@ -70,6 +70,15 @@ int main(int argc, char **argv)
 		client("(iter1)");
 		exit(0);
 	}
+	ret = 1;
+	if (wait(&status) == -1) {
+		fail("wait failed");
+		goto unlink;
+	}
+	if (status) {
+		pr_err("A child exited with 0x%x\n", status);
+		goto unlink;
+	}
 
 	test_daemon();
 	test_waitsig();
@@ -80,12 +89,6 @@ int main(int argc, char **argv)
 	if (ret != sizeof(MSG)) {
 		fail("%d: %s", ret, buf);
 		ret = 1;
-		goto unlink;
-	}
-
-	ret = 1;
-	if (wait(NULL) == -1) {
-		fail("wait failed");
 		goto unlink;
 	}
 
