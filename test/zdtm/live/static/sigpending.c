@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/wait.h>
 
 #include "zdtmtst.h"
 
@@ -208,6 +209,10 @@ int main(int argc, char ** argv)
 
 	if(child == 0)
 		return 5; /* SIGCHLD */
+	if (waitid(P_PID, child, NULL, WNOWAIT | WEXITED)) {
+		pr_perror("waitid");
+		return 1;
+	}
 
 	sent_sigs++;
 
