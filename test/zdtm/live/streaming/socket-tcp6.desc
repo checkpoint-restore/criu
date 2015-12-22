@@ -1,1 +1,1 @@
-{'flavor': 'h', 'opts': '--tcp-established'}
+{'flavor': 'h', 'opts': '--tcp-established', 'flags': 'nouser'}

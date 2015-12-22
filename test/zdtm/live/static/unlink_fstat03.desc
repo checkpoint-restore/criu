@@ -1,1 +1,1 @@
-{'opts': '--link-remap'}
+{'opts': '--link-remap', 'flags': 'nouser'}

@@ -1145,9 +1145,13 @@ def run_tests(opts):
 				l.skip(t, "self")
 				continue
 
-			if opts['user'] and test_flag(tdesc, 'suid'):
-				l.skip(t, "suid test in user mode")
-				continue
+			if opts['user']:
+				if test_flag(tdesc, 'suid'):
+					l.skip(t, "suid test in user mode")
+					continue
+				if test_flag(tdesc, 'nouser'):
+					l.skip(t, "criu root prio needed")
+					continue
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
 			opts_flavs = (opts['flavor'] or 'h,ns,uns').split(',')
