@@ -18,8 +18,11 @@ int main(int argc, char ** argv)
 	int ret;
 	pid_t pid;
 	char buf[sizeof(TEST_STRING)];
+	task_waiter_t t;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	ret = pipe(pipe1);
 	if (ret)
@@ -52,6 +55,8 @@ int main(int argc, char ** argv)
 
 	if (pid > 0) {
 		int status;
+
+		task_waiter_wait4(&t, 1);
 
 		test_daemon();
 
@@ -86,6 +91,7 @@ int main(int argc, char ** argv)
 
 		pass();
 	} else {
+		task_waiter_complete(&t, 1);
 		ret = write(11, TEST_STRING, sizeof(TEST_STRING));
 		if (ret != sizeof(TEST_STRING)) {
 			pr_perror("write failed: %d", ret);
