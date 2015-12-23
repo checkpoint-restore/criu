@@ -97,13 +97,30 @@ int main(int argc, char ** argv)
 		if (filter_syscall(__NR_ptrace) < 0)
 			_exit(1);
 
-		if (filter_syscall(__NR_prctl) < 0)
+		/*
+		 * The idea is to have a syscall that is used in restore_creds,
+		 * so we can make sure seccomp is actually suspended when that
+		 * is called.
+		 */
+		if (filter_syscall(__NR_setresuid) < 0)
 			_exit(1);
 
 		setuid(1000);
 
 		zdtm_seccomp = 1;
 		test_msg("SECCOMP_MODE_FILTER is enabled\n");
+
+		if (write(sk, &c, 1) != 1) {
+			pr_perror("write");
+			_exit(1);
+		}
+
+		if (read(sk, &c, 1) != 1) {
+			pr_perror("read");
+			_exit(1);
+		}
+
+		prctl(PR_SET_DUMPABLE, 1);
 
 		if (write(sk, &c, 1) != 1) {
 			pr_perror("write");
@@ -131,6 +148,15 @@ int main(int argc, char ** argv)
 
 	test_daemon();
 	test_waitsig();
+
+	if (write(sk, &c, 1) != 1) {
+		pr_perror("write");
+		goto err;
+	}
+	if ((ret = read(sk, &c, 1)) != 1) {
+		pr_perror("read %d", ret);
+		goto err;
+	}
 
 	mode = get_seccomp_mode(pid);
 	if (write(sk, &c, 1) != 1) {
