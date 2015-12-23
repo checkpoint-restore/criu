@@ -40,6 +40,11 @@ int main(int argc, char **argv)
 			fprintf(stderr, "mount(pts): %m");
 			return 1;
 		}
+		if (mount("zdtm_binfmt", "/proc/sys/fs/binfmt_misc", "binfmt_misc", 0,
+					NULL)) {
+			fprintf(stderr, "mount(binfmt_misc): %m");
+			return 1;
+		}
 		if (mount("/dev/pts/ptmx", "/dev/ptmx", NULL, MS_BIND, NULL)) {
 			fprintf(stderr, "mount(ptmx): %m");
 			return 1;
