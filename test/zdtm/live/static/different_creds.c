@@ -17,10 +17,40 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
 void *drop_caps_and_wait(void *arg)
 {
-	int fd = *((int *) arg);
+	int fd = *((int *) arg), i;
 	void *retcode = (void *)0xdeadbeaf;
 	cap_t caps;
 	char c;
+
+	typedef struct cap_set {
+		cap_flag_value_t	val;
+		cap_flag_value_t	new;
+		cap_flag_t		flag;
+		cap_value_t		bit;
+	} cap_set_t;
+
+	cap_set_t src[] = {
+		{
+			.val	= CAP_CLEAR,
+			.flag	= CAP_EFFECTIVE,
+			.bit	= CAP_CHOWN,
+		},
+		{
+			.val	= CAP_SET,
+			.flag	= CAP_EFFECTIVE,
+			.bit	= CAP_DAC_OVERRIDE,
+		},
+		{
+			.val	= CAP_CLEAR,
+			.flag	= CAP_INHERITABLE,
+			.bit	= CAP_SETPCAP,
+		},
+		{
+			.val	= CAP_SET,
+			.flag	= CAP_INHERITABLE,
+			.bit	= CAP_NET_BIND_SERVICE,
+		},
+	};
 
         caps = cap_get_proc();
         if (!caps) {
@@ -28,10 +58,12 @@ void *drop_caps_and_wait(void *arg)
                 return NULL;
         }
 
-        if (cap_clear_flag(caps, CAP_EFFECTIVE) < 0) {
-                pr_perror("cap_clear_flag");
-                goto die;
-        }
+	for (i = 0; i < ARRAY_SIZE(src); i++) {
+		if (cap_set_flag(caps, src[i].flag, 1, &src[i].bit, src[i].val) < 0) {
+			pr_perror("Can't setup CAP %s", cap_to_name(src[i].bit));
+			goto die;
+		}
+	}
 
         if (cap_set_proc(caps) < 0) {
                 pr_perror("cap_set_proc");
@@ -46,6 +78,18 @@ void *drop_caps_and_wait(void *arg)
 	if (read(fd, &c, 1) != 1) {
 		pr_perror("Unable to read a status");
 		goto die;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(src); i++) {
+		if (cap_get_flag(caps, src[i].bit, src[i].flag, &src[i].new) < 0) {
+			pr_perror("Can't get CAP %s", cap_to_name(src[i].bit));
+			goto die;
+		}
+
+		if (src[i].val != src[i].new) {
+			pr_err("Val mismatch on CAP %s\n", cap_to_name(src[i].bit));
+			goto die;
+		}
 	}
 
 	retcode = NULL;
@@ -93,8 +137,11 @@ int main(int argc, char ** argv)
 		pr_perror("Unable to jount a thread");
 		return 1;
 	}
-	if (retcode != NULL)
+
+	if (retcode != NULL) {
+		fail("retcode returned %p", retcode);
 		return 1;
+	}
 
 	pass();
 
