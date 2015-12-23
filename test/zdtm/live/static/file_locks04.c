@@ -67,11 +67,9 @@ static int check_file_locks(int alt_pid, int fd)
 
 int main(int argc, char **argv)
 {
-	int fd, pf[2], pid;
+	int fd, pid;
 
 	test_init(argc, argv);
-
-	pipe(pf);
 
 	fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
@@ -83,25 +81,23 @@ int main(int argc, char **argv)
 
 	pid = fork();
 	if (pid == 0) {
-		close(pf[1]);
-		read(pf[0], &pid, sizeof(pid));
+		test_waitsig();
 		exit(0);
 	}
 
-	close(pf[0]);
 	close(fd);
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		pr_perror("No file 2");
-		close(pf[1]);
+		kill(pid, SIGTERM);
 		waitpid(pid, NULL, 0);
 		return -1;
 	}
 
 	if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
 		pr_perror("Bogus locks");
-		close(pf[1]);
+		kill(pid, SIGTERM);
 		waitpid(pid, NULL, 0);
 		return -1;
 	}
@@ -114,7 +110,7 @@ int main(int argc, char **argv)
 	else
 		fail("Flock file locks check failed");
 
-	close(pf[1]);
+	kill(pid, SIGTERM);
 	waitpid(pid, NULL, 0);
 	close(fd);
 	unlink(filename);
