@@ -766,7 +766,8 @@ def get_visible_state(test):
 	files	= {}
 	mounts	= {}
 
-	if not test.static() or not test.ns():
+	if not getattr(test, "static", lambda : False)() or \
+	   not getattr(test, "ns", lambda : False)():
 		return ({}, {}, {})
 
 	r = re.compile('^[0-9]+$')
