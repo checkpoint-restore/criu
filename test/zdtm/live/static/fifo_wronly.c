@@ -18,6 +18,7 @@ TEST_OPTION(filename, string, "file name", 1);
 
 int main(int argc, char **argv)
 {
+	task_waiter_t t;
 	int fd, fd1;
 	struct stat st;
 	mode_t mode = S_IFIFO | 0600;
@@ -25,6 +26,8 @@ int main(int argc, char **argv)
 	int chret;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	if (mknod(filename, mode, 0)) {
 		pr_perror("can't make fifo \"%s\"", filename);
@@ -46,6 +49,7 @@ int main(int argc, char **argv)
 			chret = errno;
 			return chret;
 		}
+		task_waiter_complete(&t, 1);
 		res = read(fd1, rbuf, 7);
 		if (res < 0) {
 			pr_perror("read error %s", filename);
@@ -71,6 +75,7 @@ int main(int argc, char **argv)
 			wait(NULL);
 			return 1;
 		}
+		task_waiter_wait4(&t, 1);
 
 		test_daemon();
 		test_waitsig();
