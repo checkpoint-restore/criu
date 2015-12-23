@@ -25,7 +25,6 @@ typedef time_t (__vdso_time_t)(time_t *t);
 
 #define TIME_DELTA_SEC		(3)
 
-#define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
 
 #define VDSO_BAD_ADDR		(-1ul)

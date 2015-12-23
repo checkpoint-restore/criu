@@ -76,6 +76,8 @@ extern void __push_opt(struct long_opt *opt);
 #define __param_check(name, p, type) \
 	static inline type *__check_##name(void) { return(p); }
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 extern void parseargs(int, char **);
 extern int parse_opt_bool(char *param, void *arg);
 #define param_check_bool(name, p) __param_check(name, p, int)

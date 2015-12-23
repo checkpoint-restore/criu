@@ -4,8 +4,6 @@
 
 #include "zdtmtst.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
 
