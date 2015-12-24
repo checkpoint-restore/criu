@@ -902,10 +902,9 @@ static int resolve_external_mounts(struct mount_info *info)
 	return 0;
 }
 
-static int resolve_shared_mounts(struct mount_info *info)
+static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 {
 	struct mount_info *m, *t;
-	int root_master_id = info->master_id;
 
 	/*
 	 * If we have a shared mounts, both master
@@ -3017,7 +3016,7 @@ static int populate_mnt_ns(void)
 	if (!pms)
 		return -1;
 
-	if (resolve_shared_mounts(mntinfo))
+	if (resolve_shared_mounts(mntinfo, pms->master_id))
 		return -1;
 
 	for (nsid = ns_ids; nsid; nsid = nsid->next) {
@@ -3398,7 +3397,7 @@ int collect_mnt_namespaces(bool for_dump)
 	if (arg.need_to_validate) {
 		ret = -1;
 
-		if (resolve_shared_mounts(mntinfo))
+		if (resolve_shared_mounts(mntinfo, 0))
 			goto err;
 		if (validate_mounts(mntinfo, true))
 			goto err;
