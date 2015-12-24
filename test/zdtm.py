@@ -997,7 +997,8 @@ class launcher:
 			sub = self.__subs.pop(pid)
 			if status != 0:
 				self.__fail = True
-				add_to_report(sub['log'], "output")
+				if sub['log']:
+					add_to_report(sub['log'], "output")
 
 			if sub['log']:
 				print open(sub['log']).read()
