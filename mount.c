@@ -664,6 +664,9 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 		if (m->shared_id && validate_shared(m))
 			return -1;
 
+		if (m->external)
+			goto skip_fstype;
+
 		/*
 		 * Mountpoint can point to / of an FS. In that case this FS
 		 * should be of some known type so that we can just mount one.
@@ -681,7 +684,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 						m->mountpoint, m->s_dev, m->root, m->mnt_id);
 				return -1;
 			}
-		} else if (!m->external) {
+		} else {
 			t = find_fsroot_mount_for(m);
 			if (!t) {
 				int ret;
@@ -712,7 +715,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				}
 			}
 		}
-
+skip_fstype:
 		list_for_each_entry(t, &m->parent->children, siblings) {
 			if (m == t)
 				continue;
