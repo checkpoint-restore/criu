@@ -2807,7 +2807,7 @@ static void rst_reloc_creds(struct thread_restore_args *thread_args,
 }
 
 static struct thread_creds_args *
-rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
+rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
 	unsigned long this_pos = rst_mem_cpos(RM_PRIVATE);
 	struct thread_creds_args *args;
@@ -2839,18 +2839,21 @@ rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
 
 		if (profile) {
 			size_t lsm_profile_len;
+			char *lsm_profile;
 
 			if (render_lsm_profile(profile, &rendered))
 				return ERR_PTR(-EINVAL);
 
 			args->mem_lsm_profile_pos = rst_mem_cpos(RM_PRIVATE);
 			lsm_profile_len = strlen(rendered);
-			args->lsm_profile = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
-			if (!args->lsm_profile) {
+			lsm_profile = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
+			if (!lsm_profile) {
 				xfree(rendered);
 				return ERR_PTR(-ENOMEM);
 			}
 
+			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
+			args->lsm_profile = lsm_profile;
 			strncpy(args->lsm_profile, rendered, lsm_profile_len);
 			xfree(rendered);
 		}
@@ -2875,10 +2878,14 @@ rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
 	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
 
 	if (ce->n_groups) {
+		unsigned int *groups;
+
 		args->mem_groups_pos = rst_mem_cpos(RM_PRIVATE);
-		args->groups = rst_mem_alloc(ce->n_groups * sizeof(u32), RM_PRIVATE);
-		if (!args->groups)
+		groups = rst_mem_alloc(ce->n_groups * sizeof(u32), RM_PRIVATE);
+		if (!groups)
 			return ERR_PTR(-ENOMEM);
+		args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
+		args->groups = groups;
 		memcpy(args->groups, ce->groups, ce->n_groups * sizeof(u32));
 	} else {
 		args->groups = NULL;
@@ -2887,8 +2894,15 @@ rst_prep_creds_args(struct thread_creds_args *prev, CredsEntry *ce)
 
 	args->mem_pos_next = 0;
 
-	if (prev)
-		prev->mem_pos_next = this_pos;
+	if (prev_pos) {
+		if (*prev_pos) {
+			struct thread_creds_args *prev;
+
+			prev = rst_mem_remap_ptr(*prev_pos, RM_PRIVATE);
+			prev->mem_pos_next = this_pos;
+		}
+		*prev_pos = this_pos;
+	}
 	return args;
 }
 
@@ -2908,7 +2922,7 @@ static int rst_prep_creds_from_img(pid_t pid)
 	if (ret > 0) {
 		struct thread_creds_args *args;
 
-		args = rst_prep_creds_args(NULL, ce);
+		args = rst_prep_creds_args(ce, NULL);
 		if (IS_ERR(args))
 			ret = PTR_ERR(args);
 		else
@@ -2921,6 +2935,7 @@ static int rst_prep_creds_from_img(pid_t pid)
 static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 {
 	struct thread_creds_args *args = NULL;
+	unsigned long this_pos = 0;
 	size_t i;
 
 	/*
@@ -2946,7 +2961,7 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 	for (i = 0; i < current->nr_threads; i++) {
 		CredsEntry *ce = current->core[i]->thread_core->creds;
 
-		args = rst_prep_creds_args(args, ce);
+		args = rst_prep_creds_args(ce, &this_pos);
 		if (IS_ERR(args))
 			return PTR_ERR(args);
 	}
