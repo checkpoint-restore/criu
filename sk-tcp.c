@@ -461,7 +461,7 @@ static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
 
 static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 {
-	int ret, err = -1;
+	int ret, err = -1, max_chunk;
 	int off;
 	char *buf;
 
@@ -472,17 +472,32 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
+	max_chunk = (queue == TCP_RECV_QUEUE ? kdat.tcp_max_rshare : len);
 	off = 0;
 	while (len) {
 		int chunk = len;
 
-		if (queue == TCP_RECV_QUEUE && len > kdat.tcp_max_rshare)
-			chunk = kdat.tcp_max_rshare;
+		if (chunk > max_chunk)
+			chunk = max_chunk;
 
 		ret = send(sk, buf + off, chunk, 0);
 		if (ret <= 0) {
-			pr_perror("Can't restore %d queue data (%d), want (%d:%d)",
-				  queue, ret, chunk, len);
+			if ((queue == TCP_RECV_QUEUE) && (max_chunk > 1024) && (errno == ENOMEM)) {
+				/*
+				 * When restoring recv queue in repair mode
+				 * kernel doesn't try hard and just allocates
+				 * a linear skb with the size we pass to the
+				 * system call. Thus, if the size is too big
+				 * for slab allocator, the send just fails
+				 * with ENOMEM. Try smaller chunk, hopefully
+				 * there's still enough memory in the system.
+				 */
+				max_chunk >>= 1;
+				continue;
+			}
+
+			pr_perror("Can't restore %d queue data (%d), want (%d:%d:%d)",
+				  queue, ret, chunk, len, max_chunk);
 			goto err;
 		}
 		off += ret;
