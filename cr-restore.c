@@ -864,7 +864,8 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
 	int ret;
 
 	/* loginuid value is critical to restore */
-	if (tc->has_loginuid && tc->loginuid != INVALID_UID) {
+	if (kdat.has_loginuid && tc->has_loginuid &&
+			tc->loginuid != INVALID_UID) {
 		ret = prepare_loginuid(tc->loginuid);
 		if (ret < 0)
 			return ret;
@@ -1851,9 +1852,10 @@ static unsigned int saved_loginuid;
 
 static int prepare_userns_hook(void)
 {
-	pid_t pid = getpid();
 	int ret;
 
+	if (!kdat.has_loginuid)
+		return 0;
 	/*
 	 * Save old loginuid and set it to INVALID_UID:
 	 * this value means that loginuid is unset and it will be inherited.
@@ -1861,7 +1863,7 @@ static int prepare_userns_hook(void)
 	 * inside container due to permissions.
 	 * But you still can set this value if it was unset.
 	 */
-	saved_loginuid = parse_pid_loginuid(pid, &ret);
+	saved_loginuid = parse_pid_loginuid(getpid(), &ret);
 	if (ret < 0)
 		return -1;
 
@@ -1874,6 +1876,9 @@ static int prepare_userns_hook(void)
 
 static void restore_origin_ns_hook(void)
 {
+	if (!kdat.has_loginuid)
+		return;
+
 	/* not critical: it does not affect CT in any way */
 	if (prepare_loginuid(saved_loginuid) < 0)
 		pr_err("Restore original /proc/self/loginuid failed");

@@ -326,17 +326,23 @@ static int dump_pid_misc(pid_t pid, TaskCoreEntry *tc)
 {
 	int ret;
 
-	pr_info("dumping /proc/%d/{oom_score_adj,loginuid}\n", pid);
+	if (kdat.has_loginuid) {
+		pr_info("dumping /proc/%d/loginuid\n", pid);
 
-	tc->has_loginuid = true;
-	tc->loginuid = parse_pid_loginuid(pid, &ret);
-	tc->loginuid = userns_uid(tc->loginuid);
-	/*
-	 * loginuid dumping is critical, as if not correctly
-	 * restored, you may loss ability to login via SSH to CT
-	 */
-	if (ret < 0)
-		return ret;
+		tc->has_loginuid = true;
+		tc->loginuid = parse_pid_loginuid(pid, &ret);
+		tc->loginuid = userns_uid(tc->loginuid);
+		/*
+		 * loginuid dumping is critical, as if not correctly
+		 * restored, you may loss ability to login via SSH to CT
+		 */
+		if (ret < 0)
+			return ret;
+	} else {
+		tc->has_loginuid = false;
+	}
+
+	pr_info("dumping /proc/%d/oom_score_adj\n", pid);
 
 	tc->oom_score_adj = parse_pid_oom_score_adj(pid, &ret);
 	/*
