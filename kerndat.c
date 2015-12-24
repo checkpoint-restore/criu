@@ -19,6 +19,7 @@
 #include "cr_options.h"
 #include "util.h"
 #include "lsm.h"
+#include "proc_parse.h"
 
 struct kerndat_s kdat = {
 	/*
@@ -419,6 +420,38 @@ static int get_ipv6()
 	return 0;
 }
 
+int kerndat_loginuid(bool only_dump)
+{
+	unsigned int saved_loginuid;
+	int ret;
+
+	kdat.has_loginuid = false;
+
+	/* No such file, or perm fault: CONFIG_AUDITSYSCALL disabled */
+	saved_loginuid = parse_pid_loginuid(getpid(), &ret);
+	if (ret < 0)
+		return 0;
+
+	if (only_dump) {
+		kdat.has_loginuid = true;
+		return 0;
+	}
+
+	/*
+	 * From kernel v3.13-rc2 it's possible to unset loginuid value,
+	 * on that rely dump/restore code.
+	 * See also: marc.info/?l=git-commits-head&m=138509506407067
+	 */
+	if (prepare_loginuid(INVALID_UID) < 0)
+		return 0;
+	/* Cleaning value back as it was */
+	if (prepare_loginuid(saved_loginuid) < 0)
+		return 0;
+
+	kdat.has_loginuid = true;
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -436,6 +469,8 @@ int kerndat_init(void)
 		ret = get_task_size();
 	if (!ret)
 		ret = get_ipv6();
+	if (!ret)
+		ret = kerndat_loginuid(true);
 
 	kerndat_lsm();
 
@@ -461,6 +496,8 @@ int kerndat_init_rst(void)
 		ret = get_task_size();
 	if (!ret)
 		ret = get_ipv6();
+	if (!ret)
+		ret = kerndat_loginuid(false);
 
 	kerndat_lsm();
 

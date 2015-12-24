@@ -14,6 +14,7 @@ extern int kerndat_init(void);
 extern int kerndat_init_rst(void);
 extern int kerndat_get_dirty_track(void);
 extern int kerndat_fdinfo_has_lock(void);
+extern int kerndat_loginuid(bool only_dump);
 
 struct kerndat_s {
 	dev_t shmem_dev;
@@ -25,6 +26,7 @@ struct kerndat_s {
 	bool has_fdinfo_lock;
 	unsigned long task_size;
 	bool ipv6;
+	bool has_loginuid;
 };
 
 extern struct kerndat_s kdat;
