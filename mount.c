@@ -2280,7 +2280,7 @@ static int do_bind_mount(struct mount_info *mi)
 	int exit_code = -1;
 	bool shared = false;
 	bool master = false;
-	char *mnt_path;
+	char *mnt_path = NULL;
 	struct stat st;
 	bool umount_mnt_path = false;
 
