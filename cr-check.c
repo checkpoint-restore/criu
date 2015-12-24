@@ -926,6 +926,19 @@ static int check_userns(void)
 	return 0;
 }
 
+static int check_loginuid(void)
+{
+	if (kerndat_loginuid(false) < 0)
+		return -1;
+
+	if (!kdat.has_loginuid) {
+		pr_warn("Loginuid restore is OFF.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int check_add_feature(char *feat)
 {
 	if (!strcmp(feat, "mnt_id"))
@@ -944,6 +957,8 @@ int check_add_feature(char *feat)
 		chk_feature = check_ptrace_suspend_seccomp;
 	else if (!strcmp(feat, "seccomp_filters"))
 		chk_feature = check_ptrace_dump_seccomp_filters;
+	else if (!strcmp(feat, "loginuid"))
+		chk_feature = check_loginuid;
 	else {
 		pr_err("Unknown feature %s\n", feat);
 		return -1;
