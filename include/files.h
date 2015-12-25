@@ -175,6 +175,8 @@ extern void inherit_fd_log(void);
 extern int inherit_fd_resolve_clash(int fd);
 extern int inherit_fd_fini(void);
 
+extern bool external_lookup_id(char *id);
+
 extern bool inherited_fd(struct file_desc *, int *fdp);
 
 #endif /* __CR_FILES_H__ */

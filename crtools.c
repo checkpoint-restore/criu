@@ -58,6 +58,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.scripts);
 	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.inherit_fds);
+	INIT_LIST_HEAD(&opts.external);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 	INIT_LIST_HEAD(&opts.irmap_scan_paths);
 
@@ -257,6 +258,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
 		{ "lsm-profile",		required_argument,	0, 1071 },
 		{ "timeout",			required_argument,	0, 1072 },
+		{ "external",			required_argument,	0, 1073	},
 		{ },
 	};
 
@@ -523,6 +525,17 @@ int main(int argc, char *argv[], char *envp[])
 					return 1;
 			}
 			break;
+		case 1073:
+			{
+				struct external *ext;
+
+				ext = xmalloc(sizeof(*ext));
+				if (!ext)
+					return 1;
+				ext->id = optarg;
+				list_add(&ext->node, &opts.external);
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -593,6 +606,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (log_init(opts.output))
 		return 1;
+
+	if (!list_empty(&opts.external) && strcmp(argv[optind], "dump")) {
+		pr_err("--external is dump-only option\n");
+		return 1;
+	}
 
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
@@ -754,6 +772,7 @@ usage:
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\".\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"
 "                        mountpoints even if fs is not supported.\n"
+"  --external RES        dump objects from this list as external resources\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

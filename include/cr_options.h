@@ -47,6 +47,11 @@ struct irmap_path_opt {
 	struct irmap *ir;
 };
 
+struct external {
+	struct list_head node;
+	char *id;
+};
+
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -76,6 +81,7 @@ struct cr_options {
 	struct list_head	scripts;
 	struct list_head	ext_mounts;
 	struct list_head	inherit_fds;
+	struct list_head	external;
 	char			*libdir;
 	bool			use_page_server;
 	unsigned short		port;
