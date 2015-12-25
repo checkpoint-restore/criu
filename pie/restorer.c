@@ -688,7 +688,7 @@ static int timerfd_arm(struct task_restore_args *args)
 static int create_posix_timers(struct task_restore_args *args)
 {
 	int ret, i;
-	timer_t next_id;
+	kernel_timer_t next_id;
 	struct sigevent sev;
 
 	for (i = 0; i < args->posix_timers_n; i++) {
@@ -703,12 +703,12 @@ static int create_posix_timers(struct task_restore_args *args)
 				return ret;
 			}
 
-			if ((long)next_id == args->posix_timers[i].spt.it_id)
+			if (next_id == args->posix_timers[i].spt.it_id)
 				break;
 
 			ret = sys_timer_delete(next_id);
 			if (ret < 0) {
-				pr_err("Can't remove temporaty posix timer %lx\n", (long) next_id);
+				pr_err("Can't remove temporaty posix timer 0x%x\n", next_id);
 				return ret;
 			}
 
@@ -729,7 +729,7 @@ static void restore_posix_timers(struct task_restore_args *args)
 
 	for (i = 0; i < args->posix_timers_n; i++) {
 		rt = &args->posix_timers[i];
-		sys_timer_settime((timer_t)rt->spt.it_id, 0, &rt->val, NULL);
+		sys_timer_settime((kernel_timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
 }
 static void *bootstrap_start;

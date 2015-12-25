@@ -82,4 +82,7 @@ struct krlimit {
 
 struct siginfo;
 
+/* Type of timers in the kernel.  */
+typedef int kernel_timer_t;
+
 #endif /* __CR_SYSCALL_TYPES_H__ */
