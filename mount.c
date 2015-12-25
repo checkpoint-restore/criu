@@ -2151,7 +2151,7 @@ static int propagate_mount(struct mount_info *mi)
 
 		list_for_each_entry(c, &t->children, siblings) {
 			if (mounts_equal(mi, c, false)) {
-				pr_debug("\t\tPropogate %s\n", c->mountpoint);
+				pr_debug("\t\tPropagate %s\n", c->mountpoint);
 				c->mounted = true;
 				propagate_siblings(c);
 				umount_from_slaves(c);
