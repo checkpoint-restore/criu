@@ -454,6 +454,9 @@ class inhfd_test:
 		self.__peer_pid = os.fork()
 		if self.__peer_pid == 0:
 			os.setsid()
+
+			getattr(self.__fdtyp, "child_prep", lambda fd : None)(peer_file)
+
 			os.close(0)
 			os.close(1)
 			os.close(2)
