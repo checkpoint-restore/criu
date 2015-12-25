@@ -203,6 +203,13 @@ static struct tty_driver vt_driver = {
 	.open			= open_simple_tty,
 };
 
+static int open_ext_tty(struct tty_info *info);
+static struct tty_driver ext_driver = {
+	.type			= TTY_TYPE__EXT_TTY,
+	.name			= "ext",
+	.open			= open_ext_tty,
+};
+
 static int pts_fd_get_index(int fd, const struct fd_parms *p)
 {
 	int index;
@@ -235,6 +242,11 @@ static struct tty_driver pts_driver = {
 struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 {
 	int major, minor;
+	char id[42];
+
+	snprintf(id, sizeof(id), "tty[%lx:%lx]", rdev, dev);
+	if (external_lookup_id(id) || inherit_fd_lookup_id(id) >= 0)
+		return &ext_driver;
 
 	major = major(rdev);
 	minor = minor(rdev);
@@ -606,6 +618,12 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	if (!is_service_fd(fd, CTL_TTY_OFF))
 		return 0;
 
+	if (driver->type == TTY_TYPE__EXT_TTY) {
+		slave = -1;
+		if (!inherited_fd(&info->d, &slave) && slave < 0)
+			return -1;
+		goto out;
+	}
 	if (driver->img_get_index)
 		index = driver->img_get_index(info);
 	else
@@ -626,6 +644,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 		goto err;
 	}
 
+out:
 	pr_info("Restore session %d by %d tty (index %d)\n",
 		 info->tie->sid, (int)getpid(), index);
 
@@ -652,6 +671,9 @@ static bool tty_is_master(struct tty_info *info)
 	case TTY_TYPE__VT:
 		if (!opts.shell_job)
 			return true;
+		break;
+	case TTY_TYPE__EXT_TTY:
+		return true;
 	}
 
 	return false;
@@ -970,6 +992,21 @@ err:
 	return -1;
 }
 
+static int open_ext_tty(struct tty_info *info)
+{
+	int fd = -1;
+
+	if (!inherited_fd(&info->d, &fd) && fd < 0)
+		return -1;
+
+	if (restore_tty_params(fd, info)) {
+		close(fd);
+		return -1;
+	}
+
+	return fd;
+}
+
 static int tty_open(struct file_desc *d)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
@@ -1013,12 +1050,22 @@ static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
 	list_add_tail(&fle->ps_list, tgt);
 }
 
+static char *tty_d_name(struct file_desc *d, char *buf, size_t s)
+{
+	struct tty_info *info = container_of(d, struct tty_info, d);
+
+	snprintf(buf, s, "tty[%x:%x]", info->tie->rdev, info->tie->dev);
+
+	return buf;
+}
+
 static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
 	.post_open	= tty_restore_ctl_terminal,
 	.want_transport = tty_transport,
 	.collect_fd	= tty_collect_fd,
+	.name		= tty_d_name,
 };
 
 static struct pstree_item *find_first_sid(int sid)
@@ -1322,6 +1369,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg)
 	case TTY_TYPE__CTTY:
 	case TTY_TYPE__CONSOLE:
 	case TTY_TYPE__VT:
+	case TTY_TYPE__EXT_TTY:
 		if (info->tie->pty) {
 			pr_err("PTY data found (id %x), corrupted image?\n",
 			       info->tie->id);
@@ -1362,6 +1410,10 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 
 	INIT_LIST_HEAD(&info->sibling);
 	info->driver = get_tty_driver(info->tie->rdev, info->tie->dev);
+	if (info->driver == NULL) {
+		pr_err("Unable to find a tty driver\n");
+		return -1;
+	}
 	info->create = tty_is_master(info);
 	info->inherit = false;
 	info->ctl_tty = NULL;
@@ -1383,7 +1435,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 				       info->tfe->id);
 				return -1;
 			}
-		} else {
+		} if (info->driver->type != TTY_TYPE__EXT_TTY) {
 			pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
 			return -1;
 		}
@@ -1585,9 +1637,6 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
-	if (dump_one_reg_file(lfd, id, p))
-		return -1;
-
 	driver = get_tty_driver(p->stat.st_rdev, p->stat.st_dev);
 	if (driver->fd_get_index)
 		index = driver->fd_get_index(lfd, p);
@@ -1598,6 +1647,9 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 		pr_info("Can't obtain index on tty %d id %#x\n", lfd, id);
 		return -1;
 	}
+
+	if (driver->type != TTY_TYPE__EXT_TTY && dump_one_reg_file(lfd, id, p))
+		return -1;
 
 	e.id		= id;
 	e.tty_info_id	= tty_gen_id(driver, index);

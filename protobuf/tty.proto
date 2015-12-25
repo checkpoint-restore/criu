@@ -30,6 +30,7 @@ enum TtyType {
 	CONSOLE		= 2;
 	VT		= 3;
 	CTTY		= 4;
+	EXT_TTY		= 5;
 }
 
 message tty_info_entry {

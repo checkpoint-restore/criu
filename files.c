@@ -1451,7 +1451,7 @@ void inherit_fd_log(void)
 /*
  * Look up the inherit fd list by a file identifier.
  */
-static int inherit_fd_lookup_id(char *id)
+int inherit_fd_lookup_id(char *id)
 {
 	int ret;
 	struct inherit_fd *inh;
