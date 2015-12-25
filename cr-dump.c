@@ -1575,7 +1575,6 @@ static int cr_dump_finish(int ret)
 	close_service_fd(CR_PROC_FD_OFF);
 
 	if (ret) {
-		kill_inventory();
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
@@ -1593,6 +1592,7 @@ void dump_alarm_handler(int signum)
 
 int cr_dump_tasks(pid_t pid)
 {
+	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item *item;
 	int pre_dump_ret = 0;
 	int ret = -1;
@@ -1627,7 +1627,7 @@ int cr_dump_tasks(pid_t pid)
 	if (parse_cg_info())
 		goto err;
 
-	if (write_img_inventory())
+	if (prepare_inventory(&he))
 		goto err;
 
 	if (opts.cpu_cap & (CPU_CAP_CPU | CPU_CAP_INS)) {
@@ -1710,6 +1710,9 @@ int cr_dump_tasks(pid_t pid)
 	if (ret)
 		goto err;
 
+	ret = write_img_inventory(&he);
+	if (ret)
+		goto err;
 err:
 	return cr_dump_finish(ret);
 }

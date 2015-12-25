@@ -7,11 +7,14 @@
 #include "asm/types.h"
 #include "servicefd.h"
 
+#include "protobuf.h"
+#include "protobuf/inventory.pb-c.h"
+
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
 extern int check_img_inventory(void);
-extern int write_img_inventory(void);
-extern void kill_inventory(void);
+extern int write_img_inventory(InventoryEntry *he);
+extern int prepare_inventory(InventoryEntry *he);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 
