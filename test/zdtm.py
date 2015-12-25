@@ -355,6 +355,7 @@ class zdtm_test:
 			raise test_fail_exc("start")
 
 	def kill(self, sig = signal.SIGKILL):
+		self.__freezer.thaw()
 		if self.__pid:
 			os.kill(int(self.__pid), sig)
 			self.gone(sig == signal.SIGKILL)
