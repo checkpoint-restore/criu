@@ -12,10 +12,10 @@
 extern const struct fdtype_ops tty_dump_ops;
 
 struct tty_driver;
-struct tty_driver *get_tty_driver(int major, int minor);
-static inline int is_tty(int major, int minor)
+struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev);
+static inline int is_tty(dev_t rdev, dev_t dev)
 {
-	return get_tty_driver(major, minor) != NULL;
+	return get_tty_driver(rdev, dev) != NULL;
 }
 
 extern int dump_verify_tty_sids(void);

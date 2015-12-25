@@ -366,7 +366,7 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 	default: {
 		char more[32];
 
-		if (is_tty(maj, minor(p->stat.st_rdev))) {
+		if (is_tty(p->stat.st_rdev, p->stat.st_dev)) {
 			struct fd_link link;
 
 			if (fill_fdlink(lfd, p, &link))

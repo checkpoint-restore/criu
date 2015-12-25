@@ -60,6 +60,7 @@ message tty_info_entry {
 	 * TTY type.
 	 */
 	optional tty_pty_entry		pty		= 12;
+	optional uint32			dev		= 13;
 };
 
 message tty_file_entry {

@@ -232,8 +232,13 @@ static struct tty_driver pts_driver = {
 	.open			= pty_open_ptmx,
 };
 
-struct tty_driver *get_tty_driver(int major, int minor)
+struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 {
+	int major, minor;
+
+	major = major(rdev);
+	minor = minor(rdev);
+
 	switch (major) {
 	case TTYAUX_MAJOR:
 		if (minor == 2)
@@ -1356,7 +1361,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 	}
 
 	INIT_LIST_HEAD(&info->sibling);
-	info->driver = get_tty_driver(major(info->tie->rdev), minor(info->tie->rdev));
+	info->driver = get_tty_driver(info->tie->rdev, info->tie->dev);
 	info->create = tty_is_master(info);
 	info->inherit = false;
 	info->ctl_tty = NULL;
@@ -1501,6 +1506,8 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	info.sid		= pti->sid;
 	info.pgrp		= pti->pgrp;
 	info.rdev		= p->stat.st_rdev;
+	info.dev		= p->stat.st_dev;
+	info.has_dev		= true;
 	info.locked		= pti->st_lock;
 	info.exclusive		= pti->st_excl;
 	info.packet_mode	= pti->st_pckt;
@@ -1581,7 +1588,7 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_one_reg_file(lfd, id, p))
 		return -1;
 
-	driver = get_tty_driver(major(p->stat.st_rdev), minor(p->stat.st_rdev));
+	driver = get_tty_driver(p->stat.st_rdev, p->stat.st_dev);
 	if (driver->fd_get_index)
 		index = driver->fd_get_index(lfd, p);
 	else
