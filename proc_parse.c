@@ -280,8 +280,8 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 
 				if (vfi->dev_maj != 0 || vfi->dev_min != 0 || vfi->ino != 0) {
 					pr_err("Strange file mapped at %lx [%s]:%d.%d.%ld\n",
-							vma->e->start, fname,
-							vfi->dev_maj, vfi->dev_min, vfi->ino);
+					       (unsigned long)vma->e->start, fname,
+					       vfi->dev_maj, vfi->dev_min, vfi->ino);
 					return -1;
 				}
 
@@ -333,7 +333,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 			if (vma->vmst->st_dev != vfi_dev ||
 					vma->vmst->st_ino != vfi->ino) {
 				pr_err("Failed to resolve mapping %lx filename\n",
-						vma->e->start);
+				       (unsigned long)vma->e->start);
 				close(fd);
 				return -1;
 			}
