@@ -41,6 +41,15 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 # define LOG_PREFIX
 #endif
 
+#define print_once(loglevel, fmt, ...)					\
+	do {								\
+		static bool __printed;					\
+		if (!__printed) {					\
+			print_on_level(loglevel, fmt, ##__VA_ARGS__);	\
+			__printed = 1;					\
+		}							\
+	} while (0)
+
 #define pr_msg(fmt, ...)						\
 	print_on_level(LOG_MSG,						\
 		       fmt, ##__VA_ARGS__)
@@ -55,13 +64,7 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_err_once(fmt, ...)						\
-	do {								\
-		static bool __printed;					\
-		if (!__printed) {					\
-			pr_err(fmt, ##__VA_ARGS__);			\
-			__printed = 1;					\
-		}							\
-	} while (0)
+	print_once(LOG_ERROR, fmt, ##__VA_ARGS__)
 
 #define pr_warn(fmt, ...)						\
 	print_on_level(LOG_WARN,					\
@@ -69,13 +72,7 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_warn_once(fmt, ...)						\
-	do {								\
-		static bool __printed;					\
-		if (!__printed) {					\
-			pr_warn(fmt, ##__VA_ARGS__);			\
-			__printed = 1;					\
-		}							\
-	} while (0)
+	print_once(LOG_WARN, fmt, ##__VA_ARGS__)
 
 #define pr_debug(fmt, ...)						\
 	print_on_level(LOG_DEBUG,					\
