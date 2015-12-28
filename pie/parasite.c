@@ -289,7 +289,7 @@ static int parasite_get_proc_fd()
 	int ret, fd = -1;
 	char buf[2];
 
-	ret = sys_readlink("/proc/self", buf, sizeof(buf));
+	ret = sys_readlinkat(AT_FDCWD, "/proc/self", buf, sizeof(buf));
 	if (ret < 0 && ret != -ENOENT) {
 		pr_err("Can't readlink /proc/self (%d)\n", ret);
 		return ret;
