@@ -50,7 +50,7 @@ struct restore_mem_zone {
 	u8				redzone[RESTORE_STACK_REDZONE];
 	u8				stack[RESTORE_STACK_SIZE];
 	u8				rt_sigframe[RESTORE_STACK_SIGFRAME];
-} __aligned(sizeof(long));
+} __aligned(16);
 
 struct rst_sched_param {
 	int policy;
@@ -197,8 +197,12 @@ struct task_restore_args {
 	void				**breakpoint;
 } __aligned(64);
 
+/*
+ * For arm64 stack needs to aligned to 16 bytes.
+ * Hence align to 16 bytes for all
+*/
 #define RESTORE_ALIGN_STACK(start, size)	\
-	(ALIGN((start) + (size) - sizeof(long), sizeof(long)))
+	(ALIGN((start) + (size) - 16, 16))
 
 static inline unsigned long restorer_stack(struct thread_restore_args *a)
 {
