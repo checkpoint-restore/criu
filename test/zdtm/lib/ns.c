@@ -143,7 +143,7 @@ static int prepare_namespaces(void)
 
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
-	char stack[NS_STACK_SIZE];
+	char stack[NS_STACK_SIZE] __attribute__((aligned (16)));
 	char stack_ptr[0];
 	int argc;
 	char **argv;

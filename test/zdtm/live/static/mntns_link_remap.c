@@ -29,7 +29,7 @@ TEST_OPTION(dirname, string, "directory name", 1);
 #define NS_STACK_SIZE	4096
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
-	char stack[NS_STACK_SIZE];
+	char stack[NS_STACK_SIZE] __attribute__((aligned (16)));
 	char stack_ptr[0];
 	int fd;
 	int sync;
