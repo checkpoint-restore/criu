@@ -77,6 +77,12 @@ ifeq ($(ARCH),ia32)
 	export PROTOUFIX ldflags-y
 endif
 
+ifeq ($(GCOV),1)
+	LDFLAGS += -lgcov
+	DEBUG = 1	# disable optimization if we want to measure code coverage
+%.o $(PROGRAM): override CFLAGS += --coverage -fno-exceptions -fno-inline
+endif
+
 ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ARMV         := $(shell echo $(ARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 	SRCARCH      := arm
@@ -196,10 +202,6 @@ PROGRAM		:= criu
 .PHONY: all zdtm test rebuild clean distclean tags cscope	\
 	docs help pie protobuf $(ARCH_DIR) clean-built lib crit
 
-ifeq ($(GCOV),1)
-%.o $(PROGRAM): override CFLAGS += --coverage
-endif
-
 all: config pie $(VERSION_HEADER) $(CRIU-LIB)
 	$(Q) $(MAKE) $(PROGRAM)
 	$(Q) $(MAKE) crit
@@ -277,7 +279,7 @@ clean: clean-built
 	$(Q) $(RM) ./*.img
 	$(Q) $(RM) ./*.out
 	$(Q) $(RM) ./*.bin
-	$(Q) $(RM) ./*.gcov ./*.gcda ./*.gcno
+	$(Q) $(RM) ./*.{gcda,gcno,gcov} ./test/`pwd`/*.{gcda,gcno,gcov} ./pie/*.{gcda,gcno,gcov}
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test $@
@@ -356,17 +358,19 @@ help:
 	@echo '      cscope          - Generate cscope database'
 	@echo '      rebuild         - Force-rebuild of [*] targets'
 	@echo '      test            - Run zdtm test-suite'
+	@echo '      gcov	     - Make code coverage report'
 
 gcov:
 	$(E) " GCOV"
-	$(Q) mkdir gcov && \
+	$(Q) test -d gcov || mkdir gcov && \
+	cp *.{gcno,c} test/`pwd`/ 	&& \
+	geninfo --output-filename gcov/crtools.h.info --no-recursion . && \
+	geninfo --output-filename gcov/crtools.ns.info --no-recursion test/`pwd`/ && \
+	sed -i 's#/test/`pwd`##' gcov/crtools.ns.info && \
 	cd gcov && \
-	cp ../*.gcno ../*.c ../test/root/crtools/	&& \
-	geninfo --no-checksum  --output-filename crtools.l.info --no-recursion .. && \
-	geninfo --no-checksum  --output-filename crtools.ns.info --no-recursion ../test/root/crtools && \
-	sed -i 's#/test/root/crtools##' crtools.ns.info && \
-	lcov -a crtools.l.info -a crtools.ns.info -o crtools.info && \
-	genhtml -o html crtools.info
+	lcov --rc lcov_branch_coverage=1 --add-tracefile crtools.h.info --add-tracefile crtools.ns.info --output-file criu.info && \
+	genhtml --rc lcov_branch_coverage=1 --output-directory html criu.info
+	@echo "Code coverage report is in `pwd`/gcov/html/ directory."
 .PHONY: gcov
 
 docker-build:
