@@ -244,7 +244,7 @@ struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 	int major, minor;
 	char id[42];
 
-	snprintf(id, sizeof(id), "tty[%lx:%lx]", rdev, dev);
+	snprintf(id, sizeof(id), "tty[%"PRIx64":%"PRIx64"]", rdev, dev);
 	if (external_lookup_id(id) || inherit_fd_lookup_id(id) >= 0)
 		return &ext_driver;
 
