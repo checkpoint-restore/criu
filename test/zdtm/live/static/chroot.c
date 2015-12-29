@@ -78,6 +78,7 @@ int main(int argc, char **argv)
 
 		res = ERR_PIPES;
 		read(pipe_prep[0], &res, 1);
+		read(pipe_prep[0], &res, 1); /* wait when pipe_prep[] will be closed */
 		if (res != SUCCESS) {
 			if (res == ERR_PIPES)
 				pr_perror("broken pipes");
