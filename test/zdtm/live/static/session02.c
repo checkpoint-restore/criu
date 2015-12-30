@@ -67,7 +67,7 @@ static void mainloop()
 #define CLONE_STACK_SIZE	4096
 /* All arguments should be above stack, because it grows down */
 struct clone_args {
-	char stack[CLONE_STACK_SIZE] __attribute__((aligned (16)));
+	char stack[CLONE_STACK_SIZE] __stack_aligned__;
 	char stack_ptr[0];
 	int id;
 };

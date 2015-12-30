@@ -48,7 +48,7 @@ static void wait_children()
 
 static pid_t clone_child(int (*fn)(void *), int flags)
 {
-	char stack[STACK_SIZE] __attribute__((aligned (16)));
+	char stack[STACK_SIZE] __stack_aligned__;
 	pid_t pid;
 
 	pid = clone(fn, stack + STACK_SIZE,

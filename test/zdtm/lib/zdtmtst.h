@@ -99,6 +99,12 @@ extern int parse_opt_string(char *param, void *arg);
 #define __stringify_1(x)        #x
 #define __stringify(x)          __stringify_1(x)
 
+/*
+ * Macro to define stack alignment. 
+ * aarch64 requires stack to be aligned to 16 bytes.
+ */
+#define __stack_aligned__	__attribute__((aligned(16)))
+
 /* message helpers */
 extern int test_log_init(const char *outfile, const char *suffix);
 extern int zdtm_seccomp;

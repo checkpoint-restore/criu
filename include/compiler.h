@@ -38,6 +38,12 @@
 
 #define __aligned(x)		__attribute__((aligned(x)))
 
+/*
+ * Macro to define stack alignment. 
+ * aarch64 requires stack to be aligned to 16 bytes.
+ */
+#define __stack_aligned__	__attribute__((aligned(16)))
+
 #ifndef offsetof
 # define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif

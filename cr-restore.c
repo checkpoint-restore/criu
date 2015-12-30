@@ -1075,7 +1075,7 @@ struct cr_clone_arg {
 	 * Reserve some space for clone() to locate arguments
 	 * and retcode in this place
 	 */
-	char stack[128] __attribute__((aligned (16)));
+	char stack[128] __stack_aligned__;
 	char stack_ptr[0];
 	struct pstree_item *item;
 	unsigned long clone_flags;

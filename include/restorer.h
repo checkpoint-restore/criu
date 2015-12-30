@@ -50,7 +50,7 @@ struct restore_mem_zone {
 	u8				redzone[RESTORE_STACK_REDZONE];
 	u8				stack[RESTORE_STACK_SIZE];
 	u8				rt_sigframe[RESTORE_STACK_SIGFRAME];
-} __aligned(16);
+} __stack_aligned__;
 
 struct rst_sched_param {
 	int policy;

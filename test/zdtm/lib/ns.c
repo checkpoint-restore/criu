@@ -16,6 +16,7 @@
 #include <sched.h>
 #include <sys/socket.h>
 
+#include "zdtmtst.h"
 #include "ns.h"
 
 extern int pivot_root(const char *new_root, const char *put_old);
@@ -143,7 +144,7 @@ static int prepare_namespaces(void)
 
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
-	char stack[NS_STACK_SIZE] __attribute__((aligned (16)));
+	char stack[NS_STACK_SIZE] __stack_aligned__;
 	char stack_ptr[0];
 	int argc;
 	char **argv;
