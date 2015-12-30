@@ -768,12 +768,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 		return errno == EPERM ? 1 : -1;
 
 	off = (vaddr / page_size()) * sizeof(u64);
-	if (lseek(fd, off, SEEK_SET) != off) {
-		pr_perror("Failed to seek address %lx", vaddr);
-		goto out;
-	}
-
-	ret = read(fd, pfn, sizeof(*pfn));
+	ret = pread(fd, pfn, sizeof(*pfn), off);
 	if (ret != sizeof(*pfn)) {
 		pr_perror("Can't read pme for pid %d", getpid());
 		ret = -1;
@@ -781,7 +776,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 		*pfn &= PME_PFRAME_MASK;
 		ret = 0;
 	}
-out:
+
 	close(fd);
 	return ret;
 }
