@@ -955,6 +955,12 @@ class launcher:
 		self.__max = int(opts['parallel'] or 1)
 		self.__subs = {}
 		self.__fail = False
+		if self.__max > 1 and self.__total > 1:
+			self.__use_log = True
+		elif opts['report']:
+			self.__use_log = True
+		else:
+			self.__use_log = False
 
 	def __show_progress(self):
 		perc = self.__nr * 16 / self.__total
@@ -980,7 +986,7 @@ class launcher:
 				'dedup', 'sbs', 'freezecg', 'user')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
-		if self.__max > 1 and self.__total > 1:
+		if self.__use_log:
 			logf = name.replace('/', '_') + ".log"
 			log = open(logf, "w")
 		else:
