@@ -43,20 +43,19 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *proxy_vdso_marked = NULL;
 	struct vma_area *proxy_vvar_marked = NULL;
 	struct parasite_vdso_vma_entry *args;
-	int fd, ret, exit_code = -1;
+	int fd = -1, ret, exit_code = -1;
 	u64 pfn = VDSO_BAD_PFN;
 	struct vma_area *vma;
 	off_t off;
 
 	args = parasite_args(ctl, struct parasite_vdso_vma_entry);
-	fd = __open_proc(pid, EPERM, O_RDONLY, "pagemap");
-	if (fd < 0) {
-		if (errno == EPERM) {
-			pr_info("Pagemap is unavailable, trying a slow way\n");
-		} else
+	if (kdat.pmap == PM_FULL) {
+		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
+		fd = open_proc(pid, "pagemap");
+		if (fd < 0)
 			return -1;
 	} else
-		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
+		pr_info("Pagemap is unavailable, trying a slow way\n");
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (!vma_area_is(vma, VMA_AREA_REGULAR))
@@ -311,8 +310,11 @@ int vdso_init(void)
 {
 	if (vdso_fill_self_symtable(&vdso_sym_rt))
 		return -1;
-	if (vaddr_to_pfn(vdso_sym_rt.vma_start, &vdso_pfn) != 0)
+
+	if (kdat.pmap != PM_FULL)
 		pr_info("VDSO detection turned off\n");
+	else if (vaddr_to_pfn(vdso_sym_rt.vma_start, &vdso_pfn))
+		return -1;
 
 	return 0;
 }

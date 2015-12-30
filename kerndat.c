@@ -41,6 +41,42 @@ struct kerndat_s kdat = {
 	.tcp_max_rshare = 87380,
 };
 
+static int check_pagemap(void)
+{
+	int ret, fd;
+	u64 pfn = 0;
+
+	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
+	if (fd < 0) {
+		if (errno == EPERM) {
+			pr_info("Pagemap disabled");
+			kdat.pmap = PM_DISABLED;
+			return 0;
+		}
+
+		return -1;
+	}
+
+	/* Get the PFN of some present page. Stack is here, so try it :) */
+	ret = pread(fd, &pfn, sizeof(pfn), (((unsigned long)&ret) / page_size()) * sizeof(pfn));
+	if (ret != sizeof(pfn)) {
+		pr_perror("Can't read pagemap");
+		return -1;
+	}
+
+	close(fd);
+
+	if ((pfn & PME_PFRAME_MASK) == 0) {
+		pr_info("Pagemap provides flags only\n");
+		kdat.pmap = PM_FLAGS_ONLY;
+	} else {
+		pr_info("Pagemap is fully functional\n");
+		kdat.pmap = PM_FULL;
+	}
+
+	return 0;
+}
+
 /*
  * Anonymous shared mappings are backed by hidden tmpfs
  * mount. Find out its dev to distinguish such mappings
@@ -322,13 +358,15 @@ static int init_zero_page_pfn()
 		return -1;
 	}
 
+	if (kdat.pmap != PM_FULL) {
+		pr_info("Zero page detection failed, optimization turns off.\n");
+		return 0;
+	}
+
 	ret = vaddr_to_pfn((unsigned long)addr, &kdat.zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
 
-	if (ret == 1) {
-		pr_info("Zero page detection failed, optimization turns off.\n");
-		ret = 0;
-	} else if (kdat.zero_page_pfn == 0)
+	if (kdat.zero_page_pfn == 0)
 		ret = -1;
 
 	return ret;
@@ -456,7 +494,9 @@ int kerndat_init(void)
 {
 	int ret;
 
-	ret = kerndat_get_shmemdev();
+	ret = check_pagemap();
+	if (!ret)
+		ret = kerndat_get_shmemdev();
 	if (!ret)
 		ret = kerndat_get_dirty_track();
 	if (!ret)
@@ -487,7 +527,9 @@ int kerndat_init_rst(void)
 	 * not available inside namespaces.
 	 */
 
-	ret = tcp_read_sysctl_limits();
+	ret = check_pagemap();
+	if (!ret)
+		ret = tcp_read_sysctl_limits();
 	if (!ret)
 		ret = get_last_cap();
 	if (!ret)

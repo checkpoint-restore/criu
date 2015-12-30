@@ -16,6 +16,13 @@ extern int kerndat_get_dirty_track(void);
 extern int kerndat_fdinfo_has_lock(void);
 extern int kerndat_loginuid(bool only_dump);
 
+enum pagemap_func {
+	PM_UNKNOWN,
+	PM_DISABLED,	/* /proc/pid/pagemap doesn't open (user mode) */
+	PM_FLAGS_ONLY,	/* pagemap zeroes pfn part (user mode) */
+	PM_FULL,
+};
+
 struct kerndat_s {
 	dev_t shmem_dev;
 	int tcp_max_rshare;
@@ -27,6 +34,7 @@ struct kerndat_s {
 	unsigned long task_size;
 	bool ipv6;
 	bool has_loginuid;
+	enum pagemap_func pmap;
 };
 
 extern struct kerndat_s kdat;

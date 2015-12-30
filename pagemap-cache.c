@@ -46,13 +46,14 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 	if (!pmc->map)
 		goto err;
 
-	pmc->fd = __open_proc(pid, EPERM, O_RDONLY, "pagemap");
-	if (pmc->fd < 0) {
-		if (errno != EPERM)
-			goto err;
-
+	if (kdat.pmap == PM_DISABLED) {
+		pmc->fd = -1;
 		pr_warn("No pagemap for %d available, "
 				"switching to greedy mode\n", pid);
+	} else {
+		pmc->fd = open_proc(pid, "pagemap");
+		if (pmc->fd < 0)
+			goto err;
 	}
 
 	pr_debug("created for pid %d (takes %zu bytes)\n", pid, pmc->map_len);
