@@ -23,6 +23,9 @@
 #elif defined(__PPC64__)
 # define __NR_fanotify_init	323
 # define __NR_fanotify_mark	324
+#elif __aarch64__
+# define __NR_fanotify_init     262
+# define __NR_fanotify_mark     263
 #else
 # define __NR_fanotify_init	338
 # define __NR_fanotify_mark	339
