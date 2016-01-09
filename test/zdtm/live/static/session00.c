@@ -151,6 +151,12 @@ child:
 		pr_perror("read failed");
 		return 1;
 	}
+	/* wait when a child closes fd */
+	ret = read(p[0], &testcases[i].pid, sizeof(pid));
+	if (ret != 0)) {
+		pr_perror("read failed");
+		return 1;
+	}
 
 	close(p[0]);
 
