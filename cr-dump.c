@@ -1062,7 +1062,7 @@ static int dump_zombies(void)
 				goto err;
 		}
 
-		pr_info("Obtaining zombie stat ... ");
+		pr_info("Obtaining zombie stat ... \n");
 		if (parse_pid_stat(item->pid.virt, &pps_buf) < 0)
 			goto err;
 
@@ -1180,7 +1180,7 @@ static int dump_one_task(struct pstree_item *item)
 		 */
 		return 0;
 
-	pr_info("Obtaining task stat ... ");
+	pr_info("Obtaining task stat ... \n");
 	ret = parse_pid_stat(pid, &pps_buf);
 	if (ret < 0)
 		goto err;
