@@ -89,6 +89,7 @@ static int fork_child(int i)
 				exit(1);
 			}
 
+			close(p[1]);
 			wait(NULL);
 			if (getsid(getpid()) != sid) {
 				fail("The process %d (%x) has SID=%d (expected %d)",
@@ -115,6 +116,7 @@ static int fork_child(int i)
 				exit(1);
 			}
 
+			close(p[1]);
 			wait(NULL);
 			if (getsid(getpid()) != sid) {
 				fail("The process %d (%x) has SID=%d (expected %d)",
