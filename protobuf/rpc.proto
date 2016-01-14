@@ -88,6 +88,7 @@ message criu_opts {
 	optional criu_cg_mode		manage_cgroups_mode = 34;
 	optional uint32			ghost_limit	= 35 [default = 0x100000];
 	repeated string			irmap_scan_paths = 36;
+	repeated string			external	= 37;
 }
 
 message criu_dump_resp {

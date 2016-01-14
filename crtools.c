@@ -193,6 +193,19 @@ static size_t parse_size(char *optarg)
 	return (size_t)atol(optarg);
 }
 
+int add_external(char *key)
+{
+	struct external *ext;
+
+	ext = xmalloc(sizeof(*ext));
+	if (!ext)
+		return -1;
+	ext->id = key;
+	list_add(&ext->node, &opts.external);
+
+	return 0;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	pid_t pid = 0, tree_id = 0;
@@ -526,15 +539,8 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			break;
 		case 1073:
-			{
-				struct external *ext;
-
-				ext = xmalloc(sizeof(*ext));
-				if (!ext)
-					return 1;
-				ext->id = optarg;
-				list_add(&ext->node, &opts.external);
-			}
+			if (add_external(optarg))
+				return 1;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);

@@ -381,6 +381,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
+	for (i = 0; i < req->n_external; i++)
+		if (add_external(req->external[i]))
+			goto err;
+
 	for (i = 0; i < req->n_cg_root; i++) {
 		if (new_cg_root_add(req->cg_root[i]->ctrl,
 					req->cg_root[i]->path))
