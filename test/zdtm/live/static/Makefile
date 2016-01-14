@@ -132,6 +132,7 @@ TST_NOFILE	=				\
 		dumpable01			\
 		dumpable02			\
 		remap_dead_pid			\
+		remap_dead_pid_root			\
 		aio00				\
 		fd				\
 		apparmor				\

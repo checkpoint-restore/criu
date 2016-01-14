@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 		char path[PATH_MAX];
 		pid_t result;
 
-		sprintf(path, "/proc/%d/mountinfo", pid);
+		sprintf(path, "/proc/%d", pid);
 		fd = open(path, O_RDONLY);
 		if (fd < 0) {
 			fail("failed to open fd");
@@ -52,11 +52,6 @@ int main(int argc, char **argv)
 		result = waitpid(pid, NULL, 0);
 		if (result < 0) {
 			fail("failed waitpid()");
-			return -1;
-		}
-
-		if (fd < 0) {
-			fail("failed opening %s", path);
 			return -1;
 		}
 

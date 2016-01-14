@@ -887,16 +887,32 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 			return -1;
 		pid = strtol(start + 1, &end, 10);
 
-		/* if we didn't find another /, this path something
-		 * like ./proc/kmsg, which we shouldn't mess with. */
-		if (*end == '/') {
-			*end = 0;
-			ret = access(rpath, F_OK);
-			*end = '/';
+		/* If strtol didn't convert anything, then we are looking at
+		 * something like /proc/kmsg, which we shouldn't mess with.
+		 * Anything under /proc/<pid> (including that directory itself)
+		 * can be c/r'd with a dead pid remap, so let's allow all such
+		 * cases.
+		 */
+		if (pid != 0) {
+			bool is_dead = strip_deleted(link);
 
-			if (ret) {
+			/* /proc/<pid> will be "/proc/1 (deleted)" when it is
+			 * dead, but a path like /proc/1/mountinfo won't have
+			 * the suffix, since it isn't actually deleted (still
+			 * exists, but the parent dir is deleted). So, if we
+			 * have a path like /proc/1/mountinfo, test if /proc/1
+			 * exists instead, since this is what CRIU will need to
+			 * open on restore.
+			 */
+			if (!is_dead) {
+				*end = 0;
+				is_dead = access(rpath, F_OK);
+				*end = '/';
+			}
+
+			if (is_dead) {
 				pr_info("Dumping dead process remap of %d\n", pid);
-				return dump_dead_process_remap(pid, rpath + 1, plen - 1, ost, lfd, id, nsid);
+				return dump_dead_process_remap(pid, rpath + 1, link->len - 1, ost, lfd, id, nsid);
 			}
 		}
 
