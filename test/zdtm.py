@@ -116,9 +116,6 @@ class ns_flavor:
 		self.root_mounted = False
 
 	def __copy_one(self, fname):
-		if not os.access(fname, os.F_OK):
-			raise test_fail_exc("Deps check (%s doesn't exist)" % fname)
-
 		tfname = self.root + fname
 		if not os.access(tfname, os.F_OK):
 			# Copying should be atomic as tests can be
@@ -145,6 +142,8 @@ class ns_flavor:
 		ldd.wait()
 
 		for lib in libs:
+			if not os.access(lib, os.F_OK):
+				raise test_fail_exc("Can't find lib %s required by %s" % (lib, binary))
 			self.__copy_one(lib)
 
 	def __mknod(self, name, rdev = None):
@@ -173,6 +172,14 @@ class ns_flavor:
 		self.__mknod("net/tun")
 		self.__mknod("rtc")
 
+        def __copy_deps(self, deps):
+		for d in deps.split('|'):
+			if os.access(d, os.F_OK):
+				self.__copy_one(d)
+				self.__copy_libs(d)
+				return
+		raise test_fail_exc("Deps check %s failed" % deps)
+
 	def init(self, l_bins, x_bins):
 		subprocess.check_call(["mount", "--make-slave", "--bind", ".", self.root])
 		self.root_mounted = True
@@ -188,8 +195,7 @@ class ns_flavor:
 		for b in l_bins:
 			self.__copy_libs(b)
 		for b in x_bins:
-			self.__copy_one(b)
-			self.__copy_libs(b)
+			self.__copy_deps(b)
 
 	def fini(self):
 		if self.root_mounted:
