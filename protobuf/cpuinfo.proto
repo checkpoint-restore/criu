@@ -15,6 +15,16 @@ message cpuinfo_x86_entry {
 	optional string			model_id	= 7;
 }
 
+message cpuinfo_ppc64_entry {
+	enum endianness {
+		BIGENDIAN	= 0;
+		LITTLEENDIAN	= 1;
+	}
+
+	required endianness	endian		= 1;
+	repeated uint64		hwcap		= 2;
+}
+
 message cpuinfo_entry {
 	/*
 	 * Usually on SMP system there should be same CPUs
@@ -22,4 +32,5 @@ message cpuinfo_entry {
 	 * various CPUs so @repeated used.
 	 */
 	repeated cpuinfo_x86_entry	x86_entry	= 1;
+	repeated cpuinfo_ppc64_entry	ppc64_entry	= 2;
 }
