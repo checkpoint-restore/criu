@@ -452,10 +452,16 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 	for_each_pstree_item(item)
 		unseize_task_and_threads(item, st);
 
+	/*
+	 * We need to detach from all processes before waiting the init
+	 * process, because one of these processes may collect processes from a
+	 * target pid namespace. The pid namespace is destroyed only when all
+	 * processes have been killed and collected.
+	 */
+	freezer_detach();
+
 	if (st == TASK_DEAD)
 		pstree_wait(root_item);
-
-	freezer_detach();
 }
 
 static pid_t item_ppid(const struct pstree_item *item)
