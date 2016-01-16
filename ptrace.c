@@ -21,6 +21,7 @@
 #include "proc_parse.h"
 #include "crtools.h"
 #include "seccomp.h"
+#include "cr_options.h"
 
 int unseize_task(pid_t pid, int orig_st, int st)
 {
@@ -48,6 +49,9 @@ int unseize_task(pid_t pid, int orig_st, int st)
 			kill(pid, SIGSTOP);
 	} else
 		pr_err("Unknown final state %d\n", st);
+
+	if (opts.freeze_cgroup)
+		return 0;
 
 	if (ptrace(PTRACE_DETACH, pid, NULL, NULL)) {
 		pr_perror("Unable to detach from %d", pid);
