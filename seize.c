@@ -225,7 +225,7 @@ static int freezer_detach(void)
 		pid = atoi(path);
 
 		if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
-			pr_perror("Unable to detach from %d\n", pid);
+			pr_perror("Unable to detach from %d", pid);
 	}
 	fclose(f);
 	return 0;
