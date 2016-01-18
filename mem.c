@@ -50,15 +50,20 @@ int do_task_reset_dirty_track(int pid)
 		return errno == EACCES ? 1 : -1;
 
 	ret = write(fd, cmd, sizeof(cmd));
-	close(fd);
-
 	if (ret < 0) {
-		pr_warn("Can't reset %d's dirty memory tracker (%d)\n", pid, errno);
-		return -1;
+               if (errno == EINVAL) /* No clear-soft-dirty in kernel */
+                       ret = 1;
+               else {
+                       pr_perror("Can't reset %d's dirty memory tracker (%d)\n", pid, errno);
+                       ret = -1;
+               }
+       } else {
+               pr_info(" ... done\n");
+               ret = 0;
 	}
 
-	pr_info(" ... done\n");
-	return 0;
+       close(fd);
+       return ret;
 }
 
 unsigned int dump_pages_args_size(struct vm_area_list *vmas)
