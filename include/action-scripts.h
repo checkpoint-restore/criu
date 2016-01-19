@@ -17,6 +17,7 @@ enum script_actions {
 	ACT_NET_LOCK		= 4,
 	ACT_NET_UNLOCK		= 5,
 	ACT_SETUP_NS		= 6,
+	ACT_POST_SETUP_NS	= 7,
 
 	ACT_MAX
 };

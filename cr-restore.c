@@ -1992,6 +1992,10 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	ret = run_scripts(ACT_POST_SETUP_NS);
+	if (ret)
+		goto out_kill;
+
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)
 		goto out_kill;
