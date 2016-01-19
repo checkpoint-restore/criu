@@ -1190,6 +1190,13 @@ static int tmpfs_dump(struct mount_info *pm)
 	if (fd < 0)
 		return -1;
 
+	/* if fd happens to be 0 here, we need to move it to something
+	 * non-zero, because cr_system_userns closes STDIN_FILENO as we are not
+	 * interested in passing stdin to tar.
+	 */
+	if (move_img_fd(&fd, STDIN_FILENO) < 0)
+		goto out;
+
 	if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {
 		pr_perror("Can not drop FD_CLOEXEC");
 		goto out;
