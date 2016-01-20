@@ -1187,7 +1187,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	void *where = (void *)ctl->syscall_ip + BUILTIN_SYSCALL_SIZE;
 	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->pid.real;
-	unsigned long sret;
+	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;
 
 	BUILD_BUG_ON(sizeof(orig_code) < sizeof(long));
@@ -1201,6 +1201,9 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 			     (unsigned long)where, 0, 0, 0, 0, 0);
 
 	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
+		fd = (int)(long)sret;
+		if (fd >= 0)
+			syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
 		pr_err("Can't restore memfd args (pid: %d)\n", pid);
 		return -1;
 	}
