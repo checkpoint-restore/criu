@@ -85,6 +85,8 @@ static const char *global_props[] = {
 	"cgroup.clone_children",
 	"cgroup.sane_behavior",
 	"notify_on_release",
+	"cgroup.procs",
+	"tasks",
 	NULL
 };
 
@@ -332,6 +334,20 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 	property->mode = sb.st_mode;
 	property->uid = sb.st_uid;
 	property->gid = sb.st_gid;
+
+	/* skip dumping the value of these, since it doesn't make sense (we
+	 * just want to restore the perms) */
+	if (!strcmp(property->name, "cgroup.procs") || !strcmp(property->name, "tasks")) {
+		ret = 0;
+		/* libprotobuf segfaults if we leave a null pointer in a
+		 * string, so let's not do that */
+		property->value = xstrdup("");
+		if (!property->value)
+			ret = -1;
+
+		close(fd);
+		return ret;
+	}
 
 	ret = read(fd, buf, sizeof(buf) - 1);
 	if (ret == -1) {
@@ -1121,6 +1137,12 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	if (restore_perms(fd, path, perms) < 0) {
 		fclose(f);
 		return -1;
+	}
+
+	/* skip these two since restoring their values doesn't make sense */
+	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
+		fclose(f);
+		return 0;
 	}
 
 	if (fprintf(f, "%s", cg_prop_entry_p->value) < 0) {
