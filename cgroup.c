@@ -307,6 +307,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 {
 	char buf[1024];
 	int fd, ret;
+	struct stat sb;
 
 	fd = open(fullpath, O_RDONLY);
 	if (fd == -1) {
@@ -314,6 +315,16 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 		pr_perror("Failed opening %s", fullpath);
 		return -1;
 	}
+
+	if (fstat(fd, &sb) < 0) {
+		pr_perror("failed statting cgroup prop %s", fullpath);
+		close(fd);
+		return -1;
+	}
+
+	property->mode = sb.st_mode;
+	property->uid = sb.st_uid;
+	property->gid = sb.st_gid;
 
 	ret = read(fd, buf, sizeof(buf) - 1);
 	if (ret == -1) {
@@ -331,7 +342,6 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 	property->value = xstrdup(strip(buf));
 	if (!property->value)
 		return -1;
-
 	return 0;
 }
 
@@ -664,10 +674,20 @@ static int dump_cg_dir_props(struct list_head *props, size_t n_props,
 
 	list_for_each_entry(prop_cur, props, list) {
 		cgroup_prop_entry__init(cpe);
+
+		cpe->perms = xmalloc(sizeof(*cpe->perms));
+		if (!cpe->perms)
+			goto error;
+		cgroup_perms__init(cpe->perms);
+
 		cpe->name = xstrdup(prop_cur->name);
 		cpe->value = xstrdup(prop_cur->value);
 		if (!cpe->name || !cpe->value)
 			goto error;
+		cpe->perms->mode = prop_cur->mode;
+		cpe->perms->uid = prop_cur->uid;
+		cpe->perms->gid = prop_cur->gid;
+
 		(*ents)[i++] = cpe++;
 	}
 
@@ -1001,7 +1021,9 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 			       char *path, int off)
 {
 	FILE *f;
-	int cg;
+	int cg, fd;
+	struct stat sb;
+	CgroupPerms *perms = cg_prop_entry_p->perms;
 
 	if (!cg_prop_entry_p->value) {
 		pr_err("cg_prop_entry->value was empty when should have had a value\n");
@@ -1020,6 +1042,38 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	if (!f) {
 		pr_perror("Failed opening %s for writing", path);
 		return -1;
+	}
+
+	fd = fileno(f);
+	if (fd < 0) {
+		fclose(f);
+		pr_err("bad file stream?");
+		return -1;
+	}
+
+	if (fstat(fd, &sb) < 0) {
+		fclose(f);
+		pr_perror("stat of property %s failed", path);
+		return -1;
+	}
+
+	if (perms) {
+		/* only chmod/chown if the perms are actually different: we aren't
+		 * allowed to chmod some cgroup props (e.g. the read only ones), so we
+		 * don't want to try if the perms already match.
+		 */
+		if (sb.st_mode != (mode_t) perms->mode && fchmod(fd, perms->mode) < 0) {
+			fclose(f);
+			pr_perror("chmod of %s failed", path);
+			return -1;
+		}
+
+		if ((sb.st_uid != perms->uid || sb.st_gid != perms->gid) &&
+		    fchown(fd, perms->uid, perms->gid)) {
+			fclose(f);
+			pr_perror("chown of %s failed", path);
+			return -1;
+		}
 	}
 
 	if (fprintf(f, "%s", cg_prop_entry_p->value) < 0) {

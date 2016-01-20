@@ -1,6 +1,13 @@
+message cgroup_perms {
+	required uint32			mode		= 1;
+	required uint32			uid		= 2;
+	required uint32			gid		= 3;
+}
+
 message cgroup_prop_entry {
 	required string			name		= 1;
 	required string			value		= 2;
+	optional cgroup_perms		perms		= 3;
 }
 
 message cgroup_dir_entry {

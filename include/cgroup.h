@@ -17,6 +17,9 @@ struct cg_controller;
 struct cgroup_prop {
 	char			*name;
 	char			*value;
+	mode_t			mode;
+	uid_t			uid;
+	gid_t			gid;
 	struct list_head	list;
 };
 
