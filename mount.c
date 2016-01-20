@@ -85,7 +85,7 @@ static void mntinfo_add_list(struct mount_info *new)
 
 static int open_mountpoint(struct mount_info *pm);
 
-static struct mount_info *mnt_build_tree(struct mount_info *list, bool insert_roots);
+static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_info *roots_mp);
 static int validate_mounts(struct mount_info *info, bool for_dump);
 
 /* Asolute paths are used on dump and relative paths are used on restore */
@@ -303,20 +303,9 @@ static bool mounts_equal(struct mount_info* mi, struct mount_info *c, bool bind)
  */
 static char *mnt_roots;
 
-static struct mount_info *mnt_build_ids_tree(struct mount_info *list, bool insert_roots)
+static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mount_info *tmp_root_mount)
 {
 	struct mount_info *m, *root = NULL;
-	struct mount_info *tmp_root_mount = NULL;
-
-	if (insert_roots && mnt_roots) {
-		/* mnt_roots is a tmpfs mount and it's private */
-		tmp_root_mount = mnt_entry_alloc();
-		if (!tmp_root_mount)
-			return NULL;
-
-		tmp_root_mount->mountpoint = mnt_roots;
-		tmp_root_mount->mounted = true;
-	}
 
 	/*
 	 * Just resolve the mnt_id:parent_mnt_id relations
@@ -980,7 +969,7 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 	return 0;
 }
 
-static struct mount_info *mnt_build_tree(struct mount_info *list, bool insert_roots)
+static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_info *roots_mp)
 {
 	struct mount_info *tree;
 
@@ -989,7 +978,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list, bool insert_ro
 	 */
 
 	pr_info("Building mountpoints tree\n");
-	tree = mnt_build_ids_tree(list, insert_roots);
+	tree = mnt_build_ids_tree(list, roots_mp);
 	if (!tree)
 		return NULL;
 
@@ -1908,7 +1897,7 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 		return NULL;
 	}
 
-	ns->mnt.mntinfo_tree = mnt_build_tree(pm, false);
+	ns->mnt.mntinfo_tree = mnt_build_tree(pm, NULL);
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
 
@@ -3022,8 +3011,19 @@ static int populate_mnt_ns(void)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
+	struct mount_info *roots_mp = NULL;
 
-	pms = mnt_build_tree(mntinfo, true);
+	if (mnt_roots) {
+		/* mnt_roots is a tmpfs mount and it's private */
+		roots_mp = mnt_entry_alloc();
+		if (!roots_mp)
+			return -1;
+
+		roots_mp->mountpoint = mnt_roots;
+		roots_mp->mounted = true;
+	}
+
+	pms = mnt_build_tree(mntinfo, roots_mp);
 	if (!pms)
 		return -1;
 
