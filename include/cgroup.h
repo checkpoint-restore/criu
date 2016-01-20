@@ -28,6 +28,9 @@ struct cgroup_prop {
  */
 struct cgroup_dir {
 	char			*path;
+	mode_t			mode;
+	uid_t			uid;
+	gid_t			gid;
 
 	struct list_head	properties;
 	unsigned int		n_properties;

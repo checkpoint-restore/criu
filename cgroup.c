@@ -483,6 +483,10 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		if (!ncd)
 			goto out;
 
+		ncd->mode = sb->st_mode;
+		ncd->uid = sb->st_uid;
+		ncd->gid = sb->st_gid;
+
 		/* chop off the first "/proc/self/fd/N" str */
 		if (fpath[path_pref_len] == '\0')
 			ncd->path = xstrdup("/");
@@ -746,6 +750,16 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 
 	list_for_each_entry(cur, dirs, siblings) {
 		cgroup_dir_entry__init(cde);
+
+		cde->dir_perms = xmalloc(sizeof(*cde->dir_perms));
+		if (!cde->dir_perms)
+			return -1;
+		cgroup_perms__init(cde->dir_perms);
+
+		cde->dir_perms->mode = cur->mode;
+		cde->dir_perms->uid = cur->uid;
+		cde->dir_perms->gid = cur->gid;
+
 		cde->dir_name = cur->path + poff;
 		if (poff != 1) /* parent isn't "/" */
 			cde->dir_name++; /* leading / */
@@ -1042,12 +1056,40 @@ void fini_cgroup(void)
 	cg_yard = NULL;
 }
 
+static int restore_perms(int fd, const char *path, CgroupPerms *perms)
+{
+	struct stat sb;
+
+	if (perms) {
+		if (fstat(fd, &sb) < 0) {
+			pr_perror("stat of property %s failed", path);
+			return -1;
+		}
+
+		/* only chmod/chown if the perms are actually different: we aren't
+		 * allowed to chmod some cgroup props (e.g. the read only ones), so we
+		 * don't want to try if the perms already match.
+		 */
+		if (sb.st_mode != (mode_t) perms->mode && fchmod(fd, perms->mode) < 0) {
+			pr_perror("chmod of %s failed", path);
+			return -1;
+		}
+
+		if ((sb.st_uid != perms->uid || sb.st_gid != perms->gid) &&
+		    fchown(fd, perms->uid, perms->gid)) {
+			pr_perror("chown of %s failed", path);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 			       char *path, int off)
 {
 	FILE *f;
 	int cg, fd;
-	struct stat sb;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
 
 	if (!cg_prop_entry_p->value) {
@@ -1076,29 +1118,9 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		return -1;
 	}
 
-	if (fstat(fd, &sb) < 0) {
+	if (restore_perms(fd, path, perms) < 0) {
 		fclose(f);
-		pr_perror("stat of property %s failed", path);
 		return -1;
-	}
-
-	if (perms) {
-		/* only chmod/chown if the perms are actually different: we aren't
-		 * allowed to chmod some cgroup props (e.g. the read only ones), so we
-		 * don't want to try if the perms already match.
-		 */
-		if (sb.st_mode != (mode_t) perms->mode && fchmod(fd, perms->mode) < 0) {
-			fclose(f);
-			pr_perror("chmod of %s failed", path);
-			return -1;
-		}
-
-		if ((sb.st_uid != perms->uid || sb.st_gid != perms->gid) &&
-		    fchown(fd, perms->uid, perms->gid)) {
-			fclose(f);
-			pr_perror("chown of %s failed", path);
-			return -1;
-		}
 	}
 
 	if (fprintf(f, "%s", cg_prop_entry_p->value) < 0) {
@@ -1213,6 +1235,21 @@ static int restore_special_cpuset_props(char *paux, size_t off, CgroupDirEntry *
 	return 0;
 }
 
+static int prepare_dir_perms(int cg, char *path, CgroupPerms *perms)
+{
+	int fd, ret;
+
+	fd = openat(cg, path, O_DIRECTORY);
+	if (fd < 0) {
+		pr_perror("failed to open cg dir fd (%s) for chowning", path);
+		return -1;
+	}
+
+	ret = restore_perms(fd, path, perms);
+	close(fd);
+	return ret;
+}
+
 static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux, size_t off,
 				CgroupDirEntry **ents, size_t n_ents)
 {
@@ -1243,6 +1280,9 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 			}
 			pr_info("Created cgroup dir %s\n", paux);
 
+			if (prepare_dir_perms(cg, paux, e->dir_perms) < 0)
+				return -1;
+
 			for (j = 0; j < n_controllers; j++) {
 				if (strcmp(controllers[j], "cpuset") == 0) {
 					if (restore_special_cpuset_props(paux, off2, e) < 0) {
@@ -1267,6 +1307,10 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 					e->n_properties = 0;
 				}
 			}
+
+			if (!(opts.manage_cgroups & CG_MODE_NONE) &&
+			    prepare_dir_perms(cg, paux, e->dir_perms) < 0)
+				return -1;
 		}
 
 		if (prepare_cgroup_dirs(controllers, n_controllers, paux, off2,
