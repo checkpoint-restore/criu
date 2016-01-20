@@ -769,8 +769,7 @@ static int have_seen_dead_pid(pid_t pid)
 	return 0;
 }
 
-static int dump_dead_process_remap(pid_t pid, char *path, int len, const struct stat *ost,
-				int lfd, u32 id, struct ns_id *nsid)
+static int dump_dead_process_remap(pid_t pid, u32 id)
 {
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
 	int ret;
@@ -912,7 +911,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 
 			if (is_dead) {
 				pr_info("Dumping dead process remap of %d\n", pid);
-				return dump_dead_process_remap(pid, rpath + 1, link->len - 1, ost, lfd, id, nsid);
+				return dump_dead_process_remap(pid, id);
 			}
 		}
 
