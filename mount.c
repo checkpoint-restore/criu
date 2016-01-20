@@ -276,24 +276,26 @@ bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev,
 }
 
 /*
- * Comparer two mounts. Return true if only mount points are differ.
- * Don't care about root and mountpoints, if bind is true.
+ * Compare super-blocks mounted at two places
  */
-static bool mounts_equal(struct mount_info* mi, struct mount_info *c, bool bind)
+static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 {
-	if (mi->s_dev != c->s_dev ||
-	    c->fstype != mi->fstype ||
-	    strcmp(c->source, mi->source) ||
-	    strcmp(c->options, mi->options))
+	return a->s_dev == b->s_dev && a->fstype == b->fstype &&
+		!strcmp(a->source, b->source) && !strcmp(a->options, b->options);
+}
+
+/*
+ * Compare superblocks AND the way they are mounted
+ */
+static bool mounts_equal(struct mount_info *a, struct mount_info *b)
+{
+	if (!mounts_sb_equal(a, b))
+		return false;
+	if (strcmp(a->root, b->root))
+		return false;
+	if (strcmp(basename(a->mountpoint), basename(b->mountpoint)))
 		return false;
 
-	if (bind)
-		return true;
-
-	if (strcmp(c->root, mi->root))
-		return false;
-	if (strcmp(basename(c->mountpoint), basename(mi->mountpoint)))
-		return false;
 	return true;
 }
 
@@ -333,7 +335,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mou
 				 m->mnt_id, m->mountpoint, m->parent_mnt_id);
 
 			if (root && m->is_ns_root) {
-				if (!mounts_equal(root, m, true) ||
+				if (!mounts_sb_equal(root, m) ||
 				    strcmp(root->root, m->root)) {
 					pr_err("Nested mount namespaces with different "
 					       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
@@ -482,7 +484,7 @@ static struct mount_info *find_shared_peer(struct mount_info *m,
 		if (strcmp(ct_mountpoint, cm->mountpoint + m_mpnt_l))
 			continue;
 
-		if (!mounts_equal(cm, ct, false))
+		if (!mounts_equal(cm, ct))
 			break;
 
 		return cm;
@@ -743,7 +745,7 @@ static struct mount_info *find_best_external_match(struct mount_info *list, stru
 	struct mount_info *it, *candidate = NULL;
 
 	for (it = list; it; it = it->next) {
-		if (!mounts_equal(info, it, true))
+		if (!mounts_sb_equal(info, it))
 			continue;
 
 		/*
@@ -956,7 +958,7 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 			 * for others. Look at propagate_mount()
 			 */
 			for (t = m->next; t; t = t->next) {
-				if (mounts_equal(m, t, true)) {
+				if (mounts_sb_equal(m, t)) {
 					list_add(&t->mnt_bind, &m->mnt_bind);
 					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
 						 t->mnt_id, m->mnt_id,
@@ -2150,7 +2152,7 @@ static int propagate_mount(struct mount_info *mi)
 		struct mount_info *c;
 
 		list_for_each_entry(c, &t->children, siblings) {
-			if (mounts_equal(mi, c, false)) {
+			if (mounts_equal(mi, c)) {
 				pr_debug("\t\tPropagate %s\n", c->mountpoint);
 				c->mounted = true;
 				propagate_siblings(c);
