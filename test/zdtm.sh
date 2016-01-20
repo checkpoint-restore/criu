@@ -208,6 +208,7 @@ generate_test_list()
 		static/cgroup00
 		static/cgroup01
 		static/cgroup02
+		static/cgroup03
 		ns/static/clean_mntns
 		static/remap_dead_pid
 		static/poll
@@ -358,6 +359,7 @@ inotify_irmap
 cgroup00
 cgroup01
 cgroup02
+cgroup03
 clean_mntns
 deleted_dev
 mntns_open

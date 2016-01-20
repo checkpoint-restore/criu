@@ -214,6 +214,7 @@ TST_DIR		=				\
 		rmdir_open			\
 		cgroup01			\
 		cgroup02			\
+		cgroup03			\
 		mntns_open			\
 		mntns_link_remap		\
 		mntns_link_ghost		\

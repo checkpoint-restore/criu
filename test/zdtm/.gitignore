@@ -8,6 +8,7 @@
 /live/static/cgroup00
 /live/static/cgroup01
 /live/static/cgroup02
+/live/static/cgroup03
 /live/static/child_opened_proc
 /live/static/chroot
 /live/static/chroot-file
