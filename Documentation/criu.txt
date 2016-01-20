@@ -236,7 +236,8 @@ The '<mode>' may be one of below.
     - *props*.  Restore cgroup properties and require cgroup to pre-exist.
 
     - *soft*.   Restore cgroup properties if only cgroup has been created
-                by *criu*, otherwise do not restore properies.
+                by *criu*, otherwise do not restore properies. This is the
+		default if mode is unspecified.
 
     - *full*.   Always restore all cgroups and their properties.
 
