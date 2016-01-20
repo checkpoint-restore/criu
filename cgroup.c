@@ -81,6 +81,13 @@ static const char *freezer_props[] = {
 	NULL
 };
 
+static const char *global_props[] = {
+	"cgroup.clone_children",
+	"cgroup.sane_behavior",
+	"notify_on_release",
+	NULL
+};
+
 /*
  * This structure describes set of controller groups
  * a task lives in. The cg_ctl entries are stored in
@@ -401,43 +408,61 @@ static const char **get_known_properties(char *controller)
 	return prop_arr;
 }
 
+static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd,
+			       const char **prop_arr)
+{
+	int j;
+	char buf[PATH_MAX];
+	struct cgroup_prop *prop;
+
+	for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
+		if (snprintf(buf, PATH_MAX, "%s/%s", fpath, prop_arr[j]) >= PATH_MAX) {
+			pr_err("snprintf output was truncated\n");
+			return -1;
+		}
+
+		if (access(buf, F_OK) < 0 && errno == ENOENT) {
+			pr_info("Couldn't open %s. This cgroup property may not exist on this kernel\n", buf);
+			continue;
+		}
+
+		prop = create_cgroup_prop(prop_arr[j]);
+		if (!prop) {
+			free_all_cgroup_props(ncd);
+			return -1;
+		}
+
+		if (read_cgroup_prop(prop, buf) < 0) {
+			free_cgroup_prop(prop);
+			free_all_cgroup_props(ncd);
+			return -1;
+		}
+
+		pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
+		list_add_tail(&prop->list, &ncd->properties);
+		ncd->n_properties++;
+	}
+
+	return 0;
+}
+
 static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 				 struct cg_controller *controller)
 {
-	int i, j;
-	char buf[PATH_MAX];
-	struct cgroup_prop *prop;
+	int i;
 
 	for (i = 0; i < controller->n_controllers; ++i) {
 
 		const char **prop_arr = get_known_properties(controller->controllers[i]);
 
-		for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
-			if (snprintf(buf, PATH_MAX, "%s/%s", fpath, prop_arr[j]) >= PATH_MAX) {
-				pr_err("snprintf output was truncated\n");
-				return -1;
-			}
+		if (dump_cg_props_array(fpath, ncd, prop_arr) < 0) {
+			pr_err("dumping known properties failed");
+			return -1;
+		}
 
-			if (access(buf, F_OK) < 0 && errno == ENOENT) {
-				pr_info("Couldn't open %s. This cgroup property may not exist on this kernel\n", buf);
-				continue;
-			}
-
-			prop = create_cgroup_prop(prop_arr[j]);
-			if (!prop) {
-				free_all_cgroup_props(ncd);
-				return -1;
-			}
-
-			if (read_cgroup_prop(prop, buf) < 0) {
-				free_cgroup_prop(prop);
-				free_all_cgroup_props(ncd);
-				return -1;
-			}
-
-			pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
-			list_add_tail(&prop->list, &ncd->properties);
-			ncd->n_properties++;
+		if (dump_cg_props_array(fpath, ncd, global_props) < 0) {
+			pr_err("dumping global properties failed");
+			return -1;
 		}
 	}
 
