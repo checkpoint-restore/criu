@@ -209,6 +209,12 @@
 /live/static/socket-tcp-local
 /live/static/socket-tcp6-local
 /live/static/socket-tcpbuf6-local
+/live/static/sk-freebind
+/live/static/sk-freebind-false
+/live/static/stopped01
+/live/static/stopped02
+/live/static/stopped03
+/live/static/stopped12
 /live/static/tempfs_subns
 /live/streaming/fifo_dyn
 /live/streaming/fifo_loop
