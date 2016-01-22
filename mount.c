@@ -2276,11 +2276,11 @@ static int do_bind_mount(struct mount_info *mi)
 	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
 	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
 	char *root, *cut_root, rpath[PATH_MAX];
-	bool force_private_remount = false;
 	unsigned long mflags;
 	int exit_code = -1;
 	bool shared = false;
 	bool master = false;
+	bool private = false;
 	char *mnt_path = NULL;
 	struct stat st;
 	bool umount_mnt_path = false;
@@ -2299,12 +2299,13 @@ static int do_bind_mount(struct mount_info *mi)
 		 * to proper location in the namespace we restore.
 		 */
 		root = mi->external->val;
-		force_private_remount = mi->internal_sharing;
+		private = !mi->master_id && (mi->internal_sharing || !mi->shared_id);
 		goto do_bind;
 	}
 
 	shared = mi->shared_id && mi->shared_id == mi->bind->shared_id;
 	master = mi->master_id && mi->master_id == mi->bind->master_id;
+	private = !mi->master_id && !shared;
 	cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
 	if (list_empty(&mi->bind->children))
@@ -2378,9 +2379,9 @@ out:
 	 * shared - the mount is in the same shared group with mi->bind
 	 * mi->shared_id && !shared - create a new shared group
 	 */
-	if (restore_shared_options(mi, force_private_remount || (!shared && !master),
-					mi->shared_id && !shared,
-					mi->master_id && !master))
+	if (restore_shared_options(mi, private,
+	                           mi->shared_id && !shared,
+	                           mi->master_id && !master))
 		return -1;
 
 	mi->mounted = true;
