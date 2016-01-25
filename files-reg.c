@@ -109,10 +109,40 @@ static int mkreg_ghost(char *path, u32 mode, struct ghost_file *gf, struct cr_im
 	return ret;
 }
 
+static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
+{
+	struct timeval tv[2];
+	int ret = -1;
+
+	if (chown(path, gfe->uid, gfe->gid) < 0) {
+		pr_perror("Can't reset user/group on ghost %s", path);
+		goto err;
+	}
+
+	if (chmod(path, gfe->mode)) {
+		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
+		goto err;
+	}
+
+	if (gfe->atim) {
+		tv[0].tv_sec = gfe->atim->tv_sec;
+		tv[0].tv_usec = gfe->atim->tv_usec;
+		tv[1].tv_sec = gfe->mtim->tv_sec;
+		tv[1].tv_usec = gfe->mtim->tv_usec;
+		if (lutimes(path, tv)) {
+			pr_perror("Can't set access and modufication times on ghost %s", path);
+			goto err;
+		}
+	}
+
+	ret = 0;
+err:
+	return ret;
+}
+
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
 	char path[PATH_MAX];
-	struct timeval tv[2];
 	int ret;
 
 	ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
@@ -151,26 +181,9 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
                }
 	}
 
-	if (chown(path, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %s", path);
+	ret = -1;
+	if (ghost_apply_metadata(path, gfe))
 		goto err;
-	}
-
-	if (chmod(path, gfe->mode)) {
-		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
-		goto err;
-	}
-
-	if (gfe->atim) {
-		tv[0].tv_sec = gfe->atim->tv_sec;
-		tv[0].tv_usec = gfe->atim->tv_usec;
-		tv[1].tv_sec = gfe->mtim->tv_sec;
-		tv[1].tv_usec = gfe->mtim->tv_usec;
-		if (lutimes(path, tv)) {
-			pr_perror("Can't set access and modufication times on ghost %s", path);
-			goto err;
-		}
-	}
 
 	ret = 0;
 err:
