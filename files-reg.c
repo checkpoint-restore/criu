@@ -95,11 +95,25 @@ err:
 	return -1;
 }
 
+static int mkreg_ghost(char *path, u32 mode, struct ghost_file *gf, struct cr_img *img)
+{
+	int gfd, ret;
+
+	gfd = open(path, O_WRONLY | O_CREAT | O_EXCL, mode);
+	if (gfd < 0)
+		return -1;
+
+	ret = copy_file(img_raw_fd(img), gfd, 0);
+	close(gfd);
+
+	return ret;
+}
+
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
-	int gfd, ghost_flags, ret;
 	char path[PATH_MAX];
 	struct timeval tv[2];
+	int ret;
 
 	ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
 	if (ret < 0) {
@@ -115,7 +129,6 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 			pr_perror("Can't create node for ghost file");
 			goto err;
 		}
-		ghost_flags = O_RDWR; /* To not block */
 	} else if (S_ISCHR(gfe->mode) || S_ISBLK(gfe->mode)) {
 		if (!gfe->has_rdev) {
 			pr_err("No rdev for ghost device\n");
@@ -126,35 +139,26 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 			pr_perror("Can't create node for ghost dev");
 			goto err;
 		}
-		ghost_flags = O_WRONLY;
 	} else if (S_ISDIR(gfe->mode)) {
 		if (mkdir(path, gfe->mode)) {
 			pr_perror("Can't make ghost dir");
 			goto err;
 		}
-		ghost_flags = O_DIRECTORY;
-	} else
-		ghost_flags = O_WRONLY | O_CREAT | O_EXCL;
+	} else {
+		if (mkreg_ghost(path, gfe->mode, gf, img)) {
+			pr_perror("Can't create ghost regfile\n");
+			goto err;
+               }
+	}
 
-	gfd = open(path, ghost_flags, gfe->mode);
-	if (gfd < 0) {
-		pr_perror("Can't open ghost file %s", path);
+	if (chown(path, gfe->uid, gfe->gid) < 0) {
+		pr_perror("Can't reset user/group on ghost %s", path);
 		goto err;
 	}
 
-	if (fchown(gfd, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %s", path);
-		goto err_c;
-	}
-
-	if (S_ISREG(gfe->mode)) {
-		if (copy_file(img_raw_fd(img), gfd, 0) < 0)
-			goto err_c;
-	}
-
-	if (fchmod(gfd, gfe->mode)) {
+	if (chmod(path, gfe->mode)) {
 		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
-		goto err_c;
+		goto err;
 	}
 
 	if (gfe->atim) {
@@ -162,15 +166,13 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 		tv[0].tv_usec = gfe->atim->tv_usec;
 		tv[1].tv_sec = gfe->mtim->tv_sec;
 		tv[1].tv_usec = gfe->mtim->tv_usec;
-		if (futimes(gfd, tv)) {
+		if (lutimes(path, tv)) {
 			pr_perror("Can't set access and modufication times on ghost %s", path);
-			goto err_c;
+			goto err;
 		}
 	}
 
 	ret = 0;
-err_c:
-	close(gfd);
 err:
 	return ret;
 }
