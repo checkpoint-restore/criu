@@ -689,7 +689,7 @@ int rst_tcp_socks_prep(void)
 		if (ii->sk_fd == -1)
 			continue;
 
-		rs = rst_mem_alloc(sizeof(*rs), RM_PRIVATE);
+		rs = rst_mem_alloc_cont(sizeof(*rs), RM_PRIVATE);
 		if (!rs)
 			return -1;
 

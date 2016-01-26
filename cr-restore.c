@@ -770,12 +770,12 @@ static int collect_child_pids(int state, int *n)
 
 	*n = 0;
 	list_for_each_entry(pi, &current->children, sibling) {
-		static pid_t *child;
+		pid_t *child;
 
 		if (pi->state != state)
 			continue;
 
-		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
+		child = rst_mem_alloc_cont(sizeof(*child), RM_PRIVATE);
 		if (!child)
 			return -1;
 
@@ -2432,7 +2432,7 @@ static int prepare_posix_timers_from_fd(int pid)
 		if (ret <= 0)
 			break;
 
-		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
+		t = rst_mem_alloc_cont(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			break;
 
@@ -2464,7 +2464,7 @@ static int prepare_posix_timers(int pid, CoreEntry *core)
 
 	posix_timers_nr = tte->n_posix;
 	for (i = 0; i < posix_timers_nr; i++) {
-		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
+		t = rst_mem_alloc_cont(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			goto out;
 
@@ -2623,7 +2623,7 @@ static int prepare_rlimits_from_fd(int pid)
 		if (ret <= 0)
 			break;
 
-		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
+		r = rst_mem_alloc_cont(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n",
 			       rlims_nr);
@@ -2660,7 +2660,7 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 		return prepare_rlimits_from_fd(pid);
 
 	for (i = 0; i < rls->n_rlimits; i++) {
-		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
+		r = rst_mem_alloc_cont(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n", i);
 			return -1;
@@ -2684,7 +2684,7 @@ static int signal_to_mem(SiginfoEntry *sie)
 	siginfo_t *info, *t;
 
 	info = (siginfo_t *) sie->siginfo.data;
-	t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
+	t = rst_mem_alloc_cont(sizeof(siginfo_t), RM_PRIVATE);
 	if (!t)
 		return -1;
 
@@ -2813,7 +2813,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	}
 
 
-	args = rst_mem_alloc(sizeof(*args), RM_PRIVATE);
+	args = rst_mem_alloc_cont(sizeof(*args), RM_PRIVATE);
 	if (!args)
 		return ERR_PTR(-ENOMEM);
 
@@ -3019,7 +3019,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	list_for_each_entry(vma, &vmas->h, list) {
 		VmaEntry *vme;
 
-		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
+		vme = rst_mem_alloc_cont(sizeof(*vme), RM_PRIVATE);
 		if (!vme)
 			goto err_nv;
 
@@ -3037,7 +3037,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	for (i = 0; i < mm->n_aios; i++) {
 		struct rst_aio_ring *raio;
 
-		raio = rst_mem_alloc(sizeof(*raio), RM_PRIVATE);
+		raio = rst_mem_alloc_cont(sizeof(*raio), RM_PRIVATE);
 		if (!raio)
 			goto err_nv;
 
