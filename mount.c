@@ -3373,6 +3373,7 @@ int mntns_get_root_by_mnt_id(int mnt_id)
 struct collect_mntns_arg {
 	bool need_to_validate;
 	bool for_dump;
+	int root_master_id;
 };
 
 static int collect_mntns(struct ns_id *ns, void *__arg)
@@ -3388,6 +3389,10 @@ static int collect_mntns(struct ns_id *ns, void *__arg)
 		arg->need_to_validate = true;
 
 	mntinfo_add_list(pms);
+
+	if (arg->need_to_validate && ns->id == root_item->ids->mnt_ns_id)
+		arg->root_master_id = ns->mnt.mntinfo_tree->master_id;
+
 	return 0;
 }
 
@@ -3410,7 +3415,7 @@ int collect_mnt_namespaces(bool for_dump)
 	if (arg.need_to_validate) {
 		ret = -1;
 
-		if (resolve_shared_mounts(mntinfo, 0))
+		if (resolve_shared_mounts(mntinfo, arg.root_master_id))
 			goto err;
 		if (validate_mounts(mntinfo, true))
 			goto err;
