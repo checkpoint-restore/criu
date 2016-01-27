@@ -866,6 +866,9 @@ static int dump_sets(CgroupEntry *cg)
 		if (!cg_set_compare(set, &root_cgset->ctls, CGCMP_ISSUB)) {
 			pr_err("Set %d is not subset of %d\n",
 					set->id, root_cgset->id);
+
+			list_for_each_entry(ctl, &set->ctls, l)
+			pr_info("   `- %s of %s\n", ctl->name, ctl->path);
 			return -1;
 		}
 
