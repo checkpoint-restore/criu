@@ -1482,7 +1482,8 @@ static int create_children_and_session(void)
 			return ret;
 	}
 
-	restore_sid();
+	if (current->parent)
+		restore_sid();
 
 	pr_info("Restoring children in our session:\n");
 	list_for_each_entry(child, &current->children, sibling) {
@@ -1564,6 +1565,9 @@ static int restore_task_with_children(void *_arg)
 	if (current->parent == NULL) {
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
 			goto err;
+
+		pr_info("Calling restore_sid() for init\n");
+		restore_sid();
 
 		/*
 		 * We need non /proc proc mount for restoring pid and mount
