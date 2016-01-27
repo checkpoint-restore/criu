@@ -2,6 +2,7 @@
 #define __CR_PIPES_H__
 
 #include "protobuf/pipe-data.pb-c.h"
+#include "protobuf/pipe.pb-c.h"
 
 extern struct collect_image_info pipe_cinfo;
 extern int collect_pipes(void);
@@ -35,5 +36,22 @@ struct pipe_data_rst {
 
 extern int collect_pipe_data(int img_type, struct pipe_data_rst **hash);
 extern int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash);
+
+/*
+ * The sequence of objects which should be restored:
+ * pipe -> files struct-s -> fd-s.
+ * pipe_entry describes  pipe's file structs-s.
+ * A pipe doesn't have own properties, so it has no object.
+ */
+
+struct pipe_info {
+	PipeEntry		*pe;
+	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
+						 * This is pure circular list without head */
+	struct list_head	list;		/* list head for fdinfo_list_entry-s */
+	struct file_desc	d;
+	unsigned int		create : 1,
+				reopen : 1;
+};
 
 #endif /* __CR_PIPES_H__ */
