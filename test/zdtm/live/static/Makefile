@@ -225,6 +225,7 @@ TST_DIR		=				\
 		mnt_ext_master			\
 		mntns_deleted			\
 		binfmt_misc			\
+		unlink_regular00		\
 
 TST_DIR_FILE	=				\
 		chroot				\
