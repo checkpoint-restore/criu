@@ -1217,13 +1217,85 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 	return ret;
 }
 
+static void rm_parent_dirs(int mntns_root, char *path, int count)
+{
+	char *p, *prev = NULL;
+
+	if (!count++)
+		return;
+
+	while (count--) {
+		p = strrchr(path, '/');
+		if (p)
+			*p = '\0';
+		if (prev)
+			*prev = '/';
+
+		if (unlinkat(mntns_root, path, AT_REMOVEDIR))
+			pr_perror("Can't remove %s AT %d", path, mntns_root);
+		else
+			pr_debug("Unlinked parent dir: %s AT %d\n", path, mntns_root);
+		prev = p;
+	}
+
+	if (prev)
+		*prev = '/';
+}
+
+/* Construct parent dir name and mkdir parent/grandparents if they're not exist */
+static int make_parent_dirs_if_need(int mntns_root, char *path)
+{
+	char *p, *last_delim;
+	int err, count = 0;
+	struct stat st;
+
+	p = last_delim = strrchr(path, '/');
+	if (!p) {
+		pr_err("Path %s has no parent dir", path);
+		return -1;
+	}
+	*p = '\0';
+
+	if (fstatat(mntns_root, path, &st, AT_EMPTY_PATH) == 0)
+		goto out;
+	if (errno != ENOENT) {
+		pr_perror("Can't stat %s", path);
+		count = -1;
+		goto out;
+	}
+
+	p = path;
+	do {
+		p = strchr(p, '/');
+		if (p)
+			*p = '\0';
+
+		err = mkdirat(mntns_root, path, 0777);
+		if (err && errno != EEXIST) {
+			pr_perror("Can't create dir: %s AT %d", path, mntns_root);
+			rm_parent_dirs(mntns_root, path, count);
+			count = -1;
+			goto out;
+		} else if (!err) {
+			pr_debug("Created parent dir: %s AT %d\n", path, mntns_root);
+			count++;
+		}
+
+		if (p)
+			*p++ = '/';
+	} while (p);
+out:
+	*last_delim = '/';
+	return count;
+}
+
 /*
  * This routine properly resolves d's path handling ghost/link-remaps.
  * The open_cb is a routine that does actual open, it differs for
  * files, directories, fifos, etc.
  */
 
-static int rfi_remap(struct reg_file_info *rfi)
+static int rfi_remap(struct reg_file_info *rfi, int *level)
 {
 	struct mount_info *mi, *rmi, *tmi;
 	char _path[PATH_MAX], *path = _path;
@@ -1269,14 +1341,23 @@ out:
 	mntns_root = mntns_get_root_fd(tmi->nsid);
 
 out_root:
-	return linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->owner);
+	*level = make_parent_dirs_if_need(mntns_root, path);
+	if (*level < 0)
+		return -1;
+
+	if (linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->owner) < 0) {
+		rm_parent_dirs(mntns_root, path, *level);
+		return -1;
+	}
+
+	return 0;
 }
 
 int open_path(struct file_desc *d,
 		int(*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
+	int tmp, mntns_root, level;
 	struct reg_file_info *rfi;
-	int tmp, mntns_root;
 	char *orig_path = NULL;
 
 	if (inherited_fd(d, &tmp))
@@ -1292,7 +1373,7 @@ int open_path(struct file_desc *d,
 			 */
 			orig_path = rfi->path;
 			rfi->path = rfi->remap->rpath;
-		} else if (rfi_remap(rfi) < 0) {
+		} else if (rfi_remap(rfi, &level) < 0) {
 			static char tmp_path[PATH_MAX];
 
 			if (errno != EEXIST) {
@@ -1316,7 +1397,7 @@ int open_path(struct file_desc *d,
 			snprintf(tmp_path, sizeof(tmp_path), "%s.cr_link", orig_path);
 			pr_debug("Fake %s -> %s link\n", rfi->path, rfi->remap->rpath);
 
-			if (rfi_remap(rfi) < 0) {
+			if (rfi_remap(rfi, &level) < 0) {
 				pr_perror("Can't create even fake link!");
 				return -1;
 			}
@@ -1356,6 +1437,7 @@ int open_path(struct file_desc *d,
 	if (rfi->remap) {
 		if (!rfi->remap->is_dir) {
 			unlinkat(mntns_root, rfi->path, 0);
+			rm_parent_dirs(mntns_root, rfi->path, level);
 		}
 
 		BUG_ON(!rfi->remap->users);
