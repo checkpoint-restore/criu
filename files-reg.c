@@ -95,6 +95,33 @@ err:
 	return -1;
 }
 
+/* Trim "a/b/c/d" to "a/b/d" */
+static int trim_last_parent(char *path)
+{
+	char *fname, *p;
+
+	p = strrchr(path, '/');
+	fname = p + 1;
+	if (!p || *fname == '\0')
+		return -1;
+
+	while (p >= path && *p == '/')
+		p--;
+
+	if (p < path)
+		return -1;
+
+	while (p >= path && *p != '/')
+		p--;
+	p++;
+
+	while (*fname != '\0')
+		*p++ = *fname++;
+	*p = '\0';
+
+	return 0;
+}
+
 static int mkreg_ghost(char *path, u32 mode, struct ghost_file *gf, struct cr_img *img)
 {
 	int gfd, ret;
@@ -142,44 +169,66 @@ err:
 
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
+	int ret, len, root_len, try = 0;
 	char path[PATH_MAX];
-	int ret;
+	char *msg;
 
-	ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
+	root_len = ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
 	if (ret < 0) {
 		pr_err("The %d mount is not found for ghost\n", gf->remap.rmnt_id);
 		goto err;
 	}
 
-	snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath);
+	len = snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath) + ret;
 	ret = -1;
-
+again:
 	if (S_ISFIFO(gfe->mode)) {
-		if (mknod(path, gfe->mode, 0)) {
-			pr_perror("Can't create node for ghost file");
-			goto err;
-		}
+		if ((ret = mknod(path, gfe->mode, 0)) < 0)
+			msg = "Can't create node for ghost file";
 	} else if (S_ISCHR(gfe->mode) || S_ISBLK(gfe->mode)) {
 		if (!gfe->has_rdev) {
 			pr_err("No rdev for ghost device\n");
 			goto err;
 		}
-
-		if (mknod(path, gfe->mode, gfe->rdev)) {
-			pr_perror("Can't create node for ghost dev");
-			goto err;
-		}
+		if ((ret = mknod(path, gfe->mode, gfe->rdev)) < 0)
+			msg = "Can't create node for ghost dev";
 	} else if (S_ISDIR(gfe->mode)) {
-		if (mkdir(path, gfe->mode)) {
+		if ((ret = mkdir(path, gfe->mode)) < 0) {
 			pr_perror("Can't make ghost dir");
 			goto err;
 		}
 	} else {
-		if (mkreg_ghost(path, gfe->mode, gf, img)) {
-			pr_perror("Can't create ghost regfile\n");
-			goto err;
-               }
+		if ((ret = mkreg_ghost(path, gfe->mode, gf, img)) < 0)
+			msg = "Can't create ghost regfile\n";
 	}
+
+	if (ret < 0) {
+		/* Use grand parent, if parent directory does not exist */
+		if (errno == ENOENT) {
+			if (trim_last_parent(path) < 0) {
+				pr_err("trim failed: @%s@\n", path);
+				goto err;
+			}
+			len = strlen(path);
+			goto again;
+		}
+
+		/* Use numeric suffix, if a namesake already exists */
+		if (errno != EEXIST) {
+			pr_perror("%s", msg);
+			goto err;
+		}
+
+		if (++try == INT_MAX) {
+			pr_err("Can't find available file name\n");
+			goto err;
+		}
+		sprintf(path + len, ".%x", try);
+		goto again;
+	}
+
+	strcpy(gf->remap.rpath, path + root_len + 1);
+	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
 
 	ret = -1;
 	if (ghost_apply_metadata(path, gfe))
