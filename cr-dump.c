@@ -1466,6 +1466,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (init_stats(DUMP_STATS))
 		goto err;
 
+	if (cr_plugin_init(CR_PLUGIN_STAGE__PRE_DUMP))
+		goto err;
+
 	if (kerndat_init())
 		goto err;
 
