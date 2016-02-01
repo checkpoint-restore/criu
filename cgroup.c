@@ -83,7 +83,6 @@ static const char *freezer_props[] = {
 
 static const char *global_props[] = {
 	"cgroup.clone_children",
-	"cgroup.sane_behavior",
 	"notify_on_release",
 	"cgroup.procs",
 	"tasks",
