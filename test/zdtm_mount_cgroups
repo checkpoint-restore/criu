@@ -11,6 +11,6 @@ for i in "zdtmtst" "zdtmtst.defaultroot"; do
 	mount -t cgroup -o none,name=$i zdtm $tdir &&
 	# a fake group prevents destroying of a controller
 	mkdir -p $tdir/holder &&
-	umount $tdir || exit 1
+	umount -l $tdir || exit 1
 done
 rmdir $tdir
