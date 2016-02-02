@@ -8,7 +8,7 @@ ARCH ?= $(shell uname -m | sed		\
 		-e s/mips.*/mips/	\
 		-e s/sh[234].*/sh/)
 
-SRCARCH := $(ARCH)
+SRCARCH ?= $(ARCH)
 
 ifeq ($(ARCH),i386)
 	SRCARCH := x86
