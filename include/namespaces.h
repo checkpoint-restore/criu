@@ -4,6 +4,9 @@
 #include "compiler.h"
 #include "files.h"
 
+/* Nested namespaces are supported only for these types */
+#define CLONE_SUBNS	(CLONE_NEWNS)
+
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
