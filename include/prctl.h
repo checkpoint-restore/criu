@@ -51,7 +51,6 @@
 #ifndef PR_SET_MM_MAP
 # define PR_SET_MM_MAP			14
 # define PR_SET_MM_MAP_SIZE		15
-#endif
 
 struct prctl_mm_map {
 	u64	start_code;
@@ -69,6 +68,7 @@ struct prctl_mm_map {
 	u32	auxv_size;
 	u32	exe_fd;
 };
+#endif
 
 #ifndef PR_GET_TID_ADDRESS
 # define PR_GET_TID_ADDRESS	40
