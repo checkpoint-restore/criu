@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 		sprintf(paux, "%s/%s/%s.%d", dirname, subname, empty, i);
 		if (mkdir(paux, 0600)) {
 			pr_perror("mkdir %s", paux);
-			return 1;
+			goto out_rs;
 		}
 	}
 
