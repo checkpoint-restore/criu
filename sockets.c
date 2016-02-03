@@ -7,6 +7,7 @@
 #include <linux/if.h>
 #include <linux/filter.h>
 #include <string.h>
+#include <netinet/in.h>
 
 #include "libnetlink.h"
 #include "sockets.h"

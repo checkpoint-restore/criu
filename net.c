@@ -11,7 +11,6 @@
 #include <linux/sockios.h>
 
 #include "imgset.h"
-#include "syscall-types.h"
 #include "namespaces.h"
 #include "net.h"
 #include "libnetlink.h"

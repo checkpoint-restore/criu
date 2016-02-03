@@ -35,7 +35,6 @@
 #include "util.h"
 #include "util-pie.h"
 #include "log.h"
-#include "syscall.h"
 #include "restorer.h"
 #include "sockets.h"
 #include "sk-packet.h"
@@ -746,7 +745,7 @@ static int prepare_sigactions(void)
 		 * A pure syscall is used, because glibc
 		 * sigaction overwrites se_restorer.
 		 */
-		ret = sys_sigaction(sig, &act, NULL, sizeof(k_rtsigset_t));
+		ret = syscall(SYS_rt_sigaction, sig, &act, NULL, sizeof(k_rtsigset_t));
 		if (ret < 0) {
 			errno = -ret;
 			pr_perror("Can't restore sigaction");
@@ -982,7 +981,7 @@ static int restore_one_zombie(CoreEntry *core)
 	if (inherit_fd_fini() < 0)
 		return -1;
 
-	sys_prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
+	prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
 
 	if (task_entries != NULL) {
 		restore_finish_stage(CR_STATE_RESTORE);

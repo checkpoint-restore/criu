@@ -31,6 +31,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sched.h>
 
 #include "compiler.h"
 #include "asm/types.h"

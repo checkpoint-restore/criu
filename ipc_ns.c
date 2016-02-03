@@ -6,11 +6,11 @@
 #include <sys/msg.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#include <sched.h>
 
 #include "util.h"
 #include "cr_options.h"
 #include "imgset.h"
-#include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"
 #include "ipc_ns.h"

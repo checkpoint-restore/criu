@@ -52,11 +52,14 @@ struct inet_sk_info {
 extern int inet_bind(int sk, struct inet_sk_info *);
 extern int inet_connect(int sk, struct inet_sk_info *);
 
+#ifdef CR_NOGLIBC
+#define setsockopt	sys_setsockopt
+#endif
 static inline void tcp_repair_off(int fd)
 {
 	int aux = 0, ret;
 
-	ret = sys_setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
+	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
 		pr_err("Failed to turn off repair mode on socket (%d)\n", ret);
 }

@@ -2,9 +2,9 @@
 #include <fcntl.h>
 #include <sys/utsname.h>
 #include <string.h>
+#include <sched.h>
 
 #include "util.h"
-#include "syscall.h"
 #include "namespaces.h"
 #include "sysctl.h"
 #include "uts_ns.h"

@@ -14,7 +14,6 @@
 #include "ptrace.h"
 #include "parasite-syscall.h"
 #include "restorer.h"
-#include "syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"

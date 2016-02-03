@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <sys/syscall.h>
 
 #include "log.h"
 #include "bug.h"
@@ -14,7 +15,6 @@
 #include "mem.h"
 #include "compiler.h"
 #include "sysctl.h"
-#include "syscall.h"
 #include "asm/types.h"
 #include "cr_options.h"
 #include "util.h"
@@ -385,11 +385,11 @@ static bool kerndat_has_memfd_create(void)
 {
 	int ret;
 
-	ret = sys_memfd_create(NULL, 0);
+	ret = syscall(SYS_memfd_create, NULL, 0);
 
-	if (ret == -ENOSYS)
+	if (ret == -1 && errno == ENOSYS)
 		kdat.has_memfd = false;
-	else if (ret == -EFAULT)
+	else if (ret == -1 && errno == EFAULT)
 		kdat.has_memfd = true;
 	else {
 		pr_err("Unexpected error %d from memfd_create(NULL, 0)\n", ret);

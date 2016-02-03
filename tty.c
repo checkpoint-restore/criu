@@ -15,7 +15,6 @@
 #include "compiler.h"
 #include "asm/types.h"
 
-#include "syscall.h"
 #include "files.h"
 #include "cr_options.h"
 #include "imgset.h"

@@ -14,7 +14,6 @@
 #include "rbtree.h"
 #include "kcmp-ids.h"
 #include "compiler.h"
-#include "syscall.h"
 #include "image.h"
 #include "util.h"
 #include "irmap.h"

@@ -20,14 +20,13 @@
 #include <sys/mount.h>
 #include <aio.h>
 
-#include <linux/fanotify.h>
+#include <sys/fanotify.h>
 
 #include "compiler.h"
 #include "asm/types.h"
 #include "imgset.h"
 #include "fsnotify.h"
 #include "proc_parse.h"
-#include "syscall.h"
 #include "mount.h"
 #include "image.h"
 #include "util.h"
@@ -104,7 +103,7 @@ static void decode_handle(fh_t *handle, FhEntry *img)
 
 static int open_by_handle(void *arg, int fd, int pid)
 {
-	return sys_open_by_handle_at(fd, arg, O_PATH);
+	return open_by_handle_at(fd, arg, O_PATH);
 }
 
 static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
@@ -648,7 +647,7 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	flags |= fme->mflags;
 
 	if (mark->fme->mask) {
-		ret = sys_fanotify_mark(fd, flags, fme->mask, AT_FDCWD, path);
+		ret = fanotify_mark(fd, flags, fme->mask, AT_FDCWD, path);
 		if (ret) {
 			pr_err("Adding fanotify mask 0x%x on 0x%x/%s failed (%d)\n",
 			       fme->mask, fme->id, path, ret);
@@ -657,8 +656,8 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	}
 
 	if (fme->ignored_mask) {
-		ret = sys_fanotify_mark(fd, flags | FAN_MARK_IGNORED_MASK,
-					fme->ignored_mask, AT_FDCWD, path);
+		ret = fanotify_mark(fd, flags | FAN_MARK_IGNORED_MASK,
+				    fme->ignored_mask, AT_FDCWD, path);
 		if (ret) {
 			pr_err("Adding fanotify ignored-mask 0x%x on 0x%x/%s failed (%d)\n",
 			       fme->ignored_mask, fme->id, path, ret);
@@ -717,7 +716,7 @@ static int open_fanotify_fd(struct file_desc *d)
 	if (info->ffe->flags & O_NONBLOCK)
 		flags |= FAN_NONBLOCK;
 
-	ret = sys_fanotify_init(flags, info->ffe->evflags);
+	ret = fanotify_init(flags, info->ffe->evflags);
 	if (ret < 0) {
 		errno = -ret;
 		pr_perror("Can't init fanotify mark (%d)", ret);

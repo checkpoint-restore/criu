@@ -42,7 +42,6 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "string.h"
-#include "syscall.h"
 #include "ptrace.h"
 #include "util.h"
 #include "namespaces.h"
@@ -522,7 +521,7 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 	size_t len = 0;
 	int ret;
 
-	ret = sys_get_robust_list(pid, &head, &len);
+	ret = syscall(SYS_get_robust_list, pid, &head, &len);
 	if (ret == -ENOSYS) {
 		/*
 		 * If the kernel says get_robust_list is not implemented, then
@@ -535,7 +534,7 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 		 * implemented, in which case it will return -EINVAL because
 		 * len should be greater than zero.
 		 */
-		if (sys_set_robust_list(NULL, 0) != -ENOSYS)
+		if (syscall(SYS_set_robust_list, NULL, 0) != -ENOSYS)
 			goto err;
 
 		head = NULL;

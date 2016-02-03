@@ -12,6 +12,7 @@
 #include "sk-packet.h"
 #include "packet_diag.h"
 #include "vma.h"
+#include <arpa/inet.h>
 
 #include "protobuf.h"
 #include "protobuf/packet-sock.pb-c.h"

@@ -12,7 +12,6 @@
 #include "asm/string.h"
 #include "asm/types.h"
 
-#include "syscall.h"
 #include "image.h"
 #include "util-vdso.h"
 #include "vma.h"

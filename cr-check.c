@@ -17,13 +17,16 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <sys/mman.h>
+#include <netinet/in.h>
+#include <sys/prctl.h>
+#include <sched.h>
+#include <linux/aio_abi.h>
 
 #include "proc_parse.h"
 #include "sockets.h"
 #include "crtools.h"
 #include "log.h"
 #include "util-pie.h"
-#include "syscall.h"
 #include "prctl.h"
 #include "files.h"
 #include "sk-inet.h"
@@ -156,7 +159,7 @@ static int check_sock_peek_off(void)
 
 static int check_kcmp(void)
 {
-	int ret = sys_kcmp(getpid(), -1, -1, -1, -1);
+	int ret = syscall(SYS_kcmp, getpid(), -1, -1, -1, -1);
 
 	if (ret != -ENOSYS)
 		return 0;
@@ -173,7 +176,7 @@ static int check_prctl(void)
 	unsigned int size = 0;
 	int ret;
 
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
+	ret = prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
 	if (ret) {
 		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported");
 		return -1;
@@ -182,7 +185,7 @@ static int check_prctl(void)
 	/*
 	 * Either new or old interface must be supported in the kernel.
 	 */
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
+	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret) {
 		if (!opts.check_ms_kernel) {
 			pr_msg("prctl: PR_SET_MM_MAP is not supported, which "
@@ -191,7 +194,7 @@ static int check_prctl(void)
 		} else
 			pr_warn("Skipping unssuported PR_SET_MM_MAP\n");
 
-		ret = sys_prctl(PR_SET_MM, PR_SET_MM_BRK, sys_brk(0), 0, 0);
+		ret = prctl(PR_SET_MM, PR_SET_MM_BRK, brk(0), 0, 0);
 		if (ret) {
 			if (ret == -EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
@@ -200,13 +203,13 @@ static int check_prctl(void)
 			return -1;
 		}
 
-		ret = sys_prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
+		ret = prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
 		if (ret != -EBADF) {
 			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported (%d)\n", ret);
 			return -1;
 		}
 
-		ret = sys_prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
+		ret = prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
 		if (ret) {
 			pr_msg("prctl: PR_SET_MM_AUXV is not supported\n");
 			return -1;
@@ -516,14 +519,11 @@ static int check_ipc(void)
 
 static int check_sigqueuinfo()
 {
-	int ret;
 	siginfo_t info = { .si_code = 1 };
 
 	signal(SIGUSR1, SIG_IGN);
 
-	ret = sys_rt_sigqueueinfo(getpid(), SIGUSR1, &info);
-	if (ret < 0) {
-		errno = -ret;
+	if (syscall(SYS_rt_sigqueueinfo, getpid(), SIGUSR1, &info)) {
 		pr_perror("Unable to send siginfo with positive si_code to itself");
 		return -1;
 	}
@@ -657,7 +657,7 @@ static int setup_seccomp_filter(void)
 		.filter = filter,
 	};
 
-	if (sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long) &bpf_prog, 0, 0) < 0)
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long) &bpf_prog, 0, 0) < 0)
 		return -1;
 
 	return 0;
@@ -753,7 +753,7 @@ static int check_aio_remap(void)
 	void *naddr;
 	int r;
 
-	if (sys_io_setup(16, &ctx) < 0) {
+	if (syscall(SYS_io_setup, 16, &ctx) < 0) {
 		pr_err("No AIO syscall\n");
 		return -1;
 	}
@@ -774,7 +774,7 @@ static int check_aio_remap(void)
 	}
 
 	ctx = (aio_context_t)naddr;
-	r = sys_io_getevents(ctx, 0, 1, NULL, NULL);
+	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
 		if (!opts.check_ms_kernel) {
 			pr_err("AIO remap doesn't work properly\n");
@@ -916,7 +916,7 @@ static int check_userns(void)
 		return -1;
 	}
 
-	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
+	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret) {
 		errno = -ret;
 		pr_perror("No new prctl API");

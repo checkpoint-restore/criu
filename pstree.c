@@ -1,6 +1,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sched.h>
 
 #include "cr_options.h"
 #include "pstree.h"
@@ -16,6 +17,8 @@
 #include "protobuf/pstree.pb-c.h"
 
 struct pstree_item *root_item;
+
+#define CLONE_ALLNS     (CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
 
 void core_entry_free(CoreEntry *core)
 {

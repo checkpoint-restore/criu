@@ -11,6 +11,7 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sched.h>
 
 #include "cr_options.h"
 #include "asm/types.h"

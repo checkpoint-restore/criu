@@ -13,7 +13,6 @@
 #include "protobuf/pagemap.pb-c.h"
 
 #include "imgset.h"
-#include "syscall.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
 #include "parasite-syscall.h"

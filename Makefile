@@ -245,7 +245,7 @@ PROGRAM-BUILTINS	+= built-in.o
 
 $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS): config
 
-$(PROGRAM): $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS)
+$(PROGRAM): $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 

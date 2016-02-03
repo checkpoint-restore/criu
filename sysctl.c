@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sched.h>
 
 #include "asm/types.h"
 #include "namespaces.h"

@@ -8,11 +8,11 @@
 #include <sys/un.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <sched.h>
 
 #include "cr-show.h"
 #include "util.h"
 #include "imgset.h"
-#include "syscall.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
 #include "mount.h"

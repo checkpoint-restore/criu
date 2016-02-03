@@ -2,6 +2,7 @@
 #define __CR_SOCKETS_H__
 
 #include <stdbool.h>
+#include <sys/socket.h>
 
 #include "asm/types.h"
 

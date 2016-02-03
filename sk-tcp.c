@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <string.h>
+#include <sched.h>
+#include <netinet/in.h>
 
 #include "cr_options.h"
 #include "util.h"

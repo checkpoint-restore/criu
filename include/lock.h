@@ -8,8 +8,20 @@
 
 #include "asm/types.h"
 #include "asm/atomic.h"
-#include "syscall.h"
 #include "bug.h"
+
+#ifdef CR_NOGLIBC
+# include "syscall.h"
+#else
+# include <sys/syscall.h>
+static inline long sys_futex(void *addr1, int op, int val1,
+                            struct timespec *timeout, void *addr2, int val3)
+{
+       int rc = syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
+       if (rc == -1) rc = -errno;
+       return rc;
+}
+#endif
 
 typedef struct {
 	atomic_t raw;

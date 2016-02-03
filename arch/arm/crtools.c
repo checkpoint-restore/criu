@@ -10,7 +10,6 @@
 #include "protobuf/core.pb-c.h"
 #include "protobuf/creds.pb-c.h"
 #include "parasite-syscall.h"
-#include "syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"

@@ -1,9 +1,10 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
+
 #include "asm/types.h"
 #include "rbtree.h"
 #include "util.h"
-#include "syscall.h"
 #include "kcmp-ids.h"
 
 /*
@@ -92,7 +93,7 @@ static u32 kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 
 	while (node) {
 		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-		int ret = sys_kcmp(this->elem.pid, elem->pid, tree->kcmp_type,
+		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, tree->kcmp_type,
 				this->elem.idx, elem->idx);
 
 		parent = *new;
@@ -103,9 +104,9 @@ static u32 kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 		else if (ret == 0)
 			return this->subid;
 		else {
-			pr_err("kcmp failed: pid (%d %d) type %u idx (%u %u) ret %d\n",
-			       this->elem.pid, elem->pid, tree->kcmp_type,
-			       this->elem.idx, elem->idx, ret);
+			pr_perror("kcmp failed: pid (%d %d) type %u idx (%u %u)",
+				  this->elem.pid, elem->pid, tree->kcmp_type,
+				  this->elem.idx, elem->idx);
 			return 0;
 		}
 	}

@@ -7,7 +7,6 @@
 #include "asm/prlimit.h"
 
 #include "compiler.h"
-#include "syscall.h"
 #include "config.h"
 
 #ifndef CONFIG_HAS_PRLIMIT

@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
+#include <sched.h>
 
 #include <fcntl.h>
 
@@ -24,7 +25,6 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "sockets.h"
-#include "syscall.h"
 #include "files.h"
 #include "sk-inet.h"
 #include "net.h"

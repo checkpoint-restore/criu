@@ -9,6 +9,7 @@
 #include <sys/vfs.h>
 #include <sys/prctl.h>
 #include <ctype.h>
+#include <sched.h>
 
 /* Stolen from kernel/fs/nfs/unlink.c */
 #define SILLYNAME_PREF ".nfs"

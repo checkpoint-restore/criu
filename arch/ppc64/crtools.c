@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <elf.h>
 #include <sys/user.h>
+#include <asm/unistd.h>
 
 #include "asm/types.h"
 #include "asm/fpu.h"
@@ -11,7 +12,6 @@
 #include "compiler.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
-#include "syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"

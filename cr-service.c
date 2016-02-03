@@ -12,6 +12,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 #include "crtools.h"
 #include "cr_options.h"
