@@ -141,12 +141,12 @@ ifneq ($(PIEGEN),no)
 endif
 endif
 
-cflags-y		+= -iquote include -iquote pie -iquote .
+cflags-y		+= -iquote include -iquote pie -iquote . -I/usr/include/libnl3
 cflags-y		+= -iquote $(ARCH_DIR) -iquote $(ARCH_DIR)/include
 cflags-y		+= -fno-strict-aliasing
 export cflags-y
 
-LIBS		:= -lrt -lpthread -lprotobuf-c -ldl
+LIBS		:= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
 
 DEFINES		+= -D_FILE_OFFSET_BITS=64
 DEFINES		+= -D_GNU_SOURCE
@@ -161,7 +161,7 @@ ifeq ($(DEBUG),1)
 	DEFINES += -DCR_DEBUG
 	CFLAGS	+= -O0 -ggdb3
 else
-	CFLAGS	+= -O2
+	CFLAGS	+= -O2 -g
 endif
 
 ifeq ($(GMON),1)

@@ -12,6 +12,7 @@
 #include <sys/mount.h>
 #include <net/if.h>
 #include <linux/sockios.h>
+#include <libnl3/netlink/msg.h>
 
 #include "imgset.h"
 #include "namespaces.h"
@@ -359,6 +360,54 @@ static int dump_one_nf(struct nlmsghdr *hdr, void *arg)
 	return 0;
 }
 
+static int ct_restore_callback(struct nlmsghdr *nlh)
+{
+	struct nfgenmsg *msg;
+	struct nlattr *tb[CTA_MAX+1], *tbp[CTA_PROTOINFO_MAX + 1], *tb_tcp[CTA_PROTOINFO_TCP_MAX+1];
+	int err;
+
+	msg = NLMSG_DATA(nlh);
+
+	if (msg->nfgen_family != AF_INET && msg->nfgen_family != AF_INET6)
+		return 0;
+
+	err = nlmsg_parse(nlh, sizeof(struct nfgenmsg), tb, CTA_MAX, NULL);
+	if (err < 0)
+		return -1;
+
+	if (!tb[CTA_PROTOINFO])
+		return 0;
+
+	err = nla_parse_nested(tbp, CTA_PROTOINFO_MAX, tb[CTA_PROTOINFO], NULL);
+	if (err < 0)
+		return -1;
+
+	if (!tbp[CTA_PROTOINFO_TCP])
+		return 0;
+
+	err = nla_parse_nested(tb_tcp, CTA_PROTOINFO_TCP_MAX, tbp[CTA_PROTOINFO_TCP], NULL);
+	if (err < 0)
+		return -1;
+
+	if (tb_tcp[CTA_PROTOINFO_TCP_FLAGS_ORIGINAL]) {
+		struct nf_ct_tcp_flags *flags;
+
+		flags = nla_data(tb_tcp[CTA_PROTOINFO_TCP_FLAGS_ORIGINAL]);
+		flags->flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
+		flags->mask |= IP_CT_TCP_FLAG_BE_LIBERAL;
+	}
+
+	if (tb_tcp[CTA_PROTOINFO_TCP_FLAGS_REPLY]) {
+		struct nf_ct_tcp_flags *flags;
+
+		flags = nla_data(tb_tcp[CTA_PROTOINFO_TCP_FLAGS_REPLY]);
+		flags->flags |= IP_CT_TCP_FLAG_BE_LIBERAL;
+		flags->mask |= IP_CT_TCP_FLAG_BE_LIBERAL;
+	}
+
+	return 0;
+}
+
 static int restore_nf_ct(int pid, int type)
 {
 	struct nlmsghdr *nlh = NULL;
@@ -403,6 +452,10 @@ static int restore_nf_ct(int pid, int type)
 			pr_err("The image file was truncated\n");
 			goto out;
 		}
+
+		if (type == CR_FD_NETNF_CT)
+			if (ct_restore_callback(nlh))
+				goto out;
 
 		nlh->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
 		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL);
