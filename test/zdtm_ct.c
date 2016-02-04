@@ -20,11 +20,6 @@ int main(int argc, char **argv)
 		return 1;
 	pid = fork();
 	if (pid == 0) {
-		if (setsid() == -1) {
-			fprintf(stderr, "setsid: %m\n");
-			return 1;
-		}
-
 		if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
 			fprintf(stderr, "mount(/, S_REC | MS_PRIVATE)): %m");
 			return 1;
