@@ -64,6 +64,7 @@ TST_NOFILE	=				\
 		socket-tcp			\
 		socket-tcp6			\
 		socket-tcp-local		\
+		socket-tcp-nfconntrack		\
 		socket-tcp6-local		\
 		socket-tcpbuf			\
 		socket-tcpbuf-local		\
@@ -359,6 +360,7 @@ socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket-tcpbuf6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
+socket-tcp-nfconntrack: override CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
