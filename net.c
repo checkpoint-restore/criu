@@ -2,6 +2,9 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nfnetlink_conntrack.h>
+#include <linux/netfilter/nf_conntrack_tcp.h>
 #include <string.h>
 #include <net/if_arp.h>
 #include <sys/wait.h>
@@ -341,6 +344,121 @@ unk:
 	}
 
 	return ret;
+}
+
+static int dump_one_nf(struct nlmsghdr *hdr, void *arg)
+{
+	struct cr_img *img = arg;
+
+	if (lazy_image(img) && open_image_lazy(img))
+		return -1;
+
+	if (write_img_buf(img, hdr, hdr->nlmsg_len))
+		return -1;
+
+	return 0;
+}
+
+static int restore_nf_ct(int pid, int type)
+{
+	struct nlmsghdr *nlh = NULL;
+	int exit_code = -1, sk;
+	struct cr_img *img;
+
+	img = open_image(type, O_RSTR, pid);
+	if (empty_image(img)) {
+		close_image(img);
+		return 0;
+	}
+
+	sk = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
+	if (sk < 0) {
+		pr_perror("Can't open rtnl sock for net dump");
+		goto out_img;
+	}
+
+	nlh = xmalloc(sizeof(struct nlmsghdr));
+	if (nlh == NULL)
+		goto out;
+
+	while (1) {
+		struct nlmsghdr *p;
+		int ret;
+
+		ret = read_img_buf_eof(img, nlh, sizeof(struct nlmsghdr));
+		if (ret < 0)
+			goto out;
+		if (ret == 0)
+			break;
+
+		p = xrealloc(nlh, nlh->nlmsg_len);
+		if (p == NULL)
+			goto out;
+		nlh = p;
+
+		ret = read_img_buf_eof(img, nlh + 1, nlh->nlmsg_len - sizeof(struct nlmsghdr));
+		if (ret < 0)
+			goto out;
+		if (ret == 0) {
+			pr_err("The image file was truncated\n");
+			goto out;
+		}
+
+		nlh->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL);
+		if (ret)
+			goto out;
+	}
+
+	exit_code = 0;
+out:
+	xfree(nlh);
+	close(sk);
+out_img:
+	close_image(img);
+	return exit_code;
+}
+
+static int dump_nf_ct(struct cr_imgset *fds, int type)
+{
+	struct cr_img *img;
+	struct {
+		struct nlmsghdr nlh;
+		struct nfgenmsg g;
+	} req;
+	int sk, ret;
+
+	pr_info("Dumping netns links\n");
+
+	ret = sk = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
+	if (sk < 0) {
+		pr_perror("Can't open rtnl sock for net dump");
+		goto out;
+	}
+
+	memset(&req, 0, sizeof(req));
+	req.nlh.nlmsg_len = sizeof(req);
+	req.nlh.nlmsg_type = (NFNL_SUBSYS_CTNETLINK << 8);
+
+	if (type == CR_FD_NETNF_CT)
+		req.nlh.nlmsg_type |= IPCTNL_MSG_CT_GET;
+	else if (type == CR_FD_NETNF_EXP)
+		req.nlh.nlmsg_type |= IPCTNL_MSG_EXP_GET;
+	else
+		BUG();
+
+	req.nlh.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
+	req.nlh.nlmsg_pid = 0;
+	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
+	req.g.nfgen_family = AF_UNSPEC;
+
+	img = img_from_set(fds, type);
+
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_nf, NULL, img);
+	close(sk);
+out:
+	return ret;
+
 }
 
 static int dump_links(struct cr_imgset *fds)
@@ -903,6 +1021,10 @@ int dump_net_ns(int ns_id)
 		ret = dump_rule(fds);
 	if (!ret)
 		ret = dump_iptables(fds);
+	if (!ret)
+		ret = dump_nf_ct(fds, CR_FD_NETNF_CT);
+	if (!ret)
+		ret = dump_nf_ct(fds, CR_FD_NETNF_EXP);
 
 	close(ns_sysfs_fd);
 	ns_sysfs_fd = -1;
@@ -930,6 +1052,10 @@ int prepare_net_ns(int pid)
 		ret = restore_rule(pid);
 	if (!ret)
 		ret = restore_iptables(pid);
+	if (!ret)
+		ret = restore_nf_ct(pid, CR_FD_NETNF_CT);
+	if (!ret)
+		ret = restore_nf_ct(pid, CR_FD_NETNF_EXP);
 
 	close_service_fd(NS_FD_OFF);
 
