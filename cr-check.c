@@ -663,11 +663,6 @@ static int check_ptrace_dump_seccomp_filters(void)
 	pid_t pid;
 	int ret = 0, len;
 
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping PTRACE_SECCOMP_GET_FILTER check");
-		return 0;
-	}
-
 	pid = fork_and_ptrace_attach(setup_seccomp_filter);
 	if (pid < 0)
 		return -1;
