@@ -58,6 +58,7 @@ extern void *rst_mem_remap_ptr(unsigned long pos, int type);
  * last object can be freed (pop-ed from buffer).
  */
 extern void *rst_mem_alloc(unsigned long size, int type);
+extern void *rst_mem_alloc_cont(unsigned long size, int type);
 extern void rst_mem_free_last(int type);
 /*
  * Routines to remap SHREMAP and PRIVATE into restorer address space

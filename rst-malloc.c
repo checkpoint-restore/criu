@@ -138,7 +138,7 @@ void *rst_mem_remap_ptr(unsigned long pos, int type)
 	return t->buf + pos;
 }
 
-void *rst_mem_alloc(unsigned long size, int type)
+static void *__rst_mem_alloc(unsigned long size, int type)
 {
 	struct rst_mem_type_s *t = &rst_mems[type];
 	void *ret;
@@ -156,6 +156,24 @@ void *rst_mem_alloc(unsigned long size, int type)
 	t->last = size;
 
 	return ret;
+}
+
+void *rst_mem_alloc(unsigned long size, int type)
+{
+	struct rst_mem_type_s *t = &rst_mems[type];
+
+	t->free_mem = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
+
+	return __rst_mem_alloc(size, type);
+}
+
+/* Allocate memory without gaps with a previous slice */
+void *rst_mem_alloc_cont(unsigned long size, int type)
+{
+	struct rst_mem_type_s *t = &rst_mems[type];
+	BUG_ON(!t->remapable);
+
+	return __rst_mem_alloc(size, type);
 }
 
 void rst_mem_free_last(int type)
