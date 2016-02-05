@@ -620,11 +620,6 @@ static int check_ptrace_suspend_seccomp(void)
 	pid_t pid;
 	int ret = 0;
 
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping PTRACE_O_SUSPEND_SECCOMP check\n");
-		return 0;
-	}
-
 	pid = fork_and_ptrace_attach(NULL);
 	if (pid < 0)
 		return -1;
