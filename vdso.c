@@ -212,7 +212,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	}
 	exit_code = 0;
 err:
-	close(fd);
+	close_safe(&fd);
 	return exit_code;
 }
 
