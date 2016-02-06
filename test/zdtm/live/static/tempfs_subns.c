@@ -19,7 +19,7 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char **argv)
 {
-	int fds[2];
+	int fds[2], i;
 	pid_t pid;
 	int fd, status;
 
@@ -43,6 +43,10 @@ int main(int argc, char **argv)
 
 		pid = fork();
 		if (pid == 0) {
+			if (write(fds[1], &fd, sizeof(fd)) != sizeof(fd)) {
+				pr_perror("write");
+				return 1;
+			}
 			if (unshare(CLONE_NEWNS)) {
 				pr_perror("unshare");
 				return 1;
@@ -54,6 +58,10 @@ int main(int argc, char **argv)
 		}
 		pid = fork();
 		if (pid == 0) {
+			if (write(fds[1], &fd, sizeof(fd)) != sizeof(fd)) {
+				pr_perror("write");
+				return 1;
+			}
 			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
 			while (1)
 				sleep(1);
@@ -103,9 +111,11 @@ int main(int argc, char **argv)
 	}
 	close(fds[1]);
 
-	if (read(fds[0], &fd, sizeof(fd)) != sizeof(fd)) {
-		pr_perror("read");
-		return 1;
+	for (i = 0; i < 3; i++) {
+		if (read(fds[0], &fd, sizeof(fd)) != sizeof(fd)) {
+			pr_perror("read");
+			return 1;
+		}
 	}
 
 	test_daemon();
