@@ -1212,7 +1212,7 @@ static void rm_parent_dirs(int mntns_root, char *path, int count)
 {
 	char *p, *prev = NULL;
 
-	if (!count++)
+	if (!count)
 		return;
 
 	while (count--) {
