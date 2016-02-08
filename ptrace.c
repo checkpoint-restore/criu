@@ -50,9 +50,6 @@ int unseize_task(pid_t pid, int orig_st, int st)
 	} else
 		pr_err("Unknown final state %d\n", st);
 
-	if (opts.freeze_cgroup)
-		return 0;
-
 	if (ptrace(PTRACE_DETACH, pid, NULL, NULL)) {
 		pr_perror("Unable to detach from %d", pid);
 		return -1;
