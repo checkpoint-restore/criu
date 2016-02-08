@@ -1078,7 +1078,7 @@ def self_checkskip(tname):
 	chs = tname  + '.checkskip'
 	if os.access(chs, os.X_OK):
 		ch = subprocess.Popen([chs])
-		return ch.wait() == 0 and False or True
+		return not ch.wait() == 0
 
 	return False
 
@@ -1159,7 +1159,7 @@ def run_tests(opts):
 					continue
 
 			if self_checkskip(t):
-				l.skip(t, "self")
+				l.skip(t, "checkskip failed")
 				continue
 
 			if opts['user']:
