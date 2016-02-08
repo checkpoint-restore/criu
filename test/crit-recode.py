@@ -51,6 +51,10 @@ for imgf in find.stdout.readlines():
 		continue
 	if imgf_b.startswith('tmpfs-'):
 		continue
+	if imgf_b.startswith('netns-ct-'):
+		continue
+	if imgf_b.startswith('netns-exp-'):
+		continue
 
 	o_img = open(imgf).read()
 	if not recode_and_check(imgf, o_img, False):
