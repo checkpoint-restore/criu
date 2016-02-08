@@ -170,8 +170,8 @@ err:
 
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
-	int ret, len, root_len, try = 0;
 	char path[PATH_MAX];
+	int ret, root_len;
 	char *msg;
 
 	root_len = ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
@@ -180,7 +180,7 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 		goto err;
 	}
 
-	len = snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath) + ret;
+	snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath);
 	ret = -1;
 again:
 	if (S_ISFIFO(gfe->mode)) {
@@ -210,22 +210,11 @@ again:
 				pr_err("trim failed: @%s@\n", path);
 				goto err;
 			}
-			len = strlen(path);
 			goto again;
 		}
 
-		/* Use numeric suffix, if a namesake already exists */
-		if (errno != EEXIST) {
-			pr_perror("%s", msg);
-			goto err;
-		}
-
-		if (++try == INT_MAX) {
-			pr_err("Can't find available file name\n");
-			goto err;
-		}
-		sprintf(path + len, ".%x", try);
-		goto again;
+		pr_perror("%s", msg);
+		goto err;
 	}
 
 	strcpy(gf->remap.rpath, path + root_len + 1);
