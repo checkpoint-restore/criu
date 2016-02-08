@@ -281,4 +281,6 @@ char *xstrcat(char *str, const char *fmt, ...)
 char *xsprintf(const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 1, 2)));
 
+void print_data(unsigned long addr, unsigned char *data, size_t size);
+
 #endif /* __CR_UTIL_H__ */

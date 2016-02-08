@@ -75,7 +75,6 @@ extern int dump_mnt_namespaces(void);
 extern int dump_namespaces(struct pstree_item *item, unsigned int ns_flags);
 extern int prepare_namespace_before_tasks(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
-extern int try_show_namespaces(int pid);
 
 extern int switch_ns(int pid, struct ns_desc *nd, int *rst);
 extern int restore_ns(int rst, struct ns_desc *nd);

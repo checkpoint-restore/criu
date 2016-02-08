@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "image-desc.h"
-#include "cr-show.h"
 #include "magic.h"
 #include "image.h"
 

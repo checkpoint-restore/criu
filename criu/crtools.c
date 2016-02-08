@@ -661,8 +661,11 @@ int main(int argc, char *argv[], char *envp[])
 		return ret != 0;
 	}
 
-	if (!strcmp(argv[optind], "show"))
-		return cr_show(pid) != 0;
+	if (!strcmp(argv[optind], "show")) {
+		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
+		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
+		return -1;
+	}
 
 	if (!strcmp(argv[optind], "check"))
 		return cr_check() != 0;

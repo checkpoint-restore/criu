@@ -62,7 +62,6 @@ static void pr_ipc_sem_array(unsigned int loglevel, int nr, u16 *values)
 }
 
 #define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_INFO, nr, values)
-#define pr_msg_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_MSG, nr, values)
 
 static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 {
@@ -471,48 +470,6 @@ int dump_ipc_ns(int ns_id)
 err:
 	close_cr_imgset(&imgset);
 	return ret < 0 ? -1 : 0;
-}
-
-void ipc_sem_handler(struct cr_img *img, void *obj)
-{
-	IpcSemEntry *e = obj;
-	u16 *values;
-	int size;
-
-	pr_msg("\n");
-	size = round_up(sizeof(u16) * e->nsems, sizeof(u64));
-	values = xmalloc(size);
-	if (values == NULL)
-		return;
-	if (read_img_buf(img, values, size) <= 0) {
-		xfree(values);
-		return;
-	}
-	pr_msg_ipc_sem_array(e->nsems, values);
-	xfree(values);
-}
-
-static void ipc_msg_data_handler(struct cr_img *img, void *obj)
-{
-	IpcMsg *e = obj;
-	print_image_data(img, round_up(e->msize, sizeof(u64)), opts.show_pages_content);
-}
-
-void ipc_msg_handler(struct cr_img *img, void *obj)
-{
-	IpcMsgEntry *e = obj;
-	int msg_nr = 0;
-
-	pr_msg("\n");
-	while (msg_nr++ < e->qnum)
-		pb_show_plain_payload(img, PB_IPCNS_MSG, ipc_msg_data_handler);
-
-}
-
-void ipc_shm_handler(struct cr_img *img, void *obj)
-{
-	IpcShmEntry *e = obj;
-	print_image_data(img, round_up(e->size, sizeof(u32)), opts.show_pages_content);
 }
 
 static int prepare_ipc_sem_values(struct cr_img *img, const IpcSemEntry *sem)

@@ -11,7 +11,6 @@
 #include "cr_options.h"
 #include "imgset.h"
 #include "protobuf.h"
-#include "cr-show.h"
 #include "string.h"
 #include "files.h"
 #include "files-reg.h"

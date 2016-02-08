@@ -27,20 +27,6 @@ extern int pb_write_one(struct cr_img *, void *obj, int type);
 
 #include <google/protobuf-c/protobuf-c.h>
 
-extern void do_pb_show_plain(struct cr_img *, int type, int single_entry,
-		void (*payload_hadler)(struct cr_img *, void *obj),
-		const char *pretty_fmt);
-
-/* Don't have objects at hands to also do typechecking here */
-#define pb_show_plain_payload_pretty(__fd, __type, payload_hadler, pretty)	\
-	do_pb_show_plain(__fd, __type, 0, payload_hadler, pretty)
-
-#define pb_show_plain_payload(__fd, __proto_message_name, payload_hadler)	\
-	pb_show_plain_payload_pretty(__fd, __proto_message_name, payload_hadler, NULL)
-
-#define pb_show_plain_pretty(__fd, __proto_message_name, __pretty)		\
-	pb_show_plain_payload_pretty(__fd, __proto_message_name, NULL, __pretty)
-
 struct collect_image_info {
 	int fd_type;
 	int pb_type;

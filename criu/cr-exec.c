@@ -6,6 +6,7 @@
 #include "parasite-syscall.h"
 #include "vma.h"
 #include "log.h"
+#include "util.h"
 
 struct syscall_exec_desc {
 	char *name;

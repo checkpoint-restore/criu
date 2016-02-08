@@ -21,7 +21,6 @@
 #include "namespaces.h"
 #include "xmalloc.h"
 #include "config.h"
-#include "cr-show.h"
 #include "kerndat.h"
 #include "rst-malloc.h"
 
@@ -757,15 +756,4 @@ out:
 	close(sk);
 
 	return ret;
-}
-
-void show_tcp_stream(struct cr_img *img, void *obj)
-{
-	TcpStreamEntry *e = obj;
-	if (opts.show_pages_content) {
-		pr_msg("In-queue:");
-		print_image_data(img, e->inq_len, 1);
-		pr_msg("Out-queue:");
-		print_image_data(img, e->outq_len, 1);
-	}
 }

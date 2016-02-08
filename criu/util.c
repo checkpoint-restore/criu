@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sched.h>
+#include <ctype.h>
 
 #include "compiler.h"
 #include "asm/types.h"
@@ -42,6 +43,7 @@
 #include "vma.h"
 #include "mem.h"
 #include "namespaces.h"
+#include "log.h"
 
 #include "cr_options.h"
 #include "servicefd.h"
@@ -999,4 +1001,76 @@ void tcp_nodelay(int sk, bool on)
 {
 	int val = on ? 1 : 0;
 	setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val));
+}
+
+static inline void pr_xsym(unsigned char *data, size_t len, int pos)
+{
+	char sym;
+
+	if (pos < len)
+		sym = data[pos];
+	else
+		sym = ' ';
+
+	pr_msg("%c", isprint(sym) ? sym : '.');
+}
+
+static inline void pr_xdigi(unsigned char *data, size_t len, int pos)
+{
+	if (pos < len)
+		pr_msg("%02x ", data[pos]);
+	else
+		pr_msg("   ");
+}
+
+static int nice_width_for(unsigned long addr)
+{
+	int ret = 3;
+
+	while (addr) {
+		addr >>= 4;
+		ret++;
+	}
+
+	return ret;
+}
+
+void print_data(unsigned long addr, unsigned char *data, size_t size)
+{
+	int i, j, addr_len;
+	unsigned zero_line = 0;
+
+	addr_len = nice_width_for(addr + size);
+
+	for (i = 0; i < size; i += 16) {
+		if (*(u64 *)(data + i) == 0 && *(u64 *)(data + i + 8) == 0) {
+			if (zero_line == 0)
+				zero_line = 1;
+			else {
+				if (zero_line == 1) {
+					pr_msg("*\n");
+					zero_line = 2;
+				}
+
+				continue;
+			}
+		} else
+			zero_line = 0;
+
+		pr_msg("%#0*lx: ", addr_len, addr + i);
+		for (j = 0; j < 8; j++)
+			pr_xdigi(data, size, i + j);
+		pr_msg(" ");
+		for (j = 8; j < 16; j++)
+			pr_xdigi(data, size, i + j);
+
+		pr_msg(" |");
+		for (j = 0; j < 8; j++)
+			pr_xsym(data, size, i + j);
+		pr_msg(" ");
+		for (j = 8; j < 16; j++)
+			pr_xsym(data, size, i + j);
+
+		pr_msg("|\n");
+	}
 }

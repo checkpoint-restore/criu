@@ -12,7 +12,6 @@ obj-y			+= cr-errno.o
 obj-y			+= cr-exec.o
 obj-y			+= cr-restore.o
 obj-y			+= cr-service.o
-obj-y			+= cr-show.o
 obj-y			+= crtools.o
 obj-y			+= eventfd.o
 obj-y			+= eventpoll.o

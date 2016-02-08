@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <sched.h>
 
-#include "cr-show.h"
 #include "util.h"
 #include "imgset.h"
 #include "uts_ns.h"
@@ -1336,67 +1335,6 @@ err_netns:
 	stop_usernsd();
 err_unds:
 	return -1;
-}
-
-int try_show_namespaces(int ns_pid)
-{
-	struct cr_imgset *imgset;
-	int i, ret;
-	struct cr_img *img;
-	TaskKobjIdsEntry *ids;
-
-	pr_msg("Namespaces for %d:\n", ns_pid);
-
-	img = open_image(CR_FD_IDS, O_RSTR, ns_pid);
-	if (!img)
-		return -1;
-	ret = pb_read_one(img, &ids, PB_IDS);
-	close_image(img);
-	if (ret < 0)
-		return -1;
-
-	imgset = cr_imgset_open(ids->net_ns_id, NETNS, O_SHOW);
-	if (imgset) {
-		pr_msg("-------------------NETNS---------------------\n");
-		for (i = _CR_FD_NETNS_FROM + 1; i < _CR_FD_NETNS_TO; i++) {
-			img = img_from_set(imgset, i);
-			if (!img)
-				continue;
-
-			cr_parse_fd(img, imgset_template[i].magic);
-		}
-		close_cr_imgset(&imgset);
-	}
-
-	imgset = cr_imgset_open(ids->ipc_ns_id, IPCNS, O_SHOW);
-	if (imgset) {
-		pr_msg("-------------------IPCNS---------------------\n");
-		for (i = _CR_FD_IPCNS_FROM + 1; i < _CR_FD_IPCNS_TO; i++) {
-			img = img_from_set(imgset, i);
-			if (!img)
-				continue;
-
-			cr_parse_fd(img, imgset_template[i].magic);
-		}
-		close_cr_imgset(&imgset);
-	}
-
-	img = open_image(CR_FD_UTSNS, O_SHOW, ids->uts_ns_id);
-	if (img) {
-		pr_msg("-------------------UTSNS---------------------\n");
-		cr_parse_fd(img, imgset_template[CR_FD_UTSNS].magic);
-		close_image(img);
-	}
-
-	img = open_image(CR_FD_MNTS, O_SHOW, ids->mnt_ns_id);
-	if (img) {
-		pr_msg("-------------------MNTNS---------------------\n");
-		cr_parse_fd(img, imgset_template[CR_FD_MNTS].magic);
-		close_image(img);
-	}
-
-	pr_msg("---[ end of %d namespaces ]---\n", ns_pid);
-	return 0;
 }
 
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");

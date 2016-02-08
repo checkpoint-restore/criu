@@ -179,12 +179,6 @@ err_brk:
 	return ret;
 }
 
-void sk_queue_data_handler(struct cr_img *img, void *obj)
-{
-	SkPacketEntry *e = obj;
-	print_image_data(img, e->length, opts.show_pages_content);
-}
-
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
