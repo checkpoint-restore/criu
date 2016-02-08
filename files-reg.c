@@ -495,18 +495,17 @@ int prepare_remaps(void)
 	return ret;
 }
 
-static void try_clean_ghost(struct ghost_file *gf)
+static void try_clean_ghost(struct remap_info *ri)
 {
 	char path[PATH_MAX];
 	int mnt_id, ret;
 
-	mnt_id = gf->remap.rmnt_id;
+	mnt_id = ri->rfi->rfe->mnt_id; /* rirfirfe %) */
 	ret = rst_get_mnt_root(mnt_id, path, sizeof(path));
 	if (ret < 0)
 		return;
 
-	snprintf(path + ret, PATH_MAX - ret, "/%s", gf->remap.rpath);
-
+	ghost_path(path + ret, sizeof(path) - 1, ri->rfi, ri->rfe);
 	if (!unlink(path)) {
 		pr_info(" `- X [%s] ghost\n", path);
 		return;
@@ -519,6 +518,7 @@ static void try_clean_ghost(struct ghost_file *gf)
 	 */
 
 	if ((errno == EISDIR)) {
+		strncpy(path + ret, ri->rfi->path, sizeof(path) - 1);
 		if (!rmdir(path)) {
 			pr_info(" `- Xd [%s] ghost\n", path);
 			return;
@@ -530,7 +530,7 @@ static void try_clean_ghost(struct ghost_file *gf)
 
 void try_clean_remaps(int ns_fd)
 {
-	struct ghost_file *gf;
+	struct remap_info *ri;
 	int old_ns = -1;
 	int cwd_fd = -1;
 
@@ -560,8 +560,9 @@ void try_clean_remaps(int ns_fd)
 		}
 	}
 
-	list_for_each_entry(gf, &ghost_files, list)
-		try_clean_ghost(gf);
+	list_for_each_entry(ri, &remaps, list)
+		if (ri->rfe->remap_type == REMAP_TYPE__GHOST)
+			try_clean_ghost(ri);
 
 	if (old_ns >= 0) {
 		if (setns(old_ns, CLONE_NEWNS) < 0)
