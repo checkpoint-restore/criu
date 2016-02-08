@@ -404,6 +404,7 @@ static bool kerndat_has_memfd_create(void)
 static bool kerndat_has_memfd_create(void)
 {
 	kdat.has_memfd = false;
+	return 0;
 }
 #endif
 

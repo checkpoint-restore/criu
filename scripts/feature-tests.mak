@@ -102,6 +102,8 @@ int main(void)
 {
 #ifdef __NR_memfd_create
 	return 0;
+#else
+#error No memfd support
 #endif
 }
 
